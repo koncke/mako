@@ -27,7 +27,7 @@ test('la oferta se reclama UNA vez por negocio (compare-and-set de null) antes d
   const reclamo = r.indexOf('cambiarSettingSi(CLAVE_RETENCION, null,');
   assert.ok(reclamo > 0, 'el reclamo es un compare-and-set desde null');
   assert.ok(reclamo < r.indexOf('descuentoStripe(key'), 'y va ANTES de pedirle el descuento a Stripe');
-  assert.ok(reclamo < r.indexOf('montoSuscripcionMp(token, subMp, Math.round'), 'y ANTES de cambiar el monto en MP');
+  assert.ok(reclamo < r.indexOf('montoSuscripcionMp(token, subMp, marca.objetivo!'), 'y ANTES de cambiar el monto en MP');
   assert.ok(reclamo < r.indexOf('pausarStripe(key, sub,'), 'y ANTES de pausar');
   assert.ok(reclamo < r.indexOf('cambiarPrecioStripe(key, sub,'), 'y ANTES de bajar de plan');
 });
@@ -35,9 +35,21 @@ test('la oferta se reclama UNA vez por negocio (compare-and-set de null) antes d
 test('Stripe vuelve solo al precio de lista (cupón repeating); MP se restaura con las cuotas cobradas DESPUÉS', () => {
   assert.match(fuente('lib/pasarela-plan-api.ts'), /duration: 'repeating', duration_in_months: p\.meses/);
   const r = fuente('lib/retencion-plan.ts');
-  assert.match(r, /\.gt\('fecha_pago', g\.aplicadaAt\.slice\(0, 10\)\)/);
+  assert.match(r, /\.gte\('fecha_pago', desde\)/, 'R2: desde el próximo cobro de MP al aceptar');
   assert.match(r, /if \(\(count \?\? 0\) < \(g\.meses \?\? 1\)\) continue;/);
-  assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /await restaurarRetencionesMp\(\)/);
+  const cron = fuente('app/api/cron/cobros-reconciliar/route.ts');
+  assert.ok(cron.indexOf('await conciliarRetenciones()') > 0 && cron.indexOf('await conciliarRetenciones()') < cron.indexOf('for (const ws of orden)'), 'R9: al principio del cron');
+});
+
+test('segunda revisión del 23/10: sin oferta en mora ni sin retención en el plan; la pausa es un ciclo; la capa al fin del período; se concilia', () => {
+  const r = fuente('lib/retencion-plan.ts');
+  assert.match(r, /if \(!v \|\| v\.vigencia\.estado === 'mora' \|\| v\.vigencia\.estado === 'vencido'\) return null;/, 'R5');
+  assert.match(r, /if \(!plan\?\.retencion\) return null;/, 'R4: sin 50% por defecto');
+  assert.doesNotMatch(r, /30 \* DIA/, 'R3: la pausa no son 30 días fijos');
+  assert.match(r, /hasta: mesesDespuesDe\(proximo!, meses \?\? 1\)/, 'R3: un ciclo desde el próximo cobro');
+  assert.match(r, /capaPendiente: \{ capa: destino!\.capa, desde: proximo! \}/, 'R6: la capa al terminar el período pagado');
+  assert.doesNotMatch(r, /from\('workspaces'\)\.update\(\{ capa: destino/, 'R6: nunca en el acto');
+  assert.match(r, /if \(g\.estado === 'error' \|\| \(g\.estado === 'aplicando' && Date\.now\(\) - Date\.parse\(g\.aplicadaAt\) > 10 \* 60_000\)\)/, 'R1: concilia las trabadas');
 });
 
 test('«Darme de baja» muestra la oferta antes de la confirmación, y rechazarla sigue a la baja de siempre', () => {

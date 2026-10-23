@@ -26,7 +26,7 @@ import { mantenerAvisosStripe, reconciliarCobros, workspacesConPasarela } from '
 import { esLaVueltaDelDia } from '@/lib/cobros-reglas';
 import { renovacionesDeAgencia } from '@/lib/agencia-cobro';
 import { revisarAccesosPorPago } from '@/lib/plan-acceso';
-import { restaurarRetencionesMp } from '@/lib/retencion-plan';
+import { conciliarRetenciones } from '@/lib/retencion-plan';
 import { acreditarReferidos } from '@/lib/partners-programa';
 
 export const dynamic = 'force-dynamic';
@@ -60,6 +60,10 @@ export async function GET(req: NextRequest) {
   // Una vez por día, además, los avisos de Stripe se ponen al día con los eventos de HOY (los contracargos llegan sin
   // que MaKo haga nada; un aviso registrado antes de sumarlos no los escucharía). Best effort: nunca corta la corrida.
   const delDia = esLaVueltaDelDia(t0);
+  // LA RETENCIÓN (23/10/2026, lib/retencion-plan.ts): conciliar las marcas trabadas, la capa de «bajar» y lo que MP no
+  // restaura solo. AL PRINCIPIO (segunda revisión, R9): al final se la comía la vuelta de los workspaces. Nunca tira.
+  const retencion = await conciliarRetenciones();
+  if (retencion.conciliadas || retencion.liberadas || retencion.capas || retencion.restauradas) console.log(`[cron:cobros-reconciliar] retención: ${JSON.stringify(retencion)}`);
   const resultados: Resultado[] = [];
   const sinTurno: number[] = [];
   for (const ws of orden) {
@@ -99,10 +103,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // EL DESCUENTO DE RETENCIÓN EN MERCADO PAGO (23/10/2026, lib/retencion-plan.ts): MP no vuelve solo al precio de lista; cuando ya
-  // se cobraron las cuotas con descuento, se restaura. Nunca tira.
-  const retencion = Date.now() - t0 < maxDuration * 1000 - RESERVA_MS ? await restaurarRetencionesMp() : null;
-  if (retencion?.restauradas) console.log(`[cron:cobros-reconciliar] retenciones de MP restauradas: ${retencion.restauradas}`);
 
   // MAKO PARTNERS (23/10/2026, lib/partners-programa.ts): el referido queda en su negocio con sus dos bienvenidas, y con su
   // 2º mes pagado, el crédito al partner (una sola vez: el índice único de partner_creditos). Nunca tira.

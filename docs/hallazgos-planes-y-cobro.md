@@ -996,3 +996,15 @@ La oferta se reclama con compare-and-set desde null: una vez por negocio. **Vive
   admin; preguntarlo antes sería un oráculo de emails); el cupón de retención de Stripe reemplaza un descuento que ya tuviera;
   la deuda en MP con la retención a mitad de precio se calcula a precio de lista. El informe: la carpeta de notas del Cerebro,
   `revision-suscripcion-2310.md`.
+
+### La segunda revisión (la baja por plan, 23/10): 11 confirmados
+
+- **Una marca trabada es plata trabada:** si la pasarela aplicó la pausa o el descuento y la respuesta se perdió, la marca quedaba
+  en «error» y MP pausado o al 50% para siempre. **Regla:** el cron relee la pasarela y concilia (`conciliarRetenciones`):
+  «aplicada» con sus escrituras, o se libera. Y corre al PRINCIPIO del cron (al final se lo comía el tiempo).
+- **«Un mes» de pausa es UN CICLO de la pasarela, no 30 días** (hasta pasado el próximo cobro: Stripe el fin del período, MP
+  `next_payment_date`). Con 30 días fijos se salteaban cero o dos cobros.
+- **Sin oferta en mora** (la pausa borraba el mes adeudado) **ni en un plan sin `retencion`** (recibía el 50% igual).
+- **Bajar de plan cambia la capa al terminar el período pagado**, no en el acto.
+- **Sin hacer:** la baja durante una pausa deja ese mes sin pagar (R7); bajar de Pro a Esencial es un 51% de descuento hasta
+  que los topes de Esencial se cumplan (R8, el reparto de topes en curso). La tabla: C:/dev/cerebro-herramientas/revision-retencion-2310.md.

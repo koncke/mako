@@ -26,7 +26,7 @@ export type SuscripcionVisible = {
   baja: string | null;
 } | null;
 
-export function PlanPanel({ plan, suscripcion, emailMako, oferta }: { plan: string; suscripcion: SuscripcionVisible; emailMako: string; oferta?: OfertaRetencion }) {
+export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion }: { plan: string; suscripcion: SuscripcionVisible; emailMako: string; oferta?: OfertaRetencion; retencion?: string | null }) {
   const [corriendo, setCorriendo] = useState(false);
   const [preguntar, setPreguntar] = useState(false);
   // ANTES DE LA BAJA, LA OFERTA (23/10/2026, Martín: «debería habilitarte un descuento como lo tienen todas las
@@ -58,6 +58,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta }: { plan: stri
         <FilaAjustes icono="repetir" titulo={plan} detalle={suscripcion ? `${suscripcion.monto} por mes` : 'Acordado con MaKo'}
           tono={suscripcion ? (suscripcion.cancelada || suscripcion.baja ? 'warn' : 'good') : undefined} estado={estado} apilada />
         {suscripcion?.baja && <FilaAjustes icono="nota" titulo="Tu baja" detalle={suscripcion.baja} apilada />}
+        {retencion && <FilaAjustes icono="nota" titulo="Tu oferta" detalle={retencion} apilada />}
         {/* MaKo Partners (23/10/2026): cualquier negocio con plan recomienda MaKo y gana meses gratis. */}
         <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle="Tu link de MaKo Partners: cada referido te suma un mes." href="/partners/referidos" apilada />
         {puedeDarseDeBaja && (

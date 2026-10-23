@@ -133,3 +133,30 @@ export async function estadoSuscripcionMp(token: string, id: string, estado: 'pa
   if (!r.ok) return fallo(r);
   return { ok: true, estado: str(r.body.status) };
 }
+
+/** Lo que dice Stripe de la retención de una suscripción (para conciliar una marca trabada): pausa, descuento y precio. */
+export async function retencionEnStripe(key: string, subId: string): Promise<R<{ pausada: boolean; conDescuento: boolean; montoItem: number | null; moneda: string | null; periodoFin: string | null }>> {
+  if (!SUB_RE.test(subId)) return { ok: false, status: 400, error: 'id de suscripción inválido' };
+  const r = await llamarStripe(key, 'GET', `/v1/subscriptions/${encodeURIComponent(subId)}`);
+  if (!r.ok) return fallo(r);
+  const b = r.body;
+  const item = obj((Array.isArray(obj(b.items).data) ? (obj(b.items).data as unknown[]) : [])[0]);
+  const precio = obj(item.price);
+  const moneda = str(precio.currency)?.toUpperCase() ?? null;
+  const unidad = Number(precio.unit_amount);
+  const descuentos = Array.isArray(b.discounts) ? b.discounts.length : 0;
+  return {
+    ok: true, pausada: b.pause_collection != null && typeof b.pause_collection === 'object', conDescuento: descuentos > 0 || b.discount != null,
+    montoItem: moneda && Number.isFinite(unidad) ? deUnidadMinima(unidad, moneda) : null, moneda,
+    periodoFin: fecha(item.current_period_end ?? b.current_period_end),
+  };
+}
+
+/** GET /preapproval/{id}: estado, monto de las próximas cuotas y el próximo cobro (para conciliar y para la pausa). */
+export async function suscripcionMpDetalle(token: string, id: string): Promise<R<{ estado: string | null; monto: number | null; proximo: string | null }>> {
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, status: 400, error: 'id de suscripción inválido' };
+  const r = await llamarMp(token, 'GET', `/preapproval/${id}`);
+  if (!r.ok) return fallo(r);
+  const m = Number(obj(r.body.auto_recurring).transaction_amount);
+  return { ok: true, estado: str(r.body.status), monto: Number.isFinite(m) ? m : null, proximo: str(r.body.next_payment_date) };
+}

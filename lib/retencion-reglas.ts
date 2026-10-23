@@ -14,8 +14,16 @@ export type Guardada = {
   cobroId: number; pasarela: 'stripe' | 'mercadopago';
   aplicadaAt: string; montoOriginal: number; moneda: string;
   pct?: number; meses?: number;
-  /** La pausa: hasta cuándo (ISO). */
+  /** La pausa: hasta cuándo cubre (fecha). */
   hasta?: string;
+  /** El monto que tiene que quedar en la pasarela (descuento, bajar): con esto se concilia una marca trabada. */
+  objetivo?: number;
+  /** El plan al que se baja. */
+  planDestino?: string;
+  /** MP: el descuento se restaura al cobrarse `meses` cuotas desde este día (local, YYYY-MM-DD). */
+  restaurarDesde?: string;
+  /** Bajar: la capa nueva entra al terminar el período pagado (revisión del 23/10, R6). */
+  capaPendiente?: { capa: string; desde: string } | null;
   restaurada?: boolean; error?: string;
 };
 
