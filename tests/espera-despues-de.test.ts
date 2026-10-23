@@ -32,7 +32,7 @@ import {
 import { validarGrafo, normalizar, textoEspera, indicePorId, ANCLAS_DESPUES, type PasoGrafo, type Espera } from '../lib/flujo-grafo';
 import { problemasDeForma } from '../lib/flujo-forma';
 import { iniciar, siguiente } from '../lib/simulador-grafo';
-import { deIA, aIA, LISTA_BLANCA_IA, type CtxIA } from '../lib/flujo-ia';
+import { deIA, deIAEdicion, aIA, LISTA_BLANCA_IA, type CtxIA } from '../lib/flujo-ia';
 import { porId } from '../lib/api-mako/registro';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -196,23 +196,35 @@ test('5b. «Probar» lleva el reloj a la reunión MÁS N: lo de «3 h después»
   assert.deepEqual(salen, ['en una hora', 'después de la reunión']);
 });
 
-// ⚠️ CREAR CON IA (23/10/2026): lib/flujo-ia.ts lo tiene Automations en vuelo, así que su parte del port de 5129d8dde
-// (leer y escribir «despues_de» en deIA / aIA / parcheEspera) queda para su chat. Hasta entonces, editar con IA un flujo con
-// una espera «después de» la vuelve «por tiempo». Cuando entre, se le saca el `todo`.
-test('6. Crear con IA la lee y la escribe', { todo: 'Automations: el port de lib/flujo-ia.ts (5129d8dde)' }, () => {
-  // Crear con IA: entra con «despues_de», sale igual (lo que el modelo lee de un flujo es lo que escribió).
+// CREAR Y EDITAR CON IA (23/10/2026, el port de 5129d8dde en lib/flujo-ia.ts, chat de Automations). En la tarjeta va `desde`
+// (como la API): `despues_de` ya es, en un tramo de Editar, de qué tarjeta cuelga. Se lee también `despues_de` en la
+// tarjeta, el formato del 14/10.
+test('6. Crear y Editar con IA la leen, la escriben y no la pierden', () => {
+  // Crear con IA: entra con «desde» (o el «despues_de» del 14/10), sale igual (lo que el modelo lee es lo que escribió).
   const acciones = LISTA_BLANCA_IA.map((id) => { const d = porId(id)!; return { id: d.id, titulo: d.titulo, parametros: d.parametros }; });
   const ctx: CtxIA = { etiquetas: [], productos: [], disparadores: [], audios: [], archivos: [], acciones, links: {} };
   const r = deIA({ inicio: 't1', tarjetas: [
-    { id: 't1', tipo: 'esperar', horas: 3, despues_de: 'reunion_1', sigue: 't2' },
-    { id: 't2', tipo: 'esperar', horas: 2, despues_de: 'la boda', sigue: 't3' },
-    { id: 't3', tipo: 'mensaje', texto: 'Hola {{nombre}}' },
+    { id: 't1', tipo: 'esperar', horas: 3, desde: 'reunion_1', sigue: 't2' },
+    { id: 't2', tipo: 'esperar', horas: 2, desde: 'la boda', sigue: 't3' },
+    { id: 't3', tipo: 'esperar', dias: 1, despues_de: 'plazo_nutricion', sigue: 't4' },
+    { id: 't4', tipo: 'mensaje', texto: 'Hola {{nombre}}' },
   ] }, ctx, () => 0.5);
   const esperas = r.pasos.filter((p) => p.nodo === 'esperar').map((p) => p.espera);
-  assert.deepEqual(esperas, [{ modo: 'despues_de', minutos: 180, de: 'reunion_1' }, { modo: 'tiempo', minutos: 120 }]);
+  assert.deepEqual(esperas, [{ modo: 'despues_de', minutos: 180, de: 'reunion_1' }, { modo: 'tiempo', minutos: 120 }, { modo: 'despues_de', minutos: 1440, de: 'plazo_nutricion' }]);
   assert.ok(r.avisos.some((a) => a.includes('la boda')), `no avisó del «de» inventado: ${r.avisos.join(' | ')}`);
   const vuelta = aIA(r.pasos).tarjetas.find((t) => t.tipo === 'esperar' && t.horas === 3);
-  assert.equal(vuelta?.despues_de, 'reunion_1');
+  assert.equal(vuelta?.desde, 'reunion_1');
+  assert.equal(vuelta?.despues_de, undefined, 'la tarjeta no puede usar la palabra del ancla de un tramo');
+  // EDITAR: cambiarle sólo el número la deja contando desde la misma fecha; «desde: ahora» la vuelve por tiempo.
+  const base = r.pasos;
+  const idDe3h = base.find((p) => p.nodo === 'esperar' && p.espera?.minutos === 180)!.id!;
+  const ctxEd = { ...ctx, pedido: 'que sean 5 horas' } as CtxIA;
+  const cinco = deIAEdicion({ cambiar: [{ id: idDe3h, horas: 5 }] }, base, ctxEd, () => 0.5);
+  assert.deepEqual(cinco.pasos.find((p) => p.id === idDe3h)?.espera, { modo: 'despues_de', minutos: 300, de: 'reunion_1' }, 'cambiar el número le borró de qué fecha cuenta');
+  const ahora = deIAEdicion({ cambiar: [{ id: idDe3h, desde: 'ahora' }] }, base, { ...ctx, pedido: 'que cuente desde ahora' } as CtxIA, () => 0.5);
+  assert.deepEqual(ahora.pasos.find((p) => p.id === idDe3h)?.espera, { modo: 'tiempo', minutos: 180 });
+  const otra = deIAEdicion({ cambiar: [{ id: idDe3h, desde: 'reunion_2' }] }, base, { ...ctx, pedido: 'que cuente desde la segunda reunión' } as CtxIA, () => 0.5);
+  assert.deepEqual(otra.pasos.find((p) => p.id === idDe3h)?.espera, { modo: 'despues_de', minutos: 180, de: 'reunion_2' });
   // ⚠️ El system de Crear con IA NO la describe (14/10/2026): con las dos condiciones nuevas del catálogo el prompt quedó
   // en ~3.998 de 4.000 tokens (tests/crear-ia-tercera.test.ts, «techo de Groq»), y la línea de «despues_de» lo pasaba a
   // ~4.029. Se lee y se escribe igual (lo de arriba): el modelo la ve en lo que lee de un flujo que ya la tiene.

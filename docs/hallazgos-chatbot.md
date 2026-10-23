@@ -56,9 +56,17 @@ lado del CRM, en [hallazgos-crm.md](hallazgos-crm.md) → «El CRM automático p
   Perdido queda vacía (ver hallazgos-crm.md). Es la entrada `cohorte-etapa-abiertos-90d` del inventario de «nada por
   detrás».
 
-**Sin hacer:** Crear con IA no lee ni escribe `despues_de` (`lib/flujo-ia.ts`, el diff está en `5129d8dde`; test `todo`
-en tests/espera-despues-de.test.ts). Y tests/crear-ia-tercera.test.ts queda rojo: los dos ids nuevos pasan el prompt a
-~4.008 tokens (techo 4.000).
+**Hecho después (23/10/2026, chat Automations, rama `aut-b5-ia` encima de ésta):** Crear y Editar con IA leen y escriben la
+espera «después de», y editar el número ya no le borra de qué fecha cuenta (`nodoDe`, `parcheEspera`, `aIA`; el test 6 sin
+`todo`). **Trampa:** en la TARJETA el campo va como `desde` (la palabra de la API, `cambiar_desde_espera_paso`), no como
+`despues_de`: en un tramo de Editar `despues_de` ya dice de qué tarjeta cuelga, y la misma palabra con dos sentidos en lo que el
+modelo lee y escribe es cómo se cruzan (un tramo anclado a «reunion_1» se tira por no encontrar la tarjeta; razonado, no
+medido con un modelo). Se lee también `despues_de` en la tarjeta
+(el formato del 14/10). **Los dos topes:** los dos ids nuevos pasaban Crear a ~4.008 de 4.000 y Editar con el CRON a ~3.712
+de 3.700 (`entraEnGroq`; éste ya estaba rojo en la punta del CRM, y nadie lo había corrido). Se pagaron acortando sin sacar
+reglas: la glosa de «Etapa»/«Entrega», los textos del ejemplo de Crear (y con eso se fue «vi que dejaste tus datos», que no se
+le dice a un desconocido), el ejemplo de «a la vez» y la línea de "respuesta". **Editar quedó a ~2 tokens del techo**: lo
+próximo que se sume a esos prompts se paga sacando otra cosa.
 
 ## Lo que más muerde
 
