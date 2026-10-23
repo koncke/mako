@@ -39,25 +39,28 @@ export const revalidate = 0;
 
 export default async function SecondBrainPage({ searchParams }: { searchParams: Promise<QuerySecondBrain> }) {
   await requireRolWs(['closer', 'setter'], { nav: 'mako' });
-  const veMapa = await esAdminDeTab('second-brain');
-  const q = await searchParams;
+  // ⚠️ A LA VEZ LO QUE NO DEPENDE DE OTRA COSA (23/10/2026, «Rendimiento y loaders»; Martín: «cuando entro a Second Brain
+  // tarda muchísimo»). La guarda va primero y sola (redirige a quien no entra); el resto iba en serie: p50 2,1 s en producción.
+  const [veMapa, q, opera] = await Promise.all([esAdminDeTab('second-brain'), searchParams, quienOpera()]);
   // ⚠️ PARA EL SUPER ADMIN EL SECOND BRAIN VIVE DENTRO DEL OPS CENTER (17/10/2026; Martín: «el second brain vive dentro de ops
   // center y es el grafo, no otro chat»): su entrada salió de la barra y un /second-brain guardado lleva a su grafo. Los demás
   // (el cliente, su equipo, y el super admin MIRANDO a un cliente: `quienOpera` pide su propio workspace) siguen con su chat.
-  if (await quienOpera()) redirect(await rutaConWs(rutaDelSecondBrainEnOpsCenter(q)));
+  if (opera) redirect(await rutaConWs(rutaDelSecondBrainEnOpsCenter(q)));
   // El chat «Onboarding» de quien terminó antes de que existiera (20/10/2026, Florencia, ws21): en su primera visita se crea
   // y entra a él, con el tutorial. Una vez: después ya está anotado y esto no hace nada.
+  // El grafo (la lectura más pesada: construirCerebro) sale A LA VEZ que esto, que ESCRIBE (crea el hilo) y por eso va
+  // después de la redirección de arriba, como siempre. Si el hilo redirige, el grafo se descarta; si el grafo falla, falla
+  // donde fallaba (al esperarlo, más abajo), no antes de la redirección.
+  const pMapa: Promise<ReactNode> | null = veMapa && pideElMapa(q) ? mapaDelSecondBrain() : null;
+  pMapa?.catch(() => {});
   const hiloNuevo = await hiloParaQuienYaTermino().catch(() => null);
   if (hiloNuevo) redirect(await rutaConWs(rutaDelHilo(hiloNuevo)));
   // Los chats de Claude Code (el Cerebro y cada jefe), sólo para quien `puedeOperar`: la guarda va ADENTRO, antes de
   // leer la cola (app/admin/operaciones/datos.ts). Tanda 5: «quiero mandar prompts por MaKo en el Second Brain».
   // Mirando a un cliente, sin el Centro (`quienOpera`): nunca los chats del super admin en la cuenta de un cliente.
-  const centro = (await quienOpera()) ? await datosDelCentroSiOpera().catch(() => null) : null;
+  const centro = opera ? await datosDelCentroSiOpera().catch(() => null) : null;
 
-  let mapa: ReactNode = null;
-  if (veMapa && pideElMapa(q)) {
-    mapa = await mapaDelSecondBrain();
-  }
+  const mapa: ReactNode = pMapa ? await pMapa : null;
 
   return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="second-brain" />;
 }

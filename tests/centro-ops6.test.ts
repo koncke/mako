@@ -101,7 +101,9 @@ test('3: el super admin no ve «Second Brain» en la barra ni en More; el client
   const page = codigo('app/second-brain/page.tsx');
   const cuerpo = page.slice(page.indexOf('export default async function'));
   assert.ok(cuerpo.indexOf('requireRolWs(') < cuerpo.indexOf('quienOpera()'), 'primero la puerta del chat');
-  assert.match(cuerpo, /if \(await quienOpera\(\)\) redirect\(await rutaConWs\(rutaDelSecondBrainEnOpsCenter\(q\)\)\);/);
+  // Desde el 23/10/2026 `quienOpera()` sale en el Promise.all de la entrada (tests/rendimiento-pedido.test.ts) y la redirección usa su valor.
+  assert.match(cuerpo, /const \[veMapa, q, opera\] = await Promise\.all\(\[esAdminDeTab\('second-brain'\), searchParams, quienOpera\(\)\]\);/);
+  assert.match(cuerpo, /if \(opera\) redirect\(await rutaConWs\(rutaDelSecondBrainEnOpsCenter\(q\)\)\);/);
   assert.ok(cuerpo.indexOf('quienOpera()') < cuerpo.indexOf('datosDelCentroSiOpera()'), 'antes de leer la cola del Centro');
   // El teléfono (20/10/2026, el Ops Center es la tab principal): el grafo sólo si se pide; si no, quien opera va al Centro.
   assert.match(codigo('app/m/second-brain/page.tsx'), /if \(veMapa && \(uno\(sp\.panel\) === 'mapa' \|\| uno\(sp\.area\)\)\)/, 'el teléfono: al grafo si lo pide');
