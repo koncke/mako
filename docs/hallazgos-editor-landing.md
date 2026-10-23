@@ -2341,3 +2341,40 @@ Lo que quedó SIN hacer:
 - La miniatura de una sección de diseño es un iframe de 640 px de alto (no se sabe su alto antes de dibujarla).
 - «Replicar → Página web» sigue armando HTML personalizado (aislado, sin texto editable); podría usar este bloque.
 - El tsc acotado de esta tanda lo cortó el vigía de RAM: los tipos los vio Integración.
+
+## El Diagnóstico el 23/10/2026: el 403 ya no estaba; lo que quedaba era el MARCO
+
+Chat «Landings de MaKo en Web Generator», cuenta claude1. Dos mensajes de Cerebro y Estrategia llegaron el 23/10 con el
+estado del 15/10 («el panel de animaciones no está», «dos `normalizarUrl` y un 403»). **El diagnóstico obvio era creerles:
+medido en producción (deploy `mako-jnb7ohn00` = `594ecd41b`), las dos cosas estaban cerradas desde el 16/10** (tanda 8,
+arriba). Un mensaje entre chats con un estado tiene la fecha de quien lo escribió, no la de cuando llega: se mide antes
+de construir.
+
+**Vive en:** `lib/landing-marco.ts` (`dejaEmbeberse`) · `lib/landing-fetch.ts` (`paginaParaVer`) ·
+`app/api/landing-generator/diagnostico/pagina/route.ts` · `lib/editor-landing/diagnostico.ts` (`data-marco`, `marco` en
+«listo» y «pinto») · `app/web-generator/diagnostico/VistaAfuera.tsx` · `tests/landing-marco.test.ts`,
+`tests/editor-landing-diagnostico.test.ts`
+
+- **Lo medido, con la landing del caso (multiplicatusresultados.com, armada con JavaScript) en el Chrome de Martín:** un
+  solo pedido a la vista, con la barra final, 200; el recuadro cae a la página real con «Esta página se dibuja con
+  JavaScript: se muestra la página real». En local, el mismo documento aislado manda «listo» a los ~110 ms y 9 caracteres
+  de texto; una estática (gnu.org) manda 6.439 y se queda en la vista aislada.
+- **El agujero que quedaba:** la caída a la página real se hacía SIEMPRE, y una página que no se deja embeber
+  (`X-Frame-Options` o `frame-ancestors`) se ve en blanco, con el aviso afirmando «se muestra la página real». Es una
+  pantalla que le dice al cliente algo falso sobre su propia página. Medido sobre páginas reales con la misma bajada que
+  la ruta: GitHub (`frame-ancestors 'none'`), Webflow (`frame-ancestors 'self' …`), Framer (`DENY`) y las publicadas de
+  hola-mako.site (`DENY` + `frame-ancestors 'none'`) no se dejan; la del caso, sí.
+- **El navegador no lo puede contar** (un iframe bloqueado dispara `load` igual) **y el server sí**: baja la página, así
+  que tiene las cabeceras. `pedirPagina` las guarda (las del ÚLTIMO salto), `dejaEmbeberse` decide con las reglas del
+  navegador (frame-ancestors manda sobre X-Frame-Options; cada política cuenta; `'self'` es la landing, nunca MaKo;
+  `*.dominio` no incluye al pelado; ALLOW-FROM no bloquea), y el veredicto viaja en `data-marco` del script del
+  documento, que lo lee al arrancar y lo manda con el texto. Con `false`, la vista no intenta la real: dice «Esta página se
+  dibuja con JavaScript y no deja mostrarse aquí» con «Abrir la página». Lo que NO se afirma: que esté vacía.
+- **Trampa de los tests:** el atributo se busca como `<script data-marco=`, nunca como `data-marco` suelto: el script
+  mismo contiene `getAttribute('data-marco')`, y un `doesNotMatch(/data-marco/)` falla siempre.
+- **Probado rompiéndolo** (base 40/0 en los dos archivos; 18/0 en `tests/editor-landing-crear-panel.test.ts`): la vista
+  que cae a la real igual → 1 rojo; el «listo» sin el marco → 2; el script que lee mal el atributo → 1 (lo ve el test que
+  EJECUTA el script en un contexto de vm); el documento sin `data-marco="no"` → 2; frame-ancestors ignorado → 3;
+  SAMEORIGIN que deja pasar → 1; la ruta que no decide → 1; `paginaParaVer` sin bajar tal cual → 1.
+- **Sin verificar en un navegador real con una página JS que no se deja embeber**: el componente se probó por su fuente y
+  el script ejecutándolo. Cuando esté desplegado, se mira con una landing así en el Diagnóstico.

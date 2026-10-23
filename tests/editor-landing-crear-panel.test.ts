@@ -343,7 +343,14 @@ test('el Diagnóstico: el lector cuando el server contesta enNavegador, y la pá
   assert.match(dg, /const urlPegada = urlVista && url \? url\.trim\(\) : null;/);
   // La vista previa baja la pegada tal cual (con su www y su query).
   const ruta = fuente(PAGINA);
-  assert.equal((ruta.match(/htmlDePagina\(url, \{ talCual: true \}\)/g) ?? []).length, 2, 'la vista y la ventana del lector, las dos tal cual');
+  // Desde el 23/10/2026 la vista baja con `paginaParaVer` (trae también las cabeceras del marco), que baja TAL CUAL.
+  assert.equal((ruta.match(/htmlDePagina\(url, \{ talCual: true \}\)/g) ?? []).length, 1, 'la ventana del lector, tal cual');
+  assert.equal((ruta.match(/await paginaParaVer\(url\)/g) ?? []).length, 1, 'y la vista, con paginaParaVer');
+  const fetchSrc = fuente('lib/landing-fetch.ts');
+  const iPv = fetchSrc.indexOf('export async function paginaParaVer(');
+  const cuerpoPv = fetchSrc.slice(iPv, fetchSrc.indexOf('\n}', iPv));
+  assert.ok(iPv >= 0 && cuerpoPv.length < 400, 'paginaParaVer existe (y el recorte es su cuerpo)');
+  assert.match(cuerpoPv, /await bajarHtml\(urlTalCual\(urlInput\)\)/, 'paginaParaVer baja la URL tal cual, como la vista de antes');
 });
 
 // ── Los cabos sueltos de las piezas ──────────────────────────────────────────────────────────

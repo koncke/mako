@@ -1,5 +1,22 @@
 # Relevo · Web Generator, ex Landing Generator (el editor copiado de Gamma)
 
+## Estado al 23/10/2026 (chat «Landings de MaKo en Web Generator», cuenta claude1) — leer primero
+
+**Medido en producción** (deploy `mako-jnb7ohn00` = `594ecd41b`), porque llegaron mensajes con el estado del 15/10: el
+panel «Animar» está (tanda 8, abajo), el 403 del Diagnóstico ya no sale y la landing armada con JavaScript se ve con su
+página real. Lo que quedaba: una página JS que NO se deja embeber quedaba en blanco con un aviso que afirmaba «se muestra
+la página real». **Arreglado en la rama `web-diag-2310` (worktree `C:/dev/wt-web-diag`), lo sube Cerebro por el tren**:
+el server lee las cabeceras del marco al bajar la página (`dejaEmbeberse`, lib/landing-marco.ts) y la vista no intenta la
+real si no se deja. Detalle: docs/hallazgos-editor-landing.md → «El Diagnóstico el 23/10/2026».
+
+**Lo que sigue, en el orden que pidió Cerebro:**
+1. **El `window.opener` del Pixel**: medir qué se pierde con el cierre completo (la ventana sin opener y la lectura que
+   vuelve por el server) y pasárselo a Cerebro ANTES de tocarlo; decide Martín si se pierde algo.
+2. **Animaciones, etapa 4** (efectos de scroll y piezas con movimiento: cinta, pasos, carrusel, máquina de escribir,
+   contador) y **etapa 6** (plantillas con movimiento e «Ilustración animada» con un Lottie de contenido PROPIO: la
+   licencia de cada pieza que se ofrezca queda escrita acá antes de publicarla).
+3. El video de fondo sigue apagado hasta que el puente a Flow se mida en vivo (docs/relevo/video-generator.md).
+
 ## Estado al 17/10/2026 (rama pend-b3-1710, «Pendientes B3», cuenta claude4) — leer primero
 
 **Hecho, con su test probado rompiéndolo (lo sube el Cerebro):** #863 (el Diagnóstico ya no dice «nada que señalar»
