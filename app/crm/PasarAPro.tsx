@@ -11,8 +11,9 @@ import Link from '@/app/_ui/Link';
 import { SANS } from '@/app/_ui';
 import { textoTope } from '@/lib/topes-plan';
 
-/** Donde se cambia de plan (lib/topes-plan.ts: «el link a /planes»). Un solo lugar, por si cambia. */
-export const RUTA_PLANES = '/planes';
+/** Donde cambia de plan quien ya es cliente (el Cerebro, 23/10/2026): el panel del plan. `/planes` es la página pública
+ *  para quien todavía no compró. Un solo lugar, por si cambia. */
+export const RUTA_PLANES = '/configuraciones/plan';
 
 /** El link «Pasar a Pro», al lado de un error de tope. */
 export function PasarAPro() {

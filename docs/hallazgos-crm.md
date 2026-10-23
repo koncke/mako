@@ -10461,8 +10461,10 @@ MaKo Esencial tiene 1 CRM y 2.000 leads (lib/topes-plan.ts, del Cerebro). Lo que
   peor. Con 1.996 usados entran 4, no 5.
 - **Contar sin traer** (`count: 'exact', head: true`): con `.length`, PostgREST corta en 1.000 y el tope nunca llegaría.
 
-**Sin hacer:** no hay página `/planes` en esta base (`RUTA_PLANES` en app/crm/PasarAPro.tsx, un solo lugar). Cuando un
-webhook pasa el tope sólo avisa el tablero: no sale otra notificación.
+**«Pasar a Pro» va a `/configuraciones/plan`** (el panel del plan de quien ya es cliente, con la punta de Planes), no a
+`/planes`, que es la página pública para quien todavía no compró. Como el tope sólo aplica a quien MaKo cobra por la
+pasarela, el link no queda roto. **Sin hacer:** cuando un webhook pasa el tope sólo avisa el tablero; no sale otra
+notificación.
 
 **Vive en:** lib/topes-crm.ts · lib/topes-crm-reglas.ts (puro) · app/crm/PasarAPro.tsx · app/crm/actions.ts (`altaDeLead`,
 la de WhatsApp, `importarLeadsRevisadosAction`) · app/crm/nuevo-crm-actions.ts · tests/crm-topes-plan-23-10.test.ts
