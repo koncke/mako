@@ -101,11 +101,18 @@ test('3. las piezas del Ops Center, en la computadora y en el teléfono, y carga
   assert.match(panel, /return <ChatSoporte tickets=\{mis\.tickets\} onVolver=\{onVolver\} \/>;/);
   assert.doesNotMatch(panel, /from '@\/app\/tickets\/soporte\/(ChatSoporte|PiezasSoporte)'/, 'importado directo: el CSS de las piezas tira abajo los tests que leen el Ops Center');
   const chat = sinComentarios(leer('app/tickets/soporte/ChatSoporte.tsx'));
-  assert.match(chat, /<PanelDeChat\s+cabecera=\{\{ clave: 'soporte', titulo: 'Soporte',/, 'la cabecera de Soporte');
-  assert.match(chat, /arriba=\{<div className="sp-arriba"><TiraTickets s=\{s\} \/><EstadoDelTicket s=\{s\} \/><\/div>\}/, 'sus tickets arriba, con su estado');
+  assert.match(chat, /<PanelDeChat\s+cabecera=\{\{ clave: 'soporte', titulo: 'Soporte', criatura: QUIEN_SOPORTE\.nombre, aspecto: QUIEN_SOPORTE\.aspecto,/, 'la cabecera de Soporte, con la criatura de MaKo');
+  // 23/10/2026, Martín: sus tickets detrás del botón con el ícono de lista, al lado de «Soporte» (no en una tira de chips abajo).
+  assert.match(chat, /acciones: <ListaTickets s=\{s\} \/>/, 'sus tickets, en la cabecera');
+  assert.match(chat, /arriba=\{s\.ticket \? <div className="sp-arriba"><EstadoDelTicket s=\{s\} \/><\/div> : undefined\}/, 'arriba, sólo en qué anda el ticket abierto');
+  // La caja adentro de `.co-caja`, como la del Cerebro (sin ella salía sin marco y con el tirador del textarea).
+  assert.match(chat, /caja=\{<div className="co-caja"><CajaSoporte s=\{s\} campo=\{campo\} seguir=\{seguir\} \/><\/div>\}/);
   const piezas = sinComentarios(leer('app/tickets/soporte/PiezasSoporte.tsx'));
   assert.match(piezas, /import \{ CajaChat \} from '@\/app\/_chat\/CajaChat';/);
   assert.match(piezas, /<HiloMako items=\{s\.items\} quien=\{QUIEN_SOPORTE\}/);
+  assert.match(piezas, /export const QUIEN_SOPORTE = \{ nombre: 'MaKo', aspecto: ASPECTO_MAKO \};/, 'la criatura es la de MaKo (la estrella)');
+  assert.match(piezas, /<Dropdown\n\s*value=\{s\.abierto === NUEVO \? NUEVO : String\(s\.abierto\)\}/, 'la lista es el desplegable de la casa');
+  assert.match(piezas, /sub: t\.rotulo, color: TONO\[TONO_ESTADO\[t\.estado\]\]\.fill/, 'cada ticket con su estado');
   assert.match(piezas, /x\.id === s\.idTarjeta && !s\.ticket \? \{ abajo: <TarjetaTicket s=\{s\} \/> \}/, 'cada conversación termina en un ticket');
   assert.match(sinComentarios(leer('app/tickets/page.tsx')), /<SoporteDeLaPagina /, '/tickets es el mismo chat');
   // El teléfono: la lista con «Contarle a MaKo» (la hoja) y cada ticket como su conversación.

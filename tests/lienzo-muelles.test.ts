@@ -52,7 +52,9 @@ const ABAJO = PANEL_MARGEN + ZOOM_ALTO;
 test('⚠️ ventana grande: «Probar» de debajo del chrome hasta abajo a la derecha, el editor entre la lista y él, y no se pisan', () => {
   // Cuarta tanda, punto 3: «En "Probar", si tiene que ser más grande el desplegable, sino, no se lee
   // el mensaje». Apilado medía ~330 de alto; ahora va SIEMPRE lado a lado, debajo del chrome.
-  const w = 1850, h = 900;
+  // 1920 y no 1850 (23/10/2026): la lista pasó de 320 a 400 y a 1850 el editor ya no llega a sus 840 (802): «ventana
+  // grande» es la que le da a la lista, a «Probar» (592) y al editor (840) todo su ancho.
+  const w = 1920, h = 900;
   const m = muelles({ w, h }, { listaAbierta: true, probarAbierto: true, editorAbierto: true });
   assert.equal(m.disposicion, 'lado');
   assert.equal(m.editorForma, 'apaisado');
@@ -115,7 +117,7 @@ test('⚠️ ventana baja: si apilados no entran, van LADO A LADO y tampoco se p
 });
 
 test('⚠️ en una ventana angosta el editor cae a COLUMNA (con lo que no cambia al abrir el panel)', () => {
-  // 320 + 32 de lista + 24 de márgenes: con 840 de ancho quedan 464 < 560 (el piso del mediano).
+  // 400 + 32 de lista + 24 de márgenes (era 320 hasta el 23/10/2026): con 840 de ancho quedan 384 < 560 (el piso del mediano).
   const m = muelles({ w: 840, h: 800 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true });
   assert.equal(m.editorForma, 'columna');
   assert.equal(m.editor, null, 'columna: el panel de siempre, no la franja');

@@ -56,7 +56,14 @@ export type ReunionViva = {
   closer: string | null; score: number | null; outcome: string | null; resumen: string | null; duracionMin: number | null;
 };
 export type ChatOfferVivo = { id: number; titulo: string; estado: string; updatedAt: string };
-export type ChatMakoVivo = { id: number; titulo: string | null; updatedAt: string };
+export type ChatMakoVivo = {
+  id: number | string; titulo: string | null; updatedAt: string;
+  /** Sólo las charlas de una TAB (23/10/2026, lib/cerebro-chats-tabs.ts): de qué tab son, con el nombre que les da el Ops Center
+   *  («CRM», «Automations», «Web Generator»…), y la entidad de la que hablan si su clave la nombra. Sin `tab`, es un chat de la
+   *  estrella de la persona. */
+  tab?: string;
+  entidad?: { tipo: 'funnel' | 'lead'; id: number } | null;
+};
 /** `created_at` por tabla y por id (lib/cerebro-grafo.ts → fechasDeAlta). Lo que falta es `null`: nunca se inventa. */
 export type FechasDeAlta = Partial<Record<'ofertas' | 'productos' | 'lead_magnets' | 'funnels' | 'objectives' | 'kpis' | 'offer_sesiones', Record<string, string>>>;
 
@@ -85,7 +92,16 @@ export const LECTURAS_VACIAS: LecturasVivas = {
 };
 
 /** Los topes: cuántos de cada fuente entran, para que el mapa siga siendo un mapa (y el paquete de un chat, chico). */
-export const TOPES_VIVOS = { chatsOffer: 6, chatsMako: 8, origenes: 3, clientes: 8, reuniones: 6 } as const;
+export const TOPES_VIVOS = { chatsOffer: 6, chatsMako: 8, origenes: 3, clientes: 8, reuniones: 6, tabsConChat: 8, entidadesPorTab: 4 } as const;
+
+/** En qué área del mapa cae el chat jefe de cada tab: la de lo que esa tab trabaja. Lo que no está acá, en el Resumen. */
+export const AREA_DE_TAB: Readonly<Record<string, AreaId>> = {
+  CRM: 'funnel', Ficha: 'funnel', Automations: 'funnel',
+  'Web Generator': 'oferta',
+  Dashboard: 'norte',
+  Ads: 'razones',
+  'Image Editor': 'voz', 'Video Editor': 'voz',
+};
 
 // ── El armado ────────────────────────────────────────────────────────────────
 
@@ -289,7 +305,7 @@ export function agregarLoVivo(g: Armado, l: LecturasVivas, opciones: { raiz: str
 
   // ── Los CHATS CON MAKO de quien mira: cada uno se cuelga de lo que NOMBRA su título; los que no nombran nada van
   //    juntos en un nodo (la regla: sin arista que sume, agregado). ──
-  const chats = (l.chatsMako ?? []).slice(0, TOPES_VIVOS.chatsMako);
+  const chats = (l.chatsMako ?? []).filter((c) => !c.tab).slice(0, TOPES_VIVOS.chatsMako);
   if (chats.length) {
     const candidatos = g.nodos.filter((n) => esDatoNombrable(n));
     const sueltos: ChatMakoVivo[] = [];
@@ -313,6 +329,41 @@ export function agregarLoVivo(g: Armado, l: LecturasVivas, opciones: { raiz: str
       unir(id, opciones.raiz, 'Tus conversaciones con MaKo');
     }
   }
+
+  // ── Los CHATS DE LAS TABS de quien mira (23/10/2026; Martín, 17/10: «todo siempre guardarse en chats en el Ops Center e ir
+  //    guardándose en el grafo del Second Brain»). Un nodo por chat JEFE —la tab, como los agrupa el Ops Center—, nunca uno por
+  //    charla: Automations sola tiene cientos, y el volumen no es un nodo. Se cuelga de cada entidad de sus charlas que esté en el
+  //    mapa (el funnel de las del CRM, el cliente o los leads de una ficha); sin ninguna, de la raíz. ──
+  const porTab = new Map<string, ChatMakoVivo[]>();
+  for (const c of l.chatsMako ?? []) if (c.tab) porTab.set(c.tab, [...(porTab.get(c.tab) ?? []), c]);
+  const recientes = (cs: ChatMakoVivo[]) => [...cs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const tabs = [...porTab].map(([tab, cs]) => ({ tab, cs: recientes(cs) }))
+    .sort((a, b) => b.cs[0].updatedAt.localeCompare(a.cs[0].updatedAt))
+    .slice(0, TOPES_VIVOS.tabsConChat);
+  for (const { tab, cs } of tabs) {
+    const id = push({
+      id: `tabchat:${idDeTab(tab)}`, area: AREA_DE_TAB[tab] ?? 'panorama', tipo: 'Chats con MaKo', etiqueta: corto(`MaKo en ${tab}`, 30),
+      detalle: cs.slice(0, 6).map((c) => limpio(c.titulo) || 'Sin título').join(' · '),
+      datos: [{ k: 'Charlas', v: String(cs.length) }],
+      fuente: 'tus charlas con MaKo, en el Ops Center', autoria: 'usuario', nace: cs[0].updatedAt, href: '/second-brain', abrirEn: 'el Ops Center',
+    });
+    const colgadas = new Set<string>();
+    for (const c of cs) {
+      if (colgadas.size >= TOPES_VIVOS.entidadesPorTab) break;
+      const e = c.entidad;
+      const destino = e?.tipo === 'funnel' ? `funnel:${e.id}` : e?.tipo === 'lead' ? (hay(`cliente:${e.id}`) ? `cliente:${e.id}` : 'leads') : null;
+      if (!destino || colgadas.has(destino) || !hay(destino)) continue;
+      colgadas.add(destino);
+      unir(id, destino, e?.tipo === 'funnel' ? 'Le hablaste a MaKo de este CRM' : 'Le hablaste a MaKo de este lead');
+    }
+    if (!colgadas.size) unir(id, opciones.raiz, `Tus charlas con MaKo en ${tab}`);
+  }
+}
+
+/** El id de un chat jefe en el mapa: la tab sin tildes ni espacios («Web Generator» → `web-generator`). Estable: la huella del
+ *  layout depende de ids que no cambien. */
+function idDeTab(tab: string): string {
+  return tab.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'tab';
 }
 
 /** Un nodo que un título puede NOMBRAR: un dato con nombre propio (no la estructura, no lo que falta, no un nombre

@@ -44,7 +44,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Select, Input, Textarea, Checkbox, Field } from '@/app/_ui';
 import { Dropdown, type DropdownGroup, type DropdownOption } from '@/app/components/Dropdown';
 import type { AccionEditor, ParametroEditor } from '@/lib/api-mako/flujo';
-import { LEAD_DEL_EVENTO, LEAD_A_ELEGIR, LLENA_EL_FLUJO } from '@/lib/api-mako/flujo-params';
+import { LEAD_DEL_EVENTO, LEAD_A_ELEGIR, LLENA_EL_FLUJO, FUERA_DEL_FLUJO } from '@/lib/api-mako/flujo-params';
 import {
   rotuloDeParametro, resumenDeAccion, seccionesDeAcciones, repartoDelFormulario, naceSobreElLeadDelEvento,
   controlDe, monedaDe, rotuloDeOpcion, faltanDelFormulario, accionDelFlujo, SECCION_PUESTA, type OpcionesAccion,
@@ -87,8 +87,9 @@ export function useTitulosAcciones(activo: boolean): Map<string, string> | null 
   return titulos;
 }
 
-/** Los parámetros que pone el flujo para esta operación: no se dibujan. */
-const ocultosDe = (operacion: string): ReadonlySet<string> => new Set(Object.keys(LLENA_EL_FLUJO[operacion] ?? {}));
+/** Los parámetros que pone el flujo para esta operación, o que un flujo no lleva (`FUERA_DEL_FLUJO`): no se dibujan. */
+const ocultosDe = (operacion: string): ReadonlySet<string> =>
+  new Set([...Object.keys(LLENA_EL_FLUJO[operacion] ?? {}), ...(FUERA_DEL_FLUJO[operacion] ?? [])]);
 
 /**
  * LO QUE LE FALTA A CADA PASO «⚡ ACCIÓN», para frenar «Probar» y «Publicar» (`frenoDelFlujo`,

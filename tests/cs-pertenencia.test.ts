@@ -73,9 +73,12 @@ test('«Quitar de este producto»: sólo con DOS o más, y el server vuelve a co
   const FE = sinComentarios(leer('app/customer-success/FichaEntrega.tsx'));
   assert.match(FE, /const varios = suyos\.length > 1;/);
   assert.match(FE, /acciones: suyo && varios\s*\?/, 'quitar con un solo producto lo dejaría en ningún tablero');
+  // La regla vive en lib/cs-quitar-producto.ts desde el 23/10/2026 (la usa también la API de MaKo), y la action delega.
   const ACC = sinComentarios(leer('app/customer-success/actions.ts'));
   const ini = ACC.indexOf('export async function quitarDeProductoAction');
-  const fn = ACC.slice(ini, ACC.indexOf('export async function', ini + 10));
+  assert.match(ACC.slice(ini, ACC.indexOf('export async function', ini + 10)), /await quitarClienteDeProducto\(leadId, productoId, await autorActual\(\)\)/);
+  const LIB = sinComentarios(leer('lib/cs-quitar-producto.ts'));
+  const fn = LIB.slice(LIB.indexOf('export async function quitarClienteDeProducto'), LIB.indexOf('export async function volverClienteAProducto'));
   assert.match(fn, /if \(productos\.length < 2\) return \{ ok: false/);
   // Si era su CASA no hay fila que borrar: va la marca de «fuera».
   assert.match(fn, /if \(eraCasa\) \{\s*const \{ error \} = await db\.from\('cliente_entrega_fuera'\)/);

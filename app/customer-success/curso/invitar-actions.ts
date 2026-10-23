@@ -10,7 +10,7 @@
 //
 //   · `invitarClientesAction` — VARIOS clientes que ya existen, cada uno con su email.
 //   · `invitarNuevoAlumnoAction` — alguien de CERO: se crea como cliente GANADO (la misma
-//     `crearClienteAction` de la cartera: `createLead` + `updateLead`), entra al kanban del producto
+//     alta de la cartera, `crearClienteGanado`), entra al kanban del producto
 //     en su PRIMERA etapa y se lo invita. Si se parece a un lead que ya existe, NO falla: devuelve
 //     ese lead para que la pantalla ofrezca usarlo.
 //
@@ -46,12 +46,9 @@ import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
 import { invitarAlCurso, TEXTO_NO_INVITA, type IntentoInvitar } from '@/lib/curso-invitar';
-import { clasesDelProducto, accesoParaPantalla, productosDeAccesos, type AccesoParaPantalla } from '@/lib/curso-datos';
-import { moverClienteDeEtapa } from '@/lib/cs-mover-etapa';
-import { updateLead } from '@/lib/leads';
+import { accesoParaPantalla, productosDeAccesos, type AccesoParaPantalla } from '@/lib/curso-datos';
 import { puedeUsarCs } from '../puerta';
-import { crearClienteAction, quitarDeProductoAction } from '../actions';
-import { productosDelCliente } from '../entrega';
+import { darDeAltaAlumno } from '@/lib/curso-alta-alumno';
 import { avisoInvitacionCurso, type AvisoInvitacionCurso } from '../curso-ficha-lectura';
 import { canalesDeInvitacion, fraseWhatsapp, tieneTelefono } from '@/lib/curso-invitar-canales';
 import { correoQueFallo, type CorreoQueFallo } from '@/lib/curso-invitar-reglas';
@@ -153,7 +150,7 @@ export async function invitarClientesAction(items: Array<{ leadId: number; email
  *      por ahí no lo tengo»): sin él la invitación sale igual por mail; lo que se pierde es «También
  *      por WhatsApp» y todo lo que el negocio le mande por WhatsApp después (recordatorios, avisos);
  *   2. el cliente: `usarLeadId` = uno que ya existe (lo eligió la persona después del aviso de
- *      duplicado; si no era ganado, se lo marca — el botón lo dijo); si no, `crearClienteAction`,
+ *      duplicado; si no era ganado, se lo marca — el botón lo dijo); si no, `crearClienteGanado`,
  *      que es la MISMA alta de la cartera, con su chequeo de duplicados. Si choca, NO se crea nada
  *      y vuelve con quién choca;
  *   3. el kanban: si el producto no es su casa ni tiene fila ahí, se lo mete en la PRIMERA etapa
@@ -165,6 +162,9 @@ export async function invitarClientesAction(items: Array<{ leadId: number; email
  *   4. la invitación (`invitarAlCurso`), a ESTE producto: el mail nombra sólo este curso y su acceso
  *      abre sólo éste. Si el mail no sale, el cliente YA quedó creado y se dice: reintentar el alta
  *      chocaría con su propio duplicado.
+ *
+ * Desde el 23/10/2026 los cuatro pasos viven en lib/curso-alta-alumno.ts (`darDeAltaAlumno`), que usa
+ * también la API de MaKo; esta action pone la puerta, el texto de la pantalla y los `revalidatePath`.
  */
 export async function invitarNuevoAlumnoAction(datos: {
   productoId: number;
@@ -185,80 +185,29 @@ export async function invitarNuevoAlumnoAction(datos: {
 > {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
-    const productoId = Number(datos?.productoId);
-    if (!Number.isInteger(productoId) || productoId <= 0) return { ok: false, error: 'Falta el producto.' };
-    const nombre = (datos.nombre ?? '').trim();
-    const correo = emailNormalizado(typeof datos.email === 'string' ? datos.email : '');
-    if (!emailUtilizable(correo)) return { ok: false, error: 'Ese email no sirve.' };
     const ws = await getWorkspaceActual();
     if (!ws) return { ok: false, error: 'No sé en qué cuenta estás.' };
-    // `clasesDelProducto` lee con el inquilino puesto: un producto de otro workspace da cero clases.
-    if (!(await clasesDelProducto(productoId)).length) return { ok: false, error: 'Este producto todavía no tiene clases.' };
-    const autor = await autorActual();
-
-    let leadId: number;
-    /** ¿Esta action lo hizo cliente? (lo creó, o lo pasó a ganado). Ver «SÓLO DE ESTE PRODUCTO» abajo. */
-    let nuevoCliente = true;
-    const usar = Number(datos.usarLeadId);
-    if (Number.isInteger(usar) && usar > 0) {
-      const db = await getTenantDb();
-      const { data, error } = await db.from('leads').select('id, estado_lead').eq('id', usar).maybeSingle();
-      if (error) return { ok: false, error: `No pude verificar el cliente: ${error.message}` };
-      if (!data) return { ok: false, error: 'Ese cliente no es de este workspace.' };
-      // Si no era cliente, pasa a serlo: el botón que mandó esto decía «Marcar como cliente e invitar».
-      nuevoCliente = (data as { estado_lead: string | null }).estado_lead !== 'ganado';
-      if (nuevoCliente) await updateLead(usar, { estado_lead: 'ganado' });
-      leadId = usar;
-    } else {
-      if (nombre.length < 2) return { ok: false, error: 'Falta el nombre.' };
-      const r = await crearClienteAction({
-        nombre, email: correo, telefono: datos.telefono, empresa: datos.empresa,
-        sinCobro: datos.sinCobro === true, permitirDuplicado: datos.crearIgual === true,
-      });
-      if (!r.ok || !r.leadId) {
-        if (r.duplicados?.length) return { ok: false, error: 'Ya existe.', duplicados: await conEstado(r.duplicados) };
-        return { ok: false, error: r.error ?? 'No se pudo cargar.' };
-      }
-      leadId = r.leadId;
-    }
-
+    // El alta, el kanban, «sólo de este producto» y la invitación viven en lib/curso-alta-alumno.ts desde el
+    // 23/10/2026: los usa también la API de MaKo (crear_alumno_curso). Acá queda lo de la pantalla.
+    const a = await darDeAltaAlumno({
+      ws, productoId: Number(datos?.productoId), nombre: datos.nombre, email: datos.email,
+      telefono: datos.telefono, empresa: datos.empresa, sinCobro: datos.sinCobro === true,
+      usarLeadId: datos.usarLeadId, crearIgual: datos.crearIgual === true,
+      canales: canalesDeInvitacion(datos.canales), autor: await autorActual(),
+    });
+    if (!a.ok) return a.duplicados?.length ? { ok: false, error: a.error, duplicados: await conEstado(a.duplicados) } : { ok: false, error: a.error };
     // ⚠️ DESPUÉS DEL ALTA NADA TIRA HACIA AFUERA COMO «NO SE PUDO»: el cliente ya existe, y un error
     // genérico haría que alguien lo cargue de nuevo. Lo que falla se dice en el texto.
-    let enKanban = true;
-    let soloAca = true;
-    try {
-      if (!(await productosDelCliente(leadId)).productos.includes(productoId)) {
-        const m = await moverClienteDeEtapa({ leadId, productoId, etapa: null, por: autor });
-        enKanban = m.ok;
-        if (!m.ok) console.error('[curso] el alumno nuevo no entró al kanban:', m.motivo);
-      }
-      // ⚠️ SÓLO DE ESTE PRODUCTO (revisión del 08/10/2026). Un cliente nuevo nace en el embudo
-      // PRINCIPAL del CRM, y su casa (./pertenencia.ts) es el producto de ese embudo: invitado desde
-      // el curso de OTRO producto quedaba en los DOS kanbans — un programa que no compró. Desde la mig
-      // 0232 su acceso abre sólo este curso igual, pero el kanban del otro lo seguiría mostrando como
-      // cliente. Se lo saca de los otros con la MISMA «Quitar de este producto» de la ficha (marca
-      // «fuera» sobre la casa, con su línea de historial). Sólo a quien ESTA action hizo cliente: uno
-      // que ya era cliente sigue en lo suyo. Si no se pudo, no se invita y se dice.
-      if (enKanban && nuevoCliente) {
-        for (const otro of (await productosDelCliente(leadId)).productos.filter((x) => x !== productoId)) {
-          const q = await quitarDeProductoAction(leadId, otro);
-          if (!q.ok) { soloAca = false; console.error('[curso] el alumno nuevo quedó también en otro producto:', q.error); }
-        }
-      }
-    } catch (e) {
-      if (enKanban) soloAca = false; else enKanban = false;
-      console.error('[curso] el alumno nuevo no quedó en el kanban de este producto:', e instanceof Error ? e.message : e);
-    }
-    const r = !enKanban
+    const r = !a.enKanban
       // Sin el producto, su portal no le abriría este curso: invitarlo sería mandarle un link a otra cosa.
       ? { enviado: false, texto: 'Se cargó, pero no entró al kanban. Muévelo ahí e invítalo desde su ficha.', correo: null }
-      : !soloAca
+      : !a.soloAca || !a.invitacion
         ? { enviado: false, texto: 'Se cargó, pero quedó en otro producto. Sácalo de ahí e invítalo desde su ficha.', correo: null }
-        : fraseDe(await invitarAlCurso({ ws, leadId, email: correo, autor, reenviar: false, canales: canalesDeInvitacion(datos.canales), productoId }));
+        : fraseDe(a.invitacion);
     revalidatePath('/clients');
     revalidatePath('/clients/classroom');
     revalidatePath('/crm');
-    return { ok: true, leadId, ...r };
+    return { ok: true, leadId: a.leadId, ...r };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo invitar.' };
   }

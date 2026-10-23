@@ -79,6 +79,26 @@ const LOADING_PERMITIDOS = [
   // El Centro de Operaciones (16/10/2026): /admin es privado entero, y Martín se quejó de que «tarda mucho en
   // aparecer». El esqueleto es la forma de la pantalla (la barra y la caja), para que nada salte al llegar.
   'app/admin/operaciones/loading.tsx',
+  // EL loader de las tabs grandes (23/10/2026, app/_ui/CargandoMako.tsx). Martín: «cuando entro a Second Brain tarda
+  // muchísimo, y lo peor es que ni siquiera hay un loader aunque sea, como para indicarme que le di click». Medido en
+  // producción: sin loading.tsx el clic dejaba la pantalla anterior quieta 2,2 s (Second Brain), 3,7 s (Dashboard) y
+  // hasta 5,6 s (Plan). Todas privadas (lib/rutas-publicas.ts). /second-brain carga como el Ops Center (es el del cliente).
+  'app/automations/loading.tsx',
+  'app/second-brain/loading.tsx',
+  'app/plan/loading.tsx',
+  'app/dashboard/loading.tsx',
+  // ⛔ /general NO (ticket #7, 23/10/2026): siempre redirige a /dashboard, y con un loading.tsx su redirect() pasa a ir
+  // ADENTRO del stream (200 + meta refresh, en vez del 307): la carrera con la hidratación tiró «React error #310» en el
+  // router de Next y la app entera cayó. Una página que redirige siempre no lleva loading.tsx (lo fija tests/cargando-mako.test.ts).
+  'app/chats/loading.tsx',
+  'app/calendario/loading.tsx',
+  'app/clients/loading.tsx',
+  'app/offer/loading.tsx',
+  'app/web-generator/loading.tsx',
+  'app/ads-manager/loading.tsx',
+  'app/video-editor/loading.tsx',
+  'app/image-editor/loading.tsx',
+  'app/ads-writer/loading.tsx',
   // MaKo Mobile (v2, 11/10/2026): /m es PRIVADO entero (cada page.tsx llama a requireMovil), así
   // que su esqueleto no esconde nada público. Es lo que hace sentir nativa la entrada a una
   // sección cuya lectura tarda (la pauta, el informe, el historial de videos, las landings).

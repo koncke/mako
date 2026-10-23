@@ -1,7 +1,9 @@
-// /m/mas — More mientras se arma: la forma de sus filas (v3, 14/10/2026).
+// /m/mas mientras carga: EL loader de las tabs grandes, el mismo de la computadora (app/_ui/CargandoMako.tsx, 23/10/2026).
+// Martín: «Los loader de las tabs o secciones grandes, quiero que sean todos como el de Ops Center. Con la criatura de
+// MaKo», y con una barra que diga que carga. Hasta acá era un esqueleto gris: no se leía como «tocaste y está cargando».
+// ⚠️ Un loading.tsx es un Suspense: va en la lista blanca de tests/layout-sin-suspense.test.ts (/m es privado entero).
+import { CargandoMako } from '@/app/_ui/CargandoMako';
 
-import { SkeletonFilas } from '@/app/m/_ui';
-
-export default function MasCargando() {
-  return <SkeletonFilas filas={6} />;
+export default function Cargando() {
+  return <CargandoMako que="Más" alto="calc(100dvh - var(--m-abajo, 72px) - 96px)" />;
 }

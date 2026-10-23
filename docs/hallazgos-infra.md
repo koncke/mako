@@ -37,6 +37,70 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO: el `cache()` de React no memoiza fuera de un render (23/10/2026)
+
+**Síntoma (Martín):** «Al abrir Automations tarda mucho… Debería ser más rápido todo». Medido en producción
+(request-logs de Vercel, 8 h): `/api/auth/me` p50 **4,8 s** —con la función CALIENTE, 4,4-4,9 s en cada pedido, y la
+pide el layout en cada carga— y `/api/chat-agent/secuencias` p50 3,0 s, p90 **15 s** (la pantalla de Automations no se
+dibuja hasta que contesta: usable a los 15 s).
+
+**El diagnóstico obvio era otro:** arranques en frío (`[credenciales] boot: listo en 1595ms` aparece en los logs) o
+consultas pesadas. No: `functionStartType: "hot"` en todas, y las consultas de a una son baratas.
+
+**La causa:** `getUsuarioActual` (lib/auth.ts) está envuelta en `cache()` de React, que SÓLO memoiza dentro de un render
+de React (páginas, layouts). En una ruta /api (y en una server action) no hay render y no memoiza nada. Y cada
+`getTenantDb()` → `getWorkspaceActual()` → `getUsuarioActual()` vuelve a leer `usuarios` y la fecha del 2FA. Medido con
+`scripts/consultas-por-pedido.mts` (imita la sesión con las mismas lecturas, sin fabricar un token):
+
+| pedido | antes | después |
+|---|---|---|
+| /api/auth/me | 41 idas a la base, sesión leída 19 veces, 9,5 s desde acá | 5 idas, 1 vez, 0,96 s |
+| /api/chat-agent/secuencias | 150 idas, 61 veces, 27,9 s desde acá | 30 idas, 1 vez, 2,1 s |
+
+(Desde la PC cada ida son ~230 ms; desde iad1, ~97 ms. La respuesta, comparada byte a byte, es la misma.)
+
+**El arreglo:** `enElPedido` (lib/sesion-por-pedido.ts) memoiza la sesión con un `WeakMap` cuya clave es el objeto de
+cookies del pedido. En Next 16.2.6 `cookies()` devuelve el MISMO objeto durante todo el pedido (en una ruta /api es
+`userspaceMutableCookies`; ver `node_modules/next/dist/server/request/cookies.js`, `makeUntrackedCookies`) y uno nuevo
+en el siguiente. La segunda clave es el valor del token: un pedido que cambia la cookie de sesión (un login) vuelve a
+leer. Lo fija `tests/rendimiento-pedido.test.ts`.
+
+**La regla que queda:** en una ruta /api o una server action, **`cache()` de React no deduplica nada**. Lo que se lee
+muchas veces por pedido (sesión, workspace, settings) se memoiza por el objeto de cookies, como `enElPedido`. Sigue
+abierto lo mismo para `app_settings` y las credenciales (~90 consultas por turno de Offer, entrada del 22/10).
+
+**Lo que quedó SIN hacer, con dónde vive:**
+- **La región de las funciones** (vercel.json no fija `regions`; corren en iad1 y la base está en us-west-2, ~97 ms por
+  ida). Con `"regions": ["pdx1"]` cada consulta en serie bajaría a ~5 ms en TODA la app. El Cerebro dio el OK el 23/10:
+  va en la rama `rendimiento-region` (a0737a635), en un tren APARTE, con tests/region-funciones.test.ts. El antes
+  (19:25 UTC, últimas 3 h): /api/auth/me p50 4,9 s · /secuencias p50 12,9 s · /crm p50 1,7 s · /second-brain p50 2,1 s.
+- `/api/auth/me` todavía son 5 idas y la pide el layout en cada carga: podría viajar con el primer cuadro.
+- Las pantallas que esperan en serie en el SERVER (render de página): /plan (`app/plan/page.tsx`, ~10 esperas y el
+  autocompletado que ESCRIBE en el render), /dashboard (y la moneda de Meta en el render, `lib/moneda-meta.ts:81`),
+  /second-brain (`page.tsx:41-59`), /m/operaciones sin loading.tsx. Medido: /plan p50 1,6 s, /dashboard 1,7 s,
+  /second-brain 2,1 s, /crm 2,0 s (p90 5,2 s).
+- **Las server actions hacen COLA: Next corre UNA a la vez por cliente** (arreglado en el Ops Center el 23/10). En el
+  Centro, `pushesCentroAction` esperaba a la API de Vercel hasta 8 s y el refresco salía cada 2,5-8 s: la Ticketera y el
+  Uso de IA quedaban detrás, sin dibujar nada. Ahora esas LECTURAS van por GET (`app/api/operaciones/lectura`, con las
+  mismas acciones adentro, que chequean al super admin) y las escrituras siguen siendo acciones. **Regla:** una lectura
+  que se repite o que espera a un servicio externo no va por server action. `turnos` (el hilo del chat abierto, en cada
+  refresco) también pasó, con los chats repetidos en la URL (`l=…&l=…`).
+- **El peso del Ops Center no es la «ventana de 10 años»** (`DIAS_HISTORIAL`, que Martín pidió el 16/10): las conversaciones
+  armadas con las bitácoras pesan 48 KB con todas las fechas y 31 KB con 14 días. Lo que pesa son los pedidos: 453 son
+  719 KB en cada carga (medido el 23/10). Cortarlos cambiaría lo que se ve. La propuesta: traer lo terminado viejo
+  cuando se lo pide.
+
+**Medir antes de tocar:** `scripts/medir-rendimiento.mts <ws> <pantalla>` cronometra cada lectura de una pantalla en el
+server; `scripts/consultas-por-pedido.mts <email> <ruta>` cuenta idas a la base y lecturas de la sesión de UN pedido.
+En producción, la API de request-logs (`requestDurationMs` y `functionEvents[].functionStartType`) es la verdad.
+
+⚠️ **`/tmp` es COMPARTIDO entre las sesiones de la PC.** Un `mv archivo /tmp/pl.bak` que falló («Device or resource
+busy») y el `mv /tmp/pl.bak archivo` de vuelta trajeron el `pl.bak` de OTRA sesión (un archivo de AI Avatar) a mi
+worktree; se devolvió a su lugar. Las copias de una rotura van al scratchpad propio, nunca a `/tmp`.
+
+*23/10/2026, chat «Rendimiento y loaders» (claude2).*
+
+
 ## `/.well-known/` no se sirve: el proxy lo manda a /login (14/10/2026)
 
 **Síntoma (anticipado, sin pasar todavía):** para publicar MaKo en Play Store (TWA) y en el App Store, el dominio tiene
@@ -7727,3 +7791,182 @@ ejecución, no ruido: se devuelve a su chat o se arregla en el tren antes de sub
 
 **Además, en el mismo tren.** Las guardas cortan en la PRIMERA que frena: con «rutas de Windows» en rojo no se miraron las de
 después (los .ts sin módulo, la referencia de la API). Arreglada la primera, se corren TODAS de nuevo.
+
+## Tren del 23/10 (cuenta 2): una punta en rojo se saca RECONSTRUYENDO desde origin/main, y la RAM en 0 pone rojos que no son (23/10/2026, Cerebro › Integración)
+
+**Qué pasó.** Seis puntas al tren; dos no entraron. (1) Planes chocó con Cobros en código ajeno (`lib/compra-plan.ts`: cada
+una agrega una función en el MISMO lugar; `app/planes/[plan]/page.tsx`: los imports de `compra-plan-reglas`): se hizo `merge --abort`
+y salió del tren, sin resolver. (2) Ventas (@ de Instagram) dejó rojo `tests/crm-tarjeta-personalizable.test.ts`: su cambio a
+`propsDeTarjeta` (el chip `soloInstagram`) no actualizó la regex que ese test usa para leer `chips:` de `CrmBoard.tsx`. Sólo lo vio el
+chequeo del TREN: el test no es de su área y la punta ya había pasado sus propios tests.
+
+**El diagnóstico obvio era el equivocado, dos veces.** Con RAM libre mínima de **0,0 GB** (11 chats), el chequeo dio tres rojos; DOS eran
+falsos (`chats-mako-envio`: «no trajo enviar_borrador_whatsapp», y `doer-recetas-video-imagen`: «EL VIDEO EDITOR:» vacío): corridos
+solos y juntos pasan. Sólo el de Ventas era real. **Regla:** un rojo del tren con la RAM mínima por debajo de ~1 GB se repite
+SOLO antes de devolverlo al chat; lo que pasa solo y falla en la tanda es la máquina, no la punta. Y se mira el rojo que
+SÍ se repite contra el cambio de la punta (acá bastó `git grep soloInstagram`: en `origin/main` no existía).
+
+**Sacar una punta de un tren ya armado.** No se revierte el merge: `git checkout --detach origin/main` y se vuelven a mergear las
+que quedan (4 merges, 2 min); un revert deja el cambio rondando en el historial que sube. Los choques de `docs/hallazgos-*.md` donde
+los dos lados SOLO agregaron una entrada al final se resuelven borrando las tres marcas (`<<<<<<<`, `=======`, `>>>>>>>`) y dejando una
+línea en blanco entre las dos; `unir-filas.cjs` es para el ÍNDICE (`hallazgos.md`), y se verifica con `comm` que ningún título del
+índice se perdió. Con la segunda vuelta (sin Ventas): 6.409 tests de 621 archivos verdes en 13 min con 1,7 GB libres mínimos.
+
+**Segundo tren (mismo día).** (a) Una punta que RECHAZÓ el choque y la rehace su dueño llega como punta nueva que trae a la otra adentro (Planes 630c44b4e con Cobros): se mergea la nueva y no la vieja, y como ya contiene a ac21e6b4b no hay doble merge. (b) El tren se chequea por incrementos: la primera vuelta completa (6.409 tests) quedó verde, la segunda corre `tests-afectados --base <rama del tren anterior>` (936 tests de 77 archivos, 6 min), más guardas y batería; las guardas cortan en la primera que frena y SÓLO frenaron en la segunda vuelta (`tests/calendly-scripts.test.ts` fijaba `C:Program Files
+odejs
+ode.exe` como dato de un argv: PERMITIDOS en `scripts/rutas-windows-en-tests.mjs`, con su motivo). (c) `tsc-acotado` de seis archivos nuevos imprime 8 archivos con errores (opencut, crm.run.ts, mako-turno-app.ts…) y NINGUNO lo toca el tren: se cruza la lista de errores con `git diff --name-only origin/main HEAD` antes de devolver nada.
+
+**Puntas que se reemplazan en pleno tren (23/10, tardes de 8 puntas).** Cuando un chat avisa «reemplazo de punta», no se mergea encima: se rearma desde la última base verde con la punta nueva (acá, aut-tarjetas 108cd8068 → aut-tarjetas2 b26cd3ffd). Dos chats que escriben la MISMA regla en AGENTS.md chocan, y el que "la reduce a una referencia" a una sección del otro deja un enlace roto si el otro reemplazó su punta: antes de resolver, `grep` del título de la sección en el árbol mergeado; si no está, se queda el texto completo. Y un error de tipos que un tren "hereda" (FlujoLienzo.tsx:392, `mismaPersona` posiblemente null) puede ser un bug de ejecución en potencia (`undefined === undefined` daba true): se verifica con `git show origin/main:<archivo> | grep` que ya estaba en main antes de achacárselo al tren, y se manda a su dueño igual.
+
+**Sin hacer:** Planes (`cfcf01abd` + `75e10a6ee`) y Ventas (`0c28ccf39`) vuelven a sus chats; Planes tiene que mergear a Cobros (`ac21e6b4b`) y
+Ventas arreglar la regex de `tests/crm-tarjeta-personalizable.test.ts` ("los chips en el orden de la persona").
+**Vive en:** scripts/tests-afectados.mjs · scripts/guardas-push.sh · tests/crm-tarjeta-personalizable.test.ts · lib/compra-plan.ts
+
+## Correr una RUTA de la app sin Next: lo que hay que poner alrededor (22/10/2026, scripts/probar-chats/entorno.mts)
+
+Para probar un chat sin levantar la app (bootear local escribe en producción) se llama al `POST` de la ruta de verdad con
+`node --env-file=<.env.local> --conditions=react-server --import tsx`. Tres cosas que Next pone y un script no, y cómo
+se ven cuando faltan:
+
+- **La sesión.** `getUsuarioActual` (lib/auth.ts) usa `cookies()`, que fuera de un pedido TIRA («`cookies` was called
+  outside a request scope»). No se fabrica un token (sería saltear el segundo factor del super admin): `entorno.mts`
+  reemplaza el módulo lib/auth.ts en `require.cache` antes de importar nada de la app (las libs se cargan como CJS por
+  tsx, así que el reemplazo lo ven todas). Quien ya importó lib/auth.ts antes se queda con el real.
+- **El workspace.** `runWithWorkspace(ws)` es lo que lee `getWorkspaceActual` antes que las cookies. `enWs` tira con un
+  ws que no es de prueba (`esClienteDePrueba`): nunca el ws1.
+- **⚠️ La caché de Next, la trampa que no avisa.** `cachedRead` (lib/cache.ts) usa `unstable_cache`, que sin Next tira
+  «incrementalCache missing». Adentro de un `.catch(() => [])` (como `productosConEtapas` en `armarContexto`) NO se ve:
+  el contexto de MaKo sale sin CRMs ni etapas y MaKo «dice» que la etapa no existe. Se pone un
+  `globalThis.__incrementalCache` de paso (nunca guarda). Consecuencia: un arnés no reproduce una caché vieja de
+  producción (TTL 60-600 s).
+- **Una server action de app/ no siempre se puede importar:** app/crm/actions.ts arrastra `next/navigation` y con
+  `--conditions=react-server` tira «_react.default.createContext is not a function» al CARGAR. Para preparar datos se usa
+  la lib que la acción llama (`saveFunnelDe`, `crearCrm`). Y `revalidatePath` sin Next tira DESPUÉS de guardar.
+- **Una regex con `\b` no ve las tildes:** `/cambi[eé]\b/` no da con «Cambié» (para JS la «é» no es letra). Para
+  palabras en español: `(?<![a-záéíóúñ])…(?![a-záéíóúñ])`.
+- **La cuota es compartida:** cada turno de un arnés gasta la IA de verdad del ws3, que hoy es la RED DE PLATAFORMA (las
+  keys gratis de la agencia: la key propia del ws3 rebota con 429 diario). Los 36 casos del 22/10 quedaron anotados en
+  `anthropic_usage` del ws3.
+
+## Railway: qué corre, dónde viven las sesiones, y cómo se muda sin pedir QR (23/10/2026)
+
+Pedido de Martín (23/10, desde el Ops Center): «deprecar Railway, reemplazarlo dentro de
+MaKo». Relevamiento en **sólo lectura** (dos `GET` a Evolution y el código fuente de
+2.3.7); **no se migró nada** — la campaña de Mauricio por su WhatsApp arranca el 24/10 y el
+lanzamiento es el 25/10.
+
+**Qué corre, medido:**
+- **Evolution API 2.3.7** en `evolution-api-production-c651.up.railway.app`, con base
+  Postgres (`clientName: evolution_exchange`, y el `_count` de cada instancia poblado).
+- **16 instancias**: 10 abiertas (`mako_ws1`, `ws10`, `ws11`, `ws13`, `ws18`, `ws19`, `ws20`,
+  `ws21`, `ws22` y la voz de MaKo `mako_superadmin_muylqv8r`), 2 cerradas
+  (`mako_superadmin`, `mako_superadmin_mtxclf3x`) y **4 que nunca se vincularon**
+  (`ws3`, `ws9`, `ws13_7ny3qw`, `ws15`: `connecting`, sin dueño). ⚠️ **`mako_ws9`, la línea
+  de MaKo, NO está conectada.**
+- **973.493 mensajes** guardados en la base de Evolution, porque las 16 instancias tienen
+  `syncFullHistory: true`: cada línea que se vincula baja el historial ENTERO del teléfono
+  (`ws20`, conectada el 21/10, ya tenía 144.158). Eso define el tamaño de la base y de
+  cualquier mudanza.
+- **Ninguna** instancia tiene prendida la integración con Chatwoot, RabbitMQ, SQS,
+  websocket ni proxy.
+- **Chatwoot sigue prendido** en `mauricio.up.railway.app` (HTTP 200) aunque MaKo lo dio de
+  baja el 09/10: no lo llama el código ni Evolution le empuja nada. O está huérfano
+  gastando, o el equipo de Mauricio lo usa directo como bandeja — **es una pregunta, no un
+  «apagalo»**.
+- **n8n**: ningún uso en el código vivo.
+
+### Las sesiones están persistidas, en DOS lugares — leído del código fuente, no supuesto
+
+`docs/rotacion-credenciales.md` dejaba abierto «comprobar que Evolution guarda las sesiones
+en su base o en un volumen». Contestado en el fuente de 2.3.7
+(`whatsapp.baileys.service.ts` → `defineAuthState()` y `use-multi-file-auth-state-prisma.ts`):
+
+| Qué | Dónde |
+|---|---|
+| Orden en que elige | proveedor externo → Redis (`CACHE_REDIS_ENABLED` y `SAVE_INSTANCES`) → Postgres (`DATABASE_SAVE_DATA_INSTANCE`) |
+| Si no hay ninguno | devuelve `undefined` y la instancia **no arranca** (TypeError) |
+| Las credenciales (`creds`) | **siempre** en Postgres, tabla `Session` |
+| Las llaves de Signal | **Redis** si está prendido; si no, **archivos** en `INSTANCE_DIR/<sesión>/` |
+
+Como hay 10 líneas abiertas, **las sesiones no viven en memoria**: se pueden mudar. Mudar
+**sin QR** es copiar las dos piezas — la tabla `Session` y Redis (o el volumen de
+`INSTANCE_DIR`). Con las credenciales solas la línea reconecta sin QR, pero con errores de
+descifrado hasta que se rehagan las llaves.
+
+### ⛔ «Pasar el proyecto a otra cuenta obliga a re-escanear el QR» es FALSO
+
+Lo dice `app/vsl/costos/Costos.tsx` desde agosto («cada número conectado tiene que volver a
+escanear el QR una vez»). **Un traspaso de proyecto entre workspaces de Railway no
+redespliega nada**: según el staff de Railway es cambiar una fila en su base; servicios,
+volúmenes, variables y dominios `*.up.railway.app` quedan igual (las dos puntas necesitan
+plan Hobby o Pro). Es el camino de **cero riesgo y cero QR** para que deje de pagarlo
+Leandro. Queda corregir esa frase de `Costos.tsx` (no se tocó: no es del área y no antes del
+lanzamiento).
+
+⚠️ **La lección:** el traspaso de CUENTA y la mudanza de SERVIDOR son dos decisiones
+distintas, y la primera no arrastra a la segunda. Mezclarlas hizo que «que lo pague MaKo»
+pareciera costar un QR por número.
+
+### ⚠️ El cero falso que casi deja ciego al CRM
+
+Al preguntar «¿qué de la app lee el historial guardado en Evolution?», un `git grep -E` con
+`/chat/(findMessages|findChats|…)` contestó **0 archivos** — contra una búsqueda anterior que
+sí los había encontrado. Con eso salía «no hace falta mudar el millón de mensajes», que
+habría dejado **las conversaciones del CRM vacías, los contactos como números y los
+adjuntos rotos**. Con `-F` (texto fijo) la app sí lo lee:
+
+| Llamada | Para qué |
+|---|---|
+| `/chat/findMessages` (`lib/evolution.ts`) | la vista de conversación |
+| `/chat/findContacts` (`lib/evolution.ts`) | la agenda con nombres y las fotos de perfil |
+| `/chat/findChats` (`app/crm/grupo-wa-server.ts`, `lib/evolution-mensajes.ts`) | los grupos guardados y la agenda |
+| `/chat/getBase64FromMediaMessage` (`lib/evolution.ts`) | los adjuntos |
+
+**Regla:** un cero que contradice una medición anterior es una pregunta mal hecha hasta
+probar lo contrario; y «¿la app depende de X?» se pregunta con el nombre literal y `-F`.
+**Y un plan de mudanza que no midió qué lee la app del servidor viejo deja la app ciega**:
+el historial se muda con las líneas.
+
+### Las opciones, medidas
+
+| Opción | Costo/mes | Riesgo | QR |
+|---|---|---|---|
+| **Traspasar el proyecto** de Railway a un workspace de MaKo | lo de hoy + el plan de MaKo en Railway | mínimo: no redespliega | **no** |
+| **Servidor propio** (VPS ~8 GB, p.ej. Hetzner ~€8-10) con Evolution 2.3.7 + Postgres + Redis | ~€10 + backups | medio: backups, updates, TLS y monitoreo pasan a MaKo, sin nadie de guardia | no, con la receta |
+| **Fly / Render** | ~US$40-60 (estimado, sin verificar) | medio, y no mejora nada sobre Railway salvo cambiar de proveedor | no, con la receta |
+| **Vercel / Supabase** | — | **imposible para Evolution**: cada línea es un socket abierto 24/7 y las funciones cortan a los minutos. Sólo la BASE podría ir a Supabase, y no conviene: un millón de filas y escritura constante en la base de producción de MaKo | — |
+| **API oficial (Cloud API)** | por mensaje | **no reemplaza**: grupos de hasta **8 contando al negocio**, se entra **sólo por link** (MaKo suma gente con `updateParticipant`), sin coexistencia, pide cuenta oficial (OBA); sin historial, sin `whatsappNumbers`, sin etiquetas; y Martín decidió el no oficial para el chatbot | otro número |
+
+### La receta para mudar de servidor sin QR (para después del 25/10)
+
+1. **Ensayar con una línea descartable** (la del Cliente de Prueba), nunca con una de
+   cliente: cualquier prueba con una copia de una sesión viva dispara el conflicto de abajo.
+2. **Misma versión, 2.3.7.** No mezclar con una actualización: v3 rompe el esquema, los
+   webhooks y las variables de v2.
+3. Pre-copiar el historial (`Message`, `Contact`, `Chat`) con el servidor viejo prendido.
+4. Ventana corta: **apagar el viejo PRIMERO** — dos servidores con las mismas credenciales se
+   pelean la sesión (cada uno desplaza al otro y reintenta), que puede terminar en un cierre
+   de sesión, y eso sí pide QR; es el mismo patrón del «teléfono conectado dos veces» que
+   `docs/hallazgos-comunicacion.md` ya marca como gatillo de baneo —, copiar
+   `Instance`, `Session`, `Webhook`, `Setting`, el resto de los mensajes y las llaves (Redis o
+   el volumen), y prender el nuevo.
+5. Cambiar `EVOLUTION_BASE_URL` en Vercel y redesplegar. El webhook de cada instancia vive en
+   la base de Evolution y apunta a MaKo: viaja solo.
+6. Verificar `open` en las 10 líneas. Lo que llegó en esos minutos lo entrega WhatsApp al
+   reconectar.
+
+### Lo que NO se ve desde el repo, y hay que mirar en el panel de Railway
+
+1. Las variables del servicio de Evolution: `CACHE_REDIS_ENABLED`, `CACHE_REDIS_SAVE_INSTANCES`,
+   `DATABASE_SAVE_DATA_INSTANCE`, `PROVIDER_ENABLED`. Deciden si las llaves están en Redis o
+   en archivos.
+2. Si hay un **volumen** montado en `INSTANCE_DIR`. Sin volumen y sin Redis, las llaves se
+   perderían en el próximo redeploy.
+3. Qué servicios tiene el proyecto (¿Redis? ¿Chatwoot? ¿n8n?) y si Chatwoot está en el mismo
+   proyecto o en otro (su dominio es de Mauricio).
+4. El **uso real del mes**: los US$21 son de agosto, con 3 líneas; hoy son 10 y casi un
+   millón de mensajes.
+
+**Vive en:** `lib/evolution.ts` (`EVOLUTION_BASE_URL`, las lecturas del historial) ·
+`app/crm/grupo-wa-server.ts` · `app/vsl/costos/Costos.tsx` (la frase del QR, falsa) ·
+`docs/rotacion-credenciales.md` · *2026-10-23*

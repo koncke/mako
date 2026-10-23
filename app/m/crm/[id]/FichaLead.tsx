@@ -61,6 +61,7 @@ import { rutaChatsDeLead } from '@/lib/chats-links';
 import { useDictadoVivo, unirDictado } from '@/app/plan/board/dictado-vivo';
 import { duracionReunionAction, linkDeAgendaAction, reagendarReunionAction } from '@/app/crm/actions';
 import { huecosR2Action, reservarR2Action } from '@/app/crm/agendar-r2-actions';
+import { linkInstagram } from '@/app/crm/campo-inline';
 import { notaLeadAction, moverEtapaAction, deshacerMoverAction } from '../acciones';
 import { chipsDeDia, rotuloAgendar, rotuloDia, type CualAgendar, type EtapaM, type LineaActividad } from '../reglas';
 import { gruposDeLaFicha, type PiezaFicha, type ResumenTelefono, type SaldoTelefono } from '../ficha-bloques';
@@ -105,6 +106,8 @@ export type FichaLeadProps = {
   resumen?: ResumenTelefono | null;
   /** La barra de avance de la etapa (17/10/2026, `progresoEnFunnel`): cuántas etapas y hasta cuál llegó. */
   progreso?: { total: number; hasta: number | null } | null;
+  /** El @ (sin la @) cuando es su ÚNICO canal (23/10/2026, `soloInstagram`): sin Llamar ni WhatsApp apagados, con «Instagram». */
+  soloInstagram?: string | null;
 };
 
 /** El rótulo de cada fila del Resumen nativo: el mismo nombre corto que su bloque de escritorio. */
@@ -161,6 +164,10 @@ export function FichaLead(p: FichaLeadProps) {
 
   const puedeWa = p.tieneChat || !!p.waMe;
   const otros = p.productos.length - 1;
+  // Su único canal es el @ (sin email ni teléfono). El link se arma en campo-inline (`linkInstagram`): un usuario que no lo es (un
+  // nombre con espacios guardado a mano) no tiene link, y entonces no se dibuja el botón en vez de dibujar uno que no lleva a nada.
+  const igHref = p.soloInstagram ? linkInstagram(p.soloInstagram) : null;
+  const nAcciones = 2 + (igHref ? 1 : 0);
 
   // La versión de teléfono de cada bloque de escritorio (../ficha-bloques.ts, PIEZA_DE_BLOQUE). Las que se
   // callan sin datos ya vienen filtradas del server; el `&&` de aquí es el cinturón.
@@ -169,7 +176,8 @@ export function FichaLead(p: FichaLeadProps) {
       case 'proxima': return <FilaDatoM k="Próxima llamada" v={p.proxima ?? 'Sin agendar'} />;
       case 'contacto': return (
         <>
-          <FilaDatoM k="Teléfono" v={p.telefono ?? 'Sin teléfono'} />
+          {/* Con el @ como único canal la fila dice ESE canal, no «Sin teléfono» (Martín, 22/10/2026: «si no tiene ese dato, que no lo muestre»). */}
+          {p.soloInstagram ? <FilaDatoM k="Instagram" v={`@${p.soloInstagram}`} /> : <FilaDatoM k="Teléfono" v={p.telefono ?? 'Sin teléfono'} />}
           {p.email && <FilaDatoM k="Email" v={p.email} />}
           {p.empresa && <FilaDatoM k="Empresa" v={p.empresa} />}
         </>
@@ -210,24 +218,38 @@ export function FichaLead(p: FichaLeadProps) {
 
   return (
     <>
-      <div className="m-crm-acciones" role="group" aria-label="Acciones">
-        {p.tel ? (
-          <a className="m-crm-accion" href={p.tel} aria-label={`Llamar a ${p.nombre}`}>
-            <span className="m-crm-accion__c"><IconoMenu nombre="telefono" size={22} /></span>Llamar
-          </a>
+      <div className="m-crm-acciones" role="group" aria-label="Acciones" style={p.soloInstagram ? { gridTemplateColumns: `repeat(${nAcciones}, minmax(0, 1fr))` } : undefined}>
+        {/* ⚠️ CON EL @ COMO ÚNICO CANAL NO HAY LLAMAR NI WHATSAPP, NI APAGADOS (23/10/2026). Un lead que entró sólo con su @ no
+            tiene número: los dos botones de abajo se dibujarían grises con un toast de «Sin teléfono», un botón muerto por cada uno.
+            En su lugar va el que sí lleva a algún lado, «Instagram» (el mismo que ofrece la fila de la tabla de escritorio donde las
+            demás ofrecen WhatsApp), y la fila se reparte entre los que quedan. Un @ que no es un usuario no tiene link: ninguno. */}
+        {p.soloInstagram ? (
+          igHref && (
+            <a className="m-crm-accion" href={igHref} target="_blank" rel="noopener noreferrer" aria-label={`Abrir el Instagram de ${p.nombre}`}>
+              <span className="m-crm-accion__c"><Icon name="instagram" size={22} /></span>Instagram
+            </a>
+          )
         ) : (
-          <button type="button" className="m-crm-accion" aria-disabled="true" aria-label="Llamar: sin teléfono" onClick={() => toast('Sin teléfono')}>
-            <span className="m-crm-accion__c"><IconoMenu nombre="telefono" size={22} /></span>Llamar
-          </button>
-        )}
-        {puedeWa ? (
-          <Link className="m-crm-accion" href={rutaChatsDeLead(p.id)} aria-label={`WhatsApp con ${p.nombre}`}>
-            <span className="m-crm-accion__c"><IconoMenu nombre="whatsapp" size={22} /></span>WhatsApp
-          </Link>
-        ) : (
-          <button type="button" className="m-crm-accion" aria-disabled="true" aria-label="WhatsApp: sin número" onClick={() => toast('Sin número de WhatsApp')}>
-            <span className="m-crm-accion__c"><IconoMenu nombre="whatsapp" size={22} /></span>WhatsApp
-          </button>
+          <>
+            {p.tel ? (
+              <a className="m-crm-accion" href={p.tel} aria-label={`Llamar a ${p.nombre}`}>
+                <span className="m-crm-accion__c"><IconoMenu nombre="telefono" size={22} /></span>Llamar
+              </a>
+            ) : (
+              <button type="button" className="m-crm-accion" aria-disabled="true" aria-label="Llamar: sin teléfono" onClick={() => toast('Sin teléfono')}>
+                <span className="m-crm-accion__c"><IconoMenu nombre="telefono" size={22} /></span>Llamar
+              </button>
+            )}
+            {puedeWa ? (
+              <Link className="m-crm-accion" href={rutaChatsDeLead(p.id)} aria-label={`WhatsApp con ${p.nombre}`}>
+                <span className="m-crm-accion__c"><IconoMenu nombre="whatsapp" size={22} /></span>WhatsApp
+              </Link>
+            ) : (
+              <button type="button" className="m-crm-accion" aria-disabled="true" aria-label="WhatsApp: sin número" onClick={() => toast('Sin número de WhatsApp')}>
+                <span className="m-crm-accion__c"><IconoMenu nombre="whatsapp" size={22} /></span>WhatsApp
+              </button>
+            )}
+          </>
         )}
         <button type="button" className="m-crm-accion" onClick={() => setSheet('agendar')} aria-label={`${p.agenda.titulo} con ${p.nombre}`}>
           <span className="m-crm-accion__c"><IconoMenu nombre="calendario" size={22} /></span>Agendar

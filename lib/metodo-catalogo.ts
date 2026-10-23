@@ -633,8 +633,8 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       pasos: [
         'Entra a dashboard.stripe.com/apikeys con la cuenta donde quieres recibir el dinero.',
         'Toca "Create restricted key" y ponle de nombre MaKo.',
-        'Permisos "Write": Checkout Sessions, Webhook Endpoints, Refunds y Subscriptions.',
-        'Permisos "Read": Invoices, Charges, Payment Intents y Accounts. Lo demás, en "None".',
+        'Permisos "Write": Checkout Sessions, Webhook Endpoints, Refunds, Subscriptions y Coupons.',
+        'Permisos "Read": Invoices, Charges, Payment Intents, Disputes, Prices, Products y Accounts. Lo demás, en "None".',
         'Toca "Create key", copia la clave (rk_live_…, se ve UNA vez) y pégala en "Clave de Stripe".',
       ],
     },
@@ -746,6 +746,51 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'En zapier.com crea un Zap con el trigger de Skool «Answered Membership Questions».',
         'Como acción elige «Webhooks by Zapier» → «POST» y pega la dirección del recuadro amarillo.',
         'En «Headers» agrega X-MaKo-Clave con la misma clave, y publica el Zap.',
+      ],
+    },
+  },
+  // EL PUENTE DE LEADS DE META POR MAKE O ZAPIER (23/10/2026, lib/zapier-lead.ts). La app de MaKo todavía no tiene
+  // `leads_retrieval` aprobado, así que el negocio manda sus leads desde SU PROPIA cuenta de Make (o de Zapier): MaKo no paga
+  // ni comparte ninguna, como con las claves de IA. MAKE ES EL CAMINO PRINCIPAL (decisión de Martín, 23/10/2026) y Zapier la
+  // alternativa en una línea, y LOS DOS SON DE PAGO: Martín corrigió el mismo día que el plan Free de Make «NO trae la integración
+  // API… no nos sirve», así que NINGUNA pantalla dice «gratis» (tests/zapier-leads.test.ts). Make desde Core (US$9 al mes) y Zapier
+  // desde Professional (US$19,99 anual), leídos el 23/10/2026; la guía lleva la fecha y los links. La clave la INVENTA el negocio
+  // (como la de Skool) y viaja en un header. La key del servicio sigue siendo 'zapier': está guardada en la base, en el ruteo
+  // y en la ruta, y no se renombra con el nombre de la tarjeta.
+  //   · Make: «Facebook Lead Ads → Watch Leads» y «HTTP → Make a request» (POST, JSON) a esta dirección; en Leads Access se
+  //     asigna la app «Make». ⚠️ NO MEDIDO con una cuenta de Make: si «Watch Leads» es instantáneo (en la página del módulo
+  //     aparece sin esa etiqueta) o corre por el intervalo del plan (15 minutos en Free), y si una corrida vacía gasta crédito.
+  //     Por eso NADA de acá promete «al instante» ni cuántos leads aguanta un plan (tests/zapier-leads.test.ts).
+  //   · Zapier (medido en su ayuda, no con un Zap real): premium, plan Professional; con «Data» en blanco manda todos los
+  //     campos; se asigna la app «Zapier» (no «Zapier Inc.»).
+  //   · En los dos, si se edita el formulario Facebook crea uno nuevo con otro id y la automatización sigue en el viejo.
+  {
+    key: 'zapier',
+    nombre: 'Leads de Meta por Make o Zapier',
+    categoria: 'Publicidad',
+    paraQue: 'Cada lead de tus formularios de Meta entra solo a tu CRM. Usas tu propia cuenta de Make o de Zapier, de pago.',
+    campos: [
+      { env: 'ZAPIER_LEADS_CLAVE', label: 'Clave del aviso', secreto: true, placeholder: 'Una clave larga que inventes', nota: 'La inventas tú. Va igual aquí y en el header X-MaKo-Clave de Make o Zapier. Sin esto no entra ningún lead.' },
+    ],
+    pasoExterno: {
+      titulo: 'Pega esta dirección en tu escenario de Make (o en tu Zap)',
+      porque: 'Es por donde Make te manda cada lead de Meta. Sin este paso, tus leads no llegan a tu CRM.',
+      valor: '{{APP_URL}}/api/webhooks/zapier',
+      donde: 'En make.com: tu escenario → módulo «HTTP» → «Make a request» → campo «URL», método POST.',
+      ojo: [
+        'En «Headers» agrega X-MaKo-Clave con tu clave y manda el cuerpo en JSON: sin la clave, MaKo rechaza el lead.',
+        'Si editas el formulario en Meta, Facebook crea uno nuevo: elígelo otra vez en «Watch Leads» (o en el trigger del Zap).',
+      ],
+    },
+    tutorial: {
+      url: 'https://business.facebook.com/settings/leads-accesses/',
+      urlLabel: 'Meta → Acceso a leads',
+      pasos: [
+        'En «Clave del aviso» escribe una clave larga que inventes (por ejemplo micuenta2026clave).',
+        'En business.facebook.com/settings/leads-accesses asigna como CRM la app «Make» (en Zapier, «Zapier», no «Zapier Inc.»).',
+        'En make.com (plan Core, US$9 al mes) crea un escenario: «Facebook Lead Ads» → «Watch Leads» y «HTTP» → «Make a request».',
+        'Pega la dirección del recuadro amarillo (POST, JSON), agrega el header X-MaKo-Clave con tu clave y activa el escenario.',
+        'Con Zapier (plan Professional, desde US$20 al mes): «Facebook Lead Ads» → «New Lead» y «Webhooks by Zapier» → «POST».',
       ],
     },
   },
@@ -1194,12 +1239,15 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   // → verificación en dos pasos → la clave se copia UNA vez. Los nombres de los recursos NO se pudieron
   // ver en el panel: si falta uno, MaKo lo nombra al guardar (el 403 de Stripe trae el permiso en el mensaje,
   // y lib/cobros-conexion.ts lo muestra tal cual).
+  // ⚠️ LOS PERMISOS SON LOS QUE EL CÓDIGO USA (revisión del 23/10/2026): Coupons (la retención de un plan), Disputes (los
+  // contracargos) y Prices/Products («Vincular cobro») no estaban, y una rk_ armada con la lista vieja conectaba bien y
+  // fallaba después, con un 403, en la retención o en un contracargo. Una clave nueva que use otro recurso se suma acá.
   STRIPE_SECRET_KEY: {
     pasos: [
         'Para qué sirve: con esta clave MaKo crea tus links de pago y anota cada pago en la ficha del lead.',
         'En dashboard.stripe.com/apikeys toca "Create restricted key" y ponle de nombre MaKo.',
-        'Permisos "Write": Checkout Sessions, Webhook Endpoints, Refunds y Subscriptions.',
-        'Permisos "Read": Invoices, Charges, Payment Intents y Accounts. Lo demás, en "None".',
+        'Permisos "Write": Checkout Sessions, Webhook Endpoints, Refunds, Subscriptions y Coupons.',
+        'Permisos "Read": Invoices, Charges, Payment Intents, Disputes, Prices, Products y Accounts. Lo demás, en "None".',
         'Toca "Create key", copia la clave (rk_live_…, se ve UNA vez) y pégala en este campo.',
       ],
     url: 'https://dashboard.stripe.com/apikeys',
@@ -1219,7 +1267,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
     pasos: [
         'Para qué sirve: confirma el aviso de pagos, que es lo que hace entrar las renovaciones de una suscripción.',
         'En tu aplicación de Mercado Pago (la del access token) entra a "Webhooks" → "Configurar notificaciones".',
-        'En la URL de producción pega {{APP_URL}}/api/webhooks/mercadopago (está en el recuadro amarillo).',
+        'En la URL de producción pega la dirección completa del recuadro amarillo (termina en ?u= y tu número).',
         'Marca los eventos "Pagos" y "Planes y suscripciones" y guarda.',
         'Copia la "clave secreta" que aparece y pégala en este campo.',
       ],

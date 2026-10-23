@@ -69,7 +69,7 @@ test('3. con un porqué conocido, el turno lo GUARDA como mensaje de MaKo; sin p
   assert.ok(i > 0, 'el turno no calcula el porqué');
   // Con la MARCA `porque` (y su botón): así la pantalla lo dibuja como aviso y el modelo no lo lee como algo que dijo.
   const bloque = turno.slice(i, i + 600);
-  assert.match(bloque, /if \(porQue\) \{\s*const boton = sinIAEs\?\.conectar \?\? deSuClave\?\.conectar \?\? null;\s*await anotarEnHilo\(s\.id, porQue, \[\{ t: 'porque', \.\.\.\(boton \? \{ conectar: boton \} : \{\}\) \}\]\);\s*\}\s*aviso = \[aviso, porQue \?\? AVISO_NO_PUDE\]/);
+  assert.match(bloque, /if \(porQue\) \{\s*const boton = sinIAEs\?\.conectar \?\? (?:deSuClave|deSuCuenta)\?\.conectar \?\? null;\s*await anotarEnHilo\(s\.id, porQue, \[\{ t: 'porque', \.\.\.\(boton \? \{ conectar: boton \} : \{\}\) \}\]\);\s*\}\s*aviso = \[aviso, porQue \?\? AVISO_NO_PUDE\]/);
   assert.doesNotMatch(bloque, /guardados\.push/);
   // Y lo que dice sin IA nombra las tres que puede conectar.
   assert.equal(AVISO_SIN_IA, 'Para contestarte necesito tu IA: conecta tu Claude, tu GPT o tu Gemini y mándamelo de nuevo.');

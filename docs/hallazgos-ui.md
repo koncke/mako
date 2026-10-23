@@ -12,6 +12,51 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## EL loader de las tabs grandes es UNO: `CargandoMako`, la criatura y una barra que corre (23/10/2026)
+
+**Síntoma (Martín):** «cuando entro a Second Brain tarda muchísimo, y lo peor es que ni siquiera hay un loader aunque sea,
+como para indicarme que le di click». Medido en producción con un clic en la barra: sin `loading.tsx` la pantalla
+anterior quedaba QUIETA 2,2 s (Second Brain), 3,7 s (Dashboard), hasta 5,6 s (Plan). Y «quiero que sean todos como el
+de Ops Center… le falta algún elemento tipo loader, si está solo la criatura no se entiende».
+
+**Lo que hay:** `app/_ui/CargandoMako.tsx` (la criatura del Ops Center + la barra indeterminada de Linear y Material) en
+el `loading.tsx` de cada tab grande de escritorio y de /m; el CRM conserva su esqueleto con el loader encima (`cubre`);
+/second-brain reexporta el de /admin/operaciones; `EntradaOps` lleva la misma barra. Lo fija `tests/cargando-mako.test.ts`.
+
+**Trampas que muerden:**
+- **Se importa DIRECTO** (`@/app/_ui/CargandoMako`), no desde el índice de `app/_ui`: el índice lo importan cientos de
+  pantallas de cliente y exportarlo ahí metía la criatura y `lib/centro-munecos` en todos esos bundles (lo mostró
+  `tests-afectados`: 82 tests lo veían por el índice).
+- **Una animación con `fill: both` le gana a la propiedad**: la barra de `EntradaOps` aparece con `cm-aparece … both`, y
+  un `opacity: 0` en `[data-sale]` NO la apagaba. Para apagarla al irse va `animation: none; opacity: 0`.
+- **Sin `cubre`, el fondo es transparente**: en /m el fondo no es `--surface` y una caja blanca se notaría.
+- **Aparece a los 150 ms** (`MS_APARECE`): una carga más corta no hace parpadear nada; más larga, se ve.
+- Un `loading.tsx` es un Suspense: va en `LOADING_PERMITIDOS` (tests/layout-sin-suspense.test.ts) y sólo en segmentos
+  privados. Un `redirect()` de esa página llega como redirect de cliente (200), no 307: lo que redirige SIEMPRE (un
+  repartidor) va en el proxy.
+
+El «Abriendo Automations…» de `ChatAgentApp.tsx` también pasó a `CargandoMako`: el mismo del `loading.tsx`, así del
+server al cliente no hay salto.
+
+**Lo que quedó SIN hacer:** el cambio de panel del Ops Center al grafo, 2,7 s sin nada: va en la rama `mapa ? …` de
+`app/second-brain/ChatSecondBrain.tsx`, después de la punta 2df8aa56b del chat del Ops Center.
+
+*23/10/2026, chat «Rendimiento y loaders» (claude2).*
+
+## Un panel que se llama `data-sidebar` hereda el alto de la barra de la app (23/10/2026)
+
+**Síntoma:** el chat de MaKo al costado del lienzo de Automations tenía la caja de escribir «pegada al piso» (Martín, a 1920
+de ancho). **El diagnóstico obvio («el componente compartido del chat le pone poco margen») era el equivocado:** medido en
+producción (1540×732), el panel flotante tenía `top: 16` y `bottom: 16` y medía 732 (terminaba en 748, 16 px fuera de
+la ventana). Lo estiraba `@supports (height: 100dvh) { aside[data-sidebar] { height: 100dvh !important } }` de
+app/globals.css, que es la regla de la barra de la APP: el panel de Automations se llamaba `data-sidebar="lista|chat"`.
+**Regla:** `data-sidebar` es el nombre de la barra de la app (lo leen globals.css, ui.css con sus colores y MakoEnLaTab).
+Un panel propio usa su propio atributo. Así quedó: `data-panel-automations`. Y la cabecera del chat tenía un margen negativo heredado del
+`ChatHilo` de antes, que tenía relleno: salía 4 px por encima del panel y el hilo le pisaba 4 px abajo. **Medido con los dos
+cambios, en la misma pestaña de producción:** el panel va de 16 a 716 y la cabecera queda entera arriba del hilo. **Vive en:**
+app/automations/SimuladorWhatsApp.tsx · app/automations/ChatMako.tsx (`S.cabecera`) · tests/chat-mako-costado-sin-cortes.test.ts.
+*23/10/2026, chat «Automations» (claude2).*
+
 ## «Reportar a Soporte»: UN botón en todo aviso de error, y el guardián que lo exige (23/10/2026)
 
 Martín (22/10): «en toda la app, SIEMPRE que sale un error, en donde sea, debe aparecer el botón de "Reportar a Soporte" y que

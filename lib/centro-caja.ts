@@ -92,6 +92,14 @@ export function bloquesDeMensaje(t: string): BloqueMensaje[] {
 
 // ── El borrador (B, «el borrador nunca se pierde») ───────────────────────────────────────────────────────────────
 /** Lo más largo que se guarda de un borrador (lo que entra en un trabajo firmado). */
+/**
+ * El alto del campo, a partir de lo que mide (`scrollHeight`) y su tope. ⚠️ ESCONDIDO MIDE 0 (23/10/2026): el chat del lienzo de
+ * Automations vive montado en una ranura con `display: none` y la caja se medía ahí; quedaba `height: 0px`, el mínimo del CSS
+ * (24 px) le ganaba, y con un renglón de 40 px el texto («Pídele un cambio») se veía abajo, cortado y con flechas de scroll.
+ * Sin medida, el alto es del CSS (un renglón con su relleno); al aparecer se vuelve a medir (CajaChat.tsx).
+ */
+export const altoDelCampo = (medido: number, tope: number): string => (medido > 0 ? `${Math.min(medido, tope)}px` : '');
+
 export const MAX_BORRADOR = 8000;
 /** Cuánto espera sin teclear para guardarlo en el navegador, y en MaKo (que cruza al teléfono). */
 export const ESPERA_LOCAL_MS = 400;

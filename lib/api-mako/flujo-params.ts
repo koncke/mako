@@ -39,6 +39,31 @@ export const LLENA_EL_FLUJO: Readonly<Record<string, Readonly<Record<string, Fue
   avisar_al_equipo: { respuesta: 'respuesta_del_lead' },
 };
 
+/**
+ * Los parámetros que un PASO de flujo NO lleva, por operación: la acción los acepta por chat o por la API, pero en
+ * una tarjeta ACTION harían el trabajo de OTRA tarjeta (revisión de las tarjetas, 23/10/2026, punto 4). Martín, al
+ * ver tres desplegables sueltos en una tarjeta: «Por qué agregar email si para eso ya tenemos una tarjeta de
+ * EMAIL». «Invitar al curso» (#874, 17/10) trajo de la API un email escrito a mano (el MISMO para todos los leads
+ * del flujo), «Canales» (el WhatsApp es la tarjeta WHATSAPP, después, con {{curso_link}}) y «Reenviar». Lo que
+ * se pidió fue sólo «invitar al curso», con el curso elegido.
+ *
+ * Como `LLENA_EL_FLUJO`, lo leen los DOS: el editor no lo dibuja y el motor no lo manda (`ejecutarDesdeFlujo`),
+ * para que un valor guardado antes no siga actuando sin verse. Medido el 23/10: ningún paso guardado lo usaba.
+ */
+export const FUERA_DEL_FLUJO: Readonly<Record<string, readonly string[]>> = {
+  invitar_cliente_curso_cs: ['email', 'canales', 'reenviar'],
+};
+
+/** Los parámetros del paso sin los que no van en un flujo (`FUERA_DEL_FLUJO`). */
+export function sinLoDeFueraDelFlujo(
+  operacion: string,
+  params: Record<string, unknown> | null | undefined,
+): Record<string, unknown> | null | undefined {
+  const fuera = FUERA_DEL_FLUJO[operacion];
+  if (!fuera?.length || !params) return params;
+  return Object.fromEntries(Object.entries(params).filter(([k]) => !fuera.includes(k)));
+}
+
 export type DatosDelEvento = { leadId?: number | null };
 
 /** ¿La operación recibe un lead? Es lo que hace que un paso se pueda alimentar del evento. */
@@ -105,7 +130,9 @@ export function faltanEnPaso(
     .map((p) => p.nombre);
 }
 
-export type FilaLead = { nombre: string; email: string | null; telefono: string | null; empresa: string | null };
+/** `instagram`: el usuario de Instagram (23/10/2026). Sin él, un lead con sólo el @ se creaba sin canal. Llega ya normalizado de
+ *  quien propuso; `crearLeadsDePropuesta` lo vuelve a pasar por `usuarioInstagram` (acá no: este módulo no importa valores). */
+export type FilaLead = { nombre: string; email: string | null; telefono: string | null; instagram: string | null; empresa: string | null };
 
 const txt = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
@@ -116,7 +143,7 @@ export function filasDeLeads(datos: Record<string, unknown> | null | undefined):
   for (const c of crudas) {
     const nombre = txt(c?.nombre);
     if (!nombre) continue;
-    filas.push({ nombre, email: txt(c.email)?.toLowerCase() ?? null, telefono: txt(c.telefono), empresa: txt(c.empresa) });
+    filas.push({ nombre, email: txt(c.email)?.toLowerCase() ?? null, telefono: txt(c.telefono), instagram: txt(c.instagram), empresa: txt(c.empresa) });
   }
   return filas;
 }

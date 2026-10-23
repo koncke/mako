@@ -23,7 +23,8 @@ import { cobrosDeMakoAction } from './actions';
 import VenderPlan from './VenderPlan';
 import ListaCobrosMako from './ListaCobrosMako';
 import PrecioClienteAgencia from './PrecioClienteAgencia';
-import { precioClienteAgenciaAction } from './actions';
+import PreciosPlanesMp from './PreciosPlanesMp';
+import { precioClienteAgenciaAction, preciosLocalesAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +43,7 @@ export default async function CobrosPage() {
   }
 
   const conPasarela = datos.pasarelas.length > 0;
-  const precio = await precioClienteAgenciaAction();
+  const [precio, locales] = await Promise.all([precioClienteAgenciaAction(), preciosLocalesAction()]);
   return (
     <Pagina>
       <PageHeader
@@ -60,6 +61,8 @@ export default async function CobrosPage() {
           accion={{ label: 'Ir a Integraciones', href: `/integraciones?ws=${datos.ws}` }}
         />
       )}
+      {/* El precio de cada plan en la moneda de la Mercado Pago de MaKo: sin él, /planes no la ofrece (revisión del 23/10/2026). */}
+      {locales.ok && locales.moneda && <PreciosPlanesMp moneda={locales.moneda} planes={locales.planes} />}
       {/* El precio de un cliente de agencia (#866): con él, «Abrir cuenta» de una agencia muestra el link del primer mes. */}
       {precio.ok && <PrecioClienteAgencia inicial={precio.precio} conMercadoPago={datos.pasarelas.includes('mercadopago')} />}
       {(conPasarela || datos.cobros.length > 0) && <ListaCobrosMako cobros={datos.cobros} truncado={datos.truncado} />}

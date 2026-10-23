@@ -2345,6 +2345,29 @@ FEEDBACK PROBAR:
     revisar: "/automations",
   },
   {
+    fecha: "22 oct", hora: "16:05", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: cuando la IA gratis de MaKo llega a su tope, el chat lo dice y te lleva a conectar tu Claude",
+    puntos: [
+      "Antes decía «No tienes ninguna IA gratis conectada» con el link a Gemini, aunque lo que pasaba era que la IA gratis de MaKo había llegado a su tope del día. Lo vio Mauricio en el chat de su automatización.",
+      "Sin IA propia, ahora dice qué le pasó a la IA gratis de MaKo (llegó a su tope de hoy, está al tope, está saturada o no contestó) y te lleva a Integraciones a conectar tu Claude.",
+      "Si tu clave de Claude se queda sin saldo, lo dice así en vez de mandarte a cambiarla.",
+      "Dice «tu Claude» y no «tu GPT» porque hoy una clave de OpenAI no arma flujos. Cuando lo haga, el texto cambia.",
+      "En producción: deploy de e115adfbd (lo verificó Integración).",
+    ],
+    commits: [
+      { sha: "81dca4621", msg: "Automations · el aviso de IA dice la verdad (AU3): sin keys propias, qué le pasó a la IA gratis de MaKo («llegó a su tope de hoy») y conectar su Claude; la clave de Claude del negocio se nombra y sin saldo no se la manda a cambiar", lineas: 199, archivos: 9 },
+      { sha: "637333086", msg: "Automations · AU3: «tu Claude» en una constante y el test atado al IA6 (cuando la cascada use la OpenAI del negocio, el aviso pasa a «tu Claude o tu GPT»)", lineas: 46, archivos: 3 },
+    ],
+    archivos: [
+      "lib/flujo-ia.ts — falloDeIA y sinIAPropia: qué se dice cuando ninguna IA contestó",
+      "lib/flujo-ia-crear.ts — generar le pasa lo que le pasó a la IA gratis de MaKo",
+      "docs/hallazgos-chatbot.md — «No tienes ninguna IA gratis conectada» era la red de MaKo al tope de hoy",
+    ],
+    revisar: "/automations",
+  },
+  {
     fecha: "22 oct", hora: "20:40", chat: "Automations", cuenta: "claude3",
     actor: "martin", tipo: "prompt",
     titulo: "Mientras MaKo trabaja en Automations se puede ir a otra tab, y «No se envió» sólo cuando de verdad no salió",
@@ -2431,6 +2454,18 @@ FEEDBACK PROBAR:
     revisar: "/automations",
   },
   {
+    fecha: "23 oct", hora: "00:05", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Todo lo de Automations con prioridad: MaKo editó mal #289, Configuraciones en una pantalla y el chat con la caja única",
+    puntos: [
+      "Llegó por el Cerebro, en este orden.",
+      "MaKo agregó el seguimiento sin «si no respondió» y no sacó los mensajes que sobraban con «que sea sólo de apertura». El borrador de #289 lo arregla Martín con MaKo.",
+      "Configuraciones: una sola «Misma persona», los ajustes por canal, «Horario de oficina» en vez de «propio», todo en una pantalla sin pestañas. Y medir si «Misma persona» traba un seguimiento de 2 h.",
+      "El chat de MaKo en Automations pasa a la caja y el hilo únicos: la estrella, aire abajo y el «+» para adjuntar.",
+    ],
+    pedido: "«Todo lo de Automations con prioridad»",
+  },
+  {
     fecha: "23 oct", hora: "03:00", chat: "Automations", cuenta: "claude3",
     sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
     actor: "claude", tipo: "implementacion",
@@ -2479,6 +2514,23 @@ FEEDBACK PROBAR:
     archivos: [
       "lib/nutricion-grafo-motor.ts — un mensaje sale solo",
       "app/automations/FlujoLienzo.tsx — la tarjeta sin los dos controles",
+    ],
+    revisar: "/automations",
+  },
+  {
+    fecha: "23 oct", hora: "10:42", chat: "Automations", cuenta: "claude1",
+    sesion: "local_298a7983-21a5-4fcb-a5c5-bf80bc9e0944",
+    actor: "claude", tipo: "correccion",
+    titulo: "El ws13 vuelve a avisar de cada lead nuevo: el aviso no se cortaba bien y la base lo rechazaba",
+    puntos: [
+      "Del 13 al 22/10 no salió ningún aviso de lead nuevo en Código Inmobiliario: el resumen partía un emoji y la base rechazaba la pendiente.",
+      "Ahora el texto se corta sin partir emojis, y si algo no entra, la fila dice por qué.",
+      "Un aviso que no llegó a salir se reintenta (1 h, 6 h y 24 h) en vez de dar la automatización por terminada.",
+    ],
+    archivos: [
+      "lib/unicode-seguro.ts — cortar sin partir un emoji",
+      "lib/mako-pendientes.ts — lo que entra va saneado y devuelve el motivo",
+      "lib/nutricion-paso-accion.ts — el reintento de una acción que no corrió",
     ],
     revisar: "/automations",
   },

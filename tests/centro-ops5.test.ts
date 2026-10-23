@@ -162,7 +162,7 @@ test('9: una medición de más de 6 horas no la usa el botón, y la tarjeta nunc
 
 test('18:06: «Uso y Runners» sin «N de N activos» repetido, y la hoja abre en «alto»', () => {
   assert.doesNotMatch(codigo('app/m/operaciones/RunnerMovil.tsx'), /activos/);
-  assert.match(codigo('app/m/operaciones/CentroAppMovil.tsx'), /titulo="Uso y Runners" snap="alto"/);
+  assert.match(codigo('app/m/operaciones/CentroAppMovil.tsx'), /titulo="Tus cuentas de IA" snap="alto"/);
 });
 
 test('1: cada mensaje en su globo con su colita; lo de Martín con SU foto, lo especial como tarjeta', () => {

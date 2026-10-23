@@ -1,5 +1,50 @@
 # Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~20:00; cuenta 4, `claude4`)
 
+## 23/10 tarde (claude2, chat «Ops Center»): la Ticketera del cliente, la barra, el Uso y la caja
+
+Pedidos 6, 7 y 8 de Martín mirando `/second-brain?chat=40`, y uno que dejó Automations. Rama `ops-ticketera-2310` (worktree
+`C:/dev/wt-ops-ticketera`), punta `2df8aa56b` (con main mergeado, `ae37e12f5`). Lo que costó: docs/hallazgos-operaciones.md →
+«La Ticketera del cliente, la barra que «no hace nada», el Uso que salta y la caja con el texto bajo».
+
+| Pedido | Estado |
+|---|---|
+| 6. La criatura de MaKo en la Ticketera, el chat «roto», la lista de tickets en la topbar | HECHO: la estrella; la caja adentro de `.co-caja` (era eso lo roto); el botón con ícono de lista al lado de «Soporte» (`ListaTickets`, PanelDeChat → `acciones`) |
+| 7. «Si estoy dentro de la ticketera y entro [al Second Brain] no hace nada» | HECHO: la Ticketera del cliente vive en `?ticketera=`; lib/ops-center-navegar.ts decide cada entrada de la barra |
+| 8. El Uso del super admin IGUAL al del cliente, sin el desplegable | HECHO: el modal «Tus cuentas de IA» con lo suyo debajo; fuera `.co-uso__panel`. En el teléfono, «Uso» y la misma hoja |
+| CajaChat: «Pídele un cambio» bajo | HECHO: `altoDelCampo` y la medida al aparecer |
+
+**Sin mirar en pantalla con MI código** (el Cerebro frenó el build local: la PC llegó a 33 MB libres). Medido en producción
+antes: la causa del 7 y el arreglo de la caja (sacándole el `0px` al campo: 40 px y centrado). **Lo que sigue:**
+1. Apenas esté en producción, recorrerlo con la sesión del ws10 en `https://hola-mako.com/second-brain`: «Ticketera», el botón
+   de lista, «Second Brain» con la Ticketera abierta, y el chat del lienzo de Automations; también a 390 px.
+2. El Uso del super admin lo mira Martín (el Chrome sólo tiene la sesión de un cliente).
+3. Rendimiento (`local_1c58f6ef…`) hace las lecturas del Centro por GET, el Promise.all de app/second-brain/page.tsx, la ventana
+   de datos.ts y, cuando esto esté en main, el loader del grafo en ChatSecondBrain.tsx.
+4. Un link `/second-brain?ticketera=tickets` en el teléfono del cliente no abre su Ticketera (lib/movil-rutas.ts).
+
+## 23/10 mañana (claude1, chat «Centro de Operaciones», `local_5cc6190d…`): las fotos en cualquier dispositivo
+
+Lo tomé por el pedido del Cerebro («si quedó algo abierto de las últimas vueltas, el WhatsApp de verdad, las fotos, el Uso, eso
+es lo primero»). Rama `ops-fotos-2310` (worktree `C:/dev/wt-ops-fotos`); el sha va al Cerebro para el tren. Lo que costó:
+docs/hallazgos-operaciones.md → «La foto que se manda por la caja, vista en otro dispositivo».
+
+- **HECHO: la foto mandada por la caja se ve en el teléfono** (y al revés). La «decisión de Martín» que la trababa ya estaba
+  tomada el 18/10. Queda una miniatura de 640 px en el storage (`operaciones-enviados/<ref>`), y el original se sigue
+  borrando al entregar. Pasó dos revisiones adversariales, con cada hallazgo verificado aparte (9 y 6 agentes): 11
+  arreglados, 1 no era un defecto. El que más importaba lo vio el crítico: la burbuja, dibujada por posición, podía
+  mostrar las fotos de OTRO mensaje (ahora `key={w.id}`).
+- **Lo que quedaba abierto de las últimas vueltas, medido hoy:**
+  - el «Completado» sin ver YA viaja entre dispositivos (el ✓ en el servidor, `marcarYaVistoAction`);
+  - los documentos en una conversación de Offer YA están (OC7, `bbb766cac`): el punto 2 del 21/10, abajo, está hecho;
+  - el Uso lo tomaron otros chats el 22/10 (el 99% de Leandro 2, la API del crédito). Lo suyo que falta (el día de cobro de
+    cada plan, las cuentas 3 y 4 sin crédito vinculado) es de Martín: docs/hallazgos-operaciones.md, «La API en el Uso»;
+  - «el WhatsApp de verdad» (quinto y sexto Ops Center) sólo espera que Martín lo mire en su Android.
+- **Lo que sigue, en este orden:**
+  1. que Martín pruebe la foto: una captura desde la computadora con el «+», y abrir ese chat en el teléfono;
+  2. SheetM en «medio» no deja ver el final de un cuerpo largo: es de `app/m/_ui` (MaKo Mobile), avisarle a su dueño;
+  3. el barrido de `operaciones-turnos/` y de lo subido que nunca se firmó (lib/operaciones-adjuntos.ts, cabecera);
+  4. el resto de la conversación sigue dibujada por posición (Hilo.tsx): docs/hallazgos-operaciones.md, «Sin hacer».
+
 ## 21/10 noche (claude3, chat jefe «Ops Center»): el Ops Center del CLIENTE es el del super admin
 
 Pedido de Martín (~23:00, con dos capturas): «el ops center de los clientes se ve muy mal comparado al de SuperAdmin... eso debe
@@ -25,8 +70,8 @@ demás, cada una su chat (el INVENTARIO de tests/chat-unico.test.ts).
 
 **SIN HACER, en este orden:**
 1. ~~Borrar app/m/mako/ChatMako.tsx~~ HECHO el 22/10 (OC2), con su Composer y lo suyo de los 15 tests.
-2. **Los documentos en una conversación de Offer**: hoy el «+» dice que se pegue el texto o el link. Van por `subir-url` + `leer`
-   de Offer (app/offer/offer-api.ts → `subirArchivo`) y viajan como `docIds` en el turno.
+2. ~~**Los documentos en una conversación de Offer**~~ HECHO el 22/10 por OC7 (`bbb766cac`: la nota de voz y el «+» en una
+   conversación de Offer).
 3. **Mirarlo en producción** con Martín: el ws3 como super admin y el ws21 (Florencia), al lado de /admin/operaciones, a 390 px y en
    oscuro. Se miró ANTES del deploy pegando el HTML de las piezas sobre la página de producción (el cómo, en el hallazgo).
 

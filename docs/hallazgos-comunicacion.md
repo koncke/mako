@@ -48,6 +48,20 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «La línea de MaKo está muerta, no sale ningún aviso»: el grupo no sale por el ws9 (23/10/2026)
+
+**Síntoma:** con `mako_ws9` en `connecting` desde el 19/10, se dio por hecho que ningún aviso a los grupos de los
+clientes podía salir, y el arreglo del ws13 quedó «esperando el QR de Martín». **El diagnóstico obvio era el equivocado:**
+el grupo de MaKo de CADA cliente se escribe por la «voz de MaKo» (`instanciaVoz()`, que lee `mako.voz.instancia` del
+ws1), y hoy es `mako_superadmin_muylqv8r`, `open`. El ws9 es la línea del negocio de MaKo, no la voz. Prueba de que el
+grupo del ws13 funcionaba: una pendiente que llegó desde ese grupo y se ejecutó el mismo día. **Regla:** antes de decir que
+una línea está muerta para un aviso, mirar CUÁL usa ese envío (`instanciaVoz` para grupos y personas de MaKo,
+lib/evolution.ts para los leads del negocio) y sondearla con `/instance/fetchInstances` (sólo lectura).
+**Vive en:** lib/mako-grupo.ts (`instanciaVoz`, `enviarAlGrupoMaKo`, `enviarPartesAlGrupoMaKo`).
+*23/10/2026, chat «Automations» (claude2).*
+
+---
+
 ## Los grupos de una línea y sus participantes, en Evolution v2.3.7 (23/10/2026)
 
 Medido para traer los contactos de un grupo al CRM (hallazgos-crm.md), con una sonda de sólo lectura sobre la línea viva de la

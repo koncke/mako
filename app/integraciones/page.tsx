@@ -16,6 +16,7 @@ import { integracionConectada } from '@/lib/credenciales';
 import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
 import { lineaCargador } from '@/lib/pixel-cargador';
 import { estadoPixel } from '@/lib/pixel-estado';
+import { avisoDeCalendly } from '@/lib/calendly-aviso';
 import { tokenAgenteVisible } from '@/lib/agente-token';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { cuotasProveedores } from '@/lib/ia-cuotas';
@@ -93,11 +94,20 @@ export default async function IntegracionesPage() {
   // decía otra cosa — o al revés, que es peor.
   const landingVieja = ws == null ? false : (await estadoPixel().catch(() => ({ viejo: false }))).viejo;
 
+  // ¿Le llegan a MaKo las reservas NUEVAS de su Calendly? (23/10/2026). «Conectada» es el token y el R1: con eso MaKo lee
+  // la agenda, pero la reserva nueva entra sólo si la cuenta tiene el AVISO (la suscripción de webhook), que Calendly no
+  // deja crear desde su pantalla. Sin esto se podía guardar todo, ver verde y no recibir nunca una reserva: le pasó a la
+  // agenda de MaKo antes del lanzamiento. null = no se pudo leer, y entonces no se afirma nada (lib/calendly-aviso.ts).
+  // Se lanza AQUÍ y se espera abajo: corre en paralelo con el resto de la página (no la bloquea: tope de 3 s y 60 s de memoria).
+  const calendlyConectada = integraciones.some((i) => i.key === 'calendly' && i.estado === 'conectada');
+  const avisoCalendlyP = ws != null && calendlyConectada ? avisoDeCalendly(ws) : Promise.resolve(null);
+
   // Cuota GRATIS consumida hoy por cada IA barata (para el gauge "cuánto queda"
   // de cada proveedor y para el aviso proactivo de rotación). Nunca rompe la página.
   // Sólo las que el negocio TIENE (o usó hoy): la plataforma no le presta IA, y una caja «gratis» de una IA que no
   // conectó se lee como que MaKo se la da (IA16, 23/10/2026).
   const cuotas = await cuotasProveedores(undefined, { soloCargadas: true }).catch(() => []);
+  const avisoCalendly = await avisoCalendlyP;
 
   // Token del agente externo (Claude Code). Se LEE, no se acuña: es una credencial
   // real (da lectura del plan del workspace), así que solo nace cuando el humano
@@ -141,6 +151,7 @@ export default async function IntegracionesPage() {
       snippetLanding={snippetLanding}
       cargadorLanding={cargadorLanding}
       landingVieja={landingVieja}
+      avisoCalendly={avisoCalendly}
       cuotas={cuotas}
       agenteActual={agenteActual}
       appUrl={APP_URL}

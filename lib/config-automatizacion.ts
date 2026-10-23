@@ -27,7 +27,7 @@
 // =============================================================================
 
 import { sanearHorario, dentroDelHorario, acabaDeAbrir, horaTexto, DIAS_PANTALLA, HORARIO_SUGERIDO, type HorarioEnvio } from './horario-envio';
-import { RANGOS_LIMITES, type LimitesEnvio } from './limites-envio';
+import { RANGOS_LIMITES } from './limites-envio';
 import { TRIGGER_ETAPA } from './nutricion-etapa';
 
 /** El prefijo de las claves (el motor las lee todas juntas). */
@@ -41,31 +41,29 @@ export function secuenciaDeClave(clave: string): number | null {
 }
 
 /**
- * Lo propio de una automatización. Cada parte AUSENTE = la del negocio. `horario: null` también se guarda: es «sin
- * horario» propio (manda a cualquier hora aunque el negocio tenga uno), distinto de no haber elegido.
+ * Lo propio de una automatización. Cada parte AUSENTE = la del negocio (el horario) o nada propio (el goteo). `horario: null`
+ * también se guarda: es «sin horario» propio (manda a cualquier hora aunque el negocio tenga uno), distinto de no haber elegido.
+ *
+ * ⚠️ SIN «MISMA PERSONA» (23/10/2026, Martín: «elimina "Misma persona"»; el Cerebro: si la pantalla no la muestra, el motor no
+ * la puede seguir aplicando, porque sería una regla escondida). Se fue de la pantalla, de la API de MaKo y del motor: lo
+ * guardado en `personaHoras` se ignora al leer. Y la vista previa de los links volvió a ser de cada mensaje (la X de la
+ * tarjeta del link en el editor del WhatsApp, `sin_vista_previa` del paso): `sinVistaPrevia` de acá también se ignora.
  */
 export type ConfigAutomatizacion = {
   horario?: HorarioEnvio | null;
-  /** Por canal. `PERSONA_SIN_ESPERA` (0) = APAGADO: esta automatización no espera entre dos mensajes a la misma persona. */
-  personaHoras?: { whatsapp?: number; email?: number };
   /** El goteo de sus WhatsApp (lib/goteo.ts): minutos entre dos envíos y tope en 24 h. Ausente = sin goteo propio. */
   goteo?: { minutos?: number; dia?: number };
+  /** El goteo de sus EMAILS (23/10/2026, Martín: «en Email también pon goteo y tope por día»): igual, por su canal. */
+  goteoEmail?: { minutos?: number; dia?: number };
 };
 
-/**
- * «MISMA PERSONA» APAGADO (22/10/2026, Martín, Configuraciones › Anti-ban: «Cada opción se prende y se apaga con un
- * interruptor... Apagada, no aplica»): 0 horas entre dos mensajes a la misma persona, sólo para ESTA automatización (los
- * leads de un anuncio, el caso del 16/10). Ausente sigue siendo «la del negocio»: ninguna que ya existía cambia. El motor
- * no necesita nada propio: con 0 h la ventana de `leadsConEnvioReciente` (lib/nutricion.ts) es vacía, y lo que ya salió
- * en la MISMA corrida lo sigue frenando `frenadoPorAntiBan`.
- */
-export const PERSONA_SIN_ESPERA = 0;
 /** Los rangos del goteo: hasta 4 h entre envíos, y el tope por día no pasa el máximo de la línea. */
 export const RANGOS_GOTEO = { minutos: [1, 240] as const, dia: RANGOS_LIMITES.wa.dia } as const;
+/** Los del Email: los mismos minutos, y el tope por día hasta el máximo de email de la línea. */
+export const RANGOS_GOTEO_EMAIL = { minutos: [1, 240] as const, dia: RANGOS_LIMITES.email.dia } as const;
 
 const enRango = (n: unknown, [min, max]: readonly [number, number]): n is number =>
   typeof n === 'number' && Number.isInteger(n) && n >= min && n <= max;
-const enRangoPersona = (n: unknown, rango: readonly [number, number]): n is number => n === PERSONA_SIN_ESPERA || enRango(n, rango);
 
 /** Lo guardado, saneado: lo que no se entiende queda AUSENTE (= el del negocio). Nunca tira. */
 export function sanearConfigAutomatizacion(raw: unknown): ConfigAutomatizacion {
@@ -82,17 +80,17 @@ export function sanearConfigAutomatizacion(raw: unknown): ConfigAutomatizacion {
     const h = sanearHorario(o.horario);
     if (h) out.horario = h;
   }
-  const ph = o.personaHoras && typeof o.personaHoras === 'object' ? o.personaHoras as Record<string, unknown> : null;
-  if (ph) {
-    const wa = enRangoPersona(ph.whatsapp, RANGOS_LIMITES.wa.personaHoras) ? ph.whatsapp : undefined;
-    const em = enRangoPersona(ph.email, RANGOS_LIMITES.email.personaHoras) ? ph.email : undefined;
-    if (wa !== undefined || em !== undefined) out.personaHoras = { ...(wa !== undefined ? { whatsapp: wa } : {}), ...(em !== undefined ? { email: em } : {}) };
-  }
   const go = o.goteo && typeof o.goteo === 'object' ? o.goteo as Record<string, unknown> : null;
   if (go) {
     const min = enRango(go.minutos, RANGOS_GOTEO.minutos) ? go.minutos : undefined;
     const dia = enRango(go.dia, RANGOS_GOTEO.dia) ? go.dia : undefined;
     if (min !== undefined || dia !== undefined) out.goteo = { ...(min !== undefined ? { minutos: min } : {}), ...(dia !== undefined ? { dia } : {}) };
+  }
+  const ge = o.goteoEmail && typeof o.goteoEmail === 'object' ? o.goteoEmail as Record<string, unknown> : null;
+  if (ge) {
+    const min = enRango(ge.minutos, RANGOS_GOTEO_EMAIL.minutos) ? ge.minutos : undefined;
+    const dia = enRango(ge.dia, RANGOS_GOTEO_EMAIL.dia) ? ge.dia : undefined;
+    if (min !== undefined || dia !== undefined) out.goteoEmail = { ...(min !== undefined ? { minutos: min } : {}), ...(dia !== undefined ? { dia } : {}) };
   }
   return out;
 }
@@ -111,7 +109,13 @@ export function textoDeHorario(h: HorarioEnvio | null): string {
 export type PropsConfiguraciones = { secuenciaId: number; nombre: string; onCerrar: () => void };
 
 /** ¿Tiene algo propio? (si no, es la del negocio entera). */
-export const tieneConfigPropia = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.personaHoras !== undefined || c.goteo !== undefined;
+export const tieneConfigPropia = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.goteo !== undefined || c.goteoEmail !== undefined;
+
+/**
+ * ¿Ya le eligieron el RITMO? (el aviso de Prospección de Publicar y Probar: «revisa su horario y sus límites»). Su horario o
+ * su goteo (de WhatsApp o de Email).
+ */
+export const tieneRitmoPropio = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.goteo !== undefined || c.goteoEmail !== undefined;
 
 /**
  * EL HORARIO QUE VALE PARA ESA AUTOMATIZACIÓN: el propio si eligió uno (también «sin horario»), si no el del negocio.
@@ -122,16 +126,8 @@ export function horarioDeLaAutomatizacion(c: ConfigAutomatizacion, delNegocio: H
   return c.horario && c.horario.activo ? c.horario : null;
 }
 
-/** LAS HORAS ENTRE DOS MENSAJES A LA MISMA PERSONA que valen para esa automatización, por canal. */
-export function personaHorasDeLaAutomatizacion(c: ConfigAutomatizacion, delNegocio: LimitesEnvio): { whatsapp: number; email: number } {
-  return {
-    whatsapp: c.personaHoras?.whatsapp ?? delNegocio.wa.personaHoras,
-    email: c.personaHoras?.email ?? delNegocio.email.personaHoras,
-  };
-}
-
 /**
- * LO QUE SE GUARDA, o el error. `null` en una parte la VUELVE a la del negocio (se saca); `horario: { activo: false }`
+ * LO QUE SE GUARDA, o el error. `null` en una parte la saca (el horario vuelve al del negocio); `horario: { activo: false }`
  * es «sin horario» propio. Devuelve el texto para `app_settings` y si quedó vacío (entonces se borra la clave).
  */
 export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown): { ok: true; config: ConfigAutomatizacion; valor: string; vacia: boolean } | { ok: false; error: string } {
@@ -153,20 +149,7 @@ export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown)
       out.horario = h;
     }
   }
-  if ('personaHoras' in o) {
-    if (o.personaHoras === null) delete out.personaHoras;
-    else {
-      const ph = o.personaHoras && typeof o.personaHoras === 'object' ? o.personaHoras as Record<string, unknown> : {};
-      const nuevo = { ...(out.personaHoras ?? {}) };
-      for (const [canal, rango, nombre] of [['whatsapp', RANGOS_LIMITES.wa.personaHoras, 'WhatsApp'], ['email', RANGOS_LIMITES.email.personaHoras, 'email']] as const) {
-        if (!(canal in ph)) continue;
-        if (ph[canal] === null) { delete nuevo[canal]; continue; }
-        if (!enRangoPersona(ph[canal], rango)) return { ok: false, error: `Las horas entre dos ${nombre} van de ${rango[0]} a ${rango[1]}.` };
-        nuevo[canal] = ph[canal] as number;
-      }
-      if (Object.keys(nuevo).length) out.personaHoras = nuevo; else delete out.personaHoras;
-    }
-  }
+  if ('personaHoras' in o) return { ok: false, error: '«Misma persona» ya no existe: el anti-ban de una automatización es su goteo y su tope por día.' };
   if ('goteo' in o) {
     if (o.goteo === null) delete out.goteo;
     else {
@@ -181,6 +164,21 @@ export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown)
       if (Object.keys(nuevo).length) out.goteo = nuevo; else delete out.goteo;
     }
   }
+  if ('goteoEmail' in o) {
+    if (o.goteoEmail === null) delete out.goteoEmail;
+    else {
+      const g = o.goteoEmail && typeof o.goteoEmail === 'object' ? o.goteoEmail as Record<string, unknown> : {};
+      const nuevo = { ...(out.goteoEmail ?? {}) };
+      for (const [campo, rango, texto] of [['minutos', RANGOS_GOTEO_EMAIL.minutos, 'Los minutos entre envíos'], ['dia', RANGOS_GOTEO_EMAIL.dia, 'El tope por día']] as const) {
+        if (!(campo in g)) continue;
+        if (g[campo] === null) { delete nuevo[campo]; continue; }
+        if (!enRango(g[campo], rango)) return { ok: false, error: `${texto} van de ${rango[0]} a ${rango[1]}.` };
+        nuevo[campo] = g[campo] as number;
+      }
+      if (Object.keys(nuevo).length) out.goteoEmail = nuevo; else delete out.goteoEmail;
+    }
+  }
+  if ('sinVistaPrevia' in o) return { ok: false, error: 'La vista previa de un link se saca en el mensaje, con la X de su tarjeta.' };
   // Vacío = todo como el negocio: quien guarda BORRA la clave (`vacia`), no deja un '{}' (revisión del 20/10/2026).
   return { ok: true, config: out, valor: JSON.stringify(out), vacia: !tieneConfigPropia(out) };
 }

@@ -957,4 +957,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain?ws=3',
   },
+  {
+    fecha: '23 oct', hora: '11:35', chat: 'Landings de MaKo en Web Generator', sesion: 'local_90fdc31c-60c8-4fdb-b396-bd9807bb5067', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El Diagnóstico ya no muestra en blanco una página que no se deja mostrar adentro de MaKo',
+    puntos: [
+      'Medido en producción: la landing armada con JavaScript que se veía en blanco ya se ve con su página real, y el pedido que daba error (la dirección sin la barra final) ya no sale.',
+      'Quedaba un caso: una página que no se deja mostrar dentro de otra (GitHub, Webflow, Framer o una publicada en hola-mako.site) quedaba en blanco con un aviso que decía «se muestra la página real».',
+      'Ahora MaKo lo sabe al bajar la página y el recuadro dice «Esta página se dibuja con JavaScript y no deja mostrarse aquí», con el botón para abrirla.',
+      'No se vio con clics todavía: está probado con tests y contra páginas reales. Falta mirarlo en el Diagnóstico cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: '49ccca910', msg: 'Web Generator: el Diagnóstico ya no muestra en blanco una página que no se deja embeber', lineas: 339, archivos: 10 },
+    ],
+    archivos: [
+      'lib/landing-marco.ts — si la página se deja mostrar adentro de MaKo (las reglas del navegador)',
+      'lib/landing-fetch.ts — paginaParaVer: la página y sus cabeceras del marco',
+      'app/web-generator/diagnostico/VistaAfuera.tsx — no cae a la página real si no se deja',
+    ],
+  },
 ];

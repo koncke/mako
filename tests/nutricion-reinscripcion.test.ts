@@ -441,8 +441,9 @@ test('cada paso que sale re-anota la reunión, en un update APARTE del avance', 
   const accion = proc.slice(iniAccion, proc.indexOf('pasoConRelleno(paso)', iniAccion));
   // 3.600 desde el 08/10/2026 (medía 3.041): el reclamo compara también `nodo_actual` y el avance
   // sale del grafo. Sigue siendo la rama de la acción: la siguiente rama del motor mide el doble.
-  assert.ok(iniAccion > 0 && accion.length > 0 && accion.length < 3600, `la rama de la acción mide ${accion.length}`);
-  assert.match(accion, /if \(r\.estado !== 'saltado'\) await anotarReunionDelPaso\(insc\.id, sec, lead\);/, 'la acción avanzó la post-agenda sin re-anotar la reunión');
+  // 5.000 desde el 23/10/2026 (medía 3.987): el reintento de una acción que no corrió (el ws13, `fallosPrevios` y `devolver`).
+  assert.ok(iniAccion > 0 && accion.length > 0 && accion.length < 5000, `la rama de la acción mide ${accion.length}`);
+  assert.match(accion, /if \(r\.estado !== 'saltado' && !\(r\.estado === 'fallo' && r\.reintento\)\) await anotarReunionDelPaso\(insc\.id, sec, lead\);/, 'la acción avanzó la post-agenda sin re-anotar la reunión');
 });
 
 test('la reunión NUEVA del reuso es la R1 (`reunionQuePreparaMs`), nunca «la más próxima»', () => {

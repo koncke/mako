@@ -37,7 +37,9 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { computadorasAction, desconectarComputadoraAction, contestarPreguntaAction, creditoApiAction, creditoDelNegocioAction, fotoCentroAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { desconectarComputadoraAction, contestarPreguntaAction, creditoDelNegocioAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, type turnosCentroAction, type FotoCentro } from './acciones';
+// Las LECTURAS van por GET y no por acción (23/10/2026): ver ./lectura-centro.ts.
+import { leerCentro } from './lectura-centro';
 import type { CuentasConNombre } from '@/lib/centro-titulares';
 import type { LecturaCredito } from '@/lib/credito-api';
 import type { LecturaComputadoras } from '@/lib/ia-pc-reglas';
@@ -46,7 +48,7 @@ import { claveDeLinea, estabilizarLista, minutoDe, mismoValor } from '@/lib/cent
 import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, textoParaMandar, type Borrador } from '@/lib/centro-caja';
 import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
-import { recordarEnviadas } from './fotos-enviadas';
+import { barrerEnviadasViejas, recordarEnviadas } from './fotos-enviadas';
 import { textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
@@ -102,11 +104,14 @@ const trabajoDe = (p: Pedido): TrabajoP => ({
   id: p.id, destino: p.destino, destino_titulo: p.destino_titulo, destino_cuenta: p.destino_cuenta, created_at: p.created_at,
   texto: p.texto, estado: p.estado, motivo: p.motivo, entregado_at: p.entregado_at, cerrado_at: p.cerrado_at, cierre: p.cierre,
   ...(p.adjuntos?.length ? { adjuntos: p.adjuntos } : {}),
+  ...(p.fotos?.length ? { fotos: p.fotos } : {}),
 });
 
 export function useCentro(d: DatosCentro, avisar: Avisar) {
   const { base, pedidos, sub, tabs, responder, deshacer } = d;
   const [cola, setCola] = useState<Pedido[]>(d.colaInicial ?? []);
+  // Las miniaturas que este navegador guardaba antes del 23/10 y ya no tienen burbuja (fotos-enviadas.ts): una vez por carga.
+  useEffect(() => { void barrerEnviadasViejas(cola.map((p) => p.id)); }, [cola]);
   // Lo recién mandado se ve enseguida; cuando el refresco lo trae de la cola, se usa el de la cola.
   const [locales, setLocales] = useState<TrabajoP[]>([]);
   const [estado, setEstado] = useState<EstadoCarteros | null>(d.carterosIniciales);
@@ -179,10 +184,10 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   };
   /** El crédito de API de los planes Max, para la sección «API» del Uso (UsoCredito.tsx): se pide al abrirla. */
   const leerCreditoApi = async (): Promise<LecturaCredito> =>
-    (await creditoApiAction().catch(() => null)) ?? { ok: false, error: 'No pude leer el crédito: vuelve a intentarlo.' };
+    (await leerCentro<LecturaCredito>('credito').catch(() => null)) ?? { ok: false, error: 'No pude leer el crédito: vuelve a intentarlo.' };
   /** Las computadoras de los negocios (la sección «Computadoras» del Uso) y su «Desconectar»: devuelven la lista nueva. */
   const leerComputadoras = async (): Promise<LecturaComputadoras> =>
-    (await computadorasAction().catch(() => null)) ?? { ok: false, error: 'No pude leer las computadoras: vuelve a intentarlo.' };
+    (await leerCentro<LecturaComputadoras>('computadoras').catch(() => null)) ?? { ok: false, error: 'No pude leer las computadoras: vuelve a intentarlo.' };
   const desconectarComputadora = async (ws: number, id: number): Promise<LecturaComputadoras> =>
     (await desconectarComputadoraAction(ws, id).catch(() => null)) ?? { ok: false, error: 'No pude desconectarla: vuelve a intentarlo.' };
   /** El interruptor del crédito de Claude de un negocio (el ws1): devuelve la lectura nueva de la sección. */
@@ -193,7 +198,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const pedirTurnos = useCallback(async (c: ChatCentro) => {
     const locales = c.miembros.filter((m) => DESTINO_RE.test(m));
     if (!locales.length) return;
-    const r = await turnosCentroAction(locales, claveParaUrl(c)).catch(() => null);
+    // Por GET (23/10/2026): corre en cada refresco del chat abierto, y como acción hacía cola con las demás (lectura-centro.ts).
+    const r = await leerCentro<Awaited<ReturnType<typeof turnosCentroAction>>>('turnos', { l: locales, dir: claveParaUrl(c) }).catch(() => null);
     if (r?.ok) {
       // Si no cambió nada, se queda el MISMO arreglo: así la conversación memorizada no se vuelve a dibujar en cada refresco.
       setTurnos((t) => (mismosTurnos(t[c.clave], r.turnos) ? t : { ...t, [c.clave]: r.turnos }));
@@ -339,7 +345,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const refrescar = useCallback(async () => {
     // ⚠️ UN REFRESCO QUE FALLA NO CAMBIA LO DIBUJADO (22/10/2026): un 503 hace que la acción TIRE (Next: «An unexpected response
     // was received from the server»). Queda lo último que se vio, sin tocar ninguna fila, y el intervalo reintenta.
-    const f = await fotoCentroAction().catch(() => null);
+    // Por GET (23/10/2026): una acción hacía cola con las demás y frenaba la Ticketera y el Uso (lectura-centro.ts).
+    const f = await leerCentro<FotoCentro>('foto').catch(() => null);
     // ⚠️ CADA COSA CAMBIA SÓLO SI CAMBIÓ (23/10/2026, un chat trabajando trababa 0,7–3,6 s en cada vuelta de 2,5 s): con un
     // arreglo nuevo de lo mismo se rehacían todos los chats y su historial, y se volvía a dibujar la lista y el hilo enteros.
     // `mismoValor` devuelve el de antes si vale lo mismo (lib/centro-estable.ts).
@@ -362,7 +369,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', volver); };
   }, [refrescar, apurado]);
   // Vercel, después de dibujar.
-  useEffect(() => { let vivo = true; pushesCentroAction().then((p) => { if (vivo) setPushes(p); }).catch(() => {}); return () => { vivo = false; }; }, []);
+  // Por GET (23/10/2026): como acción, sus hasta 8 s esperando a Vercel dejaban en la cola a todas las demás.
+  useEffect(() => { let vivo = true; leerCentro<LecturaPushes>('pushes').then((p) => { if (vivo) setPushes(p); }).catch(() => {}); return () => { vivo = false; }; }, []);
 
   // ── Las preguntas de cada chat (la Ticketera de ESE chat, arriba de su caja) ──────────────────────
   // Contestar acá o en la Ticketera guarda lo mismo; lo de acá se ve en el acto (el refresco trae la verdad).
@@ -538,8 +546,9 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
       id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: texto.trim() || TEXTO_SOLO_ADJUNTOS,
       estado: 'escrito', motivo: null, cierre: null, ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
     });
-    // Las fotos se quedan en este navegador para dibujarlas en su burbuja (FotosEnviadas.tsx: el bucket las borra al entregar).
-    if (subidos.length) recordarEnviadas(r.id, archivos.map((a) => a.file));
+    // Las fotos se ven en el acto en este navegador, y su miniatura sube al servidor para verla en otro dispositivo
+    // (FotosEnviadas.tsx: el bucket borra el original al entregar). `subidos` va en el orden de `archivos`.
+    if (subidos.length) recordarEnviadas(r.id, archivos.map((a) => a.file), subidos);
     vaciarAdjuntos(c.clave);
     limpiarBorrador(c.clave);
     citar(c.clave, null);

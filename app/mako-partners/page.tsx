@@ -29,7 +29,7 @@ export default function MakoPartnersPage() {
             <ul>
               <li>Tu link está en MaKo › MaKo Partners.</li>
               <li>Cuando tu referido paga su {PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`} mes, se te suma su primer mes como crédito.</li>
-              <li>El crédito se acumula y se descuenta de tus próximos meses: dos referidos de Pro pagan tu mes de Growth.</li>
+              <li>El crédito se acumula y se descuenta de tus próximos meses: un referido de Pro te paga un mes de Pro.</li>
             </ul>
             <Link className="planes-btn" href="/partners/referidos">Ver mi link</Link>
           </section>

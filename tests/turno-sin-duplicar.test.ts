@@ -162,7 +162,7 @@ test('los dos que crean pendientes desde el doer pasan el inicio del turno, y cr
   const iRepetida = cuerpo.indexOf('pendienteRepetida(');
   const iInsert = cuerpo.indexOf('.insert(');
   assert.ok(iRepetida > 0 && iInsert > iRepetida, 'la búsqueda de la repetida tiene que ir antes del insert');
-  assert.match(cuerpo, /if \(repetida != null\) \{[\s\S]*return repetida;/);
+  assert.match(cuerpo, /if \(repetida != null\) \{[\s\S]*return \{ id: repetida \};/);
 });
 
 // Probado rompiéndolo (07/10/2026), una rotura por vez y con todo en verde antes: 12

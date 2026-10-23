@@ -120,7 +120,8 @@ test('quitar vuelve a contar en el server (esconder la X no protege nada)', () =
 
 test('el tablero de un producto trae también a sus AGREGADOS, con la etapa de la fila', () => {
   const leads = sinComentarios(leer('lib/leads.ts'));
-  assert.match(leads, /const agregados = await agregadosDelTablero\(supabase, funnelId, new Set\(filas\.map\(\(l\) => l\.id\)\)\);/);
+  // Sus filas de lead_funnel se leen a la vez que los leads (23/10/2026, «Rendimiento y loaders»); sus leads, después.
+  assert.match(leads, /filasDeAgregados\(supabase, funnelId\),\n\s*\]\);\n\s*const agregados = await agregadosDelTablero\(supabase, deFilas, new Set\(filas\.map\(\(l\) => l\.id\)\)\);/);
   // Y se DEVUELVEN: leerlos sin sumarlos es un tablero que no los dibuja, en verde.
   assert.match(leads, /return \[\.\.\.filas, \.\.\.agregados\]\.sort\(/);
   assert.match(leads, /pipeline_stage: etapa\.get\(l\.id\) \?\? l\.pipeline_stage, de_fila: id/);

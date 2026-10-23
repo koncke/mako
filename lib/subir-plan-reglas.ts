@@ -8,6 +8,16 @@ import { precioEn, type PlanMako } from './planes-mako';
 
 /** El plan al que se sube desde «Tu plan» y los carteles de tope (lib/topes-plan.ts, RUTA_CAMBIAR_PLAN). */
 export const PLAN_PRO = 'pro';
+/**
+ * «Pasar a Pro» SIN pasarela (23/10/2026). Todo cartel de tope lleva a «Tu plan» (RUTA_CAMBIAR_PLAN), y ahí la subida en el
+ * acto existe sólo para quien paga Esencial POR LA PASARELA. Hasta que MaKo cobre en línea nadie paga así, y el «Pasar a
+ * Pro» de un tope caía en una pantalla sin ninguna forma de pasar a Pro. A quien está en Esencial (capa `completo`) y no
+ * tiene esa subida se le ofrece la agenda: una llamada y el cambio a mano. Pro (`agencia`) no sube a nada.
+ */
+export function proPorLlamada(p: { capa: string | null; subidaEnLinea: boolean }): boolean {
+  return p.capa === 'completo' && !p.subidaEnLinea;
+}
+
 /** La marca de «se está subiendo» (compare-and-set): dos clics, o dos pestañas, no cobran dos veces. */
 export const CLAVE_SUBIDA = 'plan.subida';
 /** Una subida que quedó «aplicando» más que esto (un corte a mitad de camino) se puede volver a intentar. */

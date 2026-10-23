@@ -22,7 +22,7 @@ import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { getCobroPorToken } from '@/lib/cobros';
-import { emailEnmascarado } from '@/lib/cobros-reglas';
+import { emailEnmascarado, mailDeAccesoNoSalio } from '@/lib/cobros-reglas';
 import { esTokenCobro, NOMBRE_PASARELA, type Cobro } from '@/lib/cobros-tipos';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { nombreDelNegocio, usuarioDelAlta } from '../../acceso';
@@ -193,6 +193,8 @@ async function AltaDeMako({ c }: { c: Cobro }) {
         yaEntro={!!u.ultimo_login}
         puedeCambiar={!u.ultimo_login && cambiosRestantes(c) > 0 && dentroDeLaVentana(c)}
         contacto={EMAIL_MAKO}
+        // Con el mail caído no se le dice «te mandamos el acceso» (revisión del 23/10/2026): esperaría un mail que no llega.
+        mailSalio={!mailDeAccesoNoSalio(c.alta_motivo)}
       />
     );
   }

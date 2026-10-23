@@ -76,6 +76,7 @@ import { reentradaDe, puedeReentrar, esReentrada, barridoEsEvento, type Reentrad
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from '@/lib/nutricion-paso-accion';
+import { sinMediosEmojis } from '@/lib/unicode-seguro';
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
   escenariosDeRespuesta, expandirPasoIA, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
@@ -104,7 +105,7 @@ import { hoyEnTz } from '@/lib/date-utils';
 import { getSettingEstricto, cambiarSettingSi, setSetting } from '@/lib/settings';
 import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
-import { cerradasAhora, horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { cerradasAhora, horarioDeLaAutomatizacion, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 import { configsDelNegocio, leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { duplicadaAlActivar, avisoDuplicada, type Duplicada, type CronParaComparar } from '@/lib/automatizacion-duplicada';
 import {
@@ -456,12 +457,6 @@ const VENTANA_DIAS = 30;
 // El tope DIARIO del email, aparte. Su porqué no es el ban de una línea: el email de nutrición
 // sale por Resend con el remitente del negocio, y un envío masivo de golpe es lo que hunde la
 // reputación de ese dominio (los mails empiezan a caer en spam, incluidos los transaccionales).
-// Excepción del freno a la misma persona (reunión 31/07): con una reunión encima, la
-// cadencia de preparación exige toques cercanos ("si chateo dos veces y le mando
-// un audio, ya no falta"). El presupuesto anti-ban de una CONVERSACIÓN abierta o
-// de un lead con reunión próxima no es el de la prospección fría.
-const HS_MIN_PREPARACION = 3;
-const HS_REUNION_CERCA = 48;      // reunión dentro de este plazo → cadencia de preparación
 // ⛔ LA VENTANA FIJA DE 9 A 21 SE FUE (sexta tanda, 09/10/2026). Era `VENTANA_INICIO = 9` y
 // `VENTANA_FIN = 21`, sin forma de apagarla. Decisión de Martín: «Sin límite, editable» — las
 // esperas se cumplen a la hora exacta, de día o de noche, y cada negocio puede poner un horario en
@@ -2949,9 +2944,6 @@ async function residuoYaUsado(idsResiduo: readonly number[]): Promise<number> {
   }
 }
 
-// Set de lead_ids que ya recibieron un envío (nutrición o broadcast) en las
-// últimas `personaHoras` (Configuraciones › Límites) — calculado en 2 queries batch para TODOS los
-// leads de la corrida (antes eran 2 count-queries POR lead dentro del loop: N+1).
 /**
  * Leads a los que el negocio YA les habló alguna vez por nutrición.
  *
@@ -3001,93 +2993,6 @@ async function leadsYaContactados(leadIds: number[]): Promise<Set<number>> {
   for (const id of envios) set.add(id);
   for (const id of espejo) set.add(id);
   return set;
-}
-
-/**
- * El freno de 20 h, leído de la base, POR CANAL (decisión 5 de la segunda tanda, 08/10/2026).
- *
- * ⚠️ CONTABA TODOS LOS CANALES JUNTOS: un email frenaba al WhatsApp 20 h y al revés, así que el
- * ejemplo de Martín —WhatsApp y email desde el mismo CRON— salía con un día de diferencia. El de
- * WhatsApp cuenta lo que salió por WhatsApp (la nutrición y el espejo, con la excepción de la
- * reunión cercana); el de email, la nutrición por email y los envíos masivos.
- *
- * Se lee UNA vez por lote: lo que el lote acaba de mandar lo sabe `enviadoEnCorrida`, en memoria
- * (`frenadoPorAntiBan` mira las dos cosas).
- */
-async function leadsConEnvioReciente(leadIds: number[], personaHoras: { whatsapp: number; email: number }): Promise<RecientesPorCanal> {
-  const set = new Set<number>();
-  const email = new Set<number>();
-  if (leadIds.length === 0) return { whatsapp: set, email };
-  const supabase = (await getTenantDb());
-  // Las horas entre dos mensajes a la misma persona, POR CANAL (Configuraciones › Límites, décima tanda;
-  // eran 20 h cableadas, `HS_MIN_ENTRE_MSGS`). La excepción de la reunión cercana no se configura.
-  const desde = haceHorasISO(personaHoras.whatsapp);
-  const desdeEmail = haceHorasISO(personaHoras.email);
-  const desdeCorto = haceHorasISO(HS_MIN_PREPARACION);
-  // Leads con reunión FUTURA cercana: están en cadencia de preparación. Va
-  // PRIMERO porque parte a los leads en dos ventanas distintas (abajo).
-  const { data: prepData } = await supabase.from('leads')
-    .select('id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at').in('id', leadIds);
-  const prep = new Set<number>();
-  for (const l of (prepData ?? []) as Array<{ id: number } & JuntasLead>) {
-    const ms = reunionFuturaMs(l);
-    if (ms != null && ms - Date.now() <= HS_REUNION_CERCA * 3600 * 1000) prep.add(l.id);
-  }
-  // Con reunión encima, el guard baja de 20h a HS_MIN_PREPARACION: los toques
-  // de preparación son lo que baja el no-show y no son prospección fría. Antes
-  // se traían todas las filas de la ventana larga y se descartaban en memoria
-  // las viejas de los leads en preparación; ahora cada grupo pregunta con SU
-  // ventana, que es lo mismo pero sin bajar filas de más.
-  const enPrep = leadIds.filter((id) => prep.has(id));
-  const fuera = leadIds.filter((id) => !prep.has(id));
-  // Todas preguntan «¿hay al menos una?» por exclusión (lib/ids-con-filas.ts):
-  // los `.in()` sueltos de antes volvían cortados en 1000 filas sobre
-  // wa_mensajes, y el guard creía que a un lead no le habíamos mandado nada
-  // hace poco cuando sí.
-  const porVentana = (
-    ids: number[],
-    desdeISO: string,
-    q: (pend: number[], desdeISO: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
-    tabla: string,
-  ) => (ids.length === 0 ? Promise.resolve(new Set<number>()) : idsConAlMenosUnaFila(ids, (pend) => leadIdsDe(q(pend, desdeISO), tabla)));
-  const qNutri = (canal: CanalNutricion) => (pend: number[], d: string) => supabase.from('nutricion_envios').select('lead_id')
-    .in('lead_id', pend).in('estado', ['enviado', 'simulado']).eq('canal', canal).gte('created_at', d);
-  const qEspejo = (pend: number[], d: string) => supabase.from('wa_mensajes').select('lead_id')
-    .in('lead_id', pend).eq('from_me', true).gte('wa_timestamp', d);
-  // EL EMAIL, CON SU PROPIO FRENO: la nutrición por email y el masivo, con SUS horas (20 de fábrica), sin
-  // la excepción de la reunión cercana (esa es la cadencia de preparación de una conversación por WhatsApp).
-  const [eNutri, eMasivo] = await Promise.all([
-    porVentana(leadIds, desdeEmail, qNutri('email'), 'nutricion_envios'),
-    porVentana(leadIds, desdeEmail, (pend, d) => supabase.from('email_broadcast_envios').select('lead_id')
-      .in('lead_id', pend).in('estado', ['enviado', 'simulado']).gte('created_at', d), 'email_broadcast_envios'),
-  ]);
-  for (const r of [eNutri, eMasivo]) for (const id of r) email.add(id);
-  const resultados = await Promise.all([
-    porVentana(fuera, desde, qNutri('whatsapp'), 'nutricion_envios'),
-    porVentana(enPrep, desdeCorto, qNutri('whatsapp'), 'nutricion_envios'),
-    // LO QUE SALIÓ DE VERDAD, no solo lo que mandó la app. El guard anti-ban
-    // pregunta «¿este lead ya recibió algo hace poco?», y las dos tablas de
-    // arriba solo saben de la nutrición: un mensaje que el dueño escribió a
-    // mano desde su propio teléfono era invisible, así que la máquina le
-    // encimaba el suyo minutos después. Es el mismo punto ciego que
-    // `leadsYaContactados` tenía y que se cerró el 08/09/2026 — estaban a una
-    // función de distancia y solo se arregló una.
-    //
-    // ⚠️ LO QUE ESTO SIGUE SIN VER: el canal OFICIAL. El espejo es de Evolution
-    // (el no oficial); lo que sale por Meta/n8n no toca ninguna de las tres
-    // tablas. Mientras una automatización de afuera le hable a los mismos
-    // leads, ningún guard nuestro puede saberlo. No es un descuido de acá: es
-    // el límite de lo que se puede medir, y por eso está escrito.
-    //
-    // El espejo entra con la MISMA excepción de preparación que la nutrición: con
-    // una reunión encima la cadencia baja a HS_MIN_PREPARACION, y si no valiera
-    // acá, un lead que contestó y al que el dueño le respondió a mano quedaría
-    // congelado 20h justo en los días en que hay que confirmarle la reunión.
-    porVentana(fuera, desde, qEspejo, 'wa_mensajes'),
-    porVentana(enPrep, desdeCorto, qEspejo, 'wa_mensajes'),
-  ]);
-  for (const r of resultados) for (const id of r) set.add(id);
-  return { whatsapp: set, email };
 }
 
 /**
@@ -3824,11 +3729,11 @@ function partesConDatos(partes: readonly ParteMensaje[], vars: Record<string, st
  * primero. TIRA si no puede leer: sin saber cuántos salieron, el goteo no puede decir que hay lugar, y la corrida vuelve
  * en un minuto (como el tope de la línea, `enviosUltimas24h`).
  */
-async function usoDelGoteo(db: Awaited<ReturnType<typeof getTenantDb>>, ids: readonly number[]): Promise<Map<number, UsoGoteo>> {
+async function usoDelGoteo(db: Awaited<ReturnType<typeof getTenantDb>>, ids: readonly number[], canal: 'whatsapp' | 'email' = 'whatsapp'): Promise<Map<number, UsoGoteo>> {
   const filas = await leerTodo<{ id: number; secuencia_id: number | string; created_at: string }>(db, 'nutricion_envios', 'id, secuencia_id, created_at', {
     orden: 'id',
     // Lo que salió Y lo que quedó para aprobar (`ESTADOS_DEL_GOTEO`, 22/10/2026): con aprobación, los borradores nacen de a uno.
-    filtros: (q) => q.in('secuencia_id', [...ids]).eq('canal', 'whatsapp').in('estado', [...ESTADOS_DEL_GOTEO]).gte('created_at', haceHorasISO(24)) as ConsultaPaginada,
+    filtros: (q) => q.in('secuencia_id', [...ids]).eq('canal', canal).in('estado', [...ESTADOS_DEL_GOTEO]).gte('created_at', haceHorasISO(24)) as ConsultaPaginada,
   });
   const out = new Map<number, UsoGoteo>();
   for (const f of filas) {
@@ -4028,13 +3933,22 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   const goteos = new Map<number, Goteo>();
   for (const [id, c] of configsCorrida) if (c.goteo && (c.goteo.minutos != null || c.goteo.dia != null)) goteos.set(id, c.goteo);
   const usoGoteo = goteos.size ? await usoDelGoteo(supabase, [...goteos.keys()]) : new Map<number, UsoGoteo>();
+  // EL GOTEO DEL EMAIL (23/10/2026, Martín: «en Email también pon goteo y tope por día»): el mismo, con lo que salió por email.
+  const goteosEmail = new Map<number, Goteo>();
+  for (const [id, c] of configsCorrida) if (c.goteoEmail && (c.goteoEmail.minutos != null || c.goteoEmail.dia != null)) goteosEmail.set(id, c.goteoEmail);
+  const usoGoteoEmail = goteosEmail.size ? await usoDelGoteo(supabase, [...goteosEmail.keys()], 'email') : new Map<number, UsoGoteo>();
+  const frenadasGoteoEmail = new Map<number, number>();
   /** Cuántas filas frenadas por el goteo ya se corrieron a su turno, por automatización, en esta corrida. */
   const frenadasGoteo = new Map<number, number>();
   const frenoGoteo = (secId: number) => frenoDeGoteo(goteos.get(secId), usoGoteo.get(secId) ?? SIN_USO, Date.now());
+  const frenoGoteoEmail = (secId: number) => frenoDeGoteo(goteosEmail.get(secId), usoGoteoEmail.get(secId) ?? SIN_USO, Date.now());
+  /** El goteo que le toca a un mensaje: el de su canal (23/10/2026: antes el de WhatsApp frenaba también al email). */
+  const esEmail = (canal: string | null | undefined): boolean => canal === 'email';
   /** ¿Lo frena la LÍNEA? Lo que entra, con el cupo entero; lo demás, con el de campaña. */
   const sinLugarEnLaLinea = (leadId: number): boolean => cupoLleno() || (!frescos.has(leadId) && waEnCorrida >= cupoCampana);
   /** ¿Un MENSAJE de esta fila se queda sin lugar en esta corrida? La línea, o el goteo de su automatización. */
-  const sinLugar = (insc: { lead_id: number; secuencia_id: number }): boolean => sinLugarEnLaLinea(insc.lead_id) || frenoGoteo(insc.secuencia_id).frena;
+  const sinLugar = (insc: { lead_id: number; secuencia_id: number }, canal: string | null | undefined): boolean =>
+    sinLugarEnLaLinea(insc.lead_id) || (esEmail(canal) ? frenoGoteoEmail(insc.secuencia_id) : frenoGoteo(insc.secuencia_id)).frena;
   /** ¿Este nodo puede correr con el cupo de WhatsApp lleno? Una acción sí; un email, si queda su tope. */
   const sigueSinCupoWa = (p: PasoSecuencia): boolean => esPasoAccion(p) || (claseDe(p) === 'mensaje' && p.canal === 'email' && !emailLleno());
   /** Y por su lugar en el flujo: lo del carril también (M3 e). */
@@ -4148,12 +4062,14 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
    * (`turnoDeGoteo`): sin esto quedaba vencida con la hora vieja, el tick (que mira lo vencido hace ≤10 min) no la veía, y
    * el goteo de 5 minutos salía de a uno por HORA. Si la frena la línea, lo de siempre (`aplazarSiTapa`).
    */
-  const quedaFrenada = async (insc: FilaCola, sec: Secuencia | undefined): Promise<void> => {
-    const g = goteos.get(insc.secuencia_id);
-    const f = frenoGoteo(insc.secuencia_id);
+  const quedaFrenada = async (insc: FilaCola, sec: Secuencia | undefined, canal?: string | null): Promise<void> => {
+    const email = esEmail(canal);
+    const g = (email ? goteosEmail : goteos).get(insc.secuencia_id);
+    const f = (email ? frenoGoteoEmail : frenoGoteo)(insc.secuencia_id);
     if (g && f.frena && !sinLugarEnLaLinea(insc.lead_id)) {
-      const k = frenadasGoteo.get(insc.secuencia_id) ?? 0;
-      frenadasGoteo.set(insc.secuencia_id, k + 1);
+      const frenadas = email ? frenadasGoteoEmail : frenadasGoteo;
+      const k = frenadas.get(insc.secuencia_id) ?? 0;
+      frenadas.set(insc.secuencia_id, k + 1);
       await escribir(insc, { proximo_envio_at: new Date(turnoDeGoteo(f.desdeMs, k, g)).toISOString() }, { modo: 'fila' });
       return;
     }
@@ -4400,22 +4316,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         asistio_j1?: boolean | null; asistio_j2?: boolean | null; estado_lead?: string | null;
       } & JuntasLead>).map((l) => [l.id, l]),
     );
-    // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop). 20/10/2026: con las horas de CADA
-    // automatización (las propias o las del negocio, `personaHorasDeLaAutomatizacion`): una lectura por ventana distinta
-    // del lote, que casi siempre es una sola.
-    const ventanaDe = (secId: number) => personaHorasDeLaAutomatizacion(configsCorrida.get(secId) ?? {}, limites);
-    const claveVentana = (v: { whatsapp: number; email: number }): string => `${v.whatsapp}:${v.email}`;
-    const porVentana = new Map<string, { v: { whatsapp: number; email: number }; leads: Set<number> }>();
-    for (const d of due) {
-      const v = ventanaDe(d.secuencia_id);
-      const g = porVentana.get(claveVentana(v)) ?? { v, leads: new Set<number>() };
-      g.leads.add(d.lead_id);
-      porVentana.set(claveVentana(v), g);
-    }
-    const recientesPorVentana = new Map<string, RecientesPorCanal>();
-    for (const [k, g] of porVentana) recientesPorVentana.set(k, await leadsConEnvioReciente([...g.leads], g.v));
-    const conEnvioRecienteDe = (secId: number): RecientesPorCanal =>
-      recientesPorVentana.get(claveVentana(ventanaDe(secId))) ?? { whatsapp: new Set<number>(), email: new Set<number>() };
+    // ⚠️ SIN «MISMA PERSONA» (23/10/2026, Martín: «elimina "Misma persona"»; el Cerebro: si la pantalla no la muestra, el
+    // motor no la aplica). Era una ventana leída de la base (20 h de fábrica, 3 h con una reunión encima) que frenaba el
+    // mensaje a quien ya había recibido algo. Lo que queda es el freno de la MISMA corrida (`frenadoPorAntiBan` con
+    // `enviadoEnCorrida`): dos mensajes al mismo lead en el mismo minuto, por dos automatizaciones, no salen juntos.
+    const SIN_VENTANA: RecientesPorCanal = { whatsapp: new Set<number>(), email: new Set<number>() };
+    const conEnvioRecienteDe = (_secId: number): RecientesPorCanal => SIN_VENTANA;
     // Quién ya recibió algo alguna vez → decide cuál de los dos pasos de
     // apertura sale (presentarse o retomar). También en batch.
     const yaContactados = await leadsYaContactados(leadIds);
@@ -4488,7 +4394,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       const pasoLeido = sec && idxLeido >= 0 ? sec.pasos[idxLeido] : undefined;
       // Con el cupo de mensajes lleno, un MENSAJE queda para la corrida que viene, sin
       // tocarlo (era un `break`: lo mismo para los mensajes). Una ACCIÓN sigue: no gasta cupo. El carril, también.
-      if (sinLugar(insc) && !(pasoLeido && sec && sigueSinCupo(sec.pasos, idxLeido))) { await quedaFrenada(insc, sec); continue; }
+      if (sinLugar(insc, pasoLeido?.canal) && !(pasoLeido && sec && sigueSinCupo(sec.pasos, idxLeido))) { await quedaFrenada(insc, sec, pasoLeido?.canal); continue; }
       if (!sec || !pasoLeido) {
         // Una automatización SIN salida (sólo «Si responde») no tiene nada que mandar por su
         // cuenta: la inscripción queda ACTIVA y sin próximo envío, esperando que el lead
@@ -4607,7 +4513,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         insc.paso_actual = r.idx;
         insc.nodo_actual = idDe(destino, r.idx);
         if (!enSuHora) { res.detalle.push({ lead_id: insc.lead_id, canal: destino.canal, estado: 'saltado', nota: 'espera su hora' }); continue; }
-        if (sinLugar(insc) && !sigueSinCupo(sec.pasos, r.idx)) { await quedaFrenada(insc, sec); continue; }
+        if (sinLugar(insc, destino.canal) && !sigueSinCupo(sec.pasos, r.idx)) { await quedaFrenada(insc, sec, destino.canal); continue; }
         // Lo que esta corrida no puede mover (fuera del horario) queda en su tarjeta y sale al abrir.
         if (!seMueve(r.idx)) continue;
       } else if (idxLeido !== insc.paso_actual || (insc.nodo_actual != null && insc.nodo_actual !== idDe(pasoLeido, idxLeido))) {
@@ -4918,13 +4824,33 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
                 inscripcion_id: insc.id, lead_id: insc.lead_id, secuencia_id: insc.secuencia_id, paso: n,
                 nodo_id: idDe(paso, insc.paso_actual),
                 canal: paso.canal, estado: x.estado, destino: null, asunto: x.operacion,
-                error: x.estado === 'fallo' ? x.resumen : null,
+                // Sin medio emoji: el motivo puede traer un pedazo del texto, y eso la base no lo acepta (lib/unicode-seguro.ts).
+                error: x.estado === 'fallo' ? sinMediosEmojis(x.resumen) : null,
               });
               if (error) throw new Error(error.message);
             },
+            // ⚠️ EL REINTENTO DE UNA ACCIÓN QUE NO CORRIÓ (23/10/2026, el ws13: el aviso fallaba y la inscripción quedaba
+            // `completada` en el paso 1). Sólo en el caso simple: sin hilos, sin flechas en paralelo que el reclamo arrancó, fuera
+            // del carril y con la fila 'activa'. Ahí devolverla es UN compare-and-set contra lo que escribió el reclamo; con hilos
+            // habría que deshacer los que arrancó, y eso no se hace a ciegas.
+            ...(!carril && !sanearHilos(insc.hilos) && !nuevosAccion.length && estadoLeido(insc) === 'activa'
+              ? {
+                fallosPrevios: async () => {
+                  const { count, error } = await supabase.from('nutricion_envios').select('id', { count: 'exact', head: true })
+                    .eq('inscripcion_id', insc.id).eq('paso', n).eq('estado', 'fallo').eq('asunto', String(paso.accion?.operacion ?? ''));
+                  if (error) throw new Error(error.message);
+                  // Corre ANTES de `registrar`: el 'fallo' de este intento todavía no está.
+                  return count ?? 0;
+                },
+                devolver: (enMs: number) => moverConCas(
+                  { id: insc.id, paso_actual: siguientePaso ? sigIdx : n, nodo_actual: siguientePaso ? idDe(siguientePaso, sigIdx) : null, estado: siguientePaso ? 'activa' : 'completada' },
+                  { paso_actual: insc.paso_actual, nodo_actual: insc.nodo_actual ?? null, estado: 'activa', proximo_envio_at: new Date(Date.now() + enMs).toISOString() },
+                ),
+              }
+              : {}),
           },
         );
-        if (r.estado !== 'saltado') await anotarReunionDelPaso(insc.id, sec, lead);
+        if (r.estado !== 'saltado' && !(r.estado === 'fallo' && r.reintento)) await anotarReunionDelPaso(insc.id, sec, lead);
         // ⚠️ SI LO QUE SIGUE YA TOCA, SE MIRA EN ESTA MISMA CORRIDA. El lienzo dice «Enseguida»
         // sobre un paso a 0 h, y la fila ya está en `vistos`: sin esto, «mover de etapa» +
         // «crear la tarea» + el mensaje de después saldrían de a uno por hora de cron. Se
@@ -4933,7 +4859,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // ⚠️ Y LOS HILOS QUE LA ACCIÓN ARRANCÓ TAMBIÉN (`vuelveALaCola`): sin siguiente, o con un
         // siguiente «en 2 h», un destino «Enseguida» de una flecha en paralelo esperaba al cron de
         // la hora siguiente (revisión del 09/10/2026).
-        if (r.estado !== 'saltado' && vuelveALaCola(proximo, nuevosAccion, Date.now())) {
+        if (r.estado !== 'saltado' && !(r.estado === 'fallo' && r.reintento) && vuelveALaCola(proximo, nuevosAccion, Date.now())) {
           vistos.delete(insc.id);
           otraVuelta = true;
         }
@@ -5134,7 +5060,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // la secuencia (`null` = la de por default), y si puede mandar ahora. Una línea pedida que no es
         // del negocio no está en `lineasEvo`: `canalDeLinea` la frena con su motivo, sin caer a otra.
         const lineaSec = lineaDelPaso(paso) ?? sec.instance_name;
-        // Sus links sin la tarjeta de vista previa (#869): en lo que sale y en el borrador que lo espera.
+        // Sus links sin la tarjeta de vista previa (#869): en lo que sale y en el borrador que lo espera. La de CADA mensaje
+        // (23/10/2026: se saca con la X de la tarjeta del link en el editor, no en Configuraciones).
         const sinTarjeta = sinVistaPrevia(paso);
         if (partesMulti) {
           // ⚠️ «NO PUDE LEER» NO ES «NO SALIÓ NINGUNA». Sin saber cuántas salieron no se manda nada ni
@@ -5472,6 +5399,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // El goteo cuenta el WhatsApp que SALIÓ de esta automatización, también en esta corrida (el siguiente espera sus minutos).
       if (paso.canal === 'whatsapp' && cuentaParaElCupo({ carril: carril != null })) {
         if (cuentaParaElGoteo(estado) && goteos.has(insc.secuencia_id)) usoGoteo.set(insc.secuencia_id, conEnvio(usoGoteo.get(insc.secuencia_id) ?? SIN_USO, Date.now()));
+      }
+      // Y el email que SALIÓ, para el goteo del email (23/10/2026).
+      if (paso.canal === 'email' && cuentaParaElGoteo(estado) && goteosEmail.has(insc.secuencia_id)) {
+        usoGoteoEmail.set(insc.secuencia_id, conEnvio(usoGoteoEmail.get(insc.secuencia_id) ?? SIN_USO, Date.now()));
       }
       if (estado === 'enviado' || estado === 'simulado' || estado === 'borrador') anotarEnCorrida(enviadoEnCorrida, insc.lead_id, paso.canal);
       res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado, ...(nota ? { nota } : {}) });
@@ -6501,6 +6432,8 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
  */
 async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: number, inscId: number | null): Promise<{ texto: string; contesto: boolean }> {
   const { leadId, secuencia, supabase, lead, linea } = c;
+  // Sus links sin la tarjeta de vista previa: la de este mensaje (la X de la tarjeta del link en el editor).
+  const sinTarjeta = sinVistaPrevia(p);
   const no = (texto: string) => ({ texto, contesto: false });
   const si = (texto: string) => ({ texto, contesto: true });
   // El reclamo de esta tarjeta para esta inscripción, JUSTO antes de mandar o dejar el borrador
@@ -6574,12 +6507,12 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
     if (!audio || !b64) { await registrar('fallo', audio ? 'no pude bajar el audio del paso' : 'el audio del paso ya no existe', null); return no('No salió la nota de voz: el audio no está.'); }
     if (!(await reclamar())) return yaSalio;
     if (!sale) {
-      await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, audioId: audio.id, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinVistaPrevia(p) });
+      await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, audioId: audio.id, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinTarjeta });
       await registrar('borrador', null, pie || null);
       return si(`Te dejé la nota de voz «${audio.titulo}» para aprobar.`);
     }
     const r = await enviarAudioYEspejar({ telefono: lead.telefono, base64: b64, mimetype: audio.media_mime, leadId, linea });
-    if (r.ok && pie.trim()) await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinVistaPrevia(p) }).catch(() => { /* el audio ya salió */ });
+    if (r.ok && pie.trim()) await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinTarjeta }).catch(() => { /* el audio ya salió */ });
     await registrar(r.ok ? 'enviado' : 'fallo', r.ok ? null : (r.error ?? 'no salió'), pie.trim() || null);
     return r.ok ? si(`Le mandé la nota de voz «${audio.titulo}».`) : no(`No salió la nota de voz (${(r.error ?? '').slice(0, 120)}).`);
   }
@@ -6602,11 +6535,11 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
   if (!pie.trim()) return no('Un mensaje de la rama estaba vacío: no salió.');
   if (!(await reclamar())) return yaSalio;
   if (!sale) {
-    await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinVistaPrevia(p) });
+    await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinTarjeta });
     await registrar('borrador', null, pie);
     return si(`Te dejé para aprobar: «${pie.slice(0, 120)}».`);
   }
-  const r = await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinVistaPrevia(p) });
+  const r = await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinTarjeta });
   await registrar(r.ok ? 'enviado' : 'fallo', r.ok ? null : (r.error ?? 'no salió'), pie);
   return r.ok ? si(`Le contesté: «${pie.slice(0, 120)}».`) : no(`No salió la respuesta (${(r.error ?? '').slice(0, 120)}).`);
 }

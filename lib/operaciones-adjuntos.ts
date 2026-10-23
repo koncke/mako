@@ -15,6 +15,8 @@ import 'server-only';
 //    la PC está por entregar.
 // ⚠️ EL BINARIO NO QUEDA: se borra cuando el trabajo termina para la PC (cualquier acuse), cuando se cancela y cuando
 //    vence. Lo subido que nunca se firmó (se cerró la pestaña entre subir y firmar) queda: no hay barrido todavía.
+//    Lo que SÍ queda, desde el 23/10/2026, es la MINIATURA de una foto (640 px, la arma el navegador que la mandó): para
+//    verla en otro dispositivo. Abajo, «Las fotos enviadas».
 
 import { createHash, randomUUID } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
@@ -22,7 +24,8 @@ import { BUCKET_ADJUNTOS } from './chart-chats';
 import { validarAdjuntos } from './mako-adjuntos';
 import {
   DESTINO_RE, MAX_ADJUNTOS, MAX_BYTES_ADJUNTO, MAX_BYTES_ADJUNTO_TURNO, MAX_NOMBRE_ADJUNTO, MIMES_ADJUNTO, MIMES_ADJUNTO_TURNO, UUID_RE,
-  leerFirmable, refAdjuntoTurno, type AdjuntoPedido, type MimeAdjunto, type TurnoChat,
+  MINIATURA_VENCE_MS, fotosDeFirmado, leerFirmable, mimeDeMiniatura, miniaturasVencidas, problemaDeMiniatura, refAdjuntoTurno,
+  type AdjuntoPedido, type FotoDeTrabajo, type MimeAdjunto, type TurnoChat,
 } from './operaciones-reglas';
 
 /** Fuera de los `<ws>/…` del Archivero: los trabajos del Centro son de la plataforma, como sus tablas (mig 0285). */
@@ -113,6 +116,107 @@ export async function conUrlsDeTurnos(turnos: TurnoChat[]): Promise<TurnoChat[]>
   const urls = new Map<string, string>();
   for (const d of data ?? []) if (d.path && d.signedUrl) urls.set(d.path, d.signedUrl);
   return turnos.map((t) => (t.adjuntos?.length ? { ...t, adjuntos: t.adjuntos.map((a) => ({ ...a, url: urls.get(rutaTurno(a.ref)) })) } : t));
+}
+
+// ── Las fotos enviadas, para cualquier dispositivo (23/10/2026) ────────────────────────────────────────────────────────
+// La foto que Martín manda por la caja se veía sólo en el navegador que la mandó; en el teléfono, su nombre. Ese navegador
+// sube ahora la MINIATURA (640 px) con el `ref` del original, y cualquier dispositivo la ve con una URL firmada de 10
+// minutos, que sólo da la ruta del Ops Center detrás de puedeOperar. La decisión y lo que costó: lib/operaciones-reglas.ts
+// («Las fotos enviadas») y docs/hallazgos-operaciones.md.
+// ⚠️ SE GUARDA SÓLO LA DE UNA FOTO DE VERDAD: el `ref` tiene que ser una foto del texto FIRMADO de ese trabajo
+//    (`fotosDeFirmado`), y los bytes, una foto chica (`problemaDeMiniatura`). Con `upsert`: reintentar no falla.
+const rutaEnviada = (ref: string) => `operaciones-enviados/${ref}`;
+const CARPETA_ENVIADAS = 'operaciones-enviados';
+const VER_ENVIADA_S = 10 * 60;
+
+/** Las fotos del texto firmado de un trabajo. null = no existe ese trabajo. */
+async function fotosDelTrabajo(pedido: string): Promise<FotoDeTrabajo[] | null> {
+  if (!UUID_RE.test(pedido)) return null;
+  const { data, error } = await getSupabaseServer().from('operaciones_pedidos').select('firmado').eq('id', pedido).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? fotosDeFirmado(data.firmado as string | null) : null;
+}
+
+export type GuardadoMiniatura = { ok: true } | { ok: false; error: string; status: number };
+
+/** Guarda la miniatura de la foto `ref` del trabajo `pedido`, si de verdad es suya y es una foto chica. */
+export async function guardarMiniaturaEnviada(pedido: string, ref: string, bytes: Uint8Array): Promise<GuardadoMiniatura> {
+  const fotos = await fotosDelTrabajo(pedido);
+  if (!fotos) return { ok: false, error: 'No encontré ese mensaje.', status: 404 };
+  const problema = problemaDeMiniatura(bytes, fotos, ref);
+  if (problema) return { ok: false, error: problema, status: 400 };
+  // La caché, como la URL: 10 minutos y sólo en el navegador (supabase-js pone una hora por defecto, también en su CDN).
+  const { error } = await bucket().upload(rutaEnviada(ref), Buffer.from(bytes), {
+    contentType: mimeDeMiniatura(bytes) ?? 'image/jpeg', upsert: true, headers: { 'cache-control': 'private, max-age=600' },
+  });
+  return error ? { ok: false, error: 'No pude guardar la foto: vuelve a intentarlo.', status: 503 } : { ok: true };
+}
+
+/**
+ * Las miniaturas de las fotos de estos trabajos, con su URL firmada (10 minutos), por trabajo y en su orden. Un trabajo sin
+ * miniatura en el servidor (la mandó un navegador de antes del 23/10, o la subida falló) no aparece: su burbuja dice el
+ * nombre, como antes. Un trabajo de hace más de `MINIATURA_VENCE_MS` tampoco: su miniatura venció aunque el barrido no
+ * haya pasado todavía. Tira si no se pueden leer los trabajos o firmar las miniaturas: la ruta contesta 503, y el
+ * navegador no lo toma por «no tiene foto» (no lo guarda).
+ */
+export async function fotosEnviadasDe(ids: readonly string[], ahora = Date.now()): Promise<Record<string, { nombre: string; url: string }[]>> {
+  const validos = [...new Set(ids)].filter((i) => UUID_RE.test(i)).slice(0, 100);
+  if (!validos.length) return {};
+  const { data, error } = await getSupabaseServer().from('operaciones_pedidos').select('id, firmado').in('id', validos)
+    .gte('created_at', new Date(ahora - MINIATURA_VENCE_MS).toISOString());
+  if (error) throw new Error(error.message);
+  const porRef = new Map<string, { id: string; nombre: string }>();
+  for (const f of data ?? []) for (const foto of fotosDeFirmado(f.firmado as string | null)) porRef.set(foto.ref, { id: String(f.id), nombre: foto.nombre });
+  if (!porRef.size) return {};
+  // Una miniatura que no existe vuelve como un ítem sin URL (lo normal: no subió); un error de la LLAMADA es otra cosa.
+  const { data: firmadas, error: noFirmo } = await bucket().createSignedUrls([...porRef.keys()].map(rutaEnviada), VER_ENVIADA_S);
+  if (noFirmo || !firmadas) throw new Error(noFirmo?.message ?? 'no pude firmar las miniaturas');
+  const urls = new Map<string, string>();
+  for (const d of firmadas ?? []) if (d.path && d.signedUrl) urls.set(d.path, d.signedUrl);
+  const out: Record<string, { nombre: string; url: string }[]> = {};
+  for (const [ref, de] of porRef) {
+    const url = urls.get(rutaEnviada(ref));
+    if (url) (out[de.id] ??= []).push({ nombre: de.nombre, url });
+  }
+  return out;
+}
+
+/** De a cuántas lista y borra el barrido, y cuántas vueltas da como mucho en una pasada. */
+const POR_BARRIDA = 100;
+const VUELTAS_BARRIDO = 20;
+
+/**
+ * Borra las miniaturas vencidas (`MINIATURA_VENCE_MS`). Lista de la más vieja a la más nueva, de a 100, y sigue mientras
+ * la tanda entera esté vencida (la primera que no lo está dice que el resto es más nuevo). Nunca tira: es limpieza.
+ */
+export async function barrerMiniaturasViejas(ahora = Date.now()): Promise<number> {
+  let borradas = 0;
+  try {
+    for (let v = 0; v < VUELTAS_BARRIDO; v += 1) {
+      const { data, error } = await bucket().list(CARPETA_ENVIADAS, { limit: POR_BARRIDA, sortBy: { column: 'created_at', order: 'asc' } });
+      if (error || !data) break;
+      const viejas = miniaturasVencidas(data, ahora);
+      if (!viejas.length) break;
+      const { error: noBorro } = await bucket().remove(viejas.map(rutaEnviada));
+      if (noBorro) break;
+      borradas += viejas.length;
+      if (viejas.length < POR_BARRIDA) break;
+    }
+  } catch { /* es limpieza */ }
+  return borradas;
+}
+
+/** Cuánto espera el barrido entre una pasada y otra en la misma instancia: lo llaman la subida Y la lectura. */
+const BARRIDO_CADA_MS = 60 * 60 * 1000;
+let ultimoBarrido = 0;
+/**
+ * El barrido, como mucho una vez por hora en esta instancia. Corre después de subir una foto y después de leerlas: si
+ * Martín deja de mandar fotos, las vencidas igual se van la próxima vez que abre una conversación (revisión del 23/10).
+ */
+export function barrerSiToca(ahora = Date.now()): Promise<number> {
+  if (ahora - ultimoBarrido < BARRIDO_CADA_MS) return Promise.resolve(0);
+  ultimoBarrido = ahora;
+  return barrerMiniaturasViejas(ahora);
 }
 
 /** ¿Se le da este adjunto al cartero? Sólo si el trabajo está `tomado` hace poco y su texto firmado lo nombra. */

@@ -141,12 +141,12 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
 
     // ⚠️ NACE COMO TARJETAS (sexta tanda): los pasos y la estrategia de `comoNace`, no la lista.
     const nace = comoNace(plan);
-    const { error } = await supabase.from('nutricion_secuencias').insert({
+    const { data: nueva, error } = await supabase.from('nutricion_secuencias').insert({
       clave: plan.clave, nombre: plan.nombre, etapa: plan.etapa,
       trigger_tipo: plan.trigger, activa: false, pasos: nace.pasos,
       estrategia: nace.estrategia,
-    });
-    if (error) { console.error(`[secuencias-audios] ${plan.clave}: ${error.message}`); continue; }
+    }).select('id').single();
+    if (error || !nueva) { console.error(`[secuencias-audios] ${plan.clave}: ${error?.message ?? 'no se creó'}`); continue; }
     out.push({ clave: plan.clave, nombre: plan.nombre, creada: true, audios: plan.pasos.length });
   }
 

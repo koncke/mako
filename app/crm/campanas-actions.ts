@@ -25,6 +25,7 @@
 import { revalidatePath, updateTag } from 'next/cache';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import { campanasYConjuntos } from '@/lib/meta-health';
+import { ultimaCreada, type CuentaLeida } from '@/lib/meta-cuenta-leida';
 import { productosAsignables } from '@/lib/landing-funnel';
 import { leerCampanasAsignadasEstricto, guardarCampanasAsignadas } from '@/lib/campana-funnel';
 import { alternarFunnelDeCampana, conCampana, funnelsDeAsignada, sinCampana, esIdMeta, type CampanaAsignada } from '@/lib/campana-config';
@@ -66,6 +67,12 @@ export type EstadoCampanas = {
    * —y poder asignarlas— no depende de que Meta conteste.
    */
   metaError: string | null;
+  /**
+   * QUÉ cuenta de Meta se leyó y si tiene campañas nuevas, o null si Meta no contestó
+   * (23/10/2026). Lo dibuja `etiquetaCuentaMeta` y `avisoSinCampanasNuevas`
+   * (lib/meta-cuenta-leida.ts). Cuenta sólo lo que dijo META, no las campañas de las métricas.
+   */
+  cuentaMeta: { cuenta: CuentaLeida; hayCampanas: boolean; ultima: string | null } | null;
 };
 
 const SOLO_ADMIN = 'Solo el administrador del workspace puede asignar campañas.';
@@ -140,7 +147,7 @@ export async function campanasDelProductoAction(): Promise<EstadoCampanas | { ok
         // Sin credenciales no es «Meta falló»: es que este negocio no conectó Meta. Son
         // dos frases distintas porque son dos cosas que hacer distintas.
         return {
-          campanas: [], conjuntos: [],
+          campanas: [], conjuntos: [], cuenta: null,
           error: /no definida|placeholder/i.test(msg)
             ? 'sin-meta'
             : `Meta no contestó: ${msg.replace(/^Meta API error:\s*/i, '').slice(0, 160)}`,
@@ -169,7 +176,10 @@ export async function campanasDelProductoAction(): Promise<EstadoCampanas | { ok
       if (vistosS.has(s.id)) continue;
       conjuntos.push({ id: s.id, nombre: s.nombre, campanaId: s.campanaId, estado: null, leads: conteo.get(s.id) ?? 0 });
     }
-    return { ok: true, asignadas, campanas, conjuntos, productos, metaError: meta.error };
+    const cuentaMeta = meta.cuenta
+      ? { cuenta: meta.cuenta, hayCampanas: meta.campanas.length > 0, ultima: ultimaCreada(meta.campanas.map((c) => c.creada)) }
+      : null;
+    return { ok: true, asignadas, campanas, conjuntos, productos, metaError: meta.error, cuentaMeta };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo leer' };
   }

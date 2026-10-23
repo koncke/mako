@@ -22,7 +22,8 @@
 import 'server-only';
 import crypto from 'node:crypto';
 import { getSupabaseServer } from './supabase';
-import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
+import { actualizarWorkspace, getTenantDb, getWorkspace, runWithWorkspace, wsSuperAdmin } from './workspace';
+import { buscarUsuarioPorEmail } from './usuarios';
 import { credDelCliente } from './credenciales';
 import { APP_BASE_URL, EMAIL_MAKO } from './app-url';
 import { getLead, logLeadEvent, setPipelineStage } from './leads';
@@ -45,6 +46,7 @@ import { valoresDelPago } from './variables-del-lead';
 import {
   avisoPagoPorLinkAnulado, codigoDeBaja, decidirCobro, esBajaPedida, textoBajaPedida, esRenovacion, finDelPlazo, idemAnular, idemBaja, idemCobro, idemReembolso, mesesTranscurridos,
   esDevolucionFallida, montoUsdDeLaCuota, montoUsdDelCobro, pasaAPagado, textoDevolucionFallida, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
+  mailDeAccesoNoSalio, PREFIJO_MAIL_NO_SALIO,
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
 import { esCuotaDeBaja, esCuotaDevuelta, esRenovacionFallida, PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
@@ -769,8 +771,8 @@ async function avisarPagoRecibido(c: Cobro, p: { proveedorPagoId: string; renova
     const que = p.renovacion ? `renovó *${c.concepto}*` : `pagó *${formatoMonto(p.monto, p.moneda)}*`;
     const detalle = p.renovacion ? ` (${formatoMonto(p.monto, p.moneda)})` : ` (${c.concepto})`;
     // UNA lectura del alta para las dos salidas: el renglón del texto de siempre y el dato `{{pago_alta}}`.
-    const alta = await estadoDelAlta(c);
-    const cuenta = lineaDelAlta(c, alta);
+    const { estado: alta, sinMail } = await altaDelPago(c);
+    const cuenta = lineaDelAlta(c, alta, sinMail);
     await emitirDelCatalogo('pago-recibido', {
       ws: c.workspace_id,
       dedupTtlMin: 4320,
@@ -783,7 +785,7 @@ async function avisarPagoRecibido(c: Cobro, p: { proveedorPagoId: string; renova
       // CÓDIGO, como la cobranza pasa los de la cuota. Un monto que pasa por un modelo deja de ser exacto.
       datos: valoresDelPago({
         monto: p.monto, moneda: p.moneda, concepto: c.concepto, proveedor: c.proveedor,
-        renovacion: p.renovacion, modo: c.modo, alta,
+        renovacion: p.renovacion, modo: c.modo, alta, altaSinMail: sinMail,
       }),
     });
   } catch (e) {
@@ -791,16 +793,25 @@ async function avisarPagoRecibido(c: Cobro, p: { proveedorPagoId: string; renova
   }
 }
 
-/** En una venta de MaKo, cómo quedó el alta (relee el cobro: el alta corre al lado del pago). null fuera de una venta de MaKo. */
-async function estadoDelAlta(c: Cobro): Promise<EstadoAlta | null> {
-  if (!c.alta_capa) return null;
+/**
+ * En una venta de MaKo, cómo quedó el alta (relee el cobro: el alta corre al lado del pago), y si el mail de acceso NO
+ * salió. estado null fuera de una venta de MaKo.
+ */
+async function altaDelPago(c: Cobro): Promise<{ estado: EstadoAlta | null; sinMail: boolean }> {
+  if (!c.alta_capa) return { estado: null, sinMail: false };
   const fresco = await getCobro(c.workspace_id, c.id).catch(() => null);
-  return fresco?.alta_estado ?? c.alta_estado;
+  return { estado: fresco?.alta_estado ?? c.alta_estado, sinMail: mailDeAccesoNoSalio(fresco?.alta_motivo ?? c.alta_motivo) };
 }
 
-/** En una venta de MaKo, cómo quedó el alta (para el aviso al super admin), con lo que leyó `estadoDelAlta`. */
-function lineaDelAlta(c: Cobro, estado: EstadoAlta | null): string {
+/**
+ * En una venta de MaKo, cómo quedó el alta (para el aviso al super admin), con lo que leyó `altaDelPago`.
+ *
+ * ⚠️ «LE LLEGÓ EL ACCESO» SÓLO SI EL MAIL SALIÓ (revisión del 23/10/2026): con Resend caído el alta queda 'hecha' y el
+ * fallo vive en `alta_motivo`; el aviso decía igual que le llegó, y nadie le pasaba el acceso a mano.
+ */
+function lineaDelAlta(c: Cobro, estado: EstadoAlta | null, sinMail = false): string {
   if (!c.alta_capa) return '';
+  if (estado === 'hecha' && sinMail) return ` ⚠️ Su cuenta de MaKo (plan ${capaDef(c.alta_capa).nombre}) ya está creada, pero el mail de acceso NO salió: pásale el link de entrada a mano.`;
   if (estado === 'hecha') return ` Su cuenta de MaKo (plan ${capaDef(c.alta_capa).nombre}) ya está creada y le llegó el acceso.`;
   if (estado === 'ya_tenia_cuenta') return ' Ese email ya tenía una cuenta de MaKo: el plan NO se cambió solo, revísalo en /admin/cobros.';
   if (estado === 'error') return ' ⚠️ El alta de su cuenta falló: revísalo en /admin/cobros.';
@@ -937,25 +948,90 @@ async function altaSiCorresponde(c: Cobro): Promise<void> {
     invitadoPor: `pago:${c.proveedor}`,
   });
   if (r.ok) {
-    await actualizar(plataforma, c.id, { alta_estado: 'hecha', alta_ws: r.workspace.id, alta_motivo: r.invitacion.enviado ? null : `El mail de acceso no salió: ${r.invitacion.error ?? 'sin detalle'}`.slice(0, 300) });
-    // El lead del comprador (en el CRM de la plataforma) apunta a su cuenta: así lo lista Customer
-    // Success (molde: crearCuentaMakoAction, app/customer-success/actions.ts).
-    if (c.lead_id) {
-      const db = await getTenantDb();
-      const { error: e2 } = await db.from('leads').update({ cliente_ws: r.workspace.id }).eq('id', c.lead_id);
-      if (e2) console.error(`[cobros] no pude atar el lead ${c.lead_id} a su cuenta ${r.workspace.id}: ${e2.message}`);
-      await logLeadEvent(c.lead_id, 'Cuenta de MaKo', `Alta automática por el pago: «${r.workspace.nombre}», plan ${capaDef(c.alta_capa).nombre}`, NOMBRE_PASARELA[c.proveedor]);
-      // El ORIGEN de la cuenta (de qué landing / funnel de MaKo vino) para su onboarding: lib/origen-cuenta.ts.
-      // Accesorio: la cuenta ya existe.
-      try { await guardarOrigenDeAlta(r.workspace.id, c.lead_id, c.id); } catch (e) { console.error(`[cobros] origen de la cuenta ${r.workspace.id}: ${e instanceof Error ? e.message : String(e)}`); }
-    }
+    await asentarAlta(c, plataforma, r.workspace, r.invitacion.enviado ? null : `${PREFIJO_MAIL_NO_SALIO}: ${r.invitacion.error ?? 'sin detalle'}`);
   } else if (r.yaExiste) {
+    // ⚠️ ¿LA CUENTA LA CREÓ ESTE MISMO COBRO, en un intento que se cortó? (revisión del 23/10/2026). Si la función murió entre
+    // crear al usuario y anotar «hecha», el reintento encontraba el email y lo daba por «ya tenía cuenta»: el comprador nuevo
+    // quedaba sin el plan atado, sin origen y sin «Darme de baja». Se termina el alta con esa cuenta. El mail pudo no haber
+    // salido: se dice, y la persona se lo pasa a mano.
+    const propia = await cuentaDeUnAltaCortada(c, plataforma).catch(() => null);
+    if (propia) {
+      await asentarAlta(c, plataforma, propia, `${PREFIJO_MAIL_NO_SALIO}: el alta se cortó y se terminó en un reintento, no sé si el mail llegó`);
+      return;
+    }
     // Ya es usuario (un upgrade, o alguien de otro negocio): NO se le toca la capa a ciegas. Lo
     // resuelve una persona desde /admin/cobros.
     await actualizar(plataforma, c.id, { alta_estado: 'ya_tenia_cuenta', alta_motivo: 'Ese email ya tiene una cuenta de MaKo: el plan no se cambió solo.' });
   } else {
     await actualizar(plataforma, c.id, { alta_estado: 'error', alta_motivo: r.error.slice(0, 300) });
   }
+}
+
+/**
+ * Anota el alta HECHA en el cobro y ata el lead del comprador (en el CRM de la plataforma) a su cuenta: así lo lista
+ * Customer Success (molde: crearCuentaMakoAction, app/customer-success/actions.ts). `motivo`: lo que la persona tiene que
+ * saber (que el mail de acceso no salió), o null.
+ */
+async function asentarAlta(c: Cobro, plataforma: number, cuenta: { id: number; nombre: string }, motivo: string | null, como = 'Alta automática por el pago'): Promise<void> {
+  await actualizar(plataforma, c.id, { alta_estado: 'hecha', alta_ws: cuenta.id, alta_motivo: motivo ? motivo.slice(0, 300) : null });
+  if (!c.lead_id || !c.alta_capa) return;
+  const db = await getTenantDb();
+  const { error: e2 } = await db.from('leads').update({ cliente_ws: cuenta.id }).eq('id', c.lead_id);
+  if (e2) console.error(`[cobros] no pude atar el lead ${c.lead_id} a su cuenta ${cuenta.id}: ${e2.message}`);
+  await logLeadEvent(c.lead_id, 'Cuenta de MaKo', `${como}: «${cuenta.nombre}», plan ${capaDef(c.alta_capa).nombre}`, NOMBRE_PASARELA[c.proveedor]);
+  // El ORIGEN de la cuenta (de qué landing / funnel de MaKo vino) para su onboarding: lib/origen-cuenta.ts.
+  // Accesorio: la cuenta ya existe.
+  try { await guardarOrigenDeAlta(cuenta.id, c.lead_id, c.id); } catch (e) { console.error(`[cobros] origen de la cuenta ${cuenta.id}: ${e instanceof Error ? e.message : String(e)}`); }
+}
+
+/**
+ * La cuenta que creó un intento CORTADO de esta misma alta, o null. Es la del usuario de ese email si: la creó un pago de
+ * esta pasarela (`invitado_por = pago:<pasarela>`), es el admin de un negocio, nació después del cobro, y ningún OTRO cobro
+ * de la plataforma la tiene como suya (así una segunda compra con el mismo email sigue siendo «Ya tenía cuenta»).
+ */
+async function cuentaDeUnAltaCortada(c: Cobro, plataforma: number): Promise<{ id: number; nombre: string } | null> {
+  if (!c.email) return null;
+  const u = await buscarUsuarioPorEmail(c.email);
+  if (!u || u.invitado_por !== `pago:${c.proveedor}` || u.workspace_id == null || u.rol_ws !== 'admin') return null;
+  if (!(Date.parse(u.created_at) >= Date.parse(c.created_at))) return null;
+  const { data, error } = await getSupabaseServer().from('cobros').select('id')
+    .eq('workspace_id', plataforma).eq('alta_ws', u.workspace_id).neq('id', c.id).limit(1);
+  if (error || (data ?? []).length) return null;
+  const w = await getWorkspace(u.workspace_id);
+  return w ? { id: w.id, nombre: w.nombre } : null;
+}
+
+/**
+ * «Darle el plan a su cuenta»: un cobro «Ya tenía cuenta» (quien pagó ya era usuario de MaKo) queda atado a ESA cuenta y
+ * el negocio pasa a la capa del plan que pagó. Lo decide una persona desde /admin/cobros: el alta no le cambia la capa a
+ * nadie a ciegas (`altaSiCorresponde`), pero sin esto el comprador quedaba pagando sin su plan y no había cómo atarlo
+ * (revisión del 23/10/2026). Sólo si el email es el ADMIN de un negocio que ningún otro cobro tiene como suyo.
+ */
+export async function atarCobroASuCuenta(ws: number, id: number, autor: string): Promise<{ ok: boolean; resumen: string }> {
+  const plataforma = await wsSuperAdmin();
+  if (ws !== plataforma) return { ok: false, resumen: 'Sólo los cobros de MaKo se atan a una cuenta.' };
+  const c = await getCobro(ws, id);
+  if (!c) return { ok: false, resumen: 'No encontré ese cobro.' };
+  if (c.estado !== 'pagado' || c.alta_estado !== 'ya_tenia_cuenta' || !c.alta_capa || !c.email) {
+    return { ok: false, resumen: 'Sólo se ata un cobro pagado que quedó en «Ya tenía cuenta».' };
+  }
+  if (!esCapaVendible(c.alta_capa)) return { ok: false, resumen: 'Ese plan no se puede asignar.' };
+  const u = await buscarUsuarioPorEmail(c.email);
+  if (!u || u.workspace_id == null) return { ok: false, resumen: 'No encontré una cuenta de MaKo con ese email.' };
+  if (u.workspace_id === plataforma) return { ok: false, resumen: 'Ese email es del equipo de MaKo: no se le asigna un plan.' };
+  if (u.rol_ws !== 'admin') return { ok: false, resumen: 'Ese email es del equipo de otro negocio, no su dueño: no lo ato solo.' };
+  const { data: otro, error } = await getSupabaseServer().from('cobros').select('id')
+    .eq('workspace_id', plataforma).eq('alta_ws', u.workspace_id).neq('id', c.id)
+    // Sólo lo que TODAVÍA cobra (la lectura de «suscripción viva» de /admin/cobros): cortar uno de verdad destraba, y una
+    // suscripción devuelta pero viva sí traba (revisión del diff, 23/10/2026).
+    .eq('tipo', 'suscripcion').in('estado', ['pagado', 'reembolsado']).or('suscripcion_estado.is.null,suscripcion_estado.neq.cancelada').limit(1);
+  if (error) throw new Error(`No pude revisar los cobros de esa cuenta: ${error.message}`);
+  if ((otro ?? []).length) return { ok: false, resumen: 'Esa cuenta ya tiene otra suscripción de MaKo que se sigue cobrando: córtala primero.' };
+  const w = await getWorkspace(u.workspace_id);
+  if (!w) return { ok: false, resumen: 'Esa cuenta ya no existe.' };
+  if (w.capa !== c.alta_capa) await actualizarWorkspace(w.id, { capa: c.alta_capa });
+  await asentarAlta(c, plataforma, { id: w.id, nombre: w.nombre }, null, `Atado a mano a su cuenta por ${autor}`);
+  return { ok: true, resumen: `Listo: «${w.nombre}» queda con el plan ${capaDef(c.alta_capa).nombre} y este cobro.` };
 }
 
 /** Un pago rechazado. Un cobro ya pagado NO vuelve atrás: es la renovación la que falló, y lo dice el historial. */

@@ -32,7 +32,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import {
   esEventoDeAntes, claseDeDisparador, iconoDeDisparador, textoDeDisparador, disparadoresDe, conDisparo, disparoActualDe,
-  MARCA_DE_ANTES, type Disparador,
+  type Disparador,
 } from '../lib/disparadores';
 import { valoresTrasTocar, valorDeVarios, disparoDeValor } from '../lib/flujo-conversacion';
 import { propuestaCronDeAntes, ENTRADA_DE_ANTES, CUALQUIER_ETAPA } from '../lib/cron-de-antes';
@@ -64,12 +64,12 @@ test('un evento del catálogo que ya no se ofrece es «de antes»; las seis de h
     'con horario es un Recurrente');
 });
 
-test('fase 0: un evento de antes es «Producto» (con su ícono) y se dice marcado «(de antes)»', () => {
+test('fase 0: un evento de antes es «Producto» (con su ícono) y se dice como es, SIN «(de antes)» (revisión del 23/10, punto 12)', () => {
   assert.equal(claseDeDisparador(d('instant_form_sin_agenda')), 'producto', 'era `otro`: el paso 2 salía como texto, sin desplegable');
   assert.equal(iconoDeDisparador(d('no_show_j1')), 'producto');
   assert.equal(claseDeDisparador(d('reunion_recordatorio')), 'otro', 'el del emisor se dice como es, sin editor');
   const n = { deSiempre: (x: Disparador) => `«${x.trigger_tipo}»`, tz: null };
-  assert.equal(textoDeDisparador(d('instant_form_sin_agenda'), n), `«instant_form_sin_agenda» ${MARCA_DE_ANTES}`);
+  assert.equal(textoDeDisparador(d('instant_form_sin_agenda'), n), '«instant_form_sin_agenda»', 'sin la marca: un estado interno no va en la tarjeta');
   assert.equal(textoDeDisparador(d('reunion_recordatorio'), n), '«reunion_recordatorio»', 'el recordatorio no es de antes');
   assert.equal(textoDeDisparador(d('etapa_actual', { etapa: 'nuevo' }), n), '«etapa_actual»');
 });

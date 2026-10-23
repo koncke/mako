@@ -76,14 +76,16 @@ test('un día: con la regla la bienvenida de las 17 sale a las 17; sin ella, no 
   assert.equal(ahora.campana, 34, 'la campaña usa el día menos la reserva');
 });
 
-test('la regla está dicha en Configuraciones › Anti-ban (en el ⓘ de WhatsApp), con los números del negocio', () => {
+test('la regla está dicha en Configuraciones (en el ⓘ del bloque WhatsApp), con los números del negocio', () => {
   assert.equal(textoPrioridad({ dia: 40, hora: 6 }),
     'Primero lo que entra: a un lead que llegó por un formulario, una landing o una agenda, o que agendó, en las últimas 24 h le sale antes que a una campaña. La campaña le deja 6 por día y 1 por hora.');
   assert.ok(!textoPrioridad({ dia: 1, hora: 1 }).includes('le deja'), 'sin reserva no promete una');
-  const panel = readFileSync(join(__dirname, '..', 'app/automations/LimitesEnvioPanel.tsx'), 'utf8');
-  // 22/10/2026 (Martín: «Elimina todo el texto innecesario»): era una línea suelta debajo del grupo; ahora va en su ⓘ.
-  assert.match(panel, /const partes = \[lineaDeUso\(titulo, uso, l\), titulo === 'WhatsApp' \? textoPrioridad\(l\.wa\) : null\]/);
-  assert.match(panel, /<GrupoOpciones titulo=\{b\.titulo\} info=\{infoDelGrupo\(b\.titulo, uso, l\)\}/);
+  const panel = readFileSync(join(__dirname, '..', 'app/automations/ConfigAutomatizacionPanel.tsx'), 'utf8');
+  // 22/10/2026 (Martín: «Elimina todo el texto innecesario»): era una línea suelta debajo del grupo; va en su ⓘ. Desde el
+  // 23/10/2026 la línea ya no se edita en la pantalla de una automatización, pero la regla sigue frenando: la dice el ⓘ del
+  // bloque WhatsApp de CADA automatización, con los números del negocio.
+  assert.match(panel, /infoWhatsapp: d \? textoPrioridad\(d\.lineaWa\) : undefined,/);
+  assert.match(panel, /<GrupoOpciones titulo="WhatsApp" info=\{auto\.infoWhatsapp\} primero \/>/);
 });
 
 // ── El cableado en el motor ─────────────────────────────────────────────────────────────────────────────────────
@@ -93,8 +95,8 @@ const proc = motor.slice(motor.indexOf('export async function procesarEnvios('),
 test('procesarEnvios: los mensajes chequean `sinLugar` (no el cupo a secas) y lo que entra va primero', () => {
   assert.ok(proc.length > 1000, 'no encontré procesarEnvios');
   assert.match(proc, /const sinLugarEnLaLinea = \(leadId: number\): boolean => cupoLleno\(\) \|\| \(!frescos\.has\(leadId\) && waEnCorrida >= cupoCampana\);/);
-  // (Desde el 22/10/2026 `sinLugar` suma el goteo de la automatización: tests/goteo-automatizacion.test.ts.)
-  assert.equal((proc.match(/if \(sinLugar\(insc\) && !/g) ?? []).length, 2, 'los dos puntos donde un mensaje espera al cupo');
+  // (Desde el 22/10/2026 `sinLugar` suma el goteo de la automatización, y desde el 23/10 el de su canal: tests/goteo-automatizacion.test.ts.)
+  assert.equal((proc.match(/if \(sinLugar\(insc, [^)]*\) && !/g) ?? []).length, 2, 'los dos puntos donde un mensaje espera al cupo');
   assert.doesNotMatch(proc, /if \(cupoLleno\(\) && !/, 'quedó un mensaje que mira el cupo sin la reserva');
   assert.match(proc, /if \(primeroEntradas\) q = q\.in\('lead_id', \[\.\.\.frescos\]\);/);
   assert.match(proc, /const frescos = await entradasFrescas\(supabase, opts\?\.soloLeadId \?\? null\);/);

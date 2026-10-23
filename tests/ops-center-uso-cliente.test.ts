@@ -66,6 +66,21 @@ test('3. «Uso» abajo de la barra, como el del super admin, y en el teléfono; 
   assert.match(m, /<SheetM abierto=\{verUso\}[\s\S]{0,160}?titulo="Tus cuentas de IA">\n\s*<TusCuentasIA sinCabecera \/>/);
 });
 
+test('4. el «Uso» del super admin es el MISMO modal del cliente, con lo suyo debajo, y sin el desplegable que salta (23/10/2026)', () => {
+  // Martín, la segunda vez: «"USO de IA" sea IGUAL que en los clientes, sólo que SuperAdmin tiene más configuraciones... Pero aún
+  // me sigue saltando el desplegable». El desplegable era `.co-uso__panel`: absoluto, encima del botón.
+  const uso = sinComentarios(leer('app/admin/operaciones/Uso.tsx'));
+  assert.doesNotMatch(uso, /co-uso__panel/, 'ningún panel que salta sobre la barra');
+  assert.match(uso, /<Modal titulo="Tus cuentas de IA" onCerrar=\{\(\) => setAbierto\(false\)\} ancho=\{640\}>\n\s*\{tusCuentas\}\n\s*<div className="co-uso__mas">/, 'el modal del cliente, y lo del super admin debajo');
+  assert.doesNotMatch(sinComentarios(leer('app/admin/operaciones/centro.css')), /\.co-uso__panel\b/);
+  assert.match(sinComentarios(leer('app/admin/operaciones/PiezasCentro.tsx')), /<BotonUso [^>]*\n\s*tusCuentas=\{<TusCuentasIA sinCabecera \/>\} \/>/, 'con «Tus cuentas de IA» del cliente');
+  // El teléfono, igual: la fila «Uso» y la hoja «Tus cuentas de IA», con lo suyo debajo.
+  const m = sinComentarios(leer('app/m/operaciones/CentroAppMovil.tsx'));
+  assert.match(m, /<FilaM icono="config" titulo="Uso" /);
+  assert.match(m, /titulo="Tus cuentas de IA" snap="alto">\n\s*<TusCuentasIA sinCabecera \/>\n\s*<RunnerMovil/);
+});
+
+// PROBADO ROMPIÉNDOLO (23/10/2026, test 4, base 4/0): el panel de vuelta en Uso.tsx → 3/1; sin `tusCuentas` en PieCentro → 3/1.
 // PROBADO ROMPIÉNDOLO (22/10/2026, base 3/0):
 //   · el gasto suma también los fallos                → 2/1 (1)
 //   · el gasto sin el costo en la lectura             → 2/1 (1)

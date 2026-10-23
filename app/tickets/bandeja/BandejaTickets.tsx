@@ -31,8 +31,9 @@ import { avisoAlCliente, entregaAlCerebro } from '@/lib/tickets-aviso';
 import type { Evento, FilaTicket } from '@/lib/tickets-db';
 import {
   anotarDespachoAction, autoArregloAction, cambiarPrioridadAction, corregirTipoAction, decidirTicketAction, guardarVistaAction,
-  leerBandejaAction, verTicketBandejaAction,
+  verTicketBandejaAction, type LecturaBandeja,
 } from './acciones';
+import { leerCentro } from '@/app/admin/operaciones/lectura-centro';
 import type { CerebroParaTickets } from './cerebro';
 import { MazoTickets } from './MazoTickets';
 import { TablaTickets } from './TablaTickets';
@@ -80,7 +81,9 @@ export function BandejaTickets({ cerebro }: { cerebro: CerebroParaTickets | null
   // falla varias veces seguidas (./mazo-reglas.ts → decirFalloDeLectura); sin tickets, a la primera.
   const fallos = useRef(0);
   const hayTickets = useRef(false);
-  const cargar = useMemo(() => lectorDeBandeja(leerBandejaAction, (r, conVista) => {
+  // ⚠️ POR GET, NO POR ACCIÓN (23/10/2026, «Rendimiento y loaders»): las server actions van de a una, y esta lectura
+  // quedaba en la cola detrás de la de Vercel del Ops Center (hasta 8 s) sin mostrar nada (app/admin/operaciones/lectura-centro.ts).
+  const cargar = useMemo(() => lectorDeBandeja((conVista: boolean) => leerCentro<LecturaBandeja>('bandeja', conVista ? { vista: '1' } : {}), (r, conVista) => {
     if (!r || !r.ok) {
       fallos.current += 1;
       if (decirFalloDeLectura(fallos.current, hayTickets.current)) setError(r && !r.ok ? r.error : 'No pude leer la Ticketera');

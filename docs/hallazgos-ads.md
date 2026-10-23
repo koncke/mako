@@ -4224,6 +4224,14 @@ conecten con la app de MaKo (que espera el App Review); **reusar un post existen
 ganador»). Qué modo tiene la app de un cliente no lo dice `debug_token`: lo dice una corrida en seco
 (`validate_only`) sobre SU cuenta, y eso lo decide Martín.
 
+**Medido de nuevo el 23/10 (sólo lectura), igual que el 17/10:** ws13 y ws14 con «Joan P2P app», válido y sin
+vencimiento, el mismo token (guardado 18/08 y 04/09) sobre la misma `act_1357728489423123`. El último intento de
+publicar desde MaKo sigue siendo del 17/09 (error); ws14 nunca intentó. Mientras tanto, Joan armó campañas **en Meta
+directo** (la última, «P2P | TEST CALIDAD | OCT26», el 15/10). El token del botón «Conectar con Meta» de MaKo sigue sin
+permisos de anuncios (vigía de las 15:49 del 23/10: «ninguno»), así que **reconectar con la app de MaKo todavía no
+arregla publicar**. Lo más corto a probar es que Joan pase «Joan P2P app» a modo Activo, pero **es dudoso que alcance**
+(ver «Meta mientras se aprueba la app de MaKo», 23/10).
+
 ### Editar el público por la API: la superposición tenía que vivir en el SERVER
 
 - **Qué faltaba.** `POST /{adset}` con `targeting` REEMPLAZA el objeto entero y la superposición vivía sólo en el
@@ -4289,6 +4297,10 @@ lib/meta-login.ts · tests/meta-permisos-conectar.test.ts.
   de los permisos de anuncios no se pueden grabar con el producto hasta que Meta conteste.
 - **La regla:** «en revisión» se mira permiso por permiso en el panel (Revisión → Tests y Revisión de la app), no en la
   memoria. Un borrador sin enviar se ve igual que una revisión en curso si nadie entra a mirar.
+- **Una revisión en curso BLOQUEA la siguiente (medido el 23/10).** Con la primera tanda «Revisión en curso», «Añadir a
+  la revisión de la aplicación» sobre `ads_management` contesta: «Esta solicitud ya está pendiente de revisión… puedes
+  cancelar la solicitud y enviar una nueva o esperar hasta que se complete la actual». Partir los permisos en tandas
+  no adelanta nada: la segunda espera a que se resuelva la primera, o se cancela la primera y van juntos.
 - **Lo que quedó SIN hacer:** los videos y textos de cada permiso (los de anuncios necesitan el botón dando los
   permisos), «Tratamiento de datos» e «Instrucciones para revisores», y el envío, que **no se edita ni se cancela**. Si
   la verificación de acceso no se mueve, el camino es un caso en Meta Business Support con la fecha y el ID de la app.
@@ -4379,3 +4391,104 @@ presupuesto») y la capacidad `calcular_presupuesto_anuncios` de la API (sin HTT
 por resultado real de la cuenta (`ver_rendimiento_anuncios`) en vez de pedirlo.
 
 **Vive en:** lib/calculadora-presupuesto-ads.ts · app/ads-manager/CalculadoraPresupuesto.tsx · app/ads-manager/CampanasBrowser.tsx · lib/api-mako/areas/ads.def.ts · tests/calculadora-presupuesto-ads.test.ts
+
+## «Creé la campaña en Meta y no me aparece en MaKo»: medir primero si Meta la tiene en la cuenta CONECTADA (23/10/2026)
+
+Pedido de Mauricio (ws1, audio del 23/10): las campañas que creó en el Administrador de anuncios de Meta para tres
+clientes nuevos (ws20 Sergio Arriata, ws21 Florencia Ayelen Carballo, ws22 Patricia Contreras) no aparecen en
+/ads-manager para vincularlas al CRM.
+
+- **El diagnóstico obvio era el equivocado: «MaKo las filtra».** /ads-manager no filtra nada (el filtro de estado
+  arranca en «Todos» y la tabla lista lo que devuelve `act_<id>/campaigns`); el selector del CRM
+  (`campanasYConjuntos`) lee la misma edge. Medido con el token de CADA negocio: ws20 lee `act_4171287933095795` (16
+  campañas, la última de 2023) y la otra cuenta de su BM `act_702839088096495` (0); ws22 lee `act_1551449682972756`
+  (5, la última del 07/08/2026) y `act_351188227049325` (la última de 2025). **Ninguna campaña creada en septiembre u
+  octubre en ninguna cuenta a la que llegan sus tokens**, ni pidiendo todos los estados. ws21 no tiene Meta conectado
+  (cero claves). Y la cuenta del ws1 tampoco las tiene (la última, «030.», del 30/09). La causa es de configuración o
+  de Meta, no de código: o quedaron como BORRADOR sin publicar, o están en una cuenta publicitaria que no es la
+  conectada a ese negocio.
+- **Cómo se mide, y en este orden:** `credWs('META_AD_ACCOUNT_ID'|'META_ACCESS_TOKEN', ws)` → `debug_token` (app,
+  tipo, scopes) → `me/adaccounts` → `act_<id>{business}` → `<bm>/owned_ad_accounts` → `act_<id>/campaigns` con
+  `filtering=[{field:'effective_status',operator:'IN',value:[…todos, ARCHIVED y DELETED incluidos]}]`. Sin el
+  `filtering`, Meta deja afuera lo archivado y lo borrado.
+- **Trampas medidas:** (1) los borradores del Administrador de anuncios **no existen para la API** (`act_<id>/addrafts`
+  da #100 «nonexisting field»): una campaña sin «Publicar» no la ve nadie, tampoco MaKo. (2) `act_<id>/activities`
+  devuelve `[]` con HTTP 200 al usuario del sistema de un cliente (ws20, ws22), aunque con el del ws1 trae eventos:
+  vacío ahí NO es «nadie tocó la cuenta». (3) `me/adaccounts` del token de ws20 listó una sola cuenta, pero el token
+  leyó también la otra del BM (`[]` sin error), mientras el token del ws1 contra esa misma cuenta da `#200 Ad account
+  owner has NOT grant ads_management` dentro de un 200: un `[]` sin `error` es acceso real.
+- **Regla:** ante «no me aparece», antes de tocar código se pide el número de cuenta que muestra Meta arriba a la
+  izquierda en esa campaña y si está publicada; se compara con el `META_AD_ACCOUNT_ID` del negocio.
+
+- **Lo que quedó (mismo día):** /ads-manager y el selector de campañas del CRM dicen al lado del título «Cuenta
+  Nombre · número», como Meta la muestra arriba a la izquierda, y si la cuenta no tiene campañas creadas en los
+  últimos 30 días, una frase que manda a publicar o a revisar la cuenta (lib/meta-cuenta-leida.ts). Sólo con Meta
+  CONTESTANDO y con cuenta: el health «Sin conexión» de /api/meta-health trae `campaigns: []`, y sin ese corte decía
+  «esta cuenta no tiene campañas» a quien no conectó nada. El `created_time` se compara como FECHA: Meta lo manda con
+  el offset de cada cuenta (`-0700`, `-0300`, `+0000`) y ordenar el texto elige mal.
+- **Medido en producción después del deploy (3e8462653):** las funciones de producción con los datos reales dan ws20
+  «Cuenta 4171287933095795» + la frase, ws22 «Cuenta Patricia Contreras · 1551449682972756» + la frase, ws1 sin frase.
+  Y el ws1 decía **«Cuenta Cuenta 2 · 564003520636790»**: su cuenta se llama «Cuenta 2» y el prefijo lo ponía cada
+  pantalla. Ahora lo pone `etiquetaCuentaMeta` y no lo repite si el nombre ya empieza con «Cuenta».
+
+- **Al conectar se ofrecen también las cuentas de los portafolios** (`lib/meta-cuentas-portafolio.ts`, el uso real de
+  `business_management` para la segunda tanda del App Review): `/me/adaccounts` no trae una cuenta del portafolio que
+  nadie asignó al usuario del sistema. **Trampa medida:** para un usuario del sistema `/me/businesses` devuelve `[]`
+  SIN error; el portafolio sale del campo `business` de sus cuentas, en un pedido aparte (si a un token sin el permiso
+  le fallara, no se lleva la lista de cuentas). Cada cuenta nueva se prueba con un GET antes de ofrecerla. Medido con
+  los tokens reales: ws20 suma `act_702839088096495` y ws22 `act_351188227049325`; ws1 y ws13, nada.
+
+**Sin hacer:** conectar Meta en ws21 (paso de Martín o de la clienta). **Verlo dibujado** con un negocio con Meta:
+el Chrome de esta PC está logueado como ws10 (sin Meta, muestra el onboarding) y no puede entrar a otro negocio; el
+bundle de producción sí trae los textos nuevos. Lo mira un super admin en `/ads-manager` del ws20.
+
+**Vive en:** lib/meta-health.ts (`edgeUrl`, `campanasYConjuntos`, `_getMetaHealth`) · lib/credenciales.ts (`credWs`) ·
+lib/meta-cuenta-leida.ts · app/ads-manager/CampanasBrowser.tsx (`matchEstado`, `cuentaLeida`) ·
+app/crm/CampanasModal.tsx · app/crm/campanas-actions.ts (`cuentaMeta`) · tests/meta-cuenta-leida.test.ts
+
+## Meta mientras se aprueba la app de MaKo: qué puentes existen y cuáles no (23/10/2026)
+
+Investigación del Cerebro el 23/10: 5 investigadores web y un escéptico contrastando todo contra la documentación de
+Meta. El informe entero, con los enlaces: `C:/dev/cerebro-herramientas/meta-mientras-tanto-23-10.md` (fuera del repo).
+La pregunta: cómo operan los clientes con Meta (anuncios, leads, páginas, mensajes) mientras la app MaKo
+(2586146911825340) no tiene los permisos de anuncios.
+
+- **El diagnóstico obvio era el equivocado: «compartimos los activos del cliente con el portafolio de MaKo y operamos
+  con un usuario del sistema».** Está REFUTADO: el nivel de acceso «Limited» que tiene una app sin revisión es, según
+  Meta, sólo para desarrollo y no para anunciantes reales (developers.facebook.com/docs/marketing-api/get-started/
+  authorization). Sumar a los clientes como testers de la app es lo mismo y además pone en riesgo la app que está en
+  revisión.
+- **Zernio (antes «Late») es el ÚNICO intermediario que dice cubrir todo**: anuncios, formularios de leads con aviso,
+  métricas, páginas y mensajes; el cliente toca «Conectar» sin registrarse ahí. Lo paga MaKo por cuenta conectada (2
+  gratis, US$6 de la 3 a la 10, US$3 de la 11 a la 100). **Su aprobación de Meta («No Meta App Review») la dice sólo el
+  vendedor: no está verificada.** Además, en la ventana de Facebook el cliente probablemente ve «Zernio», si Zernio cae
+  caen todos, al aprobarse la app de MaKo hay que reconectar a cada cliente, y las Condiciones de Meta (5.b.ii) exigen
+  que cada anunciante sea cliente formal de Zernio. Antes de un piloto (con una cuenta de prueba de MaKo, nunca de un
+  cliente), pedirles por escrito de quién es su app, qué permisos tienen con acceso completo y qué ve el cliente.
+- **Dudoso: que Joan pase su app a Live destrabe el 1885183.** Meta dice que para la cuenta propia alcanza el acceso
+  básico, pero otra página suya dice que en Live sólo se piden permisos aprobados por revisión. Es gratis y se sabe
+  probándolo con el OK de Joan. Sirve para él, no para todos.
+- **Para leads hay un puente que anda en días: Zapier o Make** mandándole el lead a MaKo. Le exige al cliente una cuenta
+  paga (Zapier Professional ronda US$20–30 por mes, sin verificar; Make sin verificar) y asignar Zapier como CRM en
+  Leads Access, que es el paso que más falla. A MaKo le pide un receptor por cliente, una guía y una alerta de «hace X
+  horas que no entra un lead»: si el cliente deja de pagar, los leads dejan de llegar sin que nadie se entere. Que la
+  app de Zapier sirva para páginas de terceros está deducido, no documentado: se prueba con un cliente real. De
+  emergencia, el CSV de Leads Center se importa hoy al CRM.
+- **Descartes:**
+  - Ayrshare: sólo impulsa posts, no maneja leads.
+  - Outstand, bundle.social, Upload-Post: publican, sin anuncios ni leads.
+  - Unipile: pide la contraseña de Instagram y no es socio de Meta.
+  - Nango, Paragon, Pipedream, Composio: usan NUESTRA app, el mismo cuello de botella.
+  - n8n: exige que cada cliente tenga su propia app activa y verificada.
+  - La conexión de CRM nativa de Meta: MaKo no aparece hasta que se apruebe `leads_retrieval`.
+  - Unified.to: sin precio público ni dueño de la app conocido.
+- **Lo que falta del lado de MaKo:** la SEGUNDA tanda de App Review (`ads_management`, `ads_read`,
+  `business_management`), que no se envió. Pedir el acceso completo abre la verificación de MaKo como proveedor de
+  tecnología (unos 5 días), y subir de nivel exige 500 llamadas en 15 días con menos de 15% de error, que se pueden ir
+  generando desde las cuentas propias.
+
+**Sin hacer:** todo lo de arriba es una recomendación; nada se construyó ni se contrató. El receptor de leads de
+Zapier, el mail a Zernio y la prueba de Joan en Live esperan la decisión de Martín.
+
+**Vive en:** fuera del código: el panel de la app MaKo en Meta, `vigia-revisiones/` (si el botón ya trae permisos de
+anuncios) · memoria `meta-oauth-app-review` · lib/meta-publicar-errores.ts (cómo se muestra el 1885183).

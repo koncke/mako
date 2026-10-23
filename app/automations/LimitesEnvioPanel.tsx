@@ -1,42 +1,20 @@
 'use client';
 
 // =============================================================================
-// LimitesEnvioPanel — los LÍMITES de las automatizaciones (Automations › Configuraciones › Límites)
+// LimitesEnvioPanel — el NÚMERO con sus flechas de las filas de Configuraciones de una automatización
 // =============================================================================
-// Décima tanda (11/10/2026, GENERAL 4), textual: «configuraciones sobre todo para limitaciones de todos los
-// flujos, si estoy prospectando en frio con esto, que se tenga en cuenta las configuraciones que en su
-// momento tuvimos en cuenta, como que no se envien más de X cantidad de mensajes... Que todo eso sea
-// configurable.»
-//
-// Tres grupos —WhatsApp, Email y «MaKo contesta sola»— con un número y sus flechas por límite, rótulos de
-// 1-3 palabras y «Restaurar» (vuelve todo a lo de fábrica). Las reglas, los rangos y lo de fábrica viven en
-// lib/limites-envio.ts; esto sólo los dibuja.
-//
-// SIN TEXTO SUELTO (22/10/2026, Martín: «Jamás jamás pongas todo eso... Elimina todo el texto innecesario y diseñalo
-// mejor»): las filas de FilasOpciones.tsx (nombre, número y unidad). Lo que se usó del cupo («24 h: 6 de 40») y la regla
-// de «Primero lo que entra» van en el ⓘ del grupo; la ayuda de una fila que la necesita, en el suyo (`info`). Los topes de
-// la LÍNEA no se apagan (son lo que la protege del baneo): sus filas dejan el hueco del interruptor.
-//
-// ⚠️ SE GUARDA SOLO, CADA CAMBIO, como el horario de oficina (HorarioEnvioPanel: «elimina el botón de
-// guardar, si se hace un cambio ya se debe quedar guardado»). Lo que está fuera de rango NO se guarda: se
-// dice al lado y lo de antes sigue mandando. Mientras un guardado está en vuelo el panel está «sucio»
-// (`onSucio`): el modal de Configuraciones no se cierra hasta que termina.
-//
-// ⚠️ SÓLO UN ADMIN EDITA (`puedeEditar` sale del server, y guardar lo vuelve a exigir). El setter lo ve.
+// Era el panel de los LÍMITES DE LA LÍNEA (décima tanda, 11/10/2026: por día, por hora, «MaKo contesta sola»), y desde el
+// 22/10 su estado (`useLimitesDeLaLinea`). El 23/10/2026 (Martín, por el Cerebro): «No quiero nada para todas las
+// automatizaciones». Lo de la línea se fue de la pantalla, con su hook, su ⓘ (el uso del cupo y «Primero lo que entra») y las
+// acciones que lo leían y guardaban (app/configuraciones/limites-actions.ts): los topes duros de la línea siguen cuidando al
+// número por dentro (lib/limites-envio.ts), y cuando frenan un envío lo dice la tarjeta («Tope del día», lib/por-que-no-sale.ts).
+// Queda `Numero`, que usan las filas de la automatización. El archivo conserva su nombre: lo citan los «Vive en:».
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Icon } from '@/app/_components/icons';
-import { Spinner } from '@/app/_ui';
-import { FilaOpcion, GrupoOpciones, Unidad, TarjetaOpciones } from './FilasOpciones';
-import { getLimitesEnvioAction, saveLimitesEnvioAction } from '@/app/configuraciones/limites-actions';
-import { textoPrioridad } from '@/lib/nutricion-prioridad';
-import { BLOQUES_LIMITES, conLimite, difiereDeFabrica, leerLimite, leerNumero, lineaDeUso, rangoDe, type LimitesEnvio, type UsoDelCupo } from '@/lib/limites-envio';
-import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { leerNumero } from '@/lib/limites-envio';
 
 const SANS = "'Geist', sans-serif";
-
-type Grupo = keyof LimitesEnvio;
-type Uso = UsoDelCupo | null;
 
 /**
  * El número con sus dos flechas. Las flechas no pasan del rango; lo escrito a mano se valida al salir.
@@ -79,115 +57,6 @@ export function Numero({ valor, min, max, disabled: noEdita, etiqueta, onCambio,
           <Icon name="chevron" size={13} />
         </button>
       </div>
-    </div>
-  );
-}
-
-/**
- * EL ⓘ DE UN GRUPO (22/10/2026): lo que ya salió del cupo y, en WhatsApp, la regla de la cola («Primero lo que entra»,
- * 21/10/2026). Eran dos líneas de texto sueltas arriba y abajo del grupo.
- */
-export function infoDelGrupo(titulo: string, uso: Uso, l: LimitesEnvio): string | undefined {
-  const partes = [lineaDeUso(titulo, uso, l), titulo === 'WhatsApp' ? textoPrioridad(l.wa) : null].filter((x): x is string => !!x);
-  return partes.length ? partes.join('. ') : undefined;
-}
-
-/** `onSucio`: hay un guardado en vuelo (el modal no se cierra mientras tanto). */
-/**
- * `personaPorDefecto` (20/10/2026): en Configuraciones de UNA automatización, las horas entre dos mensajes a la misma
- * persona de ESTE panel son las del NEGOCIO, las que valen para las que no tienen las suyas (las propias van arriba:
- * app/automations/ConfigAutomatizacionPanel.tsx), y se rotulan así. ⚠️ Era `sinPersona` y las escondía: el valor que
- * heredan todas las automatizaciones que ya existían quedó sin pantalla donde cambiarlo (revisión del 20/10/2026).
- */
-export const ROTULO_PERSONA_DEFECTO = 'Misma persona, por defecto';
-export const AYUDA_PERSONA_DEFECTO = 'Horas entre dos mensajes a la misma persona, en las automatizaciones que no tienen las suyas.';
-export function LimitesEnvioPanel({ onSucio, personaPorDefecto = false }: { onSucio?: (sucio: boolean) => void; personaPorDefecto?: boolean }) {
-  const [l, setL] = useState<LimitesEnvio | null>(null);
-  const [fabrica, setFabrica] = useState<LimitesEnvio | null>(null);
-  const [uso, setUso] = useState<Uso>(null);
-  const [puedeEditar, setPuedeEditar] = useState(false);
-  const [aviso, setAviso] = useState('');
-  /** Los campos escritos a mano que no valen, por `grupo.campo`: mientras haya uno, no se guarda nada. */
-  const [invalidos, setInvalidos] = useState<Record<string, string>>({});
-  const [enVuelo, setEnVuelo] = useState(false);
-  /** Sube con «Restaurar»: los números vuelven a leer lo guardado aunque tuvieran algo escrito que no valía. */
-  const [vuelta, setVuelta] = useState(0);
-  const respiro = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pedido = useRef(0);
-
-  useEffect(() => {
-    let vivo = true;
-    getLimitesEnvioAction()
-      .then((d) => { if (!vivo) return; setL(d.limites); setFabrica(d.fabrica); setUso(d.uso); setPuedeEditar(d.puedeEditar); })
-      .catch(() => { if (vivo) setAviso('No pude leer los límites.'); });
-    return () => { vivo = false; if (respiro.current) clearTimeout(respiro.current); };
-  }, []);
-
-  // ⚠️ ANTES DEL `return` de abajo (AGENTS.md: ningún hook detrás de un return temprano).
-  useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);
-
-  if (!l || !fabrica) return aviso ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{aviso}<ReportarASoporte /></p> : <Spinner />;
-
-  /** Cada cambio se GUARDA, con un respiro: tres flechas seguidas son un guardado, no tres. */
-  const guardar = (nuevo: LimitesEnvio) => {
-    setL(nuevo);
-    setAviso('');
-    if (respiro.current) clearTimeout(respiro.current);
-    setEnVuelo(true);
-    const n = ++pedido.current;
-    respiro.current = setTimeout(() => {
-      void saveLimitesEnvioAction(nuevo)
-        .catch(() => ({ ok: false, error: 'No se pudo guardar.' } as const))
-        .then((r) => {
-          if (n !== pedido.current) return;
-          setEnVuelo(false);
-          if (!r.ok) { setAviso(r.error || 'No se pudo guardar.'); return; }
-          if ('limites' in r && r.limites) setL(r.limites);
-        });
-    }, 350);
-  };
-  const cambiar = (grupo: Grupo, campo: string, n: number) => {
-    if (Object.keys(invalidos).some((k) => k !== `${grupo}.${campo}`)) { setL(conLimite(l, grupo, campo, n)); return; }
-    guardar(conLimite(l, grupo, campo, n));
-  };
-  const marcarInvalido = (clave: string, error: string | null) => setInvalidos((prev) => {
-    if (!error) { if (!(clave in prev)) return prev; const { [clave]: _, ...resto } = prev; void _; return resto; }
-    return prev[clave] === error ? prev : { ...prev, [clave]: error };
-  });
-
-  const off = !puedeEditar;
-  const bloques = BLOQUES_LIMITES.map((b) => ({ ...b, filas: b.filas.map((f) => (personaPorDefecto && f.campo === 'personaHoras' ? { ...f, rotulo: ROTULO_PERSONA_DEFECTO, info: AYUDA_PERSONA_DEFECTO } : f)) }));
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontFamily: SANS }}>
-      <TarjetaOpciones>
-        {bloques.map((b, i) => (
-          <section key={b.titulo} aria-label={b.titulo}>
-            <GrupoOpciones titulo={b.titulo} info={infoDelGrupo(b.titulo, uso, l)} primero={i === 0} />
-            {b.filas.map((f) => {
-              const clave = `${f.grupo}.${f.campo}`;
-              const [min, max] = rangoDe(f.grupo, f.campo);
-              return (
-                <FilaOpcion key={clave} nombre={f.rotulo} info={f.info} sinInterruptor error={invalidos[clave]} datos={{ 'data-limite': clave }}>
-                  <Numero key={`${clave}:${vuelta}`} valor={leerLimite(l, f.grupo, f.campo)} min={min} max={max} disabled={off} etiqueta={`${b.titulo} · ${f.rotulo}`}
-                    onCambio={(n) => cambiar(f.grupo, f.campo, n)} onInvalido={(e) => marcarInvalido(clave, e)} />
-                  <Unidad>{f.unidad}</Unidad>
-                </FilaOpcion>
-              );
-            })}
-          </section>
-        ))}
-      </TarjetaOpciones>
-      {(aviso || (!off && difiereDeFabrica(l, fabrica))) && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-          <span role={aviso ? 'alert' : undefined} style={{ fontSize: 13, color: 'var(--bad)' }}>{aviso}<ReportarASoporte /></span>
-          {!off && difiereDeFabrica(l, fabrica) && (
-            <button type="button" onClick={() => { setInvalidos({}); setVuelta((v) => v + 1); guardar(fabrica); }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', padding: 0, fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>
-              Restaurar
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 }

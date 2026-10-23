@@ -325,7 +325,7 @@ test('⚠️ «MOVER DE ETAPA» DIBUJA EL SELECTOR DE ETAPA Y NO MONTO/MOTIVO HA
   const perdido = dibujar('proponer_cambio_etapa', { leadId: LEAD_DEL_EVENTO, etapa: 'perdido' });
   assert.ok(perdido.includes('Motivo') && !perdido.includes('Monto'));
   const dos = dibujar('proponer_cambio_etapa', { leadId: LEAD_DEL_EVENTO }, { ...OPCIONES, productos: [PROD(1, 'Mentoría', true), PROD(2, 'Curso', false)] });
-  assert.ok(dos.includes('>Producto<') && dos.includes('Mentoría'), 'con dos productos, primero el producto');
+  assert.ok(dos.includes('>Funnel<') && dos.includes('Mentoría'), 'con dos funnels, primero el funnel (dice «Funnel»: revisión de las tarjetas, 23/10/2026, punto 10)');
   const cargando = dibujar('proponer_cambio_etapa', { leadId: LEAD_DEL_EVENTO, etapa: 'ganado' }, 'cargando');
   assert.ok(cargando.includes('Cargando') && !cargando.includes('Monto'), 'sin las etapas todavía, no se adivina el monto');
 });

@@ -183,9 +183,11 @@ test('el runner de los eventos y el envío respetan el email, y el editor ofrece
   const run = leer('lib/api-mako/areas/chatbot.run.ts');
   assert.match(run, /const malEmail = problemaDeEmailMako\(input\);\n\s*if \(malEmail\) return \{ error: malEmail \};/);
   assert.match(run, /return resultadoDelAviso\(r, lead, aviso\.asuntoEmail !== undefined\);/);
-  // El editor: «Por dónde», el asunto y, por email, un solo texto (sin la Voz de MaKo ni archivos).
+  // El editor: la que YA va por email muestra su asunto y un solo texto (sin la Voz de MaKo ni archivos). Desde el 23/10/2026
+  // la tarjeta no OFRECE email (Martín: «para eso ya tenemos una tarjeta de EMAIL»): sin «Por dónde».
   const lienzo = leer('app/automations/FlujoLienzo.tsx');
-  assert.match(lienzo, /data-canal-mako/);
+  assert.doesNotMatch(lienzo, /data-canal-mako/, 'volvió «Por dónde» a la tarjeta de MaKo');
+  assert.match(lienzo, /\{porEmail && <AsuntoDeMako params=\{paramsAhora\} busy=\{busy\} onCambio=\{cambiarEnvio\} \/>\}/);
   assert.match(lienzo, /data-asunto-mako/);
   assert.match(lienzo, /vozMako=\{!porEmail\}/);
   assert.match(lienzo, /permiteAdjuntos=\{!porEmail\}/);

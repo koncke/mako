@@ -66,7 +66,7 @@ test('con 60 inscriptos, como mucho 50 en 24 horas, en los dos modos', () => {
 test('aprobar respeta el goteo: el segundo, recién 5 minutos después del primero; y no más de 50 en 24 horas', () => {
   const nombre = 'Sprint · apertura';
   const uno: UsoGoteo = { enviados: 1, ultimoMs: T0, primeroMs: T0 };
-  assert.match(String(frenoAlAprobar(GOTEO, uno, T0 + 2 * MIN, nombre)), /^Todavía no: «Sprint · apertura» manda uno cada 5 minutos \(su goteo, en Configuraciones › Anti-ban\)\. Apruébalo en 3 minutos\.$/);
+  assert.match(String(frenoAlAprobar(GOTEO, uno, T0 + 2 * MIN, nombre)), /^Todavía no: «Sprint · apertura» manda uno cada 5 minutos \(su goteo, en Configuraciones\)\. Apruébalo en 3 minutos\.$/);
   assert.equal(frenoAlAprobar(GOTEO, uno, T0 + 5 * MIN, nombre), null, 'a los 5 minutos, sale');
   assert.equal(frenoAlAprobar(GOTEO, SIN_USO, T0, nombre), null, 'el primero, sale');
   const cincuenta: UsoGoteo = { enviados: 50, ultimoMs: T0 + 245 * MIN, primeroMs: T0 };

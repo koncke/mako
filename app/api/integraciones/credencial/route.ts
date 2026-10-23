@@ -217,9 +217,24 @@ async function estadoServicio(servicioKey: string, ctx: Contexto) {
     tutorial: s.tutorial,
     // Lo que el usuario tiene que pegar del OTRO lado (ver PasoExterno). Ya viene
     // con la URL real resuelta desde servicioMetodo().
-    pasoExterno: s.pasoExterno ?? null,
+    pasoExterno: await pasoExternoDelNegocio(s.key, s.pasoExterno ?? null, ws),
     campos,
   };
+}
+
+/**
+ * ⚠️ LA DIRECCIÓN DEL AVISO DE MERCADO PAGO LLEVA `?u=<su cuenta>` (revisión del 23/10/2026). Los avisos de una
+ * SUSCRIPCIÓN (preapproval, authorized_payment) pueden llegar sin `user_id` en el cuerpo, y sin él la ruta no sabe de qué
+ * negocio son: los anota «sin-workspace» y contesta 200, así que Mercado Pago no reintenta y la renovación o la baja no
+ * entran nunca. El `?u=` es lo que ya lee la ruta (lib/cobros-eventos.ts, `notificacionMp`) y no entra en la firma (el
+ * manifiesto usa data.id, x-request-id y ts). La preferencia de Checkout Pro ya lo llevaba en su notification_url; el
+ * preapproval no acepta una, así que el único lugar es la dirección que la persona pega en el panel.
+ */
+async function pasoExternoDelNegocio<T extends { valor: string }>(servicio: string, paso: T | null, ws: number): Promise<T | null> {
+  if (!paso || servicio !== 'mercadopago') return paso;
+  const userId = await credDelCliente('MERCADOPAGO_USER_ID', ws).catch(() => null);
+  if (!userId || !/^\d{1,20}$/.test(userId) || paso.valor.includes('?')) return paso;
+  return { ...paso, valor: `${paso.valor}?u=${userId}` };
 }
 
 export async function GET(req: NextRequest) {

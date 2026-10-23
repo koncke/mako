@@ -134,7 +134,7 @@ export async function ejecutarOperacion(
         return { ok: true, tipo: 'propuesta', propuesta: p.propuesta };
       }
       const c = await proponerChat(def, prep.payload, prep.resumen, ctx);
-      if ('error' in c) return { ok: false, status: 500, error: c.error };
+      if ('error' in c) return { ok: false, status: 500, error: c.error, ...(c.motivo ? { motivo: c.motivo } : {}), noCorrio: true };
       // DESPUÉS de guardar la pendiente: el detalle de algo que no quedó propuesto sería
       // un detalle de nada.
       if (prep.paraLaPersona) ctx.aPersona?.(prep.paraLaPersona);

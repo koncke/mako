@@ -11,13 +11,17 @@
 // ⚠️ REEMBOLSAR DEVUELVE PLATA REAL y no se reintenta solo: pasa por una confirmación, y si la
 // pasarela lo rechaza, el motivo queda a la vista (no un «no se pudo» genérico). La cuenta que se
 // creó al pagar NO se da de baja con el reembolso: eso es otra decisión.
+//
+// ⚠️ Y REEMBOLSAR NO CORTA UNA SUSCRIPCIÓN (revisión del 23/10/2026): la pasarela devuelve el pago y sigue cobrando cada
+// mes. Por eso, en una suscripción viva, el reembolso trae marcada «Cortar también la suscripción», y hay un botón propio
+// para cortarla (también con el primer pago ya devuelto, que es cuando más fácil se olvida).
 
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Alert, Button, EmptyState, Status, Tag, Toast, useConfirm, useToast, type Tono } from '@/app/_ui';
 import { useRouter } from '@/app/_ui/Link';
 import { NOMBRE_PASARELA, rotuloEstado, type EstadoAlta, type EstadoCobro } from '@/lib/cobros-tipos';
 import { formatoMonto } from '@/lib/pasarela-moneda';
-import { anularCobroMakoAction, reembolsarCobroMakoAction, type CobroMako } from './actions';
+import { anularCobroMakoAction, atarCobroMakoAction, cancelarSuscripcionMakoAction, reembolsarCobroMakoAction, type CobroMako } from './actions';
 
 const TONO_COBRO: Record<EstadoCobro, Tono> = {
   pendiente: 'info', pagado: 'good', fallido: 'bad', reembolsado: 'warn', anulado: 'neutral',
@@ -43,6 +47,8 @@ export default function ListaCobrosMako({ cobros, truncado }: { cobros: CobroMak
   const { toast, show, clear } = useToast();
   const [ocupado, setOcupado] = useState<number | null>(null);
   const [falla, setFalla] = useState<string | null>(null);
+  // La casilla «Cortar también la suscripción» vive adentro del mensaje de la confirmación: se lee al confirmar.
+  const cortarRef = useRef(true);
 
   async function copiar(link: string) {
     try { await navigator.clipboard.writeText(link); show('Link copiado'); }
@@ -61,17 +67,58 @@ export default function ListaCobrosMako({ cobros, truncado }: { cobros: CobroMak
   }
 
   async function reembolsar(c: CobroMako) {
+    cortarRef.current = c.suscripcionViva;
     const ok = await confirm(
-      <>Se devuelven <strong>{formatoMonto(c.monto, c.moneda)}</strong> por {NOMBRE_PASARELA[c.proveedor]}. No se puede deshacer, y su cuenta de MaKo sigue activa.</>,
+      <>
+        {c.tipo === 'suscripcion'
+          ? <>Se devuelve el primer pago: <strong>{formatoMonto(c.monto, c.moneda)}</strong> por {NOMBRE_PASARELA[c.proveedor]}.</>
+          : <>Se devuelven <strong>{formatoMonto(c.monto, c.moneda)}</strong> por {NOMBRE_PASARELA[c.proveedor]}.</>}
+        {' '}No se puede deshacer, y su cuenta de MaKo sigue activa.
+        {c.suscripcionViva && (
+          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12, color: 'var(--ink)', cursor: 'pointer' }}>
+            <input type="checkbox" defaultChecked onChange={(e) => { cortarRef.current = e.target.checked; }} style={{ marginTop: 4 }} />
+            <span>Cortar también la suscripción. Si no, se le sigue cobrando cada mes.</span>
+          </label>
+        )}
+      </>,
       { title: `¿Reembolsar a ${c.nombre ?? c.email ?? 'este comprador'}?`, confirmLabel: 'Reembolsar' },
     );
     if (!ok) return;
     setOcupado(c.id); setFalla(null);
-    const r = await reembolsarCobroMakoAction(c.id).catch(() => ({ ok: false, resumen: 'No pude hacer el reembolso.' }));
+    const r = await reembolsarCobroMakoAction(c.id, null, { cortarSuscripcion: c.suscripcionViva && cortarRef.current })
+      .catch(() => ({ ok: false, resumen: 'No pude hacer el reembolso.' }));
     setOcupado(null);
     // Un reembolso que la pasarela rechazó se dice con SU motivo, y no se reintenta solo.
-    if (!r.ok) { setFalla(r.resumen); return; }
+    if (!r.ok) { setFalla(r.resumen); router.refresh(); return; }
     show('Reembolso hecho');
+    router.refresh();
+  }
+
+  async function atar(c: CobroMako) {
+    const ok = await confirm(
+      <>La cuenta de MaKo de <strong>{c.email}</strong> pasa al plan {c.plan ?? 'pagado'}, y este cobro queda atado a ella.</>,
+      { title: '¿Darle el plan a su cuenta?', confirmLabel: 'Darle el plan', danger: false },
+    );
+    if (!ok) return;
+    setOcupado(c.id); setFalla(null);
+    const r = await atarCobroMakoAction(c.id).catch(() => ({ ok: false, resumen: 'No pude atar el cobro a su cuenta.' }));
+    setOcupado(null);
+    if (!r.ok) { setFalla(r.resumen); return; }
+    show('Plan asignado');
+    router.refresh();
+  }
+
+  async function cortar(c: CobroMako) {
+    const ok = await confirm(
+      <>{NOMBRE_PASARELA[c.proveedor]} deja de cobrarle cada mes, desde ahora. No devuelve nada.{c.proveedor === 'mercadopago' ? ' En Mercado Pago no se puede deshacer.' : ''}</>,
+      { title: `¿Cortar la suscripción de ${c.nombre ?? c.email ?? 'este comprador'}?`, confirmLabel: 'Cortar la suscripción' },
+    );
+    if (!ok) return;
+    setOcupado(c.id); setFalla(null);
+    const r = await cancelarSuscripcionMakoAction(c.id).catch(() => ({ ok: false, resumen: 'No pude cortar la suscripción.' }));
+    setOcupado(null);
+    if (!r.ok) { setFalla(r.resumen); return; }
+    show('Suscripción cortada');
     router.refresh();
   }
 
@@ -128,6 +175,12 @@ export default function ListaCobrosMako({ cobros, truncado }: { cobros: CobroMak
             {c.link && <Button size="sm" variant="secondary" onClick={() => void copiar(c.link!)}>Copiar link</Button>}
             {(c.estado === 'pendiente' || c.estado === 'fallido') && (
               <Button size="sm" variant="tertiary" loading={ocupado === c.id} onClick={() => void anular(c)}>Anular</Button>
+            )}
+            {c.estado === 'pagado' && c.alta_estado === 'ya_tenia_cuenta' && (
+              <Button size="sm" variant="secondary" loading={ocupado === c.id} onClick={() => void atar(c)}>Darle el plan a su cuenta</Button>
+            )}
+            {c.suscripcionViva && (
+              <Button size="sm" variant="tertiary" loading={ocupado === c.id} onClick={() => void cortar(c)}>Cortar la suscripción</Button>
             )}
             {c.estado === 'pagado' && (
               <Button size="sm" variant="tertiary" loading={ocupado === c.id} onClick={() => void reembolsar(c)}>Reembolsar</Button>

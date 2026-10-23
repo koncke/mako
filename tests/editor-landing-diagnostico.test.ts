@@ -390,6 +390,57 @@ test('el documento cuenta cuánto texto llegó a pintarse, y lo vuelve a contar'
   assert.match(doc, /addEventListener\('load', contarTexto\)/, 'y también al load');
 });
 
+// LA PÁGINA QUE NO SE DEJA EMBEBER (23/10/2026). Si el aislado no pinta, el recuadro cae a la página
+// REAL; con X-Frame-Options o frame-ancestors eso es un blanco, y el aviso decía «se muestra la página
+// real». El server tiene las cabeceras (baja la página) y lo dice en `data-marco`; el script lo manda
+// con el texto; la vista no intenta la real si el server dijo que no se deja.
+test('el documento lleva si la página real se deja embeber, y el script lo manda con el texto', async () => {
+  const html = '<html><head></head><body><div id="app"></div></body></html>';
+  assert.match(documentoDiagnostico(html, 'https://x.test/', { embebible: false }), /<script data-marco="no">\(function/);
+  assert.match(documentoDiagnostico(html, 'https://x.test/', { embebible: true }), /<script data-marco="si">\(function/);
+  assert.match(documentoDiagnostico(html, 'https://x.test/'), /<script>\(function/, 'sin el dato no se afirma nada');
+  const doc = documentoDiagnostico(html, 'https://x.test/', { embebible: false });
+  assert.match(doc, /tipo: 'listo', texto: cuantoTextoPinto\(\), marco: MARCO/);
+  assert.match(doc, /tipo: 'pinto', texto: cuantoTextoPinto\(\), marco: MARCO/);
+  assert.match(doc, /getAttribute\('data-marco'\)/, 'el script lee SU atributo');
+  // La ruta lo pasa de lo que devolvió la bajada.
+  const r = await responderPaginaDiagnostico(pedido('iframe'), 'https://su-landing.com', { bajar: async () => ({ html, embebible: false }) });
+  assert.match(await r.text(), /<script data-marco="no">/);
+  const r2 = await responderPaginaDiagnostico(pedido('iframe'), 'https://su-landing.com', { bajar: async () => html });
+  assert.match(await r2.text(), /<script>\(function/);
+});
+
+test('el script lee el marco de su propio atributo (ejecutándolo)', () => {
+  const html = '<html><head></head><body><div id="app"></div></body></html>';
+  const doc = documentoDiagnostico(html, 'https://x.test/', { embebible: false });
+  const codigo = /<script data-marco="no">([\s\S]*?)<\/script>/.exec(doc)?.[1] ?? '';
+  assert.ok(codigo.length > 1000);
+  const enviados: Array<Record<string, unknown>> = [];
+  const nada = () => {};
+  const body = { cloneNode: () => ({ querySelectorAll: () => [], textContent: '' }), querySelectorAll: () => [] };
+  const window: Record<string, unknown> = { addEventListener: nada, innerHeight: 600, innerWidth: 800 };
+  window.parent = { postMessage: (m: Record<string, unknown>) => enviados.push(m) };
+  const document = {
+    currentScript: { getAttribute: (k: string) => (k === 'data-marco' ? 'no' : null) },
+    body, documentElement: { scrollHeight: 0 }, readyState: 'loading',
+    createTreeWalker: () => ({ nextNode: () => null }), querySelectorAll: () => [], addEventListener: nada,
+  };
+  runInNewContext(codigo, { window, document, setTimeout: nada, clearTimeout: nada, requestAnimationFrame: nada, NodeFilter: { SHOW_TEXT: 4 }, MutationObserver: undefined });
+  const listo = enviados.find((m) => m.tipo === 'listo');
+  assert.ok(listo, 'el script tiene que mandar el «listo»');
+  assert.equal(listo.marco, false);
+});
+
+test('la vista no cae a la página real si el server dijo que no se deja embeber', () => {
+  const src = sinComentarios(leer('app/web-generator/diagnostico/VistaAfuera.tsx'));
+  assert.match(src, /marcoRef\.current === false \? 'vacia' : 'directo'/, 'con marco === false, el recuadro dice que no se puede mostrar');
+  assert.match(src, /anotarTexto\(d\.texto, d\.marco\)/, 'el marco viaja con el «listo» y con el «pinto»');
+  assert.equal((src.match(/anotarTexto\(d\.texto, d\.marco\)/g) ?? []).length, 2);
+  assert.match(src, /useEffect\(\(\) => \{ marcoRef\.current = null; \}, \[src\]\)/, 'otra página, de nuevo sin saber');
+  const ruta = sinComentarios(leer('app/api/landing-generator/diagnostico/pagina/route.ts'));
+  assert.match(ruta, /embebible: dejaEmbeberse\(p\.marco, origen\)/, 'la ruta decide con las cabeceras de la página que bajó');
+});
+
 // =============================================================================
 // ROTURAS (11/10/2026). Cada una se hizo sobre el archivo que se nombra, se corrió este archivo y se
 // restauró reemplazando SÓLO lo roto (verificado byte a byte). La base estaba en verde: 29 pass, 0 fail.

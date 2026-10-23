@@ -287,6 +287,17 @@ const esParteDeLoAbierto = (tab: Area, palabra: string | undefined): boolean =>
   !!palabra && !!PARTES_DE_LO_ABIERTO[tab]?.test(plano(nfc(palabra)).trim());
 
 /**
+ * ¿Es una orden sobre el FLUJO de una automatización («si responde…», «cuando entra…», «movelo», «avisame», «mandale»)? En
+ * la tab de Automations, con una abierta, eso es un cambio de lo abierto (`decidir`): lo que nombre de otra área es un paso.
+ */
+export const esOrdenDelFlujo = (texto: string): boolean =>
+  // (Con clases de acentos: el texto viene sin tildes por `plano`, y la palabra entera la marcaría el guardián del voseo.)
+  // 23/10/2026 (el arnés del AU2, `solo-apertura`): también en plural («si no responden»), «un seguimiento» y «que la
+  // automatización sea…»: el pedido de #289 tenía las tres y no era una orden del flujo.
+  /\b(?:si (?:no )?(?:responde|contesta)n?|si (?:agenda|paga)n?|cuando (?:entra|llega|responde|contesta|agenda|paga)n?|mu[eé]vel[oa]s?|mov[eé]l[oa]s?|av[ií]s[a]me|av[ií]s[a]nos|m[aá]nd[a]les?|esperar?|seguimientos?|que (?:arranque|dispare|salga|le mande)|que (?:la automatizacion|el flujo|la secuencia) (?:sea|quede|tenga))\b/
+    .test(plano(nfc(texto)));
+
+/**
  * Y al revés: las palabras que, DENTRO de una tab, nombran OTRO objeto de esa misma tab aunque `AREA_KEYWORDS` las
  * ponga en otra área. El Video Editor llama «proyecto» a cada video (como CapCut: «Nuevo proyecto», y su inicio lista
  * proyectos), y «proyecto» es palabra del área `plan`: sin esto, «créame otro proyecto» en el editor se iba al Plan y
@@ -821,6 +832,10 @@ function decidir(c: PedidoCrudo, ctx: ContextoPedidos): Decision {
     // La palabra es de otra área, pero en esta tab nombra una parte de lo abierto: es un cambio de lo abierto,
     // aunque la IA la haya etiquetado con la otra área.
     if (parte && actual) return { pedido: { sobre: 'actual', texto: c.texto }, ambiguo: false, frase: null };
+    // ⚠️ UNA ORDEN SOBRE EL FLUJO ABIERTO en Automations (22/10/2026, el arnés del Cerebro: «Si responde, movelo a la etapa
+    // Respondió del CRM «…» y avisame por WhatsApp» salía en dos burbujas «ir» al CRM y a WhatsApp, y MaKo no hacía nada).
+    // Ahí la etapa, el CRM y el WhatsApp son INGREDIENTES del flujo, aunque la IA los etiquete con su área.
+    if (actual && tab === 'chatbot' && esOrdenDelFlujo(c.texto)) return { pedido: { sobre: 'actual', texto: c.texto }, ambiguo: false, frase: null };
     // Fuerte: lo etiquetó la IA (validado), no hay nada abierto, o el verbo CREA un objeto de esa área
     // («agéndame una reunión», «créame otra landing»). Lo demás —«cambia el precio», «quita el video»— nombra
     // otra área pero casi siempre es un cambio de lo abierto: va a lo actual y la IA desempata (si está).
@@ -841,6 +856,16 @@ function decidir(c: PedidoCrudo, ctx: ContextoPedidos): Decision {
   // cambio de lo abierto.
   if (c.verbo === 'crear' && l.objeto && deEstaTab && !parte) {
     return { pedido: { sobre: 'nuevo', texto: c.texto, operacion: operacionPara('crear', tab, c.texto, ctx) }, ambiguo: false, frase: l.objeto.frase, hacemos: hacemosDe(l) };
+  }
+  // ⚠️ Y UNA ORDEN SOBRE EL FLUJO ABIERTO TAMPOCO NOMBRA OTRA automatización por un nombre que la toca (23/10/2026, el arnés
+  // del AU2, `solo-apertura` en la 2ª pasada: «sólo quiero que la automatización sea de "Apertura", y un seguimiento si no
+  // responden» salió en la burbuja «Eso va en «… · solo-apertura»» y MaKo no hizo nada). La regla de arriba era sólo para
+  // otra ÁREA; dentro de la tab, `referidos` toma la primera cita como el nombre de otra si cabe en él. En una orden del
+  // flujo, lo citado es un ingrediente (una sección, una etapa, un mensaje). Salvo borrar y «la otra» / «la anterior», que
+  // sí señalan a otra.
+  if (actual && tab === 'chatbot' && c.verbo !== 'borrar' && esOrdenDelFlujo(c.texto)
+    && !/\b(?:l[ao]s?|el|mis?)\s+otr[ao]s?\b|\b(?:l[ao]|el)\s+anterior\b/.test(l.pl)) {
+    return { pedido: { sobre: 'actual', texto: c.texto }, ambiguo: false, frase: null };
   }
   const otros = (ctx.objetos ?? []).filter((o) => o.id !== actual?.id);
   const r = referidos(l, c.referencia, otros, tab);

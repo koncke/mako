@@ -399,7 +399,9 @@ afectados: dos chequeos de lo mismo. El primero, con 8 chats y 1-2 GB libres, ta
    tandas (`node scripts/tipos-respaldo-push.mjs`).
 3. **El tren sale cada 30 min** con todo lo que llegó, o antes si trae un cliente roto. No se espera a juntar más.
 4. Integración le pasa el sha al Cerebro y el Cerebro sube en el acto (sin minutos de Actions, con `--no-verify`: ver
-   «Sin minutos de Actions» en docs/hallazgos-infra.md).
+   «Sin minutos de Actions» en docs/hallazgos-infra.md). **Sin minutos, subir `integracion` NO avanza `main`**: después de
+   cada push, `git ls-remote origin refs/heads/main` y el Ready de Vercel. El 23/10, el arreglo de un cliente quedó en
+   `integracion` creyendo que Actions lo subía (docs/hallazgos-operaciones.md, «El cambio de cuenta del 23/10»).
 
 Lo que sigue describe `antes-de-subir`: ahora es la herramienta de Integración para el tren (y de un jefe con RAM de sobra que
 quiera adelantarse), no el peaje de cada punta. **La regla anterior** (17/10/2026; Martín: «asegúrate por todos los medios de
@@ -1718,7 +1720,9 @@ código nuevo:
   - **UNA SOLA CAJA PARA HABLAR CON MaKo: `app/_chat/CajaChat.tsx`** (20/10/2026; Martín: «Te pedí que unificaras el chat
     del Ops Center en todos lados, su diseño y funcionalidades»). Ninguna pantalla nueva arma su <textarea>, usa
     `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.
-    Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. tests/chat-unico.test.ts lleva la lista de
+    Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. En un `PanelDeChat` va adentro de
+    `<div className="co-caja">`: el marco y el campo de un renglón son de esa clase, y sin ella sale rota (la Ticketera del
+    cliente, 23/10/2026). tests/chat-unico.test.ts lleva la lista de
     las que faltan, cada una con su chat, y falla si aparece una nueva. **Y el hilo, `app/_chat/HiloMako.tsx`** (22/10/2026,
     OF4): lo propio de una pantalla adentro de un mensaje de MaKo (el PDF de Offer, una tarjeta del onboarding) va por su
     hueco `enMensaje` (`arriba` o `abajo` del texto), nunca en un hilo propio. Un archivo que el chat no puede abrir (Offer
@@ -2317,6 +2321,14 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+⚠️ **Y un cuarto, de la misma familia: un `slice` de texto corta MEDIO emoji, y la base rechaza el pedido ENTERO.** `slice(0, N)` cuenta unidades UTF-16:
+si la N cae en un emoji deja un surrogate suelto, `JSON.stringify` lo manda como `\ud83d` y Postgres contesta «invalid
+input syntax for type json» a todo el insert. Medido el 23/10/2026: el ws13 sin un solo aviso de lead nuevo en diez días,
+porque el resumen del aviso cortaba el mensaje a 120 justo en un emoji (el payload iba entero, y por eso probar con él
+daba verde). Un texto que va a la base se corta con `cortarSinPartir` (lib/unicode-seguro.ts), y lo que escribe una puerta
+compartida pasa por `datosSinMediosEmojis` (molde: `crearPendiente`). Y una puerta que no puede escribir devuelve el
+MOTIVO, no `null`: el porqué vivía en un `console.error` que nadie lee.
+
 ## Y de un enlace `mako://` sale SÓLO el código, nunca el servidor
 
 scripts/ia-pc/mako-pc.mjs → `conectarDesdeEnlace` (22/10/2026): cualquier página puede abrir un `mako://`, y con su servidor se
@@ -2581,7 +2593,12 @@ distinguir un iPad (manda UA de Macintosh, lib/movil-dispositivo.ts), y lo que v
   (app/globals.css, `aside[data-sidebar]`).
 - **Una columna de navegación NO scrollea nunca** (Martín, 01/07: «La sidebar se puede scrollear, eso NO debe ser
   posible NUNCA»): si no entra, se reorganiza o se pliega. Un `overflow: auto` con la barra escondida no lo arregla:
-  esconde la evidencia.
+  esconde la evidencia. Única excepción pedida (Martín, 23/10: «siempre cuando la sidebar principal esté plegada, no
+  debe aparecer la barra de scroll»): el RAIL plegado (`aside[data-sidebar][data-fija="no"]`) no dibuja la barra
+  (app/_ui/ui.css); abierto y fijo sigue delgada y teñida. No se arregla un menú largo con eso: se reorganiza.
+- **Automations arranca con la sidebar plegada** (23/10): `/automations` está en `RUTAS_QUE_PLIEGAN`
+  (app/_components/Sidebar.tsx), como el Ops Center; la flecha la abre. Su panel flotante (lista y chat con MaKo) mide
+  `MUELLE.listaAncho` (400, lib/lienzo-grafo.ts) y de ese número cuelgan los insets del lienzo.
 - **Lo táctil se decide por capacidad, no por dispositivo**: `@media (pointer: coarse)` para los 44 px de toque, y
   toda interacción que se abre al pasar el cursor (los desplegables de la sidebar) tiene su equivalente al tocar.
 - **Se mira en el ancho y el alto reales de una tablet** (1024×768 y 820×1180), no sólo en un monitor y en 390 px.
@@ -3568,6 +3585,11 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   cuerpo de un aviso nunca marca nada pagado. Y el orden es CRM → Ganado → alta → Automations.
 - **El alta automática de MaKo se pregunta por el WORKSPACE, en positivo** (`ws === await wsSuperAdmin()`): un
   cliente que vende con su Stripe no crea inquilinos.
+- **Devolver el pago de una suscripción NO la corta** (23/10/2026): la pasarela devuelve ese pago y sigue cobrando cada
+  mes, y la renovación entra como plata nueva. Cortarla es `cancelarSuscripcionCobro`. Una pantalla que devuelve el pago
+  de una suscripción ofrece cortarla en el mismo paso, y la corta ANTES de devolver (molde: /admin/cobros).
+- **Lo que se ofrece al PÚBLICO excluye una pasarela en modo prueba** (`ofertaDelPlan` con `conPrueba`, 23/10/2026): el
+  alta no mira el modo del cobro, así que un checkout público con claves de prueba regalaba cuentas reales con la 4242.
 - **La moneda la decide la pasarela, y en un formulario que cobra la pasarela se pregunta ANTES del monto.** El
   valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada. Tampoco la de una IA que lee un
   documento (21/10/2026): se le pide el monto y la moneda TAL COMO FIGURAN, sin convertir, y la pantalla decide
@@ -3843,6 +3865,10 @@ creía que había funcionado.**
   llamada, la respuesta casi siempre trae N estados y el HTTP es uno solo.
 - Y **traducí ese estado a una frase**, no lo pases crudo: `403` no le dice nada a nadie
   (ver `RESULTADO_PARTICIPANTE` en `lib/mako-grupo.ts`).
+- ⚠️ **supabase-js (y su storage) NO rechaza la promesa ante un error: devuelve `{ data: null, error }`.** Un `.catch`
+  encadenado está muerto para ese caso, y quien destructura sólo `data` lee la falla como «no hay nada». Medido el
+  23/10/2026 en storage-js 2.106.1 (`createSignedUrls`): el Ops Center contestaba «esta foto no existe» con el storage
+  caído. Se lee `error` siempre, y una falla de la llamada se distingue de un ítem que no existe.
 
 # La salida de un estado trabado no puede pasar por lo que está trabado
 
@@ -4427,6 +4453,26 @@ estaba roto y el que no la hace la línea de **después**:
 funden—, o se escapan `\`, `%` y `_` (molde: `leadDeAlumno`), o el patrón es un prefiltro
 y la decisión la toma una igualdad exacta después.** Y si hay más de un candidato, no se
 elige el primero: se desempata con un dato (el único `ganado`) o no se elige.
+
+# Un canal de contacto nuevo se suma en SEIS lugares, y una unión exportada no se copia (23/10/2026)
+
+El @ de Instagram pasó a contar como contacto (`lib/contacto-minimo.ts`) y la tanda tocó más de veinte archivos para que cada puerta lo viera. Lo que
+cada una olvidaba, y qué falla en silencio:
+
+- `tieneContacto` (alta, importador, prospección) · `buscarDuplicados` y la consulta de `duplicadosDeLead` · `filasDePropuesta`
+  (`app/crm/revisar/[id]/propuesta-lead.ts`, copia campo por campo: lo que no conoce lo descarta y la fila cae como sin contacto) ·
+  la llave de idempotencia de la skill y de `proponerLote` (`refPorDefecto`: con sólo el campo nuevo daba `lead:null` y dos personas
+  colapsaban en UNA propuesta, con `ok` y sin error) · el predicado de «único canal» del escritorio y el del teléfono (`soloInstagram`,
+  dos copias, un test las iguala) · el parámetro declarado en la API de MaKo (`crm.def.ts`): el runner puede leerlo y el modelo no poder pasarlo.
+- **Un dato sólo apaga la comparación por nombre si está en casi todas las fichas.** El email y el teléfono sí; `leads.instagram` (mig 0258)
+  casi no. Copiar la regla dejó sin aviso al alta «Juan Pérez + @juanp», y el test que lo fijaba daba verde: se contrasta con la ficha VIEJA.
+- **Una unión de literales exportada se IMPORTA, no se reescribe** (`type MotivoDuplicado`, `lib/leads-duplicados.ts`): `tsx` borra los tipos,
+  ningún test corre `tsc`, y una copia a mano (`'email' | 'telefono' | 'nombre'` en `app/customer-success/actions.ts`) dejó de compilar el día
+  que se sumó un motivo. Su test de fuente no lleva lista de excepciones y barre todo `app/` y `lib/` (una lista de archivos no sobrevive a una mudanza: el cuerpo
+  de `crearClienteAction` se mudó a `lib/` y la copia con él). Y los usuarios de Instagram llevan `_`: `patronDeInstagram` escapa
+  (ver «Un patrón trae CANDIDATOS» más arriba) y la igualdad exacta de `instagramComparable` decide.
+- Detalle y trampas del CSV (`ig` por inclusión, «no» como usuario, encabezados de formulario): `docs/hallazgos-crm.md`, «Un lead puede entrar
+  con sólo su @ de Instagram».
 
 # Si hay que desempatar, todavía estás adivinando
 
@@ -5425,7 +5471,13 @@ del layout lee las cookies en cada request. Medido: build verde, 70 páginas, to
   suspense boundary» y producción se queda en la versión anterior.
 - **Un `loading.tsx` ES un Suspense** alrededor de la página de su segmento: uno en `app/` o en
   un segmento público vuelve a esconder esas páginas. Sólo va en segmentos privados, y la lista
-  blanca vive en el test (hoy, sólo `app/crm/loading.tsx`).
+  blanca vive en el test. **Cada tab grande lleva su `loading.tsx` con `CargandoMako`** (23/10/2026,
+  `app/_ui/CargandoMako.tsx`, importado directo y nunca desde el índice de `_ui`): ningún clic queda sin respuesta
+  visible. Lo fija `tests/cargando-mako.test.ts`.
+- **En una ruta /api o una server action, el `cache()` de React NO memoiza** (23/10/2026): no hay render. La sesión ya
+  se lee una vez por pedido (`enElPedido`, lib/sesion-por-pedido.ts); lo demás que se lea muchas veces por pedido va
+  igual, y las lecturas que no dependen una de otra van en `Promise.all`. Medido: `/api/auth/me` hacía 41 idas a la
+  base y `/api/chat-agent/secuencias` 150 (docs/hallazgos-infra.md).
 - **Partir la página en bloques chicos NO sirve** (medido: de 30 bloques de 3 KB, 26 salen
   ocultos): el umbral se mide sobre lo ya escrito.
 - **Lo que no tiene que verse sin JavaScript sí puede ir en su Suspense**: la barra lateral (18
@@ -6543,6 +6595,11 @@ SÍ se publica:
 concretas y excluyentes, y el contexto dice qué se rompe con cada una. Si para contestar hay
 que abrir el código, falta trabajo tuyo, no decisión suya — la prueba está en que una de las 56
 volvió contestada con **«No entiendo esta pregunta»**.
+
+⚠️ **Y antes de dejar algo como «depende de Martín», se busca si ya lo decidió** (la memoria, las bitácoras de
+`/admin/dev`, el relevo del área). Medido el 23/10/2026: «la foto enviada en otro dispositivo» figuró seis días como «es
+una decisión de Martín» en el relevo, en los hallazgos y en docs/pendientes.md, y la decisión estaba tomada desde el 18/10.
+Una pendiente que ya se contestó traba igual que una sin contestar, y le cuesta a él una pregunta repetida.
 
 **DESDE EL 17/10/2026 LA PREGUNTA DE UN CHAT VA A SU CONVERSACIÓN, NO A LA TICKETERA** (Martín: «me pide
 que responda, en lugar de darme las opciones tipo multiple select»). La Ticketera queda para los tickets de
@@ -9361,6 +9418,12 @@ es el camino que ya guarda el borrador al desmontar.
 `useState(props.…)`.** Pasar de «se abre» a «siempre visible» no toca una línea del
 componente y le cambia el ciclo de vida entero.
 
+⚠️ **Y lo mismo adentro de una LISTA dibujada por posición** (`key={i}`): cuando la lista se corre (llega algo arriba,
+sale lo más viejo), React le pasa al mismo componente las props de OTRA fila, y su estado sigue siendo el de la anterior.
+Medido el 23/10/2026 en la conversación del Ops Center: la burbuja de un mensaje mostraba las fotos del mensaje de al lado
+hasta que llegaban las suyas. Un componente con estado sembrado de un id lleva `key={ese id}`, aunque sus hermanos no
+(docs/hallazgos-operaciones.md, «La foto que se manda por la caja…»).
+
 # /automations (ex /chatbot) es un FLUJO CON RAMAS: lo que gobierna el código nuevo
 
 **MaKo no decide nada que no esté en el flujo** (Martín, 14/10/2026: «Si no es configurable el usuario,
@@ -9374,6 +9437,14 @@ Antes de una tarjeta nueva, mirá si las que hay ya la expresan: una rama sin fl
 el lead contesta" NO debería ir en el CRON, debería ser una CONDITION... Es obvio eso»). Que el lead
 conteste no corta nada: lo dice «No contestó desde que entró» (`contesto`) después de cada espera, y
 quien arma un flujo con seguimientos —plantilla, Crear con IA, API— la pone ahí.
+**Y una tarjeta NO GANA CONTROLES** (Martín, 23/10/2026: «Te había pedido que no rompas el diseño de las tarjetas, mirá
+esos 3 botones... Por qué agregar email si para eso ya tenemos una tarjeta de EMAIL»). Lo que haga falta va por CONDITION,
+DELAY, Configuraciones de la automatización o el ⓘ, o se le pide a MaKo con su operación de la API; nunca un desplegable
+suelto arriba del mensaje. Y cada canal es SU tarjeta: la de MaKo en WhatsApp no ofrece email. Lo fija
+tests/tarjeta-mako-como-las-demas.test.ts.
+Una ACTION de la API de MaKo que entra a los flujos esconde, en el paso, los parámetros que harían el trabajo de otra
+tarjeta (un email escrito a mano, «Canales»): van en `FUERA_DEL_FLUJO` (lib/api-mako/flujo-params.ts), que leen el
+editor y el motor (tests/tarjetas-revision-23-10.test.ts).
 
 Desde el 08/10/2026 una automatización de la tab Automations (ex Chatbot, renombrada el
 09/10/2026: la pantalla vive en `app/automations/`, /chatbot redirige con la query entera y las

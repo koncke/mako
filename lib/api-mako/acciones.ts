@@ -86,18 +86,24 @@ const origenDe = (ctx: Ctx): string => (ctx.canalKey.startsWith(PREFIJO_FLUJO)
 
 // ── chat: dejar una pendiente ─────────────────────────────────────────────────
 
-type PropuestoChat = { pendiente: { id: number; resumen: string; venceEnMin: number; url: string } } | { error: string };
+type PropuestoChat = { pendiente: { id: number; resumen: string; venceEnMin: number; url: string } } | { error: string; motivo?: string };
 
 export async function proponerChat(def: AccionDef, payload: Record<string, unknown>, resumen: string, ctx: Ctx): Promise<PropuestoChat> {
-  const id = await crearPendiente(ctx.ws, {
+  const c = await crearPendiente(ctx.ws, {
     grupoJid: ctx.canalKey, tipo: def.tipoPendiente ?? def.id, payload, resumen,
     origen: origenDe(ctx), ttlMin: TTL_PENDIENTE_MIN,
     // Si el turno ya dejó una igual (el doer rotó de proveedor y volvió a correr), ésa.
     mismoTurnoDesde: ctx.turnStart,
   });
-  if (id == null) return { error: 'No se pudo registrar la acción pendiente.' };
-  return { pendiente: { id, resumen, venceEnMin: TTL_PENDIENTE_MIN, url: linkPantalla(RUTA_BANDEJA, ctx.ws) } };
+  // El motivo VIAJA (23/10/2026, el ws13): un paso de una automatización lo escribe en `nutricion_envios.error`, y
+  // «no pude registrarla» sin él costó diez días de avisos perdidos con la causa en un log que nadie lee. Va APARTE
+  // (`motivo`): a una persona por el chat o WhatsApp le llega la frase, no lo que contestó la base.
+  if ('error' in c) return { error: ERROR_PENDIENTE, motivo: c.error };
+  return { pendiente: { id: c.id, resumen, venceEnMin: TTL_PENDIENTE_MIN, url: linkPantalla(RUTA_BANDEJA, ctx.ws) } };
 }
+
+/** Lo que sale cuando la pendiente no entró (seguido de lo que contestó la base). */
+export const ERROR_PENDIENTE = 'No se pudo registrar la acción pendiente.';
 
 // ── pantalla genérica: dejar una propuesta con link ──────────────────────────
 

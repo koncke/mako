@@ -24,7 +24,7 @@
 
 import 'server-only';
 import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
-import { conTechoDeSalida } from '@/lib/ai-cheap-techo';
+import { aprenderFormatoSiLoRechaza, paramsDeSalida } from '@/lib/ai-cheap-techo';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
 import { createHash } from 'node:crypto';
 import { credDelCliente, credWs, credWsEstricta } from '@/lib/credenciales';
@@ -544,8 +544,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
         { role: 'system', content: opts.system },
         { role: 'user', content: opts.user },
       ],
-      max_tokens: conTechoDeSalida(p, model, (opts.maxTokens ?? 512) + aire),
-      temperature: opts.temperature ?? 0.2,
+      ...paramsDeSalida(p, model, (opts.maxTokens ?? 512) + aire, opts.temperature ?? 0.2),
       ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
       // Gemini 2.5 Flash "piensa" por default y ese razonamiento oculto consume del
       // mismo max_tokens: con un tope chico, el modelo gasta todo pensando y la
@@ -1332,7 +1331,8 @@ export async function chatCheapTools(
             ...(oaiTools.length
               ? { tools: oaiTools, tool_choice: step === 0 && opts.toolChoicePrimerPaso ? opts.toolChoicePrimerPaso : 'auto' }
               : {}),
-            max_tokens: conTechoDeSalida(p, model, opts.maxTokens ?? 1400), temperature: 0.2,
+            // Un modelo de OpenAI con razonamiento rechaza `max_tokens` y `temperature` (lib/ai-cheap-techo.ts).
+            ...paramsDeSalida(p, model, opts.maxTokens ?? 1400, 0.2),
           }),
           cache: 'no-store',
           signal: AbortSignal.timeout(opts.timeoutMs ?? 45000),
@@ -1352,6 +1352,12 @@ export async function chatCheapTools(
       // El status va adelante: los clasificadores de río abajo (fallo-ia-texto) leen
       // `\b429\b` y `HTTP 503`, y el texto del proveedor no siempre los trae.
       const detalle = status && !leido.mensaje.startsWith(`HTTP ${status}`) ? `HTTP ${status} · ${leido.mensaje}` : leido.mensaje;
+      // Un modelo de OpenAI que rechaza un campo de salida: se aprende el OTRO formato y se repite el paso una sola vez
+      // (lib/ai-cheap-techo.ts, `aprenderFormatoSiLoRechaza`). Si el otro también falla, sigue la rotación de siempre.
+      if (p.nombre === 'openai' && status === 400 && aprenderFormatoSiLoRechaza(model, leido.mensaje)) {
+        console.warn(`[ai-cheap] chatCheapTools(${rotulo(p)}) ${model}: ${detalle.slice(0, 200)} → otro formato de salida`);
+        continue;
+      }
       const tipo = tipoDeFallo(status, leido.mensaje);
       const paso = rotacion.trasFallo({ tipo, esperaMs: leido.esperaMs, porDia: leido.porDia });
       if (!paso) { falloFinal = detalle; break; }
@@ -1472,7 +1478,7 @@ async function cerrarSinTools(
   const res = await fetch(`${p.base}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages: msgs, max_tokens: conTechoDeSalida(p, model, opts.maxTokens ?? 1400), temperature: 0.2 }),
+    body: JSON.stringify({ model, messages: msgs, ...paramsDeSalida(p, model, opts.maxTokens ?? 1400, 0.2) }),
     cache: 'no-store',
     signal: AbortSignal.timeout(opts.timeoutMs ?? 45000),
   });

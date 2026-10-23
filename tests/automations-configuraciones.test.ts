@@ -154,15 +154,12 @@ test('los cuatro topes y el freno salen de lo leído, no de una constante', () =
   assert.match(PROC, /const presupuestoEmail = conEmail\.length \? limites\.email\.dia - \(await enviosUltimas24h\('email'\)\) : 0;/);
   assert.match(PROC, /const cupo = Math\.max\(0, Math\.min\(limites\.wa\.hora - enLaHora, presupuesto\)\);/);
   assert.match(PROC, /const LOTE = \(cupo > 0 \? cupo : limites\.wa\.hora\) \* 3;/);
-  // 20/10/2026: las horas a la misma persona son de CADA automatización (las propias o las del negocio): una lectura
-  // por ventana distinta del lote.
-  assert.match(PROC, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configsCorrida\.get\(secId\) \?\? \{\}, limites\);/);
-  assert.match(PROC, /recientesPorVentana\.set\(k, await leadsConEnvioReciente\(\[\.\.\.g\.leads\], g\.v\)\);/);
-  assert.doesNotMatch(NUTRI, /\b(MAX_POR_DIA|MAX_POR_CORRIDA|MAX_EMAIL_POR_DIA|HS_MIN_ENTRE_MSGS)\b/, 'volvió una constante cableada');
-  const freno = bloque(NUTRI, 'async function leadsConEnvioReciente(', '\nasync function leadIdsDe(');
-  assert.match(freno, /const desde = haceHorasISO\(personaHoras\.whatsapp\);/);
-  assert.match(freno, /const desdeEmail = haceHorasISO\(personaHoras\.email\);/);
-  assert.match(freno, /porVentana\(leadIds, desdeEmail, qNutri\('email'\), 'nutricion_envios'\)/, 'el email frena con SUS horas');
+  // 23/10/2026 (Martín: «elimina "Misma persona"»): el motor ya no lee horas a la misma persona, ni las del negocio ni las de cada
+  // automatización. No hay ventana de la base: `conEnvioRecienteDe` devuelve SIN_VENTANA y sólo queda el freno de la MISMA corrida.
+  assert.match(PROC, /const conEnvioRecienteDe = \(_secId: number\): RecientesPorCanal => SIN_VENTANA;/);
+  assert.doesNotMatch(PROC, /ventanaDe|recientesPorVentana|leadsConEnvioReciente|personaHoras/);
+  assert.doesNotMatch(NUTRI, /\b(MAX_POR_DIA|MAX_POR_CORRIDA|MAX_EMAIL_POR_DIA|HS_MIN_ENTRE_MSGS|HS_MIN_PREPARACION|HS_REUNION_CERCA)\b/, 'volvió una constante cableada');
+  assert.doesNotMatch(NUTRI, /async function leadsConEnvioReciente\(/, 'volvió la lectura de la ventana de «Misma persona»');
   // El uso de la pantalla sale de los MISMOS contadores que el motor.
   const uso = bloque(NUTRI, 'export async function usoDelCupo(', '\n}');
   assert.match(uso, /enviosUltimas24h\('whatsapp'\), enviosEnLaHora\('whatsapp'\), enviosUltimas24h\('email'\)/);
@@ -233,7 +230,8 @@ test('ChatAgentApp monta el menú de Configuraciones en los dos lugares del hora
 // ⚠️ 20/10/2026 (Martín, 16/10 punto 5: «"configuraciones" ya no viva para todo Automations, sino para cada chat en los 3
 // puntos»): el modal es de UNA automatización (`secuenciaId`), lo abren la tuerca del título y el «⋯» de la fila, y el
 // menú de la lista es sólo el «?». Lo nuevo, en tests/automations-chat-siempre.test.ts.
-test('el modal: dos pestañas, `onCerrar` fijo que no cierra con un guardado en vuelo, por portal', () => {
+// 23/10/2026 (Martín: «Todo vive en UNA sola pantalla, sin pestañas»): sin pestañas; la pantalla es `AjustesDeLaAutomatizacion`.
+test('el modal: una pantalla, `onCerrar` fijo que no cierra con un guardado en vuelo, por portal', () => {
   const src = fuente('app/automations/ConfiguracionesBoton.tsx');
   // (22/10/2026: sin el nombre de la automatización arriba: el modal no lo usa.)
   assert.match(src, /export function ConfiguracionesModal\(\{ secuenciaId, onCerrar \}: PropsConfiguraciones\) \{/);
@@ -241,42 +239,28 @@ test('el modal: dos pestañas, `onCerrar` fijo que no cierra con un guardado en 
   // Quien lo abre le pasa un `onCerrar` de identidad FIJA (el lienzo y la lista).
   assert.match(fuente('app/automations/SecuenciaPerfil.tsx'), /const cerrarConfig = useCallback\(\(\) => setConfigAbierta\(false\), \[\]\);/);
   assert.match(fuente('app/automations/SimuladorWhatsApp.tsx'), /const cerrarConfigDe = useCallback\(\(\) => setConfigDe\(null\), \[\]\);/);
-  assert.match(src, /<Modal titulo="Configuraciones" onCerrar=\{cerrar\} ancho=\{600\} alto="[^"]+" sinFiletes>/, 'el modal salta de alto al cambiar de pestaña');
+  assert.match(src, /<Modal titulo="Configuraciones" onCerrar=\{cerrar\} ancho=\{600\} alto="[^"]+" sinFiletes>/, 'el modal salta de alto');
   assert.match(src, /createPortal\(\s*<Modal /);
-  // El MISMO editor del horario, guardando en ESTA automatización (`fuente`). Desde el 23/10/2026, sin «Horario propio».
+  // El MISMO editor del horario, guardando en ESTA automatización (`fuente`).
   assert.match(fuente('app/automations/ConfigAutomatizacionPanel.tsx'), /return <HorarioEnvioPanel fuente=\{fuente\} onSucio=\{onSucio\} \/>;/, 'no es el MISMO editor del horario');
-  // Los paneles MONTADOS: la pestaña sólo esconde (desmontar tiraba el guardado de su respiro).
-  assert.match(src, /<div hidden=\{pestana !== 'horario'\}><HorarioDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucio=\{alSucioHorario\} \/><\/div>/);
-  // 22/10/2026: «Límites» pasa a llamarse «Anti-ban» (Martín).
-  assert.match(src, /<div hidden=\{pestana !== 'antiban'\}>/);
-  assert.match(src, /export const PESTANAS_CONFIGURACIONES = \[\{ id: 'horario', label: 'Horario' \}, \{ id: 'antiban', label: 'Anti-ban' \}\] as const;/);
-  // Revisión del 20/10/2026: las horas a la misma persona del NEGOCIO se ven y se editan (rotuladas «por defecto»).
-  assert.match(src, /<LimitesEnvioPanel onSucio=\{alSucioLimites\} personaPorDefecto \/>/);
-  assert.doesNotMatch(src, /\{pestana === '(horario|antiban)' && /, 'una pestaña desmonta su panel');
-  for (const r of ['app/automations/ConfiguracionesBoton.tsx', 'app/automations/LimitesEnvioPanel.tsx']) {
+  // UNA pantalla, con los dos «sucio» (horario y lo de la automatización; la línea se fue el 23/10/2026).
+  assert.match(src, /<AjustesDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucioHorario=\{alSucioHorario\} onSucioAntiban=\{alSucioAntiban\} \/>/);
+  assert.doesNotMatch(src, /<Tabs |hidden=\{pestana/, 'volvieron las pestañas');
+  for (const r of ['app/automations/ConfiguracionesBoton.tsx', 'app/automations/LimitesEnvioPanel.tsx', 'app/automations/ConfigAutomatizacionPanel.tsx']) {
     assert.doesNotMatch(fuente(r), /href=|<Link\b|router\.(push|replace)|window\.location|['"`]\/configuraciones/, `${r} manda a otro lado`);
   }
   // (Acá se miraba el `buttonStyle` del desplegable del menú: desde el 20/10/2026 el menú es el «?», un botón.)
   assert.doesNotMatch(src, /<Dropdown /, 'el menú volvió a ser un desplegable');
 });
 
-test('el panel de límites: se guarda solo, avisa «sucio» antes del return, y la lista no importa las acciones', () => {
+// 23/10/2026 (Martín: «No quiero nada para todas las automatizaciones»): los límites de la LÍNEA se fueron de la pantalla,
+// con su hook y sus acciones. Los topes duros siguen por dentro (lib/limites-envio.ts) y frenan con su motivo en la tarjeta.
+test('los límites de la línea ya no se ven ni se editan desde una automatización; queda el número', () => {
   const p = fuente('app/automations/LimitesEnvioPanel.tsx');
-  const iEfecto = p.indexOf('useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);');
-  const iReturn = p.indexOf('if (!l || !fabrica) return');
-  assert.ok(iEfecto > 0 && iReturn > iEfecto, 'el aviso de «sucio» quedó detrás del return temprano');
-  assert.doesNotMatch(p, />Guardar</, 'se guarda solo, sin botón');
-  const g = bloque(p, 'const guardar = (nuevo: LimitesEnvio) => {', 'const cambiar = ');
-  assert.match(g, /saveLimitesEnvioAction\(nuevo\)/);
-  assert.match(g, /setEnVuelo\(true\);[\s\S]*setTimeout\(/, 'sin respiro: tres flechas son tres guardados');
-  assert.match(p, /<button type="button" onClick=\{\(\) => \{ setInvalidos\(\{\}\); setVuelta\(\(v\) => v \+ 1\); guardar\(fabrica\); \}\}/, '«Restaurar» no vuelve a lo de fábrica');
-  // Lo escrito que no vale NO se guarda: se dice al lado.
+  assert.doesNotMatch(p, /useLimitesDeLaLinea|saveLimitesEnvioAction|getLimitesEnvioAction|data-restaurar/, 'volvió lo de la línea');
+  // El número que usan las filas de la automatización: lo escrito que no vale NO se guarda, se dice al lado.
   assert.match(p, /if \(r\.ok\) \{ onInvalido\(null\); onCambio\(r\.n\); \} else onInvalido\(r\.error\);/);
-  const acciones = leer('app/configuraciones/limites-actions.ts');
-  assert.match(acciones, /^'use server';/);
-  // En un 'use server' sólo funciones async exportadas (AGENTS.md).
-  for (const m of sinComentarios(acciones).matchAll(/^export\s+(\S+)\s+(\S+)/gm)) assert.equal(`${m[1]} ${m[2]}`, 'async function', `exporta «${m[0]}»`);
-  assert.match(acciones, /if \(rol !== 'admin'\) return \{ ok: false, error: 'Solo un admin puede cambiar los límites\.' \};/);
+  assert.ok(!existsSync(new URL('../app/configuraciones/limites-actions.ts', import.meta.url)), 'volvieron las acciones de la línea');
   // (Desde la undécima tanda también los nombres nuevos: el menú y el modal viven en ConfiguracionesBoton.tsx.)
   for (const r of ['app/automations/SimuladorWhatsApp.tsx']) assert.doesNotMatch(fuente(r), /ConfiguracionesBoton|MenuAutomations|ConfiguracionesModal|limites-actions|horario-actions/, `${r} arrastraría server-only a los tests`);
 });

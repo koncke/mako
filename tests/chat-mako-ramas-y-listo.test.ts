@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import { deIAEdicion, LISTA_BLANCA_IA, textosDeMensajes, type CtxIA } from '../lib/flujo-ia';
 import { raizRespuesta, nodoPorId, type PasoGrafo } from '../lib/flujo-grafo';
 import { faltantesDelPedido, errorDeFaltantes } from '../lib/flujo-ia-intencion';
+import { revisarEdicion } from '../lib/flujo-ia-revision-editar';
 import { lineaDeListo, CIERRE_EDICION } from '../lib/flujo-ia-cliente';
 import { sanearMensaje } from '../lib/automatizacion-chat';
 import { porId } from '../lib/api-mako/registro';
@@ -113,8 +114,19 @@ test('el control: sólo textos entre comillas largos; sin tildes, links ni varia
 
 test('la ruta: la primera vez lo que falta es un error (reintento); después se aplica y va en ROJO, nunca «Listo»', () => {
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
-  assert.match(ruta, /const faltan = faltantesDelPedido\(pedido, textosDeMensajes\(r\.pasos\)\);\n\s+if \(faltan\.length && !yaPidioLoQueFalta\) \{ yaPidioLoQueFalta = true; return \{ r, errores: \[errorDeFaltantes\(faltan\)\] \}; \}/);
-  assert.match(ruta, /if \(faltan\.length\) r\.noHecho = \[\.\.\.\(r\.noHecho \?\? \[\]\), \.\.\.faltan\.map\(\(t\) => `No quedó en el lienzo: «\$\{t\}»`\)\];/);
+  // Desde el merge con el AU2 (22/10/2026) el control vive en `revisarEdicion` (lib/flujo-ia-revision-editar.ts) y la ruta le
+  // pasa UN `control` por turno. Ejecutado, con la respuesta REAL de Haiku que se olvidó la pregunta:
+  assert.match(ruta, /const control = \{ yaPidioLoQueFalta: false \};/);
+  const control = { yaPidioLoQueFalta: false };
+  const intento = () => revisarEdicion({ obj: HAIKU_SIN_PREGUNTA, base: BASE, ctx: CTX, pedido: PEDIDO, historial: [], intencion: 'editar', control });
+  const falta = '¿Ya tienes un plan para tu proyecto este mes?';
+  const primero = intento();
+  assert.deepEqual(primero.errores, [errorDeFaltantes([falta])], 'la primera vez no volvió al modelo con lo que faltaba');
+  const segundo = intento();
+  assert.deepEqual(segundo.errores, [], 'el segundo intento volvió a reintentar: el turno no termina nunca');
+  assert.ok(segundo.r.noHecho?.includes(`No quedó en el lienzo: «${falta}»`), 'lo que faltó no se dice en rojo');
+  // Sin `control` (otro llamador), cada intento es el primero.
+  assert.deepEqual(revisarEdicion({ obj: HAIKU_SIN_PREGUNTA, base: BASE, ctx: CTX, pedido: PEDIDO, historial: [], intencion: 'editar' }).errores, [errorDeFaltantes([falta])]);
   assert.match(ruta, /noHecho\.length \? 'No pude hacer todo lo que pediste' : 'Listo'/);
   assert.match(ruta, /\.\.\.\(noHecho\.length \? \{ noHecho \} : \{\}\),\n\s+\}\)\]\);/, 'el chat guardado no sabe qué faltó');
   assert.match(ruta, /\.\.\.\(noHecho\.length \? \{ noHecho \} : \{\}\),\n\s+\}\);/, 'el stream no dice qué faltó');

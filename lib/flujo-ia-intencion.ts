@@ -31,8 +31,10 @@ export const REGLAS_EDITAR = [
   '- Los textos que el dueño pega o pone entre comillas van TAL CUAL en las tarjetas, con sus palabras, signos y emojis. Una lista de mensajes es una tarjeta por mensaje, en ese orden.',
   '- «{Nombre}», «{nombre}» o «[Nombre]» es {{nombre}}. Cualquier otro dato entre llaves que no esté en la lista de datos NO se inventa: devuelve una "pregunta" diciendo qué va ahí.',
   '- Si pegó textos o te pide un cambio, cambia el flujo (o pregunta lo que falta con "pregunta"). Contesta con "respuesta" SÓLO si es una pregunta sobre el flujo, si lo que pide se configura fuera de las tarjetas (di dónde) o si no se puede hacer (di por qué, en una frase).',
-  '- Las 20 horas entre dos WhatsApp (regla 3) son para lo que armas tú: no agregues esperas que no pidió. Si pide otra espera, pon la que pide y di en "resumen" que la línea retiene el segundo mensaje hasta que pasen las horas de «Misma persona» (Configuraciones › Anti-ban).',
+  '- Las 20 horas entre dos WhatsApp (regla 3) son para lo que armas tú: no agregues esperas que no pidió. Si pide otra espera, pon la que pide.',
   '- «Avísame», «avísame por WhatsApp» o «que me llegue a mí» es la "accion" "avisar_al_equipo" (le llega al grupo de MaKo del negocio), nunca un mensaje al lead.',
+  '- «Agrega», «suma» o «añade» (aunque diga «edítalos y agrégalos») es SUMAR: los textos nuevos van en "agregar", como tarjetas nuevas después del último mensaje, y los mensajes que ya están NO se cambian.',
+  '- «Que sea sólo X», «sólo quiero X» o «saca Y» es QUITAR lo que sobra: cada tarjeta que no es X (o que es Y) va en "quitar", con su id; X se queda. Un seguimiento («si no responde») va después del último mensaje, detrás de "contesto" con "no": true.',
 ].join('\n');
 
 /**
@@ -41,11 +43,9 @@ export const REGLAS_EDITAR = [
  * configuración del envío de la campaña»), decía que no se podía o metía esperas en el flujo. Va en editar Y en explicar.
  */
 export const LO_QUE_NO_ES_TARJETA = [
-  'LO QUE NO SE ARMA CON TARJETAS: el horario, el goteo y los topes se configuran en «Configuraciones», en el «⋯» de esta automatización, que tiene SÓLO dos pestañas: Horario y Anti-ban. Si el dueño pide ESO, no armes tarjetas: dile dónde está, en una frase. Lo que no está aquí ni en las tarjetas (llamar por teléfono, un SMS) no se puede: dilo, sin inventar un lugar.',
-  '- Los días y las horas en que sale (por ejemplo, ni sábado ni domingo): Configuraciones › Horario.',
-  '- Que no salgan todos juntos (uno cada N minutos) y cuántos como mucho por día en ESTA automatización: Configuraciones › Anti-ban, «Goteo» y «Por día».',
-  '- Cuántos por día y por hora salen de la línea, sumando todas las automatizaciones: Configuraciones › Anti-ban, abajo (los de la línea).',
-  '- Las horas mínimas entre dos WhatsApp a la misma persona (de 3 a 72; 20 de fábrica; se puede apagar): Configuraciones › Anti-ban, «Misma persona».',
+  'LO QUE NO SE ARMA CON TARJETAS: el horario, el goteo y los topes se configuran en «Configuraciones», en el «⋯» de esta automatización: UNA pantalla con «Horario de oficina» y un bloque por canal (WhatsApp, Email). Si el dueño pide ESO, no armes tarjetas: dile dónde está, en una frase. Lo que no está aquí ni en las tarjetas (llamar por teléfono, un SMS) no se puede: dilo, sin inventar un lugar.',
+  '- Los días y las horas en que sale (por ejemplo, ni sábado ni domingo): Configuraciones, «Horario de oficina».',
+  '- Que no salgan todos juntos (uno cada N minutos) y cuántos como mucho por día: Configuraciones, en WhatsApp o en Email, «Goteo» y «Tope por día».',
   '- Deshacer el último cambio: el botón ↶ arriba del lienzo.',
 ].join('\n');
 
@@ -61,9 +61,11 @@ export const ERROR_EDITAR_SIN_CAMBIOS = 'En modo EDITAR no se contesta con "resp
 
 /**
  * Las pestañas de Configuraciones de una automatización (app/automations/ConfiguracionesBoton.tsx, `PESTANAS_CONFIGURACIONES`).
- * «Límites» se llama «Anti-ban» desde el 22/10/2026 (Martín): nombrar «Límites» ya es un lugar que no existe.
+ * Desde el 23/10/2026 es UNA pantalla, sin pestañas (Martín: «sin pestañas ni nombre de pestaña»): lo que vale después de
+ * «Configuraciones ›» es un bloque o una fila de ella. «Límites» y «Anti-ban» (las pestañas de antes) ya no existen, y desde el
+ * mismo día tampoco lo de la línea («Línea por día», «MaKo contesta sola»: nada «para todas»).
  */
-const LUGARES_REALES = ['Horario', 'Anti-ban'];
+const LUGARES_REALES = ['Horario', 'WhatsApp', 'Email', 'Goteo', 'Tope'];
 
 /**
  * ¿VALE UNA «RESPUESTA» EN EDITAR? null = vale; si no, el error para el reintento. (22/10/2026, las corridas del arnés del
@@ -79,8 +81,9 @@ export function errorDeRespuestaEnEditar(pedido: string, respuesta: string, o: {
   // Con el guion: «Anti-ban» (sin él, leía «Anti» y lo daba por inventado).
   const lugares = [...respuesta.matchAll(/Configuraciones\s*›\s*([\p{L}-]+)/gu)].map((m) => m[1]);
   const falso = lugares.find((l) => !LUGARES_REALES.includes(l));
-  if (falso) return `«Configuraciones › ${falso}» no existe: Configuraciones tiene sólo Horario y Anti-ban. Si lo que pide no se puede hacer, dilo en una frase; si se puede con tarjetas, cambia el flujo.`;
-  if (lugares.length || respuesta.includes('↶')) return null;
+  if (falso) return `«Configuraciones › ${falso}» no existe: Configuraciones es una sola pantalla, con «Horario de oficina» y un bloque por canal (WhatsApp, Email). Si lo que pide no se puede hacer, dilo en una frase; si se puede con tarjetas, cambia el flujo.`;
+  // «en Configuraciones, WhatsApp, «Goteo»» (sin «›»: así lo dice el prompt desde el 23/10/2026) también nombra el lugar.
+  if (lugares.length || /Configuraciones/.test(respuesta) || respuesta.includes('↶')) return null;
   const delega = /p[ií]d[eé]melo|hazlo t[uú]|desde el lienzo|ag[ré]galo t[uú]|habr[íi]a que|tendr[íi]as que/i.test(respuesta);
   if (/\bno (se puede|puedo|existe|está|hay)\b/i.test(respuesta) && !delega) return null;
   if (respuesta.includes('?') && !o.charlaConTextos && !delega) return null;
@@ -134,19 +137,105 @@ function palabrasDe(t: string): string[] {
  * mismo mensaje (los links y las variables no cuentan: MaKo los pone aparte). Sin textos entre comillas, nada. Pura.
  */
 export function faltantesDelPedido(pedido: string, textosDelFlujo: readonly string[]): string[] {
-  const citas = [...String(pedido ?? '').matchAll(/[«"“]([^«»"“”\n]{1,600})[»"”]/g)].map((m) => m[1].trim())
-    .filter((t) => t.length >= LARGO_TEXTO_PEDIDO);
-  if (!citas.length) return [];
-  const flujo = textosDelFlujo.map((t) => new Set(palabrasDe(t)));
-  const faltan: string[] = [];
-  for (const c of citas) {
-    const ws = palabrasDe(c);
-    if (!ws.length) continue;
-    const esta = flujo.some((f) => ws.filter((w) => f.has(w)).length >= Math.ceil(ws.length * 0.8));
-    if (!esta && !faltan.includes(c)) faltan.push(c.length > 80 ? `${c.slice(0, 79).trimEnd()}…` : c);
-  }
-  return faltan;
+  // ⚠️ SIN LO QUE PIDIÓ SACAR (23/10/2026): «sacá "…"» también va entre comillas, y el control le pedía al modelo volver a
+  // ponerlo. Eso lo mira `sobrantesDelPedido`.
+  return citasDelPedido(pedido).filter((c) => !c.sacar && !estaEnElFlujo(c.texto, textosDelFlujo)).map((c) => recorte(c.texto))
+    .filter((t, i, xs) => xs.indexOf(t) === i);
 }
+
+/** Como `faltantesDelPedido`, con el texto ENTERO (el que el código pone en una tarjeta, no el que se muestra). Pura. */
+export function citasQueFaltan(pedido: string, textosDelFlujo: readonly string[]): string[] {
+  return citasDelPedido(pedido).filter((c) => !c.sacar && !estaEnElFlujo(c.texto, textosDelFlujo)).map((c) => c.texto)
+    .filter((t, i, xs) => xs.indexOf(t) === i);
+}
+
+const NUMEROS: Readonly<Record<string, number>> = { un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10 };
+const RE_LAPSO = /(?<!\p{L})(\d{1,3}|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s*(minutos?|min|horas?|hs|d[ií]as?|semanas?)(?!\p{L})/giu;
+const MINUTOS_DE: ReadonlyArray<readonly [RegExp, number]> = [[/^min/i, 1], [/^h/i, 60], [/^d/i, 1440], [/^s/i, 10080]];
+
+/**
+ * CUÁNTO ESPERA EL SEGUIMIENTO, según lo que dice el pedido FUERA de las citas («a los 2 días», «en 3 horas», «al día
+ * siguiente»): el primer lapso DESPUÉS de donde nombra el seguimiento (`desde`), o el último de antes. null si no dice
+ * ninguno: sin un número de la persona, el código no inventa la espera. Pura.
+ */
+export function minutosDelPedido(orden: string, desde = 0): number | null {
+  const lapsos = [...String(orden ?? '').matchAll(RE_LAPSO)].map((m) => {
+    const n = NUMEROS[m[1].toLowerCase()] ?? Number(m[1]);
+    const por = MINUTOS_DE.find(([re]) => re.test(m[2]))?.[1] ?? 0;
+    return { en: m.index ?? 0, minutos: n * por };
+  }).filter((x) => x.minutos > 0);
+  if (/(?<!\p{L})(?:al d[ií]a siguiente|ma[ñn]ana)(?!\p{L})/iu.test(orden)) lapsos.push({ en: orden.search(/(?<!\p{L})(?:al d[ií]a siguiente|ma[ñn]ana)(?!\p{L})/iu), minutos: 1440 });
+  lapsos.sort((a, b) => a.en - b.en);
+  const despues = lapsos.find((x) => x.en >= desde);
+  return (despues ?? lapsos[lapsos.length - 1])?.minutos ?? null;
+}
+
+/** «Sacá», «quitá», «eliminá», «borrá» y sus formas (no «borrador»). Límites por Unicode, no `\b` (AGENTS.md). */
+const RE_SACAR = /(?<!\p{L})(?:sac|quit|elimin|borr(?!ador))\p{L}*/iu;
+
+/** Un texto entre comillas del pedido (las tres formas que escribe la gente). */
+const RE_CITA = /[«"“]([^«»"“”\n]{1,600})[»"”]/g;
+
+/** Los textos entre comillas del pedido (≥ `LARGO_TEXTO_PEDIDO`), y si el dueño pidió SACARLOS: un verbo de sacar antes, en la misma frase. */
+function citasDelPedido(pedido: string): Array<{ texto: string; sacar: boolean }> {
+  const s = String(pedido ?? '');
+  return [...s.matchAll(RE_CITA)].map((m) => {
+    const frase = s.slice(Math.max(0, (m.index ?? 0) - 100), m.index ?? 0).split(/[.\n!?;]/).pop() ?? '';
+    return { texto: m[1].trim(), sacar: RE_SACAR.test(frase) };
+  }).filter((c) => c.texto.length >= LARGO_TEXTO_PEDIDO);
+}
+
+/**
+ * EL PEDIDO SIN LOS TEXTOS CITADOS (23/10/2026, el arnés del AU2, `seguimiento-no-contesto` 2 de 2 en rojo). Lo que va entre
+ * comillas es el MENSAJE para el lead, no la orden: «un seguimiento si no responde: «{Nombre}, ¿pudiste verlo? Me avisas»»
+ * leía «avisas» como un aviso al equipo (`pidioAviso`), el control le pedía al modelo «falta el aviso al grupo» y el
+ * reintento ponía un aviso en vez del seguimiento. Todo lo que lee la INTENCIÓN del pedido (el aviso, el «Si responde», el
+ * seguimiento, el cambio de canal) pregunta sobre esto. Sólo las citas de `LARGO_TEXTO_PEDIDO` o más: lo corto entre
+ * comillas es el nombre de una etapa o una etiqueta, y ése sí es parte de la orden. Pura.
+ */
+export function sinCitas(pedido: unknown): string {
+  return String(pedido ?? '').replace(RE_CITA, (todo, texto: string) => (texto.trim().length >= LARGO_TEXTO_PEDIDO ? '«…»' : todo));
+}
+
+/** ¿Está en algún mensaje? Al menos el 80% de sus palabras en UN mismo mensaje (links y variables no cuentan). */
+function estaEnElFlujo(texto: string, textosDelFlujo: readonly string[]): boolean {
+  const ws = palabrasDe(texto);
+  if (!ws.length) return true;
+  return textosDelFlujo.some((t) => { const f = new Set(palabrasDe(t)); return ws.filter((w) => f.has(w)).length >= Math.ceil(ws.length * 0.8); });
+}
+const recorte = (t: string): string => (t.length > 80 ? `${t.slice(0, 79).trimEnd()}…` : t);
+
+/**
+ * LO QUE PIDIÓ SACAR Y SIGUE (23/10/2026, #289 en el ws1, por el Cerebro: «"sacá Y" BORRA lo que sobra»). Los textos entre
+ * comillas que el dueño pidió sacar («sacá el mensaje "…"») y siguen en algún mensaje del flujo. Pura.
+ */
+export function sobrantesDelPedido(pedido: string, textosDelFlujo: readonly string[]): string[] {
+  return citasDelPedido(pedido).filter((c) => c.sacar && estaEnElFlujo(c.texto, textosDelFlujo)).map((c) => recorte(c.texto))
+    .filter((t, i, xs) => xs.indexOf(t) === i);
+}
+
+/**
+ * ¿PIDE QUE QUEDE SÓLO ESO? (23/10/2026, #289: «En realidad solo quiero que la automatización sea de "Apertura"…»: MaKo
+ * agregó el seguimiento y dejó los mensajes de después.) Sólo las formas que restringen el FLUJO: «sólo quiero que la
+ * automatización/el flujo sea…», «que sea/quede sólo…», «dejá sólo…», «nada más que…». NO «sólo cambia el segundo» (eso
+ * restringe el cambio, no el flujo) ni «sólo explícamelo».
+ */
+const RE_SOLO_ESO = /(?<!\p{L})(?:s[oó]lo|solamente|[uú]nicamente)\s+quiero\s+que\s+(?:la\s+automatizaci[oó]n|el\s+flujo|la\s+secuencia|esta|sea|quede|tenga)(?!\p{L})|(?<!\p{L})que\s+(?:sea|quede|tenga)\s+(?:s[oó]lo|solamente|[uú]nicamente)(?!\p{L})|(?<!\p{L})d[eé]j[aá](?:le|la|lo)?\s+(?:s[oó]lo|solamente|[uú]nicamente)(?!\p{L})/iu;
+export function pideQueQuedeSolo(pedido: string): boolean {
+  return RE_SOLO_ESO.test(sinCitas(pedido));
+}
+
+/** El error para el reintento: lo que pidió sacar y sigue, y/o que pidió que quede sólo eso y no quitó nada. */
+export function errorDeSobrantes(sobran: readonly string[], soloSinQuitar: boolean): string {
+  const partes: string[] = [];
+  if (sobran.length) partes.push(`El dueño pidió SACAR ${sobran.map((t) => `«${t}»`).join(', ')} y sigue en el flujo: va en "quitar", con su id.`);
+  if (soloSinQuitar) partes.push('El dueño pidió que el flujo quede SÓLO con lo que dice y no quitaste nada: cada tarjeta del flujo actual que no sea eso va en "quitar", con su id. Si de verdad va todo, devuélvelo igual y dilo en "resumen".');
+  return partes.join(' ');
+}
+
+/** Lo que va en ROJO si después del reintento sigue sobrando. */
+export const NO_HECHO_SOLO_ESO = 'Pediste que quede sólo eso y no saqué ninguno de los mensajes que ya estaban. Si sobra alguno, dime cuál.';
+export const noHechoSobrante = (t: string): string => `Pediste sacarlo y sigue en el lienzo: «${t}»`;
 
 /** El error que se le devuelve al modelo para el reintento (`generar`): qué de lo pegado no quedó, y cómo se pone una rama. */
 export function errorDeFaltantes(faltan: readonly string[]): string {

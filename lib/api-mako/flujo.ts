@@ -31,11 +31,12 @@ import { REGISTRO, porId, visible } from './registro';
 import { ejecutarOperacion, vistaDe } from './ejecutar';
 import { confirmarPendiente, aplicarPropuestaGenerica } from './acciones';
 import { PREFIJO_FLUJO } from './canal';
-import { paramsDelPaso, pideLead, filasDeLeads } from './flujo-params';
+import { paramsDelPaso, pideLead, filasDeLeads, sinLoDeFueraDelFlujo } from './flujo-params';
 import { AREA_INFO, esAccion, type AccionDef, type Ctx, type Parametro } from './tipos';
 import { getPropuesta, marcarAplicada, guardarResultadoPropuesta } from '@/lib/propuestas';
 import { aplicarPropuesta, getPropuesta as getBorradorPlan } from '@/lib/plan-propuesta';
 import { createLead } from '@/lib/leads';
+import { usuarioInstagram } from '@/app/crm/campo-inline';
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { enviarBorrador } from '@/lib/evolution-envio';
 import { runWithWorkspace } from '@/lib/workspace';
@@ -56,6 +57,10 @@ export type ResultadoFlujo = {
    *  la escritura directa de /api/v1 (lib/api-mako/rutas-http.ts): sin esto, quien crea una clase por la
    *  API no sabe su id. Un flujo no lo usa. */
   datos?: Record<string, unknown>;
+  /** Se sabe que NO se ejecutó nada (la pendiente no entró): el motor lo reintenta (lib/nutricion-paso-accion.ts). */
+  noCorrio?: true;
+  /** Lo que contestó la base cuando la pendiente no entró: SÓLO para el rastro del motor, nunca a una persona ni por HTTP. */
+  motivo?: string;
 };
 
 /** El contexto con el que corre un flujo: el admin del negocio, con alcance de ejecutar. */
@@ -135,7 +140,7 @@ export async function ejecutarDesdeFlujo(
   // sin esto, «Agregar Cualificado, Seguimiento y Llamar» agregaba sólo Cualificado, sin un error. Cada
   // tanda pasa por el mismo camino de siempre (y deja su fila); el resultado es UNO, ok sólo si salieron
   // todas, y el resumen dice cada una (`juntarPorEtiqueta`, lib/editor-acciones.ts).
-  const tandas = unaPorEtiqueta(operacion, params);
+  const tandas = unaPorEtiqueta(operacion, sinLoDeFueraDelFlujo(operacion, params));
   if (tandas.length > 1) {
     const rs: ResultadoFlujo[] = [];
     for (const p of tandas) rs.push(await ejecutarDesdeFlujo(operacion, p, opts));
@@ -175,7 +180,14 @@ export async function aplicarEnElActo(
     const r = await ejecutarOperacion(def.id, input, ctx, 'json');
     // «Ya está así» no es un fallo para un flujo: el estado que el paso pide ya es el actual.
     // Sin esto, «cuando agenda, movelo a Agendado» alarmaba al dueño en cada reagenda.
-    if (!r.ok) return { ok: r.yaEstaba === true, resumen: r.error, via: 'ninguna' };
+    // Con lo que contestó la base APARTE (`motivo`, 23/10/2026, el ws13): el motor lo escribe en `nutricion_envios.error`;
+    // por /api/v1 (que también pasa por acá) sale sólo el `resumen`, como siempre.
+    if (!r.ok) {
+      return {
+        ok: r.yaEstaba === true, resumen: r.error, via: 'ninguna',
+        ...(r.motivo ? { motivo: r.motivo } : {}), ...(r.noCorrio ? { noCorrio: true as const } : {}),
+      };
+    }
 
     if (r.tipo === 'pendiente') {
       const c = await confirmarPendiente(ctx, r.pendiente.id);
@@ -243,7 +255,7 @@ async function crearLeadsDePropuesta(ws: number, propuestaId: string, ctx: Ctx):
     }
     let creados = 0; let omitidos = 0; const errores: string[] = [];
     for (const f of filasDeLeads(prop.datos as Record<string, unknown>)) {
-      try { await createLead({ nombre: f.nombre, email: f.email, telefono: f.telefono, empresa: f.empresa }); creados++; }
+      try { await createLead({ nombre: f.nombre, email: f.email, telefono: f.telefono, instagram: usuarioInstagram(f.instagram), empresa: f.empresa }); creados++; }
       catch (e) {
         if (e instanceof LeadDuplicadoError) omitidos++;
         else errores.push(`${f.nombre}: ${e instanceof Error ? e.message : String(e)}`);

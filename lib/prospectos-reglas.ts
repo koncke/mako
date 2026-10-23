@@ -19,6 +19,8 @@
 //
 // SIN `server-only`: lo prueban los tests (tests/prospectos-reglas.test.ts).
 
+import { tieneContacto } from './contacto-minimo';
+
 export type FuenteProspeccion = 'google_maps' | 'instagram';
 
 export const FUENTES_PROSPECCION: Readonly<Record<FuenteProspeccion, {
@@ -264,8 +266,13 @@ export function puntuar(p: ProspectoNuevo): { puntaje: number; razon: string } {
   return { puntaje, razon: razon.slice(0, 300) };
 }
 
-/** ¿Puede ir al CRM? La regla del importador: email o teléfono (app/crm/leads-importar.ts, `sin-contacto`). */
-export const contactable = (p: Pick<ProspectoNuevo, 'email' | 'telefono'>): boolean => !!(p.email || p.telefono);
+/**
+ * ¿Puede ir al CRM? La regla del CRM, la misma que el importador y el alta (`tieneContacto`):
+ * email, teléfono o el @ de Instagram. Desde el 23/10/2026 el @ alcanza: un perfil público de
+ * Instagram no da ni email ni teléfono, y con la regla vieja casi ningún prospecto de ahí pasaba.
+ * El PUNTAJE no cambia: un teléfono o un email siguen valiendo más que el @ (ver `puntuar`).
+ */
+export const contactable = (p: Pick<ProspectoNuevo, 'email' | 'telefono' | 'instagram'>): boolean => tieneContacto(p);
 
 /** Una búsqueda en una línea: «Google Maps · inmobiliarias en Tijuana · 100». */
 export function rotuloDeBusqueda(p: Pick<ParametrosBusqueda, 'fuente' | 'que' | 'donde' | 'cuantos'>): string {

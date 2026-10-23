@@ -1,5 +1,24 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **23/10/2026 (`claude2`): EL «YA ME LLEGÓ TU PAGO» DE LA #289 ES A PROPÓSITO.** Martín, textual: «A propósito le
+> estamos confirmando que nos llegó un pago para luego pedirles disculpas por la confusión, solo para que nos respondan
+> el primer mensaje... Es la técnica de levantamuertos». La apertura de «Sprint · apertura» (#289, ws1, CRM #44) se deja
+> como está y NO se vuelve a marcar como «recibo falso» ni como riesgo: es contenido del cliente y decisión de Martín.
+> Lo que decía lo contrario queda como historia, con la corrección al lado (docs/relevo/automations.md, feedback-22-10.md,
+> plan-ia-y-chats-22-10.md y campana-sprint-mauricio.md, fuera del repo). Ningún guardián del código lo frena (medido:
+> nada en lib/ ni en los prompts nombra el texto). La regla general: el copy de venta del cliente no se juzga; se avisa
+> sólo lo que rompe.
+>
+> **23/10/2026 (`claude2`): «NO RESPONDE» EXISTE EN TODO CRM AUNQUE NO ESTÉ EN SU `data.pipeline`.** `perdido`, `descal`
+> y `noresp` son etapas FIJAS de salida que `filaAFunnel` coloca en cada lectura (lib/pipeline.ts, `place(…, 'salidas')`;
+> `TERMINALES`). Leer el pipeline guardado crudo y concluir «esa etapa no existe» es el error: el paso de la #289 que
+> propone `noresp` en el CRM #44 está bien.
+>
+> **23/10/2026 (`claude2`): LOS AVISOS AL GRUPO NO SALEN POR EL ws9.** El grupo de MaKo de cada cliente se escribe por
+> la «voz de MaKo» (`instanciaVoz()`, `mako.voz.instancia` del ws1 = `mako_superadmin_muylqv8r`), no por `mako_ws9`.
+> Con el ws9 caído (desde el 19/10) los avisos de lead nuevo igual salen. Antes de decir «la línea de MaKo está muerta»,
+> mirar cuál es la voz.
+
 > **21/10/2026 (`claude4`): LOS GRUPOS DE EVENTO.** La tabla de qué automatizaciones mira cada evento del motor
 > (`TRIGGERS_POR_EVENTO`, y `ETAPA_DEL_EVENTO` para la etapa que se le suma) vive en lib/nutricion-eventos.ts, pura, y la
 > leen `enrolarPorEvento` y el aviso de duplicada: un lead nuevo o una reserva que entran a dos disparadores distintos
@@ -826,6 +845,37 @@ viejo: **una automatización dejó de ser una lista de mensajes y pasó a ser un
 ---
 
 ## 4. Lo que está a medio hacer o sin verificar, con el archivo
+
+- **23/10 (claude2), la tanda de Martín de la tarde:** «Misma persona» eliminada (pantalla, API y motor), la vista previa del
+  link con su X en el editor del WhatsApp, Goteo y Tope por día también en Email (`aut2-punto5`); Automations arranca con la
+  sidebar plegada y el panel en 400 (`aut2-sidebar-plegada`); Probar con personas falsas (`aut2-probar-personas`). La
+  `personaHoras` del negocio sigue en lib/limites-envio.ts sin lectores: se puede sacar.
+- **La #256 del ws9 (el reporte semanal de la plataforma) es la única tarjeta «MaKo en WhatsApp» que sale por EMAIL**
+  (23/10/2026). Con la regla «cada canal es su tarjeta» debería ser una tarjeta EMAIL, pero hoy no se puede: en un evento
+  de la plataforma `pasosDelEvento` (lib/aviso-evento.ts) rechaza todo mensaje (`MOTIVO_EVENTO.alLead`), y el «Email a la
+  persona» existe sólo en los eventos de una PERSONA y va a esa persona, nunca al equipo. Mudarla pide que el motor mande una
+  tarjeta EMAIL a los destinatarios de Notificaciones del negocio del evento. Queda como está: es de SuperAdmin y ningún
+  cliente la ve. Conserva su asunto en la tarjeta (`AsuntoDeMako`, app/automations/FlujoLienzo.tsx).
+- **Estado al 23/10 ~14:45 ART (claude2): EN PRODUCCIÓN** (main `3e8462653`, deploy Ready): `aut-chat-agregar` (el seguimiento
+  detrás de «No contestó»), `aut-au2-antiban` (Configuraciones sin nada «para todas»; «Misma persona» que nace apagada),
+  `aut2-arnes` (scripts/probar-chats en main) y `aut2-tarjeta-mako` (la tarjeta de MaKo sin desplegables, el chat del costado
+  sin cortes, la vista previa en Configuraciones). `scripts/misma-persona-propia.mts --aplicar` CORRIDO: 510 de 518, 0
+  problemas; ws1 y ws11 con el mismo anti-ban antes y después (62 de 62). La tarjeta de MaKo y el chat del costado de la #289:
+  VERIFICADOS POR MARTÍN el 23/10 («quedaron bien»).
+- **«Cambié «X»» sin cambio visible** (el caso `solo-apertura` del arnés, 1 de 2): la tarjeta cambia un campo que no está en
+  su nombre y `resumenEdicionDetalle` (lib/flujo-ia.ts) dice «Cambié «X»» sin decir qué. Falta reproducirlo para saber qué
+  campo. P2.
+- **Sábado 24/10, la campaña de Mauricio (#289, ws1):** medir en la primera hora que los 50 salen con el goteo de 5 min y que
+  «contestó» corta. Es de Automations.
+- **P2, después del 25/10: «MaKo contesta sola» no se edita desde ninguna pantalla** (23/10/2026). Eran «Por persona»
+  (veces que MaKo contesta sola a una persona en 24 h) y «Charla abierta» (días), los límites de la LÍNEA que se fueron de
+  Configuraciones de una automatización con «nada para todas» (`aut-au2-antiban`). Hoy viven en `app_settings`
+  `mako.limites_envio`, grupo `mako` (`solasPor24h`, `diasCharla`; fábrica 3 y 7, lib/limites-envio.ts), y siguen con
+  su último valor. Decisión del Cerebro: su lugar es la pantalla de la línea de WhatsApp (/whatsapp), no Automations.
+- **El script de «Misma persona» (scripts/misma-persona-propia.mts `--aplicar`)** lo corre Automations en la ventana del
+  deploy de `aut-au2-antiban`, con el simulacro antes y el antes y el después medidos en dos negocios reales (OK de
+  producción del Cerebro, 23/10). El orden no importa: sin las suyas sigue siendo la del negocio, y las nuevas nacen con la
+  suya apagada.
 
 **Nada de esta área se verificó con clics en PRODUCCIÓN.** Lo que sí se vio: la octava tanda se miró
 en el navegador en **dev local sobre el ws9, sin guardar nada** (paneo con el derecho, el lazo con 3

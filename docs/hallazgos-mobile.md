@@ -7,6 +7,28 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## Un lead sin email ni teléfono en el teléfono: el @ cuando es su único canal (23/10/2026)
+
+El escritorio ya dibujaba el @ de un lead que entró sólo con él (docs/hallazgos-crm.md, «Un lead puede entrar con sólo su @»); el
+teléfono mostraba una tarjeta vacía y una ficha con Llamar y WhatsApp apagados. **Vive en:** `app/m/crm/reglas.ts` (`soloInstagram`),
+`app/m/crm/TableroCrm.tsx`, `app/m/crm/[id]/FichaLead.tsx`, `app/m/crm/datos.ts` · `tests/movil-crm-instagram.test.ts`.
+
+- **El predicado vive DOS veces** (`CrmBoard.soloInstagram` y el del teléfono): no se importa un componente del escritorio. Un test
+  extrae el statement del escritorio por AST de TypeScript y lo evalúa junto al del teléfono sobre 200 combinaciones (email y teléfono en
+  blanco, null, undefined, @ con espacios, @ que no es usuario). **Cualquier cambio de uno rompe el test del otro, a propósito.**
+- **El diagnóstico obvio era el equivocado: «sin `f.telefono` = sin teléfono».** `FichaMovil.telefono` es `numeroCanonico`, que da null
+  con menos de 10 dígitos: un lead con un teléfono corto guardado pasaba por «sólo Instagram» en el teléfono y con teléfono en la
+  computadora. La ficha usa `lead.telefono_normalizado`, igual que la tarjeta del escritorio (`telefonoNorm`).
+- **El @ llega al teléfono porque `LISTA_COLS` (`lib/leads.ts`) incluye `instagram`.** Sin la columna no falla nada: llega `undefined` y el
+  chip nunca sale. Está fijado por un test que lo rompe EN MEMORIA (no se rompe el archivo real: otros chats corren tests a la vez).
+
+**Sin hacer:** la ficha del teléfono sigue dibujando «Teléfono: Sin teléfono» y Llamar/WhatsApp grises con un toast para un lead SIN ningún
+canal o con sólo email (`FichaLead.tsx`, `case 'contacto'` y la fila `m-crm-acciones`): un botón muerto y un rótulo de falta, contra la regla
+de Martín (22/10). El «Redes» del Resumen puede repetir el @ junto a la fila «Instagram». `app/m/hoy`, `app/m/chats` y `app/m/cs` no se
+revisaron para un lead de sólo @. Nunca se vio a 390 px (el chip dentro de `.m-crm-tj__txt` y la fila de acciones a tres columnas).
+
+*23/10/2026, chat «Ventas de MaKo» (`claude2`).*
+
 ## Las apps de las tiendas: cuentas personales, la TWA y Capacitor armados en Windows, sin Mac (23/10/2026)
 
 Martín (23/10, 02:17): «Sí, a mi nombre ahora»: no hay empresa ni D-U-N-S, las dos cuentas son PERSONALES. El plan, con las

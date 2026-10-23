@@ -140,22 +140,23 @@ export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrat
   // en semanas, y la tabla de inscripciones se lee ENTERA. Pasado el techo,
   // PostgREST devuelve 1000 y un 200: las métricas y la serie diaria de /setting
   // salían calculadas sobre una muestra, sin ningún aviso.
-  const [secs, filasEnvio, filasInsc] = await Promise.all([
+  //
+  // Las posiciones y los borradores van tolerantes (no tiran): ver `leerPosicionesSecuencias` y
+  // `leerBorradoresSecuencias`. `null` = no se pudieron leer, que no es «ninguno».
+  // ⚠️ EN UNA SOLA OLA (23/10/2026, «Rendimiento y loaders»): eran dos `Promise.all` seguidos y el segundo no usa nada del
+  // primero; esperaba a las lecturas paginadas de envíos e inscripciones sin necesitarlas.
+  const [secs, filasEnvio, filasInsc, emojis, posiciones, borradores, porAprobar] = await Promise.all([
     getSecuenciasConStats(),
     leerTodo<FilaEnvio>(supabase, 'nutricion_envios', 'secuencia_id, canal, estado, abierto_at, clic_at, created_at', {
       orden: 'id', filtros: (q) => q.gte('created_at', desde) as ConsultaPaginada,
     }),
     leerTodo<FilaInsc>(supabase, 'nutricion_inscripciones', 'secuencia_id, estado, updated_at', { orden: 'id' }),
-  ]);
-  const met = agregarMetricas(filasEnvio, filasInsc);
-  // Las posiciones y los borradores van aparte y tolerantes (no tiran): ver `leerPosicionesSecuencias`
-  // y `leerBorradoresSecuencias`. `null` = no se pudieron leer, que no es «ninguno».
-  const [emojis, posiciones, borradores, porAprobar] = await Promise.all([
     emojisDeSecuencias(supabase),
     leerPosicionesSecuencias(supabase as unknown as DbPosiciones),
     leerBorradoresSecuencias(supabase as unknown as DbBorrador),
     leerPorAprobar(supabase),
   ]);
+  const met = agregarMetricas(filasEnvio, filasInsc);
   const secuencias = secs.map((s) => ({
     ...s,
     estrategia: parseEstrategia(s.estrategia),
@@ -212,7 +213,8 @@ export async function crearSecuenciaDesdeEtapa(etapa: string, nombre: string): P
     .select('id')
     .single();
   if (error) throw new Error(`crearSecuenciaDesdeEtapa: ${error.message}`);
-  return (data as { id: number }).id;
+  const id = (data as { id: number }).id;
+  return id;
 }
 
 /** El nombre con el que nace una automatización vacía (crear con IA lo reemplaza). */
@@ -241,7 +243,8 @@ export async function crearSecuenciaVacia(nombre?: string | null): Promise<{ id:
     .select('id')
     .single();
   if (error) throw new Error(`crearSecuenciaVacia: ${error.message}`);
-  return { id: (data as { id: number }).id, nombre: n };
+  const id = (data as { id: number }).id;
+  return { id, nombre: n };
 }
 
 /**
@@ -377,17 +380,33 @@ async function funnelsDeProspeccion(): Promise<Set<number>> {
 }
 
 export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
+  // ⚠️ EN DOS OLAS, NO EN SERIE (23/10/2026, «Rendimiento y loaders»). Martín: «al abrir Automations tarda mucho». Eran ~13
+  // lecturas una detrás de otra (los embudos, sus productos, las entregas, la prospección, la config de CADA embudo y los
+  // servicios sueltos): 3,1 s medidos en el server (ws1 y ws10), y a ~97 ms por ida desde iad1 a la base. Ahora, con la
+  // lista de embudos, sale todo lo que no depende de otra cosa a la vez; y después, juntas, las dos lecturas de entregas.
+  // Lo que devuelve es lo mismo, en el mismo orden.
   const funnels = await listarFunnels();
-  const delFunnel = await productoDeFunnel(funnels.map((f) => f.id))
-    .catch(() => new Map<number, { id: number; nombre: string }>());
-  const entregas = await entregasDeProductos([...delFunnel.values()].map((p) => p.id))
-    .catch(() => new Map<number, EntregaConfig>());
-  const deProspeccion = await funnelsDeProspeccion().catch(() => new Set<number>());
-  const out: ProductoConEtapas[] = [];
-  for (const f of funnels) {
+  const [delFunnel, deProspeccion, cfgs, todosLosServicios] = await Promise.all([
+    productoDeFunnel(funnels.map((f) => f.id)).catch(() => new Map<number, { id: number; nombre: string }>()),
+    funnelsDeProspeccion().catch(() => new Set<number>()),
     // El default se lee con `getFunnelDefault` (es el camino que ya cachea la pantalla);
     // el resto por id. Son pocas filas —6 en producción— y se piden una vez por carga.
-    const cfg = f.esDefault ? await getFunnelDefault().catch(() => null) : await getFunnelDe(f.id).catch(() => null);
+    Promise.all(funnels.map((f) => (f.esDefault ? getFunnelDefault() : getFunnelDe(f.id)).catch(() => null))),
+    // Los servicios de Customer Success (ver «LOS PRODUCTOS QUE SE ENTREGAN…» abajo). Si esa lectura falla, el editor queda
+    // como antes.
+    import('@/app/customer-success/entrega')
+      .then((m) => m.productosDeLaEntrega())
+      .catch(() => [] as Array<{ id: number; nombre: string }>),
+  ]);
+  const cubiertosPorEmbudo = new Set([...delFunnel.values()].map((p) => p.id));
+  const sueltos = todosLosServicios.filter((p) => !cubiertosPorEmbudo.has(p.id));
+  const [entregas, deSueltos] = await Promise.all([
+    entregasDeProductos([...delFunnel.values()].map((p) => p.id)).catch(() => new Map<number, EntregaConfig>()),
+    sueltos.length ? entregasDeProductos(sueltos.map((p) => p.id)).catch(() => new Map<number, EntregaConfig>()) : new Map<number, EntregaConfig>(),
+  ]);
+  const out: ProductoConEtapas[] = [];
+  for (const [i, f] of funnels.entries()) {
+    const cfg = cfgs[i];
     const prod = delFunnel.get(f.id) ?? null;
     const entrega = prod ? entregas.get(prod.id) ?? null : null;
     out.push({
@@ -412,14 +431,8 @@ export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
    * MISMA lista que ofrece Customer Success (`productosDeLaEntrega`), así que el editor ofrece
    * exactamente los tableros que existen. Si esa lectura falla, el editor queda como antes.
    */
-  const cubiertos = new Set(out.map((x) => x.productoId).filter((n): n is number => n != null));
-  const sueltos = (await import('@/app/customer-success/entrega')
-    .then((m) => m.productosDeLaEntrega())
-    .catch(() => [] as Array<{ id: number; nombre: string }>))
-    .filter((p) => !cubiertos.has(p.id));
+  // `sueltos` se calculó arriba con los productos de los embudos: son los mismos `productoId` no nulos de `out`.
   if (sueltos.length) {
-    const deSueltos = await entregasDeProductos(sueltos.map((p) => p.id))
-      .catch(() => new Map<number, EntregaConfig>());
     for (const p of sueltos) {
       const entrega = deSueltos.get(p.id) ?? null;
       out.push({

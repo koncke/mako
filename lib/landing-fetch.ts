@@ -37,6 +37,7 @@ import { request as pedidoHttps } from 'node:https';
 import { request as pedidoHttp } from 'node:http';
 import { claveDeLanding, urlTalCual } from './landing-url';
 import { copyDeHtml, ErrorDeLectura, type LandingExtraida } from './landing-extraer';
+import type { CabecerasDeMarco } from './landing-marco';
 
 // Los tipos y el extractor viven en landing-extraer.ts (puro); se re-exportan: quien ya importaba de
 // acá sigue igual.
@@ -178,7 +179,10 @@ function lookupClavado(ips: string[]): LookupFunction {
   }) as LookupFunction;
 }
 
-type RespuestaCruda = { status: number; location: string | null; contentType: string; cuerpo: Buffer };
+type RespuestaCruda = { status: number; location: string | null; contentType: string; cuerpo: Buffer; marco: CabecerasDeMarco };
+
+/** Una cabecera de Node como texto: las repetidas llegan como lista y se unen por coma, como en HTTP. */
+const cabecera = (v: string | string[] | undefined): string | null => (v == null ? null : Array.isArray(v) ? v.join(', ') : v);
 
 /**
  * Un pedido HTTP con las tres barandas puestas a la vez: la IP clavada, el
@@ -217,6 +221,7 @@ function pedirPagina(url: URL, ips: string[]): Promise<RespuestaCruda> {
           location: Array.isArray(loc) ? loc[0] ?? null : loc ?? null,
           contentType: String(res.headers['content-type'] ?? ''),
           cuerpo: Buffer.concat(trozos),
+          marco: { xfo: cabecera(res.headers['x-frame-options']), csp: cabecera(res.headers['content-security-policy']) },
         });
       });
       res.on('error', fallar);
@@ -236,7 +241,7 @@ function pedirPagina(url: URL, ips: string[]): Promise<RespuestaCruda> {
 // Descarga
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function bajarHtml(url: string): Promise<{ html: string; final: string; bytes: number }> {
+async function bajarHtml(url: string): Promise<{ html: string; final: string; bytes: number; marco: CabecerasDeMarco }> {
   let actual = url;
   for (let salto = 0; salto <= MAX_REDIRECTS; salto++) {
     // Se revalida EN CADA SALTO: un 302 hacia 127.0.0.1 es la forma clásica de
@@ -266,6 +271,8 @@ async function bajarHtml(url: string): Promise<{ html: string; final: string; by
       html: new TextDecoder('utf-8').decode(res.cuerpo),
       final: check.url.toString(),
       bytes: res.cuerpo.byteLength,
+      // Las del ÚLTIMO salto: son las de la respuesta que el navegador va a recibir.
+      marco: res.marco,
     };
   }
   throw new Error('La página redirige demasiadas veces.');
@@ -284,6 +291,16 @@ async function bajarHtml(url: string): Promise<{ html: string; final: string; by
  */
 export async function htmlDePagina(urlInput: string, opts: { talCual?: boolean } = {}): Promise<string> {
   return (await bajarHtml(opts.talCual ? urlTalCual(urlInput) : claveDeLanding(urlInput))).html;
+}
+
+/**
+ * Lo mismo que `htmlDePagina`, más lo que la respuesta dice sobre el MARCO (`X-Frame-Options` y la CSP):
+ * la vista del Diagnóstico lo necesita para saber si la página real se va a ver adentro de MaKo
+ * (`dejaEmbeberse`, lib/landing-marco.ts). Con la URL tal cual, como la vista previa.
+ */
+export async function paginaParaVer(urlInput: string): Promise<{ html: string; marco: CabecerasDeMarco }> {
+  const r = await bajarHtml(urlTalCual(urlInput));
+  return { html: r.html, marco: r.marco };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

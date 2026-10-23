@@ -178,4 +178,43 @@ export const DEFS: readonly OperacionDef[] = [
     canales: ['app'], costo: 'gratis', gating: CS,
     reversible: true, escribe: 'la tarjeta de los clientes de esa persona (usuarios.perfil.clientesTarjeta)',
   },
+  // ── La ENTREGA de un cliente (23/10/2026, P0-5 de la auditoría de la API) ─────────────────────────────
+  // Mover a un cliente en el kanban de un servicio, quitarlo de un servicio y devolverlo: las MISMAS funciones que el
+  // arrastre y «Quitar de este producto» de la ficha (`moverClienteDeEtapa`, lib/cs-mover-etapa.ts; lib/cs-quitar-producto.ts).
+  // Hasta hoy `proponer_cambio_etapa` y `mover_lead_en_producto` movían el CRM (`lead_funnel`) y nada del registro
+  // escribía la entrega (`cliente_entrega`). Sin HTTP, como el resto del área (y la decisión del 08/10: el token del curso
+  // no mueve clientes de etapa). Mover y devolver con etapa llevan `aTerceros`: entrar a una etapa arranca sus
+  // automatizaciones de entrega, que le pueden escribir al cliente. Sin `rolMinimo`, como la pantalla (ver arriba).
+  {
+    id: 'mover_cliente_entrega', aTerceros: true, area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Mover un cliente en la entrega',
+    descripcion: 'PROPONE pasar a un cliente a otra etapa de la entrega de un servicio, el kanban de Customer Success (queda pendiente hasta el «sí»). Entrar a la etapa arranca sus automatizaciones de entrega, que le pueden escribir al cliente. Sin etapa, la primera. Si ese servicio no era suyo, lo suma a esa entrega. Para deshacer, el mismo pedido con la etapa anterior.',
+    escribe: 'la etapa del cliente en la entrega de ese servicio (cliente_entrega), con su línea de historial, y lo enrola en las automatizaciones de esa etapa',
+    parametros: [
+      leadId,
+      { nombre: 'productoId', rotulo: 'Servicio', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el servicio (producto) por su id. Si falta o no es suyo, la respuesta trae los suyos.' },
+      { nombre: 'etapa', rotulo: 'Etapa', tipo: 'string', max: 80, descripcion: 'la etapa de la entrega, por su clave o su nombre. Sin esto, la primera. Si no existe, la respuesta trae las que hay.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: CS,
+  },
+  {
+    id: 'quitar_cliente_de_servicio', area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Quitar un cliente de un servicio',
+    descripcion: 'PROPONE sacar a un cliente de UNO de sus servicios (queda pendiente hasta el «sí»): deja el kanban de ese servicio y sigue en los otros, como «Quitar de este producto» de su ficha. Si es su único servicio, no se puede. Sin aviso al cliente. Se deshace con devolver_cliente_a_servicio.',
+    escribe: 'saca al cliente de la entrega de ese servicio (borra su fila de cliente_entrega, o marca cliente_entrega_fuera si era el servicio de su embudo), con su línea de historial',
+    parametros: [leadId, { nombre: 'productoId', rotulo: 'Servicio', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el servicio (producto) por su id. Si falta o no es suyo, la respuesta trae los suyos.' }],
+    canales: SIN_HTTP, costo: 'gratis', gating: CS,
+  },
+  {
+    id: 'devolver_cliente_a_servicio', aTerceros: true, area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Devolver un cliente a un servicio',
+    descripcion: 'PROPONE devolver a un cliente al kanban de un servicio del que se lo quitó (queda pendiente hasta el «sí»). Con etapa vuelve a esa; sin ella, a donde lo pone el servicio (la primera etapa). Si entra a una etapa, arrancan sus automatizaciones de entrega. El reloj de «hace cuánto está en la etapa» arranca hoy.',
+    escribe: 'vuelve a poner al cliente en la entrega de ese servicio (cliente_entrega, y saca la marca de cliente_entrega_fuera), con su línea de historial',
+    parametros: [
+      leadId,
+      { nombre: 'productoId', rotulo: 'Servicio', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el servicio (producto) por su id. Si falta o no es suyo, la respuesta trae los suyos.' },
+      { nombre: 'etapa', rotulo: 'Etapa', tipo: 'string', max: 80, descripcion: 'la etapa a la que vuelve, por su clave o su nombre. Sin esto, la primera.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: CS,
+  },
 ];
