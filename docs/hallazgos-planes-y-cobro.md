@@ -28,15 +28,15 @@ tiene hasta 3 automatizaciones activas.
   `lib/cobros.ts` se importa dinámico: `tab-access` lo cargaría en todas las páginas.
 - **Closing Analyst no es una tab**: desde el 11/10 es la hoja «Closing» del Dashboard (app/closing/page.tsx redirige). Su
   candado va en el Dashboard, de su chat. AI Avatar hoy es sólo del super admin: el candado ya lo cubre si se abre a los negocios.
-- **El tope de automatizaciones se pregunta en las TRES puertas que prenden una** (/api/email/secuencias, /api/whatsapp/secuencias
-  y MaKo, lib/mako-doer-acciones.ts) y no en `setSecuenciaActiva`, que es «la única puerta» pero vive en lib/nutricion.ts, del chat
-  «Automations» con un P0 del motor. Volver a prender una prendida no cuenta (el lienzo manda «activa» al publicar). MaKo por
-  WhatsApp corre sin sesión: el negocio se le pasa.
+- **El tope de automatizaciones lo pregunta `setSecuenciaActiva`** (lib/nutricion.ts), la única puerta que prende una: así lo
+  cubre cualquier camino nuevo. Entró primero en las tres puertas (/api/email/secuencias, /api/whatsapp/secuencias y MaKo),
+  porque el motor estaba con un P0 de Automations, y Automations lo movió adentro el 23/10 (db4ef6a2f, `TopeDelPlanError`).
+  Volver a prender una prendida no cuenta (el lienzo manda «activa» al publicar). MaKo por WhatsApp corre sin sesión: el
+  negocio se le pasa.
 
 **Vive en:** lib/plan-esencial-reglas.ts · lib/plan-esencial.ts · lib/tope-automations.ts · lib/tab-access.ts · lib/movil-guard.ts · app/no-esta-en-tu-plan/page.tsx · app/_components/Sidebar.tsx · app/m/mas/page.tsx · tests/plan-esencial.test.ts
 
-**Lo que quedó sin hacer:** el candado de la hoja «Closing» del Dashboard (su chat); mover el tope adentro de
-`setSecuenciaActiva` cuando Automations cierre su P0 (así lo cubre cualquier puerta nueva); el corte de las APIs de las tabs de
+**Lo que quedó sin hacer:** el candado de la hoja «Closing» del Dashboard (su chat); el corte de las APIs de las tabs de
 Pro (la pantalla se cierra, la API no: como el corte por capa, apagado); y en las apps de las tiendas, «Pasar a Pro» es una
 venta que el teléfono no puede hacer (T5 de docs/tiendas-play-appstore.md): ahí tendría que decir sólo «De MaKo Pro».
 
