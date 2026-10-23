@@ -389,7 +389,9 @@ export function FlujoLienzo({
     nombres, colorEtiqueta: (id) => etiquetas.find((t) => t.id === id)?.color ?? null,
     audioDe: (id) => audios.find((a) => a.id === id) ?? null,
     pendientesOtraCosa, anticipacionMin: anticipacion ?? null,
-    mismaPersonaMin: mismaPersona?.id === secuenciaId ? mismaPersona.min : null,
+    // ⚠️ `mismaPersona &&` PRIMERO: `secuenciaId` es opcional, y con los dos sin valor `undefined === undefined` daba true y leía
+    // `.min` de null (23/10/2026, la red de tipos de Integración).
+    mismaPersonaMin: mismaPersona && mismaPersona.id === secuenciaId ? mismaPersona.min : null,
     // El alto de la tarjeta CRON es fijo y se suma por cajita (`altoCron`): tiene que saber cuántas son.
     disparadores, nuevoDisparador: conNuevoDisparador,
   };
