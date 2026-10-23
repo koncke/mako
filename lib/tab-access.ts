@@ -23,6 +23,8 @@ import { getCapaActual, getRolWsEfectivo, negocioPausadoDeLaSesion, rutaConWs } 
 import { onboardingPendiente } from './onboarding-state';
 import { capaDef, tabEnCapa, type CapaId } from './capas';
 import { CORTE_POR_PLAN_PRENDIDO } from './api-tab';
+import { esNavSoloPro } from './plan-esencial-reglas';
+import { esEsencialDeLaSesion } from './plan-esencial';
 import type { RolWorkspace } from './auth-session';
 
 /**
@@ -91,6 +93,10 @@ export async function requireCapa(nav: string, opts?: { gateOnboarding?: boolean
   // está rota». La pantalla (app/no-esta-en-tu-plan) nombra la tab y ofrece ver el plan o volver al inicio.
   // (Con el cartel APAGADO, lib/api-tab.ts, vuelve a la casa del plan.)
   if (!tabEnCapa(nav, capa)) redirect(await rutaConWs(CORTE_POR_PLAN_PRENDIDO ? `/no-esta-en-tu-plan?tab=${encodeURIComponent(nav)}` : homeDeCapa(capa)));
+  // MaKo ESENCIAL (23/10/2026, docs/ofertas-mako.md): las tabs de Pro se ven con candado y la pantalla dice «Pasar a Pro». SÓLO
+  // a quien MaKo le cobra el Esencial por la pasarela (lib/plan-esencial-reglas.ts); ante la duda, sin candado. Va prendido
+  // aunque el cartel de la capa esté apagado: acá la tab EXISTE en su capa, lo que falta es el plan.
+  if (esNavSoloPro(nav) && (await esEsencialDeLaSesion())) redirect(await rutaConWs(`/no-esta-en-tu-plan?tab=${encodeURIComponent(nav)}&pro=1`));
   // El onboarding se gatea ACÁ y no en cada página. Antes quedaba librado a que
   // el autor se acordara de una segunda línea, y en 2 de las 7 páginas que usan
   // este guard el `return <PanelActivacion/>` se colaba EN EL MEDIO: la tab se

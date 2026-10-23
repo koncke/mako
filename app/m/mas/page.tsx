@@ -39,6 +39,8 @@ import { getWorkspace } from '@/lib/workspace';
 import { leerPerfil } from '@/lib/perfil';
 import { Icon } from '@/app/_components/icons';
 import { FAMILIAS_MAS, RUTA_CENTRO_M, barraMovil, masCompleto, type FilaMas } from '@/lib/movil-rutas';
+import { ROTULO_PASAR_A_PRO, esNavSoloPro } from '@/lib/plan-esencial-reglas';
+import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
 import { Criatura } from '@/app/_components/Criatura';
 import { MAKO_NAV } from '@/app/_components/nav';
 import { FilaM } from '../_ui/FilaM';
@@ -65,6 +67,8 @@ export default async function MasPagina() {
   // Desde el 20/10/2026 el Ops Center es el lugar del medio de la barra (para el super admin, el Centro): no se repite acá.
   const centroEnBarra = barraMovil(ctx.rol, ctx.capa, veOpsCenter).some((b) => b.href === RUTA_CENTRO_M);
   const grupos = masCompleto(ctx.rol, ctx.capa, veOpsCenter);
+  // MaKo Esencial por la pasarela (23/10/2026): las tabs de Pro se ven, con «Pasar a Pro» debajo (lib/plan-esencial-reglas.ts).
+  const esencial = await esEsencialDeLaSesion();
   const ids = grupos.flatMap((g) => g.filas.flatMap((f) => (f.tipo === 'pantalla' && f.seccion ? [f.seccion] : [])));
   const [negocio, badges, perfil] = await Promise.all([
     ctx.impersonando
@@ -97,6 +101,7 @@ export default async function MasPagina() {
       : f.tipo === 'grupo' ? <FilaGrupoM key={f.key} fila={f} />
         : (
           <FilaM key={f.key} navegacion {...(conCriatura ? { leading: criatura(f.label, !!MAKO_NAV.find((it) => it.key === f.key)?.estrella) } : { icono: f.icon })} titulo={f.label}
+            {...(esencial && esNavSoloPro(f.key) ? { segunda: `De MaKo Pro · ${ROTULO_PASAR_A_PRO}` } : {})}
             riel={numeroDe(f) ? <span className="m-num">{numeroDe(f)}</span> : undefined} href={f.href} />
         )
   );
