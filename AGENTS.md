@@ -9398,6 +9398,9 @@ esos 3 botones... Por qué agregar email si para eso ya tenemos una tarjeta de E
 DELAY, Configuraciones de la automatización o el ⓘ, o se le pide a MaKo con su operación de la API; nunca un desplegable
 suelto arriba del mensaje. Y cada canal es SU tarjeta: la de MaKo en WhatsApp no ofrece email. Lo fija
 tests/tarjeta-mako-como-las-demas.test.ts.
+Una ACTION de la API de MaKo que entra a los flujos esconde, en el paso, los parámetros que harían el trabajo de otra
+tarjeta (un email escrito a mano, «Canales»): van en `FUERA_DEL_FLUJO` (lib/api-mako/flujo-params.ts), que leen el
+editor y el motor (tests/tarjetas-revision-23-10.test.ts).
 
 Desde el 08/10/2026 una automatización de la tab Automations (ex Chatbot, renombrada el
 09/10/2026: la pantalla vive en `app/automations/`, /chatbot redirige con la query entera y las

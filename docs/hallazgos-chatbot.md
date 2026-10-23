@@ -470,6 +470,50 @@ a otra forma (hoy es la única tarjeta de MaKo por email). **Vive en:** app/auto
 `AsuntoDeMako`) · tests/tarjeta-mako-como-las-demas.test.ts.
 *23/10/2026, chat «Automations» (claude2).*
 
+### Las otras ocho tarjetas de la revisión: lo roto entra de a uno, también lo que la cara DIBUJA (23/10/2026)
+
+**Síntoma.** Después de la tarjeta de MaKo (la entrada de arriba, que trae la regla y los tres desplegables), la
+revisión con escépticos confirmó otros hallazgos en las demás tarjetas. Ninguno lo había pedido Martín. Este chat
+arregló ocho; los de `FlujoLienzo.tsx` (1, 7, 8 y 11) los tiene «Automations». El detalle con archivo:línea está en
+`C:/dev/cerebro-herramientas/revision-tarjetas-automations-23-10.md`.
+
+**El patrón, con estos ejemplos: cada uno entró solo, en una tanda que tenía otro foco, y nadie lo vio hasta abrir la
+tarjeta.**
+- **Una ACTION traída entera de la API** (57bc44ea4, 17/10, «Invitar al curso»): la def venía de la rama
+  `wip/api-acciones-1410` con email escrito a mano, canales y reenviar. El editor dibuja todo parámetro que no esté
+  escondido, así que la ACTION hacía de EMAIL y de WHATSAPP. Cualquier acción nueva de la API que entra a los flujos
+  trae el mismo riesgo: `FUERA_DEL_FLUJO` (lib/api-mako/flujo-params.ts) es dónde se esconde, y lo leen el editor Y el
+  motor.
+- **Un canal nuevo que reusa el componente sin repasar lo de antes** (c9cdbdf3a, 14/10, el AI Step por Instagram y
+  Messenger): volvió a ofrecer el chip de medio, pero no limpiaba el audio al cambiar y no le dio piel al Ensayo.
+  Quedaba un audio guardado e invisible que frenaba Publicar con el paso «Escenarios» en rojo.
+- **Lo que la cara dibuja contra lo que mide** (04f40af49, la foto de Instagram de hasta 90 px en un hueco de 34): el
+  alto se calcula antes de pintar (lib/flujo-conversacion.ts) y lo que sobra se corta sin error. La zona del CRON
+  (d98dd86aa) es el mismo caso en texto: tres renglones donde caben dos, y el corte se comía el «A quién».
+- **Textos que quedan viejos**: «Producto» después del renombre a Funnel (53ba64509 no tocó CamposAccion), el motivo
+  repetido junto al link de Pagos (184c0b377), y la marca «(de antes)» que la undécima tanda había rechazado.
+
+Ningún test miraba la tarjeta entera. El revisor de cada tanda mira el diff, no la tarjeta abierta.
+
+**Qué quedó.** Todo saca o corrige, nada suma. Lo fija tests/tarjetas-revision-23-10.test.ts, probado rompiéndolo:
+- **4** «Invitar al curso» muestra sólo el Curso. Medido: ningún paso guardado usaba los otros tres.
+- **2** la foto va como chip en la cara, igual que en WhatsApp.
+- **3** pasar a Instagram o Messenger saca el audio de la tarjeta y de cada escenario (`cambioDeMedio`,
+  lib/flujo-grafo.ts).
+- **9** el Ensayo con `SimuladorSocial`, como «Probar».
+- **10** «Funnel».
+- **5** el link de Pagos sin el motivo repetido.
+- **6** la zona sólo si la eligió la persona.
+- **12** sin «(de antes)». Medido: 0 filas vivas lo tenían.
+
+**Sin hacer.** No se vio en pantalla ni se chequearon los tipos en local (el vigía de RAM cortó `tsc-acotado`). La
+pantalla se mira en el ws3 de producción después del deploy, sin guardar nada.
+
+**Vive en:** `lib/api-mako/flujo-params.ts` (`FUERA_DEL_FLUJO`) · `lib/api-mako/flujo.ts` ·
+`app/_components/EditorAccionMako.tsx` · `app/automations/social-ui.tsx` · `lib/flujo-grafo.ts` (`cambioDeMedio`) ·
+`app/automations/ModalEnsayoAIStep.tsx` · `lib/disparadores.ts` (`textoDeDisparador`)
+*23/10/2026, chat «Automations › Limpieza» (claude2).*
+
 ### Lo que la casilla pinta como heredado sale de la regla del motor [costuras-3, L]
 
 **Síntoma:** en una secuencia que sale sola, «＋ caso» en «Si responde» creaba el «MaKo contesta»
