@@ -8,7 +8,7 @@
 // =============================================================================
 
 import type { FichaDelFunnel } from './config-server';
-import { sanearCambio, type CambioFicha } from './config';
+import { avisaDelPuesto, datosDelPuesto, sanearCambio, type CambioFicha, type OpcionesBloque } from './config';
 import { bloqueDef, bloquesDeLaTab, bloquesDelLugar, esIdHoja, esLugarFicha, esTabFicha, vaEnLugar, NOMBRE_TAB, TABS_FICHA, ANCHOS, DENSIDADES, REDES, FUENTES_RESPUESTA, type Ancho, type BloqueDef } from './catalogo';
 import { plantillaFicha, PLANTILLAS_FICHA } from './plantillas';
 import { galeriaDeTab, plantillaTabPorId, plantillasDeTab } from './plantillas-tab';
@@ -83,13 +83,14 @@ export function cambioDeInputApi(input: Record<string, unknown>): CambioFicha | 
       // el turno de WhatsApp. Qué es lo dice el bloque.
       const def = bloque ? bloqueDef(bloque) : undefined;
       const op = s(input.opcion);
-      if (!def?.opciones?.length) return { error: 'Ese bloque no tiene opciones: sólo redes-y-web (redes), lo-que-contesto (fuentes) y respuesta-destacada (pregunta).' };
+      if (!def?.opciones?.length) return { error: 'Ese bloque no tiene opciones: sólo redes-y-web (redes), lo-que-contesto (fuentes), respuesta-destacada (pregunta), y contacto y setter-y-closer (sus datos).' };
       if (!op) return { error: 'Falta la opcion.' };
       if (def.opciones.includes('pregunta')) { crudo = { op: 'opciones', ...base, opciones: { pregunta: op } }; break; }
-      const validos: readonly string[] = def.opciones.includes('redes') ? REDES : FUENTES_RESPUESTA;
+      // (23/10/2026) Los DATOS que van adentro del contacto o del setter y el closer, en orden: «telefono,email,instagram».
+      const validos: readonly string[] = def.datos ? def.datos.todos.map((x) => x.id) : def.opciones.includes('redes') ? REDES : FUENTES_RESPUESTA;
       const pide = op.toLowerCase().split(/[\s,;]+/).filter(Boolean);
       if (!pide.length || pide.some((x) => !validos.includes(x))) return { error: 'Hay una que no existe.', disponibles: [...validos] };
-      crudo = { op: 'opciones', ...base, opciones: def.opciones.includes('redes') ? { redes: pide } : { fuentes: pide } };
+      crudo = { op: 'opciones', ...base, opciones: def.datos ? { datos: pide } : def.opciones.includes('redes') ? { redes: pide } : { fuentes: pide } };
       break;
     }
     case 'aviso': {
@@ -171,13 +172,16 @@ export function cambioDeInputApi(input: Record<string, unknown>): CambioFicha | 
 }
 
 /** Un bloque puesto, como lo lee MaKo. */
-function bloqueDeSalida(p: { id: BloqueDef['id']; ancho: Ancho; diseno: string; icono?: string; opciones?: object }, i: number) {
+function bloqueDeSalida(p: { id: BloqueDef['id']; ancho: Ancho; diseno: string; icono?: string; opciones?: OpcionesBloque }, i: number) {
   const def = bloqueDef(p.id);
   return {
     lugar: i + 1, bloque: p.id, titulo: def?.titulo ?? p.id, ancho: NOMBRE_ANCHO[p.ancho],
     diseno: p.diseno, diseno_nombre: def?.disenos.find((x) => x.id === p.diseno)?.nombre ?? p.diseno,
     ...(p.icono ? { icono: p.icono } : {}), ...(p.opciones ? { opciones: p.opciones } : {}),
-    ...(def && def.avisa.length ? { completa: def.avisa } : {}),
+    // Lo que completa ESTE bloque puesto: un contacto sin la empresa no la completa (23/10/2026, `avisaDelPuesto`).
+    ...(def && avisaDelPuesto(def, p.opciones).length ? { completa: avisaDelPuesto(def, p.opciones) } : {}),
+    // Los datos que lleva adentro y los que se le pueden sumar (se eligen con cambio opciones y opcion «telefono,email»).
+    ...(def?.datos ? { datos: datosDelPuesto(def, p.opciones), datos_posibles: def.datos.todos.map((x) => x.id) } : {}),
   };
 }
 

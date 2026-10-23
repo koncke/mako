@@ -41,7 +41,7 @@ import { seVe, type ResumenElegido } from '../resumen-ficha';
 import { AJUSTES_TEMA, sanearTema, TEMA_BASE, type TemaHoja } from '../graficos-temas';
 import { esIconoMenu, type NombreIconoMenu } from '../../app/_ui/iconos-menu';
 import {
-  bloqueDef, esAncho, esBloqueId, esIdHoja, esLugarFicha, esTabFicha, esDensidad, vaEnLugar, REDES, FUENTES_RESPUESTA, TABS_FICHA, NOMBRE_TAB,
+  BLOQUES, bloqueDef, esAncho, esBloqueId, esIdHoja, esLugarFicha, esTabFicha, esDensidad, vaEnLugar, REDES, FUENTES_RESPUESTA, TABS_FICHA, NOMBRE_TAB,
   DENSIDADES, DENSIDAD_BASE,
   type Ancho, type BloqueDef, type BloqueId, type Densidad, type FuenteRespuesta, type IdHoja, type LugarFicha, type Red, type TabFicha,
 } from './catalogo';
@@ -62,6 +62,8 @@ export type OpcionesBloque = {
   fuentes?: FuenteRespuesta[];
   /** `respuesta-destacada`: la pregunta que se muestra en grande. */
   pregunta?: string;
+  /** Un bloque con `datos` (el contacto, el setter y el closer): cuáles van adentro, en orden. Sin elegir, los de entrada. */
+  datos?: string[];
 };
 
 /** Un bloque puesto en una tab. Es la forma de cada renglón de la lista guardada y de la que se dibuja. */
@@ -151,7 +153,28 @@ export function sanearOpciones(def: BloqueDef, raw: unknown): OpcionesBloque | u
   if (def.opciones.includes('redes')) { const r = lista(o.redes, REDES); if (r) out.redes = r; }
   if (def.opciones.includes('fuentes')) { const f = lista(o.fuentes, FUENTES_RESPUESTA); if (f) out.fuentes = f; }
   if (def.opciones.includes('pregunta') && typeof o.pregunta === 'string' && o.pregunta.trim()) out.pregunta = o.pregunta.trim().slice(0, TOPE_PREGUNTA);
+  if (def.opciones.includes('datos') && def.datos) {
+    const x = lista(o.datos, def.datos.todos.map((t) => t.id));
+    if (x) out.datos = x;
+  }
   return Object.keys(out).length ? out : undefined;
+}
+
+/** Los datos que van adentro de un bloque puesto, en orden: los elegidos, o los de entrada. [] si el bloque no tiene datos. */
+export function datosDelPuesto(def: BloqueDef, opciones?: OpcionesBloque): string[] {
+  if (!def.datos) return [];
+  return [...(opciones?.datos ?? def.datos.deEntrada)];
+}
+
+/**
+ * Los «datos sin marcar» que se completan en ESTE bloque puesto: los de su catálogo (`avisa`) y, si elige sus datos, sólo
+ * los que quedaron adentro. Un contacto sin la empresa no completa la empresa (ni «Solucionar» lleva ahí, ni su barra la
+ * ofrece como obligatoria). Es lo que leen `dondeSeCompleta`, la barra del bloque y la API de MaKo.
+ */
+export function avisaDelPuesto(def: BloqueDef, opciones?: OpcionesBloque): StepId[] {
+  if (!def.datos) return [...def.avisa];
+  const adentro = new Set(datosDelPuesto(def, opciones));
+  return def.avisa.filter((p) => def.datos!.todos.some((t) => t.aviso === p && adentro.has(t.id)));
 }
 
 /**
@@ -169,14 +192,24 @@ export function sanearPuesto(raw: unknown, tab: LugarFicha): BloquePuesto | null
   const diseno = typeof o.diseno === 'string' && def.disenos.some((x) => x.id === o.diseno) ? o.diseno : def.disenos[0].id;
   const out: BloquePuesto = { id: def.id, ancho, diseno };
   if (esIconoMenu(o.icono) && o.icono !== def.icono) out.icono = o.icono;
-  const op = sanearOpciones(def, o.opciones);
+  const op = sinDatosDeEntrada(def, sanearOpciones(def, o.opciones));
   if (op) out.opciones = op;
   return out;
 }
 
 /**
- * La lista de una tab: sin ids rotos, sin repetidos (salvo los que van varias veces), con tope. En el
- * Resumen, `contacto` no se puede quitar: si falta, vuelve arriba de todo.
+ * Las opciones de un bloque PUESTO sin los datos de entrada: dejar el contacto como venía es «sin elegir», y así la tab
+ * sigue a su plantilla (`normalizar` compara contra ella). El cambio que los elige sí los lleva (`sanearCambio`).
+ */
+function sinDatosDeEntrada(def: BloqueDef, op: OpcionesBloque | undefined): OpcionesBloque | undefined {
+  if (!op?.datos || !def.datos || !igual(op.datos, def.datos.deEntrada)) return op;
+  const { datos: _deEntrada, ...resto } = op;
+  return Object.keys(resto).length ? resto : undefined;
+}
+
+/**
+ * La lista de una tab: sin ids rotos, sin repetidos (salvo los que van varias veces), con tope. Un bloque que no se
+ * puede quitar de su tab (ninguno desde el 23/10/2026: el contacto también se quita) vuelve arriba si falta.
  */
 export function sanearLista(raw: unknown, tab: LugarFicha): BloquePuesto[] {
   const out: BloquePuesto[] = [];
@@ -190,15 +223,16 @@ export function sanearLista(raw: unknown, tab: LugarFicha): BloquePuesto[] {
   return conFijos(out, tab);
 }
 
-/** Los bloques que no se pueden quitar de su tab principal (`contacto` en el Resumen), arriba si faltan. Una hoja propia no tiene. */
+/**
+ * Los bloques que no se pueden quitar de su tab principal (`quitable: false` del catálogo), arriba si faltan. Una hoja
+ * propia no tiene. ⚠️ Hasta el 23/10/2026 era el contacto del Resumen, escrito acá a mano: ahora sale del catálogo, y
+ * con el contacto quitable no hay ninguno («En blanco» queda en blanco de verdad).
+ */
 function conFijos(l: BloquePuesto[], tab: LugarFicha): BloquePuesto[] {
   if (!esTabFicha(tab)) return l;
-  const faltan = TABS_FIJOS[tab].filter((id) => !l.some((p) => p.id === id));
+  const faltan = BLOQUES.filter((b) => !b.quitable && b.tab === tab && !l.some((p) => p.id === b.id)).map((b) => b.id);
   return faltan.length ? [...faltan.map((id) => puestoDeEntrada(id, RESPALDO_VACIO)), ...l] : l;
 }
-const TABS_FIJOS: Readonly<Record<TabFicha, readonly BloqueId[]>> = {
-  resumen: ['contacto'], reuniones: [], pagos: [], tracking: [],
-};
 
 /**
  * `funnels.data.ficha` tal como venga (de una versión vieja, a mano, roto): sólo lo que existe y vale.
@@ -494,9 +528,15 @@ export function lugarDe(f: Pick<FichaEfectiva, 'tabs' | 'nombres' | 'epica' | 'h
 
 /** La tab donde se completa un dato en ESTA ficha (la del primer bloque que lo pide), o null si ninguno lo tiene. */
 export function dondeSeCompleta(f: Pick<FichaEfectiva, 'tabs'>, paso: StepId): TabFicha | null {
-  for (const tab of TABS_FICHA) if (f.tabs[tab].some((b) => bloqueDef(b.id)?.avisa.includes(paso))) return tab;
+  for (const tab of TABS_FICHA) if (f.tabs[tab].some((b) => completaEn(b, paso))) return tab;
   return null;
 }
+
+/** ¿Este bloque puesto completa ese dato? Su catálogo y, si elige sus datos, que el dato haya quedado adentro. */
+const completaEn = (b: BloquePuesto, paso: StepId): boolean => {
+  const def = bloqueDef(b.id);
+  return !!def && avisaDelPuesto(def, b.opciones).includes(paso);
+};
 
 /**
  * Los bloques que se dibujan en una tab, con su definición. Lo privado (el coaching de la llamada, decisión
@@ -837,7 +877,24 @@ export function aplicarCambio(actual: FichaGuardada, c: CambioFicha, elegida: Pl
         if (c.icono && c.icono !== def.icono) b.icono = c.icono; else delete b.icono;
         l[i] = b;
       } else {
-        l[i] = { ...l[i], opciones: { ...(l[i].opciones ?? {}), ...c.opciones } };
+        const antes = l[i];
+        // Volver a dejar los datos como venían es «sin elegir» (`sinDatosDeEntrada`).
+        const op = sinDatosDeEntrada(def, { ...(antes.opciones ?? {}), ...c.opciones });
+        const nuevo: BloquePuesto = { ...antes };
+        if (op) nuevo.opciones = op; else delete nuevo.opciones;
+        l[i] = nuevo;
+        // ⚠️ UN DATO QUE SALE DEL BLOQUE DEJA DE SER OBLIGATORIO, en el mismo cambio (un solo «Deshacer»), si ningún otro
+        //    bloque de la ficha lo completa: un aviso que no se puede completar en la ficha es el «Datos sin marcar:
+        //    Empresa» que Martín no quería (23/10/2026). Sumarlo de nuevo NO lo vuelve obligatorio: eso se elige aparte.
+        if (def.datos && c.opciones.datos) {
+          const sale = avisaDelPuesto(def, antes.opciones).filter((p) => !avisaDelPuesto(def, l[i].opciones).includes(p));
+          const otros = [...TABS_FICHA.flatMap((t) => (t === c.tab ? l.filter((_, k) => k !== i) : lugarDe(ef, t).bloques)),
+            ...ef.hojas.flatMap((h) => (h.id === c.tab ? l.filter((_, k) => k !== i) : h.bloques))];
+          for (const p of sale) {
+            if (NO_IGNORABLES.has(p) || otros.some((b) => completaEn(b, p))) continue;
+            if (ef.avisos.find((a) => a.id === p)?.avisa) g.avisos = { ...(g.avisos ?? {}), [p]: false };
+          }
+        }
       }
       ponerTab(c.tab, l);
       break;

@@ -126,9 +126,9 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual, rutaConWs } from '@/lib/workspace';
 import { TopeDelPlanError, frenarAltaPorTope } from '@/lib/topes-crm';
 import { ofrecePartners } from './partners-crm';
-import type { EstadoDatos } from '@/lib/datos-aviso';
+import { avisanDelLead, type EstadoDatos } from '@/lib/datos-aviso';
 // La ficha del funnel del lead y «N sin marcar»: las MISMAS lecturas que la ficha del teléfono (app/m/crm/datos.ts).
-import { fichaDelFunnelDelLead, type FichaDelFunnel } from '@/lib/ficha/config-server';
+import { apagadosDeFunnel, fichaDelFunnelDelLead, type FichaDelFunnel } from '@/lib/ficha/config-server';
 import { datosSinMarcarDeLead, leerInsumosDatosLead } from '@/lib/datos-del-lead';
 import { rolDeFicha, vePrivado, type RolFicha } from '@/lib/ficha/registro';
 import { tabEnCapa } from '@/lib/capas';
@@ -584,6 +584,18 @@ export type StageMoveResultado =
  * Deja una línea en el historial para que se sepa que se guardó incompleto a
  * propósito y quién lo hizo — no es lo mismo que un dato que nadie vio.
  */
+/**
+ * LO PENDIENTE QUE AVISA (23/10/2026): de lo que la etapa pide y falta, lo que es obligatorio en el funnel del lead y no
+ * se ignoró en él (`avisanDelLead`, la regla de «N sin marcar»). Martín: «me obligas a hacer obligatorio un dato que no
+ * quería que lo fuera»: el toast del movimiento decía «Queda pendiente: Empresa» con la empresa apagada, y quedaba en el
+ * historial. Sin poder leer los avisos del funnel, lo de siempre (mejor de más que callar).
+ */
+async function pendientesQueAvisan(lead: Lead | null, faltan: Step[]): Promise<Step[]> {
+  if (!lead || !faltan.length) return faltan;
+  const apagados = await apagadosDeFunnel(lead.funnel_id ?? null).catch(() => null);
+  return apagados ? avisanDelLead(faltan, lead, apagados) : faltan;
+}
+
 async function registrarPendientes(id: number, faltan: Step[], autor: string): Promise<void> {
   if (!faltan.length) return;
   const valor = faltan.map((f) => f.label).join(' · ');
@@ -815,7 +827,7 @@ export async function completeStageMoveAction(
   // Lo que todavía falta, medido sobre el lead guardado — en la etapa donde QUEDÓ.
   const etapaFinal = d.soloCompletar && after ? etapaReal(after) : to;
   const pagosDespues = etapaFinal === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
-  const pendientes = after ? stepsForStage(etapaFinal, valoresDeRequisitos(etapaFinal, after, pagosDespues, stagesMove, {}, grabable)) : [];
+  const pendientes = await pendientesQueAvisan(after, after ? stepsForStage(etapaFinal, valoresDeRequisitos(etapaFinal, after, pagosDespues, stagesMove, {}, grabable)) : []);
   await registrarPendientes(id, pendientes, autor);
   // ⚠️ ANTES de firmar (revisión del 17/10/2026): escrita después por `resolverQueHacerAction`, la línea quedaba
   // afuera de las que borra el Deshacer y el historial contaba un movimiento que ya no existía.
@@ -1340,7 +1352,7 @@ export async function setLeadStageAction(
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, autor);
   const pagosDespues = stageKey === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
-  const pendientes = after ? stepsForStage(stageKey, valoresDeRequisitos(stageKey, after, pagosDespues, stagesMove, {}, grabable)) : [];
+  const pendientes = await pendientesQueAvisan(after, after ? stepsForStage(stageKey, valoresDeRequisitos(stageKey, after, pagosDespues, stagesMove, {}, grabable)) : []);
   await registrarPendientes(id, pendientes, autor);
   const deshacer = await cerrarDeshacer(id, foto, after, autor);
   bust(TAG.leads, TAG.pagos);

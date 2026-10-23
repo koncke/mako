@@ -29,12 +29,17 @@ const conGrabacion = (l: Lead): boolean => ((l.fathom_links ?? []) as FathomLink
 /** Lo que dibuja `reunion-1` según lo que su hoja ya puso aparte. */
 export function partesDeReunion1(hermanos: readonly string[] | undefined): PartesReuniones {
   const h = new Set(hermanos ?? []);
-  return { r1: true, cajas: true, r2: !h.has('reunion-2'), agendar: !h.has('agendar-reunion'), llamada: !h.has('lo-que-salio-de-la-llamada') };
+  // El setter y el closer (23/10/2026): con «Setter y closer» en la misma hoja, sus cajas no se repiten acá. Hasta ahí la R1
+  // los dibujaba siempre y su «Obligatorio» los movía junto con las fechas (Martín: «nada es obligatorio porque viene con otro»).
+  return { r1: true, cajas: true, equipo: !h.has('setter-y-closer'), r2: !h.has('reunion-2'), agendar: !h.has('agendar-reunion'), llamada: !h.has('lo-que-salio-de-la-llamada') };
 }
 
 export const REGLAS_REUNIONES = {
   'reunion-1': {
+    // Lo que su hoja pone aparte deja de contar (`cubreDe` con `hermanos`), igual que deja de dibujarse (`partesDeReunion1`).
     incluye: ['reunion-2', 'agendar-reunion', 'lo-que-salio-de-la-llamada', 'setter-y-closer', 'confirmacion-de-pago'],
+    // La R1 edita «¿Era calificado?» (ReunionesCard): su «Obligatorio» lo ofrece por su cuenta.
+    cubreTambien: ['calificado'],
   },
   // «Sólo si hubo R2» (catálogo: se calla sin datos).
   'reunion-2': { estaVacio: (ctx) => !tuvoR2(ctx.lead) },

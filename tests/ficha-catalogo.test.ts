@@ -89,10 +89,12 @@ test('lo que avisa es un dato sin marcar de verdad, y cada dato tiene dónde com
   for (const d of DATOS_AVISABLES) assert.ok(BLOQUES.some((b) => b.avisa.includes(d.id)), `«${d.label}» no se completa en ningún bloque`);
 });
 
-test('los íconos son del set de la casa, y sólo contacto no se quita', () => {
+// ⚠️ REESCRITO EL 23/10/2026: era «sólo contacto no se quita». Martín: «no se puede personalizar, no puedo decidir sacar a
+//    empresa o agregar otra cosa». Dentro de un bloque la persona decide qué va, y el bloque entero también se quita.
+test('los íconos son del set de la casa, y todo bloque se quita (también el contacto)', () => {
   const set = new Set<string>(NOMBRES_ICONO_MENU);
   for (const b of BLOQUES) assert.ok(set.has(b.icono), `${b.id}: el ícono «${b.icono}» no es de app/_ui/iconos-menu.tsx`);
-  assert.deepEqual(BLOQUES.filter((b) => !b.quitable).map((b) => b.id), ['contacto']);
+  assert.deepEqual(BLOQUES.filter((b) => !b.quitable).map((b) => b.id), []);
   assert.deepEqual(BLOQUES.filter((b) => b.varias).map((b) => b.id), ['respuesta-destacada'], '«Se pueden poner varias» sólo la respuesta destacada');
   assert.deepEqual(BLOQUES.filter((b) => b.privado).map((b) => b.id), ['coaching-de-la-llamada'], 'decisión 5');
 });

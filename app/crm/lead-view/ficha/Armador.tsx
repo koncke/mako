@@ -24,11 +24,11 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEven
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { bloqueDef, casaDelBloque, esTabFicha, FUENTES_RESPUESTA, REDES, type BloqueId, type FuenteRespuesta, type LugarFicha, type Red } from '@/lib/ficha/catalogo';
-import type { BloquePuesto, CambioFicha } from '@/lib/ficha/config';
+import { datosDelPuesto, type BloquePuesto, type CambioFicha } from '@/lib/ficha/config';
 import { tituloDeBloque } from '@/lib/ficha/registro';
 // La MISMA lista que ofrece la API de MaKo (cambiar_ficha_funnel, cambio icono): una sola fuente.
 import { ICONOS_BLOQUE } from '@/lib/ficha/api';
-import { NO_IGNORABLES } from '@/lib/datos-aviso';
+import { DATOS_AVISABLES, NO_IGNORABLES } from '@/lib/datos-aviso';
 import type { StepId } from '@/lib/stage-requirements';
 import { anchosDeLaBarra, bloquesDeLaGrilla, compartiendoFila, cubreDe, disenoADibujar, disenosOfrecidos, lugarAlSoltar, ocurrencia, type BloqueEnGrilla, type DispositivoFicha } from './armar';
 import { entradaDe } from './registro';
@@ -165,7 +165,7 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
           </span>
         )}
         {elegido && (
-          <BarraBloque tab={tab} b={b} icono={icono} titulo={titulo} incluidos={incluidos} onCambio={onCambio} avisaDe={avisaDe}
+          <BarraBloque tab={tab} b={b} icono={icono} titulo={titulo} incluidos={incluidos} onCambio={onCambio} avisaDe={avisaDe} hermanos={hermanos}
             onQuitar={() => onSel(null)} onMoverTeclado={conTeclado}
             preguntas={b.def.opciones?.includes('pregunta') ? preguntasDelLead(ctx.data) : []} />
         )}
@@ -203,7 +203,11 @@ function padreQueScrollea(el: HTMLElement): HTMLElement | null {
   return null;
 }
 
-type Menu = { tipo: 'diseno' | 'icono' | 'opciones'; ancla: HTMLElement } | null;
+type TipoMenu = 'diseno' | 'icono' | 'opciones' | 'datos' | 'obligatorio';
+type Menu = { tipo: TipoMenu; ancla: HTMLElement } | null;
+
+/** El nombre de un «dato sin marcar» en el menú «Obligatorio» (el de la lista de avisos). */
+const nombreDelDato = (p: StepId): string => DATOS_AVISABLES.find((x) => x.id === p)?.label ?? p;
 
 /** Cómo se llama cada red en el menú de opciones. */
 const NOMBRE_RED: Readonly<Record<Red, string>> = { web: 'Web', instagram: 'Instagram', youtube: 'YouTube', linkedin: 'LinkedIn' };
@@ -213,8 +217,10 @@ const NOMBRE_RED: Readonly<Record<Red, string>> = { web: 'Web', instagram: 'Inst
  * OPCIONES (16/10/2026): lo que el bloque declara configurar adentro (`def.opciones`): qué redes van en «Redes y web»,
  * qué fuentes en «Lo que contestó» y qué pregunta en «Respuesta destacada» (de las que contestó ESTE lead).
  */
-function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onMoverTeclado, preguntas, avisaDe }: {
+function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onMoverTeclado, preguntas, avisaDe, hermanos }: {
   avisaDe?: (paso: StepId) => boolean;
+  /** Los bloques de la misma hoja: lo que la hoja puso aparte no cuenta como de este bloque (`cubreDe`). */
+  hermanos?: readonly string[];
   tab: LugarFicha;
   b: BloqueEnGrilla;
   icono: NombreIconoMenu;
@@ -231,7 +237,9 @@ function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onM
   const redes: readonly Red[] = b.puesto.opciones?.redes ?? REDES;
   const fuentes: readonly FuenteRespuesta[] = b.puesto.opciones?.fuentes ?? FUENTES_RESPUESTA;
   const pregunta = b.puesto.opciones?.pregunta ?? null;
-  const opciones = (o: { redes?: Red[]; fuentes?: FuenteRespuesta[]; pregunta?: string }) => onCambio({ op: 'opciones', tab, bloque: id, n: b.n, opciones: o });
+  const opciones = (o: { redes?: Red[]; fuentes?: FuenteRespuesta[]; pregunta?: string; datos?: string[] }) => onCambio({ op: 'opciones', tab, bloque: id, n: b.n, opciones: o });
+  /** Prende o apaga el aviso de UN dato en este funnel. */
+  const pedir = (p: StepId, avisa: boolean) => onCambio({ op: 'aviso', paso: p, avisa });
   /** Prender o apagar uno de una lista, sin perder el orden de siempre. */
   const alternar = <T extends string>(todos: readonly T[], hoy: readonly T[], x: T): T[] => todos.filter((t) => (t === x ? !hoy.includes(x) : hoy.includes(t)));
   const disenos = disenosOfrecidos(b.def, b.reglas);
@@ -239,12 +247,20 @@ function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onM
   const id: BloqueId = b.def.id;
   const quitable = b.def.quitable || b.def.tab !== tab;
   // «OBLIGATORIO» (16/10/2026, Martín: «si hoy en día clickeo en cada bloque ahí debería haber una opción de
-  // "Obligatorio" y que eso sea lo que hace ese dato que ingrese a "datos sin marcar"»). Los datos que el bloque
-  // dibuja (`cubreDe`), menos la asistencia de una reunión pasada, que avisa siempre. Es el mismo aviso por funnel que
-  // los interruptores de la barra lateral (`op: 'aviso'`): prender o apagar acá los mueve a todos juntos.
-  const cubre = avisaDe ? cubreDe(b.def, b.reglas).filter((p) => !NO_IGNORABLES.has(p)) : [];
-  const obligatorio = cubre.length > 0 && cubre.every((p) => avisaDe!(p));
-  const abrir = (tipo: 'diseno' | 'icono' | 'opciones') => (e: { currentTarget: HTMLElement }) => {
+  // "Obligatorio" y que eso sea lo que hace ese dato que ingrese a "datos sin marcar"»). Es el mismo aviso por funnel que
+  // los interruptores de la barra lateral (`op: 'aviso'`).
+  // ⚠️ DATO POR DATO desde el 23/10/2026. Hasta ahí un toque prendía o apagaba TODOS los datos del bloque juntos, y la
+  //    empresa era obligatoria por venir con el teléfono. Martín: «me obligas a hacer obligatorio un dato que no quería
+  //    que lo fuera». Un bloque con un solo dato sigue con su botón; con varios, «Obligatorio ▾» los lista uno por uno; y
+  //    uno que elige sus datos (el contacto, el setter y el closer) los junta en «Datos ▾»: qué va adentro y qué se pide.
+  //    La asistencia de una reunión pasada avisa siempre: se ve, apagada, para que se entienda por qué no se toca.
+  const cubreTodo = avisaDe ? cubreDe(b.def, b.reglas, { puesto: b.puesto, hermanos }) : [];
+  const cubre = cubreTodo.filter((p) => !NO_IGNORABLES.has(p));
+  const siempre = cubreTodo.filter((p) => NO_IGNORABLES.has(p));
+  const datos = b.def.datos;
+  const adentro = datos ? datosDelPuesto(b.def, b.puesto.opciones) : [];
+  const unSolo = !datos && cubre.length === 1 ? cubre[0] : null;
+  const abrir = (tipo: TipoMenu) => (e: { currentTarget: HTMLElement }) => {
     const ancla = e.currentTarget;
     setMenu((m) => (m?.tipo === tipo ? null : { tipo, ancla }));
   };
@@ -286,13 +302,29 @@ function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onM
           </button>
         </>
       )}
-      {cubre.length > 0 && (
+      {datos && (
         <>
           {sep}
-          <button type="button" className="fb-herr" aria-pressed={obligatorio}
-            title={obligatorio ? 'Si falta, entra en «datos sin marcar». Toca para que no avise.' : 'Toca para que, si falta, entre en «datos sin marcar».'}
-            onClick={() => { for (const p of cubre) if (avisaDe!(p) === obligatorio) onCambio({ op: 'aviso', paso: p, avisa: !obligatorio }); }}>
-            {obligatorio ? '✓ ' : ''}Obligatorio
+          <button type="button" className="fb-herr" aria-haspopup="menu" aria-expanded={menu?.tipo === 'datos'} onClick={abrir('datos')}>
+            Datos <span aria-hidden>▾</span>
+          </button>
+        </>
+      )}
+      {unSolo && (
+        <>
+          {sep}
+          <button type="button" className="fb-herr" aria-pressed={avisaDe!(unSolo)}
+            title={avisaDe!(unSolo) ? 'Si falta, entra en «datos sin marcar». Toca para que no avise.' : 'Toca para que, si falta, entre en «datos sin marcar».'}
+            onClick={() => pedir(unSolo, !avisaDe!(unSolo))}>
+            {avisaDe!(unSolo) ? '✓ ' : ''}Obligatorio
+          </button>
+        </>
+      )}
+      {!datos && cubre.length > 1 && (
+        <>
+          {sep}
+          <button type="button" className="fb-herr" aria-haspopup="menu" aria-expanded={menu?.tipo === 'obligatorio'} onClick={abrir('obligatorio')}>
+            Obligatorio <span aria-hidden>▾</span>
           </button>
         </>
       )}
@@ -339,6 +371,51 @@ function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onM
                 </button>
               ))
             ) : <div className="fb-vacio-menu">Este lead no contestó nada. Elige la pregunta en uno que sí.</div>)}
+          </div>
+        </Flotante>
+      )}
+      {menu?.tipo === 'datos' && datos && (
+        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={300} etiqueta="Datos del bloque">
+          <div role="menu">
+            {datos.todos.map((t) => {
+              const va = adentro.includes(t.id);
+              const ultimo = va && adentro.length === 1;
+              const ob = t.aviso && avisaDe && !NO_IGNORABLES.has(t.aviso) ? avisaDe(t.aviso) : null;
+              return (
+                <div key={t.id} className="fb-dato">
+                  <button type="button" role="menuitemcheckbox" aria-checked={va} className="fb-opcion" disabled={ultimo}
+                    title={ultimo ? 'El bloque necesita al menos un dato. Si no lo quieres, quita el bloque.' : undefined}
+                    onClick={() => opciones({ datos: alternar(datos.todos.map((x) => x.id), adentro, t.id) })}>
+                    <span aria-hidden>{va ? '✓' : ''}</span> {t.nombre}
+                  </button>
+                  {ob !== null && (
+                    <button type="button" className="fb-herr fb-dato-ob" aria-pressed={ob} disabled={!va}
+                      title={!va ? 'Ponlo en el bloque para poder pedirlo.' : ob ? 'Si falta, entra en «datos sin marcar». Toca para que no avise.' : 'Toca para que, si falta, entre en «datos sin marcar».'}
+                      onClick={() => pedir(t.aviso!, !ob)}>
+                      {ob ? '✓ ' : ''}Obligatorio
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Flotante>
+      )}
+      {menu?.tipo === 'obligatorio' && (
+        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={300} etiqueta="Qué es obligatorio en este bloque">
+          <div role="menu">
+            {cubre.map((p) => (
+              <button key={p} type="button" role="menuitemcheckbox" aria-checked={avisaDe!(p)} className="fb-opcion"
+                onClick={() => pedir(p, !avisaDe!(p))}>
+                <span aria-hidden>{avisaDe!(p) ? '✓' : ''}</span> {nombreDelDato(p)}
+              </button>
+            ))}
+            {siempre.map((p) => (
+              <button key={p} type="button" role="menuitemcheckbox" aria-checked className="fb-opcion" disabled
+                title="La asistencia a una reunión que ya pasó siempre se pide.">
+                <span aria-hidden>✓</span> {nombreDelDato(p)} <span className="fb-opcion-linea">Siempre</span>
+              </button>
+            ))}
           </div>
         </Flotante>
       )}

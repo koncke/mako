@@ -179,7 +179,8 @@ test('desde la ficha, los avisos son los del funnel del lead (en «Personalizar�
   //    lateral con los interruptores se fue — Martín, 16/10: «Avisos de datos sin marcar deja de ser una lista de
   //    interruptores: cada bloque tiene la opción "Obligatorio"».)
   const armador = sinComentarios(leer('app/crm/lead-view/ficha/Armador.tsx'));
-  assert.match(armador, /onCambio\(\{ op: 'aviso', paso: p, avisa: !obligatorio \}\)/, '«Obligatorio» no cambia los avisos');
+  //    ⚠️ Y desde el 23/10/2026, de UN dato por vez (`pedir`): Martín, «me obligas a hacer obligatorio un dato que no quería».
+  assert.match(armador, /const pedir = \(p: StepId, avisa: boolean\) => onCambio\(\{ op: 'aviso', paso: p, avisa \}\);/, '«Obligatorio» no cambia los avisos');
   // 3. …que la ficha guarda en ESE funnel (el de `data.ficha`), no en el negocio.
   const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
   assert.match(ficha, /useFichaDelFunnel\(data\.ficha \?\? null,/);
