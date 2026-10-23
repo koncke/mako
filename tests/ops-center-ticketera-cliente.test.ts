@@ -75,9 +75,9 @@ test('2. sólo los suyos: la acción no recibe nada del navegador; workspace y e
 test('3. el botón «Ticketera» arriba, con su número, y su panel; en el teléfono, la fila', () => {
   assert.equal(esperanTuRespuesta([paraElCliente(fila({ estado: 'esperando_cliente' })), paraElCliente(fila())]), 1, 'el número: los que esperan su respuesta');
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
-  assert.match(sb, /\{!centro && !misTickets\.fueraDelPlan && \(\n\s*<button type="button" className="co-acceso co-acceso--ticketera" aria-pressed=\{ticketsCliente\}/, 'el mismo botón que el del super admin');
+  assert.match(sb, /\{!centro && !misTickets\.fueraDelPlan && \(\n\s*<button type="button" className="co-acceso co-acceso--ticketera" aria-pressed=\{ticketera != null\}/, 'el mismo botón que el del super admin');
   assert.match(sb, /\{misTickets\.esperanTuRespuesta > 0 && <span className="co-acceso__n">\{misTickets\.esperanTuRespuesta\}<\/span>\}/);
-  assert.match(sb, /: !centro && ticketsCliente \? \(\n\s*<TicketeraDelCliente mis=\{misTickets\}/);
+  assert.match(sb, /: !centro && ticketera \? \(\n\s*<TicketeraDelCliente mis=\{misTickets\}/);
   assert.match(sb, /const misTickets = useMisTickets\(!ops\);/, 'sólo para el cliente');
   assert.match(sinComentarios(leer('app/second-brain/TicketeraDelCliente.tsx')), /<ChatSoporte tickets=\{mis\.tickets\} onVolver=\{onVolver\} \/>/, 'el chat de Soporte (el mismo de /tickets)');
   assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /<FilaM navegacion titulo="Ticketera" icono="soporte" href="\/m\/tickets"/);

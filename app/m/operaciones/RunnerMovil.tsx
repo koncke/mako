@@ -43,7 +43,7 @@ export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClav
       {/* El Uso de las CUATRO cuentas, lo primero (Martín: «Falta el poder visualizar el USO», «Tampoco sale el uso de las
           otras 2 cuentas»): la misma pieza que la computadora; la cuenta sin Runner sale igual, diciendo «Sin Runner todavía». */}
       {carteros && (
-        <SeccionM titulo="Uso">
+        <SeccionM titulo="Cuentas de Claude Code">
           <ListaUso cuentas={cuentas ?? cuentasDeUso(carteros)} ahora={ahora} onRenombrar={onRenombrar} />
         </SeccionM>
       )}
