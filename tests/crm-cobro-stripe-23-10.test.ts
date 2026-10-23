@@ -13,7 +13,8 @@
 //   · `leer` que espera a Stripe antes de mostrar la foto                                   → 3 / 1
 //   · un error de Stripe que no se muestra                                                  → 3 / 1
 //   · traer sin poner el producto cuando no se pudo vincular                                → 3 / 1
-// Y MaKo (5 / 0): `prepararPrecioDeStripe` sin frenar los `noSe` → 4 / 1; `ver_cobro_etapa` sin `de_stripe` → 4 / 1.
+// Y MaKo (5 / 0): `prepararPrecioDeStripe` sin frenar los `noSe` → 4 / 1; `ver_cobro_etapa` sin `de_stripe` → 4 / 1;
+// `ejecutarPrecioDeStripe` sin volver a mirar el CRM → 4 / 1; sin el `try` propio de vincular → 4 / 1.
 // Correr: node --import tsx --test tests/crm-cobro-stripe-23-10.test.ts
 // =============================================================================
 
@@ -100,4 +101,8 @@ test('MaKo: ver_cobro_etapa muestra los precios de Stripe, y vincular_cobro_etap
   // Lo confirmado: el server vuelve a leer el precio en Stripe, y frena ANTES de tocar el catálogo si ya cobra en otro CRM.
   assert.match(run, /const imp = await importarPrecioDeStripe\(ws, payload\.cuentaStripe, payload\.precioStripe, async \(productoId\) => \{/);
   assert.match(run, /if \(p\.noSe\) return \{ error:/, 'uno que no se puede traer llega hasta el «sí»');
+  // La revisión de Cobros: el CRM se vuelve a mirar ANTES de traer, y si vincular tira, se dice lo que ya se hizo.
+  const ej = run.slice(run.indexOf('async function ejecutarPrecioDeStripe('), run.indexOf('async function vinculoDeCobro('));
+  assert.ok(ej.indexOf('await ganadoDelCrm(funnelId)') > 0 && ej.indexOf('await ganadoDelCrm(funnelId)') < ej.indexOf('importarPrecioDeStripe('), 'el CRM, antes de tocar el catálogo');
+  assert.match(ej, /\} catch \(e\) \{\s*return noSeVinculo\(/, 'si vincular tira, sin contar que ya lo trajo');
 });

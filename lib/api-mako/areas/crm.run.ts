@@ -454,7 +454,9 @@ async function prepararPrecioDeStripe(precioId: string, crm: { id: number; nombr
 /** Lo confirmado: traer el precio (el server lo vuelve a leer en Stripe) y vincularlo, con los mismos frenos que el pop-up. */
 async function ejecutarPrecioDeStripe(payload: Record<string, unknown>, ws: number, autor: string): Promise<{ ok: boolean; resumen: string; datos?: Record<string, unknown> }> {
   const funnelId = Number(payload.embudoId);
-  // Lo que puede frenar el vínculo, ANTES de tocar el catálogo: que el producto de MaKo no cobre ya en otro CRM.
+  // Lo que puede frenar el vínculo, ANTES de tocar el catálogo (revisión de Cobros, 23/10/2026): el CRM y su Ganado (entre
+  // el «sí» y esto pudo desaparecer, y el producto quedaría traído sin vínculo), y que no cobre ya en otro CRM.
+  if (!(await ganadoDelCrm(funnelId))) return { ok: false, resumen: 'Ese CRM ya no tiene la etapa Ganado: no traje nada.' };
   const imp = await importarPrecioDeStripe(ws, payload.cuentaStripe, payload.precioStripe, async (productoId) => {
     if (productoId == null) return null;
     const ya = (await vinculosDelNegocio()).find((v) => v.productoId === productoId);
@@ -464,8 +466,15 @@ async function ejecutarPrecioDeStripe(payload: Record<string, unknown>, ws: numb
   });
   if (!imp.ok) return { ok: false, resumen: imp.error };
   const hecho = imp.cambio === 'creado' ? `traje «${imp.producto.nombre}» al catálogo` : imp.cambio === 'precio' ? `le puse el precio de Stripe a «${imp.producto.nombre}»` : null;
-  const v = await vincularCobro({ funnelId, etapa: ETAPA_COBRO, productoId: imp.producto.id, cuentas: [String(payload.cuentaStripe)] }, await cuentasDelNegocio(ws), autor);
-  if (!v.ok) return { ok: false, resumen: hecho ? `${hecho[0].toUpperCase()}${hecho.slice(1)}, pero no se vinculó: ${v.error}` : v.error };
+  const noSeVinculo = (error: string) => ({ ok: false, resumen: hecho ? `${hecho[0].toUpperCase()}${hecho.slice(1)}, pero no se vinculó: ${error}` : error });
+  // Un `try` propio: si vincular TIRA, lo dicho tiene que contar que ya se trajo (con `seguro` diría sólo «no se pudo»).
+  let v: Awaited<ReturnType<typeof vincularCobro>>;
+  try {
+    v = await vincularCobro({ funnelId, etapa: ETAPA_COBRO, productoId: imp.producto.id, cuentas: [String(payload.cuentaStripe)] }, await cuentasDelNegocio(ws), autor);
+  } catch (e) {
+    return noSeVinculo(e instanceof Error ? e.message : String(e));
+  }
+  if (!v.ok) return noSeVinculo(v.error);
   return { ok: true, resumen: `Listo: ${hecho ? `${hecho}, y ` : ''}cobra en Ganado.`, datos: { vinculoId: v.vinculo.id, productoId: imp.producto.id } };
 }
 

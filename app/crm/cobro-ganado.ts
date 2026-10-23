@@ -70,8 +70,8 @@ export const precioDeStripeTexto = (p: Pick<PrecioDeStripe, 'monto' | 'moneda' |
  * apagados, los que no se pueden traer (`noSe`, con su porqué). Lo que ya cobra en esta etapa no se ofrece.
  */
 export function opcionesDeCobro(foto: FotoCobroEtapa, precios: readonly PrecioDeStripe[]): OpcionDeCobro[] {
-  const aca = new Set(foto.vinculos.map((v) => v.productoId));
-  const traibles = precios.filter((p) => !p.noSe && !(p.enMako != null && aca.has(p.enMako)));
+  const yaVinculados = new Set(foto.vinculos.map((v) => v.productoId));
+  const traibles = precios.filter((p) => !p.noSe && !(p.enMako != null && yaVinculados.has(p.enMako)));
   const out: OpcionDeCobro[] = [];
   for (const producto of productosParaVincular(foto)) {
     const suyos = traibles.filter((p) => p.enMako === producto.id);
