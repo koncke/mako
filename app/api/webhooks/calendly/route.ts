@@ -612,6 +612,8 @@ export async function POST(request: NextRequest) {
           metaLeadId: lead.meta_lead_id,
           actionSource: 'website',
           eventId: `schedule:${email.toLowerCase()}:${startTimeIso}`,
+          // El UID de la visita (la landing de MaKo lo manda en utm_term y al Píxel como external_id).
+          externalId: visitor_id,
           customData: {
             lead_type: 'agenda_j1',
             ...(utm_campaign ? { utm_campaign } : {}),

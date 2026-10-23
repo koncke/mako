@@ -15,6 +15,7 @@ import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
 import { debeMedir, esAgendaDeCalendly, PIXEL_META_MAKO } from '@/lib/meta-pixel-mako';
 
 import { SCRIPT_DISENO } from '@/lib/editor-landing/html-editable';
+import { PARAM_CARGADOR, RUTA_CARGADOR } from '@/lib/pixel-cargador';
 import { LANDING_HTML } from './landing-html';
 import { CSS_CAPA, CSS_LANDING, aplicarContenidoLanding } from './landing-contenido';
 
@@ -23,7 +24,13 @@ import { CSS_CAPA, CSS_LANDING, aplicarContenidoLanding } from './landing-conten
  * publicada (`div.gm-libre`), la base y la hoja del diseño, y CSS_CONTENIDO sólo si trae secciones de Gamma.
  * Sin esto (no hay documento publicado o la base no contestó), la landing de siempre: landing-html.ts.
  */
-export type DisenoLanding = { html: string; css: string; cssContenido?: string | null };
+export type DisenoLanding = { html: string; css: string; cssContenido?: string | null; pixelToken?: string | null };
+
+/** El visitante del Pixel de MaKo (`nqe_visitor_id`), o null. */
+function visitanteMako(): string | null {
+  const m = document.cookie.match(/(?:^|; )nqe_visitor_id=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
 
 declare global {
   interface Window {
@@ -78,13 +85,27 @@ export default function Landing({ diseno }: { diseno?: DisenoLanding | null }) {
     const root = rootRef.current;
     if (!root || !diseno) return;
     volverALaCard(root);
-    if (debeMedir(window.location.hostname)) {
-      const fbq = cargarPixelMeta();
-      if (!root.getAttribute('data-pixel-init')) {
-        root.setAttribute('data-pixel-init', '1');
-        fbq('init', PIXEL_META_MAKO);
+    // El ORIGEN (lib/origen-cuenta.ts): el Pixel de MaKo deja el visitante y la URL con sus UTM; el script del
+    // diseño le pasa ese visitante a Calendly (utm_term) y el Píxel de Meta lo lleva como external_id (el UID, el
+    // mismo que manda el server por CAPI al agendar). Primero el Pixel de MaKo (crea el visitante), después Meta.
+    if (debeMedir(window.location.hostname) && !root.getAttribute('data-pixel-init')) {
+      root.setAttribute('data-pixel-init', '1');
+      const meta = () => {
+        const fbq = cargarPixelMeta();
+        const uid = visitanteMako();
+        if (uid) fbq('init', PIXEL_META_MAKO, { external_id: uid });
+        else fbq('init', PIXEL_META_MAKO);
         fbq('track', 'PageView');
-      }
+      };
+      if (diseno.pixelToken && !document.getElementById('mako-pixel')) {
+        let listo = false;
+        const una = () => { if (!listo) { listo = true; meta(); } };
+        const sc = document.createElement('script');
+        sc.id = 'mako-pixel'; sc.defer = true; sc.onload = una; sc.onerror = una;
+        sc.src = `${RUTA_CARGADOR}?${PARAM_CARGADOR}=${encodeURIComponent(diseno.pixelToken)}`;
+        document.body.appendChild(sc);
+        window.setTimeout(una, 2500);
+      } else meta();
     }
     if (!document.getElementById('gm-diseno-js')) {
       const sc = document.createElement('script');

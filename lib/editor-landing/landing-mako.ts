@@ -29,6 +29,7 @@ import { wsSuperAdmin } from '../workspace';
 import { slugValido } from './doc';
 import { leerFoto } from './server-reglas';
 import { CLASE_LIBRE } from './html-editable';
+import { getOrCreateLandingToken } from '../landing-token';
 
 export const TAG_LANDING_MAKO = 'landing-mako';
 /** app_settings del ws de la plataforma: `{"docId": <id>}` = el documento que se sirve en la raíz de hola-mako.com. */
@@ -49,6 +50,12 @@ export type LandingMako = {
   css: string;
   /** El Píxel de Meta del documento (config.sitio.metaPixelId). */
   metaPixelId: string | null;
+  /**
+   * El token del Pixel de MaKo del ws de la plataforma: la landing lo carga (`/m.js?id=`) para que cada visita
+   * deje su visitante (`nqe_visitor_id`) y su URL con las UTM. Es la cadena del ORIGEN de la cuenta
+   * (lib/origen-cuenta.ts): visita → agenda en Calendly con `utm_term` = visitante → lead → alta.
+   */
+  pixelToken?: string | null;
 };
 
 const esObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -101,7 +108,11 @@ async function leer(slug: string | null): Promise<LandingMako | null> {
     const q = db.from('landing_docs').select(COLUMNAS).eq('workspace_id', ws);
     const { data, error } = await (docId ? q.eq('id', docId) : q.eq('slug', slug as string)).maybeSingle();
     if (error) { console.warn(`[landing-mako] ${slug ?? 'principal'}: ${error.message}`); return null; }
-    return landingDeFila(data as Record<string, unknown> | null);
+    const l = landingDeFila(data as Record<string, unknown> | null);
+    if (!l) return null;
+    let pixelToken: string | null = null;
+    try { pixelToken = await getOrCreateLandingToken(ws); } catch { /* sin Pixel de MaKo: la landing se ve igual */ }
+    return { ...l, pixelToken };
   } catch (e) {
     console.warn(`[landing-mako] ${slug ?? 'principal'}: ${e instanceof Error ? e.message : String(e)}`);
     return null;
@@ -117,6 +128,6 @@ export function landingMako(slug: string | null): Promise<LandingMako | null> {
  * Lo que la capa de la landing (app/vsl/Landing.tsx, `DisenoLanding`) necesita de la publicada: el HTML, la hoja
  * del diseño y CSS_CONTENIDO sólo si la página trae secciones de Gamma (`.gm-doc`).
  */
-export function disenoDeLanding(l: LandingMako | null): { html: string; css: string; cssContenido: string | null } | null {
-  return l ? { html: l.html, css: l.cssDiseno, cssContenido: l.html.includes('class="gm-doc"') ? l.css : null } : null;
+export function disenoDeLanding(l: LandingMako | null): { html: string; css: string; cssContenido: string | null; pixelToken: string | null } | null {
+  return l ? { html: l.html, css: l.cssDiseno, cssContenido: l.html.includes('class="gm-doc"') ? l.css : null, pixelToken: l.pixelToken ?? null } : null;
 }
