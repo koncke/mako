@@ -26,6 +26,14 @@ sube el Cerebro:
 `--aplicar` y `--activar` esperan el OK de Martín. Comando:
 `node --env-file=<clon>/.env.local --conditions=react-server --import tsx scripts/crm-auto-a-automatizaciones.mts [--aplicar|--activar] [--ws=N]`.
 
+**Por qué se hizo, medido el 23/10 sobre clientes reales:** el motor mueve leads por detrás en ws1 y ws11, sin ninguna
+pantalla que lo muestre: 95 T2, 8 T1 y 1 T6 en 30 días en el ws1, y 7 T2 en el ws11. **Después:** las mismas reglas como
+automatizaciones visibles en /automations. Una reunión sin marcar deja de pasar a No Show sola: MaKo pregunta «¿fue?».
+
+**Cuándo prender (el Cerebro, 23/10):** la decisión es de Martín. Al prenderlas, las reuniones viejas sin marcar avisan
+enseguida (~14 mensajes al grupo de Mauricio) y eso no se deshace. Si dice que sí, **después del 25/10**, el lanzamiento:
+ese día no se distinguiría un problema de la venta de uno del CRM automático.
+
 **Bloqueos, en orden:**
 1. Automations: tests/crear-ia-tercera.test.ts queda ROJO (el prompt pasa a ~4.008 tokens con los dos ids nuevos) y el port
    de Crear con IA (`lib/flujo-ia.ts`) es suyo.
