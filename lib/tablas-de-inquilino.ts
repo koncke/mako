@@ -91,6 +91,9 @@ export const TABLAS_DE_INQUILINO = [
   'mako_doer_lock', 'mako_knowledge', 'marketing_metrics_daily', 'meta_campaign_drafts',
   'montaje_trabajos', 'notificaciones', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias',
   'objectives', 'oferta_productos', 'ofertas', 'offer_sesiones', 'pagos',
+  // El código de MaKo Partners de cada negocio (mig 0330): vaciar o borrar el negocio se lleva su código. No va en TENANT_TABLES:
+  // la lee y escribe lib/partners-programa.ts con el cliente de servicio, siempre con el ws de la sesión.
+  'partner_codigos',
   // Los avisos de Stripe y Mercado Pago (mig 0255): `workspace_id` admite null, como email_entrantes.
   // No va en TENANT_TABLES: nadie la lee con getTenantDb. `cobros` sí está en las dos.
   'pasarela_eventos',
