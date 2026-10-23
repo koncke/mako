@@ -3022,4 +3022,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '23 oct', hora: '02:00', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Traer de otro funnel»: un botón a la vista, una ruedita mientras carga y el pie firme abajo',
+    puntos: [
+      'En «Nuevo lead», «Traer de otro funnel» es un botón, al lado de «Crear lead», no un link chico al pie.',
+      'Al abrirlo, y al cambiar de funnel, se ve una ruedita mientras llega la lista. Al cambiar de etapa o buscar, una más chica y la tabla atenuada.',
+      'Sin la línea de «Se ven 300 de 869…»: si hay más de los que entran, la casilla de arriba dice «Tildar los 869».',
+      '«← Atrás» y «Agregar aquí» quedan abajo de todo, con fondo sólido: la que scrollea es la tabla y ya no se ven leads por detrás.',
+    ],
+    commits: [
+    ],
+    archivos: [
+      'app/crm/TraerDeOtroProducto.tsx — la vista de traer',
+      'app/crm/new/NewLeadForm.tsx — el botón',
+    ],
+    revisar: '/crm',
+  },
 ];
