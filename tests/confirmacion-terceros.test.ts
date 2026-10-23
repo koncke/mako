@@ -93,6 +93,8 @@ const A_TERCEROS = [
   'proponer_toggle_nutricion', 'inscribir_lead_secuencia', 'proponer_cambio_etapa', 'poner_etiqueta_lead',
   // Y sacarla: dispara las de «Se elimina etiqueta a un lead» (la regex ampliada la encontró).
   'sacar_etiqueta_lead',
+  // Dar acceso a un curso por la API (23/10/2026): le manda la invitación al alumno, como invitar_cliente_curso_cs.
+  'dar_acceso_curso',
 ];
 
 /** Las que MUEVEN PLATA (D2): activar en Meta enciende el gasto, y los montos de una venta o de una cuota. */

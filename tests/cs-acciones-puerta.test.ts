@@ -147,17 +147,21 @@ function llamadas(sf: ts.SourceFile, nombre: string): ts.CallExpression[] {
 test('los movimientos de entrega de las actions firman con quien los hizo (`por`)', () => {
   // Sin `por`, el choke point firma `POR_PERSONA` («CRM»): en la misma ficha, renombrar firmaba
   // con el email y mover firmaba «CRM».
-  const mover = llamadas(ACC, 'moverClienteDeEtapa');
+  // «Quitar de este producto» y su deshacer viven en lib/cs-quitar-producto.ts desde el 23/10/2026 (los usa también la API
+  // de MaKo): sus llamadas al choke point se cuentan ahí, con la misma regla.
+  const QUITAR = fuente('lib/cs-quitar-producto.ts');
+  const conSf = (nombre: string) => [...llamadas(ACC, nombre).map((c) => ({ c, sf: ACC })), ...llamadas(QUITAR, nombre).map((c) => ({ c, sf: QUITAR }))];
+  const mover = conSf('moverClienteDeEtapa');
   assert.ok(mover.length >= 3, `esperaba las tres llamadas (mover, lote, volver), hay ${mover.length}`);
-  const moverSinPor = mover.filter((c) => {
+  const moverSinPor = mover.filter(({ c }) => {
     const a = c.arguments[0];
     return !(a && ts.isObjectLiteralExpression(a) && a.properties.some((p) => p.name && ts.isIdentifier(p.name) && p.name.text === 'por'));
-  }).map((c) => plano(c, ACC));
+  }).map(({ c, sf }) => plano(c, sf));
   assert.deepEqual(moverSinPor, [], 'estas llamadas al choke point van sin autor');
 
-  const sacar = llamadas(ACC, 'sacarClienteDeEntrega');
+  const sacar = conSf('sacarClienteDeEntrega');
   assert.ok(sacar.length >= 3, `esperaba las tres llamadas (lote, sacar, quitar), hay ${sacar.length}`);
-  const sacarSinPor = sacar.filter((c) => c.arguments.length < 3).map((c) => plano(c, ACC));
+  const sacarSinPor = sacar.filter(({ c }) => c.arguments.length < 3).map(({ c, sf }) => plano(c, sf));
   assert.deepEqual(sacarSinPor, [], 'estas salidas de la entrega van sin autor');
 });
 

@@ -3197,4 +3197,27 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '23 oct', hora: '11:01', chat: 'Ventas de MaKo: VSL, leads, prospección y calculadora', cuenta: 'claude1',
+    sesion: 'local_e9e320c0-e063-4bff-9904-53de53c3aa7f',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un lead puede entrar con sólo su @ de Instagram',
+    puntos: [
+      'Lo pidió el Cerebro como criterio (no como decisión de Martín): un prospecto de Instagram casi nunca trae email ni teléfono, y el CRM exigía uno de los dos.',
+      'El bloqueo no estaba en la base: eran cuatro validaciones con la misma regla vieja. Ahora las cuatro usan una sola, y el @ alcanza.',
+      'Nada se rellena: el lead entra con el email y el teléfono vacíos. El @ cuenta para no duplicar, en el lote y contra el CRM.',
+      'En el tablero, el @ se ve como el canal de ese lead (un chip en la tarjeta, en la tabla donde va el email), sin un rótulo de «falta».',
+      'Rearmado sobre main, donde la tarjeta del tablero ya era otra. Sin hacer: la columna de Instagram del CSV, el @ por la API y en el teléfono.',
+    ],
+    commits: [{ sha: 'bcab287b5', msg: 'CRM: un lead puede entrar con sólo su @ de Instagram (la prospección deja de perder perfiles)', lineas: 389, archivos: 14 }],
+    archivos: [
+      'lib/contacto-minimo.ts — la regla única (nuevo)',
+      'app/crm/actions.ts — el alta y el importador',
+      'app/crm/leads-importar.ts · app/crm/importar-server.ts — el @ como llave de duplicados',
+      'app/crm/new/NewLeadForm.tsx',
+      'lib/prospectos-reglas.ts · lib/prospectos.ts · app/crm/prospectos/ProspectosApp.tsx',
+      'app/crm/CrmBoard.tsx · app/crm/crm-map.ts — el @ en la tarjeta y en la fila',
+      'tests/contacto-instagram.test.ts',
+    ],
+  },
 ];

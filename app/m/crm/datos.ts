@@ -59,7 +59,7 @@ import { leadConTrato } from '@/lib/pagos-crm';
 import { pipelineStageOf } from '@/lib/pipeline';
 import {
   cuandoEnLista, etapaEnTablero, lineaActividad, llegoPor, progresoEnFunnel, proximaLlamada, senalDeTarjeta, seMueveEnElTelefono,
-  seSacaEnElTelefono, FUERA_DE_ACTIVIDAD, type LineaActividad, type SenalTarjeta,
+  seSacaEnElTelefono, soloInstagram, FUERA_DE_ACTIVIDAD, type LineaActividad, type SenalTarjeta,
 } from './reglas';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -100,6 +100,12 @@ export type FichaV2 = {
    * el camino del funnel de su casa y hasta cuál llegó (`progresoEnFunnel`). null = sin funnel.
    */
   progreso: { total: number; hasta: number | null } | null;
+  /**
+   * El @ de Instagram cuando es su ÚNICO canal (23/10/2026, `soloInstagram`): la ficha ofrece abrir su Instagram en vez de
+   * un Llamar y un WhatsApp apagados, y el contacto dice el @ en vez de «Sin teléfono». null = tiene otro canal (o no se
+   * pudo leer el lead): la ficha se dibuja como siempre.
+   */
+  soloInstagram: string | null;
 };
 
 /**
@@ -232,6 +238,10 @@ export async function fichaV2(leadId: number): Promise<FichaV2 | null> {
       siguiente: f.siguiente, enEtapa,
       automatizaciones: auts ? filaDeAutomatizaciones(vistaDeEnAutomatizacion(auts), (iso) => enHora.format(new Date(iso)).replace(/\./g, '')) : null,
     }) : null,
+    // ⚠️ Con el lead ENTERO (`getLead`, select *) y su `telefono_normalizado`, NO con `f.telefono`: ése es `numeroCanonico` y da
+    // null debajo de 10 dígitos, así que un teléfono corto se leería como «sin teléfono» y el lead pasaría por «sólo Instagram»
+    // (ver `soloInstagram`, ./reglas.ts).
+    soloInstagram: lead ? soloInstagram({ email: lead.email, telefonoNorm: lead.telefono_normalizado, instagram: lead.instagram }) : null,
   };
 }
 
@@ -272,6 +282,12 @@ export type TarjetaCrmM = {
   foto: string | null;
   /** Sólo dígitos, para Llamar y WhatsApp en la ficha rápida. */
   telefono: string | null;
+  /**
+   * El @ (sin la @) cuando es su ÚNICO canal, sin email ni teléfono (23/10/2026, `soloInstagram`, ./reglas.ts): la tarjeta lo
+   * dibuja como un chip, como la de escritorio, y la ficha rápida ofrece abrir su Instagram donde las demás ofrecen WhatsApp.
+   * Viaja el usuario y no el `instagram` de todos los leads: sólo el de quien lo necesita. null = tiene otro canal.
+   */
+  soloInstagram: string | null;
 };
 
 /** «Próximo» (17/10/2026, la destacada del prototipo): la próxima reunión que todavía no pasó. */
@@ -342,6 +358,7 @@ export async function tableroCrm(funnelPedido: number | null): Promise<TableroCr
           canal: c.canal,
           foto: c.foto ?? null,
           telefono: c.telefonoNorm ?? null,
+          soloInstagram: soloInstagram({ email: c.email, telefonoNorm: c.telefonoNorm, instagram: c.instagram }),
         });
       }
     }

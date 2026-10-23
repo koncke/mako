@@ -84,7 +84,9 @@ test('«Sale sola» es de cada mensaje («Revisar antes de enviar»), con el val
 // una automatización que le escribe al lead prende el envío (`prenderEnvioAlActivar`, tests/envio-al-activar.test.ts).
 test('el envío apagado viaja en el GET de secuencias; la tab ya no lo dibuja (#851)', () => {
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/route.ts'));
-  assert.ok(ruta.includes('envioWhatsapp: await envioWhatsappHabilitadoEstricto().catch(() => null),'));
+  // Desde el 23/10/2026 se lee en la misma ola que lo demás (tests/rendimiento-automations.test.ts) y viaja tal cual.
+  assert.ok(ruta.includes('envioWhatsappHabilitadoEstricto().catch(() => null),'));
+  assert.match(ruta, /\n\s*envioWhatsapp,\n\s*\}\);/);
   const app = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
   assert.doesNotMatch(app, /El envío de WhatsApp está apagado|Prender el envío|envioWa/, 'volvió el cartel amarillo');
   // Prender exige un número conectado: CUALQUIER línea, no sólo la de por default.

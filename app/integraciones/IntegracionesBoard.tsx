@@ -355,7 +355,8 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // los negocios no vende por Hotmart, no tiene un Skool ni sale a buscar prospectos.
   // Y las IA que configura el equipo de MaKo (el workspace del entorno, lib/ia-keys.ts → `veredictoDeIA`): no son un
   // pendiente de la persona, y pedírselas en «Requiere tu atención» la empujaría a pegar una key que no debe.
-  const opcionalSinConectar = (i: Integracion) => ((esPasarela(i.key) || esIntegracionDeLeads(i.key)) && sevOf(i) !== 'good')
+  // El puente de leads que YA traía gente y se calló (`callada`) no es opcional: es un pendiente, y el aviso está ahí.
+  const opcionalSinConectar = (i: Integracion) => ((esPasarela(i.key) || esIntegracionDeLeads(i.key)) && sevOf(i) !== 'good' && !i.callada)
     || i.detalle === POR_QUE_LA_CONFIGURA_MAKO;
   const medidas = integraciones.filter((i) => !opcionalSinConectar(i));
   const total = medidas.length;

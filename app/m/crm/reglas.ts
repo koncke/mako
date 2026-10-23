@@ -27,6 +27,39 @@ export type LeadBuscable = {
   instagram?: string | null;
 };
 
+/** Los canales de un lead, lo único que hace falta para saber si el @ es el ÚNICO (`soloInstagram`). */
+export type CanalesDeLead = {
+  email?: string | null;
+  /** `leads.telefono_normalizado`: sólo dígitos, o null. NO el `telefono` canónico de la ficha (`numeroCanonico` exige 10). */
+  telefonoNorm?: string | null;
+  /** Sin @ (`leads.instagram`). */
+  instagram?: string | null;
+};
+
+/**
+ * EL @ COMO ÚNICO CANAL (23/10/2026): sin email, sin teléfono y con @. Devuelve el usuario (sin la @), o null si el lead
+ * tiene otro canal por el que escribirle. Con él la tarjeta del tablero dibuja el chip `@usuario`, la búsqueda lo pone
+ * donde las demás filas ponen la empresa o el email, y la ficha ofrece abrir su Instagram en vez de un Llamar y un
+ * WhatsApp que no llevan a ningún lado. Sin rótulo de «falta» (Martín, 22/10/2026: «si no tiene ese dato, que no lo
+ * muestre»): se dibuja el canal que SÍ tiene.
+ *
+ * ⚠️ ES LA MISMA CONDICIÓN QUE `soloInstagram` DE app/crm/CrmBoard.tsx (la tarjeta, la tabla y la fila del escritorio),
+ * ESCRITA AQUÍ Y NO IMPORTADA: CrmBoard es un client del escritorio entero y arrastraría el tablero a /m. Dos copias se
+ * separan sin que nada falle (un lead se vería con @ en la computadora y sin él en el teléfono), así que
+ * tests/movil-crm-instagram.test.ts evalúa las dos, la del escritorio leída de su fuente, sobre la misma tabla de casos.
+ *
+ * ⚠️ `telefonoNorm` cuenta por tener VALOR, no por ser un número largo: un teléfono de 7 cifras guardado es un teléfono
+ * (el escritorio no dibuja el @ ahí). Por eso la ficha NO le pasa `FichaMovil.telefono`, que es `numeroCanonico` y da
+ * null debajo de 10 dígitos: un lead con un teléfono corto guardado se vería como «sólo Instagram» en el teléfono y con su
+ * teléfono en la computadora.
+ */
+export function soloInstagram(l: CanalesDeLead): string | null {
+  return !l.email?.trim() && !l.telefonoNorm && l.instagram?.trim() ? l.instagram.trim() : null;
+}
+
+/** Los dígitos de un teléfono tal como los guarda `telefono_normalizado` (`normalizarTelefono`, lib/leads.ts): null si no hay. */
+const digitosDe = (tel: string | null | undefined): string | null => (tel ?? '').replace(/\D/g, '') || null;
+
 /** La fila que viaja al teléfono: ~20 de éstas, NUNCA la cartera. */
 export type FilaLeadM = { id: number; nombre: string; segunda: string | null };
 
@@ -46,7 +79,10 @@ export function buscarEnCartera(leads: readonly LeadBuscable[], q: string, max =
   for (const l of leads) {
     if (!coincideBusqueda([l.id, l.nombre, l.empresa, l.email, l.telefono, arrobaInstagram(l.instagram)], linksDeInstagramComoArroba(query))) continue;
     if (filas.length === max) return { filas, hayMas: true };
-    filas.push({ id: l.id, nombre: l.nombre?.trim() || 'Sin nombre', segunda: l.empresa?.trim() || l.email?.trim() || null });
+    // Sin empresa ni email, con el @ como único canal: la fila dice el @ (donde la tabla de escritorio pone el email) y no queda
+    // sin segunda línea. `telefono_normalizado` es los dígitos de `telefono`, así que acá se sacan de ahí.
+    const ig = soloInstagram({ email: l.email, telefonoNorm: digitosDe(l.telefono), instagram: l.instagram });
+    filas.push({ id: l.id, nombre: l.nombre?.trim() || 'Sin nombre', segunda: l.empresa?.trim() || l.email?.trim() || (ig ? `@${ig}` : null) });
   }
   return { filas, hayMas: false };
 }

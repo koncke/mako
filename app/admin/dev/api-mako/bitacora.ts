@@ -314,4 +314,86 @@ export const BITACORA: Hito[] = [
       'lib/api-mako/areas/creaciones.def.ts + .run.ts — las 8 operaciones',
     ],
   },
+  {
+    fecha: '23 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude2', sesion: 'local_3c82c204-8262-460c-9fca-b164e2053c9a',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Dar y quitar el acceso a un curso por la API, y revisar qué le falta a la API',
+    pedido: 'Revisá esto... Y si hay que hacer una revisión completa de la API, porque creo que faltan muchas acciones posibles',
+    puntos: [
+      'Lo escribió en el Ops Center sobre la captura de un chat que no encontraba «cómo dar o quitar el acceso al curso». Lo pide la migración de un curso de Panda: no vender sin entregar, y cortarle el acceso a quien se da de baja.',
+      'El Cerebro lo repartió en dos: primero el acceso, y después una auditoría completa de la API, área por área.',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '16:23', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El acceso a un curso, por HTTP: verlo, darlo, sacar un curso, cortar y habilitar',
+    puntos: [
+      'Invitar existía, pero en el área «cs», que no sale por HTTP; sacar un curso o cortar el portal no estaba en ningún lado. Ahora son cinco operaciones del área «curso», con las mismas funciones de lib/ que la ficha.',
+      'Abrir exige un cliente ganado de ese producto, porque el portal no abre a otro. Cerrar se puede siempre: quien se da de baja suele salir del embudo antes.',
+      'Nada de lo que vuelve trae el email del lead. Y el «ya está así» de sacar un curso se decide por lo que el alumno ve, no por el texto de un error.',
+      'Encontrado de paso: la invitación desde el buscador de cualquier etapa manda un link que no abre hasta que el lead gane. Queda en docs/hallazgos-api-mako.md, avisado a Customer Success.',
+    ],
+    commits: [
+      { sha: '6a50f127', msg: 'API de MaKo: dar y quitar el acceso a un curso por HTTP (lo necesita la migración de Panda)', lineas: 594, archivos: 9 },
+    ],
+    archivos: [
+      'lib/api-mako/areas/curso.def.ts — las cinco operaciones y el porqué de la frontera («LOS ACCESOS»)',
+      'lib/api-mako/areas/curso.run.ts — los runners, sobre invitarAlCurso, quitarCursoDelAcceso, revocarAcceso y reactivarAcceso',
+      'lib/api-mako/areas/curso.helpers.ts — decidirQuitarCurso: el «no» de sacar un curso, puro y con test',
+      'lib/api-mako/rest.ts — las rutas, como los colaboradores de un repo de GitHub',
+      'tests/api-mako-curso-accesos.test.ts — probado rompiéndolo: 6 roturas, cada una 1 fallo',
+      'app/api-mako/Articulos.tsx — la guía «Migrar un curso con Claude» suma a los alumnos',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '16:45', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Invitar al curso al ganar» por la API, y el @ de Instagram en las propuestas de leads',
+    puntos: [
+      'P0-4 de la auditoría: ver y cambiar el interruptor de cada CRM, con las funciones del «⋯» de la columna Ganado. La API lo lee estricto: con la lectura del tablero, una base caída se leía «apagada».',
+      'Pedido del chat de Ventas: proponer_lead y proponer_leads aceptan el @ como contacto, con la regla única del alta, y el flujo que crea en el acto se lo pasa a createLead.',
+    ],
+    commits: [
+      { sha: 'd3db7d8d', msg: 'API de MaKo: «Invitar al curso al ganar» de un CRM, por la API (P0-4 de la auditoría)', lineas: 269, archivos: 7 },
+      { sha: 'ea508152', msg: 'API de MaKo: el @ de Instagram como contacto en las propuestas de leads (pedido del chat «Ventas»)', lineas: 148, archivos: 10 },
+    ],
+    archivos: [
+      'lib/crm-curso-al-ganar.ts — tieneCurso (una regla) y estadoCursoAlGanarEstricto',
+      'lib/api-mako/areas/crm.def.ts + crm.run.ts — ver_curso_al_ganar y cambiar_curso_al_ganar; el @ en proponer_lead',
+      'lib/api-mako/areas/crm.helpers.ts — proponerLote con tieneContacto',
+      'lib/api-mako/flujo.ts — el @ hasta createLead',
+      'tests/api-mako-curso-al-ganar.test.ts y tests/api-mako-leads-instagram.test.ts — probados rompiéndolos',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '17:18', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La entrega de un cliente y el alumno nuevo, por la API',
+    puntos: [
+      'P0-5: mover a un cliente en el kanban de un servicio, quitarlo de un servicio y devolverlo, con las mismas funciones que la pantalla. Antes, por la API sólo se movía el CRM.',
+      'P0-3: dar de alta por HTTP a un alumno que no está en el CRM, que es lo primero que pide migrar un curso de Panda. No pasa a nadie a Ganado, y un duplicado vuelve sin el nombre del lead.',
+      'Para eso, el alta de la cartera, el alta de un alumno y «Quitar de este producto» salieron de las server actions a lib/, y la pantalla delega.',
+    ],
+    commits: [
+      { sha: 'a602c598', msg: 'API de MaKo: mover a un cliente en la entrega, quitarlo de un servicio y devolverlo (P0-5 de la auditoría)', lineas: 466, archivos: 7 },
+      { sha: '56461fee', msg: 'API de MaKo: dar de alta a un alumno que no está en el CRM (P0-3), y el clasificador de «de qué es cliente» al día', lineas: 676, archivos: 15 },
+      { sha: 'f06590bc', msg: 'tests: crear_alumno_curso frena por el tope de leads del plan, y la lista cerrada de frenos lo sabe', lineas: 5, archivos: 1 },
+    ],
+    archivos: [
+      'lib/cs-quitar-producto.ts, lib/cs-crear-cliente.ts y lib/curso-alta-alumno.ts — el núcleo que comparten la pantalla y la API',
+      'lib/api-mako/areas/cs.def.ts + cs.run.ts — mover_cliente_entrega, quitar_cliente_de_servicio, devolver_cliente_a_servicio',
+      'lib/api-mako/areas/curso.def.ts + curso.run.ts — crear_alumno_curso',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '—', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La guarda de cobertura del 13/10 nunca llegó a main',
+    puntos: [
+      'El hito del 13/10 dice que la guarda existe. No está en main: quedó en la rama wip/api-acciones-1410 (b85971b9b, «A MEDIAS — NO PUSHEAR»), junto con trabajo a medias de quince áreas.',
+      'Por eso la auditoría del 23/10 encontró 174 acciones de pantalla sin declarar. La guarda del registro no las ve, porque mira las operaciones que existen y no las pantallas.',
+      'La propuesta para rescatarla está en docs/hallazgos-api-mako.md.',
+    ],
+  },
 ];

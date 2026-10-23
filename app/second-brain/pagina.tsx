@@ -76,8 +76,9 @@ export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio }: {
 }) {
   const chat = enteroDe(q.chat);
   const claveCentro = q.centro || (chat == null && q.chat ? q.chat : null);
-  // `tarjetas` y `lista` (las preguntas de los chats) ya no se dibujan: los links de antes abren los tickets.
-  const ticketera = centro && esVistaTicketera(q.ticketera) ? 'tickets' : null;
+  // `tarjetas` y `lista` (las preguntas de los chats) ya no se dibujan: los links de antes abren los tickets. Para el super admin
+  // es su Ticketera; para el cliente, la suya (23/10/2026: también vive en la URL, lib/ops-center-navegar.ts).
+  const ticketera = esVistaTicketera(q.ticketera) ? 'tickets' : null;
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* En modo CLARO desde el 16/10/2026 («pon en white mode la tab de Second Brain», Martín). */}

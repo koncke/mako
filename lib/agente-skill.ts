@@ -110,7 +110,7 @@ qué le compran, cómo habla y qué tiene pendiente. Esta skill te da acceso a t
 6. **Proponer**: tareas nuevas, cierres de lo que ya se hizo, y detalle sobre lo que ya
    está anotado (\`POST /api/agente/plan\`).
 7. **Proponer un lead para el CRM** (\`POST /api/agente/lead\`) — un contacto que llegó
-   por afuera: un formulario, una planilla, una conversación.
+   por afuera: un formulario, una planilla, una conversación o un perfil de Instagram.
 8. **Todo lo demás, tab por tab** (\`/api/v1\`) — cada parte de MaKo con sus lecturas y
    sus acciones: CRM, plan, anuncios, WhatsApp, email, secuencias, métricas, experimentos
    y más. Empieza por el índice (\`?compacto=1\`); ver «La API de MaKo» más abajo.
@@ -546,7 +546,8 @@ Con \`lote.json\` así — **uno o varios, misma ruta**:
   "leads": [
     { "nombre": "Ana Pérez", "email": "ana@ejemplo.com", "telefono": "+5491122334455",
       "empresa": "Acme", "utm_source": "instagram" },
-    { "nombre": "Beto Díaz", "telefono": "+5491199887766" }
+    { "nombre": "Beto Díaz", "telefono": "+5491199887766" },
+    { "nombre": "Casa Pérez", "instagram": "@casaperez" }
   ] }
 \`\`\`
 
@@ -562,8 +563,13 @@ el \`url\` ENTERO al usuario y detente. Ahí lo mira, lo corrige si hace falta y
 pendiente y te devuelve la misma. Puedes reintentar sin miedo a duplicar.
 
 Reglas:
-- \`nombre\` es obligatorio, y hace falta **al menos** \`email\` o \`telefono\`. Un lead sin
-  forma de contacto no se puede trabajar y solo ensucia el tablero.
+- \`nombre\` es obligatorio, y hace falta **al menos** uno de \`email\`, \`telefono\` o
+  \`instagram\`. Un lead sin forma de contacto no se puede trabajar y solo ensucia el tablero.
+  Si lo único que tienes es el @ de Instagram, manda solo eso: el lead entra al CRM con el
+  email y el teléfono vacíos.
+- \`instagram\` es el usuario, como lo tengas: \`@casaperez\`, \`casaperez\` o el link de su perfil.
+  MaKo lo guarda sin la @. Si lo que mandas no es un usuario (un nombre, el link de un post),
+  no se guarda.
 - **Manda el teléfono con el código de país** (\`+54911…\`). Es la llave con la que el lead
   matchea su chat de WhatsApp y su Calendly; sin código de país queda huérfano de eso y
   nadie lo nota hasta que falta una conversación.
@@ -572,7 +578,7 @@ Reglas:
 - \`ref\` opcional: tu propia llave de idempotencia (el id de la fila de la planilla, por
   ejemplo). Si no la mandas se arma con el contacto.
 - ⛔ No inventes datos para completar el formulario. Si no tienes el mail, manda solo el
-  teléfono.
+  teléfono; si solo tienes el @, manda solo el @.
 
 ## 3. Entrega el link ENTERO y detente
 

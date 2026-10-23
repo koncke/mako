@@ -240,8 +240,8 @@ test('un hilo FRENADO no tapa al carril: se aplaza, y el tick ve el recordatorio
   // El freno del cupo es `sinLugar` desde el 21/10/2026 (el cupo entero o, si no es una entrada fresca, el de campaña:
   // tests/primero-lo-que-entra.test.ts); el aplazo del carril es el mismo.
   // Y desde el 22/10/2026 lo frenado pasa por `quedaFrenada`: si lo frena el GOTEO, a su turno; si no, `aplazarSiTapa`.
-  assert.match(PROC, /if \(sinLugar\(insc\) && !\(pasoLeido && sec && sigueSinCupo\(sec\.pasos, idxLeido\)\)\) \{ await quedaFrenada\(insc, sec\); continue; \}/);
-  assert.match(PROC, /if \(sinLugar\(insc\) && !sigueSinCupo\(sec\.pasos, r\.idx\)\) \{ await quedaFrenada\(insc, sec\); continue; \}/);
+  assert.match(PROC, /if \(sinLugar\(insc, pasoLeido\?\.canal\) && !\(pasoLeido && sec && sigueSinCupo\(sec\.pasos, idxLeido\)\)\) \{ await quedaFrenada\(insc, sec, pasoLeido\?\.canal\); continue; \}/);
+  assert.match(PROC, /if \(sinLugar\(insc, destino\.canal\) && !sigueSinCupo\(sec\.pasos, r\.idx\)\) \{ await quedaFrenada\(insc, sec, destino\.canal\); continue; \}/);
   assert.match(PROC, /if \(sec\) await aplazarSiTapa\(insc, sec\);\n  \};/, 'la línea llena sigue aplazando lo del carril');
   assert.match(PROC, /nota: 'msg <20h' \}\);\s*await aplazarSiTapa\(insc, sec\);\s*continue;/);
 });

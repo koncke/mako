@@ -23,11 +23,14 @@ export async function GET() {
   // venir del `?ws=` de la pestaña, y con dos fuentes hay que preguntarle a quien
   // sabe combinarlas. Copiar la lógica acá era garantizar que un día el banner
   // dijera un cliente y los datos fueran de otro.
-  const ws = await getWorkspaceActual();
-  const impersonando = await estaImpersonando();
   // El cliente, su nombre, su agencia y la salida salen de lib/vista-de-otro.ts: el layout dibuja el PRIMER
   // cuadro con lo mismo (#881), y dos copias de esta cuenta podrían nombrar a dos clientes.
-  const vista = await vistaDeOtro();
+  // ⚠️ A LA VEZ (23/10/2026, «Rendimiento y loaders»): eran siete esperas en serie y esta ruta corre en CADA carga de pantalla
+  // (4,5 s medidos con la función caliente). Ninguna depende de otra: la sesión se lee una vez por pedido
+  // (lib/sesion-por-pedido.ts) y cada una arma lo suyo.
+  const [ws, impersonando, vista, rolWs, capa, planEsencial] = await Promise.all([
+    getWorkspaceActual(), estaImpersonando(), vistaDeOtro(), getRolWsEfectivo(), getCapaActual(), esEsencialDeLaSesion(),
+  ]);
 
   // ⚠️ LA SALIDA ES UN DATO, NO UNA CONSTANTE. El botón «Salir de la vista»
   // apuntaba hardcodeado a '/admin' en tres lugares, y '/admin' está en
@@ -74,13 +77,13 @@ export async function GET() {
     // SU cliente ya sabe de quién es, y decírselo sería ruido.
     agencia,
     // Rol dentro del negocio + workspace efectivo (para que el Sidebar filtre tabs).
-    rolWs: await getRolWsEfectivo(),
+    rolWs,
     ws,
     // Capa que compró el cliente (lib/capas.ts): el Sidebar esconde lo que no
     // incluye. Es cosmético — el enforcement real es requireCapa server-side.
-    capa: await getCapaActual(),
+    capa,
     // MaKo Esencial por la pasarela (23/10/2026): la barra dibuja las tabs de Pro con candado (lib/plan-esencial-reglas.ts).
-    planEsencial: await esEsencialDeLaSesion(),
+    planEsencial,
     legacy: sesion.sub === 'legacy',
     impersonando,
     clienteNombre: vista?.clienteNombre ?? null,

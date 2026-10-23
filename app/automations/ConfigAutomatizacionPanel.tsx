@@ -21,7 +21,12 @@
 // 23/10/2026 (Martín, por el Cerebro): «justamente pusimos las configuraciones personalizadas para cada automatización... No
 // quiero nada para todas las automatizaciones». Se fue lo «De la línea, para todas» (por día, por hora, «misma persona por
 // defecto» y el bloque «MaKo contesta sola», que sólo tenía eso): los topes duros de la línea siguen cuidando al número por
-// dentro (lib/limites-envio.ts), sin mostrarse ni editarse. Y «Misma persona» prendida guarda SU número, no el del negocio.
+// dentro (lib/limites-envio.ts), sin mostrarse ni editarse.
+//
+// 23/10/2026, más tarde (Martín): «Elimina "Vista previa del link"... Y elimina "Misma persona"... Y en Email también pon
+// goteo y tope por día... que el botón de "on-off" esté al lado de donde se configuran el resto de cosas no es muy
+// intuitivo». Quedan Goteo y Tope por día en cada canal, cada fila como en Ajustes de iOS (el interruptor en la fila del
+// nombre y el número debajo, sólo prendida: `FilaOpcion` con `debajo`).
 // =============================================================================
 
 import { useEffect, useRef, useState } from 'react';
@@ -31,22 +36,36 @@ import { getConfigAutomatizacionAction, saveConfigAutomatizacionAction } from '.
 import { Numero } from './LimitesEnvioPanel';
 import { FilaOpcion, GrupoOpciones, Unidad, TarjetaOpciones } from './FilasOpciones';
 import { HORARIO_SUGERIDO } from '@/lib/horario-envio';
-import { RANGOS_LIMITES } from '@/lib/limites-envio';
 import { textoPrioridad } from '@/lib/nutricion-prioridad';
-import { RANGOS_GOTEO, PERSONA_SIN_ESPERA, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { RANGOS_GOTEO, RANGOS_GOTEO_EMAIL, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 
 type Leido = Awaited<ReturnType<typeof getConfigAutomatizacionAction>>;
 
-/** Lo leído, una vez, para las dos pestañas. */
+/**
+ * UNA SOLA LECTURA EN VUELO POR AUTOMATIZACIÓN (23/10/2026, «Rendimiento y loaders»): el horario y lo de cada canal montan
+ * `useConfig` a la vez, y las server actions de Next corren de a UNA por cliente: la segunda esperaba a la primera y se
+ * veían dos ruedas. Las dos esperan la misma promesa.
+ */
+const enVuelo = new Map<number, Promise<Leido>>();
+function leerUnaVez(secuenciaId: number): Promise<Leido> {
+  let p = enVuelo.get(secuenciaId);
+  if (!p) {
+    p = getConfigAutomatizacionAction(secuenciaId).finally(() => enVuelo.delete(secuenciaId));
+    enVuelo.set(secuenciaId, p);
+  }
+  return p;
+}
+
+/** Lo leído, una vez, para las dos partes de la pantalla. */
 function useConfig(secuenciaId: number) {
   const [d, setD] = useState<Leido | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
     let vivo = true;
-    getConfigAutomatizacionAction(secuenciaId)
+    leerUnaVez(secuenciaId)
       .then((x) => { if (vivo) setD(x); })
       .catch(() => { if (vivo) setError('No pude leer la configuración.'); });
     return () => { vivo = false; };
@@ -58,7 +77,7 @@ function useConfig(secuenciaId: number) {
  * EL HORARIO DE OFICINA DE ESTA AUTOMATIZACIÓN (23/10/2026: «"propio" se dice "Horario de oficina"»): el panel de siempre
  * (`HorarioEnvioPanel`) con el horario que VALE para ella —el suyo, o el del negocio si no tiene— y guardando en ella. Era
  * «Horario propio» (encender = copiar el del negocio) y abajo otro «Horario de oficina»: dos interruptores para una cosa.
- * Apagado = manda a cualquier hora. Lo que se toca pasa a ser suyo (como «Misma persona»).
+ * Apagado = manda a cualquier hora. Lo que se toca pasa a ser suyo.
  */
 export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaId: number; onSucio?: (s: boolean) => void }) {
   const { d, error, poner } = useConfig(secuenciaId);
@@ -75,17 +94,20 @@ export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
   return <HorarioEnvioPanel fuente={fuente} onSucio={onSucio} />;
 }
 
+/** Las partes del goteo, una por canal (lib/config-automatizacion.ts). */
+type ParteGoteo = 'goteo' | 'goteoEmail';
 /** Un cambio de esta automatización: por parte, los campos que cambian (`null` = se saca). */
-type CambioAntiban = { goteo?: Record<string, number | null>; personaHoras?: Record<string, number | null> };
+type CambioAntiban = Partial<Record<ParteGoteo, Record<string, number | null>>>;
 
 /**
- * LO DE ESTA AUTOMATIZACIÓN EN CADA CANAL (22/10/2026), como estado de la pantalla: el goteo de sus WhatsApp (lib/goteo.ts,
- * la llamada con Mauricio: «envía uno, tal vez espera 4 minutos o 5, envía el otro»), su tope por día (un SUB-tope adentro
- * del de la línea) y las horas entre dos mensajes a la misma persona por canal. Cada fila con su interruptor:
- *   · goteo y tope: apagado = el campo AUSENTE (sin goteo / sin tope propio). Al prenderlo arranca con el número gris.
- *   · misma persona: prendido = el propio, o el del negocio si no tiene (ausente); apagado = `PERSONA_SIN_ESPERA` (0 h).
- *     Prenderlo de nuevo guarda el número que se ve, como SUYO (23/10/2026: nada «para todas»).
- * UN guardado para las dos partes (`pendiente` las junta en el respiro). Devuelve las filas, que la pantalla reparte por canal.
+ * LO DE ESTA AUTOMATIZACIÓN EN CADA CANAL (22/10/2026), como estado de la pantalla: el goteo de sus mensajes (lib/goteo.ts,
+ * la llamada con Mauricio: «envía uno, tal vez espera 4 minutos o 5, envía el otro») y su tope por día (un SUB-tope adentro
+ * del de la línea), en WhatsApp y —desde el 23/10/2026, Martín: «en Email también pon goteo y tope por día»— en Email.
+ * Apagado = el campo AUSENTE (sin goteo / sin tope propio). Al prenderlo arranca con el número sugerido.
+ * (Hasta el 23/10/2026 también estaban «Misma persona» y «Vista previa del link»: Martín, «elimina "Vista previa del link",
+ * eso no se debe configurar en Configuraciones... Y elimina "Misma persona"». La vista previa se saca en el mensaje, con la X
+ * de la tarjeta del link; «Misma persona» se fue también del motor.)
+ * UN guardado para todo (`pendiente` lo junta en el respiro). Devuelve las filas, que la pantalla reparte por canal.
  */
 export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: boolean) => void) {
   const { d, error, poner } = useConfig(secuenciaId);
@@ -103,7 +125,7 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
   useEffect(() => () => { if (respiro.current) clearTimeout(respiro.current); }, []);
   useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);
   const off = !d?.puedeEditar;
-  const guardar = (parte: 'goteo' | 'personaHoras', cambio: Record<string, number | null>) => {
+  const guardar = (parte: ParteGoteo, cambio: Record<string, number | null>) => {
     setAviso('');
     pendiente.current = { ...pendiente.current, [parte]: { ...(pendiente.current[parte] ?? {}), ...cambio } };
     setLocal((p) => ({ ...p, ...Object.fromEntries(Object.entries(cambio).map(([k, v]) => [`${parte}.${k}`, v])) }));
@@ -124,57 +146,32 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
     }, 350);
   };
   /** Lo guardado de un campo, con lo tocado encima (undefined = ausente). */
-  const leido = (parte: 'goteo' | 'personaHoras', campo: string): number | undefined => {
+  const leido = (parte: ParteGoteo, campo: string): number | undefined => {
     const k = `${parte}.${campo}`;
     if (k in local) return local[k] ?? undefined;
     return (d?.config[parte] as Record<string, number> | undefined)?.[campo];
   };
-  const filaGoteo = (campo: 'minutos' | 'dia', nombre: string, objeto: string, unidad: string, info: string, sugerido: number) => {
-    const v = leido('goteo', campo);
-    const on = v !== undefined;
-    const clave = `goteo.${campo}`;
-    return (
-      <FilaOpcion key={clave} nombre={nombre} info={info} error={invalido[clave]} datos={{ 'data-goteo-campo': campo }}
-        interruptor={<Interruptor on={on} disabled={off} etiqueta={on ? `Apagar ${objeto}` : `Prender ${objeto}`} onCambio={(x) => guardar('goteo', { [campo]: x ? sugerido : null })} />}>
-        <Numero valor={v ?? sugerido} min={RANGOS_GOTEO[campo][0]} max={RANGOS_GOTEO[campo][1]} disabled={off} apagado={!on} etiqueta={`${nombre} · ${unidad}`}
-          onCambio={(n) => guardar('goteo', { [campo]: n })} onInvalido={(e) => setInvalido((p) => ({ ...p, [clave]: e ?? '' }))} />
-        <Unidad apagada={!on}>{unidad}</Unidad>
-      </FilaOpcion>
-    );
-  };
-  const filaPersona = (canal: 'whatsapp' | 'email', rango: readonly [number, number]) => {
-    if (!d) return null;
-    const propio = leido('personaHoras', canal);
-    const on = propio !== PERSONA_SIN_ESPERA;
-    const valor = propio !== undefined && propio !== PERSONA_SIN_ESPERA ? propio : d.personaNegocio[canal];
-    const clave = `personaHoras.${canal}`;
-    const deQue = canal === 'whatsapp' ? 'mensajes' : 'emails';
-    return (
-      <FilaOpcion key={clave} nombre="Misma persona" info={`Horas entre dos ${deQue} a la misma persona, también los de esta automatización. Apagado, no espera.`} error={invalido[clave]} datos={{ 'data-persona': canal }}
-        interruptor={<Interruptor on={on} disabled={off} etiqueta={on ? `Apagar la espera entre dos ${deQue}` : `Prender la espera entre dos ${deQue}`} onCambio={(x) => guardar('personaHoras', { [canal]: x ? valor : PERSONA_SIN_ESPERA })} />}>
-        <Numero valor={valor} min={rango[0]} max={rango[1]} disabled={off} apagado={!on} etiqueta={`${canal === 'whatsapp' ? 'WhatsApp' : 'Email'} · horas entre dos mensajes`}
-          onCambio={(n) => guardar('personaHoras', { [canal]: n })} onInvalido={(e) => setInvalido((p) => ({ ...p, [clave]: e ?? '' }))} />
-        <Unidad apagada={!on}>h</Unidad>
-      </FilaOpcion>
-    );
-  };
   /**
-   * LA VISTA PREVIA DE LOS LINKS (#869, Mauricio: «es más discreto»; 23/10/2026 pasó de la tarjeta a esta pantalla, el
-   * Cerebro: «si lo pidió Mauricio, no se lo sacamos»). Prendido = con la tarjeta del link (ausente). Un toque se guarda solo,
-   * aparte del respiro de los números: es otra clave de la misma configuración y el server las junta (`configParaGuardar`).
+   * UNA FILA COMO EN AJUSTES DE iOS (23/10/2026, Martín: «que el botón de "on-off" esté al lado de donde se configuran el
+   * resto de cosas no es muy intuitivo»): el nombre con su interruptor en la fila, y el número en un renglón de abajo SÓLO
+   * con la opción prendida («Uno cada [5] min»). Apagada no hay número que mirar.
    */
-  const [vistaLocal, setVistaLocal] = useState<boolean | null>(null);
-  const filaVistaPrevia = () => {
-    if (!d) return null;
-    const on = vistaLocal ?? d.config.sinVistaPrevia !== true;
+  const filaGoteo = (parte: ParteGoteo, campo: 'minutos' | 'dia', nombre: string, objeto: string, antes: string, unidad: string, info: string, sugerido: number) => {
+    const rangos = parte === 'goteo' ? RANGOS_GOTEO : RANGOS_GOTEO_EMAIL;
+    const v = leido(parte, campo);
+    const on = v !== undefined;
+    const clave = `${parte}.${campo}`;
     return (
-      <FilaOpcion key="vista-previa" nombre="Vista previa del link" info="Con un link, el mensaje lleva la tarjeta con su imagen y su título. Apagado, el link sale como texto." datos={{ 'data-vista-previa-config': '' }}
-        interruptor={<Interruptor on={on} disabled={off} etiqueta={on ? 'Apagar la vista previa de los links' : 'Prender la vista previa de los links'} onCambio={(x) => {
-          setAviso(''); setVistaLocal(x); setEnVuelo(true);
-          void saveConfigAutomatizacionAction(secuenciaId, { sinVistaPrevia: x ? null : true })
-            .then((r) => { setEnVuelo(false); setVistaLocal(null); if (!r.ok || !r.config) { setAviso(r.error || 'No se pudo guardar.'); return; } poner(r.config); })
-            .catch(() => { setEnVuelo(false); setVistaLocal(null); setAviso('No se pudo guardar.'); });
-        }} />} />
+      <FilaOpcion key={clave} nombre={nombre} info={info} error={invalido[clave]} datos={{ 'data-goteo-campo': campo, 'data-goteo-canal': parte === 'goteo' ? 'whatsapp' : 'email' }}
+        interruptor={<Interruptor on={on} disabled={off} etiqueta={on ? `Apagar ${objeto}` : `Prender ${objeto}`} onCambio={(x) => guardar(parte, { [campo]: x ? sugerido : null })} />}
+        debajo={on ? (
+          <>
+            <Unidad>{antes}</Unidad>
+            <Numero valor={v} min={rangos[campo][0]} max={rangos[campo][1]} disabled={off} etiqueta={`${nombre} · ${unidad}`}
+              onCambio={(n) => guardar(parte, { [campo]: n })} onInvalido={(e) => setInvalido((p) => ({ ...p, [clave]: e ?? '' }))} />
+            <Unidad>{unidad}</Unidad>
+          </>
+        ) : undefined} />
     );
   };
   return {
@@ -182,20 +179,22 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
     /** El ⓘ del bloque WhatsApp: la regla que sigue frenando por dentro aunque la línea ya no se edite acá (nada se decide
      *  por detrás: «Primero lo que entra» y lo que la campaña le deja, con los números del negocio). */
     infoWhatsapp: d ? textoPrioridad(d.lineaWa) : undefined,
-    /** Las de WhatsApp: el goteo, el tope por día y la misma persona. */
+    /** Las de WhatsApp: el goteo y el tope por día. */
     whatsapp: d ? [
-      filaGoteo('minutos', 'Goteo', 'el goteo', 'min', 'Sus WhatsApp salen de a uno, con esta espera entre dos.', 5),
-      filaGoteo('dia', 'Tope por día', 'el tope por día', 'mensajes', 'Cuántos WhatsApp de esta automatización salen como mucho por día.', Math.min(50, d.lineaWa.dia)),
-      filaPersona('whatsapp', RANGOS_LIMITES.wa.personaHoras),
-      filaVistaPrevia(),
+      filaGoteo('goteo', 'minutos', 'Goteo', 'el goteo de los WhatsApp', 'Uno cada', 'min', 'Sus WhatsApp salen de a uno, con esta espera entre dos.', 5),
+      filaGoteo('goteo', 'dia', 'Tope por día', 'el tope por día de los WhatsApp', 'Hasta', 'por día', 'Cuántos WhatsApp de esta automatización salen como mucho por día.', Math.min(50, d.lineaWa.dia)),
     ] : [],
-    email: d ? [filaPersona('email', RANGOS_LIMITES.email.personaHoras)] : [],
+    /** Las de Email: lo mismo, con sus rangos (23/10/2026). */
+    email: d ? [
+      filaGoteo('goteoEmail', 'minutos', 'Goteo', 'el goteo de los emails', 'Uno cada', 'min', 'Sus emails salen de a uno, con esta espera entre dos.', 5),
+      filaGoteo('goteoEmail', 'dia', 'Tope por día', 'el tope por día de los emails', 'Hasta', 'por día', 'Cuántos emails de esta automatización salen como mucho por día.', Math.min(100, d.lineaEmailDia)),
+    ] : [],
   };
 }
 
 /**
  * LA PANTALLA DE CONFIGURACIONES DE UNA AUTOMATIZACIÓN (23/10/2026): «Horario de oficina» y un bloque por canal, con lo de
- * ESTA automatización y nada más (nada «para todas»: ver la cabecera). Una sola «Misma persona» por canal. `onSucio` por
+ * ESTA automatización y nada más (nada «para todas»: ver la cabecera): Goteo y Tope por día en cada canal. `onSucio` por
  * parte: el modal no se cierra con un guardado en vuelo.
  */
 export function AjustesDeLaAutomatizacion({ secuenciaId, onSucioHorario, onSucioAntiban }: {

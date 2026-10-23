@@ -39,6 +39,7 @@ import {
 // La papelera de la casa, roja siempre (sexta tanda, general 9): la del menú de una tarjeta.
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { Icon } from '@/app/_components/icons';
+import { sinVistaPrevia, primerLink } from '@/lib/mensaje-partes';
 import { Toast, useToast } from '@/app/_ui';
 import { conectar, desconectar, eliminar, soltar, crearSuelta, duplicar, partirConEspera, type Edicion } from '@/lib/flujo-edicion';
 import { insertarDesdeLienzo } from '@/lib/flujo-conversacion';
@@ -345,19 +346,6 @@ export function FlujoLienzo({
     return () => { vivo = false; };
   }, [rolAdmin, hayAntes, anticipacion]);
 
-  // «MISMA PERSONA» DE ESTA AUTOMATIZACIÓN (23/10/2026, `minutosDesdeElWhatsappAnterior`): la tarjeta de un WhatsApp que
-  // sigue a otro con menos espera dice cuándo sale de verdad. Se pide sólo con dos WhatsApp o más; `null` = no se sabe.
-  const variosWa = pasos.filter((p) => claseDe(p) === 'mensaje' && (p.canal ?? 'whatsapp') === 'whatsapp').length > 1;
-  const [mismaPersona, setMismaPersona] = useState<{ id: number; min: number | null } | null>(null);
-  useEffect(() => {
-    if (!secuenciaId || !variosWa || mismaPersona?.id === secuenciaId) return;
-    let vivo = true;
-    fetch(`/api/flujos/misma-persona?secuencia=${secuenciaId}`, { cache: 'no-store', signal: AbortSignal.timeout(30_000) })
-      .then((r) => r.json())
-      .then((j: { ok?: boolean; minutos?: number }) => { if (vivo) setMismaPersona({ id: secuenciaId, min: j?.ok && typeof j.minutos === 'number' ? j.minutos : null }); })
-      .catch(() => { if (vivo) setMismaPersona({ id: secuenciaId, min: null }); });
-    return () => { vivo = false; };
-  }, [secuenciaId, variosWa, mismaPersona?.id]);
   // QUIÉN ESPERA EN CADA TARJETA Y POR QUÉ NO LE SALE (23/10/2026, P0 de #289: Martín y su esposa entraron fuera del horario
   // de oficina y nada lo decía). El chip «2 esperando · Sale mañana 9:00» abajo de la tarjeta, con el porqué al pasar
   // (lib/en-cola-por-paso.ts). Se vuelve a pedir cada minuto: es lo que hace el motor. Sin poder leerlo, sin chip.
@@ -389,9 +377,6 @@ export function FlujoLienzo({
     nombres, colorEtiqueta: (id) => etiquetas.find((t) => t.id === id)?.color ?? null,
     audioDe: (id) => audios.find((a) => a.id === id) ?? null,
     pendientesOtraCosa, anticipacionMin: anticipacion ?? null,
-    // ⚠️ `mismaPersona &&` PRIMERO: `secuenciaId` es opcional, y con los dos sin valor `undefined === undefined` daba true y leía
-    // `.min` de null (23/10/2026, la red de tipos de Integración).
-    mismaPersonaMin: mismaPersona && mismaPersona.id === secuenciaId ? mismaPersona.min : null,
     // El alto de la tarjeta CRON es fijo y se suma por cajita (`altoCron`): tiene que saber cuántas son.
     disparadores, nuevoDisparador: conNuevoDisparador,
   };
@@ -1291,16 +1276,51 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
       placeholder={paso.tipo === 'ia' ? 'Cómo responder' : undefined}
       chatMako={chatMako}
     />
-    {/* ⚠️ SIN «VISTA PREVIA DEL LINK» (23/10/2026, revisión de las tarjetas, punto 7): era un interruptor suelto debajo del
-        chat que aparecía y desaparecía según hubiera un link (#869, lo pidió Mauricio). Una tarjeta no gana controles
-        (AGENTS.md). Lo guardado sigue valiendo: el motor manda sin la tarjeta del link a la que lo tenía apagado
-        (`sinVistaPrevia`, lib/mensaje-partes.ts). Si tiene que seguir apagable, va en Configuraciones: lo decide Martín. */}
+    {/* LA VISTA PREVIA DEL LINK, COMO EN WHATSAPP (23/10/2026, Martín: «en la tarjeta de WhatsApp o donde haya pegado el link,
+        simplemente sacándolo como se hace en WhatsApp, que te sale la tarjeta con una X para sacarla»). Era un interruptor
+        suelto y después una fila de Configuraciones: las dos cosas se fueron. Ahora, con un link, el mensaje muestra su
+        tarjeta; la X la saca de ESE mensaje (`sin_vista_previa`, que el motor ya honra: #869). */}
+    {noOficial && <VistaPreviaDelLink paso={paso} cambiar={cambiar} />}
     {/* ⚠️ SIN «SALE SOLA» NI LA REENTRADA (23/10/2026, Martín por el Cerebro: «cambiaste una cantidad de cosas
         impresionante en las tarjetas de las automatizaciones, cosas innecesarias»). «Sale sola»: un mensaje de una
         automatización SALE, y el motor ya no lo deja de borrador (`saleSolo`, lib/nutricion-grafo-motor.ts: sin el
         interruptor no queda nada escondido). La reentrada («Una sola vez» / «Cada vez que vuelve a entrar»): «para eso
         tenemos CONDITION». La de la automatización sigue la que el motor usa (`reentrada_efectiva`). */}
     </>
+  );
+}
+
+/**
+ * LA TARJETA DEL LINK CON SU X (23/10/2026): lo que WhatsApp arma cuando un mensaje lleva un link, con la X para sacarla en
+ * ESTE mensaje. Sacada, no se ve: como en WhatsApp, si después se cambia el link vuelve (el link nuevo arma su tarjeta).
+ * Muestra el sitio y la dirección: el título y la imagen los pone WhatsApp al mandar (traerlos acá sería pedirle a un
+ * servidor nuestro que abra cualquier dirección que escriba alguien).
+ */
+function VistaPreviaDelLink({ paso, cambiar }: { paso: PasoSecuenciaDto; cambiar: Cambiar }) {
+  const link = primerLink(paso);
+  const sacada = sinVistaPrevia(paso);
+  // El link que tenía cuando se sacó: si cambia, la tarjeta vuelve (como pegar otro link en WhatsApp).
+  const [sacadaCon, setSacadaCon] = useState<string | null>(null);
+  useEffect(() => {
+    if (sacada && sacadaCon != null && link != null && link !== sacadaCon) { setSacadaCon(null); cambiar({ sin_vista_previa: false }, true); }
+  }, [sacada, sacadaCon, link, cambiar]);
+  if (!link || sacada) return null;
+  const dato = link.startsWith('{{');
+  let sitio = link;
+  if (!dato) { try { sitio = new URL(/^https?:/i.test(link) ? link : `https://${link}`).hostname.replace(/^www\./, ''); } catch { /* el texto tal cual */ } }
+  return (
+    <div data-vista-previa-link="" style={{ flex: 'none', marginTop: 10, position: 'relative', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 36px 9px 10px', borderRadius: 10, background: 'var(--surface-2)', borderLeft: '3px solid var(--good)', minWidth: 0 }}>
+      <span aria-hidden style={{ flex: 'none', width: 34, height: 34, borderRadius: 8, background: 'var(--surface)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dim)' }}><Icon name="web" size={16} /></span>
+      <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dato ? 'El link del dato' : sitio}</span>
+        <span style={{ fontSize: 12, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{link}</span>
+      </span>
+      <button type="button" aria-label="Sacar la vista previa del link" title="Sacar la vista previa"
+        onClick={() => { setSacadaCon(link); cambiar({ sin_vista_previa: true }, true); }}
+        style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, padding: 0, border: 'none', borderRadius: 999, background: 'transparent', color: 'var(--dim)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name="x" size={14} />
+      </button>
+    </div>
   );
 }
 

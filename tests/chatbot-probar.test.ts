@@ -142,7 +142,7 @@ test('el panel prueba lo LOCAL, anima los mensajes y dice si el flujo cambió', 
   assert.match(panel, /const cambio = firmaViva !== firmaProbada;/);
   assert.match(panel, /\{cambio && \(/);
   // Las variables con el catálogo del motor, no con un reemplazo propio.
-  assert.match(panel, /textoDeEjemplo\(p\.cuerpo, c\.negocio, c\.datosExtra\)/);
+  assert.match(panel, /textoDeEjemplo\(p\.cuerpo, c\.negocio, datosDelMomento\(\)\)/);
   assert.doesNotMatch(panel, /conVars|'Juan'|Acme SRL/);
 });
 

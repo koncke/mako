@@ -56,6 +56,9 @@ export const ROUTING_CREDS: Record<string, string> = {
   // (`identificadorDeRuteo`, lib/ruteo-hash.ts), y el webhook compara el header contra la credencial.
   HOTMART_HOTTOK: 'hotmart',
   SKOOL_WEBHOOK_CLAVE: 'skool',
+  // El puente de leads de Meta por Zapier o Make (23/10/2026, lib/zapier-lead.ts): lo mismo que Skool, una clave que
+  // inventa el negocio y viaja en `X-MaKo-Clave`. Su servicio es PROPIO: con 'skool' la misma clave entraría a los dos.
+  ZAPIER_LEADS_CLAVE: 'zapier',
   // 'zernio' NO va acá a propósito: su única credencial era la API key (secreta —
   // un secreto jamás se espeja en claro a webhook_routing) y el identificador de
   // ruteo era el profileId, que acuñaba el server. Desde el 06/10/2026 Instagram

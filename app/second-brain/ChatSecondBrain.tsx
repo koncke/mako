@@ -79,6 +79,7 @@ import { useChatCliente } from './useChatCliente';
 import { CajaDelCliente, HiloDelCliente, UsoDelCliente, estadoDelCliente } from './PiezasCliente';
 import { SUBS_VISIBLES, edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { aspectoDeChat } from '@/lib/centro-munecos';
+import { tocarEnLaBarra, type EntradaBarra } from '@/lib/ops-center-navegar';
 import { Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
 import { RECORRIDO_INICIO } from '@/lib/onboarding-arranque';
 import { PASOS_INICIO } from './recorrido-inicio';
@@ -216,25 +217,25 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const hayMapa = mapa != null;
   useEffect(() => { if (elegido && !hayMapa) anotarEnUrl(elegido, urlCentro); }, [elegido, urlCentro, hayMapa]);
   // ⚠️ LA TICKETERA SIGUE A LA URL, no a la prop: un link a esta misma página con otro `?ticketera=` (el ítem «Ticketera»
-  // de la barra de admin) no la vuelve a montar (docs/hallazgos-operaciones.md).
+  // de la barra de admin) no la vuelve a montar (docs/hallazgos-operaciones.md). La del CLIENTE también (23/10/2026): era un
+  // estado suelto, fuera de la URL, y con ella abierta «Second Brain» no hacía nada (lib/ops-center-navegar.ts).
   const qTicketera = useSearchParams().get('ticketera');
   useEffect(() => {
-    if (!ops) return;
     // Las vistas de antes (`tarjetas`, `lista`: las preguntas de los chats) ya no existen: un link viejo abre los tickets.
     const v: VistaDeTicketera | null = esVistaTicketera(qTicketera) ? 'tickets' : null;
     setTicketera(v);
     if (v) setConChat(true);
-  }, [qTicketera, ops]);
+  }, [qTicketera]);
   // Los tickets de los usuarios que esperan a Martín: el número del botón (17/10/2026, app/tickets/bandeja/).
   const ticketsPorDecidir = useTicketsPorDecidir(ops);
   // La Ticketera del CLIENTE (22/10/2026, Martín: «Que el Ops Center de clientes sea IGUAL que el de SuperAdmin, que tengan su
   // ticketera»): sus tickets, con su número (los que esperan su respuesta), en el mismo lugar que la del super admin.
   const misTickets = useMisTickets(!ops);
-  const [ticketsCliente, setTicketsCliente] = useState(false);
   // Su «Uso» (D3): el modal «Tus cuentas de IA», sin ir directo a conectar.
   const [verUso, setVerUso] = useState(false);
   const abrirTicketera = (v: VistaDeTicketera) => { setNuevoCentro(false); setTicketera(v); setConChat(true); anotarParam('ticketera', v); };
-  const cerrarTicketera = () => { setTicketera(null); anotarParam('ticketera', null); };
+  /** `anotar: false` cuando sigue un `router.push`: la URL nueva ya no la trae, y reescribirla en medio de la navegación la pisa. */
+  const cerrarTicketera = (anotar = true) => { setTicketera(null); if (anotar) anotarParam('ticketera', null); };
 
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo, k.idTurno, idOffer]);
@@ -242,17 +243,20 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const seguirHilo = useCallback(() => hilo.current, []);
 
   // ── Elegir en la barra ──
+  /** Lo que hay en el panel (lib/ops-center-navegar.ts → panelQueSeVe). */
+  const estadoPanel = () => ({ ticketera: ticketera != null, mapa: mapa != null, nuevo: nuevoCentro });
   const elegir = (e: Elegido) => {
     if (!k.elegir(e)) return;
-    setNuevoCentro(false);
+    const paso = tocarEnLaBarra('chat', estadoPanel());
+    setNuevoCentro(paso.nuevo);
     setConChat(true);
-    setTicketsCliente(false);
+    // La Ticketera se cierra ANTES de navegar (lib/ops-center-navegar.ts).
+    if (ticketera) cerrarTicketera(paso.ir == null);
     // Con el Mapa abierto, volver a una conversación es volver a la página sin `panel` (lo arma el servidor).
-    if (mapa) {
+    if (paso.ir) {
       router.push('id' in e ? `${base}?chat=${e.id}` : 'offer' in e ? `${base}?offer=${e.offer}` : 'antes' in e ? `${base}?antes=${e.antes}`
         : 'centro' in e ? `${base}?centro=${encodeURIComponent(e.centro)}` : base);
     }
-    if (ticketera) cerrarTicketera();
   };
 
   // ── Lo que se dibuja ──
@@ -274,16 +278,19 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   // Second Brain... cuando ahí debería saltar el grafo»), con el chat que estaba abierto anotado para volver. Sin el Mapa
   // (no es admin de la tab), el chat con MaKo.
   /** «Nuevo chat»: abre el chat vacío (ChatNuevo.tsx). Con el grafo o la Ticketera abiertos, los deja. */
-  const abrirNuevoCentro = () => {
-    if (mapa) router.push(base);
-    if (ticketera) cerrarTicketera();
-    setNuevoCentro(true);
+  const abrirNuevoCentro = () => tocar('nuevo');
+  /** «Second Brain»: el grafo. El del cliente, con el grafo a la vista, vuelve a lo elegido; sin el grafo, el Cerebro. */
+  const irAlSecondBrain = () => (veMapa ? tocar('second-brain') : elegir(cerebroFila.elegido));
+  /** Una entrada de la barra que no es un chat de la lista: lo que hace lo dice lib/ops-center-navegar.ts, igual para las dos
+   *  barras. Lo tocado se ve siempre; la Ticketera se cierra antes de navegar. */
+  function tocar(e: Exclude<EntradaBarra, 'chat'>) {
+    const paso = tocarEnLaBarra(e, estadoPanel(), { veMapa, alterna: !ops });
+    if (paso.ticketera && !ticketera) abrirTicketera('tickets');
+    if (!paso.ticketera && ticketera) cerrarTicketera(paso.ir == null);
+    setNuevoCentro(paso.nuevo);
     setConChat(true);
-  };
-  const irAlSecondBrain = () => {
-    if (veMapa) { if (ticketera) cerrarTicketera(); setNuevoCentro(false); setConChat(true); router.push(hrefMapa); return; }
-    elegir(cerebroFila.elegido);
-  };
+    if (paso.ir) router.push(paso.ir === 'mapa' ? hrefMapa : paso.ir === 'volver' ? hrefVolver : base);
+  }
   // Los chats de Claude Code que dicen lo buscado (el elegido, `chatCentro`, se sigue arriba).
   const chatsCentro = centro?.chats;
   const esperasCentro = centro?.esperas;
@@ -372,15 +379,15 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
               Ticketera»). */}
           {centro && (
             <button type="button" className="co-acceso co-acceso--ticketera" aria-pressed={ticketera != null}
-              onClick={() => (ticketera ? cerrarTicketera() : abrirTicketera('tickets'))}>
+              onClick={() => tocar('ticketera')}>
               <Icon name="ticket" size={17} />Ticketera
               {(ticketsPorDecidir ?? 0) > 0 && <span className="co-acceso__n">{ticketsPorDecidir}</span>}
             </button>
           )}
           {/* La del cliente: el mismo botón, con los suyos (los que esperan su respuesta, en el número). */}
           {!centro && !misTickets.fueraDelPlan && (
-            <button type="button" className="co-acceso co-acceso--ticketera" aria-pressed={ticketsCliente}
-              onClick={() => { setTicketsCliente((v) => !v); setConChat(true); }}>
+            <button type="button" className="co-acceso co-acceso--ticketera" aria-pressed={ticketera != null}
+              onClick={() => tocar('ticketera')}>
               <Icon name="ticket" size={17} />Ticketera
               {misTickets.esperanTuRespuesta > 0 && <span className="co-acceso__n">{misTickets.esperanTuRespuesta}</span>}
             </button>
@@ -393,8 +400,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           {/* El grafo del negocio (el botón del grafo de Obsidian). En Ops Center no está (17/10/2026: «la entrada "Mapa" se
               va»): el grafo lo abre «Second Brain». */}
           {veMapa && listaSB && (
-            <button type="button" className="co-acceso" aria-pressed={mapa != null}
-              onClick={() => { setConChat(true); router.push(mapa ? hrefVolver : hrefMapa); }}>
+            <button type="button" className="co-acceso" aria-pressed={mapa != null && !ticketera} onClick={irAlSecondBrain}>
               {/* «Second Brain», no «Mapa» (Martín, llamada con Florencia del 18/10 [00:50:28]: «no debería llamarse mapa,
                   debería llamarse second brain»). La TAB es «Ops Center»; lo que se llama «Second Brain» es el grafo. */}
               <Icon name={centro ? 'grid' : 'cerebro'} size={17} />Second Brain
@@ -409,8 +415,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
 
       {centro && ticketera ? (
         <TicketeraCentro cerebro={cerebroDelCentro(centro)} onVolver={() => { cerrarTicketera(); setConChat(false); }} />
-      ) : !centro && ticketsCliente ? (
-        <TicketeraDelCliente mis={misTickets} onVolver={() => { setTicketsCliente(false); setConChat(false); }} />
+      ) : !centro && ticketera ? (
+        <TicketeraDelCliente mis={misTickets} onVolver={() => { cerrarTicketera(); setConChat(false); }} />
       ) : mapa ? (
         // El grafo trae su cabecera («Second Brain», siempre en oscuro: VistaCerebro.tsx); el «volver» de la ventana
         // angosta le llega por contexto, porque el grafo lo arma el servidor y una función no viaja de ahí (volver.ts).

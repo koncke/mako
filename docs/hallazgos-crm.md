@@ -9118,13 +9118,12 @@ elegidos. Lo que costó o no se ve:
   pantalla dice «N ya estaban». Leer el importador antes de escribir el texto lo hubiera evitado.
 - **El contacto MANDA en el puntaje, por construcción:** un teléfono o un email valen 35 cada uno y todo
   lo demás junto suma 30 como mucho. Así un prospecto que se puede contactar queda siempre arriba de uno
-  que no (el importador exige email o teléfono). Con los pesos de la primera versión (30/25 contra 35 de
+  que no (el importador exige un canal). Con los pesos de la primera versión (30/25 contra 35 de
   tamaño), uno sin contacto le ganaba a uno con email: lo cazó el test, no la lectura.
 - **Instagram casi nunca trae contacto.** El actor público no da el email ni el teléfono del perfil:
-  sólo los que la persona escribió en su bio. Con la regla del CRM (email o teléfono), la mayoría de los
-  prospectos de Instagram se ven pero no pueden pasar. **Sin hacer:** que un @ de Instagram cuente como
-  contacto (los leads de Zernio ya entran así). Es una regla del CRM (`altaDeLead`, `NewLeadForm`, el
-  importador): se le pasa al chat del CRM, no se cambia desde acá.
+  sólo los que la persona escribió en su bio. Con la regla vieja del CRM (email o teléfono), la mayoría
+  de los prospectos de Instagram se veían pero no podían pasar. **Hecho el 23/10:** el @ cuenta como
+  contacto — ver «Un lead puede entrar con sólo su @ de Instagram», más abajo.
 - **Apify no firma sus avisos.** Cada búsqueda guarda el hash de una clave al azar que viaja en el CUERPO
   del aviso (`payloadTemplate`), no en la URL. Y en local el aviso no llega nunca (Apify no ve
   localhost): la pantalla vuelve a preguntar por las búsquedas que siguen corriendo (`revisarPendientes`,
@@ -9147,6 +9146,138 @@ elegidos. Lo que costó o no se ve:
 - **La migración 0289 va ANTES del deploy:** sin ella la pantalla dice «Falta aplicar la migración». Nació 0288 y se renumeró: el Centro de Operaciones tomó la 0288 a las 05:58 del 15/10 y la APLICÓ en prod, minutos después de que se recorrieran los worktrees. El número se elige al commitear, no al escribir.
 
 *15/10/2026, chat «Leads Scraper» (`claude1`).*
+
+## Un lead puede entrar con sólo su @ de Instagram (23/10/2026)
+
+**Vive en:** `lib/contacto-minimo.ts` · `app/crm/actions.ts` (`altaDeLead`, `importarLeadsRevisadosAction`) ·
+`app/crm/leads-importar.ts` (`recalcular`) · `app/crm/importar-server.ts` · `app/crm/new/NewLeadForm.tsx` ·
+`lib/prospectos-reglas.ts` (`contactable`) · `lib/prospectos.ts` · `app/crm/CrmBoard.tsx` (`soloInstagram`) ·
+`tests/contacto-instagram.test.ts` · `tests/crm-tarjeta-personalizable.test.ts` (la cola de `chips:`) · `lib/leads-duplicados.ts` (`instagramComparable`, `patronDeInstagram`) · `lib/leads.ts` (`duplicadosDeLead`) · `app/crm/leads-importar.ts` (`esColumnaInstagram`, `instagramDeCelda`) · `app/crm/TablaRevisionLeads.tsx` · `app/api/agente/lead/route.ts` (`refPorDefecto`) · `app/crm/revisar/[id]/propuesta-lead.ts` · `app/m/crm/reglas.ts` (`soloInstagram`) · `tests/duplicados-instagram.test.ts` · `tests/crm-importar-instagram.test.ts` · `tests/movil-crm-instagram.test.ts` · `tests/propuesta-lead-instagram.test.ts`
+
+El criterio lo pasó el Cerebro: «si el único dato que hay es el @, el lead se crea igual… un lead sin
+teléfono es un lead al que todavía no le escribiste, no un lead inválido».
+
+- **El bloqueo no estaba en la base.** `leads.instagram` existe desde la 0258 y `createLead` sólo exige
+  el nombre. Lo frenaban validaciones de CÓDIGO escritas por separado con la misma regla («email o
+  teléfono»): el alta del server, el form del alta y `recalcular` del importador, más el `contactable`
+  de la prospección, que copiaba la del importador. Ahora las cuatro llaman a `tieneContacto`.
+- **Nada se rellena:** el lead con sólo el @ nace con el email y el teléfono vacíos. Un teléfono
+  inventado matchearía el chat de WhatsApp de otra persona.
+- **El @ pasó a ser una llave de duplicados**, en el mismo lote (`recalcular`, `igsNuevos`) y contra el
+  CRM (`indiceContactos` lee `instagram`). Sin eso, pasar dos veces el mismo perfil hacía dos fichas: el
+  único freno que quedaba era `duplicadosDeLead`, que para un lead sin email ni teléfono compara por NOMBRE.
+- **«Que se note que falta el contacto» choca con Martín (22/10: «si no tiene ese dato, que no lo
+  muestre»).** Se resolvió dibujando el canal que SÍ tiene: en la tarjeta del kanban (`TarjetaPersona`,
+  la de «Personalizar tarjetas») va un chip `@usuario` que sale SIEMPRE, como el de la automatización,
+  porque no es un dato que se elige sino por dónde se le escribe; en la tabla (`CeldasLead`) va en el lugar
+  del email, y la fila ofrece abrir su Instagram donde las demás ofrecen WhatsApp. Sin rótulo de «falta».
+- **Al rearmarlo sobre main, la tarjeta ya no era la misma.** El commit se escribió sobre un clon con main
+  de una semana atrás; en el medio el CRM pasó a `TarjetaPersona` + `CeldasLead` (de3be68bb) y el buscador
+  ya leía el @ (3ad5b5c3e). Conservar «ambos lados» del conflicto habría dibujado la tarjeta vieja ADENTRO
+  de la nueva: el @ se rehízo en las piezas nuevas. Y main sumó el tope del plan al importador contando
+  `entra(f)`, así que una fila con sólo el @ cuenta para el tope, que es lo correcto.
+- **Un chip fijo nuevo dejó rojo un test que no lo nombra, y el rojo NO venía de `main`.**
+  `tests/crm-tarjeta-personalizable.test.ts` fija con una regex el final de `chips:` hasta el `</>`, pegado
+  al chip de la automatización; al sumar el `@` esa cola dejó de calzar y la punta quedó fuera del tren
+  (6 de 7). Se reprodujo IGUAL antes y después de mergear `origin/main`: un rojo que no cambia con el merge
+  es de la punta. El diagnóstico caro era «rompí algo real» (el orden de los chips, `Icon` importado dos
+  veces, un ícono `instagram` que no existe, mojibake en los archivos) y era falso: se descarta mirando
+  esas cuatro cosas. El arreglo extiende la regex a la cola EXACTA (automatización → `@` → `</>`) en vez
+  de sacar el ancla. Tres tests fijan esa línea con políticas de cola distintas: `crm-automatizacion-lead`
+  termina en el chip de la automatización, `contacto-instagram` busca el `@` con `[^\n]*`, y
+  `crm-tarjeta-personalizable` (L106) ancla el cierre. Sólo éste se rompe con un chip nuevo, a propósito:
+  **el próximo chip fijo se anota ahí**, no se afloja la regex. Probado sin aflojar: las mismas roturas
+  contra la regex vieja sobre el código de antes y la nueva sobre el de hoy (0 que la vieja atrapaba y la
+  nueva dejó pasar) y 9 roturas sobre el `CrmBoard.tsx` real, base 7/0, cada una 6/1.
+- **Trampa del entorno, PowerShell 5.1:** `Get-Content` sin `-Encoding UTF8` muestra mojibake
+  (`Â¿Hay por dÃ³nde`) que NO está en el archivo. Antes de dar un acento por roto, leerlo con
+  `node -e "readFileSync(ruta,'utf8')"`: en los 15 archivos de la punta había 0.
+- **`duplicadosDeLead` compara por el @, y el @ NO apaga la comparación por nombre.** El diagnóstico obvio era copiar la regla del
+  email y el teléfono («si el candidato trae un dato fuerte, el nombre sobra»), y estaba mal: esa regla vale por la DENSIDAD del dato.
+  `leads.instagram` es de la mig 0258 y casi ninguna ficha vieja lo tiene, así que que el existente NO lo tenga no descarta nada:
+  «Juan Pérez + @juanp» dejaba de avisar de un «Juan Pérez» que ya estaba con email y sin @, y el mismo alta sin @ sí avisaba. Lo
+  escondía un test («el @ es un DATO FUERTE») que fijaba el comportamiento equivocado: **un test que asegura una regla se contrasta
+  con el caso real (la ficha vieja sin la columna), no con la ficha ideal.** Orden de los motivos: email, teléfono, Instagram, nombre.
+  Vive en `lib/leads-duplicados.ts` (`buscarDuplicados`) y `lib/leads.ts` (`duplicadosDeLead`).
+- **La consulta del @ es un superconjunto y decide la comparación exacta.** `leads.instagram` no tiene una sola forma (`createLead`
+  guarda `input.instagram.trim()` crudo: puede ser `ana_lopez`, `@Ana_Lopez` o el link), así que un `eq` no alcanza: `ilike '%usuario%'`
+  con `\`, `%` y `_` ESCAPADOS (`patronDeInstagram`; el `_` es comodín y los usuarios lo llevan, ver AGENTS.md «Un patrón trae
+  CANDIDATOS…»), sin `.limit` (con «ana» el tope dejaría afuera, sin error, al duplicado real: el mismo bug que se pagó con el nombre),
+  la columna pedida SÓLO ahí y con su propio catch (una base sin la 0258 no puede rechazar las altas sin @). `instagramComparable` está
+  escrita en `lib/leads-duplicados.ts` y no importada de `app/crm/campo-inline.ts`: traerla de `app/` cierra un ciclo con `lib/leads`.
+  Son dos copias de «cómo se saca el usuario de un link» y un test las ata a una tabla. Las filas de un mismo lead se FUNDEN
+  (`{ ...a, ...b }`), no se pisan: el `instagram` viene sólo en la fila de su consulta y un `set` a secas lo perdía si el lead también
+  había salido por teléfono.
+- **Supabase devuelve `error` sin lanzar.** Las consultas de email y teléfono de `duplicadosDeLead` lo ignoraban: una columna caída se
+  leía como «no hay nadie» y el alta pasaba sin una línea en el log. Ahora se registra (el alta no se bloquea: es lo correcto). `leerTodo`,
+  en cambio, SÍ tira: la consulta del @ y la del nombre corren juntas y cada una necesita su catch, o una caída se lleva puesto lo que la
+  otra ya trajo.
+- **Una unión de tipos copiada a mano no la ve ningún test.** `tsx` borra los tipos: `app/customer-success/actions.ts` tenía su propia
+  copia de `'email' | 'telefono' | 'nombre'` y dejó de compilar al sumar `'instagram'` (TS2322). Lo encontró un revisor leyendo, no una
+  corrida (el tren va sin tipos). Ahora importa `type MotivoDuplicado`, y `tests/duplicados-instagram.test.ts` falla si alguien repite la
+  unión **sin lista de excepciones**: una lista PENDIENTES esconde justo el rojo que debe mostrar. Regla en AGENTS.md. Y el mismo día
+  «API de MaKo» mudó el cuerpo de `crearClienteAction` a `lib/cs-crear-cliente.ts` y `lib/curso-alta-alumno.ts`, y la copia se fue con él
+  (TS2322 en las dos funciones movidas, que Integración marcó como choque): la lista de archivos del test ya no los nombraba. Ahora barre
+  TODO `app/` y `lib/` con `git ls-files`: **una red con lista de archivos no sobrevive a una mudanza.**
+- **CSV: el diagnóstico obvio era el equivocado, tres veces.** (1) Sumar `ig` e `insta` como alias por inclusión: «ig» está dentro de
+  «Origen», «Digital» y «Significado», y la columna de origen de cualquier CRM («Referido») se guardaba como el @ de cada lead sin un
+  error, porque «referido» es un usuario válido. `ig` e `insta` sólo como palabra entera. (2) «`usuarioInstagram` valida, entonces lo que
+  pasa es un usuario»: es sintaxis, no semántica; «no», «si», «0» y «12500» (seguidores) son usuarios VÁLIDOS. La celda tiene su propio
+  filtro (`instagramDeCelda`: respuestas, números, una letra), y los links se aceptan tal cual. (3) Nombrar a Instagram no es ser el
+  usuario: «Instagram Followers», «Instagram Bio», «¿Tiene Instagram?» (`NO_ES_EL_USUARIO`). Lo que separa una pregunta de sí o no de
+  «¿Cuál es tu Instagram?» (el encabezado de un Google Forms, la fuente típica de una lista con sólo el @) es el VERBO, no el signo de
+  pregunta. Y `\b` no corta en el guion bajo: `instagram_bio` esquivaba todo y se leía como el @, así que se pasa `_` a espacio antes.
+  «Instagram Username» matchea `name` y «Instagram del negocio» matchea `negocio`: el nombre y la empresa saltan las columnas de Instagram.
+- **Un test de lista no prueba cada elemento de la lista.** 25 de las 34 alternativas de `NO_ES_EL_USUARIO` se podían borrar con los 32
+  tests en verde; ahora hay un test que exige, por alternativa, un encabezado que SÓLO ella rechace, con un valor que SÍ pasaría como
+  usuario («referido»): con un número la celda se rechaza sola y el test queda verde aunque el encabezado se lea mal.
+- **Una celda decidida por un valor que cambia con cada tecla se desmonta a mitad del tipeo.** En `TablaRevisionLeads` la celda del email
+  pasaba de input a link en cuanto el email quedaba vacío con el @ como único canal: el input perdía el foco justo al corregir un typo.
+  Con el foco manda el input. `renderToStaticMarkup` no ve interacción: la regla se prueba como función pura y el enchufe de
+  `onFocus`/`onBlur` como bloque del fuente.
+- **La llave de idempotencia de la skill tiene que salir también del campo nuevo.** El `ref` por defecto era `telefono ?? email`: con
+  sólo el @ daba `lead:null`, y `crearPropuesta` devuelve la propuesta que ya existe cuando el `ref` choca (pendiente O aplicada). El
+  segundo formulario con sólo el @ contestaba ok con el link del primero y `nueva:false`: dos personas distintas colapsaban en una
+  propuesta, sin un error. Y `filasDePropuesta` copia campo por campo, sin spread: **cada campo nuevo de la propuesta se suma ahí a
+  mano**, o `/crm/revisar` lo descarta y la fila cae como sin contacto. Un test que ejecuta una función extraída de una ruta de Next
+  no prueba que el POST la llame: el cableado necesita su propio test sobre el bloque que la usa (tres roturas del POST daban verde).
+- **`plugin/skills/mako/SKILL.md` no se edita a mano:** sale de `lib/agente-skill.ts` con `node --import tsx scripts/generar-plugin.mjs`
+  (el pre-push corre `--check`). El generador escribe LF aunque el archivo esté en CRLF en disco: devolverlo a CRLF.
+- **Cómo se hizo (Workflow de 4 piezas en un mismo worktree):** cada agente con archivos propios y sus tests por un candado (una carpeta,
+  más esperar 1,2 GB de RAM): con ~1 GB libre, tres `node --test` juntos tiran la PC. Los tres arreglos que caían en archivos de NADIE
+  (`customer-success/actions.ts`, `revisar/page.tsx`, `bloques-actions.ts`) los encontró el revisor de cruce, no las piezas.
+- **Trampa del entorno:** `Write` sobre `lib/contacto-lead.ts` (el de la ficha: link de la web y fotos)
+  lo PISÓ sin haberlo leído en la sesión, y contestó «updated» en vez de «created»: ésa es la única
+  pista. Estaba limpio y se restauró de git. Antes de crear un archivo con un nombre obvio, `ls`.
+
+### Sin hacer, con su archivo
+
+Hecho el 23/10 (tarde): `duplicadosDeLead` con @, el CSV con columna de Instagram, MaKo Mobile con @, y la skill y `/crm/revisar` con @
+(la API de propuestas la hizo el chat «API de MaKo» en `ea5081529`). Queda:
+
+- **Completar una ficha no llena el @:** `camposParaCompletar` (`lib/leads-duplicados.ts`), el tipo de `enriquecerLead` (`lib/leads.ts`) y
+  la rama «completar» de `importarLeadsRevisadosAction` (`app/crm/actions.ts`) no lo conocen. Una fila con sólo el @ marcada «ya existe»
+  y completada cae como omitida.
+- **Los DM de Instagram no se frenan por el @:** `lib/canal-zernio.ts` y `lib/zernio-entrante.ts` crean con `permitirDuplicado: true` y
+  deduplican por la conversación; un DM con el mismo @ de uno cargado a mano no se frena en `createLead`.
+- **`createLead` guarda `input.instagram.trim()` sin normalizar** (`lib/leads.ts`). Hoy los llamadores normalizan y la comparación lo
+  tolera, pero un llamador nuevo que no lo haga deja `@Ana` o el link en la ficha (el teléfono y el escritorio mostrarían `@@ana`).
+- **La IA de extracción (PDF, foto, docx) no extrae el @** (`app/crm/importar-server.ts`, `SISTEMA_EXTRAER`): a propósito, un modelo que
+  inventa handles es peor que no leerlos. Si se quiere, sumar `instagram` al JSON del prompt con `usuarioInstagram` y fila de baja confianza.
+- **El `ref` por defecto de la skill se corta a 200 caracteres** (`app/api/agente/lead/route.ts`, también `crearPropuesta`): un reenvío de
+  una planilla con filas nuevas al final devuelve la propuesta vieja con `nueva:false` y las nuevas se pierden. Es anterior; decidir si pasar
+  de 200 a un hash cambia el `ref` de las propuestas ya pendientes.
+- **Un @ inválido junto a otro canal se descarta en silencio** en la skill (no va a `descartados`): quien manda no se entera.
+- **La ficha rápida del escritorio** (`app/crm/CrmBoard.tsx`, `FichaRapida`) no ofrece «Instagram» para un lead de sólo @; la del teléfono sí.
+- **Nunca se vio en pantalla:** el chip `@`, la fila, el alta y la tabla de revisión con sólo el @ (ni en escritorio ni a 390 px). Mirar en
+  producción, en el ws10 y sin dejar leads de prueba.
+- **Costo a medir:** cada fila con @ del importador hace un `ilike '%usuario%'` sin índice sobre `leads.instagram`, leído entero. Con
+  miles de filas (ws9) conviene medir la primera tanda; un usuario de 1 o 2 letras trae muchas.
+- **Sin tipos:** el lote se midió con tests, no con `tsc` (lo corre Integración). Mirar el spread `{ ...unicos.get(l.id), ...l }` y el cast
+  del `error` en `duplicadosDeLead`.
+*23/10/2026, chat «Ventas de MaKo» (ex «Leads Scraper», `claude1`).*
+*Y el rojo de la tarjeta, el mismo día: chat «Ventas de MaKo» (`claude2`).*
+*Y los cuatro pendientes de esa tarde (duplicados, CSV, teléfono, skill): chat «Ventas de MaKo» (`claude2`), con un Workflow de 4 piezas y revisión adversarial.*
 
 ## Las migraciones de la tanda del CRM se llaman `XXXX`, y el número libre es 0290, no 0287 (15/10/2026)
 

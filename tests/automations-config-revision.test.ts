@@ -6,7 +6,7 @@
 //   1. el HUSO de la tuerca es el del NEGOCIO: se ve, no se cambia (elegir Madrid en una dejaba a todas de madrugada);
 //   2. «Duplicar» COPIA la configuración propia (vive fuera de la fila): la copia de una «Prospección fría» de 9 a 18
 //      con 48 h mandaba a las 3 AM con 20 h; si no se puede copiar, la copia se borra;
-//   3. las horas «misma persona» del NEGOCIO vuelven a tener pantalla (rotuladas «por defecto»);
+//   3. las horas «misma persona» del NEGOCIO vuelven a tener pantalla (rotuladas «por defecto»); (23/10/2026: «Misma persona» se fue entera);
 //   4. al entrar a /automations la sidebar es la LISTA (no el chat de la primera, que escondía «＋ Nueva» y el «?»);
 //   5. Escape no corta, sin que se vea, un pedido en vuelo del chat escondido o con un modal abierto;
 //   6. las «Evento de MaKo» esperan a que abra SU horario (el propio, si tiene), no sólo el del negocio;
@@ -93,15 +93,15 @@ test('2. «Duplicar» copia la configuración propia de la original a la copia, 
 
 // ── 3. Las horas del negocio ─────────────────────────────────────────────────────────────────
 
-// ⚠️ 23/10/2026 (Martín: «Hay DOS "Misma persona": queda UNA»): la del NEGOCIO ya no tiene fila. Queda la de la
-// automatización, que SIN lo suyo muestra (y usa) la del negocio: el valor que heredan las que ya existían se ve en cada una,
-// y tocarlo lo vuelve suyo. Lo que cambia: el de fábrica del negocio no se edita desde la tuerca (tests/automations-antiban).
-test('3. una sola «Misma persona»: la de la automatización muestra la del negocio mientras no tenga la suya', () => {
+// ⚠️ 23/10/2026 (Martín): primero «Hay DOS "Misma persona": queda UNA» y más tarde en el día «elimina "Misma persona"». Hoy no
+// queda NINGUNA: ni la del negocio ni la de la automatización tienen fila en la pantalla, y el motor no la aplica.
+test('3. «Misma persona» no tiene fila: ni la de la línea ni la de la automatización', () => {
   const auto = sinComentarios(leer('app/automations/ConfigAutomatizacionPanel.tsx'));
-  assert.match(auto, /const valor = propio !== undefined && propio !== PERSONA_SIN_ESPERA \? propio : d\.personaNegocio\[canal\];/);
+  assert.doesNotMatch(auto, /Misma persona|personaNegocio|PERSONA_SIN_ESPERA|personaHoras/, 'volvió «Misma persona» a la pantalla');
   const lim = sinComentarios(leer('lib/limites-envio.ts'));
-  assert.match(lim, /\.filter\(\(f\) => f\.campo !== 'personaHoras'\)/);
+  assert.match(lim, /\.filter\(\(f\) => f\.campo !== 'personaHoras'\)/, 'la fila de la línea volvió a la pantalla');
   assert.doesNotMatch(sinComentarios(leer('app/automations/LimitesEnvioPanel.tsx')), /ROTULO_PERSONA_DEFECTO|personaPorDefecto/);
+  assert.doesNotMatch(sinComentarios(leer('app/automations/config-automatizacion-actions.ts')), /personaNegocio/);
 });
 
 // ── 4. La lista al entrar ────────────────────────────────────────────────────────────────────
@@ -163,9 +163,9 @@ test('m. un horario sin `activo` booleano se rechaza; apagado con días vacíos 
   // Prendido, lo de siempre.
   assert.equal(configParaGuardar({}, { horario: { activo: true, desde: 18, hasta: 9, dias: [1] } }).ok, false);
   // «Como el negocio» en todo = vacía: quien guarda BORRA la clave.
-  const v = configParaGuardar({ horario: null, personaHoras: { whatsapp: 3 } }, { horario: null, personaHoras: null });
+  const v = configParaGuardar({ horario: null, goteo: { minutos: 3 }, goteoEmail: { dia: 30 } }, { horario: null, goteo: null, goteoEmail: null });
   assert.ok(v.ok && v.vacia);
-  const lleno = configParaGuardar({}, { personaHoras: { whatsapp: 3 } });
+  const lleno = configParaGuardar({}, { goteoEmail: { minutos: 3 } });
   assert.ok(lleno.ok && !lleno.vacia);
   const db = sinComentarios(leer('lib/config-automatizacion-db.ts'));
   assert.match(db, /if \(r\.vacia\) await borrarConfig\(ws, secuenciaId\);\n\s+else await setSetting\(claveConfigAutomatizacion\(secuenciaId\), r\.valor\);/);
@@ -208,10 +208,10 @@ test('m. el tick: la lectura de los horarios propios trae sólo los prendidos, c
   assert.ok(r.ok && r.valor.includes('"activo":true'));
 });
 
-// 22/10/2026: el goteo y la misma persona en UN componente (`AntibanDeLaAutomatizacion`) y UN guardado por respiro.
+// 22/10/2026: el goteo (23/10/2026: de WhatsApp y de Email; sin «Misma persona») en UN componente (`AntibanDeLaAutomatizacion`) y UN guardado por respiro.
 test('m. el anti-ban de esta automatización: lo tocado se ve ya y los cambios del respiro se juntan (las dos partes)', () => {
   const p = sinComentarios(leer('app/automations/ConfigAutomatizacionPanel.tsx'));
-  const g = cuerpo(p, "const guardar = (parte: 'goteo' | 'personaHoras', cambio: Record<string, number | null>) => {", '\n  };');
+  const g = cuerpo(p, "const guardar = (parte: ParteGoteo, cambio: Record<string, number | null>) => {", '\n  };');
   assert.match(g, /pendiente\.current = \{ \.\.\.pendiente\.current, \[parte\]: \{ \.\.\.\(pendiente\.current\[parte\] \?\? \{\}\), \.\.\.cambio \} \};/);
   assert.match(g, /setLocal\(\(p\) => \(\{ \.\.\.p, \.\.\.Object\.fromEntries\(Object\.entries\(cambio\)\.map\(\(\[k, v\]\) => \[`\$\{parte\}\.\$\{k\}`, v\]\)\) \}\)\);/);
   assert.match(g, /const envio = pendiente\.current;\n\s+pendiente\.current = \{\};[\s\S]*saveConfigAutomatizacionAction\(secuenciaId, envio\)/);

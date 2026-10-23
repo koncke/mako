@@ -165,6 +165,8 @@ export function mapToCrmLead(
     fechaJ2: l.fecha_junta_2,
     phone: l.telefono ?? '—',
     telefonoNorm: l.telefono_normalizado ?? null,
+    // El @ (LISTA_COLS ya baja `instagram`, mig 0258): con él como único canal, la tarjeta lo
+    // dibuja en lugar del email y del WhatsApp (CrmBoard → `soloInstagram`).
     instagram: l.instagram ?? null,
     estadoLead: l.estado_lead,
     asistioJ1: l.asistio_j1,

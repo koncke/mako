@@ -7,6 +7,7 @@
 // =============================================================================
 
 import type { Campo, CampoTipo, TareaDeClase } from '@/lib/curso';
+import { productosTrasQuitar, productosVisibles, type ProductosDelAcceso } from '@/lib/curso-invitar-reglas';
 
 /**
  * Texto plano → párrafos HTML, para quien migra un curso con la descripción en texto (Panda, un
@@ -110,4 +111,25 @@ export function modeloDeTareas(
     }
   }
   return { tareaHtml, consignasHtml, campos };
+}
+
+/**
+ * Qué contesta «sacarle un curso» (quitar_curso_del_acceso, 23/10/2026) ANTES de escribir: la MISMA regla que aplica
+ * `quitarCursoDelAcceso` (`productosTrasQuitar`, lib/curso-invitar-reglas.ts), para fallar en preparar() y no al confirmar.
+ *
+ *   · `{ ok, productos }` = se saca, y éstos son los cursos que le quedan abiertos;
+ *   · `{ yaEstaba }`       = no lo VE (`productosVisibles`, la única puerta de «qué cursos ve»): lo que se pide ya es así,
+ *                            y por HTTP es un 200 sin cambios, no un 422;
+ *   · `{ unico }`          = lo ve y es el único curso que le abre: eso es cortar el portal (cortar_acceso_curso).
+ *
+ * ⚠️ El «no» se distingue por lo que ve, NUNCA por el texto del error de la regla: un texto que alguien reescribe dejaría de
+ * coincidir en silencio, y un «ya estaba» pasaría a ser un error que el integrador lee como falla.
+ */
+export function decidirQuitarCurso(
+  abre: ProductosDelAcceso, deCliente: readonly number[], productoId: number,
+): { ok: true; productos: number[] } | { yaEstaba: true } | { unico: true } {
+  const r = productosTrasQuitar(abre, deCliente, productoId);
+  if (r.ok) return { ok: true, productos: r.productos };
+  if (!productosVisibles(deCliente, abre).includes(productoId)) return { yaEstaba: true };
+  return { unico: true };
 }

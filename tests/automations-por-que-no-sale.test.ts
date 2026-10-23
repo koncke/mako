@@ -44,11 +44,13 @@ test('el caso de la prueba: fuera del horario de oficina, en palabras, con cuán
   });
   // Lo que el motor manda IGUAL fuera del horario (el carril del recordatorio, «MaKo en WhatsApp» que lo manda igual): nada.
   assert.equal(porQueNoSale(fila({ correFueraDeHorario: true }), ctx()), null, 'dijo «fuera de horario» de algo que sale igual');
-  // Si al abrir todavía lo frena «Misma persona», manda ésa: no se promete la apertura.
-  assert.equal(
-    porQueNoSale(fila({ mismaPersona: { horas: 20, ultimoMs: Date.parse('2026-10-23T04:00:00Z') } }), ctx())?.texto,
-    'No salió: «Misma persona» (20 h desde su último WhatsApp). Sale mañana 17:00 (hora de Tijuana).',
+  // «Misma persona» se fue (23/10/2026, Martín: «elimina "Misma persona"»): aunque a ese lead le haya salido un WhatsApp hace
+  // 48 minutos, el motivo es el horario, y se promete la apertura. Un dato viejo de «mismaPersona» no cambia nada.
+  assert.deepEqual(
+    porQueNoSale({ ...fila(), mismaPersona: { horas: 20, ultimoMs: Date.parse('2026-10-23T04:00:00Z') } } as never, ctx()),
+    porQueNoSale(fila(), ctx()),
   );
+  assert.doesNotMatch(porQueNoSale(fila(), ctx())?.texto ?? '', /Misma persona/);
   // Adentro del horario y sin nada que lo frene: no dice nada (sale en la próxima vuelta del motor).
   assert.equal(porQueNoSale(fila(), ctx({ ahoraMs: Date.parse('2026-10-23T18:00:00Z') })), null);
   // Sin horario (manda a cualquier hora): nada.
@@ -67,12 +69,9 @@ test('los demás frenos del motor, en su orden', () => {
   assert.equal(porQueNoSale(fila({ hayLinea: false }), adentro)?.texto, 'No sale: el negocio no tiene una línea de WhatsApp.');
   // El envío apagado no frena un email ni una acción.
   assert.equal(porQueNoSale(fila({ canal: 'email' }), { ...adentro, whatsappPrendido: false }), null);
-  // «Misma persona»: 20 h desde el último; libre a las 6:00 de Tijuana, que todavía está cerrado → sale al abrir.
-  assert.deepEqual(porQueNoSale(fila({ mismaPersona: { horas: 20, ultimoMs: Date.parse('2026-10-23T17:00:00Z') } }), adentro), {
-    texto: 'No salió: «Misma persona» (20 h desde su último WhatsApp). Sale mañana 9:00 (hora de Tijuana).',
-    corto: 'Sale mañana 9:00', saleAt: '2026-10-24T16:00:00.000Z',
-  });
-  assert.equal(porQueNoSale(fila({ mismaPersona: { horas: 0, ultimoMs: Date.parse('2026-10-23T17:59:00Z') } }), adentro), null, '«Misma persona» apagada frenó');
+  // Sin «Misma persona» (23/10/2026): un WhatsApp de hace un minuto a ese lead ya no lo frena ni lo dice; adentro del horario y
+  // sin tope, sale en la próxima vuelta.
+  assert.equal(porQueNoSale({ ...fila(), mismaPersona: { horas: 20, ultimoMs: Date.parse('2026-10-23T17:59:00Z') } } as never, adentro), null, '«Misma persona» volvió a frenar');
   assert.equal(
     porQueNoSale(fila({ ultimoFallo: { error: 'WhatsApp de empresa desconectado (hay que volver a vincular el QR)', at: 0 } }), adentro)?.texto,
     'No salió: WhatsApp de empresa desconectado (hay que volver a vincular el QR).',
@@ -84,8 +83,10 @@ test('los demás frenos del motor, en su orden', () => {
   );
   assert.equal(porQueNoSale(fila(), { ...adentro, linea: { dia: 65, usadoDia: 65, hora: 15, usadoHora: 0 } })?.corto, 'Tope del día');
   assert.equal(porQueNoSale(fila(), { ...adentro, linea: { dia: 65, usadoDia: 3, hora: 15, usadoHora: 15 } })?.corto, 'Tope de la hora');
-  // El carril y el lead con la reunión encima no pasan por el anti-ban ni por los topes: no se dicen.
-  assert.equal(porQueNoSale(fila({ sinAntiBan: true, mismaPersona: { horas: 20, ultimoMs: Date.parse('2026-10-23T17:00:00Z') } }), { ...adentro, linea: { dia: 65, usadoDia: 65, hora: 15, usadoHora: 15 } }), null);
+  // El carril no pasa por los topes de la línea: no se dicen. (Hasta el 23/10/2026 tampoco un lead con la reunión encima; el
+  // motor ya no lo saltea: los topes de la línea sí lo frenan, y por eso `sinAntiBan` es sólo del carril.)
+  assert.equal(porQueNoSale(fila({ sinAntiBan: true }), { ...adentro, linea: { dia: 65, usadoDia: 65, hora: 15, usadoHora: 15 } }), null);
+  assert.equal(porQueNoSale(fila({ sinAntiBan: false }), { ...adentro, linea: { dia: 65, usadoDia: 65, hora: 15, usadoHora: 15 } })?.corto, 'Tope del día');
   // Fuera del horario manda el horario, aunque también esté el tope: es lo que corta primero el motor.
   assert.equal(porQueNoSale(fila(), { ...ctx(), linea: { dia: 65, usadoDia: 65, hora: 15, usadoHora: 0 } })?.corto, 'Abre mañana 9:00');
 });

@@ -24,6 +24,7 @@ import { cuentasConTitular } from '@/app/admin/operaciones/PiezasCentro';
 import { usoPrincipal } from '@/lib/centro-uso';
 import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { hace } from '@/lib/progreso-reglas';
+import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 
 export function CentroAppMovil(datos: DatosCentro) {
   const toast = useToastM();
@@ -48,14 +49,17 @@ export function CentroAppMovil(datos: DatosCentro) {
         {/* El Uso de las cuentas y sus Runners, ARRIBA de los chats y junto a Second Brain (Martín, 17/10/2026: «El botón de
             USO en mobile debe ir arriba de los chats junto a Second Brain»; antes había que bajar hasta el final de la
             lista). Dice siempre el número (Uso.tsx, la de la computadora). */}
-        <FilaM icono="config" titulo="Uso y Runners" segunda={[principal ? `Semana ${principal.pct}%${principal.viejo && principal.medido != null ? ` · ${hace(principal.medido, ahora)}` : ''}` : null, `${activos} de ${carteros.length} Runners activos`].filter(Boolean).join(' · ')}
+        {/* «Uso», como la del cliente (23/10/2026, Martín: «"USO de IA" sea IGUAL que en los clientes, sólo que SuperAdmin tiene
+            más configuraciones»): abre «Tus cuentas de IA» y, debajo, lo suyo (las cuentas de Claude Code, la API, los Runners). */}
+        <FilaM icono="config" titulo="Uso" segunda={[principal ? `Semana ${principal.pct}%${principal.viejo && principal.medido != null ? ` · ${hace(principal.medido, ahora)}` : ''}` : null, `${activos} de ${carteros.length} Runners activos`].filter(Boolean).join(' · ')}
           onClick={() => setRunners(true)} navegacion />
       </ListaM>
       <ChatsMDelCentro centro={k} />
       {/* En «alto» (17/10/2026, Martín: «esa sección se traba y no se puede scrollear hasta el final»): en «medio» la hoja
           está corrida hacia abajo y lo último del cuerpo queda DEBAJO de la pantalla aunque se scrollee hasta el fondo
           (SheetM mide el cuerpo con el alto de «alto»; docs/hallazgos-mobile.md). */}
-      <SheetM abierto={runners} onCerrar={() => setRunners(false)} titulo="Uso y Runners" snap="alto">
+      <SheetM abierto={runners} onCerrar={() => setRunners(false)} titulo="Tus cuentas de IA" snap="alto">
+        <TusCuentasIA sinCabecera />
         <RunnerMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
           cuentas={cuentasConTitular(k)} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} onCambiarCredito={k.cambiarCreditoDelNegocio} onLeerComputadoras={k.leerComputadoras} onDesconectarComputadora={k.desconectarComputadora} />
       </SheetM>

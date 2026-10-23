@@ -32,10 +32,11 @@ test('la página: entra con la puerta de MaKo, y el Mapa se calcula sólo para e
   const cuerpo = src.slice(src.indexOf('export default async function'));
   const lineas = cuerpo.split('\n').map((l) => l.trim()).filter(Boolean);
   assert.equal(lineas[1], "await requireRolWs(['closer', 'setter'], { nav: 'mako' });", 'la primera línea es la puerta del chat');
-  assert.equal(lineas[2], "const veMapa = await esAdminDeTab('second-brain');", 'el Mapa, con la puerta de las rutas del Second Brain');
-  const si = cuerpo.indexOf('if (veMapa && ');
-  assert.ok(si > 0, 'el Mapa va adentro de un `if (veMapa && …)`');
-  const bloque = cuerpo.slice(si, cuerpo.indexOf('\n  }\n', si));
+  // Desde el 23/10/2026 la puerta del Mapa sale a la vez que lo demás (un Promise.all), y el Mapa se pide sólo si la pasa.
+  assert.equal(lineas[2], "const [veMapa, q, opera] = await Promise.all([esAdminDeTab('second-brain'), searchParams, quienOpera()]);", 'el Mapa, con la puerta de las rutas del Second Brain');
+  const si = cuerpo.indexOf('veMapa && pideElMapa(q) ? ');
+  assert.ok(si > 0, 'el Mapa va detrás de `veMapa && …`');
+  const bloque = cuerpo.slice(si, cuerpo.indexOf(';', si));
   // Desde el 17/10/2026 el armado del Mapa vive en pagina.tsx (lo comparte /admin/operaciones, «Ops Center»): la página
   // lo llama una sola vez, adentro del if; y las dos lecturas caras viven sólo adentro de esa función.
   assert.equal(cuerpo.split('mapaDelSecondBrain(').length - 1, 1, 'el Mapa se arma una sola vez');

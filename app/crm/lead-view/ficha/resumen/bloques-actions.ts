@@ -17,6 +17,7 @@
 
 import { getUsuarioActual } from '@/lib/auth';
 import { getLead, duplicadosDeLead } from '@/lib/leads';
+import { instagramComparable } from '@/lib/leads-duplicados';
 import { getTenantDb } from '@/lib/workspace';
 import { funnelsConUmbrales } from '@/lib/funnels';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
@@ -59,9 +60,9 @@ export async function tiempoEnEtapaAction(leadId: number): Promise<{ etapa: stri
 export type FichaParecida = { id: number; nombre: string; porque: string };
 
 /**
- * Otras fichas con el mismo email o teléfono (la comparación de siempre, `duplicadosDeLead`). ⚠️ SIN EMAIL NI TELÉFONO
- * NO SE BUSCA: por el nombre solo, la búsqueda lee la tabla entera (un nombre de pila corto no filtra), y eso al abrir
- * cada ficha es caro y casi siempre un falso parecido. null = no se pudo leer.
+ * Otras fichas con el mismo email, teléfono o @ de Instagram (la comparación de siempre, `duplicadosDeLead`). ⚠️ SIN
+ * NINGUNO DE LOS TRES NO SE BUSCA: por el nombre solo, la búsqueda lee la tabla entera (un nombre de pila corto no filtra),
+ * y eso al abrir cada ficha es caro y casi siempre un falso parecido. null = no se pudo leer.
  */
 export async function duplicadosDelLeadAction(leadId: number): Promise<FichaParecida[] | null> {
   await exigirSesion();
@@ -69,8 +70,8 @@ export async function duplicadosDelLeadAction(leadId: number): Promise<FichaPare
   try {
     const lead = await getLead(leadId);
     if (!lead) return null;
-    if (!lead.email?.trim() && !lead.telefono?.trim() && !lead.telefono_normalizado?.trim()) return [];
-    const r = await duplicadosDeLead({ email: lead.email, telefono: lead.telefono, telefonoNormalizado: lead.telefono_normalizado });
+    if (!lead.email?.trim() && !lead.telefono?.trim() && !lead.telefono_normalizado?.trim() && !instagramComparable(lead.instagram)) return [];
+    const r = await duplicadosDeLead({ email: lead.email, telefono: lead.telefono, telefonoNormalizado: lead.telefono_normalizado, instagram: lead.instagram });
     return r.filter((c) => c.lead.id !== leadId).slice(0, 5)
       .map((c) => ({ id: c.lead.id, nombre: c.lead.nombre?.trim() || `Lead ${c.lead.id}`, porque: c.texto }));
   } catch {
