@@ -87,6 +87,8 @@ export type NodoEstado = {
 export type MetaAccountHealth = {
   /** act_<id> — para armar los links a Ads Manager (ver linkAprobarEnMeta). */
   accountId: string | null;
+  /** El nombre de la cuenta en Meta, para decir QUÉ cuenta se lee (lib/meta-cuenta-leida.ts). */
+  nombre: string | null;
   status: number;
   statusLabel: string;
   disableReason: number;

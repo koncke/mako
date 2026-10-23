@@ -48,6 +48,7 @@ import { useVerMas } from '@/app/plan/board/VerMas';
 import { ProductoCelda, type ItemCampana } from '@/app/ads-manager/ProductoCelda';
 import { funnelsDeAsignada, type CampanaAsignada } from '@/lib/campana-config';
 import { hayQuePreguntar, preguntaAsignar, valorDeProducto, funnelDeValor } from '@/lib/campana-asignar';
+import { etiquetaCuentaMeta, avisoSinCampanasNuevas } from '@/lib/meta-cuenta-leida';
 import {
   campanasDelProductoAction, previaLoteAction, asignarLoteAction, quitarLoteAction, deshacerLoteAction,
   type EstadoCampanas, type FilaCampana,
@@ -476,6 +477,15 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
             </div>
           )}
 
+          {/* QUÉ cuenta de Meta se leyó, como la muestra Meta (23/10/2026): «la que creé no
+              aparece» fue otra cuenta o un borrador sin publicar, y sin esto se leía como un
+              error de MaKo. El mismo texto que el encabezado de /ads-manager. */}
+          {estado?.cuentaMeta && etiquetaCuentaMeta(estado.cuentaMeta.cuenta) && (
+            <p style={{ margin: '0 0 10px', fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)' }}>
+              <span style={{ fontFamily: MONO, fontSize: 12 }}>Cuenta {etiquetaCuentaMeta(estado.cuentaMeta.cuenta)}</span>
+              {avisoSinCampanasNuevas(estado.cuentaMeta) && <> · {avisoSinCampanasNuevas(estado.cuentaMeta)}</>}
+            </p>
+          )}
           {/* Sin Meta, la tabla igual sirve: las campañas con datos guardados se pueden asignar
               y traen sus leads. Lo que no se ve son las de HOY, y eso se dice. */}
           {estado?.metaError && estado.campanas.length > 0 && (
@@ -516,7 +526,8 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
             ? <p style={vacio()}><BotonIntegracion servicio="meta" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conecta Meta</BotonIntegracion> para ver tus campañas.</p>
             : estado.metaError
               ? <p style={vacio('var(--warn)')}>{estado.metaError}</p>
-              : <p style={vacio()}>Esta cuenta no tiene campañas.</p>
+              // La frase de la cuenta ya va arriba, con su número: acá no se repite.
+              : !estado.cuentaMeta ? <p style={vacio()}>Esta cuenta no tiene campañas.</p> : null
         )}
         {estado && estado.campanas.length > 0 && filas.length === 0 && <p style={vacio()}>Ninguna con esos filtros.</p>}
         {/* ⚠️ ACÁ IBA «N asignadas a <funnel>» hasta el 12/10/2026 (sexto feedback: «Elimina el texto "2

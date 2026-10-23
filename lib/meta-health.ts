@@ -28,6 +28,7 @@ import { TAG } from './cache';
 import { cache as reactCache } from 'react';
 import { revalidateTag, unstable_cache } from 'next/cache';
 import { getWorkspaceActual, runWithWorkspace } from './workspace';
+import type { CuentaLeida } from './meta-cuenta-leida';
 
 const GRAPH_BASE = 'https://graph.facebook.com';
 const MAX_PAGES = 50;
@@ -222,6 +223,7 @@ function computeAccountHealth(raw: Record<string, unknown>): MetaAccountHealth {
 
   return {
     accountId: raw.id != null ? String(raw.id) : null,
+    nombre: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : null,
     status,
     statusLabel: accountStatusLabel(status),
     disableReason,
@@ -315,7 +317,8 @@ async function edgeUrl(path: string, fields: string): Promise<() => URL> {
 // Campañas y conjuntos, para ASIGNARLOS a un producto (05/10/2026)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type CampanaMeta = { id: string; nombre: string; estado: string };
+/** `creada`: el created_time de Meta, o null. Dice si la cuenta tiene campañas nuevas (lib/meta-cuenta-leida.ts). */
+export type CampanaMeta = { id: string; nombre: string; estado: string; creada: string | null };
 export type ConjuntoMeta = { id: string; nombre: string; estado: string; campanaId: string };
 
 /**
@@ -334,19 +337,25 @@ export type ConjuntoMeta = { id: string; nombre: string; estado: string; campana
  * Tira si no hay credenciales o Meta contesta un error: quien llama decide qué mostrar.
  * Un `[]` acá diría «tu cuenta no tiene campañas», que es otra cosa.
  */
-export async function campanasYConjuntos(): Promise<{ campanas: CampanaMeta[]; conjuntos: ConjuntoMeta[] }> {
-  const [campRaw, adsetRaw] = await Promise.all([
-    (async () => graphGetAll(await edgeUrl('campaigns', 'id,name,effective_status')))(),
+export async function campanasYConjuntos(): Promise<{ campanas: CampanaMeta[]; conjuntos: ConjuntoMeta[]; cuenta: CuentaLeida }> {
+  // La cuenta va con las campañas (23/10/2026): el selector dice QUÉ cuenta leyó, porque «la que
+  // creé no aparece» fue otra cuenta o un borrador sin publicar (docs/hallazgos-ads.md).
+  const [campRaw, adsetRaw, cuentaRaw, acct] = await Promise.all([
+    (async () => graphGetAll(await edgeUrl('campaigns', 'id,name,effective_status,created_time')))(),
     (async () => graphGetAll(await edgeUrl('adsets', 'id,name,campaign_id,effective_status')))(),
+    // Sólo el nombre: es un dato para leer, no para decidir. Si falla, va el número solo.
+    fetchAccountRaw().catch(() => null),
+    getEnv('META_AD_ACCOUNT_ID'),
   ]);
   const txt = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
   return {
     campanas: campRaw
-      .map((r) => ({ id: txt(r.id), nombre: txt(r.name), estado: txt(r.effective_status) }))
+      .map((r) => ({ id: txt(r.id), nombre: txt(r.name), estado: txt(r.effective_status), creada: txt(r.created_time) || null }))
       .filter((c) => c.id),
     conjuntos: adsetRaw
       .map((r) => ({ id: txt(r.id), nombre: txt(r.name), estado: txt(r.effective_status), campanaId: txt(r.campaign_id) }))
       .filter((c) => c.id),
+    cuenta: { id: acct, nombre: txt(cuentaRaw?.name).trim() || null },
   };
 }
 

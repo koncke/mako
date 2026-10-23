@@ -4408,8 +4408,16 @@ clientes nuevos (ws20 Sergio Arriata, ws21 Florencia Ayelen Carballo, ws22 Patri
 - **Regla:** ante «no me aparece», antes de tocar código se pide el número de cuenta que muestra Meta arriba a la
   izquierda en esa campaña y si está publicada; se compara con el `META_AD_ACCOUNT_ID` del negocio.
 
-**Sin hacer:** que /ads-manager diga a la vista QUÉ cuenta está leyendo (nombre y número), para que el cliente lo
-compare solo; y conectar Meta en ws21.
+- **Lo que quedó (mismo día):** /ads-manager y el selector de campañas del CRM dicen al lado del título «Cuenta
+  Nombre · número», como Meta la muestra arriba a la izquierda, y si la cuenta no tiene campañas creadas en los
+  últimos 30 días, una frase que manda a publicar o a revisar la cuenta (lib/meta-cuenta-leida.ts). Sólo con Meta
+  CONTESTANDO y con cuenta: el health «Sin conexión» de /api/meta-health trae `campaigns: []`, y sin ese corte decía
+  «esta cuenta no tiene campañas» a quien no conectó nada. El `created_time` se compara como FECHA: Meta lo manda con
+  el offset de cada cuenta (`-0700`, `-0300`, `+0000`) y ordenar el texto elige mal.
+
+**Sin hacer:** conectar Meta en ws21 (paso de Martín o de la clienta); mirar el encabezado en pantalla después del
+deploy (no se levanta `next dev` local: escribe en producción).
 
 **Vive en:** lib/meta-health.ts (`edgeUrl`, `campanasYConjuntos`, `_getMetaHealth`) · lib/credenciales.ts (`credWs`) ·
-app/ads-manager/CampanasBrowser.tsx (`matchEstado`)
+lib/meta-cuenta-leida.ts · app/ads-manager/CampanasBrowser.tsx (`matchEstado`, `cuentaLeida`) ·
+app/crm/CampanasModal.tsx · app/crm/campanas-actions.ts (`cuentaMeta`) · tests/meta-cuenta-leida.test.ts
