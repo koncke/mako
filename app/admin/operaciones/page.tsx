@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+// Las cuentas y sus dispositivos del Uso (CuentasYDispositivos.tsx): el mismo dibujo que «Tus cuentas de IA».
+import '@/app/integraciones/tus-cuentas-ia.css';
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { wsSuperAdmin } from '@/lib/workspace';

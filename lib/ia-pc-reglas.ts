@@ -9,6 +9,8 @@
 // Claude Code, y el test compara las dos copias.
 // =============================================================================
 
+import { ESTADOS_MX } from './geo-regiones';
+
 /** El token de una PC emparejada: un negocio, una PC, una persona. Sólo late, toma turnos y los contesta. */
 export const PREFIJO_TOKEN_PC = 'mkopc_';
 /** El token de las herramientas de UN turno: lo recibe la PC que lo tomó y vence con el turno. */
@@ -537,11 +539,102 @@ export function sistemaDeLaVersion(version: string | null | undefined): 'Windows
   return m ? (m[1].toLowerCase() === 'mac' ? 'Mac' : 'Windows') : null;
 }
 
-/** Una PC de un negocio, para el super admin (SuperAdmin › Uso → Computadoras). Sin ningún secreto. */
+/**
+ * Una PC de un negocio, para el super admin (SuperAdmin › Uso → Computadoras). Sin ningún secreto: el email de sus cuentas va
+ * ENTERO porque el super admin lo puede ver (decisión del Cerebro, 22/10/2026), y su ubicación es sólo ciudad, provincia y país.
+ */
 export type PcDeNegocio = {
   id: number; ws: number; negocio: string; persona: string; nombre: string; sistema: 'Windows' | 'Mac' | null;
   enLinea: boolean; conClaude: boolean; conectadaAt: string | null; ultimoLatido: string | null;
+  cuentas: CuentaPc[]; ubicacion: string | null; version: string | null;
 };
+
+// ── Dónde está cada dispositivo (23/10/2026) ───────────────────────────────────
+// Martín: «Cada dispositivo muestra su UBICACIÓN como lo hace Google en "Tus dispositivos": "Grandbourg, Buenos Aires,
+// Argentina"». Sale de los headers de geolocalización que Vercel le pone al latido (lib/graficos-datos-puro.ts →
+// `ubicacionDeHeaders`, que nunca lee la IP). ⚠️ DATO PERSONAL: sólo ciudad, provincia y país, como texto; nunca la IP ni
+// las coordenadas (supabase/migrations/0327_ia_pc_ubicacion.sql). Lo que no se sabe, no se muestra.
+
+/** Las provincias de Argentina por su código ISO 3166-2 (lo que manda `x-vercel-ip-country-region`). */
+export const PROVINCIAS_AR: Readonly<Record<string, string>> = {
+  A: 'Salta', B: 'Buenos Aires', C: 'Ciudad de Buenos Aires', D: 'San Luis', E: 'Entre Ríos', F: 'La Rioja',
+  G: 'Santiago del Estero', H: 'Chaco', J: 'San Juan', K: 'Catamarca', L: 'La Pampa', M: 'Mendoza', N: 'Misiones',
+  P: 'Formosa', Q: 'Neuquén', R: 'Río Negro', S: 'Santa Fe', T: 'Tucumán', U: 'Chubut', V: 'Tierra del Fuego',
+  W: 'Corrientes', X: 'Córdoba', Y: 'Jujuy', Z: 'Santa Cruz',
+};
+
+/** El nombre del país en español («Argentina», «México»), o null. */
+export function nombreDePais(iso2: string): string | null {
+  try { return new Intl.DisplayNames(['es'], { type: 'region' }).of(iso2.toUpperCase()) ?? null; } catch { return null; }
+}
+
+/**
+ * «Grandbourg, Buenos Aires, Argentina», como Google: ciudad, provincia y país; lo que no viene se saltea, y un nombre que se
+ * repite va una vez («Córdoba, Argentina»). La provincia, sólo donde se sabe su nombre (Argentina y México); si no, nada.
+ */
+export function textoDeUbicacion(u: { pais: string | null; region: string | null; ciudad: string | null } | null | undefined): string | null {
+  if (!u?.pais) return null;
+  const pais = u.pais.toUpperCase();
+  const region = !u.region ? null : pais === 'AR' ? PROVINCIAS_AR[u.region.toUpperCase()] ?? null : pais === 'MX' ? ESTADOS_MX[`MX-${u.region.toUpperCase()}`] ?? null : null;
+  const partes: string[] = [];
+  for (const p of [u.ciudad, region, nombreDePais(pais)]) {
+    const t = (p ?? '').replace(/[\u0000-\u001f<>]/g, '').trim();
+    if (t && !partes.some((x) => x.toLowerCase() === t.toLowerCase())) partes.push(t);
+  }
+  return partes.length ? partes.join(', ').slice(0, 120) : null;
+}
+
+// ── Las cuentas y sus dispositivos (23/10/2026) ───────────────────────────────
+// Martín: cada cuenta conectada es UN bloque, «Cuenta 1», «Cuenta 2» (no el nombre de la PC), con su email, su plan y su uso;
+// adentro, sus DISPOSITIVOS. Se agrupa en el SERVIDOR: quien mira recibe el email ajeno enmascarado, y con eso no se puede
+// agrupar (dos «m***@gmail.com» pueden ser dos cuentas).
+
+/** Una PC tal cual se agrupa: lo de la tarjeta, con sus cuentas SIN enmascarar. */
+export type PcParaAgrupar = {
+  id: number; nombre: string; esMia: boolean; de?: string; enLinea: boolean; ultimoLatido: string | null; version: string | null;
+  sistema: 'Windows' | 'Mac' | null; ubicacion: string | null; conectadaAt: string | null; sinClaude?: boolean; cuentas: readonly CuentaPc[];
+};
+/** Un dispositivo de «Tus cuentas de IA». `conCuenta`: su Claude tiene la sesión (alguna cuenta). */
+export type DispositivoIA = Omit<PcParaAgrupar, 'cuentas'> & { conCuenta: boolean };
+/** Una cuenta (de Claude o de ChatGPT) con sus dispositivos. `numero`: «Cuenta 1», por orden de conexión. */
+export type CuentaIA = CuentaPc & { numero: number; dispositivos: DispositivoIA[] };
+export type CuentasIA = { cuentas: CuentaIA[]; sinCuenta: DispositivoIA[] };
+
+/** «Windows · Grandbourg, Buenos Aires, Argentina», como Google: lo que se sabe; sin nada, null (y no se muestra). */
+export const dondeEsta = (d: { sistema?: string | null; ubicacion?: string | null }): string | null => [d.sistema, d.ubicacion].filter(Boolean).join(' · ') || null;
+
+/**
+ * Las PC, por cuenta: la misma cuenta en dos computadoras es UN bloque con dos dispositivos, y una PC con dos cuentas está en
+ * las dos. Orden: la cuenta del primer dispositivo conectado es la «Cuenta 1». El uso (5 horas, semana) es el del dispositivo
+ * que latió último. El email, entero sólo si `verEmail` vale para alguno de sus dispositivos (el suyo, o el super admin); si
+ * no, enmascarado. Las PC sin ninguna cuenta (sin Claude, o sin la sesión) van aparte, en `sinCuenta`.
+ */
+export function agruparPorCuenta(pcs: readonly PcParaAgrupar[], verEmail: (pc: PcParaAgrupar) => boolean): CuentasIA {
+  const ms = (s: string | null | undefined) => (s ? Date.parse(s) || 0 : 0);
+  const dispositivo = (pc: PcParaAgrupar): DispositivoIA => { const { cuentas, ...d } = pc; return { ...d, conCuenta: cuentas.length > 0 }; };
+  const grupos = new Map<string, { pcs: PcParaAgrupar[]; cuenta: CuentaPc; latido: number }>();
+  const sinCuenta: DispositivoIA[] = [];
+  for (const pc of pcs) {
+    if (!pc.cuentas.length) { sinCuenta.push(dispositivo(pc)); continue; }
+    for (const c of pc.cuentas) {
+      const clave = c.email ? `${c.proveedor}:${c.email.trim().toLowerCase()}` : `${c.proveedor}:pc${pc.id}`;
+      const g = grupos.get(clave) ?? { pcs: [], cuenta: c, latido: -1 };
+      if (!g.pcs.includes(pc)) g.pcs.push(pc);
+      if (ms(pc.ultimoLatido) > g.latido) { g.cuenta = c; g.latido = ms(pc.ultimoLatido); }
+      grupos.set(clave, g);
+    }
+  }
+  const primero = (g: { pcs: PcParaAgrupar[] }) => Math.min(...g.pcs.map((p) => ms(p.conectadaAt) || Number.MAX_SAFE_INTEGER));
+  const menorId = (g: { pcs: PcParaAgrupar[] }) => Math.min(...g.pcs.map((p) => p.id));
+  const cuentas = [...grupos.values()]
+    .sort((a, b) => primero(a) - primero(b) || menorId(a) - menorId(b))
+    .map((g, i): CuentaIA => {
+      const { email, ...resto } = g.cuenta;
+      const ver = g.pcs.some(verEmail);
+      return { ...resto, ...(email ? { email: ver ? email : enmascararEmail(email) } : {}), numero: i + 1, dispositivos: g.pcs.map(dispositivo) };
+    });
+  return { cuentas, sinCuenta };
+}
 export type LecturaComputadoras = { ok: true; pcs: PcDeNegocio[] } | { ok: false; error: string };
 
 /**
