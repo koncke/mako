@@ -832,7 +832,9 @@
 .co-preg--sugerencias .co-preg__sug { font-weight: 500; color: var(--dim); }
 .co-preg--sugerencias:hover .co-preg__sug { color: var(--ink); }
 .co-preg__cab + .co-preg__pasos { margin-bottom: 8px; }
-/* «‹ Anterior», los puntos y «Siguiente ›» (sin pantalla de resumen: con la última, salen todas). */
+/* ‹, los puntos y › (sin pantalla de resumen: con la última, salen todas). Las flechas solas, y apagadas sin una antes o después. */
+.co-preg__flechita { width: 30px; height: 30px; padding: 0; justify-content: center; font-size: 17px; line-height: 1; }
+.co-preg__flechita:disabled { opacity: .35; cursor: default; }
 .co-preg__pasos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .co-preg__puntos { display: inline-flex; gap: 6px; }
 .co-preg__punto { width: 9px; height: 9px; padding: 0; border: 0; border-radius: 50%; background: var(--border-strong); cursor: pointer; }
