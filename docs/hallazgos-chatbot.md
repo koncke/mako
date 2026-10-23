@@ -27,6 +27,30 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## La espera «después de» y las plantillas del CRM automático (23/10/2026, b5, chat CRM)
+
+**Vive en:** `lib/flujo-grafo.ts` (`Espera.modo === 'despues_de'`), `lib/nutricion-grafo-motor.ts` (`fechasDespuesDe`,
+`anclaDeEspera`), `lib/condiciones-catalogo.ts` (`asistencia_sin_marcar`, `nutricion_vencida`), `lib/simulador-grafo.ts`,
+`lib/flujo-conversacion.ts`, `lib/plantillas-automatizaciones.ts`, `app/automations/GaleriaPlantillas.tsx`. El porqué del
+lado del CRM, en [hallazgos-crm.md](hallazgos-crm.md) → «El CRM automático pasa a plantillas».
+
+- **«Probar» trataba toda espera que no fuera «por tiempo» como «antes de la reunión».** `lib/simulador-grafo.ts` armaba
+  el reloj con `modo === 'tiempo' ? … : reunión − N`, así que una «3 h después» salía ANTES que un «Esperar 1 h» de otro
+  camino. Y `esperaAntesDe` (lib/flujo-conversacion.ts) contaba una «después de» como minutos fijos. **Regla: con un
+  modo de espera nuevo, se grepea cada `espera?.modo === 'tiempo'` / `!== 'antes_reunion'`**: una condición binaria
+  sobre un enum de tres valores mete el tercero en la rama que no es.
+- **La creación al instante (#882) no sirve para una plantilla que MUEVE al lead.** El ⚡ «Mover de etapa» exige su
+  etapa y `setSecuenciaPasos` no guarda una acción incompleta, así que la plantilla no puede nacer «para elegir
+  después». Esas dos (T2 y T6) pasan por las pantallas de destino de la galería
+  (`p.onCrearPlantilla && !pl.destinos?.length`); las demás siguen al instante.
+- **El barrido del CRON de etapa sólo inscribe abiertos.** Una automatización cuyo CRON es una etapa de No responde o
+  Perdido queda vacía (ver hallazgos-crm.md). Es la entrada `cohorte-etapa-abiertos-90d` del inventario de «nada por
+  detrás».
+
+**Sin hacer:** Crear con IA no lee ni escribe `despues_de` (`lib/flujo-ia.ts`, el diff está en `5129d8dde`; test `todo`
+en tests/espera-despues-de.test.ts). Y tests/crear-ia-tercera.test.ts queda rojo: los dos ids nuevos pasan el prompt a
+~4.008 tokens (techo 4.000).
+
 ## Lo que más muerde
 
 - **Un flujo nunca pasa por `legadoAGrafo`, y tener ids no lo hace un flujo.** El conversor arma la

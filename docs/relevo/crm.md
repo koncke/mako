@@ -6,6 +6,32 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω22. 23/10/2026, mañana (chat «CRM», cuenta `claude1`): b5, el CRM automático a plantillas
+
+**Lo que quedaba de la tanda B era b5.** El armador de b1 está en main desde `bdeca4755` (15/10). Ojo: el clon compartido
+estaba parado en el 16/10 y su relevo lo daba «sin hacer». Este archivo se lee con `git show origin/main:docs/relevo/crm.md`.
+
+**Rama `crm-b5-2310`** en C:/dev/wt-crm-b5, sobre main 594ecd41b, sin pushear. La revisa Automations (son sus archivos) y la
+sube el Cerebro:
+- `a2661aa02` — la espera «N después de» una fecha del lead y las condiciones «Asistencia sin marcar» y «Venció su
+  nutrición manual». Es el port de `5129d8dde`, con dos arreglos: «Probar» y `esperaAntesDe`.
+- `17947346f` — las cuatro plantillas: «Un Lead No Agendó» (T2), «Una Reunión Sin Marcar» (T1), «Venció la Nutrición
+  Manual» (T3) y «Un Lead Se Enfrió» (T6). Más `scripts/crm-auto-a-automatizaciones.mts`.
+- Lo que sigue, en docs/hallazgos-crm.md («El CRM automático pasa a plantillas») y en docs/hallazgos-chatbot.md.
+
+**El motor viejo sigue prendido** en el ws1 (por el env de Vercel) y en el ws11 (por setting). El script corre así:
+- sin bandera: simulacro, solo lee;
+- `--aplicar`: crea las cuatro PAUSADAS;
+- `--activar`: las prende y apaga el motor del negocio.
+`--aplicar` y `--activar` esperan el OK de Martín. Comando:
+`node --env-file=<clon>/.env.local --conditions=react-server --import tsx scripts/crm-auto-a-automatizaciones.mts [--aplicar|--activar] [--ws=N]`.
+
+**Bloqueos, en orden:**
+1. Automations: tests/crear-ia-tercera.test.ts queda ROJO (el prompt pasa a ~4.008 tokens con los dos ids nuevos) y el port
+   de Crear con IA (`lib/flujo-ia.ts`) es suyo.
+2. T6 no inscribe a nadie hasta que el barrido del CRON de etapa deje de filtrar `estado_lead = 'abierto'`.
+3. La decisión de Martín: activar T1, T2 y T3 y apagar el motor (T6 deja de correr, ~1 lead por mes en el ws1), o esperar a T6.
+
 ## 0-Ω21. 22-23/10/2026, madrugada (chat «CRM», cuenta `claude3`): «Vincular evento / cobro» e Instagram
 
 **«Vincular evento» y «Vincular cobro»** (feedback de Martín con capturas del ws1, vía el Cerebro): rama `crm-vinc-2210` en

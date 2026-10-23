@@ -3162,4 +3162,26 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '23 oct', hora: '10:15', chat: 'CRM', sesion: 'local_0daa9939-4039-4b3c-9ad4-0e7ba68de6c5', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El CRM automático pasa a cuatro automatizaciones que se ven',
+    puntos: [
+      'El CRM automático seguía moviendo leads de Mauricio y de Leila sin que se viera en ninguna pantalla: el botón se había sacado el 14/10 y el motor quedó prendido.',
+      'Sus cuatro reglas ahora son plantillas de Automations: «Un Lead No Agendó», «Una Reunión Sin Marcar», «Venció la Nutrición Manual» y «Un Lead Se Enfrió».',
+      'Las esperas pueden contar desde una fecha del lead: «3 h después de la reunión» o «después de su plazo de nutrición».',
+      'Una reunión que nadie marcó ya no pasa a No Show sola: MaKo pregunta en el grupo si fue.',
+      'Falta tu OK para crearlas y prenderlas en las cuentas de Mauricio y de Leila, y apagar el motor viejo ahí.',
+    ],
+    commits: [
+      { sha: 'a2661aa02', msg: 'Automations: la espera «N después de» una fecha del lead y las condiciones de T1/T3, portadas a main (b5)', lineas: 614, archivos: 10 },
+      { sha: '17947346f', msg: 'Automations: las cuatro plantillas del CRM automático (T1, T2, T3, T6) y el script que las crea en los negocios con el motor prendido (b5)', lineas: 1188, archivos: 15 },
+    ],
+    archivos: [
+      'lib/plantillas-automatizaciones.ts — las cuatro plantillas',
+      'scripts/crm-auto-a-automatizaciones.mts — simulacro, crearlas pausadas y activarlas',
+      'lib/crm-auto.ts — el motor viejo, a apagar',
+    ],
+    revisar: '/automations',
+  },
 ];

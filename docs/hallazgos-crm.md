@@ -20,6 +20,40 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## El CRM automático pasa a plantillas de Automations, y el motor seguía corriendo sin pantalla (23/10/2026, b5)
+
+**Vive en:** `lib/crm-auto.ts`, `lib/crm-auto-plan.ts`, `app/api/cron/crm-automatico/route.ts` · las plantillas en
+`lib/plantillas-automatizaciones.ts` · el script en `scripts/crm-auto-a-automatizaciones.mts`. Ramas `crm-b5-2310`
+(`a2661aa02`, `17947346f`), sobre el port de `5129d8dde` y `87889880f` del 14/10.
+
+- **Síntoma: el motor movía leads de clientes y nadie lo veía.** El botón «CRM Automático» se sacó el 14/10
+  (`app/crm/CrmAutoToggle.tsx`: «HOY NADIE LO DIBUJA») pero el cron siguió prendido: en el ws1 sin setting, porque
+  hereda el env `CRM_AUTO_ENABLED` de Vercel, y en el ws11 con `crm_auto_enabled = true`. Medido el 23/10: 95 T2, 8 T1 y
+  1 T6 en 30 días en el ws1, 7 T2 en el ws11, y 72+4 confirmaciones pendientes. Es la regla de «nada por detrás» rota
+  por omisión: sacar el control no apaga lo que controla.
+- **Un script local no ve el env de Vercel.** Para saber en qué negocios corre el motor, `crmAutoHabilitado()` desde la
+  notebook contesta «apagado» para el ws1 (el `.env.local` no trae `CRM_AUTO_ENABLED`). El script decide por evidencia:
+  el setting, o, sin setting, movimientos del motor en 14 días (`lead_audit` «CRM automático»).
+- **T1 no necesita una operación de Fathom.** El webhook de Fathom (`app/api/webhooks/fathom/route.ts`,
+  `lib/fathom-auto.ts`) ya marca la asistencia cuando llega la grabación. Lo único propio de T1 era deducir «No Show»
+  porque NO había grabación, y eso ya estaba advertido como frágil («sin grabación no es no vino»): en la plantilla pasa
+  a ser una pregunta al grupo («¿fue a su reunión?»).
+- **T6 como automatización no inscribe a nadie hoy.** Su CRON es No responde + Perdido, y el barrido del CRON de etapa
+  toma sólo `estado_lead = 'abierto'` (lib/nutricion.ts, cohorte `etapa_actual`). Hasta que Automations saque ese
+  filtro (su inventario: `cohorte-etapa-abiertos-90d`), activar «Un Lead Se Enfrió» deja una automatización prendida y
+  vacía, sin error.
+- **El diagnóstico obvio era el equivocado: «el armador de b1 está sin hacer».** Lo decía el relevo del clon local, que
+  estaba parado en el 16/10. En `origin/main` el armador está desde `bdeca4755` (15/10) y la ficha v2 (`3020bad52`) lo
+  superó. Con varios chats sobre el mismo clon, **el relevo se lee de `git show origin/main:docs/relevo/crm.md`**, no
+  del árbol de trabajo.
+
+**Sin hacer:**
+- `--aplicar` y `--activar` en el ws1 y el ws11: esperan el OK de Martín (cambia qué pasa con los leads de dos clientes).
+- T6, hasta que el barrido inscriba a los que no están abiertos.
+- Borrar el motor (`lib/crm-auto*.ts`, el cron, `CrmAutoToggle.tsx`, `mako_confirmaciones`): después de activar, y con
+  las confirmaciones pendientes resueltas o archivadas.
+- Crear con IA no conoce todavía la espera «después de» (`lib/flujo-ia.ts`, de Automations).
+
 ## Traer los contactos de un grupo de WhatsApp: una etapa puede mandar sola (23/10/2026)
 
 Martín, en la llamada del 23/10 (min 37:27): «una automatización que te agrega de un grupo de WhatsApp, te pone todos los
