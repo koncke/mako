@@ -101,7 +101,7 @@ test('«Second Brain», debajo de la Ticketera, abre el grafo (el chat con MaKo 
   const src = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
   // Desde el 23/10/2026 lo decide lib/ops-center-navegar.ts: «Second Brain» va al grafo (`ir: 'mapa'`), desde cualquier panel.
   assert.match(src, /const irAlSecondBrain = \(\) => \(veMapa \? tocar\('second-brain'\) : elegir\(cerebroFila\.elegido\)\);/, 'con el Mapa, el panel es el grafo');
-  assert.match(src, /if \(paso\.ir\) router\.push\(paso\.ir === 'mapa' \? hrefMapa :/);
+  assert.match(src, /if \(paso\.ir\) \{ setYendo\(paso\.ir === 'mapa' \? 'mapa' : 'fuera'\); router\.push\(paso\.ir === 'mapa' \? hrefMapa :/);
 });
 
 // Lo mismo en el teléfono: la fila «Second Brain» debajo de «Ticketera» (/m/operaciones). /m/second-brain manda

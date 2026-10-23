@@ -81,6 +81,7 @@ import { SUBS_VISIBLES, edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } fr
 import { aspectoDeChat } from '@/lib/centro-munecos';
 import { tocarEnLaBarra, type EntradaBarra } from '@/lib/ops-center-navegar';
 import { Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
+import { CargandoMako } from '@/app/_ui/CargandoMako';
 import { RECORRIDO_INICIO } from '@/lib/onboarding-arranque';
 import { PASOS_INICIO } from './recorrido-inicio';
 import '@/app/admin/operaciones/centro.css';
@@ -158,6 +159,9 @@ function ConCentro({ datos, children }: { datos: DatosCentro; children: (k: Cent
   return <>{children(k)}<Toast state={toast} onClose={clear} /></>;
 }
 
+/** ¿Lo elegido escribe algo en la URL? Un chat sí (`?chat=`, `?offer=`, `?antes=`, `?centro=`); «Nuevo chat» no. */
+const urlPelada = (e: Elegido | null): boolean => !!e && ('id' in e || 'offer' in e || 'antes' in e || 'centro' in e);
+
 /** El chat de Claude Code de entrada: el Cerebro (va primero) o el primero que puede recibir. */
 const centroDeEntrada = (k: Centro): string | null => (k.chats.find((c) => c.sesion) ?? k.chats[0])?.clave ?? null;
 
@@ -216,6 +220,28 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   // hay grafo no se anota nada; al irse, el efecto vuelve a correr y anota el chat.
   const hayMapa = mapa != null;
   useEffect(() => { if (elegido && !hayMapa) anotarEnUrl(elegido, urlCentro); }, [elegido, urlCentro, hayMapa]);
+  // ⚠️ EL CLIC CAMBIA LA VISTA EN EL ACTO (23/10/2026, Martín: «Cuando apreto "Second Brain" primero se va al chat de "Cerebro" y
+  // luego de unos segundos ahí recién entra al second brain, eso está muy mal»). El grafo lo arma el SERVIDOR (`mapa`) y tarda
+  // ~3 s; mientras tanto se dibujaba lo de antes. `yendo` es adónde se fue con el clic: hacia el grafo se ve su loader
+  // (CargandoMako) hasta que llega, y hacia afuera se ve el chat ya, aunque el grafo todavía esté. Llega lo nuevo y se suelta.
+  const [yendo, setYendo] = useState<'mapa' | 'fuera' | null>(null);
+  useEffect(() => { setYendo(null); }, [mapa]);
+  const verMapa = yendo ? yendo === 'mapa' : hayMapa;
+  // ⚠️ LA VISTA SALE DE LA URL: un link a la página pelada (la barra de la app, el ícono del Ops Center) vuelve a la entrada.
+  // Antes el panel se quedaba en el último chat aunque la URL dijera /second-brain. Lo que escribe `anotarEnUrl` nunca deja la
+  // URL pelada con un chat elegido (sólo «Nuevo chat», que no lleva parámetro), así que esto es siempre una navegación de afuera.
+  const qs = useSearchParams().toString();
+  const elegidoRef = useRef(elegido);
+  elegidoRef.current = elegido;
+  const qsAntes = useRef(qs);
+  useEffect(() => {
+    const antes = qsAntes.current;
+    qsAntes.current = qs;
+    if (qs || !antes || !urlPelada(elegidoRef.current)) return;
+    setNuevoCentro(false);
+    if (centro) { const entrada = centroDeEntrada(centro); if (entrada) setElegido({ centro: entrada }); return; }
+    setElegido(k.lista[0]?.elegido ?? null);
+  }, [qs]); // eslint-disable-line react-hooks/exhaustive-deps
   // ⚠️ LA TICKETERA SIGUE A LA URL, no a la prop: un link a esta misma página con otro `?ticketera=` (el ítem «Ticketera»
   // de la barra de admin) no la vuelve a montar (docs/hallazgos-operaciones.md). La del CLIENTE también (23/10/2026): era un
   // estado suelto, fuera de la URL, y con ella abierta «Second Brain» no hacía nada (lib/ops-center-navegar.ts).
@@ -244,7 +270,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
 
   // ── Elegir en la barra ──
   /** Lo que hay en el panel (lib/ops-center-navegar.ts → panelQueSeVe). */
-  const estadoPanel = () => ({ ticketera: ticketera != null, mapa: mapa != null, nuevo: nuevoCentro });
+  const estadoPanel = () => ({ ticketera: ticketera != null, mapa: verMapa, nuevo: nuevoCentro });
   const elegir = (e: Elegido) => {
     if (!k.elegir(e)) return;
     const paso = tocarEnLaBarra('chat', estadoPanel());
@@ -254,6 +280,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     if (ticketera) cerrarTicketera(paso.ir == null);
     // Con el Mapa abierto, volver a una conversación es volver a la página sin `panel` (lo arma el servidor).
     if (paso.ir) {
+      setYendo('fuera');
       router.push('id' in e ? `${base}?chat=${e.id}` : 'offer' in e ? `${base}?offer=${e.offer}` : 'antes' in e ? `${base}?antes=${e.antes}`
         : 'centro' in e ? `${base}?centro=${encodeURIComponent(e.centro)}` : base);
     }
@@ -289,7 +316,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     if (!paso.ticketera && ticketera) cerrarTicketera(paso.ir == null);
     setNuevoCentro(paso.nuevo);
     setConChat(true);
-    if (paso.ir) router.push(paso.ir === 'mapa' ? hrefMapa : paso.ir === 'volver' ? hrefVolver : base);
+    if (paso.ir) { setYendo(paso.ir === 'mapa' ? 'mapa' : 'fuera'); router.push(paso.ir === 'mapa' ? hrefMapa : paso.ir === 'volver' ? hrefVolver : base); }
   }
   // Los chats de Claude Code que dicen lo buscado (el elegido, `chatCentro`, se sigue arriba).
   const chatsCentro = centro?.chats;
@@ -306,7 +333,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
    *  «Trabajando…». En su grupo (`sub`), corrida a la derecha y sólo con lo de después de «›», como un sub-chat del super admin. */
   const fila = (f: (typeof k.lista)[number], sub = false) => {
     // El jefe de un grupo sin chat propio abre el más reciente de los suyos, pero el abierto es ése, no el jefe.
-    const actual = !mapa && !f.jefeDeGrupo && esFilaDe(f, elegido);
+    const actual = !verMapa && !f.jefeDeGrupo && esFilaDe(f, elegido);
     const vivo = actual && k.enCurso;
     return (
       <FilaDeChat key={f.clave} titulo={f.titulo} criatura={f.criatura} aspecto={f.aspecto} animo={vivo ? 'trabajando' : 'despierto'} actual={actual}
@@ -342,7 +369,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           {/* Ops Center fuera del Second Brain: los chats de Claude Code (el Cerebro y cada jefe con sus sub-chats). */}
           {!listaSB && centro && (
             <>
-              <NuevoChatCentro onNuevo={abrirNuevoCentro} actual={nuevoCentro && !mapa && !ticketera} />
+              <NuevoChatCentro onNuevo={abrirNuevoCentro} actual={nuevoCentro && !verMapa && !ticketera} />
               {centro.chats.length > 0 && !delCentro.length && <p className="co-lista__vacio">Ningún chat con ese nombre.</p>}
               {centro.chats.length
                 ? <ListaCentro centro={centro} visibles={delCentro} actual={ticketera || nuevoCentro ? null : claveCentro} buscando={!!busca.trim()} onElegir={(clave) => elegir({ centro: clave })} />
@@ -351,7 +378,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           )}
           {listaSB && (<>
           {/* «Nuevo chat» arriba de todos, como el de ChatGPT y Claude (y el del Ops Center del super admin). */}
-          <NuevoChatCentro onNuevo={() => elegir({ virtual: 'nuevo' })} actual={!mapa && elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo'} />
+          <NuevoChatCentro onNuevo={() => elegir({ virtual: 'nuevo' })} actual={!verMapa && elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo'} />
           {k.errorLista && <p className="co-lista__vacio">{k.errorLista}</p>}
           {/* UNA lista (21/10/2026): el Cerebro arriba y todos los demás por actividad, sin plegables; desde el 22/10, agrupados por
               su origen («Offer › …», «Dashboard › …») con el MISMO agrupado del super admin (`GruposPorJefe`). */}
@@ -393,14 +420,14 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
             </button>
           )}
           {centro && (
-            <button type="button" className="co-acceso" aria-pressed={mapa != null && !ticketera} onClick={irAlSecondBrain}>
+            <button type="button" className="co-acceso" aria-pressed={verMapa && !ticketera} onClick={irAlSecondBrain}>
               <Icon name="cerebro" size={17} />Second Brain
             </button>
           )}
           {/* El grafo del negocio (el botón del grafo de Obsidian). En Ops Center no está (17/10/2026: «la entrada "Mapa" se
               va»): el grafo lo abre «Second Brain». */}
           {veMapa && listaSB && (
-            <button type="button" className="co-acceso" aria-pressed={mapa != null && !ticketera} onClick={irAlSecondBrain}>
+            <button type="button" className="co-acceso" aria-pressed={verMapa && !ticketera} onClick={irAlSecondBrain}>
               {/* «Second Brain», no «Mapa» (Martín, llamada con Florencia del 18/10 [00:50:28]: «no debería llamarse mapa,
                   debería llamarse second brain»). La TAB es «Ops Center»; lo que se llama «Second Brain» es el grafo. */}
               <Icon name={centro ? 'grid' : 'cerebro'} size={17} />Second Brain
@@ -417,11 +444,14 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         <TicketeraCentro cerebro={cerebroDelCentro(centro)} onVolver={() => { cerrarTicketera(); setConChat(false); }} />
       ) : !centro && ticketera ? (
         <TicketeraDelCliente mis={misTickets} onVolver={() => { cerrarTicketera(); setConChat(false); }} />
-      ) : mapa ? (
+      ) : verMapa ? (
         // El grafo trae su cabecera («Second Brain», siempre en oscuro: VistaCerebro.tsx); el «volver» de la ventana
         // angosta le llega por contexto, porque el grafo lo arma el servidor y una función no viaja de ahí (volver.ts).
-        <section className="co-panel" aria-label="Second Brain">
-          <VolverDelGrafo.Provider value={() => { setConChat(false); router.push(hrefVolver); }}>{mapa}</VolverDelGrafo.Provider>
+        // Mientras el servidor lo arma, su loader, en oscuro como el grafo (`yendo`, arriba).
+        <section className="co-panel" aria-label="Second Brain" {...(mapa ? {} : { 'data-tema': 'oscuro', style: { background: 'var(--bg)' } })}>
+          {mapa
+            ? <VolverDelGrafo.Provider value={() => { setConChat(false); setYendo('fuera'); router.push(hrefVolver); }}>{mapa}</VolverDelGrafo.Provider>
+            : <CargandoMako que="tu Second Brain" alto="100%" />}
         </section>
       ) : centro && nuevoCentro ? (
         // Un chat NUEVO de Claude Code: vacío, con su caja; con el primer mensaje, MaKo decide dónde va (ChatNuevo.tsx).
