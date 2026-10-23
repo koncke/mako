@@ -75,8 +75,6 @@ import { TicketeraDelCliente } from './TicketeraDelCliente';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { VolverDelGrafo } from './volver';
-// Directo y no desde el índice de app/_ui (ver app/_ui/CargandoMako.tsx).
-import { CargandoMako } from '@/app/_ui/CargandoMako';
 import { useChatCliente } from './useChatCliente';
 import { CajaDelCliente, HiloDelCliente, UsoDelCliente, estadoDelCliente } from './PiezasCliente';
 import { SUBS_VISIBLES, edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
@@ -186,11 +184,6 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   });
   // «Nuevo chat» de Claude Code (Ops Center): un chat vacío con su caja, sin modal; MaKo decide dónde va con el primer mensaje.
   const [nuevoCentro, setNuevoCentro] = useState(false);
-  // ⚠️ YENDO AL GRAFO (23/10/2026, «Rendimiento y loaders»; Martín: «cuando entro a Second Brain tarda muchísimo, y lo peor es
-  // que ni siquiera hay un loader»). El grafo lo arma el servidor: entre el toque y su llegada pasaban 2,7 s con el panel de
-  // antes quieto. Desde el toque, el panel muestra el loader de todas las tabs; se va cuando llega el grafo o al tocar otra cosa.
-  const [yendoAlGrafo, setYendoAlGrafo] = useState(false);
-  useEffect(() => { if (mapa != null) setYendoAlGrafo(false); }, [mapa]);
   const [conChat, setConChat] = useState(chatInicial != null || offerInicial != null || antesInicial != null || mapa != null || centroInicial != null || ticketeraInicial != null);
   const [ticketera, setTicketera] = useState<VistaDeTicketera | null>(ticketeraInicial);
   const [busca, setBusca] = useState('');
@@ -254,7 +247,6 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const estadoPanel = () => ({ ticketera: ticketera != null, mapa: mapa != null, nuevo: nuevoCentro });
   const elegir = (e: Elegido) => {
     if (!k.elegir(e)) return;
-    setYendoAlGrafo(false);
     const paso = tocarEnLaBarra('chat', estadoPanel());
     setNuevoCentro(paso.nuevo);
     setConChat(true);
@@ -297,7 +289,6 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     if (!paso.ticketera && ticketera) cerrarTicketera(paso.ir == null);
     setNuevoCentro(paso.nuevo);
     setConChat(true);
-    setYendoAlGrafo(paso.ir === 'mapa' && mapa == null);
     if (paso.ir) router.push(paso.ir === 'mapa' ? hrefMapa : paso.ir === 'volver' ? hrefVolver : base);
   }
   // Los chats de Claude Code que dicen lo buscado (el elegido, `chatCentro`, se sigue arriba).
@@ -431,11 +422,6 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         // angosta le llega por contexto, porque el grafo lo arma el servidor y una función no viaja de ahí (volver.ts).
         <section className="co-panel" aria-label="Second Brain">
           <VolverDelGrafo.Provider value={() => { setConChat(false); router.push(hrefVolver); }}>{mapa}</VolverDelGrafo.Provider>
-        </section>
-      ) : yendoAlGrafo ? (
-        // Mientras llega el grafo: el loader de todas las tabs, en el lugar del panel (ver «YENDO AL GRAFO» arriba).
-        <section className="co-panel" aria-label="Second Brain">
-          <CargandoMako que="tu Second Brain" alto="100%" />
         </section>
       ) : centro && nuevoCentro ? (
         // Un chat NUEVO de Claude Code: vacío, con su caja; con el primer mensaje, MaKo decide dónde va (ChatNuevo.tsx).
