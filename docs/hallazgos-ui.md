@@ -12,6 +12,43 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Reportar a Soporte»: UN botón en todo aviso de error, y el guardián que lo exige (23/10/2026)
+
+Martín (22/10): «en toda la app, SIEMPRE que sale un error, en donde sea, debe aparecer el botón de "Reportar a Soporte" y que
+cuando lo apreten se mande automático un mensaje aquí [la Ticketera] reportando solo lo que pasó». Es `app/_ui/ReportarASoporte.tsx`
+y tests/reportar-a-soporte.test.ts lo exige como hijo directo de TODO elemento JSX con `role="alert"` (o `role={…'alert'…}`) de
+app/. Se puso con un script en los 261 avisos de 181 archivos (el AST de TypeScript, no regex: los `=>` de los atributos rompen
+cualquier regex de JSX). Lo que no se ve leyendo el código:
+
+- **Hay avisos que están SIEMPRE montados y vacíos** (`<p role="alert">{error}</p>` con `error` null) y otros que cambian de
+  `role` («alert» o «status» según el tono). Por eso `<ReportarASoporte />` a secas no se dibuja si su padre está vacío o no es
+  `role="alert"`, y lo sigue mirando con un MutationObserver (hay avisos que se llenan sin que su componente se vuelva a dibujar).
+- **Lee el TEXTO del aviso, sin el de sus botones y links** («Reintentar», «Cerrar»), no la pantalla. Lo que hacía la persona
+  es el último botón que tocó (un listener en captura, vigente 2 minutos), sin los nombres propios que puede traer («Mover a Ana»
+  → «Mover a «…»»).
+- **Una lista (`<ul role="alert">`) sólo lleva `<li>`**: el botón va en el suyo y lee el aviso de arriba.
+- **Los avisos de error que NO son un `role="alert"` del JSX** se hicieron a mano: ErrorState (su marco era `role="status"`
+  también con tono `bad`), el Toast con tono `bad` (era `status`; ahora es un aviso y dura 8 s), el toast del teléfono (no tiene
+  tono: un error se reconoce por la frase, `esTextoDeError`), los `toast.error` de sonner del Video Editor
+  ([hallazgos-video-editor.md](hallazgos-video-editor.md)) y las dos pantallas de error de Next, que no importan nada de la app (si
+  la app está rota, el botón también): el mismo pedido, a mano.
+- **Privacidad** (la revisión adversarial del 23/10, que encontró cuatro agujeros en la primera versión): el reporte se sanea en el
+  navegador Y en el servidor. `sinSecretos`: JWT, «Authorization:/Cookie:», «Bearer/Basic/Token …», todo `…token=`/`client_secret:`
+  (el `\b` delante de `secret` no engancha después de `_`: hace falta `\w*`), «password es …», los prefijos conocidos (sk-, AIza,
+  EAA de Meta, ya29. de Google, ghp_, whsec_), la query de un link y todo token largo. `sinDatos`: emails, teléfonos y lo citado.
+  `sinNombres`: lo que va con mayúscula y no es de MaKo ni una sigla («mover a Roberto Pérez»: `sinDatos` sólo tapaba lo citado).
+  `rutaSoporte`: los tokens del CAMINO (/pagar/<token>) y los números que pueden ser un teléfono o un código. El navegador sólo
+  con la forma de uno. De quién es lo dice la sesión: el cuerpo no tiene cómo elegir el workspace ni la persona.
+- **«Lo que hacía» sale SÓLO de botones de verdad y fuera de una fila**: una tarjeta de lead o de conversación es un
+  `[role=button]` (o un botón en una fila) y su `innerText` es el nombre y la vista previa del mensaje. Y no cuenta el propio
+  «Reportar a Soporte»: el del toast de sonner está fuera de `[data-soporte]` y se registraba como «lo que hacía».
+- **El error que manda el botón no es «lo que vio el sistema»**: va en el detalle del ticket, no en `contexto.error` (el porqué,
+  en [hallazgos-ticketera.md](hallazgos-ticketera.md)).
+- **Un error de VALIDACIÓN también lo lleva** (el `mk-err` de `Field`, «Escribe un email válido»): Martín dijo «SIEMPRE». Si
+  molesta, la salida es sacarle el `role="alert"` a lo que no es un error de la app, no un permiso en el guardián.
+
+**Vive en:** app/_ui/ReportarASoporte.tsx · lib/soporte-reporte.ts · app/api/soporte/reportar/route.ts · app/_ui/Estados.tsx · app/_ui/Toast.tsx · app/m/_ui/ShellM.tsx · app/error.tsx · app/global-error.tsx · tests/reportar-a-soporte.test.ts
+
 ## El menú de la casa (MenuContextual) tiene SECCIONES y lo tildado (22/10/2026)
 
 - **`seccion` en un renglón** es el título de la sección que empieza ahí. La pieza dibuja la raya de arriba (si no es el

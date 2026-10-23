@@ -39,6 +39,7 @@ import { GRAMATICA } from '@/lib/mako-gramatica';
 import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
 import type { CanalRedacta, DatosRedacta } from '@/lib/mako-redacta';
 import { avisarChatMako } from './chat-mako-eventos';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 /** La ruta corta a los 90 s (`maxDuration`); el navegador espera un poco más y no para siempre. */
@@ -168,7 +169,7 @@ export function MakoRedacta({ contexto, permiteAudio, adaptar, onPropuesta, onCe
         )}
       </div>
 
-      {estado.t === 'error' && <div role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{estado.error}</div>}
+      {estado.t === 'error' && <div role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{estado.error}<ReportarASoporte /></div>}
 
       {r && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -198,7 +199,7 @@ export function MakoRedacta({ contexto, permiteAudio, adaptar, onPropuesta, onCe
                   <button type="button" style={btn} disabled={voz.t === 'guardando'} onClick={() => setVoz({ t: 'escribiendo', texto: '' })}>Escribirla yo</button>
                 </div>
               )}
-              {voz.t === 'error' && <div role="alert" style={{ fontSize: 12, color: 'var(--bad)' }}>{voz.error}</div>}
+              {voz.t === 'error' && <div role="alert" style={{ fontSize: 12, color: 'var(--bad)' }}>{voz.error}<ReportarASoporte /></div>}
             </div>
           )}
           {r.sinVoz && voz.t === 'lista' && <div style={{ fontSize: 12, color: 'var(--good)' }}>Voz guardada</div>}

@@ -6,6 +6,15 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## `toast.error` lleva «Reportar a Soporte»: se envuelve UNA vez, en el Toaster (23/10/2026)
+
+Los ~45 archivos del editor llaman `toast.error` de sonner, que dibuja su toast con su propia librería (no es un `role="alert"`
+de la app, y el guardián de los avisos no lo ve). En vez de tocar los 45, `components/ui/sonner.tsx` cambia `toast.error` del
+objeto de sonner —que es UNO para todos los que lo importan— por uno que agrega la acción «Reportar a Soporte» (salvo que quien
+llama traiga la suya) y dura 8 s. Vale porque ese módulo lo cargan las dos raíces del editor (VideoEditorCliente y EditorVideoM)
+antes de que nadie llame a `toast.error`; un archivo que use sonner FUERA del editor no lo tendría. Marca `conSoporte` para no
+envolverlo dos veces con el recargado en caliente.
+
 ## Cómo está armado, en una tabla
 
 | Pieza | Vive en | Qué decide |

@@ -4,6 +4,7 @@ import { useEditorState } from './context'
 import { t } from './strings'
 import { Button, IconButton } from './ui/Button'
 import styles from './ConflictBanner.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 interface ConflictBannerProps {
   onResolve?: (choice: 'reload' | 'save-as-copy') => void
@@ -39,6 +40,7 @@ export function ConflictBanner({ onResolve }: ConflictBannerProps) {
       <IconButton label={t.save.dismiss} size="sm" onClick={() => setDismissed(true)}>
         <X size={16} />
       </IconButton>
+      <ReportarASoporte />
     </div>
   )
 }

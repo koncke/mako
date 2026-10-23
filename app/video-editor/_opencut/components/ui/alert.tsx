@@ -3,6 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Alert02Icon } from "@hugeicons/core-free-icons";
+import { ReportarASoporte } from "@/app/_ui/ReportarASoporte";
 
 const alertVariants = cva(
 	"relative w-full rounded-lg border p-5 py-4.5 text-sm [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-destructive [&>svg~*]:pl-7",
@@ -37,6 +38,7 @@ const Alert = React.forwardRef<
 			/>
 		)}
 		{children}
+		<ReportarASoporte />
 	</div>
 ));
 Alert.displayName = "Alert";

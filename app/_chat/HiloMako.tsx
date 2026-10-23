@@ -36,6 +36,7 @@ import { ConectarDelAviso } from './ConectarDelAviso';
 import { BloqueHilo } from './BloqueHilo';
 import { FormularioEnChat } from './FormularioEnChat';
 import { ACCIONES_FORMULARIO } from './acciones-formulario';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const hora = (iso: string | null): string => {
   const t = iso ? Date.parse(iso) : NaN;
@@ -126,11 +127,11 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
         <FilaMia key={x.id} m={wa(x)} marcas={marcas} despues={<>
           {x.estado === 'error' && (
             <p className="co-nota co-nota--mal" role="alert">{x.error}{' '}
-              <button type="button" className="ch-enlace" onClick={() => onReintentar(x.id)}>Reintentar</button></p>
+              <button type="button" className="ch-enlace" onClick={() => onReintentar(x.id)}>Reintentar</button><ReportarASoporte /></p>
           )}
           {x.estado === 'incierto' && (
             <p className="co-nota co-nota--mal" role="alert">{x.error ?? ERROR_INCIERTO}{' '}
-              <button type="button" className="ch-enlace" onClick={onRecargar}>Recargar el chat</button></p>
+              <button type="button" className="ch-enlace" onClick={onRecargar}>Recargar el chat</button><ReportarASoporte /></p>
           )}
         </>}>
           {/* Desde dónde lo escribió (la estrella de una tab, OC6): un chip arriba de la burbuja. */}

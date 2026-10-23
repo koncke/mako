@@ -28,6 +28,7 @@ import { useState } from 'react';
 import { useEditorLanding } from '../contexto';
 import { CuerpoExportar } from './DialogoExportar';
 import { EstilosGmp, Giro, Icono, ModalGma, Pestanas, copiarTexto, pedir, useConfirmaGma, useFijo } from './piezas-gma';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const CSS_COMPARTIR = [
   '.gmp-comp-bloque{display:grid;gap:8px;padding:14px 0;border-bottom:1px solid var(--gmp-borde)}',
@@ -130,7 +131,7 @@ function DialogoCompartirAbierto({ onCerrar }: { onCerrar?: () => void }) {
                 <Icono nombre="restablecer" tam={14} />Regenerar
               </button>
             </div>
-            {error && <p className="gmp-error" role="alert">{error}</p>}
+            {error && <p className="gmp-error" role="alert">{error}<ReportarASoporte /></p>}
           </div>
 
           <div className="gmp-comp-bloque">

@@ -44,6 +44,7 @@ import { conLinks } from './bloque-texto';
 import { AvisoClave } from '@/app/_chat/AvisoClave';
 import { Icon } from '@/app/_components/icons';
 import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from '@/lib/claves-en-el-chat';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Elegido = { elegidas: number[]; otra: string };
 
@@ -324,7 +325,7 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
           <Plegar onPlegar={() => setPlegado(true)} />
         </div>
       )}
-      {aviso && <p className="co-preg__error" role="alert">{aviso}</p>}
+      {aviso && <p className="co-preg__error" role="alert">{aviso}<ReportarASoporte /></p>}
       {it.de === 'ticketera' && responderTicketera ? (
         <CuerpoTicketera key={it.id} d={it.d} responder={responderTicketera} onGuardada={() => guardada(it.id)}
           onEscribe={(hay) => { escrito.current = hay ? it.id : escrito.current === it.id ? null : escrito.current; }} />
@@ -364,7 +365,7 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
           </li>
         </ol>
         <div className="co-preg__pie co-preg__pie--chat">
-          {error ? <span className="co-preg__error" role="alert">{error}</span>
+          {error ? <span className="co-preg__error" role="alert">{error}<ReportarASoporte /></span>
             : <span className="co-preg__ayuda">{p.varias ? 'Elige una o varias' : `Elige con 1 a ${ops.length + 1}`}{varias && ultimaDelChat ? ' · con ésta salen todas' : ''}</span>}
           {(p.varias || otra.trim()) && (
             <button type="button" className="co-chip co-chip--primario" disabled={enviando || (!marcadas.length && !otra.trim())}
@@ -413,7 +414,7 @@ export function CuerpoDeLaTab({ q }: { q: PreguntaDeLaTab }) {
           ))}
         </ol>
         <p className="co-preg__pie">
-          {q.error ? <span className="co-preg__error" role="alert">{q.error}</span>
+          {q.error ? <span className="co-preg__error" role="alert">{q.error}<ReportarASoporte /></span>
             : q.opciones.length ? <span className="co-preg__ayuda">{`Elige con 1 a ${q.opciones.length}`}</span> : null}
         </p>
       </>)}

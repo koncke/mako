@@ -28,6 +28,7 @@ import { finPruebaAction } from './landing-actions';
 import { leadDePruebaAction } from './prueba-lead-actions';
 import { conWs, wsDeBusqueda } from '@/lib/ws-tab';
 import { AvisoVentanasBloqueadas } from '@/app/web-generator/lector/AvisoVentanasBloqueadas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -768,7 +769,7 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
         <div style={{ marginTop: 14 }}>
           <Button variant="primary" onClick={() => void arrancar()} loading={ocupado} disabled={!urlValida} style={{ width: '100%' }}>Probar</Button>
           {noAbre !== null && noAbre === url && (
-            <div role="alert" style={{ marginTop: 7, fontSize: 12.5, color: 'var(--bad)' }}>Esa dirección no es una página web.</div>
+            <div role="alert" style={{ marginTop: 7, fontSize: 12.5, color: 'var(--bad)' }}>Esa dirección no es una página web.<ReportarASoporte /></div>
           )}
         </div>
 

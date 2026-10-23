@@ -55,6 +55,7 @@ import {
   campoDelGesto, conBloqueDevuelto, conCampoDevuelto, conCampoMovido, conCamposDeTarea, conOtraTarea, conPrimeraTarea,
   conSeccion, entraOtraTarea, gruposDeCampos, hayTarea, idsNuevos, lugarDe, motivoVisible, sinTarea, type BorradorTarea,
 } from './tarea-editor-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type { BorradorTarea } from './tarea-editor-reglas';
 
@@ -231,7 +232,7 @@ export function TareaEditor(p: {
                 onEnfocado={() => setEnfocar(null)} onSalir={() => oir(s.id)}
                 onCambio={(label) => onChange({ ...valor, campos: conSeccion(valor.campos, g, { label }) })} />
             )}
-            {motivoTitulo && <p className="ec-motivo" role="alert">{motivoTitulo}</p>}
+            {motivoTitulo && <p className="ec-motivo" role="alert">{motivoTitulo}<ReportarASoporte /></p>}
             {/* La descripción de la tarea, con formato (item 11): el editor rico, como la de la clase. */}
             <div className={`te-desc${g === 0 && motivoTarea ? ' is-error' : ''}`} data-error={g === 0 && motivoTarea ? '' : undefined}>
               <EditorRicoPerezoso valor={s ? s.descripcionHtml ?? '' : valor.tareaHtml}
@@ -242,7 +243,7 @@ export function TareaEditor(p: {
                 minAlto={s ? 48 : 64} placeholder={s ? 'Qué tiene que hacer en esta tarea (opcional)…' : 'Qué tiene que hacer…'}
                 etiqueta={varias ? `Descripción de la tarea ${g + 1}` : 'Descripción de la tarea'} />
             </div>
-            {g === 0 && motivoTarea && <p className="ec-motivo" role="alert">{motivoTarea}</p>}
+            {g === 0 && motivoTarea && <p className="ec-motivo" role="alert">{motivoTarea}<ReportarASoporte /></p>}
             {/* Sus campos, ADENTRO de su tarjeta (item 5). */}
             <EditorCampos campos={gr.campos} onCampos={(l, m) => cambiarCampos(g, l, m)} arrastre={arr} grupo={g}
               errores={errores} silenciados={silenciados} onSalirDePregunta={oir}

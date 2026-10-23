@@ -44,6 +44,7 @@ import {
   cambiosDesde, conNombres, haceCuanto,
   type EntradaAnalisis, type Hallazgo, type Recomendacion, type VistaAnalisis,
 } from '@/lib/graficos-analisis';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type LoQueSeVe = { id: string; titulo: string; desde: string; hasta: string; resultado: Resultado };
 
@@ -261,7 +262,7 @@ export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista, onModo }: {
       <section className="an-sec">
         {/* Un «Cargando…» escrito no es un loader (AGENTS.md): va el giro. */}
         {cargando && <span className="an-meta"><Spinner size={16} color="var(--dim)" /></span>}
-        {!cargando && aviso && <p className="an-err" role="alert">{aviso}</p>}
+        {!cargando && aviso && <p className="an-err" role="alert">{aviso}<ReportarASoporte /></p>}
 
         {!cargando && !ia.ok && !corriendo && (
           <Mako estado="sin_conclusion" titulo="Falta conectar una IA" consecuencia={ia.mensaje ?? 'Sin IA conectada no puedo analizar la hoja.'}

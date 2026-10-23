@@ -48,6 +48,7 @@ import {
   diaMes, extracto, faltaParaValorar, haceCuanto, lineaConteo, mensajeDeFallo, puertaSync, textoResultadoSync,
   type ConteoGuiones,
 } from './analizar';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Lo que la page lee en el server y le pasa a la vista. Todo serializable. */
 export type DatosAnalizar = {
@@ -216,7 +217,7 @@ export function AnalizarGuion({ conteo, ultimaSync, errorLectura, drafts: drafts
             Valorar guion
           </Button>
           {valorando && <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>Puede tardar hasta 2 minutos.</span>}
-          {valError && <span role="alert" style={{ fontSize: 'var(--fs-meta)', color: 'var(--bad)' }}>{valError}</span>}
+          {valError && <span role="alert" style={{ fontSize: 'var(--fs-meta)', color: 'var(--bad)' }}>{valError}<ReportarASoporte /></span>}
           {guion.length > 0 && !valorando && <Button variant="tertiary" size="sm" onClick={limpiar}>Limpiar</Button>}
         </div>
         <div ref={resultadoRef} style={{ scrollMarginTop: 16 }}>

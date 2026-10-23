@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { hace } from '@/lib/progreso-reglas';
 import { detalleDeLaPc, type LecturaComputadoras, type PcDeNegocio } from '@/lib/ia-pc-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type LeerComputadoras = () => Promise<LecturaComputadoras>;
 export type DesconectarComputadora = (ws: number, id: number) => Promise<LecturaComputadoras>;
@@ -102,7 +103,7 @@ export function SeccionComputadoras({ leer, desconectar, ahora }: { leer: LeerCo
   return (
     <>
       <VistaComputadoras lectura={lectura} ahora={ahora} onDesconectar={onDesconectar} ocupado={ocupado} />
-      {error && <p className="co-uso__hacer" role="alert">{error}</p>}
+      {error && <p className="co-uso__hacer" role="alert">{error}<ReportarASoporte /></p>}
     </>
   );
 }

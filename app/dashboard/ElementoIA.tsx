@@ -33,6 +33,7 @@ import { cambiosDesde, conNombres, haceCuanto } from '@/lib/graficos-analisis';
 import { frasesDe, type PuntoCaja, type SalidaCaja, type VistaCaja } from '@/lib/graficos-ia-elemento';
 import type { ContextoEntidad } from '@/lib/graficos-acciones';
 import type { LoQueSeVe } from './PanelAnalista';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const RUTA = '/api/graficos/ia-elemento';
 /** El panel generó o programó una caja: la caja de ese id vuelve a leer. */
@@ -400,7 +401,7 @@ export function PropsIA({ e, hoja, popupDe = null, contexto = null, vista, onCam
       <div className="lk-seccion">
         <Estilos />
         <div><Button size="sm" variant="primary" onClick={() => void generar()} loading={enviando === 'generar'} disabled={enviando != null || (enPopup && !contexto)}>Generar</Button></div>
-        {aviso && <p className="lk-ayuda" role="alert" style={{ color: 'var(--bad)' }}>{aviso}</p>}
+        {aviso && <p className="lk-ayuda" role="alert" style={{ color: 'var(--bad)' }}>{aviso}<ReportarASoporte /></p>}
       </div>
     </>
   );

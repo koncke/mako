@@ -47,6 +47,7 @@ import { useChatAbierto } from "./estado";
 import { storageService } from "@/app/video-editor/_opencut/services/storage/service";
 import Link from "@/app/_ui/Link";
 import { PLAZO_PEDIDOS_MS, burbujasDe, cuerpoPedidos, interpretacionDe, objetosDeProyectos, textoActual } from "./pedidos";
+import { ReportarASoporte } from "@/app/_ui/ReportarASoporte";
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
@@ -310,6 +311,7 @@ function RevisionPropuesta({
 			{aviso && (
 				<p role="alert" className="m-0 rounded-[6px] px-2.5 py-1.5 text-[11.5px]" style={{ background: "color-mix(in srgb, var(--destructive) 18%, transparent)", color: "var(--destructive)" }}>
 					{aviso}
+					<ReportarASoporte />
 				</p>
 			)}
 			<div className="flex flex-wrap items-center justify-end gap-2">

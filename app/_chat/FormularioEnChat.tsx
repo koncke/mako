@@ -23,6 +23,7 @@ import type { FormularioPropuesta } from '@/lib/mako-turno-app-reglas';
 import type { Abrir, Bloque } from '@/lib/chat-bloques';
 import type { Parametro } from '@/lib/api-mako/tipos';
 import { BloqueHilo } from './BloqueHilo';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /**
  * Lo que el formulario del chat NO le muestra al cliente (revisión del 21/10/2026): un id («leadId», que además se
@@ -113,8 +114,8 @@ export function FormularioEnChat({ f, acciones, abrirEnApp }: {
       ))}
       {visibles.length < params.length && <p className="ch-tarjeta__nota">Lo demás va como lo propuso MaKo. Para cambiarlo, ábrela en la app.</p>}
       {/* Un error de un campo que no se ve, dicho en palabras (el de su campo no se dibuja). */}
-      {params.some((p) => ocultoAlCliente(p) && errores[p.nombre]) && <p className="ch-tarjeta__nota ch-form__error" role="alert">Hay un dato para corregir en la app.</p>}
-      {error && <p className="ch-tarjeta__nota ch-form__error" role="alert">{error}</p>}
+      {params.some((p) => ocultoAlCliente(p) && errores[p.nombre]) && <p className="ch-tarjeta__nota ch-form__error" role="alert">Hay un dato para corregir en la app.<ReportarASoporte /></p>}
+      {error && <p className="ch-tarjeta__nota ch-form__error" role="alert">{error}<ReportarASoporte /></p>}
       {/* G3: la consecuencia pegada al botón; lo que no se deshace, en rojo. Sin `escribe`: es para el modelo («upsert … en
           closing_analyses»); qué se hace lo dice el título de la tarjeta. */}
       <p className={`ch-tarjeta__consecuencia${f.operacion.reversible ? '' : ' ch-tarjeta__consecuencia--irreversible'}`}>

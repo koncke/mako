@@ -39,6 +39,27 @@ export async function levantarTicketAction(entrada: { tipo: string | null; texto
 }
 
 /**
+ * Levanta el ticket que armó el chat de Soporte de su Ticketera (23/10/2026, lib/soporte-chat.ts): lo que contó, con el título
+ * de su primera oración. El tipo vale sólo si la persona lo eligió en la tarjeta (`elegido`); si no, lo lee el triage de sus
+ * palabras, como en el servidor de siempre. Quién es, de la sesión; `movil` sólo dice por dónde (el canal que ve).
+ */
+export async function levantarDesdeSoporteAction(entrada: {
+  tipo: string | null; elegido: boolean; titulo: string; descripcion: string; movil: boolean; contexto?: unknown; ref?: string;
+}): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
+  const quien = await yo();
+  if (!quien) return { ok: false, error: SIN_SESION };
+  const a = sanearAlta({ tipo: entrada.elegido ? entrada.tipo : null, titulo: entrada.titulo, descripcion: entrada.descripcion });
+  if (!a.ok) return { ok: false, error: a.motivo };
+  const ref = typeof entrada.ref === 'string' && /^[A-Za-z0-9-]{8,80}$/.test(entrada.ref) ? `soporte-chat:${entrada.ref}` : null;
+  const r = await crearTicket({
+    identidad: await identidadDe(quien.ws, quien.email, quien.nombre),
+    tipo: a.alta.tipo, declaradoPor: a.alta.tipo ? 'persona' : null,
+    titulo: a.alta.titulo, descripcion: a.alta.descripcion, canal: entrada.movil ? 'chat_movil' : 'chat_app', contexto: entrada.contexto, ref,
+  });
+  return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error };
+}
+
+/**
  * SUS tickets, para la Ticketera de su Ops Center (22/10/2026): la misma lectura que /tickets (lib/tickets-db.ts → misTickets),
  * con su workspace y su email de la SESIÓN. Nunca los de otra persona ni los de otro negocio, y sólo lo que ve el cliente
  * (`paraElCliente`: nada del triage, de la nota de Martín ni del Runner).

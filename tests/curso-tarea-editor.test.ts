@@ -377,7 +377,8 @@ test('item 2 en la pantalla: la tarjeta en rojo con su motivo debajo de la pregu
   assert.match(ed, /const motivo = motivoVisible\(errores, c\.id, silenciados\);/);
   assert.match(ed, /\$\{motivo \? ' ec-campo--error' : ''\}/);
   const tarjeta = ed.slice(ed.indexOf('<Pregunta valor={c.label}'), ed.indexOf('className="ec-cuerpo"'));
-  assert.match(tarjeta, /\{motivo && <p className="ec-motivo" role="alert">\{motivo\}<\/p>\}/, 'el motivo, debajo de la pregunta');
+  // Con «Reportar a Soporte» adentro, como todo aviso de error (23/10/2026, tests/reportar-a-soporte.test.ts).
+  assert.match(tarjeta, /\{motivo && <p className="ec-motivo" role="alert">\{motivo\}<ReportarASoporte \/><\/p>\}/, 'el motivo, debajo de la pregunta');
   // Lo que busca la lección para llevar la vista al primer error (LeccionEditable, `scrollAlPrimerError`).
   assert.match(ed, /data-error=\{motivo \? '' : undefined\}/);
   const t = leer(TAREA);

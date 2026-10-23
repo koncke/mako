@@ -76,3 +76,8 @@
 .tickets-historial__paso::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); align-self: center; }
 .tickets-historial__paso[data-paso='resuelto']::before, .tickets-historial__paso[data-paso='arreglado']::before { background: var(--good); }
 .tickets-historial__rotulo { color: var(--ink); font-weight: 600; }
+
+/* El chat de Soporte en /tickets (23/10/2026): el panel de un chat del Ops Center, en una caja del alto de la ventana. */
+.tickets-chat { display: flex; height: calc(100dvh - 210px); min-height: 520px; border: 1px solid var(--border); border-radius: var(--r-lg, 16px); overflow: hidden; background: var(--surface); }
+.tickets-chat > .co-panel { flex: 1; }
+.tickets-cargando { margin: auto; color: var(--dim); }

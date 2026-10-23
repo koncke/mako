@@ -16,6 +16,7 @@ import {
   AvatarM, ErrorM, FilaDatoM, FilaM, ListaM, PieFijoM, PieM, PildoraM, SeccionM, SegmentadoM, SheetM, SkeletonFilas, VacioM,
   useToastM, type TonoPildora,
 } from '@/app/m/_ui';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Rol = 'admin' | 'closer' | 'setter';
 export type Miembro = {
@@ -225,7 +226,7 @@ function HojaInvitar({ abierta, onCerrar, onInvitado }: { abierta: boolean; onCe
         <span>Rol</span>
         <SegmentadoM etiqueta="Rol" valor={rol} opciones={ROLES} onCambio={setRol} />
       </div>
-      {error && <p className="m-configuraciones-aviso" data-tono="bad" role="alert">{error}</p>}
+      {error && <p className="m-configuraciones-aviso" data-tono="bad" role="alert">{error}<ReportarASoporte /></p>}
     </SheetM>
   );
 }

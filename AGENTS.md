@@ -3853,6 +3853,14 @@ MaKo pisó los nombres de 1438 contactos de Mauricio, sin historial para volver 
 - Antes de escanear o conectar algo que sincroniza datos (contactos, historial, etiquetas),
   preguntá a qué workspace van a caer.
 
+# Todo aviso de error lleva «Reportar a Soporte»
+
+Martín (22/10/2026): *«en toda la app, SIEMPRE que sale un error, en donde sea, debe aparecer el botón de "Reportar a Soporte"»*.
+Un aviso de error nuevo es un elemento con `role="alert"` y su ÚLTIMO hijo es `<ReportarASoporte />` (app/_ui/ReportarASoporte.tsx;
+en una lista, `<li><ReportarASoporte /></li>`). No se dibuja si el aviso está vacío o su `role` no es «alert», así que va también
+en los avisos que están siempre montados. Donde el error no es un `role="alert"` (un toast con su propia librería), se usa
+`reportarASoporte({ error })`. Lo exige tests/reportar-a-soporte.test.ts; el porqué y las trampas, en docs/hallazgos-ui.md.
+
 # Un mensaje de error dice DE QUIÉN fue y QUÉ HACER, o no sirve
 
 Cuando algo falla del lado del usuario —su cuota, su credencial, su configuración—

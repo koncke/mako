@@ -30,6 +30,7 @@ import {
 } from './cobro-etapa-actions';
 import { TEXTO_AL_PAGAR, type FotoCobroEtapa, type ProductoCobro, type VinculoCobro } from '@/lib/cobro-etapa';
 import { MAX_NOMBRE_PRODUCTO, NOMBRE_PROVEEDOR_PAGO, nombreDeCuenta, precioDeProducto, productoDeLoEscrito, productosParaVincular } from './cobro-ganado';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const TH: CSSProperties = {
   fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase',
@@ -140,7 +141,7 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: {
           : <input value={escrito.cuotas} inputMode="numeric" aria-label="Cuotas" placeholder="Cuotas (1)"
             onChange={(ev) => poner({ ...escrito, cuotas: ev.target.value })} style={{ ...CAMPO, width: 110 }} />}
       </div>
-      {errorForm && <p role="alert" style={{ margin: 0, fontSize: 12.5, color: 'var(--bad)' }}>{errorForm}</p>}
+      {errorForm && <p role="alert" style={{ margin: 0, fontSize: 12.5, color: 'var(--bad)' }}>{errorForm}<ReportarASoporte /></p>}
       <div style={{ display: 'flex', gap: 8 }}>
         <Button size="sm" type="submit" loading={cargando} disabled={ocupado != null}>{rotulo}</Button>
         <Button size="sm" variant="secondary" onClick={cancelar}>Cancelar</Button>

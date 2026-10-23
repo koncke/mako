@@ -81,6 +81,7 @@ import {
 } from './pedidos-chat';
 // Los POST de los pedidos sueltos viven aparte: este chat no hace POST propios (el stream lo lee sólo ./stream-ia.ts).
 import { pedirPedidos, pedirALaLista } from './pedidos-cliente';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Los colores de MaKo sobre el hilo de WhatsApp (punto 6: «Solo cambiale unos colores»). */
 export const COLORES_MAKO = {
@@ -624,7 +625,7 @@ export function ChatMako(p: ChatMakoProps) {
     </div>
   );
 
-  const errorMako = error ? <p data-error-mako="" style={S.error} role="alert"><TextoConLink texto={error.texto} link={error.link} /></p> : null;
+  const errorMako = error ? <p data-error-mako="" style={S.error} role="alert"><TextoConLink texto={error.texto} link={error.link} /><ReportarASoporte /></p> : null;
   const encima = estado.t === 'trabajando'
     ? <FasesIA estado={estado} segundos={segundos} onCancelar={cancelar} />
     : crea ? errorMako
@@ -658,6 +659,7 @@ export function ChatMako(p: ChatMakoProps) {
                 <div data-yo-fallido="" role="alert" title={e.fallido} style={S.fallido}>
                   No se envió
                   <button type="button" onClick={() => reintentar(e.id, e.yo!)} disabled={trabajando || interpretando || !!p.deshabilitado} style={S.reintentar}>Reintentar</button>
+                  <ReportarASoporte />
                 </div>
               )}
             </>
@@ -704,6 +706,7 @@ function Mensaje({ m, viva, ultimo, onElegir, deshabilitado }: {
       {m.noHecho?.length ? (
         <ul data-no-hecho-mako="" role="alert" style={S.noHecho}>
           {m.noHecho.map((a, i) => <li key={i}>{a}</li>)}
+          <li><ReportarASoporte /></li>
         </ul>
       ) : null}
       {acomodado.length ? (
@@ -735,7 +738,7 @@ function BurbujaDePedido({ b, at, onBoton, deshabilitado }: { b: BurbujaPedido; 
           {v.links.map((l) => <Link key={l.href} href={l.href} className="chm-op chm-op--suave" data-link-pedido="">{l.texto}</Link>)}
         </div>
       )}
-      {v.nota && <p style={{ ...S.dim, margin: '4px 0 0', color: v.error ? 'var(--bad)' : undefined }} role={v.error ? 'alert' : 'status'}>{v.nota}</p>}
+      {v.nota && <p style={{ ...S.dim, margin: '4px 0 0', color: v.error ? 'var(--bad)' : undefined }} role={v.error ? 'alert' : 'status'}>{v.nota}<ReportarASoporte /></p>}
     </div>
   );
 }
@@ -989,7 +992,7 @@ export function BarraPideselo({ onPedido, onFlujo, deshabilitado, inicial }: {
         )} />
       <input ref={elegirArchivo} type="file" accept={ACCEPT_ARCHIVO_FLUJO} hidden tabIndex={-1} aria-hidden
         onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) subir(f); }} />
-      {error && <p role="alert" style={{ ...S.error, margin: '-6px 0 0', maxWidth: 720, width: '100%' }}>{error}</p>}
+      {error && <p role="alert" style={{ ...S.error, margin: '-6px 0 0', maxWidth: 720, width: '100%' }}>{error}<ReportarASoporte /></p>}
     </div>
   );
 }
