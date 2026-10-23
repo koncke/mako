@@ -856,8 +856,8 @@ viejo: **una automatización dejó de ser una lista de mensajes y pasó a ser un
   detrás de «No contestó»), `aut-au2-antiban` (Configuraciones sin nada «para todas»; «Misma persona» que nace apagada),
   `aut2-arnes` (scripts/probar-chats en main) y `aut2-tarjeta-mako` (la tarjeta de MaKo sin desplegables, el chat del costado
   sin cortes, la vista previa en Configuraciones). `scripts/misma-persona-propia.mts --aplicar` CORRIDO: 510 de 518, 0
-  problemas; ws1 y ws11 con el mismo anti-ban antes y después (62 de 62). Sin ver dibujada: la tarjeta de MaKo de la #289
-  (la sesión de Chrome de la extensión no ve el ws1).
+  problemas; ws1 y ws11 con el mismo anti-ban antes y después (62 de 62). La tarjeta de MaKo y el chat del costado de la #289:
+  VERIFICADOS POR MARTÍN el 23/10 («quedaron bien»).
 - **«Cambié «X»» sin cambio visible** (el caso `solo-apertura` del arnés, 1 de 2): la tarjeta cambia un campo que no está en
   su nombre y `resumenEdicionDetalle` (lib/flujo-ia.ts) dice «Cambié «X»» sin decir qué. Falta reproducirlo para saber qué
   campo. P2.
