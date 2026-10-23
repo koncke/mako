@@ -5435,7 +5435,13 @@ del layout lee las cookies en cada request. Medido: build verde, 70 páginas, to
   suspense boundary» y producción se queda en la versión anterior.
 - **Un `loading.tsx` ES un Suspense** alrededor de la página de su segmento: uno en `app/` o en
   un segmento público vuelve a esconder esas páginas. Sólo va en segmentos privados, y la lista
-  blanca vive en el test (hoy, sólo `app/crm/loading.tsx`).
+  blanca vive en el test. **Cada tab grande lleva su `loading.tsx` con `CargandoMako`** (23/10/2026,
+  `app/_ui/CargandoMako.tsx`, importado directo y nunca desde el índice de `_ui`): ningún clic queda sin respuesta
+  visible. Lo fija `tests/cargando-mako.test.ts`.
+- **En una ruta /api o una server action, el `cache()` de React NO memoiza** (23/10/2026): no hay render. La sesión ya
+  se lee una vez por pedido (`enElPedido`, lib/sesion-por-pedido.ts); lo demás que se lea muchas veces por pedido va
+  igual, y las lecturas que no dependen una de otra van en `Promise.all`. Medido: `/api/auth/me` hacía 41 idas a la
+  base y `/api/chat-agent/secuencias` 150 (docs/hallazgos-infra.md).
 - **Partir la página en bloques chicos NO sirve** (medido: de 30 bloques de 3 KB, 26 salen
   ocultos): el umbral se mide sobre lo ya escrito.
 - **Lo que no tiene que verse sin JavaScript sí puede ir en su Suspense**: la barra lateral (18

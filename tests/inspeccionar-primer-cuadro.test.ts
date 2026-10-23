@@ -62,7 +62,9 @@ test('el layout se lo pasa a los dos, y abre el hueco de la barra desde el HTML 
 
 test('/api/auth/me y el layout leen al cliente de UN solo lugar', () => {
   const me = sinComentarios(leer('app/api/auth/me/route.ts'));
-  assert.match(me, /const vista = await vistaDeOtro\(\);/);
+  // Desde el 23/10/2026, en el Promise.all de la ruta (tests/rendimiento-pedido.test.ts): sigue siendo UNA lectura.
+  assert.match(me, /const \[ws, impersonando, vista, rolWs, capa, planEsencial\] = await Promise\.all\(\[[^\]]*\bvistaDeOtro\(\)/);
+  assert.equal((me.match(/vistaDeOtro\(\)/g) ?? []).length, 1);
   assert.doesNotMatch(me, /getWorkspace\(|agenciaDeCliente\(/, 'una segunda cuenta de «a quién se mira» puede nombrar a otro cliente');
   for (const campo of ['clienteNombre: vista?.clienteNombre ?? null', 'clienteWs: vista?.clienteWs ?? null', 'salida: vista?.salida ?? rutaDeSalida(esSuperAdmin)', 'const agencia = vista?.agencia ?? null;']) {
     assert.ok(me.includes(campo), `falta «${campo}»`);

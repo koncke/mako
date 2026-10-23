@@ -22,6 +22,8 @@ import {
 import { buscarUsuarioPorEmail } from './usuarios';
 import { requiereSegundoFactor } from './mfa-reglas';
 import { obligatorioDesdeDe } from './mfa-obligatorio';
+// La sesión se lee UNA vez por pedido, también en una ruta /api (23/10/2026): ver lib/sesion-por-pedido.ts.
+import { enElPedido } from './sesion-por-pedido';
 
 export type { Rol, Sesion };
 
@@ -36,8 +38,12 @@ function tieneFila(sesion: Sesion): boolean {
  */
 export const getUsuarioActual = cache(async (): Promise<Sesion | null> => {
   const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
+  return enElPedido(store, token ?? '', () => leerSesion(token));
+});
 
-  const firmada = verificarToken(store.get(SESSION_COOKIE)?.value);
+async function leerSesion(token: string | undefined): Promise<Sesion | null> {
+  const firmada = verificarToken(token);
   if (firmada) {
     // Sesión con fila real: re-chequear estado/rol/workspace vigente. Suspender
     // o eliminar al usuario invalida su sesión de inmediato (fail-open ante DB
@@ -82,7 +88,7 @@ export const getUsuarioActual = cache(async (): Promise<Sesion | null> => {
   }
 
   return null;
-});
+}
 
 /**
  * Sesión admin verificada, o null. getUsuarioActual ya re-chequeó la fila real

@@ -35,7 +35,7 @@ test('1. una vuelta del servidor que falla no desarma el Ops Center: se queda el
 test('2. el refresco de la lista que tira no toca nada (el intervalo reintenta)', () => {
   const src = sinComentarios(leer('app/admin/operaciones/useCentro.ts'));
   const refrescar = src.slice(src.indexOf('const refrescar = useCallback(async () => {'), src.indexOf('const apurado = hayEnCamino('));
-  assert.match(refrescar, /const f = await fotoCentroAction\(\)\.catch\(\(\) => null\);\n\s*if \(f\?\.ok\) \{/);
+  assert.match(refrescar, /const f = await leerCentro<FotoCentro>\('foto'\)\.catch\(\(\) => null\);\n\s*if \(f\?\.ok\) \{/);
   assert.match(src, /const t = setInterval\(\(\) => \{ if \(document\.visibilityState === 'visible'\) refrescar\(\); \}/, 'el intervalo es el reintento');
 });
 

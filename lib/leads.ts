@@ -463,16 +463,36 @@ export const listLeads = cachedRead('listLeads', _listLeads, { tags: [TAG.leads]
  */
 export async function listLeadsDeFunnel(funnelId: number | null): Promise<Lead[]> {
   const supabase = await getTenantDb();
-  const filas = await leerTodo<Lead>(supabase, 'leads', LISTA_COLS, {
-    orden: 'id',
-    filtros: (q) => (funnelId == null ? q.is('funnel_id', null) : q.eq('funnel_id', funnelId)),
-  });
   // ⚠️ Y LOS AGREGADOS (mig 0207): los leads cuya casa es OTRO producto pero que están acá por
   // una fila de `lead_funnel`. Van con la etapa de ESA fila puesta en `pipeline_stage` y la
   // marca `de_fila`, para que el tablero los dibuje en su columna de acá y mover su tarjeta
   // escriba la fila y no la casa. El producto del negocio, en la tabla, va con su id.
-  const agregados = await agregadosDelTablero(supabase, funnelId, new Set(filas.map((l) => l.id)));
+  // ⚠️ SUS FILAS SE LEEN A LA VEZ QUE LOS LEADS (23/10/2026, «Rendimiento y loaders»): esperaban a que terminaran las
+  // páginas de leads (1.170 en el ws1) sin necesitarlas; los leads de cada fila sí van después, para no pedir los que ya
+  // están en el tablero.
+  const [filas, deFilas] = await Promise.all([
+    leerTodo<Lead>(supabase, 'leads', LISTA_COLS, {
+      orden: 'id',
+      filtros: (q) => (funnelId == null ? q.is('funnel_id', null) : q.eq('funnel_id', funnelId)),
+    }),
+    filasDeAgregados(supabase, funnelId),
+  ]);
+  const agregados = await agregadosDelTablero(supabase, deFilas, new Set(filas.map((l) => l.id)));
   return [...filas, ...agregados].sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
+}
+
+/** Las filas de `lead_funnel` de este tablero (el id del embudo y la etapa de cada lead). `null` si no se pudieron leer. */
+async function filasDeAgregados(supabase: SupabaseClient, funnelId: number | null): Promise<{ id: number; filas: Array<{ lead_id: number | string; etapa: string }> } | null> {
+  try {
+    const id = funnelId ?? (await idDelFunnelDefault());
+    if (id == null) return null;
+    const { data, error } = await supabase.from('lead_funnel').select('lead_id, etapa').eq('funnel_id', id);
+    if (error) throw new Error(error.message);
+    return { id, filas: (data ?? []) as Array<{ lead_id: number | string; etapa: string }> };
+  } catch (e) {
+    console.warn('[leads] no pude leer los agregados del tablero:', e instanceof Error ? e.message : e);
+    return null;
+  }
 }
 
 /**
@@ -480,24 +500,21 @@ export async function listLeadsDeFunnel(funnelId: number | null): Promise<Lead[]
  * etapa de la fila. Nunca tira: si la tabla no está (deploy sin la 0207) o la lectura falla,
  * el tablero muestra lo de siempre — de menos, nunca algo inventado.
  */
-async function agregadosDelTablero(supabase: SupabaseClient, funnelId: number | null, yaEstan: Set<number>): Promise<Lead[]> {
+async function agregadosDelTablero(supabase: SupabaseClient, deFilas: Awaited<ReturnType<typeof filasDeAgregados>>, yaEstan: Set<number>): Promise<Lead[]> {
   try {
-    const id = funnelId ?? (await idDelFunnelDefault());
-    if (id == null) return [];
-    const { data, error } = await supabase.from('lead_funnel').select('lead_id, etapa').eq('funnel_id', id);
-    if (error) throw new Error(error.message);
+    if (!deFilas) return [];
+    const { id } = deFilas;
     const etapa = new Map<number, string>();
-    for (const f of (data ?? []) as Array<{ lead_id: number | string; etapa: string }>) {
+    for (const f of deFilas.filas) {
       const lid = Number(f.lead_id);
       if (!yaEstan.has(lid)) etapa.set(lid, f.etapa);
     }
     if (!etapa.size) return [];
     const ids = [...etapa.keys()];
-    const leads: Lead[] = [];
-    for (let i = 0; i < ids.length; i += 200) {
-      const tanda = await leerTodo<Lead>(supabase, 'leads', LISTA_COLS, { orden: 'id', filtros: (q) => q.in('id', ids.slice(i, i + 200)) });
-      leads.push(...tanda);
-    }
+    // Las tandas de 200 (el largo de la URL del `in`), a la vez: el orden lo pone el `sort` de quien llama.
+    const tandas = await Promise.all(Array.from({ length: Math.ceil(ids.length / 200) }, (_, k) =>
+      leerTodo<Lead>(supabase, 'leads', LISTA_COLS, { orden: 'id', filtros: (q) => q.in('id', ids.slice(k * 200, k * 200 + 200)) })));
+    const leads: Lead[] = tandas.flat();
     return leads.map((l) => ({ ...l, pipeline_stage: etapa.get(l.id) ?? l.pipeline_stage, de_fila: id }));
   } catch (e) {
     console.warn('[leads] no pude leer los agregados del tablero:', e instanceof Error ? e.message : e);
