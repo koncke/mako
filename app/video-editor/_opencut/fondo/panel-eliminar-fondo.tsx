@@ -50,6 +50,7 @@ import {
 	suscribirSegmentador,
 	type EstadoSegmentador,
 } from "./segmentador";
+import { ReportarASoporte } from "@/app/_ui/ReportarASoporte";
 
 export function EliminarFondo(ctx: ContextoInspector) {
 	return (
@@ -109,6 +110,7 @@ function EstadoAutomatica({ estado }: { estado: EstadoSegmentador }) {
 		return (
 			<p className="pb-1 text-[12px] text-destructive" role="alert">
 				{TEXTO_FALLO}
+				<ReportarASoporte />
 			</p>
 		);
 	}

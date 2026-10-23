@@ -11,6 +11,7 @@
 import { useState } from 'react';
 import { numeroCorto } from '@/lib/creaciones-reglas';
 import { estrellaAction } from './actions';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export function IconoEstrella({ llena, size = 16 }: { llena: boolean; size?: number }) {
   return (
@@ -75,7 +76,7 @@ export function BotonEstrella({
           {numeroCorto(estado.estrellas)}
         </span>
       </button>
-      {error && <span role="alert" style={{ fontSize: 12, color: 'var(--bad)' }}>{error}</span>}
+      {error && <span role="alert" style={{ fontSize: 12, color: 'var(--bad)' }}>{error}<ReportarASoporte /></span>}
     </span>
   );
 }

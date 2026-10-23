@@ -41,6 +41,7 @@ import {
   ROTULO_ESTADO, decirFalloDeLectura, enGrupo, lectorDeBandeja, linkDeOrigen, nombreDe, ordenarTabla, quePaso, textoDeLaPersona, tipoCorto as corto, ORDEN_INICIAL,
   type Orden, type VistaBandeja,
 } from './mazo-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 // ⚠️ Su hoja (./bandeja.css) la importa la PÁGINA (app/second-brain/pagina.tsx), como las del mazo: un import de CSS acá
 // rompería un test que dibuje esto con node.
 
@@ -147,7 +148,7 @@ export function BandejaTickets({ cerebro }: { cerebro: CerebroParaTickets | null
 
   return (
     <div className="tickets-bandeja">
-      {error && <p className="tickets-bandeja__error" role="alert">{error}</p>}
+      {error && <p className="tickets-bandeja__error" role="alert">{error}<ReportarASoporte /></p>}
       {tickets === null || vista === null ? (
         <p className="tickets-bandeja__vacio">Cargando…</p>
       ) : vista === 'mazo' ? (
@@ -415,7 +416,7 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
         </section>
       )}
       {faltaMandar && <div className="tickets-bandeja__confirmar"><Button variant="primary" loading={haciendo} onClick={reMandar}>Mandárselo al Cerebro</Button></div>}
-      {error && <p className="tickets-bandeja__error" role="alert">{error}</p>}
+      {error && <p className="tickets-bandeja__error" role="alert">{error}<ReportarASoporte /></p>}
 
       {eventos.length > 0 && (
         <section className="tickets-bandeja__bloque">

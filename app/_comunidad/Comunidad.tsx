@@ -38,6 +38,7 @@ import { About } from './About';
 import { Campana } from './Campana';
 import { Busqueda } from './Busqueda';
 import { Ctx, Ico, useComunidad, type CtxComunidad, type Tema } from './piezas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type Pestana = 'comunidad' | 'calendario' | 'miembros' | 'ranking' | 'about';
 /** La piel: la del curso (papel, tinta, el acento del programa) o la de la app. */
@@ -146,7 +147,7 @@ export function Comunidad({
     return (
       <div className={raiz}>
         <style dangerouslySetInnerHTML={{ __html: CSS_COMUNIDAD }} />
-        {error ? <p className="cmu-error" role="alert">{error}</p> : <div style={{ display: 'grid', placeItems: 'center', padding: 48 }}><Spinner /></div>}
+        {error ? <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p> : <div style={{ display: 'grid', placeItems: 'center', padding: 48 }}><Spinner /></div>}
       </div>
     );
   }

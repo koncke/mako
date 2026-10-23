@@ -41,6 +41,7 @@ import {
   type EstadoPropuesta, type Propuesta,
 } from './paneles/PanelAgente';
 import { comoSeccionesNuevas, idDe, tarjetasDelDoc, tituloVisible } from './diff-tarjetas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type ModoAskAgent = 'editar' | 'disenos' | 'agregar';
 /** El elemento al que se ancla (el botón ✨), o un rectángulo de la ventana. */
@@ -342,7 +343,7 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
       {fase.f === 'corriendo' && <div className="gma-ask-estado"><span className="gma-pb-giro" aria-hidden /> Pensando</div>}
 
       {fase.f === 'mensaje' && (
-        <div className="gma-ask-estado" data-error={fase.error ? '' : undefined} role={fase.error ? 'alert' : undefined}>{fase.texto}</div>
+        <div className="gma-ask-estado" data-error={fase.error ? '' : undefined} role={fase.error ? 'alert' : undefined}>{fase.texto}<ReportarASoporte /></div>
       )}
 
       {fase.f === 'pedir' && modo !== 'agregar' && (

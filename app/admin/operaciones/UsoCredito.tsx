@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from 'react';
 import { nombreDeLaCuenta } from '@/lib/centro-titulares';
 import type { AsignadoCredito, FilaCredito, LecturaCredito } from '@/lib/credito-api';
 import type { CuentaUso } from './Uso';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type LeerCredito = () => Promise<LecturaCredito>;
 /** El interruptor del crédito asignado a un negocio: devuelve la lectura nueva (o el error). */
@@ -179,7 +180,7 @@ export function SeccionCredito({ leer, cambiar, cuentas }: { leer: LeerCredito; 
   return (
     <>
       <VistaCredito lectura={lectura} cuentas={cuentas} onCambiar={onCambiar} cambiando={cambiando} />
-      {error && <p className="co-uso__hacer" role="alert">{error}</p>}
+      {error && <p className="co-uso__hacer" role="alert">{error}<ReportarASoporte /></p>}
     </>
   );
 }

@@ -15,6 +15,7 @@ import { Spinner } from '@/app/_ui';
 import type { CampanaVista, NotificacionVista } from '@/lib/comunidad-tipos';
 import { AvatarNivel, CapaPopover, Hace, Ico, useComunidad } from './piezas';
 import { diaCortoEn, fechaEn, hoyEn, horaEn, zonaDelNavegador } from './tiempo';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const REFRESCO_MS = 60_000;
 
@@ -110,7 +111,7 @@ export function Campana() {
             <b>Notificaciones</b>
             {sinLeer > 0 && <button type="button" className="cmu-accion" onClick={() => void todas()}>Marcar todas como leídas</button>}
           </div>
-          {error && !datos && <p className="cmu-error" role="alert" style={{ padding: '8px 12px' }}>{error}</p>}
+          {error && !datos && <p className="cmu-error" role="alert" style={{ padding: '8px 12px' }}>{error}<ReportarASoporte /></p>}
           {!datos && !error && <div style={{ display: 'grid', placeItems: 'center', padding: 24 }}><Spinner /></div>}
           {datos && datos.items.length === 0 && <p className="cmu-meta" style={{ padding: '12px 14px', margin: 0 }}>Sin notificaciones.</p>}
           <div className="cmu-campana-lista">

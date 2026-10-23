@@ -88,6 +88,7 @@ import { CSS_TIPO, SelectorTipo } from './PiezasTipo';
 import { FUENTES, IDIOMAS, MODOS_TEXTO, OBJETIVOS, TEXTOS, instruccionesConArchivo, paramsIniciales } from './ajustes';
 import { recordarIndicacion, type OrigenIndicacion } from './recientes';
 import type { SemillaCaja } from './caja-modos';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lo puro (con test)
@@ -540,6 +541,7 @@ export function CrearConIA(props: PropsCrear) {
     <div className="gp-error" role="alert">
       <span>{falla.texto}</span>
       {falla.reintentar && <button type="button" className="gp-btn gp-btn-contorno" onClick={falla.reintentar}>Reintentar</button>}
+      <ReportarASoporte />
     </div>
   );
 

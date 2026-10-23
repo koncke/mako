@@ -42,6 +42,7 @@ import { idDeLinea, leerCita, leerReenvio, mensajeDeLinea, sinOcultos, type Marc
 import { CitaEnBurbuja, Deslizable, MarcasEnHora, ReaccionWA } from './MensajeWA';
 import type { PasoDelTurno } from '@/lib/centro-pasos';
 import { Trabajando } from './Trabajando';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** «10:52», con el reloj de Argentina. */
 const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -130,7 +131,7 @@ function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; 
         <MiFoto />
         <ReaccionWA id={id} marcas={wa.marcas} />
         {/* Un aviso se ve como aviso (17/10/2026: «los mensajes especiales se tienen que ver más llamativos»). */}
-        {mal && <p className="co-nota co-nota--mal co-aviso" role="alert"><Icon name="x" size={12} />{`${ROTULO[estado]}${w.motivo ? ` · ${w.motivo}` : ''}`}</p>}
+        {mal && <p className="co-nota co-nota--mal co-aviso" role="alert"><Icon name="x" size={12} />{`${ROTULO[estado]}${w.motivo ? ` · ${w.motivo}` : ''}`}<ReportarASoporte /></p>}
         {va && (
           <p className={`co-envio co-envio--${va.fase}${va.porQue ? ' co-envio--tarda' : ''}`} role="status">
             <span className="co-envio__paso">{va.texto}</span>

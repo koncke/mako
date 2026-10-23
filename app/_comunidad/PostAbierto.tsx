@@ -17,6 +17,7 @@ import type { ComentarioVista, PostDetalle, PostVista } from '@/lib/comunidad-ti
 import { TOPE_COMENTARIO, mencionesDeTokens } from '@/lib/comunidad-reglas';
 import { CampoMenciones, mencionesVigentes, type Mencion } from './CampoMenciones';
 import { Adjunto, AvatarNivel, BotonLike, Encuesta, Hace, Ico, Menu, NombreMiembro, Texto, Video, useComunidad, type ItemMenu } from './piezas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Cuántos comentarios hay en un hilo de dos niveles. */
 const contar = (hilo: readonly ComentarioVista[]) => hilo.reduce((n, c) => n + 1 + c.respuestas.length, 0);
@@ -112,7 +113,7 @@ export function PostAbierto({ postId, onCerrar, onCambio, onBorrado, onEditar }:
     <Modal titulo={post?.titulo ?? 'Post'} ancho={760} alto="min(88vh, 820px)" onCerrar={onCerrar} sinFiletes
       encabezado={categoria ? <span className="cmu-tag">{categoria.nombre}</span> : undefined}>
       {!post && !error && <div style={{ display: 'grid', placeItems: 'center', padding: 40 }}><Spinner /></div>}
-      {error && <p className="cmu-error" role="alert">{error}</p>}
+      {error && <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p>}
       {post && (
         <div className="cmu-detalle">
           <div className="cmu-post-cab">

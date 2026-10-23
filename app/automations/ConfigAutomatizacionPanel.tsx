@@ -23,6 +23,7 @@ import { FilaOpcion, GrupoOpciones, Unidad, TarjetaOpciones } from './FilasOpcio
 import { HORARIO_SUGERIDO } from '@/lib/horario-envio';
 import { RANGOS_LIMITES } from '@/lib/limites-envio';
 import { textoDeHorario, RANGOS_GOTEO, PERSONA_SIN_ESPERA, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 
@@ -51,7 +52,7 @@ export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
   const { d, error, poner } = useConfig(secuenciaId);
   const [aviso, setAviso] = useState('');
   const [vuelta, setVuelta] = useState(0);
-  if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}</p> : <Spinner />;
+  if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}<ReportarASoporte /></p> : <Spinner />;
   const propio = d.config.horario !== undefined;
   const off = !d.puedeEditar;
   const alternar = (v: boolean) => {
@@ -77,7 +78,7 @@ export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
         <FilaOpcion primera nombre="Horario propio" info={`Apagado, usa el del negocio: ${textoDeHorario(d.horarioNegocio)}.`} datos={{ 'data-horario-propio': propio ? 'si' : 'no' }}
           interruptor={<Interruptor on={propio} disabled={off} etiqueta={propio ? 'Volver al horario del negocio' : 'Ponerle un horario propio'} onCambio={alternar} />} />
       </TarjetaOpciones>
-      {aviso && <p role="alert" style={{ margin: 0, fontSize: 13, color: 'var(--bad)', fontFamily: SANS }}>{aviso}</p>}
+      {aviso && <p role="alert" style={{ margin: 0, fontSize: 13, color: 'var(--bad)', fontFamily: SANS }}>{aviso}<ReportarASoporte /></p>}
       {propio && <HorarioEnvioPanel key={vuelta} fuente={fuente} onSucio={onSucio} />}
     </div>
   );
@@ -111,7 +112,7 @@ export function AntibanDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
   const pendiente = useRef<CambioAntiban>({});
   useEffect(() => () => { if (respiro.current) clearTimeout(respiro.current); }, []);
   useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);
-  if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}</p> : <Spinner />;
+  if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}<ReportarASoporte /></p> : <Spinner />;
   const off = !d.puedeEditar;
   const guardar = (parte: 'goteo' | 'personaHoras', cambio: Record<string, number | null>) => {
     setAviso('');
@@ -175,7 +176,7 @@ export function AntibanDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
       {filaPersona('whatsapp', RANGOS_LIMITES.wa.personaHoras)}
       <GrupoOpciones titulo="Email" />
       {filaPersona('email', RANGOS_LIMITES.email.personaHoras)}
-      {aviso && <p role="alert" style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--bad)' }}>{aviso}</p>}
+      {aviso && <p role="alert" style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--bad)' }}>{aviso}<ReportarASoporte /></p>}
     </TarjetaOpciones>
   );
 }

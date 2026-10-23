@@ -65,6 +65,7 @@ import { hrefPermitido } from '@/lib/editor-landing/especificacion';
 import { inlineAMarkdown, parsearInline } from '@/lib/editor-landing/ia-bloques';
 import { COLORES_TEMA, NODO, TAMANOS_TEXTO, esHex, type ColorTema, type JsonNodo, type TamanoTexto } from '@/lib/editor-landing/doc';
 import type { AccionTexto, PedidoIA } from '@/lib/editor-landing/api-tipos';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La hoja del chrome del paquete G2
@@ -1135,7 +1136,7 @@ export function BarraFormato({ editor: editorProp, modo }: { editor?: Editor | n
         {ia.cargando ? <span className="gmx-giro" aria-label="Editando" /> : <Icono nombre="destellos" />}
         <span>Editar con IA</span>
       </BotonBarra>
-      {ia.error && <div className="gmx-bf-error" role="alert">{ia.error}</div>}
+      {ia.error && <div className="gmx-bf-error" role="alert">{ia.error}<ReportarASoporte /></div>}
 
       {panel && (
         <PanelDeBarra

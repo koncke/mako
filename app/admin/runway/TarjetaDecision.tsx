@@ -13,6 +13,7 @@
 import { useActionState } from 'react';
 import Link from '@/app/_ui/Link';
 import { OTRA, RESUELTA, esHrefExterno, esHrefInterno, type AccionResponder, type Decision, type EstadoRespuesta } from './decisiones';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const INICIAL: EstadoRespuesta = { error: null, ok: false };
 
@@ -83,7 +84,7 @@ export function TarjetaDecision({ d, responder }: { d: Decision; responder: Acci
             Resuelta
           </button>
         )}
-        {estado.error && <p className="decisiones-error" role="alert">{estado.error}</p>}
+        {estado.error && <p className="decisiones-error" role="alert">{estado.error}<ReportarASoporte /></p>}
       </form>
     </article>
   );

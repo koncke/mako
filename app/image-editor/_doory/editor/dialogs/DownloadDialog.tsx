@@ -22,6 +22,7 @@ import { type ExportFailure, describeExportFailure, isCancellation } from './pri
 import { type PrintSettings, describeSizes, loadPrintSettings, savePrintSettings } from './print/printOptions'
 import printStyles from './print/print.module.css'
 import styles from './dialogs.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /**
  * «Compartir → Descargar» de Canva (relevamiento §9.1): «Tipo de archivo» en un desplegable con un ícono por formato
@@ -299,6 +300,7 @@ export function DownloadDialog({ props }: { props?: Record<string, unknown> } = 
               {rangeInvalid ? (
                 <small className={styles.error} role="alert">
                   {t.dialog.downloadPickPages}
+                  <ReportarASoporte />
                 </small>
               ) : null}
             </div>
@@ -410,6 +412,7 @@ function PagesPicker({ pages, picked, activeIndex, onChange, onDone }: { pages: 
       {draftInvalid ? (
         <small className={styles.error} role="alert">
           {t.dialog.downloadRangeInvalid}
+          <ReportarASoporte />
         </small>
       ) : null}
       <Button variant="primary" className={styles.wide} onClick={onDone}>

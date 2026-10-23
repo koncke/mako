@@ -80,6 +80,7 @@ import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
 import { TOPE_NOMBRE_SECUENCIA, nombreParaGuardar, type Objetivo } from '@/lib/setting-estrategia';
 import { muelles as calcularMuelles, MUELLE } from '@/lib/lienzo-grafo';
 import { enviosDePasos, pasaFiltroLista, type FilaFiltrable } from '@/lib/chatbot-lista-filtro';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 // El modal de las estrellas, DIFERIDO: arrastra las server actions de app/creaciones, y la lista (y sus tests, que
 // importan `opcionesDeFila`) no tiene por qué cargarlas hasta que alguien elige «Publicar en Creaciones».
 const PublicarCreacion = lazy(() => import('@/app/creaciones/PublicarCreacion').then((m) => ({ default: m.PublicarCreacion })));
@@ -779,7 +780,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
               options={opcionesDeFila(j.activa, sinPublicarDe(j, j.id === selId && sinPublicar))}
               onChange={(v) => void accionFila(j, v)} />
           ) : undefined} />
-        {errFila?.id === j.id && <div role="alert" style={{ padding: '0 12px 8px 56px', fontSize: 12.5, color: 'var(--bad)' }}>{errFila.texto}</div>}
+        {errFila?.id === j.id && <div role="alert" style={{ padding: '0 12px 8px 56px', fontSize: 12.5, color: 'var(--bad)' }}>{errFila.texto}<ReportarASoporte /></div>}
         {copiada === j.id && <div role="status" style={{ padding: '0 12px 8px 56px', fontSize: 12.5, color: 'var(--good)', fontWeight: 600 }}>Flujo copiado</div>}
       </div>
     );
@@ -906,7 +907,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
               <span style={{ fontWeight: 600, fontSize: 13.5 }}>Nueva automatización</span>
             </button>
           )}
-          {rolAdmin && errorNueva && <div role="alert" style={{ padding: '0 12px 8px', fontSize: 12.5, color: 'var(--bad)' }}>{errorNueva}</div>}
+          {rolAdmin && errorNueva && <div role="alert" style={{ padding: '0 12px 8px', fontSize: 12.5, color: 'var(--bad)' }}>{errorNueva}<ReportarASoporte /></div>}
           {/* Sólo con algo que filtre: con la lista VACÍA de verdad (un negocio nuevo, duodécima tanda) no hay nada
               que «no coincida», y «＋ Nueva automatización» de arriba ya dice qué hacer. */}
           {lista.length === 0 && (q !== '' || filtros.length > 0) && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna coincide</div>}

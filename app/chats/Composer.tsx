@@ -48,6 +48,7 @@ import {
   TOPE_ARCHIVO, claveIdentidad, cuerpoTextoWhatsApp, formArchivoWhatsApp, guardarBorradorLocal, identidadInicial,
   leerBorradorLocal, mensajesParaMaKo, motivoNoEnvio, ponerSugerencia, rotuloIdentidad,
 } from './ventana-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Lo que el clip deja elegir (el mismo `accept` del hilo de la casa). */
 const ACCEPT = 'image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx';
@@ -486,6 +487,7 @@ export default function Composer({
         <div className="rio-comp-error" role="alert">
           <span>{error}</span>
           <button type="button" className="rio-comp-error-x" onClick={() => setError(null)} aria-label="Cerrar"><Ico n="x" s={14} /></button>
+          <ReportarASoporte />
         </div>
       )}
 

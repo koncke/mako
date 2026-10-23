@@ -26,6 +26,7 @@ import {
 } from '@/lib/archivero-subida';
 import { FilaM, ListaM, PieM, SheetM, useToastM } from '@/app/m/_ui';
 import { R, pesoArchivo } from './modelo';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const clave = (f: File) => `${f.name}:${f.size}`;
 const dominio = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
@@ -176,6 +177,7 @@ export function ArchiveroM({ abierto, onCerrar }: { abierto: boolean; onCerrar: 
       {avisos.length > 0 && (
         <ul className="m-second-brain-avisos" role="alert">
           {avisos.map((a) => <li key={a}>{a}</li>)}
+          <li><ReportarASoporte /></li>
         </ul>
       )}
     </SheetM>

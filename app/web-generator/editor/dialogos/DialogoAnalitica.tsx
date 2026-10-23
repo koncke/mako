@@ -28,6 +28,7 @@ import type { Analitica } from '@/lib/editor-landing/api-tipos';
 import { tarjetasDe, tituloDeTarjeta } from '@/lib/editor-landing/doc';
 import { EstilosPanelesB, Ico, pedirDocs, useAncho } from '../paneles/PanelAgente';
 import { idDe, recortar } from '../diff-tarjetas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export const NO_MEDIDO = 'No medido';
 
@@ -108,6 +109,7 @@ export function DialogoAnalitica({ onCerrar }: { onCerrar?: () => void } = {}) {
           <div className="gma-an-vacio" role="alert">
             <span>{error}</span>
             <button type="button" className="gma-pb-boton" data-v="contorno" data-t="s" onClick={() => { setError(null); void cargar(); }}>Reintentar</button>
+            <ReportarASoporte />
           </div>
         )}
         {!error && !a && <div className="gma-an-vacio"><span className="gma-pb-giro" aria-label="Cargando" /></div>}

@@ -20,6 +20,7 @@ import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { ChatItemMenu } from './ChatItemMenu';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -192,7 +193,7 @@ export function MakoChat({
       <div className="co-hilo__col">
         <HiloMako items={items} quien={MAKO} ahora={ahora} escribiendo={pensando ? { segs: desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0 } : null}
           tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} />
-        {err && <p className="co-nota co-nota--mal" role="alert">{err}</p>}
+        {err && <p className="co-nota co-nota--mal" role="alert">{err}<ReportarASoporte /></p>}
       </div>
     </div>
   );

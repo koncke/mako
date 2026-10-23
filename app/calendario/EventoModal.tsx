@@ -26,6 +26,7 @@ import {
   TIPOS_EVENTO, FORMATOS_PUBLICACION, ROTULO_TIPO, ROTULO_FORMATO, TOPE_TITULO,
   type EntradaEvento, type TipoEvento, type FormatoPublicacion,
 } from '@/lib/calendario-modelo';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** El ícono de cada tipo y de cada formato (la regla de la casa: cada opción de un desplegable lleva el suyo). */
 export const ICONO_TIPO: Record<TipoEvento, NombreIconoMenu> = { publicacion: 'enviar', bloque: 'reloj', llamada: 'telefono', otro: 'nota' };
@@ -116,7 +117,7 @@ export function EventoModal({ inicial, guardando, error, onCerrar, onGuardar, on
         {editando && onHecho && (
           <Checkbox checked={!!inicial.hecho} disabled={guardando} onChange={(v) => onHecho(v)} label={tipo === 'publicacion' ? 'Ya se publicó' : 'Ya está hecho'} />
         )}
-        {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}</div>}
+        {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
       </div>
     </Modal>
   );

@@ -31,6 +31,8 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g,
 
 /** Las pantallas de MaKo con chat, y en qué están. «pendiente, de <chat>»: la migra el chat de esa área. */
 const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
+  // La Ticketera del cliente como chat (23/10/2026): la computadora y el teléfono.
+  'app/tickets/soporte/PiezasSoporte.tsx': 'caja única',
   'app/admin/operaciones/Conversacion.tsx': 'caja única',
   'app/m/operaciones/ChatsMovil.tsx': 'caja única',
   // El chat del cliente (22/10/2026): su caja vive en PiezasCliente.tsx y la montan la computadora y el teléfono.

@@ -4,6 +4,7 @@ import { t } from '../strings'
 import { formatBytes, variantLabel } from './fontFile'
 import type { UploadItem } from './uploadQueue'
 import styles from './UploadFontDialog.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 function describeStyle(item: UploadItem): string {
   if (!item.info || item.info.weight === null || item.info.style === null) return t.userFonts.dialog.detectedOnUpload
@@ -52,6 +53,7 @@ export function UploadItemRow({ item, action }: { item: UploadItem; action: Reac
           <div className={styles.problem} role="alert" data-kind={item.failure ?? undefined}>
             <AlertCircle size={14} aria-hidden="true" />
             <span>{item.message}</span>
+            <ReportarASoporte />
           </div>
         ) : null}
       </div>
