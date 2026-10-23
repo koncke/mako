@@ -34,6 +34,27 @@ automatizaciones visibles en /automations. Una reunión sin marcar deja de pasar
 enseguida (~14 mensajes al grupo de Mauricio) y eso no se deshace. Si dice que sí, **después del 25/10**, el lanzamiento:
 ese día no se distinguiría un problema de la venta de uno del CRM automático.
 
+**CORTADO POR USO (23/10, tarde) — LO QUE SIGUE, en orden.** Punta `d84d2e73a`, que ya trae el port de IA de Automations
+(`5badeda1a`) y la espera estacionada (M2/E4). La revisión adversarial confirmó 24 hallazgos (`wf_14b879ca-b3c`; detalle
+en el journal de la corrida y en el scratchpad de la sesión, `crm-b5-revision.md`). Faltan:
+- Plantillas: ABIERTO en las dos ramas de na_c1 y en na_c2 (E2); T6 (rf_c) con dos ramas, estado no_responde / perdido;
+  una condición nueva «Traído de un grupo de WhatsApp» (evaluar = `quedaDondeLoPusieron(L(h)?.origen)`, nunca null), negada
+  en na_c1, na_c2 y rf_c (E3). Antes, medir el techo de Crear/Editar con IA: Editar quedó en ~3.698/3.700.
+- Script: sacar T6 del plan (su CRON son etapas de salida: guardarDisparadores lo rechaza, S1/S4). Validar cada CRON y
+  destino contra productosConEtapas antes de insertar; si `r.aviso`, borrar la fila. T1 una por etapa de reunión, anclada en
+  reunion_1 / reunion_2 (M1/E1/M4). T2 con CRON `lead,nutri` (S5). Deduplicar por plantilla + CRON (S3). getFunnelDefault,
+  abortando con origen 'error' (S9). Rechazar --aplicar con --activar. --activar: verificar que existan, apagar el motor con
+  cambiarSettingSi, prender, y si algo falla volver todo atrás (S2/S6). DuplicadaError + `--aunque-duplique`, y sumar el
+  script a PRENDEN en tests/automations-activar-todos-los-caminos.test.ts (hoy ROJO). Archivar las 7 confirmaciones
+  (estado 'archivado', motivo en resolved_by, una línea en lead_audit): la #75 sin tocar el lead; la #76 sólo si se prende
+  T3. El simulacro, con yaConf, los ids de las pendientes, los leads en tránsito y los de T3 sin plazo (S7/S8).
+- Galería y API: sin «Elegir después» en las que tienen destinos, y el server exige el CRON y destinos de un solo CRM (G1).
+  `alCrearDePlantilla` con cron:true (G2). tests/crear-al-instante.test.ts está ROJO desde b5. yaEstaba en
+  cambiar_desde_espera_paso (G3). Los textos de la API sobre la gracia (G4). La descripción de cambiar_espera_paso (G5).
+- Corregir en hallazgos-crm.md el «72+4 pendientes»: son 76 en total y 7 pendientes. Y en este relevo, los «~14 mensajes»:
+  T1 avisa 0 al prender, T3 avisa 1 (lead 1779, el de la #76). Las confirmaciones SÍ se ven en el teléfono (/m/inbox).
+- Para Automations, no para el CRM: M3/M6 (lugarDeFicha con la zona del negocio y fechaCoincide). Tocan flujos en producción.
+
 **Bloqueos, en orden:**
 1. Automations: tests/crear-ia-tercera.test.ts queda ROJO (el prompt pasa a ~4.008 tokens con los dos ids nuevos) y el port
    de Crear con IA (`lib/flujo-ia.ts`) es suyo.
