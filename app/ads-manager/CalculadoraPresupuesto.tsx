@@ -125,7 +125,7 @@ function Resultado({ plan: p }: { plan: PlanCalculadora }) {
         {porAnuncio && <Stat label="Por anuncio" valor={`${usd(porAnuncio.diarioPorAnuncio)}/día`} sub={`${porAnuncio.dias} días · ${RESULTADOS_PARA_DECIDIR} resultados`} />}
         <Stat label="Testeo" valor={usd(p.testeo.gasto)} sub={plural(p.testeo.dias, 'día', 'días')} />
         <Stat label="Escala al ganador" valor={`${usd(p.escala.diario)}/día`} sub={plural(p.escala.dias, 'día', 'días')} />
-        <Stat label="Ventas esperadas" valor={String(p.ventas)} sub={usd(p.facturacion)} />
+        <Stat label="Ventas esperadas" valor={p.ventas.toLocaleString('es-MX', { maximumFractionDigits: 1 })} sub={usd(p.facturacion)} />
       </div>
       {p.avisos.map((a) => <Alert key={a} tono="warn">{a}</Alert>)}
       <div style={{ fontSize: 12, color: 'var(--faint)' }}>
