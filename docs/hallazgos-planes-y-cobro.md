@@ -979,3 +979,20 @@ La oferta se reclama con compare-and-set desde null: una vez por negocio. **Vive
 | Medir con claves de PRUEBA: el PUT del monto de un preapproval de MP, `hosted_invoice_url` con la suscripción `past_due`, y la factura de $0 | `lib/pasarela-plan-api.ts` |
 | Una factura de $0 (saldo o cupón del 100%) asentaría US$47 de cash: `montoUsdDeLaCuota` cae al monto del cobro con 0 | `lib/cobros-reglas.ts` (del chat Cobros) |
 | En Mercado Pago (ARS) una cuota con descuento de retención se asienta con el USD de lista | `lib/cobros-reglas.ts` (`montoUsdDeLaCuota`) |
+
+### La revisión adversarial del 23/10: lo que cambió el diseño (21 defectos, 7 altos)
+
+- **El diagnóstico obvio era el equivocado: «la cobertura encadenada sigue a la pasarela».** No la sigue: un mes devuelto, los
+  días 29-31 o una reactivación corrían la fecha, y le daba mora a quien pagaba puntual. **Regla:** la mora la dice la PASARELA
+  (el aviso de la renovación fallida, `PREFIJO_RENOVACION_FALLIDA`, que borra la renovación que entra), anclada en el último
+  pago de ESA suscripción (`proximoCobro`). La cadena queda sólo para «hasta cuándo cubre» después de una baja.
+- **Atar una compra a un negocio por el email es una puerta para pausar negocios ajenos** (se compraba un plan con el email
+  del admin de otro, el ws1 incluido, y se dejaba fallar la renovación). Quien vuelve reactiva desde adentro de su cuenta.
+- **Devolver el link vivo de un email a un pedido anónimo entrega la credencial del cambio de email del acceso.**
+- **Una factura de $0 (saldo, cupón) no es plata**: no se asienta al reparar, pero cubre el mes.
+- **Reparar desde un pago no puede volver a reparar**: `confirmarImpago` → `aplicarPagoAprobado` → `revisarAccesosPorPago`
+  es un círculo si la cuota no se puede asentar; sólo la vuelta del cron repara.
+- **Sin hacer (conocido):** /planes con el email de quien ya es cliente cobra y queda `ya_tenia_cuenta` (lo resuelve el super
+  admin; preguntarlo antes sería un oráculo de emails); el cupón de retención de Stripe reemplaza un descuento que ya tuviera;
+  la deuda en MP con la retención a mitad de precio se calcula a precio de lista. El informe: la carpeta de notas del Cerebro,
+  `revision-suscripcion-2310.md`.
