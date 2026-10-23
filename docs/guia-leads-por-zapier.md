@@ -14,9 +14,9 @@ o de Make). La tarjeta es **«Leads de Meta por Zapier»**, en Integraciones.
 ## Antes de empezar
 
 - Ser administrador de la página de Facebook, y tener su formulario instantáneo publicado.
-- Una cuenta de Zapier **de pago** o de Make. El precio de abajo lo paga el negocio, no MaKo.
+- Una cuenta de **Make** (tiene plan gratis) o de **Zapier de pago**. Lo que cuesta lo paga el negocio, no MaKo.
 
-## Cuánto cuesta (leído en las páginas oficiales el 23/10/2026)
+## Cuánto cuesta (leído el 23/10/2026)
 
 **Zapier: el plan gratis NO alcanza. El mínimo es Professional.**
 
@@ -27,20 +27,29 @@ o de Make). La tarjeta es **«Leads de Meta por Zapier»**, en Integraciones.
   Team y Enterprise. Precios oficiales, actualizados el 23/10/2026: <https://zapier.com/pricing>
 - **Plan mínimo: Professional, desde US$19,99 al mes con facturación anual (US$29,99 si se paga mes a mes), con 750 tareas
   al mes.** Los precios son en dólares; Zapier cobra en 19 monedas locales al cambio del día. Cada lead gasta tareas del plan.
-- Es el MISMO plan para cualquier negocio: no hay un camino gratis. Antes de prometerlo, el negocio tiene que saber que paga
-  Zapier aparte.
+- Es el MISMO plan para cualquier negocio: no hay un camino gratis en Zapier. Antes de prometerlo, el negocio tiene que saber
+  que paga Zapier aparte.
 
-**Make: no se puede prometer un precio con lo oficial que se pudo leer.**
+**Make: puede arrancar gratis, con dos cosas sin medir.**
 
-- La página de precios (<https://www.make.com/en/pricing>) no entrega los planes sin JavaScript: no se pudo leer ningún precio
-  de ahí. Los de Core, Pro y Teams que circulan son de terceros (alrededor de US$9 a US$10,59 el más barato): NO verificados.
-- La página oficial del módulo (<https://apps.make.com/facebook-lead-ads>) no dice que pida un plan determinado, pero sí que
-  hace falta una cuenta de Facebook Business Manager. Qué plan hace falta para el disparador instantáneo: NO medido.
-- Make tiene plan Free: 1.000 créditos al mes y 2 escenarios activos (según el blog y la comunidad de Make, no según la página
-  de precios). Alcanzaría para un negocio chico; si su disparador de leads corre en Free, sin medir.
+- Precios leídos por el Cerebro en un navegador el 23/10/2026 (la página los dibuja JavaScript; yo no la pude leer sin él):
+  <https://www.make.com/pricing>. **Free: US$0, 1.000 créditos al mes, 3.500+ apps, routers y filtros, y 15 minutos de
+  intervalo mínimo entre corridas.** Core: US$9 al mes (el precio que muestra es con el descuento anual del 15%), con
+  escenarios activos ilimitados y programación al minuto. Pro: US$16. Teams: US$29. Las únicas apps fuera de los planes comunes
+  son las «Enterprise apps» (Workday, Coupa, ServiceNow…): Facebook Lead Ads no es una de ellas.
+- La página oficial del módulo (<https://apps.make.com/facebook-lead-ads>) no pide un plan determinado, pero sí una cuenta de
+  Facebook Business Manager.
+- **Sin medir (1): ¿el lead llega al instante o hasta 15 minutos tarde?** En la página del módulo, «Watch Leads» aparece SIN la
+  etiqueta de instantáneo; si corre por intervalo, en el plan Free el lead llega hasta 15 minutos tarde. Para un negocio que
+  llama al lead en el momento, eso importa: el Core (programación al minuto) lo resuelve.
+- **Sin medir (2): ¿cuántos leads alcanzan en Free?** El Cerebro estimó unos 2 créditos por lead (el disparador y el POST a
+  MaKo), o sea unos 500 leads al mes. Pero un disparador por intervalo puede gastar un crédito en CADA corrida aunque no haya
+  leads (la ayuda oficial de Make no lo dice; una fuente de su comunidad sí): a 15 minutos son unas 2.900 corridas al mes, más
+  que los 1.000 créditos del Free. Hasta medirlo con una cuenta, «gratis» es «gratis para probar».
 
 **Para el domingo:** con Zapier se puede prometer, diciendo que cuesta unos US$20 a US$30 al mes y lo paga el negocio. Con
-Make, no hasta mirar su página de precios con un navegador.
+Make se puede ofrecer «arrancar gratis y probar», sin prometer cuántos leads aguanta el plan gratis ni que lleguen al
+instante, y diciendo que el plan Core (US$9) es el que lo asegura.
 
 ## Los pasos (15 a 30 minutos)
 

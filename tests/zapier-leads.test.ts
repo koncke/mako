@@ -261,17 +261,23 @@ test('el servicio está en todos los registros que lo hacen andar', () => {
   assert.match(sinComentarios(leer('../app/integraciones/IntegracionesBoard.tsx')), /&& !i\.callada\)/);
 });
 
-test('el negocio sabe que Zapier es de pago: en la tarjeta, y el plan mínimo en la guía con su fecha y su link', () => {
-  // Medido en las páginas oficiales el 23/10/2026: Facebook Lead Ads es una app premium (Professional, Team y Enterprise) y
-  // «Webhooks by Zapier» tampoco está en Free. Prometer el puente sin decirlo es prometerlo gratis.
+test('el negocio sabe qué cuesta: Zapier de pago y Make con plan gratis, en la tarjeta, y en la guía con fecha y links', () => {
+  // Zapier, leído en sus páginas oficiales el 23/10/2026: Facebook Lead Ads es una app premium (Professional, Team y Enterprise)
+  // y «Webhooks by Zapier» tampoco está en Free. Make, leído por el Cerebro en un navegador el mismo día: tiene plan Free y
+  // Facebook Lead Ads no es una «Enterprise app». Prometer el puente sin decirlo es prometerlo gratis (Zapier) o de pago (Make).
   const catalogo = sinComentarios(leer('../lib/metodo-catalogo.ts'));
   const bloque = catalogo.slice(catalogo.indexOf("key: 'zapier'"), catalogo.indexOf("key: 'apify'"));
-  assert.match(bloque, /Necesitas Zapier de pago \(plan Professional\)/, 'la tarjeta no avisa que el plan gratis de Zapier no alcanza');
+  assert.match(bloque, /Zapier pide plan de pago \(Professional\); Make tiene plan gratis/, 'la tarjeta no dice qué cuesta cada camino');
+  assert.match(bloque, /en Make, «Make»/, 'en Make se asigna la app «Make» como CRM, no «Zapier»');
   const guia = leer('../docs/guia-leads-por-zapier.md');
-  assert.match(guia, /Plan mínimo: Professional, desde US\$19,99/, 'la guía perdió el plan mínimo');
-  assert.match(guia, /leído en las páginas oficiales el 23\/10\/2026/, 'el precio sin fecha envejece sin que nadie lo vea');
+  assert.match(guia, /Cuánto cuesta \(leído el 23\/10\/2026\)/, 'el precio sin fecha envejece sin que nadie lo vea');
+  assert.match(guia, /Plan mínimo: Professional, desde US\$19,99/, 'la guía perdió el plan mínimo de Zapier');
   assert.ok(guia.includes('https://help.zapier.com/hc/en-us/articles/8496061306253'), 'falta el link a la ayuda oficial de Facebook Lead Ads');
-  assert.ok(guia.includes('https://zapier.com/pricing'), 'falta el link a los precios oficiales');
+  assert.ok(guia.includes('https://zapier.com/pricing'), 'falta el link a los precios oficiales de Zapier');
+  assert.ok(guia.includes('https://www.make.com/pricing'), 'falta el link a los precios de Make');
+  assert.match(guia, /Free: US\$0, 1\.000 créditos al mes/, 'la guía perdió el plan gratis de Make');
+  // Y lo que NO está medido sigue marcado como tal: «gratis» en Make es «gratis para probar» hasta medirlo con una cuenta.
+  assert.match(guia, /Sin medir \(1\)[\s\S]*Sin medir \(2\)/, 'se borró lo que falta medir del plan gratis de Make');
 });
 
 test('la ruta es pública por el prefijo de webhooks, y sólo acepta POST con cuerpo', () => {
@@ -295,6 +301,9 @@ test('la ruta es pública por el prefijo de webhooks, y sólo acepta POST con cu
 //     como lead_id.
 //   · LOS REGISTROS: la clave sin ir por hash · sin su fila de ruteo · sin logo · sin ping · sin la exención del medidor ·
 //     la grilla escondiendo al puente caído · la tarjeta leyendo la clave y no lo que llegó.
-//   · EL PLAN DE PAGO (mismo día, después del pedido del Cerebro): la tarjeta sin su primer paso «Necesitas Zapier de pago» · la
+//   · EL PLAN DE PAGO (mismo día, después del pedido del Cerebro): la tarjeta sin su primer paso «Zapier pide plan de pago…» · la
 //     guía sin el plan mínimo · sin la fecha · sin el link a la ayuda oficial · sin el link a los precios: 5 de 5 (base 30 / 0).
+//   · MAKE GRATIS (mismo día, después de la lectura del Cerebro): la tarjeta sin «Make tiene plan gratis» · sin la app «Make»
+//     como CRM · la guía sin la fecha · sin el plan mínimo · sin el link de Make · sin su plan Free · sin lo que falta medir:
+//     7 de 7 (base 30 / 0).
 // Y de punta a punta contra el ws3 (scripts/tmp-e2e-zapier.ts, no se commitea): docs/hallazgos-integraciones.md.

@@ -1375,10 +1375,16 @@ El Cerebro pidió medirlo antes del domingo: decide si se puede PROMETER el puen
 La ayuda oficial de Facebook Lead Ads (actualizada el 01/10/2026, `help.zapier.com/hc/en-us/articles/8496061306253`) dice «Facebook
 Lead Ads is a premium app on Zapier»: está en Professional, Team y Enterprise, y pide «A paid Zapier account». Y «Webhooks by
 Zapier» (el POST a MaKo) tampoco está en Free (`zapier.com/pricing`, actualizada el 23/10/2026). **El mínimo es Professional:
-US$19,99 al mes con facturación anual, US$29,99 mes a mes, 750 tareas.** Con **Make** no se puede prometer un precio: su página
-de precios no entrega los planes sin JavaScript (ningún precio legible), la del módulo no declara un plan, y los precios que
-circulan son de terceros. Lo que sí dice Make: hace falta una cuenta de Facebook Business Manager, y en Leads Access se asigna
-la app «Make» (no «Zapier»).
+US$19,99 al mes con facturación anual, US$29,99 mes a mes, 750 tareas.** **Make puede arrancar gratis, con dos cosas sin medir.**
+Mi lectura de su página de precios no sirvió (la dibuja JavaScript; ningún precio legible), pero el Cerebro la leyó con un navegador
+el mismo día (`make.com/pricing`): Free US$0, 1.000 créditos al mes, 15 minutos de intervalo mínimo entre corridas; Core US$9
+(con el descuento anual) con escenarios ilimitados y programación al minuto; Pro US$16; Teams US$29. Facebook Lead Ads no es una de
+las «Enterprise apps», que son las únicas fuera de los planes comunes. En Leads Access se asigna la app «Make» (no «Zapier») y
+hace falta una cuenta de Facebook Business Manager. **Sin medir (1):** si «Watch Leads» es instantáneo o corre por intervalo (en la
+página del módulo aparece sin la etiqueta de instantáneo): en Free, hasta 15 minutos tarde. **Sin medir (2): cuántos leads
+alcanzan en Free.** El Cerebro estimó unos 500 al mes (2 créditos por lead), pero un disparador por intervalo puede gastar un
+crédito por CADA corrida aunque no haya leads —la ayuda oficial de Make no lo dice; una fuente de su comunidad sí—, y a 15 minutos
+son ~2.900 corridas al mes contra 1.000 créditos. Hasta medirlo con una cuenta, «gratis» es «gratis para probar».
 
 ⚠️ **Lo que se había escrito antes era una suposición.** El relevo del Cerebro decía «Zapier Professional ronda US$20–30, pero ese
 precio sale de un blog»; ahora es la página oficial. Y OJO con cómo se lee: una búsqueda resumió esa misma ayuda como si Free
@@ -1397,8 +1403,9 @@ notificación «Lead entrante por formulario de Meta» en el feed (`canal_wa: no
 automatizaciones activas). Al terminar: 0 leads, 0 filas de ruteo, 0 credenciales, 0 estados, 0 filas colgando.
 
 **Probado rompiéndolo** (`tests/zapier-leads.test.ts`, 21 tests; roturas restauradas de memoria): las 28 cazadas, cada una por
-el test que corresponde (los números, al pie del archivo del test). Y 5 más para el plan de pago (la tarjeta sin el aviso, y la guía
-sin el plan mínimo, la fecha o cualquiera de los dos links): 5 de 5.
+el test que corresponde (los números, al pie del archivo del test). Y 12 más para lo que cuesta (la tarjeta sin el aviso de Zapier de pago, sin
+Make gratis o sin la app «Make» como CRM; la guía sin el plan mínimo, la fecha, los links de Zapier o de Make, el plan Free de Make
+o lo que falta medir): 12 de 12.
 
 ### La API de MaKo
 
@@ -1417,6 +1424,8 @@ snapshot y `plugin/` no cambian).
 - **Un Zap real.** Nada de acá se probó contra el trigger de Facebook Lead Ads de Zapier ni contra Make. El primer negocio que
   lo arme confirma (o corrige) los nombres de los campos: lo que MaKo no use vuelve en `sin_usar`.
 - **El umbral de 72 h contra el ritmo propio de cada negocio.**
+- **Medir Make con una cuenta**: si «Watch Leads» es instantáneo y si una corrida vacía gasta un crédito (decide si el plan gratis
+  alcanza). Hoy la guía lo dice como «gratis para probar».
 - **Tipos:** este trabajo salió «sin tipos» (política del tren): los chequea el `tsc` acotado de Integración.
 
 **Vive en:** `lib/zapier-lead.ts` (el lector) · `lib/zapier-leads.ts` (la puerta) · `lib/zapier-estado.ts` (la tarjeta) ·
