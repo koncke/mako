@@ -997,14 +997,16 @@ La oferta se reclama con compare-and-set desde null: una vez por negocio. **Vive
   la deuda en MP con la retención a mitad de precio se calcula a precio de lista. El informe: la carpeta de notas del Cerebro,
   `revision-suscripcion-2310.md`.
 
-### La segunda revisión (la baja por plan, 23/10): 11 confirmados
+### La segunda revisión (la baja por plan, 23/10): las trampas
 
-- **Una marca trabada es plata trabada:** si la pasarela aplicó la pausa o el descuento y la respuesta se perdió, la marca quedaba
-  en «error» y MP pausado o al 50% para siempre. **Regla:** el cron relee la pasarela y concilia (`conciliarRetenciones`):
-  «aplicada» con sus escrituras, o se libera. Y corre al PRINCIPIO del cron (al final se lo comía el tiempo).
-- **«Un mes» de pausa es UN CICLO de la pasarela, no 30 días** (hasta pasado el próximo cobro: Stripe el fin del período, MP
+- **Un timeout de la pasarela (status 0) puede significar que SÍ se aplicó.** Nunca se da por fallido: la marca queda en
+  «error» y el cron relee la pasarela y concilia (`conciliarRetenciones`): «aplicada» con sus escrituras, o se libera. Si no,
+  MP quedaba pausado o al 50% para siempre.
+- **Comparar `aplicadaAt` (UTC) con `fecha_pago` (fecha local del negocio) corre un día**: el 50% podía durar 3 meses en vez
+  de 2. Se cuenta desde una fecha de la PASARELA (el próximo cobro de MP al aceptar), con margen.
+- **«Un mes» de pausa es un CICLO de cobro, no 30 días**: hasta pasado el próximo cobro (Stripe el fin del período, MP
   `next_payment_date`). Con 30 días fijos se salteaban cero o dos cobros.
-- **Sin oferta en mora** (la pausa borraba el mes adeudado) **ni en un plan sin `retencion`** (recibía el 50% igual).
-- **Bajar de plan cambia la capa al terminar el período pagado**, no en el acto.
+- **Sin retención válida en el plan, no hay oferta** (recibía el 50% por defecto, el Esencial incluido).
+- **En mora no hay ofertas**: la pausa borraba el mes adeudado y «bajar» reescribía la deuda. Primero «Pagar y volver».
 - **Sin hacer:** la baja durante una pausa deja ese mes sin pagar (R7); bajar de Pro a Esencial es un 51% de descuento hasta
-  que los topes de Esencial se cumplan (R8, el reparto de topes en curso). La tabla: C:/dev/cerebro-herramientas/revision-retencion-2310.md.
+  que los topes de Esencial se cumplan (R8). La tabla: C:/dev/cerebro-herramientas/revision-retencion-2310.md.
