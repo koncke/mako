@@ -25,7 +25,7 @@ import {
 } from '@/lib/evolution';
 import { rotuloLinea, sanearEtiqueta } from '@/lib/lineas-whatsapp';
 import { sincronizarDesdeEvolution, borrarEspejoNoOficial } from '@/lib/evolution-mensajes';
-import { RUTA_PASAR_A_PRO } from '@/lib/tope-lineas';
+import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 
 export const dynamic = 'force-dynamic';
 // 'sincronizar' recorre hasta 100 chats con 60 mensajes cada uno contra
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
     if (body.action === 'nueva-linea') {
       const r = await conectar({ nueva: true, etiqueta: sanearEtiqueta(body.etiqueta) });
       // El tope del plan no es una falla de Evolution: 403, con el tope y a dónde se pasa a Pro (la pantalla dibuja el cartel).
-      if (!r.ok && r.tope != null) return Response.json({ ok: false, error: r.error, tope: r.tope, pasarAPro: RUTA_PASAR_A_PRO }, { status: 403 });
+      if (!r.ok && r.tope != null) return Response.json({ ok: false, error: r.error, tope: r.tope, pasarAPro: RUTA_CAMBIAR_PLAN }, { status: 403 });
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
       return Response.json({ ok: true, estado: r.estado, qr: r.qr, linea: r.linea });
     }

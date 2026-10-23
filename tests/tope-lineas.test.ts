@@ -6,15 +6,15 @@
 // (`suscripcionDeMakoDe(ws) != null`), nunca al ws1 ni a los acuerdos a mano. Una línea ya conectada nunca se desconecta
 // por el tope». La regla es lib/tope-lineas.ts; la usa `conectar({ nueva: true })` (lib/evolution.ts).
 //
-// PROBADO ROMPIÉNDOLO (23/10/2026, arnés `romper-topes.mjs` del scratchpad de la sesión de Offer; base 3/0, 10 de 10 cazadas): ver la lista
+// PROBADO ROMPIÉNDOLO (23/10/2026, arnés `romper-topes.mjs` del scratchpad de la sesión de Offer; base 3/0, 11 de 11 cazadas): ver la lista
 // al pie de este archivo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { RUTA_PASAR_A_PRO, topeParaLineaNueva } from '../lib/tope-lineas';
-import { textoTope } from '../lib/topes-plan';
+import { topeParaLineaNueva } from '../lib/tope-lineas';
+import { RUTA_CAMBIAR_PLAN, textoTope } from '../lib/topes-plan';
 
 const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
 
@@ -30,7 +30,7 @@ test('1. la regla: Esencial 1, Pro 3, y sólo a quien MaKo le cobra el plan por 
   assert.deepEqual(topeParaLineaNueva({ ws: 40, cobradoPorPasarela: false, capa: 'completo', usadas: 5 }), { ok: true });
   // El ws1 (Mauricio), nunca, aunque algún día tuviera un cobro.
   assert.deepEqual(topeParaLineaNueva({ ws: 1, cobradoPorPasarela: true, capa: 'completo', usadas: 5 }), { ok: true });
-  assert.equal(RUTA_PASAR_A_PRO, '/configuraciones/plan', 'quien ve el tope ya es cliente: el panel de su plan, no la compra');
+  assert.equal(RUTA_CAMBIAR_PLAN, '/configuraciones/plan', 'quien ve el tope ya es cliente: el panel de su plan, no la compra');
 });
 
 test('2. conectar: el tope frena SÓLO la línea que se va a crear, antes de su fila, y si no se lee el plan deja conectar', () => {
@@ -47,7 +47,8 @@ test('2. conectar: el tope frena SÓLO la línea que se va a crear, antes de su 
 
 test('3. la ruta y la pantalla: un 403 con el tope, y el cartel corto con «Pasar a Pro» (no en rojo)', () => {
   const ruta = leer('app/api/whatsapp/evolution/route.ts');
-  assert.match(ruta, /if \(!r\.ok && r\.tope != null\) return Response\.json\(\{ ok: false, error: r\.error, tope: r\.tope, pasarAPro: RUTA_PASAR_A_PRO \}, \{ status: 403 \}\);/);
+  assert.match(ruta, /import \{ RUTA_CAMBIAR_PLAN \} from '@\/lib\/topes-plan';/, 'la ruta de «Pasar a Pro» es la de Planes, no una propia');
+  assert.match(ruta, /if \(!r\.ok && r\.tope != null\) return Response\.json\(\{ ok: false, error: r\.error, tope: r\.tope, pasarAPro: RUTA_CAMBIAR_PLAN \}, \{ status: 403 \}\);/);
   const pantalla = leer('app/whatsapp/EvolutionConnect.tsx');
   assert.match(pantalla, /if \(!body\.ok && body\.tope != null && body\.pasarAPro\) \{ setTope\(\{ texto: body\.error \?\? '', pasarAPro: body\.pasarAPro \}\); return; \}/);
   assert.equal([...pantalla.matchAll(/\{tope && <CartelTope \{\.\.\.tope\} \/>\}/g)].length, 2, 'en el panel y en el modal');
@@ -58,4 +59,4 @@ test('3. la ruta y la pantalla: un 403 con el tope, y el cartel corto con «Pasa
 
 // Las roturas del arnés (cada una, en rojo): el tope a un acuerdo a mano · el tope al ws1 · Pro con el tope de Esencial ·
 // el tope también al reconectar · sin poder leer el plan, no deja conectar · todos como cobrados · la ruta sin el 403 ·
-// la pantalla sin el cartel · el cartel sin «Pasar a Pro» · el cartel en rojo, como un error.
+// la pantalla sin el cartel · el cartel sin «Pasar a Pro» · el cartel en rojo, como un error · una ruta propia para «Pasar a Pro».

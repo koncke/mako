@@ -11,16 +11,11 @@
 //    explícito: es el de Mauricio, que nunca entra a un tope.
 // ⚠️ UNA LÍNEA YA CONECTADA NUNCA SE DESCONECTA POR EL TOPE: esto sólo frena la que se va a CREAR. Reconectar una que ya
 //    existe (`conectar({ linea })`, el «↻ Nuevo QR») no pasa por acá.
+// «Pasar a Pro» lleva a `RUTA_CAMBIAR_PLAN` (lib/topes-plan.ts), la única: quien ve el tope YA es cliente, y `/planes/pro`
+// es la compra para quien todavía no tiene cuenta.
 
 import { cabeOtra, textoTope, topeDe } from './topes-plan';
 import { WS_MAURICIO } from './aviso-arreglo-reglas';
-
-/**
- * A dónde lleva «Pasar a Pro»: el panel del plan del negocio, con el cambio (el Cerebro, 23/10/2026). Quien ve el tope YA
- * es cliente: `/planes/pro` es la compra para quien todavía no tiene cuenta. Cuando Planes deje `RUTA_CAMBIAR_PLAN` en
- * lib/topes-plan.ts, se usa ésa.
- */
-export const RUTA_PASAR_A_PRO = '/configuraciones/plan';
 
 export type TopeLineaNueva = { ok: true } | { ok: false; tope: number; texto: string };
 
