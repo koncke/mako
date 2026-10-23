@@ -26,6 +26,8 @@ import { mantenerAvisosStripe, reconciliarCobros, workspacesConPasarela } from '
 import { esLaVueltaDelDia } from '@/lib/cobros-reglas';
 import { renovacionesDeAgencia } from '@/lib/agencia-cobro';
 import { revisarAccesosPorPago } from '@/lib/plan-acceso';
+import { conciliarRetenciones } from '@/lib/retencion-plan';
+import { acreditarReferidos } from '@/lib/partners-programa';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -58,6 +60,10 @@ export async function GET(req: NextRequest) {
   // Una vez por día, además, los avisos de Stripe se ponen al día con los eventos de HOY (los contracargos llegan sin
   // que MaKo haga nada; un aviso registrado antes de sumarlos no los escucharía). Best effort: nunca corta la corrida.
   const delDia = esLaVueltaDelDia(t0);
+  // LA RETENCIÓN (23/10/2026, lib/retencion-plan.ts): conciliar las marcas trabadas, la capa de «bajar» y lo que MP no
+  // restaura solo. AL PRINCIPIO (segunda revisión, R9): al final se la comía la vuelta de los workspaces. Nunca tira.
+  const retencion = await conciliarRetenciones();
+  if (retencion.conciliadas || retencion.liberadas || retencion.capas || retencion.restauradas) console.log(`[cron:cobros-reconciliar] retención: ${JSON.stringify(retencion)}`);
   const resultados: Resultado[] = [];
   const sinTurno: number[] = [];
   for (const ws of orden) {
@@ -97,5 +103,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, accesos, ms: Date.now() - t0 });
+
+  // MAKO PARTNERS (23/10/2026, lib/partners-programa.ts): el referido queda en su negocio con sus dos bienvenidas, y con su
+  // 2º mes pagado, el crédito al partner (una sola vez: el índice único de partner_creditos). Nunca tira.
+  const partners = Date.now() - t0 < maxDuration * 1000 - RESERVA_MS ? await acreditarReferidos().catch((e) => ({ error: msg(e) })) : null;
+  if (partners && 'acreditados' in partners && (partners.atados || partners.acreditados)) console.log(`[cron:cobros-reconciliar] MaKo Partners: ${JSON.stringify(partners)}`);
+
+  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, accesos, retencion, partners, ms: Date.now() - t0 });
 }

@@ -39,6 +39,8 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
     const partners = await partnersDeLaPlataforma().catch(() => null);
     return <PartnersPlataforma partners={partners} />;
   }
+  // Cualquier negocio puede recomendar MaKo (23/10/2026): el admin que no es agencia va a su tablero de referidos.
+  if (ws != null && !(await esAgencia(ws)) && (await adminDeWorkspaceActual()) != null) redirect(await rutaConWs('/partners/referidos'));
   if (ws == null || !(await esAgencia(ws))) redirect(await rutaConWs('/clients'));
   const admin = (await adminDeWorkspaceActual()) != null;
   if (!admin && !esSuper) redirect(await rutaConWs('/clients'));

@@ -64,7 +64,8 @@ export function modoDeClaveStripe(key: string | null | undefined): 'real' | 'pru
   return null;
 }
 
-async function llamar(
+/** Exportada para lib/pasarela-plan-api.ts (la suscripción de MaKo): el mismo pedido, la misma versión y los mismos errores. */
+export async function llamar(
   key: string,
   metodo: 'GET' | 'POST' | 'DELETE',
   ruta: string,

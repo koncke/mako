@@ -15,11 +15,15 @@ import { adminDeWorkspaceActual, getCapaActual } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { darDeBajaMiPlan, type ResultadoBaja } from '@/lib/cobros';
 import { mandarCodigoDeBaja } from '@/lib/invitaciones';
+import { aplicarRetencion, type OpcionRetencion } from '@/lib/retencion-plan';
+import { guardarDeudaAntesDeLaBaja } from '@/lib/plan-deuda';
 
 export async function darmeDeBajaAction(): Promise<ResultadoBaja> {
   const ws = await adminDeWorkspaceActual().catch(() => null);
   if (ws == null) return { ok: false, resumen: 'Sólo quien administra el negocio puede darlo de baja.' };
   const sesion = await getUsuarioActual();
+  // En plena mora, la deuda queda guardada antes de la baja (la baja pisa el aviso de la renovación fallida).
+  await guardarDeudaAntesDeLaBaja(ws).catch((e) => console.warn('[plan] deuda antes de la baja:', e instanceof Error ? e.message : String(e)));
   const r = await darDeBajaMiPlan(ws, sesion?.nombre || sesion?.email || 'el negocio');
   // El comprobante, al email de quien la pidió. Si no sale, la baja igual quedó hecha (el código está en pantalla).
   if (r.ok && sesion?.email) {
@@ -27,6 +31,17 @@ export async function darmeDeBajaAction(): Promise<ResultadoBaja> {
     const m = await mandarCodigoDeBaja({ to: sesion.email, codigo: r.codigo, plan, finAt: r.finAt });
     if (!m.enviado) console.error(`[plan] no salió el código de baja ${r.codigo}: ${m.error ?? 'sin detalle'}`);
   }
+  revalidatePath('/configuraciones/plan');
+  return r;
+}
+
+/** «Quedarme con el descuento» (23/10/2026): la oferta de retención antes de la baja (lib/retencion-plan.ts). Sólo el admin, una vez. */
+export async function aceptarRetencionAction(opcion: OpcionRetencion = 'descuento'): Promise<{ ok: boolean; resumen: string }> {
+  const ws = await adminDeWorkspaceActual().catch(() => null);
+  if (ws == null) return { ok: false, resumen: 'Sólo quien administra el negocio puede cambiar su plan.' };
+  const sesion = await getUsuarioActual();
+  if (opcion !== 'descuento' && opcion !== 'pausa' && opcion !== 'bajar') return { ok: false, resumen: 'Opción inválida.' };
+  const r = await aplicarRetencion(ws, sesion?.nombre || sesion?.email || 'el negocio', opcion);
   revalidatePath('/configuraciones/plan');
   return r;
 }
