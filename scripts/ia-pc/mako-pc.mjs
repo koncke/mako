@@ -367,12 +367,26 @@ export function codigoDelEnlace(enlace) {
   return c.length === LARGO_CODIGO && [...c].every((ch) => ALFABETO_CODIGO.includes(ch)) ? c : null;
 }
 
-/** Lo que pregunta la ventana: a qué negocio y como quién, y si reemplaza una conexión de antes. */
+/**
+ * Lo que pregunta la ventana: a qué negocio y como quién, y si reemplaza una conexión de antes. `conectada`: hoy tiene una
+ * conexión (`antes` es su negocio, si lo guardó: la 0.2.0 no lo guardaba).
+ * ⚠️ CAMBIAR DE NEGOCIO VA PRIMERO (revisión del enlace, 22/10/2026): es el caso del phishing —otro cliente de MaKo manda su
+ * enlace—, y la ventana decía «Tu Ops Center va a contestar con tu Claude» (falso: es el de OTRO) y el reemplazo, al final.
+ */
 export function preguntaDeConexion(p) {
   const como = p.persona ? ` como ${p.persona}` : '';
-  const antes = p.antes ? `\n\nHoy está conectada a «${p.antes}»: esa conexión se reemplaza.` : '';
-  return `¿Conectar esta computadora a «${p.negocio}»${como}?\n\nTu Ops Center va a contestar con tu Claude, en esta computadora.${antes}`;
+  const pregunta = `¿Conectar esta computadora a «${p.negocio}»${como}?`;
+  const usa = `El Ops Center de «${p.negocio}» va a usar tu suscripción de Claude, en esta computadora.`;
+  if (p.conectada && p.antes !== p.negocio) {
+    const deAntes = p.antes ? `«${p.antes}»` : 'otro negocio';
+    return `Esta computadora hoy usa tu Claude para ${deAntes}. Si sigues, lo va a usar «${p.negocio}»${como}, y ${deAntes} se queda sin él.\n\n${pregunta}\n\n${usa}`;
+  }
+  const otraVez = p.conectada ? `\n\nHoy ya está conectada a «${p.negocio}»: esa conexión se reemplaza.` : '';
+  return `${pregunta}\n\n${usa}${otraVez}`;
 }
+
+/** Dos enlaces a la vez: el de esta ventana ya no es el pendiente (lo soltó el otro). */
+export const OTRO_ENLACE = 'Se abrió otro enlace de MaKo mientras esta ventana esperaba: desde acá no conecté nada. Contesta la otra ventana.';
 
 const aUtf16 = (s) => Buffer.from(`${s}\0`, 'utf16le');
 const comillasAs = (s) => `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
@@ -388,14 +402,16 @@ export async function ventana(titulo, texto, botones = 'si-no') {
     if (process.platform === 'win32' && typeof globalThis.Bun !== 'undefined') {
       const { dlopen, FFIType } = await import('bun:ffi');
       const user32 = dlopen('user32.dll', { MessageBoxW: { args: [FFIType.ptr, FFIType.ptr, FFIType.ptr, FFIType.u32], returns: FFIType.i32 } });
-      // MB_YESNO | MB_ICONQUESTION, o MB_OK | MB_ICONINFORMATION; siempre MB_TOPMOST | MB_SETFOREGROUND (sale adelante).
-      const estilo = (botones === 'si-no' ? 0x4 | 0x20 : 0x0 | 0x40) | 0x40000 | 0x10000;
+      // MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2, o MB_OK | MB_ICONINFORMATION; siempre MB_TOPMOST | MB_SETFOREGROUND (sale
+      // adelante). ⚠️ «No» es el botón por defecto (revisión del enlace, 22/10/2026): la ventana se lleva el foco, y una página
+      // que abre el enlace mientras la persona escribe se llevaba el «Sí» con un Enter.
+      const estilo = (botones === 'si-no' ? 0x4 | 0x20 | 0x100 : 0x0 | 0x40) | 0x40000 | 0x10000;
       const r = user32.symbols.MessageBoxW(null, aUtf16(texto), aUtf16(titulo), estilo);
       user32.close();
       return r === 6; // IDYES
     }
     if (process.platform === 'darwin') {
-      const b = botones === 'si-no' ? '{"No", "Sí, conectar"} default button 2 cancel button 1' : '{"Listo"} default button 1';
+      const b = botones === 'si-no' ? '{"No", "Sí, conectar"} default button 1 cancel button 1' : '{"Listo"} default button 1';
       const r = spawnSync('osascript', ['-e', `display dialog ${comillasAs(texto)} with title ${comillasAs(titulo)} buttons ${b} with icon note`], { encoding: 'utf8' });
       return botones === 'si-no' ? r.status === 0 && /Sí, conectar/.test(r.stdout ?? '') : r.status === 0;
     }
@@ -438,7 +454,14 @@ export async function conectarDesdeEnlace(enlace, p = { ventana, arrancar: arran
       return 1;
     }
     const pend = (leerConfig() ?? {}).pendiente ?? {};
-    const si = await p.ventana('Conectar MaKo', preguntaDeConexion({ negocio: pend.negocio ?? 'tu negocio', persona: pend.persona, antes: antes.token ? antes.negocio : null }));
+    const si = await p.ventana('Conectar MaKo', preguntaDeConexion({ negocio: pend.negocio ?? 'tu negocio', persona: pend.persona, antes: antes.negocio ?? null, conectada: !!antes.token }));
+    // Dos enlaces a la vez (revisión del enlace): el segundo suelta el pendiente de éste y guarda el suyo, y `confirmar` /
+    // `cancelar` leen el que haya: el «Sí» de esta ventana confirmaba el de la otra, con el cartel de ésta. Sólo se
+    // contesta si lo pendiente sigue siendo ESTE.
+    if (!pend.token || (leerConfig() ?? {}).pendiente?.token !== pend.token) {
+      await p.ventana('MaKo', OTRO_ENLACE, 'ok');
+      return 1;
+    }
     if (!si) {
       await cancelar();
       await p.ventana('MaKo', 'No la conecté: tu computadora sigue como estaba.', 'ok');

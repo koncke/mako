@@ -49,7 +49,7 @@ test('1. del enlace sale sólo el código; el servidor del enlace se ignora; un 
   assert.equal(r.si.config?.servidor, 'https://hola-mako.com');
 });
 
-test('2. la ventana pregunta a qué negocio y como quién; con el «no», se suelta lo pendiente y queda como estaba', () => {
+test('2. la ventana pregunta a qué negocio y como quién; con el «no», se suelta lo pendiente y queda como estaba', async () => {
   const r = correr();
   assert.equal(r.no.ventanas[0].botones, 'si-no');
   assert.match(r.no.ventanas[0].texto, /^¿Conectar esta computadora a «Pizzería Ana» como Ana\?/);
@@ -58,8 +58,27 @@ test('2. la ventana pregunta a qué negocio y como quién; con el «no», se sue
   assert.equal(r.no.config?.pendiente, undefined, 'quedó lo pendiente después del «no»');
   assert.equal(r.no.arrancado, 0);
   assert.equal(r.no.ventanas.at(-1)?.texto, 'No la conecté: tu computadora sigue como estaba.');
-  // Con una conexión de antes, la ventana dice que se reemplaza.
-  assert.match(r.reemplaza.ventanas[0].texto, /Hoy está conectada a «Pizzería Ana»: esa conexión se reemplaza\./);
+  // Sin conexión de antes, el Ops Center es el del negocio del código (no «tu Ops Center»).
+  assert.match(r.no.ventanas[0].texto, /El Ops Center de «Pizzería Ana» va a usar tu suscripción de Claude/);
+  // Con una conexión a OTRO negocio, eso va PRIMERO (revisión del enlace: el caso del phishing).
+  assert.match(r.reemplaza.ventanas[0].texto, /^Esta computadora hoy usa tu Claude para «Pizzería Ana»\. Si sigues, lo va a usar «Otro negocio», y «Pizzería Ana» se queda sin él\.\n\n¿Conectar/);
+  for (const caso of ['no', 'reemplaza']) assert.doesNotMatch(r[caso].ventanas[0].texto, /Tu Ops Center/, caso);
+  // Una de la 0.2.0, sin el nombre guardado, también avisa.
+  assert.match(r.sinNombre.ventanas[0].texto, /^Esta computadora hoy usa tu Claude para otro negocio\. Si sigues, lo va a usar «Pizzería Ana» como Ana, y otro negocio se queda sin él\./);
+  // El mismo negocio otra vez: se reemplaza, sin el aviso de cambio.
+  const pc = await import('../scripts/ia-pc/mako-pc.mjs');
+  assert.match(pc.preguntaDeConexion({ negocio: 'A', antes: 'A', conectada: true }), /^¿Conectar esta computadora a «A»\?[\s\S]*Hoy ya está conectada a «A»: esa conexión se reemplaza\.$/);
+});
+
+test('2b. dos enlaces a la vez: ni el «Sí» ni el «No» de una ventana tocan el pendiente de la otra', () => {
+  const r = correr();
+  for (const caso of ['dosSi', 'dosNo']) {
+    assert.equal(r[caso].salida, 1, caso);
+    assert.equal(r[caso].ventanas.at(-1)?.texto, 'Se abrió otro enlace de MaKo mientras esta ventana esperaba: desde acá no conecté nada. Contesta la otra ventana.', caso);
+    assert.deepEqual(r[caso].pedidos, ['hola-mako.com/api/ia-pc/emparejar'], `${caso}: confirmó o soltó el de la otra`);
+    assert.equal(r[caso].config?.pendiente?.token, 'tok-de-la-otra', caso);
+    assert.equal(r[caso].config?.token, 'tok-otro', `${caso}: cambió la conexión`);
+  }
 });
 
 test('3. con el «sí», queda conectada y arranca; si MaKo rechaza o no confirma, se dice y no cambia nada', () => {
@@ -89,6 +108,9 @@ test('4. la ventana es del sistema (sin consola), y sin poder mostrarla es «no�
   assert.match(v, /spawnSync\('osascript', \['-e', `display dialog /, 'en la Mac, osascript');
   assert.doesNotMatch(v, /powershell|cmd\.exe|Read-Host/i, 'la ventana abre una consola');
   assert.match(v, /return r === 6; \/\/ IDYES/);
+  // Enter contesta «No» (revisión del enlace): MB_DEFBUTTON2 en Windows, el botón 1 («No») en la Mac.
+  assert.match(v, /botones === 'si-no' \? 0x4 \| 0x20 \| 0x100 :/);
+  assert.match(v, /'\{"No", "Sí, conectar"\} default button 1 cancel button 1'/);
   assert.match(v, /\n  \}\n  return false;\n\}\n/, 'sin poder mostrar la ventana, tiene que ser «no»');
   assert.match(v, /if \(botones === 'si-no' && process\.env\.MAKO_PC_SI === '1'\) return true;/, 'MAKO_PC_SI sólo para la prueba de punta a punta');
   assert.match(src, /else if \(\/\^mako:\/i\.test\(cmd\)\) conectarDesdeEnlace\(cmd\)\.then\(salir, fallar\);/);

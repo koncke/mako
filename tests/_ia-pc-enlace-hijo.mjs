@@ -60,6 +60,34 @@ out.vencido = await correr('mako://conectar?codigo=ABCD2345', true);
 respuestas = { ...BIEN, '/api/ia-pc/emparejar': { status: 200, datos: { token: 'tok-3', negocio: 'Tercero', persona: '' } }, '/api/ia-pc/confirmar': { status: 409, datos: { error: 'No pude confirmar.' } } };
 out.sinConfirmar = await correr('mako://conectar?codigo=ABCD2345', true);
 
+// 7) Dos enlaces a la vez: mientras esta ventana espera, otro enlace guarda SU pendiente. Ni el «Sí» ni el «No» de esta
+//    ventana tocan el de la otra.
+const guardar = (c) => writeFileSync(join(dir, 'config.json'), JSON.stringify(c));
+const dosALaVez = async (contesta) => {
+  pedidos = [];
+  const ventanas = [];
+  const salida = await pc.conectarDesdeEnlace('mako://conectar?codigo=ABCD2345', {
+    ventana: async (titulo, texto, botones = 'si-no') => {
+      ventanas.push({ titulo, texto, botones });
+      if (botones !== 'si-no') return true;
+      const c = config();
+      guardar({ ...c, pendiente: { ...c.pendiente, token: 'tok-de-la-otra', negocio: 'La otra' } });
+      return contesta;
+    },
+    arrancar: () => {},
+  });
+  const res = { salida, ventanas, pedidos: [...pedidos], config: config() };
+  const c = config(); delete c.pendiente; guardar(c);
+  return res;
+};
+respuestas = { ...BIEN, '/api/ia-pc/emparejar': { status: 200, datos: { token: 'tok-este', negocio: 'Este', persona: '' } } };
+out.dosSi = await dosALaVez(true);
+out.dosNo = await dosALaVez(false);
+// 8) Una configuración de la 0.2.0 (con token y sin el negocio): también avisa que la reemplaza.
+guardar({ servidor: 'https://hola-mako.com', token: 'tok-viejo' });
+respuestas = BIEN;
+out.sinNombre = await correr('mako://conectar?codigo=ABCD2345', false);
+
 writeFileSync(1, `@@ENLACE@@${JSON.stringify(out)}\n`);
 rmSync(dir, { recursive: true, force: true });
 setTimeout(() => process.exit(0), 200).unref();

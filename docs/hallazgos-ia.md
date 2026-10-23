@@ -5302,9 +5302,26 @@ sea una app de escritorio con el típico panel de "avanzar"». El plan entero: d
 - **⚠️ Para Martín:** los términos de Anthropic no dejan que un tercero «route requests through … Max plan credentials on
   behalf of their users», y excluyen al que entra «with their own Claude subscription» en el Claude Code sin modificar. La
   doc no dice de qué lado cae MaKo en la PC del cliente (D6a) y manda a preguntar a ventas.
+- **La revisión adversarial del enlace (Integración, 22/10) encontró que la ventana EMPUJABA al «Sí»:**
+  - **«Sí» era el botón por defecto**, en una ventana que se lleva el foco: una página que abre el enlace mientras la persona
+    escribe se lo llevaba con un Enter. Ahora es «No» (`MB_DEFBUTTON2`; en la Mac, `default button 1`).
+  - **Ante el código de OTRO negocio decía «Tu Ops Center va a contestar con tu Claude»**, que ahí es falso, y el reemplazo
+    iba en el tercer párrafo. Es el caso del phishing: otro cliente de MaKo pide su código y manda el enlace. Ahora lo
+    primero es «Esta computadora hoy usa tu Claude para «A». Si sigues, lo va a usar «B»… y «A» se queda sin él».
+    **La regla: en una ventana de consentimiento, lo que la persona pierde va primero, y el texto nunca habla como si lo
+    ajeno fuera suyo.**
+  - **Dos enlaces a la vez:** el segundo soltaba el pendiente del primero, y el «Sí» de la primera ventana confirmaba el de
+    la otra con el cartel equivocado. Ahora sólo se contesta si lo pendiente sigue siendo el de esa ventana.
+  - **Una configuración de la 0.2.0** (con token y sin el negocio) se reemplazaba sin aviso: ahora también avisa.
 - **SIN hacer:** armar el instalador (Inno Setup no está en esta computadora; GitHub Actions lo trae), la pantalla nueva
-  (abrir o descargar), Claude Code sin terminal, el `.pkg` de la Mac, la firma (cuesta plata: lo decide Martín) y subir
-  `VERSION_PC` (con su OK).
+  (abrir o descargar) y la página `/conectar-mi-computadora` que abre mako.iss al terminar (no existe), Claude Code sin
+  terminal, el `.pkg` de la Mac, la firma (cuesta plata: lo decide Martín) y subir `VERSION` y `VERSION_PC` a 0.4.0 JUNTOS
+  en el commit del instalador (un test los ata; con su OK). ⚠️ Hasta entonces, nadie corre `publicar-binarios` desde main:
+  sube con `upsert: true` y pisaría la 0.3.2 publicada.
+- **Sin decidir:** en modo enlace, ¿no reemplazar una conexión a OTRO negocio y pedir que se desconecte primero desde
+  MaKo? Es más fuerte contra el phishing y cuesta un paso al que cambia de negocio de verdad.
+- **Sin medir (de antes):** `pensar` corre `claude -p` sin `--setting-sources`; si eso carga el `~/.claude/CLAUDE.md`
+  personal de la persona, un negocio podría pedirle en un turno que lo repita. Se mide con un turno de prueba.
 
 ## D6b para TODO el negocio: la decisión baja a la PUERTA de la capa de IA (IA6, 22/10/2026)
 
