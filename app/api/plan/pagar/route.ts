@@ -27,9 +27,9 @@ async function wsDelAdmin(): Promise<{ ws: number; email: string; nombre: string
 
 export async function GET() {
   const a = await wsDelAdmin();
-  if (!a) return Response.json({ mora: null, deuda: null });
-  const [mora, d] = await Promise.all([avisoDeMora(a.ws).catch(() => null), deudaDe(a.ws).catch(() => null)]);
-  return Response.json({ mora, deuda: d?.deuda ? { monto: d.deuda.monto, moneda: d.deuda.moneda, ciclos: d.deuda.ciclos } : null });
+  // Lo pide el aviso de la esquina en cada carga: UNA lectura de la vigencia (la mora), nada más.
+  if (!a) return Response.json({ mora: null });
+  return Response.json({ mora: await avisoDeMora(a.ws).catch(() => null) });
 }
 
 export async function POST(req: NextRequest) {
