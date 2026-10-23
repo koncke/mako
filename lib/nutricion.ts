@@ -5108,7 +5108,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // borrador sale cuando alguien lo aprueba, o se descarta, y recién ahí sigue el flujo. Sin esto, el deploy le
         // mandaba de golpe el SEGUNDO mensaje a quien todavía no recibió el primero (los 29 de #282 del ws11, parados en
         // su segundo WhatsApp con el primero en Borradores desde el 20/10). A quien ya pagó le sale igual, como siempre.
-        if (!carril && await tieneBorradorNutriPendiente(lead.id) && !(await esLeadCliente(lead.id))) {
+        if (!carril && await tieneBorradorNutriPendiente(insc.lead_id) && !(await esLeadCliente(insc.lead_id))) {
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
           await escribir(insc, { proximo_envio_at: enHorasISO(6) }, { modo: 'fila' });
           continue;

@@ -78,7 +78,7 @@ test('lo retenido no se saltea: con un borrador pendiente, lo que sigue espera a
   const i = motor.indexOf('const saleSoloEste = saleSolo(paso, sec.envio_automatico);');
   assert.ok(i > 0);
   const despues = motor.slice(i, i + 3000);
-  assert.match(despues, /if \(!carril && await tieneBorradorNutriPendiente\(lead\.id\) && !\(await esLeadCliente\(lead\.id\)\)\) \{\n\s+res\.detalle\.push\(\{ lead_id: insc\.lead_id, canal: paso\.canal, estado: 'saltado', nota: 'borrador pendiente' \}\);\n\s+await escribir\(insc, \{ proximo_envio_at: enHorasISO\(6\) \}, \{ modo: 'fila' \}\);\n\s+continue;/, 'con un borrador retenido, el mensaje que sigue sale solo');
+  assert.match(despues, /if \(!carril && await tieneBorradorNutriPendiente\(insc\.lead_id\) && !\(await esLeadCliente\(insc\.lead_id\)\)\) \{\n\s+res\.detalle\.push\(\{ lead_id: insc\.lead_id, canal: paso\.canal, estado: 'saltado', nota: 'borrador pendiente' \}\);\n\s+await escribir\(insc, \{ proximo_envio_at: enHorasISO\(6\) \}, \{ modo: 'fila' \}\);\n\s+continue;/, 'con un borrador retenido, el mensaje que sigue sale solo');
   assert.ok(despues.indexOf('tieneBorradorNutriPendiente') < despues.indexOf('if (partesMulti)'), 'la espera va antes de mandar');
 });
 
