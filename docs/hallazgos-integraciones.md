@@ -1312,3 +1312,98 @@ Los pasos exactos, en docs/relevo/suscripcion.md (punto 3). **Quedó SIN hacer:*
 vinculados a una etapa (scripts/backfill-calendly.ts, el salto con `rutaDeReserva`); si hace falta, se arma con
 `ubicarReservaVinculada` de lib/agenda-evento-etapa-server.ts, como el webhook. **Vive en:** app/api/webhooks/calendly/route.ts ·
 lib/webhook-routing.ts · lib/compra-plan-reglas.ts (`AGENDA_MAKO`) · app/vsl/Landing.tsx (`CALENDLY_URL`).
+
+## El puente de leads de Meta por Zapier o Make (23/10/2026)
+
+**El pedido** (Martín, desde el Ops Center, vía el Cerebro): «armame el puente de leads por Zapier». La app de MaKo todavía no
+tiene `leads_retrieval` aprobado (en revisión, estimado ~10/11), así que un negocio que no conectó Meta con una app propia no
+recibe los leads de sus formularios instantáneos. La investigación del Cerebro (`C:/dev/cerebro-herramientas/meta-mientras-tanto-23-10.md`,
+opción A) concluyó que el puente que anda en días es un Zap que le manda cada lead a MaKo. Lo paga el negocio. La guía para
+el negocio: [guia-leads-por-zapier.md](guia-leads-por-zapier.md).
+
+**Lo que ya existía, y por eso el trabajo fue unir y no construir:** el patrón de «fuente que avisa» (Hotmart y Skool-por-Zapier:
+un secreto en un header, ruteo por su hash, lectura estricta) y la puerta de los leads de formulario de Meta
+(`upsertLeadFromMeta` + `alNacerLeadDeMeta`). El receptor nuevo es el de Skool con la puerta de Meta detrás.
+
+### Las decisiones, y la que casi sale mal
+
+- **⚠️ La puerta equivocada era la que estaba a mano.** El molde (Skool) entra por `ingresarDeFuente`, que a propósito NO decide
+  nada por detrás: ni etapa, ni automatizaciones, ni mensajes (`tests/fuentes-leads-webhooks.test.ts`). Un lead de formulario de
+  Meta SÍ dispara el aviso, los flujos y las automatizaciones, y el negocio lo espera igual venga por donde venga: por esa puerta
+  el lead entraba al CRM como una fila muda y nadie le escribía. Entra por **`upsertLeadFromMeta`** (origen `instant_form`,
+  dedup, producto según la campaña, respuestas crudas) y, si es nuevo y reciente, por la conversión `Lead` de CAPI y
+  `alNacerLeadDeMeta`: lo mismo que hace el webhook de Meta. `ingresarLeadDeZapier` (lib/zapier-leads.ts).
+- **El id.** `upsertLeadFromMeta` es idempotente por `meta_lead_id`. Con el `leadgen_id` real (15 a 17 dígitos) un lead que
+  entra después por Meta NO se duplica, y el `event_id` de CAPI es el mismo que usaría el webhook. Sin él, el id propio es
+  `zap:<ws>:<huella>`: determinista (un reintento de Zapier cae en la misma fila) y con el workspace adentro, porque
+  `idx_leads_meta_lead_id` es único GLOBAL, sin `workspace_id`. Ese id NO viaja a Meta como `lead_id` (Meta rechaza el evento
+  entero ante uno inválido).
+- **La clave va en un header, no en la URL** (la regla de Skool: una URL con la clave queda en los logs de cada salto).
+  Servicio de ruteo PROPIO (`zapier`): con el de `skool`, la misma clave entraría a los dos.
+- **Un aviso sin email ni teléfono contesta 422, no 200** (a diferencia de Skool). Un Zap mal mapeado que manda leads sin
+  contacto tiene que verse en el historial de tareas de Zapier, que es lo que le llega por mail a quien lo armó. Con 200 el puente
+  «andaría» y no entraría nadie.
+- **Un lead VIEJO se carga callado** (`esNuevoParaElNegocio`, 24 h): el «Probar» de Zapier manda leads ya existentes, y anunciar
+  uno de hace una semana como nuevo es mentir. **Sin fecha del formulario se trata como recién llegado**: un Zap vivo dispara
+  en segundos, y callarlo dejaría a un lead real sin que nadie le escriba (la falla más cara de las dos).
+- **El estado de la tarjeta sale de lo que LLEGÓ, no de la clave** (como el Pixel): `zapier.estado` en `app_settings`, una fila por
+  negocio. Ámbar a las 72 h sin un lead — pero sólo si ya entró alguno: un puente que nunca recibió nada «espera», no «cayó».
+  La grilla no lo esconde de «Requiere tu atención» (`callada`), a diferencia de Hotmart/Skool/Apify sin configurar.
+  ⚠️ **72 h es un proxy**: Meta no dice cuántos leads se generaron (para eso hace falta el permiso que este puente reemplaza),
+  así que un negocio con tres leads por semana lo cruza sin que pase nada.
+
+### Trampas, todas medidas
+
+- **`ad_name`, `campaign_name` y `adset_name` contienen «name»**: pasados al parser de Meta (`extractField` busca por palabra
+  clave dentro del nombre), el primero ganaba como el NOMBRE DE LA PERSONA. Las claves técnicas se sacan antes del parser.
+- **`first_name` suele venir antes que `full_name`** y el parser se queda con el primer campo que diga «name»: salía «Ana» en
+  vez de «Ana Pérez». Lo cazó el test, no la lectura. El nombre completo va adelante; sin él, nombre y apellido se juntan.
+- **Un id de 17 dígitos que viaja como NÚMERO JSON ya se redondeó al parsear** (más de 2^53): no es el id, y se descarta.
+- **`upsertLeadFromMeta` escribe `meta_lead_id` también en el UPDATE** de un lead que ya existía. Una persona que vuelve a llenar
+  el formulario con otro leadgen_id le reemplaza el id al lead (igual que por Meta, medido). El caso malo es el id propio sobre
+  un id real, que sólo pasa si el Zap deja de mandar el id y la persona ya había entrado por Meta de frente.
+- **Borrar un lead no borra su `lead_audit` ni sus `notificaciones`**: quedaron 2 y 3 filas colgando del ws3 tras la prueba y se
+  limpiaron a mano. Un lead de prueba se limpia con las tres.
+- **Los nombres de los campos del trigger de Zapier NO están medidos** (ni la salida de Make): el lector es tolerante y devuelve
+  `sin_usar`. Lo que Zapier dice en su ayuda (23/10/2026) y NO se probó con un Zap real: con «Data» vacío manda todos los campos
+  del paso anterior; el CRM se asigna en `business.facebook.com/settings/leads-accesses` (la app «Zapier», no «Zapier Inc.»); si
+  se edita el formulario, Facebook crea uno nuevo con otro id; un Zap por formulario.
+
+### Probado de punta a punta (ws3, Cliente de Prueba, 23/10/2026)
+
+La credencial por el camino del producto (`guardarCredencial`), un POST por la ruta con `NextRequest`, y limpieza completa. La
+fila de ruteo guarda 64 caracteres (el sha256, no la clave). Sin header 401 · clave equivocada 401 · lead de hace 3 días
+`creado`, `anunciado: false`, origen `instant_form`, campaña y anuncio, respuestas en `meta_field_data` · el mismo POST de nuevo
+`actualizado`, 1 lead · la misma persona con otro leadgen_id `actualizado`, 1 lead, campaña nueva · sin id: `zap:3:…`, reintento
+`actualizado` · formulario en vez de JSON `creado` · sin contacto 422 · no es JSON 400 · tarjeta «Último lead hace menos de 1 h» y,
+con el estado a 80 h, «Sin leads hace 3 días. Revisa tu Zap.» con `callada` · lead reciente `creado`, `anunciado: true` y la
+notificación «Lead entrante por formulario de Meta» en el feed (`canal_wa: no`: el ws3 no tiene WhatsApp conectado ni
+automatizaciones activas). Al terminar: 0 leads, 0 filas de ruteo, 0 credenciales, 0 estados, 0 filas colgando.
+
+**Probado rompiéndolo** (`tests/zapier-leads.test.ts`, 21 tests; roturas restauradas de memoria): las 28 cazadas, cada una por
+el test que corresponde (los números, al pie del archivo del test).
+
+### La API de MaKo
+
+Se declara sola: `ver_integraciones`, `ver_integracion('zapier')` (con el recuadro amarillo y la URL) y
+`link_configurar_integracion('zapier')` salen del catálogo, y `ver_integraciones` devuelve el `detalle` de la tarjeta («Último
+lead hace 5 h»). Se sumó un renglón a sus `avisos` en tiempo de ejecución (no toca ninguna def, así que `docs/api-mako.md`, el
+snapshot y `plugin/` no cambian).
+
+### Lo que quedó SIN hacer
+
+- **El aviso por WhatsApp de «hace X horas que no entra un lead».** Hoy la señal es la tarjeta (ámbar) y el «Requiere tu
+  atención» de /integraciones. El push es un aviso del catálogo con su evento de MaKo, su CONDITION y su plantilla de SuperAdmin
+  (el molde es `tracking-apagado`: `lib/avisos-catalogo.ts`, `lib/disparadores.ts`, `lib/notif-catalogo.ts`,
+  `lib/plantillas-automatizaciones.ts`, `lib/variables-aviso.ts` y su función de datos como `lib/tracking-aviso.ts`) y un
+  cron que lo emita (`tracking-vigilante` ya itera los workspaces). Son ~6 archivos y sus guardas; no entró en esta tanda.
+- **Un Zap real.** Nada de acá se probó contra el trigger de Facebook Lead Ads de Zapier ni contra Make. El primer negocio que
+  lo arme confirma (o corrige) los nombres de los campos: lo que MaKo no use vuelve en `sin_usar`.
+- **El umbral de 72 h contra el ritmo propio de cada negocio.**
+- **Tipos:** este trabajo salió «sin tipos» (política del tren): los chequea el `tsc` acotado de Integración.
+
+**Vive en:** `lib/zapier-lead.ts` (el lector) · `lib/zapier-leads.ts` (la puerta) · `lib/zapier-estado.ts` (la tarjeta) ·
+`app/api/webhooks/zapier/route.ts` · `lib/integraciones.ts` (`estadoPuenteZapier`) · `lib/metodo-catalogo.ts` ·
+`lib/ruteo-hash.ts` · `lib/webhook-routing.ts` · `tests/zapier-leads.test.ts` · `docs/guia-leads-por-zapier.md`.
+
+_23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2). Probado de punta a punta contra el ws3 y rompiendo cada guarda._

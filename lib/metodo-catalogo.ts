@@ -749,6 +749,41 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
+  // EL PUENTE DE LEADS DE META POR ZAPIER O MAKE (23/10/2026, lib/zapier-lead.ts). La app de MaKo todavía no tiene
+  // `leads_retrieval` aprobado, así que el negocio manda sus leads desde un Zap: «Facebook Lead Ads → New Lead» y
+  // «Webhooks by Zapier → POST» a esta dirección. La clave la INVENTA el negocio (como la de Skool) y viaja en un header.
+  // Medido en la ayuda de Zapier el 23/10/2026 (NO con un Zap real): con «Data» en blanco manda todos los campos del paso
+  // anterior; el CRM se asigna en business.facebook.com/settings/leads-accesses (la app «Zapier», no «Zapier Inc.»); y
+  // si se edita el formulario, Facebook crea uno nuevo con otro id y el Zap sigue en el viejo.
+  {
+    key: 'zapier',
+    nombre: 'Leads de Meta por Zapier',
+    categoria: 'Publicidad',
+    paraQue: 'Cada lead de tus formularios de Meta entra solo a tu CRM, con sus respuestas, por Zapier o Make.',
+    campos: [
+      { env: 'ZAPIER_LEADS_CLAVE', label: 'Clave del aviso', secreto: true, placeholder: 'Una clave larga que inventes', nota: 'La inventas tú. Va igual aquí y en el header X-MaKo-Clave del Zap. Sin esto no entra ningún lead.' },
+    ],
+    pasoExterno: {
+      titulo: 'Pega esta dirección en tu Zap de Facebook Lead Ads',
+      porque: 'Es por donde Zapier te manda cada lead de Meta. Sin este paso, tus leads no llegan a tu CRM.',
+      valor: '{{APP_URL}}/api/webhooks/zapier',
+      donde: 'En zapier.com: tu Zap → paso «Webhooks by Zapier» → «POST» → campo «URL».',
+      ojo: [
+        'En «Headers» agrega X-MaKo-Clave con tu clave y deja «Data» vacío: sin la clave, MaKo rechaza el lead.',
+        'Si editas el formulario en Meta, Facebook crea uno nuevo: elígelo otra vez en el trigger del Zap.',
+      ],
+    },
+    tutorial: {
+      url: 'https://business.facebook.com/settings/leads-accesses/',
+      urlLabel: 'Meta → Acceso a leads',
+      pasos: [
+        'En «Clave del aviso» escribe una clave larga que inventes (por ejemplo micuenta2026clave).',
+        'En Meta, asigna la app «Zapier» (no «Zapier Inc.») como CRM en business.facebook.com/settings/leads-accesses.',
+        'En zapier.com crea un Zap: «Facebook Lead Ads» → «New Lead», y como acción «Webhooks by Zapier» → «POST».',
+        'Pega la dirección del recuadro amarillo, agrega el header X-MaKo-Clave con tu clave, y publica el Zap.',
+      ],
+    },
+  },
   // APIFY (15/10/2026, docs/diseno-leads-scraper.md §5): donde corren las búsquedas de prospectos.
   // BYOK: cada búsqueda se cobra en la cuenta de Apify del negocio, con un techo que MaKo le pasa a
   // la corrida (`maxTotalChargeUsd`, lib/apify.ts). No recibe webhooks por credencial: el aviso de
