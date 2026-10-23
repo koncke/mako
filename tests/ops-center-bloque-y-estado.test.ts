@@ -77,8 +77,10 @@ test('2. los links se tocan, también sin https, y abrir uno no elige la opción
 test('3. con varias, «‹ Anterior», los puntos y «Siguiente ›»; sin resumen: con la última, salen todas', () => {
   const b = bloque();
   assert.doesNotMatch(b, /repaso|Tus respuestas|Repasar/, 'sin pantalla de resumen');
-  assert.match(b, />‹ Anterior</);
-  assert.match(b, />Siguiente ›</);
+  // Las flechas solas (Martín, 22/10/2026: «alcanza con las flechas»), con su rótulo para quien no ve; apagadas en las puntas.
+  assert.match(b, /disabled=\{enviando \|\| pos === 0\} onClick=\{\(\) => ir\(pos - 1\)\} aria-label="Anterior" title="Anterior">‹<\/button>/);
+  assert.match(b, /disabled=\{enviando \|\| pos \+ 1 >= items\.length\} onClick=\{\(\) => ir\(pos \+ 1\)\} aria-label="Siguiente" title="Siguiente">›<\/button>/);
+  assert.doesNotMatch(b, /‹ Anterior|Siguiente ›|Elige con|salen todas'|para moverte/, 'sin el texto de las flechas ni la ayuda');
   assert.match(b, /className="co-preg__punto"/);
   // Las del chat salen TODAS cuando están todas contestadas; si no, a la siguiente que falta (de cualquier fuente).
   assert.match(b, /if \(delChatAbiertas\.every\(\(q\) => todo\[q\.id\]\)\) \{ void enviar\(todo\); return; \}\n\s*aLaSiguiente\(hechos\(it\.id\)\);/);

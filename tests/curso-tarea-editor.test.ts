@@ -383,7 +383,7 @@ test('item 2 en la pantalla: la tarjeta en rojo con su motivo debajo de la pregu
   assert.match(ed, /data-error=\{motivo \? '' : undefined\}/);
   const t = leer(TAREA);
   assert.match(t, /const motivoTarea = errores\.tarea \|\| null;/);
-  assert.match(t, /\{g === 0 && motivoTarea && <p className="ec-motivo" role="alert">\{motivoTarea\}<\/p>\}/);
+  assert.match(t, /\{g === 0 && motivoTarea && <p className="ec-motivo" role="alert">\{motivoTarea\}<ReportarASoporte \/><\/p>\}/);
   assert.match(t, /const motivoTitulo = s \? motivoVisible\(errores, s\.id, silenciados\) : null;/);
   assert.match(crudo('app/customer-success/curso/EditorCampos.tsx'), /\.ec \.ec-campo\.ec-campo--error\{ border-color:#b3261e;/);
 });
