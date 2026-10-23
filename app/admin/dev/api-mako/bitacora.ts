@@ -366,4 +366,34 @@ export const BITACORA: Hito[] = [
       'tests/api-mako-curso-al-ganar.test.ts y tests/api-mako-leads-instagram.test.ts — probados rompiéndolos',
     ],
   },
+  {
+    fecha: '23 oct', hora: '17:18', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La entrega de un cliente y el alumno nuevo, por la API',
+    puntos: [
+      'P0-5: mover a un cliente en el kanban de un servicio, quitarlo de un servicio y devolverlo, con las mismas funciones que la pantalla. Antes, por la API sólo se movía el CRM.',
+      'P0-3: dar de alta por HTTP a un alumno que no está en el CRM, que es lo primero que pide migrar un curso de Panda. No pasa a nadie a Ganado, y un duplicado vuelve sin el nombre del lead.',
+      'Para eso, el alta de la cartera, el alta de un alumno y «Quitar de este producto» salieron de las server actions a lib/, y la pantalla delega.',
+    ],
+    commits: [
+      { sha: 'a602c598', msg: 'API de MaKo: mover a un cliente en la entrega, quitarlo de un servicio y devolverlo (P0-5 de la auditoría)', lineas: 466, archivos: 7 },
+      { sha: '56461fee', msg: 'API de MaKo: dar de alta a un alumno que no está en el CRM (P0-3), y el clasificador de «de qué es cliente» al día', lineas: 676, archivos: 15 },
+      { sha: 'f06590bc', msg: 'tests: crear_alumno_curso frena por el tope de leads del plan, y la lista cerrada de frenos lo sabe', lineas: 5, archivos: 1 },
+    ],
+    archivos: [
+      'lib/cs-quitar-producto.ts, lib/cs-crear-cliente.ts y lib/curso-alta-alumno.ts — el núcleo que comparten la pantalla y la API',
+      'lib/api-mako/areas/cs.def.ts + cs.run.ts — mover_cliente_entrega, quitar_cliente_de_servicio, devolver_cliente_a_servicio',
+      'lib/api-mako/areas/curso.def.ts + curso.run.ts — crear_alumno_curso',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '—', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La guarda de cobertura del 13/10 nunca llegó a main',
+    puntos: [
+      'El hito del 13/10 dice que la guarda existe. No está en main: quedó en la rama wip/api-acciones-1410 (b85971b9b, «A MEDIAS — NO PUSHEAR»), junto con trabajo a medias de quince áreas.',
+      'Por eso la auditoría del 23/10 encontró 174 acciones de pantalla sin declarar. La guarda del registro no las ve, porque mira las operaciones que existen y no las pantallas.',
+      'La propuesta para rescatarla está en docs/hallazgos-api-mako.md.',
+    ],
+  },
 ];
