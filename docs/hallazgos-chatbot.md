@@ -6309,3 +6309,119 @@ eso cambió `saleSolo`: un mensaje de una automatización SALE; sólo lo que esc
 desde el 20/10 y 29 inscripciones paradas en su SEGUNDO WhatsApp, esperando por eso. Con `saleSolo` a secas, el segundo
 mensaje habría salido de golpe a quien no recibió el primero. Regla: si el lead tiene un borrador pendiente, lo que sigue
 espera (como hasta hoy); el borrador sale cuando alguien lo aprueba, o se descarta. Lo nuevo sale solo.
+---
+
+## El ws13 lleva DIEZ DÍAS sin avisarle al equipo de un solo lead nuevo, y el diagnóstico obvio es el equivocado (23/10/2026)
+
+**Síntoma:** nada. Ninguna pantalla lo dice, ningún aviso sale, el cron termina con éxito. Se encontró de
+rebote, verificando otra cosa (que dos leads del ws1 esperaran la apertura de su horario).
+
+**Lo medido, contra producción, el 23/10 a las 10:00 ART:**
+
+- **20 envíos consecutivos en `fallo`, TODOS del ws13** (Código Inmobiliario, un cliente real), desde el
+  **13/10/2026 08:18** hasta el **22/10 23:09**, con el mismo texto:
+  `No se pudo registrar la acción pendiente.` Cero fallos de esta familia en los otros nueve workspaces.
+- Afecta a **dos** secuencias distintas —la #241 hasta el 20/10 y la #264 desde el 20/10—, y lo que comparten
+  es el paso con `operacion: 'avisar_al_equipo'`.
+- El efecto en el cliente: cada lead nuevo del ws13 se inscribe, el paso del aviso falla, y la inscripción
+  queda **`completada` en el paso 1**. O sea el flujo no reintenta, no deja pendiente, y el equipo no se
+  entera de ningún lead. Los últimos: Stefanie Ambrois (#3098), Fernando Gomez (#3096), Malena Piaggio
+  (#3091), Pablo Rodriguez (#2771), Marcela Fernandez (#2762), Eugenia (#2761)…
+
+**El diagnóstico obvio —«el INSERT de la pendiente está fallando»— es FALSO, y se descartó por tres
+caminos distintos:**
+
+| Cómo se probó | Resultado |
+|---|---|
+| SQL directo (driver `postgres`) en una transacción con ROLLBACK | el insert entra (id 377) |
+| El MISMO camino del código: `runWithWorkspace(13)` + `getTenantDb()` + PostgREST | entra (id 378), se borró |
+| Idem, con el **payload exacto** del paso de la secuencia #264 (448 caracteres, emojis, un surrogate suelto) | entra (id 379), se borró |
+
+Y el esquema no tiene nada que lo explique: `mako_acciones_pendientes` no tiene un solo CHECK, ni índice
+único además del pkey, ni trigger; sus NOT NULL son `id, workspace_id, grupo_jid, tipo, payload, resumen,
+estado, vence_at, created_at` y la tabla **sí** está en `TENANT_TABLES`, así que `getTenantDb` le pone el
+`workspace_id`.
+
+**Dónde vive el único lugar que puede devolver ese texto:** `proponerChat` (`lib/api-mako/acciones.ts:95`)
+lo devuelve cuando `crearPendiente` (`lib/mako-pendientes.ts:41`) contesta `null`, y esa función sólo
+contesta `null` en el `if (error)` del insert. O sea: el insert falla en producción, el motivo sólo existe
+en un `console.error('[pendientes] crear:', …)` —los logs de Vercel, que nadie lee y que a los 60 minutos
+no existen— y desde acá no se reproduce.
+
+⚠️ **LA CAUSA, medida por Automations el mismo día: MEDIO EMOJI.** `avisar_al_equipo` arma el resumen de
+la pendiente con `mensaje.slice(0, 120)`. En las secuencias #241 y #264 ese texto mide 184 unidades y la
+**unidad 119 es U+D83D**, la primera mitad del par que forma el emoji del dardo. Cortar ahí deja un
+surrogate SUELTO, `JSON.stringify` lo manda escapado, y Postgres rechaza el insert ENTERO con «invalid
+input syntax for type json». Sólo el ws13 lo tenía, porque sólo su texto lleva un emoji justo en el 120.
+
+Y explica por qué las tres pruebas de arriba entraron: **el payload viaja entero; el que se corta es el
+RESUMEN.** La tercera medición llegó a imprimir «tiene surrogate suelto: true» sobre ese payload y se dejó
+pasar — ahí el par estaba completo. **Un `slice` sobre texto con emojis no corta caracteres: corta
+unidades UTF-16**, y la mitad de un par es JSON inválido aunque el original fuera perfecto. Lo cubren
+`cortarSinPartir` y el saneo de lo que `crearPendiente` inserta (había otros 7 resúmenes con `slice` en
+los runners).
+
+⚠️ **Y la vuelta de tuerca, que costó el documento entero: este archivo se volvió ilegible para Python por
+lo mismo.** Al escribir el párrafo de arriba con un script, `io.open(p, encoding='utf-8')` falló con
+«surrogates not allowed» —el documento ya traía un surrogate suelto adentro— y para entonces el
+`io.open(p, 'w')` **ya había truncado el archivo a 0 bytes**. El script reportó el error y aun así dejó
+385 KB de hallazgos en la nada; se recuperó con `git checkout HEAD -- <ruta>` porque estaba commiteado
+media hora antes. Dos reglas, y la segunda es la que salva:
+
+- **Un script que toca un fuente con emojis va con `errors='surrogatepass'`** en la lectura y en la
+  escritura, o se niega a guardar justo el documento que explica el bug.
+- **Y NUNCA abre el destino en `'w'`: escribe a un temporal y renombra.** `open(dest, 'w')` trunca ANTES
+  de saber si lo que sigue va a fallar, así que cualquier excepción posterior deja el archivo vacío. Es la
+  misma forma que «un reescritor de código fuente reporta éxito sobre un archivo roto», con el signo
+  cambiado: acá reportó el fallo correctamente y el daño ya estaba hecho.
+
+**La regla que queda, y es la que hubiera ahorrado los diez días:** un `console.error` no es un control
+(ya está en AGENTS.md) y acá se paga en su forma más cara — **el fallo que mata un flujo guarda SU MOTIVO
+en la fila que ya está escribiendo**. `nutricion_envios.error` recibió la frase genérica del proponedor en
+vez del `error.message` de Postgres, que es el único dato que distingue las cinco causas posibles. Un
+error de un tercero (o de la base) se propaga ENTERO hasta la fila que alguien va a poder leer después.
+
+**Lo que queda SIN hacer**, y le toca al chat de Automations:
+1. Hacer que `crearPendiente` devuelva el motivo (no `null`) y que `proponerChat` lo escriba en el envío.
+   Hoy «no pude registrarla» y «la base dijo X» son el mismo texto.
+2. Que un fallo del paso de aviso **no cierre la inscripción**: hoy queda `completada` y el lead se pierde
+   sin reintento. Es la contracara de «un 200 es un ACK» del lado del motor.
+3. Reparar el ws13: ese cliente no tiene aviso de ningún lead desde el 13/10. Y revisar la secuencia #264,
+   que quedó con un único paso `nodo: 'mensaje'` con una `accion` adentro, **sin nodo `inicio`**, y con el
+   token `{{mensaje_mako}}` en su hermana #240 — justo el que `problemasDeTokens` prohíbe publicar.
+
+**Vive en:** `lib/mako-pendientes.ts` (`crearPendiente`) · `lib/api-mako/acciones.ts:95` (`proponerChat`) ·
+`lib/api-mako/areas/chatbot.run.ts` (`avisar_al_equipo`) · `nutricion_envios.error`
+
+---
+
+## Una inscripción ACTIVA con el envío vencido hace horas puede ser lo CORRECTO: es el horario del negocio (23/10/2026)
+
+El 23/10 a las 10:00 ART, las únicas tres inscripciones vencidas de toda la app eran del ws1 (Mauricio): la
+#280 desde la 01:02, y la #291 y #292 —los leads #3099 Martín Koncke y #3100 Maria del Carmen Galvan
+Castro, de la secuencia #289 «Sprint · apertura»— desde la 01:47 y la 01:51, **las dos en paso 0 y sin un
+solo envío**. Leído de frente eso es un motor caído; no lo era.
+
+El ws1 tiene `mako.horario_envio` = `{activo:true, desde:9, hasta:21}` y `mako.timezone` =
+**`America/Tijuana`**. A las 10:00 de Argentina en Tijuana son las 06:00: fuera de la ventana. **Lo vencido
+de noche queda en la fila a propósito** y sale a las 9:00 de Tijuana, que son las **13:00 ART** — el
+«timbre de las 13:00» no era un cron ni un recordatorio: es la apertura del horario de un cliente que vive
+en Baja California.
+
+**Y el barrido de la apertura es robusto, medido en `vercel.json`:** `nutricion-tick` corre `1-59 * * * *`
+(cada minuto salvo el 0) y `acabaDeAbrir` da verdadero durante los primeros `VENTANA_FRESCA_MIN` = **10**
+minutos desde la apertura, barriendo TODO lo vencido de ese negocio y no sólo lo fresco. La apertura cae a
+las 16:00 UTC, así que hay ~9 ticks que la ven, más la corrida de cada hora (`nutricion`, `0 * * * *`) que
+cae justo en el minuto que el tick se saltea. Para que esas tres se pierdan tendrían que fallar diez
+corridas seguidas.
+
+**Antes de diagnosticar un motor por una inscripción vencida, leé el horario y la ZONA del negocio.** Son
+dos consultas a `app_settings` (`mako.horario_envio`, `mako.timezone`) y descartan la clase entera. Y la
+pregunta que sí importaba era la otra: **si la línea va a poder mandar cuando abra** — se sondeó
+(`sondearSocket`) y `mako_ws1` contestó `vivo`, número 5216862168122, así que a las 13:00 los dos mensajes
+salen en vez de fallar. Un cliente del ws3 tenía su línea caída ese mismo día («WhatsApp de empresa
+desconectado: hay que volver a vincular el QR»), que es exactamente lo que convierte una espera sana en
+dos mensajes perdidos.
+
+**Vive en:** `lib/horario-envio.ts` (`acabaDeAbrir`, `proximaApertura`) ·
+`app/api/cron/nutricion-tick/route.ts` · `lib/espera-duracion.ts` (`VENTANA_FRESCA_MIN`) · `vercel.json`

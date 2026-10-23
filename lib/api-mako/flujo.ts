@@ -56,6 +56,10 @@ export type ResultadoFlujo = {
    *  la escritura directa de /api/v1 (lib/api-mako/rutas-http.ts): sin esto, quien crea una clase por la
    *  API no sabe su id. Un flujo no lo usa. */
   datos?: Record<string, unknown>;
+  /** Se sabe que NO se ejecutó nada (la pendiente no entró): el motor lo reintenta (lib/nutricion-paso-accion.ts). */
+  noCorrio?: true;
+  /** Lo que contestó la base cuando la pendiente no entró: SÓLO para el rastro del motor, nunca a una persona ni por HTTP. */
+  motivo?: string;
 };
 
 /** El contexto con el que corre un flujo: el admin del negocio, con alcance de ejecutar. */
@@ -175,7 +179,14 @@ export async function aplicarEnElActo(
     const r = await ejecutarOperacion(def.id, input, ctx, 'json');
     // «Ya está así» no es un fallo para un flujo: el estado que el paso pide ya es el actual.
     // Sin esto, «cuando agenda, movelo a Agendado» alarmaba al dueño en cada reagenda.
-    if (!r.ok) return { ok: r.yaEstaba === true, resumen: r.error, via: 'ninguna' };
+    // Con lo que contestó la base APARTE (`motivo`, 23/10/2026, el ws13): el motor lo escribe en `nutricion_envios.error`;
+    // por /api/v1 (que también pasa por acá) sale sólo el `resumen`, como siempre.
+    if (!r.ok) {
+      return {
+        ok: r.yaEstaba === true, resumen: r.error, via: 'ninguna',
+        ...(r.motivo ? { motivo: r.motivo } : {}), ...(r.noCorrio ? { noCorrio: true as const } : {}),
+      };
+    }
 
     if (r.tipo === 'pendiente') {
       const c = await confirmarPendiente(ctx, r.pendiente.id);

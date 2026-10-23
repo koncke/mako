@@ -570,9 +570,10 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
     // Un paso de un flujo (lib/api-mako/flujo.ts) corre las heredadas por acá con la clave
     // `app:flujo:<origen>`: la fila lleva el flujo de origen, no «hola-mako».
     const origen = grupoJid.startsWith('app:flujo:') ? grupoJid.slice('app:'.length) : 'hola-mako';
-    const id = await crearPendiente(ws, { grupoJid, tipo, payload, resumen, origen, ttlMin: TTL_MIN, mismoTurnoDesde: turnStart });
-    if (id == null) return JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.' });
-    return JSON.stringify({ ok: true, pendiente_id: id, resumen, vence_en_min: TTL_MIN, instruccion: 'Diles qué vas a hacer y pide que confirmen con un "sí" para ejecutarlo.' });
+    const c = await crearPendiente(ws, { grupoJid, tipo, payload, resumen, origen, ttlMin: TTL_MIN, mismoTurnoDesde: turnStart });
+    // El motivo va al log con la pendiente (`crearPendiente`); al modelo, sólo que no entró: no es algo que la persona arregle.
+    if ('error' in c) return JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.' });
+    return JSON.stringify({ ok: true, pendiente_id: c.id, resumen, vence_en_min: TTL_MIN, instruccion: 'Diles qué vas a hacer y pide que confirmen con un "sí" para ejecutarlo.' });
   };
 
   return async (name, input) => {

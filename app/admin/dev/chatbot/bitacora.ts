@@ -2517,4 +2517,21 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "23 oct", hora: "10:42", chat: "Automations", cuenta: "claude1",
+    sesion: "local_298a7983-21a5-4fcb-a5c5-bf80bc9e0944",
+    actor: "claude", tipo: "correccion",
+    titulo: "El ws13 vuelve a avisar de cada lead nuevo: el aviso no se cortaba bien y la base lo rechazaba",
+    puntos: [
+      "Del 13 al 22/10 no salió ningún aviso de lead nuevo en Código Inmobiliario: el resumen partía un emoji y la base rechazaba la pendiente.",
+      "Ahora el texto se corta sin partir emojis, y si algo no entra, la fila dice por qué.",
+      "Un aviso que no llegó a salir se reintenta (1 h, 6 h y 24 h) en vez de dar la automatización por terminada.",
+    ],
+    archivos: [
+      "lib/unicode-seguro.ts — cortar sin partir un emoji",
+      "lib/mako-pendientes.ts — lo que entra va saneado y devuelve el motivo",
+      "lib/nutricion-paso-accion.ts — el reintento de una acción que no corrió",
+    ],
+    revisar: "/automations",
+  },
 ];

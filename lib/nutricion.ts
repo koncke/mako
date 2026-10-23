@@ -76,6 +76,7 @@ import { reentradaDe, puedeReentrar, esReentrada, barridoEsEvento, type Reentrad
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from '@/lib/nutricion-paso-accion';
+import { sinMediosEmojis } from '@/lib/unicode-seguro';
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
   escenariosDeRespuesta, expandirPasoIA, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
@@ -4918,13 +4919,33 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
                 inscripcion_id: insc.id, lead_id: insc.lead_id, secuencia_id: insc.secuencia_id, paso: n,
                 nodo_id: idDe(paso, insc.paso_actual),
                 canal: paso.canal, estado: x.estado, destino: null, asunto: x.operacion,
-                error: x.estado === 'fallo' ? x.resumen : null,
+                // Sin medio emoji: el motivo puede traer un pedazo del texto, y eso la base no lo acepta (lib/unicode-seguro.ts).
+                error: x.estado === 'fallo' ? sinMediosEmojis(x.resumen) : null,
               });
               if (error) throw new Error(error.message);
             },
+            // ⚠️ EL REINTENTO DE UNA ACCIÓN QUE NO CORRIÓ (23/10/2026, el ws13: el aviso fallaba y la inscripción quedaba
+            // `completada` en el paso 1). Sólo en el caso simple: sin hilos, sin flechas en paralelo que el reclamo arrancó, fuera
+            // del carril y con la fila 'activa'. Ahí devolverla es UN compare-and-set contra lo que escribió el reclamo; con hilos
+            // habría que deshacer los que arrancó, y eso no se hace a ciegas.
+            ...(!carril && !sanearHilos(insc.hilos) && !nuevosAccion.length && estadoLeido(insc) === 'activa'
+              ? {
+                fallosPrevios: async () => {
+                  const { count, error } = await supabase.from('nutricion_envios').select('id', { count: 'exact', head: true })
+                    .eq('inscripcion_id', insc.id).eq('paso', n).eq('estado', 'fallo').eq('asunto', String(paso.accion?.operacion ?? ''));
+                  if (error) throw new Error(error.message);
+                  // Corre ANTES de `registrar`: el 'fallo' de este intento todavía no está.
+                  return count ?? 0;
+                },
+                devolver: (enMs: number) => moverConCas(
+                  { id: insc.id, paso_actual: siguientePaso ? sigIdx : n, nodo_actual: siguientePaso ? idDe(siguientePaso, sigIdx) : null, estado: siguientePaso ? 'activa' : 'completada' },
+                  { paso_actual: insc.paso_actual, nodo_actual: insc.nodo_actual ?? null, estado: 'activa', proximo_envio_at: new Date(Date.now() + enMs).toISOString() },
+                ),
+              }
+              : {}),
           },
         );
-        if (r.estado !== 'saltado') await anotarReunionDelPaso(insc.id, sec, lead);
+        if (r.estado !== 'saltado' && !(r.estado === 'fallo' && r.reintento)) await anotarReunionDelPaso(insc.id, sec, lead);
         // ⚠️ SI LO QUE SIGUE YA TOCA, SE MIRA EN ESTA MISMA CORRIDA. El lienzo dice «Enseguida»
         // sobre un paso a 0 h, y la fila ya está en `vistos`: sin esto, «mover de etapa» +
         // «crear la tarea» + el mensaje de después saldrían de a uno por hora de cron. Se
@@ -4933,7 +4954,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // ⚠️ Y LOS HILOS QUE LA ACCIÓN ARRANCÓ TAMBIÉN (`vuelveALaCola`): sin siguiente, o con un
         // siguiente «en 2 h», un destino «Enseguida» de una flecha en paralelo esperaba al cron de
         // la hora siguiente (revisión del 09/10/2026).
-        if (r.estado !== 'saltado' && vuelveALaCola(proximo, nuevosAccion, Date.now())) {
+        if (r.estado !== 'saltado' && !(r.estado === 'fallo' && r.reintento) && vuelveALaCola(proximo, nuevosAccion, Date.now())) {
           vistos.delete(insc.id);
           otraVuelta = true;
         }
