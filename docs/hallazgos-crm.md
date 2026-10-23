@@ -20,6 +20,83 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Empresa obligatorio» en todos: no era el `avisa` del catálogo, era el aviso POR BLOQUE (23/10/2026)
+
+**Síntoma.** Martín, 23/10 ~20:40 UTC: «en todos me dice "empresa obligatorio" porque está dentro de un bloque que tiene 3
+datos, y no se puede personalizar». En el lead 3099 del ws1 quedó «Datos sin marcar → ignorado: Empresa».
+
+⚠️ **El diagnóstico obvio era incompleto**: «el contacto trae `avisa: ['telefono', 'empresa']` y `quitable: false`». El
+`avisa` sólo dice qué datos se PUEDEN completar en el bloque. Lo que hacía obligatoria a la empresa eran dos reglas que
+tomaban el BLOQUE como unidad:
+- **El default.** `apagadosDePlantilla` (lib/ficha/plantillas.ts) apaga los datos que ningún bloque de la plantilla
+  completa, y deja avisando todo lo demás. La empresa avisaba en seis de las nueve plantillas sólo por venir en el
+  contacto, al lado del teléfono.
+- **El «Obligatorio» de la barra.** `cubre.every(...)` en Armador.tsx: un toque prendía o apagaba TODOS los datos del
+  bloque juntos. En la R1 eran seis (fechas, Fathom, setter y closer de sus cajas), en la próxima reunión las dos fechas,
+  en las cuotas el plan y el comprobante, en los datos fiscales los dos.
+
+**Regla.** Lo obligatorio es POR DATO, nunca por bloque: el default se decide dato por dato (`NACEN_APAGADOS`), la barra
+lo cambia de a uno («Obligatorio ▾»), y un bloque que junta datos los deja elegir («Datos ▾»: `BloqueDef.datos`,
+`OpcionesBloque.datos`, `avisaDelPuesto`). Sacar un dato del bloque lo deja de pedir en el MISMO cambio si ningún otro
+bloque de la ficha lo completa (un aviso sin dónde completarse en la ficha es el que Martín no quería). Sacar un bloque
+ENTERO sigue sin apagar su aviso (§4 del diseño: lo pide el asistente).
+
+**Los catorce bloques que lo tenían** (enumerados contra el código, no contra el documento): AVISO EN GRUPO en contacto,
+setter-y-closer, proxima-reunion, reunion-1, reunion-2, cuotas y datos-fiscales (todos con «Obligatorio» por dato desde
+hoy); DATOS FIJOS en contacto y setter-y-closer («Datos ▾»), reunion-1 (deja el setter y el closer si la hoja tiene
+«Setter y closer»: `partesDeReunion1().equipo`), y en origen, visitas, venta, suscripcion, datos-fiscales,
+servicio-vendido, promesa-y-garantia y obligaciones. Los dos primeros son de sólo lectura y no obligan nada. **Sin hacer:**
+elegir los campos de los seis de Pagos. Son componentes de Cobros (app/crm/lead-view/ficha/pagos/bloques-cobro.tsx y
+bloques-deal.tsx), y lo que piden lo deciden los `deal*Ok` de lib/stage-requirements.ts.
+
+**Los que leían el aviso por su cuenta.** El «N sin marcar», «A revisar», la API y el teléfono ya respetaban los avisos del
+funnel (`avisanDelLead`). Dos lugares no:
+- «Completar datos» recibía la lista entera (`faltantesDeLead`). El «N sin marcar» decía 1 y el asistente preguntaba 2.
+  Ahora pasa por `loQueSePide` (lib/datos-aviso.ts), en LeadSheet.tsx y LeadDetailBody.tsx.
+- El «Queda pendiente: …» del toast al mover, y su línea «Datos pendientes» del historial, salían de `stepsForStage`
+  pelado. Ahora pasan por `pendientesQueAvisan` (app/crm/actions.ts).
+
+**Regla:** todo lo que se MUESTRA como pendiente pasa por los avisos del funnel. Lo que la etapa EXIGE para moverse no
+pasa por acá: lo suma el server (`requisitosDeEtapaAction`).
+
+⚠️ **La empresa apagada por default no distingue a quien la había prendido a mano.** `normalizar` borra lo que es igual a
+la plantilla, así que un `empresa: true` guardado con la plantilla en `true` no quedó en la base. Esos funnels pasan a no
+avisar. Medido en código, no en la base.
+
+**Vive en:** lib/ficha/catalogo.ts (`DATOS_CONTACTO`, `DATOS_SETTER_Y_CLOSER`) · lib/ficha/config.ts (`avisaDelPuesto`,
+`limpiarOpciones`, el `opciones` de `aplicarCambio`) · lib/ficha/plantillas.ts (`NACEN_APAGADOS`) ·
+app/crm/lead-view/ficha/Armador.tsx · armar.ts (`cubreDe` con el puesto y los hermanos) · lib/datos-aviso.ts
+(`loQueSePide`) · tests/ficha-datos-del-bloque.test.ts. *23/10/2026, chat «CRM» (claude2).*
+
+## El bloque «Automatizaciones» existía desde el 17/10 y nadie lo veía (23/10/2026)
+
+**Síntoma.** Martín pidió «crear un bloque... relacionado a las automatizaciones», y el catálogo ya tenía
+`automatizaciones-en-curso`, con componente desde el 17/10 (./resumen/charla.tsx) y «Frenar» desde el 22/10.
+
+⚠️ **La trampa.** Lo que dibuja el Resumen de un funnel que nadie tocó ya no son las listas de `PLANTILLAS_FICHA`
+(lib/ficha/plantillas.ts): son las plantillas de TAB (lib/ficha/plantillas-resumen.ts, `sugeridaPara`). Las primeras
+siguen decidiendo los AVISOS. El bloque estaba en cuatro listas de funnel y en ninguna plantilla de tab, porque la #880
+(17/10, «templates más simples») lo sacó de las de entrada. Leyendo el catálogo y las plantillas de funnel parecía que
+se veía.
+
+**Regla.** Para saber qué ve un funnel sin tocar, se mira `plantillaTabDeEntrada(tab, tipo)`, no `listaDePlantilla`. Un
+bloque que se calla sin datos puede volver a las de entrada sin agrandar nada: el techo de #880 no lo cuenta
+(tests/ficha-plantillas-simples.test.ts).
+
+**Lo que quedó:** el bloque se mudó a ./resumen/automatizaciones.tsx (la tarjeta «Sequences» de HubSpot) y lee y actúa
+por UNA puerta (./resumen/automatizaciones-datos.ts). Hoy lee la lista de siempre. El detalle (lo enviado, las
+terminadas, lo que no entró, «Empezar de nuevo») lo arma Automations con el contrato de docs/relevo/crm.md §0-Ω22. El toast
+del movimiento lee `automatizaciones.noEntro` de la respuesta, sin suponer que existe (`noEntroDelMovimiento`).
+
+**El título de un bloque va por `opciones.titulo`, no por un `op` nuevo.** `tests/ficha-api.test.ts` exige que el enum
+`cambio` de cambiar_ficha_funnel (lib/api-mako/areas/crm.def.ts, del chat API de MaKo) sea igual a `CAMBIOS_API`. Un `op`
+nuevo obligaba a tocar el registro de la API y su snapshot en paralelo con otro chat. Por `opciones` la API ya lo hace
+(«titulo=…»).
+
+**Vive en:** app/crm/automatizacion-lead.ts (la vista, pura) · app/crm/lead-view/ficha/resumen/automatizaciones.tsx ·
+automatizaciones-datos.ts · lib/ficha/plantillas-resumen.ts · app/m/crm/ficha-bloques.ts (`filaDeAutomatizaciones`) ·
+tests/ficha-automatizaciones.test.ts. *23/10/2026, chat «CRM» (claude2).*
+
 ## «Esa etapa no existe en el CRM»: `noresp` no está en `data.pipeline` y existe igual (23/10/2026)
 
 **Síntoma:** leyendo `funnels.data.pipeline` del CRM #44 del ws1 («Sprint 3 días») se concluyó que el último paso de la
