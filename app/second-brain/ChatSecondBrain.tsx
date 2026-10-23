@@ -62,6 +62,7 @@ import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operacione
 import { claveParaUrl, esperaDe, partesDelNombre, seguirChat } from '@/lib/centro-chats';
 import { pasaFiltroChats, type ChatFiltrable } from '@/lib/ops-center-filtro';
 import { FiltroChats } from '@/app/admin/operaciones/FiltroChats';
+import { EntradaOps } from './EntradaOps';
 import { ChatDelCentro, FilaDeChat, GruposPorJefe, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, RenglonDeFila, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { ChatNuevoCentro } from '@/app/admin/operaciones/ChatNuevo';
@@ -309,6 +310,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
 
   return (
     <div className="co" data-con-chat={conChat ? 'true' : 'false'}>
+      {/* La criatura de MaKo mientras entra (feedback 5b, 23/10/2026): tapa el Ops Center hasta que la conversación se
+          dibujó y vuela a su lugar, la criatura de la cabecera. Una vez por documento. */}
+      <EntradaOps />
       <Recorrido id={RECORRIDO_INICIO} pasos={PASOS_INICIO} abierto={tutorial.abierto} onCerrar={tutorial.onCerrar} />
       <aside className="co-barra" aria-label="Chats" data-recorrido="sb-chats">
         {/* ARRIBA, COMO LA LISTA DE AUTOMATIONS (feedback 4, 22/10/2026: «parecida a lo que tenemos en Automations»): el tutorial,
