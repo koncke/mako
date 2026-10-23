@@ -27,7 +27,8 @@ test('la ruta tiene una entrada por cada lectura de la lista, y cada una es la a
   const bloque = ruta.slice(ruta.indexOf('const LEER'), ruta.indexOf('};', ruta.indexOf('const LEER')));
   const claves = [...bloque.matchAll(/^\s+(\w+): \(/gm)].map((m) => m[1]);
   assert.deepEqual(claves.sort(), [...LECTURAS_CENTRO].sort());
-  for (const a of ['pushesCentroAction()', 'fotoCentroAction()', 'creditoApiAction()', 'computadorasAction()', "leerBandejaAction(req.nextUrl.searchParams.get('vista') === '1')"]) {
+  for (const a of ['pushesCentroAction()', 'fotoCentroAction()', 'creditoApiAction()', 'computadorasAction()', "leerBandejaAction(req.nextUrl.searchParams.get('vista') === '1')",
+    "turnosCentroAction(req.nextUrl.searchParams.getAll('l'), req.nextUrl.searchParams.get('dir') ?? undefined)"]) {
     assert.ok(bloque.includes(a), `la lectura ya no pasa por ${a}: la acción es la que chequea al super admin`);
   }
   assert.match(ruta, /status: 400/, 'una lectura que no existe tiene que dar 400, no tirar');
@@ -35,10 +36,11 @@ test('la ruta tiene una entrada por cada lectura de la lista, y cada una es la a
 
 test('quien lee ya no llama a la acción (volvería a la cola)', () => {
   const centro = sinComentarios(leer('app/admin/operaciones/useCentro.ts'));
-  for (const a of ['pushesCentroAction', 'fotoCentroAction', 'creditoApiAction', 'computadorasAction']) {
+  for (const a of ['pushesCentroAction', 'fotoCentroAction', 'creditoApiAction', 'computadorasAction', 'turnosCentroAction']) {
     assert.doesNotMatch(centro, new RegExp(`\\b${a}\\(`), `useCentro volvió a leer con ${a}`);
   }
   for (const q of ['foto', 'pushes', 'credito', 'computadoras']) assert.ok(centro.includes(`leerCentro<`) && centro.includes(`('${q}')`), `falta leerCentro('${q}')`);
+  assert.match(centro, />\('turnos', \{ l: locales, dir: claveParaUrl\(c\) \}\)\.catch\(\(\) => null\);/);
   const bandeja = sinComentarios(leer('app/tickets/bandeja/BandejaTickets.tsx'));
   assert.doesNotMatch(bandeja, /leerBandejaAction/);
   assert.match(bandeja, /leerCentro<LecturaBandeja>\('bandeja', conVista \? \{ vista: '1' \} : \{\}\)/);
@@ -51,6 +53,9 @@ test('leerCentro arma el pedido y tira con un no-200, como tiraba la acción con
     globalThis.fetch = (async (u: string) => { pedidos.push(u); return new Response(JSON.stringify({ ok: true, n: 1 }), { status: 200 }); }) as typeof fetch;
     assert.deepEqual(await leerCentro('bandeja', { vista: '1' }), { ok: true, n: 1 });
     assert.equal(pedidos[0], '/api/operaciones/lectura?que=bandeja&vista=1');
+    // Una lista va repetida: la ruta la lee con getAll('l').
+    await leerCentro('turnos', { l: ['local_a', 'local_b'], dir: 'local_a' });
+    assert.equal(pedidos[1], '/api/operaciones/lectura?que=turnos&l=local_a&l=local_b&dir=local_a');
     globalThis.fetch = (async () => new Response('caído', { status: 503 })) as unknown as typeof fetch;
     await assert.rejects(leerCentro('foto'), /«foto» contestó 503/);
   } finally {

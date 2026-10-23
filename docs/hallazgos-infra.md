@@ -83,8 +83,8 @@ abierto lo mismo para `app_settings` y las credenciales (~90 consultas por turno
   Centro, `pushesCentroAction` esperaba a la API de Vercel hasta 8 s y el refresco salía cada 2,5-8 s: la Ticketera y el
   Uso de IA quedaban detrás, sin dibujar nada. Ahora esas LECTURAS van por GET (`app/api/operaciones/lectura`, con las
   mismas acciones adentro, que chequean al super admin) y las escrituras siguen siendo acciones. **Regla:** una lectura
-  que se repite o que espera a un servicio externo no va por server action. Queda `turnosCentroAction` (el hilo del chat
-  abierto en cada refresco), que también es lectura.
+  que se repite o que espera a un servicio externo no va por server action. `turnos` (el hilo del chat abierto, en cada
+  refresco) también pasó, con los chats repetidos en la URL (`l=…&l=…`).
 - **El peso del Ops Center no es la «ventana de 10 años»** (`DIAS_HISTORIAL`, que Martín pidió el 16/10): las conversaciones
   armadas con las bitácoras pesan 48 KB con todas las fechas y 31 KB con 14 días. Lo que pesa son los pedidos: 453 son
   719 KB en cada carga (medido el 23/10). Cortarlos cambiaría lo que se ve. La propuesta: traer lo terminado viejo

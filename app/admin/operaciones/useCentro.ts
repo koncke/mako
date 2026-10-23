@@ -37,7 +37,7 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { desconectarComputadoraAction, contestarPreguntaAction, creditoDelNegocioAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, turnosCentroAction, type FotoCentro } from './acciones';
+import { desconectarComputadoraAction, contestarPreguntaAction, creditoDelNegocioAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, type turnosCentroAction, type FotoCentro } from './acciones';
 // Las LECTURAS van por GET y no por acción (23/10/2026): ver ./lectura-centro.ts.
 import { leerCentro } from './lectura-centro';
 import type { CuentasConNombre } from '@/lib/centro-titulares';
@@ -198,7 +198,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const pedirTurnos = useCallback(async (c: ChatCentro) => {
     const locales = c.miembros.filter((m) => DESTINO_RE.test(m));
     if (!locales.length) return;
-    const r = await turnosCentroAction(locales, claveParaUrl(c)).catch(() => null);
+    // Por GET (23/10/2026): corre en cada refresco del chat abierto, y como acción hacía cola con las demás (lectura-centro.ts).
+    const r = await leerCentro<Awaited<ReturnType<typeof turnosCentroAction>>>('turnos', { l: locales, dir: claveParaUrl(c) }).catch(() => null);
     if (r?.ok) {
       // Si no cambió nada, se queda el MISMO arreglo: así la conversación memorizada no se vuelve a dibujar en cada refresco.
       setTurnos((t) => (mismosTurnos(t[c.clave], r.turnos) ? t : { ...t, [c.clave]: r.turnos }));
