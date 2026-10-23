@@ -9,7 +9,7 @@
 
 | Qué | Dónde |
 |---|---|
-| Los planes (Pro 47 = capa completo, Growth 97 = capa agencia), parametrizables con el setting `planes.mako` del ws de la plataforma | `lib/planes-mako.ts` |
+| Los planes (Esencial 47 = capa completo, Pro 97 = capa agencia), parametrizables con el setting `planes.mako` del ws de la plataforma | `lib/planes-mako.ts` |
 | El checkout público: /planes → /planes/<plan> → `POST /api/planes/comprar` → /pagar/<token>. Al pagarse, el alta de siempre crea la cuenta y manda la bienvenida | `lib/compra-plan.ts` · `app/planes/` |
 | La landing manda `?landing=&avatar=&funcionalidad=&utm_*&ref=` a /planes; queda en `cobros.origen` / `cobros.ref_codigo` (mig 0330) | `lib/compra-plan-reglas.ts` |
 | La deuda: cobertura por meses cobrados, mora (aviso en la esquina), impago a los 7 días, confirmación con la pasarela antes de pausar | `lib/plan-acceso-reglas.ts` · `lib/plan-acceso.ts` · `lib/plan-deuda.ts` |
@@ -23,14 +23,33 @@
 1. **Migración 0330** (aditiva): la aplica el Cerebro en producción ANTES del deploy, con su OK.
 2. **Prender el corte** (`CORTE_DE_ACCESO_PRENDIDO` en `lib/plan-acceso-reglas.ts`): después de la revisión adversarial y con la
    0330 aplicada. Con el corte apagado la deuda se VE (aviso y /cuenta-pausada) pero nadie se pausa.
-3. **Martín**: conectar la pasarela de MaKo en `/integraciones?ws=9`; en Stripe, Billing › Revenue recovery › Retries (Smart
+3. **Martín**: en `hola-mako.com/integraciones?ws=9` → Calendly, pegar un «Personal access token» de la cuenta koncke
+   (calendly.com → Integrations & apps → API and webhooks → Generate new token) y en «Tipo de evento de R1» el NOMBRE del
+   evento de koncke/asesoria tal cual figura en Calendly (no el slug `asesoria`: el ruteo compara el nombre o la URI).
+   Medido el 23/10: el ws 9 no tiene credenciales ni ruteo de Calendly, así que ninguna reserva de la agenda de MaKo crea
+   un lead. **Eso solo no alcanza:** el aviso (la suscripción de webhook) no tiene pantalla en Calendly ni en MaKo; se crea
+   con el token por la API (`scripts/arreglar-webhook-calendly.ts`, hoy fijo al ws 1: hay que pasarlo al ws 9), y pide un
+   plan pago de Calendly. **Y lo agendado antes no entra solo** (Calendly no reenvía avisos viejos y ningún cron lee la
+   agenda): se trae con `scripts/backfill-calendly.ts` (idempotente, sólo completa vacíos, trae las UTM de cada reserva),
+   hoy fijo al ws del dueño y al token de `.env.local`, que NO es el de koncke. Después, la pasarela de MaKo. Hasta entonces (23/10) /planes, /planes/<plan> y «Pasar a
+   Pro» en «Tu plan» llevan a la agenda con las UTM, y se vende por llamada (hallazgos: «Sin pasarela, el checkout era un
+   callejón»); al conectarla vuelven solos al pago en línea. Además, en Stripe, Billing › Revenue recovery › Retries (Smart
    Retries) y qué pasa al agotarlos (recomendado: dejar la suscripción `past_due` o cancelarla; MaKo pausa igual a los 7 días);
    y si cobra en pesos, cargar `preciosLocales` del plan en el setting `planes.mako`.
 4. **El origen, ACORDADO con «Landings de MaKo en Web Generator»** (23/10): vive en `cuenta.origen` (app_settings del negocio
    nuevo), lo escribe su alta (efb194eb1: `cobros.origen` del checkout gana, si no el primer toque del lead) y lo lee
    `lib/origen-negocio.ts`. **Cuando /planes esté en producción, avisarle a ese chat**: hoy el CTA de sus landings es la agenda
    (Calendly), y pasa a `/planes/<plan>?landing=<slug>&avatar=<x>&funcionalidad=<y>`.
-5. MaKo Partners: APLICAR el crédito en la suscripción del partner y el beneficio del que llega (hallazgos-partners). La
+5. MaKo Partners: APLICAR el crédito en la suscripción del partner y el beneficio del que llega (hallazgos-partners).
+   **El copy de /mako-partners y /partners/referidos ya promete «se descuenta de tus próximos meses»:** cumplirlo o no
+   prometerlo es decisión de Martín (la subió el Cerebro el 23/10); no tocar el copy hasta que conteste.
+6. **El código de partner en una venta POR LLAMADA (medido el 23/10, con todas las letras):** fuera del checkout en línea,
+   el código SE PIERDE DEL TODO en la base. Desde el 23/10, quien llega por /r/<código> y agenda lleva el código a Calendly
+   como `utm_source=mako-partners&utm_campaign=<código>` (queda en la reserva; en el lead, cuando la agenda entre al ws 9,
+   que hoy NO entra). Quien llega de palabra, o cierra con «Vender un plan», /pagar/<token> o «Nuevo cliente» en /admin,
+   NO deja código en ninguna tabla. Si alguien reclama una comisión: (1) buscar su reserva en Calendly y el
+   `utm_campaign`; (2) si no está, preguntarle al comprador o ver su «¿Cómo llegaste a MaKo?» del onboarding; (3)
+   reconocerla con SQL, opción A o B de docs/hallazgos-partners.md («Una venta POR LLAMADA»). No hay pantalla para esto. La
    entrada de la barra para clientes comunes es del chat Sidebar (`app/_components/nav.ts`, `soloCapas: ['agencia']`).
 
 ## Decisiones tomadas sin preguntar (vara de AGENTS.md: copiar a Stripe/Paddle/los SaaS), cambiables en una línea

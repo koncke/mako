@@ -79,6 +79,23 @@ export async function ofertaDelPlan(planId: string): Promise<{ plan: PlanMako; p
   }
 }
 
+/**
+ * Cada plan activo y si HOY se puede pagar en línea, con UNA lectura de las pasarelas (la misma cuenta que
+ * `ofertaDelPlan`: una pasarela conectada con precio en su moneda). La usa /planes para no ofrecer «Empezar» donde el
+ * checkout no puede cobrar (lib/compra-plan-reglas.ts, `botonDelPlan`). Sin poder leer las pasarelas, ninguno se cobra:
+ * ofrecer la agenda de más es un llamado; ofrecer un pago que no existe es un callejón.
+ */
+export async function ofertasDeLosPlanes(): Promise<Array<{ plan: PlanMako; cobrable: boolean }>> {
+  const planes = (await planesMako()).filter((p) => p.activo);
+  let monedas: Array<{ pasarela: Pasarela; moneda: string }> = [];
+  try {
+    monedas = await monedasDeLaPlataforma(await wsSuperAdmin());
+  } catch (e) {
+    console.warn('[compra-plan] no pude leer las pasarelas de la plataforma:', msg(e));
+  }
+  return planes.map((plan) => ({ plan, cobrable: monedas.some((m) => precioEn(plan, m.moneda) != null) }));
+}
+
 /** El lead de ese email en el CRM de la plataforma (exacto), o uno nuevo. Corre adentro de runWithWorkspace. */
 async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuevo: boolean }> {
   const db = await getTenantDb();
