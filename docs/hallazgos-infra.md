@@ -79,9 +79,16 @@ abierto lo mismo para `app_settings` y las credenciales (~90 consultas por turno
   autocompletado que ESCRIBE en el render), /dashboard (y la moneda de Meta en el render, `lib/moneda-meta.ts:81`),
   /second-brain (`page.tsx:41-59`), /m/operaciones sin loading.tsx. Medido: /plan p50 1,6 s, /dashboard 1,7 s,
   /second-brain 2,1 s, /crm 2,0 s (p90 5,2 s).
-- Las server actions del Ops Center hacen COLA (Next corre una a la vez por cliente): `pushesCentroAction` espera a la
-  API de Vercel hasta 8 s y la Ticketera y Uso de IA quedan detrás (app/admin/operaciones/useCentro.ts:361-368). Se le
-  pasó al chat del Ops Center: las LECTURAS van por GET.
+- **Las server actions hacen COLA: Next corre UNA a la vez por cliente** (arreglado en el Ops Center el 23/10). En el
+  Centro, `pushesCentroAction` esperaba a la API de Vercel hasta 8 s y el refresco salía cada 2,5-8 s: la Ticketera y el
+  Uso de IA quedaban detrás, sin dibujar nada. Ahora esas LECTURAS van por GET (`app/api/operaciones/lectura`, con las
+  mismas acciones adentro, que chequean al super admin) y las escrituras siguen siendo acciones. **Regla:** una lectura
+  que se repite o que espera a un servicio externo no va por server action. Queda `turnosCentroAction` (el hilo del chat
+  abierto en cada refresco), que también es lectura.
+- **El peso del Ops Center no es la «ventana de 10 años»** (`DIAS_HISTORIAL`, que Martín pidió el 16/10): las conversaciones
+  armadas con las bitácoras pesan 48 KB con todas las fechas y 31 KB con 14 días. Lo que pesa son los pedidos: 453 son
+  719 KB en cada carga (medido el 23/10). Cortarlos cambiaría lo que se ve. La propuesta: traer lo terminado viejo
+  cuando se lo pide.
 
 **Medir antes de tocar:** `scripts/medir-rendimiento.mts <ws> <pantalla>` cronometra cada lectura de una pantalla en el
 server; `scripts/consultas-por-pedido.mts <email> <ruta>` cuenta idas a la base y lecturas de la sesión de UN pedido.
