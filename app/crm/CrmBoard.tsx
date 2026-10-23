@@ -3046,7 +3046,9 @@ export function CrmBoard({
       return {
         id: j.id, leadId: j.leadId, cual: j.cual ?? (/^R2/.test(j.when) ? 'R2' : 'R1'),
         fecha: j.fecha ?? null, dia: j.dia ?? j.when.replace(/^R[12] · /, ''), at: j.at ?? null, url: j.url ?? null,
-        nombre: l?.name || j.name, empresa: l?.company || (j.company && j.company !== 'Sin empresa' ? j.company : null), foto: l?.foto ?? null,
+        nombre: l?.name || j.name,
+        // «Sin empresa» es el RELLENO de `mapToCrmLead`, no un dato (la tarjeta decía «R2 · Sin empresa», ws1, 22/10/2026).
+        empresa: [l?.company, j.company].find((x) => x?.trim() && x !== 'Sin empresa') ?? null, foto: l?.foto ?? null,
         paso: i >= 0 ? { n: i + 1, de: camino.length, etapa: camino[i].label } : null,
         plata: plata || null,
         objetivo: j.goal && j.goal !== '—' ? j.goal : null, facturacion: j.facturacion ?? null, sinVsl: j.warn,
