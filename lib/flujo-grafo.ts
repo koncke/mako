@@ -343,6 +343,19 @@ export const ANCLAS_DESPUES: ReadonlyArray<{ id: AnclaDespues; texto: string }> 
 ];
 /** ¿Es un ancla de las que existen? (Lo que llega de la base o de la API se lee con esto.) */
 export const esAnclaDespues = (x: unknown): x is AnclaDespues => ANCLAS_DESPUES.some((a) => a.id === x);
+/** Desde cuándo cuenta una espera, como lo dice la API (`cambiar_desde_espera_paso`): «ahora» o una de las anclas. */
+export const DESDE_ESPERA: readonly string[] = ['ahora', ...ANCLAS_DESPUES.map((a) => a.id)];
+/**
+ * LA MISMA ESPERA CONTANDO DESDE OTRO MOMENTO (la API, 14/10/2026): lo que espera no cambia; «ahora» es la de siempre (por
+ * tiempo) y una ancla la vuelve «después de». null = no se puede: no dice cuánto, o «desde» no existe. Una «antes de la
+ * reunión» no pasa por acá (es el carril del recordatorio): quien llama la frena antes.
+ */
+export function esperaDesde(e: Espera | undefined, desde: unknown): Espera | null {
+  const minutos = Math.max(0, Number(e?.minutos) || 0);
+  if (!(minutos > 0)) return null;
+  if (desde === 'ahora') return { modo: 'tiempo', minutos };
+  return esAnclaDespues(desde) ? { modo: 'despues_de', minutos, de: desde } : null;
+}
 
 /**
  * «SI AGENDA MÁS CERCA» (16/10/2026, Martín, textual: «si está configurado "1 día antes" y se agendó dentro de 3 horas,

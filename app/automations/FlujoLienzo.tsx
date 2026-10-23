@@ -1531,12 +1531,12 @@ function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; b
   const [preferida, setPreferida] = useState<Unidad | null>(null);
   const unidad = unidadMostrada(seg, preferida);
   const n = seg / SEGUNDOS_DE[unidad];
-  // La espera con otro número u otra unidad, SIN perder de qué fecha cuenta («después de», 14/10/2026: su `de`) ni «Si agenda
-  // más cerca» (16/10/2026). Pasar a «Esperar» suelta las dos.
-  const conMinutos = (base: Espera, cuanto: number, u: Unidad): Espera => ({ ...base, minutos: minutosDeSegundos(Math.max(1, Math.round(cuanto)) * SEGUNDOS_DE[u]) });
+  // «Si agenda más cerca» (16/10/2026) se conserva al cambiar el número o la unidad; pasar a «Esperar» lo suelta.
   const cerca = e.modo === 'antes_reunion' && e.siAgendaCerca === 'sale' ? { siAgendaCerca: 'sale' as const } : {};
   const poner = (modo: 'tiempo' | 'antes_reunion', cuanto: number, u: Unidad, apilar: boolean) =>
-    cambiar({ espera: conMinutos(modo === 'antes_reunion' ? { modo, minutos: e.minutos, ...cerca } : { modo, minutos: e.minutos }, cuanto, u) }, apilar);
+    cambiar({ espera: { modo, minutos: minutosDeSegundos(Math.max(1, Math.round(cuanto)) * SEGUNDOS_DE[u]), ...(modo === 'antes_reunion' ? cerca : {}) } }, apilar);
+  // El número o la unidad SIN cambiar la espera: conserva de qué fecha cuenta («después de», su `de`) y «Si agenda más cerca».
+  const conMinutos = (base: Espera, cuanto: number, u: Unidad): Espera => ({ ...base, minutos: minutosDeSegundos(Math.max(1, Math.round(cuanto)) * SEGUNDOS_DE[u]) });
   const ponerIgual = (cuanto: number, u: Unidad, apilar: boolean) => cambiar({ espera: conMinutos(e, cuanto, u) }, apilar);
   // Un ícono por unidad (general 10: «pon íconos en todos los desplegable»): el cronómetro para lo corto,
   // el reloj para minutos y horas, el calendario para los días.

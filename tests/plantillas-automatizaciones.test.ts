@@ -29,7 +29,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  PLANTILLAS, PLANTILLAS_PLATAFORMA, PLANTILLAS_REEMPLAZADAS, plantillaPorId, plantillaQueLaReemplaza, pasosDePlantilla, nombreLibre, seccionesParaCron,
+  PLANTILLAS, PLANTILLAS_PLATAFORMA, PLANTILLAS_REEMPLAZADAS, plantillaPorId, plantillaQueLaReemplaza, pasosDePlantilla, nombreLibre, seccionesParaCron, pasosConDestinos,
   rotuloDeEleccion, disparadorDeEleccion, disparadoresDePlantilla, eleccionEnPalabras,
   TOPE_LINEA, TRIGGER_DE_PIDE, SIN_ETAPA, SIN_ETIQUETA, esPlantillaMako, canalesDe, filtrarPlantillas, filtroDeValores,
   alternarFiltroGaleria, gruposDelFiltroGaleria, seccionesDeEtiquetas, OBJETIVOS_PLANTILLA, CANALES_PLANTILLA,
@@ -47,10 +47,10 @@ import {
   problemaDeDisparadores, sanearDisparadores, eventosDe, claseDeDisparador, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO,
   TRIGGER_AVISO_MAKO, EVENTOS_MAKO_OFRECIDOS,
 } from '../lib/disparadores';
-import { condicionPorId, problemaDeFila } from '../lib/condiciones-catalogo';
+import { condicionPorId, problemaDeFila, OPCIONES_FIJAS } from '../lib/condiciones-catalogo';
 import { datoDe, tokensDe } from '../lib/variables-aviso';
 import { marcasDeVoseo } from '../lib/puestas-data';
-import { OP_AVISAR } from '../lib/flujo-legado';
+import { OP_AVISAR, OP_MOVER_ETAPA } from '../lib/flujo-legado';
 import { LEAD_DEL_EVENTO, faltanEnPaso } from '../lib/api-mako/flujo-params';
 import { porId } from '../lib/api-mako/registro';
 import { esAccion } from '../lib/api-mako/tipos';
@@ -74,6 +74,19 @@ const cronDePlantilla = (p: Pick<PlantillaAutomatizacion, 'cron'>): { trigger_ti
   if (c.fijo) return { trigger_tipo: c.fijo, subtipo: null };
   return { trigger_tipo: TRIGGER_DE_PIDE[c.pide], subtipo: null };
 };
+
+/**
+ * LOS PASOS COMO QUEDAN AL CREARLA (14/10/2026): una plantilla que MUEVE al lead (`destinos`) trae el ⚡ «Mover de etapa»
+ * sin la etapa —es del negocio, se elige al crearla—, así que se valida con una etapa de prueba puesta en cada destino. Las
+ * demás, tal cual (`pasosDePlantilla`).
+ */
+const conDestinos = (p: PlantillaAutomatizacion): PasoDePlantilla[] =>
+  pasosConDestinos(p, Object.fromEntries((p.destinos ?? []).map((d) => [d.id, { etapa: `etapa_${d.id}`, funnelId: 5 }])));
+/** Las tarjetas y filas que llena un destino: ésas sí llevan una etapa del negocio (la elegida). */
+const deDestino = (p: PlantillaAutomatizacion) => ({
+  mover: new Set((p.destinos ?? []).flatMap((d) => d.mover)),
+  enEtapa: new Set((p.destinos ?? []).flatMap((d) => (d.enEtapa ?? []).map(([x, r, f]) => `${x}:${r}:${f}`))),
+});
 
 /** Lo obligatorio que le falta a una acción, según el registro de la API (lo mismo que mira `setSecuenciaPasos`). */
 const faltanEnAccion = (op: string, params: Record<string, unknown>): string[] => {
@@ -111,12 +124,18 @@ const LAS_13: ReadonlyArray<readonly [id: string, nombre: string, objetivo: Obje
   ['lead-entro', 'Un Lead Entró', 'agendar'],
   // 22/10/2026 (A4 de la llamada con Mauricio): la apertura de una prospección, a los que se mueven a una etapa.
   ['prospeccion-apertura', 'Prospección: apertura', 'captar'],
+  // 14/10/2026, A PROPÓSITO: las cuatro del CRM automático (T2, T1, T3 y T6 de lib/crm-auto-plan.ts), en su lugar del
+  // embudo. Las fija tests/plantillas-crm-auto.test.ts.
+  ['lead-no-agendo', 'Un Lead No Agendó', 'agendar'],
   ['lead-agendo', 'Un Lead Agendó Llamada', 'reunion'],
+  ['reunion-sin-marcar', 'Una Reunión Sin Marcar', 'reunion'],
   ['lead-no-asistio', 'Un Lead No Asistió', 'recuperar'],
   ['lead-tuvo-reunion', 'Un Lead Tuvo la Reunión', 'vender'],
   ['lead-confirmo-compra', 'Un Lead Confirmó la Compra', 'cobrar'],
   // El plazo de una etapa (12/10/2026: los plazos del CRM pasan a una plantilla).
   ['lead-no-avanzo', 'Un Lead No Avanzó', 'recuperar'],
+  ['nutricion-vencida', 'Venció la Nutrición Manual', 'recuperar'],
+  ['lead-se-enfrio', 'Un Lead Se Enfrió', 'recuperar'],
   ['cliente-empezo', 'Un Cliente Empezó', 'clientes'],
   ['mako-cobranza', 'Una Cuota Venció', 'cobrar'],
   ['mako-pago', 'Entró un Pago', 'cobrar'],
@@ -218,7 +237,8 @@ test('crear con un id de antes contesta 400 NOMBRANDO la nueva y no toca la base
 
 test('cada plantilla se PUEDE PUBLICAR y está armada con las piezas de HOY (forma y datos)', () => {
   for (const p of PLANTILLAS) {
-    const pasos = normalizar(pasosDePlantilla(p));
+    // Como queda al crearla: con la etapa destino puesta, si mueve al lead (14/10/2026).
+    const pasos = normalizar(conDestinos(p));
     const c = cronDePlantilla(p);
     assert.deepEqual(validarParaGuardar(pasos), [], `${p.id}: no se guarda`);
     assert.deepEqual(validarGrafo(pasos), [], `${p.id}: no se publica`);
@@ -237,7 +257,9 @@ test('cada plantilla se PUEDE PUBLICAR y está armada con las piezas de HOY (for
 
 test('cada acción existe en el registro, es una acción y lleva lo obligatorio (lo que mira setSecuenciaPasos)', () => {
   for (const p of PLANTILLAS) {
-    for (const x of p.pasos) {
+    // 14/10/2026: con la etapa destino puesta (`conDestinos`); sin ella, el ⚡ «Mover de etapa» no se guarda, y por eso
+    // crear la exige (tests/plantillas-crm-auto.test.ts).
+    for (const x of conDestinos(p)) {
       if (claseDe(x) !== 'accion') continue;
       const a = x.accion!;
       const d = porId(a.operacion);
@@ -270,7 +292,12 @@ test('es del modelo de hoy: sin «Ir a», sin campos de antes, «Sale sola» exp
         if (x.tipo === 'ia') assert.equal(x.canal, 'whatsapp', `${donde}: «MaKo lo adapta» sólo sale por WhatsApp`);
         assert.equal(typeof x.revisar, 'boolean', `${donde}: «Sale sola» queda al default de la automatización`);
       }
-      if (c === 'accion') {
+      // 14/10/2026, A PROPÓSITO: además del aviso al equipo, el ⚡ «Mover de etapa» de las que MUEVEN al lead (el CRM
+      // automático), sólo en las tarjetas que nombra un destino (la etapa se elige al crearla) y sobre el lead del evento.
+      if (c === 'accion' && x.accion!.operacion === OP_MOVER_ETAPA) {
+        assert.ok(deDestino(p).mover.has(x.id!), `${donde}: un «Mover de etapa» que ningún destino llena`);
+        assert.deepEqual(x.accion!.params, { leadId: LEAD_DEL_EVENTO }, `${donde}: el «Mover de etapa» trae una etapa puesta`);
+      } else if (c === 'accion') {
         assert.equal(x.accion!.operacion, OP_AVISAR, `${donde}: una acción que no es el aviso al equipo`);
         assert.equal(x.accion!.params.leadId, LEAD_DEL_EVENTO, `${donde}: el aviso no es sobre el lead del evento`);
         // «MaKo en WhatsApp» con su LISTA: sale TAL CUAL (lo que se ve es lo que llega), y el espejo es su texto.
@@ -423,19 +450,25 @@ test('cada escenario hace lo que dice la tabla, medido sobre lo que CORRE (la ex
 
 test('ninguna condición necesita un dato del negocio (una etiqueta, una etapa, un curso) ni es de las retiradas', () => {
   for (const p of PLANTILLAS) {
+    const llenas = deDestino(p).enEtapa;
     for (const x of p.pasos) {
       if (claseDe(x) !== 'condicion') continue;
-      for (const r of x.ramas ?? []) {
-        for (const f of r.filas as FilaCondicion[]) {
+      (x.ramas ?? []).forEach((r, ri) => {
+        (r.filas as FilaCondicion[]).forEach((f, fi) => {
           const def = condicionPorId(f.campo);
           const donde = `${p.id}/${x.id}: «${String(f.campo)}»`;
           assert.ok(def, `${donde} no está en el catálogo`);
           assert.ok(!def!.retirada, `${donde} está retirada`);
+          // 14/10/2026, A PROPÓSITO: «Está en la etapa» SÍ, si la llena un destino (la etapa elegida al crearla: «sigue
+          // en la de no agenda»). Ésa nace vacía y la mira tests/plantillas-crm-auto.test.ts ya llena.
+          if (llenas.has(`${x.id}:${ri}:${fi}`)) { assert.equal(f.campo, 'etapa', `${donde}: un destino llena otra cosa`); return; }
           assert.equal(problemaDeFila(f), null, `${donde} está incompleta`);
-          assert.notEqual(def!.valor.t, 'lista', `${donde} se elige de una lista del negocio`);
+          // 14/10/2026, A PROPÓSITO: una lista FIJA no es del negocio («Estado del lead: Abierto», T1 y T3 del CRM
+          // automático); las del negocio (etiquetas, etapas, cursos) siguen prohibidas.
+          if (def!.valor.t === 'lista') assert.ok(OPCIONES_FIJAS[def!.valor.catalogo], `${donde} se elige de una lista del negocio`);
           assert.ok(f.campo !== 'etiqueta' && f.campo !== 'etapa', `${donde} nombra algo del negocio`);
-        }
-      }
+        });
+      });
     }
   }
 });
@@ -463,7 +496,8 @@ test('los datos del EQUIPO van sólo en «MaKo en WhatsApp», y cada aviso nuevo
       // Una tarjeta con su lista sale TAL CUAL: no agrega sola ni el nombre ni el link (la cobranza es la de antes, LITERAL).
       // El AI Analyst (13/10/2026) no habla de un lead: el análisis es del negocio. Lleva SU link (al análisis).
       if (claseDe(x) === 'accion' && p.id === 'mako-analisis') assert.ok(claves.includes('analisis_link'), `${p.id}/${x.id}: el aviso sin el link al análisis`);
-      if (claseDe(x) === 'accion' && p.id !== 'mako-cobranza' && p.id !== 'mako-analisis') {
+      // (Sólo el aviso al equipo: el ⚡ «Mover de etapa» no le dice nada a nadie, 14/10/2026.)
+      if (claseDe(x) === 'accion' && x.accion?.operacion === OP_AVISAR && p.id !== 'mako-cobranza' && p.id !== 'mako-analisis') {
         assert.ok(claves.includes('link_lead'), `${p.id}/${x.id}: el aviso sin el link a la ficha`);
         assert.ok(claves.includes('nombre_completo'), `${p.id}/${x.id}: el aviso sin el nombre del lead`);
       }
@@ -765,6 +799,9 @@ const CANALES: Readonly<Record<string, readonly CanalPlantilla[]>> = {
   'mako-cobranza': ['mako'], 'mako-pago': ['mako'], 'mako-analisis': ['mako'], 'mako-charla': ['mako'],
   'instagram-te-escribieron': ['instagram', 'mako'], 'messenger-te-escribieron': ['messenger', 'mako'], 'email-recibido': ['email', 'mako'],
   'email-newsletter': ['email'],
+  // 14/10/2026: las del CRM automático. «Un Lead No Agendó» y «Un Lead Se Enfrió» MUEVEN y no le escriben a nadie (sin
+  // aviso por lead: ver la plantilla); las otras dos avisan al grupo.
+  'lead-no-agendo': [], 'reunion-sin-marcar': ['mako'], 'nutricion-vencida': ['mako'], 'lead-se-enfrio': [],
 };
 
 test('canalesDe: por dónde sale cada plantilla, contra la tabla escrita a mano (y cada canal tiene alguna)', () => {

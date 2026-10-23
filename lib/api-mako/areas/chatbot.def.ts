@@ -25,6 +25,8 @@ import { UNIDADES } from '@/lib/cron-aviso';
 import { TOPE_PARTES, PAUSA_MAX_S } from '@/lib/mensaje-partes';
 // Puro (lo importa la galería, un componente cliente): el enum de plantillas sale del catálogo para no desincronizarse.
 import { PLANTILLAS } from '@/lib/plantillas-automatizaciones';
+// Puro: desde cuándo puede contar una espera (14/10/2026, la espera «después de»): el enum sale del modelo.
+import { DESDE_ESPERA } from '@/lib/flujo-grafo';
 
 /** Los ids de la galería de Automations (las 13 de la undécima tanda), en el orden del embudo. */
 const IDS_PLANTILLAS: readonly string[] = PLANTILLAS.map((p) => p.id);
@@ -265,13 +267,23 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'crear_automatizacion_desde_plantilla', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Crear una automatización desde una plantilla',
-    descripcion: 'PROPONE crear una automatización desde una plantilla de la galería de Automations (lo mismo que elegirla en «＋ Nueva»): trae todas las tarjetas de su categoría y nace PAUSADA, sin escribirle a nadie hasta que alguien la active. Si la plantilla arranca en una etapa (o una etiqueta), pasa su nombre en etapa; si hay dos con ese nombre en distintos productos, pasa también el producto. Sin etapa, nace con el CRON a elegir. Pide antes el id con listar_plantillas_automatizaciones.',
+    descripcion: 'PROPONE crear una automatización desde una plantilla de la galería de Automations (lo mismo que elegirla en «＋ Nueva»): trae todas las tarjetas de su categoría y nace PAUSADA, sin escribirle a nadie hasta que alguien la active. Si la plantilla arranca en una etapa (o una etiqueta), pasa su nombre en etapa; si hay dos con ese nombre en distintos productos, pasa también el producto. Sin etapa, nace con el CRON a elegir. Las que MUEVEN al lead de etapa (pide_destinos de listar_plantillas_automatizaciones) necesitan además a qué etapa, en destinos: sin eso no se crean. Pide antes el id con listar_plantillas_automatizaciones.',
     parametros: [
       { nombre: 'plantilla', tipo: 'string', obligatorio: true, enum: IDS_PLANTILLAS, descripcion: 'el id de la plantilla (de listar_plantillas_automatizaciones).' },
       { nombre: 'etapa', tipo: 'string', max: 120, descripcion: 'opcional: el nombre de la etapa del embudo (o de la etiqueta) donde arranca, como se ve en el CRM.' },
       { nombre: 'producto', tipo: 'string', max: 120, descripcion: 'opcional: el producto de esa etapa, sólo si hay varias etapas con ese nombre.' },
+      // 14/10/2026 (el CRM automático pasa a plantillas): la etapa a la que la plantilla MUEVE es del negocio.
+      {
+        nombre: 'destinos', tipo: 'object[]', max: 5,
+        descripcion: 'sólo las plantillas que mueven al lead de etapa (las que traen pide_destinos): a qué etapa, una por pregunta. Son del mismo CRM que la etapa donde arranca.',
+        campos: [
+          { nombre: 'pregunta', tipo: 'string', obligatorio: true, max: 40, descripcion: 'el id de la pregunta (de pide_destinos).' },
+          { nombre: 'etapa', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el nombre de la etapa a la que lo mueve, como se ve en el CRM.' },
+          { nombre: 'producto', tipo: 'string', max: 120, descripcion: 'opcional: el producto de esa etapa, sólo si hay varias con ese nombre.' },
+        ],
+      },
     ],
-    reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con las tarjetas de la plantilla (y su CRON, si se eligió la etapa)',
+    reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con las tarjetas de la plantilla (y su CRON, si se eligió la etapa, y la etapa a la que mueve)',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // «Duplicar» de los tres puntos de la lista de /automations (lib/secuencia-duplicar.ts, 09/10/2026), por la API (17/10/2026).
@@ -288,13 +300,36 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'cambiar_espera_paso', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Cambiar la espera de un paso',
-    descripcion: 'PROPONE cambiar cuántas horas espera un paso de una secuencia antes de salir (desde el paso anterior, o antes de la reunión si el paso está anclado a ella). Si el paso es una tarjeta «Esperar», cambia lo que espera esa tarjeta. No reprograma los envíos ya calculados de los leads inscriptos. Pide antes el secuenciaId y el orden del paso con ficha_secuencia_mensajes.',
+    descripcion: 'PROPONE cambiar cuántas horas espera un paso de una secuencia antes de salir (desde el paso anterior, o antes de la reunión si el paso está anclado a ella). Si el paso es una tarjeta «Esperar», cambia lo que espera esa tarjeta y conserva desde cuándo cuenta (para eso, cambiar_desde_espera_paso). No reprograma los envíos ya calculados de los leads inscriptos. Pide antes el secuenciaId y el orden del paso con ficha_secuencia_mensajes.',
     parametros: [
       pSecuenciaId, pOrden,
       { nombre: 'delayHoras', tipo: 'number', obligatorio: true, entero: true, minimo: 0, maximo: 8760, descripcion: 'horas de espera del paso (0 a 8760).' },
     ],
     reversible: true, escribe: 'cambia pasos[orden].delay_horas en nutricion_secuencias',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // ── EL CRM AUTOMÁTICO PASA A AUTOMATIONS (14/10/2026): sus condiciones y la espera «después de», por la API ──────
+  // Pedido de Martín: «toda feature nueva va a la API de MaKo». Las dos condiciones nuevas («Asistencia sin marcar a la
+  // reunión» y «Venció su nutrición manual») y la espera que cuenta desde una fecha del lead llegan con las plantillas y
+  // con Crear con IA; estas dos las LEEN y las CAMBIAN en una automatización que ya existe. SIN http, como las de la
+  // galería (ninguna operación nueva sale por HTTP).
+  {
+    id: 'condiciones_automatizacion', area: 'chatbot', tipo: 'lectura',
+    titulo: 'Condiciones y esperas de Automations',
+    descripcion: 'Lo que una tarjeta CONDITION puede preguntar de un lead, por sección: cómo se dice afirmada y negada, qué dato pide y si se acota a una reunión; y desde qué momento puede contar una tarjeta «Esperar» (desde que el lead llega, después de su reunión, de la 1ª, de la 2ª o del plazo de su nutrición manual). Con un CRON de la entrega del servicio se ofrecen otras condiciones. Úsala antes de crear o editar una automatización.',
+    parametros: [{ nombre: 'ambito', tipo: 'string', enum: ['venta', 'entrega'], descripcion: 'opcional: de qué lado es el CRON, la venta (por defecto) o la entrega del servicio.' }],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB },
+  },
+  {
+    id: 'cambiar_desde_espera_paso', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cambiar desde cuándo cuenta una espera',
+    descripcion: 'PROPONE cambiar desde qué momento cuenta una tarjeta «Esperar» de una automatización: desde que el lead llega a la tarjeta (ahora) o después de una fecha del lead (su reunión, que es la última que tiene; la 1ª; la 2ª; o el plazo de su nutrición manual). Lo que espera no cambia (eso es cambiar_espera_paso). Una espera «antes de la reunión» (un recordatorio) no se cambia por aquí. Si un lead no tiene esa fecha, ese camino termina sin esperar. Los que ya están esperando no se reprograman. Pide antes el secuenciaId y el orden con ficha_secuencia_mensajes.',
+    parametros: [
+      pSecuenciaId, pOrden,
+      { nombre: 'desde', tipo: 'string', obligatorio: true, enum: DESDE_ESPERA, descripcion: "desde cuándo cuenta: 'ahora', 'reunion', 'reunion_1', 'reunion_2' o 'plazo_nutricion'." },
+    ],
+    reversible: true, escribe: 'cambia pasos[orden].espera en nutricion_secuencias',
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
     id: 'asignar_audio_paso', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',

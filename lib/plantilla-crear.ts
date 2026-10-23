@@ -39,13 +39,19 @@
 //   · «SE LE PUSO [UNA ETIQUETA]» (`cron.pide: 'etiqueta'`, la bienvenida al newsletter): la etiqueta es del
 //     negocio y la elige la pantalla; entra por `guardarDisparadores` como una etapa (`disparadorDeEleccion`). Sin
 //     elegir, nace con el CRON a elegir.
+//   · LAS ETAPAS DESTINO (14/10/2026: el CRM automático pasa a plantillas, `destinos`): la etapa a la que la
+//     plantilla MUEVE es del negocio y el ⚡ «Mover de etapa» la EXIGE, así que llega elegida (`o.destinos`, `{ [id]:
+//     valor del desplegable }`) o NO SE CREA NADA: sin ella los pasos no se guardan, y a diferencia del CRON no hay un
+//     «elegir después» que deje la automatización viva. Si el CRON es de un CRM, el destino tiene que ser del MISMO
+//     (`proponer_cambio_etapa` mueve dentro del embudo del lead). Entran por la MISMA puerta: `pasosConDestinos`.
 //
 // ⚠️ SIN `server-only` Y SIN IMPORTS DEL SERVIDOR, a propósito: la base y los dos setters entran por
 // parámetro, así el test (tests/plantillas-automatizaciones.test.ts) ejecuta la función entera con
 // una base de mentira. La ruta enchufa los de verdad.
 
 import {
-  plantillaPorId, plantillaQueLaReemplaza, pasosDePlantilla, nombreLibre, disparadorDeEleccion, disparadoresDePlantilla,
+  plantillaPorId, plantillaQueLaReemplaza, nombreLibre, disparadorDeEleccion, disparadoresDePlantilla,
+  destinosDeEleccion, destinosQueFaltan, pasosConDestinos,
   type PlantillaAutomatizacion, type PideCron,
 } from './plantillas-automatizaciones';
 import type { Disparador } from './disparadores';
@@ -123,7 +129,7 @@ export function motivoDePlantillaVieja(id: unknown): string | null {
 }
 
 /** Crea la automatización de la plantilla `plantillaId`. Devuelve la creada, o tira con el motivo. */
-export async function crearDesdePlantilla(plantillaId: unknown, deps: DepsPlantilla, o: { disparador?: unknown } = {}): Promise<CreadaDesdePlantilla> {
+export async function crearDesdePlantilla(plantillaId: unknown, deps: DepsPlantilla, o: { disparador?: unknown; destinos?: unknown } = {}): Promise<CreadaDesdePlantilla> {
   const p = plantillaPorId(plantillaId);
   // Un id de antes NUNCA crea otra cosa en silencio: contesta nombrando la que lo reemplaza.
   if (!p) throw new PlantillaInvalidaError(motivoDePlantillaVieja(plantillaId) ?? 'Esa plantilla no existe.');
@@ -133,6 +139,14 @@ export async function crearDesdePlantilla(plantillaId: unknown, deps: DepsPlanti
   const pidio = o.disparador != null && o.disparador !== '';
   const elegido = !pidio || !p.cron.pide ? null : disparadorDeEleccion(p.cron.pide, o.disparador);
   if (pidio && !elegido) throw new PlantillaInvalidaError('Esa etapa no sirve para esta plantilla.');
+  // Las etapas destino, TODAS y antes de crear nada (ver la cabecera): sin ellas los ⚡ «Mover de etapa» no se guardan.
+  const { elegidos, malos } = destinosDeEleccion(p, o.destinos);
+  if (malos.length) throw new PlantillaInvalidaError(`Esa etapa no sirve para ${malos.map((x) => `«${x}»`).join(', ')}.`);
+  const faltan = destinosQueFaltan(p, elegidos);
+  if (faltan.length) throw new PlantillaInvalidaError(`Falta elegir ${faltan.map((d) => `«${d.pregunta}»`).join(', ')}`);
+  const cronDe = elegido?.funnel_id ?? null;
+  const deOtro = cronDe == null ? [] : (p.destinos ?? []).filter((d) => elegidos[d.id].funnelId != null && elegidos[d.id].funnelId !== cronDe);
+  if (deOtro.length) throw new PlantillaInvalidaError(`La etapa de ${deOtro.map((d) => `«${d.pregunta}»`).join(', ')} es de otro CRM que el del CRON.`);
 
   const { data: vivas, error: errNombres } = await deps.db.from('nutricion_secuencias').select('nombre, trigger_tipo').is('archivada_at', null);
   if (errNombres) throw new Error(`crearDesdePlantilla: ${errNombres.message}`);
@@ -144,7 +158,7 @@ export async function crearDesdePlantilla(plantillaId: unknown, deps: DepsPlanti
 
   const borrar = () => Promise.resolve(deps.db.from('nutricion_secuencias').delete().eq('id', nueva.id)).catch(() => {});
   try {
-    await deps.setPasos(nueva.id, pasosDePlantilla(p) as never[]);
+    await deps.setPasos(nueva.id, pasosConDestinos(p, elegidos) as never[]);
   } catch (e) {
     // El motivo de `setSecuenciaPasos` es el que la pantalla muestra («No se guardó: …»). Si el
     // borrado falla, el motivo sigue siendo el otro.

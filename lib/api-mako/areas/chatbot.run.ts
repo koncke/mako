@@ -19,7 +19,8 @@ import { avisoDuplicada, primerMensajeDe } from '@/lib/automatizacion-duplicada'
 import { motivoNoInscribe, motivoNoSale, SALIDAS_QUE_YA_ESTABAN } from '@/lib/nutricion-inscripcion-manual';
 import { sacarDeSecuencia, type SalidaManual } from '@/lib/nutricion-salida-manual';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPasosIA, nodoPorId, type PasoGrafo } from '@/lib/flujo-grafo';
+import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPasosIA, nodoPorId, textoEspera, esperaDesde, ANCLAS_DESPUES, type PasoGrafo } from '@/lib/flujo-grafo';
+import { CONDICIONES, seOfrece, seccionEn, type DefCondicion } from '@/lib/condiciones-catalogo';
 import { libertadDeCaso, ROTULO_LIBERTAD } from '@/lib/ai-step-libertad';
 import { libertadDeLoDemas } from '@/lib/ai-step-armar';
 import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo } from '@/lib/nutricion-grafo-motor';
@@ -46,7 +47,7 @@ import { getSettingData, guardarEstrategia, probarSecuencia, escenarioDePrueba, 
 import { duplicarSecuencia, nombreDeCopia, type DbDuplicar } from '@/lib/secuencia-duplicar';
 import { escenariosDeLaSecuencia } from '@/lib/simulador-grafo';
 import {
-  plantillasPara, plantillaPorId, canalesDe, eleccionEnPalabras, CANALES_PLANTILLA, OBJETIVOS_PLANTILLA, type PlantillaAutomatizacion,
+  plantillasPara, plantillaPorId, canalesDe, eleccionEnPalabras, destinoDeEleccion, CANALES_PLANTILLA, OBJETIVOS_PLANTILLA, type PlantillaAutomatizacion,
 } from '@/lib/plantillas-automatizaciones';
 import { crearDesdePlantilla, motivoDePlantillaVieja, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
 import { esWsPlataforma } from './integraciones.helpers';
@@ -231,6 +232,23 @@ async function textoDelAviso(texto: string, lead: { id: number; nombreCrudo: str
 }
 
 /** Qué hay que elegir al crear una plantilla, en palabras (null = trae su CRON puesto). */
+/**
+ * QUÉ DATO PIDE UNA CONDICIÓN, en palabras (`condiciones_automatizacion`, 14/10/2026). Las nueve de antes (`legado`) lo
+ * dicen por su id; las demás, por su tipo de valor. null = no pide nada (se cumple o no).
+ */
+function datoQuePide(c: DefCondicion): string | null {
+  const v = c.valor;
+  if (v.t === 'numero') return `un número${v.unidad}${v.ref ? ' y un curso' : ''}`;
+  if (v.t === 'lista') return 'uno de una lista';
+  if (v.t === 'texto') return 'un texto';
+  if (v.t !== 'legado') return null;
+  if (c.id === 'etiqueta') return 'una etiqueta';
+  if (c.id === 'etapa') return 'una etapa';
+  if (c.id === 'antiguedad') return 'un número de horas';
+  if (c.id === 'pago') return 'opcional: la cuota';
+  return null;
+}
+
 function pideDePlantilla(p: PlantillaAutomatizacion): string | null {
   if (p.cron.pide === 'etapa_venta') return 'una etapa del embudo de venta';
   if (p.cron.pide === 'etapa_entrega') return 'una etapa de la entrega';
@@ -603,8 +621,10 @@ export const RUNNERS: Runners = {
         pide_etapa: pideDePlantilla(p),
         cron_puesto: p.cron.fijo ? true : false,
         ayuda_etapa: p.cron.ayuda ?? null,
+        // 14/10/2026: las que MUEVEN al lead piden a qué etapa (sin eso no se crean).
+        pide_destinos: (p.destinos ?? []).map((d) => ({ pregunta: d.id, que: d.pregunta, ayuda: d.ayuda })),
       })),
-      nota: 'Nacen pausadas. pide_etapa dice qué hay que elegir al crearla (null = trae su CRON puesto). Para crear una: crear_automatizacion_desde_plantilla.',
+      nota: 'Nacen pausadas. pide_etapa dice qué hay que elegir al crearla (null = trae su CRON puesto); pide_destinos, a qué etapa mueve (obligatorio cuando trae alguna). Para crear una: crear_automatizacion_desde_plantilla.',
     }); },
   },
 
@@ -690,18 +710,42 @@ export const RUNNERS: Runners = {
       if (p.soloPlataforma && !(await esWsPlataforma(ctx.ws))) return { error: 'Esa plantilla es de SuperAdmin.' };
       const etapa = str(input, 'etapa');
       const producto = str(input, 'producto');
-      if (!p.cron.pide || !etapa) {
-        const falta = p.cron.pide ? ' (le falta elegir dónde arranca: se elige en su CRON)' : '';
-        return { payload: { plantilla: p.id, disparador: null }, resumen: `Crear «${p.nombre}» desde la galería, pausada${falta}` };
+      const destinosPide = p.destinos ?? [];
+      const productos = (p.cron.pide && p.cron.pide !== 'etiqueta' && etapa) || destinosPide.length ? await productosConEtapas() : [];
+      let disparador: string | null = null;
+      let donde = p.cron.pide ? ' (le falta elegir dónde arranca: se elige en su CRON)' : '';
+      if (p.cron.pide && etapa) {
+        // La etapa en palabras → el valor del desplegable del CRON, con LAS MISMAS opciones que la galería. Con dos que
+        // calzan, contesta con las opciones: una automatización en la etapa equivocada le escribe a otra gente.
+        const e = eleccionEnPalabras(p.cron.pide, {
+          productos: p.cron.pide === 'etiqueta' ? [] : productos,
+          etiquetas: p.cron.pide === 'etiqueta' ? (await listarEtiquetas()).map((x) => ({ id: x.id, nombre: x.nombre, archivada_at: x.archivada_at })) : [],
+        }, etapa, producto || null);
+        if (!e.ok) return { error: e.opciones.length ? `${e.motivo} Puede ser: ${e.opciones.join(' · ')}.` : e.motivo };
+        disparador = e.valor;
+        donde = `, arrancando en «${e.rotulo}»`;
       }
-      // La etapa en palabras → el valor del desplegable del CRON, con LAS MISMAS opciones que la galería. Con dos que
-      // calzan, contesta con las opciones: una automatización en la etapa equivocada le escribe a otra gente.
-      const e = eleccionEnPalabras(p.cron.pide, {
-        productos: p.cron.pide === 'etiqueta' ? [] : await productosConEtapas(),
-        etiquetas: p.cron.pide === 'etiqueta' ? (await listarEtiquetas()).map((x) => ({ id: x.id, nombre: x.nombre, archivada_at: x.archivada_at })) : [],
-      }, etapa, producto || null);
-      if (!e.ok) return { error: e.opciones.length ? `${e.motivo} Puede ser: ${e.opciones.join(' · ')}.` : e.motivo };
-      return { payload: { plantilla: p.id, disparador: e.valor }, resumen: `Crear «${p.nombre}» desde la galería, pausada, arrancando en «${e.rotulo}»` };
+      // LAS ETAPAS DESTINO (14/10/2026): en palabras, con LAS MISMAS opciones que la galería —las del CRM de la etapa
+      // donde arranca, si se dijo (`seccionesParaDestino`)—. Sin todas, no se propone nada: los pasos no se guardarían.
+      const delCron = disparador ? destinoDeEleccion(disparador)?.funnelId ?? null : null;
+      const suyos = delCron != null ? productos.filter((x) => x.funnelId === delCron) : [];
+      const pedidos = Array.isArray(input.destinos) ? (input.destinos as Array<Record<string, unknown>>) : [];
+      const destinos: Record<string, string> = {};
+      const dichos: string[] = [];
+      const faltan: string[] = [];
+      for (const d of destinosPide) {
+        const x = pedidos.find((y) => y && typeof y.pregunta === 'string' && y.pregunta.trim() === d.id);
+        const etapaD = x ? str(x, 'etapa') : '';
+        // Sin etapa dicha también: contesta con las opciones (ninguna se llama «»), y la pregunta las lleva.
+        const e = eleccionEnPalabras('etapa_venta', { productos: suyos.length ? suyos : productos }, etapaD, (x && str(x, 'producto')) || null);
+        if (!etapaD) { faltan.push(`«${d.pregunta}» (pregunta: ${d.id}${!e.ok && e.opciones.length ? `; puede ser: ${e.opciones.join(' · ')}` : ''})`); continue; }
+        if (!e.ok) return { error: `${d.pregunta} ${e.motivo}${e.opciones.length ? ` Puede ser: ${e.opciones.join(' · ')}.` : ''}` };
+        destinos[d.id] = e.valor;
+        dichos.push(`«${e.rotulo}»`);
+      }
+      if (faltan.length) return { error: `«${p.nombre}» mueve al lead de etapa: falta ${faltan.join(' y ')}.`, faltan: ['destinos'] };
+      const mueve = dichos.length ? `; mueve a ${dichos.join(' y ')}` : '';
+      return { payload: { plantilla: p.id, disparador, ...(dichos.length ? { destinos } : {}) }, resumen: `Crear «${p.nombre}» desde la galería, pausada${donde}${mueve}` };
     },
     ejecutar: async (payload, ctx) => {
       try {
@@ -711,7 +755,7 @@ export const RUNNERS: Runners = {
           setDisparadores: guardarDisparadores,
           motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
           plataforma: await esWsPlataforma(ctx.ws),
-        }, { disparador: payload.disparador ?? undefined });
+        }, { disparador: payload.disparador ?? undefined, destinos: payload.destinos ?? undefined });
         // ⚠️ EL LINK LO ESCRIBE EL CÓDIGO y va por `paraLaPersona` (AGENTS.md: un id que pasa por un modelo deja de ser exacto).
         const link = linkApp(`/automations?sec=${r.id}`, ctx.ws);
         const falta = r.aviso ? ` ${r.aviso}` : r.pide ? ' Le falta elegir dónde arranca.' : '';
@@ -760,6 +804,53 @@ export const RUNNERS: Runners = {
         console.error('[api-mako chatbot] duplicar_automatizacion:', msg);
         return { ok: false, resumen: `No se pudo duplicar la automatización #${String(payload.secuenciaId)} (${msg}).` };
       }
+    },
+  },
+
+  // ── El CRM automático pasa a Automations (14/10/2026): sus condiciones y la espera «después de» (ver la def) ──
+  condiciones_automatizacion: {
+    leer: async (input) => {
+      const ambito = str(input, 'ambito') === 'entrega' ? 'entrega' : 'adquisicion';
+      return json({
+        ambito: ambito === 'entrega' ? 'entrega' : 'venta',
+        condiciones: CONDICIONES.filter((c) => seOfrece(c, ambito)).map((c) => ({
+          id: c.id, seccion: seccionEn(c, ambito), si: c.rotulo[0],
+          no: c.negable && c.rotulo[1] && c.rotulo[1] !== c.rotulo[0] ? c.rotulo[1] : null,
+          pide: datoQuePide(c), se_acota_a_una_reunion: c.reuniones === true,
+        })),
+        esperas: [
+          { desde: 'ahora', como: 'Esperar N desde que llega a la tarjeta' },
+          ...ANCLAS_DESPUES.map((a) => ({ desde: a.id, como: `Esperar N después de ${a.texto}` })),
+          { desde: 'antes_reunion', como: 'N antes de la reunión: los recordatorios (no se cambia por la API)' },
+        ],
+        nota: 'Una condición sin el dato del lead («no sé») no se cumple, ni negada. «La reunión» de una espera es la última que tiene; si un lead no tiene la fecha, ese camino termina. Para cambiar desde cuándo cuenta una espera: cambiar_desde_espera_paso.',
+      });
+    },
+  },
+
+  cambiar_desde_espera_paso: {
+    preparar: async (input) => {
+      const id = num(input, 'secuenciaId'); const orden = num(input, 'orden'); const desde = str(input, 'desde');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      const p = s.pasos.find((x) => x.orden === orden);
+      if (!p) return { error: `La secuencia «${s.nombre}» no tiene paso ${orden} (tiene ${s.pasos.length}).` };
+      if (claseDe(p) !== 'esperar') return { error: `El paso ${orden} de «${s.nombre}» no es una tarjeta «Esperar».` };
+      if (p.espera?.modo === 'antes_reunion') return { error: `El paso ${orden} de «${s.nombre}» es un recordatorio antes de la reunión: se cambia en el lienzo de /automations.` };
+      const nueva = esperaDesde(p.espera, desde);
+      if (!nueva) return { error: `«${desde}» no es desde cuándo puede contar una espera (o la espera no dice cuánto).` };
+      return { payload: { secuenciaId: id, orden, desde }, resumen: `La espera del paso ${orden} de «${s.nombre}»: de «${textoEspera(p.espera)}» a «${textoEspera(nueva)}»` };
+    },
+    ejecutar: async (payload) => {
+      const id = Number(payload.secuenciaId); const orden = Number(payload.orden);
+      const s = await secuenciaVigente(id);
+      const p = s?.pasos.find((x) => x.orden === orden);
+      if (!s || !p || claseDe(p) !== 'esperar' || p.espera?.modo === 'antes_reunion') return { ok: false, resumen: 'La secuencia o la espera ya no existen (o cambiaron).' };
+      const nueva = esperaDesde(p.espera, payload.desde);
+      if (!nueva) return { ok: false, resumen: 'La espera ya no dice cuánto: ábrela en el lienzo de /automations.' };
+      // Por la puerta de todos los escritores de `pasos` (normaliza, valida y conserva el `de`: `camposDelFlujo`).
+      await setSecuenciaPasos(id, s.pasos.map((x) => (x.orden === orden ? { ...x, espera: nueva } : x)));
+      return { ok: true, resumen: `La espera del paso ${orden} de «${s.nombre}» ahora es «${textoEspera(nueva)}». Los que ya están esperando no se reprograman.` };
     },
   },
 

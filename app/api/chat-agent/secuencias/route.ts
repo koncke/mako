@@ -12,11 +12,12 @@
 //        { action:'copiar_flujo', copia, secuenciaId? }   → guarda la copia de un flujo entero → { token, nombre }
 //                                                          (503 `falta` sin la mig 0265: el botón copia el texto entero)
 //        { action:'leer_copia', copia }                   → qué es lo pegado (texto o token) → { nombre, que, tarjetas }
-//        { action:'crear_desde_plantilla', plantilla, disparador? }
+//        { action:'crear_desde_plantilla', plantilla, disparador?, destinos? }
 //                                                          → una de la GALERÍA (lib/plantillas-automatizaciones.ts),
 //                                                            APAGADA → { secuenciaId, nombre, pide, aviso? }
 //                                                            (`disparador` = la etapa elegida, el valor del desplegable
-//                                                             del CRON; sin él, `pide` dice qué falta elegir)
+//                                                             del CRON; sin él, `pide` dice qué falta elegir.
+//                                                             `destinos` = { [id]: etapa } de las que MUEVE: obligatorias)
 //        { action:'sugerir-gancho'|'sugerir-preguntas', objetivo, etapa } → { sugerencias }
 //        { action:'guardar-estrategia', secuenciaId, estrategia }         → { ok }
 //        { action:'probar', secuenciaId }                 → prueba en vivo al admin
@@ -228,8 +229,8 @@ export async function POST(req: NextRequest) {
     base?: unknown;
     /** `descartar-borrador` desde una FOTO (el teléfono): { base?, guardado_at } de lo que se vio (lib/secuencia-borrador.ts). */
     visto?: unknown;
-    /** `crear_desde_plantilla`: el id de la plantilla y la etapa elegida (opcional). */
-    plantilla?: unknown; disparador?: unknown;
+    /** `crear_desde_plantilla`: el id de la plantilla, la etapa elegida (opcional) y las etapas destino (14/10/2026). */
+    plantilla?: unknown; disparador?: unknown; destinos?: unknown;
     /** `crear_desde_copia` / `limpiar_copia` / `leer_copia`: el TEXTO del portapapeles o un token; `copiar_flujo`: la copia entera (lib/flujo-copia.ts). */
     copia?: unknown;
   };
@@ -465,7 +466,7 @@ export async function POST(req: NextRequest) {
           motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
           // Una plantilla de SuperAdmin (`soloPlataforma`) sólo se crea en el ws de la plataforma.
           plataforma: await esPlataformaActual(),
-        }, { disparador: body.disparador });
+        }, { disparador: body.disparador, destinos: body.destinos });
         return Response.json({ ok: true, secuenciaId: r.id, nombre: r.nombre, pide: r.pide, ...(r.aviso ? { aviso: r.aviso } : {}) });
       } catch (e) {
         if (e instanceof PlantillaInvalidaError || e instanceof PasosInvalidosError) return Response.json({ ok: false, error: e.message }, { status: 400 });

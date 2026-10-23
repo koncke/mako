@@ -37,6 +37,11 @@
 // (o una etiqueta) del negocio pregunta CUÁL, con LAS MISMAS opciones que el editor del CRON (`seccionesParaCron`,
 // `seccionesDeEtiquetas`). «Elegir después» la crea con el CRON a elegir.
 //
+// LAS ETAPAS DESTINO (14/10/2026: el CRM automático pasa a plantillas). Una plantilla que MUEVE al lead (`destinos`: «Un
+// Lead No Agendó», «Un Lead Se Enfrió») pregunta, después del CRON, A QUÉ ETAPA: una pantalla por destino, con las etapas
+// del CRM del CRON elegido (`seccionesParaDestino`), sin abrir el flujo. Ésas no tienen «Elegir después»: el ⚡ «Mover de
+// etapa» la exige, y sin ella la automatización no se guarda. Cambiar el CRON borra lo elegido (podía ser de otro CRM).
+//
 // ⚠️ «LIENZO EN BLANCO» ES DE QUIEN MONTA ESTO (`onBlanco`): crea la automatización vacía de «＋ Nueva» (`crearNueva`,
 // app/automations/ChatAgentApp.tsx). Esta pantalla no tiene su propio camino para eso: sería la segunda copia de «Nueva».
 //
@@ -55,8 +60,8 @@ import { Dropdown } from '@/app/components/Dropdown';
 import { Icon } from '@/app/_components/icons';
 import {
   plantillasPara, seccionesParaCron, seccionesDeEtiquetas, rotuloDeEleccion, filtrarPlantillas, filtroDeValores, alternarFiltroGaleria,
-  gruposDelFiltroGaleria,
-  type PlantillaAutomatizacion, type PideCron, type EtiquetaParaPlantilla,
+  gruposDelFiltroGaleria, seccionesParaDestino,
+  type PlantillaAutomatizacion, type PideCron, type EtiquetaParaPlantilla, type DestinoDePlantilla,
 } from '@/lib/plantillas-automatizaciones';
 import type { ProductoParaDisparo } from '@/lib/flujo-conversacion';
 import { resumenDePegado } from './copia-flujo-cliente';
@@ -89,6 +94,8 @@ export const BLANCO = { nombre: 'Lienzo en blanco', linea: 'Empieza de cero.' } 
 export const PLACEHOLDER_BUSCAR = 'Buscar plantillas';
 /** Lo que se lee cuando ninguna plantilla pasa el filtro (queda «Lienzo en blanco»). */
 export const SIN_RESULTADOS = 'Ninguna plantilla con eso';
+/** Una etapa destino sin etapas para ofrecer: el negocio no tiene etapas de venta (14/10/2026). */
+export const SIN_ETAPAS_DESTINO = 'No hay etapas de venta para elegir.';
 
 // ⛔ ACÁ VIVÍA `accionesMas` (el «+» de la caja con «Lienzo en blanco», «Usar plantilla» y «Pegar lo copiado», decimocuarta
 // tanda). Decimoquinta, punto 7, Martín: «no tiene sentido las opciones de lienzo en blanco y plantilla, si para eso ya
@@ -102,6 +109,16 @@ export const SIN_RESULTADOS = 'Ninguna plantilla con eso';
 export function preguntaEtapa(p: PlantillaAutomatizacion, productos: readonly ProductoParaDisparo[], etiquetas: readonly EtiquetaParaPlantilla[] = []): boolean {
   if (!p.cron.pide) return false;
   return (p.cron.pide === 'etiqueta' ? seccionesDeEtiquetas(etiquetas) : seccionesParaCron(p.cron.pide, productos)).length > 0;
+}
+
+/**
+ * LAS PANTALLAS QUE PREGUNTA al elegirla, en orden (una pregunta por pantalla): el CRON si hay qué ofrecer
+ * (`preguntaEtapa`), y después una por cada etapa destino (14/10/2026). Vacío = se crea al tocarla.
+ */
+export function pantallasDePlantilla(
+  p: PlantillaAutomatizacion, productos: readonly ProductoParaDisparo[], etiquetas: readonly EtiquetaParaPlantilla[] = [],
+): Array<'cron' | DestinoDePlantilla> {
+  return [...(preguntaEtapa(p, productos, etiquetas) ? ['cron' as const] : []), ...(p.destinos ?? [])];
 }
 
 /**
@@ -179,6 +196,9 @@ export function GaleriaPlantillas(p: {
   const [filtros, setFiltros] = useState<string[]>([]);
   const [elegida, setElegida] = useState<PlantillaAutomatizacion | null>(null);
   const [valor, setValor] = useState('');
+  /** Qué pantalla de `pantallasDePlantilla` se ve, y las etapas destino elegidas (`{ [id]: valor }`). */
+  const [pantalla, setPantalla] = useState(0);
+  const [destinos, setDestinos] = useState<Record<string, string>>({});
   const [creando, setCreando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const enVuelo = useRef(false);
@@ -193,14 +213,14 @@ export function GaleriaPlantillas(p: {
   const plataforma = usePlataforma();
   const visibles = useMemo(() => filtrarPlantillas(plantillasPara({ plataforma }), { texto, canal: filtro.canal, objetivo: filtro.objetivo }), [texto, filtro.canal, filtro.objetivo, plataforma]);
 
-  const crear = async (pl: PlantillaAutomatizacion, disparador: string | null) => {
+  const crear = async (pl: PlantillaAutomatizacion, disparador: string | null, dest: Record<string, string> = {}) => {
     if (enVuelo.current) return;
     enVuelo.current = true;
     setCreando(pl.id); setError(null);
     try {
       const r = await fetch(API, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(TOPE_MS),
-        body: JSON.stringify({ action: 'crear_desde_plantilla', plantilla: pl.id, ...(disparador ? { disparador } : {}) }),
+        body: JSON.stringify({ action: 'crear_desde_plantilla', plantilla: pl.id, ...(disparador ? { disparador } : {}), ...(Object.keys(dest).length ? { destinos: dest } : {}) }),
       });
       const j = await r.json().catch(() => null) as { ok?: boolean; error?: string; secuenciaId?: unknown; nombre?: unknown; pide?: unknown; aviso?: unknown } | null;
       if (!r.ok || !j?.ok || !(Number(j.secuenciaId) > 0)) { setError(j?.error || 'No se pudo crear'); return; }
@@ -221,14 +241,25 @@ export function GaleriaPlantillas(p: {
   const elegir = (pl: PlantillaAutomatizacion) => {
     if (enVuelo.current) return;
     setError(null);
-    if (p.onCrearPlantilla) { p.onCrearPlantilla(pl); return; }
-    if (preguntaEtapa(pl, p.productos, etiquetas)) { setElegida(pl); setValor(''); return; }
+    // Al instante (#882) salvo la que MUEVE al lead: el ⚡ «Mover de etapa» exige su etapa y sin ella no se guarda, así que
+    // ésa pregunta acá, una pantalla por destino (23/10/2026, el CRM automático a plantillas).
+    if (p.onCrearPlantilla && !pl.destinos?.length) { p.onCrearPlantilla(pl); return; }
+    if (pantallasDePlantilla(pl, p.productos, etiquetas).length) { setElegida(pl); setValor(''); setDestinos({}); setPantalla(0); return; }
     void crear(pl, null);
   };
 
-  // ── 2. ¿En qué etapa (o con qué etiqueta) arranca? ── (sólo se elige una que arranca así: `preguntaEtapa`)
+  // ── 2. Las preguntas al elegirla, una por pantalla (`pantallasDePlantilla`): el CRON y las etapas destino ──
+  const pantallas = elegida ? pantallasDePlantilla(elegida, p.productos, etiquetas) : [];
+  const actual = pantallas[pantalla];
   const pideElegida = elegida?.cron.pide;
-  if (elegida && pideElegida) {
+  /** Lo que sigue a esta pantalla: la próxima, o crear con lo elegido. */
+  const seguir = (pl: PlantillaAutomatizacion, cron: string) => {
+    if (pantalla < pantallas.length - 1) { setError(null); setPantalla(pantalla + 1); return; }
+    void crear(pl, cron || null, destinos);
+  };
+  const volver = () => { setError(null); if (pantalla > 0) setPantalla(pantalla - 1); else setElegida(null); };
+  const ultima = pantalla >= pantallas.length - 1;
+  if (elegida && actual === 'cron' && pideElegida) {
     const secciones = pideElegida === 'etiqueta' ? seccionesDeEtiquetas(etiquetas) : seccionesParaCron(pideElegida, p.productos);
     const pregunta = pideElegida === 'etiqueta' ? PREGUNTA_ETIQUETA : PREGUNTA_ETAPA;
     const ocupado = creando != null;
@@ -236,18 +267,45 @@ export function GaleriaPlantillas(p: {
       <Modal titulo={`${elegida.emoji} ${elegida.nombre}`} onCerrar={cerrar} ancho={560}
         pie={
           <>
-            <Button variant="tertiary" disabled={ocupado} onClick={() => { setElegida(null); setError(null); }}>Volver</Button>
-            <Button variant="secondary" disabled={ocupado} onClick={() => void crear(elegida, null)}>Elegir después</Button>
-            <Button variant="primary" disabled={!valor} loading={ocupado} onClick={() => void crear(elegida, valor)}>Crear</Button>
+            <Button variant="tertiary" disabled={ocupado} onClick={volver}>Volver</Button>
+            <Button variant="secondary" disabled={ocupado} onClick={() => { setValor(''); setDestinos({}); seguir(elegida, ''); }}>Elegir después</Button>
+            <Button variant="primary" disabled={!valor} loading={ocupado && ultima} onClick={() => seguir(elegida, valor)}>{ultima ? 'Crear' : 'Siguiente'}</Button>
           </>
         }>
         <div data-galeria-paso="etapa" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 17, fontWeight: 700 }}>{pregunta}</div>
           <Dropdown value={valor} secciones={secciones} search width="100%" variante="principal"
             botonLabel={rotuloDeEleccion(pideElegida, secciones, valor)}
-            onChange={setValor} ariaLabel={pregunta} disabled={ocupado} />
+            onChange={(v) => { setValor(v); setDestinos({}); }} ariaLabel={pregunta} disabled={ocupado} />
           <div style={LINEA}>{elegida.cron.ayuda}</div>
           {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
+        </div>
+      </Modal>
+    );
+  }
+  // ── 3. ¿A qué etapa lo mueve? ── (una pantalla por etapa destino, con las del CRM del CRON elegido)
+  if (elegida && actual && actual !== 'cron') {
+    const d = actual;
+    const secciones = seccionesParaDestino(p.productos, valor || null);
+    const puesto = destinos[d.id] ?? '';
+    const ocupado = creando != null;
+    return (
+      <Modal titulo={`${elegida.emoji} ${elegida.nombre}`} onCerrar={cerrar} ancho={560}
+        pie={
+          <>
+            <Button variant="tertiary" disabled={ocupado} onClick={volver}>Volver</Button>
+            <Button variant="primary" disabled={!puesto} loading={ocupado && ultima} onClick={() => seguir(elegida, valor)}>{ultima ? 'Crear' : 'Siguiente'}</Button>
+          </>
+        }>
+        <div data-galeria-paso="destino" data-destino={d.id} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ fontSize: 17, fontWeight: 700 }}>{d.pregunta}</div>
+          {secciones.length
+            ? <Dropdown value={puesto} secciones={secciones} search width="100%" variante="principal"
+                botonLabel={rotuloDeEleccion('etapa_venta', secciones, puesto)}
+                onChange={(v) => setDestinos((x) => ({ ...x, [d.id]: v }))} ariaLabel={d.pregunta} disabled={ocupado} />
+            : <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{SIN_ETAPAS_DESTINO}</div>}
+          <div style={LINEA}>{d.ayuda}</div>
+          {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}</div>}
         </div>
       </Modal>
     );

@@ -49,9 +49,9 @@
 // (lib/flujo-ia.ts: la plantilla más cercana es el ejemplo del modelo), la API (chatbot.run.ts) y los tests.
 // =============================================================================
 
-import { claseDe, ID_INICIO, type PasoGrafo, type FilaCondicion, type Espera } from './flujo-grafo';
+import { claseDe, ID_INICIO, type PasoGrafo, type FilaCondicion, type Espera, type AnclaDespues } from './flujo-grafo';
 import { LEAD_DEL_EVENTO } from './api-mako/flujo-params';
-import { OP_AVISAR } from './flujo-legado';
+import { OP_AVISAR, OP_MOVER_ETAPA } from './flujo-legado';
 import {
   pasosDisparo, pedidoDisparo, rotuloDisparo, PASO_PRODUCTOS, KANBAN_ADQUISICION, KANBAN_ENTREGA,
   type ProductoParaDisparo, type SeccionDisparo,
@@ -134,6 +134,25 @@ export type PasoDePlantilla = PasoGrafo & {
   preheader?: string | null;
 };
 
+/**
+ * UNA ETAPA DESTINO que la plantilla pide al crearla (14/10/2026: el CRM automático pasa a plantillas). La etapa es del
+ * NEGOCIO («No Agenda», «Reactivación») y el ⚡ «Mover de etapa» la EXIGE (`proponer_cambio_etapa.etapa` es obligatoria:
+ * sin ella `setSecuenciaPasos` no guarda). La galería la pregunta en su pantalla, con las etapas del CRM del CRON elegido
+ * (`seccionesParaDestino`); la API, en palabras. Sin elegirla no se crea: no hay «Elegir después».
+ */
+export type DestinoDePlantilla = {
+  /** Estable: con esta clave la pantalla y la API mandan la etapa elegida (`destinos: { [id]: valor }`). */
+  id: string;
+  /** La pregunta de su pantalla (una por pantalla). */
+  pregunta: string;
+  /** Qué etapa conviene, como la ve el negocio. Va debajo del desplegable. */
+  ayuda: string;
+  /** Las tarjetas ⚡ «Mover de etapa» que la reciben (`params.etapa`, y `params.embudoId` de pista para el editor). */
+  mover: readonly string[];
+  /** Las filas «Está en la etapa» que reciben la MISMA etapa: [tarjeta, rama, fila]. */
+  enEtapa?: ReadonlyArray<readonly [paso: string, rama: number, fila: number]>;
+};
+
 export type PlantillaAutomatizacion = {
   /** Estable: es lo que manda la pantalla al elegirla (y la API: `crear_automatizacion_desde_plantilla`). */
   id: string;
@@ -153,6 +172,8 @@ export type PlantillaAutomatizacion = {
    * sólo la plataforma en su ws). Un negocio no la ve en la galería ni la puede crear (`crearDesdePlantilla`).
    */
   soloPlataforma?: true;
+  /** Las etapas destino que pide al crearla, en el orden de sus pantallas (ver `DestinoDePlantilla`). */
+  destinos?: readonly DestinoDePlantilla[];
 };
 
 /** El tope de la línea de una tarjeta: el de una fila de una lista de N (AGENTS.md, «La pantalla dice QUÉ pasó»). */
@@ -188,12 +209,29 @@ function social(canal: 'instagram' | 'messenger', id: string, cuerpo: string, si
   return { ...RELLENO, id, canal, cuerpo, siguiente, revisar: o.revisar };
 }
 
-function esperar(id: string, minutos: number, siguiente: string | null, modo: Espera['modo'] = 'tiempo'): PasoDePlantilla {
+function esperar(id: string, minutos: number, siguiente: string | null, modo: 'tiempo' | 'antes_reunion' = 'tiempo'): PasoDePlantilla {
   return { ...RELLENO, id, nodo: 'esperar', espera: { modo, minutos }, siguiente };
 }
 
 /** «N antes de la reunión»: el DELAY que el motor ancla en la próxima reunión del lead (el carril de M3). */
 const antesDeLaReunion = (id: string, minutos: number, siguiente: string | null) => esperar(id, minutos, siguiente, 'antes_reunion');
+
+/**
+ * «N después de» una fecha del lead (14/10/2026): la reunión, la 1ª, la 2ª o el plazo de su nutrición manual. NO es del
+ * carril del recordatorio (lib/nutricion-grafo-motor.ts, `fechasDespuesDe`).
+ */
+function despuesDe(id: string, minutos: number, de: AnclaDespues, siguiente: string | null): PasoDePlantilla {
+  return { ...RELLENO, id, nodo: 'esperar', espera: { modo: 'despues_de', minutos, de }, siguiente };
+}
+
+/**
+ * EL ⚡ «MOVER DE ETAPA» (14/10/2026): sobre el lead del evento, SIN la etapa —es del negocio—. La pone `pasosConDestinos`
+ * con la que se eligió al crearla (el `DestinoDePlantilla` que la nombra en `mover`). Desde un flujo corre sin pedir el
+ * «sí» (decisión A del 08/10/2026): deja su línea en el historial del lead, que se deshace desde ahí.
+ */
+function mover(id: string, siguiente: string | null): PasoDePlantilla {
+  return { ...RELLENO, id, siguiente, accion: { operacion: OP_MOVER_ETAPA, params: { leadId: LEAD_DEL_EVENTO } } };
+}
 
 /** Una rama: sus filas unidas con «y», y a dónde sigue. */
 type Rama = readonly [filas: readonly FilaCondicion[], siguiente: string | null];
@@ -282,6 +320,17 @@ const RECIENTE: FilaCondicion = { campo: 'antiguedad', valor: 72 };
 const EN_PIE: FilaCondicion = { campo: 'reunion_en_pie' };
 /** «Sigue en la etapa del CRON»: la etapa la dice el CRON de la automatización (lib/condiciones-catalogo.ts). */
 const SIGUE_EN_LA_ETAPA: FilaCondicion = { campo: 'sigue_en_etapa_cron' };
+// Las del CRM automático (14/10/2026: lib/crm-auto-plan.ts, reglas T1, T2, T3 y T6, como condiciones VISIBLES).
+/** «Asistencia sin marcar a la reunión»: ya pasó y nadie marcó si vino (T1). */
+const SIN_MARCAR: FilaCondicion = { campo: 'asistencia_sin_marcar' };
+/** «Estado del lead: Abierto»: T1 y T3 miran sólo a los abiertos (un ganado o un perdido no se revisa). Lista FIJA, no del negocio. */
+const ABIERTO: FilaCondicion = { campo: 'estado_lead', valor: 'abierto' };
+/** «Venció su nutrición manual»: ya es el día siguiente de su plazo, en el negocio (T3). */
+const VENCIO_LA_NUTRICION: FilaCondicion = { campo: 'nutricion_vencida' };
+/** «Llegó hace más de 7 días»: frío desde antes de que la automatización lo tomara (T2, `diasSinAgendaFrio`). */
+const FRIO: FilaCondicion = { campo: 'antiguedad', valor: 7 * 24, no: true };
+/** «Está en la etapa …»: la etapa la pone `pasosConDestinos` con la del destino que la nombra (`enEtapa`). */
+const EN_LA_ETAPA_ELEGIDA: FilaCondicion = { campo: 'etapa', valor: '' };
 
 const HORA = 60;
 const DIA = 24 * HORA;
@@ -340,6 +389,34 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     ],
   },
   {
+    // (1b) EL CRM AUTOMÁTICO, REGLA T2 (14/10/2026, lib/crm-auto-plan.ts): «Lead sin agendar → Nutrición - No Agenda (a los
+    // 2 días) · Reactivación (frío, a los 7)». Con las MISMAS reglas: a los 2 días, si sigue en la etapa y no agendó, a la
+    // de no agenda; si ya llevaba 7 días cuando la automatización lo tomó, directo a la de reactivar; y 5 días después (7
+    // en total), si sigue en la de no agenda sin agendar, a la de reactivar. Las dos etapas son del negocio: las pide al
+    // crearla (`destinos`). Sin AI Step ni mensajes: no le escribe al lead. Y sin aviso por lead: el motor mandaba UNO por
+    // corrida con todos los que movió, y un flujo es por lead (treinta movidos serían treinta WhatsApps al grupo).
+    id: 'lead-no-agendo',
+    nombre: 'Un Lead No Agendó',
+    emoji: '📭',
+    linea: 'Si no agenda en 2 días lo pasa a la etapa que elijas, y si a los 7 sigue sin agendar, a la de reactivar.',
+    origen: 'CRM automático, regla T2 (lib/crm-auto-plan.ts): sin agendar → No Agenda (2 días) · Reactivación (7 días)',
+    objetivo: 'agendar',
+    cron: { pide: 'etapa_venta', ayuda: 'La etapa donde entran los leads nuevos.' },
+    destinos: [
+      { id: 'no_agenda', pregunta: '¿A qué etapa pasa si no agenda?', ayuda: 'La de quien todavía no agendó, como «No Agenda».', mover: ['na_mv1'], enEtapa: [['na_c2', 0, 1]] },
+      { id: 'reactivacion', pregunta: '¿A qué etapa pasa si se enfría?', ayuda: 'La de reactivar a los fríos, como «Reactivación».', mover: ['na_mv2', 'na_mv3'] },
+    ],
+    pasos: [
+      esperar('na_e1', 2 * DIA, 'na_c1'),
+      condicion('na_c1', [[[NO_AGENDO, SIGUE_EN_LA_ETAPA, FRIO], 'na_mv3'], [[NO_AGENDO, SIGUE_EN_LA_ETAPA], 'na_mv1']], null),
+      mover('na_mv3', null),
+      mover('na_mv1', 'na_e2'),
+      esperar('na_e2', 5 * DIA, 'na_c2'),
+      condicion('na_c2', [[[NO_AGENDO, EN_LA_ETAPA_ELEGIDA], 'na_mv2']], null),
+      mover('na_mv2', null),
+    ],
+  },
+  {
     // (2) «UN LEAD AGENDÓ LLAMADA» (Martín, punto 8: «Debería estar todo en un mismo flujo»). Junta la preparación
     // (#212/#213, #221), el recordatorio de la reunión (#228: ahora son DELAY «antes de la reunión» del mismo flujo), el
     // aviso de nuevo agendado (#239/#240: ahora una «MaKo en WhatsApp» con datos citables) y los dos emails.
@@ -388,6 +465,25 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
         casos: [['confirma', 'la_c_confirma'], ['cambiar-dia', 'la_c_cambiar'], ['pregunta-reunion', 'la_c_reunion'], ['precio-reunion', 'la_c_precio'], ['puede-no-calificar', 'la_c_califica']],
       }),
       inicio('la_r', ['la_p', 'la_m']),
+    ],
+  },
+  {
+    // (2b) EL CRM AUTOMÁTICO, REGLA T1 (14/10/2026, lib/crm-auto-plan.ts): «reunión pasada sin marcar → revisar». El motor
+    // PROPONÍA (buscaba la grabación en Fathom, marcaba y dejaba una confirmación para revertir) y una persona confirmaba.
+    // En Automations no hay una pieza que proponga ni una que busque en Fathom: la tarjeta «MaKo en WhatsApp» le pide a
+    // una persona que la marque, que es la confirmación. A las 3 h de la reunión (`horasPostReunion`), sólo a los
+    // abiertos. Al activarla también avisa de las reuniones de antes que siguen sin marcar: lo vencido sale enseguida.
+    id: 'reunion-sin-marcar',
+    nombre: 'Una Reunión Sin Marcar',
+    emoji: '❓',
+    linea: '3 h después de la reunión, si nadie marcó si vino, te avisa en el grupo. Al activarla, también las de antes.',
+    origen: 'CRM automático, regla T1 (lib/crm-auto-plan.ts): reunión pasada sin marcar → revisar',
+    objetivo: 'reunion',
+    cron: { pide: 'etapa_venta', ayuda: 'La etapa de quien agendó una reunión.' },
+    pasos: [
+      despuesDe('rm_e', 3 * HORA, 'reunion', 'rm_c'),
+      condicion('rm_c', [[[SIN_MARCAR, ABIERTO], 'rm_mk']], null),
+      mako('rm_mk', '❓ ¿{{nombre_completo}} fue a su reunión? Nadie lo marcó todavía: márcalo en su ficha.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', null),
     ],
   },
   {
@@ -476,6 +572,47 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       esperar('lq_e', 3 * DIA, 'lq_c'),
       condicion('lq_c', [[[SIGUE_EN_LA_ETAPA], 'lq_mk']], null),
       mako('lq_mk', '⏳ {{nombre_completo}} sigue en {{lead_etapa}} y ya pasó el plazo.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', null),
+    ],
+  },
+  {
+    // (5c) EL CRM AUTOMÁTICO, REGLA T3 (14/10/2026, lib/crm-auto-plan.ts): «nutrición manual vencida → decidir el
+    // desenlace». El motor no movía nada: le preguntaba a una persona (No responde, Perdido o dejarlo). Acá, lo mismo con
+    // «MaKo en WhatsApp». Espera hasta 9 h después de que termina el día del plazo (las 9 de la mañana siguiente en el
+    // negocio) y vuelve a mirar: si una persona le alargó el plazo, «Venció» ya no se cumple y no avisa. Al activarla
+    // también avisa de los que ya estaban vencidos.
+    id: 'nutricion-vencida',
+    nombre: 'Venció la Nutrición Manual',
+    emoji: '⏰',
+    linea: 'Si vence el plazo de un lead en nutrición manual, te avisa en el grupo. Al activarla, también los vencidos.',
+    origen: 'CRM automático, regla T3 (lib/crm-auto-plan.ts): nutrición manual vencida → decidir',
+    objetivo: 'recuperar',
+    cron: { pide: 'etapa_venta', ayuda: 'La etapa de nutrición manual.' },
+    pasos: [
+      despuesDe('nv_e', 9 * HORA, 'plazo_nutricion', 'nv_c'),
+      condicion('nv_c', [[[VENCIO_LA_NUTRICION, SIGUE_EN_LA_ETAPA, ABIERTO], 'nv_mk']], null),
+      mako('nv_mk', '⏰ Venció la nutrición manual de {{nombre_completo}}: decide si no responde, si se perdió o si le das más días.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', null),
+    ],
+  },
+  {
+    // (5d) EL CRM AUTOMÁTICO, REGLA T6 (14/10/2026, lib/crm-auto-plan.ts): «No responde / Perdido hace 30 días →
+    // Reactivación». El motor la aplicaba y dejaba una confirmación para revertir; un flujo corre la acción sin pedir el
+    // «sí» y la deja en el historial del lead, que se deshace desde ahí. Una vez por lead (una inscripción por lead y
+    // automatización), como la clave anti-loop `T6`. La etapa de reactivar es del negocio: la pide al crearla. Sin aviso
+    // por lead (ver «Un Lead No Agendó»). Al activarla, los 30 días cuentan desde ese momento.
+    id: 'lead-se-enfrio',
+    nombre: 'Un Lead Se Enfrió',
+    emoji: '🧊',
+    linea: 'Si un lead sigue 30 días en la misma etapa (No responde, Perdido), lo pasa a la de reactivar que elijas.',
+    origen: 'CRM automático, regla T6 (lib/crm-auto-plan.ts): No responde / Perdido 30 días → Reactivación',
+    objetivo: 'recuperar',
+    cron: { pide: 'etapa_venta', ayuda: 'La etapa de quien no responde o se perdió.' },
+    destinos: [
+      { id: 'reactivacion', pregunta: '¿A qué etapa lo pasas para reactivarlo?', ayuda: 'La de reactivar a los fríos, como «Reactivación».', mover: ['rf_mv'] },
+    ],
+    pasos: [
+      esperar('rf_e', 30 * DIA, 'rf_c'),
+      condicion('rf_c', [[[SIGUE_EN_LA_ETAPA], 'rf_mv']], null),
+      mover('rf_mv', null),
     ],
   },
   {
@@ -1308,6 +1445,85 @@ export function disparadorDeEleccion(pide: PideCron, valor: unknown): Disparador
   if (pide === 'etapa_venta') d.funnel_id = p.funnel_id == null ? null : Number(p.funnel_id);
   else d.producto_id = Number(p.producto_id);
   return d;
+}
+
+// ── Las ETAPAS DESTINO (14/10/2026: el CRM automático pasa a plantillas) ───────────────────────────────
+
+/** Una etapa destino elegida: la key de la etapa y su embudo (null = el de la casa del lead). */
+export type DestinoElegido = { etapa: string; funnelId: number | null };
+
+/**
+ * LA ETAPA DESTINO ELEGIDA en el desplegable (el valor del CRON de venta, `venta:<embudo>:<etapa>`) → la etapa y su embudo.
+ * null = no se entiende, no es de venta, o trae varias (un ⚡ «Mover de etapa» mueve a UNA).
+ */
+export function destinoDeEleccion(valor: unknown): DestinoElegido | null {
+  const d = disparadorDeEleccion('etapa_venta', valor);
+  if (!d || !d.etapa || (d.etapas && d.etapas.length > 1)) return null;
+  return { etapa: d.etapa, funnelId: d.funnel_id ?? null };
+}
+
+/**
+ * LAS ETAPAS QUE SE OFRECEN COMO DESTINO: las de venta, con LAS MISMAS opciones que el CRON (`seccionesParaCron`), y si ya
+ * se eligió el CRON, sólo las de SU CRM (Martín: «un desplegable con las etapas del CRM elegido»): el ⚡ «Mover de etapa»
+ * mueve dentro del embudo del lead, y una etapa de otro CRM no existe ahí. Sin CRON (o si su CRM no tiene etapas para
+ * ofrecer), todas. Vacío = el negocio no tiene etapas de venta: la plantilla no se puede crear.
+ */
+export function seccionesParaDestino(productos: readonly ProductoParaDisparo[], cron?: string | null): SeccionDisparo[] {
+  const todas = seccionesParaCron('etapa_venta', productos);
+  const delCron = cron ? disparadorDeEleccion('etapa_venta', cron) : null;
+  if (!delCron) return todas;
+  const suyas = todas
+    .map((s) => ({ title: s.title, options: s.options.filter((o) => (destinoDeEleccion(o.value)?.funnelId ?? null) === (delCron.funnel_id ?? null)) }))
+    .filter((s) => s.options.length > 0);
+  return suyas.length ? suyas : todas;
+}
+
+/**
+ * LO ELEGIDO para cada destino (`{ [id]: valor del desplegable }`, lo que mandan la pantalla y la API) → la etapa de cada
+ * uno, y lo que no se entendió (`malos`, con la pregunta). Un id que la plantilla no pide se ignora.
+ */
+export function destinosDeEleccion(
+  p: Pick<PlantillaAutomatizacion, 'destinos'>, crudo: unknown,
+): { elegidos: Record<string, DestinoElegido>; malos: string[] } {
+  const elegidos: Record<string, DestinoElegido> = {};
+  const malos: string[] = [];
+  const o = crudo && typeof crudo === 'object' && !Array.isArray(crudo) ? (crudo as Record<string, unknown>) : {};
+  for (const d of p.destinos ?? []) {
+    const v = o[d.id];
+    if (v == null || v === '') continue;
+    const e = destinoDeEleccion(v);
+    if (e) elegidos[d.id] = e; else malos.push(d.pregunta);
+  }
+  return { elegidos, malos };
+}
+
+/** Las preguntas de destino que faltan contestar, en el orden de sus pantallas. */
+export function destinosQueFaltan(p: Pick<PlantillaAutomatizacion, 'destinos'>, elegidos: Readonly<Record<string, DestinoElegido | null | undefined>>): DestinoDePlantilla[] {
+  return (p.destinos ?? []).filter((d) => !elegidos[d.id]);
+}
+
+/**
+ * LOS PASOS CON LAS ETAPAS DESTINO PUESTAS (una copia, `pasosDePlantilla`: nadie toca el catálogo). Cada ⚡ «Mover de etapa»
+ * de un destino recibe `etapa` y `embudoId` (la pista del editor, app/_components/CamposAccion.tsx: el registro no la lee),
+ * y cada fila «Está en la etapa» la MISMA etapa con su embudo. Lo que no se eligió queda como estaba, y lo dice
+ * `destinosQueFaltan`: acá no se inventa ninguna etapa.
+ */
+export function pasosConDestinos(p: PlantillaAutomatizacion, elegidos: Readonly<Record<string, DestinoElegido | null | undefined>>): PasoDePlantilla[] {
+  const pasos = pasosDePlantilla(p);
+  const porId = (id: string) => pasos.find((x) => x.id === id);
+  for (const d of p.destinos ?? []) {
+    const e = elegidos[d.id];
+    if (!e) continue;
+    for (const id of d.mover) {
+      const x = porId(id);
+      if (x?.accion) x.accion.params = { ...x.accion.params, etapa: e.etapa, ...(e.funnelId != null ? { embudoId: e.funnelId } : {}) };
+    }
+    for (const [id, rama, fila] of d.enEtapa ?? []) {
+      const f = porId(id)?.ramas?.[rama]?.filas?.[fila] as FilaCondicion | undefined;
+      if (f && f.campo === 'etapa') { f.valor = e.etapa; f.funnel_id = e.funnelId; }
+    }
+  }
+  return pasos;
 }
 
 // ── La etapa dicha en palabras (la API: `crear_automatizacion_desde_plantilla`) ───────────────────

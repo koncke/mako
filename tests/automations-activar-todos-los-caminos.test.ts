@@ -238,8 +238,9 @@ test('(d) quién escribe lo publicado: cada uno pregunta (`publicarPasos`) o est
   assert.deepEqual(publican.sort(), [...PUBLICAN].sort());
   // En la API de MaKo, el de una persona («editar_pasos…») pregunta en la PROPUESTA; los directos que quedan no tocan el texto.
   const chat = FUENTE.get('lib/api-mako/areas/chatbot.run.ts')!;
-  // La espera (en minutos y en horas), audio ↔ texto, la vista previa de los links y un caso de «Si responde».
-  assert.equal((chat.match(/\bsetSecuenciaPasos\(/g) ?? []).length, 5, 'chatbot.run.ts escribe los pasos directo por un camino nuevo');
+  // La espera (en minutos, en horas y desde cuándo cuenta: `cambiar_desde_espera_paso`, 23/10/2026, el CRM automático a
+  // plantillas), audio ↔ texto, la vista previa de los links y un caso de «Si responde».
+  assert.equal((chat.match(/\bsetSecuenciaPasos\(/g) ?? []).length, 6, 'chatbot.run.ts escribe los pasos directo por un camino nuevo');
   for (const f of ['lib/api-mako/areas/chatbot.run.ts', 'lib/api-mako/areas/email.run.ts']) {
     const src = FUENTE.get(f)!;
     assert.match(src, /const otra = await duplicadaDeLaActivacion\(id, \{ pasos[^}]*soloSiActiva: true \}\);/, `${f}: la propuesta no lo dice`);

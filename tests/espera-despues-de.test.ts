@@ -30,6 +30,7 @@ import {
 } from '../lib/nutricion-grafo-motor';
 import { validarGrafo, normalizar, textoEspera, indicePorId, ANCLAS_DESPUES, type PasoGrafo, type Espera } from '../lib/flujo-grafo';
 import { problemasDeForma } from '../lib/flujo-forma';
+import { iniciar, siguiente } from '../lib/simulador-grafo';
 import { deIA, aIA, LISTA_BLANCA_IA, type CtxIA } from '../lib/flujo-ia';
 import { porId } from '../lib/api-mako/registro';
 
@@ -153,6 +154,26 @@ test('5. la pantalla y la API la dicen y la conservan', () => {
   assert.match(motor, /reunionConHoraMs, fechasDespues \}\);/);
   assert.match(motor, /if \(r\.tipo === 'sin_ancla'\) \{ await cerrar\(r\.motivo, true\); continue; \}/);
   assert.match(motor, /estado_lead, nutricion_manual_deadline'\)/, 'la fila del lead no trae el plazo');
+});
+
+// «PROBAR» (23/10/2026, al portar a main): el simulador trataba toda espera que no fuera «por tiempo» como «antes de la
+// reunión», así que «3 h después» llevaba el reloj a la reunión MENOS 3 h y salía antes que un «Esperar 1 h» de otro camino.
+// Rotura (volver a la fórmula de antes en lib/simulador-grafo.ts): 5 pass / 1 fail, cae éste.
+test('5b. «Probar» lleva el reloj a la reunión MÁS N: lo de «3 h después» sale después de lo de «Esperar 1 h»', () => {
+  const pasos: PasoGrafo[] = [
+    despues('ed', 180, 'reunion', 'tarde'), msg('tarde', { cuerpo: 'después de la reunión', siguiente: null }),
+    ctl('e1', { nodo: 'esperar', espera: { modo: 'tiempo', minutos: 60 }, siguiente: 'pronto' }), msg('pronto', { cuerpo: 'en una hora', siguiente: null }),
+    ctl('entrada', { nodo: 'inicio', siguiente: 'ed', paralelos: ['e1'] }),
+  ];
+  const salen: string[] = [];
+  let st = iniciar(pasos, { reunionMin: 120 });
+  for (let k = 0; k < 60 && !st.terminado; k++) {
+    const r = siguiente(pasos, st);
+    st = r.estado;
+    if (r.evento?.t === 'mensaje') salen.push(r.evento.paso.cuerpo ?? '');
+    if (!r.evento && !st.hilos.length) break;
+  }
+  assert.deepEqual(salen, ['en una hora', 'después de la reunión']);
 });
 
 // ⚠️ CREAR CON IA (23/10/2026): lib/flujo-ia.ts lo tiene Automations en vuelo, así que su parte del port de 5129d8dde

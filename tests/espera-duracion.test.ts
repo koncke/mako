@@ -122,7 +122,8 @@ test('⚠️ el ancho del desplegable de la unidad se mide con la más LARGA del
   // Geist a 16 px semibold: ~0,6 em por letra. 8 letras ≈ 77 px + 28 de relleno + 18 de la flecha y su aire.
   const necesita = Math.ceil(largo * 16 * 0.6) + 28 + 18;
   const flujo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
-  const ed = bloque(flujo, 'function EditorEspera(', '\n}\n', 4_200);
+  // 5.000 (era 4.200) desde el 23/10/2026: el tercer desplegable («desde ahora / después de…», el CRM automático a plantillas).
+  const ed = bloque(flujo, 'function EditorEspera(', '\n}\n', 5_000);
   const base = Number(/flex: '1 1 (\d+)px', minWidth: 0 \}\}>\s*<Dropdown value=\{unidad\}/.exec(ed)?.[1]);
   assert.ok(base >= necesita, `el desplegable de la unidad nace con ${base} px y «segundos» pide ${necesita}`);
 });
