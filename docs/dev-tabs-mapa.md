@@ -648,7 +648,7 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
   El elemento TANGIBLE de la oferta (ex «El Gancho», hoy «Entregable»): MaKo pregunta de a una, adaptando la siguiente pregunta, y propone 1-3 entregables con su línea de FOMO. Es lo que el New Sequence Wizard ofrece entregar en el paso ③.  
   <sub>app/onboarding/EntregableView.tsx · lib/entregable.ts · app/api/onboarding/entregable/</sub>
 - 🟢 **Creative Formats**  `/onboarding`  · ícono `creativos`  
-  La tab que en la UI se llama «Ángulos» pero son los FORMATOS de creativo (cómo se VE: comparación, testimonio con capturas, demo). Biblioteca fija que el cliente no edita; MaKo recomienda de ahí y justifica. Es lo que eligen las tabs Imagen y Video del Ad Detail.  
+  La tab que en la UI se llama «Ángulos» pero son los FORMATOS de creativo (cómo se VE: comparación, testimonio con capturas, demo). Biblioteca fija que el cliente no edita; muestra cuántos anuncios de la matriz usan cada formato (sin IA; la recomendación de MaKo se sacó el 23/10/2026). Es de donde eligen las tabs Imagen y Video del Ad Detail, un formato por anuncio.
   <sub>app/onboarding/FormatosView.tsx · lib/angulos-formatos.ts · lib/angulos-data.ts · app/api/onboarding/formatos/</sub>
 - 🟢 **Brand Voice**  `/onboarding`  · ícono `sonido`  
   El quiz de Personalidad: pares de frases reales de anuncio, eliges la que dirías vos y MaKo deduce tu voz. Reemplazó al selector de adjetivos porque «a un argentino le escribía de tú»; entra al prompt de todo guion.  

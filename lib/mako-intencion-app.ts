@@ -203,7 +203,7 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'catalogo-productos', test: /\bcatalogo de productos\b/, areas: ['negocio'], relevancia: 'sugerir productos catalogo', actua: true },
   { id: 'diagnostico-fase', test: /\bdiagnostico de fase\b/, areas: ['negocio'], relevancia: 'guardar diagnostico fase', actua: true, ganaAlLead: true },
   { id: 'pasar-guion', test: /^pasa\s+(?:el|los)\s+guion(?:es)?\b/, areas: ['contenido'], relevancia: 'mover estado guion anuncio', actua: true },
-  { id: 'formatos-creativo', test: /\bformatos? de creativos?\b/, areas: ['contenido'], relevancia: 'recomendar formatos creativo', actua: true },
+  { id: 'formatos-creativo', test: /\bformatos? de creativos?\b/, areas: ['contenido'], relevancia: 'elegir formato creativo anuncio', actua: true },
   // ── Web Generator (tanda 6) ──
   { id: 'seccion-landing', test: /\bseccion(?:es)?\b[^.\n]{0,40}\b(?:arriba|abajo|primero|ultimo|al final|al principio|antes|despues)\b|\b(?:mover|mueve|move\w*|borr\w+|ocult\w+|elimin\w+|sac\w+)\b[^.\n]{0,15}\bseccion/, areas: ['landing'], relevancia: 'acomodar seccion landing', actua: true },
   { id: 'enlace-landing', test: /\b(?:link|enlace)\b[^.\n]{0,15}\b(?:vsl|agenda)\b/, areas: ['landing'], relevancia: 'poner enlace landing', actua: true },

@@ -70,7 +70,7 @@ Cualquier variante de *"te devolvemos X horas/año"* o *"+30% de ROAS"* es indef
 **Opción 1 — LA FÁBRICA.**
 > *"Con lo que cargaste, MaKo ya puede escribir **72 anuncios distintos**. Hoy lanzás 4 por mes."*
 
-El número sale de filas que existen: avatares × razones × formatos recomendados (`getAvatares()`, `getRazones()`, `getRecomendaciones()`). No es una proyección, es un `count`.
+El número sale de filas que existen: las celdas de la matriz (avatar × razón, `getRazones()`) y los formatos que usan (`usosPorFormato`, lib/angulos-data.ts). No es una proyección, es un `count`. (Hasta el 23/10/2026 decía «× formatos recomendados»: esa recomendación se sacó.)
 - **A favor:** es el número más grande y más honesto disponible, es 100% derivado de sus respuestas, y ataca justo donde está la competencia — la fábrica de creativos es el único diferencial real de 100ads.
 - **En contra:** el copy tiene que decir **"escribir"**, jamás "ganadores". Y si el cliente cargó 1 avatar y 2 razones, el número es 6 y la promesa se desinfla.
 

@@ -216,7 +216,7 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
     label: 'los avatares y ángulos de Mau',
     settings: [
       'mako.avatares', 'mako.avatares.contexto', 'mako.razones', 'mako.entregable',
-      'mako.persona', 'mako.personalidad', 'mako.formatos_recom',
+      'mako.persona', 'mako.personalidad',
       'script_avatares', 'script_angles', 'mako.guion_angulos', 'mako.guion_estructuras',
     ],
   },

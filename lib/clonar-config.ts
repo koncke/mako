@@ -32,7 +32,7 @@ const KEYS_COPIABLES = [
   // La fábrica de creativos / contexto de IA. El entregable importa especialmente:
   // las secuencias de mensajes de setting cuelgan su lead magnet de ahí (estrategia.lead_magnet_id).
   'mako.avatares', 'mako.avatares.contexto', 'mako.razones', 'mako.voz_guia',
-  'mako.entregable', 'mako.persona', 'mako.personalidad', 'mako.formatos_recom',
+  'mako.entregable', 'mako.persona', 'mako.personalidad',
   // Clasificación de guiones (Scripts Analyst)
   'script_avatares', 'script_angles',
   // Prompts customizados desde /configuraciones (si no existen, el default de código aplica)

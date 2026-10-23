@@ -538,9 +538,9 @@ que no se ven desde el caller:
   `generarGuion` o `elegirAngulo` no corta la función: sigue, guarda el guion, y el caller ya lo
   reportó como fallido. Correr contra un reloj solo es seguro sobre algo que no escribe.
 
-**Sin hacer:** `recomendarFormatos()` (lib/angulos-formatos.ts:99) no acepta `timeoutMs` y
-corre con el default de 30 s por intento. Agregarlo es tocar la firma de una lib compartida; la
-API la corre con una carrera de 45 s, que es segura solo porque esa función no escribe.
+~~**Sin hacer:** `recomendarFormatos()` no acepta `timeoutMs`~~ — **ya no aplica (23/10/2026)**: la función y su
+operación se sacaron (docs/hallazgos-onboarding.md → «Ángulos»). La regla de arriba (una carrera sólo sobre lo que no
+escribe) sigue.
 
 ### La letra chica de los free tiers, que no avisa cuando muerde
 
@@ -1204,7 +1204,8 @@ versiones de historial, y la IA vuelve al texto de fábrica **en silencio**.
 
 ### ⚠️ Los prompts de la matriz de razones y de los ángulos nunca se registraron
 
-`razones.system`, `razones.user`, `razones.guion`, `formatos.system` y `formatos.user` se
+`razones.system`, `razones.user` y `razones.guion` (los de `formatos.*` ya no existen: la recomendación de formatos se
+sacó el 23/10/2026) se
 resuelven con `renderPrompt(key, TEMPLATE_DEFAULT)` —o sea, están escritos como si fueran
 editables— pero ninguna de esas keys existe en `lib/prompt-registry.ts` (grep verificado
 vacío el 7/8/2026). Resultado: corre siempre el template hardcodeado y el usuario no los ve

@@ -30,7 +30,7 @@ const SETTINGS_KEYS = [
   'mako.angulos_venta', // legacy (por si quedó data vieja)
   'mako.entregable',
   'mako.gancho',        // legacy
-  'mako.formatos_recom',
+  'mako.formatos_recom', // legacy (la recomendación de formatos se sacó el 23/10/2026)
   'mako.persona',
   'negocio.fase.diagnostico',
   'onboarding.state',   // reset → al entrar a /onboarding vuelve a salir el wizard
