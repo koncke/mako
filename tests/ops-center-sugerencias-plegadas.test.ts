@@ -82,7 +82,8 @@ test('2. una sugerencia nueva no abre nada; una pregunta nueva de un chat sí, y
 test('3. es la pieza del bloque, la de la estrella de cada tab: lo mismo en todas, y el globito sigue contando', () => {
   const tab = sinComentarios(leer('app/_chat/MakoEnLaTab.tsx'));
   assert.match(tab, /\{preguntas && preguntas\.length > 0 && <BloqueDePreguntas chat=\{`tab:\$\{tab\}`\} deLaTab=\{preguntas\} \/>\}/);
-  assert.match(tab, /<Muneco titulo=\{JEFE_SECOND_BRAIN\} animo="despierto" size=\{40\} espera=\{aviso\} \/>/, 'el globito de la estrella plegada');
+  assert.match(tab, /const espera = aviso \+ trabajos\.length;/, 'lo que espera en la tab, más lo que MaKo terminó en otra');
+  assert.match(tab, /<Muneco titulo=\{JEFE_SECOND_BRAIN\} animo="despierto" size=\{40\} espera=\{espera\} \/>/, 'el globito de la estrella plegada');
   assert.match(sinComentarios(leer('app/crm/mako-crm/PanelMakoCrm.tsx')), /preguntas=\{preguntas\} aviso=\{n\}/, 'el CRM manda cuántas hay');
 });
 
