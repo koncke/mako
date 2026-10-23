@@ -96,8 +96,8 @@ no los sabe leer (las tres skills instaladas dejarían de autenticar).
 - **Verlo con clics**: el formulario de integraciones nuevo (ws3).
 - **El puente de leads por Zapier (23/10/2026):** falta (1) el aviso por WhatsApp de «hace X horas sin leads» (el molde es
   `tracking-apagado`; hoy la señal es la tarjeta ámbar a las 72 h) y (2) probarlo con un Zap real de un negocio: los nombres
-  de los campos de «Watch Leads» de Make y del trigger de Zapier no están medidos (ni si «Watch Leads» es instantáneo, ni si
-  una corrida vacía gasta crédito), y MaKo devuelve en `sin_usar` lo que no leyó.
+  de los campos de «Watch Leads» de Make y del trigger de Zapier no están medidos (cuál módulo conviene, «New Lead» por webhook o «Watch Leads» por
+  intervalo —éste gasta 1 crédito por corrida aunque venga vacía, confirmado—, y si el de webhook llega al instante), y MaKo devuelve en `sin_usar` lo que no leyó.
 - ~~Un uso real de una skill después de convertir los tokens~~: medido el 13/10 en sólo lectura
   (`app_settings.api_tokens_uso`). La skill del ws11 autenticó el 11/10 a las 23:25 UTC, dos días después de la
   conversión (09/10, ~17:40 UTC): el token clásico por hash anda. La del ws1 no se usa desde el 09/10 a las 03:02

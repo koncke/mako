@@ -319,12 +319,20 @@ test('el negocio sabe qué cuesta: Make desde Core y Zapier desde Professional, 
   assert.match(guia, /Plan mínimo: Professional, desde US\$19,99/, 'la guía perdió el plan mínimo de Zapier');
   assert.ok(guia.includes('https://help.zapier.com/hc/en-us/articles/8496061306253'), 'falta el link a la ayuda oficial de Facebook Lead Ads');
   assert.ok(guia.includes('https://zapier.com/pricing'), 'falta el link a los precios oficiales de Zapier');
-  assert.ok(guia.includes('https://www.make.com/pricing'), 'falta el link a los precios de Make');
+  assert.ok(guia.includes('https://www.make.com/en/pricing'), 'falta el link a los precios de Make');
   assert.match(guia, /Core: US\$9 al mes/, 'la guía perdió el plan mínimo de Make');
   assert.match(guia, /El plan Free de Make no se ofrece/, 'la guía dejó de decir que el plan Free de Make no se ofrece');
   assert.ok(guia.includes('https://developers.make.com/api-documentation'), 'falta el link de lo que dice Make de su API');
   // Y lo que NO está medido sigue marcado como tal (el intervalo del disparador y si una corrida vacía gasta crédito).
-  assert.match(guia, /Sin medir \(1\)[\s\S]*Sin medir \(2\)/, 'se borró lo que falta medir del plan gratis de Make');
+  assert.match(guia, /Sin medir \(1\)[\s\S]*Sin medir \(2\)/, 'se borró lo que falta medir de los módulos y los créditos de Make');
+  // Lo CONFIRMADO en la ayuda oficial de Make, con su cita y su link: cambia qué intervalo se puede recomendar.
+  assert.ok(guia.includes('Trigger modules use 1 credit per run, regardless of whether they return data'), 'la guía perdió la cita de que un disparador cobra aunque venga vacío');
+  assert.ok(guia.includes('https://help.make.com/how-features-use-credits'), 'falta el link de la ayuda oficial de créditos de Make');
+  // Y la pregunta de una sola cuenta: el contrato y la ausencia de equipos, que son lo que la frenan.
+  assert.match(guia, /¿Una sola cuenta de Make de MaKo para todos los clientes\?/);
+  assert.match(guia, /solely for Your internal purposes… not for the benefit of any third parties/, 'la guía perdió la cláusula 4.1 del contrato de Make');
+  assert.match(guia, /Core no trae equipos ni roles/);
+  assert.match(guia, /mismo(s)? precio|Argentina y México; en EE\. UU\. son US\$12 y US\$16/, 'el precio de Core sin decir de qué país es');
 });
 
 test('la ruta es pública por el prefijo de webhooks, y sólo acepta POST con cuerpo', () => {
@@ -360,4 +368,7 @@ test('la ruta es pública por el prefijo de webhooks, y sólo acepta POST con cu
 //         plan y su precio · el de Zapier sin los suyos · la tarjeta sin «de pago» · la tarjeta con «gratis» (2 fallos) · una slide
 //         con «gratis» · el aviso de la API con «sin costo» · la guía con «gratis» · la guía sin «el plan Free de Make no se
 //         ofrece» · sin el precio de Core · sin el link de lo que dice Make de su API: 10 de 10.
+//       · LO CONFIRMADO SOBRE LOS CRÉDITOS Y UNA SOLA CUENTA (pedido del Cerebro, base 24 / 0): la guía sin la cita de que un disparador cobra
+//         vacío · sin el link de créditos · sin la sección de una sola cuenta · sin la cláusula 4.1 · sin «Core no trae equipos ni roles» · el
+//         precio de Core sin decir de qué país es: 6 de 6.
 // Y de punta a punta contra el ws3 (scripts/tmp-e2e-zapier.ts, no se commitea): docs/hallazgos-integraciones.md.

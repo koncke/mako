@@ -1382,10 +1382,12 @@ Teams US$29; Free US$0, con 1.000 créditos y 15 minutos de intervalo mínimo. F
 En Leads Access se asigna la app «Make» (no «Zapier») y hace falta una cuenta de Facebook Business Manager. **Lo oficial sobre
 el plan Free:** Make dice que «most Make API endpoints are reserved for our paid subscription plans» (`developers.make.com`; es su
 API de gestión, no el módulo HTTP) y la página del módulo HTTP (`apps.make.com/http`) no nombra ningún plan: si «Make a request»
-manda el POST en Free no se confirmó ni a favor ni en contra, y no se ofrece. **Sin medir (1):** si «Watch Leads» es instantáneo
-(en la página del módulo aparece sin esa etiqueta) o corre por intervalo. **Sin medir (2):** si una corrida vacía gasta crédito: a un
-minuto serían ~43.000 corridas al mes (a 15 minutos, ~2.900) contra los créditos del plan (10.000 en Core según terceros, no
-verificado). Hasta medirlo con una cuenta, no se recomienda un intervalo corto.
+manda el POST en Free no se confirmó ni a favor ni en contra, y no se ofrece. **Confirmado después (ayuda oficial de Make, `help.make.com/how-features-use-credits`):** «Trigger modules use 1 credit per run,
+regardless of whether they return data» —un chequeo vacío cobra—, así que un disparador por intervalo son ~2.900 créditos al mes
+por escenario a 15 minutos y ~43.000 al minuto. **Sin medir (1):** cuál de los dos módulos de Lead Ads conviene: «New Lead»
+(`NewLeadMultiple`, por webhook, con «Get Lead Details»: ~3 créditos por lead, según el workflow) o «Watch Leads» (de intervalo,
+según la comunidad de Make); la página oficial los lista sin etiquetar. **Sin medir (2):** si un disparador por webhook gasta algo
+sin leads (la ayuda no menciona los webhooks). La tarjeta dice «Watch Leads»; si se usa, no programarlo cada menos de 15 minutos.
 
 ⚠️ **Lo que se había escrito antes era una suposición.** El relevo del Cerebro decía «Zapier Professional ronda US$20–30, pero ese
 precio sale de un blog»; ahora es la página oficial. Y OJO con cómo se lee: una búsqueda resumió esa misma ayuda como si Free
@@ -1433,6 +1435,32 @@ siempre…». Qué cambió, con el porqué:
   `lead_id`, `created_time`, campaña, anuncio y conjunto; cualquier otra clave es una pregunta del formulario). Lo único obligatorio
   es un email o un teléfono válido. También acepta `field_data` tal cual lo entrega Meta. NO medido con una cuenta de Make.
 
+### ¿Una sola cuenta de Make Core de MaKo para todos los clientes? (pregunta de Martín, 23/10/2026; sin decidir)
+
+Un workflow de 4 investigadores, con un refutador cada uno, leyó las fuentes oficiales. Yo verifiqué tres cosas en la fuente: los
+créditos de un disparador, Make Managed Services y la lista de módulos de Lead Ads; el resto es del workflow (marcado). **No cambia
+la tarjeta:** aunque MaKo lo cubriera, se sigue mostrando como de pago y de cada negocio.
+
+- **Precios (workflow, `make.com/en/pricing`):** Core US$9 al mes pagando el año (~US$108 por adelantado), US$10,59 mes a mes, con
+  10.000 créditos; son los precios para Argentina y México (en EE. UU., US$12 y US$16). ⚠️ **El precio depende del país** de quien
+  mire la página: lo que se anota sin decir el país es una cifra de una región.
+- **Lo que el Free NO trae es «Access to the Make API»** (workflow): la API para administrar Make. No es el módulo HTTP, y
+  `apps.make.com/http` no nombra ningún plan (verificado). El límite real del Free son 2 escenarios activos, 1.000 créditos y
+  15 minutos de intervalo. O sea que «el Free no trae la API» (Martín) y «el Free sirve para el POST» pueden ser las dos ciertas:
+  no se ofrece por esos límites, no por el módulo.
+- **Cada chequeo vacío de un disparador cobra 1 crédito** (verificado, cita arriba). **El módulo por webhook** es «New Lead»
+  (`NewLeadMultiple`) seguido de «Get Lead Details»: ~3 créditos por lead (workflow). Que sin leads gaste 0 no figura textual.
+- **Volumen medido (workflow):** ~120-133 leads de formularios de Meta por mes (ws19 ~60-73, ws15 ~28-45, ws1 ~13-32). ⚠️ El ws1
+  cayó de 361 en julio a 16 en octubre, y eso puede ser la CONEXIÓN y no la demanda real. **Los créditos alcanzan con webhook**
+  (~400 al mes de 10.000) **y no con intervalo** (cuatro escenarios a 15 minutos son 11.520).
+- **El contrato no lo permite.** MSA de Make (marzo 2026), cláusula 4.1: «solely for Your internal purposes… not for the benefit
+  of any third parties» (workflow y una búsqueda sobre el PDF; el PDF no se abrió para citar literal). El camino oficial para operar
+  por clientes es Make Managed Services: organizaciones hijas con los beneficios Enterprise (`help.make.com/make-managed-services-mms`,
+  verificado); la página no nombra el plan del distribuidor.
+- **Core no trae equipos ni roles** (workflow): un cliente invitado a la organización vería las conexiones de los demás.
+- **La conexión de Lead Ads admite las credenciales de una app de Meta propia** («Show advanced settings» → client credentials;
+  verificado en `apps.make.com/facebook-lead-ads`, que no usa la frase «app de Meta»).
+
 ### La API de MaKo
 
 Se declara sola: `ver_integraciones`, `ver_integracion('zapier')` (con el recuadro amarillo y la URL) y
@@ -1451,8 +1479,9 @@ snapshot y `plugin/` no cambian).
   primer negocio que lo arme confirma (o corrige) los nombres de los campos y las opciones del módulo HTTP (la guía las nombra de
   memoria): lo que MaKo no use vuelve en `sin_usar`.
 - **El umbral de 72 h contra el ritmo propio de cada negocio.**
-- **Medir Make con una cuenta de Core**: si «Watch Leads» es instantáneo, si una corrida vacía gasta un crédito (decide qué intervalo
-  se recomienda), y —aunque no se ofrezca— si «Make a request» manda el POST en Free.
+- **Medir Make con una cuenta de Core**: cuál módulo conviene («New Lead» por webhook o «Watch Leads» por intervalo; la tarjeta dice
+  el segundo), si el de webhook llega al instante y si gasta sin leads, y —aunque no se ofrezca— si «Make a request» manda el POST
+  en Free. Si conviene «New Lead», cambiar el paso 3 de la tarjeta (`lib/metodo-catalogo.ts`) y su guarda en el test.
 - **Tipos:** este trabajo salió «sin tipos» (política del tren): los chequea el `tsc` acotado de Integración.
 
 **Vive en:** `lib/zapier-lead.ts` (el lector) · `lib/zapier-leads.ts` (la puerta) · `lib/zapier-estado.ts` (la tarjeta) ·
