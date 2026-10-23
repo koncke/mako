@@ -37,7 +37,9 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { computadorasAction, desconectarComputadoraAction, contestarPreguntaAction, creditoApiAction, creditoDelNegocioAction, fotoCentroAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { desconectarComputadoraAction, contestarPreguntaAction, creditoDelNegocioAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, turnosCentroAction, type FotoCentro } from './acciones';
+// Las LECTURAS van por GET y no por acción (23/10/2026): ver ./lectura-centro.ts.
+import { leerCentro } from './lectura-centro';
 import type { CuentasConNombre } from '@/lib/centro-titulares';
 import type { LecturaCredito } from '@/lib/credito-api';
 import type { LecturaComputadoras } from '@/lib/ia-pc-reglas';
@@ -182,10 +184,10 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   };
   /** El crédito de API de los planes Max, para la sección «API» del Uso (UsoCredito.tsx): se pide al abrirla. */
   const leerCreditoApi = async (): Promise<LecturaCredito> =>
-    (await creditoApiAction().catch(() => null)) ?? { ok: false, error: 'No pude leer el crédito: vuelve a intentarlo.' };
+    (await leerCentro<LecturaCredito>('credito').catch(() => null)) ?? { ok: false, error: 'No pude leer el crédito: vuelve a intentarlo.' };
   /** Las computadoras de los negocios (la sección «Computadoras» del Uso) y su «Desconectar»: devuelven la lista nueva. */
   const leerComputadoras = async (): Promise<LecturaComputadoras> =>
-    (await computadorasAction().catch(() => null)) ?? { ok: false, error: 'No pude leer las computadoras: vuelve a intentarlo.' };
+    (await leerCentro<LecturaComputadoras>('computadoras').catch(() => null)) ?? { ok: false, error: 'No pude leer las computadoras: vuelve a intentarlo.' };
   const desconectarComputadora = async (ws: number, id: number): Promise<LecturaComputadoras> =>
     (await desconectarComputadoraAction(ws, id).catch(() => null)) ?? { ok: false, error: 'No pude desconectarla: vuelve a intentarlo.' };
   /** El interruptor del crédito de Claude de un negocio (el ws1): devuelve la lectura nueva de la sección. */
@@ -342,7 +344,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const refrescar = useCallback(async () => {
     // ⚠️ UN REFRESCO QUE FALLA NO CAMBIA LO DIBUJADO (22/10/2026): un 503 hace que la acción TIRE (Next: «An unexpected response
     // was received from the server»). Queda lo último que se vio, sin tocar ninguna fila, y el intervalo reintenta.
-    const f = await fotoCentroAction().catch(() => null);
+    // Por GET (23/10/2026): una acción hacía cola con las demás y frenaba la Ticketera y el Uso (lectura-centro.ts).
+    const f = await leerCentro<FotoCentro>('foto').catch(() => null);
     // ⚠️ CADA COSA CAMBIA SÓLO SI CAMBIÓ (23/10/2026, un chat trabajando trababa 0,7–3,6 s en cada vuelta de 2,5 s): con un
     // arreglo nuevo de lo mismo se rehacían todos los chats y su historial, y se volvía a dibujar la lista y el hilo enteros.
     // `mismoValor` devuelve el de antes si vale lo mismo (lib/centro-estable.ts).
@@ -365,7 +368,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', volver); };
   }, [refrescar, apurado]);
   // Vercel, después de dibujar.
-  useEffect(() => { let vivo = true; pushesCentroAction().then((p) => { if (vivo) setPushes(p); }).catch(() => {}); return () => { vivo = false; }; }, []);
+  // Por GET (23/10/2026): como acción, sus hasta 8 s esperando a Vercel dejaban en la cola a todas las demás.
+  useEffect(() => { let vivo = true; leerCentro<LecturaPushes>('pushes').then((p) => { if (vivo) setPushes(p); }).catch(() => {}); return () => { vivo = false; }; }, []);
 
   // ── Las preguntas de cada chat (la Ticketera de ESE chat, arriba de su caja) ──────────────────────
   // Contestar acá o en la Ticketera guarda lo mismo; lo de acá se ve en el acto (el refresco trae la verdad).
