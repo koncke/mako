@@ -7709,3 +7709,21 @@ seguía verde: parecía que la guarda no medía nada. **Causa:** MSYS convierte 
 (`/crm|venta|` llega como `C:/Program Files/Git/crm|venta|`). **Regla:** `export MSYS_NO_PATHCONV=1` antes de pasarle a un
 programa un texto que empieza con barra (una regex, una ruta de la app). Antes de declarar débil una guarda, mirá si la rotura
 pegó (test-probado-rompiendolo).
+
+## Un tren con los TIPOS como red: el `tsc` acotado de lo resuelto a mano encontró dos bugs en OTROS archivos (23/10/2026, Cerebro › Integración, trenes 22+23)
+
+**Síntoma.** El tren juntó 20 puntas «sin tipos». El único choque de código (Cobros contra la suscripción, en
+app/configuraciones/plan) se resolvió a mano y se chequeó con `node scripts/tsc-acotado.mjs <los tres archivos>`.
+Esos tres salieron limpios, pero el tsc también reportó errores en los archivos que importaban:
+- `app/crm/grupo-wa-server.ts`: TS2459, `LeadDuplicadoError` importada de lib/leads, que la importa y NO la reexporta.
+  Sin tipos llega `undefined`, y `e instanceof LeadDuplicadoError` tira TypeError con cada participante que ya era lead.
+  Ningún test pasaba por ese camino. Detalle en docs/hallazgos-crm.md.
+- `lib/nutricion.ts`: TS18048, `lead.id` sin guarda en una línea nueva del motor, donde el resto usa `lead?.` o `insc.lead_id`.
+
+**La regla que queda.** Con los tipos como red y no como condición (con 8 chats no hay RAM para el tsc completo), el
+`tsc-acotado` de los archivos resueltos a mano es barato (≈1 GB, un par de minutos) y LEER todos sus errores, no sólo los
+de esos archivos, es la única mirada de tipos que tiene el tren. Un TS2459 o un TS18048 en código nuevo es un bug de
+ejecución, no ruido: se devuelve a su chat o se arregla en el tren antes de subir.
+
+**Además, en el mismo tren.** Las guardas cortan en la PRIMERA que frena: con «rutas de Windows» en rojo no se miraron las de
+después (los .ts sin módulo, la referencia de la API). Arreglada la primera, se corren TODAS de nuevo.
