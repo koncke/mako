@@ -58,5 +58,9 @@ test('la identidad elegida llega a todo lo que publica, y se valida antes de cre
   assert.match(lib, /return \{ page_id: await paginaDe\(identidad\) \};/);
   const ruta = leer('app/api/ads-manager/campaign-create/route.ts');
   assert.match(ruta, /validarIdentidad\(spec\.identidad/);
-  assert.match(ruta, /createAdCreative\(ad\.creative, ad\.name, spec\.identidad\)/);
+  // Desde el 23/10 la ruta crea el anuncio con `crearAnuncioEnConjunto` (Meta o Zernio): la identidad viaja
+  // hasta las DOS salidas — el creativo de Meta y el cuerpo de Zernio (página e Instagram elegidos).
+  assert.match(ruta, /crearAnuncioEnConjunto\(adsetId, ad, spec\.identidad\)/);
+  assert.match(lib, /createAdCreative\(ad\.creative, ad\.name, identidad\)/);
+  assert.match(lib, /paginaDe\(identidad\),\s*getInstagramActorId\(identidad\),/);
 });

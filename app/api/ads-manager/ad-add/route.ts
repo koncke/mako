@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
     };
     try {
       const r = await addAdToAdset(adsetId, creative, name);
-      await persist({ status: 'publicada', error: null, meta_ad_ids: [r.ad_id], meta_creative_ids: [r.creative_id] });
+      await persist({ status: 'publicada', error: null, meta_ad_ids: [r.ad_id], meta_creative_ids: r.creative_id ? [r.creative_id] : [] });
       return Response.json({ ok: true, ...r });
     } catch (err) {
       const env = metaErrorEnvelope(err);
@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < ads.length; i++) {
       const name = (ads[i].name ?? '').trim() || `Anuncio ${i + 1}`;
       const r = await addAdToAdset(adsetId, ads[i].creative as Creative, name);
-      ad_ids.push(r.ad_id); creative_ids.push(r.creative_id);
+      ad_ids.push(r.ad_id); if (r.creative_id) creative_ids.push(r.creative_id);
       await persist({ meta_ad_ids: ad_ids, meta_creative_ids: creative_ids });
     }
     // ⚠️ Los terminales reescriben TODOS los ids que hay en memoria (revisión de la #59): el

@@ -78,6 +78,10 @@ const CANAL: Record<string, string> = {
   // además aseguran el webhook de Zernio (`asegurarAvisosSociales`): no le manda nada a un lead.
   'lib/disparadores-canales.ts': '¿está conectada la cuenta de Instagram o Messenger? (`estadoMedios`), y el webhook al publicar',
   'lib/metodo-verificar.ts': 'el ping de la integración (GET /profiles)',
+  // 23/10/2026, decisión de Martín: «vamos por Zernio directo… que cada usuario traiga su API de Zernio» para
+  // publicar y editar anuncios (lo único que la app en desarrollo del cliente no deja: el 1885183). NO es el canal
+  // de Instagram: usa la clave del NEGOCIO (nunca la de la plataforma para un cliente) y la API de anuncios.
+  'lib/zernio-ads.ts': 'publicar y editar anuncios de Meta por la Zernio del negocio (docs/hallazgos-ads.md, «Publicar por Zernio»)',
   'lib/workspace.ts': 'TENANT_TABLES',
   'lib/tablas-de-inquilino.ts': 'las tablas de un inquilino',
 };

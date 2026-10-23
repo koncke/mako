@@ -28,6 +28,8 @@ import { erroresFormulario, paramsFormulario, sitioLimpio, urlValida, type Formu
 import { getSetting } from './settings';
 import { hayQuePreguntar, identidadPorDefecto, type Identidad, type InstagramOpcion, type PaginaOpcion } from './meta-identidad';
 import { OWNER_WS, wsObligatorio } from './workspace';
+import { conexionAnunciosZernio, crearAnuncioPorZernio, cambiarTextosPorZernio, leerErrorDeZernio } from './zernio-ads';
+import { cuerpoAnuncioEnConjunto, rutaDelAnuncio } from './zernio-ads-cuerpo';
 import { estadoDeVideoStatus, faltaMiniatura, type EstadoVideo, type VideosSinProcesar } from './campana-videos';
 import {
   type CampaignSpec,
@@ -1307,9 +1309,17 @@ export async function getAdForEdit(adId: string): Promise<AdEditData> {
 }
 
 /** Aplica los textos editados: crea un creativo NUEVO (mismo media) y apunta el anuncio a él. */
-export async function updateAdCopy(adId: string, edited: { primary_text?: string; headline?: string; description?: string; cta_type?: string; destination_url?: string }): Promise<{ creative_id: string }> {
+export async function updateAdCopy(adId: string, edited: { primary_text?: string; headline?: string; description?: string; cta_type?: string; destination_url?: string }): Promise<{ creative_id: string | null }> {
   const current = await getAdForEdit(adId);
   if (!current.editable || !current.creative) throw new MetaWriteError(current.reason ?? 'Este anuncio no permite editar textos aquí.');
+  // Cambiar textos CREA un creativo nuevo, y con la app en desarrollo del cliente choca con el 1885183
+  // igual que publicar: con su Zernio de anuncios conectada, lo hace Zernio (23/10/2026).
+  const conexion = await conexionZernioDelWs();
+  if (conexion) {
+    await exigirDeLaCuenta(await cuentaDelObjeto(adId));
+    await cambiarTextosPorZernio(await wsDeLaCuenta(), adId, edited).catch((e) => { throw errorDeZernio(e); });
+    return { creative_id: null };
+  }
   const cc = current.creative;
   const creative: Creative = {
     source: 'upload',
@@ -1406,11 +1416,66 @@ export async function getAdsetForAdd(adsetId: string): Promise<{ name: string; o
 }
 
 /** Crea un anuncio (PAUSED) dentro de un conjunto existente. */
-export async function addAdToAdset(adsetId: string, creative: Creative, adName: string): Promise<{ ad_id: string; creative_id: string }> {
-  const creativeId = await createAdCreative(creative, adName);
-  const adId = await createAd(adsetId, { name: adName, creative }, creativeId);
-  await adoptarTranscripcionDelCreativo(adId, creative.video_id);
-  return { ad_id: adId, creative_id: creativeId };
+export async function addAdToAdset(adsetId: string, creative: Creative, adName: string): Promise<{ ad_id: string; creative_id: string | null }> {
+  const r = await crearAnuncioEnConjunto(adsetId, { name: adName, creative });
+  await adoptarTranscripcionDelCreativo(r.ad_id, creative.video_id);
+  return { ad_id: r.ad_id, creative_id: r.creative_id };
+}
+
+/** La conexión de anuncios de Zernio del negocio, o null. Si Zernio no contesta, null: se publica por Meta. */
+async function conexionZernioDelWs(): Promise<Awaited<ReturnType<typeof conexionAnunciosZernio>>> {
+  const ws = await wsDeLaCuenta();
+  return conexionAnunciosZernio(ws, await credWs('META_AD_ACCOUNT_ID', ws)).catch((e) => {
+    console.warn('[zernio-ads] no pude leer la conexión de anuncios:', e instanceof Error ? e.message : String(e));
+    return null;
+  });
+}
+
+/**
+ * Un fallo de Zernio, en el idioma de esta lib: nombra a Zernio PRIMERO (AGENTS.md: al tercero se lo
+ * nombra) y conserva el subcode de Meta que viene adentro (`platformError`), así la traducción de
+ * rechazos de siempre (lib/meta-publicar-errores.ts) lo reconoce igual que si viniera de Meta.
+ */
+function errorDeZernio(e: unknown): unknown {
+  const z = leerErrorDeZernio(e);
+  if (!z) return e;
+  return new MetaWriteError(`Zernio no pudo publicar: ${z.mensaje}`, undefined, z.subcode ?? undefined);
+}
+
+/** La URL pública de una imagen subida a la cuenta (`act_<id>/adimages` por hash), o null. */
+async function urlDeImagen(hash: string): Promise<string | null> {
+  const [apiVersion, accessToken, acct] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN'), cred('META_AD_ACCOUNT_ID')]);
+  const url = new URL(`${GRAPH_BASE}/${apiVersion}/${acct}/adimages`);
+  url.searchParams.set('hashes', JSON.stringify([hash]));
+  url.searchParams.set('fields', 'hash,url');
+  url.searchParams.set('access_token', accessToken);
+  const d = await graphGet(url.toString()).catch(() => null);
+  const fila = Array.isArray(d?.data) ? (d.data as Array<{ url?: string }>)[0] : undefined;
+  return fila?.url ?? null;
+}
+
+/**
+ * Crea UN anuncio (PAUSED) dentro de un conjunto. Con creativo NUEVO y el negocio con su Zernio de
+ * anuncios conectada, lo crea Zernio (el post nace de la app de Zernio y no de la app en desarrollo
+ * del cliente, que da 1885183: lib/zernio-ads-cuerpo.ts). Si no, por Meta como siempre.
+ * `creative_id` es null por Zernio: el creativo lo arma Zernio y no lo devuelve.
+ */
+export async function crearAnuncioEnConjunto(adsetId: string, ad: AdSpec, identidad?: Identidad | null): Promise<{ ad_id: string; creative_id: string | null; via: 'meta' | 'zernio' }> {
+  const conexion = ad.creative.source === 'existing' ? null : await conexionZernioDelWs();
+  if (rutaDelAnuncio(ad.creative, conexion) === 'zernio' && conexion) {
+    const c = ad.creative;
+    const [pagina, ig, imagenUrl] = await Promise.all([
+      paginaDe(identidad),
+      getInstagramActorId(identidad),
+      c.media_type !== 'video' && c.image_hash ? urlDeImagen(c.image_hash) : Promise.resolve(null),
+    ]);
+    const cuerpo = cuerpoAnuncioEnConjunto({ conexion, adSetId: adsetId, nombre: ad.name, creative: c, pageId: pagina, instagramAccountId: ig, imagenUrl });
+    const r = await crearAnuncioPorZernio(await wsDeLaCuenta(), cuerpo, `mako:${adsetId}:${ad.name}`).catch((e) => { throw errorDeZernio(e); });
+    return { ad_id: r.adId, creative_id: null, via: 'zernio' };
+  }
+  const creativeId = await createAdCreative(ad.creative, ad.name, identidad);
+  const adId = await createAd(adsetId, ad, creativeId);
+  return { ad_id: adId, creative_id: creativeId, via: 'meta' };
 }
 
 /** Objetivo + nivel de presupuesto de una campaña, para armar un conjunto nuevo coherente.

@@ -17,7 +17,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope, adoptarTranscripcionDelCreativo, identidadesMeta, videosSinProcesar } from '@/lib/meta-ads-create';
+import { createCampaign, createAdSet, crearAnuncioEnConjunto, deleteEntity, metaErrorEnvelope, adoptarTranscripcionDelCreativo, identidadesMeta, videosSinProcesar } from '@/lib/meta-ads-create';
 import { validarIdentidad } from '@/lib/meta-identidad';
 import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
 import { type CampaignSpec, objetivoDef } from '@/lib/campaign-types';
@@ -128,9 +128,10 @@ export async function POST(req: NextRequest) {
       const adsetId = await createAdSet(campaignId, spec, adset);
       meta_adset_ids.push(adsetId);
       for (const ad of adset.ads) {
-        const creativeId = await createAdCreative(ad.creative, ad.name, spec.identidad);
-        meta_creative_ids.push(creativeId);
-        const adId = await createAd(adsetId, ad, creativeId);
+        // Con creativo nuevo y la Zernio de anuncios del negocio conectada, el anuncio lo crea Zernio
+        // (el 1885183 de la app en desarrollo del cliente): lib/zernio-ads-cuerpo.ts. Ahí no hay creative_id.
+        const { ad_id: adId, creative_id: creativeId } = await crearAnuncioEnConjunto(adsetId, ad, spec.identidad);
+        if (creativeId) meta_creative_ids.push(creativeId);
         // La transcripción ya se hizo al subir el video: la adoptamos con el ad_id
         // para que el cron no vuelva a bajar el mp4 y pagar whisper de nuevo.
         await adoptarTranscripcionDelCreativo(adId, ad.creative.video_id);
