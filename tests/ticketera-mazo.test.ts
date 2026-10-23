@@ -57,11 +57,7 @@ import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { FilaTicket } from '../lib/tickets-db';
-import {
-  accionesDe, errorCorto, errorFrecuente, estadoDeLaNota, estadoObvio, gestoMarcado, leerTicket, lectorDeBandeja, linkDeOrigen, nombreDe,
-  ordenDelMazo, ordenarTabla, origenDe, primerNombre, quePaso, refrescarMazo, siguienteOrden, teclaDelMazo, textoDeLaPersona,
-  veredictoGesto, versionesDe, EMAIL_DEL_SISTEMA, ERROR_GENERICO, MARCA_PX, ORDEN_INICIAL, VENTANA_DESHACER_MS,
-} from '../app/tickets/bandeja/mazo-reglas';
+import { accionesDe, errorCorto, errorFrecuente, estadoDeLaNota, estadoObvio, gestoMarcado, leerTicket, lectorDeBandeja, linkDeOrigen, nombreDe, ordenDelMazo, ordenarTabla, origenDe, primerNombre, quePaso, refrescarMazo, siguienteOrden, teclaDelMazo, textoDeLaPersona, veredictoGesto, versionesDe, EMAIL_DEL_SISTEMA, ERROR_GENERICO, MARCA_PX, ORDEN_INICIAL, VENTANA_DESHACER_MS, queDecide, dondeDelChat } from '../app/tickets/bandeja/mazo-reglas';
 import { DetalleDeLaTarjeta, TarjetaTicket } from '../app/tickets/bandeja/TarjetaTicket';
 import { TablaTickets } from '../app/tickets/bandeja/TablaTickets';
 
@@ -340,8 +336,9 @@ test('E3: J / K recorren el ticket abierto en el MISMO orden que muestra la tabl
 test('F1: la tarjeta se entiende en 3 segundos: qué pasó, quién, qué hacer, el tipo; nada de código a la vista', () => {
   // El #5 real, el de la captura de Martín.
   const html = renderToStaticMarkup(createElement(TarjetaTicket, { t: ticket5(), ahora: AHORA, onVerTodo: () => {} }));
-  const orden = ['MaKo no le pudo contestar a Mauricio en su chat', 'No tenía una IA para contestarle', 'Lo detectó MaKo solo',
-    'Conectar su IA', '<b>Estado:</b> el código ya está arreglado · lo decides tú', '>Pedido<', 'Detalle'];
+  // Desde el 23/10/2026 (feedback 7): el por qué en palabras y QUÉ hay que decidir, como pregunta que se contesta con el ✓.
+  const orden = ['MaKo no le pudo contestar a Mauricio en su chat', 'No tiene su IA conectada (Claude o GPT), y MaKo no presta la suya', 'Lo detectó MaKo solo',
+    '¿Le pedimos a Mauricio que conecte su IA?', '<b>Estado:</b> el código ya está arreglado · lo decides tú', '>Pedido<', 'Detalle'];
   let desde = 0;
   for (const x of orden) {
     const k = html.indexOf(x, desde);
@@ -357,13 +354,20 @@ test('F1: la tarjeta se entiende en 3 segundos: qué pasó, quién, qué hacer, 
   assert.match(html, /aria-expanded="false"[^>]*>Detalle/);
   assert.doesNotMatch(html, />Bug</, 'el tipo es el veredicto del Cerebro («pedido»), no «automático con error = Bug»');
   assert.match(html, /#5/);
+  // DÓNDE (feedback 7): con el chat que suma la bandeja (`conChatDeLosTickets`), la frase no repite «en su chat» y el
+  // renglón dice cuál; de una tab, el de esa tab.
+  const enOps = renderToStaticMarkup(createElement(TarjetaTicket, { t: { ...ticket5(), chatDelTicket: { titulo: 'Plan de la semana', clave: 'mako-movil:u1' } }, ahora: AHORA }));
+  assert.match(enOps, />MaKo no le pudo contestar a Mauricio</);
+  assert.match(enOps, /En su chat «Plan de la semana» del Ops Center/);
+  const enCrm = renderToStaticMarkup(createElement(TarjetaTicket, { t: { ...ticket5(), chatDelTicket: { titulo: 'Ana Pérez', clave: 'mako-movil:u1:crm:12' } }, ahora: AHORA }));
+  assert.match(enCrm, /En el chat de CRM «Ana Pérez»/);
   // Una persona: su foto, por dónde lo levantó, la pantalla y el negocio.
   const laura = renderToStaticMarkup(createElement(TarjetaTicket, { t: dePersona(), ahora: AHORA }));
   assert.match(laura, /<img src="https:\/\/fotos\.prueba\.test\/laura\.jpg"/, 'la foto de perfil de quien lo levantó');
   assert.match(laura, /Lo levantó Laura desde «Reportar problema»/);
   assert.match(laura, /<span>En «CRM» · Estudio Gómez · <\/span><time/, 'la pantalla primero, en un solo texto');
   assert.match(laura, /No se guardan los cambios del funnel/);
-  assert.match(laura, /Revisar y arreglar/);
+  assert.match(laura, /¿Lo arreglamos\?/, 'qué hay que decidir, como pregunta');
   // Sin foto: las iniciales (la familia de tarjetas), nunca un <img> roto.
   const sinFoto = renderToStaticMarkup(createElement(TarjetaTicket, { t: dePersona({ foto: null, usuario_nombre: 'Mauricio Bustos Eguia' }), ahora: AHORA }));
   assert.doesNotMatch(sinFoto, /<img/);
@@ -382,19 +386,20 @@ test('F1: la tarjeta se entiende en 3 segundos: qué pasó, quién, qué hacer, 
 });
 
 // ── G ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
-test('G1: la tarjeta en el CENTRO, sin nada al costado; «Volver» SIEMPRE en la fila de botones (apagado sin nada), y «1 de N»', () => {
+test('G1: la tarjeta en el CENTRO, sin nada al costado; el «Deshacer» arriba y sutil, fuera de la fila de botones, y «1 de N»', () => {
   const src = leer('app/tickets/bandeja/MazoTickets.tsx');
   const css = leer('app/tickets/bandeja/bandeja.css');
   assert.doesNotMatch(src + css, /tickets-bandeja__siguen/, 'lo que sigue no se corre al costado');
   assert.match(css, /\.tickets-bandeja__mesa \{[^}]*grid-template-columns: minmax\(0, 1fr\);/);
   assert.match(css, /\.tickets-bandeja__pila \{[^}]*margin: 0 auto;/);
   assert.doesNotMatch(css, /@container tickets \(min-width: 780px\)/, 'ningún ancho la corre del centro');
-  // «Volver» es el primero de la fila, FUERA de cualquier condicional.
+  // El deshacer NO va con los botones (23/10/2026, Martín: «no va con los otros cuatro: arriba de las tarjetas, sutil, como
+  // "Deshacer"»): en la franja de arriba, sólo con algo para deshacer.
   const fila = src.slice(src.indexOf('<div className="tickets-bandeja__pulgar">'));
-  const volver = fila.indexOf('tickets-bandeja__gesto--volver');
-  assert.ok(volver > 0 && volver < fila.indexOf('<BotonGesto'), 'Volver, el primero');
-  assert.doesNotMatch(fila.slice(0, volver), /&&\s*\(\s*$/);
-  assert.match(fila, /disabled=\{!hayVuelta\}/);
+  assert.doesNotMatch(fila, /tickets-bandeja__gesto--volver|onClick=\{volver\}/, 'fuera de la fila de botones');
+  const franja = src.slice(src.indexOf('<header className="tickets-bandeja__franja">'), src.indexOf('</header>'));
+  assert.match(franja, /\{hayVuelta && \(\n\s*<button type="button" className="tickets-bandeja__deshacer" onClick=\{volver\}[^>]*>\n\s*<Icon name="regenerar" size=\{14\} \/>Deshacer/);
+  assert.match(css, /\.tickets-bandeja__deshacer \{[^}]*background: none;[^}]*color: var\(--dim\);/, 'sutil');
   assert.match(src, /<b>\{i \+ 1\}<\/b> de \{ids\.length\}/);
 });
 
@@ -480,16 +485,26 @@ test('H1: QUÉ PASÓ en una frase de producto: del chat, de la pantalla o del se
 });
 
 test('H2: la tabla de errores frecuentes: por qué falló y qué hay que hacer, con un genérico que cae bien', () => {
-  assert.deepEqual(errorFrecuente(ERROR_5, 'responder'), { porque: 'No tenía una IA para contestarle', hacer: 'Conectar su IA' });
-  assert.deepEqual(errorFrecuente('responder: falló la IA (sin proveedor gratis disponible)', 'responder'), { porque: 'No tenía una IA para contestarle', hacer: 'Conectar su IA' });
-  assert.equal(errorFrecuente('resumir: red gratis salteada: datos de clientes', 'resumir').porque, 'No tenía una IA para hacerlo');
+  // Desde el 22/10/2026 la plataforma no presta IA: el por qué lo dice (feedback 7, 23/10/2026).
+  assert.deepEqual(errorFrecuente(ERROR_5, 'responder'), { porque: 'No tiene su IA conectada (Claude o GPT), y MaKo no presta la suya', hacer: 'Conectar su IA' });
+  assert.deepEqual(errorFrecuente('responder: falló la IA (sin proveedor gratis disponible)', 'responder'), { porque: 'No tiene su IA conectada (Claude o GPT), y MaKo no presta la suya', hacer: 'Conectar su IA' });
+  assert.equal(errorFrecuente('resumir: red gratis salteada: datos de clientes', 'resumir').porque, 'No tiene su IA conectada (Claude o GPT), y MaKo no presta la suya');
   assert.equal(errorFrecuente('responder: tu clave de Claude: credit balance is too low').hacer, 'Cargar crédito en su Claude');
   assert.equal(errorFrecuente("TypeError: Cannot read properties of undefined (reading 'map')").hacer, 'Arreglar el código');
   assert.equal(errorFrecuente('duplicate key value violates unique constraint "leads_pkey"').porque, 'La base rechazó lo que se guardaba');
   assert.deepEqual(errorFrecuente('algo raro que nadie vio nunca'), { ...ERROR_GENERICO });
   // La lectura entera del #5: el porqué y el hacer salen de la tabla.
   const l = leerTicket(ticket5());
-  assert.deepEqual([l.porque, l.hacer], ['No tenía una IA para contestarle', 'Conectar su IA']);
+  assert.deepEqual([l.porque, l.hacer, l.decide], ['No tiene su IA conectada (Claude o GPT), y MaKo no presta la suya', 'Conectar su IA', '¿Le pedimos a Mauricio que conecte su IA?']);
+  // Qué hay que decidir, para todo lo de la tabla; lo que no está, como pregunta.
+  assert.equal(queDecide('Cargar crédito en su Claude', 'Ana'), '¿Le avisamos a Ana que cargue crédito en su Claude?');
+  assert.equal(queDecide('Conectar su IA', null), '¿Le pedimos que conecte su IA?', 'sin persona, sin nombre');
+  assert.equal(queDecide('Arreglar el código', 'Ana'), '¿Lo arreglamos?');
+  assert.equal(queDecide('Algo nuevo', 'Ana'), '¿Algo nuevo?');
+  // El dónde del chat: el de una tab por su clave; uno del Ops Center por su título.
+  assert.equal(dondeDelChat({ titulo: 'Plan de la semana', clave: 'mako-movil:u1' }), 'En su chat «Plan de la semana» del Ops Center');
+  assert.equal(dondeDelChat({ titulo: null, clave: 'dashboard:marketing' }), 'En el chat de Dashboard');
+  assert.equal(dondeDelChat(null), null);
   // Sin error: lo que pide el tipo. Y lo que la app no tiene es un pedido.
   assert.equal(leerTicket(dePersona({ tipo: 'pregunta' })).hacer, 'Responderle');
   assert.equal(leerTicket(dePersona({ tipo: 'pedido' })).hacer, 'Decidir si se hace');

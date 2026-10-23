@@ -115,7 +115,8 @@ export function TarjetaTicket({ t, ahora, onVerTodo, atras = false }: {
         : (
           <div className="tickets-bandeja__carta-hacer">
             <p className="tickets-bandeja__hacer">
-              <span className="tickets-bandeja__hacer-ico" aria-hidden><Icon name="flecha" size={15} /></span>{d.hacer}
+              {/* Qué hay que decidir, como pregunta (23/10/2026, Martín: «para que decida en 5 segundos»). */}
+              <span className="tickets-bandeja__hacer-ico" aria-hidden><Icon name="flecha" size={15} /></span>{d.decide}
             </p>
             {d.estado && <p className="tickets-bandeja__estado-linea"><b>Estado:</b> {d.estado}</p>}
           </div>

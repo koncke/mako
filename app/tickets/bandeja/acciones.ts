@@ -14,7 +14,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { wsSuperAdmin } from '@/lib/workspace';
 import { puedeOperar } from '@/lib/operaciones-reglas';
 import {
-  autoArregloApagado, bandeja, cambiarPrioridad, corregirTipo, cuantosEsperan, decidir, ponerAutoArreglo, ticketEntero,
+  autoArregloApagado, bandeja, cambiarPrioridad, conChatDeLosTickets, corregirTipo, cuantosEsperan, decidir, ponerAutoArreglo, ticketEntero,
   type EntradaDecision, type Evento, type FilaTicket,
 } from '@/lib/tickets-db';
 import { avisarTicket } from '@/lib/tickets-cierre';
@@ -34,7 +34,8 @@ export async function leerBandejaAction(conVista = false): Promise<LecturaBandej
   if (!(await opera())) return { ok: false, error: NO_PUEDE };
   const [r, apagado, vista] = await Promise.all([bandeja(), autoArregloApagado(), conVista ? getVistaTicketera() : Promise.resolve<VistaTicketera>('mazo')]);
   if (!r.ok) return { ok: false, error: r.faltaTabla ? 'Falta aplicar la migración 0311 (la tabla de tickets).' : r.error, faltaTabla: r.faltaTabla };
-  return { ok: true, tickets: r.datos, autoArreglo: !apagado, vista };
+  // Con el chat donde falló MaKo (DÓNDE, 23/10/2026).
+  return { ok: true, tickets: await conChatDeLosTickets(r.datos), autoArreglo: !apagado, vista };
 }
 
 /** La vista que eligió (mazo o tabla), en SU perfil: la misma en la computadora y en el teléfono. */
