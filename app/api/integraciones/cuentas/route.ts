@@ -27,6 +27,7 @@ import {
 import { cuentaParaConectar, cuentasDePago, guardarAliasCuenta } from '@/lib/cuentas-pago-server';
 import { cuentasDeAgenda, guardarAliasAgenda, proximaCuentaDeAgenda } from '@/lib/cuentas-agenda-server';
 import { perfilDeCalcom } from '@/lib/calcom';
+import { LINK_PLANES, topeDeCuentas } from '@/lib/tope-cuentas';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,6 +99,9 @@ async function postAgenda(ctx: { ws: number; autor: string | null }, p: Proveedo
   if (body.action === 'conectar') {
     const token = typeof body.clave === 'string' ? body.clave.trim() : '';
     if (!token) return NextResponse.json({ ok: false, error: p === 'calendly' ? 'Pega el token de esa cuenta.' : 'Pega la API key de esa cuenta.', nadaGuardado: true }, { status: 400 });
+    // El tope del plan (lib/tope-cuentas.ts): sólo a quien MaKo le cobra el plan por la pasarela, y antes de guardar nada.
+    const tope = await topeDeCuentas(ctx.ws, 'agenda');
+    if (tope) return NextResponse.json({ ok: false, error: tope.texto, tope: tope.tope, planes: LINK_PLANES, nadaGuardado: true }, { status: 402 });
     if (!(await tokenDeAgendaValido(p, token))) {
       return NextResponse.json({ ok: false, error: `${NOMBRE_AGENDA[p]} no aceptó esa clave. No la guardé.`, nadaGuardado: true }, { status: 422 });
     }
@@ -173,6 +177,11 @@ export async function POST(req: NextRequest) {
       // La misma cuenta ya conectada: le cambia la clave. Una que volvió: el sufijo de SUS cobros. Si no, la que sigue
       // (nunca hereda la principal de otra cuenta): lib/cuentas-pago-server.ts, `cuentaParaConectar`.
       const cuenta = await cuentaParaConectar(ctx.ws, p, await idEnElProveedor(p, clave).catch(() => null));
+      // El tope del plan, sólo si SUMA una cuenta (cambiarle la clave a una que ya está no suma), antes de guardar nada.
+      if (!(await lista()).some((x) => x.cuenta === cuenta)) {
+        const tope = await topeDeCuentas(ctx.ws, 'cobro');
+        if (tope) return NextResponse.json({ ok: false, error: tope.texto, tope: tope.tope, planes: LINK_PLANES, nadaGuardado: true }, { status: 402 });
+      }
       const r = await descubrirPasarela(p, ctx.ws, clave, ctx.autor, { guardarClave: true, cuenta });
       if (!r.ok) return NextResponse.json({ ok: false, error: r.error, nadaGuardado: r.nadaGuardado }, { status: r.status });
       const nombre = aliasLimpio(body.nombre);

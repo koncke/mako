@@ -22,6 +22,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { auditarCredencial, credDelCliente, credWs, eliminarCredencial, esClaveDePasarela, estadoCampo, guardarCredencial, IdentificadorOcupadoError, KeyDePlataformaError, RemitenteNoPropioError } from '@/lib/credenciales';
 import { CLAVE_PASARELA, desconectarPasarela, descubrirPasarela } from '@/lib/cobros-conexion';
+import { cuentasDePago } from '@/lib/cuentas-pago-server';
+import { LINK_PLANES, topeDeCuentas } from '@/lib/tope-cuentas';
 import { esPasarela, NOMBRE_PASARELA } from '@/lib/cobros-tipos';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS, wsSuperAdmin } from '@/lib/workspace';
 import { verificarServicio } from '@/lib/metodo-verificar';
@@ -407,6 +409,12 @@ export async function POST(req: NextRequest) {
       const usar = pegado || (await credDelCliente(env, ctx.ws)) || '';
       if (!usar) {
         return NextResponse.json({ ok: false, error: `Pega primero tu clave de ${NOMBRE_PASARELA[pasarela]}.`, nadaGuardado: true }, { status: 400 });
+      }
+      // El tope del plan (lib/tope-cuentas.ts): la principal de una pasarela que todavía no estaba SUMA una cuenta (Esencial
+      // trae «1 cuenta de Stripe o Mercado Pago»). Volver a conectar la que ya está no suma. Antes de guardar nada.
+      if (!(await cuentasDePago(ctx.ws, pasarela)).some((x) => x.principal)) {
+        const tope = await topeDeCuentas(ctx.ws, 'cobro');
+        if (tope) return NextResponse.json({ ok: false, error: tope.texto, tope: tope.tope, planes: LINK_PLANES, nadaGuardado: true }, { status: 402 });
       }
       const r = await descubrirPasarela(pasarela, ctx.ws, usar, ctx.autor, { guardarClave: !!pegado });
       if (!r.ok) return NextResponse.json({ ok: false, error: r.error, nadaGuardado: r.nadaGuardado }, { status: r.status });

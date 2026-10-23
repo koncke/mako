@@ -35,7 +35,7 @@ const SECRETO: Partial<Record<Proveedor, string>> = {
   mercadopago: 'Clave secreta del aviso', calendly: 'Signing key del webhook', calcom: 'Contraseña del webhook',
 };
 
-async function pedir(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; mensaje?: string; aviso?: string | null; completa?: boolean; cuentas?: Cuenta[]; nadaGuardado?: boolean }> {
+async function pedir(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; mensaje?: string; aviso?: string | null; completa?: boolean; cuentas?: Cuenta[]; nadaGuardado?: boolean; tope?: number; planes?: string }> {
   try {
     const r = await fetch('/api/integraciones/cuentas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     return await r.json();
@@ -52,7 +52,7 @@ export default function CuentasDePago({ proveedor, onCambio }: {
   const [cuentas, setCuentas] = useState<Cuenta[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ocupada, setOcupada] = useState<string | null>(null);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string; planes?: string | null } | null>(null);
   const [editando, setEditando] = useState<{ cuenta: string; nombre: string } | null>(null);
   const [nueva, setNueva] = useState<{ nombre: string; clave: string } | null>(null);
   const [aDesconectar, setADesconectar] = useState<Cuenta | null>(null);
@@ -80,7 +80,8 @@ export default function CuentasDePago({ proveedor, onCambio }: {
     const j = await pedir({ servicio: proveedor, ...body });
     setOcupada(null);
     if (Array.isArray(j.cuentas)) setCuentas(j.cuentas);
-    if (!j.ok) { setMsg({ ok: false, text: j.error ?? 'No se pudo.' }); return false; }
+    // El tope del plan (402): el cartel corto y «Pasar a Pro».
+    if (!j.ok) { setMsg({ ok: false, text: j.error ?? 'No se pudo.', planes: j.tope ? (j.planes ?? null) : null }); return false; }
     if (j.aviso) setMsg({ ok: false, text: j.aviso });
     else if (j.mensaje) setMsg({ ok: j.completa !== false, text: j.mensaje });
     if (avisarArriba) onCambio?.();
@@ -169,7 +170,12 @@ export default function CuentasDePago({ proveedor, onCambio }: {
         </button>
       )}
 
-      {msg && <div style={{ fontSize: 12.5, color: msg.ok ? 'var(--good)' : 'var(--bad)' }}>{msg.text}</div>}
+      {msg && (
+        <div style={{ fontSize: 12.5, color: msg.ok ? 'var(--good)' : 'var(--bad)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span>{msg.text}</span>
+          {msg.planes && <a href={msg.planes} style={{ ...boton, color: 'var(--primary)', textDecoration: 'none' }}>Pasar a Pro</a>}
+        </div>
+      )}
 
       {aDesconectar && (
         <ConfirmDialog

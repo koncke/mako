@@ -32,13 +32,30 @@ const redondear = (n: number): number => Math.round(n * 100) / 100;
 
 /**
  * El valor en dólares de UNA cuota que confirmó la pasarela. La primera vale lo del cobro; una
- * renovación trae su propio monto (puede cambiar el precio), y en USD se toma ése. En otra moneda se
- * usa el valor en USD del cobro: es lo único declarado.
+ * renovación trae su propio monto (puede cambiar el precio), y en USD se toma ése.
+ *
+ * Lo que se cobró de verdad, nunca el precio de lista (23/10/2026, encontrado por «Suscripción y Partners»):
+ *   · UNA CUOTA DE CERO (saldo a favor, cupón del 100%) VALE CERO. Antes caía al valor del cobro y sumaba US$47 de
+ *     cash que no entraron. Stripe ya no la manda (`confirmarFactura` ignora la factura en cero); Mercado Pago no
+ *     tiene ese filtro. Que la pasarela NO diga el monto (null) es otra cosa: ahí vale lo del cobro, como siempre.
+ *   · EN OTRA MONEDA NO HAY COTIZACIÓN DEL DÍA y no se inventa una (AGENTS.md: nunca una tasa inventada). Lo único
+ *     declarado es la relación del cobro (sus pesos ↔ sus dólares). Una cuota MENOR que el cobro es un descuento y
+ *     vale su parte de esos dólares (ARS 40.000 de un cobro de ARS 50.000 = US$47 → US$37,60). Una IGUAL o MAYOR vale
+ *     lo declarado: subir el precio en pesos por la inflación no es vender más en dólares, y escalarla inflaría el cash.
+ *   · En otra moneda que la del cobro no hay relación declarada: vale lo del cobro (lo de antes).
  */
-export function montoUsdDeLaCuota(p: { montoCuota?: number | null; monedaCuota?: string | null; cobroMontoUsd: number | null }): number | null {
-  const m = Number(p.montoCuota);
-  if ((p.monedaCuota ?? '').toUpperCase() === 'USD' && Number.isFinite(m) && m > 0) return redondear(m);
-  return p.cobroMontoUsd;
+export function montoUsdDeLaCuota(p: {
+  montoCuota?: number | null; monedaCuota?: string | null; cobroMontoUsd: number | null;
+  cobroMonto?: number | null; cobroMoneda?: string | null;
+}): number | null {
+  const m = p.montoCuota == null ? NaN : Number(p.montoCuota);
+  if (!Number.isFinite(m) || m < 0) return p.cobroMontoUsd;
+  if (m === 0) return 0;
+  const moneda = (p.monedaCuota ?? '').toUpperCase();
+  if (moneda === 'USD') return redondear(m);
+  const total = Number(p.cobroMonto);
+  if (p.cobroMontoUsd == null || moneda !== (p.cobroMoneda ?? '').toUpperCase() || !Number.isFinite(total) || total <= 0) return p.cobroMontoUsd;
+  return m < total ? redondear((p.cobroMontoUsd * m) / total) : p.cobroMontoUsd;
 }
 
 /**

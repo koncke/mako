@@ -1215,3 +1215,28 @@ dónde es la reunión y, en Cal.com, las preguntas que ya existen:
 `editarPreguntasCalcom`) · lib/agenda-evento-etapa-server.ts (`detalleDeEventoDeAgenda`, `editarEventoDeAgenda`) ·
 tests/agenda-edicion-completa-23-10.test.ts
 *22-23/10/2026, chat «CRM» (claude3).*
+
+## El tope de cuentas del plan: sólo a quien MaKo le cobra el plan, y sólo lo que SUMA una cuenta (23/10/2026)
+
+MaKo Esencial trae «1 cuenta de Stripe o Mercado Pago» y Pro varias (docs/ofertas-mako.md; el número está en
+lib/topes-plan.ts, `cobros.cuentas`). Se hace cumplir en lib/tope-cuentas.ts, y la regla pura vive en
+lib/tope-cuentas-reglas.ts. Lo que no se ve:
+- **La capa no alcanza para saber si hay tope.** El ws1 y los acuerdos a mano también tienen capa `completo`. Primero
+  se pregunta si MaKo le cobra el plan por la pasarela (`suscripcionDeMakoDe`). Si no puede leerlo, no frena: el tope
+  vende, no protege nada.
+- **Hay DOS puertas que suman una cuenta, no una.** «Conectar otra» (/api/integraciones/cuentas) y la tarjeta de la
+  pasarela que todavía no estaba (`descubrir-pago` en /api/integraciones/credencial). Si sólo se cierra la primera,
+  Esencial conecta Stripe y Mercado Pago por las tarjetas.
+- **Cambiarle la clave a la misma cuenta o volver a conectarla no suma.** El tope se mira sólo si `cuentaParaConectar`
+  devuelve una cuenta que no estaba. Nunca desconecta nada ni llega a un cobro: un test exige que `topeDeCuentas`
+  viva sólo en esas dos puertas.
+- Se cuenta por grupo: las de cobro (Stripe y Mercado Pago juntas) y las de agenda (Calendly y Cal juntas).
+
+**Sin hacer:** la principal de Calendly o Cal por la tarjeta genérica (`guardar` de /api/integraciones/credencial) no
+mira el tope. Las ofertas sólo hablan de las de cobro. «Pasar a Pro» lleva a `RUTA_CAMBIAR_PLAN` (lib/topes-plan.ts,
+/configuraciones/plan), que llega con la rama de la suscripción (`suscripcion-mako-2310`); hasta entonces ningún negocio tiene `suscripcionDeMakoDe`, así que el tope
+no se aplica a nadie.
+
+**Vive en:** lib/tope-cuentas.ts · lib/tope-cuentas-reglas.ts · app/api/integraciones/cuentas/route.ts ·
+app/api/integraciones/credencial/route.ts (`descubrir-pago`) · app/integraciones/CuentasDePago.tsx ·
+tests/tope-cuentas.test.ts.
