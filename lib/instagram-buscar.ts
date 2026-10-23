@@ -87,6 +87,36 @@ export const pideConectarMeta = (estado: ConexionMeta | EstadoMeta | null): bool
 /** La línea de debajo del campo cuando el negocio no puede buscar en Meta: el porqué; el botón dice qué hacer. */
 export const AVISO_SIN_META = 'Las cuentas se buscan con tu Meta';
 
+// ── `fresco`: olvidar la caché de la conexión, con tope (23/10/2026, revisión de Integración) ──────────────────
+// `?estado=1&fresco=1` hace que la ruta le vuelva a preguntar a Meta por la cuenta de la página. Lo manda SÓLO el
+// buscador, al volver de «Conectar Meta» (un clic de la persona). Pero la ruta no sabe quién lo manda, y un bucle
+// volvería a pegarle a Meta sin esperar y podría trabar el token del propio negocio. Por eso, dos reglas:
+//   · una vez cada 10 minutos por negocio, y 20 por día. Pasado el tope, `fresco` no hace nada: contesta lo guardado;
+//   · la pausa por un LÍMITE de Meta (`mx:<ws>` = 'limite') no se borra nunca: se va sola, con su tiempo.
+// El costo: si alguien conecta, la página no tiene Instagram, lo arregla y vuelve a conectar antes de 10 minutos, ve
+// lo viejo hasta que vence la caché (también 10 minutos).
+
+/** Cada cuánto, como mínimo, un negocio puede olvidar la caché de su conexión. */
+export const FRESCO_CADA_MS = 10 * 60_000;
+/** Cuántas veces por día (UTC) puede olvidarla un negocio. */
+export const FRESCO_POR_DIA = 20;
+/** Lo anotado de un negocio: cuándo fue la última y cuántas van en el día. */
+export type AnotadoFresco = { ultimo: number; dia: string; enElDia: number };
+
+/** ¿Este `fresco` olvida la caché? Si sí, lo que hay que anotar. Puro. */
+export function tocaRefrescar(antes: AnotadoFresco | undefined, ahora: number): { si: true; anotado: AnotadoFresco } | { si: false } {
+  const dia = new Date(ahora).toISOString().slice(0, 10);
+  const enElDia = antes && antes.dia === dia ? antes.enElDia : 0;
+  if (antes && ahora - antes.ultimo < FRESCO_CADA_MS) return { si: false };
+  if (enElDia >= FRESCO_POR_DIA) return { si: false };
+  return { si: true, anotado: { ultimo: ahora, dia, enElDia: enElDia + 1 } };
+}
+
+/** Qué claves de la caché olvida un `fresco`: la cuenta de la página y la pausa, salvo la de un límite de Meta. */
+export function clavesQueOlvida(ws: number, pausa: unknown): string[] {
+  return pausa === 'limite' ? [`ig:${ws}`] : [`ig:${ws}`, `mx:${ws}`];
+}
+
 /** Un perfil de Instagram para elegir. `usuario` va sin la @ y en minúsculas (Instagram no distingue). */
 export type PerfilIg = { usuario: string; nombre: string | null; foto: string | null };
 

@@ -47,6 +47,7 @@ import { credDelCliente, credWs } from '@/lib/credenciales';
 import {
   MAX_LARGO, alcanzaParaBuscar, combinarPerfiles, leerRespuestaGoogle, leerRespuestaMeta,
   motivoDeErrorGraph, normalizarBusqueda, usuarioDeTexto, usuariosCandidatos, type ConexionMeta, type EstadoMeta, type PerfilIg,
+  clavesQueOlvida, tocaRefrescar, type AnotadoFresco,
 } from '@/lib/instagram-buscar';
 import { leerPerfilInstagram } from '@/lib/instagram-perfil-server';
 
@@ -79,8 +80,10 @@ const TTL_MS = 10 * 60_000;
 const TTL_SIN_CUOTA_MS = 15 * 60_000;
 const TOPE_CACHE = 500;
 type Entrada = { hasta: number; valor: unknown };
-const g = globalThis as typeof globalThis & { __makoIgBuscar?: Map<string, Entrada> };
+const g = globalThis as typeof globalThis & { __makoIgBuscar?: Map<string, Entrada>; __makoIgFresco?: Map<number, AnotadoFresco> };
 const cache = (g.__makoIgBuscar ??= new Map<string, Entrada>());
+/** Lo anotado de cada negocio para el tope de `fresco` (fuera de `cache`: el tope de 500 no lo tiene que poder echar). */
+const frescos = (g.__makoIgFresco ??= new Map<number, AnotadoFresco>());
 
 function leerCache<T>(clave: string): T | undefined {
   const e = cache.get(clave);
@@ -200,9 +203,10 @@ async function buscarEnMeta(usuarios: string[], ws: number): Promise<{ perfiles:
  * ⚠️ `fresco` OLVIDA LA CACHÉ DE ESTE NEGOCIO (la cuenta de la página y la pausa): el buscador lo manda después de
  * conectar. Sin eso, `ig:<ws>` (null = «la página no tiene Instagram») o la pausa por permiso seguían diciendo «sin
  * conexión» diez minutos después de haber conectado. Nada de acá escribe en la caché por su cuenta.
+ * ⚠️ CON TOPE Y SIN TOCAR LA PAUSA DE UN LÍMITE (23/10/2026, revisión de Integración): `refrescar`, abajo.
  */
 async function conexionDeMeta(ws: number, fresco: boolean): Promise<ConexionMeta> {
-  if (fresco) { cache.delete(`ig:${ws}`); cache.delete(`mx:${ws}`); }
+  if (fresco) refrescar(ws);
   const pausa = leerCache<string>(`mx:${ws}`);
   if (pausa) return pausa === 'limite' ? 'no-pude' : 'sin-permiso';
   try {
@@ -214,6 +218,18 @@ async function conexionDeMeta(ws: number, fresco: boolean): Promise<ConexionMeta
     console.error(`[api:crm/instagram-buscar] el estado de Meta del ws ${ws}: ${msg(e)}`);
     return (e as { motivo?: unknown } | null)?.motivo === 'sin-permiso' ? 'sin-permiso' : 'no-pude';
   }
+}
+
+/**
+ * `fresco` con tope (lib/instagram-buscar.ts: `tocaRefrescar` y `clavesQueOlvida`): una vez cada 10 minutos por negocio y
+ * 20 por día, y la pausa por un límite de Meta queda. El tope vive en la memoria del proceso, como la caché: cada
+ * instancia del server lleva el suyo.
+ */
+function refrescar(ws: number): void {
+  const t = tocaRefrescar(frescos.get(ws), Date.now());
+  if (!t.si) return;
+  frescos.set(ws, t.anotado);
+  for (const k of clavesQueOlvida(ws, leerCache<string>(`mx:${ws}`))) cache.delete(k);
 }
 
 // ── 2. Google: Custom Search JSON API ─────────────────────────────────────────
