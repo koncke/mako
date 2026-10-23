@@ -4414,9 +4414,14 @@ clientes nuevos (ws20 Sergio Arriata, ws21 Florencia Ayelen Carballo, ws22 Patri
   CONTESTANDO y con cuenta: el health «Sin conexión» de /api/meta-health trae `campaigns: []`, y sin ese corte decía
   «esta cuenta no tiene campañas» a quien no conectó nada. El `created_time` se compara como FECHA: Meta lo manda con
   el offset de cada cuenta (`-0700`, `-0300`, `+0000`) y ordenar el texto elige mal.
+- **Medido en producción después del deploy (3e8462653):** las funciones de producción con los datos reales dan ws20
+  «Cuenta 4171287933095795» + la frase, ws22 «Cuenta Patricia Contreras · 1551449682972756» + la frase, ws1 sin frase.
+  Y el ws1 decía **«Cuenta Cuenta 2 · 564003520636790»**: su cuenta se llama «Cuenta 2» y el prefijo lo ponía cada
+  pantalla. Ahora lo pone `etiquetaCuentaMeta` y no lo repite si el nombre ya empieza con «Cuenta».
 
-**Sin hacer:** conectar Meta en ws21 (paso de Martín o de la clienta); mirar el encabezado en pantalla después del
-deploy (no se levanta `next dev` local: escribe en producción).
+**Sin hacer:** conectar Meta en ws21 (paso de Martín o de la clienta). **Verlo dibujado** con un negocio con Meta:
+el Chrome de esta PC está logueado como ws10 (sin Meta, muestra el onboarding) y no puede entrar a otro negocio; el
+bundle de producción sí trae los textos nuevos. Lo mira un super admin en `/ads-manager` del ws20.
 
 **Vive en:** lib/meta-health.ts (`edgeUrl`, `campanasYConjuntos`, `_getMetaHealth`) · lib/credenciales.ts (`credWs`) ·
 lib/meta-cuenta-leida.ts · app/ads-manager/CampanasBrowser.tsx (`matchEstado`, `cuentaLeida`) ·

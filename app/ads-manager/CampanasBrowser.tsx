@@ -758,7 +758,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
               «la que creé no aparece» fue otra cuenta o un borrador sin publicar, y sin esto se leía
               como un error de MaKo. El molde es el `estado` de PageHeader, al lado del título. */}
           {cuentaLeida && (
-            <span title="La cuenta de Meta que lee esta tab" style={{ fontFamily: MONO, fontSize: 12, color: 'var(--dim)' }}>Cuenta {cuentaLeida}</span>
+            <span title="La cuenta de Meta que lee esta tab" style={{ fontFamily: MONO, fontSize: 12, color: 'var(--dim)' }}>{cuentaLeida}</span>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

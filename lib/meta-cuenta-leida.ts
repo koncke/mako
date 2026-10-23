@@ -29,14 +29,19 @@ export function numeroDeCuenta(id: string | null | undefined): string | null {
 }
 
 /**
- * «Patricia Contreras · 1551449682972756». Sin nombre —o cuando el nombre ES el número,
- * como en las cuentas que nadie bautizó (ws20)— va sólo el número. `null` sin cuenta.
+ * «Cuenta Patricia Contreras · 1551449682972756», el texto entero que se dibuja. Sin nombre
+ * —o cuando el nombre ES el número, como en las cuentas que nadie bautizó (ws20)— va sólo el
+ * número. `null` sin cuenta.
+ *
+ * ⚠️ El «Cuenta» va ACÁ y no en cada pantalla: la cuenta del ws1 se llama «Cuenta 2», y con
+ * el prefijo puesto afuera la tab decía «Cuenta Cuenta 2 · …» (medido en producción, 23/10).
  */
 export function etiquetaCuentaMeta(c: CuentaLeida | null | undefined): string | null {
   const numero = numeroDeCuenta(c?.id);
   if (!numero) return null;
   const nombre = (c?.nombre ?? '').trim();
-  return nombre && nombre !== numero ? `${nombre} · ${numero}` : numero;
+  const texto = nombre && nombre !== numero ? `${nombre} · ${numero}` : numero;
+  return /^cuenta\b/i.test(texto) ? texto : `Cuenta ${texto}`;
 }
 
 /** La fecha de creación más nueva (ISO de Meta, con o sin offset), o null. */

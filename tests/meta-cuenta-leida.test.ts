@@ -17,10 +17,12 @@ import {
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 
 test('La cuenta va como la muestra Meta: el nombre y el número sin act_', () => {
-  assert.equal(etiquetaCuentaMeta({ id: 'act_1551449682972756', nombre: 'Patricia Contreras' }), 'Patricia Contreras · 1551449682972756');
+  assert.equal(etiquetaCuentaMeta({ id: 'act_1551449682972756', nombre: 'Patricia Contreras' }), 'Cuenta Patricia Contreras · 1551449682972756');
   // La cuenta que nadie bautizó se llama como su número (ws20): no se repite.
-  assert.equal(etiquetaCuentaMeta({ id: 'act_4171287933095795', nombre: '4171287933095795' }), '4171287933095795');
-  assert.equal(etiquetaCuentaMeta({ id: 'act_4171287933095795', nombre: null }), '4171287933095795');
+  assert.equal(etiquetaCuentaMeta({ id: 'act_4171287933095795', nombre: '4171287933095795' }), 'Cuenta 4171287933095795');
+  assert.equal(etiquetaCuentaMeta({ id: 'act_4171287933095795', nombre: null }), 'Cuenta 4171287933095795');
+  // La del ws1 se llama «Cuenta 2»: en producción salía «Cuenta Cuenta 2 · …» (23/10).
+  assert.equal(etiquetaCuentaMeta({ id: 'act_564003520636790', nombre: 'Cuenta 2' }), 'Cuenta 2 · 564003520636790');
   assert.equal(etiquetaCuentaMeta({ id: null, nombre: 'Cuenta 2' }), null);
   assert.equal(etiquetaCuentaMeta(null), null);
   assert.equal(numeroDeCuenta('act_564003520636790'), '564003520636790');
@@ -53,7 +55,10 @@ test('Las dos pantallas lo dibujan, y sólo con Meta contestando', () => {
   // Sin cuenta (el health «Sin conexión») no hay aviso de cuenta vacía.
   assert.match(browser, /const avisoCuenta = health && cuentaLeida && !loading/);
 
+  // El «Cuenta» lo pone la función: una pantalla que lo sume afuera vuelve a duplicarlo.
+  assert.doesNotMatch(browser, />Cuenta \{/);
   const modal = leer('../app/crm/CampanasModal.tsx');
+  assert.doesNotMatch(modal, />Cuenta \{/);
   assert.match(modal, /estado\?\.cuentaMeta && etiquetaCuentaMeta\(estado\.cuentaMeta\.cuenta\)/);
   assert.match(modal, /avisoSinCampanasNuevas\(estado\.cuentaMeta\)/);
 

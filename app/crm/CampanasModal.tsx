@@ -482,7 +482,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
               error de MaKo. El mismo texto que el encabezado de /ads-manager. */}
           {estado?.cuentaMeta && etiquetaCuentaMeta(estado.cuentaMeta.cuenta) && (
             <p style={{ margin: '0 0 10px', fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)' }}>
-              <span style={{ fontFamily: MONO, fontSize: 12 }}>Cuenta {etiquetaCuentaMeta(estado.cuentaMeta.cuenta)}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12 }}>{etiquetaCuentaMeta(estado.cuentaMeta.cuenta)}</span>
               {avisoSinCampanasNuevas(estado.cuentaMeta) && <> · {avisoSinCampanasNuevas(estado.cuentaMeta)}</>}
             </p>
           )}
