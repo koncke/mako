@@ -1,18 +1,9 @@
-// =============================================================================
-// /m/plan — mientras se lee el tablero: la FORMA de la pantalla, no un spinner
-// =============================================================================
-// `leerPlanHoy` trae el tablero entero (tareas, proyectos, dependencias y borradores): sin
-// esto, tocar «Plan» en la barra no hacía nada visible hasta que llegaba todo. El título
-// grande lo sigue poniendo el shell.
+// /m/plan mientras carga: EL loader de las tabs grandes, el mismo de la computadora (app/_ui/CargandoMako.tsx, 23/10/2026).
+// Martín: «Los loader de las tabs o secciones grandes, quiero que sean todos como el de Ops Center. Con la criatura de
+// MaKo», y con una barra que diga que carga. Hasta acá era un esqueleto gris: no se leía como «tocaste y está cargando».
+// ⚠️ Un loading.tsx es un Suspense: va en la lista blanca de tests/layout-sin-suspense.test.ts (/m es privado entero).
+import { CargandoMako } from '@/app/_ui/CargandoMako';
 
-import { SkeletonFilas } from '@/app/m/_ui';
-import './plan.css';
-
-export default function PlanCargando() {
-  return (
-    <div aria-busy="true" aria-label="Cargando el plan">
-      <div className="m-plan-seg"><div className="mk-skel m-plan-skel-seg" /></div>
-      <div className="m-plan-cuerpo"><SkeletonFilas filas={5} /></div>
-    </div>
-  );
+export default function Cargando() {
+  return <CargandoMako que="el Plan" alto="calc(100dvh - var(--m-abajo, 72px) - 96px)" />;
 }
