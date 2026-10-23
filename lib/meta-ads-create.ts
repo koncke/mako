@@ -29,7 +29,7 @@ import { getSetting } from './settings';
 import { hayQuePreguntar, identidadPorDefecto, type Identidad, type InstagramOpcion, type PaginaOpcion } from './meta-identidad';
 import { OWNER_WS, wsObligatorio } from './workspace';
 import { conexionAnunciosZernio, crearAnuncioPorZernio, cambiarTextosPorZernio, leerErrorDeZernio } from './zernio-ads';
-import { cuerpoAnuncioEnConjunto, rutaDelAnuncio } from './zernio-ads-cuerpo';
+import { ZERNIO_ANUNCIOS_PROBADO, cuerpoAnuncioEnConjunto, rutaDelAnuncio } from './zernio-ads-cuerpo';
 import { estadoDeVideoStatus, faltaMiniatura, type EstadoVideo, type VideosSinProcesar } from './campana-videos';
 import {
   type CampaignSpec,
@@ -1424,6 +1424,9 @@ export async function addAdToAdset(adsetId: string, creative: Creative, adName: 
 
 /** La conexión de anuncios de Zernio del negocio, o null. Si Zernio no contesta, null: se publica por Meta. */
 async function conexionZernioDelWs(): Promise<Awaited<ReturnType<typeof conexionAnunciosZernio>>> {
+  // ⚠️ APAGADO hasta la prueba real (scripts/prueba-zernio-anuncio.mts): ws11 y ws13 ya tienen su clave de
+  // Zernio, y si tuvieran una conexión de anuncios sus anuncios saldrían por un camino que nadie probó.
+  if (!ZERNIO_ANUNCIOS_PROBADO) return null;
   const ws = await wsDeLaCuenta();
   return conexionAnunciosZernio(ws, await credWs('META_AD_ACCOUNT_ID', ws)).catch((e) => {
     console.warn('[zernio-ads] no pude leer la conexión de anuncios:', e instanceof Error ? e.message : String(e));

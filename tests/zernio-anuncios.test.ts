@@ -86,6 +86,9 @@ test('si Zernio no contesta, se publica por Meta como siempre; y no se ofrece ha
   // Y meta-ads-create no importa el cliente de Zernio: lo lee por lib/zernio-ads (tests/sin-instagram.test.ts).
   assert.doesNotMatch(lib, /from '\.\/zernio'/);
   assert.match(lib, /crearAnuncioPorZernio\([^\n]*\)\.catch\(\(e\) => \{ throw errorDeZernio\(e\); \}\);/);
+  // Con el interruptor apagado, NINGÚN anuncio sale por Zernio aunque el negocio tenga clave y conexión (ws11 y
+  // ws13 ya tienen su clave): la ruta nueva no corre hasta la prueba.
+  assert.match(lib, /async function conexionZernioDelWs\(\)[^{]*\{[\s\S]{0,400}?if \(!ZERNIO_ANUNCIOS_PROBADO\) return null;/);
   // La prueba que decide no corrió: hasta entonces la pantalla no ofrece conectar Zernio para anuncios.
   assert.equal(ZERNIO_ANUNCIOS_PROBADO, false);
 });
