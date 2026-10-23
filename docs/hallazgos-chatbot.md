@@ -6082,3 +6082,38 @@ exige un WhatsApp conectado, así que el arnés activa con la misma escritura si
   ni por evento ni por barrido (`filaNacidaConElLead`, lib/nutricion-ambito.ts): crear un lead de prueba y moverlo al
   minuto en un CRM agregado no lo inscribe. El arnés usa un lead con alta vieja, como los 300.
 - La inscripción MANUAL (`inscribirEnSecuencia`) no anota la entrada en el historial: sólo el evento.
+
+## «¿Contestó corta de verdad?»: NO cortaba, y la rama «Contestó» no corría nunca (23/10/2026, P0 de #289)
+
+**Síntoma (medido en el ws3, scripts/arnes-contesto-corta.mts, la forma de #289 con textos neutros).** «M1 → Contestó?
+(sí → aviso) / no → esperar 1 día → M2». El lead contesta durante la espera: le salía IGUAL M2, y lo de «Contestó» no
+salía nunca. Martín, en la llamada (min 49): «¿Contestó corta de verdad?».
+
+**Por qué.** La condición corre segundos después de M1, cuando nadie pudo contestar, y M2 cuelga de la ESPERA, no de la
+condición. Y desde el 14/10 contestar no corta nada por su cuenta: sólo la condición visible.
+
+**El diagnóstico obvio llevaba a un arreglo peligroso.** El primero fue «volver a mirar la condición de arriba cruzando las
+esperas» (y de paso se descubrió que esa segunda mirada era código muerto: `necesitaHechos` sólo miraba hacia ADELANTE y
+una fila parada en un mensaje nunca cargaba los hechos). La revisión adversarial le encontró 7 riesgos: el aviso dos veces
+con hilos en paralelo, condiciones que cambian por la espera misma («Llegó hace menos de N h»), las 13 plantillas, «Ir a».
+Se descartó entero.
+
+**La regla que quedó (por el Cerebro).** En una automatización que USA «Contestó» (`usaContesto`), la respuesta del lead lo
+saca de ella EN EL ACTO: `pausarPorRespuesta` → `alContestar` lleva la fila a la rama «Contestó» (`destinoAlContestar`:
+hacia arriba desde donde está, y si no, hacia adelante), que corre ya por la vía rápida; sin esa rama, la cierra. Y la
+guarda de `procesarEnvios`: a quien contestó no le sale ningún MENSAJE más de esa automatización (las acciones sí). No toca
+las que no usan «Contestó», las que tienen «Si responde», las filas con hilos ni el carril. «Contestó desde que entró» pasó
+a «Contestó» / «No contestó». El arnés: contesta antes de M1, durante la espera de 1 día, durante la de 2 días, y uno que no
+contesta (le sale todo).
+
+**Lo que cambió la revisión adversarial (las trampas).** (1) Cerrar con `estado: 'completada'` directo se salteaba
+`estadoAlEscribir`: el desenlace la daba por FALLIDA (`no_responde`, la etapa de fallo y su automatización: más mensajes a
+quien SÍ contestó). Sin rama «Contestó» la fila queda en 'respondio' sin próximo envío. (2) «No contestó → M2 / si no →
+aviso»: el aviso es el «si no», y se perdía. (3) Lo dibujado DENTRO de la rama «Contestó» sale (`ramaDeQuienContesto`). (4)
+Quien le escribió al negocio antes de que le saliera algo de esa automatización no se corta: le sale su primer mensaje y
+después «Contestó» lo ve (`yaLeSalioAlgo`).
+
+**Lo que quedó SIN hacer.** Una fila con hilos en paralelo no salta a la rama (la guarda igual le corta los mensajes). Una
+fila que junta «Contestó» con otra cosa («Contestó y sigue en la etapa») no salta: lo decide la condición. «Probar»
+(lib/simulador-grafo.ts) todavía no imita el corte. Un DM de Instagram también cuenta como respuesta para los flujos de
+WhatsApp que usan «Contestó». Un «N antes de la reunión» que va en el MISMO camino se corta con él.

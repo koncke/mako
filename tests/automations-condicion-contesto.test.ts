@@ -54,7 +54,8 @@ test('la condición existe, se niega, y «no sé» no se cumple ni negada', () =
   const c = CONDICIONES.find((x) => x.id === 'contesto');
   assert.ok(c, 'falta la condición `contesto` en el catálogo');
   assert.equal(c!.seccion, 'Mensajes');
-  assert.deepEqual(c!.rotulo, ['Contestó desde que entró', 'No contestó desde que entró']);
+  // 23/10/2026, Martín por el Cerebro: «"Contestó" y "No contestó", nunca "Contestó desde que entró"».
+  assert.deepEqual(c!.rotulo, ['Contestó', 'No contestó']);
   assert.equal(cumpleFila(NO_CONTESTO, H({ contestoEnEsta: false })), true);
   assert.equal(cumpleFila(NO_CONTESTO, H({ contestoEnEsta: true })), false);
   assert.equal(cumpleFila({ campo: 'contesto' }, H({ contestoEnEsta: true })), true);
