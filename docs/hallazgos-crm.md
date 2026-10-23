@@ -9075,7 +9075,7 @@ elegidos. Lo que costó o no se ve:
 **Vive en:** `lib/contacto-minimo.ts` · `app/crm/actions.ts` (`altaDeLead`, `importarLeadsRevisadosAction`) ·
 `app/crm/leads-importar.ts` (`recalcular`) · `app/crm/importar-server.ts` · `app/crm/new/NewLeadForm.tsx` ·
 `lib/prospectos-reglas.ts` (`contactable`) · `lib/prospectos.ts` · `app/crm/CrmBoard.tsx` (`soloInstagram`) ·
-`tests/contacto-instagram.test.ts`
+`tests/contacto-instagram.test.ts` · `tests/crm-tarjeta-personalizable.test.ts` (la cola de `chips:`)
 
 El criterio lo pasó el Cerebro: «si el único dato que hay es el @, el lead se crea igual… un lead sin
 teléfono es un lead al que todavía no le escribiste, no un lead inválido».
@@ -9099,6 +9099,22 @@ teléfono es un lead al que todavía no le escribiste, no un lead inválido».
   ya leía el @ (3ad5b5c3e). Conservar «ambos lados» del conflicto habría dibujado la tarjeta vieja ADENTRO
   de la nueva: el @ se rehízo en las piezas nuevas. Y main sumó el tope del plan al importador contando
   `entra(f)`, así que una fila con sólo el @ cuenta para el tope, que es lo correcto.
+- **Un chip fijo nuevo dejó rojo un test que no lo nombra, y el rojo NO venía de `main`.**
+  `tests/crm-tarjeta-personalizable.test.ts` fija con una regex el final de `chips:` hasta el `</>`, pegado
+  al chip de la automatización; al sumar el `@` esa cola dejó de calzar y la punta quedó fuera del tren
+  (6 de 7). Se reprodujo IGUAL antes y después de mergear `origin/main`: un rojo que no cambia con el merge
+  es de la punta. El diagnóstico caro era «rompí algo real» (el orden de los chips, `Icon` importado dos
+  veces, un ícono `instagram` que no existe, mojibake en los archivos) y era falso: se descarta mirando
+  esas cuatro cosas. El arreglo extiende la regex a la cola EXACTA (automatización → `@` → `</>`) en vez
+  de sacar el ancla. Tres tests fijan esa línea con políticas de cola distintas: `crm-automatizacion-lead`
+  termina en el chip de la automatización, `contacto-instagram` busca el `@` con `[^\n]*`, y
+  `crm-tarjeta-personalizable` (L106) ancla el cierre. Sólo éste se rompe con un chip nuevo, a propósito:
+  **el próximo chip fijo se anota ahí**, no se afloja la regex. Probado sin aflojar: las mismas roturas
+  contra la regex vieja sobre el código de antes y la nueva sobre el de hoy (0 que la vieja atrapaba y la
+  nueva dejó pasar) y 9 roturas sobre el `CrmBoard.tsx` real, base 7/0, cada una 6/1.
+- **Trampa del entorno, PowerShell 5.1:** `Get-Content` sin `-Encoding UTF8` muestra mojibake
+  (`Â¿Hay por dÃ³nde`) que NO está en el archivo. Antes de dar un acento por roto, leerlo con
+  `node -e "readFileSync(ruta,'utf8')"`: en los 15 archivos de la punta había 0.
 - **Trampa del entorno:** `Write` sobre `lib/contacto-lead.ts` (el de la ficha: link de la web y fotos)
   lo PISÓ sin haberlo leído en la sesión, y contestó «updated» en vez de «created»: ésa es la única
   pista. Estaba limpio y se restauró de git. Antes de crear un archivo con un nombre obvio, `ls`.
@@ -9118,6 +9134,7 @@ teléfono es un lead al que todavía no le escribiste, no un lead inválido».
 - **MaKo Mobile no dibuja el @** en las tarjetas del CRM del teléfono (`app/m/crm/`).
 
 *23/10/2026, chat «Ventas de MaKo» (ex «Leads Scraper», `claude1`).*
+*Y el rojo de la tarjeta, el mismo día: chat «Ventas de MaKo» (`claude2`).*
 
 ## Las migraciones de la tanda del CRM se llaman `XXXX`, y el número libre es 0290, no 0287 (15/10/2026)
 
