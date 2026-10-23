@@ -8,6 +8,7 @@
 // (`pausarPorRespuesta`: la inscripción pasa a 'respondio'), sin correr sus avisos. Las esperas se adelantan a mano.
 //   node --env-file=.env.local --conditions=react-server --import tsx scripts/arnes-contesto-corta.mts
 // =============================================================================
+export {};   // un .mts sin import ni export es un script GLOBAL para tsc (guardas-push.sh)
 const base = process.cwd().split(String.fromCharCode(92)).join('/');
 const imp = (p: string) => import(`file:///${base}/${p}`);
 const { runWithWorkspace, getTenantDb, getWorkspaceActual } = await imp('lib/workspace.ts');

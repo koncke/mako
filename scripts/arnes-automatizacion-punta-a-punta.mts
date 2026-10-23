@@ -22,6 +22,7 @@
 // comprueba). Correr:
 //   node --env-file=.env.local --conditions=react-server --import tsx scripts/arnes-automatizacion-punta-a-punta.mts
 // =============================================================================
+export {};   // un .mts sin import ni export es un script GLOBAL para tsc (guardas-push.sh)
 const base = process.cwd().split(String.fromCharCode(92)).join('/');
 const imp = (p: string) => import(`file:///${base}/${p}`);
 const { runWithWorkspace, getTenantDb, getWorkspaceActual } = await imp('lib/workspace.ts');
