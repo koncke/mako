@@ -50,10 +50,11 @@ import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspa
 import { getPromptText } from '@/lib/prompt-render';
 import { valorDisparo } from '@/lib/flujo-conversacion';
 import { ordenarAvisos } from '@/lib/flujo-ia-cliente';
+import { sanearAdjuntos, bloqueDeAdjuntos } from '@/lib/chat-adjuntos-automatizacion';
 import { esColumnaInexistente } from '@/lib/nutricion-grafo-motor';
 import {
   EDITAR_IA_SYSTEM_TEMPLATE, deIAEdicion, erroresEdicion, ordenDeRevelado, conEtiquetasReales, refsSinResolver, disparadorReal,
-  userDeEditar, leyendoDe, leyendoTexto, aIA,
+  userDeEditar, leyendoDe, leyendoTexto, aIA, textosDeMensajes,
   type EventoIA, type ResultadoEdicion, type GuardadoIA,
 } from '@/lib/flujo-ia';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
@@ -61,7 +62,7 @@ import { disparadorDeValorIA, valorIADeDisparador, type Disparador } from '@/lib
 import { disparadoresDeSecuencia } from '@/lib/disparadores-canales';
 import { armarContexto, crearNuevas, generar, crearFlujoConIA } from '@/lib/flujo-ia-crear';
 import { esConsulta, deIARespuesta, userDeExplicar, EXPLICAR_IA_SYSTEM_TEMPLATE } from '@/lib/flujo-ia-consulta';
-import { intencionDe, extrasDelUser, vaAExplicar, errorDeRespuestaEnEditar, charlaConTextos, esPreguntaDirecta } from '@/lib/flujo-ia-intencion';
+import { intencionDe, extrasDelUser, vaAExplicar, errorDeRespuestaEnEditar, charlaConTextos, esPreguntaDirecta, faltantesDelPedido, errorDeFaltantes } from '@/lib/flujo-ia-intencion';
 import {
   sanearRespuestas, aplicarRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, respuestaDelCron,
 } from '@/lib/flujo-ia-preguntas';
@@ -84,7 +85,7 @@ const TOPE_PEDIDO = 2000;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-type Body = { pedido?: unknown; secuenciaId?: unknown; modo?: unknown; pasos?: unknown; respuestas?: unknown; historial?: unknown; intencion?: unknown };
+type Body = { pedido?: unknown; secuenciaId?: unknown; modo?: unknown; pasos?: unknown; respuestas?: unknown; historial?: unknown; intencion?: unknown; adjuntos?: unknown };
 
 /**
  * EL GUARD DE LAS DOS (POST y GET): el workspace del pedido y que sea su ADMINISTRADOR. El chat de una automatización
@@ -139,6 +140,10 @@ export async function POST(req: NextRequest) {
   // «Discutir» o «Editar» (22/10/2026, lib/flujo-ia-intencion.ts). Sin elegir (la API, un cliente viejo): lo de antes.
   const intencion = intencionDe(body.intencion);
   const historial = sanearChat({ v: 1, mensajes: Array.isArray(body.historial) ? body.historial : [] }).mensajes;
+  // LO ADJUNTADO CON EL «+» (23/10/2026, AU4), ya leído a texto (`/adjunto`): al modelo como un bloque aparte del pedido,
+  // así el control de lo pedido sigue mirando sólo lo que escribió (lib/chat-adjuntos-automatizacion.ts).
+  const adjuntos = sanearAdjuntos(body.adjuntos);
+  const conAdjuntos = (t: string) => (adjuntos.length ? `${t}\n\n${bloqueDeAdjuntos(adjuntos)}` : t);
   if (!pedido) return Response.json({ ok: false, error: 'Escribe qué quieres que haga.' }, { status: 400 });
   if (secuenciaId != null && (!Number.isInteger(secuenciaId) || secuenciaId <= 0)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
   if (!modo) return Response.json({ ok: false, error: 'modo inválido' }, { status: 400 });
@@ -233,12 +238,14 @@ export async function POST(req: NextRequest) {
       };
       try {
         // EL TURNO DE LA PERSONA, AL EMPEZAR (con la fila: editar, o crear sobre una vacía).
-        await anotar([turnoDelUsuario(pedido, respuestas, historial, 'app')]);
+        const yo = turnoDelUsuario(pedido, respuestas, historial, 'app');
+        // Lo adjuntado queda en el mensaje (sus nombres): al recargar, el hilo lo muestra.
+        await anotar([yo && adjuntos.length ? { ...yo, adjuntos: adjuntos.map((a) => a.nombre) } : yo]);
 
         if (modo === 'crear') {
           // UNA función para las dos puertas (lib/flujo-ia-crear.ts): sus fases son el stream. Cancelado mientras el
           // modelo escribía (`req.signal`): no escribió nada y no hay a quién contestarle.
-          const r = await crearFlujoConIA({ ws, pedido, secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req.signal, alFase: send, respuestas, historial, via: 'app' });
+          const r = await crearFlujoConIA({ ws, pedido: conAdjuntos(pedido), secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req.signal, alFase: send, respuestas, historial, via: 'app' });
           if (!r.ok && 'pregunta' in r) { await preguntar(r.pregunta); return; }
           if (!r.ok) {
             if (!r.cancelado) await fallar(r.error, r.link);
@@ -285,7 +292,7 @@ export async function POST(req: NextRequest) {
         // que sólo puede devolver {"respuesta"}; con respuestas a una pregunta de MaKo, es un pedido y sigue abajo.
         // ⚠️ Y DESDE EL 22/10/2026 LO ELIGE LA PERSONA (lib/flujo-ia-intencion.ts): «Discutir» va siempre acá, «Editar»
         // nunca; sin elegir, lo de antes. En los tres, lo último de la charla viaja (sin eso «como te dije» no existía).
-        const extras = extrasDelUser(intencion, historial);
+        const extras = [...extrasDelUser(intencion, historial), ...(adjuntos.length ? [bloqueDeAdjuntos(adjuntos)] : [])];
         if (vaAExplicar(intencion, respuestas.length > 0, esConsulta(pedido), esPreguntaDirecta(pedido))) {
           const system = await getPromptText('chatbot.explicar-ia.system', EXPLICAR_IA_SYSTEM_TEMPLATE);
           const cron = ctx.disparadores.find((x) => x.value === disparadorActual)?.label ?? null;
@@ -304,6 +311,10 @@ export async function POST(req: NextRequest) {
         // Sin slots: lo variable va en el `user` (un override guardado no conoce bloques nuevos).
         const system = await getPromptText('chatbot.editar-ia.system', EDITAR_IA_SYSTEM_TEMPLATE);
         const user = [userDeEditar(ctx, { perfil, voz, pedido: pedidoEditar }, base), ...extras].join('\n\n');
+        // EL CONTROL DE LO PEDIDO (22/10/2026, Martín: «creó a la mitad las cosas que le pedí»): lo que el dueño pegó entre
+        // comillas y no quedó en el flujo. La PRIMERA vez es un error (el reintento se lo pide al modelo); si después sigue
+        // faltando, se aplica lo que hay y se dice en ROJO (`noHecho`): nunca «Listo» con algo pedido afuera.
+        let yaPidioLoQueFalta = false;
         const traducir = (obj: Record<string, unknown>): { r: ResultadoEdicion; errores: string[] } => {
           const r = deIAEdicion(obj, base, ctx);
           // En «Editar» contestar sin cambiar es un ERROR que el reintento corrige (lo que pasó con Mauricio el 22/10).
@@ -311,7 +322,13 @@ export async function POST(req: NextRequest) {
           const errorRespuesta = r.respuesta && intencion === 'editar' ? errorDeRespuestaEnEditar(pedido, r.respuesta, { esPregunta: esConsulta(pedido), charlaConTextos: charlaConTextos(historial) }) : null;
           if (errorRespuesta) return { r, errores: [errorRespuesta] };
           // Una respuesta no cambió nada: no hay qué revisar (un borrador con algo roto no la tiene que tumbar).
-          return { r, errores: r.respuesta ? [] : erroresEdicion(base, r, ctx) };
+          if (r.respuesta) return { r, errores: [] };
+          const errores = erroresEdicion(base, r, ctx);
+          if (errores.length) return { r, errores };
+          const faltan = faltantesDelPedido(pedido, textosDeMensajes(r.pasos));
+          if (faltan.length && !yaPidioLoQueFalta) { yaPidioLoQueFalta = true; return { r, errores: [errorDeFaltantes(faltan)] }; }
+          if (faltan.length) r.noHecho = [...(r.noHecho ?? []), ...faltan.map((t) => `No quedó en el lienzo: «${t}»`)];
+          return { r, errores: [] };
         };
 
         send({ t: 'fase', fase: 'modelo' });
@@ -346,11 +363,14 @@ export async function POST(req: NextRequest) {
         }
         const agregadas = new Set(r.agregadas);
         const ordenados = ordenarAvisos(avisos);
-        const resumen = r.resumen || (disparadores ? 'Cambié qué la dispara' : r.pregunta ? '' : 'Listo');
+        // Lo pedido que no se hizo va aparte, en rojo (`noHecho`): con algo ahí, nunca «Listo».
+        const noHecho = r.noHecho ?? [];
+        const resumen = r.resumen || (disparadores ? 'Cambié qué la dispara' : r.pregunta ? '' : noHecho.length ? 'No pude hacer todo lo que pediste' : 'Listo');
         const texto = [resumen, r.pregunta?.texto].filter(Boolean).join('. ');
         await anotar([mensajeChat('mako', texto, 'app', {
           avisos: ordenados, cambios: { cambiadas: r.cambiadas.length, quitadas: r.quitadas.length, agregadas: r.agregadas.length },
           ...(r.pregunta ? { pregunta: r.pregunta } : {}),
+          ...(noHecho.length ? { noHecho } : {}),
         })]);
         send({
           t: 'listo', modo, secuenciaId: secuenciaId!, pasos, nombre: nombreSec,
@@ -358,6 +378,7 @@ export async function POST(req: NextRequest) {
           resumen, cambiadas: r.cambiadas, quitadas: r.quitadas,
           ...(r.pregunta ? { pregunta: r.pregunta } : {}),
           ...(disparadores ? { disparadores } : {}),
+          ...(noHecho.length ? { noHecho } : {}),
         });
       } catch (err) {
         console.error(`[api:secuencias/ia] ${msg(err)}`);

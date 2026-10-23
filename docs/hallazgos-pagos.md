@@ -1077,3 +1077,150 @@ inicial (333,33 en vez de 333,34) ya no lo salda el link del producto: entra com
 - Una devolución fallida deshace la baja que disparó ESE cobro (`trato.bajaPor`), aunque sea la cuota 1 y no el primer pago.
 - El pendiente no afirma de quién son las cuotas del monto que ya están (pueden ser de otra compra), y si el pago saldó la
   cuota 0 de un plan que ya estaba, no dice nada: decía «puede ser repetido» a un pago legítimo.
+
+### La cuarta revisión de plata: deshacer una baja es volver a decidir, no recordar quién la hizo (22/10/2026)
+
+- **Deshacer mirando «quién disparó la baja» es una regresión con otro orden de eventos.** Se devolvió el primer pago, después
+  la cuota 1 (que disparó la baja de la cuota 2), y falló la devolución del primer pago: la cuota 0 volvió a estar cobrada,
+  pero nadie deshacía, porque la baja era de la cuota 1. **La regla:** una devolución que falla vuelve a decidir cada plan dado
+  de baja con lo de HOY y la misma regla que lo dio de baja (`decidirBajaDelPlan`); si ahora algo lo sostiene, se deshace.
+- **El deshacer devuelve sólo lo que dio de baja ESE reembolso** (`trato.bajaIds`, de lo que devuelve `darDeBajaCliente`),
+  no las cuotas que el closer dio de baja a mano en ese plan (la cobranza volvía a escribirle a quien se fue).
+
+### La quinta revisión de plata: «volver a decidir con lo de hoy» tiene que saber de CUÁNDO es cada cosa (22/10/2026)
+
+- **Lo de hoy incluye lo que pasó después de la baja.** Si el cliente volvía a comprar el producto después de que se le dio
+  de baja el plan devuelto (y el closer cargaba las cuotas de la compra nueva, como pide el aviso), cualquier devolución
+  fallida del lead encontraba «otro pago del producto» y revivía las cuotas viejas: deuda doble. **La regla:** al deshacer,
+  lo que sostiene la compra es lo pagado ANTES de la baja (`trato.bajaAt`, `otroCobroPagadoDelProducto({ antesDe })`).
+- **Un id de cuota no identifica una baja.** Si el closer deshacía a mano la baja del reembolso y después daba de baja al
+  cliente a mano, las mismas cuotas volvían a estar de baja, y la devolución fallida las reabría (la cobranza le escribía a
+  quien se fue). El deshacer reabre sólo lo que tiene el `baja_at` de ESA baja, también en el compare-and-set.
+
+## Varias cuentas de Stripe y de MP: cada cobro con la suya, y el vínculo que nunca encontraba su pago (22/10/2026, mig 0328)
+
+Un negocio puede conectar varias cuentas por pasarela (docs/hallazgos-integraciones.md, el modelo). Cada cobro anota la suya
+dos veces: el SUFIJO (`cobros.cuenta`, `c2`; NULL = la principal, todo cobro de antes) y su id EN EL PROVEEDOR
+(`cobros.cuenta_ref`: el `acct_…` de Stripe, el `user_id` de MP). Todo lo que se hace después con él —el link, el plazo, la
+baja, anular, devolver, cancelar, la conciliación— busca la cuenta de HOY por ese id (`cuentaVivaDelCobro`, lib/cobros.ts).
+Lo que mordía:
+
+- **⚠️ El diagnóstico obvio era el equivocado: el sufijo NO es la identidad de una cuenta.** La primera versión ataba el cobro
+  a su sufijo. La revisión adversarial lo rompió con un caso de todos los días: rotar la clave de la segunda cuenta es
+  desconectarla y volver a conectarla, y vuelve como `c3` (el `c2` lo nombran sus cobros). Sus cobros de `c2` quedaban
+  huérfanos: cada renovación se ignoraba con un 200 (Stripe y MP no reintentan un 200) y «devolver» o «cancelar» decían
+  «Stripe no está conectado». Lo que identifica una cuenta es su id en el proveedor; el sufijo es sólo dónde viven sus
+  claves hoy. Conectar una cuenta que vuelve cae en el sufijo de SUS cobros (`cuentaParaConectar`) y nunca hereda la
+  principal de otra cuenta. La 0328 completa `cuenta_ref` de los cobros de ANTES desde `webhook_routing` (que guarda el
+  id en claro), sólo donde el negocio tiene UNA cuenta de esa pasarela: medido el 23/10, producción no tenía ningún
+  cobro todavía, así que hoy no toca filas.
+- **«Conectar otra» sobre una cuenta YA conectada pisaba su clave sin avisar** (lo metió el arreglo de arriba, y lo
+  rompió la segunda revisión): la clave de PRUEBA de una cuenta de Stripe trae el MISMO `acct` que la real, así que
+  «sumar Stripe pruebas» dejaba a la principal cobrando en modo prueba, con la firma de otro aviso. Ahora contesta
+  «ya está conectada aquí» (409); cambiarle la clave es desconectarla y volver a conectarla (vuelve a su sufijo).
+- **Anular no corta después de anular**: buscar la cuenta del cobro puede tirar, y cortaba con el cobro YA anulado
+  («No pude anular» de algo anulado, y `anularLinksDeCuota` dejaba vivos los otros links de una cuota pagada).
+- **El aviso usa el id que la ruta ya validó** (el `acct`, el `user_id`), no lo relee con la lectura tolerante: con la
+  base caída, el null hacía tomar el cobro como «de otra cuenta» y se ignoraba con un 200.
+- **Un vínculo cuya cuenta ya no cobra no cobra por la principal** (`cuentaSinElegir` devuelve null): con dos razones
+  sociales, la plata entraba en la cuenta equivocada. El link dice «no conectada».
+
+- **El vínculo de «Vincular cobro» nunca encontraba el pago de la segunda cuenta.** El vínculo guarda ids (`stripe:c2`) y
+  `cuentaDelCobro` devolvía `c.cuenta` tal cual (`c2`): la comparación daba falso y el pago caía en la casa del lead. Lo
+  obvio era guardar el id entero en el cobro; la columna guarda el sufijo (el check de la 0328 lo fija) y el id se ARMA
+  en `cuentaDelCobro`.
+- **Sin cuenta elegida, un producto vinculado sólo a la segunda cuenta cobraba por la principal** (la landing, la API, el
+  link de un producto): el pago tampoco llegaba a su CRM. `crearCobro` elige por el vínculo (`cuentaSinElegir`): la de
+  siempre si está en él, si no la primera del vínculo que cobre.
+- **Una cuenta nueva heredaba el sufijo de la que se fue.** `proximaCuenta` era «la más alta + 1» de las claves guardadas:
+  desconectada la `c2`, la próxima volvía a ser `c2`, y un link pendiente de la vieja se pagaba con las claves de la nueva
+  (y una devolución iba a otra cuenta de Stripe). `proximaCuentaDe` suma los sufijos que nombran los cobros y los vínculos.
+- **Un aviso de una cuenta nunca aplica un cobro de otra** (`deOtraCuenta`, lib/cobros-webhook.ts): compara el id en el
+  proveedor del cobro con el de la cuenta del aviso (sin `cuenta_ref`, el sufijo).
+- **Un link de una cuenta desconectada no abre** (`urlParaPagar`): Mercado Pago devolvía su URL vieja sin mirar nada, y el
+  pago entraba a una cuenta de la que MaKo ya no se entera. Y la landing no reusa un pendiente de OTRA cuenta
+  (`cobroReusable` + `refParaCobrar`): el de la principal, cuando el producto ya cobra por la de su vínculo, pagaba fuera
+  de su CRM.
+- La misma cuenta de Stripe dos veces en un negocio se rechaza (`yaConectadaComoOtra`): dos filas de un `acct` eran dos
+  avisos y dos secretos para la misma plata.
+
+**La regla:** lo que toca un cobro YA creado usa `cobros.cuenta`, nunca «la principal»; lo que crea uno nuevo deja elegir la
+cuenta (`crearCobro({ cuenta })`, el asistente de la ficha) o la saca del vínculo. **⚠️ La 0328 va ANTES del deploy:**
+`COLS_COBRO` lee `cuenta`, y sin la columna se cae toda lectura de cobros.
+**Vive en:** lib/cobros.ts · lib/cobros-webhook.ts · lib/cobro-etapa.ts (`cuentaDelCobro`) · lib/cobro-etapa-server.ts
+(`cuentasDelVinculoDelProducto`) · app/crm/[id]/CobrarConLink.tsx · app/crm/cobro-etapa-actions.ts · tests/cuentas-pago.test.ts.
+**Sin hacer:** (1) los cobros de ANTES de la 0328 no tienen `cuenta_ref`: siguen a su sufijo, y si la principal cambia de
+cuenta pasan a la nueva (lo de siempre). (2) Dos «conectar» a la vez reciben el mismo sufijo y el segundo pisa al primero
+(`proximaCuentaDe` no reserva): raro, sin arreglar. (3) El link de una cuota con uno vivo de otra cuenta devuelve ése
+(`yaEstaba`, la misma regla que con la pasarela). (4) `cuentasDePago` decide «conectada» por los NOMBRES de las claves,
+no por si descifran: una principal ilegible puede elegirse como cuenta por defecto. Todo en lib/cobros.ts y
+lib/cuentas-pago-server.ts.
+
+## «Vincular cobro» no mostraba los productos de Stripe: MaKo nunca leía su catálogo (23/10/2026)
+
+Llamada con Mauricio (Fathom 195591907, min 20-28): pegó su clave secreta de Stripe, fue a «Vincular cobro» en Ganado
+de «Sprint 3 días», y su producto de US$270 no aparecía; «Volver a leer» no hacía nada y el «Sprint 3 días» de MaKo
+decía «no tiene precio». **Lo obvio era la clave en otra fila o cuenta, la caché o la moneda. No era nada de eso.**
+Medido en el ws1 (sólo leyendo): la clave es `sk_live`, lee la cuenta de México (moneda por defecto MXN) y su precio
+está en USD, con producto activo y precio por defecto. Lo que pasaba: el pop-up lista SÓLO `productos` de MaKo, y nada
+en el repo leía `/v1/prices`. «Volver a leer» volvía a pedir lo mismo.
+- **Ahora:** `preciosDeStripe` lee en vivo, sin caché, los precios activos de todas las cuentas de Stripe conectadas,
+  cada una con su clave. Elegir uno vuelve a leer el precio en Stripe con la clave de ESA cuenta (del navegador viene
+  sólo el `price_…`) y lo trae al catálogo.
+- **El mismo nombre es el mismo producto, pero sólo se le pone precio al que NO tenía.** La revisión adversarial
+  encontró el agujero: un mismo producto de Stripe con dos precios (US$600 único y US$100 por mes) pisaba el de MaKo
+  con el segundo. Eso cambiaba el vínculo de Ganado y todo link nuevo, y uno en cuotas cobraba la cuota de un precio
+  que nadie vio. Uno que cobra otra cosa ahora es un conflicto con los dos precios a la vista, y se cambia a mano.
+- **Lo que frena el vínculo frena ANTES de escribir:** que el CRM exista, que la etapa sea su Ganado, las cuentas, y
+  que el producto no cobre ya en otro CRM. Antes, el precio quedaba cambiado para todo el negocio y el vínculo fallaba
+  después.
+- Lo que MaKo no cobra tal cual se muestra con el porqué: otra moneda (el catálogo va en dólares), cada año o cada N
+  meses (MaKo cobra por mes), un monto que elige quien paga, por escalones o con fracción de centavo (Stripe manda
+  `unit_amount: null`). Los montos se convierten con `deUnidadMinima`, la de los cobros: una lista copiada trataba
+  UGX sin el ×100.
+
+**Sin hacer:**
+- Dos clics a la vez sin producto en MaKo crean dos con el mismo nombre (`productos` no tiene índice único por
+  nombre). El pop-up bloquea mientras guarda.
+- El producto de MaKo no guarda su `price_…`: el match es por nombre, y si se renombra en MaKo, traerlo crea otro.
+- ⚠️ **Lo de fondo sigue:** su landing cobra con un Payment Link propio de Stripe (`plink_…`). Las 10 sesiones
+  medidas llegan sin metadata de MaKo, y el aviso las ignora con «no es un cobro de MaKo» (la entrada del 21/10, más
+  arriba). Vincular el producto hace que cobre en Ganado lo que se paga por un link de MaKo, no lo que entra por
+  ese link.
+
+**Vive en:** lib/stripe-catalogo.ts · lib/stripe-catalogo-reglas.ts · lib/stripe-api.ts (`listarPreciosStripe`,
+`leerPrecioStripe`) · app/crm/cobro-etapa-actions.ts (`preciosDeStripeAction`, `vincularPrecioDeStripeAction`) ·
+tests/stripe-catalogo.test.ts. El pop-up es del CRM (app/crm/CobroDeEtapaModal.tsx).
+
+## El USD de una cuota de renovación: cero vale cero, y en pesos con descuento no vale el de lista (23/10/2026)
+
+Lo encontró el chat «Suscripción y Partners» (el cobro del plan de MaKo) leyendo `montoUsdDeLaCuota`
+(lib/cobros-reglas.ts). Pasaban dos cosas:
+- **Una cuota de 0** (saldo a favor, cupón del 100%) **valía lo del cobro.** Sumaba US$47 de cash que no entraron.
+  Stripe no llegaba a ese punto, porque `confirmarFactura` ya ignora la factura en cero; Mercado Pago no tiene ese
+  filtro. Y tres lugares de `aplicarPagoAprobado` usaban `p.monto ? p.monto : actual.monto`, así que un 0 se guardaba
+  y se avisaba con el monto del cobro.
+- **Una cuota en pesos con descuento valía el USD de lista.**
+
+⚠️ **Lo obvio era «convertir con la cotización del día». Cobros no tiene ninguna**, y la regla de la casa es no
+inventar una tasa. Lo único declarado es la relación del cobro: sus pesos frente a sus dólares. Con eso:
+- una cuota MENOR que el cobro es un descuento y vale su parte de esos dólares;
+- una IGUAL o MAYOR vale lo declarado. Escalarla convertiría cada ajuste por inflación en pesos en más dólares
+  vendidos, y en Argentina se ajusta seguido.
+
+**Medido en producción (sólo leyendo):** ningún negocio tiene cobros de suscripción ni cuotas de pasarela todavía.
+No quedó nada mal anotado.
+**La revisión adversarial encontró dos más:**
+- El historial del lead decía el USD de lista («ARS 40.000 (US$ 47)») mientras al cash entraban US$37,60. Ahora dice
+  lo de esa cuota.
+- Una cuota de cero dispararía «Entró un pago» y las automatizaciones de «Pagos». Ya no los dispara. Hoy esa cuota
+  no llega por ningún camino: Stripe descarta la factura en cero y Mercado Pago no aprueba pagos de cero. El arreglo
+  es por si algún día llega.
+- Queda fijo: de Mercado Pago se toma el bruto (`transaction_amount`), no `net_received_amount`. Con el neto, la
+  comisión parecería un descuento.
+
+**Sin hacer:** con una cotización diaria de verdad (otra fuente, y decidir cuál: oficial o MEP), una renovación en
+pesos valdría lo de ese día. Es una decisión de producto, no de este arreglo.
+
+**Vive en:** lib/cobros-reglas.ts (`montoUsdDeLaCuota`) · lib/cobros.ts (`aplicarPagoAprobado`) ·
+tests/cobros-reglas.test.ts.

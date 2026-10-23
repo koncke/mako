@@ -156,6 +156,8 @@ import {
 } from '@/lib/tarjeta-plan';
 import { guardarTarjetaPlanAction } from './tarjeta-actions';
 import { FONDO_COLUMNA } from '@/lib/tarjeta-kanban';
+import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
+import type { EntidadChat } from '@/lib/chat-desde';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -222,7 +224,8 @@ const vistaValida = (v: unknown): Vista | null => {
 function Marco({ embebido, children }: { embebido: boolean; children: ReactNode }) {
   const estilo: CSSProperties = {
     flex: 1, minWidth: 0, display: 'grid', gridTemplateRows: 'auto 1fr', fontFamily: SANS,
-    ...(embebido ? {} : { minHeight: 'calc(100vh - var(--barra-agencia, 0px))' }),
+    // Con el panel de MaKo abierto (la estrella, app/_chat/MakoEnLaTab.tsx), el tablero le deja el lugar a la izquierda.
+    ...(embebido ? {} : { minHeight: 'calc(100vh - var(--barra-agencia, 0px))', paddingLeft: 'var(--ancho-panel-mako, 0px)' }),
   };
   return embebido ? <div style={estilo}>{children}</div> : <main style={estilo}>{children}</main>;
 }
@@ -944,6 +947,10 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
         : (() => { const l = labels.find((x) => x.id === soltada.id); return l ? { titulo: l.name, score: l.score } : null; })())
     : null;
   const openProjLabel = labels.find((l) => l.id === openProj) ?? null;
+  // MaKo en el Plan (22/10/2026, CR4): la estrella de todas las tabs va con lo que está abierto, la tarea o el proyecto
+  // («cerrala» con la tarjeta abierta es ESA tarea; lib/chat-desde.ts). Sin nada abierto, el tablero.
+  const entidadMako: EntidadChat | null = openTask ? { tipo: 'tarea', id: openTask.id, titulo: openTask.title || 'Tarea sin título' }
+    : openProjLabel ? { tipo: 'proyecto', id: openProjLabel.id, titulo: openProjLabel.name || 'Proyecto sin nombre' } : null;
   const peekProj = labels.find((l) => l.id === peekProjId) ?? null;
 
   // Deep-link (punto 9): ?tarea=<id> / ?proyecto=<id> abre ese detalle al entrar —
@@ -1851,6 +1858,9 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           sinMuestra="Carga una tarea para ver cómo queda." ayudaDatos="Arrástralos para acomodar el renglón de abajo. El título va siempre." />
       )}
       <UndoToast state={board.undo} onClose={board.clearUndo} />
+      {/* La estrella de MaKo, la de todas las tabs: en la pantalla /plan, no en el tablero de un cliente adentro de su ficha.
+          Encima de la tarjeta abierta (un modal): si no, el fondo la tapa. */}
+      {!embebido && <MakoEnLaTab tab="Plan" entidad={entidadMako} encimaDeModales />}
     </Marco>
     </TarjetaPlanCtx.Provider>
   );

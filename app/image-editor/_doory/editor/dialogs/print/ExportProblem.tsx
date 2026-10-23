@@ -3,6 +3,7 @@ import { Button } from '../../ui/Button'
 import type { ExportFailure } from './exportFailure'
 import styles from './print.module.css'
 import { useCountdown } from './useCountdown'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 interface ExportProblemProps {
   failure: ExportFailure
@@ -25,6 +26,7 @@ export function ExportProblem({ failure, onRetry }: ExportProblemProps) {
           </Button>
         </div>
       ) : null}
+      <ReportarASoporte />
     </div>
   )
 }

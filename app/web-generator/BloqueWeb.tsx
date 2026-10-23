@@ -35,6 +35,7 @@ import { RUTA_DOMINIO, type RespuestaDominio } from '@/lib/editor-landing/domini
 import { CSS_GP, MiniaturaLanding, MuestraTema } from './MiniaturaLanding';
 import { plantillasDe } from './crear/tipo';
 import { PLAZO_DOCS_MS, postJson } from './cliente';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const ESTADO: Record<BloqueLanding['estado'], string> = { borrador: 'Borrador', publicada: 'Publicada', pausada: 'Pausada' };
 
@@ -184,7 +185,7 @@ function Elegir({ b, onResponder, respondida, ocupado }: {
           );
         })}
       </div>
-      {noSalio && dicha == null && <p className="ch-tarjeta__nota" role="alert">No salió: espera a que MaKo termine y vuelve a tocar.</p>}
+      {noSalio && dicha == null && <p className="ch-tarjeta__nota" role="alert">No salió: espera a que MaKo termine y vuelve a tocar.<ReportarASoporte /></p>}
       {dicha == null ? (
         <div className="ch-tarjeta__botones">
           <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(textoEligeTu(b))}>{ELIGE_TU}</button>
@@ -255,7 +256,7 @@ function Dominio({ b }: { b: BloqueDominio }) {
           </tbody>
         </table>
       )}
-      {error && <p className="ch-tarjeta__nota" role="alert">{error}</p>}
+      {error && <p className="ch-tarjeta__nota" role="alert">{error}<ReportarASoporte /></p>}
       {!verificado && (
         <div className="ch-tarjeta__botones">
           <button type="button" className="ch-abrir" disabled={ocupado} onClick={() => void verificar()}>{ocupado ? 'Mirando el DNS…' : 'Verificar ahora'}</button>

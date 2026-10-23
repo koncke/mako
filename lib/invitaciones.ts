@@ -344,6 +344,17 @@ export async function mandarCodigoDeBaja(p: { to: string; codigo: string; plan: 
   return r.enviado ? { enviado: true } : { enviado: false, error: r.error };
 }
 
+/**
+ * Un aviso de MaKo sobre el PLAN de un negocio (la pausa por impago, la bienvenida de un referido: lib/plan-deuda.ts,
+ * lib/partners.ts). Sale como todo mail de la plataforma (`enviarDePlataforma`: remitente de MaKo, sin link de baja).
+ */
+export async function avisarDePlataforma(m: { to: string; asunto: string; preheader: string; cuerpo: string; tag: string }): Promise<{ enviado: boolean; error?: string }> {
+  const to = (m.to ?? '').trim().toLowerCase();
+  if (!to) return { enviado: false, error: 'no hay a quién mandarlo' };
+  const r = await enviarDePlataforma({ ...m, to });
+  return r.enviado ? { enviado: true } : { enviado: false, error: r.error };
+}
+
 export async function invitarAlCursoPorEmail(p: {
   /** El workspace del ALUMNO: decide el remitente. */
   ws: number;

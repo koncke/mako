@@ -241,7 +241,8 @@ test('el programa viejo que recibe el 401 NO borra la conexión nueva (reinstala
 test('el latido dice «sin Claude» cuando no hay Claude Code (el paso 2, no el 3)', async () => {
   const r = await correr([], { servidor: 'SERVIDOR', token: VIEJO }, (p) => (p.ruta === '/api/ia-pc/latido' ? { status: 200, cuerpo: { ok: true } } : { status: 204 }), 3_000);
   const latido = r.pedidos.find((x) => x.ruta === '/api/ia-pc/latido');
-  assert.deepEqual(latido?.cuerpo, { version: programa.VERSION, cuentas: [], sinClaude: true });
+  // Desde la 0.4.0 la versión lleva el sistema (`0.4.0+windows`: varias computadoras, tests/ia-pc-enlace.test.ts).
+  assert.deepEqual(latido?.cuerpo, { version: programa.versionConSistema(), cuentas: [], sinClaude: true });
   assert.deepEqual(programa.extrasDelLatido([{ falta: true }, { conSesion: true }]), {}, 'con una cuenta que anda, no');
   assert.deepEqual(programa.extrasDelLatido([]), {});
   // Y el estado de la PC lo dice así (escritorio y teléfono usan la misma regla).
@@ -295,10 +296,10 @@ test('el tutorial: el código gastado sin conectar ofrece otro, cuenta con SU re
   assert.match(ui, /listo=\{!!estado\}/, 'hasta saber qué PC ya estaban');
   assert.match(ui, /const anda = o\.habilitada && \(o\.que !== 'pc' \|\| puedeComputadora\);/, '«Mi computadora» espera al estado (IA4)');
   assert.match(ui, /setSinSesion\(nueva\.sinClaude \? 'claude' : 'sesion'\)/);
-  assert.match(ui, /onClick=\{\(\) => setPaso\(2\)\}>Instalar Claude Code \(paso 2\)</);
+  assert.match(ui, /onClick=\{\(\) => setPaso\(2\)\}>\{sistema === 'windows' \? 'Volver a instalar \(paso 2\)' : 'Volver al paso 2'\}</);
   assert.match(ui, /no la app de escritorio/);
   // /perfil/ia ya tiene su título: el componente va sin cabecera.
-  assert.match(leer('app/perfil/ia/page.tsx'), /<TusCuentasIA sinCabecera \/>/);
+  assert.match(leer('app/perfil/ia/page.tsx'), /<TusCuentasIA sinCabecera computadora=\{\(await searchParams\)\.computadora === '1'\} \/>/);
   assert.match(sinComentarios(leer('app/m/cuenta/ia/ia-ui.ts')), /Pick<PcIA, 'enLinea' \| 'ultimoLatido' \| 'cuentas' \| 'sinClaude'>/);
 });
 

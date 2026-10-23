@@ -165,10 +165,12 @@ test('«en línea» es una PC con un Claude CON sesión, y el tutorial no dice �
   // Rota: «En la misma ventana escribe claude» → este test falla (no está en el PATH de esa ventana: «no se reconoce»).
   assert.match(ui, /windows: '& "\$env:USERPROFILE\\\\\.local\\\\bin\\\\claude\.exe" auth login'/);
   assert.match(ui, /mac: '~\/\.local\/bin\/claude auth login'/);
-  assert.match(ui, /<Copiar texto=\{LOGIN_CLAUDE\[sistema\]\} \/>/);
+  // Desde la 0.4.2 la línea del login va sólo en los respaldos plegados, con la ruta completa (Windows y Mac).
+  assert.match(ui, /<Copiar texto=\{LOGIN_CLAUDE\.mac\} \/>/);
+  assert.match(ui, /<Copiar texto=\{LOGIN_CLAUDE\.windows\} \/>/);
   assert.doesNotMatch(ui, /escribe <code>claude<\/code>/);
   assert.match(ui, /if \(nueva && nueva\.cuentas\.length\) \{ setLista\(true\); setSinSesion\(null\); setPaso\(5\); return; \}\s*if \(nueva\) \{ setSinSesion\(/);
-  assert.match(ui, /yaPaso\(repone, ahora\)/);
+  assert.match(sinComentarios(leer('app/integraciones/CuentasYDispositivos.tsx')), /yaPaso\(repone, ahora\)/);
   // El programa la vuelve a mirar: en cada latido (las que no tienen sesión) y antes de rechazar un turno.
   const p = sinComentarios(leer('scripts/ia-pc/mako-pc.mjs'));
   assert.match(p, /const latir = async \(\) => \{\s*if \(fuera\) return;\s*await revisarSesiones\(cuentas\)/);
@@ -282,7 +284,7 @@ test('el turno: la PC que se apaga a mitad se ve (no 4 minutos), y se espera lo 
   const rutas = { chat: leer('app/api/mako/chat/route.ts'), movil: leer('app/api/m/mako/route.ts') };
   for (const [n, r] of Object.entries(rutas)) assert.match(r, /plazoMs: maxDuration \* 1000/, `${n} dice su plazo`);
   // Con la PC apagada (o al tope, o sin sesión), su clave si la tiene (§5).
-  assert.match(sinComentarios(leer('lib/mako-turno-app.ts')), /if \(!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos'\) \{\s*try \{\s*const r = await chatClaudeTools\(/);
+  assert.match(sinComentarios(leer('lib/mako-turno-app.ts')), /if \(!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos' && ia\?\.cuenta !== 'pc'\) \{\s*try \{\s*const r = await chatClaudeTools\(/);
 });
 
 test('su clave de Claude que falla (sin crédito, revocada) o en pausa se le dice: no es un ticket de bug', () => {

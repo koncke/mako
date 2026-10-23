@@ -59,6 +59,12 @@ export type ConfigLanding = {
    * del catálogo no lo trae: `sanearConfig` lo completa con `ESTILO_DEFAULT` («Subir», la entrada de siempre).
    */
   pagina: { animaciones: boolean; estiloAnimacion: IdEstilo; fondoImagen: string | null };
+  /**
+   * La hoja propia de un diseño a medida (23/10/2026, «Diseño editable»: lib/editor-landing/html-editable.ts).
+   * La usan las secciones `htmlEditable` del documento, en el editor y en la página publicada. Sin el campo
+   * (todo lo de antes), no hay hoja: `sanearConfig` sólo lo escribe si trae algo.
+   */
+  diseno?: { css: string };
   /** Lo que MaKo usó para generarla (para «Ver instrucción de origen»). */
   origen?: { modo: 'cero' | 'ia' | 'plantilla' | 'importar' | 'generador'; pedido?: string; objetivo?: ObjetivoLanding; basadoEnUrl?: string | null; plantilla?: string };
 };

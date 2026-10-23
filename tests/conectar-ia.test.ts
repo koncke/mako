@@ -76,7 +76,11 @@ test('el botón del Ops Center abre «¿Qué IA usas?» ahí mismo, y cada vía 
   assert.match(sinComentarios(leer('app/_chat/MakoEnLaTab.tsx')), /<TusCuentasIA sinCabecera conectar \/>/);
   assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /<TusCuentasIA sinCabecera conectar \/>/);
   const ui = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
-  assert.match(ui, /const \[eligiendo, setEligiendo\] = useState\(conectar\);/, 'con `conectar`, abre en el paso 1');
+  // 23/10/2026 (Martín): sin el botón «Conectar tu IA»: «Nueva cuenta» muestra Claude y ChatGPT directo, siempre.
+  assert.doesNotMatch(ui, />Conectar tu IA<\/button>/, 'volvió el botón «Conectar tu IA»');
+  assert.match(ui, /<NuevaCuenta onElegir=\{setEligiendo\} \/>/);
+  assert.match(ui, /\{IAS_DEL_CLIENTE\.map\(\(x\) => \(\s*<button key=\{x\} type="button" className="tci-grande" onClick=\{\(\) => onElegir\(x\)\}>/);
+  assert.match(ui, /const \[ia, setIa\] = useState<IaDelCliente \| null>\(iaInicial \?\? null\);/, 'la IA elegida en «Nueva cuenta» no llega a «¿Cómo la conectas?»');
   // La clave: el modal de la integración de ESA IA (Claude → anthropic, ChatGPT → openai), sin salir de la tab.
   assert.match(ui, /<BotonIntegracion key=\{o\.que\} servicio=\{SERVICIO_DE_CLAVE\[ia\]\} className="tci-grande"/);
   assert.doesNotMatch(ui, /<BotonIntegracion servicio="anthropic"/, 'nada fijo en Claude');

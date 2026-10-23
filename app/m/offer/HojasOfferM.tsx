@@ -28,6 +28,7 @@ import {
   piezasEnGrupos, progresoDePiezas, renglonesDelSelector, seccionesDeOferta, seccionesDelSelector,
   type Bloque, type EstadoPaso, type PasoGeneracion,
 } from './modelo';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 // ── Un texto con sus «[completar]» como pastillas ────────────────────────────
 
@@ -242,7 +243,7 @@ export function GenerandoM({ gen }: { gen: GenM }) {
         <li className="m-offer-paso" data-estado={e.oferta}><MarcaPaso estado={e.oferta} /><span>{ROTULOS.ofertaNueva}</span></li>
       </ol>
       {fallo
-        ? <p className="m-offer-linea m-offer-linea--bad" role="alert">{gen.error}</p>
+        ? <p className="m-offer-linea m-offer-linea--bad" role="alert">{gen.error}<ReportarASoporte /></p>
         : <p className="m-offer-generando__nota">{ROTULOS.puedeTardar}</p>}
     </div>
   );
@@ -273,7 +274,7 @@ function PieConclusion({ sesion, onGuardar }: { sesion: OfferSesionVista; onGuar
 
   return (
     <PieM>
-      {error && <p className="m-offer-linea m-offer-linea--bad" role="alert">{error}</p>}
+      {error && <p className="m-offer-linea m-offer-linea--bad" role="alert">{error}<ReportarASoporte /></p>}
       {aviso?.texto.trim() && <p className="m-offer-linea m-offer-linea--warn" role="status">{aviso.texto}</p>}
       <Button variant="primary" size="lg" full loading={bajando} onClick={() => void pdf()} icon={<Icon name="descargar" size={18} />}>
         {ROTULOS.descargarPdf}

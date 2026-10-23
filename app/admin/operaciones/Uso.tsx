@@ -39,7 +39,8 @@ import {
   estadoRunnerUso, textoReinicio, textoReinicioPasado, usoDeCuenta, usoPrincipal,
   type Cuota, type EstadoRunnerUso, type UsoVentana,
 } from '@/lib/centro-uso';
-import { SeccionCredito, type LeerCredito } from './UsoCredito';
+import { SeccionCredito, type CambiarCredito, type LeerCredito } from './UsoCredito';
+import { SeccionComputadoras, type DesconectarComputadora, type LeerComputadoras } from './UsoComputadoras';
 import { TOPE_NOMBRE_CUENTA, nombreDeLaCuenta, type DatosDeCuenta } from '@/lib/centro-titulares';
 
 export type CuentaUso = { cuenta: string; vistoAt: string | null; cuota: Cuota | null; titular?: DatosDeCuenta | null };
@@ -211,10 +212,15 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
 
 /** El botón de abajo de la barra: el número siempre a la vista, y el desplegable al tocarlo. Desde el 17/10/2026 no copia
  *  ningún comando (Martín: «no quiero copiar en PowerShell, que se instale todo solo»). */
-export function BotonUso({ cuentas, ahora, onRenombrar, onLeerCredito }: {
+export function BotonUso({ cuentas, ahora, onRenombrar, onLeerCredito, onCambiarCredito, onLeerComputadoras, onDesconectarComputadora }: {
   cuentas: readonly CuentaUso[]; ahora: number; onRenombrar?: RenombrarCuenta;
   /** El crédito de API de los planes (UsoCredito.tsx): se pide recién al abrir. Sin esto, la sección no sale. */
   onLeerCredito?: LeerCredito;
+  /** El interruptor del crédito asignado a un negocio (el ws1). Sin esto, se ve y no se toca. */
+  onCambiarCredito?: CambiarCredito;
+  /** Las computadoras de los negocios, con su «Desconectar» (UsoComputadoras.tsx). Sin esto, la sección no sale. */
+  onLeerComputadoras?: LeerComputadoras;
+  onDesconectarComputadora?: DesconectarComputadora;
 }) {
   const [abierto, setAbierto] = useState(false);
   const caja = useRef<HTMLDivElement>(null);
@@ -235,7 +241,8 @@ export function BotonUso({ cuentas, ahora, onRenombrar, onLeerCredito }: {
         <div className="co-uso__panel" role="dialog" aria-label="Uso y Runners">
           <p className="co-uso__cab">Uso</p>
           <ListaUso cuentas={cuentas} ahora={ahora} onRenombrar={onRenombrar} />
-          {onLeerCredito && <SeccionCredito leer={onLeerCredito} cuentas={cuentas} />}
+          {onLeerCredito && <SeccionCredito leer={onLeerCredito} cambiar={onCambiarCredito} cuentas={cuentas} />}
+          {onLeerComputadoras && <SeccionComputadoras leer={onLeerComputadoras} desconectar={onDesconectarComputadora} ahora={ahora} />}
         </div>
       )}
       <button type="button" className="co-acceso" aria-expanded={abierto} onClick={() => setAbierto((a) => !a)}

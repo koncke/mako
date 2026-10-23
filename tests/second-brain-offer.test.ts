@@ -77,14 +77,14 @@ test('3. la API: ?offer=1 y ?offerId=N, detrás de la puerta de MaKo; uno de otr
 test('4. la pantalla: cada conversación de Offer es una fila de la lista, y se sigue en el Ops Center con el motor de Offer', () => {
   const sb = leer('app/second-brain/useChatCliente.ts');
   // Con el grupo de WhatsApp de MaKo desde el 22/10/2026 (OC3): una fila más de LA lista.
-  assert.match(sb, /listaDelCliente\(\{ sesiones: sesiones \?\? \[\], offer: offer \?\? \[\], antes: antes \?\? \[\], grupo, busca, automations: automations \?\? \[\] \}\)/, 'una fila por conversación, en LA lista');
+  assert.match(sb, /listaDelCliente\(\{ sesiones: sesiones \?\? \[\], offer: offer \?\? \[\], antes: antes \?\? \[\], grupo, busca, automations: automations \?\? \[\](?:, editores: editores \?\? \[\])? \}\)/, 'una fila por conversación, en LA lista');
   assert.match(sb, /void abrirOffer\(idOffer\)\.then\(/, 'se abre con el motor de Offer');
-  assert.match(sb, /const r = await turnoOffer\(s\.id, mensaje, s\.mensajes, respuestaDeOffer\(s\.mensajes, mensaje\), archivos\.map\(\(a\) => a\.file\)\);/, 'lo escrito va a Offer');
+  assert.match(sb, /const r = await turnoOffer\(s\.id, mensaje, s\.mensajes, respuestaDeOffer\(s\.mensajes, mensaje\), archivos\.map\(\(a\) => a\.file\), nota\);/, 'lo escrito (y la nota de voz, OC7) va a Offer');
   assert.doesNotMatch(sb, /Seguir en Offer|AVISO_OFFER|\/offer\?sesion=/, 'nunca «Seguir en Offer»');
   const motor = leer('app/second-brain/motor-offer.ts');
-  assert.match(motor, /llamarOffer<\{ sesion: OfferSesionVista \}>\(\s*\{ action: 'turno', sesionId: id, texto, docIds,/, 'el turno de la tab');
+  assert.match(motor, /con\.llamar<\{ sesion: OfferSesionVista \}>\(\s*\{ action: 'turno', sesionId: id, texto, docIds,/, 'el turno de la tab');
   assert.match(motor, /\{ action: 'leer-link', sesionId: id, url \}/, 'los links, leídos antes, como en la tab');
-  assert.match(motor, /quedoGuardado\(leida\.sesion\.mensajes, antes\.length, \{ texto, audio: false \}\)/, 'un corte no lo manda dos veces');
+  assert.match(motor, /quedoGuardado\(leida\.sesion\.mensajes, antes\.length, \{ texto, audio: !!voz \}\)/, 'un corte no lo manda dos veces');
   assert.doesNotMatch(leer('lib/chat-mako-reglas.ts').slice(leer('lib/chat-mako-reglas.ts').indexOf('export function arbolDelJefe')).split('\n}')[0], /offer/i, 'el jefe sigue mirando sólo la clave exacta');
   // Offer abre ESA conversación con ?sesion=, si es de este negocio (en la computadora y en el teléfono).
   for (const p of ['app/offer/page.tsx', 'app/m/offer/page.tsx']) {

@@ -35,6 +35,7 @@ import { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { crearServicioAction } from '../actions';
 import { useCerrarEstable, useFocoInicial } from './dialogo-foco';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** El curso del producto `id` (el `?ws=` lo pone `conWs`). */
 const rutaDelCurso = (id: number) => `/clients/classroom?producto=${id}`;
@@ -78,7 +79,7 @@ export function NuevoProducto({ onCerrar }: { onCerrar: () => void }) {
           onChange={(e) => { setNombre(e.target.value); setError(''); }}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void crear(); } }} />
       </Field>
-      {error && <p style={{ margin: '10px 0 0', color: 'var(--bad)', fontSize: 13 }} role="alert">{error}</p>}
+      {error && <p style={{ margin: '10px 0 0', color: 'var(--bad)', fontSize: 13 }} role="alert">{error}<ReportarASoporte /></p>}
     </Modal>
   );
 }

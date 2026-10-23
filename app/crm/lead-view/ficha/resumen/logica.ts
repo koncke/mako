@@ -311,6 +311,7 @@ export function canalDeEntrada(origen: string | null | undefined): { texto: stri
     case 'messenger': return { texto: 'Llegó por Messenger', tono: 'good' };
     case 'hotmart': return { texto: 'Llegó por Hotmart', tono: 'good' };
     case 'skool': return { texto: 'Pidió entrar a tu Skool', tono: 'good' };
+    case 'grupo_whatsapp': return { texto: 'Traído de un grupo de WhatsApp', tono: 'dim' };
     default: return { texto: 'Sin dato de origen', tono: 'dim' };
   }
 }

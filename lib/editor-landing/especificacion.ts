@@ -44,7 +44,7 @@ import {
   FORMAS_IMAGEN, MAX_COLUMNAS, NIVELES_TITULO, NODO, OPTIMIZADOS, SUPERPOSICIONES, TAMANOS_TEXTO, TIPOS_CAMPO,
   TONOS_RECUADRO, TOPES, VARIANTES_BOTON, VARIANTES_OPTIMIZADO, VARIANTES_PARRAFO, enLista, esHex,
   type AttrsBoton, type AttrsBotones, type AttrsColumnas, type AttrsEspaciador, type AttrsFormulario,
-  type AttrsHtmlLibre, type AttrsImagen, type AttrsInsertado, type AttrsOptimizado, type AttrsOptimizadoItem,
+  type AttrsHtmlEditable, type AttrsHtmlLibre, type AttrsImagen, type AttrsInsertado, type AttrsOptimizado, type AttrsOptimizadoItem,
   type AttrsRecuadro, type AttrsTarjeta, type AttrsVideo, type CampoFormulario, type ColorTema, type Degradado,
   type TamanoTexto, type TipoCampo, type VarianteOptimizado, type VarianteParrafo,
 } from './doc';
@@ -53,9 +53,10 @@ import {
 } from './animaciones';
 import { altoDeEmbed, atributosDeIframe, claseDeProveedor, embedDe, esProveedorEmbed, nombreDeProveedor } from '../embeds';
 import { SANDBOX_PUBLICO } from './html-libre';
+import { ALTO_MINIATURA_EDITABLE, CLASE_EDITABLE, documentoEditable } from './html-editable';
 import { hrefPagoValido } from './pago-landing';
 import {
-  arbolDeGrafico, htmlDeArbol, normalizarGrafico, type AttrsArbol, type HijoArbol, type NodoArbol,
+  HtmlCrudo, arbolDeGrafico, htmlDeArbol, normalizarGrafico, type AttrsArbol, type HijoArbol, type NodoArbol,
 } from './grafico-svg';
 
 export { htmlDeArbol, escaparTexto, escaparAtributo, HtmlCrudo } from './grafico-svg';
@@ -95,6 +96,8 @@ export type CtxSpec = {
    * landing (`OpRender.htmlLibre`). Sin esto, o sin id, el bloque sale con `srcdoc` como siempre.
    */
   srcHtmlLibre?: (idBloque: string) => string | null;
+  /** La hoja del documento (`config.diseno.css`) para dibujar un «Diseño editable» en su iframe (html-editable.ts). */
+  cssDiseno?: string;
   /**
    * Los MARCADORES de una miniatura de trabajo (render.ts, `OpRender.marcadores`; sólo en
    * 'miniatura'): el VSL vacío de un diseño se dibuja como un ▶ (`specInsertado`). Sin esto, un
@@ -572,6 +575,16 @@ export function attrsHtmlLibre(raw: unknown): AttrsHtmlLibre {
   return { id: idValido(r.id), html, alto: deListaNum(ALTOS_HTML_LIBRE, r.alto, 300) as AttrsHtmlLibre['alto'] };
 }
 
+/**
+ * «Diseño editable» (html-editable.ts): pasado el tope (`TOPES.htmlEditable`) queda vacío, como el HTML
+ * personalizado (recortado quedaría roto). `id` va primero por lo mismo que en `attrsHtmlLibre`.
+ */
+export function attrsHtmlEditable(raw: unknown): AttrsHtmlEditable {
+  const r = obj(raw);
+  const html = typeof r.html === 'string' && r.html.length <= TOPES.htmlEditable ? r.html.replace(/\u0000/g, '') : '';
+  return { id: idValido(r.id), html };
+}
+
 export type AttrsParrafo = { variante: VarianteParrafo | null; textAlign: AlineacionTexto | null };
 export function attrsParrafo(raw: unknown): AttrsParrafo {
   const r = obj(raw);
@@ -628,6 +641,7 @@ export const NORMALIZAR_NODOS: Readonly<Record<string, (raw: unknown) => Record<
   [NODO.grafico]: normalizarGrafico,
   [NODO.espaciador]: attrsEspaciador,
   [NODO.htmlLibre]: attrsHtmlLibre,
+  [NODO.htmlEditable]: attrsHtmlEditable,
   paragraph: attrsParrafo,
   heading: attrsEncabezado,
   bulletList: sinAtributos,
@@ -1104,6 +1118,23 @@ export function specHtmlLibre(raw: unknown, ctx?: CtxSpec): NodoArbol {
   }));
 }
 
+/**
+ * «Diseño editable» (html-editable.ts). En la página PUBLICADA, el HTML va en la página (ya saneado por el
+ * server al guardar y al publicar: html-editable-seguro.ts): `div.gm-editable` con el HTML adentro. Una
+ * página con diseño editable se publica «libre» (render.ts) y ahí la sección sale sin este envoltorio.
+ * En el editor, una miniatura o la exportación sale en un iframe `srcdoc` SIN scripts ni mismo origen
+ * (`sandbox=""`): lo dibuja aislado, con la base y la hoja del documento (`ctx.cssDiseno`).
+ */
+export function specHtmlEditable(raw: unknown, ctx?: CtxSpec): NodoArbol {
+  const a = attrsHtmlEditable(raw);
+  if (!a.html) return el('div', { class: CLASE_EDITABLE, 'data-vacia': 'si' });
+  if (modo(ctx) === 'publico') return el('div', { class: CLASE_EDITABLE }, new HtmlCrudo(a.html));
+  return el('div', { class: CLASE_EDITABLE }, el('iframe', {
+    sandbox: '', srcdoc: documentoEditable(a.html, ctx?.cssDiseno ?? ''), title: 'Diseño editable', loading: 'lazy',
+    referrerpolicy: 'no-referrer', scrolling: 'no', style: `height:${ALTO_MINIATURA_EDITABLE}px`,
+  }));
+}
+
 // ── Los de TipTap (StarterKit, listas de tareas, tablas) ─────────────────────
 
 export function specParrafo(raw: unknown): NodoArbol {
@@ -1162,6 +1193,7 @@ export const SPEC_NODOS: Readonly<Record<string, (attrs: unknown, ctx?: CtxSpec)
   [NODO.grafico]: specGrafico,
   [NODO.espaciador]: specEspaciador,
   [NODO.htmlLibre]: specHtmlLibre,
+  [NODO.htmlEditable]: specHtmlEditable,
   paragraph: specParrafo,
   heading: specEncabezado,
   bulletList: specListaVinetas,

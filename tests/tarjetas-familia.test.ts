@@ -56,8 +56,8 @@ test('CRM en la computadora: la tarjeta de la familia con el arrastre y el clic 
   assert.match(t, /pildora=\{\{ texto: 'Ver info'/);
   assert.match(t, /className="mk-sel-tarjeta"/, 'sin la casilla de selección');
   assert.match(b, /onMover=\{\(key\) => \{ cerrar\(\); idASoltar\.current = l\.id; handleDrop\(key\); \}\}/, '«Mover a…» tiene que ir por el mismo camino que soltar');
-  // Desde el 22/10/2026 el bloque azul va en el pop-up de «Tus reuniones», uno por reunión (tests/crm-feedback-22-10.test.ts).
-  assert.match(b, /<TarjetaDestacada key=\{j\.id\} ancha\s+sobre=/);
+  // Desde el 22/10/2026 «Tus reuniones» lleva la tarjeta que prepara cada reunión (app/crm/TarjetaReunion.tsx).
+  assert.match(b, /<ReunionesParaPreparar reuniones=\{reuniones\}/);
 });
 
 test('CRM en el teléfono: tocar abre la ficha rápida y «Mover a…» usa el sheet de KanbanM', () => {

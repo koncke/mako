@@ -24,7 +24,7 @@ import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import {
   SECCION_CEREBRO, SECCION_CHATS, esPrioritario, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats, sinNoticiasDesde,
-  type ChatCentro,
+  type ChatCentro, type GrupoJefe,
 } from '@/lib/centro-chats';
 export { buscarChats } from '@/lib/centro-chats';
 import { elegidoPara, esCriaturaDeMako } from '@/lib/centro-munecos';
@@ -38,7 +38,6 @@ import { ElegirMuneco } from './ElegirMuneco';
 import { Conversacion } from './Conversacion';
 import { BotonUso } from './Uso';
 import { cuentasDeUso } from '@/lib/centro-uso';
-import { CirculoNuevo } from './NuevoChat';
 import { Muneco, animoDe, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
 import type { Centro } from './useCentro';
@@ -55,7 +54,8 @@ const VISIBLES = 14;
 function Previa({ c, espera, sinVer }: { c: ChatCentro; espera: number; sinVer: boolean }) {
   const r = segundoRenglon(c, espera, sinVer);
   if (!r) return null;
-  return <span className={`co-fila__l2 ${r === 'vivo' ? 'co-fila__l2--vivo' : 'co-fila__l2--espera'}`}>{TEXTO_SEGUNDO_RENGLON[r]}</span>;
+  // «Completado» en verde, como «Trabajando…»: sólo una pregunta abierta va en el color que pide algo (22/10/2026).
+  return <span className={`co-fila__l2 ${r === 'vivo' ? 'co-fila__l2--vivo' : r === 'revisar' ? 'co-fila__l2--ok' : 'co-fila__l2--espera'}`}>{TEXTO_SEGUNDO_RENGLON[r]}</span>;
 }
 
 /** El sello de un «Ya está» en la lista (17/10/2026: en pantalla «Ya está» se dice «Completado»). */
@@ -208,15 +208,22 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
  * en la lista lleva su nombre arriba. UNO para las dos listas: la del super admin (`ListaCentro`) y la del cliente
  * (app/second-brain/ChatSecondBrain.tsx, sus chats agrupados por origen: 22/10/2026, «un orden como en Super Admin»).
  */
-export function GruposPorJefe<T extends { titulo: string }>({ chats, fila }: { chats: readonly T[]; fila: (c: T, sub: boolean) => ReactNode }) {
+export function GruposPorJefe<T extends { titulo: string }>({ chats, fila, jefe }: {
+  chats: readonly T[]; fila: (c: T, sub: boolean) => ReactNode;
+  /** La fila jefe de un grupo que no tiene chat propio (el cliente: lib/chat-mako-reglas.ts → jefeDelGrupo). Sin esto, su nombre. */
+  jefe?: (g: GrupoJefe<T>) => T | null;
+}) {
   return (
     <>
-      {porJefe(chats).map((g) => (
-        <div key={g.clave} className="co-jefe">
-          {g.chat ? fila(g.chat, false) : <p className="co-jefe__nombre">{g.jefe}</p>}
-          {g.subs.length > 0 && <div className="co-jefe__subs">{g.subs.map((s) => fila(s, true))}</div>}
-        </div>
-      ))}
+      {porJefe(chats).map((g) => {
+        const cabeza = g.chat ?? jefe?.(g) ?? null;
+        return (
+          <div key={g.clave} className="co-jefe">
+            {cabeza ? fila(cabeza, false) : <p className="co-jefe__nombre">{g.jefe}</p>}
+            {g.subs.length > 0 && <div className="co-jefe__subs">{g.subs.map((s) => fila(s, true))}</div>}
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -248,7 +255,9 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
         chats: k.chats, onReenviar: (texto, claves) => k.reenviar(chat, texto, k.chats.filter((c) => claves.includes(c.clave))),
         onCopiar: (t) => void k.copiarConAviso(t, 'Copiado'),
       }}
-      espera={esperaDe(chat, k.esperas)}
+      // El MISMO número que su fila (`k.avisos`: lo que espera a Martín y su «Completado» sin ✓). Con `esperaDe` la criatura de
+      // la cabecera dormía mientras la fila decía «Completado» (Martín, 22/10/2026: «No se entiende»).
+      espera={k.avisos(chat)}
       preguntas={preguntasDelChat(chat, k.decisiones, k.carteros)}
       respuestas={respuestasDelChat(chat, k.decisiones, k.carteros)}
       responder={k.responderAca}
@@ -371,7 +380,7 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
   return (
     <div className="co-barra__abajo">
       {/* Las CUATRO cuentas siempre, tengan o no Runner (Martín: «no sale el uso de las otras 2 cuentas»). */}
-      <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} />
+      <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} onCambiarCredito={k.cambiarCreditoDelNegocio} onLeerComputadoras={k.leerComputadoras} onDesconectarComputadora={k.desconectarComputadora} />
     </div>
   );
 }
@@ -383,8 +392,9 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
  */
 export function NuevoChatCentro({ onNuevo, actual }: { onNuevo: () => void; actual: boolean }) {
   return (
-    <button type="button" className="co-fila co-fila--nuevo" aria-current={actual ? 'true' : undefined} onClick={onNuevo}>
-      <CirculoNuevo />
+    // Con el diseño de «＋ Nueva automatización» (feedback 4, 22/10/2026): la fila punteada con el ＋ que gira (`.co-nueva`).
+    <button type="button" className="co-fila co-fila--nuevo co-nueva" aria-current={actual ? 'true' : undefined} onClick={onNuevo}>
+      <span aria-hidden className="co-nueva__mas">＋</span>
       <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
     </button>
   );

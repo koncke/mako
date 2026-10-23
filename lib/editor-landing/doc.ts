@@ -72,6 +72,7 @@ export const NODO = {
   grafico: 'grafico',                // gráficos inteligentes (SVG puro)
   espaciador: 'espaciador',
   htmlLibre: 'htmlLibre',            // HTML personalizado, en iframe sandbox
+  htmlEditable: 'htmlEditable',      // «Diseño editable»: HTML a medida, sin JS, con texto a la vista (html-editable.ts)
 } as const;
 
 /** Nodos de TipTap que se aceptan tal cual (StarterKit + listas de tareas + tablas). */
@@ -316,6 +317,12 @@ export type AttrsEspaciador = { alto: AltoEspaciador };
  * (validar.ts). `alto` es el alto de PARTIDA: el iframe se ajusta solo con lo que mide adentro.
  */
 export type AttrsHtmlLibre = { id: string | null; html: string; alto: (typeof ALTOS_HTML_LIBRE)[number] };
+/**
+ * «Diseño editable» (23/10/2026, la landing de hola-mako.com en Web Generator): el HTML de UNA sección de
+ * un diseño a medida, sin JavaScript (lo saca el saneo del server). Su hoja es la del documento
+ * (`config.diseno.css`). Se publica en la página, sin iframe: lib/editor-landing/html-editable.ts.
+ */
+export type AttrsHtmlEditable = { id: string | null; html: string };
 
 /** Topes que el server aplica al guardar (y la IA respeta al generar). */
 export const TOPES = {
@@ -326,6 +333,10 @@ export const TOPES = {
   // ~400 KB (tanda 2, T6): «Copia fiel» de una landing de afuera trae su <head> con los estilos.
   // Sigue bajo `bytesContenido`, que es el tope de la landing entera.
   htmlLibre: 400_000,
+  // Una sección de un diseño a medida (la más pesada de la landing de MaKo, la grilla de funcionalidades,
+  // mide ~45 KB) y la hoja propia del documento (la de la landing, ~25 KB con la base).
+  htmlEditable: 200_000,
+  cssDiseno: 200_000,
   camposFormulario: 10,
   categoriasGrafico: 24,
   seriesGrafico: 8,
@@ -371,10 +382,26 @@ export function contenidoVacio(): LandingContenido {
   return { v: 1, paginas: [{ id: nuevoId('p'), titulo: 'Inicio', ruta: '', doc: docPagina([tarjetaVacia()]) }] };
 }
 
+/** El texto de un HTML, para la tira de secciones, el SEO y la IA. Sin DOM: corta etiquetas y entidades simples. */
+export function textoDeHtmlEditable(html: string): string {
+  return html
+    .replace(/<(script|style|svg)[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h[1-6]|li|section|header|footer|a)>/gi, '\n')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+}
+
 /** Texto plano de un subárbol (para SEO, IA, búsqueda y miniaturas). */
 export function textoDe(n: JsonNodo | undefined | null, sep = '\n'): string {
   if (!n) return '';
   if (n.type === 'text') return n.text ?? '';
+  // El texto de un diseño editable vive en su HTML (un atributo), no en hijos.
+  if (n.type === NODO.htmlEditable) return typeof n.attrs?.html === 'string' ? textoDeHtmlEditable(n.attrs.html) : '';
   if (!n.content?.length) return '';
   const bloque = new Set(['paragraph', 'heading', 'listItem', 'taskItem', 'blockquote', 'tableRow', NODO.tarjeta, NODO.optimizadoItem, NODO.desplegableTitulo, NODO.desplegableCuerpo]);
   return n.content.map((c) => textoDe(c, sep)).join(bloque.has(n.type) ? sep : '').replace(/\n{3,}/g, '\n\n');

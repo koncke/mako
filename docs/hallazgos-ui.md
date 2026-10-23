@@ -12,6 +12,53 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Reportar a Soporte»: UN botón en todo aviso de error, y el guardián que lo exige (23/10/2026)
+
+Martín (22/10): «en toda la app, SIEMPRE que sale un error, en donde sea, debe aparecer el botón de "Reportar a Soporte" y que
+cuando lo apreten se mande automático un mensaje aquí [la Ticketera] reportando solo lo que pasó». Es `app/_ui/ReportarASoporte.tsx`
+y tests/reportar-a-soporte.test.ts lo exige como hijo directo de TODO elemento JSX con `role="alert"` (o `role={…'alert'…}`) de
+app/. Se puso con un script en los 261 avisos de 181 archivos (el AST de TypeScript, no regex: los `=>` de los atributos rompen
+cualquier regex de JSX). Lo que no se ve leyendo el código:
+
+- **Hay avisos que están SIEMPRE montados y vacíos** (`<p role="alert">{error}</p>` con `error` null) y otros que cambian de
+  `role` («alert» o «status» según el tono). Por eso `<ReportarASoporte />` a secas no se dibuja si su padre está vacío o no es
+  `role="alert"`, y lo sigue mirando con un MutationObserver (hay avisos que se llenan sin que su componente se vuelva a dibujar).
+- **Lee el TEXTO del aviso, sin el de sus botones y links** («Reintentar», «Cerrar»), no la pantalla. Lo que hacía la persona
+  es el último botón que tocó (un listener en captura, vigente 2 minutos), sin los nombres propios que puede traer («Mover a Ana»
+  → «Mover a «…»»).
+- **Una lista (`<ul role="alert">`) sólo lleva `<li>`**: el botón va en el suyo y lee el aviso de arriba.
+- **Los avisos de error que NO son un `role="alert"` del JSX** se hicieron a mano: ErrorState (su marco era `role="status"`
+  también con tono `bad`), el Toast con tono `bad` (era `status`; ahora es un aviso y dura 8 s), el toast del teléfono (no tiene
+  tono: un error se reconoce por la frase, `esTextoDeError`), los `toast.error` de sonner del Video Editor
+  ([hallazgos-video-editor.md](hallazgos-video-editor.md)) y las dos pantallas de error de Next, que no importan nada de la app (si
+  la app está rota, el botón también): el mismo pedido, a mano.
+- **Privacidad** (la revisión adversarial del 23/10, que encontró cuatro agujeros en la primera versión): el reporte se sanea en el
+  navegador Y en el servidor. `sinSecretos`: JWT, «Authorization:/Cookie:», «Bearer/Basic/Token …», todo `…token=`/`client_secret:`
+  (el `\b` delante de `secret` no engancha después de `_`: hace falta `\w*`), «password es …», los prefijos conocidos (sk-, AIza,
+  EAA de Meta, ya29. de Google, ghp_, whsec_), la query de un link y todo token largo. `sinDatos`: emails, teléfonos y lo citado.
+  `sinNombres`: lo que va con mayúscula y no es de MaKo ni una sigla («mover a Roberto Pérez»: `sinDatos` sólo tapaba lo citado).
+  `rutaSoporte`: los tokens del CAMINO (/pagar/<token>) y los números que pueden ser un teléfono o un código. El navegador sólo
+  con la forma de uno. De quién es lo dice la sesión: el cuerpo no tiene cómo elegir el workspace ni la persona.
+- **«Lo que hacía» sale SÓLO de botones de verdad y fuera de una fila**: una tarjeta de lead o de conversación es un
+  `[role=button]` (o un botón en una fila) y su `innerText` es el nombre y la vista previa del mensaje. Y no cuenta el propio
+  «Reportar a Soporte»: el del toast de sonner está fuera de `[data-soporte]` y se registraba como «lo que hacía».
+- **El error que manda el botón no es «lo que vio el sistema»**: va en el detalle del ticket, no en `contexto.error` (el porqué,
+  en [hallazgos-ticketera.md](hallazgos-ticketera.md)).
+- **Un error de VALIDACIÓN también lo lleva** (el `mk-err` de `Field`, «Escribe un email válido»): Martín dijo «SIEMPRE». Si
+  molesta, la salida es sacarle el `role="alert"` a lo que no es un error de la app, no un permiso en el guardián.
+
+**Vive en:** app/_ui/ReportarASoporte.tsx · lib/soporte-reporte.ts · app/api/soporte/reportar/route.ts · app/_ui/Estados.tsx · app/_ui/Toast.tsx · app/m/_ui/ShellM.tsx · app/error.tsx · app/global-error.tsx · tests/reportar-a-soporte.test.ts
+
+## El menú de la casa (MenuContextual) tiene SECCIONES y lo tildado (22/10/2026)
+
+- **`seccion` en un renglón** es el título de la sección que empieza ahí. La pieza dibuja la raya de arriba (si no es el
+  primero, y si un `null` no la puso ya) y el título chico. Una sección que quedó sin renglones no deja título: lo pone
+  quien arma la lista en el PRIMER renglón que quedó (`itemsCrm`, app/crm/menu-contextual-crm.ts).
+- **`marcado`** es lo elegido hoy en un submenú de una sola opción (el tipo de una etapa): un ✓ a la derecha y
+  `aria-current`. El renglón sigue siendo `menuitem`: con `menuitemradio`, el teclado (`itemsDe`) no lo encontraba.
+- **Por qué no el `Dropdown`**: no dibuja un submenú al costado ni un renglón en rojo, y un menú que se abre con un botón y
+  con el clic derecho del mismo lugar tiene que ser UNO (ver docs/hallazgos-crm.md, el «⋯» de una columna).
+
 ## Lo que más muerde acá
 
 - **«No se autoguarda» no era el campo: era el MODAL** (14/10/2026). Los campos de la ficha del lead
@@ -54,6 +101,21 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
 - El preflight de Tailwind hace `svg { display: block }`: un ícono **no** se centra con el
   `textAlign: 'center'` del padre — queda pegado a la izquierda mientras los textos de abajo
   sí se centran → [Primitives y sistema visual](#primitives-y-sistema-visual).
+- **Un alto en línea `calc(100dvh - …)` NO descuenta la barra de arriba** (22/10/2026, medido en Offer): la regla global de
+  app/globals.css que resta `--barra-agencia` (la barra de «Estás viendo el dashboard de…», 50 px, o la alerta de la voz de
+  MaKo caída, 64 px, que ve también un cliente) sólo toca un estilo que EMPIEZA con `height: 100dvh`. Con `calc(` la página
+  queda más alta que la ventana, el navegador la corre al enfocar un campo y lo de abajo queda debajo del borde. Así
+  estaban Offer, Image Editor (el inicio y el diseño) y Video Editor (el inicio y el proyecto); los cinco restan ahora
+  `var(--barra-agencia, 0px)` en su `calc`. **Lo hace cumplir** tests/barra-inspeccion-alto.test.ts, 7: toda `page.tsx` con
+  un alto en línea `calc(100vh…)` o `calc(100dvh…)` tiene que descontarla.
+- **Y el `min-height: 100vh` también estira la página** (22/10/2026, medido por CRM y repetido en el CRM del ws3 con una
+  ventana de 811). El reporte fue «el menú de la sidebar no entra y la página se estira 50 px», y el diagnóstico obvio era el
+  equivocado: la sidebar ya descontaba la barra (su regla de app/globals.css) y su menú scrolleaba adentro (608 px de contenido
+  en 548). Lo que estiraba era el CONTENEDOR RAÍZ de app/layout.tsx (`minHeight: '100vh'`): con la barra, `body` gana sus 50 px
+  de padding, y el documento medía 860. La regla de `height` dejaba afuera `min-height` a propósito («no desborda nada»), y sí
+  desborda. Ahora hay una regla para `min-height: 100vh` y `100dvh` (las dos escrituras del estilo, como la de `height`), que
+  cubre el raíz y los otros 21 `main` con ese alto mínimo, y el raíz lo descuenta además en línea. Medido con la regla
+  inyectada en la pestaña: documento 811, raíz y `main` 761. Lo fija tests/barra-inspeccion-alto.test.ts, 8.
 
 ---
 
@@ -75,6 +137,27 @@ Tarjeta #883: «que cada persona elija tema claro u oscuro en la computadora (ho
 
 **Vive en:** `app/_components/ModoArranque.tsx`, `ModoDelUsuario.tsx`, `TemaCandidato.tsx`, `InterruptorModo.tsx` ·
 `tests/tema-por-persona.test.ts`
+
+## Abrir a MaKo pliega la sidebar, y el ícono de una tab vive en DOS listas (22/10/2026)
+
+Martín: «si abro a MaKo, se debería plegar la sidebar principal, para optimizar espacios. Si antes la tenía desplegada y
+fija, al cerrar MaKo debe volver a su lugar»; y «no me gusta el ícono de "Automations", cambialo por otro que se entienda más».
+- **Para plegar la barra un rato hay UN lugar: `plegadaAca`** (app/_components/Sidebar.tsx), el pliegue temporal que ya usaban
+  el Ops Center y la ventana chica. Sumarle una condición la pliega sin tocar lo guardado (`setFija` ahí sólo cambia
+  `abiertaAca`), y cuando la condición se apaga `fija` vuelve sola a la guardada. Nunca `setFija`/`guardarFija` para esto:
+  pisaría la preferencia de la persona. El panel de la estrella lo avisa con app/_chat/mako-abierto.ts (un estado de módulo, sin
+  CSS, que también se suelta al salir de la tab con el panel abierto).
+- **`--ancho-panel-mako` no hubo que tocarlo**: el panel se pega al borde MEDIDO de la barra (`useBordeDeLaBarra`, con
+  ResizeObserver), así que al plegarse la barra el panel se corre con ella y la tab le sigue dejando lo que mide el panel.
+- **El ícono de una tab está en dos listas que nada une**: app/_components/nav.ts (la barra y el buscador, que dibuja
+  `item.icon`; y en una tab unificada, la FILA de la tab y cada sección por separado) y lib/movil-rutas.ts (el teléfono, su
+  propia lista). Cambiarlo en nav.ts dejaba el teléfono con el viejo. Automations pasó de `chatbot` (el globito con chispas) a
+  `flujo` (tres pasos unidos) en las dos, y en lo que propone un flujo en la bandeja del teléfono.
+
+**Vive en:** `app/_components/Sidebar.tsx` (`plegadaAca`) · `app/_chat/mako-abierto.ts` · `app/_chat/MakoEnLaTab.tsx` ·
+`app/_components/icons.tsx` (`flujo`) · `tests/sidebar-mako-abierto.test.ts` (8 roturas, las 8 cazadas)
+
+*22/10/2026, chat «Offer» (claude3).*
 
 ## La sidebar nueva: sacar una fila de nav.ts cierra puertas que no son de la barra (17/10/2026)
 
@@ -4267,3 +4350,35 @@ Martín, 21/10: «Los íconos de "tablero y lista" deberían estar como juntos e
   dos, la galería podría prometer una tarjeta que el tablero no dibuja.
 - **El CRM dejó de usar clases `tk-*` en la barra**: salió de la lista de tests/tarjetas-familia.test.ts que exige montar
   `<EstiloTarjetas />` (si vuelve a usarlas, vuelve a la lista).
+
+## Con la barra de la agencia, TODO `<aside>` toma el alto de la ventana (22/10/2026)
+
+`app/globals.css` tiene `[data-barra-agencia] aside { top: var(--barra-agencia) !important; height: calc(100vh - …)
+!important }` desde el 16/08, para el riel del Sidebar. Pero el selector toma CUALQUIER `<aside>`, y sólo cuando el super
+admin mira un cliente: un panel flotante (`position: absolute`) que sea un `<aside>` queda más alto que su contenedor y lo
+de abajo sale de la vista. Medido en el Dashboard del ws3: «Editar con MaKo» medía 761 px en un lienzo de 612, con la caja
+afuera; sin el atributo, 588. **El cliente no lo ve nunca**, así que en una prueba con su sesión todo se ve bien. Con la
+alerta de voz ya se había acotado al Sidebar (`aside[data-sidebar]`) por lo mismo, el 11/09. **Regla:** un panel flotante
+nuevo es un `<section role="complementary">` o un `<div>`, no un `<aside>`. **Pega también en un panel que NO flota**: el
+agente del Web Generator y el chat del Video Editor (dentro de su columna, con `size-full`) medían 761 px en lugares de 668,
+con la caja abajo de la vista; los tres pasaron a `<section>` el 22/10. **Y mirar también a los padres:** en el Web Generator
+el que se estiraba era la COLUMNA del editor (`aside.gma-izq`, 761 px en un cuerpo de 713), no el panel; pasar sólo el panel
+a `<section>` no cambió nada. Las tres columnas del editor (EditorLanding.tsx) son `<section>` desde esa noche. Sin hacer: acotar también la regla de la barra de
+agencia a `aside[data-sidebar]` (es de esta área; hay que mirar antes qué otro `<aside>` depende de ella).
+
+## Un pie `sticky` adentro del cuerpo de un Modal deja pasar filas por debajo (23/10/2026)
+
+- **Síntoma** (Martín, captura de «Traer de otro funnel» en el ws1): «se ven leads por detrás y debajo» del pie con
+  «← Atrás» y «Agregar aquí», «y parece roto».
+- **El diagnóstico obvio era el equivocado:** el pie YA tenía fondo sólido (`var(--surface)`). Lo que pasaba es que era
+  `position: sticky; bottom: 0` dentro de `.mk-modal__cuerpo`, el que scrollea, y ese cuerpo tiene 20 px de padding
+  abajo: las filas de la tabla pasaban por esa franja, debajo del pie (leído en el código y en la captura; no medido).
+- **Lo que quedó:** la vista mide el alto del cuerpo (`height: 100%`, que resuelve porque el Modal tiene `alto` fijo), la
+  que scrollea es la TABLA (`flex: 1; minHeight: 0; overflowY: auto`) y el pie es el último renglón: nada pasa por
+  detrás. El `sticky` queda de respaldo para un padre sin alto (el importador, en un WizardShell).
+- **Regla:** un pie con botones va en el `pie` del Modal, que no scrollea. Si el pie necesita el estado de la vista (la
+  selección, «Agregando…»), la vista mide el alto del cuerpo y hace scrollear su propia lista. Un `sticky` adentro del
+  cuerpo no alcanza.
+
+**Vive en:** app/crm/TraerDeOtroProducto.tsx · app/_ui/Modal.tsx (`.mk-modal__cuerpo` en app/_ui/ui.css) · tests/crm-traer-23-10.test.ts
+*23/10/2026, chat «CRM» (claude3).*

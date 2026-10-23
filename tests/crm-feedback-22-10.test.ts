@@ -18,6 +18,7 @@
 //   · el rótulo sin «que se ven» con un filtro puesto                                            → 2 / 1
 //   · el bloque azul sin «Ver detalle»                                                           → 2 / 1
 //   · la ficha que no abre en «Reuniones»                                                        → 2 / 1
+//   · el <main> del Kanban sin `maxHeight` (en producción medía 21.285 px: el flex en columna lo estira) → 3 / 1
 //   · el bloque azul del teléfono sin «Ver detalle» (sólo «Abrir ficha» sin teléfono)             → 2 / 1
 // Y el 6 (Instagram, «no estaba buscando bien a los @»), con el archivo en 4 / 0:
 //   · el tablero sin el Instagram entre los campos                                             → 3 / 1
@@ -47,7 +48,9 @@ const columna = () => { const i = BOARD.indexOf('const renderColumn = '); return
 
 test('1 y 2: el Kanban llena la pantalla, las columnas del mismo alto hasta abajo, y la barra del scroll debajo de «A revisar»', () => {
   assert.match(BOARD, /const ALTO_TABLERO = 'calc\(100dvh - var\(--barra-agencia, 0px\)\)';/);
-  assert.match(BOARD, /\.\.\.\(view === 'kanban' \? \{ height: ALTO_TABLERO, minHeight: 0 \} : \{\}\)/, 'el Kanban no mide la pantalla');
+  // Con `maxHeight` también (22/10/2026, medido en producción): el <main> es hijo de un flex en COLUMNA y su `flex: 1` le
+  // gana a `height`; medía 21.285 px y la barra del scroll quedaba fuera de la pantalla.
+  assert.match(BOARD, /\.\.\.\(view === 'kanban' \? \{ height: ALTO_TABLERO, maxHeight: ALTO_TABLERO, minHeight: 0 \} : \{\}\)/, 'el Kanban no mide la pantalla (sin maxHeight, el flex en columna lo estira)');
   // La barra del scroll queda en los últimos píxeles: el aire de abajo, más chico que el de «A revisar» (20 px del borde).
   const abajo = Number(/const ABAJO_KANBAN = (\d+);/.exec(BOARD)?.[1]);
   assert.ok(abajo >= 0 && abajo <= 6, `el Kanban deja ${abajo} px abajo`);
@@ -76,7 +79,8 @@ test('4: la casilla de la columna tilda lo que SE VE de esa columna, suma a lo t
   assert.equal(rotuloDeColumna(estadoDeColumna([7], new Set([7])), 'Ganado', true), 'Quitar el lead que se ve de «Ganado»');
   // En el tablero: los ids son los de las tarjetas de ESTA columna (lo filtrado), y la casilla no arrastra la columna.
   const c = columna();
-  assert.match(c, /const cards = enOrden\(filtered\.filter\(\(l\) => effStage\(l\) === c\.key\)\);\s*const idsCol = cards\.map\(\(x\) => x\.id\);\s*const colSel = estadoDeColumna\(idsCol, selLeads\);/);
+  // (Entre las dos va `dibujadas`, la tanda que se dibuja: la casilla mira la columna ENTERA, tests/crm-columna-por-tandas.test.ts.)
+  assert.match(c, /const cards = enOrden\(filtered\.filter\(\(l\) => effStage\(l\) === c\.key\)\);[\s\S]{0,400}?const idsCol = cards\.map\(\(x\) => x\.id\);\s*const colSel = estadoDeColumna\(idsCol, selLeads\);/);
   assert.match(BOARD, /<input type="checkbox" data-nodrag className="mk-sel-columna"/);
   assert.match(BOARD, /onChange=\{\(\) => setSelLeads\(\(p\) => alternarColumna\(p, idsCol\)\)\}/);
   assert.match(BOARD, /title=\{rotuloDeColumna\(colSel, c\.label, hayFiltros\)\}/);
@@ -87,24 +91,24 @@ test('4: la casilla de la columna tilda lo que SE VE de esa columna, suma a lo t
   assert.match(BOARD, /className="mk-col-crm"/);
 });
 
-test('5: «Tienes N reuniones cerca» abre el MISMO pop-up para todos, con el bloque azul de cada reunión y «Ver detalle»', () => {
+test('5: «Tienes N reuniones cerca» abre el MISMO pop-up para todos, con la tarjeta de cada reunión y «Ver detalle»', () => {
   const boton = sinComentarios(leer('app/crm/ReunionesProximas.tsx'));
   assert.match(boton, /onClick=\{\(\) => setAbierto\(true\)\}/, 'el calendario no abre el pop-up');
   assert.doesNotMatch(boton, /onAlternar|desplegado/, 'volvió el calendario que despliega «Próximo» arriba del tablero');
-  assert.match(boton, /<Modal titulo="Tus reuniones" ancho=\{960\} onCerrar=\{cerrar\}>\s*<div style=\{\{ display: 'flex', flexDirection: 'column', gap: 12 \}\}>\{contenido\(cerrar\)\}<\/div>/);
-  // El tablero arma el bloque azul de CADA reunión; ya no hay «Próximo» desplegado arriba.
+  // 640 desde la segunda vuelta (22/10/2026): una columna de tarjetas que se leen de arriba abajo.
+  assert.match(boton, /<Modal titulo="Tus reuniones" ancho=\{640\} onCerrar=\{cerrar\}>\s*\{contenido\(cerrar\)\}/);
+  // El tablero arma la tarjeta de CADA reunión; ya no hay «Próximo» desplegado arriba.
   assert.match(BOARD, /<BotonReuniones juntas=\{juntas\} contenido=\{bloquesDeReuniones\} \/>/);
   assert.doesNotMatch(BOARD, /verProximo|hayProxima/, 'volvió «Próximo» arriba del tablero');
-  const bloques = BOARD.slice(BOARD.indexOf('const bloquesDeReuniones = '), BOARD.indexOf('return (', BOARD.indexOf('const bloquesDeReuniones = ') + 1200));
-  assert.match(bloques, /return juntas\.map\(\(j, k\) => \{/);
-  assert.match(BOARD, /<TarjetaDestacada key=\{j\.id\} ancha\s+sobre=\{\/pas\[oó\]\/i\.test\(j\.when\) \? 'Ya pasó' : k === primera \? 'Próximo' : 'Después'\}/);
-  // «Ver detalle»: cierra el pop-up y abre la ficha en «Reuniones».
-  assert.match(BOARD, /\{ texto: 'Ver detalle', onClick: \(\) => \{ cerrar\(\); openDetail\(l, 'reuniones'\); \}, primaria: !tel \}/);
+  // Desde la segunda vuelta (22/10/2026) es la tarjeta que PREPARA la reunión (app/crm/TarjetaReunion.tsx; sus reglas, en
+  // tests/crm-feedback-22-10-c.test.ts). «Ver detalle»: cierra el pop-up y abre la ficha en «Reuniones».
+  assert.match(BOARD, /<ReunionesParaPreparar reuniones=\{reuniones\} onVerDetalle=\{\(id\) => \{/);
+  assert.match(BOARD, /if \(!l\) return;\s*cerrar\(\);\s*openDetail\(l, 'reuniones'\);/);
   assert.match(BOARD, /const openDetail = \(l: CrmLead, foco\?: string\) => \{ setFocoFicha\(foco\); setSelectedId\(l\.id\); \};/);
   assert.match(BOARD, /<LeadEditModal leadId=\{selected\.id\} seed=\{\{ nombre: selected\.name, empresa: selected\.company \}\} focus=\{focoFicha\} onClose=\{closeDetail\} \/>/);
   assert.match(leer('app/crm/LeadEditModal.tsx'), /const initialTab = focus === 'plan-pagos' \? 'cobranza' : focus === 'reuniones' \? 'reuniones' : 'resumen';/);
-  // En el teléfono el bloque azul ya va arriba de la lista (sin barra no hay calendario): lleva «Ver detalle» también.
-  assert.match(sinComentarios(leer('app/m/crm/TableroCrm.tsx')), /\{ texto: 'Ver detalle', onClick: \(\) => router\.push\(ficha\(px\.id\)\), primaria: !px\.telefono \},/);
+  // En el teléfono la MISMA tarjeta va arriba de la lista (sin barra no hay calendario), con «Ver detalle».
+  assert.match(sinComentarios(leer('app/m/crm/TableroCrm.tsx')), /\}\]\} onVerDetalle=\{\(\) => router\.push\(ficha\(px\.id\)\)\} \/>/);
 });
 
 test('6 (Instagram): el buscador encuentra al lead por su @, con o sin @, en mayúsculas o no, y por el link del perfil', () => {

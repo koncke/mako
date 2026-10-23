@@ -31,7 +31,7 @@ export const REGLAS_EDITAR = [
   '- Los textos que el dueño pega o pone entre comillas van TAL CUAL en las tarjetas, con sus palabras, signos y emojis. Una lista de mensajes es una tarjeta por mensaje, en ese orden.',
   '- «{Nombre}», «{nombre}» o «[Nombre]» es {{nombre}}. Cualquier otro dato entre llaves que no esté en la lista de datos NO se inventa: devuelve una "pregunta" diciendo qué va ahí.',
   '- Si pegó textos o te pide un cambio, cambia el flujo (o pregunta lo que falta con "pregunta"). Contesta con "respuesta" SÓLO si es una pregunta sobre el flujo, si lo que pide se configura fuera de las tarjetas (di dónde) o si no se puede hacer (di por qué, en una frase).',
-  '- Las 20 horas entre dos WhatsApp (regla 3) son para lo que armas tú: no agregues esperas que no pidió. Si pide otra espera, pon la que pide y di en "resumen" que la línea retiene el segundo mensaje hasta que pasen las horas de «Misma persona» (Configuraciones › Límites).',
+  '- Las 20 horas entre dos WhatsApp (regla 3) son para lo que armas tú: no agregues esperas que no pidió. Si pide otra espera, pon la que pide y di en "resumen" que la línea retiene el segundo mensaje hasta que pasen las horas de «Misma persona» (Configuraciones › Anti-ban).',
   '- «Avísame», «avísame por WhatsApp» o «que me llegue a mí» es la "accion" "avisar_al_equipo" (le llega al grupo de MaKo del negocio), nunca un mensaje al lead.',
 ].join('\n');
 
@@ -41,11 +41,11 @@ export const REGLAS_EDITAR = [
  * configuración del envío de la campaña»), decía que no se podía o metía esperas en el flujo. Va en editar Y en explicar.
  */
 export const LO_QUE_NO_ES_TARJETA = [
-  'LO QUE NO SE ARMA CON TARJETAS: el horario, el goteo y los topes se configuran en «Configuraciones», en el «⋯» de esta automatización, que tiene SÓLO dos pestañas: Horario y Límites. Si el dueño pide ESO, no armes tarjetas: dile dónde está, en una frase. Lo que no está aquí ni en las tarjetas (llamar por teléfono, un SMS) no se puede: dilo, sin inventar un lugar.',
+  'LO QUE NO SE ARMA CON TARJETAS: el horario, el goteo y los topes se configuran en «Configuraciones», en el «⋯» de esta automatización, que tiene SÓLO dos pestañas: Horario y Anti-ban. Si el dueño pide ESO, no armes tarjetas: dile dónde está, en una frase. Lo que no está aquí ni en las tarjetas (llamar por teléfono, un SMS) no se puede: dilo, sin inventar un lugar.',
   '- Los días y las horas en que sale (por ejemplo, ni sábado ni domingo): Configuraciones › Horario.',
-  '- Que no salgan todos juntos (uno cada N minutos) y cuántos como mucho por día en ESTA automatización: Configuraciones › Límites, «Goteo de sus WhatsApp».',
-  '- Cuántos por día y por hora salen de la línea, sumando todas las automatizaciones: Configuraciones › Límites, abajo (los de la línea).',
-  '- Las horas mínimas entre dos WhatsApp a la misma persona (de 3 a 72; 20 de fábrica): Configuraciones › Límites, «Misma persona».',
+  '- Que no salgan todos juntos (uno cada N minutos) y cuántos como mucho por día en ESTA automatización: Configuraciones › Anti-ban, «Goteo» y «Por día».',
+  '- Cuántos por día y por hora salen de la línea, sumando todas las automatizaciones: Configuraciones › Anti-ban, abajo (los de la línea).',
+  '- Las horas mínimas entre dos WhatsApp a la misma persona (de 3 a 72; 20 de fábrica; se puede apagar): Configuraciones › Anti-ban, «Misma persona».',
   '- Deshacer el último cambio: el botón ↶ arriba del lienzo.',
 ].join('\n');
 
@@ -59,8 +59,11 @@ export const REGLAS_DISCUTIR = [
 /** El error que se le devuelve al modelo si en EDITAR contestó sin cambiar nada (lo corrige el reintento). */
 export const ERROR_EDITAR_SIN_CAMBIOS = 'En modo EDITAR no se contesta con "respuesta": haz el cambio que pidió el dueño, tal cual, o devuelve una "pregunta" con lo que falta.';
 
-/** Las pestañas de Configuraciones de una automatización (app/automations/ConfiguracionesBoton.tsx, `PESTANAS_CONFIGURACIONES`). */
-const LUGARES_REALES = ['Horario', 'Límites'];
+/**
+ * Las pestañas de Configuraciones de una automatización (app/automations/ConfiguracionesBoton.tsx, `PESTANAS_CONFIGURACIONES`).
+ * «Límites» se llama «Anti-ban» desde el 22/10/2026 (Martín): nombrar «Límites» ya es un lugar que no existe.
+ */
+const LUGARES_REALES = ['Horario', 'Anti-ban'];
 
 /**
  * ¿VALE UNA «RESPUESTA» EN EDITAR? null = vale; si no, el error para el reintento. (22/10/2026, las corridas del arnés del
@@ -73,9 +76,10 @@ const LUGARES_REALES = ['Horario', 'Límites'];
  */
 export function errorDeRespuestaEnEditar(pedido: string, respuesta: string, o: { esPregunta: boolean; charlaConTextos: boolean }): string | null {
   if (traeTextosPegados(pedido)) return ERROR_EDITAR_SIN_CAMBIOS;
-  const lugares = [...respuesta.matchAll(/Configuraciones\s*›\s*([\p{L}]+)/gu)].map((m) => m[1]);
+  // Con el guion: «Anti-ban» (sin él, leía «Anti» y lo daba por inventado).
+  const lugares = [...respuesta.matchAll(/Configuraciones\s*›\s*([\p{L}-]+)/gu)].map((m) => m[1]);
   const falso = lugares.find((l) => !LUGARES_REALES.includes(l));
-  if (falso) return `«Configuraciones › ${falso}» no existe: Configuraciones tiene sólo Horario y Límites. Si lo que pide no se puede hacer, dilo en una frase; si se puede con tarjetas, cambia el flujo.`;
+  if (falso) return `«Configuraciones › ${falso}» no existe: Configuraciones tiene sólo Horario y Anti-ban. Si lo que pide no se puede hacer, dilo en una frase; si se puede con tarjetas, cambia el flujo.`;
   if (lugares.length || respuesta.includes('↶')) return null;
   const delega = /p[ií]d[eé]melo|hazlo t[uú]|desde el lienzo|ag[ré]galo t[uú]|habr[íi]a que|tendr[íi]as que/i.test(respuesta);
   if (/\bno (se puede|puedo|existe|está|hay)\b/i.test(respuesta) && !delega) return null;
@@ -112,6 +116,43 @@ export function traeTextosPegados(pedido: string): boolean {
   return renglones.length >= 2 || /[«"“][^«»"“”]{20,}[»"”]/.test(String(pedido ?? ''));
 }
 
+/** Lo mínimo para que un texto entre comillas cuente como un MENSAJE pedido (y no el nombre de una etiqueta o una etapa). */
+export const LARGO_TEXTO_PEDIDO = 20;
+
+/** Un texto para comparar: sin tildes, sin mayúsculas, sin links, con las variables iguales y sólo sus palabras. */
+function palabrasDe(t: string): string[] {
+  return t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .replace(/https?:\/\/\S+|\b[\w-]+\.(?:com|net|org|io|app|co|mx|ar|es)(?:\/\S*)?/g, ' ')
+    .replace(/\{\{?\s*[a-z_]+\s*\}?\}/g, ' ')
+    .split(/[^a-z0-9ñ]+/).filter((w) => w.length > 1);
+}
+
+/**
+ * EL CONTROL DE LO PEDIDO (22/10/2026, Martín: «revisa lo que le pedí vs lo que creó, creó a la mitad las cosas que le
+ * pedí»; el Cerebro: «que nunca diga "Listo" si falta algo»). Los textos que el dueño puso entre comillas (los mensajes
+ * que pegó) que NO quedaron en ningún mensaje del flujo. Cuenta como puesto si al menos el 80% de sus palabras está en un
+ * mismo mensaje (los links y las variables no cuentan: MaKo los pone aparte). Sin textos entre comillas, nada. Pura.
+ */
+export function faltantesDelPedido(pedido: string, textosDelFlujo: readonly string[]): string[] {
+  const citas = [...String(pedido ?? '').matchAll(/[«"“]([^«»"“”\n]{1,600})[»"”]/g)].map((m) => m[1].trim())
+    .filter((t) => t.length >= LARGO_TEXTO_PEDIDO);
+  if (!citas.length) return [];
+  const flujo = textosDelFlujo.map((t) => new Set(palabrasDe(t)));
+  const faltan: string[] = [];
+  for (const c of citas) {
+    const ws = palabrasDe(c);
+    if (!ws.length) continue;
+    const esta = flujo.some((f) => ws.filter((w) => f.has(w)).length >= Math.ceil(ws.length * 0.8));
+    if (!esta && !faltan.includes(c)) faltan.push(c.length > 80 ? `${c.slice(0, 79).trimEnd()}…` : c);
+  }
+  return faltan;
+}
+
+/** El error que se le devuelve al modelo para el reintento (`generar`): qué de lo pegado no quedó, y cómo se pone una rama. */
+export function errorDeFaltantes(faltan: readonly string[]): string {
+  return `Faltó en el flujo lo que pegó el dueño: ${faltan.map((t) => `«${t}»`).join(', ')}. Agrégalo con sus palabras, en su lugar. Lo que pasa según lo que conteste el lead va en un CASO de "si_responde" ("agregar" con "despues_de": "si_responde" y "caso": {"titulo", "cuando"}), con su mensaje.`;
+}
+
 /** Un mensaje del chat como lo lee este módulo (`MensajeChatMako`, lib/automatizacion-chat.ts). */
 type MensajeCharla = { de: string; texto?: string | null };
 
@@ -144,7 +185,7 @@ export function extrasDelUser(intencion: IntencionChat | null, historial: readon
 /**
  * ¿Va al prompt de explicar (sólo contesta)? Discutir siempre; sin elegir, lo que diga `esConsulta`; y EDITAR, sólo una
  * pregunta DIRECTA (`esPreguntaDirecta`, 22/10/2026: «¿A cuántos les va a llegar?» en el prompt de editar se contestó con
- * «Se configura en Configuraciones › Límites»). `esConsulta` no sirve en Editar: lee el «?» de los textos pegados y «que no
+ * «Se configura en Configuraciones › Límites», que hoy es «Anti-ban»). `esConsulta` no sirve en Editar: lee el «?» de los textos pegados y «que no
  * le mande nada» como «no cambies nada» (la [B] de la prueba de los chats).
  */
 export function vaAExplicar(intencion: IntencionChat | null, conRespuestas: boolean, esConsulta: boolean, preguntaDirecta = false): boolean {

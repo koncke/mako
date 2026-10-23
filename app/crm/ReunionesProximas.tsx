@@ -9,6 +9,9 @@
 // que se abra un modal para ver lo que hoy en día aparece en ese contenedor grande de
 // arriba».
 //
+// ⚠️ ADENTRO, LA TARJETA PARA PREPARAR CADA REUNIÓN (22/10/2026, segunda vuelta, app/crm/TarjetaReunion.tsx): «Tampoco me
+// gustó el pop-up con los bloques azules, rediseñalo... Y que no tenga "Llamar o WhatsApp"» (Martín). Lo de abajo cuenta
+// por qué el pop-up es uno solo para todos; el bloque azul ya no está.
 // ⚠️ EL MISMO POP-UP PARA TODOS, CON EL BLOQUE AZUL (22/10/2026). Martín: «En SuperAdmin el botón de "Tienes 2 reuniones
 // cerca" aparece el bloque azul, pero en los demás como Mauricio aún aparece el pop-up antiguo... Quiero siempre unificar
 // las cosas en todos lados... me gustaría que salga un pop-up sí, pero con el bloque azul. Y me falta un botón para poder
@@ -41,8 +44,8 @@ function CalendarioIcono() {
 
 export function BotonReuniones({ juntas, contenido }: {
   juntas: CrmJunta[];
-  /** Lo que muestra el pop-up: el bloque azul de cada reunión. Lo arma el tablero; `cerrar` cierra el pop-up antes de
-   *  abrir la ficha («Ver detalle»). */
+  /** Lo que muestra el pop-up: la tarjeta de cada reunión (app/crm/TarjetaReunion.tsx). Lo arma el tablero; `cerrar`
+   *  cierra el pop-up antes de abrir la ficha («Ver detalle»). */
   contenido: (cerrar: () => void) => ReactNode;
 }) {
   const [abierto, setAbierto] = useState(false);
@@ -79,8 +82,9 @@ export function BotonReuniones({ juntas, contenido }: {
         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>{n}</span>
       </button>
       {abierto && (
-        <Modal titulo="Tus reuniones" ancho={960} onCerrar={cerrar}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{contenido(cerrar)}</div>
+        // 640: una columna de tarjetas que se leen de arriba abajo (con el bloque azul eran 960 a lo ancho).
+        <Modal titulo="Tus reuniones" ancho={640} onCerrar={cerrar}>
+          {contenido(cerrar)}
         </Modal>
       )}
     </>

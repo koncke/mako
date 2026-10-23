@@ -14,6 +14,7 @@ import type { FiltroMiembros, MiembroVista, MiembrosVista, PerfilVista, SacadoVi
 import { REDES, ROTULO_RED, TOPE_BIO, TOPE_UBICACION, type Red } from '@/lib/comunidad-reglas';
 import { rotuloNivel } from '@/lib/comunidad-niveles';
 import { AvatarNivel, Hace, Ico, useComunidad } from './piezas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const fecha = (iso: string | null) => {
   const d = iso ? new Date(iso) : null;
@@ -81,7 +82,7 @@ export function Miembros({ version = 0 }: {
         <Sacados lista={sacados ?? []} onCambio={() => setVuelta((v) => v + 1)} />
       ) : (
         <>
-          {error && <p className="cmu-error" role="alert">{error}</p>}
+          {error && <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p>}
           {!vista && !error && <div style={{ display: 'grid', placeItems: 'center', padding: 30 }}><Spinner /></div>}
           {vista && vista.miembros.length === 0 && <p className="cmu-dim" style={{ margin: 0 }}>{q ? 'Nadie con ese nombre.' : 'Nadie en este filtro.'}</p>}
         </>
@@ -188,7 +189,7 @@ export function SacarModal({ miembro, onCerrar, onListo }: {
         </label>
         <Checkbox checked={borrar} onChange={setBorrar} label="Borrar sus posts y comentarios de los últimos 7 días"
           hint="No se puede deshacer." />
-        {error && <p className="cmu-error" role="alert">{error}</p>}
+        {error && <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p>}
       </div>
     </Modal>
   );
@@ -238,7 +239,7 @@ export function PerfilModal({ clave, onCerrar }: { clave: string; onCerrar: () =
   return (
     <Modal titulo={p?.nombre ?? 'Perfil'} ancho={520} onCerrar={onCerrar} sinFiletes pie={pie}>
       {!p && !error && <div style={{ display: 'grid', placeItems: 'center', padding: 30 }}><Spinner /></div>}
-      {error && <p className="cmu-error" role="alert">{error}</p>}
+      {error && <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p>}
       {p && !editando && (
         <div className="cmu-perfil">
           <AvatarNivel m={p} size={104} />
@@ -279,7 +280,7 @@ export function PerfilModal({ clave, onCerrar }: { clave: string; onCerrar: () =
               <Input value={links[r] ?? ''} placeholder="https://" onChange={(e) => setLinks((l) => ({ ...l, [r]: e.target.value }))} />
             </label>
           ))}
-          {error && <p className="cmu-error" role="alert">{error}</p>}
+          {error && <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p>}
         </div>
       )}
     </Modal>

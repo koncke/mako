@@ -17,6 +17,7 @@ import { emailValido, telefonoValido, type Destinatarios } from '@/lib/notif-cat
 import { paraLeer } from '@/app/perfil/DestinatariosLista';
 import { ErrorM, FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, SkeletonFilas, useToastM } from '@/app/m/_ui';
 import { copiarTexto } from '@/app/m/copywriting/api';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Canal = 'whatsapp' | 'email';
 type Guardado = { ok: boolean; error?: string; destinatarios?: Destinatarios; noAgregados?: { telefono: string; motivo: string }[]; linkGrupo?: string | null };
@@ -189,7 +190,7 @@ function HojaAgregar({ canal, ocupado, ladaInicial, onCerrar, onAgregar }: {
             placeholder="nombre@empresa.com" onChange={(e) => { setTexto(e.target.value); setError(null); }} />
         </label>
       )}
-      {error && <p className="m-configuraciones-aviso" data-tono="bad" role="alert">{error}</p>}
+      {error && <p className="m-configuraciones-aviso" data-tono="bad" role="alert">{error}<ReportarASoporte /></p>}
     </SheetM>
   );
 }

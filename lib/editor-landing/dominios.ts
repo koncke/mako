@@ -43,6 +43,7 @@ import { createHmac } from 'node:crypto';
 import { resolveTxt } from 'node:dns/promises';
 import { getTenantDb, getWorkspaceActual } from '../workspace';
 import { getSupabaseServer } from '../supabase';
+import { frenoDeTope } from './tope-landings-server';
 import {
   CLAVE_TXT_MAKO, PREFIJO_TXT_MAKO, TOPE_PENDIENTES, estaVerificado, motivoDominioInvalido, motivoParaQuitarReclamo,
   normalizarDominio, pendienteVencido, pendientesVigentes, puedeSoltarseDeVercel, queFalta, redirigeA, registrosDns,
@@ -476,6 +477,9 @@ export async function conectarDominio(idRaw: unknown, dominioRaw: unknown): Prom
     const { ws, id, fila } = cx;
     if (fila.papelera_at) return falla('Está en la papelera', 409);
     if (fila.dominio && fila.dominio !== d) return falla('Quita el dominio actual primero', 409);
+    // El tope del plan (tope-landings.ts): sólo un dominio NUEVO en esta landing suma uno.
+    const freno = await frenoDeTope(ws, 'dominio', !!fila.dominio);
+    if (freno) return freno;
 
     const reclamado = !fila.dominio;
     let marca = fila.dominio_agregado_por_mako === true;

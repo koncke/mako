@@ -77,8 +77,9 @@ test('(6) ¿quedan para aprobar? La MISMA regla del motor (`saleSolo`), sólo Wh
   for (const revisar of [true, false, undefined] as const) for (const auto of [true, false]) {
     assert.equal(dejaBorradores([msg('a', 'Hola', revisar === undefined ? {} : { revisar })], auto), !saleSolo({ revisar }, auto), `revisar=${revisar} auto=${auto}`);
   }
-  // El #282 de verdad: WhatsApp, sin `revisar`, la automatización sin «sale sola» → borradores.
-  assert.equal(dejaBorradores([msg('n063a54', TEXTO_282)], false), true);
+  // El #282 de verdad: WhatsApp, sin `revisar`, la automatización sin «sale sola». Desde el 23/10/2026 un mensaje de una
+  // automatización SALE (`saleSolo`): ya no deja borradores.
+  assert.equal(dejaBorradores([msg('n063a54', TEXTO_282)], false), false);
   // Un email no es WhatsApp no oficial.
   assert.equal(dejaBorradores([msg('a', 'Hola', { canal: 'email' })], false), false);
   // Una respuesta de «Si responde» tiene su regla propia y no sale al activar.
@@ -132,7 +133,7 @@ test('(6) al ACTIVARLA el chat dice por qué quedan para aprobar (sólo si queda
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   // Revisión del 20/10/2026, noche (tests/automations-aviso-todos-caminos.test.ts): con lo PUBLICADO: Activar prende la fila, no el borrador.
   assert.match(perfil, /if \(!activa && dejaBorradores\(abiertoPublicado, est\?\.envio_automatico === true\)\) \{\n\s+setNotaChat\(\{ id: `mako-aprobar-\$\{Date\.now\(\)\.toString\(36\)\}`, texto: `\$\{POR_QUE_SE_APRUEBAN\}\. Se aprueban en Chats › Borradores\.` \}\);/);
-  assert.match(perfil, /onListaCambio=\{onListaCambio\} nota=\{notaChat\} \/>/);
+  assert.match(perfil, /onListaCambio=\{onListaCambio\} nota=\{notaChat\}\n?\s*(?:alTerminarSinVer=\{guardarSinVer\} )?\/>/);
   const chat = sinComentarios(leer('app/automations/ChatMako.tsx'));
   assert.match(chat, /if \(!nota \|\| notaDicha\.current === nota\.id\) return;\n\s+notaDicha\.current = nota\.id;\n\s+setMensajes\(\(ms\) => \[\.\.\.ms, \{ id: nota\.id, de: 'mako', texto: nota\.texto,/);
 });

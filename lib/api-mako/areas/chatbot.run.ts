@@ -55,7 +55,7 @@ import { crearFlujoConIA, hayIAParaCrear, armarContexto, contarCohorte } from '@
 import { conConteos } from '@/lib/flujo-ia-crear-core';
 import { KEY_HORARIO_ENVIO, horarioVigente, type DiaSemana } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } from '@/lib/limites-envio';
-import { horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, textoDeHorario, configParaGuardar } from '@/lib/config-automatizacion';
+import { horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, textoDeHorario, configParaGuardar, PERSONA_SIN_ESPERA } from '@/lib/config-automatizacion';
 import { textoDeGoteo } from '@/lib/goteo';
 import { leerConfigAutomatizacion, guardarConfigAutomatizacion, copiarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { preguntaAntes, preguntaParaWhatsApp, respuestaDeTexto, sanearRespuestas } from '@/lib/flujo-ia-preguntas';
@@ -122,6 +122,9 @@ async function secuenciaVigente(id: number) {
  * LO QUE PIDE `configurar_automatizacion`, en el cambio de `configParaGuardar` (lib/config-automatizacion.ts) y en
  * palabras para el resumen que la persona confirma. Sin nada que cambiar, el error.
  */
+/** De dónde salen las horas a la misma persona de una automatización: la del negocio, las suyas, o apagado (0 h, 22/10/2026). */
+const deLaPersona = (h: number | undefined): 'negocio' | 'propio' | 'apagado' => (h === undefined ? 'negocio' : h === PERSONA_SIN_ESPERA ? 'apagado' : 'propio');
+
 function cambioDeConfigDelInput(input: Record<string, unknown>): { cambio: Record<string, unknown>; resumen: string } | { error: string } {
   const cambio: Record<string, unknown> = {};
   const partes: string[] = [];
@@ -138,8 +141,8 @@ function cambioDeConfigDelInput(input: Record<string, unknown>): { cambio: Recor
   if (input.personaNegocio === true) { cambio.personaHoras = null; partes.push('las horas a la misma persona del negocio'); }
   else {
     const ph: Record<string, number> = {};
-    if (input.horasWhatsapp != null) { ph.whatsapp = num(input, 'horasWhatsapp'); partes.push(`${ph.whatsapp} h entre dos WhatsApp a la misma persona`); }
-    if (input.horasEmail != null) { ph.email = num(input, 'horasEmail'); partes.push(`${ph.email} h entre dos emails a la misma persona`); }
+    if (input.horasWhatsapp != null) { ph.whatsapp = num(input, 'horasWhatsapp'); partes.push(ph.whatsapp === PERSONA_SIN_ESPERA ? 'sin espera entre dos WhatsApp a la misma persona' : `${ph.whatsapp} h entre dos WhatsApp a la misma persona`); }
+    if (input.horasEmail != null) { ph.email = num(input, 'horasEmail'); partes.push(ph.email === PERSONA_SIN_ESPERA ? 'sin espera entre dos emails a la misma persona' : `${ph.email} h entre dos emails a la misma persona`); }
     if (Object.keys(ph).length) cambio.personaHoras = ph;
   }
   // EL GOTEO (22/10/2026, lib/goteo.ts): uno cada N minutos y hasta M por día, adentro del tope de la línea.
@@ -865,8 +868,8 @@ export const RUNNERS: Runners = {
         secuencia: { id, nombre: s.nombre },
         horario: { vale: vale ? textoDeHorario(vale) : 'sin horario: manda a cualquier hora', de: config.horario === undefined ? 'negocio' : 'propio' },
         horas_a_la_misma_persona: {
-          whatsapp: { horas: persona.whatsapp, de: config.personaHoras?.whatsapp === undefined ? 'negocio' : 'propio' },
-          email: { horas: persona.email, de: config.personaHoras?.email === undefined ? 'negocio' : 'propio' },
+          whatsapp: { horas: persona.whatsapp, de: deLaPersona(config.personaHoras?.whatsapp) },
+          email: { horas: persona.email, de: deLaPersona(config.personaHoras?.email) },
         },
         goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null },
         linea: { por_dia: lim.wa.dia, por_hora: lim.wa.hora },

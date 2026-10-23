@@ -89,6 +89,19 @@ export const PUBLICOS = [
   // saltea no protegía nada. Las condiciones (pagado, alta hecha, nunca entró, menos de 3 cambios)
   // viven en app/pagar/cambio-email.ts, con test.
   '/api/pagar/email',
+  // ── Comprar un plan de MaKo sin hablar con nadie (23/10/2026) ─────────────────────────────────
+  // `/planes` y `/planes/<plan>` (páginas: sólo GET, `esPublicaSoloLeer`) y el POST de su formulario,
+  // `/api/planes/comprar` (EXACTA, también en PUBLICOS_ESCRITURA). Las abre alguien que todavía no tiene
+  // cuenta. La ruta del POST no lee la cookie de sesión (el workspace es siempre el de la plataforma) y
+  // mira el Origin a mano, en positivo (sólo un host de MaKo), con topes por IP y por email y un campo
+  // trampa: cada pedido puede crear un checkout en la pasarela de MaKo (lib/compra-plan.ts).
+  '/planes',
+  '/api/planes/comprar',
+  // El link de MaKo Partners (`/r/<código>`, sólo GET): deja la cookie de quién lo mandó y lleva a
+  // /planes. No lee la sesión.
+  '/r',
+  // La página pública del programa de MaKo Partners (sólo GET): explica las reglas y lleva a /planes.
+  '/mako-partners',
   // El robots.txt (app/robots.ts). Sin esto el gate lo mandaba a /login: un crawler que
   // pedía reglas recibía una página de login.
   '/robots.txt',
@@ -252,6 +265,9 @@ export const PUBLICOS_ESCRITURA = [
   // El comprador cambia el email de su acceso a MaKo (11/10/2026): el token del cobro viaja en el
   // CUERPO y es la credencial entera (ver su entrada en PUBLICOS).
   '/api/pagar/email',
+  // El checkout público de un plan de MaKo (23/10/2026): sin credencial porque el que compra no tiene
+  // cuenta; la ruta mira el Origin ella misma y no lee la cookie de sesión (ver su entrada en PUBLICOS).
+  '/api/planes/comprar',
 ] as const;
 
 const matchea = (lista: readonly string[], pathname: string) =>

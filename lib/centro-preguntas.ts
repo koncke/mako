@@ -33,21 +33,40 @@ const enOrden = (a: Decision, b: Decision) =>
   (ORDEN_URGENCIA.get(a.urgencia) ?? 9) - (ORDEN_URGENCIA.get(b.urgencia) ?? 9) || a.orden - b.orden
   || a.creadaAt.localeCompare(b.creadaAt) || a.id - b.id;
 
-const delChat = (c: { miembros: readonly string[] }, d: Decision, chats: readonly ChatCartero[]) => {
-  const s = sesionDeDecision(d, chats);
+/**
+ * LA SESIÓN DE CADA TARJETA, UNA VEZ POR (decisiones, carteros) (23/10/2026, la carga del Ops Center): no depende del chat, y
+ * `respuestasDelChat` corre por CHAT (useCentro → `lineasDe`, para los 57 de la lista y en cada refresco). Resolver cada tarjeta
+ * contra todos los chats de los carteros 57 veces costaba 141 de los 150 ms del historial de todos (medido con los datos de
+ * producción). Por identidad de los dos arreglos, como los pasa la pantalla: otro arreglo es otra cuenta, nunca una vieja.
+ */
+const sesionesGuardadas = new WeakMap<readonly Decision[], WeakMap<Carteros, ReadonlyMap<number, string | null>>>();
+function sesionesDe(decisiones: readonly Decision[], carteros: Carteros): ReadonlyMap<number, string | null> {
+  let porCarteros = sesionesGuardadas.get(decisiones);
+  if (!porCarteros) { porCarteros = new WeakMap(); sesionesGuardadas.set(decisiones, porCarteros); }
+  let m = porCarteros.get(carteros);
+  if (!m) {
+    const chats = chatsDe(carteros);
+    m = new Map(decisiones.map((d) => [d.id, sesionDeDecision(d, chats)]));
+    porCarteros.set(carteros, m);
+  }
+  return m;
+}
+
+const delChat = (c: { miembros: readonly string[] }, d: Decision, sesiones: ReadonlyMap<number, string | null>) => {
+  const s = sesiones.get(d.id) ?? null;
   return s != null && c.miembros.includes(s);
 };
 
 /** Las que ESTE chat espera (sin contestar), en el orden de la Ticketera. */
 export function preguntasDelChat(c: { miembros: readonly string[] }, decisiones: readonly Decision[], carteros: Carteros): Decision[] {
-  const chats = chatsDe(carteros);
-  return decisiones.filter((d) => !d.respuesta && delChat(c, d, chats)).sort(enOrden);
+  const sesiones = sesionesDe(decisiones, carteros);
+  return decisiones.filter((d) => !d.respuesta && delChat(c, d, sesiones)).sort(enOrden);
 }
 
 /** Las que este chat preguntó y Martín ya contestó: van en la conversación, como respuestas suyas. */
 export function respuestasDelChat(c: { miembros: readonly string[] }, decisiones: readonly Decision[], carteros: Carteros): Decision[] {
-  const chats = chatsDe(carteros);
-  return decisiones.filter((d) => !!d.respuesta && !!d.respondidaAt && delChat(c, d, chats));
+  const sesiones = sesionesDe(decisiones, carteros);
+  return decisiones.filter((d) => !!d.respuesta && !!d.respondidaAt && delChat(c, d, sesiones));
 }
 
 /**
@@ -55,7 +74,7 @@ export function respuestasDelChat(c: { miembros: readonly string[] }, decisiones
  * otro lado). ⚠️ Nunca por su posición: el refresco de cada 8 s puede meter adelante una tarjeta que frena, y con la
  * posición lo que se escribía para una se guardaba en otra (revisión adversarial, 16/10/2026).
  */
-export function preguntaAbierta<T extends { id: number }>(preguntas: readonly T[], elegida: number | null): { d: T | undefined; pos: number } {
+export function preguntaAbierta<T extends { id: number | string }>(preguntas: readonly T[], elegida: T['id'] | null): { d: T | undefined; pos: number } {
   const i = elegida == null ? -1 : preguntas.findIndex((p) => p.id === elegida);
   const pos = Math.max(0, i);
   return { d: preguntas[pos], pos };

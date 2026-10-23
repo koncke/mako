@@ -260,10 +260,10 @@ export function seEscondeDeOffer(s: { id: number; updatedAt: string }, copiada: 
 /** Lo elegido en la barra: una conversación con MaKo, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), un
  *  chat de antes (de «Pregúntale a MaKo»), una conversación de Offer, o un chat de Claude Code (su clave del Centro). */
 export type ElegidoChat = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number } | { grupo: true }
-  | { automatizacion: number };
+  | { automatizacion: number } | { editor: TipoEditor; clave: string };
 
 /** De dónde sale un chat de la lista: a qué motor va lo que se escribe (MaKo, o el de Offer). El grupo no tiene motor: se lee. */
-export type OrigenDeFila = 'mako' | 'offer' | 'antes' | 'grupo' | 'automations';
+export type OrigenDeFila = 'mako' | 'offer' | 'antes' | 'grupo' | 'automations' | 'editor';
 
 export type FilaDelCliente = {
   /** La key de React y la búsqueda del elegido. */
@@ -275,6 +275,8 @@ export type FilaDelCliente = {
   /** Lo último que pasó (ms), para el orden y la hora de la fila. */
   actividad: number | null;
   origen: OrigenDeFila;
+  /** La fila JEFE de un grupo que no tiene chat propio (`jefeDelGrupo`): abre el más reciente de los suyos, y no es «el abierto». */
+  jefeDeGrupo?: true;
 };
 
 /** `tema`: de qué se trata, para nombrar lo que no tiene título y distinguir dos que se llaman igual (lo pone el servidor:
@@ -290,7 +292,11 @@ const ms = (iso: string | null | undefined): number | null => { const t = iso ? 
  * secuencias de WhatsApp. null = no se sabe (se muestra sólo el título).
  */
 export function origenDeClave(clave: string | null | undefined): string | null {
-  const k = String(clave ?? '');
+  // La de un closer o un setter va con su persona adelante (`persona:<p>:dashboard:<hoja>`, lib/chart-chats-reglas.ts): el admin
+  // la ve así, y sin sacarla no se reconocía el origen (22/10/2026, lo que midió TB1).
+  const k = String(clave ?? '').replace(/^persona:[^:]+:/, '');
+  // El agente del Web Generator de una landing (TB1, lib/hilo-de-tab-reglas.ts → claveDeLanding): salía suelto, sin grupo.
+  if (/^landing:/.test(k)) return 'Web Generator';
   // «Pregúntale a MaKo» (/mako, que hoy redirige al Ops Center) y /mako-doer: medido el 22/10 en el ws1, eran sus «Chat de antes».
   if (/^mako-(general|doer)(:u\d+)?$/.test(k)) return ORIGEN_PREGUNTALE;
   if (/^mako-movil:[^:]+:crm:\d+$/.test(k)) return 'CRM';
@@ -304,6 +310,34 @@ export const ORIGEN_PREGUNTALE = 'Pregúntale a MaKo';
 
 // ── Las charlas del lienzo de Automations (22/10/2026, OC5) ─────────────────────────────────────────────────────────
 export const ORIGEN_AUTOMATIONS = 'Automations';
+
+// ── Los chats del Image Editor y del Video Editor (22/10/2026, OC8) ──────────────────────────────────────────────────
+// Uno por persona y por diseño o proyecto (image_editor_chats, mig 0303; video_editor_chats, mig 0298). Se leen acá y se siguen
+// en el editor, que es el que sabe aplicar lo que propone.
+export type TipoEditor = 'imagen' | 'video';
+export const EDITORES: Readonly<Record<TipoEditor, { origen: string; ruta: (id: string) => string }>> = {
+  imagen: { origen: 'Image Editor', ruta: (id) => `/image-editor/${encodeURIComponent(id)}` },
+  video: { origen: 'Video Editor', ruta: (id) => `/video-editor/${encodeURIComponent(id)}` },
+};
+/** La clave de un chat de un editor: de quién es y de qué diseño o proyecto (dos personas pueden tener uno del mismo). */
+export const claveDeEditor = (persona: string, id: string): string => `${persona}|${id}`;
+export function partesDeClaveDeEditor(clave: string): { persona: string; id: string } | null {
+  const i = clave.lastIndexOf('|');
+  const persona = i > 0 ? clave.slice(0, i) : '';
+  const id = i > 0 ? clave.slice(i + 1) : '';
+  return persona && /^[A-Za-z0-9_-]{1,100}$/.test(id) ? { persona, id } : null;
+}
+/** Lo que dice la caja de un chat de un editor: se lee acá y se sigue allá. */
+export const AVISO_EDITOR = 'Esta charla es del editor: se sigue ahí.';
+/** La de otra persona del equipo: en el editor se abre la tuya, así que ésta sólo se lee acá (la revisión del 22/10/2026). */
+export const AVISO_EDITOR_AJENO = 'Esta charla es de otra persona del equipo: se lee aquí.';
+/** Los mensajes de un chat de un editor, para el hilo: lo de la persona y lo de MaKo, con su hora. Lo vacío no se dibuja. */
+export function mensajesDeEditor(ms: ReadonlyArray<{ de: 'yo' | 'mako'; texto: string; c: number }>): MensajeChat[] {
+  return ms.flatMap((m): MensajeChat[] => {
+    const content = m.texto.trim();
+    return content ? [{ role: m.de === 'yo' ? 'user' : 'assistant', content, ...(Number.isFinite(m.c) && m.c > 0 ? { created_at: new Date(m.c).toISOString() } : {}) }] : [];
+  });
+}
 /** Dónde se SIGUE una charla del lienzo: el lienzo de esa automatización con su chat abierto (el que sabe editarla). */
 export const rutaDelLienzo = (id: number): string => `/automations?sec=${id}&mako=1`;
 /** Lo que dice la caja de una charla del lienzo: se lee acá y se sigue allá. */
@@ -380,6 +414,20 @@ export const conOrigen = (origen: string | null | undefined, titulo: string): st
 /** La criatura de una conversación de Offer: la del área Offer (lib/centro-munecos.ts → EQUIPO), con su cara por el título. */
 export const criaturaDeOffer = (titulo: string): string => `Offer › ${titulo}`;
 
+/**
+ * EL JEFE DE UN GRUPO QUE NO TIENE CHAT PROPIO (22/10/2026, Martín: «Que NO hayan "secciones" en la sidebar de chats, que estén los
+ * chats JEFES que actúan como las secciones y los chats trabajadores que son los de abajo»). Los de Offer, del Dashboard o de
+ * «Pregúntale a MaKo» iban bajo un TÍTULO (AUTOMATIONS, OFFER…); ahora, bajo una fila jefe con su criatura, como en el super admin
+ * (PiezasCentro.tsx → GruposPorJefe). Tocarla abre su chat más reciente: el primero del grupo (la lista llega con lo más reciente
+ * arriba). Su hora, la del más reciente. null = el grupo no tiene chats.
+ */
+export function jefeDelGrupo(g: { clave: string; jefe: string; subs: readonly FilaDelCliente[] }): FilaDelCliente | null {
+  const primero = g.subs[0];
+  if (!primero) return null;
+  const actividad = g.subs.reduce<number | null>((m, f) => (f.actividad != null && (m == null || f.actividad > m) ? f.actividad : m), null);
+  return { clave: g.clave, elegido: primero.elegido, titulo: g.jefe, criatura: g.jefe, actividad, origen: primero.origen, jefeDeGrupo: true };
+}
+
 /** La lista entera: el Cerebro primero (siempre, aunque no tenga conversación todavía) y el resto, lo más reciente arriba. La
  *  búsqueda no esconde al Cerebro (es la casa). `grupo`: el grupo de WhatsApp de MaKo del negocio, de SÓLO LECTURA y sólo del
  *  admin (22/10/2026, OC3: el lector existía y nadie lo llamaba; lib/chat-mako-indice.ts → grupoDeMaKo, que ya corta al resto). */
@@ -388,6 +436,8 @@ export function listaDelCliente(p: {
   grupo?: { titulo: string; ultimoAt: string | null } | null;
   /** Las charlas del lienzo de Automations (OC5): se leen acá y se siguen en el lienzo. */
   automations?: readonly ConTitulo[];
+  /** Los chats del Image Editor y del Video Editor (OC8): se leen acá y se siguen en el editor. */
+  editores?: ReadonlyArray<{ tipo: TipoEditor; clave: string; titulo: string | null; updatedAt: string }>;
 }): FilaDelCliente[] {
   const { jefe, subs } = arbolDelJefe(p.sesiones);
   const cerebro: FilaDelCliente = {
@@ -416,6 +466,11 @@ export function listaDelCliente(p: {
     ...(p.automations ?? []).map((a): FilaDelCliente => ({
       clave: `au${a.id}`, elegido: { automatizacion: a.id }, titulo: conOrigen(ORIGEN_AUTOMATIONS, a.titulo?.trim() || `Automatización ${a.id}`),
       criatura: ORIGEN_AUTOMATIONS, actividad: ms(a.updatedAt), origen: 'automations',
+    })),
+    ...(p.editores ?? []).map((e): FilaDelCliente => ({
+      clave: `ed:${e.tipo}:${e.clave}`, elegido: { editor: e.tipo, clave: e.clave },
+      titulo: conOrigen(EDITORES[e.tipo].origen, e.titulo?.trim() || 'Sin nombre'), criatura: EDITORES[e.tipo].origen,
+      actividad: ms(e.updatedAt), origen: 'editor',
     })),
   ]
     .map((f, i) => ({ f, i }))

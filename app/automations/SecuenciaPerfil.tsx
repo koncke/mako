@@ -33,10 +33,10 @@ import { etapasDeCondicion } from '@/lib/condiciones-catalogos';
 import { usePosicionesLienzo } from './usePosicionesLienzo';
 import { useBorradorSecuencia, ERROR_DESACTUALIZADO } from './useBorradorSecuencia';
 import { Dropdown } from '@/app/components/Dropdown';
-import { REENTRADAS, ROTULO_REENTRADA, type Reentrada } from '@/lib/reentrada';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import type { ListoCrearIA } from './CrearConIA';
 import { ChatMako } from './ChatMako';
+import type { FinIA } from './stream-ia';
 import Link from '@/app/_ui/Link';
 import { textoPorAprobar, dejaBorradores, POR_QUE_SE_APRUEBAN, POR_QUE_CORTO, RUTA_APROBAR } from '@/lib/mensajes-por-aprobar';
 import { duplicadaDe, duplicadaAlActivar, avisoDuplicada } from '@/lib/automatizacion-duplicada';
@@ -67,6 +67,7 @@ import { abrirGuiaVoz } from '@/lib/chatbot-puerta';
 // Un medio sin conectar frena Publicar (409) y Activar (décima tanda, GENERAL 6): el modal de la tab lo conecta ahí mismo.
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
 import { medioDelError, medioQueFrena, mediosQueUsa, type Medio } from '@/lib/medios-automatizacion';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 // El wizard son ~1.800 líneas y sólo se abre UNA vez por workspace (la primera vez que
 // se tilda la IA): no tiene por qué viajar en el bundle de cada apertura del lienzo.
@@ -97,14 +98,17 @@ const ALTO_ACCION = 44;
  * en el muelle de «Probar» y se abría con el logo de MaKo. Hasta el 22/10/2026 la capa iba de la sidebar para la derecha
  * (`insetIzq`) y la barra de la app quedaba sin tapar.
  *
- * LA CAPA DE «MaKo trabajando» TAPA TODA LA PANTALLA (22/10/2026, Martín: «No me gusta que quede blureado, tipo opaco solo una
- * parte del lienzo, debería quedar todo, incluso atrás de la sidebar, todo»). Por encima de la barra lateral de la app (z 60,
- * app/_components/Sidebar.tsx) y por debajo de la lista flotante con el chat, que sube a `Z_CHAT_ENCIMA` mientras tanto
- * (SimuladorWhatsApp.tsx).
+ * LA CAPA DE «MaKo trabajando» TAPA TODO EL LIENZO, PERO NO LA BARRA DE LA APP. La primera mañana del 22/10/2026 Martín
+ * pidió que tapara «todo, incluso atrás de la sidebar» y fue por ENCIMA de la barra de la app (z 61). Esa misma noche,
+ * mirando #289: «cuando está ejecutando algo, no debe deshabilitarme la navegación de la sidebar principal... Se debe
+ * ejecutar en segundo plano. Si está bien que deshabilite la edición del lienzo». Queda a pantalla completa (también detrás
+ * de la lista con el chat) y DEBAJO de la barra de la app (z 60, app/_components/Sidebar.tsx), que sigue nítida y se toca:
+ * irse a otra tab no corta el turno (app/automations/stream-ia.ts). Encima de «Publicar» (`Z_ACCION_LIENZO`, 57); la lista
+ * flotante con el chat sube a `Z_CHAT_ENCIMA` mientras tanto (SimuladorWhatsApp.tsx).
  */
-export const Z_CAPA_MAKO = 61;
-/** La lista flotante con el chat de MaKo, mientras MaKo trabaja: encima de la capa. */
-export const Z_CHAT_ENCIMA = 62;
+export const Z_CAPA_MAKO = 58;
+/** La lista flotante con el chat de MaKo, mientras MaKo trabaja: encima de la capa y debajo de la barra de la app. */
+export const Z_CHAT_ENCIMA = 59;
 
 const tarjetaChrome: CSSProperties = {
   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11,
@@ -149,19 +153,6 @@ export const TITULO_TUERCA = 'Configuraciones de esta automatización';
  * LA TUERCA DEL TÍTULO (20/10/2026), en el lugar del logo de MaKo y con su MISMA cara (`tarjetaChrome`, el lado del título):
  * abre Configuraciones de ESTA automatización.
  */
-/** «Activa» o «Pausada · no sale nada», al lado del título (el interruptor sigue en el pie). */
-export function EstadoDeLaAutomatizacion({ activa }: { activa: boolean }) {
-  return (
-    <span data-estado-automatizacion={activa ? 'activa' : 'pausada'} role="status"
-      title={activa ? 'Le escribe a quien entra' : 'No le sale nada a nadie hasta que la actives: cada lead espera en su paso'}
-      style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 10px', borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-        background: activa ? 'color-mix(in srgb, var(--good) 14%, transparent)' : 'var(--surface-2)', color: activa ? 'var(--good)' : 'var(--dim)', border: `1px solid ${activa ? 'color-mix(in srgb, var(--good) 35%, transparent)' : 'var(--border)'}` }}>
-      {activa
-        ? <><span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--good)' }} />Activa</>
-        : <><span aria-hidden>⏸</span>Pausada · no sale nada</>}
-    </span>
-  );
-}
 
 export function BotonTuerca({ onClick, lado }: { onClick: () => void; lado: number }) {
   return (
@@ -213,8 +204,6 @@ export type FrenoDelFlujo = NonNullable<ReturnType<typeof frenoDelFlujo>>;
  */
 export type FrenoDeProbar = FrenoDelFlujo & { medio?: Medio; linea?: string | null };
 
-/** El ícono de cada opción de la «Reentrada» (del set de la casa). */
-const ICONO_REENTRADA: Readonly<Record<Reentrada, string>> = { una_vez: 'check', otra_reunion: 'calendario', siempre: 'repetir' };
 
 export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, cronAlAbrir = false, pedidoAlAbrir = null, ranuraChat = null, onVolverALista, Configuraciones, configPropia, onMakoTrabajando, onCrearOtra, onListaCambio }: {
   /** El modal de Configuraciones de UNA automatización (lo pasa la tab). Sin él, no hay tuerca. */
@@ -644,6 +633,22 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     return true;
   };
 
+  /**
+   * MaKo TERMINÓ CON ESTA AUTOMATIZACIÓN CERRADA (22/10/2026, «Se debe ejecutar en segundo plano»): la persona se fue a
+   * otra tab u otra automatización. Lo que armó va al BORRADOR por la MISMA acción que el lienzo (`action: 'borrador'`, con
+   * la base que esta pestaña abrió y `keepalive`), y la lista se relee: al volver, el lienzo abre con eso, sin publicar.
+   * Crear ya lo guardó la ruta; una respuesta sin cambios (`edicionTocaPasos`) no toca nada. Sin `setState`: está desmontado.
+   */
+  const guardarSinVer = (f: FinIA) => {
+    if (f.t !== 'listo') return;
+    if (f.listo.etiquetasNuevas.length) avisarCambioEtiquetas();
+    if (f.listo.modo !== 'editar' || !edicionTocaPasos(f.listo)) { onListaCambio?.(); return; }
+    void fetch('/api/chat-agent/secuencias', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({ secuenciaId: secuencia.id, action: 'borrador', pasos: renumerar(f.listo.pasos as PasoSecuenciaDto[]), base: secuencia.base }),
+    }).then(() => onListaCambio?.()).catch(() => {});
+  };
+
   /** EL CHOKE POINT: todo cambio del lienzo pasa por acá (y por eso todo se deshace). */
   const onPasos: CambioPasos = (fn, conFoto) => {
     if (conFoto) fotoAntes();
@@ -905,9 +910,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    */
   const [lineasWa, setLineasWa] = useState<Array<{ linea: string; rotulo: string; estado: string; esDefault: boolean }>>([]);
   const [lineaSec, setLineaSec] = useState<string | null>(secuencia.instance_name ?? null);
-  // LA «REENTRADA» DEL CRON (14/10/2026, lib/reentrada.ts): la que el motor usa —la guardada, o sin guardar la regla de
-  // antes—, así que lo de fábrica se ve como lo elegido. Se guarda al elegirla, como la línea.
-  const [reentrada, setReentrada] = useState<Reentrada>(secuencia.reentrada_efectiva ?? 'una_vez');
+  // ⚠️ SIN LA «REENTRADA» EN PANTALLA (23/10/2026, Martín por el Cerebro: «Una sola vez / otra vez que es reunión... para
+  // eso tenemos CONDITION»). El motor sigue con la que tiene (`reentrada_efectiva`, lib/reentrada.ts); no se elige acá.
   useEffect(() => {
     let vivo = true;
     void (async () => {
@@ -950,17 +954,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       setErr(null);
       onCambio();
     } catch { setLineaSec(antes); setErr('Sin conexión — prueba de nuevo.'); }
-  };
-
-  const guardarReentrada = async (valor: Reentrada) => {
-    const antes = reentrada;
-    setReentrada(valor);
-    try {
-      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, reentrada: valor }) })).json();
-      if (!r.ok) { setReentrada(antes); setErr(r.error || 'No se pudo cambiar.'); return; }
-      setErr(null);
-      onCambio();
-    } catch { setReentrada(antes); setErr('Sin conexión — prueba de nuevo.'); }
   };
 
   const toggle = async () => {
@@ -1134,32 +1127,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   // con el mismo alto, `ALTO_ACCION`, para que se lean como la misma familia.
   const estiloProbar: CSSProperties = { ...tarjetaChrome, height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 18px', display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 14.5, fontWeight: 700, color: 'var(--ink)', cursor: 'pointer', fontFamily: 'inherit' };
 
-  /**
-   * LA «REENTRADA», EN EL PANEL DE CADA WHATSAPP (17/10/2026, tarjeta #846). Martín en la revisión con Joan (Fathom
-   * 863534246, 20:10): «la parte de reentrada y número no debería configurarse en el cron, debería configurarse en el
-   * WhatsApp». El CRON queda con el disparo. El NÚMERO ya era de cada mensaje (la cabecera, `CabeceraWhatsApp`; el motor
-   * usa `lineaDelPaso(paso) ?? sec.instance_name`, y una respuesta sale por la línea donde escribió el lead): el del CRON
-   * era el de toda la automatización repetido, y se fue. La reentrada SÍ es de toda la automatización, y lo dice: es el
-   * mismo valor en cada WhatsApp. Un flujo sin ningún WhatsApp (sólo email) la sigue teniendo en el CRON, para no
-   * quedarse sin ella.
-   */
-  const hayWhatsApp = pasos.some((p) => esNodoMensaje(p) && p.canal === 'whatsapp');
-  const controlReentrada = (
-    <div data-reentrada style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>Reentrada{hayWhatsApp ? ' · toda la automatización' : ''}</div>
-      {rolAdmin ? (
-        <Dropdown
-          value={reentrada}
-          options={REENTRADAS.map((r) => ({ value: r, label: ROTULO_REENTRADA[r], icono: ICONO_REENTRADA[r] }))}
-          onChange={(v) => void guardarReentrada(v as Reentrada)}
-          ariaLabel="Si un lead puede volver a entrar a esta automatización"
-          width="100%"
-        />
-      ) : (
-        <div style={{ fontSize: 13.5, color: 'var(--ink)' }}>{ROTULO_REENTRADA[reentrada]}</div>
-      )}
-    </div>
-  );
 
   /**
    * ⚠️ EL LIENZO ES LA PANTALLA. No hay barra, ni cabecera, ni pie: el título, el
@@ -1221,7 +1188,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           <ChatMako secuenciaId={secuencia.id} pasos={pasos} publicadas={secuencia.pasos?.length ?? 0} onListo={alListoIA}
             onVolver={onVolverALista}
             onTrabajando={setChatTrabajando} pedidoInicial={pedidoPendiente} onPedidoInicialUsado={() => setPedidoPendiente(null)}
-            nombre={secuencia.nombre ?? ''} onCrearOtra={onCrearOtra} onListaCambio={onListaCambio} nota={notaChat} />
+            nombre={secuencia.nombre ?? ''} onCrearOtra={onCrearOtra} onListaCambio={onListaCambio} nota={notaChat}
+            alTerminarSinVer={guardarSinVer} />
         </div>,
         ranuraChat,
       )}
@@ -1244,7 +1212,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         onTarjetaAbierta={setTarjetaAbierta}
         posiciones={lugares.posiciones} onPosiciones={rolAdmin ? lugares.mover : undefined}
         linea={rolAdmin ? { actual: lineaSec, onElegir: elegirLineaDesdeEditor } : undefined}
-        pieWhatsApp={controlReentrada}
         chrome={(
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
             {/* El ancho es FIJO por lo mismo que en /mensajes: en modo edición el
@@ -1292,11 +1259,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             {Configuraciones && (
               <BotonTuerca lado={ALTO_ACCION} onClick={() => setConfigAbierta(true)} />
             )}
-            {/* EL ESTADO, A LA VISTA (22/10/2026, Martín: «se puede pausar el envío desde Automations»). Hasta acá una pausada se
-                notaba sólo por el gris de la fila y por el «Activar» del pie, que en una pantalla baja queda abajo de todo. Pausada
-                = el motor congela su cola (lib/nutricion.ts, `idsDePausadas`) y aprobar sus borradores no los manda
-                (lib/borrador-camino.ts): no sale nada. */}
-            <EstadoDeLaAutomatizacion activa={activa} />
+            {/* SIN CHIP DE ESTADO (22/10/2026, Martín: «elimina el texto "Pausada, no sale nada", eso es completamente innecesario... Para
+                eso ya tenemos el "ACTIVAR" de abajo»): el estado lo dice sólo el interruptor «Activar» del pie. */}
 
             {configAbierta && Configuraciones && <Configuraciones secuenciaId={secuencia.id} nombre={nombre || secuencia.nombre} onCerrar={cerrarConfig} />}
             {avisoProspeccion && (
@@ -1360,7 +1324,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             {/* El error va ACÁ, pegado al botón que lo produce: abajo del lienzo y a la
                 izquierda nacía debajo de la lista de secuencias, que flota encima. */}
             {rolAdmin && (err ? (
-              <span role="alert" title={avisosIA && avisosIA.texto === err ? avisosIA.todos.join('\n') : undefined} style={{ ...tarjetaChrome, maxWidth: 380, fontSize: 12.5, color: 'var(--bad)', borderColor: 'var(--bad)', lineHeight: 1.4 }}>{err}</span>
+              <span role="alert" title={avisosIA && avisosIA.texto === err ? avisosIA.todos.join('\n') : undefined} style={{ ...tarjetaChrome, maxWidth: 380, fontSize: 12.5, color: 'var(--bad)', borderColor: 'var(--bad)', lineHeight: 1.4 }}>{err}<ReportarASoporte /></span>
             ) : flash ? (
               <span style={{ ...tarjetaChrome, fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>{flash}</span>
             ) : null)}
@@ -1414,8 +1378,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         editorEntrada={(
           /**
            * EL PANEL DEL CRON (sexta tanda: varios CRON, seis botones gigantes, cada uno con su editor).
-           * Vive en EditorDisparadores. Desde el 17/10 (#846) sólo el disparo: el número es de cada WhatsApp y
-           * la reentrada va en su panel (`controlReentrada`); en un flujo sin WhatsApp, abajo de todo (`pie`).
+           * Vive en EditorDisparadores. Desde el 17/10 (#846) sólo el disparo: el número es de cada WhatsApp, y la
+           * reentrada no se elige en pantalla desde el 23/10/2026 (para eso están las condiciones).
            *
            * Lo que mide el PANEL (que no quede aire debajo) es del lienzo (`MUELLE`, lib/lienzo-grafo.ts).
            */
@@ -1423,8 +1387,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             lista={crons.lista} editando={cronAbierto} onEditar={setCronAbierto} onGuardar={crons.guardar}
             productos={productos} etiquetas={etiquetas} disparadores={disparadores} etiquetaEtapa={etiquetaEtapa}
             tz={tz} busy={busy != null} rolAdmin={rolAdmin}
-            // La reentrada va en cada WhatsApp (#846, `controlReentrada`); acá sólo si el flujo no tiene ninguno.
-            pie={hayWhatsApp ? undefined : <div style={{ paddingTop: 10, borderTop: '1px solid var(--border)' }}>{controlReentrada}</div>}
           />
         )}
       />

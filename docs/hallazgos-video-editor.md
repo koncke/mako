@@ -6,6 +6,15 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## `toast.error` lleva «Reportar a Soporte»: se envuelve UNA vez, en el Toaster (23/10/2026)
+
+Los ~45 archivos del editor llaman `toast.error` de sonner, que dibuja su toast con su propia librería (no es un `role="alert"`
+de la app, y el guardián de los avisos no lo ve). En vez de tocar los 45, `components/ui/sonner.tsx` cambia `toast.error` del
+objeto de sonner —que es UNO para todos los que lo importan— por uno que agrega la acción «Reportar a Soporte» (salvo que quien
+llama traiga la suya) y dura 8 s. Vale porque ese módulo lo cargan las dos raíces del editor (VideoEditorCliente y EditorVideoM)
+antes de que nadie llame a `toast.error`; un archivo que use sonner FUERA del editor no lo tendría. Marca `conSoporte` para no
+envolverlo dos veces con el recargado en caliente.
+
 ## Cómo está armado, en una tabla
 
 | Pieza | Vive en | Qué decide |
@@ -1713,3 +1722,14 @@ Quedó en el ws3, para OC8: el proyecto `99ea7dc3-466b-41d4-b624-73561b291c44` (
 
 **Vive en:** app/video-editor/_opencut/chat/hilo.ts (`cargarHilo`) · tests/video-editor-chat-hilo.test.ts (13) ·
 *22/10/2026, chat «Chats de las tabs».*
+
+## El chat «Editar con IA» con las piezas del Ops Center, con los colores de CapCut (22/10/2026, TB3)
+
+El hilo es `HiloMako` (criatura «Video Editor») y la caja `CajaChat`, con el motor de siempre (nada se aplica sin «Aceptar»).
+La propuesta va en el hueco `enMensaje`, y ahí también el `data-mensaje` que busca el foco de un link `?propuesta=`.
+- **Las piezas usan los tokens de la app** (`--surface`, `--ink`…): sobre el panel oscuro de CapCut salían claras. `CSS_CHAT`
+  los redefine con los `--cc-*` bajo `.cc-chat` (la raíz del panel), como el Web Generator con `.gma-ag`.
+- **La guarda del chat único pedía el import con comillas simples** y OpenCut escribe con dobles: ahora acepta las dos.
+- El rótulo del alcance ya no va en la burbuja de la persona (sigue en los chips), y el tope del pedido lo pone `enviar`.
+
+**Vive en:** app/video-editor/_opencut/chat/PanelChat.tsx · tests/editores-chat-piezas.test.ts · *22/10/2026, chat «Chats de las tabs».*

@@ -16,7 +16,9 @@ import { getSupabaseServer } from './supabase';
 import { leerTodo } from './supabase-paginado';
 import { OWNER_WS, wsSuperAdmin } from './workspace';
 import { credWsEstricta, descifrarSecreto } from './credenciales';
-import { CUENTAS_DEL_CREDITO, cicloDelCredito, resumenCredito, totalCredito, type FilaGasto, type LecturaCredito } from './credito-api';
+import { CUENTAS_DEL_CREDITO, cicloDelCredito, gastoDelAsignado, resumenCredito, totalCredito, type AsignadoCredito, type FilaGasto, type LecturaCredito } from './credito-api';
+import { CREDITO_DE_UN_NEGOCIO } from './veto-claude';
+import { creditoAsignadoA } from './credito-negocio';
 
 export async function leerCreditoApi(ahora = Date.now()): Promise<LecturaCredito> {
   const db = getSupabaseServer();
@@ -59,5 +61,14 @@ export async function leerCreditoApi(ahora = Date.now()): Promise<LecturaCredito
   }
 
   const filas = resumenCredito({ vinculadas, gastos, wsConClave, ahora });
-  return { ok: true, filas, total: totalCredito(filas), negociosSinLeer };
+  // Los negocios con un crédito asignado (el ws1): su interruptor y lo que llevan gastado de él en el ciclo de la cuenta.
+  const asignados: AsignadoCredito[] = [];
+  for (const a of CREDITO_DE_UN_NEGOCIO) {
+    const c = CUENTAS_DEL_CREDITO.find((x) => x.clave === a.clave);
+    if (!c) continue;
+    const prendido = await creditoAsignadoA(a.ws).then((x) => x?.prendido ?? null, () => null);
+    const g = gastoDelAsignado(gastos, a.ws, cicloDelCredito(c.diaDeCobro, ahora).desde);
+    asignados.push({ ws: a.ws, quien: a.quien, cuenta: c.cuenta, prendido, gastadoUsd: g?.usd ?? null, llamadas: g?.llamadas ?? 0 });
+  }
+  return { ok: true, filas, total: totalCredito(filas), negociosSinLeer, asignados };
 }

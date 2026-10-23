@@ -95,6 +95,7 @@ import { contenidoNoConfiable } from './prompt-render-pure';
 import { limpiarNombreEtiqueta } from './etiquetas-reglas';
 import { motivoDeErroresCascada } from './ia-mensajes';
 import { esTopeDeTamano, sinRedPorDatos, CONECTA_TU_CLAUDE } from './fallo-ia-texto';
+import { CIERRE_EDICION } from './flujo-ia-cliente';
 import type { ProvName } from './ai-cheap';
 // Cómo se escribe un disparador de VARIAS etapas (cuarta tanda, punto 14): UNA forma, la del
 // desplegable del CRON. Puro: lib/flujo-conversacion.ts no importa nada con `server-only`.
@@ -364,6 +365,11 @@ export type ResultadoEdicion = Omit<ResultadoIA, 'disparador'> & {
    * `pasos` son el borrador tal cual.
    */
   respuesta?: string;
+  /**
+   * LO PEDIDO QUE NO SE HIZO (22/10/2026): lo que el modelo armó y no se pudo poner, y lo que el dueño pegó y no quedó en el
+   * lienzo (`faltantesDelPedido`, la ruta). Va en ROJO; `avisos` son reparaciones, en gris. Con algo acá, MaKo no dice «Listo».
+   */
+  noHecho?: string[];
 };
 
 // ── Normalizar nombres y textos ───────────────────────────────────────────────────
@@ -584,6 +590,18 @@ type Estado = {
   copias?: ReadonlySet<string>;
   /** El CRON del flujo (el que eligió el modelo o el que ya tiene): de su CRM sale la etapa de «Mover de etapa» (`crmDeLaEtapa`). */
   cron?: string | null;
+  /**
+   * LO PEDIDO QUE NO SE HIZO (22/10/2026, Martín: «En rojo va SÓLO un error de verdad o algo que pidió y NO se hizo»). Lo
+   * demás de `avisos` son reparaciones (van en gris). Lo llena editar; crear lo deja vacío.
+   */
+  noHecho: string[];
+  /**
+   * EDITAR: los casos NUEVOS que el modelo pidió para un «Si responde» clásico con «cambiar» (22/10/2026, Sonnet y Haiku lo
+   * intentaron así). Los tramos que cuelgan después de ese «Si responde» van a estos casos, en orden (`agregarTramos`).
+   */
+  casosPedidos?: Array<{ titulo: string; cuando: string; sigue?: string | null }>;
+  /** EDITAR: la tarjeta NUEVA que el modelo pidió para «Otra cosa» de ese «Si responde» (`otra_cosa` en «cambiar»). */
+  otraCosaPedida?: string | null;
 };
 
 /**
@@ -1644,7 +1662,7 @@ function resolverDisparador(v: unknown, est: Estado): string | null {
  * saca y lo dice en `avisos`; lo que quede mal lo rechazan `validarIA` y `validarGrafo`.
  */
 export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random): ResultadoIA {
-  const est: Estado = { ctx, avisos: [], nuevas: [], condiciones: new Set(), canalDefecto: 'whatsapp' };
+  const est: Estado = { ctx, avisos: [], nuevas: [], condiciones: new Set(), canalDefecto: 'whatsapp', noHecho: [] };
   const o = json && typeof json === 'object' && !Array.isArray(json) ? json as Record<string, unknown> : {};
   // ⚠️ EL DISPARADOR SE RESUELVE PRIMERO (duodécima tanda): de él salen las condiciones que valen (su ámbito) y el canal
   // de los mensajes que no lo dicen. Y antes de las etiquetas nuevas de las tarjetas: «etiqueta:Lista» CREA la etiqueta
@@ -1972,10 +1990,10 @@ const CLASE_DE_TIPO: Readonly<Record<TipoTarjeta, ClaseEditable>> = {
 };
 /**
  * UNA ESPERA CORTA ENTRE DOS WHATSAPP NO SE CUMPLE (22/10/2026, la prueba de los chats del Cerebro, cinco-min-entre-mensajes 3 de
- * 3): el motor frena el segundo hasta que pasan las horas de «Misma persona» (Configuraciones › Límites; de 3 a 72, 20 de
+ * 3): el motor frena el segundo hasta que pasan las horas de «Misma persona» (Configuraciones › Anti-ban; de 3 a 72, 20 de
  * fábrica: `LIMITES_CONSTANTES`). El modelo ponía los 5 minutos sin decirlo, o se negaba culpando a Meta. Lo dice el código.
  */
-export const AVISO_MISMA_PERSONA = 'Entre dos WhatsApp a la misma persona la línea espera las horas de «Misma persona» (Configuraciones › Límites; 20 de fábrica): el segundo sale cuando pasen';
+export const AVISO_MISMA_PERSONA = 'Entre dos WhatsApp a la misma persona la línea espera las horas de «Misma persona» (Configuraciones › Anti-ban; 20 de fábrica): el segundo sale cuando pasen';
 const MINUTOS_MISMA_PERSONA = LIMITES_CONSTANTES.wa.personaHoras * 60;
 function esperaCortaEntreWhatsapp(pasos: readonly PasoIA[], tocadas: ReadonlySet<string>): boolean {
   const porId = new Map(pasos.map((p, i) => [idDe(p, i), p]));
@@ -2194,11 +2212,47 @@ function parcheCondicion(p: PasoIA, x: Record<string, unknown>, est: Estado, pas
   return { ...p, ramas };
 }
 
-/** EL PARCHE DE UN AI STEP: su objetivo. Los escenarios se cambian en su tarjeta. */
+/**
+ * EL «CUÁNDO» DE UN CASO, en palabras: el que mandó el modelo si es una frase; si mandó una clave o un objeto (medido con
+ * Haiku: `"respuesta_contiene"` con `"valor": "sí"`, o `{ "modo": "contiene_palabra", "palabras": [...] }`), uno armado con
+ * eso; si no, el título del caso. Lo lee el clasificador: tiene que decir cuándo aplica.
+ */
+function cuandoDeCaso(c: Record<string, unknown>, titulo: string): string {
+  const cuando = c.cuando;
+  if (typeof cuando === 'string' && /\s/.test(cuando.trim())) return cuando.trim().slice(0, 600);
+  const palabras = cuando && typeof cuando === 'object' && Array.isArray((cuando as Record<string, unknown>).palabras)
+    ? ((cuando as Record<string, unknown>).palabras as unknown[]).map(str).filter(Boolean)
+    : str(c.valor).trim() ? [str(c.valor).trim()] : [];
+  return palabras.length ? `${titulo}: su respuesta dice algo como «${palabras.slice(0, 4).join('», «')}»` : titulo;
+}
+
+/**
+ * EL PARCHE DE UN AI STEP: su objetivo. Los escenarios se cambian en su tarjeta.
+ *
+ * ⚠️ UN «SI RESPONDE» CLÁSICO CON CASOS NUEVOS (22/10/2026, #289 en el ws1: «creó a la mitad las cosas que le pedí»). Pedir
+ * «si contesta que sí, X; si contesta que no, Y» sobre un flujo que ya tiene «Si responde» hacía que el modelo (Haiku y
+ * Sonnet, medido en seco) mandara `cambiar` con los casos nuevos y los mensajes como tramos colgados de ella. Se rechazaba
+ * entero («se cambian en el lienzo») y las ramas se perdían. Los casos que no existen se ANOTAN (`casosPedidos`) y los
+ * tramos de después los toman en orden (`agregarTramos`). Los que ya existen no se tocan.
+ */
 function parcheRespuesta(p: PasoIA, x: Record<string, unknown>, est: Estado): PasoIA {
   if (esPasoIA(p) && x.objetivo != null) {
     const objetivo = objetivoDeIA([x.objetivo], est.avisos);
     if (objetivo) return { ...p, objetivo };
+  }
+  if (!esPasoIA(p) && Array.isArray(x.casos)) {
+    const ya = new Set((p.casos ?? []).map((c) => normNombre(c.titulo)));
+    for (const c0 of x.casos) {
+      if (!c0 || typeof c0 !== 'object' || Array.isArray(c0)) continue;
+      const c = c0 as Record<string, unknown>;
+      const titulo = str(c.titulo).trim().slice(0, 120);
+      if (!titulo || ya.has(normNombre(titulo))) continue;
+      ya.add(normNombre(titulo));
+      (est.casosPedidos ??= []).push({ titulo, cuando: cuandoDeCaso(c, titulo), sigue: refs(c.sigue)[0] ?? null });
+    }
+    const otra = refs(x.otra_cosa ?? x.si_no)[0];
+    if (otra && otra !== p.si_no) est.otraCosaPedida = otra;
+    return p;
   }
   est.avisos.push(esPasoIA(p) ? 'Los escenarios del AI Step se cambian en su tarjeta' : 'Los casos de «Si responde» se cambian en el lienzo');
   return p;
@@ -2292,7 +2346,7 @@ const rotuloDeOpcion = (d: DisparadorIA): string => {
  * Sigue entrando el formato viejo (sólo `agregar`, o un tramo suelto con `tarjetas`). Renombrar no entra.
  */
 export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxIA, rnd: () => number = Math.random): ResultadoEdicion {
-  const est: Estado = { ctx, avisos: [], nuevas: [], condiciones: new Set(), canalDefecto: 'whatsapp' };
+  const est: Estado = { ctx, avisos: [], nuevas: [], condiciones: new Set(), canalDefecto: 'whatsapp', noHecho: [] };
   const o = json && typeof json === 'object' && !Array.isArray(json) ? json as Record<string, unknown> : {};
   // LA RESPUESTA (15/10/2026, lib/flujo-ia-consulta.ts): si el modelo contestó una pregunta, no se aplica NADA de lo que
   // haya traído junto, ni el cambio de canal que se lee del pedido. Era el bug: «No cambies nada, sólo explícamelo»
@@ -2387,11 +2441,111 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
     ...(pregunta ? { pregunta } : {}),
     ...(disparador !== undefined ? { disparador } : {}),
   };
+  // Los casos que el modelo pidió con «cambiar» y ningún tramo tomó: no venía qué hacer en ellos.
+  for (const c of est.casosPedidos ?? []) est.noHecho.push(`No armé qué pasa cuando «${c.titulo}»: no venía qué mandar`);
+  if (est.noHecho.length) out.noHecho = [...new Set(est.noHecho)];
   // 20/10/2026: tarjeta por tarjeta, con cómo quedó y «toca Publicar» (`resumenEdicionDetalle`), no sólo el conteo.
   out.resumen = resumenEdicionDetalle(base, out);
   return out;
 }
 
+
+/** Lo que cuelga de estas refs ADENTRO de un tramo, en orden y sin pasar por una «Si responde». */
+function alcanzaEnTramo(porTmp: ReadonlyMap<string, Card>, desde: readonly string[]): string[] {
+  const visto: string[] = [];
+  const cola = [...desde];
+  while (cola.length) {
+    const r = cola.shift()!;
+    const c = porTmp.get(r);
+    if (!c || visto.includes(r) || c.tipo === 'si_responde') continue;
+    visto.push(r);
+    cola.push(...apuntaA(c));
+  }
+  return visto;
+}
+
+/** Una tarjeta cruda sin las flechas a `id` (una «Si responde» no tiene flecha de entrada: escucha siempre). */
+function sinFlechaA(raw: Record<string, unknown>, id: string): Record<string, unknown> {
+  const fuera = (v: unknown) => (refs(v)[0] === id ? null : v);
+  const lista = (xs: unknown) => (Array.isArray(xs)
+    ? xs.map((y) => (y && typeof y === 'object' && !Array.isArray(y) ? { ...(y as Record<string, unknown>), sigue: fuera((y as Record<string, unknown>).sigue) } : y))
+    : xs);
+  return {
+    ...raw, sigue: fuera(raw.sigue), si_no: fuera(raw.si_no), otra_cosa: fuera(raw.otra_cosa),
+    ...(raw.ramas ? { ramas: lista(raw.ramas) } : {}), ...(raw.casos ? { casos: lista(raw.casos) } : {}),
+  };
+}
+
+/**
+ * UN «SI RESPONDE» ENTERO ADENTRO DE UN TRAMO (22/10/2026, #289 en el ws1, Martín: «creó a la mitad las cosas que le
+ * pedí»). Con «saludo, pregunta y DOS ramas según lo que conteste», el modelo (Haiku, medido en seco) mandó el tramo con
+ * un "si_responde" adentro, como al crear. Se descartaba con «ya hay una, sumé un caso» (sin sumar nada: también cuando no
+ * había ninguna), sus casos se perdían y los mensajes de cada rama quedaban colgando de nada («Saqué 2 tarjetas que no
+ * colgaban de nada»). Sus casos pasan a ser tramos de CASO (`despues_de: 'si_responde'`, con lo que cuelga de cada uno), y
+ * su «Otra cosa», el de «Otra cosa». Lo de antes de la pregunta sigue en el tramo, sin la flecha a la «Si responde».
+ * null = el tramo no trae ninguna.
+ */
+function partirSiResponde(g: Record<string, unknown>): { resto: Record<string, unknown> | null; casos: Array<Record<string, unknown>> } | null {
+  const cards = tarjetasDe(g.tarjetas, []);
+  const sr = cards.find((c) => c.tipo === 'si_responde');
+  if (!sr) return null;
+  const porTmp = new Map(cards.map((c) => [c.tmp, c]));
+  const usadas = new Set<string>([sr.tmp]);
+  const casos: Array<Record<string, unknown>> = [];
+  const tramoDe = (desde: string | undefined, extra: Record<string, unknown>) => {
+    const ids = desde ? alcanzaEnTramo(porTmp, [desde]) : [];
+    if (!ids.length) return;
+    for (const i of ids) usadas.add(i);
+    casos.push({ despues_de: 'si_responde', ...extra, inicio: desde, tarjetas: ids.map((i) => porTmp.get(i)!.raw) });
+  };
+  for (const x0 of Array.isArray(sr.raw.casos) ? sr.raw.casos : []) {
+    if (!x0 || typeof x0 !== 'object' || Array.isArray(x0)) continue;
+    const x = x0 as Record<string, unknown>;
+    const titulo = str(x.titulo).trim().slice(0, 120);
+    tramoDe(refs(x.sigue)[0], { salida: 'caso', caso: { titulo, cuando: cuandoDeCaso(x, titulo) } });
+  }
+  tramoDe(refs(sr.raw.otra_cosa ?? sr.raw.si_no)[0], { salida: 'otra_cosa' });
+  const resto = cards.filter((c) => !usadas.has(c.tmp)).map((c) => sinFlechaA(c.raw, sr.tmp));
+  return { resto: resto.length ? { ...g, tarjetas: resto } : null, casos };
+}
+
+/**
+ * LOS CASOS PEDIDOS CON «CAMBIAR», A SUS TARJETAS (22/10/2026, ver `parcheRespuesta`). Haiku mandó «cambiar» del «Si
+ * responde» con `casos: [{ titulo, cuando, sigue: "t1" }, …]` y los mensajes `t1`, `t2` en UN tramo colgado de ella. Cada
+ * caso se lleva SU tarjeta (y lo que cuelga) a un tramo de caso; la de «Otra cosa», a uno de «Otra cosa». Lo que queda de
+ * cada tramo sigue como estaba. Los casos sin `sigue` quedan para los tramos de después (`agregarTramos`).
+ */
+function repartirCasosPedidos(grupos: readonly unknown[], est: Estado): unknown[] {
+  const conSigue = (est.casosPedidos ?? []).filter((c) => c.sigue);
+  if (!conSigue.length && !est.otraCosaPedida) return [...grupos];
+  const tomados = new Set<string>();
+  const out: unknown[] = [];
+  const nuevos: Array<Record<string, unknown>> = [];
+  for (const g0 of grupos) {
+    if (!g0 || typeof g0 !== 'object' || Array.isArray(g0)) { out.push(g0); continue; }
+    const g = g0 as Record<string, unknown>;
+    const cards = tarjetasDe(g.tarjetas, []);
+    const porTmp = new Map(cards.map((c) => [c.tmp, c]));
+    const usadas = new Set<string>();
+    const llevar = (desde: string, extra: Record<string, unknown>) => {
+      const ids = alcanzaEnTramo(porTmp, [desde]).filter((i) => !usadas.has(i));
+      if (!ids.length) return false;
+      for (const i of ids) usadas.add(i);
+      nuevos.push({ despues_de: 'si_responde', ...extra, inicio: desde, tarjetas: ids.map((i) => porTmp.get(i)!.raw) });
+      return true;
+    };
+    for (const c of conSigue) {
+      if (tomados.has(c.titulo) || !c.sigue || !porTmp.has(c.sigue)) continue;
+      if (llevar(c.sigue, { salida: 'caso', caso: { titulo: c.titulo, cuando: c.cuando } })) tomados.add(c.titulo);
+    }
+    if (est.otraCosaPedida && porTmp.has(est.otraCosaPedida) && llevar(est.otraCosaPedida, { salida: 'otra_cosa' })) est.otraCosaPedida = null;
+    if (!usadas.size) { out.push(g); continue; }
+    const resto = cards.filter((c) => !usadas.has(c.tmp)).map((c) => c.raw);
+    if (resto.length) out.push({ ...g, tarjetas: resto });
+  }
+  est.casosPedidos = (est.casosPedidos ?? []).filter((c) => !tomados.has(c.titulo));
+  return [...out, ...nuevos];
+}
 
 /**
  * AGREGAR (decisión 14, v1, sin cambios): tramos nuevos anclados a una salida VACÍA de una tarjeta que existe, a un camino
@@ -2403,13 +2557,31 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
 function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicion, social: CanalSocial | null, huellas: ReadonlySet<string> | null): PasoIA[] {
   const { est, rnd } = ed;
   let pasos = pasosIn;
-  for (const g0 of grupos) {
+  // Una cola: los casos pedidos con «cambiar» ya van a sus tramos (`repartirCasosPedidos`), y un «Si responde» entero adentro
+  // de un tramo se parte en tramos de CASO que se procesan después.
+  const cola: unknown[] = repartirCasosPedidos(grupos, est);
+  for (let k = 0; k < cola.length; k++) {
+    const g0 = cola[k];
     if (!g0 || typeof g0 !== 'object' || Array.isArray(g0)) continue;
-    const g = g0 as Record<string, unknown>;
+    let g = g0 as Record<string, unknown>;
+    // Una flecha a la «Si responde» que ya está no lleva a ningún lado (escucha siempre): se saca, sin «lo corté».
+    const respAhora = raizRespuesta(pasos);
+    if (respAhora && Array.isArray(g.tarjetas)) {
+      g = { ...g, tarjetas: g.tarjetas.map((t) => (t && typeof t === 'object' && !Array.isArray(t) ? sinFlechaA(t as Record<string, unknown>, respAhora) : t)) };
+    }
+    if (!social) {
+      const partido = partirSiResponde(g);
+      if (partido) {
+        cola.push(...partido.casos);
+        if (!partido.casos.length) est.noHecho.push('Las respuestas del lead no traían qué hacer en cada caso: no armé las ramas');
+        if (!partido.resto) continue;
+        g = partido.resto;
+      }
+    }
     const cards = tarjetasDe(g.tarjetas, est.avisos).slice(0, TOPE_TARJETAS_IA * 3);
     const sinResp = cards.filter((c) => {
       if (c.tipo !== 'si_responde') return true;
-      est.avisos.push(social ? `Saqué el Si responde: el AI Step de ${NOMBRE_CANAL[social]} se suma desde el ＋` : 'No agregué otra «Si responde»: ya hay una, sumé un caso');
+      est.avisos.push(social ? `Saqué el Si responde: el AI Step de ${NOMBRE_CANAL[social]} se suma desde el ＋` : 'Saqué un segundo «Si responde»: va uno solo');
       return false;
     });
     if (!sinResp.length) continue;
@@ -2432,15 +2604,25 @@ function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicio
     let hilo: Hilo = 'salida';
     /** La tarjeta que seguía en la «sig» ocupada: va después del tramo (EN EL MEDIO). */
     let enElMedio: string | null = null;
+    // Colgado DEL «Si responde» por su id: es un caso nuevo (22/10/2026: los modelos no siempre dicen `salida: "caso"`, y el
+    // default «paralelo» lo mandaba a «no puede abrir otro camino»). Salvo que nombre un caso que ya existe (su puerto).
+    const salidaCruda = str(g.salida).trim();
+    const aUnCasoQueExiste = !!resp && puertosDe(pasos, indicePorId(pasos, resp)).some((x) => x.puerto === salidaCruda && x.puerto !== 'si_no');
     if (despues === 'cron' || despues === ID_INICIO) lugar = { tipo: 'cron' };
-    else if (despues === 'si_responde' || despues === 'respuesta' || (resp && g.despues_de === resp && (salida === 'caso' || !salida))) {
+    else if (despues === 'si_responde' || despues === 'respuesta' || (resp && str(g.despues_de).trim() === resp && !aUnCasoQueExiste)) {
       // ⚠️ UN AI STEP (novena tanda) LLEVA LO DE CADA CASO ADENTRO: colgarle tarjetas es lo que
       // `validarGrafo` no deja guardar («debajo de la tarjeta X no van tarjetas»), y el pedido entero
       // fallaba con ese id a la vista. Se dice y se sigue con lo demás.
       if (resp && esPasoIA(pasos[indicePorId(pasos, resp)])) { est.avisos.push('El AI Step lleva sus casos adentro: edítalos en su tarjeta'); continue; }
       const caso = (g.caso && typeof g.caso === 'object' ? g.caso : {}) as Record<string, unknown>;
-      const titulo = str(caso.titulo).trim().slice(0, 120);
-      const cuando = str(caso.cuando).trim().slice(0, 600);
+      let titulo = str(caso.titulo).trim().slice(0, 120);
+      let cuando = str(caso.cuando).trim().slice(0, 600);
+      // Sin su nombre o su cuándo: el caso que el modelo pidió con «cambiar» (`casosPedidos`), el que nombra la salida o, si
+      // no, el siguiente en orden.
+      if ((!titulo || !cuando) && salida !== 'otra_cosa' && salida !== 'si_no' && est.casosPedidos?.length) {
+        const j = Math.max(0, est.casosPedidos.findIndex((c) => normNombre(c.titulo) === normNombre(salidaCruda) || (titulo && normNombre(c.titulo) === normNombre(titulo))));
+        ({ titulo, cuando } = est.casosPedidos.splice(j, 1)[0]);
+      }
       if (salida === 'otra_cosa' || salida === 'si_no') {
         if (!resp) { est.avisos.push('No hay «Si responde» para colgar «Otra cosa»: no lo agregué'); continue; }
         // ⚠️ «OTRA COSA» OCUPADA NO SE PISA (revisión, 09/10/2026), igual que la rama general de
@@ -2451,7 +2633,7 @@ function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicio
           continue;
         }
         lugar = { tipo: 'puerto', nodo: resp, puerto: 'si_no' };
-      } else if (!titulo || !cuando) { est.avisos.push('Un caso nuevo de «Si responde» no decía su nombre o cuándo: no lo agregué'); continue; }
+      } else if (!titulo || !cuando) { est.noHecho.push('Un caso nuevo de «Si responde» no decía su nombre o cuándo: no lo agregué'); continue; }
       else lugar = { tipo: 'caso', titulo, cuando };
       hilo = 'respuesta';
     } else {
@@ -2538,6 +2720,15 @@ function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicio
   return pasos;
 }
 
+/** Los textos de los MENSAJES de un flujo (el cuerpo, sus partes y el asunto), para el control de lo pedido. Pura. */
+export function textosDeMensajes(pasos: readonly PasoGrafo[]): string[] {
+  return pasos.filter((p) => claseDe(p) === 'mensaje').map((p) => {
+    const x = p as PasoGrafo & { partes?: unknown; asunto?: unknown };
+    const partes = Array.isArray(x.partes) ? x.partes.map((y) => (y && typeof y === 'object' ? str((y as Record<string, unknown>).cuerpo) : '')) : [];
+    return [str(p.cuerpo), str(x.asunto), ...partes].filter(Boolean).join('\n');
+  });
+}
+
 /** «Cambié 3 · saqué 1 · agregué 2»: sólo lo que pasó, armado por código. Nada → ''. */
 export function resumenEdicion(r: Pick<ResultadoEdicion, 'cambiadas' | 'quitadas' | 'agregadas'>): string {
   return [
@@ -2549,8 +2740,8 @@ export function resumenEdicion(r: Pick<ResultadoEdicion, 'cambiadas' | 'quitadas
 
 /** Cuántas tarjetas nombra el resumen de una edición; las demás van en «y N más». */
 export const TOPE_RESUMEN_EDICION = 3;
-/** El cierre de una edición: lo cambiado está en el borrador, no salió. */
-export const CIERRE_EDICION = 'Está en el borrador: toca Publicar.';
+/** El cierre de una edición: lo cambiado está en el borrador, no salió (vive en lib/flujo-ia-cliente.ts: lo usa el chat). */
+export { CIERRE_EDICION };
 
 /**
  * EL RESUMEN DE UNA EDICIÓN, TARJETA POR TARJETA (20/10/2026). Leila pidió «no pongas hermosa, pon el nombre» y MaKo

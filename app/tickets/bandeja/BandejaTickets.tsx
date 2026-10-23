@@ -38,9 +38,10 @@ import { MazoTickets } from './MazoTickets';
 import { TablaTickets } from './TablaTickets';
 import { CaraTicket, ChipOrigen } from './TarjetaTicket';
 import {
-  ROTULO_ESTADO, enGrupo, lectorDeBandeja, linkDeOrigen, nombreDe, ordenarTabla, textoDeLaPersona, tipoCorto as corto, ORDEN_INICIAL,
+  ROTULO_ESTADO, decirFalloDeLectura, enGrupo, lectorDeBandeja, linkDeOrigen, nombreDe, ordenarTabla, quePaso, textoDeLaPersona, tipoCorto as corto, ORDEN_INICIAL,
   type Orden, type VistaBandeja,
 } from './mazo-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 // ⚠️ Su hoja (./bandeja.css) la importa la PÁGINA (app/second-brain/pagina.tsx), como las del mazo: un import de CSS acá
 // rompería un test que dibuje esto con node.
 
@@ -75,9 +76,18 @@ export function BandejaTickets({ cerebro }: { cerebro: CerebroParaTickets | null
   // «Hace cuánto» de los avisos y de las tarjetas: se fija al leer, no al dibujar.
   const [ahoraLista, setAhoraLista] = useState(() => Date.now());
   // Una lectura a la vez, sin perder la que se pide mientras tanto, y la vista hasta que llega (./mazo-reglas.ts).
+  // Un refresco que falla deja lo que se ve (22/10/2026, el 503 de cada deploy): con tickets a la vista, se dice recién si
+  // falla varias veces seguidas (./mazo-reglas.ts → decirFalloDeLectura); sin tickets, a la primera.
+  const fallos = useRef(0);
+  const hayTickets = useRef(false);
   const cargar = useMemo(() => lectorDeBandeja(leerBandejaAction, (r, conVista) => {
-    if (!r) { setError('No pude leer la Ticketera'); return; }
-    if (!r.ok) { setError(r.error); return; }
+    if (!r || !r.ok) {
+      fallos.current += 1;
+      if (decirFalloDeLectura(fallos.current, hayTickets.current)) setError(r && !r.ok ? r.error : 'No pude leer la Ticketera');
+      return;
+    }
+    fallos.current = 0;
+    hayTickets.current = true;
     setError(null); setTickets(r.tickets); setAutoArreglo(r.autoArreglo); setAhoraLista(Date.now());
     if (conVista) setVista((v) => v ?? r.vista);
   }), []);
@@ -138,7 +148,7 @@ export function BandejaTickets({ cerebro }: { cerebro: CerebroParaTickets | null
 
   return (
     <div className="tickets-bandeja">
-      {error && <p className="tickets-bandeja__error" role="alert">{error}</p>}
+      {error && <p className="tickets-bandeja__error" role="alert">{error}<ReportarASoporte /></p>}
       {tickets === null || vista === null ? (
         <p className="tickets-bandeja__vacio">Cargando…</p>
       ) : vista === 'mazo' ? (
@@ -294,7 +304,8 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
         <button type="button" className="tickets-bandeja__volver" onClick={onCerrar} aria-label="Cerrar el ticket">←</button>
         <div className="tickets-bandeja__cab-texto">
           <p className="tickets-bandeja__meta">#{t.id} · {corto(t.tipo)}{t.tipo_manual ? ' (corregido)' : ''} · {ROTULO_ESTADO[t.estado]} · el cliente ve «{ROTULO_ESTADO_CLIENTE[estadoParaElCliente(t.estado)]}»</p>
-          <h2 className="tickets-bandeja__h">{t.titulo}</h2>
+          {/* La misma frase que la tarjeta y la tabla; el título que lee el cliente queda en el `title`. */}
+          <h2 className="tickets-bandeja__h" title={t.titulo}>{quePaso(t)}</h2>
         </div>
         <Status tono={TONO_PRIORIDAD[t.prioridad]}>{ROTULO_PRIORIDAD[t.prioridad]}</Status>
       </header>
@@ -405,7 +416,7 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
         </section>
       )}
       {faltaMandar && <div className="tickets-bandeja__confirmar"><Button variant="primary" loading={haciendo} onClick={reMandar}>Mandárselo al Cerebro</Button></div>}
-      {error && <p className="tickets-bandeja__error" role="alert">{error}</p>}
+      {error && <p className="tickets-bandeja__error" role="alert">{error}<ReportarASoporte /></p>}
 
       {eventos.length > 0 && (
         <section className="tickets-bandeja__bloque">

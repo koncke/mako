@@ -37,6 +37,7 @@ import { NodeSelection, Selection, TextSelection, type EditorState, type Transac
 import { undoDepth } from '@tiptap/pm/history';
 import type { IdBloque } from '@/lib/editor-landing/catalogo-bloques';
 import { bloquePorId } from '@/lib/editor-landing/catalogo-bloques';
+import { HTML_EDITABLE_NUEVO } from '@/lib/editor-landing/html-editable';
 import {
   NODO, nuevoId, parrafo, titulo, tarjetaVacia, tituloDeTarjeta,
   type CampoFormulario, type JsonNodo, type TipoGrafico, type TonoRecuadro, type VarianteOptimizado,
@@ -230,6 +231,8 @@ export function bloqueJson(id: IdBloque, extra: { url?: string | null } = {}): J
       return { type: NODO.insertado, attrs: { src: '', proveedor: '', alto: null } };
     // Con id desde que nace (T6): la publicada sirve cada bloque desde /l/html/<docId>/<id>.
     case 'html-libre': return { type: NODO.htmlLibre, attrs: { id: nuevoId('h'), html: '', alto: 300 } };
+    // «Diseño editable» (html-editable.ts): nace con una sección de ejemplo para tocar a la vista o en «Código».
+    case 'html-editable': return { type: NODO.htmlEditable, attrs: { id: nuevoId('e'), html: HTML_EDITABLE_NUEVO } };
 
     // ── Gráficos ──
     case 'grafico-barras':

@@ -2,6 +2,7 @@ import { CheckCircle2, Info, TriangleAlert, X } from 'lucide-react'
 import { useEditor, useEditorStateShallow } from '../context'
 import { t } from '../strings'
 import styles from './Toaster.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Non-blocking notifications; errors use role=alert, the rest are polite status messages. */
 export function Toaster() {
@@ -21,6 +22,7 @@ export function Toaster() {
           <button type="button" className={styles.close} aria-label={t.dialog.close} onClick={() => editor.dismissToast(toast.id)}>
             <X size={16} />
           </button>
+          <ReportarASoporte />
         </div>
       ))}
     </div>

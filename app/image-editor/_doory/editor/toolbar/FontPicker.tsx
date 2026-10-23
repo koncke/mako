@@ -12,6 +12,7 @@ import { t } from '../strings'
 import { Button } from '../ui/Button'
 import { Skeleton } from '../ui/Skeleton'
 import styles from './FontPicker.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const ROW = 40
 const HEADING = 30
@@ -222,6 +223,7 @@ export function FontPicker({ current, onPreview, onPick, onClose }: FontPickerPr
           <Button size="sm" variant="ghost" onClick={() => void userStore.reload()}>
             {t.userFonts.retry}
           </Button>
+          <ReportarASoporte />
         </div>
       ) : null}
       <div ref={scroller} className={styles.list} style={{ height: VIEW }} onScroll={(e) => setScroll(e.currentTarget.scrollTop)} role="listbox" aria-label={t.fonts.list}>

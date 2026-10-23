@@ -21,8 +21,10 @@ import { hoyEnWorkspace } from '@/lib/timezone';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { credWs } from '@/lib/credenciales';
 import { CrmBoard, type CrmLead, type CrmJunta, type CrmMarcar } from './CrmBoard';
+import { vinculadosDelCrm } from '@/lib/vinculos-de-columnas';
+import { enElTope, estadoTopeCrm } from '@/lib/topes-crm';
 import { ofrecePartners } from './partners-crm';
-import { getRolWsEfectivo } from '@/lib/workspace';
+import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { mapToCrmLead, etapasDelTablero } from './crm-map';
 import { getEquipoAction, type MiembroEquipo } from './actions';
 import { leerOrdenManual } from '@/lib/crm-orden';
@@ -103,6 +105,11 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   // viajes antes de empezar a leer los leads.
   const [hoy, funnels] = await Promise.all([hoyEnWorkspace(), listarFunnels().catch(() => [])]);
   const funnelId = funnels.some((f) => f.id === funnelPideId && !f.esDefault) ? funnelPideId : null;
+  // Qué etapas ya tienen su evento y si Ganado cobra (22/10/2026): el aviso del «⋯» de la columna. Dos lecturas de la
+  // base, en la misma ola que todo lo demás (lib/vinculos-de-columnas.ts). Nunca tira: sin ella, no se avisa nada.
+  const pVinculados = vinculadosDelCrm(funnelId ?? funnels.find((f) => f.esDefault)?.id ?? null);
+  // El tope de leads del plan (23/10/2026, lib/topes-crm.ts): sólo a quien MaKo cobra por la pasarela. Nunca tira.
+  const pTope = getWorkspaceActual().then((ws) => (ws == null ? null : estadoTopeCrm(ws, 'crm.leads'))).catch(() => null);
 
   // ⚠️ Estas dos NO dependen de los leads, y hasta el 27/09/2026 se esperaban
   // DESPUÉS de la ola: eran la segunda y la tercera pasada de una carga que ya
@@ -205,7 +212,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
   // Con la etapa de ENTRADA pegada: a ella caen los agregados cuya etapa ya no existe acá.
   const validStageKeys = etapasDelTablero(stages);
-  const [[anunciosObj, adMap], ordenManual, cursoAlGanar, partners, puedeCrearCrm, camposTarjeta] = await Promise.all([pAtrib, pOrden, pCurso, pPartners, pPuedeCrear, pCampos]);
+  const [[anunciosObj, adMap], ordenManual, cursoAlGanar, partners, puedeCrearCrm, camposTarjeta, vinculados, tope] = await Promise.all([pAtrib, pOrden, pCurso, pPartners, pPuedeCrear, pCampos, pVinculados, pTope]);
   const atrib = { anuncios: new Map(Object.entries(anunciosObj)), adMap };
   const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, validStageKeys, atrib));
 
@@ -219,6 +226,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     company: j.empresa ?? 'Sin empresa',
     phone: telById.get(j.lead_id) ?? '—',
     goal: j.respuestas.objetivo ?? '—',
+    cual: j.tipo === 'J1' ? 'R1' : 'R2',
+    fecha: j.fecha,
+    dia: j.dia,
+    at: j.at ?? null,
+    url: j.url ?? null,
+    facturacion: j.respuestas.facturacion ?? null,
   }));
 
   const marcar: CrmMarcar[] = pendientesRaw.map((p) => ({
@@ -262,6 +275,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       disenoTarjeta={camposTarjeta.diseno}
       plantillasTarjeta={camposTarjeta.plantillas}
       camposGuardables={camposTarjeta.guardable}
+      vinculados={vinculados}
+      topeLeads={tope && enElTope(tope, 'crm.leads') ? tope.tope : null}
     />
     <PanelMakoCrm funnelId={funnelId} />
     </>

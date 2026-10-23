@@ -14,6 +14,7 @@ import { Skeleton } from '../ui/Skeleton'
 import styles from './Drawers.module.css'
 import { uploadToLibrary } from './uploads'
 import { useInsertDone } from './useInsertDone'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 function toRef(a: Asset): AssetRef {
   return { id: a.id, url: a.url, thumbUrl: a.thumb_url, width: a.width, height: a.height, name: a.name, kind: a.kind }
@@ -101,6 +102,7 @@ function UploadsTab({ close }: PanelProps) {
       {failed ? (
         <p className={styles.error} role="alert">
           {t.imageDrawer.removeFailed}
+          <ReportarASoporte />
         </p>
       ) : null}
       {images.length > 0 ? (
@@ -116,6 +118,7 @@ function UploadsTab({ close }: PanelProps) {
       {library.error && images.length === 0 ? (
         <p className={styles.error} role="alert">
           {t.imageDrawer.libraryFailed}
+          <ReportarASoporte />
         </p>
       ) : null}
       {library.hasMore && library.items.length > 0 ? (
@@ -208,11 +211,13 @@ function StockTab({ close }: PanelProps) {
       {error ? (
         <p className={styles.error} role="alert">
           {error}
+          <ReportarASoporte />
         </p>
       ) : null}
       {photos.error ? (
         <p className={styles.error} role="alert">
           {t.imageDrawer.stockFailed}
+          <ReportarASoporte />
         </p>
       ) : null}
       {!photos.loading && !photos.error && photos.items.length === 0 ? <p className={styles.note}>{t.imageDrawer.stockEmpty}</p> : null}

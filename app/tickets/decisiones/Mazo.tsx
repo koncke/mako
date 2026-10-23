@@ -48,6 +48,7 @@ import {
 } from '@/app/admin/runway/decisiones';
 import { alFrente, colaInicial, marcadaInicial, nuevasParaElMazo, porDecidir, puedeMandar, rotuloMandar, sinLa, veredictoGesto, TICKETERA_LISTA } from './reglas';
 import { CambioVista, type VistaTicketera } from './CambioVista';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const URGENCIA_CORTA: Record<Decision['urgencia'], string> = {
   bloquea: 'Frena un chat',
@@ -75,6 +76,7 @@ export function MazoDecisiones({ lectura, ...p }: PropsMazo & { lectura: Lectura
     return (
       <p className="mazo-falla" role="alert">
         {lectura.faltaTabla ? 'Falta crear la tabla de decisiones (migración 0277).' : 'No se pudieron leer las decisiones. Prueba de nuevo en un rato.'}
+        <ReportarASoporte />
       </p>
     );
   }
@@ -290,6 +292,7 @@ function Mazo({ decisiones, responder, deshacer, onCambioVista }: PropsMazo & { 
             {!pista && toast?.volver && hayVuelta && (
               <button type="button" onClick={volver}>Deshacer</button>
             )}
+            <ReportarASoporte />
           </div>
         )}
       </div>

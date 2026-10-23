@@ -320,15 +320,17 @@ test('la ruta: editar con la respuesta del CRON NO llama al modelo; «Déjalo as
   assert.match(RUTA, /generar\(\{\s*system, user, hastaMs: inicio \+ PLAZO_MODELO_MS, traducir, motivo: 'Editar una automatización con IA',\s*alIntento: [^\n]*\n\s*\}\)/);
   // (15/10/2026: una RESPUESTA del modelo no cambió nada y no se revisa: «no cambió nada» la reintentaría,
   // tests/flujo-ia-consulta.test.ts.)
-  assert.match(RUTA, /return \{ r, errores: r\.respuesta \? \[\] : erroresEdicion\(base, r, ctx\) \};/);
+  // (22/10/2026: después va el control de lo pedido, `faltantesDelPedido`: tests/chat-mako-ramas-y-listo.test.ts.)
+  assert.match(RUTA, /if \(r\.respuesta\) return \{ r, errores: \[\] \};\n\s+const errores = erroresEdicion\(base, r, ctx\);/);
 });
 
 test('la ruta: con la fila, el turno se anota al EMPEZAR y la pregunta, el resumen o el error al terminar; sin fila no', () => {
-  const turno = RUTA.indexOf("await anotar([turnoDelUsuario(pedido, respuestas, historial, 'app')]);");
+  // (23/10/2026, AU4: el turno lleva los nombres de lo adjuntado.)
+  const turno = RUTA.indexOf("const yo = turnoDelUsuario(pedido, respuestas, historial, 'app');");
   assert.ok(turno > 0 && turno < RUTA.indexOf("if (modo === 'crear') {", turno), 'el turno no va al empezar');
   assert.match(RUTA, /if \(secuenciaId == null \|\| !lista\.length\) return;/);
   assert.match(RUTA, /const mensaje = mensajeDePregunta\(pregunta, 'app'\);\n\s*await anotar\(\[mensaje\]\);\n\s*send\(\{ t: 'pregunta', pregunta, mensaje \}\);/);
-  assert.match(RUTA, /crearFlujoConIA\(\{ ws, pedido, secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req\.signal, alFase: send, respuestas, historial, via: 'app' \}\)/);
+  assert.match(RUTA, /crearFlujoConIA\(\{ ws, pedido: conAdjuntos\(pedido\), secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req\.signal, alFase: send, respuestas, historial, via: 'app' \}\)/);
   assert.match(RUTA, /const send = \(o: EventoIA \| EventoPreguntaIA\) =>/);
 });
 

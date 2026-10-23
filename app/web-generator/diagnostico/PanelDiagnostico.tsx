@@ -118,6 +118,7 @@ import { VistaAfuera } from './VistaAfuera';
 import { Comentario, type EstadoArreglo } from './Comentario';
 import type { ControlVista, ObjetivoVista } from './vista';
 import { HREF_TRAFICO_LANDING } from '@/lib/landing-estructura-enlace';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Props = {
   docId?: number;
@@ -762,7 +763,7 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
                   onLectura={(lectura) => void analizar({ lectura })}
                   onTexto={(texto) => void analizar({ texto })}
                 />
-              ) : error ? <p className="gdg-error" role="alert">{error}</p> : null}
+              ) : error ? <p className="gdg-error" role="alert">{error}<ReportarASoporte /></p> : null}
               {cargando && !analizando && <p className="gdg-vacio"><span className="gp-giro" aria-hidden /></p>}
               {/* #863 (17/10/2026): decía «MaKo no encontró nada que señalar», y eso afirma que la landing está bien. El
                   análisis pide de 3 a 8 hallazgos con cita: cero no es «sin hallazgos», es que este análisis no dejó

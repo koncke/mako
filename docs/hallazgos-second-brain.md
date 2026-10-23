@@ -28,6 +28,22 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## Cada documento de una conversación de Offer decía «No pude abrir el archivo.» (22/10/2026)
+
+Medido al pasar la tab Offer al hilo del Ops Center (OF4, hallazgos-offer.md). La ficha de un archivo del hilo
+(app/_chat/ArchivosHilo.tsx) dice «No pude abrir el archivo.» cuando no tiene link, y `itemsDeOffer` (app/m/mako/chat-ui.ts)
+armaba cada documento de Offer sin link, porque **Offer no guarda el archivo: guarda lo que leyó**. El diagnóstico obvio («no
+se subió») era el equivocado. Ahora `ArchivoHilo.sinAbrir` lo marca (sólo su nombre y, si la hay, su `nota`), en el Ops
+Center y en la tab.
+
+**Sin hacer:** el Ops Center todavía no muestra el PDF de una versión de la oferta ni la nota de voz de MaKo en una
+conversación de Offer: `itemsDeOffer` no los trae, y la tab los dibuja por el hueco `enMensaje` de HiloMako, que
+app/second-brain/PiezasCliente.tsx no pasa.
+
+*22/10/2026, chat «Offer» (claude3).*
+
+---
+
 ## El grafo ES la pantalla del teléfono, «Girar» al lado del zoom y sin «falta» (22/10/2026)
 
 Martín, desde el Centro (pedido 4a15e2c3, con capturas del teléfono): sin la vista «Abrir Grafo», el grafo siempre abierto;
@@ -2061,6 +2077,11 @@ eso debe funcionar». Código: app/second-brain/ChatSecondBrain.tsx, app/admin/o
 - **Seguir un chat de antes sin copiar nada.** El turno de MaKo (lib/mako-turno-app.ts) usa la `chart_key` de la persona SÓLO
   para ver si la sesión es suya (`sesionDe`). La ruta le pasa la persona con la clave de ESA sesión (`personaDelChat`), después
   de mirar la regla de /mako (`claveDeAntes`, la misma de leerlo). No hizo falta ni migrar ni adoptar el chat.
+- **Sin títulos de sección: cada grupo lleva su chat JEFE** (22/10/2026, Martín con captura de /second-brain?chat=40: «que estén los
+  chats JEFES que actúan como las secciones y los chats trabajadores que son los de abajo»). `GruposPorJefe` dibujaba el NOMBRE del
+  grupo (AUTOMATIONS, OFFER, DASHBOARD…) cuando el grupo no tenía chat propio, y el teléfono los dejaba sueltos. Ahora el cliente le
+  pasa `jefe` (lib/chat-mako-reglas.ts → `jefeDelGrupo`): una fila con su criatura que abre el más reciente de los suyos, en la
+  computadora y en el teléfono. El super admin no cambia: sus grupos tienen chat jefe.
 - **Seguir una de Offer es usar SU motor, entero** (/api/offer: `abrir`, `leer-link`, `turno`, `armar`), no la proyección de
   sólo texto: la proyección tira las opciones, los audios y los PDF. Tres cosas de la tab que hay que hacer igual:
   - las opciones son sólo las del ÚLTIMO mensaje (las de antes ya no se contestan: dibujarlas decía «Respondiste: <todo un
@@ -2165,7 +2186,48 @@ sale «✗ no hay ninguna fila» en una corrida con los dos. Solo, pasa. La marc
 Cerebro); el botón de un negocio sin ninguna IA sigue siendo Gemini, y eso lo decide Martín; la 0316 (`archivero_files.origen`)
 sigue sin aplicar en producción, y cada pegado archivado lo avisa en el log.
 
-## Los documentos del «+» en una conversación de Offer se perdían sin decirlo (22/10/2026, OC7)
+## Los chats del Image Editor y del Video Editor en el Ops Center: son por PERSONA (22/10/2026, OC8)
+
+Cada editor guarda su chat en su tabla (image_editor_chats, video_editor_chats), con una fila por persona y por diseño o
+proyecto. El Ops Center los lista como «Image Editor › <diseño>» y «Video Editor › <proyecto>» y los abre de sólo lectura, con
+«Seguir en el editor» (lib/chat-mako-indice.ts → `chatsDeLosEditores`, `hiloDeEditor`).
+
+- **No es como Offer ni Automations, que son del negocio:** el admin ve los del negocio y los demás sólo los suyos (como «de
+  antes»). La clave de la fila es persona|id, porque dos personas pueden tener un chat del mismo diseño. Las puertas son
+  `image-editor` y `video-editor`.
+- **Lo que midió TB1, arreglado:** la clave `landing:` (el Web Generator) no tenía origen y salía suelta. La de un closer o un
+  setter (`persona:<p>:dashboard:…`) tampoco se reconocía para el admin. `origenDeClave` saca la persona antes de mirar.
+- **Regla, la de d6b-rutas otra vez:** una lectura nueva en la ruta del chat va a su tabla «sin IA» en el mismo commit, y ese
+  test se corre con los propios. Acá lo atajó el test antes de la punta.
+- **El de otra persona se lee acá, sin «Seguir en el editor»** (la revisión de Integración). El editor abre el hilo de la persona
+  de la SESIÓN, así que el link desde el chat de un closer le abría al admin su propio hilo de ese diseño, otro. Cada fila dice
+  `propio`, y la de otro muestra «Esta charla es de otra persona del equipo: se lee aquí».
+
+## La estrella dice desde dónde: la tab, la entidad y el modo (22/10/2026, OC6)
+
+La estrella de cada tab (app/_chat/MakoEnLaTab.tsx) mandaba al «Cerebro» sin decir desde dónde: `tab` era sólo el aria-label.
+Ahora la pantalla le pasa `entidad` ({ tipo, id, titulo }) y `modo` ('analizar' | 'editar'). Las reglas están en lib/chat-desde.ts:
+
+- **La entidad la toman las herramientas por defecto** (`conEntidadPorDefecto`, en `runTool`): «movelo a Ganado» desde la ficha
+  de Ana llega con SU `leadId`. No pisa lo que mandó el modelo, ni un null a propósito. El parámetro por tipo está en `ENTIDADES`.
+- **Regla: la entidad va SÓLO en un parámetro obligatorio** (la revisión de Integración). En uno opcional, sin él la herramienta
+  hace OTRA cosa: `ver_avance_curso_cs` sin `leadId` es toda la cartera, `listar_cobros` sin él son todos los cobros. Con la
+  entidad metida, «¿cómo va la cartera?» desde la ficha de Ana contestaba sólo con Ana, y nada fallaba.
+- **El título es un dato de un tercero** (el nombre de un lead viene del formulario de Meta): el system lo dice entre «» y aclara
+  que no es una instrucción. El id va como se nombra cada cosa: un número para lead, automatización y oferta, y para una hoja
+  letras, números y guiones. El tipo se mira con `Object.hasOwn`: `in` aceptaba «constructor».
+- **El diagnóstico obvio era el equivocado:** se pensaba que hacía falta la pista para que «movelo a Ganado» trajera la
+  herramienta. Medido: el clasificador ya la trae sola. Lo que faltaba era el id del lead abierto. La pista
+  (`pistaDesde`) queda para los pedidos que no dicen de qué son.
+- **En «analizar» no viaja nada que escriba** (`herramientasDelModo`, la generalización de `permisoEdicionMako`). Lo cumple el
+  servidor, no el modelo. El modo lo pone la PANTALLA; «Analizar · Editar» aparece sólo si la pantalla pasa `onModo`.
+- **Trampa: el contexto que ata la pantalla va ÚLTIMO en el system** (tests/mako-analyst-lead.test.ts): el «desde dónde» va antes.
+- **Trampa: el chip se guarda como marca al principio del mensaje** (`[desde: CRM › Ana]`), y lo que vuelve en la respuesta
+  del turno va SIN ella. Si no, el hilo lo toma por un texto tapado (`textoTapadoDeRespuesta`) y dibuja la marca.
+- **SIN HACER:** ninguna tab pasa todavía `entidad` ni `modo`. Les toca al CRM (CR3, CR4), a Automations (AU4) y a los chats de
+  las tabs (TB3).
+
+## Los documentos del «+» y la nota de voz en el Ops Center: la lectura existía y la puerta estaba cerrada (22/10/2026, OC7)
 
 En el Ops Center, el «+» de una conversación de Offer juntaba los archivos y el turno salía SÓLO con el texto: `mandarAOffer`
 no los recibía (relevo, «SIN HACER» 2). Ahora se suben y se leen en esa conversación antes del turno, como en la tab
@@ -2173,8 +2235,38 @@ no los recibía (relevo, «SIN HACER» 2). Ahora se suben y se leen en esa conve
 
 - **Regla (la de la tab):** si un archivo no se pudo leer, el turno NO sale y el mensaje queda con «Reintentar»; lo ya leído
   queda anotado por archivo (un `WeakMap` por `File`), así el reintento no lo sube ni lo lee dos veces.
-- **SIN HACER:** la nota de voz de OC7 espera IA7 (la transcripción con la IA del negocio, rama ia15-2210, todavía no en
-  main). Muchos documentos juntos no van por el lote del servidor de la tab (O9, `UMBRAL_LOTE`): se leen uno por uno.
+- **El diagnóstico escondido: la lectura existía y la puerta estaba cerrada.** El «+» de una conversación de Offer siguió
+  apagado (`adjuntosCaja.puede: idOffer == null`, un «todavía no» de antes de OC7), así que los documentos nunca llegaban. El
+  test miraba el motor (`leerArchivosDeOffer`) y no la puerta. **Regla:** una función nueva se prueba también desde donde la
+  persona la toca (tests/ops-center-offer-voz.test.ts, 3).
+- **La nota de voz, en una conversación de Offer** (después de IA7): el micrófono GRABA, como en la tab. La nota va en MP3 a
+  Storage y viaja con el turno como `audio`, y el servidor de Offer la escucha con la IA del negocio antes de guardar nada.
+  Termina como en la tab: guardada aunque MaKo no contestó (se dibuja lo guardado), rechazada (413, 415, 422: se tira) o cortada
+  (vuelve a la barra). Lo ya subido no se vuelve a subir (`subirNotaDeVoz`).
+- **Trampa: lo que NO quedó guardado no se dibuja con la conversación leída en el camino.** `turnoOffer` devolvía la
+  conversación de los documentos o links leídos aunque el turno no hubiera salido, y dibujarla borraba el mensaje con su
+  «Reintentar». Ahora el resultado dice `guardado`.
+- **La nota de voz en los chats de MaKo** (el Cerebro y los demás, también la estrella de cada tab y el teléfono): va SOLA,
+  en MP3, a /api/mako/chat. La ruta la escucha con la IA del negocio ANTES de guardar nada (`escucharNotaDelChat`, adentro de
+  D6b), y lo que se entendió es el mensaje del turno. El MP3 se guarda como un adjunto (`<ws>/chat/<uuid>`, bloque `voz`, al
+  FINAL del mensaje para no correr los `<id>:<n>` de los adjuntos) y se escucha por su mensaje (`?voz=<id>`), nunca por su path.
+- **Lo que dejó la revisión de privacidad (Integración):**
+  - `pii: true` en la escucha: sin él, el MP3 caía a la red gratis que entrena (docs/hallazgos-ia.md, IA7).
+  - El chat es de quien manda la nota ANTES de escucharla.
+  - Con una clave dictada, se tapa en el texto y el audio no se guarda.
+  - Lo guardado de un chat que se SIGUE con `antes` (uno de antes, o el de una tab: el CRM, la ficha de un lead) daba 404
+    aun recién mandado: la nota, y también la foto y el PDF (`?adjunto=`, el mismo hueco desde el 16/10). Ahora el servidor
+    prueba SU chat y, si no, la regla que deja seguirlo (lib/mako-turno-app.ts → `quienAbre`, con `personaDelChat` de la ruta).
+    Para el admin es la de leer el texto: quien lee el mensaje abre su foto o escucha su nota, a propósito.
+  - **Trampa: un `&antes=1` en la URL no protege nada.** La primera versión lo pedía en la URL de la nota, pero lo pone el
+    navegador: la regla tiene que estar en el servidor. Así tampoco hizo falta tocar `ArchivosHilo` ni el estado de cuenta.
+- **Trampa: un 5xx no le dice a la pantalla que no se guardó nada.** `leerRespuesta` (app/m/mako/chat-ui.ts) toma cualquier 5xx
+  por «no sé si llegó». Con el 502 de Offer, una nota que ninguna IA pudo escuchar quedaba «incierta» en el hilo en vez de
+  volver a la barra. Por eso «ninguna IA pudo» es un **424**, y el 4xx ahora trae su `status`: 413, 415 y 422 tiran la nota, el
+  resto la devuelve a la barra.
+- **SIN HACER:** en Offer, el «+» ofrece fotos y PDF (lo del Ops Center), no todo lo que Offer sabe leer. Muchos documentos
+  juntos no van por el lote del servidor de la tab (O9, `UMBRAL_LOTE`): se leen uno por uno. El chat del super admin (los de
+  Claude Code) sigue dictando: no hay quién escuche una nota ahí. Probado sólo con tests: falta verlo en el teléfono en el ws3.
 
 ## Las charlas del lienzo de Automations en el Ops Center: la puerta es `setting`, no «automations» (22/10/2026, OC5)
 
@@ -2229,8 +2321,27 @@ negocio (`chatCheapToolsCascade` no tiene la red de la plataforma, a diferencia 
 - **El silencio era de la pantalla, no del turno:** lo que dice un turno que falla es un aviso que NO se guarda. Al recargar,
   el hilo terminaba en la pregunta de la persona. Ahora, pasado el techo del turno (7 minutos), se dice «No te pude
   contestar esto.» con «Reintentar» (app/m/mako/chat-ui.ts → `conSinRespuesta`; test: tests/ops-sin-silencio.test.ts).
-- **DECIDIDO (el Cerebro, 22/10):** «Gemini de base» (Martín: «No quiero que se corte Gemini») y la regla del 16/10 (los
-  datos de los clientes de un cliente no van a un proveedor que entrena) se cumplen juntas sólo con Gemini PAGO. Hasta que
+- **Pero «No te pude contestar» tapaba el porqué (segunda pasada, el Cerebro con otra captura de Martín, 22/10):** el
+  diagnóstico de arriba era cierto y el remedio, incompleto. Cuando el turno SABE por qué no contestó —sin su IA, su
+  computadora apagada, su clave sin crédito o en pausa, la PC que no se pudo leer— lo decía en un aviso que no se guardaba,
+  y al volver la persona leía «No te pude contestar esto», como si fuera un error. **Regla:** con un porqué conocido, el turno
+  lo guarda en el hilo (`porQueSinRespuesta`, lib/mako-turno-app-reglas.ts; `anotarEnHilo` en el turno), CON LA MARCA
+  `porque` (lib/chat-bloques.ts). Al volver, la pantalla lo dibuja como aviso de MaKo con su botón («Conectar tu IA»). En la
+  respuesta sigue como aviso (no en `guardados`: saldría dos veces). Sin porqué, como antes: «No te pude contestar esto».
+- **La trampa: guardarlo como un mensaje común de MaKo era el arreglo obvio, y estaba prohibido.** AGENTS.md, «Un cartel de
+  la PLATAFORMA no es un turno de la conversación»: lo guardado como `assistant` vuelve al modelo como algo que dijo, y lo
+  continúa (el 30/09 arrancó con «Ya estoy de vuelta»). El rol en la base sólo admite `user` o `assistant`, así que la marca
+  va en los bloques (que no viajan al modelo), y el turno saca del historial (`previos`) lo que la lleva. Lo vio leer
+  AGENTS.md antes de subir, no un test: los 46 archivos que leen el turno daban verde con el arreglo obvio. El aviso sin IA nombra las tres que
+  puede conectar: «Para contestarte necesito tu IA: conecta tu Claude, tu GPT o tu Gemini y mándamelo de nuevo.»
+- **Medido en la misma pasada (22/10, sólo lectura):** los dos mensajes son del 18/10 a las 03:50 y 04:13 UTC (00:50 y 01:13
+  en Argentina), no de hoy. El ws1 sigue sin IA propia: sus filas de Claude y OpenAI (y la de Gemini) son copias de la
+  plataforma, sin PC. Los dos mensajes viejos se quedan como están: no se escribió nada en el ws1.
+- **SUPERADO (Martín, 22/10 17:20: «Cada usuario debe poder pagar su token, su propia IA de gemini»):** no hay Gemini pago de
+  la plataforma; cada negocio conecta la suya (IA16, retenida hasta que el ws1 conecte su IA o el lunes 26/10). Lo que sigue
+  es lo que se había decidido antes. **DECIDIDO (el Cerebro, 22/10):** «Gemini de base» (Martín: «No quiero que se corte
+  Gemini») y la regla del 16/10 (los datos de los clientes de un cliente no van a un proveedor que entrena) se cumplen
+  juntas sólo con Gemini PAGO. Hasta que
   Martín active el pago por uso (pregunta f50d3545), el chat de un negocio sin IA contesta «Conecta la tuya» con el botón,
   sin Gemini gratis y sin el crédito de Claude de la plataforma (sigue sólo para el onboarding). Medido: eso ya lo hacía el
   turno (`soloSuIA` en chatClaudeTools, lib/mako-turno-app.ts → `AVISO_SIN_IA`). El cambio a Gemini pago es una marca de la
@@ -2511,3 +2622,31 @@ el CRM, la ficha, los gráficos del Dashboard, Editar con MaKo y el Web Generato
   en CÓMO el motor pide el hilo se prueba contra la rama del GET que lo atiende, no sólo contra la lista.
 
 **Vive en:** app/api/mako/chat/route.ts (GET) · app/second-brain/useChatCliente.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## «Conectar tu IA» le comía el ancho al campo en la caja angosta (22/10/2026)
+
+**Síntoma (Offer, en producción, tren 9, ws3):** en el panel de la estrella, de 440 px, «Escribe a Cerebro» salía cortado:
+«Conectar tu IA» y el micrófono ocupaban casi toda la fila. Ahora, en la caja angosta (`CajaDelCliente` con `angosta`: el panel
+de la estrella, y el teléfono, que lo es por defecto con `movil`), el chip va ARRIBA del campo (`arriba`, `.co-conectar-ia-arriba`).
+En la ancha, el Ops Center, sigue al final de la fila, como lo pidió Martín el 21/10.
+
+**El arreglo obvio era el equivocado:** una container query sobre `.co-caja`, que se adaptaría sola a cualquier ancho.
+`container-type: inline-size` le pone contención de layout, y un elemento con contención de layout es el marco de lo `position:
+fixed` que lleva adentro. El panel del «+» y el de los emojis se habrían ubicado contra la caja, no contra la pantalla. Por eso es un
+prop que decide quien monta la caja, que sabe cuánto mide.
+
+**Regla:** en la fila de la caja van sólo el «+», los emojis, el campo y el botón de mandar; lo demás, en la caja angosta, va arriba.
+tests/ops-center-caja-angosta.test.ts (dibuja `CajaChat` con los `.css` vacíos, como tests/offer-hilo-unico.test.ts).
+
+**SIN HACER:** el placeholder es `Escribe a ${nombre}`. Con el nombre largo de un chat («Editar con MaKo · Página 1»), en el
+teléfono puede seguir saliendo cortado; la estrella siempre dice «Cerebro». No lo medí en un teléfono.
+
+## Un chat «CRM · 22 oct» forma su propio grupo (visto en producción, 23/10/2026)
+
+En el Ops Center del cliente de ws3, el filtro por área (lib/ops-center-filtro.ts) mostró «CRM · 22 oct · 1» aparte de «CRM · 40».
+No es un error del filtro: agrupa igual que la lista (`porJefe` → `partesDelNombre`, que parte en «›» o «>»). El título lleva
+la fecha con «·», que es el desempate de dos chats con el mismo nombre, y no con «›». Así queda como un jefe propio, en la lista y en
+el filtro.
+
+**SIN HACER:** decidir si un título «<Área> · <fecha>» va dentro de su área (se mostraría su fecha como sub-chat), o si el
+desempate se escribe con «›». Ojo: `partesDelNombre` es la misma para el super admin.

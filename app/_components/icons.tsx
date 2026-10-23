@@ -132,6 +132,10 @@ const PATHS: Record<string, ReactNode> = {
   // llave de Create y del gráfico de Analyze: tres siluetas que no se confunden
   // ni en el rail plegado, que es donde el ícono tiene que trabajar solo.
   rayo: (<path d="M13.6 2.6 5.4 13.2h5.3l-1.3 8.2 8.2-10.6h-5.3l1.3-8.2Z" />),
+  // Automations: un FLUJO AUTOMÁTICO, tres pasos unidos (el primero se abre en dos), como los lienzos de n8n o Zapier
+  // (22/10/2026, Martín: «no me gusta el ícono de "Automations", cambialo por otro que se entienda más»; era `chatbot`,
+  // el globito de chat con chispas).
+  flujo: (<><rect x="3" y="3" width="7" height="6.5" rx="1.6" /><circle cx="17.5" cy="6.25" r="2.75" /><rect x="14" y="14.5" width="7" height="6.5" rx="1.6" /><path d="M10 6.25h4.75" /><path d="M6.5 9.5v5.25a3 3 0 0 0 3 3H14" /></>),
   // SECOND BRAIN: un cerebro dibujado como RED DE NODOS. El contorno da la
   // silueta y los nodos dicen de qué está hecho — conectar señales sueltas es
   // literalmente lo que hace el módulo. Los aros van con strokeWidth propio
@@ -168,6 +172,8 @@ const PATHS: Record<string, ReactNode> = {
   // Boya / salvavidas: REPORTAR PROBLEMA. Es el ícono universal de ayuda y no
   // se pisa con el interrogante, que ya significa «cómo consigo esta key».
   soporte: (<><circle cx="12" cy="12" r="8.6" /><circle cx="12" cy="12" r="3.4" /><path d="M6 6l3.6 3.6M18 6l-3.6 3.6M6 18l3.6-3.6M18 18l-3.6-3.6" /></>),
+  // La Ticketera (22/10/2026, Martín: «otro ícono, que se entienda fácil»): un ticket con su línea de cortar.
+  ticket: (<><path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5V14a2 2 0 0 0 0-4Z" /><path d="M14.5 6.5v1.8M14.5 11.1v1.8M14.5 15.7v1.8" /></>),
   // Lamparita: IDEAS. El primer paso de la fábrica, antes de que haya pieza.
   idea: (<><path d="M12 3.4a6 6 0 0 0-3.6 10.8c.5.4.8 1 .8 1.6v.7h5.6v-.7c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3.4Z" /><path d="M9.4 18.9h5.2" /><path d="M10.6 21.2h2.8" /></>),
   // ── Marcas ────────────────────────────────────────────────────────────────

@@ -8,21 +8,15 @@
 // basicamente que sea un chat con la IA que por defecto tenga atado los datos de ese lead, para
 // eso tenemos una API de todo».
 //
-// EL ASPECTO es el del chat de Offer (app/offer/ChatOffer.tsx) y por el mismo camino: NO dibuja un
-// chat propio, monta las piezas de app/whatsapp/_shared tal cual —el hilo `ChatHilo`, la burbuja
-// `BurbujaHilo` con las palomitas `Ticks`, la barra `ComposerWhatsApp` con emojis, el clip con su
-// menú y el micrófono— más la foto de MaKo (app/offer/AvatarMako.tsx) y la hoja de Offer
-// (`CSS_OFFER`: el borde aplanado del hilo, la franja de error, los puntos de «escribiendo», las
-// pastillas). Lo que se ENVUELVE es lo mismo que envuelve Offer, por lo mismo:
-//   ⚠️ MaKo escribe Markdown y la burbuja pinta marcas de WhatsApp: sus mensajes van por
-//      `renderMensaje`, con la MISMA burbuja y el texto por <Markdown> en su ranura `vacio`.
-//   ⚠️ ChatHilo va SIN barra (sin handlers de envío) y la barra se monta acá, adentro de la misma
-//      tarjeta: su selector de archivos no tiene los topes del turno (4 archivos, 4 MB, fotos y PDF:
-//      lib/mako-adjuntos.ts).
-//   ⚠️ LOS ARCHIVOS SE MANDAN AL ENVIAR, no al elegir (11/10/2026 en Offer: «Solo cuando le doy a
-//      ENVIAR debería…»): el clip los junta encima de la barra, con su ✕, y viajan con el texto.
-//   ⚠️ LOS COLORES: `--primary` / `--primary-bg`, que existen en los dos temas (el índigo del
-//      WhatsApp no oficial no se redefine en oscuro).
+// EL ASPECTO ES EL DEL OPS CENTER desde el 22/10/2026 (CR3, como Offer en OF4): el hilo ÚNICO (`HiloMako`,
+// app/_chat/HiloMako.tsx) y la caja ÚNICA (`CajaChat`, app/_chat/CajaChat.tsx), los mismos del Cerebro y del chat del
+// cliente. Hasta ese día montaba las piezas de WhatsApp (`ChatHilo`, `BurbujaHilo`, `ComposerWhatsApp`) y dibujaba a mano
+// cada cosa del hilo (la tarjeta, el bloque, la pantalla, el aviso): ahora las dibuja HiloMako, una vez para todos.
+// tests/chat-unico.test.ts la marca «caja única».
+//   ⚠️ LOS ARCHIVOS SE MANDAN AL ENVIAR, no al elegir (11/10/2026 en Offer: «Solo cuando le doy a ENVIAR debería…»): el
+//      «+» de la caja los junta arriba, como miniaturas, y viajan con el texto. Los topes son los del turno (4 archivos,
+//      4 MB, fotos y PDF: lib/mako-adjuntos.ts).
+//   ⚠️ LA NOTA DE VOZ se escucha antes de mandarla (la caja con `voz`) y sale como texto: se transcribe acá.
 //
 // EL MOTOR no es de acá: /api/crm/analyst → lib/mako-analyst-lead.ts → el turno del chat de la app
 // (lib/mako-turno-app.ts), con los datos del lead leídos por la API de MaKo en CADA turno. Una
@@ -49,91 +43,49 @@
 // conversación vieja o encima de un turno en curso.
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react';
-import { Button, ButtonLink, Status } from '@/app/_ui';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent } from 'react';
+import { Button } from '@/app/_ui';
 import { useWs } from '@/app/_ui/Link';
-import { IconoMenu } from '@/app/_ui/iconos-menu';
-import { Markdown } from '@/app/_components/Markdown';
-import { TextoMarcas } from '@/app/_components/TextoMarcas';
 import { transcribirNota } from '@/app/_components/useDictar';
-import { ChatHilo, type HiloMsg } from '@/app/whatsapp/_shared/ChatHilo';
-import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
-import { Ticks } from '@/app/whatsapp/_shared/Ticks';
-import { ComposerWhatsApp, type OpcionMenuWA } from '@/app/whatsapp/_shared/ComposerWhatsApp';
-import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
-import { AvatarMako } from '@/app/offer/AvatarMako';
-import { ChipArchivo } from '@/app/offer/ChipArchivo';
+import { CajaChat } from '@/app/_chat/CajaChat';
+import { HiloMako, type Quien } from '@/app/_chat/HiloMako';
+import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { CSS_OFFER } from '@/app/offer/estilos';
-import { horaDe } from '@/app/offer/ayudas';
 import {
-  AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, SALIDA_PROPUESTA, fuenteDelTurno, idLocal, itemsDeRespuesta, conTarjeta,
-  itemsDeSesion, leerRespuesta, textoTapadoDeRespuesta, problemaDeSeleccion, rotuloPrimario, trasTarjeta, trasTrabajo, conRespuestas, type EstadoPropuesta, type ItemHilo,
+  archivosDeRespuesta, fuenteDelTurno, idLocal, itemsDeRespuesta, conTarjeta, itemsDeSesion, leerRespuesta, textoTapadoDeRespuesta,
+  problemaDeSeleccion, trasTarjeta, trasTrabajo, type EstadoPropuesta, type ItemHilo,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen, postConProgreso } from '@/app/m/mako/subir';
-import { ConectarDelAviso } from '@/app/_chat/ConectarDelAviso';
 import { useRefrescarFicha } from './ficha-cambio';
-import { GRAMATICA } from '@/lib/mako-gramatica';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
+import { estaAbajo } from '@/lib/centro-caja';
 import { conWs } from '@/lib/ws-tab';
-import { BloqueHilo } from '@/app/_chat/BloqueHilo';
-import { FormularioEnChat } from '@/app/_chat/FormularioEnChat';
-import { ACCIONES_FORMULARIO } from '@/app/_chat/acciones-formulario';
-// Las clases del bloque (`ch-bloque…`) viven en la hoja de la pieza única de chat.
+// Las clases del hilo y de la caja (`co-…`, `ch-…`) viven en las hojas de las piezas únicas.
+import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const RUTA = '/api/crm/analyst';
 /** El maxDuration de la ruta es 300 s: el corte del navegador va 5 s después. */
 const TOPE_MS = 305_000;
-/** El acento de la tarjeta y la burbuja de quien escribe: tokens que existen en claro Y en oscuro. */
-const ACENTO = 'var(--primary)';
-const BURBUJA_YO = 'var(--primary-bg)';
-/** El renglón de «MaKo está revisando» viaja como un mensaje más del hilo (con su foto al lado). */
-const ID_ESCRIBIENDO = '__mal-escribiendo';
-
-const ACCEPT_FOTO = ACCEPT_ADJUNTOS_CHAT.split(',').filter((m) => m.startsWith('image/')).join(',');
-const ACCEPT_PDF = ACCEPT_ADJUNTOS_CHAT.split(',').filter((m) => !m.startsWith('image/')).join(',');
+/** El muñeco de MaKo al lado de lo que dice (el del Ops Center). */
+const QUIEN: Quien = { nombre: 'MaKo' };
+/** El ➤ y el ✓ de la barra de grabar van en el negro del Ops Center, como en Offer (app/offer/ChatOffer.tsx). */
+const SIN_VERDE = { '--good': 'var(--ink)', '--sobre-good': 'var(--surface)' } as CSSProperties;
 
 /** Las preguntas de arranque (sólo con el hilo vacío): lo que más se le pregunta a un lead. */
 const SUGERENCIAS = ['Resume este lead', '¿Cómo lo cierro?', '¿Qué le falta?'] as const;
 /** Editando la vista de la ficha (17/10/2026): lo que se le pide a MaKo es cambiar la hoja, no analizar al lead. */
 const SUGERENCIAS_EDICION = ['¿Qué bloques puedo sumar?', 'Pon arriba lo más importante', 'Hazla épica'] as const;
 
-/** El texto de una burbuja, con el mismo tamaño y la misma tinta que el de BurbujaHilo. */
-const TEXTO_BURBUJA = { fontSize: 14, lineHeight: 1.45, color: 'var(--ink)', overflowWrap: 'anywhere' as const };
-
-/** Lo propio de este chat (la tarjeta de una acción y la fila de una pantalla): prefijo mal-. */
-const CSS_PROPIO = `
-.mal-tarjeta { width: min(460px, 100%); display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 14px 14px 14px 4px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(18,21,27,.04); }
-.mal-tarjeta__cabeza { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--dim); }
-.mal-tarjeta__resumen { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; }
-.mal-tarjeta__lineas { margin: 0; display: grid; grid-template-columns: minmax(80px, max-content) minmax(0, 1fr); gap: 4px 12px; font-size: 12.5px; line-height: 1.4; }
-.mal-tarjeta__lineas dt { color: var(--dim); }
-.mal-tarjeta__lineas dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
-.mal-tarjeta__consecuencia { margin: 0; font-size: 12.5px; color: var(--ink); }
-.mal-tarjeta__nota { margin: 0; font-size: 12.5px; color: var(--dim); }
-.mal-tarjeta__botones { display: flex; flex-wrap: wrap; gap: 8px; }
-.mal-falla { margin: 0; max-width: 78%; font-size: 12.5px; color: var(--warn); text-align: right; }
-.mal-falla button { margin-left: 6px; padding: 0; border: 0; background: none; color: var(--primary); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
-.mal-falla button:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
-`;
-
-type Adjunto = { id: string; file: File; nombre: string; tipo: 'image' | 'document' };
+/** Un archivo juntado en la caja: `url` es su miniatura (`blob:`), la de la caja y la de la burbuja mientras sale. */
+type Adjunto = { id: string; file: File; nombre: string; tipo: 'image' | 'document'; url: string };
 type Envio = { texto: string; adjuntos: Adjunto[]; voz?: { url: string; secs: number; blob: Blob } };
 type Trabajo = { fase: 'subiendo' | 'revisando'; pct: number; desde: number; fuente: string };
 type Abierta = { lead: { id: number; nombre: string }; sesion: SesionChat | null; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[]; pantallas?: PropuestaPantalla[] };
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 type ItemPropuesta = Extract<ItemHilo, { k: 'propuesta' }>;
-
-/** La fila de un mensaje de MaKo: su foto y, al lado, lo suyo. */
-function FilaMako({ animar = false, children }: { animar?: boolean; children: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-      <AvatarMako size={30} animar={animar} />
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>{children}</div>
-    </div>
-  );
-}
 
 const primerNombre = (nombre: string): string => (nombre ?? '').trim().split(/\s+/)[0] || 'este lead';
 
@@ -163,13 +115,16 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
   const [error, setError] = useState<string | null>(null);
   const [tarjeta, setTarjeta] = useState<{ id: number; accion: 'confirmar' | 'cancelar' } | null>(null);
   const [encima, setEncima] = useState(false);
+  /** Para la píldora del día («Hoy», «Ayer») del hilo. */
+  const [ahora] = useState(() => Date.now());
+  const hiloRef = useRef<HTMLDivElement>(null);
+  /** ¿Se estaba mirando lo último? Entonces lo nuevo lo sigue (si se subió a leer algo de antes, no se lo mueve). */
+  const abajo = useRef(true);
   const sesionRef = useRef<SesionChat | null>(null);
   /** Los archivos juntados, para decidir afuera de un updater (un updater no avisa errores). */
   const adjuntosRef = useRef<Adjunto[]>([]);
   const ocupadoRef = useRef(false);
   const envios = useRef(new Map<string, Envio>());
-  const inputFoto = useRef<HTMLInputElement>(null);
-  const inputPdf = useRef<HTMLInputElement>(null);
   const listo = cargadoPara === leadId;
 
   /** La conversación vive en un REF y no en el estado: nada se dibuja con ella, y los handlers
@@ -257,7 +212,9 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
       const l = leerRespuesta<RespuestaTurno>(status, cuerpo);
       if (!l.ok) { marcar(idU, { estado: l.reintentable ? 'error' : 'incierto', error: l.error }); return; }
       const r = l.datos;
-      marcar(idU, { estado: undefined, error: undefined, ...textoTapadoDeRespuesta(r, e.texto) });
+      // Los archivos vuelven guardados (con su link): reemplazan a las miniaturas de la caja.
+      const guardados = archivosDeRespuesta(r);
+      marcar(idU, { estado: undefined, error: undefined, ...textoTapadoDeRespuesta(r, e.texto), ...(guardados.length ? { archivos: guardados } : {}) });
       setItems((xs) => {
         const vistas = new Set(xs.flatMap((x) => (x.k === 'propuesta' ? [x.t.pendienteId] : [])));
         return [...xs, ...itemsDeRespuesta(r, vistas)];
@@ -277,7 +234,8 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
     envios.current.set(idU, e);
     setItems((xs) => [...xs, {
       k: 'msg', id: idU, role: 'user', texto: e.texto, at: new Date().toISOString(),
-      voz: e.voz ? { url: e.voz.url, secs: e.voz.secs } : null, adjuntos: e.adjuntos.map((a) => a.nombre), estado: 'enviando',
+      voz: e.voz ? { url: e.voz.url, secs: e.voz.secs } : null, estado: 'enviando',
+      archivos: e.adjuntos.map((a) => ({ nombre: a.nombre, tipo: a.tipo, local: a.url })),
     }]);
     void mandarTurno(idU, e);
   };
@@ -339,7 +297,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
         try {
           // Una foto se achica ANTES de subir: Vercel corta todo POST de más de ~4,5 MB.
           const archivo = esImagen ? await achicarImagen(f) : f;
-          nuevos.push({ id: idLocal('f'), file: archivo, nombre: f.name || archivo.name, tipo: esImagen ? 'image' : 'document' });
+          nuevos.push({ id: idLocal('f'), file: archivo, nombre: f.name || archivo.name, tipo: esImagen ? 'image' : 'document', url: URL.createObjectURL(archivo) });
         } catch { setError('No pude leer esa imagen.'); }
       }
     } finally { setProcesando((p) => Math.max(0, p - lista.length)); }
@@ -349,16 +307,17 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
     if (problema) { setError(problema); return; }
     ponerAdjuntos(todos);
   };
-  const elegidos = (e: ChangeEvent<HTMLInputElement>) => {
-    const lista = Array.from(e.target.files ?? []);
-    // Se vacía para que elegir el MISMO archivo otra vez vuelva a disparar el cambio.
-    e.target.value = '';
-    void juntar(lista);
+  const quitar = (id: string) => {
+    const a = adjuntosRef.current.find((y) => y.id === id);
+    if (a) URL.revokeObjectURL(a.url);
+    ponerAdjuntos(adjuntosRef.current.filter((y) => y.id !== id));
   };
-  const menuClip: OpcionMenuWA[] = [
-    { key: 'foto', label: 'Foto', icono: <IconoMenu nombre="imagen" size={18} />, onElegir: () => inputFoto.current?.click() },
-    { key: 'pdf', label: 'PDF', icono: <IconDoc size={18} />, onElegir: () => inputPdf.current?.click() },
-  ];
+  /** El «+» de la caja (Documento, Fotos, Cámara, Pegar): fotos y PDF, lo que el turno lee. */
+  const adjuntosCaja: AdjuntosDeCaja = {
+    items: adjuntos, puede: listo && !errorCarga, onSumar: (fs) => void juntar(fs), onQuitar: quitar, accept: ACCEPT_ADJUNTOS_CHAT,
+    onNoPuede: () => setError('Espera a que cargue el chat para sumar archivos.'),
+    onSinImagen: (puedeLeer) => setError(puedeLeer ? 'No hay una imagen copiada.' : 'Este navegador no deja pegar.'),
+  };
   const alArrastrar = (e: DragEvent<HTMLDivElement>) => {
     if (trabajo || !Array.from(e.dataTransfer?.types ?? []).includes('Files')) return;
     e.preventDefault();
@@ -408,209 +367,32 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
     }
   };
 
-  // ── El hilo en la forma de ChatHilo ──
-  // Memo: el autoscroll del hilo corre cuando cambia `mensajes`, y un arreglo nuevo en cada tecla
-  // (o en cada segundo del reloj) lo dispararía sin que haya nada nuevo.
   const hayTrabajo = trabajo != null;
-  const hilo = useMemo<HiloMsg[]>(() => {
-    const out: HiloMsg[] = [];
-    items.forEach((x, i) => {
-      if (x.k !== 'msg') { out.push({ id: x.id, fromMe: false }); return; }
-      if (x.role === 'assistant') { out.push({ id: x.id, fromMe: false, texto: x.texto, fecha: x.at }); return; }
-      // Las palomitas: azules si MaKo ya contestó algo DESPUÉS (la lectura de WhatsApp).
-      const leido = items.slice(i + 1).some((y) => y.k === 'msg' && y.role === 'assistant');
-      const status = leido && !x.estado ? 'read' : 'sent';
-      out.push(x.voz
-        ? { id: x.id, fromMe: true, tipo: 'audio', mediaUrl: x.voz.url, transcript: x.texto.trim() || null, fecha: x.at, status }
-        : { id: x.id, fromMe: true, texto: x.texto, fecha: x.at, status });
-    });
-    if (hayTrabajo) out.push({ id: ID_ESCRIBIENDO, fromMe: false });
-    return out;
-  }, [items, hayTrabajo]);
 
-  // Con lo contestado (`conRespuestas`): contestar escribiendo apaga las opciones de la pregunta en el acto.
-  const porId = useMemo(() => new Map(conRespuestas(items).map((x) => [x.id, x])), [items]);
+  // Lo nuevo se ve sin buscarlo: el hilo sigue abajo si se estaba mirando lo último, y al abrir la ficha de otro lead.
+  const deLead = useRef(leadId);
+  useLayoutEffect(() => {
+    const h = hiloRef.current;
+    if (!h) return;
+    if (deLead.current !== leadId) { deLead.current = leadId; abajo.current = true; }
+    if (abajo.current) h.scrollTop = h.scrollHeight;
+  }, [items, hayTrabajo, listo, leadId]);
 
-  /** Lo que la burbuja de ChatHilo no sabe dibujar; null = la de siempre. */
-  const renderMensaje = (h: HiloMsg): ReactNode | null => {
-    if (h.id === ID_ESCRIBIENDO) {
-      const rotulo = trabajo?.fase === 'subiendo'
-        ? `Subiendo ${trabajo.fuente} · ${Math.round(trabajo.pct * 100)}%`
-        : null;
-      return (
-        <FilaMako animar>
-          <BurbujaHilo contenido={{}} saliente={false} vacio={(
-            <span role="status" style={{ fontSize: 13, color: 'var(--dim)' }}>
-              {rotulo ?? (
-                <>
-                  <span style={{ color: 'var(--mako-ink)', fontWeight: 600 }}>{GRAMATICA.analizando.rotulo}</span>
-                  {' · '}{trabajo?.fuente ?? ''}
-                </>
-              )}
-              <span className="of-puntos" aria-hidden><span>.</span><span>.</span><span>.</span></span>
-              {segs >= AVISO_LENTO_S && <span> · puede tardar un par de minutos</span>}
-            </span>
-          )} />
-        </FilaMako>
-      );
-    }
-    const x = porId.get(String(h.id));
-    if (!x) return null;
-    const hora = horaDe(h.fecha);
-
-    if (x.k === 'msg' && x.role === 'assistant') {
-      return (
-        <FilaMako>
-          <BurbujaHilo saliente={false} hora={hora} maxAncho="88%" contenido={{}}
-            vacio={<div style={TEXTO_BURBUJA}><Markdown text={x.texto} /></div>} />
-        </FilaMako>
-      );
-    }
-
-    if (x.k === 'msg') {
-      // De quien escribe: la burbuja de siempre, salvo que traiga archivos o no haya llegado.
-      const conArchivos = !!x.adjuntos?.length;
-      const falla = x.estado === 'error' || x.estado === 'incierto';
-      if (!conArchivos && !falla) return null;
-      const burbuja = x.voz
-        ? <BurbujaHilo saliente fondo={BURBUJA_YO} hora={hora} pie={<Ticks status={h.status ?? null} />}
-            contenido={{ audio: { url: x.voz.url, transcript: x.texto.trim() || null, duracion_s: x.voz.secs } }} />
-        : <BurbujaHilo saliente fondo={BURBUJA_YO} hora={hora} pie={<Ticks status={h.status ?? null} />} contenido={{}}
-            vacio={(
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {conArchivos && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'stretch' }}>
-                    {x.adjuntos!.map((n, i) => <ChipArchivo key={`${i}-${n}`} nombre={n} estado="listo" />)}
-                  </div>
-                )}
-                {x.texto.trim() && <div style={{ ...TEXTO_BURBUJA, whiteSpace: 'pre-wrap' }}><TextoMarcas texto={x.texto} /></div>}
-              </div>
-            )} />;
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          {burbuja}
-          {x.estado === 'error' && (
-            <p className="mal-falla" role="alert">{x.error}<button type="button" onClick={() => reintentar(x.id)}>Reintentar el envío</button></p>
-          )}
-          {x.estado === 'incierto' && (
-            <p className="mal-falla" role="alert">{x.error ?? ERROR_INCIERTO}<button type="button" onClick={recargar}>Recargar el chat</button></p>
-          )}
-        </div>
-      );
-    }
-
-    if (x.k === 'aviso') {
-      if (x.tono === 'plataforma') return <div className="of-reintento" role="status">{x.texto}</div>;
-      return (
-        <FilaMako>
-          <BurbujaHilo saliente={false} maxAncho="88%" contenido={{}} vacio={<div style={TEXTO_BURBUJA}><Markdown text={x.texto} />{x.conectar && <ConectarDelAviso servicio={x.conectar} />}</div>} />
-        </FilaMako>
-      );
-    }
-
-    // Lo que dibuja el resultado (lib/chat-bloques.ts): la MISMA pieza del Ops Center y del teléfono.
-    if (x.k === 'bloque') {
-      const de = x.deTarjeta;
-      // El trabajo largo de una tarjeta terminó: la tarjeta deja de decir «En curso» y la ficha se relee (lo cambió).
-      const termina = de != null ? (ok: boolean | null) => { setItems((xs) => trasTrabajo(xs, de, ok)); refrescarFicha(); } : undefined;
-      return <FilaMako><BloqueHilo b={x.b} respondida={x.respondida} ocupado={hayTrabajo} onTermina={termina}
-        onResponder={(t) => { if (ocupadoRef.current) return false; enviar({ texto: t, adjuntos: [] }); return true; }} /></FilaMako>;
-    }
-
-    if (x.k === 'pantalla' && x.p.form) {
-      return (
-        <FilaMako>
-          <div className="ch-tarjeta">
-            <p className="ch-tarjeta__resumen"><strong>{x.p.titulo}</strong></p>
-            <FormularioEnChat f={x.p.form} acciones={ACCIONES_FORMULARIO} abrirEnApp={{ titulo: 'Abrir en la app', href: x.p.escritorio }} />
-          </div>
-        </FilaMako>
-      );
-    }
-
-    if (x.k === 'pantalla') {
-      return (
-        <FilaMako>
-          <div className="mal-tarjeta">
-            <p className="mal-tarjeta__resumen"><strong>{x.p.titulo}</strong></p>
-            <p className="mal-tarjeta__nota">{x.p.clase === 'editor' || x.p.clase === 'whatsapp' ? x.p.nota : 'Todavía no está cargado: se revisa y se confirma en su pantalla.'}</p>
-            <div className="mal-tarjeta__botones">
-              <ButtonLink href={x.p.escritorio} variant="secondary" size="sm">{x.p.boton}</ButtonLink>
-            </div>
-          </div>
-        </FilaMako>
-      );
-    }
-
-    // Una acción que MaKo propuso: lo que se ejecuta, a la vista ANTES del botón.
-    const t = x.t;
-    const pill = PILL_PROPUESTA[x.estado];
-    const abierta = x.estado === 'pendiente' || x.estado === 'aplicando';
-    const enCurso = tarjeta?.id === t.pendienteId ? tarjeta.accion : null;
-    return (
-      <FilaMako>
-        <div className="mal-tarjeta" aria-busy={x.estado === 'aplicando' || undefined}>
-          <div className="mal-tarjeta__cabeza">
-            <Status tono={pill.tono === 'neutro' ? 'neutral' : pill.tono}>{pill.texto}</Status>
-            <span>{t.titulo}</span>
-          </div>
-          <p className="mal-tarjeta__resumen">{t.resumen}</p>
-          {abierta && t.detalle.length > 0 && (
-            <dl className="mal-tarjeta__lineas">
-              {t.detalle.map((l, i) => <div key={i} style={{ display: 'contents' }}><dt>{l.rotulo}</dt><dd>{l.valor}</dd></div>)}
-            </dl>
-          )}
-          {abierta ? (
-            <>
-              {x.nota && <p className="mal-tarjeta__nota" role="alert">{x.nota}</p>}
-              <p className="mal-tarjeta__consecuencia">{t.consecuencia ?? 'MaKo lo ejecuta en cuanto confirmes.'}</p>
-              <div className="mal-tarjeta__botones">
-                <Button variant="primary" size="sm" loading={enCurso === 'confirmar' || x.estado === 'aplicando'}
-                  disabled={!!tarjeta && enCurso !== 'confirmar'} onClick={() => void correrTarjeta(x, 'confirmar')}>
-                  {rotuloPrimario(t)}
-                </Button>
-                <Button variant="tertiary" size="sm" loading={enCurso === 'cancelar'}
-                  disabled={!!tarjeta && enCurso !== 'cancelar'} onClick={() => void correrTarjeta(x, 'cancelar')}>
-                  {SALIDA_PROPUESTA}
-                </Button>
-              </div>
-            </>
-          ) : x.nota ? <p className="mal-tarjeta__nota">{x.nota}</p> : null}
-          {x.estado === 'hecho' && x.abrir && (
-            <div className="mal-tarjeta__botones"><ButtonLink href={x.abrir.href} variant="secondary" size="sm">{x.abrir.titulo}</ButtonLink></div>
-          )}
-        </div>
-      </FilaMako>
-    );
-  };
-
-  // ── Encima de la barra: las preguntas de arranque y los archivos juntados ──
+  // ── Arriba de la caja: las preguntas de arranque (sólo con el hilo vacío) ──
   const vacio = listo && !errorCarga && items.length === 0;
-  const encimaDelComposer = (vacio && !hayTrabajo) || adjuntos.length || procesando ? (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 10 }}>
-      {adjuntos.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {adjuntos.map((a) => (
-            <ChipArchivo key={a.id} nombre={a.nombre} estado="listo"
-              onQuitar={() => ponerAdjuntos(adjuntosRef.current.filter((y) => y.id !== a.id))} />
-          ))}
-        </div>
-      )}
-      {procesando > 0 && <ChipArchivo nombre="Preparando el archivo" estado="leyendo" />}
-      {vacio && !hayTrabajo && (
-        <div role="group" aria-label="Preguntas para empezar" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {(edicion ? SUGERENCIAS_EDICION : SUGERENCIAS).map((s) => (
-            <button key={s} type="button" className="of-pill" onClick={() => enviar({ texto: s, adjuntos: [] })}>{s}</button>
-          ))}
-        </div>
-      )}
+  const preguntas = vacio && !hayTrabajo ? (
+    <div role="group" aria-label="Preguntas para empezar" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 16px 8px' }}>
+      {(edicion ? SUGERENCIAS_EDICION : SUGERENCIAS).map((s) => (
+        <button key={s} type="button" className="of-pill" onClick={() => enviar({ texto: s, adjuntos: [] })}>{s}</button>
+      ))}
     </div>
-  ) : undefined;
+  ) : null;
 
   const vacioHilo = errorCarga ? (
     <div role="alert" style={{ margin: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center', color: 'var(--dim)', fontSize: 13.5 }}>
       <span>{errorCarga}</span>
       <Button variant="secondary" size="sm" onClick={recargar}>Volver a cargar el chat</Button>
+      <ReportarASoporte />
     </div>
   ) : (
     <div style={{ margin: 'auto', maxWidth: 360, textAlign: 'center', color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.5 }}>
@@ -620,50 +402,44 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
     </div>
   );
 
-  const ocupado = hayTrabajo || !listo || !!errorCarga;
+  /** Lo que dice la línea de debajo de la caja mientras sube un archivo (después, el «Trabajando…» del hilo). */
+  const estado = trabajo?.fase === 'subiendo' ? `Subiendo ${trabajo.fuente} · ${Math.round(trabajo.pct * 100)}%` : null;
 
   return (
-    <div className="of-hilo" data-esquina-ocupada data-encima={encima || undefined}
-      onDragOver={alArrastrar} onDragLeave={() => setEncima(false)} onDrop={alSoltar}
+    <div className="of-hilo" data-esquina-ocupada
+      onDragOver={alArrastrar} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setEncima(false); }} onDrop={alSoltar}
       style={{
         flex: 1, minHeight: 420, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative',
-        background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `3px solid ${ACENTO}`, borderRadius: 16, overflow: 'hidden',
+        background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid var(--primary)', borderRadius: 16, overflow: 'hidden',
       }}>
       <style>{CSS_OFFER}</style>
-      <style>{CSS_PROPIO}</style>
-      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        <div className="of-hilo-lista" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-          {/* `key` con lo cargado: el historial que llega al abrir se monta como el INICIAL del hilo
-              (sin la entrada animada, que es para lo nuevo de esta charla). */}
-          <ChatHilo
-            key={listo ? `l${leadId}` : 'cargando'}
-            mensajes={listo ? hilo : []}
-            accent={ACENTO}
-            accentBubble={BURBUJA_YO}
-            animarNuevos
-            cargando={!listo}
-            vacio={vacioHilo}
-            renderMensaje={renderMensaje}
-            encimaDelComposer={encimaDelComposer}
-          />
+      <div className="co-hilo" ref={hiloRef} onScroll={(e) => { abajo.current = estaAbajo(e.currentTarget); }}>
+        <div className="co-hilo__col">
+          {!listo ? (
+            <p role="status" style={{ margin: 'auto', color: 'var(--dim)', fontSize: 13.5 }}>Abriendo el chat…</p>
+          ) : errorCarga || vacio ? vacioHilo : (
+            // `key` por lead: el hilo de otro lead no hereda nada del anterior.
+            <HiloMako key={leadId} items={items} quien={QUIEN} ahora={ahora} escribiendo={hayTrabajo ? { segs } : null}
+              tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
+              onResponder={(t) => { if (ocupadoRef.current) return false; enviar({ texto: t, adjuntos: [] }); return true; }}
+              onTrabajo={(de, ok) => { setItems((xs) => trasTrabajo(xs, de, ok)); refrescarFicha(); }} />
+          )}
         </div>
       </div>
-      {error && <div role="alert" className="of-error">{error}</div>}
-      {/* La barra va POR LEAD (`key`): una grabación a medias no viaja a la ficha de otro. */}
-      <ComposerWhatsApp
-        key={leadId}
-        modo="enviar"
-        valor={texto}
-        onValor={setTexto}
-        onEnviar={enviarComposer}
-        placeholder={edicion ? `Qué cambiar de ${edicion.nombre || 'esta hoja'}` : `Pregúntale a MaKo por ${quien}`}
-        ocupado={ocupado || procesando > 0}
-        menuClip={menuClip}
-        onAudio={enviarAudio}
-        onErrorAudio={setError}
-      />
-      <input ref={inputFoto} type="file" multiple accept={ACCEPT_FOTO} onChange={elegidos} hidden />
-      <input ref={inputPdf} type="file" multiple accept={ACCEPT_PDF} onChange={elegidos} hidden />
+      {/* El cartel de soltar del Ops Center (centro.css → .co-soltar). */}
+      {encima && <div className="co-soltar" aria-hidden>Suelta para adjuntar</div>}
+      {preguntas}
+      {error && <div role="alert" className="of-error">{error}<ReportarASoporte /></div>}
+      {/* La caja va POR LEAD (`key`): una grabación a medias no viaja a la ficha de otro. */}
+      <div key={leadId} className="co-caja-wrap" style={SIN_VERDE}>
+        <div className="co-caja">
+          <CajaChat texto={texto} onTexto={(v) => { setError(null); setTexto(v); }} onMandar={enviarComposer}
+            ocupado={hayTrabajo || procesando > 0} apagado={!listo || !!errorCarga}
+            placeholder={edicion ? `Qué cambiar de ${edicion.nombre || 'esta hoja'}` : `Pregúntale a MaKo por ${quien}`}
+            tituloMandar="Mandar (Enter)" enterManda seguir={() => hiloRef.current} onErrorMic={setError}
+            adjuntos={adjuntosCaja} voz={{ onAudio: enviarAudio, onError: setError, rotuloEnviar: 'Enviar audio' }} estado={estado} />
+        </div>
+      </div>
     </div>
   );
 }

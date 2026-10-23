@@ -73,7 +73,7 @@ function acciones(src: string): Array<{ nombre: string; cuerpo: string }> {
   return out;
 }
 
-const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'turnosCentroAction', 'encolarPedidoAction', 'cancelarPedidoAction', 'crearTokenCarteroAction', 'guardarMunecoAction', 'contestarPreguntaAction', 'guardarBorradorAction', 'marcarMensajeAction', 'guardarAliasCuentaAction', 'decidirChatNuevoAction', 'marcarYaVistoAction', 'creditoApiAction'];
+const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'turnosCentroAction', 'encolarPedidoAction', 'cancelarPedidoAction', 'crearTokenCarteroAction', 'guardarMunecoAction', 'contestarPreguntaAction', 'guardarBorradorAction', 'marcarMensajeAction', 'guardarAliasCuentaAction', 'decidirChatNuevoAction', 'marcarYaVistoAction', 'creditoApiAction', 'creditoDelNegocioAction', 'computadorasAction', 'desconectarComputadoraAction'];
 
 test('cada acción pregunta por Martín con su segundo factor ANTES de hacer cualquier otra cosa', () => {
   const as = acciones(sinComentarios(leer('app/admin/operaciones/acciones.ts')));

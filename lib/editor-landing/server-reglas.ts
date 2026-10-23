@@ -211,6 +211,11 @@ export type FotoPublicada = {
    * no lo copia, igual que `htmlLibre`). Opcional: una foto anterior no lo trae y no cobra nada.
    */
   pagos?: number[];
+  /**
+   * «Diseño editable» (html-editable.ts): la base de la página libre y la hoja del documento. Sólo en una foto
+   * con secciones de diseño; la página publicada la pone después de `css` junto con su script.
+   */
+  cssDiseno?: string;
 };
 
 /**
@@ -267,6 +272,7 @@ export function leerFoto(raw: unknown): FotoPublicada | null {
     config: raw.config as ConfigLanding,
     version: typeof raw.version === 'number' ? raw.version : 0,
     publicadoAt: typeof raw.publicadoAt === 'string' ? raw.publicadoAt : null,
+    ...(typeof raw.cssDiseno === 'string' && raw.cssDiseno ? { cssDiseno: raw.cssDiseno } : {}),
   };
 }
 

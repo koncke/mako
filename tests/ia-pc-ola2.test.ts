@@ -103,6 +103,10 @@ test('el instalador sólo lleva valores validados, y su línea es la del tutoria
   const urls = { 'windows-x64': 'https://x.supabase.co/storage/v1/object/sign/ia-pc/a.gz?token=abc', 'mac-arm64': 'https://x.supabase.co/a.gz?t=1', 'mac-x64': 'https://x.supabase.co/b.gz?t=1' };
   const win = scriptDeInstalacion({ sistema: 'windows', codigo: 'abcd-2345', servidor: 'https://hola-mako.com', urls });
   assert.match(win, /Invoke-WebRequest -UseBasicParsing -Uri 'https:\/\/x\.supabase\.co\/storage\/v1\/object\/sign\/ia-pc\/a\.gz\?token=abc'/);
+  // Sin la barra de progreso, y ANTES de bajar: en PowerShell 5.1 la barra hace que el programa tarde minutos (22/10/2026,
+  // «se quedó en Descargando MaKo… para siempre»). Rota: sacar la línea o ponerla después → este test falla.
+  const sinBarra = win.indexOf("$ProgressPreference = 'SilentlyContinue'");
+  assert.ok(sinBarra > 0 && sinBarra < win.indexOf('Invoke-WebRequest'), 'la barra de progreso de PowerShell 5.1 sigue prendida al bajar el programa');
   assert.match(win, /& \$nuevo emparejar 'ABCD2345' --servidor 'https:\/\/hola-mako\.com'/, 'el código normalizado');
   assert.match(win, /GZipStream/);
   // El arranque es la clave Run (tests/ia-pc-revision.test.ts fija el porqué: el .vbs lo ponía en cuarentena Defender).
@@ -152,7 +156,7 @@ test('«Tus cuentas de IA»: con sesión, cada uno lo suyo, el modelo es del adm
   assert.doesNotMatch(pantalla, /\b(tenés|podés|elegí|instalá|iniciá|escribí|pegá|apretá|abrí|conectá|dejala|prendela)\b/i, 'de tú, no de vos');
   assert.match(leer('app/integraciones/page.tsx'), /<TusCuentasIA \/>/);
   // Y en «Tu cuenta», para todo el equipo: la PC es de la persona (revisión del 21/10/2026: un closer no tenía dónde).
-  assert.match(leer('app/perfil/ia/page.tsx'), /await requireRolWs\(\['closer', 'setter'\]\);[\s\S]*<TusCuentasIA sinCabecera \/>/);
+  assert.match(leer('app/perfil/ia/page.tsx'), /await requireRolWs\(\['closer', 'setter'\]\);[\s\S]*<TusCuentasIA sinCabecera computadora=\{\(await searchParams\)\.computadora === '1'\} \/>/);
 });
 
 test('al conectar, la persona acepta con un toque que es SU Claude y SU cuenta, y queda guardado', () => {

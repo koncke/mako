@@ -205,6 +205,9 @@
   flex: none; align-self: center; margin: 0 4px; white-space: nowrap; font-weight: 600;
   color: var(--primary-strong); background: var(--primary-bg); border-color: var(--primary-weak);
 }
+/* En la caja angosta (la estrella, el teléfono), arriba del campo: al final de la fila le comía el ancho (22/10/2026). */
+.co-conectar-ia-arriba { display: flex; margin: 2px 4px 6px; }
+.co-conectar-ia-arriba > .co-conectar-ia { margin: 0; }
 
 /* MaKo en cada tab (21/10/2026, MakoEnLaTab.tsx): la estrella abajo a la izquierda, pegada a la barra de la app, y el panel del
    Cerebro a la IZQUIERDA («el chat de MaKo en las otras tabs se debe abrir siempre a la izquierda»), con la conversación del Ops
@@ -233,3 +236,13 @@
 .co-solo-lectura { margin: 0; padding: 12px 16px; text-align: center; font-size: var(--fs-sm); color: var(--dim); }
 .co-anteriores { display: flex; justify-content: center; padding: 8px 0 4px; }
 @media (prefers-reduced-motion: reduce) { .ch-tab-mako:hover { transform: none; } }
+
+/* Desde dónde lo escribió la persona (la estrella de una tab, OC6): un chip chico arriba de su burbuja. */
+.ch-desde { align-self: flex-end; margin: 0 0 4px; padding: 2px 8px; border-radius: 999px; font-size: 12px; color: var(--dim); background: color-mix(in srgb, var(--ink) 6%, transparent); }
+/* La línea arriba de la caja de la estrella: desde dónde va lo que se escribe, y en qué modo. */
+/* Lo que MaKo terminó en otra tab (TrabajosDeMako.tsx): una línea por trabajo, arriba del hilo, con su link. */
+.ch-trabajos { flex: none; list-style: none; margin: 0; padding: 8px 14px; display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid var(--border); }
+.ch-trabajos__link { font-size: var(--fs-sm); font-weight: 600; color: var(--primary); text-decoration: none; overflow-wrap: anywhere; }
+.ch-trabajos__link:hover { text-decoration: underline; }
+.ch-trabajos__link[data-ok="no"] { color: var(--warn); }
+.ch-desde-caja { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 6px; font-size: 12px; color: var(--dim); }

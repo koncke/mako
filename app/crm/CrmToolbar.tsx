@@ -41,6 +41,7 @@ import { BANDAS_KANBAN } from './filtros-guardados';
 // El CUBO del desplegable de funnels (punto 24): el ícono `producto` del set de los menús, el
 // mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
 import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import { PasarAPro } from './PasarAPro';
 
 const SANS = "'Geist', sans-serif";
 
@@ -211,6 +212,9 @@ function MenuItem({ icon, label, onClick, href }: {
     <>
       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, flex: 'none', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: hover ? 'var(--primary)' : 'var(--dim)' }}>{icon}</span>
       <span style={{ minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{label}</span>
+      {/* EL RENGLÓN QUE NAVEGA LO DICE (C6 de la llamada con Mauricio, 22/10/2026): «los tres puntos me mandaron a otro
+          lado» era «Buscar prospectos», el único del «⋯» que abre OTRA pantalla en vez de un pop-up. La flecha lo avisa. */}
+      {href && <span aria-hidden style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--faint)' }}>→</span>}
     </>
   );
   return href
@@ -218,7 +222,9 @@ function MenuItem({ icon, label, onClick, href }: {
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
 }
 
-export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas }: {
+export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas, funnelActivo = null }: {
+  /** El CRM que se está mirando: «Buscar prospectos» lo lleva, y «Volver» de allá vuelve a ÉL (C6, 22/10/2026). */
+  funnelActivo?: number | null;
   onImportar: () => void;
   onExportar: () => void;
   onNuevo: () => void;
@@ -268,7 +274,7 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
               onClick={() => { setOpen(false); onExportar(); }} />
             {/* El Leads Scraper (15/10/2026, docs/diseno-leads-scraper.md): la lista aparte de la
                 prospección en frío. Navega: es una pantalla, no un pop-up, porque la lista vive sola. */}
-            <MenuItem icon={<IconoMenu nombre="buscar" size={15} />} label="Buscar prospectos" href="/crm/prospectos"
+            <MenuItem icon={<IconoMenu nombre="buscar" size={15} />} label="Buscar prospectos" href={funnelActivo != null ? `/crm/prospectos?funnel=${funnelActivo}` : '/crm/prospectos'}
               onClick={() => setOpen(false)} />
             <span style={{ height: 1, background: 'var(--border)', margin: '5px 6px' }} />
             {/* ⚠️ ABRE UN POP-UP, NO UNA PANTALLA. «Quiero eliminar la ruta de funnel, que
@@ -907,6 +913,8 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
   // Sigue editándose después, en el «Tipo de funnel» del editor de etapas.
   const [entradas, setEntradas] = useState<EntradaId[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  /** El error es el tope del plan (23/10/2026, MaKo Esencial tiene un CRM): al lado va «Pasar a Pro». */
+  const [tope, setTope] = useState(false);
   const [guardando, startGuardar] = useTransition();
 
   const aMano = tipo === TIPO_CRM_OTRO;
@@ -922,7 +930,7 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
       // CRM y la entrada se perdía sin aviso. Si las etapas del tipo no llegan a escribirse, el CRM
       // igual quedó creado y se abre: se ajusta desde su lápiz (lib/nuevo-crm.ts dice por qué).
       const r = await crearCrmAction(nombre.trim(), aMano ? { tipo, canal, entradas } : { tipo });
-      if ('error' in r) { setErr(r.error); return; }
+      if ('error' in r) { setErr(r.error); setTope(r.pasarAPro === true); return; }
       onCreado(r.funnelId);
     });
   };
@@ -1028,7 +1036,9 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
       )}
 
       {err && (
-        <div style={{ marginTop: 12, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>
+        <div style={{ marginTop: 12, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ flex: '1 1 220px' }}>{err}</span>{tope && <PasarAPro />}
+        </div>
       )}
       </div>
     </Modal>

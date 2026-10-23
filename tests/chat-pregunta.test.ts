@@ -81,7 +81,7 @@ test('2. desde que pregunta, ninguna acción; lo propuesto antes se retira', () 
 
 test('3. el turno: lleva la herramienta, la corre antes que todo, retira y guarda la pregunta', () => {
   const s = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(s, /const tools = turno\.tools\.length \? \[\.\.\.\(turno\.tools as ToolDef\[\]\), TOOL_PREGUNTAR\]/, 'viaja cuando hay herramientas');
+  assert.match(s, /const tools = herramientasDelModo\(turno\.tools\.length \? \[\.\.\.\(turno\.tools as ToolDef\[\]\), TOOL_PREGUNTAR\]/, 'viaja cuando hay herramientas');
   const correr = s.slice(s.indexOf('const runTool = async'), s.indexOf('const previo = memo.previo(name);'));
   assert.match(correr, /if \(name === PREGUNTAR\) \{[\s\S]*guardia\.preguntar\(input\)/, 'la pregunta la toma la guardia');
   assert.match(correr, /if \(guardia\.bloquea\(name\)\) return \{ content: JSON\.stringify\(\{ ok: false, error: ERROR_TRAS_PREGUNTAR \}\), isError: true \};/, 'y rechaza ANTES de correr nada');
@@ -166,5 +166,6 @@ test('6. una opción tocada mientras MaKo trabaja no dice «Respondiste» si no 
   ]);
   assert.equal(hilo[0].k === 'bloque' ? hilo[0].respondida : null, 'mejor los nuevos');
   assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /conRespuestas\(items\)\.forEach\(/, 'la computadora');
-  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /new Map\(conRespuestas\(items\)\.map/, 'la ficha');
+  // La ficha, con el MISMO hilo desde el 22/10/2026 (CR3): `conRespuestas` lo aplica HiloMako.
+  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /<HiloMako key=\{leadId\} items=\{items\} quien=\{QUIEN\}/, 'la ficha');
 });

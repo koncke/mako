@@ -15,13 +15,14 @@ import { TusCuentasIA } from '../../integraciones/TusCuentasIA';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function TusCuentasIAPage() {
+export default async function TusCuentasIAPage({ searchParams }: { searchParams: Promise<{ computadora?: string }> }) {
   await requireRolWs(['closer', 'setter']);
   const deOtro = await leerPerfil().then((p) => p.vista.deOtro, () => false);
   return (
     <AjustesPagina lugar={TITULO_CUENTA} secciones={seccionesCuenta(deOtro, 'ia')} activa="ia">
       <TituloAjustes titulo="Tus cuentas de IA" bajada="Tu Ops Center contesta con tu Claude, tu GPT o tu Gemini." />
-      <TusCuentasIA sinCabecera />
+      {/* `?computadora=1`: adonde vuelve el instalador de Windows al terminar (RUTA_TRAS_INSTALAR), directo en «Conecta MaKo». */}
+      <TusCuentasIA sinCabecera computadora={(await searchParams).computadora === '1'} />
     </AjustesPagina>
   );
 }

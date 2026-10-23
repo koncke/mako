@@ -96,6 +96,8 @@ import { EmojiPicker } from '@/app/whatsapp/EmojiPicker';
 import { useHojasDeFuentes } from '@/app/_cursos/SelectorFuente';
 import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
 import { conWs } from '@/lib/ws-tab';
+import { esHojaClosing, SERVICIO_CLAUDE } from './aviso-closing';
+import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import {
   AREAS, COLS, FUENTES, MAX_ARCHIVADAS, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, MAX_POPUP, TIPOS_ELEMENTO,
   abajoDeTodo, campoDe, efectivoDe, esElemento, esGrafico, hojaVacia, minimoDeComponente, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
@@ -158,7 +160,8 @@ import { conMako } from '@/lib/graficos-catalogo';
 import { BotonMako } from '@/app/_ui/BotonMako';
 import { EditorMako } from './EditorMako';
 import { MenuContextual, opcionesContextuales, type IdOpcion } from './MenuContextual';
-import { ChatMakoAbierto } from './PanelAnalista';
+import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
+import { EVENTO_PREGUNTA_GRAFICO, entidadDeHoja, preguntaDelEvento, textoDePregunta, type PreguntaGrafico } from './pregunta-grafico';
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -300,7 +303,7 @@ function nuevoElementoEn(t: TipoElemento, componentes: Componente[], dueno: Graf
 export function EditorInforme({
   inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
   hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard', probarInicial = null,
-  senales = null, unido = null, plantillasInicial = false,
+  senales = null, unido = null, plantillasInicial = false, avisoClosing = null,
 }: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
@@ -313,6 +316,8 @@ export function EditorInforme({
   hojaAgregada?: Hoja | null;
   /** Un aviso para mostrar al abrir (el link pidió una hoja y el informe ya no tiene lugar). */
   aviso?: string | null;
+  /** «Conecta tu Claude»: el Closing Analyst no tiene con qué analizar (./aviso-closing.ts). Fijo arriba de la hoja Closing. */
+  avisoClosing?: string | null;
   /** El closer: mira la hoja Closing, exporta, y nada más. */
   soloLectura?: boolean;
   /** `?llamada=`: el recording_id de la llamada cuya ficha se abre al entrar. */
@@ -349,6 +354,8 @@ export function EditorInforme({
   // El informe del primer render: el que vino, más la hoja que pidió el link si no estaba.
   const [arranque] = useState<Tablero>(() => conHojaAgregada(inicial, hojaAgregada));
   const [tablero, setTablero] = useState<Tablero>(arranque);
+  // El aviso «Conecta tu Claude» se va al conectarlo desde su botón (sin recargar la hoja).
+  const [closingConectado, setClosingConectado] = useState(false);
   const tableroRef = useRef(tablero);
   tableroRef.current = tablero;
   const [hojaId, setHojaId] = useState(hojaInicial);
@@ -398,8 +405,17 @@ export function EditorInforme({
   const [conSel, setConSel] = useState<string | null>(null);
   const [conectando, setConectando] = useState<{ desde: string | null } | null>(null);
   const [popup, setPopup] = useState<PopupAbierto | null>(null);
-  /** El chat de MaKo de un gráfico abierto desde el clic derecho («Preguntarle a MaKo»). */
-  const [chatMako, setChatMako] = useState<{ chartKey: string; titulo: string; contexto: string; sugerencias?: string[] } | null>(null);
+  /**
+   * Lo que un gráfico le pregunta a la ESTRELLA (22/10/2026, TB3, ./pregunta-grafico.ts): su botón de MaKo y el «Preguntarle a
+   * MaKo» del clic derecho. Hasta ese día abrían un modal con su chat propio. `vez` hace que la misma pregunta salga de nuevo.
+   */
+  const [pedidoMako, setPedidoMako] = useState<{ texto: string; vez: number } | null>(null);
+  const preguntarAMako = useCallback((p: PreguntaGrafico) => setPedidoMako((x) => ({ texto: textoDePregunta(p), vez: (x?.vez ?? 0) + 1 })), []);
+  useEffect(() => {
+    const oir = (e: Event) => { const p = preguntaDelEvento(e); if (p) preguntarAMako(p); };
+    window.addEventListener(EVENTO_PREGUNTA_GRAFICO, oir);
+    return () => window.removeEventListener(EVENTO_PREGUNTA_GRAFICO, oir);
+  }, [preguntarAMako]);
   /** El ancla del clic derecho: un punto invisible donde se hizo el clic (el `Flotante` se ancla a un elemento). */
   const anclaContextual = useRef<HTMLSpanElement>(null);
   const [editPopup, setEditPopup] = useState<string | null>(null);
@@ -1148,7 +1164,7 @@ export function EditorInforme({
       case 'mako_chat': {
         const r = c && esGrafico(c) ? datos[c.id]?.resultado : null;
         if (c && esGrafico(c) && r) {
-          setChatMako({ chartKey: `dashboard:${hoja.id}:${c.id}`, titulo: tituloDe(c), contexto: contextoDeGrafico(c, r, efectivoDe(c, lienzo, vista, hoy)), sugerencias: c.makoIA?.sugerencias });
+          preguntarAMako({ titulo: tituloDe(c), contexto: contextoDeGrafico(c, r, efectivoDe(c, lienzo, vista, hoy)) });
         }
         return;
       }
@@ -1449,6 +1465,15 @@ export function EditorInforme({
                 {muestra?.etiqueta && <span className="lk-miga-muestra">Muestra: {muestra.etiqueta}</span>}
               </nav>
             )}
+            {/* La hoja Closing sin con qué analizar las llamadas (IA12, ./aviso-closing.ts): fijo, no un toast que se va. Se
+                conecta con EL modal de /integraciones, sin salir de la hoja; el botón sólo para quien puede conectar (el
+                closer mira su hoja en sólo lectura). */}
+            {avisoClosing && !closingConectado && esHojaClosing(hoja) && !dueno && !enBlanco && !compartido && (
+              <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" onClick={(e) => e.stopPropagation()}>
+                <span>{avisoClosing}</span>
+                {!soloLectura && <BotonIntegracion servicio={SERVICIO_CLAUDE} className="lk-aviso-hoja__accion" onConectado={() => setClosingConectado(true)}>Conectar Claude</BotonIntegracion>}
+              </div>
+            )}
             {enBlanco ? (
               // 14/10/2026 — Martín (para General y para el Dashboard): «en lugar del botón de "nuevo dashboard" te pido que
               // pongas ahí el "¿Qué vas a crear hoy?"». La caja y, abajo, las plantillas como páginas: la portada del Landing
@@ -1667,7 +1692,9 @@ export function EditorInforme({
           </Flotante>
         );
       })()}
-      {chatMako && <ChatMakoAbierto {...chatMako} onCerrar={() => setChatMako(null)} />}
+      {/* MaKo en la tab: la estrella abajo a la izquierda, con la hoja abierta y en «analizar» (en vista asesora; lo que
+          edita es «Editar con MaKo», el único escritor de la hoja abierta). Nunca en un link compartido (no hay sesión). */}
+      {!compartido && <MakoEnLaTab tab={esGeneral ? 'General' : 'Dashboard'} entidad={entidadDeHoja(hoja)} modo="analizar" pedido={pedidoMako} />}
 
       {/* ── Los modales ── */}
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}

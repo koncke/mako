@@ -36,6 +36,7 @@ import { ConectarDelAviso } from './ConectarDelAviso';
 import { BloqueHilo } from './BloqueHilo';
 import { FormularioEnChat } from './FormularioEnChat';
 import { ACCIONES_FORMULARIO } from './acciones-formulario';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const hora = (iso: string | null): string => {
   const t = iso ? Date.parse(iso) : NaN;
@@ -75,7 +76,10 @@ function DeMako({ quien, children, hora = null, ancho = false, m = null, marcas 
   return <FilaDelChat m={m} quien={{ titulo: quien.nombre, aspecto: quien.aspecto }} marcas={marcas} hora={hora} ancho={ancho}>{children}</FilaDelChat>;
 }
 
-export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar, onResponder, onTrabajo, marcas }: {
+/** Lo de una pantalla adentro de un mensaje de MaKo (22/10/2026, OF4: Offer y el onboarding con el hilo del Ops Center). */
+export type EnMensaje = { arriba?: ReactNode; abajo?: ReactNode };
+
+export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar, onResponder, onTrabajo, marcas, enMensaje }: {
   items: readonly ItemHilo[];
   /** El chat: su muñeco va al lado de lo que dice MaKo. */
   quien: Quien;
@@ -95,6 +99,9 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
   onTrabajo?: (pendienteId: number, ok: boolean | null) => void;
   /** Las marcas de WhatsApp de este chat (reacciones, destacados): con el menú del clic derecho de quien lo monta. */
   marcas?: MarcasChat | null;
+  /** Lo que la pantalla suma adentro de un mensaje de MaKo: arriba del texto (el PDF de una versión de la oferta, su nota de
+   *  voz) y debajo (los documentos que leyó, las tarjetas del onboarding). null = nada. */
+  enMensaje?: (x: ItemMsg) => EnMensaje | null;
 }) {
   const wa = (x: ItemMsg) => mensajeWADe(x, quien.nombre);
   const filas: ReactNode[] = [];
@@ -120,13 +127,15 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
         <FilaMia key={x.id} m={wa(x)} marcas={marcas} despues={<>
           {x.estado === 'error' && (
             <p className="co-nota co-nota--mal" role="alert">{x.error}{' '}
-              <button type="button" className="ch-enlace" onClick={() => onReintentar(x.id)}>Reintentar</button></p>
+              <button type="button" className="ch-enlace" onClick={() => onReintentar(x.id)}>Reintentar</button><ReportarASoporte /></p>
           )}
           {x.estado === 'incierto' && (
             <p className="co-nota co-nota--mal" role="alert">{x.error ?? ERROR_INCIERTO}{' '}
-              <button type="button" className="ch-enlace" onClick={onRecargar}>Recargar el chat</button></p>
+              <button type="button" className="ch-enlace" onClick={onRecargar}>Recargar el chat</button><ReportarASoporte /></p>
           )}
         </>}>
+          {/* Desde dónde lo escribió (la estrella de una tab, OC6): un chip arriba de la burbuja. */}
+          {x.desde && <span className="ch-desde">desde {x.desde}</span>}
           {archivos.length > 0 && <ArchivosHilo archivos={archivos} />}
           <PegadosHilo pegados={pegados} />
           {/* Una nota de voz se ESCUCHA (21/10/2026): el audio en su globo y, debajo, lo que se entendió, chico (Offer la
@@ -143,13 +152,16 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
       return;
     }
     if (x.k === 'msg') {
+      const suyo = enMensaje?.(x) ?? null;
       filas.push(
         <DeMako key={x.id} quien={quien} hora={hora(x.at) || null} m={wa(x)} marcas={marcas}>
-          <div className="ch-md"><Markdown text={x.texto} /></div>
+          {suyo?.arriba}
+          {x.texto.trim() && <div className="ch-md"><Markdown text={x.texto} /></div>}
           {/* Lo pedido que se hace en otra pantalla: el link para ir, como el «Ir a …» de los otros chats (tanda 10). */}
           {!!x.irA?.length && (
             <div className="ch-ira">{x.irA.map((l) => <Link key={l.link} className="co-chip" href={l.link}>{`Ir a ${l.titulo}`}</Link>)}</div>
           )}
+          {suyo?.abajo}
         </DeMako>,
       );
       return;

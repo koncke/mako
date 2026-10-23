@@ -10,6 +10,61 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## Hacer cumplir un tope del plan: la tabla sola le pone tope a quien no paga por la pasarela (23/10/2026)
+
+El primer tope que se hizo cumplir fue el de las líneas de WhatsApp (Esencial 1, Pro 3, en `lib/topes-plan.ts`).
+- **La capa no dice si el negocio paga un plan.** El ws1 y los acuerdos a mano también tienen capa `completo`, así que con
+  `topeDe` solo quedaban en una línea. **La regla:** un tope se aplica sólo si MaKo le cobra el plan por la pasarela
+  (`suscripcionDeMakoDe(ws) != null`, lib/cobros.ts), y el ws1 nunca, además explícito. Está en `topeParaLineaNueva`
+  (lib/tope-lineas.ts), que es puro y es el molde para los demás topes.
+- **Frenar sólo lo que se va a crear.** Toda línea nueva de un negocio nace en `conectar({ nueva: true })` (lib/evolution.ts),
+  y ahí se mira el tope, antes de escribir su fila. Reconectar una que ya existe (el «↻ Nuevo QR») no pasa por ahí, así que
+  una línea conectada nunca se corta por el tope. Cuentan todas las filas del negocio, conectadas o no: una caída se
+  reconecta con su QR. La línea personal de Martín (lib/mako-canal.ts) también nace por ahí, pero en el workspace de la
+  plataforma, que no tiene cobro.
+- **Si no se puede leer el plan, deja conectar.** Un tope que se equivoca para el lado de frenar le corta el WhatsApp a un
+  negocio que paga.
+- **La pantalla no importa la regla.** `lib/tope-lineas.ts` arrastra `aviso-arreglo-reglas` y `doer-salida`. La ruta
+  responde 403 con el texto (`textoTope`) y el link, y EvolutionConnect dibuja el cartel con «Pasar a Pro».
+
+- **«Pasar a Pro» va al panel del plan (`/configuraciones/plan`), no a `/planes/pro`:** quien ve el tope ya es cliente, y
+  `/planes/pro` es la compra para quien todavía no tiene cuenta. La ruta es `RUTA_CAMBIAR_PLAN` (lib/topes-plan.ts), la única: ningún tope arma la suya.
+
+**Vive en:** `lib/tope-lineas.ts` · `conectar` en `lib/evolution.ts` · `app/api/whatsapp/evolution/route.ts` ·
+`app/whatsapp/EvolutionConnect.tsx` · `tests/tope-lineas.test.ts` (11 roturas, las 11 cazadas).
+
+---
+
+## MaKo Esencial: el candado de las tabs de Pro y el tope de automatizaciones (23/10/2026)
+
+Las ofertas del 23/10 (docs/ofertas-mako.md, lib/topes-plan.ts): el Esencial ve las tabs de Pro con candado y «Pasar a Pro», y
+tiene hasta 3 automatizaciones activas.
+
+- **El diagnóstico obvio era el equivocado: «Esencial = capa `completo`».** El ws1, los acuerdos a mano y todo negocio de antes
+  también tienen capa `completo`, y un Pro recién vendido la sigue teniendo hasta que se despliegue la rama que le pone
+  `agencia`: con la capa sola, un cliente que paga Pro perdía el Ads Manager según el orden de los deploys. Lo que decide es el
+  PLAN VENDIDO, `alta_capa` del cobro de su suscripción (`suscripcionDeMakoDe`), y además que la capa de hoy siga siendo
+  `completo` (un negocio que Martín pasó a mano no pierde nada por una suscripción vieja). El ws1 y la plataforma, nunca. Regla
+  en `esEsencialPorPasarela` (lib/plan-esencial-reglas.ts).
+- **Ante la duda, sin candado ni tope:** si la lectura falla, se deja pasar (lib/plan-esencial.ts). Sacarle una tab a quien paga
+  es peor que mostrarle una de más un rato.
+- **El candado va prendido aunque el cartel de la capa esté apagado** (`CORTE_POR_PLAN_PRENDIDO = false`, lib/api-tab.ts): ahí la
+  tab no está en la capa; acá SÍ está, lo que falta es el plan. Va a `/no-esta-en-tu-plan?tab=…&pro=1`, que ofrece «Pasar a Pro».
+  `lib/cobros.ts` se importa dinámico: `tab-access` lo cargaría en todas las páginas.
+- **Closing Analyst no es una tab**: desde el 11/10 es la hoja «Closing» del Dashboard (app/closing/page.tsx redirige). Su
+  candado va en el Dashboard, de su chat. AI Avatar hoy es sólo del super admin: el candado ya lo cubre si se abre a los negocios.
+- **El tope de automatizaciones lo pregunta `setSecuenciaActiva`** (lib/nutricion.ts), la única puerta que prende una: así lo
+  cubre cualquier camino nuevo. Entró primero en las tres puertas (/api/email/secuencias, /api/whatsapp/secuencias y MaKo),
+  porque el motor estaba con un P0 de Automations, y Automations lo movió adentro el 23/10 (db4ef6a2f, `TopeDelPlanError`).
+  Volver a prender una prendida no cuenta (el lienzo manda «activa» al publicar). MaKo por WhatsApp corre sin sesión: el
+  negocio se le pasa.
+
+**Vive en:** lib/plan-esencial-reglas.ts · lib/plan-esencial.ts · lib/tope-automations.ts · lib/tab-access.ts · lib/movil-guard.ts · app/no-esta-en-tu-plan/page.tsx · app/_components/Sidebar.tsx · app/m/mas/page.tsx · tests/plan-esencial.test.ts
+
+**Lo que quedó sin hacer:** el candado de la hoja «Closing» del Dashboard (su chat); el corte de las APIs de las tabs de
+Pro (la pantalla se cierra, la API no: como el corte por capa, apagado); y en las apps de las tiendas, «Pasar a Pro» es una
+venta que el teléfono no puede hacer (T5 de docs/tiendas-play-appstore.md): ahí tendría que decir sólo «De MaKo Pro».
+
 ## El diagnóstico obvio era el equivocado: la cuenta del runway NO está rota
 
 Al leer el audio —el embudo nuevo entra por una app de ~US$20— la conclusión inmediata fue
@@ -922,3 +977,160 @@ tamaño del cartel de upgrade).*
   filas que no cierran. Y las tareas #771, #783 y #840 del Plan con los precios del 20/09.
 
 *17/10/2026, «Pendientes B3» (`claude4`).*
+
+## El tope de usuarios del plan, al invitar al equipo (23/10/2026)
+
+Esencial permite 1 usuario y Pro 5 (lib/topes-plan.ts → 'equipo.usuarios'). Lo hace cumplir `/api/equipo` en `invitar`,
+con la regla pura de lib/tope-equipo-reglas.ts (`topeAlInvitar`).
+- **Sólo a quien MaKo le cobra por la pasarela** (`suscripcionDeMakoDe(ws) != null`). El ws1 y los acuerdos a mano también
+  tienen capa `completo`, así que la capa sola no alcanza para decidirlo.
+- **Lo que no es obvio:** el dueño CUENTA. `equipoDe(ws)` trae a todos los del negocio, suspendidos incluidos, y en Esencial
+  el admin solo ya llena el lugar. Invitar a alguien es pasar a Pro.
+- **Nadie pierde el acceso:** el tope frena SÓLO invitar. Cambiar el rol, suspender, reactivar y reenviar no lo miran.
+- **Si no se puede leer el cobro, no se frena a nadie** (`cobraMako` devuelve false y queda en el log): es mejor una
+  invitación de más que frenar a quien paga por un error de la base.
+- **En el teléfono, el tope va aparte del error** (`role="status"`, con «Pasar a Pro»): no es un error para reportar, y el
+  guardián de «Reportar a Soporte» exige ese botón en todo `role="alert"`.
+- **«Pasar a Pro» lleva a `RUTA_CAMBIAR_PLAN`** (lib/topes-plan.ts), nunca a una ruta escrita a mano. Si Planes la mueve,
+  todos los carteles de tope la siguen.
+tests/equipo-tope-plan.test.ts.
+
+**SIN HACER:** los otros topes de la tabla (leads, funnels, líneas, automatizaciones, landings, dominios, cuentas de cobro)
+los hace cumplir el chat de cada área.
+
+## El ORIGEN de la cuenta: de qué landing / funnel vino (23/10/2026)
+
+Contrato: lib/origen-cuenta.ts (`cuenta.origen` en app_settings del ws nuevo; lo lee el onboarding). Lo escribe el
+alta por cobro (`altaSiCorresponde` → `guardarOrigenDeAlta`) desde el lead del comprador en ws9.
+
+- **No hay registro propio**: una cuenta nace SÓLO del alta por cobro, del panel o de Partners. El origen sale del
+  LEAD (sus UTM y su visitante), no de un formulario de registro.
+- **hola-mako.com no cargaba el Pixel de MaKo**: sin visitante (`nqe_visitor_id`) ni `landing_visits` del ws9, la
+  cadena visita → agenda → lead → cuenta se cortaba en la primera. Ahora la carga la capa de la landing (Landing.tsx)
+  ANTES del Píxel de Meta, que lleva ese visitante como `external_id` (el mismo UID que el Schedule de CAPI).
+- **Calendly no recibía nada**: `initInlineWidget` iba sin `utm`. Ahora SCRIPT_DISENO le pasa las UTM de la página y
+  el visitante en `utmTerm`, esperando hasta 2,5 s a que el Pixel lo cree en la primera visita.
+- **Trampa**: el Ads Manager de MaKo arma los anuncios con `utm_term={{adset.name}}` (lib/meta-ads-create.ts) y el
+  webhook de Calendly lee `utm_term` como visitante. La landing NO reenvía el `utm_term` de la URL: manda el visitante.
+- **La landing es el PRIMER toque**: la primera visita a una landing de MaKo del visitante (`origenDe` ordena, porque
+  las visitas no llegan ordenadas), y si no hay visitas, la página de registro del lead.
+
+Sin hacer: el `Purchase`/`CompleteRegistration` por CAPI al dar de alta (hoy sólo viaja el Schedule con el UID), y
+confirmar que el evento de Calendly koncke/asesoria esté atado al ws9 (si no, el lead no nace en la plataforma).
+
+## La suscripción de MaKo de punta a punta: pagar, quedar adentro, deber y volver (23/10/2026)
+
+*Pedido de Martín (audios del 22/10, para el domingo 25/10): «si alguien paga se ingresa automáticamente a la app con el email
+de bienvenida y si alguien no paga que se le expulse de la app... le tiene que quedar una deuda pendiente... y si te querés dar
+de baja... un descuento». Rama `suscripcion-mako-2310` (chat «Suscripción y Partners», `claude3`).*
+
+### El alta automática tenía UN disparador, y era a mano
+
+**Síntoma:** «si alguien paga entra solo» ya estaba hecho desde el 11/10 (`altaSiCorresponde`), y nadie podía pagar solo: el
+único camino que crea un cobro con `alta_capa` era «Vender un plan» de /admin/cobros, con el precio tipeado por el super admin. El
+«Botón de pago» de las landings lo rechaza a propósito. **Regla:** el checkout público es /planes → `POST /api/planes/comprar`
+(lib/compra-plan.ts): el plan, la capa y el precio salen de lib/planes-mako.ts (setting `planes.mako` de la plataforma), nunca
+del pedido. **Vive en:** `lib/planes-mako.ts` · `lib/compra-plan.ts` · `app/planes/` · `tests/compra-plan.test.ts`.
+
+### El diagnóstico obvio era el equivocado: «activa y pagada» daba al día PARA SIEMPRE
+
+**Síntoma:** con el corte del 17/10 prendido, un negocio cuya renovación rechaza la tarjeta todos los meses nunca se pausaba.
+**Causa:** `vigenciaDelLugar` miraba el ESTADO del cobro (`pagado` + `activa`), y una renovación rechazada no cambia ninguno de
+los dos: sólo deja un `motivo`. El corte sólo veía bajas, devoluciones y renovaciones de agencia. **Regla:** la vigencia es la
+COBERTURA: cada mes cobrado (una cuota pagada; un cobro único de deuda vale `meses`) extiende un mes; un pago que llega hasta
+62 días tarde paga el período que se debía (sin correr la fecha); con la suscripción activa y lo cubierto terminado hay MORA
+(2 días sin aviso, después el aviso en la esquina) y a los 7 días VENCIDO por impago con la deuda en ciclos. **Y antes de pausar
+por impago se le pregunta a la pasarela** (`confirmarImpago`): una renovación cobrada cuyo aviso se perdió se asienta y no se
+corta; si la pasarela no contesta, tampoco. El cliente de agencia sigue con sus reglas del 17/10 (su mes corre desde el fin del
+onboarding, no desde el pago). **Vive en:** `lib/plan-acceso-reglas.ts` · `lib/plan-acceso.ts` · `lib/plan-deuda.ts` ·
+`tests/plan-acceso.test.ts`.
+
+### Pagar la deuda aparte mientras la pasarela reintenta es cobrar dos veces
+
+**Regla:** Stripe con la suscripción viva → la FACTURA ABIERTA (`hosted_invoice_url`), que al pagarse entra como renovación; si
+Stripe no contesta, NO se abre un cobro aparte (Smart Retries puede cobrarla después). Mercado Pago reintenta cada cuota 4 veces en
+10 días y da de baja la suscripción con 3 cuotas rechazadas: dentro de esos días, «cambia la tarjeta en Mercado Pago»; después, un
+cobro único por los meses debidos, atado al negocio (`alta_ws`) ANTES de devolver el link. **Vive en:** `lib/plan-deuda.ts`
+(`pagarDeuda`) · `app/api/plan/pagar` · `app/cuenta-pausada`.
+
+### Los tres defectos de la revisión del 17/10, cerrados
+
+`ya_tenia_cuenta` quedaba fuera del corte (ahora se ata al negocio del que ese email es admin, si es uno solo); un primer pago
+devuelto con la suscripción activa pausaba a quien paga (la cobertura no corta por un reembolso mientras la pasarela cobra); las
+cuotas se leían sin paginar (PostgREST corta en 1.000 sin error: ahora de a tandas con `range`).
+
+### La retención: Stripe vuelve sola al precio, Mercado Pago no
+
+Un cupón `repeating` de Stripe termina solo. El monto de un preapproval de MP queda cambiado para siempre: el cron lo restaura
+cuando se cobraron las cuotas con descuento (contando las de DESPUÉS de aceptar: la del mismo día pudo cobrarse a precio de lista).
+La oferta se reclama con compare-and-set desde null: una vez por negocio. **Vive en:** `lib/retencion-plan.ts`.
+
+### Lo que quedó SIN hacer (23/10), con el archivo
+
+| Qué | Dónde |
+|---|---|
+| **Prender el corte** (`CORTE_DE_ACCESO_PRENDIDO`): con su revisión adversarial y la mig 0330 aplicada | `lib/plan-acceso-reglas.ts` |
+| Los planes en ARS/MXN: sin `preciosLocales`, Mercado Pago no se ofrece en /planes (nunca se inventa una tasa) | setting `planes.mako` del ws de la plataforma |
+| Medir con claves de PRUEBA: el PUT del monto de un preapproval de MP, `hosted_invoice_url` con la suscripción `past_due`, y la factura de $0 | `lib/pasarela-plan-api.ts` |
+| Una factura de $0 (saldo o cupón del 100%) asentaría US$47 de cash: `montoUsdDeLaCuota` cae al monto del cobro con 0 | `lib/cobros-reglas.ts` (del chat Cobros) |
+| En Mercado Pago (ARS) una cuota con descuento de retención se asienta con el USD de lista | `lib/cobros-reglas.ts` (`montoUsdDeLaCuota`) |
+
+### La revisión adversarial del 23/10: lo que cambió el diseño (21 defectos, 7 altos)
+
+- **El diagnóstico obvio era el equivocado: «la cobertura encadenada sigue a la pasarela».** No la sigue: un mes devuelto, los
+  días 29-31 o una reactivación corrían la fecha, y le daba mora a quien pagaba puntual. **Regla:** la mora la dice la PASARELA
+  (el aviso de la renovación fallida, `PREFIJO_RENOVACION_FALLIDA`, que borra la renovación que entra), anclada en el último
+  pago de ESA suscripción (`proximoCobro`). La cadena queda sólo para «hasta cuándo cubre» después de una baja.
+- **Atar una compra a un negocio por el email es una puerta para pausar negocios ajenos** (se compraba un plan con el email
+  del admin de otro, el ws1 incluido, y se dejaba fallar la renovación). Quien vuelve reactiva desde adentro de su cuenta.
+- **Devolver el link vivo de un email a un pedido anónimo entrega la credencial del cambio de email del acceso.**
+- **Una factura de $0 (saldo, cupón) no es plata**: no se asienta al reparar, pero cubre el mes.
+- **Reparar desde un pago no puede volver a reparar**: `confirmarImpago` → `aplicarPagoAprobado` → `revisarAccesosPorPago`
+  es un círculo si la cuota no se puede asentar; sólo la vuelta del cron repara.
+- **Sin hacer (conocido):** /planes con el email de quien ya es cliente cobra y queda `ya_tenia_cuenta` (lo resuelve el super
+  admin; preguntarlo antes sería un oráculo de emails); el cupón de retención de Stripe reemplaza un descuento que ya tuviera;
+  la deuda en MP con la retención a mitad de precio se calcula a precio de lista. El informe: la carpeta de notas del Cerebro,
+  `revision-suscripcion-2310.md`.
+
+### La segunda revisión (la baja por plan, 23/10): las trampas
+
+- **Un timeout de la pasarela (status 0) puede significar que SÍ se aplicó.** Nunca se da por fallido: la marca queda en
+  «error» y el cron relee la pasarela y concilia (`conciliarRetenciones`): «aplicada» con sus escrituras, o se libera. Si no,
+  MP quedaba pausado o al 50% para siempre.
+- **Comparar `aplicadaAt` (UTC) con `fecha_pago` (fecha local del negocio) corre un día**: el 50% podía durar 3 meses en vez
+  de 2. Se cuenta desde una fecha de la PASARELA (el próximo cobro de MP al aceptar), con margen.
+- **«Un mes» de pausa es un CICLO de cobro, no 30 días**: hasta pasado el próximo cobro (Stripe el fin del período, MP
+  `next_payment_date`). Con 30 días fijos se salteaban cero o dos cobros.
+- **Sin retención válida en el plan, no hay oferta** (recibía el 50% por defecto, el Esencial incluido).
+- **En mora no hay ofertas**: la pausa borraba el mes adeudado y «bajar» reescribía la deuda. Primero «Pagar y volver».
+- **La pausa en Mercado Pago se reanuda un día antes del FIN del ciclo cubierto**, no a los 2 días del cobro salteado (eso sirve
+  para Stripe, que anula la factura con `void`): si MP cobra la cuota atrasada al reactivar o recalcula `next_payment_date`
+  desde hoy, cobraba justo el ciclo salteado. Al reanudar se relee `next_payment_date` y se avisa si quedó en el pasado.
+- **Sin hacer:** la conciliación de un DESCUENTO de Stripe da «tomó» con cualquier descuento de la suscripción (comparar el
+  cupón); la baja durante una pausa deja ese mes sin pagar (R7); bajar de Pro a Esencial es un 51% de descuento hasta
+  que los topes de Esencial se cumplan (R8). La tabla: C:/dev/cerebro-herramientas/revision-retencion-2310.md.
+
+## «Pasar a Pro»: la diferencia se cobra ahora y, si no pasa, nada cambia (23/10/2026)
+
+lib/subir-plan.ts: Stripe con `always_invoice` y `error_if_incomplete`. Mercado Pago, el monto de Pro desde el
+próximo período con Pro en el acto. Hay un reclamo `plan.subida` antes de la pasarela. Lo que encontró la revisión
+adversarial y quedó arreglado:
+- **Sin `plan_mako`** (un acuerdo armado a mano), «subir» a 97 podía BAJAR lo que pagaba. Ahora lo de hoy es
+  `cobros.monto`, y sólo se sube desde la capa `completo`.
+- **Suscripción en pausa o en mora:** se rechaza. Pausada era Pro gratis; en `past_due`, pagar el prorrateo la dejaba
+  activa con la renovación abierta.
+- **Retención viva sin restaurar:** se rechaza, porque el cron la devolvía al precio de antes.
+- **Un timeout o un 5xx no es «sigue igual»:** se vuelve a leer la suscripción.
+- **La agencia o el super admin mirando otro negocio no cobran a la tarjeta del dueño** (`estaImpersonando`).
+
+**Sin hacer** (de la misma revisión):
+- La factura de prorrateo (`subscription_update`) no está en `FACTURAS_DE_PAGO`: la diferencia no entra al cash del
+  CRM de la plataforma. Además, un `invoice.payment_failed` no se filtra por `billing_reason`, así que si Stripe lo
+  manda al fallar la subida, `aplicarPagoFallido` diría «Renovación fallida». Está en lib/cobros-eventos.ts.
+- Subir otra vez en el mismo período después de una retención «bajar» cobra la diferencia dos veces.
+- En Mercado Pago no se lee el estado del preapproval antes de subir (pausado o en mora).
+- Sin medir con claves de prueba: si `error_if_incomplete` emite `invoice.payment_failed`, y si Mercado Pago acepta
+  subir el monto sin que el comprador lo vuelva a autorizar.
+
+**Vive en:** lib/subir-plan.ts · lib/subir-plan-reglas.ts · lib/pasarela-plan-api.ts (`subirPlanStripe`) ·
+app/configuraciones/plan · tests/subir-plan.test.ts.

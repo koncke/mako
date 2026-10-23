@@ -31,25 +31,37 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g,
 
 /** Las pantallas de MaKo con chat, y en qué están. «pendiente, de <chat>»: la migra el chat de esa área. */
 const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
+  // La Ticketera del cliente como chat (23/10/2026): la computadora y el teléfono.
+  'app/tickets/soporte/PiezasSoporte.tsx': 'caja única',
   'app/admin/operaciones/Conversacion.tsx': 'caja única',
   'app/m/operaciones/ChatsMovil.tsx': 'caja única',
   // El chat del cliente (22/10/2026): su caja vive en PiezasCliente.tsx y la montan la computadora y el teléfono.
   'app/second-brain/PiezasCliente.tsx': 'caja única',
-  'app/offer/ChatOffer.tsx': 'pendiente, de Offer',
-  'app/m/offer/ComposerOfferM.tsx': 'pendiente, de Offer',
-  'app/automations/ChatMako.tsx': 'pendiente, de Automations',
-  'app/crm/lead-view/MakoAnalystLead.tsx': 'pendiente, de CRM',
+  // Offer, la tab y el onboarding, y Offer en el teléfono (22/10/2026, OF4): con el hilo del Ops Center (HiloMako) en la tab.
+  'app/offer/ChatOffer.tsx': 'caja única',
+  'app/m/offer/ComposerOfferM.tsx': 'caja única',
+  // 23/10/2026 (AU4): el chat de MaKo de Automations dibuja el hilo y la caja únicos desde ChatMakoVista.tsx, que ChatMako.tsx
+  // carga con next/dynamic (ChatMako lo importan el lienzo y la galería, que dibujan muchos tests; las piezas traen CSS).
+  'app/automations/ChatMakoVista.tsx': 'caja única',
+  // El MaKo Analyst de la ficha de un lead (22/10/2026, CR3): el hilo y la caja del Ops Center, con su motor (/api/crm/analyst).
+  'app/crm/lead-view/MakoAnalystLead.tsx': 'caja única',
   // 22/10/2026 (OC2): EditorMako.tsx no es un chat (edita el pedido y las sugerencias del botón de un gráfico) y salió de la
   // lista; el panel «Pídele un cambio a MaKo» del Dashboard y la caja de «Pídeselo a MaKo» no estaban, y la regex no los veía.
-  'app/dashboard/PanelEditarMako.tsx': 'pendiente, de Dashboard',
+  // 22/10/2026 (TB3): «Editar con MaKo» del Dashboard y el chat con sesiones de los gráficos (Ads Manager, el Diagnóstico),
+  // con la caja y el hilo únicos y su motor de siempre. El chat de un gráfico del Dashboard ya va a la estrella.
+  'app/dashboard/PanelEditarMako.tsx': 'caja única',
   'app/web-generator/CajaPedido.tsx': 'pendiente, de Web Generator (la usan Automations, CRM y Dashboard)',
-  'app/web-generator/editor/paneles/PanelAgente.tsx': 'pendiente, de Web Generator',
-  'app/video-editor/_opencut/chat/PanelChat.tsx': 'pendiente, de Video Generator',
-  'app/image-editor/mako/chat/PanelMakoIA.tsx': 'pendiente, de Image Editor',
+  // 22/10/2026 (TB3): el agente dibuja el hilo y la caja únicos desde ChatAgente.tsx, que carga con next/dynamic (PanelAgente.tsx
+  // lo importan tests y las piezas traen CSS); PanelAgente ya no arma ninguna caja.
+  'app/web-generator/editor/paneles/ChatAgente.tsx': 'caja única',
+  // 22/10/2026 (TB3): los dos editores con su motor (editan lo abierto) y la propuesta en el hueco de la respuesta.
+  'app/video-editor/_opencut/chat/PanelChat.tsx': 'caja única',
+  'app/image-editor/mako/chat/PanelMakoIA.tsx': 'caja única',
   'app/plan/board/MakoProyecto.tsx': 'pendiente, de Plan',
-  'app/_components/MakoChat.tsx': 'pendiente, del Cerebro',
+  'app/_components/MakoChat.tsx': 'caja única',
   // La encontró la guarda el 20/10 (no estaba en el inventario de docs/feedback-20-10.md): «Pregúntale a MaKo…» en el chat de WhatsApp.
-  'app/whatsapp/WhatsAppAdvisor.tsx': 'pendiente, de Chats',
+  // 22/10/2026 (TB3): con su motor y su «Usar →» en el hueco de cada respuesta (no va a la estrella: el borrador es de ESTE lead).
+  'app/whatsapp/WhatsAppAdvisor.tsx': 'caja única',
 };
 
 /** Arma su PROPIA caja: un campo de texto, la barra de WhatsApp (sola o adentro de su hilo) o el botón de mandar del chat. */
@@ -90,7 +102,8 @@ test('2. las pantallas con la caja única no vuelven a armar la suya', () => {
   for (const [f, estado] of Object.entries(INVENTARIO)) {
     if (estado !== 'caja única') continue;
     const s = leer(f);
-    assert.match(s, /import \{ CajaChat \} from '@\/app\/_chat\/CajaChat';/, `${f}: usa la caja única`);
+    // Con comillas simples o dobles: el Video Editor (OpenCut) escribe sus imports con dobles (22/10/2026, TB3).
+    assert.match(s, /import \{ CajaChat \} from (['"])@\/app\/_chat\/CajaChat\1;/, `${f}: usa la caja única`);
     assert.match(s, /<CajaChat\b/, `${f}: la dibuja`);
     assert.doesNotMatch(s, CAJA_PROPIA, `${f}: no arma su propia caja (un <textarea>, ComposerWhatsApp, ChatHilo o su botón de mandar)`);
   }

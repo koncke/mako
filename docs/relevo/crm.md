@@ -6,7 +6,33 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω21. 22-23/10/2026, madrugada (chat «CRM», cuenta `claude3`): «Vincular evento / cobro» e Instagram
+
+**«Vincular evento» y «Vincular cobro»** (feedback de Martín con capturas del ws1, vía el Cerebro): rama `crm-vinc-2210` en
+C:/dev/wt-crm-vinc, sobre main d0ec8904f. El nombre, el CRM › la etapa arriba, los dos pop-ups rediseñados (app/crm/vincular-etapa.ts),
+lo vinculado al toque desde la base y cada cambio en su lugar, el aviso del «⋯» (lib/vinculos-de-columnas.ts) y el cobro de
+Ganado por MaKo (cuatro ops al final del área crm, `plata: true` las que escriben). Pasó la revisión adversarial del cobro.
+tests/crm-vincular-22-10.test.ts. **Sin hacer** (en este orden): (1) la velocidad del server de la agenda, sobre main, con el
+contrato que pidió Cobros: `eventosDelProveedor(proveedor)` sigue siendo la unidad de lectura, la caché por negocio + proveedor,
+el input de crear/editar como objeto y el token o la key por parámetro a lib/calendly-agenda.ts y lib/calcom.ts (Cobros mergea su
+fase B, «por cuenta», encima); (2) «Traer de otro funnel» (pedido del Cerebro del 23/10: botón visible, loader, sin el texto de
+«Se ven 300 de 869», el pie pegado con fondo sólido); (3) la edición completa del evento (lo que deja cada API, en
+docs/hallazgos-integraciones.md) y elegir la cuenta en el pop-up; (4) las capturas del después en el ws3.
+
+**La tanda junta** (vincular + Instagram + agenda rápida + «Traer de otro funnel»): rama `crm-tanda-2310` en
+C:/dev/wt-crm-tanda, punta 44db84a2e, pasada a Integración. **La edición completa del evento y la cuenta en el pop-up**: rama
+`crm-edicion-2310` en C:/dev/wt-crm-edicion, ENCIMA de la de Cobros (`cuentas-2210`, fases A y B de varias cuentas): sale
+con ellos, no antes. Ahí también el cobro de Ganado toma todas las cuentas conectadas (`cuentasDePago`), no sólo la principal.
+
+**Instagram, «Conectar Meta»**: rama `crm-ig-2210` en C:/dev/wt-crm-ig. 4487ac5d6 salió del tren 16 por `fresco` sin tope; la
+punta 18146bffd le pone el tope (una cada 10 minutos por negocio, 20 por día) y no borra la pausa de un límite de Meta.
+
 ## 0-Ω20. 21-22/10/2026, noche (chat «CRM», cuenta `claude3`): el feedback de Martín de las 23:10
+
+**22/10, 21:10, el feedback con capturas del ws1** (rama `crm-fb-2210c` en C:/dev/wt-crm-fb3, sobre main 449247716): el
+«⋯» de la columna abre el menú del clic derecho, por secciones; «Tipo de etapa ›» con los tipos ahí mismo; el ícono `etapa`
+es una bandera; «Tus reuniones» es una tarjeta para preparar cada reunión (app/crm/TarjetaReunion.tsx).
+tests/crm-feedback-22-10-c.test.ts. **Sin ver en pantalla**: después del deploy, capturas en el ws3 (Chrome, grupo propio).
 
 El pedido, literal, en la bitácora del CRM (hito `actor: 'martin'` del 21/10 23:10). Rama final `crm-2110-t3` en
 `C:/dev/wt-crm-2110c` (lleva adentro `crm-2110-t1` y `crm-2110-t2b`). **Sin subir: la punta va a «Cerebro › Integración».**
@@ -18,6 +44,18 @@ producto con precio, una casilla por cuenta (Stripe y Mercado Pago a la vez, var
 (catálogo o crear), «Editar» y «Quitar» con Deshacer: tests/crm-cobro-ganado.test.ts. Con las acciones de verdad de
 Cobros (lib/cobro-etapa.ts y app/crm/cobro-etapa-actions.ts, su punta 81c8446e7, la mig 0326 aplicada): el stub se fue
 el 22/10. Sin «Copiar link» hasta que `linkDelVinculoAction` dé el link sin un lead (Cobros avisa).
+
+**22/10, noche, CR3 y CR4** (rama `crm-cr34-2210` en C:/dev/wt-crm-cr34, sobre main 72fd0b5bd con OC4 y OC6): el MaKo
+Analyst de la ficha con el hilo y la caja del Ops Center; la estrella del CRM con el lead abierto (app/crm/lead-abierto.ts);
+la estrella en el Plan y en Clientes, encima de la tarjeta abierta (`encimaDeModales`). tests/crm-estrella-cr3-cr4.test.ts.
+**Sin ver en pantalla**: se mira en el ws3 cuando salga (/plan con una tarea abierta: «cerrala» desde la estrella).
+
+**22/10, noche, el P0 del sábado (el tablero trabado con 1.050)**: en la misma rama `crm-cobro-ganado-2210`. Cada columna
+dibuja 30 y suma 30 al bajar (app/crm/columna-por-tandas.ts, FinDeColumna.tsx), y el Kanban topea con `maxHeight`
+(`5dc4c17b5` es el mismo arreglo, suelto, desde main). Medido con el arnés (tests/_crm-tablero-medir.mjs, con
+`ARNES_CSS` = la hoja de producción): 1.169 en 8 columnas, de 14.528 nodos y 3,0–3,6 s a 3.280 y 0,4–0,9 s.
+**Sin hacer:** medirlo EN PRODUCCIÓN cuando salga (el arnés va entre 1,5 y 7 veces más rápido que el Chrome de Martín): el ws1
+principal y «Sprint 3 días», con `long-animation-frame` (cómo, en docs/hallazgos-crm.md).
 
 **22/10, «está en una automatización» y «Frenar»** (Martín: «en el CRM debería indicar en la tarjeta o en algún lugar
 que esos leads están en una automatización activa, y que desde el CRM también se pueda frenar»): rama `crm-aut-lead-2210` en

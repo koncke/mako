@@ -66,12 +66,13 @@ test('el ⋯ y el clic derecho de Ganado (y sólo de Ganado) abren «Vincular co
   assert.ok(opcionesCrm({ ...col, ganado: true }).includes('col_cobro'));
   assert.deepEqual(OPCION_CRM.col_cobro, { texto: 'Vincular cobro', icono: 'dinero' });
   const b = sinComentarios(leer('app/crm/CrmBoard.tsx'));
-  // El MISMO rótulo e ícono en el «⋯» de la cabecera (tests/crm-menu-contextual.test.ts cruza los de la columna).
-  assert.match(b, /\.\.\.\(c\.key === 'ganado' \? \[\{ value: 'cobro', label: 'Vincular cobro', icono: 'dinero' as const \}\] : \[\]\),/);
-  assert.match(b, /if \(v === 'cobro'\) \{ setCobroDe\(\{ etapa: c\.key, nombre: c\.label \}\); return; \}/);
+  // Desde el 22/10/2026 el «⋯» abre el MISMO menú que el clic derecho (app/crm/menu-contextual-crm.ts, «ponlas en secciones»).
+  assert.match(b, /ganado: c\.key === 'ganado'/);
+  assert.match(b, /case 'col_cobro': if \(c\) setCobroDe\(\{ etapa: c\.key, nombre: c\.label \}\); return;/);
   assert.match(b, /ganado: c\.key === 'ganado',/);
   assert.match(b, /case 'col_cobro': if \(c\) setCobroDe\(\{ etapa: c\.key, nombre: c\.label \}\); return;/);
-  assert.match(b, /<CobroDeEtapaModal funnelId=\{\(funnelActivo \?\? funnels\.find\(\(f\) => f\.esDefault\)\?\.id\) as number\}\s*etapa=\{cobroDe\.etapa\} etapaNombre=\{cobroDe\.nombre\} onCerrar=\{cerrarCobro\} \/>/);
+  // Con el nombre del CRM desde el 22/10/2026 («falta el nombre del CRM», Martín).
+  assert.match(b, /<CobroDeEtapaModal funnelId=\{\(funnelActivo \?\? funnels\.find\(\(f\) => f\.esDefault\)\?\.id\) as number\}\s*etapa=\{cobroDe\.etapa\} etapaNombre=\{cobroDe\.nombre\} crmNombre=\{nombreDeFunnel\(funnelActivo\)\} onCerrar=\{cerrarCobro\} \/>/);
 });
 
 test('el modal: una casilla por cuenta (Stripe y MP a la vez), conectar ahí mismo, crear y vincular, y «Quitar» con Deshacer', () => {
@@ -82,7 +83,8 @@ test('el modal: una casilla por cuenta (Stripe y MP a la vez), conectar ahí mis
   assert.match(m, /if \(!cuentas\.length\) \{ show\('Deja al menos una cuenta, o quita el producto\.', undefined, 'bad'\); return false; \}/);
   assert.match(m, /\(\['stripe', 'mercadopago'\] as const\)\.map\(\(prov\) => \(\s*<BotonIntegracion key=\{prov\} servicio=\{prov\} onConectado=\{\(\) => leer\(\)\}/, 'sin cuentas no se conecta ahí mismo');
   // Lo creado nace cobrando por todas las cuentas; lo quitado se deshace con lo que devuelve Cobros.
-  assert.match(m, /const v = await vincularProductoAEtapaAction\(\{ funnelId, etapa, productoId: r\.producto\.id, cuentas: todasLasCuentas \}\);/);
+  // (23/10/2026) Si vincular se cae, el producto ya está creado: se avisa, no se tira (tests/crm-vincular-22-10.test.ts).
+  assert.match(m, /const v = await vincularProductoAEtapaAction\(\{ funnelId, etapa, productoId: r\.producto\.id, cuentas: todasLasCuentas \}\)\s*\.catch\(/);
   assert.match(m, /show\(`«\$\{nombre\}» ya no cobra aquí`, \(\) => \{\s*void vincularProductoAEtapaAction\(d\)/);
   assert.match(m, /const r = await guardarProductoCobroAction\(p\.input, id\);/);
 });

@@ -1543,9 +1543,56 @@ editor trae el suyo al abrir el panel. Los chats de cada gráfico siguen siendo 
   y los avisos en «Ojo: …», y `hiloDeFilas` los separa al volver. Un aviso guardado sin su marca vuelve como texto.
 - **Después de recargar no vuelven el «Deshacer» ni las burbujas de pedido**, a propósito: la hoja ya se guardó con el
   cambio y las burbujas navegan desde ESA sesión.
-- **Sin hacer:** la etiqueta de origen en la fila del Ops Center («Dashboard › …») es de OC4 (lib/chart-chats.ts y
-  lib/chat-mako-reglas.ts, del chat Ops Center); hoy la fila dice «Editar con MaKo · <hoja>» por el título. La caja y el
-  hilo únicos van en TB3.
+- **Medido en producción el 22/10, en el ws3:** «Agrega un número con los leads de esta semana» agregó la tarjeta, recargar
+  trajo la charla y el Ops Center la muestra como «Dashboard › Editar con MaKo · Página 1» con sus dos mensajes. Se abría
+  VACÍA hasta 9fb5bace3, por un bug del GET de /api/mako/chat que tapaba a todo chat de antes
+  (docs/hallazgos-second-brain.md).
+- **Sin hacer:** la caja y el hilo únicos (TB3).
 
 **Vive en:** app/dashboard/hilo-guardado.ts, PanelEditarMako.tsx, EditorInforme.tsx · lib/hilo-de-tab-reglas.ts ·
 tests/dashboard-hilo-guardado.test.ts, tests/hilo-de-tab.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## El MaKo de los gráficos va a la estrella, y «Editar con MaKo» con las piezas del Ops Center (22/10/2026, TB3)
+
+Martín, 22/10: «quiero que todos los chats de MaKo en las tabs sean el del Ops Center». El botón de MaKo de cada gráfico y
+el «Preguntarle a MaKo» del clic derecho abrían un modal con su chat propio (`MakoChat`); ahora le mandan el gráfico a la
+estrella de la tab (`MakoEnLaTab`, que monta EditorInforme.tsx) con la hoja como entidad y en «analizar», así que en vista
+MaKo asesora y no toca la hoja. «Editar con MaKo» sigue con su motor (el único escritor de la hoja abierta), pero su hilo
+es `HiloMako` y su caja `CajaChat`; lo que cambió con su Deshacer va en el hueco `enMensaje`. Y el marco `.an` (el AI
+Analyst y «Editar con MaKo») pasó a la IZQUIERDA; el editor le deja el lugar a la estrella con `--ancho-panel-mako`.
+
+- **`CajaChat` y `HiloMako` NO cargan en node** (AdjuntosCaja trae `chat.css`): un módulo que un test importa por valor no
+  los puede importar. PanelAnalista.tsx lo importa tests/dashboard-topbar.test.ts (dibuja `ChatMakoGrafico`), así que el
+  botón le habla a la estrella por un EVENTO de la ventana (app/dashboard/pregunta-grafico.ts) y no importa la estrella.
+  Antes de sumar la caja a un archivo, se mira si algún test lo trae por el grafo (`node scripts/tests-afectados.mjs
+  --listar --explicar` con un cambio de sonda en ese archivo).
+- **El texto que sale es `contextoDeGrafico`** (las personas ya cambiadas por alias), el mismo que leía el modelo antes;
+  ahora además se ve en el mensaje de la persona.
+- **Medido en producción (tren 8, ws3):** el botón de «Salud del Funnel» abrió la estrella con el chip «desde Dashboard ›
+  Marketing» y lo que muestra el gráfico; el Cerebro del ws3 no tiene IA, así que la respuesta pide conectarla.
+- **El panel no es un `<aside>`**: con el super admin mirando un cliente, `[data-barra-agencia] aside` (app/globals.css) le
+  fuerza a todo `<aside>` el `top` y el alto de la ventana con !important. «Editar con MaKo» medía 761 px en un lienzo de
+  612 y su caja quedaba fuera de la vista (sin el atributo, 588). Ya pasaba a la derecha; ahora los dos son un `<section>`.
+- **El panel arranca a 84 px**: a 12 px, el botón de la estrella (56 px, fijo a 16 px del borde de la barra) le tapaba el
+  emoji de la caja. Abierta la estrella, el editor se corre (`--ancho-panel-mako`) y el panel queda a su derecha.
+- **Sin hacer:** las sugerencias propias de cada gráfico (`makoIA.sugerencias`) no viajan a la estrella; los chats de los
+  gráficos de antes siguen en el Ops Center como «de antes» (`dashboard:<hoja>:<gráfico>`). Y el «Deshacer» de MaKo no
+  aparece cuando lo que agregó es un GRÁFICO: la grilla le reescribe las posiciones al montarlo, y la comparación por
+  referencia (`leerHoja(id) === m.aplicada`) lo da por tocado. Con un cambio que no suma nada (el nombre) sí aparece. Ya
+  pasaba antes de TB3; queda el Ctrl+Z del editor.
+
+**Vive en:** app/dashboard/pregunta-grafico.ts, items-edicion.ts, PanelAnalista.tsx (`ChatMakoGrafico`, `.an`),
+PanelEditarMako.tsx, EditorInforme.tsx, editor-css.ts · tests/dashboard-estrella-grafico.test.ts,
+tests/dashboard-editar-mako-muneco.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## La hoja Closing dice «Conecta tu Claude» sólo con un «no» seguro (22/10/2026)
+
+- **El aviso lee la MISMA pregunta que el cron** (`conQueAnalizaElClosing`, lib/closing.ts): 'no' = no hay su Claude ni el
+  permiso de la plataforma. Con 'no-se' (la base no contestó) se calla: un «conecta tu Claude» a quien ya lo tiene es
+  mentira, y lo manda a pegar una clave que ya pegó (app/dashboard/aviso-closing.ts).
+- **Se reconoce la hoja por su plantilla, no por su nombre** (`Hoja.plantilla === 'closing'`): una hoja renombrada sigue
+  siendo la Closing, y una copia a mano llamada «Closing» no lo es. Sólo se pregunta si el informe tiene una.
+- **Conectar es con EL modal de /integraciones, sin salir de la hoja** (`BotonIntegracion servicio="anthropic"`). La primera
+  versión tenía un link a /integraciones y la frenó tests/integracion-sin-salir.test.ts: un aviso que conecta algo no
+  manda a otra pantalla. Al conectarlo, el aviso se va sin recargar la hoja.
+- El closer mira su hoja en sólo lectura y no conecta: lee el aviso sin botón. Un link compartido no lo muestra.

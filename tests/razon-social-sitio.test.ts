@@ -19,7 +19,9 @@ import Landing from '../app/vsl/Landing';
 import Privacidad from '../app/privacidad/page';
 import Terminos from '../app/terminos/page';
 import Reembolsos from '../app/reembolsos/page';
-import Home from '../app/page';
+// La portada sin la lectura de la base (app/page.tsx la lee con server-only y se la pasa a esto).
+import { Portada } from '../app/vsl/Portada';
+const Home = () => createElement(Portada, { diseno: null });
 import robots from '../app/robots';
 import { esPublica } from '../lib/rutas-publicas';
 import { RAZON_SOCIAL_MAKO } from '../lib/titular-mako';

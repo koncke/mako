@@ -32,6 +32,7 @@ import { createPortal } from 'react-dom';
 import { FAMILIAS, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
 import { familiasDev } from '@/app/admin/dev/nav-dev';
 import { puedeVerItem, resolverTab, seccionesVisibles } from '@/lib/nav-visibilidad';
+import { ROTULO_PASAR_A_PRO, esNavSoloPro } from '@/lib/plan-esencial-reglas';
 import { BuscadorNav, type Destino } from './BuscadorNav';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
@@ -40,6 +41,7 @@ import { Criatura } from './Criatura';
 import { SaldoMaKo } from './SaldoMaKo';
 import { CampanitaAvisos, ID_PANEL_AVISOS } from './CampanitaAvisos';
 import { InterruptorModo } from './InterruptorModo';
+import { useMakoAbierto } from '@/app/_chat/mako-abierto';
 
 const MONO = "'Geist Mono', monospace";
 export const RAIL = 68;
@@ -249,8 +251,19 @@ export function Identidad({ open, nombre, avatar, subrotulo }: {
   );
 }
 
-export function NavLink({ item, active, expanded, tema = 'oscuro', size, badge = 0, onClick }: {
+/** El candado de una tab de MaKo Pro en el Esencial (23/10/2026): se ve, y al entrar dice «Pasar a Pro». */
+function Candado() {
+  return (
+    <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none', opacity: 0.7 }}>
+      <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
+
+export function NavLink({ item, active, expanded, tema = 'oscuro', size, badge = 0, onClick, pro = false }: {
   item: NavItem; active: boolean; expanded: boolean; tema?: Tema; size?: number; badge?: number; onClick?: () => void;
+  /** Una tab de MaKo Pro y el negocio paga el Esencial: el candado, y «Pasar a Pro» al pasar el mouse. */
+  pro?: boolean;
 }) {
   const base = filaStyle(expanded);
   const cls = `mk-navrow${tema === 'claro' ? ' mk-navrow--claro' : ''}${active ? ' is-activo' : ''}`;
@@ -262,12 +275,13 @@ export function NavLink({ item, active, expanded, tema = 'oscuro', size, badge =
       </span>
       {expanded && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
       {expanded && <Contador n={badge} />}
+      {expanded && pro && <Candado />}
       {expanded && item.comingSoon && (
         <span style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'currentColor', border: '1px solid currentColor', borderRadius: 5, padding: '1px 5px', opacity: 0.5 }}>pronto</span>
       )}
     </>
   );
-  const props = { className: cls, style: base, title: expanded ? undefined : item.label };
+  const props = { className: cls, style: base, title: pro ? `${item.label} · ${ROTULO_PASAR_A_PRO}` : expanded ? undefined : item.label, ...(pro ? { 'data-pro': '' } : {}) };
   if (item.entrarComoDueno) return <button type="button" onClick={onClick} {...props}>{content}</button>;
   if (item.newTab) return <a href={item.href} target="_blank" rel="noopener noreferrer" onClick={onClick} {...props}>{content}</a>;
   return <Link href={item.href} onClick={onClick} {...props}>{content}</Link>;
@@ -316,7 +330,7 @@ function GrupoFila({ g, open, pathname, abierto, onAbrir, onCerrar }: {
  * Plegada la BARRA (el rail de íconos), el rótulo es una línea fina: los íconos de los destinos trabajan solos. Una
  * familia plegada por el usuario muestra su ícono, que la despliega, y su contador.
  */
-export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamilia, contadorItem, onToggle, flyoutKey, onAbrirFlyout, onCerrarFlyout, onEntrarComoDueno }: {
+export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamilia, contadorItem, onToggle, flyoutKey, onAbrirFlyout, onCerrarFlyout, onEntrarComoDueno, esPro = () => false }: {
   f: FamiliaVista; primera: boolean; open: boolean; pathname: string; abiertaEsta: boolean;
   contadorFamilia: number; contadorItem: (key: string) => number;
   onToggle: (key: string) => void;
@@ -330,6 +344,8 @@ export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamil
    * es el único caso en que las tabs de producto le dan 403.
    */
   onEntrarComoDueno?: (href: string) => void;
+  /** ¿Esta tab lleva el candado de MaKo Pro? (el Esencial por la pasarela, lib/plan-esencial-reglas.ts) */
+  esPro?: (key: string) => boolean;
 }) {
   const activa = [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)].some((i) => i.match(pathname));
   // SIN RÓTULO (17/10/2026 noche): la zona de lo diario, y toda familia a la que le queda UNA fila visible (el prototipo:
@@ -339,7 +355,7 @@ export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamil
     return (
       <div style={{ marginTop: primera ? 0 : 14, display: 'flex', flexDirection: 'column', gap: 1, ...(f.color ? { ['--tinte' as string]: `var(${f.color})` } : {}) }}>
         {f.bloques.flat().map((it) => (
-          <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} badge={contadorItem(it.key)}
+          <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} badge={contadorItem(it.key)} pro={esPro(it.key)}
             onClick={it.entrarComoDueno ? () => onEntrarComoDueno?.(it.href) : undefined} />
         ))}
       </div>
@@ -389,7 +405,7 @@ export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamil
             // filas sueltas se lee como el final de la sección.
             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 1, ...(i > 0 ? { marginTop: 7 } : {}) }}>
               {bloque.map((it) => (
-                <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} badge={contadorItem(it.key)}
+                <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} badge={contadorItem(it.key)} pro={esPro(it.key)}
                   onClick={it.entrarComoDueno ? () => onEntrarComoDueno?.(it.href) : undefined} />
               ))}
             </div>
@@ -432,6 +448,9 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const [verPronto, setVerPronto] = useState(false);
   const [rolWs, setRolWs] = useState<string>('');
   const [capa, setCapa] = useState<string>('');
+  // MaKo Esencial por la pasarela (/api/auth/me): las tabs de Pro con candado (23/10/2026).
+  const [planEsencial, setPlanEsencial] = useState(false);
+  const esPro = (key: string) => planEsencial && esNavSoloPro(key);
   const [impersonando, setImpersonando] = useState(inicial?.clienteNombre != null);
   const [clienteNombre, setClienteNombre] = useState(inicial?.clienteNombre ?? '');
   const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
@@ -459,7 +478,11 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const enOpsCenter = pliegaLaBarra(pathname);
   // Y en una ventana chica (21/10/2026, `ANCHO_BARRA_PLEGADA`): la misma regla, plegada por defecto y la flecha la abre.
   const angosta = useVentanaAngosta();
-  const plegadaAca = enOpsCenter || angosta;
+  // Y mientras el panel de MaKo de una tab está abierto (22/10/2026, Martín: «si abro a MaKo, se debería plegar la sidebar
+  // principal, para optimizar espacios. Si antes la tenía desplegada y fija, al cerrar MaKo debe volver a su lugar»): lo marca
+  // la estrella (app/_chat/mako-abierto.ts). Temporal como las otras: al cerrar, `fija` vuelve a ser la guardada.
+  const makoAbierto = useMakoAbierto();
+  const plegadaAca = enOpsCenter || angosta || makoAbierto;
   const [abiertaAca, setAbiertaAca] = useState(false);
   useEffect(() => { setAbiertaAca(false); }, [plegadaAca]);
   const fija = fijaGuardada && (!plegadaAca || abiertaAca);
@@ -526,6 +549,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
         setEmail((j.email as string) || '');
         setRolWs((j.rolWs as string) || '');
         setCapa((j.capa as string) || '');
+        setPlanEsencial(j.planEsencial === true);
         setImpersonando(Boolean(j.impersonando));
         setClienteNombre((j.clienteNombre as string) || '');
       })
@@ -872,7 +896,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
           {familias.map((f, i) => (
             <Familia key={f.key} f={f} primera={i === 0} open={open} pathname={pathname}
               abiertaEsta={estaAbierta(f.key)}
-              contadorFamilia={contadorDe(f)} contadorItem={contadorItem}
+              contadorFamilia={contadorDe(f)} contadorItem={contadorItem} esPro={esPro}
               onToggle={alternarFamilia}
               flyoutKey={flyout?.key ?? null}
               onAbrirFlyout={abrirFlyout} onCerrarFlyout={cerrarFlyout}
@@ -918,7 +942,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
           <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', padding: '4px 10px 6px' }}>{grupoFlyout.label}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {grupoFlyout.items.map((it) => (
-              <NavLink key={it.key} item={it} active={it.match(pathname)} expanded tema="claro" onClick={() => setFlyout(null)} />
+              <NavLink key={it.key} item={it} active={it.match(pathname)} expanded tema="claro" onClick={() => setFlyout(null)} pro={esPro(it.key)} />
             ))}
           </div>
         </div>,

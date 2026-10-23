@@ -11,7 +11,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, statSync } from 'node:fs';
-import { metadata } from '../app/page';
+// app/page.tsx importa server-only (la landing de Web Generator): la metadata se lee de su módulo, que la página reexporta.
+import { metadataPortada as metadata } from '../app/vsl/portada-metadata';
 
 type Og = { type?: string; siteName?: string; url?: string; title?: string; images?: Array<{ url: string }> };
 

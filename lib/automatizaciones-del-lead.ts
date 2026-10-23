@@ -16,6 +16,7 @@ import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
 import { sacarDeSecuencia } from '@/lib/nutricion-salida-manual';
 import { enAutomatizacionesDe, textoDeFrenar, ESTADOS_VIVOS, type EnAutomatizacion, type FilaInscripcion, type FilaAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
+import { frenosDelNegocio } from '@/lib/por-que-no-sale-db';
 
 export type { EnAutomatizacion };
 
@@ -28,16 +29,18 @@ export async function enAutomatizaciones(leadIds: readonly number[]): Promise<Ma
   if (!ids.length) return new Map();
   const db = await getTenantDb();
   const { data, error } = await db.from('nutricion_inscripciones')
-    .select('lead_id, secuencia_id, estado, paso_actual, nodo_actual, proximo_envio_at')
+    .select('id, lead_id, secuencia_id, estado, paso_actual, nodo_actual, proximo_envio_at')
     .in('lead_id', ids).in('estado', [...ESTADOS_VIVOS]);
   if (error) throw new Error(`automatizaciones del lead: ${error.message}`);
   const filas = (data ?? []) as FilaInscripcion[];
   const secIds = [...new Set(filas.map((f) => Number(f.secuencia_id)))];
   if (!secIds.length) return new Map();
   const { data: secs, error: eSecs } = await db.from('nutricion_secuencias')
-    .select('id, nombre, activa, archivada_at, pasos').in('id', secIds);
+    .select('id, nombre, activa, archivada_at, pasos, instance_name').in('id', secIds);
   if (eSecs) throw new Error(`automatizaciones del lead (automatizaciones): ${eSecs.message}`);
-  return enAutomatizacionesDe(filas, (secs ?? []) as FilaAutomatizacion[]);
+  // Y POR QUÉ NO LE SALE, en palabras (23/10/2026, P0 de #289: lib/por-que-no-sale.ts). Si no se puede leer, sin motivo.
+  const automatizaciones = (secs ?? []) as FilaAutomatizacion[];
+  return enAutomatizacionesDe(filas, automatizaciones, await frenosDelNegocio(filas, automatizaciones));
 }
 
 /** Saca al lead de UNA automatización: no le sale nada más. El texto es para la persona. */

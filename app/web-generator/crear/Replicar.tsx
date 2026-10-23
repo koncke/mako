@@ -46,6 +46,7 @@ import { urlParaAnalizar } from '../panel-reglas';
 import { LeerOPegar } from '../lector/LeerOPegar';
 import { CSS_TIPO } from './PiezasTipo';
 import { FORMATO_INICIAL } from './caja-modos';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** El ícono de cada formato (lib/editor-landing/iconos.ts): las diapositivas, las secciones y la página. */
 export const ICONO_FORMATO: Record<FormatoReplicar, string> = { presentacion: 'presentar', landing: 'paginas', web: 'globo' };
@@ -151,7 +152,7 @@ export function FallaReplicar({ error, probar, onProbar, deshabilitado, clase = 
 }) {
   return (
     <>
-      <p className={clase} role="alert">{error}</p>
+      <p className={clase} role="alert">{error}<ReportarASoporte /></p>
       {probar && (
         <button type="button" className="gp-btn gp-btn-contorno" style={{ marginTop: 10, alignSelf: 'flex-start' }} disabled={deshabilitado} onClick={() => onProbar(probar)}>
           <Ico n={ICONO_FORMATO[probar]} t={14} /> Replicar como {NOMBRE_FORMATO_REPLICAR[probar]}

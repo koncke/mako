@@ -246,6 +246,9 @@ export const DETALLE_TIPO_ETAPA: Readonly<Record<TipoEtapa, string>> = {
  *   · Nutrición ↔ recorrido: cambia de banda (una que sube cae antes del cierre: `insertarEnRecorrido`).
  * `recorrido` son las etapas del recorrido del funnel, en orden (banda `pipeline`); `leads`, cuántos hay en la columna.
  */
+/** El aviso de la tercera reunión: con él, «Tipo de etapa ›» no cambia con un toque y abre el pop-up para leerlo (22/10/2026). */
+export const AVISO_SIN_LUGAR = 'Sería la tercera reunión del funnel: no tiene dónde guardar la fecha.';
+
 export function avisoCambioDeTipo(i: {
   recorrido: readonly EtapaConTipo[];
   columna: ColumnaConTipo;
@@ -273,8 +276,8 @@ export function avisoCambioDeTipo(i: {
   if (sube) {
     out.push('Cada lead que pase por aquí lleva la fecha y la asistencia de la reunión.');
     out.push(c.sinLugar.includes(i.columna.key)
-      ? 'Sería la tercera reunión del funnel: no tiene dónde guardar la fecha.'
-      : 'Le puedes asignar un evento de Calendly o Cal.com.');
+      ? AVISO_SIN_LUGAR
+      : 'Le puedes vincular un evento de Calendly o Cal.com.');
   }
   if (baja) {
     out.push('Deja de llevar la fecha y la asistencia de la reunión.');

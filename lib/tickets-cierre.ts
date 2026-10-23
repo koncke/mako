@@ -154,6 +154,10 @@ async function avisarUno(f: FilaAviso, desplegados: Map<number, HitoDeTicket>): 
   }
   // Por el formulario no hay canal de vuelta más que /tickets: el estado ya está ahí, y eso cuenta como avisado.
   if (f.canal === 'formulario' || f.canal === 'api') salio.push('tickets');
+  // El chat de Soporte (23/10/2026, app/tickets/soporte/) levanta con canal de chat y SIN hilo: su conversación ES /tickets, donde
+  // ya está la respuesta. Sin esto, sin push nunca quedaba avisado, y 30 así llenaban la ventana de `avisarPendientes` (los 30
+  // más viejos sin avisar): el cron dejaba de mandar TODOS los avisos (la revisión de Integración, 23/10/2026).
+  if ((f.canal === 'chat_app' || f.canal === 'chat_movil') && !/^\d{1,12}$/.test(hilo)) salio.push('tickets');
   if (!salio.length) return false;
   const ahora = new Date().toISOString();
   await getSupabaseServer().from(T).update({ avisado_at: ahora }).eq('id', f.id);

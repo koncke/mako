@@ -13,6 +13,7 @@ import type { ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { FilaM, ListaM } from '@/app/m/_ui';
 import styles from './escritor.module.css';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** El campo de texto grande de una hoja (16 px: iOS no hace zoom). */
 export function CampoM({ valor, onCambio, etiqueta, placeholder, deshabilitado, filas = 4 }: {
@@ -68,7 +69,7 @@ export function OpcionesM<T extends string>({ opciones, valor, onCambio, etiquet
 
 /** Lo que no salió: el punto rojo y la frase en tinta (el rojo como texto no pasa AA a este tamaño). */
 export function ErrorLineaM({ children }: { children: ReactNode }) {
-  return <p className={styles.error} role="alert"><i aria-hidden />{children}</p>;
+  return <p className={styles.error} role="alert"><i aria-hidden />{children}<ReportarASoporte /></p>;
 }
 
 /** Un rótulo chico de una parte de la pieza («Gancho», «Escena 2»). */

@@ -170,12 +170,12 @@ test('el turno: la PC de QUIEN escribe, sólo en línea Y con sesión, con su ru
   assert.match(t, /const leidaPc = await pcDe\(ws, persona\.actor\)/, 'la cuenta es de una persona: sólo sus turnos');
   // Rota: mandar a la PC aunque esté apagada o sin sesión → este test falla.
   assert.match(t, /const pcPuede = pcUsable\(pc\);/);
-  assert.match(t, /if \(pc && pcPuede\) \{\s*try \{\s*const modelo = modeloPc\(await getSetting\(CLAVE_MODELO_PC\)\.catch\(\(\) => null\)\);\s*const turnoPc = await encolarTurno\(pc, s\.id, \{ system, prompt: armarPrompt\(historial, textoModelo\), tools, modelo \}\);/);
+  assert.match(t, /if \(conLaPc && pc && pcPuede\) \{\s*try \{\s*const modelo = ia\?\.cuenta === 'pc' && ia\.modelo \? modeloPc\(ia\.modelo\) : modeloPc\(await getSetting\(CLAVE_MODELO_PC\)\.catch\(\(\) => null\)\);\s*const turnoPc = await encolarTurno\(pc, s\.id, \{ system, prompt: armarPrompt\(historial, textoModelo\), tools, modelo \}\);/);
   // Lo que le queda a la ruta, no 240 s fijos; y la PC que se apaga a mitad del turno se ve (no 4 minutos).
   assert.match(t, /const espera = esperaDelTurno\(entrada\.plazoMs \?\? PLAZO_RUTA_MS, Date\.now\(\) - inicio\);\s*const r = await esperarALaPc\(turnoPc, ws, pc\.id, nuevoIntento\(\) as Ejecutor, espera\);/);
   assert.match(t, /else if \('apagada' in r\) \{ falloDeLaPc = 'apagada';/);
   // Sin su PC (o si no pudo), su clave: con «sólo su IA» del NEGOCIO (D6b, tests/solo-su-ia.test.ts).
-  assert.match(t, /if \(!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos'\) \{/);
+  assert.match(t, /if \(!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos' && ia\?\.cuenta !== 'pc'\) \{/);
   assert.match(t, /soloSuIA: negocio\.suIA/, 'D6b: por negocio, sin la cascada barata');
   // Lo que falla en la PC del cliente, o en SU cuenta, no abre un ticket de bug.
   assert.match(t, /\.\.\.\(fallo && !sinIA && !falloDeLaPc && !deSuClave \? \[\{ nombre: 'responder'/);

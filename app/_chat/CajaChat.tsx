@@ -167,7 +167,8 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
       <ListaAdjuntos a={p.adjuntos} />
       <div className={p.fila ?? 'co-caja__fila'}>
         {conBarra && grabacion ? (
-          <BarraGrabacion voz={grabacion} ocupado={girando} existente={p.voz?.pendiente ?? null} rotuloEnviar={p.voz?.rotuloEnviar} />
+          // El ▶ de escuchar, con el color de la nota de voz ya mandada en el hilo (HiloMako: `--primary`), no el verde de WhatsApp.
+          <BarraGrabacion voz={grabacion} ocupado={girando} existente={p.voz?.pendiente ?? null} rotuloEnviar={p.voz?.rotuloEnviar} colorPlay="var(--primary)" />
         ) : (<>
         {/* Sin nada que ofrecer (no se puede adjuntar ahora y no hay más), el «+» queda apagado: abría un panel vacío. */}
         {(p.adjuntos || p.mas) && <MasCaja a={p.adjuntos} apagado={quieto || (!p.adjuntos?.puede && !p.mas)} resumen={null}>{p.mas}</MasCaja>}

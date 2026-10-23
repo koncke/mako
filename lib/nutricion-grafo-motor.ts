@@ -632,12 +632,14 @@ export function desenlaceEsperaAlCarril(f: { estado: string; proximo_envio_at?: 
 }
 
 /**
- * «Sale sola» POR NODO (punto 6 del pedido: el checkbox de la tarjeta del CRON no se entendía).
- * `revisar: true` = queda como BORRADOR; `false` = sale; ausente = lo que diga la secuencia
- * (`estrategia.envio_automatico`), que es como se comporta todo lo escrito antes del 08/10/2026.
- * La regla dura de siempre sigue arriba de esto: a quien ya pagó le sale igual.
+ * ¿Este mensaje SALE SOLO? (23/10/2026, Martín por el Cerebro: «si estoy haciendo una AUTOMATIZACIÓN es OBVIO que debe
+ * llegar sola».) Un mensaje de una automatización SALE: el interruptor «Sale sola» de la tarjeta se fue, y con él el
+ * BORRADOR escondido (`revisar` ausente heredaba `estrategia.envio_automatico`, que nace apagado: el segundo mensaje de
+ * #289 y los dos de #282 del ws11 quedaban para aprobar sin que nada lo dijera). Lo que escribe la IA (`tipo: 'ia'`, el
+ * «MaKo contesta» de «Si responde») sigue con su regla: su `revisar`, y si no lo tiene, lo de la secuencia.
  */
-export function saleSolo(p: { revisar?: boolean | null }, envioAutomatico: boolean): boolean {
+export function saleSolo(p: { revisar?: boolean | null; tipo?: unknown }, envioAutomatico: boolean): boolean {
+  if (p.tipo !== 'ia') return true;
   if (p.revisar === true) return false;
   if (p.revisar === false) return true;
   return envioAutomatico === true;
@@ -1447,4 +1449,93 @@ export function agregarCasoAlGrafo<P extends PasoGrafo>(
   const out = [...conMensaje];
   out[ri] = { ...out[ri], casos: [...casos, { id: idCaso, titulo, cuando, siguiente: m.id! }] };
   return { pasos: normalizar(out) };
+}
+
+// ── «CONTESTÓ» CORTA (23/10/2026, P0 de #289) ─────────────────────────────────────────────────────────────────────
+// Martín (la llamada con Mauricio, min 49): «¿Contestó corta de verdad?». No cortaba: en la forma de siempre
+// («M1 → Contestó? (sí → aviso) / no → esperar 1 día → M2») la condición corre segundos después de M1, cuando nadie
+// pudo contestar, y a quien contestaba durante la espera le salía igual M2; la rama «Contestó» no corría nunca (medido en
+// el ws3, scripts/arnes-contesto-corta.mts). La regla, por el Cerebro: en una automatización que USA «Contestó», una
+// respuesta del lead, en cualquier momento, lo saca de ella: no le sale ningún mensaje más, y si hay una rama «Contestó»,
+// corre EN ESE MOMENTO (su aviso al equipo). Las que no usan «Contestó» siguen como desde el 14/10: contestar no corta
+// nada por su cuenta. Esto decide; lib/nutricion.ts (`alContestar` y la guarda de `procesarEnvios`) lee y escribe.
+
+/** ¿Alguna condición del flujo pregunta «Contestó» / «No contestó»? (`contesto`, lib/condiciones-catalogo.ts.) */
+export function usaContesto(pasos: readonly PasoGrafo[]): boolean {
+  return pasos.some((p) => claseDe(p) === 'condicion' && (p.ramas ?? []).some((r) => (r.filas ?? []).some((f) => f.campo === 'contesto')));
+}
+
+/**
+ * La salida de una condición que toma quien CONTESTÓ: la rama «Contestó»; si sólo pregunta «No contestó», su «si no»
+ * (revisión adversarial del 23/10/2026: «No contestó → M2 / si no → aviso» perdía el aviso). `mezcla`: una rama que junta
+ * «Contestó» con otra cosa («Contestó y sigue en la etapa»): sin los demás hechos no se puede elegir, y no se decide acá.
+ */
+function ramaDeContesto(c: PasoGrafo): { hay: boolean; destino: string | null; mezcla?: boolean } {
+  const ramas = c.ramas ?? [];
+  if (ramas.some((r) => (r.filas ?? []).some((f) => f.campo === 'contesto') && (r.filas ?? []).some((f) => f.campo !== 'contesto'))) return { hay: false, destino: null, mezcla: true };
+  const si = ramas.find((r) => (r.filas ?? []).length > 0 && (r.filas ?? []).every((f) => f.campo === 'contesto' && !f.no));
+  if (si) return { hay: true, destino: si.siguiente ?? null };
+  const no = ramas.find((r) => (r.filas ?? []).some((f) => f.campo === 'contesto' && f.no));
+  return no && c.si_no ? { hay: true, destino: c.si_no } : { hay: false, destino: null };
+}
+
+/**
+ * Lo que cuelga de la salida «Contestó» de cada condición que pregunta «Contestó»: ahí los MENSAJES salen (están dibujados
+ * para quien contestó: «¡Genial! Te paso el link»). La guarda de `procesarEnvios` corta lo demás.
+ */
+export function ramaDeQuienContesto(pasos: readonly PasoGrafo[]): Set<string> {
+  const out = new Set<string>();
+  const pila: string[] = [];
+  for (const p of pasos) if (preguntaContesto(p)) { const r = ramaDeContesto(p); if (r.hay && r.destino) pila.push(r.destino); }
+  while (pila.length) {
+    const id = pila.pop()!;
+    if (out.has(id)) continue;
+    const i = indicePorId(pasos, id);
+    if (i < 0) continue;
+    out.add(id);
+    const q = pasos[i];
+    if (q.siguiente) pila.push(q.siguiente);
+    if (claseDe(q) === 'condicion') { for (const r of q.ramas ?? []) if (r.siguiente) pila.push(r.siguiente); if (q.si_no) pila.push(q.si_no); }
+  }
+  return out;
+}
+
+const preguntaContesto = (p: PasoGrafo | undefined): boolean =>
+  !!p && claseDe(p) === 'condicion' && (p.ramas ?? []).some((r) => (r.filas ?? []).some((f) => f.campo === 'contesto'));
+
+/**
+ * ¿A DÓNDE VA EL LEAD QUE CONTESTÓ, parado en `idx`? La primera condición que pregunta «Contestó» y TIENE la rama
+ * «Contestó», buscando hacia ARRIBA desde donde está (la que lo trajo hasta acá) y, si no hay, hacia ADELANTE por su
+ * camino (contestó antes de que le saliera el primer mensaje). Devuelve el destino de esa rama (el aviso); null = no hay
+ * rama «Contestó» (sólo «No contestó»): sale de la automatización. undefined = el flujo no usa «Contestó» (no se toca).
+ */
+export function destinoAlContestar(pasos: readonly PasoGrafo[], idx: number): string | null | undefined {
+  if (!usaContesto(pasos)) return undefined;
+  const p = pasos[idx];
+  if (!p) return null;
+  // Hacia arriba: por el único padre (con dos caminos que llegan no se elige).
+  let id = idDe(p, idx);
+  const vistos = new Set<string>();
+  for (let n = 0; n < 60 && !vistos.has(id); n++) {
+    vistos.add(id);
+    const i = indicePorId(pasos, id);
+    if (i >= 0 && preguntaContesto(pasos[i])) {
+      const r = ramaDeContesto(pasos[i]);
+      if (r.mezcla) return undefined;
+      if (r.hay) return r.destino && indicePorId(pasos, r.destino) >= 0 ? r.destino : null;
+    }
+    const padres = padresSinVuelta(pasos, id);
+    if (padres.length !== 1) break;
+    id = padres[0].id;
+  }
+  // Hacia adelante: por el camino principal (el `siguiente`, o el «si no» de una condición).
+  let j = siguienteIndice(pasos, idx);
+  const adelante = new Set<number>([idx]);
+  while (j >= 0 && !adelante.has(j) && adelante.size < 60) {
+    adelante.add(j);
+    const q = pasos[j];
+    if (preguntaContesto(q)) { const r = ramaDeContesto(q); if (r.mezcla) return undefined; return r.hay && r.destino && indicePorId(pasos, r.destino) >= 0 ? r.destino : null; }
+    j = claseDe(q) === 'condicion' ? (q.si_no ? indicePorId(pasos, q.si_no) : -1) : siguienteIndice(pasos, j);
+  }
+  return null;
 }

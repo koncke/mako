@@ -18,6 +18,7 @@
 import { useTransition } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Button, ButtonLink } from '@/app/_ui/Button';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export function ErrorM({ frase, onReintentar, rotulo = 'Volver a cargar', arreglo }: {
   /** Qué pasó y de quién fue, en una frase. */
@@ -39,6 +40,7 @@ export function ErrorM({ frase, onReintentar, rotulo = 'Volver a cargar', arregl
       ) : (
         <Button variant="secondary" size="md" onClick={reintentar} loading={pendiente}>{rotulo}</Button>
       )}
+      <ReportarASoporte />
     </div>
   );
 }

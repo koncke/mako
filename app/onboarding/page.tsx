@@ -25,6 +25,7 @@ import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
 import { vistaArranque } from '@/lib/onboarding-arranque-server';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import { ARBOL_VACIO } from '../offer/arbol';
+import { sembrarArranqueDesdeOrigen } from '@/lib/origen-negocio';
 // El onboarding va en el tema de la app, CLARO como todo (17/10/2026, Martín: «El onboarding, que sea white mode,
 // como todo»). Hasta ese día se forzaba oscuro con TemaOscuro/TemaOscuroScript; se fueron como en el Second Brain.
 
@@ -45,6 +46,9 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   const pasos = await pasosDeCapaActual();
   const done = pasos.length === 0 || estado.status === 'done';
   if (!done) {
+    // De qué landing vino (23/10/2026, lib/origen-negocio.ts): lo que el origen ya contesta queda contestado, sin pisar nada.
+    const wsOrigen = await getWorkspaceActual();
+    if (wsOrigen != null) await sembrarArranqueDesdeOrigen(wsOrigen);
     const vista = await vistaArranque();
     // ⚠️ `key` CON EL WORKSPACE (18/10/2026, Martín: al abrir otro negocio aparecieron las respuestas de «Consultesis»,
     // que sólo existían en el ws 3). El chat guarda la conversación en su estado (`useState(inicial)`), y pasar de un

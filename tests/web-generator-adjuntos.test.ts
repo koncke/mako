@@ -134,15 +134,17 @@ test('se manda cuando lo de la caja está leído: nunca con uno leyéndose o en 
 
 test('las piezas son las del Ops Center (un solo chat en toda la app): el «+», las miniaturas, pegar y soltar', () => {
   const src = sinComentarios(leer('app/web-generator/editor/paneles/PanelAgente.tsx'));
-  assert.match(src, /import \{ alPegar, alSoltar, traeArchivos \} from '@\/app\/admin\/operaciones\/pegar';/);
-  // El «+» y las miniaturas, con next/dynamic: este módulo lo cargan los tests y AdjuntosCaja.tsx trae CSS.
-  assert.match(src, /const ListaAdjuntos = dynamic\(\(\) => import\('@\/app\/admin\/operaciones\/AdjuntosCaja'\)\.then\(\(m\) => m\.ListaAdjuntos\)\);/);
-  assert.match(src, /const MasCaja = dynamic\(\(\) => import\('@\/app\/admin\/operaciones\/AdjuntosCaja'\)\.then\(\(m\) => m\.MasCaja\)\);/);
+  assert.match(src, /import \{ alSoltar, traeArchivos \} from '@\/app\/admin\/operaciones\/pegar';/);
+  // 22/10/2026 (TB3): la caja ES la única (`CajaChat`: el «+», las miniaturas y pegar son suyos) y el hilo `HiloMako`, en
+  // ./ChatAgente.tsx, con next/dynamic: este módulo lo cargan los tests y esas piezas traen CSS.
+  assert.match(src, /const HiloAgente = dynamic\(\(\) => import\('\.\/ChatAgente'\)\.then\(\(m\) => m\.HiloAgente\)\);/);
+  assert.match(src, /const CajaAgente = dynamic\(\(\) => import\('\.\/ChatAgente'\)\.then\(\(m\) => m\.CajaAgente\)\);/);
   assert.doesNotMatch(src, /^import '[^']+\.css';/m, 'un CSS en el import tira abajo a los tests que cargan este módulo');
-  assert.match(src, /<ListaAdjuntos a=\{adj\} \/>/);
-  assert.match(src, /<MasCaja a=\{adj\} apagado=\{!adj\.puede\} \/>/);
-  assert.match(src, /onPaste=\{\(e\) => alPegar\(e, adj\)\}/);
-  assert.match(src, /onDrop=\{\(e\) => \{ setEncima\(false\); alSoltar\(e, adj\); \}\}/);
+  assert.match(src, /<CajaAgente campo=\{inputRef\} texto=\{texto\} onTexto=\{setTexto\} onMandar=\{mandar\} adjuntos=\{adj\}/, 'la caja lleva los archivos de la pantalla');
+  const chat = sinComentarios(leer('app/web-generator/editor/paneles/ChatAgente.tsx'));
+  assert.match(chat, /import \{ CajaChat \} from '@\/app\/_chat\/CajaChat';/);
+  assert.match(chat, /<CajaChat \{\.\.\.p\} \/>/);
+  assert.match(src, /onDrop=\{\(e\) => \{ setEncima\(false\); alSoltar\(e, adj\); \}\}/, 'soltar es de la pantalla');
   assert.doesNotMatch(src, /type="file"|<input/, 'un ⊕ propio: la regla es UN chat con sus piezas');
   // Cada archivo se lee al entrar, con la ruta de Importar, y lo que viaja a «editar» es su texto.
   assert.match(src, /void leerArchivo\(n\.file, ac\.signal\)\.then\(\(r\) => \{[\s\S]{0,160}poner\(\(xs\) => conLectura\(xs, n\.id, r\)\);/);

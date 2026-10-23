@@ -75,9 +75,12 @@ export async function leerUltimosTurnos(ahora = Date.now()): Promise<Record<stri
       .eq('workspace_id', ws).like('key', `${PREFIJO}%`).gte('updated_at', desde).limit(300);
     if (error || !filas) return {};
     const cambiadas = filas.filter((f) => ULTIMOS_EN_MEMORIA.get(f.key)?.at !== f.updated_at).map((f) => f.key as string);
-    for (let i = 0; i < cambiadas.length; i += 25) {
-      const lote = cambiadas.slice(i, i + 25);
-      const { data: valores } = await sb.from('app_settings').select('key, value, updated_at').eq('workspace_id', ws).in('key', lote);
+    const lotes: string[][] = [];
+    for (let i = 0; i < cambiadas.length; i += 25) lotes.push(cambiadas.slice(i, i + 25));
+    // Los lotes EN PARALELO (23/10/2026, la carga del Ops Center): en serie, en frío (una instancia nueva, un deploy), eran 2,2 s
+    // del render de la página, la lectura más lenta de todas. Un lote que no se pudo leer, como antes, no corta a los demás.
+    const leidos = await Promise.all(lotes.map((lote) => sb.from('app_settings').select('key, value, updated_at').eq('workspace_id', ws).in('key', lote)));
+    for (const { data: valores } of leidos) {
       for (const v of valores ?? []) {
         ULTIMOS_EN_MEMORIA.set(v.key, { at: v.updated_at, turnos: sanearTurnos(parsear(v.value)) });
       }

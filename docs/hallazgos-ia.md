@@ -4857,6 +4857,71 @@ medias y tres bajas. Lo no obvio:
   saltear la ilegible o fallar cerrado daban lo mismo («sí»). Con la copia de la SEGUNDA cuenta (legible) se distinguen:
   saltear la da por copia («no»). Un caso de falla cerrada se prueba donde el error de saltear cambia la respuesta.
 
+## Elegir con qué IA corre UN chat: hoy no se puede, ni por pedido ni por chat (23/10/2026, feedback 8b, investigado)
+
+**El pedido (Martín):** que el «+» de la caja del Ops Center deje elegir el modelo y la cuenta de ese chat (Claude o GPT, y cuál).
+Por defecto, que decida el chat jefe.
+
+**Cómo está hoy** (lo leyó una investigación del Ops Center, sin tocar nada):
+- **No hay por dónde pasarlo.** Ni POST /api/mako/chat (el body de la línea ~256), ni `EntradaTurnoApp`
+  (lib/mako-turno-app.ts) tienen un campo de IA. Todo sale de la configuración del negocio.
+- **La computadora:** `pcDe(ws, actor)`, sólo la de quien escribe, y `elegirPc` si tiene varias. El modelo es el de `ia_pc.modelo`
+  (MODELOS_PC). Sólo corre Claude: la cuenta `chatgpt` de una PC se informa, pero no contesta.
+- **Las claves:** `chatClaudeTools(..., { feature: 'mako-doer', soloSuIA, sinFallbackClaude })`. Con «sólo su IA» va OpenAI
+  (`gpt-4o-mini`, sin elección por negocio) y después su Claude, con `permisoDeLaClaveDelNegocio`, que incluye el crédito
+  asignado. El modelo de su Claude es `ia.su_claude.modelo` (IA5).
+- **`opts.model` NO sirve para esto:** pasa por el control de gasto de la plataforma, no por la clave del negocio.
+- **Ya hay piezas:** `soloSuClaude` (directo a su clave de Claude) y `soloSuIA`. Falta un `soloSuOpenAI` que no caiga a Claude.
+- **Por chat no se guarda nada:** `chart_sessions.contexto` se crea vacío y nadie lo lee.
+- **Las opciones no se pueden leer del navegador:** `/api/ia-pc/estado` le esconde las claves a quien no es admin, y muestra
+  las computadoras de todos aunque el turno sólo pueda usar la propia. Las opciones tienen que salir de la MISMA función que valida.
+
+**El contrato propuesto (a IA del cliente, 23/10):**
+- `ia?: { cuenta: 'pc' | 'anthropic' | 'openai'; modelo? } | null` en el body, con null = Automático.
+- La ruta valida con `cuentasDeIA(persona)` antes de `turnoApp`; en el ws del super admin se ignora y nunca se sale de D6b.
+- `turnoApp` lo respeta: la computadora con su modelo sin caer a las claves; su Claude con `soloSuClaude` y el modelo;
+  OpenAI con `soloSuOpenAI`.
+- `GET ?suIA=1` devuelve también las cuentas que se pueden elegir.
+
+**Acordado y repartido (23/10):**
+- **El contrato:** lib/chat-ia-reglas.ts (`EleccionIA`, `sanearIA`, `CuentaDeIA`), en ea27aab61. Puro y sin importar el veto,
+  porque el selector corre en el navegador; el test exige que los modelos de su Claude sean los de `MODELO_SU_CLAUDE`.
+- **La caja (Ops Center):** está en e316a1918. `SelectoresDelCliente` va adentro del «+». La elección es por chat, y un chat nuevo
+  se la lleva a `s<id>` al crearse. Viaja como `ia` en el JSON y en el multipart (archivos y nota de voz), sólo si se eligió algo.
+- **El servidor (IA del cliente):** la ruta (validación y `?suIA=1` con `cuentasDeIA`), `turnoApp`, anthropic.ts y ai-cheap.ts.
+
+**Regla, y cómo se cumple:** el selector no sale antes que el servidor que lo respeta. Sólo se dibuja con las `cuentas` que manda
+`?suIA=1`, y hoy la ruta no las manda. La caja puede entrar antes y se enciende sola cuando llegue la parte del servidor.
+
+**Trampa:** la nota de voz y los archivos van por OTRO camino (`postArchivos`, multipart) que el texto (`postLargo`, JSON). Un campo
+nuevo del turno tiene que ir en los dos, o la nota de voz corre con la IA de siempre.
+
+**SIN HACER:** la parte del servidor; que lo elegido sobreviva a recargar (por ahora vive en la pestaña); y OpenAI con elección de
+modelo.
+
+## Lo que gastó la clave del negocio: el «⚠» no dice de quién es la fila (D3 del Ops Center, 22/10/2026)
+
+**El diagnóstico obvio era el equivocado.** Al medir en producción el «Gastó US$ … en los últimos 30 días» de «Tus cuentas de
+IA», una consulta con un regex propio (`⚠` o «clave … del negocio») contaba en el ws21 19 filas «de su clave», todas con costo, y
+`estadoDeSuClave` sumaba 0. Parecía la regla rota. Era la medición: el «⚠» lo llevan también las filas del **crédito del
+onboarding** (`⚠ crédito de Claude de la plataforma (cuenta 1) · Offer: conversar con el dueño`), que paga MaKo.
+
+**Dónde vive:** `esDeSuClave` en `lib/su-clave-reglas.ts`. Para Claude cuenta sólo lo que EMPIEZA con `MARCA_SU_CLAVE.anthropic`
+o con `MOTIVO_CREDITO_SU_CLAVE` (el crédito que ES la clave del negocio, como en el ws10). Un prefijo más corto, «⚠ crédito de
+Claude de la plataforma», le cobraría al negocio el regalo del onboarding. El test lo cubre con los motivos copiados de producción
+(`tests/ops-center-uso-cliente.test.ts`, probado rompiéndolo).
+
+**Medido el 22/10/2026, 30 días:** las únicas filas con la marca «del negocio» son 3 fallos del ws11 («sin crédito»), sin costo.
+Ningún negocio gastó todavía con su clave, así que «Sin gasto en los últimos 30 días» es lo cierto hoy, no un default. El que más
+filas tiene es el ws9, con 87, y la lectura subió de 500 a 2000.
+
+**Regla:** «de quién es esta fila» se mide con la MISMA función del código (`estadoDeSuClave`), nunca con un regex propio. Los
+fixtures de un test que filtra por `motivo` llevan los motivos copiados de producción, no uno inventado: el primer test pasaba
+con `«marca» chat`, que no existe.
+
+**SIN HACER:** el gasto es un piso (`anthropic_usage` no anota todo: ver «Tres módulos gastan sin registrar»), y un negocio con
+más de 2000 filas en 30 días vería un número corto sin aviso. Hoy el techo es 87 filas.
+
 ## Lo que midió la verificación del debate «quién paga el chat» (20/10/2026)
 
 Cuatro verificadores revisaron `docs/debate-ops-center-decisiones-20-10.md` contra producción antes de llevárselo a
@@ -5280,6 +5345,333 @@ cascada de texto, la de herramientas, la visión y el audio) · `app/integracion
   prueba de punta a punta en la PC de Martín con el ws3 (`probar-punta-a-punta.mts --instalador --reinstalar`). El título
   del ticket de la fila sale genérico («Falló la pantalla «Api»», de `tituloDeError` en lib/errores-app-reglas.ts); el
   mensaje sí dice qué falta.
+- **«Descargando MaKo en tu computadora…» para siempre (22/10, la PowerShell de Martín):** era la barra de progreso de
+  `Invoke-WebRequest` en Windows PowerShell 5.1, que se redibuja por cada pedazo que llega. Medido con el mismo archivo de
+  42,7 MB: **58,6 s con la barra contra 4,1 s sin ella**, y eso sin ventana (con ventana, peor). Ahora el script pone
+  `$ProgressPreference = 'SilentlyContinue'` antes de bajar. **Regla:** todo `Invoke-WebRequest` de un script que corre
+  en la PC de un cliente va con la barra apagada.
+
+## «Tus cuentas de IA» por cuenta y dispositivo, y dónde está cada uno (23/10/2026)
+
+**El pedido** (Martín, por el Cerebro, con capturas del ws1): sin el botón «Conectar tu IA»; arriba «Nueva cuenta» (Claude o
+ChatGPT); cada cuenta, UN bloque «Cuenta 1», «Cuenta 2» (no «MSI») con su email, su plan y su uso; adentro sus dispositivos con
+«Desconectar», y «Nuevo dispositivo» con la descarga a la vista; cada dispositivo con su UBICACIÓN como Google («Grandbourg,
+Buenos Aires, Argentina»); fuera el «Modelo» (se elige en cada chat), «Tu clave de Claude» y el crédito (sólo SuperAdmin); el
+mismo dibujo en SuperAdmin; en la computadora y en el teléfono.
+
+**Vive en:** `agruparPorCuenta`, `textoDeUbicacion`, `dondeEsta` (lib/ia-pc-reglas.ts) · app/integraciones/CuentasYDispositivos.tsx
+(el dibujo compartido) · TusCuentasIA.tsx · app/m/cuenta/ia/IaM.tsx · app/admin/operaciones/UsoComputadoras.tsx · el latido
+(app/api/ia-pc/latido/route.ts) · supabase/migrations/0327_ia_pc_ubicacion.sql · tests/ia-pc-cuentas-dispositivos.test.ts.
+
+- **Agrupar por cuenta se hace en el SERVIDOR, no en la pantalla.** Quien mira recibe el email ajeno enmascarado, y dos
+  «m***@gmail.com» pueden ser dos cuentas distintas. Se agrupa con el email entero y recién después se enmascara, con la
+  misma regla de siempre.
+- **La ubicación sale de los headers de Vercel, sin ningún servicio de terceros:** `ubicacionDeHeaders` (la de las visitas
+  del VSL) nunca lee la IP. Se guarda sólo el TEXTO «ciudad, provincia, país», sin coordenadas. El nombre de la provincia
+  está para Argentina y México; en otro país se saltea, sin inventarlo. El país sale de `Intl.DisplayNames`. Un latido sin
+  los headers (local, o fuera de Vercel) no borra la última ubicación.
+- **El código aguanta la mig 0327 ausente:** el latido reintenta sin la columna (D6b depende de que se anote) y las listas
+  la dejan en null. La migración se aplica después de la revisión del Cerebro.
+- **Trampa del PostgREST de mentira:** devuelve la fila entera, sin mirar el `select`. Un test de «falta la columna» tiene que
+  sacar el campo de las filas; si no, pasa por la razón equivocada. Lo agarró la primera corrida.
+- **Un componente que un test dibuja en Node no importa su CSS:** Node no carga un `.css`, y el test de SuperAdmin dejó de
+  cargar. CuentasYDispositivos.tsx no lo importa: lo importan TusCuentasIA.tsx y las páginas del super admin.
+- **Lo que se fue a pedido de Martín:** el «Modelo» del panel, «Tu clave de Claude» y su gasto (lo había sumado Ops Center en
+  D3), y «Usa el crédito de Claude que te dio MaKo». El crédito queda en SuperAdmin › Uso.
+- **La revisión de privacidad (23/10) agarró lo que queda DESPUÉS:** «Desconectar» revoca la fila pero no la borra, y su
+  última ubicación y los emails de sus cuentas quedaban para siempre. Ahora desconectar los borra. También quedó cerrado:
+  - el latido se anota aunque la base rechace el texto de la ubicación (no sólo sin la columna);
+  - se sacan los caracteres invisibles y los que invierten el texto, y los medios emojis que deja un corte;
+  - la cuenta se agrupa por PERSONA y email: el email lo declara la PC, y un miembro podía meter la suya en el bloque del admin.
+- **SIN hacer:** una cuenta de ChatGPT conectada SÓLO con una clave de API no aparece como «Cuenta», porque el panel muestra las
+  cuentas de los dispositivos; los nombres de los estados de EE.UU. (sin tabla, se saltean); y la captura del «después» en el
+  ws3 (el permiso de esta sesión no deja abrir el ws3 en producción).
+
+## Firmar Windows DESDE ESTA PC con CodeSignTool (SSL.com eSigner), listo antes del certificado (23/10/2026)
+
+**El porqué:** no hay empresa registrada, y Azure Artifact Signing sólo acepta empresas de algunos países (a una persona, sólo
+en EE.UU. o Canadá). Va SSL.com IV a nombre de Martín. El Cerebro: «la firma con CodeSignTool desde esta PC, sin Actions.
+Así cuando le aprueben el certificado, la 0.4.x sale firmada sin más trabajo».
+
+**Vive en:** scripts/ia-pc/firmar-windows.mjs · publicar-binarios (`firmaDeEstaPc`, `FIRMAR`, `firmar`) ·
+tests/ia-pc-firma.test.ts · los pasos de Martín en docs/plan-instalador-escritorio.md › «Firmar: lo que hace Martín».
+
+- **Las trampas de CodeSignTool** (su guía, 23/10):
+  - Sin `-output_dir_path` PISA la entrada y PREGUNTA antes: desde un script se queda esperando. Va una carpeta aparte, la
+    entrada cerrada (`input: ''`) y un reloj.
+  - Sus códigos de salida no están documentados, y «Error: invalid otp» sale como texto. «Firmado» es que el .exe que vuelve
+    TENGA la tabla de certificados del PE (el directorio 4) y la marca de tiempo, no que la herramienta salga con 0. Sin la
+    marca de tiempo, la firma vence con el certificado, al año.
+  - En Windows es un `.bat`. Desde abril de 2024 Node no corre un `.bat` sin `shell: true`, y por la consola una clave con `&`
+    o `"` se rompe. Por eso se corre su Java con su .jar, desde su carpeta (lee `conf/` de ahí).
+  - El error de `execFileSync` trae la línea de comandos ENTERA, con `-password=`. Se usa `spawnSync` y se tapa lo que conteste.
+- **Las claves NO van en el .env.local del clon:** está en el Escritorio, y OneDrive lo sube a la nube. Con el usuario, la
+  clave y el secreto TOTP, cualquiera firma a nombre de Martín. Van en `%USERPROFILE%\.mako-firma.env`, y publicar-binarios
+  corta si encuentra `SSL_COM_CLAVE` o `SSL_COM_TOTP` en el .env.local.
+- **Cada firma cuesta:** el plan 1 de eSigner trae 240 por año, y una versión gasta 2. En seco no se firma (`--probar-firma`
+  para probarla), y al aplicar, si la firma falla, se corta ANTES de subir nada.
+- **El orden:** la firma cubre la cabecera, así que va DESPUÉS de `marcarDeVentana` (marcar después la rompe). Va ANTES de
+  Inno: si no, el setup lleva el programa sin firmar. El setup se firma después de Inno y antes de subirlo.
+
+### Lo que quedó SIN hacer
+- **Sin probar con la herramienta de verdad,** porque no hay certificado: 28 roturas dan rojo, pero contra una CodeSignTool
+  de mentira. La primera vez: `--probar-firma` en seco, y mirar Propiedades › Firmas digitales del setup. Si CodeSignTool no
+  pone la marca de tiempo sola, el script corta.
+- **El desinstalador de Inno (`unins000.exe`) queda sin firmar.** Firmarlo pide la directiva `SignTool` de Inno, con el
+  comando en la línea de ISCC, que lo imprime con la clave. No baja de internet (no tiene la marca de la web), así que
+  SmartScreen no lo revisa.
+- **La Mac:** su firma está en la entrada de abajo.
+- `buscarCodeSignTool` supone la carpeta del .zip de Windows de hoy (`jar/code_sign_tool-*.jar`, `jdk-*`). Si SSL.com la
+  cambia, el script dice qué no encontró.
+
+## Firmar y notarizar la Mac DESDE ESTA PC (Developer ID + rcodesign), listo antes del certificado (23/10/2026)
+
+**El porqué:** Martín abre Apple Developer individual a su nombre (02:17: «Sí, a mi nombre ahora»). El Cerebro: «Dejala
+preparada como la de Windows, con sus pasos y sin probar hasta tener el certificado».
+
+**Vive en:** scripts/ia-pc/firmar-mac.mjs · `esLaAppDeMac` y `copiarLaAppAlArranque` (scripts/ia-pc/mako-pc.mjs) ·
+publicar-binarios (`firmaMacDeEstaPc`, `FIRMAR_MAC`) · tests/ia-pc-firma-mac.test.ts · los pasos de Martín en
+docs/plan-instalador-escritorio.md › «Firmar la Mac: lo que hace Martín».
+
+- **Las firmas que traen los ejecutables de Bun están VENCIDAS** (medido con Bun 1.2.21 armando en esta PC, hash por hash):
+  - el de arm64 trae una firma local del linker que no coincide en la última página;
+  - el de Intel trae la de Oven, rota en dos páginas: la cabecera y la de `__BUN`, donde Bun mete el programa.
+  Sin una firma nueva, el chip de Apple no lo corre. La firma local que pone el lanzador de la app sin firmar
+  (`codesign --force --sign -`) NO es opcional.
+- **Bun guarda el programa en una sección propia (`__BUN,__bun`):** firmarlo después no lo rompe, y un universal anda.
+- **Firmada, la app no puede tener un guion como ejecutable.** La firma de un guion vive en atributos extendidos, y un .zip
+  no los guarda. Va UN Mach-O universal (Intel y Apple, armado en JS como `lipo -create`, alineado a 16 KB) en
+  Contents/MacOS/MaKo. Al abrirse, se copia a ~/.mako-pc/bin sin cuarentena. Nunca le pone la firma local: pisaría la de
+  Apple.
+- **Sin Mac, se firma y se notariza con rcodesign** (indygreg/apple-platform-rs, trae .exe de Windows):
+  - `sign --for-notarization` exige el Developer ID, la marca de tiempo y el hardened runtime;
+  - los entitlements de Bun (el JIT) van aparte;
+  - `notary-submit --staple` deja el ticket en Contents/CodeResources, que se zipea con lo demás.
+- **«Firmado» se lee como la Mac** (`problemasParaNotarizar`), no por el código de salida, y se mira ANTES de notarizar. En
+  las dos rebanadas: cada página contra su hash (la última, parcial), la firma CMS del certificado (una local no la trae, o
+  la trae vacía), la marca de tiempo, el runtime y el JIT.
+- **La trampa del test:** la guarda de OneDrive «pasaba» sin la guarda. El camino de prueba (`C:\Users\m\OneDrive\x`) no
+  existía, y el error de permisos al crearlo también decía «OneDrive». Se prueba con una carpeta temporal que tiene OneDrive
+  en el camino, y con el mensaje entero.
+- **El tamaño:** el universal comprimido mide 48 MB; Supabase corta en 50.
+
+### Lo que quedó SIN hacer
+- **Sin probar en una Mac ni con Apple:** no hay certificado ni Mac. Los primeros intentos de notarizar suelen fallar
+  (rcodesign recomienda tener antes una prueba con las herramientas de Apple). Falta ver que macOS deje abrir el universal
+  de Bun con el runtime y que la copia corra desde el arranque. Lo mira el log de `notary-log`.
+- **La línea de «Abrir igualmente»** (`AVISO_GATEKEEPER`) se saca de la pantalla en la versión que salga firmada.
+- **El margen de 2 MB** con el tope de Supabase: si el programa crece, el .zip de la Mac no entra.
+
+## MaKo.app: la Mac SIN Terminal (0.4.2, 23/10/2026)
+
+**El porqué:** en la llamada del 23/10 (Fathom 195591907), Mauricio conectó su MacBook por la Terminal y le costó («No abrió
+nada», «escribí S y apretá Enter»). El Cerebro: el mismo criterio que Windows, sin firmar por ahora, con la línea de cómo
+abrirla si macOS la frena.
+
+**Vive en:** `abrirLaApp`, `codigoDelTexto`, `instalarArranqueMac` e `instalarClaudeCode` (scripts/ia-pc/mako-pc.mjs) ·
+`lanzadorDeLaAppMac` e `infoPlistDeLaAppMac` (lib/ia-pc-reglas.ts) · scripts/ia-pc/zip-unix.mjs · publicar-binarios · GET
+/api/ia-pc/descargar?os=mac · tests/ia-pc-mac-app.test.ts.
+
+- **Dos cosas que en Windows salen solas y en la Mac no:**
+  - Un `.pkg` o un `.dmg` no se arman en Windows: pkgbuild y hdiutil son sólo de Mac, y Actions no tiene minutos. Va un `.zip`
+    con MaKo.app.
+  - En la Mac un enlace `mako://` le llega a la app como un evento de macOS (Apple Event), no como argumento, y un programa de
+    Bun sin Cocoa no lo recibe. El código lo toma la app del PORTAPAPELES (sólo si es el código entero: cualquier otro texto, no)
+    o lo pide en una ventana.
+- **Un `.zip` armado en Windows no guarda los permisos de Unix,** y sin el permiso de ejecución la app no abre.
+  scripts/ia-pc/zip-unix.mjs lo arma «hecho en Unix», con 0755 en el lanzador y en los programas. Verificado con el `unzip` del
+  sistema y con la app real de 47,6 MB.
+- **La app es un guion que copia el programa a ~/.mako-pc/bin,** le saca la cuarentena y le pone la firma local que pide el chip
+  de Apple (lo mismo que hace la línea de la Terminal). Así macOS sólo pregunta por la app, que no está firmada: «Abrir
+  igualmente». El arranque es el MISMO LaunchAgent de la Terminal, y una Mac conectada así (la de Mauricio) no cambia.
+- **SIN probar en una Mac de verdad,** porque no hay ninguna acá: que macOS deje abrir una app sin firmar cuyo ejecutable es un guion,
+  que `osascript` muestre las ventanas desde una app sin Dock y que `install.sh` corra sin Terminal. La firma de Apple espera
+  el D-U-N-S.
+
+## «Conectar mi computadora» en Windows SIN terminal: el instalador con asistente y la sesión de Claude (0.4.0, 23/10/2026)
+
+**El pedido** (Martín, 22/10, y su OK del 22/10 23:21 por el Cerebro): «jamás por Powershell, ni siquiera que se tenga que
+abrir… el típico panel de "avanzar"… Que al darle conectar si no tenes instalada la app, te deje descargarla»; «la 0.4.0 sin
+firmar», con UNA línea para el aviso de Windows y la de PowerShell sólo como respaldo escondido.
+
+**Vive en:** installer/windows/mako.iss · scripts/ia-pc/publicar-binarios.mts (arma el instalador con Inno) · GET
+/api/ia-pc/descargar · el tutorial de app/integraciones/TusCuentasIA.tsx (Windows: tres pasos) · `RUTA_TRAS_INSTALAR`
+(/perfil/ia?computadora=1) · `iniciarSesionDeClaude` (scripts/ia-pc/mako-pc.mjs) · tests/ia-pc-instalador-040.test.ts y
+tests/ia-pc-login-sin-terminal.test.ts.
+
+- **El diagnóstico obvio era el equivocado: la terminal escondida era el LOGIN de Claude, no el instalador.** Instalar sin
+  consola se resuelve con Inno. Pero sin consola `claude auth login` no termina solo: imprime la URL y espera que le PEGUEN
+  el código por stdin (medido el 23/10 con una carpeta de Claude de prueba: un código falso da «Login failed … 400» y sale
+  con 1). Correrlo oculto deja a la persona sin dónde pegarlo. La salida: el programa sirve una página LOCAL (127.0.0.1, con
+  un secreto en la ruta, que contesta sólo a su dirección y acepta el envío sólo desde ella), y el código va directo al
+  stdin de `claude`. **Nunca pasa por MaKo:** un tercero no puede tocar las credenciales de la suscripción.
+- **GitHub Actions se quedó sin minutos el 22/10:** el instalador se arma en esta PC, con Inno Setup 6 por usuario (winget,
+  con el hash del instalador oficial verificado). publicar-binarios lo busca en %LOCALAPPDATA%\Programs\Inno Setup 6, o
+  en `ISCC=`.
+- **No se probó INSTALÁNDOLO en esta PC, y no hay que hacerlo:** acá corre `mako-pc.exe` como la computadora conectada al
+  ws1 (la de Martín en la cuenta de Mauricio), y el instalador la cierra al actualizar (CloseApplications). La prueba de punta
+  a punta va en una computadora de prueba con el ws3 (la parte 7 del plan).
+- **Al actualizar, la app quedaba apagada** hasta el próximo inicio de sesión: el instalador la cerraba y nadie la volvía a
+  abrir. Ahora la arranca al terminar; sin conexión guardada, sale sola.
+- **/conectar-mi-computadora nunca existió:** el instalador vuelve a /perfil/ia?computadora=1, que ve toda persona del
+  negocio, directo en «Conecta MaKo» y con las PC de antes YA leídas. Si no, una que ya estaba en línea se tomaba por la
+  nueva y decía «¡Listo!».
+- **Claude Code lo instala el instalador con un PowerShell OCULTO** (el instalador oficial de Anthropic; la persona no abre
+  nada) y sin la barra de progreso, que en PowerShell 5.1 vuelve lentísima la bajada.
+- **La 0.4.0 publicada NO servía: la página local rechazaba su propio formulario** (revisión de Integración, 23/10; arreglado
+  en la 0.4.1). La página salía con `Referrer-Policy: no-referrer`, y con esa política el navegador manda el POST de la MISMA
+  página con `Origin: null` (lo dice la especificación Fetch; medido en Chromium 152). El chequeo «Origin igual al mío» daba 403
+  en blanco al pegar el código. El test no lo vio porque ponía el Origin A MANO. Ahora usa `same-origin` y el test manda el
+  Origin que mandaría un navegador según la política de la página. **La regla: un test de un formulario manda los encabezados
+  que deriva el navegador, no los que uno supone.**
+- **El Setup de Inno es de 32 bits**, y sin `ArchitecturesInstallIn64BitMode` el PowerShell oculto salía de SysWOW64.
+  install.ps1 corta con «does not support 32-bit Windows» si el proceso no es de 64 bits (medido el 23/10), así que Claude Code
+  no se instalaba en NINGUNA computadora, y en silencio. La 0.4.1 instala en modo 64 bits, sin preguntar (`-NonInteractive`), y
+  arranca la app antes de instalar Claude Code.
+- **El aviso del chat sin sesión mandaba al «paso 3»,** que en Windows ya no existe. Ahora dice «desde Tus cuentas de IA», y
+  la línea de comandos queda plegada para las PC de la 0.3.2, como la del ws1, que no abren `mako://`.
+- **SIN hacer:** el `.pkg` de la Mac (la Mac sigue con la Terminal), la firma (lo decide Martín: nota firma-codigo-2310 en
+  las notas del Cerebro), `agregar-cuenta` todavía abre una consola (`stdio: 'inherit'`, en mako-pc.mjs), y la prueba de
+  punta a punta en una computadora de verdad.
+
+## «Conectar mi computadora» sin PowerShell: el enlace mako:// y la ventana del sistema (22/10/2026)
+
+**El pedido, textual** (Martín): «el proceso de instalación jamás sea por Powershell, ni siquiera que se tenga que abrir, que
+sea una app de escritorio con el típico panel de "avanzar"». El plan entero: docs/plan-instalador-escritorio.md.
+
+**Vive en:** `conectarDesdeEnlace`, `codigoDelEnlace` y `ventana` (scripts/ia-pc/mako-pc.mjs) · installer/windows/mako.iss
+(borrador) · tests/ia-pc-enlace.test.ts.
+
+- **Del enlace sale SÓLO el código.** Cualquier página puede abrir un `mako://`. Con el servidor en el enlace, un sitio se
+  llevaría la computadora, y con ella la suscripción de Claude de la persona, a su MaKo. La app usa siempre el suyo, y la
+  ventana dice a qué negocio y como quién se conecta, como el «¿Es tu negocio?» de la consola.
+- **La ventana es del sistema, sin consola:** `MessageBoxW` de user32 con `bun:ffi` dentro del ejecutable (probado con Bun
+  1.2.21 sin mostrarla: el texto en UTF-16 llega entero), y `osascript` en la Mac. Sin poder mostrarla, es «no».
+- **Si MaKo no confirma, se suelta lo pendiente** (como con el «no»). La primera versión lo dejaba guardado; lo mostró el
+  hijo del test.
+- **Lo que dice la doc de Claude Code** (leída el 22/10): `claude auth login` es el login oficial (abre el navegador, pero
+  la doc lo describe en una terminal); `claude auth status` sale 0 o 1 sin gastar; `claude setup-token` NO se usa (un tercero
+  no puede guardar tokens de la sesión). Que el instalador oficial ande oculto no está confirmado.
+- **⚠️ Para Martín:** los términos de Anthropic no dejan que un tercero «route requests through … Max plan credentials on
+  behalf of their users», y excluyen al que entra «with their own Claude subscription» en el Claude Code sin modificar. La
+  doc no dice de qué lado cae MaKo en la PC del cliente (D6a) y manda a preguntar a ventas.
+- **La revisión adversarial del enlace (Integración, 22/10) encontró que la ventana EMPUJABA al «Sí»:**
+  - **«Sí» era el botón por defecto**, en una ventana que se lleva el foco: una página que abre el enlace mientras la persona
+    escribe se lo llevaba con un Enter. Ahora es «No» (`MB_DEFBUTTON2`; en la Mac, `default button 1`).
+  - **Ante el código de OTRO negocio decía «Tu Ops Center va a contestar con tu Claude»**, que ahí es falso, y el reemplazo
+    iba en el tercer párrafo. Es el caso del phishing: otro cliente de MaKo pide su código y manda el enlace. Ahora lo
+    primero es «Esta computadora hoy usa tu Claude para «A». Si sigues, lo va a usar «B»… y «A» se queda sin él».
+    **La regla: en una ventana de consentimiento, lo que la persona pierde va primero, y el texto nunca habla como si lo
+    ajeno fuera suyo.**
+  - **Dos enlaces a la vez:** el segundo soltaba el pendiente del primero, y el «Sí» de la primera ventana confirmaba el de
+    la otra con el cartel equivocado. Ahora sólo se contesta si lo pendiente sigue siendo el de esa ventana.
+  - **Una configuración de la 0.2.0** (con token y sin el negocio) se reemplazaba sin aviso: ahora también avisa.
+- **SIN hacer:** armar el instalador (Inno Setup no está en esta computadora; GitHub Actions lo trae), la pantalla nueva
+  (abrir o descargar) y la página `/conectar-mi-computadora` que abre mako.iss al terminar (no existe), Claude Code sin
+  terminal, el `.pkg` de la Mac, la firma (cuesta plata: lo decide Martín) y subir `VERSION` y `VERSION_PC` a 0.4.0 JUNTOS
+  en el commit del instalador (un test los ata; con su OK). ⚠️ Hasta entonces, nadie corre `publicar-binarios` desde main:
+  sube con `upsert: true` y pisaría la 0.3.2 publicada.
+- **Sin decidir:** en modo enlace, ¿no reemplazar una conexión a OTRO negocio y pedir que se desconecte primero desde
+  MaKo? Es más fuerte contra el phishing y cuesta un paso al que cambia de negocio de verdad.
+- **Sin medir (de antes):** `pensar` corre `claude -p` sin `--setting-sources`; si eso carga el `~/.claude/CLAUDE.md`
+  personal de la persona, un negocio podría pedirle en un turno que lo repita. Se mide con un turno de prueba.
+
+## Con qué IA corre UN chat: el «+» de la caja (8b, 23/10/2026)
+
+**El pedido** (Martín): «En el Ops Center, el "+" de la caja deja elegir con qué corre ese chat: el modelo y la cuenta (Claude
+o GPT, y cuál). Por defecto decide el chat jefe, salvo que se elija otro». El selector es de Ops Center (lib/chat-ia-reglas.ts y
+la caja); el servidor, de la IA del cliente.
+
+**Vive en:** `cuentasDeIA` y `eleccionDelPedido` (lib/chat-ia.ts) · GET /api/mako/chat?suIA=1 y las dos ramas del POST · el
+campo `ia` de `turnoApp` (lib/mako-turno-app.ts) · `soloSuClaude` con `modeloSuClaude` y `soloSuOpenAI` (lib/anthropic.ts) ·
+tests/chat-ia.test.ts.
+
+- **La elección se valida en la RUTA, contra lo que se le ofrecería AHORA,** no en el turno ni en el navegador.
+  `eleccionDelPedido` sanea lo que llega (`sanearIA`) y lo cruza con `cuentasDeIA`, así que una cuenta que ya no está, o la
+  computadora de otra persona, vuelven a Automático. El turno confía en esa validación.
+- **La plata la sigue cuidando la puerta 2:** con el crédito de Claude de MaKo, pedir Sonnet sale en Haiku igual
+  (`evaluarClaveDelNegocio`), y por eso el crédito se ofrece con `soloHaiku`. Medido con el arnés: la llamada sale en Haiku y
+  con la clave del crédito.
+- **Elegir una cuenta es elegirla:** con la computadora elegida, el turno no cae a las claves; con SU OpenAI, no cae a Claude
+  (`soloSuOpenAI` tira «falló la IA»). Automático sigue igual que antes: la computadora y, si no puede, sus claves.
+- **La revisión adversarial (Integración, 23/10) agarró una decisión que se abría por otra puerta:** el modelo de la clave
+  PAGA del negocio lo elige el admin (la ruta del modelo le contesta 403 a un miembro), y el selector se lo dejaba elegir a
+  cualquiera. Ahora a un miembro no se le ofrece elegir modelo en su Claude, y corre con el del admin. **La regla: una decisión
+  que una ruta le cierra a un rol se le cierra también en cada puerta nueva que la ofrece.**
+  - En su computadora sí elige: gasta el cupo de SU propia suscripción.
+  - Con «Tu Claude» elegido y la PC apagada, el aviso hablaba de la computadora y se perdía el error de su clave.
+  - Si las cuentas no se pueden leer, la elección vuelve a Automático sin avisar. Es el contrato acordado, y la plata es
+    siempre del negocio.
+- **Un test que busca «la PRIMERA llamada a la cascada» se equivoca cuando aparece otra antes:** anthropic-tools-sin-fallback se
+  ancló a la cascada del registro.
+- **Dos tests fallaron SÓLO en la corrida grande** (chats-mako-envio, doer-recetas-video-imagen): pasan solos, en main y en esta
+  rama. Fue la carga, no el cambio.
+- **SIN hacer:** OpenAI todavía sin elegir el modelo (`MODELOS_DE_LA_CUENTA.openai = []`); el chat del teléfono (/api/m/mako)
+  no lee `ia` (el selector va en la caja del Ops Center, que usa /api/mako/chat).
+
+## La computadora del cliente NUNCA atiende leads sola (Martín, 22/10/2026)
+
+**La decisión, textual** (Martín, sobre los términos de Anthropic con la suscripción en la PC del cliente, D6a): «No por
+ahora». La PC se usa SÓLO para que cada dueño trabaje con su propio Claude; NUNCA para atender leads solos, las 24 horas: ni
+respuestas automáticas de WhatsApp, ni AI Steps de Automations, ni nada que corra solo hacia un lead. Ésos van por clave de
+API, o por el crédito donde está asignado.
+
+**Vive en:** `encolarTurno` (lib/ia-pc.ts) · `turnoApp` (lib/mako-turno-app.ts) · tests/ia-pc-nunca-a-leads.test.ts · AGENTS.md.
+
+- **Medido el 23/10/2026: no había nada que cerrar.** Un solo lugar crea turnos de PC (`encolarTurno`), lo llama un solo
+  lugar (`turnoApp`), y a `turnoApp` lo llaman cuatro entradas, todas con la sesión de una persona adentro: el chat de la app
+  (app/api/mako/chat), el del teléfono (app/api/m/mako), el de MaKo en el CRM (app/crm/mako-crm/chat-server.ts) y el Analyst
+  de la ficha (lib/mako-analyst-lead.ts). Lo que proponen se confirma en una tarjeta. WhatsApp, Automations y los crons tienen
+  su propio motor y no importan lib/ia-pc.
+- **El riesgo era el de mañana, no el de hoy:** una entrada nueva que llamara a `turnoApp` desde un cron o un webhook
+  mandaría el turno a la PC sin que nada lo marcara. El guardián lo cuenta: quién toca la PC, quién llama a `turnoApp` y
+  con qué sesión. Probado rompiéndolo: un cron, un webhook, otro insert de turnos, el Analyst sin la sesión y la prueba a
+  mano sin el corte del ws3, los cinco en rojo.
+- **La excepción es a mano:** scripts/ia-pc/probar-punta-a-punta.mts llama a `turnoApp`, y se acepta porque nadie la
+  programa y se niega fuera del ws3.
+
+## Varias computadoras por persona, «Desconectar» y el panel del super admin (22/10/2026)
+
+**El pedido, textual** (Martín): «el usuario debería poder abrir y ejecutar su Claude en varios dispositivos, por ejemplo,
+ahora abrí la cuenta de Mauricio e instalé MaKo desktop para conectarme a su claude, pero luego él va a querer hacerlo en su
+PC, se debería poder ver eso... Lo mismo en SuperAdmin. Y poder "Desconectar" dispositivos».
+
+**Vive en:** `elegirPc`, `sistemaDeLaVersion`, `detalleDeLaPc` (lib/ia-pc-reglas.ts) · `pcDe`, `listarTodasLasPc` (lib/ia-pc.ts)
+· app/admin/operaciones/UsoComputadoras.tsx (SuperAdmin › Uso, computadora y teléfono) · «Conectar otra computadora» en
+app/integraciones/TusCuentasIA.tsx · tests/ia-pc-varias.test.ts.
+
+- **Medir antes de construir: casi todo ya estaba.** Una persona ya podía tener varias computadoras (nada lo impedía), la
+  tarjeta ya las listaba con «Desconectar», y `desconectar` ya revocaba al instante y vencía el turno en curso. Conectar otra
+  no suelta las demás (sólo reemplaza la anterior de la MISMA máquina): la que Martín conectó en la cuenta de Mauricio no se
+  pierde.
+- **Lo que estaba mal era a cuál iba el turno:** `pcDe` tomaba «la que latió último». Con dos prendidas, cada latido (30 s)
+  ganaba otra, y el turno saltaba de un Claude a otro. Ahora va a una que conteste; con varias, a la que contestó el último
+  turno; sin turnos, a la última conectada; si una se apaga, a la otra.
+- **El sistema sin migración:** el programa desde la 0.4.0 manda `0.4.0+windows` o `+mac` en la versión del latido (el campo
+  ya aceptaba el `+`). Las de antes no lo dicen, y no se muestra.
+- **La computadora desconectada lo dice** en una ventana del sistema, desde la 0.4.0 (rama instalador-escritorio-2210). Antes
+  sólo quedaba en el registro, que nadie lee en un programa sin consola. La ventana va al final y esperada: si no, el
+  programa salía antes de mostrarla.
+- **Trampa de la rotura:** «leer el hash y no devolverlo» quedó en verde, y estaba bien: no es una fuga. La rotura que sí lo
+  devuelve da rojo. Una rotura que no rompe nada no prueba el test.
+- **El panel del cliente** va dentro de `<TusCuentasIA />`, que el Uso del cliente (D3, chat Ops Center) ya abre tal cual.
+- **La revisión adversarial lo encontró: «la del último turno» se queda pegada a una que FALLA.** Con sólo los turnos
+  contestados bien, una PC que llegó al tope o se colgó pero sigue latiendo era «la del último turno» para siempre: cada
+  turno iba ahí a fallar y la otra, que contesta, no recibía ninguno (antes, con «la que latió último», al menos se
+  turnaban). El arreglo: el último turno TERMINADO (bien, error o vencido); la que falló, o tiene todas sus cuentas al 100%
+  (`cuentasAgotadas`), va al final, y entre las que fallaron primero la que falló hace más. **La regla: elegir «la última
+  que anduvo» sin mirar si anduvo bien convierte una preferencia en una trampa.**
+- **«Desconectar» se apoyaba en que un update no fallara.** `desconectar` revocaba la PC y vencía sus turnos en dos pasos, y
+  el segundo podía fallar callado; `pedirLlamada`, `esperarALaPc` y `tomarTurno` miraban el estado del TURNO, no la PC.
+  Ahora el segundo paso tira, y las tres miran `revocado_at` (`sigueConectada`, falla cerrada). **La regla: toda puerta que
+  da un turno o corre una herramienta mira la revocación de la PC, no sólo el estado del turno.**
+- **El email de Claude de un empleado va enmascarado (decidió el Cerebro, 22/10):** el admin ve de cada computadora de su
+  equipo el nombre, de quién es, si está en línea, el plan y el % de uso (para manejar la capacidad), y el email como
+  `m***@gmail.com`; entero, sólo el dueño de esa computadora y el super admin (`puedeOperar`). Se enmascara en el SERVIDOR
+  (`cuentasParaVer` en GET /api/ia-pc/estado, que leen la computadora y el teléfono): enmascararlo en la tarjeta dejaba el
+  email entero en la respuesta. Si no se puede saber si es el super admin, enmascarado. tests/ia-pc-email-enmascarado.test.ts.
+- **Quedó SIN medir:** si el programa sigue mandando la cuenta en el latido cuando la sesión de Claude venció. Si la manda,
+  esa PC cuenta como «usable» hasta que falla un turno (después, el arreglo de arriba la manda al final).
 
 ## D6b para TODO el negocio: la decisión baja a la PUERTA de la capa de IA (IA6, 22/10/2026)
 
@@ -5330,6 +5722,12 @@ pelo) · `tests/d6b-rutas.test.ts` (la tabla quedó para lib/transcribe.ts)
   Groq de MaKo los escucha; sin con qué, la fila dice POR QUÉ (`errorDeCascada`), no «whisper: no credits».
 - **Trampa:** `transcribirAudio` no decía quién escuchó; se le sumó `alEscuchar` para que la fila del anuncio lo guarde.
   Y la escucha de la capa de IA no devuelve idioma ni duración (los Whisper de antes sí): esas columnas quedan vacías.
+- **Trampa: el `pii` de `transcribirAudio` es FALSE por defecto** (la revisión de la nota de voz del Ops Center, OC7,
+  22/10/2026). Una llamada nueva sin él, en un negocio sin su Claude ni su GPT cuyas claves no pueden escuchar, manda el
+  audio EN SILENCIO a la red gratis de la agencia (Groq y Gemini; el Gemini gratis entrena), aunque el texto del mismo chat
+  nunca vaya ahí. La nota del chat del Ops Center (lib/mako-turno-app.ts → `escucharNotaDelChat`) salió sin él y la frenó la
+  revisión. **Regla:** toda nota de voz de una persona del negocio o de un lead lleva `pii: true` (como lib/mako-doer-in.ts y
+  el dictado del Plan); sin con qué escuchar, la respuesta dice que conecte la suya (`errorDeCascada`).
 - **Sin hacer:** el caso real (regenerar la transcripción de un anuncio del ws11 o del ws14, que tienen OpenAI) espera el
   deploy. `scripts/backfill-transcripts.ts` y `scripts/test-one.ts` ahora necesitan el server: corren con
   `--conditions=react-server` y adentro de `runWithWorkspace` del negocio. lib/embeddings.ts (los vectores del RAG con la
@@ -5508,6 +5906,42 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
   desmarca si no quedó.
 - **Sin hacer:** Fathom, Panda y Zernio no tienen regla, y su formato no se verificó. Una clave de Mistral pegada con otro
   texto y sin nombrar a Mistral («<clave>\ngracias!») sigue pasando: sin el nombre ni el texto solo, es la forma de un id.
+
+## El crédito de la cuenta 1 como el Claude del ws1, con su interruptor en el Uso (22/10/2026)
+
+**La decisión, textual** (Martín, por el Cerebro): «habilita los tokens de la API de la cuenta de Mauricio, esos 200, para su
+Ops Center, que lo pueda usar, así puedo seguir probando en Automations», y «dame luego una opción para deshabilitarle esa
+API a Mauricio en SuperAdmin, tal vez en USO, que pueda desactivar». Es una excepción a «Por ahora solo en onboarding».
+
+**Vive en:** `CREDITO_DE_UN_NEGOCIO` (lib/veto-claude.ts: ws1 → `ANTHROPIC_CREDITO_CUENTA1`) · lib/credito-negocio.ts (el
+interruptor y la clave) · la puerta 2 (`permisoDeLaClaveDelNegocio`, lib/anthropic.ts) · la sección «API» del Uso
+(app/admin/operaciones/UsoCredito.tsx, en la computadora y en el teléfono) · tests/credito-negocio.test.ts.
+
+- **Entra por la puerta 2, no por la 3.** La puerta 3 (`conCreditoDeLaPlataforma`) sólo contesta TEXTO y sólo en la red de
+  la plataforma, y el Ops Center y la estrella de cada tab son el chat con herramientas. La puerta 2 sirve a las dos cosas
+  (el chat con herramientas y la cascada de texto, que la prueba primero), y ya sabía tratar un crédito como el Claude de
+  un negocio (el ws10): con Haiku, nunca el Plan, y el gasto con la marca del crédito. Sin su clave propia, o con una copia
+  de la de MaKo, la puerta 2 usa la del crédito asignado. Si la conecta, gana la suya.
+- **Trampa: no se pega en la fila del ws1.** Es el workspace del entorno (`hidratarCredenciales`), y su fila pasaría a ser
+  la clave de MaKo (lo del 18/10). Tampoco se escribe la marca del crédito en el ws1: la puerta la escribía al reconocer un
+  crédito por su valor, y el asignado no es su fila.
+- **El interruptor vive en el workspace de la plataforma** (`ia.credito_negocio.1`): el negocio no lo ve ni lo toca. Sin
+  fila, PRENDIDO (lo pidió Martín, y prenderlo no necesita escribir en producción). «No pude leerlo» es apagado para ese
+  pedido.
+- **Lo que deja de verse:** «Conecta tu IA» (la caja pregunta `claveDelCreditoAsignado`), y «Es la clave de MaKo, no la
+  tuya» (la tarjeta muestra `credito` y saca las copias; en /integraciones, la de Claude sale conectada).
+- **Error que ya estaba en el Uso:** las filas «(su clave es el crédito)» no traen el número de la cuenta, y `creditoQuePago`
+  las mandaba todas a la cuenta 1: lo del ws10 (cuenta 2) se le sumaba a Mauricio. Ahora van a la cuenta del NEGOCIO.
+- **Medido en producción (22/10, sólo lectura, nada escrito en el ws1: 564 ajustes antes y después):** el crédito asignado
+  está prendido y su clave se lee; la puerta 2 da permiso para `mako-doer` y `chatbot-crear-ia` (Haiku, como crédito) y no
+  para `plan-fathom`; la tarjeta dice `anthropic:credito`; la clave contesta 200 a `count_tokens` (que no cobra).
+- **Probado rompiéndolo** (las 11 en rojo): la puerta sin el crédito, el crédito tapando su clave propia, la marca en el ws1,
+  el interruptor que no apaga, «no pude leer» prendido, cualquier negocio prendible, la tarjeta, la caja, la cuenta de «su
+  clave es el crédito», la pantalla y la acción sin la puerta del super admin.
+- **SIN hacer — por qué esto NO alcanza para soltar IA16:** el crédito cubre lo que pasa por la puerta 2. Al ws1, con IA16, le
+  seguirían faltando: el Plan (que nunca paga IA de MaKo: hace falta su clave, o que Martín amplíe la excepción); las notas
+  de voz (Claude no transcribe: hace falta su Gemini o su OpenAI); «Hola MaKo» en WhatsApp (el doer escala a su Claude sólo
+  con «su IA»); y el buscador de conocimiento (embebe con su Gemini). Con su Gemini gratis conectada, eso se resuelve.
 
 ## Las decisiones de Martín del 22/10/2026 sobre la IA de MaKo, y el Plan con la clave del negocio
 

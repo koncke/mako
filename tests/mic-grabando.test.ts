@@ -111,8 +111,10 @@ test('4. WhatsApp, Automations y Offer graban con ESA barra, y ninguno dibuja su
     ['app/automations/EditorMensajeWhatsApp.tsx', /<ComposerWhatsApp\b/], // Automations: el mensaje del lienzo
     ['app/automations/GrabadorAudioPaso.tsx', /<BarraGrabacion voz=\{voz\}/],
     ['app/automations/PasoAudioControl.tsx', /<BarraGrabacion voz=\{voz\}/],
-    ['app/offer/ChatOffer.tsx', /<ComposerWhatsApp\b/],                    // Offer: la tab
-    ['app/offer/OfferApp.tsx', /<CajaChat [\s\S]{0,600}voz=\{/],            // Offer: el onboarding
+    // Offer, la tab y el onboarding (22/10/2026, OF4): la caja única, que dibuja ChatOffer con la nota de voz que arma OfferApp.
+    ['app/offer/ChatOffer.tsx', /<CajaChat \{\.\.\.caja\} \/>/],
+    ['app/offer/OfferApp.tsx', /const caja: PropsCajaChat = \{[\s\S]{0,700}voz: sinAdjuntos \? undefined : \{/],
+    ['app/m/offer/ComposerOfferM.tsx', /<CajaChat [\s\S]{0,600}voz=\{\{/],   // Offer: el teléfono
   ];
   for (const [f, re] of lugares) assert.match(sinComentarios(leer(f)), re, f);
   for (const [f] of lugares) assert.doesNotMatch(leer(f), /#e53935|mako-blink|mako-latido/, `${f}: dibuja su propio punto de grabando`);
@@ -120,7 +122,9 @@ test('4. WhatsApp, Automations y Offer graban con ESA barra, y ninguno dibuja su
 
 test('5. el ✓ y la ➤ de la barra se leen sobre el color que les toque (el onboarding de Offer en oscuro)', () => {
   assert.match(leer('app/whatsapp/_shared/VoiceRecorder.tsx'), /background: 'var\(--good\)', color: 'var\(--sobre-good, #fff\)'/);
-  assert.match(leer('app/offer/OfferApp.tsx'), /const SIN_VERDE = \{ '--good': 'var\(--ink\)', '--sobre-good': 'var\(--surface\)' \} as CSSProperties;/);
+  // Desde el 22/10/2026 (OF4) la caja de Offer la dibuja ChatOffer, para la tab y el onboarding.
+  assert.match(leer('app/offer/ChatOffer.tsx'), /const SIN_VERDE = \{ '--good': 'var\(--ink\)', '--sobre-good': 'var\(--surface\)' \} as CSSProperties;/);
+  assert.match(leer('app/offer/ChatOffer.tsx'), /<div key=\{sesion\.id\} className="co-caja-wrap" style=\{SIN_VERDE\}>/);
 });
 
 // PROBADO ROMPIÉNDOLO (22/10/2026, base 5/0):

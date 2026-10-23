@@ -18,6 +18,7 @@ import { useState, type KeyboardEvent } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { conFormato } from '@/app/_components/Markdown';
 import { eleccionValida, opcionesEnOrden, type PreguntaChat as Pregunta } from '@/lib/centro-preguntas-chat';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
@@ -103,7 +104,7 @@ export function PreguntaChat({ p, onResponder, enviada = false }: {
         ) : null}
       </ol>
       <div className="co-preg__pie co-preg__pie--chat">
-        {error ? <span className="co-preg__error" role="alert">{error}</span>
+        {error ? <span className="co-preg__error" role="alert">{error}<ReportarASoporte /></span>
           : r ? <span>{`Respondiste · ${horaAR(Date.parse(r.at))}`}</span>
           : p.superada ? <span>{`Ya no espera tu respuesta · ${horaAR(Date.parse(p.superada))}`}</span>
           : enviada ? <span>Tu respuesta salió</span>

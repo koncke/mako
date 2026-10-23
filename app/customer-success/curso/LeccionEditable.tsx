@@ -76,6 +76,7 @@ import {
   lugarDelVideo, minutosDeDuracion, oembedDeLoom, ofrecePorArea, partesCambiadas, rebasar, textoDeBarra,
   type BorradorLeccion, type DisposicionBorrador, type EstadoBarra, type LugarDelVideo, type VideoDelBorrador,
 } from './leccion-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /**
  * Lo que la lección necesita de la tab. Se arma en cada render: las piezas lo leen por un ref
@@ -663,7 +664,7 @@ function AgregarVideo({ l }: { l: LeccionAbierta }) {
       <span className="cu-vacio-t">Pega el link o el código</span>
       <FormLink v={v} onListo={() => setAbierto(false)} onCancelar={() => setAbierto(false)} />
       <span className="cu-vid-nota">YouTube, Vimeo, Panda, Loom o Drive</span>
-      {v.error && <p className="cu-vid-error" role="alert">{v.error}</p>}
+      {v.error && <p className="cu-vid-error" role="alert">{v.error}<ReportarASoporte /></p>}
     </div>
   );
 }
@@ -677,7 +678,7 @@ function ControlesDelVideo({ c, l, ctx }: { c: Clase; l: LeccionAbierta; ctx: Ct
     return (
       <div className="cu-vid-barra">
         <FormLink v={v} onListo={() => setCambiando(false)} onCancelar={() => setCambiando(false)} />
-        {v.error && <p className="cu-vid-error" role="alert">{v.error}</p>}
+        {v.error && <p className="cu-vid-error" role="alert">{v.error}<ReportarASoporte /></p>}
       </div>
     );
   }
@@ -694,7 +695,7 @@ function ControlesDelVideo({ c, l, ctx }: { c: Clase; l: LeccionAbierta; ctx: Ct
         <button type="button" className="ugc-btn" onClick={() => { v.limpiar(); setCambiando(true); }}>Cambiar link</button>
         <button type="button" className="ugc-btn" onClick={() => void quitar()}>Quitar</button>
       </span>
-      {v.error && <p className="cu-vid-error" role="alert">{v.error}</p>}
+      {v.error && <p className="cu-vid-error" role="alert">{v.error}<ReportarASoporte /></p>}
     </div>
   );
 }

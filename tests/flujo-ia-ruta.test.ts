@@ -84,7 +84,7 @@ test('un pedido cancelado no escribe nada: se mira la señal ANTES de crear etiq
   const c = CORE.indexOf('await deps.insertar(');
   const d = CORE.indexOf('await deps.guardarPasos(');
   assert.ok(a > 0 && b > a && c > b && d > c, `crear: señal ${a} · etiquetas ${b} · fila ${c} · guardar ${d}`);
-  assert.match(RUTA_SOLA, /crearFlujoConIA\(\{ ws, pedido, secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req\.signal, alFase: send, respuestas, historial, via: 'app' \}\)/);
+  assert.match(RUTA_SOLA, /crearFlujoConIA\(\{ ws, pedido: conAdjuntos\(pedido\), secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req\.signal, alFase: send, respuestas, historial, via: 'app' \}\)/);
 });
 
 // rotura 4 (crear sin exigir la vacía): 1 fallo.
@@ -150,8 +150,8 @@ test('la caja: el fetch lleva signal con el tope de la ruta + margen, y Cancelar
   const max = Number(/export const maxDuration = (\d+);/.exec(RUTA)?.[1]) * 1000;
   assert.ok(tope > max, `el cliente corta a ${tope} ms y la ruta a ${max} ms`);
   assert.match(src, /setTimeout\(\(\) => c\.abort\(\), TOPE_CLIENTE_MS\)/);
-  // Cancelar corta el pedido en curso (el `AbortController` de `ctrl`).
-  assert.match(src, /const cancelar = (?:useCallback\()?\(\) => \{[^}]*?(?:ctrl\.current\?\.abort\(\)|const c = ctrl\.current;[^}]*c\?\.abort\(\));/);
+  // Cancelar corta el pedido en curso (su `AbortController`; desde el 22/10/2026 el turno vive en TRABAJOS por clave).
+  assert.match(src, /const cancelar = (?:useCallback\()?\(\) => \{[^}]*?(?:ctrl\.current\?\.abort\(\)|const c = ctrl\.current;[^}]*c\?\.abort\(\)|t\.ctrl\.abort\(\));/);
 });
 
 // rotura 11 (un rótulo propio en vez de GRAMATICA.analizando): 1 fallo.

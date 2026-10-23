@@ -12,10 +12,20 @@
 //   · el alcance en chips: «Todo el diseño» o lo elegido en el lienzo;
 //   · el hilo es por diseño y queda GUARDADO por persona (./hilo.ts, mig 0303).
 // Se abre con el botón redondo del pie del riel (chrome/RielCanva.tsx) y, en pantallas chicas, desde la tira de abajo.
+//
+// CON LAS PIEZAS DEL OPS CENTER (22/10/2026, TB3; Martín: «quiero que todos los chats de MaKo en las tabs sean el del Ops
+// Center»): el hilo es `HiloMako` (con la criatura de la tab, la misma que lo nombra en el Ops Center) y la caja es
+// `CajaChat` (app/_chat/). El motor sigue siendo el suyo (./acciones.ts): edita el diseño ABIERTO, en modo «editar», y la
+// propuesta con «Original | Modificado» va en el hueco `enMensaje` de la respuesta de MaKo que la trajo. El alcance
+// («Todo el diseño» o lo elegido) sigue en sus chips arriba de la caja; en el hilo ya no se repite en la burbuja.
 // =============================================================================
 
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { ArrowUp, Check, Sparkles } from 'lucide-react';
+import '@/app/admin/operaciones/centro.css';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { Check, Sparkles } from 'lucide-react';
+import { CajaChat } from '@/app/_chat/CajaChat';
+import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
+import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import Link from '@/app/_ui/Link';
 import { useEditor, useEditorState, type EditorEngine } from '../../_doory/editor/extensions';
 import { TOPES_CHAT_IMAGEN } from '@/lib/image-editor/chat/catalogo';
@@ -23,9 +33,15 @@ import { resumenDeCambios, type CambioImagen } from '@/lib/image-editor/chat/apl
 import { cambiarMensaje, cargarHilo, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from './hilo';
 import { aceptarPropuesta, detener, pedirEdicion, restaurarPropuesta, rotuloSeleccion, type AlcanceChat } from './acciones';
 import styles from './chat.module.css';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const HILO_SERVER: Hilo = { mensajes: [], corriendo: false };
 const useHilo = (disenoId: string): Hilo => useSyncExternalStore(suscribir, () => leerHilo(disenoId), () => HILO_SERVER);
+
+/** Quien contesta en el hilo: la criatura de la tab (la misma que la nombra en el Ops Center). */
+const QUIEN = { nombre: 'Image Editor' };
+const nada = () => {};
+const iso = (ms: number): string | null => (Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : null);
 
 const ETIQUETA_CAMBIO: Record<CambioImagen['tipo'], string> = { cambia: 'Cambia', agrega: 'Nuevo', quita: 'Se quita' };
 const MAX_FILAS = 8;
@@ -75,7 +91,7 @@ function RevisionPropuesta({ m, tocada, onAceptar, onDescartar, onRestaurar }: {
         </p>
       )}
       {tocada && m.estado === 'pendiente' && <p className={styles.cuidado}>Cambiaste el diseño mientras tanto.</p>}
-      {m.aviso && <p role="alert" className={styles.alerta}>{m.aviso}</p>}
+      {m.aviso && <p role="alert" className={styles.alerta}>{m.aviso}<ReportarASoporte /></p>}
       <div className={styles.botones}>
         {m.estado === 'pendiente' && (
           <>
@@ -138,7 +154,7 @@ export function PanelMakoIA() {
 
   const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal) => {
     if (hilo.corriendo || !instruccion.trim() || !disenoId) return;
-    void pedirEdicion(editorRef.current, instruccion, alc);
+    void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc);
     setTexto('');
   };
 
@@ -158,54 +174,63 @@ export function PanelMakoIA() {
 
   const visibles = SUGERENCIAS.filter((s) => !s.necesitaSeleccion || elegidos > 0);
 
+  // El hilo del Ops Center: cada mensaje con su id y su hora; lo de MaKo que el hilo no sabe dibujar (el error, los links, la
+  // propuesta con «Original | Modificado»), en su hueco.
+  const items = useMemo((): ItemHilo[] => hilo.mensajes.map((m) => ({
+    k: 'msg', id: m.id, role: m.de === 'yo' ? 'user' : 'assistant', at: iso(m.c),
+    texto: m.de === 'mako' && m.error ? '' : m.texto,
+  })), [hilo.mensajes]);
+  const enMensaje = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => {
+    const m = hilo.mensajes.find((y) => y.id === x.id);
+    if (!m || m.de !== 'mako') return null;
+    return {
+      arriba: m.error ? <p className={styles.error}>{m.texto}</p> : null,
+      abajo: <>
+        {m.links && m.links.length > 0 && (
+          <div className={styles.links}>
+            {m.links.map((l) => <Link key={l.href} href={l.href} className={styles.link}>{l.texto}</Link>)}
+          </div>
+        )}
+        {m.propuesta && m.cambios && m.estado ? (
+          <RevisionPropuesta
+            m={m as MensajeMako & { cambios: CambioImagen[]; estado: EstadoPropuesta }}
+            tocada={m.propuesta.docVersion !== undefined && m.propuesta.docVersion !== docVersion}
+            onAceptar={() => void aceptarPropuesta(editorRef.current, m)}
+            onDescartar={() => cambiarMensaje(disenoId, m.id, { estado: 'descartada', aviso: undefined })}
+            onRestaurar={() => restaurarPropuesta(editorRef.current, m)}
+          />
+        ) : m.descartes && m.descartes.length > 0 ? (
+          <p className={styles.nota}>No se aplica: {m.descartes.slice(0, 3).join(' · ')}</p>
+        ) : null}
+      </>,
+    };
+  };
+
   return (
     <div className={styles.panel}>
-      <div ref={hiloRef} className={styles.hilo} aria-live="polite">
-        {hilo.mensajes.length === 0 && (
-          <div className={styles.saludo}>
-            <span className={styles.chispa} aria-hidden="true"><Sparkles size={20} /></span>
-            <p className={styles.saludoTitulo}>¿Qué cambiamos?</p>
-            <p className={styles.saludoTexto}>Pídeme lo que quieras del diseño.</p>
-          </div>
-        )}
-        {hilo.mensajes.map((m) =>
-          m.de === 'yo' ? (
-            <div key={m.id} className={styles.yo}>
-              {m.alcance && <span className={styles.alcanceMsg}>{m.alcance}</span>}
-              {m.texto}
+      {/* Con su propio aire: el del Ops Center (24 px por lado) dejaba el hilo en 206 px en este panel. */}
+      <div ref={hiloRef} className={`co-hilo ${styles.hilo}`} style={{ padding: '8px 4px' }} aria-live="polite">
+        <div className="co-hilo__col">
+          {hilo.mensajes.length === 0 && (
+            <div className={styles.saludo}>
+              <span className={styles.chispa} aria-hidden="true"><Sparkles size={20} /></span>
+              <p className={styles.saludoTitulo}>¿Qué cambiamos?</p>
+              <p className={styles.saludoTexto}>Pídeme lo que quieras del diseño.</p>
             </div>
-          ) : (
-            <div key={m.id} className={styles.mako}>
-              <p className={m.error ? styles.error : styles.makoTexto}>{m.texto}</p>
-              {m.links && m.links.length > 0 && (
-                <div className={styles.links}>
-                  {m.links.map((l) => <Link key={l.href} href={l.href} className={styles.link}>{l.texto}</Link>)}
-                </div>
-              )}
-              {m.propuesta && m.cambios && m.estado ? (
-                <RevisionPropuesta
-                  m={m as MensajeMako & { cambios: CambioImagen[]; estado: EstadoPropuesta }}
-                  tocada={m.propuesta.docVersion !== undefined && m.propuesta.docVersion !== docVersion}
-                  onAceptar={() => void aceptarPropuesta(editorRef.current, m)}
-                  onDescartar={() => cambiarMensaje(disenoId, m.id, { estado: 'descartada', aviso: undefined })}
-                  onRestaurar={() => restaurarPropuesta(editorRef.current, m)}
-                />
-              ) : m.descartes && m.descartes.length > 0 ? (
-                <p className={styles.nota}>No se aplica: {m.descartes.slice(0, 3).join(' · ')}</p>
-              ) : null}
+          )}
+          <HiloMako items={items} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
+            tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+          {hilo.corriendo && (
+            <button type="button" className={styles.secundario} onClick={() => detener(disenoId)}>Detener</button>
+          )}
+          {!hilo.corriendo && (
+            <div className={styles.sugerencias}>
+              {(hilo.mensajes.length ? visibles.slice(0, 4) : visibles).map((s) => (
+                <button key={s.rotulo} type="button" className={styles.pildora} onClick={() => sugerir(s)}>{s.rotulo}</button>
+              ))}
             </div>
-          ),
-        )}
-        {hilo.corriendo && (
-          <div className={styles.pensando}><span className={styles.girando} aria-hidden="true" /> Pensando</div>
-        )}
-        {!hilo.corriendo && (
-          <div className={styles.sugerencias}>
-            {(hilo.mensajes.length ? visibles.slice(0, 4) : visibles).map((s) => (
-              <button key={s.rotulo} type="button" className={styles.pildora} onClick={() => sugerir(s)}>{s.rotulo}</button>
-            ))}
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className={styles.pie}>
@@ -217,35 +242,11 @@ export function PanelMakoIA() {
             </button>
           )}
         </div>
-        <div className={styles.cuadro}>
-          <textarea
-            ref={inputRef}
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            onKeyDown={(e) => {
-              // Los atajos del editor no miran lo que se escribe en un campo (`isEditableTarget` de hooks/useKeyboardShortcuts.ts).
-              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                enviar(texto);
-              }
-            }}
-            placeholder={hilo.corriendo ? 'Espera a que MaKo termine' : 'Describe el cambio…'}
-            disabled={hilo.corriendo || !disenoId}
-            rows={2}
-            maxLength={TOPES_CHAT_IMAGEN.instruccion}
-            aria-label="Mensaje a MaKo"
-          />
-          <div className={styles.cuadroPie}>
-            {hilo.corriendo ? (
-              <button type="button" className={styles.enviar} onClick={() => detener(disenoId)} title="Detener" aria-label="Detener">
-                <span className={styles.cuadradito} />
-              </button>
-            ) : (
-              <button type="button" className={styles.enviar} onClick={() => enviar(texto)} disabled={!texto.trim() || !disenoId} title="Enviar" aria-label="Enviar">
-                <ArrowUp size={16} aria-hidden="true" />
-              </button>
-            )}
-          </div>
+        {/* La caja única (app/_chat/CajaChat.tsx). Los atajos del editor no miran lo que se escribe en un campo
+            (`isEditableTarget` de hooks/useKeyboardShortcuts.ts). */}
+        <div className="co-caja">
+          <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
+            apagado={!disenoId} placeholder="Describe el cambio…" tituloMandar="Enviar" enterManda />
         </div>
       </div>
     </div>

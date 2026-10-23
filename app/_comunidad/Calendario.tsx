@@ -26,6 +26,7 @@ import {
   diaCortoEn, diaLargoEn, duracionTexto, fechaEn, hoyEn, horaEn, mesTexto, nombreDeZona, sumarDiasTexto, zonaDelNavegador,
   diaDeSemanaTexto, mayuscula,
 } from './tiempo';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const DIA = 86_400_000;
 type Vista = 'mes' | 'proximos';
@@ -125,7 +126,7 @@ export function Calendario({ pedido = null, onPedidoAbierto }: {
       </div>
       <span className="cmu-meta">Horas en {nombreDeZona(zona)}</span>
 
-      {res?.error && res.clave === clave && <p className="cmu-error" role="alert">{res.error}</p>}
+      {res?.error && res.clave === clave && <p className="cmu-error" role="alert">{res.error}<ReportarASoporte /></p>}
 
       {vista === 'mes' ? (
         <>

@@ -66,7 +66,7 @@ import { actualizarEtiquetaLead } from '@/lib/evolution-labels';
 import { desenlaceAntesDelMovimiento, lineasTocanElDesenlace, LINEA_DEL_DESENLACE, type Desenlace } from '@/lib/lead-desenlace';
 import { LeadDuplicadoError, estaEnProducto } from '@/lib/leads-duplicados';
 import { casaReal, destinoDelAlta, nombreVisible, type ProductoParaAlta } from '@/lib/lead-funnel-reglas';
-import { agregarAProducto } from '@/lib/lead-funnel';
+import { agregarAProducto, moverEtapaEnProducto } from '@/lib/lead-funnel';
 // El plazo de una suscripción cancelada no se revierte desde el historial (revisión del 14/10/2026).
 import { PLAZO_DE_CANCELADA, plazoSeRevierte } from '@/lib/suscripcion-manual';
 import { conLoteDeEtiquetas, espejarEtapa } from '@/lib/etiquetas';
@@ -124,6 +124,7 @@ import { tzDeWorkspace, TZ_DEFAULT, hoyEnWorkspace } from '@/lib/timezone';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual, rutaConWs } from '@/lib/workspace';
+import { TopeDelPlanError, frenarAltaPorTope } from '@/lib/topes-crm';
 import { ofrecePartners } from './partners-crm';
 import type { EstadoDatos } from '@/lib/datos-aviso';
 // La ficha del funnel del lead y «N sin marcar»: las MISMAS lecturas que la ficha del teléfono (app/m/crm/datos.ts).
@@ -883,6 +884,10 @@ async function altaDeLead(formData: FormData, funnelId?: number | null, permitir
   if (!nombre) {
     throw new Error('Nombre es requerido');
   }
+  // El tope del plan (23/10/2026, lib/topes-crm.ts): un alta A MANO no pasa los leads de MaKo Esencial. Lo que entra solo
+  // (anuncios, webhooks) no pasa por acá: entra igual y el tablero avisa.
+  const ws = await getWorkspaceActual();
+  if (ws != null) await frenarAltaPorTope(ws, 'crm.leads');
   // Un lead sin email NI teléfono es incontactable: el dato es posible de
   // conseguir al momento de crearlo, así que se exige al menos uno.
   if (!emptyToNull(formData.get('email')) && !emptyToNull(formData.get('telefono'))) {
@@ -933,6 +938,8 @@ async function altaDeLead(formData: FormData, funnelId?: number | null, permitir
  */
 export type ChoqueDeLead = {
   error: string;
+  /** El error es el tope del plan (23/10/2026): la pantalla ofrece «Pasar a Pro». */
+  pasarAPro?: boolean;
   /** Con quién choca. Vacío = el error no es un duplicado. */
   coincidencias: Array<{
     id: number; nombre: string;
@@ -1101,6 +1108,7 @@ export async function leadsDeProductoAction(funnelId: number | null, destino?: n
  * él se decide `estaAca` de cada coincidencia — por su casa o por una fila (mig 0207).
  */
 async function choqueDeLead(e: unknown, funnelActual: number | null): Promise<ChoqueDeLead> {
+  if (e instanceof TopeDelPlanError) return { error: e.message, coincidencias: [], pasarAPro: true };
   if (!(e instanceof LeadDuplicadoError)) {
     return { error: e instanceof Error ? e.message : 'No se pudo crear el lead.', coincidencias: [] };
   }
@@ -1208,6 +1216,9 @@ export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: str
   // un dato que se afirma sin medirlo es peor que la columna vacía—: dice por qué
   // puerta entró, que es lo que separa a este lead de los 1.000 de una lista en frío.
   try {
+    // Un alta a mano desde la conversación: con el tope del plan, como la del tablero.
+    const wsAlta = await getWorkspaceActual();
+    if (wsAlta != null) await frenarAltaPorTope(wsAlta, 'crm.leads');
     // ⚠️ `destino.casa` ya pasó por `casaParaEscribir`: el default va NULL. createLead escribe
     // lo que le llega, y con el id del default escrito el lead no sale en NINGÚN tablero.
     const created = await createLead({ nombre: n, telefono: t, origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa });
@@ -1425,6 +1436,33 @@ export async function bulkFillLeadFieldAction(
 const TOPE_LOTE = 200;
 
 /**
+ * Los tildados que estan AGREGADOS al CRM que se mira (tienen su fila en `lead_funnel` y su casa es otro), con el id real
+ * de ese CRM. Tira si no puede leer: mover a ciegas es justo pisar la casa de alguien.
+ */
+async function agregadosDelCrm(ids: readonly number[], funnelId: number | null): Promise<Map<number, number>> {
+  const out = new Map<number, number>();
+  if (!ids.length) return out;
+  const def = await idDelFunnelDefault();
+  const real = funnelId ?? def;
+  if (real == null) return out;
+  const db = await getTenantDb();
+  for (let i = 0; i < ids.length; i += 200) {
+    const tanda = ids.slice(i, i + 200);
+    const [{ data: filas, error: eF }, { data: casas, error: eC }] = await Promise.all([
+      db.from('lead_funnel').select('lead_id').eq('funnel_id', real).in('lead_id', tanda),
+      db.from('leads').select('id, funnel_id').in('id', tanda),
+    ]);
+    if (eF || eC) throw new Error(`No pude leer en que CRM esta cada lead: ${(eF ?? eC)?.message}`);
+    const conFila = new Set(((filas ?? []) as Array<{ lead_id: number | string }>).map((f) => Number(f.lead_id)));
+    for (const l of (casas ?? []) as Array<{ id: number | string; funnel_id: number | string | null }>) {
+      const casa = casaReal(l.funnel_id == null ? null : Number(l.funnel_id), def);
+      if (conFila.has(Number(l.id)) && casa !== real) out.set(Number(l.id), real);
+    }
+  }
+  return out;
+}
+
+/**
  * Mueve VARIOS leads a una etapa.
  *
  * ⚠️ LLAMA AL MISMO `setLeadStageAction` DE A UNO, y es a proposito: ese es el unico camino
@@ -1438,14 +1476,23 @@ const TOPE_LOTE = 200;
  * distingue TRES numeros y no uno: cuantos se movieron, a cuantos de esos les falta algo, y
  * cuantos fallaron. Con un solo «N movidos», un lote entero que quedo a medias se lee como
  * un exito.
+ *
+ * ⚠️ LOS AGREGADOS SE MUEVEN EN SU FILA, NO EN SU CASA (23/10/2026, P0 de #289). `funnelId` es el CRM que se esta mirando
+ * (null = el del negocio). Un lead AGREGADO a ese CRM (`lead_funnel`: los 300 del Sprint de Mauricio en el CRM 44) tiene su
+ * casa en otro: `setLeadStageAction` le escribia la etapa de ESTE CRM («Prospeccion activa») en la casa, una etapa que su
+ * casa no tiene, y la fila seguia en «Lead entrante», asi que la automatizacion de esa etapa no lo veia nunca. Va por el
+ * MISMO camino que arrastrar su tarjeta (`moverEtapaEnProducto`: la fila, su historial, y desde ese dia sus
+ * automatizaciones por evento). Quien es agregado lo decide el server con las filas, no la pantalla.
  */
 export async function moverLeadsDeEtapaAction(
   leadIds: number[],
   stageKey: string,
+  funnelId?: number | null,
 ): Promise<{ movidos: number; conPendientes: number; fallaron: number; sinSincronizar: number }> {
   await exigirSesion();
   const ids = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0).slice(0, TOPE_LOTE);
   let movidos = 0, conPendientes = 0, fallaron = 0;
+  const agregados = await agregadosDelCrm(ids, funnelId ?? null);
   // ⚠️ LAS ETIQUETAS ESPEJADAS SE SINCRONIZAN AL FINAL, NO LEAD POR LEAD (revision del
   // 08/10/2026, etiquetas-4/datos-3). Con una etiqueta vinculada a la etapa, cada vuelta esperaba
   // WhatsApp y tres llamadas a Chatwoot por etiqueta: 200 leads eran cientos de viajes HTTP en
@@ -1457,6 +1504,12 @@ export async function moverLeadsDeEtapaAction(
     // nada util y se multiplica la chance de que un lote quede a medias sin poder decir donde.
     for (const id of ids) {
       try {
+        const real = agregados.get(id);
+        if (real != null) {
+          await moverEtapaEnProducto(id, real, stageKey, { enLote: true });
+          movidos += 1;
+          continue;
+        }
         const r = await setLeadStageAction(id, stageKey);
         // ⚠️ `StageMoveResultado` ES UNA UNION, y la rama `ok: false` NO movio el lead.
         // Contarla como movida seria exactamente el «N movidos» mentiroso que esta action
@@ -1470,6 +1523,7 @@ export async function moverLeadsDeEtapaAction(
       }
     }
   });
+  if (agregados.size) { bust(TAG.leads); revalidatePath('/crm'); }
   return { movidos, conPendientes, fallaron, sinSincronizar };
 }
 
@@ -1984,6 +2038,18 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
     if (f.enriquecer && f.leadExistenteId !== idQueVio[i]) return { ...f, enriquecer: false };
     return f;
   });
+
+  // El tope del plan (23/10/2026): una importación a mano no pasa los leads de MaKo Esencial. Se mira con las que de
+  // verdad se crean (`entra`), antes de escribir ninguna: a medias sería peor que nada.
+  const wsImport = await getWorkspaceActual();
+  if (wsImport != null) {
+    try {
+      await frenarAltaPorTope(wsImport, 'crm.leads', validadas.filter((f) => entra(f)).length);
+    } catch (e) {
+      if (e instanceof TopeDelPlanError) return { creados: 0, enriquecidos: 0, ganados: 0, omitidos: 0, errores: [e.message] };
+      throw e;
+    }
+  }
 
   let creados = 0;
   let enriquecidos = 0;

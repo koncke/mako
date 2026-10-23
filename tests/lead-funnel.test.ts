@@ -89,7 +89,15 @@ test('⚠️ agregar y mover en otro producto no tocan la casa: ni setPipelineSt
     assert.doesNotMatch(cuerpoDe(f), /setPipelineStage|updateLead|setBoardStageOverride/, `${f}: tocaría estado_lead, la venta o el CAPI de la casa`);
   }
   assert.doesNotMatch(LIB, /setPipelineStage|setBoardStageOverride/, 'ninguna mueve la columna de la casa por el camino del recorrido');
-  assert.doesNotMatch(LIB, /enrolarPorEvento|inscrib/, 'las secuencias aplican a todos los productos: le escribiría dos veces a la misma persona');
+  // ⚠️ 23/10/2026 (P0 de #289): MOVER SÍ inscribe, por evento, en las automatizaciones de ESA etapa de ESE CRM; AGREGAR no
+  // (la página de gracias y el cobro agregan y mueven a Ganado en el mismo pedido: lo levanta el barrido)
+  // (`enrolarAgregado`, con la regla del barrido: `agregadoEntraPorEvento`, tests/automations-por-que-no-sale.test.ts).
+  // Una de «Todos los productos» sigue sin agarrarlo: el evento va marcado `agregado: true`. Por un solo lugar.
+  assert.equal((LIB.match(/enrolarPorEvento\(/g) ?? []).length, 1, 'el agregado se inscribe por un solo lugar');
+  assert.match(cuerpoDe('async function enrolarAgregado('), /enrolarPorEvento\(leadId, 'etapa', \{ etapa, funnelId, agregado: true, \.\.\.\(o\?\.enLote \? \{ sinViaRapida: true \} : \{\}\) \}\)/);
+  for (const f of ['export async function agregarLoteAProducto(', 'export async function quitarLoteDeProducto(']) {
+    assert.doesNotMatch(cuerpoDe(f), /enrolarAgregado|enrolarPorEvento/, `${f}: el lote no dispara (lo levanta el barrido)`);
+  }
 });
 
 test('quitar la casa: updateLead SÓLO para que el desenlace siga a la etapa promovida (y su deshacer)', () => {

@@ -313,7 +313,9 @@ test('el componente cumple el CONTRATO del alta', () => {
   // tipeado y no elegido (`instagramDelAlta`, app/crm/campo-inline.ts). El contrato de antes sigue
   // valiendo tal cual: quien no lo pasa, monta el mismo componente.
   // `textoInicial` (opcional, segundo feedback del 12/10/2026): lo escrito en el borrador del alta.
-  assert.match(COMP, /export function InstagramBuscador\(\{ valor, onElegir, onTexto, textoInicial \}: \{\s*valor: PerfilIg \| null;\s*onElegir: \(p: PerfilIg \| null\) => void;\s*onTexto\?: \(texto: string\) => void;\s*textoInicial\?: string;\s*\}\)/);
+  // ⚠️ CAMBIADO A PROPÓSITO EL 22/10/2026: `enLaFicha` (opcional) — el mismo buscador corrige el Instagram en la ficha
+  // del lead (tests/crm-instagram-meta-22-10.test.ts). El alta no lo pasa y monta lo de siempre.
+  assert.match(COMP, /export function InstagramBuscador\(\{ valor, onElegir, onTexto, textoInicial, enLaFicha \}: \{\s*valor: PerfilIg \| null;\s*onElegir: \(p: PerfilIg \| null\) => void;\s*onTexto\?: \(texto: string\) => void;\s*textoInicial\?: string;\s*enLaFicha\?: \{ confirmar: \(texto: string\) => void; cancelar: \(\) => void \};\s*\}\)/);
   // Un solo <input>, sin `name` ni `type="hidden"`: no le suma nada al FormData del alta a escondidas;
   // el padre decide qué guarda (`valor.usuario`).
   const inputs = COMP.match(/<input\b[\s\S]*?\/>/g) ?? [];

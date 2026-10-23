@@ -58,6 +58,7 @@ import { useCaraDelLead } from '@/app/crm/lead-view/CaraDelLead';
 import { ignorarDatosDelLeadAction } from '@/app/crm/datos-sin-marcar-actions';
 import { NO_IGNORABLES } from '@/lib/datos-aviso';
 import type { StepId } from '@/lib/stage-requirements';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -325,7 +326,7 @@ function Tarjeta() {
         {/* ⚠️ UNA FILA POR LEAD (14/10/2026), con la ✕ que ignora y la flecha azul que revisa.
             Revisar abre la ficha encima de la página con el «Ver» de sus datos sin marcar abierto (16/10/2026);
             «Ignorar todos» ignora la lista de una vez. Lo ignorado se esconde detrás de «Ver más». */}
-        {error && <p role="alert" style={{ margin: '8px 0 0', fontSize: 12.5, color: 'var(--bad)', fontWeight: 600 }}>{error}</p>}
+        {error && <p role="alert" style={{ margin: '8px 0 0', fontSize: 12.5, color: 'var(--bad)', fontWeight: 600 }}>{error}<ReportarASoporte /></p>}
         <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {filas.map((p, i) => fila(`${p.lead_id}`, p, (
             <>

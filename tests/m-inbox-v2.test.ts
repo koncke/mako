@@ -48,7 +48,8 @@ test('la estrella sólo si la propuso MaKo', () => {
   assert.equal(propusoMako({ tipo: 'borrador', origen: etiquetaDeOrigen('fathom') }), false);
   assert.equal(propusoMako({ tipo: 'lead', origen: etiquetaDeOrigen('whatsapp') }), false);
   assert.equal(iconoDeDecision({ tipo: 'pendiente', origen: etiquetaDeCanal('api:5') }), 'api');
-  assert.equal(iconoDeDecision({ tipo: 'pendiente', origen: etiquetaDeCanal('app:flujo:9') }), 'chatbot');
+  // Lo que propone un flujo, con el ícono de Automations (22/10/2026: `flujo`; era `chatbot`, tests/sidebar-mako-abierto.test.ts).
+  assert.equal(iconoDeDecision({ tipo: 'pendiente', origen: etiquetaDeCanal('app:flujo:9') }), 'flujo');
   assert.equal(iconoDeDecision({ tipo: 'borrador', origen: 'x' }), 'todo');
 });
 

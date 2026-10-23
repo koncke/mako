@@ -14,7 +14,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getSecuenciasConStats, setSecuenciaActiva, publicarPasos, setSecuenciaLinea, setSecuenciaReentrada, vozDeAIStepQueFalta, DuplicadaError, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaActiva, publicarPasos, setSecuenciaLinea, setSecuenciaReentrada, vozDeAIStepQueFalta, DuplicadaError, PasosInvalidosError, TopeDelPlanError, type PasoSecuencia } from '@/lib/nutricion';
 import { getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { envioWhatsappHabilitado, envioEmailHabilitado } from '@/lib/envio-flags';
 import { asegurarAvisosSociales, disparadoresDeSecuencia, lineaDeSecuencia, medioSinConectar, SIN_MEDIOS } from '@/lib/disparadores-canales';
@@ -108,6 +108,8 @@ export async function PATCH(req: NextRequest) {
     if (err instanceof PasosInvalidosError) return Response.json({ ok: false, error: msg, ...(err.tarjeta ? { tarjeta: err.tarjeta } : {}) }, { status: 400 });
     // Otra activa ya le escribe lo mismo a la misma gente: la pantalla pregunta y, con «… igual», vuelve con `aunqueDuplique`.
     if (err instanceof DuplicadaError) return Response.json({ ok: false, error: msg, duplicada: err.otra }, { status: 409 });
+    // El tope del plan (MaKo Esencial: hasta 3 activas): lo tira `setSecuenciaActiva`, la única puerta que prende.
+    if (err instanceof TopeDelPlanError) return Response.json({ ok: false, error: msg, tope: true }, { status: 403 });
     console.error(`[api:whatsapp/secuencias PATCH] ${msg}`);
     return Response.json({ ok: false, error: msg }, { status: 500 });
   }

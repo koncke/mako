@@ -70,7 +70,7 @@ test('editando, el turno trae cambiar_ficha_funnel: la pista va ADELANTE del tex
   }
   // El turno antepone la pista SÓLO al texto que se clasifica (no al que lee el modelo ni al que se guarda).
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(turno, /const textoClasificar = `\$\{\(entrada\.pista \?\? ''\)\.slice\(0, 120\)\}\$\{adjuntos\.length \? textoMemoria : textoPersona\}`;/);
+  assert.match(turno, /const textoClasificar = `\$\{\(entrada\.pista \?\? ''\)\.slice\(0, 120\)\}(?:\$\{pistaDesde\(desde\)\})?\$\{adjuntos\.length \? textoMemoria : textoPersona\}`;/);
   const lead = sinComentarios(leer('lib/mako-analyst-lead.ts'));
   assert.match(lead, /pista: PISTA_EDICION_FICHA,/, 'el turno del lead no pasa la pista al editar');
 });

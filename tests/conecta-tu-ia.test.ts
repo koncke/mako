@@ -39,11 +39,14 @@ test('1. sin IA: «Conecta tu Claude, tu GPT o tu Gemini», y el botón y el lin
   assert.equal(linkKeysIA('https://hola-mako.com'), 'https://hola-mako.com/integraciones?abrir=anthropic');
 });
 
-test('2. «con Gemini alcanza» no queda en el código de la app (salvo el panel del Dashboard, de TB3)', () => {
+test('2. «con Gemini alcanza» no queda en el código de la app', () => {
   const archivos = execFileSync('git', ['ls-files', 'lib', 'app'], { cwd: RAIZ, encoding: 'utf8' }).split('\n')
     .filter((f) => /\.(ts|tsx)$/.test(f) && !f.startsWith('app/admin/dev/'));
   const conLaFrase = archivos.filter((f) => /con Gemini alcanza/.test(sinComentarios(readFileSync(join(RAIZ, f), 'utf8'))));
-  assert.deepEqual(conLaFrase, ['app/dashboard/PanelAnalista.tsx'], 'quedó «con Gemini alcanza» en el código (PanelAnalista lo cambia TB3 con FALTA_TU_IA)');
+  assert.deepEqual(conLaFrase, [], 'quedó «con Gemini alcanza» en el código');
+  // 22/10/2026 (TB3): el AI Analyst del Dashboard, el último que quedaba, dice lo de IA9 y abre su Claude.
+  const analista = sinComentarios(readFileSync(join(RAIZ, 'app/dashboard/PanelAnalista.tsx'), 'utf8'));
+  assert.match(analista, /datos=\{\[\{ k: 'Qué falta', v: FALTA_TU_IA \}\]\} accion=\{\{ label: CONECTA_TU_IA, onClick: \(\) => integracion\.abrir\('anthropic'\) \}\}/);
 });
 
 test('3. las fichas: su Claude y su GPT son lo recomendado; Gemini y Groq ya no dicen «gratis»', () => {

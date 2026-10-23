@@ -2,6 +2,7 @@ import { t } from '../strings'
 import { Button } from './Button'
 import { Skeleton } from './Skeleton'
 import styles from './loadable.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Placeholder of a part that is on its way: a few quiet lines, announced as busy to assistive technology. */
 export function LoadingLines() {
@@ -24,6 +25,7 @@ export function LoadFailed({ onRetry }: { onRetry(): void }) {
       <Button variant="soft" onClick={onRetry}>
         {t.lazy.retry}
       </Button>
+      <ReportarASoporte />
     </div>
   )
 }

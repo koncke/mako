@@ -114,6 +114,7 @@ import { condicionesDelEvento, datosDeLaPersona } from '@/lib/aviso-evento';
 // El chip «Sin conectar» de una tarjeta (décima tanda, GENERAL 6) y el modal que conecta ahí mismo.
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
 import { chipDeTarjeta, lineaDePaso, mediosQueUsa, MOTIVO_MEDIO, type Medio } from '@/lib/medios-automatizacion';
+import type { EnColaDelPaso } from '@/lib/en-cola-por-paso';
 
 const SANS = "'Geist', sans-serif";
 
@@ -348,6 +349,22 @@ export function FlujoLienzo({
       .catch(() => { if (vivo) setAnticipacion(null); });
     return () => { vivo = false; };
   }, [rolAdmin, hayAntes, anticipacion]);
+
+  // QUIÉN ESPERA EN CADA TARJETA Y POR QUÉ NO LE SALE (23/10/2026, P0 de #289: Martín y su esposa entraron fuera del horario
+  // de oficina y nada lo decía). El chip «2 esperando · Sale mañana 9:00» abajo de la tarjeta, con el porqué al pasar
+  // (lib/en-cola-por-paso.ts). Se vuelve a pedir cada minuto: es lo que hace el motor. Sin poder leerlo, sin chip.
+  const [enCola, setEnCola] = useState<Record<string, EnColaDelPaso>>({});
+  useEffect(() => {
+    if (!rolAdmin || !secuenciaId) return;
+    let vivo = true;
+    const pedir = () => fetch(`/api/flujos/en-cola?sec=${secuenciaId}`, { cache: 'no-store', signal: AbortSignal.timeout(30_000) })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; porPaso?: Record<string, EnColaDelPaso> }) => { if (vivo && j?.ok && j.porPaso) setEnCola(j.porPaso); })
+      .catch(() => {});
+    void pedir();
+    const t = setInterval(() => void pedir(), 60_000);
+    return () => { vivo = false; clearInterval(t); };
+  }, [rolAdmin, secuenciaId]);
 
   // Los catálogos de las condiciones (cursos, clases, posts, campañas), para que la tarjeta diga el
   // nombre de lo elegido («Completó la clase «Bienvenida»» y no «una clase»). Se piden sólo si hay una
@@ -708,6 +725,7 @@ export function FlujoLienzo({
             <ChipMedio nodo={n} texto={chip.texto} frena={chip.frena} motivo={MOTIVO_MEDIO[chip.medio]}
               onConectar={!chip.informa && rolAdmin && paso ? () => setConectarMedio({ medio: chip.medio, linea: chip.medio === 'whatsapp' ? lineaDePaso(paso, linea?.actual ?? null) : null }) : undefined} />
           )}
+          {enCola[n.id] && <ChipEnCola nodo={n} chip={enCola[n.id].chip} texto={enCola[n.id].texto} />}
           </>
         );
       }}
@@ -783,6 +801,22 @@ export function ChipMedio({ nodo, texto, frena, motivo, onConectar }: {
   return (
     <button type="button" data-chip-medio data-no-pan title={frena ? motivo : texto}
       onClick={(e) => { e.stopPropagation(); onConectar(); }} style={{ ...estilo, cursor: 'pointer' }}>{texto}</button>
+  );
+}
+
+/**
+ * QUIÉN ESPERA EN ESTA TARJETA Y POR QUÉ (23/10/2026, P0 de #289): «2 esperando · Sale mañana 9:00», colgado del borde de
+ * ABAJO a la izquierda (arriba van «Sin conectar» y el de MaKo que espera), con el porqué entero en el `title` y para el
+ * lector de pantalla. Ámbar: algo lo frena, no es un error de la tarjeta.
+ */
+export function ChipEnCola({ nodo, chip, texto }: { nodo: { x: number; y: number; alto: number }; chip: string; texto: string }) {
+  return (
+    <span data-chip-en-cola title={texto} aria-label={`${chip}. ${texto}`} style={{
+      position: 'absolute', left: nodo.x + 10, top: nodo.y + nodo.alto - 10, zIndex: 2,
+      display: 'inline-flex', alignItems: 'center', height: 19, padding: '0 8px', boxSizing: 'border-box', borderRadius: 999,
+      border: '1px solid var(--warn)', background: 'var(--surface)', color: 'var(--warn)', fontFamily: SANS,
+      fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1,
+    }}>{chip}</span>
   );
 }
 
@@ -1268,24 +1302,11 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
         <Switch checked={!sinVistaPrevia(paso)} onChange={(v) => cambiar({ sin_vista_previa: !v }, true)} label="Vista previa del link" />
       </div>
     )}
-    {/* «SALE SOLA», DE VUELTA Y A LA VISTA (21/10/2026, la prospección del Sprint de Mauricio). Salió de la pantalla el
-        09/10 («¿Qué es "Revisar antes de enviar"?... Quitalo») y el dato `revisar` lo siguió leyendo el motor: una
-        tarjeta nueva, a un lead sin pago, quedaba como BORRADOR en Chats sin que nada lo dijera (los 31 de Leila del
-        20/10; una campaña de 1.000 serían 1.000 borradores). Ahora se elige acá, con lo que pasa en cada caso. El valor
-        sin elegir es el que el MOTOR le da (`saleSolaDelPaso`), y la regla de a quien ya pagó va dicha. */}
-    {noOficial && !recordatorio && paso.canal === 'whatsapp' && (
-      <div data-sale-sola style={{ flex: 'none', marginTop: 10 }}>
-        <Switch checked={saleSolaDelPaso(paso, pasos, id, envioAutoSecuencia)} onChange={(v) => cambiar({ revisar: !v }, true)}
-          label="Sale sola"
-          hint={saleSolaDelPaso(paso, pasos, id, envioAutoSecuencia)
-            ? 'Le llega sin que la apruebes.'
-            : 'Queda en Chats › Borradores para que la apruebes. A quien ya te pagó le sale sola igual.'} />
-      </div>
-    )}
-    {/* La reentrada de la automatización (#846): debajo del WhatsApp, fuera del teléfono, como un ajuste. */}
-    {pieWhatsApp && paso.canal === 'whatsapp' && (
-      <div data-pie-whatsapp style={{ flex: 'none', marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>{pieWhatsApp}</div>
-    )}
+    {/* ⚠️ SIN «SALE SOLA» NI LA REENTRADA (23/10/2026, Martín por el Cerebro: «cambiaste una cantidad de cosas
+        impresionante en las tarjetas de las automatizaciones, cosas innecesarias»). «Sale sola»: un mensaje de una
+        automatización SALE, y el motor ya no lo deja de borrador (`saleSolo`, lib/nutricion-grafo-motor.ts: sin el
+        interruptor no queda nada escondido). La reentrada («Una sola vez» / «Cada vez que vuelve a entrar»): «para eso
+        tenemos CONDITION». La de la automatización sigue la que el motor usa (`reentrada_efectiva`). */}
     </>
   );
 }

@@ -1,0 +1,12 @@
+{
+  "name": "mako-android",
+  "private": true,
+  "description": "La app de MaKo para Google Play: una Trusted Web Activity sobre hola-mako.com (ver README.md).",
+  "type": "module",
+  "scripts": {
+    "generar": "node generar.mjs"
+  },
+  "devDependencies": {
+    "@bubblewrap/core": "1.27.0"
+  }
+}

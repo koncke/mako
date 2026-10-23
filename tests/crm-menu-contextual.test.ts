@@ -87,14 +87,15 @@ test('con selección, el clic sobre un tildado actúa sobre TODOS; sobre uno sin
 
 // Roturas: las campañas sin la condición `entrada` → 1 fallo. «Eliminar etapa» sin `borrable` → 1 fallo.
 test('la columna: flechas si se arrastra, campañas en la entrada, el curso en Ganado, «Eliminar etapa» si el server la borra', () => {
+  // Por SECCIONES desde el 22/10/2026 (Columnas · Leads · Etapa, y «Eliminar etapa» sola): los títulos los pone `itemsCrm`.
   const comun = opcionesCrm(col());
-  assert.deepEqual(comun, ['col_izquierda', 'col_derecha', null, 'col_nuevo_lead', null, 'col_renombrar', 'col_agregar', null, 'col_eliminar']);
+  assert.deepEqual(comun, ['col_izquierda', 'col_derecha', 'col_agregar', 'col_nuevo_lead', 'col_renombrar', null, 'col_eliminar']);
   finalEsBorrar(comun, 'col_eliminar');
   // La entrada: no se mueve ni se borra (el server la fuerza primera), y es donde viven las campañas de Meta.
-  assert.deepEqual(opcionesCrm(col({ mover: false, entrada: true, borrable: false })), ['col_nuevo_lead', null, 'col_campanas', 'col_renombrar', 'col_agregar']);
+  assert.deepEqual(opcionesCrm(col({ mover: false, entrada: true, borrable: false })), ['col_agregar', 'col_nuevo_lead', 'col_campanas', 'col_renombrar']);
   assert.ok(!comun.includes('col_campanas'), 'las campañas sólo en la entrada');
   // La de reunión: «Asignar evento», como en su «⋯» (21/10/2026: también en el clic derecho).
-  assert.deepEqual(opcionesCrm(col({ reunion: true })), ['col_izquierda', 'col_derecha', null, 'col_nuevo_lead', null, 'col_evento', 'col_renombrar', 'col_agregar', null, 'col_eliminar']);
+  assert.deepEqual(opcionesCrm(col({ reunion: true })), ['col_izquierda', 'col_derecha', 'col_agregar', 'col_nuevo_lead', 'col_renombrar', 'col_evento', null, 'col_eliminar']);
   assert.ok(!comun.includes('col_evento'), 'el evento sólo en una etapa de reunión');
   // Ganado: el rótulo dice lo que va a pasar al tocarlo (sin subtítulo «Prendido»/«Apagado»).
   assert.ok(opcionesCrm(col({ curso: true })).includes('col_curso_apagar'));
@@ -156,16 +157,18 @@ test('cada opción tiene su `case` en el tablero (ninguna se dibuja muerta)', ()
   for (const id of Object.keys(OPCION_CRM) as IdOpcionCrm[]) assert.match(fn, new RegExp(`case '${id}':`), `«${OPCION_CRM[id].texto}» no hace nada`);
 });
 
-// Roturas: devolverle `sub: cursoPrendido ? 'Prendido' : 'Apagado'` al «⋯» → 1 fallo. Cambiar «Cambiar el
-// nombre» del menú por «Renombrar» → 1 fallo.
-test('los textos de la columna son LOS MISMOS del «⋯», y el «⋯» ya no lleva subtítulos', () => {
-  const ini = BOARD.indexOf('ariaLabel={`Opciones de la etapa ${c.label}`}');
-  const opciones = BOARD.slice(ini, BOARD.indexOf('onChange={(v) => {', ini));
-  assert.ok(ini > 0 && opciones.length > 300, 'no encontré las opciones del «⋯» de la columna');
-  assert.doesNotMatch(opciones, /\bsub:/, '«elimina todos los subtitulos de los botones de los 3 puntos» (14/10/2026)');
-  for (const id of ['col_nuevo_lead', 'col_campanas', 'col_evento', 'col_curso_prender', 'col_curso_apagar', 'col_renombrar', 'col_agregar', 'col_eliminar'] as const) {
-    assert.ok(opciones.includes(`'${OPCION_CRM[id].texto}'`), `«${OPCION_CRM[id].texto}» del clic derecho no es el texto del «⋯»`);
-  }
+// Rotura (22/10/2026): el «⋯» volviendo a armar su propia lista (un `options={[` en la cabecera) → 1 fallo.
+test('el «⋯» de la columna abre EL MISMO menú que su clic derecho: una sola lista, sin subtítulos', () => {
+  // «Ordena las opciones del desplegable de los 3 puntos... ponlas en secciones» (Martín, 22/10/2026). Eran dos listas
+  // (un `Dropdown` en la cabecera y `opcionesCrm` en el clic derecho) que se mantenían iguales a mano.
+  // Con el aviso de lo que le falta (22/10/2026: el evento de una de reunión, el cobro de Ganado) en el nombre y el título.
+  assert.match(BOARD, /<button type="button" className="mk-col-mas" aria-haspopup="menu" data-falta=\{falta \?\? undefined\}\s+aria-label=\{`Opciones de la etapa \$\{c\.label\}\$\{falta \? ` · \$\{AVISO_VINCULO\[falta\]\}` : ''\}`\}\s+title=\{falta \? AVISO_VINCULO\[falta\] : 'Opciones de la etapa'\} onClick=\{\(e\) => abrirMenuDeColumna\(e\.currentTarget\)\}/);
+  const abrir = BOARD.slice(BOARD.indexOf('const abrirMenuDeColumna = '), BOARD.indexOf('const cambiarTipoColumna = '));
+  assert.match(abrir, /const bajo = contextoBajo\(el\);/, 'el «⋯» no mira la MISMA columna que el clic derecho');
+  assert.match(abrir, /setMenuCtx\(\{ n: aperturasMenu\.current, x: r\.left, y: r\.bottom \+ 4, \.\.\.bajo \}\);/);
+  assert.doesNotMatch(BOARD, /options=\{\[\s*\/\/ ⚠️ LAS FLECHAS|ariaLabel=\{`Opciones de la etapa/, 'volvió la lista propia del «⋯»');
+  // Sin subtítulos (14/10/2026: «elimina todos los subtitulos de los botones de los 3 puntos»): el renglón no los tiene.
+  for (const o of Object.values(OPCION_CRM)) assert.ok(!('sub' in o), 'un renglón con subtítulo');
 });
 
 // Roturas: sin la guarda de `defaultPrevented` → 1 fallo (la ficha y los desplegables viven adentro del

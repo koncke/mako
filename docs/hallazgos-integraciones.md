@@ -1097,23 +1097,146 @@ fila del ws1 (`soloLasPropias` compara contra las filas de la plataforma) y la p
 
 **Vive en:** lib/ws-tab.ts (`wsDeVuelta`) · app/api/integraciones/meta/callback/ · app/api/integraciones/google-calendar/callback/ · tests/ws-vuelta-oauth.test.ts
 
-## Varias cuentas por pasarela: lo que ya está y la trampa de las claves por NOMBRE (22/10/2026)
+## La agenda del CRM era lenta: tres APIs en fila, y el usuario de Calendly antes de cada lista (23/10/2026)
 
-«Vincular cobro» (docs/hallazgos-pagos.md, mig 0326) nombra cada cuenta con un id estable (`stripe:principal`,
-`mercadopago:principal`). Hoy cada pasarela tiene UNA: la de las claves sin sufijo. Lo que se midió para sumar otra:
+- **Síntoma** (Martín, 22/10, en el ws1): «Vincular evento» tarda al abrir, al vincular y al «Conectar Cal».
+- **Causa, leída en el código:** `listarEventosDeAgenda` (lib/agenda-evento-etapa-server.ts) esperaba a Calendly, después
+  a Cal.com y después a Google: la suma de los tres. `prepararVinculo` vuelve a listar la cuenta para validar. Y
+  `listarEventTypes` de Calendly pedía `GET /users/me` antes de cada lista y de cada evento creado: dos viajes en fila.
+- **Lo que quedó:** todo a la vez (la base, cada agenda y Google). La lista de cada cuenta se guarda un minuto
+  (lib/agenda-cache.ts), y el usuario de cada token, para siempre (no cambia). Crear o editar un evento olvida la lista de
+  esa cuenta.
+- **La trampa de la llave:** esa lista decide QUÉ se puede vincular (`prepararVinculo`: sólo eventos de SU cuenta, porque
+  los identificadores no son secretos). Por eso la llave lleva el negocio y la huella del secreto (nunca el secreto). Con
+  la huella, conectar otra cuenta cambia la llave y nunca se ve la lista de la anterior: «Conectar Cal» no borra nada.
+- **Lo guardado se copia:** `eventosDelProveedor` le suma a la lista las R1/R2 que la cuenta no devolvió. Sin la copia,
+  eso ensuciaba lo guardado y cada lectura sumaba otra vez.
+- **El contrato con Cobros** (su fase B, varias cuentas por proveedor, va encima): `eventosDelProveedor(proveedor)` es LA
+  unidad de lectura de una cuenta, la llave le suma la cuenta, y Calendly recibe el token por parámetro.
 
-- **Lo que ya sirve:** el aviso de Stripe trae la cuenta en la URL (`?acct=`, `urlAvisoStripe`), y `webhook_routing` ya
-  mapea cada identificador a su negocio (`wsPorIdentificadorEstricto`). Una segunda cuenta es un segundo identificador:
-  rutea sin cambios.
-- **Lo que falta:** las claves se guardan por NOMBRE (`credenciales.clave`). Una segunda cuenta necesita las suyas con un
-  sufijo, el webhook tiene que elegir el secreto de ESA cuenta (hoy lee `STRIPE_WEBHOOK_SECRET` del negocio), y el cobro
-  tiene que guardar por qué cuenta se cobró (`cuentaDelCobro`, lib/cobro-etapa.ts, cae en la principal).
-- **⚠️ La trampa:** las protecciones de las claves de pasarela son listas por nombre EXACTO. `NO_MIGRAR_A_WS` impide que
-  el arranque o «Datos de Mau» copien una clave que cobra a otro negocio, y `CLAVES_DE_PASARELA` impide leerlas del
-  entorno (lib/credenciales.ts; tests/pasarela-sin-env.test.ts barre los nombres). Una clave `STRIPE_SECRET_KEY__otra`
-  queda FUERA de las dos sin que nada falle. **La regla:** la segunda cuenta entra con la pregunta por prefijo
-  (`esClaveDePasarela` mirando el nombre base), no sumando nombres a la lista.
-- Calendly y Cal.com (también pedidos con «varias cuentas») no pasan por esto: son de la agenda, no cobran.
+«Volver a leer» del pop-up pide `fresco` (`leer(true)` en app/crm/EventosDeEtapaModal.tsx); abrirlo y «Conectar» no.
 
-**Vive en:** lib/credenciales.ts (`NO_MIGRAR_A_WS`, `CLAVES_DE_PASARELA`) · lib/cobros-conexion.ts · lib/webhook-routing.ts ·
-app/api/webhooks/stripe/route.ts · lib/cobro-etapa.ts (`cuentaPrincipal`, `cuentaDelCobro`).
+**Sin hacer:** sin medir en producción. La caché vive en la memoria de cada instancia.
+
+**Vive en:** lib/agenda-cache.ts · lib/agenda-evento-etapa-server.ts (`eventosDelProveedor`, `listarEventosDeAgenda`,
+`olvidarCuentas`) · lib/calendly-agenda.ts (`usuarioUri`) · tests/agenda-velocidad-23-10.test.ts
+*23/10/2026, chat «CRM» (claude3).*
+
+## Varias cuentas por pasarela: una cuenta es un SUFIJO, y todo lo que miraba el nombre exacto la dejaba afuera (22/10/2026)
+
+Martín pidió dos cuentas de Stripe, dos de Mercado Pago (y dos de Calendly o Cal). Medido en el ws3: no se podía; hoy
+Stripe y MP sí (la agenda es la fase B, con el CRM). El modelo (lib/cuentas-integracion.ts): las claves de una cuenta
+llevan un sufijo (`STRIPE_SECRET_KEY__C2`; la principal, sin sufijo, como siempre), su nombre es otra clave
+(`STRIPE_ALIAS__C2`) y su id es `stripe:c2`. Lo que mordía, todo callado:
+
+- **Las protecciones por nombre EXACTO dejaban afuera a la segunda cuenta.** `NO_MIGRAR_A_WS`, `CLAVES_DE_PASARELA`
+  (`aplicarAEnv`: la clave del ws1 iba a `process.env`) y `ROUTING_CREDS`: `guardarCredencial` guardaba
+  `STRIPE_ACCOUNT_ID__C2` SIN reclamar su `acct`, y los avisos de esa cuenta no llegaban a ningún negocio. Ahora todas
+  preguntan por `baseDeClave(clave)`.
+- **Borrar el id de UNA cuenta cortaba los avisos de TODAS.** `eliminarCredencial` llamaba `borrarRoutingDeWs(servicio,
+  ws)`: todas las filas del servicio del negocio. Para Stripe y MP lee el valor antes de borrar y suelta sólo ESE
+  (`soltarIdentificador`). Calendly y Cal siguen con el viejo (su R1 y R2 se vuelven a reclamar después).
+- **Borrar el id de una cuenta que no descifra la dejaba reclamada para siempre:** el valor se lee antes de borrar para
+  soltar SU fila, y una fila ilegible daba null. Ahora se sueltan las filas del servicio que no son de otra cuenta del
+  negocio (`soltarRuteoSinCuenta`) — y si el id de alguna otra no se puede leer (estricta: la base caída tira), NO se
+  suelta nada: soltar de más corta los avisos de una cuenta que cobra, y a un cliente nadie le re-siembra el ruteo.
+- **La tarjeta decía «no conectada» con sólo una cuenta de más** (`integracionConectada` miraba los nombres exactos).
+- **El aviso de MP de una cuenta de más no tenía dónde pegarse** (el recuadro amarillo es de la tarjeta de la principal): va
+  en su fila, con la acción `aviso` de /api/integraciones/cuentas.
+- **La cuenta de un aviso se busca ESTRICTA** (`cuentaDeIdentificador`): con `credDelCliente` sola, la base caída daba
+  «de ninguna cuenta», MP releía con la principal, ignoraba el pago con un 200 y no volvía (MP no reintenta un 200).
+- **`like` en PostgREST: `*` es el `%`, y `_` también es comodín.** `clavesGuardadasConBase` trae `clave.like.STRIPE_SECRET_KEY*`
+  y filtra después por la base exacta: el `like` solo trae de más. tests/_postgrest-de-mentira.ts entiende `or=(…like…)`.
+- **Los barridos fijaban la lectura de la principal letra por letra** (`credDelCliente('STRIPE_SECRET_KEY', ws)`): con la
+  clave armada por `claveDeCuenta(`, un `credWs(claveDeCuenta('STRIPE_…'))` pasaba tests/pasarela-sin-env.test.ts. Su
+  prefijo ahora incluye `claveDeCuenta(`.
+
+**Vive en:** lib/cuentas-integracion.ts (puro) · lib/cuentas-pago-server.ts (`cuentasDePago`, `credStripeDe`, `credMpDe`,
+`cuentaDeIdentificador`, `proximaCuentaDe`) · lib/credenciales.ts · lib/cobros-conexion.ts · app/api/integraciones/cuentas ·
+app/integraciones/CuentasDePago.tsx · tests/cuentas-pago.test.ts. Lo de la plata, en docs/hallazgos-pagos.md.
+**La fase B (Calendly y Cal.com, 23/10/2026)** usa el mismo sufijo (`CALENDLY_API_TOKEN__C2`, `CALCOM_WEBHOOK_SECRET__C2`;
+`CLAVES_AGENDA`, lib/cuentas-agenda-server.ts). Lo que mordía:
+- **El aviso de la segunda cuenta no verificaba**: los webhooks leían UN secreto por negocio, y la reserva de la otra
+  cuenta daba 401 «firma rechazada» (Calendly deshabilita la suscripción después de varios no-2xx). Ahora prueban el
+  secreto de cada cuenta (`cuentaQueFirmo`, puro), leídos estrictos (`firmasDeAgenda`).
+- **Buscar o cancelar la reunión de un lead con UN token no ve la otra cuenta**, y cancelar con el token equivocado da
+  404. `proximaReunionCalendly` busca en todas (`tokensDeAgenda`) y devuelve de cuál es; cancelar usa ese token. Una
+  cuenta que no se puede leer TIRA con su nombre.
+- Lo que rutea una reserva sigue siendo el TIPO DE EVENTO (R1/R2 o un vínculo de «Asignar evento»), no la cuenta.
+- **«Asignar evento» por cuenta** (sobre la agenda rápida del CRM, `eventosDelProveedor` sigue siendo LA unidad de lectura):
+  lee cada cuenta en paralelo con su token y su caché (la llave lleva la huella del token, así dos cuentas no comparten
+  lista), y cada evento sale con su `cuenta` y `cuentaNombre`; `proveedores` pasa a ser una fila por CUENTA. Crear va a
+  la cuenta elegida; EDITAR sin cuenta busca la que TIENE el evento (con el token de otra, Calendly contesta 404).
+- **Un test que mockea `credWs` esconde de qué negocio se lee.** tests/calendly-cancelar.test.ts corría
+  `proximaReunionCalendly` fuera de todo negocio y pasaba porque `credWs` era de mentira; buscar las cuentas de más
+  necesita el negocio (`getWorkspaceActual`), y fuera de un request eso tira «cookies outside a request scope». En
+  producción corre siempre dentro de uno (request o flujo con `runWithWorkspace`), así que el test pasó a correr ahí:
+  ese error en un hijo es el test sin negocio, no la librería rota.
+- **Tres barredoras de todo el repo frenaron la fase A en el tren 18** y no estaban entre mis tests:
+  - tests/puente-panel-copy, la guarda de voseo, por un «acá».
+  - tests/fuentes-leads-webhooks, que fija la línea del ruteo de lib/credenciales.ts.
+  - tests/historico-al-conectar, porque toda puerta nueva que llama a `guardarCredencial` decide si arranca el histórico.
+  Las de las cuentas no lo arrancan (ninguno de los cuatro proveedores tiene), y el test ahora tira si uno llega a tenerlo.
+  Antes de pasar una punta que toca credenciales o copy, se corren las tres.
+**Sin hacer:** la pantalla y la API de «Asignar evento» agrupadas por cuenta y el `cuenta` en crear/editar de la API de
+MaKo son del CRM (las firmas ya están); el link de la R1/R2, la anticipación y las herramientas de agenda del doer siguen
+con la principal (la R1/R2 es de la principal); no se detecta la misma cuenta de Calendly conectada dos veces (haría falta
+guardar su `/users/me`).
+
+## Editar un evento de Calendly o Cal.com por API: lo que se puede y lo que no (22-23/10/2026)
+
+Martín pidió «edición COMPLETA del evento» desde el CRM. Leído en la documentación de cada una el 22 y el 23/10/2026 (sin
+probar contra una cuenta real: no hay una de prueba). Desde el 23/10 el pop-up y MaKo editan nombre, duración, descripción,
+dónde es la reunión y, en Cal.com, las preguntas que ya existen:
+
+| | Calendly (API v2) | Cal.com (API v2) |
+|---|---|---|
+| Nombre, duración, descripción, dónde | `PATCH /event_types/{uuid}`: `name`, `duration`, **`description`** (`description_plain` es sólo de la respuesta), `locations` (`kind` + `location`). Sólo eventos uno a uno | `PATCH /event-types/{id}`: `title`, `lengthInMinutes`, `description`, `locations` (`type`: integration, address, link, phone, attendeePhone…) |
+| Preguntas | **No se editan** (`custom_questions` es de lectura) | `PATCH /event-types/{id}/booking-fields`, por `slug`: texto, obligatoria, oculta. **Sólo las que existen**: agregar una pide reemplazar la lista entera, que repone las de sistema |
+| Disponibilidad | Dos rutas distintas según la fuente (`/event_type_availability_schedules` y `/event_types/{uuid}/availability_schedules/{id}`), sin la forma de una regla | `scheduleId` + `PATCH /schedules/{id}` |
+| Límite | 500 por minuto (pago), 50 (gratis) | 120 por minuto |
+
+- **La disponibilidad no se edita desde MaKo:** en las dos, un PATCH reemplaza TODAS las reglas, y en Calendly ni la ruta
+  está clara. El pop-up la manda a la cuenta con un link (`editarAllaDe`), en otra pestaña.
+- **`locations` reemplaza la lista entera.** Con más de una ubicación (o una que no es de las comunes: Meet, Zoom, llamada,
+  en persona, link), el pop-up no deja cambiarla: pisaría las otras (`ubicacionAlla`). MaKo sí, y el «sí» dice que reemplaza.
+- **Cal.com versiona cada endpoint aparte con `cal-api-version`, y CAMBIA:** las preguntas piden `2026-06-12`
+  (`VERSION_BOOKING_FIELDS_CALCOM`); los tipos de evento se leen y escriben con `2024-06-14` (`VERSION_EVENT_TYPES_CALCOM`;
+  su documentación de hoy ya pide `2026-06-12` también para el PATCH), los horarios con `2024-06-11` y las reservas con
+  `2024-08-13`. Con la versión equivocada contesta igual, con la forma vieja y sin error.
+- **Una falla a medias se dice:** en Cal.com el evento y las preguntas son dos pedidos; si el segundo falla, el error dice
+  «Cal.com guardó lo demás, pero no las preguntas».
+
+**Sin hacer:** agregar o borrar preguntas en Cal.com; la disponibilidad desde MaKo; pasar los tipos de evento de Cal.com a
+`2026-06-12` (probarlo con una cuenta real antes).
+
+**Vive en:** lib/agenda-evento-detalle.ts (puro: ubicaciones, preguntas, `datosDeDetalle`) · lib/calendly-agenda.ts
+(`editarEventTypeCalendly`, `detalleEventTypeCalendly`) · lib/calcom.ts (`editarEventTypeCalcom`, `detalleEventTypeCalcom`,
+`editarPreguntasCalcom`) · lib/agenda-evento-etapa-server.ts (`detalleDeEventoDeAgenda`, `editarEventoDeAgenda`) ·
+tests/agenda-edicion-completa-23-10.test.ts
+*22-23/10/2026, chat «CRM» (claude3).*
+
+## El tope de cuentas del plan: sólo a quien MaKo le cobra el plan, y sólo lo que SUMA una cuenta (23/10/2026)
+
+MaKo Esencial trae «1 cuenta de Stripe o Mercado Pago» y Pro varias (docs/ofertas-mako.md; el número está en
+lib/topes-plan.ts, `cobros.cuentas`). Se hace cumplir en lib/tope-cuentas.ts, y la regla pura vive en
+lib/tope-cuentas-reglas.ts. Lo que no se ve:
+- **La capa no alcanza para saber si hay tope.** El ws1 y los acuerdos a mano también tienen capa `completo`. Primero
+  se pregunta si MaKo le cobra el plan por la pasarela (`suscripcionDeMakoDe`). Si no puede leerlo, no frena: el tope
+  vende, no protege nada.
+- **Hay DOS puertas que suman una cuenta, no una.** «Conectar otra» (/api/integraciones/cuentas) y la tarjeta de la
+  pasarela que todavía no estaba (`descubrir-pago` en /api/integraciones/credencial). Si sólo se cierra la primera,
+  Esencial conecta Stripe y Mercado Pago por las tarjetas.
+- **Cambiarle la clave a la misma cuenta o volver a conectarla no suma.** El tope se mira sólo si `cuentaParaConectar`
+  devuelve una cuenta que no estaba. Nunca desconecta nada ni llega a un cobro: un test exige que `topeDeCuentas`
+  viva sólo en esas dos puertas.
+- Se cuenta por grupo: las de cobro (Stripe y Mercado Pago juntas) y las de agenda (Calendly y Cal juntas).
+
+**Sin hacer:** la principal de Calendly o Cal por la tarjeta genérica (`guardar` de /api/integraciones/credencial) no
+mira el tope. Las ofertas sólo hablan de las de cobro. «Pasar a Pro» lleva a `RUTA_CAMBIAR_PLAN` (lib/topes-plan.ts,
+/configuraciones/plan), que llega con la rama de la suscripción (`suscripcion-mako-2310`); hasta entonces ningún negocio tiene `suscripcionDeMakoDe`, así que el tope
+no se aplica a nadie.
+
+**Vive en:** lib/tope-cuentas.ts · lib/tope-cuentas-reglas.ts · app/api/integraciones/cuentas/route.ts ·
+app/api/integraciones/credencial/route.ts (`descubrir-pago`) · app/integraciones/CuentasDePago.tsx ·
+tests/tope-cuentas.test.ts.

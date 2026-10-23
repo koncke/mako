@@ -22,23 +22,15 @@ import { join } from 'node:path';
 const leer = (rel: string): string => readFileSync(join(import.meta.dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string): string => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
-test('el panel del CRON ya no tiene el número, y la reentrada sólo cuando el flujo no tiene WhatsApp', () => {
+// ⚠️ 23/10/2026 (Martín por el Cerebro: «SACÁ el desplegable "Una sola vez / otra vez que es reunión": para eso tenemos
+// CONDITION»): la reentrada ya no se elige en pantalla, ni en el CRON ni debajo de cada WhatsApp.
+test('el panel del CRON ya no tiene el número ni la reentrada', () => {
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   assert.doesNotMatch(perfil, /Número de WhatsApp por el que sale esta automatización/, 'volvió el «Número» de toda la automatización al CRON');
-  assert.match(perfil, /const hayWhatsApp = pasos\.some\(\(p\) => esNodoMensaje\(p\) && p\.canal === 'whatsapp'\);/);
-  assert.match(perfil, /pie=\{hayWhatsApp \? undefined : <div [^>]*>\{controlReentrada\}<\/div>\}/, 'con WhatsApp, la reentrada sigue en el CRON');
-  assert.match(perfil, /pieWhatsApp=\{controlReentrada\}/);
-  // UN control, el mismo guardado: dos copias se desincronizarían.
-  assert.equal((perfil.match(/onChange=\{\(v\) => void guardarReentrada\(v as Reentrada\)\}/g) ?? []).length, 1);
-  assert.match(perfil, /Reentrada\{hayWhatsApp \? ' · toda la automatización' : ''\}/, 'en el WhatsApp no dice que vale para toda la automatización');
+  assert.doesNotMatch(perfil, /controlReentrada|guardarReentrada|data-reentrada/, 'volvió la reentrada a la pantalla');
 });
 
-test('debajo de cada WhatsApp: el lienzo lo pasa hasta el editor del mensaje y el editor lo dibuja', () => {
+test('debajo de cada WhatsApp ya no hay reentrada', () => {
   const lienzo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
-  assert.match(lienzo, /editorEntrada=\{editorEntrada\} formaPanel=\{formaPanel\} linea=\{linea\} pieWhatsApp=\{pieWhatsApp\}/);
-  const i = lienzo.indexOf('function EditorMensaje(');
-  assert.ok(i > 0);
-  const editor = lienzo.slice(i, lienzo.indexOf('\n}\n', i));
-  assert.match(editor, /chatMako, pieWhatsApp \}/);
-  assert.match(editor, /\{pieWhatsApp && paso\.canal === 'whatsapp' && \(\n\s*<div data-pie-whatsapp [^>]*>\{pieWhatsApp\}<\/div>/);
+  assert.doesNotMatch(lienzo, /data-pie-whatsapp/);
 });

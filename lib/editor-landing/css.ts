@@ -120,6 +120,9 @@ const RAIZ: string[] = [
   r(D + ' .gm-fondo', 'background: var(--gm-fondo, #ffffff); background-size: cover; background-position: center; background-repeat: no-repeat; min-height: 100%;'),
   r(D + '[data-modo="publico"] .gm-fondo', 'background-attachment: fixed; min-height: 100vh;'),
   '@media (hover: none) { ' + r(D + '[data-modo="publico"] .gm-fondo', 'background-attachment: scroll;') + ' }',
+  // Un TRAMO de secciones de Gamma dentro de una página libre (html-editable.ts): su fondo mide lo que
+  // mide el tramo, no la pantalla entera, y no queda fijo (lo de arriba y abajo es el diseño).
+  r(D + '[data-modo="publico"] .gm-fondo[data-tramo]', 'background-attachment: scroll; min-height: 0;'),
   // El tamaño base: 18px en una pantalla ancha, como Gamma (1rem × su factor de
   // viewport); la tarjeta mide 64.5em. --gm-base lo pisa quien necesite una escala fija
   // (una miniatura proporcional: --gm-base: calc(<ancho> / 64.5)).
@@ -345,6 +348,13 @@ const BLOQUES: string[] = [
   r(D + ' .gm-insertado[data-clase="agenda"] iframe', 'aspect-ratio: auto;'),
   r(D + ' .gm-html iframe', 'display: block; width: 100%; height: 300px; border: 0;'),
   ...ALTOS_HTML_LIBRE.map((a) => r(D + ' .gm-html[data-alto="' + a + '"] iframe', 'height: ' + a + 'px;')),
+  // «Diseño editable» (html-editable.ts) en el editor y en una miniatura: un iframe a todo el ancho, y la
+  // sección que lo lleva va a sangre y pegada a la anterior, como en la página publicada.
+  r(D + ' .gm-editable', 'display: block; min-width: 0;'),
+  r(D + ' .gm-editable > iframe', 'display: block; width: 100%; border: 0; background: transparent;'),
+  r(D + ' .gm-editable[data-vacia]', 'min-height: 4em; border: 1px dashed var(--gm-borde-neutro, rgba(127,127,127,0.4)); border-radius: 0.5em;'),
+  r(D + ' .gm-tarjeta:has(.gm-editable)', 'width: 100%; margin-top: 0; --gm-radio-tarjeta: 0px; --gm-tarjeta-borde: 0 0 #0000; --gm-tarjeta-sombra: 0 0 #0000; --gm-tarjeta-fondo: transparent; --gm-tarjeta-filtro: none;'),
+  r(D + ' .gm-tarjeta:has(.gm-editable) > .gm-tarjeta-cuerpo', 'padding: 0;'),
   // Vacíos (sólo en el editor) y marcadores de una miniatura (sin iframes ni videos).
   r([D + ' :is(.gm-imagen, .gm-video, .gm-insertado, .gm-html)[data-vacia="si"]', D + ' .gm-marcador'], 'display: grid; place-items: center; min-height: 8em; border: 0.0625em dashed var(--gm-borde-neutro, rgba(0,0,0,0.2)); border-radius: var(--gm-radio-caja, 0.35em); background: var(--gm-superficie, rgba(127,127,127,0.08)); color: var(--gm-texto-tenue, inherit); font-size: 0.85em;'),
   r(D + ' .gm-marcador', 'aspect-ratio: 16 / 9; min-height: 0;'),

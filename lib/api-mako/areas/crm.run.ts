@@ -31,7 +31,9 @@ import {
   setMeetingManual, setPipelineStage, duplicadosDeLead, getTrackingEvents, getVslEngagement,
   contarVisitasLanding, esRequisitosFaltantes, type Lead, type FathomLink,
 } from '@/lib/leads';
-import { getFunnelDefault, getFunnelDe } from '@/lib/funnels';
+import { getFunnelDefault, getFunnelDe, listarFunnels, idDelFunnelDefault } from '@/lib/funnels';
+import { etapasParaTraer, etiquetaDeOrigen, gruposDeLinea, marcarEnElCrm, participantesDelGrupo, traerDelGrupo } from '@/app/crm/grupo-wa-server';
+import { etapaPorDefecto, funnelPorDefecto } from '@/lib/grupo-wa-reglas';
 import { salidasDeEtapa, stageMetaOpt, ENTRADAS, MAKO_SETTER, type EntradaId, type Stage } from '@/lib/pipeline';
 // «Nuevo CRM» por su tipo (14/10/2026): el catálogo puro y el alta que comparte con el modal.
 import { TIPOS_CRM, TIPO_CRM_OTRO, ENTRADAS_OFRECIDAS, siembraDeCrm, tipoCrmPorId } from '@/lib/pipeline';
@@ -49,6 +51,17 @@ import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
 import { bloqueEstadoDeCuenta, comprobanteDelPedido, notaEnPantalla } from '@/lib/pagos-bloque';
 import { listarCobros } from '@/lib/cobros';
+import { enElTope, estadoTopeCrm, frenarAltaPorTope } from '@/lib/topes-crm';
+import { textoTope } from '@/lib/topes-plan';
+import { cuentasValidas, type CuentaPago } from '@/lib/cobro-etapa';
+import { cuentasDePago } from '@/lib/cuentas-pago-server';
+import { importarPrecioDeStripe, preciosDeStripe } from '@/lib/stripe-catalogo';
+import type { PrecioDeStripe } from '@/lib/stripe-catalogo-reglas';
+import { precioDeStripeTexto } from '@/app/crm/cobro-ganado';
+import {
+  cambiarCuentas as cambiarCuentasCobro, desvincular as desvincularCobro, ganadoDelCrm, productosParaCobrar, vincular as vincularCobro,
+  vinculoPorId as vinculoCobroPorId, vinculosDelNegocio,
+} from '@/lib/cobro-etapa-server';
 import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
@@ -89,7 +102,8 @@ import {
   crearEventoDeAgenda, editarEventoDeAgenda,
 } from '@/lib/agenda-evento-etapa-server';
 import { datosDeEvento, mismoIdentificador } from '@/lib/agenda-evento-etapa';
-import { puedeQuitar, aQuienPromover, etapaDeEntrada, type ProductoDelLead } from '@/lib/lead-funnel-reglas';
+import { UBICACIONES, datosDeDetalle } from '@/lib/agenda-evento-detalle';
+import { puedeQuitar, aQuienPromover, etapaDeEntrada, nombreVisible, type ProductoDelLead } from '@/lib/lead-funnel-reglas';
 import {
   listarEtiquetas, etiquetaPorId, etiquetasDeLead, conteoPorEtiqueta, crearEtiqueta, editarEtiqueta,
   archivarEtiqueta, usoDeEtiqueta, ponerEtiqueta, sacarEtiqueta, catalogoWhatsApp, esEtiquetaError,
@@ -399,6 +413,90 @@ async function etapasDelCrm(input: Record<string, unknown>): Promise<SalidaLectu
 
 // ── los runners ───────────────────────────────────────────────────────────────
 
+// ── «Vincular cobro» por MaKo (22/10/2026) ────────────────────────────────────────
+/** La etapa que cobra: Ganado (una terminal, la misma key en todos los CRM). */
+const ETAPA_COBRO = 'ganado';
+/**
+ * Las cuentas de Stripe y Mercado Pago conectadas del negocio, como las arma el pop-up (`cuentasConectadas` de
+ * app/crm/cobro-etapa-actions.ts): VARIAS por pasarela desde la fase A de Cobros (23/10/2026). Con
+ * `cuentasDePasarelas`, sólo la principal: MaKo rechazaba una cuenta secundaria que el pop-up sí ofrece.
+ */
+const cuentasDelNegocio = async (ws: number): Promise<CuentaPago[]> =>
+  (await cuentasDePago(ws)).filter((c) => c.conectada).map(({ id, proveedor, nombre, principal }) => ({ id, proveedor, nombre, principal }));
+/** El CRM del pedido (sin id, el principal), con su nombre. null = no es de este negocio. */
+async function crmDeCobro(id: unknown): Promise<{ id: number; nombre: string } | null> {
+  const funnels = await listarFunnels();
+  const f = id == null || id === '' ? funnels.find((x) => x.esDefault) : funnels.find((x) => x.id === Number(id));
+  return f ? { id: f.id, nombre: nombreVisible(f) } : null;
+}
+
+/**
+ * Un precio de Stripe para Ganado (23/10/2026), lo que propone MaKo: el precio en vivo, que se pueda traer, y el «sí» dice
+ * qué entra al catálogo y a qué precio. Lo mismo que «+ Producto» del pop-up (lib/stripe-catalogo.ts, de Cobros).
+ */
+async function prepararPrecioDeStripe(precioId: string, crm: { id: number; nombre: string }, ws: number): Promise<{ payload: Record<string, unknown>; resumen: string } | { error: string; disponibles?: unknown }> {
+  const g = await ganadoDelCrm(crm.id);
+  if (!g) return { error: `«${crm.nombre}» no tiene la etapa Ganado.` };
+  const { precios, errores } = await preciosDeStripe(ws);
+  const p = precios.find((x) => x.precio === precioId);
+  if (!p) {
+    return {
+      error: errores.length ? `No pude leer Stripe: ${errores.map((e) => `${e.cuentaNombre}: ${e.error}`).join(' · ')}` : 'Ese precio no está en Stripe (ver_cobro_etapa).',
+      disponibles: precios.filter((x) => !x.noSe).map((x) => ({ precioStripe: x.precio, nombre: x.nombre, precio: precioDeStripeTexto(x) })),
+    };
+  }
+  if (p.noSe) return { error: `«${p.nombre}»: ${p.noSe}` };
+  const productos = await productosParaCobrar();
+  const deMako = p.enMako != null ? productos.find((x) => x.id === p.enMako) : null;
+  const que = deMako ? `«${deMako.nombre}» del catálogo, con el precio de Stripe (${precioDeStripeTexto(p)})` : `«${p.nombre}» de Stripe al catálogo (${precioDeStripeTexto(p)})`;
+  return {
+    payload: { embudoId: crm.id, precioStripe: p.precio, cuentaStripe: p.cuenta },
+    resumen: `Traer ${que} y vincularlo a Ganado de «${crm.nombre}»: quien lo pague por ${p.cuentaNombre} pasa a Ganado ahí.`,
+  };
+}
+
+/** Lo confirmado: traer el precio (el server lo vuelve a leer en Stripe) y vincularlo, con los mismos frenos que el pop-up. */
+async function ejecutarPrecioDeStripe(payload: Record<string, unknown>, ws: number, autor: string): Promise<{ ok: boolean; resumen: string; datos?: Record<string, unknown> }> {
+  const funnelId = Number(payload.embudoId);
+  // Lo que puede frenar el vínculo, ANTES de tocar el catálogo (revisión de Cobros, 23/10/2026): el CRM y su Ganado (entre
+  // el «sí» y esto pudo desaparecer, y el producto quedaría traído sin vínculo), y que no cobre ya en otro CRM.
+  if (!(await ganadoDelCrm(funnelId))) return { ok: false, resumen: 'Ese CRM ya no tiene la etapa Ganado: no traje nada.' };
+  const imp = await importarPrecioDeStripe(ws, payload.cuentaStripe, payload.precioStripe, async (productoId) => {
+    if (productoId == null) return null;
+    const ya = (await vinculosDelNegocio()).find((v) => v.productoId === productoId);
+    if (!ya || ya.funnelId === funnelId) return null;
+    const f = (await listarFunnels()).find((x) => x.id === ya.funnelId);
+    return `Ese producto ya cobra en ${f ? `«${nombreVisible(f)}»` : 'otro CRM'}: quítalo de ahí primero.`;
+  });
+  if (!imp.ok) return { ok: false, resumen: imp.error };
+  const hecho = imp.cambio === 'creado' ? `traje «${imp.producto.nombre}» al catálogo` : imp.cambio === 'precio' ? `le puse el precio de Stripe a «${imp.producto.nombre}»` : null;
+  const noSeVinculo = (error: string) => ({ ok: false, resumen: hecho ? `${hecho[0].toUpperCase()}${hecho.slice(1)}, pero no se vinculó: ${error}` : error });
+  // Un `try` propio: si vincular TIRA, lo dicho tiene que contar que ya se trajo (con `seguro` diría sólo «no se pudo»).
+  let v: Awaited<ReturnType<typeof vincularCobro>>;
+  try {
+    v = await vincularCobro({ funnelId, etapa: ETAPA_COBRO, productoId: imp.producto.id, cuentas: [String(payload.cuentaStripe)] }, await cuentasDelNegocio(ws), autor);
+  } catch (e) {
+    return noSeVinculo(e instanceof Error ? e.message : String(e));
+  }
+  if (!v.ok) return noSeVinculo(v.error);
+  return { ok: true, resumen: `Listo: ${hecho ? `${hecho}, y ` : ''}cobra en Ganado.`, datos: { vinculoId: v.vinculo.id, productoId: imp.producto.id } };
+}
+
+/** Un vínculo de cobro por id, con el producto y el CRM por su nombre: lo que se confirma dice QUÉ se toca. */
+async function vinculoDeCobro(id: unknown): Promise<{ id: number; producto: string; crm: string } | { error: string }> {
+  const n = Number(id);
+  if (!Number.isInteger(n) || n < 1) return { error: 'Falta el vínculo (vinculoId, de ver_cobro_etapa).' };
+  try {
+    const v = await vinculoCobroPorId(n);
+    if (!v) return { error: 'Ese vínculo ya no existe (ver_cobro_etapa).' };
+    const [productos, funnels] = await Promise.all([productosParaCobrar(), listarFunnels()]);
+    const f = funnels.find((x) => x.id === v.funnelId);
+    return { id: v.id, producto: productos.find((p) => p.id === v.productoId)?.nombre ?? `producto #${v.productoId}`, crm: f ? nombreVisible(f) : `CRM #${v.funnelId}` };
+  } catch (e) {
+    return { error: `No pude leer el vínculo: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
 export const RUNNERS: Runners = {
   // Lecturas heredadas de MAKO_TOOLS → runMakoTool con el MISMO nombre.
   buscar_leads: { leer: (input) => runMakoTool('buscar_leads', input) },
@@ -522,6 +620,9 @@ export const RUNNERS: Runners = {
           lead_id: j.lead_id, reunion: j.tipo === 'J1' ? 'R1' : 'R2', fecha: j.fecha, dia: j.dia, nombre: j.nombre, empresa: j.empresa,
           respuestas: j.respuestas, vsl_estado: j.vsl_estado, vsl_plays: j.vsl_plays, vsl_max_pct: j.vsl_max_pct,
           origen: j.origen, madurez: j.madurez, estado: j.estado_lead,
+          // La hora y el link para entrar (22/10/2026, lo mismo que dibuja la tarjeta de «Tus reuniones»). La hora es el instante
+          // de Calendly, y puede ser de OTRO día si se reagendó sin hora: sólo cuando cae en `fecha`.
+          hora: j.at && new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(j.at)) === j.fecha ? j.at : null, link: j.url ?? null,
         })),
       });
     },
@@ -1000,6 +1101,169 @@ export const RUNNERS: Runners = {
     }),
   },
 
+  // Los contactos de un grupo de WhatsApp (23/10/2026): lo mismo que la pantalla (app/crm/grupo-wa-server.ts), que no le escribe
+  // a nadie, nunca duplica y sólo deja las etapas sin automatización. Sin tandas acá: corta a los 45 s y dice cuántos quedan.
+  // Antes del bloque de cobros, que queda último antes de `armar_tab_ficha` (tests/crm-vincular-22-10).
+  grupos_whatsapp: {
+    leer: async (input) => {
+      const r = await gruposDeLinea(typeof input.linea === 'string' ? input.linea : null);
+      if (!r.ok) return fallo(r.error);
+      return json({ linea: r.linea, total: r.grupos.length, grupos: r.grupos.slice(0, 200), deLaBase: r.deLaBase });
+    },
+  },
+  traer_contactos_de_grupo: {
+    preparar: async (input) => {
+      const g = await gruposDeLinea(typeof input.linea === 'string' ? input.linea : null);
+      if (!g.ok) return { error: g.error };
+      const pedido = String(input.grupo ?? '').trim();
+      const k = pedido.toLowerCase();
+      const parecidos = g.grupos.filter((x) => x.nombre.toLowerCase().includes(k));
+      const grupo = g.grupos.find((x) => x.jid === pedido) ?? g.grupos.find((x) => x.nombre.toLowerCase() === k) ?? (parecidos.length === 1 ? parecidos[0] : null);
+      if (!grupo) return { error: `No encontré el grupo «${pedido}» en esa línea (${parecidos.length > 1 ? 'hay varios con ese nombre' : 'mira grupos_whatsapp'}).` };
+      // Por defecto, como la pantalla: el CRM «Prospección» si lo hay, y ahí «Tibio» (el Cerebro, 23/10/2026).
+      const funnels = await listarFunnels();
+      const funnelId = n(input.embudoId) ?? funnelPorDefecto(funnels, await idDelFunnelDefault());
+      if (funnelId == null) return { error: 'Este negocio todavía no tiene un funnel.' };
+      if (!funnels.some((f) => f.id === funnelId)) return { error: 'Ese funnel no es de este negocio (mira productos_del_lead).' };
+      const { etapas, entrada } = await etapasParaTraer(funnelId);
+      const e = String(input.etapa ?? '').trim().toLowerCase();
+      const etapa = e ? etapas.find((s) => s.key.toLowerCase() === e || s.label.toLowerCase() === e) : etapas.find((s) => s.key === etapaPorDefecto(etapas, entrada));
+      if (!etapa) return { error: e ? `Ese funnel no tiene la etapa «${String(input.etapa)}».` : 'Ninguna etapa de ese funnel se puede usar al traer (todas tienen una automatización o cierran el trato).' };
+      if (etapa.manda) return { error: `«${etapa.label}» no se puede usar al traer (tiene una automatización o cierra el trato): elige otra etapa.` };
+      const p = await participantesDelGrupo(g.linea, grupo.jid);
+      if (!p.ok) return { error: p.error };
+      if (!p.participantes.length) return { error: p.sinNumero ? 'WhatsApp no deja ver los números de ese grupo.' : 'Ese grupo no tiene a nadie para traer.' };
+      const origen = await etiquetaDeOrigen(typeof input.etiqueta === 'string' && input.etiqueta.trim() ? input.etiqueta : grupo.nombre);
+      if (!origen.ok) return { error: origen.error };
+      const ya = (await marcarEnElCrm(p.participantes)).filter((x) => x.enElCrm).length;
+      return {
+        payload: { linea: g.linea, jid: grupo.jid, nombreGrupo: grupo.nombre, funnelId, etapa: etapa.key, etiqueta: origen.nombre },
+        resumen: `Traer ${p.participantes.length} contactos del grupo «${grupo.nombre}» a «${etapa.label}», con la etiqueta «${origen.nombre}»${ya ? ` (${ya} ya son leads: se suman a este funnel)` : ''}${p.sinNumero ? `; ${p.sinNumero} sin número visible no se traen` : ''}. No se le escribe a nadie.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('traer los contactos del grupo', async () => {
+      const r = await traerDelGrupo({
+        linea: String(payload.linea), jid: String(payload.jid), nombreGrupo: String(payload.nombreGrupo), funnelId: Number(payload.funnelId),
+        etapa: String(payload.etapa), telefonos: 'todos', autor: autorDe(ctx), hasta: Date.now() + 45_000,
+        etiqueta: typeof payload.etiqueta === 'string' ? payload.etiqueta : null,
+      });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidar('leads');
+      const partes = [
+        r.creados ? `${r.creados} leads nuevos` : '', r.sumados ? `${r.sumados} sumados a este funnel` : '',
+        r.yaEstaban ? `${r.yaEstaban} ya estaban` : '', r.errores.length ? `${r.errores.length} no se pudieron` : '',
+      ].filter(Boolean);
+      return {
+        ok: true,
+        resumen: `Listo: ${partes.join(', ') || 'nadie nuevo'}${r.etiqueta ? `, con «${r.etiqueta}»` : ''}.${r.quedan ? ` Quedan ${r.quedan}: pídemelo de nuevo y sigo.` : ''}`,
+      };
+    }),
+  },
+
+  // «Vincular cobro» por MaKo (22/10/2026): las MISMAS funciones del pop-up (lib/cobro-etapa-server.ts, de Cobros).
+  ver_cobro_etapa: {
+    leer: async (input, ctx) => {
+      const crm = await crmDeCobro(input.embudoId);
+      if (!crm) return fallo('No encontré ese CRM.');
+      try {
+        const [cuentas, productos, todos, funnels, stripe] = await Promise.all([
+          cuentasDelNegocio(ctx.ws), productosParaCobrar(), vinculosDelNegocio(), listarFunnels(),
+          // Los precios de Stripe, en vivo (23/10/2026): lo mismo que «+ Producto» del pop-up. Un fallo se dice, no frena.
+          preciosDeStripe(ctx.ws).catch((e) => ({ precios: [] as PrecioDeStripe[], errores: [{ cuenta: 'stripe', cuentaNombre: 'Stripe', error: e instanceof Error ? e.message : String(e) }] })),
+        ]);
+        const nombre = (id: number) => productos.find((p) => p.id === id)?.nombre ?? `#${id}`;
+        const vinculos = todos.filter((v) => v.funnelId === crm.id && v.etapa === ETAPA_COBRO);
+        // Un producto cobra en UN solo CRM (el índice único): el que ya cobra en otro no se ofrece; se dice dónde está.
+        const enOtro = todos.filter((v) => v.funnelId !== crm.id);
+        const crmDe = (id: number) => { const f = funnels.find((x) => x.id === id); return f ? nombreVisible(f) : `CRM #${id}`; };
+        return json({
+          crm: { embudoId: crm.id, nombre: crm.nombre },
+          cuentas: cuentas.map((c) => ({ id: c.id, nombre: c.nombre, proveedor: c.proveedor })),
+          vinculados: vinculos.map((v) => ({ vinculoId: v.id, productoId: v.productoId, producto: nombre(v.productoId), cuentas: v.cuentas })),
+          catalogo: productos.filter((p) => !todos.some((v) => v.productoId === p.id)).map((p) => ({ productoId: p.id, nombre: p.nombre, tipo: p.tipo, monto_usd: p.montoUsd })),
+          ...(enOtro.length ? { cobran_en_otro_crm: enOtro.map((v) => ({ productoId: v.productoId, producto: nombre(v.productoId), crm: crmDe(v.funnelId) })) } : {}),
+          ...(stripe.precios.length ? {
+            de_stripe: stripe.precios.map((p) => ({
+              precioStripe: p.precio, nombre: p.nombre, precio: precioDeStripeTexto(p), cuenta: p.cuentaNombre,
+              ...(p.enMako != null ? { es_del_catalogo: nombre(p.enMako) } : {}), ...(p.noSe ? { no_se_puede: p.noSe } : {}),
+            })),
+          } : {}),
+          ...(stripe.errores.length ? { stripe_sin_leer: stripe.errores.map((e) => `${e.cuentaNombre}: ${e.error}`) } : {}),
+          ...(cuentas.length ? {} : { nota: 'No hay Stripe ni Mercado Pago conectado: sin cuentas no hay con qué cobrar.' }),
+        });
+      } catch (e) {
+        return fallo(`No pude leer lo que cobra Ganado: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    },
+  },
+  vincular_cobro_etapa: {
+    preparar: async (input, ctx) => {
+      const crm = await crmDeCobro(input.embudoId);
+      if (!crm) return { error: 'No encontré ese CRM.' };
+      // Un precio de Stripe en vez de un producto (23/10/2026): se trae al catálogo y se vincula, como en el pop-up.
+      const precioStripe = s(input.precioStripe);
+      if (precioStripe) return prepararPrecioDeStripe(precioStripe, crm, ctx.ws);
+      if (input.productoId == null) return { error: 'Falta qué vincular: el producto, o un precio de Stripe (de ver_cobro_etapa).', faltan: ['productoId'] };
+      const [cuentas, productos, todos, ganado] = await Promise.all([cuentasDelNegocio(ctx.ws), productosParaCobrar(), vinculosDelNegocio(), ganadoDelCrm(crm.id)]);
+      if (!ganado) return { error: `«${crm.nombre}» no tiene la etapa Ganado.` };
+      if (!cuentas.length) return { error: 'No hay Stripe ni Mercado Pago conectado: conéctalos en Integraciones primero.' };
+      const p = productos.find((x) => x.id === Number(input.productoId));
+      if (!p) return { error: 'Ese producto no está activo en el catálogo (listar_productos).' };
+      // Un producto cobra en UN solo CRM: lo que va a chocar con el índice único no llega al «sí» (revisión del 23/10/2026).
+      const ya = todos.find((v) => v.productoId === p.id);
+      if (ya?.funnelId === crm.id) return { error: `«${p.nombre}» ya cobra en Ganado de «${crm.nombre}».`, yaEstaba: true };
+      if (ya) {
+        const otro = (await listarFunnels()).find((f) => f.id === ya.funnelId);
+        return { error: `«${p.nombre}» ya cobra en «${otro ? nombreVisible(otro) : `CRM #${ya.funnelId}`}»: quítalo de ahí primero (desvincular_cobro_etapa).` };
+      }
+      // Lo mismo que frena `vincular`, pero ANTES del «sí»: no se propone lo que va a fallar.
+      if (p.montoUsd == null) return { error: `«${p.nombre}» no tiene precio: ponle uno primero (guardar_producto).` };
+      const pedidas = Array.isArray(input.cuentas) && input.cuentas.length ? cuentasValidas(input.cuentas, cuentas) : cuentas.map((c) => c.id);
+      if (!pedidas.length) return { error: `Esas cuentas no están conectadas. Las conectadas: ${cuentas.map((c) => c.id).join(', ')}.` };
+      const por = pedidas.map((id) => cuentas.find((c) => c.id === id)?.nombre ?? id).join(' y ');
+      return {
+        payload: { embudoId: crm.id, productoId: p.id, cuentas: pedidas },
+        resumen: `Vincular «${p.nombre}» a Ganado de «${crm.nombre}»: quien lo pague por ${por} pasa a Ganado ahí, con su plan de pagos.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('vincular el producto', async () => {
+      if (payload.precioStripe) return ejecutarPrecioDeStripe(payload, ctx.ws, autorDe(ctx));
+      const r = await vincularCobro({ funnelId: payload.embudoId, etapa: ETAPA_COBRO, productoId: payload.productoId, cuentas: payload.cuentas }, await cuentasDelNegocio(ctx.ws), autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: 'Listo: el producto cobra en Ganado.', datos: { vinculoId: r.vinculo.id } };
+    }),
+  },
+  cuentas_cobro_etapa: {
+    preparar: async (input, ctx) => {
+      const v = await vinculoDeCobro(input.vinculoId);
+      if ('error' in v) return v;
+      const cuentas = await cuentasDelNegocio(ctx.ws);
+      const pedidas = cuentasValidas(Array.isArray(input.cuentas) ? input.cuentas : [], cuentas);
+      if (!pedidas.length) return { error: 'Deja al menos una cuenta conectada; para que no cobre más, desvincular_cobro_etapa.' };
+      const por = pedidas.map((id) => cuentas.find((c) => c.id === id)?.nombre ?? id).join(' y ');
+      return { payload: { vinculoId: v.id, cuentas: pedidas }, resumen: `«${v.producto}» cobra en Ganado de «${v.crm}» desde ahora por ${por}.` };
+    },
+    ejecutar: (payload, ctx) => seguro('cambiar las cuentas', async () => {
+      const r = await cambiarCuentasCobro(payload.vinculoId, payload.cuentas, await cuentasDelNegocio(ctx.ws));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: 'Listo: cambié por qué cuentas cobra.', datos: { vinculoId: r.vinculo.id, cuentas: r.vinculo.cuentas } };
+    }),
+  },
+  desvincular_cobro_etapa: {
+    preparar: async (input) => {
+      const v = await vinculoDeCobro(input.vinculoId);
+      if ('error' in v) return v;
+      return {
+        payload: { vinculoId: v.id },
+        resumen: `Sacar «${v.producto}» de Ganado de «${v.crm}»: sus pagos dejan de mover leads ahí. Lo ya cobrado no cambia.`,
+      };
+    },
+    ejecutar: (payload) => seguro('quitar el producto', async () => {
+      const r = await desvincularCobro(payload.vinculoId);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: 'Listo: ese producto ya no cobra en Ganado.', datos: { deshacer: r.deshacer } };
+    }),
+  },
   // «¿Qué vas a crear hoy?» de una tab (16/10/2026): MaKo la arma ANTES de proponerla, como la pantalla
   // (app/api/crm/ficha/armar) y como crear_hoja_dashboard con pedido. Lo que se confirma es lo que se guarda.
   armar_tab_ficha: {
@@ -1042,7 +1306,7 @@ export const RUNNERS: Runners = {
       try { a = await listarEventosDeAgenda(); } catch { return fallo('No pude leer los eventos de la agenda. Intenta de nuevo.'); }
       return json({
         eventos: a.eventos.map((e) => ({
-          proveedor: e.proveedor, evento: e.identificador, nombre: e.nombre, duracion_min: e.duracionMin,
+          proveedor: e.proveedor, evento: e.identificador, nombre: e.nombre, duracion_min: e.duracionMin, cuenta: e.cuenta, cuenta_nombre: e.cuentaNombre,
           de_integraciones: e.credencial, en_la_cuenta: e.enLaCuenta,
           vinculado_a: e.vinculo ? { embudoId: e.vinculo.funnelId, crm: e.vinculo.funnel, etapa: e.vinculo.etapa, etapa_nombre: e.vinculo.etapaNombre, reunion: e.vinculo.reunion } : null,
         })),
@@ -1075,14 +1339,23 @@ export const RUNNERS: Runners = {
       if (input.proveedor !== 'calendly' && input.proveedor !== 'calcom') return { error: 'La agenda es calendly o calcom.', faltan: ['proveedor'] };
       const d = datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin });
       if (!d.ok) return { error: d.error };
-      const agenda = input.proveedor === 'calcom' ? 'Cal.com' : 'Calendly';
+      // La cuenta (varias por proveedor, 23/10/2026): una de las conectadas, dicha por su nombre en el «sí».
+      let agenda = input.proveedor === 'calcom' ? 'Cal.com' : 'Calendly';
+      const cuenta = s(input.cuenta);
+      if (cuenta) {
+        let a: AgendaDelNegocio;
+        try { a = await listarEventosDeAgenda(); } catch { return { error: 'No pude leer las cuentas de la agenda. Intenta de nuevo.' }; }
+        const c = a.proveedores.find((x) => x.proveedor === input.proveedor && x.cuenta === cuenta && x.conectado);
+        if (!c) return { error: 'Esa cuenta no está conectada.', disponibles: a.proveedores.filter((x) => x.proveedor === input.proveedor && x.conectado).map((x) => ({ cuenta: x.cuenta, nombre: x.cuentaNombre })) };
+        agenda = c.cuentaNombre;
+      }
       return {
-        payload: { proveedor: input.proveedor, nombre: d.nombre, duracionMin: d.duracionMin },
+        payload: { proveedor: input.proveedor, nombre: d.nombre, duracionMin: d.duracionMin, ...(cuenta ? { cuenta } : {}) },
         resumen: `Crear en ${agenda} el evento «${d.nombre}», de ${d.duracionMin} minutos, con la disponibilidad de la cuenta.`,
       };
     },
     ejecutar: (payload) => seguro('crear el evento', async () => {
-      const r = await crearEventoDeAgenda({ proveedor: payload.proveedor, nombre: payload.nombre, duracionMin: payload.duracionMin });
+      const r = await crearEventoDeAgenda({ proveedor: payload.proveedor, cuenta: payload.cuenta, nombre: payload.nombre, duracionMin: payload.duracionMin });
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: `Listo: creado «${r.evento.nombre}». Para que sus reservas caigan en una etapa, vincular_evento_etapa con el evento ${r.evento.identificador}.`, datos: { evento: r.evento.identificador, proveedor: r.evento.proveedor } };
     }),
@@ -1090,7 +1363,15 @@ export const RUNNERS: Runners = {
   editar_pagina_reserva: {
     preparar: async (input) => {
       if (input.proveedor !== 'calendly' && input.proveedor !== 'calcom') return { error: 'La agenda es calendly o calcom.', faltan: ['proveedor'] };
-      const d = datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin }, true);
+      // La edición completa (23/10/2026): la descripción y dónde, validados como en la pantalla (`datosDeDetalle`).
+      const dd = datosDeDetalle({
+        descripcion: input.descripcion,
+        ubicacion: input.ubicacion != null ? { tipo: input.ubicacion, valor: input.ubicacionValor } : undefined,
+      });
+      if (!dd.ok) return { error: dd.error };
+      const { descripcion, ubicacion } = dd.cambios;
+      const conBasico = input.nombre != null || input.duracionMin != null;
+      const d = conBasico || (descripcion === undefined && !ubicacion) ? datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin }, true) : { ok: true as const, nombre: undefined, duracionMin: undefined };
       if (!d.ok) return { error: d.error };
       let agenda: Awaited<ReturnType<typeof listarEventosDeAgenda>>;
       try { agenda = await listarEventosDeAgenda(); } catch { return { error: 'No pude leer los eventos de la agenda. Intenta de nuevo.' }; }
@@ -1099,15 +1380,28 @@ export const RUNNERS: Runners = {
       const e = delProveedor.find((x) => mismoIdentificador(x.identificador, buscado))
         ?? delProveedor.find((x) => x.nombre.trim().toLowerCase() === buscado.toLowerCase());
       if (!e) return { error: `No encontré ese evento en la cuenta.`, disponibles: delProveedor.map((x) => ({ evento: x.identificador, nombre: x.nombre })) };
-      const cambios = [d.nombre != null && d.nombre !== e.nombre ? `el nombre a «${d.nombre}»` : null, d.duracionMin != null && d.duracionMin !== e.duracionMin ? `la duración a ${d.duracionMin} minutos` : null].filter(Boolean);
+      const dondeNombre = ubicacion ? `${UBICACIONES.find((u) => u.tipo === ubicacion.tipo)?.nombre ?? ubicacion.tipo}${ubicacion.valor ? ` (${ubicacion.valor})` : ''}` : null;
+      const cambios = [
+        d.nombre != null && d.nombre !== e.nombre ? `el nombre a «${d.nombre}»` : null,
+        d.duracionMin != null && d.duracionMin !== e.duracionMin ? `la duración a ${d.duracionMin} minutos` : null,
+        descripcion !== undefined ? (descripcion ? 'la descripción' : 'la descripción (queda vacía)') : null,
+        dondeNombre ? `dónde es la reunión a ${dondeNombre} (reemplaza la de hoy)` : null,
+      ].filter(Boolean);
       if (!cambios.length) return { error: `«${e.nombre}» ya está así.`, yaEstaba: true };
       return {
-        payload: { proveedor: e.proveedor, evento: e.identificador, ...(d.nombre != null ? { nombre: d.nombre } : {}), ...(d.duracionMin != null ? { duracionMin: d.duracionMin } : {}) },
+        payload: {
+          proveedor: e.proveedor, evento: e.identificador, ...(e.cuenta ? { cuenta: e.cuenta } : {}),
+          ...(d.nombre != null ? { nombre: d.nombre } : {}), ...(d.duracionMin != null ? { duracionMin: d.duracionMin } : {}),
+          ...(descripcion !== undefined ? { descripcion } : {}), ...(ubicacion ? { ubicacion } : {}),
+        },
         resumen: `Cambiar en «${e.nombre}» ${cambios.join(' y ')}.${e.vinculo ? ` Sigue vinculado a «${e.vinculo.etapaNombre}».` : ''}`,
       };
     },
     ejecutar: (payload) => seguro('editar el evento', async () => {
-      const r = await editarEventoDeAgenda({ proveedor: payload.proveedor, identificador: payload.evento, nombre: payload.nombre, duracionMin: payload.duracionMin });
+      const r = await editarEventoDeAgenda({
+        proveedor: payload.proveedor, identificador: payload.evento, cuenta: payload.cuenta, nombre: payload.nombre, duracionMin: payload.duracionMin,
+        descripcion: payload.descripcion, ubicacion: payload.ubicacion,
+      });
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: `Listo: «${r.evento.nombre}»${r.evento.duracionMin ? `, ${r.evento.duracionMin} minutos` : ''}.` };
     }),
@@ -1303,7 +1597,7 @@ export const RUNNERS: Runners = {
       if (!r) return { error: `${lead.nombre} no tiene una reunión de Calendly por delante: no hay nada que cancelar.`, yaEstaba: true };
       const cuando = new Date(r.inicioIso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
       return {
-        payload: { leadId: lead.id, leadNombre: lead.nombre, email: lead.email, uri: r.uri, reunion: r.nombre, inicioIso: r.inicioIso, motivo: s(input.motivo) ?? '' },
+        payload: { leadId: lead.id, leadNombre: lead.nombre, email: lead.email, uri: r.uri, reunion: r.nombre, inicioIso: r.inicioIso, cuenta: r.cuenta, motivo: s(input.motivo) ?? '' },
         resumen: `Cancelar en Calendly «${r.nombre || 'la reunión'}» de ${lead.nombre} (${cuando}). A ${lead.nombre} le llega el aviso de Calendly.`,
       };
     },
@@ -1313,7 +1607,8 @@ export const RUNNERS: Runners = {
       try {
         const ahora = await proximaReunionCalendly(String(payload.email ?? ''));
         if (!ahora || ahora.uri !== payload.uri) return { ok: false, resumen: 'Esa reunión ya no es la próxima (la cancelaron, la movieron o ya empezó): no cancelé nada.' };
-        await cancelarReunionCalendly(String(payload.uri), String(payload.motivo ?? ''));
+        // Con la cuenta de Calendly que la TIENE (varias cuentas, fase B): la que acaba de encontrarla.
+        await cancelarReunionCalendly(String(payload.uri), String(payload.motivo ?? ''), ahora.cuenta);
       } catch (e) {
         return { ok: false, resumen: `No se canceló en Calendly: ${e instanceof Error ? e.message : String(e)}` };
       }
@@ -1803,9 +2098,12 @@ export const RUNNERS: Runners = {
     }),
   },
   crear_crm: {
-    preparar: async (input) => {
+    preparar: async (input, ctx) => {
       const nombre = s(input.nombre);
       if (!nombre) return { error: 'Falta el nombre del CRM.', faltan: ['nombre'] };
+      // El tope del plan (23/10/2026, lib/topes-crm.ts): con MaKo Esencial, un CRM. No se propone lo que va a fallar.
+      const tope = await estadoTopeCrm(ctx.ws, 'crm.funnels');
+      if (tope && enElTope(tope, 'crm.funnels')) return { error: `${textoTope(tope.tope)} Planes: /planes.` };
       if (nombre.toLowerCase() === FUNNEL_DEFAULT_NOMBRE.toLowerCase()) return { error: `«${FUNNEL_DEFAULT_NOMBRE}» es el nombre del CRM que ya existe. Ponle otro.` };
       if (input.tipo === TIPO_CRM_OTRO && !esCanal(input.canal)) return { error: 'Con el tipo otro, pasa el canal: cómo se cierra la venta.', faltan: ['canal'] };
       if (input.tipo === TIPO_CRM_OTRO && !(Array.isArray(input.entradas) && input.entradas.length)) return { error: 'Con el tipo otro, pasa al menos una entrada: cómo llega la gente.', faltan: ['entradas'] };
@@ -1818,12 +2116,13 @@ export const RUNNERS: Runners = {
         resumen: `Crear el CRM «${nombre}», ${comoEs}: ${siembra.pipeline.map((st) => st.label).join(' → ')}. La gente llega por: ${siembra.entradas.map((e) => ENTRADAS[e]?.label ?? e).join(' · ')}.`,
       };
     },
-    ejecutar: (payload) => seguro('crear el CRM', async () => {
+    ejecutar: (payload, ctx) => seguro('crear el CRM', async () => {
       // Se vuelve a sanear con lo guardado en la pendiente: entre el «sí» y la propuesta pudo
       // cambiar el catálogo (un deploy), y un tipo que ya no existe no siembra otro por default.
       const siembra = siembraDeCrm({ tipo: payload.tipo, canal: payload.canal, entradas: payload.entradas });
       if ('error' in siembra) return { ok: false, resumen: siembra.error };
       try {
+        await frenarAltaPorTope(ctx.ws, 'crm.funnels');
         const r = await crearCrm(String(payload.nombre), siembra);
         invalidar('pipeline', 'leads');
         return { ok: true, resumen: `Listo: creado el CRM «${String(payload.nombre)}» (embudoId ${r.funnelId}).`, datos: { embudoId: r.funnelId, productoId: r.productoId } };

@@ -35,8 +35,7 @@ import {
 import type { PedidoP, PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
-import { Pregunta } from '@/app/admin/operaciones/Pregunta';
-import { PreguntasDeLaApp, PreguntasDelChat } from '@/app/admin/operaciones/PreguntasDelChat';
+import { BloqueDePreguntas } from '@/app/admin/operaciones/PreguntasDelChat';
 import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { useChatNuevo } from '@/app/admin/operaciones/ChatNuevo';
 import { CajaChatNuevo, CriaturaChatNuevo, CuerpoChatNuevo, TituloChatNuevo } from '@/app/admin/operaciones/ChatNuevoPiezas';
@@ -57,6 +56,7 @@ import { SelectoresDeEnvio, resumenDeEnvio } from '@/app/admin/operaciones/Pieza
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import type { Responder } from '@/app/admin/operaciones/PreguntaChat';
 import { SIN_MARCAS } from '@/lib/centro-mensajes';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /**
  * El título de la hoja de un chat, como la cabecera de WhatsApp (17/10/2026, Martín): la criatura a la izquierda del nombre.
@@ -91,7 +91,7 @@ function TituloDeChat({ chat, aspecto, avisos, renombre, onMuneco, onRenombrar, 
         ) : onRenombrar
           ? <button type="button" className="m-operaciones-titulo__nombre" onClick={onRenombrar} aria-label={`Renombrar ${chat.titulo}`}>{chat.titulo}</button>
           : <span className="m-operaciones-titulo__nombre">{chat.titulo}</span>}
-        {renombre?.error && <span className="m-operaciones-titulo__error" role="alert">{renombre.error}</span>}
+        {renombre?.error && <span className="m-operaciones-titulo__error" role="alert">{renombre.error}<ReportarASoporte /></span>}
       </span>
     </span>
   );
@@ -148,7 +148,7 @@ const FilaChatM = memo(function FilaChatM({ c, sub, espera, aspecto, ahora, onAb
       leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={c.titulo} aspecto={aspecto} animo={animo} size={sub ? 32 : 40} espera={avisosDe(espera, nuevo)} /></span>}
       titulo={<span className={`m-operaciones-texto1${animo === 'dormido' ? ' m-operaciones-texto1--dormido' : ''}`}>{sub ? `↳ ${partesDelNombre(c.titulo).sub}` : c.titulo}{c.nube && <> <span className="co-chip-cuenta">Nube</span></>}</span>}
       // «Trabajando…», «Espera tu respuesta» o nada (20/10/2026): lo decide `segundoRenglon`, el mismo de la computadora.
-      segunda={renglon ? <span className={renglon === 'vivo' ? 'm-operaciones-vivo' : 'm-operaciones-espera'}>{TEXTO_SEGUNDO_RENGLON[renglon]}</span> : undefined}
+      segunda={renglon ? <span className={renglon === 'espera' ? 'm-operaciones-espera' : 'm-operaciones-vivo'}>{TEXTO_SEGUNDO_RENGLON[renglon]}</span> : undefined}
       riel={<span className="m-operaciones-riel"><span className="m-operaciones-hace">{edad(c.actividad, ahora)}</span></span>}
       onClick={() => onAbrir(c.clave)}
       chevron={false}
@@ -293,7 +293,9 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     return c ? k.contestarPregunta(c, p, e, o) : Promise.resolve(null);
   }, []);
   const aspectoAbierto = elegido ? elegidoPara(munecos, elegido.titulo) : null;
-  const animoAbierto = elegido ? animoDe(elegido, esperaDe(elegido, esperas)) : 'despierto';
+  // La criatura de la cabecera, con el MISMO número que su fila (`centro.avisos`, con el «Completado» sin ✓): la de la fila estaba
+  // despierta y ésta dormía (22/10/2026).
+  const animoAbierto = elegido ? animoDe(elegido, centro.avisos(elegido)) : 'despierto';
   const datoAbierto = elegido ? trabajaSinEscribir(elegido, lineas) ?? metaDe(elegido) : '';
   const quien = useMemo(() => ({ titulo: elegido?.titulo ?? '', aspecto: aspectoAbierto, animo: animoAbierto, dato: datoAbierto }), [elegido?.titulo, aspectoAbierto, animoAbierto, datoAbierto]);
   const vivo = useMemo(() => (elegido ? { chat: elegido, carteros } : undefined), [elegido, carteros]);
@@ -420,7 +422,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
           perfil» (eso se cambia en Tu cuenta). */}
       {conHoja && <SheetM abierto={!!elegido} onCerrar={cerrarHoja} snap="alto"
         titulo={eligiendo ? 'Su criatura' : panelWA ? (panelWA.tipo === 'info' ? 'Info del mensaje' : 'Reenviar a…') : elegido ? (
-          <TituloDeChat chat={elegido} aspecto={aspectoAbierto} avisos={esperaDe(elegido, esperas)} renombre={renombre}
+          <TituloDeChat chat={elegido} aspecto={aspectoAbierto} avisos={centro.avisos(elegido)} renombre={renombre}
             onMuneco={esCriaturaDeMako(elegido.titulo) ? undefined : abrirMuneco}
             onRenombrar={elegido.sesiones.length > 0 ? () => setRenombre({ texto: elegido.titulo, error: null, mandando: false }) : undefined}
             onTexto={(texto) => setRenombre((r) => (r ? { ...r, texto, error: null } : r))}
@@ -463,13 +465,10 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 yaVisto={centro.yaVistos?.[elegido.clave] ?? null} onYaVisto={yaVistoCb}
                 mostrar={cuantos} onVerAnteriores={verTodo} />
             </ContextoWA.Provider>
-            {/* Lo que espera de Martín, al final de la conversación y pegado a la caja: AskUserQuestion de Claude Code. */}
-            {preguntas.length > 0 && <Pregunta key={elegido.clave} preguntas={preguntas} responder={responder} />}
-            {/* Lo que ESTE chat le pregunta, de a una y como en Claude (22/10/2026, PreguntasDelChat.tsx): las de `cartero preguntar` y
-                los botones del cierre con wrap_up se contestan acá (quedan en el hilo como «Decisión: …»); las de AskUserQuestion se
-                ven, y se contestan en la app de Claude. */}
-            {deLaApp.length > 0 && <PreguntasDeLaApp key={`a-${elegido.clave}`} preguntas={deLaApp} />}
-            {bloque.length > 0 && <PreguntasDelChat key={`p-${elegido.clave}`} preguntas={bloque} onResponder={responderPregunta} />}
+            {/* TODO lo que espera a Martín, pegado a la caja y en UN bloque, como en la computadora (PreguntasDelChat.tsx →
+                BloqueDePreguntas): la Ticketera, lo que pregunta el chat y lo de la app de Claude. */}
+            <BloqueDePreguntas key={`b-${elegido.clave}`} chat={elegido.clave} ticketera={preguntas} responderTicketera={responder}
+              delChat={bloque} onResponder={responderPregunta} deLaApp={deLaApp} />
           </div>
         )}
       </SheetM>}

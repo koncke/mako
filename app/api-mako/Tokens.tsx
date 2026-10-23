@@ -34,6 +34,7 @@ import {
 import type { AreaDocs } from './datos';
 import { crearTokenApi, editarTokenApi, regenerarTokenApi, revocarTokenApi } from './actions';
 import { BotonCopiar, Icono, fechaLarga, ultimoUso, useCopiar } from './piezas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type VistaTokens = { v: 'detallados' | 'nuevo' | 'clasicos' } | { v: 'token'; id: string; accion: 'ver' | 'editar' | 'regenerar' };
 
@@ -131,7 +132,7 @@ export function Tokens({ tokens, vista, indice, workspace }: {
         </ul>
       </nav>
       <div style={{ minWidth: 0 }}>
-        {error && <div className="gh-flash gh-flash--error" role="alert">{error}</div>}
+        {error && <div className="gh-flash gh-flash--error" role="alert">{error}<ReportarASoporte /></div>}
         {cuerpo}
       </div>
       {borrar && (
@@ -282,7 +283,7 @@ function FormToken({ modo, token, indice, workspace, onListo, onCancelar }: {
             : 'Cambia el nombre, la descripción o los permisos. Para cambiar el vencimiento, regenera el token.'}
         </p>
       </div>
-      {error && <div className="gh-flash gh-flash--error" role="alert">{error}</div>}
+      {error && <div className="gh-flash gh-flash--error" role="alert">{error}<ReportarASoporte /></div>}
 
       <div className="gh-form-group">
         <label htmlFor="tk-nombre">Nombre del token <span className="gh-requerido">*</span></label>
@@ -462,7 +463,7 @@ function Regenerar({ t, onListo, onCancelar }: { t: TokenPublico; onListo: (r: {
       <div className="gh-flash gh-flash--warn" role="note">
         Si regeneras este token, todo lo que use el valor actual deja de funcionar en el acto. Tendrás que poner el valor nuevo en esas integraciones.
       </div>
-      {error && <div className="gh-flash gh-flash--error" role="alert">{error}</div>}
+      {error && <div className="gh-flash gh-flash--error" role="alert">{error}<ReportarASoporte /></div>}
       <div className="gh-form-group">
         <label htmlFor="rg-vence">Vencimiento <span className="gh-requerido">*</span></label>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

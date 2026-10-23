@@ -2739,6 +2739,8 @@ con el mismo nombre compilan para siempre.
 | **`node --test` corre cada archivo en su propio proceso** | ídem | Se aprovecha a favor: para un ciclo de imports, un test importa A primero y otro importa B primero, y así quedan cubiertos los dos órdenes de carga |
 | **tsx NO resuelve el alias `@/`** | ídem | Los tests usan imports relativos |
 | **El typecheck no corre en el build** | `.git/hooks/pre-push` | Ver [Build, deploy y entrega](#build-deploy-y-entrega) |
+| **Ver una página a 390 px en el Chrome de Martín** (para un caso de uso con su sesión, sin achicarle la ventana) | el caso de uso de OF4 (22/10/2026), hallazgos-offer.md | Un iframe no sirve: la app no se deja enmarcar y Chrome muestra un error de otro origen (y las capturas de la pestaña se cuelgan). Chrome no achica una ventana debajo de ~500 px. Lo que anda: un botón inyectado que, con un clic de verdad, hace `window.open(url, nombre, 'popup=yes,width=390,…')`; la ventana queda fuera del grupo de pestañas (sin capturas), pero es del mismo origen: desde la pestaña se le hace `resizeTo` hasta que `innerWidth` dé 390 (el zoom del sitio corre la cuenta) y se mide por JS. /m/… no se ve así: con un navegador de escritorio redirige a la versión de computadora. El micrófono, sin abrir el de la PC: `getUserMedia` reemplazado por una nota grabada (un `<input type=file>` inyectado + `decodeAudioData` + `createMediaStreamDestination`, sin conectar al parlante) |
+| **Un componente que importa `.css` no carga en node** (la caja única, el hilo del Ops Center), y la regla era sacar lo que un test dibuja a otro archivo | `tests/offer-hilo-unico.test.ts` (22/10/2026) | `registerHooks({ load })` de `node:module` (Node 22.15+, sincrónico: también para el `require` de tsx) que devuelve `{ format: 'commonjs', source: '', shortCircuit: true }` para todo `.css`, ANTES del `import()` dinámico. Devolver un `data:` desde `resolve` no anda: el cargador CJS lo busca como archivo (ENOENT). Con eso el test mira el HTML que sale, no el código fuente |
 
 ⚠️ **La fila de los guards de texto se pagó otra vez el 06/10/2026, y la pagaron SEIS agentes por
 separado.** Cada uno trabajó en su worktree y los seis devolvieron el mismo hallazgo: 7 rojos en
@@ -7676,3 +7678,52 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
   b529ff603 rojo, las otras verdes): una corrida por punta, ~1 min cada una.
 - **La regla:** en cada tren, Integración corre la batería SOLA además de la tanda (`node --import tsx --test
   tests/ops-center-bateria.test.ts`). El chat que toque el clasificador o la selección de herramientas, también.
+
+## Merges del tren que «salen limpios» y no compilan, y un deploy que se lee mal (22/10/2026, Cerebro › Integración, trenes 5 a 9)
+
+- ⚠️ **Dos hitos nuevos al final del mismo array de una bitácora se PEGAN en un solo objeto.** Las dos ramas agregaron
+  `{ fecha…, revisar }` al final y git las fundió sin `},` / `{` en el medio: TS1117 (claves repetidas) en
+  app/admin/dev/crm/bitacora.ts. No es un conflicto: el merge «sale bien» y lo frena la guarda de las bitácoras
+  (`scripts/tsc-bitacoras.mjs`, dentro de `guardas-push.sh`). Se arregla insertando el cierre y la apertura. Por eso las
+  guardas se corren DESPUÉS de mergear todo el tren, no sólo en cada punta.
+  **Y cuando SÍ es conflicto, «los dos lados enteros» también los parte** (23/10/2026, CRM, al juntar tres ramas): git
+  alinea el hunk en medio de un objeto, y pegar el lado de arriba y el de abajo deja un hito sin cerrar (`Expected "]"`;
+  rojos en progreso, chats-registro y dev-areas). Se rearma el final tomando cada hito ENTERO de su rama
+  (`git show <rama>:app/admin/dev/crm/bitacora.ts`) y se corre `node scripts/tsc-bitacoras.mjs` antes de commitear.
+- ⚠️ **La misma resolución hecha dos veces choca consigo misma.** Ticketera y CRM sumaron funciones al final de lib/perfil.ts;
+  el tren lo resolvió con un orden y CRM, al mergear main en su rama, con el otro. La punta siguiente de CRM chocó contra la
+  resolución del tren. Se deja el orden del tren (las mismas funciones; 0 errores de sintaxis), sin perder nada de lo demás.
+- ⚠️ **`npx vercel ls … | grep Error` da un falso «Error»:** npm imprime `npm warn cleanup [Error: EPERM …]` en la misma
+  salida. El estado del deploy se lee con `grep "●"` (la línea de la tabla); en Git Bash la tabla sale por stderr, así que va
+  con `2>&1`.
+- ⚠️ **Sacar una punta que dio rojo sin volver a correr el tren:** si no comparte archivos de código con las otras (sólo el
+  índice), el árbol de antes del merge de esa punta (`HEAD^` del primer padre) ya está probado: los tests corrieron sobre un
+  superconjunto y el único rojo era de ella. Así salió el tren 7 sin el aviso de Closing.
+- **Un hotfix de cliente roto no espera al tren:** se arma en un worktree aparte (`git worktree add --detach … origin/main`
+  más la junction de node_modules) y se prueba ahí, en paralelo. El tren después mergea main.
+
+## En Git Bash, un argumento que empieza con «/» llega convertido en una ruta de Windows (23/10/2026)
+
+**Síntoma:** al romper un test a mano con `node -e "…split(process.argv[1])…" "/crm|venta|"`, la rotura «no pegaba» y el test
+seguía verde: parecía que la guarda no medía nada. **Causa:** MSYS convierte todo argumento que empieza con `/` en una ruta
+(`/crm|venta|` llega como `C:/Program Files/Git/crm|venta|`). **Regla:** `export MSYS_NO_PATHCONV=1` antes de pasarle a un
+programa un texto que empieza con barra (una regex, una ruta de la app). Antes de declarar débil una guarda, mirá si la rotura
+pegó (test-probado-rompiendolo).
+
+## Un tren con los TIPOS como red: el `tsc` acotado de lo resuelto a mano encontró dos bugs en OTROS archivos (23/10/2026, Cerebro › Integración, trenes 22+23)
+
+**Síntoma.** El tren juntó 20 puntas «sin tipos». El único choque de código (Cobros contra la suscripción, en
+app/configuraciones/plan) se resolvió a mano y se chequeó con `node scripts/tsc-acotado.mjs <los tres archivos>`.
+Esos tres salieron limpios, pero el tsc también reportó errores en los archivos que importaban:
+- `app/crm/grupo-wa-server.ts`: TS2459, `LeadDuplicadoError` importada de lib/leads, que la importa y NO la reexporta.
+  Sin tipos llega `undefined`, y `e instanceof LeadDuplicadoError` tira TypeError con cada participante que ya era lead.
+  Ningún test pasaba por ese camino. Detalle en docs/hallazgos-crm.md.
+- `lib/nutricion.ts`: TS18048, `lead.id` sin guarda en una línea nueva del motor, donde el resto usa `lead?.` o `insc.lead_id`.
+
+**La regla que queda.** Con los tipos como red y no como condición (con 8 chats no hay RAM para el tsc completo), el
+`tsc-acotado` de los archivos resueltos a mano es barato (≈1 GB, un par de minutos) y LEER todos sus errores, no sólo los
+de esos archivos, es la única mirada de tipos que tiene el tren. Un TS2459 o un TS18048 en código nuevo es un bug de
+ejecución, no ruido: se devuelve a su chat o se arregla en el tren antes de subir.
+
+**Además, en el mismo tren.** Las guardas cortan en la PRIMERA que frena: con «rutas de Windows» en rojo no se miraron las de
+después (los .ts sin módulo, la referencia de la API). Arreglada la primera, se corren TODAS de nuevo.

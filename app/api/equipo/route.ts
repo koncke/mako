@@ -21,6 +21,8 @@ import { invitarPorEmail } from '@/lib/invitaciones';
 // Suspender, eliminar o bajarle el rol a alguien APAGA los tokens clásicos de la API que esa
 // persona acuñó (14/10/2026): sólo los que ya no administra, y sin tirar nunca.
 import { revocarAgenteTokensDe } from '@/lib/agente-token';
+import { suscripcionDeMakoDe } from '@/lib/cobros';
+import { topeAlInvitar } from '@/lib/tope-equipo-reglas';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +31,12 @@ const ROLES_WS: RolWorkspace[] = ['admin', 'closer', 'setter'];
 
 // Miembros del workspace `ws` (usuarios-cliente; nunca admins de agencia): `equipoDe`, en lib/usuarios.ts desde el
 // 17/10/2026 (lo comparte la pantalla del teléfono).
+
+/** ¿MaKo le cobra el plan a este negocio por la pasarela? Si no se puede leer, no se frena a nadie: mejor una invitación de
+ *  más que frenar a quien paga por un error de la base. */
+async function cobraMako(ws: number): Promise<boolean> {
+  try { return (await suscripcionDeMakoDe(ws)) != null; } catch (e) { console.error('[equipo] no pude leer la suscripción de MaKo', ws, e); return false; }
+}
 
 // Resuelve y autoriza: devuelve el ws si el request es admin-del-cliente (o
 // agencia impersonando), o un Response de error si no.
@@ -75,6 +83,10 @@ export async function POST(req: NextRequest) {
         if ((await listarUsuarios()).some((u) => u.email === email)) {
           return NextResponse.json({ ok: false, error: 'Ya existe una cuenta con ese email.' }, { status: 400 });
         }
+        // EL TOPE DE USUARIOS DEL PLAN (23/10/2026, lib/tope-equipo-reglas.ts): sólo a quien MaKo le cobra por la pasarela, y
+        // sólo frena lo nuevo: los que ya están no pierden el acceso.
+        const tope = topeAlInvitar({ cobraMako: await cobraMako(ws), capa: (await getWorkspace(ws))?.capa, miembros: equipo.length });
+        if (!tope.ok) return NextResponse.json({ ok: false, error: tope.error, tope: tope.tope, pasarAPro: tope.pasarAPro }, { status: 403 });
         const quien = (await getUsuarioActual())?.email || 'admin-cliente';
         const nuevo = await crearUsuario({ email, nombre: body.nombre, rol: 'usuario', rol_ws: rolWs, workspace_id: ws, invitado_por: quien });
         // ⚠️ ESTA ACCIÓN SE LLAMA 'invitar' Y NO INVITABA A NADIE: creaba la fila y ahí

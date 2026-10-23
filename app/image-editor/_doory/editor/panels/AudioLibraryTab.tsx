@@ -17,6 +17,7 @@ import { Select } from '../ui/Select'
 import { Segmented } from '../ui/Segmented'
 import { AudioWaveform } from './AudioWaveform'
 import styles from './Audio.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Sort = 'featured' | 'title' | 'shortest' | 'longest'
 
@@ -70,6 +71,7 @@ function Row({ entry, canWrite, onAdd }: { entry: CatalogueEntry; canWrite: bool
         {failed ? (
           <p className={styles.warn} role="alert">
             {preview.error === 'unsupported' ? t.audio.library.oggUnsupported : t.audio.library.previewFailed}
+            <ReportarASoporte />
           </p>
         ) : null}
       </div>
@@ -248,6 +250,7 @@ export function AudioLibraryTab() {
           <Button size="sm" variant="soft" onClick={() => catalogueStore.reload()} data-testid="audio-retry">
             {t.audio.library.retry}
           </Button>
+          <ReportarASoporte />
         </div>
       )}
     </div>

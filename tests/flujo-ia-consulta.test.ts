@@ -135,7 +135,8 @@ test('la ruta: la consulta va ANTES de editar y devuelve el borrador tal cual', 
   assert.match(ruta.slice(consulta, editar), /getPromptText\('chatbot\.explicar-ia\.system', EXPLICAR_IA_SYSTEM_TEMPLATE\)/);
   assert.match(ruta, /const contestar = async[\s\S]{0,400}pasos: base,[\s\S]{0,200}cambiadas: \[\], quitadas: \[\]/, 'contestar devuelve el borrador sin cambios');
   assert.match(ruta, /if \(r\.respuesta\) \{ await contestar\(r\.respuesta\); return; \}/, 'la capa 2: editar contestó');
-  assert.match(ruta, /errores: r\.respuesta \? \[\] : erroresEdicion\(base, r, ctx\)/, 'una respuesta no se reintenta por «no cambió nada»');
+  // (22/10/2026: con el control de lo pedido después, `faltantesDelPedido`: tests/chat-mako-ramas-y-listo.test.ts.)
+  assert.match(ruta, /if \(r\.respuesta\) return \{ r, errores: \[\] \};\n\s+const errores = erroresEdicion\(base, r, ctx\);/, 'una respuesta no se reintenta por «no cambió nada»');
 });
 
 test('los prompts: el de contestar está registrado y el de editar ofrece "respuesta"', () => {

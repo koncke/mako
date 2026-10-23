@@ -2258,8 +2258,86 @@ la clave `landing:<id>`, por `/api/hilo-de-tab` (lib/hilo-de-tab-reglas.ts). Cad
   (`PREFIJOS_HILO_DE_TAB`) cualquiera escribía en `mako-movil:<persona>`, el chat del Ops Center de OTRA persona. Y dos
   guardados a la vez sobre una entidad sin charla crean DOS sesiones (los dos ven «no hay»): el cliente los encola por
   clave (lib/hilo-de-tab-cliente.ts).
-- **Sin hacer:** la etiqueta «Web Generator › …» en la fila del Ops Center es de OC4; el diagnóstico (`landing-diagnostico:*`)
-  ya guardaba por /api/chart-insights; la caja y el hilo únicos, TB3.
+- **Medido en producción el 22/10, en el ws3** (landing 31): el turno quedó guardado aunque el ws3 no tiene IA para editar
+  (el aviso vuelve en rojo, por la marca «⚠️ »), recargar trajo la charla y el Ops Center la abre con sus dos mensajes.
+- **Sin hacer:** en el Ops Center la fila sale suelta, sin el grupo «Web Generator»: el prefijo `landing:` no tiene
+  etiqueta de origen (la de `dashboard:` sí; es de OC4, del chat Ops Center). El diagnóstico (`landing-diagnostico:*`) ya
+  guardaba por /api/chart-insights. La caja y el hilo únicos, TB3.
 
 **Vive en:** app/web-generator/editor/hilo-agente.ts, paneles/PanelAgente.tsx · app/api/hilo-de-tab/route.ts ·
 tests/hilo-de-tab.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## El agente con las piezas del Ops Center, por un archivo aparte (22/10/2026, TB3)
+
+El hilo del agente es `HiloMako` (criatura «Web Generator») y la caja `CajaChat`, que ya trae el «+», las miniaturas,
+pegar, los emojis y el micrófono: el panel le pasa sus archivos (`adjuntos={adj}`) y soltar sigue siendo de la pantalla.
+La propuesta con «Original | Modificado», las burbujas de pedidos y los errores entran por el hueco `enMensaje`; la sección
+del pedido va como «desde …» y sus archivos como fichas del hilo (sin abrir: viajó su texto, no se guardaron).
+
+- **Las piezas viven en paneles/ChatAgente.tsx y el panel las carga con `next/dynamic`.** PanelAgente.tsx lo importa
+  DialogoAnalitica, que carga tests/editor-landing-agente.test.ts, y `CajaChat`/`HiloMako` traen CSS: importadas directo, ese
+  test ni carga (probado). La guarda del chat único registra ChatAgente.tsx como «caja única»; PanelAgente salió de la lista.
+- Las piezas usan los tokens de la app: `.gma-ag` ya redefinía `--surface`, `--ink`…, y ahora también `--primary` (el
+  botón de mandar, con el azul del editor).
+- **Con el super admin mirando un cliente, la caja del agente quedaba abajo de la vista**: la barra de la agencia estira todo
+  `<aside>` (docs/hallazgos-ui.md). El que se pasaba era la columna `aside.gma-izq` (761 px en un cuerpo de 713), no el
+  panel: las tres columnas del editor son `<section>` desde el 22/10.
+
+**Vive en:** app/web-generator/editor/paneles/ChatAgente.tsx, PanelAgente.tsx · tests/web-generator-agente-piezas.test.ts,
+tests/web-generator-adjuntos.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## La landing de hola-mako.com en Web Generator: el bloque «Diseño editable» (23/10/2026)
+
+Pedido de Martín: «Que tenga la landing principal de MaKo en el editable de web generator y que le pueda hacer
+cambios de allí y se apliquen. Revisa que no se dañe la landing». Contrato: lib/editor-landing/html-editable.ts.
+
+- **Un diseño a medida NO entra en los bloques de Gamma sin perder la forma.** La landing es HTML de Claude
+  Design con estilos en línea, su hoja y comportamientos (carruseles, red de MaKo, Calendly). La salida: el bloque
+  `htmlEditable`, el HTML de UNA sección tal cual (sin JS: lo saca sanitize-html en el server), editable a la vista
+  en un iframe `sandbox="allow-same-origin"` SIN `allow-scripts` (el editor toca su DOM; el HTML no corre nada).
+- **La página «libre»: el diseño nunca adentro de `.gm-doc`.** CSS_CONTENIDO tiene reglas de elemento colgadas de
+  `.gm-doc` (`h1..h4` con `text-wrap`, `-webkit-text-fill-color`, `a` subrayado, `li + li`…) que pisan cualquier
+  diseño. Una página con diseño editable se publica en `.gm-libre`: las secciones de diseño a sangre y las de
+  Gamma en TRAMOS con su propia raíz. Y cada sección de diseño en un envoltorio `display: contents`: con una caja
+  por sección, el header `position: sticky` queda pegado sólo al alto de su sección.
+- **La landing heredaba el preflight de Tailwind sin saberlo.** En la app, los `h1`/`p` sin margen, las imágenes
+  en bloque y el `line-height: 1.5` venían de Tailwind (`@layer base`). En hola-mako.site y en el editor no hay
+  Tailwind: la base va como `CSS_BASE_LIBRE`, colgada de `.gm-libre` y EN UNA CAPA (una regla con capa pierde contra
+  cualquier regla sin capa, igual que en la app). Sin la capa, la base le ganaba a reglas del diseño de menor
+  especificidad.
+- **Un `@import` después de cualquier regla se ignora SIN avisar.** La Geist no cargaba en la publicada (todos los
+  textos 3-10% más angostos, medido con el DOM: 25 diferencias en los primeros 75 elementos). Dos causas juntas: la
+  base iba antes del `@import` de la hoja, y la regex del import cortaba en el primer `;` — y la URL de Google
+  Fonts LLEVA `;` (`wght@400;500;600`). `hojaDeDiseno` sube los imports; el test lo fija.
+- **Cómo se midió «igual»: Chrome sin ventana por CDP, DOM contra DOM.** Cada elemento de la raíz con su caja y
+  18 estilos calculados, comparados por índice contra producción (scratchpad `captura.mjs` + `diff-dom.cjs`). Una
+  captura sola no alcanza: el ancho de un texto cambia con la fuente y a ojo no se ve. Resultado: mismo alto
+  (10.156 px escritorio, 16.254 teléfono) y 759/763 y 760/763 elementos idénticos; los que difieren son un
+  carrusel y puntos animados en movimiento.
+- **El contenido que se armaba en el navegador quedó escrito una vez.** Landing.tsx mutaba la landing en un
+  efecto (cards inyectadas, hooks, el realce de #beta, «Entrar»): si eso seguía en runtime, el editor mostraba otra
+  cosa que la portada y pisaba lo que Martín escribiera. Pasó a `app/vsl/landing-contenido.ts` y la importación
+  (scripts/landing-mako-a-web-generator.mts) lo aplica en Chrome sin ventana: jsdom está ROTO en node_modules (le
+  falta un módulo de `cssstyle`), y tsx le mete `__name` a las funciones que se pasan como texto a la página.
+- **La portada tiene que seguir saliendo sin la base.** app/page.tsx lee la foto publicada con caché (`landing-mako`
+  vence con «Publicar») y, si no hay documento o la base no contesta, sirve la landing de siempre. La portada pasó
+  a `app/vsl/Portada.tsx` porque app/page.tsx ahora importa server-only y el test de la razón social la renderiza.
+- **El orden de subida importa.** El editor VIEJO tira un nodo que no conoce y el autoguardado lo borra: los
+  documentos se suben DESPUÉS del deploy del bloque, nunca antes.
+
+- **REGLA: el CSS del diseño nunca lleva `<`.** La revisión de Integración (23/10) lo encontró: `cssDisenoLimpio` sacaba
+  `</?style` en UNA pasada y se evadía anidando (`<</style/style>` deja un `</style>`; lo que sigue es HTML y un `<script>`
+  corría en hola-mako.com, donde la portada pinta la hoja tal cual). Ahora se saca TODO `<` (una hoja no lo necesita; el `>`
+  del selector hijo se queda) y la portada re-escapa `</style` como pagina-publica.ts. Un filtro que borra una palabra
+  peligrosa en una pasada se evade armándola con sus pedazos: se borra el CARÁCTER que la abre.
+- **El widget de Calendly escribe una UTM en `undefined` como el TEXTO «undefined»** (medido en producción el 23/10, ya
+  con la landing subida: `utm_medium=undefined` en la URL de la agenda, que llega a las UTM del lead). El objeto `utm` se arma
+  sólo con las que vienen. Lo vio la verificación en producción, no los tests: la URL del iframe se mira.
+- **Y la revisión mía (063f3932f): el iframe del editor es del MISMO origen que la app** (para poder editar su DOM): un
+  `<img src="/api/…">` o un url() relativo salía con la cookie de quien abre. Medios sólo https absolutos y nunca /api/.
+
+Lo que quedó SIN hacer:
+- «Editar con IA» no reescribe el texto de un diseño editable: lo conserva entero (`conservar` en ia-bloques.ts).
+- La miniatura de una sección de diseño es un iframe de 640 px de alto (no se sabe su alto antes de dibujarla).
+- «Replicar → Página web» sigue armando HTML personalizado (aislado, sin texto editable); podría usar este bloque.
+- El tsc acotado de esta tanda lo cortó el vigía de RAM: los tipos los vio Integración.

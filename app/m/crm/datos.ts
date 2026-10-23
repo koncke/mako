@@ -267,7 +267,9 @@ export type TarjetaCrmM = {
 };
 
 /** «Próximo» (17/10/2026, la destacada del prototipo): la próxima reunión que todavía no pasó. */
-export type ProximoCrmM = { id: number; nombre: string; cuando: string; plata: string | null; telefono: string | null; foto: string | null; col: string };
+export type ProximoCrmM = { id: number; nombre: string; cuando: string; plata: string | null; telefono: string | null; foto: string | null; col: string;
+  /** Para la tarjeta que prepara la reunión (22/10/2026, app/crm/TarjetaReunion.tsx): el día, la hora, el link y la empresa. */
+  fecha: string | null; dia: string; at: string | null; url: string | null; empresa: string | null };
 
 export type TableroCrmM = {
   /** null = el funnel del negocio (como `leads.funnel_id`). */
@@ -353,7 +355,16 @@ export async function tableroCrm(funnelPedido: number | null): Promise<TableroCr
         const col = etapaEnTablero(c.stage, keys);
         const senal = senalDeTarjeta({ reunionISO: c.fechaJ1, manualDeadline: null, enManual: false, abierto: true, creadoISO: c.createdISO }, ahoraMs, tz, hoy);
         const plata = c.monto > 0 ? plataCorta(c.monto) : (c.ingresoEstimado ?? 0) > 0 ? `≈ ${plataCorta(c.ingresoEstimado ?? 0)}` : null;
-        proximo = { id: c.id, nombre: c.name?.trim() || 'Sin nombre', cuando: senal.tono === 'verde' && senal.texto ? senal.texto : (c.fechaJ1!.length <= 10 ? (c.fechaJ1 === hoy ? 'Hoy' : c.fechaJ1!.slice(8, 10) + '/' + c.fechaJ1!.slice(5, 7)) : 'Ahora'), plata, telefono: c.telefonoNorm ?? null, foto: c.foto ?? null, col };
+        const soloDia = c.fechaJ1!.length <= 10;
+        const empresa = c.company?.trim();
+        proximo = {
+          id: c.id, nombre: c.name?.trim() || 'Sin nombre', cuando: senal.tono === 'verde' && senal.texto ? senal.texto : (soloDia ? (c.fechaJ1 === hoy ? 'Hoy' : c.fechaJ1!.slice(8, 10) + '/' + c.fechaJ1!.slice(5, 7)) : 'Ahora'), plata, telefono: c.telefonoNorm ?? null, foto: c.foto ?? null, col,
+          // Con sólo el día, la hora es `junta_1_at` (la tarjeta la usa sólo si cae ese día); con instante, ése.
+          fecha: soloDia ? c.fechaJ1 : null,
+          dia: soloDia ? (c.fechaJ1 === hoy ? 'hoy' : `${c.fechaJ1!.slice(8, 10)}/${c.fechaJ1!.slice(5, 7)}`) : 'hoy',
+          at: soloDia ? c.atJ1 ?? null : c.fechaJ1, url: c.urlJ1 ?? null,
+          empresa: empresa && empresa !== SIN_EMPRESA ? empresa : null,
+        };
       }
     }
     const lite = stages.map((s) => ({ key: s.key, label: s.label, kind: s.kind ?? null }));

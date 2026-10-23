@@ -7,6 +7,7 @@ import { ImpersonationBanner } from './_components/ImpersonationBanner';
 import { AlertaVozMaKo } from './_components/AlertaVozMaKo';
 import { MakoConfirmGate } from './_components/MakoConfirmGate';
 import { AvisoPixelViejo } from './_components/AvisoPixelViejo';
+import { AvisoMoraPlan } from './_components/AvisoMoraPlan';
 import { EsquinaAvisos } from './_components/EsquinaAvisos';
 import { FueraDeLoPublico, HideOnPublicLanding } from './_components/PublicRouteGate';
 import { CentinelaArranque } from './_components/CentinelaArranque';
@@ -84,8 +85,12 @@ export const viewport: Viewport = { themeColor: '#171511' };
 //
 // Venía de la «réplica del rootStyle del prototipo», o sea copiado de un HTML suelto
 // donde no había ninguna pantalla que tuviera que llenar el alto.
+//
+// ⚠️ EL ALTO MÍNIMO DESCUENTA LA BARRA DE ARRIBA (22/10/2026): con la barra de «Estás viendo el dashboard de…» o la alerta de
+// la voz caída, `body` gana su padding-top, y un `100vh` a secas dejaba el documento 50 px más alto que la ventana (medido en
+// el CRM: 860 de 811). app/globals.css lo corrige también para todo `min-height: 100vh` en línea.
 const rootStyle: CSSProperties = {
-  minHeight: '100vh',
+  minHeight: 'calc(100vh - var(--barra-agencia, 0px))',
   background: 'var(--bg)',
   color: 'var(--ink)',
   fontFamily: "'Geist', system-ui, sans-serif",
@@ -256,6 +261,8 @@ export default async function RootLayout({
                   pisarse. Ver app/_components/EsquinaAvisos.tsx. */}
               <EsquinaAvisos>
                 <AvisoPixelViejo />
+                {/* La renovación del plan de MaKo que no entró: cuánto, cuándo se pausa, y a pagar (23/10/2026). */}
+                {sesion && <AvisoMoraPlan />}
                 <MakoConfirmGate />
               </EsquinaAvisos>
               {/* Las secciones de las tabs unificadas (Video, Image, Copywriting): una barra, acá, para

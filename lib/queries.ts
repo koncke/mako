@@ -2639,6 +2639,11 @@ export type JuntaProxima = {
   origen: string;
   madurez: EstadoMadurez;
   estado_lead: EstadoLead;
+  /** La hora (`junta_N_at`, el start_time de Calendly) y el link para entrar (`junta_N_url`, mig 0204): la tarjeta que prepara
+   *  la reunión (22/10/2026) cuenta cuánto falta y ofrece «Entrar». ⚠️ Puede ser de OTRO día (un reagendado sin hora):
+   *  quien la dibuja la usa sólo si cae en `fecha`. */
+  at?: string | null;
+  url?: string | null;
 };
 
 /**
@@ -2721,6 +2726,8 @@ async function _getJuntasProximas(
         origen: origenLegible(lead),
         madurez: estadoMadurezLead(lead),
         estado_lead: lead.estado_lead,
+        at: at ?? null,
+        url: (c.tipo === 'J1' ? lead.junta_1_url : lead.junta_2_url) ?? null,
       });
     }
   }

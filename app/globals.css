@@ -872,6 +872,16 @@ textarea.mako-field {
 .mk-sel-columna[data-seleccionando='1'] { width: 15px; margin-right: 0; opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .mk-sel-columna { transition: none; } }
 
+/* EL «⋯» DE UNA COLUMNA DEL CRM (22/10/2026): abre el menú del clic derecho (app/crm/menu-contextual-crm.ts). Era un
+   `Dropdown`, que ponía su propio fondo al pasar el cursor; el botón suelto lo pone acá. */
+.mk-col-mas { background: transparent; }
+.mk-col-mas:hover, .mk-col-mas[aria-expanded='true'] { background: var(--surface-2); color: var(--ink); }
+.mk-col-mas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* Le falta su vínculo (22/10/2026): una etapa de reunión sin evento, o Ganado sin cobro. Un punto ámbar en la esquina. */
+.mk-col-mas[data-falta] { position: relative; color: var(--warn); }
+.mk-col-mas[data-falta]::after { content: ''; position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 99px;
+  background: var(--warn); box-shadow: 0 0 0 2px var(--surface-2); }
+
 /* LA COPIA QUE VIAJA CON VARIOS TILDADOS dice cuántos van (CRM, 22/10/2026: arrastrar uno de los tildados mueve a todos).
    La marca la pone el tablero en el origen sólo mientras se clona: la tarjeta que se queda no la lleva. */
 .mk-tarjeta-lead[data-varios]::after {
@@ -1249,8 +1259,8 @@ details[open] > summary .chev {
    esos 50 px; cuando algo la corría (el foco en la barra de abajo, un scrollIntoView), el título y «Probar» quedaban debajo
    de la barra, y el lienzo, que se come la rueda para el zoom, no dejaba volver.
    UNA regla y no un cambio en cada pantalla: son de otros chats y mañana hay otra. Mira el estilo EN LÍNEA tal como lo
-   serializa el navegador («flex: none; height: 100dvh; …»): el espacio de adelante deja afuera `min-height`, que no
-   desborda nada. El riel del Sidebar queda afuera: tiene su regla de arriba (con `100dvh` para el iPad), y ésta le
+   serializa el navegador («flex: none; height: 100dvh; …»): el espacio de adelante deja afuera `min-height`, que tiene
+   su propia regla (abajo: también desborda). El riel del Sidebar queda afuera: tiene su regla de arriba (con `100dvh` para el iPad), y ésta le
    ganaría por especificidad. Lo fija tests/barra-inspeccion-alto.test.ts.
    ⚠️ Y LAS DOS ESCRITURAS DEL ESTILO (17/10/2026, medido en Chrome sin ventana). Lo que pinta el NAVEGADOR sale
    «flex: none; height: 100dvh;», pero lo que llega del SERVER sale como lo escribe React: «flex:none;height:100dvh»,
@@ -1268,6 +1278,25 @@ details[open] > summary .chev {
 [data-alerta-voz] [style^="height: 100dvh"]:not([data-sidebar]), [data-alerta-voz] [style*=" height: 100dvh"]:not([data-sidebar]),
 [data-alerta-voz] [style^="height:100dvh"]:not([data-sidebar]), [data-alerta-voz] [style*=";height:100dvh"]:not([data-sidebar]) {
   height: calc(100dvh - var(--barra-agencia)) !important;
+}
+/* ⚠️ Y EL `min-height` TAMBIÉN (22/10/2026). La regla de arriba dejaba afuera `min-height` «porque no desborda nada», y SÍ
+   desborda: con la barra, `body` gana sus 50 px de padding y un `min-height: 100vh` hace el DOCUMENTO 50 px más alto que la
+   ventana. MEDIDO en producción (CRM del ws3, ventana de 811, la barra a la vista): el contenedor raíz de app/layout.tsx
+   (`minHeight: '100vh'`) medía 811 desde el y=50, el documento 860, y el `main` se estiraba con él; la sidebar ya descontaba
+   la barra (su regla de arriba) y su menú scrolleaba adentro, pero la página sobraba 50 px. Con esto: documento 811, raíz y
+   `main` 761. Son 22 `minHeight` en línea (el raíz y los `main` de ComingSoon, la ficha del CRM, WizardShell…): UNA regla,
+   con las dos escrituras del estilo, como la de arriba. Lo fija tests/barra-inspeccion-alto.test.ts (8). */
+[data-barra-agencia] [style^="min-height: 100vh"], [data-barra-agencia] [style*=" min-height: 100vh"],
+[data-barra-agencia] [style^="min-height:100vh"], [data-barra-agencia] [style*=";min-height:100vh"],
+[data-alerta-voz] [style^="min-height: 100vh"], [data-alerta-voz] [style*=" min-height: 100vh"],
+[data-alerta-voz] [style^="min-height:100vh"], [data-alerta-voz] [style*=";min-height:100vh"] {
+  min-height: calc(100vh - var(--barra-agencia)) !important;
+}
+[data-barra-agencia] [style^="min-height: 100dvh"], [data-barra-agencia] [style*=" min-height: 100dvh"],
+[data-barra-agencia] [style^="min-height:100dvh"], [data-barra-agencia] [style*=";min-height:100dvh"],
+[data-alerta-voz] [style^="min-height: 100dvh"], [data-alerta-voz] [style*=" min-height: 100dvh"],
+[data-alerta-voz] [style^="min-height:100dvh"], [data-alerta-voz] [style*=";min-height:100dvh"] {
+  min-height: calc(100dvh - var(--barra-agencia)) !important;
 }
 
 /* =============================================================================

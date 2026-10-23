@@ -7,6 +7,193 @@ del código.
 
 ---
 
+## La estrella con una tarjeta abierta: el fondo del modal la tapa (22/10/2026, CR4)
+
+- **Síntoma** (el caso de uso de CR4): en /plan, con una tarea abierta, «cerrala» desde la estrella. La estrella no se podía
+  tocar: la tarea es un modal, la estrella (`.ch-tab-mako`) y su panel viven en z 55, y la pila de modales arranca en 130
+  (app/_components/pila-modales.ts). Pasa lo mismo con la ficha de un cliente en Clientes y con la del lead en el CRM.
+- **Arreglo, opt-in** (`encimaDeModales` en app/_chat/MakoEnLaTab.tsx): con un modal abierto, la estrella va en
+  `zEncimaDeModales(profundidad)`, arriba del fondo y de la caja del de arriba. El panel abierto así entra a la pila como
+  capa `anidada`: la tarjeta de abajo se sigue viendo, y su Escape pregunta `esElDeArriba()`. Si no, una tecla cierra el
+  panel Y la tarjeta (son dos listeners en `document`, y `stopPropagation` no alcanza).
+- **El CRM NO lo pasa**: su ficha ya tiene a MaKo adentro, el Analyst a la izquierda. Una estrella encima taparía el «+» de
+  esa caja.
+- **El `id` de la tarea del Plan es genérico** (`ver_tarea_plan`, `mover_tarea_plan`: `id`, no `tareaId`), así que
+  `tarea` y `proyecto` van con `param: null`: meterlo solo lo pondría en cualquier herramienta con un `id` obligatorio. El
+  system ya dice «usa ese id». **Un cliente de Clientes ES un lead** (`leadId`): va como `lead`, y las herramientas de
+  lead lo toman solas.
+
+## «Espera tu respuesta» mentía: era el «Completado» sin ver, tapado por lo que el chat le escribió a otro (22/10/2026)
+
+Martín: «hay muchos chats que dicen "Espera tu respuesta" y cuando entro, no veo el mensaje de "Completado" o el bloque de
+preguntas». Medido ese día en la base: UNA sola sesión tenía preguntas abiertas (3 de `cartero preguntar`). Las demás filas eran
+un «Ya está» sin su ✓, que la fila dibujaba con el MISMO texto (`TEXTO_SEGUNDO_RENGLON.revisar`).
+
+- **El diagnóstico obvio era el equivocado:** no eran preguntas contadas de más. Era un «Completado» que existía, pero quedaba
+  arriba, tapado por los mensajes técnicos que el chat le escribió DESPUÉS a otro chat (la respuesta a un pedido del Cerebro).
+- **Arreglo:** la fila dice «Completado», en verde. Lo que el chat le escribe a otro chat (los turnos entre un mensaje de otro
+  chat y el próximo de Martín, menos un «Ya está») va plegado en una línea, «Avance: …» (lib/centro-chats.ts →
+  `turnosParaOtro`). Al abrir el chat, el hilo va a ese «Ya está» sin ✓ (`yaEstaSinVer`, Conversacion.tsx).
+- **Una regla vieja que no se pisó:** el «Completado» sigue hasta el ✓ aunque el chat haya escrito después (Martín, 18/10,
+  tests/centro-ya-visto.test.ts). El pedido «Completado si el último turno arrancó con Ya está» la contradecía; lo que faltaba
+  era verlo, no que se apagara.
+- **El bloque de decisiones, como lo pidió al usarlo:** la franja blanca era el fondo del panel en el pie de la caja (`.co-caja-wrap`
+  sin fondo); ahora tiene el del chat y el bloque es una tarjeta flotante. Se pliega con una flecha, y se recuerda por chat y
+  por las preguntas: una nueva lo abre. Los links se tocan, también sin https (lib/links-texto.ts → `conDominiosComoLinks`).
+  Sin pantalla de resumen: «‹ Anterior», los puntos y «Siguiente ›», y con la última salen todas.
+- **Trampa: un link adentro de un `<button>` no se abre** (HTML no lo deja). La opción del bloque es un `div` con rol de botón,
+  y tocar el link no elige la opción.
+- **Trampa: «el bloque de decisiones» eran TRES tarjetas.** Las decisiones de la Ticketera (Pregunta.tsx), las de AskUserQuestion
+  de la app y las de `cartero preguntar` se veían iguales y estaban en el mismo lugar. Los ajustes de Martín entraron sólo en la
+  última: verificado en producción el 22/10, la de «Cuesta dinero» del chat Infra seguía sin flotar, sin flecha y con links que no
+  se tocaban. Ahora es UN bloque (PreguntasDelChat.tsx → `BloqueDePreguntas`, con `itemsDelBloque`): una tarjeta, una flecha, un
+  plegado y una navegación para las tres fuentes, en la computadora y en el teléfono. Cada una se contesta como siempre: la de la
+  Ticketera se guarda al elegirla (Pregunta.tsx → `CuerpoTicketera`), las del chat salen todas cuando están todas, y las de la app
+  se contestan en la app. Una clave en el «Otra» de la Ticketera tampoco se guarda (iba a admin_decisiones sin tapar).
+- **Y lo de una tab que le pregunta a la persona va por el mismo bloque** (Martín, con captura del /crm de ws1: «Mira lo mal que se
+  ve esto»). Las sugerencias del CRM eran una lista suelta arriba del hilo de la estrella, cada una con su «Hacerlo» y su «Ahora no»,
+  con un scroll propio que se comía la mitad del panel. Ahora la estrella las recibe como `preguntas` (MakoEnLaTab →
+  BloqueDePreguntas, `PreguntaDeLaTab`) y van de a una, arriba de la caja. Arriba del hilo queda sólo lo que no es una pregunta: el
+  aviso de que no se pudieron leer y «Calladas (N)».
+- **Pero en el bloque quedaron invasivas** (Martín, en producción: «no se entiende que son sugerencias y luego que son muy
+  invasivas»). La causa era la regla del plegado, no el diseño: `usePlegado` se abre solo cuando cambia la firma de lo que espera,
+  que es lo correcto para la pregunta de un chat. Con las sugerencias adentro, cada sugerencia nueva del CRM abría la tarjeta, y
+  decía «1 pregunta esperando». Ahora van aparte (`vistaDelBloque`): plegadas en su tira «Sugerencias de MaKo · N ▾», con el ícono
+  `idea`; se abren sólo tocándola, y abiertas dicen «Sugerencia de MaKo». La firma del plegado cuenta sólo las preguntas
+  (`soloPreguntas`), y una pregunta nueva de un chat sigue abriendo el bloque y deja las sugerencias en su tira (`llegoUnaPregunta`).
+  **Regla:** algo que no se pidió no se abre solo. Sólo lo que espera una respuesta puede abrir el bloque.
+- **Las flechas solas y sin la ayuda debajo** (Martín, 22/10: «alcanza con las flechas»; «Fuera "Elige con 1 a 4 · con ésta
+  salen todas"»). ‹ y › llevan su rótulo para quien no ve y se apagan en las puntas. El pie sólo se dibuja con un error o un botón.
+  **Trampa al romperlo:** devolver la ayuda adentro del pie no hacía fallar nada, porque el pie ya no se dibujaba sin botón. Una
+  condición de afuera tapa lo de adentro, así que el test dibuja también el caso con el botón (una pregunta de varias).
+  tests/ops-center-bloque-flechas.test.ts.
+- **La barra como la lista de Automations** (feedback 4, 22/10). Arriba, en una fila: el «?», la búsqueda con su borde y el
+  embudo. Abajo, junto al Uso: Ticketera (con un ícono de ticket nuevo, `ticket`) y Second Brain. «Nuevo chat» es la fila punteada
+  de `.chb-nueva`; el teléfono sigue con el círculo verde.
+  **El filtro de Automations no se puede montar acá tal cual:** `FiltroLista` está atado a las filas de Automations
+  (`FilaFiltrable`, lib/chatbot-lista-filtro.ts). Por eso es el MISMO Dropdown (`secciones` + `varios` + «Quitar filtros») con un lib
+  propio, lib/ops-center-filtro.ts. El Área es el jefe del nombre (`partesDelNombre`), y el Estado sólo lo tiene el super admin,
+  que sabe qué chat trabaja o espera. **El tutorial ya se podía reabrir** (`useRecorrido().reabrir`), pero ningún botón lo
+  llamaba. tests/ops-center-barra.test.ts.
+- **Trampa de los tests: no hay DOM** (ni jsdom ni testing-library). `renderToStaticMarkup` dibuja sólo el estado inicial, así que
+  lo que se ve tras un toque no se puede dibujar. Lo que decide qué se ve va en una función pura (`vistaDelBloque`) y se prueba en
+  todos sus estados; el cuerpo abierto se dibuja suelto (`CuerpoDeLaTab`). tests/ops-center-sugerencias-plegadas.test.ts.
+- **Trampa: la cabecera de la estrella decía «Chat nuevo» con una criatura redonda hasta que llegaba la lista,** y recién ahí
+  saltaba a «Cerebro» con la estrella. Sin la fila, `nombre` caía en `SIN_TITULO`. Con `entrarAlCerebro` y nada pedido ni elegido,
+  ahora es el Cerebro desde el primer cuadro (useChatCliente.ts → `vaAlCerebro`). Pasaba también al entrar al Ops Center del cliente.
+
+## «Tarda y se traba» al entrar al Ops Center: no era el servidor ni los muñecos, era el historial de TODOS los chats (23/10/2026)
+
+**Síntoma (Martín, feedback 5b):** «al entrar al Ops Center en la computadora tarda, y el diseño se traba uno o dos segundos».
+
+**Lo medido en producción** (`/admin/operaciones`, el 23/10, con `long-animation-frame` y `longtask`): el HTML terminaba a los
+1,3 s y la página estaba cargada a los 1,4 s. Después, React (el scheduler, `MessagePort.onmessage`) trabajaba **~1,9 s
+seguidos**, con tareas de 300 a 620 ms, y volvía cada 2 o 3 s con tareas de 100 a 330 ms: el refresco.
+
+**Los diagnósticos obvios eran los equivocados:**
+- No era el servidor: el HTML llegaba antes de los 1,4 s.
+- No eran los 66 muñecos animados en SVG: con las animaciones pausadas, los cuadros eran igual de lentos.
+- **Trampa de la medición:** en la ventana del grupo de la extensión de Chrome, TODA página pesada va a 1 o 2 fps, también el CRM.
+  Una página vacía va a 134. Ahí la cadencia de cuadros no mide nada; el tiempo de JavaScript sí.
+
+**La causa, medida con los datos de producción en Node** (un arnés que lee lo mismo que `datosDelCentroSiOpera`, sólo lectura):
+- `lineasDe` (useCentro.ts), el historial de los 57 chats de la lista, costaba **247 ms** en cada refresco.
+- De eso, **141 ms** eran `respuestasDelChat` (lib/centro-preguntas.ts). Por cada chat aplanaba los carteros y resolvía la sesión
+  de cada tarjeta contra todos ellos, aunque la sesión de una tarjeta no depende del chat.
+- Ahora la sesión se guarda una vez por par (decisiones, carteros), con un `WeakMap` por identidad: **5 ms**. Sirve igual a
+  `preguntasDelChat`, que se llama por fila.
+- Además, abrir un chat con un «Completado» sin ✓ dibujaba TODO su historial (el `verTodo` del 22/10). Ahora dibuja hasta ese
+  «Ya está» y unos de antes (`tandaHasta`).
+- Los lotes de `leerUltimosTurnos` se leían en serie: 2,2 s en frío. Ahora van en paralelo.
+
+**La entrada:** la criatura de MaKo del teléfono (`EntradaApp`) ahora también está en la computadora (app/second-brain/EntradaOps.tsx).
+Nace y flota sobre el Ops Center hasta que la conversación se dibujó, y vuela a la criatura de la cabecera. Va una vez por
+documento. `.co` pasó a `position: relative`; ningún absoluto de adentro dependía de que no lo fuera.
+
+**El después, medido igual (tren 17, 23/10/2026 00:50, en caliente, con el MISMO chat abierto, Cobros):** en la entrada, 517 ms
+de tareas largas en total, la peor de 176 ms; antes, ~1,9 s seguidos, con tareas de hasta 624 ms. El refresco dejó tareas de 63 a
+152 ms; antes llegaban a 330. La criatura entra sola sobre el Ops Center y se va cuando se dibujó la conversación. El HTML sigue
+en 1,3–1,5 s.
+
+**Trampas de esa medición:**
+- `/admin/operaciones` sin `?centro=` abre el último chat, y el número cambia mucho según cuál sea. Se compara con el mismo chat
+  fijo en la URL.
+- Una captura de pantalla de la extensión EN PLENA carga infló la entrada a 3,4 s.
+- La primera visita después de un deploy es en frío: el HTML a 3,9 s y la página a 13 s.
+
+**Regla:** algo que se calcula por chat no recorre en cada vuelta lo que no depende del chat. Se lo calcula una vez por refresco y
+se lo busca. tests/ops-center-carga.test.ts.
+
+**Un chat TRABAJANDO trababa en cada refresco (23/10/2026, después del 5b): era todo lo que llegaba nuevo sin cambiar.** Medido
+en producción con el chat «IA del cliente», que estaba trabajando: React trabajaba de 1 a 3,6 s cada pocos segundos. Las causas
+están en app/admin/operaciones/useCentro.ts:
+- `refrescar` hacía `set` de la cola, los carteros, las decisiones, los pasos, las cuentas y los vistos con arreglos NUEVOS
+  aunque valieran lo mismo.
+- `setAhora(Date.now())` cambiaba el reloj de `conVigia` al milisegundo, y con eso se rehacían TODOS los chats cada 2,5 s.
+- Las preguntas, tareas y marcas del chat abierto llegaban como objetos nuevos en cada `pedirTurnos`.
+- `lineasDeConversacion` armaba de nuevo cada turno plegado («Avance: …»), así que el `Hilo` memorizado no acertaba nunca.
+
+**Cómo quedó** (lib/centro-estable.ts):
+- `mismoValor` devuelve el de antes si vale lo mismo, en cada `set` del refresco y del chat abierto.
+- Los chats se completan con el reloj al minuto (`ahoraLista`), que es lo que usa `viejo` (4 min).
+- Los chats y sus líneas mantienen su referencia si valen lo mismo (`estabilizarLista`, `claveDeLinea`), y el plegado se guarda
+  en un `WeakMap`.
+- `Linea` va con `memo` y su propia comparación (`mismaLinea`): un trabajo en camino se redibuja con el reloj y el Runner, y lo
+  demás no. tests/ops-center-refresco-estable.test.ts.
+
+**Trampa de la medición:** en la ventana del grupo de la extensión aparecieron tareas de 10 a 45 s SIN NINGÚN script atribuido en
+`long-animation-frame`: es trabajo del navegador, no de la app. Se distingue por eso, y a la app se la mide por lo atribuido al
+scheduler de React (`MessagePort.onmessage`).
+
+**SIN HACER:** la lista (`FilaCentro`) se redibuja entera en cada render del `Cuerpo`. Recibe el `Centro` entero y closures
+nuevos, y memorizarla así podría dejar acciones viejas pegadas.
+
+**SIN HACER (lo que encontró la investigación del 23/10, por orden de impacto probable):**
+- `pedidos` viaja entero al navegador: 721 KB, 450 pedidos. Se hidrata con el resto (`DatosCentro`).
+- `listarPedidos` trae `firmado`, y `leerDecisiones` usa `select('*')`.
+- `fotoCentroAction` (cada 8 s) y `pushesCentroAction` (hasta 8 s contra Vercel) son server actions, que Next corre de a una.
+  Abrir otro chat espera detrás.
+- El refresco hace `set` siempre con referencias nuevas: todo `Cuerpo` se vuelve a dibujar aunque nada cambie.
+- El cliente:
+  - `HiloMako` no está memorizado y re-parsea el Markdown de cada mensaje en cada render.
+  - La lista llega en unas 6 respuestas sueltas y salta en cada una.
+  - /second-brain no tiene `loading.tsx`.
+  - `guardOnboarding` corre dos veces (lib/tab-access.ts).
+
+## Un refresco que falla desarmaba el Ops Center: el `centro` null de una vuelta del servidor (22/10/2026)
+
+El Cerebro, midiéndolo en producción: en cada deploy (cada 30 minutos), durante uno o dos minutos, varios POST a /admin/operaciones
+y algunos GET `?_rsc` dieron 503. Con cada uno la Ticketera volvía a «Cargando…» (la primera vez quedó trabada más de 12 s, hasta
+recargar) y la lista perdía sus «Completado» y se reordenaba.
+
+- **El diagnóstico obvio era el equivocado:** no era la lectura de la Ticketera, que ya guardaba lo que tenía. Era que TODO se volvía
+  a montar: `ChatSecondBrain` decidía el árbol con la prop cruda (`props.centro ? <ConCentro>… : <Cuerpo centro={null}>`), y una
+  vuelta del servidor que no pudo leer la sesión (`datosDelCentroSiOpera` → null) cambiaba de árbol. La Ticketera arrancaba de
+  cero y la lista salía en el modo del cliente. **Regla:** una pantalla cuyo árbol depende de un dato del servidor se queda con
+  el último que vio; lo que se lee después pasa igual por la guarda de cada acción.
+- **Trampa: una server action con 503 TIRA** (Next 16: «An unexpected response was received from the server»). `refrescar`
+  (useCentro.ts) no la atajaba. Ahora queda lo último que se vio y el intervalo de 8 s reintenta.
+- **Trampa: una lectura colgada trababa la Ticketera para siempre.** `lectorDeBandeja` (mazo-reglas.ts) no soltaba `leyendo` si la
+  acción no volvía. Ahora tiene tope (15 s). Con tickets a la vista, un tropiezo suelto no se dice: sólo 3 seguidos.
+- **Medido en el deploy del tren 7** (dpl_4ssL45J1ND, Ready 20:14:48; el Cerebro, desde el Chrome de Martín): de 20:14:58 a 20:22,
+  294 pedidos a /admin/operaciones, /crm y /api/auth/me (RSC), y ninguna respuesta que no fuera 200. La ráfaga de 503 del tren 5 no
+  se repitió, así que no quedó `x-vercel-error` para leer. Lo que hay que cuidar es lo de arriba: una vuelta sin sesión que trae
+  `centro` null.
+- **Trampa: un tiempo medido en el Chrome de esta PC con poca RAM mide la PC, no producción.** Con 1 GB libre, cada pedido desde el
+  Chrome tardaba entre 13 y 16 s; el mismo pedido desde curl, 0,3 s. Antes de decir que producción está lenta, se mide con curl.
+- **SIN HACER:** si la ráfaga vuelve, capturar `x-vercel-error` en ese deploy (no sale de proxy.ts, cuyo 503 es sólo local). Y la
+  página del teléfono (app/m/operaciones/page.tsx) redirige a /inicio si una vuelta del servidor no puede leer la sesión: eso no se
+  tocó.
+- **Y la criatura de la cabecera contaba con OTRO número que la fila** (Martín, 22/10, 18:45: la fila del «Cerebro» avisaba y la
+  criatura de arriba dormía, «No se entiende»). La fila usa `k.avisos(c)` (useCentro.ts: las esperas con el vigía y el
+  «Completado» sin ✓). La cabecera recibía `esperaDe(chat, k.esperas)`, sin el «Completado», y lo mismo pasaba con las dos del
+  teléfono (ChatsMovil.tsx). El diagnóstico obvio, «hay una pregunta que no se dibuja», también era el equivocado. **Regla:** la
+  criatura de la cabecera y la de la fila salen de UN número, `avisos`, en la computadora y en el teléfono. Duerme sólo con la
+  fila en gris (la regla del 17/10). **Trampa:** tests/centro-ops7.test.ts fijaba la cabecera del teléfono con `esperaDe`: el test
+  protegía el error.
+- **SIN HACER:** el teléfono no va solo al «Ya está» al abrir el chat (la computadora sí). El plegado se recuerda en el
+  navegador de cada dispositivo.
+
 ## Una clave pegada en el Ops Center no se puede tapar después: no sale (22/10/2026)
 
 Martín contestó en el bloque de decisiones la pregunta de Apify del Cerebro con «Otra:» y su token pegado (pedido 253f6e11).
@@ -2026,6 +2213,14 @@ animación de movimiento, y parpadeo». Código: app/_chat/MakoEnLaTab.tsx, Mune
 - **Lo de cada tab entra por la pieza, no al lado (22/10, pedido del CRM):** `arriba` (las sugerencias, sobre el hilo), `aviso` (el
   globito de la estrella plegada) y, abierto, `--ancho-panel-mako` en <html> (440 px; 0 cerrado) para que la tab le deje el margen
   con `padding-left: var(--ancho-panel-mako, 0px)`. Una tab que mide el panel por su cuenta se desfasa cuando la barra se fija.
+- **Lo que MaKo terminó en OTRA tab también suma al globito (22/10, pedido del chat Automations).** El turno de Automations
+  sigue aunque la persona se vaya. Si termina sin que nadie lo mire, queda en lib/mako-trabajos.ts y sale el evento
+  `mako:trabajo-terminado`. La estrella lo lee al montar y con cada evento (TrabajosDeMako.tsx): globito = `aviso` + eso, y
+  abierta dice «MaKo terminó en Automations › …» con su link. **Trampa: esa lista vive sólo en la memoria de la pestaña.** Un
+  `<a>` a mano recarga la página y la borra antes de que Automations la marque vista; el `Link` de la casa navega sin recargar
+  y pone el `?ws=`. tests/ops-center-trabajos-mako.test.ts.
+  **SIN HACER:** recargar la página pierde lo que no se vio (la lista no se guarda). Y la estrella está montada en el CRM, el
+  Plan, Clientes y el editor del Dashboard (22/10): en las demás tabs no se ve hasta que su chat la monte.
 - **El desfase de cada criatura sale de su ASPECTO, no de su nombre.** Con el nombre, la estrella del «Ops Center» de la barra y la
   del «Cerebro» dejaban de ser la misma criatura (tests/centro-ops7.test.ts lo fija comparando el HTML). Sin desfase, todas
   parpadeaban a la vez, como un tablero.

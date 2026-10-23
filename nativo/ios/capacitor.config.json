@@ -1,0 +1,28 @@
+{
+  "appId": "com.holamako.app",
+  "appName": "MaKo",
+  "webDir": "www",
+  "server": {
+    "url": "https://hola-mako.com/inicio",
+    "errorPath": "sin-conexion.html",
+    "allowNavigation": [
+      "hola-mako.com",
+      "*.hola-mako.com"
+    ]
+  },
+  "ios": {
+    "appendUserAgent": "MaKoApp-iOS",
+    "contentInset": "never",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "banner",
+        "list"
+      ]
+    }
+  }
+}

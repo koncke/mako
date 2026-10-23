@@ -15,6 +15,7 @@ import { CirculoNuevo } from './NuevoChat';
 import { Muneco } from './Muneco';
 import { BotonMandar } from './Microfono';
 import { BotonEmojis } from './Emojis';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type FaseChatNuevo = 'escribiendo' | 'decidiendo' | 'confirmando' | 'saliendo' | 'abriendo' | 'fallo' | 'sin_forma';
 
@@ -92,7 +93,7 @@ export function CuerpoChatNuevo({ n }: { n: ChatNuevo }) {
             <button type="button" className="co-chip" onClick={n.dejar}>Dejar como está</button>
           </span>
         )}
-        {editando?.error && <span className="co-nuevo-nota__error" role="alert">{editando.error}</span>}
+        {editando?.error && <span className="co-nuevo-nota__error" role="alert">{editando.error}<ReportarASoporte /></span>}
         {fase === 'saliendo' && <span className="co-nuevo-nota__estado">Mandándolo…</span>}
         {fase === 'abriendo' && <span className="co-nuevo-nota__estado">{n.apertura ?? 'Abriéndolo en la PC…'}</span>}
         {fase === 'fallo' && (

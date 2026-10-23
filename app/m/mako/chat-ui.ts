@@ -20,6 +20,7 @@
 // lib/mako-adjuntos.ts y lib/claves-en-el-chat.ts (una constante), que son puros y sin server.
 // =============================================================================
 
+import { sinDesde } from '@/lib/chat-desde';
 import type {
   MensajeChat, PropuestaPantalla, RespuestaTurno, ResultadoTarjeta, TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
@@ -38,7 +39,14 @@ import type { IdMensaje, MensajeWA } from '@/lib/centro-mensajes';
  * Un archivo de un mensaje de la persona. Guardado (mig 0305): `ref`, que se pide a /api/mako/chat?adjunto=. Recién
  * elegido, mientras sale: `local`, la vista previa del navegador (un `blob:`), que no se guarda.
  */
-export type ArchivoHilo = { nombre: string; tipo: TipoAdjunto; ref?: string; local?: string; archivero?: EstadoArchivero };
+export type ArchivoHilo = {
+  nombre: string; tipo: TipoAdjunto; ref?: string; local?: string; archivero?: EstadoArchivero;
+  /** Lo que la pantalla dice de ese archivo, debajo del nombre (Offer: «Ojo: …» de lo que leyó). Gana a la del Archivero. */
+  nota?: string;
+  /** No se abre desde el chat: Offer guarda lo que LEYÓ, no el archivo (22/10/2026, OF4). Sin esto, la ficha sin link decía
+   *  «No pude abrir el archivo.» en cada documento de una conversación de Offer, también en el Ops Center. */
+  sinAbrir?: boolean;
+};
 
 /** `en_curso`: confirmada, y es un trabajo largo que sigue por detrás (1.11); su avance va en el G6 de abajo. */
 /** `incierta`: su trabajo largo se cortó y no se sabe si terminó (no es «falló»: no hay que pedirlo de nuevo sin mirar). */
@@ -60,6 +68,8 @@ export type ItemHilo =
       /** enviando · error (no llegó: se puede reintentar) · incierto (no sé si llegó) */
       estado?: 'enviando' | 'error' | 'incierto';
       error?: string;
+      /** desde dónde lo escribió la persona («CRM › Ana»: la estrella de una tab, OC6, lib/chat-desde.ts) */
+      desde?: string;
       /** los links a la pantalla donde se hace lo pedido (sólo de MaKo, y sólo en esta sesión de la pantalla: el
        *  Second Brain los pide a /api/mako/pedidos; lib/chat-mako-reglas.ts → colgarIrA) */
       irA?: { titulo: string; link: string }[];
@@ -92,7 +102,9 @@ export const idLocal = (pre: string): string => `${pre}-${Date.now().toString(36
 type ConWs = (url: string) => string;
 const sinWs: ConWs = (u) => u;
 const aMensaje = (m: MensajeChat, i: number, conWs: ConWs = sinWs): ItemHilo => ({
-  k: 'msg', id: `m${i}-${m.created_at ?? ''}`, role: m.role, texto: m.content, at: m.created_at ?? null,
+  k: 'msg', id: `m${i}-${m.created_at ?? ''}`, role: m.role, at: m.created_at ?? null,
+  // Lo de la persona trae su marca de desde dónde (OC6): el chip, y el texto sin ella.
+  ...(m.role === 'user' ? (({ desde, texto }) => ({ texto, ...(desde ? { desde } : {}) }))(sinDesde(m.content)) : { texto: m.content }),
   ...(m.adjuntos?.length ? { archivos: m.adjuntos } : {}),
   // La nota de voz (Offer y el onboarding, 22/10/2026): se escucha, y el texto es la transcripción (lib/mako-turno-app-reglas.ts).
   ...(m.audio?.url ? { voz: { url: conWs(m.audio.url), secs: m.audio.secs } } : {}),
@@ -133,6 +145,9 @@ const aPropuesta = (t: TarjetaPendiente): ItemHilo => ({ k: 'propuesta', id: `p$
 
 /** Un mensaje guardado y, debajo, lo que dibuja (lo creado de un «Hecho: …» vuelve con su miniatura al recargar). */
 const conSusBloques = (m: MensajeChat, i: number, conWs: ConWs = sinWs): ItemHilo[] => {
+  // El porqué de un turno sin respuesta (la marca `porque`): no es un turno de MaKo, es su aviso, con el botón de conectar.
+  const porque = (m.bloques ?? []).find((b): b is Extract<Bloque, { t: 'porque' }> => b.t === 'porque');
+  if (porque) return [{ k: 'aviso', id: `porque-${i}-${m.created_at ?? ''}`, texto: m.content, tono: 'mako', ...(porque.conectar ? { conectar: porque.conectar } : {}) }];
   // El «En curso: …» de un trabajo largo que sigue: su G6 consulta y dice cómo termina; la burbuja quedaba diciendo «En
   // curso» al lado de un G6 terminado (la segunda revisión de la ola 1).
   const sigue = (m.bloques ?? []).some((b) => b.t === 'trabajo' && !!b.consulta && b.pasos.some((p) => p.estado === 'en_curso'));
@@ -175,15 +190,24 @@ export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: read
 // tab (app/offer/ChatOffer.tsx), las opciones son sólo las del ÚLTIMO mensaje: las de antes ya no se contestan.
 
 /** El hilo de una conversación de Offer. `conWs` le pega a una URL de audio el `?ws=` de la pestaña (un `<audio src>` no
- *  pasa por el `fetch` de la casa: lib/offer-marco.ts → `audio`). */
-export function itemsDeOffer(mensajes: readonly OfferMensaje[], conWs: (url: string) => string = (u) => u): ItemHilo[] {
+ *  pasa por el `fetch` de la casa: lib/offer-marco.ts → `audio`). `notaDe`: lo que la pantalla dice de cada documento leído
+ *  (la tab: `notaDelAdjunto`, app/offer/ayudas.ts). */
+export function itemsDeOffer(
+  mensajes: readonly OfferMensaje[], conWs: (url: string) => string = (u) => u,
+  notaDe?: (a: NonNullable<OfferMensaje['adjuntos']>[number]) => string,
+): ItemHilo[] {
   const ultimo = mensajes.length - 1;
   return conRespuestas(mensajes.flatMap((m, i): ItemHilo[] => {
     if (m.de === 'yo') {
       return [{
         k: 'msg', id: `of-${m.id}`, role: 'user', texto: m.texto, at: m.at || null,
         ...(m.audio?.url ? { voz: { url: conWs(m.audio.url), secs: m.audio.secs } } : {}),
-        ...(m.adjuntos?.length ? { archivos: m.adjuntos.map((a): ArchivoHilo => ({ nombre: a.nombre, tipo: 'document' })) } : {}),
+        ...(m.adjuntos?.length ? {
+          archivos: m.adjuntos.map((a): ArchivoHilo => {
+            const nota = notaDe?.(a);
+            return { nombre: a.nombre, tipo: 'document', sinAbrir: true, ...(nota ? { nota } : {}) };
+          }),
+        } : {}),
       }];
     }
     const out: ItemHilo[] = [{ k: 'msg', id: `of-${m.id}`, role: 'assistant', texto: m.texto, at: m.at || null }];
@@ -343,8 +367,8 @@ export function itemsDeRespuesta(r: RespuestaTurno, yaVistas: ReadonlySet<number
 
 export type Leido<T> =
   | { ok: true; datos: T }
-  /** `reintentable`: el server lo rechazó ANTES de correr el turno (no se guardó nada) */
-  | { ok: false; error: string; reintentable: boolean };
+  /** `reintentable`: el server lo rechazó ANTES de correr el turno (no se guardó nada); `status`, el de ese 4xx */
+  | { ok: false; error: string; reintentable: boolean; status?: number };
 
 export const ERROR_INCIERTO = 'No sé si llegó. Recarga el chat antes de reintentar.';
 
@@ -359,13 +383,13 @@ export const ERROR_INCIERTO = 'No sé si llegó. Recarga el chat antes de reinte
  * reintenta a ciegas: se recarga el chat y se mira.
  */
 export function leerRespuesta<T>(status: number, texto: string): Leido<T> {
-  if (status === 413) return { ok: false, error: ERROR_ADJUNTO.pesado, reintentable: true };
+  if (status === 413) return { ok: false, error: ERROR_ADJUNTO.pesado, reintentable: true, status };
   let j: unknown = null;
   try { j = JSON.parse(texto); } catch { /* no es JSON */ }
   const obj = j && typeof j === 'object' ? (j as Record<string, unknown>) : null;
   if (status >= 200 && status < 300 && obj) return { ok: true, datos: obj as T };
   if (status >= 400 && status < 500 && obj && typeof obj.error === 'string') {
-    return { ok: false, error: obj.error, reintentable: status !== 408 && status !== 429 };
+    return { ok: false, error: obj.error, reintentable: status !== 408 && status !== 429, status };
   }
   return { ok: false, error: ERROR_INCIERTO, reintentable: false };
 }

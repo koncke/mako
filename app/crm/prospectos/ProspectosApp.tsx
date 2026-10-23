@@ -20,6 +20,7 @@ import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { CANTIDADES, FUENTES_PROSPECCION, contactable, rotuloDeBusqueda, techoUsd, type Cantidad, type FuenteProspeccion } from '@/lib/prospectos-reglas';
 import type { Busqueda, Prospecto, ListaProspectos } from '@/lib/prospectos';
 import { buscarProspectosAction, cambiarEstadoProspectosAction, funnelDeProspeccionAction, listarProspectosAction, pasarProspectosAlCrmAction } from './actions';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type FunnelOpcion = { id: number; nombre: string; esDefault: boolean };
 type Vista = 'nuevo' | 'descartado' | 'en_crm';
@@ -91,7 +92,11 @@ function EstadoBusqueda({ b }: { b: Busqueda }) {
   return <Status tono="good">{b.nuevos} nuevos</Status>;
 }
 
-export function ProspectosApp({ funnels, esAdmin }: { funnels: FunnelOpcion[]; esAdmin: boolean }) {
+export function ProspectosApp({ funnels, esAdmin, volver = null }: {
+  funnels: FunnelOpcion[]; esAdmin: boolean;
+  /** El CRM del que se vino (`?funnel=`): «Volver» lleva a ÉL y lo nombra. Sin él, el CRM de siempre. */
+  volver?: { href: string; nombre: string } | null;
+}) {
   const [lista, setLista] = useState<ListaProspectos | null>(null);
   const [vista, setVista] = useState<Vista>('nuevo');
   const [fuente, setFuente] = useState<'todas' | FuenteProspeccion>('todas');
@@ -150,7 +155,7 @@ export function ProspectosApp({ funnels, esAdmin }: { funnels: FunnelOpcion[]; e
         accion={esAdmin
           ? <Button variant="primary" icon={<Icon name="search" size={16} />} onClick={() => setBuscar(true)}>Nueva búsqueda</Button>
           : <Button variant="secondary" disabled title="Buscar se cobra en la cuenta de Apify del negocio: lo hace un admin">Nueva búsqueda</Button>}
-        acciones={<Link href="/crm" style={{ fontSize: 14, color: 'var(--dim)', textDecoration: 'none' }}>Volver al CRM</Link>}
+        acciones={<Link href={volver?.href ?? '/crm'} style={{ fontSize: 14, color: 'var(--dim)', textDecoration: 'none' }}>{volver ? `Volver a «${volver.nombre}»` : 'Volver al CRM'}</Link>}
       />
 
       {'error' in lista ? (
@@ -328,7 +333,7 @@ function NuevaBusqueda({ onCerrar, onLanzada }: { onCerrar: () => void; onLanzad
         )}
         <Select label="Cuántos" value={String(cuantos)} onChange={(v) => setCuantos(Number(v) as Cantidad)}
           options={CANTIDADES.map((n) => ({ value: String(n), label: String(n) }))} />
-        {error && <div role="alert" style={{ fontSize: 13.5, color: 'var(--bad)' }}>{error}</div>}
+        {error && <div role="alert" style={{ fontSize: 13.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
       </div>
     </Modal>
   );
@@ -381,7 +386,7 @@ function PasarAlCrm({ elegidos, funnels, onCerrar, onListo }: {
           Entran en la primera etapa. Si alguno ya está en tu CRM, no se duplica.
         </div>
         {noVan > 0 && <div style={{ fontSize: 13.5, color: 'var(--warn)' }}>{noVan} sin email ni teléfono: no van.</div>}
-        {error && <div role="alert" style={{ fontSize: 13.5, color: 'var(--bad)' }}>{error}</div>}
+        {error && <div role="alert" style={{ fontSize: 13.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
       </div>
     </Modal>
   );

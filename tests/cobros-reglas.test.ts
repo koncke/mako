@@ -29,6 +29,14 @@
 //   · idemReembolso con `Date.now()`                                                       → 12 / 1
 //   · textoPagoRegistrado sin el «(prueba)»                                                → 12 / 1
 //   · emailEnmascarado sin `if (at < 1) return null`                                       → 12 / 1
+// El USD de una cuota (23/10/2026), en 14 / 0:
+//   · la cuota de cero vale lo del cobro                                                   → 13 / 1
+//   · el descuento en pesos vale el USD de lista                                            → 13 / 1
+//   · subir el precio en pesos escala los dólares                                           → 13 / 1
+//   · otra moneda que la del cobro se escala igual                                          → 13 / 1
+//   · la pasarela sin monto vale cero                                                       → 12 / 2
+//   · el que la asienta no pasa la relación del cobro                                       → 13 / 1
+//   · el monto de cero se guarda como el del cobro                                          → 13 / 1
 // Correr: node --import tsx --test tests/cobros-reglas.test.ts
 
 import { test } from 'node:test';
@@ -131,9 +139,36 @@ test('montoUsdDeLaCuota: una renovación en USD trae su monto; en otra moneda, e
   assert.equal(montoUsdDeLaCuota({ montoCuota: 52, monedaCuota: 'USD', cobroMontoUsd: 47 }), 52);
   assert.equal(montoUsdDeLaCuota({ montoCuota: 52, monedaCuota: 'usd', cobroMontoUsd: 47 }), 52);
   assert.equal(montoUsdDeLaCuota({ montoCuota: 60000, monedaCuota: 'ARS', cobroMontoUsd: 47 }), 47);
-  assert.equal(montoUsdDeLaCuota({ montoCuota: null, monedaCuota: 'USD', cobroMontoUsd: 47 }), 47);
-  assert.equal(montoUsdDeLaCuota({ montoCuota: 0, monedaCuota: 'USD', cobroMontoUsd: 47 }), 47);
+  assert.equal(montoUsdDeLaCuota({ montoCuota: null, monedaCuota: 'USD', cobroMontoUsd: 47 }), 47, 'la pasarela no dijo el monto: vale lo del cobro');
   assert.equal(montoUsdDeLaCuota({ montoCuota: 60000, monedaCuota: 'ARS', cobroMontoUsd: null }), null);
+});
+
+test('montoUsdDeLaCuota: lo que se cobró de verdad, nunca el precio de lista (23/10/2026)', () => {
+  const ars = { cobroMontoUsd: 47, cobroMonto: 50000, cobroMoneda: 'ARS' };
+  // Una cuota de cero (saldo a favor, cupón del 100%) vale cero: antes sumaba US$47 de cash que no entraron.
+  assert.equal(montoUsdDeLaCuota({ montoCuota: 0, monedaCuota: 'USD', cobroMontoUsd: 47 }), 0);
+  assert.equal(montoUsdDeLaCuota({ montoCuota: 0, monedaCuota: 'ARS', ...ars }), 0);
+  assert.equal(montoUsdDeLaCuota({ montoCuota: 0, monedaCuota: 'CLP', ...ars }), 0, 'cero en otra moneda también es cero');
+  assert.equal(montoUsdDeLaCuota({ montoCuota: 0, monedaCuota: 'ARS', cobroMontoUsd: null }), 0, 'cero no necesita relación declarada');
+  // Mercado Pago en pesos con descuento: su parte de los dólares declarados en el cobro (no hay cotización del día).
+  assert.equal(montoUsdDeLaCuota({ montoCuota: 40000, monedaCuota: 'ARS', ...ars }), 37.6, 'una cuota con descuento se anotaba con el USD de lista');
+  assert.equal(montoUsdDeLaCuota({ montoCuota: 40000, monedaCuota: 'ars', ...ars, cobroMoneda: 'Ars' }), 37.6);
+  // Igual o MAYOR (el precio en pesos sube por la inflación): lo declarado, no más dólares.
+  assert.equal(montoUsdDeLaCuota({ montoCuota: 50000, monedaCuota: 'ARS', ...ars }), 47);
+  assert.equal(montoUsdDeLaCuota({ montoCuota: 65000, monedaCuota: 'ARS', ...ars }), 47, 'subir el precio en pesos inflaba el cash en dólares');
+  // Sin relación declarada (otra moneda que la del cobro, o el cobro sin monto): lo del cobro, como antes.
+  assert.equal(montoUsdDeLaCuota({ montoCuota: 40000, monedaCuota: 'CLP', ...ars }), 47);
+  assert.equal(montoUsdDeLaCuota({ montoCuota: 40000, monedaCuota: 'ARS', ...ars, cobroMonto: null }), 47);
+  assert.equal(montoUsdDeLaCuota({ montoCuota: -5, monedaCuota: 'USD', cobroMontoUsd: 47 }), 47);
+  // Y el que la asienta le pasa la relación del cobro, y un monto de cero no cae al del cobro.
+  const cobros = readFileSync(join(RAIZ, 'lib', 'cobros.ts'), 'utf8');
+  assert.match(cobros, /montoUsdDeLaCuota\(\{ montoCuota: p\.monto, monedaCuota: p\.moneda \?\? actual\.moneda, cobroMontoUsd: actual\.monto_usd, cobroMonto: actual\.monto, cobroMoneda: actual\.moneda \}\)/);
+  assert.doesNotMatch(cobros, /renovacion && p\.monto \?/, 'un monto de cero se guardaba y se avisaba como el del cobro');
+  // Revisión adversarial: el historial dice el USD de ESTA cuota (el del cash), y una de cero no avisa ni dispara «Pagos».
+  const historial = cobros.slice(cobros.indexOf("'Pago registrado', textoPagoRegistrado({"), cobros.indexOf("'Pago registrado', textoPagoRegistrado({") + 400);
+  assert.match(historial, /\n\s+montoUsd, pasarela: actual\.proveedor, prueba, renovacion,/, 'el historial decía el USD de lista y el cash otro');
+  assert.match(cobros, /const enCero = renovacion && p\.monto != null && Number\(p\.monto\) === 0;/);
+  assert.match(cobros, /if \(actual\.lead_id && \(nuevo \|\| cuotaAsentada\) && !enCero\) \{\s*await avisarPagoRecibido\(/, 'una cuota de cero avisaba «Entró un pago» y disparaba las automatizaciones de Pagos');
 });
 
 // ── Estados ───────────────────────────────────────────────────────────────────

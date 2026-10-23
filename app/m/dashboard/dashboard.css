@@ -8,6 +8,12 @@
 .m-dash { transition: opacity .2s var(--ease-out); }
 .m-dash--cargando { opacity: .55; }
 
+/* La hoja Closing sin con qué analizar las llamadas (app/dashboard/aviso-closing.ts). */
+.m-dash-aviso {
+  margin: 0 0 12px; padding: 10px 14px; border-radius: var(--r-lg);
+  background: var(--warn-bg); color: var(--ink); font-size: var(--fs-meta); line-height: 1.45;
+}
+
 /* El segmentado de hojas, debajo del título grande. */
 .m-dash-seg { padding-top: 4px; }
 
