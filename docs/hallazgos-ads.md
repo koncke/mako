@@ -4518,14 +4518,12 @@ válidos y sin vencimiento.
   1885183 (la entrada de Meta mientras tanto lo dejaba «dudoso»; esta medición lo vuelve muy probable).
 - **Trampa: si una app está en desarrollo o activa NO se lee por la API** con el token del cliente: se sabe recién al
   publicar (el rechazo 1885183 nombra la app).
-- **Lo que se hizo:** el tutorial de Meta del modal de /integraciones (`lib/metodo-catalogo.ts`, el de 5 pasos) ahora
-  dice crear la app tipo «Negocio» con los casos de uso de anuncios y de leads, y **pasarla a activa en «Publicar»**
-  (pide la política de privacidad) antes de generar el token. Estructura copiada de la guía de n8n para Facebook Lead
-  Ads («Create the app» + «Take the app Live»). Lo fija `tests/meta-tutorial-app-propia.test.ts`.
-
-**Sin hacer:** avisarles a los clientes conectados con app propia que la pasen a activa antes de publicar desde MaKo
-(Joan primero). Que MaKo detecte el 1885183 la primera vez y muestre el paso en el error ya existe
-(lib/meta-publicar-errores.ts); no hay forma de saberlo antes.
+- **Lo que se hizo:** el tutorial de Meta del modal de /integraciones (`lib/metodo-catalogo.ts`) ahora dice crear la
+  app tipo «Negocio» con los casos de uso de anuncios y de leads. **NO dice que la pasen a activa, a propósito:** es la
+  regla de Martín del 16/09 («no me menciones más que el cliente tenga que publicar su app, esa no es opción»,
+  lib/meta-publicar-errores.ts). Un paso así entró en 942492a83 y salió antes de llegar a main: se cruzó la evidencia
+  («sólo anduvo con la app activa») con la decisión de producto. Publicar con creativo nuevo va por la Zernio del
+  negocio. Lo fija `tests/meta-tutorial-app-propia.test.ts` (ningún paso pide publicar ni activar la app).
 
 **Vive en:** lib/metodo-catalogo.ts (`SERVICIOS_METODO` → meta → `tutorial`) · lib/meta-leads.ts (la consulta
 periódica) · lib/meta-publicar-errores.ts · tests/meta-tutorial-app-propia.test.ts

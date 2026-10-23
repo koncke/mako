@@ -2,10 +2,12 @@
 // «Conectar con tu propia app de Meta»: el tutorial del modal de Meta (23/10/2026)
 // =============================================================================
 // Mientras la app de MaKo espera la revisión de Meta, cada negocio conecta con SU
-// app. Medido el 23/10 en los 10 negocios conectados así: métricas y leads andan;
-// publicar anuncios anduvo SÓLO con una app ACTIVA (ws1, 5 de 5) y la de ws13, en
-// desarrollo, rebotó 14 de 14 con el 1885183. El tutorial viejo no decía nada de
-// eso ni de los casos de uso al crear la app.
+// app. Medido el 23/10 en los 10 negocios conectados así: métricas y leads andan.
+// El tutorial viejo no decía con qué casos de uso crear la app.
+//
+// ⚠️ Y NO PIDE PUBLICAR LA APP. Publicar con creativo nuevo sólo anduvo con una app
+// activa, pero Martín lo prohibió el 16/09: «no me menciones más que el cliente tenga
+// que publicar su app, esa no es opción». Un paso así entró y salió el mismo 23/10.
 //
 // Correr: npm test
 import { test } from 'node:test';
@@ -29,15 +31,9 @@ test('crear la app con los casos de uso de anuncios y de leads, de tipo Negocio'
   assert.match(p[0], /leads|clientes potenciales/);
 });
 
-test('pasar la app a ACTIVA va ANTES del token, con el porqué', () => {
-  const p = pasos();
-  const activa = p.findIndex((x) => /"Publicar"/.test(x) && /activa/.test(x));
-  const token = p.findIndex((x) => /Generar nuevo token/.test(x));
-  assert.ok(activa >= 0, 'falta el paso de pasar la app a activa');
-  assert.ok(activa < token, 'pasarla a activa va antes de generar el token');
-  // La trampa va DENTRO del paso (AGENTS.md, tutoriales): sin esto se lee como un trámite opcional.
-  assert.match(p[activa], /rechaza/);
-  assert.match(p[activa], /privacidad/);
+test('ningún paso le pide al cliente publicar ni activar su app (regla de Martín, 16/09)', () => {
+  const malos = pasos().filter((x) => /"Publicar"|\bpublica(r|la)?\b.*\bapp\b|\bactiva\b|modo (público|activo|en vivo)|\bLive\b/i.test(x));
+  assert.deepEqual(malos, []);
 });
 
 test('el token sigue pidiendo vencimiento «Nunca» y los permisos de anuncios y de leads', () => {
