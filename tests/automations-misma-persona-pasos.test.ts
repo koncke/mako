@@ -1,105 +1,88 @@
 // =============================================================================
-// «Misma persona» y los pasos de UNA automatización: no se traban, se retrasan, y la tarjeta lo dice (23/10/2026)
+// «Misma persona» ya no existe: los pasos de una automatización salen cuando lo dicen sus esperas (23/10/2026)
 // =============================================================================
-// Martín, por el Cerebro: «Medilo: si "Misma persona" dice 20 h y el flujo tiene un seguimiento o un delay de 2 h, ¿se rompe
-// la automatización? Si se rompe, que no pase. Los pasos de una misma automatización hacia el mismo lead no pueden quedar
-// trabados por ese tope, o hay que avisarlo claro en la tarjeta del paso».
-//
-// LO MEDIDO (el motor, lib/nutricion.ts): NO SE ROMPE. A las 2 h el segundo WhatsApp encuentra el primero dentro de la
-// ventana de 20 h (`leadsConEnvioReciente`: lo enviado a ese lead con `created_at >= ahora − 20 h`), queda «saltado: msg
-// <20h», la inscripción SIGUE en ese paso (`continue`, sin cerrarla) y sale en la primera corrida después de las 20 h. O sea:
-// la espera de 2 h se cumple a las 20 h. La DECISIÓN: no se toca el motor (frenar a la misma persona ES el anti-ban, y
-// sacarlo para los pasos propios dejaría salir dos WhatsApp en 5 minutos en flujos que hoy esperan 20 h, en producción),
-// pero la tarjeta dice cuándo sale de verdad, con el «Misma persona» de ESA automatización, que se apaga en Configuraciones.
+// Antes (misma mañana del 23/10): Martín, por el Cerebro, preguntó «si "Misma persona" dice 20 h y el flujo tiene un
+// seguimiento o un delay de 2 h, ¿se rompe?». Se midió que no se rompía —el segundo WhatsApp quedaba «saltado: msg <20h» y
+// salía a las 20 h— y se le puso a la tarjeta un aviso («Sale 20 h después del anterior»).
+// Después, Martín (23/10/2026): «elimina "Misma persona"». El Cerebro: si la pantalla no la muestra, el motor no la puede
+// seguir aplicando (sería una regla escondida). Se fue ENTERA:
+//   · el motor ya no lee una ventana de la base (`leadsConEnvioReciente`, 20 h / 3 h con reunión cerca): `conEnvioRecienteDe`
+//     devuelve siempre `SIN_VENTANA`;
+//   · lo que SIGUE frenando es lo de la MISMA corrida (`frenadoPorAntiBan` con `enviadoEnCorrida`): dos mensajes al mismo
+//     lead por el mismo canal en la misma vuelta no salen juntos;
+//   · el aviso de la tarjeta (`mismaPersonaMin`, `minutosDesdeElWhatsappAnterior`, `avisoMismaPersona`) y la ruta
+//     /api/flujos/misma-persona se fueron: un seguimiento a las 2 h sale a las 2 h, y la tarjeta no dice otra cosa.
 //
 // PROBADO ROMPIÉNDOLO: ver el pie. Correr: node --import tsx --test tests/automations-misma-persona-pasos.test.ts
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { grafoDeSecuencia, minutosDesdeElWhatsappAnterior, avisoMismaPersona } from '../lib/flujo-conversacion';
-import { frenadoPorAntiBan } from '../lib/nutricion-grafo-motor';
-import { personaHorasDeLaAutomatizacion, PERSONA_SIN_ESPERA } from '../lib/config-automatizacion';
-import { LIMITES_CONSTANTES } from '../lib/limites-envio';
+import { existsSync, readFileSync } from 'node:fs';
+import * as conversacion from '../lib/flujo-conversacion';
+import * as configAuto from '../lib/config-automatizacion';
+import { grafoDeSecuencia } from '../lib/flujo-conversacion';
+import { frenadoPorAntiBan, anotarEnCorrida, type EnviadoEnCorrida } from '../lib/nutricion-grafo-motor';
 import type { PasoGrafo } from '../lib/flujo-grafo';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-const H = 3_600_000;
+const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\s\/\/ .*$/gm, '');
 
-/** La ventana del motor, como la pregunta `leadsConEnvioReciente`: lo enviado con `created_at >= ahora − horas`. */
-const enVentana = (envioMs: number, ahoraMs: number, horas: number) => envioMs >= ahoraMs - horas * H;
-
-test('MEDIDO: un seguimiento a las 2 h con «Misma persona» de 20 h no se traba: sale a las 20 h', () => {
-  const T0 = Date.UTC(2026, 9, 23, 12);
-  const horas = personaHorasDeLaAutomatizacion({}, LIMITES_CONSTANTES).whatsapp;
-  assert.equal(horas, 20);
-  // A las 2 h (lo que dice la espera): el primero está en la ventana → frenado.
-  const recientes = (ahora: number) => ({ whatsapp: new Set(enVentana(T0, ahora, horas) ? [7] : []), email: new Set<number>() });
-  assert.equal(frenadoPorAntiBan(7, 'whatsapp', recientes(T0 + 2 * H), new Map()), true);
-  // Cada corrida hasta las 20 h, igual; la primera después, sale.
-  for (const h of [3, 8, 19.9]) assert.equal(frenadoPorAntiBan(7, 'whatsapp', recientes(T0 + h * H), new Map()), true, `${h} h`);
-  assert.equal(frenadoPorAntiBan(7, 'whatsapp', recientes(T0 + 20.05 * H), new Map()), false, 'después de las 20 h seguía frenado');
-  // Con «Misma persona» apagada en esa automatización, a las 2 h sale (0 h de ventana).
-  const apagada = personaHorasDeLaAutomatizacion({ personaHoras: { whatsapp: PERSONA_SIN_ESPERA } }, LIMITES_CONSTANTES).whatsapp;
-  assert.equal(frenadoPorAntiBan(7, 'whatsapp', { whatsapp: new Set(enVentana(T0, T0 + 2 * H, apagada) ? [7] : []), email: new Set() }, new Map()), false);
-  // Y el motor hace eso: la ventana es `created_at >= haceHorasISO(horas)`, y el frenado NO cierra la inscripción.
+test('el motor ya no lee ventana de la base: `conEnvioRecienteDe` devuelve SIN_VENTANA, y no queda nada de las horas', () => {
   const motor = leer('lib/nutricion.ts');
-  assert.match(motor, /const desde = haceHorasISO\(personaHoras\.whatsapp\);/);
-  assert.match(motor, /\.eq\('canal', canal\)\.gte\('created_at', d\);/);
-  const freno = motor.slice(motor.indexOf("estado: 'saltado', nota: 'msg <20h' });"), motor.indexOf("estado: 'saltado', nota: 'msg <20h' });") + 260);
-  assert.match(freno, /^estado: 'saltado', nota: 'msg <20h' \}\);\n\s+await aplazarSiTapa\(insc, sec\);\n\s+continue; \/\/ no avanzar; se reintenta en otra corrida/, 'el freno ya no deja la fila en su paso');
+  assert.match(motor, /const SIN_VENTANA: RecientesPorCanal = \{ whatsapp: new Set<number>\(\), email: new Set<number>\(\) \};/);
+  assert.match(motor, /const conEnvioRecienteDe = \(_secId: number\): RecientesPorCanal => SIN_VENTANA;/);
+  const codigo = sinComentarios(motor);
+  for (const viejo of ['leadsConEnvioReciente', 'HS_MIN_PREPARACION', 'HS_REUNION_CERCA', 'personaHorasDeLaAutomatizacion', 'ventanaDe(', 'recientesPorVentana', 'personaHoras']) {
+    assert.equal(codigo.includes(viejo), false, `volvió «${viejo}» al motor`);
+  }
+  // Lo que se conserva: el freno consulta a `conEnvioRecienteDe` + lo de la corrida, y el frenado NO cierra la inscripción.
+  const i = motor.indexOf("estado: 'saltado', nota: 'msg <20h' });");
+  assert.ok(i > 0, 'el freno de la misma corrida ya no existe');
+  assert.match(motor.slice(i - 420, i), /frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioRecienteDe\(insc\.secuencia_id\), enviadoEnCorrida\)/);
+  assert.match(motor.slice(i, i + 260), /^estado: 'saltado', nota: 'msg <20h' \}\);\n\s+await aplazarSiTapa\(insc, sec\);\n\s+continue; \/\/ no avanzar; se reintenta en otra corrida/, 'el freno ya no deja la fila en su paso');
 });
 
-/** m1 (WhatsApp) → espera → [condición] → m2 (WhatsApp), y un email aparte. */
-const flujo = (minutos: number, conCondicion = false): PasoGrafo[] => [
+test('el freno de la MISMA corrida sigue: dos mensajes al mismo lead por el mismo canal en una vuelta no salen juntos; la base ya no frena', () => {
+  const SIN_VENTANA = { whatsapp: new Set<number>(), email: new Set<number>() };
+  const enCorrida: EnviadoEnCorrida = new Map();
+  // Un lead al que le salió un WhatsApp hace 2 h: la base (vacía, sin ventana) ya no lo frena. Un seguimiento a las 2 h sale.
+  assert.equal(frenadoPorAntiBan(7, 'whatsapp', SIN_VENTANA, enCorrida), false, 'la ventana de la base volvió a frenar');
+  // Pero lo que acaba de salir en ESTA corrida, sí.
+  anotarEnCorrida(enCorrida, 7, 'whatsapp');
+  assert.equal(frenadoPorAntiBan(7, 'whatsapp', SIN_VENTANA, enCorrida), true, 'dos WhatsApp al mismo lead salieron en la misma vuelta');
+  assert.equal(frenadoPorAntiBan(7, 'email', SIN_VENTANA, enCorrida), false, 'un WhatsApp frenó al email (es por canal)');
+  assert.equal(frenadoPorAntiBan(8, 'whatsapp', SIN_VENTANA, enCorrida), false, 'frenó a otro lead');
+});
+
+test('se fueron las funciones y la ruta de «Misma persona»', () => {
+  for (const f of ['minutosDesdeElWhatsappAnterior', 'avisoMismaPersona']) assert.equal(f in conversacion, false, `volvió ${f}`);
+  for (const f of ['personaHorasDeLaAutomatizacion', 'PERSONA_SIN_ESPERA', 'fijarPersonaPropia', 'CONFIG_DE_NACIMIENTO']) assert.equal(f in configAuto, false, `volvió ${f}`);
+  assert.doesNotMatch(leer('lib/config-automatizacion-db.ts'), /nacerConfigAutomatizacion/);
+  assert.equal(existsSync(new URL('../app/api/flujos/misma-persona/route.ts', import.meta.url)), false, 'volvió la ruta de «Misma persona»');
+  assert.equal(existsSync(new URL('../scripts/misma-persona-propia.mts', import.meta.url)), false, 'volvió el paso de una vez de «Misma persona»');
+  const lienzo = leer('app/automations/FlujoLienzo.tsx');
+  assert.doesNotMatch(lienzo, /misma-persona|mismaPersona/);
+});
+
+/** m1 (WhatsApp) → espera → m2 (WhatsApp). */
+const flujo = (minutos: number): PasoGrafo[] => [
   { id: 'entrada', nodo: 'inicio', siguiente: 'm1' },
   { id: 'm1', canal: 'whatsapp', cuerpo: 'Hola {{nombre}}', siguiente: 'e1' },
-  { id: 'e1', nodo: 'esperar', espera: { modo: 'tiempo', minutos }, siguiente: conCondicion ? 'c1' : 'm2' },
-  ...(conCondicion ? [{ id: 'c1', nodo: 'condicion', ramas: [{ id: 'r1', modo: 'todas', filas: [{ no: true, campo: 'contesto' }], siguiente: 'm2' }], si_no: null }] : []),
-  { id: 'm2', canal: 'whatsapp', cuerpo: '¿Pudiste verlo?', siguiente: 'm3' },
-  { id: 'm3', canal: 'email', asunto: 'Hola', cuerpo: 'Te escribo por mail', siguiente: null },
+  { id: 'e1', nodo: 'esperar', espera: { modo: 'tiempo', minutos }, siguiente: 'm2' },
+  { id: 'm2', canal: 'whatsapp', cuerpo: '¿Pudiste verlo?', siguiente: null },
 ] as unknown as PasoGrafo[];
-const aviso = (pasos: PasoGrafo[], id: string, mismaPersonaMin?: number | null) =>
-  grafoDeSecuencia(pasos as never, { disparador: 'Entra', mismaPersonaMin }).nodos.find((n) => n.id === id)?.advertencia;
 
-test('la tarjeta dice cuándo sale de verdad: el WhatsApp que sigue a otro antes de «Misma persona»', () => {
-  assert.equal(aviso(flujo(120), 'm2', 1200), 'Sale 20 h después del anterior («Misma persona»)');
-  assert.equal(aviso(flujo(120, true), 'm2', 1200), avisoMismaPersona(1200), 'la condición del seguimiento escondía la espera');
-  assert.equal(aviso(flujo(1440), 'm2', 1200), undefined, 'con 24 h de espera no hay nada que avisar');
-  assert.equal(aviso(flujo(120), 'm2', 0), undefined, 'con «Misma persona» apagada no la retiene');
-  assert.equal(aviso(flujo(120), 'm2', null), undefined, 'sin saberlo no se avisa');
-  assert.equal(aviso(flujo(120), 'm1', 1200), undefined, 'el primero no sigue a nadie');
-  assert.equal(aviso(flujo(120), 'm3', 1200), undefined, 'un email no cuenta la de WhatsApp');
-  // Un email en el medio no es «el WhatsApp anterior»: WhatsApp → 24 h → email → WhatsApp no se avisa.
-  const conEmail = [
-    { id: 'entrada', nodo: 'inicio', siguiente: 'm1' },
-    { id: 'm1', canal: 'whatsapp', cuerpo: 'Hola', siguiente: 'e1' },
-    { id: 'e1', nodo: 'esperar', espera: { modo: 'tiempo', minutos: 1440 }, siguiente: 'm3' },
-    { id: 'm3', canal: 'email', asunto: 'Hola', cuerpo: 'Por mail', siguiente: 'm2' },
-    { id: 'm2', canal: 'whatsapp', cuerpo: '¿Lo viste?', siguiente: null },
-  ] as unknown as PasoGrafo[];
-  assert.equal(aviso(conEmail, 'm2', 1200), undefined, 'el email contó como el WhatsApp anterior');
-  // Dos WhatsApp seguidos, sin espera: también (es el caso más común de «salen 20 h después»).
-  assert.equal(minutosDesdeElWhatsappAnterior([{ id: 'a', canal: 'whatsapp', siguiente: 'b' }, { id: 'b', canal: 'whatsapp', siguiente: null }] as never, 'b'), 0);
-  // El lienzo lo pide con la automatización, y la ruta da la suya o la del negocio.
-  assert.match(leer('app/automations/FlujoLienzo.tsx'), /fetch\(`\/api\/flujos\/misma-persona\?secuencia=\$\{secuenciaId\}`/);
-  assert.match(leer('app/api/flujos/misma-persona/route.ts'), /personaHorasDeLaAutomatizacion\(config, limitesVigentes\(raw, limitesDeFabrica\(process\.env\)\)\)\.whatsapp/);
-});
-
-test('el lienzo no lee los minutos de una «Misma persona» que todavía no llegó (sin automatización guardada, sin pedido)', () => {
-  const lienzo = leer('app/automations/FlujoLienzo.tsx');
-  assert.match(lienzo, /mismaPersonaMin: mismaPersona && mismaPersona\.id === secuenciaId \? mismaPersona\.min : null,/);
-  // Lo que pasaba: con `secuenciaId` y el pedido sin valor, `undefined === undefined` da true y se leía `.min` de null.
-  const viejo = (mp: { id: number; min: number | null } | null, sec?: number) => (mp?.id === sec ? (mp as { min: number | null }).min : null);
-  assert.throws(() => viejo(null, undefined), TypeError);
-  const nuevo = (mp: { id: number; min: number | null } | null, sec?: number) => (mp && mp.id === sec ? mp.min : null);
-  assert.equal(nuevo(null, undefined), null);
-  assert.equal(nuevo({ id: 7, min: 1200 }, 7), 1200);
-  assert.equal(nuevo({ id: 7, min: 1200 }, 8), null);
+test('la tarjeta de un seguimiento a las 2 h no dice «Sale 20 h después»: sale a las 2 h y no advierte nada', () => {
+  const nodo = grafoDeSecuencia(flujo(120) as never, { disparador: 'Entra' }).nodos.find((n) => n.id === 'm2');
+  assert.ok(nodo, 'no armó la tarjeta');
+  assert.equal(nodo.advertencia, undefined);
+  // Ni siquiera si el que arma el grafo todavía le pasa el dato viejo: no lo mira.
+  const viejo = grafoDeSecuencia(flujo(120) as never, { disparador: 'Entra', mismaPersonaMin: 1200 } as never).nodos.find((n) => n.id === 'm2');
+  assert.equal(viejo?.advertencia, undefined, 'la tarjeta volvió a avisar de «Misma persona»');
 });
 
 // ── ROTURAS (23/10/2026) ───────────────────────────────────────────────────────────────────────────
-// Con romper.mjs del scratchpad, una por vez. Base 2 / 0:
-//   P1. la tarjeta no avisa (`retrasada` siempre false)                                        → rojo
-//   P2. una condición corta la cuenta de la espera                                             → rojo
-//   P3. el email cuenta como el WhatsApp anterior                                             → rojo
+// Una por vez, con respaldo y restaurada (`git diff --stat -- app lib` vacío al final). Base 4 / 0:
+//   P1. `conEnvioRecienteDe` devuelve algo que no es SIN_VENTANA                  → 1 rojo acá + 1 en motor-freno-ventana
+//   P2. `frenadoPorAntiBan` sin mirar `enCorrida` (dos WhatsApp en la misma vuelta) → 1 rojo acá + 2 en motor-freno-ventana
+//   P3. vuelve la ruta /api/flujos/misma-persona                                   → 1 rojo acá

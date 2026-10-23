@@ -8,7 +8,7 @@
 // («No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale hoy 9:00.»). Nunca silencio.
 //
 // Puro, con las MISMAS reglas que el motor (lib/nutricion.ts, `procesarEnvios`) y en su orden: la pausa, el envío de
-// WhatsApp del negocio, la línea, el horario de la automatización, «Misma persona» y los topes de la línea. Sin nada que
+// WhatsApp del negocio, la línea, el horario de la automatización y los topes de la línea. Sin nada que
 // lo frene devuelve null: sale en la próxima vuelta del motor (el tick de cada minuto). Lo usan la ficha y la tarjeta del
 // CRM (lib/automatizaciones-del-lead.ts), el historial del lead al inscribirse y la tarjeta del paso en el lienzo.
 // =============================================================================
@@ -46,16 +46,14 @@ export type FilaQueEspera = {
   ultimoFallo?: { error: string; at: number } | null;
   /** El horario que vale para esa automatización (`horarioDeLaAutomatizacion`); null = manda a cualquier hora. */
   horario: HorarioEnvio | null;
-  /** «Misma persona»: las horas de esa automatización y el último WhatsApp que recibió el lead (ms). */
-  mismaPersona?: { horas: number; ultimoMs: number | null };
   /**
    * Lo que el motor manda IGUAL fuera del horario (`seMueveEnLaCorrida`): el carril del recordatorio y la tarjeta «MaKo
    * en WhatsApp» que dice «Lo manda igual». A ésos el horario no los frena (revisión adversarial del 23/10/2026).
    */
   correFueraDeHorario?: boolean;
   /**
-   * Lo que NO pasa por el anti-ban ni por los topes de la línea: el carril del recordatorio (`pasaPorAntiBan`), y un lead
-   * con la reunión encima, cuya «Misma persona» baja a 3 h (`leadsConEnvioReciente`). Ahí no se dice «Misma persona».
+   * Lo que NO pasa por los topes de la línea: el carril del recordatorio (`pasaPorAntiBan`). (Hasta el 23/10/2026 también
+   * el lead con la reunión encima, por la excepción de «Misma persona», que se fue: los topes de la línea sí lo frenan.)
    */
   sinAntiBan?: boolean;
 };
@@ -92,16 +90,6 @@ export function porQueNoSale(f: FilaQueEspera, c: ContextoDelEnvio): FrenoDelEnv
   /** «hoy 9:00» / «mañana 9:00» / «el lunes 9:00», en la zona del negocio. */
   const cuando = (ms: number): string => textoDeApertura(ms, c.ahoraMs, c.tz ?? 'UTC');
   const ciudad = c.tz == null ? 'UTC' : ciudadDeZona(c.tz);
-  // «MISMA PERSONA»: hasta cuándo el motor no le vuelve a escribir por WhatsApp (null = no lo frena).
-  const mp = f.mismaPersona;
-  const libreMp = wa && !f.sinAntiBan && mp && mp.horas > 0 && mp.ultimoMs != null && mp.ultimoMs + mp.horas * 3600_000 > Math.max(prox, c.ahoraMs)
-    ? mp.ultimoMs + mp.horas * 3600_000 : null;
-  const porMismaPersona = (libre: number): FrenoDelEnvio => {
-    const sale = abierto(libre);
-    return sale != null
-      ? freno(`No salió: «Misma persona» (${mp!.horas} h desde su último WhatsApp). Sale ${cuando(sale)} (hora de ${ciudad}).`, `Sale ${cuando(sale)}`, sale)
-      : freno(`No salió: «Misma persona» (${mp!.horas} h desde su último WhatsApp).`, '«Misma persona»');
-  };
 
   // EL HORARIO: lo vencido afuera queda en la fila y sale al abrir (el tick barre el negocio: `acabaDeAbrir`).
   if (horario) {
@@ -109,8 +97,6 @@ export function porQueNoSale(f: FilaQueEspera, c: ContextoDelEnvio): FrenoDelEnv
     const desde = Math.max(prox, c.ahoraMs);
     if (!dentroDelHorario(desde, c.tz, horario)) {
       const abre = abierto(desde);
-      // Si al abrir todavía lo frena «Misma persona», manda ésa (la que de verdad decide cuándo sale).
-      if (abre != null && libreMp != null && libreMp > abre) return porMismaPersona(libreMp);
       const rango = `${horaCorta(horario.desde)} a ${horaCorta(horario.hasta)}, hora de ${ciudad}`;
       // «Abre», no «Sale»: al abrir pueden frenarlo el goteo o los topes de la línea, y eso no se promete (revisión
       // adversarial del 23/10/2026: «300 esperando · Sale mañana 9:00» con un tope de 50 por día).
@@ -128,7 +114,6 @@ export function porQueNoSale(f: FilaQueEspera, c: ContextoDelEnvio): FrenoDelEnv
     return freno(`No salió: ${recortar(f.ultimoFallo.error)}${vencida ? '' : ` Lo vuelve a intentar ${cuando(prox)} (hora de ${ciudad}).`}`, 'Falló al mandar');
   }
   if (!vencida) return null;
-  if (libreMp != null) return porMismaPersona(libreMp);
   // LOS TOPES DE LA LÍNEA (los de Configuraciones: por día en 24 h corridas, y por hora). El carril no pasa por ellos.
   if (wa && !f.sinAntiBan && c.linea.usadoDia >= c.linea.dia) return freno(`No salió: la línea llegó a su tope del día (${c.linea.dia}). Sale cuando se libere lugar.`, 'Tope del día');
   if (wa && !f.sinAntiBan && c.linea.usadoHora >= c.linea.hora) return freno(`En fila: la línea llegó a su tope de la hora (${c.linea.hora}). Sale en la próxima hora.`, 'Tope de la hora');

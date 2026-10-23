@@ -1008,4 +1008,32 @@ export const BITACORA: Hito[] = [
       { sha: 'ceba48fad', msg: 'Leads Scraper: la migración pasa a 0289, y Hotmart entra al funnel que declara «carrito»', lineas: 121, archivos: 13 },
     ],
   },
+  {
+    fecha: '23 oct', hora: '16:45', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El puente de leads de Meta por Zapier',
+    pedido: 'armame el puente de leads por Zapier',
+    puntos: [
+      'Lo trajo el Cerebro desde el Ops Center. La app de MaKo todavía no tiene leads_retrieval (en revisión, ~10/11): un negocio que no conectó Meta con una app propia no recibe los leads de sus formularios instantáneos. El puente que anda en días es un Zap que le manda cada lead a MaKo; lo paga el negocio.',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '17:30', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un receptor por negocio que mete el lead por la puerta de Meta: la tarjeta, la guía y la prueba de punta a punta',
+    puntos: [
+      'Ya existía el patrón (Hotmart y Skool-por-Zapier: clave en un header, ruteo por su hash) y la puerta de los leads de Meta. Se unieron: POST /api/webhooks/zapier → upsertLeadFromMeta + la conversión Lead + alNacerLeadDeMeta.',
+      '⚠️ **La puerta de Skool era la equivocada**: ingresarDeFuente no dispara nada por diseño, y un lead de formulario de Meta tiene que disparar el aviso y las automatizaciones.',
+      'Tarjeta «Leads de Meta por Zapier» en Integraciones: la URL y los pasos en 4 renglones, «Último lead hace…» y ámbar a las 72 h sin leads. La guía, en docs/guia-leads-por-zapier.md.',
+      'Probado de punta a punta contra el ws3 (con la limpieza completa) y rompiendo cada guarda: 28 roturas, las 28 cazadas.',
+      '⚠️ **Sin hacer:** el aviso por WhatsApp de «hace X horas sin leads», y un Zap real (los nombres de los campos del trigger de Zapier no están medidos).',
+    ],
+    archivos: [
+      'lib/zapier-lead.ts · lib/zapier-leads.ts · lib/zapier-estado.ts — el lector, la puerta y la tarjeta',
+      'app/api/webhooks/zapier/route.ts — el receptor',
+      'lib/metodo-catalogo.ts · lib/integraciones-catalogo.ts · lib/integraciones.ts · lib/servicio-slides.ts · app/_components/ServicioVisual.tsx — los registros de la tarjeta',
+      'tests/zapier-leads.test.ts — 21 tests',
+      'docs/guia-leads-por-zapier.md · docs/hallazgos-integraciones.md',
+    ],
+  },
 ];

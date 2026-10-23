@@ -163,6 +163,9 @@ test('cuándo se callan los demás: el ingreso en un ganado, el motivo sin salid
   assert.equal(vacio('plazo-nutricion', ctxDe({}, {}, 'manual')), false);
   assert.equal(vacio('posibles-duplicados', ctxDe()), true, 'sin email ni teléfono no se busca');
   assert.equal(vacio('posibles-duplicados', ctxDe({ email: 'ana@x.com' })), false);
+  // Un lead que entró sólo con su @ también tiene duplicados posibles (duplicadosDeLead compara por el @, 23/10/2026).
+  assert.equal(vacio('posibles-duplicados', ctxDe({ instagram: 'ana_lopez' })), false, 'sólo el @ también se busca');
+  assert.equal(vacio('automatizaciones-en-curso', ctxDe({ instagram: 'ana_lopez' })), true, 'las automatizaciones siguen pidiendo email o teléfono');
   assert.equal(vacio('redes-y-web', ctxDe(), { redes: [] }), true, 'sin ninguna red elegida');
   assert.equal(vacio('proxima-reunion', ctxDe()), true);
   assert.equal(vacio('proxima-reunion', ctxDe({ fecha_junta_1: '2099-01-01' })), false);

@@ -70,13 +70,16 @@ export function siguienteDelCtx(ctx: Pick<CtxFicha, 'lead' | 'hoy' | 'data'>, o:
 const sinEmailNiTelefono = (ctx: Pick<CtxFicha, 'lead'>): boolean =>
   !ctx.lead.email?.trim() && !ctx.lead.telefono?.trim() && !ctx.lead.telefono_normalizado?.trim();
 
+// Los posibles duplicados también se buscan por el @ (23/10/2026, `duplicadosDeLead`): un lead que entró sólo con él los tiene.
+const sinEmailTelefonoNiInstagram = (ctx: Pick<CtxFicha, 'lead'>): boolean => sinEmailNiTelefono(ctx) && !ctx.lead.instagram?.trim();
+
 const sinTelefono = (ctx: CtxFicha): boolean => !ctx.lead.telefono?.trim() && !ctx.lead.telefono_normalizado?.trim();
 
 export const REGLAS_RESUMEN = {
   // Lo de arriba: lo que toca hacer y lo que hay que mirar antes de escribirle.
   'siguiente-accion': { estaVacio: (ctx) => !siguienteDelCtx(ctx), disenos: ['banner', 'fila', 'chip'] },
   // Sin email ni teléfono no se busca (por el nombre solo es caro y casi siempre un falso parecido).
-  'posibles-duplicados': { estaVacio: sinEmailNiTelefono, disenos: ['banner', 'lista'] },
+  'posibles-duplicados': { estaVacio: sinEmailTelefonoNiInstagram, disenos: ['banner', 'lista'] },
   // El contacto ya no es la tarjeta entera: cada dato es SU bloque. Sólo la cohorte (de Reuniones) sigue adentro.
   contacto: { incluye: ['cohorte'], disenos: ['grilla', 'renglon', 'botonera'] },
   // Sin ninguna red elegida no hay nada que dibujar ni que llenar.

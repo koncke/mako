@@ -29,6 +29,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { propuestasPendientes, type Propuesta } from '@/lib/propuestas';
 import { rutaDePropuesta } from '@/lib/propuestas-tipos';
 import { rutaConWs } from '@/lib/workspace';
+import { usuarioInstagram } from '@/app/crm/campo-inline';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -56,7 +57,9 @@ function contactoDe(p: Propuesta): string {
   const leads = (p.datos as { leads?: Array<Record<string, unknown>> } | null)?.leads ?? [];
   const l = leads[0] ?? {};
   const s = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
-  return [s(l.telefono), s(l.email), s(l.empresa)].filter(Boolean).join(' · ');
+  // El @ va cuando lo hay (sin rótulo de falta): una propuesta con SÓLO el @ se reconoce por él.
+  const ig = usuarioInstagram(s(l.instagram));
+  return [s(l.telefono), s(l.email), ig ? `@${ig}` : null, s(l.empresa)].filter(Boolean).join(' · ');
 }
 
 export default async function BandejaPropuestasPage() {

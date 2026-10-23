@@ -2,7 +2,7 @@
 // /crm/new — form de creación de lead
 // =============================================================================
 // Cuatro campos (12/10/2026, puntos 27-28): nombre, email, teléfono e Instagram. Mínimo:
-// nombre + un canal de contacto (email o teléfono). El resto se carga en la ficha.
+// nombre + un canal de contacto (email, teléfono o Instagram). El resto se carga en la ficha.
 // =============================================================================
 
 import Link from '@/app/_ui/Link';

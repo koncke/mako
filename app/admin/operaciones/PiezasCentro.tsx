@@ -37,6 +37,7 @@ import { TEXTO_SEGUNDO_RENGLON, segundoRenglon } from '@/lib/centro-chats';
 import { ElegirMuneco } from './ElegirMuneco';
 import { Conversacion } from './Conversacion';
 import { BotonUso } from './Uso';
+import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { cuentasDeUso } from '@/lib/centro-uso';
 import { Muneco, animoDe, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
@@ -380,7 +381,9 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
   return (
     <div className="co-barra__abajo">
       {/* Las CUATRO cuentas siempre, tengan o no Runner (Martín: «no sale el uso de las otras 2 cuentas»). */}
-      <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} onCambiarCredito={k.cambiarCreditoDelNegocio} onLeerComputadoras={k.leerComputadoras} onDesconectarComputadora={k.desconectarComputadora} />
+      {/* El mismo «Tus cuentas de IA» del cliente, y debajo lo suyo (23/10/2026: «IGUAL que en los clientes»). */}
+      <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} onCambiarCredito={k.cambiarCreditoDelNegocio} onLeerComputadoras={k.leerComputadoras} onDesconectarComputadora={k.desconectarComputadora}
+        tusCuentas={<TusCuentasIA sinCabecera />} />
     </div>
   );
 }

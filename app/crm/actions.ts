@@ -101,6 +101,7 @@ import {
 } from './campo-inline';
 // El usuario de Instagram del ALTA (punto 28) se normaliza con la MISMA regla que el de la ficha.
 import { usuarioInstagram } from './campo-inline';
+import { PEDIR_CONTACTO, tieneContacto } from '@/lib/contacto-minimo';
 // Qué grabación es de la R2: la MISMA función que reparte los análisis entre los
 // dos bloques de la ficha. Con una copia acá, el link caería en un bloque y su
 // análisis en el otro.
@@ -888,10 +889,13 @@ async function altaDeLead(formData: FormData, funnelId?: number | null, permitir
   // (anuncios, webhooks) no pasa por acá: entra igual y el tablero avisa.
   const ws = await getWorkspaceActual();
   if (ws != null) await frenarAltaPorTope(ws, 'crm.leads');
-  // Un lead sin email NI teléfono es incontactable: el dato es posible de
-  // conseguir al momento de crearlo, así que se exige al menos uno.
-  if (!emptyToNull(formData.get('email')) && !emptyToNull(formData.get('telefono'))) {
-    throw new Error('Carga al menos un email o un teléfono: sin eso el lead es incontactable.');
+  // Un lead sin NINGÚN canal no tiene por dónde recibir un mensaje, así que se exige uno:
+  // email, teléfono o su Instagram (lib/contacto-minimo.ts, la misma regla que el form y el
+  // importador). El @ cuenta desde el 23/10/2026: un perfil de Instagram no da ni email ni
+  // teléfono, y sin esto un prospecto de ahí no podía entrar al CRM.
+  const igDelAlta = usuarioInstagram(emptyToNull(formData.get('instagram')));
+  if (!tieneContacto({ email: emptyToNull(formData.get('email')), telefono: emptyToNull(formData.get('telefono')), instagram: igDelAlta })) {
+    throw new Error(PEDIR_CONTACTO);
   }
   const created = await createLead({
     nombre,
@@ -908,7 +912,7 @@ async function altaDeLead(formData: FormData, funnelId?: number | null, permitir
     fecha_junta_1: emptyToNullable(formData.get('fecha_junta_1')),
     // El usuario de Instagram que se eligió en el buscador (punto 28), sin la @ y con la
     // misma regla que la ficha (`usuarioInstagram`). Lo que no es un usuario no se guarda.
-    instagram: usuarioInstagram(emptyToNull(formData.get('instagram'))),
+    instagram: igDelAlta,
     // ⚠️ El lead nace en el tablero DESDE EL QUE SE LO CREÓ. Sin esto se iba al funnel
     // del negocio y desaparecía de la pantalla donde se acababa de cargar.
     funnel_id: funnelId ?? null,
@@ -1986,6 +1990,9 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
     email: String(f?.email ?? '').trim().slice(0, 200),
     telefono: String(f?.telefono ?? '').trim().slice(0, 60),
     empresa: String(f?.empresa ?? '').trim().slice(0, 200),
+    // El @ de Instagram (lo trae la prospección, y el CSV o la planilla con una columna de Instagram). Con la MISMA regla que la
+    // ficha: lo que no es un usuario no viaja, y un link al perfil queda en el usuario.
+    instagram: usuarioInstagram(typeof f?.instagram === 'string' ? f.instagram.slice(0, 200) : null) ?? '',
     incluir: f?.incluir === true,
     yaExiste: false,
     // El id NO se copia del cliente: lo resuelve `marcarExistentes` contra la base de
@@ -2059,6 +2066,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
   const ids: NonNullable<ImportLeadsResult['ids']> = [];
   const emailsNuevos = new Set<string>();
   const telsNuevos = new Set<string>();
+  const igsNuevos = new Set<string>();
 
   /**
    * LA ETAPA DE VENTA DEL EMBUDO AL QUE ENTRAN ESTAS FILAS (#622).
@@ -2086,7 +2094,8 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
     const tel = f.telefono.replace(/\D/g, '');
     // Además del motivo, se chequea contra lo insertado EN ESTA MISMA corrida:
     // marcarExistentes miró la base antes de empezar y no ve lo que vamos creando.
-    const chocaAcá = (!!email && emailsNuevos.has(email)) || (!!tel && telsNuevos.has(tel));
+    const ig = f.instagram ?? '';
+    const chocaAcá = (!!email && emailsNuevos.has(email)) || (!!tel && telsNuevos.has(tel)) || (!!ig && igsNuevos.has(ig));
     const duplicado = f.motivo === 'duplicado';
     // ⚠️ EL PORTÓN ES `entra()`, LA MISMA FUNCIÓN QUE DIBUJA LA CASILLA Y QUE CUENTA EL
     // BOTÓN. Hasta el 03/10/2026 acá había una tercera condición escrita a mano
@@ -2142,6 +2151,9 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
         email: f.email || null,
         telefono: f.telefono || null,
         empresa: f.empresa || null,
+        // El @ viaja aunque haya email o teléfono: es un canal más. Con él solo, el lead entra
+        // igual, con el resto vacío (lib/contacto-minimo.ts): nada se rellena.
+        instagram: ig || null,
         // La persona lo vio marcado como «ya existe» y lo tildó igual: eso ES la
         // autorización, y sin esto `createLead` lo volvería a frenar. Ahora es cierto que
         // alguien lo decidió — la casilla de esas filas se puede mover y nacen
@@ -2164,6 +2176,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
       ids.push({ filaId: f.id, leadId: creado.id, destino: 'crear' });
       if (email) emailsNuevos.add(email);
       if (tel) telsNuevos.add(tel);
+      if (ig) igsNuevos.add(ig);
       /**
        * LA VENTA (#622): el lead se crea igual que todos y DESPUÉS se lo mueve, por el
        * MISMO camino que usa el tablero (`setPipelineStage`).

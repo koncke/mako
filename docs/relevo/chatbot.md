@@ -846,6 +846,10 @@ viejo: **una automatización dejó de ser una lista de mensajes y pasó a ser un
 
 ## 4. Lo que está a medio hacer o sin verificar, con el archivo
 
+- **23/10 (claude2), la tanda de Martín de la tarde:** «Misma persona» eliminada (pantalla, API y motor), la vista previa del
+  link con su X en el editor del WhatsApp, Goteo y Tope por día también en Email (`aut2-punto5`); Automations arranca con la
+  sidebar plegada y el panel en 400 (`aut2-sidebar-plegada`); Probar con personas falsas (`aut2-probar-personas`). La
+  `personaHoras` del negocio sigue en lib/limites-envio.ts sin lectores: se puede sacar.
 - **La #256 del ws9 (el reporte semanal de la plataforma) es la única tarjeta «MaKo en WhatsApp» que sale por EMAIL**
   (23/10/2026). Con la regla «cada canal es su tarjeta» debería ser una tarjeta EMAIL, pero hoy no se puede: en un evento
   de la plataforma `pasosDelEvento` (lib/aviso-evento.ts) rechaza todo mensaje (`MOTIVO_EVENTO.alLead`), y el «Email a la

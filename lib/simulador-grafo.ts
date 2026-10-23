@@ -379,16 +379,20 @@ export function textoDeEjemplo(texto: string, negocio?: string | null, extra?: R
  * `html`: el cuerpo del editor rico (`cuerpo_html`, parte C de la tercera tanda) con las variables
  * puestas POR CONTEXTO (`aplicarVariablesHtml`: escapadas en el texto, codificadas en un link), que es
  * como lo pone el envío. '' = el paso no tiene HTML (un email de antes): se dibuja el `cuerpo`.
+ *
+ * `extra` (23/10/2026): los datos de la persona falsa del caso de «Probar» (lib/prueba-personas.ts), que pisan a los
+ * del lead de ejemplo igual que en `textoDeEjemplo`. Sin él, sale con el lead de siempre.
  */
 export function correoDeEjemplo(
   p: { asunto?: string | null; preheader?: string | null; cuerpo?: string | null; cuerpo_html?: string | null },
   negocio?: string | null,
+  extra?: Record<string, string>,
 ): { asunto: string; vistaPrevia: string; cuerpo: string; html: string } {
   return {
-    asunto: textoDeEjemplo(p.asunto ?? '', negocio).trim(),
-    vistaPrevia: textoDeEjemplo(p.preheader ?? '', negocio).trim(),
-    cuerpo: textoDeEjemplo(p.cuerpo ?? '', negocio),
-    html: p.cuerpo_html ? aplicarVariablesHtml(p.cuerpo_html, datosDeEjemplo(LEAD_DE_EJEMPLO, negocio)) : '',
+    asunto: textoDeEjemplo(p.asunto ?? '', negocio, extra).trim(),
+    vistaPrevia: textoDeEjemplo(p.preheader ?? '', negocio, extra).trim(),
+    cuerpo: textoDeEjemplo(p.cuerpo ?? '', negocio, extra),
+    html: p.cuerpo_html ? aplicarVariablesHtml(p.cuerpo_html, { ...datosDeEjemplo(LEAD_DE_EJEMPLO, negocio), ...(extra ?? {}) }) : '',
   };
 }
 
