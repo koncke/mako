@@ -708,8 +708,16 @@ async function equipoContestoDesdeElAviso(inscripcionId: number): Promise<boolea
  * Sin esto, «Activar» prendía un flujo que «Publicar» no habría dejado guardar (uno escrito por un
  * camino viejo, o anterior a una regla nueva), y el motor lo corría a ciegas. Apagar no valida.
  */
-export async function setSecuenciaActiva(id: number, activa: boolean, o: { aunqueDuplique?: boolean } = {}): Promise<void> {
+export async function setSecuenciaActiva(id: number, activa: boolean, o: { aunqueDuplique?: boolean; ws?: number } = {}): Promise<void> {
   const supabase = (await getTenantDb());
+  // ⚠️ EL TOPE DEL PLAN, ACÁ Y NO EN CADA PUERTA (23/10/2026, el chat de las tabs): «hasta 3 activas» del Esencial, antes de
+  // validar nada. Sólo al Esencial de la pasarela; volver a prender una prendida no cuenta (lib/tope-automations.ts). `ws`:
+  // MaKo por WhatsApp corre sin sesión y lo pasa quien llama. Import dinámico: el motor no carga los planes si no prende.
+  if (activa) {
+    const { topeAlActivar } = await import('./tope-automations');
+    const tope = await topeAlActivar(id, o.ws);
+    if (tope) throw new TopeDelPlanError(tope);
+  }
   // La red de seguridad: quien PROPONE activar ya validó (`validarActivacion`), pero entre la
   // propuesta y el «sí» los pasos pueden haber cambiado.
   if (activa) await validarActivacion(id);
@@ -809,6 +817,15 @@ export { textoDelPaso };
  * `setSecuenciaActiva` (y la ruta de Publicar, con una activa): las rutas contestan 409 con `duplicada` y la pantalla
  * pregunta; con «… igual», vuelve a pedirlo con `aunqueDuplique`. El mensaje es el aviso, listo para mostrar.
  */
+/**
+ * EL TOPE DEL PLAN (MaKo Esencial: hasta 3 automatizaciones activas, lib/tope-automations.ts) al ACTIVAR. Lo tira
+ * `setSecuenciaActiva`, la única puerta que prende: así lo cubre cualquier camino, también uno nuevo. Las rutas lo contestan
+ * 403 con `tope: true`; MaKo lo dice en su resumen. El texto es para la persona.
+ */
+export class TopeDelPlanError extends Error {
+  constructor(texto: string) { super(texto); this.name = 'TopeDelPlanError'; }
+}
+
 export class DuplicadaError extends Error {
   /** La otra y el arranque de los dos mensajes: la pantalla los muestra para que la persona compare. */
   readonly otra: Duplicada;
