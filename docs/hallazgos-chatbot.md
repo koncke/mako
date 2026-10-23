@@ -43,6 +43,15 @@ lado del CRM, en [hallazgos-crm.md](hallazgos-crm.md) → «El CRM automático p
   etapa y `setSecuenciaPasos` no guarda una acción incompleta, así que la plantilla no puede nacer «para elegir
   después». Esas dos (T2 y T6) pasan por las pantallas de destino de la galería
   (`p.onCrearPlantilla && !pl.destinos?.length`); las demás siguen al instante.
+- **Una espera anclada a una fecha del lead no puede cerrar en el acto si la fecha no está** (la revisión de Automations).
+  El lead entra a la etapa de reunión antes de que llegue la fecha: lo movieron a mano y la reserva entra después por el
+  webhook, o la fecha se carga a mano. El barrido inscribe por la ETAPA, no por la fecha. Con una inscripción por lead y
+  automatización, cerrar ahí era perder la espera para siempre. Va con gracia acotada: `reintentoSinAncla`, 24 h desde
+  `inscripto_at`, una mirada por hora, y después cierra con su motivo. La tabla no tiene `created_at`: tiene `inscripto_at`.
+- **Un aviso al grupo no es una pregunta con respuesta.** MaKo en el grupo lee el texto de un mensaje, no el mensaje
+  citado (`textoDe`, lib/mako-doer-in.ts), así que un «fue» contestado a un aviso no le dice de qué lead se habla. Un
+  aviso que pregunta algo lleva el link a donde se contesta (la ficha), y si la respuesta importa, vuelve a preguntar UNA
+  vez y termina (molde: «Una Reunión Sin Marcar»). Nunca decide por la persona.
 - **El barrido del CRON de etapa sólo inscribe abiertos.** Una automatización cuyo CRON es una etapa de No responde o
   Perdido queda vacía (ver hallazgos-crm.md). Es la entrada `cohorte-etapa-abiertos-90d` del inventario de «nada por
   detrás».
