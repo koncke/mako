@@ -31,9 +31,7 @@ const enVentana = (envioMs: number, ahoraMs: number, horas: number) => envioMs >
 
 test('MEDIDO: un seguimiento a las 2 h con «Misma persona» de 20 h no se traba: sale a las 20 h', () => {
   const T0 = Date.UTC(2026, 9, 23, 12);
-  // 20 h guardadas como SUYAS: desde el 23/10/2026 sin las suyas está apagada (las que heredaban las 20 h de fábrica las
-  // guardaron con scripts/misma-persona-propia.mts).
-  const horas = personaHorasDeLaAutomatizacion({ personaHoras: { whatsapp: LIMITES_CONSTANTES.wa.personaHoras } }).whatsapp;
+  const horas = personaHorasDeLaAutomatizacion({}, LIMITES_CONSTANTES).whatsapp;
   assert.equal(horas, 20);
   // A las 2 h (lo que dice la espera): el primero está en la ventana → frenado.
   const recientes = (ahora: number) => ({ whatsapp: new Set(enVentana(T0, ahora, horas) ? [7] : []), email: new Set<number>() });
@@ -83,9 +81,9 @@ test('la tarjeta dice cuándo sale de verdad: el WhatsApp que sigue a otro antes
   assert.equal(aviso(conEmail, 'm2', 1200), undefined, 'el email contó como el WhatsApp anterior');
   // Dos WhatsApp seguidos, sin espera: también (es el caso más común de «salen 20 h después»).
   assert.equal(minutosDesdeElWhatsappAnterior([{ id: 'a', canal: 'whatsapp', siguiente: 'b' }, { id: 'b', canal: 'whatsapp', siguiente: null }] as never, 'b'), 0);
-  // El lienzo lo pide con la automatización, y la ruta da la suya (sin la suya, apagada).
+  // El lienzo lo pide con la automatización, y la ruta da la suya o la del negocio.
   assert.match(leer('app/automations/FlujoLienzo.tsx'), /fetch\(`\/api\/flujos\/misma-persona\?secuencia=\$\{secuenciaId\}`/);
-  assert.match(leer('app/api/flujos/misma-persona/route.ts'), /const horas = personaHorasDeLaAutomatizacion\(await leerConfigAutomatizacion\(id\)\)\.whatsapp;/);
+  assert.match(leer('app/api/flujos/misma-persona/route.ts'), /personaHorasDeLaAutomatizacion\(config, limitesVigentes\(raw, limitesDeFabrica\(process\.env\)\)\)\.whatsapp/);
 });
 
 // ── ROTURAS (23/10/2026) ───────────────────────────────────────────────────────────────────────────

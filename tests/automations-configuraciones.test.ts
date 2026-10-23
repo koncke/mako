@@ -156,7 +156,7 @@ test('los cuatro topes y el freno salen de lo leído, no de una constante', () =
   assert.match(PROC, /const LOTE = \(cupo > 0 \? cupo : limites\.wa\.hora\) \* 3;/);
   // 20/10/2026: las horas a la misma persona son de CADA automatización (las propias o las del negocio): una lectura
   // por ventana distinta del lote.
-  assert.match(PROC, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configsCorrida\.get\(secId\) \?\? \{\}\);/);
+  assert.match(PROC, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configsCorrida\.get\(secId\) \?\? \{\}, limites\);/);
   assert.match(PROC, /recientesPorVentana\.set\(k, await leadsConEnvioReciente\(\[\.\.\.g\.leads\], g\.v\)\);/);
   assert.doesNotMatch(NUTRI, /\b(MAX_POR_DIA|MAX_POR_CORRIDA|MAX_EMAIL_POR_DIA|HS_MIN_ENTRE_MSGS)\b/, 'volvió una constante cableada');
   const freno = bloque(NUTRI, 'async function leadsConEnvioReciente(', '\nasync function leadIdsDe(');

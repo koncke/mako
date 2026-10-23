@@ -26,8 +26,7 @@ export async function getConfigAutomatizacionAction(secuenciaId: number): Promis
   config: ConfigAutomatizacion;
   /** El horario del negocio (el que vale sin uno propio). null = sin horario. */
   horarioNegocio: HorarioEnvio | null;
-  /** Las horas entre dos mensajes a la misma persona del negocio, por canal: el número que se SUGIERE al prender una apagada
-   *  (23/10/2026: una automatización ya no las hereda). */
+  /** Las horas entre dos mensajes a la misma persona del negocio, por canal. */
   personaNegocio: { whatsapp: number; email: number };
   /** Los topes de WhatsApp de la LÍNEA (el techo del goteo, lib/goteo.ts). */
   lineaWa: { dia: number; hora: number };

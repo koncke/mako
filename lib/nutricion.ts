@@ -4402,9 +4402,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       } & JuntasLead>).map((l) => [l.id, l]),
     );
     // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop). 20/10/2026: con las horas de CADA
-    // automatización (las suyas; sin las suyas, apagada desde el 23/10/2026: `personaHorasDeLaAutomatizacion`): una lectura por ventana distinta
+    // automatización (las propias o las del negocio, `personaHorasDeLaAutomatizacion`): una lectura por ventana distinta
     // del lote, que casi siempre es una sola.
-    const ventanaDe = (secId: number) => personaHorasDeLaAutomatizacion(configsCorrida.get(secId) ?? {});
+    const ventanaDe = (secId: number) => personaHorasDeLaAutomatizacion(configsCorrida.get(secId) ?? {}, limites);
     const claveVentana = (v: { whatsapp: number; email: number }): string => `${v.whatsapp}:${v.email}`;
     const porVentana = new Map<string, { v: { whatsapp: number; email: number }; leads: Set<number> }>();
     for (const d of due) {

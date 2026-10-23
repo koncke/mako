@@ -2,18 +2,16 @@
 // misma-persona-propia — a cada automatización que HEREDABA la «Misma persona» del negocio, se la guarda como SUYA
 // =============================================================================
 // 23/10/2026. Martín: «"Misma persona" apagado por defecto» y «No quiero nada para todas las automatizaciones». El
-// Cerebro decidió el alcance: las NUEVAS nacen apagadas (`personaHorasDeLaAutomatizacion`, lib/config-automatizacion.ts:
-// sin las suyas, 0 h) y las que EXISTÍAN guardan como suyo lo que heredaban, que es lo que muestran hoy. Así ninguna
-// cambia su anti-ban y no queda una herencia escondida.
+// Cerebro decidió el alcance: las NUEVAS nacen con la suya apagada (`nacerConfigAutomatizacion`) y las que EXISTÍAN guardan
+// como suya la que heredaban, que es lo que muestran hoy. Así ninguna cambia su anti-ban y no queda una herencia escondida.
 //
-// ⚠️ EL ORDEN: SE CORRE ANTES DEL DEPLOY del commit que cambia `personaHorasDeLaAutomatizacion`. Con el código viejo, lo
-// que escribe no cambia nada (guarda el mismo número que heredaba). Si se corre DESPUÉS, las que heredaban pasan el rato
-// del medio APAGADAS. Y no se vuelve a correr sobre automatizaciones creadas después del deploy: esas son las NUEVAS, que
-// nacen apagadas; por eso `--creadas-antes` es obligatorio (el momento en que se corre, justo antes del deploy).
+// EL ORDEN NO IMPORTA (el Cerebro, 23/10): «sin las suyas» sigue siendo la del negocio (`personaHorasDeLaAutomatizacion`),
+// así que antes o después del deploy lo que escribe es el MISMO número que ya valía. Es una limpieza, y se puede correr
+// de nuevo: las nuevas ya traen la suya y la que la tiene en los dos canales no se toca.
 //
-//   node --import tsx scripts/misma-persona-propia.mts --creadas-antes=<ISO>            → SIMULACRO: lee e imprime
-//   node --import tsx scripts/misma-persona-propia.mts --creadas-antes=<ISO> --aplicar  → escribe
-//   opciones: --env=<ruta del .env.local> (default ./.env.local) · --ws=<id>
+//   node --import tsx scripts/misma-persona-propia.mts            → SIMULACRO: lee e imprime
+//   node --import tsx scripts/misma-persona-propia.mts --aplicar  → escribe
+//   opciones: --env=<ruta del .env.local> (default ./.env.local) · --ws=<id> · --creadas-antes=<ISO>
 //
 // Por negocio imprime cuántas toca, y de cada una qué guarda. IDEMPOTENTE: la que ya tiene sus horas en los dos canales no
 // se toca (`fijarPersonaPropia` → `cambia: false`), así que una segunda corrida con el mismo corte no escribe nada. Las
@@ -33,8 +31,8 @@ const arg = (n: string): string | null => {
 const aplicar = process.argv.includes('--aplicar');
 config({ path: arg('env') ?? '.env.local', quiet: true });
 const soloWs = arg('ws') != null ? Number(arg('ws')) : null;
-const corte = arg('creadas-antes');
-if (!corte || Number.isNaN(Date.parse(corte))) throw new Error('falta --creadas-antes=<ISO>: el momento en que se corre, justo antes del deploy');
+const corte = arg('creadas-antes') ?? new Date().toISOString();
+if (Number.isNaN(Date.parse(corte))) throw new Error('--creadas-antes no es una fecha');
 
 const { claveConfigAutomatizacion, sanearConfigAutomatizacion, fijarPersonaPropia } = await import('../lib/config-automatizacion');
 const { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } = await import('../lib/limites-envio');

@@ -9,6 +9,7 @@
 
 import 'server-only';
 import { getTenantDb } from './workspace';
+import { nacerConfigAutomatizacion } from './config-automatizacion-db';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { getSecuenciasConStats, reentradaDeSecuencia, type SecuenciaConStats } from './nutricion';
 import type { Reentrada } from './reentrada';
@@ -212,7 +213,13 @@ export async function crearSecuenciaDesdeEtapa(etapa: string, nombre: string): P
     .select('id')
     .single();
   if (error) throw new Error(`crearSecuenciaDesdeEtapa: ${error.message}`);
-  return (data as { id: number }).id;
+  const id = (data as { id: number }).id;
+  // Nace con la «Misma persona» propia APAGADA (23/10/2026, `nacerConfigAutomatizacion`); si no se puede, no queda a medias.
+  try { await nacerConfigAutomatizacion(id); } catch (e) {
+    await Promise.resolve(supabase.from('nutricion_secuencias').delete().eq('id', id)).catch(() => {});
+    throw new Error(`crearSecuenciaDesdeEtapa: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return id;
 }
 
 /** El nombre con el que nace una automatización vacía (crear con IA lo reemplaza). */
@@ -241,7 +248,13 @@ export async function crearSecuenciaVacia(nombre?: string | null): Promise<{ id:
     .select('id')
     .single();
   if (error) throw new Error(`crearSecuenciaVacia: ${error.message}`);
-  return { id: (data as { id: number }).id, nombre: n };
+  const id = (data as { id: number }).id;
+  // Nace con la «Misma persona» propia APAGADA (23/10/2026, `nacerConfigAutomatizacion`); si no se puede, no queda a medias.
+  try { await nacerConfigAutomatizacion(id); } catch (e) {
+    await Promise.resolve(supabase.from('nutricion_secuencias').delete().eq('id', id)).catch(() => {});
+    throw new Error(`crearSecuenciaVacia: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return { id, nombre: n };
 }
 
 /**
