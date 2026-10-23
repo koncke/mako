@@ -75,6 +75,19 @@ lib/nutricion.ts) · `tests/grupo-wa.test.ts` (21 + 10 roturas). Lo de Evolution
 
 *23/10/2026, chat «Offer» (claude3).*
 
+## El «Mover de etapa» en lote les pisaba la CASA a los agregados (23/10/2026, P0 de #289)
+
+**Síntoma (medido leyendo el código, antes de que pasara).** Los 300 del Sprint de Mauricio están AGREGADOS al CRM 44
+(`lead_funnel`); su casa es otro CRM. El plan era tildar 50 por día y moverlos a «Prospección activa» con la barra de lote.
+`moverLeadsDeEtapaAction` llamaba `setLeadStageAction` de a uno: eso escribe `leads.pipeline_stage` de la CASA con la clave
+de una etapa de OTRO CRM (`setPipelineStage` no valida que la etapa sea del CRM del lead), y la fila del 44 seguía en
+«Lead entrante». La automatización de esa etapa no los veía nunca, y la casa quedaba en una etapa que no tiene.
+
+**La regla.** El lote recibe el CRM que se mira (`funnelActivo`) y decide en el server, con las filas, quién es agregado
+(`agregadosDelCrm`): ésos van por el MISMO camino que arrastrar su tarjeta (`moverEtapaEnProducto`), que desde ese día
+también los inscribe por evento con la regla del barrido (`agregadoEntraPorEvento`). Lo de la casa sigue por
+`setLeadStageAction`. Una etapa de un CRM nunca se escribe en la casa de un lead de otro.
+
 ## El «⋯» de una columna y su clic derecho eran DOS listas; y «Tus reuniones», una tarjeta para preparar (22/10/2026, noche)
 
 - **El «⋯» y el clic derecho de una columna se mantenían iguales A MANO.** El «⋯» era un `Dropdown` con su `options={[`

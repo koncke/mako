@@ -41,7 +41,7 @@ import type { AutorTexto } from '@/lib/paso-ia';
 import { parseEstrategia, dentroDeAntiguedad, hitoYaHecho, type EscenarioSecuencia } from '@/lib/setting-estrategia';
 import type { TurnoSim } from '@/lib/setting-simulador';
 import { conversacionAbierta, atiendeAlResponder, charlaPasaAUnaPersona, escritoParaElAviso, type InscCharla, type AudioDelLead } from '@/lib/setter-conversacion';
-import { ambitoDeSecuencia, filtroDeAmbito, agregadosQueEntran, conAgregados, type AmbitoFunnel, type FilaAgregado, type LeadDelAgregado } from '@/lib/nutricion-ambito';
+import { ambitoDeSecuencia, filtroDeAmbito, agregadosQueEntran, agregadoEntraPorEvento, conAgregados, type AmbitoFunnel, type FilaAgregado, type LeadDelAgregado } from '@/lib/nutricion-ambito';
 import { corteEntrada, esEntradaFresca, reservaParaEntradas, cupoDeCampana, HORAS_ENTRADA } from '@/lib/nutricion-prioridad';
 import { frenoDeGoteo, turnoDeGoteo, conEnvio, cuentaParaElGoteo, ESTADOS_DEL_GOTEO, SIN_USO, type Goteo, type UsoGoteo } from '@/lib/goteo';
 import {
@@ -2169,6 +2169,16 @@ export type CtxEvento = {
   etiquetaId?: number | string | null;
   /** Instagram / Messenger / Email: QUÉ pasó en el canal (ver `EventoNutricion`). */
   subtipo?: string;
+  /**
+   * El evento de etapa es de un lead AGREGADO a ese CRM (`lead_funnel`, lib/lead-funnel.ts), no de su casa: entra con la
+   * MISMA regla que el barrido de la hora (`agregadosQueEntran`). Ver `enrolarPorEvento`.
+   */
+  agregado?: boolean;
+  /**
+   * Inscribe SIN la vía rápida (un movimiento en LOTE, lib/lead-funnel.ts): el primer paso lo manda el tick del minuto, con
+   * el tope de la hora de la línea. Y en el historial queda sólo «Entró a …» (el porqué lo dicen la ficha y la tarjeta).
+   */
+  sinViaRapida?: boolean;
 };
 
 /**
@@ -2401,6 +2411,23 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
         conAmbito.push({ ...sec, ambito: sec.trigger_tipo === TRIGGER_ETAPA ? await ambitoDeFunnel(sec.funnel_id) : { modo: 'todos' } });
       }
       delEvento = deLaEtapaYLasDemas(conAmbito, donde?.etapa, donde?.funnelId);
+      // ⚠️ EL AGREGADO ENTRA POR EVENTO CON LA REGLA DEL BARRIDO (23/10/2026, P0 de #289). Los 300 del Sprint de Mauricio
+      // están AGREGADOS al CRM 44: moverlos a «Prospección activa» escribía sólo la fila (`moverEtapaEnProducto`) y la
+      // automatización los levantaba en el barrido de la hora. Ahora el movimiento dispara este evento, y cada CRON de
+      // etapa lo deja entrar SÓLO si el barrido lo dejaría (`agregadosQueEntran`, lib/nutricion-ambito.ts): una de
+      // «Todos los productos» no (la etapa de un segundo CRM le escribiría dos veces a la misma persona), un lead cerrado
+      // no, una fila que nació con el lead no. Sin poder leer la fila o el lead, nadie: lo levanta el barrido.
+      if (evento === 'etapa' && ctx?.agregado) {
+        const fid = Number(ctx.funnelId);
+        const [{ data: filas, error: eF }, { data: leads, error: eL }] = await Promise.all([
+          supabase.from('lead_funnel').select('lead_id, funnel_id, etapa, created_at, etapa_desde').eq('lead_id', leadId).eq('funnel_id', fid),
+          supabase.from('leads').select('id, funnel_id, estado_lead, created_at').eq('id', leadId),
+        ]);
+        if (eF || eL) throw new Error(`el agregado ${leadId} al CRM ${fid}: ${(eF ?? eL)?.message}`);
+        const corte = Date.now() - 90 * 86400 * 1000;
+        delEvento = delEvento.filter((s) => s.trigger_tipo !== TRIGGER_ETAPA
+          || agregadoEntraPorEvento((s as { ambito?: AmbitoFunnel }).ambito, etapasDe(s), leadId, corte, (filas ?? []) as FilaAgregado[], (leads ?? []) as LeadDelAgregado[]));
+      }
     }
     // La ENTREGA no necesita resolver ningún ámbito contra la base: el producto es el
     // producto, sin default ni NULL que signifique otra cosa.
@@ -2452,6 +2479,8 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     // cron en el mismo segundo— y el `return 0` dejaba al lead sin NINGUNA de las secuencias
     // del evento. Una fila que ya existe no se inserta: se reusa si se puede, y si no, se deja.
     let arrancadas = 0;
+    /** Las que arrancó (para decirlo en el historial del lead, abajo). */
+    const entro: number[] = [];
     for (const s of elegidas) {
       // El primer paso de una secuencia disparada por evento sale YA: el delay configurado
       // cuenta desde el evento, no desde el cron. Un paso anclado a la reunión, desde la agenda.
@@ -2466,6 +2495,7 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
         if (!reclamada) continue;
         console.log(`[nutricion] lead ${leadId}: la inscripción ${previa.id} (${s.clave}) vuelve a correr (${r.porque})`);
         arrancadas += 1;
+        entro.push(s.id);
         continue;
       }
       const reunion = anotaReunion(s) ? reunionQuePreparaMs(juntas) : null;
@@ -2479,17 +2509,46 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
       });
       if (error) { console.error(`[nutricion] enrolarPorEvento(${evento}) lead ${leadId} en ${s.clave}: ${error.message}`); continue; }
       arrancadas += 1;
+      entro.push(s.id);
     }
     if (!arrancadas) return 0;
 
+    // En LOTE, sin la vía rápida (`sinViaRapida`): lo manda el tick, y en el historial sólo «Entró a …».
+    if (ctx?.sinViaRapida) {
+      try {
+        const { logLeadEvent } = await import('@/lib/leads');
+        for (const s of elegidas) if (entro.includes(s.id)) await logLeadEvent(leadId, 'Automatización', `Entró a «${s.nombre}».`, 'MaKo');
+      } catch (e) { console.error(`[nutricion] lead ${leadId}: no pude anotar en qué automatización entró:`, e instanceof Error ? e.message : e); }
+      return arrancadas;
+    }
     // Vía rápida: intentamos mandar el primer paso ahora mismo, solo de este lead, con el turno
     // del negocio (si lo tiene otra corrida, lo manda el tick: `viaRapidaConTurno`).
     try { await viaRapidaConTurno(leadId); }
     catch (e) { console.error(`[nutricion] envío inmediato lead ${leadId} falló:`, e); }
+    await anotarLaEntrada(leadId, entro);
     return arrancadas;
   } catch (e) {
     console.error(`[nutricion] enrolarPorEvento(${evento}) lead ${leadId} falló:`, e);
     return 0;
+  }
+}
+
+/**
+ * ⚠️ LA ENTRADA QUEDA DICHA EN EL LEAD, Y SI NO LE SALIÓ, POR QUÉ (23/10/2026, P0 de #289). Martín y su esposa entraron a
+ * «Prospección activa» a las 21:47 de Tijuana, se inscribieron en 8 s, y la vía rápida cortó por el horario de oficina
+ * (9 a 21) sin escribirlo en ningún lado: ni un envío en fallo, ni un aviso, ni una línea en el lead. «No funcionó».
+ * Después de la vía rápida, una línea en su historial por cada automatización en la que entró: «Entró a «Sprint ·
+ * apertura». No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale mañana 9:00.» (lib/por-que-no-sale.ts,
+ * la misma lectura que la ficha y la tarjeta del CRM). Si salió, sólo «Entró a …». Nunca tira: el lead ya está inscripto.
+ */
+async function anotarLaEntrada(leadId: number, secuencias: readonly number[]): Promise<void> {
+  if (!secuencias.length) return;
+  try {
+    const [{ enAutomatizaciones }, { logLeadEvent }] = await Promise.all([import('@/lib/automatizaciones-del-lead'), import('@/lib/leads')]);
+    const suyas = ((await enAutomatizaciones([leadId])).get(leadId) ?? []).filter((a) => secuencias.includes(a.secuenciaId));
+    for (const a of suyas) await logLeadEvent(leadId, 'Automatización', `Entró a «${a.nombre}».${a.frenado ? ` ${a.frenado.texto}` : ''}`, 'MaKo');
+  } catch (e) {
+    console.error(`[nutricion] lead ${leadId}: no pude anotar en qué automatización entró:`, e instanceof Error ? e.message : e);
   }
 }
 

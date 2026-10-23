@@ -287,7 +287,8 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
     start(async () => {
       try {
         if (pide.tipo === 'etapa') {
-          const r = await moverLeadsDeEtapaAction(ids, pide.stage.key);
+          // Con el CRM que se mira: los AGREGADOS a él se mueven en su fila (23/10/2026, ver la action).
+          const r = await moverLeadsDeEtapaAction(ids, pide.stage.key, funnelActivo);
           // TRES numeros, no uno: ver la cabecera de la action. El de pendientes solo
           // se nombra si lo hay — un «0 con datos pendientes» es ruido.
           const falta = r.conPendientes ? ` · a ${r.conPendientes} les falta un dato` : '';
