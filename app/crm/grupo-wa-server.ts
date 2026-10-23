@@ -180,7 +180,7 @@ export async function traerDelGrupo(p: {
         continue;
       }
       const lead = await createLead({
-        nombre: x.nombre ?? `+${x.telefono}`, telefono: x.telefono, funnel_id: p.funnelId, origen_lead: ORIGEN_LEAD.importacion.id,
+        nombre: x.nombre ?? `+${x.telefono}`, telefono: x.telefono, funnel_id: p.funnelId, origen_lead: ORIGEN_LEAD.grupo_whatsapp.id,
       });
       creados++;
       traidos.push(lead.id);

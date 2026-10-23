@@ -10089,3 +10089,9 @@ etiqueta que se les pone: una que ya tiene una automatización («Etiqueta puest
 inscribe a todo lead que la tenga aunque el lote no dispare. Y si toca números de terceros, por la API de MaKo va SÓLO en la
 app (`canales: ['app']`): por WhatsApp el rol es siempre 'admin'. Lo hace cumplir tests/grupo-wa.test.ts; el porqué,
 docs/hallazgos-crm.md.
+
+Y DESPUÉS TAMPOCO: un lead que nadie decidió contactar (el traído de un grupo) nace con su origen propio y
+`quedaDondeLoPusieron` (app/crm/origen-lead.ts) lo deja fuera de lo que mueve o escribe SOLO: el CRM automático (T2, T6) y
+los barridos que toman leads por edad o por estado sin colgar de una etapa ni de una etiqueta. Un barrido nuevo de esos
+tiene que filtrarlo, y el que lea leads con una lista de columnas tiene que traer `origen_lead`: sin la columna llega
+`undefined` y el filtro no filtra.

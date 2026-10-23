@@ -226,12 +226,14 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
       {/* El pie, pegado abajo (el molde de «Traer de otro funnel»): a dónde van, con qué etiqueta, y el botón. */}
       <div style={{ position: 'sticky', bottom: 0, zIndex: 2, background: 'var(--surface)', borderTop: '1px solid var(--border)', padding: '10px 0 2px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {hecho && <span role="status" style={{ fontFamily: SANS, fontSize: 13, color: 'var(--good)' }}>{hecho}</span>}
-        {(sinNumero > 0 || enElCrm > 0 || sinOfrecer > 0) && !!gente?.length && (
+        {/* «No les manda nada» siempre (el Cerebro, 23/10/2026): ni al traerlos, ni después por su cuenta (`quedaDondeLoPusieron`). */}
+        {!!gente?.length && (
           <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)' }}>
             {[
+              'No les manda nada.',
               enElCrm ? `${miles(enElCrm)} ya ${enElCrm === 1 ? 'es un lead: no se duplica' : 'son leads: no se duplican'}.` : '',
               sinNumero ? `${miles(sinNumero)} sin número visible.` : '',
-              sinOfrecer ? 'Sin las etapas con automatización: traer no le escribe a nadie.' : '',
+              sinOfrecer ? 'Las etapas con automatización no se ofrecen.' : '',
             ].filter(Boolean).join(' ')}
           </span>
         )}

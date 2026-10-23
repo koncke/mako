@@ -140,6 +140,8 @@ import { datoDeCampo } from '@/lib/dato-evento';
 // El TURNO del motor por negocio (sexta tanda): lo toman las dos rutas del cron y, desde la
 // revisión de esa tanda, también la vía rápida de un lead (`viaRapidaConTurno`).
 import { conTurnoDelMotor } from '@/lib/motor-turno';
+// Los traídos de un grupo de WhatsApp no entran a los barridos que mandan solos (ver la cohorte de reactivación).
+import { quedaDondeLoPusieron } from '@/app/crm/origen-lead';
 
 export type CanalNutricion = 'email' | 'whatsapp' | CanalSocial;
 
@@ -1588,23 +1590,28 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambit
       .in('estado_lead', ['abierto', 'ganado']));
   }
 
+  // ⚠️ LOS DOS DE ABAJO NO TOMAN A LOS TRAÍDOS DE UN GRUPO DE WHATSAPP (el Cerebro, 23/10/2026: «nada por detrás»): no
+  // cuelgan de una etapa ni de una etiqueta, así que un lead que nadie decidió contactar caía en ellos sólo por la edad.
+  // Se filtra DESPUÉS de leer y no con otro `.or()` en la consulta: `conAmbito` ya pone el suyo.
   if (triggerTipo === 'reactivacion_viejo') {
     // Frío: nunca agendó, abierto, creado entre 30 y 90 días atrás.
-    return idsCohorte(supabase, 'reactivacion-viejo', ambito, (q) => q
+    return (await filasCohorte<{ id: number; origen_lead: string | null }>(supabase, 'reactivacion-viejo', ambito, 'id, origen_lead', (q) => q
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
       .lt('created_at', desde)
-      .gte('created_at', haceDiasISO(90)));
+      .gte('created_at', haceDiasISO(90))))
+      .filter((r) => !quedaDondeLoPusieron(r.origen_lead)).map((r) => r.id);
   }
 
   if (triggerTipo === 'ultimo_intento_antes_noresp') {
     // Último intento antes de marcar no-responde: nunca agendó, abierto, creado
     // entre 90 y 365 días atrás (más viejo que la reactivación).
-    return idsCohorte(supabase, 'ultimo-intento', ambito, (q) => q
+    return (await filasCohorte<{ id: number; origen_lead: string | null }>(supabase, 'ultimo-intento', ambito, 'id, origen_lead', (q) => q
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
       .lt('created_at', haceDiasISO(90))
-      .gte('created_at', haceDiasISO(365)));
+      .gte('created_at', haceDiasISO(365))))
+      .filter((r) => !quedaDondeLoPusieron(r.origen_lead)).map((r) => r.id);
   }
 
   if (triggerTipo === TRIGGER_RESIDUO) {

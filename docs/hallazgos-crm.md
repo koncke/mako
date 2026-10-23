@@ -53,13 +53,25 @@ y en la API de MaKo (`grupos_whatsapp`, `traer_contactos_de_grupo`). El pedido d
   el chequeo de lo que manda hecho sobre OTRO funnel: se valida con `listarFunnels`.
 
 **Sin hacer:** no tiene «Deshacer»: los leads nuevos viven en su funnel de casa, y quitarlos es borrarlos (`eliminarLeadsAction`).
-No se probó con una línea de un cliente (las del ws3 y ws9 están cerradas): la línea de la plataforma sí. **Decisión de producto
-abierta:** los barridos del negocio que corren DESPUÉS siguen valiendo para los traídos como para cualquier lead: el CRM
-automático deja en `nutri` a quien no agendó en 2 días y después en `reactivacion` (lib/crm-auto.ts), y una automatización que
-alguien cuelgue más tarde de la etiqueta de origen los inscribe. Traer no manda nada; lo que el negocio ya tiene prendido, sí.
+No se probó con una línea de un cliente (las del ws3 y ws9 están cerradas): la línea de la plataforma sí.
+
+### Y después tampoco: el traído de un grupo queda donde lo pusieron (23/10/2026)
+
+- **«No le manda nada al traerlo» no alcanzaba:** lo que el negocio ya tiene prendido le escribía DESPUÉS, sin que nadie lo
+  decidiera. El CRM automático lo pasaba a `nutri` a los 2 días sin agendar y a `reactivacion` al enfriarse (T2) o a los 30 días
+  en No responde/Perdido (T6, lib/crm-auto-plan.ts). Y dos barridos que no cuelgan de ninguna etapa ni etiqueta lo tomaban sólo
+  por la edad: `reactivacion_viejo` (30 a 90 días sin agendar) y `ultimo_intento_antes_noresp` (90 a 365), en lib/nutricion.ts.
+- **La regla (el Cerebro, con la de Martín «nada por detrás»):** nace con su propio origen, `grupo_whatsapp` (app/crm/origen-lead.ts),
+  y `quedaDondeLoPusieron` lo saca de esos cuatro. T1 y T3 siguen: miran una reunión que él agendó o un plazo que escribió una
+  persona. Lo que alguien hace a PROPÓSITO también corre: moverlo a mano, o colgarle una automatización a su etapa o a su
+  etiqueta de origen. El que ya era lead y se SUMÓ desde el grupo conserva su origen y su recorrido: ya estaba en el CRM.
+- **La trampa:** el CRM automático lee los leads con una lista de columnas (`AUTO_COLS`, lib/crm-auto.ts). Sin `origen_lead`
+  ahí, el planificador recibe `undefined` y lo mueve igual, y el test del planificador puro no lo ve: se fija aparte.
+- Las cohortes se filtran DESPUÉS de leer, no con otro `.or()`: `conAmbito` ya pone el suyo en la misma consulta.
 
 **Vive en:** `app/crm/grupo-wa-server.ts` · `app/crm/grupo-wa-actions.ts` · `app/crm/TraerDeGrupoWA.tsx` ·
-`lib/grupo-wa-reglas.ts` · `tests/grupo-wa.test.ts` (21 roturas). Lo de Evolution, en hallazgos-comunicacion.md.
+`lib/grupo-wa-reglas.ts` · `quedaDondeLoPusieron` en `app/crm/origen-lead.ts` (lo leen lib/crm-auto-plan.ts y
+lib/nutricion.ts) · `tests/grupo-wa.test.ts` (21 + 10 roturas). Lo de Evolution, en hallazgos-comunicacion.md.
 
 *23/10/2026, chat «Offer» (claude3).*
 

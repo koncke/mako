@@ -139,7 +139,7 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   assert.match(server, /if \(existente === null\) \{ salteados\+\+; continue; \}/, 'un número compartido por dos leads se saltea');
   assert.match(server, /await agregarAProducto\(existente, p\.funnelId, \{ autor: p\.autor, etapa: p\.etapa \}\);[\s\S]{0,400}traidos\.push\(existente\);/, 'el que ya es lead se SUMA (y se etiqueta: dos grupos, dos etiquetas)');
   assert.match(server, /\.catch\(\(e\) => \{ errores\.push\(\x60[^\n]*quedó en la etapa de entrada/, 'el que no se pudo mover se nombra');
-  assert.match(server, /origen_lead: ORIGEN_LEAD\.importacion\.id/);
+  assert.match(server, /origen_lead: ORIGEN_LEAD\.grupo_whatsapp\.id/, 'nace con su origen: es lo que lo deja quieto (test 7)');
   assert.match(server, /const r = await ponerEtiquetaLote\(ids, id, \{ autor \}\);/, 'la etiqueta en LOTE (no dispara)');
   assert.match(server, /const origen = await etiquetaDeOrigen\([^\n]*\);\n {2}if \(!origen\.ok\) return origen;[\s\S]{0,1200}for \(const \[i, x\] of quienes\.entries\(\)\)/, 'la etiqueta se mira ANTES de traer a nadie');
   assert.match(server, /if \(secuenciasDeEtiqueta\(vistas, e\.id\)\.length\) return \{ ok: false,/, 'una etiqueta con automatización: el barrido inscribe al grupo');
@@ -148,6 +148,7 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   assert.match(pantalla, /const tanda = cola\.splice\(0, TANDA_GRUPO\);/, 'de a tandas');
   assert.match(pantalla, /if \(r\.pendientes\.length >= tanda\.length\) \{[^}]*break; \}\n {6}cola\.unshift\(\.\.\.r\.pendientes\);/, 'lo que cortó por tiempo vuelve a la cola (y sin avance, para)');
   assert.match(pantalla, /const usables = etapas\.filter\(\(e\) => !e\.manda\);/, 'las etapas que mandan no se ofrecen');
+  assert.match(pantalla, /\{!!gente\?\.length && \(\n\s*<span[^\n]*>\n\s*\{\[\n\s*'No les manda nada\.',/, 'la pantalla lo dice, siempre');
   assert.match(leer('app/crm/CrmBoard.tsx'), /\.\.\.\(puedeCrearCrm \? \{ onTraerGrupo: \(\) => setNuevoLead\(\{ \.\.\.nuevoLead, traer: 'grupo' \}\) \} : \{\}\),/, 'sólo el admin ve la opción');
   // La API de MaKo: admin, SÓLO en la app (por WhatsApp el rol es siempre 'admin'), por chat, y corta a tiempo.
   const def = leer('lib/api-mako/areas/crm.def.ts');
@@ -158,4 +159,47 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   const run = leer('lib/api-mako/areas/crm.run.ts');
   assert.match(run, /telefonos: 'todos', autor: autorDe\(ctx\), hasta: Date\.now\(\) \+ 45_000,\n {8}etiqueta:/);
   assert.match(run, /if \(!funnels\.some\(\(f\) => f\.id === funnelId\)\) return \{ error:/, 'la API, tampoco un funnel ajeno');
+});
+
+test('7. el traído de un grupo QUEDA DONDE LO PUSIERON: ni el CRM automático ni los barridos que mandan solos', async () => {
+  // El Cerebro, 23/10/2026, con la regla de Martín «nada por detrás»: no entra a nutri ni a reactivación por su cuenta.
+  const { planLeadAuto } = await import('../lib/crm-auto-plan');
+  const { quedaDondeLoPusieron, origenLista } = await import('../app/crm/origen-lead');
+  const { canalDeEntrada } = await import('../app/crm/lead-view/ficha/resumen/logica');
+  const HOY = '2026-07-05';
+  const NOW = Date.parse('2026-07-05T20:00:00Z');
+  const haceDias = (n: number) => new Date(Date.UTC(2026, 6, 5) - n * 86400000).toISOString();
+  const lead = (p: Record<string, unknown>) => ({
+    id: 1, nombre: 'Ana', estado_lead: 'abierto' as const, pipeline_stage: null, fecha_agenda: null, fecha_junta_1: null,
+    fecha_junta_2: null, junta_1_at: null, junta_2_at: null, asistio_j1: null, asistio_j2: null, nutricion_realizada: false,
+    nutricion_manual_deadline: null, created_at: haceDias(3), updated_at: null, ...p,
+  });
+  const reglas = (l: ReturnType<typeof lead>) => planLeadAuto(l as never, HOY, NOW).map((a) => `${a.regla}:${a.move?.to ?? ''}`);
+  // T2: tres días sin agendar → a nutri; frío → a reactivación. Al importado de un ARCHIVO, sí; al del grupo, no.
+  assert.deepEqual(reglas(lead({ origen_lead: 'importacion' })), ['T2:nutri']);
+  assert.deepEqual(reglas(lead({ origen_lead: 'grupo_whatsapp' })), []);
+  assert.deepEqual(reglas(lead({ origen_lead: 'grupo_whatsapp', created_at: haceDias(40) })), []);
+  // T6: «No responde» hace 60 días → a reactivación. Al del grupo, no.
+  const frio = { estado_lead: 'no_responde' as const, pipeline_stage: 'noresp', updated_at: haceDias(60) };
+  assert.deepEqual(reglas(lead({ ...frio, origen_lead: null })), ['T6:reactivacion']);
+  assert.deepEqual(reglas(lead({ ...frio, origen_lead: 'grupo_whatsapp' })), []);
+  // T1 sí: mira una reunión que ÉL agendó (no lo mueve a una etapa que le escribe).
+  const conReunion = { fecha_agenda: '2026-07-01', fecha_junta_1: '2026-07-01', junta_1_at: '2026-07-01T15:00:00Z' };
+  assert.deepEqual(reglas(lead({ ...conReunion, origen_lead: 'grupo_whatsapp' })), ['T1:']);
+  assert.equal(quedaDondeLoPusieron('grupo_whatsapp'), true);
+  for (const otro of ['importacion', 'chat_whatsapp', null, undefined, '']) assert.equal(quedaDondeLoPusieron(otro), false, String(otro));
+  assert.equal(origenLista('grupo_whatsapp'), 'Grupo de WhatsApp');
+  assert.equal(canalDeEntrada('grupo_whatsapp').texto, 'Traído de un grupo de WhatsApp');
+
+  // El CRM automático LEE el origen (sin la columna, `origen_lead` llega undefined y lo movía igual), y los dos barridos
+  // que no cuelgan de una etapa ni de una etiqueta lo filtran.
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(leer('lib/crm-auto.ts'), /const AUTO_COLS =\n\s*'[^']*\borigen_lead\b[^']*';/);
+  const nutri = leer('lib/nutricion.ts');
+  for (const trigger of ['reactivacion_viejo', 'ultimo_intento_antes_noresp']) {
+    const rama = nutri.slice(nutri.indexOf(`if (triggerTipo === '${trigger}')`), nutri.indexOf(`if (triggerTipo === '${trigger}')`) + 700);
+    assert.match(rama, /'id, origen_lead'[\s\S]*\.filter\(\(r\) => !quedaDondeLoPusieron\(r\.origen_lead\)\)\.map\(\(r\) => r\.id\);/, `${trigger}: toma a los del grupo`);
+  }
 });
