@@ -26,9 +26,10 @@
 //   mako-pc                                   (espera turnos; lo arranca el sistema al prender la computadora)
 //   mako-pc agregar-cuenta                    (otra cuenta de Claude: la PC usa la de más cupo)
 //   mako-pc estado
+//   mako-pc mako://conectar?codigo=ABCD2345   (el ENLACE de «Conectar mi computadora», sin terminal: pregunta en una ventana)
 // =============================================================================
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync, chmodSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { homedir, hostname } from 'node:os';
@@ -92,7 +93,9 @@ function log(...x) {
   } catch { /* sin disco, sin registro: no se cae por eso */ }
 }
 /** Lo que lee la persona en la ventana del instalador (los comandos de una vez, no el de fondo). */
-const decir = (t) => { try { console.log(t); } catch { /* sin consola */ } };
+/** Lo que se dijo, para quien lo quiera mostrar en una ventana (el modo enlace: `conectarDesdeEnlace`). */
+let oyente = null;
+const decir = (t) => { if (oyente) oyente.push(String(t)); try { console.log(t); } catch { /* sin consola */ } };
 
 async function api(c, metodo, ruta, cuerpo) {
   const res = await fetch(`${c.servidor}${ruta}`, {
@@ -264,10 +267,10 @@ export const extrasDelLatido = (cuentas) => (cuentas.length && cuentas.every((x)
 // negocio, pegado con la línea oficial, se llevaba la suscripción de la víctima sin decir nada). Lo pregunta el script del
 // instalador, no este programa: en Windows es «de ventana» y no lee la consola.
 
-async function emparejar() {
-  const codigo = process.argv[3];
-  const servidor = (arg('--servidor') ?? SERVIDOR_DEFAULT).replace(/\/+$/, '');
-  const nombre = arg('--nombre') ?? hostname();
+async function emparejar(p = { codigo: process.argv[3], servidor: arg('--servidor') ?? SERVIDOR_DEFAULT, nombre: arg('--nombre') ?? hostname() }) {
+  const codigo = p.codigo;
+  const servidor = String(p.servidor ?? SERVIDOR_DEFAULT).replace(/\/+$/, '');
+  const nombre = p.nombre ?? hostname();
   if (!codigo) { decir('Falta el código: mako-pc emparejar <CÓDIGO>'); return 1; }
   const r = await api({ servidor }, 'POST', '/api/ia-pc/emparejar', { codigo, nombre }).catch(() => null);
   if (!r) { decir('No pude llegar a MaKo: revisa tu conexión a internet.'); return 1; }
@@ -331,6 +334,122 @@ async function cancelar() {
   delete resto.pendiente;
   guardarConfig(resto);
   return 0;
+}
+
+// ── Conectar desde un ENLACE, sin terminal (22/10/2026) ─────────────────────────
+// Martín: «el proceso de instalación jamás sea por Powershell, ni siquiera que se tenga que abrir» (docs/plan-instalador-
+// escritorio.md). «Conectar mi computadora» abre `mako://conectar?codigo=…`; el sistema le pasa el enlace a este programa
+// (lo registra el instalador), que empareja, PREGUNTA EN UNA VENTANA del sistema y queda conectado y arrancando.
+// ⚠️ EL SERVIDOR NUNCA SALE DEL ENLACE: cualquier página puede abrir un `mako://`, y con su servidor se llevaría la computadora
+// (y la suscripción de Claude de la persona) a su MaKo. Del enlace sale sólo el código; la ventana dice a qué negocio y como
+// quién se conecta, como el «¿Es tu negocio?» del instalador de consola.
+
+/** Las mismas reglas del código que lib/ia-pc-reglas.ts (`normalizarCodigo`; tests/ia-pc-enlace.test.ts compara las dos). */
+export const ALFABETO_CODIGO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+export const LARGO_CODIGO = 8;
+
+/** El código de un enlace `mako://conectar?codigo=ABCD-2345`, normalizado. null si el enlace no es eso (otro esquema, otra
+ *  acción, sin código o con uno que no puede ser). */
+export function codigoDelEnlace(enlace) {
+  let u;
+  try { u = new URL(String(enlace ?? '').trim()); } catch { return null; }
+  if (u.protocol !== 'mako:') return null;
+  const accion = (u.hostname || u.pathname.replace(/^\/+/, '').split('/')[0] || '').toLowerCase();
+  if (accion !== 'conectar') return null;
+  const c = String(u.searchParams.get('codigo') ?? '').toUpperCase().replace(/[\s-]/g, '');
+  return c.length === LARGO_CODIGO && [...c].every((ch) => ALFABETO_CODIGO.includes(ch)) ? c : null;
+}
+
+/** Lo que pregunta la ventana: a qué negocio y como quién, y si reemplaza una conexión de antes. */
+export function preguntaDeConexion(p) {
+  const como = p.persona ? ` como ${p.persona}` : '';
+  const antes = p.antes ? `\n\nHoy está conectada a «${p.antes}»: esa conexión se reemplaza.` : '';
+  return `¿Conectar esta computadora a «${p.negocio}»${como}?\n\nTu Ops Center va a contestar con tu Claude, en esta computadora.${antes}`;
+}
+
+const aUtf16 = (s) => Buffer.from(`${s}\0`, 'utf16le');
+const comillasAs = (s) => `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+
+/**
+ * Una ventana del SISTEMA, sin consola. `botones`: 'si-no' devuelve true con «Sí»; 'ok' sólo avisa. En Windows, `MessageBoxW`
+ * de user32 (con `bun:ffi`, dentro del ejecutable); en la Mac, `osascript`. Sin poder mostrarla, false: nunca se conecta sin
+ * que la persona diga que sí. `MAKO_PC_SI=1` contesta «sí» sin ventana: sólo para la prueba de punta a punta.
+ */
+export async function ventana(titulo, texto, botones = 'si-no') {
+  if (botones === 'si-no' && process.env.MAKO_PC_SI === '1') return true;
+  try {
+    if (process.platform === 'win32' && typeof globalThis.Bun !== 'undefined') {
+      const { dlopen, FFIType } = await import('bun:ffi');
+      const user32 = dlopen('user32.dll', { MessageBoxW: { args: [FFIType.ptr, FFIType.ptr, FFIType.ptr, FFIType.u32], returns: FFIType.i32 } });
+      // MB_YESNO | MB_ICONQUESTION, o MB_OK | MB_ICONINFORMATION; siempre MB_TOPMOST | MB_SETFOREGROUND (sale adelante).
+      const estilo = (botones === 'si-no' ? 0x4 | 0x20 : 0x0 | 0x40) | 0x40000 | 0x10000;
+      const r = user32.symbols.MessageBoxW(null, aUtf16(texto), aUtf16(titulo), estilo);
+      user32.close();
+      return r === 6; // IDYES
+    }
+    if (process.platform === 'darwin') {
+      const b = botones === 'si-no' ? '{"No", "Sí, conectar"} default button 2 cancel button 1' : '{"Listo"} default button 1';
+      const r = spawnSync('osascript', ['-e', `display dialog ${comillasAs(texto)} with title ${comillasAs(titulo)} buttons ${b} with icon note`], { encoding: 'utf8' });
+      return botones === 'si-no' ? r.status === 0 && /Sí, conectar/.test(r.stdout ?? '') : r.status === 0;
+    }
+  } catch (e) {
+    log(`No pude mostrar la ventana: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return false;
+}
+
+/**
+ * Deja corriendo el programa con la conexión nueva: los de antes se cierran (el de antes, con su token ya soltado, igual
+ * saldría con el 401), y arranca uno nuevo, sin consola. En la Mac, el LaunchAgent lo relanza.
+ */
+export function arrancarConLaNueva() {
+  if (process.env.MAKO_PC_SIN_ARRANQUE === '1') return;
+  try {
+    if (process.platform === 'win32') {
+      spawnSync('taskkill', ['/F', '/FI', `PID ne ${process.pid}`, '/IM', 'mako-pc.exe'], { windowsHide: true, stdio: 'ignore' });
+      spawn(process.execPath, [], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    } else if (process.platform === 'darwin') {
+      spawnSync('launchctl', ['kickstart', '-k', `gui/${process.getuid?.() ?? ''}/com.hola-mako.pc`], { stdio: 'ignore' });
+    }
+  } catch (e) {
+    log(`No pude arrancar con la conexión nueva: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/**
+ * El enlace de «Conectar mi computadora»: empareja con SU servidor, pregunta en una ventana y confirma (o cancela). Lo que
+ * falla se dice en una ventana. `p` es para los tests (la ventana y el arranque de mentira).
+ */
+export async function conectarDesdeEnlace(enlace, p = { ventana, arrancar: arrancarConLaNueva }) {
+  const codigo = codigoDelEnlace(enlace);
+  if (!codigo) { await p.ventana('MaKo', 'Ese enlace no sirve: pide otro en MaKo (Tus cuentas de IA).', 'ok'); return 1; }
+  oyente = [];
+  try {
+    const antes = leerConfig() ?? {};
+    if (await emparejar({ codigo, servidor: SERVIDOR_DEFAULT, nombre: hostname() }) !== 0) {
+      await p.ventana('MaKo', oyente.at(-1) ?? 'No pude conectar esta computadora. Pide otro código en MaKo.', 'ok');
+      return 1;
+    }
+    const pend = (leerConfig() ?? {}).pendiente ?? {};
+    const si = await p.ventana('Conectar MaKo', preguntaDeConexion({ negocio: pend.negocio ?? 'tu negocio', persona: pend.persona, antes: antes.token ? antes.negocio : null }));
+    if (!si) {
+      await cancelar();
+      await p.ventana('MaKo', 'No la conecté: tu computadora sigue como estaba.', 'ok');
+      return 1;
+    }
+    if (await confirmar() !== 0) {
+      // Lo pendiente se suelta (como con el «no»): lo de antes sigue como estaba.
+      const dijo = oyente.at(-1);
+      await cancelar();
+      await p.ventana('MaKo', dijo ?? 'No pude confirmar la conexión: tu computadora sigue como estaba. Pide otro código en MaKo.', 'ok');
+      return 1;
+    }
+    p.arrancar();
+    await p.ventana('MaKo', `¡Listo! Esta computadora quedó conectada a «${pend.negocio ?? 'tu negocio'}». Déjala prendida.`, 'ok');
+    return 0;
+  } finally {
+    oyente = null;
+  }
 }
 
 /** ¿Hay un Claude con sesión? 0 sí, 2 sin sesión, 3 sin Claude instalado (el instalador decide qué hacer). */
@@ -514,6 +633,7 @@ if (esPrincipal) {
   };
   const fallar = (e) => { decir(e instanceof Error ? e.message : String(e)); salir(1); };
   if (cmd === '--version') decir(VERSION);
+  else if (/^mako:/i.test(cmd)) conectarDesdeEnlace(cmd).then(salir, fallar);
   else if (cmd === 'emparejar') emparejar().then(salir, fallar);
   else if (cmd === 'confirmar') confirmar().then(salir, fallar);
   else if (cmd === 'cancelar') cancelar().then(salir, fallar);

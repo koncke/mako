@@ -13,10 +13,15 @@
 //   6. la criatura de la cabecera cuenta con el MISMO número que la fila (Martín, 22/10, 18:45: la fila del «Cerebro» avisaba y
 //      la criatura de arriba dormía, «No se entiende»): con un «Completado» sin ✓ está despierta en los dos lugares;
 //   7. las decisiones de la Ticketera (Pregunta.tsx, la de «Cuesta dinero» del chat Infra) tienen los MISMOS ajustes que las
-//      preguntas de un chat, con las mismas piezas: flotan, se pliegan y sus links se tocan (verificado en producción, 22/10).
+//      preguntas de un chat, con las mismas piezas: flotan, se pliegan y sus links se tocan (verificado en producción, 22/10);
+//   8. UN SOLO BLOQUE (el Cerebro, midiéndolo en producción: «Martín pide unificar siempre»): la Ticketera, lo que pregunta el chat
+//      y lo de la app en UNA tarjeta, con una flecha y una navegación para todas, en la computadora y en el teléfono;
+//   9. lo que una TAB le pregunta a la persona (las sugerencias del CRM) entra por el MISMO bloque, en la estrella de cada tab:
+//      una por vez, con «Hacerlo» y «Ahora no» como opciones (Martín con captura del /crm: «Mira lo mal que se ve esto»);
+//  10. la cabecera del panel de la estrella es el Cerebro con su estrella desde el primer cuadro (decía «Chat nuevo»).
 //
 // Correr: node --import tsx --test tests/ops-center-bloque-y-estado.test.ts
-// PROBADO ROMPIÉNDOLO (base 7/0), ver el pie.
+// PROBADO ROMPIÉNDOLO (base 10/0), ver el pie.
 // =============================================================================
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -28,8 +33,11 @@ import { TEXTO_SEGUNDO_RENGLON, avisosDe, lineasDeConversacion, primeraOracion, 
 import { animoDe } from '../app/admin/operaciones/Muneco';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Pregunta } from '../app/admin/operaciones/Pregunta';
+import { BloqueDePreguntas, CuerpoDeLaTab, itemsDelBloque } from '../app/admin/operaciones/PreguntasDelChat';
 import type { Decision } from '../app/admin/runway/decisiones';
+import type { PreguntaChat } from '../lib/centro-preguntas-chat';
+import { esCriaturaDeMako } from '../lib/centro-munecos';
+import { JEFE_SECOND_BRAIN, SIN_TITULO } from '../lib/chat-mako-reglas';
 import type { TurnoChat } from '../lib/operaciones-reglas';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -43,13 +51,13 @@ test('1. flota sobre el fondo del chat y se pliega con una flecha, recordado por
   assert.match(css, /\.co-caja-wrap \{ background: var\(--bg\); \}/, 'el pie de la caja, con el fondo del chat (no la franja blanca)');
   assert.match(css, /\.co-preg--arriba \{ margin: 0 auto 10px; box-shadow: [^}]*0 10px 30px/, 'una tarjeta flotante, con su sombra');
   const b = bloque();
-  assert.match(b, /if \(plegado\) return <Plegada n=\{preguntas\.length\} onAbrir=\{\(\) => setPlegado\(false\)\} \/>;/);
+  assert.match(b, /\{tiraDePreguntas && \(\n\s*<Plegada n=\{preguntas\.length\} onAbrir=\{\(\) => \{ setVerSugerencias\(false\); setPlegado\(false\); \}\}/);
   assert.match(b, /const esperando = \(n: number\) => \(n === 1 \? '1 pregunta esperando' : `\$\{n\} preguntas esperando`\);/);
   assert.match(b, /<Plegar onPlegar=\{\(\) => setPlegado\(true\)\} \/>/);
   // Por chat Y por las preguntas que espera: una nueva lo abre solo.
   assert.match(b, /window\.localStorage\.getItem\(CLAVE_PLEGADO \+ chat\) === firma/);
   for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
-    assert.match(sinComentarios(leer(f)), /<PreguntasDelChat key=\{`p-\$\{[a-z.]+\}`\} chat=\{[a-z]+\.clave\}/, `${f}: le dice de qué chat es`);
+    assert.match(sinComentarios(leer(f)), /<BloqueDePreguntas key=\{`b-\$\{[a-z.]+\}`\} chat=\{[a-z]+\.clave\}/, `${f}: le dice de qué chat es`);
   }
 });
 
@@ -60,7 +68,7 @@ test('2. los links se tocan, también sin https, y abrir uno no elige la opción
     assert.equal(conDominiosComoLinks(igual), igual, igual);
   }
   const b = bloque();
-  assert.match(b, /const conLinks = \(texto: string, k: string\): ReactNode => conFormato\(conDominiosComoLinks\(texto\), k\);/);
+  assert.match(leer('app/admin/operaciones/bloque-texto.tsx'), /export const conLinks = \(texto: string, k: string\): ReactNode => conFormato\(conDominiosComoLinks\(texto\), k\);/);
   for (const campo of ['p.pregunta', 'p.contexto', 'o.detalle']) assert.ok(b.includes(`conLinks(${campo},`), campo);
   assert.match(b, /onClick=\{\(e\) => \{ if \(!enviando && !\(e\.target as HTMLElement\)\.closest\('a'\)\) tocar\(o\.i\); \}\}/, 'el link no elige');
   assert.match(b, /<div role="button" tabIndex=/, 'la opción no es un <button>: un link adentro de un botón no se abre');
@@ -72,7 +80,8 @@ test('3. con varias, «‹ Anterior», los puntos y «Siguiente ›»; sin resum
   assert.match(b, />‹ Anterior</);
   assert.match(b, />Siguiente ›</);
   assert.match(b, /className="co-preg__punto"/);
-  assert.match(b, /if \(pos \+ 1 < preguntas\.length\) \{ ir\(pos \+ 1\); return; \}\n\s*const falta = preguntas\.findIndex\(\(q\) => !todo\[q\.id\]\);\n\s*if \(falta >= 0\) ir\(falta\); else void enviar\(todo\);/);
+  // Las del chat salen TODAS cuando están todas contestadas; si no, a la siguiente que falta (de cualquier fuente).
+  assert.match(b, /if \(delChatAbiertas\.every\(\(q\) => todo\[q\.id\]\)\) \{ void enviar\(todo\); return; \}\n\s*aLaSiguiente\(hechos\(it\.id\)\);/);
 });
 
 const LOCAL = 'local_22222222-2222-4222-8222-222222222222';
@@ -148,19 +157,86 @@ test('7. las decisiones de la Ticketera flotan, se pliegan y sus links se tocan,
     destraba: null, contexto: 'Van 835 de 2.000 minutos.', recomendada: 'A', urgencia: 'criterio', href: null, orden: 100,
     respuesta: null, respuestaTexto: null, respondidaAt: null, recogidaAt: null, creadaAt: '2026-10-22T16:00:00Z',
   };
-  const html = renderToStaticMarkup(createElement(Pregunta, { chat: 'local_infra', preguntas: [d], responder: async () => ({ error: null, ok: true }) }));
+  const html = renderToStaticMarkup(createElement(BloqueDePreguntas, { chat: 'local_infra', ticketera: [d], responderTicketera: async () => ({ error: null, ok: true }) }));
   assert.match(html, /class="co-preg co-preg--arriba"/, 'la tarjeta flotante');
   assert.match(html, /class="co-preg__plegar"[^>]*aria-label="Ocultar las preguntas"/, 'la flecha');
   assert.match(html, /<a [^>]*href="https:\/\/github\.com\/settings\/billing"[^>]*>github\.com\/settings\/billing<\/a>/, 'el link sin https, tocable');
   assert.match(html, /<div role="button" tabindex="0"[^>]*data-op="0" class="co-preg__op"/, 'la opción no es un <button>');
   const src = sinComentarios(leer('app/admin/operaciones/Pregunta.tsx'));
-  assert.match(src, /import \{ Plegada, Plegar, conLinks, usePlegado \} from '\.\/PreguntasDelChat';/, 'las MISMAS piezas, no una copia');
-  assert.match(src, /const \[plegado, setPlegado\] = usePlegado\(`ticketera:\$\{chat\}`, preguntas\);/);
-  assert.match(src, /if \(plegado\) return <Plegada n=\{preguntas\.length\} onAbrir=\{\(\) => setPlegado\(false\)\} \/>;/);
+  assert.match(src, /import \{ conLinks \} from '\.\/bloque-texto';/, 'los mismos links, no una copia');
   assert.match(src, /onClick=\{\(e\) => \{ if \(!guardando && !\(e\.target as HTMLElement\)\.closest\('a'\)\) void elegir\(o\.clave\); \}\}/, 'el link no elige');
+  assert.match(src, /if \(clave === OTRA && hayClave\(texto\)\) \{ setError\(AVISO_CLAVE_EN_EL_CENTRO\); return; \}/, 'una clave en «Otra» no se guarda');
+  assert.doesNotMatch(src, /className="co-preg[ "]|usePlegado|Plegar/, 'la tarjeta, la flecha y el plegado son del bloque, no de acá');
+});
+
+test('8. UN solo bloque: la Ticketera, lo que pregunta el chat y lo de la app, en una tarjeta con una flecha y una navegación', () => {
+  const t: Decision = {
+    id: 42, ref: 'd-42', chat: 'Infra', pregunta: '¿Tarjeta a GitHub?', opciones: [{ clave: 'A', texto: 'Sí' }, { clave: 'B', texto: 'No' }],
+    destraba: null, contexto: null, recomendada: 'A', urgencia: 'cuesta', href: null, orden: 100,
+    respuesta: null, respuestaTexto: null, respondidaAt: null, recogidaAt: null, creadaAt: '2026-10-22T16:00:00Z',
+  };
+  const q = (id: string, origen?: 'ask') => ({
+    id, local: 'local_22222222-2222-4222-8222-222222222222', pregunta: `¿Pregunta ${id.slice(0, 4)}?`, contexto: null,
+    opciones: [{ titulo: 'Uno', detalle: null }, { titulo: 'Dos', detalle: null }], recomendada: 0, varias: false,
+    at: '2026-10-22T16:01:00Z', respuesta: null, ...(origen ? { origen } : {}),
+  }) as unknown as PreguntaChat;
+  const chat = q('aaaaaaaa-1111-4222-8333-444444444444');
+  const app = q('bbbbbbbb-1111-4222-8333-444444444444', 'ask');
+  // Una lista, en el orden en que se contesta, y cada id dice de qué fuente es (no se pisan).
+  assert.deepEqual(itemsDelBloque([t], [chat], [app]).map((x) => x.id), ['t:42', `c:${chat.id}`, `a:${app.id}`]);
+  const html = renderToStaticMarkup(createElement(BloqueDePreguntas, {
+    chat: 'local_infra', ticketera: [t], responderTicketera: async () => ({ error: null, ok: true }),
+    delChat: [chat], onResponder: async () => null, deLaApp: [app],
+  }));
+  assert.equal((html.match(/class="co-preg co-preg--arriba/g) ?? []).length, 1, 'UNA tarjeta, no tres');
+  assert.equal((html.match(/class="co-preg__plegar"/g) ?? []).length, 1, 'una flecha');
+  assert.match(html, />1 de 3</, 'una navegación para las tres');
+  assert.equal((html.match(/class="co-preg__punto"/g) ?? []).length, 3);
+  assert.match(html, /Cuesta dinero/, 'abre en la primera: la de la Ticketera');
+  // Montado UNA vez, en las dos pantallas, con las tres fuentes.
   for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
-    assert.match(sinComentarios(leer(f)), /<Pregunta key=\{[a-z]+\.clave\} chat=\{[a-z]+\.clave\}/, `${f}: le dice de qué chat es`);
+    const src = sinComentarios(leer(f));
+    assert.equal((src.match(/<BloqueDePreguntas /g) ?? []).length, 1, `${f}: un bloque`);
+    assert.match(src, /ticketera=\{preguntas\} responderTicketera=\{responder\}\n\s*delChat=\{bloque\}[^\n]*deLaApp=\{deLaApp\}/, `${f}: las tres fuentes`);
+    assert.doesNotMatch(src, /<Pregunta |<PreguntasDelChat |<PreguntasDeLaApp /, `${f}: sin las tarjetas sueltas`);
   }
+});
+
+test('9. lo que una tab le pregunta (las sugerencias del CRM) va en EL bloque: una por vez, con «Hacerlo» y «Ahora no»', () => {
+  const cuota = { id: 'cuota', pregunta: '1 cuota vencida sin cobrar. ¿Te aviso cuando venza una?', opciones: [{ titulo: 'Hacerlo', recomendada: true, onElegir: () => {} }, { titulo: 'Ahora no', onElegir: () => {} }] };
+  const html = renderToStaticMarkup(createElement(BloqueDePreguntas, {
+    chat: 'tab:CRM',
+    deLaTab: [cuota, { id: 'r1', pregunta: 'Escribirle para reagendar a quien cae en «Nutrición No Show R1»', opciones: [{ titulo: 'Hacerlo', href: '/automations?ws=1' }] }],
+  }));
+  // Plegadas en su tira (Martín, 22/10/2026: «muy invasivas»): tests/ops-center-sugerencias-plegadas.test.ts.
+  assert.equal((html.match(/class="co-preg co-preg--arriba/g) ?? []).length, 1, 'una tira, no una lista');
+  assert.doesNotMatch(html, /1 cuota vencida sin cobrar|Nutrición No Show R1/, 'plegadas: ninguna a la vista');
+  // Abierta, una por vez, con «Hacerlo» y «Ahora no» como sus opciones.
+  const abierta = renderToStaticMarkup(createElement(CuerpoDeLaTab, { q: cuota }));
+  assert.match(abierta, /1 cuota vencida sin cobrar/);
+  assert.match(abierta, /Hacerlo<span class="co-preg__rec"> \(Recomendada\)<\/span>/);
+  assert.match(abierta, />Ahora no</);
+  assert.match(bloque(), /\{visibles\.length > 1 && <Pasos items=\{visibles\} pos=\{pos\} ir=\{ir\} contestada=\{contestada\} nombre="Sugerencia" \/>\}/, 'una por vez, con ‹ ›');
+  // La estrella lo monta arriba de la caja, y el CRM ya no dibuja su lista suelta arriba del hilo.
+  const pieza = sinComentarios(leer('app/_chat/MakoEnLaTab.tsx'));
+  assert.match(pieza, /\{preguntas && preguntas\.length > 0 && <BloqueDePreguntas chat=\{`tab:\$\{tab\}`\} deLaTab=\{preguntas\} \/>\}\n\s*<div className="co-caja">/);
+  const crm = sinComentarios(leer('app/crm/mako-crm/PanelMakoCrm.tsx'));
+  assert.match(crm, /return <MakoEnLaTab tab="CRM"[^>]* arriba=\{sugerencias\} preguntas=\{preguntas\} aviso=\{n\} pedido=\{pedido\} \/>;/);
+  assert.match(crm, /titulo: 'Hacerlo', recomendada: true, \.\.\.\(s\.tipo === 'link' && s\.href \? \{ href: s\.href \} : \{ onElegir: \(\) => hacer\(s\) \}\)/);
+  assert.match(crm, /titulo: 'Ahora no', onElegir: \(\) => void pedirAlServer\('ahora_no', s\)/);
+  assert.doesNotMatch(crm, /maxHeight: '42%'|>Hacerlo<\/(Button|ButtonLink)>/, 'la lista suelta, con su scroll, volvió');
+});
+
+test('10. la cabecera de la estrella es el Cerebro desde el primer cuadro, con su estrella (no «Chat nuevo» y una redonda)', () => {
+  assert.equal(esCriaturaDeMako(JEFE_SECOND_BRAIN), true, 'el Cerebro se dibuja con la estrella');
+  assert.equal(esCriaturaDeMako(SIN_TITULO), false, '«Chat nuevo» era la redonda');
+  const hook = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
+  assert.match(hook, /const vaAlCerebro = !filaAbierta && elegido == null && entrarAlCerebro && chatInicial == null;/);
+  assert.match(hook, /const nombre = filaAbierta\?\.titulo \?\? \(vaAlCerebro \? JEFE_SECOND_BRAIN\n/);
+  assert.match(hook, /const nombreMuneco = filaAbierta\?\.criatura \?\? \(idOffer != null \? criaturaDeOffer\(nombre\) : nombre\);/, 'la criatura sale del nombre');
+  // La estrella y el Ops Center del cliente entran al Cerebro: los dos lo dibujan así desde el principio.
+  assert.match(sinComentarios(leer('app/_chat/MakoEnLaTab.tsx')), /useChatCliente\(\{ elegido, setElegido, activo: true, entrarAlCerebro: true,/);
+  assert.match(sinComentarios(leer('app/_chat/MakoEnLaTab.tsx')), /cabecera=\{\{ clave: 'cerebro', titulo: k\.nombre, criatura: k\.nombreMuneco,/);
 });
 
 // PROBADO ROMPIÉNDOLO (22/10/2026, base 5/0):
@@ -182,3 +258,11 @@ test('7. las decisiones de la Ticketera flotan, se pliegan y sus links se tocan,
 //   · sin la flecha                                       → 6/1 (7)
 //   · el detalle sin sus links                         → 6/1 (7)
 //   · la opción vuelve a ser un <button>                  → 6/1 (7)
+// Y el 8 (22/10/2026, base 8/0):
+//   · la Ticketera fuera del bloque en la computadora     → 7/1 (8)
+//   · la Ticketera fuera de la lista                      → 6/2 (7, 8)
+//   · la navegación sólo para las del chat                → 7/1 (8)
+// Y el 9 y el 10 (22/10/2026, base 10/0):
+//   · la estrella sin el bloque (las sugerencias, sueltas) → 9/1 (9)
+//   · la tab fuera de la lista del bloque                 → 9/1 (9)
+//   · la cabecera vuelve a «Chat nuevo» mientras llega   → 9/1 (10)

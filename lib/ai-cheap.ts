@@ -345,6 +345,17 @@ export async function provsGratisDePlataforma(): Promise<Array<{ provider: ProvN
 export const CASCADA_STT: ProvName[] = ['gemini', 'groq', 'openai'];
 
 export async function cheapDisponible(): Promise<boolean> { return conD6bDelPedido(null, async () => (await proveedor()) !== null); }
+/**
+ * ¿Su Claude contesta esta función? La puerta 2 (lib/anthropic.ts → `permisoDeLaClaveDelNegocio`): su clave de Claude, o el
+ * crédito que le asignó Martín (lib/credito-negocio.ts; el ws1, 22/10/2026). La cascada de texto la prueba PRIMERO, así que
+ * quien la tiene, tiene IA aunque no tenga ninguna clave barata. No llama a nada: sólo pregunta.
+ */
+export async function suClaudeContesta(feature: string): Promise<boolean> {
+  if (!d6bDecidida()) return conD6bDelPedido(feature, () => suClaudeContesta(feature));
+  const { permisoDeLaClaveDelNegocio } = await import('./anthropic');
+  const n = await permisoDeLaClaveDelNegocio(feature).catch(() => null);
+  return !!n && 'permiso' in n;
+}
 /** ¿Hay alguna IA que pueda escuchar un audio en este workspace? */
 export async function sttDisponible(): Promise<boolean> {
   if (!d6bDecidida()) return conD6bDelPedido(null, () => sttDisponible());

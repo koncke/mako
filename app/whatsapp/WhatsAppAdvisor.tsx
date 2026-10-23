@@ -7,9 +7,19 @@
 // la ventana de 24h y, con la metodología "Levanta Muertos", recomienda mensajes
 // listos para usar. Tiene dos modos: Consejo (recomendaciones) y Chat (preguntá).
 // El historial del chat se guarda por contacto (en el backend).
+//
+// EL CHAT CON LAS PIEZAS DEL OPS CENTER (22/10/2026, TB3; Martín: «quiero que todos los chats de MaKo en las tabs sean el del
+// Ops Center»): el hilo es `HiloMako` y la caja es `CajaChat` (app/_chat/). Se queda en el panel del chat, con su motor
+// (/api/whatsapp/advisor), y no pasa a la estrella de la tab: lo suyo es «Usar →», que lleva el borrador a la caja de
+// WhatsApp de ESTE lead, y eso el Cerebro no lo puede hacer. «Usar →» y «Copiar» van en el hueco de cada respuesta de MaKo.
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import '@/app/admin/operaciones/centro.css';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { MakoLoader } from '../_components/MakoLoader';
+import { CajaChat } from '@/app/_chat/CajaChat';
+import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
+import type { ItemHilo } from '@/app/m/mako/chat-ui';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -20,6 +30,10 @@ type Msg = { role: 'user' | 'assistant'; content: string };
 
 export type AdvisorGrupo = { id: string; contacto: string; empresa?: string | null; etapaLabel?: string | null; /** Con él el panel lee lo que el lead contestó en el formulario de la agenda (#361). */ leadId?: number | null };
 type WaMsgLite = { saliente: boolean; texto: string | null };
+
+/** Quien contesta en el hilo: MaKo, con su estrella. */
+const MAKO = { nombre: 'MaKo', aspecto: ASPECTO_MAKO };
+const nada = () => {};
 
 const SUGS_CHAT = ['Hazlo más corto', 'Dame una versión con nota de voz', '¿Cómo manejo la objeción de precio?', 'Reescribilo más cálido'];
 
@@ -139,6 +153,22 @@ export function WhatsAppAdvisor({
 
   const ultimoEntrante = mensajes.length > 0 && !mensajes[mensajes.length - 1].saliente;
 
+  // El hilo del Ops Center: los mensajes por su posición (no traen id), y en cada respuesta de MaKo, «Usar →» y «Copiar».
+  const items = useMemo((): ItemHilo[] => chat.map((m, i) => ({ k: 'msg', id: `a${i}`, role: m.role, texto: m.content, at: null })), [chat]);
+  const enMensaje = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => {
+    const i = Number(x.id.slice(1));
+    const m = chat[i];
+    if (!m || m.role !== 'assistant') return null;
+    return {
+      abajo: (
+        <div style={{ display: 'flex', gap: 6, marginTop: 7 }}>
+          <button onClick={() => onUsar(m.content)} style={{ ...btnGhost, padding: '4px 9px', fontSize: 11, borderColor: 'var(--good)', color: 'var(--good)' }}>Usar →</button>
+          <button onClick={() => copiar(m.content, `c${i}`)} style={{ ...btnGhost, padding: '4px 9px', fontSize: 11 }}>{copiado === `c${i}` ? '✓' : 'Copiar'}</button>
+        </div>
+      ),
+    };
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
@@ -226,31 +256,24 @@ export function WhatsAppAdvisor({
       {/* ── CHAT ── */}
       {tab === 'chat' && (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          <div ref={chatScrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 9, paddingRight: 2 }}>
-            {chat.length === 0 && !pensando && (
-              <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>Pregúntale a MaKo sobre este lead: cómo responderle, cómo manejar una objeción, o pídele una versión distinta de un mensaje.</div>
-            )}
-            {chat.map((m, i) => (
-              <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '92%', background: m.role === 'user' ? 'var(--accent-soft)' : 'var(--surface-2)', color: m.role === 'user' ? '#14161B' : 'var(--ink)', border: m.role === 'user' ? 'none' : '1px solid var(--border)', borderRadius: 12, padding: '9px 11px', fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                <InlineMd text={m.content} />
-                {m.role === 'assistant' && (
-                  <div style={{ display: 'flex', gap: 6, marginTop: 7 }}>
-                    <button onClick={() => onUsar(m.content)} style={{ ...btnGhost, padding: '4px 9px', fontSize: 11, borderColor: 'var(--good)', color: 'var(--good)' }}>Usar →</button>
-                    <button onClick={() => copiar(m.content, `c${i}`)} style={{ ...btnGhost, padding: '4px 9px', fontSize: 11 }}>{copiado === `c${i}` ? '✓' : 'Copiar'}</button>
-                  </div>
-                )}
-              </div>
-            ))}
-            {pensando && <div style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8 }}><MakoLoader width={54} /><span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>pensando…</span></div>}
-            {chatError && <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 10, padding: '8px 10px', color: 'var(--bad)', fontSize: 12 }}>{chatError}</div>}
+          <div ref={chatScrollRef} className="co-hilo" style={{ padding: '4px 2px 8px' }}>
+            <div className="co-hilo__col">
+              {chat.length === 0 && !pensando && (
+                <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>Pregúntale a MaKo sobre este lead: cómo responderle, cómo manejar una objeción, o pídele una versión distinta de un mensaje.</div>
+              )}
+              <HiloMako items={items} quien={MAKO} ahora={Date.now()} escribiendo={pensando ? { segs: 0 } : null}
+                tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+              {chatError && <p className="co-nota co-nota--mal" role="alert">{chatError}</p>}
+            </div>
           </div>
           <div style={{ flex: 'none', paddingTop: 8 }}>
             <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8 }}>
               {SUGS_CHAT.map((s) => <button key={s} onClick={() => enviarChat(s)} disabled={pensando} style={{ flex: 'none', whiteSpace: 'nowrap', padding: '5px 10px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 11.5, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.55 : 1 }}>{s}</button>)}
             </div>
-            <div style={{ display: 'flex', gap: 7 }}>
-              <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviarChat(); } }} rows={1} placeholder="Pregúntale a MaKo…" disabled={pensando} style={{ flex: 1, padding: '9px 11px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none', resize: 'none', minHeight: 40, maxHeight: 110, lineHeight: 1.4 }} />
-              <button onClick={() => void enviarChat()} disabled={pensando || !input.trim()} style={{ ...btnDark, opacity: pensando || !input.trim() ? 0.5 : 1 }}>▲</button>
+            {/* La caja única (app/_chat/CajaChat.tsx): el «+», los emojis y el micrófono que dicta. */}
+            <div className="co-caja">
+              <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviarChat(); }} ocupado={pensando}
+                placeholder="Pregúntale a MaKo…" tituloMandar="Preguntar" enterManda />
             </div>
           </div>
         </div>

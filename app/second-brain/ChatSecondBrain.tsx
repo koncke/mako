@@ -67,12 +67,15 @@ import { TicketeraCentro } from '@/app/admin/operaciones/TicketeraCentro';
 import { esVistaTicketera, type VistaDeTicketera } from '@/app/tickets/decisiones/reglas';
 import { cerebroDelCentro } from '@/app/tickets/bandeja/cerebro';
 import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
+import { useMisTickets } from '@/app/tickets/usarMisTickets';
+import { TicketeraDelCliente } from './TicketeraDelCliente';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { VolverDelGrafo } from './volver';
 import { useChatCliente } from './useChatCliente';
-import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from './PiezasCliente';
-import { SUBS_VISIBLES, edadCorta, esFilaDe, type ElegidoChat } from '@/lib/chat-mako-reglas';
+import { CajaDelCliente, HiloDelCliente, UsoDelCliente, estadoDelCliente } from './PiezasCliente';
+import { SUBS_VISIBLES, edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
+import { aspectoDeChat } from '@/lib/centro-munecos';
 import { Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
 import { RECORRIDO_INICIO } from '@/lib/onboarding-arranque';
 import { PASOS_INICIO } from './recorrido-inicio';
@@ -132,8 +135,15 @@ type Props = {
 };
 
 export function ChatSecondBrain(props: Props) {
-  return props.centro
-    ? <ConCentro datos={props.centro}>{(k) => <Cuerpo {...props} centro={k} />}</ConCentro>
+  // ⚠️ UNA VUELTA DEL SERVIDOR QUE FALLA NO DESARMA EL OPS CENTER (22/10/2026, el 503 de cada deploy, medido por el Cerebro):
+  // si `datosDelCentroSiOpera` no pudo leer la sesión, `centro` llegaba null, el árbol pasaba de `ConCentro` a `Cuerpo` solo y
+  // TODO se volvía a montar: la Ticketera en «Cargando…» y la lista sin sus «Completado», con otro orden. Se queda el último que
+  // se vio. Lo que se lee DESPUÉS sigue pasando por la guarda de cada acción (`puedeOperar`): esto no muestra nada nuevo.
+  const visto = useRef<DatosCentro | null>(null);
+  if (props.centro) visto.current = props.centro;
+  const datos = props.centro ?? visto.current;
+  return datos
+    ? <ConCentro datos={datos}>{(k) => <Cuerpo {...props} centro={k} />}</ConCentro>
     : <Cuerpo {...props} centro={null} />;
 }
 
@@ -212,6 +222,12 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   }, [qTicketera, ops]);
   // Los tickets de los usuarios que esperan a Martín: el número del botón (17/10/2026, app/tickets/bandeja/).
   const ticketsPorDecidir = useTicketsPorDecidir(ops);
+  // La Ticketera del CLIENTE (22/10/2026, Martín: «Que el Ops Center de clientes sea IGUAL que el de SuperAdmin, que tengan su
+  // ticketera»): sus tickets, con su número (los que esperan su respuesta), en el mismo lugar que la del super admin.
+  const misTickets = useMisTickets(!ops);
+  const [ticketsCliente, setTicketsCliente] = useState(false);
+  // Su «Uso» (D3): el modal «Tus cuentas de IA», sin ir directo a conectar.
+  const [verUso, setVerUso] = useState(false);
   const abrirTicketera = (v: VistaDeTicketera) => { setNuevoCentro(false); setTicketera(v); setConChat(true); anotarParam('ticketera', v); };
   const cerrarTicketera = () => { setTicketera(null); anotarParam('ticketera', null); };
 
@@ -225,6 +241,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     if (!k.elegir(e)) return;
     setNuevoCentro(false);
     setConChat(true);
+    setTicketsCliente(false);
     // Con el Mapa abierto, volver a una conversación es volver a la página sin `panel` (lo arma el servidor).
     if (mapa) {
       router.push('id' in e ? `${base}?chat=${e.id}` : 'offer' in e ? `${base}?offer=${e.offer}` : 'antes' in e ? `${base}?antes=${e.antes}`
@@ -267,7 +284,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   /** Una fila de la lista del cliente: la `FilaDeChat` del super admin, con SU criatura (una por chat: `aspecto`) y, si trabaja,
    *  «Trabajando…». En su grupo (`sub`), corrida a la derecha y sólo con lo de después de «›», como un sub-chat del super admin. */
   const fila = (f: (typeof k.lista)[number], sub = false) => {
-    const actual = !mapa && esFilaDe(f, elegido);
+    // El jefe de un grupo sin chat propio abre el más reciente de los suyos, pero el abierto es ése, no el jefe.
+    const actual = !mapa && !f.jefeDeGrupo && esFilaDe(f, elegido);
     const vivo = actual && k.enCurso;
     return (
       <FilaDeChat key={f.clave} titulo={f.titulo} criatura={f.criatura} aspecto={f.aspecto} animo={vivo ? 'trabajando' : 'despierto'} actual={actual}
@@ -292,6 +310,14 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
               onClick={() => (ticketera ? cerrarTicketera() : abrirTicketera('tickets'))}>
               <Icon name="soporte" size={17} />Ticketera
               {(ticketsPorDecidir ?? 0) > 0 && <span className="co-acceso__n">{ticketsPorDecidir}</span>}
+            </button>
+          )}
+          {/* La del cliente: el mismo botón, con los suyos (los que esperan su respuesta, en el número). */}
+          {!centro && !misTickets.fueraDelPlan && (
+            <button type="button" className="co-acceso co-acceso--ticketera" aria-pressed={ticketsCliente}
+              onClick={() => { setTicketsCliente((v) => !v); setConChat(true); }}>
+              <Icon name="soporte" size={17} />Ticketera
+              {misTickets.esperanTuRespuesta > 0 && <span className="co-acceso__n">{misTickets.esperanTuRespuesta}</span>}
             </button>
           )}
           {centro && (
@@ -332,7 +358,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
             <>
               <div className="co-cuenta co-cuenta--cerebro">{fila(cerebroFila)}</div>
               <div className="co-cuenta">
-                <GruposPorJefe chats={corte} fila={fila} />
+                {/* Sin títulos de sección (22/10/2026, Martín): el grupo sin chat propio lleva su fila JEFE, con su criatura. */}
+                <GruposPorJefe chats={corte} fila={fila} jefe={(g) => { const j = jefeDelGrupo(g); return j ? { ...j, aspecto: aspectoDeChat(j.clave) } : null; }} />
                 {!todas && !busca.trim() && restoFilas.length > corte.length && (
                   <button type="button" className="co-mas" onClick={() => setTodas(true)}>{`Mostrar ${restoFilas.length - corte.length} más`}</button>
                 )}
@@ -347,10 +374,14 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         </nav>
         {/* El Uso de las cuentas y sus Runners, en un desplegable siempre a la vista (sólo Ops Center). */}
         {centro && <PieCentro centro={centro} />}
+        {/* El del cliente: sus cuentas de IA (22/10/2026). */}
+        {!centro && <UsoDelCliente conectada={k.iaConectada} onAbrir={() => setVerUso(true)} />}
       </aside>
 
       {centro && ticketera ? (
         <TicketeraCentro cerebro={cerebroDelCentro(centro)} onVolver={() => { cerrarTicketera(); setConChat(false); }} />
+      ) : !centro && ticketsCliente ? (
+        <TicketeraDelCliente mis={misTickets} onVolver={() => { setTicketsCliente(false); setConChat(false); }} />
       ) : mapa ? (
         // El grafo trae su cabecera («Second Brain», siempre en oscuro: VistaCerebro.tsx); el «volver» de la ventana
         // angosta le llega por contexto, porque el grafo lo arma el servidor y una función no viaja de ahí (volver.ts).
@@ -387,6 +418,11 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       {k.conectando && (
         <Modal titulo="Tus cuentas de IA" onCerrar={() => { k.setConectando(false); k.mirarSuIA(); }} ancho={640}>
           <TusCuentasIA sinCabecera conectar />
+        </Modal>
+      )}
+      {verUso && !k.conectando && (
+        <Modal titulo="Tus cuentas de IA" onCerrar={() => { setVerUso(false); k.mirarSuIA(); }} ancho={640}>
+          <TusCuentasIA sinCabecera />
         </Modal>
       )}
     </div>

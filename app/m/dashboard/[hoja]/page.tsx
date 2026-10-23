@@ -21,6 +21,8 @@ import { CabeceraM, ComputadoraM, PantallaM } from '@/app/m/_ui';
 import { DashboardM } from '../DashboardM';
 import { entraEnTelefono, esHojaInicial, hojaPropia, periodoPropio } from '../datos';
 import { periodoDeParam, periodosParaHoja } from '../modelo';
+import { conQueAnalizaElClosing, CONECTA_TU_CLAUDE_CLOSING } from '@/lib/closing';
+import { avisoDeClosing, esHojaClosing } from '@/app/dashboard/aviso-closing';
 import '../dashboard.css';
 
 export const dynamic = 'force-dynamic';
@@ -50,11 +52,17 @@ export default async function HojaPropiaPagina({ params, searchParams }: {
   const def = periodoPropio(h);
   const periodos = def ? periodosParaHoja(def) : [];
   const periodo = def ? periodoDeParam(uno(p.periodo), periodos, def) : null;
-  const hoja = await hojaPropia(h, periodo, hoyEnTijuana());
+  const [hoja, closing] = await Promise.all([
+    hojaPropia(h, periodo, hoyEnTijuana()),
+    // La hoja Closing sin con qué analizar (IA12, app/dashboard/aviso-closing.ts). Conectar es en la computadora.
+    esHojaClosing(h) ? conQueAnalizaElClosing().catch(() => 'no-se' as const) : null,
+  ]);
+  const aviso = avisoDeClosing(closing, CONECTA_TU_CLAUDE_CLOSING);
 
   return (
     <PantallaM>
       <CabeceraM titulo={h.nombre} />
+      {aviso && <p className="m-dash-aviso" role="status">{aviso}</p>}
       <DashboardM hojas={[hoja]} hojaInicial={hoja.id} periodo={periodo} periodos={periodos} fichaLead={false} />
       <ComputadoraM que="La hoja completa" />
     </PantallaM>

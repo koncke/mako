@@ -90,7 +90,7 @@ export function pasosEnLectura(pasos: readonly PasoGrafo[], nombres?: NombresPar
       const nombre = nombreDeTarjeta(pasos, id, nombres);
       if (nombre.startsWith(`${titulo}: `)) linea = nombre.slice(titulo.length + 2);
     }
-    return { id, titulo, linea, icono: ICONO_DE_TITULO[titulo] ?? 'chatbot' };
+    return { id, titulo, linea, icono: ICONO_DE_TITULO[titulo] ?? 'flujo' };
   });
 }
 

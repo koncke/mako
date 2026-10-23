@@ -2344,4 +2344,15 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "22 oct", hora: "20:40", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Mientras MaKo trabaja en Automations se puede ir a otra tab, y «No se envió» sólo cuando de verdad no salió",
+    puntos: [
+      "Llegó por el Cerebro, con una captura de «Sprint · apertura» en el ws1.",
+      "El desenfoque y el lienzo sin editar, sí; la barra de la app, nítida y que se toque. El trabajo sigue en el servidor, al volver se ve, y si estás en otra tab te avisa.",
+      "«No se envió · Reintentar» estaba sobre un mensaje que sí llegó: lo que faltaba era la IA.",
+    ],
+    pedido: "«En Automations, cuando está ejecutando algo, no debe deshabilitarme la navegación de la sidebar principal... Se debe ejecutar en segundo plano. Si está bien que deshabilite la edición del lienzo»",
+  },
 ];

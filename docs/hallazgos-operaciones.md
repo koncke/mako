@@ -43,11 +43,56 @@ un «Ya está» sin su ✓, que la fila dibujaba con el MISMO texto (`TEXTO_SEGU
   Sin pantalla de resumen: «‹ Anterior», los puntos y «Siguiente ›», y con la última salen todas.
 - **Trampa: un link adentro de un `<button>` no se abre** (HTML no lo deja). La opción del bloque es un `div` con rol de botón,
   y tocar el link no elige la opción.
-- **Trampa: «el bloque de decisiones» son DOS tarjetas.** Las preguntas de un chat (PreguntasDelChat.tsx) y las decisiones de
-  la Ticketera (Pregunta.tsx) se ven iguales y están en el mismo lugar. Los ajustes de Martín entraron sólo en la primera: verificado
-  en producción el 22/10, la de «Cuesta dinero» del chat Infra seguía sin flotar, sin flecha y con links que no se tocaban. Ahora
-  Pregunta.tsx usa las MISMAS piezas (`conLinks`, `usePlegado`, `Plegada`, `Plegar`, exportadas de PreguntasDelChat.tsx). El resumen
-  final nunca lo tuvo: ahí cada respuesta se guarda al elegirla.
+- **Trampa: «el bloque de decisiones» eran TRES tarjetas.** Las decisiones de la Ticketera (Pregunta.tsx), las de AskUserQuestion
+  de la app y las de `cartero preguntar` se veían iguales y estaban en el mismo lugar. Los ajustes de Martín entraron sólo en la
+  última: verificado en producción el 22/10, la de «Cuesta dinero» del chat Infra seguía sin flotar, sin flecha y con links que no
+  se tocaban. Ahora es UN bloque (PreguntasDelChat.tsx → `BloqueDePreguntas`, con `itemsDelBloque`): una tarjeta, una flecha, un
+  plegado y una navegación para las tres fuentes, en la computadora y en el teléfono. Cada una se contesta como siempre: la de la
+  Ticketera se guarda al elegirla (Pregunta.tsx → `CuerpoTicketera`), las del chat salen todas cuando están todas, y las de la app
+  se contestan en la app. Una clave en el «Otra» de la Ticketera tampoco se guarda (iba a admin_decisiones sin tapar).
+- **Y lo de una tab que le pregunta a la persona va por el mismo bloque** (Martín, con captura del /crm de ws1: «Mira lo mal que se
+  ve esto»). Las sugerencias del CRM eran una lista suelta arriba del hilo de la estrella, cada una con su «Hacerlo» y su «Ahora no»,
+  con un scroll propio que se comía la mitad del panel. Ahora la estrella las recibe como `preguntas` (MakoEnLaTab →
+  BloqueDePreguntas, `PreguntaDeLaTab`) y van de a una, arriba de la caja. Arriba del hilo queda sólo lo que no es una pregunta: el
+  aviso de que no se pudieron leer y «Calladas (N)».
+- **Pero en el bloque quedaron invasivas** (Martín, en producción: «no se entiende que son sugerencias y luego que son muy
+  invasivas»). La causa era la regla del plegado, no el diseño: `usePlegado` se abre solo cuando cambia la firma de lo que espera,
+  que es lo correcto para la pregunta de un chat. Con las sugerencias adentro, cada sugerencia nueva del CRM abría la tarjeta, y
+  decía «1 pregunta esperando». Ahora van aparte (`vistaDelBloque`): plegadas en su tira «Sugerencias de MaKo · N ▾», con el ícono
+  `idea`; se abren sólo tocándola, y abiertas dicen «Sugerencia de MaKo». La firma del plegado cuenta sólo las preguntas
+  (`soloPreguntas`), y una pregunta nueva de un chat sigue abriendo el bloque y deja las sugerencias en su tira (`llegoUnaPregunta`).
+  **Regla:** algo que no se pidió no se abre solo. Sólo lo que espera una respuesta puede abrir el bloque.
+- **Trampa de los tests: no hay DOM** (ni jsdom ni testing-library). `renderToStaticMarkup` dibuja sólo el estado inicial, así que
+  lo que se ve tras un toque no se puede dibujar. Lo que decide qué se ve va en una función pura (`vistaDelBloque`) y se prueba en
+  todos sus estados; el cuerpo abierto se dibuja suelto (`CuerpoDeLaTab`). tests/ops-center-sugerencias-plegadas.test.ts.
+- **Trampa: la cabecera de la estrella decía «Chat nuevo» con una criatura redonda hasta que llegaba la lista,** y recién ahí
+  saltaba a «Cerebro» con la estrella. Sin la fila, `nombre` caía en `SIN_TITULO`. Con `entrarAlCerebro` y nada pedido ni elegido,
+  ahora es el Cerebro desde el primer cuadro (useChatCliente.ts → `vaAlCerebro`). Pasaba también al entrar al Ops Center del cliente.
+
+## Un refresco que falla desarmaba el Ops Center: el `centro` null de una vuelta del servidor (22/10/2026)
+
+El Cerebro, midiéndolo en producción: en cada deploy (cada 30 minutos), durante uno o dos minutos, varios POST a /admin/operaciones
+y algunos GET `?_rsc` dieron 503. Con cada uno la Ticketera volvía a «Cargando…» (la primera vez quedó trabada más de 12 s, hasta
+recargar) y la lista perdía sus «Completado» y se reordenaba.
+
+- **El diagnóstico obvio era el equivocado:** no era la lectura de la Ticketera, que ya guardaba lo que tenía. Era que TODO se volvía
+  a montar: `ChatSecondBrain` decidía el árbol con la prop cruda (`props.centro ? <ConCentro>… : <Cuerpo centro={null}>`), y una
+  vuelta del servidor que no pudo leer la sesión (`datosDelCentroSiOpera` → null) cambiaba de árbol. La Ticketera arrancaba de
+  cero y la lista salía en el modo del cliente. **Regla:** una pantalla cuyo árbol depende de un dato del servidor se queda con
+  el último que vio; lo que se lee después pasa igual por la guarda de cada acción.
+- **Trampa: una server action con 503 TIRA** (Next 16: «An unexpected response was received from the server»). `refrescar`
+  (useCentro.ts) no la atajaba. Ahora queda lo último que se vio y el intervalo de 8 s reintenta.
+- **Trampa: una lectura colgada trababa la Ticketera para siempre.** `lectorDeBandeja` (mazo-reglas.ts) no soltaba `leyendo` si la
+  acción no volvía. Ahora tiene tope (15 s). Con tickets a la vista, un tropiezo suelto no se dice: sólo 3 seguidos.
+- **Medido en el deploy del tren 7** (dpl_4ssL45J1ND, Ready 20:14:48; el Cerebro, desde el Chrome de Martín): de 20:14:58 a 20:22,
+  294 pedidos a /admin/operaciones, /crm y /api/auth/me (RSC), y ninguna respuesta que no fuera 200. La ráfaga de 503 del tren 5 no
+  se repitió, así que no quedó `x-vercel-error` para leer. Lo que hay que cuidar es lo de arriba: una vuelta sin sesión que trae
+  `centro` null.
+- **Trampa: un tiempo medido en el Chrome de esta PC con poca RAM mide la PC, no producción.** Con 1 GB libre, cada pedido desde el
+  Chrome tardaba entre 13 y 16 s; el mismo pedido desde curl, 0,3 s. Antes de decir que producción está lenta, se mide con curl.
+- **SIN HACER:** si la ráfaga vuelve, capturar `x-vercel-error` en ese deploy (no sale de proxy.ts, cuyo 503 es sólo local). Y la
+  página del teléfono (app/m/operaciones/page.tsx) redirige a /inicio si una vuelta del servidor no puede leer la sesión: eso no se
+  tocó.
 - **Y la criatura de la cabecera contaba con OTRO número que la fila** (Martín, 22/10, 18:45: la fila del «Cerebro» avisaba y la
   criatura de arriba dormía, «No se entiende»). La fila usa `k.avisos(c)` (useCentro.ts: las esperas con el vigía y el
   «Completado» sin ✓). La cabecera recibía `esperaDe(chat, k.esperas)`, sin el «Completado», y lo mismo pasaba con las dos del

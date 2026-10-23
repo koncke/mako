@@ -275,6 +275,8 @@ export type FilaDelCliente = {
   /** Lo último que pasó (ms), para el orden y la hora de la fila. */
   actividad: number | null;
   origen: OrigenDeFila;
+  /** La fila JEFE de un grupo que no tiene chat propio (`jefeDelGrupo`): abre el más reciente de los suyos, y no es «el abierto». */
+  jefeDeGrupo?: true;
 };
 
 /** `tema`: de qué se trata, para nombrar lo que no tiene título y distinguir dos que se llaman igual (lo pone el servidor:
@@ -411,6 +413,20 @@ export const conOrigen = (origen: string | null | undefined, titulo: string): st
 
 /** La criatura de una conversación de Offer: la del área Offer (lib/centro-munecos.ts → EQUIPO), con su cara por el título. */
 export const criaturaDeOffer = (titulo: string): string => `Offer › ${titulo}`;
+
+/**
+ * EL JEFE DE UN GRUPO QUE NO TIENE CHAT PROPIO (22/10/2026, Martín: «Que NO hayan "secciones" en la sidebar de chats, que estén los
+ * chats JEFES que actúan como las secciones y los chats trabajadores que son los de abajo»). Los de Offer, del Dashboard o de
+ * «Pregúntale a MaKo» iban bajo un TÍTULO (AUTOMATIONS, OFFER…); ahora, bajo una fila jefe con su criatura, como en el super admin
+ * (PiezasCentro.tsx → GruposPorJefe). Tocarla abre su chat más reciente: el primero del grupo (la lista llega con lo más reciente
+ * arriba). Su hora, la del más reciente. null = el grupo no tiene chats.
+ */
+export function jefeDelGrupo(g: { clave: string; jefe: string; subs: readonly FilaDelCliente[] }): FilaDelCliente | null {
+  const primero = g.subs[0];
+  if (!primero) return null;
+  const actividad = g.subs.reduce<number | null>((m, f) => (f.actividad != null && (m == null || f.actividad > m) ? f.actividad : m), null);
+  return { clave: g.clave, elegido: primero.elegido, titulo: g.jefe, criatura: g.jefe, actividad, origen: primero.origen, jefeDeGrupo: true };
+}
 
 /** La lista entera: el Cerebro primero (siempre, aunque no tenga conversación todavía) y el resto, lo más reciente arriba. La
  *  búsqueda no esconde al Cerebro (es la casa). `grupo`: el grupo de WhatsApp de MaKo del negocio, de SÓLO LECTURA y sólo del

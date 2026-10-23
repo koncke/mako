@@ -24,7 +24,7 @@ import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import {
   SECCION_CEREBRO, SECCION_CHATS, esPrioritario, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats, sinNoticiasDesde,
-  type ChatCentro,
+  type ChatCentro, type GrupoJefe,
 } from '@/lib/centro-chats';
 export { buscarChats } from '@/lib/centro-chats';
 import { elegidoPara, esCriaturaDeMako } from '@/lib/centro-munecos';
@@ -209,15 +209,22 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
  * en la lista lleva su nombre arriba. UNO para las dos listas: la del super admin (`ListaCentro`) y la del cliente
  * (app/second-brain/ChatSecondBrain.tsx, sus chats agrupados por origen: 22/10/2026, «un orden como en Super Admin»).
  */
-export function GruposPorJefe<T extends { titulo: string }>({ chats, fila }: { chats: readonly T[]; fila: (c: T, sub: boolean) => ReactNode }) {
+export function GruposPorJefe<T extends { titulo: string }>({ chats, fila, jefe }: {
+  chats: readonly T[]; fila: (c: T, sub: boolean) => ReactNode;
+  /** La fila jefe de un grupo que no tiene chat propio (el cliente: lib/chat-mako-reglas.ts → jefeDelGrupo). Sin esto, su nombre. */
+  jefe?: (g: GrupoJefe<T>) => T | null;
+}) {
   return (
     <>
-      {porJefe(chats).map((g) => (
-        <div key={g.clave} className="co-jefe">
-          {g.chat ? fila(g.chat, false) : <p className="co-jefe__nombre">{g.jefe}</p>}
-          {g.subs.length > 0 && <div className="co-jefe__subs">{g.subs.map((s) => fila(s, true))}</div>}
-        </div>
-      ))}
+      {porJefe(chats).map((g) => {
+        const cabeza = g.chat ?? jefe?.(g) ?? null;
+        return (
+          <div key={g.clave} className="co-jefe">
+            {cabeza ? fila(cabeza, false) : <p className="co-jefe__nombre">{g.jefe}</p>}
+            {g.subs.length > 0 && <div className="co-jefe__subs">{g.subs.map((s) => fila(s, true))}</div>}
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -374,7 +381,7 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
   return (
     <div className="co-barra__abajo">
       {/* Las CUATRO cuentas siempre, tengan o no Runner (Martín: «no sale el uso de las otras 2 cuentas»). */}
-      <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} />
+      <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} onCambiarCredito={k.cambiarCreditoDelNegocio} />
     </div>
   );
 }

@@ -10749,3 +10749,14 @@ tests/confirmacion-terceros.test.ts.
 - Plausible, no medido: con una pendiente viva, un «sí» suelto que contesta OTRA pregunta de MaKo puede confirmarla, y con dos
   pendientes vivas un solo «sí» pasa la puerta para las dos (mako-intencion.ts, `CONFIRMACION`).
 
+
+## El asesor de WhatsApp («MaKo — qué escribir») con las piezas del Ops Center, y por qué NO va a la estrella (22/10/2026, TB3)
+
+Martín, 22/10: «quiero que todos los chats de MaKo en las tabs sean el del Ops Center». La pestaña «Chat» del asesor
+(app/whatsapp/WhatsAppAdvisor.tsx) tenía su <textarea> y sus burbujas; ahora el hilo es `HiloMako` (con la estrella de
+MaKo) y la caja es `CajaChat`, con su motor de siempre (/api/whatsapp/advisor). El plan decía «lo que es análisis, el
+asesor, pasa a la estrella»: **no pasa**, a propósito. Lo que hace el asesor es «Usar →», que lleva el borrador a la caja de
+WhatsApp de ESE lead, y la estrella (el Cerebro de la persona) no tiene cómo escribir en la caja de otra pantalla. «Usar →»
+y «Copiar» van en el hueco `enMensaje` de cada respuesta de MaKo. La pestaña «Consejo» no es un chat y quedó igual.
+
+**Vive en:** app/whatsapp/WhatsAppAdvisor.tsx · tests/whatsapp-asesor-piezas.test.ts · *22/10/2026, chat «Chats de las tabs».*

@@ -65,6 +65,9 @@ import type { IntencionChat } from '@/lib/flujo-ia-intencion';
 import { ordenarAvisos, rondaAbierta, respuestaMako, textoDeCreada, ELIGE_TU, OTRA_COSA, type EleccionMako, type RondaMako } from '@/lib/flujo-ia-cliente';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 import { useStreamIA, RUTA_IA, TOPE_CLIENTE_MS, TEXTO_FASE, ORDEN_FASES, type EstadoIA, type ListoStreamIA } from './stream-ia';
+import type { FinIA } from './stream-ia';
+import { avisarTrabajoTerminado, marcarTrabajoVisto } from '@/lib/mako-trabajos';
+import { servicioDeLink } from '@/lib/integracion-en-tab';
 import { EJEMPLOS, PLACEHOLDER_QUIETO, ACCEPT_ARCHIVO_FLUJO, pedidoConArchivo, type ListoCrearIA } from './CrearConIA';
 import { leerArchivoParaPedido, subirArchivoDelPedido } from './archivo-pedido-cliente';
 import { usoDelArchivo, pedidoConContenido, pedidoSinLeer } from '@/lib/archivo-del-pedido';
@@ -131,6 +134,12 @@ export type ChatMakoProps = {
    * línea de la automatización mientras haya alguno esperando.
    */
   nota?: { id: string; texto: string } | null;
+  /**
+   * EL TURNO TERMINÓ Y NADIE LO ESTABA MIRANDO (22/10/2026, Martín: «Se debe ejecutar en segundo plano»): la persona se
+   * fue a otra tab u otra automatización. Quien monta guarda el resultado (el borrador del lienzo) con lo que tenía al
+   * largarlo; el chat ya lo guardó la ruta.
+   */
+  alTerminarSinVer?: (f: FinIA) => void;
 };
 
 
@@ -144,7 +153,12 @@ export type ChatMakoProps = {
  * turno (`yo`). 22/10/2026, Martín: «Envío un mensaje y no se ve que se envió... no se ve mi envío hasta que me responde»: lo
  * escrito entra al hilo AL INSTANTE, antes de la vuelta por los pedidos; y si no salió, queda con «Reintentar» (`fallido`).
  */
-type ExtraChat = { id: string; at: string; yo?: string; b?: BurbujaPedido; fallido?: string };
+/**
+ * `mako`: lo que contestó MaKo cuando el pedido LLEGÓ y no pudo hacerlo (falta la IA, un tope, el lienzo cambió), con el
+ * botón a donde se arregla. 22/10/2026, Martín: «No se envió» sobre su mensaje estaba mal — el mensaje sí llegó, lo que
+ * faltaba era la IA. «No se envió» queda sólo cuando de verdad no salió (`noSalio`, stream-ia.ts).
+ */
+type ExtraChat = { id: string; at: string; yo?: string; b?: BurbujaPedido; fallido?: string; mako?: { texto: string; link?: string } };
 const PREFIJO_EXTRA = 'pedido:';
 
 /** Lo que dice el campo en el lienzo, y con una pregunta abierta (la respuesta escrita es «Otra cosa»). */
@@ -225,7 +239,9 @@ export function ChatMako(p: ChatMakoProps) {
   const elegirIntencion = (i: IntencionChat) => { setIntencion(i); guardarIntencion(i); };
   /** Lo que vuelve a la barra cuando un pedido que no nació en ella no salió (`ChatHilo.ponerBorrador`). */
   const [devolver, setDevolver] = useState<{ texto: string; vez: number } | null>(null);
-  const { estado, trabajando, enviar, cancelar } = useStreamIA();
+  /** Lo que se hace con un turno que terminó y que largó OTRA instancia (se fue y volvió): se arma más abajo. */
+  const adoptarRef = useRef<(f: FinIA) => void>(() => {});
+  const { estado, trabajando, enviar, cancelar } = useStreamIA(`chat:${p.secuenciaId}`, (f) => adoptarRef.current(f));
   /** Lo de esta pantalla (los pedidos sueltos). El ref es la verdad sincrónica: dos clics en el mismo tick no repiten. */
   const [extras, setExtras] = useState<ExtraChat[]>([]);
   const extrasRef = useRef<ExtraChat[]>([]);
@@ -271,20 +287,23 @@ export function ChatMako(p: ChatMakoProps) {
   // con un pedido (`pedidoInicial`) no tiene chat todavía: no se pide (la ruta escribe el turno mientras tanto).
   const secId = p.secuenciaId;
   const conPedido = !!p.pedidoInicial?.trim();
+  const traerChat = useCallback(async (sigue: () => boolean = () => vivo.current) => {
+    try {
+      const r = await fetch(`${RUTA_IA}?secuenciaId=${secId}`, { cache: 'no-store' });
+      const j = await r.json().catch(() => null) as { ok?: boolean; mensajes?: unknown } | null;
+      if (!sigue() || !r.ok || !j?.ok) return;
+      const guardados = sanearChat({ v: 1, mensajes: j.mensajes }).mensajes;
+      if (!guardados.length) return;
+      setMensajes((locales) => juntarHilo(guardados, locales));
+      if (!turnos.current) setRonda(rondaAbierta(guardados));
+    } catch { /* sin chat guardado: arranca vacío */ }
+  }, [secId]);
   useEffect(() => {
+    // Volvió a esta automatización: lo que MaKo terminó mientras no estaba ya se ve (sale del globito de la estrella).
+    marcarTrabajoVisto(`/automations?sec=${secId}`);
     if (conPedido) return;
     let sigue = true;
-    void (async () => {
-      try {
-        const r = await fetch(`${RUTA_IA}?secuenciaId=${secId}`, { cache: 'no-store' });
-        const j = await r.json().catch(() => null) as { ok?: boolean; mensajes?: unknown } | null;
-        if (!sigue || !r.ok || !j?.ok) return;
-        const guardados = sanearChat({ v: 1, mensajes: j.mensajes }).mensajes;
-        if (!guardados.length) return;
-        setMensajes((locales) => juntarHilo(guardados, locales));
-        if (!turnos.current) setRonda(rondaAbierta(guardados));
-      } catch { /* sin chat guardado: arranca vacío */ }
-    })();
+    void traerChat(() => sigue);
     return () => { sigue = false; };
     // Una vez por automatización (el pedido inicial sólo decide la primera).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -322,6 +341,36 @@ export function ChatMako(p: ChatMakoProps) {
     return () => document.removeEventListener('keydown', alTeclado, true);
   }, [trabajando, fase, cancelar]);
 
+  /** Lo que volvió de la ruta, al lienzo de quien monta (`onListo`). `false` = no lo aplicó (el lienzo cambió). */
+  const aplicarListo = (l: ListoStreamIA, base: readonly PasoGrafo[] | undefined): boolean | void => {
+    // ⚠️ LAS ETIQUETAS QUE CREÓ EL SERVER (revisión, 09/10/2026): `crearEtiqueta` corre en la ruta, no pasa por
+    // `crearEtiquetaCliente`, y las listas de la pestaña ya estaban pedidas. Va ANTES de `onListo`: las tarjetas nuevas
+    // se dibujan con la lista nueva.
+    if (l.etiquetasNuevas.length) avisarCambioEtiquetas();
+    return onListoRef.current({
+      modo: l.modo, secuenciaId: l.secuenciaId, pasos: l.pasos, nombre: l.nombre, orden: l.orden,
+      avisos: l.avisos, etiquetasNuevas: l.etiquetasNuevas, disparador: l.disparador ?? null, base,
+      // El horario de un Recurrente (20/10/2026): sin él, la tarjeta CRON se sembraba sin horario.
+      ...(l.cron ? { cron: l.cron } : {}),
+      ...(l.resumen !== undefined ? { resumen: l.resumen } : {}),
+      ...(l.cambiadas ? { cambiadas: l.cambiadas } : {}),
+      ...(l.quitadas ? { quitadas: l.quitadas } : {}),
+      ...(l.disparadores !== undefined ? { disparadores: l.disparadores } : {}),
+      ...(l.pregunta ? { pregunta: l.pregunta } : {}),
+    });
+  };
+
+  /**
+   * SE FUE Y VOLVIÓ CON MaKo TRABAJANDO (22/10/2026): mientras tanto el chat mostró lo que iba (el estado lo trae
+   * `useStreamIA` de la clave); al terminar, el resultado va al lienzo de ahora y el hilo se relee (la ruta guardó el
+   * turno y la respuesta de MaKo).
+   */
+  adoptarRef.current = (f: FinIA) => {
+    if (!vivo.current) return;
+    void traerChat();
+    if (f.t === 'listo') aplicarListo(f.listo, p.pasos);
+  };
+
   /**
    * UN TURNO: lo que dijo la persona entra al hilo YA y sale el POST con el pedido ORIGINAL de la ronda y las
    * respuestas acumuladas. Cancelar o un error lo sacan del hilo; lo escrito vuelve a la barra (lo devuelve el hilo de
@@ -345,6 +394,19 @@ export function ChatMako(p: ChatMakoProps) {
     // borrador que se manda (vuelve en `onListo` como `base`).
     const modo = crea ? 'crear' : 'editar';
     const base = modo === 'editar' ? p.pasos : undefined;
+    // Si la persona se va antes de que termine (otra tab, otra automatización), el turno sigue (stream-ia.ts) y lo que
+    // vuelva lo guarda quien monta (`alTerminarSinVer`, el borrador) y queda avisado para la estrella de la tab donde esté.
+    const alTerminarSinVer = p.alTerminarSinVer;
+    const titulo = p.nombre?.trim() || 'Tu automatización';
+    const siNadieMira = (f: FinIA) => {
+      alTerminarSinVer?.(f);
+      if (f.t === 'cancelado') return;
+      avisarTrabajoTerminado({
+        tab: 'Automations', titulo, href: `/automations?sec=${p.secuenciaId}`, ok: f.t !== 'error',
+        texto: f.t === 'error' ? f.error : f.t === 'pregunta' ? f.pregunta.texto
+          : f.listo.modo === 'crear' ? (f.listo.texto ?? textoDeCreada(f.listo.nombre)) : textoDeListo(f.listo),
+      });
+    };
     const fin = await enviar({
       pedido: enCurso.pedido, modo, respuestas: enCurso.respuestas, secuenciaId: p.secuenciaId,
       ...(base ? { pasos: base } : {}),
@@ -353,8 +415,17 @@ export function ChatMako(p: ChatMakoProps) {
       historial: mensajes,
       // Discutir / Editar sólo cuando hay tarjetas: con el lienzo vacío MaKo CREA.
       ...(modo === 'editar' ? { intencion } : {}),
-    });
+    }, { siNadieMira });
     if (!vivo.current) return true;
+    /**
+     * LLEGÓ Y MaKo NO PUDO (falta la IA, un tope, el lienzo cambió): el mensaje queda ENVIADO en el hilo y la respuesta de
+     * MaKo dice por qué, con su botón (22/10/2026, Martín). La ruta ya la guardó en el chat.
+     */
+    const respondeMako = (e: { texto: string; link?: string }): true => {
+      setError(null);
+      ponerExtras((xs) => [...xs, { id: `${PREFIJO_EXTRA}${nuevoId('mako')}`, at: new Date().toISOString(), mako: e }]);
+      return true;
+    };
     const deshacer = (e: { texto: string; link?: string } | null): true | { error: string | null } => {
       setMensajes((ms) => ms.filter((m) => m.id !== yo.id));
       setError(e);
@@ -371,31 +442,19 @@ export function ChatMako(p: ChatMakoProps) {
     };
     // Cancelar no es un error: lo escrito vuelve a la barra.
     if (fin.t === 'cancelado') return deshacer(null);
-    if (fin.t === 'error') return deshacer({ texto: fin.error, ...(fin.link ? { link: fin.link } : {}) });
+    // «No se envió · Reintentar» SÓLO si el pedido no llegó a la ruta; si llegó, lo dice MaKo.
+    if (fin.t === 'error' && fin.noSalio) return deshacer({ texto: fin.error, ...(fin.link ? { link: fin.link } : {}) });
+    if (fin.t === 'error') return respondeMako({ texto: fin.error, ...(fin.link ? { link: fin.link } : {}) });
     if (fin.t === 'pregunta') {
       setMensajes((ms) => [...ms, fin.mensaje]);
       setRonda({ ...enCurso, pregunta: fin.pregunta });
       return true;
     }
     const l = fin.listo;
-    // ⚠️ LAS ETIQUETAS QUE CREÓ EL SERVER (revisión, 09/10/2026): `crearEtiqueta` corre en la ruta, no pasa por
-    // `crearEtiquetaCliente`, y las listas de la pestaña ya estaban pedidas. Va ANTES de `onListo`: las tarjetas nuevas
-    // se dibujan con la lista nueva.
-    if (l.etiquetasNuevas.length) avisarCambioEtiquetas();
-    const aplicado = onListoRef.current({
-      modo: l.modo, secuenciaId: l.secuenciaId, pasos: l.pasos, nombre: l.nombre, orden: l.orden,
-      avisos: l.avisos, etiquetasNuevas: l.etiquetasNuevas, disparador: l.disparador ?? null, base,
-      // El horario de un Recurrente (20/10/2026): sin él, la tarjeta CRON se sembraba sin horario.
-      ...(l.cron ? { cron: l.cron } : {}),
-      ...(l.resumen !== undefined ? { resumen: l.resumen } : {}),
-      ...(l.cambiadas ? { cambiadas: l.cambiadas } : {}),
-      ...(l.quitadas ? { quitadas: l.quitadas } : {}),
-      ...(l.disparadores !== undefined ? { disparadores: l.disparadores } : {}),
-      ...(l.pregunta ? { pregunta: l.pregunta } : {}),
-    });
+    const aplicado = aplicarListo(l, base);
     if (!vivo.current) return true;
-    // Si el padre no lo aplicó (el lienzo cambió en el medio), el pedido vuelve a la barra.
-    if (aplicado === false) return deshacer({ texto: NO_APLICADO });
+    // Si el padre no lo aplicó (el lienzo cambió en el medio): el pedido llegó, MaKo lo dice.
+    if (aplicado === false) return respondeMako({ texto: NO_APLICADO });
     // «¿Cambio qué la dispara?» (§2.6): una ronda NUEVA sobre el mismo pedido (su respuesta no vuelve a editar).
     setRonda(l.pregunta ? { pedido: enCurso.pedido, respuestas: [], pregunta: l.pregunta } : null);
     const avisos = ordenarAvisos(l.avisos ?? []);
@@ -536,7 +595,7 @@ export function ChatMako(p: ChatMakoProps) {
     const deChat = hiloDeChat(mensajes);
     if (!extras.length) return deChat;
     const conHora = (h: HiloMsg, k: number) => ({ h, t: Date.parse(String(h.fecha ?? '')) || 0, k });
-    const deAca = extras.map((x, k) => conHora({ id: x.id, fromMe: !!x.yo, texto: x.yo ?? '', fecha: x.at, autor: x.yo ? null : 'MaKo' }, deChat.length + k));
+    const deAca = extras.map((x, k) => conHora({ id: x.id, fromMe: !!x.yo, texto: x.yo ?? x.mako?.texto ?? '', fecha: x.at, autor: x.yo ? null : 'MaKo' }, deChat.length + k));
     // Lo guardado sin hora (una línea de sistema) se queda pegado a lo anterior: hereda la hora de su vecino.
     let previa = 0;
     const guardados = deChat.map((h, k) => { const x = conHora(h, k); previa = x.t || previa; return { ...x, t: previa }; });
@@ -599,7 +658,8 @@ export function ChatMako(p: ChatMakoProps) {
                 </div>
               )}
             </>
-          ) : e.b ? <BurbujaDePedido b={e.b} at={e.at} onBoton={(boton) => tocarBurbuja(e.id, boton)} deshabilitado={!!p.deshabilitado} /> : null;
+          ) : e.b ? <BurbujaDePedido b={e.b} at={e.at} onBoton={(boton) => tocarBurbuja(e.id, boton)} deshabilitado={!!p.deshabilitado} />
+            : e.mako ? <RespuestaDeMako texto={e.mako.texto} link={e.mako.link} at={e.at} /> : null;
           const x = porId.get(String(h.id));
           if (!x) return null;
           const viva = x.i === mensajes.length - 1 && preguntaViva && x.m.pregunta?.id === preguntaViva.id ? preguntaViva : null;
@@ -711,6 +771,19 @@ function FasesIA({ estado, segundos, onCancelar }: {
       {/* ⚠️ SIN «Cancelar» EN «Verificando» (revisión, 09/10/2026): el server mira la señal una sola vez, antes de
           esa fase, y después crea las etiquetas y guarda igual. */}
       {estado.fase !== 'revision' && <button type="button" onClick={onCancelar} style={S.cancelar}>Cancelar</button>}
+    </div>
+  );
+}
+
+/**
+ * LO QUE CONTESTÓ MaKo CUANDO NO PUDO (22/10/2026): su burbuja, con el porqué, y el botón a donde se arregla (la IA que
+ * falta, en Integraciones: abre SU modal acá, `LinkIntegracion`).
+ */
+function RespuestaDeMako({ texto, link, at }: { texto: string; link?: string; at: string }) {
+  return (
+    <div data-mensaje="mako" data-respuesta-no-pudo="" style={S.filaMako}>
+      <BurbujaHilo saliente={false} autor="MaKo" maxAncho="92%" contenido={{ texto }} hora={horaDe(at)} />
+      {link && <LinkIntegracion href={link} style={S.botonArreglo}>{servicioDeLink(link) ? 'Conectar' : 'Abrir'}</LinkIntegracion>}
     </div>
   );
 }
@@ -943,6 +1016,7 @@ const S: Record<string, CSSProperties> = {
   error: { margin: '0 0 8px', fontSize: 13, lineHeight: 1.4, color: 'var(--bad)' },
   fallido: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, margin: '2px 4px 6px', fontSize: 12, color: 'var(--bad)' },
   reintentar: { border: 'none', background: 'none', padding: 0, font: 'inherit', fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' },
+  botonArreglo: { alignSelf: 'flex-start', padding: '6px 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', fontSize: 12.5, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' },
   cancelar: { flex: 'none', border: 'none', background: 'none', padding: '4px 2px', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer' },
   link: { color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' },
 };

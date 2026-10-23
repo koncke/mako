@@ -5966,3 +5966,23 @@ lib/flujo-ia.ts (`falloDeIA`, `sinIAPropia`) · lib/flujo-ia-crear.ts (`generar`
 tests/ia-aviso-sin-ia-propia.test.ts. **Sin hacer:** las otras pantallas que llaman `falloDeIA` (la ficha, los gráficos,
 el «preparar» de la API de MaKo) no le pasan su red. Ven el texto nuevo sin la causa: lib/ficha/ia-generar.ts,
 lib/graficos-ia-*.ts, lib/api-mako/areas/chatbot.run.ts.
+
+## El chat de MaKo en segundo plano: irse cortaba el pedido, y el resultado de «Editar» no lo guarda la ruta (22/10/2026)
+
+**Síntoma (Martín, mirando #289):** con «Escribiendo · 16 s · hasta 5 min», el desenfoque tapaba también la barra de la
+app y no se podía ir a otra tab; y sobre su mensaje decía «No se envió · Reintentar» cuando el mensaje SÍ había llegado y
+lo que faltaba era la IA. **Causas:** (1) la capa iba por encima de la barra (z 61, pedido de esa misma mañana); (2) el
+lector (`useStreamIA`) cortaba el pedido al desmontar, así que irse a otra tab lo perdía; (3) **la trampa:** en «Editar»
+la ruta NO guarda los pasos nuevos: los manda por el stream y el lienzo los pone en SU borrador. Sin la pantalla montada,
+el resultado se perdía aunque la ruta terminara (el chat sí lo guarda la ruta). (4) Todo `error` del turno se dibujaba
+como «No se envió», también el que contestó la ruta. **Regla:** el turno vive afuera del componente, por automatización
+(`TRABAJOS`, app/automations/stream-ia.ts): desmontar no lo corta, volver muestra lo que va (`alAdoptar`), y si termina sin
+nadie mirando, quien lo largó guarda el resultado por la MISMA acción del lienzo (`action: 'borrador'` con la base que abrió
+y `keepalive`, `guardarSinVer` en SecuenciaPerfil.tsx) y queda avisado para la estrella (lib/mako-trabajos.ts). Guardar el
+borrador desde la RUTA no: la pestaña abierta queda con un `visto` viejo y su próximo Publicar rebota «desactualizado».
+«No se envió» sólo con `noSalio` (el `fetch` falló antes de la respuesta); si la ruta contestó, lo dice MaKo con su botón.
+La capa va debajo de la barra de la app (z 58; el chat, 59). **Vive en:** app/automations/stream-ia.ts ·
+app/automations/ChatMako.tsx · app/automations/SecuenciaPerfil.tsx · lib/mako-trabajos.ts · test:
+tests/chat-mako-segundo-plano.test.ts. **Sin hacer:** el globito de la estrella lo pinta `MakoEnLaTab` (chat «Ops Center»),
+y hoy la estrella sólo está en el CRM; un CRON elegido en una pregunta que termina sin nadie mirando no se guarda
+(`crons.guardar` vive en la pantalla); cerrar la pestaña del navegador sí corta el turno.

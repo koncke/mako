@@ -8,8 +8,9 @@
 // sus tickets. Lo fija tests/tickets.test.ts.
 
 import { getUsuarioActual } from '@/lib/auth';
-import { getWorkspaceActual } from '@/lib/workspace';
-import { comentarComoCliente, crearTicket, identidadDe, miTicket } from '@/lib/tickets-db';
+import { getCapaActual, getWorkspaceActual } from '@/lib/workspace';
+import { tabEnCapa } from '@/lib/capas';
+import { comentarComoCliente, crearTicket, identidadDe, misTickets, miTicket } from '@/lib/tickets-db';
 import { paraElCliente, sanearAlta, type TicketCliente } from '@/lib/tickets-reglas';
 
 type Yo = { ws: number; email: string; nombre: string };
@@ -35,6 +36,21 @@ export async function levantarTicketAction(entrada: { tipo: string | null; texto
     titulo: a.alta.titulo, descripcion: a.alta.descripcion, canal: 'formulario', contexto: entrada.contexto, ref,
   });
   return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error };
+}
+
+/**
+ * SUS tickets, para la Ticketera de su Ops Center (22/10/2026): la misma lectura que /tickets (lib/tickets-db.ts → misTickets),
+ * con su workspace y su email de la SESIÓN. Nunca los de otra persona ni los de otro negocio, y sólo lo que ve el cliente
+ * (`paraElCliente`: nada del triage, de la nota de Martín ni del Runner).
+ */
+export async function misTicketsAction(): Promise<{ ok: true; tickets: TicketCliente[] } | { ok: false; error: string; fueraDelPlan?: true }> {
+  const quien = await yo();
+  if (!quien) return { ok: false, error: 'Vuelve a entrar a MaKo para ver tus tickets' };
+  // La puerta de /tickets (`requireRolWs(…, { nav: 'tickets' })`): un plan sin la tab no tiene Ticketera (la revisión, 22/10/2026).
+  if (!tabEnCapa('tickets', await getCapaActual())) return { ok: false, error: 'Tu plan no incluye la Ticketera.', fueraDelPlan: true };
+  const r = await misTickets(quien.ws, quien.email);
+  if (!r.ok) return { ok: false, error: 'No pude leer tus tickets ahora: prueba en un rato.' };
+  return { ok: true, tickets: r.datos.map((t) => paraElCliente(t)) };
 }
 
 /** Un ticket suyo, para el detalle (con la conversación). null = no es suyo o no existe. */

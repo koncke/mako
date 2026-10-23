@@ -4857,6 +4857,29 @@ medias y tres bajas. Lo no obvio:
   saltear la ilegible o fallar cerrado daban lo mismo («sí»). Con la copia de la SEGUNDA cuenta (legible) se distinguen:
   saltear la da por copia («no»). Un caso de falla cerrada se prueba donde el error de saltear cambia la respuesta.
 
+## Lo que gastó la clave del negocio: el «⚠» no dice de quién es la fila (D3 del Ops Center, 22/10/2026)
+
+**El diagnóstico obvio era el equivocado.** Al medir en producción el «Gastó US$ … en los últimos 30 días» de «Tus cuentas de
+IA», una consulta con un regex propio (`⚠` o «clave … del negocio») contaba en el ws21 19 filas «de su clave», todas con costo, y
+`estadoDeSuClave` sumaba 0. Parecía la regla rota. Era la medición: el «⚠» lo llevan también las filas del **crédito del
+onboarding** (`⚠ crédito de Claude de la plataforma (cuenta 1) · Offer: conversar con el dueño`), que paga MaKo.
+
+**Dónde vive:** `esDeSuClave` en `lib/su-clave-reglas.ts`. Para Claude cuenta sólo lo que EMPIEZA con `MARCA_SU_CLAVE.anthropic`
+o con `MOTIVO_CREDITO_SU_CLAVE` (el crédito que ES la clave del negocio, como en el ws10). Un prefijo más corto, «⚠ crédito de
+Claude de la plataforma», le cobraría al negocio el regalo del onboarding. El test lo cubre con los motivos copiados de producción
+(`tests/ops-center-uso-cliente.test.ts`, probado rompiéndolo).
+
+**Medido el 22/10/2026, 30 días:** las únicas filas con la marca «del negocio» son 3 fallos del ws11 («sin crédito»), sin costo.
+Ningún negocio gastó todavía con su clave, así que «Sin gasto en los últimos 30 días» es lo cierto hoy, no un default. El que más
+filas tiene es el ws9, con 87, y la lectura subió de 500 a 2000.
+
+**Regla:** «de quién es esta fila» se mide con la MISMA función del código (`estadoDeSuClave`), nunca con un regex propio. Los
+fixtures de un test que filtra por `motivo` llevan los motivos copiados de producción, no uno inventado: el primer test pasaba
+con `«marca» chat`, que no existe.
+
+**SIN HACER:** el gasto es un piso (`anthropic_usage` no anota todo: ver «Tres módulos gastan sin registrar»), y un negocio con
+más de 2000 filas en 30 días vería un número corto sin aviso. Hoy el techo es 87 filas.
+
 ## Lo que midió la verificación del debate «quién paga el chat» (20/10/2026)
 
 Cuatro verificadores revisaron `docs/debate-ops-center-decisiones-20-10.md` contra producción antes de llevárselo a
@@ -5280,6 +5303,36 @@ cascada de texto, la de herramientas, la visión y el audio) · `app/integracion
   prueba de punta a punta en la PC de Martín con el ws3 (`probar-punta-a-punta.mts --instalador --reinstalar`). El título
   del ticket de la fila sale genérico («Falló la pantalla «Api»», de `tituloDeError` en lib/errores-app-reglas.ts); el
   mensaje sí dice qué falta.
+- **«Descargando MaKo en tu computadora…» para siempre (22/10, la PowerShell de Martín):** era la barra de progreso de
+  `Invoke-WebRequest` en Windows PowerShell 5.1, que se redibuja por cada pedazo que llega. Medido con el mismo archivo de
+  42,7 MB: **58,6 s con la barra contra 4,1 s sin ella**, y eso sin ventana (con ventana, peor). Ahora el script pone
+  `$ProgressPreference = 'SilentlyContinue'` antes de bajar. **Regla:** todo `Invoke-WebRequest` de un script que corre
+  en la PC de un cliente va con la barra apagada.
+
+## «Conectar mi computadora» sin PowerShell: el enlace mako:// y la ventana del sistema (22/10/2026)
+
+**El pedido, textual** (Martín): «el proceso de instalación jamás sea por Powershell, ni siquiera que se tenga que abrir, que
+sea una app de escritorio con el típico panel de "avanzar"». El plan entero: docs/plan-instalador-escritorio.md.
+
+**Vive en:** `conectarDesdeEnlace`, `codigoDelEnlace` y `ventana` (scripts/ia-pc/mako-pc.mjs) · installer/windows/mako.iss
+(borrador) · tests/ia-pc-enlace.test.ts.
+
+- **Del enlace sale SÓLO el código.** Cualquier página puede abrir un `mako://`. Con el servidor en el enlace, un sitio se
+  llevaría la computadora, y con ella la suscripción de Claude de la persona, a su MaKo. La app usa siempre el suyo, y la
+  ventana dice a qué negocio y como quién se conecta, como el «¿Es tu negocio?» de la consola.
+- **La ventana es del sistema, sin consola:** `MessageBoxW` de user32 con `bun:ffi` dentro del ejecutable (probado con Bun
+  1.2.21 sin mostrarla: el texto en UTF-16 llega entero), y `osascript` en la Mac. Sin poder mostrarla, es «no».
+- **Si MaKo no confirma, se suelta lo pendiente** (como con el «no»). La primera versión lo dejaba guardado; lo mostró el
+  hijo del test.
+- **Lo que dice la doc de Claude Code** (leída el 22/10): `claude auth login` es el login oficial (abre el navegador, pero
+  la doc lo describe en una terminal); `claude auth status` sale 0 o 1 sin gastar; `claude setup-token` NO se usa (un tercero
+  no puede guardar tokens de la sesión). Que el instalador oficial ande oculto no está confirmado.
+- **⚠️ Para Martín:** los términos de Anthropic no dejan que un tercero «route requests through … Max plan credentials on
+  behalf of their users», y excluyen al que entra «with their own Claude subscription» en el Claude Code sin modificar. La
+  doc no dice de qué lado cae MaKo en la PC del cliente (D6a) y manda a preguntar a ventas.
+- **SIN hacer:** armar el instalador (Inno Setup no está en esta computadora; GitHub Actions lo trae), la pantalla nueva
+  (abrir o descargar), Claude Code sin terminal, el `.pkg` de la Mac, la firma (cuesta plata: lo decide Martín) y subir
+  `VERSION_PC` (con su OK).
 
 ## D6b para TODO el negocio: la decisión baja a la PUERTA de la capa de IA (IA6, 22/10/2026)
 
@@ -5514,6 +5567,42 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
   desmarca si no quedó.
 - **Sin hacer:** Fathom, Panda y Zernio no tienen regla, y su formato no se verificó. Una clave de Mistral pegada con otro
   texto y sin nombrar a Mistral («<clave>\ngracias!») sigue pasando: sin el nombre ni el texto solo, es la forma de un id.
+
+## El crédito de la cuenta 1 como el Claude del ws1, con su interruptor en el Uso (22/10/2026)
+
+**La decisión, textual** (Martín, por el Cerebro): «habilita los tokens de la API de la cuenta de Mauricio, esos 200, para su
+Ops Center, que lo pueda usar, así puedo seguir probando en Automations», y «dame luego una opción para deshabilitarle esa
+API a Mauricio en SuperAdmin, tal vez en USO, que pueda desactivar». Es una excepción a «Por ahora solo en onboarding».
+
+**Vive en:** `CREDITO_DE_UN_NEGOCIO` (lib/veto-claude.ts: ws1 → `ANTHROPIC_CREDITO_CUENTA1`) · lib/credito-negocio.ts (el
+interruptor y la clave) · la puerta 2 (`permisoDeLaClaveDelNegocio`, lib/anthropic.ts) · la sección «API» del Uso
+(app/admin/operaciones/UsoCredito.tsx, en la computadora y en el teléfono) · tests/credito-negocio.test.ts.
+
+- **Entra por la puerta 2, no por la 3.** La puerta 3 (`conCreditoDeLaPlataforma`) sólo contesta TEXTO y sólo en la red de
+  la plataforma, y el Ops Center y la estrella de cada tab son el chat con herramientas. La puerta 2 sirve a las dos cosas
+  (el chat con herramientas y la cascada de texto, que la prueba primero), y ya sabía tratar un crédito como el Claude de
+  un negocio (el ws10): con Haiku, nunca el Plan, y el gasto con la marca del crédito. Sin su clave propia, o con una copia
+  de la de MaKo, la puerta 2 usa la del crédito asignado. Si la conecta, gana la suya.
+- **Trampa: no se pega en la fila del ws1.** Es el workspace del entorno (`hidratarCredenciales`), y su fila pasaría a ser
+  la clave de MaKo (lo del 18/10). Tampoco se escribe la marca del crédito en el ws1: la puerta la escribía al reconocer un
+  crédito por su valor, y el asignado no es su fila.
+- **El interruptor vive en el workspace de la plataforma** (`ia.credito_negocio.1`): el negocio no lo ve ni lo toca. Sin
+  fila, PRENDIDO (lo pidió Martín, y prenderlo no necesita escribir en producción). «No pude leerlo» es apagado para ese
+  pedido.
+- **Lo que deja de verse:** «Conecta tu IA» (la caja pregunta `claveDelCreditoAsignado`), y «Es la clave de MaKo, no la
+  tuya» (la tarjeta muestra `credito` y saca las copias; en /integraciones, la de Claude sale conectada).
+- **Error que ya estaba en el Uso:** las filas «(su clave es el crédito)» no traen el número de la cuenta, y `creditoQuePago`
+  las mandaba todas a la cuenta 1: lo del ws10 (cuenta 2) se le sumaba a Mauricio. Ahora van a la cuenta del NEGOCIO.
+- **Medido en producción (22/10, sólo lectura, nada escrito en el ws1: 564 ajustes antes y después):** el crédito asignado
+  está prendido y su clave se lee; la puerta 2 da permiso para `mako-doer` y `chatbot-crear-ia` (Haiku, como crédito) y no
+  para `plan-fathom`; la tarjeta dice `anthropic:credito`; la clave contesta 200 a `count_tokens` (que no cobra).
+- **Probado rompiéndolo** (las 11 en rojo): la puerta sin el crédito, el crédito tapando su clave propia, la marca en el ws1,
+  el interruptor que no apaga, «no pude leer» prendido, cualquier negocio prendible, la tarjeta, la caja, la cuenta de «su
+  clave es el crédito», la pantalla y la acción sin la puerta del super admin.
+- **SIN hacer — por qué esto NO alcanza para soltar IA16:** el crédito cubre lo que pasa por la puerta 2. Al ws1, con IA16, le
+  seguirían faltando: el Plan (que nunca paga IA de MaKo: hace falta su clave, o que Martín amplíe la excepción); las notas
+  de voz (Claude no transcribe: hace falta su Gemini o su OpenAI); «Hola MaKo» en WhatsApp (el doer escala a su Claude sólo
+  con «su IA»); y el buscador de conocimiento (embebe con su Gemini). Con su Gemini gratis conectada, eso se resuelve.
 
 ## Las decisiones de Martín del 22/10/2026 sobre la IA de MaKo, y el Plan con la clave del negocio
 

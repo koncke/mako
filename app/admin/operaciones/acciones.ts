@@ -37,6 +37,7 @@ import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { leerMarcasDe, marcarDe } from '@/lib/centro-mensajes-db';
 import { guardarAlias, leerCuentasConNombre } from '@/lib/centro-titulares-db';
 import { leerCreditoApi } from '@/lib/credito-api-db';
+import { guardarInterruptorDeCredito } from '@/lib/credito-negocio';
 import type { LecturaCredito } from '@/lib/credito-api';
 import { CUENTA_RE } from '@/lib/operaciones-reglas';
 import { aliasValido, type CuentasConNombre } from '@/lib/centro-titulares';
@@ -123,6 +124,20 @@ export async function creditoApiAction(): Promise<LecturaCredito> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   try {
+    return await leerCreditoApi();
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** Prende o apaga el crédito de Claude asignado a un negocio (22/10/2026, Martín: «dame luego una opción para deshabilitarle
+ *  esa API a Mauricio en SuperAdmin, tal vez en USO»; lib/credito-negocio.ts). Devuelve la lectura nueva de la sección. */
+export async function creditoDelNegocioAction(ws: unknown, prendido: unknown): Promise<LecturaCredito> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof ws !== 'number' || !Number.isInteger(ws) || typeof prendido !== 'boolean') return { ok: false, error: 'Elige el negocio otra vez.' };
+  try {
+    await guardarInterruptorDeCredito(ws, prendido);
     return await leerCreditoApi();
   } catch (e) {
     return { ok: false, error: msg(e) };

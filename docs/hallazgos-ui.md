@@ -71,6 +71,14 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
   estaban Offer, Image Editor (el inicio y el diseño) y Video Editor (el inicio y el proyecto); los cinco restan ahora
   `var(--barra-agencia, 0px)` en su `calc`. **Lo hace cumplir** tests/barra-inspeccion-alto.test.ts, 7: toda `page.tsx` con
   un alto en línea `calc(100vh…)` o `calc(100dvh…)` tiene que descontarla.
+- **Y el `min-height: 100vh` también estira la página** (22/10/2026, medido por CRM y repetido en el CRM del ws3 con una
+  ventana de 811). El reporte fue «el menú de la sidebar no entra y la página se estira 50 px», y el diagnóstico obvio era el
+  equivocado: la sidebar ya descontaba la barra (su regla de app/globals.css) y su menú scrolleaba adentro (608 px de contenido
+  en 548). Lo que estiraba era el CONTENEDOR RAÍZ de app/layout.tsx (`minHeight: '100vh'`): con la barra, `body` gana sus 50 px
+  de padding, y el documento medía 860. La regla de `height` dejaba afuera `min-height` a propósito («no desborda nada»), y sí
+  desborda. Ahora hay una regla para `min-height: 100vh` y `100dvh` (las dos escrituras del estilo, como la de `height`), que
+  cubre el raíz y los otros 21 `main` con ese alto mínimo, y el raíz lo descuenta además en línea. Medido con la regla
+  inyectada en la pestaña: documento 811, raíz y `main` 761. Lo fija tests/barra-inspeccion-alto.test.ts, 8.
 
 ---
 
@@ -92,6 +100,27 @@ Tarjeta #883: «que cada persona elija tema claro u oscuro en la computadora (ho
 
 **Vive en:** `app/_components/ModoArranque.tsx`, `ModoDelUsuario.tsx`, `TemaCandidato.tsx`, `InterruptorModo.tsx` ·
 `tests/tema-por-persona.test.ts`
+
+## Abrir a MaKo pliega la sidebar, y el ícono de una tab vive en DOS listas (22/10/2026)
+
+Martín: «si abro a MaKo, se debería plegar la sidebar principal, para optimizar espacios. Si antes la tenía desplegada y
+fija, al cerrar MaKo debe volver a su lugar»; y «no me gusta el ícono de "Automations", cambialo por otro que se entienda más».
+- **Para plegar la barra un rato hay UN lugar: `plegadaAca`** (app/_components/Sidebar.tsx), el pliegue temporal que ya usaban
+  el Ops Center y la ventana chica. Sumarle una condición la pliega sin tocar lo guardado (`setFija` ahí sólo cambia
+  `abiertaAca`), y cuando la condición se apaga `fija` vuelve sola a la guardada. Nunca `setFija`/`guardarFija` para esto:
+  pisaría la preferencia de la persona. El panel de la estrella lo avisa con app/_chat/mako-abierto.ts (un estado de módulo, sin
+  CSS, que también se suelta al salir de la tab con el panel abierto).
+- **`--ancho-panel-mako` no hubo que tocarlo**: el panel se pega al borde MEDIDO de la barra (`useBordeDeLaBarra`, con
+  ResizeObserver), así que al plegarse la barra el panel se corre con ella y la tab le sigue dejando lo que mide el panel.
+- **El ícono de una tab está en dos listas que nada une**: app/_components/nav.ts (la barra y el buscador, que dibuja
+  `item.icon`; y en una tab unificada, la FILA de la tab y cada sección por separado) y lib/movil-rutas.ts (el teléfono, su
+  propia lista). Cambiarlo en nav.ts dejaba el teléfono con el viejo. Automations pasó de `chatbot` (el globito con chispas) a
+  `flujo` (tres pasos unidos) en las dos, y en lo que propone un flujo en la bandeja del teléfono.
+
+**Vive en:** `app/_components/Sidebar.tsx` (`plegadaAca`) · `app/_chat/mako-abierto.ts` · `app/_chat/MakoEnLaTab.tsx` ·
+`app/_components/icons.tsx` (`flujo`) · `tests/sidebar-mako-abierto.test.ts` (8 roturas, las 8 cazadas)
+
+*22/10/2026, chat «Offer» (claude3).*
 
 ## La sidebar nueva: sacar una fila de nav.ts cierra puertas que no son de la barra (17/10/2026)
 
@@ -4284,3 +4313,14 @@ Martín, 21/10: «Los íconos de "tablero y lista" deberían estar como juntos e
   dos, la galería podría prometer una tarjeta que el tablero no dibuja.
 - **El CRM dejó de usar clases `tk-*` en la barra**: salió de la lista de tests/tarjetas-familia.test.ts que exige montar
   `<EstiloTarjetas />` (si vuelve a usarlas, vuelve a la lista).
+
+## Con la barra de la agencia, TODO `<aside>` toma el alto de la ventana (22/10/2026)
+
+`app/globals.css` tiene `[data-barra-agencia] aside { top: var(--barra-agencia) !important; height: calc(100vh - …)
+!important }` desde el 16/08, para el riel del Sidebar. Pero el selector toma CUALQUIER `<aside>`, y sólo cuando el super
+admin mira un cliente: un panel flotante (`position: absolute`) que sea un `<aside>` queda más alto que su contenedor y lo
+de abajo sale de la vista. Medido en el Dashboard del ws3: «Editar con MaKo» medía 761 px en un lienzo de 612, con la caja
+afuera; sin el atributo, 588. **El cliente no lo ve nunca**, así que en una prueba con su sesión todo se ve bien. Con la
+alerta de voz ya se había acotado al Sidebar (`aside[data-sidebar]`) por lo mismo, el 11/09. **Regla:** un panel flotante
+nuevo es un `<section role="complementary">` o un `<div>`, no un `<aside>`. Sin hacer: acotar también la regla de la barra
+de agencia a `aside[data-sidebar]` (es de esta área; hay que mirar antes qué otro `<aside>` depende de ella).

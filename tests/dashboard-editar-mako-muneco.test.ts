@@ -42,7 +42,19 @@ test('la caja es la única, con la hoja del Centro cargada', () => {
 test('el marco del panel va a la izquierda (todo MaKo en una tab), y el editor le deja el lugar a la estrella', () => {
   const marco = readFileSync('app/dashboard/PanelAnalista.tsx', 'utf8');
   assert.match(marco, /\.an \{ flex: none; position: absolute; top: 12px; left: 12px; bottom: 12px;/);
+  assert.match(readFileSync('app/dashboard/edicion-css.ts', 'utf8'), /\.lk-cuerpo > \.an \{ position: absolute; top: 12px; left: 12px; bottom: 12px;/);
   assert.match(readFileSync('app/dashboard/editor-css.ts', 'utf8'), /margin-left: var\(--ancho-panel-mako, 0px\); \}/);
+});
+
+test('los dos paneles NO son un <aside>: la barra de la agencia les forzaba el alto de la ventana (22/10/2026)', () => {
+  // Medido en producción, con el super admin mirando el ws3: `[data-barra-agencia] aside` (app/globals.css) le pone a todo
+  // <aside> `top` y `height: calc(100vh - barra)` con !important, y el panel medía 761 px en un lienzo de 612: la caja de
+  // «Editar con MaKo» quedaba fuera de la vista. Sin el atributo, 588. Verificado poniendo <aside> otra vez: 4/1.
+  for (const f of ['app/dashboard/PanelEditarMako.tsx', 'app/dashboard/PanelAnalista.tsx']) {
+    const src = sinComentarios(readFileSync(f, 'utf8'));
+    assert.doesNotMatch(src, /<aside className="an/, `${f}: volvió el <aside>`);
+    assert.match(src, /<section role="complementary" className="an/);
+  }
 });
 
 test('los mensajes del panel como filas del hilo: el id es la posición, y vuelve', () => {

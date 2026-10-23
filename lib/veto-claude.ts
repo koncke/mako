@@ -348,6 +348,24 @@ export const CREDITO_HABILITADO_PARA: ReadonlyArray<{ feature: string; soloDuran
   { feature: 'offer', soloDuranteElOnboarding: true, para: 'el chat de Offer del primer ingreso: nombre, oferta, funnel y primer CRM' },
 ];
 
+/**
+ * EL CRÉDITO DE UNA CUENTA MAX COMO EL CLAUDE DE UN NEGOCIO, sin pegarlo en su fila (22/10/2026). Martín, textual: «habilita los
+ * tokens de la API de la cuenta de Mauricio, esos 200, para su Ops Center, que lo pueda usar, así puedo seguir probando en
+ * Automations», y «dame luego una opción para deshabilitarle esa API a Mauricio en SuperAdmin». Es una EXCEPCIÓN a «Por ahora
+ * solo en onboarding» que da Martín, negocio por negocio, y se apaga en SuperAdmin › Uso (lib/credito-negocio.ts).
+ *
+ * ⚠️ NO SE PEGA EN LA FILA DEL NEGOCIO: el ws1 es el workspace del ENTORNO (`hidratarCredenciales`), y su fila pasaría a ser la
+ * clave de MaKo (la trampa del 18/10). Entra por la puerta 2 (`permisoDeLaClaveDelNegocio`, lib/anthropic.ts) como el crédito
+ * del ws10: con el modelo barato, nunca el Plan, y su gasto con la marca del crédito. Su clave propia, si la conecta, gana.
+ */
+export type CreditoDeUnNegocio = { ws: number; clave: (typeof CLAVES_CREDITO_PLATAFORMA)[number]; quien: string };
+export const CREDITO_DE_UN_NEGOCIO: readonly CreditoDeUnNegocio[] = [
+  { ws: 1, clave: 'ANTHROPIC_CREDITO_CUENTA1', quien: 'Mauricio (ws1)' },
+];
+/** El interruptor, en el workspace de la PLATAFORMA (el negocio no lo puede tocar): «apagado» lo apaga; sin fila, prendido. */
+export const claveDelInterruptorDeCredito = (ws: number): string => `ia.credito_negocio.${ws}`;
+export const esInterruptorPrendido = (valor: string | null | undefined): boolean => valor !== 'apagado';
+
 /** La marca del gasto de este crédito en `anthropic_usage`, al PRINCIPIO del motivo (ver la del negocio). */
 export const MOTIVO_CREDITO_PLATAFORMA = '⚠ crédito de Claude de la plataforma';
 /** La marca del gasto de la clave de un NEGOCIO que es el crédito de Max de la plataforma (el ws10, lib/credito-marca.ts). */

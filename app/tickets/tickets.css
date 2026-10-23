@@ -69,3 +69,10 @@
   .tickets-fila { grid-template-columns: auto minmax(0, 1fr) auto; }
   .tickets-fila__cuando { display: none; }
 }
+
+/* El historial del ticket (22/10/2026): cada cambio de estado con su fecha, en una línea con puntos. */
+.tickets-historial { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.tickets-historial__paso { display: inline-flex; align-items: baseline; gap: 6px; font-size: var(--fs-meta, 12.5px); color: var(--dim); }
+.tickets-historial__paso::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); align-self: center; }
+.tickets-historial__paso[data-paso='resuelto']::before, .tickets-historial__paso[data-paso='arreglado']::before { background: var(--good); }
+.tickets-historial__rotulo { color: var(--ink); font-weight: 600; }

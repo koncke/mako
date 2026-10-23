@@ -20,7 +20,7 @@
 //     1 fallo; el retrato sin su paseo → 1 fallo; el «Diamante» o la cara «Gato» cayendo al dibujo de siempre → 1 fallo
 //     cada uno (todos en el mismo test).
 
-import { PreguntasDelChat } from '../app/admin/operaciones/PreguntasDelChat';
+import { BloqueDePreguntas } from '../app/admin/operaciones/PreguntasDelChat';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -129,7 +129,7 @@ test('A en la pantalla: el formulario con la recomendada primero, y contestada c
   // Desde el 22/10/2026 la abierta va ARRIBA de la caja, de a una (PreguntasDelChat.tsx, «como en Claude»), no en el hilo.
   const abierta = dibujar([{ tipo: 'pregunta', instante: AHORA - 60_000, pregunta: p, trabajo: null }]);
   assert.doesNotMatch(abierta, /¿Abro la ventana\?/, 'la abierta no se dibuja en el hilo');
-  const bloque = renderToStaticMarkup(createElement(PreguntasDelChat, { preguntas: [p], onResponder: async () => null }));
+  const bloque = renderToStaticMarkup(createElement(BloqueDePreguntas, { chat: 'x', delChat: [p], onResponder: async () => null }));
   assert.ok(bloque.indexOf('Sí, ábrela') < bloque.indexOf('No, después'), 'la recomendada primero');
   assert.match(bloque, /\(Recomendada\)/);
   assert.match(bloque, /placeholder="Escribe otra cosa"/);

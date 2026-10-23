@@ -38,7 +38,8 @@ test('debajo de 1200 px la barra principal arranca plegada a íconos (y la flech
   assert.match(sb, /const MQ_ANGOSTA = `\(max-width: \$\{ANCHO_BARRA_PLEGADA - 0\.02\}px\)`;/);
   assert.match(sb, /\(\) => window\.matchMedia\(MQ_ANGOSTA\)\.matches,\s*\(\) => false,/);
   // La misma regla que el Ops Center: plegada por defecto, la flecha la fija abierta SIN tocar la preferencia guardada.
-  assert.match(sb, /const plegadaAca = enOpsCenter \|\| angosta;/);
+  // (Y desde el 22/10/2026 también con el panel de MaKo abierto: tests/sidebar-mako-abierto.test.ts.)
+  assert.match(sb, /const plegadaAca = enOpsCenter \|\| angosta \|\| makoAbierto;/);
   assert.match(sb, /const fija = fijaGuardada && \(!plegadaAca \|\| abiertaAca\);/);
   assert.match(sb, /if \(plegadaAca\) \{ setAbiertaAca\(v\); if \(!v\) setExpanded\(false\); return; \}/);
 });

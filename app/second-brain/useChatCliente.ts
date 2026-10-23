@@ -37,7 +37,7 @@ import { esOpcionArmar } from '@/app/offer/ayudas';
 import { conPegados, esPegadoLargo } from '@/lib/chat-pegado';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import {
-  EDITORES, SECCION_OFFER, SIN_TITULO, TITULO_GRUPO, colgarIrA, criaturaDeOffer, esFilaDe, linksDePedidos, listaDelCliente, partesDeClaveDeEditor, rutaDelLienzo,
+  EDITORES, JEFE_SECOND_BRAIN, SECCION_OFFER, SIN_TITULO, TITULO_GRUPO, colgarIrA, criaturaDeOffer, esFilaDe, linksDePedidos, listaDelCliente, partesDeClaveDeEditor, rutaDelLienzo,
   type ElegidoChat, type IrA,
 } from '@/lib/chat-mako-reglas';
 import type { ChatDeAntes, ChatDeAutomatizacion, ChatDeEditor, ChatDeOffer, GrupoDeMaKo } from '@/lib/chat-mako-indice';
@@ -664,8 +664,12 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const esJefe = filaAbierta?.clave === 'jefe';
   const deOffer = idOffer != null ? (offer ?? []).find((o) => o.id === idOffer) ?? null : null;
   const deAntes = idAntes != null ? (antes ?? []).find((a) => a.id === idAntes) ?? null : null;
-  const nombre = filaAbierta?.titulo
-    ?? (idOffer != null ? deOfferAbierta?.titulo || deOffer?.titulo || SECCION_OFFER : idAntes != null ? deAntes?.titulo?.trim() || deAntes?.tema?.trim() || SIN_TITULO : esGrupo ? TITULO_GRUPO : SIN_TITULO);
+  // ⚠️ MIENTRAS LLEGA LA LISTA, el que va a abrir el Cerebro ya es el Cerebro (22/10/2026, Martín con captura del panel de la
+  // estrella: «Mira lo mal que se ve esto»). Sin la fila, la cabecera decía «Chat nuevo» con una criatura redonda y después
+  // saltaba a «Cerebro» con la estrella. Con `entrarAlCerebro` y nada pedido ni elegido, es el Cerebro desde el primer cuadro.
+  const vaAlCerebro = !filaAbierta && elegido == null && entrarAlCerebro && chatInicial == null;
+  const nombre = filaAbierta?.titulo ?? (vaAlCerebro ? JEFE_SECOND_BRAIN
+    : idOffer != null ? deOfferAbierta?.titulo || deOffer?.titulo || SECCION_OFFER : idAntes != null ? deAntes?.titulo?.trim() || deAntes?.tema?.trim() || SIN_TITULO : esGrupo ? TITULO_GRUPO : SIN_TITULO);
   const nombreMuneco = filaAbierta?.criatura ?? (idOffer != null ? criaturaDeOffer(nombre) : nombre);
   /** La criatura del chat abierto: la de su fila (la cabecera, la portada y el hilo, la misma que en la lista). */
   const aspectoMuneco = filaAbierta?.aspecto ?? null;

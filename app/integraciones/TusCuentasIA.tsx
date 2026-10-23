@@ -18,12 +18,12 @@ import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { hace } from '@/lib/progreso-reglas';
 import { TEXTO_CONSENTIMIENTO, VERSION_CONSENTIMIENTO, estadoDeLaPc, lineaDeInstalacion, yaPaso, type CuentaPc, type SistemaPc } from '@/lib/ia-pc-reglas';
-import { nombreDeSuClave, queHacer, textoDeSuClave, type EstadoSuClave, type ProvSuClave } from '@/lib/su-clave-reglas';
+import { nombreDeSuClave, queHacer, textoDeSuClave, textoDelGasto, type EstadoSuClave, type ProvSuClave } from '@/lib/su-clave-reglas';
 import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
 import './tus-cuentas-ia.css';
 
 type Pc = { id: number; nombre: string; esMia: boolean; de?: string; enLinea: boolean; ultimoLatido: string | null; version: string | null; cuentas: CuentaPc[]; sinClaude?: boolean };
-type SuClave = EstadoSuClave & { es: 'propia' | 'copia' | 'ilegible'; modelo?: 'haiku' | 'sonnet'; soloHaiku?: boolean };
+type SuClave = EstadoSuClave & { es: 'propia' | 'copia' | 'ilegible' | 'credito'; modelo?: 'haiku' | 'sonnet'; soloHaiku?: boolean };
 /** El modelo de su Claude por clave (IA5). Lo paga su cuenta. */
 const MODELOS_SU_CLAUDE: Array<{ v: 'haiku' | 'sonnet'; t: string }> = [{ v: 'haiku', t: 'Haiku' }, { v: 'sonnet', t: 'Sonnet' }];
 /** `claves`: sólo para el admin. `null` = no se pudo leer (no se inventa «Todavía no se usó»). */
@@ -250,7 +250,7 @@ function SusClaves({ claves, ahora, recargar }: { claves: SuClave[] | null; ahor
     <div className="tci-claves">
       <BrandDefs />
       {claves.map((c) => {
-        const linea = c.es === 'propia' ? textoDeSuClave(c, ahora, hace) : null;
+        const linea = c.es === 'propia' || c.es === 'credito' ? textoDeSuClave(c, ahora, hace) : null;
         const hacer = linea?.tono === 'mal' && c.fallo ? queHacer(c.fallo.motivo) : null;
         const r = prueba[c.proveedor];
         return (
@@ -264,7 +264,12 @@ function SusClaves({ claves, ahora, recargar }: { claves: SuClave[] | null; ahor
               )}
             </div>
             {linea && <p className={`tci-nota tci-clave__estado tci-clave__estado--${linea.tono}`}>{linea.texto}</p>}
+            {/* Lo que gastó (D3, 22/10/2026: «Que vean el USO»), y cambiarla o quitarla en el modal de su integración. */}
+            {c.es === 'propia' && (
+              <p className="tci-nota">{textoDelGasto(c.gastado)} · <BotonIntegracion servicio={c.proveedor} style={{ color: 'var(--primary)', fontWeight: 600 }}>Cambiar o quitar</BotonIntegracion></p>
+            )}
             {hacer && <p className="tci-nota">{hacer}</p>}
+            {c.es === 'credito' && <p className="tci-nota">Usa el crédito de Claude que te dio MaKo.</p>}
             {c.es === 'copia' && <p className="tci-nota">Es la clave de MaKo, no la tuya. <BotonIntegracion servicio={c.proveedor} style={{ color: 'var(--primary)', fontWeight: 600 }}>Pegar la tuya</BotonIntegracion></p>}
             {c.es === 'ilegible' && <p className="tci-nota">No puedo leerla. <BotonIntegracion servicio={c.proveedor} style={{ color: 'var(--primary)', fontWeight: 600 }}>Pegarla de nuevo</BotonIntegracion></p>}
             {r && <p className={`tci-nota tci-clave__estado tci-clave__estado--${r.anda ? 'bien' : 'mal'}`} role="status">{r.texto}</p>}

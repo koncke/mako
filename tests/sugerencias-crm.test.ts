@@ -458,8 +458,9 @@ test('el chat: permiso del CRM en el server; en la pantalla, la estrella del Ops
   // icono de MaKo, se envía lo que sea que envíen al cerebro y ya el cerebro se encarga de repartir»): la pieza de todas
   // las tabs, con lo del CRM arriba del hilo y su número en la estrella. Ni barra, ni estrella, ni chat propios.
   assert.match(panel, /import \{ MakoEnLaTab \} from '@\/app\/_chat\/MakoEnLaTab';/);
-  // Con el lead de la ficha abierta (CR3, 22/10/2026): app/crm/lead-abierto.ts.
-  assert.match(panel, /return <MakoEnLaTab tab="CRM" entidad=\{entidadDelLead\(abierto\)\} arriba=\{sugerencias\} aviso=\{n\} pedido=\{pedido\} \/>;/);
+  // Con el lead de la ficha abierta (CR3, 22/10/2026: app/crm/lead-abierto.ts), y las sugerencias en el bloque de preguntas de
+  // la estrella (22/10/2026: tests/ops-center-bloque-y-estado.test.ts, 9).
+  assert.match(panel, /return <MakoEnLaTab tab="CRM" entidad=\{entidadDelLead\(abierto\)\} arriba=\{sugerencias\} preguntas=\{preguntas\} aviso=\{n\} pedido=\{pedido\} \/>;/);
   assert.doesNotMatch(panel, /ChatMakoCrm|hilo=1|<aside\b|<Muneco\b|data-sidebar|--ancho-panel-mako/, 'el CRM volvió a armar su chat, su barra o su estrella');
   assert.ok(!existsSync(join(RAIZ, 'app/crm/mako-crm/ChatMakoCrm.tsx')), 'volvió el chat propio del CRM');
   // «Hacerlo» de una que se revisa con MaKo: al Cerebro, con el CRM nombrado.

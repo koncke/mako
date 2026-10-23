@@ -29,7 +29,17 @@ export function TicketM({ t }: { t: TicketCliente }) {
         <p className="m-tickets-meta">#{t.id}{tipo ? ` · ${tipo}` : ''}</p>
         <h2 className="m-tickets-titulo">{t.titulo}</h2>
         <PildoraM tono={TONO_TICKET[t.estado]}>{t.rotulo}</PildoraM>
+        {t.canal && <p className="m-tickets-meta">{t.canal}</p>}
       </header>
+      {/* El historial: cada cambio de estado con su fecha (22/10/2026), como en la computadora. */}
+      <ol className="tickets-historial" aria-label="Historial del ticket">
+        {t.historial.map((p) => (
+          <li key={`${p.paso}-${p.at}`} className="tickets-historial__paso" data-paso={p.paso}>
+            <span className="tickets-historial__rotulo">{p.rotulo}</span>
+            <span className="tickets-historial__cuando">{hace(p.at)}</span>
+          </li>
+        ))}
+      </ol>
       <ol className={`m-tickets-hilo${t.puedeResponder ? ' m-tickets-hilo--composer' : ''}`}>
         {t.lineas.map((l, i) => (
           <li key={i} className={`m-tickets-burbuja m-tickets-burbuja--${l.quien}`}>

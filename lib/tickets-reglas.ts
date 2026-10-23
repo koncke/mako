@@ -378,11 +378,45 @@ export type LineaCliente = { at: string; quien: 'tu' | 'equipo'; texto: string }
 export type TicketCliente = {
   id: number; titulo: string; descripcion: string; tipo: TipoTicket; estado: EstadoCliente; rotulo: string;
   creado: string; actualizado: string; respuesta: string | null; puedeResponder: boolean; lineas: LineaCliente[];
+  /** Cada cambio de estado con su fecha, en orden (22/10/2026, Martín: «ven sus tickets ya subidos y el historial con el
+   *  status»): recibido, en curso, arreglado, resuelto. Sale de las fechas del ticket, no de lo que diga el navegador. */
+  historial: PasoDelTicket[];
+  /** Por dónde lo levantó, en sus palabras («Por WhatsApp»). null = no se sabe. */
+  canal: string | null;
 };
+/** Cuántos le esperan una respuesta: el número de la Ticketera de su Ops Center (lo que el equipo le preguntó). */
+export const esperanTuRespuesta = (tickets: readonly Pick<TicketCliente, 'estado'>[] | null): number => (tickets ?? []).filter((t) => t.estado === 'tu_respuesta').length;
+/** Un paso del historial que ve el cliente. `arreglado` es el arreglo hecho, antes de que el equipo lo dé por resuelto. */
+export type PasoDelTicket = { paso: 'recibido' | 'en_curso' | 'arreglado' | 'resuelto' | 'cerrado'; rotulo: string; at: string };
 type FilaParaCliente = {
   id: number; titulo: string; descripcion: string; tipo: TipoTicket; estado: EstadoTicket; created_at: string; updated_at: string;
   respuesta: string | null; despacho: string | null; decidido_at: string | null; resuelto_at: string | null; duplicado_de: number | null;
+  despachado_at?: string | null; arreglado_at?: string | null; canal?: string | null;
 };
+
+/** Por dónde se levantó, como lo dice el cliente. */
+const CANAL_PARA_EL_CLIENTE: Partial<Record<Canal, string>> = {
+  formulario: 'Desde «Reportar problema»', whatsapp: 'Por WhatsApp', chat_app: 'Desde el chat de MaKo',
+  chat_movil: 'Desde el chat de MaKo en el teléfono', api: 'Desde la API de MaKo',
+  // `sistema` no se dice: «lo abrió el sistema» no le sirve a nadie.
+};
+const ROTULO_PASO: Record<PasoDelTicket['paso'], string> = {
+  recibido: 'Recibido', en_curso: 'En curso', arreglado: 'Arreglado', resuelto: 'Resuelto', cerrado: 'Cerrado',
+};
+
+/** El historial: cada paso por el que pasó, con la fecha en que pasó. Sólo los que tienen fecha, y en orden. */
+export function historialDelTicket(t: FilaParaCliente): PasoDelTicket[] {
+  const pasos: PasoDelTicket[] = [{ paso: 'recibido', rotulo: ROTULO_PASO.recibido, at: t.created_at }];
+  const enCurso = t.despachado_at ?? (t.estado !== 'nuevo' && t.estado !== 'esperando_decision' && t.estado !== 'rechazado' && t.estado !== 'duplicado' ? t.decidido_at : null);
+  if (enCurso) pasos.push({ paso: 'en_curso', rotulo: ROTULO_PASO.en_curso, at: enCurso });
+  // «Arreglado» SÓLO con el ticket resuelto (la revisión, 22/10/2026): `arreglado` es «commiteado e integrándose, sin desplegar»
+  // (lib/tickets-db.ts → marcarArreglado) y al cliente se le muestra «En curso» a propósito. Antes de eso, el paso diría que
+  // está arreglado con el error todavía en producción.
+  if (t.arreglado_at && t.estado === 'resuelto') pasos.push({ paso: 'arreglado', rotulo: ROTULO_PASO.arreglado, at: t.arreglado_at });
+  if (t.estado === 'resuelto' && t.resuelto_at) pasos.push({ paso: 'resuelto', rotulo: ROTULO_PASO.resuelto, at: t.resuelto_at });
+  else if (estadoParaElCliente(t.estado) === 'cerrado') pasos.push({ paso: 'cerrado', rotulo: ROTULO_PASO.cerrado, at: t.resuelto_at ?? t.decidido_at ?? t.updated_at });
+  return pasos.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+}
 type EventoParaCliente = { at: string; actor: string; tipo: string; texto: string | null; datos?: Record<string, unknown> | null };
 
 export function paraElCliente(t: FilaParaCliente, eventos: readonly EventoParaCliente[] = []): TicketCliente {
@@ -407,6 +441,7 @@ export function paraElCliente(t: FilaParaCliente, eventos: readonly EventoParaCl
     id: t.id, titulo: t.titulo, descripcion: t.descripcion, tipo: t.tipo, estado, rotulo: ROTULO_ESTADO_CLIENTE[estado],
     creado: t.created_at, actualizado: t.updated_at, respuesta: t.respuesta,
     puedeResponder: estado !== 'resuelto' && estado !== 'cerrado', lineas,
+    historial: historialDelTicket(t), canal: (t.canal && CANAL_PARA_EL_CLIENTE[t.canal as Canal]) ?? null,
   };
 }
 
