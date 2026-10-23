@@ -1172,6 +1172,12 @@ app/integraciones/CuentasDePago.tsx · tests/cuentas-pago.test.ts. Lo de la plat
   necesita el negocio (`getWorkspaceActual`), y fuera de un request eso tira «cookies outside a request scope». En
   producción corre siempre dentro de uno (request o flujo con `runWithWorkspace`), así que el test pasó a correr ahí:
   ese error en un hijo es el test sin negocio, no la librería rota.
+- **Tres barredoras de todo el repo frenaron la fase A en el tren 18** y no estaban entre mis tests:
+  - tests/puente-panel-copy, la guarda de voseo, por un «acá».
+  - tests/fuentes-leads-webhooks, que fija la línea del ruteo de lib/credenciales.ts.
+  - tests/historico-al-conectar, porque toda puerta nueva que llama a `guardarCredencial` decide si arranca el histórico.
+  Las de las cuentas no lo arrancan (ninguno de los cuatro proveedores tiene), y el test ahora tira si uno llega a tenerlo.
+  Antes de pasar una punta que toca credenciales o copy, se corren las tres.
 **Sin hacer:** la pantalla y la API de «Asignar evento» agrupadas por cuenta y el `cuenta` en crear/editar de la API de
 MaKo son del CRM (las firmas ya están); el link de la R1/R2, la anticipación y las herramientas de agenda del doer siguen
 con la principal (la R1/R2 es de la principal); no se detecta la misma cuenta de Calendly conectada dos veces (haría falta
