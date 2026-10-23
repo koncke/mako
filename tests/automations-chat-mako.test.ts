@@ -162,7 +162,8 @@ test('cada turno re-POSTea el pedido ORIGINAL con las respuestas acumuladas (y l
   assert.match(turno, /pedido: enCurso\.pedido, modo, respuestas: enCurso\.respuestas, secuenciaId: p\.secuenciaId,/);
   // El hilo de ANTES del turno (`mensajes`): la ruta guarda el turno.
   // (Y desde el 22/10/2026, detrás, Discutir / Editar al editar: tests/chat-mako-discutir-editar.test.ts.)
-  assert.match(turno, /historial: mensajes,\n(?:\s+\/\/[^\n]*\n)*\s+\.\.\.\(modo === 'editar' \? \{ intencion \} : \{\}\),\n\s+\}\);/);
+  // (22/10/2026: con lo que pasa si nadie lo está mirando al terminar, `siNadieMira`: tests/chat-mako-segundo-plano.test.ts.)
+  assert.match(turno, /historial: mensajes,\n(?:\s+\/\/[^\n]*\n)*\s+\.\.\.\(modo === 'editar' \? \{ intencion \} : \{\}\),\n\s+\}, \{ siNadieMira \}\);/);
   // Por qué (lo hace la ruta, lib/flujo-ia-preguntas.ts): la pregunta que se contesta se busca EN EL HILO.
   const conCron = [...HILO, mako('m2', 'Cambié 2', { cambios: { cambiadas: 2, quitadas: 0, agregadas: 0 }, pregunta: cron })];
   const eligeTu = respuestaMako(cron, { eligeTu: true });
@@ -243,7 +244,9 @@ test('editar con `disparadores` los guarda YA por action «disparadores» (la de
   assert.match(tramo(editor, 'const mandar = async (', '\n  };', 900), /cb\.current\.onCambio\(\);/);
   // El chat le pasa al padre lo que trajo el listo (también la pregunta, que dibuja él).
   const turno = tramo(CHAT, 'const turno = async (', '\n  };', 7000);
-  assert.match(turno, /\.\.\.\(l\.disparadores !== undefined \? \{ disparadores: l\.disparadores \} : \{\}\),/);
+  // (22/10/2026: el armado de lo que va al padre es `aplicarListo`, el mismo para el turno y para el que vuelve.)
+  assert.match(turno, /const aplicado = aplicarListo\(l, base\);/);
+  assert.match(tramo(CHAT, 'const aplicarListo = (', '\n  };', 3000), /\.\.\.\(l\.disparadores !== undefined \? \{ disparadores: l\.disparadores \} : \{\}\),/);
   assert.match(turno, /setRonda\(l\.pregunta \? \{ pedido: enCurso\.pedido, respuestas: \[\], pregunta: l\.pregunta \} : null\);/);
 });
 
