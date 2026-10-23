@@ -399,7 +399,9 @@ afectados: dos chequeos de lo mismo. El primero, con 8 chats y 1-2 GB libres, ta
    tandas (`node scripts/tipos-respaldo-push.mjs`).
 3. **El tren sale cada 30 min** con todo lo que llegó, o antes si trae un cliente roto. No se espera a juntar más.
 4. Integración le pasa el sha al Cerebro y el Cerebro sube en el acto (sin minutos de Actions, con `--no-verify`: ver
-   «Sin minutos de Actions» en docs/hallazgos-infra.md).
+   «Sin minutos de Actions» en docs/hallazgos-infra.md). **Sin minutos, subir `integracion` NO avanza `main`**: después de
+   cada push, `git ls-remote origin refs/heads/main` y el Ready de Vercel. El 23/10, el arreglo de un cliente quedó en
+   `integracion` creyendo que Actions lo subía (docs/hallazgos-operaciones.md, «El cambio de cuenta del 23/10»).
 
 Lo que sigue describe `antes-de-subir`: ahora es la herramienta de Integración para el tren (y de un jefe con RAM de sobra que
 quiera adelantarse), no el peaje de cada punta. **La regla anterior** (17/10/2026; Martín: «asegúrate por todos los medios de

@@ -2336,3 +2336,33 @@ tests/ops-center-solo-para-martin.test.ts.
 **SIN HACER:** el cartero podría no subir la compactación (`isCompactSummary`), pero no hace falta mientras el servidor la
 saque, y cambiarlo pide reinstalar el Runner.
 
+## El cambio de cuenta del 23/10: el Cerebro viejo no podía abrir chats, «›» se rompe al abrirlos y subir `integracion` no subía `main` (23/10/2026)
+
+Ese día Martín pasó de claude1 a claude2 a las 12:13 ART, porque la ventana de 5 horas de la 1 se agotó. Cuatro trampas,
+ninguna con error a la vista:
+
+- **Un Cerebro DESARCHIVADO no tenía `start_session`; uno NUEVO, sí.** En claude1 el Cerebro era la sesión de agosto
+  `e680c815`, desarchivada y renombrada. Buscó la herramienta de cuatro formas y no estaba, así que no pudo abrir ni el
+  Runner: lo intentó por terminal (`claude1 -n Runner`), que se trabó en el selector de tema. El uso de la cuenta lo
+  subió a mano, renombrándose «Cerebro › Runner» para una vuelta. En claude2 el Cerebro fue un chat creado ese día y
+  abrió el Runner y cinco chats con `start_session` sin trabas. No está probado que la causa sea la edad de la sesión;
+  lo que sí está medido es que el camino nuevo anduvo. **Regla:** al cambiar de cuenta, el Cerebro es un chat nuevo.
+- **`start_session` cambia «›» por «'» en el título.** «Cerebro › Integración» nació como «Cerebro ' Integración», y
+  el Ops Center une los chats por nombre. **Regla:** renombrar en el acto con `set_session_title`.
+- **Sin minutos de Actions, subir `integracion` NO avanza `main`.** El Cerebro de claude1 subió el arreglo del ws13
+  (`cd3827f44`, con antes-de-subir en verde) a `integracion` a las 12:02 y reportó que «GitHub Actions lo chequea y
+  avanza main». Pero Actions no tiene minutos desde el 22/10, así que `main` siguió en `594ecd41b` con un cliente roto
+  hace diez días. Lo subió el Cerebro de claude2 a las 12:36 (Ready a las 12:40). **Regla:** después de cada push,
+  `git ls-remote origin refs/heads/main`; mientras no haya minutos, `main` lo sube el Cerebro.
+- **La ventana de 5 horas es de la CUENTA.** Al agotarse se cortaron los 11 chats de claude1 entre las 11:56 y las 12:02.
+  El Cerebro había escrito «los demás chats siguen trabajando; ellos no comparten mi límite», y era falso. Planes quedó
+  con trabajo sin commitear en su worktree. **Regla:** con la ventana arriba del 85 %, cada chat commitea o escribe lo que
+  tiene en el disco antes de seguir.
+
+Y una de método que ahorró horas: **lo que un chat dice «listo» o «tomado para el tren» se verifica con git.** Diez
+lectores (Sonnet, 4 minutos) sobre las cronologías de claude1, con `git merge-base --is-ancestor`, encontraron que
+ninguna de las 7 puntas «tomadas» estaba en `main`. También apareció una punta que nadie tenía en la lista (Chats de las
+tabs, `256f46e07`), el «P1 de Stripe» que ya estaba en main desde antes y la punta real del CRM, que era otra
+(`60bd69812`, no `886cb3545`). Las herramientas están en `C:/dev/cerebro-herramientas/`: `listar.cjs` (chats por cuenta),
+`cola.cjs` (la cronología de un transcript desde una hora), `digest.cjs` (sólo los mensajes del usuario) y
+`workflow-relevo-chats-cuenta.js`. El método quedó en `docs/relevo/cerebro.md`, «LEER PRIMERO».
