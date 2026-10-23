@@ -47,4 +47,10 @@ export const cabeOtra = (capa: CapaId | string, tope: Tope, usadas: number): boo
   return t == null || usadas < t;
 };
 
+/**
+ * LA ruta para «Pasar a Pro» (el Cerebro, 23/10/2026): todo cartel de tope lleva acá, nunca a una ruta propia. Es «Tu plan»
+ * (app/configuraciones/plan), donde el negocio ve y cambia su plan.
+ */
+export const RUTA_CAMBIAR_PLAN = '/configuraciones/plan';
+
 export const textoTope = (t: number): string => `Llegaste al tope de tu plan (${t}). Pasa a MaKo Pro para tener más.`;
