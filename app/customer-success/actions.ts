@@ -49,7 +49,7 @@ import { getPagosByLead, type Pago } from '@/lib/pagos';
 import { DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
 import { getUsuarioActual } from '@/lib/auth';
 // La clase vive en su módulo, no en `lib/leads`, que sólo la re-usa.
-import { LeadDuplicadoError } from '@/lib/leads-duplicados';
+import { LeadDuplicadoError, type MotivoDuplicado } from '@/lib/leads-duplicados';
 import { ORIGEN_LEAD } from '@/app/crm/origen-lead';
 import { revalidatePath } from 'next/cache';
 import { autoasignar } from './trabajo';
@@ -157,7 +157,7 @@ export async function crearClienteAction(datos: {
    * editor del curso necesita el LEAD para ofrecer «usar ese» en vez de fallar («si el email ya es un
    * lead del workspace, ofrecer usar ese lead»).
    */
-  duplicados?: Array<{ leadId: number; nombre: string; motivo: 'email' | 'telefono' | 'nombre'; texto: string }>;
+  duplicados?: Array<{ leadId: number; nombre: string; motivo: MotivoDuplicado; texto: string }>;
 }> {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   const nombre = (datos.nombre ?? '').trim();

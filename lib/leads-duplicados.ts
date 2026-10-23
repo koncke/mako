@@ -25,6 +25,9 @@
 // La casa como id real (NULL = el producto del negocio). Es puro y sin `server-only`, igual
 // que este módulo: se importa en vez de reescribir la misma traducción por segunda vez.
 import { casaReal } from './lead-funnel-reglas';
+// La regla de «qué es un usuario de Instagram» (minúsculas, sin la @, hasta 30 letras, números, puntos y guiones bajos):
+// una sola, la de `usuarioInstagram` (app/crm/campo-inline.ts) y la del buscador del alta. Módulo puro y sin imports.
+import { usuarioDeTexto } from './instagram-buscar';
 
 /** Los datos que alcanzan para preguntar «¿este ya está?». */
 export type CandidatoLead = {
@@ -33,6 +36,13 @@ export type CandidatoLead = {
   telefono?: string | null;
   /** Ya normalizado por `normalizarTelefono`, si el caller lo tiene. */
   telefonoNormalizado?: string | null;
+  /**
+   * El Instagram del que entra, en cualquiera de sus formas (`@usuario`, `usuario` o el link del perfil): se compara por
+   * el usuario normalizado (`instagramComparable`). Cuenta como dato fuerte para el ORDEN de los motivos (va antes que el
+   * nombre), pero NO apaga la comparación por nombre como sí lo hacen el email y el teléfono: ver `buscarDuplicados`.
+   * Un lead que entra con sólo su @ (23/10/2026) no tiene otra cosa por la que reconocerlo.
+   */
+  instagram?: string | null;
 };
 
 /** Un lead que ya existe, en lo mínimo que hace falta para comparar. */
@@ -63,13 +73,27 @@ export type LeadExistente = {
    * agregarlo a un producto donde ya está, y agregar ahí no escribe nada.
    */
   productos?: number[];
+  /**
+   * El Instagram como esté guardado (`leads.instagram`, mig 0258): `ana_lopez` si lo escribió la ficha o el alta, pero
+   * también `@Ana_Lopez` o el link del perfil si entró por otra puerta. Por eso se compara por `instagramComparable` de los
+   * DOS lados y no por igualdad de texto.
+   *
+   * ⚠️ OPCIONAL A PROPÓSITO Y SÓLO LA TRAE LA CONSULTA DEL @ (`duplicadosDeLead`): pedir la columna en las consultas de
+   * email, teléfono y nombre haría que una base sin la 0258 rechace TODAS las altas, también las que no traen @. Ausente
+   * es «no sé», y no coincide con nada.
+   */
+  instagram?: string | null;
 };
 
 /**
  * Por qué dos leads parecen el mismo. El orden es de MÁS a MENOS concluyente, y
  * no es decorativo: gobierna qué se hace con el hallazgo.
+ *
+ * ⚠️ LA UNIÓN NO SE COPIA. Un tipo que la repita a mano deja de compilar el día que se suma un motivo (pasó con `instagram`
+ * en `duplicados[].motivo` de app/customer-success/actions.ts, que le asigna `c.motivo`): se importa este tipo, no se reescribe.
+ * Los consumidores de una `Coincidencia` leen `texto`, que ya trae la frase; ninguno ramifica por el literal del motivo.
  */
-export type MotivoDuplicado = 'email' | 'telefono' | 'nombre';
+export type MotivoDuplicado = 'email' | 'telefono' | 'instagram' | 'nombre';
 
 export type Coincidencia = {
   lead: LeadExistente;
@@ -134,6 +158,53 @@ export function emailComparable(v: unknown): string | null {
 export function telefonoComparable(v: unknown): string | null {
   const d = limpio(v).replace(/\D/g, '');
   return d.length >= 7 ? d.slice(-10) : null;
+}
+
+/** Las rutas de instagram.com que NO son un perfil: un link así no nombra a nadie. COPIA de `RUTAS_NO_PERFIL` (app/crm/campo-inline.ts). */
+const RUTAS_NO_PERFIL = new Set(['p', 'reel', 'reels', 'tv', 'explore', 'stories', 'accounts', 'direct', 'about', 'legal', 'developer']);
+
+/**
+ * Instagram comparable: el USUARIO, en minúsculas y sin la @. `null` = no es un usuario.
+ *
+ * ⚠️ LO GUARDADO NO TIENE UNA SOLA FORMA. `leads.instagram` es `ana_lopez` cuando lo escribió la ficha o el alta
+ * (`usuarioInstagram` normaliza), pero un lead que entró por una API, una importación vieja o un perfil pegado puede estar
+ * como `@Ana_Lopez` o como `https://instagram.com/ana_lopez/`. Comparar el texto crudo decía «no es el mismo» sobre la
+ * misma persona, que es el duplicado que se cuela. Por eso los DOS lados pasan por acá.
+ *
+ * ⚠️ ES LA MISMA REGLA QUE `usuarioInstagram` (app/crm/campo-inline.ts) y no una distinta, pero ESCRITA ACÁ A PROPÓSITO:
+ * este módulo es el núcleo puro de los duplicados (lo cargan el navegador del importador, los scripts y los tests) y
+ * traerla de `app/` invertiría la dependencia —`lib/leads` → este módulo → `campo-inline` → (sólo tipos) `lib/leads`, un
+ * ciclo— y arrastraría el catálogo de campos de la ficha por una función. Lo único que se repite es cómo se saca el
+ * usuario de un LINK (la regex y las rutas que no son perfil); QUÉ ES un usuario sigue siendo una sola regla,
+ * `usuarioDeTexto`. Que las dos copias no se separen lo fija tests/duplicados-instagram.test.ts, contra una tabla.
+ */
+export function instagramComparable(v: unknown): string | null {
+  let s = limpio(v);
+  if (!s) return null;
+  const link = s.match(/^(?:https?:\/\/)?(?:www\.|m\.)?instagram\.com\/([^/?#]+)/i);
+  if (link) {
+    if (RUTAS_NO_PERFIL.has(link[1].toLowerCase())) return null;
+    s = link[1];
+  }
+  return usuarioDeTexto(s);
+}
+
+/**
+ * El patrón `ilike` que TRAE los leads cuyo `instagram` CONTIENE a ese usuario (`%usuario%`), con `\`, `%` y `_` ESCAPADOS.
+ *
+ * ⚠️ EL GUION BAJO ES COMODÍN, Y LOS USUARIOS DE INSTAGRAM LO LLEVAN. Sin escapar, `ana_lopez` también trae a `anaxlopez`,
+ * `ana.lopez` y `anaalopez`. Son DOS barreras y las dos van a propósito: el patrón escapado trae menos, y la igualdad del
+ * usuario normalizado (`buscarDuplicados`) decide. Con sólo la segunda no hay un falso duplicado, pero la consulta lee TODO lo
+ * que pasa el patrón (sin `.limit`, que cortaría el superconjunto y podría dejar afuera al duplicado real) y un patrón que
+ * trae de más lee de más. Quien copie este `ilike` para decidir una identidad SIN la comparación exacta frena un alta por
+ * un parecido: ahí el escape es lo único que queda. El escape es el de `escaparIlike` (lib/email-entrante-reglas.ts),
+ * repetido acá porque aquel módulo importa éste (`emailComparable`).
+ *
+ * Es CONTIENE y no IGUAL a propósito: lo guardado puede ser `@Ana_Lopez` o el link entero (ver `instagramComparable`).
+ * Trae un superconjunto; quién es quién lo decide la comparación exacta de los dos lados.
+ */
+export function patronDeInstagram(usuario: string): string {
+  return `%${usuario.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
 
 /**
@@ -249,12 +320,29 @@ export function elegirPorTelefono<T extends CandidatoPorTelefono>(
  * ⚠️ Y el NOMBRE solo cuenta cuando el candidato no trae ni email ni teléfono
  * comparables. Dos «Juan Pérez» son dos personas distintas mucho más seguido que
  * dos veces el mismo teléfono; si hay un dato fuerte, ese manda y el nombre no
- * agrega nada más que falsos positivos. Sin ningún dato fuerte, el nombre es lo
- * único que hay — y avisar de más es barato, porque acá nada se descarta solo.
+ * agrega nada más que falsos positivos. Sin ninguno, el nombre es lo único que
+ * hay — y avisar de más es barato, porque acá nada se descarta solo.
+ *
+ * ⚠️ EL @ NO APAGA EL NOMBRE, y no es una omisión: copiar acá la regla del email y el
+ * teléfono dejó sin aviso a «Juan Pérez + @juanp» contra un «Juan Pérez» que ya estaba
+ * con email y sin @, o sea el caso normal. La regla «si hay un dato fuerte, el nombre
+ * sobra» vale porque ese dato está en casi todas las fichas: si el candidato lo trae y
+ * no coincide, descarta. `leads.instagram` es de la mig 0258 y casi ninguna ficha vieja
+ * lo tiene, así que que el existente NO lo tenga no descarta nada, y el nombre es lo
+ * único que lo ve. El costo es un aviso de más cuando el existente tiene OTRO @ y el
+ * mismo nombre (dos cuentas de una persona, o dos personas): se avisa y no se bloquea.
+ * Quien ya salió por el @ no se repite (`yaEsta`).
+ *
+ * ⚠️ CADA LEAD MARCA POR LO QUE COINCIDE, y por lo más concluyente: email, teléfono,
+ * Instagram, nombre. Un candidato con email y @ que choca con dos fichas —una por el
+ * email, otra por el @— las devuelve a las dos, cada una con su motivo; y una ficha que
+ * coincide por varios sale UNA vez, con el primero. El orden de la lista es el de los
+ * motivos y no el de `existentes`: `textoDuplicado` nombra a la primera.
  */
 export function buscarDuplicados(cand: CandidatoLead, existentes: LeadExistente[]): Coincidencia[] {
   const email = emailComparable(cand.email);
   const tel = telefonoComparable(cand.telefonoNormalizado ?? cand.telefono);
+  const ig = instagramComparable(cand.instagram);
   const nombre = nombreComparable(cand.nombre);
   const out: Coincidencia[] = [];
   const yaEsta = (id: number) => out.some((c) => c.lead.id === id);
@@ -270,7 +358,14 @@ export function buscarDuplicados(cand: CandidatoLead, existentes: LeadExistente[
       out.push({ lead: l, motivo: 'telefono', texto: `mismo teléfono (${cand.telefono?.trim() || tel})` });
     }
   }
-  // El nombre, solo si no hubo con qué comparar mejor.
+  // El @ se dice normalizado (`@ana_lopez`), no como lo tipeó quien lo cargó ni como esté guardado: es lo que se comparó.
+  for (const l of existentes) {
+    if (yaEsta(l.id)) continue;
+    if (ig && instagramComparable(l.instagram) === ig) {
+      out.push({ lead: l, motivo: 'instagram', texto: `mismo Instagram (@${ig})` });
+    }
+  }
+  // El nombre, solo si no hubo email ni teléfono con qué comparar mejor. El @ NO cuenta acá (ver arriba).
   if (!email && !tel && nombre) {
     for (const l of existentes) {
       if (yaEsta(l.id)) continue;
