@@ -5334,6 +5334,47 @@ sea una app de escritorio con el típico panel de "avanzar"». El plan entero: d
   (abrir o descargar), Claude Code sin terminal, el `.pkg` de la Mac, la firma (cuesta plata: lo decide Martín) y subir
   `VERSION_PC` (con su OK).
 
+## Varias computadoras por persona, «Desconectar» y el panel del super admin (22/10/2026)
+
+**El pedido, textual** (Martín): «el usuario debería poder abrir y ejecutar su Claude en varios dispositivos, por ejemplo,
+ahora abrí la cuenta de Mauricio e instalé MaKo desktop para conectarme a su claude, pero luego él va a querer hacerlo en su
+PC, se debería poder ver eso... Lo mismo en SuperAdmin. Y poder "Desconectar" dispositivos».
+
+**Vive en:** `elegirPc`, `sistemaDeLaVersion`, `detalleDeLaPc` (lib/ia-pc-reglas.ts) · `pcDe`, `listarTodasLasPc` (lib/ia-pc.ts)
+· app/admin/operaciones/UsoComputadoras.tsx (SuperAdmin › Uso, computadora y teléfono) · «Conectar otra computadora» en
+app/integraciones/TusCuentasIA.tsx · tests/ia-pc-varias.test.ts.
+
+- **Medir antes de construir: casi todo ya estaba.** Una persona ya podía tener varias computadoras (nada lo impedía), la
+  tarjeta ya las listaba con «Desconectar», y `desconectar` ya revocaba al instante y vencía el turno en curso. Conectar otra
+  no suelta las demás (sólo reemplaza la anterior de la MISMA máquina): la que Martín conectó en la cuenta de Mauricio no se
+  pierde.
+- **Lo que estaba mal era a cuál iba el turno:** `pcDe` tomaba «la que latió último». Con dos prendidas, cada latido (30 s)
+  ganaba otra, y el turno saltaba de un Claude a otro. Ahora va a una que conteste; con varias, a la que contestó el último
+  turno; sin turnos, a la última conectada; si una se apaga, a la otra.
+- **El sistema sin migración:** el programa desde la 0.4.0 manda `0.4.0+windows` o `+mac` en la versión del latido (el campo
+  ya aceptaba el `+`). Las de antes no lo dicen, y no se muestra.
+- **La computadora desconectada lo dice** en una ventana del sistema, desde la 0.4.0 (rama instalador-escritorio-2210). Antes
+  sólo quedaba en el registro, que nadie lee en un programa sin consola. La ventana va al final y esperada: si no, el
+  programa salía antes de mostrarla.
+- **Trampa de la rotura:** «leer el hash y no devolverlo» quedó en verde, y estaba bien: no es una fuga. La rotura que sí lo
+  devuelve da rojo. Una rotura que no rompe nada no prueba el test.
+- **El panel del cliente** va dentro de `<TusCuentasIA />`, que el Uso del cliente (D3, chat Ops Center) ya abre tal cual.
+- **La revisión adversarial lo encontró: «la del último turno» se queda pegada a una que FALLA.** Con sólo los turnos
+  contestados bien, una PC que llegó al tope o se colgó pero sigue latiendo era «la del último turno» para siempre: cada
+  turno iba ahí a fallar y la otra, que contesta, no recibía ninguno (antes, con «la que latió último», al menos se
+  turnaban). El arreglo: el último turno TERMINADO (bien, error o vencido); la que falló, o tiene todas sus cuentas al 100%
+  (`cuentasAgotadas`), va al final, y entre las que fallaron primero la que falló hace más. **La regla: elegir «la última
+  que anduvo» sin mirar si anduvo bien convierte una preferencia en una trampa.**
+- **«Desconectar» se apoyaba en que un update no fallara.** `desconectar` revocaba la PC y vencía sus turnos en dos pasos, y
+  el segundo podía fallar callado; `pedirLlamada`, `esperarALaPc` y `tomarTurno` miraban el estado del TURNO, no la PC.
+  Ahora el segundo paso tira, y las tres miran `revocado_at` (`sigueConectada`, falla cerrada). **La regla: toda puerta que
+  da un turno o corre una herramienta mira la revocación de la PC, no sólo el estado del turno.**
+- **Quedó SIN decidir (es de Martín):** el admin de un negocio ve el email de la cuenta personal de Claude, el plan y el %
+  de uso de las computadoras de sus empleados (app/api/ia-pc/estado/route.ts y TusCuentasIA.tsx). Era así antes; es un dato
+  personal.
+- **Quedó SIN medir:** si el programa sigue mandando la cuenta en el latido cuando la sesión de Claude venció. Si la manda,
+  esa PC cuenta como «usable» hasta que falla un turno (después, el arreglo de arriba la manda al final).
+
 ## D6b para TODO el negocio: la decisión baja a la PUERTA de la capa de IA (IA6, 22/10/2026)
 
 **Vive en:** `lib/solo-su-ia.ts` (`conD6bDelPedido`, `esFueraDeD6b`) · la primera línea de cada función pública de

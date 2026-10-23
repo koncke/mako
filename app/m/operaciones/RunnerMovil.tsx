@@ -17,14 +17,18 @@ import type { CarteroP } from '@/lib/centro-chats';
 import type { ClaveDispositivo } from '@/app/admin/operaciones/clave-dispositivo';
 import { ListaUso, type CuentaUso, type RenombrarCuenta } from '@/app/admin/operaciones/Uso';
 import { SeccionCredito, type CambiarCredito, type LeerCredito } from '@/app/admin/operaciones/UsoCredito';
+import { SeccionComputadoras, type DesconectarComputadora, type LeerComputadoras } from '@/app/admin/operaciones/UsoComputadoras';
 import { cuentasDeUso } from '@/lib/centro-uso';
 
-export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClave, cuentas, onRenombrar, onLeerCredito, onCambiarCredito }: {
+export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClave, cuentas, onRenombrar, onLeerCredito, onCambiarCredito, onLeerComputadoras, onDesconectarComputadora }: {
   carteros: CarteroP[] | null;
   /** El crédito de API de los planes (la sección «API» de la computadora, UsoCredito.tsx): se pide al abrir la hoja. */
   onLeerCredito?: LeerCredito;
   /** El interruptor del crédito asignado a un negocio (el ws1), como en la computadora. */
   onCambiarCredito?: CambiarCredito;
+  /** Las computadoras de los negocios, con su «Desconectar», como en la computadora. */
+  onLeerComputadoras?: LeerComputadoras;
+  onDesconectarComputadora?: DesconectarComputadora;
   /** Las cuentas del Uso con su nombre y su email (la G); sin esto, las de los Runners con «Cuenta N». */
   cuentas?: readonly CuentaUso[];
   onRenombrar?: RenombrarCuenta;
@@ -47,6 +51,7 @@ export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClav
       {/* La API (22/10/2026, Martín: «En USO de SuperAdmin quiero ver también el USO de la API»): la misma pieza que la
           computadora, debajo de las cuentas. */}
       {onLeerCredito && <SeccionCredito leer={onLeerCredito} cambiar={onCambiarCredito} cuentas={cuentas ?? cuentasDeUso(carteros ?? [])} />}
+      {onLeerComputadoras && <SeccionComputadoras leer={onLeerComputadoras} desconectar={onDesconectarComputadora} ahora={ahora} />}
       {/* Sin la sección «N de N activos» desde el 17/10/2026 (Martín: aparecía duplicado; el número ya está en la fila «Uso y
           Runners» de arriba, y cada cuenta del Uso dice «Runner activo» o «Runner sin conexión»). */}
       <SeccionM titulo="Este teléfono">

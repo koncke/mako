@@ -17,12 +17,14 @@ import { LogoClaude } from '@/app/admin/operaciones/Uso';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { hace } from '@/lib/progreso-reglas';
-import { TEXTO_CONSENTIMIENTO, VERSION_CONSENTIMIENTO, estadoDeLaPc, lineaDeInstalacion, yaPaso, type CuentaPc, type SistemaPc } from '@/lib/ia-pc-reglas';
+import { TEXTO_CONSENTIMIENTO, VERSION_CONSENTIMIENTO, detalleDeLaPc, estadoDeLaPc, lineaDeInstalacion, yaPaso, type CuentaPc, type SistemaPc } from '@/lib/ia-pc-reglas';
 import { nombreDeSuClave, queHacer, textoDeSuClave, textoDelGasto, type EstadoSuClave, type ProvSuClave } from '@/lib/su-clave-reglas';
 import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
 import './tus-cuentas-ia.css';
 
-type Pc = { id: number; nombre: string; esMia: boolean; de?: string; enLinea: boolean; ultimoLatido: string | null; version: string | null; cuentas: CuentaPc[]; sinClaude?: boolean };
+type Pc = { id: number; nombre: string; esMia: boolean; de?: string; enLinea: boolean; ultimoLatido: string | null; version: string | null; cuentas: CuentaPc[]; sinClaude?: boolean; conectadaAt?: string | null; sistema?: string | null };
+/** «22/10»: cuándo se conectó una PC (en la zona de quien mira). */
+const fechaCorta = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day: 'numeric', month: 'numeric' });
 type SuClave = EstadoSuClave & { es: 'propia' | 'copia' | 'ilegible' | 'credito'; modelo?: 'haiku' | 'sonnet'; soloHaiku?: boolean };
 /** El modelo de su Claude por clave (IA5). Lo paga su cuenta. */
 const MODELOS_SU_CLAUDE: Array<{ v: 'haiku' | 'sonnet'; t: string }> = [{ v: 'haiku', t: 'Haiku' }, { v: 'sonnet', t: 'Sonnet' }];
@@ -429,6 +431,8 @@ export function TusCuentasIA({ sinCabecera = false, conectar = false }: { sinCab
               {estadoDeLaPc(pc, ahora, hace)}
             </span>
           </div>
+          {/* Con varias, cuál es cuál: el sistema (desde la 0.4.0) y cuándo se conectó. Sin dato, nada. */}
+          {detalleDeLaPc(pc, fechaCorta) && <p className="tci-nota">{detalleDeLaPc(pc, fechaCorta)}</p>}
           {pc.cuentas.map((c, i) => (
             <div key={`${pc.id}-${i}`} className="tci-cuenta">
               <div className="tci-quien">
@@ -452,6 +456,11 @@ export function TusCuentasIA({ sinCabecera = false, conectar = false }: { sinCab
           </div>
         </div>
       ))}
+
+      {/* Varias computadoras (22/10/2026): la de la casa y la de la oficina, cada una con su Claude. */}
+      {!!estado?.pcs.length && !tutorial && !eligiendo && (
+        <button type="button" className="tci-boton tci-boton--suave" onClick={abrirTutorial}>Conectar otra computadora</button>
+      )}
 
       {estado?.esAdmin && !!estado.pcs.length && (
         <div className="tci-modelo">

@@ -480,6 +480,65 @@ export function estadoDeLaPc(pc: { enLinea: boolean; ultimoLatido: string | null
 /** ¿Le sirve el turno a esta PC? En línea Y con una cuenta con sesión: «en línea» sin Claude no contesta nada. */
 export const pcUsable = (pc: { enLinea: boolean; cuentas: readonly unknown[] } | null | undefined): boolean => !!pc && pc.enLinea && pc.cuentas.length > 0;
 
+/**
+ * A QUÉ COMPUTADORA VA EL TURNO, con varias (22/10/2026, Martín: «el usuario debería poder abrir y ejecutar su Claude en varios
+ * dispositivos»). Primero las que contestan (`pcUsable`); entre ésas, la que contestó el ÚLTIMO turno (la que la persona está
+ * usando), y sin turnos, la última conectada. Antes era «la que latió último»: con dos prendidas, cada 30 s ganaba otra, y
+ * el turno saltaba de un Claude a otro. Si ninguna contesta, la que latió último: el turno dice «apagada» o «sin sesión».
+ * `ultimoTurno`: por id, su último turno TERMINADO (cuándo, y si contestó bien).
+ *
+ * Revisión adversarial (22/10/2026): mirando sólo los turnos contestados bien, una que llegó al tope o se colgó (pero sigue
+ * latiendo) seguía siendo «la del último turno», y cada turno iba ahí a fallar mientras la otra, que sí contesta, no
+ * recibía ninguno. Ahora la que falló su último turno, o tiene la cuenta agotada (100% de las 5 horas o de la semana), va
+ * al final; entre las que fallaron, primero la que falló hace más (así, con las dos fallando, se turnan).
+ */
+export function elegirPc<T extends { id: number; enLinea: boolean; cuentas: readonly unknown[]; ultimoLatido: string | null; conectadaAt?: string | null }>(
+  pcs: readonly T[], ultimoTurno: ReadonlyMap<number, { at: string; ok: boolean }>,
+): T | null {
+  const ms = (s: string | null | undefined) => (s ? Date.parse(s) || 0 : 0);
+  const usables = pcs.filter(pcUsable);
+  if (usables.length) {
+    const sana = (p: T) => !cuentasAgotadas(p.cuentas) && ultimoTurno.get(p.id)?.ok !== false;
+    return [...usables].sort((a, b) => {
+      if (sana(a) !== sana(b)) return sana(a) ? -1 : 1;
+      const t = ms(ultimoTurno.get(b.id)?.at) - ms(ultimoTurno.get(a.id)?.at);
+      return (sana(a) ? t : -t) || ms(b.conectadaAt) - ms(a.conectadaAt) || b.id - a.id;
+    })[0];
+  }
+  return [...pcs].sort((a, b) => ms(b.ultimoLatido) - ms(a.ultimoLatido) || b.id - a.id)[0] ?? null;
+}
+
+/** ¿Todas sus cuentas llegaron al 100% (de las 5 horas o de la semana)? Así no contesta, aunque lata. */
+export function cuentasAgotadas(cuentas: readonly unknown[]): boolean {
+  const agotada = (c: unknown) => {
+    const u = (c ?? {}) as { usado5h?: unknown; usadoSemana?: unknown };
+    return (typeof u.usado5h === 'number' && u.usado5h >= 100) || (typeof u.usadoSemana === 'number' && u.usadoSemana >= 100);
+  };
+  return cuentas.length > 0 && cuentas.every(agotada);
+}
+
+/**
+ * El sistema de la PC, de su versión: el programa desde la 0.4.0 manda `0.4.0+windows` o `0.4.0+mac` en el latido (sin
+ * migración: el campo ya acepta el `+`). Las de antes no lo dicen: null, y no se muestra.
+ */
+export function sistemaDeLaVersion(version: string | null | undefined): 'Windows' | 'Mac' | null {
+  const m = /\+(windows|mac)$/i.exec(String(version ?? ''));
+  return m ? (m[1].toLowerCase() === 'mac' ? 'Mac' : 'Windows') : null;
+}
+
+/** Una PC de un negocio, para el super admin (SuperAdmin › Uso → Computadoras). Sin ningún secreto. */
+export type PcDeNegocio = {
+  id: number; ws: number; negocio: string; persona: string; nombre: string; sistema: 'Windows' | 'Mac' | null;
+  enLinea: boolean; conClaude: boolean; conectadaAt: string | null; ultimoLatido: string | null;
+};
+export type LecturaComputadoras = { ok: true; pcs: PcDeNegocio[] } | { ok: false; error: string };
+
+/** La línea de debajo del nombre: el sistema y cuándo se conectó. Sin dato, no se muestra. */
+export function detalleDeLaPc(pc: { sistema?: string | null; conectadaAt?: string | null }, fecha: (iso: string) => string): string | null {
+  const partes = [pc.sistema ?? null, pc.conectadaAt ? `conectada el ${fecha(pc.conectadaAt)}` : null].filter(Boolean);
+  return partes.length ? partes.join(' · ') : null;
+}
+
 /** Lo que dice el chat cuando el turno era de la computadora de la persona y no salió (docs/ia-del-cliente.md §5). */
 export const AVISO_PC_APAGADA = 'Tu computadora está apagada: préndela y mándamelo de nuevo.';
 export const AVISO_PC_TARDE = 'Tu Claude tardó demasiado: mándamelo de nuevo.';
