@@ -33,7 +33,6 @@ import {
   abrioAlgunaPropia, cronDeProspeccion, tieneConfigPropia, textoDeHorario, claveConfigAutomatizacion, secuenciaDeClave,
   type ConfigAutomatizacion,
 } from '../lib/config-automatizacion';
-import { LIMITES_CONSTANTES } from '../lib/limites-envio';
 import type { HorarioEnvio } from '../lib/horario-envio';
 import { BotonTuerca, TITULO_TUERCA } from '../app/automations/SecuenciaPerfil';
 import { opcionesDeFila } from '../app/automations/SimuladorWhatsApp';
@@ -112,9 +111,9 @@ test('3: sin nada propio, la del negocio; con horario propio (o «sin horario»)
   // «Sin horario» propio: manda a cualquier hora aunque el negocio tenga uno.
   assert.equal(horarioDeLaAutomatizacion({ horario: { ...PROPIO_10_A_12, activo: false } }, NEGOCIO_9_A_21), null);
   assert.equal(horarioDeLaAutomatizacion({ horario: null }, NEGOCIO_9_A_21), null);
-  // Las horas a la misma persona, por canal.
-  assert.deepEqual(personaHorasDeLaAutomatizacion(vacia, LIMITES_CONSTANTES), { whatsapp: 20, email: 20 });
-  assert.deepEqual(personaHorasDeLaAutomatizacion({ personaHoras: { whatsapp: 4 } }, LIMITES_CONSTANTES), { whatsapp: 4, email: 20 });
+  // Las horas a la misma persona, por canal: las suyas; sin las suyas, apagada (23/10/2026, tests/misma-persona-propia.test.ts).
+  assert.deepEqual(personaHorasDeLaAutomatizacion(vacia), { whatsapp: 0, email: 0 });
+  assert.deepEqual(personaHorasDeLaAutomatizacion({ personaHoras: { whatsapp: 4 } }), { whatsapp: 4, email: 0 });
   assert.equal(tieneConfigPropia(vacia), false);
   assert.equal(tieneConfigPropia({ personaHoras: { email: 30 } }), true);
   assert.equal(textoDeHorario(NEGOCIO_9_A_21), 'de 09:00 a 21:00 · todos los días');
@@ -162,7 +161,7 @@ test('3: el motor lee lo de cada automatización UNA vez, estricto, y lo usa por
   assert.match(pe, /if \(limites === 'ilegible' \|\| \(configs === 'ilegible' && fueraDeHorario == null\)\) return \{ \.\.\.res, saltado: 'limites-ilegibles' \};/);
   assert.match(pe, /const configsCorrida: ReadonlyMap<number, ConfigAutomatizacion> = configs === 'ilegible' \? new Map\(\) : configs;/);
   assert.match(pe, /frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioRecienteDe\(insc\.secuencia_id\), enviadoEnCorrida\)/);
-  assert.match(pe, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configsCorrida\.get\(secId\) \?\? \{\}, limites\);/);
+  assert.match(pe, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configsCorrida\.get\(secId\) \?\? \{\}\);/);
   // «No pude leer» no es «no tiene nada propio».
   assert.match(m, /async function configsDeEnvio\(\): Promise<Map<number, ConfigAutomatizacion> \| 'ilegible'> \{\n\s+try \{ return await configsDelNegocio\(\); \} catch \{ return 'ilegible'; \}/);
   const tick = sinComentarios(leer('app/api/cron/nutricion-tick/route.ts'));

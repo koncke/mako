@@ -341,7 +341,6 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'dias', tipo: 'string', max: 40, descripcion: 'con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos.' },
       { nombre: 'horasWhatsapp', tipo: 'number', entero: true, minimo: 0, maximo: 72, descripcion: 'opcional: horas entre dos WhatsApp a la misma persona en esta automatización (de 3 a 72), o 0 para apagarlo: no espera.' },
       { nombre: 'horasEmail', tipo: 'number', entero: true, minimo: 0, maximo: 168, descripcion: 'opcional: horas entre dos emails a la misma persona en esta automatización (de 1 a 168), o 0 para apagarlo: no espera.' },
-      { nombre: 'personaNegocio', tipo: 'boolean', descripcion: 'opcional: true para volver a las horas del negocio.' },
       { nombre: 'goteoMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: el goteo, minutos entre dos WhatsApp de esta automatización (uno cada N minutos).' },
       { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 150, descripcion: 'opcional: el goteo, cuántos WhatsApp de esta automatización como mucho en 24 h (adentro del tope de la línea).' },
       { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo.' },

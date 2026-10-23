@@ -123,8 +123,8 @@ async function secuenciaVigente(id: number) {
  * LO QUE PIDE `configurar_automatizacion`, en el cambio de `configParaGuardar` (lib/config-automatizacion.ts) y en
  * palabras para el resumen que la persona confirma. Sin nada que cambiar, el error.
  */
-/** De dónde salen las horas a la misma persona de una automatización: la del negocio, las suyas, o apagado (0 h, 22/10/2026). */
-const deLaPersona = (h: number | undefined): 'negocio' | 'propio' | 'apagado' => (h === undefined ? 'negocio' : h === PERSONA_SIN_ESPERA ? 'apagado' : 'propio');
+/** De dónde salen las horas a la misma persona de una automatización: las suyas, o apagado (0 h, o sin las suyas desde el 23/10/2026). */
+const deLaPersona = (h: number | undefined): 'propio' | 'apagado' => (h === undefined || h === PERSONA_SIN_ESPERA ? 'apagado' : 'propio');
 
 function cambioDeConfigDelInput(input: Record<string, unknown>): { cambio: Record<string, unknown>; resumen: string } | { error: string } {
   const cambio: Record<string, unknown> = {};
@@ -139,8 +139,8 @@ function cambioDeConfigDelInput(input: Record<string, unknown>): { cambio: Recor
     cambio.horario = horario;
     partes.push(`horario propio, ${textoDeHorario(horario)}`);
   }
-  if (input.personaNegocio === true) { cambio.personaHoras = null; partes.push('las horas a la misma persona del negocio'); }
-  else {
+  // (Hasta el 23/10/2026 había `personaNegocio`, «volver a las horas del negocio»: ya no hay horas del negocio para una automatización.)
+  {
     const ph: Record<string, number> = {};
     if (input.horasWhatsapp != null) { ph.whatsapp = num(input, 'horasWhatsapp'); partes.push(ph.whatsapp === PERSONA_SIN_ESPERA ? 'sin espera entre dos WhatsApp a la misma persona' : `${ph.whatsapp} h entre dos WhatsApp a la misma persona`); }
     if (input.horasEmail != null) { ph.email = num(input, 'horasEmail'); partes.push(ph.email === PERSONA_SIN_ESPERA ? 'sin espera entre dos emails a la misma persona' : `${ph.email} h entre dos emails a la misma persona`); }
@@ -864,7 +864,7 @@ export const RUNNERS: Runners = {
       const delNegocio = horarioVigente(horario);
       const lim = limitesVigentes(limites, limitesDeFabrica(process.env));
       const vale = horarioDeLaAutomatizacion(config, delNegocio);
-      const persona = personaHorasDeLaAutomatizacion(config, lim);
+      const persona = personaHorasDeLaAutomatizacion(config);
       return json({
         secuencia: { id, nombre: s.nombre },
         horario: { vale: vale ? textoDeHorario(vale) : 'sin horario: manda a cualquier hora', de: config.horario === undefined ? 'negocio' : 'propio' },

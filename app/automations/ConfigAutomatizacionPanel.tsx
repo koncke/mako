@@ -83,7 +83,7 @@ type CambioAntiban = { goteo?: Record<string, number | null>; personaHoras?: Rec
  * la llamada con Mauricio: «envía uno, tal vez espera 4 minutos o 5, envía el otro»), su tope por día (un SUB-tope adentro
  * del de la línea) y las horas entre dos mensajes a la misma persona por canal. Cada fila con su interruptor:
  *   · goteo y tope: apagado = el campo AUSENTE (sin goteo / sin tope propio). Al prenderlo arranca con el número gris.
- *   · misma persona: prendido = el propio, o el del negocio si no tiene (ausente); apagado = `PERSONA_SIN_ESPERA` (0 h).
+ *   · misma persona: prendido = el propio; apagado = `PERSONA_SIN_ESPERA` (0 h) o AUSENTE (desde el 23/10/2026 las nuevas nacen así).
  *     Prenderlo de nuevo guarda el número que se ve, como SUYO (23/10/2026: nada «para todas»).
  * UN guardado para las dos partes (`pendiente` las junta en el respiro). Devuelve las filas, que la pantalla reparte por canal.
  */
@@ -145,7 +145,9 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
   const filaPersona = (canal: 'whatsapp' | 'email', rango: readonly [number, number]) => {
     if (!d) return null;
     const propio = leido('personaHoras', canal);
-    const on = propio !== PERSONA_SIN_ESPERA;
+    // Sin las suyas, APAGADA (23/10/2026, `personaHorasDeLaAutomatizacion`): las nuevas nacen así. Apagada se ve en gris el
+    // número del negocio, que es lo que guarda al prenderla.
+    const on = propio !== undefined && propio !== PERSONA_SIN_ESPERA;
     const valor = propio !== undefined && propio !== PERSONA_SIN_ESPERA ? propio : d.personaNegocio[canal];
     const clave = `personaHoras.${canal}`;
     const deQue = canal === 'whatsapp' ? 'mensajes' : 'emails';

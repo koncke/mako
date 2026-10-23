@@ -68,7 +68,7 @@ export async function frenosDelNegocio(filas: readonly ConId[], secs: readonly F
     // intento de cada inscripción (un fallo NO avanza: lo que falló sigue siendo la tarjeta en la que está).
     const db = await getTenantDb();
     const leads = [...new Set(vivas.map((f) => Number(f.lead_id)))];
-    const horas = Math.max(0, ...secs.map((s) => personaHorasDeLaAutomatizacion(configs.get(Number(s.id)) ?? {}, limites).whatsapp));
+    const horas = Math.max(0, ...secs.map((s) => personaHorasDeLaAutomatizacion(configs.get(Number(s.id)) ?? {}).whatsapp));
     const desde = new Date(ahoraMs - Math.max(horas, 24) * 3600_000).toISOString();
     const ultimoWa = new Map<number, number>();
     const anotar = (lead: number, ms: number) => { if (Number.isFinite(ms) && ms > (ultimoWa.get(lead) ?? 0)) ultimoWa.set(lead, ms); };
@@ -122,7 +122,7 @@ export async function frenosDelNegocio(filas: readonly ConId[], secs: readonly F
       return porQueNoSale({
         proximoEnvioAt: f.proximo_envio_at, automatizacionActiva: s.activa === true, canal, hayLinea,
         horario: horarioDeLaAutomatizacion(c, hNeg),
-        mismaPersona: { horas: personaHorasDeLaAutomatizacion(c, limites).whatsapp, ultimoMs: ultimoWa.get(Number(f.lead_id)) ?? null },
+        mismaPersona: { horas: personaHorasDeLaAutomatizacion(c).whatsapp, ultimoMs: ultimoWa.get(Number(f.lead_id)) ?? null },
         ultimoFallo,
         correFueraDeHorario: carril || makoIgual,
         sinAntiBan: carril || reunionCerca.has(Number(f.lead_id)),

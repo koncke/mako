@@ -24,7 +24,6 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { configParaGuardar, sanearConfigAutomatizacion, personaHorasDeLaAutomatizacion, tieneConfigPropia, PERSONA_SIN_ESPERA } from '../lib/config-automatizacion';
-import { LIMITES_CONSTANTES } from '../lib/limites-envio';
 import { FilaOpcion, GrupoOpciones, Unidad, Info } from '../app/automations/FilasOpciones';
 import { FILAS_LINEA } from '../lib/limites-envio';
 
@@ -39,7 +38,7 @@ const tramo = (src: string, desde: string, hasta: string) => {
 
 // ── 2. «Misma persona» apagado = sin espera, sólo en esa automatización ─────────────────────────────
 
-test('misma persona apagado: 0 h se guarda y se lee como propio; ausente sigue siendo el del negocio', () => {
+test('misma persona apagado: 0 h se guarda y se lee como propio; ausente, desde el 23/10/2026, también apagada', () => {
   assert.equal(PERSONA_SIN_ESPERA, 0);
   const r = configParaGuardar({}, { personaHoras: { whatsapp: PERSONA_SIN_ESPERA, email: PERSONA_SIN_ESPERA } });
   assert.ok(r.ok, 'apagarla se rechazaba («van de 3 a 72»)');
@@ -47,22 +46,24 @@ test('misma persona apagado: 0 h se guarda y se lee como propio; ausente sigue s
   assert.ok(r.ok && !r.vacia && tieneConfigPropia(r.config), 'apagada quedaba como «la del negocio»: la clave se borraba');
   // Lo guardado vuelve igual (el motor lo lee con el saneo).
   assert.deepEqual(sanearConfigAutomatizacion(r.ok ? r.valor : ''), { personaHoras: { whatsapp: 0, email: 0 } }, 'el saneo tiraba el 0 y volvía la del negocio');
-  // Y lo que mandan: 0 apagada; sin nada, la del negocio.
-  assert.deepEqual(personaHorasDeLaAutomatizacion({ personaHoras: { whatsapp: 0 } }, LIMITES_CONSTANTES), { whatsapp: 0, email: LIMITES_CONSTANTES.email.personaHoras });
-  assert.deepEqual(personaHorasDeLaAutomatizacion({}, LIMITES_CONSTANTES), { whatsapp: LIMITES_CONSTANTES.wa.personaHoras, email: LIMITES_CONSTANTES.email.personaHoras });
+  // Y lo que mandan: 0 apagada; sin nada, apagada (23/10/2026: las nuevas nacen así; las viejas guardaron la suya,
+  // tests/misma-persona-propia.test.ts).
+  assert.deepEqual(personaHorasDeLaAutomatizacion({ personaHoras: { whatsapp: 0 } }), { whatsapp: 0, email: PERSONA_SIN_ESPERA });
+  assert.deepEqual(personaHorasDeLaAutomatizacion({}), { whatsapp: PERSONA_SIN_ESPERA, email: PERSONA_SIN_ESPERA });
   // El rango de siempre para lo prendido: 1 y 2 h por WhatsApp siguen afuera (el mínimo es 3).
   for (const n of [1, 2, -1, 0.5]) assert.equal(configParaGuardar({}, { personaHoras: { whatsapp: n } }).ok, false, `${n} h se guardaba`);
-  // `null` la vuelve a la del negocio (prenderla otra vez).
+  // `null` la saca (queda apagada, como una nueva).
   const vuelta = configParaGuardar({ personaHoras: { whatsapp: 0 } }, { personaHoras: { whatsapp: null } });
   assert.ok(vuelta.ok && vuelta.vacia);
   // La API de MaKo lo apaga igual que la tuerca (`horasWhatsapp: 0`) y lo dice al leer («apagado»).
   const def = fuente('lib/api-mako/areas/chatbot.def.ts');
   assert.match(def, /\{ nombre: 'horasWhatsapp', tipo: 'number', entero: true, minimo: 0, maximo: 72,/, 'la API no puede apagarlo');
   assert.match(def, /\{ nombre: 'horasEmail', tipo: 'number', entero: true, minimo: 0, maximo: 168,/);
-  assert.match(fuente('lib/api-mako/areas/chatbot.run.ts'), /h === undefined \? 'negocio' : h === PERSONA_SIN_ESPERA \? 'apagado' : 'propio'/);
+  assert.match(fuente('lib/api-mako/areas/chatbot.run.ts'), /h === undefined \|\| h === PERSONA_SIN_ESPERA \? 'apagado' : 'propio'/);
+  assert.doesNotMatch(def, /personaNegocio/, 'volvió «volver a las horas del negocio»');
   // El motor no necesita nada propio: con 0 h la ventana de «ya le escribimos» es vacía.
   const motor = fuente('lib/nutricion.ts');
-  assert.match(motor, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configsCorrida\.get\(secId\) \?\? \{\}, limites\);/);
+  assert.match(motor, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configsCorrida\.get\(secId\) \?\? \{\}\);/);
   assert.match(motor, /const desde = haceHorasISO\(personaHoras\.whatsapp\);\n\s+const desdeEmail = haceHorasISO\(personaHoras\.email\);/);
 });
 
@@ -82,7 +83,7 @@ test('el anti-ban de la automatización: goteo, por día y misma persona, cada u
   assert.match(g, /<Unidad apagada=\{!on\}>\{unidad\}<\/Unidad>/);
   // Misma persona: apagar guarda 0 h; prender guarda el número que se ve, como SUYO (23/10/2026: nada «para todas»).
   const m = tramo(a, 'const filaPersona = ', '\n  };');
-  assert.match(m, /const on = propio !== PERSONA_SIN_ESPERA;/);
+  assert.match(m, /const on = propio !== undefined && propio !== PERSONA_SIN_ESPERA;/);
   assert.match(m, /onCambio=\{\(x\) => guardar\('personaHoras', \{ \[canal\]: x \? valor : PERSONA_SIN_ESPERA \}\)\}/);
   assert.match(m, /const valor = propio !== undefined && propio !== PERSONA_SIN_ESPERA \? propio : d\.personaNegocio\[canal\];/);
   assert.match(m, /if \(!d\) return null;/);

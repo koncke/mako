@@ -60,7 +60,7 @@ import { Modal } from '@/app/_ui';
 import { useCerrarEstable } from '@/app/customer-success/curso/dialogo-foco';
 import { AjustesDeLaAutomatizacion } from './ConfigAutomatizacionPanel';
 import { getConfigAutomatizacionAction } from './config-automatizacion-actions';
-import { tieneConfigPropia, type PropsConfiguraciones } from '@/lib/config-automatizacion';
+import { tieneRitmoPropio, type PropsConfiguraciones } from '@/lib/config-automatizacion';
 import { LADO_FILTRO } from './FiltroLista';
 import { OBJETIVO_AYUDA } from './recorrido-automations';
 
@@ -89,9 +89,9 @@ export function ConfiguracionesModal({ secuenciaId, onCerrar }: PropsConfiguraci
   );
 }
 
-/** ¿Esa automatización tiene algo propio? (el aviso de Prospección de Publicar y Probar). */
+/** ¿Esa automatización ya tiene su ritmo (horario o goteo)? (el aviso de Prospección de Publicar y Probar: `tieneRitmoPropio`). */
 export async function tieneConfigPropiaDe(secuenciaId: number): Promise<boolean> {
-  return tieneConfigPropia((await getConfigAutomatizacionAction(secuenciaId)).config);
+  return tieneRitmoPropio((await getConfigAutomatizacionAction(secuenciaId)).config);
 }
 
 /** El rótulo del «?». */
