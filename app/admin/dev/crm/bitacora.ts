@@ -2993,6 +2993,7 @@ export const BITACORA: Hito[] = [
       'Al acercarse la hora la tarjeta se marca («Empieza en 5 min») y aparece «Entrar a la reunión» con el link. Sin «Llamar» ni «WhatsApp». Es la misma en el teléfono.',
     ],
     commits: [
+      { sha: 'd7b6b6ae5', msg: 'CRM (feedback de Martín del 22/10, noche): el ⋯ de la columna por secciones, «Tipo de etapa ›» ahí mismo y «Tus reuniones» para preparar', lineas: 1207, archivos: 39 },
     ],
     archivos: [
       'app/crm/menu-contextual-crm.ts · app/_ui/MenuContextual.tsx — el menú de la columna, por secciones',
