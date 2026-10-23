@@ -47,13 +47,17 @@ const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
   // con la caja y el hilo únicos y su motor de siempre. El chat de un gráfico del Dashboard ya va a la estrella.
   'app/dashboard/PanelEditarMako.tsx': 'caja única',
   'app/web-generator/CajaPedido.tsx': 'pendiente, de Web Generator (la usan Automations, CRM y Dashboard)',
-  'app/web-generator/editor/paneles/PanelAgente.tsx': 'pendiente, de Web Generator',
-  'app/video-editor/_opencut/chat/PanelChat.tsx': 'pendiente, de Video Generator',
-  'app/image-editor/mako/chat/PanelMakoIA.tsx': 'pendiente, de Image Editor',
+  // 22/10/2026 (TB3): el agente dibuja el hilo y la caja únicos desde ChatAgente.tsx, que carga con next/dynamic (PanelAgente.tsx
+  // lo importan tests y las piezas traen CSS); PanelAgente ya no arma ninguna caja.
+  'app/web-generator/editor/paneles/ChatAgente.tsx': 'caja única',
+  // 22/10/2026 (TB3): los dos editores con su motor (editan lo abierto) y la propuesta en el hueco de la respuesta.
+  'app/video-editor/_opencut/chat/PanelChat.tsx': 'caja única',
+  'app/image-editor/mako/chat/PanelMakoIA.tsx': 'caja única',
   'app/plan/board/MakoProyecto.tsx': 'pendiente, de Plan',
   'app/_components/MakoChat.tsx': 'caja única',
   // La encontró la guarda el 20/10 (no estaba en el inventario de docs/feedback-20-10.md): «Pregúntale a MaKo…» en el chat de WhatsApp.
-  'app/whatsapp/WhatsAppAdvisor.tsx': 'pendiente, de Chats',
+  // 22/10/2026 (TB3): con su motor y su «Usar →» en el hueco de cada respuesta (no va a la estrella: el borrador es de ESTE lead).
+  'app/whatsapp/WhatsAppAdvisor.tsx': 'caja única',
 };
 
 /** Arma su PROPIA caja: un campo de texto, la barra de WhatsApp (sola o adentro de su hilo) o el botón de mandar del chat. */
@@ -94,7 +98,8 @@ test('2. las pantallas con la caja única no vuelven a armar la suya', () => {
   for (const [f, estado] of Object.entries(INVENTARIO)) {
     if (estado !== 'caja única') continue;
     const s = leer(f);
-    assert.match(s, /import \{ CajaChat \} from '@\/app\/_chat\/CajaChat';/, `${f}: usa la caja única`);
+    // Con comillas simples o dobles: el Video Editor (OpenCut) escribe sus imports con dobles (22/10/2026, TB3).
+    assert.match(s, /import \{ CajaChat \} from (['"])@\/app\/_chat\/CajaChat\1;/, `${f}: usa la caja única`);
     assert.match(s, /<CajaChat\b/, `${f}: la dibuja`);
     assert.doesNotMatch(s, CAJA_PROPIA, `${f}: no arma su propia caja (un <textarea>, ComposerWhatsApp, ChatHilo o su botón de mandar)`);
   }

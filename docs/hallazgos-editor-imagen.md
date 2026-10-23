@@ -449,3 +449,13 @@ desde el Chrome de Martín, un pedido en «MaKo IA» dejó su fila (2 mensajes) 
 
 **Vive en:** app/image-editor/mako/chat/hilo.ts (`cargarHilo`) · tests/image-editor-chat.test.ts (41) ·
 *22/10/2026, chat «Chats de las tabs».*
+
+## El chat «MaKo IA» con las piezas del Ops Center (22/10/2026, TB3)
+
+El hilo es `HiloMako` (con la criatura «Image Editor», la que lo nombra en el Ops Center) y la caja es `CajaChat`; el motor
+sigue siendo el de app/image-editor/mako/chat/acciones.ts, que edita el diseño ABIERTO y no aplica nada sin «Aceptar». La
+propuesta con «Original | Modificado» va en el hueco `enMensaje` de la respuesta de MaKo que la trajo. Dos cosas que se
+perdieron a propósito: el rótulo del alcance dentro de la burbuja de la persona (`HiloMako` sólo dibuja «desde …», que dice
+OTRA cosa; el alcance sigue en sus chips), y el `maxLength` del campo (la caja única no tiene tope): el tope lo pone
+`enviar`, con `TOPES_CHAT_IMAGEN.instruccion`. **Vive en:** app/image-editor/mako/chat/PanelMakoIA.tsx ·
+tests/editores-chat-piezas.test.ts · *22/10/2026, chat «Chats de las tabs».*
