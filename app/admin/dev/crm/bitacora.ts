@@ -3122,4 +3122,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '23 oct', hora: '02:55', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Vincular cobro» trae los productos de Stripe con su precio',
+    puntos: [
+      'En la llamada con Mauricio, su «Sprint 3 días» decía «Este producto no tiene precio» aunque en Stripe está a US$270: MaKo no miraba Stripe.',
+      'Ahora «+ Producto» muestra los productos de Stripe con su precio. Si el de MaKo se llama igual, va en la misma fila, con el precio de Stripe.',
+      'Elegir uno lo trae al catálogo con ese precio y lo vincula a Ganado.',
+      'Los que no se pueden traer (en otra moneda, o con un monto que elige quien paga) se ven apagados y dicen por qué.',
+      'Si no se pudo leer Stripe, el pop-up lo dice. MaKo también puede traerlos, con tu «sí».',
+    ],
+    commits: [
+    ],
+    archivos: [
+      'app/crm/CobroDeEtapaModal.tsx · app/crm/cobro-ganado.ts — «+ Producto» con Stripe',
+      'lib/api-mako/areas/crm.run.ts — lo mismo por MaKo',
+    ],
+    revisar: '/crm',
+  },
 ];

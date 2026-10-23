@@ -6,13 +6,14 @@
 // pedir lo mismo. El servidor es de Cobros (lib/stripe-catalogo.ts y app/crm/cobro-etapa-actions.ts); acá, lo que ofrece
 // «+ Producto» (app/crm/cobro-ganado.ts, puro: se EJECUTA) y el pop-up (se lee como fuente).
 //
-// PROBADO ROMPIÉNDOLO (23/10/2026), con el archivo en 4 / 0, una rotura por vez y restaurada:
+// PROBADO ROMPIÉNDOLO (23/10/2026), con el archivo en 4 / 0 (5 / 0 desde MaKo), una rotura por vez y restaurada:
 //   · el de MaKo y el de Stripe en DOS filas (sin juntar por `enMako`)                      → 3 / 1
 //   · ofrecer un precio de Stripe cuyo producto ya cobra en esta etapa                      → 3 / 1
 //   · los que no se pueden traer, escondidos (sin las filas apagadas)                       → 3 / 1
 //   · `leer` que espera a Stripe antes de mostrar la foto                                   → 3 / 1
 //   · un error de Stripe que no se muestra                                                  → 3 / 1
 //   · traer sin poner el producto cuando no se pudo vincular                                → 3 / 1
+// Y MaKo (5 / 0): `prepararPrecioDeStripe` sin frenar los `noSe` → 4 / 1; `ver_cobro_etapa` sin `de_stripe` → 4 / 1.
 // Correr: node --import tsx --test tests/crm-cobro-stripe-23-10.test.ts
 // =============================================================================
 
@@ -84,4 +85,19 @@ test('«Volver a leer» y conectar Stripe traen los precios de nuevo (los dos ll
   assert.match(m, /aria-label="Volver a leer" title="Volver a leer" onClick=\{leer\}/);
   assert.match(m, /<BotonIntegracion key=\{prov\} servicio=\{prov\} onConectado=\{\(\) => leer\(\)\}/);
   assert.match(m, /setStripe\(null\);\s*void preciosDeStripeAction\(\)/, 'al volver a leer, la lista vieja no queda como si fuera la nueva');
+});
+
+test('MaKo: ver_cobro_etapa muestra los precios de Stripe, y vincular_cobro_etapa trae uno con las MISMAS funciones de Cobros', async () => {
+  const { porId } = await import('../lib/api-mako/registro');
+  const v = porId('vincular_cobro_etapa')!;
+  assert.ok(v.parametros?.some((p) => p.nombre === 'precioStripe'), 'sin el precio de Stripe');
+  assert.equal(v.parametros?.find((p) => p.nombre === 'productoId')?.obligatorio, undefined, 'el producto ya no es obligatorio: o él, o un precio');
+  assert.equal(v.plata, true);
+  const run = sinComentarios(leer('lib/api-mako/areas/crm.run.ts'));
+  assert.match(run, /de_stripe: stripe\.precios\.map\(/);
+  assert.match(run, /no_se_puede: p\.noSe/, 'los que no se pueden traer se dicen, con su porqué');
+  assert.match(run, /if \(precioStripe\) return prepararPrecioDeStripe\(precioStripe, crm, ctx\.ws\);/);
+  // Lo confirmado: el server vuelve a leer el precio en Stripe, y frena ANTES de tocar el catálogo si ya cobra en otro CRM.
+  assert.match(run, /const imp = await importarPrecioDeStripe\(ws, payload\.cuentaStripe, payload\.precioStripe, async \(productoId\) => \{/);
+  assert.match(run, /if \(p\.noSe\) return \{ error:/, 'uno que no se puede traer llega hasta el «sí»');
 });

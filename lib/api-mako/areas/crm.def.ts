@@ -1205,7 +1205,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_cobro_etapa', area: 'crm', tipo: 'lectura',
     titulo: 'Qué cobra Ganado en un CRM',
-    descripcion: 'Los productos vinculados a Ganado de un CRM (quien paga uno pasa a Ganado ahí, con su plan de pagos), por qué cuentas de Stripe o Mercado Pago cobra cada uno, las cuentas conectadas y los productos del catálogo que se pueden sumar. Paso previo a vincular_cobro_etapa. Solo el administrador.',
+    descripcion: 'Los productos vinculados a Ganado de un CRM (quien paga uno pasa a Ganado ahí, con su plan de pagos), por qué cuentas de Stripe o Mercado Pago cobra cada uno, las cuentas conectadas, los productos del catálogo que se pueden sumar y los precios de Stripe que se pueden traer. Paso previo a vincular_cobro_etapa. Solo el administrador.',
     parametros: [{ nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio.' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
   },
@@ -1214,7 +1214,9 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Vincular un producto a Ganado',
     descripcion: 'PROPONE vincular un producto del catálogo a Ganado de un CRM (queda pendiente hasta el «sí»): quien lo pague por esas cuentas pasa a Ganado ahí, con su plan de pagos. Un producto cobra en un solo CRM. Producto y cuentas salen de ver_cobro_etapa. Solo el administrador.',
     parametros: [
-      { nombre: 'productoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el producto (de ver_cobro_etapa o listar_productos).' },
+      { nombre: 'productoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el producto (de ver_cobro_etapa o listar_productos).' },
+      // O un precio de Stripe (23/10/2026): se trae al catálogo con su precio y se vincula (lib/stripe-catalogo.ts, de Cobros).
+      { nombre: 'precioStripe', tipo: 'string', max: 80, descripcion: 'en vez del producto, un precio de Stripe (de ver_cobro_etapa).' },
       { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal del negocio.' },
       { nombre: 'cuentas', tipo: 'string[]', max: 20, descripcion: 'las cuentas por las que cobra (sus id de ver_cobro_etapa, como stripe:principal). Sin ellas, todas las conectadas.' },
     ],
