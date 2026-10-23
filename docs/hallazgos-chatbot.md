@@ -6277,9 +6277,10 @@ dos mensajes perdidos.
 
 **El diagnóstico obvio era el equivocado.** «Las crea el alta de cada negocio» o «las crea MaKo sola». Medido en
 producción, ninguna de las dos:
-- **110 ya estaban ARCHIVADAS.** El conteo leía la tabla entera. Una cuenta de «cuántas hay» tiene que filtrar
-  `archivada_at is null`, y si importa, también `activa`. Vivas había 408; prendidas, 21 fuera del ws3, y 13 de
-  ésas son los avisos de la plataforma del ws9.
+- **97 ya estaban ARCHIVADAS.** El conteo leía la tabla entera. Una cuenta de «cuántas hay» tiene que filtrar
+  `archivada_at is null`, y si importa, también `activa`. Vivas había 421; prendidas, 21 (todas fuera del ws3),
+  y 13 de ésas son los avisos de la plataforma del ws9. El 23/10 se archivaron las 374 que no usaba nadie (las del
+  ws3, la #242 y la #257 del ws10 y la #209 y la #210 del ws4) y quedaron 47 vivas.
 - **370 de las vivas eran del ws3**, todas del 22 y 23/10: «🧪 Prueba chats N/M · …» y «🧪 Arnés …». Los arneses
   crean una fila por corrida en producción. `scripts/arnes-automatizacion-punta-a-punta.mts` la PAUSABA al
   terminar pero no la archivaba, y la de «Prueba chats» no vive en el repo. Pausada no se ve en ningún tablero,
@@ -6291,11 +6292,20 @@ producción, ninguna de las dos:
   31/07 se sembraron más en los ws9, ws10 y ws11, y el 10/10 la mudanza del recordatorio. Todo eso ya estaba
   archivado.
 
-**Sin bitácora del origen.** La tabla no guarda quién creó una fila, y `api_llamadas` sólo registra la API
-externa por token, no el chat de la app. El origen se deduce de la clave (`plantilla-*` es la galería,
-`automatizacion-*` es ＋Nueva o Crear con IA, `copia-*` es duplicar), del nombre (🧪) y de `created_at` contra el
-alta del negocio y la ventana de los arneses. Cinco plantillas en un minuto a las 03:32 AR en el ws1 (#577–#581)
-quedaron en DUDA por eso. Si algún día hace falta saberlo, la columna es `creada_por` (persona / chat / script).
+**Cómo se averigua quién creó una fila (no hay columna de autor).** `api_llamadas` sólo guarda la API externa
+por token, no lo que se hace en la app. Lo que sirve, en este orden:
+- **`app_settings` con la clave `automatizacion.chat:<id>`** (lib/automatizacion-chat.ts): el chat de Crear con IA
+  guarda el pedido textual de la persona y la respuesta «Creé «X». Quedó pausada.». Así se probó que la #268 del
+  ws1 («Crea una automatización… le envié el acceso al curso») y la #249 del ws11 las pidió la persona. Existe
+  desde la duodécima tanda (12/10): una fila de antes no lo tiene.
+- **La clave**: `plantilla-<id>-…` es la galería o la sugerencia del CRM, `automatizacion-…` es ＋Nueva o Crear con
+  IA, y `copia-…` es duplicar.
+- **Los `disparadores` y el ritmo**: varias plantillas creadas con 8 a 12 s de diferencia, cada una con su CRON ya
+  puesto en una etapa distinta (noshow_r1, noshow_r2, facturando…), es el «Hacerlo» de las sugerencias «MaKo te
+  sugiere» del CRM (`hacerSugerencia`, lib/sugerencias-crm-server.ts; POST /api/crm/mako sólo con `rol admin`): un
+  clic por tarjeta. Así salieron las #577–#581 del ws1, el 23/10 a las 03:32 AR. La galería de /automations, en
+  cambio, crea sin CRON.
+- **`created_at`** contra el alta del negocio y contra la ventana de los arneses.
 
 **La regla que queda.** `tests/automatizaciones-solo-plantillas.test.ts` tiene tres chequeos:
 - la lista CERRADA de los archivos que insertan en la tabla, cada uno con la persona que lo dispara;
@@ -6306,8 +6316,15 @@ Un arnés que escribe en producción ARCHIVA lo que crea, no sólo lo pausa.
 
 **Sin hacer.**
 - El arnés de «Prueba chats» no está en el repo: quien lo tenga, que archive al terminar.
-- En el ws1, la #228 (el recordatorio de la reunión que Martín pidió prendido el 10/10) está archivada desde el
-  12/10, y la #212 desde el 11/10. Lo tiene que mirar Automations.
+
+**Falsa alarma: «el recordatorio de la reunión del ws1 está archivado».** La #228 la archivó a propósito
+`scripts/undecima-flujos.mts --aplicar` el 12/10 a las 02:01 UTC, en la misma corrida que la #239 y las #223, #224 y
+#240 del ws13. Fue por el pedido de Martín del 11/10: el recordatorio no es un flujo aparte, va dentro de «Un Lead
+Agendó Llamada». La #212 la archivó `scripts/novena-tanda-ws1.mts` el 11/10 a las 03:55 UTC («Agendó» unificado en
+la #213). Hoy el recordatorio vive en la #213, en las tarjetas «60 min antes» y «15 min antes» (`antes_reunion`).
+El lead 2725 lo recibió el 21/10 a las 15:00 y a las 15:45 para su reunión de las 16:00. Antes de tomar una
+decisión de la memoria como vigente, mirar si una tanda posterior la reemplazó: `archivada_at` en el mismo segundo
+que otras filas es la firma de un script.
 
 **Vive en:** `lib/plantilla-crear.ts` · `lib/setting-secuencias.ts` · `lib/workspace.ts` (`crearWorkspace`: sólo
 el funnel) · `lib/sugerencias-crm-server.ts` · `scripts/arnes-automatizacion-punta-a-punta.mts`
