@@ -6680,3 +6680,24 @@ recién contesta la red de plataforma (Gemini flash / flash-lite o Groq gpt-oss)
 
 **Sin hacer (todo lo de arriba):** ningún arreglo se hizo en esta corrida; el arnés queda como prueba de aceptación del
 chat del área (`node … scripts/probar-chats/automations.mts --casos=…`).
+
+### El aviso «Contestó» de la #289 quedó VACÍO, y «Contestó» es de la inscripción, no del teléfono (23/10/2026)
+
+**El síntoma:** la única persona real que contestó en «Sprint · apertura» (ws1, lead 3100) no le llegó a Mauricio: el
+envío 183 quedó en 'fallo' con «No salió el aviso: El aviso quedó vacío.». **La causa:** el texto del aviso era UN
+renglón («… Teléfono: {{lead_telefono}} | Email: {{lead_email}} | Chat: {{link_chat_lead}}») y `sinRenglonesVacios`
+(lib/variables-aviso.ts) borra entero el renglón con un dato del catálogo sin valor. Ella no tenía email, y el flujo
+existe justamente para pedírselo a quien no lo dio: con ese texto, NINGÚN aviso de esa rama iba a salir. **Arreglo:** el
+dato se partió en renglones (setSecuenciaPasos, mismos ids) y, en el código, `textoConDatosParaEquipo`
+(lib/variables-del-lead.ts): si la regla deja vacío un aviso AL EQUIPO que tenía palabras propias, sale entero con «—»
+en el dato que falta. **Regla:** una regla que borra contenido opcional tiene que tener piso; «opcional» es del renglón,
+no del mensaje. Al lead nunca le sale el «—».
+**Y lo que parecía el bug no lo era:** Martín probó con su lead 3099 y «no le cortó». Su respuesta cayó en el lead 249:
+`matchLeadPorTelefono` (lib/evolution-mensajes.ts) se queda con el id MÁS CHICO entre los que comparten teléfono, y
+«Contestó» lee sólo el estado de la INSCRIPCIÓN (`insc.estado === 'respondio'`, que pone `pausarPorRespuesta` por
+lead_id). Un lead duplicado por teléfono contesta en el otro y la automatización no se entera. No se cambió el matcher
+(anotado, el ws1 tiene un solo par: 249/3099). Para probar, un lead que sea el único con ese teléfono.
+**Vive en:** lib/variables-del-lead.ts · lib/api-mako/areas/chatbot.run.ts (`textoDelAviso`) ·
+tests/aviso-equipo-no-vacio.test.ts. **Sin hacer:** el lienzo no avisa al escribir un renglón con varios datos
+opcionales; el duplicado por teléfono (`matchLeadPorTelefono`).
+*23/10/2026, chat «Automations» (claude2).*
