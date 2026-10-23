@@ -35,6 +35,12 @@ test('1. Esencial = el Esencial vendido por la pasarela y la capa de hoy; nunca 
   // Ante la duda, nadie: la lectura de la base no saca tabs ni frena activaciones si falla.
   const lectura = sinComentarios(leer('lib/plan-esencial.ts'));
   assert.match(lectura, /catch \(e\) \{\n\s*console\.warn\([\s\S]*?\);\n\s*return false;/, 'un error de lectura tiene que dar «no es Esencial»');
+  // La suscripción se lee con los MISMOS filtros que `suscripcionDeMakoDe`, sin importar lib/cobros (alcanza una IA, y esto lo
+  // importa /api/auth/me: tests/d6b-rutas.test.ts).
+  const filtros = ".eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').eq('estado', 'pagado')";
+  assert.ok(leer('lib/cobros.ts').includes(filtros), 'cambió la lectura de suscripcionDeMakoDe: actualizar lib/plan-esencial.ts');
+  assert.ok(lectura.includes(filtros), 'lib/plan-esencial.ts no lee la suscripción como suscripcionDeMakoDe');
+  assert.doesNotMatch(lectura, /from '\.\/cobros'|import\('\.\/cobros'\)/);
 });
 
 test('2. las tabs de Pro son claves que existen en la barra; Closing Analyst va aparte', () => {

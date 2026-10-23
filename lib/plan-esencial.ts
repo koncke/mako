@@ -23,10 +23,15 @@ export async function esEsencialDe(ws: number, capaDeHoy?: string | null): Promi
     }
     // Lo barato primero: sin capa `completo`, o el ws1 o la plataforma, no hace falta leer cobros.
     if (!esEsencialPorPasarela({ ws, wsPlataforma: plataforma, capa, capaVendida: 'completo' })) return false;
-    // Recién acá, y por import dinámico: lib/cobros.ts es pesado y lo importan todas las páginas a través de tab-access.
-    const { suscripcionDeMakoDe } = await import('./cobros');
-    const s = await suscripcionDeMakoDe(ws);
-    return esEsencialPorPasarela({ ws, wsPlataforma: plataforma, capa, capaVendida: s?.alta_capa ?? null });
+    // La MISMA lectura que `suscripcionDeMakoDe` (lib/cobros.ts: su suscripción pagada más reciente, en la plataforma), sin
+    // importar el módulo: lib/cobros alcanza una IA en su grafo, y esto lo importan /api/auth/me y todas las páginas
+    // (tests/d6b-rutas.test.ts). tests/plan-esencial.test.ts ata los filtros de las dos.
+    const { data, error } = await getSupabaseServer().from('cobros').select('alta_capa')
+      .eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').eq('estado', 'pagado')
+      .order('pagado_at', { ascending: false }).limit(1).maybeSingle();
+    if (error) throw new Error(error.message);
+    const capaVendida = (data as { alta_capa?: string | null } | null)?.alta_capa ?? null;
+    return esEsencialPorPasarela({ ws, wsPlataforma: plataforma, capa, capaVendida });
   } catch (e) {
     console.warn(`[plan-esencial] no pude leer el plan del negocio ${ws}; sin candado:`, e instanceof Error ? e.message : String(e));
     return false;
