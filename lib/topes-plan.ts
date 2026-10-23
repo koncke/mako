@@ -6,9 +6,10 @@
 // tabs por capa (lib/capas.ts): el chat de cada área la LEE en el punto donde se crea la cosa (`topeDe(capa, 'crm.leads')`)
 // y dice «llegaste al tope de tu plan» con el link a /planes.
 //
-// La clave es la CAPA (lo que el workspace ya tiene): Esencial = `completo`, Pro = `agencia` (lib/planes-mako.ts). Un
-// negocio sin plan vendido por la pasarela (el ws1, los acuerdos a mano) tiene capa `completo` y NO se le aplican topes:
-// quien llama pregunta primero `aplicanTopes(ws)` (sólo los lugares que paga la pasarela; lib/plan-acceso.ts).
+// La clave es la CAPA (lo que el workspace ya tiene): Esencial = `completo`, Pro = `agencia` (lib/planes-mako.ts, en la rama
+// de la suscripción). Un negocio sin plan vendido por la pasarela (el ws1, los acuerdos a mano) también tiene capa `completo`
+// y NO se le aplican topes: quien hace cumplir uno pregunta primero si MaKo le cobra el plan por la pasarela
+// (`suscripcionDeMakoDe(ws) != null`, lib/cobros.ts).
 // =============================================================================
 
 import type { CapaId } from './capas';
