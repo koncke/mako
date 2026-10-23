@@ -99,7 +99,8 @@ test('punto 2: «Pídeselo a MaKo» cierra el modal y crea la fila por la puerta
   // 13/10/2026: crea sólo si TAMBIÉN lo publicado está vacío (si no, el server contesta 409: tests/automations-pendientes-decimotercera.test.ts).
   assert.match(CHAT, /const crea = p\.pasos\.length === 0 && !\(p\.publicadas \?\? 0\);/);
   assert.match(tramo(CHAT, 'const turno = async (', '\n  };', 7_000), /const modo = crea \? 'crear' : 'editar';/);
-  assert.match(CHAT, /useEffect\(\(\) => \{\n\s+if \(conPedido\) return;/);
+  // (22/10/2026: antes, lo que MaKo terminó mientras no estaba sale del globito: `marcarTrabajoVisto`.)
+  assert.match(CHAT, /useEffect\(\(\) => \{\n(?:\s+\/\/[^\n]*\n)*\s+marcarTrabajoVisto\(`\/automations\?sec=\$\{secId\}`\);\n\s+if \(conPedido\) return;/);
   // La ruta crea SOBRE la fila (vacía y pausada) y anota el turno y el final en SU chat.
   const ruta = fuente('app/api/chat-agent/secuencias/ia/route.ts');
   assert.match(ruta, /const sinId = modo === 'crear' && \(body\.secuenciaId == null \|\| body\.secuenciaId === ''\);/);

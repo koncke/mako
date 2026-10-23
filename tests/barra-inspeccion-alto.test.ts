@@ -116,3 +116,23 @@ test('6. las barras de lote del Plan y de Customer Success: debajo de la barra e
   }
   assert.equal(cuenta(leer('app/plan/board/BoardShell.tsx'), "top: 'calc(66px + var(--pegado-arriba, 0px))'"), 1, 'la segunda barra del Kanban (66)');
 });
+
+test('7. una pantalla con un alto `calc(100vh - …)` o `calc(100dvh - …)` en línea descuenta la barra ella misma', async () => {
+  // 22/10/2026 (el caso de uso de OF4, medido en /offer): la regla de app/globals.css sólo reconoce un alto en línea que
+  // EMPIEZA con `height: 100vh` o `height: 100dvh`. Un `calc(100dvh - var(--alto-secciones, 0px))` se le escapa: con la
+  // barra (50 px) o la alerta de la voz caída (64, la ve también un cliente), la página quedaba más alta que la ventana y
+  // lo de abajo (la caja de escribir) debajo del borde. Así estaban Offer, Image Editor y Video Editor.
+  // Roturas (arnés `romper-barra.mjs` del scratchpad de la sesión de Offer, base 26/0): Offer sin el descuento → 2 fallos
+  // (éste y tests/offer-hilo-unico.test.ts, 5) · el editor de video → 2 (éste y tests/video-editor-sidebar.test.ts) · el
+  // inicio del Image Editor → 1.
+  const { execFileSync } = await import('node:child_process');
+  const paginas = execFileSync('git', ['ls-files', 'app'], { cwd: RAIZ, encoding: 'utf8' }).split('\n').filter((f) => /\/page\.tsx$/.test(f));
+  assert.ok(paginas.length > 50, `revisé ${paginas.length} páginas: la lista no puede venir vacía`);
+  const sinDescontar: string[] = [];
+  for (const f of paginas) {
+    for (const m of leer(f).matchAll(/height: ['`](calc\(100d?vh\b[^'`]*)['`]/g)) {
+      if (!m[1].includes('--barra-agencia')) sinDescontar.push(`${f}: ${m[1]}`);
+    }
+  }
+  assert.deepEqual(sinDescontar, [], 'restale `var(--barra-agencia, 0px)` al alto');
+});

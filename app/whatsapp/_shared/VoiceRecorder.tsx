@@ -649,11 +649,14 @@ const btnVerde = (apagado: boolean): CSSProperties => ({ ...btnRedondo, width: 4
  * esta misma barra sin haberlo grabado acá. 🗑 lo borra (`onBorrar`), ➤ lo deja como está
  * (`onDejar`), 🎤 le graba algo más al final (`onSeguir`, que baja el audio y entra a la sesión).
  */
-export function BarraGrabacion({ voz, ocupado = false, rotuloEnviar = 'Enviar audio', existente }: {
+export function BarraGrabacion({ voz, ocupado = false, rotuloEnviar = 'Enviar audio', existente, colorPlay }: {
   voz: GrabacionVoz;
   ocupado?: boolean;
   rotuloEnviar?: string;
   existente?: { url: string; secs?: number | null; onBorrar: () => void; onDejar: () => void; onSeguir?: () => void } | null;
+  /** El ▶ de escuchar lo grabado. Sin esto, el verde de WhatsApp (el de `AudioPlay`); la caja de los chats con MaKo
+   *  (app/_chat/CajaChat.tsx) pasa el suyo (22/10/2026: en Offer era el único verde de la barra). */
+  colorPlay?: string;
 }) {
   const grabando = voz.fase === 'grabando';
   if (grabando) {
@@ -689,7 +692,7 @@ export function BarraGrabacion({ voz, ocupado = false, rotuloEnviar = 'Enviar au
     <div data-barra-voz="revisando" style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0 }}>
       <button type="button" onClick={() => (propia ? voz.descartar() : existente?.onBorrar())} disabled={apagado} title="Borrar el audio" aria-label="Borrar el audio" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconoBorrar size={20} /></button>
       {/* ▶ DONDE ESTABA EL PUNTO ROJO: el reproductor de la casa, a todo el ancho. */}
-      <AudioPlay key={r.url} src={r.url} duracion={r.secs || null} style={{ flex: 1, minWidth: 0, width: 'auto' }} />
+      <AudioPlay key={r.url} src={r.url} duracion={r.secs || null} style={{ flex: 1, minWidth: 0, width: 'auto' }} {...(colorPlay ? { color: colorPlay } : {})} />
       {(propia || existente?.onSeguir) && (
         <button type="button" onClick={() => { if (propia) void voz.seguir(); else existente?.onSeguir?.(); }} disabled={apagado}
           title="Seguir grabando" aria-label="Seguir grabando" style={{ ...btnRedondo, color: 'var(--ink)' }}><IconMic /></button>

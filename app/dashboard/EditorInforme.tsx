@@ -158,7 +158,8 @@ import { conMako } from '@/lib/graficos-catalogo';
 import { BotonMako } from '@/app/_ui/BotonMako';
 import { EditorMako } from './EditorMako';
 import { MenuContextual, opcionesContextuales, type IdOpcion } from './MenuContextual';
-import { ChatMakoAbierto } from './PanelAnalista';
+import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
+import { EVENTO_PREGUNTA_GRAFICO, entidadDeHoja, preguntaDelEvento, textoDePregunta, type PreguntaGrafico } from './pregunta-grafico';
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -398,8 +399,17 @@ export function EditorInforme({
   const [conSel, setConSel] = useState<string | null>(null);
   const [conectando, setConectando] = useState<{ desde: string | null } | null>(null);
   const [popup, setPopup] = useState<PopupAbierto | null>(null);
-  /** El chat de MaKo de un gráfico abierto desde el clic derecho («Preguntarle a MaKo»). */
-  const [chatMako, setChatMako] = useState<{ chartKey: string; titulo: string; contexto: string; sugerencias?: string[] } | null>(null);
+  /**
+   * Lo que un gráfico le pregunta a la ESTRELLA (22/10/2026, TB3, ./pregunta-grafico.ts): su botón de MaKo y el «Preguntarle a
+   * MaKo» del clic derecho. Hasta ese día abrían un modal con su chat propio. `vez` hace que la misma pregunta salga de nuevo.
+   */
+  const [pedidoMako, setPedidoMako] = useState<{ texto: string; vez: number } | null>(null);
+  const preguntarAMako = useCallback((p: PreguntaGrafico) => setPedidoMako((x) => ({ texto: textoDePregunta(p), vez: (x?.vez ?? 0) + 1 })), []);
+  useEffect(() => {
+    const oir = (e: Event) => { const p = preguntaDelEvento(e); if (p) preguntarAMako(p); };
+    window.addEventListener(EVENTO_PREGUNTA_GRAFICO, oir);
+    return () => window.removeEventListener(EVENTO_PREGUNTA_GRAFICO, oir);
+  }, [preguntarAMako]);
   /** El ancla del clic derecho: un punto invisible donde se hizo el clic (el `Flotante` se ancla a un elemento). */
   const anclaContextual = useRef<HTMLSpanElement>(null);
   const [editPopup, setEditPopup] = useState<string | null>(null);
@@ -1148,7 +1158,7 @@ export function EditorInforme({
       case 'mako_chat': {
         const r = c && esGrafico(c) ? datos[c.id]?.resultado : null;
         if (c && esGrafico(c) && r) {
-          setChatMako({ chartKey: `dashboard:${hoja.id}:${c.id}`, titulo: tituloDe(c), contexto: contextoDeGrafico(c, r, efectivoDe(c, lienzo, vista, hoy)), sugerencias: c.makoIA?.sugerencias });
+          preguntarAMako({ titulo: tituloDe(c), contexto: contextoDeGrafico(c, r, efectivoDe(c, lienzo, vista, hoy)) });
         }
         return;
       }
@@ -1667,7 +1677,9 @@ export function EditorInforme({
           </Flotante>
         );
       })()}
-      {chatMako && <ChatMakoAbierto {...chatMako} onCerrar={() => setChatMako(null)} />}
+      {/* MaKo en la tab: la estrella abajo a la izquierda, con la hoja abierta y en «analizar» (en vista asesora; lo que
+          edita es «Editar con MaKo», el único escritor de la hoja abierta). Nunca en un link compartido (no hay sesión). */}
+      {!compartido && <MakoEnLaTab tab={esGeneral ? 'General' : 'Dashboard'} entidad={entidadDeHoja(hoja)} modo="analizar" pedido={pedidoMako} />}
 
       {/* ── Los modales ── */}
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}

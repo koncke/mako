@@ -23,24 +23,28 @@
 //     (`dashboard:<hoja>`, ./hilo-guardado.ts y /api/hilo-de-tab): cada turno se guarda al terminar, y al abrir el panel
 //     sobre una hoja sin hilo se trae lo guardado. Así sobrevive a recargar y se ve en el Ops Center.
 //
-// LA CARA DEL SECOND BRAIN (17/10/2026, como el chat del CRM en 8db1e3cbc): donde iba el logo de MaKo va el MUÑECO de
-// la tab («Dashboard» o «General», lib/centro-munecos.ts), trabajando mientras piensa, y la caja dicta con el
-// micrófono del Second Brain (app/admin/operaciones/Microfono.tsx). El hilo NO es `HiloMako` (app/_chat/): lo de MaKo
-// acá es «lo que cambió» con su Deshacer y los pedidos de otra hoja, que el modelo de mensajes del teléfono no tiene.
+// LA CARA DEL OPS CENTER (22/10/2026, TB3; Martín: «quiero que todos los chats de MaKo en las tabs sean el del Ops Center»):
+// el hilo es `HiloMako` y la caja es `CajaChat` (app/_chat/), las piezas únicas, con el MUÑECO de la tab («Dashboard» o
+// «General», lib/centro-munecos.ts). Lo que sólo tiene este chat —«lo que cambió» con su Deshacer, los avisos, un error con
+// su link y los pedidos de otra hoja con sus botones— va en el hueco `enMensaje` del hilo (./items-edicion.ts). El motor es
+// el de siempre (la ruta de los pedidos y /api/graficos/editar): la estrella de la tab, en «analizar», no edita la hoja.
+// Y va a la IZQUIERDA, como todo MaKo en una tab (el marco `.an`, ./PanelAnalista.tsx).
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { sanearHoja, type Hoja } from '@/lib/graficos-catalogo';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { TURNOS_IA, type TurnoEdicion } from '@/lib/graficos-ia-edicion';
-import { GRAMATICA } from '@/lib/mako-gramatica';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
-import { Microfono } from '@/app/admin/operaciones/Microfono';
+import { CajaChat } from '@/app/_chat/CajaChat';
+import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
+import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import '@/app/admin/operaciones/centro.css';
 import { PLAZO_PEDIDOS_MS, pedirPedidos } from '@/app/web-generator/cliente';
 import { CSS_PANEL_LATERAL } from './PanelAnalista';
 import { TextoConLink } from './NuevaHoja';
 import { CSS_MODOS_MAKO, ModosMako, type ModoMako } from './ModosMako';
 import { filasDeHilo, hiloDeFilas, tituloDeHoja } from './hilo-guardado';
+import { indiceDe, itemsDeEdicion } from './items-edicion';
 import { guardarEnHiloDeTab, leerHiloDeTab } from '@/lib/hilo-de-tab-cliente';
 import { claveDeHoja } from '@/lib/hilo-de-tab-reglas';
 import {
@@ -58,8 +62,6 @@ export type MensajeEdicion =
 
 /** El tope de la ruta (`maxDuration = 120`) + margen. */
 const TOPE_CLIENTE_MS = 125_000;
-/** Lo alto que crece la caja (después scrollea adentro). */
-const ALTO_CAJA = 160;
 
 /** Los pedidos de ejemplo del panel vacío: genéricos (AGENTS.md: un ejemplo de pantalla es ficticio por regla). */
 // 17/10/2026: «Probemos…» es Experiments, que se mudó acá (lib/experimentos-catalogo.ts): el ejemplo enseña que existe.
@@ -130,12 +132,6 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   // Cerrar el panel corta el pedido: la ruta no escribió nada, así que no queda nada a medias.
   useEffect(() => () => ctrl.current?.abort(), []);
   useEffect(() => { fin.current?.scrollIntoView({ block: 'end' }); }, [hilo.length, pensando]);
-  useEffect(() => {
-    const el = campo.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, ALTO_CAJA)}px`;
-  }, [texto]);
   // Abrir el panel es para escribir: el foco va a la caja.
   useEffect(() => { campo.current?.focus(); }, []);
   // Una hoja sin hilo en el editor trae el suyo de la base (recién recargada, u otra computadora). Lo que se haya
@@ -260,6 +256,49 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   // El muñeco de la tab: el mismo que tiene en el Centro de Operaciones.
   const tab = informe === 'general' ? 'General' : 'Dashboard';
   const animo = pensando ? 'trabajando' : 'despierto';
+  const items = useMemo(() => itemsDeEdicion(hilo), [hilo]);
+
+  /** Lo que sólo tiene este chat, adentro del mensaje de MaKo que lo dijo (./items-edicion.ts). */
+  const enMensaje = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => {
+    const n = indiceDe(x.id);
+    const m = n == null ? null : hilo[n];
+    if (!m || m.k === 'yo') return null;
+    if (m.k === 'error') return { arriba: <p className="em-err" role="alert"><TextoConLink texto={m.texto} link={m.link} /></p> };
+    if (m.k === 'pedido') {
+      // Un pedido que no es de esta hoja: su texto, su link (otra tab) y sus botones (./pedidos-hoja.ts).
+      const v = vistaDeBurbujaHoja(m.burbuja);
+      return {
+        arriba: <p className={v.error ? 'em-err' : 'em-texto'} data-pedido={m.burbuja.tipo}>{v.texto}</p>,
+        abajo: <>
+          {v.link && <a className="em-link" href={v.link.href}>{v.link.texto} →</a>}
+          {v.botones.length > 0 && (
+            <div className="em-botones">
+              {v.botones.map((b) => (
+                <button key={b.id} type="button" className={b.primario ? 'em-boton em-boton--primario' : 'em-boton'} disabled={v.ocupado}
+                  onClick={() => { void alPulsar(m, b.id); }}>{b.texto}</button>
+              ))}
+            </div>
+          )}
+        </>,
+      };
+    }
+    const puede = !!m.aplicada && !m.deshecho && !!m.hojaId && leerHoja(m.hojaId) === m.aplicada;
+    const hay = m.cambios.length > 0 || m.avisos.length > 0 || !!m.deshecho || puede || (!!m.analizar && !!onModo);
+    if (!hay) return null;
+    return {
+      abajo: <div className="em-el-cuerpo">
+        {m.cambios.length > 0 && <ul className="em-cambios">{m.cambios.map((c, k) => <li key={k}>{c}</li>)}</ul>}
+        {m.avisos.length > 0 && <p className="em-aviso">{m.avisos.join(' · ')}</p>}
+        {m.deshecho && <p className="em-aviso">Deshecho</p>}
+        {puede && <button type="button" className="em-deshacer" onClick={() => deshacer(m)}>Deshacer</button>}
+        {m.analizar && onModo && (
+          <div className="em-botones">
+            <button type="button" className="em-boton em-boton--primario" onClick={() => onModo('analizar')}>Analizar la hoja</button>
+          </div>
+        )}
+      </div>,
+    };
+  };
 
   return (
     <aside className="an em" aria-label="Editar con MaKo" onClick={(e) => e.stopPropagation()}
@@ -271,88 +310,33 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
         <button type="button" className="an-x" onClick={onCerrar} aria-label="Cerrar" title="Cerrar">×</button>
       </div>
 
-      <div className="em-hilo" aria-live="polite">
-        {!hilo.length && (
-          <div className="em-vacio">
-            <Muneco titulo={tab} animo={animo} size={64} />
-            <p className="em-hola">¿Qué le cambio a esta hoja?</p>
-            <p className="em-sub">Pídelo con tus palabras.</p>
-            <div className="em-sugs">
-              {sugerencias.map((s) => (
-                <button key={s} type="button" className="em-sug" disabled={pensando} onClick={() => { void enviar(s); }}>{s}</button>
-              ))}
-            </div>
-          </div>
-        )}
-        {hilo.map((m, i) => {
-          if (m.k === 'yo') return <p key={i} className="em-yo">{m.texto}</p>;
-          if (m.k === 'error') return <p key={i} className="em-err" role="alert"><TextoConLink texto={m.texto} link={m.link} /></p>;
-          if (m.k === 'pedido') {
-            // Un pedido que no es de esta hoja: su texto, su link (otra tab) y sus botones (./pedidos-hoja.ts).
-            const v = vistaDeBurbujaHoja(m.burbuja);
-            return (
-              <div key={i} className="em-el" data-pedido={m.burbuja.tipo}>
-                <span className="em-logo"><Muneco titulo={tab} animo="despierto" size={26} /></span>
-                <div className="em-el-cuerpo">
-                  <p className={v.error ? 'em-err' : 'em-texto'}>{v.texto}</p>
-                  {v.link && <a className="em-link" href={v.link.href}>{v.link.texto} →</a>}
-                  {v.botones.length > 0 && (
-                    <div className="em-botones">
-                      {v.botones.map((b) => (
-                        <button key={b.id} type="button" className={b.primario ? 'em-boton em-boton--primario' : 'em-boton'} disabled={v.ocupado}
-                          onClick={() => { void alPulsar(m, b.id); }}>{b.texto}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          }
-          const puede = !!m.aplicada && !m.deshecho && !!m.hojaId && leerHoja(m.hojaId) === m.aplicada;
-          return (
-            <div key={i} className="em-el">
-              <span className="em-logo"><Muneco titulo={tab} animo="despierto" size={26} /></span>
-              <div className="em-el-cuerpo">
-                {m.texto && <p className="em-texto">{m.texto}</p>}
-                {m.cambios.length > 0 && <ul className="em-cambios">{m.cambios.map((c, n) => <li key={n}>{c}</li>)}</ul>}
-                {m.avisos.length > 0 && <p className="em-aviso">{m.avisos.join(' · ')}</p>}
-                {m.deshecho && <p className="em-aviso">Deshecho</p>}
-                {puede && <button type="button" className="em-deshacer" onClick={() => deshacer(m)}>Deshacer</button>}
-                {m.analizar && onModo && (
-                  <div className="em-botones">
-                    <button type="button" className="em-boton em-boton--primario" onClick={() => onModo('analizar')}>Analizar la hoja</button>
-                  </div>
-                )}
+      <div className="co-hilo em-hilo" aria-live="polite">
+        <div className="co-hilo__col">
+          {!hilo.length && (
+            <div className="em-vacio">
+              <Muneco titulo={tab} animo={animo} size={64} />
+              <p className="em-hola">¿Qué le cambio a esta hoja?</p>
+              <p className="em-sub">Pídelo con tus palabras.</p>
+              <div className="em-sugs">
+                {sugerencias.map((s) => (
+                  <button key={s} type="button" className="em-sug" disabled={pensando} onClick={() => { void enviar(s); }}>{s}</button>
+                ))}
               </div>
             </div>
-          );
-        })}
-        {pensando && (
-          <div className="em-pensando" role="status">
-            <Muneco titulo={tab} animo="trabajando" size={26} />
-            <span className="em-rotulo">{GRAMATICA.analizando.rotulo}</span>
-            <span className="em-dim">· {segundos} s</span>
-            <button type="button" className="em-cancelar" onClick={cancelar}>Cancelar</button>
-          </div>
-        )}
-        <div ref={fin} />
+          )}
+          {/* Las filas del Ops Center, con el muñeco de la tab; mientras piensa, su «Trabajando…» con los segundos. */}
+          <HiloMako items={items} quien={{ nombre: tab }} ahora={ahora} escribiendo={pensando ? { segs: segundos } : null}
+            tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+          {pensando && <button type="button" className="em-cancelar" onClick={cancelar}>Cancelar</button>}
+          <div ref={fin} />
+        </div>
       </div>
 
-      <div className="em-caja">
-        <textarea ref={campo} rows={1} value={texto} maxLength={TOPE_PEDIDO_IA} placeholder="Pídele un cambio a MaKo"
-          aria-label="Qué cambiar en la hoja" style={CAMPO}
-          onChange={(e) => setTexto(e.target.value)}
-          onKeyDown={(e) => {
-            // Enter manda; Shift+Enter, un renglón. Mientras se compone un acento (IME), Enter es del teclado.
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void enviar(); }
-          }} />
-        <div className="em-caja-pie">
-          <Microfono valor={texto} onValor={(v) => { setTexto(v.slice(0, TOPE_PEDIDO_IA)); setErrorDictado(null); }} onError={setErrorDictado} apagado={pensando} />
-          <button type="button" className="em-mandar" onClick={() => { void enviar(); }} disabled={!texto.trim() || pensando} aria-label="Mandar" title="Mandar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M12 19V5" /><path d="m5 12 7-7 7 7" />
-            </svg>
-          </button>
+      {/* La caja única (app/_chat/CajaChat.tsx): sin nada escrito, el micrófono dicta; con algo, la flecha manda. */}
+      <div className="em-caja-wrap">
+        <div className="co-caja">
+          <CajaChat campo={campo} texto={texto} onTexto={(t) => { setTexto(t); setErrorDictado(null); }} onMandar={() => { void enviar(); }}
+            ocupado={pensando} placeholder="Pídele un cambio a MaKo" tituloMandar="Mandar" enterManda onErrorMic={setErrorDictado} />
         </div>
         {errorDictado && <p className="em-err">{errorDictado}</p>}
       </div>
@@ -360,15 +344,13 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   );
 }
 
-const CAMPO: CSSProperties = {
-  width: '100%', boxSizing: 'border-box', resize: 'none', border: 'none', outline: 'none', background: 'transparent',
-  color: 'var(--ink)', font: 'inherit', fontSize: 14, lineHeight: 1.45, padding: 0, maxHeight: ALTO_CAJA,
-};
+const nada = () => {};
 
 // Sin backticks acá adentro: es un template literal. Sólo tokens de la app (se dan vuelta en oscuro).
 const CSS = `
 .an.em { overflow: hidden; padding: 0; }
-.em-hilo { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 16px; }
+.em .co-hilo { padding: 16px; }
+.em .co-hilo__col { min-height: 100%; }
 .em-vacio { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: auto 0 0; }
 .em-hola { margin: 6px 0 0; font-size: 18px; font-weight: 600; line-height: 1.3; color: var(--ink); }
 .em-sub { margin: 0; font-size: 13px; color: var(--dim); }
@@ -376,11 +358,7 @@ const CSS = `
 .em-sug { max-width: 100%; text-align: left; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border-strong);
   background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; line-height: 1.35; cursor: pointer; }
 .em-sug:hover:not(:disabled) { background: var(--surface-2); border-color: var(--primary); }
-.em-yo { align-self: flex-end; max-width: 85%; margin: 0; padding: 9px 13px; border-radius: 16px 16px 4px 16px;
-  background: var(--surface-2); color: var(--ink); font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
-.em-el { display: flex; gap: 10px; align-items: flex-start; }
-.em-logo { flex: none; padding-top: 1px; }
-.em-el-cuerpo { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.em-el-cuerpo { min-width: 0; display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
 .em-texto { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; }
 .em-cambios { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.55; color: var(--ink); }
 .em-aviso { margin: 0; font-size: 12.5px; color: var(--dim); }
@@ -390,24 +368,15 @@ const CSS = `
 .em-err { margin: 0; font-size: 13px; line-height: 1.45; color: var(--bad); }
 .em-link { align-self: flex-start; font-size: 13px; font-weight: 600; color: var(--primary); text-decoration: none; }
 .em-link:hover { text-decoration: underline; }
-.em-botones { display: flex; flex-wrap: wrap; gap: 6px; }
+.em-botones { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .em-boton { height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid var(--border-strong); background: var(--surface);
   color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
 .em-boton:hover:not(:disabled) { background: var(--surface-2); }
 .em-boton--primario { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .em-boton--primario:hover:not(:disabled) { background: var(--primary); filter: brightness(1.06); }
 .em-boton:disabled { opacity: .6; cursor: default; }
-.em-pensando { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; }
-.em-rotulo { font-weight: 600; color: var(--mako-ink); }
-.em-dim { color: var(--dim); }
-.em-cancelar { margin-left: auto; border: none; background: none; padding: 0; font: inherit; font-size: 13px; color: var(--dim); cursor: pointer; }
+.em-cancelar { align-self: flex-start; border: none; background: none; padding: 0; font: inherit; font-size: 13px; color: var(--dim); cursor: pointer; }
 .em-cancelar:hover { color: var(--ink); text-decoration: underline; }
-.em-caja { flex: none; display: flex; flex-direction: column; gap: 8px; margin: 0 12px 12px; padding: 10px 12px 8px;
-  border: 1px solid var(--border-strong); border-radius: 16px; background: var(--surface); }
-.em-caja:focus-within { border-color: var(--primary); }
-.em-caja-pie { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
-.em-mandar { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 50%;
-  background: var(--primary); color: var(--on-primary); cursor: pointer; }
-.em-mandar:disabled { background: var(--surface-2); color: var(--faint); cursor: default; }
+.em-caja-wrap { flex: none; display: flex; flex-direction: column; gap: 6px; margin: 0 12px 12px; }
 @media (prefers-reduced-motion: reduce) { .em-hilo { scroll-behavior: auto; } }
 `;

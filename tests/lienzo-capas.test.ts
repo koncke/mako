@@ -47,17 +47,19 @@ test('⚠️ el panel apaisado va encima de la esquina de avisos y de «Crear co
   // Decimotercera tanda: el chat también con el lienzo vacío (MaKo crea ahí), y mientras MaKo trabaja sube por encima de
   // la capa que tapa el lienzo (que a su vez va encima de «Publicar»). Quieto, su capa de siempre.
   // 20/10/2026: el chat de MaKo ya no flota sobre el lienzo: es la sidebar (por portal en la ranura de la lista).
-  // 22/10/2026 (Martín: «debería quedar todo, incluso atrás de la sidebar, todo»): la capa de MaKo trabajando tapa TODA la
-  // pantalla, así que va ENCIMA de la barra de la app (z 60) y de la esquina de avisos, y la lista flotante con el chat sube
-  // encima de la capa mientras tanto. No es un aviso flotante (AGENTS.md: z < 60): la abrió la persona al mandar su pedido,
-  // como el fondo de un modal, y sigue debajo de los modales de verdad (la pila arranca en 130).
+  // 22/10/2026, mañana (Martín: «debería quedar todo, incluso atrás de la sidebar, todo»): la capa de MaKo trabajando pasó a
+  // tapar TODA la pantalla. Esa noche, mirando #289: «no debe deshabilitarme la navegación de la sidebar principal... Se debe
+  // ejecutar en segundo plano. Si está bien que deshabilite la edición del lienzo». Queda a pantalla completa pero DEBAJO de
+  // la barra de la app (z 60: nítida y se toca), encima de «Publicar» y de la esquina de avisos; la lista flotante con el
+  // chat sube encima de la capa y sigue debajo de la barra. Debajo de los modales (la pila arranca en 130).
   assert.ok(perfil.includes('{rolAdmin && ranuraChat && createPortal('), 'no encontré el chat de MaKo en la sidebar');
   const barraApp = numero(sinComentarios(leer('../app/_components/Sidebar.tsx')), /<aside data-sidebar [^>]*zIndex: (\d+) \}\}>/, 'el z de la barra de la app');
   const capa = numero(perfil, /export const Z_CAPA_MAKO = (\d+);/, 'el z de la capa de MaKo');
   const chat = numero(perfil, /export const Z_CHAT_ENCIMA = (\d+);/, 'el z de la lista con el chat');
   const modales = numero(leer('../app/_components/pila-modales.ts'), /const Z_BASE = (\d+);/, 'la base de la pila de modales');
-  assert.ok(capa > barraApp && capa > esquina && capa > Z_ACCION_LIENZO, `la capa (${capa}) no tapa la barra de la app (${barraApp}), los avisos (${esquina}) y «Publicar»`);
-  assert.ok(chat > capa && chat < modales, `la lista con el chat (${chat}) no queda entre la capa (${capa}) y los modales (${modales})`);
+  assert.ok(capa < barraApp, `la capa (${capa}) tapa la barra de la app (${barraApp}): mientras MaKo trabaja no se puede ir a otra tab`);
+  assert.ok(capa > esquina && capa > Z_ACCION_LIENZO, `la capa (${capa}) no tapa los avisos (${esquina}) y «Publicar» (${Z_ACCION_LIENZO})`);
+  assert.ok(chat > capa && chat < barraApp && chat < modales, `la lista con el chat (${chat}) no queda entre la capa (${capa}) y la barra de la app (${barraApp})`);
   const lista = sinComentarios(leer('../app/automations/SimuladorWhatsApp.tsx'));
   assert.match(lista, /<aside aria-label=\{verLista \? 'Tus automatizaciones' : 'Chat con MaKo'\} data-sidebar=[^>]*?zIndex: makoTrabajando \? Z_CHAT_ENCIMA : 3,/, 'la lista con el chat no sube encima de la capa: el chat queda tapado');
   assert.match(lista, /setMakoTrabajando\(t\); onMakoTrabajando\?\.\(t\);/, 'la lista no se entera de que MaKo trabaja');

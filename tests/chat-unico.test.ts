@@ -43,13 +43,15 @@ const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
   'app/crm/lead-view/MakoAnalystLead.tsx': 'caja única',
   // 22/10/2026 (OC2): EditorMako.tsx no es un chat (edita el pedido y las sugerencias del botón de un gráfico) y salió de la
   // lista; el panel «Pídele un cambio a MaKo» del Dashboard y la caja de «Pídeselo a MaKo» no estaban, y la regex no los veía.
-  'app/dashboard/PanelEditarMako.tsx': 'pendiente, de Dashboard',
+  // 22/10/2026 (TB3): «Editar con MaKo» del Dashboard y el chat con sesiones de los gráficos (Ads Manager, el Diagnóstico),
+  // con la caja y el hilo únicos y su motor de siempre. El chat de un gráfico del Dashboard ya va a la estrella.
+  'app/dashboard/PanelEditarMako.tsx': 'caja única',
   'app/web-generator/CajaPedido.tsx': 'pendiente, de Web Generator (la usan Automations, CRM y Dashboard)',
   'app/web-generator/editor/paneles/PanelAgente.tsx': 'pendiente, de Web Generator',
   'app/video-editor/_opencut/chat/PanelChat.tsx': 'pendiente, de Video Generator',
   'app/image-editor/mako/chat/PanelMakoIA.tsx': 'pendiente, de Image Editor',
   'app/plan/board/MakoProyecto.tsx': 'pendiente, de Plan',
-  'app/_components/MakoChat.tsx': 'pendiente, del Cerebro',
+  'app/_components/MakoChat.tsx': 'caja única',
   // La encontró la guarda el 20/10 (no estaba en el inventario de docs/feedback-20-10.md): «Pregúntale a MaKo…» en el chat de WhatsApp.
   'app/whatsapp/WhatsAppAdvisor.tsx': 'pendiente, de Chats',
 };
