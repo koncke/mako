@@ -26,12 +26,10 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '@/app/_components/icons';
-import { Spinner } from '@/app/_ui';
-import { FilaOpcion, GrupoOpciones, Unidad, TarjetaOpciones } from './FilasOpciones';
+import { FilaOpcion, Unidad } from './FilasOpciones';
 import { getLimitesEnvioAction, saveLimitesEnvioAction } from '@/app/configuraciones/limites-actions';
 import { textoPrioridad } from '@/lib/nutricion-prioridad';
-import { BLOQUES_LIMITES, conLimite, difiereDeFabrica, leerLimite, leerNumero, lineaDeUso, rangoDe, type LimitesEnvio, type UsoDelCupo } from '@/lib/limites-envio';
-import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { FILAS_LINEA, conLimite, leerLimite, leerNumero, lineaDeUso, rangoDe, type FilaLimite, type LimitesEnvio, type UsoDelCupo } from '@/lib/limites-envio';
 
 const SANS = "'Geist', sans-serif";
 
@@ -92,16 +90,12 @@ export function infoDelGrupo(titulo: string, uso: Uso, l: LimitesEnvio): string 
   return partes.length ? partes.join('. ') : undefined;
 }
 
-/** `onSucio`: hay un guardado en vuelo (el modal no se cierra mientras tanto). */
 /**
- * `personaPorDefecto` (20/10/2026): en Configuraciones de UNA automatización, las horas entre dos mensajes a la misma
- * persona de ESTE panel son las del NEGOCIO, las que valen para las que no tienen las suyas (las propias van arriba:
- * app/automations/ConfigAutomatizacionPanel.tsx), y se rotulan así. ⚠️ Era `sinPersona` y las escondía: el valor que
- * heredan todas las automatizaciones que ya existían quedó sin pantalla donde cambiarlo (revisión del 20/10/2026).
+ * LOS LÍMITES DE LA LÍNEA, como estado de la pantalla (23/10/2026: era el componente `LimitesEnvioPanel`, con sus tres
+ * bloques juntos). UN estado para toda la línea: dos instancias, una por bloque, guardaban cada una su copia ENTERA y la
+ * segunda pisaba a la primera. `onSucio`: hay un guardado en vuelo (el modal no se cierra mientras tanto).
  */
-export const ROTULO_PERSONA_DEFECTO = 'Misma persona, por defecto';
-export const AYUDA_PERSONA_DEFECTO = 'Horas entre dos mensajes a la misma persona, en las automatizaciones que no tienen las suyas.';
-export function LimitesEnvioPanel({ onSucio, personaPorDefecto = false }: { onSucio?: (sucio: boolean) => void; personaPorDefecto?: boolean }) {
+export function useLimitesDeLaLinea(onSucio?: (sucio: boolean) => void) {
   const [l, setL] = useState<LimitesEnvio | null>(null);
   const [fabrica, setFabrica] = useState<LimitesEnvio | null>(null);
   const [uso, setUso] = useState<Uso>(null);
@@ -122,11 +116,7 @@ export function LimitesEnvioPanel({ onSucio, personaPorDefecto = false }: { onSu
       .catch(() => { if (vivo) setAviso('No pude leer los límites.'); });
     return () => { vivo = false; if (respiro.current) clearTimeout(respiro.current); };
   }, []);
-
-  // ⚠️ ANTES DEL `return` de abajo (AGENTS.md: ningún hook detrás de un return temprano).
   useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);
-
-  if (!l || !fabrica) return aviso ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{aviso}<ReportarASoporte /></p> : <Spinner />;
 
   /** Cada cambio se GUARDA, con un respiro: tres flechas seguidas son un guardado, no tres. */
   const guardar = (nuevo: LimitesEnvio) => {
@@ -146,48 +136,41 @@ export function LimitesEnvioPanel({ onSucio, personaPorDefecto = false }: { onSu
         });
     }, 350);
   };
-  const cambiar = (grupo: Grupo, campo: string, n: number) => {
-    if (Object.keys(invalidos).some((k) => k !== `${grupo}.${campo}`)) { setL(conLimite(l, grupo, campo, n)); return; }
-    guardar(conLimite(l, grupo, campo, n));
+  const cambiar = (base: LimitesEnvio, grupo: Grupo, campo: string, n: number) => {
+    if (Object.keys(invalidos).some((k) => k !== `${grupo}.${campo}`)) { setL(conLimite(base, grupo, campo, n)); return; }
+    guardar(conLimite(base, grupo, campo, n));
   };
   const marcarInvalido = (clave: string, error: string | null) => setInvalidos((prev) => {
     if (!error) { if (!(clave in prev)) return prev; const { [clave]: _, ...resto } = prev; void _; return resto; }
     return prev[clave] === error ? prev : { ...prev, [clave]: error };
   });
-
   const off = !puedeEditar;
-  const bloques = BLOQUES_LIMITES.map((b) => ({ ...b, filas: b.filas.map((f) => (personaPorDefecto && f.campo === 'personaHoras' ? { ...f, rotulo: ROTULO_PERSONA_DEFECTO, info: AYUDA_PERSONA_DEFECTO } : f)) }));
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontFamily: SANS }}>
-      <TarjetaOpciones>
-        {bloques.map((b, i) => (
-          <section key={b.titulo} aria-label={b.titulo}>
-            <GrupoOpciones titulo={b.titulo} info={infoDelGrupo(b.titulo, uso, l)} primero={i === 0} />
-            {b.filas.map((f) => {
-              const clave = `${f.grupo}.${f.campo}`;
-              const [min, max] = rangoDe(f.grupo, f.campo);
-              return (
-                <FilaOpcion key={clave} nombre={f.rotulo} info={f.info} sinInterruptor error={invalidos[clave]} datos={{ 'data-limite': clave }}>
-                  <Numero key={`${clave}:${vuelta}`} valor={leerLimite(l, f.grupo, f.campo)} min={min} max={max} disabled={off} etiqueta={`${b.titulo} · ${f.rotulo}`}
-                    onCambio={(n) => cambiar(f.grupo, f.campo, n)} onInvalido={(e) => marcarInvalido(clave, e)} />
-                  <Unidad>{f.unidad}</Unidad>
-                </FilaOpcion>
-              );
-            })}
-          </section>
-        ))}
-      </TarjetaOpciones>
-      {(aviso || (!off && difiereDeFabrica(l, fabrica))) && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-          <span role={aviso ? 'alert' : undefined} style={{ fontSize: 13, color: 'var(--bad)' }}>{aviso}<ReportarASoporte /></span>
-          {!off && difiereDeFabrica(l, fabrica) && (
-            <button type="button" onClick={() => { setInvalidos({}); setVuelta((v) => v + 1); guardar(fabrica); }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', padding: 0, fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>
-              Restaurar
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
+  /** Una fila de la línea (sin interruptor: no se apaga). */
+  const fila = (f: FilaLimite) => {
+    if (!l) return null;
+    const clave = `${f.grupo}.${f.campo}`;
+    const [min, max] = rangoDe(f.grupo, f.campo);
+    return (
+      <FilaOpcion key={clave} nombre={f.rotulo} info={f.info} sinInterruptor error={invalidos[clave]} datos={{ 'data-limite': clave }}>
+        <Numero key={`${clave}:${vuelta}`} valor={leerLimite(l, f.grupo, f.campo)} min={min} max={max} disabled={off} etiqueta={f.rotulo}
+          onCambio={(n) => cambiar(l, f.grupo, f.campo, n)} onInvalido={(e) => marcarInvalido(clave, e)} />
+        <Unidad>{f.unidad}</Unidad>
+      </FilaOpcion>
+    );
+  };
+  /** ¿Algo de lo que está EN la pantalla difiere de lo de fábrica? (las horas del negocio no están: no cuentan). */
+  const difiere = !!l && !!fabrica && FILAS_LINEA.some((f) => leerLimite(l, f.grupo, f.campo) !== leerLimite(fabrica, f.grupo, f.campo));
+  /** «Restaurar»: lo de fábrica de lo que se ve, SIN tocar las horas a la misma persona del negocio (no están en la pantalla). */
+  const restaurar = () => {
+    if (!l || !fabrica) return;
+    setInvalidos({}); setVuelta((v) => v + 1);
+    guardar({ ...fabrica, wa: { ...fabrica.wa, personaHoras: l.wa.personaHoras }, email: { ...fabrica.email, personaHoras: l.email.personaHoras } });
+  };
+  return {
+    listo: !!l && !!fabrica, aviso, off, difiere, restaurar,
+    /** Las filas de un grupo («wa», «email», «mako»), en su orden. */
+    filasDe: (grupo: Grupo) => FILAS_LINEA.filter((f) => f.grupo === grupo).map(fila),
+    /** El ⓘ de un bloque (lo que se usó del cupo y, en WhatsApp, la regla de la cola). */
+    info: (titulo: string) => (l ? infoDelGrupo(titulo, uso, l) : undefined),
+  };
 }

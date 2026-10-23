@@ -69,7 +69,7 @@ export function cuentaParaElGoteo(estado: string): boolean {
 export function frenoAlAprobar(g: Goteo | null | undefined, uso: UsoGoteo, ahoraMs: number, nombre: string): string | null {
   const f = frenoDeGoteo(g, uso, ahoraMs);
   if (!f.frena) return null;
-  const donde = 'su goteo, en Configuraciones › Anti-ban';
+  const donde = 'su goteo, en Configuraciones';
   if (f.motivo === 'dia') {
     const horas = Math.max(1, Math.ceil((f.desdeMs - ahoraMs) / 3_600_000));
     return `«${nombre}» ya mandó ${g?.dia} en 24 horas (${donde}). El próximo sale en ${horas === 1 ? '1 hora' : `${horas} horas`}.`;

@@ -5949,6 +5949,55 @@ en 4 h 5 min, y con 60, 50 en 24 h. **Vive en:** lib/goteo.ts · lib/nutricion.t
 lib/borrador-camino.ts · test: tests/goteo-con-aprobacion.test.ts. **Sin hacer:** aprobar no PROGRAMA el envío para su
 turno (`wa_borradores` no tiene dónde guardarlo; haría falta una columna): dice cuándo, y hay que volver a tocar.
 
+## Lo de la llamada que seguía a medias, con el arnés contra producción (22/10/2026, AU2 del plan del Cerebro)
+
+Medido por el Cerebro contra 87365c830 (el arnés `probar-chats-automations` @ eee20b3ab) y arreglado con tests que usan la
+RESPUESTA DEL MODELO GRABADA (lib/flujo-ia-revision-editar.ts: lo que la ruta hace con cada intento, puro). El modelo de
+verdad lo vuelve a medir el arnés cuando hay cuota.
+
+### «Editalos y agregalos» PISABA, y «Hazlo como te lo indiqué» DUPLICABA
+
+**Síntoma:** con dos WhatsApp, «Los textos que te pasé no están en el flujo. Editalos y agregalos:» + dos textos → el modelo
+CAMBIÓ los dos mensajes que había (2 de 2). Y el segundo turno, con todo hecho, los agregó OTRA vez (#491) o terminó en «No
+cambió nada» (#481). **Causa, tres piezas:** nada distinguía sumar de cambiar; el filtro de copias (`huellas`) sólo corría en
+un cambio de canal; y la respuesta honesta «Ya están en el flujo» la rechazaba MI regla de Editar (`errorDeRespuestaEnEditar`:
+no era pregunta, ni lugar, ni «no se puede»), así que el reintento duplicaba. **Es la segunda vez en el día que una regla de
+Editar bloquea una respuesta buena:** una regla que rechaza respuestas se prueba con las respuestas que SÍ valen. **Regla:**
+pedir SUMAR («agrega», «suma», «añade», aunque diga «edítalos») y cambiar el texto de lo que había vuelve al modelo con el
+error que lo dice (`pideAgregar`, y la regla en `REGLAS_EDITAR`: las dos capas); un WhatsApp idéntico a uno que ya está,
+también (`mensajesCopiados`); y si lo pegado en la charla ya está en el flujo, eso es lo que se contesta (`yaEstaEnElFlujo`).
+
+### La condición «antes del primer mensaje»: el diagnóstico obvio era el equivocado
+
+**Síntoma:** «Antes del primer mensaje, si tiene la etiqueta «Sprint · audio» que siga el flujo; si no, que no le mande nada»
+→ el primer mensaje quedaba DOS veces, sin condición (#535). **Lo obvio:** el camino de consulta (`RX_NADA` lee «que no le
+mande nada» como «no cambies nada»). **Lo de verdad:** con Editar eso ya no pasaba; el lenguaje de editar NO TENÍA DÓNDE
+PONERLA. «despues_de: cron» con el CRON ocupado colgaba EN PARALELO sin aviso; «en el medio» rechazaba una condición (no
+termina en una sola punta); una flecha del tramo a una tarjeta que ya existe se cortaba («Una tarjeta seguía en dos
+lugares»); y «cambiar» el mensaje a condición no cambia de tipo. **Regla:** desde el CRON con «sig», o con el tramo que ya
+sigue en la primera tarjeta, va EN EL MEDIO; el tramo PUEDE seguir en la tarjeta que seguía (`OpcionesArmar.enElMedio`); y
+una condición sola sigue por su primera rama. **Vive en:** lib/flujo-ia.ts (`armar`, `agregarTramos`).
+
+### «Si responde, movelo… y avisame por WhatsApp» se iba a OTRAS tabs
+
+**Síntoma:** dos burbujas «ir» (CRM y WhatsApp), y MaKo no hacía nada. **Causa:** la IA de pedidos lo partió en área crm +
+área whatsapp, y lo que etiqueta la IA es «fuerte» (lib/mako-pedidos.ts, `decidir`). **Regla:** en Automations, con una
+abierta, una orden sobre el flujo («si responde», «cuando entra», «movelo», «avisame», «mandale») es un cambio de lo
+abierto (`esOrdenDelFlujo`): la etapa, el CRM y el WhatsApp son ingredientes del flujo.
+
+### Una etapa que no existe se dice ANTES del modelo
+
+«Que arranque cuando el lead entra a la etapa «Clientes VIP Platino»» → el modelo no devolvía nada y salía «No cambió nada».
+Con la etapa entre comillas que ese CRM no tiene, MaKo contesta sin llamar al modelo, con las etapas que sí tiene, y el CRON
+no se toca (`etapaQueNoExiste`). Sólo entre comillas: un nombre suelto no se sabe dónde termina.
+
+**Vive en:** lib/flujo-ia-revision-editar.ts · lib/flujo-ia.ts · lib/mako-pedidos.ts · app/api/chat-agent/secuencias/ia/route.ts ·
+tests: tests/chat-mako-agregar-y-etapa.test.ts, tests/chat-mako-orden-del-flujo.test.ts.
+
+**Sin hacer (AU2):** «reordená» (no es una operación de editar), «deshacé eso» (el modelo no tiene lo borrado), la tarjeta de
+audio que el modelo inventa al CREAR; el aviso interno «Una tarjeta seguía en dos lugares» le llega a la persona; «Borrá el
+segundo mensaje» deja «1 día» y «2 días» seguidos sin avisar. Y el arnés con IA sobre esta rama: corre cuando vuelve la cuota
+de Gemini (~04:00 ART del 23/10).
 ## «No tienes ninguna IA gratis conectada» era la red de MaKo al tope de hoy (22/10/2026, AU3 del plan del Cerebro)
 
 **Síntoma:** Mauricio (ws1) leyó en el chat de su automatización «No tienes ninguna IA gratis conectada.», con el link a
@@ -5966,6 +6015,30 @@ lib/flujo-ia.ts (`falloDeIA`, `sinIAPropia`) · lib/flujo-ia-crear.ts (`generar`
 tests/ia-aviso-sin-ia-propia.test.ts. **Sin hacer:** las otras pantallas que llaman `falloDeIA` (la ficha, los gráficos,
 el «preparar» de la API de MaKo) no le pasan su red. Ven el texto nuevo sin la causa: lib/ficha/ia-generar.ts,
 lib/graficos-ia-*.ts, lib/api-mako/areas/chatbot.run.ts.
+
+## Un flujo que no depende de la IA: el «Si responde» SIN casos y sin `paso_ia` (22/10/2026, #289 del ws1)
+
+**Por qué:** IA16 apaga la red gratis de la plataforma para los negocios, y el ws1 no tiene IA propia. El AI Step de
+«Sprint · apertura» («Que responda: avisarle a Mauricio…») habría dejado de clasificar las respuestas el día de la campaña.
+**Lo que se sabe del motor:** un «Si responde» (`nodo: 'respuesta'`) sin `paso_ia` y con `casos: []` manda TODA respuesta
+por su `si_no`, que el lienzo rotula «Respondió» (`rotuloSiNoDeRespuesta`). `responderConGrafo` llama igual a
+`clasificarEscenario`, pero con la lista vacía vuelve ANTES de llamar a una IA («esta secuencia todavía no tiene casos»).
+O sea: «cualquier respuesta → aviso fijo al grupo → etiqueta» corre sin ninguna IA. **Regla:** cuando un flujo de un
+cliente no puede depender de la IA (sin key propia, o una campaña con fecha), el «Si responde» va sin casos y lo que sigue
+son acciones fijas. Las variables del aviso son `{{nombre_completo}}` y `{{link_chat_lead}}`; `{{lead_escribio}}` es de los
+avisos de eventos de MaKo y en un flujo no está garantizada. Para marcar al que respondió sin tocar las etapas que armó el
+cliente: una etiqueta sin vínculo a etapa (`poner_etiqueta_lead` no lo mueve). **Vive en:** lib/nutricion.ts
+(`responderConGrafo`) · lib/chat-agent-handoff.ts (`clasificarEscenario`) · lib/flujo-grafo.ts (`rotuloSiNoDeRespuesta`).
+
+## Probar un aviso en seco: sin `leadNombre`, el renglón del nombre desaparece (22/10/2026, auditoría de #289)
+
+**Síntoma:** resolviendo el aviso de «Sprint · apertura» con `conVariables(texto, { ws, leadId, destino: 'equipo' })`,
+salió sólo «Síguelo a mano desde Chats 👉 …»: el renglón «💬 {{nombre_completo}} respondió…» no estaba. **El
+diagnóstico obvio era el equivocado:** el aviso está bien. **Causa:** `{{nombre_completo}}` no sale de la ficha, sale de
+`leadNombre` del contexto (`fuente: 'nombre'`, lib/variables-aviso.ts), y `textoConDatos` borra entero un renglón cuyo dato
+quedó vacío. La tarjeta real (`textoDelAviso`, lib/api-mako/areas/chatbot.run.ts) sí pasa `leadNombre`, y además le suma
+`valoresVariablesLead`. **Regla:** una prueba en seco de un aviso se resuelve como la tarjeta: con `leadNombre` (o con
+`textoDelAviso`), nunca con `conVariables` pelado. Lo mismo vale para un lead sin nombre de verdad: ese renglón no sale.
 
 ## El chat de MaKo en segundo plano: irse cortaba el pedido, y el resultado de «Editar» no lo guarda la ruta (22/10/2026)
 
@@ -6027,6 +6100,89 @@ app/automations/ConfigAutomatizacionPanel.tsx (`AntibanDeLaAutomatizacion`) · L
 · lib/config-automatizacion.ts · lib/flujo-ia-intencion.ts · test: tests/automations-antiban.test.ts. **Sin hacer:** el
 teléfono (/m/automations) no tiene Configuraciones: el anti-ban y el horario de una automatización sólo se cambian en la
 computadora.
+
+## «Sólo apertura y un seguimiento si no responde»: el modelo piensa «Si responde» como un paso de la cadena (23/10/2026, #289)
+
+**Síntoma (Martín, ws1, Editar con Haiku):** «solo quiero que la automatización sea de "Apertura", y de última con un
+seguimiento si no responden… y cuando alguien responde se corta y le avisa a Mauricio». MaKo puso la espera de 2 días y el
+mensaje SIN la condición «no respondió», y no sacó los mensajes de los casos. **El diagnóstico obvio («la regla 3 del prompt
+no está») era el equivocado:** la regla ya pedía `contesto` con `no`. Medido en seco (scratchpad `medir-solo-apertura.mts`,
+forma de #289 con textos neutros): Haiku piensa «Si responde» como un PASO («si no responde → esperar → seguimiento») y le
+cuelga la espera; ahí no hay esperas, el código la tiraba y el seguimiento quedaba como respuesta, o no quedaba. Y con «sólo
+X», a veces se llevaba también X. **Regla:** lo que el modelo no cumple lo hace el código: un seguimiento NUEVO que el pedido
+nombra lleva «No contestó desde que entró» (`seguimientosConNoContesto`; un «recordatorio» no); un tramo que empieza con una
+espera y cuelga de «Si responde» va después del último mensaje; los casos que el turno vació se van; y el control de lo
+pedido mira también lo que había que SACAR (y no pide volver a poner lo que pidió sacar: `faltantesDelPedido` lo contaba),
+el seguimiento, el aviso cuando responde y que «sólo X» no se lleve X. Tras el arreglo, 8 de 8 corridas. **Trampa:**
+`esperaAntesDe` (la ventana de 24 h de Meta) no atravesaba una condición: una espera de 48 h antes de un DM con una
+condición en el medio pasaba. **Vive en:** lib/flujo-ia.ts (`seguimientosConNoContesto`, `sinCasosVaciados`,
+`agregarTramos`) · lib/flujo-ia-revision-editar.ts (`formaPedida`) · lib/flujo-ia-intencion.ts (`sobrantesDelPedido`,
+`pideQueQuedeSolo`) · lib/flujo-conversacion.ts · test: tests/chat-mako-seguimiento-y-solo.test.ts. **Sin hacer:** en 2 de 8
+corridas Haiku sacó también la pregunta de la apertura (no hay cómo saber qué es «apertura» sin el modelo); el «sólo X» sin
+comillas no se controla más que con «no quitaste nada».
+
+## «Misma persona» retrasa los pasos de la MISMA automatización: dos WhatsApp seguidos salen con 20 h entre uno y otro (23/10/2026)
+
+**Pregunta (Martín, por el Cerebro):** «si "Misma persona" dice 20 h y el flujo tiene un seguimiento o un delay de 2 h, ¿se
+rompe la automatización?». **Medido** (tests/automations-misma-persona-pasos.test.ts, con la ventana del motor): NO se rompe,
+se RETRASA. A las 2 h el segundo WhatsApp encuentra el primero dentro de la ventana (`leadsConEnvioReciente`: lo enviado con
+`created_at >= ahora − 20 h`, y lo de la misma corrida en `enviadoEnCorrida`), queda «saltado: msg <20h», la inscripción sigue
+en ese paso y sale en la primera corrida después de las 20 h. **Trampa:** vale también para dos WhatsApp SEGUIDOS sin espera
+(el segundo sale 20 h después) y para cualquier espera menor: la tarjeta decía «2 h» y salía a las 20. **Decisión:** el motor
+no se toca (frenar a la misma persona ES el anti-ban; sacarlo para los pasos propios haría salir en minutos flujos que hoy
+esperan 20 h, en producción); la tarjeta del WhatsApp lo dice («Sale 20 h después del anterior («Misma persona»)»), con el
+valor de ESA automatización (`/api/flujos/misma-persona`), que se apaga en su Configuraciones. **Vive en:**
+lib/flujo-conversacion.ts (`minutosDesdeElWhatsappAnterior`) · app/automations/FlujoLienzo.tsx ·
+app/api/flujos/misma-persona/route.ts. Y la pantalla de Configuraciones pasó a ser UNA (sin pestañas), con «Horario de
+oficina» y un bloque por canal; la «Misma persona, por defecto» de la línea ya no tiene fila (cada automatización muestra la del
+negocio mientras no tenga la suya). **Sin hacer:** el valor del negocio de «Misma persona» no se edita desde ninguna pantalla
+(sólo por la API de límites); el lienzo no relee el valor si se cambia con el modal abierto (al volver a abrir la automatización, sí).
+
+## El seguimiento «si no responde» que pidió el dueño no quedaba: tres causas, y ninguna era el prompt (23/10/2026, arnés del AU2)
+
+**Síntoma:** en el arnés del AU2 (`scripts/probar-chats/automations.mts`, ws3, c08b5e729) `seguimiento-no-contesto` dio rojo en las
+dos pasadas y `solo-apertura` en la segunda: MaKo dejaba la espera de 2 días y una condición, y el mensaje del seguimiento no
+estaba. **El diagnóstico obvio («el modelo no cumple la regla 3») era el equivocado.** Las causas, medidas en el informe:
+1. **La cita se leía como orden.** El pedido era «un seguimiento a los 2 días si no responde: «{Nombre}, ¿pudiste ver lo que te
+   mandé? Me avisas»». `pidioAviso` veía «avisas» ADENTRO de la cita; el control de lo pedido le exigía al modelo «falta el aviso
+   al grupo» y el reintento ponía un aviso al equipo en vez del seguimiento (pasada 2, tal cual). Lo mismo podía pasar con
+   `pidioRespuesta`, el cambio de canal, el CRON, «agregá» y «sólo X». **Regla:** lo que lee la INTENCIÓN del pedido pregunta
+   sobre `sinCitas(pedido)`: lo citado (20+ caracteres) es el mensaje para el lead; lo corto entre comillas (una etapa, una
+   etiqueta) sí es parte de la orden y se queda.
+2. **El modelo lo dejó a medias** (gpt-oss-120b por la red de plataforma): la espera y la condición POSITIVA («Contestó»)
+   colgando de una tarjeta que no existía, y el mensaje cortado («Una tarjeta seguía en otra que no existe: lo corté»). El texto
+   estaba citado y la espera la decía el pedido. **Regla:** lo que el modelo no cumple lo hace el código — `seguimientoQueFalta`
+   arma el tramo en el formato del modelo (espera + mensaje, por `agregarTramos`) y «No contestó» la pone
+   `seguimientosConNoContesto`. Sólo con UNA cita faltante, nada del dueño después del último mensaje, y una espera dicha (la del
+   modelo o la del pedido): no inventa la espera ni pisa lo que estaba.
+3. **El ruteo de «pedidos sueltos» se lo tragó** (pasada 2 de `solo-apertura`): «que la automatización sea de "Apertura"» calzó
+   en `referidos` con OTRA automatización cuyo nombre tenía «apertura» (la fila del caso anterior del arnés), salió la burbuja
+   «Eso va en «…»» y MaKo no recibió nada. En ws1 alcanza con que exista una automatización con esa palabra en el nombre.
+   **Regla:** en Automations, con una abierta, una orden sobre el flujo (`esOrdenDelFlujo`: ahora también «si no responden»,
+   «seguimiento», «que la automatización sea…») es de la abierta aunque una cita calce en otro nombre; borrar y «la otra»
+   siguen señalando a otra.
+**Vive en:** lib/flujo-ia-intencion.ts (`sinCitas`, `citasQueFaltan`, `minutosDelPedido`) · lib/flujo-ia.ts (`seguimientoQueFalta`,
+`haySeguimiento`, `protegidasPorElPedido`, `pidioAviso`, `pidioRespuesta`, `cambioDeCanal`, `pideCron`) ·
+lib/flujo-ia-revision-editar.ts (`formaPedida`, `pideAgregar`) · lib/mako-pedidos.ts (`decidir`, `esOrdenDelFlujo`) · test:
+tests/chat-mako-seguimiento-citas.test.ts (9 roturas → 9 rojos).
+**La segunda vuelta (el arnés, ws3, gpt-oss-120b, dos pasadas):** `seguimiento-no-contesto` pasó 2 de 2 (antes 0 de 2) y
+`solo-apertura` ya llega a MaKo. Quedaban dos fallas del modelo, con su arreglo en código:
+4. **«Sólo X» se llevaba lo que el mismo pedido pide tener**: quitó el «Si responde» con su aviso al grupo, que el pedido pedía
+   («le avisa a Ana por el grupo»). Ahora, si el pedido pide el aviso cuando el lead responde (y no pide sacarlo), el «Si
+   responde» y los avisos de abajo no entran en "quitar" (`protegidasPorElPedido`); los mensajes de los casos sí se van.
+5. **Sin una espera dicha, el código no armaba el seguimiento** («un seguimiento si no responden»). Ahora toma las 20 h de la
+   regla 3 del prompt, la misma que sigue el modelo, y el aviso lo dice para cambiarla (`AVISO_SEGUIMIENTO_A_20`).
+**Trampa:** una condición VACÍA que deja el modelo no llega nunca a la cola del último mensaje: el saneo la saca antes (medido).
+Código que la contemple ahí es código muerto.
+**La tercera vuelta (sha c8c219cd8):** `solo-apertura` pasó; `seguimiento-no-contesto` pasó 1 de 2. En la otra, el modelo
+puso él mismo la condición, pero la equivocada: «Nunca te escribió» (`respondio`, «jamás te escribió, en ningún lado»). Con
+esa condición, un lead que entró escribiéndote no recibe nunca el seguimiento. Además, con una condición ya puesta, el
+código no ponía la suya. Ahora, en una condición NUEVA entre la espera del seguimiento y el mensaje, las filas de respuesta
+(`respondio` y `contesto` positiva) pasan a «No contestó desde que entró», y el resto de las filas se queda.
+`AVISO_SEGUIMIENTO_CAMBIADA` lo dice. **Sin hacer:** volver a correr el arnés sobre este commit.
+**Sin hacer:** al CREAR (`deIA`) el código todavía no arma el seguimiento que falta (sólo le pone «No contestó» al que haya);
+con dos citas faltantes no se sabe cuál es el seguimiento y queda el rojo; si el negocio no tenía «Si responde» con aviso, el
+código no lo crea (lo pide el control, y en rojo).
 
 ## El chat de MaKo de Automations con el hilo y la caja únicos: las piezas traen CSS, el lienzo lo dibujan los tests (23/10/2026, AU4)
 

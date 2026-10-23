@@ -18,6 +18,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   opcionesCronIA, disparadorDeValorIA, valorIADeDisparador, type CanalesConectadosIA, type EntradaCronIA, type Disparador,
 } from '../lib/disparadores';
@@ -83,8 +84,11 @@ test('la ruta lee el CRON de la LISTA (`disparadoresDeSecuencia`) y lo pasa a ed
   assert.match(editar, /aplicarRespuestas\(\{ \.\.\.leido\.ctx, disparadorActual \}, pedido, respuestas\)/);
   // El MISMO ctx (con el CRON) llega al user, a deIAEdicion y a erroresEdicion.
   assert.match(editar, /userDeEditar\(ctx, /);
-  assert.match(editar, /deIAEdicion\(obj, base, ctx\)/);
-  assert.match(editar, /erroresEdicion\(base, r, ctx\)/);
+  // Desde el 22/10/2026 cada intento pasa por `revisarEdicion` (lib/flujo-ia-revision-editar.ts), con ese mismo ctx.
+  assert.match(editar, /revisarEdicion\(\{ obj, base, ctx, pedido, historial, intencion, control \}\)/);
+  const rev = readFileSync(join(__dirname, '..', 'lib/flujo-ia-revision-editar.ts'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(rev, /deIAEdicion\(o\.obj, o\.base, o\.ctx\)/);
+  assert.match(rev, /erroresEdicion\(o\.base, r, o\.ctx\)/);
 });
 
 // ── La pantalla ─────────────────────────────────────────────────────────────────────────────

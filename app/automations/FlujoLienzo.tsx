@@ -350,6 +350,19 @@ export function FlujoLienzo({
     return () => { vivo = false; };
   }, [rolAdmin, hayAntes, anticipacion]);
 
+  // «MISMA PERSONA» DE ESTA AUTOMATIZACIÓN (23/10/2026, `minutosDesdeElWhatsappAnterior`): la tarjeta de un WhatsApp que
+  // sigue a otro con menos espera dice cuándo sale de verdad. Se pide sólo con dos WhatsApp o más; `null` = no se sabe.
+  const variosWa = pasos.filter((p) => claseDe(p) === 'mensaje' && (p.canal ?? 'whatsapp') === 'whatsapp').length > 1;
+  const [mismaPersona, setMismaPersona] = useState<{ id: number; min: number | null } | null>(null);
+  useEffect(() => {
+    if (!secuenciaId || !variosWa || mismaPersona?.id === secuenciaId) return;
+    let vivo = true;
+    fetch(`/api/flujos/misma-persona?secuencia=${secuenciaId}`, { cache: 'no-store', signal: AbortSignal.timeout(30_000) })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; minutos?: number }) => { if (vivo) setMismaPersona({ id: secuenciaId, min: j?.ok && typeof j.minutos === 'number' ? j.minutos : null }); })
+      .catch(() => { if (vivo) setMismaPersona({ id: secuenciaId, min: null }); });
+    return () => { vivo = false; };
+  }, [secuenciaId, variosWa, mismaPersona?.id]);
   // QUIÉN ESPERA EN CADA TARJETA Y POR QUÉ NO LE SALE (23/10/2026, P0 de #289: Martín y su esposa entraron fuera del horario
   // de oficina y nada lo decía). El chip «2 esperando · Sale mañana 9:00» abajo de la tarjeta, con el porqué al pasar
   // (lib/en-cola-por-paso.ts). Se vuelve a pedir cada minuto: es lo que hace el motor. Sin poder leerlo, sin chip.
@@ -381,6 +394,7 @@ export function FlujoLienzo({
     nombres, colorEtiqueta: (id) => etiquetas.find((t) => t.id === id)?.color ?? null,
     audioDe: (id) => audios.find((a) => a.id === id) ?? null,
     pendientesOtraCosa, anticipacionMin: anticipacion ?? null,
+    mismaPersonaMin: mismaPersona?.id === secuenciaId ? mismaPersona.min : null,
     // El alto de la tarjeta CRON es fijo y se suma por cajita (`altoCron`): tiene que saber cuántas son.
     disparadores, nuevoDisparador: conNuevoDisparador,
   };

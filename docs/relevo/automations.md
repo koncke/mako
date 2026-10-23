@@ -139,3 +139,16 @@ vuelva la extensión de Chrome.
   crear no tiene «Discutir / Editar» (app/api/chat-agent/secuencias/ia/route.ts, rama `crear`).
 - Los días del goteo son los del horario propio de la automatización; no hay un «sólo estos días» aparte del horario
   (lib/config-automatizacion.ts).
+- **AU4 (P2), después de que entre el AU2:** (1) ChatMako pasa a CajaChat + HiloMako (app/_chat) con SU motor
+  (/api/chat-agent/secuencias/ia: crear en el lienzo vacío, las fases, el borrador en vivo), y Discutir/Editar va al
+  slot de modo de la pieza (Discutir = 'analizar', Editar = 'editar'); cuidar lo del 22/10 (el mensaje al instante y
+  «Reintentar», la capa en toda la pantalla, las fases en una línea: tests/chat-mako-envio-a-la-vista.test.ts). (2) La
+  «Pídeselo a MaKo» de la galería (CajaPedido) pasa a CajaChat. (3) La estrella (`MakoEnLaTab`, OC6) CONVIVE, no
+  reemplaza: `tab="Automations"`, `entidad={{ tipo: 'automatizacion', id: <secuenciaId>, titulo: <nombre> }}`,
+  `modo="analizar"` (lo general con la automatización de contexto; su turno es el del Cerebro, por la API de MaKo, sin las
+  fases ni el borrador). Que la estrella edite el lienzo en vivo sería otra pieza (el Cerebro llamando a esta ruta): se
+  decide con Martín antes. Las charlas del lienzo ya se ven en el Ops Center (OC5), de sólo lectura.
+- Cuando IA16 (chat «IA del cliente») esté en main: sacar de `sinIAPropia` las ramas «La IA gratis de MaKo llegó a su
+  tope / está al tope / está saturada / no contestó» (con IA16 la red no corre fuera del ws9) y dejar «No tienes una IA
+  conectada: conecta {SU_IA}» y los dos marcadores de red salteada (lib/flujo-ia.ts; su test,
+  tests/ia-aviso-sin-ia-propia.test.ts). IA16 está retenido hasta que el ws1 conecte su IA o el lunes 26/10.

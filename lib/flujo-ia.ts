@@ -118,6 +118,7 @@ import type { CronAviso } from './cron-aviso';
 import { respuestaDelModelo } from './flujo-ia-consulta';
 import { OP_MOVER_ETAPA } from './flujo-legado';
 import { LIMITES_CONSTANTES } from './limites-envio';
+import { sinCitas, citasQueFaltan, minutosDelPedido } from './flujo-ia-intencion';
 
 // ── Constantes que comparten la ruta y los tests ─────────────────────────────────
 
@@ -951,14 +952,15 @@ const OP_MAKO = 'avisar_al_equipo';
 
 /**
  * ¿El pedido pide que le avisen al equipo? («avísame», «notifica al grupo», «que el equipo se entere»). «Avísales» y
- * «avisarle» son al lead: no cuentan.
+ * «avisarle» son al lead: no cuentan. Sin las citas (`sinCitas`, 23/10/2026): el «Me avisas» de un mensaje al lead no es
+ * un aviso al equipo.
  */
 export const pidioAviso = (pedido: unknown): boolean =>
-  /\bavis(?!ar?les?\b)|notific|alert|\bequipo\b|\bgrupo\b|enter(?:arme|arnos|e|en)\b|que (?:yo )?sepa|me (?:digas|cuentes|escribas)\b/.test(normNombre(pedido));
+  /\bavis(?!ar?les?\b)|notific|alert|\bequipo\b|\bgrupo\b|enter(?:arme|arnos|e|en)\b|que (?:yo )?sepa|me (?:digas|cuentes|escribas)\b/.test(normNombre(sinCitas(pedido)));
 
-/** ¿El pedido habla de lo que contesta el lead? («si confirma», «si van a asistir», «cuando responda»). */
+/** ¿El pedido habla de lo que contesta el lead? («si confirma», «si van a asistir», «cuando responda»). Sin las citas. */
 export const pidioRespuesta = (pedido: unknown): boolean =>
-  /respond|contest|confirm|asist|si (?:dice|quiere|viene|vienen|van|puede|pueden)\b|pregunta(?:le|les)?\b|preguntal|\bresponda/.test(normNombre(pedido));
+  /respond|contest|confirm|asist|si (?:dice|quiere|viene|vienen|van|puede|pueden)\b|pregunta(?:le|les)?\b|preguntal|\bresponda/.test(normNombre(sinCitas(pedido)));
 
 /** La sugerencia cuando se saca un «Avisar al equipo» que nadie pidió (va en el chat, en palabras de la persona). */
 export const SUGERENCIA_AVISO = 'Si quieres que te avise en el grupo cuando alguien contesta, pídemelo';
@@ -1187,6 +1189,11 @@ type OpcionesArmar = {
   est: Estado;
   /** Cuántos caminos en paralelo hay ya (editar): cuenta para `TOPE_HILOS`. */
   hilosPrevios: number;
+  /**
+   * EN EL MEDIO (editar): la tarjeta que seguía donde va el tramo. Una flecha del tramo a ELLA no se corta (es lo que se pidió:
+   * «antes del primer mensaje, una condición que siga el flujo»); a cualquier otra que ya existía, sí.
+   */
+  enElMedio?: string | null;
 };
 
 type Armado = {
@@ -1226,7 +1233,7 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
   const avisoUnaVez = (k: string, m: string) => { if (!avisados.has(k)) { avisados.add(k); est.avisos.push(m); } };
   const AVISO_DOS_LUGARES = 'Una tarjeta seguía en dos lugares: la dejé en el primero';
 
-  type Destino = { tipo: 'nada' } | { tipo: 'tarjeta'; tmp: string; extraPar: string[] } | { tipo: 'ocupada' };
+  type Destino = { tipo: 'nada' } | { tipo: 'tarjeta'; tmp: string; extraPar: string[] } | { tipo: 'ocupada' } | { tipo: 'base'; id: string };
 
   /** A dónde lleva una referencia, saltando las tarjetas sacadas. */
   const seguir = (ref: string | null | undefined, hilo: Hilo, visto = new Set<string>()): Destino => {
@@ -1234,8 +1241,8 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
     visto.add(ref);
     const n = nodos.get(ref);
     if (!n) {
-      // Una tarjeta que ya existía (editar): ya cuelga de su lugar, no de dos.
-      if (idsBase.has(ref)) return { tipo: 'ocupada' };
+      // Una tarjeta que ya existía (editar): ya cuelga de su lugar, no de dos. Salvo la que seguía donde va el tramo (EN EL MEDIO).
+      if (idsBase.has(ref)) return ref === o.enElMedio ? { tipo: 'base', id: ref } : { tipo: 'ocupada' };
       avisoUnaVez(`no:${ref}`, 'Una tarjeta seguía en otra que no existe: lo corté');
       return { tipo: 'nada' };
     }
@@ -1273,6 +1280,7 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
   const unaSalida = (ref: string | null | undefined, hilo: Hilo): { destino: string | null; extraPar: string[] } => {
     const d = seguir(ref, hilo);
     if (d.tipo === 'nada') return { destino: null, extraPar: [] };
+    if (d.tipo === 'base') return { destino: d.id, extraPar: [] };
     if (d.tipo === 'ocupada') { avisoUnaVez('dos-lugares', AVISO_DOS_LUGARES); return { destino: null, extraPar: [] }; }
     reclamar(d.tmp, hilo);
     return { destino: d.tmp, extraPar: d.extraPar };
@@ -1339,7 +1347,8 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
   const real = new Map<string, string>();
   const nuevo = (): string => { const id = nuevoId(usados, o.rnd); usados.push({ id }); return id; };
   for (const tmp of orden) real.set(tmp, nuevo());
-  const r = (tmp: string | null) => (tmp ? real.get(tmp) ?? null : null);
+  // La tarjeta de EN EL MEDIO conserva su id (ya existe).
+  const r = (tmp: string | null) => (tmp ? real.get(tmp) ?? (tmp === o.enElMedio ? tmp : null) : null);
 
   const out: PasoIA[] = [];
   for (const tmp of orden) {
@@ -1740,6 +1749,10 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
     if (extra.length < raices.length - 1) pasos = podarSueltas(pasos);
   }
   pasos = podarSueltas(pasos);
+  // Un seguimiento sin «No contestó desde que entró» la lleva (`seguimientosConNoContesto`, 23/10/2026): al crear, todo es nuevo.
+  const seg = seguimientosConNoContesto(pasos, new Set(pasos.map((p) => p.id ?? '')), ctx.pedido, rnd);
+  if (seg.puestas.length) { pasos = seg.pasos; est.avisos.push(AVISO_SEGUIMIENTO); }
+  if (seg.cambiadas.length) { pasos = seg.pasos; est.avisos.push(AVISO_SEGUIMIENTO_CAMBIADA); }
   // EL AI STEP (undécima tanda, docs/diseno-undecima-tanda.md §6: UNO por objetivo, con los escenarios adentro). El
   // «Si responde» que arma el modelo se PLIEGA a UN AI Step cuando se puede sin cambiar lo que hace
   // (`respuestaAPasoIA`: cada caso es un «MaKo contesta» y/o un aviso), con el OBJETIVO de la tarjeta `si_responde`
@@ -1935,11 +1948,12 @@ export function disparadorReal(valor: string | null, ids: ReadonlyMap<number, nu
  * con el `ctxGrande` de tests/editar-ia-cambiar-quitar.test.ts: con él, editar pasa de ~3.483 a ~4.293 y Groq queda afuera).
  */
 const RX_PIDE_CRON = /dispar|\bcron\b|arranqu|arranc|empie[zc]|cuando (?:llega|llegue|llegan|entra|entre|entran|pasa a|pase a|se le pone|se le ponga|le ponen|comenta|comente|comentan|escribe|escriba|escriben|paga|pague|pagan)\b|comentario|historia|stor(?:y|ies)|en vivo|\blive\b|referencia|\bqr\b|mensaje directo/;
-const pideCron = (pedido: unknown): boolean => RX_PIDE_CRON.test(normNombre(pedido));
+// Sin las citas (`sinCitas`): «Empieza hoy tu historia» adentro de un mensaje no habla del CRON.
+const pideCron = (pedido: unknown): boolean => RX_PIDE_CRON.test(normNombre(sinCitas(pedido)));
 
 /** El canal social que nombra el pedido (Instagram o Messenger), o null. */
 const socialDelPedido = (pedido: unknown): CanalSocial | null => {
-  const c = canalDelPedido(pedido);
+  const c = canalDelPedido(sinCitas(pedido));
   return c && esCanalSocial(c) ? c : null;
 };
 
@@ -1968,9 +1982,10 @@ const RX_CAMBIO_CANAL: readonly RegExp[] = [
 
 /** EL CANAL SOCIAL AL QUE EL PEDIDO PASA EL FLUJO («cambia WhatsApp por Instagram»), o null. Pura. */
 export function cambioDeCanal(pedido: unknown): CanalSocial | null {
-  const c = canalDelPedido(pedido);
+  const orden = sinCitas(pedido);
+  const c = canalDelPedido(orden);
   if (!c || !esCanalSocial(c)) return null;
-  const t = normNombre(pedido);
+  const t = normNombre(orden);
   return RX_CAMBIO_CANAL.some((rx) => rx.test(t)) ? c : null;
 }
 
@@ -1990,10 +2005,10 @@ const CLASE_DE_TIPO: Readonly<Record<TipoTarjeta, ClaseEditable>> = {
 };
 /**
  * UNA ESPERA CORTA ENTRE DOS WHATSAPP NO SE CUMPLE (22/10/2026, la prueba de los chats del Cerebro, cinco-min-entre-mensajes 3 de
- * 3): el motor frena el segundo hasta que pasan las horas de «Misma persona» (Configuraciones › Anti-ban; de 3 a 72, 20 de
+ * 3): el motor frena el segundo hasta que pasan las horas de «Misma persona» (Configuraciones, WhatsApp; de 3 a 72, 20 de
  * fábrica: `LIMITES_CONSTANTES`). El modelo ponía los 5 minutos sin decirlo, o se negaba culpando a Meta. Lo dice el código.
  */
-export const AVISO_MISMA_PERSONA = 'Entre dos WhatsApp a la misma persona la línea espera las horas de «Misma persona» (Configuraciones › Anti-ban; 20 de fábrica): el segundo sale cuando pasen';
+export const AVISO_MISMA_PERSONA = 'Entre dos WhatsApp a la misma persona la línea espera las horas de «Misma persona» (en Configuraciones; 20 de fábrica): el segundo sale cuando pasen';
 const MINUTOS_MISMA_PERSONA = LIMITES_CONSTANTES.wa.personaHoras * 60;
 function esperaCortaEntreWhatsapp(pasos: readonly PasoIA[], tocadas: ReadonlySet<string>): boolean {
   const porId = new Map(pasos.map((p, i) => [idDe(p, i), p]));
@@ -2007,8 +2022,241 @@ function esperaCortaEntreWhatsapp(pasos: readonly PasoIA[], tocadas: ReadonlySet
   });
 }
 
+/**
+ * UN SEGUIMIENTO SIEMPRE VA DETRÁS DE «NO CONTESTÓ DESDE QUE ENTRÓ» (23/10/2026, #289 en el ws1, por el Cerebro: Martín pidió
+ * «un seguimiento si no responden» y MaKo agregó la espera de 2 días y el mensaje, SIN la condición). La regla 3 del prompt
+ * ya lo pedía y Haiku no la cumplió: lo hace el código. Un SEGUIMIENTO es un mensaje al lead que sigue a una espera de
+ * tiempo (no la de «antes de la reunión»: ésa prepara una reunión, no persigue a nadie) que a su vez viene después de otro
+ * mensaje al lead. Si esa espera sigue directo en el mensaje, entre los dos va una «condicion» con «No contestó desde que
+ * entró» (`contesto` negada) y su «Si no» vacío: si contestó, ahí termina. Sólo con lo NUEVO del turno (`nuevas`): un flujo
+ * que el dueño ya tenía no se toca sin que lo pida. Y sólo si el PEDIDO nombra un seguimiento (`RE_SEGUIMIENTO`): «agrega
+ * un recordatorio a las 24 h» es otra cosa (le llega aunque haya contestado; lo fijó tests/editar-ia-cambiar-quitar.test.ts).
+ * Devuelve los pasos y los ids de las condiciones que puso.
+ *
+ * Y SI EL MODELO PUSO OTRA CONDICIÓN DE RESPUESTA, SE CAMBIA (23/10/2026, la tercera vuelta del arnés: gpt-oss-120b armó la
+ * espera, «Nunca te escribió» y el mensaje). «Nunca te escribió» (`respondio`) es «jamás te escribió, en ningún lado»: un
+ * lead que entró escribiéndote no recibe nunca el seguimiento. «Te escribió alguna vez» y «Contestó» le mandan el
+ * seguimiento justo a quien contestó. En una condición NUEVA que sigue a la espera del seguimiento y lleva al mensaje por su
+ * primera rama, esas filas pasan a «No contestó desde que entró»; las demás filas (una etiqueta, un canal) se quedan. Lo dice
+ * `AVISO_SEGUIMIENTO_CAMBIADA` (nada por detrás). Devuelve también los ids de las que cambió (`cambiadas`).
+ */
+export const FILA_NO_CONTESTO = { no: true, campo: 'contesto' } as const;
+/** ¿Esa fila es una condición de RESPUESTA que no es «No contestó desde que entró»? */
+const esRespuestaEquivocada = (f: unknown): boolean => {
+  const x = f as { campo?: unknown; no?: unknown } | null;
+  return !!x && (x.campo === 'respondio' || (x.campo === 'contesto' && x.no !== true));
+};
+export const AVISO_SEGUIMIENTO_CAMBIADA = 'Cambié la condición del seguimiento por «No contestó desde que entró»: le llega a quien no te contestó desde que entró, aunque te haya escrito antes';
+/** ¿El pedido nombra un SEGUIMIENTO? («seguimiento», «si no responde/contesta», «si no hay respuesta»). */
+export const RE_SEGUIMIENTO = /seguimiento|(?<!\p{L})si no (?:te |me |le |nos )?(?:responde|contesta)n?(?!\p{L})|si no hay respuesta/iu;
+export const AVISO_SEGUIMIENTO = 'Puse «No contestó desde que entró» antes del seguimiento: si contesta, no le llega';
+/** «Cuando responde, le avisa al grupo» (sin las citas): lo miran el control de lo pedido y `protegidasPorElPedido`. */
+export const RE_AVISO_AL_RESPONDER = /(?<!no )(?:cuando|una vez que|apenas|en cuanto|si)\s+(?:alguien |el lead |la persona |me |te |le |nos )?(?:responde|contesta)n?(?!\p{L})[^.]{0,160}?(?:avis|notific)/iu;
+/** «Sacá / quitá el aviso»: el pedido pide sacarlo, y entonces nada lo protege. */
+export const RE_SACAR_AVISO = /(?<!\p{L})(?:sac|quit|elimin|borr(?!ador))\p{L}*\s+(?:\p{L}+\s+){0,2}avis/iu;
+
+/**
+ * LO QUE EL PEDIDO PIDE TENER NO SE QUITA (23/10/2026, el arnés del AU2: `solo-apertura` en la 2ª pasada). «Sólo quiero que sea
+ * de "Apertura"… y cuando alguien responde se corta y le avisa a Ana por el grupo»: el modelo leyó «sólo apertura» y quitó
+ * TAMBIÉN el «Si responde» con su aviso al equipo, que el mismo pedido pide. Si el pedido pide el aviso cuando el lead
+ * responde (y no pide sacarlo), el «Si responde» y los avisos que cuelgan de él no entran en "quitar": lo de los casos (los
+ * mensajes que sobran) sí se va. Devuelve los ids protegidos (vacío si no hay nada que proteger).
+ */
+export const AVISO_DEJE_EL_AVISO = 'Dejé el aviso al grupo cuando responde: lo pediste';
+export function protegidasPorElPedido(base: readonly PasoGrafo[], pedido: unknown): Set<string> {
+  const orden = sinCitas(pedido);
+  if (!RE_AVISO_AL_RESPONDER.test(orden) || RE_SACAR_AVISO.test(orden)) return new Set();
+  const resp = raizRespuesta(base);
+  if (!resp) return new Set();
+  const porId = new Map(base.map((p, i) => [idDe(p, i), p]));
+  const avisos = [...descendientes(base, resp)].filter((id) => (porId.get(id) as PasoIA | undefined)?.accion?.operacion === OP_MAKO);
+  return avisos.length ? new Set([resp, ...avisos]) : new Set();
+}
+export function seguimientosConNoContesto(pasos: readonly PasoIA[], nuevas: ReadonlySet<string>, pedido: unknown, rnd: () => number = Math.random): { pasos: PasoIA[]; puestas: string[]; cambiadas: string[] } {
+  let out = pasos.map((p) => p);
+  const puestas: string[] = [];
+  const cambiadas: string[] = [];
+  if (!RE_SEGUIMIENTO.test(sinCitas(pedido))) return { pasos: out, puestas, cambiadas };
+  const porId = () => new Map(out.map((p, i) => [idDe(p, i), p]));
+  const esMensaje = (q: PasoIA | undefined) => !!q && claseDe(q) === 'mensaje';
+  /** ¿Hay un mensaje al lead ANTES de `id` (subiendo por sus padres)? */
+  const vieneDeUnMensaje = (id: string): boolean => {
+    const m = porId();
+    const visto = new Set<string>();
+    const pila = padresDe(out, id).map((x) => x.id);
+    while (pila.length) {
+      const x = pila.pop()!;
+      if (visto.has(x)) continue;
+      visto.add(x);
+      if (esMensaje(m.get(x))) return true;
+      pila.push(...padresDe(out, x).map((y) => y.id));
+    }
+    return false;
+  };
+  for (const e of [...out]) {
+    const id = e.id ?? '';
+    if (claseDe(e) !== 'esperar') continue;
+    const espera = e.espera as { modo?: string } | undefined;
+    if (espera?.modo === 'antes_reunion') continue;
+    const sig = String(e.siguiente ?? '');
+    const m = porId().get(sig);
+    const r0 = m && claseDe(m) === 'condicion' ? m.ramas?.[0] : undefined;
+    if (r0 && nuevas.has(sig) && esMensaje(porId().get(String(r0.siguiente ?? ''))) && vieneDeUnMensaje(id)
+      && (r0.filas ?? []).some(esRespuestaEquivocada)) {
+      // Sin las de respuesta (y sin una «No contestó» que ya estuviera: va una sola, adelante).
+      const resto = (r0.filas ?? []).filter((f) => !esRespuestaEquivocada(f) && (f as { campo?: unknown }).campo !== 'contesto');
+      const filas = [{ ...FILA_NO_CONTESTO }, ...resto];
+      out = out.map((p) => (p.id === sig ? { ...p, ramas: [{ ...r0, filas }, ...(p.ramas ?? []).slice(1)] } : p));
+      cambiadas.push(sig);
+      continue;
+    }
+    if (!esMensaje(m) || !(nuevas.has(id) || nuevas.has(sig)) || !vieneDeUnMensaje(id)) continue;
+    const usados: PasoGrafo[] = [...out];
+    const nuevoIdAca = (): string => { const x = nuevoId(usados, rnd); usados.push({ id: x }); return x; };
+    const c: PasoIA = { ...relleno(), id: nuevoIdAca(), nodo: 'condicion', ramas: [{ id: nuevoIdAca(), modo: 'todas', filas: [{ ...FILA_NO_CONTESTO }], siguiente: sig }], si_no: null };
+    out = out.map((p) => (p.id === id ? { ...p, siguiente: c.id } : p));
+    // La condición va justo antes del mensaje en el array: el orden de lectura sigue al flujo.
+    const i = out.findIndex((p) => p.id === sig);
+    out = [...out.slice(0, i), c, ...out.slice(i)];
+    puestas.push(c.id!);
+  }
+  return { pasos: out, puestas, cambiadas };
+}
+
+/**
+ * ¿HAY UN SEGUIMIENTO en el flujo? Una espera de tiempo (no la de «antes de la reunión») seguida de un mensaje, directo o
+ * por la primera rama de una condición. Lo pregunta el control de lo pedido (`formaPedida`, lib/flujo-ia-revision-editar.ts)
+ * y `seguimientoQueFalta`: una sola definición.
+ */
+export function haySeguimiento(pasos: readonly PasoGrafo[]): boolean {
+  const m = new Map(pasos.map((p, i) => [idDe(p, i), p]));
+  return pasos.some((p) => {
+    if (claseDe(p) !== 'esperar' || (p.espera as { modo?: string } | undefined)?.modo === 'antes_reunion') return false;
+    let q = m.get(String(p.siguiente ?? ''));
+    if (q && claseDe(q) === 'condicion') q = m.get(String(q.ramas?.[0]?.siguiente ?? ''));
+    return !!q && claseDe(q) === 'mensaje';
+  });
+}
+
+/**
+ * EL SEGUIMIENTO PEDIDO QUE EL MODELO NO DEJÓ, LO ARMA EL CÓDIGO (23/10/2026, el arnés del AU2: `seguimiento-no-contesto` en
+ * rojo en las dos pasadas, con gpt-oss-120b por la red de plataforma). «Agregá al final un seguimiento a los 2 días si no
+ * responde: «…»»: el modelo dejó la espera y una condición «Contestó» (la positiva) colgando de una tarjeta que no existía, y
+ * el mensaje se cortó («Una tarjeta seguía en otra que no existe»). El texto está entre comillas y la espera la dice el
+ * pedido: no hace falta el modelo para eso. Sólo si:
+ *   · el pedido (sin las citas) nombra un seguimiento (`RE_SEGUIMIENTO`) y no hay ninguno (`haySeguimiento`);
+ *   · falta exactamente UNA cita (con dos, no se sabe cuál es el seguimiento: queda el control, que lo dice en rojo);
+ *   · después del último mensaje del camino del lead hay nada, o sólo esperas y condiciones de «Contestó» SIN salida que
+ *     puso este turno (lo que dejó el modelo a medias: se reemplaza). Una tarjeta de antes o un mensaje ahí no se tocan;
+ *   · se sabe cuánto esperar: la espera que dejó el modelo, o la del pedido (`minutosDelPedido`). Sin eso, no se inventa.
+ * Arma el tramo con el MISMO formato que el modelo (`agregarTramos`: sus ids, el canal, la limpieza del texto y «{Nombre}»),
+ * y «No contestó desde que entró» lo pone `seguimientosConNoContesto`, que corre después.
+ */
+export const AVISO_SEGUIMIENTO_ARMADO = 'Puse el seguimiento con tu texto después del último mensaje';
+function seguimientoQueFalta(pasosIn: PasoIA[], ed: Edicion, social: CanalSocial | null): PasoIA[] {
+  const pedido = String(ed.est.ctx.pedido ?? '');
+  const orden = sinCitas(pedido);
+  const seg = RE_SEGUIMIENTO.exec(orden);
+  if (!seg || haySeguimiento(pasosIn)) return pasosIn;
+  const faltan = citasQueFaltan(pedido, textosDeMensajes(pasosIn));
+  if (faltan.length !== 1) return pasosIn;
+  const ultimo = ultimoMensajeDelCamino(pasosIn);
+  if (!ultimo) return pasosIn;
+  const porId = new Map(pasosIn.map((p, i) => [idDe(p, i), p]));
+  // Lo que cuelga del último mensaje: sólo lo que dejó el modelo a medias (esperas y condiciones de «Contestó» sin salida).
+  const cola: string[] = [];
+  let minutosDelModelo: number | null = null;
+  for (let x = String(porId.get(ultimo)?.siguiente ?? ''); x; ) {
+    const p = porId.get(x);
+    if (!p || !ed.agregadas.has(x) || cola.includes(x)) return pasosIn;
+    const c = claseDe(p);
+    if (c === 'esperar') {
+      const e = p.espera as { modo?: string; minutos?: number } | undefined;
+      if (e?.modo !== 'tiempo') return pasosIn;
+      minutosDelModelo = Number(e.minutos) > 0 ? Number(e.minutos) : minutosDelModelo;
+      cola.push(x);
+      x = String(p.siguiente ?? '');
+      continue;
+    }
+    // Una condición de «Contestó» sin salida. (Una VACÍA no llega hasta acá: el saneo la saca antes, «Saqué una condición que
+    // no tenía ninguna rama válida», medido el 23/10/2026.)
+    const soloContesto = c === 'condicion' && (p.ramas ?? []).length === 1 && p.ramas![0].filas.every((f) => f.campo === 'contesto')
+      && !p.ramas![0].siguiente && !p.si_no;
+    if (!soloContesto) return pasosIn;
+    cola.push(x);
+    break;
+  }
+  // Sin una espera dicha (ni del modelo ni del pedido: «un seguimiento si no responden»), la de la regla 3 del prompt, la
+  // misma que sigue el modelo: 20 h entre dos WhatsApp. Se dice en el aviso, y se cambia en la tarjeta.
+  const dicha = minutosDelModelo ?? minutosDelPedido(orden, seg.index);
+  const minutos = dicha ?? MINUTOS_REGLA_3;
+  // Un email necesita su asunto, y ése no está en el pedido: queda el control.
+  const canal = canalDePaso(porId.get(ultimo)!);
+  if (canal === 'email') return pasosIn;
+  let pasos = pasosIn;
+  for (const id of [...cola].reverse()) pasos = borrarNodo(pasos, id) as PasoIA[];
+  const tramo = {
+    despues_de: ultimo, salida: 'sig',
+    tarjetas: [
+      { id: 'seg1', tipo: 'esperar', minutos, sigue: 'seg2' },
+      { id: 'seg2', tipo: 'mensaje', canal, texto: faltan[0] },
+    ],
+  };
+  const antes = pasos.length;
+  pasos = agregarTramos(pasos, [tramo], ed, social, null);
+  if (pasos.length > antes) ed.est.avisos.push(dicha == null ? AVISO_SEGUIMIENTO_A_20 : AVISO_SEGUIMIENTO_ARMADO);
+  return pasos;
+}
+/** Las horas de la regla 3 del prompt («Entre dos WhatsApp va un "esperar" de 20 horas o más»), en minutos. */
+const MINUTOS_REGLA_3 = 20 * 60;
+export const AVISO_SEGUIMIENTO_A_20 = 'Puse el seguimiento con tu texto después del último mensaje, a las 20 h: cámbialo en la espera';
+
+/**
+ * LOS CASOS QUE EL TURNO DEJÓ VACÍOS SE VAN (23/10/2026, #289 medido en seco: «sólo quiero que sea de Apertura» sacaba los
+ * mensajes de cada caso y dejaba el caso, sin nada). Un caso vacío se traga la respuesta que encaja ahí: no contesta ni
+ * avisa. Sin él, esa respuesta va por «Otra cosa» (el aviso al equipo, en #289). Sólo los que TENÍAN algo antes del turno:
+ * uno que el dueño dejó vacío a propósito no se toca.
+ */
+export const AVISO_CASOS_VACIOS = 'Saqué los casos de «Si responde» que quedaron vacíos: esas respuestas van por «Otra cosa»';
+export function sinCasosVaciados(pasos: readonly PasoIA[], base: readonly PasoGrafo[]): { pasos: PasoIA[]; sacados: number } {
+  const antes = new Map(base.flatMap((p) => (p.casos ?? []).map((c) => [c.id, c.siguiente ?? null] as const)));
+  let sacados = 0;
+  const out = pasos.map((p) => {
+    if (claseDe(p) !== 'respuesta' || !p.casos?.length) return p;
+    const casos = p.casos.filter((c) => !(c.siguiente == null && antes.get(c.id) != null));
+    sacados += p.casos.length - casos.length;
+    return casos.length === p.casos.length ? p : { ...p, casos };
+  });
+  return { pasos: out, sacados };
+}
+
+/**
+ * EL ÚLTIMO MENSAJE DEL CAMINO DEL LEAD: desde la primera raíz del CRON, siguiendo la «sig» (y la primera rama de una
+ * condición), el último mensaje al lead antes de que el camino termine. null si no hay ninguno.
+ */
+export function ultimoMensajeDelCamino(pasos: readonly PasoGrafo[]): string | null {
+  const porId = new Map(pasos.map((p, i) => [idDe(p, i), p]));
+  let x: string | null = raicesSalida(pasos)[0] ?? null;
+  let ultimo: string | null = null;
+  const visto = new Set<string>();
+  while (x && !visto.has(x)) {
+    visto.add(x);
+    const p = porId.get(x);
+    if (!p) break;
+    if (claseDe(p) === 'mensaje') ultimo = x;
+    x = claseDe(p) === 'condicion' ? (p.ramas?.[0]?.siguiente ?? null) : (p.siguiente ?? null);
+  }
+  return ultimo;
+}
+
 /** Las tarjetas de UNA salida «sig» (en el grafo): ahí un tramo puede ir EN EL MEDIO (`agregarTramos`). */
 const SALIDA_SIMPLE: ReadonlySet<string> = new Set(['mensaje', 'esperar', 'accion']);
+/** Las flechas que escribió el modelo en unas tarjetas (`apuntaA` de cada una): para ver si ya siguen en una que existe. */
+const refsDeTarjetas = (cards: readonly Card[]): string[] => cards.flatMap(apuntaA);
+/** ¿Una tarjeta ya armada sigue en `id` (por su «sig», un paralelo, una rama o su «Si no»)? */
+function sigueEn(n: PasoIA, id: string): boolean {
+  return n.siguiente === id || (n.paralelos ?? []).includes(id) || (n.ramas ?? []).some((r) => r.siguiente === id) || n.si_no === id;
+}
 /** Las de UNA salida: cambiar de clase las reemplaza en su mismo lugar. */
 const SIMPLES: ReadonlySet<ClaseEditable> = new Set<ClaseEditable>(['mensaje', 'esperar', 'etiqueta', 'accion']);
 
@@ -2377,7 +2625,12 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
   est.social = social;
   est.cron = cron ?? null;
 
-  for (const id of refs(o.quitar)) pasos = quitarTarjeta(pasos, id, est);
+  // Lo que el pedido pide tener no se quita (`protegidasPorElPedido`, 23/10/2026).
+  const protegidas = protegidasPorElPedido(base, ctx.pedido);
+  for (const id of refs(o.quitar)) {
+    if (protegidas.has(id)) { est.avisos.push(AVISO_DEJE_EL_AVISO); continue; }
+    pasos = quitarTarjeta(pasos, id, est);
+  }
   for (const x of Array.isArray(o.cambiar) ? o.cambiar : []) {
     if (x && typeof x === 'object' && !Array.isArray(x)) pasos = cambiarTarjeta(pasos, x as Record<string, unknown>, ed);
   }
@@ -2427,6 +2680,14 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
     }
   }
 
+  // El seguimiento pedido que el modelo no dejó lo arma el código (`seguimientoQueFalta`), y uno NUEVO sin «No contestó
+  // desde que entró» la lleva (`seguimientosConNoContesto`, 23/10/2026, #289).
+  pasos = seguimientoQueFalta(pasos, ed, social);
+  const seg = seguimientosConNoContesto(pasos, ed.agregadas, ctx.pedido, rnd);
+  if (seg.puestas.length) { pasos = seg.pasos; for (const x of seg.puestas) ed.agregadas.add(x); est.avisos.push(AVISO_SEGUIMIENTO); }
+  if (seg.cambiadas.length) { pasos = seg.pasos; est.avisos.push(AVISO_SEGUIMIENTO_CAMBIADA); }
+  const vaciados = sinCasosVaciados(pasos, base);
+  if (vaciados.sacados) { pasos = vaciados.pasos; est.avisos.push(AVISO_CASOS_VACIOS); }
   if (esperaCortaEntreWhatsapp(pasos, new Set([...ed.agregadas, ...ed.cambiadas]))) est.avisos.push(AVISO_MISMA_PERSONA);
   const vivos = new Set(pasos.map((p, i) => idDe(p, i)));
   const out: ResultadoEdicion = {
@@ -2485,7 +2746,7 @@ function sinFlechaA(raw: Record<string, unknown>, id: string): Record<string, un
  * su «Otra cosa», el de «Otra cosa». Lo de antes de la pregunta sigue en el tramo, sin la flecha a la «Si responde».
  * null = el tramo no trae ninguna.
  */
-function partirSiResponde(g: Record<string, unknown>): { resto: Record<string, unknown> | null; casos: Array<Record<string, unknown>> } | null {
+function partirSiResponde(g: Record<string, unknown>): { resto: Record<string, unknown> | null; casos: Array<Record<string, unknown>>; conCasos: boolean } | null {
   const cards = tarjetasDe(g.tarjetas, []);
   const sr = cards.find((c) => c.tipo === 'si_responde');
   if (!sr) return null;
@@ -2506,7 +2767,8 @@ function partirSiResponde(g: Record<string, unknown>): { resto: Record<string, u
   }
   tramoDe(refs(sr.raw.otra_cosa ?? sr.raw.si_no)[0], { salida: 'otra_cosa' });
   const resto = cards.filter((c) => !usadas.has(c.tmp)).map((c) => sinFlechaA(c.raw, sr.tmp));
-  return { resto: resto.length ? { ...g, tarjetas: resto } : null, casos };
+  const conCasos = Array.isArray(sr.raw.casos) && sr.raw.casos.length > 0;
+  return { resto: resto.length ? { ...g, tarjetas: resto } : null, casos, conCasos };
 }
 
 /**
@@ -2573,7 +2835,8 @@ function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicio
       const partido = partirSiResponde(g);
       if (partido) {
         cola.push(...partido.casos);
-        if (!partido.casos.length) est.noHecho.push('Las respuestas del lead no traían qué hacer en cada caso: no armé las ramas');
+        // Sólo si traía casos: un «Si responde» vacío que el modelo sumó solo no es una rama pedida (23/10/2026, #289 en seco).
+        if (!partido.casos.length && partido.conCasos) est.noHecho.push('Las respuestas del lead no traían qué hacer en cada caso: no armé las ramas');
         if (!partido.resto) continue;
         g = partido.resto;
       }
@@ -2586,8 +2849,8 @@ function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicio
     });
     if (!sinResp.length) continue;
     preferirEsperas(sinResp, est.avisos);
-    const despues = normNombre(g.despues_de ?? g.después_de ?? 'cron').replace(/\s+/g, '_');
-    const salida = normNombre(g.salida ?? 'paralelo').replace(/\s+/g, '_');
+    let despues = normNombre(g.despues_de ?? g.después_de ?? 'cron').replace(/\s+/g, '_');
+    let salida = normNombre(g.salida ?? 'paralelo').replace(/\s+/g, '_');
     if (social && (despues === 'si_responde' || despues === 'respuesta')) { est.avisos.push(`Saqué el Si responde: el AI Step de ${NOMBRE_CANAL[social]} se suma desde el ＋`); continue; }
     const copias = huellas
       ? new Set(sinResp.filter((c) => (c.tipo === 'mensaje' || c.tipo === 'email') && huellas.has(huellaDe(c.raw.texto ?? c.raw.cuerpo ?? c.raw.mensaje))).map((c) => c.tmp))
@@ -2595,6 +2858,21 @@ function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicio
     if (copias.size) est.avisos.push('No dupliqué los mensajes: les cambié el canal');
     if (copias.size === sinResp.length) continue;
     const inicioTmp = refs(g.inicio)[0] && sinResp.some((c) => c.tmp === refs(g.inicio)[0]) ? refs(g.inicio)[0] : sinResp[0].tmp;
+    // ⚠️ UN SEGUIMIENTO COLGADO DE «SI RESPONDE» (23/10/2026, #289 medido en seco con Haiku: «un seguimiento si no
+    // responden»). El modelo piensa «Si responde» como un paso de la cadena y le cuelga «si no → esperar → mensaje» (en su
+    // «sig», su «Otra cosa» o un caso sin nombre). Ahí no hay esperas: se tiraba la espera y el seguimiento quedaba como
+    // respuesta, o no quedaba. Un tramo colgado de «Si responde» que EMPIEZA con una espera es un seguimiento: va después
+    // del último mensaje del camino del lead (donde la condición «No contestó» la pone `seguimientosConNoContesto`).
+    const respYa = raizRespuesta(pasos);
+    const colgadoDeResp = despues === 'si_responde' || despues === 'respuesta' || (!!respYa && str(g.despues_de).trim() === respYa);
+    if (colgadoDeResp && sinResp.find((c) => c.tmp === inicioTmp)?.tipo === 'esperar' && !(salida === 'caso' && g.caso)) {
+      const ultimo = ultimoMensajeDelCamino(pasos);
+      if (ultimo) {
+        g = { ...g, despues_de: ultimo, salida: 'sig' };
+        despues = normNombre(ultimo); salida = 'sig';
+        est.avisos.push('El seguimiento iba colgado de «Si responde»: lo puse después del último mensaje');
+      }
+    }
 
     // ¿Dónde se cuelga? (lugar + si el tramo queda adentro de «Si responde»)
     const resp = raizRespuesta(pasos);
@@ -2661,24 +2939,50 @@ function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicio
     }
     if (lugar.tipo === 'cron') {
       const principal = raicesSalida(pasos)[0] ?? null;
-      if (principal && TOPE_HILOS - 1 - contarParalelos(pasos) <= 0) { est.avisos.push(`Una automatización corre hasta ${TOPE_HILOS} caminos a la vez: no agregué otro`); continue; }
-      const ini = pasos.find((p) => claseDe(p) === 'inicio');
-      if (principal && ini && (ini.paralelos?.length ?? 0) >= TOPE_PARALELOS) { est.avisos.push(`Desde el CRON salen hasta ${1 + TOPE_PARALELOS} caminos: no agregué otro`); continue; }
+      // ⚠️ ANTES DE LO PRIMERO (22/10/2026, el arnés del Cerebro: «antes del primer mensaje, si tiene la etiqueta X que siga el
+      // flujo»): desde el CRON con «sig», o con el tramo que ya sigue en la primera tarjeta, va EN EL MEDIO. Antes colgaba EN
+      // PARALELO, sin aviso, y el primer mensaje quedaba dos veces.
+      if (principal && (salida === 'sig' || salida === 'siguiente' || refsDeTarjetas(sinResp).includes(principal))) enElMedio = principal;
+      else {
+        if (principal && TOPE_HILOS - 1 - contarParalelos(pasos) <= 0) { est.avisos.push(`Una automatización corre hasta ${TOPE_HILOS} caminos a la vez: no agregué otro`); continue; }
+        const ini = pasos.find((p) => claseDe(p) === 'inicio');
+        if (principal && ini && (ini.paralelos?.length ?? 0) >= TOPE_PARALELOS) { est.avisos.push(`Desde el CRON salen hasta ${1 + TOPE_PARALELOS} caminos: no agregué otro`); continue; }
+      }
     }
     if (lugar.tipo === 'par') {
       const p = pasos[indicePorId(pasos, lugar.nodo)];
       if ((p.paralelos?.length ?? 0) >= TOPE_PARALELOS || TOPE_HILOS - 1 - contarParalelos(pasos) <= 0) { est.avisos.push('Esa tarjeta ya abre todos los caminos que puede: no agregué otro'); continue; }
     }
 
-    const hilosPrevios = contarParalelos(pasos) + ((lugar.tipo === 'par' || (lugar.tipo === 'cron' && raicesSalida(pasos).length)) ? 1 : 0);
+    const hilosPrevios = contarParalelos(pasos) + ((lugar.tipo === 'par' || (lugar.tipo === 'cron' && !enElMedio && raicesSalida(pasos).length)) ? 1 : 0);
     est.copias = copias;
-    const armado = armar(sinResp, [{ ref: inicioTmp, hilo }], null, { base: pasos, rnd, est, hilosPrevios });
+    const armado = armar(sinResp, [{ ref: inicioTmp, hilo }], null, { base: pasos, rnd, est, hilosPrevios, enElMedio });
     est.copias = undefined;
     const raiz = armado.raices[0];
     if (!raiz || !armado.nodos.length) { est.avisos.push('Un tramo nuevo quedó vacío: no lo agregué'); continue; }
-    for (const p of armado.nodos) ed.agregadas.add(p.id!);
+    // EN EL MEDIO: lo que seguía va DESPUÉS del tramo. Si el tramo ya sigue en ella, listo; si no, se cuelga de su única punta
+    // libre (una tarjeta simple sin «sig»), o de la primera rama de una condición sola («si tiene X, que siga el flujo»).
+    // Con más de una punta no se adivina: no se agrega.
+    let nodos = armado.nodos;
+    if (enElMedio && !nodos.some((n) => sigueEn(n, enElMedio!))) {
+      const colas = nodos.filter((n) => SALIDA_SIMPLE.has(claseDe(n)) && !n.siguiente);
+      const cond = nodos.length === 1 && claseDe(nodos[0]) === 'condicion' && nodos[0].ramas?.length && !nodos[0].ramas[0].siguiente ? nodos[0] : null;
+      if (colas.length === 1) nodos = nodos.map((n) => (n === colas[0] ? { ...n, siguiente: enElMedio } : n));
+      else if (cond) nodos = [{ ...cond, ramas: cond.ramas!.map((r, k) => (k === 0 ? { ...r, siguiente: enElMedio } : r)) }];
+      else { est.avisos.push('Esa salida ya tiene tarjetas y el tramo nuevo no termina en una sola: no lo agregué'); continue; }
+    }
+    for (const p of nodos) ed.agregadas.add(p.id!);
 
-    if (lugar.tipo === 'cron') {
+    if (lugar.tipo === 'cron' && enElMedio) {
+      // Antes de lo primero: el CRON sigue en el tramo (con el nodo de inicio, su «sig»; sin él, el tramo va primero en la
+      // lista, que es la raíz de la salida: `raicesSalida` toma la primera que nadie apunta).
+      const iIni = pasos.findIndex((p) => claseDe(p) === 'inicio');
+      if (iIni >= 0) {
+        pasos = conectarPuerto(pasos, ID_INICIO, 'sig', raiz);
+        const k = pasos.findIndex((p) => claseDe(p) === 'inicio');
+        pasos = [...pasos.slice(0, k), ...nodos, ...pasos.slice(k)];
+      } else pasos = [...nodos, ...pasos];
+    } else if (lugar.tipo === 'cron') {
       const principal = raicesSalida(pasos)[0] ?? null;
       const iIni = pasos.findIndex((p) => claseDe(p) === 'inicio');
       if (!principal) {
@@ -2707,11 +3011,6 @@ function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicio
       const k = pasos.findIndex((p) => p.id === r);
       pasos = [...pasos.slice(0, k + 1), ...armado.nodos, ...pasos.slice(k + 1)];
     } else {
-      // EN EL MEDIO: el tramo tiene que terminar en UNA punta libre (una tarjeta simple sin «sig»), que es donde se cuelga lo
-      // que seguía. Con más de una (una condición con dos ramas abiertas), no se adivina cuál: no se agrega.
-      const colas = enElMedio ? armado.nodos.filter((n) => SALIDA_SIMPLE.has(claseDe(n)) && !n.siguiente) : [];
-      if (enElMedio && colas.length !== 1) { est.avisos.push('Esa salida ya tiene tarjetas y el tramo nuevo no termina en una sola: no lo agregué'); for (const p of armado.nodos) ed.agregadas.delete(p.id!); continue; }
-      const nodos = enElMedio ? armado.nodos.map((n) => (n === colas[0] ? { ...n, siguiente: enElMedio } : n)) : armado.nodos;
       pasos = conectarPuerto(pasos, lugar.nodo, lugar.tipo === 'par' ? 'par' : lugar.puerto, raiz);
       const k = pasos.findIndex((p) => p.id === lugar!.nodo);
       pasos = [...pasos.slice(0, k + 1), ...nodos, ...pasos.slice(k + 1)];

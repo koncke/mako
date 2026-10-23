@@ -320,8 +320,10 @@ test('la ruta: editar con la respuesta del CRON NO llama al modelo; «Déjalo as
   assert.match(RUTA, /generar\(\{\s*system, user, hastaMs: inicio \+ PLAZO_MODELO_MS, traducir, motivo: 'Editar una automatización con IA',\s*alIntento: [^\n]*\n\s*\}\)/);
   // (15/10/2026: una RESPUESTA del modelo no cambió nada y no se revisa: «no cambió nada» la reintentaría,
   // tests/flujo-ia-consulta.test.ts.)
-  // (22/10/2026: después va el control de lo pedido, `faltantesDelPedido`: tests/chat-mako-ramas-y-listo.test.ts.)
-  assert.match(RUTA, /if \(r\.respuesta\) return \{ r, errores: \[\] \};\n\s+const errores = erroresEdicion\(base, r, ctx\);/);
+  // (22/10/2026: la revisión vive en `revisarEdicion`, lib/flujo-ia-revision-editar.ts: una respuesta vuelve ANTES de `erroresEdicion`.)
+  const rev = readFileSync(join(__dirname, '..', 'lib/flujo-ia-revision-editar.ts'), 'utf8').replace(/\r\n/g, '\n');
+  assert.ok(rev.indexOf('if (r.respuesta) {') > 0 && rev.indexOf('if (r.respuesta) {') < rev.indexOf('const errores = erroresEdicion(o.base, r, o.ctx);'));
+  // (Y después de los errores de siempre, el control de lo pedido, `faltantesDelPedido`: tests/chat-mako-ramas-y-listo.test.ts.)
 });
 
 test('la ruta: con la fila, el turno se anota al EMPEZAR y la pregunta, el resumen o el error al terminar; sin fila no', () => {

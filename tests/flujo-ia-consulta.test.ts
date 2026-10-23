@@ -135,8 +135,10 @@ test('la ruta: la consulta va ANTES de editar y devuelve el borrador tal cual', 
   assert.match(ruta.slice(consulta, editar), /getPromptText\('chatbot\.explicar-ia\.system', EXPLICAR_IA_SYSTEM_TEMPLATE\)/);
   assert.match(ruta, /const contestar = async[\s\S]{0,400}pasos: base,[\s\S]{0,200}cambiadas: \[\], quitadas: \[\]/, 'contestar devuelve el borrador sin cambios');
   assert.match(ruta, /if \(r\.respuesta\) \{ await contestar\(r\.respuesta\); return; \}/, 'la capa 2: editar contestó');
-  // (22/10/2026: con el control de lo pedido después, `faltantesDelPedido`: tests/chat-mako-ramas-y-listo.test.ts.)
-  assert.match(ruta, /if \(r\.respuesta\) return \{ r, errores: \[\] \};\n\s+const errores = erroresEdicion\(base, r, ctx\);/, 'una respuesta no se reintenta por «no cambió nada»');
+  // (22/10/2026: la revisión vive en `revisarEdicion`, lib/flujo-ia-revision-editar.ts.)
+  const rev = leer('lib/flujo-ia-revision-editar.ts');
+  assert.match(rev, /if \(r\.respuesta\) \{[\s\S]{0,300}?return \{ r, errores: e \? \[e\] : \[\] \};/, 'una respuesta no se reintenta por «no cambió nada»');
+  // (Y después de los errores de siempre, el control de lo pedido, `faltantesDelPedido`: tests/chat-mako-ramas-y-listo.test.ts.)
 });
 
 test('los prompts: el de contestar está registrado y el de editar ofrece "respuesta"', () => {

@@ -60,7 +60,7 @@ export const PASOS_AUTOMATIONS: PasoRecorrido[] = [
   // una. Con «Pídele cambios a esta» el paso sólo cabía con el chat a la vista, y quien ya tenía automatizaciones no lo veía
   // nunca (el «?» vive en la lista). Con la lista, señala la fila elegida.
   { objetivo: 'au-chat', titulo: 'MaKo', texto: 'Abre una y aquí le pides cambios a MaKo. Con ← vuelves a tu lista.', lado: 'derecha' },
-  { objetivo: 'au-config', titulo: 'Configuraciones', texto: 'El horario y el anti-ban de esta automatización.', lado: 'abajo' },
+  { objetivo: 'au-config', titulo: 'Configuraciones', texto: 'El horario y los topes de envío de esta automatización.', lado: 'abajo' },
   // (Acá iban «MaKo en WhatsApp» y «Configuraciones». Se fueron en la undécima tanda, punto 9: la lista es una
   // sola —los avisos de MaKo los separa el filtro— y Configuraciones vive en el menú del último paso.)
   { objetivo: 'au-cron', titulo: 'El CRON', texto: 'Lo que la dispara. Haz clic para elegirlo.' },

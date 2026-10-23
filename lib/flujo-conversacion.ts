@@ -759,6 +759,12 @@ export type OpcionesGrafo = {
    */
   anticipacionMin?: number | null;
   /**
+   * «Misma persona» de WhatsApp de ESTA automatización, en minutos (la suya o la del negocio; 0 = apagada). Con él, un
+   * WhatsApp que sigue a otro con menos espera dice en la tarjeta cuándo sale de verdad (`minutosDesdeElWhatsappAnterior`,
+   * 23/10/2026). Sin él (cargando, no se pudo leer) no se avisa nada.
+   */
+  mismaPersonaMin?: number | null;
+  /**
    * El color (`#rrggbb`) de una etiqueta, para teñir su tarjeta (decisión 9: «la etiqueta con el
    * color de la etiqueta»). Sin él, la tarjeta de etiqueta va en `--surface-2`.
    */
@@ -821,11 +827,50 @@ export function avisoAgendaCerca(e: Espera | undefined, anticipacionMin: number 
  * las que vienen pegadas antes de ella (dos esperas seguidas son UNA espera más larga). Con varios
  * padres, el camino que más espera. Una espera «antes de la reunión» no cuenta: depende de la fecha.
  */
+/**
+ * «MISMA PERSONA» RETIENE A LOS PASOS DE LA MISMA AUTOMATIZACIÓN (23/10/2026, medido por el Cerebro: «si "Misma persona" dice
+ * 20 h y el flujo tiene un seguimiento o un delay de 2 h, ¿se rompe?»). No se rompe: el motor no lo manda hasta que pasan las
+ * horas desde el último WhatsApp a esa persona (`frenadoPorAntiBan`, lib/nutricion.ts: «msg <20h», la fila sigue en ese paso
+ * y sale en la primera corrida después; tests/automations-misma-persona-pasos.test.ts). Pero la tarjeta decía «2 h» y salía a
+ * las 20: ahora lo dice. Los minutos de espera desde el WhatsApp anterior del camino (las condiciones, los avisos y los
+ * mensajes de otro canal no llevan tiempo), el MENOR si llegan varios caminos; null si no hay un WhatsApp antes.
+ */
+export function minutosDesdeElWhatsappAnterior(pasos: readonly PasoGrafo[], id: string, vistos: ReadonlySet<string> = new Set()): number | null {
+  let min: number | null = null;
+  for (const pa of padresDe(pasos, id)) {
+    if (vistos.has(pa.id)) continue;
+    const q = nodoPorId(pasos, pa.id);
+    if (!q) continue;
+    const c = claseDe(q);
+    if (c === 'respuesta' || c === 'inicio') continue;
+    let m: number | null;
+    if (c === 'mensaje' && (q.canal ?? 'whatsapp') === 'whatsapp') m = 0;
+    else {
+      const sube = minutosDesdeElWhatsappAnterior(pasos, pa.id, new Set([...vistos, id]));
+      if (sube == null) continue;
+      // Una espera «antes de la reunión» no se sabe cuánto dura: no se avisa por ese camino.
+      if (c === 'esperar' && q.espera?.modo === 'antes_reunion') continue;
+      m = sube + (c === 'esperar' ? Math.max(0, Number(q.espera?.minutos) || 0) : 0);
+    }
+    if (min == null || m < min) min = m;
+  }
+  return min;
+}
+
+/** El aviso en la tarjeta: cuándo sale de verdad. */
+export const avisoMismaPersona = (minutos: number): string => {
+  const h = Math.round((minutos / 60) * 10) / 10;
+  return `Sale ${h} h después del anterior («Misma persona»)`;
+};
+
 export function esperaAntesDe(pasos: readonly PasoGrafo[], id: string, vistos: ReadonlySet<string> = new Set()): number {
   let max = 0;
   for (const pa of padresDe(pasos, id)) {
     if (vistos.has(pa.id)) continue;
     const q = nodoPorId(pasos, pa.id);
+    // Una CONDICIÓN no lleva tiempo: la espera de antes sigue contando (23/10/2026: el seguimiento lleva «No contestó desde
+    // que entró» entre la espera y el mensaje, y la ventana de 24 h de Meta dejaba de verla).
+    if (q && claseDe(q) === 'condicion') { max = Math.max(max, esperaAntesDe(pasos, pa.id, new Set([...vistos, id]))); continue; }
     if (!q || claseDe(q) !== 'esperar' || q.espera?.modo === 'antes_reunion') continue;
     const m = Math.max(0, Number(q.espera?.minutos) || 0);
     max = Math.max(max, m + esperaAntesDe(pasos, pa.id, new Set([...vistos, id])));
@@ -1103,10 +1148,13 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         // Un DM de Instagram o Messenger después de una espera de más de 24 h: Meta no deja escribirle
         // y el motor lo cierra sin mandar (`decidirSalida`, lib/canal-social.ts). Se avisa en la tarjeta.
         const fueraDeVentana = social != null && esperaAntesDe(pasos, id) > VENTANA_META_MS / 60_000;
+        // Un WhatsApp que sigue a otro antes de «Misma persona»: el motor lo retiene hasta que pasen (23/10/2026).
+        const desdeAnterior = !social && !email && !enRespuesta.has(id) && (op.mismaPersonaMin ?? 0) > 0 ? minutosDesdeElWhatsappAnterior(pasos, id) : null;
+        const retrasada = desdeAnterior != null && desdeAnterior < op.mismaPersonaMin!;
         t = {
           ...base, tipo: 'mensaje', familia: 'contenido', titulo, icono, canal: social ?? (email ? 'email' : 'whatsapp'),
           puertos, ...pie, alto: altoDeMensaje(p, audio) + ALTO_PUERTO,
-          ...(vacio ? { advertencia: 'Sin escribir' } : fueraDeVentana ? { advertencia: AVISO_VENTANA_META } : {}),
+          ...(vacio ? { advertencia: 'Sin escribir' } : fueraDeVentana ? { advertencia: AVISO_VENTANA_META } : retrasada ? { advertencia: avisoMismaPersona(op.mismaPersonaMin!) } : {}),
         };
       }
     }
