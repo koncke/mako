@@ -2981,6 +2981,25 @@ export const BITACORA: Hito[] = [
     revisar: '/crm',
   },
   {
+    fecha: '22 oct', hora: '20:12', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo en la ficha del lead, en el Plan y en Clientes: el mismo chat del Ops Center, con lo que tienes abierto',
+    puntos: [
+      'El chat de MaKo en la ficha de un lead es ahora el del Ops Center: la misma conversación, la misma caja (con «+», emojis y nota de voz) y las mismas tarjetas para confirmar.',
+      'Lo que le preguntas sigue siendo sobre ese lead, y la conversación aparece en el Ops Center como «Ficha · <nombre>».',
+      'El Plan y Clientes tienen la estrella de MaKo abajo a la izquierda, como el CRM. Lo que escribes va al «Cerebro».',
+      'Con una tarea, un proyecto o un cliente abierto, la estrella queda encima y va con eso: «cerrala» es ESA tarea, con su tarjeta para confirmar.',
+      'En el CRM, la estrella sabe qué lead tienes abierto.',
+    ],
+    commits: [
+      { sha: '4b534f2f0', msg: 'CR3 y CR4: el MaKo Analyst de la ficha con el hilo y la caja del Ops Center; la estrella en el Plan y en Clientes, con lo abierto', lineas: 729, archivos: 27 },
+    ],
+    archivos: [
+      'app/crm/lead-view/MakoAnalystLead.tsx — el chat de la ficha con las piezas únicas',
+      'app/_chat/MakoEnLaTab.tsx · app/_components/pila-modales.ts — la estrella encima de una tarjeta abierta',
+      'app/plan/board/BoardShell.tsx · app/customer-success/ClientesApp.tsx — la estrella en el Plan y en Clientes',
+    ],
+    revisar: '/plan',
     fecha: '22 oct', hora: '21:10', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Los 3 puntos de la columna por secciones, «Tipo de etapa» que se cambia ahí mismo, y «Tus reuniones» para preparar la llamada',

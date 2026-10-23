@@ -134,6 +134,7 @@ import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
 import { alternarColumna, estadoDeColumna, rotuloDeColumna } from './seleccion-columna';
 import { cuantasDibujar, TANDA_COLUMNA } from './columna-por-tandas';
+import { publicarLeadAbierto } from './lead-abierto';
 import { FinDeColumna } from './FinDeColumna';
 import { chipDeAutomatizacion, enTandasDe, lineaDeAutomatizacion, preguntaDeFrenar } from './automatizacion-lead';
 import { enAutomatizacionesAction, frenarLeadsEnAutomatizacionesAction } from '@/app/automations/automatizaciones-del-lead-actions';
@@ -1844,6 +1845,11 @@ export function CrmBoard({
   };
 
   const selected = selectedId != null ? leads.find((l) => l.id === selectedId) ?? null : null;
+  // La estrella de MaKo sabe qué ficha está abierta (CR3 con OC6, app/crm/lead-abierto.ts): «movelo a Ganado» es ESE lead.
+  const abiertoId = selected?.id ?? null;
+  const abiertoNombre = selected?.name ?? '';
+  useEffect(() => { publicarLeadAbierto(abiertoId != null ? { id: abiertoId, nombre: abiertoNombre } : null); }, [abiertoId, abiertoNombre]);
+  useEffect(() => () => publicarLeadAbierto(null), []);
 
   // Leads que esperan tu validación (los que están en "Datos sin marcar").
   const pendingLeadIds = new Set(marcar.map((m) => m.leadId));

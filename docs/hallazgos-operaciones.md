@@ -7,6 +7,22 @@ del código.
 
 ---
 
+## La estrella con una tarjeta abierta: el fondo del modal la tapa (22/10/2026, CR4)
+
+- **Síntoma** (el caso de uso de CR4): en /plan, con una tarea abierta, «cerrala» desde la estrella. La estrella no se podía
+  tocar: la tarea es un modal, la estrella (`.ch-tab-mako`) y su panel viven en z 55, y la pila de modales arranca en 130
+  (app/_components/pila-modales.ts). Pasa lo mismo con la ficha de un cliente en Clientes y con la del lead en el CRM.
+- **Arreglo, opt-in** (`encimaDeModales` en app/_chat/MakoEnLaTab.tsx): con un modal abierto, la estrella va en
+  `zEncimaDeModales(profundidad)`, arriba del fondo y de la caja del de arriba. El panel abierto así entra a la pila como
+  capa `anidada`: la tarjeta de abajo se sigue viendo, y su Escape pregunta `esElDeArriba()`. Si no, una tecla cierra el
+  panel Y la tarjeta (son dos listeners en `document`, y `stopPropagation` no alcanza).
+- **El CRM NO lo pasa**: su ficha ya tiene a MaKo adentro, el Analyst a la izquierda. Una estrella encima taparía el «+» de
+  esa caja.
+- **El `id` de la tarea del Plan es genérico** (`ver_tarea_plan`, `mover_tarea_plan`: `id`, no `tareaId`), así que
+  `tarea` y `proyecto` van con `param: null`: meterlo solo lo pondría en cualquier herramienta con un `id` obligatorio. El
+  system ya dice «usa ese id». **Un cliente de Clientes ES un lead** (`leadId`): va como `lead`, y las herramientas de
+  lead lo toman solas.
+
 ## «Espera tu respuesta» mentía: era el «Completado» sin ver, tapado por lo que el chat le escribió a otro (22/10/2026)
 
 Martín: «hay muchos chats que dicen "Espera tu respuesta" y cuando entro, no veo el mensaje de "Completado" o el bloque de

@@ -138,9 +138,9 @@ test('el chat lo dice MaKo, con el botón que abre el modal ahí mismo, en los t
   assert.match(boton, /<BotonIntegracion servicio=\{servicio\}/);
   assert.doesNotMatch(boton, /<Link|href=|\/integraciones/);
   // Rota: sacar `ConectarDelAviso` de uno de los hilos → este test falla.
-  for (const f of ['app/_chat/HiloMako.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx']) {
-    assert.match(sinComentarios(leer(f)), /\{x\.conectar && <ConectarDelAviso servicio=\{x\.conectar\} \/>\}/, `${f} dibuja el botón`);
-  }
+  assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /\{x\.conectar && <ConectarDelAviso servicio=\{x\.conectar\} \/>\}/, 'el hilo dibuja el botón');
+  // El de la ficha dibuja con ese MISMO hilo desde el 22/10/2026 (CR3).
+  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /<HiloMako key=\{leadId\} items=\{items\} quien=\{QUIEN\}/, 'el MaKo Analyst de la ficha');
 });
 
 test('la grilla: «Conectada» sólo si MaKo la puede usar como del negocio; una copia dice que es la de MaKo', () => {

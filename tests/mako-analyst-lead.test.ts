@@ -192,13 +192,15 @@ test('el turno pone el contexto AL FINAL del system y no lo guarda en el hilo', 
   }
 });
 
-test('la pantalla monta las piezas del chat de Offer y habla con su ruta con corte', () => {
+test('la pantalla monta el hilo y la caja del Ops Center y habla con su ruta con corte', () => {
   assert.match(PANTALLA, /^'use client';/);
   // 17/10/2026: suma `edicion` (la ficha en «Editar»: la hoja abierta); sin ella, el chat de siempre.
   assert.match(PANTALLA, /export function MakoAnalystLead\(\{ leadId, nombre, edicion = null \}: \{\s*leadId: number;\s*nombre: string;\s*edicion\?: \{ tab: string; nombre: string \} \| null;\s*\}\)/, 'cambió el contrato que monta la ficha');
-  for (const pieza of ["from '@/app/whatsapp/_shared/ChatHilo'", "from '@/app/whatsapp/_shared/BurbujaHilo'", "from '@/app/whatsapp/_shared/ComposerWhatsApp'", "from '@/app/offer/AvatarMako'", "from '@/app/offer/estilos'"]) {
-    assert.ok(PANTALLA.includes(pieza), `no monta ${pieza}: ya no es el chat de Offer`);
+  // Desde el 22/10/2026 (CR3) son las piezas ÚNICAS (las del Cerebro), no las de WhatsApp: tests/chat-unico.test.ts.
+  for (const pieza of ["from '@/app/_chat/HiloMako'", "from '@/app/_chat/CajaChat'"]) {
+    assert.ok(PANTALLA.includes(pieza), `no monta ${pieza}: ya no es el chat del Ops Center`);
   }
+  for (const vieja of ['ChatHilo', 'BurbujaHilo', 'ComposerWhatsApp']) assert.ok(!PANTALLA.includes(vieja), `volvió ${vieja}`);
   assert.ok(!/^import \{[^}]*\} from '@\/lib\/mako-turno-app-reglas'/m.test(PANTALLA), 'importa un VALOR de mako-turno-app-reglas (arrastra el registro al navegador)');
   const fetchs = PANTALLA.split('fetch(').length - 1;
   assert.ok(fetchs >= 3, `leí ${fetchs} fetch: cambió la pantalla y esto ya no prueba nada`);

@@ -24,6 +24,11 @@ producto con precio, una casilla por cuenta (Stripe y Mercado Pago a la vez, var
 Cobros (lib/cobro-etapa.ts y app/crm/cobro-etapa-actions.ts, su punta 81c8446e7, la mig 0326 aplicada): el stub se fue
 el 22/10. Sin «Copiar link» hasta que `linkDelVinculoAction` dé el link sin un lead (Cobros avisa).
 
+**22/10, noche, CR3 y CR4** (rama `crm-cr34-2210` en C:/dev/wt-crm-cr34, sobre main 72fd0b5bd con OC4 y OC6): el MaKo
+Analyst de la ficha con el hilo y la caja del Ops Center; la estrella del CRM con el lead abierto (app/crm/lead-abierto.ts);
+la estrella en el Plan y en Clientes, encima de la tarjeta abierta (`encimaDeModales`). tests/crm-estrella-cr3-cr4.test.ts.
+**Sin ver en pantalla**: se mira en el ws3 cuando salga (/plan con una tarea abierta: «cerrala» desde la estrella).
+
 **22/10, noche, el P0 del sábado (el tablero trabado con 1.050)**: en la misma rama `crm-cobro-ganado-2210`. Cada columna
 dibuja 30 y suma 30 al bajar (app/crm/columna-por-tandas.ts, FinDeColumna.tsx), y el Kanban topea con `maxHeight`
 (`5dc4c17b5` es el mismo arreglo, suelto, desde main). Medido con el arnés (tests/_crm-tablero-medir.mjs, con

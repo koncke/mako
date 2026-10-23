@@ -166,5 +166,6 @@ test('6. una opción tocada mientras MaKo trabaja no dice «Respondiste» si no 
   ]);
   assert.equal(hilo[0].k === 'bloque' ? hilo[0].respondida : null, 'mejor los nuevos');
   assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /conRespuestas\(items\)\.forEach\(/, 'la computadora');
-  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /new Map\(conRespuestas\(items\)\.map/, 'la ficha');
+  // La ficha, con el MISMO hilo desde el 22/10/2026 (CR3): `conRespuestas` lo aplica HiloMako.
+  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /<HiloMako key=\{leadId\} items=\{items\} quien=\{QUIEN\}/, 'la ficha');
 });

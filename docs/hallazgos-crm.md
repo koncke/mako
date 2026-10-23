@@ -54,6 +54,24 @@ en [corridas-multiagente.md](corridas-multiagente.md).
 **Vive en:** app/crm/menu-contextual-crm.ts · app/crm/CrmBoard.tsx (`abrirMenuDeColumna`, `cambiarTipoColumna`,
 `bloquesDeReuniones`) · app/crm/TarjetaReunion.tsx · app/crm/reunion-tarjeta.ts · lib/reunion-preparar.ts ·
 tests/crm-feedback-22-10-c.test.ts
+
+## El MaKo Analyst de la ficha con el hilo y la caja del Ops Center (22/10/2026, CR3)
+
+- **Cambió la cara, no el motor**: /api/crm/analyst, la conversación por lead y por persona, las tarjetas que se confirman y
+  lo que no se reintenta siguen igual. El hilo es `HiloMako` y la caja, `CajaChat` (como Offer en OF4). HiloMako ya dibuja
+  todo lo que el Analyst dibujaba a mano: la tarjeta, el bloque, la pantalla con su formulario y el aviso con «Conectar».
+  Por eso se fueron ~300 líneas.
+- **Los archivos del mensaje van en `archivos`, no en `adjuntos`**: HiloMako dibuja `archivos` (con la miniatura `blob:`
+  como `local` mientras sale). Al volver el turno se reemplazan por los guardados (`archivosDeRespuesta`). Con `adjuntos`
+  (sólo nombres, lo del teléfono), el mensaje salía sin sus archivos a la vista.
+- **Seis tests de OTROS chats miraban las tripas del Analyst** (chat-abrir, chat-adentro, chat-bloques, chat-pregunta,
+  chat-trabajos, mako-sin-ia), porque el Analyst era la «tercera cara» que dibujaba cada cosa. Ahora miran que monta
+  HiloMako, que es la pieza que esas reglas ya fijan.
+- **La estrella del CRM con el lead abierto** (app/crm/lead-abierto.ts): el tablero publica el lead de la ficha y la
+  estrella lo lee, porque van al lado y no adentro (app/crm/page.tsx). Con la ficha abierta, la estrella queda debajo del
+  modal: sirve con la ficha cerrada y queda lista si la ficha deja de ser modal.
+
+**Vive en:** app/crm/lead-view/MakoAnalystLead.tsx · app/crm/lead-abierto.ts · tests/crm-estrella-cr3-cr4.test.ts
 *22/10/2026, chat «CRM» (claude3).*
 
 ## Lo que más muerde acá
