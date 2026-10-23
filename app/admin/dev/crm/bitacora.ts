@@ -3154,6 +3154,7 @@ export const BITACORA: Hito[] = [
       'Sólo a los negocios que pagan MaKo por la pasarela: Mauricio y los acuerdos a mano no tienen tope.',
     ],
     commits: [
+      { sha: 'a931f2c8e', msg: 'CRM: los topes de MaKo Esencial (1 CRM y 2.000 leads), con un cartel y «Pasar a Pro», sin perder lo que entra solo', lineas: 351, archivos: 18 },
     ],
     archivos: [
       'lib/topes-crm.ts — quién tiene tope y el freno de las altas a mano',
