@@ -7727,3 +7727,27 @@ ejecución, no ruido: se devuelve a su chat o se arregla en el tren antes de sub
 
 **Además, en el mismo tren.** Las guardas cortan en la PRIMERA que frena: con «rutas de Windows» en rojo no se miraron las de
 después (los .ts sin módulo, la referencia de la API). Arreglada la primera, se corren TODAS de nuevo.
+
+## Tren del 23/10 (cuenta 2): una punta en rojo se saca RECONSTRUYENDO desde origin/main, y la RAM en 0 pone rojos que no son (23/10/2026, Cerebro › Integración)
+
+**Qué pasó.** Seis puntas al tren; dos no entraron. (1) Planes chocó con Cobros en código ajeno (`lib/compra-plan.ts`: cada
+una agrega una función en el MISMO lugar; `app/planes/[plan]/page.tsx`: los imports de `compra-plan-reglas`): se hizo `merge --abort`
+y salió del tren, sin resolver. (2) Ventas (@ de Instagram) dejó rojo `tests/crm-tarjeta-personalizable.test.ts`: su cambio a
+`propsDeTarjeta` (el chip `soloInstagram`) no actualizó la regex que ese test usa para leer `chips:` de `CrmBoard.tsx`. Sólo lo vio el
+chequeo del TREN: el test no es de su área y la punta ya había pasado sus propios tests.
+
+**El diagnóstico obvio era el equivocado, dos veces.** Con RAM libre mínima de **0,0 GB** (11 chats), el chequeo dio tres rojos; DOS eran
+falsos (`chats-mako-envio`: «no trajo enviar_borrador_whatsapp», y `doer-recetas-video-imagen`: «EL VIDEO EDITOR:» vacío): corridos
+solos y juntos pasan. Sólo el de Ventas era real. **Regla:** un rojo del tren con la RAM mínima por debajo de ~1 GB se repite
+SOLO antes de devolverlo al chat; lo que pasa solo y falla en la tanda es la máquina, no la punta. Y se mira el rojo que
+SÍ se repite contra el cambio de la punta (acá bastó `git grep soloInstagram`: en `origin/main` no existía).
+
+**Sacar una punta de un tren ya armado.** No se revierte el merge: `git checkout --detach origin/main` y se vuelven a mergear las
+que quedan (4 merges, 2 min); un revert deja el cambio rondando en el historial que sube. Los choques de `docs/hallazgos-*.md` donde
+los dos lados SOLO agregaron una entrada al final se resuelven borrando las tres marcas (`<<<<<<<`, `=======`, `>>>>>>>`) y dejando una
+línea en blanco entre las dos; `unir-filas.cjs` es para el ÍNDICE (`hallazgos.md`), y se verifica con `comm` que ningún título del
+índice se perdió. Con la segunda vuelta (sin Ventas): 6.409 tests de 621 archivos verdes en 13 min con 1,7 GB libres mínimos.
+
+**Sin hacer:** Planes (`cfcf01abd` + `75e10a6ee`) y Ventas (`0c28ccf39`) vuelven a sus chats; Planes tiene que mergear a Cobros (`ac21e6b4b`) y
+Ventas arreglar la regex de `tests/crm-tarjeta-personalizable.test.ts` ("los chips en el orden de la persona").
+**Vive en:** scripts/tests-afectados.mjs · scripts/guardas-push.sh · tests/crm-tarjeta-personalizable.test.ts · lib/compra-plan.ts
