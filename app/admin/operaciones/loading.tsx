@@ -1,5 +1,6 @@
 import './centro.css';
 import { Pagina } from '@/app/_ui';
+import { EntradaOps } from '@/app/second-brain/EntradaOps';
 
 // =============================================================================
 // /admin/operaciones mientras carga: la MISMA forma de la pantalla, vacía
@@ -17,6 +18,8 @@ export default function Cargando() {
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div className="co" aria-busy="true" aria-label="Cargando Ops Center">
+        {/* La criatura de MaKo nace acá y espera (feedback 5b, 23/10/2026): la de la página la sigue flotando y es la que se va. */}
+        <EntradaOps espera />
         <aside className="co-barra">
           <div className="co-barra__arriba">
             <div className="co-buscar"><span className="co-esq" style={{ width: 90, height: 10 }} /></div>

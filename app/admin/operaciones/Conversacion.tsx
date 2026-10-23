@@ -20,7 +20,7 @@ import { Icon } from '@/app/_components/icons';
 import { PanelDeChat } from './PanelChat';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { preguntasDeLaApp, preguntasParaElBloque } from '@/lib/centro-chats';
-import { historialDelChat, yaEstaSinVer, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
+import { historialDelChat, tandaHasta, yaEstaSinVer, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from './MensajeWA';
@@ -165,9 +165,12 @@ export function Conversacion({
   useEffect(() => {
     if (!sinVer || fueAlYaEsta.current === chat.clave) return;
     fueAlYaEsta.current = chat.clave;
-    verTodo();
+    // Hasta el «Ya está» y unos de antes, no TODO el historial (23/10/2026: dibujar todo era un render de segundos al entrar).
+    // Si no se lo encuentra entre lo que se dibuja, todo, como antes.
+    const n = tandaHasta(lineas, sinVer);
+    setCuantos((c) => Math.max(c, n ?? Number.MAX_SAFE_INTEGER));
     window.setTimeout(() => irAlTurno(sinVer), 120);
-  }, [chat.clave, sinVer, verTodo]);
+  }, [chat.clave, sinVer, lineas]);
   const [menuWA, setMenuWA] = useState<MenuAbiertoWA | null>(null);
   const [panelWA, setPanelWA] = useState<{ tipo: 'info' | 'reenviar'; m: MensajeWA } | null>(null);
   const [reenviando, setReenviando] = useState(false);
