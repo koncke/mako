@@ -4,21 +4,36 @@ Pedido de Martín (audios del 15/10 y del 22/10/2026), textual: «no creo que me
 sino que al menos los guiones». Son para la ventana de anuncios del 1/11 al 15/12 (US$2.000 de pauta, objetivo
 US$15.000). Cada guion se lee en 2 minutos y se graba en unos 2.
 
-| Guion | Para quién | Landing | Empuja | Dura |
+| Guion | Para quién | Landing (Web Generator) | Empuja | Dura |
 |---|---|---|---|---|
-| [Principal](principal.md) | Todo el que llega del anuncio | `/` (la de MaKo) | Acelerador (por la llamada) | ~2:25 |
-| [CRM](funcionalidad-crm.md) | El que pierde leads en el WhatsApp | CRM | Esencial | ~1:40 |
-| [Automations](funcionalidad-automations.md) | El que no hace seguimiento | Automations | Esencial | ~1:40 |
-| [Ads Manager](funcionalidad-ads-manager.md) | El que no sabe qué anuncio le vende | Ads Manager | Pro | ~1:45 |
-| [MaKo, tu consultor](funcionalidad-mako.md) | El que decide solo y a ojo | Second Brain | Esencial | ~1:40 |
-| [Offer](funcionalidad-offer.md) | El que tiene una oferta que no se entiende | Offer | Esencial | ~1:35 |
-| [Web Generator](funcionalidad-web-generator.md) | El que paga diseñador por cada landing | Web Generator | Esencial | ~1:35 |
-| [Coach o consultor](avatar-coach-consultor.md) | Ya vende high ticket con anuncios | por avatar | Acelerador | ~1:50 |
-| [Agencia](avatar-agencia.md) | Maneja los anuncios de varios clientes | por avatar | Pro | ~1:45 |
-| [Empieza con anuncios](avatar-empieza-con-anuncios.md) | Vende por WhatsApp y quiere pautar | por avatar | Acelerador | ~1:45 |
+| [Principal](principal.md) | Todo el que llega del anuncio | `/` | Acelerador (por la llamada) | ~2:25 |
+| [Web Generator](funcionalidad-web-generator.md) | El que paga diseñador por cada landing | `/vsl/crear-landings` | Esencial | ~1:35 |
+| [Automations](funcionalidad-automations.md) | El que no hace seguimiento | `/vsl/automatizaciones` ⚠️ | Esencial | ~1:40 |
+| [Dashboards](funcionalidad-dashboards.md) | El que mira cinco pantallas para saber cómo va | `/vsl/dashboards` | Esencial / Pro | ~1:40 |
+| [Contenidos](funcionalidad-contenidos.md) | El que tiene su contenido en cinco apps | `/vsl/contenidos` ⚠️ | Pro | ~1:35 |
+| [Avatares de IA](funcionalidad-avatares-ia.md) | El que no tiene tiempo de grabarse | `/vsl/avatares-ia` ⚠️ | Pro | ~1:35 |
+| [Coach o consultor](avatar-coach-consultor.md) | Ya vende high ticket con anuncios | `/vsl/coaches` | Acelerador | ~1:50 |
+| [Inmobiliarias](avatar-inmobiliarias.md) | Pauta y reparte interesados entre asesores | `/vsl/inmobiliarias` | Pro o Acelerador | ~1:45 |
+| [Infoproductores](avatar-infoproductores.md) | Curso en Skool o Hotmart | `/vsl/infoproductores` | Acelerador | ~1:45 |
+| [CRM](funcionalidad-crm.md) | El que pierde leads en el WhatsApp | sin landing | Esencial | ~1:40 |
+| [Ads Manager](funcionalidad-ads-manager.md) | El que no sabe qué anuncio le vende | sin landing | Pro | ~1:45 |
+| [MaKo, tu consultor](funcionalidad-mako.md) | El que decide solo y a ojo | sin landing | Esencial | ~1:40 |
+| [Offer](funcionalidad-offer.md) | El que tiene una oferta que no se entiende | sin landing | Esencial | ~1:35 |
+| [Agencia](avatar-agencia.md) | Maneja los anuncios de varios clientes | sin landing | Pro | ~1:45 |
+| [Empieza con anuncios](avatar-empieza-con-anuncios.md) | Vende por WhatsApp y quiere pautar | sin landing | Acelerador | ~1:45 |
 
-Las landings las arma el chat «Landings de MaKo en Web Generator». Si una landing nueva no tiene guion acá, falta
-escribirlo; si un guion no tiene landing, falta la landing.
+⚠️ **Lo que hay que alinear entre guion y landing** (la regla: lo que el video no promete, la landing tampoco):
+- **automatizaciones:** la landing dice «Responde cada DM y WhatsApp en segundos, sin ManyChat»; el guion vende el
+  SEGUIMIENTO del que no contesta. Las dos cosas son ciertas: o el guion suma una frase de respuesta a DMs, o el
+  titular pasa a seguimiento.
+- **contenidos:** la landing promete «Planeas tus publicaciones en un calendario»; no hay calendario de publicaciones en
+  la app (el Calendario es de reuniones y tareas). Esa línea sale de la landing o se confirma.
+- **avatares-ia:** AI Avatar era sólo del super admin el 17/10. No se pauta hasta confirmar que un cliente la usa.
+- Las 6 «sin landing» tienen guion: si Martín las quiere, son una entrada más en
+  `scripts/landings-mako-funnels.mts` (rama landing-wg-2310), con el titular y las 3 líneas de cada guion.
+
+Las landings las arma el chat «Landings de MaKo en Web Generator» (todas comparten el lugar del VSL en el hero: se
+cambia el src de Panda cuando el video de cada una exista). Si una landing nueva no tiene guion acá, falta escribirlo.
 
 ## Cómo se leen
 
