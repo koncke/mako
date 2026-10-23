@@ -329,8 +329,13 @@ export const SCRIPT_DISENO = [
   // En la primera visita el visitante lo crea el Pixel de MaKo, que carga en paralelo: se lo espera hasta 2,5 s.
   '    var iniciar = function () {',
   '      if (!window.Calendly || (!visitante() && Date.now() - desde < 2500)) { setTimeout(iniciar, 300); return; }',
-  '      var utm = { utmSource: q.get("utm_source") || undefined, utmMedium: q.get("utm_medium") || undefined,',
-  '        utmCampaign: q.get("utm_campaign") || undefined, utmContent: q.get("utm_content") || undefined, utmTerm: visitante() };',
+  // Sólo las que vienen: el widget de Calendly escribe una clave en undefined como el TEXTO «undefined» en la URL, y
+  // así llegaba al lead (medido en producción el 23/10/2026: utm_medium=undefined).
+  '      var utm = {};',
+  '      [["utmSource", "utm_source"], ["utmMedium", "utm_medium"], ["utmCampaign", "utm_campaign"], ["utmContent", "utm_content"]].forEach(function (p) {',
+  '        var v = q.get(p[1]); if (v) utm[p[0]] = v;',
+  '      });',
+  '      var uid = visitante(); if (uid) utm.utmTerm = uid;',
   '      agendas.forEach(function (el) {',
   '        if (el.getAttribute("data-cal-init")) return;',
   '        var url = el.getAttribute("data-calendly") || "";',
