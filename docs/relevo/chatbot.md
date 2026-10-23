@@ -1,5 +1,24 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **23/10/2026 (`claude2`): EL «YA ME LLEGÓ TU PAGO» DE LA #289 ES A PROPÓSITO.** Martín, textual: «A propósito le
+> estamos confirmando que nos llegó un pago para luego pedirles disculpas por la confusión, solo para que nos respondan
+> el primer mensaje... Es la técnica de levantamuertos». La apertura de «Sprint · apertura» (#289, ws1, CRM #44) se deja
+> como está y NO se vuelve a marcar como «recibo falso» ni como riesgo: es contenido del cliente y decisión de Martín.
+> Lo que decía lo contrario queda como historia, con la corrección al lado (docs/relevo/automations.md, feedback-22-10.md,
+> plan-ia-y-chats-22-10.md y campana-sprint-mauricio.md, fuera del repo). Ningún guardián del código lo frena (medido:
+> nada en lib/ ni en los prompts nombra el texto). La regla general: el copy de venta del cliente no se juzga; se avisa
+> sólo lo que rompe.
+>
+> **23/10/2026 (`claude2`): «NO RESPONDE» EXISTE EN TODO CRM AUNQUE NO ESTÉ EN SU `data.pipeline`.** `perdido`, `descal`
+> y `noresp` son etapas FIJAS de salida que `filaAFunnel` coloca en cada lectura (lib/pipeline.ts, `place(…, 'salidas')`;
+> `TERMINALES`). Leer el pipeline guardado crudo y concluir «esa etapa no existe» es el error: el paso de la #289 que
+> propone `noresp` en el CRM #44 está bien.
+>
+> **23/10/2026 (`claude2`): LOS AVISOS AL GRUPO NO SALEN POR EL ws9.** El grupo de MaKo de cada cliente se escribe por
+> la «voz de MaKo» (`instanciaVoz()`, `mako.voz.instancia` del ws1 = `mako_superadmin_muylqv8r`), no por `mako_ws9`.
+> Con el ws9 caído (desde el 19/10) los avisos de lead nuevo igual salen. Antes de decir «la línea de MaKo está muerta»,
+> mirar cuál es la voz.
+
 > **21/10/2026 (`claude4`): LOS GRUPOS DE EVENTO.** La tabla de qué automatizaciones mira cada evento del motor
 > (`TRIGGERS_POR_EVENTO`, y `ETAPA_DEL_EVENTO` para la etapa que se le suma) vive en lib/nutricion-eventos.ts, pura, y la
 > leen `enrolarPorEvento` y el aviso de duplicada: un lead nuevo o una reserva que entran a dos disparadores distintos
@@ -826,6 +845,15 @@ viejo: **una automatización dejó de ser una lista de mensajes y pasó a ser un
 ---
 
 ## 4. Lo que está a medio hacer o sin verificar, con el archivo
+
+- **P2, después del 25/10: «MaKo contesta sola» no se edita desde ninguna pantalla** (23/10/2026). Eran «Por persona»
+  (veces que MaKo contesta sola a una persona en 24 h) y «Charla abierta» (días), los límites de la LÍNEA que se fueron de
+  Configuraciones de una automatización con «nada para todas» (`aut-au2-antiban`). Hoy viven en `app_settings`
+  `mako.limites_envio`, grupo `mako` (`solasPor24h`, `diasCharla`; fábrica 3 y 7, lib/limites-envio.ts), y siguen con
+  su último valor. Decisión del Cerebro: su lugar es la pantalla de la línea de WhatsApp (/whatsapp), no Automations.
+- **El script de «Misma persona» se corre ANTES del deploy de `aut-au2-antiban`** (scripts/misma-persona-propia.mts
+  `--creadas-antes=<ahora> --aplicar`, con el permiso de Martín: escribe en producción). Si el deploy sale antes, las
+  automatizaciones que heredaban quedan apagadas hasta correrlo.
 
 **Nada de esta área se verificó con clics en PRODUCCIÓN.** Lo que sí se vio: la octava tanda se miró
 en el navegador en **dev local sobre el ws9, sin guardar nada** (paneo con el derecho, el lazo con 3
