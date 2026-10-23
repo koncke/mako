@@ -19,6 +19,44 @@ la tab **`/instagram`**, que se retiró el 06/10 y hoy sólo redirige.
 
 ---
 
+## 23/10/2026 · la SEGUNDA tanda del App Review (ads_management, ads_read, business_management) — cuenta claude2
+
+Pedido de Martín por el Ops Center: «prepará ya la segunda tanda». **Medido en el panel de la app MaKo (2586146911825340):**
+
+- **No se puede armar mientras la primera esté en revisión.** «Añadir a la revisión de la aplicación» sobre
+  `ads_management` contesta, textual: «Esta solicitud ya está pendiente de revisión. Si necesitas hacer cambios, puedes
+  cancelar la solicitud y enviar una nueva o esperar hasta que se complete la actual». La primera tanda (páginas y
+  leads, enviada el 21/10) dice «Revisión en curso», plazo habitual 20 días (≈ 10/11). **Decide Martín:** esperar, o
+  cancelar la primera y mandar UNA con los 7 permisos (se pierde el lugar en la fila).
+- **Las llamadas de prueba ya están:** Revisión → Tests dice «Test completado» en los dos casos de uso (las del
+  Explorador del 21/10). Valen 30 días: vencen ≈ 20/11; si la tanda sale después, repetirlas.
+- **Los tres permisos están en «Listo para prueba»** en el caso de uso de anuncios. El token del botón del ws9 sigue
+  sin ellos (medido hoy con `/me/permissions`): los videos con el producto siguen trabados por la verificación de acceso.
+- **El código ya usa los tres:** `ads_management` (crear, pausar, presupuesto, renombrar: lib/meta-ads-create.ts,
+  lib/meta-write.ts), `ads_read` (estado e insights: lib/meta-health.ts) y, desde hoy, `business_management` (las
+  cuentas de los portafolios al conectar: lib/meta-cuentas-portafolio.ts, `6302be777`). Antes no lo usaba nada.
+
+**Las descripciones, listas para pegar (en inglés):**
+
+- `ads_management`: «MaKo is a marketing SaaS. Each business connects its own ad account with Facebook Login for
+  Business. With ads_management, the business admin uses MaKo's Ads Manager tab to create campaigns, ad sets and ads
+  (always created paused), pause or activate them, change budgets and rename them, only on the ad account they selected
+  when connecting. Every write is an explicit action of the admin in our interface; MaKo never acts on its own or on an
+  ad account the user did not choose.»
+- `ads_read`: «We use ads_read to show the business admin the delivery status and performance (spend, results, cost per
+  result) of their campaigns, ad sets and ads in MaKo's Ads Manager and dashboard, and to tell which campaign each lead
+  in their CRM came from. The data is shown only to the admins of that business and is never shared or sold.»
+- `business_management`: «We use business_management to list the ad accounts owned or managed by the business
+  portfolio the user connected (owned_ad_accounts and client_ad_accounts), so they can choose which ad account MaKo
+  should use when it is not directly assigned to the connected system user. MaKo does not create, edit or remove
+  anything in the business portfolio.»
+
+**El video (uno por permiso, o uno con los tres), cuando el botón traiga los permisos:** en el ws3 con la cuenta del
+revisor: /integraciones → «Conectar con Meta» → el diálogo muestra los permisos → portafolio MaKo, cuenta publicitaria
+MaKo → vuelve «Conectado» y, si hay varias, la lista para elegir la cuenta (`business_management`) → /ads-manager: la
+tabla con estado, gasto y resultados, y el pop-up de un anuncio (`ads_read`) → «Nueva campaña» creada en pausa, prender
+y apagar, cambiar el presupuesto (`ads_management`). Con la receta de la memoria `videos-de-revision-como-los-quiere`.
+
 ## 23/10/2026 · «creé campañas en Meta y no aparecen» (Mauricio, ws20/21/22) — cuenta claude2
 
 Lo aprendido está en `docs/hallazgos-ads.md` → «Creé la campaña en Meta y no me aparece en MaKo».

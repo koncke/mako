@@ -189,7 +189,10 @@ test('sin «Cancelar», y «Crear lead» en la fila de abajo, con «Traer de otr
 
 test('el server guarda el Instagram del alta con la regla de la ficha, y sin la mig 0258 un alta sin él entra igual', () => {
   const ac = codigo('app/crm/actions.ts');
-  assert.match(ac, /instagram: usuarioInstagram\(emptyToNull\(formData\.get\('instagram'\)\)\),/);
+  // Desde el 23/10/2026 el @ se normaliza UNA vez arriba (también decide si hay contacto:
+  // tests/contacto-instagram.test.ts) y el alta guarda ESE valor.
+  assert.match(ac, /const igDelAlta = usuarioInstagram\(emptyToNull\(formData\.get\('instagram'\)\)\);/);
+  assert.match(ac, /instagram: igDelAlta,/);
   const le = codigo('lib/leads.ts');
   assert.match(le, /\.\.\.\(input\.instagram\?\.trim\(\) \? \{ instagram: input\.instagram\.trim\(\) \} : \{\}\),/,
     'el insert nombra `instagram` siempre: sin la columna se rechaza el alta ENTERA');

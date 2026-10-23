@@ -320,33 +320,33 @@ export const DEFS: readonly OperacionDef[] = [
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // CONFIGURACIONES DE UNA AUTOMATIZACIÓN (20/10/2026, Martín, 16/10 punto 5: «"configuraciones" ya no viva para todo
-  // Automations, sino para cada chat»): su horario y sus horas a la misma persona (lib/config-automatizacion.ts). Lo
+  // Automations, sino para cada chat»): su horario y su goteo, de WhatsApp y de email (lib/config-automatizacion.ts). Lo
   // mismo que la tuerca del título. Sin http, como las demás nuevas.
   {
     id: 'configuracion_automatizacion', area: 'chatbot', tipo: 'lectura',
     titulo: 'Configuración de una automatización',
-    descripcion: 'El horario de oficina y las horas entre dos mensajes a la misma persona de UNA automatización: los suyos si tiene, si no los del negocio (dice cuáles valen y de dónde salen). Úsala cuando pregunten a qué hora manda una automatización o cada cuánto le escribe a la misma persona. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    descripcion: 'El horario de oficina y el goteo (de WhatsApp y de email) de UNA automatización: el horario suyo si tiene, si no el del negocio (dice cuál vale y de dónde sale). Úsala cuando pregunten a qué hora manda una automatización o cuántos mensajes manda por día. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [pSecuenciaId],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB },
   },
   {
     id: 'configurar_automatizacion', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Configurar una automatización',
-    descripcion: 'PROPONE el horario de oficina, las horas entre dos mensajes a la misma persona o el GOTEO de sus WhatsApp (uno cada N minutos y hasta M por día, adentro del tope de la línea) de UNA automatización (lo mismo que su tuerca en Automations). Sin nada propio, usa los del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    descripcion: 'PROPONE el horario de oficina o el GOTEO de sus WhatsApp o de sus emails (uno cada N minutos y hasta M por día, adentro del tope de la línea) de UNA automatización (lo mismo que su tuerca en Automations). Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [
       pSecuenciaId,
       { nombre: 'horario', tipo: 'string', enum: ['propio', 'negocio', 'sin_horario'], descripcion: 'opcional: «propio» (con desde, hasta y dias), «negocio» para volver al del negocio, o «sin_horario» para que mande a cualquier hora.' },
       { nombre: 'desde', tipo: 'number', minimo: 0, maximo: 23.5, descripcion: 'con horario propio: la hora en que abre (9.5 = 9:30).' },
       { nombre: 'hasta', tipo: 'number', minimo: 0.5, maximo: 24, descripcion: 'con horario propio: la hora en que cierra (21 = hasta las 20:59).' },
       { nombre: 'dias', tipo: 'string', max: 40, descripcion: 'con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos.' },
-      { nombre: 'horasWhatsapp', tipo: 'number', entero: true, minimo: 0, maximo: 72, descripcion: 'opcional: horas entre dos WhatsApp a la misma persona en esta automatización (de 3 a 72), o 0 para apagarlo: no espera.' },
-      { nombre: 'horasEmail', tipo: 'number', entero: true, minimo: 0, maximo: 168, descripcion: 'opcional: horas entre dos emails a la misma persona en esta automatización (de 1 a 168), o 0 para apagarlo: no espera.' },
-      { nombre: 'personaNegocio', tipo: 'boolean', descripcion: 'opcional: true para volver a las horas del negocio.' },
       { nombre: 'goteoMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: el goteo, minutos entre dos WhatsApp de esta automatización (uno cada N minutos).' },
       { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 150, descripcion: 'opcional: el goteo, cuántos WhatsApp de esta automatización como mucho en 24 h (adentro del tope de la línea).' },
       { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo.' },
+      { nombre: 'goteoEmailMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: el goteo del email, minutos entre dos emails de esta automatización (uno cada N minutos).' },
+      { nombre: 'goteoEmailPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: el goteo del email, cuántos emails de esta automatización como mucho en 24 h (adentro del tope de email de la línea).' },
+      { nombre: 'sinGoteoEmail', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo del email.' },
     ],
-    reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario, las horas a la misma persona y el goteo de esa automatización)',
+    reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario y el goteo, de WhatsApp y de email, de esa automatización)',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {

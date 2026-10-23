@@ -41,6 +41,7 @@ import {
 } from '@/app/m/_ui';
 import { buscarLeadsAction, deshacerMoverAction, moverEtapaAction } from './acciones';
 import { MIN_BUSQUEDA, type FilaLeadM } from './reglas';
+import { linkInstagram } from '@/app/crm/campo-inline';
 import { CaraTarjeta, CuerpoFichaRapida, EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
 import { ReunionesParaPreparar } from '@/app/crm/TarjetaReunion';
 import { insigniaDeCanal, subtituloEnOrden, subtituloLead, type CampoTarjetaLead } from '@/lib/tarjeta-kanban';
@@ -83,8 +84,8 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
     id: String(t.id),
     col: t.col,
     // Sin `href` (17/10/2026): tocar abre la ficha rápida (`onTocar`); desde ahí «Abrir ficha» lleva a la completa.
-    // El nombre accesible lleva lo que dice el punto (el color solo no se lee).
-    etiqueta: t.senal.dice ? `${t.nombre}, ${t.senal.dice}` : t.nombre,
+    // El nombre accesible lleva lo que dice el punto (el color solo no se lee) y, si es su único canal, el @ del chip.
+    etiqueta: [t.nombre, t.soloInstagram ? `@${t.soloInstagram}` : null, t.senal.dice].filter(Boolean).join(', '),
     contenido: <FilaLead t={t} campos={campos} />,
   })), [datos.tarjetas, campos]);
 
@@ -130,6 +131,9 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
 
   const r = rapida;
   const iR = r ? camino.findIndex((c) => c.key === r.col) : -1;
+  // Su único canal es el @ (sin email ni teléfono): «Instagram» va donde las demás ofrecen Llamar y WhatsApp. El link se arma
+  // en campo-inline (`linkInstagram`); sin un usuario válido no hay link, y entonces no se dibuja un botón que no lleva a nada.
+  const igR = r?.soloInstagram ? linkInstagram(r.soloInstagram) : null;
   const destinosR = r && deDondeSale.has(r.col) ? datos.columnas.filter((c) => movibles.has(c.key) && c.key !== r.col) : [];
 
   return (
@@ -163,12 +167,14 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
             subtitulo={subtituloLead(r.plata, r.canal)}
             avance={iR >= 0 ? { pct: ((iR + 1) / camino.length) * 100, texto: `Paso ${iR + 1} de ${camino.length} · ${camino[iR].titulo}` } : null}
             filas={[
+              ...(r.soloInstagram ? [{ k: 'Instagram', v: `@${r.soloInstagram}` }] : []),
               ...(r.segunda ? [{ k: 'Empresa o llegó por', v: r.segunda }] : []),
               ...(r.senal.dice ? [{ k: 'Ahora', v: r.senal.dice }] : []),
             ]}
             acciones={[
               ...(r.telefono ? [{ texto: 'Llamar', href: `tel:+${r.telefono}`, primaria: true }, { texto: 'WhatsApp', href: `https://wa.me/${r.telefono}`, externo: true }] : []),
-              { texto: 'Abrir ficha', onClick: () => { const id = r.id; setRapida(null); router.push(ficha(id)); }, primaria: !r.telefono },
+              ...(igR ? [{ texto: 'Instagram', href: igR, externo: true, primaria: true }] : []),
+              { texto: 'Abrir ficha', onClick: () => { const id = r.id; setRapida(null); router.push(ficha(id)); }, primaria: !r.telefono && !igR },
             ]}
             onMoverA={destinosR.length ? () => { const id = String(r.id); setRapida(null); setPedirMover((p) => ({ id, vez: (p?.vez ?? 0) + 1 })); } : null}
           />
@@ -220,6 +226,12 @@ function FilaLead({ t, campos }: { t: TableroCrmM['tarjetas'][number]; campos: r
       <span className="m-crm-tj__txt">
         <span className="m-crm-tj__n">{t.nombre}</span>
         {sub && <span className="m-crm-tj__c">{sub}</span>}
+        {/* EL @ COMO ÚNICO CANAL (23/10/2026): el MISMO chip que la tarjeta de escritorio (`tk-chip--gris`, data-solo-instagram), y
+            sale SIEMPRE, no es un campo de «Personalizar tarjetas»: es por dónde se le escribe a este lead. Se dibuja el canal que
+            tiene, no un «falta» (Martín, 22/10/2026). La condición es `soloInstagram` (./reglas.ts), la del escritorio. */}
+        {t.soloInstagram && (
+          <span className="tk-chips m-crm-tj__canal"><span className="tk-chip tk-chip--gris" data-solo-instagram>@{t.soloInstagram}</span></span>
+        )}
         {t.senal.tono && t.senal.texto && (
           <span className="m-crm-tj__cuando"><i className="m-crm-tj__punto" aria-hidden />{t.senal.texto}</span>
         )}

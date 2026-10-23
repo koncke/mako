@@ -93,6 +93,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { ChipDelCaso } from './ChipDelCaso';
+import { personaDelCaso, nombreCompletoDe, datosDePersona, urlDeFoto, type PersonaPrueba } from '@/lib/prueba-personas';
 import { Button } from '@/app/_ui';
 // «Conectar» y «Vincular nuevo» (décima tanda, GENERAL 6): el modal de cada medio, uno solo para toda la tab.
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
@@ -516,7 +517,7 @@ function IconoTilde({ visible }: { visible: boolean }) {
 /** Cuánto mide la lista de contactos al costado: el chat se queda con el resto. */
 export const ANCHO_BARRA_ESCENARIOS = 232;
 /** Cuánto mide la fila de fotos arriba del chat, cuando no hay lugar al costado. */
-export const ALTO_FILA_ESCENARIOS = 78;
+export const ALTO_FILA_ESCENARIOS = 98;
 /**
  * Desde qué ancho del cuerpo la lista va al costado: con menos, el chat quedaba en ~300 px y la caja aplastada.
  * 16/10/2026, Martín: «Los casos no van arriba: van en la sidebar típica de WhatsApp». Con 640, el panel de su pantalla
@@ -525,8 +526,35 @@ export const ALTO_FILA_ESCENARIOS = 78;
  */
 export const ANCHO_PARA_COLUMNA = 520;
 
-/** Cómo se llama el contacto de un escenario: corto, para que se lea entero (el detalle lo dice el chat al empezar). */
+/**
+ * «Caso N»: la numeración del escenario. Desde el 23/10/2026 ya no es el NOMBRE del contacto sino su SUBTÍTULO (el
+ * título es la persona falsa, `tituloDelCaso`); la sigue usando «Probar en el grupo» para decir de qué caso es la prueba.
+ */
 export const nombreDelCaso = (k: number) => `Caso ${k + 1}`;
+
+/**
+ * EL TÍTULO DE UN CASO (23/10/2026, Martín: «el título de los "casos" debería ser el nombre de la persona falsa, NOMBRE
+ * Y APELLIDO»): la persona del caso k (lib/prueba-personas.ts). La misma foto y el mismo nombre para el mismo caso siempre.
+ */
+export const tituloDelCaso = (k: number) => nombreCompletoDe(personaDelCaso(k));
+
+/**
+ * LO QUE LLEVA EL ENCABEZADO DE UN CASO en el chat (`ChipDelCaso`): la persona de título, «Caso N» de subtítulo, su foto
+ * y los hechos que lo deciden. Pura, para el test.
+ */
+export function datosDelChipDelCaso(k: number, hechos: readonly string[], contesta: string | null) {
+  return { titulo: tituloDelCaso(k), subtitulo: nombreDelCaso(k), foto: urlDeFoto(personaDelCaso(k).foto), hechos, contesta };
+}
+
+/**
+ * LOS DATOS «{{ }}» QUE LLEGAN AL LEAD DE UN CASO (23/10/2026): los de su persona falsa, que pisan a los del lead de
+ * ejemplo de siempre (`textoDeEjemplo` los recibe de `extra`). Sin persona (`null`: una prueba sin lista de casos, o la
+ * del email) devuelve lo que ya traía el flujo, tal cual. Los de un evento o del recordatorio no se pisan: no hablan del lead.
+ */
+export function datosDeLaPrueba(persona: PersonaPrueba | null, extra?: Record<string, string>): Record<string, string> | undefined {
+  if (!persona) return extra;
+  return { ...(extra ?? {}), ...datosDePersona(persona) };
+}
 
 /**
  * ¿Es parte de la CHARLA? Ni una pastilla del sistema ni el encabezado de un caso (`ChipDelCaso`, 16/10/2026): lo que
@@ -541,10 +569,13 @@ export function textoEscenario(e: Pick<EscenarioPrueba, 'pasos'> & { cuando?: re
 
 /**
  * LAS FOTOS DE LOS CONTACTOS (15/10/2026): retratos de randomuser.me, un banco de fotos de prueba con URLs fijas. Si
- * una no carga, queda la inicial del caso. La misma foto para el mismo caso siempre: el orden de la barra.
+ * una no carga, quedan las iniciales de la persona. La misma foto para el mismo caso siempre: el orden de la barra.
+ * Desde el 23/10/2026 cada foto es de una persona falsa con nombre (lib/prueba-personas.ts, que guarda la lista).
  */
-const FOTOS_CONTACTO = ['women/44', 'men/32', 'women/68', 'men/75', 'women/12', 'men/46', 'women/90', 'men/11', 'women/33', 'men/52', 'women/26', 'men/86'];
-export const fotoDelCaso = (k: number) => `https://randomuser.me/api/portraits/${FOTOS_CONTACTO[k % FOTOS_CONTACTO.length]}.jpg`;
+export const fotoDelCaso = (k: number) => urlDeFoto(personaDelCaso(k).foto);
+
+/** Las iniciales de la persona del caso k, para cuando su foto no carga. */
+const inicialesDelCaso = (k: number) => { const p = personaDelCaso(k); return `${p.nombre[0]}${p.apellido[0]}`; };
 
 function FotoContacto({ k, tam, social, sel }: { k: number; tam: number; social: boolean; sel: boolean }) {
   const [rota, setRota] = useState(false);
@@ -553,7 +584,7 @@ function FotoContacto({ k, tam, social, sel }: { k: number; tam: number; social:
   return (
     <span aria-hidden style={{ width: tam, height: tam, borderRadius: '50%', flex: 'none', padding: 2, background: aro, boxSizing: 'border-box', display: 'flex' }}>
       {rota ? (
-        <span style={{ flex: 1, borderRadius: '50%', background: 'var(--surface-2)', border: '2px solid var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--dim)' }}>{k + 1}</span>
+        <span style={{ flex: 1, borderRadius: '50%', background: 'var(--surface-2)', border: '2px solid var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--dim)' }}>{inicialesDelCaso(k)}</span>
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={fotoDelCaso(k)} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setRota(true)}
@@ -625,10 +656,12 @@ export function BarraEscenarios({ escenarios, elegido, previas, canal, onElegir,
         {escenarios.map((e, k) => {
           const sel = e.id === elegido;
           return (
-            <button key={e.id} type="button" aria-current={sel ? 'true' : undefined} title={textoEscenario(e)} onClick={() => onElegir(e.id)}
-              style={{ flex: 'none', width: 62, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '2px 0', border: 'none', background: 'transparent', color: sel ? 'var(--ink)' : 'var(--dim)', cursor: 'pointer', font: 'inherit' }}>
+            <button key={e.id} type="button" data-caso-persona={tituloDelCaso(k)} aria-current={sel ? 'true' : undefined} title={`${tituloDelCaso(k)} · ${nombreDelCaso(k)} · ${textoEscenario(e)}`} onClick={() => onElegir(e.id)}
+              style={{ flex: 'none', width: 84, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '2px 0', border: 'none', background: 'transparent', color: sel ? 'var(--ink)' : 'var(--dim)', cursor: 'pointer', font: 'inherit' }}>
               <FotoContacto k={k} tam={46} social={social} sel={sel} />
-              <span style={{ fontSize: 11.5, fontWeight: sel ? 700 : 500, maxWidth: '100%', ...recorte }}>{nombreDelCaso(k)}</span>
+              {/* 23/10/2026: el TÍTULO es la persona (nombre y apellido, hasta dos renglones) y «Caso N» el subtítulo. */}
+              <span style={{ fontSize: 11.5, lineHeight: 1.2, fontWeight: sel ? 700 : 500, maxWidth: '100%', textAlign: 'center', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{tituloDelCaso(k)}</span>
+              <span data-caso-numero style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--dim)', maxWidth: '100%', ...recorte }}>{nombreDelCaso(k)}</span>
             </button>
           );
         })}
@@ -658,7 +691,7 @@ export function BarraEscenarios({ escenarios, elegido, previas, canal, onElegir,
       {escenarios.map((e, k) => {
         const sel = e.id === elegido;
         return (
-          <button key={e.id} type="button" className="pp-escenario" aria-current={sel ? 'true' : undefined} title={textoEscenario(e)} onClick={() => onElegir(e.id)}
+          <button key={e.id} type="button" className="pp-escenario" data-caso-persona={tituloDelCaso(k)} aria-current={sel ? 'true' : undefined} title={`${tituloDelCaso(k)} · ${nombreDelCaso(k)} · ${textoEscenario(e)}`} onClick={() => onElegir(e.id)}
             style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '0 12px', height: 64, border: 'none',
               background: sel ? 'var(--surface-2)' : 'transparent', color: 'var(--ink)', textAlign: 'left', cursor: 'pointer', font: 'inherit',
@@ -666,8 +699,9 @@ export function BarraEscenarios({ escenarios, elegido, previas, canal, onElegir,
             <FotoContacto k={k} tam={46} social={social} sel={false} />
             {/* El renglón de WhatsApp Web: nombre y último mensaje, con la raya abajo (que no llega a la foto). */}
             <span style={{ flex: 1, minWidth: 0, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, borderBottom: '1px solid var(--border)' }}>
-              <span style={{ display: 'block', fontSize: 14.5, fontWeight: 600, ...recorte }}>{nombreDelCaso(k)}</span>
-              <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', ...recorte }}>{previas[e.id] || (e.respuesta ? `Contesta: ${e.respuesta.titulo}` : 'Sin probar')}</span>
+              {/* 23/10/2026: el título es la persona falsa (nombre y apellido); «Caso N» va de subtítulo, con lo de siempre. */}
+              <span style={{ display: 'block', fontSize: 14.5, fontWeight: 600, ...recorte }}>{tituloDelCaso(k)}</span>
+              <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', ...recorte }}><span data-caso-numero>{nombreDelCaso(k)}</span> · {previas[e.id] || (e.respuesta ? `Contesta: ${e.respuesta.titulo}` : 'Sin probar')}</span>
             </span>
           </button>
         );
@@ -1116,6 +1150,19 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   useEffect(() => {
     ctx.current = { nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id, emisor: emisorReal, datosExtra };
   });
+  /**
+   * LA PERSONA FALSA DEL CASO QUE CORRE (23/10/2026, Martín: «dentro en la prueba salga con ese nombre o con los datos
+   * falsos de ese perfil»): sólo con la lista de contactos (`conBarra`). Sin ella —un solo camino, o el email— la prueba
+   * sigue con el lead de ejemplo de siempre. Se lee del caso que corre AHORA (`escRef`), no del que se ve: los timers
+   * de un caso viejo no pueden escribir con los datos de otro.
+   */
+  const personaDelMomento = (): PersonaPrueba | null => {
+    if (!conBarra) return null;
+    const k = escenarios.findIndex((e) => e.id === escRef.current?.id);
+    return k >= 0 ? personaDelCaso(k) : null;
+  };
+  /** Las {{variables}} de lo que sale ahora: las de la persona del caso, encima de las del evento o el recordatorio. */
+  const datosDelMomento = () => datosDeLaPrueba(personaDelMomento(), ctx.current.datosExtra);
 
   useEffect(() => {
     if (!conGrupo || lecturaGrupo) return;
@@ -1167,7 +1214,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     const c = ctx.current;
     const ahora = new Date().toISOString();
     const k = escenarios.findIndex((e) => e.id === escRef.current?.id);
-    const burbujas = loQueLlegaAlGrupo(paso, (t) => textoDeEjemplo(t, c.negocio, c.datosExtra));
+    const burbujas = loQueLlegaAlGrupo(paso, (t) => textoDeEjemplo(t, c.negocio, datosDelMomento()));
     const lista: BurbujaGrupo[] = burbujas.length ? burbujas : [{ tipo: 'texto', texto: '' }];
     grupoRef.current = [
       ...grupoRef.current,
@@ -1216,8 +1263,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     const contesta = caso?.respuesta?.titulo ?? null;
     if (!conBarra || !caso || k < 0 || (!caso.cuando.length && !contesta) || ctx.current.canal === 'email') return;
     poner({
-      id: nuevoId('caso'), fromMe: false, tipo: 'caso', texto: `${nombreDelCaso(k)}: ${caso.cuando.join(' · ')}`,
-      caso: { titulo: nombreDelCaso(k), hechos: caso.cuando, contesta }, fecha: new Date().toISOString(),
+      id: nuevoId('caso'), fromMe: false, tipo: 'caso', texto: `${tituloDelCaso(k)} · ${nombreDelCaso(k)}: ${caso.cuando.join(' · ')}`,
+      caso: datosDelChipDelCaso(k, caso.cuando, contesta), fecha: new Date().toISOString(),
     });
   };
 
@@ -1285,13 +1332,13 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     }
     if (parte.tipo === 'media') {
       const adj = c.adjuntos.find((x) => x.id === parte.media_id) ?? null;
-      const caption = textoDeEjemplo(parte.cuerpo ?? '', c.negocio, c.datosExtra);
+      const caption = textoDeEjemplo(parte.cuerpo ?? '', c.negocio, datosDelMomento());
       // El documento con SU nombre y el caption aparte, como le llega al lead (costuras-8).
       poner({ id: nuevoId('md'), fromMe: false, autor: firma(), ...burbujaDeArchivo(adj, caption), fecha: ahora });
       mandarReal({ canal: 'whatsapp', tipo: 'media', media_id: parte.media_id, texto: caption }, clave, enRespuesta);
       return;
     }
-    const texto = textoDeEjemplo(parte.cuerpo, c.negocio, c.datosExtra);
+    const texto = textoDeEjemplo(parte.cuerpo, c.negocio, datosDelMomento());
     poner({ id: nuevoId('tx'), fromMe: false, autor: firma(), texto: texto.trim() || 'Sin escribir', fecha: ahora });
     if (texto.trim()) mandarReal({ canal: 'whatsapp', tipo: 'texto', texto, ...(sinTarjeta ? { sin_vista_previa: true } : {}) }, clave, enRespuesta);
   };
@@ -1305,7 +1352,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     const ahora = new Date().toISOString();
     if (p.canal === 'email') {
       // A la BANDEJA, con las variables del lead de ejemplo; lo que sale de verdad es lo que se ve.
-      const correo = correoDeEjemplo(p, c.negocio);
+      const correo = correoDeEjemplo(p, c.negocio, datosDelMomento());
       ponerCorreo({ id: nuevoId('em'), ...correo, minuto, leido: false });
       mandarReal({ canal: 'email', tipo: 'texto', texto: correo.cuerpo, asunto: correo.asunto, ...(correo.html ? { html: correo.html } : {}) }, nodo, enRespuesta);
       return 0;
@@ -1326,7 +1373,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       });
       return (lista.length - 1) * ENTRE_PARTES_MS;
     }
-    const texto = redactado ?? textoDeEjemplo(p.cuerpo, c.negocio, c.datosExtra);
+    const texto = redactado ?? textoDeEjemplo(p.cuerpo, c.negocio, datosDelMomento());
     // En la salida, un «Lo adapta MaKo» muestra el texto BASE: a cada lead le llega otro.
     const marca = p.tipo === 'ia' && !enRespuesta ? ' · ✦' : '';
     poner({ id: nuevoId('tx'), fromMe: false, autor: `${firma()}${marca}`, texto: texto.trim() || 'Sin escribir', fecha: ahora });

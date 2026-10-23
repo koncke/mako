@@ -11,7 +11,8 @@
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deIA, deIAEdicion, limpiarTexto, linksDelPedido, LISTA_BLANCA_IA, AVISO_MISMA_PERSONA, type CtxIA, type PasoIA } from '../lib/flujo-ia';
+import { deIA, deIAEdicion, limpiarTexto, linksDelPedido, LISTA_BLANCA_IA, type CtxIA, type PasoIA } from '../lib/flujo-ia';
+import * as flujoIA from '../lib/flujo-ia';
 import { claseDe } from '../lib/flujo-grafo';
 import { porId } from '../lib/api-mako/registro';
 
@@ -102,8 +103,10 @@ test('el link que escribió el dueño se queda; el que inventa el modelo, no', (
   assert.doesNotMatch(String((sin.pasos as PasoIA[]).find((p) => claseDe(p) === 'mensaje')?.cuerpo), /https?:/, 'sin pedido que lo nombre, se va');
 });
 
-// rotura (sacar `esperaCortaEntreWhatsapp` de `deIAEdicion`) → 1 rojo de 5 (éste).
-test('una espera corta entre dos WhatsApp lo dice el código: la línea espera las horas de «Misma persona»', () => {
+// (Hasta el 23/10/2026 este test fijaba que una espera corta entre dos WhatsApp avisaba «la línea espera las horas de «Misma persona»».
+// Martín: «elimina "Misma persona"». La espera que se pide es la que se cumple: ya no hay aviso, y `AVISO_MISMA_PERSONA` se fue.)
+test('una espera corta entre dos WhatsApp se pone tal cual y no avisa de «Misma persona» (se fue el 23/10/2026)', () => {
+  assert.equal('AVISO_MISMA_PERSONA' in flujoIA, false, 'volvió el aviso de «Misma persona» al chat de MaKo');
   const wa = (id: string, cuerpo: string, siguiente: string | null): PasoIA => ({ id, orden: 0, canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo, template_wa: null, proveedor: 'no_oficial', siguiente } as PasoIA);
   const base: PasoIA[] = [
     wa('m1', 'Hola {{nombre}}, soy Mauricio Ejemplo.', 'e1'),
@@ -112,9 +115,9 @@ test('una espera corta entre dos WhatsApp lo dice el código: la línea espera l
   ];
   const corta = deIAEdicion({ cambiar: [{ id: 'e1', minutos: 5 }] }, base, ctxDe(), rndDe());
   assert.deepEqual(corta.cambiadas, ['e1']);
-  assert.ok(corta.avisos.includes(AVISO_MISMA_PERSONA), corta.avisos.join(' | '));
+  assert.equal(corta.avisos.some((a) => /misma persona/i.test(a)), false, corta.avisos.join(' | '));
   const larga = deIAEdicion({ cambiar: [{ id: 'e1', dias: 2 }] }, base, ctxDe(), rndDe());
-  assert.ok(!larga.avisos.includes(AVISO_MISMA_PERSONA), 'dos días: no hace falta decirlo');
+  assert.equal(larga.avisos.some((a) => /misma persona/i.test(a)), false, 'dos días');
   const nada = deIAEdicion({ cambiar: [{ id: 'm1', texto: 'Hola {{nombre}}, soy Mauricio.' }] }, base, ctxDe(), rndDe());
-  assert.ok(!nada.avisos.includes(AVISO_MISMA_PERSONA), 'una espera que nadie tocó no se avisa');
+  assert.equal(nada.avisos.some((a) => /misma persona/i.test(a)), false, 'una espera que nadie tocó no se avisa');
 });

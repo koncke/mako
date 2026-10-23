@@ -1029,25 +1029,14 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
   .co-elegir__mosaicos { grid-template-columns: repeat(4, 1fr); }
 }
 
-/* El Uso de las cuatro cuentas y sus Runners (Uso.tsx): el botón de abajo y su desplegable, copiado de claude.ai →
+/* El Uso de las cuatro cuentas y sus Runners (Uso.tsx): el botón de abajo y su modal, copiado de claude.ai →
    Configuración → Uso (el nombre de la ventana, la barra, el «% usado» y cuándo se reinicia). */
 .co-uso { position: relative; }
 .co-uso__principal { margin-left: 2px; font-weight: 700; }
 .co-uso__principal--viejo { color: var(--faint); }
 .co-uso__de { font-size: var(--fs-meta); color: var(--faint); }
-.co-uso__panel {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(100% + 6px);
-  z-index: 30;
-  max-height: min(70dvh, 560px);
-  overflow-y: auto;
-  padding: 12px;
-  border-radius: var(--r-xl);
-  background: var(--surface);
-  box-shadow: 0 0 0 1px var(--border-strong), 0 12px 32px rgba(18, 21, 27, .16);
-}
+/* Lo del super admin, debajo de «Tus cuentas de IA» en el mismo modal del cliente (23/10/2026): ya no un panel que salta. */
+.co-uso__mas { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
 .co-uso__cab { margin: 0 2px 8px; font-weight: 600; }
 .co-uso__lista { display: flex; flex-direction: column; gap: 10px; }
 .co-uso__cuenta { padding: 10px; border-radius: var(--r-md); background: var(--velo-hover); display: flex; flex-direction: column; gap: 8px; }

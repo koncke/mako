@@ -37,7 +37,7 @@ test('el encabezado del caso: el caso arriba, cada hecho una etiqueta y, en un A
 // rotura 2 (el encabezado vuelve a ser una pastilla del sistema): 4 pass / 1 fail, cae éste.
 test('Probar lo pone como su propio tipo, y los dos teléfonos lo dibujan', () => {
   assert.match(PANEL, /poner\(\{\n\s+id: nuevoId\('caso'\), fromMe: false, tipo: 'caso',/);
-  assert.match(PANEL, /caso: \{ titulo: nombreDelCaso\(k\), hechos: caso\.cuando, contesta \}/);
+  assert.match(PANEL, /caso: datosDelChipDelCaso\(k, caso\.cuando, contesta\)/);
   assert.match(PANEL, /const contesta = caso\?\.respuesta\?\.titulo \?\? null;/);
   assert.match(PANEL, /renderMensaje=\{\(m\) => \(m\.tipo === 'caso' && m\.caso \? <ChipDelCaso caso=\{m\.caso\} \/> : null\)\}/);
   assert.match(leer('app/automations/SimuladorSocial.tsx'), /if \(m\.tipo === 'caso' && m\.caso\) return <ChipDelCaso key=\{m\.id\} caso=\{m\.caso\} \/>;/);

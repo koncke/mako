@@ -24,6 +24,17 @@
 // con una conexión mala y un Apps Script reintenta. Sin eso quedan dos propuestas del
 // mismo lead y el dueño confirma un duplicado creyendo que son dos personas. Si el
 // emisor no manda `ref`, se arma una con el contacto: es lo que identifica a la persona.
+//
+// ⚠️ EL @ DE INSTAGRAM CUENTA COMO CONTACTO (23/10/2026), con la misma regla que el alta, el
+// importador y la prospección (lib/contacto-minimo.ts): un prospecto de Instagram casi nunca
+// trae email ni teléfono, y exigirlos dejaba la skill como la única puerta cerrada. El lead con
+// solo el @ viaja con el email y el teléfono en `null`: nada se rellena.
+//
+// ⚠️ Y EL @ ENTRA TAMBIÉN A LA `ref` POR DEFECTO, que es lo que no se ve. Salía de
+// `telefono ?? email`: una fila con solo el @ daba `lead:null`, y `crearPropuesta` devuelve la
+// que ya existe cuando la `ref` choca (pendiente O aplicada). O sea que el SEGUNDO formulario
+// con solo el @ no dejaba propuesta: contestaba ok con el link del primero y `nueva: false`, y
+// esa persona no llegaba nunca a la bandeja. Sin error en ningún lado.
 // =============================================================================
 
 import { wsEnContexto } from '@/lib/workspace';
@@ -33,6 +44,8 @@ import { rechazoPorAlcance } from '@/lib/api-mako/alcance';
 import { limitePorClave } from '@/lib/limite-publico';
 import { crearPropuesta } from '@/lib/propuestas';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
+import { tieneContacto } from '@/lib/contacto-minimo';
+import { usuarioInstagram } from '@/app/crm/campo-inline';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -49,11 +62,23 @@ function aFila(c: LeadCrudo, i: number): { fila: Record<string, unknown> } | { e
   const nombre = txt(c.nombre);
   const email = txt(c.email)?.toLowerCase() ?? null;
   const telefono = txt(c.telefono);
+  // El @ llega como lo escribe quien lo manda (`@usuario`, `usuario` o el link del perfil) y se guarda como
+  // lo guarda la ficha: sin la @, en minúsculas (`usuarioInstagram`). Lo que no es un usuario no se manda.
+  const instagramCrudo = txt(c.instagram);
+  const instagram = usuarioInstagram(instagramCrudo);
   if (!nombre) return { error: `el lead #${i + 1} no tiene "nombre"` };
-  if (!email && !telefono) return { error: `"${nombre}" no tiene "email" ni "telefono": sin forma de contacto no se puede trabajar` };
+  if (!tieneContacto({ email, telefono, instagram })) {
+    // Si mandó un "instagram" que no es un usuario (un nombre, el link de un post), se le dice: «no tiene
+    // instagram» sería mentira y mandaría a buscar un dato que ya estaba, solo que mal escrito.
+    return {
+      error: instagramCrudo
+        ? `"${nombre}" mandó un "instagram" que no es un usuario (manda @usuario o el link del perfil) y no tiene "email" ni "telefono": sin forma de contacto no se puede trabajar`
+        : `"${nombre}" no tiene "email", "telefono" ni "instagram": sin forma de contacto no se puede trabajar`,
+    };
+  }
   return {
     fila: {
-      nombre, email, telefono,
+      nombre, email, telefono, instagram,
       empresa: txt(c.empresa),
       utm_source: txt(c.utm_source),
       utm_medium: txt(c.utm_medium),
@@ -61,6 +86,22 @@ function aFila(c: LeadCrudo, i: number): { fila: Record<string, unknown> } | { e
       utm_content: txt(c.utm_content),
     },
   };
+}
+
+/**
+ * La `ref` cuando el emisor no manda una: sale de los CONTACTOS, no de los nombres, porque dos
+ * personas se llaman igual pero un teléfono, un mail o un @ identifican a una. Teléfono, después
+ * email, después @: el que la persona usa de verdad primero.
+ *
+ * ⚠️ UNA FILA NUNCA PUEDE QUEDAR SIN LLAVE. Es lo que `aFila` garantiza con `tieneContacto`, y por
+ * eso el teléfono cuenta solo si tiene dígitos (como allá): un «N/A» que pasara por teléfono
+ * sería la llave de dos personas distintas. El @ va con su arroba para no chocar con un teléfono
+ * (un usuario de Instagram puede ser todo números).
+ */
+function refPorDefecto(filas: Array<Record<string, unknown>>): string {
+  const llave = (f: Record<string, unknown>) =>
+    (/\d/.test(String(f.telefono ?? '')) ? f.telefono : null) ?? f.email ?? (f.instagram ? `@${f.instagram}` : null);
+  return `lead:${filas.map(llave).join(',')}`.slice(0, 200);
 }
 
 /** El tope por propuesta. El mismo criterio que el importador: una revisión de 500
@@ -110,9 +151,7 @@ export async function POST(req: NextRequest) {
   const origenTxt = txt(body.origen);
 
   try {
-    // La ref por defecto sale de los CONTACTOS, no de los nombres: dos personas se
-    // llaman igual, pero un teléfono o un mail identifican a una.
-    const ref = txt(body.ref) ?? `lead:${filas.map((f) => f.telefono ?? f.email).join(',')}`.slice(0, 200);
+    const ref = txt(body.ref) ?? refPorDefecto(filas);
 
     const { id, nueva } = await crearPropuesta({
       ws,

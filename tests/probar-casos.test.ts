@@ -121,6 +121,9 @@ test('la barra: «Caso N» con foto, sin «Hay más caminos», y en fila con poc
   assert.match(col, /data-barra-escenarios="columna"/);
   assert.match(col, />Caso 1</);
   assert.match(col, />Caso 2</);
+  // (23/10/2026: el título del contacto es su persona falsa; «Caso N» quedó de subtítulo. tests/probar-personas-falsas.test.ts.)
+  assert.match(col, />Valentina Ríos</);
+  assert.match(col, />Mateo Salazar</);
   assert.match(col, /src="https:\/\/randomuser\.me\/api\/portraits\/[a-z]+\/\d+\.jpg"/);
   assert.doesNotMatch(col, /Hay más caminos/);
   const fila = renderToStaticMarkup(createElement(BarraEscenarios, { ...props, fila: true }));
@@ -138,7 +141,7 @@ test('el panel: la píldora de cuándo cae, el lead que escribe, y volver a un c
   // (16/10/2026: el mensaje del lead pedido por adelantado se vacía con el caso; tests/probar-chip-caso.test.ts.)
   assert.match(arrancar, /leadEscribio\.current = false; mensajeDelLead\.current = null;\n\s+pildoraDelCaso\(\);\n\s+luego\(150, avanzar\);/);
   // (16/10/2026: el encabezado del caso es su propio tipo, `ChipDelCaso`, y no una pastilla del sistema.)
-  assert.match(PANEL, /caso: \{ titulo: nombreDelCaso\(k\), hechos: caso\.cuando, contesta \}/);
+  assert.match(PANEL, /caso: datosDelChipDelCaso\(k, caso\.cuando, contesta\)/);
   assert.match(PANEL, /if \(!evento\.enRespuesta && escRef\.current\?\.respuesta && !leadEscribio\.current\) \{\n\s+void pedirMensajeDelLead\(\);\n\s+luego\(ENTRE_MS \+ resto \+ LEAD_PIENSA_MS, \(\) => \{ void escribirComoLead\(\); \}\);/);
   assert.match(PANEL, /mensajeDelLead\.current = postar\(\{ action: 'mensaje-lead', titulo: r\.titulo, cuando: r\.cuando, ultimo \}\)/);
   assert.match(PANEL, /const texto = await pedirMensajeDelLead\(\);[\s\S]{0,120}await enviarTexto\(texto\);/);

@@ -47,6 +47,7 @@ import { getLead, logLeadChanges, type Lead } from '@/lib/leads';
 import { getPagosByLead, type Pago } from '@/lib/pagos';
 import { DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
 import { getUsuarioActual } from '@/lib/auth';
+import type { MotivoDuplicado } from '@/lib/leads-duplicados';
 import { revalidatePath } from 'next/cache';
 import { autoasignar } from './trabajo';
 import { abrirCuentaDePartner } from '@/lib/partners';
@@ -153,7 +154,7 @@ export async function crearClienteAction(datos: {
    * editor del curso necesita el LEAD para ofrecer «usar ese» en vez de fallar («si el email ya es un
    * lead del workspace, ofrecer usar ese lead»).
    */
-  duplicados?: Array<{ leadId: number; nombre: string; motivo: 'email' | 'telefono' | 'nombre'; texto: string }>;
+  duplicados?: Array<{ leadId: number; nombre: string; motivo: MotivoDuplicado; texto: string }>;
 }> {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   // El alta vive en lib/cs-crear-cliente.ts desde el 23/10/2026 (la usan también el alta de un alumno

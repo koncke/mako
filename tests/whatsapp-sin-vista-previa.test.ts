@@ -60,8 +60,9 @@ test('el envío: `linkPreview: false` a Evolution, en lo que sale solo, en el bo
   assert.doesNotMatch(envio, /\.select\('id, telefono, texto, lead_id, chat_jid, instance_name, audio_id, adjunto_id, sin_vista_previa'\)/);
   assert.match(envio, /sinVistaPrevia: await borradorSinVistaPrevia\(supabase, b\.id\)/);
   const nut = leer('lib/nutricion.ts');
-  // Desde el 23/10/2026, lo del mensaje O lo de la automatización (Configuraciones › WhatsApp, `sinVistaPreviaDe`).
-  assert.match(nut, /const sinTarjeta = sinVistaPreviaDe\(sinVistaPrevia\(paso\), configsCorrida\.get\(insc\.secuencia_id\)\);/);
+  // Lo del mensaje y nada más: el 23/10/2026 (Martín: «elimina "Vista previa del link"» de Configuraciones) se fue lo de la automatización.
+  assert.match(nut, /const sinTarjeta = sinVistaPrevia\(paso\);/);
+  assert.doesNotMatch(nut, /sinVistaPreviaDe/);
   assert.match(nut, /const r = await enviarYEspejar\(\{ telefono: lead\.telefono, texto: t\.texto, leadId: lead\.id, linea: lineaSec, sinVistaPrevia: sinTarjeta \}\);/);
   assert.match(nut, /partes: partesMulti, desde: partesSalidas, telefono: lead\.telefono, leadId: lead\.id, linea: lineaSec, vars: varsNO, sinVistaPrevia: sinTarjeta \}/);
   assert.match(nut, /r = await enviarYEspejar\(\{ telefono: a\.telefono, texto: t, leadId: a\.leadId, linea: a\.linea, sinVistaPrevia: a\.sinVistaPrevia \}\);/);
@@ -75,8 +76,10 @@ test('el envío: `linkPreview: false` a Evolution, en lo que sale solo, en el bo
   assert.match(leer('lib/prueba-paso.ts'), /sinVistaPrevia: mensaje\.sin_vista_previa === true/);
   assert.match(leer('lib/setting-secuencias.ts'), /linea: lineaSec, sinVistaPrevia: sinVistaPrevia\(paso\) \}\);/);
   assert.match(leer('app/automations/PanelProbar.tsx'), /mandarReal\(\{ canal: 'whatsapp', tipo: 'texto', texto, \.\.\.\(sinTarjeta \? \{ sin_vista_previa: true \} : \{\}\) \}, clave, enRespuesta\);/);
-  // La tarjeta: sin interruptor desde el 23/10/2026 (una tarjeta no gana controles); el motor sigue honrando lo guardado.
-  assert.doesNotMatch(leer('app/automations/FlujoLienzo.tsx'), /data-vista-previa/);
+  // El editor: sin el interruptor suelto; con link, su tarjeta con la X (`VistaPreviaDelLink`, 23/10/2026); el motor honra lo guardado.
+  const lienzo = leer('app/automations/FlujoLienzo.tsx');
+  assert.doesNotMatch(lienzo, /data-vista-previa(?!-link)/);
+  assert.match(lienzo, /function VistaPreviaDelLink\(/);
 });
 
 // El borrador NUNCA se pierde: sin la columna (la 0309 sin aplicar) se escribe sin la marca.

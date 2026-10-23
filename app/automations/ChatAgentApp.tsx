@@ -53,6 +53,8 @@ import { marcarWhatsappAlCargar, type OnboardingChatbot } from '@/lib/chatbot-pu
 // El recorrido guiado de la tab (décima tanda, GENERAL 8), montado como el de CURSO. Se vuelve a ver con
 // «Tutorial» del menú (`MenuAutomations`).
 import { RecorridoAutomations, useRecorridoAutomations } from './RecorridoAutomations';
+// Directo y no desde el índice de app/_ui (ver app/_ui/CargandoMako.tsx).
+import { CargandoMako } from '@/app/_ui/CargandoMako';
 import { PASOS_DEL_LIENZO } from './recorrido-automations';
 
 /** Cuánto se conserva la URL firmada de un audio ya cargado: la firma dura 12 h (lib/setting-audios.ts). */
@@ -314,6 +316,12 @@ function ChatAgentInner() {
     // El estado de la línea, para rellenar el paso «Tu WhatsApp» (#745): ver abajo.
     let estadoCanal = 'desconocido';
     let errorCarga: string | null = null;
+    // ⚠️ LAS TRES LECTURAS SALEN A LA VEZ (23/10/2026, «Rendimiento y loaders»). Martín: «al abrir Automations tarda mucho».
+    // Iban en cascada: secuencias, después audios, después el onboarding (p50 en producción: 3,0 s + 2,0 s + 3,7 s). Ninguna
+    // necesita a otra para PEDIRSE; lo que el onboarding usa de las secuencias (el estado de la línea) se usa al LEERLO,
+    // después. Cada una con su `.catch`: una que falla no queda como rechazo suelto mientras se espera a la otra.
+    const pAudios = fetch('/api/chat-agent/audios', { cache: 'no-store' }).catch(() => null);
+    const pOnboarding = pasoWaResuelto.current ? null : fetch('/api/chat-agent/onboarding?tab=setting', { cache: 'no-store' }).catch(() => null);
     try {
       const r = await fetch('/api/chat-agent/secuencias', { cache: 'no-store' });
       const j = await r.json();
@@ -342,7 +350,8 @@ function ChatAgentInner() {
     // anti-parpadeo de la bandeja (EmpresaInbox). Pero la firma VENCE a las 12 h: la URL
     // vieja se conserva sólo mientras le quedan horas, y después se toma la nueva.
     try {
-      const ra = await fetch('/api/chat-agent/audios', { cache: 'no-store' });
+      const ra = await pAudios;
+      if (!ra) throw new Error('sin red');
       const ja = await ra.json();
       if (ja.ok) {
         const ahora = Date.now();
@@ -364,9 +373,10 @@ function ChatAgentInner() {
     // escribir». La línea ya conectada con el paso pendiente (vinculó por /whatsapp o desde una tarjeta) se marca, o
     // «Tu forma de escribir» contesta «falta completar Tu WhatsApp» al terminarla. Va DESPUÉS de dibujar la lista:
     // nada espera esta lectura. Y una vez resuelto no se vuelve a preguntar en cada recargue.
-    if (!pasoWaResuelto.current) {
+    if (pOnboarding && !pasoWaResuelto.current) {
       try {
-        const ro = await fetch('/api/chat-agent/onboarding?tab=setting', { cache: 'no-store' });
+        const ro = await pOnboarding;
+        if (!ro) throw new Error('sin red');
         const jo = await ro.json();
         const onboarding: OnboardingChatbot = jo.ok
           ? (jo.estado?.status === 'done' ? 'hecho' : 'pendiente')
@@ -640,14 +650,12 @@ function ChatAgentInner() {
   // `flex: 1` implica `flex-basis: 0%`, que ANULA el height. El main colapsa a
   // la altura del spinner y el `alignItems: center` no tiene nada que centrar →
   // loader diminuto pegado al techo. Va `minHeight`, que sí manda.
+  //
+  // ⚠️ EL LOADER ES EL DE TODAS LAS TABS (23/10/2026): CargandoMako, el mismo que dibuja app/automations/loading.tsx mientras
+  // llega la página. Así del server al cliente no hay salto: la criatura y la barra siguen donde estaban. Era un spinner
+  // con «Abriendo Automations…» (Martín: «quiero que sean todos como el de Ops Center»).
   if (secuencias === null) {
-    return (
-      <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-        <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
-        <span style={{ width: 34, height: 34, border: '3px solid var(--border)', borderTopColor: 'var(--accent-soft)', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
-        <span style={{ fontSize: 14, color: 'var(--dim)' }}>Abriendo Automations…</span>
-      </main>
-    );
+    return <CargandoMako que="Automations" alto="100vh" />;
   }
 
   // ⛔ ACÁ IBA LA PUERTA DEL QR (`if (enOnboarding) {…<EvolutionConnect inline>…}`): sin línea vinculada, la tab

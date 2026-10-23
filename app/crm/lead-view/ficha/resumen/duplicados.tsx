@@ -23,7 +23,7 @@ export function PosiblesDuplicados({ ctx, titulo, diseno, epico }: PropsBloque) 
     let vivo = true;
     void duplicadosDelLeadAction(ctx.lead.id).then((r) => { if (vivo) setLista(r ?? []); }).catch(() => { if (vivo) setLista([]); });
     return () => { vivo = false; };
-  }, [ctx.lead.id, ctx.lead.email, ctx.lead.telefono]);
+  }, [ctx.lead.id, ctx.lead.email, ctx.lead.telefono, ctx.lead.instagram]);
   if (!lista?.length) return null;
   const n = lista.length;
   const frase = n === 1 ? 'Hay otra ficha parecida' : `Hay ${n} fichas parecidas`;

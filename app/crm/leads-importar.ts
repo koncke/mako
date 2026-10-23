@@ -22,6 +22,10 @@
 // arrastra nada del server al navegador.
 import { telefonoComparable } from '@/lib/leads-duplicados';
 import { desescaparCeldaCsv } from '@/lib/csv-celda';
+// Qué cuenta como contacto: la MISMA regla que el alta de «Nuevo lead» (el @ incluido).
+import { tieneContacto } from '@/lib/contacto-minimo';
+// Qué es un usuario de Instagram: la regla de la ficha y del alta (@usuario, usuario o link del perfil).
+import { usuarioInstagram } from './campo-inline';
 
 /** Por qué una fila NO se va a importar. Ninguna se esconde: se muestra atenuada. */
 export type MotivoDescarte = 'sin-nombre' | 'sin-contacto' | 'duplicado' | 'repetido-archivo';
@@ -38,6 +42,8 @@ export type MotivoDescarte = 'sin-nombre' | 'sin-contacto' | 'duplicado' | 'repe
  *   · `sin-nombre` → `createLead` tira, el nombre es obligatorio.
  *   · `sin-contacto` → el alta manual lo prohíbe desde siempre, «sin eso el lead es
  *     incontactable», y no hay razón para que el importador sea la puerta de atrás.
+ *     Desde el 23/10/2026 el @ de Instagram cuenta como contacto (`tieneContacto`,
+ *     lib/contacto-minimo.ts): la prospección pasa perfiles que no dan otra cosa.
  *   · `repetido-archivo` → son dos filas del MISMO archivo; el server las frena con
  *     `chocaAcá` haga lo que haga el tilde, así que ofrecerlo sería un control muerto.
  *
@@ -204,7 +210,9 @@ export function pagoDeCelda(celda: string): { pago: boolean; monto: number | nul
 
 export const MOTIVO_LABEL: Record<MotivoDescarte, string> = {
   'sin-nombre': 'sin nombre',
-  'sin-contacto': 'sin email ni teléfono',
+  // Los tres canales: desde el 23/10/2026 el @ también cuenta (`tieneContacto`), y «sin email ni
+  // teléfono» sobre una fila cuyo @ no se pudo leer le diría a la persona que le falta lo que ya tiene.
+  'sin-contacto': 'sin email, teléfono ni Instagram',
   duplicado: 'ya existe en el CRM',
   'repetido-archivo': 'repetido dentro del archivo',
 };
@@ -216,6 +224,13 @@ export type FilaImport = {
   email: string;
   telefono: string;
   empresa: string;
+  /**
+   * El usuario de Instagram, sin la @ (`usuarioInstagram`). Lo trae la prospección
+   * (lib/prospectos.ts → `pasarAlCrm`) y la columna de Instagram de un CSV o una planilla
+   * (`filasDesdeCsv`); la tabla de revisión lo dibuja pero no lo edita.
+   * Opcional: ausente = no hay @, que es lo que mandan los otros productores.
+   */
+  instagram?: string;
   /** Lo tilda el usuario. Una fila con motivo nunca se importa, aunque venga en true. */
   incluir: boolean;
   /** Resuelto contra la base al leer el archivo; se recalcula al confirmar. */
@@ -291,6 +306,88 @@ export const UMBRAL_PAGINADO = 200;
 
 /** Solo dígitos: es la llave con la que el CRM matchea teléfonos (telefono_normalizado). */
 export const soloDigitos = (v: string): string => (v || '').replace(/\D/g, '');
+
+// ── La columna de Instagram de un CSV o una planilla (23/10/2026) ────────────
+// Una lista exportada de otra herramienta puede traer SÓLO el @, y hasta hoy esa fila caía como
+// «sin contacto». Tres trampas, y las tres entran sin un solo error:
+//
+// ⚠️ EL ENCABEZADO SE LEE POR PALABRA, NO POR INCLUSIÓN como los otros. `ig` por inclusión matchea
+// «Origen», «Digital» y «Significado»: la columna de ORIGEN de cualquier CRM se habría leído como
+// el @ de cada lead, y «referido» es un usuario de Instagram válido. Sólo `instagram` va por
+// inclusión (no vive dentro de otra palabra); `ig` e `insta` tienen que ser una palabra entera.
+//
+// ⚠️ NOMBRAR A INSTAGRAM NO ES SER EL USUARIO. «Instagram Followers», «Seguidores en Instagram»,
+// «Instagram Bio», «¿Tiene Instagram?» son columnas de un scraper o de un formulario, y un 12500
+// de seguidores o un «si» son usuarios VÁLIDOS para `usuarioInstagram` (letras, números, punto y
+// guion bajo): quedaban guardados como el @ de la persona, y el botón de su ficha abría el perfil
+// de un desconocido.
+//
+// ⚠️ EL SIGNO DE PREGUNTA NO DECIDE NADA (revisión del 23/10/2026). Se usó de atajo para «¿tiene Instagram?» y
+// cortaba también «¿Cuál es tu Instagram?», que es EL encabezado que exporta un formulario (Google Forms,
+// Typeform): justo la fuente de una lista con sólo el @, que volvía a caer como «sin contacto». Lo que
+// distingue a las dos preguntas es el VERBO: «¿tienes / usas / cuentas con Instagram?» se contesta con sí, no o
+// «personal» y «negocio» (que SON usuarios válidos); «¿cuál es tu Instagram?» se contesta con el @. La lista
+// tiene los verbos y no el signo: una pregunta con un verbo que no esté acá SE LEE como el @.
+//
+// ⚠️ `\b` NO CORTA EN EL GUION BAJO: `_` es parte de la palabra, así que «instagram_bio», «has_instagram» e
+// «instagram_status» (los encabezados de un scraper o de una base) no matcheaban `\bbio\b`, `\bhas\b` ni
+// `\bstatus\b` y se leían como el @. El encabezado se pasa a espacios antes de mirarlo.
+//
+// ⚠️ LA CELDA TAMBIÉN: «no», «ninguno» y «0» son lo que se escribe cuando NO hay @, y los tres
+// pasan la regla de un usuario («n/a» no: la barra lo corta). Un link a un perfil sí se acepta
+// tal cual (ahí el texto de la celda es el perfil, no una respuesta).
+
+/**
+ * Encabezados que mencionan a Instagram pero NO son el usuario (métricas, estado, sí/no, el texto del perfil).
+ * Las alternativas van PLANAS (sin grupos) y cada una con su encabezado en el test: él las separa por `|` y
+ * exige uno que SÓLO esa rechace, así que una alternativa sin caso (o agregada de memoria) lo pone en rojo.
+ */
+const NO_ES_EL_USUARIO = /seguidor|follower|siguiendo|following|\blikes?\b|me gusta|\bposts?\b|publicacion|\bbio\b|biograf|descrip|verific|\bverified\b|privad|\bprivate\b|categor|\bfotos?\b|\bphotos?\b|imagen|\bimage\b|\bpic\b|picture|fecha|\bdate\b|estado|\bstatus\b|mensaje|message|\btienes?\b|\btienen\b|\bhas\b|\bhave\b|\bdo you\b|\bare you\b|\busas?\b|\bcuentas? con\b|engagement|alcance|\breach\b/;
+
+/** ¿Este encabezado es el de una columna con el usuario (o el link) de Instagram? Sin acentos, mayúsculas ni guiones bajos. */
+export function esColumnaInstagram(encabezado: string): boolean {
+  const plano = sinAcentos(encabezado || '').replace(/_/g, ' ');
+  if (!plano || NO_ES_EL_USUARIO.test(plano)) return false;
+  if (plano.includes('instagram')) return true;
+  return plano.split(/[^a-z0-9]+/).some((palabra) => palabra === 'ig' || palabra === 'insta');
+}
+
+/** Lo que se escribe en una celda de Instagram cuando no hay nada que poner (o cuando es otra pregunta). */
+const NO_HAY_USUARIO = new Set(['no', 'na', 'nan', 'none', 'null', 'undefined', 'nada', 'ninguno', 'ninguna', 'sin', 'si', 'yes', 'ok', 'true', 'false', 'cero', 'pendiente', 'tbd', 'unknown', 'desconocido']);
+
+/**
+ * El usuario de una celda de Instagram, sin la @ y en minúsculas; `''` = ahí no había un usuario.
+ * Acepta las tres formas de la ficha (`@usuario`, `usuario`, el link del perfil) con la MISMA regla
+ * (`usuarioInstagram`): lo que no es un usuario queda vacío, no se inventa ni se adivina.
+ */
+export function instagramDeCelda(celda: string): string {
+  const crudo = (celda || '').trim();
+  const u = usuarioInstagram(crudo);
+  if (!u) return '';
+  if (/instagram\.com\//i.test(crudo)) return u;
+  return u.length < 2 || /^\d+$/.test(u) || NO_HAY_USUARIO.has(u) ? '' : u;
+}
+
+/**
+ * La llave de un @ para compararlo: el usuario normalizado, o `''`. Es la MISMA en las tres puntas
+ * (`recalcular`, el índice del CRM y la marca de «ya existe»): «@Ana_Lopez», «ana_lopez» y el link
+ * del perfil son una sola persona, y un valor que no es un usuario no es una llave de nadie.
+ */
+export const claveInstagram = (v: string | null | undefined): string => usuarioInstagram(v) ?? '';
+
+/**
+ * ¿El @ es el ÚNICO canal de la fila, para dibujarlo en el lugar del email? Es la misma pregunta que contesta
+ * `recalcular` (`tieneContacto`), no una condición parecida: con el @ solo la fila entra y la tabla de revisión
+ * tiene que mostrar con qué.
+ *
+ * ⚠️ MIENTRAS SE ESCRIBE EL EMAIL, LA CELDA NO CAMBIA (`emailEnEdicion`: el input tiene el foco). Una fila con @
+ * y email (sin teléfono) dibuja el input; si la persona borra el email para corregirlo, en cuanto queda vacío el
+ * @ pasaba a ser su único canal y la celda se cambiaba por el link EN MEDIO del tipeo: el input se desmontaba
+ * con el foco puesto y no quedaba dónde escribir el nuevo. El valor decide el elemento, y el valor cambia con
+ * cada tecla. Con el foco puesto manda el input; al soltarlo, el valor.
+ */
+export const arrobaEsSuUnicoCanal = (f: Pick<FilaImport, 'email' | 'telefono' | 'instagram'>, emailEnEdicion = false): boolean =>
+  !emailEnEdicion && !!claveInstagram(f.instagram) && !tieneContacto({ email: f.email, telefono: f.telefono });
 
 // ── El cruce por teléfono contra lo que YA está en el CRM (#622) ─────────────
 // Vive acá, sin `server-only`, por la regla de la casa: lo que se puede equivocar es la
@@ -426,20 +523,23 @@ export const esCsv = (nombre: string, mime = ''): boolean =>
 export function recalcular(filas: FilaImport[]): FilaImport[] {
   const emails = new Set<string>();
   const tels = new Set<string>();
+  const igs = new Set<string>();
   return filas.map((f) => {
     const nombre = f.nombre.trim();
     const email = f.email.trim().toLowerCase();
     const tel = soloDigitos(f.telefono);
+    const ig = claveInstagram(f.instagram);
     let motivo: MotivoDescarte | null = null;
     if (!nombre) motivo = 'sin-nombre';
-    else if (!email && !tel) motivo = 'sin-contacto';
+    else if (!tieneContacto({ email, telefono: tel, instagram: ig })) motivo = 'sin-contacto';
     else if (f.yaExiste) motivo = 'duplicado';
-    else if ((email && emails.has(email)) || (tel && tels.has(tel))) motivo = 'repetido-archivo';
-    // Solo las que efectivamente van a entrar reservan su email/teléfono: si una
+    else if ((email && emails.has(email)) || (tel && tels.has(tel)) || (ig && igs.has(ig))) motivo = 'repetido-archivo';
+    // Solo las que efectivamente van a entrar reservan su email/teléfono/@: si una
     // fila ya se descarta por otro motivo, no tiene por qué invalidar a la próxima.
     if (!motivo) {
       if (email) emails.add(email);
       if (tel) tels.add(tel);
+      if (ig) igs.add(ig);
     }
     return { ...f, motivo };
   });
@@ -475,6 +575,10 @@ export function parseCsv(text: string, delim = ','): string[][] {
  * Devuelve `error` en vez de tirar: el modal lo muestra y el usuario corrige el
  * archivo, que es distinto de "el archivo está roto".
  *
+ * Y desde el 23/10/2026 lee una columna de INSTAGRAM (`esColumnaInstagram`: por palabra, no
+ * por inclusión): el @ llega a `FilaImport.instagram` sin la @, y una fila con sólo eso ya no
+ * es «sin contacto». Ni el email ni el teléfono se rellenan con nada.
+ *
  * ⚠️ EL APELLIDO SE PEGA AL NOMBRE, y hasta el 03/10/2026 se TIRABA. Se buscaban
  * cuatro encabezados —nombre, email, teléfono, empresa— y ninguno era apellido, así
  * que un archivo con las dos columnas separadas (la forma normal de exportar de
@@ -496,12 +600,23 @@ export function filasDesdeCsv(texto: string, delim = ','): { filas: FilaImport[]
   const header = rows[0].map((h) => h.trim().toLowerCase());
   const coincide = (h: string, names: string[]) => names.some((n) => h === n || h.includes(n));
   const idx = (names: string[]) => header.findIndex((h) => coincide(h, names));
-  const iNombre = idx(['nombre', 'name']);
+  // Los encabezados de Instagram, aparte: ver `esColumnaInstagram` (por palabra, no por inclusión).
+  const esIg = header.map(esColumnaInstagram);
+  /**
+   * Como `idx` pero PASANDO DE LARGO la columna de Instagram: «Instagram del negocio» matchea
+   * 'negocio' y «Instagram Username» matchea 'name' (por «username»), y `findIndex` se quedaba con
+   * la primera que calzara. La empresa de cada fila habría sido su @, y el nombre, su usuario.
+   */
+  const idxSinIg = (names: string[]) => header.findIndex((h, i) => !esIg[i] && coincide(h, names));
+  // El nombre es obligatorio: si la ÚNICA columna que lo nombra es una de Instagram («Nombre en
+  // Instagram»), se usa esa, como siempre. Con la empresa no hay a qué volver: nunca es un @.
+  const iNombre = idxSinIg(['nombre', 'name']) >= 0 ? idxSinIg(['nombre', 'name']) : idx(['nombre', 'name']);
+  // El email y el teléfono NO se tocan: si el encabezado los nombra, mandan sobre Instagram.
   const iEmail = idx(['email', 'correo', 'e-mail', 'mail']);
   const iTel = idx(['telefono', 'teléfono', 'whatsapp', 'celular', 'phone', 'tel']);
-  const iEmpresa = idx(['empresa', 'company', 'negocio']);
+  const iEmpresa = idxSinIg(['empresa', 'company', 'negocio']);
   if (iNombre < 0) {
-    return { filas: [], error: 'No encontré una columna "Nombre" en el CSV. Encabezados esperados: Nombre, Apellido, Email, Teléfono, Empresa.' };
+    return { filas: [], error: 'No encontré una columna "Nombre" en el CSV. Encabezados esperados: Nombre, Apellido, Email, Teléfono, Instagram, Empresa.' };
   }
   /**
    * Las columnas de apellido. Son TODAS las que matcheen y no una: «Apellido
@@ -529,6 +644,14 @@ export function filasDesdeCsv(texto: string, delim = ','): { filas: FilaImport[]
    */
   const usadas = new Set([iNombre, iEmail, iTel, iEmpresa, ...iApellidos].filter((i) => i >= 0));
   const iPago = header.findIndex((h, i) => !usadas.has(i) && coincide(h, ALIAS_PAGO) && !coincide(h, ALIAS_FECHA));
+  /**
+   * Las columnas de INSTAGRAM (23/10/2026). Son TODAS las que calcen y no una: «Instagram» y
+   * «Instagram URL» suelen venir juntas y la primera puede estar vacía justo en las filas donde
+   * la segunda sí trae el perfil; por fila gana la primera que dé un usuario. Las acota lo mismo
+   * que a las demás: ninguna de las ya mapeadas (el email y el teléfono mandan sobre ella) y
+   * tampoco la del pago («Pago por Instagram» es plata, no un @).
+   */
+  const iInstagram = header.map((_, i) => i).filter((i) => esIg[i] && !usadas.has(i) && i !== iPago);
   const filas: FilaImport[] = [];
   for (let r = 1; r < rows.length && filas.length < MAX_FILAS_IMPORT; r++) {
     const row = rows[r];
@@ -545,12 +668,17 @@ export function filasDesdeCsv(texto: string, delim = ','): { filas: FilaImport[]
     // archivo dijo que pagó: una fila sin pago no lleva la pregunta encima, así que la
     // tabla no dibuja un control que no decide nada.
     const pago = iPago >= 0 ? pagoDeCelda(celda(iPago)) : { pago: false, monto: null };
+    // El @ es un canal MÁS: no pisa ni rellena el email ni el teléfono (nada se inventa). Y la
+    // clave se agrega sólo si hay un usuario, como `pagoEnArchivo`: una fila sin @ no lleva
+    // `instagram: ''` encima, que es lo que mandan los otros productores.
+    const instagram = iInstagram.map((i) => instagramDeCelda(celda(i))).find(Boolean) ?? '';
     filas.push({
       id: `f${r}`,
       nombre,
       email: celda(iEmail),
       telefono: celda(iTel),
       empresa: celda(iEmpresa),
+      ...(instagram ? { instagram } : {}),
       incluir: true,
       yaExiste: false,
       ...(pago.pago ? { pagoEnArchivo: true, montoPago: pago.monto, comoGanado: true } : {}),

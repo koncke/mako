@@ -24,7 +24,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { BarraGrabacion, useGrabacionVoz, type GrabacionVoz } from '@/app/whatsapp/_shared/VoiceRecorder';
-import { conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
+import { altoDelCampo, conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
 import { ListaAdjuntos, MasCaja, alPegar, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { BotonMandar } from '@/app/admin/operaciones/Microfono';
 import { BotonEmojis } from '@/app/admin/operaciones/Emojis';
@@ -123,12 +123,26 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
       const abajo = h ? estaAbajo(h) : false;
       const antes = el.scrollTop;
       el.style.height = 'auto';
-      el.style.height = `${Math.min(el.scrollHeight, altoMax)}px`;
+      el.style.height = altoDelCampo(el.scrollHeight, altoMax);
       el.scrollTop = el.selectionEnd >= el.value.length ? el.scrollHeight : antes;
       if (h && abajo) h.scrollTop = h.scrollHeight;
     } else if (h && document.activeElement === el && estaAbajo(h, 160)) h.scrollTop = h.scrollHeight;
     if (cursor.current != null) { el.setSelectionRange(cursor.current, cursor.current); cursor.current = null; }
   }, [texto]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Montada escondida (el chat del lienzo de Automations, en su ranura con `display: none`), se mide al APARECER: el ancho pasa
+  // de 0 a algo (lib/centro-caja.ts → altoDelCampo, el texto que quedaba abajo y cortado, 23/10/2026).
+  useEffect(() => {
+    const el = caja.current;
+    if (!el || altoMax == null || typeof ResizeObserver === 'undefined') return;
+    let ancho = el.getBoundingClientRect().width;
+    const ro = new ResizeObserver(() => {
+      const w = el.getBoundingClientRect().width;
+      if (!ancho && w) { el.style.height = 'auto'; el.style.height = altoDelCampo(el.scrollHeight, altoMax); }
+      ancho = w;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [altoMax]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tecla = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // Mientras se compone un acento (IME), Enter es del teclado. Adentro de una lista, Enter arma el ítem siguiente y en

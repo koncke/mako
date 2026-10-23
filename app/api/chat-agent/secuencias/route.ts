@@ -72,7 +72,7 @@ import { envioWhatsappHabilitadoEstricto } from '@/lib/envio-flags';
 // «Duplicar» del «⋯» de la lista (tercera tanda, decisión 6). La copia entra por las puertas de cada
 // campo: los pasos por `setSecuenciaPasos` y el horario por `setCronSecuencia` (lib/secuencia-duplicar.ts).
 import { duplicarSecuencia, type DbDuplicar } from '@/lib/secuencia-duplicar';
-import { copiarConfigAutomatizacion, nacerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
+import { copiarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { setSecuenciaPasos, PasosInvalidosError } from '@/lib/nutricion';
 import { guardarPosicionesSecuencia, type DbPosiciones } from '@/lib/secuencia-posiciones';
 // El BORRADOR del lienzo (sexta tanda, mig 0240): lo que no se puede publicar todavía, en su columna.
@@ -130,7 +130,12 @@ export async function GET(req: NextRequest) {
     // lista, «7 etapas sin secuencia · Armar una», que era del modelo de UNA secuencia por etapa de
     // nutrición y salió el 10/10/2026 (restos de versiones anteriores, grupo «lista»). La pregunta
     // sigue en la API de MaKo (`huecos_secuencias`), que la lee de `huecosDeSecuencias`.
-    const [{ secuencias, serie }, funnel, leadMagnets, wsRow, instancia] = await Promise.all([
+    // ⚠️ TODO EN UNA OLA (23/10/2026, «Rendimiento y loaders»): Martín, «al abrir Automations tarda mucho». Medido en
+    // producción: este GET daba p50 3,0 s y p90 15 s, y la pantalla no se dibuja hasta que contesta. Después de este
+    // Promise.all iban EN SERIE el motivo de la caída, los productos, la zona, los casos sin resolver y el interruptor del
+    // envío: cinco esperas más, a ~97 ms cada ida a la base. Ninguna depende de otra (el motivo, sólo de la instancia: va
+    // encadenado a ella). Lo que devuelve es lo mismo.
+    const [{ secuencias, serie }, funnel, leadMagnets, wsRow, { instancia, motivo }, productos, tz, handoffs, envioWhatsapp] = await Promise.all([
       getSettingData(),
       // DEFAULT hoy: la pantalla trabaja sobre el funnel del negocio. Cuando haya
       // varios, acá entra el desplegable y el funnel elegido.
@@ -146,16 +151,25 @@ export async function GET(req: NextRequest) {
       // El `undefined` del catch NO es 'desconectado': es «no pudimos
       // preguntarlo», y la pantalla no puede afirmar lo primero cuando pasó
       // lo segundo.
-      getInstanciaRow().catch(() => undefined),
+      //
+      // Tres respuestas distintas, no dos: nunca lo vinculó / se cayó / no sé.
+      // POR QUE se cayo, no solo QUE se cayo. «Tu WhatsApp esta desconectado» le
+      // hizo abrir WhatsApp en el telefono, encontrarlo perfecto y contestar «no
+      // entiendo». Su telefono estaba bien: lo que se cayo es el DISPOSITIVO
+      // VINCULADO, y eso solo se ve en «Dispositivos vinculados».
+      getInstanciaRow().catch(() => undefined).then(async (instancia) => ({
+        instancia,
+        motivo: instancia && instancia.estado !== 'conectado'
+          ? await motivoCaida(instancia.instance_name, 4000).catch(() => null)
+          : null,
+      })),
+      // Los PRODUCTOS con sus etapas: lo que el desplegable del disparador necesita (ver abajo).
+      productosConEtapas().catch(() => []),
+      tzActual().catch(() => null),
+      handoffsPendientes().catch(() => []),
+      // El interruptor del envío REAL (#328), ver abajo.
+      envioWhatsappHabilitadoEstricto().catch(() => null),
     ]);
-    // Tres respuestas distintas, no dos: nunca lo vinculó / se cayó / no sé.
-    // POR QUE se cayo, no solo QUE se cayo. «Tu WhatsApp esta desconectado» le
-    // hizo abrir WhatsApp en el telefono, encontrarlo perfecto y contestar «no
-    // entiendo». Su telefono estaba bien: lo que se cayo es el DISPOSITIVO
-    // VINCULADO, y eso solo se ve en «Dispositivos vinculados».
-    const motivo = instancia && instancia.estado !== 'conectado'
-      ? await motivoCaida(instancia.instance_name, 4000).catch(() => null)
-      : null;
     const canal = instancia === undefined
       ? { estado: 'desconocido' as const, desde: null, desvinculado: false }
       : instancia === null
@@ -174,19 +188,19 @@ export async function GET(req: NextRequest) {
     // Los PRODUCTOS con sus etapas: lo que el desplegable del disparador necesita.
     // `etapas` (arriba) sigue siendo el del embudo del NEGOCIO y no se saca: lo usa el
     // wizard que crea una secuencia, y romperlo de paso no es parte de este cambio.
-    const productos = await productosConEtapas().catch(() => []);
+    // (`productos` sale en la ola de arriba.)
     return Response.json({
       // ⚠️ LA ZONA VIAJA. El texto del horario la nombra a propósito: de los 10
       // workspaces activos SEIS no tienen `mako.timezone` y caen a America/Tijuana,
       // así que un «a las 9» sin zona es una afirmación que nadie verificó.
       ok: true, secuencias, serie, rolAdmin: rol === 'admin', objetivos: OBJETIVOS, etapas, productos, disparadores: TRIGGERS,
-      tz: await tzActual().catch(() => null),
+      tz,
       leadMagnets: leadMagnets.map((l) => ({ id: l.id, nombre: l.nombre })),
-      negocio: wsRow?.nombre ?? '', handoffs: await handoffsPendientes().catch(() => []),
+      negocio: wsRow?.nombre ?? '', handoffs,
       canal,
       // El interruptor del envío REAL (#328). Lo leía sólo /whatsapp, y el comentario de
       // WhatsAppApp ya decía que venía acá: no venía. `null` = no se pudo leer.
-      envioWhatsapp: await envioWhatsappHabilitadoEstricto().catch(() => null),
+      envioWhatsapp,
     });
   } catch (e) {
     console.error(`[api:setting/secuencias GET] ${msg(e)}`);
@@ -462,7 +476,6 @@ export async function POST(req: NextRequest) {
           db: (await getTenantDb()) as unknown as DbPlantilla,
           setPasos: setSecuenciaPasos,
           setDisparadores: guardarDisparadores,
-          nacer: nacerConfigAutomatizacion,
           motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
           // Una plantilla de SuperAdmin (`soloPlataforma`) sólo se crea en el ws de la plataforma.
           plataforma: await esPlataformaActual(),
