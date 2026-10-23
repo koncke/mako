@@ -20,6 +20,49 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Traer los contactos de un grupo de WhatsApp: una etapa puede mandar sola (23/10/2026)
+
+Martín, en la llamada del 23/10 (min 37:27): «una automatización que te agrega de un grupo de WhatsApp, te pone todos los
+números y los contactos en tu CRM de manera automática». Va en el alta del CRM («Traer de un grupo de WhatsApp», sólo el admin)
+y en la API de MaKo (`grupos_whatsapp`, `traer_contactos_de_grupo`). El pedido decía «No le manda NADA a nadie».
+- **El diagnóstico obvio («crear un lead no inscribe en nada») era el equivocado.** `createLead` no inscribe, es cierto. Pero
+  una etapa puede mandar SOLA por dos caminos: (1) una automatización activa colgada de la etapa (`etapa_actual`), que inscribe
+  al mover y, si no, el BARRIDO de la hora (`leadsDeCohorte`, lib/nutricion.ts) a todo lead abierto parado ahí con un hito de
+  90 días, y un lead recién creado lo tiene. «Un Lead Entró» cuelga de la etapa de ENTRADA: importar ahí era darle la bienvenida
+  a todo el grupo dentro de la hora. (2) una etiqueta vinculada a la etapa (mig 0224): al caer ahí el lead la recibe
+  (`espejarEtiquetasDeEtapa`) y poner una etiqueta dispara las automatizaciones de esa etiqueta. **La regla:** traer al CRM
+  sólo ofrece etapas sin ninguna de las dos (`etapasQueDisparan`, lib/grupo-wa-reglas.ts, con el MISMO criterio de ámbito que
+  el barrido: `leadEnAmbito`), y el servidor rechaza las otras. Moverlos después a mano sí dispara, que es lo que quiere quien
+  mueve.
+- **Nunca duplicar, de a muchos:** el índice de contactos de TODO el CRM una vez por tanda (`indiceContactos` +
+  `buscarTelefono`, el de la importación de archivos), no `duplicadosDeLead` por participante. El que ya es lead se SUMA al
+  funnel (`agregarAProducto` con la etapa); un número que tienen dos leads se saltea; `createLead` sigue chequeando como red.
+- **La etiqueta de ORIGEN la elige la persona** («Formación de Jan», «Evento Cancún»); viene con el nombre del grupo, entra en
+  40 caracteres (el tope de una etiqueta del CRM cortaba sin decirlo) y va en LOTE (`ponerEtiquetaLote`), que no dispara. Por
+  defecto, el CRM «Prospección» y ahí «Tibio», si existen. Varios grupos seguidos: el que ya es lead también se etiqueta, así que
+  quien está en dos grupos queda con las dos etiquetas.
+- **Pero una etiqueta que YA tiene una automatización («Etiqueta puesta») no se usa:** el lote no dispara, y aun así el barrido de
+  la hora (`leadsConEtiqueta`, lib/nutricion.ts) inscribe a todo lead que la tenga. Se rechaza antes de traer a nadie.
+- **De a tandas de 40** (`TANDA_GRUPO`): un grupo llega a 1.024 y cada lead nuevo son ~10 consultas. Hay tope de tiempo también
+  desde la pantalla (45 s): cortada por el límite de 60 s de la acción, un lead recién creado quedaba en la etapa de ENTRADA sin
+  moverse. Lo que no entra vuelve como `pendientes` y la pantalla lo reencola; si el movimiento falla, el error nombra al lead.
+- **La revisión de privacidad encontró tres puertas abiertas que los tests de forma no veían:** (1) por WhatsApp el rol del que
+  le escribe a MaKo es SIEMPRE 'admin' (lib/mako-doer-in.ts), así que «sólo el admin» no valía ahí: las dos operaciones de la API
+  son sólo de la app. (2) `lineasParaMandar` suma, en la plataforma, la línea de MaKo, que está en el grupo de MaKo de CADA
+  cliente: se usan sólo las líneas propias (`listarLineas`). (3) un `funnelId` ajeno caía en silencio al funnel del negocio, con
+  el chequeo de lo que manda hecho sobre OTRO funnel: se valida con `listarFunnels`.
+
+**Sin hacer:** no tiene «Deshacer»: los leads nuevos viven en su funnel de casa, y quitarlos es borrarlos (`eliminarLeadsAction`).
+No se probó con una línea de un cliente (las del ws3 y ws9 están cerradas): la línea de la plataforma sí. **Decisión de producto
+abierta:** los barridos del negocio que corren DESPUÉS siguen valiendo para los traídos como para cualquier lead: el CRM
+automático deja en `nutri` a quien no agendó en 2 días y después en `reactivacion` (lib/crm-auto.ts), y una automatización que
+alguien cuelgue más tarde de la etiqueta de origen los inscribe. Traer no manda nada; lo que el negocio ya tiene prendido, sí.
+
+**Vive en:** `app/crm/grupo-wa-server.ts` · `app/crm/grupo-wa-actions.ts` · `app/crm/TraerDeGrupoWA.tsx` ·
+`lib/grupo-wa-reglas.ts` · `tests/grupo-wa.test.ts` (21 roturas). Lo de Evolution, en hallazgos-comunicacion.md.
+
+*23/10/2026, chat «Offer» (claude3).*
+
 ## El «⋯» de una columna y su clic derecho eran DOS listas; y «Tus reuniones», una tarjeta para preparar (22/10/2026, noche)
 
 - **El «⋯» y el clic derecho de una columna se mantenían iguales A MANO.** El «⋯» era un `Dropdown` con su `options={[`

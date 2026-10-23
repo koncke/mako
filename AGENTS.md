@@ -10047,3 +10047,15 @@ por su nombre. El 22/10/2026 había mails de dueños y colaboradores, nombres y 
   ningún mail en claro. Un dueño nuevo: se suma su huella ahí.
 - Una guarda que necesita los nombres que prohíbe (la de las plantillas, tests/editor-landing-presentaciones.test.ts) es la
   excepción, y lo dice.
+
+## Traer leads de a muchos a una ETAPA: sólo a una que no mande nada (23/10/2026)
+
+Un camino que crea o suma leads en lote (un grupo de WhatsApp, una lista) y los deja en una etapa elegida NO puede dejarlos en
+una etapa que mande sola: la que tiene una automatización activa colgada (`etapa_actual`: la inscribe el movimiento y, si no,
+el barrido de la hora a todo lead abierto parado ahí) o una etiqueta vinculada (al caer la recibe, y la etiqueta dispara lo
+suyo). «Un Lead Entró» cuelga de la etapa de ENTRADA: traer 900 ahí es darles la bienvenida a los 900. Se preguntan con
+`etapasQueDisparan` (lib/grupo-wa-reglas.ts), se ofrecen sólo las demás y el servidor rechaza las otras. Lo mismo con la
+etiqueta que se les pone: una que ya tiene una automatización («Etiqueta puesta») no se usa, porque el barrido de la hora
+inscribe a todo lead que la tenga aunque el lote no dispare. Y si toca números de terceros, por la API de MaKo va SÓLO en la
+app (`canales: ['app']`): por WhatsApp el rol es siempre 'admin'. Lo hace cumplir tests/grupo-wa.test.ts; el porqué,
+docs/hallazgos-crm.md.

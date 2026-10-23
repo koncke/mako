@@ -31,7 +31,9 @@ import {
   setMeetingManual, setPipelineStage, duplicadosDeLead, getTrackingEvents, getVslEngagement,
   contarVisitasLanding, esRequisitosFaltantes, type Lead, type FathomLink,
 } from '@/lib/leads';
-import { getFunnelDefault, getFunnelDe, listarFunnels } from '@/lib/funnels';
+import { getFunnelDefault, getFunnelDe, listarFunnels, idDelFunnelDefault } from '@/lib/funnels';
+import { etapasParaTraer, etiquetaDeOrigen, gruposDeLinea, marcarEnElCrm, participantesDelGrupo, traerDelGrupo } from '@/app/crm/grupo-wa-server';
+import { etapaPorDefecto, funnelPorDefecto } from '@/lib/grupo-wa-reglas';
 import { salidasDeEtapa, stageMetaOpt, ENTRADAS, MAKO_SETTER, type EntradaId, type Stage } from '@/lib/pipeline';
 // «Nuevo CRM» por su tipo (14/10/2026): el catálogo puro y el alta que comparte con el modal.
 import { TIPOS_CRM, TIPO_CRM_OTRO, ENTRADAS_OFRECIDAS, siembraDeCrm, tipoCrmPorId } from '@/lib/pipeline';
@@ -1032,6 +1034,65 @@ export const RUNNERS: Runners = {
       // Los avisos de la ficha cambian lo que cuenta «Datos sin marcar» (la caché de leads).
       invalidar('leads');
       return { ok: true, resumen: `Listo: ${describirCambio(c)}.` };
+    }),
+  },
+
+  // Los contactos de un grupo de WhatsApp (23/10/2026): lo mismo que la pantalla (app/crm/grupo-wa-server.ts), que no le escribe
+  // a nadie, nunca duplica y sólo deja las etapas sin automatización. Sin tandas acá: corta a los 45 s y dice cuántos quedan.
+  // Antes del bloque de cobros, que queda último antes de `armar_tab_ficha` (tests/crm-vincular-22-10).
+  grupos_whatsapp: {
+    leer: async (input) => {
+      const r = await gruposDeLinea(typeof input.linea === 'string' ? input.linea : null);
+      if (!r.ok) return fallo(r.error);
+      return json({ linea: r.linea, total: r.grupos.length, grupos: r.grupos.slice(0, 200), deLaBase: r.deLaBase });
+    },
+  },
+  traer_contactos_de_grupo: {
+    preparar: async (input) => {
+      const g = await gruposDeLinea(typeof input.linea === 'string' ? input.linea : null);
+      if (!g.ok) return { error: g.error };
+      const pedido = String(input.grupo ?? '').trim();
+      const k = pedido.toLowerCase();
+      const parecidos = g.grupos.filter((x) => x.nombre.toLowerCase().includes(k));
+      const grupo = g.grupos.find((x) => x.jid === pedido) ?? g.grupos.find((x) => x.nombre.toLowerCase() === k) ?? (parecidos.length === 1 ? parecidos[0] : null);
+      if (!grupo) return { error: `No encontré el grupo «${pedido}» en esa línea (${parecidos.length > 1 ? 'hay varios con ese nombre' : 'mira grupos_whatsapp'}).` };
+      // Por defecto, como la pantalla: el CRM «Prospección» si lo hay, y ahí «Tibio» (el Cerebro, 23/10/2026).
+      const funnels = await listarFunnels();
+      const funnelId = n(input.embudoId) ?? funnelPorDefecto(funnels, await idDelFunnelDefault());
+      if (funnelId == null) return { error: 'Este negocio todavía no tiene un funnel.' };
+      if (!funnels.some((f) => f.id === funnelId)) return { error: 'Ese funnel no es de este negocio (mira productos_del_lead).' };
+      const { etapas, entrada } = await etapasParaTraer(funnelId);
+      const e = String(input.etapa ?? '').trim().toLowerCase();
+      const etapa = e ? etapas.find((s) => s.key.toLowerCase() === e || s.label.toLowerCase() === e) : etapas.find((s) => s.key === etapaPorDefecto(etapas, entrada));
+      if (!etapa) return { error: e ? `Ese funnel no tiene la etapa «${String(input.etapa)}».` : 'Todas las etapas de ese funnel tienen una automatización activa: traer no puede escribirle a nadie.' };
+      if (etapa.manda) return { error: `«${etapa.label}» tiene una automatización activa: elige otra etapa (traer no le escribe a nadie).` };
+      const p = await participantesDelGrupo(g.linea, grupo.jid);
+      if (!p.ok) return { error: p.error };
+      if (!p.participantes.length) return { error: p.sinNumero ? 'WhatsApp no deja ver los números de ese grupo.' : 'Ese grupo no tiene a nadie para traer.' };
+      const origen = await etiquetaDeOrigen(typeof input.etiqueta === 'string' && input.etiqueta.trim() ? input.etiqueta : grupo.nombre);
+      if (!origen.ok) return { error: origen.error };
+      const ya = (await marcarEnElCrm(p.participantes)).filter((x) => x.enElCrm).length;
+      return {
+        payload: { linea: g.linea, jid: grupo.jid, nombreGrupo: grupo.nombre, funnelId, etapa: etapa.key, etiqueta: origen.nombre },
+        resumen: `Traer ${p.participantes.length} contactos del grupo «${grupo.nombre}» a «${etapa.label}», con la etiqueta «${origen.nombre}»${ya ? ` (${ya} ya son leads: se suman a este funnel)` : ''}${p.sinNumero ? `; ${p.sinNumero} sin número visible no se traen` : ''}. No se le escribe a nadie.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('traer los contactos del grupo', async () => {
+      const r = await traerDelGrupo({
+        linea: String(payload.linea), jid: String(payload.jid), nombreGrupo: String(payload.nombreGrupo), funnelId: Number(payload.funnelId),
+        etapa: String(payload.etapa), telefonos: 'todos', autor: autorDe(ctx), hasta: Date.now() + 45_000,
+        etiqueta: typeof payload.etiqueta === 'string' ? payload.etiqueta : null,
+      });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidar('leads');
+      const partes = [
+        r.creados ? `${r.creados} leads nuevos` : '', r.sumados ? `${r.sumados} sumados a este funnel` : '',
+        r.yaEstaban ? `${r.yaEstaban} ya estaban` : '', r.errores.length ? `${r.errores.length} no se pudieron` : '',
+      ].filter(Boolean);
+      return {
+        ok: true,
+        resumen: `Listo: ${partes.join(', ') || 'nadie nuevo'}${r.etiqueta ? `, con «${r.etiqueta}»` : ''}.${r.quedan ? ` Quedan ${r.quedan}: pídemelo de nuevo y sigo.` : ''}`,
+      };
     }),
   },
 
