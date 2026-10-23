@@ -31,7 +31,7 @@ export const REGLAS_EDITAR = [
   '- Los textos que el dueño pega o pone entre comillas van TAL CUAL en las tarjetas, con sus palabras, signos y emojis. Una lista de mensajes es una tarjeta por mensaje, en ese orden.',
   '- «{Nombre}», «{nombre}» o «[Nombre]» es {{nombre}}. Cualquier otro dato entre llaves que no esté en la lista de datos NO se inventa: devuelve una "pregunta" diciendo qué va ahí.',
   '- Si pegó textos o te pide un cambio, cambia el flujo (o pregunta lo que falta con "pregunta"). Contesta con "respuesta" SÓLO si es una pregunta sobre el flujo, si lo que pide se configura fuera de las tarjetas (di dónde) o si no se puede hacer (di por qué, en una frase).',
-  '- Las 20 horas entre dos WhatsApp (regla 3) son para lo que armas tú: no agregues esperas que no pidió. Si pide otra espera, pon la que pide y di en "resumen" que la línea retiene el segundo mensaje hasta que pasen las horas de «Misma persona» (Configuraciones › Anti-ban).',
+  '- Las 20 horas entre dos WhatsApp (regla 3) son para lo que armas tú: no agregues esperas que no pidió. Si pide otra espera, pon la que pide y di en "resumen" que la línea retiene el segundo mensaje hasta que pasen las horas de «Misma persona» (Configuraciones, WhatsApp).',
   '- «Avísame», «avísame por WhatsApp» o «que me llegue a mí» es la "accion" "avisar_al_equipo" (le llega al grupo de MaKo del negocio), nunca un mensaje al lead.',
   '- «Agrega», «suma» o «añade» (aunque diga «edítalos y agrégalos») es SUMAR: los textos nuevos van en "agregar", como tarjetas nuevas después del último mensaje, y los mensajes que ya están NO se cambian.',
   '- «Que sea sólo X», «sólo quiero X» o «saca Y» es QUITAR lo que sobra: cada tarjeta que no es X (o que es Y) va en "quitar", con su id; X se queda. Un seguimiento («si no responde») va después del último mensaje, detrás de "contesto" con "no": true.',
@@ -43,11 +43,11 @@ export const REGLAS_EDITAR = [
  * configuración del envío de la campaña»), decía que no se podía o metía esperas en el flujo. Va en editar Y en explicar.
  */
 export const LO_QUE_NO_ES_TARJETA = [
-  'LO QUE NO SE ARMA CON TARJETAS: el horario, el goteo y los topes se configuran en «Configuraciones», en el «⋯» de esta automatización, que tiene SÓLO dos pestañas: Horario y Anti-ban. Si el dueño pide ESO, no armes tarjetas: dile dónde está, en una frase. Lo que no está aquí ni en las tarjetas (llamar por teléfono, un SMS) no se puede: dilo, sin inventar un lugar.',
-  '- Los días y las horas en que sale (por ejemplo, ni sábado ni domingo): Configuraciones › Horario.',
-  '- Que no salgan todos juntos (uno cada N minutos) y cuántos como mucho por día en ESTA automatización: Configuraciones › Anti-ban, «Goteo» y «Por día».',
-  '- Cuántos por día y por hora salen de la línea, sumando todas las automatizaciones: Configuraciones › Anti-ban, abajo (los de la línea).',
-  '- Las horas mínimas entre dos WhatsApp a la misma persona (de 3 a 72; 20 de fábrica; se puede apagar): Configuraciones › Anti-ban, «Misma persona».',
+  'LO QUE NO SE ARMA CON TARJETAS: el horario, el goteo y los topes se configuran en «Configuraciones», en el «⋯» de esta automatización: UNA pantalla con «Horario de oficina» y un bloque por canal (WhatsApp, Email). Si el dueño pide ESO, no armes tarjetas: dile dónde está, en una frase. Lo que no está aquí ni en las tarjetas (llamar por teléfono, un SMS) no se puede: dilo, sin inventar un lugar.',
+  '- Los días y las horas en que sale (por ejemplo, ni sábado ni domingo): Configuraciones, «Horario de oficina».',
+  '- Que no salgan todos juntos (uno cada N minutos) y cuántos como mucho por día en ESTA automatización: Configuraciones, WhatsApp, «Goteo» y «Tope por día».',
+  '- Cuántos por día y por hora salen de la línea, sumando todas las automatizaciones: Configuraciones, WhatsApp, «Línea por día» y «Línea por hora».',
+  '- Las horas mínimas entre dos WhatsApp a la misma persona (de 3 a 72; 20 de fábrica; se puede apagar): Configuraciones, WhatsApp, «Misma persona».',
   '- Deshacer el último cambio: el botón ↶ arriba del lienzo.',
 ].join('\n');
 
@@ -63,9 +63,10 @@ export const ERROR_EDITAR_SIN_CAMBIOS = 'En modo EDITAR no se contesta con "resp
 
 /**
  * Las pestañas de Configuraciones de una automatización (app/automations/ConfiguracionesBoton.tsx, `PESTANAS_CONFIGURACIONES`).
- * «Límites» se llama «Anti-ban» desde el 22/10/2026 (Martín): nombrar «Límites» ya es un lugar que no existe.
+ * Desde el 23/10/2026 es UNA pantalla, sin pestañas (Martín: «sin pestañas ni nombre de pestaña»): lo que vale después de
+ * «Configuraciones ›» es un bloque o una fila de ella. «Límites» y «Anti-ban» (las pestañas de antes) ya no existen.
  */
-const LUGARES_REALES = ['Horario', 'Anti-ban'];
+const LUGARES_REALES = ['Horario', 'WhatsApp', 'Email', 'MaKo', 'Goteo', 'Tope', 'Misma', 'Línea', 'Linea'];
 
 /**
  * ¿VALE UNA «RESPUESTA» EN EDITAR? null = vale; si no, el error para el reintento. (22/10/2026, las corridas del arnés del
@@ -81,8 +82,9 @@ export function errorDeRespuestaEnEditar(pedido: string, respuesta: string, o: {
   // Con el guion: «Anti-ban» (sin él, leía «Anti» y lo daba por inventado).
   const lugares = [...respuesta.matchAll(/Configuraciones\s*›\s*([\p{L}-]+)/gu)].map((m) => m[1]);
   const falso = lugares.find((l) => !LUGARES_REALES.includes(l));
-  if (falso) return `«Configuraciones › ${falso}» no existe: Configuraciones tiene sólo Horario y Anti-ban. Si lo que pide no se puede hacer, dilo en una frase; si se puede con tarjetas, cambia el flujo.`;
-  if (lugares.length || respuesta.includes('↶')) return null;
+  if (falso) return `«Configuraciones › ${falso}» no existe: Configuraciones es una sola pantalla, con «Horario de oficina» y un bloque por canal (WhatsApp, Email). Si lo que pide no se puede hacer, dilo en una frase; si se puede con tarjetas, cambia el flujo.`;
+  // «en Configuraciones, WhatsApp, «Goteo»» (sin «›»: así lo dice el prompt desde el 23/10/2026) también nombra el lugar.
+  if (lugares.length || /Configuraciones/.test(respuesta) || respuesta.includes('↶')) return null;
   const delega = /p[ií]d[eé]melo|hazlo t[uú]|desde el lienzo|ag[ré]galo t[uú]|habr[íi]a que|tendr[íi]as que/i.test(respuesta);
   if (/\bno (se puede|puedo|existe|está|hay)\b/i.test(respuesta) && !delega) return null;
   if (respuesta.includes('?') && !o.charlaConTextos && !delega) return null;

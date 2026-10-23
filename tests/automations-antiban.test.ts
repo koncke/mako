@@ -26,6 +26,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { configParaGuardar, sanearConfigAutomatizacion, personaHorasDeLaAutomatizacion, tieneConfigPropia, PERSONA_SIN_ESPERA } from '../lib/config-automatizacion';
 import { LIMITES_CONSTANTES } from '../lib/limites-envio';
 import { FilaOpcion, GrupoOpciones, Unidad, Info } from '../app/automations/FilasOpciones';
+import { FILAS_LINEA } from '../lib/limites-envio';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
@@ -69,9 +70,10 @@ test('misma persona apagado: 0 h se guarda y se lee como propio; ausente sigue s
 
 test('el anti-ban de la automatización: goteo, por día y misma persona, cada uno con su interruptor y sin «Quitar»', () => {
   const p = fuente('app/automations/ConfigAutomatizacionPanel.tsx');
-  const a = tramo(p, 'export function AntibanDeLaAutomatizacion(', '\n}\n');
-  // Las cuatro filas, en dos grupos.
-  assert.match(a, /<GrupoOpciones titulo="WhatsApp" primero \/>\s*\{filaGoteo\('minutos', 'Goteo', 'el goteo', 'min',[\s\S]*\{filaGoteo\('dia', 'Por día', 'el tope por día', 'mensajes',[\s\S]*\{filaPersona\('whatsapp', RANGOS_LIMITES\.wa\.personaHoras\)\}\s*<GrupoOpciones titulo="Email" \/>\s*\{filaPersona\('email', RANGOS_LIMITES\.email\.personaHoras\)\}/);
+  // 23/10/2026: un hook (`useAntibanDeLaAutomatizacion`) cuyas filas reparte la pantalla por canal.
+  const a = tramo(p, 'export function useAntibanDeLaAutomatizacion(', '\n}\n');
+  // Las cuatro filas: tres de WhatsApp y una de Email.
+  assert.match(a, /whatsapp: d \? \[\s*filaGoteo\('minutos', 'Goteo', 'el goteo', 'min',[\s\S]*filaGoteo\('dia', 'Tope por día', 'el tope por día', 'mensajes',[\s\S]*filaPersona\('whatsapp', RANGOS_LIMITES\.wa\.personaHoras\),\s*\] : \[\],\s*email: d \? \[filaPersona\('email', RANGOS_LIMITES\.email\.personaHoras\)\] : \[\],/);
   // Goteo y tope: apagar SACA el campo; prender arranca con el número que se veía gris.
   const g = tramo(a, 'const filaGoteo = ', '\n  };');
   assert.match(g, /const on = v !== undefined;/);
@@ -83,6 +85,7 @@ test('el anti-ban de la automatización: goteo, por día y misma persona, cada u
   assert.match(m, /const on = propio !== PERSONA_SIN_ESPERA;/);
   assert.match(m, /onCambio=\{\(x\) => guardar\('personaHoras', \{ \[canal\]: x \? null : PERSONA_SIN_ESPERA \}\)\}/);
   assert.match(m, /const valor = propio !== undefined && propio !== PERSONA_SIN_ESPERA \? propio : d\.personaNegocio\[canal\];/);
+  assert.match(m, /if \(!d\) return null;/);
   assert.match(m, /<Numero valor=\{valor\}[^\n]*apagado=\{!on\}/);
   // Los dos con el interruptor de la casa (el de «Horario de oficina» y «Activar»).
   assert.equal((a.match(/interruptor=\{<Interruptor on=\{on\}/g) ?? []).length, 2);
@@ -124,12 +127,13 @@ test('sin descripciones: ni el goteo, ni la misma persona, ni el horario, ni la 
   const auto = fuente('app/automations/ConfigAutomatizacionPanel.tsx');
   for (const viejo of [/Las horas que espera entre dos mensajes/, /prospectando en frío/, /textoDeGoteo/, /Goteo de sus WhatsApp/, /A la misma persona, en esta automatización/, /Sólo para esta automatización/])
     assert.doesNotMatch(auto, viejo, `volvió ${viejo}`);
-  // «Horario propio»: una fila; lo del negocio, en su ⓘ.
-  assert.match(auto, /<FilaOpcion primera nombre="Horario propio" info=\{`Apagado, usa el del negocio: \$\{textoDeHorario\(d\.horarioNegocio\)\}\.`\}/);
-  // La línea: sin la línea de uso ni la de «Primero lo que entra» sueltas (van en el ⓘ del grupo), y sin `title` por fila.
+  // 23/10/2026 («"propio" se dice "Horario de oficina"»): el horario ES el panel «Horario de oficina», sin «Horario propio».
+  assert.match(tramo(auto, 'export function HorarioDeLaAutomatizacion(', '\n}\n'), /return <HorarioEnvioPanel fuente=\{fuente\} onSucio=\{onSucio\} \/>;/);
+  assert.doesNotMatch(auto, /Horario propio/, 'volvió «Horario propio»');
+  // La línea: sin la línea de uso ni la de «Primero lo que entra» sueltas (van en el ⓘ del bloque), y sin `title` por fila.
   const lim = fuente('app/automations/LimitesEnvioPanel.tsx');
   assert.doesNotMatch(lim, /data-uso|data-prioridad|title=\{f\.ayuda\}/);
-  assert.match(lim, /<GrupoOpciones titulo=\{b\.titulo\} info=\{infoDelGrupo\(b\.titulo, uso, l\)\} primero=\{i === 0\} \/>/);
+  assert.match(auto, /<GrupoOpciones titulo="WhatsApp" info=\{linea\.info\('WhatsApp'\)\} primero \/>/);
   assert.match(lim, /<FilaOpcion key=\{clave\} nombre=\{f\.rotulo\} info=\{f\.info\} sinInterruptor /, 'los topes de la línea se apagan (o perdieron su columna)');
   // El huso de la tuerca: en el ⓘ de «Horario de oficina», no como línea.
   const hor = fuente('app/configuraciones/HorarioEnvioPanel.tsx');
@@ -137,18 +141,27 @@ test('sin descripciones: ni el goteo, ni la misma persona, ni el horario, ni la 
   assert.match(hor, /\{fuente\.zonaSoloLectura && <Info texto=/);
 });
 
-// ── 1 y 3. El modal: «Anti-ban», sin el subtítulo y sin el aire de arriba ─────────────────────────
+// ── El modal: UNA pantalla, sin pestañas (23/10/2026) ─────────────────────────────────────────────
 
-test('el modal: la pestaña se llama «Anti-ban», sin el nombre de la automatización arriba y las pestañas pegadas al título', () => {
+test('el modal: una sola pantalla sin pestañas ni nombre de pestaña, «Horario de oficina» y un bloque por canal', () => {
   const src = fuente('app/automations/ConfiguracionesBoton.tsx');
-  assert.match(src, /\{ id: 'antiban', label: 'Anti-ban' \}/);
-  assert.doesNotMatch(src, /label: 'Límites'/);
+  assert.doesNotMatch(src, /<Tabs |PESTANAS_CONFIGURACIONES|Anti-ban|'Límites'/, 'volvieron las pestañas');
   const modal = tramo(src, '<Modal titulo="Configuraciones"', '</Modal>');
   assert.doesNotMatch(modal, /\{nombre\}/, 'volvió el subtítulo con el nombre');
-  assert.match(modal, /<div data-config-automatizacion=\{secuenciaId\} style=\{\{ paddingTop: 0 \}\}>\s*<Tabs /, 'las pestañas no quedan pegadas al título');
-  assert.match(modal, /<AntibanDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucio=\{alSucioAntiban\} \/>/);
-  assert.match(modal, /\{TITULO_LIMITES_LINEA\}\s*<Info texto=\{INFO_LIMITES_LINEA\} \/>/);
-  assert.match(src, /const ocupado = sucios\.horario \|\| sucios\.antiban \|\| sucios\.limites;/, 'un guardado del anti-ban en vuelo deja cerrar el modal');
+  assert.match(modal, /<div data-config-automatizacion=\{secuenciaId\} style=\{\{ paddingTop: 0 \}\}>\s*<AjustesDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucioHorario=\{alSucioHorario\} onSucioAntiban=\{alSucioAntiban\} onSucioLinea=\{alSucioLimites\} \/>\s*<\/div>/);
+  assert.match(src, /const ocupado = sucios\.horario \|\| sucios\.antiban \|\| sucios\.limites;/, 'un guardado en vuelo deja cerrar el modal');
+  // La pantalla: el horario y los bloques WhatsApp, Email y MaKo; en cada uno, lo de la automatización y después lo de la línea.
+  const aj = tramo(fuente('app/automations/ConfigAutomatizacionPanel.tsx'), 'export function AjustesDeLaAutomatizacion(', '\n}\n');
+  assert.match(aj, /<HorarioDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucio=\{onSucioHorario\} \/>/);
+  assert.match(aj, /<GrupoOpciones titulo="WhatsApp" [^\n]*\/>\s*\{auto\.whatsapp\}\s*\{linea\.filasDe\('wa'\)\}[\s\S]*<GrupoOpciones titulo="Email" [^\n]*\/>\s*\{auto\.email\}\s*\{linea\.filasDe\('email'\)\}[\s\S]*<GrupoOpciones titulo="MaKo contesta sola" primero \/>\s*\{linea\.filasDe\('mako'\)\}/);
+});
+
+test('UNA «Misma persona» por canal: la de la automatización; la línea no la muestra, y «Restaurar» no la toca', () => {
+  assert.ok(!FILAS_LINEA.some((f) => f.campo === 'personaHoras'), 'volvió la «Misma persona, por defecto» de la línea');
+  assert.deepEqual(FILAS_LINEA.map((f) => `${f.grupo}.${f.campo}:${f.rotulo}`), ['wa.dia:Línea por día', 'wa.hora:Línea por hora', 'email.dia:Línea por día', 'mako.solasPor24h:Por persona', 'mako.diasCharla:Charla abierta']);
+  const lim = fuente('app/automations/LimitesEnvioPanel.tsx');
+  assert.match(lim, /guardar\(\{ \.\.\.fabrica, wa: \{ \.\.\.fabrica\.wa, personaHoras: l\.wa\.personaHoras \}, email: \{ \.\.\.fabrica\.email, personaHoras: l\.email\.personaHoras \} \}\);/, '«Restaurar» pisa las horas del negocio, que no están en la pantalla');
+  assert.equal((fuente('app/automations/ConfigAutomatizacionPanel.tsx').match(/nombre="Misma persona"/g) ?? []).length, 1);
 });
 
 // ── ROTURAS (22/10/2026) ───────────────────────────────────────────────────────────────────────────

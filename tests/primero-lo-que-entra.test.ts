@@ -76,14 +76,15 @@ test('un día: con la regla la bienvenida de las 17 sale a las 17; sin ella, no 
   assert.equal(ahora.campana, 34, 'la campaña usa el día menos la reserva');
 });
 
-test('la regla está dicha en Configuraciones › Anti-ban (en el ⓘ de WhatsApp), con los números del negocio', () => {
+test('la regla está dicha en Configuraciones (en el ⓘ del bloque WhatsApp), con los números del negocio', () => {
   assert.equal(textoPrioridad({ dia: 40, hora: 6 }),
     'Primero lo que entra: a un lead que llegó por un formulario, una landing o una agenda, o que agendó, en las últimas 24 h le sale antes que a una campaña. La campaña le deja 6 por día y 1 por hora.');
   assert.ok(!textoPrioridad({ dia: 1, hora: 1 }).includes('le deja'), 'sin reserva no promete una');
   const panel = readFileSync(join(__dirname, '..', 'app/automations/LimitesEnvioPanel.tsx'), 'utf8');
   // 22/10/2026 (Martín: «Elimina todo el texto innecesario»): era una línea suelta debajo del grupo; ahora va en su ⓘ.
   assert.match(panel, /const partes = \[lineaDeUso\(titulo, uso, l\), titulo === 'WhatsApp' \? textoPrioridad\(l\.wa\) : null\]/);
-  assert.match(panel, /<GrupoOpciones titulo=\{b\.titulo\} info=\{infoDelGrupo\(b\.titulo, uso, l\)\}/);
+  assert.match(panel, /info: \(titulo: string\) => \(l \? infoDelGrupo\(titulo, uso, l\) : undefined\),/);
+  assert.match(readFileSync(join(__dirname, '..', 'app/automations/ConfigAutomatizacionPanel.tsx'), 'utf8'), /<GrupoOpciones titulo="WhatsApp" info=\{linea\.info\('WhatsApp'\)\} primero \/>/);
 });
 
 // ── El cableado en el motor ─────────────────────────────────────────────────────────────────────────────────────

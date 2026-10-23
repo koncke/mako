@@ -243,6 +243,17 @@ export const BLOQUES_LIMITES: ReadonlyArray<{ titulo: string; filas: FilaLimite[
   },
 ];
 
+/**
+ * LAS FILAS DE LA LÍNEA EN LA PANTALLA DE CONFIGURACIONES (23/10/2026, Martín por el Cerebro: «Hay DOS "Misma persona": queda
+ * UNA. Ordená los ajustes en bloques por canal»). Van en el bloque de su canal, debajo de lo de la automatización, rotuladas
+ * «Línea …» (son de TODAS las automatizaciones juntas). SIN «Misma persona»: queda la de la automatización, que sin lo suyo
+ * usa la del negocio (lib/config-automatizacion.ts). «MaKo contesta sola» es su propio bloque.
+ */
+export const INFO_LINEA = 'Para todas tus automatizaciones juntas: es lo que cuida a tu número de un bloqueo. No se apaga.';
+export const FILAS_LINEA: ReadonlyArray<FilaLimite> = BLOQUES_LIMITES.flatMap((b) => b.filas)
+  .filter((f) => f.campo !== 'personaHoras')
+  .map((f) => (f.grupo === 'mako' ? f : { ...f, rotulo: f.campo === 'hora' ? 'Línea por hora' : 'Línea por día', info: f.campo === 'dia' ? INFO_LINEA : f.info }));
+
 /** La línea de uso de un bloque, o null (sin uso leído, o un bloque sin tope que contar). */
 export function lineaDeUso(titulo: string, uso: UsoDelCupo | null, l: LimitesEnvio): string | null {
   if (!uso) return null;

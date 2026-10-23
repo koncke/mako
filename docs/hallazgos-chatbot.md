@@ -6120,3 +6120,20 @@ condición en el medio pasaba. **Vive en:** lib/flujo-ia.ts (`seguimientosConNoC
 `pideQueQuedeSolo`) · lib/flujo-conversacion.ts · test: tests/chat-mako-seguimiento-y-solo.test.ts. **Sin hacer:** en 2 de 8
 corridas Haiku sacó también la pregunta de la apertura (no hay cómo saber qué es «apertura» sin el modelo); el «sólo X» sin
 comillas no se controla más que con «no quitaste nada».
+
+## «Misma persona» retrasa los pasos de la MISMA automatización: dos WhatsApp seguidos salen con 20 h entre uno y otro (23/10/2026)
+
+**Pregunta (Martín, por el Cerebro):** «si "Misma persona" dice 20 h y el flujo tiene un seguimiento o un delay de 2 h, ¿se
+rompe la automatización?». **Medido** (tests/automations-misma-persona-pasos.test.ts, con la ventana del motor): NO se rompe,
+se RETRASA. A las 2 h el segundo WhatsApp encuentra el primero dentro de la ventana (`leadsConEnvioReciente`: lo enviado con
+`created_at >= ahora − 20 h`, y lo de la misma corrida en `enviadoEnCorrida`), queda «saltado: msg <20h», la inscripción sigue
+en ese paso y sale en la primera corrida después de las 20 h. **Trampa:** vale también para dos WhatsApp SEGUIDOS sin espera
+(el segundo sale 20 h después) y para cualquier espera menor: la tarjeta decía «2 h» y salía a las 20. **Decisión:** el motor
+no se toca (frenar a la misma persona ES el anti-ban; sacarlo para los pasos propios haría salir en minutos flujos que hoy
+esperan 20 h, en producción); la tarjeta del WhatsApp lo dice («Sale 20 h después del anterior («Misma persona»)»), con el
+valor de ESA automatización (`/api/flujos/misma-persona`), que se apaga en su Configuraciones. **Vive en:**
+lib/flujo-conversacion.ts (`minutosDesdeElWhatsappAnterior`) · app/automations/FlujoLienzo.tsx ·
+app/api/flujos/misma-persona/route.ts. Y la pantalla de Configuraciones pasó a ser UNA (sin pestañas), con «Horario de
+oficina» y un bloque por canal; la «Misma persona, por defecto» de la línea ya no tiene fila (cada automatización muestra la del
+negocio mientras no tenga la suya). **Sin hacer:** el valor del negocio de «Misma persona» no se edita desde ninguna pantalla
+(sólo por la API de límites); el lienzo no relee el valor si se cambia con el modal abierto (al volver a abrir la automatización, sí).

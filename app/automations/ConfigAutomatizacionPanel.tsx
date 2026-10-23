@@ -12,17 +12,22 @@
 // igual que «Horario de oficina»... Apagada, no aplica, y el número se ve gris. Chau los «Quitar»» y «Elimina todo el
 // texto innecesario». Desde ese día: filas de FilasOpciones.tsx (nombre, número, unidad, interruptor), sin «Como el
 // negocio» ni descripciones; lo que hace falta explicar va en su ⓘ. Las reglas, en lib/config-automatizacion.ts.
+//
+// 23/10/2026 (Martín, por el Cerebro): «Hay DOS "Misma persona": queda UNA. Ordená los ajustes en bloques por canal
+// (WhatsApp, Email…)», «"propio" se dice "Horario de oficina"» y «Todo vive en UNA sola pantalla, sin pestañas ni nombre de
+// pestaña: sólo el título "Configuraciones"». Desde ese día: `AjustesDeLaAutomatizacion`, una pantalla: «Horario de
+// oficina» y un bloque por canal, con lo de la automatización arriba y lo de la línea («Línea por día»…) abajo.
 // =============================================================================
 
 import { useEffect, useRef, useState } from 'react';
 import { Spinner } from '@/app/_ui';
 import { HorarioEnvioPanel, Interruptor, type FuenteHorario } from '@/app/configuraciones/HorarioEnvioPanel';
 import { getConfigAutomatizacionAction, saveConfigAutomatizacionAction } from './config-automatizacion-actions';
-import { Numero } from './LimitesEnvioPanel';
+import { Numero, useLimitesDeLaLinea } from './LimitesEnvioPanel';
 import { FilaOpcion, GrupoOpciones, Unidad, TarjetaOpciones } from './FilasOpciones';
 import { HORARIO_SUGERIDO } from '@/lib/horario-envio';
 import { RANGOS_LIMITES } from '@/lib/limites-envio';
-import { textoDeHorario, RANGOS_GOTEO, PERSONA_SIN_ESPERA, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { RANGOS_GOTEO, PERSONA_SIN_ESPERA, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 
 const SANS = "'Geist', sans-serif";
 
@@ -43,24 +48,14 @@ function useConfig(secuenciaId: number) {
 }
 
 /**
- * EL HORARIO DE ESTA AUTOMATIZACIÓN: «Horario propio» apagado = el del negocio (dicho en su ⓘ); prendido, el panel de
- * siempre (`HorarioEnvioPanel`, «Horario de oficina») guardando en ESTA automatización, que arranca con lo del negocio.
- * Propio con «Horario de oficina» apagado = manda a cualquier hora (lo dice ese interruptor).
+ * EL HORARIO DE OFICINA DE ESTA AUTOMATIZACIÓN (23/10/2026: «"propio" se dice "Horario de oficina"»): el panel de siempre
+ * (`HorarioEnvioPanel`) con el horario que VALE para ella —el suyo, o el del negocio si no tiene— y guardando en ella. Era
+ * «Horario propio» (encender = copiar el del negocio) y abajo otro «Horario de oficina»: dos interruptores para una cosa.
+ * Apagado = manda a cualquier hora. Lo que se toca pasa a ser suyo (como «Misma persona»).
  */
 export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaId: number; onSucio?: (s: boolean) => void }) {
   const { d, error, poner } = useConfig(secuenciaId);
-  const [aviso, setAviso] = useState('');
-  const [vuelta, setVuelta] = useState(0);
   if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}</p> : <Spinner />;
-  const propio = d.config.horario !== undefined;
-  const off = !d.puedeEditar;
-  const alternar = (v: boolean) => {
-    setAviso('');
-    const horario = v ? (d.horarioNegocio ?? { ...HORARIO_SUGERIDO, activo: false }) : null;
-    void saveConfigAutomatizacionAction(secuenciaId, { horario })
-      .then((r) => { if (!r.ok || !r.config) { setAviso(r.error || 'No se pudo guardar.'); return; } poner(r.config); setVuelta((n) => n + 1); })
-      .catch(() => setAviso('No se pudo guardar.'));
-  };
   const fuente: FuenteHorario = {
     // El huso es del NEGOCIO: acá se ve (en el ⓘ), no se cambia (revisión del 20/10/2026).
     zonaSoloLectura: true,
@@ -71,32 +66,22 @@ export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
       return { ok: r.ok, error: r.error, horario: r.config?.horario ?? undefined };
     },
   };
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <TarjetaOpciones>
-        <FilaOpcion primera nombre="Horario propio" info={`Apagado, usa el del negocio: ${textoDeHorario(d.horarioNegocio)}.`} datos={{ 'data-horario-propio': propio ? 'si' : 'no' }}
-          interruptor={<Interruptor on={propio} disabled={off} etiqueta={propio ? 'Volver al horario del negocio' : 'Ponerle un horario propio'} onCambio={alternar} />} />
-      </TarjetaOpciones>
-      {aviso && <p role="alert" style={{ margin: 0, fontSize: 13, color: 'var(--bad)', fontFamily: SANS }}>{aviso}</p>}
-      {propio && <HorarioEnvioPanel key={vuelta} fuente={fuente} onSucio={onSucio} />}
-    </div>
-  );
+  return <HorarioEnvioPanel fuente={fuente} onSucio={onSucio} />;
 }
 
-/** Un cambio del anti-ban de esta automatización: por parte, los campos que cambian (`null` = se saca). */
+/** Un cambio de esta automatización: por parte, los campos que cambian (`null` = se saca). */
 type CambioAntiban = { goteo?: Record<string, number | null>; personaHoras?: Record<string, number | null> };
 
 /**
- * EL ANTI-BAN DE ESTA AUTOMATIZACIÓN (22/10/2026): el goteo de sus WhatsApp (lib/goteo.ts, la llamada con Mauricio: «envía
- * uno, tal vez espera 4 minutos o 5, envía el otro»), su tope por día (un SUB-tope adentro del de la línea) y las horas
- * entre dos mensajes a la misma persona por canal. Cada fila con su interruptor:
+ * LO DE ESTA AUTOMATIZACIÓN EN CADA CANAL (22/10/2026), como estado de la pantalla: el goteo de sus WhatsApp (lib/goteo.ts,
+ * la llamada con Mauricio: «envía uno, tal vez espera 4 minutos o 5, envía el otro»), su tope por día (un SUB-tope adentro
+ * del de la línea) y las horas entre dos mensajes a la misma persona por canal. Cada fila con su interruptor:
  *   · goteo y tope: apagado = el campo AUSENTE (sin goteo / sin tope propio). Al prenderlo arranca con el número gris.
  *   · misma persona: prendido = el propio, o el del negocio si no tiene (ausente); apagado = `PERSONA_SIN_ESPERA` (0 h).
  *     Prenderlo de nuevo lo vuelve al del negocio (`null`).
- * Era «Goteo de sus WhatsApp» y «A la misma persona, en esta automatización»: dos tarjetas con su párrafo, «Poner N»,
- * «Quitar» y «Como el negocio». Ahora UN guardado para las dos partes (`pendiente` las junta en el respiro).
+ * UN guardado para las dos partes (`pendiente` las junta en el respiro). Devuelve las filas, que la pantalla reparte por canal.
  */
-export function AntibanDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaId: number; onSucio?: (s: boolean) => void }) {
+export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: boolean) => void) {
   const { d, error, poner } = useConfig(secuenciaId);
   const [aviso, setAviso] = useState('');
   const [invalido, setInvalido] = useState<Record<string, string>>({});
@@ -111,8 +96,7 @@ export function AntibanDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
   const pendiente = useRef<CambioAntiban>({});
   useEffect(() => () => { if (respiro.current) clearTimeout(respiro.current); }, []);
   useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);
-  if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}</p> : <Spinner />;
-  const off = !d.puedeEditar;
+  const off = !d?.puedeEditar;
   const guardar = (parte: 'goteo' | 'personaHoras', cambio: Record<string, number | null>) => {
     setAviso('');
     pendiente.current = { ...pendiente.current, [parte]: { ...(pendiente.current[parte] ?? {}), ...cambio } };
@@ -137,7 +121,7 @@ export function AntibanDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
   const leido = (parte: 'goteo' | 'personaHoras', campo: string): number | undefined => {
     const k = `${parte}.${campo}`;
     if (k in local) return local[k] ?? undefined;
-    return (d.config[parte] as Record<string, number> | undefined)?.[campo];
+    return (d?.config[parte] as Record<string, number> | undefined)?.[campo];
   };
   const filaGoteo = (campo: 'minutos' | 'dia', nombre: string, objeto: string, unidad: string, info: string, sugerido: number) => {
     const v = leido('goteo', campo);
@@ -153,13 +137,14 @@ export function AntibanDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
     );
   };
   const filaPersona = (canal: 'whatsapp' | 'email', rango: readonly [number, number]) => {
+    if (!d) return null;
     const propio = leido('personaHoras', canal);
     const on = propio !== PERSONA_SIN_ESPERA;
     const valor = propio !== undefined && propio !== PERSONA_SIN_ESPERA ? propio : d.personaNegocio[canal];
     const clave = `personaHoras.${canal}`;
     const deQue = canal === 'whatsapp' ? 'mensajes' : 'emails';
     return (
-      <FilaOpcion key={clave} nombre="Misma persona" info={`Horas entre dos ${deQue} a la misma persona. Apagado, no espera.`} error={invalido[clave]} datos={{ 'data-persona': canal }}
+      <FilaOpcion key={clave} nombre="Misma persona" info={`Horas entre dos ${deQue} a la misma persona, también los de esta automatización. Apagado, no espera.`} error={invalido[clave]} datos={{ 'data-persona': canal }}
         interruptor={<Interruptor on={on} disabled={off} etiqueta={on ? `Apagar la espera entre dos ${deQue}` : `Prender la espera entre dos ${deQue}`} onCambio={(x) => guardar('personaHoras', { [canal]: x ? null : PERSONA_SIN_ESPERA })} />}>
         <Numero valor={valor} min={rango[0]} max={rango[1]} disabled={off} apagado={!on} etiqueta={`${canal === 'whatsapp' ? 'WhatsApp' : 'Email'} · horas entre dos mensajes`}
           onCambio={(n) => guardar('personaHoras', { [canal]: n })} onInvalido={(e) => setInvalido((p) => ({ ...p, [clave]: e ?? '' }))} />
@@ -167,15 +152,65 @@ export function AntibanDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
       </FilaOpcion>
     );
   };
+  return {
+    listo: !!d, error, aviso,
+    /** Las de WhatsApp: el goteo, el tope por día y la misma persona. */
+    whatsapp: d ? [
+      filaGoteo('minutos', 'Goteo', 'el goteo', 'min', 'Sus WhatsApp salen de a uno, con esta espera entre dos.', 5),
+      filaGoteo('dia', 'Tope por día', 'el tope por día', 'mensajes', `El de esta automatización, adentro del de la línea (${d.lineaWa.dia} por día y ${d.lineaWa.hora} por hora).`, Math.min(50, d.lineaWa.dia)),
+      filaPersona('whatsapp', RANGOS_LIMITES.wa.personaHoras),
+    ] : [],
+    email: d ? [filaPersona('email', RANGOS_LIMITES.email.personaHoras)] : [],
+  };
+}
+
+/**
+ * LA PANTALLA DE CONFIGURACIONES DE UNA AUTOMATIZACIÓN (23/10/2026): «Horario de oficina» y un bloque por canal. En cada
+ * canal, primero lo de ESTA automatización (con su interruptor) y después lo de la LÍNEA, que es de todas («Línea por día»,
+ * sin interruptor: es lo que cuida al número). «MaKo contesta sola», aparte. Una sola «Misma persona» por canal: la de la
+ * automatización (sin lo suyo, la del negocio). `onSucio` por parte: el modal no se cierra con un guardado en vuelo.
+ */
+export function AjustesDeLaAutomatizacion({ secuenciaId, onSucioHorario, onSucioAntiban, onSucioLinea }: {
+  secuenciaId: number; onSucioHorario?: (s: boolean) => void; onSucioAntiban?: (s: boolean) => void; onSucioLinea?: (s: boolean) => void;
+}) {
+  const auto = useAntibanDeLaAutomatizacion(secuenciaId, onSucioAntiban);
+  const linea = useLimitesDeLaLinea(onSucioLinea);
+  const error = auto.error || (!linea.listo ? linea.aviso : '');
+  const aviso = auto.aviso || (linea.listo ? linea.aviso : '');
   return (
-    <TarjetaOpciones etiqueta="Esta automatización" datos={{ 'data-goteo': secuenciaId }}>
-      <GrupoOpciones titulo="WhatsApp" primero />
-      {filaGoteo('minutos', 'Goteo', 'el goteo', 'min', 'Sus WhatsApp salen de a uno, con esta espera entre dos.', 5)}
-      {filaGoteo('dia', 'Por día', 'el tope por día', 'mensajes', `El tope de esta automatización, adentro del de la línea (${d.lineaWa.dia} por día y ${d.lineaWa.hora} por hora).`, Math.min(50, d.lineaWa.dia))}
-      {filaPersona('whatsapp', RANGOS_LIMITES.wa.personaHoras)}
-      <GrupoOpciones titulo="Email" />
-      {filaPersona('email', RANGOS_LIMITES.email.personaHoras)}
-      {aviso && <p role="alert" style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--bad)' }}>{aviso}</p>}
-    </TarjetaOpciones>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontFamily: SANS }}>
+      <HorarioDeLaAutomatizacion secuenciaId={secuenciaId} onSucio={onSucioHorario} />
+      {!auto.listo || !linea.listo
+        ? (error ? <p role="alert" style={{ margin: 0, fontSize: 13.5, color: 'var(--bad)' }}>{error}</p> : <Spinner />)
+        : (
+          <>
+            <TarjetaOpciones etiqueta="WhatsApp" datos={{ 'data-canal': 'whatsapp', 'data-goteo': secuenciaId }}>
+              <GrupoOpciones titulo="WhatsApp" info={linea.info('WhatsApp')} primero />
+              {auto.whatsapp}
+              {linea.filasDe('wa')}
+            </TarjetaOpciones>
+            <TarjetaOpciones etiqueta="Email" datos={{ 'data-canal': 'email' }}>
+              <GrupoOpciones titulo="Email" info={linea.info('Email')} primero />
+              {auto.email}
+              {linea.filasDe('email')}
+            </TarjetaOpciones>
+            <TarjetaOpciones etiqueta="MaKo contesta sola" datos={{ 'data-canal': 'mako' }}>
+              <GrupoOpciones titulo="MaKo contesta sola" primero />
+              {linea.filasDe('mako')}
+            </TarjetaOpciones>
+            {(aviso || (!linea.off && linea.difiere)) && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                <span role={aviso ? 'alert' : undefined} style={{ fontSize: 13, color: 'var(--bad)' }}>{aviso}</span>
+                {!linea.off && linea.difiere && (
+                  <button type="button" data-restaurar="" onClick={linea.restaurar}
+                    style={{ border: 'none', background: 'transparent', padding: 0, fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>
+                    Restaurar
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        )}
+    </div>
   );
 }

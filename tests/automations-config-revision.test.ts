@@ -93,13 +93,15 @@ test('2. «Duplicar» copia la configuración propia de la original a la copia, 
 
 // ── 3. Las horas del negocio ─────────────────────────────────────────────────────────────────
 
-test('3. las horas «misma persona» del NEGOCIO se ven y se editan en el modal, rotuladas «por defecto»', () => {
-  const lim = sinComentarios(leer('app/automations/LimitesEnvioPanel.tsx'));
-  assert.match(lim, /export const ROTULO_PERSONA_DEFECTO = 'Misma persona, por defecto';/);
-  // (22/10/2026: la ayuda va en el ⓘ de la fila, `info`.)
-  assert.match(lim, /filas: b\.filas\.map\(\(f\) => \(personaPorDefecto && f\.campo === 'personaHoras' \? \{ \.\.\.f, rotulo: ROTULO_PERSONA_DEFECTO, info: AYUDA_PERSONA_DEFECTO \} : f\)\)/);
-  assert.doesNotMatch(lim, /f\.campo !== 'personaHoras'/, 'volvió a esconder las horas del negocio');
-  assert.match(sinComentarios(leer('app/automations/ConfiguracionesBoton.tsx')), /<LimitesEnvioPanel onSucio=\{alSucioLimites\} personaPorDefecto \/>/);
+// ⚠️ 23/10/2026 (Martín: «Hay DOS "Misma persona": queda UNA»): la del NEGOCIO ya no tiene fila. Queda la de la
+// automatización, que SIN lo suyo muestra (y usa) la del negocio: el valor que heredan las que ya existían se ve en cada una,
+// y tocarlo lo vuelve suyo. Lo que cambia: el de fábrica del negocio no se edita desde la tuerca (tests/automations-antiban).
+test('3. una sola «Misma persona»: la de la automatización muestra la del negocio mientras no tenga la suya', () => {
+  const auto = sinComentarios(leer('app/automations/ConfigAutomatizacionPanel.tsx'));
+  assert.match(auto, /const valor = propio !== undefined && propio !== PERSONA_SIN_ESPERA \? propio : d\.personaNegocio\[canal\];/);
+  const lim = sinComentarios(leer('lib/limites-envio.ts'));
+  assert.match(lim, /\.filter\(\(f\) => f\.campo !== 'personaHoras'\)/);
+  assert.doesNotMatch(sinComentarios(leer('app/automations/LimitesEnvioPanel.tsx')), /ROTULO_PERSONA_DEFECTO|personaPorDefecto/);
 });
 
 // ── 4. La lista al entrar ────────────────────────────────────────────────────────────────────
@@ -172,10 +174,13 @@ test('m. un horario sin `activo` booleano se rechaza; apagado con días vacíos 
 // 22/10/2026 (Martín: «Elimina todo el texto innecesario... Lo mismo en «Horario»»): sin la línea «Como el negocio: …» ni
 // «Sólo para esta automatización: sin horario…». «Horario propio» es una fila con su interruptor; lo del negocio, en su ⓘ.
 // Propio y «Horario de oficina» apagado (manda a cualquier hora) lo dice el interruptor de «Horario de oficina».
-test('m. «Horario propio» es una fila con interruptor y lo del negocio va en su ⓘ, sin texto suelto', () => {
+// 23/10/2026 («"propio" se dice "Horario de oficina"»): sin la fila «Horario propio»; el panel «Horario de oficina» con el
+// horario que vale (el suyo o el del negocio), guardando en la automatización.
+test('m. el horario de la automatización es «Horario de oficina», con el que vale para ella, y sin texto suelto', () => {
   const p = sinComentarios(leer('app/automations/ConfigAutomatizacionPanel.tsx'));
-  assert.match(p, /<FilaOpcion primera nombre="Horario propio" info=\{`Apagado, usa el del negocio: \$\{textoDeHorario\(d\.horarioNegocio\)\}\.`\}/);
-  assert.doesNotMatch(p, /Como el negocio|Sólo para esta automatización|data-sin-horario/, 'volvió el texto suelto');
+  assert.match(p, /leer: async \(\) => \(\{ horario: d\.config\.horario \?\? d\.horarioNegocio \?\? \{ \.\.\.HORARIO_SUGERIDO, activo: false \}, zona: d\.zona, puedeEditar: d\.puedeEditar \}\),/);
+  assert.match(p, /return <HorarioEnvioPanel fuente=\{fuente\} onSucio=\{onSucio\} \/>;/);
+  assert.doesNotMatch(p, /Horario propio|Como el negocio|Sólo para esta automatización|data-sin-horario/, 'volvió el texto suelto');
   assert.equal(textoDeHorario(null), 'sin horario: manda a cualquier hora');
 });
 
@@ -210,7 +215,7 @@ test('m. el anti-ban de esta automatización: lo tocado se ve ya y los cambios d
   assert.match(g, /pendiente\.current = \{ \.\.\.pendiente\.current, \[parte\]: \{ \.\.\.\(pendiente\.current\[parte\] \?\? \{\}\), \.\.\.cambio \} \};/);
   assert.match(g, /setLocal\(\(p\) => \(\{ \.\.\.p, \.\.\.Object\.fromEntries\(Object\.entries\(cambio\)\.map\(\(\[k, v\]\) => \[`\$\{parte\}\.\$\{k\}`, v\]\)\) \}\)\);/);
   assert.match(g, /const envio = pendiente\.current;\n\s+pendiente\.current = \{\};[\s\S]*saveConfigAutomatizacionAction\(secuenciaId, envio\)/);
-  assert.match(p, /if \(k in local\) return local\[k\] \?\? undefined;\n\s+return \(d\.config\[parte\] as Record<string, number> \| undefined\)\?\.\[campo\];/);
+  assert.match(p, /if \(k in local\) return local\[k\] \?\? undefined;\n\s+return \(d\?\.config\[parte\] as Record<string, number> \| undefined\)\?\.\[campo\];/);
 });
 
 test('m. la tuerca la ve también quien no es admin (el modal entra en sólo lectura)', () => {
