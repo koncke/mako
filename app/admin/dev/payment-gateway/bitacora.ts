@@ -350,4 +350,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/integraciones?ws=3',
   },
+  {
+    fecha: '23 oct', hora: '02:45', chat: 'Cobros', sesion: 'local_460ff1f0-0675-4371-b228-594a9bd828e3', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Vincular cobro» muestra los productos de Stripe con su precio',
+    puntos: [
+      'En la llamada, Mauricio conectó Stripe y su producto de US$270 no aparecía en «Vincular cobro». MaKo nunca leía los productos de Stripe: la clave andaba bien.',
+      'Ahora aparecen los productos de cada cuenta de Stripe con su precio, y «Volver a leer» los trae sin recargar. Elegir uno lo suma al catálogo y lo vincula a Ganado.',
+      'Si en MaKo hay un producto con el mismo nombre y sin precio, recibe el de Stripe. Si ya cobra otra cosa, no se toca y se dice.',
+      '⚠️ **Sin hacer:** los pagos que entran por el link de pago propio de Stripe (el de su landing) todavía no pasan a Ganado.',
+    ],
+    commits: [
+      { sha: '5ddbaf1aa', msg: 'Cobros: los productos de Stripe en «Vincular cobro», en vivo, y traer uno al catálogo con su precio', lineas: 548, archivos: 6 },
+    ],
+    archivos: [
+      'lib/stripe-catalogo.ts y lib/stripe-catalogo-reglas.ts — leer los precios y traer uno',
+      'app/crm/cobro-etapa-actions.ts — las dos acciones del pop-up (la pantalla es del CRM)',
+      'tests/stripe-catalogo.test.ts — 7, probado con 20 roturas',
+    ],
+    revisar: '/crm?ws=3',
+  },
 ];
