@@ -32,15 +32,20 @@ const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
 const PLANES = PLANES_MAKO_DEFAULT as readonly PlanMako[];
 
 test('a qué plan y a qué precio: Esencial sube a Pro; el anual sólo en Stripe y en USD; nunca baja', () => {
-  const s = decidirSubida({ planActual: 'esencial', planes: PLANES, moneda: 'USD', proveedor: 'stripe' });
+  const base = { montoHoy: 47, capa: 'completo' };
+  const s = decidirSubida({ ...base, planActual: 'esencial', planes: PLANES, moneda: 'USD', proveedor: 'stripe' });
   assert.equal(s.accion, 'subir');
   assert.deepEqual(s.accion === 'subir' && { a: s.destino.id, mensual: s.mensual, anual: s.anual }, { a: 'pro', mensual: 97, anual: 970 });
-  const mp = decidirSubida({ planActual: 'esencial', planes: PLANES.map((p) => ({ ...p, preciosLocales: { ARS: p.id === 'pro' ? 97000 : 47000 } })), moneda: 'ARS', proveedor: 'mercadopago' });
+  const mp = decidirSubida({ ...base, montoHoy: 47000, planActual: 'esencial', planes: PLANES.map((p) => ({ ...p, preciosLocales: { ARS: p.id === 'pro' ? 97000 : 47000 } })), moneda: 'ARS', proveedor: 'mercadopago' });
   assert.deepEqual(mp.accion === 'subir' && { mensual: mp.mensual, anual: mp.anual }, { mensual: 97000, anual: null }, 'Mercado Pago cobra por mes y en la moneda de su sitio');
-  assert.equal(decidirSubida({ planActual: 'pro', planes: PLANES, moneda: 'USD', proveedor: 'stripe' }).accion, 'ya', 'un segundo clic volvía a cobrar');
-  assert.match((decidirSubida({ planActual: 'esencial', planes: PLANES, moneda: 'ARS', proveedor: 'mercadopago' }) as { motivo: string }).motivo, /no tiene precio en ARS/, 'sin precio en esa moneda se inventaba uno');
-  assert.match((decidirSubida({ planActual: 'continuidad', planes: PLANES, moneda: 'USD', proveedor: 'stripe' }) as { motivo: string }).motivo, /ya cuesta lo mismo o más/, '«Pasar a Pro» bajaba de plan');
-  assert.match((decidirSubida({ planActual: 'esencial', planes: PLANES.map((p) => (p.id === 'pro' ? { ...p, activo: false } : p)), moneda: 'USD', proveedor: 'stripe' }) as { motivo: string }).motivo, /no está a la venta/);
+  assert.equal(decidirSubida({ ...base, planActual: 'pro', planes: PLANES, moneda: 'USD', proveedor: 'stripe' }).accion, 'ya', 'un segundo clic volvía a cobrar');
+  assert.match((decidirSubida({ ...base, planActual: 'esencial', planes: PLANES, moneda: 'ARS', proveedor: 'mercadopago' }) as { motivo: string }).motivo, /no tiene precio en ARS/, 'sin precio en esa moneda se inventaba uno');
+  assert.match((decidirSubida({ ...base, planActual: 'continuidad', planes: PLANES, moneda: 'USD', proveedor: 'stripe' }) as { motivo: string }).motivo, /ya cuesta lo mismo o más/, '«Pasar a Pro» bajaba de plan');
+  // Revisión adversarial: sin `plan_mako` (un acuerdo a mano de US$150), «subir» a 97 lo bajaba; y desde otra capa, no.
+  assert.match((decidirSubida({ ...base, montoHoy: 150, planActual: null, planes: PLANES, moneda: 'USD', proveedor: 'stripe' }) as { motivo: string }).motivo, /ya cuesta lo mismo o más/, 'un acuerdo de 150 sin plan_mako pasaba a pagar 97');
+  assert.equal(decidirSubida({ ...base, planActual: null, planes: PLANES, moneda: 'USD', proveedor: 'stripe' }).accion, 'subir');
+  assert.match((decidirSubida({ ...base, capa: 'agencia', planActual: null, planes: PLANES, moneda: 'USD', proveedor: 'stripe' }) as { motivo: string }).motivo, /no se cambia desde aquí/, 'un acuerdo con capa agencia pasaba a pagar 97');
+  assert.match((decidirSubida({ ...base, planActual: 'esencial', planes: PLANES.map((p) => (p.id === 'pro' ? { ...p, activo: false } : p)), moneda: 'USD', proveedor: 'stripe' }) as { motivo: string }).motivo, /no está a la venta/);
   // El reclamo: libre, con error, o una «aplicando» vencida; no una que está corriendo.
   const ahora = Date.parse('2026-10-23T12:00:00Z');
   assert.equal(subidaLibre(null, ahora), true);
@@ -63,6 +68,11 @@ test('Stripe: la diferencia se cobra AHORA, y si falla no cambia nada; el anual 
   assert.equal(R.falla.r.ok, false);
   assert.equal(R.otraMoneda.posts.length, 0);
   assert.equal(R.semanal.posts.length, 0);
+  assert.equal(R.pausada.posts.length, 0, 'una suscripción pausada pasaba a Pro: Pro gratis el mes pausado');
+  assert.match(R.pausada.r.error, /no está al día o está en pausa/);
+  assert.equal(R.vencida.posts.length, 0, 'una suscripción en mora pasaba a Pro');
+  assert.deepEqual(R.timeoutPaso.r, { ok: true, yaEstaba: false, intervalo: 'month', monto: 97 }, 'un timeout después de cobrar decía «tu plan sigue igual»');
+  assert.match(R.timeoutNo.r.error, /no sabemos si el cambio pasó/);
 });
 
 test('subirAPro: reclama antes de la pasarela, y la capa sube SÓLO si la pasarela aceptó', () => {
@@ -81,6 +91,8 @@ test('subirAPro: reclama antes de la pasarela, y la capa sube SÓLO si la pasare
   const accion = sinComentarios(leer('app/configuraciones/plan/actions.ts'));
   const a = accion.slice(accion.indexOf('export async function pasarAProAction('));
   assert.ok(a.indexOf('adminDeWorkspaceActual()') > 0 && a.indexOf('adminDeWorkspaceActual()') < a.indexOf('subirAPro('), 'cualquiera con sesión cambiaba el plan');
+  assert.ok(a.indexOf('estaImpersonando()') > 0 && a.indexOf('estaImpersonando()') < a.indexOf('subirAPro('), 'la agencia mirando a su cliente le cobraba la subida a la tarjeta del cliente');
+  assert.match(f, /r0\.estado === 'aplicada' && !r0\.restaurada/, 'con un descuento de retención vivo, el cron la devolvía al precio de antes');
   // Y la pantalla lo confirma antes de cobrar.
   assert.match(leer('app/configuraciones/plan/PlanPanel.tsx'), /onClick=\{corriendo \? undefined : \(\) => setConfirmarSubida\(true\)\}/);
 });

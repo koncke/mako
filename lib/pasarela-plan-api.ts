@@ -145,6 +145,11 @@ export async function subirPlanStripe(key: string, subId: string, p: { mensual: 
   if (!SUB_RE.test(subId)) return { ok: false, status: 400, error: 'id de suscripción inválido' };
   const s = await llamarStripe(key, 'GET', `/v1/subscriptions/${encodeURIComponent(subId)}`);
   if (!s.ok) return fallo(s);
+  // Sólo una suscripción al día (revisión adversarial): pausada daba Pro gratis el mes pausado; `past_due`, pagar el
+  // prorrateo la dejaba «activa» con la renovación abierta.
+  if (s.body.status !== 'active' || (s.body.pause_collection != null && s.body.pause_collection !== '')) {
+    return { ok: false, status: 409, error: 'Tu suscripción no está al día o está en pausa: cuando vuelva a estar activa puedes cambiar de plan.' };
+  }
   const item = obj((Array.isArray(obj(s.body.items).data) ? (obj(s.body.items).data as unknown[]) : [])[0]);
   const precio = obj(item.price);
   const itemId = str(item.id);
@@ -163,6 +168,15 @@ export async function subirPlanStripe(key: string, subId: string, p: { mensual: 
     proration_behavior: 'always_invoice',
     payment_behavior: 'error_if_incomplete',
   }, p.idem);
-  if (!r.ok) return fallo(r);
+  if (!r.ok) {
+    // Sin respuesta (un timeout, un 5xx) el cambio PUDO haber pasado: se vuelve a leer antes de decir «sigue igual».
+    if (r.status === 0 || r.status >= 500) {
+      const otra = await llamarStripe(key, 'GET', `/v1/subscriptions/${encodeURIComponent(subId)}`);
+      const it = obj((Array.isArray(obj(otra.ok ? otra.body.items : null).data) ? (obj(otra.ok ? otra.body.items : null).data as unknown[]) : [])[0]);
+      if (otra.ok && Number(obj(it.price).unit_amount) === aUnidadMinima(monto, p.moneda)) return { ok: true, yaEstaba: false, intervalo, monto };
+      return { ok: false, status: 504, error: 'Stripe no contestó y no sabemos si el cambio pasó. Recarga en un minuto antes de intentar de nuevo.' };
+    }
+    return fallo(r);
+  }
   return { ok: true, yaEstaba: false, intervalo, monto };
 }

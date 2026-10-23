@@ -29,6 +29,7 @@ import { montoSuscripcionMp, subirPlanStripe } from './pasarela-plan-api';
 import { planesMako } from './compra-plan';
 import { conceptoDelPlan } from './planes-mako';
 import { CLAVE_SUBIDA, decidirSubida, subidaLibre } from './subir-plan-reglas';
+import { CLAVE_RETENCION, leerRetencion } from './retencion-reglas';
 
 export type ResultadoSubida = { ok: boolean; resumen: string; yaEstaba?: boolean };
 
@@ -39,7 +40,18 @@ export async function subirAPro(ws: number, autor: string): Promise<ResultadoSub
   const { data, error: eLeer } = await getSupabaseServer().from('cobros').select('plan_mako').eq('id', c.id).eq('workspace_id', plataforma).maybeSingle();
   if (eLeer) return { ok: false, resumen: 'No pudimos leer tu plan. Intenta de nuevo.' };
   const planActual = (data as { plan_mako?: string | null } | null)?.plan_mako ?? null;
-  const d = decidirSubida({ planActual, planes: await planesMako(), moneda: c.moneda, proveedor: c.proveedor });
+  const [planes, w, ret] = await Promise.all([
+    planesMako(),
+    getSupabaseServer().from('workspaces').select('capa').eq('id', ws).maybeSingle(),
+    runWithWorkspace(ws, () => getSetting(CLAVE_RETENCION)).catch(() => null),
+  ]);
+  if (w.error) return { ok: false, resumen: 'No pudimos leer tu plan. Intenta de nuevo.' };
+  const d = decidirSubida({ planActual, planes, moneda: c.moneda, proveedor: c.proveedor, montoHoy: c.monto, capa: (w.data as { capa?: string | null } | null)?.capa ?? null });
+  // Con una oferta de retención viva (descuento o pausa sin restaurar), no: el cron la devolvería al precio de antes.
+  const r0 = leerRetencion(ret);
+  if (d.accion === 'subir' && r0 && r0.cobroId === c.id && r0.estado === 'aplicada' && !r0.restaurada) {
+    return { ok: false, resumen: 'Tienes una oferta de tu plan en curso. Cuando termine, puedes pasar a Pro.' };
+  }
   if (d.accion === 'no') return { ok: false, resumen: d.motivo };
   if (d.accion === 'ya') {
     // Ya es Pro en el cobro: que la capa también lo sea (un intento que se cortó antes de subirla).

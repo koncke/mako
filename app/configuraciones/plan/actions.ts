@@ -11,7 +11,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getUsuarioActual } from '@/lib/auth';
-import { adminDeWorkspaceActual, getCapaActual } from '@/lib/workspace';
+import { adminDeWorkspaceActual, estaImpersonando, getCapaActual } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { darDeBajaMiPlan, type ResultadoBaja } from '@/lib/cobros';
 import { mandarCodigoDeBaja } from '@/lib/invitaciones';
@@ -54,6 +54,8 @@ export async function aceptarRetencionAction(opcion: OpcionRetencion = 'descuent
 export async function pasarAProAction(): Promise<ResultadoSubida> {
   const ws = await adminDeWorkspaceActual().catch(() => null);
   if (ws == null) return { ok: false, resumen: 'Sólo quien administra el negocio puede cambiar su plan.' };
+  // Quien MIRA otro negocio (la agencia en su cliente, el super admin) no le cobra a la tarjeta del dueño (revisión adversarial).
+  if (await estaImpersonando().catch(() => true)) return { ok: false, resumen: 'El plan lo cambia el dueño del negocio desde su cuenta.' };
   const sesion = await getUsuarioActual();
   const r = await subirAPro(ws, sesion?.nombre || sesion?.email || 'el negocio');
   revalidatePath('/configuraciones/plan');

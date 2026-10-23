@@ -996,3 +996,28 @@ La oferta se reclama con compare-and-set desde null: una vez por negocio. **Vive
   admin; preguntarlo antes sería un oráculo de emails); el cupón de retención de Stripe reemplaza un descuento que ya tuviera;
   la deuda en MP con la retención a mitad de precio se calcula a precio de lista. El informe: la carpeta de notas del Cerebro,
   `revision-suscripcion-2310.md`.
+
+## «Pasar a Pro»: la diferencia se cobra ahora y, si no pasa, nada cambia (23/10/2026)
+
+lib/subir-plan.ts: Stripe con `always_invoice` y `error_if_incomplete`. Mercado Pago, el monto de Pro desde el
+próximo período con Pro en el acto. Hay un reclamo `plan.subida` antes de la pasarela. Lo que encontró la revisión
+adversarial y quedó arreglado:
+- **Sin `plan_mako`** (un acuerdo armado a mano), «subir» a 97 podía BAJAR lo que pagaba. Ahora lo de hoy es
+  `cobros.monto`, y sólo se sube desde la capa `completo`.
+- **Suscripción en pausa o en mora:** se rechaza. Pausada era Pro gratis; en `past_due`, pagar el prorrateo la dejaba
+  activa con la renovación abierta.
+- **Retención viva sin restaurar:** se rechaza, porque el cron la devolvía al precio de antes.
+- **Un timeout o un 5xx no es «sigue igual»:** se vuelve a leer la suscripción.
+- **La agencia o el super admin mirando otro negocio no cobran a la tarjeta del dueño** (`estaImpersonando`).
+
+**Sin hacer** (de la misma revisión):
+- La factura de prorrateo (`subscription_update`) no está en `FACTURAS_DE_PAGO`: la diferencia no entra al cash del
+  CRM de la plataforma. Además, un `invoice.payment_failed` no se filtra por `billing_reason`, así que si Stripe lo
+  manda al fallar la subida, `aplicarPagoFallido` diría «Renovación fallida». Está en lib/cobros-eventos.ts.
+- Subir otra vez en el mismo período después de una retención «bajar» cobra la diferencia dos veces.
+- En Mercado Pago no se lee el estado del preapproval antes de subir (pausado o en mora).
+- Sin medir con claves de prueba: si `error_if_incomplete` emite `invoice.payment_failed`, y si Mercado Pago acepta
+  subir el monto sin que el comprador lo vuelva a autorizar.
+
+**Vive en:** lib/subir-plan.ts · lib/subir-plan-reglas.ts · lib/pasarela-plan-api.ts (`subirPlanStripe`) ·
+app/configuraciones/plan · tests/subir-plan.test.ts.

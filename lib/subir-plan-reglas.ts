@@ -23,7 +23,9 @@ export type Subida =
  * cobro dice Pro (la capa sola no alcanza: un acuerdo a mano puede tener capa `agencia` y pagar otra cosa). El precio,
  * en la moneda que cobra la pasarela: USD en Stripe; la del sitio en Mercado Pago (sin ella, no se inventa una tasa).
  */
-export function decidirSubida(p: { planActual: string | null; planes: readonly PlanMako[]; moneda: string; proveedor: 'stripe' | 'mercadopago' }): Subida {
+export function decidirSubida(p: { planActual: string | null; planes: readonly PlanMako[]; moneda: string; proveedor: 'stripe' | 'mercadopago'; montoHoy: number; capa: string | null }): Subida {
+  // Sólo desde Esencial (revisión adversarial: un acuerdo de 297 con capa `agencia` llamaba la acción y pasaba a pagar 97).
+  if (p.capa !== 'completo') return { accion: 'no', motivo: 'Tu plan no se cambia desde aquí. Escríbenos.' };
   const destino = p.planes.find((x) => x.id === PLAN_PRO && x.activo);
   if (!destino) return { accion: 'no', motivo: 'MaKo Pro no está a la venta ahora. Escríbenos.' };
   if (p.planActual === PLAN_PRO) return { accion: 'ya', destino };
@@ -31,7 +33,8 @@ export function decidirSubida(p: { planActual: string | null; planes: readonly P
   const mensual = precioEn(destino, p.moneda);
   if (mensual == null) return { accion: 'no', motivo: `MaKo Pro no tiene precio en ${p.moneda.toUpperCase()}. Escríbenos y lo pasamos a mano.` };
   // Sólo se SUBE: a un plan que cuesta más que el de hoy (bajar es la retención, con su propia regla).
-  const hoy = actual ? precioEn(actual, p.moneda) : null;
+  // Sin `plan_mako` (un cobro armado a mano), lo de hoy es lo que cobra: nunca se «sube» a algo más barato.
+  const hoy = (actual ? precioEn(actual, p.moneda) : null) ?? p.montoHoy;
   if (hoy != null && hoy >= mensual) return { accion: 'no', motivo: `Tu plan ya cuesta lo mismo o más que ${destino.nombre}.` };
   // El anual sólo en Stripe (Mercado Pago cobra por mes) y sólo en USD.
   const anual = p.proveedor === 'stripe' && p.moneda.toUpperCase() === 'USD' ? destino.precioAnualUsd ?? null : null;
