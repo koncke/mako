@@ -45,7 +45,9 @@ export async function POST(req: NextRequest) {
   }
   if (body.accion === 'reactivar') {
     // Con deuda, primero la deuda (Martín: «le tiene que quedar una deuda pendiente»).
-    const d = await deudaDe(a.ws).catch(() => null);
+    // Si la deuda no se pudo leer, no se reactiva (revisión del 23/10, baja 19): se pagaría el mes sin la deuda.
+    const d = await deudaDe(a.ws).catch(() => undefined);
+    if (d === undefined) return Response.json({ error: 'No pudimos leer tu plan. Prueba otra vez en un minuto.' }, { status: 503 });
     if (d?.deuda) return Response.json({ error: 'Primero paga lo que quedó pendiente.', deuda: true }, { status: 409 });
     if (!a.email) return Response.json({ error: 'Tu sesión no tiene email.' }, { status: 400 });
     const r = await reactivarPlan(a.ws, { email: a.email, nombre: a.nombre });

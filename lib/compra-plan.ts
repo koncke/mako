@@ -105,17 +105,6 @@ async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuev
   }
 }
 
-/** Un link VIVO del mismo plan, pasarela y email de las últimas 23 h: se devuelve ése (sin la mig 0330, no se busca). */
-async function linkVivoDelPlan(ws: number, leadId: number, plan: string, pasarela: Pasarela): Promise<string | null> {
-  const desde = new Date(Date.now() - 23 * 3600_000).toISOString();
-  const { data, error } = await getSupabaseServer().from('cobros').select(COLS_COBRO)
-    .eq('workspace_id', ws).eq('lead_id', leadId).eq('plan_mako', plan).eq('proveedor', pasarela)
-    .eq('tipo', 'suscripcion').in('estado', ['pendiente', 'fallido']).gte('created_at', desde)
-    .order('created_at', { ascending: false }).limit(1).maybeSingle();
-  if (error) return null;
-  return data ? linkDelCobro(cobroDeFila(data as Record<string, unknown>).token) : null;
-}
-
 export type ResultadoCompra =
   | { ok: true; link: string }
   | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }> };
@@ -141,8 +130,9 @@ export async function iniciarCompraDePlan(p: PedidoCompra): Promise<ResultadoCom
       console.error('[compra-plan] no pude crear el lead del comprador:', msg(e));
       return { ok: false, status: 503, error: 'No pudimos registrar tu compra. Prueba otra vez en un minuto.' };
     }
-    const vivo = await linkVivoDelPlan(ws, lead.leadId, plan.id, via.pasarela);
-    if (vivo) return { ok: true, link: vivo };
+    // ⚠️ NO se devuelve un link vivo de ese email (revisión del 23/10, alta 1): el token de /pagar es la credencial del cambio
+    // de email del acceso, y se lo daba a cualquiera que tipeara el email de otro. Cada pedido abre su propio checkout (con los
+    // topes por IP y por email de la ruta).
 
     const r = await crearCobro(ws, {
       leadId: lead.leadId, pasarela: via.pasarela, tipo: 'suscripcion', concepto: conceptoDelPlan(plan),
@@ -182,10 +172,11 @@ export async function reactivarPlan(ws: number, p: { email: string; nombre: stri
     .order('created_at', { ascending: false }).limit(20);
   if (error) return { ok: false, status: 503, error: 'No pudimos leer tu plan. Prueba otra vez en un minuto.' };
   const cobros = (data ?? []).map((x) => cobroDeFila(x as Record<string, unknown>));
-  const base = cobros.find((c) => c.estado === 'pagado' || c.estado === 'reembolsado');
+  // La base es la ÚLTIMA SUSCRIPCIÓN (revisión del 23/10, alta 7): un cobro único de deuda tiene N meses de precio y otro concepto.
+  const base = cobros.find((c) => c.tipo === 'suscripcion' && (c.estado === 'pagado' || c.estado === 'reembolsado'));
   if (!base || !base.lead_id) return { ok: false, status: 404, error: 'Tu plan no se cobra en línea: escríbenos y lo reactivamos.' };
   // Una suscripción que la pasarela SIGUE cobrando no se duplica: sería cobrar dos veces el mismo mes.
-  if (cobros.some((c) => c.tipo === 'suscripcion' && c.estado === 'pagado' && c.suscripcion_estado !== 'cancelada')) {
+  if (cobros.some((c) => c.tipo === 'suscripcion' && (c.estado === 'pagado' || c.estado === 'reembolsado') && c.suscripcion_estado !== 'cancelada')) {
     return { ok: false, status: 409, error: 'Tu suscripción sigue activa: no hace falta reactivarla.' };
   }
   const desde = new Date(Date.now() - 23 * 3600_000).toISOString();

@@ -118,7 +118,8 @@ test('la acción: sólo el admin de ESE workspace, y el código va por email a q
 test('la pantalla: dos pasos (el botón y la confirmación), sin el portal de Stripe', () => {
   const p = fuente('app/configuraciones/plan/PlanPanel.tsx');
   assert.match(p, /titulo="Darme de baja"/);
-  assert.match(p, /onClick=\{corriendo \? undefined : \(\) => setPreguntar\(true\)\}/, 'el botón abre la confirmación, no da de baja');
+  // Desde el 23/10/2026, con una oferta de retención el botón la muestra ANTES de la confirmación (docs/ofertas-mako.md, «Baja»).
+  assert.match(p, /onClick=\{corriendo \? undefined : \(\) => \(ofertaViva \? setOfrecer\(true\) : setPreguntar\(true\)\)\}/, 'el botón abre la oferta o la confirmación, no da de baja');
   assert.match(p, /<ConfirmDialog titulo="¿Darte de baja\?"[\s\S]*onConfirm=\{darmeDeBaja\}/);
   assert.doesNotMatch(p, /portal/i, 'lo decidido es un botón propio, no el portal de Stripe');
 });

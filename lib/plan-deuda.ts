@@ -24,7 +24,7 @@ import { getSupabaseServer } from './supabase';
 import { wsSuperAdmin } from './workspace';
 import { credDelCliente } from './credenciales';
 import { linkApp } from './app-url';
-import { aplicarPagoAprobado, crearCobro, getCobro, linkDelCobro } from './cobros';
+import { anularCobro, aplicarPagoAprobado, crearCobro, getCobro, linkDelCobro } from './cobros';
 import { buscarPagosMp, leerCuentaMp } from './mercadopago-api';
 import { facturasStripe, suscripcionStripe } from './pasarela-plan-api';
 import { formatoMonto } from './pasarela-moneda';
@@ -34,7 +34,14 @@ import { diaDeSuspension, mesesDespuesDe, type CorteGuardado, type Deuda } from 
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 /** Lo que Mercado Pago tarda en dar por perdida una cuota rechazada (4 reintentos en 10 días), con un día de margen. */
-const DIAS_REINTENTO_MP = 11;
+const DIAS_REINTENTO_MP = 14;
+
+/** Cuántos de los `ciclos` debidos desde `desde` ya pasaron su ventana de reintentos en MP (cada ciclo, la suya). */
+export function ciclosPerdidosMp(desde: string, ciclos: number, ahoraMs: number): number {
+  let n = 0;
+  for (let k = 0; k < ciclos; k++) if (Date.parse(`${mesesDespuesDe(desde, k)}T00:00:00Z`) + DIAS_REINTENTO_MP * 86_400_000 <= ahoraMs) n++;
+  return n;
+}
 
 /** Los ids de pago de la pasarela que YA tienen su cuota en el CRM de la plataforma (para no re-avisar uno viejo). */
 async function yaAsentados(plataforma: number, proveedor: string, ids: readonly string[]): Promise<Set<string>> {
@@ -63,8 +70,10 @@ export async function confirmarImpago(c: FilaCobroLugar, opts: { reparar: boolea
     const deSuscripcion = f.facturas.filter((x) => x.motivo === 'subscription_cycle' || x.motivo === 'subscription_create');
     const ya = await yaAsentados(plataforma, 'stripe', deSuscripcion.map((x) => x.id));
     const faltan = deSuscripcion.filter((x) => !ya.has(x.id));
+    // ⚠️ Una factura de $0 (saldo o cupón) no es plata que entró: no se asienta (asentaría el monto del cobro como cash),
+    // pero dice que el mes está cubierto (revisión del 23/10, media 9).
     if (faltan.length && opts.reparar) {
-      for (const x of faltan.reverse()) {
+      for (const x of faltan.filter((f) => (f.monto ?? 0) > 0).reverse()) {
         await aplicarPagoAprobado(cobro, { proveedorPagoId: x.id, monto: x.monto, moneda: x.moneda, suscripcionId: subId, pagadoAt: x.pagadaAt, autor: 'Stripe (reparado)' });
       }
     }
@@ -138,37 +147,48 @@ export async function pagarDeuda(ws: number, opts: { crear: boolean; ahoraMs?: n
     if (!f.ok) return { tipo: 'nada', texto: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' };
     const abierta = f.facturas.filter((x) => x.urlPagar).at(-1);
     if (abierta?.urlPagar) return { tipo: 'link', url: abierta.urlPagar, monto: abierta.monto, moneda: abierta.moneda };
+    // ⚠️ Con la suscripción VIVA y sin factura abierta, NO se abre un cobro aparte (revisión del 23/10, alta 2): la próxima
+    // factura la cobra Stripe sola y serían dos. Si la pasarela ya la dio de baja, sí (abajo).
+    if (cobrando.suscripcion_estado === 'activa') return { tipo: 'nada', texto: 'Tu pago está en proceso: lo reintentamos solos. Si cambiaste la tarjeta, entra en unos minutos.' };
   }
   // 2. Mercado Pago todavía reintentando la cuota: cambiar la tarjeta allá.
   const sigueCobrando = cobrando.tipo === 'suscripcion' && cobrando.suscripcion_estado === 'activa';
-  if (cobrando.proveedor === 'mercadopago' && sigueCobrando && hasta && ahora < Date.parse(`${hasta}T00:00:00Z`) + DIAS_REINTENTO_MP * 86_400_000) {
+  // ⚠️ CADA CICLO TIENE SU VENTANA (revisión del 23/10, media 8): la del último ciclo, no la del primero impago. El cobro aparte
+  // paga SÓLO los ciclos que MP ya dio por perdidos; uno que MP todavía reintenta se cobraría dos veces.
+  const perdidos = cobrando.proveedor === 'mercadopago' && sigueCobrando && hasta ? ciclosPerdidosMp(hasta, deuda.ciclos, ahora) : deuda.ciclos;
+  if (cobrando.proveedor === 'mercadopago' && sigueCobrando && perdidos === 0) {
     const token = await credDelCliente('MERCADOPAGO_ACCESS_TOKEN', plataforma);
     const cuenta = token ? await leerCuentaMp(token) : null;
     const dominio = (cuenta?.ok && cuenta.sitio && DOMINIO_MP[cuenta.sitio]) || 'mercadopago.com';
     return { tipo: 'tarjeta-mp', url: `https://www.${dominio}/subscriptions`, texto: 'Mercado Pago reintenta el cobro solo. Para que entre, cambia la tarjeta de tu suscripción a MaKo en Mercado Pago.' };
   }
   // 3. Un cobro único por los meses debidos.
-  if (deuda.monto == null || !deuda.moneda || !cobrando.lead_id) return { tipo: 'nada', texto: 'No pudimos calcular tu deuda: escríbenos y lo resolvemos.' };
+  if (deuda.monto == null || !deuda.moneda || !cobrando.lead_id || perdidos < 1) return { tipo: 'nada', texto: 'No pudimos calcular tu deuda: escríbenos y lo resolvemos.' };
+  const porCiclo = deuda.monto / deuda.ciclos;
+  const usdPorCiclo = deuda.montoUsd != null ? deuda.montoUsd / deuda.ciclos : null;
+  const aPagar = { ciclos: perdidos, monto: Math.round(porCiclo * perdidos * 100) / 100, montoUsd: usdPorCiclo != null ? Math.round(usdPorCiclo * perdidos * 100) / 100 : null };
   const desde = new Date(ahora - 23 * 3600_000).toISOString();
   const { data: vivo } = await getSupabaseServer().from('cobros').select('token, monto, moneda')
-    .eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'unico').eq('meses', deuda.ciclos)
+    .eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'unico').eq('meses', aPagar.ciclos)
     .in('estado', ['pendiente', 'fallido']).gte('created_at', desde).order('created_at', { ascending: false }).limit(1).maybeSingle();
   if (vivo) { const v = vivo as { token: string; monto: number; moneda: string }; return { tipo: 'link', url: linkDelCobro(v.token), monto: Number(v.monto), moneda: v.moneda }; }
-  if (!opts.crear) return { tipo: 'link', url: '', monto: deuda.monto, moneda: deuda.moneda };
+  if (!opts.crear) return { tipo: 'link', url: '', monto: aPagar.monto, moneda: deuda.moneda };
   const r = await crearCobro(plataforma, {
     leadId: cobrando.lead_id, pasarela: cobrando.proveedor, tipo: 'unico',
-    concepto: `MaKo · ${deuda.ciclos === 1 ? 'el mes adeudado' : `${deuda.ciclos} meses adeudados`}`,
-    monto: deuda.monto, moneda: deuda.moneda, montoUsd: deuda.montoUsd, creadoPor: `deuda:${ws}`,
+    concepto: `MaKo · ${aPagar.ciclos === 1 ? 'el mes adeudado' : `${aPagar.ciclos} meses adeudados`}`,
+    monto: aPagar.monto, moneda: deuda.moneda, montoUsd: aPagar.montoUsd, creadoPor: `deuda:${ws}`,
   });
   if (!r.ok) { console.error(`[plan-deuda] ws=${ws} no pude crear el cobro de la deuda: ${r.error}`); return { tipo: 'nada', texto: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' }; }
   // ⚠️ ANTES DE DEVOLVER EL LINK (nadie pudo pagarlo todavía): atado al negocio y con sus meses. Sin esto el pago
   // entraría como plata suelta del lead y no le devolvería el acceso a nadie.
-  const { error } = await getSupabaseServer().from('cobros').update({ alta_ws: ws, meses: deuda.ciclos }).eq('id', r.cobro.id).eq('workspace_id', plataforma);
+  const { error } = await getSupabaseServer().from('cobros').update({ alta_ws: ws, meses: aPagar.ciclos }).eq('id', r.cobro.id).eq('workspace_id', plataforma);
   if (error) {
     console.error(`[plan-deuda] ws=${ws} no pude atar el cobro ${r.cobro.id} de la deuda: ${error.message}`);
+    // Sin atarlo, ese link no le devuelve el acceso a nadie: se anula (con su checkout) en vez de dejarlo vivo (baja 15).
+    await anularCobro(plataforma, r.cobro.id, 'MaKo (no se pudo atar la deuda)').catch(() => {});
     return { tipo: 'nada', texto: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' };
   }
-  return { tipo: 'link', url: r.link, monto: deuda.monto, moneda: deuda.moneda };
+  return { tipo: 'link', url: r.link, monto: aPagar.monto, moneda: deuda.moneda };
 }
 
 /** Los emails de los admins de un negocio (a quién avisarle de su plan). */

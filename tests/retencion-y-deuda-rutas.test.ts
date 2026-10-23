@@ -53,9 +53,20 @@ test('la deuda la paga el ADMIN del negocio PROPIO de la sesión (no el super ad
   assert.match(r, /if \(d\?\.deuda\) return Response\.json\(\{ error: 'Primero paga lo que quedó pendiente\.'/);
 });
 
+test('revisión del 23/10: sin link vivo para otro email, Stripe vivo sin factura no abre otro cobro, MP sólo los ciclos perdidos', () => {
+  const c = fuente('lib/compra-plan.ts');
+  assert.doesNotMatch(c, /linkVivoDelPlan/, 'alta 1: el token de /pagar no se le da a quien tipea el email de otro');
+  assert.match(c, /const base = cobros\.find\(\(c\) => c\.tipo === 'suscripcion'/, 'alta 7: reactivar con el precio de la suscripción, no el de la deuda');
+  const d = fuente('lib/plan-deuda.ts');
+  assert.match(d, /if \(cobrando\.suscripcion_estado === 'activa'\) return \{ tipo: 'nada'/, 'alta 2');
+  assert.match(d, /ciclosPerdidosMp\(hasta, deuda\.ciclos, ahora\)/, 'media 8');
+  assert.match(d, /for \(const x of faltan\.filter\(\(f\) => \(f\.monto \?\? 0\) > 0\)\.reverse\(\)\)/, 'media 9: una factura de $0 no se asienta');
+  assert.match(fuente('app/api/planes/comprar/route.ts'), /const ref = codigoRefLimpio\(req\.cookies\.get\(COOKIE_REF\)\?\.value\) \?\? pedido\.ref;/, 'media 14');
+});
+
 test('el cobro de la deuda y el de reactivar quedan atados al negocio ANTES de devolver el link', () => {
   const d = fuente('lib/plan-deuda.ts');
-  const atar = d.indexOf(".update({ alta_ws: ws, meses: deuda.ciclos })");
+  const atar = d.indexOf(".update({ alta_ws: ws, meses: aPagar.ciclos })");
   assert.ok(atar > 0 && atar < d.indexOf("return { tipo: 'link', url: r.link"));
   const c = fuente('lib/compra-plan.ts');
   const atar2 = c.indexOf(".update({ alta_ws: ws, ...(planId ? { plan_mako: planId } : {}) })");

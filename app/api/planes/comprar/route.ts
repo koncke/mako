@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
   if (!leido.ok) return leido.bot ? Response.json({ ok: true }) : Response.json({ error: leido.error }, { status: 400 });
   const pedido = leido.pedido;
   if (!rateLimit(`planes-comprar:email:${pedido.email}`, 6, HORA)) return Response.json({ error: 'Demasiados intentos con ese email. Prueba en un rato.' }, { status: 429 });
-  // El código de partner: el del formulario, o el de la cookie que dejó /r/<código>. El PRIMERO vale (lo resuelve /r).
-  const ref = pedido.ref ?? codigoRefLimpio(req.cookies.get(COOKIE_REF)?.value);
+  // El código de partner: el PRIMERO vale (revisión del 23/10, media 14): la cookie que dejó /r/<código> gana sobre el `?ref=`.
+  const ref = codigoRefLimpio(req.cookies.get(COOKIE_REF)?.value) ?? pedido.ref;
 
   const r = await iniciarCompraDePlan({ ...pedido, ref });
   if (!r.ok) return Response.json({ error: r.error, ...(r.elegir ? { elegir: r.elegir } : {}) }, { status: r.status });

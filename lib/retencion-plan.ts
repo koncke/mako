@@ -160,7 +160,9 @@ export async function restaurarRetencionesMp(): Promise<{ restauradas: number }>
   let restauradas = 0;
   try {
     const db = getSupabaseServer();
-    const { data } = await db.from('app_settings').select('workspace_id, value').eq('key', CLAVE_RETENCION).like('value', '%"pasarela":"mercadopago"%').limit(200);
+    const { data } = await db.from('app_settings').select('workspace_id, value').eq('key', CLAVE_RETENCION).like('value', '%"pasarela":"mercadopago"%')
+      // Las ya restauradas no ocupan lugar (revisión del 23/10, baja 16), y en orden: ninguna queda sin turno para siempre.
+      .not('value', 'like', '%"restaurada":true%').order('updated_at', { ascending: true }).limit(200);
     const plataforma = await wsSuperAdmin();
     const token = await credDelCliente('MERCADOPAGO_ACCESS_TOKEN', plataforma);
     if (!token) return { restauradas };
