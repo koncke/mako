@@ -6104,7 +6104,12 @@ interruptor y la clave) · la puerta 2 (`permisoDeLaClaveDelNegocio`, lib/anthro
   lo pida un pin; las cascadas lo sacan aunque una lista lo nombre (`deTexto`); la red lo trae sólo para audio. La
   primera tapaba a las otras dos, y dos roturas quedaron en verde. Se separaron mirando los errores de la cascada.
 - **Cinco tests de D6b tenían de CONTROL «un negocio con sólo Gemini, sin su IA».** Con su Gemini como su IA, el control
-  quedó adentro de D6b y los tests decían «fuga». No se aflojaron: se cambió el negocio de cada uno. Lo que no es su IA ahora
+  quedó adentro de D6b y los tests decían «fuga». No se aflojaron: se cambió el negocio de cada uno.
+  **Había un SEXTO, y se vio recién al mergear main (23/10):** `tests/d6b-confirmar.test.ts` (confirmar una tarjeta) contaba
+  todo pedido a `generativelanguage` como fuga, y su negocio tiene su OpenAI y su Gemini: dos rojos. Ahí el host no alcanza
+  para decidir, así que el hijo anota DE QUIÉN es la clave (`#negocio` / `#plataforma`) y la fuga es la clave de la
+  plataforma. Y su rotura cambió: sacar la puerta de D6b ya no fuga sola (la plataforma tampoco le presta afuera); lo que lo
+  pone rojo es abrirle la red a un negocio (1 fallo, 3 pases). Lo que no es su IA ahora
   es Groq (escucha con la suya, y es el control de la nota de voz); y «sin su IA» ya no sale a ningún lado. Los vio correr los
   tests que LEEN los módulos tocados, no sólo los míos: 13 rojos en 5 archivos (solo-su-ia, d6b-puerta, d6b-rutas, ia-pc,
   ai-step-conecta-claude). **Regla:** cuando cambia qué cuenta como «su IA», se buscan los tests cuyo control lo daba por hecho.
