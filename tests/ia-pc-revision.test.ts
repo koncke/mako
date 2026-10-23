@@ -27,7 +27,8 @@
 // agendar · instalar con un 400 · la clave de API para un closer → cada una 13 / 1. Y EPIPE sin escucha: el 'error' tira
 // el proceso del test entero, que es lo que protege. Restaurado: 14 / 0.
 // Y SU OpenAI con «Tu ChatGPT» elegido (23/10/2026, base 15 / 0): sin crédito como si no fuera de su cuenta · el error de
-// otra IA atribuido a su OpenAI · el 404 sin ticket → cada una 14 / 1.
+// otra IA atribuido a su OpenAI · el 404 sin ticket · el porqué sin lo de su OpenAI · `deSuCuenta` sin su OpenAI → cada
+// una 14 / 1.
 //
 // Correr: npx tsx --test tests/ia-pc-revision.test.ts
 // =============================================================================
@@ -309,7 +310,12 @@ test('su OpenAI que falla con «Tu ChatGPT» elegido se le dice: su cuenta, o el
   // En el turno: sólo con su ChatGPT elegido, y un 404 sigue abriendo el ticket (puede ser un id nuestro).
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
   assert.match(t, /const suOpenAI = ia\?\.cuenta === 'openai' \? falloDeSuOpenAI\(fallo\) : null;/);
-  assert.match(t, /\.\.\.\(fallo && !sinIA && !falloDeLaPc && \(!deSuClave \|\| suOpenAI === 'no-existe'\) \? \[\{ nombre: 'responder'/);
+  assert.match(t, /const deSuOpenAI = suOpenAI === 'cuenta' \? \{ aviso: AVISO_SU_OPENAI, conectar: 'openai' \}\s*: suOpenAI \? \{ aviso: avisoSinElModelo\(/);
+  assert.match(t, /const deSuCuenta = deSuClave \?\? deSuOpenAI;/);
+  // El porqué y el botón salen de lo de su cuenta, de cualquiera de las dos.
+  assert.match(t, /porQueSinRespuesta\(\{ delaPc, deSuClave: deSuCuenta\?\.aviso,/);
+  assert.match(t, /let conectar = sinIAEs\?\.conectar \?\? \(respuesta \? null : deSuCuenta\?\.conectar \?\? null\);/);
+  assert.match(t, /\.\.\.\(fallo && !sinIA && !falloDeLaPc && \(!deSuCuenta \|\| suOpenAI === 'no-existe'\) \? \[\{ nombre: 'responder'/);
 });
 
 test('su clave de Claude que falla (sin crédito, revocada) o en pausa se le dice: no es un ticket de bug', () => {
@@ -322,7 +328,7 @@ test('su clave de Claude que falla (sin crédito, revocada) o en pausa se le dic
   assert.equal(esDeConfiguracion({ mensaje: 'falló la IA (tu clave de Claude: HTTP 400 bad request)' }), false);
   assert.match(AVISO_SU_CLAVE, /Tu clave de Claude no funcionó/);
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(t, /const deSuClave = fallo\?\.includes\(CLAUDE_EN_PAUSA\) \? \{ aviso: CLAUDE_EN_PAUSA, conectar: null \}\s*: falloDeSuClave\(fallo\) \? \{ aviso: AVISO_SU_CLAVE, conectar: 'anthropic' \}\s*: suOpenAI === 'cuenta' \? \{ aviso: AVISO_SU_OPENAI, conectar: 'openai' \}\s*: suOpenAI \? \{ aviso: avisoSinElModelo\(/);
+  assert.match(t, /const deSuClave = fallo\?\.includes\(CLAUDE_EN_PAUSA\) \? \{ aviso: CLAUDE_EN_PAUSA, conectar: null \}\s*: falloDeSuClave\(fallo\) \? \{ aviso: AVISO_SU_CLAVE, conectar: 'anthropic' \} : null;/);
   // Con su propio Claude (D6b), «Conectar tu IA» abre su Claude o su OpenAI, nunca Gemini.
   assert.equal(iaParaConectar(['gemini'], true), 'anthropic');
   assert.equal(iaParaConectar(['gemini', 'openai'], true), 'openai');

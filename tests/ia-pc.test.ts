@@ -178,7 +178,7 @@ test('el turno: la PC de QUIEN escribe, sólo en línea Y con sesión, con su ru
   assert.match(t, /if \(!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos' && ia\?\.cuenta !== 'pc'\) \{/);
   assert.match(t, /soloSuIA: negocio\.suIA/, 'D6b: por negocio, sin la cascada barata');
   // Lo que falla en la PC del cliente, o en SU cuenta, no abre un ticket de bug.
-  assert.match(t, /\.\.\.\(fallo && !sinIA && !falloDeLaPc && \(!deSuClave \|\| suOpenAI === 'no-existe'\) \? \[\{ nombre: 'responder'/);
+  assert.match(t, /\.\.\.\(fallo && !sinIA && !falloDeLaPc && \(!deSuCuenta \|\| suOpenAI === 'no-existe'\) \? \[\{ nombre: 'responder'/);
   assert.match(t, /const delaPc = avisoDeLaPc\(falloDeLaPc, false, \{ repone: reponeDeLaPc, tz: tzAviso \}\);/);
   const a = sinComentarios(leer('lib/anthropic.ts'));
   // Desde IA6 (22/10/2026) también cuando lo decidió la puerta de la capa de IA (`soloSuIA()`), no sólo el turno.
