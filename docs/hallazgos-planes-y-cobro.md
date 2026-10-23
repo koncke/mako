@@ -1134,3 +1134,70 @@ adversarial y quedó arreglado:
 
 **Vive en:** lib/subir-plan.ts · lib/subir-plan-reglas.ts · lib/pasarela-plan-api.ts (`subirPlanStripe`) ·
 app/configuraciones/plan · tests/subir-plan.test.ts.
+
+## El primer cobro real de un plan de MaKo: la revisión antes del lanzamiento (23/10/2026)
+
+El lanzamiento del 25/10 es la primera vez que este camino corre con claves reales (0 cobros en producción). Revisión
+adversarial de 57 agentes (wf_a4441b10-5ea, chat «Cobros»): cinco recorridos (conectar en el ws9, comprar con Stripe,
+comprar con Mercado Pago, el alta, el mes siguiente) y escépticos por hallazgo. Ninguno quedó en «bloquea»; lo que pega
+el domingo se arregló en la rama `cobros-lanzamiento-2310`. La prueba de humo para Martín: [prueba-humo-cobro-mako.md](prueba-humo-cobro-mako.md).
+
+⚠️ **Dos diagnósticos obvios eran los equivocados:**
+- **«La versión de Stripe está inventada».** `STRIPE_VERSION = '2026-09-30.endive'` nunca corrió con claves y parecía un
+  bloqueo total. Es la vigente: docs.stripe.com/upgrades la usa en todos sus ejemplos (leído el 23/10).
+- **«Quien paga sin Gmail no puede entrar NUNCA»** (la sección de más arriba). Ya no es cierto: desde el 15/10 hay correo y
+  contraseña, y «¿Olvidaste tu contraseña?» deja crear la primera (la automatización #251 está prendida en el ws9, medido
+  por el Cerebro). El problema real era que NADIE LO DECÍA: el mail de acceso y /listo sólo hablaban de Google, y 10 de
+  los 14 clientes de Mauricio no tienen Gmail (lib/curso-acceso.ts). Arreglo: dos frases.
+
+**Lo que no se ve leyendo el código, y la regla que queda:**
+- **Reembolsar no corta una suscripción.** Stripe y Mercado Pago devuelven el pago y siguen cobrando; MaKo asienta la
+  renovación como plata nueva, a propósito. /admin/cobros sólo tenía «Reembolsar», y la ficha del CRM (donde estaba
+  «Cancelar») no existe en el ws9. Ahora la casilla «Cortar también la suscripción» viene marcada y corta ANTES de
+  devolver, y hay un «Cortar la suscripción» propio (también con el primer pago ya devuelto). Regla en AGENTS.md.
+- **El alta no mira el modo del cobro**: con claves de prueba conectadas en el ws9, cualquiera sacaba una cuenta real con
+  la tarjeta 4242. La guarda no va en el alta (Martín necesita la cuenta de prueba para la prueba de humo) sino en lo que
+  se OFRECE: `ofertaDelPlan` saca las pasarelas en modo prueba salvo para el super admin. Regla en AGENTS.md.
+- **Una firma para dos avisos.** Hay un solo `STRIPE_WEBHOOK_SECRET` por cuenta y dos avisos en Stripe (el real y el de
+  prueba), cada uno con su firma: una `sk_test` pegada encima de la `sk_live` guardaba la de prueba, y cada pago real daba
+  401 hasta volver a la real. Ahora se rechaza («desconecta primero»). Al revés (de prueba a real) es el camino normal.
+- **Los avisos de suscripción de Mercado Pago pueden llegar sin `user_id`**, y sin él la ruta no sabe de qué negocio son:
+  los anota «sin-workspace» y contesta 200 (MP no reintenta). El preapproval no acepta `notification_url`, así que el único
+  lugar para el `?u=<cuenta>` es la dirección que se pega en el panel: la tarjeta ahora la muestra completa. *Falta
+  confirmarlo con un aviso real* (si MP manda el cuerpo de suscripción con `user_id`, el `?u=` sobra y no molesta).
+- **El setting `planes.mako` reemplaza la lista ENTERA**, y nada en la app lo escribía: con sólo Mercado Pago conectada,
+  /planes no vendía porque no había dónde cargar el precio en pesos. La tarjeta «Planes en Mercado Pago» de /admin/cobros
+  lo escribe con todos los planes, leídos con `getSettingEstricto`: con `getSetting` un error de lectura se leía como «no
+  hay setting» y se habrían pisado los planes cargados con los de fábrica.
+- **«Le llegó el acceso» sólo si el mail salió.** Con Resend caído el alta queda 'hecha' y el fallo vive en `alta_motivo`;
+  el aviso y /listo leían sólo el estado. El prefijo es UNA constante (`PREFIJO_MAIL_NO_SALIO`) que escriben dos lugares
+  y leen dos.
+- **Un alta cortada se reintentaba como «Ya tenía cuenta»** sobre la cuenta que ella misma creó (la función muere entre
+  crear al usuario y anotar 'hecha'). El reclamo compare-and-set evita dos altas a la vez, no una repetida. Ahora el
+  reintento reconoce su cuenta (`cuentaDeUnAltaCortada`: creada por un pago de esa pasarela, después del cobro, y sin otro
+  cobro que la tenga).
+- **«Ya tenía cuenta» no tenía salida**: el alta no le cambia la capa a nadie a ciegas (bien), pero tampoco había con qué
+  atar el cobro a esa cuenta. «Darle el plan a su cuenta» lo hace, sólo si el correo es el ADMIN de un negocio que ningún
+  otro cobro tiene.
+- **La guía de la clave restringida de Stripe** pedía menos permisos de los que el código usa (Coupons para la retención,
+  Disputes para los contracargos, Prices/Products para «Vincular cobro»). Conectar sólo prueba `GET /v1/account` y crear el
+  aviso, así que una `rk_` armada con la guía vieja conectaba bien y fallaba después con un 403.
+
+**Lo que quedó SIN hacer, con el archivo donde vive** (lo de noviembre tiene que estar antes de la primera renovación,
+~25/11):
+| Qué | Dónde |
+|---|---|
+| Pagar la deuda de una suscripción que la pasarela dio de baja no la cierra: la mora vuelve, «Reactivar» se traba y «Pagar» abre otro cobro (antes de prender el corte) | `lib/plan-acceso-reglas.ts:221` · `lib/compra-plan.ts` (`reactivarPlan`) |
+| Las renovaciones dependen sólo del aviso: ningún cron recupera una perdida | `lib/cobros.ts` (`reconciliarCobros`) |
+| Con el corte apagado la deuda deja de verse a los 7 días, nunca en el teléfono, y nadie avisa por mail | `lib/plan-deuda.ts:229` |
+| Los «meses gratis» de MaKo Partners no los descuenta ninguna pasarela | `lib/partners-programa.ts:186` |
+| «Reembolsar» una suscripción devuelve el PRIMER pago, no el último; y una suscripción con el primer pago devuelto y viva deja de verse en «Tu plan» | `lib/cobros.ts` (`reembolsarCobro`, `suscripcionDeMakoDe`) |
+| El cron mira sólo los 50 cobros pendientes más nuevos | `lib/cobros.ts:1406` |
+| Un rechazo que llega después del aprobado pinta «Renovación fallida» en un primer pago | `lib/cobros.ts` (`aplicarPagoFallido`) |
+| Dos checkouts abiertos del mismo comprador se pueden pagar los dos; /listo no tiene plazo ni dice «no vuelvas a pagar» | `lib/compra-plan.ts:137` · `app/pagar/[token]/listo/page.tsx` |
+| El link de un cobro creado con la clave de prueba abre un checkout real después de pasar a la real | `lib/cobros.ts:553` |
+| En Stripe no hay dónde cambiar la tarjeta (hoy: los mails de Stripe) | `lib/plan-deuda.ts:152` |
+| Los negocios que nacen de una compra quedan fuera del 2FA obligatorio | `lib/alta-cliente.ts:66` |
+| El aviso de la venta nombra el plan por la capa (un Pro dice «plan Agencia») | `lib/cobros.ts` (`lineaDelAlta`, `asentarAlta`) |
+| (Corte) `cobrosDeLugares` sin paginar | `lib/plan-acceso.ts:59` |
+**Vive en:** `lib/cobros.ts` · `lib/compra-plan.ts` · `lib/cobros-conexion.ts` · `app/admin/cobros/` · `app/api/integraciones/credencial/route.ts` · `tests/cobro-lanzamiento.test.ts`.

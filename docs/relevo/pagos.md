@@ -5,6 +5,17 @@
 [hallazgos-planes-y-cobro.md](../hallazgos-planes-y-cobro.md) → «La pasarela» (Stripe, Mercado Pago, el plan de MaKo y
 el cliente de agencia). La historia de cada cambio está en `git log`.
 
+## 23/10/2026 · el primer cobro real, antes del lanzamiento (chat «Cobros», cuenta `claude1`)
+
+Rama `cobros-lanzamiento-2310` (worktree `C:/Users/marti/wtp-lanz`), pasada al Cerebro para el tren. Lo aprendido:
+docs/hallazgos-planes-y-cobro.md → «El primer cobro real de un plan de MaKo», con la tabla de lo que falta (lo de
+noviembre va antes de la primera renovación, ~25/11). **La prueba de humo para Martín:** [docs/prueba-humo-cobro-mako.md](../prueba-humo-cobro-mako.md),
+apenas conecte la pasarela y ANTES de que las landings manden a /planes.
+
+En /admin/cobros: «Cortar la suscripción», la casilla de cortar al reembolsar, «Darle el plan a su cuenta» y «Planes en
+Mercado Pago» (el precio en pesos). En /planes, las claves de prueba sólo para el super admin. En /integraciones, la
+dirección del aviso de MP con `?u=` y una clave de prueba de Stripe que ya no pisa a la real.
+
 ## 17/10/2026 · los pendientes B4 (rama `pend-b4-1710`, agente «Pendientes B4: Ads y plata»)
 
 Lo aprendido: `docs/hallazgos-pagos.md` §5 y `docs/hallazgos-planes-y-cobro.md` → «Quien deja de pagar deja de entrar».
