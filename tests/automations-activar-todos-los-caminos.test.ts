@@ -114,7 +114,14 @@ test('(a) cada llamador de `setSecuenciaActiva` que puede prender maneja la dupl
   const doer = FUENTE.get('lib/mako-doer-acciones.ts')!;
   assert.match(doer, /const otra = activa \? await runWithWorkspace\(ws, \(\) => duplicadaDeLaActivacion\(secuenciaId\)\) : null;/);
   assert.match(doer, /proponer\('nutricion_toggle', \{ secuenciaId, activa, \.\.\.\(otra \? \{ aunqueDuplique: true \} : \{\}\) \},/);
-  assert.match(doer, /await setSecuenciaActiva\(id, activa, \{ aunqueDuplique: payload\.aunqueDuplique === true \}\);/);
+  // (23/10/2026: con `ws`, para el tope del plan que pregunta `setSecuenciaActiva`; MaKo por WhatsApp corre sin sesión.)
+  assert.match(doer, /await setSecuenciaActiva\(id, activa, \{ aunqueDuplique: payload\.aunqueDuplique === true, ws \}\);/);
+  // Y EL TOPE DEL PLAN (MaKo Esencial: hasta 3 activas) lo pregunta la PUERTA, antes de validar: cualquier camino nuevo lo hereda.
+  const puerta = cuerpo(FUENTE.get('lib/nutricion.ts')!, 'export async function setSecuenciaActiva(');
+  assert.ok(puerta.indexOf('topeAlActivar(id, o.ws)') > 0 && puerta.indexOf('topeAlActivar(id, o.ws)') < puerta.indexOf('await validarActivacion(id)'), 'el tope del plan no está en la puerta, antes de validar');
+  for (const f of ['app/api/email/secuencias/route.ts', 'app/api/whatsapp/secuencias/route.ts', 'lib/mako-doer-acciones.ts']) {
+    assert.doesNotMatch(FUENTE.get(f)!, /topeAlActivar\(/, `${f} pregunta el tope por su cuenta: lo pregunta la puerta`);
+  }
 });
 
 test('(a) Publicar una ACTIVA pregunta lo mismo, ANTES de escribir los pasos (`publicarPasos`)', () => {

@@ -10,8 +10,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { topeAlActivar } from '@/lib/tope-automations';
-import { setSecuenciaActiva, publicarPasos, duplicadaDeLaActivacion, DuplicadaError, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
+import { setSecuenciaActiva, publicarPasos, duplicadaDeLaActivacion, DuplicadaError, PasosInvalidosError, TopeDelPlanError, type PasoSecuencia } from '@/lib/nutricion';
 import {
   getEmailKpis, getEmailSecuencias, crearEmailSecuencia, actualizarMetaEmailSecuencia, DisparadorEmailError,
   ETAPAS, TRIGGERS,
@@ -88,11 +87,6 @@ export async function PATCH(req: NextRequest) {
       if (body.activa && (await getRolWsEfectivo()) !== 'admin') {
         return Response.json({ ok: false, error: 'Solo el admin puede activar secuencias.' }, { status: 403 });
       }
-      // El tope del plan (MaKo Esencial: hasta 3 activas, lib/tope-automations.ts), antes de prender nada.
-      if (body.activa) {
-        const tope = await topeAlActivar(id);
-        if (tope) return Response.json({ ok: false, error: tope, tope: true }, { status: 403 });
-      }
       await setSecuenciaActiva(id, body.activa, { aunqueDuplique: body.aunqueDuplique === true });
     }
     return Response.json({ ok: true });
@@ -102,6 +96,8 @@ export async function PATCH(req: NextRequest) {
     if (e instanceof PasosInvalidosError) return Response.json({ ok: false, error: e.message }, { status: 400 });
     // Otra activa ya le escribe lo mismo a la misma gente (revisión del 21/10/2026): se pregunta, como en Automations.
     if (e instanceof DuplicadaError) return Response.json({ ok: false, error: e.message, duplicada: e.otra }, { status: 409 });
+    // El tope del plan (MaKo Esencial: hasta 3 activas): lo tira `setSecuenciaActiva`, la única puerta que prende.
+    if (e instanceof TopeDelPlanError) return Response.json({ ok: false, error: e.message, tope: true }, { status: 403 });
     console.error(`[api:email/secuencias PATCH] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
   }

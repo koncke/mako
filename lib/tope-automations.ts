@@ -1,9 +1,9 @@
 // =============================================================================
 // tope-automations — «hasta 3 automatizaciones activas» del Esencial, al ACTIVAR una (23/10/2026)
 // =============================================================================
-// docs/ofertas-mako.md y lib/topes-plan.ts (`automations.activas`). Se pregunta en cada puerta que prende una automatización
-// (app/api/email/secuencias, app/api/whatsapp/secuencias y lo que pide MaKo, lib/mako-doer-acciones.ts) ANTES de
-// `setSecuenciaActiva`, que vive en lib/nutricion.ts y es del chat «Automations» (no se toca mientras arregla el motor).
+// docs/ofertas-mako.md y lib/topes-plan.ts (`automations.activas`). Lo pregunta `setSecuenciaActiva` (lib/nutricion.ts), la
+// única puerta que prende una automatización, y tira `TopeDelPlanError` (23/10/2026: estaba en cada puerta; ahí lo cubre
+// cualquier camino nuevo). Las rutas lo contestan 403 con `tope: true` y MaKo lo dice en su resumen.
 // ⚠️ SÓLO AL ESENCIAL DE LA PASARELA (lib/plan-esencial.ts): al ws1, a la plataforma, a los acuerdos a mano y al Pro, nunca.
 // ⚠️ PRENDER UNA QUE YA ESTÁ PRENDIDA no cuenta como una más (el lienzo vuelve a mandar «activa» al publicar).
 import 'server-only';

@@ -64,21 +64,25 @@ test('3. la puerta de la página manda al cartel con «Pasar a Pro», y la barra
   assert.match(sinComentarios(leer('app/m/mas/page.tsx')), /esencial && esNavSoloPro\(f\.key\) \? \{ segunda: `De MaKo Pro · \$\{ROTULO_PASAR_A_PRO\}` \}/);
 });
 
-test('4. el tope de automatizaciones: 3 en el Esencial, preguntado en cada puerta ANTES de prender, sin tocar el motor', () => {
+// ⚠️ 23/10/2026: el tope se pregunta ADENTRO de `setSecuenciaActiva` (la única puerta que prende), no en cada ruta.
+test('4. el tope de automatizaciones: 3 en el Esencial, preguntado en la puerta del motor ANTES de prender', () => {
   assert.equal(topeDe('completo', 'automations.activas'), 3);
   assert.equal(cabeOtra('completo', 'automations.activas', 2), true);
   assert.equal(cabeOtra('completo', 'automations.activas', 3), false);
   assert.equal(topeDe('agencia', 'automations.activas'), null, 'el Pro, sin tope');
-  for (const f of ['app/api/email/secuencias/route.ts', 'app/api/whatsapp/secuencias/route.ts', 'lib/mako-doer-acciones.ts']) {
-    const src = sinComentarios(leer(f));
-    const i = src.indexOf('topeAlActivar(id');
-    const j = src.indexOf('setSecuenciaActiva(id');
-    assert.ok(i > 0 && j > i, `${f}: el tope tiene que preguntarse ANTES de prender`);
+  const motor = sinComentarios(leer('lib/nutricion.ts'));
+  const puerta = motor.slice(motor.indexOf('export async function setSecuenciaActiva('), motor.indexOf('.update({ activa, updated_at: ahoraISO() })'));
+  assert.match(puerta, /if \(activa\) \{\n\s+const \{ topeAlActivar \} = await import\('\.\/tope-automations'\);\n\s+const tope = await topeAlActivar\(id, o\.ws\);\n\s+if \(tope\) throw new TopeDelPlanError\(tope\);/, 'el tope tiene que preguntarse ANTES de prender, en la puerta');
+  // Las rutas lo contestan 403 con `tope: true`; MaKo lo dice (y le pasa el negocio: corre sin sesión).
+  for (const f of ['app/api/email/secuencias/route.ts', 'app/api/whatsapp/secuencias/route.ts']) {
+    assert.match(sinComentarios(leer(f)), /instanceof TopeDelPlanError\) return Response\.json\(\{ ok: false, error: [a-z.]+, tope: true \}, \{ status: 403 \}\);/, f);
   }
+  const doer = sinComentarios(leer('lib/mako-doer-acciones.ts'));
+  assert.match(doer, /await setSecuenciaActiva\(id, activa, \{ aunqueDuplique: payload\.aunqueDuplique === true, ws \}\);/);
+  assert.match(doer, /if \(e instanceof TopeDelPlanError\) return \{ ok: false, resumen: `No activé la secuencia #\$\{id\}: \$\{e\.message\}` \};/);
   const tope = sinComentarios(leer('lib/tope-automations.ts'));
   assert.match(tope, /if \(ws == null \|\| !\(await esEsencialDe\(ws\)\)\) return null;/, 'sólo al Esencial de la pasarela');
   assert.match(tope, /\?\.activa === true\) return null;/, 'volver a prender una prendida no cuenta');
-  assert.doesNotMatch(leer('lib/nutricion.ts'), /tope-automations|topeAlActivar/, 'el motor es de Automations: no se toca');
 });
 
 // PROBADO ROMPIÉNDOLO (23/10/2026, base 4/0, de a una; cada una → 3/1):
@@ -86,6 +90,6 @@ test('4. el tope de automatizaciones: 3 en el Esencial, preguntado en cada puert
 //   · el ws1 sin exención                                             → 1
 //   · requireCapa sin el candado                                      → 3
 //   · el desplegable de la barra sin el candado                       → 3
-//   · /api/email/secuencias sin preguntar el tope                     → 4
+//   · /api/email/secuencias sin preguntar el tope                     → 4 (23/10: `setSecuenciaActiva` sin preguntarlo → 4)
 //   · una automatización YA prendida contando como otra más           → 4
 //   · lib/plan-esencial.ts importando lib/cobros (lo pescó D6b: /api/auth/me alcanzaba una IA)  → 1
