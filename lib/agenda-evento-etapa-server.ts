@@ -31,6 +31,8 @@ import { upsertRouting, soltarIdentificador } from './webhook-routing';
 import { listarEventTypes, crearEventTypeCalendly, editarEventTypeCalendly } from './calendly-agenda';
 import { listarEventTypesCalcom, crearEventTypeCalcom, editarEventTypeCalcom } from './calcom';
 import { conCache, crearCacheAgenda, llaveAgenda, type CacheAgenda } from './agenda-cache';
+import { CUENTA_PRINCIPAL, cuentaValida, nombreDeCuenta } from './cuentas-integracion';
+import { cuentasConToken, tokenDeAgenda } from './cuentas-agenda-server';
 import { listarFunnels } from './funnels';
 import { googleCalendarConectado } from './google-calendar';
 import { filaAFunnel, COLS, type FilaFunnel } from './funnel-fila';
@@ -197,6 +199,13 @@ export type EventoDeAgenda = {
   /** false: sigue vinculado pero ya no aparece en la cuenta (se desactivó o se borró allá). */
   enLaCuenta: boolean;
   vinculo: { funnelId: number; funnel: string; etapa: string; etapaNombre: string; reunion: 'R1' | 'R2' | null } | null;
+  /**
+   * La cuenta del negocio que lo tiene (varias por proveedor, fase B de Cobros, 23/10/2026): 'principal', 'c2'… null sólo
+   * en un vinculado que ya no aparece en ninguna (`enLaCuenta: false`). Con ella se edita y se elige dónde crear.
+   */
+  cuenta: string | null;
+  /** El nombre de esa cuenta («Calendly», «Agenda del equipo»); null con `cuenta` null. */
+  cuentaNombre: string | null;
 };
 
 /** Una etapa a la que se le puede vincular un evento: de reunión, R1 o R2, en un embudo activo. */
@@ -204,8 +213,11 @@ export type EtapaVinculable = { funnelId: number; funnel: string; etapa: string;
 
 export type AgendaDelNegocio = {
   eventos: EventoDeAgenda[];
-  /** Por proveedor: si está conectado y, si no se pudo leer su cuenta, por qué. */
-  proveedores: Array<{ proveedor: ProveedorAgenda; conectado: boolean; error: string | null }>;
+  /**
+   * UNA fila por CUENTA (desde la fase B de Cobros, 23/10/2026; antes, una por proveedor): si está conectada y, si no se
+   * pudo leer, por qué. Un proveedor sin ninguna cuenta con token sale igual, con su principal.
+   */
+  proveedores: Array<{ proveedor: ProveedorAgenda; cuenta: string; cuentaNombre: string; conectado: boolean; error: string | null }>;
   etapas: EtapaVinculable[];
   /** false mientras falte la migración 0293: se lista, pero no se puede vincular. */
   sePuedeVincular: boolean;
@@ -219,6 +231,10 @@ export type AgendaDelNegocio = {
 
 /** Un evento de la cuenta con los otros nombres con los que alguien lo puede pegar o nombrar. */
 type EventoDeCuenta = { identificador: string; nombre: string; duracionMin: number | null; alias: string[] };
+/** El mismo, con la cuenta del negocio que lo tiene (no se guarda en la caché: un token reconectado cambia de cuenta). */
+type EventoConCuenta = EventoDeCuenta & { cuenta: string };
+/** Cada cuenta de un proveedor: si lee su agenda y, si no se pudo, por qué. */
+type CuentaLeida = { cuenta: string; cuentaNombre: string; conectado: boolean; error: string | null };
 
 /**
  * Los eventos de UN proveedor: los de su cuenta (con el token o la API key) más los que estén
@@ -227,43 +243,57 @@ type EventoDeCuenta = { identificador: string; nombre: string; duracionMin: numb
  * Es LA unidad de lectura de una cuenta (23/10/2026, acordado con Cobros: su fase B la pasa a «por cuenta» adentro). Lo
  * que contesta la API se guarda un minuto (`cacheCuentas`); `fresco` lo vuelve a preguntar.
  */
-async function eventosDelProveedor(proveedor: ProveedorAgenda, fresco = false): Promise<{ eventos: EventoDeCuenta[]; creds: { R1: string | null; R2: string | null }; conectado: boolean; error: string | null }> {
+async function eventosDelProveedor(proveedor: ProveedorAgenda, fresco = false): Promise<{ eventos: EventoConCuenta[]; creds: { R1: string | null; R2: string | null }; conectado: boolean; error: string | null; cuentas: CuentaLeida[] }> {
   const claves = CREDS_DE_REUNION[proveedor];
-  // El secreto se pide junto con lo demás (antes, después de R1 y R2: un viaje más en fila).
-  const pSecreto = credWs(proveedor === 'calendly' ? 'CALENDLY_API_TOKEN' : 'CALCOM_API_KEY');
-  pSecreto.catch(() => {});
+  // VARIAS CUENTAS (fase B de Cobros, 23/10/2026): la lista de CADA cuenta del negocio, en paralelo, cada una con su token
+  // y su caché (la llave lleva la huella de su token: dos cuentas no comparten lista). Los tokens se piden junto con lo
+  // demás (antes, después de R1 y R2: un viaje más en fila).
+  const pCuentas = cuentasConToken(proveedor);
+  pCuentas.catch(() => {});
   const [r1, r2, ws] = await Promise.all([credWs(claves.R1).catch(() => null), credWs(claves.R2).catch(() => null), getWorkspaceActual().catch(() => null)]);
   const creds = { R1: r1?.trim() || null, R2: r2?.trim() || null };
-  let eventos: EventoDeCuenta[] = [];
-  let error: string | null = null;
-  let conAcceso = false;
-  try {
-    const secreto = await pSecreto;
-    conAcceso = !!secreto;
-    if (secreto) {
-      const llave = ws == null ? null : llaveAgenda(ws, proveedor, secreto);
-      // Una COPIA: abajo se le suman las R1/R2 que la cuenta no devolvió, y lo guardado no se toca.
-      eventos = [...await conCache(cacheCuentas, llave, fresco, async () => (proveedor === 'calendly'
-        ? (await listarEventTypes(secreto)).map((e) => ({
+  const eventos: EventoConCuenta[] = [];
+  const cuentas: CuentaLeida[] = [];
+  let lista: Array<{ cuenta: string; nombre: string; token: string }> = [];
+  let errorLista: string | null = null;
+  try { lista = await pCuentas; } catch (e) { errorLista = msg(e).slice(0, 200); }
+  const leidas = await Promise.all(lista.map(async (c) => {
+    try {
+      const llave = ws == null ? null : llaveAgenda(ws, proveedor, c.token);
+      // Una COPIA con su cuenta: abajo se le suman las R1/R2 que no devolvió ninguna, y lo guardado no se toca.
+      const evs = await conCache(cacheCuentas, llave, fresco, async () => (proveedor === 'calendly'
+        ? (await listarEventTypes(c.token)).map((e) => ({
           identificador: e.uri, nombre: e.nombre || e.uri, duracionMin: e.duracionMin ?? null,
           alias: [e.nombre, e.schedulingUrl].filter((x): x is string => !!x && !!x.trim()),
         }))
-        : (await listarEventTypesCalcom(secreto)).map((e) => ({
+        : (await listarEventTypesCalcom(c.token)).map((e) => ({
           identificador: e.id, nombre: e.nombre, duracionMin: e.duracionMin,
           alias: [e.slug, e.nombre].filter((x): x is string => !!x && !!x.trim()),
-        }))))];
+        }))));
+      return { c, eventos: evs.map((e) => ({ ...e, cuenta: c.cuenta })), error: null as string | null };
+    } catch (e) {
+      return { c, eventos: [] as EventoConCuenta[], error: msg(e).slice(0, 200) };
     }
-  } catch (e) {
-    error = msg(e).slice(0, 200);
+  }));
+  for (const l of leidas) {
+    eventos.push(...l.eventos);
+    cuentas.push({ cuenta: l.c.cuenta, cuentaNombre: l.c.nombre, conectado: true, error: l.error });
   }
-  // Lo cargado como R1/R2 que la cuenta no devolvió (o que no se pudo leer) entra TAL CUAL: es el
-  // identificador con el que hoy ya se rutea, así que vincularlo no cambia de qué negocio es.
+  // Lo cargado como R1/R2 que ninguna cuenta devolvió (o que no se pudo leer) entra TAL CUAL, de la principal (la R1/R2
+  // es de la principal): es el identificador con el que hoy ya se rutea, así que vincularlo no cambia de qué negocio es.
   for (const c of [creds.R1, creds.R2]) {
     if (!c) continue;
     if (eventos.some((e) => mismoIdentificador(e.identificador, c) || e.alias.some((a) => mismoIdentificador(a, c)))) continue;
-    eventos.push({ identificador: c, nombre: c, duracionMin: null, alias: [] });
+    eventos.push({ identificador: c, nombre: c, duracionMin: null, alias: [], cuenta: CUENTA_PRINCIPAL });
   }
-  return { eventos, creds, conectado: conAcceso || !!creds.R1 || !!creds.R2, error };
+  // Sin la principal con token, igual tiene su fila: conectada si tiene la R1/R2 cargada (como antes).
+  if (!cuentas.some((c) => c.cuenta === CUENTA_PRINCIPAL)) {
+    cuentas.unshift({ cuenta: CUENTA_PRINCIPAL, cuentaNombre: nombreDeCuenta(proveedor, CUENTA_PRINCIPAL, null), conectado: !!creds.R1 || !!creds.R2, error: errorLista });
+  }
+  // El error del proveedor (el de antes, una sola línea): con varias cuentas, cada uno con su nombre.
+  const errores = cuentas.filter((c) => c.error);
+  const error = errores.length === 0 ? null : errores.length === 1 && cuentas.length === 1 ? errores[0].error : errores.map((c) => `${c.cuentaNombre}: ${c.error}`).join(' · ').slice(0, 300);
+  return { eventos, creds, conectado: lista.length > 0 || !!creds.R1 || !!creds.R2, error, cuentas };
 }
 
 const calza = (e: EventoDeCuenta, valor: string | null | undefined): boolean =>
@@ -299,7 +329,8 @@ export async function listarEventosDeAgenda(opts: { fresco?: boolean } = {}): Pr
   const proveedores: AgendaDelNegocio['proveedores'] = [];
   for (const [i, proveedor] of PROVEEDORES_AGENDA.entries()) {
     const p = cuentas[i];
-    proveedores.push({ proveedor, conectado: p.conectado, error: p.error });
+    for (const c of p.cuentas) proveedores.push({ proveedor, cuenta: c.cuenta, cuentaNombre: c.cuentaNombre, conectado: c.conectado, error: c.error });
+    const nombreDe = (cuenta: string) => p.cuentas.find((c) => c.cuenta === cuenta)?.cuentaNombre ?? nombreDeCuenta(proveedor, cuenta, null);
     const suyos = vinculos.filter((v) => v.proveedor === proveedor);
     const vinculoVisible = (v: VinculoEvento | undefined): EventoDeAgenda['vinculo'] => {
       if (!v) return null;
@@ -312,12 +343,13 @@ export async function listarEventosDeAgenda(opts: { fresco?: boolean } = {}): Pr
         credencial: calza(e, p.creds.R1) ? 'R1' : calza(e, p.creds.R2) ? 'R2' : null,
         enLaCuenta: true,
         vinculo: vinculoVisible(suyos.find((v) => calza(e, v.identificador))),
+        cuenta: e.cuenta, cuentaNombre: nombreDe(e.cuenta),
       });
     }
     // Vinculados que la cuenta ya no devuelve: se muestran igual, para poder desvincularlos.
     for (const v of suyos) {
       if (p.eventos.some((e) => calza(e, v.identificador))) continue;
-      eventos.push({ proveedor, identificador: v.identificador, nombre: v.nombre || v.identificador, duracionMin: null, credencial: null, enLaCuenta: false, vinculo: vinculoVisible(v) });
+      eventos.push({ proveedor, identificador: v.identificador, nombre: v.nombre || v.identificador, duracionMin: null, credencial: null, enLaCuenta: false, vinculo: vinculoVisible(v), cuenta: null, cuentaNombre: null });
     }
   }
   return { eventos, proveedores, etapas: etapasVinculables(funnels, nombres), sePuedeVincular: tabla, google: { conectado: googleConectado } };
@@ -327,52 +359,79 @@ export async function listarEventosDeAgenda(opts: { fresco?: boolean } = {}): Pr
 // «me gustaría que se pueda editar o crear eventos desde allí también» (Martín, sobre «Asignar evento»). Escribe en la
 // cuenta de Calendly o Cal.com del NEGOCIO (su token o su API key), nunca en otra. Nunca tira: el error va para la persona.
 
-export type EventoEscrito = { proveedor: ProveedorAgenda; identificador: string; nombre: string; duracionMin: number | null };
+/** `cuenta`: la cuenta del negocio donde quedó ('principal', 'c2'…). */
+export type EventoEscrito = { proveedor: ProveedorAgenda; identificador: string; nombre: string; duracionMin: number | null; cuenta: string };
+
+/**
+ * La cuenta con la que se escribe (varias por proveedor, fase B de Cobros, 23/10/2026): la pedida, si es válida; sin pedir,
+ * la principal. Para EDITAR sin cuenta pedida, la que TIENE el evento (con el token de otra, el proveedor contesta 404).
+ */
+async function cuentaParaEscribir(proveedor: ProveedorAgenda, pedida: unknown, identificador?: string): Promise<{ cuenta: string } | { error: string }> {
+  if (pedida != null && pedida !== '') {
+    if (!cuentaValida(pedida)) return { error: 'Esa cuenta no existe.' };
+    return { cuenta: pedida };
+  }
+  if (identificador) {
+    const p = await eventosDelProveedor(proveedor).catch(() => null);
+    const suya = p?.eventos.find((e) => mismoIdentificador(e.identificador, identificador) || e.alias.some((a) => mismoIdentificador(a, identificador)));
+    if (suya) return { cuenta: suya.cuenta };
+  }
+  return { cuenta: CUENTA_PRINCIPAL };
+}
 export type ResultadoEventoEscrito = { ok: true; evento: EventoEscrito } | { ok: false; error: string };
 
-export async function crearEventoDeAgenda(input: { proveedor: unknown; nombre?: unknown; duracionMin?: unknown }): Promise<ResultadoEventoEscrito> {
+export async function crearEventoDeAgenda(input: { proveedor: unknown; cuenta?: unknown; nombre?: unknown; duracionMin?: unknown }): Promise<ResultadoEventoEscrito> {
   if (!esProveedorAgenda(input.proveedor)) return { ok: false, error: 'La agenda es Calendly o Cal.com.' };
   const d = datosDeEvento(input);
   if (!d.ok) return d;
   const proveedor = input.proveedor;
+  const cta = await cuentaParaEscribir(proveedor, input.cuenta);
+  if ('error' in cta) return { ok: false, error: cta.error };
+  const { cuenta } = cta;
+  const otra = cuenta !== CUENTA_PRINCIPAL;
   try {
     if (proveedor === 'calendly') {
-      const token = await credWs('CALENDLY_API_TOKEN');
-      if (!token) return { ok: false, error: 'Conecta Calendly para crear eventos.' };
+      const token = await tokenDeAgenda('calendly', cuenta);
+      if (!token) return { ok: false, error: otra ? 'Esa cuenta de Calendly no está conectada.' : 'Conecta Calendly para crear eventos.' };
       const e = await crearEventTypeCalendly(token, { nombre: d.nombre!, duracionMin: d.duracionMin! });
       await olvidarCuentas(proveedor);
-      return { ok: true, evento: { proveedor, identificador: e.uri, nombre: e.nombre || d.nombre!, duracionMin: e.duracionMin || d.duracionMin! } };
+      return { ok: true, evento: { proveedor, identificador: e.uri, nombre: e.nombre || d.nombre!, duracionMin: e.duracionMin || d.duracionMin!, cuenta } };
     }
-    const key = await credWs('CALCOM_API_KEY');
-    if (!key) return { ok: false, error: 'Conecta Cal.com con su API key para crear eventos.' };
+    const key = await tokenDeAgenda('calcom', cuenta);
+    if (!key) return { ok: false, error: otra ? 'Esa cuenta de Cal.com no está conectada.' : 'Conecta Cal.com con su API key para crear eventos.' };
     const e = await crearEventTypeCalcom(key, { nombre: d.nombre!, duracionMin: d.duracionMin! });
     await olvidarCuentas(proveedor);
-    return { ok: true, evento: { proveedor, identificador: e.id, nombre: e.nombre, duracionMin: e.duracionMin } };
+    return { ok: true, evento: { proveedor, identificador: e.id, nombre: e.nombre, duracionMin: e.duracionMin, cuenta } };
   } catch (e) {
     return { ok: false, error: `${NOMBRE_PROVEEDOR[proveedor]} no lo creó: ${msg(e).slice(0, 200)}` };
   }
 }
 
-export async function editarEventoDeAgenda(input: { proveedor: unknown; identificador: unknown; nombre?: unknown; duracionMin?: unknown }): Promise<ResultadoEventoEscrito> {
+export async function editarEventoDeAgenda(input: { proveedor: unknown; cuenta?: unknown; identificador: unknown; nombre?: unknown; duracionMin?: unknown }): Promise<ResultadoEventoEscrito> {
   if (!esProveedorAgenda(input.proveedor)) return { ok: false, error: 'La agenda es Calendly o Cal.com.' };
   const identificador = String(input.identificador ?? '').trim();
   if (!identificador || identificador.length > MAX_IDENTIFICADOR) return { ok: false, error: 'Falta el evento.' };
   const d = datosDeEvento(input, true);
   if (!d.ok) return d;
   const proveedor = input.proveedor;
+  // La cuenta que TIENE el evento: la pedida, o la que lo lista (con el token de otra, el proveedor contesta 404).
+  const cta = await cuentaParaEscribir(proveedor, input.cuenta, identificador);
+  if ('error' in cta) return { ok: false, error: cta.error };
+  const { cuenta } = cta;
+  const otra = cuenta !== CUENTA_PRINCIPAL;
   try {
     if (proveedor === 'calendly') {
-      const token = await credWs('CALENDLY_API_TOKEN');
-      if (!token) return { ok: false, error: 'Conecta Calendly para editar sus eventos.' };
+      const token = await tokenDeAgenda('calendly', cuenta);
+      if (!token) return { ok: false, error: otra ? 'Esa cuenta de Calendly no está conectada.' : 'Conecta Calendly para editar sus eventos.' };
       const e = await editarEventTypeCalendly(token, identificador, { nombre: d.nombre, duracionMin: d.duracionMin });
       await olvidarCuentas(proveedor);
-      return { ok: true, evento: { proveedor, identificador: e.uri, nombre: e.nombre, duracionMin: e.duracionMin } };
+      return { ok: true, evento: { proveedor, identificador: e.uri, nombre: e.nombre, duracionMin: e.duracionMin, cuenta } };
     }
-    const key = await credWs('CALCOM_API_KEY');
-    if (!key) return { ok: false, error: 'Conecta Cal.com con su API key para editar sus eventos.' };
+    const key = await tokenDeAgenda('calcom', cuenta);
+    if (!key) return { ok: false, error: otra ? 'Esa cuenta de Cal.com no está conectada.' : 'Conecta Cal.com con su API key para editar sus eventos.' };
     const e = await editarEventTypeCalcom(key, identificador, { nombre: d.nombre, duracionMin: d.duracionMin });
     await olvidarCuentas(proveedor);
-    return { ok: true, evento: { proveedor, identificador: e.id, nombre: e.nombre, duracionMin: e.duracionMin } };
+    return { ok: true, evento: { proveedor, identificador: e.id, nombre: e.nombre, duracionMin: e.duracionMin, cuenta } };
   } catch (e) {
     return { ok: false, error: `${NOMBRE_PROVEEDOR[proveedor]} no lo cambió: ${msg(e).slice(0, 200)}` };
   }

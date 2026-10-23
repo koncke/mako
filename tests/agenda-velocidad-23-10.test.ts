@@ -19,6 +19,10 @@
 //   · lo guardado sin copiar (las R1/R2 que se suman lo ensuciaban)                         → 7 / 1
 //   · crear un evento sin olvidar la lista de esa cuenta                                    → 7 / 1
 //   · el usuario de Calendly sin guardar                                                     → 7 / 1
+// Con varias cuentas (fase B de Cobros, 23/10/2026: la unidad es CADA cuenta), de nuevo en 8 / 0:
+//   · la llave con el token de otra cuenta                                                   → 7 / 1
+//   · lo guardado sin copiar                                                                  → 7 / 1
+//   · Calendly con el token de la principal                                                   → 7 / 1
 // Correr: node --import tsx --test tests/agenda-velocidad-23-10.test.ts
 // =============================================================================
 
@@ -107,10 +111,12 @@ test('listarEventosDeAgenda: la base, cada agenda y Google A LA VEZ, y «Volver 
 
 test('eventosDelProveedor: la unidad de lectura de una cuenta, con su caché, sin ensuciar lo guardado', () => {
   const f = cuerpo(SRV, 'async function eventosDelProveedor(');
-  assert.match(f, /const llave = ws == null \? null : llaveAgenda\(ws, proveedor, secreto\);/);
-  assert.match(f, /eventos = \[\.\.\.await conCache\(cacheCuentas, llave, fresco, async \(\) =>/, 'lo guardado se copia: abajo se le suman las R1/R2');
-  assert.match(f, /listarEventTypes\(secreto\)/, 'Calendly con el token que se leyó');
-  assert.match(f, /listarEventTypesCalcom\(secreto\)/);
+  // Con varias cuentas (fase B de Cobros) la unidad es CADA cuenta: su token, su llave y su copia.
+  assert.match(f, /const llave = ws == null \? null : llaveAgenda\(ws, proveedor, c\.token\);/);
+  assert.match(f, /const evs = await conCache\(cacheCuentas, llave, fresco, async \(\) =>/);
+  assert.match(f, /eventos: evs\.map\(\(e\) => \(\{ \.\.\.e, cuenta: c\.cuenta \}\)\)/, 'lo guardado se copia: abajo se le suman las R1/R2');
+  assert.match(f, /listarEventTypes\(c\.token\)/, 'Calendly con el token de esa cuenta');
+  assert.match(f, /listarEventTypesCalcom\(c\.token\)/);
   // Lo mismo valida un vínculo: sólo eventos de SU cuenta, de la misma lectura (con caché).
   assert.match(cuerpo(SRV, 'export async function prepararVinculo('), /const cuenta = await eventosDelProveedor\(proveedor\);/);
 });

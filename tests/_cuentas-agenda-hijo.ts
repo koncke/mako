@@ -14,6 +14,13 @@ let fallarClave: string | null = null;
 /** Con qué token se pidió cada cancelación. */
 let cancelaciones: string[] = [];
 
+/** Los tipos de evento de cada cuenta (por token), y con qué token se pidió cada escritura. */
+const TIPOS: Record<string, Array<{ uri: string; name: string; duration: number; active: boolean; scheduling_url?: string }>> = {
+  tok_principal: [{ uri: 'https://api.calendly.com/event_types/ETA-0001', name: 'R1 Ventas', duration: 30, active: true, scheduling_url: 'https://calendly.com/a/r1' }],
+  tok_c2: [{ uri: 'https://api.calendly.com/event_types/ETB-0002', name: 'Demo del equipo', duration: 45, active: true }],
+};
+let escrituras: string[] = [];
+
 const json = (status: number, body: unknown) =>
   new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
@@ -37,7 +44,21 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
     const token = (new Headers(init.headers).get('Authorization') ?? '').replace(/^Bearer /, '');
     const org = ORGS[token];
     if (!org) return json(401, { message: 'token inválido' });
-    if (u.pathname === '/users/me') return json(200, { resource: { current_organization: org } });
+    if (u.pathname === '/users/me') return json(200, { resource: { uri: `https://api.calendly.com/users/${token}`, current_organization: org } });
+    if (u.pathname === '/event_types' && (init.method ?? 'GET') === 'GET') {
+      return json(200, { collection: u.searchParams.get('user') === `https://api.calendly.com/users/${token}` ? TIPOS[token] ?? [] : [] });
+    }
+    if (u.pathname === '/event_types' && init.method === 'POST') {
+      const b = JSON.parse(String(init.body ?? '{}')) as { name?: string; duration?: number };
+      escrituras.push(`${token}:crear`);
+      return json(201, { resource: { uri: `https://api.calendly.com/event_types/NUEVO_${token}`, name: b.name, duration: b.duration, active: true } });
+    }
+    if (u.pathname.startsWith('/event_types/') && init.method === 'PATCH') {
+      const uuid = u.pathname.split('/')[2];
+      const suyo = (TIPOS[token] ?? []).find((e) => e.uri.endsWith(uuid));
+      escrituras.push(`${token}:editar:${uuid}:${suyo ? 'ok' : '404'}`);
+      return suyo ? json(200, { resource: { ...suyo, name: 'Cambiado' } }) : json(404, { message: 'Resource Not Found' });
+    }
     if (u.pathname === '/scheduled_events') return json(200, { collection: u.searchParams.get('organization') === org ? EVENTOS[org] : [] });
     if (u.pathname.endsWith('/cancellation')) {
       // Calendly sólo deja cancelar con el token de la cuenta que TIENE la reunión.
@@ -105,6 +126,31 @@ async function main() {
   // 5. Sin ninguna cuenta: no hay a quién preguntar, y se dice.
   reset();
   try { await runWithWorkspace(WS, () => proximaReunionCalendly('lead@x.test')); out.sinCuentas = 'no tiró'; } catch (e) { out.sinCuentas = `tira: ${e instanceof Error ? e.message : String(e)}`; }
+
+  // 6. «Asignar evento» con dos cuentas: los tipos de evento de LAS DOS, cada uno con su cuenta y su nombre, una fila
+  //    por cuenta; crear en la que se elige y editar con la que lo tiene (sin pedirla, la busca).
+  {
+    const { listarEventosDeAgenda, crearEventoDeAgenda, editarEventoDeAgenda } = await import('../lib/agenda-evento-etapa-server');
+    reset();
+    escrituras = [];
+    await dosCuentas();
+    const a = await runWithWorkspace(WS, () => listarEventosDeAgenda({ fresco: true }));
+    out.asignar = {
+      eventos: a.eventos.filter((e) => e.proveedor === 'calendly').map((e) => `${e.nombre}|${e.cuenta}|${e.cuentaNombre}`),
+      filas: a.proveedores.filter((p) => p.proveedor === 'calendly').map((p) => `${p.cuenta}|${p.cuentaNombre}|${p.conectado ? 'conectada' : '-'}`),
+    };
+    const creado = await runWithWorkspace(WS, () => crearEventoDeAgenda({ proveedor: 'calendly', cuenta: 'c2', nombre: 'Demo nueva', duracionMin: 30 }));
+    const editado = await runWithWorkspace(WS, () => editarEventoDeAgenda({ proveedor: 'calendly', identificador: 'https://api.calendly.com/event_types/ETB-0002', nombre: 'Cambiado' }));
+    const cuentaMala = await runWithWorkspace(WS, () => crearEventoDeAgenda({ proveedor: 'calendly', cuenta: 'c9', nombre: 'X', duracionMin: 30 }));
+    const invalida = await runWithWorkspace(WS, () => crearEventoDeAgenda({ proveedor: 'calendly', cuenta: '../x', nombre: 'X', duracionMin: 30 }));
+    out.escribir = {
+      creado: creado.ok ? `ok:${creado.evento.cuenta}` : `no:${creado.error}`,
+      editado: editado.ok ? `ok:${editado.evento.cuenta}` : `no:${editado.error}`,
+      cuentaMala: cuentaMala.ok ? 'ok' : cuentaMala.error,
+      invalida: invalida.ok ? 'ok' : invalida.error,
+      escrituras: [...escrituras],
+    };
+  }
 
   process.stdout.write(`\n@@RESULTADO@@${JSON.stringify(out)}`);
 }

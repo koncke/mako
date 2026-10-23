@@ -94,6 +94,20 @@ export async function tokensDeAgenda(p: ProveedorAgendaConCuentas, ws?: number):
   return out;
 }
 
+/**
+ * Las cuentas que leen su agenda, con su NOMBRE y su token (la principal primero). Es lo que lista los tipos de evento por
+ * cuenta en «Asignar evento» (lib/agenda-evento-etapa-server.ts, `eventosDelProveedor`). El nombre que no se pudo leer
+ * cae al de fábrica («Calendly 2»): es una etiqueta, no decide nada.
+ */
+export async function cuentasConToken(p: ProveedorAgendaConCuentas, ws?: number): Promise<Array<{ cuenta: string; nombre: string; token: string }>> {
+  const tokens = await tokensDeAgenda(p, ws);
+  const w = ws ?? (await getWorkspaceActual());
+  return Promise.all(tokens.map(async (t) => {
+    const alias = w == null ? null : await credWs(claveDeCuenta(CLAVES_AGENDA[p].alias, t.cuenta), w).catch(() => null);
+    return { ...t, nombre: nombreDeCuenta(p, t.cuenta, alias) };
+  }));
+}
+
 /** El token de UNA cuenta (la principal, como siempre, con `credWs`). null si no lo tiene. */
 export async function tokenDeAgenda(p: ProveedorAgendaConCuentas, cuenta: string = CUENTA_PRINCIPAL, ws?: number): Promise<string | null> {
   return credWs(claveDeCuenta(CLAVES_AGENDA[p].clave, cuenta), ws);

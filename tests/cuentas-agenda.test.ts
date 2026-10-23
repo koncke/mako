@@ -11,7 +11,14 @@
 //      Calendly contesta 404). Una cuenta que no se puede leer TIRA con su nombre: «no pude leer» no es «no tiene».
 //   4. CONECTAR OTRA prueba el token ANTES de guardarlo, y nunca pisa una cuenta que ya está.
 //
-// Probado ROMPIÉNDOLO (23/10/2026), una rotura por vez y restaurando: con el código como está, 5 pases y 0 fallos. Rota:
+// Parte 2 («Asignar evento» por cuenta, sobre la agenda rápida del CRM), probada rompiéndola con 6 tests en verde. Rota:
+//   · `eventosDelProveedor` lee sólo la principal                           → 5 / 1
+//   · los eventos salen sin su cuenta                                        → 5 / 1
+//   · una fila por proveedor en vez de por cuenta                            → 5 / 1
+//   · crear ignora la cuenta pedida                                          → 5 / 1
+//   · editar sin cuenta no busca la que tiene el evento                      → 5 / 1
+//   · una cuenta inválida pasa                                               → 5 / 1
+// Parte 1, probada rompiéndola (23/10/2026) cuando eran 5 tests: con el código como está, 5 pases y 0 fallos. Rota:
 //   · `cuentaQueFirmo` prueba sólo la primera                                → 4 / 1
 //   · el aviso de Calendly verifica sólo con la principal                    → 4 / 1
 //   · el aviso de Cal.com verifica sólo con la principal                     → 4 / 1
@@ -76,6 +83,16 @@ test('la reunión de un lead se busca en TODAS las cuentas y se cancela con el t
   assert.match(R.sinCuentas, /no tiene el token de Calendly cargado/);
   // La operación de la API de MaKo cancela con la cuenta que la encontró.
   assert.match(sinComentarios(leer('lib/api-mako/areas/crm.run.ts')), /await cancelarReunionCalendly\(String\(payload\.uri\), String\(payload\.motivo \?\? ''\), ahora\.cuenta\);/);
+});
+
+test('«Asignar evento» con dos cuentas: los eventos de las dos con su cuenta, crear en la elegida, editar con la dueña', () => {
+  assert.deepEqual(R.asignar.eventos, ['R1 Ventas|principal|Calendly', 'Demo del equipo|c2|Agenda del equipo'], 'los eventos de la segunda cuenta no se listaban');
+  assert.deepEqual(R.asignar.filas, ['principal|Calendly|conectada', 'c2|Agenda del equipo|conectada'], 'una fila por cuenta');
+  assert.equal(R.escribir.creado, 'ok:c2', 'el evento nuevo va a la cuenta elegida');
+  assert.equal(R.escribir.editado, 'ok:c2', 'editar sin cuenta tiene que encontrar la que TIENE el evento');
+  assert.deepEqual(R.escribir.escrituras, ['tok_c2:crear', 'tok_c2:editar:ETB-0002:ok'], 'con el token de otra cuenta, Calendly contesta 404');
+  assert.equal(R.escribir.cuentaMala, 'Esa cuenta de Calendly no está conectada.');
+  assert.equal(R.escribir.invalida, 'Esa cuenta no existe.');
 });
 
 test('conectar otra cuenta de agenda: prueba el token antes de guardarlo y nunca pisa una que ya está', () => {

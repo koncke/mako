@@ -1163,7 +1163,16 @@ app/integraciones/CuentasDePago.tsx · tests/cuentas-pago.test.ts. Lo de la plat
   404. `proximaReunionCalendly` busca en todas (`tokensDeAgenda`) y devuelve de cuál es; cancelar usa ese token. Una
   cuenta que no se puede leer TIRA con su nombre.
 - Lo que rutea una reserva sigue siendo el TIPO DE EVENTO (R1/R2 o un vínculo de «Asignar evento»), no la cuenta.
-**Sin hacer:** listar, crear y editar los tipos de evento por cuenta en «Asignar evento» (lib/agenda-evento-etapa-server.ts y
-lib/calendly-agenda.ts, sobre el sha del CRM, que los está acelerando); el link de la R1/R2, la anticipación y las
-herramientas de agenda del doer siguen con la principal (la R1/R2 es de la principal); no se detecta la misma cuenta de
-Calendly conectada dos veces (haría falta guardar su `/users/me`).
+- **«Asignar evento» por cuenta** (sobre la agenda rápida del CRM, `eventosDelProveedor` sigue siendo LA unidad de lectura):
+  lee cada cuenta en paralelo con su token y su caché (la llave lleva la huella del token, así dos cuentas no comparten
+  lista), y cada evento sale con su `cuenta` y `cuentaNombre`; `proveedores` pasa a ser una fila por CUENTA. Crear va a
+  la cuenta elegida; EDITAR sin cuenta busca la que TIENE el evento (con el token de otra, Calendly contesta 404).
+- **Un test que mockea `credWs` esconde de qué negocio se lee.** tests/calendly-cancelar.test.ts corría
+  `proximaReunionCalendly` fuera de todo negocio y pasaba porque `credWs` era de mentira; buscar las cuentas de más
+  necesita el negocio (`getWorkspaceActual`), y fuera de un request eso tira «cookies outside a request scope». En
+  producción corre siempre dentro de uno (request o flujo con `runWithWorkspace`), así que el test pasó a correr ahí:
+  ese error en un hijo es el test sin negocio, no la librería rota.
+**Sin hacer:** la pantalla y la API de «Asignar evento» agrupadas por cuenta y el `cuenta` en crear/editar de la API de
+MaKo son del CRM (las firmas ya están); el link de la R1/R2, la anticipación y las herramientas de agenda del doer siguen
+con la principal (la R1/R2 es de la principal); no se detecta la misma cuenta de Calendly conectada dos veces (haría falta
+guardar su `/users/me`).

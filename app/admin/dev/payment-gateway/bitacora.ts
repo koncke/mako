@@ -330,4 +330,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/integraciones?ws=3',
   },
+  {
+    fecha: '23 oct', hora: '00:56', chat: 'Cobros', sesion: 'local_460ff1f0-0675-4371-b228-594a9bd828e3', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Varias cuentas de Calendly y Cal.com: la reserva de cada una entra, y «Asignar evento» las lista con su nombre',
+    puntos: [
+      'En Integraciones, el modal de Calendly y el de Cal.com listan «Tus cuentas», como Stripe y MP: conectar otra con un nombre (la clave se prueba antes de guardarla), renombrar y desconectar una sola.',
+      'La reserva de la segunda cuenta se verifica con SU secreto: con uno solo por negocio daba «firma rechazada», y Calendly apaga la suscripción después de varios rechazos.',
+      '«Asignar evento» trae los tipos de evento de todas las cuentas, cada uno con el nombre de su cuenta; crear va a la cuenta elegida y editar usa la que tiene el evento. Cancelar la reunión de un lead la busca en todas.',
+      '⚠️ **Sin hacer:** la pantalla de «Asignar evento» agrupada por cuenta es del CRM (los datos ya llegan); el link de la R1/R2 y las herramientas de agenda del doer siguen con la principal.',
+    ],
+    commits: [
+      { sha: 'ee1abc6a9', msg: 'Agenda: varias cuentas de Calendly y Cal.com en un negocio (fase B, parte 1)', lineas: 679, archivos: 16 },
+    ],
+    archivos: [
+      'lib/cuentas-agenda-server.ts — las cuentas de agenda, sus tokens y sus secretos',
+      'app/api/webhooks/calendly y calcom — cada aviso con el secreto de su cuenta (`cuentaQueFirmo`)',
+      'lib/agenda-evento-etapa-server.ts — «Asignar evento» por cuenta (`cuenta`, `cuentaNombre`)',
+      'tests/cuentas-agenda.test.ts — 6, probado con 17 roturas',
+    ],
+    revisar: '/integraciones?ws=3',
+  },
 ];
