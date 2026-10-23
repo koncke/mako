@@ -14,6 +14,8 @@
 //   · un `setPipelineStage(` en lib/fuentes-leads.ts → 10 / 1;
 //   · el `runWithWorkspace(` de la ruta de Skool quitado → 10 / 1.
 // Restaurado: 11 / 0. (El arnés restaura desde memoria, nunca con `git checkout --`.)
+// Con varias cuentas (Cobros, 23/10/2026: se rutea por `baseDeClave`), en 12 / 0: `identificadorDeRuteo` sacado → 11 / 1;
+// el hash por el nombre con sufijo (`identificadorDeRuteo(clave, …)`) → 11 / 1.
 //
 // Correr: npm test
 import { test } from 'node:test';
@@ -59,7 +61,8 @@ test('cada secreto que va por hash es una clave de ruteo, y el guardado lo hashe
   const ruteo = leer('../lib/webhook-routing.ts');
   for (const clave of RUTEO_POR_HASH) assert.match(ruteo, new RegExp(`\\b${clave}: '[a-z]+'`), `${clave} no está en ROUTING_CREDS`);
   const cred = sinComentarios(leer('../lib/credenciales.ts'));
-  assert.match(cred, /upsertRouting\(ROUTING_CREDS\[clave\], identificadorDeRuteo\(clave, valor\), ws\)/,
+  // Con varias cuentas (Cobros, 23/10/2026) la clave puede venir con sufijo (`STRIPE_ACCOUNT_ID__C2`): se rutea por su base.
+  assert.match(cred, /upsertRouting\(servicioDeRuteo, identificadorDeRuteo\(baseDeClave\(clave\), valor\), ws\)/,
     'el guardado de una credencial tiene que mandar el HASH del secreto a webhook_routing, no el valor');
 });
 

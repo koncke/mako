@@ -133,9 +133,9 @@ export default function CuentasDePago({ proveedor, onCambio }: {
               void accion(c.cuenta, { action: 'aviso', cuenta: c.cuenta, secreto: secretos[c.cuenta] ?? '' }).then((ok) => { if (ok) setSecretos((x) => ({ ...x, [c.cuenta]: '' })); });
             }}>
               <span style={{ fontSize: 12, color: 'var(--dim)' }}>
-                {proveedor === 'mercadopago' && <>Para sus suscripciones: en su aplicación de Mercado Pago → Webhooks, pega <code style={{ fontFamily: MONO }}>{origen}/api/webhooks/mercadopago</code> y su clave secreta acá.</>}
-                {proveedor === 'calendly' && <>Para que entren sus reservas, pega acá la signing key del aviso de esta cuenta.</>}
-                {proveedor === 'calcom' && <>Para que entren sus reservas: en Cal.com → Settings → Developer → Webhooks, pega <code style={{ fontFamily: MONO }}>{origen}/api/webhooks/calcom</code> y una contraseña; la misma, acá.</>}
+                {proveedor === 'mercadopago' && <>Para sus suscripciones: en su aplicación de Mercado Pago → Webhooks, pega <code style={{ fontFamily: MONO }}>{origen}/api/webhooks/mercadopago</code> y su clave secreta aquí.</>}
+                {proveedor === 'calendly' && <>Para que entren sus reservas, pega aquí la signing key del aviso de esta cuenta.</>}
+                {proveedor === 'calcom' && <>Para que entren sus reservas: en Cal.com → Settings → Developer → Webhooks, pega <code style={{ fontFamily: MONO }}>{origen}/api/webhooks/calcom</code> y una contraseña; la misma, aquí.</>}
               </span>
               <div style={{ display: 'flex', gap: 6 }}>
                 <input type="password" autoComplete="off" value={secretos[c.cuenta] ?? ''} placeholder={SECRETO[proveedor]} aria-label={SECRETO[proveedor]} style={{ ...input, fontFamily: MONO }}
