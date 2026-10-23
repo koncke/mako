@@ -431,3 +431,31 @@ cazadas). Lo que costó:
 - **Una pestaña de Canva** («Diseño sin título - Presentación», `canva.com/design/DAHX-ICTUd4`) quedó
   abierta en el grupo de pestañas de los agentes: la abrió el relevamiento de funciones antes de cortarse.
   Si lo creó en la cuenta de Martín, hay que mandarlo a la papelera a mano.
+
+## «0 filas en `image_editor_chats`» no era que el chat no guardaba: nadie lo había usado (22/10/2026, TB2)
+
+El relevamiento del 22/10 vio la tabla con 0 filas y sospechó que el chat no guardaba. **El diagnóstico obvio era el
+equivocado.** Medido ese día en producción: en todo MaKo había 2 diseños (ws1 y ws15) y ninguno con charla. En el ws3,
+desde el Chrome de Martín, un pedido en «MaKo IA» dejó su fila (2 mensajes) y recargar la trajo de vuelta. Antes de
+«arreglar» un guardado que da 0, se cuenta si la pantalla de arriba tiene uso.
+
+- **Lo que sí estaba mal: abrir el chat volvía a guardar** lo mismo que acababa de leer (la versión pasó de 2 a 3 con los
+  mismos 2 mensajes). `cargarHilo` une lo leído con la pestaña por `cambiarHilo`, y todo `cambiarHilo` programaba un
+  guardado. Ahora lo leído entra con `guardar: false`; lo que la pestaña escribió antes de que llegara ya marcó `sucio` y
+  se guarda unido. Importa para el Ops Center (OC8): ordena por `updated_at`, y mirar un chat lo subía arriba.
+- En el ws3 sin IA conectada, MaKo contesta «No hay ninguna IA conectada… con Gemini alcanza» (el texto de IA9): el
+  mensaje y la respuesta igual se guardan.
+- Quedaron en el ws3, para OC8: el diseño `75e60d6f-fa28-4fb0-890e-7d049472617b` con su charla (persona u1).
+
+**Vive en:** app/image-editor/mako/chat/hilo.ts (`cargarHilo`) · tests/image-editor-chat.test.ts (41) ·
+*22/10/2026, chat «Chats de las tabs».*
+
+## El chat «MaKo IA» con las piezas del Ops Center (22/10/2026, TB3)
+
+El hilo es `HiloMako` (con la criatura «Image Editor», la que lo nombra en el Ops Center) y la caja es `CajaChat`; el motor
+sigue siendo el de app/image-editor/mako/chat/acciones.ts, que edita el diseño ABIERTO y no aplica nada sin «Aceptar». La
+propuesta con «Original | Modificado» va en el hueco `enMensaje` de la respuesta de MaKo que la trajo. Dos cosas que se
+perdieron a propósito: el rótulo del alcance dentro de la burbuja de la persona (`HiloMako` sólo dibuja «desde …», que dice
+OTRA cosa; el alcance sigue en sus chips), y el `maxLength` del campo (la caja única no tiene tope): el tope lo pone
+`enviar`, con `TOPES_CHAT_IMAGEN.instruccion`. **Vive en:** app/image-editor/mako/chat/PanelMakoIA.tsx ·
+tests/editores-chat-piezas.test.ts · *22/10/2026, chat «Chats de las tabs».*

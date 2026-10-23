@@ -61,13 +61,13 @@ import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import {
-  createSession, getSession, listSessions, getSessionMessages, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
+  createSession, getSession, listSessions, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
   renameSession, tituloDesde, type ChartSession, type ChartMsgConBloques,
 } from '@/lib/chart-chats';
-import { adjuntosVisibles, audioDeBloques, leerRef, sanearBloques } from '@/lib/chat-mako-bloques';
+import { adjuntosVisibles, audioDeBloques, leerRef, rutaDeVozDelChat, sanearBloques, vozDeBloques } from '@/lib/chat-mako-bloques';
 import { urlAudio } from '@/lib/offer-reglas';
-import { MAX_BLOQUES_MENSAJE, aGuardar, bloqueDeResultado, bloquesGuardados, type Bloque } from '@/lib/chat-bloques';
-import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
+import { MAX_BLOQUES_MENSAJE, aGuardar, bloqueDeResultado, bloquesGuardados, esPorQueGuardado, type Bloque } from '@/lib/chat-bloques';
+import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, subirNotaDeVozDelChat, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
 import { recortarMensaje, textoParaTitulo, textosParaArchivar } from '@/lib/chat-pegado';
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { aFila, plano } from '@/lib/bandeja-filas';
@@ -77,6 +77,7 @@ import { resolverPropuesta as resolverPropuestaDeVideo } from '@/lib/editor-vide
 import { descartarBorrador } from '@/lib/evolution-envio';
 import { getPendiente, resolverPendiente } from '@/lib/mako-pendientes';
 import { PREGUNTAR, TOOL_PREGUNTAR, ERROR_TRAS_PREGUNTAR, crearGuardiaDePregunta, retirar } from '@/lib/chat-pregunta';
+import { conDesde, conEntidadPorDefecto, contextoDesde, herramientasDelModo, pistaDesde, type Desde } from '@/lib/chat-desde';
 import { enSegundoPlano } from '@/lib/chat-trabajos';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
@@ -84,7 +85,7 @@ import {
   chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta, aRetirar,
   type FormularioPropuesta, type PropuestaPantalla,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA, TEXTO_SOLO_BLOQUE,
-  historialParaModelo, bloquesDelMensaje, entraOtroDibujo, confirmadoTrasElUltimoPedido, esPedido, salioBien, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
+  historialParaModelo, bloquesDelMensaje, entraOtroDibujo, confirmadoTrasElUltimoPedido, esPedido, salioBien, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA, porQueSinRespuesta,
   iaParaConectar, IA_PARA_CONECTAR, ENV_DE_IA, falloDeSuClave, AVISO_SU_CLAVE, AVISO_CONECTA_TU_PC, AVISO_NO_LEI_SU_IA, AVISO_SIN_ARCHIVERO, AVISO_ARCHIVERO_EN_PAUSA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
@@ -219,26 +220,90 @@ function aMensajeChat(ws: number, m: ChartMsgConBloques): MensajeChat {
   const bloques = sanearBloques(ws, m.bloques);
   const vista = bloquesGuardados(m.bloques);
   const audio = audioDeBloques(m.bloques);
+  const voz = vozDeBloques(ws, m.bloques);
   return {
     role: m.role, content: m.content, created_at: m.created_at,
     ...(bloques.length ? { adjuntos: adjuntosVisibles(m.id, bloques) } : {}), ...(vista.length ? { bloques: vista } : {}),
     // La nota de voz de una respuesta copiada de Offer (el chat «Onboarding»): se reproduce desde la ruta de Offer.
     ...(audio ? { audio: { url: urlAudio(audio.sesion, audio.mensaje), secs: audio.secs } } : {}),
+    // La de la persona en ESTE chat (OC7): se pide por su mensaje (`urlDeVozDelChat`).
+    ...(voz && !audio ? { audio: { url: rutaDeVozDelChat(m.id), secs: voz.secs } } : {}),
   };
+}
+
+/** La regla de un chat que la persona SIGUE con `antes` (uno de antes, o el de una tab): la de la ruta (route.ts → personaDelChat). */
+export type ReglaDeOtroChat = (sesion: number) => Promise<PersonaChat | null>;
+
+/**
+ * ¿Quién puede abrir lo guardado en la conversación `sesion`? La persona, si es SU chat. Si no, la persona con la clave de ese
+ * chat, si la regla que deja SEGUIRLO la deja (`deOtroChat`): un chat de antes o el de una tab (22/10/2026). Para el admin
+ * ésa es la de leer su texto, así que quien lee el mensaje abre su foto o escucha su nota, a propósito. Nunca una clave armada
+ * a mano. null = nadie que pueda.
+ */
+async function quienAbre(persona: PersonaChat, sesion: number, deOtroChat?: ReglaDeOtroChat): Promise<PersonaChat | null> {
+  if (await sesionDe(persona, sesion)) return persona;
+  const otro = deOtroChat ? await deOtroChat(sesion) : null;
+  return otro && (await sesionDe(otro, sesion)) ? otro : null;
 }
 
 /**
  * El link firmado de un adjunto guardado (`ref` = `<id del mensaje>:<n>`), o null. Mira de QUIÉN es la conversación
- * del mensaje ANTES de firmar: los chats son por persona, así que el admin no abre los adjuntos de un closer.
+ * del mensaje ANTES de firmar (`quienAbre`): los chats son por persona, así que el admin no abre los adjuntos de un closer.
+ * ⚠️ Hasta el 22/10/2026 sólo miraba el chat PROPIO: la foto o el PDF de un chat de antes o de una tab daba 404.
  */
-export async function urlDeAdjunto(persona: PersonaChat, ref: unknown): Promise<string | null> {
+export async function urlDeAdjunto(persona: PersonaChat, ref: unknown, deOtroChat?: ReglaDeOtroChat): Promise<string | null> {
   const r = leerRef(ref);
   if (!r) return null;
   return runWithWorkspace(persona.ws, async () => {
     const m = await getMensajeConBloques(r.msgId);
-    if (!m || !(await sesionDe(persona, m.session_id))) return null;
+    if (!m || !(await quienAbre(persona, m.session_id, deOtroChat))) return null;
     const b = sanearBloques(persona.ws, m.bloques)[r.i];
     return b ? urlFirmadaDeAdjunto(b.path) : null;
+  });
+}
+
+/** El link firmado de la nota de voz de un mensaje, o null. Como `urlDeAdjunto`: mira de QUIÉN es la conversación antes. */
+export async function urlDeVozDelChat(persona: PersonaChat, msgId: unknown, deOtroChat?: ReglaDeOtroChat): Promise<string | null> {
+  const id = typeof msgId === 'string' && /^\d{1,15}$/.test(msgId) ? Number(msgId) : NaN;
+  if (!Number.isSafeInteger(id) || id <= 0) return null;
+  return runWithWorkspace(persona.ws, async () => {
+    const m = await getMensajeConBloques(id);
+    if (!m || !(await quienAbre(persona, m.session_id, deOtroChat))) return null;
+    const v = vozDeBloques(persona.ws, m.bloques);
+    return v ? urlFirmadaDeAdjunto(v.path) : null;
+  });
+}
+
+/** Lo que se dice cuando se escuchó la nota y no había voz (el de Offer: app/api/offer/route.ts → transcribir). */
+export const NOTA_SIN_VOZ = 'Escuché tu audio pero no le entendí nada: grábalo de nuevo un poco más cerca del micrófono, o escríbemelo.';
+
+/**
+ * LA NOTA DE VOZ DEL CHAT (OC7, 22/10/2026): la escucha la IA del NEGOCIO (D6b, como todo el turno: su OpenAI o su Gemini, nunca
+ * la red de la plataforma con «sólo su IA») ANTES de guardar nada, como Offer: si nadie la puede escuchar, no queda un mensaje
+ * mudo. 424 = ninguna IA pudo (el texto dice cuál y por qué; se reintenta con la misma grabación); 422 = se escuchó y no había
+ * voz (no sirve mandar lo mismo). Un 4xx y no un 502: la pantalla toma un 5xx por «no sé si llegó» (app/m/mako/chat-ui.ts →
+ * leerRespuesta) y la nota no volvía a la barra. Lo que se entendió es el mensaje del turno (`turnoApp`); el MP3 se guarda con él.
+ */
+export async function escucharNotaDelChat(persona: PersonaChat, sessionId: number, bytes: Uint8Array):
+  Promise<{ ok: true; texto: string } | { ok: false; error: string; status: 404 | 422 | 424 }> {
+  return runWithWorkspace(persona.ws, async () => {
+    // El chat es de quien la manda ANTES de escucharla: si no, cada nota a un chat ajeno gastaba la IA y volvía 404 (revisión).
+    if (!(await sesionDe(persona, sessionId))) return { ok: false, error: 'No encuentro ese chat.', status: 404 };
+    const negocio = await negocioConSuIA(persona.ws);
+    entrarSoloSuIA(negocio.suIA);
+    const { transcribirAudio, SttSinEscucha, errorDeCascada } = await import('@/lib/ai-cheap');
+    let texto: string;
+    try {
+      // ⚠️ `pii: true` (la revisión de Integración, 22/10/2026): sin él, si las claves del negocio no pueden, el MP3 iba a la red
+      // gratis de la agencia (Groq y Gemini, y el Gemini gratis ENTRENA con lo que recibe). En la nota se habla de los leads, y
+      // el texto de este mismo chat nunca va ahí. Como las notas de WhatsApp (lib/mako-doer-in.ts) y el dictado del Plan.
+      texto = (await transcribirAudio(Buffer.from(bytes).toString('base64'), 'audio/mpeg', { language: 'es', feature: FEATURE, motivo: 'MaKo: escuchar una nota de voz del chat', pii: true })).trim();
+    } catch (e) {
+      const delNegocio = e instanceof SttSinEscucha ? e.errores : [e instanceof Error ? e.message : String(e)];
+      console.error('[mako-turno-app] nota de voz:', delNegocio.join(' | ').slice(0, 300));
+      return { ok: false, error: await errorDeCascada(delNegocio, 'escuchar tu audio'), status: 424 };
+    }
+    return texto ? { ok: true, texto } : { ok: false, error: NOTA_SIN_VOZ, status: 422 };
   });
 }
 
@@ -285,10 +350,22 @@ export type EntradaTurnoApp = {
    */
   pista?: string;
   /**
+   * DESDE DÓNDE ESCRIBE (22/10/2026, OC6, lib/chat-desde.ts): la tab, la entidad que tiene abierta y el modo. La entidad va en
+   * la pista y en el system, y las herramientas la toman por defecto; en «analizar» no viaja ninguna que escriba. El mensaje
+   * se guarda con su marca («[desde: CRM › Ana]»): el chip vuelve al recargar.
+   */
+  desde?: Desde | null;
+  /**
    * Guardar los archivos (mig 0305) y pasar los PDF del admin a El Archivero. Lo prenden SÓLO el Second Brain y el chat
    * del teléfono (las rutas /api/mako/chat y /api/m/mako). Sin esto, el turno de siempre: los lee y no los guarda.
    */
   guardarAdjuntos?: boolean;
+  /**
+   * La nota de voz del mensaje (OC7, 22/10/2026): el MP3 y cuánto dura. Lo que se ENTENDIÓ ya viene en `mensaje`
+   * (`escucharNotaDelChat`, antes del turno); esto es el binario, que se guarda con el mensaje (con `guardarAdjuntos`) para
+   * volver a escucharlo. Va sola: sin archivos.
+   */
+  voz?: { bytes: Uint8Array; secs: number } | null;
   /**
    * El `maxDuration` de la ruta que llama, en ms (300 s si no se dice): lo que se espera a la PC del cliente sale de acá
    * (`esperaDelTurno`). El Analyst del lead tiene 300 s y no 420, y Vercel cortaba sin aviso (revisión del 21/10/2026).
@@ -317,6 +394,8 @@ async function iaPropiaDelTurno(): Promise<number | null> {
     // su Claude TIENE con qué contestar. En pausa también: es SU Claude, y lo que hay que decirle es que está en pausa,
     // no que conecte uno (revisión del Cerebro, 21/10/2026).
     const claude = await permisoDeLaClaveDelNegocio(FEATURE);
+    // Sin poder comprobarla no se sabe si tiene: lo mismo que el `catch` de abajo.
+    if (claude && 'noPudeLeer' in claude) return null;
     if (claude) n++;
     return n;
   } catch {
@@ -374,6 +453,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // plataforma.
     const negocio = await negocioConSuIA(ws);
     entrarSoloSuIA(negocio.suIA);
+    const desde = entrada.desde ?? null;
     const canalKey = canalKeyDeSesion(s.id);
     // El corte respeta los TEXTOS PEGADOS (lib/chat-pegado.ts, #848/#864): lo escrito hasta TOPE_MENSAJE, los pegados
     // con su propio tope, y las marcas siempre cerradas.
@@ -415,7 +495,9 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     if (!textoMemoria) throw new Error('turnoApp: mensaje vacío');
 
     // El historial de ANTES de este mensaje: se lee antes de guardarlo.
-    const previos = await getSessionMessages(s.id);
+    // Sin el porqué de un turno sin respuesta (la marca `porque`): es un cartel de la plataforma guardado en el hilo, no algo
+    // que dijo MaKo, y el modelo no lo tiene que continuar (AGENTS.md, «Un cartel de la PLATAFORMA no es un turno»).
+    const previos = (await getSessionMessagesConBloques(s.id)).filter((m) => !(m.role === 'assistant' && esPorQueGuardado(m.bloques)));
 
     // LO QUE ESCRIBIÓ LA PERSONA SE GUARDA SIEMPRE, antes del modelo.
     // Los archivos se guardan (mig 0305): el binario ANTES, y su referencia en el mismo insert del mensaje
@@ -425,16 +507,22 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     //    lead usa este mismo turno, y su PDF es del LEAD: no va a El Archivero del negocio (revisión del 16/10/2026).
     const subidos = adjuntos.length && entrada.guardarAdjuntos ? await subirAdjuntos(ws, adjuntos) : [];
     const bloques = subidos.map((x) => x.bloque);
+    // La nota de voz (OC7), con el mensaje: va AL FINAL, así las posiciones de los adjuntos (`<id>:<n>`) no cambian.
+    // Con una clave DICTADA (tapada en el texto), el audio no se guarda: la dice (la revisión, 22/10/2026).
+    const voz = entrada.voz && entrada.guardarAdjuntos && !tapado.tapadas ? await subirNotaDeVozDelChat(ws, entrada.voz) : null;
+    const aGuardar = voz ? [...bloques, voz] : bloques;
     let msg: Awaited<ReturnType<typeof appendMessage>>;
     try {
-      msg = await appendMessage(s.id, 'user', textoMemoria, bloques);
+      // Con su marca de desde dónde (OC6): lo que vuelve en `guardados` va sin ella, así el hilo no lo toma por un texto tapado.
+      msg = await appendMessage(s.id, 'user', conDesde(textoMemoria, desde), aGuardar);
     } catch (e) {
-      await borrarAdjuntos(bloques.map((b) => b.path)); // el mensaje no quedó: sus binarios tampoco
+      await borrarAdjuntos(aGuardar.map((b) => b.path)); // el mensaje no quedó: sus binarios tampoco
       throw e;
     }
-    if (bloques.length && !msg.conBloques) await borrarAdjuntos(bloques.map((b) => b.path));
+    if (aGuardar.length && !msg.conBloques) await borrarAdjuntos(aGuardar.map((b) => b.path));
     const conArchivos = msg.conBloques && msg.id != null ? adjuntosVisibles(msg.id, bloques) : [];
-    guardados.push({ role: 'user', content: textoMemoria, ...(conArchivos.length ? { adjuntos: conArchivos } : {}) });
+    const conVoz = voz && msg.conBloques && msg.id != null ? { audio: { url: rutaDeVozDelChat(msg.id), secs: voz.secs } } : {};
+    guardados.push({ role: 'user', content: textoMemoria, ...(conArchivos.length ? { adjuntos: conArchivos } : {}), ...conVoz });
     // Un PDF del ADMIN, también a El Archivero, después de responder (lib/chat-mako-adjuntos.ts dice por qué sólo él).
     const msgId = msg.id;
     const pdfs = persona.rol === 'admin' && msg.conBloques && msgId != null ? subidos.flatMap(({ bloque, de }, i) => {
@@ -477,8 +565,10 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const claveAgenda = `mako.doer.agenda.${canalKey}`;
     const agendaAbierta = agendaVigente(await getSetting(claveAgenda).catch(() => null), Date.now());
     const ultimoDeMako = previos.slice(-2).reverse().find((r) => r.role === 'assistant')?.content ?? null;
-    const textoClasificar = `${(entrada.pista ?? '').slice(0, 120)}${adjuntos.length ? textoMemoria : textoPersona}`;
+    const textoClasificar = `${(entrada.pista ?? '').slice(0, 120)}${pistaDesde(desde)}${adjuntos.length ? textoMemoria : textoPersona}`;
     const intencion = clasificarIntencion(textoClasificar, {
+      // Por la app MaKo sólo PROPONE y la persona confirma: ante la duda se actúa, no se anota (D1 = A, lib/mako-intencion.ts).
+      canal: 'app',
       hayMedia: adjuntos.length > 0,
       hayPendientes: vigentes.length > 0,
       hayPendienteDeAgenda: vigentes.some((p) => (ACCIONES_AGENDA as readonly string[]).includes(p.tipo)),
@@ -535,16 +625,18 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       deSiempre: [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS], vista,
       hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly,
     });
-    // Con herramientas, también la de preguntar con opciones (1.9, lib/chat-pregunta.ts): la regla la impone el código.
-    const tools = turno.tools.length ? [...(turno.tools as ToolDef[]), TOOL_PREGUNTAR] : (turno.tools as ToolDef[]);
+    // Lo que ESCRIBE (una acción o un control; no una lectura): el memo, la guardia de la pregunta y el modo «analizar».
+    const escribe = (n: string) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); };
+    // Con herramientas, también la de preguntar con opciones (1.9, lib/chat-pregunta.ts): la regla la impone el código. En
+    // «analizar» (OC6) no viaja ninguna que escriba: lo cumple el servidor, no el modelo.
+    const tools = herramientasDelModo(turno.tools.length ? [...(turno.tools as ToolDef[]), TOOL_PREGUNTAR] : (turno.tools as ToolDef[]), desde, escribe);
     const permitidas = new Set(tools.map((t) => t.name));
 
     // El system se arma DESPUÉS de las tools: depende de ellas.
     const base = await buildSystemPrompt({ chartKey: 'mako-doer', titulo: titulo ?? 'MaKo', contexto: '', query: textoPersona || textoMemoria, sinNumerosDelNegocio: persona.rol !== 'admin' });
     const tz = tools.length ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : null;
-    const puedeCancelar = permitidas.has('cancelar_accion');
     const ctxPend = vigentes.length
-      ? `\n\nACCIONES ESPERANDO CONFIRMACIÓN EN ESTE CHAT (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nLa persona las confirma tocando su tarjeta; tú no puedes confirmarlas.${puedeCancelar ? ' Si te dice que no la quiere, usa cancelar_accion con su id.' : ''}`
+      ? `\n\nACCIONES ESPERANDO CONFIRMACIÓN EN ESTE CHAT (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nLa persona las confirma o las cancela tocando su tarjeta; tú no puedes hacer ninguna de las dos. Si te dice que no la quiere, dile que toque «Cancelar» en la tarjeta.`
       : '';
     const ctxAgenda = agendaAbierta && tools.some((t) => herramientasQueSiguen(agendaAbierta).includes(t.name)) ? contextoAgendaAbierta(agendaAbierta) : '';
     const ctxPuntos = avisoDePuntos(textoPersona);
@@ -553,7 +645,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       : `\n\n${SIN_TOOLS_APP}`;
     const ctxHoy = tz ? `\n\nHOY ES ${hoyLegible(tz)} (zona ${tz}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.` : '';
     const ctxAtado = (entrada.contexto ?? '').trim();
-    const system = `${base}\n\n${VOZ_APP}${bloqueTools}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
+    const ctxDesde = contextoDesde(desde);
+    const system = `${base}\n\n${VOZ_APP}${bloqueTools}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
 
     // ── Las herramientas ───────────────────────────────────────────────────────
     const runRegistro = runnerDelRegistro(ctx);
@@ -561,7 +654,6 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const capturados: LinkCapturado[] = [];
     // Un turno que se re-arranca (la cascada de chatClaudeTools rota de cuenta) no repite
     // acciones: el mismo memo que el doer de WhatsApp.
-    const escribe = (n: string) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); };
     const memo = crearMemoDeAcciones(escribe);
     // Desde que MaKo pregunta, no se propone nada en el turno (1.9): una lectura sí, para armar las opciones.
     const guardia = crearGuardiaDePregunta(escribe);
@@ -576,6 +668,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       if (!permitidas.has(name)) {
         return { content: JSON.stringify({ ok: false, error: `«${name}» no está disponible en este chat.` }), isError: true };
       }
+      // La entidad que la persona tiene abierta, por defecto (OC6): «movelo a Ganado» desde la ficha de Ana es ESE lead.
+      input = conEntidadPorDefecto(porId(name), input, desde);
       if (name === PREGUNTAR) {
         const q = guardia.preguntar(input);
         return q.ok ? JSON.stringify({ ok: true, instruccion: q.texto }) : { content: JSON.stringify({ ok: false, error: q.texto }), isError: true };
@@ -774,7 +868,14 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     if (!respuesta) {
       const tzAviso = falloDeLaPc === 'tope' ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : TZ_DEFAULT;
       const delaPc = avisoDeLaPc(falloDeLaPc, false, { repone: reponeDeLaPc, tz: tzAviso });
-      aviso = [aviso, delaPc ?? deSuClave?.aviso ?? sinIAEs?.aviso ?? (pcIlegible && negocio.suIA ? AVISO_PC_ILEGIBLE : null) ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
+      // Con un porqué conocido, MaKo lo dice EN EL HILO (`porQueSinRespuesta`): al volver a entrar está ahí, y no «No te pude
+      // contestar esto». En la respuesta sigue yendo como aviso, con su botón (no en `guardados`: saldría dos veces).
+      const porQue = porQueSinRespuesta({ delaPc, deSuClave: deSuClave?.aviso, sinIA: sinIAEs?.aviso, pcIlegible: pcIlegible && negocio.suIA ? AVISO_PC_ILEGIBLE : null });
+      if (porQue) {
+        const boton = sinIAEs?.conectar ?? deSuClave?.conectar ?? null;
+        await anotarEnHilo(s.id, porQue, [{ t: 'porque', ...(boton ? { conectar: boton } : {}) }]);
+      }
+      aviso = [aviso, porQue ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
     }
     let conectar = sinIAEs?.conectar ?? (respuesta ? null : deSuClave?.conectar ?? null);
     // La clave tapada se le dice, con el botón del servicio que se reconoció. ⚠️ ESE BOTÓN GANA (22/10/2026, la prueba de

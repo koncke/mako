@@ -6,6 +6,107 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω20. 21-22/10/2026, noche (chat «CRM», cuenta `claude3`): el feedback de Martín de las 23:10
+
+**22/10, 21:10, el feedback con capturas del ws1** (rama `crm-fb-2210c` en C:/dev/wt-crm-fb3, sobre main 449247716): el
+«⋯» de la columna abre el menú del clic derecho, por secciones; «Tipo de etapa ›» con los tipos ahí mismo; el ícono `etapa`
+es una bandera; «Tus reuniones» es una tarjeta para preparar cada reunión (app/crm/TarjetaReunion.tsx).
+tests/crm-feedback-22-10-c.test.ts. **Sin ver en pantalla**: después del deploy, capturas en el ws3 (Chrome, grupo propio).
+
+El pedido, literal, en la bitácora del CRM (hito `actor: 'martin'` del 21/10 23:10). Rama final `crm-2110-t3` en
+`C:/dev/wt-crm-2110c` (lleva adentro `crm-2110-t1` y `crm-2110-t2b`). **Sin subir: la punta va a «Cerebro › Integración».**
+Lo que no se deduce del código, en docs/hallazgos-crm.md («El feedback del 21/10 (noche)…») y docs/hallazgos-ui.md.
+
+**22/10, «Vincular cobro» en Ganado** (punto 3 del feedback de Martín): rama `crm-cobro-ganado-2210` en
+C:/dev/wt-crm-cobro (sobre `crm-aut-lead-2210`). El ⋯ y el clic derecho de Ganado abren app/crm/CobroDeEtapaModal.tsx:
+producto con precio, una casilla por cuenta (Stripe y Mercado Pago a la vez, varias por proveedor), «+ Producto»
+(catálogo o crear), «Editar» y «Quitar» con Deshacer: tests/crm-cobro-ganado.test.ts. Con las acciones de verdad de
+Cobros (lib/cobro-etapa.ts y app/crm/cobro-etapa-actions.ts, su punta 81c8446e7, la mig 0326 aplicada): el stub se fue
+el 22/10. Sin «Copiar link» hasta que `linkDelVinculoAction` dé el link sin un lead (Cobros avisa).
+
+**22/10, noche, CR3 y CR4** (rama `crm-cr34-2210` en C:/dev/wt-crm-cr34, sobre main 72fd0b5bd con OC4 y OC6): el MaKo
+Analyst de la ficha con el hilo y la caja del Ops Center; la estrella del CRM con el lead abierto (app/crm/lead-abierto.ts);
+la estrella en el Plan y en Clientes, encima de la tarjeta abierta (`encimaDeModales`). tests/crm-estrella-cr3-cr4.test.ts.
+**Sin ver en pantalla**: se mira en el ws3 cuando salga (/plan con una tarea abierta: «cerrala» desde la estrella).
+
+**22/10, noche, el P0 del sábado (el tablero trabado con 1.050)**: en la misma rama `crm-cobro-ganado-2210`. Cada columna
+dibuja 30 y suma 30 al bajar (app/crm/columna-por-tandas.ts, FinDeColumna.tsx), y el Kanban topea con `maxHeight`
+(`5dc4c17b5` es el mismo arreglo, suelto, desde main). Medido con el arnés (tests/_crm-tablero-medir.mjs, con
+`ARNES_CSS` = la hoja de producción): 1.169 en 8 columnas, de 14.528 nodos y 3,0–3,6 s a 3.280 y 0,4–0,9 s.
+**Sin hacer:** medirlo EN PRODUCCIÓN cuando salga (el arnés va entre 1,5 y 7 veces más rápido que el Chrome de Martín): el ws1
+principal y «Sprint 3 días», con `long-animation-frame` (cómo, en docs/hallazgos-crm.md).
+
+**22/10, «está en una automatización» y «Frenar»** (Martín: «en el CRM debería indicar en la tarjeta o en algún lugar
+que esos leads están en una automatización activa, y que desde el CRM también se pueda frenar»): rama `crm-aut-lead-2210` en
+C:/dev/wt-crm-aut (sobre `crm-feedback-2210b`). El chip en la tarjeta, la fila en la ficha rápida, «Frenar automatización»
+en el clic derecho y en la barra de lote, y «Frenar» por automatización en el bloque de la ficha:
+tests/crm-automatizacion-lead.test.ts. Con las acciones de verdad de Automations desde el 22/10
+(app/automations/automatizaciones-del-lead-actions.ts y lib/automatizaciones-del-lead-reglas.ts, en main en bf8c71843): el
+stub se fue en a52135c9c.
+
+**22/10, el feedback de Martín con dos capturas** (C:/dev/cerebro-herramientas/feedback-crm-martin-22-10.md): rama
+`crm-feedback-2210b` en C:/dev/wt-crm-fb2210 (sobre `crm-estrella-2210`). Hechos el 1 y el 2 (el Kanban hasta el fondo),
+el 4 (la casilla de la columna) y el 5 («Tus reuniones», un pop-up para todos con el bloque azul y «Ver detalle»):
+tests/crm-feedback-22-10.test.ts. El 3 («Vincular cobro» en Ganado) espera las acciones de Cobros: el contrato está en las
+notas compartidas (contrato-cobro-en-ganado.md), y no se crean `lib/cobro-etapa.ts` ni `app/crm/cobro-etapa-actions.ts`
+(son de Cobros).
+
+**22/10, la llamada de Martín con Mauricio (C1–C9 de docs/pedidos-crm.md), EN PRODUCCIÓN:**
+- P0 (traer los 1.050 de otro producto, arrastrar una selección): `16cac1fd1`, run 230. Hecho `26c541444`.
+- P1 (C3 mover sin esperar, C4 «Creando…», C5 el menú que tapaba, C7 las hojas de la ficha a la vista): `50fbb71df`,
+  run 231. Hecho `6f21aa754`.
+- C8 («También en: Sprint 3 días › Prospección activa» en la ficha): `8d1c1cb51`, run 233. Hecho `a4b29ca98`.
+- Avisos al grupo del ws1: P0 y P1 salieron. El del C8 NO (tope de 3 por día, `TOPE_AVISOS_POR_DIA` en
+  lib/aviso-arreglo.ts): su línea la manda Automations en el aviso combinado de las 09:10.
+- **C6 sin reproducir** («los tres puntos de "Lead entrante" lo mandaron a otro lado»): el Chrome de Martín no estuvo
+  conectado. Hipótesis en docs/hallazgos-crm.md: el «⋯» de la BARRA › «Buscar prospectos» navega.
+- El VERDE de esta rama dio ROJO el 22/10 por `tests/ficha-editar-con-mako.test.ts`: `cambiar_tipo_etapa` dejaba afuera a
+  `cambiar_ficha_funnel` al editar la ficha. Arreglado en la pista de «Editar» (`1a5a9d497`); por qué, en
+  docs/hallazgos-api-mako.md.
+
+**Hecho (cada uno con su test probado rompiéndolo):**
+- «Kanban · Lista» juntos en un segmento, con «Kanban» y «Lista» en el tooltip: UNA pieza (app/_ui/SelectorVista.tsx) en
+  el CRM, Clientes (y /admin) y el Plan. tests/crm-vista-iconos.test.ts.
+- «Nuevo lead» salió del carril de cada columna y va al «⋯» de la columna (y a su clic derecho). tests/crm-feedback-21-10.test.ts.
+- Clic derecho en una tarjeta → «Personalizar tarjeta»; en el fondo, «Personalizar tarjetas».
+- «Asignar evento» con el calendario de línea (`evento` en app/_ui/iconos-menu.tsx), sin el logo de Meet.
+- «Personalizar tarjetas» con PLANTILLAS en un pop-up de 1060 px (app/_ui/PersonalizarTarjetas.tsx, la pieza de todos los
+  tableros): ocho del CRM y las propias de cada persona. tests/crm-tarjeta-personalizable.test.ts.
+- «Tipo de etapa» (Etapa / Reunión / Nutrición) en el «⋯» y el clic derecho de cada columna, con lo que pasa antes de
+  cambiarlo; no lo llevan la entrada, el cierre ni las terminales. tests/crm-tipo-etapa.test.ts.
+- «Asignar evento»: crear (y asignar), editar nombre y duración, y conectar Calendly o Cal.com ahí mismo.
+  tests/crm-eventos-crear.test.ts.
+- La criatura de MaKo (la estrella) abajo a la izquierda y la barra que se abre a la izquierda, pegada a la sidebar medida.
+  Desde el 22/10 (rama `crm-estrella-2210`, en C:/dev/wt-crm-estrella, que lleva la t3 adentro) es la pieza del Ops Center,
+  `MakoEnLaTab`: lo escrito va al chat «Cerebro», las sugerencias van arriba del hilo y su número en la estrella. «Hacerlo»
+  de una sugerencia de chat le escribe al Cerebro nombrando el CRM. `ChatMakoCrm.tsx` se borró. tests/sugerencias-crm.test.ts.
+- Clientes y el Plan (con un agente, `06050cd20` y `a847aaed4`): las mismas plantillas (7 cada uno), «Personalizar
+  tarjetas» en el «⋯» y el clic derecho, «Nuevo cliente» / «Nueva tarea» al «⋯» de la columna.
+  tests/clientes-tarjeta-plantillas.test.ts y tests/plan-tarjeta-plantillas.test.ts.
+- API de MaKo: `personalizar_tarjetas_crm`, `cambiar_tipo_etapa`, `crear_evento_agenda`, `editar_evento_agenda`,
+  `ver_tarjeta_clientes`, `personalizar_tarjetas_clientes`, `ver_tarjeta_plan` y `personalizar_tarjetas_plan`.
+  docs/api-mako.md y el snapshot, regenerados.
+
+**No visto en pantalla:** el disco C: tenía 1,3 GB libres y la RAM 1,4 GB: no entra un build parcial (pide copiar
+`node_modules`). Se mira al desplegar, en el ws3: /crm (el «⋯» de una columna, clic derecho en una tarjeta, «⋯» ›
+«Personalizar tarjetas», «Tipo de etapa», «Asignar evento» de una reunión, la estrella abajo a la izquierda),
+/customer-success y /plan (el segmento y «Personalizar tarjetas»). Tipos: el tsc acotado lo cortó el vigía de RAM.
+
+**Sin hacer, con el archivo:**
+- El server del chat propio del CRM quedó sin pantalla desde la estrella (22/10): `send`, `confirmar`, `cancelar` y
+  `hilo=1` de app/api/crm/mako/route.ts, y `abrirDelCrm` / `turnoDelCrm` / `tarjetaDelCrm` de app/crm/mako-crm/chat-server.ts
+  (con chat-reglas.ts). `chatDelRequest` sigue siendo la puerta de las sugerencias. Detalle en docs/hallazgos-crm.md.
+- Google Calendar en «Asignar evento»: su API no expone las páginas de reserva. **Decisión de Martín** (C1 de
+  docs/pedidos-crm.md): una regla por título + un barrido del calendario, o esperar a Google.
+- El teléfono sigue los datos de la tarjeta pero no la forma (app/m/crm/TableroCrm.tsx dibuja filas).
+- «Sin avance» en Clientes también esconde «Pago rechazado» (vive en la barra): **decisión de producto** (docs/hallazgos-customer-success.md).
+- El teléfono no lee la elección en Clientes ni en el Plan (app/m/cs/CustomerSuccessM.tsx, app/m/plan/ListaPlan.tsx); la ficha
+  de un cliente y /admin usan la tarjeta de siempre (FichaCliente.tsx, AdminView.tsx).
+- `personalizar_tarjetas_crm` (lib/api-mako/areas/crm.run.ts) tiene su copia de la lógica; podría usar `pedidoDeTarjeta`
+  (lib/plantillas-tarjeta.ts), como Clientes y el Plan.
+- La Ticketera tiene «Tarjetas · Lista» como texto (app/tickets/decisiones/CambioVista.tsx): es un mazo, no un kanban; no
+  se tocó.
+
 ## 0-Ω15. 17/10/2026 (chat «Pendientes B2: CRM y clientes», cuenta `claude4`): los pendientes del CRM del 17/10
 
 Rama `pend-b2-1710` en `C:/dev/wt-pend-b2`. **Sin subir: la punta se le pasa al Cerebro.** El porqué de cada cosa, y
@@ -983,7 +1084,7 @@ landing del cliente, Calendly/Cal.com, WhatsApp) o importados de una planilla.
 
 Vocabulario que se usa acá y no se explica dos veces:
 
-- **ws1, ws11, ws13**: los negocios (workspaces) por número. **ws1 es Mauricio Bustos, un
+- **ws1, ws11, ws13**: los negocios (workspaces) por número. **ws1 es Mauricio, un
   CLIENTE** (el primer cliente, por eso la constante se llama `OWNER_WS` — no es el dueño).
   ws11 es Leila, ws13 es Código Inmobiliario, ws3 es el Cliente de Prueba.
 - **La casa de un lead**: el producto donde «vive» (`leads.funnel_id` + `leads.pipeline_stage`).

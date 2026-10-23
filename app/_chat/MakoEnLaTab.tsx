@@ -14,16 +14,24 @@
 // (PanelChat.tsx), el hilo y la caja (app/second-brain/PiezasCliente.tsx). Cada tab la monta con `<MakoEnLaTab tab="CRM" />`.
 // ⚠️ EL PANEL VA PEGADO A LA BARRA DE LA APP (app/_components/Sidebar.tsx, `[data-sidebar]`, 68 o 244 px), no al borde de la
 //    pantalla: se mide al montar y cada vez que la barra cambia de ancho (se fija o se suelta).
+// ⚠️ ABRIRLO PLIEGA LA BARRA (22/10/2026, Martín: «si abro a MaKo, se debería plegar la sidebar principal, para optimizar
+//    espacios. Si antes la tenía desplegada y fija, al cerrar MaKo debe volver a su lugar»): ./mako-abierto.ts. Es un pliegue
+//    temporal, como el del Ops Center: no pisa lo que la persona guardó.
 // ⚠️ EL MOTOR SE MONTA SÓLO CON EL PANEL ABIERTO: una tab que nunca abre a MaKo no le pide nada al servidor.
 // ⚠️ ABIERTO, LA TAB LE DEJA EL LUGAR: el panel publica su ancho en `--ancho-panel-mako` (en <html>) y la tab lo usa de margen
 //    izquierdo (el CRM, en su <main>); cerrado vuelve a 0. Lo que cada tab suma arriba del hilo (las sugerencias del CRM) va
 //    en `arriba`, y su número en la estrella plegada, en `aviso` (pedido del chat CRM, 22/10/2026).
+// ⚠️ UN PEDIDO DE LA TAB (`pedido`, chat CRM, 22/10/2026): el «Hacerlo» de una sugerencia que se revisa con MaKo abre el
+//    panel y lo manda al Cerebro como un mensaje más, UNA vez por `vez`, cuando el hilo está listo. Cerrar antes lo suelta.
+// ⚠️ LO QUE MAKO TERMINÓ EN OTRA TAB (chat Automations, 22/10/2026) suma al globito y, abierta, va arriba del hilo con su link
+//    (TrabajosDeMako.tsx). El globito es lo que espera en la tab (`aviso`) más eso.
 // ⚠️ La caja es la única: este archivo no arma ninguna (tests/chat-unico.test.ts).
 
 import '@/app/admin/operaciones/centro.css';
 import './chat.css';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Modal } from '@/app/_ui';
+import { profundidadModales, useCapaModal, useProfundidadModales, zEncimaDeModales } from '@/app/_components/pila-modales';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
@@ -31,6 +39,12 @@ import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { useChatCliente } from '@/app/second-brain/useChatCliente';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from '@/app/second-brain/PiezasCliente';
 import { JEFE_SECOND_BRAIN, type ElegidoChat } from '@/lib/chat-mako-reglas';
+import { etiquetaDesde, type Desde, type EntidadChat, type ModoChat } from '@/lib/chat-desde';
+import { ModosMako } from '@/app/dashboard/ModosMako';
+import { BloqueDePreguntas, type PreguntaDeLaTab } from '@/app/admin/operaciones/PreguntasDelChat';
+import { marcarMakoAbierto } from './mako-abierto';
+import { TrabajosTerminados, useTrabajosSinVer } from './TrabajosDeMako';
+import type { TrabajoTerminado } from '@/lib/mako-trabajos';
 
 /** El ancho de la barra de la app plegada: lo que se usa hasta medirla (y en el server). */
 const BARRA_PLEGADA = 68;
@@ -52,61 +66,128 @@ function useBordeDeLaBarra(): number {
   return borde;
 }
 
-export function MakoEnLaTab({ tab, arriba = null, aviso = 0 }: {
-  /** El nombre de la tab («CRM», «Automations»): para el `aria-label`. Lo que se escribe va igual al Cerebro, que reparte. */
+export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, pedido = null, entidad = null, modo = null, onModo, encimaDeModales = false }: {
+  /** El nombre de la tab («CRM», «Automations»): el `aria-label` y desde dónde va lo que se escribe al Cerebro, que reparte. */
   tab: string;
-  /** Lo de la tab arriba del hilo (las sugerencias de MaKo del CRM, con «Hacerlo» y «Ahora no»). */
+  /** Lo que la pantalla tiene abierto (OC6, lib/chat-desde.ts): el lead de la ficha, la automatización del lienzo. El turno lo
+   *  toma por defecto («movelo a Ganado» es ESE lead) y el mensaje lleva su chip «desde CRM › Ana». */
+  entidad?: EntidadChat | null;
+  /** Lo pone la PANTALLA (mirando → 'analizar'; editando → 'editar'). En «analizar» el servidor no deja nada que escriba. */
+  modo?: ModoChat | null;
+  /** Si la pantalla deja cambiar de modo sin salir: «Analizar · Editar» arriba del hilo (el slot de Discutir/Editar). */
+  onModo?: (m: ModoChat) => void;
+  /** Lo de la tab arriba del hilo que NO es una pregunta (el «Calladas» del CRM, un aviso de que no se pudo leer). */
   arriba?: ReactNode;
+  /** Lo que la tab le pregunta a la persona (las sugerencias del CRM, con «Hacerlo» y «Ahora no»): va en el MISMO bloque de
+   *  preguntas del Ops Center, una por vez arriba de la caja (22/10/2026). Nunca una lista suelta arriba del hilo. */
+  preguntas?: readonly PreguntaDeLaTab[] | null;
   /** Cuánto espera a la persona en esta tab (las sugerencias): el globito de la estrella plegada. */
   aviso?: number;
+  /** Lo que la tab le manda al Cerebro (el «Hacerlo» de una sugerencia): abre el panel y sale UNA vez por `vez`. */
+  pedido?: { texto: string; vez: number } | null;
+  /** La tab abre su tarjeta en un MODAL (el Plan, Clientes; CR4, 22/10/2026): con uno abierto, la estrella queda encima de él
+   *  (si no, el fondo del modal la tapa y «cerrala» con la tarjeta abierta no se puede pedir), y el panel entra a la pila como
+   *  capa `anidada`: la tarjeta de abajo se sigue viendo y el Escape cierra sólo el panel. Sin esto, lo de siempre (z 55). */
+  encimaDeModales?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
+  // ¿Se abrió con un modal de la tab abierto? Se decide al abrir y queda mientras está abierto (el panel ya está en la pila).
+  const [sobre, setSobre] = useState(false);
+  const abrir = useCallback(() => { setSobre(encimaDeModales && profundidadModales() > 0); setAbierto(true); }, [encimaDeModales]);
+  const prof = useProfundidadModales();
   const borde = useBordeDeLaBarra();
-  // Abierto, la tab le deja el lugar (su margen izquierdo lee `--ancho-panel-mako`).
+  // Lo que MaKo terminó en otra tab sin que nadie lo mirara: suma al globito.
+  const trabajos = useTrabajosSinVer();
+  const espera = aviso + trabajos.length;
+  // El pedido vive acá y no en el panel: el panel se desmonta al cerrar, y uno ya mandado no puede volver a salir al reabrir.
+  const [porMandar, setPorMandar] = useState<{ texto: string; vez: number } | null>(null);
+  const ultimaVez = useRef<number | null>(null);
+  useEffect(() => {
+    if (!pedido || ultimaVez.current === pedido.vez) return;
+    ultimaVez.current = pedido.vez;
+    setPorMandar(pedido);
+    abrir();
+  }, [pedido]); // eslint-disable-line react-hooks/exhaustive-deps
+  const cerrar = useCallback(() => { setAbierto(false); setPorMandar(null); }, []);
+  // Abierto, la tab le deja el lugar (su margen izquierdo lee `--ancho-panel-mako`), y la barra de la app se pliega a íconos
+  // mientras tanto (./mako-abierto.ts): el panel se pega a su borde, que se mide (`useBordeDeLaBarra`), así que la tab sigue
+  // corriéndose lo que mide el panel. Al cerrar, o al salir de la tab con el panel abierto, la barra vuelve a como estaba.
   useEffect(() => {
     const raiz = document.documentElement.style;
     raiz.setProperty('--ancho-panel-mako', abierto ? `${ANCHO_PANEL}px` : '0px');
-    return () => { raiz.removeProperty('--ancho-panel-mako'); };
+    marcarMakoAbierto(abierto);
+    return () => { raiz.removeProperty('--ancho-panel-mako'); marcarMakoAbierto(false); };
   }, [abierto]);
   return abierto
-    ? <PanelDelCerebro tab={tab} izquierda={borde} arriba={arriba} onCerrar={() => setAbierto(false)} />
+    ? <PanelDelCerebro tab={tab} izquierda={borde} arriba={arriba} trabajos={trabajos} preguntas={preguntas} pedido={porMandar} onMandado={() => setPorMandar(null)} entidad={entidad} modo={modo} onModo={onModo} onCerrar={cerrar} sobre={sobre} />
     : (
-      <button type="button" className="ch-tab-mako" style={{ left: borde + 16 }} aria-label={aviso > 0 ? `Escríbele a MaKo desde ${tab} (${aviso} para ver)` : `Escríbele a MaKo desde ${tab}`}
-        title="MaKo" onClick={() => setAbierto(true)}>
-        <Muneco titulo={JEFE_SECOND_BRAIN} animo="despierto" size={40} espera={aviso} />
+      <button type="button" className="ch-tab-mako" style={{ left: borde + 16, ...(encimaDeModales && prof > 0 ? { zIndex: zEncimaDeModales(prof) } : {}) }} aria-label={espera > 0 ? `Escríbele a MaKo desde ${tab} (${espera} para ver)` : `Escríbele a MaKo desde ${tab}`}
+        title="MaKo" onClick={abrir}>
+        <Muneco titulo={JEFE_SECOND_BRAIN} animo="despierto" size={40} espera={espera} />
       </button>
     );
 }
 
 /** El panel abierto: la conversación «Cerebro» de la persona, con el motor del Ops Center. */
-function PanelDelCerebro({ tab, izquierda, arriba, onCerrar }: { tab: string; izquierda: number; arriba: ReactNode; onCerrar: () => void }) {
+function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, onMandado, entidad, modo, onModo, onCerrar, sobre }: {
+  tab: string; izquierda: number; arriba: ReactNode; trabajos: readonly TrabajoTerminado[]; preguntas: readonly PreguntaDeLaTab[] | null;
+  pedido: { texto: string; vez: number } | null; onMandado: () => void;
+  entidad: EntidadChat | null; modo: ModoChat | null; onModo?: (m: ModoChat) => void; onCerrar: () => void;
+  /** Abierto encima de un modal de la tab: es una capa más de la pila (anidada: la de abajo se sigue viendo). */
+  sobre: boolean;
+}) {
+  const capa = useCapaModal(sobre, { anidada: true });
   const [elegido, setElegido] = useState<ElegidoChat | null>(null);
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
+  // Desde dónde va lo que se escribe (OC6): la tab, lo que tiene abierto y el modo. El mismo objeto mientras no cambien.
+  const idEntidad = entidad?.id ?? null;
+  const desde = useMemo<Desde>(() => ({ tab, entidad, modo }), [tab, entidad?.tipo, idEntidad, entidad?.titulo, modo]); // eslint-disable-line react-hooks/exhaustive-deps
   // Siempre el Cerebro: al llegar la lista lo elige solo (`entrarAlCerebro`).
-  const k = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: true, chatInicial: null, opcionArmar: '', busca: '', caja });
+  const k = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: true, chatInicial: null, opcionArmar: '', busca: '', caja, desde });
+  // El pedido de la tab sale al Cerebro (no a otro chat) y cuando el hilo está listo y libre: `enviar` dice si salió.
+  useEffect(() => {
+    if (!pedido || !k.esJefe) return;
+    if (k.enviar(pedido.texto)) onMandado();
+    // `enviar` cambia en cada render; lo que decide es el pedido y que el Cerebro esté abierto, cargado y libre.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedido, k.esJefe, k.cargado, k.trabajo]);
   // Escape lo cierra, como un panel de la casa (si no hay un menú o un modal arriba).
   const { menuWA, infoWA, conectando } = k;
   useEffect(() => {
-    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape' && !menuWA && !infoWA && !conectando) onCerrar(); };
+    // Encima de un modal, sólo si el panel es la capa de arriba: si no, una tecla cerraba el panel Y la tarjeta de abajo.
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape' && !menuWA && !infoWA && !conectando && (!sobre || capa.esElDeArriba())) onCerrar(); };
     window.addEventListener('keydown', tecla);
     return () => window.removeEventListener('keydown', tecla);
-  }, [menuWA, infoWA, conectando, onCerrar]);
+  }, [menuWA, infoWA, conectando, onCerrar, sobre, capa]);
   // Como un chat: abre en lo último y baja con lo nuevo.
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo]);
   const seguirHilo = useCallback(() => hilo.current, []);
 
   return (
     <>
-      <div className="ch-tab-panel" style={{ left: izquierda }} role="dialog" aria-label={`MaKo en ${tab}`}>
+      <div className="ch-tab-panel" style={{ left: izquierda, ...(sobre ? { zIndex: capa.z } : {}) }} role="dialog" aria-label={`MaKo en ${tab}`}>
         <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
           cabecera={{ clave: 'cerebro', titulo: k.nombre, criatura: k.nombreMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: onCerrar }}
-          arriba={<>{arriba}<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} /></>}
+          arriba={<><TrabajosTerminados trabajos={trabajos} />{arriba}<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} /></>}
           despues={<>
             <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
             {k.infoWA && <Modal titulo="Info del mensaje" onCerrar={() => k.setInfoWA(null)} ancho={460}><InfoMensaje m={k.infoWA} /></Modal>}
           </>}
-          caja={<div className="co-caja"><CajaDelCliente k={k} campo={caja} seguir={seguirHilo} /></div>}
+          caja={<>
+            {/* Lo que la tab le pregunta, arriba de la caja y en EL bloque de preguntas (el del Ops Center). */}
+            {preguntas && preguntas.length > 0 && <BloqueDePreguntas chat={`tab:${tab}`} deLaTab={preguntas} />}
+            <div className="co-caja">
+            {/* Desde dónde va lo que se escribe, y en qué modo (OC6): lo mismo que dirá el chip del mensaje. */}
+            {(entidad || modo || onModo) && (
+              <div className="ch-desde-caja">
+                <span>Desde {etiquetaDesde(desde)}{modo === 'analizar' && !onModo ? ' · Analizar' : ''}</span>
+                {onModo && <ModosMako modo={modo ?? 'editar'} onModo={onModo} />}
+              </div>
+            )}
+            <CajaDelCliente k={k} campo={caja} seguir={seguirHilo} angosta />
+            </div>
+          </>}
           estado={estadoDelCliente(k)}>
           <HiloDelCliente k={k} />
         </PanelDeChat>
@@ -114,7 +195,7 @@ function PanelDelCerebro({ tab, izquierda, arriba, onCerrar }: { tab: string; iz
       </div>
       {k.conectando && (
         <Modal titulo="Tus cuentas de IA" onCerrar={() => { k.setConectando(false); k.mirarSuIA(); }} ancho={640}>
-          <TusCuentasIA sinCabecera />
+          <TusCuentasIA sinCabecera conectar />
         </Modal>
       )}
     </>

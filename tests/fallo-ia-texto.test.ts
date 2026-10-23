@@ -64,7 +64,7 @@ test('Con varias keys en orden, NO se culpa al cliente', () => {
 });
 
 test('El link abre la pantalla donde se cargan las keys', () => {
-  assert.equal(LINK, 'https://hola-mako.com/integraciones?abrir=gemini');
+  assert.equal(LINK, 'https://hola-mako.com/integraciones?abrir=anthropic', 'su Claude, no Gemini gratis (IA9)');
   // `?abrir=` es el deep-link real del board (app/integraciones/IntegracionesBoard.tsx).
   assert.ok(leer('../app/integraciones/IntegracionesBoard.tsx').includes("searchParams.get('abrir')"),
     'se perdió el deep-link ?abrir=: el link del mensaje cae en la pantalla sin abrir nada');

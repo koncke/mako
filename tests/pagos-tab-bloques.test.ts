@@ -158,9 +158,9 @@ test('cada función de plata del relevamiento sigue en un bloque, con la MISMA a
   assert.match(COBRO, /\{q\.pagado && q\.comprobante_path && <Button[^\n]*cobrar\.verComprobante\(q\)/);
   // Editar una cuota POR ID, armar el plan sin ganar el lead, y quitar o agregar UNA sin tocar las otras.
   assert.match(COBRO, /editarCuotaAction\(lead\.id, q\.id, cambio\)/);
-  assert.match(COBRO, /await ajustarPlanAction\(l\.id, cambiado\)/);
-  assert.match(COBRAR, /await agregarCuotaAction\(ctx\.lead\.id, \{ monto: m, fecha \}\)/);
-  assert.match(COBRO, /await quitarCuotaAction\(lead\.id, q\.id\)/);
+  assert.match(COBRO, /await ajustarPlanAction\(l\.id, cambiado, ctx\.crm\?\.id \?\? null\)/);
+  assert.match(COBRAR, /await agregarCuotaAction\(ctx\.lead\.id, \{ monto: m, fecha \}, ctx\.crm\?\.id \?\? null\)/);
+  assert.match(COBRO, /await quitarCuotaAction\(lead\.id, q\.id, crm\)/);
   // Cobrar con link, la lista de cobros con lo del admin, y el link de UNA cuota.
   assert.match(COBRO, /<CobrarConLink lead=\{/);
   assert.match(COBRO, /<CobrosDelLead cobros=\{lista\} error=\{errLeer\} esAdmin=\{!!opciones\?\.ok && opciones\.esAdmin\}/);
@@ -170,7 +170,7 @@ test('cada función de plata del relevamiento sigue en un bloque, con la MISMA a
   assert.match(COBRO, /activaPasarela\s*\? await cancelarSuscripcionAction\(activaPasarela\.id\)[\s\S]{0,200}: await cambiarEstadoSuscripcionAction\(lead\.id, 'cancelada'\)/);
   assert.match(COBRO, /<Confirm title="¿Cancelar la suscripción\?"/);
   // La venta, el contrato y los datos del deal: campo por campo, y «Leer con IA».
-  assert.match(COBRO, /guardarVentaAction\(lead\.id, c, \{ tipoVisto: tipo \}\)/);
+  assert.match(COBRO, /guardarVentaAction\(lead\.id, c, \{ tipoVisto: tipo, crm \}\)/);
   assert.match(DEAL, /guardarCampoDealAction\(ctx\.lead\.id, \{ seccion, campo, valor: v \|\| null \}\)/);
   assert.match(DEAL, /guardarObligacionAction\(lead\.id, cambio\)/);
   assert.match(DEAL, /useLeerDocumento\(ctx, '\/api\/extract-contract'\)/);
@@ -220,9 +220,9 @@ test('quitar o agregar UNA cuota no reescribe las otras, y quitar pide confirmac
   // había cambiado volvía a su valor viejo. Y el Deshacer de quitar la reinsertaba con otro id y otro número.
   const acc = fuente(`${DIR}/cuotas-actions.ts`);
   const quitar = acc.slice(acc.indexOf('export async function quitarCuotaAction'), acc.indexOf('export async function agregarCuotaAction'));
-  assert.match(quitar, /guardarCuotasPorId\(leadId, \[\], \{ vistos: new Set\(\[pagoId\]\) \}\)/, 'quitar: la única vista es la que se quita');
+  assert.match(quitar, /guardarCuotasPorId\(leadId, \[\], \{ vistos: new Set\(\[pagoId\]\), crm: await crmDelTrato\(leadId, crm\) \}\)/, 'quitar: la única vista es la que se quita');
   const agregar = acc.slice(acc.indexOf('export async function agregarCuotaAction'));
-  assert.match(agregar, /guardarCuotasPorId\(leadId, \[\{ id: null, monto_usd: monto, fecha_esperada: cuota\.fecha \}\], \{ vistos: new Set\(\) \}\)/, 'agregar: ninguna vista');
+  assert.match(agregar, /guardarCuotasPorId\(leadId, \[\{ id: null, monto_usd: monto, fecha_esperada: cuota\.fecha \}\], \{ vistos: new Set\(\), crm: await crmDelTrato\(leadId, crm\) \}\)/, 'agregar: ninguna vista');
   for (const f of [quitar, agregar]) {
     assert.ok(f.indexOf('haySesion()') > 0 && f.indexOf('haySesion()') < f.indexOf('await asegurarLeadDelNegocio(leadId)') && f.indexOf('await asegurarLeadDelNegocio(leadId)') < f.indexOf('guardarCuotasPorId('));
   }
@@ -258,8 +258,9 @@ test('el plan manda SÓLO lo que se cambió, y su Deshacer devuelve cada cuota c
 test('Deshacer un pago sólo si se cobró EXACTO; el de desmarcar conserva cómo se cobró; el de la venta con su tipo', () => {
   assert.match(PIEZAS, /r\.pendiente == null && p\.monto === valorUsd\);/, 'con descuento o de más, desmarcar no devuelve el monto');
   assert.match(COBRAR, /moneda: q\.moneda \?\? null, montoOriginal: q\.monto_original \?\? null, concepto: q\.concepto \?\? null, metodo: q\.metodo \?\? null,/);
-  assert.match(COBRO, /const r = await guardarVentaAction\(leadId, d, \{ tipoVisto: visto \}\);\s*if \(!r\.ok\) return;\s*visto = r\.ventaTipo;/);
-  assert.equal((COBRO.match(/void deshacerVenta\(lead\.id, atras, r\.ventaTipo\)/g) ?? []).length, 2, 'la venta y la suscripción deshacen con el tipo');
+  assert.match(COBRO, /const r = await guardarVentaAction\(leadId, d, \{ tipoVisto: visto, crm \}\);\s*if \(!r\.ok\) return;\s*visto = r\.ventaTipo;/);
+  // La venta deshace en el CRM que se mira (22/10/2026, mig 0324); la suscripción es siempre de la casa.
+  assert.equal((COBRO.match(/void deshacerVenta\(lead\.id, atras, r\.ventaTipo(, crm)?\)/g) ?? []).length, 2, 'la venta y la suscripción deshacen con el tipo');
 });
 
 test('sin los cobros leídos no se ofrece registrar el mes (podría cobrarlo la pasarela), ni en la tab ni en la API', () => {

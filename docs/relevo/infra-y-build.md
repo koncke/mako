@@ -311,8 +311,8 @@ que ya está hecho.
 Es lo más concreto que queda abierto, y es de la cuenta nueva. Leído el 10/10/2026 19:13:
 
 ```
-claude1	Mauricio Bustos <mbustos@elevate.com.mx>
-claude2	Leandro Tejado <tejadomartin@gmail.com>
+claude1	Mauricio <dueno@negocio-uno.com>
+claude2	Leandro <ejemplo.colaborador.mako@gmail.com>
 ```
 
 `bf40ad44` dejó el mecanismo listo y **probado con una `claude3` inexistente** (contesta SIN

@@ -23,7 +23,9 @@
 export const CSS = `
 .lk { --lk-azul: var(--primary); --lk-azul-claro: var(--primary-bg); --lk-verde: var(--good); --lk-verde-claro: var(--good-bg); --lk-tinta: var(--ink); --lk-gris: var(--dim); --lk-borde: var(--border); --lk-barra: var(--surface-2); --lk-lienzo: var(--bg); font-family: 'Geist', system-ui, sans-serif; color: var(--ink); }
 .lk button { font-family: inherit; }
-.lk-app { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
+.lk-app { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg); min-width: 0;
+  /* La estrella de MaKo abierta (app/_chat/MakoEnLaTab.tsx) publica su ancho: el editor le deja el lugar, como el CRM. */
+  margin-left: var(--ancho-panel-mako, 0px); }
 /* Quien nunca guardó un informe: el lienzo vacío con «Nuevo Dashboard» en el medio (EditorInforme, enBlanco). */
 .lk-en-blanco { min-height: calc(100dvh - 200px); padding: 0; }
 .lk-en-blanco-crear { display: flex; flex-direction: column; gap: 16px; max-width: 1080px; margin: 0 auto; padding: 36px 24px 56px; box-sizing: border-box; }
@@ -127,6 +129,9 @@ export const CSS = `
 .lk-pagina[data-dispositivo="movil"] { width: 390px; max-width: calc(100% - 32px); border-radius: 30px; padding: 16px 12px 36px; }
 .lk-disp { display: inline-flex; align-items: center; gap: 2px; }
 .lk-disp .lk-herr[aria-pressed="true"] { background: var(--velo-hover); color: var(--primary); }
+.lk-aviso-hoja { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: var(--warn-bg); color: var(--ink); font-size: 13.5px; line-height: 1.45; }
+.lk-aviso-hoja__accion { margin-left: auto; padding: 0; border: none; background: none; font: inherit; color: var(--warn); font-weight: 600; cursor: pointer; white-space: nowrap; }
+.lk-aviso-hoja__accion:hover { text-decoration: underline; }
 .lk-vacio { display: grid; place-items: center; gap: 12px; padding: 120px 0; color: var(--dim); font-size: 14px; text-align: center; }
 .lk-vacio p { margin: 0; }
 /* La pila del celular: una tarjeta debajo de la otra, y los NÚMEROS de a dos (un número solo a lo ancho del teléfono es

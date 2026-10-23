@@ -198,3 +198,94 @@ export function reunionPorNombre(etapas: readonly EtapaConTipo[], key: string, l
   if (labelAnterior != null && pareceReunion(labelAnterior)) return false;
   return cambioDeReuniones(etapas, key, true).corridas.length === 0;
 }
+
+// ── «Tipo de etapa» desde el «⋯» de una COLUMNA del tablero (21/10/2026) ──────────────────────────
+// Martín, 21/10/2026: «En cada columna, a excepción de las que ya sabes que no deberían cambiar, debes poner en los 3
+// puntos una opción de "Tipo de etapa" para poder decidir si es una etapa de reunión, o las otras que tenemos». Son los
+// MISMOS tres tipos del desplegable del pop-up de etapas (Etapa / Reunión / Nutrición) y la MISMA op que los guarda
+// (`editarEtapaAction`, op `tipo`, que decide la banda con `cambiarTipo`, lib/etapa-banda.ts). Acá, qué columnas lo
+// llevan y qué se le dice a la persona antes de cambiarlo.
+
+type ColumnaConTipo = EtapaConTipo & { band?: string };
+
+/**
+ * ¿La columna del tablero lleva «Tipo de etapa»? Las del recorrido que llevan tipo (`puedeTenerTipo`: ni la entrada, ni
+ * el cierre, ni las terminales) y todas las de la banda Nutrición, propias o derivadas (con Etapa o Reunión suben al
+ * recorrido, como en el pop-up). Las de salida (Perdido, Descalificado, No responde) no: son terminales.
+ */
+export function columnaConTipo(c: ColumnaConTipo): boolean {
+  if ((TERMINALES as readonly string[]).includes(c.key)) return false;
+  if (c.band === 'nutricion') return true;
+  if (c.band != null && c.band !== 'pipeline') return false;
+  return puedeTenerTipo(c);
+}
+
+/** El tipo que tiene HOY una columna: la banda Nutrición es Nutrición, sea propia (`marcadaComo`) o derivada. */
+export const tipoDeColumna = (c: ColumnaConTipo): TipoEtapa => (c.band === 'nutricion' ? 'nutricion' : tipoDeEtapa(c));
+
+export const NOMBRE_TIPO_ETAPA: Readonly<Record<TipoEtapa, string>> = { etapa: 'Etapa', reunion: 'Reunión', nutricion: 'Nutrición' };
+/** Una línea por tipo: qué ES. Texto que se dibuja, corto. */
+export const DETALLE_TIPO_ETAPA: Readonly<Record<TipoEtapa, string>> = {
+  etapa: 'Un paso del funnel.',
+  reunion: 'Lleva la fecha y la asistencia. Se le asigna un evento.',
+  nutricion: 'Para retomar más adelante. Va a la banda Nutrición.',
+};
+
+/**
+ * Lo que pasa si la columna pasa a `tipo`, en frases cortas, para decirlo ANTES de cambiarla. Lo pidió el Cerebro con
+ * el pedido de Martín: «si se cambia el tipo de una etapa con leads adentro, decí qué les pasa».
+ *
+ *   · Los leads NO se mueven: el tipo cambia la etapa, no dónde está cada uno (la op `tipo` sólo reescribe el pipeline).
+ *   · A Reunión: cada lead que pase por ahí lleva la fecha y la asistencia (las piden los requisitos de las etapas que
+ *     siguen, `reunionesDe`), y se le puede asignar un evento; si sería la tercera, no tiene dónde guardar la fecha
+ *     (`slotPorIndice`). ⚠️ NO decir «abre la agenda»: eso sólo pasa en `agenda`/`agendaj2` con Calendly configurado
+ *     (`calendlyStages`, app/crm/page.tsx), no en cualquier reunión.
+ *   · Desde Reunión: deja de llevar fecha y asistencia, y el evento vinculado deja de rutear acá (el ruteo vuelve a
+ *     mirar el tipo en cada reserva: `problemaDeVinculo`, lib/agenda-evento-etapa.ts).
+ *   · Las reuniones que cambian de número (`cambioDeReuniones`): la fecha del lead va por ORDEN de las reuniones.
+ *   · Nutrición ↔ recorrido: cambia de banda (una que sube cae antes del cierre: `insertarEnRecorrido`).
+ * `recorrido` son las etapas del recorrido del funnel, en orden (banda `pipeline`); `leads`, cuántos hay en la columna.
+ */
+/** El aviso de la tercera reunión: con él, «Tipo de etapa ›» no cambia con un toque y abre el pop-up para leerlo (22/10/2026). */
+export const AVISO_SIN_LUGAR = 'Sería la tercera reunión del funnel: no tiene dónde guardar la fecha.';
+
+export function avisoCambioDeTipo(i: {
+  recorrido: readonly EtapaConTipo[];
+  columna: ColumnaConTipo;
+  tipo: TipoEtapa;
+  leads: number | null;
+  /** El evento de agenda vinculado a esta etapa, si hay. */
+  evento?: string | null;
+}): string[] {
+  const desde = tipoDeColumna(i.columna);
+  if (desde === i.tipo) return [];
+  const out: string[] = [];
+  const n = i.leads ?? 0;
+  if (n > 0) out.push(n === 1 ? 'El lead que está aquí se queda en esta etapa.' : `Los ${n} leads que están aquí se quedan en esta etapa.`);
+  const sube = i.tipo === 'reunion';
+  const baja = desde === 'reunion';
+  // Las reuniones se cuentan sobre el recorrido COMO QUEDARÍA: una que viene de Nutrición entra antes del cierre.
+  const enRecorrido = i.recorrido.some((e) => e.key === i.columna.key);
+  const iCierre = i.recorrido.findIndex((e) => e.kind === 'cierre');
+  const lista = enRecorrido ? i.recorrido : [
+    ...i.recorrido.slice(0, iCierre < 0 ? i.recorrido.length : iCierre),
+    { key: i.columna.key, label: i.columna.label, kind: 'paso' },
+    ...(iCierre < 0 ? [] : i.recorrido.slice(iCierre)),
+  ];
+  const c = sube || baja ? cambioDeReuniones(lista, i.columna.key, sube) : { corridas: [], sinLugar: [] };
+  if (sube) {
+    out.push('Cada lead que pase por aquí lleva la fecha y la asistencia de la reunión.');
+    out.push(c.sinLugar.includes(i.columna.key)
+      ? AVISO_SIN_LUGAR
+      : 'Le puedes asignar un evento de Calendly o Cal.com.');
+  }
+  if (baja) {
+    out.push('Deja de llevar la fecha y la asistencia de la reunión.');
+    if (i.evento) out.push(`Las reservas de «${i.evento}» dejan de caer aquí: vuelven al CRM principal.`);
+  }
+  for (const r of c.corridas) out.push(`«${r.label}» pasa a ser la reunión ${r.a}.`);
+  if (c.corridas.length) out.push('Las fechas ya cargadas van por número: pueden verse en otra etapa.');
+  if (i.tipo === 'nutricion') out.push('La columna pasa a la banda Nutrición.');
+  else if (desde === 'nutricion') out.push('La columna vuelve al recorrido, antes del cierre.');
+  return out;
+}

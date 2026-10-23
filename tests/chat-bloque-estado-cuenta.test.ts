@@ -144,7 +144,7 @@ test('5. ⚠️ el comprobante se lee con la moneda del negocio YA CARGADA, nunc
   assert.match(marcar, /loading=\{leyendo \|\| monedaNegocio == null\} onClick=\{\(\) => archivo\.current\?\.click\(\)\}>Subir el comprobante/);
   assert.match(marcar, /if \(f && monedaNegocio != null\) void subir\(f, monedaNegocio\);/);
   // Lo que todavía no se sabe se muestra como USD (los campos), pero no se lee nada con eso.
-  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/pagos/cobrar.tsx')), /<RegistrarPago leadId=\{lead\.id\} monedaNegocio=\{moneda \?\? 'USD'\}/);
+  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/pagos/cobrar.tsx')), /<RegistrarPago leadId=\{lead\.id\} crm=\{crm\} monedaNegocio=\{moneda \?\? 'USD'\}/);
 });
 
 test('3. ⚠️ el comprobante va atado al lead y al pedido: uno, de ESTE lead, para cobrar una cuota, y de un solo lead', () => {

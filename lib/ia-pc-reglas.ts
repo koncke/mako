@@ -255,6 +255,28 @@ export const SISTEMAS_PC = ['windows', 'mac'] as const;
 export type SistemaPc = (typeof SISTEMAS_PC)[number];
 /** Los archivos que sube scripts/ia-pc/publicar-binarios.mts al bucket privado `ia-pc` (comprimidos: entran en 50 MB). */
 export const archivoDelPrograma = (archivo: 'windows-x64' | 'mac-arm64' | 'mac-x64'): string => `mako-pc-${VERSION_PC}-${archivo}.gz`;
+export const ARCHIVOS_PC = ['windows-x64', 'mac-arm64', 'mac-x64'] as const;
+
+/**
+ * Qué archivos de ESTA versión faltan en el bucket (IA1/IA2, 22/10/2026). La 0.3.2 se desplegó sin sus ejecutables y el
+ * instalador contestaba «No pude preparar la descarga» con un 200, a todo cliente nuevo, sin que nada lo marcara. Lo usan
+ * publicar-binarios (en seco dice qué falta) y verificar-binarios (lo corre Integración antes de subir un cambio de acá).
+ * Las versiones que están, para decirlo: «hay 0.2.0 y 0.3.0».
+ */
+export function faltanEnElBucket(nombres: readonly string[], version: string = VERSION_PC): { faltan: string[]; versiones: string[] } {
+  const hay = new Set(nombres);
+  const versiones = [...new Set(nombres.map((n) => /^mako-pc-(\d+\.\d+\.\d+)-/.exec(n)?.[1]).filter((v): v is string => !!v))]
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  return { faltan: ARCHIVOS_PC.map((a) => `mako-pc-${version}-${a}.gz`).filter((n) => !hay.has(n)), versiones };
+}
+
+/** Lo que dice scripts/ia-pc/verificar-binarios.mts: «0.3.2 completa» o «falta 0.3.2: …» (con lo que no firma). */
+export function informeDeBinarios(nombres: readonly string[], version: string = VERSION_PC, noFirman: readonly string[] = []): { completa: boolean; texto: string } {
+  const { faltan, versiones } = faltanEnElBucket(nombres, version);
+  const mal = [...faltan, ...noFirman.map((n) => `${n} (no firma)`)];
+  if (!mal.length) return { completa: true, texto: `✓ ${version} completa: el instalador puede bajarla.` };
+  return { completa: false, texto: `⛔ falta ${version}: ${mal.join(', ')}. En el bucket hay: ${versiones.join(', ') || 'nada'}. Súbela con scripts/ia-pc/publicar-binarios.mts antes de desplegar.` };
+}
 
 /** La línea que el tutorial le da a copiar. El código va en la URL: es de un uso y vence en 10 minutos. */
 export function lineaDeInstalacion(servidor: string, sistema: SistemaPc, codigo: string): string {
@@ -334,6 +356,11 @@ export function scriptDeInstalacion(p: { sistema: SistemaPc; codigo: string; ser
       // Sin esto, PowerShell 5.1 muestra «qued�» en vez de «quedó» (medido el 21/10/2026 con el instalador).
       '[Console]::OutputEncoding = [Text.Encoding]::UTF8',
       "$ErrorActionPreference = 'Stop'",
+      // ⚠️ SIN LA BARRA DE PROGRESO (22/10/2026, Martín: se quedó en «Descargando MaKo en tu computadora…» para siempre). En
+      // Windows PowerShell 5.1 la barra de `Invoke-WebRequest` se redibuja por cada pedazo que llega: con los 42,7 MB del
+      // programa: 58,6 s con la barra contra 4,1 s sin ella (medido el 22/10/2026, el mismo archivo, desde un PowerShell sin
+      // ventana; con ventana, la barra se dibuja y es peor). Tiene que ir ANTES de bajar (tests/ia-pc-ola2.test.ts).
+      "$ProgressPreference = 'SilentlyContinue'",
       "$dir = Join-Path $env:LOCALAPPDATA 'MaKo'",
       'New-Item -ItemType Directory -Force -Path $dir | Out-Null',
       "$exe = Join-Path $dir 'mako-pc.exe'",
@@ -452,6 +479,83 @@ export function estadoDeLaPc(pc: { enLinea: boolean; ultimoLatido: string | null
 
 /** ¿Le sirve el turno a esta PC? En línea Y con una cuenta con sesión: «en línea» sin Claude no contesta nada. */
 export const pcUsable = (pc: { enLinea: boolean; cuentas: readonly unknown[] } | null | undefined): boolean => !!pc && pc.enLinea && pc.cuentas.length > 0;
+
+/**
+ * A QUÉ COMPUTADORA VA EL TURNO, con varias (22/10/2026, Martín: «el usuario debería poder abrir y ejecutar su Claude en varios
+ * dispositivos»). Primero las que contestan (`pcUsable`); entre ésas, la que contestó el ÚLTIMO turno (la que la persona está
+ * usando), y sin turnos, la última conectada. Antes era «la que latió último»: con dos prendidas, cada 30 s ganaba otra, y
+ * el turno saltaba de un Claude a otro. Si ninguna contesta, la que latió último: el turno dice «apagada» o «sin sesión».
+ * `ultimoTurno`: por id, su último turno TERMINADO (cuándo, y si contestó bien).
+ *
+ * Revisión adversarial (22/10/2026): mirando sólo los turnos contestados bien, una que llegó al tope o se colgó (pero sigue
+ * latiendo) seguía siendo «la del último turno», y cada turno iba ahí a fallar mientras la otra, que sí contesta, no
+ * recibía ninguno. Ahora la que falló su último turno, o tiene la cuenta agotada (100% de las 5 horas o de la semana), va
+ * al final; entre las que fallaron, primero la que falló hace más (así, con las dos fallando, se turnan).
+ */
+export function elegirPc<T extends { id: number; enLinea: boolean; cuentas: readonly unknown[]; ultimoLatido: string | null; conectadaAt?: string | null }>(
+  pcs: readonly T[], ultimoTurno: ReadonlyMap<number, { at: string; ok: boolean }>,
+): T | null {
+  const ms = (s: string | null | undefined) => (s ? Date.parse(s) || 0 : 0);
+  const usables = pcs.filter(pcUsable);
+  if (usables.length) {
+    const sana = (p: T) => !cuentasAgotadas(p.cuentas) && ultimoTurno.get(p.id)?.ok !== false;
+    return [...usables].sort((a, b) => {
+      if (sana(a) !== sana(b)) return sana(a) ? -1 : 1;
+      const t = ms(ultimoTurno.get(b.id)?.at) - ms(ultimoTurno.get(a.id)?.at);
+      return (sana(a) ? t : -t) || ms(b.conectadaAt) - ms(a.conectadaAt) || b.id - a.id;
+    })[0];
+  }
+  return [...pcs].sort((a, b) => ms(b.ultimoLatido) - ms(a.ultimoLatido) || b.id - a.id)[0] ?? null;
+}
+
+/** ¿Todas sus cuentas llegaron al 100% (de las 5 horas o de la semana)? Así no contesta, aunque lata. */
+export function cuentasAgotadas(cuentas: readonly unknown[]): boolean {
+  const agotada = (c: unknown) => {
+    const u = (c ?? {}) as { usado5h?: unknown; usadoSemana?: unknown };
+    return (typeof u.usado5h === 'number' && u.usado5h >= 100) || (typeof u.usadoSemana === 'number' && u.usadoSemana >= 100);
+  };
+  return cuentas.length > 0 && cuentas.every(agotada);
+}
+
+/**
+ * El sistema de la PC, de su versión: el programa desde la 0.4.0 manda `0.4.0+windows` o `0.4.0+mac` en el latido (sin
+ * migración: el campo ya acepta el `+`). Las de antes no lo dicen: null, y no se muestra.
+ */
+export function sistemaDeLaVersion(version: string | null | undefined): 'Windows' | 'Mac' | null {
+  const m = /\+(windows|mac)$/i.exec(String(version ?? ''));
+  return m ? (m[1].toLowerCase() === 'mac' ? 'Mac' : 'Windows') : null;
+}
+
+/** Una PC de un negocio, para el super admin (SuperAdmin › Uso → Computadoras). Sin ningún secreto. */
+export type PcDeNegocio = {
+  id: number; ws: number; negocio: string; persona: string; nombre: string; sistema: 'Windows' | 'Mac' | null;
+  enLinea: boolean; conClaude: boolean; conectadaAt: string | null; ultimoLatido: string | null;
+};
+export type LecturaComputadoras = { ok: true; pcs: PcDeNegocio[] } | { ok: false; error: string };
+
+/**
+ * El email de la cuenta de Claude de OTRA persona, enmascarado: `m***@gmail.com` (decisión del Cerebro, 22/10/2026). El admin
+ * del negocio ve de las computadoras de su equipo el nombre, de quién es, si está en línea, el plan y el % de uso —lo necesita
+ * para manejar la capacidad—, pero el email de su Claude es un dato personal. Sin «@», `***`.
+ */
+export function enmascararEmail(email: string): string {
+  const i = email.lastIndexOf('@');
+  return i > 0 ? `${email[0]}***${email.slice(i)}` : '***';
+}
+
+/**
+ * Las cuentas de una PC tal cual las ve quien mira: el email entero sólo con `verEmail` (es SU computadora, o es el super
+ * admin); si no, enmascarado. Lo demás (plan, % de uso, cuándo se repone) va igual.
+ */
+export function cuentasParaVer<T extends { email?: string }>(cuentas: readonly T[], verEmail: boolean): T[] {
+  return verEmail ? [...cuentas] : cuentas.map((c) => (c.email ? { ...c, email: enmascararEmail(c.email) } : c));
+}
+
+/** La línea de debajo del nombre: el sistema y cuándo se conectó. Sin dato, no se muestra. */
+export function detalleDeLaPc(pc: { sistema?: string | null; conectadaAt?: string | null }, fecha: (iso: string) => string): string | null {
+  const partes = [pc.sistema ?? null, pc.conectadaAt ? `conectada el ${fecha(pc.conectadaAt)}` : null].filter(Boolean);
+  return partes.length ? partes.join(' · ') : null;
+}
 
 /** Lo que dice el chat cuando el turno era de la computadora de la persona y no salió (docs/ia-del-cliente.md §5). */
 export const AVISO_PC_APAGADA = 'Tu computadora está apagada: préndela y mándamelo de nuevo.';

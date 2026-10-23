@@ -31,6 +31,20 @@ export const modalDeArriba = (): string | null => (pila.length ? pila[pila.lengt
 /** Cuántos hay abiertos. Útil para bloquear el scroll del body una sola vez. */
 export const profundidadModales = (): number => pila.length;
 
+/** Cuántos hay abiertos, para quien NO es un modal y tiene que quedar encima del de arriba (la estrella de MaKo con una
+ *  tarjeta abierta, app/_chat/MakoEnLaTab.tsx). Se redibuja cuando la pila cambia. */
+export function useProfundidadModales(): number {
+  const [, forzar] = useState(0);
+  useEffect(() => {
+    const f = () => forzar((x) => x + 1);
+    suscriptores.add(f);
+    return () => { suscriptores.delete(f); };
+  }, []);
+  return pila.length;
+}
+/** El z-index que deja algo ENCIMA de todos los modales abiertos (el de arriba y su fondo). */
+export const zEncimaDeModales = (profundidad: number): number => 130 + Math.max(0, profundidad) * 2 + 1;
+
 let n = 0;
 const nuevoId = () => `m${++n}`;
 

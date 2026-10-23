@@ -133,6 +133,9 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     id: 'cobros', nombre: 'Cobros', emoji: '💳',
     linea: 'Lo cobrado y lo pendiente del mes, y a quién cobrarle primero.',
     subtitulo: '', tema: TEMA, periodo: 'este_mes_completo',
+    // EL SELECTOR DE CRM (22/10/2026, llamada con un cliente: «que tú le puedas seleccionar de qué CRM quieres ver ese
+    // dashboard»): el «Funnel» de la hoja, en «Todos» de entrada. Filtra los números, la lista y «A quién cobrarle» juntos.
+    controles: [{ tipo: 'lista', campo: 'producto', valores: null }],
     piezas: [
       numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago' }),
       numero('pendiente', 'pagos', 'pendiente', 'Por cobrar', { comparar: false }),

@@ -484,7 +484,7 @@ afectado se fusionaron 8 de 146 eventos.
 ### 10.9 El voice_id de Mauricio que estaba anotado ya no existe
 
 La memoria tenía `cw1FCBOoMtF4joFyHYy9`. La API responde **`voice_not_found`**. El vigente
-es **`dKQBE4K2Lu9KFMvS8sgP`** — «Mauricio Bustos (anuncios 22-08)», que es la re-clonación
+es **`dKQBE4K2Lu9KFMvS8sgP`** — «Mauricio (anuncios 22-08)», que es la re-clonación
 desde anuncios del 22/08 (la que la propia memoria dice que salió mejor que la de celular).
 
 Regla que queda: **un voice_id anotado se verifica con `GET /v1/voices/{id}` antes de armar

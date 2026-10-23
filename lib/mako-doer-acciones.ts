@@ -18,6 +18,7 @@ import { wsEnContexto, runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/wor
 import { crearPendiente, resolverPendiente, pendientesVigentes, reclamarPendiente } from '@/lib/mako-pendientes';
 import { porId } from '@/lib/api-mako/registro';
 import { esAccion } from '@/lib/api-mako/tipos';
+import { rechazoSiNoEsConfirmacionPura } from '@/lib/confirmacion-pura';
 import { getLead, setPipelineStage, faltantesParaMover, esRequisitosFaltantes, logLeadEvent } from '@/lib/leads';
 import { getFunnelDeLead } from '@/lib/funnels';
 import { eventTypeDeReunion, huecosDisponibles, reservarReunion, linkParaAgendar } from '@/lib/calendly-agenda';
@@ -927,6 +928,11 @@ instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 
           await resolverPendiente(ws, target.id, 'error', 'se confirma en pantalla, no por chat');
           return 'Esa acción se confirma en su pantalla de revisión, no por el chat: la pendiente quedó cerrada sin ejecutar.';
         }
+        // Misma puerta que lib/api-mako/acciones.ts: lo que le llega a un tercero se confirma con un «sí» y nada más.
+        const rechazoATercero = rechazoSiNoEsConfirmacionPura({
+          canal: 'whatsapp', aTerceros: defReg && esAccion(defReg) ? defReg.aTerceros : undefined, plata: defReg && esAccion(defReg) ? defReg.plata : undefined, mensaje: mensajeUsuario, titulo: defReg?.titulo ?? target.tipo, resumen: target.resumen,
+        });
+        if (rechazoATercero) return rechazoATercero;
         if (!(await reclamarPendiente(ws, target.id))) {
           return 'Esa acción ya se estaba ejecutando o ya venció: no la vuelvo a correr.';
         }

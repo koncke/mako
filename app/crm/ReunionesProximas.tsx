@@ -9,10 +9,16 @@
 // que se abra un modal para ver lo que hoy en día aparece en ese contenedor grande de
 // arriba».
 //
-// Era la sección «Tus reuniones» de CrmBoard: una caja del ancho de la pantalla, ARRIBA de
-// la barra, que empujaba el tablero entero hacia abajo cada vez que había una reunión
-// cercana. Ahora es un control más de la fila, y lo que mostraba vive en el pop-up, tal cual
-// (la etapa y el día, el aviso de «agendó sin ver el VSL», quién, qué quiere y el teléfono).
+// ⚠️ ADENTRO, LA TARJETA PARA PREPARAR CADA REUNIÓN (22/10/2026, segunda vuelta, app/crm/TarjetaReunion.tsx): «Tampoco me
+// gustó el pop-up con los bloques azules, rediseñalo... Y que no tenga "Llamar o WhatsApp"» (Martín). Lo de abajo cuenta
+// por qué el pop-up es uno solo para todos; el bloque azul ya no está.
+// ⚠️ EL MISMO POP-UP PARA TODOS, CON EL BLOQUE AZUL (22/10/2026). Martín: «En SuperAdmin el botón de "Tienes 2 reuniones
+// cerca" aparece el bloque azul, pero en los demás como Mauricio aún aparece el pop-up antiguo... Quiero siempre unificar
+// las cosas en todos lados... me gustaría que salga un pop-up sí, pero con el bloque azul. Y me falta un botón para poder
+// ver el detalle». No era el rol: desde el 18/10 el botón desplegaba «Próximo» (el bloque azul, arriba del tablero) si
+// había una reunión POR DELANTE, y abría la lista vieja si todas ya habían pasado. Cada uno veía lo que le tocaba según su
+// agenda. Ahora el botón SIEMPRE abre el pop-up, y adentro va el bloque azul de cada reunión (lo arma el tablero, que tiene
+// los leads: `contenido`), con «Ver detalle», que abre la ficha en «Reuniones».
 //
 // ⚠️ SÓLO SE DIBUJA CUANDO HAY ALGO. Igual que la sección: «que aparezca» cuando hay una
 // llamada cercana. Un botón de calendario sin nada adentro sería un control que abre un
@@ -21,7 +27,7 @@
 // globals.css: animar la opacidad baja el contraste del ícono a la mitad del pulso), y con
 // movimiento reducido queda fijo con el halo puesto.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { Modal } from '@/app/_ui/Modal';
 import type { CrmJunta } from './CrmBoard';
 
@@ -36,16 +42,11 @@ function CalendarioIcono() {
   );
 }
 
-/**
- * `onAlternar` (18/10/2026, Martín, pt 8): con una reunión por delante, el ícono del calendario ya no abre el pop-up:
- * despliega y pliega «Próximo», la tarjeta azul de arriba del tablero, que arranca PLEGADA. Sin reunión por delante
- * (`onAlternar` null), sigue abriendo la lista.
- */
-export function BotonReuniones({ juntas, onAbrir, onAlternar, desplegado }: {
+export function BotonReuniones({ juntas, contenido }: {
   juntas: CrmJunta[];
-  onAbrir: (leadId: number) => void;
-  onAlternar?: (() => void) | null;
-  desplegado?: boolean;
+  /** Lo que muestra el pop-up: la tarjeta de cada reunión (app/crm/TarjetaReunion.tsx). Lo arma el tablero; `cerrar`
+   *  cierra el pop-up antes de abrir la ficha («Ver detalle»). */
+  contenido: (cerrar: () => void) => ReactNode;
 }) {
   const [abierto, setAbierto] = useState(false);
   // `onCerrar` de identidad FIJA: el Modal de la casa re-ejecuta su efecto de foco con cada
@@ -68,10 +69,9 @@ export function BotonReuniones({ juntas, onAbrir, onAlternar, desplegado }: {
       <button
         type="button"
         className="crm-reunion-latido"
-        onClick={onAlternar ?? (() => setAbierto(true))}
-        aria-pressed={onAlternar ? !!desplegado : undefined}
+        onClick={() => setAbierto(true)}
         title={n === 1 ? 'Tienes una reunión cerca' : `Tienes ${n} reuniones cerca`}
-        aria-label={onAlternar ? (desplegado ? 'Plegar la próxima reunión' : 'Ver la próxima reunión') : n === 1 ? 'Ver la reunión que viene' : `Ver las ${n} reuniones que vienen`}
+        aria-label={n === 1 ? 'Ver la reunión que viene' : `Ver las ${n} reuniones que vienen`}
         style={{
           flex: 'none', height: 40, padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: 7,
           borderRadius: 10, border: '1px solid var(--primary)', background: 'var(--primary-bg)', color: 'var(--primary)',
@@ -82,27 +82,9 @@ export function BotonReuniones({ juntas, onAbrir, onAlternar, desplegado }: {
         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>{n}</span>
       </button>
       {abierto && (
-        <Modal titulo="Tus reuniones" ancho={720} onCerrar={cerrar}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(288px, 1fr))', gap: 10 }}>
-            {juntas.map((j) => (
-              <div key={j.id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, letterSpacing: '.05em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'var(--ink)', color: 'var(--on-ink)' }}>{j.when}</span>
-                  {j.warn && <span style={{ fontSize: 11, color: 'var(--bad)', background: 'var(--bad-bg)', padding: '3px 7px', borderRadius: 6 }}>⚠ {j.warnText}</span>}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, minWidth: 0 }}>
-                  <span style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => { setAbierto(false); onAbrir(j.leadId); }}
-                    style={{ flex: 'none', background: 'none', border: 'none', padding: 0, fontSize: 12, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer', fontFamily: 'inherit' }}
-                  >Abrir →</button>
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--dim)' }}>Quiere: {j.goal}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>☎ {j.phone}</div>
-              </div>
-            ))}
-          </div>
+        // 640: una columna de tarjetas que se leen de arriba abajo (con el bloque azul eran 960 a lo ancho).
+        <Modal titulo="Tus reuniones" ancho={640} onCerrar={cerrar}>
+          {contenido(cerrar)}
         </Modal>
       )}
     </>

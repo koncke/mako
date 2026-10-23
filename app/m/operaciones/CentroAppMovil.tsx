@@ -57,7 +57,7 @@ export function CentroAppMovil(datos: DatosCentro) {
           (SheetM mide el cuerpo con el alto de «alto»; docs/hallazgos-mobile.md). */}
       <SheetM abierto={runners} onCerrar={() => setRunners(false)} titulo="Uso y Runners" snap="alto">
         <RunnerMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
-          cuentas={cuentasConTitular(k)} onRenombrar={k.renombrarCuenta} />
+          cuentas={cuentasConTitular(k)} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} onCambiarCredito={k.cambiarCreditoDelNegocio} onLeerComputadoras={k.leerComputadoras} onDesconectarComputadora={k.desconectarComputadora} />
       </SheetM>
     </>
   );

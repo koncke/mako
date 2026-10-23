@@ -106,7 +106,8 @@ test('la ruta: la etapa que no existe va ANTES del modelo, y cada intento pasa p
   const explicar = ruta.indexOf('if (vaAExplicar(');
   assert.ok(etapa > 0 && explicar > etapa, 'antes de explicar y de editar');
   assert.match(ruta, /if \(sinEtapa\) \{ await contestar\(textoEtapaQueNoExiste\(sinEtapa\)\); return; \}/);
-  assert.match(ruta, /revisarEdicion\(\{ obj, base, ctx, pedido, historial, intencion \}\)/);
+  // (Con el control de lo pedido del turno, `control`: uno por turno, no por intento.)
+  assert.match(ruta, /const control = \{ yaPidioLoQueFalta: false \};\n\s+const traducir = [^\n]*\n\s+revisarEdicion\(\{ obj, base, ctx, pedido, historial, intencion, control \}\)/);
 });
 
 test('la regla del prompt va con la del código: «agrégalos» es sumar', async () => {

@@ -381,7 +381,7 @@ export const DEFS: readonly OperacionDef[] = [
 
   // ═══════════════════════════ ACCIONES — Ads Manager (chat) ═════════════════════
   {
-    id: 'proponer_estado_campana', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    id: 'proponer_estado_campana', plata: true, area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Pausar o activar una campaña',
     descripcion: 'PROPONE pausar o activar una campaña de Meta Ads; queda pendiente de confirmación y NO se ejecuta hasta el «sí». Activar enciende el gasto del presupuesto configurado, pero NO enciende los conjuntos ni los anuncios pausados por su cuenta: revísalos con listar_conjuntos_meta y listar_anuncios_meta. Consigue el campaignId con listar_campanas_meta o ver_estado_meta.',
     escribe: 'cambia el status de la campaña en Meta (POST /{id} status); nada en la base',
@@ -397,7 +397,7 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'externo', gating: G_META_ADMIN, tipoPendiente: 'meta_nombre',
   },
   {
-    id: 'proponer_estado_conjunto', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    id: 'proponer_estado_conjunto', plata: true, area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Pausar o activar un conjunto',
     descripcion: 'PROPONE pausar o activar UN conjunto de anuncios de Meta; queda pendiente de confirmación. Activar enciende su gasto (o su parte del presupuesto de campaña). Activar un conjunto dentro de una campaña pausada no lo pone a entregar. Consigue el adsetId con listar_conjuntos_meta.',
     escribe: 'cambia el status del conjunto en Meta (POST /{id} status); nada en la base',
@@ -405,7 +405,7 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'externo', gating: G_META_ADMIN,
   },
   {
-    id: 'proponer_estado_anuncio', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    id: 'proponer_estado_anuncio', plata: true, area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Pausar o activar un anuncio',
     descripcion: 'PROPONE pausar o activar UN anuncio de Meta; queda pendiente de confirmación. Activarlo lo pone a competir por el presupuesto de su conjunto; si el conjunto o la campaña están pausados, no entrega. Consigue el adId con listar_anuncios_meta.',
     escribe: 'cambia el status del anuncio en Meta (POST /{id} status); nada en la base',

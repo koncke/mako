@@ -1044,4 +1044,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: "/clients",
   },
+  {
+    fecha: '22 oct', hora: '00:21', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Clients: «Personalizar tarjetas» con plantillas, «Nuevo cliente» en el «⋯» de la columna y «Kanban · Lista» juntos',
+    puntos: [
+      'Lo pidió Martín el 21/10 a las 23:10 para el CRM, y «en clientes, plan, etc.» (el pedido literal está en la bitácora del CRM).',
+      '«Personalizar tarjetas» en el «⋯» de la barra (vista Kanban) y con clic derecho en una tarjeta: siete plantillas (Completa, Compacta, Sin foto, Con portada, Sin avance, Sólo la etapa, Sólo el nombre) y las propias.',
+      '«Nuevo cliente» ya no está arriba de cada columna: está en su «⋯».',
+      '«Kanban · Lista» van juntos en una caja, con el nombre al pasar el mouse.',
+      'Ojo: «Sin avance» también esconde «Pago rechazado» (vive en la barra). Queda para decidir.',
+    ],
+    commits: [
+      { sha: '06050cd20', msg: 'Clientes (feedback 21/10, tanda 3): «Personalizar tarjetas» con PLANTILLAS, «Nuevo cliente» al «⋯» de la columna y el clic derecho', lineas: 894, archivos: 14 },
+    ],
+    archivos: [
+    ],
+    revisar: '/customer-success',
+  },
 ];

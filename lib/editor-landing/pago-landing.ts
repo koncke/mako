@@ -137,7 +137,14 @@ export function productosDeFoto(publicado: unknown): number[] {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Un producto del catálogo, con lo que hace falta para cobrarlo desde una landing. */
-export type ProductoDePago = { id: number; nombre: string; tipo: TipoCobro; montoUsd: number | null };
+export type ProductoDePago = {
+  id: number; nombre: string; tipo: TipoCobro; montoUsd: number | null;
+  /**
+   * Lo que cobra el link: el PRIMER pago de un producto en cuotas (mig 0326, `crearCobro`); sin cuotas, el precio. El
+   * pendiente reusable se busca con ÉSTE: con el precio entero no coincidía nunca y cada clic abría otro checkout.
+   */
+  primerPagoUsd?: number | null;
+};
 
 /** Lo que el editor necesita saber de la pasarela del negocio (la respuesta de la acción `cobro`). */
 export type EstadoCobroLanding = { conectadas: Pasarela[]; productos: ProductoDePago[] };

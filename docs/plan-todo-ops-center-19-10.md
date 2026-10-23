@@ -1,6 +1,6 @@
 # Debate · «MaKo = todo Ops Center» (llamada con Leila, 19/10) · 20/10
 
-Llamada: url 864249064 = recording **194147010**, «Martin Konke con Leila Fittipaldi», 19/10 19:16–20:27 UTC.
+Llamada: url 864249064 = recording **194147010**, «Martin Konke con Leila», 19/10 19:16–20:27 UTC.
 Se leyó con `FATHOM_API_KEY_MARTIN` (listar /meetings y matchear la url).
 
 ## La «investigación de la cuenta de Mauricio»: NO está en la llamada ni en esta PC
@@ -13,7 +13,7 @@ Se leyó con `FATHOM_API_KEY_MARTIN` (listar /meetings y matchear la url).
 - En la bitácora, claude1 sólo tiene sesiones locales del 20/10 17:04–17:08, que son chats viejos
   retomados. No hay ningún informe en Descargas ni en el Escritorio desde el 17/10. `llamada con leila.txt`
   pesa 0 bytes.
-- **Dónde puede estar:** en una sesión de claude.ai/code de mbustos@elevate.com.mx que no subió rama
+- **Dónde puede estar:** en una sesión de claude.ai/code de dueno@negocio-uno.com que no subió rama
   (una sesión que sólo investiga no deja rama), o en un chat de claude.ai (Research) de esa cuenta.
   Desde la cuenta 4 no se ve. Hay que pedirle el link a Martín, o pasar la app a la cuenta 1 y listar
   la nube (cartero `nube`). Si es la sesión 01Nujt…, que le pida a esa sesión escribir lo investigado en

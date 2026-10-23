@@ -85,7 +85,7 @@ test('la ruta lee el CRON de la LISTA (`disparadoresDeSecuencia`) y lo pasa a ed
   // El MISMO ctx (con el CRON) llega al user, a deIAEdicion y a erroresEdicion.
   assert.match(editar, /userDeEditar\(ctx, /);
   // Desde el 22/10/2026 cada intento pasa por `revisarEdicion` (lib/flujo-ia-revision-editar.ts), con ese mismo ctx.
-  assert.match(editar, /revisarEdicion\(\{ obj, base, ctx, pedido, historial, intencion \}\)/);
+  assert.match(editar, /revisarEdicion\(\{ obj, base, ctx, pedido, historial, intencion, control \}\)/);
   const rev = readFileSync(join(__dirname, '..', 'lib/flujo-ia-revision-editar.ts'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(rev, /deIAEdicion\(o\.obj, o\.base, o\.ctx\)/);
   assert.match(rev, /erroresEdicion\(o\.base, r, o\.ctx\)/);

@@ -15,12 +15,11 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { syncClosingCalls, RESERVA_LLAMADA_MS, type SyncResult } from '@/lib/closing';
+import { syncClosingCalls, conQueAnalizaElClosing, RESERVA_LLAMADA_MS, type SyncResult } from '@/lib/closing';
 import { adjuntarFathomAutoThrottled } from '@/lib/fathom-auto';
 import { drenarInsightsDeLlamada } from '@/lib/insights-llamada';
 import { correrRonda } from '@/lib/cron-workspaces';
 import { checkCronAuth } from '@/lib/cron-auth';
-import { credWs } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -50,9 +49,16 @@ export async function GET(request: NextRequest) {
     // REINTENTABLE— y el cron la vuelve a levantar en cada corrida para volver a
     // fallar, para siempre. Nadie lo vio nunca porque hasta ahora el cron servía
     // siempre a los mismos dos workspaces, y los dos tienen key.
-    if (!(await credWs('ANTHROPIC_API_KEY', ws))) {
-      console.warn(`[cron:closing-sync] ws=${ws} SIN key de Anthropic — no se analiza (falta cargarla en /integraciones)`);
+    // Y la pregunta es la MISMA que hace el análisis (`conQueAnalizaElClosing`), no «¿hay una clave?»: el ws1 tiene una
+    // copia de la de la plataforma, y después del 13/11 pasaba este guard para fallar tres veces por ronda (IA12).
+    const con = await conQueAnalizaElClosing();
+    if (con === 'no') {
+      console.warn(`[cron:closing-sync] ws=${ws} sin con qué analizar — no se analiza (su clave de Claude en /integraciones)`);
       return { sin_ia: true } as const;
+    }
+    if (con === 'no-se') {
+      console.warn(`[cron:closing-sync] ws=${ws} no pude comprobar con qué analizar (la base no contestó) — queda para la próxima ronda`);
+      return { sin_ia: true, no_se: true } as const;
     }
     // PRIMERO lo barato, y en su versión con throttle: la llamada de antes hacía un
     // barrido ENTERO de Fathom por corrida, encima del que ya hace syncClosingCalls.

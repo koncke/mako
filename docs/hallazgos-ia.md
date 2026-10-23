@@ -2629,7 +2629,7 @@ un software: la IA y los botones tienen que resolverlo por él. *(2026-06-30)*
 ### ⚠️ El Closing Analyst tiene el equipo de Mauricio hardcodeado
 
 Los emails y dominios que marcan una llamada como «interna» están escritos a mano en el código
-(martinkoncke@gmail.com, tejadomartin@gmail.com, elevate.com.mx) y no son configurables por
+(martinkoncke@gmail.com, ejemplo.colaborador.mako@gmail.com, negocio-uno.com) y no son configurables por
 workspace: en cualquier otro cliente la clasificación venta-vs-interna se equivoca **en
 silencio** y contamina los promedios de score. En la misma línea, el prompt de análisis está
 afinado a un negocio concreto —consultoría/coaching que vende mentoría, método SPIN, entrega
@@ -4268,6 +4268,31 @@ directorio desde el que se corren: van desde el clon (que lo tiene) y con el có
 
 · *2026-10-16 chat «Onboarding» (claude3)*
 
+### Qué deja leer Anthropic del crédito de los planes Max, y quién más lo gasta (22/10/2026)
+
+Para la sección «API» del Uso del Ops Center (Martín: «quiero ver también el USO de la API... deberían ser 800 usd al mes»).
+Medido con las dos claves del crédito, sólo con lecturas (`GET`):
+- **`/v1/organizations/cost_report` y `/v1/organizations/usage_report/messages` contestan 401**: «The Admin API requires an
+  Admin API key or an organization-scoped API key». Las organizaciones del crédito son «Individual Org», y la Admin API no
+  existe para cuentas individuales (platform.claude.com/docs/en/manage-claude/usage-cost-api). Para leer el costo desde acá
+  haría falta convertir cada una en organización (Console → Organization) y crear una Admin key (`sk-ant-admin01-…`) por
+  organización. **El saldo no tiene endpoint**: se ve sólo en platform.claude.com → Billing → Promotional credits, con el
+  monto y el vencimiento.
+- **Lo que sí contesta una clave común es `/v1/organizations/me`**: el nombre de su organización. Así se verificó qué clave
+  es de qué plan: la CUENTA1 es «Mauricio's Individual Org» (claude1) y la CUENTA2, «Lean's Individual Org» (claude2).
+- **El crédito llega con cada cobro del plan, no el 1 del mes**; el tope de gasto de la organización sí se reinicia el 1.
+  MaKo no sabe el día de cobro de ningún plan.
+
+**El diagnóstico obvio («sumar las filas con la marca del crédito») se queda corto.** El ws10 tiene como su
+`ANTHROPIC_API_KEY` la clave del crédito de la cuenta 2 (scripts/claude-propio-de-un-negocio.mts). Todo lo que ese negocio
+paga con «su» Claude sale del mismo crédito y sus filas NO llevan la marca: llevan la del negocio o ninguna. Por eso
+lib/credito-api-db.ts descifra las `ANTHROPIC_API_KEY` de los negocios y las compara con las del crédito. Ni el ws de la
+plataforma ni el del dueño entran: ahí caen filas de varias claves (`wsDeLaFila`). En octubre (al 22): cuenta 1, US$0,25 en
+47 llamadas, todo del onboarding; cuenta 2, US$0, y el ws10 tampoco gastó.
+
+**Regla:** una clave que comparten la plataforma y un negocio se cuenta por la CLAVE, no por la marca del motivo. Y un número
+que Anthropic no deja leer se dice «lo que registra MaKo», con el link a donde está el real.
+
 ## Los pedidos sueltos en los chats: las palabras de un área no rutean, y un plazo corto a la cascada no corre nada (16/10/2026)
 
 **Vive en:** `lib/mako-pedidos.ts` (`decidir`, `PARTES_DE_LO_ABIERTO`, `RE_VERBOS`, `CONECTOR`) · `lib/mako-pedidos-ia.ts`
@@ -4832,6 +4857,29 @@ medias y tres bajas. Lo no obvio:
   saltear la ilegible o fallar cerrado daban lo mismo («sí»). Con la copia de la SEGUNDA cuenta (legible) se distinguen:
   saltear la da por copia («no»). Un caso de falla cerrada se prueba donde el error de saltear cambia la respuesta.
 
+## Lo que gastó la clave del negocio: el «⚠» no dice de quién es la fila (D3 del Ops Center, 22/10/2026)
+
+**El diagnóstico obvio era el equivocado.** Al medir en producción el «Gastó US$ … en los últimos 30 días» de «Tus cuentas de
+IA», una consulta con un regex propio (`⚠` o «clave … del negocio») contaba en el ws21 19 filas «de su clave», todas con costo, y
+`estadoDeSuClave` sumaba 0. Parecía la regla rota. Era la medición: el «⚠» lo llevan también las filas del **crédito del
+onboarding** (`⚠ crédito de Claude de la plataforma (cuenta 1) · Offer: conversar con el dueño`), que paga MaKo.
+
+**Dónde vive:** `esDeSuClave` en `lib/su-clave-reglas.ts`. Para Claude cuenta sólo lo que EMPIEZA con `MARCA_SU_CLAVE.anthropic`
+o con `MOTIVO_CREDITO_SU_CLAVE` (el crédito que ES la clave del negocio, como en el ws10). Un prefijo más corto, «⚠ crédito de
+Claude de la plataforma», le cobraría al negocio el regalo del onboarding. El test lo cubre con los motivos copiados de producción
+(`tests/ops-center-uso-cliente.test.ts`, probado rompiéndolo).
+
+**Medido el 22/10/2026, 30 días:** las únicas filas con la marca «del negocio» son 3 fallos del ws11 («sin crédito»), sin costo.
+Ningún negocio gastó todavía con su clave, así que «Sin gasto en los últimos 30 días» es lo cierto hoy, no un default. El que más
+filas tiene es el ws9, con 87, y la lectura subió de 500 a 2000.
+
+**Regla:** «de quién es esta fila» se mide con la MISMA función del código (`estadoDeSuClave`), nunca con un regex propio. Los
+fixtures de un test que filtra por `motivo` llevan los motivos copiados de producción, no uno inventado: el primer test pasaba
+con `«marca» chat`, que no existe.
+
+**SIN HACER:** el gasto es un piso (`anthropic_usage` no anota todo: ver «Tres módulos gastan sin registrar»), y un negocio con
+más de 2000 filas en 30 días vería un número corto sin aviso. Hoy el techo es 87 filas.
+
 ## Lo que midió la verificación del debate «quién paga el chat» (20/10/2026)
 
 Cuatro verificadores revisaron `docs/debate-ops-center-decisiones-20-10.md` contra producción antes de llevárselo a
@@ -5081,6 +5129,111 @@ El detalle está en las notas compartidas, `revision-clasificador-tanda-1-20-10.
 - **Un default «actuar» con `dudosa:false` desarma los candados que miran `dudosa`:** un «ahí hice la prueba» volvió a crear un borrador del Plan (el bug del 25/08).
 - **Buscar la operación en TODO el registro trae escrituras de otra cosa cuando la pedida no existe** («borrá la nota» → borrar_audio), y las raíces de 5 letras matchean dentro de palabras («borra» en «borrador»). Una acción que llega sin la lectura que le da el id no «llega».
 
+## Ops Center, pieza 1.2 (tandas 1 a 7): el clasificador del canal app (20/10/2026)
+
+**Pedido (Martín, 20/10):** «comienza a implementar directamente toda mi idea de que Ops Center sea lo principal en MaKo... quiero que en Ops Center se pueda hacer todo, editar videos, crear webs, etc...». Esta es la parte del clasificador (docs/ops-center-principal.md, 2.3 y pieza 1.2); la tanda 1 cubre CRM y Chats, Automations y Clients y el núcleo; la 2, Plan, Calendario y Dashboard; la 3, video, imagen y creaciones; la 4, Pagos y cuenta (cobros, equipo, reportes y avisos); la 5, Offer, Copywriting, Second Brain y experimentos; la 6, el Web Generator; la 7, Meta Ads.
+
+**Medido con el turno real** (`clasificarIntencion` + `herramientasDelChat`, canal app, admin) sobre las frases de los mapas:
+
+| | antes | ahora |
+|---|---|---|
+| CRM y Chats | 41 de 91 | 91 de 91 |
+| Automations y Clients | 17 de 48 | 44 de 44 (las otras 4, abajo) |
+| Núcleo | 23 de 40 | 40 de 40 |
+
+Tandas 2 y 3, medidas con la maquinaria de la tanda 1 ya puesta (las frases son nuestras, con la operación esperada sacada del registro; tuteo y voseo): Plan 28 de 30, Calendario 5 de 8, Dashboard 26 de 28, video 35 de 37, imagen y creaciones 8 de 10. Las filas nuevas cierran los últimos: «pasá la tarea…» (el `pasá` es de análisis), «agenda un reel…» (la agenda se lo llevaba), «quitá el gráfico de leads de la hoja» (el detector de leads se lo llevaba), «acelerá el clip» (nada nombraba `velocidad`), «publicá mi landing en la galería de la comunidad» (la landing se lo llevaba) y «dale una estrella» (`dale` es una confirmación). **Una familia puede ganarle a un detector** (`ganaALaAgenda`, `ganaAlLead`, `ganaALaLanding`), y su `relevancia` lleva sólo el nombre de la operación: la de «comunidad» con `post publicar evento crear` sacó `publicar_creacion` del presupuesto.
+
+Tanda 4, Pagos y cuenta (misma medición): cobros 21 de 22 y equipo y cuenta 23 de 28 → 22 y 26 de 26. Cerraron los últimos «dale de baja a Juan» (`dale` es una confirmación), «cambiale el rol a Pedro a closer» (`closer` es un objeto del CRM: el detector de leads se lo llevaba) y «renombrá este chat a Reunión semanal» (la agenda). **Una operación que no es del admin de un cliente no es una falta del clasificador:** `exigir_2fa_desde` tiene gating de PLATAFORMA y no llega a un admin, por eso sus dos frases quedaron afuera de la batería.
+
+Tandas 5 a 7 (misma medición): Offer, Copywriting y Second Brain 24 de 26 y 6 de 8 → 26 y 8; experimentos 10 de 10; Web Generator 35 de 39 → 39; **Meta Ads 30 de 30 sin una fila nueva**, con tuteo y voseo (los mapas medían Meta con tuteo en 0 de 18: lo arregló el verbo al arranque y la búsqueda en todo el registro, no un detector de Meta). Cerraron los últimos «guardá el diagnóstico de fase: etapa…» (`etapa` es un objeto del CRM), «armame el catálogo de productos» y «recomendame formatos de creativo» (`armame` y `recomendame` son imperativos de pensar), «pasá el guion 3 a aprobado», y en la landing «mové la sección de precios arriba» y «ponele el link del VSL»: el detector de landing devolvía sólo `landings creadas` como relevancia y la operación concreta quedaba afuera del presupuesto; ahora suma las palabras de la familia.
+
+**Qué cambió.**
+1. **D1 = A.** `clasificarIntencion` recibe `canal: 'app'` (lo pasa lib/mako-turno-app.ts; el doer de WhatsApp no). En la app, sin señal clara se **actúa** —se arma la tarjeta, nada se hace sin el toque— en vez de anotar. WhatsApp sigue anotando, y un test lo fija.
+2. **Un verbo de hacer al arranque** (lib/mako-intencion-app.ts, `pideHacerAlApp`): crear, mandar, poner, cambiar, cerrar, programar… en tuteo y voseo, con pronombre pegado («mandale», «ponele»), y el pedido indirecto («quiero crear…», «¿podés cambiar…?»). Sólo al arranque: en el medio de una frase es tercera persona.
+3. **Las familias de pedidos** (misma lib, tabla `FAMILIAS`): de qué área es una operación que el pedido no nombra y qué palabras de su NOMBRE la ponen primera en el presupuesto («mail» → broadcast, «automatización» → secuencia, «todos los martes» → automatización recurrente).
+4. **Si el texto no nombra un área, la operación se busca en TODO el registro** (lib/doer-herramientas.ts, `buscaEnTodo`): las áreas del texto entran hasta el 60% de los 12.000 caracteres y el resto se llena con lo más relevante de todo el registro.
+
+**Lo que no era obvio.**
+- ⚠️ **Cambiar la intención no alcanza.** `herramientasDelTurno` solo suma las áreas del texto cuando el veredicto NO es dudoso (`areasDelTexto … && !v.dudosa`). Un default «actuar» dudoso llegaba sin ninguna operación del registro: el default de la app tiene que ser `dudosa: false`.
+- ⚠️ **La relevancia es solapamiento de raíces de 5 letras** (lib/api-mako/registro.ts, `ordenarPorRelevancia`) y un verbo suelto puntúa en cientos de operaciones. «etiqueta crear editar archivar poner sacar lead» sacó `editar_etiqueta` del presupuesto y metió `cobranza_lead` (1.525 caracteres). **La relevancia de una familia lleva el NOMBRE de la operación (verbo y sustantivo), nunca verbos sueltos.**
+- Un área ancha se come todo: el CRM tiene 87 operaciones y `cambiar_crons_secuencia` pesa 4.114 caracteres. De ahí el 60%.
+- Cuatro detectores de otra cosa se llevaban el pedido: «una etiqueta **llamada** Caliente» era una llamada que agendar (`NOMBRADO`), «**prueba** la automatización» un saludo, «cargá la grabación de Fathom: https://…» un link para guardar, y «creá una plantilla … para recordar la **reunión**» un pedido de agenda (`ganaALaAgenda`).
+- **Cuatro operaciones no viajan por la app:** `crear_modulo_curso`, `crear_clase_curso`, `publicar_post_comunidad` y `crear_evento_comunidad` tienen `canales: ['http']`. No es del clasificador; es de Clients abrirlas.
+
+**Las frases del chat de Video / AI Avatar** (frases-video-imagen-1-2.json, 64: 33 de edición de video, 2 del editor, 13 de imagen y 16 del Video Generator): con todo lo anterior ya llegaban 59; las cinco familias nuevas cerraron los últimos (`música` ↔ volumen, `plantilla` + `video` le gana a la plantilla de WhatsApp y a la agenda, `historia de Instagram` / `carrusel` ↔ el Image Editor, «¿por qué no se filma mi anuncio?» ↔ el puente de Flow, `mi voz` / `acento`) más «¿**le** podés poner subtítulos…?», que el pedido indirecto no leía con el pronombre antes del modal. Ahora 33/33, 2/2, 13/13 y 16/16.
+
+**Lo que la revisión adversarial encontró y cómo quedó** (20/10, la sección de arriba; todo arreglado antes de subir, con su test):
+- **WhatsApp SÍ cambiaba:** `NOMBRADO` corría en los dos canales y borraba «llamada <palabra>»: «cancela la llamada pendiente con Juan» dejaba de ser agenda, y con una pendiente vigente caía en `confirmar` (con `cancelar_accion`, que corre sin tarjeta). Ahora sólo corre en la app y no borra cuando delante hay un determinante («la», «una», «mi»…). **«WhatsApp no cambia» se mide comparando antes y después con las funciones reales sobre miles de frases** (4.242 frases × 4 contextos = 16.968 turnos, 0 cambian contra `origin/main`), no con un test que fija un caso.
+- **Una adivinanza no es un pedido:** el default «actuar» de la app llevaba `dudosa: false` (para que las áreas del texto sumen) y desarmaba el candado «una adivinanza no puede crear nada»: «ahí hice la prueba» volvía a crear un borrador del plan. Ahora lleva su propia marca, `adivina`, que saca `proponer_tareas_plan` y `cancelar_accion`. Y «bueno», «entendido», «buenas tardes» son charla, sin herramientas.
+- **Buscar en TODO el registro traía escrituras de otra cosa** («borrá la nota» → `borrar_audio`, «pausá todo» → eliminar una entidad pausada de Meta) y lecturas que gastan IA, por raíces de 5 letras que matcheaban adentro de otra palabra (`cance` en `alcance`) o por una palabra vacía (`esta` es el principio de `estado`). Ahora, en lib/relevancia-app.ts: sólo las áreas que el texto nombra pueden traer una destructiva o una lectura que cuesta; las otras entran por una raíz al PRINCIPIO de una palabra, sin la orden ni las palabras vacías, ordenadas por ese puntaje; y sin raíces útiles no se busca. **Consecuencia:** las destructivas necesitan que el texto nombre su área, así que hubo que sumar las palabras de área a `FAMILIAS` (`crm`, `etiqueta`, `avisos`, `archivero`, `quiz`…).
+- **Una acción que llega sin la lectura que le da el id no «llega»:** 28 viajaban sin `ver_proyecto_video`, `listar_landings_creadas`, `leer_hoja_dashboard`… Ahora, tras armar el turno, se suman las lecturas que la descripción de cada acción nombra como origen del id, con un margen aparte de 3.500 caracteres.
+- **El 60% del área nombrada le sacaba la lectura a un pedido CON área** (`renombrá la landing` perdía `listar_landings_creadas` contra empates de otras áreas): las otras áreas entran después y con un tope de 25%, y las nombradas vuelven a llenar lo que sobra.
+- **Las formas homógrafas de un sustantivo** («marca registrada», «carga lenta la app», «abre a las 9 el local», «deja de inventar») ya no son órdenes: al arranque cuentan sólo con un pronombre pegado o un objeto con artículo.
+- **El peso:** el esquema de herramientas por turno de la app pasaba de ~14.600 a ~27.900 caracteres de media sobre las frases medidas (que piden herramientas a propósito), y un mensaje sin señal de 763 a 32.100. Ahora ese mensaje trae ~14.400 (las de siempre, sin registro) y la charla 0. **Sigue siendo el costo de D1 = A:** un turno de la app que actúa carga las 20 herramientas de siempre.
+- Queda anotado, sin efecto hoy: si el turno de la app pasara alguna vez por la red gratis de la plataforma (`turnoParaLaRed`), `buscaEnTodo` mezcla áreas y el corte «todas leen clientes» deja de cortar.
+
+**Sin hacer:** completar `esPedidoDeLanding` con lo que sigue sin caer (estilo de sección, versiones, link privado, papelera…) —las frases de acá llegan, pero por la búsqueda y las familias, no por ese detector—; Offer, Copywriting y Second Brain; Web Generator y Ads (los verbos de Meta, después de la 1.4); completar `esPedidoDeLanding`. D1 sigue pendiente de que Martín la confirme (Debate): si cambia a B, la rama es una línea (`deLaApp`). La batería unificada de los 8 mapas es la 1.1 (Ops Center 3); estos tests se unen a ella.
+
+**Para medir sin engañarse:** el presupuesto escribe un `console.warn` de ~10.000 caracteres por turno; un script que lee la salida de un test con `execFileSync` y su buffer por defecto (1 MB) recibe el resumen cortado y se lee «sin fallos». Pedir `maxBuffer` grande.
+
+**Vive en:** `lib/mako-intencion-app.ts` · `lib/mako-intencion.ts` (`canal`, `buscaEnTodo`, `NOMBRADO`, las reglas 6-quater y el default) · `lib/doer-herramientas.ts` (`buscaEnTodo`) · `lib/mako-turno-app.ts` (`canal: 'app'`) · `lib/relevancia-app.ts` · `tests/ops-center-clasificador-app.test.ts` (48 tests; 107 roturas, cada una con su fallo) · *20/10/2026, sin subagentes.* La segunda revisión (21/10) está en la sección de abajo.
+
+## Ops Center 1.2 en main: «devolvele el pago a Carlos» dejó de llegar a reembolsar_cobro (22/10/2026)
+
+Con OC1 en main (tren 1), tests/ops-center-bateria.test.ts dio `pagos-cuenta` 34/100 con piso 35 en el chat de la APP (WhatsApp
+seguía en 35). El área y la pista estaban bien: el clasificador ve el objeto «reembolso». La frenaba la puerta de las
+destructivas (lib/relevancia-app.ts → `puertaDeDestructivas`): `reembolsar_cobro` es destructiva por su verbo, y la abre sólo un
+pedido de QUITAR (lib/mako-intencion-app.ts → `pideQuitar`). «Devolver» no es un verbo de quitar.
+
+- **Arreglo:** devolver PLATA abre la puerta, con su objeto (`OBJETO_REEMBOLSO`: el pago, la plata, el cobro, «el reembolso»).
+  «Devolvele la llamada» no la abre: «llamada» es sinónimo de reunión y abriría `cancelar_reunion`. La regla del objeto es
+  UNA, en mako-intencion-app.ts, y el clasificador la importa de ahí (al revés armaría un ciclo de imports).
+- **Por qué no lo vio nadie:** la batería pasa en un proceso compartido (`--test-isolation=none`) por el estado que dejan otros
+  tests, y falla SOLA. Los VERDE de OC1 y la tanda del tren dieron verde. **Regla:** al tocar el clasificador o la selección de
+  la app, la batería se corre sola (`node --import tsx --test tests/ops-center-bateria.test.ts`).
+- El piso subió (`ACTUALIZAR_PISO=1`): con OC1 llegan 5 frases más del chat de la app, y quedaron anotadas.
+
+## Ops Center, pieza 1.2, segunda revisión: la red es la tarjeta, no la regla (21/10/2026)
+
+**Qué pasó.** Con la ronda de reglas del 20/10 ya en la rama, una segunda revisión adversarial (tres lentes; 11 errores confirmados y 3 bajos sin refutar) midió con el turno real de la app lo que esa ronda había dejado. No eran once olvidos: era el mismo error once veces. **Cada regla evitaba una cosa y dejaba afuera, o metía, otra.**
+
+| síntoma medido | causa |
+|---|---|
+| «cancelá llamada pendiente con Juan» (sin artículo, «nuestra», «la 2da») dejaba de ser agenda y, con una tarjeta abierta, caía en `confirmar` con `cancelar_accion` | `NOMBRADO` con una lista **cerrada** de determinantes delante de «llamada» |
+| «ahí hice la prueba con el reel de hoy», «sos una estrella», «el link de la agenda no anda» volvían a traer `proponer_tareas_plan` (el bug del 25/08) | una familia con `actua` se saltaba la marca `adivina` |
+| «escribile a Juan que mañana lo llamo» traía `borrar_chat_whatsapp_empresa` y `descartar_borrador_whatsapp_empresa`; «programá el broadcast…», `eliminar_broadcast` | «borra» está **dentro** de «borrador» y la relevancia de la familia lo llevaba |
+| «sacá la dependencia entre la landing y el dominio» perdía `quitar_dependencia_plan` y traía la inversa; «pausá el sitio» perdía `pausar_landing` | la pasada 2 descartaba toda destructiva de un área que el texto no nombra |
+| «poné el enlace de la agenda en la landing» traía la acción sin `listar_landings_creadas` | la pasada de las lecturas del id sólo corría con `buscaEnTodo` |
+| «eliminá las muletillas del video» traía `reiniciar_personalidad` (borra el quiz de voz entero); «eliminá el guion viejo», `proponer_eliminar_entidad_meta` | las filas `area-*` de las familias abrían **todas** las destructivas del área por una palabra suelta |
+| «invitá a Ana», «completá la guía de voz», «destilá la voz…» no llegaban | `reversible: false` contaba como destructiva: lo llevan 127 de 353 acciones (enviar, invitar, crear) |
+| «borrá el audio 3», «anulá el link de Juan», «cancelá el análisis», «sacá a Juan de la secuencia» no llegaban | su sustantivo no estaba en ninguna tabla de áreas |
+| «borrá el historial del chat de Juan» no traía `borrar_chat_whatsapp_empresa` | `chats` no es `whatsapp`: la puerta era por área |
+| «cargá 3 tareas para mañana», «guardá como tarea…», «programá para el lunes la tarea…» perdían `proponer_tareas_plan` | las homógrafas pedían un artículo; un número, «en», «como» o «para» no contaban |
+| «vale» / «me parece bien» a «¿querés que pase a Rosana a Agendado?» dejaba a MaKo sin herramientas | el acuse era charla sin mirar si MaKo había preguntado |
+
+**Lo que el diagnóstico obvio tenía mal.** (1) *Sumar la palabra que falta a la tabla de áreas* causó la mitad: cada fila de área abre una puerta a TODO lo destructivo del área. (2) *Contar `reversible: false` como «destructiva»* parecía prudente y frenó altas, envíos e invitaciones; lo irreversible no se frena por una marca del registro, lo frena la tarjeta, que lo dice antes del toque. (3) *El «0 diferencias en WhatsApp» del arnés del 20/10 era cierto y no probaba nada* (la sección de abajo).
+
+**La decisión (el Cerebro, con la nota de la revisión): no otra ronda de reglas, cambiar la red.**
+1. **La red es la tarjeta.** En la app toda escritura deja una tarjeta que una persona toca (`alcance: 'proponer'`; `ejecutarOperacion` nunca llama a `run.ejecutar`, sólo `confirmarPendiente` lo hace). La única operación del registro que cambiaba algo sin tarjeta, `cancelar_accion`, **ya no viaja por el chat de la app** (cancelar es el botón «Cancelar» de la tarjeta; el system se lo dice a MaKo). El test recorre el **registro entero**: en el chat sólo viajan lecturas y acciones con tarjeta (741 operaciones en la vista de un admin: 389 lecturas y 352 acciones), y las 162 que quitan algo o son irreversibles son acciones, no controles.
+2. **Lo que quita algo entra por la COSA que el pedido nombra, nunca por el área** (lib/relevancia-app.ts, `puertaDeDestructivas`). Una operación cuyo id lleva un verbo de quitar (borrar, eliminar, cancelar, anular, quitar, sacar, pausar, archivar…) entra sólo si el pedido pide quitar (`pideQuitar`, en cualquier parte del texto y con la forma de la orden: «borrador» o «se me borró» no cuentan) **y** nombra su cosa (`nombraLaCosa`): el sustantivo de su id (con una o dos palabras en el id alcanza una; con tres, dos de ellas), el único sustantivo de su título, un sinónimo (`SINONIMOS`: «gráfico» → componente, «sitio» → landing, «pago» → cobro…) o una palabra que sólo es de ella. Si no la nombra, **no llega ninguna parecida y MaKo recibe la instrucción de preguntar cuál** (`INSTRUCCION_QUITAR_SIN_OBJETO`). Una destructiva que pasó la puerta entra primero a la pasada 2 aunque su nombre no comparta raíz con el texto.
+3. **Las lecturas que dan el id llegan en TODO turno de la app** (`herramientasDelChat`, no sólo `buscaEnTodo`), y el test exige que la acción pedida llegue **con** su lectura, en todas las frases de las baterías.
+4. Los arreglos chicos, cada uno con su frase y su rotura: `NOMBRADO` sólo detrás de un **sustantivo** que se nombra; una familia sola, sin verbo de hacer, es una `adivina`; el sí de un acuse después de una pregunta de MaKo; las homógrafas con número, «en», «como» y «para»; las familias «completá la tarea…» y «abrí de nuevo la tarea…»; el 75% / 25% de las pasadas; `area-ads` ya no toma «publicó»; un verbo que está en el id de pocas operaciones (invitar, inscribir, destilar) puntúa aunque se le saque al texto.
+
+**Lo medido** (el arnés de abajo; 48.583 frases —todos los literales de texto de `tests/*.test.ts`, que incluyen las baterías y las de la nota—, `origin/main` contra la rama):
+- **WhatsApp: 582.996 turnos (48.583 frases × 12 contextos), 0 cambian.** Se compara el turno entero (veredicto, aviso, herramientas en orden con el hash de su definición, `delRegistro`, áreas, `ofrece`, instrucción). Y el comparador sí ve cambios: contra un commit de hace 120 commits, 4.000 frases, cambian 17.385 de 48.000 turnos (36%).
+- **La app: 145.749 turnos (48.583 frases × 3 contextos: sin nada, con una tarjeta abierta, con una pregunta de MaKo); 140.920 cambian (96,7%), y cada cambio tiene su causa:**
+  - *Intención:* 134.897 `capturar(dudosa) → actuar` es D1 = A (la app propone con tarjeta en vez de anotar); 52 `capturar(dudosa) → charlar` son los acuses («bueno», «buenas tardes»); 75 `pensar → actuar` y 54 `consultar → actuar`, los pedidos con un verbo de hacer («¿podés cambiar la hora?»). El resto no cambia de intención: cambian las herramientas.
+  - *Ganan:* las 20 de siempre en cada `actuar` nuevo: es el costo de D1 = A, anotado más arriba.
+  - *Pierden, 4.816 turnos con alguna pérdida:* **controles 4.086** (`cancelar_accion`: se fue a propósito); **acciones que quitan algo 1.579** (`cancelar_reunion_calendly`, `proponer_cancelar_reunion`, `quitar_lead_de_producto`, `baja_del_cliente`, `despublicar_landing`, `borrar_landing_creada`, `archivar_etiqueta`… en pedidos que no piden quitar nada: «agendame una reunión», «movela al viernes», «subí la landing con animaciones», «reembolsale el pago»); **lecturas 5.726** (el CRM entero ya no se lleva el 100% del presupuesto en un pedido de agenda: `notas_lead`, `journey_lead`, `historial_lead`… en «agendá una visita con Juan»; entran las de otras áreas que puntúan, hasta el 25%); **otras acciones 419** (las de una vecina que sólo estaba por el área: `proponer_mover_reunion` en «creá una etiqueta llamada Caliente», que ahora no es una llamada; `renombrar_landing` en «quitá las animaciones»).
+  - *Ninguna pérdida es una destructiva que se pidió y se nombró:* el script de análisis cruza cada pérdida con `pideQuitar` + `nombraLaCosa` y quedan 5, todas de la operación equivocada («apagá la campaña» perdió `proponer_eliminar_entidad_meta`; «quitá el gráfico de leads…», `quitar_lead_de_producto`; «borrá el clip 3», `revertir_clip_video`): las que sí piden están.
+
+**El arnés, hecho script** (la regla ya está en la sección de abajo): `node --import tsx scripts/medir-turnos-por-sha.mts <antes> <después> [--canal=app|whatsapp|ambos] [--reusar] [--exigir-igual]`. Extrae `lib` y `app` de cada commit con `git archive` a `<tmp>/turnos-por-sha/<sha>` (con `node_modules` enlazado) y corre `scripts/volcar-turnos.mts` **una vez por árbol y en su propio proceso**; vuelca el turno real de cada frase (3 contextos de la app, 12 de WhatsApp) y compara el turno entero, con un resumen de transiciones de intención y de herramientas que ganan y pierden, cada una con una frase de ejemplo. `--exigir-igual` sale con 1 si algo cambió: es la prueba de «WhatsApp no cambia» y conviene correrla ANTES de pasar una punta que toque el clasificador. Cuatro trampas que costaron un rato: (1) `lib` importa de `app` en tiempo de ejecución (`lib/graficos-temas.ts` → `app/_cursos/fuentes`), así que el árbol lleva las dos carpetas; (2) el `tar` de Git para Windows lee `C:\` como un host remoto: se extrae con rutas relativas; (3) el volcado de WhatsApp pasa de los 500 MB, más que un string de Node: se compara en flujo, con un hash por turno; (4) **`readline` corta las líneas también en `\r`, U+2028 y U+2029**, que `JSON.stringify` deja sin escapar dentro de una frase: se separa sólo por `\n`.
+
+**Sin hacer / límites que quedaron medidos.**
+- «suspendé a Pedro» y «sacá a Juan de Bienvenida» **ya no traen la operación: MaKo pregunta** («¿a quién del equipo?»). Es la decisión (la cosa no está nombrada); la frase con la cosa («suspendé al miembro Pedro», «sacá a Juan de la secuencia Bienvenida») llega.
+- «meté a Juan en Prospección» no llega a `inscribir_lead_secuencia` (no es una destructiva, y ninguna palabra suya nombra la operación): sigue como estaba en main.
+- `SINONIMOS` es una tabla chica y a mano (landing, componente, hoja, miembro, entidad…): una palabra nueva con la que la gente nombre una cosa hace preguntar, no equivocarse. Se suma con su frase en el test.
+- El costo de D1 = A (un turno de la app que actúa carga las 20 de siempre) sigue en pie, y D1 sigue pendiente de Martín. El instruct «preguntá cuál» también aparece en «sacame un reporte»: dice, en la misma frase, que no aplica a eso; si se vuelve ruido, el arreglo es excluir esos objetos de `pideQuitar`.
 
 ## Un arnés «antes / después» mide un COMMIT sólo si extrae los árboles por SHA y corre un proceso por árbol (21/10/2026)
 
@@ -5100,3 +5253,531 @@ autor, que daba «0 de 16.968», no lo probaba**, aunque esta vez no escondía n
 comparar TODO lo que decide la salida, byte a byte. Y probar que la comparación detecta un cambio conocido: si con
 `canal: 'app'` también da 0, el arnés está ciego. Los scripts del revisor están en el scratchpad del Cerebro
 (rev-wa-f226/s/volcar.mts). *Cerebro, claude4.*
+
+## «Tiene su IA» no es «su IA contestó»: el fallo de la clave del negocio no dejaba rastro (IA3, 22/10/2026)
+
+**Vive en:** `lib/su-clave-reglas.ts` (el motivo corto y la línea de la tarjeta) · `lib/su-clave.ts` (anotar, leer, probar)
+· `lib/anthropic.ts` (`conClaveDelNegocio` y `chatClaudeTools` con su clave) · `lib/ai-cheap.ts` (`anotarSuOpenAI` en la
+cascada de texto, la de herramientas, la visión y el audio) · `app/integraciones/TusCuentasIA.tsx` · `tests/su-clave.test.ts`
+
+- **Síntoma:** en toda la historia de `anthropic_usage` hay 0 filas con la marca «⚠ clave de Anthropic del negocio», aunque
+  el ws10 y el ws11 la tienen cargada y `negocioConSuIA` dice que sí. Entre el 17 y el 20/10 el ws11 corrió landing-analyst,
+  carousels-writer y chatbot-crear-ia por Gemini sin una sola fila de su Claude. Desde el panel, una clave rota (inválida,
+  sin crédito) y una que nunca se probó se veían igual.
+- **Causa:** `conClaveDelNegocio` devolvía `{ error }` a `erroresOut` sin anotarlo, y la cascada seguía con lo de abajo.
+  Lo de OpenAI, igual: su fallo sólo dejaba un `console.warn` (y una fila `rebote429:` si era cuota, sin decir de quién).
+- **Regla que queda:** cada fallo de la clave del negocio deja una fila (0 tokens, US$0, el molde de `vetado:` y
+  `rebote429:`): `model = fallo:<modelo>` y el motivo con la marca del negocio PRIMERO (`insertUsage` corta a 200) y el
+  porqué CORTO (`motivoCorto`: sin crédito, clave inválida, sin permiso, tope por minuto, no contestó). La tarjeta lee la más
+  reciente entre «anduvo» y «falló». Una fila por negocio, proveedor y motivo cada 5 minutos (la cascada le vuelve a pegar a
+  la misma clave hasta 4 veces). En el workspace de la plataforma no se anota: su clave es la de MaKo.
+- **Trampa medida:** el 401 de OpenAI trae la clave ENMASCARADA en el texto («Incorrect API key provided:
+  sk-proj-****abcd», curl del 22/10). Ese texto ya viaja a `erroresOut` y a los logs; a una fila que lee un panel no va
+  nunca: el motivo es una categoría, no el mensaje. Y el «sin crédito» de OpenAI es un **429** (`insufficient_quota`):
+  mirado después del tope por minuto, una cuenta sin plata se leía como «esperá un minuto».
+- **«Probar mi clave» no prueba el crédito.** Usa pedidos que no cobran (`/v1/messages/count_tokens` de Anthropic, la lista
+  de modelos de OpenAI): dicen si la clave es válida, no si tiene saldo. El saldo lo dice la próxima respuesta, que deja su
+  fila. Por eso la pantalla dice «es válida», nunca «anda».
+- **Sin hacer:** la prueba en el ws3 con una clave inválida pegada por Martín (necesita el deploy, y poner una clave en el
+  ws3 lo pasa a «sólo su IA» mientras dure: los arneses de otros chats que prueban en el ws3 cambiarían de camino). El ws11
+  real: la próxima vez que use IA, su fila dice por qué falla, sin que nosotros usemos su clave.
+
+## Desplegado no es funcionando: el instalador de la PC contestaba el error con un 200 (IA1/IA2, 22/10/2026)
+
+**Vive en:** `app/api/ia-pc/instalar/route.ts` · `scripts/ia-pc/publicar-binarios.mts` · `scripts/ia-pc/verificar-binarios.mts`
+· `lib/ia-pc-reglas.ts` (`faltanEnElBucket`, `informeDeBinarios`) · `tests/ia-pc-binarios.test.ts`
+
+- **Síntoma:** la 0.3.2 está en producción desde el 21/10 y el bucket privado `ia-pc` sólo tiene 0.2.0 y 0.3.0 (medido
+  el 22/10 con `verificar-binarios`). Firmar `mako-pc-0.3.2-*` da «Object not found» y la línea del tutorial contesta
+  «No pude preparar la descarga» a TODO cliente nuevo. Nadie lo vio: la ruta contesta 200 con un `echo` (a propósito: con
+  un 4xx, `irm` y `curl -f` no muestran el cuerpo), y un 200 no es una falla en ningún log.
+- **Por qué pasó:** la prueba de punta a punta del 21/10 pasó porque la 0.3.0 se subió desde la PC de Martín; la 0.3.2 se
+  desplegó sin que nadie subiera la suya, y el comando del resumen apuntaba a un worktree ya borrado (C:/dev/wt-ia-ola2).
+- **Regla que queda** (AGENTS.md, «un código que pide un archivo del Storage no se sube sin el archivo»): antes de subir
+  un cambio de `VERSION_PC`, `verificar-binarios` (lista Y firma, como el instalador; sale con 1 si falta). Y la ruta que
+  no puede firmar deja su fila en `errores_app` (huella «ia-pc: falta el ejecutable …»), que ven el vigía y la Ticketera.
+- **Trampa del script:** `publicar-binarios` terminaba con `process.exit()` después de los pedidos, y en Windows Node
+  revienta así («Assertion failed … async.c line 94», medido en el seco del 22/10): el código de salida mentía. Ahora deja
+  `process.exitCode`. Y un worktree no trae `.env.local`: sin `--env` el script lo dice (antes seguía sin base).
+- **Sin hacer:** subir la 0.3.2 (`publicar-binarios --aplicar`, escribe en producción: espera el OK de Martín) y la
+  prueba de punta a punta en la PC de Martín con el ws3 (`probar-punta-a-punta.mts --instalador --reinstalar`). El título
+  del ticket de la fila sale genérico («Falló la pantalla «Api»», de `tituloDeError` en lib/errores-app-reglas.ts); el
+  mensaje sí dice qué falta.
+- **«Descargando MaKo en tu computadora…» para siempre (22/10, la PowerShell de Martín):** era la barra de progreso de
+  `Invoke-WebRequest` en Windows PowerShell 5.1, que se redibuja por cada pedazo que llega. Medido con el mismo archivo de
+  42,7 MB: **58,6 s con la barra contra 4,1 s sin ella**, y eso sin ventana (con ventana, peor). Ahora el script pone
+  `$ProgressPreference = 'SilentlyContinue'` antes de bajar. **Regla:** todo `Invoke-WebRequest` de un script que corre
+  en la PC de un cliente va con la barra apagada.
+
+## «Conectar mi computadora» sin PowerShell: el enlace mako:// y la ventana del sistema (22/10/2026)
+
+**El pedido, textual** (Martín): «el proceso de instalación jamás sea por Powershell, ni siquiera que se tenga que abrir, que
+sea una app de escritorio con el típico panel de "avanzar"». El plan entero: docs/plan-instalador-escritorio.md.
+
+**Vive en:** `conectarDesdeEnlace`, `codigoDelEnlace` y `ventana` (scripts/ia-pc/mako-pc.mjs) · installer/windows/mako.iss
+(borrador) · tests/ia-pc-enlace.test.ts.
+
+- **Del enlace sale SÓLO el código.** Cualquier página puede abrir un `mako://`. Con el servidor en el enlace, un sitio se
+  llevaría la computadora, y con ella la suscripción de Claude de la persona, a su MaKo. La app usa siempre el suyo, y la
+  ventana dice a qué negocio y como quién se conecta, como el «¿Es tu negocio?» de la consola.
+- **La ventana es del sistema, sin consola:** `MessageBoxW` de user32 con `bun:ffi` dentro del ejecutable (probado con Bun
+  1.2.21 sin mostrarla: el texto en UTF-16 llega entero), y `osascript` en la Mac. Sin poder mostrarla, es «no».
+- **Si MaKo no confirma, se suelta lo pendiente** (como con el «no»). La primera versión lo dejaba guardado; lo mostró el
+  hijo del test.
+- **Lo que dice la doc de Claude Code** (leída el 22/10): `claude auth login` es el login oficial (abre el navegador, pero
+  la doc lo describe en una terminal); `claude auth status` sale 0 o 1 sin gastar; `claude setup-token` NO se usa (un tercero
+  no puede guardar tokens de la sesión). Que el instalador oficial ande oculto no está confirmado.
+- **⚠️ Para Martín:** los términos de Anthropic no dejan que un tercero «route requests through … Max plan credentials on
+  behalf of their users», y excluyen al que entra «with their own Claude subscription» en el Claude Code sin modificar. La
+  doc no dice de qué lado cae MaKo en la PC del cliente (D6a) y manda a preguntar a ventas.
+- **La revisión adversarial del enlace (Integración, 22/10) encontró que la ventana EMPUJABA al «Sí»:**
+  - **«Sí» era el botón por defecto**, en una ventana que se lleva el foco: una página que abre el enlace mientras la persona
+    escribe se lo llevaba con un Enter. Ahora es «No» (`MB_DEFBUTTON2`; en la Mac, `default button 1`).
+  - **Ante el código de OTRO negocio decía «Tu Ops Center va a contestar con tu Claude»**, que ahí es falso, y el reemplazo
+    iba en el tercer párrafo. Es el caso del phishing: otro cliente de MaKo pide su código y manda el enlace. Ahora lo
+    primero es «Esta computadora hoy usa tu Claude para «A». Si sigues, lo va a usar «B»… y «A» se queda sin él».
+    **La regla: en una ventana de consentimiento, lo que la persona pierde va primero, y el texto nunca habla como si lo
+    ajeno fuera suyo.**
+  - **Dos enlaces a la vez:** el segundo soltaba el pendiente del primero, y el «Sí» de la primera ventana confirmaba el de
+    la otra con el cartel equivocado. Ahora sólo se contesta si lo pendiente sigue siendo el de esa ventana.
+  - **Una configuración de la 0.2.0** (con token y sin el negocio) se reemplazaba sin aviso: ahora también avisa.
+- **SIN hacer:** armar el instalador (Inno Setup no está en esta computadora; GitHub Actions lo trae), la pantalla nueva
+  (abrir o descargar) y la página `/conectar-mi-computadora` que abre mako.iss al terminar (no existe), Claude Code sin
+  terminal, el `.pkg` de la Mac, la firma (cuesta plata: lo decide Martín) y subir `VERSION` y `VERSION_PC` a 0.4.0 JUNTOS
+  en el commit del instalador (un test los ata; con su OK). ⚠️ Hasta entonces, nadie corre `publicar-binarios` desde main:
+  sube con `upsert: true` y pisaría la 0.3.2 publicada.
+- **Sin decidir:** en modo enlace, ¿no reemplazar una conexión a OTRO negocio y pedir que se desconecte primero desde
+  MaKo? Es más fuerte contra el phishing y cuesta un paso al que cambia de negocio de verdad.
+- **Sin medir (de antes):** `pensar` corre `claude -p` sin `--setting-sources`; si eso carga el `~/.claude/CLAUDE.md`
+  personal de la persona, un negocio podría pedirle en un turno que lo repita. Se mide con un turno de prueba.
+
+## Varias computadoras por persona, «Desconectar» y el panel del super admin (22/10/2026)
+
+**El pedido, textual** (Martín): «el usuario debería poder abrir y ejecutar su Claude en varios dispositivos, por ejemplo,
+ahora abrí la cuenta de Mauricio e instalé MaKo desktop para conectarme a su claude, pero luego él va a querer hacerlo en su
+PC, se debería poder ver eso... Lo mismo en SuperAdmin. Y poder "Desconectar" dispositivos».
+
+**Vive en:** `elegirPc`, `sistemaDeLaVersion`, `detalleDeLaPc` (lib/ia-pc-reglas.ts) · `pcDe`, `listarTodasLasPc` (lib/ia-pc.ts)
+· app/admin/operaciones/UsoComputadoras.tsx (SuperAdmin › Uso, computadora y teléfono) · «Conectar otra computadora» en
+app/integraciones/TusCuentasIA.tsx · tests/ia-pc-varias.test.ts.
+
+- **Medir antes de construir: casi todo ya estaba.** Una persona ya podía tener varias computadoras (nada lo impedía), la
+  tarjeta ya las listaba con «Desconectar», y `desconectar` ya revocaba al instante y vencía el turno en curso. Conectar otra
+  no suelta las demás (sólo reemplaza la anterior de la MISMA máquina): la que Martín conectó en la cuenta de Mauricio no se
+  pierde.
+- **Lo que estaba mal era a cuál iba el turno:** `pcDe` tomaba «la que latió último». Con dos prendidas, cada latido (30 s)
+  ganaba otra, y el turno saltaba de un Claude a otro. Ahora va a una que conteste; con varias, a la que contestó el último
+  turno; sin turnos, a la última conectada; si una se apaga, a la otra.
+- **El sistema sin migración:** el programa desde la 0.4.0 manda `0.4.0+windows` o `+mac` en la versión del latido (el campo
+  ya aceptaba el `+`). Las de antes no lo dicen, y no se muestra.
+- **La computadora desconectada lo dice** en una ventana del sistema, desde la 0.4.0 (rama instalador-escritorio-2210). Antes
+  sólo quedaba en el registro, que nadie lee en un programa sin consola. La ventana va al final y esperada: si no, el
+  programa salía antes de mostrarla.
+- **Trampa de la rotura:** «leer el hash y no devolverlo» quedó en verde, y estaba bien: no es una fuga. La rotura que sí lo
+  devuelve da rojo. Una rotura que no rompe nada no prueba el test.
+- **El panel del cliente** va dentro de `<TusCuentasIA />`, que el Uso del cliente (D3, chat Ops Center) ya abre tal cual.
+- **La revisión adversarial lo encontró: «la del último turno» se queda pegada a una que FALLA.** Con sólo los turnos
+  contestados bien, una PC que llegó al tope o se colgó pero sigue latiendo era «la del último turno» para siempre: cada
+  turno iba ahí a fallar y la otra, que contesta, no recibía ninguno (antes, con «la que latió último», al menos se
+  turnaban). El arreglo: el último turno TERMINADO (bien, error o vencido); la que falló, o tiene todas sus cuentas al 100%
+  (`cuentasAgotadas`), va al final, y entre las que fallaron primero la que falló hace más. **La regla: elegir «la última
+  que anduvo» sin mirar si anduvo bien convierte una preferencia en una trampa.**
+- **«Desconectar» se apoyaba en que un update no fallara.** `desconectar` revocaba la PC y vencía sus turnos en dos pasos, y
+  el segundo podía fallar callado; `pedirLlamada`, `esperarALaPc` y `tomarTurno` miraban el estado del TURNO, no la PC.
+  Ahora el segundo paso tira, y las tres miran `revocado_at` (`sigueConectada`, falla cerrada). **La regla: toda puerta que
+  da un turno o corre una herramienta mira la revocación de la PC, no sólo el estado del turno.**
+- **El email de Claude de un empleado va enmascarado (decidió el Cerebro, 22/10):** el admin ve de cada computadora de su
+  equipo el nombre, de quién es, si está en línea, el plan y el % de uso (para manejar la capacidad), y el email como
+  `m***@gmail.com`; entero, sólo el dueño de esa computadora y el super admin (`puedeOperar`). Se enmascara en el SERVIDOR
+  (`cuentasParaVer` en GET /api/ia-pc/estado, que leen la computadora y el teléfono): enmascararlo en la tarjeta dejaba el
+  email entero en la respuesta. Si no se puede saber si es el super admin, enmascarado. tests/ia-pc-email-enmascarado.test.ts.
+- **Quedó SIN medir:** si el programa sigue mandando la cuenta en el latido cuando la sesión de Claude venció. Si la manda,
+  esa PC cuenta como «usable» hasta que falla un turno (después, el arreglo de arriba la manda al final).
+
+## D6b para TODO el negocio: la decisión baja a la PUERTA de la capa de IA (IA6, 22/10/2026)
+
+**Vive en:** `lib/solo-su-ia.ts` (`conD6bDelPedido`, `esFueraDeD6b`) · la primera línea de cada función pública de
+`lib/ai-cheap.ts` y de `chatClaude`/`chatClaudeTools` (lib/anthropic.ts) · `tests/d6b-puerta.test.ts` (corre las entradas a
+pelo) · `tests/d6b-rutas.test.ts` (la tabla quedó para lib/transcribe.ts)
+
+- **Síntoma:** D6b se prendía sólo donde quien atendía el pedido lo prendía (el turno del Ops Center y sus pantallas). El
+  ws11, con su Claude y su OpenAI, corrió el simulador del Chat Agent con Groq y OpenRouter el 21/10 a las 20:51 UTC, con
+  D6b ya desplegado; su plan-fathom y su Perro, con Gemini. La tabla `FUERA_DE_D6B` tenía ~90 prefijos «decididos afuera».
+- **El diagnóstico obvio era el equivocado:** prender `conSuIADelNegocio` en cada cron, webhook y tab. Son ~370 entradas que
+  llegan a la cascada, y la próxima que se agregue no lo haría. El corte ya vivía abajo (`provDe`, la red, el orden por
+  cuota); lo que faltaba bajar era la DECISIÓN. Ahora cada función pública de la capa de IA, si nadie decidió antes, decide
+  con el workspace del pedido (`negocioConSuIA`, con 60 s de memoria por negocio). Las excepciones son de Martín y viven en
+  la puerta: las funciones del Plan (`FEATURES_DEL_PLAN`) y la plataforma (y lo que corre sin workspace).
+- **Con su IA, la cascada es SU IA aunque el que llama pida otra lista.** Una función «que no se degrada» (`fallback: []`)
+  atada a Gemini, con D6b, no corría con NADA y fallaba; ahora corre con su Claude (primero) y su OpenAI.
+- **Las fotos, con su Claude:** `leerDocumentoIA` prueba primero la clave de Claude del negocio con la imagen o el PDF como
+  bloques (antes, con sólo su Claude, una foto era «no puedo»).
+- **Trampas de la guarda:** (1) el detector de «prende» sigue llamadas, y como cada función de la capa de IA llama a la
+  puerta (que llama a `conSoloSuIA`), TODO «prendía»: la puerta se excluye del detector. (2) El control de
+  tests/d6b-confirmar.test.ts era «la misma ejecución, a pelo» y suponía que a pelo salía a Gemini: con la puerta ya no; el
+  control ahora decide afuera a mano. (3) Sacar la puerta de `leerDocumentoIA` no da rojo, y está bien: adentro usa
+  `provsDe` y la red, que tienen la suya.
+- **Contracara, medir:** falla cerrada en todo: si la base no contesta, un negocio sin su IA pierde su Gemini en ESE pedido
+  (hasta 60 s, por la memoria). Y el ws10 corre TODO con la clave de Claude que es el crédito de Max de Martín: medir su gasto
+  una semana después del deploy.
+- **Sin hacer:** lib/transcribe.ts sigue fuera de la puerta (IA7); el doer de WhatsApp elige proveedores a mano (WA1); los
+  `model` explícitos (closing, el escalado del doer) siguen yendo al veto de la plataforma (IA5, IA12). Caso real a medir
+  después del deploy: 0 filas de gemini, groq u openrouter del ws11 fuera del Plan en 48 h.
+
+## La OpenAI de MaKo no aparece en `anthropic_usage`: los anuncios se escuchaban con una IA que no se veía (IA7, 22/10/2026)
+
+**Vive en:** `lib/transcribe.ts` (los anuncios y los creativos del negocio, por la capa de IA) ·
+`lib/transcribe-plataforma.ts` (los cursos y el Conocimiento de MaKo, con las keys del entorno) ·
+`app/api/ads-manager/analyze-creatives/route.ts` · `tests/transcribe-anuncio.test.ts`
+
+- **Síntoma:** en `ad_transcripts`, 55 «vision» y 28 «whisper» con «You have no credits remaining» y 0 OK en 30 días (el
+  último, el 21/10 a las 19:33 UTC). Desde el panel de gasto no se veía nada: **la OpenAI de MaKo no aparece en
+  `anthropic_usage`**, porque lib/transcribe.ts, lib/embeddings.ts y analyze-creatives no registran uso. Que estaba muerta
+  sólo se ve en `ad_transcripts` (o en `mako_knowledge`).
+- **Causa:** lib/transcribe.ts era una SEGUNDA cascada de audio con las keys del ENTORNO (Groq → whisper-1 → Gemini, y
+  gpt-4o-mini/gpt-4o para estructurar y mirar), fuera de D6b. La usaban los anuncios de cada negocio Y los cursos de MaKo.
+- **El arreglo es partirla, no taparla:** lo del NEGOCIO (anuncios, creativos subidos, mirar creativos) pasa por la capa de
+  IA (`transcribirAudio`, `chatCheapCascade`, `leerDocumentoIA`) con SUS keys, registrando el uso y con D6b; lo de la
+  PLATAFORMA (las clases de los cursos, el Conocimiento) se mudó a lib/transcribe-plataforma.ts. Un llamador nuevo con datos
+  de un negocio va al primero. Los anuncios NO van a la red gratis de la plataforma (`pii`) hasta que Martín decida si el
+  Groq de MaKo los escucha; sin con qué, la fila dice POR QUÉ (`errorDeCascada`), no «whisper: no credits».
+- **Trampa:** `transcribirAudio` no decía quién escuchó; se le sumó `alEscuchar` para que la fila del anuncio lo guarde.
+  Y la escucha de la capa de IA no devuelve idioma ni duración (los Whisper de antes sí): esas columnas quedan vacías.
+- **Trampa: el `pii` de `transcribirAudio` es FALSE por defecto** (la revisión de la nota de voz del Ops Center, OC7,
+  22/10/2026). Una llamada nueva sin él, en un negocio sin su Claude ni su GPT cuyas claves no pueden escuchar, manda el
+  audio EN SILENCIO a la red gratis de la agencia (Groq y Gemini; el Gemini gratis entrena), aunque el texto del mismo chat
+  nunca vaya ahí. La nota del chat del Ops Center (lib/mako-turno-app.ts → `escucharNotaDelChat`) salió sin él y la frenó la
+  revisión. **Regla:** toda nota de voz de una persona del negocio o de un lead lleva `pii: true` (como lib/mako-doer-in.ts y
+  el dictado del Plan); sin con qué escuchar, la respuesta dice que conecte la suya (`errorDeCascada`).
+- **Sin hacer:** el caso real (regenerar la transcripción de un anuncio del ws11 o del ws14, que tienen OpenAI) espera el
+  deploy. `scripts/backfill-transcripts.ts` y `scripts/test-one.ts` ahora necesitan el server: corren con
+  `--conditions=react-server` y adentro de `runWithWorkspace` del negocio. lib/embeddings.ts (los vectores del RAG con la
+  OpenAI muerta) sigue igual: re-embeber es una migración que decide Martín.
+
+## El negocio elige el modelo de SU Claude, y el crédito de Martín se queda en Haiku (IA5, 22/10/2026)
+
+**Vive en:** `lib/veto-claude.ts` (`CLAUDE_CON_CLAVE_DEL_NEGOCIO`, `MODELO_SU_CLAUDE`, `evaluarClaveDelNegocio` con
+`creditosPlataforma`) · `lib/anthropic.ts` (`permisoDeLaClaveDelNegocio`) · `app/api/ia-del-negocio/modelo/route.ts` ·
+«Tus cuentas de IA» · `tests/su-claude-modelo.test.ts`
+
+- **Por qué:** con la clave del negocio sólo se podía usar Haiku 4.5, y el Closing Analyst necesita Sonnet (IA12). Ahora el
+  admin elige Haiku o Sonnet (`ia.su_claude.modelo`, por negocio); lo paga su cuenta y la frontera (nunca una copia de la
+  clave de la plataforma, nunca el Plan) no cambia. Opus no está en la lista a propósito.
+- **Trampa que el veto no veía:** la clave «propia» del ws10 es el crédito de Max de Martín (`ANTHROPIC_CREDITO_CUENTA2`).
+  El veto compara la clave del negocio sólo contra las copias de `ANTHROPIC_API_KEY`, así que esa cuenta pasa como «del
+  negocio». Abrir Sonnet sin mirar eso le daba a Leandro Sonnet pagado por Martín. Ahora la puerta lee las claves del
+  crédito: si la del negocio es una de ésas, o si no se pueden leer, va con Haiku aunque elija Sonnet.
+- **Sin hacer:** el caso de uso (el closing del ws3 con una clave de prueba) espera el deploy y una clave de Martín. Medir el
+  gasto del ws10 una semana después (con IA6 TODO su negocio corre con ese crédito, en Haiku).
+
+## El Closing Analyst con el Claude del cliente: su clave primero, y «vetado» no es lo que lee un cliente (IA12, 22/10/2026)
+
+**Vive en:** `lib/closing.ts` (`analyzeMeeting`, `CONECTA_TU_CLAUDE_CLOSING`) · `lib/anthropic.ts` (`conClaveDelNegocio`
+devuelve el modelo) · `tests/closing-su-claude.test.ts` (corre `analyzeMeeting` con el reloj después del 13/11)
+
+- **Por qué:** closing es el único Claude pago de un cliente (123 llamadas, US$13,22 en 30 días, ws9 y ws1), y lo pagaba
+  MaKo: la clave del ws1 es una copia de la de la plataforma, y el permiso de Sonnet para closing vence el 2026-11-13.
+- **Trampa que había:** el camino pago de `chatClaude` usa `credWs`, que para un cliente CON clave propia devuelve SU clave…
+  pero registra el gasto SIN la marca del negocio. Un closing de un negocio con su clave se contaba como gasto de MaKo. Ahora
+  `analyzeMeeting` prueba primero la puerta 2 (su clave, el modelo que eligió en IA5, su marca); si su clave falla se dice
+  («Tu clave de Claude no pudo…») y NO se cae a la de la plataforma.
+- **Regla:** el error del veto es de la plataforma, no del cliente. Vencido el permiso (o una feature fuera de la lista), un
+  cliente lee «Conecta tu Claude para el Closing Analyst»; la pausa a mano de Claude se dice como es. La plataforma (ws9)
+  sigue con su permiso: renovarlo o no es de Martín.
+- **Sin hacer:** el ws1 (Mauricio) sigue analizando con la clave de MaKo hasta el 13/11 (es una copia: la puerta 2 la
+  rechaza). Qué pasa después lo decide Martín (pedido al Cerebro). El caso de uso real (una llamada del ws3 con la clave de
+  prueba) espera el deploy y la clave.
+
+### Lo que encontró la revisión adversarial de IA5 + IA12 (22/10/2026), y cómo quedó
+
+- **ALTA — «no pude leer» la frontera se leía como «no tiene su clave», y el closing pagaba con ESA clave.** Si no se podían
+  leer las claves de la plataforma (`credWsEstricta` tira), `permisoDeLaClaveDelNegocio` devolvía `null`. `analyzeMeeting`
+  lo tomó como «sin su clave» y cayó a `chatClaude`, que paga con `credWs`: la fila del negocio. Resultado: Sonnet con
+  thinking sobre la clave de un negocio que eligió Haiku, sin su marca en el gasto (contaba como gasto de MaKo); en el ws10,
+  sobre el crédito de Max de Martín. Los tests estaban en verde. **Regla:** una puerta que decide plata tiene TRES salidas,
+  no dos: «sí», «no» y «no pude saber». Ahora la tercera es `{ noPudeLeer: true }`, y el closing queda en error (lo reintenta
+  el cron) sin pedirle nada a Anthropic.
+- **Y la puerta 1 (la lista blanca) ya no paga con una clave que no es de la plataforma.** `chatClaude` y `chatClaudeTools`
+  exigen que lo que devolvió `credWs` sea una clave de la plataforma (`exigirClaveDeLaPlataforma`). Hoy la lista blanca es
+  sólo `closing`, que ya prueba la clave del negocio primero: un negocio con SU clave que llegue ahí es un camino roto, y se
+  corta con una fila `vetado:` a US$0.
+- **El cron preguntaba otra cosa que el análisis.** `closing-sync` miraba «¿hay una clave?» (`credWs`), y el ws1 (una copia
+  de la de la plataforma) iba a pasar después del 13/11 para fallar tres veces por ronda con «Conecta tu Claude». Ahora el
+  cron hace la MISMA pregunta que el análisis (`conQueAnalizaElClosing`). **Regla:** el guard de un cron no reimplementa la
+  decisión del trabajo: la llama.
+- **`in` acepta lo heredado.** `'constructor' in MODELO_SU_CLAUDE` es `true`: guardado así por un POST a mano, el modelo
+  salía una función, la puerta 2 tiraba un TypeError que sus llamadores se tragan, y el Claude del negocio desaparecía sin
+  aviso con la tarjeta diciendo Haiku. Se valida con `Object.hasOwn` (`esEleccionSuClaude`), en el veto y en la ruta.
+- **Una función del Plan con nombre nuevo pagaba IA.** `plan-buscar` (el buscador del tablero) y `cerrar-por-commits` (cron
+  sin workspace: cae en el ws1) no estaban en `FEATURES_DEL_PLAN`, y la puerta 2 no exige estar en el catálogo: abierta por
+  default. Ahora tests/su-claude-modelo.test.ts barre las features que usa el código del Plan y exige que estén en la lista.
+- **El crédito se comparaba contra el entorno O la fila.** Con el entorno puesto, la fila no se leía: una clave rotada en
+  la fila (o un entorno viejo) dejaba al ws10 elegir Sonnet sobre el crédito de Martín. Se leen las dos, en la puerta 2 y en
+  la tarjeta (lib/su-clave.ts).
+- **`esLaPlataforma` sin poder saberlo decía «no».** La plataforma leía «Conecta tu Claude» por un bache. Ahora, sin poder
+  saberlo, se dice el veto como es.
+- **Trampa de los tests estáticos:** `tests/ia-pc.test.ts` fijaba la cascada del turno con herramientas sin el `soloSuIA()`
+  que sumó IA6, y estaba ROJO desde IA6 sin que nadie lo corriera (las corridas de cada paquete eran de sus tests). Un
+  cambio en la capa de IA se cierra corriendo TODOS los tests que la nombran, no sólo los del paquete.
+
+**SIN hacer:** `lib/anthropic.ts` → `conCreditoDeLaPlataforma` (la puerta 3, el crédito del onboarding) todavía lee el
+entorno O la fila de cada cuenta del crédito, como hacía la puerta 2. Ahí no cambia el modelo (siempre Haiku), sólo con qué
+cuenta se paga primero.
+
+## «Conecta tu Claude o tu GPT»: el pedido de «Gemini gratis» vivía en cinco lugares (IA9, 22/10/2026)
+
+- **Dónde estaba:** el mensaje sin IA (`mensajeIAFallo`, lib/ia-mensajes.ts: «con Gemini alcanza»), el botón «Conectar tu
+  IA» sin ninguna IA (`SERVICIO_IA` = gemini, lib/mako-turno-app-reglas.ts), el link de WhatsApp (`linkKeysIA`), la visión
+  («Carga una API key de Gemini (gratis)»), la cara de marca (lib/persona.ts), las URLs que MaKo repite (lib/hechos-mako.ts)
+  y las fichas de /integraciones. Cambiar UNO dejaba los otros cuatro mandando a Gemini.
+- **Regla:** el texto de «qué conectar» vive en lib/ia-mensajes.ts (`CONECTA_TU_IA`, `FALTA_TU_IA`) y el destino es su
+  Claude (`abrir=anthropic`; desde «Tus cuentas de IA» se llega a su GPT). tests/conecta-tu-ia.test.ts cuenta «con Gemini
+  alcanza» en todo app/ y lib/.
+- **Sin hacer:** app/dashboard/PanelAnalista.tsx («Una IA gratis (con Gemini alcanza)») es de TB3, que importa
+  `FALTA_TU_IA`: el test lo deja como única excepción hasta entonces. El aviso del lienzo de Automations
+  (lib/flujo-ia.ts → `falloDeIA`) es de AU3. Las fichas de Cerebras, Mistral y OpenRouter se van con IA8.
+
+### Lo que encontró la revisión adversarial de IA6 (22/10/2026), y cómo quedó
+
+- **ALTA — sin workspace, la puerta se llamaba a sí misma y CONGELABA el proceso.** Devolvía `fn()` sin guardar la decisión,
+  y `fn` es la misma función pública, que volvía a preguntar «¿decidió alguien?». Un bucle de microtareas: ni un
+  `setTimeout` corría, y el proceso no volvía nunca (una sesión sin negocio, un script, `cookies()` fuera de un pedido).
+  **Regla:** una puerta que re-entra a quien la llamó tiene que GUARDAR la decisión antes de re-entrar, siempre, también la
+  de «afuera». Lo fija el caso «sin workspace vuelve» de tests/d6b-puerta.test.ts (con un tope de 20 s).
+- **MEDIA — el Plan perdía su excepción adentro de otro pedido.** La entrada preguntaba sólo «¿ya decidió alguien?»: un
+  `plan-fathom` corrido adentro de una herramienta del doer (que decidió «adentro») usaba la OpenAI del negocio. Ahora
+  `pasaPorLaPuerta(feature)` también entra si la función es del Plan y alguien decidió «adentro».
+- **MEDIA — «no pude saber» quedaba 60 s.** La falla cerrada de `negocioConSuIA` (la base no contestó) se recordaba: un
+  bache dejaba a un negocio sin su Gemini un minuto en todo. Ahora viene marcada `incierto` y la puerta no la guarda.
+- **BAJA — leer `soloSuIA()` sincrónico DESPUÉS de una cascada da `false`:** la decisión vive adentro de la cascada y no
+  vuelve a quien la llamó. Los dos lectores de afuera (graficos-ia-elemento-server, onboarding) usan `await decidirD6b()`, y
+  `errorDeCascada` tiene su puerta.
+- **Los tests no veían sacar una puerta** (la de `chatCheap` o `chatCheapTools`): la del nivel de abajo tapaba. La guarda 5
+  de tests/d6b-puerta.test.ts exige la puerta en TODA función exportada de lib/ai-cheap.ts y lib/anthropic.ts, con una
+  lista cerrada de excepciones con su porqué.
+- **Para Martín (no es un arreglo):** un negocio que conectó SÓLO su PC tiene «su IA» (D6b), pero lo de fondo (crons,
+  WhatsApp) no puede usar la suscripción (D6a): sin una clave de API, se queda sin IA fuera del Ops Center. Hoy no hay
+  ninguno (0 PC conectadas), pero el tutorial tiene que decir que para lo que corre solo hace falta la clave. Y el crédito de
+  Claude de la plataforma (sólo onboarding) va antes del corte: en el onboarding de un negocio con su Claude que falla, paga
+  Martín.
+
+## Sacar un proveedor de IA: se corta en `provDe`, y su clave pegada se sigue tapando (IA8, 22/10/2026)
+
+Cerebras, Mistral y OpenRouter, medidos en 30 días: Cerebras 0 llamadas (402 en todas sus cuentas), Mistral 74 filas y
+TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres veces. No daban IA, pero sí costaban:
+
+- **El costo que no se veía era el saldo.** `limitesEfectivos` (lib/ia-cuotas.ts) pedía el saldo de OpenRouter en CADA
+  `ordenarPorCuota`, o sea en cada cascada: ~10 de las ~90 consultas de un turno de Offer (docs/hallazgos-infra.md) eran
+  para un proveedor que contestaba 12 veces al mes. Un proveedor muerto no se mide por sus llamadas sino por lo que se
+  consulta POR él.
+- **El tipo no se puede sacar todavía, y no hace falta.** `ProvName` lo nombran las listas del lienzo (lib/flujo-ia.ts, de
+  Automations, AU3): sacarlo del tipo rompe un archivo ajeno. La puerta única de las cuentas es `provDe`: con
+  `PROVS_SACADOS` devolviendo `null` ahí, ninguna lista vieja ni fila guardada en `credenciales` llega a la red, aunque la
+  pida a mano (tests/ia8-sacados.test.ts lo corre con las tres cuentas guardadas en el negocio, la plataforma y el
+  entorno). **Regla:** para sacar un proveedor, primero el corte en `provDe`; las listas y el tipo pueden ir atrás.
+- **La regla de la clave pegada NO se borra con el proveedor.** lib/claves-en-el-chat.ts sigue tapando `sk-or-…` y `csk-…`,
+  sólo sin botón (`servicio: null`). Sin esa regla, una clave de OpenRouter pegada en el chat la agarra la de OpenAI
+  (`sk-…`): no sólo quedaría a la vista, el chat le ofrecería «conectarla» como si fuera de OpenAI.
+- **Un hijo sin tipos puede pasar en vacío.** La primera versión del test filtraba `p.nombre` sobre
+  `provsGratisDePlataforma()`, que devuelve `{ provider, clave }`: `undefined` nunca está en la lista, y el chequeo pasaba
+  siempre. Lo vio `tsc` acotado sobre el hijo, no la rotura. Los hijos (`tests/_*-hijo.ts`) no los tipa el test runner:
+  pasarlos por `tsc` antes de confiar en un verde.
+
+### Lo que quedó SIN hacer
+
+- `ProvName`, los `case` de `cfgDe`, `LIMITES_PROVEEDOR`, los modelos y timeouts de los tres (lib/ai-cheap.ts,
+  lib/ia-cuotas-calculo.ts). Las listas del lienzo (lib/flujo-ia.ts) ya no los nombran (22/10, con el OK de Automations),
+  así que lo que queda se puede sacar; hoy es inerte (`provDe` corta). tests/openrouter-modelo.test.ts se va con eso.
+- lib/openrouter-saldo.ts sigue: lo lee el panel de gasto (lib/anthropic-usage.ts → `saldoOpenRouter`). Mostrará el saldo
+  que quedó; sacarlo es del panel.
+- Las filas guardadas en `credenciales` (CEREBRAS/MISTRAL/OPENROUTER_API_KEY) quedan cifradas, inertes y sin botón para
+  borrarlas (hallazgos-integraciones, «Sacar una integración»): es SQL, y la Cerebras del ws1 la decide Martín.
+- Un negocio con SÓLO Gemini no tiene texto barato: `CASCADA_GRATIS` es `['groq', 'openai']` (ya no tenía Gemini antes de
+  IA8). Con IA10 eso deja de importar: el camino es su Claude o su GPT.
+## Las claves sin prefijo: Mistral se tapa con contexto, y un regex de tapado no mira hacia atrás en cada posición (22/10/2026)
+
+**Vive en:** `lib/claves-en-el-chat.ts` (las reglas del chat de la app, del grupo de WhatsApp y del acuse del webhook) ·
+`tests/doer-claves.test.ts` · `tests/claves-en-el-chat.test.ts` («una línea gigante no cuelga el tapado»)
+
+- **Lo que pasaba entero** (revisión del lote 1): la clave de Mistral (32 alfanuméricos sin prefijo, pegada sin
+  `MISTRAL_API_KEY=`), la de Apify (`apify_api_…`, que el producto le pide al cliente) y la de DeepSeek (`sk-` + 32 hex en
+  minúscula). Llegaban a la cola, a `mako_doer_conv` y al modelo, y el aviso decía «no la guardé».
+- **Una clave sin prefijo es la forma de cualquier id.** Se tapa sólo si tiene mayúscula, minúscula y dígito Y, además,
+  «mistral» está a menos de 40 caracteres en la misma línea (antes o después), o el texto es SÓLO eso. Un id de 32 en una
+  frase («el pedido … llegó») no se toca: el crudo no se guarda, y lo que se come no vuelve.
+- **La primera versión hacía el tapado 20 veces más lento**, y el test de la línea gigante (tope de 2 s por línea) se caía
+  bajo carga. El costo era un `(?<=mistral[^\n]{0,40})` que el motor prueba en CADA carácter (~300 pasos por posición), y
+  un `(?<=^\s*)` cuadrático con una tirada de espacios. **Regla para un regex de tapado:** que arranque por algo raro (la
+  palabra, el principio del texto con `^` sin `m`, el borde exacto de la clave) y capture el contexto en vez de mirarlo
+  hacia atrás. Medido: con la línea gigante peor, de 1489 ms a 120 ms (la base sin las reglas nuevas, 87 ms).
+- **La segunda revisión (Integración, el mismo día) encontró que la cercanía no alcanzaba.** Pedir «mistral» a menos de 40
+  caracteres en la misma línea dejaba pasar justo cómo se pega una clave en WhatsApp: «Clave de Mistral 👇» y la clave en la
+  línea de abajo. Tampoco tapaba dos claves con un solo rótulo. Ahora, si el texto NOMBRA a Mistral en cualquier lugar, se
+  tapa TODA clave de su forma (`MISTRAL_NOMBRADA`, sumada sólo a ese texto). Sigue siendo lineal: la línea gigante peor,
+  con 30 mil claves y la palabra al final, entra en el tope.
+- **Un `$1` que se traga el marcador de otra regla deja bytes NUL.** `redactarCon` (lib/agente-redaccion.ts) cambia cada
+  secreto por un marcador `\u0000N\u0000` y al final los expande, pero el texto de un reemplazo no se vuelve a expandir. Con
+  otra clave entre «mistral» y la de Mistral, el contexto capturado traía un marcador crudo. Postgres rechaza un NUL en
+  `text` y en `jsonb`: el mensaje del grupo no se encolaba, `encolar` lo tomaba como una re-entrega, y MaKo lo perdía sin
+  avisar (y lo mismo en el chat de la app). **Regla:** lo que vuelve en un grupo de captura se expande ANTES de guardar el
+  reemplazo, y no se descuenta de lo tapado.
+- **`insertUsage` no avisaba si la base rechazaba la fila.** supabase-js no tira: devuelve `{ error }`, y nadie lo miraba.
+  Una fila de `anthropic_usage` rechazada se perdía en silencio, y el freno de 5 min de su-clave la daba por escrita.
+  Ahora `insertUsage` devuelve si escribió, `recordUsage` lo pasa en `escrita`, y su-clave marca antes de escribir y
+  desmarca si no quedó.
+- **Sin hacer:** Fathom, Panda y Zernio no tienen regla, y su formato no se verificó. Una clave de Mistral pegada con otro
+  texto y sin nombrar a Mistral («<clave>\ngracias!») sigue pasando: sin el nombre ni el texto solo, es la forma de un id.
+
+## El crédito de la cuenta 1 como el Claude del ws1, con su interruptor en el Uso (22/10/2026)
+
+**La decisión, textual** (Martín, por el Cerebro): «habilita los tokens de la API de la cuenta de Mauricio, esos 200, para su
+Ops Center, que lo pueda usar, así puedo seguir probando en Automations», y «dame luego una opción para deshabilitarle esa
+API a Mauricio en SuperAdmin, tal vez en USO, que pueda desactivar». Es una excepción a «Por ahora solo en onboarding».
+
+**Vive en:** `CREDITO_DE_UN_NEGOCIO` (lib/veto-claude.ts: ws1 → `ANTHROPIC_CREDITO_CUENTA1`) · lib/credito-negocio.ts (el
+interruptor y la clave) · la puerta 2 (`permisoDeLaClaveDelNegocio`, lib/anthropic.ts) · la sección «API» del Uso
+(app/admin/operaciones/UsoCredito.tsx, en la computadora y en el teléfono) · tests/credito-negocio.test.ts.
+
+- **Entra por la puerta 2, no por la 3.** La puerta 3 (`conCreditoDeLaPlataforma`) sólo contesta TEXTO y sólo en la red de
+  la plataforma, y el Ops Center y la estrella de cada tab son el chat con herramientas. La puerta 2 sirve a las dos cosas
+  (el chat con herramientas y la cascada de texto, que la prueba primero), y ya sabía tratar un crédito como el Claude de
+  un negocio (el ws10): con Haiku, nunca el Plan, y el gasto con la marca del crédito. Sin su clave propia, o con una copia
+  de la de MaKo, la puerta 2 usa la del crédito asignado. Si la conecta, gana la suya.
+- **Trampa: no se pega en la fila del ws1.** Es el workspace del entorno (`hidratarCredenciales`), y su fila pasaría a ser
+  la clave de MaKo (lo del 18/10). Tampoco se escribe la marca del crédito en el ws1: la puerta la escribía al reconocer un
+  crédito por su valor, y el asignado no es su fila.
+- **El interruptor vive en el workspace de la plataforma** (`ia.credito_negocio.1`): el negocio no lo ve ni lo toca. Sin
+  fila, PRENDIDO (lo pidió Martín, y prenderlo no necesita escribir en producción). «No pude leerlo» es apagado para ese
+  pedido.
+- **Lo que deja de verse:** «Conecta tu IA» (la caja pregunta `claveDelCreditoAsignado`), y «Es la clave de MaKo, no la
+  tuya» (la tarjeta muestra `credito` y saca las copias; en /integraciones, la de Claude sale conectada).
+- **Error que ya estaba en el Uso:** las filas «(su clave es el crédito)» no traen el número de la cuenta, y `creditoQuePago`
+  las mandaba todas a la cuenta 1: lo del ws10 (cuenta 2) se le sumaba a Mauricio. Ahora van a la cuenta del NEGOCIO.
+- **Medido en producción (22/10, sólo lectura, nada escrito en el ws1: 564 ajustes antes y después):** el crédito asignado
+  está prendido y su clave se lee; la puerta 2 da permiso para `mako-doer` y `chatbot-crear-ia` (Haiku, como crédito) y no
+  para `plan-fathom`; la tarjeta dice `anthropic:credito`; la clave contesta 200 a `count_tokens` (que no cobra).
+- **Probado rompiéndolo** (las 11 en rojo): la puerta sin el crédito, el crédito tapando su clave propia, la marca en el ws1,
+  el interruptor que no apaga, «no pude leer» prendido, cualquier negocio prendible, la tarjeta, la caja, la cuenta de «su
+  clave es el crédito», la pantalla y la acción sin la puerta del super admin.
+- **SIN hacer — por qué esto NO alcanza para soltar IA16:** el crédito cubre lo que pasa por la puerta 2. Al ws1, con IA16, le
+  seguirían faltando: el Plan (que nunca paga IA de MaKo: hace falta su clave, o que Martín amplíe la excepción); las notas
+  de voz (Claude no transcribe: hace falta su Gemini o su OpenAI); «Hola MaKo» en WhatsApp (el doer escala a su Claude sólo
+  con «su IA»); y el buscador de conocimiento (embebe con su Gemini). Con su Gemini gratis conectada, eso se resuelve.
+
+## Las decisiones de Martín del 22/10/2026 sobre la IA de MaKo, y el Plan con la clave del negocio
+
+**Las decisiones, textuales** (las tomó en el formulario del Cerebro el 22/10/2026):
+
+1. **El instalador 0.3.2:** «Subilo ya». Ya está subido: el bucket quedó completo y la instalación de cero en el ws3 anduvo.
+2. **La OpenAI de MaKo sin crédito:** «Tenemos Gemini que hace todo eso, gratis o más barato». No se le carga crédito. La
+   transcripción de anuncios, la lectura de creativos y el buscador de conocimiento pasan a Gemini. Antes de re-embeber el
+   conocimiento con el embedding de Gemini, hay que medir cuánto cuesta y cuánto tarda.
+3. **El corte:** «No quiero que se corte Gemini, pero sí todas las otras».
+   - **IA10 queda CANCELADO.** Gemini sigue como la base de quien no conectó su IA.
+   - Se van Cerebras, Mistral y OpenRouter (IA8) y también Groq. El audio de quien no tiene OpenAI pasa a Gemini.
+   - Antes de sacar Groq de las notas de voz de WhatsApp, hay que medir la demora.
+   - **La precisión del Cerebro, del mismo día:** los datos de los clientes nunca van a un proveedor que entrena (la regla
+     del 16/10). Entonces Gemini sirve de base sólo en el plan PAGO. Hasta que Martín active el pago por uso (el tope
+     sugerido es US$20/mes), quien no tiene su IA no va a Gemini gratis con datos de clientes: se le pide «Conecta tu Claude
+     o tu GPT». Ese cambio en la cascada espera su sí, coordinado con el Ops Center.
+4. **El Plan:** «Sí, si es su clave». Es una EXCEPCIÓN a «NO, JAMÁS algo pago para el plan» (30/09/2026). Está abajo.
+5. **El Closing Analyst del ws1 después del 13/11:** «Con su clave de Claude». Sin clave, el Analyst le pide que la conecte.
+
+**Lo medido el mismo día** (anthropic_usage, sólo lectura): el tope gratis de Gemini se agota TODOS los días.
+- El 22/10 se agotaron las 4 cuentas entre las 05 y las 08 h de Tijuana, después de unas 190 respuestas.
+- Desde el 15/10, cada 429 de Gemini es el tope POR DÍA (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`). Fueron 3069
+  rebotes en 14 días.
+- Offer se lleva el 57 % de las respuestas.
+- Por eso el ws1 leyó «No tienes ninguna IA gratis conectada»: sus filas de IA son copias de la plataforma, que se
+  descartan, y la red de la plataforma estaba topada. El mensaje (`falloDeIA`) no mira los errores de esa red.
+- **Las notas de voz, antes de sacar Groq.** Medido el 22/10 a las 11 h de Tijuana, con las claves de la plataforma, el
+  mismo pedido que `sttWhisper`/`sttGemini` y 3 corridas por caso. Las notas son sintéticas (la voz de Windows), en Opus
+  16 kHz como las de WhatsApp:
+  - 20 s: Groq 0,66 s; Gemini flash-lite 14 s; Gemini flash 503 «high demand» las 3 veces.
+  - 1 min: Groq 0,8 s; flash-lite 22 s; flash 59 s, y 2 de 3 fallaron.
+  - 2 min: Groq 1,2 s; flash-lite 19 s; flash 429 de tope.
+
+  Las notas ya van primero a Gemini (`CASCADA_STT`), y hoy Groq es lo que las salva cuando Gemini falla. Sin Groq, una nota
+  tarda 15-20 s o no se transcribe hasta que vuelva el tope. El Gemini PAGO no se midió (no hay clave). Se le pasó el
+  número a Martín, y Groq no sale de las notas de voz hasta su respuesta.
+
+**El Plan con la clave del negocio: lo que no se ve**
+
+- **«Su clave» no es «su IA».** Por eso `planConSuClave` (lib/ia-del-negocio.ts) es una pregunta distinta de
+  `negocioConSuIA`:
+  - la PC no cuenta: el Plan corre de fondo, y la suscripción no se puede usar de fondo (D6a);
+  - el crédito de Max de Martín (el ws10) no lo paga el negocio.
+  Con su OpenAI o su Claude pagos, el Plan usa SÓLO esa IA (D6b). Con nada de eso, el Plan sigue como siempre.
+- **El D6b del Plan se decide aparte, también adentro de otro pedido.** Por ejemplo, un `plan-fathom` adentro de una
+  herramienta del doer. Antes de este cambio, el Plan se decidía siempre «afuera».
+- **La puerta volvía a entrar sin fin.** Con el Plan decidido «adentro», `pasaPorLaPuerta` volvía a dar cierto, y la puerta
+  entraba otra vez. Ahora el contexto lleva la marca `delPlan`. **Regla:** una puerta que decide distinto según la función
+  necesita la marca «ya decidido PARA ESTA función», no sólo «ya decidido».
+- **En la puerta 2 (lib/veto-claude.ts), el Plan va SIEMPRE con Haiku**, aunque el negocio haya elegido Sonnet: es lo que
+  más se usa (el Perro, las reuniones). Lo decidió este chat; si Martín quiere otra cosa, es una línea.
+- **Nunca con el crédito de Martín, y sin poder compararlo con el crédito, tampoco.** La plataforma sigue sin pagar el Plan
+  por ninguna puerta.
+- **Sin hacer:** el Plan de un negocio que tiene sólo su PC sigue con Gemini. Con datos de clientes, ahí aplica la
+  precisión del Cerebro de arriba (el plan pago).
+
+### Lo que encontró la revisión adversarial de IA15 (22/10/2026), y cómo quedó
+
+- **ALTA — `credWsEstricta` era estricta sólo frente a la base caída.** Una fila que EXISTE y no se descifra (el secreto rotó,
+  la fila se dañó, una migración de cifrado a medias) devolvía `null`. Con eso, la frontera de la puerta 2 no reconocía ni
+  el crédito de Martín ni la copia de la clave de MaKo, y el Plan del ws10 pagaba con el crédito y el de un negocio con la
+  copia pagaba con la de MaKo. Lo reprodujo con filas cifradas para otro ws. Peor aún: con la marca «del negocio», ese
+  gasto salía del de MaKo. Se arregló en dos capas:
+  - `credWsEstricta(…, { ilegibleTira: true })` en la frontera de la IA (la opción no se usa en los webhooks: ahí tirar es
+    otra decisión);
+  - la puerta 2 de una función del Plan pide la decisión del Plan, en «sí» y cierta (`planPuedePagarConSuClave`).
+  **Regla:** una lectura «estricta» tiene que tirar con TODO lo que no pudo leer, también con una fila que no descifra; y
+  una decisión de plata no se toma con la lectura de una sola capa.
+- **MEDIA — con su OpenAI, el Plan pedía 32.000 tokens de salida a gpt-4o-mini** (acepta 16.384) y fallaba siempre en las
+  llamadas grandes, anotado como fallo de SU clave. Ahora `conTechoDeSalida` (lib/ai-cheap-techo.ts) topa por modelo en
+  los tres pedidos de la capa barata.
+- **BAJA, latente — lo que no es del Plan heredaba la decisión del Plan** cuando se llamaba desde adentro de una función
+  del Plan. Ahora el contexto guarda la decisión de afuera (`deAfuera`), y lo que no es del Plan y trae su `feature`
+  vuelve a la puerta.
+- **Los tests no miraban `planConSuClave` caso por caso.** Faltaban la PC sola, la base caída, una clave ilegible y una
+  copia. Ahora están en tests/ia15-frontera.test.ts, con 10 roturas en rojo. Tres de esas roturas quedaron en verde la
+  primera vez: la del valor incierto que se recuerda no se veía porque «sí» y «no» coincidían. Se cubrieron con el ws16,
+  una copia, donde la decisión real y la incierta difieren. **Regla del test:** para ver que un «no pude saber» no se
+  recuerda, el caso tiene que ser uno donde la respuesta incierta y la real sean distintas.
+- **Sin hacer (MEDIA, para Martín):** el crédito se reconoce por su VALOR contra las claves cargadas hoy. Si se borra la
+  fila del crédito en la plataforma, o se rota dejando viva la vieja que tiene el ws10, el Plan del ws10 vuelve a pagar con
+  él. Hace falta una marca que no se borre, por ejemplo las huellas de las claves del crédito guardadas aparte, o una marca
+  «la paga la plataforma» en la fila del ws10.
+
+### La revisión del lote 2 (Integración, 22/10/2026), y cómo quedó
+
+- **El crédito de Martín ya no se reconoce sólo por su valor.** La decisión fue del Cerebro, textual: «que no dependa del
+  valor. Marcá la credencial del ws10 con una marca explícita… que se lee aunque la fila de la plataforma no exista».
+  - **El problema:** borrada o rotada la fila `ANTHROPIC_CREDITO_CUENTA2` del ws9, el ws10 volvía a elegir Sonnet sobre el
+    crédito, a pagar su Plan con él, y ese gasto se anotaba «del negocio», fuera del costo de MaKo y sin verse.
+  - **La marca** (lib/credito-marca.ts) vive en los ajustes del negocio (`ia.su_claude.credito_de`): la HUELLA de su clave
+    y de qué cuenta es.
+  - **Quién la lee:** la puerta 2, `planConSuClave` y la tarjeta. Cuando la puerta 2 reconoce el crédito por su valor y
+    falta la marca, la escribe.
+  - **El gasto** de esa clave se anota como del crédito de la plataforma (`marcaDelGasto`), así que se ve aparte.
+  - **El 22/10 se escribió la del ws10** (…CUENTA2), el único negocio con una clave del crédito. El test
+    (tests/credito-marca.test.ts) borra la fila de la plataforma y exige que el ws10 haga exactamente lo mismo.
+  - **Regla:** algo que decide plata no se reconoce sólo comparando contra una fila que alguien puede borrar.
+- **«Importar al plan» pagaba fuera del Plan.**
+  - **La causa:** `importar-en-segundo-plano` leía las fotos y los PDF escaneados con la feature por default de
+    `archivoATexto` («Importar al plan»). Esa feature no es del Plan, porque también la usan el CRM, el chat y el Video
+    Generator.
+  - **El arreglo:** el Plan pasa `plan-importar`, que va en `FEATURES_DEL_PLAN`. El barrido del test ahora falla con un
+    `archivoATexto(` sin feature en un archivo del Plan.
+- **Mistral nombrada tapaba parámetros de links** (el `pwd=` de un Zoom junto a «Av. Gabriela Mistral»). Ahora un id pegado a
+  un link no cuenta: después de `=`, `/`, `?`, `&`, `#`, o seguido de `.`.
+- **Y el arreglo de los links abrió una regresión** (tercera revisión, el mismo día).
+  - **Qué pasó:** para no tapar el `pwd=<id>.1` de un Zoom, el token pedía que no lo siguiera un punto. Entonces «Mi clave
+    de Mistral es <clave>.», con la clave al final de una oración, pasó entera al modelo y a `chart_chats`.
+  - **El arreglo:** ahora sólo un punto SEGUIDO de algo más es parte de un link. El link ya lo protegen el `=` y la `/` del
+    lookbehind.
+  - **Lo que tampoco agarraba nadie:** `mistral_key=…` en minúscula, porque la regla de .env es sólo de MAYÚSCULAS. Ahora
+    hay una regla para el nombre asignado.
+  - **Regla:** al angostar una regla de tapado para no tapar de más, se vuelve a probar el caso más común (la clave al
+    final de una frase), no sólo el que se quería dejar pasar.
+- **Una fila de IA ilegible en el ws9 apagaría la IA propia de todos los negocios** (por `ilegibleTira`). Se miró antes de
+  subir: 22 de 22 filas legibles. El mensaje ya no dice «la base no contestó», que en ese caso era falso.

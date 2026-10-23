@@ -19,7 +19,7 @@
 //    title con el valor completo.
 
 import Link, { useRouter, useWs } from '@/app/_ui/Link';
-import { ICONO_VISTA } from '@/app/_ui/iconos-vista';
+import { SelectorVista } from '@/app/_ui/SelectorVista';
 import { conWs } from '@/lib/ws-tab';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { useEffect, useLayoutEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
@@ -38,8 +38,6 @@ import { ANCHO_PANEL, MARGEN_VENTANA, lugarDelPanel } from './filtro-panel';
 import { Confirm } from '@/app/_ui/Confirm';
 import { LapizIcon } from './iconos';
 import { BANDAS_KANBAN } from './filtros-guardados';
-import { EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
-import { Tooltip } from '@/app/_ui/Tooltip';
 // El CUBO del desplegable de funnels (punto 24): el ícono `producto` del set de los menús, el
 // mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
 import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
@@ -213,6 +211,9 @@ function MenuItem({ icon, label, onClick, href }: {
     <>
       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, flex: 'none', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: hover ? 'var(--primary)' : 'var(--dim)' }}>{icon}</span>
       <span style={{ minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{label}</span>
+      {/* EL RENGLÓN QUE NAVEGA LO DICE (C6 de la llamada con Mauricio, 22/10/2026): «los tres puntos me mandaron a otro
+          lado» era «Buscar prospectos», el único del «⋯» que abre OTRA pantalla en vez de un pop-up. La flecha lo avisa. */}
+      {href && <span aria-hidden style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--faint)' }}>→</span>}
     </>
   );
   return href
@@ -220,7 +221,9 @@ function MenuItem({ icon, label, onClick, href }: {
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
 }
 
-export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas }: {
+export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas, funnelActivo = null }: {
+  /** El CRM que se está mirando: «Buscar prospectos» lo lleva, y «Volver» de allá vuelve a ÉL (C6, 22/10/2026). */
+  funnelActivo?: number | null;
   onImportar: () => void;
   onExportar: () => void;
   onNuevo: () => void;
@@ -270,7 +273,7 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
               onClick={() => { setOpen(false); onExportar(); }} />
             {/* El Leads Scraper (15/10/2026, docs/diseno-leads-scraper.md): la lista aparte de la
                 prospección en frío. Navega: es una pantalla, no un pop-up, porque la lista vive sola. */}
-            <MenuItem icon={<IconoMenu nombre="buscar" size={15} />} label="Buscar prospectos" href="/crm/prospectos"
+            <MenuItem icon={<IconoMenu nombre="buscar" size={15} />} label="Buscar prospectos" href={funnelActivo != null ? `/crm/prospectos?funnel=${funnelActivo}` : '/crm/prospectos'}
               onClick={() => setOpen(false)} />
             <span style={{ height: 1, background: 'var(--border)', margin: '5px 6px' }} />
             {/* ⚠️ ABRE UN POP-UP, NO UNA PANTALLA. «Quiero eliminar la ruta de funnel, que
@@ -318,27 +321,13 @@ export function VistaSelector({ vista, onVista, pendientes }: {
   pendientes: number;
 }) {
   void pendientes;
-  // ⚠️ PESTAÑAS PÍLDORA (17/10/2026, la familia del prototipo docs/prototipos/coherencia-1710.html): «Tablero · Lista»,
-  //    las dos vistas que existen (decidido: las del prototipo se mapean a las de hoy). El ícono sigue saliendo de
-  //    app/_ui/iconos-vista (el mismo que Customer Success). El estilo es el de `.tk-ptab` (app/_ui/TarjetaKanban.tsx).
-  // ⚠️ SÓLO EL ÍCONO, CON TOOLTIP (20/10/2026, Martín: «Los botones de "Tablero y lista" solo con íconos debería
-  //    estar»). El nombre de la vista sigue en el tooltip de la casa y en el `aria-label`: el teléfono no tiene este
-  //    selector, así que el tooltip no esconde nada que haga falta (la regla de app/_ui/Tooltip.tsx).
-  const NOMBRE: Record<CrmVista, string> = { kanban: 'Tablero', tabla: 'Lista' };
-  return (
-    <div className="tk-ptabs" role="tablist" aria-label="Cómo ver los leads" style={{ flex: 'none', padding: 0, overflow: 'visible' }}>
-      <EstiloTarjetas />
-      {(['kanban', 'tabla'] as const).map((v) => (
-        <Tooltip key={v} text={NOMBRE[v]} side="bottom">
-          <button type="button" role="tab" className="tk-ptab" onClick={() => onVista(v)} aria-selected={vista === v}
-            aria-label={NOMBRE[v]} style={{ height: 34, width: 40, padding: 0, justifyContent: 'center' }}>
-            {ICONO_VISTA[v].icono}
-          </button>
-        </Tooltip>
-      ))}
-    </div>
-  );
+  // ⚠️ «KANBAN · LISTA», JUNTOS EN UN SEGMENTO (21/10/2026, Martín: «Los íconos de "tablero y lista" deberían estar como
+  //    juntos en una sección, y el placeholder del "tablero" debe ser "kanban"... Esto en todos lados»). Es la pieza
+  //    compartida con Clientes y el Plan (app/_ui/SelectorVista.tsx): sólo el ícono, con el nombre en el tooltip
+  //    (20/10: «solo con íconos»). Hasta el 21/10 eran dos píldoras `.tk-ptab` sueltas y la primera decía «Tablero».
+  return <SelectorVista vistas={VISTAS_CRM} vista={vista} onVista={onVista} ariaLabel="Cómo ver los leads" />;
 }
+const VISTAS_CRM: readonly CrmVista[] = ['kanban', 'tabla'];
 
 // -- «Sin marcar» se mudó al panel de abajo a la derecha ---------------------
 // Acá vivía `PendientesAtajo`, un chip con su contador al lado del toggle. Primero

@@ -111,7 +111,7 @@ test('falloDeIA: cada causa en una línea, con la acción que corresponde', () =
   assert.equal(falloDeIA(['sin tiempo: el plazo del pedido vence en 3 s'], true).error, 'Las IA tardaron demasiado. Prueba de nuevo.');
   // Sin ninguna IA (y sin red que probar): conectar su Claude, con el link (AU3, 22/10/2026: antes «conecta una gratis»,
   // con el link a Gemini; lo de la red, en tests/ia-aviso-sin-ia-propia.test.ts).
-  assert.deepEqual(falloDeIA([], false), { error: 'No tienes una IA conectada: conecta tu Claude.', link: '/integraciones?abrir=anthropic' });
+  assert.deepEqual(falloDeIA([], false), { error: 'No tienes una IA conectada: conecta tu Claude o tu GPT.', link: '/integraciones?abrir=anthropic' });
   // Todo corto: es una línea que se dibuja.
   for (const e of [BOLSA_WS1, ['gemini: chatCheap(gemini): HTTP 429']]) assert.ok(falloDeIA(e, true).error.length <= 90);
 });
@@ -121,8 +121,10 @@ test('falloDeIA: cada causa en una línea, con la acción que corresponde', () =
 test('la lista de proveedores no cobra nunca, y el pin pago no entra', () => {
   for (const p of ['openai', 'anthropic', 'mistral']) assert.ok(!(PROVS_CREAR_IA as readonly string[]).includes(p), p);
   for (const p of ['openai', 'anthropic']) assert.ok(!(PROVS_GRATIS_PIN as readonly string[]).includes(p), p);
-  assert.deepEqual([...PROVS_CREAR_IA], ['gemini', 'groq', 'openrouter']);
-  assert.match(MODELOS_CREAR_IA.openrouter ?? '', /:free$/, 'el de OpenRouter tiene que ser un :free');
+  // IA8 (22/10/2026): OpenRouter, Mistral y Cerebras se sacaron (su modelo gratis caducaba, 429 siempre, 402).
+  assert.deepEqual([...PROVS_CREAR_IA], ['gemini', 'groq']);
+  for (const p of ['openrouter', 'mistral', 'cerebras']) assert.ok(!(PROVS_GRATIS_PIN as readonly string[]).includes(p), `${p} volvió al pin`);
+  assert.deepEqual(MODELOS_CREAR_IA, {}, 'ningún modelo propio de un proveedor que se sacó');
 });
 
 // Integración (decisión 16): la IA sólo arma acciones que el lienzo OFRECE (`ACCIONES_DEL_FLUJO`).
@@ -337,12 +339,13 @@ test('el placeholder para mientras la caja tiene el foco, y vuelve si se sale si
 // rotura (la capa adentro del componente, sin portal): 1 fallo.
 // Duodécima (romper.mjs): la capa sin portal → 13 / 1; Cancelar sin `abort()` en el lector → 13 / 1 (éste las dos).
 // ⚠️ DECIMOTERCERA (puntos 2 y 6): la capa la pone SecuenciaPerfil y el chat (el hilo de WhatsApp, con el «escribiendo…»,
-// las fases y Cancelar) queda encima. Desde el 22/10/2026 (Martín: «debería quedar todo, incluso atrás de la sidebar,
-// todo») la capa vuelve a ser un portal sobre TODA la pantalla, encima de la barra de la app, y la lista flotante con el
-// chat sube por encima mientras tanto. Los z, en tests/lienzo-capas.test.ts.
-test('mientras MaKo trabaja: la capa tapa TODA la pantalla (la barra de la app también), el chat queda encima y el teclado no llega al lienzo', () => {
+// las fases y Cancelar) queda encima. Desde el 22/10/2026 la capa es un portal sobre TODA la pantalla (Martín: «debería
+// quedar todo, incluso atrás de la sidebar»), y esa noche pasó DEBAJO de la barra de la app («no debe deshabilitarme la
+// navegación de la sidebar principal»): tapa el lienzo entero, también detrás de la lista con el chat. Los z, en
+// tests/lienzo-capas.test.ts.
+test('mientras MaKo trabaja: la capa tapa el lienzo entero (no la barra de la app), el chat queda encima y el teclado no llega al lienzo', () => {
   assert.match(PERFIL, /\{rolAdmin && chatTrabajando && typeof document !== 'undefined' && createPortal\(\n\s+<div data-capa-mako="" aria-hidden style=\{\{\n\s+position: 'fixed', inset: 0, zIndex: Z_CAPA_MAKO,/);
-  assert.match(PERFIL, /<\/div>,\n\s+document\.body,\n\s+\)\}/, 'la capa no va al body: queda adentro del lienzo y la barra de la app no se tapa');
+  assert.match(PERFIL, /<\/div>,\n\s+document\.body,\n\s+\)\}/, 'la capa no va al body: queda adentro del lienzo y deja sin tapar lo de detrás de la lista');
   const z = /export const Z_CAPA_MAKO = (\d+);/.exec(PERFIL);
   assert.ok(z, 'no está el z de la capa');
   assert.ok(Number(z![1]) > Z_ACCION_LIENZO, 'la capa queda debajo de «Publicar»');
@@ -351,15 +354,18 @@ test('mientras MaKo trabaja: la capa tapa TODA la pantalla (la barra de la app t
   assert.match(CAJA, /useEffect\(\(\) => \{ onTrabajandoRef\.current\?\.\(trabajando\); \}, \[trabajando\]\);/);
   assert.match(CAJA, /document\.addEventListener\('keydown', alTeclado, true\);/);
   assert.match(CAJA, /e\.stopImmediatePropagation\(\);/);
-  // Y Cancelar corta el pedido de verdad (AbortController), no sólo la pantalla.
-  assert.match(LECTOR, /const cancelar = useCallback\(\(\) => \{\n\s+const c = ctrl\.current;\n\s+ctrl\.current = null;\n\s+c\?\.abort\(\);/);
+  // Y Cancelar corta el pedido de verdad (AbortController), no sólo la pantalla. (22/10/2026: el turno vive afuera del
+  // componente, en TRABAJOS por clave; irse NO lo corta: tests/chat-mako-segundo-plano.test.ts.)
+  assert.match(LECTOR, /const cancelar = useCallback\(\(\) => \{\n\s+const t = TRABAJOS\.get\(clave\);\n\s+if \(!t\) return;\n\s+TRABAJOS\.delete\(clave\);\n\s+t\.ctrl\.abort\(\);/);
 });
 
 // rotura (el error sin el link): 1 fallo.
 // Duodécima (romper.mjs): el lector sin `link` → 13 / 1 (éste).
 test('el error trae el link a donde se arregla', () => {
   assert.match(LECTOR, /if \(ev\.t === 'error'\) return \{ t: 'error', error: ev\.error \|\| 'No se pudo', \.\.\.\(ev\.link \? \{ link: ev\.link \} : \{\}\) \};/);
-  assert.match(CAJA, /if \(fin\.t === 'error'\) return deshacer\(\{ texto: fin\.error, \.\.\.\(fin\.link \? \{ link: fin\.link \} : \{\}\) \}\);/);
+  // 22/10/2026: si llegó, lo dice MaKo con su botón; si no salió, «No se envió» (tests/chat-mako-segundo-plano.test.ts).
+  assert.match(CAJA, /if \(fin\.t === 'error' && fin\.noSalio\) return deshacer\(\{ texto: fin\.error, \.\.\.\(fin\.link \? \{ link: fin\.link \} : \{\}\) \}\);/);
+  assert.match(CAJA, /if \(fin\.t === 'error'\) return respondeMako\(\{ texto: fin\.error, \.\.\.\(fin\.link \? \{ link: fin\.link \} : \{\}\) \}\);/);
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
   assert.match(ruta, /send\(\{ t: 'error', error: g\.error, \.\.\.\(g\.link \? \{ link: g\.link \} : \{\}\) \}\);/);
 });

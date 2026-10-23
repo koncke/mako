@@ -31,7 +31,7 @@ import { join } from 'node:path';
 import { esperaDe, esperasPorChat, historialDelChat, vistaPrevia, type ChatCentro } from '../lib/centro-chats';
 import { RESUELTA, TOPES, filaADecision, sanearPublicada, type Decision } from '../app/admin/runway/decisiones';
 import type { ChatCartero } from '../lib/operaciones-reglas';
-import { Pregunta } from '../app/admin/operaciones/Pregunta';
+import { BloqueDePreguntas } from '../app/admin/operaciones/PreguntasDelChat';
 import { Hilo } from '../app/admin/operaciones/Hilo';
 
 const L = (n: number) => `local_${n}1111111-2222-4333-8444-555555555555`;
@@ -92,11 +92,12 @@ test('los renglones de Claude Code: título, descripción abajo, la recomendada 
   assert.equal(temaDePregunta(dec({ urgencia: 'bloquea' })), 'Frena el chat');
 });
 
-test('el dibujo copia AskUserQuestion: la pestaña, «1 de 2», las opciones numeradas y el renglón libre', () => {
+test('el dibujo copia AskUserQuestion: el tema, «1 de 2», las opciones numeradas y el renglón libre', () => {
   const a = dec({ opciones: [{ clave: 'A', texto: 'Sí', detalle: 'Se publica hoy' }, { clave: 'B', texto: 'No' }], recomendada: 'A', urgencia: 'bloquea' });
   const b = dec();
-  const html = renderToStaticMarkup(createElement(Pregunta, { preguntas: [a, b], responder: async () => ({ error: null, ok: true }) }));
-  assert.match(html, /role="tab"[^>]*aria-selected="true"[^>]*>Frena el chat</);
+  const html = renderToStaticMarkup(createElement(BloqueDePreguntas, { chat: 'local_infra', ticketera: [a, b], responderTicketera: async () => ({ error: null, ok: true }) }));
+  // Desde el 22/10/2026 va en el bloque único (PreguntasDelChat.tsx): el tema de la abierta, y la navegación del bloque.
+  assert.match(html, /class="co-preg__tema">Frena el chat</);
   assert.match(html, />1 de 2</);
   assert.match(html, new RegExp(`co-preg__texto">${a.pregunta.replace(/[?¿]/g, '.')}<`));
   assert.match(html, /co-preg__num" aria-hidden="true">1<[\s\S]*?Sí<span class="co-preg__rec"> \(Recomendada\)<\/span>[\s\S]*?co-preg__detalle">Se publica hoy</);
@@ -104,7 +105,7 @@ test('el dibujo copia AskUserQuestion: la pestaña, «1 de 2», las opciones num
   assert.match(html, /co-preg__num" aria-hidden="true">3<[\s\S]*?placeholder="Escribe otra cosa"/, 'el último renglón es el libre');
   assert.match(html, /Elige con 1 a 3/);
   // Una sola: sin «1 de 1».
-  assert.doesNotMatch(renderToStaticMarkup(createElement(Pregunta, { preguntas: [b], responder: async () => ({ error: null, ok: true }) })), /de 1</);
+  assert.doesNotMatch(renderToStaticMarkup(createElement(BloqueDePreguntas, { chat: 'local_infra', ticketera: [b], responderTicketera: async () => ({ error: null, ok: true }) })), /de 1</);
 });
 
 test('la pregunta abierta se sigue por su id: una tarjeta que llega ADELANTE no le roba la respuesta', () => {
@@ -119,8 +120,10 @@ test('la pregunta abierta se sigue por su id: una tarjeta que llega ADELANTE no 
   assert.equal(despues.pos, 1, 'y el «2 de 2» lo dice');
   assert.equal(preguntaAbierta([p0], p1.id).d?.id, p0.id, 'si la elegida se contestó, la primera');
   assert.equal(preguntaAbierta([p0, p1], null).d?.id, p0.id, 'sin elegir, la que frena');
+  // El bloque único sigue lo abierto con esta MISMA regla (22/10/2026), y el cuerpo de la Ticketera guarda con la acción.
+  const bloque = readFileSync(join(import.meta.dirname, '..', 'app/admin/operaciones/PreguntasDelChat.tsx'), 'utf8');
+  assert.match(bloque, /const \{ d: abierta, pos \} = preguntaAbierta\(visibles, idActual\);/, 'la pantalla usa esta misma regla');
   const src = readFileSync(join(import.meta.dirname, '..', 'app/admin/operaciones/Pregunta.tsx'), 'utf8');
-  assert.match(src, /const \{ d, pos \} = preguntaAbierta\(preguntas, elegida\);/, 'la pantalla usa esta misma regla');
   assert.match(src, /try \{ r = await responder\(/, 'y un rechazo de la acción no deja la pregunta en «…»');
 });
 

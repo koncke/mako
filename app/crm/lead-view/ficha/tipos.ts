@@ -61,6 +61,11 @@ export type CtxFicha = {
    * esta ficha dibuja su campo y lo señala; sin ninguna, el asistente). Lo usa «Completar» de la siguiente acción.
    */
   solucionar: (paso: StepId) => void;
+  /**
+   * (22/10/2026, mig 0324) El CRM AGREGADO que mira la ficha (una renovación), o null/ausente si mira la casa. Los bloques
+   * de plata de Pagos muestran y escriben el trato de ESE CRM (./pagos/trato.ts): su venta, su plan y sus pagos.
+   */
+  crm?: { id: number; nombre: string } | null;
 };
 
 /** Lo que recibe el componente de un bloque. */

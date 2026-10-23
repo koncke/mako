@@ -194,7 +194,8 @@ test('transcribirAudio: un bucle de las keys del negocio es un FALLO de esa cuen
   const iEscucha = t.indexOf('const r = await escucharCon(p, base64, buf, mime, o, errores);');
   const iBucle = t.indexOf('salidaDegenerada(r.texto)');
   const iEscucho = t.indexOf('alguienEscuchó = true');
-  const iDevuelve = t.indexOf('if (r.texto) return corregirMarca(r.texto)');
+  // Desde IA7 el `return` va adentro de un bloque que primero avisa quién escuchó (`alEscuchar`).
+  const iDevuelve = t.indexOf('return corregirMarca(r.texto)');
   assert.ok(iEscucha > 0 && iBucle > iEscucha, 'el resultado de cada cuenta no pasa por el detector');
   assert.ok(iEscucho > iBucle && iDevuelve > iBucle,
     'el bucle se mira DESPUÉS de dar por escuchado el audio: un bucle se devolvería, o cerraría la cascada como «no había voz»');

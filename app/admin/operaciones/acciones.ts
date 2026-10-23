@@ -36,6 +36,11 @@ import { leerTareasDelChat } from '@/lib/centro-plan-auto';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { leerMarcasDe, marcarDe } from '@/lib/centro-mensajes-db';
 import { guardarAlias, leerCuentasConNombre } from '@/lib/centro-titulares-db';
+import { leerCreditoApi } from '@/lib/credito-api-db';
+import { desconectar, listarTodasLasPc } from '@/lib/ia-pc';
+import type { LecturaComputadoras } from '@/lib/ia-pc-reglas';
+import { guardarInterruptorDeCredito } from '@/lib/credito-negocio';
+import type { LecturaCredito } from '@/lib/credito-api';
 import { CUENTA_RE } from '@/lib/operaciones-reglas';
 import { aliasValido, type CuentasConNombre } from '@/lib/centro-titulares';
 import { leerPasos } from '@/lib/centro-pasos-db';
@@ -110,6 +115,58 @@ export async function guardarAliasCuentaAction(cuenta: string, alias: string): P
   if (!v.ok) return v;
   try {
     return { ok: true, cuentas: await guardarAlias(cuenta, v.alias) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** El crédito de API de los planes Max, para el Uso (22/10/2026, Martín: «En USO de SuperAdmin quiero ver también el USO de
+ *  la API»): por cuenta, si está vinculado y lo gastado según lo que registra MaKo. Sólo números: ninguna clave sale de acá. */
+export async function creditoApiAction(): Promise<LecturaCredito> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  try {
+    return await leerCreditoApi();
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** Prende o apaga el crédito de Claude asignado a un negocio (22/10/2026, Martín: «dame luego una opción para deshabilitarle
+ *  esa API a Mauricio en SuperAdmin, tal vez en USO»; lib/credito-negocio.ts). Devuelve la lectura nueva de la sección. */
+export async function creditoDelNegocioAction(ws: unknown, prendido: unknown): Promise<LecturaCredito> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof ws !== 'number' || !Number.isInteger(ws) || typeof prendido !== 'boolean') return { ok: false, error: 'Elige el negocio otra vez.' };
+  try {
+    await guardarInterruptorDeCredito(ws, prendido);
+    return await leerCreditoApi();
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** Las computadoras conectadas de TODOS los negocios (SuperAdmin › Uso, 22/10/2026: «Lo mismo en SuperAdmin»). Sin secretos. */
+export async function computadorasAction(): Promise<LecturaComputadoras> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  try {
+    return { ok: true, pcs: await listarTodasLasPc() };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** Desconecta la computadora de un negocio (Martín: «Y poder "Desconectar" dispositivos»): la revoca al instante, y su turno
+ *  en curso vence. Devuelve la lista nueva. */
+export async function desconectarComputadoraAction(ws: unknown, id: unknown): Promise<LecturaComputadoras> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof ws !== 'number' || !Number.isInteger(ws) || ws <= 0 || typeof id !== 'number' || !Number.isInteger(id) || id <= 0) return { ok: false, error: 'Elige la computadora otra vez.' };
+  try {
+    await desconectar(ws, id);
+    console.warn(`[operaciones] el super admin desconectó la PC ${id} del ws ${ws}`);
+    return { ok: true, pcs: await listarTodasLasPc() };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

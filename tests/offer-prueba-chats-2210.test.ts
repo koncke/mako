@@ -43,7 +43,7 @@ test('1 · lo que el modelo sacó de lo cargado en MaKo va como «negocio», de 
   assert.equal(p.entregables?.fuente, 'negocio');
   assert.equal(p.prueba?.fuente, 'doc');
   assert.equal(p.precio?.fuente, 'chat');
-  assert.match(leer('app/api/offer/route.ts'), /const fundidas = conCobroDelPrecio\(turnoIA \? fundirPiezasDelTurno\(f\.piezas, turnoIA, \{ porDefecto: fuente, preguntoOtras \}\) : f\.piezas\);/);
+  assert.match(leer('app/api/offer/route.ts'), /const fundidas = conCobroDelPrecio\(conLoQueDijoElDueno\(\s*turnoIA \? fundirPiezasDelTurno\(f\.piezas, turnoIA, \{ porDefecto: fuente, preguntoOtras \}\) : f\.piezas, u\.texto,\s*\)\);/);
 });
 
 // rotura (`otras` entra aunque MaKo no la preguntó): 1 fallo. rotura («1: sólo esta» cuenta 1): 1 fallo.
@@ -89,7 +89,7 @@ test('3 · el canal del PDF es el del funnel de ESTA oferta, y el guion del prec
   assert.equal(conCanalDeLaOferta(fase, 'webinar')?.canal, 'webinar');
   assert.equal(conCanalDeLaOferta(fase, null)?.canal, 'llamadas', 'sin canal del funnel, el del negocio');
   assert.equal(conCanalDeLaOferta(null, 'webinar'), null);
-  assert.match(leer('app/api/offer/route.ts'), /const fase = conCanalDeLaOferta\(faseVigenteDe\(ctx\), ctx\.funnel\?\.canal \?\? null\);/);
+  assert.match(leer('app/api/offer/route.ts'), /const fase = conCanalDeLaOferta\(faseVigenteDe\(ctx\), ctx\.funnel\?\.canal \?\? null, canalQueDijo\(fila\.mensajes\.filter\(\(m\) => m\.de === 'yo'\)\.map\(\(m\) => m\.texto\)\)\);/);
   const pdf = leer('lib/offer-pdf.ts');
   assert.match(pdf, /const ROTULO_COMO_DECIRLO = 'Cómo decirlo';/);
   assert.doesNotMatch(pdf, /'Cómo decirlo en la llamada'/);

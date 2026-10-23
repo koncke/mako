@@ -77,6 +77,11 @@ export type FilaCobro = {
   /** Días hasta el vencimiento (negativo = vencida hace N días). */
   dias: number | null;
   urgencia: Urgencia;
+  /**
+   * El CRM de lo que se le cobra (mig 0324): el de la casa del cliente, o el CRM agregado de una renovación. Un cliente que
+   * debe en los dos tiene dos filas. Es lo que filtra «A quién cobrarle» por CRM. null = no se supo.
+   */
+  funnelId?: number | null;
 };
 
 /** Días calendario de `hoy` a `iso` (los dos 'YYYY-MM-DD'); en UTC para no tropezar con el horario de verano. */
@@ -122,6 +127,7 @@ export function armarCobranza(items: readonly ItemPorCobrar[], hoy: string): { f
       suscripcion: !c && it.suscripcion ? { ...it.suscripcion } : null,
       dias,
       urgencia: urgenciaDe(dias),
+      funnelId: it.funnel_id ?? null,
     };
   });
   filas.sort((a, b) => {

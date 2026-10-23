@@ -2243,3 +2243,45 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
   (`urlDeLanding(r.slug)` en landing.run.ts): el bloque de publicada tiene que recibir la del dominio.
 
 *20/10/2026, jefe Web Generator (`claude4`).*
+
+## La charla del agente queda en la base y llega al Ops Center (22/10/2026, TB1)
+
+Hasta el 22/10 el chat del agente vivía en la memoria de la pestaña (el store de módulo de PanelAgente.tsx; la cabecera
+decía «no hay tabla para eso»): recargar la perdía y nunca llegaba al Ops Center. La tabla existía: `chart_sessions` con
+la clave `landing:<id>`, por `/api/hilo-de-tab` (lib/hilo-de-tab-reglas.ts). Cada turno se guarda al terminar
+(`terminar`, en `pedirEdicion`), y una landing que la pestaña todavía no trajo trae su charla (`traerHilo`).
+
+- **Se guarda lo que se dijo, no la propuesta**: «Original | Modificado» trae secciones enteras de ESA página. Después de
+  recargar, lo aceptado ya está en el documento y una propuesta pendiente se vuelve a pedir (como antes).
+- **Los archivos del pedido van en un renglón «Adjuntos: …»** y vuelven como chips (../hilo-agente.ts).
+- **Trampa de la ruta, para el que sume otra tab:** escribe lo que manda el navegador. Sin la lista de prefijos
+  (`PREFIJOS_HILO_DE_TAB`) cualquiera escribía en `mako-movil:<persona>`, el chat del Ops Center de OTRA persona. Y dos
+  guardados a la vez sobre una entidad sin charla crean DOS sesiones (los dos ven «no hay»): el cliente los encola por
+  clave (lib/hilo-de-tab-cliente.ts).
+- **Medido en producción el 22/10, en el ws3** (landing 31): el turno quedó guardado aunque el ws3 no tiene IA para editar
+  (el aviso vuelve en rojo, por la marca «⚠️ »), recargar trajo la charla y el Ops Center la abre con sus dos mensajes.
+- **Sin hacer:** en el Ops Center la fila sale suelta, sin el grupo «Web Generator»: el prefijo `landing:` no tiene
+  etiqueta de origen (la de `dashboard:` sí; es de OC4, del chat Ops Center). El diagnóstico (`landing-diagnostico:*`) ya
+  guardaba por /api/chart-insights. La caja y el hilo únicos, TB3.
+
+**Vive en:** app/web-generator/editor/hilo-agente.ts, paneles/PanelAgente.tsx · app/api/hilo-de-tab/route.ts ·
+tests/hilo-de-tab.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## El agente con las piezas del Ops Center, por un archivo aparte (22/10/2026, TB3)
+
+El hilo del agente es `HiloMako` (criatura «Web Generator») y la caja `CajaChat`, que ya trae el «+», las miniaturas,
+pegar, los emojis y el micrófono: el panel le pasa sus archivos (`adjuntos={adj}`) y soltar sigue siendo de la pantalla.
+La propuesta con «Original | Modificado», las burbujas de pedidos y los errores entran por el hueco `enMensaje`; la sección
+del pedido va como «desde …» y sus archivos como fichas del hilo (sin abrir: viajó su texto, no se guardaron).
+
+- **Las piezas viven en paneles/ChatAgente.tsx y el panel las carga con `next/dynamic`.** PanelAgente.tsx lo importa
+  DialogoAnalitica, que carga tests/editor-landing-agente.test.ts, y `CajaChat`/`HiloMako` traen CSS: importadas directo, ese
+  test ni carga (probado). La guarda del chat único registra ChatAgente.tsx como «caja única»; PanelAgente salió de la lista.
+- Las piezas usan los tokens de la app: `.gma-ag` ya redefinía `--surface`, `--ink`…, y ahora también `--primary` (el
+  botón de mandar, con el azul del editor).
+- **Con el super admin mirando un cliente, la caja del agente quedaba abajo de la vista**: la barra de la agencia estira todo
+  `<aside>` (docs/hallazgos-ui.md). El que se pasaba era la columna `aside.gma-izq` (761 px en un cuerpo de 713), no el
+  panel: las tres columnas del editor son `<section>` desde el 22/10.
+
+**Vive en:** app/web-generator/editor/paneles/ChatAgente.tsx, PanelAgente.tsx · tests/web-generator-agente-piezas.test.ts,
+tests/web-generator-adjuntos.test.ts · *22/10/2026, chat «Chats de las tabs».*

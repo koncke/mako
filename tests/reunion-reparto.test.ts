@@ -33,12 +33,12 @@ import { emailsConCuenta, repartoDeTarea, cuantasSonMias, resumenDelReparto, tip
 /** Los usuarios reales, tal cual están hoy en la base. */
 const USUARIOS = [
   { email: 'martinkoncke@gmail.com', workspace_id: '9', rol: 'admin' },
-  { email: 'mbustos@elevate.com.mx', workspace_id: '1', rol: 'usuario' },
-  { email: 'hola@leilafittipaldi.com', workspace_id: '11', rol: 'usuario' },
+  { email: 'dueno@negocio-uno.com', workspace_id: '1', rol: 'usuario' },
+  { email: 'hola@marca-ejemplo.com', workspace_id: '11', rol: 'usuario' },
 ];
 const CON_CUENTA = emailsConCuenta(USUARIOS);
 
-const DE_MAU = { dueño: 'Mauricio Bustos Eguia', dueñoEmail: 'mbustos@elevate.com.mx', esDeOtro: true };
+const DE_MAU = { dueño: 'Mauricio Ejemplo Uno', dueñoEmail: 'dueno@negocio-uno.com', esDeOtro: true };
 const MIA = { dueño: 'Martin Koncke', dueñoEmail: '', esDeOtro: false };
 
 test('EL CASO REAL: las 26 de Mau siguen siendo de Mau aunque su tablero viva en otro workspace', () => {
@@ -46,9 +46,9 @@ test('EL CASO REAL: las 26 de Mau siguen siendo de Mau aunque su tablero viva en
   // ws 1 y usuario: quedaba afuera y perdía la clasificación Y el email.
   const r = repartoDeTarea(DE_MAU, CON_CUENTA);
   assert.equal(r.esDeOtro, true, 'sin esto no se crea la tab de Mau');
-  assert.equal(r.duenoEmail, 'mbustos@elevate.com.mx');
+  assert.equal(r.duenoEmail, 'dueno@negocio-uno.com');
   assert.equal(r.repartible, true);
-  assert.equal(r.dueno, 'Mauricio Bustos Eguia');
+  assert.equal(r.dueno, 'Mauricio Ejemplo Uno');
 });
 
 test('SIN CUENTA se pierde el botón de mandársela, nunca el «es de otro»', () => {
@@ -87,9 +87,9 @@ test('si la consulta de usuarios falla, se pierde el reparto y NO la propiedad',
 });
 
 test('el email se compara sin mayúsculas ni espacios: Fathom los manda como vengan', () => {
-  const r = repartoDeTarea({ ...DE_MAU, dueñoEmail: '  MBustos@Elevate.com.MX ' }, CON_CUENTA);
+  const r = repartoDeTarea({ ...DE_MAU, dueñoEmail: '  dueno@negocio-uno.com ' }, CON_CUENTA);
   assert.equal(r.repartible, true);
-  assert.equal(r.duenoEmail, 'mbustos@elevate.com.mx');
+  assert.equal(r.duenoEmail, 'dueno@negocio-uno.com');
 });
 
 test('un usuario sin email en la base no habilita a repartirle a nadie', () => {

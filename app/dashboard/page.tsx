@@ -60,6 +60,8 @@ import { EditorInforme } from './EditorInforme';
 import { FocusDeGeneral } from './FocusDeGeneral';
 import { textoProbar } from '@/lib/experimentos-catalogo';
 import { pedidosDeHoja } from './exportar';
+import { conQueAnalizaElClosing, CONECTA_TU_CLAUDE_CLOSING } from '@/lib/closing';
+import { avisoDeClosing, esHojaClosing } from './aviso-closing';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -152,7 +154,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   const graficos = sinPaginas ? [] : pedidos0.graficos;
   // El período va TAL CUAL: el corte en hoy (y la fecha que mira hacia adelante) lo decide `datosDeGraficos`
   // (contrato v5, «el corte en hoy en UN lugar»). La firma sale del período que pidió el gráfico.
-  const [datos, senalesNegocio] = await Promise.all([datosDeGraficos(graficos.map(({ pedido }) => pedido)), senales]);
+  // La hoja «Closing» sin con qué analizar las llamadas (IA12, ./aviso-closing.ts): se pregunta sólo si el informe tiene
+  // una, en paralelo con los datos. Sin poder saberlo, 'no-se': no se avisa.
+  const conClosing = !sinPaginas && (tablero.hojas.some((h) => esHojaClosing(h)) || esHojaClosing(agregar))
+    ? conQueAnalizaElClosing().catch(() => 'no-se' as const)
+    : Promise.resolve(null);
+  const [datos, senalesNegocio, closing] = await Promise.all([datosDeGraficos(graficos.map(({ pedido }) => pedido)), senales, conClosing]);
 
   return (
     // ⚠️ `flex: 'none'` + el alto + `overflow: hidden`, LOS TRES. Pagina trae `flex: 1` (base 0%), que en
@@ -179,6 +186,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         senales={senalesNegocio}
         unido={otrasDeGeneral ? { otras: otrasDeGeneral } : null}
         plantillasInicial={plantillas && !unica}
+        avisoClosing={avisoDeClosing(closing, CONECTA_TU_CLAUDE_CLOSING)}
       />
     </Pagina>
   );

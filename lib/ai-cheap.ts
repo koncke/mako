@@ -24,13 +24,14 @@
 
 import 'server-only';
 import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
+import { conTechoDeSalida } from '@/lib/ai-cheap-techo';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
 import { createHash } from 'node:crypto';
 import { credDelCliente, credWs, credWsEstricta } from '@/lib/credenciales';
 import { ordenarCuentas, ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
 import { clavesAProbar, clavesDe, sinCopiasDeLaPlataforma } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
-import { proveedorPermitido, soloSuIA } from '@/lib/solo-su-ia';
+import { PROVS_SU_IA, conD6bDelPedido, d6bDecidida, pasaPorLaPuerta, proveedorPermitido, soloSuIA } from '@/lib/solo-su-ia';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { conSuIASinClave, CON_SU_IA_SIN_VISION } from '@/lib/fallo-ia-texto';
 import { corregirMarca } from '@/lib/mako-gramatica';
@@ -40,6 +41,12 @@ import { aprenderSinMinimal, esfuerzoParaGemini, rechazaElEsfuerzo } from '@/lib
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
+/**
+ * Sacados el 22/10/2026 (IA8), medido en 30 días: Cerebras 0 llamadas (402 en todas sus cuentas), Mistral 74 filas y TODAS
+ * 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres veces. Siguen en `ProvName` hasta que las listas
+ * del lienzo (lib/flujo-ia.ts, AU3) dejen de nombrarlos; mientras, `provDe` no entrega ninguna cuenta suya.
+ */
+export const PROVS_SACADOS: readonly ProvName[] = ['cerebras', 'mistral', 'openrouter'];
 /** `clave` = de QUÉ credencial salió esta key. Con varias cuentas del mismo
  *  proveedor (GEMINI_API_KEY, _2, _3) es lo único que las distingue: sin ese dato,
  *  un reintento «del mismo proveedor» volvía a pegarle a la cuenta ya agotada. */
@@ -125,6 +132,9 @@ const clavesProv = clavesAProbar;
 // y su gasto corre contra SU cuenta; un cliente sin fila propia → null, nunca la
 // del dueño (aislamiento). Antes se leía process.env directo → pagaba la agencia.
 async function provDe(nombre: ProvName, clave?: string, wsKey?: number): Promise<Prov | null> {
+  // IA8 (22/10/2026): Cerebras, Mistral y OpenRouter se sacaron. Ninguna cuenta suya se entrega, aunque quede una fila
+  // guardada o una lista vieja que los nombre (las del lienzo, lib/flujo-ia.ts, se van con AU3).
+  if (PROVS_SACADOS.includes(nombre)) return null;
   // ⛔ D6b (lib/solo-su-ia.ts): en el turno de un negocio con su Claude o su GPT, ninguna key barata ni de la plataforma.
   // Por acá pasan TODAS las cascadas (texto, herramientas, documentos, visión, audio), así que el corte es uno solo.
   if (!proveedorPermitido(nombre, wsKey != null)) return null;
@@ -161,7 +171,7 @@ async function huellasDeLaPlataforma(nombre: ProvName, wsSA: number): Promise<Se
     }
     const cargadas = clavesDe(nombre).length ? await clavesCargadas(nombre, wsSA) : clavesProv(nombre);
     for (const cl of cargadas) {
-      const v = await credWsEstricta(cl, wsSA);
+      const v = await credWsEstricta(cl, wsSA, { ilegibleTira: true });
       if (v?.trim()) huellas.add(huellaDeKey(v));
     }
     huellasCache.set(nombre, { hasta: Date.now() + HUELLAS_TTL_MS, huellas });
@@ -205,6 +215,8 @@ async function soloLasPropias(nombre: ProvName, provs: Prov[]): Promise<Prov[]> 
  * teniendo una cuenta entera sin tocar.
  */
 export async function provsDe(nombre: ProvName): Promise<Prov[]> {
+  // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
+  if (!d6bDecidida()) return conD6bDelPedido(null, () => provsDe(nombre));
   const out: Prov[] = [];
   // Solo las que ESTE workspace tiene cargadas (una query, cacheada por request) en
   // vez de preguntar por las MAX_KEYS del catálogo: con el tope en 10 eso eran 10
@@ -297,6 +309,8 @@ async function proveedor(pref?: ProvName, clave?: string, wsKey?: number): Promi
  *     — y el que hay que cargar su key nunca se entera.
  */
 export async function provsGratisDePlataforma(): Promise<Array<{ provider: ProvName; clave: string }>> {
+  // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
+  if (!d6bDecidida()) return conD6bDelPedido(null, () => provsGratisDePlataforma());
   // ⛔ D6b: un negocio con su IA no usa la red de la plataforma (lib/solo-su-ia.ts).
   if (soloSuIA()) return [];
   const { wsSuperAdmin } = await import('./workspace');
@@ -330,9 +344,21 @@ export async function provsGratisDePlataforma(): Promise<Array<{ provider: ProvN
 // que cobra. Ver transcribirAudio: la cascada cae por ERROR, no solo por falta de key.
 export const CASCADA_STT: ProvName[] = ['gemini', 'groq', 'openai'];
 
-export async function cheapDisponible(): Promise<boolean> { return (await proveedor()) !== null; }
+export async function cheapDisponible(): Promise<boolean> { return conD6bDelPedido(null, async () => (await proveedor()) !== null); }
+/**
+ * ¿Su Claude contesta esta función? La puerta 2 (lib/anthropic.ts → `permisoDeLaClaveDelNegocio`): su clave de Claude, o el
+ * crédito que le asignó Martín (lib/credito-negocio.ts; el ws1, 22/10/2026). La cascada de texto la prueba PRIMERO, así que
+ * quien la tiene, tiene IA aunque no tenga ninguna clave barata. No llama a nada: sólo pregunta.
+ */
+export async function suClaudeContesta(feature: string): Promise<boolean> {
+  if (!d6bDecidida()) return conD6bDelPedido(feature, () => suClaudeContesta(feature));
+  const { permisoDeLaClaveDelNegocio } = await import('./anthropic');
+  const n = await permisoDeLaClaveDelNegocio(feature).catch(() => null);
+  return !!n && 'permiso' in n;
+}
 /** ¿Hay alguna IA que pueda escuchar un audio en este workspace? */
 export async function sttDisponible(): Promise<boolean> {
+  if (!d6bDecidida()) return conD6bDelPedido(null, () => sttDisponible());
   for (const p of CASCADA_STT) { if ((await provsDe(p)).length) return true; }
   return false;
 }
@@ -341,7 +367,7 @@ export async function sttDisponible(): Promise<boolean> {
 // diferencia de CASCADA_GRATIS, INCLUYE Gemini y lo pone primero: es la IA gratis y
 // generosa que el cliente carga en el onboarding (#4), así que la extracción tiene
 // que poder usarla. Sin esto, un workspace con SOLO key de Gemini extrae vacío.
-export const CASCADA_DOCS: ProvName[] = ['gemini', 'groq', 'openrouter', 'mistral', 'openai'];
+export const CASCADA_DOCS: ProvName[] = ['gemini', 'groq', 'openai'];
 // Modelo CAPAZ por proveedor para EXTRAER de documentos. El default barato de cada
 // uno (ej. Groq gpt-oss-20b) es demasiado chico: con un doc real de +10k chars
 // genera JSON malformado/truncado y devuelve 0 campos (probado: 20b falla, 70b saca
@@ -394,6 +420,15 @@ function modelosAProbar(prov: ProvName, pedido?: string, conRespaldo = true): Ar
 const MIN_INTENTO_MS = 15_000;
 
 /**
+ * IA3 (22/10/2026): el fallo de SU OpenAI (su GPT por clave) queda escrito, como el de su Claude, y la tarjeta de «Tus
+ * cuentas de IA» lo muestra. Las demás de la cascada no son «su clave». Si la clave es del negocio (y no de la
+ * plataforma) lo decide lib/su-clave.ts. Sin `await`: corre en el camino del error y no puede costar el respaldo.
+ */
+const anotarSuOpenAI = (prov: string, error: string, feature?: string, modelo?: string | null): void => {
+  if (prov === 'openai') void import('./su-clave').then((m) => m.anotarFalloDeSuClave({ proveedor: 'openai', error, feature, modelo })).catch(() => {});
+};
+
+/**
  * El modelo que lee DOCUMENTOS en cada proveedor.
  *
  * ⚠️ ESTOS ID CADUCAN Y SE ROMPEN EN SILENCIO. Medido el 16/08 contra la key de un
@@ -421,6 +456,7 @@ export const MODELO_DOCS: Partial<Record<ProvName, string>> = {
 };
 /** ¿Hay alguna IA para leer documentos (Gemini/Groq/OpenAI/…) en este workspace? */
 export async function docsIADisponible(): Promise<boolean> {
+  if (!d6bDecidida()) return conD6bDelPedido(null, () => docsIADisponible());
   for (const p of CASCADA_DOCS) { if ((await provsDe(p)).length) return true; }
   return false;
 }
@@ -458,6 +494,8 @@ async function modelosDisponibles(p: Prov): Promise<string> {
 export type EsfuerzoBarato = 'minimal' | 'low' | 'medium' | 'high';
 
 export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provider?: ProvName; model?: string; clave?: string; timeoutMs?: number; esfuerzo?: EsfuerzoBarato; /** De qué workspace sale la KEY. SOLO lo pasa la red de plataforma; sin esto, la del workspace en curso (el BYOK de siempre). */ wsKey?: number }): Promise<string> {
+  // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheap(opts));
   // `clave` elige CUÁL cuenta del proveedor (GEMINI_API_KEY vs _2 vs _3). La pone la
   // cascada al rotar; un caller suelto no la pasa y usa la de siempre.
   const p = await proveedor(opts.provider, opts.clave, opts.wsKey);
@@ -477,7 +515,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
         { role: 'system', content: opts.system },
         { role: 'user', content: opts.user },
       ],
-      max_tokens: (opts.maxTokens ?? 512) + aire,
+      max_tokens: conTechoDeSalida(p, model, (opts.maxTokens ?? 512) + aire),
       temperature: opts.temperature ?? 0.2,
       ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
       // Gemini 2.5 Flash "piensa" por default y ese razonamiento oculto consume del
@@ -529,7 +567,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
  *  queremos caer en el gasto de Claude. Devuelve el texto de la primera que funcione, o ''. */
 // Orden por default: GRATIS primero (Groq, Cerebras, OpenRouter, Mistral) y OpenAI (barato)
 // al final. Claude NUNCA entra acá. Cada uno se usa solo si tiene su key cargada (si no, se salta).
-export const CASCADA_GRATIS: ProvName[] = ['groq', 'openrouter', 'mistral', 'openai'];
+export const CASCADA_GRATIS: ProvName[] = ['groq', 'openai'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EL TECHO DE ENTRADA: por qué la cascada mira cuánto pesa el prompt
@@ -618,6 +656,8 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
    * espera sabe que el anterior no sirvió y se está probando otro. Un aviso que tira no frena la cascada.
    */
   alIntentar?: () => void }): Promise<string> {
+  // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapCascade(opts));
   const quedan = (): number => (opts.hastaMs ?? Number.POSITIVE_INFINITY) - Date.now();
   const avisar = (): void => { try { opts.alIntentar?.(); } catch { /* el aviso no frena nada */ } };
   // El timeout de UN intento: el de siempre, o lo que queda del plazo si es menos.
@@ -632,7 +672,9 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   // Si el caller no eligió proveedores y el prompt es grande, la lista por defecto pasa a
   // ser la que INCLUYE Gemini. Es el único con contexto de verdad, y la alternativa —que
   // cada caller se acuerde de pasar `provs`— ya se probó: ninguno de los doce se acordó.
-  const pedidos = opts.provs ?? (pesa > (TECHO_ENTRADA.groq ?? 7_000) ? CASCADA_DOCS : CASCADA_GRATIS);
+  // Con su IA (D6b), la cascada es SU IA aunque el que llama pida otra lista (IA6): una función «que no se degrada»
+  // atada a Gemini no corría con nada. Su Claude va primero (arriba); después, su OpenAI.
+  const pedidos = soloSuIA() ? (PROVS_SU_IA as ProvName[]) : opts.provs ?? (pesa > (TECHO_ENTRADA.groq ?? 7_000) ? CASCADA_DOCS : CASCADA_GRATIS);
   // Y sacamos de la lista a los que no lo pueden recibir. No es una optimización: cada uno
   // de esos es un viaje de ida y vuelta que termina en 413 y suma segundos a la espera.
   const caben = pedidos.filter((p) => pesa <= (TECHO_ENTRADA[p] ?? Number.MAX_SAFE_INTEGER));
@@ -748,6 +790,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           // barra en cero. Best-effort y sin await bloqueante del camino feliz: esto
           // corre en el camino de error y un fallo acá no puede costar el fallback.
           if (esCuota) void anotarRebote429(prov, nroCuenta(inst), model ?? '', m);
+          anotarSuOpenAI(prov, m, opts.feature, model ?? inst.chatModel);
           const transitorio = /\b(429|5\d\d)\b|timeout|abort|ETIMEDOUT|fetch failed|ECONNRESET|unavailable|overloaded|high demand/i.test(m);
           // Un modelo RETIRADO (404) no se reintenta ni un segundo: no va a volver. Se
           // pasa derecho al modelo siguiente, que es justo para lo que existe la lista.
@@ -878,6 +921,8 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
  * `tema` va adentro de la frase: 'generar las razones', 'elegir los formatos'…
  */
 export async function errorDeCascada(errores: string[], tema: string): Promise<string> {
+  // La puerta (IA6, revisión): el texto depende de si el negocio corre con SU IA, y quien llama puede no haber decidido.
+  if (!d6bDecidida()) return conD6bDelPedido(null, () => errorDeCascada(errores, tema));
   // ⛔ D6b: con su propio Claude o su GPT, la red y las keys gratis no corren (lib/solo-su-ia.ts). Sin ningún error SUYO
   // es que no tenía con qué (ni su clave de Claude ni su OpenAI): «No hay ninguna IA… con Gemini alcanza» lo mandaba a
   // conectar una IA que no se usaría. Con un error suyo, tiene IA y falló: nunca «no hay ninguna IA».
@@ -913,7 +958,7 @@ export { motivoDeErroresCascada };
  *
  * Groq NO está: se le pidió la lista y no tiene un solo modelo con entrada de imagen.
  */
-export const VISION_CASCADE: ProvName[] = ['gemini', 'openrouter', 'openai'];
+export const VISION_CASCADE: ProvName[] = ['gemini', 'openai'];
 
 /**
  * El modelo que MIRA, por proveedor. Va aparte de `MODELO_DOCS` porque no todo modelo de
@@ -941,7 +986,20 @@ const MODELO_VISION: Partial<Record<ProvName, string>> = {
  */
 type DocOpts = { dataUrl: string; dataUrls?: string[]; isPdf: boolean; nombreArchivo: string; prompt: string; json?: boolean; feature?: string; motivo?: string; timeoutMs?: number; redDePlataforma?: boolean };
 
-export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; provider: ProvName }> {
+/** Una data URL (imagen o PDF) como bloque de Claude. Lo que no es base64 o no es un tipo que Claude mira, afuera. */
+function bloquesParaClaude(o: DocOpts): Array<Record<string, unknown>> {
+  const urls = o.isPdf ? [o.dataUrl] : o.dataUrls && o.dataUrls.length ? o.dataUrls : [o.dataUrl];
+  return urls.flatMap((u) => {
+    const m = /^data:([^;,]+);base64,([\s\S]+)$/.exec(u ?? '');
+    if (!m) return [];
+    if (o.isPdf || m[1] === 'application/pdf') return [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: m[2] } }];
+    return /^image\/(jpeg|png|gif|webp)$/.test(m[1]) ? [{ type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } }] : [];
+  });
+}
+
+export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; provider: ProvName | 'anthropic' }> {
+  // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => leerDocumentoIA(opts));
   const errores: string[] = [];
   const sinKey: ProvName[] = [];
 
@@ -963,6 +1021,7 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
           errs.push(`${rotulo(inst)}: respuesta vacía`);
         } catch (e) {
           errs.push(`${rotulo(inst)}: ${e instanceof Error ? e.message : String(e)}`);
+          anotarSuOpenAI(prov, e instanceof Error ? e.message : String(e), o.feature, model);
         }
         // OpenAI no tiene lista de respaldo: no tiene sentido repetir con el mismo modelo.
         if (prov !== 'gemini') break;
@@ -970,6 +1029,19 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
     }
     return null;
   };
+
+  // ── PRIMERO, SU CLAVE DE CLAUDE (IA6, 22/10/2026), como en la cascada de texto. Antes, con su propio Claude, una foto o un
+  // PDF escaneado se leía sólo con SU OpenAI y, sin ella, «no puedo»: «las fotos van con su OpenAI o su Claude». Claude mira
+  // imágenes y PDF como bloques. Si no anda (o el negocio no tiene su clave), sigue lo de siempre.
+  {
+    const bloques = bloquesParaClaude(opts);
+    if (bloques.length) {
+      const { conClaveDelNegocio } = await import('./anthropic');
+      const r = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: opts.timeoutMs ?? 90_000, bloques }).catch(() => null);
+      if (r && 'texto' in r) return { text: opts.json ? soloElJson(r.texto) || r.texto : r.texto, provider: 'anthropic' };
+      if (r && 'error' in r) errores.push(`anthropic/ANTHROPIC_API_KEY: ${r.error}`);
+    }
+  }
 
   for (const prov of VISION_CASCADE) {
     // Todas las CUENTAS del proveedor: leer un contrato con la key 1 agotada y
@@ -1013,8 +1085,8 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
   // ⛔ D6b: con su propio Claude, sólo su OpenAI mira (la red gratis no corrió): pedirle «Gemini (gratis)» sería mandarlo
   // a cargar una key que no se usaría.
   if (soloSuIA()) throw new Error(CON_SU_IA_SIN_VISION);
-  const nombres = sinKey.map((p) => (p === 'gemini' ? 'Gemini (gratis)' : 'OpenAI')).join(' o ');
-  throw new Error(`No hay ninguna IA con visión configurada. Carga una API key de ${nombres || 'Gemini u OpenAI'} en Integraciones.`);
+  // IA9: lo que se le pide es SU Claude o SU GPT (antes, «Gemini (gratis)»). Los dos miran fotos y PDF.
+  throw new Error('No hay ninguna IA que pueda mirar esto. Conecta tu Claude o tu GPT en Integraciones.');
 }
 
 /**
@@ -1145,6 +1217,8 @@ export async function chatCheapTools(
     esperaCuotaMaxMs?: number;
   } = {},
 ): Promise<CheapToolsResult> {
+  // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapTools(system, messages, tools, runTool, opts));
   const p = await proveedor(opts.provider, opts.clave, opts.wsKey);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
   // El modelo pedido y atrás sus respaldos (MODELOS_RESPALDO): un 429 o un 503 a mitad del
@@ -1230,7 +1304,7 @@ export async function chatCheapTools(
             ...(oaiTools.length
               ? { tools: oaiTools, tool_choice: step === 0 && opts.toolChoicePrimerPaso ? opts.toolChoicePrimerPaso : 'auto' }
               : {}),
-            max_tokens: opts.maxTokens ?? 1400, temperature: 0.2,
+            max_tokens: conTechoDeSalida(p, model, opts.maxTokens ?? 1400), temperature: 0.2,
           }),
           cache: 'no-store',
           signal: AbortSignal.timeout(opts.timeoutMs ?? 45000),
@@ -1370,7 +1444,7 @@ async function cerrarSinTools(
   const res = await fetch(`${p.base}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages: msgs, max_tokens: opts.maxTokens ?? 1400, temperature: 0.2 }),
+    body: JSON.stringify({ model, messages: msgs, max_tokens: conTechoDeSalida(p, model, opts.maxTokens ?? 1400), temperature: 0.2 }),
     cache: 'no-store',
     signal: AbortSignal.timeout(opts.timeoutMs ?? 45000),
   });
@@ -1392,7 +1466,7 @@ async function cerrarSinTools(
 // AGENTS.md documenta como cerrado —«Claude es el ÚLTIMO recurso, no el segundo»—
 // vivo en la otra mitad del sistema, y con el error más común de todos: el 429 de
 // Gemini. Todos estos proveedores hacen function-calling.
-export const CASCADA_TOOLS: ProvName[] = ['gemini', 'groq', 'mistral', 'openrouter', 'openai'];
+export const CASCADA_TOOLS: ProvName[] = ['gemini', 'groq', 'openai'];
 
 /**
  * Corre el loop de herramientas por la cascada gratis: cada CUENTA de cada
@@ -1416,7 +1490,9 @@ export async function chatCheapToolsCascade(
     toolChoicePrimerPaso?: 'required'; erroresOut?: string[];
   } = {},
 ): Promise<CheapToolsResult | null> {
-  const pedidos = opts.provs ?? CASCADA_TOOLS;
+  // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapToolsCascade(system, messages, tools, runTool, opts));
+  const pedidos = soloSuIA() ? (PROVS_SU_IA as ProvName[]) : opts.provs ?? CASCADA_TOOLS;
   const orden = await ordenarPorCuota(pedidos.map(String)).catch(() => pedidos.map(String));
   for (const prov of orden as ProvName[]) {
     for (const inst of await provsDe(prov)) {
@@ -1433,6 +1509,7 @@ export async function chatCheapToolsCascade(
         const m = e instanceof Error ? e.message : String(e);
         opts.erroresOut?.push(`${rotulo(inst)}: ${m}`);
         console.warn(`[ai-cheap] tools ${rotulo(inst)} falló: ${m}`);
+        anotarSuOpenAI(prov, m, opts.feature, opts.modelos?.[prov] ?? inst.chatModel);
         if (ejecutó) throw e; // ya tocó datos: no se reintenta con otro (ver arriba)
       }
     }
@@ -1460,7 +1537,9 @@ export type SttOpts = { language?: string; prompt?: string; feature?: string; mo
    * son el plan gratis de Gemini y Groq, y el de Gemini entrena con lo que recibe (AGENTS.md, 16/10/2026). Para escuchar
    * no hay crédito de Claude: con esto, sólo las keys del negocio.
    */
-  pii?: boolean };
+  pii?: boolean;
+  /** Quién escuchó (`groq`, `openai · cuenta 2`…), para que lo guarde quien llama (IA7: la fila de un anuncio dice con qué se transcribió). */
+  alEscuchar?: (quien: string) => void };
 
 // Gemini manda el audio DENTRO del request (inline_data), así que hay un techo de
 // tamaño. Una nota de voz de WhatsApp pesa kilobytes; un audio largo se va a Whisper.
@@ -1609,6 +1688,7 @@ async function escucharCon(
       const msg = e instanceof Error ? e.message : String(e);
       errores.push(`${rotulo(p)}: ${msg}`);
       console.error(`[stt] ${rotulo(p)} falló: ${msg}`);
+      anotarSuOpenAI(p.nombre, msg, o.feature, p.sttModel);
       if (intento === 0 && esTransitorio(msg)) { await esperar(1500); continue; }
       return null;
     }
@@ -1642,6 +1722,8 @@ export class SttSinEscucha extends Error {
  *      el texto que lee el cliente se elige con los suyos (lib/fallo-ia-texto.ts).
  */
 export async function transcribirAudio(base64: string, mime: string, opts?: SttOpts): Promise<string> {
+  // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
+  if (pasaPorLaPuerta(opts?.feature)) return conD6bDelPedido(opts?.feature, () => transcribirAudio(base64, mime, opts));
   const o = opts ?? {};
   const buf = Buffer.from(base64, 'base64');
   if (!buf.length) return '';
@@ -1673,7 +1755,7 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
         continue;
       }
       alguienEscuchó = true;
-      if (r.texto) return corregirMarca(r.texto);
+      if (r.texto) { o.alEscuchar?.(rotulo(p)); return corregirMarca(r.texto); }
       break; // respondió vacío: no insistas con el mismo proveedor, probá el próximo
     }
   }

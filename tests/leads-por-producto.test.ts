@@ -359,8 +359,9 @@ test('⚠️ el botón partido vive en UN lugar, y los dos ejes salen de ahí', 
   //    botones más por cabecera son 24 controles arriba de las listas.
   const bd = limpio(leer('app/crm/CrmBoard.tsx'));
   assert.ok(!/<MoverPartido/.test(bd), 'el control partido volvió a la cabecera de la columna');
-  assert.match(bd, /\.\.\.\(seArrastraCol\(c\) \? \[\{[\s\S]{0,200}value: 'mover'/,
-    'la fila «Mover» del menú dejó de colgar del mismo predicado que el arrastre, o desapareció');
+  // Desde el 22/10/2026 el «⋯» abre el menú del clic derecho: las flechas salen con `mover`, el predicado del arrastre.
+  assert.match(bd, /mover: seArrastraCol\(c\)/,
+    'las flechas del menú dejaron de colgar del mismo predicado que el arrastre, o desaparecieron');
   assert.match(bd, /FlechaIzquierdaIcon/, 'las flechas del menú de la columna no son horizontales');
 });
 

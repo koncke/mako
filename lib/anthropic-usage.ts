@@ -70,6 +70,8 @@ export type UsageInfo = {
   cacheRead: number;
   costUsd: number;
   model: string;
+  /** ¿La fila quedó escrita en `anthropic_usage`? (false: la base la rechazó o no contestó). */
+  escrita?: boolean;
 };
 
 // Precios públicos por 1M de tokens (USD). cacheWrite ≈ 1.25× input (TTL 5m),
@@ -148,7 +150,8 @@ export function costFor(model: string, u: { input: number; output: number; cache
   return (u.input * p.in + u.output * p.out + u.cacheCreation * p.in * 1.25 + u.cacheRead * p.in * 0.1) / 1_000_000;
 }
 
-async function insertUsage(row: Record<string, unknown>, wsForzado?: number): Promise<void> {
+/** Devuelve si la fila QUEDÓ escrita. Nunca tira. */
+async function insertUsage(row: Record<string, unknown>, wsForzado?: number): Promise<boolean> {
   try {
     // Claude va contra la key compartida de la agencia → OWNER_WS. El resto (BYOK)
     // se registra en el workspace del request, así el gasto de Gemini de Martín (ws9)
@@ -159,9 +162,17 @@ async function insertUsage(row: Record<string, unknown>, wsForzado?: number): Pr
     // crédito de Claude de la plataforma (16/10/2026): sin clave propia, `wsDeProveedor` lo mandaba
     // al ws1, que es un cliente, y Mauricio habría visto un gasto de Claude que no es suyo.
     const ws = wsForzado ?? await wsDeLaFila(row.provider as string | undefined);
-    await getSupabaseServer().from('anthropic_usage').insert({ workspace_id: ws, ...row });
+    // ⚠️ supabase-js NO tira cuando la base rechaza la fila: devuelve `{ error }`. Sin mirarlo, una fila rechazada se
+    // perdía en silencio y quien llamaba la daba por escrita (segunda revisión del lote 1 de IA, 22/10/2026).
+    const { error } = await getSupabaseServer().from('anthropic_usage').insert({ workspace_id: ws, ...row });
+    if (error) {
+      console.warn(`[anthropic-usage] no se registró el uso: ${error.message}`);
+      return false;
+    }
+    return true;
   } catch (e) {
     console.warn(`[anthropic-usage] no se registró el uso: ${e instanceof Error ? e.message : String(e)}`);
+    return false;
   }
 }
 
@@ -192,14 +203,14 @@ export async function recordUsage(feature: string, model: string, rawUsage: unkn
   // siendo lo de siempre (lo cacheado va APARTE de input_tokens).
   const cacheadoCompat = Number((u.prompt_tokens_details as Record<string, unknown> | undefined)?.cached_tokens ?? 0) || 0;
   const costUsd = costFor(model, { input, output, cacheCreation, cacheRead }, provider);
-  await insertUsage({
+  const escrita = await insertUsage({
     feature: feature || 'otros', motivo: motivo?.trim() ? motivo.trim().slice(0, 200) : null, model, provider,
     // CUÁL de las keys del proveedor atendió (mig 0132). Sin esto la cuota solo se
     // puede medir sumada, y esa suma miente cuando el uso se apila en una cuenta.
     cuenta: cuenta && cuenta > 1 ? cuenta : 1,
     input_tokens: input, output_tokens: output, cache_creation_tokens: cacheCreation, cache_read_tokens: cacheRead || cacheadoCompat, cost_usd: costUsd,
   }, wsForzado);
-  return { inputTokens: input, outputTokens: output, cacheCreation, cacheRead, costUsd, model };
+  return { inputTokens: input, outputTokens: output, cacheCreation, cacheRead, costUsd, model, escrita };
 }
 
 /** Registra una transcripción (STT): cobra por SEGUNDOS de audio, no por tokens. */

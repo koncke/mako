@@ -926,9 +926,10 @@ guarda siempre en el funnel de la conversación (`app/m/offer/OfferM.tsx`, no ma
 - **Un texto escrito más largo que el chat ya no rebota:** va a documento («Tu mensaje largo») por el camino del audio, y
   la pantalla (OfferApp y OfferM) dejó de cortarlo antes de mandarlo. Ojo: el corte estaba en los DOS lados; arreglar sólo
   la ruta no alcanzaba.
-- **ChatOffer no puede importar nada con .css.** tests/offer-pulir-pdf.test.ts importa `DocumentoPdf` de
-  app/offer/ChatOffer.tsx en node, que no lee `.css`: la caja del Ops Center (app/offer/CajaDelCentro.tsx, que trae
-  chat.css y centro.css) la arma OfferApp y entra por la prop `caja`. Lo fija tests/onboarding-caja-centro.test.ts.
+- **ChatOffer no podía importar nada con .css** (hasta el 22/10/2026). tests/offer-pulir-pdf.test.ts importaba `DocumentoPdf`
+  de app/offer/ChatOffer.tsx en node, que no lee `.css`: la caja del Ops Center la armaba OfferApp y entraba por la prop
+  `caja`. **Desde OF4 ChatOffer monta la caja**: el PDF se mudó a app/offer/DocumentoPdf.tsx, y un test que necesita dibujar
+  el chat entero vacía el `.css` con un gancho de carga (abajo, «Offer y el onboarding con el hilo y la caja del Ops Center»).
 
 *20/10/2026, chat «Onboarding» (claude4).*
 
@@ -1127,8 +1128,42 @@ El Cerebro corrió un arnés contra el POST real de /api/offer (ws3, 3 corridas,
 
 **Regla (AGENTS.md):** un documento nuevo nunca pisa un dato que ya tenía el negocio.
 
-**Lo que quedó SIN hacer:** las filas del Sprint conservan `oferta_ticket` (lo tapa el valor manual del dueño). Otros
-negocios que hayan subido archivos en Offer desde el 15/10 pueden tener el perfil pisado igual: no se midió.
+**Lo que quedó SIN hacer:** las filas del Sprint conservan `oferta_ticket` (lo tapa el valor manual del dueño). ~~Otros
+negocios que hayan subido archivos en Offer desde el 15/10 pueden tener el perfil pisado igual: no se midió.~~ Medido (OF3,
+abajo).
+
+### OF3: ¿a qué otros negocios les pasó? Y el diagnóstico obvio era el equivocado (22/10/2026)
+
+- **La medición** (sólo lectura, sobre producción): por negocio, el perfil que da El Archivero CON y SIN las filas que subió
+  Offer desde el 15/10, contra el perfil guardado. ws1 limpio (ya restaurado); ws20, 21 y 22, perfiles que nacieron vacíos y
+  los llenó un documento de su propio negocio en el onboarding (correcto); ws3, el de prueba; ws13 (Código Inmobiliario), 9
+  claves distintas de lo que daban sus documentos de agosto.
+- **Lo leí mal, y se reparó de más.** Los dos archivos de ws13 eran «Propuesta <el prospecto> - Codigo Inmobiliario.pdf»
+  (con «CRM + asistente Mako 24/7» adentro) y «transcripcion llamada mako.docx». Parecían la propuesta de MaKo a ellos y una
+  llamada con MaKo, y con esa lectura se volvieron las 9 claves al valor de agosto. Al leer los textos para el banco de
+  casos: la propuesta es de Código Inmobiliario A SU PROSPECTO («Preparado para <el prospecto>», con SUS planes de USD 1.900
+  y 8.000; incluye MaKo porque ellos lo revenden), y la llamada es del dueño de ws13 (su Instagram está vinculado a la
+  página del negocio) y su socio vendiéndole al prospecto. Eran documentos DEL negocio: su
+  oferta y su cliente ideal eran legítimos y más nuevos. Lo único mal era `negocio_que_hace`, que describía el negocio del
+  prospecto. Se revirtieron las 8 claves al backup, quedó corregido sólo `negocio_que_hace`, y se le mandó una corrección al
+  grupo («tu perfil quedó como estaba; sólo ajustamos "qué hace tu negocio"…»).
+- **Regla:** antes de reparar datos de un cliente, se lee QUIÉN prepara el documento y PARA QUIÉN («Preparado para…», quién
+  habla en una llamada), no sólo de qué habla. Una medición «con y sin» dice qué cambió, no si estaba mal.
+- **El caso nuevo para la extracción (b):** un documento de venta DEL negocio cuyo tema es un PROSPECTO (su propuesta, la
+  llamada) llena bien la oferta y el cliente ideal, pero no puede llenar «qué hace tu negocio» con el negocio del
+  prospecto. 65e5947f4 (sólo llena lo vacío) no lo cubría en un negocio nuevo: con el perfil vacío, la propuesta de ws13
+  llenaba las 10 claves. **Ahora** la extracción del Archivero dice de quién es el documento (`habla_de`: negocio,
+  prospecto o proveedor) y el CÓDIGO decide qué llena (`camposSegunQuien`, lib/archivero-registro.ts): de un prospecto,
+  nada de `negocio_*`; de un proveedor, nada. Vale para Offer y para las subidas del Archivero (la misma
+  `extraerDeArchivo`). Nadie tenía el prompt editado en /configuraciones (si alguien lo edita sin `habla_de`, se comporta
+  como antes).
+- **El banco de casos con documentos reales** (`scripts/banco-archivero-quien.mts`, sólo lee; la IA corre en ws9): ws20,
+  21 y 22 (sus documentos maestros), ws1 (el guion del Sprint, que les habla a sus clientes de «tú» y es suyo) y los dos de
+  ws13. Con el código de antes: los 4 del negocio bien y los 2 de ws13 llenaban «qué hace» (la llamada, con el negocio del
+  prospecto). Con el de ahora: 6 de 6, dos corridas seguidas (el modelo cambia cuántas claves saca de la llamada, nunca
+  «qué hace»).
+
+Backups, scripts y fotos: en las notas del Cerebro, `side-session-notes/local_428051c1-…/restauracion-ws13-2210/`.
 
 **Vive en:** `lib/archivero-registro.ts` (`answersConDocumento`) · `lib/archivero.ts` (`registrarDocumentoSinPisar`) ·
 `tests/offer-archivero.test.ts`
@@ -1173,5 +1208,220 @@ qué pasa con lo de antes, midiendo en la base cuáles están mal de verdad.
 (`hayLeadsFueraDelFunnel`) · `lib/offer-sesiones.ts` (`nombresDeSesion`, `vistaDe`) · `lib/api-mako/areas/negocio.run.ts` ·
 `app/offer/Conclusion.tsx` · `app/m/offer/HojasOfferM.tsx` · `scripts/medir-diagnostico-viejo.mts` ·
 `tests/offer-diagnostico-viejo.test.ts` (13 roturas, las 13 cazadas)
+
+*22/10/2026, chat «Offer» (claude3).*
+
+## La segunda prueba de los chats: lo que el dueño dice con todas las letras lo anota el código (22/10/2026)
+
+El arnés del Cerebro corrió dos veces la conversación del Sprint en el ws3 contra producción (87365c830). Lo que seguía
+fallando y vive en Offer, con su causa:
+
+- **Lo que se dice sin vueltas dependía de que el modelo lo devolviera.** Las piezas salían sólo del JSON del turno
+  (`fundirPiezasDelTurno`). «Todavía no vendí ninguno… No tengo casos ni testimonios»: una vez no anotó la prueba y «Armar»
+  rebotó con «falta: prueba»; otra vez anotó ventas «sin dato: ya vende el Sprint», leído de «Vendo el Sprint». Ahora
+  `conLoQueDijoElDueno` (lib/offer-reglas.ts) anota del último mensaje del dueño que no vendió («0: …», que es lo que lee
+  `alertaSinDatos`), que no tiene casos, y lo que pidió anotar TAL CUAL entre comillas (`literalDelDueno`: «la promesa sea
+  exactamente esta: «…»» va a `resultado`). Es el mismo molde que `conCobroDelPrecio`.
+- **Una key inventada se descartaba en silencio.** «Queda anotada tal cual» y la promesa no estaba en ninguna pieza: el
+  modelo la mandaba como `promesa`, que no existe, y `limpiarPiezas` la tiraba sin decir nada. Ahora las keys de todos los
+  días van a su pieza (`ALIAS_PIEZA`: promesa → resultado, dolor → problema, testimonios → prueba…), con tilde o sin ella,
+  y la que no se reconoce se avisa en el log.
+- **El PDF decía «Llamada de venta» de una oferta sin llamadas.** El arreglo de la primera prueba usaba el canal del FUNNEL,
+  y los funnels sin canal existen (los crea Customer Success, el alta sin canal): caía al del negocio. Ahora, sin canal en
+  el funnel, va el que dijo el dueño (`canalQueDijo`: «por WhatsApp» es vender por chat), y si dijo «no hay llamadas» sin
+  nombrar otro canal, el de llamadas no se imprime. El del funnel, que es un dato cargado, sigue ganando.
+- **«[de: chat]» salía 7 veces en el PDF.** El bloque de piezas va también a los prompts del diagnóstico y de la oferta, y
+  el modelo copiaba la marca a su salida; la limpieza sólo corría sobre las piezas. Ahora se saca a fondo en todo lo que
+  trae el modelo (`conMarcaCompletar`, el mismo lugar que normaliza «[completar]») y al LEER lo guardado
+  (`conclusionVisible`), devolviendo el mismo objeto cuando no hay nada que sacar.
+- **«Número 2: ventas para validar» y «Número 5».** Los números de completar se rotulaban por posición y se perdía su nombre
+  («Ventas objetivo por mes», «LTV:CAC»), que es lo que dice antes de la marca (`rotuloDeNumero`).
+- **«Se guarda automáticamente cuando tocas Armar mi oferta», y «¿qué más te falta saber?» contestado con una pieza
+  opcional.** El turno no tenía como HECHO qué faltaba para armarla; la regla 14 empuja a preguntar «otras». Ahora
+  `estadoDeLaOferta` dice que «Armar» no guarda (guarda «Guardar») y qué falta para armarla, o que ya puede.
+
+**Regla:** lo que el dueño dice con todas las letras (un número, un «no», un texto entre comillas que pide tal cual) lo
+anota el código, no el modelo; y lo que el modelo devuelve con un nombre que no existe se mapea o se avisa, nunca se tira
+callado.
+
+**Lo que quedó SIN hacer:**
+- La 4 (turnos de 15 a 50 s con Gemini en ráfagas de 503) es del área IA: docs/hallazgos-ia.md.
+- `SIN_VENTAS` lee el último mensaje entero: «no vendí ninguno de los cursos viejos» también anota ventas 0 de ESTA oferta.
+- `canalQueDijo` mira palabras sueltas: «lo entrego por WhatsApp» se lee como vender por chat aunque cierre en una llamada
+  que no nombró.
+
+**Vive en:** `lib/offer-reglas.ts` (`conLoQueDijoElDueno`, `literalDelDueno`, `ALIAS_PIEZA`, `canalQueDijo`,
+`conCanalDeLaOferta`, `sinMarcasAFondo`, `rotuloDeNumero`, `estadoDeLaOferta`) · `app/api/offer/route.ts` ·
+`tests/offer-prueba-chats-2-2210.test.ts` (14 roturas, las 14 cazadas)
+
+*22/10/2026, chat «Offer» (claude3).*
+
+## Un @ de Instagram se lee de verdad, o MaKo dice que no pudo (22/10/2026)
+
+Martín: «también faltaba lo de Instagram, que no estaba buscando bien a los @». En el onboarding de Florencia (ws21) ella
+pegó su Instagram y MaKo contestó «vi tu Instagram: ayudas a estudiantes con sus tesis»: lo dedujo del nombre del usuario.
+
+- **Qué camino anda, medido con el @ público de Florencia (sólo leyendo): hoy NINGUNO.**
+  - Business Discovery (Graph API, oficial) lee bio, web, seguidores y publicaciones de una cuenta de empresa o creador.
+    Pide una cuenta de Instagram profesional VINCULADA a la página de Facebook de quien pregunta y `instagram_basic` en
+    su token. El token de la plataforma (MaKo System User, ws9) tiene 5 permisos y ninguno de Instagram; el de Mauricio
+    (ws1), 10 y tampoco. Y ni «Hola MaKo» ni la página de Mauricio tienen un Instagram vinculado.
+  - **La trampa:** Meta no da error. Pedir `instagram_business_account` de la página devuelve `{"id": …}` sin el campo,
+    igual si falta el permiso o si no hay cuenta vinculada. El código lo dice como `sin-cuenta`.
+  - r.jina.ai: 403, «Anonymous access to domain www.instagram.com blocked» por abuso de otros.
+  - La página del perfil, directo: 200 sin `og:description` ni bio (se arma con JavaScript y pide sesión).
+  - El endpoint web de Instagram (`/api/v1/users/web_profile_info`): 400 sin las cabeceras de un navegador. No es oficial
+    y bloquea a los servidores: no se usa, con MaKo en la App Review de Meta.
+- **Lo que quedó hecho.** La pantalla de Offer (y el onboarding, que es Offer, y el teléfono) trata un @ como el link a su
+  perfil (`instagramsDelTexto` en `linksDe`): con o sin @, el link con o sin barra o con parámetros, sin tomar un mail ni
+  una ruta reservada. La ruta lee un perfil de Instagram por Business Discovery con la conexión de la PLATAFORMA (un cliente
+  en su onboarding todavía no conectó Meta), ANTES de la página y del lector de afuera. Si no puede, contesta «No pude leer
+  tu Instagram (@…): Instagram no deja leerlo desde aquí. Cuéntame en una frase qué hace tu negocio y a quién le vende.», y
+  el link va a `linksSinLeer`, que el turno ya usa para no afirmarlo.
+- **«No estaba buscando bien a los @» era, sobre todo, el buscador del alta de un lead** (el «punto 28», 12/10). Medido el
+  mismo día: Google Custom Search NO tiene claves en ningún negocio (tampoco en la plataforma, nunca existieron) y de 11
+  conexiones de Meta sólo la de ws11 tiene permisos de Instagram (con ella, la clienta de ws21 sale con su bio; la cuenta
+  personal de Martín, nunca: Business Discovery no ve cuentas personales, 2207013). Las demás tienen el Instagram vinculado a su página pero el
+  token sin permisos (error 10), o ni eso. Por eso el alta decía «Conecta Meta…» o nada.
+- **Ahora hay UNA función** (`leerPerfilInstagram`, lib/instagram-perfil-server.ts) que usan el alta, el onboarding y
+  Offer: la Meta del negocio, la de la plataforma y **Apify** (`apify/instagram-profile-scraper`, lee cualquier perfil
+  público, también personal). **Quién paga Apify:** la plataforma, con su `APIFY_TOKEN` (un perfil por @ exacto cuesta
+  centésimos de centavo y es lo que hace andar el producto); si no tiene, el negocio con la suya (la de su Leads Scraper).
+  Frenos: cada corrida con `maxItems=1` y `maxTotalChargeUsd`, un @ de menos de 5 letras no se pregunta (el alta busca
+  mientras se escribe), caché de 24 h y 40 lecturas por día por cuenta (en memoria de la instancia: un freno, no una cuenta
+  exacta). Hoy no hay key de Apify en ningún negocio: la tiene que cargar Martín en /integraciones del ws de la plataforma.
+- **Lo que pide Meta para que Business Discovery ande para todos (de Martín):** vincular el Instagram profesional de MaKo
+  a la página «Hola MaKo» y darle `instagram_basic` al token de MaKo System User; y que la conexión de Meta de cada negocio
+  pida los permisos de Instagram (hoy sólo ws11 los tiene). Cuentas personales: nunca por Meta, sólo por Apify.
+
+**Lo que quedó SIN hacer:**
+- El chat del Ops Center no lee un @ (vive en su caja, que es del Ops Center): hoy sólo no lo afirma (`linksSinLeer`).
+- El buscador del tablero del CRM no encuentra a un lead por su @: busca en id, nombre, empresa, email y teléfono
+  (`app/crm/CrmBoard.tsx:1629`, `coincideBusqueda`), no en `instagram`. Es del CRM.
+- Apify no se probó con un caso real: no hay key en ningún negocio. El test corre la función real con Meta y Apify de
+  mentira (`tests/_instagram-perfil-hijo.ts`).
+- **ANTES de cargar `APIFY_TOKEN` en la plataforma** (revisión adversarial del 22/10/2026,
+  `side-session-notes/…/revision-offer-instagram-2210.md`):
+  - **M2, el tope no es un tope.** `lib/instagram-perfil-server.ts` (`apifyHoy`): uno solo para todos los negocios cuando
+    paga la plataforma, en la memoria de cada instancia (se reinicia en cada arranque: el techo real es 40 × instancias).
+    Dos pedidos simultáneos del mismo @ pagan dos veces, y el alta (`app/crm/new/InstagramBuscador.tsx:115`) dispara una
+    corrida paga en cada pausa al tipear. Falta: un contador por negocio en la base con incremento atómico (que cierre si la
+    base no contesta), Apify en el alta sólo con una acción explícita (Enter o «Buscar @x»), y deduplicar en vuelo.
+  - **M3, se paga y se pierde.** En el alta Apify puede esperar 60 s (`TOPE_APIFY_MS`) y la ruta corta a los 15
+    (`app/api/crm/instagram-buscar/route.ts`, `maxDuration`): Apify cobra, el resultado no vuelve ni queda en caché y el
+    siguiente pedido paga otra vez. Falta: un tope de unos 10 s desde el alta, o la corrida asíncrona que guarde el perfil
+    al terminar.
+
+**Lo que arregló la misma revisión (antes de main):**
+- **M1, una fuga entre negocios.** La caché de perfiles no llevaba el negocio en la clave: uno sin ninguna fuente recibía el
+  perfil que otro leyó con SU token de Meta (un oráculo de qué @ miró otro), y el fallo de uno le tapaba 10 min el @ a otro.
+  Era el mismo bug que se corrigió en el buscador del alta el 12/10. Ahora la clave es `<ws>|<usuario>|<fuentes>`.
+- **B1:** un «no está» de Business Discovery (que no ve cuentas personales) ya no queda 24 h tapando un Apify caído: 24 h
+  sólo si lo dijo Apify. **B2:** si la key de Apify de la plataforma no se puede leer, no paga el negocio (lectura
+  estricta). **B3:** el @ se valida adentro de la función. **B4:** la caché tiene tope (500) y vive en `globalThis`.
+  **B5:** `habla_de` se compara sin espacios ni mayúsculas, y un valor raro cuenta como prospecto. **B6:** un @ que nombra
+  el dueño puede ser de su competencia: el texto del perfil lo dice y el aviso ya no dice «tu Instagram» (el Ops Center
+  y el motor de Offer usan otro `linksDe`, el de lib/links-texto.ts: el @ no los toca). **B7:** sin nombres reales de
+  terceros en el repo (el banco identifica cada documento por su id).
+
+**Vive en:** `lib/instagram-perfil.ts` (lo puro) · `lib/instagram-perfil-server.ts` (`leerPerfilInstagram`) ·
+`app/offer/ayudas.ts` (`linksDe`) · `app/api/offer/route.ts` (`leerLink`) · `app/api/crm/instagram-buscar/route.ts` (el
+alta) · `tests/offer-instagram.test.ts` (9 roturas, las 9 cazadas) · `tests/instagram-perfil-fuentes.test.ts` (10 roturas,
+las 10 cazadas)
+
+## Datos reales en el repo: el barrido y la guarda (22/10/2026)
+
+La revisión adversarial de Offer encontró en main el nombre y apellido del prospecto de un cliente, el @ de una clienta y el
+mail del dueño de un negocio, todos en tests. El Cerebro pidió reemplazarlos y barrer el resto.
+
+- **El barrido** (con los mails y nombres de los usuarios de producción, leídos al scratchpad, nunca al repo): 89 archivos
+  de tests/, docs/ y AGENTS.md con mails de dueños y colaboradores (de gmail y de dominio propio), nombres y apellidos de
+  clientes y de un prospecto, el @ de una clienta, el @ y los dominios de landing con el nombre de un dueño, y dos gmail
+  personales que la tabla de usuarios no tenía. Se reemplazaron por inventados del MISMO formato. **La trampa:** el primer
+  mapa cambió un gmail por un dominio propio y rompió el test que prueba que un dominio público nunca es «mi dominio»; y
+  un test compara el mail con una regex (`gmail\.com`), que un reemplazo literal no toca. Los 375 tests que leen un archivo
+  cambiado, en verde.
+- **Lo que quedó, a propósito:** los nombres de pila de los clientes (así se los nombra en todo el repo), los datos de
+  Martín (es quien opera MaKo), los nombres de los negocios, la guarda de las plantillas (necesita los apellidos que
+  prohíbe) y el test de la razón social de la verificación de Meta (compara con el dato real que vive en el código).
+- **Sin hacer, en código (fuera de tests/docs):** datos reales que el código USA o comenta: el mail de un colaborador en
+  `lib/closing.ts` y `app/conocimientos/Compartir.tsx` (la lista de internos), la razón social en el código de la
+  verificación de Meta, nombres en comentarios de `lib/config.ts`, `lib/perfil-sujeto.ts`, `lib/grupos-guardados.ts`,
+  `lib/usuarios.ts` y scripts. Sacarlos del código pide mudar esos datos a la base o a la config de cada negocio.
+- **La historia de git queda igual:** lo que estuvo en main sigue en los commits viejos. Reescribirla rompería las ramas
+  de todos los chats.
+- **La guarda:** `tests/sin-mails-reales.test.ts` compara la huella (sha256) de cada mail de tests/, docs/ y AGENTS.md con
+  las de los usuarios reales (sin Martín) y los dos gmail personales. Probada rompiéndola: un mail real en un doc o en un
+  test (también en mayúscula y con punto final) la hace fallar; uno inventado, no. Un dueño nuevo no está: se suma su
+  huella.
+
+**Vive en:** `tests/sin-mails-reales.test.ts` · AGENTS.md («Nada de datos reales de clientes…»)
+
+*22/10/2026, chat «Offer» (claude3).*
+
+## Offer y el onboarding con el hilo y la caja del Ops Center (22/10/2026, OF4)
+
+La tab Offer (y el onboarding, que es el mismo chat) dibujaba el hilo y la barra de WhatsApp de la casa; el teléfono, una
+caja propia. Ahora los dos usan la caja única (CajaChat, con la nota de voz), y la computadora también el hilo del Ops Center
+(HiloMako, con la proyección `itemsDeOffer` con que el Ops Center ya leía estas conversaciones).
+
+- **El hilo único no sabía dibujar lo de Offer, y el Ops Center ya mostraba las conversaciones de Offer sin eso.** `itemsDeOffer`
+  (app/m/mako/chat-ui.ts) tira el PDF de cada versión con su «Ver mi oferta», la nota de voz de MaKo y los documentos que
+  MaKo adjunta. Para la tab, HiloMako tiene un hueco `enMensaje` (`arriba` del texto, `abajo`): ahí van el PDF, la nota de
+  voz, lo leído y las tarjetas del onboarding. **El Ops Center sigue sin el PDF** (Sin hacer, abajo).
+- **«No pude abrir el archivo.» debajo de CADA documento de Offer, también en el Ops Center.** El diagnóstico obvio («no se
+  subió») era el equivocado: la ficha del hilo (app/_chat/ArchivosHilo.tsx) dice eso cuando no tiene link, y un documento de
+  Offer nunca lo tiene, porque Offer guarda lo que LEYÓ y no el archivo. `ArchivoHilo.sinAbrir` lo marca, y `nota` lleva lo que
+  Offer dijo al leerlo («Leí 3 de 4 archivos»). Se arregla también en el Ops Center (usa la misma proyección).
+- **El teléfono no dejaba elegir el .zip.** El «Documento» de /m/offer tenía `ACCEPT_IMPORTAR` sin `.zip` (la computadora lo
+  sumó el 22/10 para la carpeta de una landing). Con la caja única toma lo mismo que la computadora.
+- **Las respuestas rápidas, una sola vez.** El Ops Center dibuja las opciones de Offer como una pregunta del hilo (el bloque
+  que arma `itemsDeOffer`). La tab filtra ese bloque y deja sus pastillas («Armar mi oferta» en dorado, marcar varias con
+  «Enviar (N)»): sin el filtro salían dos veces.
+- **La espera NO es el «Trabajando…» del hilo, a propósito.** Es texto, y Martín pidió el 18/10 sólo los tres puntitos
+  («En lugar de "Revisando tu respuesta", sólo debería aparecer la animación de los ...»). Van en la fila de MaKo del Ops
+  Center (`FilaDelChat`), y «Analizando tu link…» mientras lee.
+- **Un componente con la caja se puede dibujar en node**: el gancho de carga de `tests/offer-hilo-unico.test.ts` vacía cada
+  `.css` (hallazgos-infra.md, «Las trampas del runner»). Por eso el test mira el HTML de verdad (el
+  PDF arriba del texto, la nota de un documento, el micrófono que graba), no el código fuente.
+
+**El caso de uso, en producción** (ws3, una conversación nueva en «Cliente de Prueba», en el Chrome de Martín con su sesión
+de super admin y un micrófono falso inyectado en la página):
+- **En la computadora anduvo todo.** El .zip de una landing va a la miniatura de la caja y, al mandarlo, el documento se ve
+  con su nota («Del .zip leí index.html.») y MaKo lo usa. La nota de voz: grabar (el punto rojo, el tiempo y la onda siguen el
+  nivel real), terminar, mandar; el servidor la transcribió entera y MaKo siguió con lo que decía. Marcar una opción de
+  `varias` y «Enviar (1)» también.
+- **A 390 px las opciones le comían la conversación.** Fijas arriba de la caja, cuatro opciones largas ocupaban 250 px y el
+  hilo quedaba con 240. Ahora van al final del hilo y se desplazan con él, como las preguntas del Ops Center.
+- **Cómo se llegó a 390 px sin tocar la ventana de Martín** (hallazgos-infra.md, «Las trampas del runner», la fila «Ver una
+  página a 390 px en el Chrome de Martín»): la app no se deja enmarcar en un iframe, y Chrome no achica una ventana debajo de ~500 px. Funcionó una ventana
+  emergente abierta desde la pestaña, medida por JS.
+- **/m/offer no se pudo ver**: con el navegador de escritorio de Martín redirige a /offer. La caja del teléfono la cubre el
+  test que la dibuja; falta verla en un Android de verdad.
+- **La página de Offer quedaba 50 px más alta que la ventana** con la barra de arriba, y al mandar el navegador la corría (se
+  iba el selector). El diagnóstico obvio («lo corre el chat nuevo») era el equivocado: `app/offer/page.tsx` mide
+  `calc(100dvh - var(--alto-secciones))` y no descuenta `--barra-agencia`, la barra de «Estás viendo el dashboard de…» (50 px)
+  o la alerta de la voz de MaKo caída (64 px), que ve también un cliente. La regla global que lo corrige sólo toca un alto en
+  línea que EMPIEZA con `height: 100dvh`. Ahora descuenta las dos, igual que Image Editor y Video Editor, que tenían lo
+  mismo (hallazgos-ui.md, con la guarda que lo hace cumplir en toda pantalla).
+- **El «play» de la barra de grabar era lo único verde** de la caja de Offer: `SIN_VERDE` cambia `--good` (el ✓ y la ➤), y el
+  «play» es `AudioPlay`, que trae `--wa` por defecto. La barra (`BarraGrabacion`) recibe `colorPlay`, y la caja única de MaKo
+  le pasa `--primary`, el de la nota ya mandada en el hilo. WhatsApp y los audios de Automations siguen en verde.
+
+**Sin hacer:**
+- **Verla en un Android de verdad** (/m/offer): la caja del teléfono, la nota de voz con el micrófono y el .zip.
+- **El hilo del teléfono** (app/m/offer/HiloOfferM.tsx) sigue siendo propio: la caja es la única, el hilo no.
+- **El Ops Center no muestra el PDF ni la nota de voz de MaKo** de una conversación de Offer: `itemsDeOffer` no los trae y
+  app/second-brain/PiezasCliente.tsx no pasa `enMensaje`.
+- **La «Transcripción del audio» en el globo del dueño** va con el ícono de documento: ArchivosHilo dibuja todos igual (en
+  el chip de Offer tenía el del audio).
+- **El teléfono ya no vibra** al empezar y terminar de grabar: la grabación de la caja única no llama a `haptico`.
+- **Clases que quedaron sin uso** en app/m/offer/offer.css (las de la caja propia: `m-offer-circulo`, `m-offer-grabando`,
+  `m-offer-campo`, `m-offer-mic`).
+
+**Vive en:** `app/offer/ChatOffer.tsx` (el hilo y la caja de la tab y el onboarding) · `app/offer/OfferApp.tsx` (`caja`, una para
+los dos) · `app/offer/DocumentoPdf.tsx` · `app/m/offer/ComposerOfferM.tsx` · `app/_chat/HiloMako.tsx` (`enMensaje`) ·
+`app/_chat/ArchivosHilo.tsx` y `app/m/mako/chat-ui.ts` (`sinAbrir`, `nota`) · `app/offer/page.tsx` (el alto) ·
+`app/whatsapp/_shared/VoiceRecorder.tsx` (`colorPlay`) · `tests/offer-hilo-unico.test.ts` (17 roturas, las 17 cazadas)
 
 *22/10/2026, chat «Offer» (claude3).*

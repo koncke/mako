@@ -13,8 +13,8 @@
 //   · UNA ETAPA QUE NO EXISTE («que arranque cuando entra a la etapa «Clientes VIP Platino»»): el modelo no devolvía nada y
 //     salía «No cambió nada». Se contesta ANTES del modelo, con las etapas que tiene ese CRM, y el CRON no se toca.
 // =============================================================================
-import { deIAEdicion, erroresEdicion, type CtxIA, type ResultadoEdicion } from './flujo-ia';
-import { errorDeRespuestaEnEditar, charlaConTextos, traeTextosPegados, type IntencionChat } from './flujo-ia-intencion';
+import { deIAEdicion, erroresEdicion, textosDeMensajes, type CtxIA, type ResultadoEdicion } from './flujo-ia';
+import { errorDeRespuestaEnEditar, charlaConTextos, traeTextosPegados, faltantesDelPedido, errorDeFaltantes, type IntencionChat } from './flujo-ia-intencion';
 import { esConsulta } from './flujo-ia-consulta';
 import { claseDe, idDe, type PasoGrafo } from './flujo-grafo';
 
@@ -108,10 +108,15 @@ export function textoEtapaQueNoExiste(x: EtapaQueNoExiste): string {
  *   2. agregó un WhatsApp idéntico a uno que ya está (`mensajesCopiados`) → error;
  *   3. pidió SUMAR y cambió lo que había (`pideAgregar` + `cambioTextoDeMensajes`) → `ERROR_AGREGAR_PISA`;
  *   4. no cambió nada y lo pedido en la charla ya está hecho → eso es la respuesta;
- *   5. lo de siempre (`erroresEdicion`).
+ *   5. lo de siempre (`erroresEdicion`);
+ *   6. EL CONTROL DE LO PEDIDO (22/10/2026, Martín: «creó a la mitad las cosas que le pedí»): lo que el dueño pegó entre
+ *      comillas y no quedó en ningún mensaje (`faltantesDelPedido`). La PRIMERA vez del turno es un error para el reintento
+ *      (`control`, que la ruta crea una vez por turno); después se aplica lo que hay y se dice en ROJO (`noHecho`).
  */
 export function revisarEdicion(o: {
   obj: unknown; base: readonly PasoGrafo[]; ctx: CtxIA; pedido: string; historial: Charla; intencion: IntencionChat | null;
+  /** Uno por turno (la ruta): si el control de lo pedido ya volvió al modelo. Sin él, cada intento es el primero. */
+  control?: { yaPidioLoQueFalta: boolean };
 }): { r: ResultadoEdicion; errores: string[] } {
   const r = deIAEdicion(o.obj, o.base, o.ctx);
   // Lo pedido en la charla YA está hecho: eso es lo que se contesta, diga lo que diga el modelo (22/10/2026, el arnés del
@@ -135,5 +140,10 @@ export function revisarEdicion(o: {
     const ya = yaEstaEnElFlujo(o.historial, o.base);
     if (ya) return { r: { ...r, respuesta: ya, resumen: ya }, errores: [] };
   }
-  return { r, errores };
+  if (errores.length) return { r, errores };
+  const faltan = faltantesDelPedido(o.pedido, textosDeMensajes(r.pasos));
+  const control = o.control ?? { yaPidioLoQueFalta: false };
+  if (faltan.length && !control.yaPidioLoQueFalta) { control.yaPidioLoQueFalta = true; return { r, errores: [errorDeFaltantes(faltan)] }; }
+  if (faltan.length) r.noHecho = [...(r.noHecho ?? []), ...faltan.map((t) => `No quedó en el lienzo: «${t}»`)];
+  return { r, errores: [] };
 }

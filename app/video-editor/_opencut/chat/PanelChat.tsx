@@ -17,12 +17,23 @@
 // El hilo es por proyecto y, desde el 16/10, queda GUARDADO por persona (chat/hilo.ts, mig 0298):
 // al recargar vuelve, con las propuestas pendientes todavía para aceptar. Nada se aplica sin
 // «Aceptar»: lo fija tests/video-editor-chat.test.ts.
+//
+// CON LAS PIEZAS DEL OPS CENTER (22/10/2026, TB3; Martín: «quiero que todos los chats de MaKo en las tabs sean el del Ops
+// Center»): el hilo es `HiloMako` (con la criatura de la tab, la misma que lo nombra en el Ops Center) y la caja es
+// `CajaChat` (app/_chat/). El motor es el de siempre (edita el proyecto ABIERTO, en modo «editar»), y la propuesta con
+// «Original | Modificado» va en el hueco `enMensaje` de la respuesta que la trajo. Las piezas toman los colores de CapCut:
+// `CSS_CHAT` redefine sus tokens (--surface, --ink…) con los `--cc-*` bajo `.cc-chat` (AGENTS.md, «Una pantalla oscura se
+// hace redefiniendo TOKENS»). El alcance sigue en sus chips arriba de la caja; en el hilo ya no se repite en la burbuja.
 // =============================================================================
 
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import "@/app/admin/operaciones/centro.css";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { CajaChat } from "@/app/_chat/CajaChat";
+import { HiloMako, type EnMensaje } from "@/app/_chat/HiloMako";
+import type { ItemHilo } from "@/app/m/mako/chat-ui";
 import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { AiMagicIcon, ArrowUp02Icon, Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { AiMagicIcon, Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
@@ -394,7 +405,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 
 	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean } = {}) => {
 		if (hilo.corriendo || !instruccion.trim() || !proyectoId) return;
-		void pedirEdicion(editorRef.current, instruccion, alc, op);
+		void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT.instruccion), alc, op);
 		setTexto("");
 	};
 
@@ -454,8 +465,60 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 	const pildora = "cursor-pointer rounded-full bg-(--cc-raised) px-3 py-1.5 text-left text-[12px] text-(--cc-text) hover:brightness-125 disabled:cursor-default disabled:opacity-50";
 	const chip = "flex h-[26px] min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-full border px-2.5 text-[11.5px] font-medium";
 
+	// El hilo del Ops Center: cada mensaje con su id y su hora; lo de MaKo que el hilo no sabe dibujar (el error, los links
+	// de otro proyecto, la propuesta con «Original | Modificado»), en su hueco. El foco de un link (`?propuesta=`) busca ese
+	// hueco por `data-mensaje`.
+	const items = useMemo((): ItemHilo[] => hilo.mensajes.map((m) => ({
+		k: "msg", id: m.id, role: m.de === "yo" ? "user" : "assistant", at: Number.isFinite(m.c) && m.c > 0 ? new Date(m.c).toISOString() : null,
+		texto: m.de === "mako" && m.error ? "" : m.texto,
+	})), [hilo.mensajes]);
+	const enMensaje = (x: Extract<ItemHilo, { k: "msg" }>): EnMensaje | null => {
+		const m = hilo.mensajes.find((y) => y.id === x.id);
+		if (!m || m.de !== "mako") return null;
+		return {
+			arriba: m.error ? <p className="m-0 text-[12.5px] leading-[1.5] text-(--destructive)">{m.texto}</p> : null,
+			abajo: (
+				<div data-mensaje={m.id} className="mt-1 grid gap-2 rounded-[14px] transition-shadow" style={foco === m.id ? { boxShadow: "0 0 0 2px var(--cc-accent)" } : undefined}>
+					{/* Un pedido que no es de este proyecto (chat/pedidos.ts): a dónde lleva. El Link pega el ?ws=. */}
+					{m.links && m.links.length > 0 && (
+						<div className="flex flex-wrap gap-1.5 self-start">
+							{m.links.map((l) => (
+								<Link key={l.href} href={l.href} className="rounded-full bg-(--cc-raised) px-3 py-1.5 text-[12px] text-(--cc-accent) hover:brightness-125">
+									{l.texto}
+								</Link>
+							))}
+						</div>
+					)}
+					{m.propuesta && m.cambios && m.estado ? (
+						<RevisionPropuesta
+							cambios={m.cambios}
+							descartes={m.descartes}
+							estado={m.estado}
+							aviso={m.aviso}
+							tocada={!!tracksVivos && !!m.propuesta.tracksEnviados && tracksVivos !== m.propuesta.tracksEnviados}
+							puedeRestaurar={!!m.aplicada}
+							onAceptar={() => void aceptar(m)}
+							onAplicarIgual={() => void aceptar(m, true)}
+							onDescartar={() => {
+								cambiarMensaje(proyectoId, m.id, { estado: "descartada", aviso: undefined });
+								if (m.propuestaApi) void resolverEnServidor(m.propuestaApi.id, "descartada", [], m.propuesta?.operaciones ?? []).then((c) => alCerrar(m.id, c));
+							}}
+							onRestaurar={() => restaurar(m)}
+						/>
+					) : m.descartes && m.descartes.length > 0 ? (
+						<p className="m-0 self-start rounded-[6px] bg-(--cc-sunken) px-2.5 py-1.5 text-[11.5px] text-(--cc-text-3)">
+							No se aplica: {m.descartes.slice(0, 3).join(" · ")}
+						</p>
+					) : null}
+				</div>
+			),
+		};
+	};
+
 	return (
-		<aside className="flex size-full min-h-0 flex-col bg-(--cc-panel)" aria-label="Editar con IA">
+		// Un <section> y no un <aside>: con la barra de la agencia, `[data-barra-agencia] aside` (app/globals.css) le fuerza a todo <aside> el alto de la ventana, y la caja quedaba fuera de la vista (medido el 22/10/2026).
+		<section role="complementary" className="cc-chat flex size-full min-h-0 flex-col bg-(--cc-panel)" aria-label="Editar con IA">
+			<style href="cc-chat" precedence="medium">{CSS_CHAT}</style>
 			<header className="flex h-10 shrink-0 items-center gap-2 bg-(--cc-panel-head) pr-1.5 pl-3">
 				<HugeiconsIcon icon={AiMagicIcon} className="size-4 text-(--cc-accent)" />
 				<span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-(--cc-text)">Editar con IA</span>
@@ -470,84 +533,35 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 				</button>
 			</header>
 
-			<div ref={hiloRef} className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3 py-3" aria-live="polite">
-				{hilo.mensajes.length === 0 && (
-					<>
-						<div className="self-start rounded-[12px] bg-(--cc-raised) px-3 py-2 text-[12.5px] leading-[1.5] text-(--cc-text)">
-							Pídeme que edite lo que quieras del video.
-						</div>
+			<div ref={hiloRef} className="co-hilo" style={{ padding: "12px" }} aria-live="polite">
+				<div className="co-hilo__col">
+					{hilo.mensajes.length === 0 && (
+						<>
+							<div className="self-start rounded-[12px] bg-(--cc-raised) px-3 py-2 text-[12.5px] leading-[1.5] text-(--cc-text)">
+								Pídeme que edite lo que quieras del video.
+							</div>
+							<div className="flex flex-wrap gap-1.5">
+								{visibles.map((s) => (
+									<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={hilo.corriendo}>{s.rotulo}</button>
+								))}
+							</div>
+						</>
+					)}
+					<HiloMako items={items} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
+						tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+					{hilo.corriendo && (
+						<button type="button" onClick={detener} className="cursor-pointer self-start text-[12px] text-(--cc-text-3) hover:text-(--cc-text)">
+							Detener generación
+						</button>
+					)}
+					{hilo.mensajes.length > 0 && !hilo.corriendo && (
 						<div className="flex flex-wrap gap-1.5">
-							{visibles.map((s) => (
-								<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={hilo.corriendo}>{s.rotulo}</button>
+							{visibles.slice(0, 4).map((s) => (
+								<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)}>{s.rotulo}</button>
 							))}
 						</div>
-					</>
-				)}
-				{hilo.mensajes.map((m) =>
-					m.de === "yo" ? (
-						<div key={m.id} className="max-w-[88%] self-end rounded-[12px] px-3 py-2 text-[12.5px] leading-[1.5] whitespace-pre-wrap text-(--cc-text)" style={{ background: "color-mix(in srgb, var(--cc-accent) 20%, var(--cc-panel))" }}>
-							{m.alcance && <span className="mb-1 block text-[11px] font-semibold opacity-80">{m.alcance}</span>}
-							{m.texto}
-						</div>
-					) : (
-						<div
-							key={m.id}
-							data-mensaje={m.id}
-							className="grid gap-2 rounded-[14px] transition-shadow"
-							style={foco === m.id ? { boxShadow: "0 0 0 2px var(--cc-accent)" } : undefined}
-						>
-							<div
-								className="self-start rounded-[12px] px-3 py-2 text-[12.5px] leading-[1.5] whitespace-pre-wrap"
-								style={m.error ? { background: "color-mix(in srgb, var(--destructive) 18%, transparent)", color: "var(--destructive)" } : { background: "var(--cc-raised)", color: "var(--cc-text)" }}
-							>
-								{m.texto}
-							</div>
-							{/* Un pedido que no es de este proyecto (chat/pedidos.ts): a dónde lleva. El Link pega el ?ws=. */}
-							{m.links && m.links.length > 0 && (
-								<div className="flex flex-wrap gap-1.5 self-start">
-									{m.links.map((l) => (
-										<Link key={l.href} href={l.href} className="rounded-full bg-(--cc-raised) px-3 py-1.5 text-[12px] text-(--cc-accent) hover:brightness-125">
-											{l.texto}
-										</Link>
-									))}
-								</div>
-							)}
-							{m.propuesta && m.cambios && m.estado ? (
-								<RevisionPropuesta
-									cambios={m.cambios}
-									descartes={m.descartes}
-									estado={m.estado}
-									aviso={m.aviso}
-									tocada={!!tracksVivos && !!m.propuesta.tracksEnviados && tracksVivos !== m.propuesta.tracksEnviados}
-									puedeRestaurar={!!m.aplicada}
-									onAceptar={() => void aceptar(m)}
-									onAplicarIgual={() => void aceptar(m, true)}
-									onDescartar={() => {
-										cambiarMensaje(proyectoId, m.id, { estado: "descartada", aviso: undefined });
-										if (m.propuestaApi) void resolverEnServidor(m.propuestaApi.id, "descartada", [], m.propuesta?.operaciones ?? []).then((c) => alCerrar(m.id, c));
-									}}
-									onRestaurar={() => restaurar(m)}
-								/>
-							) : m.descartes && m.descartes.length > 0 ? (
-								<p className="m-0 self-start rounded-[6px] bg-(--cc-sunken) px-2.5 py-1.5 text-[11.5px] text-(--cc-text-3)">
-									No se aplica: {m.descartes.slice(0, 3).join(" · ")}
-								</p>
-							) : null}
-						</div>
-					),
-				)}
-				{hilo.corriendo && (
-					<div className="flex items-center gap-2 self-start rounded-[12px] bg-(--cc-raised) px-3 py-2 text-[12.5px] text-(--cc-text-3)">
-						<span className="size-3.5 animate-spin rounded-full border-2 border-(--cc-text-3) border-t-transparent" aria-hidden /> Pensando
-					</div>
-				)}
-				{hilo.mensajes.length > 0 && !hilo.corriendo && (
-					<div className="flex flex-wrap gap-1.5">
-						{visibles.slice(0, 4).map((s) => (
-							<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)}>{s.rotulo}</button>
-						))}
-					</div>
-				)}
+					)}
+				</div>
 			</div>
 
 			<footer className="grid shrink-0 gap-2 px-3 pt-2 pb-3">
@@ -571,51 +585,22 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 						</button>
 					)}
 				</div>
-				<div className="grid gap-1 rounded-[10px] bg-(--cc-input) px-3 pt-2.5 pb-2 focus-within:ring-1 focus-within:ring-(--cc-accent)">
-					<textarea
-						ref={inputRef}
-						value={texto}
-						onChange={(e) => setTexto(e.target.value)}
-						onKeyDown={(e) => {
-							if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-								e.preventDefault();
-								enviar(texto);
-							}
-						}}
-						placeholder={hilo.corriendo ? "Espera a que la IA termine" : "Envía un mensaje al agente…"}
-						disabled={hilo.corriendo || !proyectoId}
-						rows={2}
-						maxLength={TOPES_CHAT.instruccion}
-						aria-label="Mensaje al agente"
-						className="max-h-40 min-h-10 w-full resize-none border-0 bg-transparent p-0 text-[12.5px] leading-[1.45] text-(--cc-text) outline-none placeholder:text-(--cc-text-3)"
-					/>
-					<div className="flex justify-end">
-						{hilo.corriendo ? (
-							<button
-								type="button"
-								onClick={detener}
-								title="Detener generación"
-								aria-label="Detener generación"
-								className="flex size-7 cursor-pointer items-center justify-center rounded-full bg-(--cc-accent) text-black"
-							>
-								<span className="block size-2.5 rounded-[2px] bg-current" />
-							</button>
-						) : (
-							<button
-								type="button"
-								onClick={() => enviar(texto)}
-								disabled={!texto.trim() || !proyectoId}
-								title="Enviar"
-								aria-label="Enviar"
-								className="flex size-7 cursor-pointer items-center justify-center rounded-full bg-(--cc-btn-2) text-(--cc-text) enabled:data-[listo]:bg-(--cc-accent) enabled:data-[listo]:text-black disabled:cursor-default"
-								data-listo={texto.trim() ? "" : undefined}
-							>
-								<HugeiconsIcon icon={ArrowUp02Icon} className="size-4" />
-							</button>
-						)}
-					</div>
+				{/* La caja única (app/_chat/CajaChat.tsx), con los colores de CapCut (`CSS_CHAT`). */}
+				<div className="co-caja">
+					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
+						apagado={!proyectoId} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda />
 				</div>
 			</footer>
-		</aside>
+		</section>
 	);
 }
+
+/** Quien contesta en el hilo: la criatura de la tab (la misma que la nombra en el Ops Center). */
+const QUIEN = { nombre: "Video Editor" };
+const nada = () => {};
+
+/** Los tokens de las piezas del Ops Center con los colores de CapCut, sólo adentro del panel. */
+const CSS_CHAT = `
+.cc-chat{--surface:var(--cc-raised);--surface-2:var(--cc-sunken);--bg:var(--cc-panel);--border:var(--cc-btn-2);--border-strong:var(--cc-btn-2);--ink:var(--cc-text);--dim:var(--cc-text-3);--faint:var(--cc-text-3);--primary:var(--cc-accent);--primary-weak:var(--cc-accent);--on-primary:#000;--velo-hover:var(--cc-raised);--focus-ring:0 0 0 2px var(--cc-accent)}
+.cc-chat .co-caja{background:var(--cc-input)}
+`;

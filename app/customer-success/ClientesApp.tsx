@@ -21,12 +21,13 @@
 // que UN cliente tenía armada para su negocio. Antes de agregarle algo: si no es un
 // cliente, un proyecto, una tarea o una recurrente, no va acá.
 
-import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from 'react';
 import { Pagina, Banner, EmptyState, ErrorState, Status, Toast, useToast } from '@/app/_ui';
 
 import type { ClienteCruce } from './cruce';
 import { usePrograma, useProgramaEnUrl } from '@/app/clients/programa-url';
 import type { ResumenTrabajo, TableroCartera } from './trabajo';
+import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import { FichaCliente } from './FichaCliente';
 import type { TrabajoDeCliente } from './trabajo';
 import type { BoardUser } from '@/app/plan/board/types';
@@ -53,6 +54,16 @@ import type { EtapaVista } from './curso/FilaAvance';
 import type { CursoDeTarjeta } from './ClienteCard';
 import { accesoDeFila, type AccesoInvitacion } from './curso-ficha-lectura';
 import { accesoEnProducto } from '@/lib/curso-invitar-reglas';
+import { ClienteCard } from './ClienteCard';
+import { tiempoEnEtapa } from './en-etapa';
+import { avanceDeCliente } from './aviso-tarjeta';
+import { guardarTarjetaClientesAction } from './tarjeta-actions';
+import { PersonalizarTarjetas } from '@/app/_ui/PersonalizarTarjetas';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
+import {
+  CAMPOS_TARJETA_CLIENTE, NOMBRE_CAMPO_TARJETA_CLIENTE, PLANTILLAS_TARJETA_CLIENTE, prefsTarjetaClientesDe,
+  type CampoTarjetaCliente, type FormaTarjetaCliente, type PlantillaTarjetaCliente, type PrefsTarjetaCliente,
+} from '@/lib/tarjeta-clientes';
 
 /**
  * Lo que la cartera necesita del CURSO (07/10/2026, items 4 y 9). Lo arma page.tsx
@@ -103,7 +114,7 @@ const FILTRO_SIN_CUENTAS = Object.fromEntries(
   Object.entries(FILTRO_LABEL).filter(([k]) => k !== 'con-cuenta' && k !== 'sin-cuenta'),
 ) as Partial<typeof FILTRO_LABEL>;
 
-export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, puedeEditarEtapas = false, onboarding = null, curso, vistaInicial = null, productoInicial = null, clienteInicial = null }: {
+export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, puedeEditarEtapas = false, onboarding = null, curso, tarjeta, vistaInicial = null, productoInicial = null, clienteInicial = null }: {
   /** Los leads GANADOS del workspace, en orden de `id` — o sea, de antigüedad como
    *  cliente. Ese orden es el que numera («Cliente 1»); la grilla se ordena aparte. */
   clientes: ClienteCruce[];
@@ -152,6 +163,13 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
    */
   vistaInicial?: VistaClientes | null;
   productoInicial?: number | null;
+  /**
+   * CÓMO VE QUIEN MIRA LA TARJETA DE UN CLIENTE (21/10/2026, «Personalizar tarjetas»): la forma, los datos, sus
+   * plantillas propias y si se puede guardar (sin fila propia, no). La lee la página (`getTarjetaClientes`, como el CRM
+   * con `getCamposTarjetaCrm`) y viene con el HTML: leída al montar, cada F5 dibujaría la de siempre y saltaría.
+   * Ausente, la de siempre y sin guardar.
+   */
+  tarjeta?: PrefsTarjetaCliente & { guardable: boolean };
 }) {
   /**
    * El alta, y EN QUÉ ETAPA se apretó.
@@ -214,6 +232,14 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
    */
   const [ordenPrevio, setOrdenPrevio] = useState<OrdenClientes>('nombre');
   const { toast, show, clear } = useToast();
+  // LA TARJETA PERSONALIZADA (21/10/2026): cambia en el acto desde «Personalizar tarjetas» (y vuelve atrás si el server
+  // dice que no: lo hace el pop-up). Sembrada de lo que trajo la página, como el CRM.
+  const inicialTarjeta = tarjeta ?? { ...prefsTarjetaClientesDe(undefined), guardable: false };
+  const [formaTarjeta, setFormaTarjeta] = useState<FormaTarjetaCliente>(inicialTarjeta.forma);
+  const [camposTarjeta, setCamposTarjeta] = useState<readonly CampoTarjetaCliente[]>(inicialTarjeta.campos);
+  const [plantillasTarjeta, setPlantillasTarjeta] = useState<readonly PlantillaTarjetaCliente[]>(inicialTarjeta.plantillas);
+  const [personalizando, setPersonalizando] = useState(false);
+  const cerrarPersonalizar = useCallback(() => setPersonalizando(false), []);
 
   // ── La entrega de un servicio (el kanban) ────────────────────────────
   const servicios = entrega?.ok ? entrega.servicios : [];
@@ -572,6 +598,19 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
     : cs);
   const visiblesServ = conManual(delServicio(visibles));
   const listaServ = delServicio(lista);
+  /**
+   * LA MUESTRA DE «Personalizar tarjetas» (21/10/2026): un cliente de este programa —el primero a la vista, o el primero
+   * del programa—, con su barra calculada con la MISMA regla que el kanban (`avanceDeCliente`, ./aviso-tarjeta.ts).
+   */
+  const muestraTarjeta = visiblesServ[0] ?? listaServ[0] ?? null;
+  const avanceDeMuestra = (c: ClienteCruce) => {
+    const etapas = servicio?.etapas ?? [];
+    const t = tiempoEnEtapa(asigServicio[c.leadId]?.etapa_desde);
+    return avanceDeCliente({
+      etapa: Math.max(0, etapas.findIndex((e) => e.key === etapaEnServicio(c.leadId))), etapas: etapas.length,
+      enEtapa: t ? { frase: t.frase, trabado: t.trabado } : null, acceso: cursoDe(c.leadId)?.acceso ?? null, cobro: c.ficha?.cobro ?? null, ahoraMs: Date.now(),
+    });
+  };
 
   /**
    * LOS QUE ESTÁN EN PANTALLA: `visiblesServ` menos los que la fase elegida esconde.
@@ -906,7 +945,8 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
        propio archivo deja escrito, y lo mueve en las TRES a la vez — que es lo que
        hay que cuidar: si una queda en 1180 y las otras no, la pantalla se ve torcida
        y eso no se nota en el diff. /admin sigue con su 1180, porque es otra pantalla. */
-    <Pagina ancho="completo" style={{ '--cartera-max': 'none' } as CSSProperties}>
+    // Con el panel de MaKo abierto (la estrella), la pantalla le deja el lugar a la izquierda.
+    <Pagina ancho="completo" style={{ '--cartera-max': 'none', paddingLeft: 'var(--ancho-panel-mako, 0px)' } as CSSProperties}>
       {/* SIN TÍTULO (18/10/2026, Martín, pt 14): «Clients» ya lo dice la tab de arriba, y el número de clientes con
           él. Queda el aviso de MaKo cuando movió algo, que es lo único que informa. */}
       {mako ? <div style={{ margin: '0 0 12px' }}><span className="cl-mako">{mako}</span></div> : null}
@@ -960,11 +1000,21 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
             /* SIN EL DESPLEGABLE DEL SERVICIO (18/10/2026, Martín, pt 14): el de la cabecera ya cambia de programa
                (`usePrograma`, la misma URL), y éste repetía la elección con el nombre VIEJO del producto («VSL
                FUNNEL»). Lo único suyo que no estaba en otro lado, editar las etapas, va a los tres puntos. */
-            accionesExtra={puedeEditarEtapas && servicio ? [{
-              key: 'etapas',
-              nodo: null,
-              menu: { icono: <LapizIcon />, label: 'Editar etapas', desc: 'Las columnas de este programa', onClick: () => setEditandoEtapas(true) },
-            }] : []}
+            accionesExtra={[
+              ...(puedeEditarEtapas && servicio ? [{
+                key: 'etapas',
+                nodo: null,
+                menu: { icono: <LapizIcon />, label: 'Editar etapas', desc: 'Las columnas de este programa', onClick: () => setEditandoEtapas(true) },
+              }] : []),
+              /* «PERSONALIZAR TARJETAS» (21/10/2026), como en el «⋯» del CRM: la forma y los datos de la tarjeta de un
+                 cliente, de quien mira. SÓLO EN EL KANBAN, que es donde hay tarjetas: en la tabla no cambiaría nada
+                 de lo que se ve, y una opción así se lee como rota. */
+              ...(enKanban ? [{
+                key: 'personalizar',
+                nodo: null,
+                menu: { icono: <IconoMenu nombre="configurar" size={15} />, label: 'Personalizar tarjetas', desc: 'Cómo se ve cada cliente', onClick: () => setPersonalizando(true) },
+              }] : []),
+            ]}
             filtro={filtro} onFiltro={(v) => setFiltro(v as FiltroClientes)} orden={orden} onOrden={(v) => setOrden(v as OrdenCS)}
             /* «Manual» sólo con un servicio elegido: sin columnas no hay nada que arrastrar. Y con
                «Manual» no se ofrece el sentido: el orden es el que se armó, no tiene «al revés». */
@@ -1058,6 +1108,9 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
                  donde viven (el mismo molde que «Ver su equipo»). */
               cursoDe={cursoDe}
               onPermisos={(leadId) => { setAbrirEn('curso'); setAbiertoId(leadId); }}
+              /* La tarjeta de quien mira, y «Personalizar tarjeta» del clic derecho (21/10/2026). */
+              forma={formaTarjeta} campos={camposTarjeta}
+              onPersonalizar={() => setPersonalizando(true)}
             />
           ) : enAvance && servicio ? (
             <AvanceDelServicio curso={curso} productoId={servicio.productoId}
@@ -1091,6 +1144,9 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
         </>
       )}
 
+      {/* MaKo en Clientes (22/10/2026, CR4): la estrella de todas las tabs, con el cliente abierto (un cliente es un lead:
+          las herramientas lo toman por su leadId). Encima de su ficha, que es un modal. */}
+      <MakoEnLaTab tab="Clientes" entidad={abierto ? { tipo: 'lead', id: abierto.leadId, titulo: abierto.nombre || `Cliente ${abierto.leadId}` } : null} encimaDeModales />
       {abierto && (
         <FichaCliente
           key={abierto.leadId}
@@ -1186,6 +1242,31 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
           }}
           onCerrar={() => setEditandoEtapas(false)}
         />
+      )}
+
+      {/* «Personalizar tarjetas» (el «⋯» de la barra o el clic derecho en una tarjeta): la pieza de TODOS los tableros
+          (app/_ui/PersonalizarTarjetas.tsx), con las plantillas de Clientes y la tarjeta DE VERDAD (`ClienteCard`, la
+          misma del kanban, con un cliente de la cartera). `ordenFijo`: cada dato tiene su lugar (lib/tarjeta-clientes.ts). */}
+      {personalizando && (
+        <PersonalizarTarjetas<FormaTarjetaCliente, CampoTarjetaCliente>
+          fabrica={PLANTILLAS_TARJETA_CLIENTE} propias={plantillasTarjeta} forma={formaTarjeta} campos={camposTarjeta}
+          catalogo={CAMPOS_TARJETA_CLIENTE} nombreCampo={NOMBRE_CAMPO_TARJETA_CLIENTE} guardable={inicialTarjeta.guardable}
+          ordenFijo
+          guardar={async (f, cs, ps) => {
+            const r = await atajar(guardarTarjetaClientesAction(cs, f, ps), 'No pude guardarlo.');
+            return r.ok ? { ok: true } : r;
+          }}
+          onCambio={(f, cs, ps) => { setFormaTarjeta(f); setCamposTarjeta(cs); setPlantillasTarjeta(ps); }}
+          onCerrar={cerrarPersonalizar}
+          vistaPrevia={muestraTarjeta ? (f, cs) => (
+            // ⚠️ `inert`: se mira, no se toca. Es la tarjeta de verdad, y su «Ver info» abriría la ficha detrás del pop-up.
+            <div inert>
+              <ClienteCard c={muestraTarjeta} n={numeroDe.get(muestraTarjeta.leadId) ?? 0}
+                trabajo={resumenDe(muestraTarjeta.leadId)} tableroOk={tablero.ok} onAbrir={() => {}}
+                avance={avanceDeMuestra(muestraTarjeta)} forma={f} campos={cs} />
+            </div>
+          ) : null}
+          sinMuestra="Carga un cliente para ver cómo queda." ayudaDatos="Cada dato va en su lugar. El nombre va siempre." />
       )}
 
       <Toast state={toast} onClose={clear} />

@@ -14,6 +14,8 @@
 
 import { herramientasDelTurno, type EntradaTurno, type Turno } from './doer-herramientas';
 import { porId, visible, REGISTRO, type Vista } from './api-mako/registro';
+import { esDestructiva, lecturasDeLasAcciones, INSTRUCCION_QUITAR_SIN_OBJETO } from './relevancia-app';
+import { pideQuitar } from './mako-intencion-app';
 import { canalKeyDe } from './api-mako/canal';
 import { AREA_INFO, esAccion, type Parametro } from './api-mako/tipos';
 import { rutaMovil, TITULO_INBOX } from './movil-rutas';
@@ -58,9 +60,13 @@ export function canalKeyDeSesion(sessionId: number): string {
 
 // ── Qué herramientas viajan ───────────────────────────────────────────────────
 
-/** Confirmar la da una PERSONA tocando la tarjeta del hilo, nunca el modelo: en este
- *  chat no hay un «sí» escrito que interpretar. */
-const CONFIRMAR: ReadonlySet<string> = new Set(['confirmar_accion']);
+/** Confirmar y cancelar las da una PERSONA tocando la tarjeta del hilo, nunca el modelo: en este
+ *  chat no hay un «sí» escrito que interpretar. ⚠️ `cancelar_accion` es la ÚNICA operación del
+ *  registro que cambia algo sin dejar una tarjeta (un control, no una acción): viajaba por acá y un
+ *  «eso está mal» o un falso «no» le tiraba a la persona una propuesta que sí quería. La red del chat
+ *  es la tarjeta —toda escritura la deja y el toque es de la persona—, así que lo que no la deja no viaja
+ *  (revisión del 21/10/2026; tests/ops-center-clasificador-app.test.ts, «la red es la tarjeta»). */
+const CONFIRMAR: ReadonlySet<string> = new Set(['confirmar_accion', 'cancelar_accion']);
 
 /**
  * Las LECTURAS de la agenda de Google no viajan: la agenda no pasa por ninguna IA
@@ -110,10 +116,18 @@ export function herramientasDelChat<T extends { name: string }>(p: EntradaTurno<
   const propias = p.deSiempre.filter((t) => entraAlChat(t.name, p.vista));
   const centinelas = [...CONFIRMAR, ...LECTURAS_DE_AGENDA].map((name) => ({ name, description: '', input_schema: {} }) as unknown as T);
   const turno = herramientasDelTurno({ ...p, deSiempre: [...propias, ...centinelas] });
+  const tools = turno.tools.filter((t) => entraAlChat(t.name, p.vista));
+  const delRegistro = turno.delRegistro.filter((t) => entraAlChat(t.name, p.vista));
+  // Las lecturas que dan el id de lo que viaja («(de listar_landings_creadas)»): en TODO turno de la app, no sólo con `buscaEnTodo`.
+  // Una acción que llega sin ellas no «llega»: MaKo inventa el id o vuelve a preguntar (medido el 21/10/2026).
+  const conLectura = delRegistro.length ? lecturasDeLasAcciones(delRegistro.map((t) => t.name), p.vista, (n) => entraAlChat(n, p.vista), new Set(tools.map((t) => t.name))) : [];
+  // Le piden quitar algo y no llegó ninguna operación que lo quite con lo que nombró: que pregunte cuál, no que elija una parecida.
+  const sinCosa = p.veredicto.intencion === 'actuar' && pideQuitar(p.texto) && !tools.some((t) => { const d = porId(t.name); return !!d && esDestructiva(d); });
   return {
     ...turno,
-    tools: turno.tools.filter((t) => entraAlChat(t.name, p.vista)),
-    delRegistro: turno.delRegistro.filter((t) => entraAlChat(t.name, p.vista)),
+    tools: [...tools, ...conLectura],
+    delRegistro: [...delRegistro, ...conLectura],
+    instruccion: [turno.instruccion, sinCosa ? INSTRUCCION_QUITAR_SIN_OBJETO : null].filter(Boolean).join(' ') || null,
   };
 }
 
@@ -498,11 +512,14 @@ export type RespuestaTurno = {
 // SU IA. Sin una propia, el turno con herramientas no tiene ninguna cuenta que probar: es configuración del negocio, se
 // le dice a la persona qué hacer y no abre ticket (lib/errores-app-reglas.ts → `esDeConfiguracion`).
 
-/** Lo que dice MaKo, corto y en palabras de la persona. Su mensaje quedó guardado, pero el turno no corrió: hay que mandarlo de nuevo. */
-export const AVISO_SIN_IA = 'Para contestarte necesito una IA conectada. Conecta la tuya y mándamelo de nuevo.';
+/** Lo que dice MaKo, corto y en palabras de la persona. Su mensaje quedó guardado, pero el turno no corrió: hay que mandarlo de
+ *  nuevo. Nombra las tres IA que puede conectar (el Cerebro, 22/10/2026: «Para contestarte necesito tu IA: conectá tu Claude, GPT
+ *  o Gemini»): su Gemini por clave de AI Studio también le contesta. */
+export const AVISO_SIN_IA = 'Para contestarte necesito tu IA: conecta tu Claude, tu GPT o tu Gemini y mándamelo de nuevo.';
 /** El modal que abre el botón (app/m/mako/chat-ui.ts → `botonConectar`): el de las keys de IA, el mismo que manda WhatsApp
  *  (`linkKeysIA`, lib/fallo-ia-texto.ts). */
-export const SERVICIO_IA = 'gemini';
+// IA9 (22/10/2026): su Claude (antes, Gemini gratis). Desde el modal se llega también a su GPT.
+export const SERVICIO_IA = 'anthropic';
 
 /** Lo que escribe la cascada cuando no tuvo NINGUNA cuenta que probar (lib/anthropic.ts, `chatClaudeTools`). */
 const SIN_NINGUNA_CUENTA = /sin proveedor gratis disponible/i;
@@ -525,6 +542,18 @@ export function faltaIADelNegocio(fallo: string | null, iaPropia: number | null)
  */
 export const AVISO_SIN_IA_EQUIPO = 'Para contestarte necesito una IA conectada. Ya lo está resolviendo el equipo de MaKo.';
 
+/**
+ * EL PORQUÉ DE UN TURNO SIN RESPUESTA, CUANDO SE SABE, QUEDA EN EL HILO (el Cerebro, 22/10/2026, el cliente roto del ws1).
+ * Mauricio escribió dos veces en su Cerebro el 18/10 y no tenía IA propia: el turno dijo «conecta tu IA» en un aviso de la
+ * pantalla, que NO se guardaba. Al volver a entrar, sus dos mensajes estaban sin nada debajo y, pasados 7 min, el chat decía
+ * «No te pude contestar esto» (`conSinRespuesta`), cuando sí se sabía por qué. Regla: con un porqué conocido —su computadora,
+ * su clave, la PC que no se pudo leer, la falta de su IA— el turno lo GUARDA como mensaje de MaKo. Sin porqué (`null`), el
+ * cartel de siempre y, al volver, «No te pude contestar esto» con «Reintentar».
+ */
+export function porQueSinRespuesta(p: { delaPc: string | null; deSuClave: string | null | undefined; sinIA: string | null | undefined; pcIlegible: string | null }): string | null {
+  return p.delaPc ?? p.deSuClave ?? p.sinIA ?? p.pcIlegible ?? null;
+}
+
 /** Lo que dice MaKo sin IA, y si lleva el botón para conectarla. `delEntorno` = `esNegocioDelEntorno(ws)`. */
 export function avisoSinIA(delEntorno: boolean, servicio: string = SERVICIO_IA): { aviso: string; conectar: string | null } {
   return delEntorno ? { aviso: AVISO_SIN_IA_EQUIPO, conectar: null } : { aviso: AVISO_SIN_IA, conectar: servicio };
@@ -534,13 +563,13 @@ export function avisoSinIA(delEntorno: boolean, servicio: string = SERVICIO_IA):
  * QUÉ IA LE ABRE «Conectar tu IA»: LA QUE EL NEGOCIO YA ELIGIÓ (20/10/2026, docs/investigacion-ops-center-19-10.md: «un
  * negocio que conectó sólo su Claude igual recibe el modal de Gemini»). Si tiene alguna guardada en su fila, se le abre
  * ésa —para arreglarla, no para pedirle otra—, en este orden: su Claude y su OpenAI primero (la decisión A de Martín:
- * cada negocio conecta la suya), después las gratis. Sin ninguna, Gemini (gratis, y el mismo link que manda WhatsApp).
+ * cada negocio conecta la suya), después las gratis. Sin ninguna, su Claude (IA9; el mismo link que manda WhatsApp).
  */
-export const IA_PARA_CONECTAR = ['anthropic', 'openai', 'gemini', 'groq', 'mistral', 'openrouter'] as const;
+export const IA_PARA_CONECTAR = ['anthropic', 'openai', 'gemini', 'groq'] as const;
 /** La credencial base de cada una (lib/integraciones-catalogo.ts): la que se mira en la fila del negocio. */
 export const ENV_DE_IA: Record<(typeof IA_PARA_CONECTAR)[number], string> = {
   anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', gemini: 'GEMINI_API_KEY',
-  groq: 'GROQ_API_KEY', mistral: 'MISTRAL_API_KEY', openrouter: 'OPENROUTER_API_KEY',
+  groq: 'GROQ_API_KEY',
 };
 export function iaParaConectar(conFila: readonly string[], soloSuya = false): string {
   // D6b (lib/solo-su-ia.ts): un negocio con su Claude o su GPT no usa las gratis, así que no se le ofrece Gemini aunque
@@ -560,7 +589,7 @@ export const AVISO_SU_CLAVE = 'Tu clave de Claude no funcionó (sin crédito o d
 /** A quien no conectó su computadora, en un negocio que corre con su propio Claude (D6b): dónde conectar la suya. */
 export const AVISO_CONECTA_TU_PC = 'Tu negocio contesta con su propio Claude. Para que te conteste a ti, conecta tu computadora en Tu cuenta → Tus cuentas de IA.';
 /** Con su propio Claude, una foto o un PDF escaneado se leen con SU OpenAI (D6b): nunca con Gemini. */
-export const AVISO_NO_LEI_SU_IA = (nombre: string) => `No pude leer «${nombre}»: con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de OpenAI. Escríbeme lo que dice.`;
+export const AVISO_NO_LEI_SU_IA = (nombre: string) => `No pude leer «${nombre}»: con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de Claude o de OpenAI. Escríbeme lo que dice.`;
 /** Con su propio Claude y sin una clave que lea (su Claude por clave o su OpenAI), El Archivero no corre: se dice. */
 export const AVISO_SIN_ARCHIVERO = 'Lo dejé en el chat, pero no en El Archivero: con tu propio Claude, para archivarlo necesito tu clave de Claude o de OpenAI.';
 /** Tiene su clave de Claude, pero la plataforma la pausó por un rato: no se le pide «tu clave», que ya la tiene. */

@@ -202,6 +202,9 @@ const TENANT_TABLES = new Set<string>([
   // PASSTHROUGH y la tab Pagos de una ficha listaría los cobros de TODOS los negocios. Las rutas
   // públicas (/pagar/<token>) y los webhooks leen con service role y ws explícito, a propósito.
   'cobros',
+  // «Vincular cobro» (mig 0326): la etapa Ganado de un CRM ↔ un producto. Sin esta línea el modal de un negocio listaría
+  // los vínculos de todos, y un pago buscaría el vínculo de su producto entre los de otro negocio.
+  'cobro_etapa_vinculos',
   // El Leads Scraper (mig 0289, 15/10/2026): las búsquedas de prospectos y lo que encontraron. Sin esta
   // línea getTenantDb() es PASSTHROUGH y la lista de prospectos de un negocio mostraría la de todos.
   'prospeccion_busquedas', 'prospectos',

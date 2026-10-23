@@ -75,7 +75,7 @@ test('1 · el embudo del ws13 en cuentas de la misma gente: nunca «43%», y cad
 });
 
 /** Un pedazo de la transcripción que el dueño del ws13 subió como documento: sus horas no son cifras del negocio. */
-const TRANSCRIPCION = '0:04:37 Cristian Garcia Cabral: ¿Qué haces?\n0:04:43 Cristian Garcia Cabral: Vos me sorprendiste con un equipo completo.\n0:26:43 Joan Dowd: Un minuto. 0:36:12 Joan: dale, el 16/10 te escribo.';
+const TRANSCRIPCION = '0:04:37 Pedro Ejemplo Ruiz: ¿Qué haces?\n0:04:43 Pedro Ejemplo Ruiz: Vos me sorprendiste con un equipo completo.\n0:26:43 Juan Ejemplo: Un minuto. 0:36:12 Joan: dale, el 16/10 te escribo.';
 
 const FUENTES_WS13 = (): FuentesDeCifras => {
   const e = embudoDeAnalisis(ANALISIS_WS13) as EmbudoOffer;

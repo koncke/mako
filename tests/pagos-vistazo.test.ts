@@ -62,10 +62,10 @@ test('lo vencido manda: «Debe $X» en rojo y el botón cobra la cuota vencida M
 test('al día: la próxima con su fecha; el botón sólo si vence en 14 días o menos', () => {
   const lejos = estado({ cierre: 1000, pagos: [cuota({ numero: 0, monto_usd: 500, pagado: true, fecha_pago: '2026-10-01' }), cuota({ numero: 1, monto_usd: 500, fecha_esperada: '2026-11-20' })] });
   assert.equal(lejos?.titular, 'Al día');
-  assert.equal(lejos?.detalle, 'Próxima: $500 el 20/11');
+  assert.equal(lejos?.detalle, 'Próxima: $500 el 20 de noviembre');
   assert.equal(lejos?.accion, null, 'una cuota de dentro de un mes no es «qué hago ahora»');
   const cerca = estado({ cierre: 1000, pagos: [cuota({ numero: 1, monto_usd: 500, fecha_esperada: '2026-10-19' }), cuota({ numero: 2, monto_usd: 500, fecha_esperada: '2026-11-19' })] });
-  assert.equal(cerca?.detalle, 'Próxima: $500 el 19/10 · en 3 días');
+  assert.equal(cerca?.detalle, 'Próxima: $500 el 19 de octubre · en 3 días');
   assert.equal(cerca?.tono, 'ambar');
   assert.equal(cerca?.accion?.tipo, 'cobrar-cuota');
 });
@@ -98,11 +98,11 @@ test('una devolución PARCIAL no se ofrece volver a cobrar: es «Devuelto en par
 
 test('el renglón: la cobrada a mano se deshace; la de la pasarela, no (se devuelve en su cobro)', () => {
   const mano = renglonDeCuota(cuota({ numero: 1, monto_usd: 300, pagado: true, fecha_pago: '2026-10-05', metodo: 'transferencia' }), HOY);
-  assert.deepEqual([mano.accion, mano.cuando], ['deshacer', 'cobrada el 05/10 · transferencia']);
+  assert.deepEqual([mano.accion, mano.cuando], ['deshacer', 'cobrada el 5 de octubre · transferencia']);
   const stripe = renglonDeCuota(cuota({ numero: 1, monto_usd: 300, pagado: true, fecha_pago: '2026-10-05', proveedor: 'stripe', cobro_id: 3 }), HOY);
-  assert.deepEqual([stripe.accion, stripe.cuando, stripe.editable], ['ninguna', 'cobrada el 05/10 · por Stripe', false]);
+  assert.deepEqual([stripe.accion, stripe.cuando, stripe.editable], ['ninguna', 'cobrada el 5 de octubre · por Stripe', false]);
   const vencida = renglonDeCuota(cuota({ numero: 2, monto_usd: 300, fecha_esperada: '2026-10-15' }), HOY);
-  assert.deepEqual([vencida.estado, vencida.cuando, vencida.accion, vencida.editable], ['vencida', 'venció el 15/10 · hace 1 día', 'marcar', true]);
+  assert.deepEqual([vencida.estado, vencida.cuando, vencida.accion, vencida.editable], ['vencida', 'venció el 15 de octubre · hace 1 día', 'marcar', true]);
   const pesos = renglonDeCuota(cuota({ numero: 1, monto_usd: 50, pagado: true, fecha_pago: '2026-10-05', moneda: 'ARS', monto_original: 50000 }), HOY);
   assert.match(pesos.montoTexto, /50\.000 ARS · \$50$/, 'la moneda en que se cobró, y al lado su valor en dólares');
 });
@@ -113,12 +113,12 @@ test('pago único: sin cuotas pide registrar el pago; con el plan corto, la cuot
   const corto = estado({ cierre: 3000, pagos: [cuota({ numero: 0, monto_usd: 1000, pagado: true, fecha_pago: '2026-10-01' })] });
   assert.deepEqual([corto?.titular, corto?.accion], ['Faltan $2,000', { tipo: 'agregar-cuota', faltaUsd: 2000, boton: 'Agregar la cuota' }]);
   const todo = estado({ cierre: 1000, pagos: [cuota({ numero: 0, monto_usd: 1000, pagado: true, fecha_pago: '2026-10-01' })] });
-  assert.deepEqual([todo?.titular, todo?.tono, todo?.detalle, todo?.accion], ['Pagó todo', 'verde', 'Último pago el 01/10', null]);
+  assert.deepEqual([todo?.titular, todo?.tono, todo?.detalle, todo?.accion], ['Pagó todo', 'verde', 'Último pago el 1 de octubre', null]);
 });
 
 test('una mensualidad no se «paga por completo»: al día con la próxima, o le falta registrar meses', () => {
   const alDia = estado({ tipo: 'suscripcion', mensualidad: 800, fechaCierre: '2026-10-05', pagos: [cuota({ numero: 1, monto_usd: 800, pagado: true, fecha_pago: '2026-10-05' })] });
-  assert.deepEqual([alDia?.titular, alDia?.detalle], ['Al día', '$800/mes · próxima el 05/11']);
+  assert.deepEqual([alDia?.titular, alDia?.detalle], ['Al día', '$800/mes · próxima el 5 de noviembre']);
   const atrasada = estado({ tipo: 'suscripcion', mensualidad: 800, fechaCierre: '2026-08-05', pagos: [cuota({ numero: 1, monto_usd: 800, pagado: true, fecha_pago: '2026-08-05' })] });
   assert.deepEqual([atrasada?.titular, atrasada?.accion?.tipo], ['Falta registrar 2 meses', 'registrar-mes']);
   const nueva = estado({ tipo: 'suscripcion', mensualidad: 800, fechaCierre: '2026-10-16', pagos: [] });

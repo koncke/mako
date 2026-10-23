@@ -250,7 +250,7 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
 }
 
 /** Las IA de la cascada barata: las que MaKo usa con las keys del negocio (`provsDe`, lib/ai-cheap.ts). */
-const IA_DE_LA_CASCADA: ReadonlySet<string> = new Set<ProvName>(['gemini', 'groq', 'cerebras', 'mistral', 'openrouter', 'openai']);
+const IA_DE_LA_CASCADA: ReadonlySet<string> = new Set<ProvName>(['gemini', 'groq', 'openai']);
 
 /**
  * ¿Qué tiene de SUYO el negocio en esta IA? Con las MISMAS lecturas que la usan, para que la tarjeta no pueda decir
@@ -268,6 +268,9 @@ async function iaDelNegocio(key: string, envBase: string | undefined): Promise<{
   if (await esNegocioDelEntorno(ws)) return { fila: false, propia: false, delEntorno: true };
   const wsSA = await wsSuperAdmin().catch(() => null);
   if (ws == null || wsSA == null || ws === wsSA) return null;
+  // Con el crédito de Claude que le asignó Martín, prendido (lib/credito-negocio.ts; el ws1, 22/10/2026): su Claude anda, y la
+  // tarjeta no dice «la de MaKo» por la copia que quedó en su fila.
+  if (key === 'anthropic' && (await (await import('./credito-negocio')).claveDelCreditoAsignado(ws))) return { fila: true, propia: true };
   const fila = (await credDelCliente(envBase, ws))?.trim() ?? '';
   if (key === 'anthropic') {
     if (!fila) return { fila: false, propia: false };

@@ -28,13 +28,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Button, Mako, Spinner } from '@/app/_ui';
-import { MakoLogo, MakoStar } from '@/app/_components/MakoBrand';
-import { MakoChat } from '@/app/_components/MakoChat';
-import { useCapaModal } from '@/app/_components/pila-modales';
+import { MakoStar } from '@/app/_components/MakoBrand';
 import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BotonMako } from '@/app/_ui/BotonMako';
-import { BotonCerrar, RADIO_CAJA } from '@/app/_ui/BotonBorrar';
-import { Capa } from './piezas';
+import { RADIO_CAJA } from '@/app/_ui/BotonBorrar';
+import { preguntarDelGrafico } from './pregunta-grafico';
+import { CONECTA_TU_IA, FALTA_TU_IA } from '@/lib/ia-mensajes';
 import { Dropdown } from '@/app/components/Dropdown';
 import { esGrafico, tituloDe, type Hoja, type VistaValores } from '@/lib/graficos-catalogo';
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
@@ -140,7 +139,8 @@ export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista, onModo }: {
   // La hoja cuyo estado ya sembró la selección y el horario: se siembra UNA vez, y después manda la persona.
   const sembrada = useRef<string | null>(null);
   const ahora = useAhora(30_000);
-  // «Conectar una IA» abre el modal de Gemini AHÍ (regla del 14/10/2026: conectar una integración nunca saca de la tab).
+  // «Conecta tu Claude o tu GPT» abre el modal de su Claude AHÍ (regla del 14/10/2026: conectar una integración nunca saca de
+  // la tab). Desde el 22/10/2026 (IA9, TB3) es la IA del cliente: antes pedía «una IA gratis» y abría Gemini.
   // Conectada, el panel vuelve a ofrecer «Analizar»: el próximo pedido es el que confirma si hay IA.
   const integracion = useConectarIntegracion({ onConectado: () => setIa({ ok: true, mensaje: null }) });
 
@@ -248,7 +248,8 @@ export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista, onModo }: {
   return (
     // Escape cierra SÓLO con el foco adentro del panel: no es un modal, y la grilla de al lado tiene sus
     // propios Escape. Un desplegable abierto adentro se come el suyo antes (Dropdown corta en captura).
-    <aside className="an" aria-label="AI Analyst" onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onCerrar(); } }}>
+    // Un <section> y no un <aside>: la barra de la agencia le fuerza a todo <aside> el alto de la ventana (app/globals.css).
+    <section role="complementary" className="an" aria-label="AI Analyst" onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onCerrar(); } }}>
       <style>{CSS + CSS_MODOS_MAKO}</style>
       <div className="an-cab">
         <MakoStar size={16} animate={corriendo} />
@@ -264,7 +265,7 @@ export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista, onModo }: {
 
         {!cargando && !ia.ok && !corriendo && (
           <Mako estado="sin_conclusion" titulo="Falta conectar una IA" consecuencia={ia.mensaje ?? 'Sin IA conectada no puedo analizar la hoja.'}
-            datos={[{ k: 'Qué falta', v: 'Una IA gratis (con Gemini alcanza)' }]} accion={{ label: 'Conectar una IA', onClick: () => integracion.abrir('gemini') }} />
+            datos={[{ k: 'Qué falta', v: FALTA_TU_IA }]} accion={{ label: CONECTA_TU_IA, onClick: () => integracion.abrir('anthropic') }} />
         )}
         {integracion.modal}
 
@@ -403,7 +404,7 @@ export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista, onModo }: {
           </div>
         )}
       </section>
-    </aside>
+    </section>
   );
 }
 
@@ -528,67 +529,18 @@ export function LogoMako({ lado = 22 }: { lado?: number }) {
 }
 
 /**
- * El chat de MaKo de un gráfico (el de las tabs viejas), con el botón CHICO: sólo el logo sobre negro
- * (`BotonMako`), sin texto — punto 3 de la tanda de la topbar: «Los botones de MaKo deben ser más pequeños
- * y sutiles, solo el logo con el fondo negro, nada más». Lo que hace va en el `title` y el `aria-label`.
+ * El botón de MaKo de un gráfico, CHICO: sólo el logo sobre negro (`BotonMako`), sin texto — punto 3 de la tanda de la
+ * topbar: «Los botones de MaKo deben ser más pequeños y sutiles, solo el logo con el fondo negro, nada más». Lo que hace va
+ * en el `title` y el `aria-label`.
  *
- * ⚠️ Es una VARIANTE LOCAL, no un cambio a `MakoButton` (app/_components/ChartIA.tsx): ése lo usan el Ads
- *    Manager y Marketing, que no pidieron nada. El modal es el mismo: el chat con el gráfico aislado.
- * ⚠️ La capa va por PORTAL (`Capa`, ./piezas.tsx): la tarjeta recorta (`overflow: hidden`) y un
- *    portal de React sigue burbujeando hasta la tarjeta (un clic la seleccionaría y un mousedown la
- *    arrastraría): `Capa` frena los eventos y lleva la clase de no arrastrar.
+ * Desde el 22/10/2026 (TB3) le PREGUNTA A LA ESTRELLA de la tab (./pregunta-grafico.ts): el gráfico viaja al Cerebro de la
+ * persona, en el panel de la izquierda. Hasta ese día abría un modal con su chat propio (`MakoChat`, /api/chart-insights);
+ * esas charlas siguen en el Ops Center como «de antes».
+ * ⚠️ Es una VARIANTE LOCAL, no un cambio a `MakoButton` (app/_components/ChartIA.tsx): ése lo usan el Ads Manager y
+ *    Marketing. `chartKey` y `sugerencias` quedan en la firma: la tarjeta los sigue pasando (EditorInforme.tsx).
  */
-export function ChatMakoGrafico({ chartKey, titulo, contexto, sugerencias }: { chartKey: string; titulo: string; contexto: string; sugerencias?: string[] }) {
-  const [abierto, setAbierto] = useState(false);
-  const cerrar = useCallback(() => setAbierto(false), []);
-  return (
-    <>
-      <BotonMako lado={26} title="Conclusiones con MaKo" encendido={abierto} onClick={() => setAbierto(true)} />
-      {abierto && <Capa><CapaChatMako chartKey={chartKey} titulo={titulo} contexto={contexto} sugerencias={sugerencias} onCerrar={cerrar} /></Capa>}
-    </>
-  );
-}
-
-/**
- * El chat de MaKo de un gráfico abierto DESDE AFUERA del botón (el clic derecho, «Preguntarle a MaKo»): el mismo modal,
- * con quien lo abre dueño de cuándo se cierra.
- */
-export function ChatMakoAbierto(p: { chartKey: string; titulo: string; contexto: string; sugerencias?: string[]; onCerrar: () => void }) {
-  return <Capa><CapaChatMako {...p} /></Capa>;
-}
-
-/** El modal del chat: en la pila de capas (su z y su Escape, que frena a los demás). */
-function CapaChatMako({ chartKey, titulo, contexto, sugerencias, onCerrar }: { chartKey: string; titulo: string; contexto: string; sugerencias?: string[]; onCerrar: () => void }) {
-  const capa = useCapaModal(true);
-  const esArriba = capa.esElDeArriba;
-  useEffect(() => {
-    const tecla = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || !esArriba()) return;
-      e.stopImmediatePropagation();
-      e.preventDefault();
-      onCerrar();
-    };
-    document.addEventListener('keydown', tecla, true);
-    return () => document.removeEventListener('keydown', tecla, true);
-  }, [esArriba, onCerrar]);
-  return (
-    <div role="dialog" aria-modal="true" aria-label={`Conclusiones con MaKo: ${titulo}`} onClick={onCerrar}
-      style={{ ...FONDO_CHAT, zIndex: capa.z, display: capa.visible ? 'flex' : 'none' }}>
-      <div onClick={(e) => e.stopPropagation()} style={CAJA_CHAT}>
-        <div style={CAB_CHAT}>
-          <MakoLogo size={30} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, color: 'var(--dim)' }}>Conclusiones con MaKo</div>
-            <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{titulo}</div>
-          </div>
-          <BotonCerrar onClick={onCerrar} />
-        </div>
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <MakoChat chartKey={chartKey} titulo={titulo} contexto={contexto} sugerencias={sugerencias?.length ? sugerencias : undefined} sidebar />
-        </div>
-      </div>
-    </div>
-  );
+export function ChatMakoGrafico({ titulo, contexto }: { chartKey: string; titulo: string; contexto: string; sugerencias?: string[] }) {
+  return <BotonMako lado={26} title="Conclusiones con MaKo" encendido={false} onClick={() => preguntarDelGrafico({ titulo, contexto })} />;
 }
 
 const PUNTO: CSSProperties = {
@@ -600,22 +552,16 @@ const CUADRO_MAKO: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxSizing: 'border-box',
   borderRadius: RADIO_CAJA, border: '1px solid rgba(201,162,74,.45)', background: 'linear-gradient(135deg, #2A251C, #171511)',
 };
-const FONDO_CHAT: CSSProperties = {
-  position: 'fixed', inset: 0, alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto',
-  background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', fontFamily: "'Geist', system-ui, sans-serif",
-};
-const CAJA_CHAT: CSSProperties = {
-  width: '100%', maxWidth: 940, height: 'calc(100dvh - 80px)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)',
-};
-const CAB_CHAT: CSSProperties = { flex: 'none', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderBottom: '1px solid var(--border)' };
 const CAMPO: CSSProperties = { height: 32, padding: '0 10px', borderRadius: 8, gap: 6, fontSize: 13 };
 
 // ⚠️ SUPERPUESTO, COMO EL PANEL DE PROPIEDADES (tanda v5, punto 19: «que no empuje el lienzo»). Hasta v4 era una
 // COLUMNA de la fila del lienzo (`.lk-cuerpo`, un flex en fila): al abrirlo, el lienzo perdía 360 px, la grilla
 // recibía otro `width` y TODAS las tarjetas se re-maquetaban (los gráficos que el análisis comenta cambiaban de
-// tamaño al abrirlo). Ahora flota arriba de la grilla, pegado a la derecha y con su sombra: tapa sus últimos 360 px
-// y la grilla no se entera. Antes de v4 había sido `fixed` (montado al final de `.lk-app`, una COLUMNA): eso tapaba
+// tamaño al abrirlo). Ahora flota arriba de la grilla, con su sombra: tapa 360 px
+// y la grilla no se entera. ⚠️ Desde el 22/10/2026 (TB3) va a la IZQUIERDA (Martín, 21/10: «el chat de MaKo en las otras
+// tabs se debe abrir siempre a la izquierda»): tapa los primeros 360 px. El editor le deja a la estrella su lugar con
+// `--ancho-panel-mako` (editor-css.ts), así que abierta la estrella, este panel queda a su derecha; y cerrada, el panel
+// arranca a 84 px para no quedar debajo de su botón (56 px, fijo a 16 px del borde de la barra: tapaba la caja). Antes de v4 había sido `fixed` (montado al final de `.lk-app`, una COLUMNA): eso tapaba
 // también la topbar. `absolute` contra `.lk-cuerpo` (que tiene que ir `position: relative`: lo pone P5 para el panel
 // de propiedades) lo deja entre la barra de edición y el borde de abajo, quieto mientras la grilla scrollea (no va
 // adentro de `.lk-lienzo`, que es lo que scrollea).
@@ -625,7 +571,7 @@ const CAMPO: CSSProperties = { height: 32, padding: '0 10px', borderRadius: 8, g
 //   · En el celular (≤ 760 px) va encima a pantalla completa, fixed: al lado no entra.
 //   · al imprimir no sale: `.lk-app *` se fuerza visible para el PDF, y el panel no es parte del informe.
 const CSS = `
-.an { flex: none; position: absolute; top: 12px; right: 12px; bottom: 12px; z-index: 21; width: 360px; max-width: calc(100% - 24px);
+.an { flex: none; position: absolute; top: 12px; left: 84px; bottom: 12px; z-index: 21; width: 360px; max-width: calc(100% - 96px);
   box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column;
   background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 14px;
   box-shadow: 0 18px 44px rgba(18,21,27,.18); font-family: 'Geist', system-ui, sans-serif; }
@@ -660,7 +606,7 @@ const CSS = `
 .an-fila { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .an-checks { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
 .an-check { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.35; color: var(--ink); cursor: pointer; }
-@media (max-width: 760px) { .an { position: fixed; top: var(--barra-agencia, 0px); right: 0; bottom: 0; z-index: 56; width: 100%; max-width: 100vw; border: none; border-radius: 0; box-shadow: none; } }
+@media (max-width: 760px) { .an { position: fixed; top: var(--barra-agencia, 0px); left: 0; right: 0; bottom: 0; z-index: 56; width: 100%; max-width: 100vw; border: none; border-radius: 0; box-shadow: none; } }
 `;
 
 /** El marco del panel lateral (`.an`, el de arriba): lo comparte «Editar con MaKo» (./PanelEditarMako.tsx). */

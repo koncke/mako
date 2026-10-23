@@ -37,6 +37,7 @@ import { REENTRADAS, ROTULO_REENTRADA, type Reentrada } from '@/lib/reentrada';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import type { ListoCrearIA } from './CrearConIA';
 import { ChatMako } from './ChatMako';
+import type { FinIA } from './stream-ia';
 import Link from '@/app/_ui/Link';
 import { textoPorAprobar, dejaBorradores, POR_QUE_SE_APRUEBAN, POR_QUE_CORTO, RUTA_APROBAR } from '@/lib/mensajes-por-aprobar';
 import { duplicadaDe, duplicadaAlActivar, avisoDuplicada } from '@/lib/automatizacion-duplicada';
@@ -97,14 +98,17 @@ const ALTO_ACCION = 44;
  * en el muelle de «Probar» y se abría con el logo de MaKo. Hasta el 22/10/2026 la capa iba de la sidebar para la derecha
  * (`insetIzq`) y la barra de la app quedaba sin tapar.
  *
- * LA CAPA DE «MaKo trabajando» TAPA TODA LA PANTALLA (22/10/2026, Martín: «No me gusta que quede blureado, tipo opaco solo una
- * parte del lienzo, debería quedar todo, incluso atrás de la sidebar, todo»). Por encima de la barra lateral de la app (z 60,
- * app/_components/Sidebar.tsx) y por debajo de la lista flotante con el chat, que sube a `Z_CHAT_ENCIMA` mientras tanto
- * (SimuladorWhatsApp.tsx).
+ * LA CAPA DE «MaKo trabajando» TAPA TODO EL LIENZO, PERO NO LA BARRA DE LA APP. La primera mañana del 22/10/2026 Martín
+ * pidió que tapara «todo, incluso atrás de la sidebar» y fue por ENCIMA de la barra de la app (z 61). Esa misma noche,
+ * mirando #289: «cuando está ejecutando algo, no debe deshabilitarme la navegación de la sidebar principal... Se debe
+ * ejecutar en segundo plano. Si está bien que deshabilite la edición del lienzo». Queda a pantalla completa (también detrás
+ * de la lista con el chat) y DEBAJO de la barra de la app (z 60, app/_components/Sidebar.tsx), que sigue nítida y se toca:
+ * irse a otra tab no corta el turno (app/automations/stream-ia.ts). Encima de «Publicar» (`Z_ACCION_LIENZO`, 57); la lista
+ * flotante con el chat sube a `Z_CHAT_ENCIMA` mientras tanto (SimuladorWhatsApp.tsx).
  */
-export const Z_CAPA_MAKO = 61;
-/** La lista flotante con el chat de MaKo, mientras MaKo trabaja: encima de la capa. */
-export const Z_CHAT_ENCIMA = 62;
+export const Z_CAPA_MAKO = 58;
+/** La lista flotante con el chat de MaKo, mientras MaKo trabaja: encima de la capa y debajo de la barra de la app. */
+export const Z_CHAT_ENCIMA = 59;
 
 const tarjetaChrome: CSSProperties = {
   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11,
@@ -149,19 +153,6 @@ export const TITULO_TUERCA = 'Configuraciones de esta automatización';
  * LA TUERCA DEL TÍTULO (20/10/2026), en el lugar del logo de MaKo y con su MISMA cara (`tarjetaChrome`, el lado del título):
  * abre Configuraciones de ESTA automatización.
  */
-/** «Activa» o «Pausada · no sale nada», al lado del título (el interruptor sigue en el pie). */
-export function EstadoDeLaAutomatizacion({ activa }: { activa: boolean }) {
-  return (
-    <span data-estado-automatizacion={activa ? 'activa' : 'pausada'} role="status"
-      title={activa ? 'Le escribe a quien entra' : 'No le sale nada a nadie hasta que la actives: cada lead espera en su paso'}
-      style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 10px', borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-        background: activa ? 'color-mix(in srgb, var(--good) 14%, transparent)' : 'var(--surface-2)', color: activa ? 'var(--good)' : 'var(--dim)', border: `1px solid ${activa ? 'color-mix(in srgb, var(--good) 35%, transparent)' : 'var(--border)'}` }}>
-      {activa
-        ? <><span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--good)' }} />Activa</>
-        : <><span aria-hidden>⏸</span>Pausada · no sale nada</>}
-    </span>
-  );
-}
 
 export function BotonTuerca({ onClick, lado }: { onClick: () => void; lado: number }) {
   return (
@@ -642,6 +633,22 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     const res = resumenAvisos(r.avisos);
     if (res && r.modo === 'crear') { setErr(res.texto); setAvisosIA(res); }
     return true;
+  };
+
+  /**
+   * MaKo TERMINÓ CON ESTA AUTOMATIZACIÓN CERRADA (22/10/2026, «Se debe ejecutar en segundo plano»): la persona se fue a
+   * otra tab u otra automatización. Lo que armó va al BORRADOR por la MISMA acción que el lienzo (`action: 'borrador'`, con
+   * la base que esta pestaña abrió y `keepalive`), y la lista se relee: al volver, el lienzo abre con eso, sin publicar.
+   * Crear ya lo guardó la ruta; una respuesta sin cambios (`edicionTocaPasos`) no toca nada. Sin `setState`: está desmontado.
+   */
+  const guardarSinVer = (f: FinIA) => {
+    if (f.t !== 'listo') return;
+    if (f.listo.etiquetasNuevas.length) avisarCambioEtiquetas();
+    if (f.listo.modo !== 'editar' || !edicionTocaPasos(f.listo)) { onListaCambio?.(); return; }
+    void fetch('/api/chat-agent/secuencias', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({ secuenciaId: secuencia.id, action: 'borrador', pasos: renumerar(f.listo.pasos as PasoSecuenciaDto[]), base: secuencia.base }),
+    }).then(() => onListaCambio?.()).catch(() => {});
   };
 
   /** EL CHOKE POINT: todo cambio del lienzo pasa por acá (y por eso todo se deshace). */
@@ -1221,7 +1228,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           <ChatMako secuenciaId={secuencia.id} pasos={pasos} publicadas={secuencia.pasos?.length ?? 0} onListo={alListoIA}
             onVolver={onVolverALista}
             onTrabajando={setChatTrabajando} pedidoInicial={pedidoPendiente} onPedidoInicialUsado={() => setPedidoPendiente(null)}
-            nombre={secuencia.nombre ?? ''} onCrearOtra={onCrearOtra} onListaCambio={onListaCambio} nota={notaChat} />
+            nombre={secuencia.nombre ?? ''} onCrearOtra={onCrearOtra} onListaCambio={onListaCambio} nota={notaChat}
+            alTerminarSinVer={guardarSinVer} />
         </div>,
         ranuraChat,
       )}
@@ -1292,11 +1300,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             {Configuraciones && (
               <BotonTuerca lado={ALTO_ACCION} onClick={() => setConfigAbierta(true)} />
             )}
-            {/* EL ESTADO, A LA VISTA (22/10/2026, Martín: «se puede pausar el envío desde Automations»). Hasta acá una pausada se
-                notaba sólo por el gris de la fila y por el «Activar» del pie, que en una pantalla baja queda abajo de todo. Pausada
-                = el motor congela su cola (lib/nutricion.ts, `idsDePausadas`) y aprobar sus borradores no los manda
-                (lib/borrador-camino.ts): no sale nada. */}
-            <EstadoDeLaAutomatizacion activa={activa} />
+            {/* SIN CHIP DE ESTADO (22/10/2026, Martín: «elimina el texto "Pausada, no sale nada", eso es completamente innecesario... Para
+                eso ya tenemos el "ACTIVAR" de abajo»): el estado lo dice sólo el interruptor «Activar» del pie. */}
 
             {configAbierta && Configuraciones && <Configuraciones secuenciaId={secuencia.id} nombre={nombre || secuencia.nombre} onCerrar={cerrarConfig} />}
             {avisoProspeccion && (

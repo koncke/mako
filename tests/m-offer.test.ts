@@ -319,13 +319,12 @@ test('la nota de voz: nada sale al soltar — ✓ termina, se escucha, y recién
   assert.doesNotMatch(src, /useVoiceRecorder/, 'el grabador que entrega al parar manda la nota sin escucharla');
   assert.doesNotMatch(src, /\.stop\(/, 'parar el grabador a mano entrega el blob');
   assert.doesNotMatch(src, /onAudio\(/, 'onAudio sólo lo llama la sesión, desde su enviar');
-  assert.match(src, /const voz = useGrabacionVoz\(onAudio, /);
-  const grabando = bloque(src, '{grabando ? (', ') : revision ? (');
-  assert.match(grabando, /onClick=\{\(\) => \{ haptico\('light'\); voz\.terminar\(\); \}\}/, 'el ✓ de la barra termina');
-  const escuchar = bloque(src, ') : revision ? (', ') : audioEnEspera ? (');
-  assert.match(escuchar, /<EscucharNota url=\{revision\.url\} secs=\{revision\.secs\} \/>/, 'antes de mandar se escucha');
-  assert.match(escuchar, /onClick=\{\(\) => \{ void voz\.enviar\(\); \}\}>\{ROTULOS\.enviarAudio\}/);
-  assert.equal([...src.matchAll(/voz\.enviar\(/g)].length, 1, 'la nota sale por UN solo botón: el de la fila de escuchar');
+  // Desde el 22/10/2026 (OF4) graba la caja única: su barra termina, deja escuchar y recién ahí manda (la fija
+  // tests/chat-unico.test.ts, 5). Acá, que el teléfono no arme otra grabación y le pase la suya a la caja.
+  assert.doesNotMatch(src, /useGrabacionVoz|voz\.enviar\(/, 'una grabación propia, al lado de la de la caja');
+  assert.match(src, /<CajaChat [\s\S]{0,600}voz=\{\{\n\s*onAudio, onError: errorDeVoz, rotuloEnviar: ROTULOS\.enviarAudio, apagada: ocupado \|\| !enLinea,/);
+  assert.match(src, /pendiente: audioEnEspera \? \{ url: audioEnEspera\.url, secs: audioEnEspera\.secs, onBorrar: onDescartarAudio, onDejar: onReenviarAudio \} : null,/,
+    'la que no salió vuelve a la barra, para escucharla y reintentar');
 });
 
 test('portal y página: la franja va a #m-pie, la página monta PantallaM con el guard de su key', () => {

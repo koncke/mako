@@ -13,6 +13,10 @@
 // de "pregunta de los chats", para eso tenemos en cada chat la notif de "Espera tu respuesta"». El mazo y la lista de las
 // preguntas de los chats ya NO se dibujan acá: se contestan en el chat que las hizo (Pregunta.tsx). Un link viejo con
 // `?ticketera=tarjetas|lista` abre los tickets (tests/centro-ops6.test.ts).
+//
+// 22/10/2026 (Martín, desde el teléfono: «vuelva la vista de tarjetas y el desplazamiento tipo tinder... si quiero elegir
+// la vista tabla también»): la bandeja es un MAZO para deslizar o una TABLA, a elección (app/tickets/bandeja/MazoTickets.tsx
+// y TablaTickets.tsx). Este panel sólo le da la cabecera; los cortes los decide el ancho del PANEL, no el de la ventana.
 
 import { Icon } from '@/app/_components/icons';
 import { BandejaTickets } from '@/app/tickets/bandeja/BandejaTickets';

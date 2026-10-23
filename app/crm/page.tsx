@@ -63,7 +63,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   // hacer es quitar eso… tengo que quitar toda la fricción que hay en el CRM y que se entre
   // automáticamente»; y el que probaba: «no entiendo nada, siento que es mucho texto».
   // Un CRM vacío NO es una bienvenida muerta: los leads se cargan a mano, se importan o
-  // entran desde WhatsApp, y el tablero ya tiene el «＋ Nuevo lead» en cada columna.
+  // entran desde WhatsApp, y el tablero tiene «+ Nuevo lead» en la barra (y en el «⋯» de cada columna, desde el 21/10).
   // Lo que el panel decía (qué conectar para que entren solos) sigue en TABS_ACTIVACION.crm
   // (lib/tab-activacion.ts), que es lo que MaKo contesta cuando se lo preguntan
   // (ver_activacion_tab); lo fija tests/crm-entra-directo.test.ts.
@@ -219,6 +219,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     company: j.empresa ?? 'Sin empresa',
     phone: telById.get(j.lead_id) ?? '—',
     goal: j.respuestas.objetivo ?? '—',
+    cual: j.tipo === 'J1' ? 'R1' : 'R2',
+    fecha: j.fecha,
+    dia: j.dia,
+    at: j.at ?? null,
+    url: j.url ?? null,
+    facturacion: j.respuestas.facturacion ?? null,
   }));
 
   const marcar: CrmMarcar[] = pendientesRaw.map((p) => ({
@@ -260,6 +266,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       puedeCrearCrm={puedeCrearCrm}
       camposTarjeta={camposTarjeta.campos}
       disenoTarjeta={camposTarjeta.diseno}
+      plantillasTarjeta={camposTarjeta.plantillas}
       camposGuardables={camposTarjeta.guardable}
     />
     <PanelMakoCrm funnelId={funnelId} />

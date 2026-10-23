@@ -48,8 +48,9 @@ test('cada lectura exige sesión y lee con el workspace', () => {
   // tests/crm-acciones-sesion.test.ts (`if (!(await haySesion())) return …`), y la validación del id después. Sigue sin
   // tirar: `haySesion` atrapa y devuelve false. Probado rompiéndolo: sin el corte en la primera acción → 3 / 2.
   const fns = [...acc.matchAll(/export async function (\w+)\(leadId: number\)[^\n]*\{\n\s*if \(!\(await haySesion\(\)\)\) return null;\n\s*if \(!idValido\(leadId\)\) return null;/g)].map((m) => m[1]);
-  assert.equal(fns.length, 7, `las siete acciones cortan sin sesión; vi ${fns.join(', ')}`);
-  assert.equal((acc.match(/^export async function /gm) ?? []).length, 7, 'una acción nueva sin el corte');
+  // Seis desde el 22/10/2026: «en qué automatizaciones está» se mudó a Automations (con el paso y «Frenar»).
+  assert.equal(fns.length, 6, `las seis acciones cortan sin sesión; vi ${fns.join(', ')}`);
+  assert.equal((acc.match(/^export async function /gm) ?? []).length, 6, 'una acción nueva sin el corte');
   assert.doesNotMatch(acc, /getSupabaseServer|createClient\(/, 'la lectura tiene que ir por getTenantDb (el workspace del que mira)');
 });
 

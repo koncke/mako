@@ -63,7 +63,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     // 100vh incluye la barra del navegador y la de escribir quedaría debajo de ella.
     // Menos la barra de secciones (app/_components/SeccionesTab.tsx): el super admin la ve desde el 17/10/2026 (Strategy y
     // Playbook son secciones de Offer).
-    <Pagina densidad="compacta" style={{ flex: 'none', height: 'calc(100dvh - var(--alto-secciones, 0px))', overflow: 'hidden', display: 'flex', flexDirection: 'column', paddingBottom: 14 }}>
+    // Y menos la barra de ARRIBA (`--barra-agencia`: la de «Estás viendo el dashboard de…», 50 px, o la alerta de la voz de MaKo
+    // caída, 64 px, que ve también un cliente). La regla global de app/globals.css sólo corrige un estilo que EMPIEZA con
+    // `height: 100dvh`, y éste empieza con `calc(`: medido el 22/10/2026 (caso de uso de OF4), la página quedaba 50 px más
+    // alta que la ventana y la caja de escribir, debajo del borde.
+    <Pagina densidad="compacta" style={{ flex: 'none', height: 'calc(100dvh - var(--alto-secciones, 0px) - var(--barra-agencia, 0px))', overflow: 'hidden', display: 'flex', flexDirection: 'column', paddingBottom: 14 }}>
       <OfferApp
         arbolInicial={leido.arbol}
         sesionInicial={sesion}

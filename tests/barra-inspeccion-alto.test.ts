@@ -116,3 +116,46 @@ test('6. las barras de lote del Plan y de Customer Success: debajo de la barra e
   }
   assert.equal(cuenta(leer('app/plan/board/BoardShell.tsx'), "top: 'calc(66px + var(--pegado-arriba, 0px))'"), 1, 'la segunda barra del Kanban (66)');
 });
+
+test('7. una pantalla con un alto `calc(100vh - …)` o `calc(100dvh - …)` en línea descuenta la barra ella misma', async () => {
+  // 22/10/2026 (el caso de uso de OF4, medido en /offer): la regla de app/globals.css sólo reconoce un alto en línea que
+  // EMPIEZA con `height: 100vh` o `height: 100dvh`. Un `calc(100dvh - var(--alto-secciones, 0px))` se le escapa: con la
+  // barra (50 px) o la alerta de la voz caída (64, la ve también un cliente), la página quedaba más alta que la ventana y
+  // lo de abajo (la caja de escribir) debajo del borde. Así estaban Offer, Image Editor y Video Editor.
+  // Roturas (arnés `romper-barra.mjs` del scratchpad de la sesión de Offer, base 26/0): Offer sin el descuento → 2 fallos
+  // (éste y tests/offer-hilo-unico.test.ts, 5) · el editor de video → 2 (éste y tests/video-editor-sidebar.test.ts) · el
+  // inicio del Image Editor → 1.
+  const { execFileSync } = await import('node:child_process');
+  const paginas = execFileSync('git', ['ls-files', 'app'], { cwd: RAIZ, encoding: 'utf8' }).split('\n').filter((f) => /\/page\.tsx$/.test(f));
+  assert.ok(paginas.length > 50, `revisé ${paginas.length} páginas: la lista no puede venir vacía`);
+  const sinDescontar: string[] = [];
+  for (const f of paginas) {
+    for (const m of leer(f).matchAll(/height: ['`](calc\(100d?vh\b[^'`]*)['`]/g)) {
+      if (!m[1].includes('--barra-agencia')) sinDescontar.push(`${f}: ${m[1]}`);
+    }
+  }
+  assert.deepEqual(sinDescontar, [], 'restale `var(--barra-agencia, 0px)` al alto');
+});
+
+test('8. el `min-height` también descuenta la barra: el contenedor raíz no estira la página, y el menú de la sidebar scrollea adentro', () => {
+  // 22/10/2026, MEDIDO en producción por CRM y repetido en el CRM del ws3 (ventana de 811, con la barra): la sidebar ya
+  // descontaba la barra y su menú scrolleaba adentro (608 px de contenido en 548), pero el contenedor raíz de app/layout.tsx
+  // (`minHeight: '100vh'`) dejaba el documento en 860. Con la regla de `min-height` inyectada en esa pestaña: 811, y el raíz y
+  // el `main` en 761. Roturas (arnés `romper-barra.mjs`): sin la regla de `min-height: 100vh` → 1 · sin la escritura del
+  // server («min-height:100vh») → 1 · el raíz con `minHeight: '100vh'` → 1 · el menú sin su scroll → 1.
+  const css = sinComentariosCss(leer('app/globals.css'));
+  for (const [unidad, valor] of [['100vh', 'calc(100vh - var(--barra-agencia))'], ['100dvh', 'calc(100dvh - var(--barra-agencia))']] as const) {
+    const r = regla(css, `[data-barra-agencia] [style^="min-height: ${unidad}"]`);
+    for (const atributo of ['data-barra-agencia', 'data-alerta-voz']) {
+      for (const forma of [`[style^="min-height: ${unidad}"]`, `[style*=" min-height: ${unidad}"]`, `[style^="min-height:${unidad}"]`, `[style*=";min-height:${unidad}"]`]) {
+        assert.ok(r.includes(`[${atributo}] ${forma}`), `falta «[${atributo}] ${forma}»`);
+      }
+    }
+    assert.ok(r.includes(`min-height: ${valor} !important;`), `la regla de min-height ${unidad} no descuenta la barra`);
+  }
+  assert.match(leer('app/layout.tsx'), /const rootStyle: CSSProperties = \{\n {2}minHeight: 'calc\(100vh - var\(--barra-agencia, 0px\)\)',/,
+    'el contenedor raíz estira la página con la barra');
+  // El menú de la sidebar scrollea ADENTRO de la sidebar (que ya mide la ventana menos la barra: regla de arriba, 2).
+  assert.match(leer('app/_components/Sidebar.tsx'), /<nav className="mk-scroll-oscuro" style=\{\{ display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto', overflowX: 'hidden' \}\}>/,
+    'el menú de la sidebar sin su scroll: estira la sidebar');
+});

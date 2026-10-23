@@ -312,8 +312,11 @@ export async function POST(req: NextRequest) {
         // Cada intento del modelo pasa por la misma revisión (lib/flujo-ia-revision-editar.ts, la prueban sus tests con la
         // respuesta grabada): en «Editar» contestar sin cambiar es un error salvo lo que vale (`errorDeRespuestaEnEditar`);
         // pedir SUMAR y cambiar lo que había, también; y «hazlo» con lo pedido ya hecho se contesta en vez de «No cambió nada».
+        // Y EL CONTROL DE LO PEDIDO (22/10/2026, Martín: «creó a la mitad las cosas que le pedí»): lo pegado entre comillas que
+        // no quedó en el flujo es un error la PRIMERA vez (`control`, uno por turno) y después se dice en ROJO (`noHecho`).
+        const control = { yaPidioLoQueFalta: false };
         const traducir = (obj: Record<string, unknown>): { r: ResultadoEdicion; errores: string[] } =>
-          revisarEdicion({ obj, base, ctx, pedido, historial, intencion });
+          revisarEdicion({ obj, base, ctx, pedido, historial, intencion, control });
 
         send({ t: 'fase', fase: 'modelo' });
         const g = await generar({
@@ -347,11 +350,14 @@ export async function POST(req: NextRequest) {
         }
         const agregadas = new Set(r.agregadas);
         const ordenados = ordenarAvisos(avisos);
-        const resumen = r.resumen || (disparadores ? 'Cambié qué la dispara' : r.pregunta ? '' : 'Listo');
+        // Lo pedido que no se hizo va aparte, en rojo (`noHecho`): con algo ahí, nunca «Listo».
+        const noHecho = r.noHecho ?? [];
+        const resumen = r.resumen || (disparadores ? 'Cambié qué la dispara' : r.pregunta ? '' : noHecho.length ? 'No pude hacer todo lo que pediste' : 'Listo');
         const texto = [resumen, r.pregunta?.texto].filter(Boolean).join('. ');
         await anotar([mensajeChat('mako', texto, 'app', {
           avisos: ordenados, cambios: { cambiadas: r.cambiadas.length, quitadas: r.quitadas.length, agregadas: r.agregadas.length },
           ...(r.pregunta ? { pregunta: r.pregunta } : {}),
+          ...(noHecho.length ? { noHecho } : {}),
         })]);
         send({
           t: 'listo', modo, secuenciaId: secuenciaId!, pasos, nombre: nombreSec,
@@ -359,6 +365,7 @@ export async function POST(req: NextRequest) {
           resumen, cambiadas: r.cambiadas, quitadas: r.quitadas,
           ...(r.pregunta ? { pregunta: r.pregunta } : {}),
           ...(disparadores ? { disparadores } : {}),
+          ...(noHecho.length ? { noHecho } : {}),
         });
       } catch (err) {
         console.error(`[api:secuencias/ia] ${msg(err)}`);

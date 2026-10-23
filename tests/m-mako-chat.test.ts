@@ -35,11 +35,12 @@ const tarjeta = (id: number): TarjetaPendiente => ({
 
 test('leerRespuesta: el 413 de Vercel (texto plano) se dice como «pesa demasiado»', () => {
   const l = leerRespuesta(413, 'Request Entity Too Large');
-  assert.deepEqual(l, { ok: false, error: ERROR_ADJUNTO.pesado, reintentable: true });
+  // Con su status (OC7, 22/10/2026): una nota de voz muy pesada se tira en vez de volver a la barra.
+  assert.deepEqual(l, { ok: false, error: ERROR_ADJUNTO.pesado, reintentable: true, status: 413 });
 });
 
 test('leerRespuesta: un 4xx con su error se puede reintentar; un 500, la red caída o un cuerpo raro, NO', () => {
-  assert.deepEqual(leerRespuesta(400, '{"ok":false,"error":"Escribe algo."}'), { ok: false, error: 'Escribe algo.', reintentable: true });
+  assert.deepEqual(leerRespuesta(400, '{"ok":false,"error":"Escribe algo."}'), { ok: false, error: 'Escribe algo.', reintentable: true, status: 400 });
   const cinco = leerRespuesta(500, '{"ok":false,"error":"Algo falló de nuestro lado."}');
   assert.equal(cinco.ok, false);
   assert.equal(!cinco.ok && cinco.reintentable, false);
@@ -130,14 +131,9 @@ test('cableado: maxDuration 420, ?ws= a mano en el XHR, fetch con corte, nunca �
   // 420 y 425_000 desde la tanda 7 del Web Generator (confirmar replicar_landing por chat): tests/mako-doer-plazo.test.ts.
   assert.match(page, /export const maxDuration = 420;/);
   assert.match(page, /requireMovil\(\{ navKey: 'mako' \}\)/);
-  const chat = sinComentarios(leer('app/m/mako/ChatMako.tsx'));
-  assert.match(chat, /postConProgreso\(conWs\(RUTA, ws\)/);
-  assert.match(chat, /signal: AbortSignal\.timeout\(TOPE_MS\)/);
-  assert.match(chat, /const TOPE_MS = 425_000;/);
-  assert.doesNotMatch(chat, /escribiendo/i);
-  // El plan y el teléfono dictan con el MISMO hook.
+  // El teléfono habla con el motor de la computadora (app/second-brain/useChatCliente.ts, 22/10/2026): su corte va después del
+  // techo de la ruta (tests/mako-doer-plazo.test.ts). El plan dicta con el MISMO hook de siempre.
   assert.match(sinComentarios(leer('app/plan/board/CrearTareaModal.tsx')), /useDictar\(valor, onValor, onError\)/);
-  assert.match(sinComentarios(leer('app/m/mako/Composer.tsx')), /useDictar\(texto,/);
   // /api/plan-dictado devuelve el fallo con 200: se lee j.ok.
   assert.match(sinComentarios(leer('app/_components/useDictar.ts')), /if \(!j\?\.ok\)/);
 });

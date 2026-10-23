@@ -21,14 +21,14 @@ import { sanearVeredictos, transcriptParaCitas, citaVerificada, resumenVeredicto
 
 // Con la fluidez rota del habla real, como las citas del anexo de su documento.
 const TRANSCRIPT = [
-  '[00:41:02] Mauricio Bustos: Voy a mandarles un video sobre el tema de estos, de estos se llama',
-  '[00:41:09] Mauricio Bustos: el cuadrante de los 3X, para que lo vean antes de la próxima.',
+  '[00:41:02] Mauricio Ejemplo: Voy a mandarles un video sobre el tema de estos, de estos se llama',
+  '[00:41:09] Mauricio Ejemplo: el cuadrante de los 3X, para que lo vean antes de la próxima.',
   '[00:52:30] Director: Bueno, hay que, digo, yo se los mando, a mí me interesa que lo revisen',
   '[01:03:11] Director: eso lo ve el contador cuando vuelva',
   // Tal cual la transcribió Fathom en la sesión del anexo (3/9): «sabes qué ver haz», sin la «a».
   '[01:10:02] Director: Mándame tú, a lo mejor un correo donde, ¿sabes qué? ver haz todo este pinche trabajo, Director, y mándamelo',
   '[01:10:09] Director: y yo me voy a poner a chandear y te lo voy a mandar porque es lo que falta',
-  '[01:10:20] Mauricio Bustos: me mandas eso Mauricio, nomás, yo me pongo y te mando toda la información que necesite',
+  '[01:10:20] Mauricio Ejemplo: me mandas eso Mauricio, nomás, yo me pongo y te mando toda la información que necesite',
 ].join('\n');
 const NORM = transcriptParaCitas(TRANSCRIPT);
 

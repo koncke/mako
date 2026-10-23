@@ -15,25 +15,28 @@
 //   · mientras la IA trabaja el input se bloquea con «Espera a que la IA termine» (Gamma §8);
 //   · la respuesta es un CAMBIO PROPUESTO con el toggle «Original | Modificado» y se acepta o
 //     se descarta entera; después de aceptar, «Restaurar» la vuelve atrás.
-// Lo que NO se copia: «Abrir archivos» y los chats guardados del agente (Gamma guarda el
-// historial del chat; acá vive en la memoria de la pestaña, como pidió el diseño: no hay tabla
-// para eso), y la búsqueda en la web.
+// Lo que NO se copia: «Abrir archivos», la lista de chats guardados del agente y la búsqueda en la
+// web. La charla de cada landing SÍ se guarda desde el 22/10/2026 (antes vivía sólo en la memoria
+// de la pestaña): cada turno va a la base con la clave `landing:<id>` y se ve en el Ops Center
+// (../hilo-agente.ts, lib/hilo-de-tab-reglas.ts).
 //
 // ADJUNTAR (⊕), desde el 20/10/2026. El 11/10 no se copió a propósito; en el onboarding de Florencia
 // (llamada de Fathom 864249059, 18/10) ella no pudo darle su documento y el PDF «Lo que vendes» al chat
 // («No me permite») y Martín: «es un error… no te está permitiendo juntar documentos, yo lo voy a
-// solucionar». Son las piezas del Ops Center (un solo chat en toda la app, regla del 18/10): el «+»
-// (`MasCaja`), las miniaturas (`ListaAdjuntos`) y pegar y soltar (`alPegar`, `alSoltar`) de
-// app/admin/operaciones/AdjuntosCaja.tsx. Cada archivo se LEE al entrar (la ruta de Importar) y su
+// solucionar». Son las piezas del Ops Center (un solo chat en toda la app, regla del 18/10): desde el
+// 22/10/2026 (TB3) la caja ES la única (`CajaChat`, con su «+», sus miniaturas y pegar) y el hilo es
+// `HiloMako`, los dos en ./ChatAgente.tsx; soltar sigue siendo de la pantalla (`alSoltar`, pegar.ts).
+// La propuesta, las burbujas de pedidos y los errores entran por el hueco `enMensaje` del hilo
+// (`enMensaje`, abajo). Cada archivo se LEE al entrar (la ruta de Importar) y su
 // texto viaja con el pedido a «editar», que lo pone en el contexto como datos
 // (lib/editor-landing/adjuntos.ts). Si el onboarding dejó «Lo que vendes» en El Archivero, se ofrece
 // como chip. Lo puro (qué entra, qué se avisa, cuándo se manda) está en ../adjuntos-agente.ts.
 // Las piezas toman los colores del editor: CSS_AGENTE redefine sus tokens (--surface, --border…)
 // bajo `.gma-ag` (AGENTS.md, «Una pantalla oscura se hace redefiniendo TOKENS»).
 // ⚠️ ESTE ARCHIVO NO CARGA CSS. Lo importan módulos que cargan los tests (DialogoAnalitica, AskAgent…) y en
-//    node un `.css` no carga: tiró abajo tests/editor-landing-agente.test.ts (20/10/2026). Por eso el «+» y
-//    las miniaturas entran con `next/dynamic` (AdjuntosCaja.tsx trae chat.css), pegar y soltar vienen de
-//    pegar.ts (sin CSS) y centro.css lo importa EditorLanding.tsx, que ya traía gamma.css.
+//    node un `.css` no carga: tiró abajo tests/editor-landing-agente.test.ts (20/10/2026). Por eso el hilo y
+//    la caja (./ChatAgente.tsx, que trae las piezas con su CSS) entran con `next/dynamic`, y soltar viene de
+//    pegar.ts (sin CSS).
 //
 // Además de la pantalla, este archivo EXPORTA lo que comparte con el popover de una sección
 // (AskAgent.tsx) y con el historial y el modo Presentar: el pedido a las rutas, la revisión
@@ -66,7 +69,9 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import type { Editor } from '@tiptap/react';
 import dynamic from 'next/dynamic';
 import Link, { useRouter, useWs } from '@/app/_ui/Link';
-import { alPegar, alSoltar, traeArchivos } from '@/app/admin/operaciones/pegar';
+import { alSoltar, traeArchivos } from '@/app/admin/operaciones/pegar';
+import type { EnMensaje } from '@/app/_chat/HiloMako';
+import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { instruccionConAdjuntos, type AdjuntoEditar } from '@/lib/editor-landing/adjuntos';
 import { useEditorLanding, type CtxEditorLanding } from '../contexto';
@@ -80,6 +85,9 @@ import {
   CLAVE_CAJA, RUTA_CREAR, alTerminar, alVolver, burbujasDe, cajaParaCrear, cuerpoPedidos, interpretacionDe, pulsar, sinTerminar,
   textoActual, trasNoAbrir, trasPapelera, trasRestaurar, vistaDeBurbuja, type BurbujaPedido, type EfectoPedido,
 } from '../pedidos-chat';
+import { filasDeAgente, mensajesDeFilas, tituloDeLanding } from '../hilo-agente';
+import { guardarEnHiloDeTab, leerHiloDeTab } from '@/lib/hilo-de-tab-cliente';
+import { claveDeLanding } from '@/lib/hilo-de-tab-reglas';
 import { urlFuentes, type Tema } from '@/lib/editor-landing/temas';
 import { htmlDeTarjeta } from '@/lib/editor-landing/render';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
@@ -415,11 +423,13 @@ export function RevisionPropuesta({ propuesta, estado, aviso, onAceptar, onAplic
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// El chat: vive en la memoria de la pestaña, por landing
+// El chat: en la memoria de la pestaña, por landing, y guardado en la base
 // ─────────────────────────────────────────────────────────────────────────────
 // Un store de módulo y no un estado del componente: el panel se colapsa (⇤) y se desmonta, y
 // la respuesta de un pedido largo tiene que caer en el chat aunque el panel no esté abierto
-// cuando llega. Se pierde al recargar la pestaña, como pidió el diseño.
+// cuando llega. Desde el 22/10/2026 cada turno se guarda en la base al terminar (`terminar`), y
+// una landing que la pestaña todavía no trajo trae su charla guardada (`traerHilo`): recargar
+// ya no la pierde.
 
 type Mensaje =
   /** `adjuntos`: los nombres de los archivos que viajaron con el mensaje (se ven como chips en la burbuja). */
@@ -465,6 +475,19 @@ function pulsarEnHilo(docId: number, id: number, boton: string): EfectoPedido | 
   return r.efecto;
 }
 
+/** Las landings cuya charla guardada ya se pidió en esta pestaña (una vez: después, la del store es la verdad). */
+const traidos = new Set<number>();
+/** La charla guardada de una landing, ANTES de lo que se haya escrito mientras llegaba. */
+function traerHilo(docId: number) {
+  if (traidos.has(docId)) return;
+  traidos.add(docId);
+  void leerHiloDeTab(claveDeLanding(docId)).then((filas) => {
+    if (!filas) { traidos.delete(docId); return; }
+    const guardados = mensajesDeFilas(filas).map((m): Mensaje => ({ ...m, id: ++ultimoId }));
+    if (guardados.length) cambiarHilo(docId, (h) => ({ ...h, mensajes: [...guardados, ...h.mensajes] }));
+  });
+}
+
 const suscribir = (f: () => void) => { oyentes.add(f); return () => { oyentes.delete(f); }; };
 function useHilo(docId: number): Hilo {
   return useSyncExternalStore(suscribir, () => hilos.get(docId) ?? HILO_VACIO, () => HILO_VACIO);
@@ -505,18 +528,19 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
   const todas = tarjetasDelDoc(editor.getJSON());
   const activa = alcance === 'seccion' ? todas.find((t) => idDe(t) === ctx.tarjetaActiva) ?? null : null;
   const enviadas = activa ? [activa] : todas;
-  cambiarHilo(docId, (h) => ({
-    corriendo: true,
-    mensajes: [...h.mensajes, {
-      id: ++ultimoId, de: 'yo', texto: escrito, seccion: activa ? tituloVivo(editor, idDe(activa)) : null,
-      ...(adjuntos.length ? { adjuntos: adjuntos.map((a) => a.nombre) } : {}),
-    }],
-  }));
+  const yo: Mensaje = {
+    id: ++ultimoId, de: 'yo', texto: escrito, seccion: activa ? tituloVivo(editor, idDe(activa)) : null,
+    ...(adjuntos.length ? { adjuntos: adjuntos.map((a) => a.nombre) } : {}),
+  };
+  cambiarHilo(docId, (h) => ({ corriendo: true, mensajes: [...h.mensajes, yo] }));
   const corte = new AbortController();
   cortes.set(docId, corte);
+  const titulo = ctx.titulo;
   const terminar = (...msgs: Mensaje[]) => {
     cortes.delete(docId);
     cambiarHilo(docId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, ...msgs] }));
+    // El turno entero a la base (../hilo-agente.ts): lo pedido y lo que contestó MaKo, sin las burbujas de pedidos.
+    void guardarEnHiloDeTab(claveDeLanding(docId), tituloDeLanding(titulo), filasDeAgente([yo, ...msgs]));
   };
 
   let paraEditar: string | null = texto;
@@ -607,9 +631,12 @@ function BurbujaDePedido({ burbuja, onBoton }: { burbuja: BurbujaPedido; onBoton
 
 let ultimoAdjunto = 0;
 
-/** El «+» y las miniaturas del Ops Center, sin cargar su CSS en el import de este módulo (ver la cabecera). */
-const ListaAdjuntos = dynamic(() => import('@/app/admin/operaciones/AdjuntosCaja').then((m) => m.ListaAdjuntos));
-const MasCaja = dynamic(() => import('@/app/admin/operaciones/AdjuntosCaja').then((m) => m.MasCaja));
+/** El hilo y la caja únicos del Ops Center, sin cargar su CSS en el import de este módulo (ver la cabecera). */
+const HiloAgente = dynamic(() => import('./ChatAgente').then((m) => m.HiloAgente));
+const CajaAgente = dynamic(() => import('./ChatAgente').then((m) => m.CajaAgente));
+
+/** Un archivo del pedido, en el hilo (no se abre desde ahí: viajó su texto, no se guardó). */
+const archivoDe = (nombre: string) => ({ nombre, tipo: /\.(png|jpe?g|webp|gif|avif)$/i.test(nombre) ? 'image' as const : 'document' as const, sinAbrir: true });
 
 /**
  * El «Lo que vendes» del negocio (GET /api/landing-generator/importar), pedido UNA vez por negocio en la pestaña: el
@@ -636,6 +663,8 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   const router = useRouter();
   const ws = useWs();
   const hilo = useHilo(docId);
+  // Recién recargada (u otra computadora): la charla guardada de esta landing.
+  useEffect(() => { traerHilo(docId); }, [docId]);
   const sugerencias = sugerenciasDe(ctx.config);
   const [texto, setTexto] = useState('');
   // El alcance que eligió la persona, y para qué sección lo eligió.
@@ -746,7 +775,6 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
     setTexto('');
     soltarTodos();
   };
-  const listo = puedeMandar(texto, adjuntos);
 
   const sugerir = (s: Sugerencia) => {
     if (s.alcance) setAlcance(s.alcance);
@@ -783,6 +811,30 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   };
 
   const detener = () => cortes.get(docId)?.abort();
+
+  // El hilo del Ops Center: lo de la persona con su sección («desde …») y sus archivos; lo de MaKo, con lo suyo en el hueco.
+  const items = useMemo((): ItemHilo[] => hilo.mensajes.map((m): ItemHilo => (m.de === 'yo'
+    ? { k: 'msg', id: String(m.id), role: 'user', texto: m.texto, at: null, ...(m.seccion ? { desde: m.seccion } : {}), ...(m.adjuntos?.length ? { archivos: m.adjuntos.map(archivoDe) } : {}) }
+    : { k: 'msg', id: String(m.id), role: 'assistant', texto: m.de === 'mako' && !m.error ? m.texto : '', at: null })), [hilo.mensajes]);
+  const enMensaje = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => {
+    const m = hilo.mensajes.find((y) => String(y.id) === x.id);
+    if (!m || m.de === 'yo') return null;
+    if (m.de === 'pedido') return { arriba: <BurbujaDePedido burbuja={m.burbuja} onBoton={(b) => alBoton(m.id, b)} /> };
+    return {
+      arriba: m.error ? <div className="gma-ag-burbuja" data-de="mako" data-error="">{m.texto}</div> : null,
+      abajo: m.propuesta && m.estado ? (
+        <RevisionPropuesta
+          propuesta={m.propuesta}
+          estado={m.estado}
+          aviso={m.aviso}
+          onAceptar={() => void aceptar(m)}
+          onAplicarIgual={() => void aceptar(m, true)}
+          onDescartar={() => cambiarMensaje(docId, m.id, { estado: 'descartada', aviso: undefined })}
+          onRestaurar={() => restaurar(m)}
+        />
+      ) : null,
+    };
+  };
 
   // ── Los botones de las burbujas de pedidos (../pedidos-chat.ts) ──────────
 
@@ -850,7 +902,9 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   };
 
   return (
-    <aside
+    // Un <section> y no un <aside>: con la barra de la agencia, `[data-barra-agencia] aside` (app/globals.css) le fuerza a todo <aside> el alto de la ventana, y la caja quedaba fuera de la vista (medido el 22/10/2026).
+    <section
+      role="complementary"
       className="gma gma-pb gma-ag"
       aria-label="Edición con IA"
       data-encima={encima ? '' : undefined}
@@ -868,51 +922,28 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
         </button>
       </header>
 
-      <div className="gma-ag-hilo" ref={hiloRef} aria-live="polite">
-        {hilo.mensajes.length === 0 && (
-          <>
-            <div className="gma-ag-burbuja" data-de="mako">Pídeme que edite, cree o diseñe lo que quieras.</div>
+      <div className="co-hilo gma-ag-hilo" ref={hiloRef} aria-live="polite">
+        <div className="co-hilo__col">
+          {hilo.mensajes.length === 0 && (
+            <>
+              <div className="gma-ag-burbuja" data-de="mako">Pídeme que edite, cree o diseñe lo que quieras.</div>
+              <div className="gma-ag-pildoras">
+                {sugerencias.map((s) => (
+                  <button key={s.rotulo} type="button" className="gma-ag-pildora" onClick={() => sugerir(s)} disabled={hilo.corriendo || !editor}>{s.rotulo}</button>
+                ))}
+              </div>
+            </>
+          )}
+          <HiloAgente items={items} corriendo={hilo.corriendo} enMensaje={enMensaje} />
+          {hilo.corriendo && <button type="button" className="gma-pb-boton" data-v="fantasma" data-t="s" onClick={detener}>Detener generación</button>}
+          {hilo.mensajes.length > 0 && !hilo.corriendo && (
             <div className="gma-ag-pildoras">
-              {sugerencias.map((s) => (
-                <button key={s.rotulo} type="button" className="gma-ag-pildora" onClick={() => sugerir(s)} disabled={hilo.corriendo || !editor}>{s.rotulo}</button>
+              {sugerencias.slice(0, 4).map((s) => (
+                <button key={s.rotulo} type="button" className="gma-ag-pildora" onClick={() => sugerir(s)} disabled={!editor}>{s.rotulo}</button>
               ))}
             </div>
-          </>
-        )}
-        {hilo.mensajes.map((m) => (m.de === 'yo'
-          ? (
-            <div key={m.id} className="gma-ag-burbuja" data-de="yo">
-              {m.seccion && <span className="gma-ag-chip-msg"><Ico n="diseno" t={12} /> {m.seccion}</span>}
-              {m.adjuntos?.map((n, i) => <span key={`${i}:${n}`} className="gma-ag-chip-msg"><Ico n="archivo" t={12} /> {n}</span>)}
-              {m.texto}
-            </div>
-          )
-          : m.de === 'pedido'
-          ? <BurbujaDePedido key={m.id} burbuja={m.burbuja} onBoton={(b) => alBoton(m.id, b)} />
-          : (
-            <div key={m.id} className="gma-ag-mako">
-              <div className="gma-ag-burbuja" data-de="mako" data-error={m.error ? '' : undefined}>{m.texto}</div>
-              {m.propuesta && m.estado && (
-                <RevisionPropuesta
-                  propuesta={m.propuesta}
-                  estado={m.estado}
-                  aviso={m.aviso}
-                  onAceptar={() => void aceptar(m)}
-                  onAplicarIgual={() => void aceptar(m, true)}
-                  onDescartar={() => cambiarMensaje(docId, m.id, { estado: 'descartada', aviso: undefined })}
-                  onRestaurar={() => restaurar(m)}
-                />
-              )}
-            </div>
-          )))}
-        {hilo.corriendo && <div className="gma-ag-burbuja gma-ag-pensando" data-de="mako"><span className="gma-pb-giro" aria-hidden /> Pensando</div>}
-        {hilo.mensajes.length > 0 && !hilo.corriendo && (
-          <div className="gma-ag-pildoras">
-            {sugerencias.slice(0, 4).map((s) => (
-              <button key={s.rotulo} type="button" className="gma-ag-pildora" onClick={() => sugerir(s)} disabled={!editor}>{s.rotulo}</button>
-            ))}
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <footer className="gma-ag-pie">
@@ -933,32 +964,12 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
             </button>
           </div>
         )}
-        <div className="gma-ag-caja" data-ocupada={hilo.corriendo ? '' : undefined}>
-          <ListaAdjuntos a={adj} />
-          <textarea
-            ref={inputRef}
-            className="gma-ag-input"
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            onPaste={(e) => alPegar(e, adj)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); mandar(); }
-            }}
-            placeholder={hilo.corriendo ? 'Espera a que la IA termine' : 'Envía un mensaje al agente…'}
-            disabled={hilo.corriendo || !editor}
-            rows={2}
-            aria-label="Mensaje al agente"
-          />
-          <div className="gma-ag-caja-pie">
-            <MasCaja a={adj} apagado={!adj.puede} />
-            {hilo.corriendo
-              ? <button type="button" className="gma-ag-enviar" data-detener="" onClick={detener} title="Detener generación" aria-label="Detener generación"><span className="gma-ag-cuadro" /></button>
-              : <button type="button" className="gma-ag-enviar" data-listo={listo ? '' : undefined} onClick={mandar} disabled={!listo || !editor} title="Enviar" aria-label="Enviar"><Ico n="flecha-arriba" t={15} /></button>}
-          </div>
-        </div>
+        {/* La caja única (./ChatAgente.tsx): el «+», las miniaturas, pegar, los emojis y el micrófono que dicta. */}
+        <CajaAgente campo={inputRef} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj} ocupado={hilo.corriendo}
+          apagado={!editor} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda />
         {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}</p>}
       </footer>
-    </aside>
+    </section>
   );
 }
 
@@ -975,7 +986,9 @@ const CSS_AGENTE = `
 .gma-ag-casa{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:none;border-radius:50%;box-shadow:inset 0 0 0 1px var(--pb-borde);color:var(--pb-tenue);text-decoration:none}
 .gma-ag-casa:hover{color:var(--pb-texto);background:var(--pb-sup)}
 .gma-ag-titulo{flex:1;min-width:0;font-size:13px;font-weight:500;color:var(--pb-texto);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gma-ag-hilo{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:8px 12px 12px}
+.gma-ag-hilo{flex:1;min-height:0;overflow-y:auto;padding:8px 12px 12px}
+.gma-ag .co-hilo__col{gap:10px}
+.gma-ag{--primary:var(--pb-azul);--primary-weak:var(--pb-vivo);--on-primary:var(--pb-azul-txt);--bg:var(--pb-fondo)}
 .gma-ag-mako{display:grid;gap:8px}
 .gma-ag-burbuja{max-width:100%;padding:10px 14px;border-radius:14px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
 .gma-ag-burbuja[data-de="mako"]{align-self:flex-start;background:var(--pb-sup);color:var(--pb-texto)}

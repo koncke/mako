@@ -31,11 +31,11 @@ function llamada(): string {
   const lineas: string[] = [];
   for (let i = 0; lineas.join('\n').length < 64_000; i++) {
     const h = `${Math.floor(i / 60)}:${String(i % 60).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}`;
-    lineas.push(`${h} ${i % 2 ? 'Cristian' : 'Joan'}: seguimos hablando del sistema de captación y de cómo trabaja el equipo con cada agente, renglón ${i}.`);
+    lineas.push(`${h} ${i % 2 ? 'Pedro' : 'Juan'}: seguimos hablando del sistema de captación y de cómo trabaja el equipo con cada agente, renglón ${i}.`);
   }
   // Lo que importa, al FINAL de la llamada: el precio y la objeción.
   lineas.push('1:58:10 Joan: el plan de implementación son 1.900 USD por tres meses.');
-  lineas.push('1:58:40 Cristian: «me da miedo que los leads sean de mala calidad».');
+  lineas.push('1:58:40 Pedro: «me da miedo que los leads sean de mala calidad».');
   return lineas.join('\n');
 }
 
@@ -68,7 +68,7 @@ test('2 · lo que viaja al pedido es la lectura de TODAS las partes, también la
   const t = llamada();
   const partes = partirEnPartes(t);
   // La IA anota lo de cada parte; la ÚLTIMA trae el precio y la objeción.
-  const lecturas = partes.map((p, i) => (i === partes.length - 1 ? 'Joan dice que el plan son 1.900 USD por tres meses. Cristian: «me da miedo que los leads sean de mala calidad».' : `Parte ${i + 1}: hablan del sistema.`));
+  const lecturas = partes.map((p, i) => (i === partes.length - 1 ? 'Juan dice que el plan son 1.900 USD por tres meses. Cristian: «me da miedo que los leads sean de mala calidad».' : `Parte ${i + 1}: hablan del sistema.`));
   const lectura = lecturaPorPartes(lecturas, partes);
   const prompt = documentosParaPrompt([doc({ texto: t, lectura, partes: partes.length }), doc({ id: 'd2', nombre: 'Propuesta.pdf', texto: 'Propuesta: 1.900 USD.'.repeat(300) })]);
   assert.match(prompt, /1\.900 USD por tres meses/, 'el precio del final de la llamada llega');

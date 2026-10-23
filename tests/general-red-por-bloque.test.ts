@@ -57,7 +57,7 @@ test('cada bloque de General se dibuja ADENTRO de su red (computadora y teléfon
   const el = entre(src, 'export function ElementoGeneral(', 'function DibujoDeBloque(');
   assert.match(el, /<RedDeBloque key=\{JSON\.stringify\(e\.general\)\} nombre=\{info\.nombre\}>\s*<DibujoDeBloque /);
   assert.doesNotMatch(el, /\.dibujar\(/, '`dibujar` corre afuera de la red: un error al armar el bloque tumba la hoja');
-  assert.match(entre(src, 'function DibujoDeBloque(', 'export function PiezaGeneralDeMuestra('), /g\?\.dibujar\(e\)/);
+  assert.match(entre(src, 'function DibujoDeBloque(', 'export function PiezaGeneralDeMuestra('), /g\?\.dibujar\(e, \{ funnels \}\)/);
   // El teléfono dibuja los bloques con la MISMA pieza.
   assert.match(leer('app/m/hoy/GeneralM.tsx'), /<ElementoGeneral e=\{e\} \/>/);
 });

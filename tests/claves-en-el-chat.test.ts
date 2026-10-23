@@ -58,11 +58,12 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 const X = 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6';
 const CASOS: Array<[string, string, string | null]> = [
   ['anthropic', `mi clave es sk-ant-api03-${X}`, 'anthropic'],
-  ['openrouter', `toma sk-or-v1-${X}`, 'openrouter'],
+  // IA8 (22/10/2026): OpenRouter y Cerebras se sacaron de /integraciones: su clave se tapa igual, sin botón.
+  ['openrouter', `toma sk-or-v1-${X}`, null],
   ['openai', `sk-proj-${X}T3BlbkFJ${X}`, 'openai'],
   ['google', `AIzaSy${X}`, 'gemini'],
   ['groq', `gsk_${X}`, 'groq'],
-  ['cerebras', `csk-${X}`, 'cerebras'],
+  ['cerebras', `csk-${X}`, null],
   ['stripe', `sk_live_${X}`, 'stripe'],
   ['resend', `re_${X}`, 'email'],
   ['env con una de Google', `GEMINI_API_KEY=AIzaSy${X}`, 'gemini'],
@@ -166,7 +167,7 @@ test('las claves de verdad de OpenAI, Mercado Pago, Resend y .env siguen tapánd
     ['OpenAI de usuario sin proyecto, sk-None-', `sk-None-${b64u(70)}T3BlbkFJ${b64u(70)}`, 'openai', b64u(70)],
     ['OpenAI en una línea de .env: el botón es el de OpenAI', `OPENAI_API_KEY=sk-proj-${b64u(70)}T3BlbkFJ${b64u(70)}`, 'openai', b64u(70)],
     ['Anthropic larga: sigue ganando sk-ant-, no OpenAI', `sk-ant-api03-${b64u(93)}AA`, 'anthropic', b64u(93)],
-    ['OpenRouter larga: sigue ganando sk-or-, no OpenAI', `sk-or-v1-${hex(64)}`, 'openrouter', hex(64)],
+    ['OpenRouter larga: sigue ganando sk-or-, no OpenAI (sin botón desde IA8)', `sk-or-v1-${hex(64)}`, null, hex(64)],
     ['.env con sufijo numérico (GEMINI_API_KEY_2)', `GEMINI_API_KEY_2=AIzaSy${X}`, 'gemini', X],
     ['.env con la clave seguida de más palabras (nombre real del .env.local)', `FATHOM_API_KEY_MARTIN=${hex(32)}`, null, hex(32)],
     ['.env con dos puntos, nombre que termina en TOKEN', `SLACK_BOT_TOKEN: ${hex(24)}`, null, hex(24)],
@@ -199,6 +200,10 @@ test('una línea gigante no cuelga el tapado (las reglas son lineales)', () => {
       'KEY'.repeat(300000), 'A_'.repeat(500000), 're_'.repeat(300000), 'KEY\\n'.repeat(200000), 'mkoag_'.repeat(150000),
       'KEY_'.repeat(250000), ('KEY_'.repeat(19) + 'X' + ':\\n').repeat(12000), 'sk-'.repeat(350000), 'sk-proj-'.repeat(125000),
       'sk-' + 'A1'.repeat(500000), 'TEST-1111111111-'.repeat(60000),
+      // Las de la revisión del lote 1 (Mistral sin prefijo): espacios, «mistral» repetido y tiradas de 32.
+      ' '.repeat(1000000), 'mistral '.repeat(120000), ('aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xY ').repeat(30000), 'apify_api_'.repeat(100000),
+      // Nombrando a Mistral, se tapa toda clave de su forma: con 30 mil claves y la palabra al final.
+      ('aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xY ').repeat(30000) + 'mistral', 'xai-'.repeat(200000), 'hf_'.repeat(300000),
     ];
     for (const t of lineas) {
       const desde = Date.now();
@@ -252,7 +257,7 @@ test('la burbuja sólo cambia cuando el servidor TAPÓ: recortes, pegados y arch
 
 test('los cuatro chats mezclan lo tapado en el marcar con que cierran el turno (y un quinto no se olvida)', () => {
   const CHATS = [
-    'app/m/mako/ChatMako.tsx', 'app/second-brain/useChatCliente.ts', 'app/crm/mako-crm/ChatMakoCrm.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx',
+    'app/second-brain/useChatCliente.ts', 'app/crm/lead-view/MakoAnalystLead.tsx',
   ];
   // Rota: sacar el `...textoTapadoDeRespuesta(` de uno de los chats → este test falla (su burbuja volvería a mostrar la clave).
   for (const f of CHATS) {

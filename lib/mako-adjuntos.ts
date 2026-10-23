@@ -75,6 +75,11 @@ export function tipoPorFirma(b: Uint8Array): { tipo: TipoAdjunto; mime: string }
   return null;
 }
 
+/** ¿Es un MP3? Por su firma: la etiqueta ID3 o el primer cuadro (lo que arma la caja con lamejs empieza así). */
+export function esMp3(b: Uint8Array): boolean {
+  return (b.length >= 3 && b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) || (b.length >= 2 && b[0] === 0xff && (b[1] & 0xe0) === 0xe0);
+}
+
 /** Un archivo ya revisado: el tipo y el mime salen de sus BYTES, no de lo que dijo el navegador. */
 export type AdjuntoListo = { tipo: TipoAdjunto; mime: string; nombre: string; bytes: Uint8Array };
 

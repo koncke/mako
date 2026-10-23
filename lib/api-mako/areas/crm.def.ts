@@ -37,6 +37,9 @@ import { TABS_FICHA, DENSIDADES } from '@/lib/ficha/catalogo';
 import { PLANTILLAS_TEMA, TIPOGRAFIAS } from '@/lib/graficos-temas';
 // Puro: los métodos de pago son los de la ficha (copiarlos a mano sería otro catálogo).
 import { METODOS_PAGO } from '@/lib/pagos-campo';
+import { CAMPOS_TARJETA_LEAD, DISENOS_TARJETA } from '@/lib/tarjeta-kanban';
+import { TIPOS_ETAPA } from '@/lib/etapa-reunion';
+import { MAX_NOMBRE_EVENTO } from '@/lib/agenda-evento-etapa';
 
 const TAB = { tab: 'crm' } as const;
 const TAB_ADMIN = { tab: 'crm', rolMinimo: 'admin' } as const;
@@ -199,7 +202,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'reuniones_proximas', area: 'crm', tipo: 'lectura',
     titulo: 'Reuniones de los próximos días',
-    descripcion: 'Las R1 y R2 agendadas desde hoy (en la zona del negocio) y los próximos días, con lo que hay que saber antes de la llamada: quién es, empresa, respuestas del formulario, si vio el VSL (vio / sin_ver / sin_datos: sin datos NO significa que no lo vio), origen, madurez y estado. Solo el día, sin hora: para la hora usa reuniones_recientes. Responde «¿qué reuniones tengo hoy?».',
+    descripcion: 'Las R1 y R2 agendadas desde hoy (en la zona del negocio) y los próximos días, con lo que hay que saber antes de la llamada: quién es, empresa, respuestas del formulario, si vio el VSL (vio / sin_ver / sin_datos: sin datos NO significa que no lo vio), origen, madurez y estado, la hora (si la tiene) y el link para entrar. Responde «¿qué reuniones tengo hoy?».',
     parametros: [{ nombre: 'dias', tipo: 'number', entero: true, minimo: 1, maximo: 14, descripcion: 'cuántos días contando hoy (default 2: hoy y mañana; máximo 14).' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
@@ -535,7 +538,7 @@ export const DEFS: readonly OperacionDef[] = [
     // WhatsApp y HTTP no hay sesión que diga quién es. Se cambia en el CRM, «⋯» › «Personalizar tarjetas».
     id: 'ver_campos_tarjeta_crm', area: 'crm', tipo: 'lectura',
     titulo: 'Qué muestra la tarjeta de un lead',
-    descripcion: 'Qué datos ve la persona en cada tarjeta del tablero del CRM, en su orden (foto, plata, por dónde llegó, vencimientos, datos pendientes, reunión, fuera del funnel, empresa, teléfono, campaña, fecha de alta), con qué diseño (Completa, Compacta o Con avance) y el catálogo completo. Se elige en el CRM, «⋯» › «Personalizar tarjetas», y es de cada persona: vale en todos sus funnels.',
+    descripcion: 'Qué datos ve la persona en cada tarjeta del tablero del CRM, en su orden (foto, plata, por dónde llegó, vencimientos, datos pendientes, reunión, fuera del funnel, empresa, teléfono, campaña, fecha de alta), con qué forma (Completa, Compacta, Con avance, Monto grande, Próxima reunión o Con portada), qué plantilla tiene puesta, las plantillas de fábrica y las propias, y el catálogo completo. Se elige en el CRM, «⋯» › «Personalizar tarjetas» (o clic derecho en una tarjeta), y es de cada persona: vale en todos sus funnels.',
     parametros: [],
     salida: 'json', canales: ['app'], costo: 'gratis', gating: TAB,
   },
@@ -556,7 +559,7 @@ export const DEFS: readonly OperacionDef[] = [
 
   // ── Acciones heredadas ─────────────────────────────────────────────────────────
   {
-    id: 'proponer_cambio_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', tipoPendiente: 'lead_etapa',
+    id: 'proponer_cambio_etapa', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat', tipoPendiente: 'lead_etapa',
     titulo: 'Mover un lead de etapa',
     descripcion: 'PROPONE mover un lead a otra etapa del funnel (queda pendiente hasta el «sí»; no lo ejecuta). Cubre cerrar como ganado (pasa el monto en USD), marcar perdido o descalificado (pasa el motivo), mandar a nutrición o reactivar. Consigue el leadId con buscar_leads y la key con ver_funnel. Si falta el monto o el motivo lo pide; lo que este canal no puede cargar (fecha de reunión, asistencia, Fathom) no bloquea y queda declarado en el historial.',
     parametros: [
@@ -569,7 +572,7 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'cambia la etapa y el estado del lead (y monto o motivo), deja historial; puede mandar la conversión a Meta y ajustar la etiqueta de WhatsApp',
   },
   {
-    id: 'proponer_agendar_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat', tipoPendiente: 'agendar_reunion',
+    id: 'proponer_agendar_reunion', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat', tipoPendiente: 'agendar_reunion',
     titulo: 'Agendar una reunión en Calendly',
     descripcion: 'PROPONE reservar en Calendly la R1 o la R2 de un lead en un horario EXACTO de listar_horarios_reunion (queda pendiente hasta el «sí»). Al confirmar se revalida que el hueco siga libre y se intenta la reserva directa; si Calendly la rechaza, deja el formulario de Calendly ya completado con los datos del lead para mandarlo. El lead necesita email. Las fechas de la reunión las escribe después el aviso de Calendly, no esta acción.',
     parametros: [
@@ -583,7 +586,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     // 4c (16/10/2026, Martín por Cerebro: «acciones de Calendly para el paso ⚡ Acción»). Lo único de Calendly que un
     // flujo hace solo sin inventar un dato: crear pide la hora que elige el lead, y editar no existe en su API.
-    id: 'cancelar_reunion_calendly', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'cancelar_reunion_calendly', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Cancelar su reunión de Calendly',
     descripcion: 'PROPONE cancelar en Calendly la PRÓXIMA reunión de un lead (la primera que todavía no empezó), buscada por su email en la cuenta de Calendly del negocio. Calendly le avisa al lead, con el motivo si lo hay, y su aviso la marca cancelada en el CRM. Si no tiene ninguna por delante, no hay nada que cancelar. Calendly no deja mover ni renombrar una reunión: para reagendar, mándale su link. El lead necesita email.',
     parametros: [
@@ -614,7 +617,7 @@ export const DEFS: readonly OperacionDef[] = [
   // inmobiliario (ws13) que agenda VISITAS en Google y por Cal.com, no por Calendly,
   // y que quería hacerlo escribiéndole al grupo de MaKo (07/10/2026).
   {
-    id: 'proponer_agendar_agenda', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'proponer_agendar_agenda', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Agendar reunión, visita o cita',
     descripcion: 'PROPONE agendar una reunión (o visita, o cita) en la agenda de Google del negocio (queda pendiente hasta el «sí»). Con un lead, lo invita por email; SIN lead es un evento del negocio, sin invitados, y entonces el título es obligatorio. Úsala cuando el negocio tiene su Google Calendar conectado; si agenda por Calendly, la que corresponde es proponer_agendar_reunion. La fecha y la hora van como las dijo la persona, en la zona del negocio: el código arma la hora exacta. Si no te dieron una hora, mira antes horarios_libres_dia. Si el horario se pisa con otro evento, el sistema se lo avisa a la persona directo (tú no lo ves, así que no afirmes que está libre); no lo bloquea: la agenda es del negocio.',
     parametros: [
@@ -630,7 +633,7 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'crea un evento en la agenda de Google del negocio; si es con un lead, Google le manda la invitación y queda en su historial',
   },
   {
-    id: 'proponer_mover_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'proponer_mover_reunion', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Mover o reagendar reunión, visita o cita',
     descripcion: 'PROPONE cambiar el día o la hora de una reunión (o visita, o cita) que ya está en la agenda de Google del negocio, con un lead o sin lead (queda pendiente hasta el «sí»). El sistema busca la reunión en la agenda: tú pasas el día y la hora que tiene HOY (fecha_actual, hora_actual) como los dijo la persona —sin lead, fecha_actual es obligatorio—, y la fecha y la hora nuevas como las dijo; el código arma la hora exacta. Tú NO ves la agenda: si hay varias o ninguna que coincida, el sistema se las muestra a la persona y tú le pides el día y la hora de la que quiere mover. Conserva la duración, el título y los invitados, y Google les avisa del cambio. Si no encuentra la que se nombró, NO crea una nueva.',
     parametros: [
@@ -644,7 +647,7 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'cambia el horario del evento en la agenda de Google del negocio (Google les avisa a los invitados) y, si es con un lead, deja el cambio en su historial',
   },
   {
-    id: 'proponer_cambiar_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'proponer_cambiar_reunion', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Cambiar nombre o duración de una reunión',
     descripcion: 'PROPONE cambiarle el nombre (el título) o la duración a una reunión (o visita, o cita) que ya está en la agenda de Google del negocio, con un lead o sin lead (queda pendiente hasta el «sí»). Para cambiarle el día o la hora, la que corresponde es proponer_mover_reunion. Se la encuentra como en proponer_mover_reunion: el día y la hora que tiene HOY, como los dijo la persona. Pasa sólo lo que cambia: el título nuevo, la duración nueva, o las dos.',
     parametros: [
@@ -658,7 +661,7 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'cambia el título o el fin del evento en la agenda de Google del negocio (Google les avisa a los invitados) y, si es con un lead, deja el cambio en su historial',
   },
   {
-    id: 'proponer_cancelar_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'proponer_cancelar_reunion', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Cancelar o borrar una reunión, visita o cita',
     descripcion: 'PROPONE cancelar (borrar) una reunión (o visita, o cita) que ya está en la agenda de Google del negocio, con un lead o sin lead (queda pendiente hasta el «sí»). Se la encuentra con el día y la hora que tiene, como los dijo la persona. No se deshace y Google les avisa a los invitados: el sistema le muestra a la persona cuál es y a cuántos les avisa antes de que diga que sí.',
     parametros: [
@@ -848,7 +851,7 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'borra la fila del lead en lead_funnel; si era su producto principal, el siguiente pasa a leads.funnel_id y pipeline_stage; deja historial',
   },
   {
-    id: 'mover_lead_en_producto', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'mover_lead_en_producto', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Mover un lead dentro de un producto',
     descripcion: 'PROPONE cambiar la etapa de un lead en un producto del CRM que se le AGREGÓ (queda pendiente hasta el «sí»). Escribe solo esa tarjeta: no cambia su etapa principal, su estado ni su monto, ni manda nada a Meta; si la etapa nueva es la de ganado y ese producto tiene prendido invitar al curso al ganar, lo invita. En su producto PRINCIPAL se mueve con proponer_cambio_etapa. Pide antes el leadId (buscar_leads), el embudoId y la key de la etapa (productos_del_lead).',
     parametros: [
@@ -900,7 +903,7 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'archivada_at de la etiqueta en crm_etiquetas (no borra nada)',
   },
   {
-    id: 'poner_etiqueta_lead', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'poner_etiqueta_lead', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Agregarle una etiqueta a un lead',
     descripcion: 'PROPONE agregarle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). Si la etiqueta está vinculada a una etapa, lo pasa a esa etapa (salvo un cierre, que se mueve a mano). Dispara las automatizaciones que arrancan con esa etiqueta (y las de «Se agrega etiqueta a un lead») y la agrega también en su chat de WhatsApp y en Chatwoot si están conectados. Si ya la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (listar_etiquetas).',
     parametros: [leadId(), etiquetaId()],
@@ -908,7 +911,7 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'una fila en crm_lead_etiquetas y una línea en el historial del lead; puede mover al lead a la etapa vinculada, inscribirlo en las automatizaciones de esa etiqueta y agregarla en WhatsApp y Chatwoot',
   },
   {
-    id: 'sacar_etiqueta_lead', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'sacar_etiqueta_lead', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Eliminarle una etiqueta a un lead',
     descripcion: 'PROPONE eliminarle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). No lo mueve de etapa; dispara las automatizaciones de «Se elimina etiqueta a un lead», y la elimina también de su chat de WhatsApp y de Chatwoot si estaba ahí. Si no la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (etiquetas_lead).',
     parametros: [leadId(), etiquetaId()],
@@ -1117,6 +1120,75 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'deja una propuesta de alta en propuestas; al confirmarla en /crm/revisar se crean los leads',
   },
 
+  // ── Lo del feedback de Martín del 21/10: AL FINAL DEL ÁREA A PROPÓSITO, ANTES DE armar_tab_ficha (22/10/2026) ────────────────────────
+  // ⚠️ En un empate de relevancia (`ordenarPorRelevancia`, lib/api-mako/registro.ts) gana la operación declarada ANTES,
+  //    y el presupuesto del turno corta a las que vienen después. Declarada arriba, `cambiar_tipo_etapa` («cambiar» y
+  //    «etapa» en el id, que es lo que suma la relevancia genérica de un pedido sobre un lead) dejó sin
+  //    `editar_contacto_lead` a «cambia el teléfono del lead Juan…» en la app y en WhatsApp
+  //    (tests/ops-center-bateria.test.ts), y sin `cambiar_ficha_funnel` a la edición de la ficha. Una operación nueva va
+  //    al FINAL de su área: en un empate pierde con las que el piso ya mide. Justo ANTES de `armar_tab_ficha`, que sigue
+  //    última por la misma regla desde el 16/10 (lenta y con IA; tests/ficha-tabs.test.ts).
+  // 21/10/2026, Martín, sobre «Asignar evento»: «me gustaría que se pueda editar o crear eventos desde allí también».
+  // Las mismas funciones que la pantalla (lib/agenda-evento-etapa-server.ts): el nombre y la duración, nada más.
+  // ⚠️ «PÁGINA DE RESERVA» Y NO «EVENTO DE AGENDA» EN EL ID Y EL TÍTULO (22/10/2026): «agenda» y «evento» son lo que el
+  //    clasificador suma a CUALQUIER pedido de agenda (`RELEVANCIA_AGENDA`), y en el id pesan doble. Llamadas
+  //    `crear_evento_agenda` y `editar_evento_agenda` le ganaban el presupuesto a `crear_evento_calendario`,
+  //    `proponer_cambiar_reunion` y `crear_etiqueta` (tests/ops-center-bateria.test.ts, el piso de Ops Center del 22/10).
+  //    Es lo que de verdad crean: lo que Calendly y Cal.com llaman «event type», la página donde se reserva.
+  {
+    id: 'crear_pagina_reserva', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear una página de reserva (Calendly o Cal.com)',
+    descripcion: 'PROPONE crear una página de reserva (lo que Calendly y Cal.com llaman tipo de evento) en la cuenta del negocio (queda pendiente hasta el «sí»): uno a uno, con su nombre y su duración; la disponibilidad y la ubicación son las de la cuenta. Nace activa. Para que sus reservas caigan en una etapa, después vincular_evento_etapa. Google Calendar no: no expone sus páginas de reserva. Solo el administrador.',
+    parametros: [
+      { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: MAX_NOMBRE_EVENTO, descripcion: 'el nombre del evento («Llamada de diagnóstico»).' },
+      { nombre: 'duracionMin', tipo: 'number', obligatorio: true, entero: true, minimo: 5, maximo: 720, descripcion: 'cuánto dura, en minutos.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: false, escribe: 'crea el tipo de evento en la cuenta de Calendly o Cal.com del negocio (se borra desde esa cuenta)',
+  },
+  {
+    id: 'editar_pagina_reserva', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Editar una página de reserva (Calendly o Cal.com)',
+    descripcion: 'PROPONE cambiar el nombre o la duración de una página de reserva de Calendly o Cal.com del negocio (queda pendiente hasta el «sí»). Lo que no se pasa queda como está. Su identificador sale de listar_eventos_agenda. Solo el administrador.',
+    parametros: [
+      { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
+      { nombre: 'evento', tipo: 'string', obligatorio: true, max: 300, descripcion: 'el identificador del evento (de listar_eventos_agenda), o su nombre.' },
+      { nombre: 'nombre', tipo: 'string', max: MAX_NOMBRE_EVENTO, descripcion: 'el nombre nuevo.' },
+      { nombre: 'duracionMin', tipo: 'number', entero: true, minimo: 5, maximo: 720, descripcion: 'la duración nueva, en minutos.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'cambia el nombre o la duración del tipo de evento en la cuenta de Calendly o Cal.com del negocio',
+  },
+  {
+    // 21/10/2026: las plantillas de la tarjeta (Martín: «poder ver TEMPLATES de estilos de tarjeta… y puedes crear otras
+    // más»). Sólo por la app, como su lectura: es de UNA persona, y por WhatsApp o HTTP no hay sesión que diga quién es.
+    id: 'personalizar_tarjetas_crm', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Personalizar la tarjeta de los leads',
+    descripcion: 'PROPONE cómo se ve la tarjeta de un lead en el tablero del CRM para la persona que lo pide (queda pendiente hasta el «sí»): poner una plantilla por su nombre (de fábrica o propia, de ver_campos_tarjeta_crm), o elegir la forma y los datos en su orden. Con guardarComo, además la guarda como plantilla propia con ese nombre (con el mismo nombre, la reemplaza). Es de cada persona: no cambia la tarjeta del resto del equipo.',
+    parametros: [
+      { nombre: 'plantilla', tipo: 'string', max: 40, descripcion: 'el nombre de una plantilla (Completa, Compacta, Sin foto, Monto grande, Próxima reunión, Con avance, Con portada, Sólo el nombre, o una propia).' },
+      { nombre: 'forma', tipo: 'string', enum: [...DISENOS_TARJETA], descripcion: 'la forma, si no se pasa una plantilla.' },
+      { nombre: 'campos', tipo: 'string[]', max: CAMPOS_TARJETA_LEAD.length, vaciaEsValor: true, descripcion: 'los datos en su orden, si no se pasa una plantilla ([] = sólo el nombre).' },
+      { nombre: 'guardarComo', tipo: 'string', max: 32, descripcion: 'guardar lo elegido como plantilla propia con este nombre.' },
+    ],
+    canales: ['app'], costo: 'gratis', gating: TAB,
+    reversible: true, escribe: 'la tarjeta de los leads de esa persona (usuarios.perfil.crmTarjeta)',
+  },
+  {
+    // 21/10/2026, Martín: «En cada columna… debes poner en los 3 puntos una opción de "Tipo de etapa" para poder decidir si
+    // es una etapa de reunión, o las otras que tenemos». La misma regla que la pantalla (lib/etapa-tipo-server.ts).
+    id: 'cambiar_tipo_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cambiar el tipo de una etapa',
+    descripcion: 'PROPONE cambiar el tipo de una etapa del CRM (queda pendiente hasta el «sí»): etapa, reunion o nutricion, lo mismo que «⋯» › «Tipo de etapa» de la columna. Reunión: quien pase por ahí lleva la fecha y la asistencia, y se le puede vincular un evento (vincular_evento_etapa); nutricion la pasa a la banda Nutrición. Quienes ya están en la etapa no se mueven. La entrada, el cierre y las terminales no cambian de tipo. La etapa por su key (de ver_funnel) o su nombre; con embudoId, la de otro CRM. Solo el administrador.',
+    parametros: [
+      { nombre: 'etapa', tipo: 'string', obligatorio: true, max: 80, descripcion: 'la key de la etapa (de ver_funnel) o su nombre.' },
+      { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: [...TIPOS_ETAPA], descripcion: 'etapa, reunion o nutricion.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'el tipo de la etapa en el pipeline del funnel (y su banda: Nutrición o el recorrido)',
+  },
   // ── «¿Qué vas a crear hoy?» de una tab de la ficha (16/10/2026) ──────────────────
   // ⚠️ AL FINAL DE LA LISTA A PROPÓSITO: con un mensaje que no la nombra, el presupuesto del turno de WhatsApp
   //    (12.000 caracteres, lib/doer-herramientas.ts) corta por orden de declaración, y declarada antes dejaba

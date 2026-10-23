@@ -2367,4 +2367,36 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "22 oct", hora: "20:40", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Mientras MaKo trabaja en Automations se puede ir a otra tab, y «No se envió» sólo cuando de verdad no salió",
+    puntos: [
+      "Llegó por el Cerebro, con una captura de «Sprint · apertura» en el ws1.",
+      "El desenfoque y el lienzo sin editar, sí; la barra de la app, nítida y que se toque. El trabajo sigue en el servidor, al volver se ve, y si estás en otra tab te avisa.",
+      "«No se envió · Reintentar» estaba sobre un mensaje que sí llegó: lo que faltaba era la IA.",
+    ],
+    pedido: "«En Automations, cuando está ejecutando algo, no debe deshabilitarme la navegación de la sidebar principal... Se debe ejecutar en segundo plano. Si está bien que deshabilite la edición del lienzo»",
+  },
+  {
+    fecha: "22 oct", hora: "22:15", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "El chat de MaKo armaba las cosas a la mitad, y un «Listo» que no se veía como Listo",
+    puntos: [
+      "Llegó por el Cerebro, con una captura de «Sprint · apertura» en el ws1 (modo Editar, con su Claude).",
+      "Pidió un saludo, una pregunta y dos respuestas según lo que conteste el lead: quedaron el saludo y la pregunta, las dos respuestas no.",
+      "Un turno que hizo lo pedido arranca con «Listo» en verde; en rojo, sólo lo que pidió y no se hizo.",
+    ],
+    pedido: "«revisa lo que le pedí vs lo que creó, creó a la mitad las cosas que le pedí» · «Si me ponés un mensaje en rojo abajo y el de arriba no dice algo como \"Listo!\", parece que no funcionó»",
+  },
+  {
+    fecha: "22 oct", hora: "22:25", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Sin el «Pausada · no sale nada» arriba del lienzo: el estado lo dice «Activar»",
+    puntos: [
+      "Llegó por el Cerebro. Sale en la misma punta que el arreglo del «Listo».",
+      "Fuera en la computadora; en el teléfono no estaba. El ⏸ de la fila de la lista queda.",
+    ],
+    pedido: "«elimina el texto \"Pausada, no sale nada\", eso es completamente innecesario... Para eso ya tenemos el \"ACTIVAR\" de abajo»",
+  },
 ];

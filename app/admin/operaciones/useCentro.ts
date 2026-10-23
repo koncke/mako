@@ -37,8 +37,10 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { contestarPreguntaAction, fotoCentroAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { computadorasAction, desconectarComputadoraAction, contestarPreguntaAction, creditoApiAction, creditoDelNegocioAction, fotoCentroAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, pushesCentroAction, turnosCentroAction } from './acciones';
 import type { CuentasConNombre } from '@/lib/centro-titulares';
+import type { LecturaCredito } from '@/lib/credito-api';
+import type { LecturaComputadoras } from '@/lib/ia-pc-reglas';
 import { pasosDelChat, type PasoDelTurno, type PasosPorChat } from '@/lib/centro-pasos';
 import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, textoParaMandar, type Borrador } from '@/lib/centro-caja';
@@ -174,6 +176,17 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     setNombresCuentas(r.cuentas);
     return null;
   };
+  /** El crédito de API de los planes Max, para la sección «API» del Uso (UsoCredito.tsx): se pide al abrirla. */
+  const leerCreditoApi = async (): Promise<LecturaCredito> =>
+    (await creditoApiAction().catch(() => null)) ?? { ok: false, error: 'No pude leer el crédito: vuelve a intentarlo.' };
+  /** Las computadoras de los negocios (la sección «Computadoras» del Uso) y su «Desconectar»: devuelven la lista nueva. */
+  const leerComputadoras = async (): Promise<LecturaComputadoras> =>
+    (await computadorasAction().catch(() => null)) ?? { ok: false, error: 'No pude leer las computadoras: vuelve a intentarlo.' };
+  const desconectarComputadora = async (ws: number, id: number): Promise<LecturaComputadoras> =>
+    (await desconectarComputadoraAction(ws, id).catch(() => null)) ?? { ok: false, error: 'No pude desconectarla: vuelve a intentarlo.' };
+  /** El interruptor del crédito de Claude de un negocio (el ws1): devuelve la lectura nueva de la sección. */
+  const cambiarCreditoDelNegocio = async (ws: number, prendido: boolean): Promise<LecturaCredito> =>
+    (await creditoDelNegocioAction(ws, prendido).catch(() => null)) ?? { ok: false, error: 'No pude cambiarlo: vuelve a intentarlo.' };
   const [citas, setCitas] = useState<Record<string, Cita | null>>({});
   const mirado = useRef<ChatCentro | null>(null);
   const pedirTurnos = useCallback(async (c: ChatCentro) => {
@@ -309,8 +322,10 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const avisos = useMemo(() => (c: ChatCentro) => avisosDe(esperaDe(c, esperasConVigia), yaSinVer.has(c.clave)), [esperasConVigia, yaSinVer]);
 
   const refrescar = useCallback(async () => {
-    const f = await fotoCentroAction();
-    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.ultimos) { const firma = JSON.stringify(f.ultimos); if (firma !== ultimosFirma.current) { ultimosFirma.current = firma; setUltimos(f.ultimos); } } if (f.cuentas) setNombresCuentas(f.cuentas); setPasos(f.pasos ?? {}); if (f.yaVistos) setYaVistos(f.yaVistos); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
+    // ⚠️ UN REFRESCO QUE FALLA NO CAMBIA LO DIBUJADO (22/10/2026): un 503 hace que la acción TIRE (Next: «An unexpected response
+    // was received from the server»). Queda lo último que se vio, sin tocar ninguna fila, y el intervalo reintenta.
+    const f = await fotoCentroAction().catch(() => null);
+    if (f?.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.ultimos) { const firma = JSON.stringify(f.ultimos); if (firma !== ultimosFirma.current) { ultimosFirma.current = firma; setUltimos(f.ultimos); } } if (f.cuentas) setNombresCuentas(f.cuentas); setPasos(f.pasos ?? {}); if (f.yaVistos) setYaVistos(f.yaVistos); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
     if (mirado.current) void pedirTurnos(mirado.current);
     setAhora(Date.now());
   }, [pedirTurnos]);
@@ -611,7 +626,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   return {
     chats, carteros, trabajos, porId, esperas: esperasConVigia, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
     turnosDe, preguntasDe, tareasDe, contestarPregunta, mirar,
-    marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, pasosDe,
+    marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, leerCreditoApi, cambiarCreditoDelNegocio, leerComputadoras, desconectarComputadora, pasosDe,
     lineasDe, previas, enCursos, yaSinVer, yaVistos, marcarYaVisto, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,

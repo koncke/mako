@@ -97,13 +97,9 @@ test('3. lo confirmado o descartado en /mako/revisar queda en el hilo de donde s
 test('4. las pantallas dibujan el botón', () => {
   assert.match(sinComentarios(leer('app/_chat/TarjetaAccion.tsx')), /x\.estado === 'hecho' && x\.abrir && <div className="ch-tarjeta__botones"><Link className="ch-abrir" href=\{x\.abrir\.href\}>\{x\.abrir\.titulo\}<\/Link>/, 'la tarjeta');
   assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /<p className="ch-tarjeta__nota">\{x\.p\.nota\}<\/p>\s*<div className="ch-tarjeta__botones"><Link className="ch-abrir" href=\{x\.p\.escritorio\}>\{x\.p\.boton\}<\/Link>/, 'la propuesta de pantalla');
-  const tel = sinComentarios(leer('app/m/mako/ChatMako.tsx'));
-  assert.match(tel, /x\.estado === 'hecho' && x\.abrir \? \{ href: x\.abrir\.href \}/, 'el teléfono: la fila de una tarjeta hecha abre');
-  assert.match(tel, /x\.p\.clase === 'editor' \|\| x\.p\.clase === 'whatsapp' \? x\.p\.nota/, 'el teléfono: dice dónde se acepta');
-  const lead = sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx'));
-  assert.match(lead, /<ButtonLink href=\{x\.p\.escritorio\} variant="secondary" size="sm">\{x\.p\.boton\}<\/ButtonLink>/);
-  assert.match(lead, /x\.estado === 'hecho' && x\.abrir && \(/);
-  for (const f of ['app/second-brain/useChatCliente.ts', 'app/crm/mako-crm/ChatMakoCrm.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx', 'app/m/mako/ChatMako.tsx']) {
+  // El de la ficha dibuja con el MISMO hilo desde el 22/10/2026 (CR3): la tarjeta y la pantalla son las de arriba.
+  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /<HiloMako key=\{leadId\} items=\{items\} quien=\{QUIEN\}/, 'el MaKo Analyst de la ficha');
+  for (const f of ['app/second-brain/useChatCliente.ts', 'app/crm/lead-view/MakoAnalystLead.tsx']) {
     assert.match(sinComentarios(leer(f)), /setItems\(\(xs\) => conTarjeta\(xs, pendienteId, estado, nota, r\)\);/, `${f}: el estado de la tarjeta, con conTarjeta`);
   }
 });

@@ -1,18 +1,24 @@
 // =============================================================================
 // publicar-binarios — arma «MaKo en tu computadora» para Windows y Mac y lo sube al bucket privado `ia-pc`
 // =============================================================================
-// Uso, desde la raíz de este repo:
-//   npx tsx --conditions=react-server scripts/ia-pc/publicar-binarios.mts [--env <.env.local>]            ← en seco
-//   npx tsx --conditions=react-server scripts/ia-pc/publicar-binarios.mts --aplicar [--env <.env.local>]  ← sube
+// Uso, desde la raíz de un worktree de origin/main (la versión que sube es la de ESE código, VERSION_PC):
+//   npx tsx --conditions=react-server scripts/ia-pc/publicar-binarios.mts --env <.env.local>            ← en seco
+//   npx tsx --conditions=react-server scripts/ia-pc/publicar-binarios.mts --aplicar --env <.env.local>  ← sube
+// Un worktree no trae `.env.local`: va el del clon (C:/Users/marti/OneDrive/Escritorio/dashboard-marketing-main/
+// dashboard-marketing/.env.local). Sin `--env` y sin `.env.local` en la carpeta, el script lo dice y sale.
 //
 // Un ejecutable de un archivo por sistema (Bun compila para los tres desde esta PC), comprimido: el de Windows mide 118
 // MB y comprimido 41, y Supabase corta en 50 por archivo (medido el 21/10/2026). El instalador
 // (/api/ia-pc/instalar) baja de acá con una URL firmada de 10 minutos y lo descomprime en la PC del cliente.
 // ⚠️ ESCRIBE en el storage de .env.local (PRODUCCIÓN) sólo con --aplicar. Reemplaza los de la MISMA versión.
+//
+// IA1 (22/10/2026): la 0.3.2 se desplegó sin sus ejecutables y el instalador contestaba «No pude preparar la descarga» con
+// un 200, a todo cliente nuevo. Por eso, en seco, el script MIRA el bucket (sólo lectura) y dice qué falta; y al aplicar
+// no termina hasta FIRMAR cada archivo subido, que es lo mismo que hace el instalador: «subido» no es «se puede bajar».
 // =============================================================================
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -21,10 +27,15 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const imp = (rel: string) => import(pathToFileURL(path.join(REPO, rel)).href);
 const arg = (n: string) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : undefined; };
 const dotenv = await import(pathToFileURL(path.join(REPO, 'node_modules', 'dotenv', 'lib', 'main.js')).href);
-(dotenv.default ?? dotenv).config({ path: arg('--env') ?? path.join(process.cwd(), '.env.local'), quiet: true });
+const ENV = arg('--env') ?? path.join(process.cwd(), '.env.local');
+if (!existsSync(ENV)) {
+  console.error(`⛔ no está ${ENV}: un worktree no trae .env.local. Pásale el del clon con --env <ruta>.`);
+  process.exit(1);
+}
+(dotenv.default ?? dotenv).config({ path: ENV, quiet: true });
 const APLICAR = process.argv.includes('--aplicar');
 
-const { VERSION_PC, archivoDelPrograma, marcarDeVentana, subsistemaPe } = await imp('lib/ia-pc-reglas.ts');
+const { VERSION_PC, archivoDelPrograma, faltanEnElBucket, marcarDeVentana, subsistemaPe } = await imp('lib/ia-pc-reglas.ts');
 const programa = path.join(REPO, 'scripts', 'ia-pc', 'mako-pc.mjs');
 const vPrograma = /export const VERSION = '([^']+)'/.exec(readFileSync(programa, 'utf8'))?.[1];
 if (vPrograma !== VERSION_PC) { console.error(`⛔ el programa dice ${vPrograma} y lib/ia-pc-reglas.ts dice ${VERSION_PC}: tienen que ser iguales.`); process.exit(1); }
@@ -55,18 +66,42 @@ for (const o of OBJETIVOS) {
   if (datos.length > 50e6) { console.error(`⛔ ${nombre} pasa los 50 MB de Supabase`); process.exit(1); }
   armados.push({ nombre, datos });
 }
-if (!APLICAR) { console.log('En seco: no se subió nada. Con --aplicar se suben.'); process.exit(0); }
-
 const { getSupabaseServer } = await imp('lib/supabase.ts');
 const storage = getSupabaseServer().storage;
-const { data: buckets } = await storage.listBuckets();
-if (!buckets?.some((b: { name: string }) => b.name === 'ia-pc')) {
-  const { error } = await storage.createBucket('ia-pc', { public: false });
-  if (error) { console.error(`⛔ no pude crear el bucket: ${error.message}`); process.exit(1); }
-  console.log('  bucket `ia-pc` creado (privado)');
+// Lo que hay hoy en el bucket (sólo lectura): en seco se dice qué falta; al aplicar, qué se reemplaza.
+const { data: listado, error: errLista } = await storage.from('ia-pc').list('', { limit: 1000 });
+if (errLista) console.log(`  (no pude mirar el bucket: ${errLista.message})`);
+else {
+  const { faltan, versiones } = faltanEnElBucket((listado ?? []).map((f: { name: string }) => f.name));
+  console.log(`  en el bucket hoy: ${versiones.length ? versiones.join(', ') : 'nada'} · de la ${VERSION_PC} ${faltan.length ? `faltan ${faltan.length}: ${faltan.join(', ')}` : 'están los 3 (se reemplazan)'}`);
 }
-for (const a of armados) {
-  const { error } = await storage.from('ia-pc').upload(a.nombre, a.datos, { contentType: 'application/gzip', upsert: true });
-  console.log(error ? `  ⛔ ${a.nombre}: ${error.message}` : `  ✓ ${a.nombre} subido`);
+/**
+ * Sube y firma. Devuelve el código de salida. ⚠️ Sin `process.exit()` después de los pedidos: en Windows, Node revienta
+ * así después de varios `fetch` («Assertion failed … async.c line 94», 0xC0000409; medido en el seco del 22/10) y el
+ * código de salida miente. Se deja `process.exitCode` y el proceso termina solo (con un reloj de respaldo, abajo).
+ */
+async function subir(): Promise<number> {
+  if (!APLICAR) { console.log('En seco: no se subió nada. Con --aplicar se suben.'); return 0; }
+  const { data: buckets } = await storage.listBuckets();
+  if (!buckets?.some((b: { name: string }) => b.name === 'ia-pc')) {
+    const { error } = await storage.createBucket('ia-pc', { public: false });
+    if (error) { console.error(`⛔ no pude crear el bucket: ${error.message}`); return 1; }
+    console.log('  bucket `ia-pc` creado (privado)');
+  }
+  let mal = 0;
+  for (const a of armados) {
+    const { error } = await storage.from('ia-pc').upload(a.nombre, a.datos, { contentType: 'application/gzip', upsert: true });
+    if (error) mal++;
+    console.log(error ? `  ⛔ ${a.nombre}: ${error.message}` : `  ✓ ${a.nombre} subido`);
+  }
+  // «Subido» no es «se puede bajar»: se firma cada uno, como hace el instalador (app/api/ia-pc/instalar/route.ts).
+  for (const a of armados) {
+    const { data, error } = await storage.from('ia-pc').createSignedUrl(a.nombre, 60);
+    if (error || !data?.signedUrl) mal++;
+    console.log(error || !data?.signedUrl ? `  ⛔ ${a.nombre} no firma: ${error?.message ?? 'sin URL'}` : `  ✓ ${a.nombre} firma bien`);
+  }
+  console.log(mal ? `⛔ ${mal} cosas fallaron: el instalador de la ${VERSION_PC} NO anda todavía.` : `✓ La ${VERSION_PC} está completa: el instalador ya puede bajarla.`);
+  return mal ? 1 : 0;
 }
-process.exit(0);
+process.exitCode = await subir();
+setTimeout(() => process.exit(), 10_000).unref();

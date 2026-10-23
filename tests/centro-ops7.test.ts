@@ -346,7 +346,9 @@ test('6: un chat sin aviso y sin trabajo se ve DORMIDO; despierto sólo con un a
   assert.match(fila, /\$\{dormida \? ' co-fila--dormida' : ''\}/);
   const movil = sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx'));
   assert.match(movil, /const animo = animoDe\(c, avisosDe\(espera, nuevo\)\);/);
-  assert.match(movil, /animoDe\(elegido, esperaDe\(elegido, esperas\)\)/);
+  // La cabecera con el MISMO número que la fila (22/10/2026): con `esperaDe` no contaba el «Completado» sin ✓ y la criatura de
+  // arriba dormía mientras la fila avisaba. Este test fijaba ese error (tests/ops-center-bloque-y-estado.test.ts, 6).
+  assert.match(movil, /animoDe\(elegido, centro\.avisos\(elegido\)\)/);
   assert.match(sinComentarios(leer('app/admin/operaciones/Conversacion.tsx')), /const animo = animoDe\(chat, espera\);/);
   assert.match(css, /\.co-fila--dormida \.co-fila__titulo \{ color: var\(--dim\)/, 'la fila apagada');
 });
@@ -382,6 +384,7 @@ test('md: lo que escribe un chat se dibuja con su formato: nada de asteriscos, a
   })));
   assert.ok(cierre.includes('Hice el filtro') && cierre.includes('Con 3 leads') && !/\*\*|`/.test(cierre), cierre);
   for (const f of ['app/admin/operaciones/PreguntaChat.tsx', 'app/admin/operaciones/Pregunta.tsx']) {
-    assert.match(sinComentarios(leer(f)), /conFormato\((p|d)\.pregunta, 'pq'\)/, `${f}: la pregunta con su formato`);
+    // `conLinks` (PreguntasDelChat.tsx) es `conFormato` con los links sin https: la Ticketera lo usa desde el 22/10/2026.
+    assert.match(sinComentarios(leer(f)), /con(?:Formato|Links)\((p|d)\.pregunta, 'pq'\)/, `${f}: la pregunta con su formato`);
   }
 });

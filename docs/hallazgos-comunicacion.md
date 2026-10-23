@@ -112,7 +112,7 @@ Tres cosas que no se ven y cambian cualquier diseño que lo toque:
 
 ## «No puedo», «déjame ver» y «la cagada es real»: el grupo de Pablo y el vigía (16-17/10/2026)
 
-**Síntoma (ws18, Pablo Chavez, 16/10, horas UTC).** «probá el calendario de google» → «primero debes activar la
+**Síntoma (ws18, Pablo, 16/10, horas UTC).** «probá el calendario de google» → «primero debes activar la
 integración» — y la persona: «mentira, ya está conectado». «¿qué tareas quedan hoy?» → «Déjame ver el plan…» y nada más.
 «¿Me agendás una visita mañana a las 9:30?» → «pásame el nombre y la dirección»; se los da y MaKo: «desde este chat no
 tengo acceso para escribir en tu Google Calendar». «te cargo las tareas del plan» y no cargó nada. Y en el medio: «la
@@ -1726,7 +1726,7 @@ status de nutrición» (2026-08-02).
 con el link de agenda de otro y en voseo aunque su audiencia sea mexicana.
 
 **Causa real:** el SYSTEM de `/api/email/generar` arranca literal con «Sos MaKo escribiendo EMAIL
-MARKETING para Mauricio Bustos (consultor: Negocio que Escala™)» y más abajo ordena usar
+MARKETING para Mauricio (consultor: Negocio que Escala™)» y más abajo ordena usar
 `https://calendly.com/mauriciobustoseguia/60min` como link de agenda. No lee el perfil del
 workspace ni la guía de voz destilada: solo pasa por `brandSystem()`.
 
@@ -9266,7 +9266,7 @@ grupos — No quedó adentro del grupo» en los seis.
 
 **El diagnóstico obvio era el equivocado.** Parecía la relectura: con la privacidad nueva los
 participantes vienen como `…@lid`, y un lector que mirara sólo el `id` no vería a nadie. Pero
-`esAdminEn` mira también `phoneNumber`, y medido en vivo el grupo «MaKo <> Mauricio Bustos»
+`esAdminEn` mira también `phoneNumber`, y medido en vivo el grupo «MaKo <> Mauricio»
 seguía con DOS participantes: el número nunca entró.
 
 **Causa, medida a mano en el grupo SuperAdmin (sólo Martín adentro):** Evolution 2.3.7 contestó
@@ -9723,8 +9723,8 @@ cada cliente, no debería decir MaKo».
 **El diagnóstico obvio era el equivocado:** no hay ningún «MaKo» escrito en el render. `renderEmailHtml`
 pinta `fromName` como firma, y los llamadores le pasaban `displayNameDe(getEmailFrom())`, el nombre
 visible del REMITENTE del workspace. El del ws1 es «MaKo <equipo@hola-mako.com>», y el de todo
-workspace sin dominio era el sandbox, `Mauricio Bustos <onboarding@resend.dev>`: el nombre de OTRO
-cliente firmando (y, en la bandeja de «Probar», diciendo «De: Mauricio Bustos»).
+workspace sin dominio era el sandbox, `Mauricio <onboarding@resend.dev>`: el nombre de OTRO
+cliente firmando (y, en la bandeja de «Probar», diciendo «De: Mauricio»).
 
 **Y no vivía en un lugar, vivía en cuatro:** la nutrición de /chatbot, la vista de «Probar», los
 broadcasts de /email (el envío y su prueba) y la prueba de verdad de «Probar», que llegaba sin firma.
@@ -10636,3 +10636,127 @@ lib/mako-turno-app.ts). Un borrador incierto vuelve a «pendiente» (lib/evoluti
 estado que /chats y MaKo no ofrezcan reenviar.
 **Vive en:** lib/chats-envio-reglas.ts · lib/api-mako/areas/chats.run.ts y chats.def.ts · tests/chats-mako-envio.test.ts ·
 *21/10/2026, chat «CRM» (claude4).*
+
+## Una clave pegada en el grupo de MaKo: se tapa el MENSAJE, no el texto (22/10/2026, WA2)
+
+**Vive en:** `lib/doer-claves.ts` · `lib/mako-doer-in.ts` (`manejarEntranteDoer`, `bufferearYResponder`, `textoDeArchivo`)
+· `tests/doer-claves.test.ts` (corre la entrada real del grupo contra una base de mentira)
+
+- **Por qué ahora:** desde el 22/10 se les pide a los clientes su clave de API (IA4), y el chat de la app ya las tapaba
+  (pieza 1.6, `lib/claves-en-el-chat.ts`). En el grupo no: la clave llegaba al modelo y quedaba entera en la cola
+  (`mako_doer_buffer.payload`, el webhook crudo) y en `mako_doer_conv`.
+- **El diagnóstico obvio era tapar `textoDe(data)`, y no alcanzaba.** El mismo texto viaja en TRES lugares más: el
+  `payload` que va a la cola (de donde el lote vuelve a leer), el `caption` de una foto o un documento, y el mensaje CITADO
+  (un «responder» trae copiado en `contextInfo.quotedMessage` el texto del otro: citar el mensaje de la clave la volvía a
+  meter). Por eso se tapa el objeto `message` entero, recorriéndolo, al entrar a `manejarEntranteDoer`, y desde ahí el
+  crudo no se vuelve a leer.
+- **Lo binario NO se toca** (`base64`, `jpegThumbnail`, las llaves y hashes de medios): no lo escribe nadie, y tapar un
+  pedazo rompe la imagen. Trampa del test: un base64 con la clave pegada sin borde de palabra (`…Ggosk-ant-…`) no lo muerde
+  ninguna regla, y la prueba de «no se toca» pasaba aunque se tocara; con un `/` antes (como en un base64 real), sí.
+- **El aviso no puede decir lo que dice la app.** En la app el crudo no se guarda («no quedó en el chat»); en WhatsApp el
+  mensaje con la clave SIGUE en el grupo (MaKo no borra lo que manda otro). El aviso pide que la borre y trae el link a su
+  conexión (`/integraciones?abrir=<servicio>`). Un mensaje que era SÓLO la clave no se encola: no queda nada que contestar.
+- **Sin hacer:** una clave DENTRO de una foto o un PDF (van nativos al modelo) y la que se dice en una nota de voz no se
+  tapan. La prueba en el grupo de prueba del ws3, con Martín pegando una clave de mentira, espera el deploy.
+
+### Lo que encontró la revisión del lote 1 (Integración, 22/10/2026), y cómo quedó
+
+- **La cita viaja DOS veces, y la segunda estaba afuera de `message`.** Evolution v2 manda la cita adentro de
+  `message.…contextInfo` y TAMBIÉN en `contextInfo.quotedMessage`, en el nivel de arriba del webhook. El primer arreglo
+  recorría sólo `message`: quien citaba el mensaje con la clave la dejaba entera en `mako_doer_buffer.payload`, y el aviso
+  decía «no la guardé». **Regla:** un tapado sobre el payload de un proveedor recorre TODO el payload, salvo los
+  identificadores (`key`, que además deduplica la cola) y lo binario. Nunca se supone en qué campo pone el proveedor lo
+  que escribió una persona.
+- **El aviso salía antes de la deduplicación, y con MaKo apagado.** Una re-entrega de Evolution repetía «Tapé tu clave», y
+  MaKo hablaba en un grupo donde está apagado. Ahora el aviso va después de `encolar`, y sólo con `doerActivo`. El mensaje
+  que es SÓLO la clave no se encola, así que no tiene el dedup del motor: lo frena `avisoYaDado` (una memoria del proceso
+  de 10 minutos). Si una re-entrega cae en otra instancia, el aviso se repite; es un aviso, no una escritura.
+- **Trampa del test: la base de mentira no tenía el índice único de la cola.** Sin `ux_doer_buffer_msg`
+  (supabase/migrations/0113), una re-entrega se encolaba dos veces en el test, y el arreglo del dedup no se podía ver. El
+  hijo ahora declara el índice con `unicos`, igual que la migración. Si un test usa `_postgrest-de-mentira` sobre una tabla
+  cuyo dedup hace el motor, tiene que declarar el índice; si no, el dedup no existe en el test.
+- **La segunda revisión (el mismo día):** el aviso le hablaba a quien CITABA la clave («¡no pegues claves acá!») como si la
+  hubiera pegado él, porque contaba lo tapado en la cita. Ahora el aviso sale sólo si la clave estaba en lo que escribió esa
+  persona (`escribioUnaClave`, su texto o el caption); lo de la cita se tapa en silencio. Y el aviso ya no dice «no la
+  guardé»: Evolution guarda los mensajes en su base por default, y el mensaje sigue en el grupo. Lo cierto es «la IA no la
+  vio».
+- **El acuse del webhook logueaba el texto crudo de hasta 40 caracteres**, y una clave `AIza…` suelta tiene 39. Ahora se
+  tapa antes del log (app/api/webhooks/evolution/route.ts).
+
+## Hola MaKo con el Claude o el GPT del negocio: el escalado a Claude nunca podía llegar (22/10/2026, WA1)
+
+**Vive en:** `lib/mako-doer-in.ts` (`suIA`, los candidatos, el intento con su Claude) · `lib/anthropic.ts`
+(`chatClaudeTools` con `soloSuClaude`) · `tests/doer-su-ia.test.ts`
+
+- **Síntoma:** en 30 días el doer de WhatsApp hizo 231 llamadas a Gemini (ws13: 115, ws15: 53) y ninguna con el Claude de un
+  negocio, aunque el ws10 y el ws11 lo tienen cargado.
+- **Causa (dos, apiladas):** los candidatos eran `[pin, groq, openai]` y el archivo no preguntaba si el negocio tenía su IA;
+  y el escalado a Claude pasaba `model: 'claude-sonnet-5'` explícito, que salta la puerta 2 (la clave del negocio sólo se
+  prueba SIN `model`) y cae en el veto de la plataforma, que no tiene a `mako-doer-in`: el Claude del negocio era
+  inalcanzable por construcción.
+- **Regla que queda:** con su IA, el doer prueba su OpenAI y después su Claude por la puerta 2 (`soloSuClaude`: directo a
+  su clave, sin cascada; sin su clave, «falló la IA»). Sólo si el turno no ejecutó nada (otro modelo duplicaría una
+  escritura). Nunca la suscripción: WhatsApp es de fondo (D6a). La red gratis de la plataforma ni se arma.
+- **Sin hacer:** va después de OC1 (Ops Center 1.2 toca lib/doer-herramientas.ts y lib/mako-intencion.ts, no este archivo).
+  El caso real (el próximo mensaje del grupo del ws11 con su proveedor y la marca, 0 gemini) espera el deploy.
+
+## Lo que le llega a un TERCERO se confirma por WhatsApp con un «sí» y nada más (21/10/2026)
+
+**Pedido (el Cerebro, revisando la 2.1 de CRM):** la regex `CONFIRMACION` (lib/mako-intencion.ts) arranca con `^` y no cierra con `$`: «ok, esperá que lo reviso», «perfecto, después lo veo», «sí pero cambiale la hora» o «dale que lo pienso» llegan como `confirmar`, con `confirmar_accion`, y lo que decide si se ejecuta es el criterio del modelo. Para lo interno ejecutar de más cuesta poco. Pero hay acciones con confirmación por chat que **le llegan a otra persona** (un email y un WhatsApp al alumno, el aviso de Calendly o la invitación de Google al lead, el link de pago) y no se deshacen.
+
+**Medido por SHA contra producción (60 días; lectura sola, `mako_acciones_pendientes` y `mako_doer_conv`):**
+- **Hechos: hoy no pasa en la práctica.** 135 pendientes ejecutadas en claves de WhatsApp: 127 con `origen = 'api'` (las confirmó un token) y **8 con `origen = 'hola-mako'`: las confirmó el «sí» del grupo**. Las 8 son `proponer_agendar_agenda` y las 8 se confirmaron con un «Si» / «si» solo. **0 de 8 fueron un mensaje que no era una confirmación.** Ninguna de las otras once acciones a terceros se confirmó por chat todavía.
+- **Exposición: sí existe.** De 166 mensajes de personas en los grupos, 22 llegarían a `confirmar` (con `confirmar_accion`) si hubiera una pendiente abierta, y **13 de esos 22 no son una confirmación**: «Si 18 de noviembre», «Si, anota; “Closing, España y webinar”», «Ok, decime que reuniónes tengo hoy», «así es pero su cuota en comercial sigue vigente como vencida», «Dale mato que tenemos que hacer millones…», «ok». El volumen de pendientes es bajo hoy (8 confirmaciones en el chat en 60 días); la puerta cuesta una línea de código y no una regla.
+- **WhatsApp no cambia fuera de la puerta:** `scripts/medir-turnos-por-sha.mts origin/main <punta> --canal=whatsapp`, 593.784 turnos (49.482 frases × 12 contextos; veredicto, herramientas en orden con el hash de su definición, `delRegistro`, instrucción), **0 cambian**. El arnés mide lo que decide el clasificador; la puerta actúa después, al confirmar, y se prueba con `tests/confirmacion-terceros.test.ts` (10 roturas).
+
+**Qué cambió (sin otra ronda de palabras para todo el clasificador):**
+1. **`lib/confirmacion-pura.ts`**: `confirmacionPura(mensaje)` es verdadera sólo si el mensaje son palabras de confirmación («sí», «dale», «mandalo», «confirmo», «hacelo», «de una», «agendalo»…) más cortesías («por favor», «gracias», «ok», «listo»), hasta 6 palabras y con al menos una confirmación. «ok», «perfecto» o «listo» solos acusan recibo y **no** confirman. Ante la duda es falso.
+2. **`AccionDef.aTerceros`** (lib/api-mako/tipos.ts) en las doce acciones de chat que le llegan a otro: las seis de reuniones (`proponer_agendar_reunion`, `cancelar_reunion_calendly`, `proponer_agendar_agenda`, `proponer_mover_reunion`, `proponer_cambiar_reunion`, `proponer_cancelar_reunion`), `invitar_cliente_curso_cs`, `reenviar_invitacion`, `crear_link_pago`, `crear_link_cuota`, `llevar_a_partners` y `mover_lead_en_producto` (al ganar, invita al curso).
+3. **La puerta, en código** (`confirmarPendiente`, lib/api-mako/acciones.ts, y el camino viejo de `confirmar_accion`): por WhatsApp, una acción `aTerceros` con un mensaje que no es una confirmación pura **no se reclama ni se ejecuta**; vuelve como error de `confirmar_accion`, la pendiente sigue viva, y el texto le pide al modelo repreguntar mostrando de nuevo qué va a salir (su resumen). En la app (tarjeta) y por HTTP (token) no hay mensaje que interpretar: no cambia.
+4. **Un test frena la acción nueva** que diga en su descripción que le escribe, le avisa, le invita o le manda algo a alguien y no esté marcada (con la lista de las seis que lo dicen y no le llegan a nadie: cerrar, reabrir y posponer chat; `crear_automatizacion_con_ia`, que nace pausada; `asignar_audio_paso`, que queda como borrador; `avisar_al_equipo`, que es para el equipo).
+
+**Lo que no era obvio.**
+- ⚠️ **El diagnóstico obvio era tocar la regex `CONFIRMACION`** (cerrarla con `$`, sacarle «ok» y «perfecto»). Es la tercera ronda de palabras que el Cerebro pidió no hacer: la regex gobierna TODO el clasificador (qué herramientas viajan, si hay `sigueOfrecimiento`), y cada palabra que se saca deja afuera un «sí» legítimo. La puerta en `confirmarPendiente` no toca el clasificador: **WhatsApp no cambia fuera de esa puerta**.
+- **Cuatro acciones que le llegan a un tercero no estaban marcadas por nadie:** `crear_link_pago` y `crear_link_cuota` («el link le llega a la persona por aparte»), `llevar_a_partners` («le llega su acceso») y `mover_lead_en_producto` («ganar ahí invita al curso»). Salieron de leer las descripciones del registro, no de la lista de tres que se tenía en la cabeza.
+- **`(confirmado por X)` NO separa el chat de la API.** El contexto de WhatsApp también trae `actor` (`actorDeWhatsApp`: el participante del grupo), así que 128 de 135 resultados dicen «confirmado por…». Lo que separa es `origen` de la pendiente: `api` (127) y `hola-mako` (8).
+
+**Límites que quedan.** Una acción con efecto indirecto (poner una etiqueta o mover una etapa dispara automatizaciones que después le escriben al lead) no se marca: el mensaje sale por la automatización, no al confirmar. Las acciones nuevas de CRM 2.1 (`enviar_borrador_whatsapp`, `contestar_dm`, `contestar_email_chat`) tienen que llevar `aTerceros: true` cuando entren a main; el test las frena si lo dicen en su descripción y no lo marcan. «ok» solo no confirma una de éstas: cuesta una repregunta («¿Lo mando? Contestá sí»).
+
+**Vive en:** lib/confirmacion-pura.ts · lib/api-mako/acciones.ts (`confirmarPendiente`) · lib/mako-doer-acciones.ts (`confirmar_accion`, camino viejo) · lib/api-mako/tipos.ts (`aTerceros`) · lib/api-mako/areas/{crm,cs,equipo,cobros}.def.ts · tests/confirmacion-terceros.test.ts (8 tests, 10 roturas con su fallo). *21/10/2026, claude4.*
+
+## La revisión adversarial de Ops Center 1.2: lo que le escribe a un lead POR OTRO CAMINO también es «a terceros», y la plata pasa por la misma puerta (22/10/2026)
+
+Al llevar `mako-wa` (Ops Center 1.2) a main, una revisión adversarial buscó qué se ejecuta por WhatsApp con un «sí» ambiguo.
+Código: lib/confirmacion-pura.ts, lib/api-mako/tipos.ts (`aTerceros`, `plata`), los `*.def.ts`. Test:
+tests/confirmacion-terceros.test.ts.
+
+- **El diagnóstico obvio («las que mandan un mensaje están marcadas») era el incompleto:** cuatro acciones le escriben a un
+  lead SIN mandar nada ellas mismas, y no estaban marcadas. `proponer_toggle_nutricion` (la secuencia empieza a mandar pasos a
+  su público), `inscribir_lead_secuencia` (le dispara el primer envío, o le repite los mensajes), `proponer_cambio_etapa` (lo
+  inscribe en la automatización de la etapa, y Ganado lo invita al curso) y `poner_etiqueta_lead` / `sacar_etiqueta_lead`
+  (disparan las automatizaciones de la etiqueta). Con «ok, después lo veo» se ejecutaban. La regex del test (`LE_LLEGA`) no
+  veía «dispara el primer envío» ni «dispara las automatizaciones»: ahora sí, y encontró sola a `sacar_etiqueta_lead`.
+- **La plata (D2) no tenía puerta de código:** activar una campaña, un conjunto o un anuncio de Meta enciende el gasto, y los
+  montos de una venta o de una cuota se cambiaban con el mismo «sí» ambiguo. Ahora llevan `plata: true` y pasan por la MISMA
+  puerta que lo que le llega a un tercero, con su propio texto de rechazo.
+- **Un número es una palabra de más:** `confirmacionPura` partía por `/[^a-z]+/` y «sí 17», «dale 18/11» o «dale, $500» eran
+  confirmaciones puras. Contestan OTRA hora, OTRO día u otro monto.
+
+**SIN HACER (de esa revisión):**
+- D2 completa: la tarjeta de la plata con el monto antes → después y DOS confirmaciones (en la app hoy es un toque).
+  `formularioDe` (lib/mako-turno-app.ts) deja afuera del chat sólo `costo === 'dinero'`. `guardar_producto` cambia un precio
+  con costo «gratis».
+- Plausible, no medido: con una pendiente viva, un «sí» suelto que contesta OTRA pregunta de MaKo puede confirmarla, y con dos
+  pendientes vivas un solo «sí» pasa la puerta para las dos (mako-intencion.ts, `CONFIRMACION`).
+
+
+## El asesor de WhatsApp («MaKo — qué escribir») con las piezas del Ops Center, y por qué NO va a la estrella (22/10/2026, TB3)
+
+Martín, 22/10: «quiero que todos los chats de MaKo en las tabs sean el del Ops Center». La pestaña «Chat» del asesor
+(app/whatsapp/WhatsAppAdvisor.tsx) tenía su <textarea> y sus burbujas; ahora el hilo es `HiloMako` (con la estrella de
+MaKo) y la caja es `CajaChat`, con su motor de siempre (/api/whatsapp/advisor). El plan decía «lo que es análisis, el
+asesor, pasa a la estrella»: **no pasa**, a propósito. Lo que hace el asesor es «Usar →», que lleva el borrador a la caja de
+WhatsApp de ESE lead, y la estrella (el Cerebro de la persona) no tiene cómo escribir en la caja de otra pantalla. «Usar →»
+y «Copiar» van en el hueco `enMensaje` de cada respuesta de MaKo. La pestaña «Consejo» no es un chat y quedó igual.
+
+**Vive en:** app/whatsapp/WhatsAppAdvisor.tsx · tests/whatsapp-asesor-piezas.test.ts · *22/10/2026, chat «Chats de las tabs».*

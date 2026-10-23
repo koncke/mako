@@ -45,7 +45,7 @@ const ORIGENES_DE_MAKO: ReadonlySet<string> = new Set([
 const ICONO_POR_ORIGEN: Readonly<Record<string, string>> = {
   [etiquetaDeOrigen('api')]: 'api',
   [etiquetaDeOrigen('claude-code')]: 'api',
-  [etiquetaDeOrigen('flujo:x')]: 'chatbot',
+  [etiquetaDeOrigen('flujo:x')]: 'flujo',
   [etiquetaDeOrigen('landing')]: 'web',
 };
 

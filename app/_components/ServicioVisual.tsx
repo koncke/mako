@@ -29,10 +29,6 @@ export const ICON: Record<string, IconDef> = {
   openai: { sym: 'ic-openai', bg: '#000000' },
   groq: { sym: 'ic-groq', bg: '#F55036' },
   gemini: { sym: 'ic-gemini', bg: '#1B72E8' },     // Google Gemini: spark blanco sobre azul
-  cerebras: { sym: 'ic-cerebras', bg: '#EE5A29' }, // mark oficial: C concéntrica blanca sobre naranja
-  // Mistral: logo multicolor (amarillo→rojo) pensado para fondo claro → tile blanco con borde.
-  mistral: { sym: 'ic-mistral', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
-  openrouter: { sym: 'ic-openrouter', bg: '#000000' }, // mark oficial: forma verde-lima sobre negro
   // ElevenLabs: logo negro sobre claro → tile blanco con borde (como panda/google).
   elevenlabs: { sym: 'ic-elevenlabs', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   fathom: { sym: 'ic-fathom', bg: '#000000' },     // fathom.video: mark celeste sobre negro
@@ -168,22 +164,6 @@ export function BrandDefs() {
       <symbol id="ic-groq" viewBox="0 0 24 24"><path fill="#fff" d="M12 3.4a5.9 5.9 0 0 0 0 11.8h1.9v-2.3H12a3.6 3.6 0 1 1 3.6-3.6v5.1c0 1.9-1.6 3.4-3.5 3.4a3.5 3.5 0 0 1-2.5-1l-1.6 1.6a5.8 5.8 0 0 0 4.1 1.7c3.2 0 5.8-2.5 5.8-5.7V9.2A5.9 5.9 0 0 0 12 3.4z" /></symbol>
       {/* Gemini — spark de 4 puntas (mark oficial de Google Gemini). */}
       <symbol id="ic-gemini" viewBox="0 0 24 24"><path fill="#fff" d="M12 2c.35 5.28 4.72 9.65 10 10-5.28.35-9.65 4.72-10 10-.35-5.28-4.72-9.65-10-10C7.28 11.65 11.65 7.28 12 2z" /></symbol>
-      {/* Cerebras — mark oficial: "C" de anillos concéntricos (radar) abierta a la
-          derecha, blanca sobre naranja. La cuña naranja (= color del tile) corta los
-          anillos para formar la abertura de la C. */}
-      <symbol id="ic-cerebras" viewBox="0 0 24 24"><g fill="none" stroke="#fff" strokeWidth="2.2"><circle cx="11.3" cy="12" r="8.7" /><circle cx="11.3" cy="12" r="5.5" /></g><circle cx="11.3" cy="12" r="2.5" fill="#fff" /><path d="M11.3 12 25 5.2 25 18.8Z" fill="#EE5A29" /></symbol>
-      {/* Mistral — mark oficial: grilla pixelada en 5 bandas de color (amarillo→rojo),
-          M almenada arriba y con patas abajo. Sobre blanco (el tile es blanco). */}
-      <symbol id="ic-mistral" viewBox="0 0 24 24"><g>
-        <g fill="#FFD800"><rect x="2" y="3" width="4" height="3.6" /><rect x="14" y="3" width="4" height="3.6" /></g>
-        <g fill="#FFAF00"><rect x="2" y="6.6" width="4" height="3.6" /><rect x="10" y="6.6" width="4" height="3.6" /><rect x="14" y="6.6" width="4" height="3.6" /></g>
-        <g fill="#FF8205"><rect x="2" y="10.2" width="16" height="3.6" /></g>
-        <g fill="#FA500F"><rect x="2" y="13.8" width="4" height="3.6" /><rect x="10" y="13.8" width="4" height="3.6" /><rect x="14" y="13.8" width="4" height="3.6" /></g>
-        <g fill="#E10500"><rect x="2" y="17.4" width="4" height="3.6" /><rect x="14" y="17.4" width="4" height="3.6" /></g>
-      </g></symbol>
-      {/* OpenRouter — mark oficial: forma verde-lima sobre negro ("O" con hueco + pata
-          hacia abajo-derecha, tipo R). */}
-      <symbol id="ic-openrouter" viewBox="0 0 24 24"><circle cx="10.4" cy="11.4" r="7.6" fill="#B4F000" /><path fill="#B4F000" d="M12.6 12h4l4.3 6.5a1.5 1.5 0 0 1-1.25 2.35H12.6z" /><circle cx="9.4" cy="10.9" r="3.2" fill="#000" /></symbol>
       {/* ElevenLabs — mark oficial: dos barras verticales "| |" negras sobre blanco. */}
       <symbol id="ic-elevenlabs" viewBox="0 0 24 24"><rect x="8" y="6" width="3" height="12" rx="1.3" fill="#000" /><rect x="13" y="6" width="3" height="12" rx="1.3" fill="#000" /></symbol>
       {/* Fathom (fathom.video, el grabador de reuniones) — mark oficial, extraído de su

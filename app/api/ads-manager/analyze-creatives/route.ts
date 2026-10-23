@@ -1,20 +1,21 @@
 // =============================================================================
-// POST /api/ads-manager/analyze-creatives — MaKo "mira" los creativos (OpenAI visión)
+// POST /api/ads-manager/analyze-creatives — MaKo "mira" los creativos (con la IA del negocio)
 // =============================================================================
 // Recibe las miniaturas (dataURL) de los creativos y devuelve, por cada uno, una
 // descripción corta + ángulo. Sirve para que el wizard pregunte mejor "¿qué querés
 // hacer con estos creativos?" y para que MaKo escriba el copy alineado. Best-effort:
-// si falla / no hay OPENAI_API_KEY, devuelve items vacíos sin romper el flujo.
+// si falla o el negocio no tiene una IA que mire, devuelve items vacíos sin romper el flujo.
+//
+// IA7 (22/10/2026): miraba con la OpenAI de MaKo (`envCred`), que se quedó sin crédito, y no registraba el uso. Ahora mira
+// la IA del NEGOCIO por la capa de IA (`leerDocumentoIA`): su Claude o su OpenAI con D6b, sus keys de siempre si no.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { guardAdsWs } from '@/lib/ads-guard';
-import { envCred } from '@/lib/credenciales';
+import { leerDocumentoIA } from '@/lib/ai-cheap';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
-
-const OAI = 'https://api.openai.com/v1';
 
 export async function POST(req: NextRequest) {
   // Las hermanas de esta ruta ya exigían esDuenoAdmin, y esta no exigía NADA: dispara
@@ -30,31 +31,19 @@ export async function POST(req: NextRequest) {
   const vacios = creatives.map(() => ({ descripcion: '', angulo: '' }));
   if (!creatives.length) return Response.json({ ok: true, items: [] });
 
-  // envCred, no process.env: espera la hidratación del boot y cae a la base si hace
-  // falta (ver credencialesListas() en lib/credenciales.ts).
-  const key = await envCred('OPENAI_API_KEY');
-  if (!key) return Response.json({ ok: true, items: vacios });
-
-  const sys = 'Eres un analista de creativos publicitarios. Miras cada imagen (foto del anuncio o frame de un video) y describes, por cada una, QUÉ comunica y su ángulo/gancho. No inventes audio o texto que no ves. Sé breve y concreto.';
-  const content: Array<Record<string, unknown>> = [{
-    type: 'text',
-    text: `Te paso ${creatives.length} creativo(s), en orden. Por cada uno devuelve {descripcion: 1 frase, angulo: 1-3 palabras}. Responde EXCLUSIVAMENTE JSON: {"items":[{"descripcion":"…","angulo":"…"}]} con un item por creativo, en el mismo orden.`,
-  }];
-  creatives.forEach((c, i) => {
-    content.push({ type: 'text', text: `Creativo ${i + 1}${c.media_type === 'video' ? ' (frame de video)' : ''}:` });
-    content.push({ type: 'image_url', image_url: { url: c.thumbnail, detail: 'low' } });
-  });
+  // Las imágenes van en orden (dataUrls): el prompt dice cuáles son frame de un video.
+  const cuales = creatives.map((c, i) => `${i + 1}${c.media_type === 'video' ? ' (frame de video)' : ''}`).join(', ');
+  const prompt = [
+    'Eres un analista de creativos publicitarios. Miras cada imagen (foto del anuncio o frame de un video) y describes, por cada una, QUÉ comunica y su ángulo/gancho. No inventes audio o texto que no ves. Sé breve y concreto.',
+    `Te paso ${creatives.length} creativo(s), en orden: ${cuales}. Por cada uno devuelve {descripcion: 1 frase, angulo: 1-3 palabras}. Responde EXCLUSIVAMENTE JSON: {"items":[{"descripcion":"…","angulo":"…"}]} con un item por creativo, en el mismo orden.`,
+  ].join('\n\n');
 
   try {
-    const r = await fetch(`${OAI}/chat/completions`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'gpt-4o', temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: sys }, { role: 'user', content }] }),
-      cache: 'no-store',
+    const r = await leerDocumentoIA({
+      dataUrl: creatives[0].thumbnail!, dataUrls: creatives.map((c) => c.thumbnail!), isPdf: false, nombreArchivo: 'creativos.jpg',
+      prompt, json: true, feature: 'ads-mirar-creativos', motivo: `Mirar ${creatives.length} creativo(s)`,
     });
-    const j = (await r.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const txt = j?.choices?.[0]?.message?.content ?? '{}';
-    const parsed = JSON.parse(txt) as { items?: unknown };
+    const parsed = JSON.parse(r.text || '{}') as { items?: unknown };
     const arr = Array.isArray(parsed.items) ? parsed.items : [];
     const items = arr.map((x) => {
       const o = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>;

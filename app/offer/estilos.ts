@@ -10,18 +10,13 @@
 // El dorado es SÓLO de MaKo: lo usan su foto, la estrella, la pastilla de «Armar mi
 // oferta» y el borde de una pieza que MaKo ya sabía. Lo del dueño va en azul o en gris.
 //
-// ⚠️ `.of-hilo-lista > div` APLANA LA CAJA DE ChatHilo (app/whatsapp/_shared/ChatHilo.tsx): la
-// tarjeta del chat es la de ChatOffer, con la barra de escribir adentro, y ChatHilo dibuja su
-// propio borde y su radio en línea. Una regla con `!important` le gana a un estilo en línea sin
-// tocar el componente compartido. Si ChatHilo cambia su nodo raíz, lo peor que pasa es un borde
-// de más (se ve, no rompe nada).
+// El hilo y la caja del chat son los del Ops Center desde el 22/10/2026 (OF4): sus estilos viven en
+// app/admin/operaciones/centro.css (co-) y app/_chat/chat.css (ch-). Acá queda lo propio de Offer.
 
 export const CSS_OFFER = `
 .of-sr { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .of-cabecera { flex: none; display: flex; align-items: center; gap: 12px; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
 
-.of-hilo-lista > div { border: 0 !important; border-radius: 0 !important; }
-.of-hilo[data-encima] { outline: 2px dashed var(--primary); outline-offset: -4px; }
 .of-error { flex: none; padding: 8px 16px; background: var(--warn-bg); color: var(--warn); font-size: 12.5px; line-height: 1.45; border-top: 1px solid var(--border); }
 
 .of-pill {

@@ -86,7 +86,8 @@ test('provsDe lo aplica: por ahí pasan todas las cascadas (texto, herramientas,
   const propias = bloque(src, 'async function soloLasPropias(', '\n}\n');
   assert.match(propias, /sinCopiasDeLaPlataforma\(provs, \{ ws, wsPlataforma: wsSA, huellas, huella: huellaDeKey \}\)/);
   const huellas = bloque(src, 'async function huellasDeLaPlataforma(', '\n}\n');
-  assert.match(huellas, /await credWsEstricta\(cl, wsSA\)/, 'las keys de la plataforma se leen tolerante: con la base caída no se reconoce ninguna copia');
+  // Y una fila ilegible también es «no pude leer» (`ilegibleTira`, revisión adversarial de IA15).
+  assert.match(huellas, /await credWsEstricta\(cl, wsSA, \{ ilegibleTira: true \}\)/, 'las keys de la plataforma se leen estrictas: con la base caída o una fila ilegible no se reconoce ninguna copia');
   assert.match(huellas, /process\.env\[cl\]/, 'las keys del entorno (la otra copia de la plataforma) no cuentan');
   assert.match(huellas, /return null;/, 'si no se pudo leer, se inventa un conjunto vacío y pasan todas');
   // La caché es de la plataforma y guarda HUELLAS: nunca una key en memoria compartida entre inquilinos.

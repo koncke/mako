@@ -64,10 +64,7 @@ function zDe(css: string, sel: string): number {
   return Number(m[1]);
 }
 
-const COMPOSER = sinComentarios(leer('app/m/mako/Composer.tsx'));
 const CAPA = sinComentarios(leer('app/m/mako/VistaAdjuntosM.tsx'));
-const CHAT = sinComentarios(leer('app/m/mako/ChatMako.tsx'));
-const VISTA = (): string => bloque(COMPOSER, '<VistaAdjuntosM', '/>');
 
 // ── Lo que decide la pantalla, ejecutado ─────────────────────────────────────
 
@@ -125,66 +122,6 @@ test('el teclado: en iOS tapa lo que el visualViewport no muestra; en Android (y
 
 // ── El cableado ──────────────────────────────────────────────────────────────
 
-test('ELEGIR no sube nada: las tres entradas y el «+» de la vista pasan por `sumar`, que sólo achica y junta', () => {
-  const sumar = bloque(COMPOSER, 'async function sumar(archivos: File[]) {', 'function alElegir(');
-  assert.doesNotMatch(sumar, /onEnviar|postConProgreso|fetch\(|FormData|XMLHttpRequest/, 'elegir volvió a mandar o a subir');
-  assert.match(sumar, /const tipo = tipoDeElegido\(f\);/);
-  assert.match(sumar, /await achicarImagen\(f\)/, 'la foto se achica en el teléfono, antes de subir');
-  assert.match(sumar, /motivos\.push\(\.\.\.lista\.agregar\(nuevos\)\)/);
-  // El composer entero no sube ni manda de a uno: eso es de ChatMako, con Enviar, todo junto.
-  assert.doesNotMatch(COMPOSER, /postConProgreso|fetch\(|new FormData|XMLHttpRequest|enviarEnOrden/);
-  assert.doesNotMatch(CAPA, /postConProgreso|fetch\(|new FormData|XMLHttpRequest|enviarEnOrden/);
-  assert.equal(contar(COMPOSER, /onChange=\{alElegir\}/g), 3, 'cámara, fotos y archivo');
-  assert.match(bloque(COMPOSER, 'function alElegir(', 'const quitar ='), /void sumar\(elegidos\);/);
-  assert.match(VISTA(), /onAgregar=\{\(fs\) => void sumar\(fs\)\}/);
-});
-
-test('Enviar manda los adjuntos y el texto, y recién ahí ChatMako sube TODO JUNTO por multipart', () => {
-  const enviar = bloque(COMPOSER, 'const enviar = () => {', 'const micApagado');
-  assert.match(enviar, /if \(!puedeEnviar\) return;/);
-  // Desde el 17/10/2026 el texto lleva también los textos pegados largos, como documento (#864, lib/chat-pegado.ts).
-  const iMandar = enviar.indexOf('onEnviar(envioDe(conPegados(texto, pegados), lista.ref.current));');
-  const iVaciar = enviar.indexOf('lista.vaciar();');
-  assert.ok(iMandar > 0 && iVaciar > iMandar, 'se manda lo de AHORA (la ref) y después se vacía la lista');
-  const vista = VISTA();
-  assert.match(vista, /onEnviar=\{enviar\}/, 'el Enviar de la vista es el mismo del composer');
-  assert.match(vista, /items=\{lista\.items\}/);
-  assert.match(vista, /texto=\{texto\}/, 'el mensaje de la vista es el texto del composer');
-  assert.match(vista, /puedeEnviar=\{listo\}/);
-  const turno = bloque(CHAT, 'const enviar = async (e: Envio) => {', 'const reintentar =');
-  assert.equal(contar(CHAT, /postConProgreso\(/g), 1, 'ChatMako sube en un solo lugar');
-  assert.match(turno, /fd\.append\('mensaje', e\.texto\);/);
-  assert.match(turno, /for \(const a of e\.adjuntos\) fd\.append\('adjuntos', a\.file, a\.file\.name\);/);
-  assert.doesNotMatch(CHAT, /enviarEnOrden/);
-  assert.match(CHAT, /<Composer enLinea=\{enLinea\} ocupado=\{trabajo != null\} onEnviar=\{\(e\) => void enviar\(e\)\}/);
-});
-
-test('el tope de 4 en el teléfono: la lista, el «+» del composer y el «+» de la vista', () => {
-  assert.match(COMPOSER, /const TOPES_LISTA = \{ maxArchivos: TOPE_ADJUNTOS \};/);
-  assert.match(COMPOSER, /const lista = useListaAdjuntos\(TOPES_LISTA\);/);
-  assert.match(COMPOSER, /disabled=\{!enLinea \|\| lista\.items\.length >= TOPE_ADJUNTOS\}/);
-  const vista = VISTA();
-  assert.match(vista, /maxArchivos=\{TOPE_ADJUNTOS\}/);
-  assert.match(vista, /accept=\{ACCEPT_ADJUNTOS_CHAT\}/, 'los formatos de lib/mako-adjuntos.ts');
-  const sumar = bloque(COMPOSER, 'async function sumar(archivos: File[]) {', 'function alElegir(');
-  assert.match(sumar, /problemaDeSeleccion\(\[\.\.\.lista\.ref\.current\.map\(\(a\) => a\.file\.size\), \.\.\.nuevos\.map\(\(f\) => f\.size\)\]\)/,
-    'los 4 archivos y los 4 MB se miden sobre lo que ya hay más lo nuevo');
-});
-
-test('la vista se dibuja sólo con algo juntado, y es la MISMA VistaAdjuntos (no una copia)', () => {
-  assert.match(COMPOSER, /const hayVista = lista\.items\.length > 0;/);
-  assert.match(COMPOSER, /\{hayVista && \(\s*<VistaAdjuntosM/);
-  assert.match(CAPA, /import \{ VistaAdjuntos, type VistaAdjuntosProps \} from '@\/app\/whatsapp\/_shared\/VistaAdjuntos';/);
-  assert.match(CAPA, /<VistaAdjuntos \{\.\.\.props\} onCerrar=\{pedirCierre\} \/>/);
-  // Lo que dibuja la vista no se reescribe en /m (el PDF, las URL blob de las miniaturas).
-  for (const src of [COMPOSER, CAPA]) assert.doesNotMatch(src, /unpdf|getDocumentProxy|createObjectURL\(listo\)/);
-  // La ✕ descarta los archivos, no el texto (es el borrador del chat).
-  const cerrar = bloque(COMPOSER, 'const cerrarVista = () => {', 'const abrirHoja =');
-  assert.match(cerrar, /lista\.vaciar\(\);/);
-  assert.doesNotMatch(cerrar, /setTexto/);
-  assert.match(VISTA(), /onCerrar=\{cerrarVista\}/);
-});
-
 test('la capa: portal a #m-capas, «atrás» la cierra, sin data-m-sin-barra, y el teclado de iOS', () => {
   assert.equal(contar(CAPA, /createPortal\(/g), 1);
   assert.match(CAPA, /setCapa\(document\.getElementById\('m-capas'\) \?\? document\.body\)/,
@@ -195,7 +132,6 @@ test('la capa: portal a #m-capas, «atrás» la cierra, sin data-m-sin-barra, y 
   assert.doesNotMatch(CAPA, /data-m-sin-barra/, 'reacomoda el chat de atrás y el scroll se pierde');
   assert.match(CAPA, /if \(!vv \|\| !campo\) \{ setTeclado\(null\); return; \}/, 'sólo con el campo enfocado (el zoom de dos dedos achicaría la capa)');
   assert.match(CAPA, /const t = altoTeclado\(window\.innerHeight, vv\);/);
-  assert.match(COMPOSER, /setTeclado\(altoTeclado\(window\.innerHeight, vv\)\)/, 'el composer y la capa miden el teclado con la MISMA función');
 });
 
 test('CSS: la capa tapa el encabezado, la barra y el composer; queda debajo de sheets y toasts; 16 px y áreas seguras', () => {
@@ -218,7 +154,7 @@ test('CSS: la capa tapa el encabezado, la barra y el composer; queda debajo de s
 test('copy en español neutro con tú: nada de voseo en lo que dibujan el composer y la capa', () => {
   // Con tilde: «mira» es tú, «mirá» es vos. Y `\b` no sirve después de una «á» (no es letra para \w).
   const VOSEO = /(?<!\p{L})(pod[eé]s|ten[eé]s|quer[eé]s|sab[eé]s|escribí|agregá|mirá|elegí|tocá|mandá|probá|fijate|vos)(?!\p{L})/iu;
-  for (const [nombre, src] of [['Composer.tsx', leer('app/m/mako/Composer.tsx')], ['VistaAdjuntosM.tsx', leer('app/m/mako/VistaAdjuntosM.tsx')], ['chat-ui.ts', leer('app/m/mako/chat-ui.ts')]] as const) {
+  for (const [nombre, src] of [['VistaAdjuntosM.tsx', leer('app/m/mako/VistaAdjuntosM.tsx')], ['chat-ui.ts', leer('app/m/mako/chat-ui.ts')]] as const) {
     const textos = src.match(/'[^'\n]*'|`[^`\n]*`|>[^<>{}\n]+</g) ?? [];
     for (const t of textos) assert.doesNotMatch(t, VOSEO, `${nombre}: voseo en ${t}`);
   }

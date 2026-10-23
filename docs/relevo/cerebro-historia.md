@@ -253,7 +253,7 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - Pagos: #866, #867 y #871.
   La revisión de la extracción está en hallazgos-plan.md.
 - **Plan ordenado (17/10 ~01:30):** 35 tarjetas pasaron del proyecto del cliente al de su tab. #878 y #879 fueron a
-  «Cliente: Mauricio», #875 a Email, y #877 se cerró (la cuenta ya se compró). Se borró «Cliente: Mauricio Bustos» (P84), un
+  «Cliente: Mauricio», #875 a Email, y #877 se cerró (la cuenta ya se compró). Se borró «Cliente: Mauricio» (P84), un
   duplicado que creó la importación. Las 13 que el extractor dejó afuera son #880-#892.
 - **Jefes sin abrir, por RAM, con sus tarjetas esperando:**
   - Plan: #870 y el arreglo del extractor (hallazgos-plan);
@@ -262,7 +262,7 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - Offer: #865, #887 y #888;
   - MaKo Mobile: #872, y las listas de Markdown del hilo del teléfono.
 - **Abiertos después:**
-  - «MaKo en WhatsApp» (`local_d3ed9496…`): el VIGÍA de los grupos de clientes, cada 15 min, que depura cada falla. Primer caso: ws18 (Pablo Chavez), con Calendar conectado y MaKo diciendo que no puede escribir. Tarjeta #885. No toca lib/doer-herramientas.ts hasta que pase la punta del corte de PII de Onboarding.
+  - «MaKo en WhatsApp» (`local_d3ed9496…`): el VIGÍA de los grupos de clientes, cada 15 min, que depura cada falla. Primer caso: ws18 (Pablo), con Calendar conectado y MaKo diciendo que no puede escribir. Tarjeta #885. No toca lib/doer-herramientas.ts hasta que pase la punta del corte de PII de Onboarding.
   - «Pagos» (`local_d0cd6fc8…`).
 - **Ticketera `acceso-repo-mauricio` → A (sólo lectura), 17/10 00:46, SIN APLICAR.** El modo automático frenó el cambio
   de permisos en GitHub y también el `recoger`. Lo hace Martín: GitHub → hola-mako/dashboard-marketing → Settings →
@@ -648,7 +648,7 @@ Se reinicia el 20/10 a las 17:00 ART (20:00 UTC). Hasta entonces, nada nuevo con
 
 ## 20/10 ~21:00 ART: la cuenta 4 se renovó (cuota en 0%)
 
-- ⚠️ **ERROR DEL CEREBRO CORREGIDO:** saqué la cuenta de `~/.claude.json` (decía mbustos@) y puse `claude1` en el marcador. Martín: «ahora mismo estoy en la cuenta de leandrotejadogonzalvez@gmail.com... ¿Por qué asumiste que era la cuenta 1?». La cuenta es la **4**. `~/.claude.json` va con retraso y NO sirve para saber la cuenta: sólo el marcador o Martín.
+- ⚠️ **ERROR DEL CEREBRO CORREGIDO:** saqué la cuenta de `~/.claude.json` (decía mbustos@) y puse `claude1` en el marcador. Martín: «ahora mismo estoy en la cuenta de ejemplo.colaborador2.mako@gmail.com... ¿Por qué asumiste que era la cuenta 1?». La cuenta es la **4**. `~/.claude.json` va con retraso y NO sirve para saber la cuenta: sólo el marcador o Martín.
 - **Integrado:** la rama de la nube `claude/admiring-wozniak-odby79` (5bebe33f8). Es la investigación de Martín en la cuenta 1: las reglas del Cerebro pasaron a AGENTS.md. Va en 16eacbc30.
 - **Repartido (Martín: «Continuá con todo»):**
   - **Onboarding:** 13b (entrar al chat Onboarding y el tutorial), 3 (el composer del Ops Center), 2 (la animación en el teléfono) y 10b (el CRM a medida).

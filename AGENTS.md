@@ -10,7 +10,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 le habla a Claude. Las ~30 veces que este archivo dice «el dueño reclamó», «el dueño lo
 rechazó», «la pantalla del dueño», es él.
 
-**Mauricio Bustos es un CLIENTE de MaKo. Nunca el dueño.** No se escribe «el dueño»
+**Mauricio es un CLIENTE de MaKo. Nunca el dueño.** No se escribe «el dueño»
 refiriéndose a él, ni se le atribuye el producto, la marca ni la voz de MaKo.
 
 Se confunde porque todo lo histórico apunta a él, y ninguna de estas cosas lo hace dueño:
@@ -375,16 +375,41 @@ pushear.** No se suma al hook a propósito: son ~9 segundos más en cada push y 
 de los cambios no los necesita — pero los renombres, sí. (17/10/2026: «acordarse a mano» costó 16
 runs rojos de 90; ahora hay una herramienta que elige los tests sola — ver la sección de abajo.)
 
-# Antes de pasarle una punta a «Cerebro › Integración»: `antes-de-subir` en VERDE, sobre tu rama con `origin/main` mergeado
+# Cómo se sube: la punta pasa en el acto y «Cerebro › Integración» chequea el TREN (desde el 22/10/2026)
 
-**La regla** (17/10/2026; Martín: «asegúrate por todos los medios de que no vuelva a ocurrir nunca más»). Un chat **no le
-pasa una punta a «Cerebro › Integración»** (el que integra y sube) sin haber corrido esto, con el árbol commiteado y `origin/main` mergeado en la rama:
+**La regla de hoy** (22/10/2026; Martín: «Organiza los push y que salgan todos… para pushear es un montón de tiempo, podríamos
+optimizarlo»). Cada punta corría su `antes-de-subir` completo en la fila del candado y después Integración repetía los tests
+afectados: dos chequeos de lo mismo. El primero, con 8 chats y 1-2 GB libres, tardaba HORAS (ops-lista, 4 h en la fila). Ahora:
+1. **El chat de área** corre los tests que escribió o tocó (`node --import tsx --test tests/<…>.test.ts`), con el árbol
+   commiteado y `origin/main` mergeado, y le pasa el sha a Integración EN EL ACTO, **«sin tipos»**. No corre `antes-de-subir`,
+   ni hace la fila, ni corre `tsc`: **en la máquina hay UN solo `tsc`, el del tren** (22/10, medido: con el `tsc` del tren, el
+   de un chat y el de un workflow a la vez, el vigía mataba los tres por debajo de 0,9 GB y cada `.tsx` salía 99).
+2. **Integración corre UN chequeo por TREN**, sobre el lote ya mergeado: los tests afectados del lote
+   (`scripts/tests-afectados.mjs --base origin/main`) y las guardas (`sh scripts/guardas-push.sh origin`, que es la etapa de
+   guardas de `antes-de-subir`). **Tests y guardas en verde es la condición del tren.** Si algo da rojo, devuelve SÓLO esa punta
+   y el tren sale sin ella. **La batería del ruteo se corre además SOLA** (`node --import tsx --test
+   tests/ops-center-bateria.test.ts`): en la tanda compartida (`--test-isolation=none`) pasa por el estado que dejan otros tests,
+   y así llegó a main el rojo de OC1 (22/10, docs/hallazgos-infra.md). Sin `--cortar`: un rojo cortaba el resto del chequeo.
+   **Los tipos son RED, no traba** (22/10, decisión del Cerebro sobre el «que avance siempre, no quiero limitaciones» de Martín).
+   Medido: con 8 chats abiertos quedan 1,6 GB libres de 15,7 aun con todo lo pesado frenado (las sesiones de Claude y sus node
+   suman ~8 GB), y las 3 tandas de INF1 piden 5,3; esta PC no tipa nunca. Un error de tipos no rompe la ejecución (Next
+   transpila sin tipos y el build no los mira) y lo que sí rompe lo cazan los tests. Después de cada push, Integración corre en
+   segundo plano el `tsc` acotado de lo que entró, de a un archivo, cuando haya RAM. Lo que dé error vuelve como arreglo al
+   chat dueño y sale en el tren siguiente. La red completa vuelve con GitHub Actions o, a la noche con pocos chats, con las 3
+   tandas (`node scripts/tipos-respaldo-push.mjs`).
+3. **El tren sale cada 30 min** con todo lo que llegó, o antes si trae un cliente roto. No se espera a juntar más.
+4. Integración le pasa el sha al Cerebro y el Cerebro sube en el acto (sin minutos de Actions, con `--no-verify`: ver
+   «Sin minutos de Actions» en docs/hallazgos-infra.md).
+
+Lo que sigue describe `antes-de-subir`: ahora es la herramienta de Integración para el tren (y de un jefe con RAM de sobra que
+quiera adelantarse), no el peaje de cada punta. **La regla anterior** (17/10/2026; Martín: «asegúrate por todos los medios de
+que no vuelva a ocurrir nunca más») pedía, antes de pasar una punta, con el árbol commiteado y `origin/main` mergeado:
 
 ```sh
 node scripts/antes-de-subir.mjs --rapido
 ```
 
-**Es el MÍNIMO OBLIGATORIO** y tarda ~3-4 min en esta PC con 14 chats abiertos (medido sobre una punta de 21 archivos que traía 3
+**Era el mínimo obligatorio** y tardaba ~3-4 min en esta PC con 14 chats abiertos (medido sobre una punta de 21 archivos que traía 3
 rojos reales: 3 min 28 s y los tres salieron; la misma punta tardaba 26 min antes de compartir procesos). Corre las guardas, los
 tests que **nombran o importan DIRECTO** un archivo cambiado, **todas las barredoras** y los **tipos de lo cambiado si entran en RAM
 sin esperar** (20 s; si no, lo dice en la línea y los decide Actions; `--sin-tipos` los apaga); le deja a Actions los importadores a dos
@@ -393,8 +418,8 @@ fueron errores de tipos de archivos cambiados. Sin `--rapido` es el chequeo COMP
 y los tipos de lo cambiado: ~6-7 min, estimado: 4 min 21 s medidos para los tests más las guardas y los tipos); «Cerebro › Integración» lo usa para
 el push a `integracion`, y un jefe con tiempo puede correrlo también.
 
-El jefe le pasa a «Cerebro › Integración» **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta. Integración compara ese sha con el de la
-punta: **sin la línea, no integra.**
+Hasta el 22/10 el jefe le pasaba a Integración **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta; desde el tren,
+la punta va sin ella (el chequeo es el del tren).
 Un `ROJO: …` se arregla ANTES de pasarla, no después de que falle Actions (cada rojo allá costó ~15 min y minutos del
 mes: 140 de los 2.000 gratis en dos días). Un exit **99** es «no corrió por falta de RAM», no un rojo del código: cerrá chats
 o esperá. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `tests-afectados.mjs`).
@@ -1180,6 +1205,17 @@ Ocho cosas que no se ven en el código y ya mordieron:
    caía `capturar` con DOS herramientas — MaKo no podía registrar un pago, con o sin moneda
    (`tests/api-mako-pago-intencion.test.ts`, docs/hallazgos-api-mako.md → «Pendientes B1 de la API»).
 
+**Y el chat de la APP no anota ante la duda** (20/10/2026, Ops Center pieza 1.2; docs/hallazgos-ia.md → «Ops Center, pieza 1.2»):
+`clasificarIntencion` recibe `canal: 'app'` (lo pasa lib/mako-turno-app.ts) y, sin señal clara, MaKo propone con una tarjeta (D1 = A);
+WhatsApp sigue anotando como idea. Una frase nueva de la app entra a `tests/ops-center-clasificador-app.test.ts` con su operación, y
+si no llega: (1) un verbo de hacer al arranque va en `lib/mako-intencion-app.ts`; (2) si el pedido no nombra el área, una fila de
+`FAMILIAS` con las palabras del NOMBRE de la operación (verbo y sustantivo; un verbo suelto puntúa en cientos de operaciones y la saca
+del presupuesto); (3) un veredicto dudoso no suma las áreas del texto, así que el default de la app va `dudosa: false` Y lleva `adivina: true` (que le saca `proponer_tareas_plan`: una adivinanza no crea nada); una familia sola, sin verbo de hacer, también es una adivinanza. La búsqueda en todo el registro es de `lib/relevancia-app.ts`.
+
+**⚠️ Lo que le llega a un TERCERO se confirma por WhatsApp con un «sí» y nada más** (21/10/2026; docs/hallazgos-comunicacion.md): la regex `CONFIRMACION` toma como confirmación cualquier mensaje que ARRANCA con «ok», «perfecto» o «dale» («ok, esperá que lo reviso»). Una acción de chat que le manda un email, un WhatsApp, una invitación o un link a otra persona lleva `aTerceros: true` en su def (lib/api-mako/tipos.ts) y `confirmarPendiente` no la ejecuta si el mensaje no es `confirmacionPura` (lib/confirmacion-pura.ts): la pendiente sigue viva y MaKo repregunta mostrando qué va a salir. La red es esa puerta de código, no más palabras en el clasificador; `tests/confirmacion-terceros.test.ts` frena la acción nueva que dice que le llega a alguien y no está marcada.
+
+**⚠️ La red del chat de la app es la TARJETA, no una tabla de palabras** (21/10/2026, segunda revisión adversarial; docs/hallazgos-ia.md → «La red es la tarjeta, no la regla»). Dos rondas de reglas dejaron 11 errores medidos: cada regla nueva sacaba una frase legítima y metía otra irreversible. Por eso: (1) en la app NO viaja nada que cambie algo sin dejar una tarjeta (`cancelar_accion` y `confirmar_accion` no viajan: cancelar es el botón de la tarjeta; `tests/ops-center-clasificador-app.test.ts` recorre el REGISTRO ENTERO y frena un control en el chat); (2) una operación que quita, corta o cancela algo (el verbo está en su id; `reversible: false` NO es destructiva: lo llevan los envíos y las altas) entra SÓLO si el pedido pide quitar Y nombra la COSA de esa operación —el sustantivo de su id o de su título, o un sinónimo de `SINONIMOS`—, nunca por el área; si no la nombra no llega ninguna parecida y MaKo pregunta cuál; (3) las lecturas que dan el id de una acción llegan en TODO turno de la app (`herramientasDelChat`), no sólo con `buscaEnTodo`; (4) «WhatsApp no cambia» y «qué cambia en la app» se miden con `node --import tsx scripts/medir-turnos-por-sha.mts <antes> <después> --exigir-igual`: extrae cada commit con `git archive` y corre UN proceso por árbol (cargar dos árboles en un proceso comparte módulos por el alias `@/`, y un worktree vivo no es un commit).
+
 **Y al sumar operaciones a un área** (15/10/2026, 40 de una vez en `landing`;
 docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
 
@@ -1196,6 +1232,18 @@ docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
   dejaron a `proponer_mover_reunion` fuera de WhatsApp sin cambiar ningún puntaje). La lista de bloques,
   avisos o íconos se valida en la traducción y devuelve `disponibles`. Se mide
   `JSON.stringify(aToolDef(def)).length` y, si la op importa, un test le pone tope.
+- **Una operación nueva se declara AL FINAL de su área (en el CRM, justo antes de `armar_tab_ficha`, que va última
+  desde el 16/10: tests/ficha-tabs.test.ts), y antes de commitear corre `tests/ops-center-bateria.test.ts`** (22/10/2026, docs/hallazgos-api-mako.md → «Una operación nueva deja AFUERA a
+  otra»). En un empate de relevancia gana la declarada ANTES, y la relevancia genérica de un pedido sobre un lead
+  («cambio etapa mover lead producto») le regala 4 puntos a cualquier id con «cambiar» y «etapa». Declarada a mitad
+  del área, `cambiar_tipo_etapa` dejó sin `editar_contacto_lead` a «cambia el teléfono del lead Juan…» en la app y en
+  WhatsApp. Su descripción tampoco nombra «leads» si la operación no es sobre un lead.
+- **El id y el título de una operación nueva no llevan las palabras que el clasificador suma a todo un tipo de pedido**
+  (`RELEVANCIA_AGENDA`, `RELEVANCIA_CRM` en lib/mako-intencion.ts: «agenda», «evento», «mover», «cambiar», «lead»…).
+  En el id pesan doble, y una operación rara gana el presupuesto de los pedidos comunes. El 22/10/2026,
+  `crear_evento_agenda` dejó sin herramienta a «agenda un reel para el jueves a las 10» y a «crea una etiqueta
+  llamada Caliente» con el piso nuevo de Ops Center. Se llama por lo que de verdad crea (`crear_pagina_reserva`), y la
+  palabra común va en la descripción, donde pesa 1.
 
 `/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
@@ -1579,8 +1627,23 @@ código nuevo:
 - **EL USO DE UNA CUENTA SALE DE LA BARRA DE ESTADO DE SU RUNNER** (16/10/2026; Martín: «El "Uso" debe ser visible
   siempre»): `rate_limits` por stdin, con `resets_at` en SEGUNDOS (lib/centro-uso.ts, `cartero.mjs uso`), y la semanal de
   la app desde `~/.claude/uso-semanal.txt`. Un porcentaje pasado su reinicio no se muestra como de ahora, y una medición de
-  más de 6 horas tampoco (17/10/2026): se dibuja apagada con «Sin medir hace X» y no cuenta para el número del botón
-  (`USO_VENCIDO_MS`, lib/centro-uso.ts). Toda cuenta con un número dice «Medido hace X».
+  más de 6 horas no cuenta para el número del botón (`USO_VENCIDO_MS`, lib/centro-uso.ts). Toda cuenta con un número dice
+  «Medido hace X». **Y EL ÚLTIMO NÚMERO NUNCA SE ESCONDE** (22/10/2026; Martín: «no debería desaparecer los % de uso que
+  tenía la última vez... no puedo ver qué cuentas ya no me queda espacio»): la tarjeta lo dibuja siempre, con su barra; vieja,
+  en gris con su edad al lado y sin «usado»; reiniciada, con «Se reinició … (sin medir desde entonces)». Sin chip «Sin lugar»
+  (Martín: «no necesito eso»). Lo que se DIBUJA sale de `UsoVentana.ultimo`; lo que DECIDE (el botón, «Automático», `libreDe`) sale
+  de `pct` y `vencido`, nunca de `ultimo`. Lo fija tests/centro-uso-ultimo.test.ts.
+- **LA API EN EL USO SALE DE LO QUE MAKO REGISTRA, NUNCA DE UN NÚMERO SUPUESTO** (22/10/2026; Martín: «quiero ver también el USO
+  de la API... deberían ser 800 usd al mes»): por cuenta, lo gastado del crédito de su plan Max (lib/credito-api.ts), por la marca
+  del crédito en el motivo O por el negocio cuya `ANTHROPIC_API_KEY` es la clave de un crédito (el ws10 usa la de la cuenta 2).
+  Sin el registro, la fila dice «No pude leer lo gastado», nunca «US$0». Anthropic no deja leer el saldo con estas claves
+  (docs/hallazgos-ia.md). Una clave de crédito nueva se suma en `CUENTAS_DEL_CREDITO`; usarla en el onboarding es otra
+  decisión (`CLAVES_CREDITO_PLATAFORMA`, lib/veto-claude.ts). Lo fija tests/credito-api.test.ts.
+- **EL «⋯» Y EL CLIC DERECHO DE LO MISMO SON UN MENÚ** (22/10/2026; Martín, sobre el «⋯» de una columna del CRM: «Ya no se
+  entienden si son tantas, ponlas en secciones»). Un botón «⋯» que ofrece lo mismo que el clic derecho de ese lugar abre
+  el MISMO `MenuContextual`, armado por la misma función (en el CRM, `opcionesCrm`; el «⋯» llama a `abrirMenuDeColumna`).
+  No se arma una segunda lista en un `Dropdown`: dos listas de lo mismo se desincronizan. Un menú largo va por secciones
+  (`seccion` en el primer renglón de cada una) y lo que borra va al final, en rojo (`peligro`).
 - **EN EL OPS CENTER, EL «ATRÁS» CIERRA LA CAPA DE ARRIBA** (17/10/2026; Martín: «si abro la vista de una imagen y voy para
   atrás, se cierra la imagen, no el chat»). Toda capa nueva que se abra encima de una conversación (un visor, la hoja de un
   mensaje, un selector a pantalla completa) usa `useAtrasCierra` (app/admin/operaciones/atras.ts), y va en un portal: dentro
@@ -1651,24 +1714,62 @@ código nuevo:
     del Ops Center en todos lados, su diseño y funcionalidades»). Ninguna pantalla nueva arma su <textarea>, usa
     `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.
     Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. tests/chat-unico.test.ts lleva la lista de
-    las que faltan, cada una con su chat, y falla si aparece una nueva.
+    las que faltan, cada una con su chat, y falla si aparece una nueva. **Y el hilo, `app/_chat/HiloMako.tsx`** (22/10/2026,
+    OF4): lo propio de una pantalla adentro de un mensaje de MaKo (el PDF de Offer, una tarjeta del onboarding) va por su
+    hueco `enMensaje` (`arriba` o `abajo` del texto), nunca en un hilo propio. Un archivo que el chat no puede abrir (Offer
+    guarda lo leído, no el archivo) va con `sinAbrir`: sin eso la ficha dice «No pude abrir el archivo.». Para dibujar en un
+    test una pantalla que monta la caja (trae .css), el gancho de carga de tests/offer-hilo-unico.test.ts. ⚠️ Y si OTRO test
+    importa esa pantalla por valor sin el gancho (mirarlo con `node scripts/tests-afectados.mjs --listar --explicar` y un
+    cambio de sonda en el archivo), las piezas van en un archivo aparte que la pantalla carga con `next/dynamic` (molde:
+    app/web-generator/editor/paneles/ChatAgente.tsx, 22/10/2026) y que la guarda registra como «caja única».
+  - **Y UN SOLO ALMACÉN: lo que se habla con MaKo en una tab queda en la base, nunca en el navegador ni en la memoria de la
+    pestaña** (22/10/2026; Martín: «¿Todos esos chats regresan y se quedan registrados en Ops Center?»). Un chat de tab sin
+    tabla propia guarda en `chart_sessions` con la clave `<tab>:<entidad>` por `/api/hilo-de-tab` (lib/hilo-de-tab-cliente.ts),
+    y así el Ops Center lo lista como «de antes». Un prefijo nuevo se suma a `PREFIJOS_HILO_DE_TAB` (lib/hilo-de-tab-reglas.ts):
+    la ruta escribe lo que manda el navegador y sin esa lista se podía escribir en el chat del Ops Center de OTRA persona.
   - **Y UN SOLO PANEL: el Ops Center del cliente ES el del super admin** (21/10/2026; Martín: «el ops center de los clientes se
     ve muy mal comparado al de SuperAdmin»). La conversación de un chat del Ops Center —de Claude Code o con MaKo— se monta con
     `PanelDeChat` (app/admin/operaciones/PanelChat.tsx), sus mensajes con `FilaMia` y `FilaDelChat` (Hilo.tsx, la foto incluida)
     y la fila de la barra con `FilaDeChat` (PiezasCentro.tsx). Nunca una cabecera, una columna de hilo o una fila propias: lo
     nuevo va en la pieza y lo tienen los dos. La lista del cliente es UNA, sin secciones plegables, y un chat de otra tab se SIGUE
     ahí con su motor (Offer por /api/offer), nunca «sigue en <tab>». tests/ops-center-cliente.test.ts.
+    **Lo que se sigue con su motor se prueba también desde la CAJA** (22/10/2026, OC7): la lectura de los documentos de Offer
+    existía y el «+» seguía apagado en Offer (`adjuntosCaja.puede`); el test miraba el motor y nadie podía usarla. Una función
+    nueva del chat lleva su aserción en la puerta que toca la persona (tests/ops-center-offer-voz.test.ts).
+    Y en /api/mako/chat, un rechazo ANTES de guardar nada es un 4xx (la IA que no pudo escuchar una nota: 424), nunca un 5xx:
+    la pantalla toma un 5xx por «no sé si llegó» (app/m/mako/chat-ui.ts → leerRespuesta) y no devuelve lo mandado.
   - **MaKo EN CADA TAB: la estrella abajo a la izquierda y el panel a la IZQUIERDA, con el Cerebro** (21/10/2026; Martín: «el
     chat de MaKo en las otras tabs se debe abrir siempre a la izquierda» y «los iconos de las criaturas siempre debe ser el
     icono de MaKo, se envía lo que sea que envíen al cerebro y ya el cerebro se encarga de repartir»). Reemplaza el «chat fijo
     a la derecha» del 18/10. La pieza es `<MakoEnLaTab tab="…" />` (app/_chat/MakoEnLaTab.tsx): lo que se escribe va al chat
     «Cerebro» de la persona, el del Ops Center, con su motor y sus piezas. Ninguna tab abre un chat de MaKo suelto a la derecha.
     Lo propio de la tab entra por la pieza (`arriba`, `aviso`) y el lugar se lo deja con `var(--ancho-panel-mako, 0px)`.
+    **Y DESDE DÓNDE (OC6, 22/10/2026, lib/chat-desde.ts):** una tab con algo abierto pasa `entidad` ({ tipo, id, titulo }: el lead
+    de la ficha, la automatización del lienzo), y una pantalla que mira sin editar pasa `modo="analizar"`. Las herramientas toman
+    la entidad por defecto, y en «analizar» el servidor no deja nada que escriba. Un tipo de entidad nuevo va en `ENTIDADES`,
+    con su parámetro.
+    **Y SI LO ABIERTO ES UN MODAL, `encimaDeModales`** (22/10/2026, CR4): la estrella vive en z 55 y la pila de modales
+    arranca en 130, así que con la tarjeta abierta el fondo la tapa y no se puede tocar. El Plan y Clientes lo pasan: la
+    estrella queda encima del modal y el panel entra a la pila como capa `anidada` (la tarjeta se sigue viendo y el Escape
+    cierra sólo el panel). Un parámetro genérico (`id`) no se toma por defecto (`param: null`): «usa ese id» lo dice el system.
   - **EL OPS CENTER SÓLO MUESTRA LO QUE ES PARA MARTÍN; LO QUE SE DICEN LOS CHATS ENTRE ELLOS NO SE DIBUJA** (22/10/2026;
     Martín: «me salen estos textos largos innecesarios en muchos chats... No los quiero»). Se dibuja lo que él escribe y lo
     que el chat le contesta («Voy a trabajar en…», «Ya está», sus preguntas). Un mensaje de otro chat (`otro`) y el resumen de
     una compactación no, ni lo nuevo ni lo guardado: la regla es `esParaMartin` (lib/operaciones-reglas.ts) y la aplica
     `lineasDeConversacion`. Algo nuevo que dibuje turnos pasa por ahí. Lo que tiene que leer Martín se lo dice el chat a él.
+    Lo que el chat le CONTESTA a otro chat va plegado en una línea, «Avance: …» (`turnosParaOtro`), menos un «Ya está»; y la fila
+    dice «Espera tu respuesta» SÓLO con una pregunta abierta: un «Ya está» sin su ✓ dice «Completado» (22/10/2026).
+    La criatura de la cabecera y la de la fila cuentan con UN número, `avisos` (useCentro.ts), en la computadora y en el teléfono:
+    nunca `esperaDe` suelto, que no cuenta el «Completado» sin ✓ (tests/ops-center-bloque-y-estado.test.ts, 6).
+    Todo lo que espera a Martín arriba de la caja va en UN bloque (PreguntasDelChat.tsx → `BloqueDePreguntas`): la Ticketera, lo
+    que pregunta el chat, lo de la app y lo que pregunta una TAB (la estrella: `MakoEnLaTab preguntas`, las sugerencias del CRM). Una
+    fuente nueva se suma a `itemsDelBloque`, nunca como otra tarjeta ni como una lista arriba del hilo (el 8 y el 9 de ese test).
+    Y un refresco que falla no cambia lo dibujado: ni «Cargando…» otra vez, ni una fila que cambia de estado (22/10/2026,
+    tests/ops-center-refresco-sin-parpadeo.test.ts).
+  - **UNA CLAVE PEGADA EN EL OPS CENTER NO SALE** (22/10/2026, la de Apify que quedó en un pedido firmado). Lo que escribe Martín
+    en el Ops Center del super admin sale FIRMADO desde el navegador y no se puede tapar después: `mandar` (app/admin/operaciones/
+    mandar.ts) lo frena si `hayClave` (lib/claves-en-el-chat.ts), y `encolarPedido` no lo guarda. Un texto nuevo que salga de ahí
+    pasa por `mandar`; una caja nueva dice `<AvisoClave />` apenas aparece una. Una regla de clave nueva va en claves-en-el-chat.ts.
   - **LAS CRIATURAS, SIEMPRE VIVAS** (21/10/2026; Martín: «siempre, donde sea que estén deben tener su animación de movimiento,
     y parpadeo»): Muneco.tsx flota y parpadea en cualquier ánimo (dormida, respira), cada una con su desfase (`--mun-desfase`),
     con una animación CSS y nunca un timer; con `prefers-reduced-motion`, quietas. Una criatura nueva usa Muneco o Criatura.
@@ -1761,12 +1862,11 @@ código nuevo:
     nada escrito... Siempre debe enviar un mensaje tipo "Voy a trabajar en..."»). Lo primero que escribe un chat al
     tomar un pedido es una línea, en palabras de producto, con qué va a hacer y para qué. Recién después arrancan las
     herramientas.
-    **Y ninguna punta llega a «Cerebro › Integración» sin `antes-de-subir` en VERDE** (17/10/2026; Martín: «asegúrate por todos los medios
-    de que no vuelva a ocurrir nunca más»). Antes de pasarle una punta, el jefe corre `node scripts/antes-de-subir.mjs --rapido`
-    (~3-4 min: es el mínimo obligatorio) sobre su rama con `origin/main` mergeado y el árbol commiteado, y le pasa la última línea
-    (`VERDE <sha> (rápido: …)`) junto con la punta:
-    Integración no integra una punta que no la trae. Qué corre y por qué «los tests de tu área» no alcanzaba: la sección
-    «Antes de pasarle una punta a «Cerebro › Integración»» (más arriba, junto al pre-push).
+    **Y la punta va a «Cerebro › Integración» EN EL ACTO, y el chequeo completo es uno por TREN** (22/10/2026; reemplaza el
+    «VERDE obligatorio» del 17/10, porque la fila del candado con 8 chats tardaba horas). El jefe corre los tests que escribió
+    o tocó y pasa el sha «sin tipos» (en la máquina hay UN solo `tsc`, el del tren). Integración junta lo que llegó, corre
+    tipos, tests afectados y guardas sobre el lote mergeado, devuelve sólo la punta que dé rojo y el tren sale cada
+    30 min (antes si trae un cliente roto). La sección «Cómo se sube» (más arriba, junto al pre-push) lo detalla.
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
@@ -2211,6 +2311,31 @@ dijera. Es el mismo modo de falla que `<Icon name="inventado">`, que dibuja un p
 Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprobá cuál es
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
+
+## Y de un enlace `mako://` sale SÓLO el código, nunca el servidor
+
+scripts/ia-pc/mako-pc.mjs → `conectarDesdeEnlace` (22/10/2026): cualquier página puede abrir un `mako://`, y con su servidor se
+llevaría la computadora del cliente (y su Claude) a otro MaKo. La app pregunta en una ventana del sistema a qué negocio y como
+quién se conecta; sin poder mostrarla, «no» (docs/plan-instalador-escritorio.md).
+
+## Y un código que pide un archivo del Storage no se sube sin el archivo
+
+La 0.3.2 de «MaKo en tu computadora» se desplegó el 21/10/2026 sin sus ejecutables en el bucket `ia-pc`: a todo cliente
+nuevo el instalador le contestó «No pude preparar la descarga», con un 200, y nada lo marcó (IA1/IA2,
+docs/hallazgos-ia.md). **Antes de subir un cambio de `VERSION_PC` (lib/ia-pc-reglas.ts), Integración corre
+`npx tsx --conditions=react-server scripts/ia-pc/verificar-binarios.mts --env <.env.local del clon>`** (sólo lee: lista y
+firma). Si dice «⛔ falta», primero `scripts/ia-pc/publicar-binarios.mts --aplicar` (escribe en el Storage de producción:
+con el OK de Martín), después el deploy. Y una ruta que no puede servir lo que el código pide deja su fila en
+`errores_app` (`registrarError`), aunque le conteste a la persona con un 200.
+
+**Y todo `Invoke-WebRequest` de un script que corre en la PC de un cliente va con `$ProgressPreference = 'SilentlyContinue'`
+antes:** en Windows PowerShell 5.1 la barra de progreso hace que el programa (42,7 MB) tarde 58,6 s en vez de 4,1 s
+(medido el 22/10/2026; con ventana, peor), y la persona ve «Descargando…» para siempre.
+
+**Y toda puerta de lib/ia-pc.ts que da un turno o corre una herramienta mira si la PC sigue conectada (`sigueConectada`,
+falla cerrada), no sólo el estado del turno:** «Desconectar» revoca la PC y vence sus turnos en dos pasos, y el segundo
+puede fallar (revisión adversarial del 22/10/2026, docs/hallazgos-ia.md). Y al elegir a qué PC va el turno, «la del último
+turno» cuenta el último TERMINADO, bien o mal: con sólo los buenos, se quedaba pegado a una que falla.
 
 # NINGUNA pantalla se diseña de cero: se COPIA de una app que ya resolvió eso
 
@@ -3426,6 +3551,23 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   devuelta y la de un cliente que se dio de baja (#871) quedan las dos impagas y SIN vencimiento. Toda lectura que decide
   «vencida» por la fecha ya las deja afuera; la que suma lo impago sin fecha tiene que preguntarlo, y leer con `*` (no una
   lista con `baja_at`, que rompe sin la mig 0307). tests/pagos-baja.test.ts barre `!esCuotaDevuelta(` en app/ y lib/.
+- **Un pago es de un TRATO: el lead EN UN CRM** (22/10/2026, mig 0324, lib/pagos-crm.ts). La casa es `leads` + los pagos
+  que no son de un CRM agregado; un CRM agregado (una renovación) es su fila de `lead_funnel` + los pagos con su
+  `funnel_id`. `getPagosByLead(lead)` es la CASA; para un CRM, `getPagosByLead(lead, crm)`; para buscar una cuota por id,
+  `'todos'`. Lo que escribe una pantalla que mira un CRM agregado lleva su CRM, validado con `crmDelTrato`; lo que nace
+  sin CRM va a la casa (el trigger NO adivina). Sumar los pagos de un lead sin decir el trato mezcla la venta con la
+  renovación: así la renovación mostraba «cuota 1, cobrada el 01/04» del primer servicio ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md)).
+  Lo que toca una cuota que YA existe saca el trato de la cuota (`tratoDelPago`), no lo supone; y una pantalla que dice un
+  CRM nunca cae a la casa porque le falte el trato (la revisión del 22/10 encontró las dos). Y un SALDO compara una venta
+  con lo cobrado de ESA venta: `faltaDeLaVenta` (venta de la casa − `total_cobrado_casa_usd`, mig 0325), nunca con
+  `total_cobrado_usd`, que es lo cobrado en todos los CRMs (la caja).
+- **Un pago de la pasarela decide su trato ANTES de asentarse** (22/10/2026, mig 0326, «Vincular cobro»):
+  `prepararTratoDelPago` (lib/cobro-etapa-server.ts) dice en qué CRM entra y dónde se gana, y `aplicarPagoAprobado` asienta
+  ahí (`registrarCobroDeProveedor` con `crm`). Asentarlo en la casa y moverlo después deja una ventana con la plata en el
+  trato equivocado y un reintento que la duplica. Lo que se escribe al preparar se puede repetir: la venta con una
+  condición, el plan sólo si la venta es la de ese pago, y la cuota 0 se busca por número y monto. El trato se RECLAMA en
+  el cobro antes de armarse (`trato_estado`): dos avisos a la vez no arman dos. Y lo que se asienta sale de lo que COBRÓ
+  el link (`cobros.plan_producto`, congelado al crearlo), nunca del producto de hoy: se puede haber editado en el medio.
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 
@@ -4406,7 +4548,7 @@ asistencias del PERÍODO, y 4 de esas ventas nunca habían pasado por una llamad
 - **Un número que ve un cliente lleva su fuente al lado** («tu CRM, del 19/07 al 16/10», «según me dijiste», «en MaKo»).
   Lo que la IA escribe con cifras se revisa cifra por cifra contra lo que dio el dueño y lo que calculó el código
   (lib/offer-reglas.ts → `diagnosticoConFuentes`): una cifra sin fuente saca su frase.
-- **Ni una hora ni una fecha es una cifra del negocio.** Una transcripción («0:04:43 Cristian: …») vuelve «dicho por el
+- **Ni una hora ni una fecha es una cifra del negocio.** Una transcripción («0:04:43 Pedro: …») vuelve «dicho por el
   dueño» a todo número del 0 al 59 si se cuentan (`cifrasDelNegocio` ya no las lee).
 - **Un conteo no le da fuente a un porcentaje**: «43 llamadas» y «43%» son claves distintas (`claveConFuente`).
 - **Un número sobre UNA cosa (una oferta, un funnel, una campaña) se lee de ESA cosa**, nunca del negocio entero en su
@@ -4637,8 +4779,17 @@ permitido hacer las cosas MÁS restrictivas.
 **Y desde el 16/10/2026 hay una SEGUNDA puerta, y no se deriva de la primera: la clave de Anthropic DEL
 NEGOCIO.** Martín eligió que el crédito de API de Claude Max de un cliente entre por su clave propia (Ticketera
 `clientes-usan-su-claude`), y esa plata es del negocio, no de MaKo. La cascada de texto (`chatCheapCascade`) la prueba
-primero, por `conClaveDelNegocio` (lib/anthropic.ts), con un solo modelo barato y nunca en las funciones del Plan
-(`FEATURES_DEL_PLAN`). Lo que gobierna código nuevo:
+primero, por `conClaveDelNegocio` (lib/anthropic.ts), con el modelo que eligió el negocio (Haiku por default, IA5). Las
+funciones del Plan (`FEATURES_DEL_PLAN`) pasan desde el 22/10/2026 por la EXCEPCIÓN de Martín («Sí, si es su clave»): sólo
+con la clave que paga el negocio (nunca el crédito de Max de la plataforma), siempre con el barato, y su D6b se decide aparte
+(`planConSuClave`, lib/ia-del-negocio.ts). El Plan sigue sin pagar IA de MaKo por ninguna puerta. Lo que gobierna código
+nuevo:
+
+- **La puerta 2 de una función del Plan pide la decisión del Plan, en «sí» y CIERTA** (`planPuedePagarConSuClave`,
+  lib/solo-su-ia.ts). La cascada prueba la puerta 2 en cualquier pedido: sin esto, una frontera que no reconocía el crédito
+  de Martín (una fila de la plataforma ilegible, o el crédito con otro nombre) dejaba pagar al Plan con él.
+- **Una fila que existe y no se descifra también es «no pude leer»** en la frontera de la IA: `credWsEstricta(…, {
+  ilegibleTira: true })`. Sin la opción devuelve `null`, y una copia de la plataforma o el crédito pasaban por del negocio.
 
 - **La clave del negocio se lee con `credDelCliente`, nunca con `credWs`**: `credWs` cae al env de la plataforma
   cuando el workspace es el del dueño, y esa clave pasaría como del negocio.
@@ -4646,6 +4797,9 @@ primero, por `conClaveDelNegocio` (lib/anthropic.ts), con un solo modelo barato 
   plataforma), leídas estrictas, en `evaluarClaveDelNegocio` (lib/veto-claude.ts, puro). Si no se pudo leer, no se
   llama.
 - **El `fetch` usa la clave que lleva el permiso** (`permiso.clave`), nunca vuelve a resolver otra.
+- **Un crédito de la plataforma como el Claude de un negocio se ASIGNA, nunca se pega en su fila** (`CREDITO_DE_UN_NEGOCIO`,
+  lib/veto-claude.ts; el ws1 → la cuenta 1, Martín 22/10/2026). Pasa por esta puerta (`claveDelCreditoAsignado`,
+  lib/credito-negocio.ts) y se apaga en SuperAdmin › Uso. Pegarlo en la fila del ws1 la volvería la clave de MaKo.
 - Lo fija `tests/veto-claude-clave-negocio.test.ts`, probado rompiéndolo (7 de 7). El porqué, en la cabecera del veto.
 
 **Y una TERCERA puerta, también desde el 16/10/2026: el crédito de API de dos planes Max de Martín** («Vinculalas a
@@ -4813,7 +4967,9 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   área marcada sin datos de clientes lleva `datosDeClientes: true`. Una regla que corta de más tampoco está
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
-  molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
+  molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts). **Y el audio:** `transcribirAudio` (lib/ai-cheap.ts)
+  tiene `pii` en false por defecto, así que toda nota de voz de una persona del negocio o de un lead la lleva en `true`
+  (22/10/2026: la del chat del Ops Center salió sin él; docs/hallazgos-ia.md, la entrada de IA7).
 - ⛔ **D6b: UN NEGOCIO CON SU CLAUDE O SU GPT NO MANDA NADA A GEMINI NI A UNA IA O RED GRATIS** (Martín, 21/10/2026). Un
   camino del Ops Center que llama a una IA corre adentro de `conSoloSuIA(negocio.suIA, …)` (lib/solo-su-ia.ts; el turno,
   con `entrarSoloSuIA` después de su primer `await`), con `negocioConSuIA` (lib/ia-del-negocio.ts): por NEGOCIO y
@@ -6255,6 +6411,12 @@ lo que costó: [docs/hallazgos-ticketera.md](docs/hallazgos-ticketera.md). Lo qu
   cuando el build lo trae, el cron lo cierra y le avisa al cliente por donde lo levantó. No se cierra a mano.
 - **Lo del cliente filtra por SU workspace Y SU email** (lib/tickets-db.ts); lo de Martín pasa por `puedeOperar`. Lo fija
   tests/tickets.test.ts.
+- **Lo que LEE Martín de un ticket sale de `leerTicket`** (app/tickets/bandeja/mazo-reglas.ts), nunca del título: el de un
+  automático le habla al CLIENTE («MaKo no pudo «contestarte»»). El TIPO sí es el de la fila: es el último juicio, y en un
+  automático que no dice «bug» es el veredicto del Cerebro al devolverlo («no es un bug de verdad»); no se «corrige» contra
+  el error. Una frase de un automático nunca nombra a la identidad del sistema (`EMAIL_DEL_SISTEMA`) como afectada. Un error
+  nuevo que se repite es una fila en `ERRORES_FRECUENTES` (por qué y qué hacer), que se mira contra el error SIN el contador
+  ni el digest, nunca un modelo. Lo fija tests/ticketera-mazo.test.ts (H).
 - **Un error de la app NO se reporta a mano: va solo a `registrarError`** (lib/errores-app.ts, 17/10/2026; Martín: «córrelo
   en toda la app... Y todo lo solucionas automáticamente»). Lo llaman los boundaries, el reportador de la ventana,
   `onRequestError` y el turno del chat. Lo que gobierna código nuevo:
@@ -6331,6 +6493,26 @@ usuarios. Lo que pasa la prueba de arriba se pregunta así, y nunca en texto sue
 
 Martín la ve en tu chat del Ops Center como un formulario y elige. La respuesta te llega como un mensaje
 firmado: «Respuesta a tu pregunta «…» [pregunta <id>]: 2. …». Las reglas: lib/centro-preguntas-chat.ts.
+⚠️ **NO LE PREGUNTES A MARTÍN CON AskUserQuestion** (22/10/2026; Martín: «las preguntas tipo bloque de Claude… siempre deben
+aparecer en la app de Ops Center»). AskUserQuestion TRABA tu turno hasta que la conteste en la app de Claude, y el Ops Center no
+la puede contestar: medido en 27 de los transcripts, mientras espera no te entra ningún mensaje (los de otras sesiones quedan
+retenidos hasta que el turno termina). El cartero 1.18.0 la sube para que la VEA en el Ops Center, pero ahí no se contesta.
+Preguntá con `cartero preguntar` y terminá el turno: se contesta desde el Ops Center, una por vez, en la compu y en el teléfono.
+Con varias decisiones, un archivo por decisión (uno tras otro): Martín las ve juntas y las contesta de a una, con «1 de 3».
+Un ejemplo, con su recomendada (el índice desde 0) y el detalle de lo que pasa con cada una:
+
+```json
+{
+  "pregunta": "¿Subo hoy el instalador 0.3.2 de «MaKo en tu computadora»?",
+  "contexto": "Sin él, a todo cliente nuevo le falla «Conectar mi computadora».",
+  "opciones": [
+    { "titulo": "Súbelo ya", "detalle": "Lo sube el chat «IA del cliente» y prueba una instalación de cero en el ws3." },
+    { "titulo": "Lo subo yo", "detalle": "Queda esperando: los clientes nuevos siguen sin poder conectar su computadora." }
+  ],
+  "recomendada": 0
+}
+```
+
 Si una pregunta tuya ya no hace falta (se resolvió por otro lado, o Martín dijo «no más preguntas»), **retírala**:
 `node ~/.claude/operaciones/cartero.mjs retirar <id>` (cartero 1.17.4; el id entero o sus primeros 8). Deja de esperarlo
 en el Ops Center; si todavía no había subido, no sale.
@@ -7698,6 +7880,14 @@ Va `new URL(u).origin` contra un `Set` congelado, exigiendo `https:`, y con el t
 enumera los cuatro parecidos (`tests/flow-origenes.test.ts` es el molde). Vale para
 cualquier allowlist de host: un webhook, un redirect, una imagen remota, un CORS.
 
+**Y un camino que se vuelve a escribir como `${u.pathname}${u.search}` se mira DESPUÉS de
+resolverlo** (medido el 22/10/2026): `/.//otro.com` y `/a/..//otro.com` pasan
+`startsWith('/') && !startsWith('//')`, y `new URL(x, base).pathname` da `//otro.com`. Como
+href, eso es un link «relativo al protocolo»: abre OTRO sitio. Se rechaza si
+`u.pathname.startsWith('//')` (y si `u.origin` no es la base). Ya mordió en la Ticketera
+(`linkDeOrigen`, tests/ticketera-mazo.test.ts A2b); `volverSeguro` (lib/meta-login.ts) devuelve
+lo mismo y hoy lo salva que sus dos usos lo vuelven a parsear (docs/hallazgos-ticketera.md).
+
 # Un chequeo de sincronia que compara dos COPIAS no ve que las dos se movieron
 
 El repo tiene cinco scripts de la familia «una cosa, un lugar» que copian un modulo a
@@ -8818,6 +9008,10 @@ dimos. El dueño lo reportó como «es aún más raro».
   donde se audita (el log, las filas de uso, la marca del rebote). Diagnóstico y
   conversación son dos trabajos y no comparten campo.
 - **Lo que escribió la PERSONA se guarda siempre**, pase lo que pase.
+- **El porqué de un turno sin respuesta SÍ se guarda en el hilo, con la marca `porque`** (lib/chat-bloques.ts; el Cerebro,
+  22/10/2026: «nunca un ‹No te pude contestar› cuando sí se sabe por qué»). La marca hace dos cosas: la pantalla lo dibuja
+  como aviso con su botón, y el turno lo saca del historial del modelo (`esPorQueGuardado`). Un cartel nuevo que tenga que
+  quedar en el hilo va con esa marca, nunca como un `assistant` común.
 - **Contá las salidas que escriben un cartel antes de marcarlas**: eran TRES y lejos entre
   sí (el `catch` del modelo, la guarda de «ningún proveedor contestó» y el bloqueo por
   respuesta inválida). El guard busca cualquier línea que use el texto de aviso, así caza
@@ -9739,7 +9933,7 @@ Con un cliente inspeccionado (o la alerta de la voz), `<html>` lleva `data-barra
   escribe «height:100dvh», sin espacios, y la hidratación no lo reescribe. Con una sola, la regla falla justo en la carga
   del server, que es como se entra a inspeccionar. `tests/barra-inspeccion-alto.test.ts` lo fija.
 - **Un estado que se corrige con un fetch nace con lo que sabe el server, nunca con un literal**: el Sidebar nacía con
-  «Mauricio Bustos», y TODOS los clientes lo veían en el primer cuadro. A quién se mira sale de `lib/vista-de-otro.ts`, que
+  «Mauricio», y TODOS los clientes lo veían en el primer cuadro. A quién se mira sale de `lib/vista-de-otro.ts`, que
   usan el layout y `/api/auth/me`, y de ningún otro lado.
 
 # Lo que paga el negocio decide qué abre: un negocio PAUSADO no se abre, y una API de una sola tab va en `TAB_DE_API`
@@ -9806,3 +10000,38 @@ para prospectar (docs/hallazgos-offer.md, OF1).
 - **La marca se mide contra la base, no sólo contra la fecha del deploy.** Un corte por fecha marca también lo que estaba
   bien: el ws13 tenía un solo funnel y su diagnóstico de antes decía lo mismo que hoy. Antes de subir, un script de sólo
   lectura cuenta qué filas se marcan y por qué.
+
+# Lo que devuelve un modelo con un nombre que no existe se mapea o se avisa, nunca se tira callado
+
+El 22/10/2026 MaKo contestó «queda anotada tal cual» y la promesa no quedó en ninguna pieza: el modelo la mandó con la key
+`promesa`, que no existe, y el parseo la descartó sin un log (docs/hallazgos-offer.md, segunda prueba de los chats).
+
+- Al leer el JSON de un modelo, una key desconocida va a la suya por un mapa de alias (con y sin tilde) o sale en el log.
+- Lo que el usuario dice con todas las letras (un número, un «no», un texto entre comillas que pide tal cual) lo anota el
+  CÓDIGO, no depende de que el modelo lo devuelva.
+
+# Un documento que habla DEL negocio pero no es DEL negocio no llena su perfil
+
+El 22/10/2026 una propuesta de Código Inmobiliario A SU PROSPECTO dejó como «qué hace tu negocio» el negocio del prospecto,
+y una lectura apurada la tomó por una propuesta de MaKo (docs/hallazgos-offer.md, OF3).
+
+- La extracción del Archivero dice de QUIÉN es el documento (`habla_de`: negocio, prospecto o proveedor) y el CÓDIGO decide
+  qué llena (`camposSegunQuien`, lib/archivero-registro.ts): de un prospecto, la oferta y el cliente ideal pero nunca la
+  identidad del negocio (`negocio_*`); de un proveedor, nada.
+- Un cambio en un prompt de extracción compartido se prueba con documentos REALES antes de subir
+  (scripts/banco-archivero-quien.mts): tiene que dar bien antes y después.
+- Antes de reparar datos de un cliente se lee quién prepara el documento y para quién («Preparado para…», quién habla en
+  una llamada), no sólo de qué habla.
+
+# Nada de datos reales de clientes ni de terceros en tests/, docs/ y AGENTS.md
+
+Un test, un ejemplo o una cosecha se escriben con datos INVENTADOS del mismo formato: un gmail por un gmail inventado, un
+dominio propio por otro (cada negocio con uno distinto), un nombre y apellido por otro que conserve el nombre de pila si la
+regla compara por él. A los clientes se los nombra por su nombre de pila o por su ws; a sus prospectos y a sus leads, nunca
+por su nombre. El 22/10/2026 había mails de dueños y colaboradores, nombres y apellidos y el @ de una clienta en 89 archivos
+(docs/hallazgos-offer.md, «Datos reales en el repo»).
+
+- `tests/sin-mails-reales.test.ts` frena los mails reales de los usuarios de MaKo por su HUELLA (sha256): el repo no guarda
+  ningún mail en claro. Un dueño nuevo: se suma su huella ahí.
+- Una guarda que necesita los nombres que prohíbe (la de las plantillas, tests/editor-landing-presentaciones.test.ts) es la
+  excepción, y lo dice.

@@ -22,21 +22,21 @@ con las LECTURAS del registro de la API de MaKo, sin las acciones.
 
 | Dónde (ruta) | Pieza | Tipo | Dónde guarda hoy |
 |---|---|---|---|
-| Dashboard y General (`/dashboard`, `/general`) | `PanelAnalista` + chat por gráfico (`ChatMakoGrafico`) | análisis | `chart_chats` (`dashboard:<hoja>:<gráfico>`) |
-| Dashboard y General, editando | `PanelEditarMako`, «Pídeselo» (`NuevaHoja`) | edición | el navegador (`hilo-guardado.ts`) |
+| Dashboard y General (`/dashboard`, `/general`) | `PanelAnalista` (el informe, a la izquierda); el botón de cada gráfico pregunta a la ESTRELLA (`MakoEnLaTab`, hoja como entidad, «analizar»; 22/10, TB3) | análisis | el Cerebro de la persona (antes `chart_chats` `dashboard:<hoja>:<gráfico>`, que quedan como «de antes») |
+| Dashboard y General, editando | `PanelEditarMako`, «Pídeselo» (`NuevaHoja`) | edición | `chart_chats` (`dashboard:<hoja>`, desde el 22/10 por /api/hilo-de-tab) |
 | Ads Manager (`/ads-manager`) | `app/_components/ChartIA.tsx`, por entidad | análisis | `chart_chats` |
-| Chats / WhatsApp (`/whatsapp`) | `WhatsAppAdvisor.tsx` | análisis (redacta un borrador, no envía) | a medir |
+| Chats / WhatsApp (`/whatsapp`) | `WhatsAppAdvisor.tsx`, con la caja y el hilo únicos (22/10, TB3; no va a la estrella: su «Usar →» escribe en la caja de ESE lead) | análisis (redacta un borrador, no envía) | `chart_chats` (`wa-advisor:<grupo>`) |
 | CRM (`/crm`) | `crm/mako-crm/ChatMakoCrm.tsx`, `MakoAnalystLead` | los dos (`turnoApp`, confirma en el chat) | `chart_chats` vía `turnoApp` |
 | Second Brain (`/second-brain`, `/m/second-brain`, `/m/mako`) | `ChatSecondBrain.tsx`, `m/mako/ChatMako.tsx` | los dos (`turnoApp`) | `chart_chats` (`mako-movil:<persona>`) |
 | Automations (`/automations`) | `automations/ChatMako.tsx`, `MakoRedacta`, `BarraPideselo` | edición | a medir |
 | Offer y onboarding (`/offer`, `/onboarding`) | `ChatOffer.tsx`, `ChatArranque.tsx` (`lib/offer-ia.ts`) | análisis que crea la oferta y el PDF | `offer_sesiones` |
-| Web Generator (`/web-generator`) | `PanelAgente` | edición | en memoria |
-| Image Editor (`/image-editor`) | `image-editor/mako/chat/PanelMakoIA.tsx` | edición | `image_editor_chats` |
-| Video Editor (`/video-editor`) | `_opencut/chat` (`PanelChat`) | edición | `video_editor_chats` (verificar: el 16/10 era en memoria) |
+| Web Generator (`/web-generator`) | `PanelAgente` | edición | `chart_chats` (`landing:<id>`, desde el 22/10 por /api/hilo-de-tab) |
+| Image Editor (`/image-editor`) | `image-editor/mako/chat/PanelMakoIA.tsx` | edición | `image_editor_chats` (medido el 22/10: guarda) |
+| Video Editor (`/video-editor`) | `_opencut/chat` (`PanelChat`) | edición | `video_editor_chats` (medido el 22/10: guarda) |
 | WhatsApp del grupo | el doer (`mako_doer_conv`) | los dos (propone, la persona confirma) | `mako_doer_conv` |
 | Ops Center (`/admin/operaciones`, super admin) | la pieza de la que se copia todo | Claude Code | `lib/centro-mensajes-db.ts` |
 
-«A medir» es eso: no se midió en este trabajo.
+«A medir» es eso: no se midió en este trabajo. Desde el 22/10/2026 (TB3) Editar con MaKo, el chat de gráficos con sesiones (`MakoChat`), el asesor, los dos editores y el agente del Web Generator usan `CajaChat` y `HiloMako`, cada uno con su motor.
 
 ## Cómo pasan todas al chat del Ops Center
 

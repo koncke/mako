@@ -56,11 +56,12 @@ const finalEsBorrar = (xs: ReadonlyArray<IdOpcionCrm | null>, id: IdOpcionCrm) =
 // Roturas: WhatsApp sin la condición `conWhatsapp` → 1 fallo. «Eliminar» antes de «Seleccionar» → 1 fallo.
 test('una tarjeta: su menú, con WhatsApp y copiar sólo si hay el dato, y «Eliminar» al final y separado', () => {
   const pelado = opcionesCrm(lead());
-  assert.deepEqual(pelado, ['abrir', 'mover_etapa', null, 'seleccionar', null, 'eliminar'], 'sin teléfono ni email no hay a dónde escribir ni qué copiar');
+  assert.deepEqual(pelado, ['abrir', 'mover_etapa', null, 'personalizar_tarjeta', null, 'seleccionar', null, 'eliminar'], 'sin teléfono ni email no hay a dónde escribir ni qué copiar');
   const completo = opcionesCrm(lead({ conWhatsapp: true, conTelefono: true, conEmail: true }));
   assert.deepEqual(completo.slice(0, 6), ['abrir', 'mover_etapa', null, 'whatsapp', 'copiar_telefono', 'copiar_email']);
   finalEsBorrar(completo, 'eliminar');
-  assert.deepEqual(opcionesCrm(lead({ sobre: 'fila' })), pelado, 'la fila de la tabla es el mismo lead: el mismo menú');
+  // La fila de la lista es el mismo lead: el mismo menú, menos «Personalizar tarjeta» (una fila no es una tarjeta).
+  assert.deepEqual(opcionesCrm(lead({ sobre: 'fila' })), pelado.filter((x, i) => x !== 'personalizar_tarjeta' && !(x === null && pelado[i - 1] === 'personalizar_tarjeta')));
   assert.ok(sinSeparadoresDeMas(completo).length === completo.length, 'sin rayas de más');
 });
 
@@ -86,12 +87,16 @@ test('con selección, el clic sobre un tildado actúa sobre TODOS; sobre uno sin
 
 // Roturas: las campañas sin la condición `entrada` → 1 fallo. «Eliminar etapa» sin `borrable` → 1 fallo.
 test('la columna: flechas si se arrastra, campañas en la entrada, el curso en Ganado, «Eliminar etapa» si el server la borra', () => {
+  // Por SECCIONES desde el 22/10/2026 (Columnas · Leads · Etapa, y «Eliminar etapa» sola): los títulos los pone `itemsCrm`.
   const comun = opcionesCrm(col());
-  assert.deepEqual(comun, ['col_izquierda', 'col_derecha', null, 'col_nuevo_lead', null, 'col_renombrar', 'col_agregar', null, 'col_eliminar']);
+  assert.deepEqual(comun, ['col_izquierda', 'col_derecha', 'col_agregar', 'col_nuevo_lead', 'col_renombrar', null, 'col_eliminar']);
   finalEsBorrar(comun, 'col_eliminar');
   // La entrada: no se mueve ni se borra (el server la fuerza primera), y es donde viven las campañas de Meta.
-  assert.deepEqual(opcionesCrm(col({ mover: false, entrada: true, borrable: false })), ['col_nuevo_lead', null, 'col_campanas', 'col_renombrar', 'col_agregar']);
+  assert.deepEqual(opcionesCrm(col({ mover: false, entrada: true, borrable: false })), ['col_agregar', 'col_nuevo_lead', 'col_campanas', 'col_renombrar']);
   assert.ok(!comun.includes('col_campanas'), 'las campañas sólo en la entrada');
+  // La de reunión: «Asignar evento», como en su «⋯» (21/10/2026: también en el clic derecho).
+  assert.deepEqual(opcionesCrm(col({ reunion: true })), ['col_izquierda', 'col_derecha', 'col_agregar', 'col_nuevo_lead', 'col_renombrar', 'col_evento', null, 'col_eliminar']);
+  assert.ok(!comun.includes('col_evento'), 'el evento sólo en una etapa de reunión');
   // Ganado: el rótulo dice lo que va a pasar al tocarlo (sin subtítulo «Prendido»/«Apagado»).
   assert.ok(opcionesCrm(col({ curso: true })).includes('col_curso_apagar'));
   assert.ok(opcionesCrm(col({ curso: false })).includes('col_curso_prender'));
@@ -100,7 +105,7 @@ test('la columna: flechas si se arrastra, campañas en la entrada, el curso en G
 
 // Rotura: «Quitar la selección» sin la condición → 1 fallo.
 test('el fondo: lo del «⋯» de la barra, y «Quitar la selección» sólo con selección', () => {
-  assert.deepEqual(opcionesCrm({ sobre: 'fondo', seleccionados: 0 }), ['nuevo_lead', null, 'importar', 'exportar', null, 'editar_etapas']);
+  assert.deepEqual(opcionesCrm({ sobre: 'fondo', seleccionados: 0 }), ['nuevo_lead', null, 'importar', 'exportar', null, 'editar_etapas', 'personalizar_tarjetas']);
   assert.deepEqual(opcionesCrm({ sobre: 'fondo', seleccionados: 4 }).slice(-2), [null, 'lote_limpiar']);
 });
 
@@ -152,23 +157,25 @@ test('cada opción tiene su `case` en el tablero (ninguna se dibuja muerta)', ()
   for (const id of Object.keys(OPCION_CRM) as IdOpcionCrm[]) assert.match(fn, new RegExp(`case '${id}':`), `«${OPCION_CRM[id].texto}» no hace nada`);
 });
 
-// Roturas: devolverle `sub: cursoPrendido ? 'Prendido' : 'Apagado'` al «⋯» → 1 fallo. Cambiar «Cambiar el
-// nombre» del menú por «Renombrar» → 1 fallo.
-test('los textos de la columna son LOS MISMOS del «⋯», y el «⋯» ya no lleva subtítulos', () => {
-  const ini = BOARD.indexOf('ariaLabel={`Opciones de la etapa ${c.label}`}');
-  const opciones = BOARD.slice(ini, BOARD.indexOf('onChange={(v) => {', ini));
-  assert.ok(ini > 0 && opciones.length > 300, 'no encontré las opciones del «⋯» de la columna');
-  assert.doesNotMatch(opciones, /\bsub:/, '«elimina todos los subtitulos de los botones de los 3 puntos» (14/10/2026)');
-  for (const id of ['col_campanas', 'col_curso_prender', 'col_curso_apagar', 'col_renombrar', 'col_agregar', 'col_eliminar'] as const) {
-    assert.ok(opciones.includes(`'${OPCION_CRM[id].texto}'`), `«${OPCION_CRM[id].texto}» del clic derecho no es el texto del «⋯»`);
-  }
+// Rotura (22/10/2026): el «⋯» volviendo a armar su propia lista (un `options={[` en la cabecera) → 1 fallo.
+test('el «⋯» de la columna abre EL MISMO menú que su clic derecho: una sola lista, sin subtítulos', () => {
+  // «Ordena las opciones del desplegable de los 3 puntos... ponlas en secciones» (Martín, 22/10/2026). Eran dos listas
+  // (un `Dropdown` en la cabecera y `opcionesCrm` en el clic derecho) que se mantenían iguales a mano.
+  assert.match(BOARD, /<button type="button" className="mk-col-mas" aria-label=\{`Opciones de la etapa \$\{c\.label\}`\} aria-haspopup="menu"\s+title="Opciones de la etapa" onClick=\{\(e\) => abrirMenuDeColumna\(e\.currentTarget\)\}/);
+  const abrir = BOARD.slice(BOARD.indexOf('const abrirMenuDeColumna = '), BOARD.indexOf('const cambiarTipoColumna = '));
+  assert.match(abrir, /const bajo = contextoBajo\(el\);/, 'el «⋯» no mira la MISMA columna que el clic derecho');
+  assert.match(abrir, /setMenuCtx\(\{ n: aperturasMenu\.current, x: r\.left, y: r\.bottom \+ 4, \.\.\.bajo \}\);/);
+  assert.doesNotMatch(BOARD, /options=\{\[\s*\/\/ ⚠️ LAS FLECHAS|ariaLabel=\{`Opciones de la etapa/, 'volvió la lista propia del «⋯»');
+  // Sin subtítulos (14/10/2026: «elimina todos los subtitulos de los botones de los 3 puntos»): el renglón no los tiene.
+  for (const o of Object.values(OPCION_CRM)) assert.ok(!('sub' in o), 'un renglón con subtítulo');
 });
 
 // Roturas: sin la guarda de `defaultPrevented` → 1 fallo (la ficha y los desplegables viven adentro del
 // <main> en el árbol de React y su clic derecho sube por el portal). Sin la de los campos → 1 fallo. Sin
 // `data-lead-id` en la fila → 1 fallo. Sin el `onContextMenu` del <main> → 1 fallo.
 test('el clic derecho cuelga de la raíz del tablero, con sus guardas, y las marcas en tarjeta y fila', () => {
-  assert.match(BOARD, /<main className="crm-hover" style=\{\{[^}]*\}\} onContextMenu=\{alClicDerecho\}>/);
+  // El estilo lleva llaves adentro desde el 22/10/2026 (el alto del Kanban, `${view === 'kanban' ? …}`): no `[^}]*`.
+  assert.match(BOARD, /<main className="crm-hover" style=\{\{[^\n]*\}\} onContextMenu=\{alClicDerecho\}>/);
   const fn = BOARD.slice(BOARD.indexOf('const alClicDerecho = '), BOARD.indexOf('const copiarDato = '));
   assert.match(fn, /if \(e\.defaultPrevented \|\| !\(t instanceof Element\)\) return;/);
   assert.match(fn, /t\.closest\('\[role="dialog"\], \[role="menu"\], \[role="listbox"\]'\) \|\| document\.querySelector\('\[aria-modal="true"\]'\)\) return;/);

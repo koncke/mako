@@ -6,7 +6,9 @@
 // también se pueda frenar».
 //   · MEDIDO: pausar ya congelaba la cola (el motor saca las pausadas: `idsDePausadas`, lib/nutricion.ts), pero un borrador
 //     suyo ya escrito se podía aprobar y salía. Ahora la puerta de aprobar lo frena (lib/borrador-camino.ts).
-//   · Se ve: «Activa» / «⏸ Pausada · no sale nada» al lado del título del lienzo, y ⏸ en la fila de la lista.
+//   · Se ve: en el interruptor «Activar» del pie del lienzo, y ⏸ en la fila de la lista. SIN chip arriba del lienzo
+//     (22/10/2026, Martín: «elimina el texto "Pausada, no sale nada", eso es completamente innecesario... Para eso ya tenemos
+//     el "ACTIVAR" de abajo»).
 //   · Para el CRM: en qué automatizaciones VIVAS está cada lead y en qué tarjeta (lib/automatizaciones-del-lead-reglas.ts),
 //     y «Frenar» (sacarlo, con sus borradores pendientes descartados).
 // =============================================================================
@@ -20,7 +22,7 @@ const leer = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8').repla
 const wa = (id: string, cuerpo: string, siguiente: string | null) => ({ id, canal: 'whatsapp', delay_horas: 0, cuerpo, siguiente });
 const PASOS = [
   { id: 'c1', nodo: 'condicion', canal: 'whatsapp', delay_horas: 0, cuerpo: '', ramas: [{ id: 'r1', modo: 'todas', filas: [{ campo: 'ya_contactado', no: true }], siguiente: 'm1' }], si_no: null },
-  wa('m1', 'Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?', null),
+  wa('m1', 'Hola {{nombre}}, soy Mauricio Ejemplo. ¿Sigues al frente de tu empresa?', null),
 ];
 
 // roturas (sin las archivadas fuera; `automatizacionActiva` siempre true; sin el paso) → 1 rojo de 5 cada una (éste).
@@ -69,11 +71,13 @@ test('el cableado: la pausa frena la cola y lo que espera aprobación; frenar de
   assert.match(acciones, /const rol = await requireSesion\(\);\n\s+if \(rol !== 'admin'\) return \{ ok: false, error: 'Sólo el administrador puede frenarlo\.' \};/);
 });
 
-// roturas (el lienzo sin el estado; la fila con el punto gris de antes) → 1 rojo de 5 cada una (éste).
-test('se ve: el estado al lado del título del lienzo, y ⏸ en la fila de la lista', () => {
+// roturas (el chip de vuelta arriba del lienzo; el interruptor sin «aria-pressed»; la fila con el punto gris de antes) → 1 rojo
+// de 5 cada una (éste).
+test('se ve: el estado en el interruptor «Activar» (sin chip arriba del lienzo), y ⏸ en la fila de la lista', () => {
   const perfil = leer('app/automations/SecuenciaPerfil.tsx');
-  assert.match(perfil, /<EstadoDeLaAutomatizacion activa=\{activa\} \/>/);
-  assert.match(perfil, /Pausada · no sale nada/);
+  assert.ok(!perfil.includes('EstadoDeLaAutomatizacion'), 'sin el chip de estado arriba del lienzo');
+  assert.ok(!perfil.includes('Pausada · no sale nada'), 'sin «Pausada · no sale nada» en el lienzo');
+  assert.match(perfil, />Activar<\/span>\s*<button onClick=\{\(\) => \(activa \? void toggle\(\)[^\n]*aria-pressed=\{activa\}/);
   const fila = leer('app/automations/SimuladorWhatsApp.tsx');
   assert.match(fila, /<span data-pausada role="img" aria-label="Pausada" title="Pausada: no sale nada"[\s\S]{0,400}>⏸<\/span>/);
 });

@@ -2727,6 +2727,87 @@ export const BITACORA: Hito[] = [
     revisar: '/crm',
   },
   {
+    fecha: '21 oct', hora: '23:10', chat: 'CRM', sesion: 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La criatura del CRM a la izquierda, «Personalizar tarjeta» con plantillas, «Nuevo lead» al «⋯», «Kanban · Lista», «Tipo de etapa» y los eventos',
+    pedido: 'En el caso del CRM, debes poner el ícono de la criatura abajo a la izquierda, como "A revisar", solo que a la izquierda... Y como otra concepción, los iconos de las criaturas siempre debe ser el icono de MaKo, se envia lo que sea que envien al cerebro y ya el cerebro se encarga de repartir...\nLuego, en el CRM, si le doy click derecho a las cards, debería poder ver la opción de "Personalizar tarjeta", como en los 3 puntos el nombre de esa opción debe ser "Personalizar tarjetas"...\nY el pop-up debe ser mucho más grueso y poder ver TEMPLATES de estilos de tarjeta, no solo info, sino que otros estilos también, como las que tenemos en CLIENTES y puedes crear otras más, como otra que no tenga foto de perfil, piensa en varios diseños...\nQuiero que elimines el botón de "nuevo lead" de donde está en las columnas y lo pongas dentro de los 3 puntos de cada columna...\nLos iconos de "tablero y lista" deberían estar como juntos en una sección, y el placeholder del "tablero" debe ser "kanban"... Esto en todos lados. Revisa estos feedbacks que te doy en otros lugares para implementar lo mismo, la personalización de las tarjetas en clientes, plan, etc...\nEn cada columna, a excepción de las que ya sabes que no deberían cambiar, debes poner en los 3 puntos una opción de "Tipo de etapa" para poder decidir si es una etapa de reunión, o las otras que tenemos...\nEl ícono de "Asignar evento" que sea otro, no me gusta que tenga color, un ícono más simple, que se entienda... Me imagino algo como el que adjunto, o incluso más simple sin el check, fijate vos.\nY dentro de la edición de eventos, si no se conectó un calendly o cal se debería poder hacer desde allí mismo...\nY también me gustaría que se pueda editar o crear eventos desde allí también.\nY claro, que puedo tener eventos en Calendly, Cal o Google Calendar...',
+    puntos: [
+      'Llegó por el Cerebro, con un ícono de referencia (un calendario de línea con un check). Se pega literal por la regla del 20/10 (AGENTS.md).',
+      'Se hace de a tandas: la 1 con «Nuevo lead», «Kanban · Lista», el clic derecho y el ícono; después las plantillas de tarjeta, «Tipo de etapa», la criatura y los eventos.',
+    ],
+  },
+  {
+    fecha: '21 oct', hora: '23:26', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Kanban · Lista» juntos en todos los tableros, «Nuevo lead» en el «⋯» de la columna y el ícono simple de «Asignar evento»',
+    puntos: [
+      'Es la tanda 1 del pedido de Martín de las 23:10 (el hito de arriba, literal).',
+      '«Kanban · Lista»: los dos íconos juntos en una caja, con «Kanban» y «Lista» al pasar el mouse. El mismo en el CRM, Clients, /admin y el Plan.',
+      '«Nuevo lead» ya no está arriba de cada columna: está en su «⋯» (y en el clic derecho de la columna). El «+ Nuevo lead» de la barra sigue.',
+      'Clic derecho en una tarjeta: «Personalizar tarjeta». En el fondo del tablero: «Personalizar tarjetas», como en el «⋯» de la barra.',
+      '«Asignar evento» lleva un calendario de línea con un check, sin color, en el «⋯», el clic derecho y el pop-up.',
+    ],
+    commits: [
+      { sha: 'b115c4e66', msg: 'CRM y tableros (feedback 21/10, tanda 1): «Kanban · Lista» en un segmento en todos lados, «Nuevo lead» al «⋯» de la columna, «Personalizar tarjeta» con clic derecho y el ícono simple de «Asignar evento»', lineas: 419, archivos: 15 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '21 oct', hora: '23:38', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Personalizar tarjetas» con plantillas de estilo, en un pop-up ancho, y las propias',
+    puntos: [
+      'Es la tanda 2 del pedido de Martín de las 23:10.',
+      'El pop-up es mucho más ancho: a la izquierda las plantillas, dibujadas con la tarjeta de verdad; a la derecha cómo queda y los datos en su orden. En el teléfono se apila.',
+      'Ocho plantillas: Completa, Compacta, Sin foto, Monto grande, Próxima reunión, Con avance, Con portada y Sólo el nombre.',
+      '«Guardar como plantilla» crea las propias (hasta 12 por persona); con el mismo nombre se reemplaza.',
+      'MaKo la puede leer y cambiar desde el chat de la app, con el «sí» de la persona.',
+    ],
+    commits: [
+      { sha: 'b3655ae4b', msg: 'CRM (feedback 21/10, tanda 2): «Personalizar tarjetas» con PLANTILLAS de estilo, en un pop-up ancho, y las propias', lineas: 805, archivos: 12 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '21 oct', hora: '23:49', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Tipo de etapa» en los 3 puntos de cada columna',
+    puntos: [
+      'Es la tanda 3 del pedido de Martín de las 23:10.',
+      'Etapa, Reunión o Nutrición, en el «⋯» y en el clic derecho de cada columna. No lo llevan la entrada, Ganado ni las de salida.',
+      'Antes de cambiarlo dice qué pasa: los leads se quedan en la etapa, qué reunión cambia de número, el evento que deja de caer ahí.',
+      'Se deshace con el aviso de abajo. MaKo lo puede proponer (sólo el admin, con «sí»).',
+    ],
+    commits: [
+      { sha: 'a3eaf78f9', msg: 'CRM (feedback 21/10, tanda 3): «Tipo de etapa» en el «⋯» y el clic derecho de cada columna, con lo que pasa antes de cambiarlo', lineas: 510, archivos: 12 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '21 oct', hora: '23:56', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Asignar evento»: crear, editar y conectar la agenda sin salir del CRM',
+    puntos: [
+      'Es la tanda 4 del pedido de Martín de las 23:10.',
+      '«Crear evento» (nombre, duración y agenda) lo crea en Calendly o Cal.com y lo deja asignado a esa etapa.',
+      'El lápiz de cada evento cambia su nombre y su duración.',
+      'Si falta Calendly o Cal.com, «Conectar» abre la conexión ahí mismo.',
+      'Google Calendar todavía no: Google no comparte sus páginas de reserva. Queda la decisión de Martín.',
+    ],
+    commits: [
+      { sha: '7aba75eaf', msg: 'CRM (feedback 21/10, tanda 4): en «Asignar evento» se crea, se edita y se conecta la agenda sin salir del CRM', lineas: 606, archivos: 12 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
     fecha: '22 oct', hora: '06:02', chat: 'CRM', sesion: 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b', cuenta: 'claude3',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Llamada con Mauricio: traer a todos de otro funnel, y arrastrar a varios tildados',
@@ -2842,5 +2923,103 @@ export const BITACORA: Hito[] = [
     ],
     archivos: [
     ],
+  },
+  {
+    fecha: '22 oct', hora: '09:43', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La estrella del CRM es la de MaKo en todas las tabs: lo que se escribe va al chat «Cerebro»',
+    puntos: [
+      'Es el último punto del feedback de Martín del 21/10: «se envía lo que sea que envíen al cerebro y ya el cerebro se encarga de repartir».',
+      'La estrella abajo a la izquierda abre el chat «Cerebro», el mismo del Ops Center, a la izquierda. El CRM ya no tiene un chat propio.',
+      'Las sugerencias de MaKo del CRM siguen arriba del chat, con «Hacerlo» y «Ahora no»; su número, en la estrella.',
+      '«Hacerlo» de una sugerencia que se revisa con MaKo le escribe al Cerebro nombrando el CRM («En el CRM «Sprint 3 días» hay…»).',
+    ],
+    commits: [
+      { sha: '6df018c41', msg: 'CRM: la estrella es la del Ops Center (MakoEnLaTab) y lo que se escribe va al Cerebro; las sugerencias, arriba del hilo', lineas: 746, archivos: 15 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '22 oct', hora: '11:17', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Columnas del mismo alto hasta abajo, la casilla para tildar una columna y «Tus reuniones» igual para todos',
+    puntos: [
+      'Es el feedback de Martín del 22/10 sobre el CRM (puntos 1, 2, 4 y 5).',
+      'En el Kanban las columnas miden todas lo mismo y llegan al fondo de la pantalla; la barra para moverse de costado queda abajo de todo, debajo de «A revisar».',
+      'Al pasar por una columna aparece una casilla en su encabezado: tilda a todos los que se ven en esa columna (con un filtro, sólo los filtrados).',
+      'El calendario de la barra («Tienes N reuniones cerca») abre siempre el mismo pop-up, con el bloque azul de cada reunión y «Ver detalle».',
+      'Lo de Mauricio no era por ser cliente: el bloque azul salía sólo si había una reunión por delante.',
+    ],
+    commits: [
+      { sha: '54c07a1b6', msg: 'CRM (feedback de Martín del 22/10): columnas del mismo alto hasta el fondo, el scroll debajo de «A revisar», la casilla de la columna y «Tus reuniones» con el bloque azul', lineas: 602, archivos: 11 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '22 oct', hora: '19:15', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El tablero ya no se traba con miles de leads: cada columna muestra 30 y trae más al bajar',
+    puntos: [
+      'Es lo del sábado: Mauricio abre «Sprint 3 días» con 1.050 leads en «Lead entrante» y mueve 50 por día.',
+      'Cada columna muestra 30 tarjetas y, al bajar, trae 30 más sola (o con «Ver 30 más»). El número de la columna sigue diciendo el total.',
+      'La casilla de la columna tilda a TODOS, también a los que todavía no se ven, y arrastrar a los tildados los mueve a todos.',
+      'Lo que trababa no era una regla ni un error: era la cantidad. Con 1.169 leads el tablero dibujaba 14.528 piezas; ahora 3.280.',
+      'Y en el CRM principal el tablero medía 86.636 px de alto: ahora mide la pantalla, con la barra para moverse de costado abajo.',
+    ],
+    commits: [
+      { sha: 'b0d4ea16b', msg: 'CRM: el Kanban topea con maxHeight, no sólo height', lineas: 21, archivos: 4 },
+      { sha: 'b7116c8bc', msg: 'CRM: 30 tarjetas por columna (eran 60): lo que traba el Chrome de Martín es la cantidad de nodos', lineas: 115, archivos: 7 },
+    ],
+    archivos: [
+      'app/crm/columna-por-tandas.ts · app/crm/FinDeColumna.tsx — la tanda y el final de la columna',
+      'tests/_crm-tablero-medir.mjs — el arnés (con la hoja de producción: ARNES_CSS)',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '22 oct', hora: '20:12', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo en la ficha del lead, en el Plan y en Clientes: el mismo chat del Ops Center, con lo que tienes abierto',
+    puntos: [
+      'El chat de MaKo en la ficha de un lead es ahora el del Ops Center: la misma conversación, la misma caja (con «+», emojis y nota de voz) y las mismas tarjetas para confirmar.',
+      'Lo que le preguntas sigue siendo sobre ese lead, y la conversación aparece en el Ops Center como «Ficha · <nombre>».',
+      'El Plan y Clientes tienen la estrella de MaKo abajo a la izquierda, como el CRM. Lo que escribes va al «Cerebro».',
+      'Con una tarea, un proyecto o un cliente abierto, la estrella queda encima y va con eso: «cerrala» es ESA tarea, con su tarjeta para confirmar.',
+      'En el CRM, la estrella sabe qué lead tienes abierto.',
+    ],
+    commits: [
+      { sha: '4b534f2f0', msg: 'CR3 y CR4: el MaKo Analyst de la ficha con el hilo y la caja del Ops Center; la estrella en el Plan y en Clientes, con lo abierto', lineas: 729, archivos: 27 },
+    ],
+    archivos: [
+      'app/crm/lead-view/MakoAnalystLead.tsx — el chat de la ficha con las piezas únicas',
+      'app/_chat/MakoEnLaTab.tsx · app/_components/pila-modales.ts — la estrella encima de una tarjeta abierta',
+      'app/plan/board/BoardShell.tsx · app/customer-success/ClientesApp.tsx — la estrella en el Plan y en Clientes',
+    ],
+    revisar: '/plan',
+  },
+  {
+    fecha: '22 oct', hora: '21:10', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los 3 puntos de la columna por secciones, «Tipo de etapa» que se cambia ahí mismo, y «Tus reuniones» para preparar la llamada',
+    puntos: [
+      'Es el feedback de Martín de la noche del 22/10, con capturas del CRM del ws1.',
+      'Los 3 puntos de una columna y su clic derecho son el MISMO menú, por secciones: Columnas (las flechas y «Agregar etapa»), Leads, Etapa y «Eliminar etapa» sola al final, en rojo.',
+      '«Tipo de etapa ›» abre al costado los tres tipos, con el actual tildado; tocar otro lo cambia, con «Deshacer». Si sería la tercera reunión del funnel, abre el pop-up para leer lo que pasa.',
+      'El ícono de las etapas ya no son tres columnas: es una bandera, en todos lados.',
+      '«Tus reuniones»: cada reunión es una tarjeta para prepararla. Cuánto falta («En 25 min», cambia solo), la hora, quién es, su paso, lo que hay en juego y lo que contestó; al abrir, lo último que hizo el lead y lo que quedó de su R1.',
+      'Al acercarse la hora la tarjeta se marca («Empieza en 5 min») y aparece «Entrar a la reunión» con el link. Sin «Llamar» ni «WhatsApp». Es la misma en el teléfono.',
+    ],
+    commits: [
+      { sha: 'd7b6b6ae5', msg: 'CRM (feedback de Martín del 22/10, noche): el ⋯ de la columna por secciones, «Tipo de etapa ›» ahí mismo y «Tus reuniones» para preparar', lineas: 1207, archivos: 39 },
+    ],
+    archivos: [
+      'app/crm/menu-contextual-crm.ts · app/_ui/MenuContextual.tsx — el menú de la columna, por secciones',
+      'app/crm/TarjetaReunion.tsx · app/crm/reunion-tarjeta.ts · lib/reunion-preparar.ts — la tarjeta de cada reunión',
+    ],
+    revisar: '/crm',
   },
 ];

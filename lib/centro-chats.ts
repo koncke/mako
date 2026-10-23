@@ -27,7 +27,7 @@ import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-r
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
 import { usoDeCuenta, type Cuota } from './centro-uso';
-import { preguntaDeTrabajo, resumenDeRespuesta, type PreguntaChat } from './centro-preguntas-chat';
+import { estaAbierta, preguntaDeTrabajo, resumenDeRespuesta, seContestaEnLaApp, type PreguntaChat } from './centro-preguntas-chat';
 
 export type EstadoChat = 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato';
 
@@ -461,14 +461,14 @@ export function partesDelNombre(titulo: string): { jefe: string; sub: string | n
   return { jefe: (jefe ?? '').trim() || titulo.trim(), sub: sub || null };
 }
 
-export type GrupoJefe = { clave: string; jefe: string; chat: ChatCentro | null; subs: ChatCentro[] };
+export type GrupoJefe<T extends { titulo: string } = ChatCentro> = { clave: string; jefe: string; chat: T | null; subs: T[] };
 
 /**
  * La lista agrupada por jefe, en el orden en que llega (lo que trabaja arriba): el grupo va donde aparece el primero
  * de los suyos. Un sub-chat cuyo jefe no está en la lista igual se agrupa bajo su nombre (`chat: null`).
  */
-export function porJefe(chats: readonly ChatCentro[]): GrupoJefe[] {
-  const grupos = new Map<string, GrupoJefe>();
+export function porJefe<T extends { titulo: string } = ChatCentro>(chats: readonly T[]): GrupoJefe<T>[] {
+  const grupos = new Map<string, GrupoJefe<T>>();
   for (const c of chats) {
     const { jefe, sub } = partesDelNombre(c.titulo);
     const k = normal(jefe);
@@ -489,8 +489,9 @@ export type LineaChat =
   | { tipo: 'trabajo'; instante: number; trabajo: TrabajoP }
   /** Lo que Martín contestó a una pregunta de ESTE chat (la de arriba de la caja o la Ticketera): es su respuesta. */
   | { tipo: 'respuesta'; instante: number; decision: Decision }
-  /** Lo que se le dijo al chat y lo que contestó, sacado de su transcript (17/10/2026: «los chats no se entienden»). */
-  | { tipo: 'turno'; instante: number; turno: TurnoChat }
+  /** Lo que se le dijo al chat y lo que contestó, sacado de su transcript (17/10/2026: «los chats no se entienden»).
+   *  `plegado`: un turno que el chat le escribió a OTRO chat, no a Martín (`turnosParaOtro`): va en una línea, «Avance: …». */
+  | { tipo: 'turno'; instante: number; turno: TurnoChat; plegado?: boolean }
   /** Una pregunta del chat, con sus opciones (17/10/2026: el formulario de `cartero.mjs preguntar`). `trabajo` = el trabajo
    *  firmado que la contestó, si ya salió: la respuesta se dibuja en la pregunta, no como una burbuja aparte. */
   | { tipo: 'pregunta'; instante: number; pregunta: PreguntaChat; trabajo: TrabajoP | null };
@@ -504,9 +505,52 @@ export type LineaChat =
  * ⚠️ NI LO QUE SE DICEN LOS CHATS ENTRE ELLOS (22/10/2026, `esParaMartin`, lib/operaciones-reglas.ts): un mensaje de otro
  *    chat y el resumen de una compactación no se dibujan, en la computadora ni en el teléfono (los dos pasan por acá).
  */
-export const lineasDeConversacion = (lineas: readonly LineaChat[]): LineaChat[] =>
-  lineas.filter((l) => l.tipo === 'trabajo' || l.tipo === 'respuesta' || l.tipo === 'pregunta'
-    || (l.tipo === 'turno' && esParaMartin(l.turno) && !(l.turno.rol === 'yo' && l.turno.trabajo)));
+export const lineasDeConversacion = (lineas: readonly LineaChat[]): LineaChat[] => {
+  const paraOtro = turnosParaOtro(lineas);
+  return lineas.filter((l) => l.tipo === 'trabajo' || l.tipo === 'respuesta' || l.tipo === 'pregunta'
+    || (l.tipo === 'turno' && esParaMartin(l.turno) && !(l.turno.rol === 'yo' && l.turno.trabajo)))
+    .map((l) => (l.tipo === 'turno' && paraOtro.has(l.turno.uuid) ? { ...l, plegado: true } : l));
+};
+
+/**
+ * LO QUE EL CHAT LE ESCRIBIÓ A OTRO CHAT, Y NO A MARTÍN (22/10/2026, el Cerebro con captura del chat «CRM»: los mensajes técnicos y
+ * largos que el CRM le escribe al Cerebro son la respuesta a un pedido DEL CEREBRO): los turnos del chat entre un mensaje de otro
+ * chat y el próximo de Martín. Se dibujan plegados («Avance: …»), y la fila no los toma por lo último. Un «Ya está» no: ése es
+ * para Martín, aunque lo haya pedido otro chat (AGENTS.md, «el Ya está lo dice cada chat»).
+ */
+export function turnosParaOtro(lineas: readonly LineaChat[]): Set<string> {
+  const out = new Set<string>();
+  let deOtro = false;
+  for (const l of [...lineas].sort((a, b) => a.instante - b.instante)) {
+    if (l.tipo !== 'turno') continue;
+    if (l.turno.rol === 'yo') deOtro = false;
+    else if (l.turno.rol === 'otro') deOtro = true;
+    else if (deOtro && !esYaEsta(l.turno.texto)) out.add(l.turno.uuid);
+  }
+  return out;
+}
+
+/** La primera oración de un texto, sin el formato del Markdown, para el renglón plegado de un turno («Avance: …»). */
+export function primeraOracion(texto: string, tope = 140): string {
+  const renglon = texto.split('\n').map((r) => r.replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim()).find((r) => r.length > 0) ?? '';
+  const m = /^(.+?[.!?])(?:\s|$)/.exec(renglon);
+  const o = (m ? m[1] : renglon).trim();
+  return o.length > tope ? `${o.slice(0, tope - 1).trimEnd()}…` : o;
+}
+
+/** Las abiertas de este chat cuya respuesta todavía no salió (la línea no tiene su trabajo), la más vieja primero. */
+const abiertasSinRespuesta = (lineas: readonly LineaChat[]): PreguntaChat[] =>
+  lineas.flatMap((l) => (l.tipo === 'pregunta' && !l.trabajo && estaAbierta(l.pregunta) ? [l] : []))
+    .sort((a, b) => a.instante - b.instante).map((l) => l.pregunta);
+
+/**
+ * Las preguntas que van al BLOQUE de arriba de la caja (22/10/2026, Martín: «Las decisiones deben salir como en Claude, un bloque
+ * arriba del chat con las opciones… respondo 1 y va a la siguiente»): las de `cartero preguntar` y las de botones del cierre con
+ * wrap_up, que se contestan acá. Las de un AskUserQuestion van aparte (`preguntasDeLaApp`): se ven, y se contestan en la app.
+ */
+export const preguntasParaElBloque = (lineas: readonly LineaChat[]): PreguntaChat[] => abiertasSinRespuesta(lineas).filter((p) => !seContestaEnLaApp(p));
+/** Las que el chat le hizo con AskUserQuestion en la app de Claude (cartero 1.18.0): se VEN arriba de la caja, de sólo lectura. */
+export const preguntasDeLaApp = (lineas: readonly LineaChat[]): PreguntaChat[] => abiertasSinRespuesta(lineas).filter(seContestaEnLaApp);
 
 /** Un chat que trabaja y todavía no escribió nada lo dice (Martín, 17/10/2026: «No puede haber un chat en "trabajando"
  *  sin nada escrito»): nunca una conversación vacía. null = escribió algo, o no está trabajando. */
@@ -592,7 +636,10 @@ export function segundoRenglon(
 }
 /** Lo que dice la fila de cada uno (las mismas palabras en la computadora y en el teléfono). */
 export const TEXTO_SEGUNDO_RENGLON: Record<NonNullable<SegundoRenglon>, string> = {
-  vivo: 'Trabajando…', espera: 'Espera tu respuesta', revisar: 'Espera tu respuesta',
+  // EL ESTADO ES HONESTO (22/10/2026, Martín: «hay muchos chats que dicen "Espera tu respuesta" y cuando entro, no veo el mensaje
+  // de "Completado" o el bloque de preguntas»): «Espera tu respuesta» SÓLO con una pregunta abierta para él; un «Ya está» sin ver
+  // dice «Completado». Medido ese día: una sola sesión tenía preguntas abiertas; las demás filas eran «Completado» sin ver.
+  vivo: 'Trabajando…', espera: 'Espera tu respuesta', revisar: 'Completado',
 };
 
 /**
@@ -633,11 +680,22 @@ export function leerYaVistos(v: unknown): YaVistos {
   return Object.fromEntries(pares.sort((a, b) => b[1] - a[1]).slice(0, MAX_YA_VISTOS));
 }
 
-/** El instante del último «Ya está» que escribió el chat, aunque después haya escrito otra cosa. null = ninguno. */
+/** El instante del último «Ya está» que escribió el chat, aunque después haya escrito otra cosa. null = ninguno.
+ *  ⚠️ «Aunque después»: es la regla de Martín del 18/10/2026 (tests/centro-ya-visto.test.ts), el «Completado» no se va hasta su ✓.
+ *  Lo que le faltaba el 22/10 era VERLO al entrar: la fila decía «Espera tu respuesta» y el «Ya está» quedaba tapado por lo
+ *  que el chat escribió después. Ahora la fila dice «Completado», lo de otros chats va plegado y el hilo va a él (`yaEstaSinVer`). */
 export function ultimoYaEsta(lineas: readonly LineaChat[]): number | null {
   let u: number | null = null;
   for (const l of lineas) if (l.tipo === 'turno' && l.turno.rol === 'el' && esYaEsta(l.turno.texto) && (u == null || l.instante > u)) u = l.instante;
   return u;
+}
+
+/** El turno del último «Ya está» si todavía no tiene su ✓ (`visto`: el instante del ✓ de este chat): adonde va el hilo al abrir
+ *  el chat (Conversacion.tsx). null = no hay, o ya lo vio. */
+export function yaEstaSinVer(lineas: readonly LineaChat[], visto: number | null | undefined): string | null {
+  let u: { instante: number; uuid: string } | null = null;
+  for (const l of lineas) if (l.tipo === 'turno' && l.turno.rol === 'el' && esYaEsta(l.turno.texto) && (!u || l.instante > u.instante)) u = { instante: l.instante, uuid: l.turno.uuid };
+  return u && !tieneCheck(u.instante, visto) ? u.uuid : null;
 }
 
 /** ¿El chat espera el ✓ de Martín? Sin saber qué tiene ✓ (`vistos` null, antes de leer), no avisa: nada de parpadeos. */

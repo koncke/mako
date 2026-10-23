@@ -246,7 +246,7 @@ responder por ellos.*
 
 ---
 
-*Derivado del material de Mauricio Bustos · Sistema Negocio que Escala™. Las clases y sus
+*Derivado del material de Mauricio · Sistema Negocio que Escala™. Las clases y sus
 preguntas salen de los dos Cuestionarios Maestros, el análisis de fases y el contexto del
 sistema; los atoros citados vienen de sus cuatro clientes reales (TEXX, HMO, Baja Teriyaki,
 Grupo Esquer).*

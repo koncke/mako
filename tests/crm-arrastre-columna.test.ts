@@ -2,7 +2,8 @@
 // El arrastre del CRM: la columna que se empuja es la de ABAJO del cursor
 // =============================================================================
 // Lo avisó la sesión de Customer Success al extraer la pieza del Plan, y en el CRM
-// aplica porque cada columna scrollea por dentro (`maxHeight: 68vh` + `overflowY`):
+// aplica porque cada columna scrollea por dentro (el carril con `overflowY`; desde el 22/10/2026 la columna llega al
+// fondo de la pantalla en vez de topear en 68vh):
 // `useArrastreCopia` resuelve su scroller UNA sola vez, en el `dragstart`, con la
 // tarjeta de ORIGEN. En /plan eso está bien —ahí scrollea la ventana—; acá empujaría
 // la columna de la que salió la tarjeta y no la que estás mirando.

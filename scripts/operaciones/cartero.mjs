@@ -90,7 +90,7 @@ import { spawnSync } from 'node:child_process';
 //         da por superada si Martín contesta por otro lado), sólo la ÚLTIMA de cada chat y con tope antes de mandar
 //         (`preguntasParaSubir`), la marca no avanza si no entró (`marcasQueAvanzan`), `armarPregunta` limpia como el
 //         servidor, y un archivo de pregunta malformado no tumba la vuelta.
-export const VERSION = '1.17.4';
+export const VERSION = '1.18.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -642,6 +642,8 @@ export function turnosDeLineas(lineas, pendiente = null) {
       const w = cierreWrapUp(o.message?.content);
       const q = w ? preguntaDeWrapUp(w, o.timestamp) : null;
       if (q) preguntas.push(q);
+      // 1.18.0: las preguntas de un AskUserQuestion también suben (se VEN en el Ops Center; se contestan en la app).
+      preguntas.push(...preguntasDeAsk(o.message?.content, o.timestamp));
       const delCierre = w ? [w.recap, q ? '' : w.ask].filter(Boolean).join('\n\n') : '';
       const t = [textoDe(o.message?.content).trim(), delCierre].filter(Boolean).join('\n\n');
       if (!t || typeof o.uuid !== 'string') continue;
@@ -724,6 +726,45 @@ export function preguntaDeWrapUp(w, at) {
   } catch {
     return null;
   }
+}
+
+// ── Las preguntas de un AskUserQuestion (1.18.0, 22/10/2026) ───────────────────────────────────────────────────────────
+// Martín: «las preguntas tipo bloque de Claude en la app... siempre deben aparecer en la app de Ops Center». Un chat que pregunta
+// con AskUserQuestion deja en su transcript un `tool_use` con `questions: [{ question, header, options: [{ label, description }],
+// multiSelect }]`. Cada una sube como una pregunta más, con `origen: 'ask'`: el Ops Center la dibuja en el MISMO bloque de arriba
+// de la caja, pero NO la contesta. Medido el 22/10 en 27 AskUserQuestion de los transcripts: mientras esperan no entra ningún
+// mensaje al chat (los de otras sesiones quedan retenidos hasta que el turno termina), así que una respuesta firmada desde el
+// Ops Center no lo destraba. Se contesta en la app; MaKo la da por superada cuando el chat sigue (lib/centro-preguntas-chat.ts).
+const ASK = 'AskUserQuestion';
+const RECOMENDADA_RE = /\s*\((?:Recommended|Recomendada)\)\s*$/i;
+
+/** Las preguntas de los AskUserQuestion de un mensaje del chat, listas para subir. [] = no pregunta nada (o nada se puede leer). */
+export function preguntasDeAsk(content, at) {
+  if (!Array.isArray(content)) return [];
+  const out = [];
+  for (const b of content) {
+    if (!b || b.type !== 'tool_use' || b.name !== ASK || !b.input || !Array.isArray(b.input.questions)) continue;
+    b.input.questions.forEach((x, i) => {
+      if (!x || typeof x.question !== 'string' || !Array.isArray(x.options)) return;
+      const ops = x.options.filter((o) => o && typeof o.label === 'string' && o.label.trim()).slice(0, TOPES_PREGUNTA.max);
+      const rec = ops.findIndex((o) => RECOMENDADA_RE.test(o.label));
+      try {
+        const q = armarPregunta({
+          pregunta: x.question.slice(0, TOPES_PREGUNTA.pregunta),
+          contexto: typeof x.header === 'string' && x.header.trim() ? x.header.trim().slice(0, TOPES_PREGUNTA.contexto) : null,
+          opciones: ops.map((o) => ({
+            titulo: o.label.replace(RECOMENDADA_RE, '').trim().slice(0, TOPES_PREGUNTA.titulo),
+            detalle: typeof o.description === 'string' && o.description.trim() ? o.description.trim().replace(/\s+/g, ' ').slice(0, TOPES_PREGUNTA.detalle) : null,
+          })),
+          ...(rec >= 0 ? { recomendada: rec } : {}),
+          ...(x.multiSelect === true ? { varias: true } : {}),
+        }, '', Number.isFinite(Date.parse(at)) ? new Date(at) : new Date());
+        // El id sale del `tool_use`: releer el transcript sube la MISMA pregunta (unirPreguntas no la repite).
+        out.push({ ...q, id: uuidDeTexto(`ask:${b.id ?? x.question}:${i}`), origen: 'ask' });
+      } catch { /* una que no pasa las reglas no sube: se sigue viendo en la app */ }
+    });
+  }
+  return out;
 }
 
 /** Una pregunta con su chat y su texto como strings: lo demás (un archivo escrito a mano) no se mira acá. */

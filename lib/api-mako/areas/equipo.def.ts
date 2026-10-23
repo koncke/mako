@@ -221,7 +221,7 @@ export const DEFS: readonly OperacionDef[] = [
     canales: SIN_HTTP, costo: 'externo', gating: ADMIN,
   },
   {
-    id: 'reenviar_invitacion', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    id: 'reenviar_invitacion', aTerceros: true, area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Reenviar el mail de acceso',
     descripcion: 'PROPONE volver a mandar el mail «Tu acceso a MaKo» a una persona del equipo que ya tiene cuenta (queda pendiente hasta el «sí»). Úsala cuando listar_equipo la muestra sin avisar o cuando dice que no le llegó. Si el mail no sale, la respuesta trae el link para pasárselo a mano. No aplica a cuentas suspendidas.',
     escribe: 'manda un email por Resend y marca usuarios.invitacion_enviada_at si salió',

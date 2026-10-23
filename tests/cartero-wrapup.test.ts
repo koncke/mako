@@ -23,6 +23,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sanearPregunta } from '../lib/centro-preguntas-chat';
+import { versionAlMenos } from '../lib/operaciones-reglas';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -94,5 +95,6 @@ test('4. la vuelta sube las de los cierres junto con las de `preguntar`', () => 
   // Desde la 1.17.3 (la revisión de caja-voz): la última de cada chat y el tope antes de mandar (tests/caja-voz-revision.test.ts).
   assert.match(s, /const \{ preguntas, sinLugar \} = preguntasParaSubir\(deArchivos, delaVuelta\.preguntas\);/);
   assert.match(s, /\.\.\.\(preguntas\.length \? \{ preguntas \} : \{\}\),/);
-  assert.ok(Number(/export const VERSION = '1\.17\.(\d+)';/.exec(s)?.[1]) >= 3, 'la 1.17.3 o una posterior');
+  // La versión como número (`versionAlMenos`): con el «1.17.» fijo, la 1.18.0 (las preguntas de un AskUserQuestion) la rompía.
+  assert.ok(versionAlMenos(/export const VERSION = '([\d.]+)';/.exec(s)?.[1], '1.17.3'), 'la 1.17.3 o una posterior');
 });

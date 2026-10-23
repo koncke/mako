@@ -138,6 +138,7 @@ test('la ruta: la consulta va ANTES de editar y devuelve el borrador tal cual', 
   // (22/10/2026: la revisión vive en `revisarEdicion`, lib/flujo-ia-revision-editar.ts.)
   const rev = leer('lib/flujo-ia-revision-editar.ts');
   assert.match(rev, /if \(r\.respuesta\) \{[\s\S]{0,300}?return \{ r, errores: e \? \[e\] : \[\] \};/, 'una respuesta no se reintenta por «no cambió nada»');
+  // (Y después de los errores de siempre, el control de lo pedido, `faltantesDelPedido`: tests/chat-mako-ramas-y-listo.test.ts.)
 });
 
 test('los prompts: el de contestar está registrado y el de editar ofrece "respuesta"', () => {

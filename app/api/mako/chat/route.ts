@@ -10,6 +10,7 @@
 //                                                      (21/10/2026). `antes` también en el POST de 'send', 'confirmar',
 //                                                      'cancelar' y en el multipart: el turno corre sobre ESA sesión.
 // GET  ?adjunto=<id del mensaje>:<n>                 → 302 al archivo (link firmado, 300 s)
+// GET  ?voz=<id del mensaje>                         → 302 a la nota de voz de la persona (OC7, link firmado, 300 s)
 // GET  ?offer=1                                      → { ok, offer }    las conversaciones de Offer del negocio (20/10/2026)
 // GET  ?offerId=N                                    → { ok, sesion, mensajes }      una, de sólo lectura; de otro ws, 404
 // GET  ?marcas=<chat>                                → { ok, marcas }   las de la persona en ESE chat (21/10/2026: el menú
@@ -20,6 +21,9 @@
 // POST { action:'new' }                              → { ok, sesion }               sin saludo del modelo
 // POST { action:'send', sessionId, mensaje }         → RespuestaTurno
 // POST multipart: mensaje, sessionId, adjuntos[]     → RespuestaTurno               (fotos y PDF, como el teléfono)
+// POST multipart: sessionId, voz (MP3), vozSecs      → RespuestaTurno               la nota de voz, SOLA (OC7, 22/10/2026):
+//                                                      la escucha la IA del negocio ANTES de guardar nada; sin voz, 422;
+//                                                      ninguna IA pudo, 424 (se reintenta con la misma grabación)
 // POST { action:'confirmar'|'cancelar', sessionId, pendienteId } → ResultadoTarjeta
 //
 // El turno es el MISMO del teléfono (lib/mako-turno-app.ts, las mismas sesiones `mako-movil:u<id>`): esto sólo
@@ -38,16 +42,19 @@
 import type { NextRequest } from 'next/server';
 import {
   personaDelRequest, listarSesiones, abrirSesion, nuevaSesion, turnoApp, confirmarDesdeTarjeta, cancelarDesdeTarjeta, urlDeAdjunto,
+  urlDeVozDelChat, escucharNotaDelChat,
 } from '@/lib/mako-turno-app';
-import { validarAdjuntos, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
-import { CONTEXTO_SECOND_BRAIN } from '@/lib/chat-mako-reglas';
+import { validarAdjuntos, esMp3, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
+import { CONTEXTO_SECOND_BRAIN, antesValido } from '@/lib/chat-mako-reglas';
+import { sanearDesde } from '@/lib/chat-desde';
 import { estadoDeTrabajo } from '@/lib/chat-trabajos';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
-import { chatsDeAntes, chatsDeOffer, claveDeAntes, hiloDeAntes, hiloDeOffer, quienChateaDelRequest } from '@/lib/chat-mako-indice';
+import { chatsDeAntes, chatsDeAutomations, chatsDeLasTabs, chatsDeLosEditores, chatsDeOffer, claveDeAntes, conTemas, hiloDeAutomatizacion, hiloDeEditor, claveDeTab, grupoDeMaKo, hiloDeAntes, hiloDeOffer, hiloDelGrupoMaKo, quienChateaDelRequest } from '@/lib/chat-mako-indice';
 import type { PersonaChat } from '@/lib/mako-turno-app';
 import { esChatDeMarcas, leerMarcasDelChat, marcarEnElChat } from '@/lib/chat-mako-marcas-db';
 import { sanearCambio } from '@/lib/centro-mensajes';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
+import { claveDelCreditoAsignado } from '@/lib/credito-negocio';
 import { pcDe } from '@/lib/ia-pc';
 
 export const dynamic = 'force-dynamic';
@@ -75,6 +82,8 @@ const enteroDe = (v: unknown): number | null => {
 async function conSuIA(persona: PersonaChat): Promise<boolean> {
   try {
     if (persona.ws === (await wsSuperAdmin())) return true;
+    // Con el crédito de Claude que le asignó Martín, prendido (lib/credito-negocio.ts; 22/10/2026, el ws1): tiene con qué.
+    if (await claveDelCreditoAsignado(persona.ws)) return true;
     const negocio = await negocioConSuIA(persona.ws);
     if (negocio.suIA && !negocio.conPc) return true;
     return (await pcDe(persona.ws, persona.actor)) != null;
@@ -86,7 +95,8 @@ async function conSuIA(persona: PersonaChat): Promise<boolean> {
 async function personaDelChat(persona: PersonaChat, sessionId: number, antes: unknown): Promise<PersonaChat | null> {
   if (antes !== true && antes !== '1' && antes !== 1) return persona;
   const q = await quienChateaDelRequest();
-  const chartKey = q ? await claveDeAntes(q, sessionId) : null;
+  // Un chat de antes (su regla de siempre) o uno de una tab de ESTA persona (CRM, la ficha de un lead: OC4, 22/10/2026).
+  const chartKey = (q ? await claveDeAntes(q, sessionId) : null) ?? await claveDeTab(persona, sessionId);
   return chartKey ? { ...persona, chartKey } : null;
 }
 
@@ -102,21 +112,70 @@ export async function GET(req: NextRequest) {
       if (!esChatDeMarcas(chat)) return json({ ok: false, error: 'Falta el chat.' }, 400);
       return json({ ok: true, marcas: await leerMarcasDelChat(persona, chat) });
     }
+    // Lo guardado de un chat que la persona SIGUE con `antes` (uno de antes o el de una tab) se abre con la regla que deja
+    // seguirlo, la misma de `?sessionId=N&antes=1` (22/10/2026: la foto, el PDF y la nota de esos chats daban 404).
+    const deOtroChat = (sesion: number) => personaDelChat(persona, sesion, '1');
     if (sp.has('adjunto')) {
-      const url = await urlDeAdjunto(persona, sp.get('adjunto'));
+      const url = await urlDeAdjunto(persona, sp.get('adjunto'), deOtroChat);
       // Se abre en otra pestaña o en un <img>: texto, no JSON.
       if (!url) return new Response('No pude abrir el archivo.', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
       // El link vence a los 300 s: el navegador puede reusar este salto un rato menos que eso.
       return new Response(null, { status: 302, headers: { Location: url, 'Cache-Control': 'private, max-age=240' } });
     }
+    // La nota de voz de la persona (OC7): un <audio src>, también por su mensaje.
+    if (sp.has('voz')) {
+      const url = await urlDeVozDelChat(persona, sp.get('voz'), deOtroChat);
+      if (!url) return new Response('No pude abrir la nota de voz.', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
+      return new Response(null, { status: 302, headers: { Location: url, 'Cache-Control': 'private, max-age=240' } });
+    }
     // «Antes»: lo que tenía /mako, con SU regla de quién ve qué (lib/chat-mako-indice.ts).
-    if (sp.get('antes') || sp.has('antesId')) {
+    // ⚠️ CON `sessionId` NO ES LA LISTA: `?sessionId=N&antes=1` es el hilo de un chat de antes que se sigue (abajo, con
+    //    `personaDelChat`). Hasta el 22/10/2026 esta rama lo atrapaba primero y devolvía la lista: todo chat de antes (los
+    //    del CRM, los gráficos, Editar con MaKo, el Web Generator) se abría VACÍO en el Ops Center del cliente, aunque la
+    //    fila estaba y sus mensajes también (medido en el ws3). tests/ops-center-hilo-de-antes.test.ts.
+    if ((sp.get('antes') && !sp.has('sessionId')) || sp.has('antesId')) {
       const q = await quienChateaDelRequest();
       if (!q) return json({ ok: false, error: 'Tu sesión venció.' }, 401);
-      if (sp.get('antes')) return json({ ok: true, antes: await chatsDeAntes(q) });
+      // Con los de las tabs de la persona (el CRM, la ficha de un lead), que se siguen igual (OC4, 22/10/2026).
+      if (sp.get('antes')) {
+        const [deAntes, deTabs] = await Promise.all([chatsDeAntes(q), chatsDeLasTabs(persona)]);
+        // Con su tema: lo que no tiene título se nombra por lo que se dijo (22/10/2026, nunca «Chat de antes»).
+        const todos = await conTemas([...deAntes, ...deTabs]);
+        return json({ ok: true, antes: todos.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)) });
+      }
       const id = enteroDe(sp.get('antesId'));
       const hilo = id == null ? null : await hiloDeAntes(q, id);
       if (!hilo) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
+      return json({ ok: true, ...hilo });
+    }
+    // El grupo de WhatsApp de MaKo (22/10/2026, OC3): SÓLO del admin y de SÓLO LECTURA. El corte lo hace el lector
+    // (lib/chat-mako-indice.ts → grupoDeMaKo, hiloDelGrupoMaKo): a un miembro le da null, y el jid nunca sale de acá.
+    if (sp.get('grupo')) return json({ ok: true, grupo: await grupoDeMaKo(persona) });
+    if (sp.get('grupoHilo')) {
+      const hilo = await hiloDelGrupoMaKo(persona, antesValido(sp.get('desde')));
+      if (!hilo) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
+      return json({ ok: true, ...hilo });
+    }
+    // Automations (22/10/2026, OC5): las charlas del lienzo, una proyección del workspace con la puerta de la tab. Se LEEN; se
+    // siguen en el lienzo. Sin la tab, [].
+    if (sp.get('automations')) return json({ ok: true, automations: await chatsDeAutomations() });
+    if (sp.has('automatizacionId')) {
+      const id = enteroDe(sp.get('automatizacionId'));
+      const hilo = id == null ? null : await hiloDeAutomatizacion(id);
+      if (!hilo) return json({ ok: false, error: 'No encuentro esa charla.' }, 404);
+      return json({ ok: true, ...hilo });
+    }
+    // Los chats del Image Editor y del Video Editor (22/10/2026, OC8): por persona (el admin, los del negocio), con la puerta de
+    // cada tab. Se LEEN; se siguen en el editor.
+    if (sp.get('editores')) {
+      const q = await quienChateaDelRequest();
+      return json({ ok: true, editores: q ? await chatsDeLosEditores(q) : [] });
+    }
+    if (sp.has('editorClave')) {
+      const q = await quienChateaDelRequest();
+      const tipo = sp.get('editor') === 'video' ? 'video' : sp.get('editor') === 'imagen' ? 'imagen' : null;
+      const hilo = q && tipo ? await hiloDeEditor(q, tipo, String(sp.get('editorClave'))) : null;
+      if (!hilo) return json({ ok: false, error: 'No encuentro esa charla.' }, 404);
       return json({ ok: true, ...hilo });
     }
     // Offer (20/10/2026): una proyección del workspace, con la puerta de la tab (lib/chat-mako-indice.ts). Sin la tab, [].
@@ -159,17 +218,34 @@ export async function POST(req: NextRequest) {
       const form = await req.formData();
       const archivos = form.getAll('adjuntos').filter((f): f is File => f instanceof File);
       if (archivos.length > TOPE_ADJUNTOS) return json({ ok: false, error: ERROR_ADJUNTO.muchos }, 400);
+      // La nota de voz (OC7): SOLA, en MP3, y dentro del mismo tope.
+      const vozCruda = form.get('voz');
+      const notaDeVoz = vozCruda instanceof File ? vozCruda : null;
+      if (notaDeVoz && archivos.length) return json({ ok: false, error: 'La nota de voz va sola: manda los archivos en otro mensaje.' }, 400);
+      if (notaDeVoz && notaDeVoz.size > TOPE_TOTAL_BYTES) return json({ ok: false, error: 'La nota de voz es muy larga: grábala más corta o escríbemelo.' }, 413);
       if (archivos.reduce((n, f) => n + f.size, 0) > TOPE_TOTAL_BYTES) return json({ ok: false, error: ERROR_ADJUNTO.pesado }, 413);
       const leidos = await Promise.all(archivos.map(async (f) => ({ nombre: f.name, mime: f.type, bytes: new Uint8Array(await f.arrayBuffer()) })));
       const v = validarAdjuntos(leidos);
       if (!v.ok) return json({ ok: false, error: v.error }, 400);
       const sessionId = enteroDe(form.get('sessionId'));
       if (sessionId == null) return json({ ok: false, error: 'Falta el chat.' }, 400);
-      const mensaje = String(form.get('mensaje') ?? '');
-      if (!mensaje.trim() && !v.adjuntos.length) return json({ ok: false, error: 'Escribe algo.' }, 400);
+      const bytesDeVoz = notaDeVoz ? new Uint8Array(await notaDeVoz.arrayBuffer()) : null;
+      if (bytesDeVoz && !esMp3(bytesDeVoz)) return json({ ok: false, error: 'No pude abrir esa nota de voz: grábala de nuevo.' }, 415);
+      const escrito = String(form.get('mensaje') ?? '');
+      if (!escrito.trim() && !v.adjuntos.length && !bytesDeVoz) return json({ ok: false, error: 'Escribe algo.' }, 400);
       const quien = await personaDelChat(persona, sessionId, form.get('antes'));
       if (!quien) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
-      const r = await turnoApp(quien, sessionId, { mensaje, adjuntos: v.adjuntos, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000 });
+      // La nota se escucha ANTES del turno: lo que se entendió es el mensaje, y si nadie la pudo escuchar no se guarda nada.
+      let mensaje = escrito;
+      if (bytesDeVoz) {
+        const oido = await escucharNotaDelChat(quien, sessionId, bytesDeVoz);
+        if (!oido.ok) return json({ ok: false, error: oido.error }, oido.status);
+        mensaje = [escrito.trim(), oido.texto].filter(Boolean).join('\n\n');
+      }
+      const voz = bytesDeVoz ? { bytes: bytesDeVoz, secs: Number(form.get('vozSecs')) } : null;
+      // Desde dónde escribe (OC6): la estrella de una tab lo manda como JSON en el form.
+      const desde = sanearDesde((() => { try { return JSON.parse(String(form.get('desde') ?? 'null')); } catch { return null; } })());
+      const r = await turnoApp(quien, sessionId, { mensaje, adjuntos: v.adjuntos, voz, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde });
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       return json({ ...r });
     } catch (e) {
@@ -177,7 +253,7 @@ export async function POST(req: NextRequest) {
       return json({ ok: false, error: 'Algo falló de nuestro lado. Intenta de nuevo.' }, 500);
     }
   }
-  let body: { action?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown };
+  let body: { action?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown; desde?: unknown };
   try { body = await req.json(); } catch { return json({ ok: false, error: 'Pedido inválido.' }, 400); }
   try {
     if (body.action === 'new') return json({ ok: true, sesion: await nuevaSesion(persona) });
@@ -199,7 +275,8 @@ export async function POST(req: NextRequest) {
       // `guardarAdjuntos` también sin fotos (22/10/2026, la prueba de los chats): un texto PEGADO va en este cuerpo, y sin
       // la marca el turno no lo archivaba aunque el hilo dijera «el texto entero quedó en El Archivero». El teléfono ya la
       // pasaba (/api/m/mako); el MaKo Analyst de un lead, que no la pasa, es otra ruta.
-      const r = await turnoApp(quien, sessionId, { mensaje, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000 });
+      // Desde dónde escribe (OC6, lib/chat-desde.ts): la tab, la entidad y el modo de la estrella; saneado, nunca tal cual.
+      const r = await turnoApp(quien, sessionId, { mensaje, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde: sanearDesde(body.desde) });
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       // Un fallo del modelo NO es un error HTTP: el mensaje quedó guardado y el aviso viaja adentro.
       return json({ ...r });

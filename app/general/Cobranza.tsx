@@ -151,7 +151,7 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
                 <span style={S.texto}>
                   {muestra
                     ? <span className="gb-t" style={S.nombre}>{f.nombre}</span>
-                    : <Link href={`/crm/${f.leadId}`} className="gb-t" style={S.nombre}>{f.nombre}</Link>}
+                    : <Link href={`/crm/${f.leadId}${f.funnelId != null ? `?funnel=${f.funnelId}` : ''}`} className="gb-t" style={S.nombre}>{f.nombre}</Link>}
                   <span className="gb-d" style={{ color: f.urgencia === 'vencida' ? 'var(--bad)' : 'var(--dim)' }}>{cuando}</span>
                 </span>
                 {monto && <span className="gb-num" style={S.monto}>{monto}</span>}

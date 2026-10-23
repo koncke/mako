@@ -48,6 +48,7 @@ import {
   arbolSeguro, conSesionEnArbol, leerValor, seccionesDelArbol, titulosUnicos, todasLasSesiones, valorNueva, valorSesion,
 } from '../app/offer/arbol';
 import { esRechazoDefinitivo } from '../app/offer/offer-api';
+import { itemsDeOffer } from '../app/m/mako/chat-ui';
 import { construirArbol, type SesionParaArbol } from '../lib/offer-reglas';
 import type { ArbolOffer, OfferMensaje, OfferSesionResumen } from '../lib/offer-marco';
 
@@ -255,8 +256,17 @@ test('chat: la «Transcripción del audio» lleva el ícono del audio, y una not
   assert.equal(iconoDeAdjunto('foto.png'), 'imagen');
   const chat = sinComentarios(leer('app/offer/ChatOffer.tsx'));
   assert.match(chat, /<ChipArchivo key=\{a\.id\} nombre=\{a\.nombre\} via=\{a\.via\}/, 'el chip recibe la vía');
-  const audioConDocs = bloque(chat, 'if (m.audio?.url) {', 'return (\n      <div style={{ display: \'flex\', justifyContent: \'flex-end\' }}>');
-  assert.match(audioConDocs, /<Adjuntos lista=\{m\.adjuntos\} \/>/, 'una nota de voz con documentos los dibuja');
+  // Desde el 22/10/2026 (OF4) el hilo es el del Ops Center: una nota de voz CON documentos (la «Transcripción del audio» que
+  // arma el servidor cuando la nota no entra en el mensaje) llega con su audio Y sus archivos, y el hilo dibuja los dos.
+  const [conDocs] = itemsDeOffer([{
+    id: 'n1', de: 'yo', texto: 'lo que dije', at: '2026-10-22T10:00:00Z', audio: { url: '/api/offer/audio?x=1', secs: 40 },
+    adjuntos: [{ id: 'd1', nombre: 'Transcripción del audio', via: 'audio', chars: 5000, aviso: 'Lo largo va como documento' }],
+  }], (u) => u, (a) => a.aviso ?? '');
+  assert.ok(conDocs.k === 'msg' && conDocs.voz && conDocs.archivos?.length === 1, 'una nota de voz con documentos los dibuja');
+  assert.deepEqual(conDocs.k === 'msg' && conDocs.archivos?.[0], { nombre: 'Transcripción del audio', tipo: 'document', sinAbrir: true, nota: 'Lo largo va como documento' });
+  const hilo = sinComentarios(leer('app/_chat/HiloMako.tsx'));
+  assert.match(bloque(hilo, "if (x.k === 'msg' && x.role === 'user') {", 'return;'), /\{archivos\.length > 0 && <ArchivosHilo archivos=\{archivos\} \/>\}[\s\S]*\{x\.voz \? \(/,
+    'el hilo dibuja los archivos y, debajo, la nota de voz');
   // El motivo de un link que no abre va como lo manda el servidor, sin un prefijo nuestro.
   assert.doesNotMatch(sinComentarios(leer('app/offer/OfferApp.tsx')), /No pude abrir el link/);
 });

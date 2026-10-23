@@ -27,13 +27,12 @@ export const DEFS: Def[] = [
   { key: 'zernio', nombre: 'Instagram y Messenger (Zernio)', categoria: 'Mensajería', descripcion: 'Mensajes de Instagram y Messenger en tus automatizaciones.', envs: ['ZERNIO_API_KEY'] },
   // IA = BYOK por cliente (ya NO global): cada workspace usa su propia key y su
   // gasto corre contra su cuenta. Para el dueño, credWs cae al env de respaldo.
-  { key: 'anthropic', nombre: 'MaKo IA (Anthropic)', categoria: 'Inteligencia', descripcion: 'Claude: MaKo escribe y analiza con él antes que con la IA gratis. Sirve el crédito de API de Claude Max.', envs: ['ANTHROPIC_API_KEY'] },
-  { key: 'openai', nombre: 'OpenAI', categoria: 'Inteligencia', descripcion: 'Transcripción y tareas simples de IA.', envs: ['OPENAI_API_KEY'] },
-  { key: 'groq', nombre: 'Groq', categoria: 'Inteligencia', descripcion: 'IA rápida y gratis para tareas simples y transcripción.', envs: ['GROQ_API_KEY'] },
-  { key: 'gemini', nombre: 'Google Gemini', categoria: 'Inteligencia', descripcion: 'IA de Google con 1M de contexto (BYOK por cliente).', envs: ['GEMINI_API_KEY'] },
-  { key: 'cerebras', nombre: 'Cerebras', categoria: 'Inteligencia', descripcion: 'IA gratis y MUY rápida (Llama en su chip). Rota cuando Gemini se queda sin cuota.', envs: ['CEREBRAS_API_KEY'] },
-  { key: 'mistral', nombre: 'Mistral AI', categoria: 'Inteligencia', descripcion: 'IA europea con free tier, otra gratis para rotar sin gastar.', envs: ['MISTRAL_API_KEY'] },
-  { key: 'openrouter', nombre: 'OpenRouter', categoria: 'Inteligencia', descripcion: 'Una key para decenas de modelos, varios gratis (sufijo ":free").', envs: ['OPENROUTER_API_KEY'] },  // ⚠️ ES BYOK DESDE EL 02/09/2026: la key la trae el CLIENTE.
+  { key: 'anthropic', nombre: 'MaKo IA (Anthropic)', categoria: 'Inteligencia', descripcion: 'Tu Claude: con tu clave, MaKo trabaja solo con tu cuenta (contesta, escribe y analiza). Sirve el crédito de API de Claude Max.', envs: ['ANTHROPIC_API_KEY'] },
+  { key: 'openai', nombre: 'OpenAI', categoria: 'Inteligencia', descripcion: 'Tu GPT: con tu clave, MaKo trabaja solo con tu cuenta, escucha audios y mira fotos.', envs: ['OPENAI_API_KEY'] },
+  { key: 'groq', nombre: 'Groq', categoria: 'Inteligencia', descripcion: 'IA rápida para tareas simples y transcripción. Con tu Claude o tu GPT conectado, no se usa.', envs: ['GROQ_API_KEY'] },
+  { key: 'gemini', nombre: 'Google Gemini', categoria: 'Inteligencia', descripcion: 'IA de Google con 1M de contexto. Con tu Claude o tu GPT conectado, no recibe datos de tus clientes.', envs: ['GEMINI_API_KEY'] },
+  // IA8 (22/10/2026): Cerebras, Mistral y OpenRouter se sacaron (0, 0 y 12 llamadas útiles en 30 días). Sus filas
+  // guardadas en `credenciales` quedan huérfanas e inertes: borrarlas es SQL, y la Cerebras del ws1 la decide Martín.  // ⚠️ ES BYOK DESDE EL 02/09/2026: la key la trae el CLIENTE.
   //
   // Estuvo marcada `soloPlataforma` con un porqué que sigue siendo cierto —la voz
   // es MEDIOS, US$0,045/min contra US$0,00067 del texto, 67×— y esa misma cifra es

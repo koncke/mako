@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { MAX_NOMBRE_ADJUNTO, MAX_TEXTO, MIMES_ADJUNTO, armarFirmable, mimeDeArchivoCentro, nuevoPayload, type AdjuntoPedido, type Alcance, type Esfuerzo, type MimeAdjunto, type Modelo } from '@/lib/operaciones-reglas';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { TEXTO_SOLO_ADJUNTOS } from '@/lib/centro-caja';
+import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from '@/lib/claves-en-el-chat';
 import { encolarPedidoAction } from './acciones';
 import { claveDelDispositivo, crearClaveDelDispositivo, firmar, type ClaveDispositivo } from './clave-dispositivo';
 
@@ -51,6 +52,8 @@ export function useFirma(sub: string) {
     // Un tope en un texto que escribe una persona RECHAZA, no recorta (AGENTS.md).
     const tope = d.tope ?? MAX_TEXTO;
     if (texto.length > tope) return { ok: false, error: `Acórtalo a ${tope} caracteres para mandarlo` };
+    // Una clave pegada NO SALE (22/10/2026): lo firmado se guarda tal cual en el pedido y en lo que sube el cartero.
+    if (hayClave(texto)) return { ok: false, error: AVISO_CLAVE_EN_EL_CENTRO };
     try {
       const payload = nuevoPayload({
         id: crypto.randomUUID(), texto: texto.trim() || TEXTO_SOLO_ADJUNTOS, destino: d.sesion, cuenta: d.cuenta, titulo: d.titulo, alcance,

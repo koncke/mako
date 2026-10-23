@@ -14,7 +14,7 @@ import 'server-only';
 
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { CLAVE_HISTORIAL, leerHistorial, sesionDelArranque, unirConOffer } from '@/lib/onboarding-historial';
-import { getCapaActual, getRolWsEfectivo, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
+import { getCapaActual, getRolWsEfectivo, getTenantDb, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { leerConversacionOffer, listarSesionesOffer } from '@/lib/offer-sesiones';
 import { urlAudio } from '@/lib/offer-reglas';
@@ -22,11 +22,14 @@ import { TITULO_HILO } from '@/lib/onboarding-arranque';
 import { mensajesDeOffer, offerDelOnboardingCopiada, seEscondeDeOffer } from '@/lib/chat-mako-reglas';
 import { getSetting } from '@/lib/settings';
 import {
-  esChatDelTelefono, getSession, getSessionMessages, listAllSessions, listSessions, listSessionsDePersona,
+  esChatDelTelefono, getSession, getSessionMessages, listAllSessions, listSessions, listSessionsDePersona, temasDeSesiones,
   type ChartMsg, type ChartSession,
 } from '@/lib/chart-chats';
 import { claveVisible, personaDeSesion, prefijoDePersona, puedeUsarSesion, type QuienChatea } from '@/lib/chart-chats-reglas';
-import { TITULO_GRUPO, baseDeLaPersona } from '@/lib/chat-mako-reglas';
+import { TITULO_GRUPO, baseDeLaPersona, claveDeEditor, mensajesDeAutomatizacion, mensajesDeEditor, origenDeClave, partesDeClaveDeEditor, temaDe, type TipoEditor } from '@/lib/chat-mako-reglas';
+import { hiloAlAbrir as hiloImagenAlAbrir } from '@/lib/image-editor/chat/hilo';
+import { hiloAlAbrir as hiloVideoAlAbrir } from '@/lib/editor-video/chat-hilo';
+import { leerChat as leerChatDeAutomatizacion, listarChats as listarChatsDeAutomations, secuenciaDelWorkspace } from '@/lib/automatizacion-chat-db';
 import { getGrupoJidMaKo } from '@/lib/mako-grupo';
 import { hiloDelGrupo } from '@/lib/mako-doer-conv';
 import { chartKeyDePersona, type MensajeChat } from '@/lib/mako-turno-app-reglas';
@@ -39,7 +42,18 @@ export async function quienChateaDelRequest(): Promise<(QuienChatea & { sub: str
   return persona ? { admin: rolWs === 'admin', persona, sub: String(sesion.sub ?? '') } : null;
 }
 
-export type ChatDeAntes = { id: number; titulo: string | null; clave: string; updatedAt: string };
+export type ChatDeAntes = { id: number; titulo: string | null; clave: string; updatedAt: string; origen?: string | null; tema?: string | null };
+
+/** Los chats con su tema (lib/chart-chats.ts → temasDeSesiones): los sin título, para nombrarlos; todos, para distinguir dos
+ *  que se llaman igual. Si no se puede leer, la lista sale igual, sin temas. */
+export async function conTemas(chats: ChatDeAntes[]): Promise<ChatDeAntes[]> {
+  const n = new Map<string, number>();
+  for (const c of chats) if (c.titulo?.trim()) n.set(c.titulo.trim().toLowerCase(), (n.get(c.titulo.trim().toLowerCase()) ?? 0) + 1);
+  const piden = chats.filter((c) => !c.titulo?.trim() || (n.get(c.titulo.trim().toLowerCase()) ?? 0) > 1).map((c) => c.id);
+  if (!piden.length) return chats;
+  const temas = await temasDeSesiones(piden).catch(() => new Map<number, string>());
+  return chats.map((c) => (temas.has(c.id) ? { ...c, tema: temas.get(c.id) } : c));
+}
 
 /** Las claves de los chats de /mako-doer (app/api/mako-doer/route.ts: el admin, la del workspace; los demás, la suya). */
 const clavesDelDoer = (q: QuienChatea & { sub: string }) => (q.admin ? ['mako-doer'] : /^\d+$/.test(q.sub) ? [`mako-doer:u${q.sub}`] : []);
@@ -83,6 +97,38 @@ export async function hiloDeAntes(q: QuienChatea & { sub: string }, id: number):
  */
 export async function claveDeAntes(q: QuienChatea & { sub: string }, id: number): Promise<string | null> {
   return (await sesionDeAntes(q, id))?.chart_key ?? null;
+}
+
+// ── Los chats de las TABS de la persona (22/10/2026, OC4) ──────────────────────────────────────────────────────────────────
+// El chat del CRM y el de la ficha de un lead guardan en chart_sessions con la clave de la persona y un sufijo
+// (`mako-movil:<persona>:crm:<id>`, `:lead:<id>`). El Ops Center listaba por la clave EXACTA (listarSesiones) y «de antes» saca
+// las del teléfono (`mako-movil:%`): esas 68 conversaciones del CRM no se veían en ningún lado. Ahora van en la lista con las de
+// antes, y se SIGUEN igual: la ruta prueba la regla de antes y, si no, ésta (`claveDeTab`).
+// ⚠️ EL PREFIJO LLEVA SU «:»: con `mako-movil:ana` a secas, el LIKE traería también las de `mako-movil:anabel`.
+
+/** Los chats de las tabs de la persona (CRM, la ficha de un lead), con su origen dicho («CRM», «Ficha · Ana»). */
+export async function chatsDeLasTabs(p: { ws: number; chartKey: string }): Promise<ChatDeAntes[]> {
+  return runWithWorkspace(p.ws, async () => {
+    const ss = (await listSessionsDePersona(`${p.chartKey}:`)).filter((s) => origenDeClave(s.chart_key));
+    const leads = [...new Set(ss.map((s) => Number(/:lead:(\d+)$/.exec(s.chart_key)?.[1])).filter((n) => Number.isInteger(n) && n > 0))];
+    const nombres = new Map<number, string>();
+    if (leads.length) {
+      const { data } = await (await getTenantDb()).from('leads').select('id, nombre').in('id', leads.slice(0, 200));
+      for (const l of (data ?? []) as Array<{ id: number; nombre: string | null }>) if (l.nombre?.trim()) nombres.set(l.id, l.nombre.trim());
+    }
+    return ss.map((s) => {
+      const lead = Number(/:lead:(\d+)$/.exec(s.chart_key)?.[1]);
+      const origen = Number.isInteger(lead) && lead > 0 ? `Ficha · ${nombres.get(lead) ?? `lead ${lead}`}` : origenDeClave(s.chart_key);
+      return { id: s.id, titulo: s.titulo, clave: s.chart_key.slice(p.chartKey.length + 1), updatedAt: s.updated_at, origen };
+    });
+  });
+}
+
+/** La clave de un chat de una tab de la persona, para seguirlo (el turno la reconoce como suya). null = no es suyo, o no es de una tab. */
+export async function claveDeTab(p: { ws: number; chartKey: string }, id: number): Promise<string | null> {
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const s = await runWithWorkspace(p.ws, () => getSession(id));
+  return s && s.chart_key.startsWith(`${p.chartKey}:`) && origenDeClave(s.chart_key) ? s.chart_key : null;
 }
 
 // ── Para la API de MaKo: los chats del Second Brain de la persona de ESTE turno ──────────────────────────────────
@@ -150,21 +196,42 @@ export async function hiloDelGrupoMaKo(
 //    la MISMA puerta que la tab (`puedeVerKey('offer', rol, capa)`); un closer o un setter sin Offer no la ve.
 // ⚠️ Martín, mirando un ws como super admin, ve SUS chats de chart_sessions; lo de Offer, al ser del workspace, sí lo ve.
 
-/** Las proyecciones del índice: de dónde sale cada chat que no vive en chart_sessions, a quién alcanza y su tab. */
-export const PROYECCIONES = [{ origen: 'offer', alcance: 'workspace', tab: 'offer' }] as const;
+/** Las proyecciones del índice: de dónde sale cada chat que no vive en chart_sessions, a quién alcanza y su tab.
+ *  ⚠️ `tab` es la clave de la PUERTA (lib/movil-rutas.ts → puedeVerKey), no el nombre: la de Automations es `setting` (con
+ *  'automations', medido el 22/10, la puerta le dice que no a todos, el admin incluido, y no se listaría nada). */
+export const PROYECCIONES = [
+  { origen: 'offer', alcance: 'workspace', tab: 'offer' },
+  { origen: 'automations', alcance: 'workspace', tab: 'setting' },
+  // Los de los editores son por PERSONA (como los de antes): el admin ve los del negocio; los demás, los suyos (OC8).
+  { origen: 'image-editor', alcance: 'persona', tab: 'image-editor' },
+  { origen: 'video-editor', alcance: 'persona', tab: 'video-editor' },
+] as const;
 export type OrigenDeChat = (typeof PROYECCIONES)[number]['origen'];
 
-export type ChatDeOffer = { id: number; titulo: string; updatedAt: string; origen: 'offer'; alcance: 'workspace' };
+export type ChatDeOffer = { id: number; titulo: string; updatedAt: string; origen: 'offer'; alcance: 'workspace'; tema?: string | null };
 
-/** El workspace del pedido, si quien pide ve la tab Offer (la puerta de la tab, la misma del teléfono). null = no la ve. */
-async function wsSiVeOffer(): Promise<number | null> {
+/** Lo primero que dijo la persona en cada conversación de Offer (sólo las que se llaman igual: el ws1 tiene dos «Mi oferta»). */
+async function temasDeOffer(ids: readonly number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  if (!ids.length) return out;
+  const { data } = await (await getTenantDb()).from('offer_sesiones').select('id, mensajes').in('id', ids.slice(0, 20));
+  for (const r of (data ?? []) as Array<{ id: number; mensajes: unknown }>) {
+    const ms = Array.isArray(r.mensajes) ? (r.mensajes as Array<{ de?: unknown; texto?: unknown }>) : [];
+    const t = temaDe(String(ms.find((m) => m?.de === 'yo' && typeof m.texto === 'string' && m.texto.trim())?.texto ?? ''));
+    if (t) out.set(r.id, t);
+  }
+  return out;
+}
+
+/** El workspace del pedido, si quien pide ve la tab de esa proyección (la puerta de la tab, la misma del teléfono). null = no la ve. */
+async function wsSiVe(tab: (typeof PROYECCIONES)[number]['tab']): Promise<number | null> {
   const [rolWs, ws, capa] = await Promise.all([getRolWsEfectivo(), getWorkspaceActual(), getCapaActual().catch(() => null)]);
-  return rolWs && ws != null && puedeVerKey('offer', rolWs, capa) ? ws : null;
+  return rolWs && ws != null && puedeVerKey(tab, rolWs, capa) ? ws : null;
 }
 
 /** Las conversaciones de Offer del negocio, la más reciente primero. [] = no ve la tab, o no hay. */
 export async function chatsDeOffer(): Promise<ChatDeOffer[]> {
-  const ws = await wsSiVeOffer();
+  const ws = await wsSiVe('offer');
   if (ws == null) return [];
   // La del onboarding, si quien pide ya tiene su chat «Onboarding» (lo copia hiloDelOnboarding), no se lista: saldría dos
   // veces. A los demás (el super admin mirando, otro admin) se les sigue listando, y a ella también si la siguió en Offer
@@ -174,9 +241,103 @@ export async function chatsDeOffer(): Promise<ChatDeOffer[]> {
   // Para quien no tiene su chat «Onboarding» (el super admin mirando, otro admin), la del onboarding se llama así: trae el
   // arranque entero (`hiloDeOffer`). Martín, 21/10, ws21: «No veo el chat de ONBOARDING tampoco en el ws de Florencia».
   const delOnboarding = sesionDelArranque(arranque);
-  return lista.filter((s) => s.id > 0 && !seEscondeDeOffer(s, copiada)).map((s) => ({
+  const filas = lista.filter((s) => s.id > 0 && !seEscondeDeOffer(s, copiada)).map((s): ChatDeOffer => ({
     id: s.id, titulo: s.id === delOnboarding && !copiada ? TITULO_HILO : s.titulo, updatedAt: s.updatedAt, origen: 'offer', alcance: 'workspace',
   }));
+  // Dos que se llaman igual se distinguen por su tema (lib/chat-mako-reglas.ts → listaDelCliente).
+  const n = new Map<string, number>();
+  for (const f of filas) n.set(f.titulo.trim().toLowerCase(), (n.get(f.titulo.trim().toLowerCase()) ?? 0) + 1);
+  const repetidas = filas.filter((f) => (n.get(f.titulo.trim().toLowerCase()) ?? 0) > 1).map((f) => f.id);
+  const temas = repetidas.length ? await runWithWorkspace(ws, () => temasDeOffer(repetidas)).catch(() => new Map<number, string>()) : new Map<number, string>();
+  return filas.map((f) => (temas.has(f.id) ? { ...f, tema: temas.get(f.id) } : f));
+}
+
+// ── Automations (22/10/2026, OC5) ───────────────────────────────────────────────────────────────────────────────────
+// La charla con MaKo del lienzo de cada automatización vive en app_settings (`automatizacion.chat:<id>`, lib/automatizacion-chat.ts)
+// y nadie la proyectaba. Es por WORKSPACE, con la puerta de la tab (`setting`), y se LEE: se sigue en el lienzo (`rutaDelLienzo`,
+// lib/chat-mako-reglas.ts), que es el que sabe editar la automatización.
+
+export type ChatDeAutomatizacion = { id: number; titulo: string; updatedAt: string; origen: 'automations'; alcance: 'workspace' };
+
+/** Las charlas del lienzo del negocio, la más reciente primero. [] = no ve la tab, no hay, o no se pudo leer. */
+export async function chatsDeAutomations(): Promise<ChatDeAutomatizacion[]> {
+  const ws = await wsSiVe('setting');
+  if (ws == null) return [];
+  const filas = await runWithWorkspace(ws, () => listarChatsDeAutomations(ws)).catch((e) => {
+    console.warn(`[chat-mako-indice] ws=${ws}: no pude listar las charlas de Automations: ${e instanceof Error ? e.message : String(e)}`);
+    return [];
+  });
+  return filas.map((f) => ({ id: f.secuenciaId, titulo: f.nombre, updatedAt: f.updatedAt, origen: 'automations', alcance: 'workspace' }));
+}
+
+/** Una charla del lienzo, para leerla. null = no ve la tab, o la automatización no es de este negocio (no se distingue). */
+export async function hiloDeAutomatizacion(id: number): Promise<{ sesion: ChatDeAutomatizacion; mensajes: MensajeChat[] } | null> {
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const ws = await wsSiVe('setting');
+  if (ws == null || !(await secuenciaDelWorkspace(ws, id))) return null;
+  const [chat, filas] = await Promise.all([leerChatDeAutomatizacion(ws, id), runWithWorkspace(ws, () => listarChatsDeAutomations(ws, 200)).catch(() => [])]);
+  const titulo = filas.find((f) => f.secuenciaId === id)?.nombre ?? `Automatización ${id}`;
+  return {
+    sesion: { id, titulo, updatedAt: chat.mensajes[chat.mensajes.length - 1]?.at ?? '', origen: 'automations', alcance: 'workspace' },
+    mensajes: mensajesDeAutomatizacion(chat.mensajes),
+  };
+}
+
+// ── Los chats del Image Editor y del Video Editor (22/10/2026, OC8) ───────────────────────────────────────────────
+// Una fila por (negocio, persona, diseño o proyecto), en la base del inquilino; medido por TB2: sí guardan (hasta ese día nadie
+// los había usado). Se LEEN: se siguen en el editor, que aplica lo que propone.
+
+/** `propio`: es de quien mira. El editor abre el hilo de la persona de la sesión: el de otra persona se lee acá y no se «sigue» allá. */
+export type ChatDeEditor = { tipo: TipoEditor; clave: string; titulo: string | null; updatedAt: string; propio: boolean };
+const DE_EDITOR: Readonly<Record<TipoEditor, { tabla: string; col: string; tab: 'image-editor' | 'video-editor' }>> = {
+  imagen: { tabla: 'image_editor_chats', col: 'diseno_id', tab: 'image-editor' },
+  video: { tabla: 'video_editor_chats', col: 'proyecto_id', tab: 'video-editor' },
+};
+
+/** Los chats de los dos editores que ve quien pide, el más reciente primero. [] = no ve la tab, no hay, o no se pudo leer. */
+export async function chatsDeLosEditores(q: QuienChatea & { sub: string }): Promise<ChatDeEditor[]> {
+  const out: ChatDeEditor[] = [];
+  for (const tipo of ['imagen', 'video'] as const) {
+    const t = DE_EDITOR[tipo];
+    const ws = await wsSiVe(t.tab);
+    if (ws == null) continue;
+    const filas = await runWithWorkspace(ws, async () => {
+      let consulta = (await getTenantDb()).from(t.tabla).select(`persona, ${t.col}, nombre, updated_at`).eq('workspace_id', ws);
+      if (!q.admin) consulta = consulta.eq('persona', q.persona);
+      const { data, error } = await consulta.order('updated_at', { ascending: false }).limit(40);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as Array<Record<string, unknown>>;
+    }).catch((e) => {
+      console.warn(`[chat-mako-indice] ws=${ws}: no pude listar los chats del ${tipo === 'imagen' ? 'Image' : 'Video'} Editor: ${e instanceof Error ? e.message : String(e)}`);
+      return [] as Array<Record<string, unknown>>;
+    });
+    for (const f of filas) {
+      const persona = typeof f.persona === 'string' ? f.persona : '';
+      const id = typeof f[t.col] === 'string' ? (f[t.col] as string) : '';
+      if (!persona || !id) continue;
+      out.push({ tipo, clave: claveDeEditor(persona, id), titulo: typeof f.nombre === 'string' ? f.nombre : null, updatedAt: String(f.updated_at ?? ''), propio: persona === q.persona });
+    }
+  }
+  return out;
+}
+
+/** Un chat de un editor, para leerlo. null = no ve la tab, no es suyo (y no es admin), o no existe: no se distingue. */
+export async function hiloDeEditor(q: QuienChatea & { sub: string }, tipo: TipoEditor, clave: string): Promise<{ mensajes: MensajeChat[] } | null> {
+  const partes = partesDeClaveDeEditor(clave);
+  if (!partes) return null;
+  if (!q.admin && partes.persona !== q.persona) return null;
+  const t = DE_EDITOR[tipo];
+  const ws = await wsSiVe(t.tab);
+  if (ws == null) return null;
+  const fila = await runWithWorkspace(ws, async () => {
+    const { data } = await (await getTenantDb()).from(t.tabla).select('mensajes')
+      .eq('workspace_id', ws).eq('persona', partes.persona).eq(t.col, partes.id).maybeSingle();
+    return (data as { mensajes?: unknown } | null) ?? null;
+  }).catch(() => null);
+  if (!fila) return null;
+  // Con el saneo de cada editor: lo que no se entiende se descarta y el resto se lee.
+  const ms = tipo === 'imagen' ? hiloImagenAlAbrir(fila.mensajes) : hiloVideoAlAbrir(fila.mensajes);
+  return { mensajes: mensajesDeEditor(ms) };
 }
 
 /**
@@ -187,7 +348,7 @@ export async function chatsDeOffer(): Promise<ChatDeOffer[]> {
  */
 export async function hiloDeOffer(id: number): Promise<{ sesion: ChatDeOffer; mensajes: MensajeChat[] } | null> {
   if (!Number.isInteger(id) || id <= 0) return null;
-  const ws = await wsSiVeOffer();
+  const ws = await wsSiVe('offer');
   if (ws == null) return null;
   const [c, arranque, historial, superAdmin] = await runWithWorkspace(ws, () => Promise.all([
     leerConversacionOffer(id),

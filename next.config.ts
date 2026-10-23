@@ -207,6 +207,11 @@ const nextConfig: NextConfig = {
       // ventanas del sandbox porque vive en hola-mako.site; ésta se sirve en el origen de la APP (el iframe del
       // Diagnóstico y la ventana del lector, que tiene de opener la pestaña de MaKo) y sólo corre scripts.
       { source: '/api/landing-generator/diagnostico/pagina', headers: [...CABECERAS_PAGINA_AFUERA] },
+      // Los links de la app de las tiendas (docs/hallazgos-mobile.md, 22/10/2026). El de Apple va SIN extensión (así lo
+      // pide iOS) y Next lo serviría como `application/octet-stream`: iOS lo quiere como JSON. Los dos sin pasar por el
+      // proxy (su matcher saltea `.well-known/`) y en cualquier host, como todo public/.
+      { source: '/.well-known/apple-app-site-association', headers: [{ key: 'Content-Type', value: 'application/json' }] },
+      { source: '/.well-known/assetlinks.json', headers: [{ key: 'Content-Type', value: 'application/json' }] },
       // El service worker de MaKo Mobile (public/sw.js: sólo push y click, SIN 'fetch'). Lo
       // que pide la guía de PWA de Next 16 (§8): servido como JavaScript, SIN caché —un sw.js
       // viejo cacheado deja a todos los teléfonos con el comportamiento anterior hasta que el

@@ -26,7 +26,7 @@ const webhook = sinComentarios(readFileSync(join(import.meta.dirname, '../lib/ev
 
 test('la lista es BLANCA: sólo entra lo que está nombrado', () => {
   // ⚠️ La línea de voz de MaKo es el WhatsApp PERSONAL de Martín — 77 grupos, con
-  // «Primos 🇵🇾», «Círculo Financiero» y «LOS BUSTOS» adentro. Con una lista negra,
+  // «Primos 🇵🇾», «Círculo Financiero» y «LOS Ejemplo» adentro. Con una lista negra,
   // cada grupo nuevo entra por omisión y la vida privada de una persona termina en
   // la base del producto sin que nadie lo decida. Es la regla de AGENTS.md: un
   // guard sobre algo así se escribe en POSITIVO.
@@ -34,8 +34,8 @@ test('la lista es BLANCA: sólo entra lo que está nombrado', () => {
   for (const ajeno of [
     '120363315519703997@g.us',   // Primos 🇵🇾
     '120363027828100511@g.us',   // Círculo Financiero
-    '5216862614375-1435517154@g.us', // LOS BUSTOS
-    '120363411646661065@g.us',   // MaKo <> Mauricio Bustos — tampoco, hasta que se pida
+    '5216862614375-1435517154@g.us', // LOS Ejemplo
+    '120363411646661065@g.us',   // MaKo <> Mauricio Ejemplo — tampoco, hasta que se pida
   ]) {
     assert.ok(!grupoSeGuarda(ajeno), `${ajeno} NO se guarda: no está en la lista`);
   }

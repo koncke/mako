@@ -16,8 +16,14 @@
 // cliente es el de la ruta (`maxDuration = 300`) + margen.
 //
 // ⚠️ CANCELAR NO ES UN ERROR: termina en `{ t: 'cancelado' }`, y quien monta devuelve el pedido a la caja. Un tope
-// vencido sí lo es («Tardó demasiado»). Desmontar corta el pedido: la ruta mira la señal y no guarda nada si se
-// canceló antes de terminar.
+// vencido sí lo es («Tardó demasiado»). Cancelar corta el pedido: la ruta mira la señal y no guarda nada si se canceló
+// antes de terminar.
+//
+// ⚠️ DESMONTAR YA NO LO CORTA (22/10/2026, Martín: «En Automations, cuando está ejecutando algo, no debe deshabilitarme
+// la navegación de la sidebar principal... Se debe ejecutar en segundo plano»). El turno en vuelo vive ACÁ, afuera del
+// componente, por clave (la automatización): irse a otra tab no lo corta, y la ruta lo termina y guarda el chat. El fin
+// lo recibe quien esté (`aQuienLeToca`): el que lo largó (su `enviar` devuelve, como siempre), el que volvió a montar la
+// misma clave (`alAdoptar`: ve lo que va y aplica el resultado) o nadie (`siNadieMira`: guarda el resultado y avisa).
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -69,7 +75,11 @@ export type PedidoIA = {
 export type FinIA =
   | { t: 'listo'; listo: ListoStreamIA }
   | { t: 'pregunta'; pregunta: PreguntaMako; mensaje: MensajeChatMako }
-  | { t: 'error'; error: string; link?: string; status?: number; guardado?: GuardadoIA }
+  /**
+   * `noSalio`: el pedido no llegó a la ruta (el `fetch` falló antes de la respuesta). Sólo entonces el mensaje queda «No se
+   * envió · Reintentar». Si la ruta contestó (falta la IA, un tope, se cortó), el mensaje SÍ llegó: lo dice MaKo.
+   */
+  | { t: 'error'; error: string; link?: string; status?: number; guardado?: GuardadoIA; noSalio?: true }
   | { t: 'cancelado' };
 
 export type EstadoIA =
@@ -145,35 +155,79 @@ export async function leerRespuestaIA(res: Response, alFase: (ev: EventoFase) =>
   return f ?? { t: 'error', error: 'Se cortó. Prueba de nuevo.' };
 }
 
-/**
- * EL LECTOR. `enviar` hace UN turno y devuelve cómo terminó; `estado` dice la fase mientras tanto. Uno a la vez: un
- * segundo `enviar` con otro en vuelo no sale (`cancelado`).
- */
-export function useStreamIA(): {
-  estado: EstadoIA; trabajando: boolean; enviar: (p: PedidoIA) => Promise<FinIA>; cancelar: () => void;
-} {
-  const [estado, setEstado] = useState<EstadoIA>({ t: 'quieto' });
-  const ctrl = useRef<AbortController | null>(null);
+/** Un turno en vuelo, afuera de los componentes: su estado, su señal y quién lo está mirando. */
+type Trabajo = { estado: EstadoIA; ctrl: AbortController; oyentes: Set<(e: EstadoIA) => void> };
+/** El turno en vuelo de cada clave (uno por automatización). */
+const TRABAJOS = new Map<string, Trabajo>();
+/** Las instancias montadas de cada clave, con lo que hace cada una con un fin que no largó ella (`alAdoptar`). */
+const MONTADOS = new Map<string, Map<object, (f: FinIA) => void>>();
 
-  // Al desmontar (cambiar de automatización, cerrar el modal) se corta el pedido.
-  useEffect(() => () => { const c = ctrl.current; ctrl.current = null; c?.abort(); }, []);
+/** ¿Hay un turno en vuelo para esta clave? (Lo mira quien monta para no largar otro encima.) */
+export const hayTrabajo = (clave: string): boolean => TRABAJOS.has(clave);
+
+/**
+ * A QUIÉN LE TOCA EL FIN de un turno: al que lo largó si sigue montado; si no, a OTRA instancia de la misma clave (la
+ * persona volvió a la automatización); si no, a nadie (se fue: guarda y avisa quien lo largó, con `siNadieMira`). Pura.
+ */
+export function aQuienLeToca(duenio: object, montados: ReadonlyMap<object, unknown> | undefined): 'duenio' | 'otro' | 'nadie' {
+  if (montados?.has(duenio)) return 'duenio';
+  return montados && montados.size > 0 ? 'otro' : 'nadie';
+}
+
+/**
+ * EL LECTOR. `enviar` hace UN turno y devuelve cómo terminó; `estado` dice la fase mientras tanto. Uno a la vez POR
+ * CLAVE: un segundo `enviar` con otro en vuelo no sale (`cancelado`). Montar una clave con un turno en vuelo (se fue y
+ * volvió) muestra lo que va, y su fin le llega por `alAdoptar`.
+ */
+export function useStreamIA(clave: string, alAdoptar?: (f: FinIA) => void): {
+  estado: EstadoIA; trabajando: boolean;
+  enviar: (p: PedidoIA, extra?: { siNadieMira?: (f: FinIA) => void }) => Promise<FinIA>; cancelar: () => void;
+} {
+  const yo = useRef<object>({}).current;
+  const [estado, setEstado] = useState<EstadoIA>(() => TRABAJOS.get(clave)?.estado ?? { t: 'quieto' });
+  const alAdoptarRef = useRef(alAdoptar);
+  useEffect(() => { alAdoptarRef.current = alAdoptar; });
+
+  // Montada: se anota para recibir lo que termine, y si hay un turno en vuelo, lo mira. Al desmontar NO se corta nada.
+  useEffect(() => {
+    let m = MONTADOS.get(clave);
+    if (!m) { m = new Map(); MONTADOS.set(clave, m); }
+    m.set(yo, (f) => alAdoptarRef.current?.(f));
+    const t = TRABAJOS.get(clave);
+    if (t) { t.oyentes.add(setEstado); setEstado(t.estado); }
+    return () => {
+      const mm = MONTADOS.get(clave);
+      mm?.delete(yo);
+      if (mm && !mm.size) MONTADOS.delete(clave);
+      TRABAJOS.get(clave)?.oyentes.delete(setEstado);
+    };
+  }, [clave, yo]);
 
   const cancelar = useCallback(() => {
-    const c = ctrl.current;
-    ctrl.current = null;
-    c?.abort();
-    setEstado({ t: 'quieto' });
-  }, []);
+    const t = TRABAJOS.get(clave);
+    if (!t) return;
+    TRABAJOS.delete(clave);
+    t.ctrl.abort();
+    for (const o of t.oyentes) o({ t: 'quieto' });
+  }, [clave]);
 
-  const enviar = useCallback(async (p: PedidoIA): Promise<FinIA> => {
-    if (ctrl.current) return { t: 'cancelado' };
+  const enviar = useCallback(async (p: PedidoIA, extra?: { siNadieMira?: (f: FinIA) => void }): Promise<FinIA> => {
+    if (TRABAJOS.has(clave)) return { t: 'cancelado' };
     const c = new AbortController();
-    ctrl.current = c;
+    const t: Trabajo = { estado: { t: 'trabajando', fase: null, leido: null, reparadas: null, desde: Date.now() }, ctrl: c, oyentes: new Set([setEstado]) };
+    TRABAJOS.set(clave, t);
+    const poner = (e: EstadoIA) => { t.estado = e; for (const o of t.oyentes) o(e); };
+    poner(t.estado);
     const tope = setTimeout(() => c.abort(), TOPE_CLIENTE_MS);
-    setEstado({ t: 'trabajando', fase: null, leido: null, reparadas: null, desde: Date.now() });
-    /** Termina el turno: la caja vuelve a quieta ANTES de que quien monta mire el resultado. */
-    const fin = (f: FinIA): FinIA => {
-      if (ctrl.current === c) { ctrl.current = null; setEstado({ t: 'quieto' }); }
+    let respondio = false;
+    /** Termina el turno: la caja vuelve a quieta ANTES de que quien lo recibe mire el resultado. */
+    const terminar = (f: FinIA): FinIA => {
+      if (TRABAJOS.get(clave) === t) TRABAJOS.delete(clave);
+      poner({ t: 'quieto' });
+      const montados = MONTADOS.get(clave);
+      const quien = aQuienLeToca(yo, montados);
+      if (quien === 'otro') for (const [k, fn] of montados!) if (k !== yo) fn(f);
+      if (quien === 'nadie') extra?.siNadieMira?.(f);
       return f;
     };
     try {
@@ -182,22 +236,29 @@ export function useStreamIA(): {
         body: JSON.stringify(cuerpoIA(p)),
         signal: c.signal,
       });
-      return fin(await leerRespuestaIA(res, (ev) => {
-        setEstado((s) => (s.t !== 'trabajando' ? s : {
+      respondio = true;
+      return terminar(await leerRespuestaIA(res, (ev) => {
+        const s = t.estado;
+        if (s.t !== 'trabajando') return;
+        poner({
           ...s, fase: ev.fase,
           leido: ev.fase === 'contexto' ? ev.texto : s.leido,
           reparadas: ev.fase === 'revision' ? ev.reparadas : s.reparadas,
           intento: ev.fase === 'modelo' ? (ev.intento ?? s.intento ?? null) : null,
-        }));
+        });
       }));
     } catch (e) {
-      // Cancelar (o desmontar) no es un error: quien monta devuelve el pedido a la caja.
-      if (c.signal.aborted && ctrl.current !== c) return { t: 'cancelado' };
-      return fin({ t: 'error', error: c.signal.aborted ? 'Tardó demasiado. Prueba de nuevo.' : (e instanceof Error ? e.message : String(e)) });
+      // Cancelar no es un error: quien monta devuelve el pedido a la caja (`cancelar` ya lo sacó de TRABAJOS).
+      if (c.signal.aborted && TRABAJOS.get(clave) !== t) return { t: 'cancelado' };
+      return terminar({
+        t: 'error', error: c.signal.aborted ? 'Tardó demasiado. Prueba de nuevo.' : (e instanceof Error ? e.message : String(e)),
+        // Sin respuesta de la ruta, el pedido no salió: «No se envió · Reintentar». Con respuesta, llegó.
+        ...(respondio ? {} : { noSalio: true as const }),
+      });
     } finally {
       clearTimeout(tope);
     }
-  }, []);
+  }, [clave, yo]);
 
   return { estado, trabajando: estado.t === 'trabajando', enviar, cancelar };
 }

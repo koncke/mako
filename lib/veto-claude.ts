@@ -61,6 +61,8 @@
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
 
 const ENDPOINT = 'https://api.anthropic.com/v1/messages' as const;
+/** «Probar mi clave» (IA3): contar tokens no cobra ni compra nada. Vive acá porque la URL de mensajes vive SÓLO acá. */
+export const ENDPOINT_CONTAR_TOKENS = `${ENDPOINT}/count_tokens` as const;
 
 /**
  * LA MARCA. El símbolo NO se exporta: ningún otro módulo puede FABRICAR un
@@ -83,7 +85,11 @@ export type PermisoClaude = {
 };
 
 /** El permiso de la puerta 2: trae ADENTRO la clave que se verificó que es del negocio. */
-export type PermisoClaveDelNegocio = PermisoClaude & { readonly clave: string };
+export type PermisoClaveDelNegocio = PermisoClaude & {
+  readonly clave: string;
+  /** La clave es el crédito de Max de la PLATAFORMA (el ws10): su gasto se anota como del crédito, no del negocio. */
+  readonly esCredito?: true;
+};
 
 export type PermisoDeclarado = {
   feature: string;
@@ -197,7 +203,9 @@ function fabricar<T extends { model: string; feature: string; porque: string }>(
  * y lo que lo habilita no es una fecha sino de quién es la clave.
  */
 export const CLAUDE_CON_CLAVE_DEL_NEGOCIO = {
-  modelos: ['claude-haiku-4-5'],
+  // IA5 (22/10/2026): el negocio elige el modelo de SU Claude en «Tus cuentas de IA» (`MODELO_SU_CLAUDE`). El primero es el
+  // default. Lo paga su cuenta; la frontera (nunca una copia de la clave de la plataforma) no cambia.
+  modelos: ['claude-haiku-4-5', 'claude-sonnet-5'],
   porque: 'El negocio cargó SU clave de Anthropic (el crédito de API de Claude Max, o la suya paga): '
     + 'MaKo la usa primero para sus funciones de texto, y lo paga su cuenta, no la de MaKo.',
   pidio: 'Martín, 15/10/2026 — opción A de la Ticketera `clientes-usan-su-claude`.',
@@ -213,18 +221,44 @@ export const CLAUDE_CON_CLAVE_DEL_NEGOCIO = {
  * use su crédito de Max, Martín ve un gasto de Claude que no es suyo y el veto parece roto.
  */
 export const MOTIVO_CLAVE_DEL_NEGOCIO = '⚠ clave de Anthropic del negocio';
+
+/**
+ * El modelo de SU Claude que eligió el negocio (IA5, 22/10/2026), en `app_settings` de su workspace. Sin elegir, el barato.
+ * Lo elige el admin en «Tus cuentas de IA»; lo paga su cuenta.
+ */
+export const CLAVE_MODELO_SU_CLAUDE = 'ia.su_claude.modelo';
+export const MODELO_SU_CLAUDE = { haiku: 'claude-haiku-4-5', sonnet: 'claude-sonnet-5' } as const;
+export type EleccionSuClaude = keyof typeof MODELO_SU_CLAUDE;
+/**
+ * ¿Es una de las elecciones? Con `Object.hasOwn`, no `in`: `in` acepta lo heredado («constructor», «toString»), y guardado
+ * así el modelo salía una función, la puerta 2 tiraba un TypeError y el Claude del negocio desaparecía sin aviso, con la
+ * tarjeta diciendo Haiku (revisión de IA5, 22/10/2026).
+ */
+export const esEleccionSuClaude = (x: unknown): x is EleccionSuClaude => typeof x === 'string' && Object.hasOwn(MODELO_SU_CLAUDE, x);
+export const modeloDeSuClaude = (guardado: unknown): string => MODELO_SU_CLAUDE[esEleccionSuClaude(guardado) ? guardado : 'haiku'];
 export const esDeLaClaveDelNegocio = (motivo: string | null | undefined): boolean =>
   typeof motivo === 'string' && motivo.trimStart().startsWith(MOTIVO_CLAVE_DEL_NEGOCIO);
 
 /**
- * Las funciones del PLAN no pasan por la puerta 2, aunque la clave sea del negocio. Martín,
- * 30/09/2026, textual: «NO, JAMÁS algo pago para el plan» y «nunca sonnet ni nada pago para
- * el plan. JAMÁS». El Plan es lo que más se usa: con la clave del negocio, el Perro y la
- * lectura de reuniones se comerían su crédito de Max en silencio. Sacar una de acá es una
- * decisión suya, no un arreglo.
+ * Las funciones del PLAN. Martín, 30/09/2026, textual: «NO, JAMÁS algo pago para el plan» y «nunca sonnet ni nada pago
+ * para el plan. JAMÁS». La EXCEPCIÓN, Martín, 22/10/2026, textual: «Sí, si es su clave» — si el negocio conectó y paga su
+ * propia clave, su Plan la usa; si no, sigue como siempre. Así que en la puerta 2 una función del Plan pasa SÓLO:
+ *   · con la clave que paga el negocio, nunca con el crédito de Max de la plataforma (el ws10: lo pagaría Martín), y sin
+ *     poder comparar con el crédito, tampoco;
+ *   · con el modelo barato, elija lo que elija: el Plan es lo que más se usa (el Perro, las reuniones), y con Sonnet se
+ *     comería su crédito en silencio.
+ * La plataforma no paga el Plan por ninguna puerta (la 1 no lo tiene, la 3 lo rechaza). Sacar una de acá es una decisión
+ * de Martín, no un arreglo.
  */
 export const FEATURES_DEL_PLAN: readonly string[] = [
   'mako-guardian', 'checklist-coach', 'plan-seed-ia', 'plan-fathom', 'plan-criterio',
+  // Revisión de IA5 (22/10/2026): el buscador del tablero (app/api/plan-buscar) y el cierre de tareas por commits
+  // (lib/cerrar-por-commits.ts, cron sin workspace: cae en el ws1) pasaban la puerta 2 con Sonnet. Una función del Plan con
+  // nombre nuevo queda abierta por default: tests/su-claude-modelo.test.ts exige que toda feature del Plan esté acá.
+  'plan-buscar', 'cerrar-por-commits',
+  // Revisión del lote 2 (22/10/2026): «importar archivos» del Plan leía fotos y PDF escaneados con la feature por default
+  // de `archivoATexto` («Importar al plan», que también usan el CRM, el chat y el Video Generator, y no es del Plan).
+  'plan-importar',
 ];
 
 /**
@@ -238,11 +272,17 @@ export const FEATURES_DEL_PLAN: readonly string[] = [
 export function evaluarClaveDelNegocio(p: {
   feature?: string; model?: string; pausa?: boolean;
   clave?: string | null; clavesPlataforma: ReadonlyArray<string | null | undefined>;
+  /**
+   * Las claves del CRÉDITO de Max de la plataforma (`CLAVES_CREDITO_PLATAFORMA`), o `null` si no se pudieron leer. Una clave
+   * del negocio que ES una de ésas (el ws10: Martín le puso su cuenta 2) se usa sólo con el modelo barato, elija lo que
+   * elija: lo paga Martín (IA5). Sin poder leerlas, igual: «no pude leer» nunca habilita gastar más.
+   */
+  creditosPlataforma?: ReadonlyArray<string | null | undefined> | null;
 }): { ok: true; permiso: PermisoClaveDelNegocio } | { ok: false; razon: string } {
   if (p.pausa) return { ok: false, razon: 'Claude está PAUSADO a mano (`mako.claude.pausa`): apaga también la clave del negocio.' };
   const feature = (p.feature ?? '').trim();
   if (!feature) return { ok: false, razon: 'sin `feature` no se sabe qué se compra, ni con la plata del negocio.' };
-  if (FEATURES_DEL_PLAN.includes(feature)) return { ok: false, razon: `«${feature}» es del Plan, y el Plan nunca paga IA (Martín, 30/09/2026).` };
+  const delPlan = FEATURES_DEL_PLAN.includes(feature);
   const clave = typeof p.clave === 'string' ? p.clave.trim() : '';
   if (!clave || clave.startsWith('PENDING')) return { ok: false, razon: 'el negocio no tiene su clave de Anthropic cargada.' };
   // LA FRONTERA. Comparada sin espacios: una copia pegada con un espacio de más sigue siendo
@@ -251,9 +291,22 @@ export function evaluarClaveDelNegocio(p: {
     return { ok: false, razon: 'esa clave es una copia de la de la PLATAFORMA: con ella paga MaKo, y eso sólo pasa por la lista blanca.' };
   }
   const modelos: readonly string[] = CLAUDE_CON_CLAVE_DEL_NEGOCIO.modelos;
-  const model = (p.model ?? '').trim() || modelos[0];
+  let model = (p.model ?? '').trim() || modelos[0];
   if (!modelos.includes(model)) return { ok: false, razon: `con la clave del negocio sólo ${modelos.join(', ')}, no «${model}».` };
-  return { ok: true, permiso: fabricar({ model, feature, porque: CLAUDE_CON_CLAVE_DEL_NEGOCIO.porque, clave }) };
+  // El crédito de Max de la PLATAFORMA puesto como clave de un negocio: sólo el barato (IA5).
+  // `creditosPlataforma` trae también la propia clave del negocio cuando está MARCADA como crédito (lib/credito-marca.ts).
+  const coincide = (p.creditosPlataforma ?? []).some((x) => typeof x === 'string' && x.trim() !== '' && x.trim() === clave);
+  const esCredito = p.creditosPlataforma === null || coincide;
+  // El Plan, sólo con la clave que paga el negocio (Martín, 22/10/2026: «Sí, si es su clave»), y siempre con el barato.
+  if (delPlan && esCredito) {
+    return { ok: false, razon: p.creditosPlataforma === null
+      ? `«${feature}» es del Plan: sin poder leer el crédito de Max de la plataforma, no se sabe si esta clave la paga el negocio.`
+      : `«${feature}» es del Plan, y esa clave es el crédito de Max de la PLATAFORMA: el Plan sólo paga con la clave que paga el negocio.` };
+  }
+  if (esCredito || delPlan) model = modelos[0];
+  // `esCredito` en el permiso sólo cuando SE SABE (coincide): su gasto es del crédito de la plataforma, no del negocio, y así
+  // se anota (lib/anthropic.ts). Sin poder leer, va con el barato pero no se afirma de quién es.
+  return { ok: true, permiso: fabricar({ model, feature, porque: CLAUDE_CON_CLAVE_DEL_NEGOCIO.porque, clave, ...(coincide ? { esCredito: true as const } : {}) }) };
 }
 
 // ── PUERTA 3: el crédito de API de los planes Max de la plataforma ───────────────
@@ -295,8 +348,28 @@ export const CREDITO_HABILITADO_PARA: ReadonlyArray<{ feature: string; soloDuran
   { feature: 'offer', soloDuranteElOnboarding: true, para: 'el chat de Offer del primer ingreso: nombre, oferta, funnel y primer CRM' },
 ];
 
+/**
+ * EL CRÉDITO DE UNA CUENTA MAX COMO EL CLAUDE DE UN NEGOCIO, sin pegarlo en su fila (22/10/2026). Martín, textual: «habilita los
+ * tokens de la API de la cuenta de Mauricio, esos 200, para su Ops Center, que lo pueda usar, así puedo seguir probando en
+ * Automations», y «dame luego una opción para deshabilitarle esa API a Mauricio en SuperAdmin». Es una EXCEPCIÓN a «Por ahora
+ * solo en onboarding» que da Martín, negocio por negocio, y se apaga en SuperAdmin › Uso (lib/credito-negocio.ts).
+ *
+ * ⚠️ NO SE PEGA EN LA FILA DEL NEGOCIO: el ws1 es el workspace del ENTORNO (`hidratarCredenciales`), y su fila pasaría a ser la
+ * clave de MaKo (la trampa del 18/10). Entra por la puerta 2 (`permisoDeLaClaveDelNegocio`, lib/anthropic.ts) como el crédito
+ * del ws10: con el modelo barato, nunca el Plan, y su gasto con la marca del crédito. Su clave propia, si la conecta, gana.
+ */
+export type CreditoDeUnNegocio = { ws: number; clave: (typeof CLAVES_CREDITO_PLATAFORMA)[number]; quien: string };
+export const CREDITO_DE_UN_NEGOCIO: readonly CreditoDeUnNegocio[] = [
+  { ws: 1, clave: 'ANTHROPIC_CREDITO_CUENTA1', quien: 'Mauricio (ws1)' },
+];
+/** El interruptor, en el workspace de la PLATAFORMA (el negocio no lo puede tocar): «apagado» lo apaga; sin fila, prendido. */
+export const claveDelInterruptorDeCredito = (ws: number): string => `ia.credito_negocio.${ws}`;
+export const esInterruptorPrendido = (valor: string | null | undefined): boolean => valor !== 'apagado';
+
 /** La marca del gasto de este crédito en `anthropic_usage`, al PRINCIPIO del motivo (ver la del negocio). */
 export const MOTIVO_CREDITO_PLATAFORMA = '⚠ crédito de Claude de la plataforma';
+/** La marca del gasto de la clave de un NEGOCIO que es el crédito de Max de la plataforma (el ws10, lib/credito-marca.ts). */
+export const MOTIVO_CREDITO_SU_CLAVE = `${MOTIVO_CREDITO_PLATAFORMA} (su clave es el crédito)`;
 export const esDelCreditoDeLaPlataforma = (motivo: string | null | undefined): boolean =>
   typeof motivo === 'string' && motivo.trimStart().startsWith(MOTIVO_CREDITO_PLATAFORMA);
 

@@ -27,12 +27,25 @@ producción y su relevo commiteado se archiva, y se reabre desde `docs/relevo/<�
 del 21/10 (`relevamiento-21-10.md`, `worktrees-21-10.tsv`). Las notas de revisión van a la carpeta de notas de la
 sesión que inició al Cerebro (hoy `side-session-notes/local_428051c1…`).
 
+**EL TREN (22/10, pedido de Martín «que salgan todos… podríamos optimizarlo»; AGENTS.md, «Cómo se sube»):** los chats ya
+no corren `antes-de-subir`, ni hacen la fila del candado, ni corren tsc; pasan la punta en el acto con sus tests, «sin tipos». Integración hace UN chequeo por tren sobre el lote mergeado y el tren sale cada 30 min (antes si
+trae un cliente roto). Una punta en rojo se devuelve sola y el tren sale sin ella.
+
 **Cómo se integra** (en `C:/dev/wt-push-q`; ningún otro chat commitea ahí):
-1. `git merge --no-edit <sha>`, nunca rebase. Si la punta trae su VERDE, su sha es ancestro y el merge no chocó, NO se
-   repiten sus tests: alcanza con los de lo que choca.
-2. Tests: `MAKO_TESTS_SIN_ESPERA=1 node scripts/tests-afectados.mjs --base <HEAD de antes> --cortar --concurrencia 2 --tanda 100 --compartir`.
-3. Tipos: si una punta vino «sin tipos», `node scripts/tsc-acotado.mjs <archivos>`; si el vigía lo mata, con menos archivos.
-4. `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin HEAD:refs/heads/integracion`, y `esperar-deploy.sh` en segundo plano.
+1. `git merge --no-edit <sha>` por cada punta, nunca rebase. Un choque en `docs/hallazgos.md` se resuelve con
+   `node C:/dev/cerebro-herramientas/unir-filas.cjs` y se verifica que no se perdió ningún título del índice.
+2. Tests del tren: `MAKO_TESTS_SIN_ESPERA=1 node scripts/tests-afectados.mjs --base origin/main --concurrencia 2 --tanda 100 --compartir`
+   (sin `--cortar`, ~22 min) y la batería SOLA: `node --import tsx --test tests/ops-center-bateria.test.ts` (en la tanda
+   compartida pasa aunque esté roja). Un rojo de `d6b-rutas` «la tabla es HONESTA» suele ser una lectura nueva de una ruta:
+   si no llama a una IA, va a `usa` de SIN_IA.
+3. Guardas: `sh scripts/guardas-push.sh origin`. Tests y guardas en verde son la condición del tren. Los TIPOS son red, no
+   traba (22/10: con 8 chats quedan 1,6 GB libres y las 3 tandas piden 5,3). Después de cada push, en segundo plano,
+   `node scripts/tsc-acotado.mjs <archivo>` de lo que entró, de a uno, cuando haya RAM. Un error vuelve al chat dueño para el
+   tren siguiente. Las 3 tandas (`node scripts/tipos-respaldo-push.mjs`) a la noche con pocos chats o cuando vuelva Actions.
+   ⚠️ TaskStop no mata a los nietos en Git Bash: después de frenar un loop de `tsc`, buscar y matar su `sh.exe` y sus `tsc`.
+4. Sin minutos de Actions: el sha al Cerebro, que sube `main` e `integracion` con `--no-verify`; después,
+   `npx vercel ls -m githubCommitSha=<sha>` desde el clon principal hasta el Ready. Con minutos:
+   `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin HEAD:refs/heads/integracion`, y `esperar-deploy.sh` en segundo plano.
 5. «Ya está» a cada chat cuando su punta llega a producción; al Cerebro, los bullets en palabras de producto (él se los
    pasa a Martín). Un arreglo de un cliente, además, a su grupo de MaKo (lo manda MaKo Alert).
 6. Migraciones: `node C:/dev/wt-push-q/scripts/apply-migration.mjs <sql>` corrido DESDE `dashboard-marketing/`.

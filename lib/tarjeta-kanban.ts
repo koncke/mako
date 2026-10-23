@@ -15,6 +15,8 @@
 // Sin `server-only` ni `'use client'`: lo importan los componentes y los tests.
 // =============================================================================
 
+import { plantillasPropiasDe, type PlantillaTarjeta } from './plantillas-tarjeta';
+
 /** Los colores de la familia: los de sección del prototipo (azul, verde, violeta, turquesa, gris). */
 export type ColorTarjeta = 'blue' | 'green' | 'purple' | 'teal' | 'grey';
 const COLORES: readonly ColorTarjeta[] = ['blue', 'green', 'purple', 'teal', 'grey'];
@@ -84,6 +86,18 @@ export function plataDeLead(l: { ganado: boolean; monto?: number | null; ingreso
   return pos(l.ingresoEstimado) ? `≈ ${plataCorta(pos(l.ingresoEstimado))}` : null;
 }
 
+/**
+ * «jue 23 oct»: la fecha de una reunión para la plantilla «Próxima reunión» (21/10/2026). En UTC, como `fmtDay`
+ * (app/crm/crm-map.ts): el server y el navegador dibujan lo mismo y no hay salto al hidratar. Sin fecha válida, «Sin agendar».
+ */
+export function fechaReunionCorta(iso: string | null | undefined): string {
+  const s = String(iso ?? '').trim();
+  const d = s.length <= 10 ? new Date(`${s}T00:00:00Z`) : new Date(s);
+  if (!s || Number.isNaN(d.getTime())) return 'Sin agendar';
+  return new Intl.DateTimeFormat('es', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+    .format(d).replace(/[,.]/g, '').replace(/\s+/g, ' ').trim();
+}
+
 /** El subtítulo de la tarjeta de un lead: «plata · por dónde llegó», con lo que haya. «Sin origen» no se escribe. */
 export function subtituloLead(plata: string | null, canal: string | null | undefined): string {
   const c = String(canal ?? '').trim();
@@ -138,32 +152,59 @@ export function camposTarjetaDe(raw: unknown): CampoTarjetaLead[] {
 }
 
 /**
- * LOS DISEÑOS DE LA TARJETA (13/10/2026, Martín: «Tener varios diseños template, como el que tenemos en Clientes, y
- * otros»). Son plantillas de FORMA; los datos los elige la persona aparte:
+ * LAS FORMAS DE LA TARJETA (13/10/2026, Martín: «Tener varios diseños template, como el que tenemos en Clientes, y
+ * otros»; y el 21/10: «otros estilos también… piensa en varios diseños»). Cómo se DIBUJA; los datos van aparte:
  *   · completa: la de la familia (17/10), con la cara y «Ver info»;
  *   · compacta: la cara chica y menos aire, para ver más leads por columna;
- *   · avance: como la de Clients, con la barra del paso del lead en su funnel («Paso N de M»).
+ *   · avance: como la de Clients, con la barra del paso del lead en su funnel («Paso N de M»);
+ *   · monto: la plata GRANDE arriba, como la tarjeta de un trato (21/10);
+ *   · evento: la reunión agendada GRANDE, con su fecha (21/10);
+ *   · portada: una banda de color arriba con la cara montada, como la tarjeta de /admin (21/10).
+ * Las PLANTILLAS (forma + datos) están abajo, en PLANTILLAS_TARJETA_LEAD.
  */
-export const DISENOS_TARJETA = ['completa', 'compacta', 'avance'] as const;
+export const DISENOS_TARJETA = ['completa', 'compacta', 'avance', 'monto', 'evento', 'portada'] as const;
 export type DisenoTarjeta = (typeof DISENOS_TARJETA)[number];
-export const NOMBRE_DISENO_TARJETA: Readonly<Record<DisenoTarjeta, string>> = { completa: 'Completa', compacta: 'Compacta', avance: 'Con avance' };
+export const NOMBRE_DISENO_TARJETA: Readonly<Record<DisenoTarjeta, string>> = {
+  completa: 'Completa', compacta: 'Compacta', avance: 'Con avance', monto: 'Monto grande', evento: 'Próxima reunión', portada: 'Con portada',
+};
 export const DETALLE_DISENO_TARJETA: Readonly<Record<DisenoTarjeta, string>> = {
   completa: 'La de siempre.', compacta: 'Más leads por columna.', avance: 'Con la barra del paso, como Clients.',
+  monto: 'La plata grande, arriba.', evento: 'La reunión agendada, grande.', portada: 'Una banda de color arriba, con la cara.',
 };
-export type PrefsTarjetaLead = { diseno: DisenoTarjeta; campos: CampoTarjetaLead[] };
+export type PlantillaTarjetaLead = PlantillaTarjeta<DisenoTarjeta, CampoTarjetaLead>;
+export type PrefsTarjetaLead = { diseno: DisenoTarjeta; campos: CampoTarjetaLead[]; plantillas: PlantillaTarjetaLead[] };
+
+/**
+ * LAS PLANTILLAS DE FÁBRICA del CRM (21/10/2026). Martín nombró dos («como las que tenemos en CLIENTES», «otra que no
+ * tenga foto de perfil») y dejó el resto a criterio («piensa en varios diseños»). Cada una contesta una pregunta
+ * distinta de quien mira el tablero: ¿quién es? (Completa), ¿cuántos hay? (Compacta, Sólo el nombre), ¿cuánta plata?
+ * (Monto grande), ¿cuándo lo veo? (Próxima reunión), ¿cuánto le falta? (Con avance). Sin foto y Con portada son la
+ * misma información con otro peso visual. La primera es la de siempre.
+ */
+export const PLANTILLAS_TARJETA_LEAD: readonly PlantillaTarjetaLead[] = [
+  { id: 'fabrica:completa', nombre: 'Completa', forma: 'completa', campos: CAMPOS_TARJETA_DEFAULT },
+  { id: 'fabrica:compacta', nombre: 'Compacta', forma: 'compacta', campos: ['foto', 'plata', 'vence', 'datos'] },
+  { id: 'fabrica:sin-foto', nombre: 'Sin foto', forma: 'completa', campos: CAMPOS_TARJETA_DEFAULT.filter((c) => c !== 'foto') },
+  { id: 'fabrica:monto', nombre: 'Monto grande', forma: 'monto', campos: ['foto', 'plata', 'canal', 'vence', 'datos', 'agenda', 'fuera'] },
+  { id: 'fabrica:evento', nombre: 'Próxima reunión', forma: 'evento', campos: ['foto', 'plata', 'canal', 'vence', 'datos', 'agenda', 'fuera'] },
+  { id: 'fabrica:avance', nombre: 'Con avance', forma: 'avance', campos: CAMPOS_TARJETA_DEFAULT },
+  { id: 'fabrica:portada', nombre: 'Con portada', forma: 'portada', campos: CAMPOS_TARJETA_DEFAULT },
+  { id: 'fabrica:nombre', nombre: 'Sólo el nombre', forma: 'compacta', campos: [] },
+];
 
 /**
  * Lo guardado en el perfil: `{ diseno, campos }` desde el 20/10/2026 noche; antes, sólo la lista de campos (se lee igual,
  * con el diseño de siempre). Lo que no se entiende, lo de siempre.
  */
 export function prefsTarjetaDe(raw: unknown): PrefsTarjetaLead {
-  if (Array.isArray(raw)) return { diseno: 'completa', campos: camposTarjetaDe(raw) };
+  if (Array.isArray(raw)) return { diseno: 'completa', campos: camposTarjetaDe(raw), plantillas: [] };
   if (raw && typeof raw === 'object') {
-    const o = raw as { diseno?: unknown; campos?: unknown };
+    const o = raw as { diseno?: unknown; campos?: unknown; plantillas?: unknown };
     const diseno = (DISENOS_TARJETA as readonly unknown[]).includes(o.diseno) ? (o.diseno as DisenoTarjeta) : 'completa';
-    return { diseno, campos: camposTarjetaDe(o.campos) };
+    // Las propias (21/10/2026), limpias con la MISMA regla que la tarjeta de todos los días.
+    return { diseno, campos: camposTarjetaDe(o.campos), plantillas: plantillasPropiasDe(o.plantillas, DISENOS_TARJETA, camposTarjetaDe) };
   }
-  return { diseno: 'completa', campos: [...CAMPOS_TARJETA_DEFAULT] };
+  return { diseno: 'completa', campos: [...CAMPOS_TARJETA_DEFAULT], plantillas: [] };
 }
 
 /** El subtítulo de la tarjeta con la plata y el canal EN EL ORDEN que eligió la persona (y sólo los que eligió). */

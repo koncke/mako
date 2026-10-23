@@ -712,7 +712,7 @@ incapaz por diseño de separar a la agencia de un cliente.
 2. **`esDuenoAdmin()` NO quiere decir «solo el dueño»: el ws 1 es Mauricio, que es un
    cliente.** Un informe proponía cerrar el editor de prompts cambiando el guard a
    `esDuenoAdmin()`. Una sonda a la tabla `workspaces` lo refutó: `OWNER_WS = 1` y el
-   workspace 1 es «Mauricio Bustos», un cliente más (lo dice el propio app/plan/page.tsx).
+   workspace 1 es «Mauricio», un cliente más (lo dice el propio app/plan/page.tsx).
    Como `esDuenoAdmin()` = `getSesionAdmin() || (ws === OWNER_WS && rol_ws === 'admin')`,
    ese cambio deja pasar igual al cliente más grande. Corrección a la mecánica que circula:
    la causa del leak NO es el backfill de `rol_ws` null — medido, los 5 usuarios no-admin
@@ -1209,7 +1209,7 @@ tabla `setting_audios` (`media_path`)
 Medido el 25/09/2026 en producción, abriendo las filas que otra medición había citado como prueba
 de lo contrario: `setting_audios` 25, 26 y 27 pertenecen al workspace 4, pero su `media_path`
 empieza con `1/setting-audios/...` —la carpeta del workspace 1— y el transcript dice «te habla
-Mauricio Bustos Eguía». Un lead de ese cliente escucharía al dueño de OTRO negocio presentándose
+Mauricio Eguía». Un lead de ese cliente escucharía al dueño de OTRO negocio presentándose
 con su nombre. Sale del botón «Completar como Mauricio».
 
 **La regla: un id por workspace no prueba aislamiento; lo que hay que mirar es a dónde APUNTA el

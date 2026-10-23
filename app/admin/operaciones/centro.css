@@ -174,6 +174,12 @@
 .co-fila__l2-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* En qué trabaja (enQueTrabaja): un renglón, con sus puntos suspensivos (un flex no los pone). */
 .co-fila__l2--vivo { color: var(--good); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* «Completado»: su «Ya está» todavía sin ver (22/10/2026: antes decía «Espera tu respuesta», y no esperaba nada). */
+.co-fila__l2--ok { color: var(--good); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Un turno que el chat le escribió a OTRO chat (no a Martín): plegado en una línea, se abre al tocarlo (Hilo.tsx → Avance). */
+.co-avance { display: block; max-width: 100%; padding: 6px 10px; border: 0; border-radius: 10px; background: color-mix(in srgb, var(--ink) 5%, transparent); font: inherit; font-size: var(--fs-sm); color: var(--dim); text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-avance:hover { color: var(--ink); }
+.co-avance__abierto { display: block; margin-top: 6px; }
 .co-mas {
   display: block;
   width: 100%;
@@ -805,6 +811,38 @@
 .co-preg--contestada .co-preg__op[data-elegida='true'] { background: var(--primary-bg); }
 .co-preg__otra-dicha { margin: 0; align-items: center; background: var(--primary-bg); }
 .co-preg__pie--chat { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
+/* El cuerpo de una decisión de la Ticketera adentro del bloque (Pregunta.tsx → CuerpoTicketera): no suma una caja, sólo agrupa
+   su teclado. */
+.co-preg__cuerpo { display: contents; }
+/* Las preguntas de un chat arriba de su caja, de a una (22/10/2026, PreguntasDelChat.tsx). En el teléfono, cada renglón del
+   alto de un dedo. La respuesta queda en el hilo como «Decisión: …» (Hilo.tsx). Las de la app de Claude se leen (`--app`). */
+.co-preg--arriba { margin: 0 auto 10px; box-shadow: 0 0 0 1px var(--border-strong), 0 10px 30px rgba(18, 21, 27, .12); }
+/* La flecha para plegar (arriba a la derecha) y la tira plegada: «2 preguntas esperando ▴». */
+.co-preg--arriba .co-preg__cab { justify-content: space-between; }
+.co-preg__plegar { flex: none; width: 28px; height: 28px; margin-left: auto; border: 0; border-radius: 8px; background: none; color: var(--dim); font-size: 14px; cursor: pointer; }
+.co-preg__plegar:hover { background: var(--velo-hover); color: var(--ink); }
+.co-preg--plegada { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 10px 14px; border: 0; font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
+.co-preg--plegada:hover { background: var(--velo-hover); }
+.co-preg__flecha { color: var(--dim); }
+/* Las sugerencias de MaKo (22/10/2026): plegadas en una tira chica con su nombre, «Sugerencias de MaKo · 4 ▾»; abiertas, el
+   mismo nombre arriba. Nunca se confunden con una pregunta de un chat. */
+.co-preg__sug { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+.co-preg__sug svg { flex: none; color: var(--primary); }
+.co-preg--sugerencias { padding: 6px 12px; font-weight: 500; }
+.co-preg--sugerencias .co-preg__sug { font-weight: 500; color: var(--dim); }
+.co-preg--sugerencias:hover .co-preg__sug { color: var(--ink); }
+.co-preg__cab + .co-preg__pasos { margin-bottom: 8px; }
+/* «‹ Anterior», los puntos y «Siguiente ›» (sin pantalla de resumen: con la última, salen todas). */
+.co-preg__pasos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.co-preg__puntos { display: inline-flex; gap: 6px; }
+.co-preg__punto { width: 9px; height: 9px; padding: 0; border: 0; border-radius: 50%; background: var(--border-strong); cursor: pointer; }
+.co-preg__punto[data-contestada='true'] { background: var(--primary); }
+.co-preg__punto[aria-current='step'] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--primary); }
+.co-preg__op[role='button'][aria-disabled='true'] { opacity: .6; cursor: default; }
+.co-preg__acciones { display: flex; gap: 8px; flex: none; }
+.co-preg__op--leer { margin: 0; cursor: default; }
+.co-preg--app .co-preg__pie { color: var(--dim); }
+@media (hover: none) and (pointer: coarse) { .co-preg--arriba .co-preg__op { min-height: 48px; } .co-preg--arriba .co-chip { min-height: 44px; } }
 .co-chip--primario { border-color: var(--primary); background: var(--primary); color: var(--surface); font-weight: 600; }
 .co-chip--primario:hover { background: var(--primary-strong); }
 .co-chip--primario:disabled { opacity: .5; cursor: default; }
@@ -982,13 +1020,27 @@
 .co-uso__lleno { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
 .co-uso__lleno--ojo { background: var(--warn); }
 .co-uso__lleno--mal { background: var(--bad); }
-/* Una medición de más de 6 horas (lib/centro-uso.ts → USO_VENCIDO_MS): apagada, con «Sin medir hace X». */
+/* Una ventana ya reiniciada (desde el 22/10/2026; antes, toda medición de más de 6 horas): su último número en gris y la
+   barra apagada, con «Se reinició … (sin medir desde entonces)». */
 .co-uso__ventana--vencida .co-uso__nombre { color: var(--faint); }
 .co-uso__ventana--vencida .co-uso__barra { opacity: .5; }
 .co-uso__lleno--apagado { background: var(--border-strong); }
 .co-uso__reinicio { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
 .co-uso__pie { display: flex; gap: 8px; margin-top: 10px; }
 .co-runner__cuenta-cmd { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+/* El último número nunca se esconde (22/10/2026): una medición vieja va en gris con su edad al lado y la barra de su color
+   pero más tenue; una ventana ya reiniciada, con la barra apagada (--vencida, arriba). Sin chip «Sin lugar» (Martín, 22/10). */
+.co-uso__edad { color: var(--faint); }
+.co-uso__ventana--vieja .co-uso__pct, .co-uso__ventana--vencida .co-uso__pct { color: var(--faint); }
+.co-uso__ventana--vieja .co-uso__barra { opacity: .6; }
+/* La API (22/10/2026, UsoCredito.tsx): debajo de las cuentas, el crédito de cada plan Max. */
+.co-uso__api { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.co-uso__credito { padding: 10px; border-radius: var(--r-md); background: var(--velo-hover); display: flex; flex-direction: column; gap: 6px; }
+.co-uso__pct--falta { color: var(--warn); font-weight: 600; }
+/* El interruptor del crédito de un negocio (22/10/2026): una píldora, prendida en el color de la marca. */
+.co-uso__interruptor { border: 1px solid var(--border-strong); background: var(--surface); color: var(--dim); border-radius: 999px; padding: 3px 12px; font: inherit; font-size: var(--fs-meta); font-weight: 600; cursor: pointer; }
+.co-uso__interruptor.is-on { background: var(--primary-bg); border-color: var(--primary); color: var(--primary-strong); }
+.co-uso__interruptor:disabled { opacity: .6; cursor: default; }
 
 /* La caja (17/10/2026, la B), copiada de la de Claude: el «+» abajo a la izquierda abre su menú hacia arriba (adjuntar,
    y con qué corre), y lo adjuntado son cuadritos arriba del texto, con aire respecto del placeholder. */
@@ -1360,6 +1412,9 @@ a.co-link:hover { color: var(--primary-strong); }
    a la derecha. Lo del chat: un globo de la superficie a la izquierda, con la colita hacia su criatura. El fondo de la
    conversación se tiñe apenas para que el globo blanco se lea (WhatsApp usa su fondo de papel). */
 .co-hilo { background: var(--bg); }
+/* EL PIE DE LA CAJA, CON EL FONDO DEL CHAT (22/10/2026, Martín: «Que no se ponga con el fondo blanco, que sea un bloque flotante»):
+   la caja y el bloque de preguntas son tarjetas sobre el fondo de la conversación, no una franja blanca de ancho completo. */
+.co-caja-wrap { background: var(--bg); }
 .co-yo { position: relative; padding-right: 36px; }
 .co-yo > .co-mifoto { position: absolute; top: 0; right: 0; }
 .co-yo > .co-wa__mas { right: 40px; }

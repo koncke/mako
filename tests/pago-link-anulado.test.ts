@@ -75,12 +75,16 @@ test('un pago por un link anulado: el aviso en el cobro desde la transición, y 
   const transicion = f.indexOf('if (pasaAPagado(c.estado))');
   assert.ok(detecta > 0 && detecta < transicion, 'el estado se mira ANTES de la transición: después ya es «pagado»');
   assert.match(f, /motivo: porLinkAnulado \? avisoPagoPorLinkAnulado\(false\) : null,/, 'la transición borra el motivo de un link anulado');
-  const bloque = f.slice(f.indexOf('if (porLinkAnulado && nuevo) {'));
+  // El bloque 4b es el ÚLTIMO `if (porLinkAnulado && nuevo)`: desde el 22/10/2026 hay otro antes, en el corte del trato de
+  // «Vincular cobro» (abajo), que dice el aviso cuando el `nuevo` pierde el reclamo.
+  const bloque = f.slice(f.lastIndexOf('if (porLinkAnulado && nuevo) {'));
   assert.ok(f.includes('if (porLinkAnulado && nuevo) {'), 'el aviso del historial no está atado a la corrida que ganó la transición');
   assert.match(bloque, /const dosVeces = !!actual\.pago_id && await cuotaCobradaPorOtroLado\(actual\.pago_id, p\.proveedorPagoId\);/);
   assert.match(bloque, /logLeadEvent\(actual\.lead_id, 'Pago por un link anulado', aviso, autor\)/);
   // Va DESPUÉS de asentar la cuota: «ya estaba cobrada» se lee cuando el pago ya decidió si la saldaba o no.
-  assert.ok(f.indexOf('if (porLinkAnulado && nuevo) {') > f.indexOf('registrarCobroDeProveedor('), 'el aviso se decide antes de asentar el pago');
+  assert.ok(f.lastIndexOf('if (porLinkAnulado && nuevo) {') > f.indexOf('registrarCobroDeProveedor('), 'el aviso se decide antes de asentar el pago');
+  // Y si el `nuevo` corta en el trato (otro aviso lo arma), el aviso del historial se dice ahí: el otro aviso no es `nuevo`.
+  assert.match(f, /\} else if \(porLinkAnulado && nuevo\) \{\s*await logLeadEvent\(actual\.lead_id, 'Pago por un link anulado', avisoPagoPorLinkAnulado\(false\), autor\);/);
 });
 
 test('«ya estaba cobrada» es cobrada por OTRO pago: la que saldó este mismo pago no cuenta', () => {

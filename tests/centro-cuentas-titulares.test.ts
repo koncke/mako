@@ -22,19 +22,19 @@ import { cuentasDeUso } from '../lib/centro-uso';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
-const TSV = '# cuenta<TAB>titular\nclaude1\tMauricio Bustos <mbustos@elevate.com.mx>\nclaude2\tLeandro Tejado <tejadomartin@gmail.com>\nclaude3\tSólo un nombre\n';
+const TSV = '# cuenta<TAB>titular\nclaude1\tMauricio Ejemplo <dueno@negocio-uno.com>\nclaude2\tLeandro Ejemplo <ejemplo.colaborador.mako@gmail.com>\nclaude3\tSólo un nombre\n';
 
 test('la PC sube el titular de SU cuenta (nombre y email), con el mismo molde que MaKo', async () => {
   const { titularDe } = await import('../scripts/operaciones/cartero.mjs');
-  assert.deepEqual(titularDe('claude2', TSV), { nombre: 'Leandro Tejado', email: 'tejadomartin@gmail.com' });
+  assert.deepEqual(titularDe('claude2', TSV), { nombre: 'Leandro Ejemplo', email: 'ejemplo.colaborador.mako@gmail.com' });
   assert.deepEqual(titularDe('claude3', TSV), { nombre: 'Sólo un nombre', email: null });
   assert.equal(titularDe('claude4', TSV), null, 'sin renglón, nada (MaKo dice «Cuenta 4»)');
-  assert.deepEqual(titularDe('claude1', TSV), titularDeRenglon('Mauricio Bustos <mbustos@elevate.com.mx>'));
+  assert.deepEqual(titularDe('claude1', TSV), titularDeRenglon('Mauricio Ejemplo <dueno@negocio-uno.com>'));
 });
 
 test('el nombre: el que puso Martín, si no el titular, si no «Cuenta N»; lo guardado se sanea', () => {
-  assert.equal(nombreDeLaCuenta('claude2', { nombre: 'Leandro Tejado', email: null, alias: 'Leandro 2' }), 'Leandro 2');
-  assert.equal(nombreDeLaCuenta('claude2', { nombre: 'Leandro Tejado', email: null, alias: null }), 'Leandro Tejado');
+  assert.equal(nombreDeLaCuenta('claude2', { nombre: 'Leandro Ejemplo', email: null, alias: 'Leandro 2' }), 'Leandro 2');
+  assert.equal(nombreDeLaCuenta('claude2', { nombre: 'Leandro Ejemplo', email: null, alias: null }), 'Leandro Ejemplo');
   assert.equal(nombreDeLaCuenta('claude3', null), 'Cuenta 3');
   assert.deepEqual(aliasValido('  '), { ok: true, alias: null }, 'vacío vuelve al del titular');
   assert.equal(aliasValido('x'.repeat(41)).ok, false);
@@ -43,13 +43,13 @@ test('el nombre: el que puso Martín, si no el titular, si no «Cuenta N»; lo g
 
 test('el Uso: logo de Claude, el nombre con su lápiz y el email debajo; sin «Abre su Runner…» ni los botones de Runners', () => {
   const cuentas = cuentasDeUso([{ cuenta: 'claude2', vistoAt: null, cuota: null }]).map((c) => ({
-    ...c, titular: c.cuenta === 'claude2' ? { nombre: 'Leandro Tejado', email: 'tejadomartin@gmail.com', alias: null } : null,
+    ...c, titular: c.cuenta === 'claude2' ? { nombre: 'Leandro Ejemplo', email: 'ejemplo.colaborador.mako@gmail.com', alias: null } : null,
   }));
   const h = renderToStaticMarkup(createElement(ListaUso, { cuentas, ahora: Date.UTC(2026, 9, 17, 18), onRenombrar: async () => null }));
   assert.match(h, /aria-label="Claude"/);
-  assert.match(h, /Leandro Tejado/);
-  assert.match(h, /tejadomartin@gmail\.com/);
-  assert.match(h, /aria-label="Renombrar Leandro Tejado"/);
+  assert.match(h, /Leandro Ejemplo/);
+  assert.match(h, /ejemplo\.colaborador\.mako@gmail\.com/);
+  assert.match(h, /aria-label="Renombrar Leandro Ejemplo"/);
   const uso = leer('app/admin/operaciones/Uso.tsx').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   assert.doesNotMatch(uso, /Abre su Runner|Nuevo Runner|>Runners</);
   assert.doesNotMatch(leer('app/m/operaciones/RunnerMovil.tsx'), /'Abre su Runner/);

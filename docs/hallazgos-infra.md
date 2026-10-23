@@ -2229,13 +2229,13 @@ proyectos**. Hay **10 proyectos Supabase repartidos en 4 organizaciones**, y **s
 
 | Organización | Plan | Qué paga |
 |---|---|---|
-| **Mauricio Bustos Business** (7 proyectos) | **Pro** | US$25 + 5 computes Micro (US$49,06) − US$10 de crédito = **US$64,06** |
+| **Mauricio Business** (7 proyectos) | **Pro** | US$25 + 5 computes Micro (US$49,06) − US$10 de crédito = **US$64,06** |
 | CRM-LEADS · VIRAL-RADAR · GB-LOGISTICS (1 c/u) | Free | US$0 |
 
 Los 5 computes pagos, con su actividad real de 7 días: **MaKo 1.134.762** requests REST ·
 esquer-accountability 30.211 · baja-teriyaki 28.798 · texx-accountability 19.902 ·
 **aspro-tableros 957** (137/día, el único candidato a pausar). Dos proyectos más de esa org no
-pagan compute (`dental-ramos-crm` con 4.676 requests y `mbustos@elevate.com.mx's Project` con
+pagan compute (`dental-ramos-crm` con 4.676 requests y `dueno@negocio-uno.com's Project` con
 **0**, vacío).
 
 **O sea: de los US$64, US$9,81 son MaKo y US$39 son tableros de clientes.** Eso no es desperdicio
@@ -2300,7 +2300,7 @@ la doc.
 **Y el orden importa:** un Viewer tampoco puede **escribir por API**, así que si el token que usás
 es del usuario que vas a degradar, te quedás sin poder administrar ni revertir. Se reemplaza el
 token PRIMERO (por uno de un OWNER que siga siéndolo) y se degrada DESPUÉS. Hoy `VERCEL_API_TOKEN`
-en `.env.local` es de **mbustos@elevate.com.mx**, no de koncke, justamente por esto — y fue lo
+en `.env.local` es de **dueno@negocio-uno.com**, no de koncke, justamente por esto — y fue lo
 único que permitió deshacer el cambio.
 
 **La regla:** después de tocar roles, permisos o integraciones, **el push de prueba no alcanza:
@@ -2739,6 +2739,8 @@ con el mismo nombre compilan para siempre.
 | **`node --test` corre cada archivo en su propio proceso** | ídem | Se aprovecha a favor: para un ciclo de imports, un test importa A primero y otro importa B primero, y así quedan cubiertos los dos órdenes de carga |
 | **tsx NO resuelve el alias `@/`** | ídem | Los tests usan imports relativos |
 | **El typecheck no corre en el build** | `.git/hooks/pre-push` | Ver [Build, deploy y entrega](#build-deploy-y-entrega) |
+| **Ver una página a 390 px en el Chrome de Martín** (para un caso de uso con su sesión, sin achicarle la ventana) | el caso de uso de OF4 (22/10/2026), hallazgos-offer.md | Un iframe no sirve: la app no se deja enmarcar y Chrome muestra un error de otro origen (y las capturas de la pestaña se cuelgan). Chrome no achica una ventana debajo de ~500 px. Lo que anda: un botón inyectado que, con un clic de verdad, hace `window.open(url, nombre, 'popup=yes,width=390,…')`; la ventana queda fuera del grupo de pestañas (sin capturas), pero es del mismo origen: desde la pestaña se le hace `resizeTo` hasta que `innerWidth` dé 390 (el zoom del sitio corre la cuenta) y se mide por JS. /m/… no se ve así: con un navegador de escritorio redirige a la versión de computadora. El micrófono, sin abrir el de la PC: `getUserMedia` reemplazado por una nota grabada (un `<input type=file>` inyectado + `decodeAudioData` + `createMediaStreamDestination`, sin conectar al parlante) |
+| **Un componente que importa `.css` no carga en node** (la caja única, el hilo del Ops Center), y la regla era sacar lo que un test dibuja a otro archivo | `tests/offer-hilo-unico.test.ts` (22/10/2026) | `registerHooks({ load })` de `node:module` (Node 22.15+, sincrónico: también para el `require` de tsx) que devuelve `{ format: 'commonjs', source: '', shortCircuit: true }` para todo `.css`, ANTES del `import()` dinámico. Devolver un `data:` desde `resolve` no anda: el cargador CJS lo busca como archivo (ENOENT). Con eso el test mira el HTML que sale, no el código fuente |
 
 ⚠️ **La fila de los guards de texto se pagó otra vez el 06/10/2026, y la pagaron SEIS agentes por
 separado.** Cada uno trabajó en su worktree y los seis devolvieron el mismo hallazgo: 7 rojos en
@@ -6209,7 +6211,7 @@ solo template.
 Síntoma (reunión del 13/10, Mauricio): «los temporizadores no coinciden con los textos» de los recordatorios por WhatsApp.
 El diagnóstico obvio era la plantilla o el cálculo de `{{reunion_faltan}}` (los dos estaban bien, medido). Lo que estaba mal
 era el DATO: `mako.timezone` del ws1 (Mauricio, Mexicali) era `America/Argentina/Buenos_Aires`, con origen «navegador» y
-`por: mbustos@elevate.com.mx`, escrito el 12/10 02:00 UTC por `detectarZonaAction`. La regla de quién cuenta como «el
+`por: dueno@negocio-uno.com`, escrito el 12/10 02:00 UTC por `detectarZonaAction`. La regla de quién cuenta como «el
 usuario» se cumplió (era la sesión de un admin propio): alguien entró con la cuenta de Mauricio desde Argentina, o su
 máquina tiene mal la zona. Medido en un envío real: la reunión de Guillermo (lead 2593) era a las 10:00 de Tijuana y los
 recordatorios dijeron «mañana a las 2:00 p. m.» y «empieza en 59 minutos, a las 2:00 p. m.». También corría con esa zona
@@ -6477,7 +6479,7 @@ contando `ahead` muestra como trabajo pendiente lo que ya está hecho.
 ## Una pasada en producción con el Chrome de Martín: la sesión puede ser la de un CLIENTE, y `?ws=3` no avisa (15/10/2026)
 
 El 15/10 la pasada «en ws3» de Automations se hizo en realidad sobre el **ws1 de Mauricio**: el Chrome de Martín tenía
-abierta la sesión de Mauricio Bustos (rol `usuario`, `ws: 1`), no la de super admin. Para alguien que no es admin de
+abierta la sesión de Mauricio (rol `usuario`, `ws: 1`), no la de super admin. Para alguien que no es admin de
 agencia, `proxy.ts` no pone el header del `?ws=` (`lib/ws-tab.ts`) y la página muestra SU negocio sin decir nada. La
 lista se veía normal y con nombres plausibles («Un Lead Entró», «Un Lead Agendó Llamada»), que también existen en otros
 negocios.
@@ -7542,6 +7544,16 @@ vuelve a hacer fila (al final: cedió el turno), y con el turno en la mano confi
 Y una baja: una espera CORTA (≤ 30 s, los tipos del `--rapido`) se hace con el candado en la mano, para no perder el lugar por 20 s.
 **La regla de oficio:** una función que espera un recurso y tiene otro tomado se prueba con una RAM y una fila de MENTIRA y se mira EN QUÉ MOMENTO suelta y retoma (hay 14 pruebas, y 22 roturas dieron rojo; tres se cuelgan en vez de fallar). Y un arreglo de una espera se corre de verdad antes de darlo por bueno: el primer defecto salió del primer VERDE.
 
+## El tsc «acotado» no es acotado si lo cambiado arrastra al Plan (21/10/2026)
+
+Al validar las plantillas de tarjeta en Clientes y el Plan: `BoardShell.tsx`, `ClientesApp.tsx` y
+app/customer-success/pantalla.tsx arrastran ~1.400 archivos del proyecto (FichaCliente → PlanBoard → BoardShell). Con
+`BoardShell` en `files`, tsc se quedó sin memoria a 1,9 y 2,2 GB (salida 134) y a 2,3–2,5 GB lo mató el vigía (salida 1
+sin texto). Lo que sí sirvió: grupos chicos sin esos archivos, y para ellos un tsc con `noResolve` (sólo sintaxis y
+nombres; los errores de import que da son ruido). El tipo de verdad queda para `antes-de-subir` o Actions.
+Y `next-env.d.ts` no existe en un worktree recién creado: ponerlo en `files` corta con TS6053 antes de chequear nada.
+*21/10/2026, chat «CRM» (claude3).*
+
 ## En la corrida COMPARTIDA, un test que tira al CARGAR da verde: se cuentan los de arriba y el resto no corre (22/10/2026, Automations)
 
 **Síntoma:** tests/nutricion-paso-accion.test.ts estuvo roto en main al menos desde el 21/10 sin que ningún VERDE ni
@@ -7598,6 +7610,20 @@ consultas por turno. `credenciales` ×36 (20 desde `provsGratisDePlataforma`, li
 `cache` de React NO deduplica (sólo dentro de un render de servidor). Con ~97 ms por ida serían 5-9 s por turno en Vercel:
 eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-cheap y de la sesión, no de Offer.
 
+## Un test `todo` que falla sale ROJO cuando OTRO archivo falla de verdad (22/10/2026)
+
+- **Síntoma:** el VERDE marcó ROJO `tests/doer-recetas-video-imagen.test.ts`, y aislado da 5 / 0.
+- **Causa:** `leerResultado` (scripts/tests-afectados.mjs) toma como rojo todo archivo con una línea `test at X.test.ts`.
+  El resumen «✖ failing tests:» de node también lista los `todo` que fallan, que no cuentan como falla. Mientras todo pasa,
+  el código de salida es 0 y no se lee esa lista. Cuando otro archivo del mismo proceso falla de verdad, el `todo` entra
+  como rojo, también en la repetición AISLADA, que corre los rojos juntos.
+- **La regla:** ante un ROJO doble, buscar primero el archivo que falla con `ℹ fail` mayor que 0 al correrlo solo. El que
+  aislado da 0 y sólo lista un `todo` en «failing tests» se va solo cuando se arregla el otro. Sin arreglar en el script:
+  `leerResultado` debería ignorar los bloques marcados `# TODO`.
+
+**Vive en:** scripts/tests-afectados.mjs (`leerResultado`, la repetición AISLADA de los rojos del proceso compartido)
+*22/10/2026, chat «CRM» (claude3).*
+
 ## Sin RAM para el tsc entero, el pre-push a main chequea por TANDAS: y dos trampas medidas armándolo (22/10/2026, INF1)
 
 - **Lo que quedó (INF1):** si `scripts/typecheck-lock.mjs` sale con 99 (no consiguió los 6,3 GB), el pre-push a `main` corre
@@ -7613,3 +7639,61 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
   varias veces. Acá tardó 754 s (32 de 32 en verde) y la tanda corta a los 600 s con «un test se colgó», 0 tests y ROJO, que
   además impide que corran las barredoras. Entra en la lista sólo porque nombra `app/crm/actions.ts`. Antes de leerlo como un
   cuelgue, se corre ese archivo solo. Sin hacer: que `tests-afectados` le dé más tiempo, o que ese test no nombre archivos ajenos.
+
+## La fila del candado con 8 chats tarda HORAS: un chequeo por TREN, no por punta (22/10/2026, Cerebro › Integración)
+
+- **Síntoma:** una punta tardaba horas en llegar a `main` aunque el cambio fuera chico. ops-lista estuvo 4 h trabada en la fila
+  del candado, y Martín: «para pushear es un montón de tiempo».
+- **Causa real:** el diagnóstico obvio era «falta RAM», pero el problema es que el mismo chequeo corría dos veces. Cada chat corría su
+  `antes-de-subir` completo (miles de tests) en la fila del candado, con 8 chats y 1-2 GB libres, y después Integración repetía
+  los tests afectados sobre el lote. Lo que traba es la fila del primero: con N chats, N chequeos completos en serie.
+- **La regla (AGENTS.md, «Cómo se sube»):** el chat corre sólo los tests que tocó y pasa el sha en el acto, «sin tipos».
+  Integración corre UN chequeo por tren sobre el lote mergeado (tipos, tests afectados, `guardas-push.sh`), devuelve sólo la punta que dé rojo y el tren sale cada 30 min.
+- ⚠️ **Con ~2 GB libres, el `tsc` acotado sólo entra de a UN archivo.** Con dos o tres sale 99 («NO SE PUDO CHEQUEAR, 0 bytes»,
+  el vigía de RAM), y también de a uno mientras corre un subagente. Un 99 no es un verde ni un rojo: se reintenta solo.
+- ⚠️ **Con 8 chats, esta PC no tipa: los tipos pasan a ser red, no condición del tren.** Primero se probó «un solo `tsc`
+  en la máquina»: con el del tren, el `tsc` acotado de un chat (1,2 GB) y un `tipos-por-tandas` de un workflow (heap de 8 GB) a
+  la vez, el vigía (mata `tsc` por debajo de 0,9 GB libres) los mataba a todos, y un `.tsx` estuvo 7 min saliendo 99. Después,
+  con una ventana de 15 min sin nada pesado, quedaron igual **1,6 GB libres de 15,7**: el grueso no son los tests sino 25
+  procesos claude (4,0 GB), ~20 node auxiliares de las sesiones (~250 MB cada uno, 3,7 GB) y Chrome (1,3 GB). Las 3 tandas de
+  INF1 piden 5,3 GB. **El diagnóstico obvio, «los tests de los chats comen la RAM», era el equivocado.** Ahora el tren sale con
+  tests y guardas, y los tipos se corren después del push, de a un archivo, cuando hay RAM (AGENTS.md, «Cómo se sube»).
+- ⚠️ **`TaskStop` no mata a los nietos en Git Bash.** Frenado el loop de `tsc` en segundo plano, su `sh.exe` siguió vivo y
+  lanzando `tsc` (dos loops, ~1 GB) que competían con el chequeo siguiente. Después de frenar un loop: buscar por línea de
+  comando los `sh.exe`/`timeout.exe`/`node.exe` que quedaron y matarlos.
+- ⚠️ **Un test suelto se corre con `node --import tsx --test`**, como el `npm test`. Con `--experimental-strip-types` todos
+  fallan con `ERR_MODULE_NOT_FOUND` (los imports del repo van sin extensión) y parece un rojo del código.
+
+## Una batería con piso pasa en la tanda compartida y falla SOLA: el rojo de OC1 llegó a main (22/10/2026, Cerebro › Integración)
+
+- **Síntoma:** después del tren 1, `tests/ops-center-bateria.test.ts` corrido solo daba pagos-cuenta 34/100 con piso 35
+  («devolvele el pago a Carlos» → `reembolsar_cobro` no llegaba al chat de la app). El VERDE de OC1 y la tanda del tren
+  habían dado verde.
+- **Causa real:** las tandas de `tests-afectados` (y de `antes-de-subir`) corren varios archivos en UN proceso con
+  `--test-isolation=none`. Ahí la batería pasa por el estado de módulos que dejan los otros tests. Sola, falla. La causa del
+  código era la puerta de las destructivas de `lib/relevancia-app.ts`: la abre un verbo de quitar, y «devolver» no lo es.
+- **Lo que se descartó:** que `--cortar` hubiera dejado sin correr a las barredoras. Era verdad para ellas, pero la batería no es
+  una barredora (importa) y sí corrió en la tanda, en verde.
+- **Cómo se encontró:** corriendo la batería SOLA en un worktree en detached, en cada punta del tren (81dca4621 verde,
+  b529ff603 rojo, las otras verdes): una corrida por punta, ~1 min cada una.
+- **La regla:** en cada tren, Integración corre la batería SOLA además de la tanda (`node --import tsx --test
+  tests/ops-center-bateria.test.ts`). El chat que toque el clasificador o la selección de herramientas, también.
+
+## Merges del tren que «salen limpios» y no compilan, y un deploy que se lee mal (22/10/2026, Cerebro › Integración, trenes 5 a 9)
+
+- ⚠️ **Dos hitos nuevos al final del mismo array de una bitácora se PEGAN en un solo objeto.** Las dos ramas agregaron
+  `{ fecha…, revisar }` al final y git las fundió sin `},` / `{` en el medio: TS1117 (claves repetidas) en
+  app/admin/dev/crm/bitacora.ts. No es un conflicto: el merge «sale bien» y lo frena la guarda de las bitácoras
+  (`scripts/tsc-bitacoras.mjs`, dentro de `guardas-push.sh`). Se arregla insertando el cierre y la apertura. Por eso las
+  guardas se corren DESPUÉS de mergear todo el tren, no sólo en cada punta.
+- ⚠️ **La misma resolución hecha dos veces choca consigo misma.** Ticketera y CRM sumaron funciones al final de lib/perfil.ts;
+  el tren lo resolvió con un orden y CRM, al mergear main en su rama, con el otro. La punta siguiente de CRM chocó contra la
+  resolución del tren. Se deja el orden del tren (las mismas funciones; 0 errores de sintaxis), sin perder nada de lo demás.
+- ⚠️ **`npx vercel ls … | grep Error` da un falso «Error»:** npm imprime `npm warn cleanup [Error: EPERM …]` en la misma
+  salida. El estado del deploy se lee con `grep "●"` (la línea de la tabla); en Git Bash la tabla sale por stderr, así que va
+  con `2>&1`.
+- ⚠️ **Sacar una punta que dio rojo sin volver a correr el tren:** si no comparte archivos de código con las otras (sólo el
+  índice), el árbol de antes del merge de esa punta (`HEAD^` del primer padre) ya está probado: los tests corrieron sobre un
+  superconjunto y el único rojo era de ella. Así salió el tren 7 sin el aviso de Closing.
+- **Un hotfix de cliente roto no espera al tren:** se arma en un worktree aparte (`git worktree add --detach … origin/main`
+  más la junction de node_modules) y se prueba ahí, en paralelo. El tren después mergea main.

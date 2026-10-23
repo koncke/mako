@@ -16,7 +16,7 @@ import { getRolWsEfectivo, getTenantDb } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { logLeadEvent } from '@/lib/leads';
 import {
-  cobrarCuota, registrarPagoSuelto, type DatosDeMoneda,
+  cobrarCuota, crmDelTrato, registrarPagoSuelto, type DatosDeMoneda,
 } from '@/lib/pagos';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
@@ -267,9 +267,10 @@ export async function marcarPagoManualAction(pagoId: number, leadId: number, dat
  * La moneda, el concepto y el método (14/10/2026): como en `marcarPagoManualAction`, `monto` es DÓLARES y sin
  * `moneda` todo es como siempre.
  */
-export async function registrarPagoSueltoAction(leadId: number, datos: { monto: number; fecha: string; hora?: string | null; mensualidad?: boolean } & DatosDeMoneda): Promise<void> {
+export async function registrarPagoSueltoAction(leadId: number, datos: { monto: number; fecha: string; hora?: string | null; mensualidad?: boolean; crm?: number | null } & DatosDeMoneda): Promise<void> {
   if (!(await haySesion())) throw new Error(SIN_SESION);
-  const r = await registrarPagoSuelto(leadId, datos);
+  // `crm`: el pago es de un CRM agregado (la tab Pagos mirando una renovación, mig 0324); validado contra el lead.
+  const r = await registrarPagoSuelto(leadId, { ...datos, crm: await crmDelTrato(leadId, datos.crm) });
   await logLeadEvent(leadId, 'Pago registrado', `Pago fuera del plan por ${textoDelPago(r.monto, { ...datos, moneda: r.moneda, montoOriginal: r.montoOriginal })} el ${fmtDDMMYYYY(datos.fecha)}${datos.hora ? ` · ${datos.hora}` : ''}`, await autorActual());
   bust(TAG.pagos, TAG.leads);
   revalidarLead(leadId);

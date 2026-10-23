@@ -301,11 +301,12 @@ test('el desplegable: las cuatro cuentas, su plan, las dos ventanas, «Medido ha
   // 1: vivo y al día: plan, las dos ventanas con su reinicio, y desde el 17/10 también cuándo se midió (Martín: el Uso
   //    mostraba datos viejos como de ahora; «Medido hace X» va siempre que haya un número).
   assert.match(t[0], /^Cuenta 1 Max Runner activo Sesión de 5 horas 12% usado Se reinicia a las 14:00 Semana 47% usado Se reinicia el mié 21 a las 06:00 Medido hace 5 min$/);
-  // 2: Runner apagado: dice hace cuánto y cuándo se midió, con las dos ventanas.
+  // 2: Runner apagado: dice hace cuánto y cuándo se midió, con las dos ventanas. Desde el 22/10, una medición vieja lleva su
+  //    edad al lado de cada número, en gris, y sin «usado» (no se lee como de ahora).
   assert.match(t[1], /Runner sin conexión · hace 4 h/);
-  assert.match(t[1], /Sesión de 5 horas 12% usado/);
-  assert.match(t[1], /Semana 47% usado/);
-  assert.match(t[1], /Medido hace 3 h$/);
+  assert.match(t[1], /Sesión de 5 horas 12% · medido hace 3 h/);
+  assert.match(t[1], /Semana 47% · medido hace 3 h/);
+  assert.doesNotMatch(t[1], /% usado|Medido hace/);
   assert.doesNotMatch(t[1], /Max/, 'sin plan en la cuota, no se muestra ninguno');
   // 3: sin Runner ni cuota: lo dice en pocas palabras, sin botón.
   assert.equal(t[2], 'Cuenta 3 Sin Runner todavía Su uso aparece cuando su Runner esté conectado');

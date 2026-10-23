@@ -76,12 +76,16 @@ const LECTURAS_AGENDA = REGISTRO.filter((d) => d.tipo === 'lectura' && d.datosDe
 // Rotura: sacar `CONFIRMAR.has(nombre)` de fueraDelChat → 1 fallo (este). Con la vara de
 // alcance `proponer` sola NO alcanza: confirmar_accion entra por MAKO_ACCION_TOOLS, que no
 // pasa por `visible()` del registro sin el filtro de `entraAlChat`.
-test('el «sí» con una acción esperando: WhatsApp trae confirmar_accion, el teléfono NUNCA', () => {
+// 21/10/2026: `cancelar_accion` tampoco viaja. Era la ÚNICA operación que cambiaba algo sin dejar una tarjeta, y la red del
+// chat es la tarjeta (una persona toca; el modelo no). Cancelar es el botón «Cancelar» de la tarjeta.
+test('el «sí» con una acción esperando: WhatsApp trae confirmar_accion, el teléfono NUNCA (ni cancelar_accion)', () => {
   const wa = turnoWa('sí, dale', { hayPendientes: true });
   assert.ok(wa.includes('confirmar_accion'), `en WhatsApp el «sí» confirma (llegaron: ${wa.join(', ')}): si esto cambia, el test de abajo ya no prueba nada`);
   const app = turnoApp('sí, dale', 'admin', { hayPendientes: true });
   assert.ok(!app.nombres.includes('confirmar_accion'), 'confirmar_accion viajó en el chat del teléfono');
-  assert.ok(app.nombres.includes('cancelar_accion'), `cancelar lo propio sí viaja («no, mejor no»): llegaron ${app.nombres.join(', ')}`);
+  assert.ok(!app.nombres.includes('cancelar_accion'), 'cancelar_accion viajó en el chat del teléfono: corre sin tarjeta');
+  const no = turnoApp('no, mejor no', 'admin', { hayPendientes: true });
+  assert.ok(!no.nombres.includes('cancelar_accion'), `un «no» con una tarjeta abierta: cancela la persona con su botón, no el modelo (llegaron ${no.nombres.join(', ')})`);
 });
 
 // Rotura: sacar el filtro de la SALIDA de herramientasDelChat (dejar `tools: turno.tools`)
@@ -98,6 +102,7 @@ test('en ninguna frase viaja confirmar_accion ni una LECTURA de la agenda de Goo
     for (const rol of ['admin', 'miembro'] as const) {
       const { nombres, veredicto } = turnoApp(f, rol, ctx);
       assert.ok(!nombres.includes('confirmar_accion'), `«${f}» (${veredicto.intencion}, ${rol}) trajo confirmar_accion`);
+      assert.ok(!nombres.includes('cancelar_accion'), `«${f}» (${veredicto.intencion}, ${rol}) trajo cancelar_accion`);
       for (const l of LECTURAS_AGENDA) assert.ok(!nombres.includes(l), `«${f}» (${veredicto.intencion}, ${rol}) trajo ${l}, que lee la agenda de Google`);
     }
   }

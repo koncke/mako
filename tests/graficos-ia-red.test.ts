@@ -135,7 +135,8 @@ test('una caja con datos de clientes y sin ninguna key del negocio pide su Claud
   const server = leer('lib', 'graficos-ia-elemento-server.ts');
   // D6b (21/10/2026): con su propio Claude («sólo su IA»), «Conecta tu Claude» es falso —ya lo tiene, en su PC—, y el texto
   // es el de `errorDeCascada` adentro del contexto (tests/d6b-rutas.test.ts lo corre en el cron programado).
-  assert.match(server, /: \(soloSuIA\(\) \? null : avisoSinIA\(pii, r\.errores\)\) \?\? await errorDeCascada\(r\.errores, 'escribir las conclusiones'\)\);/);
+  // IA6 (revisión, 22/10/2026): `decidirD6b`, no el `soloSuIA()` sincrónico — la decisión de la cascada quedó adentro de ella.
+  assert.match(server, /: \(\(await decidirD6b\(\)\) \? null : avisoSinIA\(pii, r\.errores\)\) \?\? await errorDeCascada\(r\.errores, 'escribir las conclusiones'\)\);/);
 });
 
 test('la IA del Dashboard no pregunta antes si el negocio tiene IA: su clave de Claude es el primer intento', () => {

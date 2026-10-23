@@ -9,8 +9,9 @@ import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { renderPrompt } from './prompt-render';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, motivoDeErroresCascada, type ProvName } from './ai-cheap';
-import { soloSuIA } from './solo-su-ia';
+import { decidirD6b } from './solo-su-ia';
 import { conSuIASinClave } from './fallo-ia-texto';
+import { camposSegunQuien, esHablaDe, type HablaDe } from './archivero-registro';
 // ⚠️ `lib/ofertas.ts` NO importa este módulo, a propósito: las answers le entran
 // por parámetro para que no se cierre un ciclo entre los dos.
 import { ofertaPrincipal } from './ofertas';
@@ -125,7 +126,7 @@ export async function extractAnswersFromText(texto: string, fields: Array<{ key:
 // El Archivero procesa UN archivo por vez (no todo concatenado) para poder atribuir
 // qué campo salió de qué documento y dar un razonamiento por archivo. Devuelve los
 // campos que encontró + una frase corta de qué aportó ese documento.
-export const ARCHIVERO_EXTRACT_TEMPLATE = `Eres un extractor de datos del negocio. Recibes el texto de UN documento del cliente y una lista de CAMPOS. Devuelve SOLO JSON con ESTA forma exacta, y el "razonamiento" SIEMPRE presente: {"razonamiento": "<2-3 frases>", "campos": {"<clave>": "<valor>"}}. El "razonamiento" (OBLIGATORIO, nunca vacío) son 2-3 frases que EMPIEZAN nombrando qué tipo de documento es (Avatar, Oferta, Nicho, Producto, o mixto) y DESCRIBEN con detalle qué entendiste del negocio a partir de él, para que el cliente vea que lo leíste bien. Escribe el razonamiento en español NEUTRO (de "tú", sin voseo argentino). (ej: "Documento de Avatar y Oferta. Define al cliente ideal —un profesional estancado— y su dolor de depender de sí mismo, y describe la oferta 'Negocio que Escala' con su promesa de escalar sin perder el control."). Luego, en "campos", para cada campo pon el valor que corresponda según el texto, conciso y en las palabras del cliente; si un campo no aparece o no se puede inferir con confianza, omítelo (NO lo inventes). Si el documento no aporta ningún campo útil, "campos" vacío pero el "razonamiento" igual explica qué es el documento. Claves válidas de "campos" (clave: qué pide):\n{{lista}}`;
+export const ARCHIVERO_EXTRACT_TEMPLATE = `Eres un extractor de datos del negocio. Recibes el texto de UN documento del cliente y una lista de CAMPOS. Devuelve SOLO JSON con ESTA forma exacta, y el "razonamiento" SIEMPRE presente: {"razonamiento": "<2-3 frases>", "habla_de": "negocio" | "prospecto" | "proveedor", "campos": {"<clave>": "<valor>"}}. Primero decide DE QUIÉN es el documento y ponlo en "habla_de": "negocio" si es del negocio del cliente sobre SÍ MISMO (su oferta, su cliente ideal, su marca, su guion o su landing, aunque les hable a sus clientes de "tú"); "prospecto" si es material de venta del negocio cuyo TEMA es un prospecto o cliente puntual (una propuesta "preparada para" una persona, la transcripción de una llamada de venta con alguien): de ahí puedes sacar la oferta y el cliente ideal, pero NUNCA lo que hace el negocio ni su identidad (eso sería el negocio del prospecto); "proveedor" si es de OTRA empresa que le vende algo al negocio (la propuesta o el contrato de un proveedor): no aporta campos. El "razonamiento" (OBLIGATORIO, nunca vacío) son 2-3 frases que EMPIEZAN nombrando qué tipo de documento es (Avatar, Oferta, Nicho, Producto, o mixto) y DESCRIBEN con detalle qué entendiste del negocio a partir de él, para que el cliente vea que lo leíste bien. Escribe el razonamiento en español NEUTRO (de "tú", sin voseo argentino). (ej: "Documento de Avatar y Oferta. Define al cliente ideal —un profesional estancado— y su dolor de depender de sí mismo, y describe la oferta 'Negocio que Escala' con su promesa de escalar sin perder el control."). Luego, en "campos", para cada campo pon el valor que corresponda según el texto, conciso y en las palabras del cliente; si un campo no aparece o no se puede inferir con confianza, omítelo (NO lo inventes). Si el documento no aporta ningún campo útil, "campos" vacío pero el "razonamiento" igual explica qué es el documento. Claves válidas de "campos" (clave: qué pide):\n{{lista}}`;
 
 /**
  * `opts`: a quién se le anota el gasto en el Saldo de IA y el plazo. Sin nada, lo de siempre (feature 'El
@@ -133,7 +134,7 @@ export const ARCHIVERO_EXTRACT_TEMPLATE = `Eres un extractor de datos del negoci
  * 15/10/2026 (decisión de Martín: cada documento que el dueño manda ahí paga UNA extracción) y un `hastaMs`
  * ABSOLUTO, porque corre por detrás de una ruta con maxDuration.
  */
-export async function extraerDeArchivo(texto: string, fields: Array<{ key: string; label: string }>, maxChars = 24000, opts: { feature?: string; motivo?: string; hastaMs?: number } = {}): Promise<{ campos: Record<string, string>; razonamiento: string; sinIA: boolean; motivoSinIA?: string }> {
+export async function extraerDeArchivo(texto: string, fields: Array<{ key: string; label: string }>, maxChars = 24000, opts: { feature?: string; motivo?: string; hastaMs?: number } = {}): Promise<{ campos: Record<string, string>; razonamiento: string; sinIA: boolean; motivoSinIA?: string; hablaDe?: HablaDe | 'otro' | null }> {
   if (!texto.trim() || fields.length === 0) return { campos: {}, razonamiento: '', sinIA: false };
   const lista = fields.map((f) => `- ${f.key}: ${f.label}`).join('\n');
   const sys = await renderPrompt('archivero.extract.system', ARCHIVERO_EXTRACT_TEMPLATE, { lista });
@@ -150,16 +151,21 @@ export async function extraerDeArchivo(texto: string, fields: Array<{ key: strin
   // "reintentá en un momento" genérico que antes tapaba una cuota agotada (reporte de Martín).
   // ⛔ D6b: con su propio Claude y sin ningún error suyo, no tenía con qué (ni su clave de Claude ni su OpenAI; la red
   // gratis no corre): eso se dice, no «prueba de nuevo en un momento», que va a volver a fallar igual.
-  if (!out) return { campos: {}, razonamiento: '', sinIA: true, motivoSinIA: motivoDeErroresCascada(errores) ?? (soloSuIA() && !errores.length ? conSuIASinClave('leer tus documentos') : undefined) };
+  if (!out) return { campos: {}, razonamiento: '', sinIA: true, motivoSinIA: motivoDeErroresCascada(errores) ?? ((await decidirD6b()) && !errores.length ? conSuIASinClave('leer tus documentos') : undefined) };
   const parsed = parseJsonLoose(out);
   const raw = (parsed.campos && typeof parsed.campos === 'object' ? parsed.campos : {}) as Record<string, unknown>;
-  const campos: Record<string, string> = {};
+  const todos: Record<string, string> = {};
   for (const f of fields) {
     const v = raw[f.key];
-    if (v != null && String(v).trim()) campos[f.key] = String(v).trim();
+    if (v != null && String(v).trim()) todos[f.key] = String(v).trim();
   }
+  // Lo que puede llenar según de QUIÉN habla (22/10/2026, ws13: la propuesta del negocio a su prospecto dejó como «qué hace
+  // tu negocio» el negocio del prospecto). Lo decide el código, con lo que dijo el modelo: lib/archivero-registro.ts.
+  const crudo = typeof parsed.habla_de === 'string' ? parsed.habla_de.trim().toLowerCase() : '';
+  const hablaDe: HablaDe | 'otro' | null = !crudo ? null : esHablaDe(crudo) ? crudo : 'otro';
+  const campos = camposSegunQuien(todos, hablaDe);
   const razonamiento = typeof parsed.razonamiento === 'string' ? parsed.razonamiento.trim().slice(0, 400) : '';
-  return { campos, razonamiento, sinIA: false };
+  return { campos, razonamiento, sinIA: false, hablaDe };
 }
 
 // ── Panorama libre: TODO lo que la IA entendió del negocio ────────────────────

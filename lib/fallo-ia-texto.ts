@@ -175,7 +175,7 @@ export const conSuIASinClave = (tema: string): string => `Con tu propio Claude, 
 
 /** Lo mismo para MIRAR una foto o un PDF escaneado: con su propio Claude sólo su OpenAI ve (su clave de Claude no está en
  *  la cascada de visión). El mismo criterio que `AVISO_NO_LEI_SU_IA` del chat. */
-export const CON_SU_IA_SIN_VISION = 'Con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de OpenAI (en Integraciones).';
+export const CON_SU_IA_SIN_VISION = 'Con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de Claude o de OpenAI (en Integraciones).';
 
 /** Qué era lo que MaKo estaba por hacer, para que la frase no quede genérica. */
 export type QueIntentaba = 'contestar' | 'escuchar tu audio' | 'armar el borrador';
@@ -297,4 +297,4 @@ export function textoFalloIA(
 }
 
 /** El link a la pantalla donde se cargan las keys, con el modal ya abierto. */
-export const linkKeysIA = (base: string): string => `${base}/integraciones?abrir=gemini`;
+export const linkKeysIA = (base: string): string => `${base}/integraciones?abrir=anthropic`;

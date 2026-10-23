@@ -95,7 +95,7 @@ porque estabamos llegando al limite semanal, dile a esos chats que continuen y c
   personalizado» y «Replicar» permiten pegar o copiar cualquier página; el freno `pideContrasena` se esquiva armando el
   campo por JavaScript.
 - Medir las imágenes por Flow en ws3: **«Ahora no, más tarde»** (hay que pasar la extensión de su Chrome de Windows,
-  hoy en ws10 Leandro Tejado, al ws3). No empezar sin volver a preguntar.
+  hoy en ws10 Leandro, al ws3). No empezar sin volver a preguntar.
 
 **Hecho:**
 - `npx next typegen` en el clon (13/10 18:51 AR): `.next/types/validator.ts` ya no nombra `app/api/landing-writer/route.ts`.
