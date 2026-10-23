@@ -1134,3 +1134,25 @@ adversarial y quedó arreglado:
 
 **Vive en:** lib/subir-plan.ts · lib/subir-plan-reglas.ts · lib/pasarela-plan-api.ts (`subirPlanStripe`) ·
 app/configuraciones/plan · tests/subir-plan.test.ts.
+
+## Sin pasarela, el checkout era un callejón con cara de checkout (23/10/2026)
+
+**Síntoma:** con la pasarela de MaKo sin conectar (ws 9), /planes decía «Pagas por mes y entras en el acto» y «Empezar con…»
+en cada plan; /planes/<plan> recién ahí descubría que no había cómo cobrar y decía «Escríbenos», sin a dónde. Y todo cartel
+de tope («Pasar a Pro») lleva a «Tu plan», que sólo ofrece la subida a quien paga Esencial POR LA PASARELA: hoy, nadie.
+**Causa:** lo cobrable se decidía en el ÚLTIMO paso (`ofertaDelPlan`); el listado y «Tu plan» nunca lo preguntaban.
+**La regla:** un botón de compra se decide con la MISMA cuenta que el checkout (`ofertasDeLosPlanes`: algún precio en la
+moneda de una pasarela conectada); sin eso, la salida es la agenda (`AGENDA_MAKO`) con las UTM. Si no se pueden leer las
+pasarelas, NO es cobrable: una agenda de más es un llamado, un pago que no existe es un callejón. En «Tu plan», a Esencial
+sin la subida en el acto se le ofrece Pro por llamada (`proPorLlamada`).
+
+**La trampa:** Calendly sólo guarda `utm_source/medium/campaign/content` (y `utm_term`, que la VSL ya usa para su uuid), así
+que por la agenda se PIERDEN el slug de la landing, el avatar, la funcionalidad, el fbclid y el código de MaKo Partners. Un
+link de partner (/r/<código> → /planes) termina hoy en una llamada sin el referido: esa venta se atribuye a mano.
+
+**Sin hacer:** aplicar el crédito de MaKo Partners (relevo, punto 5): /mako-partners y /partners/referidos dicen «se
+descuenta de tus próximos meses» y nada lo descuenta. Sin pasarela no nace ningún crédito (nace del segundo mes pagado
+del referido), así que no muerde el 25/10. La VSL repite el link de la agenda (`app/vsl/Landing.tsx`, `CALENDLY_URL`).
+
+**Vive en:** lib/compra-plan-reglas.ts · lib/compra-plan.ts (`ofertasDeLosPlanes`) · app/planes/ · lib/subir-plan-reglas.ts
+(`proPorLlamada`) · app/configuraciones/plan · tests/planes-sin-pasarela.test.ts.

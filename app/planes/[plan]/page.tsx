@@ -12,7 +12,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ofertaDelPlan } from '@/lib/compra-plan';
-import { origenLimpio, codigoRefLimpio, TEXTO_SIN_PASARELA } from '@/lib/compra-plan-reglas';
+import { origenLimpio, codigoRefLimpio, agendaConOrigen, TEXTO_SIN_PASARELA } from '@/lib/compra-plan-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { CSS_PLANES } from '../estilo';
 import { CompraPlan } from './CompraPlan';
@@ -46,9 +46,16 @@ export default async function PlanPage({ params, searchParams }: {
           <p className="planes-sub" style={{ marginBottom: 6 }}>
             {pasarelas.map((x) => `${formatoMonto(x.monto, x.moneda)} por mes`).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || `US$ ${plan.precioUsd} por mes`}
           </p>
+          {/* Sin pasarela que lo cobre (23/10/2026): no hay formulario que lleve a un pago imposible, y «Escríbenos» sin
+              a dónde era un callejón. La salida es la agenda, con las UTM de la campaña. */}
           {pasarelas.length
             ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} />
-            : <p className="planes-error">{TEXTO_SIN_PASARELA}</p>}
+            : (
+              <>
+                <p className="planes-sub">{TEXTO_SIN_PASARELA}</p>
+                <a className="planes-btn" href={agendaConOrigen(origen)}>Agendar una llamada</a>
+              </>
+            )}
         </div>
       </div>
     </main>

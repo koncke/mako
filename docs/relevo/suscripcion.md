@@ -9,7 +9,7 @@
 
 | Qué | Dónde |
 |---|---|
-| Los planes (Pro 47 = capa completo, Growth 97 = capa agencia), parametrizables con el setting `planes.mako` del ws de la plataforma | `lib/planes-mako.ts` |
+| Los planes (Esencial 47 = capa completo, Pro 97 = capa agencia), parametrizables con el setting `planes.mako` del ws de la plataforma | `lib/planes-mako.ts` |
 | El checkout público: /planes → /planes/<plan> → `POST /api/planes/comprar` → /pagar/<token>. Al pagarse, el alta de siempre crea la cuenta y manda la bienvenida | `lib/compra-plan.ts` · `app/planes/` |
 | La landing manda `?landing=&avatar=&funcionalidad=&utm_*&ref=` a /planes; queda en `cobros.origen` / `cobros.ref_codigo` (mig 0330) | `lib/compra-plan-reglas.ts` |
 | La deuda: cobertura por meses cobrados, mora (aviso en la esquina), impago a los 7 días, confirmación con la pasarela antes de pausar | `lib/plan-acceso-reglas.ts` · `lib/plan-acceso.ts` · `lib/plan-deuda.ts` |
@@ -23,7 +23,9 @@
 1. **Migración 0330** (aditiva): la aplica el Cerebro en producción ANTES del deploy, con su OK.
 2. **Prender el corte** (`CORTE_DE_ACCESO_PRENDIDO` en `lib/plan-acceso-reglas.ts`): después de la revisión adversarial y con la
    0330 aplicada. Con el corte apagado la deuda se VE (aviso y /cuenta-pausada) pero nadie se pausa.
-3. **Martín**: conectar la pasarela de MaKo en `/integraciones?ws=9`; en Stripe, Billing › Revenue recovery › Retries (Smart
+3. **Martín**: conectar la pasarela de MaKo en `/integraciones?ws=9`. Hasta entonces (23/10) /planes, /planes/<plan> y «Pasar a
+   Pro» en «Tu plan» llevan a la agenda con las UTM, y se vende por llamada (hallazgos: «Sin pasarela, el checkout era un
+   callejón»); al conectarla vuelven solos al pago en línea. Además, en Stripe, Billing › Revenue recovery › Retries (Smart
    Retries) y qué pasa al agotarlos (recomendado: dejar la suscripción `past_due` o cancelarla; MaKo pausa igual a los 7 días);
    y si cobra en pesos, cargar `preciosLocales` del plan en el setting `planes.mako`.
 4. **El origen, ACORDADO con «Landings de MaKo en Web Generator»** (23/10): vive en `cuenta.origen` (app_settings del negocio

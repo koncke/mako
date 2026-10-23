@@ -11,7 +11,8 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { planesMako } from '@/lib/compra-plan';
+import { ofertasDeLosPlanes } from '@/lib/compra-plan';
+import { bajadaDePlanes, botonDelPlan, origenLimpio } from '@/lib/compra-plan-reglas';
 import { CSS_PLANES } from './estilo';
 
 export const dynamic = 'force-dynamic';
@@ -30,24 +31,32 @@ export default async function PlanesPage({ searchParams }: { searchParams: Promi
     if (typeof v === 'string' && v.trim()) qs.set(k, v.trim().slice(0, 250));
   }
   const sufijo = qs.toString() ? `?${qs.toString()}` : '';
-  const planes = (await planesMako()).filter((p) => p.activo);
+  // SIN PASARELA (23/10/2026): un plan que no se puede pagar en línea no dice «Empezar»: lleva a la agenda, con las UTM
+  // de la campaña (lib/compra-plan-reglas.ts). Se decide por plan, con la misma cuenta que el checkout.
+  const ofertas = await ofertasDeLosPlanes();
+  const origen = origenLimpio(Object.fromEntries(qs.entries()));
   return (
     <main className="planes-root">
       <style dangerouslySetInnerHTML={{ __html: CSS_PLANES }} />
       <div className="planes-wrap">
         <div className="planes-marca">MaKo</div>
         <h1>Elige tu plan</h1>
-        <p className="planes-sub">Pagas por mes y entras en el acto. Te das de baja cuando quieras.</p>
+        <p className="planes-sub">{bajadaDePlanes(ofertas.some((o) => o.cobrable))}</p>
         <div className="planes-grilla">
-          {planes.map((p) => (
-            <section key={p.id} className={`planes-card${p.destacado ? ' destacado' : ''}`}>
-              <h2>{p.nombre}</h2>
-              <div className="planes-precio">US$ {p.precioUsd} <small>/ mes</small></div>
-              {p.resumen && <p>{p.resumen}</p>}
-              {p.incluye.length > 0 && <ul>{p.incluye.map((x) => <li key={x}>{x}</li>)}</ul>}
-              <Link className="planes-btn" href={`/planes/${p.id}${sufijo}`}>Empezar con {p.nombre}</Link>
-            </section>
-          ))}
+          {ofertas.map(({ plan: p, cobrable }) => {
+            const boton = botonDelPlan({ id: p.id, nombre: p.nombre, cobrable, sufijo, origen });
+            return (
+              <section key={p.id} className={`planes-card${p.destacado ? ' destacado' : ''}`}>
+                <h2>{p.nombre}</h2>
+                <div className="planes-precio">US$ {p.precioUsd} <small>/ mes</small></div>
+                {p.resumen && <p>{p.resumen}</p>}
+                {p.incluye.length > 0 && <ul>{p.incluye.map((x) => <li key={x}>{x}</li>)}</ul>}
+                {boton.afuera
+                  ? <a className="planes-btn" href={boton.href}>{boton.texto}</a>
+                  : <Link className="planes-btn" href={boton.href}>{boton.texto}</Link>}
+              </section>
+            );
+          })}
         </div>
       </div>
     </main>
