@@ -88,7 +88,7 @@ import { usaEquipoContesto, contestoElEquipo, type TurnoDelGrupo } from '@/lib/e
 import {
   indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
-  condicionDeArriba, condicionSigueLlevando,
+  condicionDeArriba, condicionSigueLlevando, usaContesto, destinoAlContestar,
   esNodoDeControl, RELLENO_CONTROL, TOPE_SALTOS, esColumnaInexistente, etiquetasQueCuentan, barridoInscribe, irAEstaMisma,
   avisoSalio, frenadoPorAntiBan, anotarEnCorrida,
   filasDelFlujo, catalogoDeLead, resumenCursoDeAlumno, resumenPagos,
@@ -4597,6 +4597,22 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         insc.paso_actual = idxLeido;
         insc.nodo_actual = idDe(pasoLeido, idxLeido);
       }
+      // ── «CONTESTÓ» CORTA (23/10/2026, P0 de #289, lib/nutricion-grafo-motor.ts `destinoAlContestar`) ─────────
+      // En una automatización que USA «Contestó», a quien contestó no le sale ningún MENSAJE más de ella: este camino
+      // termina, con su rastro. Las acciones (el aviso al equipo, una etiqueta, mover de etapa) sí corren: la rama
+      // «Contestó» a la que lo llevó `alContestar`. Fuera de esto: el carril del recordatorio (sigue aunque conteste, M4) y
+      // una automatización con «Si responde» (la respuesta la atiende su AI Step, como `alContestar`).
+      if (enRespuesta && claseDe(pasoLeido) === 'mensaje' && usaContesto(sec.pasos) && raizRespuesta(sec.pasos) == null
+          && !esHiloDelCarril(sec.pasos, insc.paso_actual)) {
+        if (await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', alcance: 'hilo' })) {
+          res.omitidos += 1;
+          await anotarCierreSinEnvio(insc, pasoLeido, lead, 'el lead contestó: no le sale nada más de esta automatización');
+          res.detalle.push({ lead_id: insc.lead_id, canal: pasoLeido.canal, estado: 'omitido', nota: 'el lead contestó' });
+        } else {
+          res.detalle.push({ lead_id: insc.lead_id, canal: pasoLeido.canal, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' });
+        }
+        continue;
+      }
       // ── LA CONDICIÓN DE ARRIBA, OTRA VEZ (14/10/2026, §2.2 del plan «nada por detrás») ─────────
       // La fila despertó PARADA en un mensaje (un reintento, un borrador que esperaba, el anti-ban, el horario): la
       // condición que está justo arriba se vuelve a evaluar con los hechos de ahora. Si ya no lleva acá, este camino
@@ -5463,6 +5479,57 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 // `opts.audio` (16/10/2026): la nota de voz del lead, tal como llegó al webhook. La escucha `asistirRespuesta`, y sólo
 // si hay un AI Step que va a contestar (`escucharNotaDeVoz`, lib/setter-conversacion.ts). `opts.recibidoAt`: la hora del
 // PROPIO mensaje (la de WhatsApp), para que la guarda de «entró uno más nuevo» no confunda éste con el siguiente.
+/**
+ * «CONTESTÓ» CORTA, EN EL ACTO (23/10/2026, P0 de #289). Lo llama `pausarPorRespuesta` con las inscripciones que ACABAN de
+ * pasar a 'respondio'. En las automatizaciones que usan «Contestó» (`destinoAlContestar`, lib/nutricion-grafo-motor.ts): la
+ * fila va YA a la rama «Contestó» (su aviso corre ahora, por la vía rápida de abajo), o, sin esa rama, sale de la
+ * automatización. Desde ahí no le sale ningún mensaje más (la guarda de `procesarEnvios`). No toca: las que no usan
+ * «Contestó» (contestar no corta nada por su cuenta, 14/10), las que tienen «Si responde» (la respuesta la atiende su
+ * AI Step), una fila con hilos en paralelo (la guarda igual le corta los mensajes) ni el carril del recordatorio.
+ * Exportada para el arnés del ws3. Nunca tira: el lead ya quedó marcado, que es lo crítico.
+ */
+export async function alContestar(leadId: number, inscripciones: ReadonlyArray<{ id: number; secuencia_id: number }>, secs?: Secuencia[] | null): Promise<number> {
+  let movidas = 0;
+  try {
+    const db = await getTenantDb();
+    const lista = secs ?? await getSecuenciasActivas();
+    const porId = new Map(lista.map((s) => [s.id, s]));
+    const ids = inscripciones.filter((i) => porId.has(i.secuencia_id)).map((i) => i.id);
+    if (!ids.length) return 0;
+    const { data, error } = await db.from('nutricion_inscripciones')
+      .select('id, lead_id, secuencia_id, estado, paso_actual, nodo_actual, hilos').in('id', ids).eq('estado', 'respondio');
+    if (error) throw new Error(error.message);
+    for (const f of (data ?? []) as Array<{ id: number; secuencia_id: number; paso_actual: number; nodo_actual: string | null; hilos: unknown }>) {
+      const sec = porId.get(f.secuencia_id);
+      if (!sec || raizRespuesta(sec.pasos) != null || sanearHilos(f.hilos)) continue;
+      const idx = indiceActual(sec.pasos, f);
+      if (idx < 0 || esHiloDelCarril(sec.pasos, idx)) continue;
+      const destino = destinoAlContestar(sec.pasos, idx);
+      if (destino === undefined) continue;
+      const j = destino ? indicePorId(sec.pasos, destino) : -1;
+      const campos = j >= 0
+        ? { paso_actual: j, nodo_actual: destino, proximo_envio_at: ahoraISO(), updated_at: ahoraISO() }
+        : { estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() };
+      // Compare-and-set contra la posición leída: si el motor la movió entre medio, la guarda de `procesarEnvios` corta igual.
+      const { data: upd, error: eU } = await db.from('nutricion_inscripciones').update(campos)
+        .eq('id', f.id).eq('estado', 'respondio').eq('paso_actual', f.paso_actual).select('id');
+      if (eU) { console.error(`[nutricion] «Contestó» de la inscripción ${f.id}: ${eU.message}`); continue; }
+      if (!(upd ?? []).length) continue;
+      movidas += 1;
+      console.log(`[nutricion] lead ${leadId}: contestó en «${sec.clave}» → ${j >= 0 ? `la rama «Contestó» (${destino})` : 'sale de la automatización'}`);
+      try {
+        const { logLeadEvent } = await import('@/lib/leads');
+        await logLeadEvent(leadId, 'Automatización', `Contestó en «${sec.nombre}»: ${j >= 0 ? 'sigue por «Contestó».' : 'no le sale nada más.'}`, 'MaKo');
+      } catch { /* el historial no puede romper el corte */ }
+    }
+    // La rama «Contestó» corre YA (su aviso al equipo), con el turno del negocio.
+    if (movidas) await viaRapidaConTurno(leadId).catch((e: unknown) => console.error(`[nutricion] «Contestó» lead ${leadId}: la rama queda para el tick (${e instanceof Error ? e.message : String(e)})`));
+  } catch (e) {
+    console.error(`[nutricion] «Contestó» lead ${leadId}: no pude cortar (la guarda de procesarEnvios corta los mensajes igual):`, e instanceof Error ? e.message : String(e));
+  }
+  return movidas;
+}
+
 export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' | CanalSocial; cuenta?: string | null; audio?: AudioDelLead | null; recibidoAt?: string | null }): Promise<number> {
   const social: CanalSocial | null = esCanalSocial(opts?.origen) ? opts!.origen as CanalSocial : null;
   const medio: MedioAIStep = social ?? 'whatsapp';
@@ -5564,6 +5631,9 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
       }
     } catch (e) { console.error('[nutricion] destrabe de pasos condicionales falló:', e); }
   }
+
+  // «CONTESTÓ» CORTA, EN EL ACTO (23/10/2026, P0 de #289): a la rama «Contestó» (su aviso), o afuera. Nunca tira.
+  if (pausadas.length) await alContestar(leadId, pausadas, secsActivas);
 
   // Best-effort y en segundo plano conceptual: que un fallo del asistido NUNCA
   // rompa el webhook (el lead ya quedó despausado, que es lo crítico).
