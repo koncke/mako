@@ -38,7 +38,6 @@ No necesitas más contenido. // Necesitas saber cuál funciona. /// Agenda tu di
 3. «Crea, guarda y mide tu contenido en un solo lugar.»
 
 ## Lo que NO dice, a propósito
-- **El calendario de publicaciones** que nombra la landing («Planeas tus publicaciones en un calendario»): no encontré
-  un calendario de PUBLICACIONES en la app (el Calendario de MaKo es de reuniones y tareas). Confirmarlo antes de
-  pautar, o sacar esa línea de la landing.
+- **Un calendario de publicaciones**: no hay en la app (el Calendario de MaKo es de reuniones y tareas). La landing
+  ya no lo promete (36e52104c).
 - El video tiene tope por costo, que paga la IA de cada negocio.
