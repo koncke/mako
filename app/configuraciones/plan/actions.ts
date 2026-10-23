@@ -16,6 +16,7 @@ import { capaDef } from '@/lib/capas';
 import { darDeBajaMiPlan, type ResultadoBaja } from '@/lib/cobros';
 import { mandarCodigoDeBaja } from '@/lib/invitaciones';
 import { aplicarRetencion, type OpcionRetencion } from '@/lib/retencion-plan';
+import { subirAPro, type ResultadoSubida } from '@/lib/subir-plan';
 import { guardarDeudaAntesDeLaBaja } from '@/lib/plan-deuda';
 
 export async function darmeDeBajaAction(): Promise<ResultadoBaja> {
@@ -42,6 +43,19 @@ export async function aceptarRetencionAction(opcion: OpcionRetencion = 'descuent
   const sesion = await getUsuarioActual();
   if (opcion !== 'descuento' && opcion !== 'pausa' && opcion !== 'bajar') return { ok: false, resumen: 'Opción inválida.' };
   const r = await aplicarRetencion(ws, sesion?.nombre || sesion?.email || 'el negocio', opcion);
+  revalidatePath('/configuraciones/plan');
+  return r;
+}
+
+/**
+ * «Pasar a Pro» (23/10/2026): adonde llevan los carteles de tope. Sólo el admin. Stripe cobra la diferencia ahora y, si no
+ * pasa, no cambia nada; Mercado Pago sube desde el próximo cobro, con Pro en el acto (lib/subir-plan.ts).
+ */
+export async function pasarAProAction(): Promise<ResultadoSubida> {
+  const ws = await adminDeWorkspaceActual().catch(() => null);
+  if (ws == null) return { ok: false, resumen: 'Sólo quien administra el negocio puede cambiar su plan.' };
+  const sesion = await getUsuarioActual();
+  const r = await subirAPro(ws, sesion?.nombre || sesion?.email || 'el negocio');
   revalidatePath('/configuraciones/plan');
   return r;
 }
