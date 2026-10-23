@@ -35,6 +35,36 @@ El primer tope que se hizo cumplir fue el de las líneas de WhatsApp (Esencial 1
 
 ---
 
+## MaKo Esencial: el candado de las tabs de Pro y el tope de automatizaciones (23/10/2026)
+
+Las ofertas del 23/10 (docs/ofertas-mako.md, lib/topes-plan.ts): el Esencial ve las tabs de Pro con candado y «Pasar a Pro», y
+tiene hasta 3 automatizaciones activas.
+
+- **El diagnóstico obvio era el equivocado: «Esencial = capa `completo`».** El ws1, los acuerdos a mano y todo negocio de antes
+  también tienen capa `completo`, y un Pro recién vendido la sigue teniendo hasta que se despliegue la rama que le pone
+  `agencia`: con la capa sola, un cliente que paga Pro perdía el Ads Manager según el orden de los deploys. Lo que decide es el
+  PLAN VENDIDO, `alta_capa` del cobro de su suscripción (`suscripcionDeMakoDe`), y además que la capa de hoy siga siendo
+  `completo` (un negocio que Martín pasó a mano no pierde nada por una suscripción vieja). El ws1 y la plataforma, nunca. Regla
+  en `esEsencialPorPasarela` (lib/plan-esencial-reglas.ts).
+- **Ante la duda, sin candado ni tope:** si la lectura falla, se deja pasar (lib/plan-esencial.ts). Sacarle una tab a quien paga
+  es peor que mostrarle una de más un rato.
+- **El candado va prendido aunque el cartel de la capa esté apagado** (`CORTE_POR_PLAN_PRENDIDO = false`, lib/api-tab.ts): ahí la
+  tab no está en la capa; acá SÍ está, lo que falta es el plan. Va a `/no-esta-en-tu-plan?tab=…&pro=1`, que ofrece «Pasar a Pro».
+  `lib/cobros.ts` se importa dinámico: `tab-access` lo cargaría en todas las páginas.
+- **Closing Analyst no es una tab**: desde el 11/10 es la hoja «Closing» del Dashboard (app/closing/page.tsx redirige). Su
+  candado va en el Dashboard, de su chat. AI Avatar hoy es sólo del super admin: el candado ya lo cubre si se abre a los negocios.
+- **El tope de automatizaciones se pregunta en las TRES puertas que prenden una** (/api/email/secuencias, /api/whatsapp/secuencias
+  y MaKo, lib/mako-doer-acciones.ts) y no en `setSecuenciaActiva`, que es «la única puerta» pero vive en lib/nutricion.ts, del chat
+  «Automations» con un P0 del motor. Volver a prender una prendida no cuenta (el lienzo manda «activa» al publicar). MaKo por
+  WhatsApp corre sin sesión: el negocio se le pasa.
+
+**Vive en:** lib/plan-esencial-reglas.ts · lib/plan-esencial.ts · lib/tope-automations.ts · lib/tab-access.ts · lib/movil-guard.ts · app/no-esta-en-tu-plan/page.tsx · app/_components/Sidebar.tsx · app/m/mas/page.tsx · tests/plan-esencial.test.ts
+
+**Lo que quedó sin hacer:** el candado de la hoja «Closing» del Dashboard (su chat); mover el tope adentro de
+`setSecuenciaActiva` cuando Automations cierre su P0 (así lo cubre cualquier puerta nueva); el corte de las APIs de las tabs de
+Pro (la pantalla se cierra, la API no: como el corte por capa, apagado); y en las apps de las tiendas, «Pasar a Pro» es una
+venta que el teléfono no puede hacer (T5 de docs/tiendas-play-appstore.md): ahí tendría que decir sólo «De MaKo Pro».
+
 ## El diagnóstico obvio era el equivocado: la cuenta del runway NO está rota
 
 Al leer el audio —el embudo nuevo entra por una app de ~US$20— la conclusión inmediata fue

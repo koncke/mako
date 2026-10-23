@@ -14,6 +14,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { topeAlActivar } from '@/lib/tope-automations';
 import { getSecuenciasConStats, setSecuenciaActiva, publicarPasos, setSecuenciaLinea, setSecuenciaReentrada, vozDeAIStepQueFalta, DuplicadaError, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
 import { getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { envioWhatsappHabilitado, envioEmailHabilitado } from '@/lib/envio-flags';
@@ -91,6 +92,11 @@ export async function PATCH(req: NextRequest) {
       }
     }
     if (typeof body.activa === 'boolean') {
+      // El tope del plan (MaKo Esencial: hasta 3 activas, lib/tope-automations.ts), antes de prender nada.
+      if (body.activa) {
+        const tope = await topeAlActivar(id);
+        if (tope) return Response.json({ ok: false, error: tope, tope: true }, { status: 403 });
+      }
       await setSecuenciaActiva(id, body.activa, { aunqueDuplique: body.aunqueDuplique === true });
     }
     // De qué línea sale (`null` o "" = la de por default). La valida lib/nutricion.ts.

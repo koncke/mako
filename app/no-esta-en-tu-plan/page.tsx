@@ -11,6 +11,8 @@ import { requireSesion } from '@/lib/tab-access';
 import { rutaConWs } from '@/lib/workspace';
 import { TODOS_LOS_ITEMS, USER_NAV } from '@/app/_components/nav';
 import { PermissionState } from '@/app/_ui/Estados';
+import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
+import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -22,18 +24,21 @@ function nombreDeTab(key: string | undefined): string {
   return it ? it.label : 'esta sección';
 }
 
-export default async function NoEstaEnTuPlanPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
+export default async function NoEstaEnTuPlanPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[]; pro?: string | string[] }> }) {
   await requireSesion();
-  const tab = (await searchParams).tab;
+  const q = await searchParams;
+  const tab = q.tab;
+  // `pro=1` (23/10/2026): la tab es de MaKo Pro y el negocio paga el Esencial (lib/tab-access.ts → requireCapa).
+  const pro = q.pro === '1';
   const key = typeof tab === 'string' ? tab.slice(0, 60) : undefined;
   // «Ir al inicio» va al REPARTIDOR, como el login (21/10/2026): en la computadora, el Ops Center del negocio, que está en
   // todos los planes (lib/ops-center-ruta.ts → casaEnLaComputadora). Iba a la casa del plan (/crm o /plan).
-  const [inicio, plan] = await Promise.all([rutaConWs('/inicio'), rutaConWs('/configuraciones/plan')]);
+  const [inicio, plan] = await Promise.all([rutaConWs('/inicio'), rutaConWs(RUTA_CAMBIAR_PLAN)]);
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 16px 60px', display: 'grid', placeItems: 'start center' }}>
       <div style={{ width: '100%', maxWidth: 520 }}>
         <PermissionState motivo="plan" que={nombreDeTab(key)}
-          accion={{ label: 'Ver mi plan', href: plan }} secundaria={{ label: 'Ir al inicio', href: inicio }} />
+          accion={{ label: pro ? ROTULO_PASAR_A_PRO : 'Ver mi plan', href: plan }} secundaria={{ label: 'Ir al inicio', href: inicio }} />
       </div>
     </main>
   );
