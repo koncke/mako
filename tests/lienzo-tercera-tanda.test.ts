@@ -222,7 +222,8 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   assert.match(run, /const base = lead \? valoresVariablesLead\(\{ nombre: lead\.nombreCrudo, empresa: lead\.empresa \}\) : \{\};/);
   // Undécima tanda (§5): los valores del catálogo y `textoConDatos`, la MISMA función de todo envío.
   assert.match(run, /await valoresDeVariables\(\{ ws, leadId: lead\?\.id \?\? null, leadNombre: lead\?\.nombreCrudo \?\? null, destino: 'equipo' \}, t, base\)/);
-  assert.match(run, /textoConDatos\(t, /);
+  // 23/10/2026: `textoConDatosParaEquipo` (la misma regla, y si deja el aviso vacío, sale con «—»; tests/aviso-equipo-no-vacio.test.ts).
+  assert.match(run, /textoConDatosParaEquipo\(t, /);
   assert.match(run, /const mensaje = await textoDelAviso\(mensajeCrudo, lead, ctx\.ws\);/);
   assert.match(run, /const titulo = \(await textoDelAviso\(String\(payload\.titulo \?\? ''\), lead, ctx\.ws\)\) \|\|/);
 });

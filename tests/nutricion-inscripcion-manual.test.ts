@@ -139,7 +139,8 @@ const FN = (() => {
 })();
 
 test('⚠️ el lead y la secuencia se leen con getTenantDb y, si no son de ESTE negocio, no se escribe nada', () => {
-  assert.ok(FN.length > 1500 && FN.length < 6000, `inscribirEnSecuencia mide ${FN.length}: está mirando otra cosa`);
+  // 23/10/2026: 6500, con `empezarDeNuevo` (tests/empezar-de-nuevo.test.ts).
+  assert.ok(FN.length > 1500 && FN.length < 6500, `inscribirEnSecuencia mide ${FN.length}: está mirando otra cosa`);
   assert.match(FN, /^export async function inscribirEnSecuencia\([^)]*\)[^{]*\{\s*const supabase = await getTenantDb\(\);/);
   assert.match(FN, /\.from\('nutricion_secuencias'\)\s*\.select\([^)]*\)\.eq\('id', secuenciaId\)\.maybeSingle\(\)/);
   assert.match(FN, /\.from\('leads'\)\s*\.select\([^)]*\)\.eq\('id', leadId\)\.maybeSingle\(\)/);

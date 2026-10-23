@@ -18,6 +18,7 @@ import {
 } from '@/lib/lead-funnel';
 import { puedeQuitar, nombreVisible } from '@/lib/lead-funnel-reglas';
 import { exigirSesion } from '@/lib/sesion-accion';
+import type { InformeMovimiento } from '@/lib/reentrada';
 
 type Res<T> = ({ ok: true } & T) | { ok: false; error: string };
 const mal = (e: unknown, def: string) => ({ ok: false as const, error: e instanceof Error ? e.message : def });
@@ -125,13 +126,15 @@ export async function deshacerQuitarAction(d: DeshacerQuitar): Promise<Res<objec
  * Mueve la tarjeta de un lead AGREGADO a un producto (no su casa): escribe su etapa en ESE
  * producto y nada más.
  */
-export async function moverEtapaEnProductoAction(leadId: number, funnelId: number | null, etapa: string): Promise<Res<{ antes: string }>> {
+export async function moverEtapaEnProductoAction(leadId: number, funnelId: number | null, etapa: string): Promise<Res<{ antes: string; automatizaciones?: InformeMovimiento }>> {
   await exigirSesion();
   try {
     if (!idOk(leadId) || typeof etapa !== 'string' || !etapa) return { ok: false, error: 'Falta la etapa.' };
-    const r = await moverEtapaEnProducto(leadId, await resolverProducto(funnelId), etapa);
+    // Lo mueve una persona: el informe de las automatizaciones de la etapa vuelve a la pantalla (23/10/2026).
+    const r = await moverEtapaEnProducto(leadId, await resolverProducto(funnelId), etapa, { porPersona: true });
     bust();
-    return { ok: true, antes: r.antes };
+    const i = r.automatizaciones;
+    return { ok: true, antes: r.antes, ...(i && (i.entro.length || i.noEntro.length) ? { automatizaciones: i } : {}) };
   } catch (e) {
     return mal(e, 'No se pudo mover.');
   }
