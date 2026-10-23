@@ -11,7 +11,8 @@ import { requireSesion } from '@/lib/tab-access';
 import { rutaConWs } from '@/lib/workspace';
 import { TODOS_LOS_ITEMS, USER_NAV } from '@/app/_components/nav';
 import { PermissionState } from '@/app/_ui/Estados';
-import { ROTULO_PASAR_A_PRO, RUTA_DEL_PLAN } from '@/lib/plan-esencial-reglas';
+import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
+import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -32,7 +33,7 @@ export default async function NoEstaEnTuPlanPage({ searchParams }: { searchParam
   const key = typeof tab === 'string' ? tab.slice(0, 60) : undefined;
   // «Ir al inicio» va al REPARTIDOR, como el login (21/10/2026): en la computadora, el Ops Center del negocio, que está en
   // todos los planes (lib/ops-center-ruta.ts → casaEnLaComputadora). Iba a la casa del plan (/crm o /plan).
-  const [inicio, plan] = await Promise.all([rutaConWs('/inicio'), rutaConWs(RUTA_DEL_PLAN)]);
+  const [inicio, plan] = await Promise.all([rutaConWs('/inicio'), rutaConWs(RUTA_CAMBIAR_PLAN)]);
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 16px 60px', display: 'grid', placeItems: 'start center' }}>
       <div style={{ width: '100%', maxWidth: 520 }}>

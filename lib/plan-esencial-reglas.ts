@@ -43,4 +43,4 @@ export function esEsencialPorPasarela(e: {
 }
 
 export const ROTULO_PASAR_A_PRO = 'Pasar a Pro';
-export const RUTA_DEL_PLAN = '/configuraciones/plan';
+// Adónde lleva «Pasar a Pro»: la ruta de UN lugar, `RUTA_CAMBIAR_PLAN` (lib/topes-plan.ts), no una propia.

@@ -88,3 +88,4 @@ test('4. el tope de automatizaciones: 3 en el Esencial, preguntado en cada puert
 //   · el desplegable de la barra sin el candado                       → 3
 //   · /api/email/secuencias sin preguntar el tope                     → 4
 //   · una automatización YA prendida contando como otra más           → 4
+//   · lib/plan-esencial.ts importando lib/cobros (lo pescó D6b: /api/auth/me alcanzaba una IA)  → 1
