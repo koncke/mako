@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// Las piezas del chat de Soporte (23/10/2026): el hilo, la tarjeta del ticket armado, la tira de tickets y su estado
+// Las piezas del chat de Soporte (23/10/2026): el hilo, la tarjeta del ticket armado, la lista de tickets y su estado
 // =============================================================================
 // El hilo y la caja son los del Ops Center (HiloMako, CajaChat): «el mismo diseño que un chat» (Martín, 22/10/2026). Lo
 // propio de Soporte —la diferencia con los otros chats— es que cada conversación termina en un TICKET: la tarjeta con lo
@@ -15,6 +15,9 @@ import { useEffect, type RefObject } from 'react';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { Status } from '@/app/_ui';
+import { TONO } from '@/app/_ui/tokens';
+import { Dropdown } from '@/app/components/Dropdown';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { TIPOS } from '@/lib/tickets-reglas';
 import { hayClave } from '@/lib/claves-en-el-chat';
 import { AvisoClave } from '@/app/_chat/AvisoClave';
@@ -23,8 +26,9 @@ import { hace } from '../navegador';
 import { TONO_ESTADO } from './hilo-soporte';
 import type { Soporte } from './useSoporte';
 
-/** Quien contesta en Soporte: su criatura en la cabecera y al lado de lo que dice MaKo o el equipo. */
-export const QUIEN_SOPORTE = { nombre: 'Soporte' };
+/** Quien contesta en Soporte: MaKo, con SU criatura (la estrella), en la cabecera y al lado de lo que dice (Martín, 23/10/2026:
+ *  «En la ticketera de clientes, la criatura debe ser la de MaKo»). La de «Soporte» salía de su nombre: una verde y redonda. */
+export const QUIEN_SOPORTE = { nombre: 'MaKo', aspecto: ASPECTO_MAKO };
 
 /** El hilo, con la tarjeta del ticket armado en la última propuesta de MaKo. */
 export function HiloSoporte({ s, hilo }: { s: Soporte; hilo: RefObject<HTMLElement | null> }) {
@@ -64,22 +68,35 @@ export function TarjetaTicket({ s }: { s: Soporte }) {
   );
 }
 
-/** La tira de arriba: empezar una conversación nueva y cada ticket con en qué anda. */
-export function TiraTickets({ s }: { s: Soporte }) {
+/** El dibujo del botón: una lista (tres renglones con su viñeta), del grueso de los íconos de la casa. */
+const ICONO_LISTA = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+    <path d="M9 6.5h11M9 12h11M9 17.5h11" /><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" strokeWidth="2.6" />
+  </svg>
+);
+const NUEVO = 'nuevo';
+
+/**
+ * Sus tickets, detrás del botón con el ícono de lista de la cabecera, al lado de «Soporte» (Martín, 23/10/2026: «arriba en la
+ * topbar donde dice "soporte" debería estar el botón con el ícono de lista, para ver los otros tickets con el status. No donde
+ * los pusiste actualmente»). Es el desplegable de la casa (app/components/Dropdown.tsx, el del filtro de la barra): «Contarle a
+ * MaKo» primero y cada ticket con su estado (el punto de su color y el rótulo).
+ */
+export function ListaTickets({ s }: { s: Soporte }) {
+  const n = s.tickets.length;
   return (
-    <nav className="sp-tira" aria-label="Tus tickets">
-      <button type="button" className="co-chip sp-tira__nuevo" aria-pressed={s.abierto === 'nuevo'} onClick={s.nuevo}>
-        <span aria-hidden>＋</span> Contarle a MaKo
-      </button>
-      {s.tickets.map((t) => (
-        <button key={t.id} type="button" className="co-chip sp-tira__ticket" aria-pressed={s.abierto === t.id} onClick={() => s.abrir(t.id)}
-          title={`#${t.id} · ${t.titulo} · ${t.rotulo}`}>
-          <span className="sp-tira__num">#{t.id}</span>
-          <span className="sp-tira__titulo">{t.titulo}</span>
-          <Status tono={TONO_ESTADO[t.estado]}>{t.rotulo}</Status>
-        </button>
-      ))}
-    </nav>
+    <Dropdown
+      value={s.abierto === NUEVO ? NUEVO : String(s.abierto)}
+      onChange={(v) => (v === NUEVO ? s.nuevo() : s.abrir(Number(v)))}
+      options={[
+        { value: NUEVO, label: 'Contarle a MaKo', sub: 'Un ticket nuevo', icono: 'agregar' },
+        ...s.tickets.map((t) => ({ value: String(t.id), label: `#${t.id} · ${t.titulo}`, sub: t.rotulo, color: TONO[TONO_ESTADO[t.estado]].fill })),
+      ]}
+      search={n > 6} sinFlecha align="left" menuMinAncho={260} menuAncho={340}
+      ariaLabel={n ? `Tus tickets (${n})` : 'Tus tickets'}
+      botonLabel={<span className="sp-lista__boton">{ICONO_LISTA}{n > 0 && <span className="sp-lista__n">{n}</span>}</span>}
+      buttonStyle={{ height: 32, padding: '0 9px', borderRadius: 999, color: 'var(--dim)' }}
+    />
   );
 }
 
@@ -105,10 +122,12 @@ export function EstadoDelTicket({ s }: { s: Soporte }) {
 }
 
 /** La caja única, con lo que dice según dónde está la conversación. */
-export function CajaSoporte({ s, movil = false }: { s: Soporte; movil?: boolean }) {
+export function CajaSoporte({ s, movil = false, campo, seguir }: {
+  s: Soporte; movil?: boolean; campo?: RefObject<HTMLTextAreaElement | null>; seguir?: () => HTMLElement | null;
+}) {
   return (
     <CajaChat texto={s.texto} onTexto={s.setTexto} onMandar={() => { s.mandar(); }} enviando={s.enviando} apagado={s.apagado || s.cargando}
-      placeholder={s.placeholder} tituloMandar={s.ticket ? 'Mandárselo al equipo' : 'Contárselo a MaKo'} enterManda={!movil}
+      placeholder={s.placeholder} tituloMandar={s.ticket ? 'Mandárselo al equipo' : 'Contárselo a MaKo'} enterManda={!movil} campo={campo} seguir={seguir}
       // Una clave pegada se tapa al guardar (lib/tickets-db.ts); antes, se le dice dónde va, como en la caja del Ops Center.
       arriba={hayClave(s.texto) ? <AvisoClave /> : undefined}
       {...(movil ? { fila: 'm-operaciones-caja__fila' } : {})} />

@@ -20,8 +20,9 @@ import { useSoporte, type Soporte } from '@/app/tickets/soporte/useSoporte';
 
 const Titulo = ({ s }: { s: Soporte }) => (
   <span className="m-operaciones-titulo">
-    <span className="m-operaciones-titulo__muneco"><Muneco titulo={QUIEN_SOPORTE.nombre} animo={s.mandando ? 'trabajando' : 'despierto'} size={34} /></span>
-    <span className="m-operaciones-titulo__texto"><span className="m-operaciones-titulo__nombre">{s.ticket ? `Ticket #${s.ticket.id}` : QUIEN_SOPORTE.nombre}</span></span>
+    {/* La criatura de MaKo, la estrella (23/10/2026), como en la computadora. */}
+    <span className="m-operaciones-titulo__muneco"><Muneco titulo={QUIEN_SOPORTE.nombre} aspecto={QUIEN_SOPORTE.aspecto} animo={s.mandando ? 'trabajando' : 'despierto'} size={34} /></span>
+    <span className="m-operaciones-titulo__texto"><span className="m-operaciones-titulo__nombre">{s.ticket ? `Ticket #${s.ticket.id}` : 'Soporte'}</span></span>
   </span>
 );
 

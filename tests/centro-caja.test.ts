@@ -24,7 +24,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { bloquesDeMensaje, borradorQueVale, conVinetas, enterEnLista, estaAbajo, leerBorrador, textoParaMandar } from '../lib/centro-caja';
+import { altoDelCampo, bloquesDeMensaje, borradorQueVale, conVinetas, enterEnLista, estaAbajo, leerBorrador, textoParaMandar } from '../lib/centro-caja';
 
 test('1. el guion pasa a viñeta en el renglón donde se escribe, recién tipeado el espacio', () => {
   assert.deepEqual(conVinetas('Hola\n- ', 7), { texto: 'Hola\n• ', cursor: 7 });
@@ -88,3 +88,15 @@ test('5. el scroll acompaña lo que se escribe: la conversación sigue abajo y l
   assert.match(leer('app/admin/operaciones/Conversacion.tsx'), /seguir=\{seguirHilo\}/, 'la computadora: la conversación');
   assert.match(leer('app/m/operaciones/ChatsMovil.tsx'), /seguir=\{seguirHoja\} altoMax=\{null\}/, 'el teléfono: la hoja');
 });
+
+test('6. la caja montada escondida no queda en 0 px: el texto centrado al aparecer (23/10/2026, «Pídele un cambio» quedaba bajo)', () => {
+  // Medido en producción, en el chat del lienzo de Automations: `height: 0px` con un `scrollHeight` de 40 (lo midió escondido).
+  assert.equal(altoDelCampo(0, 220), '', 'escondido no mide: el alto queda en manos del CSS (un renglón con su relleno)');
+  assert.equal(altoDelCampo(40, 220), '40px');
+  assert.equal(altoDelCampo(500, 220), '220px', 'con su tope');
+  const pieza = leer('app/_chat/CajaChat.tsx');
+  assert.doesNotMatch(pieza, /el\.style\.height = `\$\{Math\.min\(el\.scrollHeight/, 'nunca el alto sin pasar por altoDelCampo');
+  assert.match(pieza, /if \(!ancho && w\) \{ el\.style\.height = 'auto'; el\.style\.height = altoDelCampo\(el\.scrollHeight, altoMax\); \}/, 'se vuelve a medir al aparecer');
+});
+// PROBADO ROMPIÉNDOLO (23/10/2026, test 6): `altoDelCampo` devolviendo `${Math.min(medido, tope)}px` siempre → 5/1;
+// sin el ResizeObserver de CajaChat → 5/1.

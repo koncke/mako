@@ -1720,7 +1720,9 @@ código nuevo:
   - **UNA SOLA CAJA PARA HABLAR CON MaKo: `app/_chat/CajaChat.tsx`** (20/10/2026; Martín: «Te pedí que unificaras el chat
     del Ops Center en todos lados, su diseño y funcionalidades»). Ninguna pantalla nueva arma su <textarea>, usa
     `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.
-    Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. tests/chat-unico.test.ts lleva la lista de
+    Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. En un `PanelDeChat` va adentro de
+    `<div className="co-caja">`: el marco y el campo de un renglón son de esa clase, y sin ella sale rota (la Ticketera del
+    cliente, 23/10/2026). tests/chat-unico.test.ts lleva la lista de
     las que faltan, cada una con su chat, y falla si aparece una nueva. **Y el hilo, `app/_chat/HiloMako.tsx`** (22/10/2026,
     OF4): lo propio de una pantalla adentro de un mensaje de MaKo (el PDF de Offer, una tarjeta del onboarding) va por su
     hueco `enMensaje` (`arriba` o `abajo` del texto), nunca en un hilo propio. Un archivo que el chat no puede abrir (Offer
