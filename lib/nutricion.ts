@@ -5493,61 +5493,6 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
  * AI Step), una fila con hilos en paralelo (la guarda igual le corta los mensajes) ni el carril del recordatorio.
  * Exportada para el arnés del ws3. Nunca tira: el lead ya quedó marcado, que es lo crítico.
  */
-/** ¿A esta inscripción ya le salió algo? (enviado, o simulado en una prueba.) Un error cuenta como sí: corta de más, nunca manda de más. */
-async function yaLeSalioAlgo(db: Awaited<ReturnType<typeof getTenantDb>>, inscId: number): Promise<boolean> {
-  const { data, error } = await db.from('nutricion_envios').select('id').eq('inscripcion_id', inscId).in('estado', ['enviado', 'simulado']).limit(1);
-  if (error) { console.error(`[nutricion] ¿le salió algo a la inscripción ${inscId}?: ${error.message}`); return true; }
-  return (data ?? []).length > 0;
-}
-
-export async function alContestar(leadId: number, inscripciones: ReadonlyArray<{ id: number; secuencia_id: number }>, secs?: Secuencia[] | null): Promise<number> {
-  let movidas = 0;
-  try {
-    const db = await getTenantDb();
-    const lista = secs ?? await getSecuenciasActivas();
-    const porId = new Map(lista.map((s) => [s.id, s]));
-    const ids = inscripciones.filter((i) => porId.has(i.secuencia_id)).map((i) => i.id);
-    if (!ids.length) return 0;
-    const { data, error } = await db.from('nutricion_inscripciones')
-      .select('id, lead_id, secuencia_id, estado, paso_actual, nodo_actual, hilos').in('id', ids).eq('estado', 'respondio');
-    if (error) throw new Error(error.message);
-    for (const f of (data ?? []) as Array<{ id: number; secuencia_id: number; paso_actual: number; nodo_actual: string | null; hilos: unknown }>) {
-      const sec = porId.get(f.secuencia_id);
-      if (!sec || raizRespuesta(sec.pasos) != null || sanearHilos(f.hilos)) continue;
-      // Sin nada que le haya salido, no está contestando esta automatización (le escribió al negocio por otra cosa): no
-      // se toca, y le sale su primer mensaje (revisión adversarial del 23/10/2026). Después, «Contestó» lo ve.
-      if (!(await yaLeSalioAlgo(db, f.id))) continue;
-      const idx = indiceActual(sec.pasos, f);
-      if (idx < 0 || esHiloDelCarril(sec.pasos, idx)) continue;
-      const destino = destinoAlContestar(sec.pasos, idx);
-      if (destino === undefined) continue;
-      const j = destino ? indicePorId(sec.pasos, destino) : -1;
-      // ⚠️ SIN RAMA «CONTESTÓ», LA FILA QUEDA EN 'respondio' SIN PRÓXIMO ENVÍO (revisión adversarial del 23/10/2026): un
-      // 'completada' directo se salteaba `estadoAlEscribir`, y el desenlace la daba por FALLIDA (`no_responde`, la etapa
-      // de fallo y su automatización: más mensajes a quien SÍ contestó). Así la cierra el desenlace como lograda.
-      const campos = j >= 0
-        ? { paso_actual: j, nodo_actual: destino, proximo_envio_at: ahoraISO(), updated_at: ahoraISO() }
-        : { proximo_envio_at: null, updated_at: ahoraISO() };
-      // Compare-and-set contra la posición leída: si el motor la movió entre medio, la guarda de `procesarEnvios` corta igual.
-      const { data: upd, error: eU } = await db.from('nutricion_inscripciones').update(campos)
-        .eq('id', f.id).eq('estado', 'respondio').eq('paso_actual', f.paso_actual).select('id');
-      if (eU) { console.error(`[nutricion] «Contestó» de la inscripción ${f.id}: ${eU.message}`); continue; }
-      if (!(upd ?? []).length) continue;
-      movidas += 1;
-      console.log(`[nutricion] lead ${leadId}: contestó en «${sec.clave}» → ${j >= 0 ? `la rama «Contestó» (${destino})` : 'sale de la automatización'}`);
-      try {
-        const { logLeadEvent } = await import('@/lib/leads');
-        await logLeadEvent(leadId, 'Automatización', `Contestó en «${sec.nombre}»: ${j >= 0 ? 'sigue por «Contestó».' : 'no le sale nada más.'}`, 'MaKo');
-      } catch { /* el historial no puede romper el corte */ }
-    }
-    // La rama «Contestó» corre YA (su aviso al equipo), con el turno del negocio.
-    if (movidas) await viaRapidaConTurno(leadId).catch((e: unknown) => console.error(`[nutricion] «Contestó» lead ${leadId}: la rama queda para el tick (${e instanceof Error ? e.message : String(e)})`));
-  } catch (e) {
-    console.error(`[nutricion] «Contestó» lead ${leadId}: no pude cortar (la guarda de procesarEnvios corta los mensajes igual):`, e instanceof Error ? e.message : String(e));
-  }
-  return movidas;
-}
-
 export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' | CanalSocial; cuenta?: string | null; audio?: AudioDelLead | null; recibidoAt?: string | null }): Promise<number> {
   const social: CanalSocial | null = esCanalSocial(opts?.origen) ? opts!.origen as CanalSocial : null;
   const medio: MedioAIStep = social ?? 'whatsapp';
@@ -5672,6 +5617,61 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     if (!atendida) await seguirCharla(leadId, charla, opts?.texto, opts?.linea ?? null, social ?? (opts?.origen === 'no_oficial' ? 'no_oficial' : 'oficial'), opts?.cuenta ?? null, opts?.audio ?? null, opts?.recibidoAt ?? null);
   } catch (e) { console.error(`[nutricion] modo asistido lead ${leadId} falló:`, e); }
   return respondidas.length;
+}
+
+/** ¿A esta inscripción ya le salió algo? (enviado, o simulado en una prueba.) Un error cuenta como sí: corta de más, nunca manda de más. */
+async function yaLeSalioAlgo(db: Awaited<ReturnType<typeof getTenantDb>>, inscId: number): Promise<boolean> {
+  const { data, error } = await db.from('nutricion_envios').select('id').eq('inscripcion_id', inscId).in('estado', ['enviado', 'simulado']).limit(1);
+  if (error) { console.error(`[nutricion] ¿le salió algo a la inscripción ${inscId}?: ${error.message}`); return true; }
+  return (data ?? []).length > 0;
+}
+
+export async function alContestar(leadId: number, inscripciones: ReadonlyArray<{ id: number; secuencia_id: number }>, secs?: Secuencia[] | null): Promise<number> {
+  let movidas = 0;
+  try {
+    const db = await getTenantDb();
+    const lista = secs ?? await getSecuenciasActivas();
+    const porId = new Map(lista.map((s) => [s.id, s]));
+    const ids = inscripciones.filter((i) => porId.has(i.secuencia_id)).map((i) => i.id);
+    if (!ids.length) return 0;
+    const { data, error } = await db.from('nutricion_inscripciones')
+      .select('id, lead_id, secuencia_id, estado, paso_actual, nodo_actual, hilos').in('id', ids).eq('estado', 'respondio');
+    if (error) throw new Error(error.message);
+    for (const f of (data ?? []) as Array<{ id: number; secuencia_id: number; paso_actual: number; nodo_actual: string | null; hilos: unknown }>) {
+      const sec = porId.get(f.secuencia_id);
+      if (!sec || raizRespuesta(sec.pasos) != null || sanearHilos(f.hilos)) continue;
+      // Sin nada que le haya salido, no está contestando esta automatización (le escribió al negocio por otra cosa): no
+      // se toca, y le sale su primer mensaje (revisión adversarial del 23/10/2026). Después, «Contestó» lo ve.
+      if (!(await yaLeSalioAlgo(db, f.id))) continue;
+      const idx = indiceActual(sec.pasos, f);
+      if (idx < 0 || esHiloDelCarril(sec.pasos, idx)) continue;
+      const destino = destinoAlContestar(sec.pasos, idx);
+      if (destino === undefined) continue;
+      const j = destino ? indicePorId(sec.pasos, destino) : -1;
+      // ⚠️ SIN RAMA «CONTESTÓ», LA FILA QUEDA EN 'respondio' SIN PRÓXIMO ENVÍO (revisión adversarial del 23/10/2026): un
+      // 'completada' directo se salteaba `estadoAlEscribir`, y el desenlace la daba por FALLIDA (`no_responde`, la etapa
+      // de fallo y su automatización: más mensajes a quien SÍ contestó). Así la cierra el desenlace como lograda.
+      const campos = j >= 0
+        ? { paso_actual: j, nodo_actual: destino, proximo_envio_at: ahoraISO(), updated_at: ahoraISO() }
+        : { proximo_envio_at: null, updated_at: ahoraISO() };
+      // Compare-and-set contra la posición leída: si el motor la movió entre medio, la guarda de `procesarEnvios` corta igual.
+      const { data: upd, error: eU } = await db.from('nutricion_inscripciones').update(campos)
+        .eq('id', f.id).eq('estado', 'respondio').eq('paso_actual', f.paso_actual).select('id');
+      if (eU) { console.error(`[nutricion] «Contestó» de la inscripción ${f.id}: ${eU.message}`); continue; }
+      if (!(upd ?? []).length) continue;
+      movidas += 1;
+      console.log(`[nutricion] lead ${leadId}: contestó en «${sec.clave}» → ${j >= 0 ? `la rama «Contestó» (${destino})` : 'sale de la automatización'}`);
+      try {
+        const { logLeadEvent } = await import('@/lib/leads');
+        await logLeadEvent(leadId, 'Automatización', `Contestó en «${sec.nombre}»: ${j >= 0 ? 'sigue por «Contestó».' : 'no le sale nada más.'}`, 'MaKo');
+      } catch { /* el historial no puede romper el corte */ }
+    }
+    // La rama «Contestó» corre YA (su aviso al equipo), con el turno del negocio.
+    if (movidas) await viaRapidaConTurno(leadId).catch((e: unknown) => console.error(`[nutricion] «Contestó» lead ${leadId}: la rama queda para el tick (${e instanceof Error ? e.message : String(e)})`));
+  } catch (e) {
+    console.error(`[nutricion] «Contestó» lead ${leadId}: no pude cortar (la guarda de procesarEnvios corta los mensajes igual):`, e instanceof Error ? e.message : String(e));
+  }
+  return movidas;
 }
 
 /**
