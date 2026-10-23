@@ -16,11 +16,14 @@ import { capaDef } from '@/lib/capas';
 import { darDeBajaMiPlan, type ResultadoBaja } from '@/lib/cobros';
 import { mandarCodigoDeBaja } from '@/lib/invitaciones';
 import { aplicarRetencion, type OpcionRetencion } from '@/lib/retencion-plan';
+import { guardarDeudaAntesDeLaBaja } from '@/lib/plan-deuda';
 
 export async function darmeDeBajaAction(): Promise<ResultadoBaja> {
   const ws = await adminDeWorkspaceActual().catch(() => null);
   if (ws == null) return { ok: false, resumen: 'Sólo quien administra el negocio puede darlo de baja.' };
   const sesion = await getUsuarioActual();
+  // En plena mora, la deuda queda guardada antes de la baja (la baja pisa el aviso de la renovación fallida).
+  await guardarDeudaAntesDeLaBaja(ws).catch((e) => console.warn('[plan] deuda antes de la baja:', e instanceof Error ? e.message : String(e)));
   const r = await darDeBajaMiPlan(ws, sesion?.nombre || sesion?.email || 'el negocio');
   // El comprobante, al email de quien la pidió. Si no sale, la baja igual quedó hecha (el código está en pantalla).
   if (r.ok && sesion?.email) {

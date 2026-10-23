@@ -117,9 +117,12 @@ export async function deudaDe(ws: number): Promise<{ deuda: Deuda | null; cobran
   const viva = vig.estado === 'mora' || (vig.estado === 'vencido' && vig.deuda) ? (vig as { deuda: Deuda }).deuda : null;
   const cobrando = viva ? v.cobros.find((c) => c.id === viva.cobroId) ?? null : null;
   if (viva) return { deuda: viva, cobrando, hasta: (vig as { hasta: string }).hasta };
-  // La que quedó guardada al pausar vale mientras lo cobrado no la cubra (pagar la deuda la salda aunque el corte siga).
+  // La que quedó guardada al pausar, o al darse de baja en plena mora (`guardarDeudaAntesDeLaBaja`: la baja pisa el aviso de la
+  // renovación fallida, revisión del 23/10, media 11), vale mientras lo cobrado no la cubra.
   const corte = await corteDe(ws);
-  const g = corte?.vigente && corte.deuda ? corte.deuda : null;
+  const { data: alBajar } = await getSupabaseServer().from('app_settings').select('value').eq('workspace_id', ws).eq('key', CLAVE_DEUDA_BAJA).maybeSingle();
+  const deBaja = leerDeuda((alBajar as { value?: string } | null)?.value ?? null);
+  const g = corte?.vigente && corte.deuda ? corte.deuda : deBaja;
   const guardada = g && !(v.cubierto && v.cubierto >= mesesDespuesDe(g.desde, g.ciclos)) ? g : null;
   return { deuda: guardada, cobrando: guardada ? v.cobros.find((c) => c.id === guardada.cobroId) ?? null : null, hasta: corte?.hasta ?? null };
 }
@@ -225,4 +228,25 @@ export async function avisoDeMora(ws: number): Promise<{ monto: number | null; m
   const v = await vigenciaDe(ws);
   if (!v || v.vigencia.estado !== 'mora') return null;
   return { monto: v.vigencia.deuda.monto, moneda: v.vigencia.deuda.moneda, pausaEl: diaDeSuspension(v.vigencia.hasta) };
+}
+
+/** La deuda que había al darse de baja en plena mora (la baja pisa el `motivo` de la renovación fallida). */
+export const CLAVE_DEUDA_BAJA = 'plan.deuda_al_bajar';
+
+function leerDeuda(crudo: string | null): Deuda | null {
+  try {
+    const d = crudo ? (JSON.parse(crudo) as Deuda) : null;
+    return d && typeof d.cobroId === 'number' && typeof d.ciclos === 'number' && typeof d.desde === 'string' ? d : null;
+  } catch { return null; }
+}
+
+/** Antes de la baja: si hay mora, se guarda lo que se debe (revisión del 23/10, media 11: darse de baja borraba la deuda). */
+export async function guardarDeudaAntesDeLaBaja(ws: number): Promise<void> {
+  const v = await vigenciaDe(ws);
+  const vig = v?.vigencia;
+  const d = vig && (vig.estado === 'mora' || (vig.estado === 'vencido' && vig.deuda)) ? (vig as { deuda: Deuda }).deuda : null;
+  if (!d) return;
+  const { error } = await getSupabaseServer().from('app_settings')
+    .upsert({ workspace_id: ws, key: CLAVE_DEUDA_BAJA, value: JSON.stringify(d), updated_at: new Date().toISOString() }, { onConflict: 'workspace_id,key' });
+  if (error) console.warn(`[plan-deuda] ws=${ws} no pude guardar la deuda antes de la baja: ${error.message}`);
 }
