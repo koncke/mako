@@ -9,6 +9,13 @@
 //   4. LA CAPA SUBE SÓLO DESPUÉS DE QUE LA PASARELA ACEPTÓ.
 //   5. SÓLO SUBE, y sólo el admin.
 //
+// PROBADO ROMPIÉNDOLO (23/10/2026), con el archivo en 3 / 0, una rotura por vez, cada una → 2 / 1:
+//   sin cobrar la diferencia ahora · con el cobro fallido queda en Pro · el anual pasa a mensual · sin «ya estaba» ·
+//   sin el ítem (suma un segundo precio) · un segundo clic vuelve a cobrar · baja de plan · se inventa un precio en otra
+//   moneda · una «aplicando» corriendo se pisa · la capa sube antes de la pasarela · pagó y no se activó y dice «Listo» ·
+//   sin el corte de admin · sin plan_mako se baja el precio · desde otra capa · pausada o en mora pasa a Pro · un timeout
+//   dice «sigue igual» · la agencia le cobra al cliente · con retención viva sube. (18 roturas.)
+//
 // Correr: node --import tsx --test tests/subir-plan.test.ts
 
 import { test } from 'node:test';
