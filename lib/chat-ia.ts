@@ -25,7 +25,7 @@ import { MODELOS_SU_CLAUDE, eleccionVigente, sanearIA, type CuentaDeIA, type Ele
 const FEATURE_DEL_CHAT = 'mako-doer';
 
 /** Las cuentas que ESTA persona puede elegir en ESTE negocio, en el orden en que se ofrecen. Lo que no se puede leer, no se ofrece. */
-export async function cuentasDeIA(persona: { ws: number; actor: string }): Promise<CuentaDeIA[]> {
+export async function cuentasDeIA(persona: { ws: number; actor: string; rol?: 'admin' | 'miembro' }): Promise<CuentaDeIA[]> {
   if (persona.ws === (await wsSuperAdmin())) return [];
   return runWithWorkspace(persona.ws, async () => {
     const out: CuentaDeIA[] = [];
@@ -36,10 +36,12 @@ export async function cuentasDeIA(persona: { ws: number; actor: string }): Promi
     }
     const suClaude = await permisoDeLaClaveDelNegocio(FEATURE_DEL_CHAT).catch(() => null);
     if (suClaude && 'permiso' in suClaude) {
-      // El crédito de Claude de MaKo (el ws10, el asignado al ws1) va con Haiku, se elija lo que se elija: lo paga Martín.
+      // El crédito de Claude de MaKo (el ws10, el asignado al ws1) va con Haiku, se elija lo que se elija: lo paga Martín. Y el
+      // modelo de la clave PAGA del negocio lo elige el ADMIN (revisión del selector, 23/10/2026: la ruta del modelo le contesta
+      // 403 a un miembro, y el selector le abría la misma decisión por otra puerta): a un miembro, sin elegir (corre el del admin).
       const soloHaiku = !!suClaude.permiso.esCredito;
       out.push({
-        cuenta: 'anthropic', nombre: 'Tu Claude', modelos: soloHaiku ? ['haiku'] : MODELOS_SU_CLAUDE,
+        cuenta: 'anthropic', nombre: 'Tu Claude', modelos: soloHaiku ? ['haiku'] : persona.rol === 'admin' ? MODELOS_SU_CLAUDE : [],
         modeloDefault: suClaude.permiso.model === MODELO_SU_CLAUDE.sonnet ? 'sonnet' : 'haiku', ...(soloHaiku ? { soloHaiku: true } : {}),
       });
     }
@@ -54,7 +56,7 @@ export async function cuentasDeIA(persona: { ws: number; actor: string }): Promi
  * ahora (`eleccionVigente`: una cuenta que ya no está es Automático, y un modelo que esa cuenta no acepta se cae). Sin nada
  * elegido, null sin leer nada.
  */
-export async function eleccionDelPedido(persona: { ws: number; actor: string }, crudo: unknown): Promise<EleccionIA> {
+export async function eleccionDelPedido(persona: { ws: number; actor: string; rol?: 'admin' | 'miembro' }, crudo: unknown): Promise<EleccionIA> {
   const e = sanearIA(crudo);
   if (!e) return null;
   return eleccionVigente(e, await cuentasDeIA(persona).catch(() => []));

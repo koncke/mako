@@ -64,11 +64,13 @@ async function main() {
   pg.db.ia_pc_dispositivos.push({ id: 5, workspace_id: 20, persona: 'ana@negocio.com', nombre: 'Oficina', ultimo_latido: new Date().toISOString(), cuentas: [{ proveedor: 'claude', email: 'ana@gmail.com' }], confirmado_at: new Date().toISOString(), activa_at: new Date().toISOString(), revocado_at: null, claude_falta: false, creado_at: new Date().toISOString() });
   // El super admin con SU computadora: igual no elige nada (en su workspace contesta la IA de la plataforma).
   pg.db.ia_pc_dispositivos.push({ id: 6, workspace_id: PLATAFORMA, persona: 'martin@mako.com', nombre: 'MSI', ultimo_latido: new Date().toISOString(), cuentas: [{ proveedor: 'claude', email: 'martin@gmail.com' }], confirmado_at: new Date().toISOString(), activa_at: new Date().toISOString(), revocado_at: null, claude_falta: false, creado_at: new Date().toISOString() });
-  const ana = { ws: 20, actor: 'ana@negocio.com' };
+  const ana = { ws: 20, actor: 'ana@negocio.com', rol: 'admin' as const };
+  const beto = { ws: 20, actor: 'beto@negocio.com', rol: 'miembro' as const };
   const out: Record<string, unknown> = {};
   out.cuentasAna = await cuentasDeIA(ana);
-  out.cuentasOtraPersona = (await cuentasDeIA({ ws: 20, actor: 'beto@negocio.com' })).map((c) => c.cuenta);
-  out.cuentasMauricio = await cuentasDeIA({ ws: 1, actor: 'mauricio@negocio.com' });
+  out.cuentasOtraPersona = (await cuentasDeIA(beto)).map((c) => c.cuenta);
+  out.modelosDelMiembro = (await cuentasDeIA(beto)).find((c) => c.cuenta === 'anthropic')?.modelos;
+  out.cuentasMauricio = await cuentasDeIA({ ws: 1, actor: 'mauricio@negocio.com', rol: 'admin' });
   out.cuentasSinNada = await cuentasDeIA({ ws: 21, actor: 'x@y.com' });
   out.cuentasSuperAdmin = await cuentasDeIA({ ws: PLATAFORMA, actor: 'martin@mako.com' });
   // Lo que pasa la validación.
@@ -76,8 +78,9 @@ async function main() {
     sonnet: await eleccionDelPedido(ana, { cuenta: 'anthropic', modelo: 'sonnet' }),
     pcOpus: await eleccionDelPedido(ana, JSON.stringify({ cuenta: 'pc', modelo: 'opus' })),
     openaiConModelo: await eleccionDelPedido(ana, { cuenta: 'openai', modelo: 'gpt-5' }),
-    pcDeOtro: await eleccionDelPedido({ ws: 20, actor: 'beto@negocio.com' }, { cuenta: 'pc' }),
-    sonnetConElCredito: await eleccionDelPedido({ ws: 1, actor: 'mauricio@negocio.com' }, { cuenta: 'anthropic', modelo: 'sonnet' }),
+    pcDeOtro: await eleccionDelPedido(beto, { cuenta: 'pc' }),
+    sonnetDelMiembro: await eleccionDelPedido(beto, { cuenta: 'anthropic', modelo: 'sonnet' }),
+    sonnetConElCredito: await eleccionDelPedido({ ws: 1, actor: 'mauricio@negocio.com', rol: 'admin' }, { cuenta: 'anthropic', modelo: 'sonnet' }),
     openaiSinClave: await eleccionDelPedido({ ws: 1, actor: 'mauricio@negocio.com' }, { cuenta: 'openai' }),
     basura: await eleccionDelPedido(ana, { cuenta: 'constructor' }),
     nada: await eleccionDelPedido(ana, undefined),

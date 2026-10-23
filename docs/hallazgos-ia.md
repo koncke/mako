@@ -5451,6 +5451,14 @@ tests/chat-ia.test.ts.
   con la clave del crédito.
 - **Elegir una cuenta es elegirla:** con la computadora elegida, el turno no cae a las claves; con SU OpenAI, no cae a Claude
   (`soloSuOpenAI` tira «falló la IA»). Automático sigue igual que antes: la computadora y, si no puede, sus claves.
+- **La revisión adversarial (Integración, 23/10) agarró una decisión que se abría por otra puerta:** el modelo de la clave
+  PAGA del negocio lo elige el admin (la ruta del modelo le contesta 403 a un miembro), y el selector se lo dejaba elegir a
+  cualquiera. Ahora a un miembro no se le ofrece elegir modelo en su Claude, y corre con el del admin. **La regla: una decisión
+  que una ruta le cierra a un rol se le cierra también en cada puerta nueva que la ofrece.**
+  - En su computadora sí elige: gasta el cupo de SU propia suscripción.
+  - Con «Tu Claude» elegido y la PC apagada, el aviso hablaba de la computadora y se perdía el error de su clave.
+  - Si las cuentas no se pueden leer, la elección vuelve a Automático sin avisar. Es el contrato acordado, y la plata es
+    siempre del negocio.
 - **Un test que busca «la PRIMERA llamada a la cascada» se equivoca cuando aparece otra antes:** anthropic-tools-sin-fallback se
   ancló a la cascada del registro.
 - **Dos tests fallaron SÓLO en la corrida grande** (chats-mako-envio, doer-recetas-video-imagen): pasan solos, en main y en esta

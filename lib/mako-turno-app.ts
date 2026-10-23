@@ -728,11 +728,13 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // Sólo se le manda a una PC en línea CON un Claude con sesión: «en línea» sin sesión no contesta nada.
     const pcPuede = pcUsable(pc);
     // Lo que falló en la PC del cliente (apagada, sin Claude, sin sesión, al tope, no contestó a tiempo) no es un bug.
-    let falloDeLaPc: FalloDeLaPc | null = pc && !pcPuede ? (pc.enLinea ? (pc.claudeFalta ? 'sin-claude' : 'sesion') : 'apagada') : null;
     // Lo que eligió en el «+» (8b, ya validado por la ruta): con una de sus claves, la computadora no se usa; con la
     // computadora, las claves no.
     const ia = entrada.ia ?? null;
     const conLaPc = !ia || ia.cuenta === 'pc';
+    // Sólo si se usa la computadora: con «Tu Claude» elegido y la PC apagada, el aviso era «tu computadora está apagada» y se
+    // perdía el error de su clave (revisión del selector, 23/10/2026).
+    let falloDeLaPc: FalloDeLaPc | null = conLaPc && pc && !pcPuede ? (pc.enLinea ? (pc.claudeFalta ? 'sin-claude' : 'sesion') : 'apagada') : null;
     // Eligió su computadora y no hay ninguna conectada (si no se pudo LEER, lo dice su propio aviso): eso es lo que pasa.
     if (ia?.cuenta === 'pc' && !pc && !pcIlegible) falloDeLaPc = 'apagada';
     let reponeDeLaPc: string | null = null;

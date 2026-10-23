@@ -40,6 +40,8 @@ test('1. qué se ofrece: su computadora, su Claude y su OpenAI; con el crédito,
     { cuenta: 'openai', nombre: 'Tu ChatGPT', modelos: [], modeloDefault: null },
   ]);
   assert.deepEqual(r.cuentasOtraPersona, ['anthropic', 'openai'], 'la computadora de Ana se le ofreció a otra persona');
+  // El modelo de la clave paga del negocio lo elige el admin (revisión del selector): a un miembro, sin elegir.
+  assert.deepEqual(r.modelosDelMiembro, [], 'un miembro elige el modelo de la clave paga');
   assert.deepEqual(r.cuentasMauricio, [{ cuenta: 'anthropic', nombre: 'Tu Claude', modelos: ['haiku'], modeloDefault: 'haiku', soloHaiku: true }], 'el crédito de MaKo con Sonnet');
   assert.deepEqual(r.cuentasSinNada, [], 'se le ofreció la IA de la plataforma');
   assert.deepEqual(r.cuentasSuperAdmin, []);
@@ -51,6 +53,7 @@ test('2. qué elección pasa: una de las que se ofrecen, con un modelo que esa c
   assert.deepEqual(e.pcOpus, { cuenta: 'pc', modelo: 'opus' }, 'el multipart manda el JSON');
   assert.deepEqual(e.openaiConModelo, { cuenta: 'openai' }, 'OpenAI todavía sin elegir modelo');
   assert.equal(e.pcDeOtro, null, 'la computadora de otra persona');
+  assert.deepEqual(e.sonnetDelMiembro, { cuenta: 'anthropic' }, 'un miembro pisó el modelo del admin sobre la clave paga');
   assert.deepEqual(e.sonnetConElCredito, { cuenta: 'anthropic' }, 'Sonnet sobre el crédito de MaKo');
   assert.equal(e.openaiSinClave, null);
   assert.equal(e.basura, null);
@@ -77,6 +80,8 @@ test('4. la ruta lo lee en las dos ramas y manda las cuentas; el turno lo respet
   assert.doesNotMatch(ruta, /ia: body\.ia|ia: form\.get/);
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
   assert.match(turno, /const conLaPc = !ia \|\| ia\.cuenta === 'pc';/);
+  // Con una de sus claves elegida, lo de la computadora no es lo que pasó (revisión del selector).
+  assert.match(turno, /let falloDeLaPc: FalloDeLaPc \| null = conLaPc && pc && !pcPuede \?/, 'con «Tu Claude» elegido, el aviso habla de la computadora');
   assert.match(turno, /if \(conLaPc && pc && pcPuede\) \{/, 'con una de sus claves elegida, igual piensa la computadora');
   assert.match(turno, /const modelo = ia\?\.cuenta === 'pc' && ia\.modelo \? modeloPc\(ia\.modelo\) : modeloPc\(await getSetting\(CLAVE_MODELO_PC\)/);
   assert.match(turno, /falloDeLaPc !== 'muchos' && ia\?\.cuenta !== 'pc'\) \{/, 'con la computadora elegida, cae a las claves');
