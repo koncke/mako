@@ -846,14 +846,23 @@ viejo: **una automatización dejó de ser una lista de mensajes y pasó a ser un
 
 ## 4. Lo que está a medio hacer o sin verificar, con el archivo
 
+- **Estado del 23/10 (claude2), NADA de esto está en producción hasta que lo diga Integración:** `aut-chat-agregar` (el
+  seguimiento detrás de «No contestó»), `aut-au2-antiban` (Configuraciones sin nada «para todas» y «Misma persona» que nace
+  apagada) y `aut2-arnes` (el arnés del chat de MaKo en main, scripts/probar-chats) pasaron a Integración.
+- **«Cambié «X»» sin cambio visible** (el caso `solo-apertura` del arnés, 1 de 2): la tarjeta cambia un campo que no está en
+  su nombre y `resumenEdicionDetalle` (lib/flujo-ia.ts) dice «Cambié «X»» sin decir qué. Falta reproducirlo para saber qué
+  campo. P2.
+- **Sábado 24/10, la campaña de Mauricio (#289, ws1):** medir en la primera hora que los 50 salen con el goteo de 5 min y que
+  «contestó» corta. Es de Automations.
 - **P2, después del 25/10: «MaKo contesta sola» no se edita desde ninguna pantalla** (23/10/2026). Eran «Por persona»
   (veces que MaKo contesta sola a una persona en 24 h) y «Charla abierta» (días), los límites de la LÍNEA que se fueron de
   Configuraciones de una automatización con «nada para todas» (`aut-au2-antiban`). Hoy viven en `app_settings`
   `mako.limites_envio`, grupo `mako` (`solasPor24h`, `diasCharla`; fábrica 3 y 7, lib/limites-envio.ts), y siguen con
   su último valor. Decisión del Cerebro: su lugar es la pantalla de la línea de WhatsApp (/whatsapp), no Automations.
-- **El script de «Misma persona» se corre ANTES del deploy de `aut-au2-antiban`** (scripts/misma-persona-propia.mts
-  `--creadas-antes=<ahora> --aplicar`, con el permiso de Martín: escribe en producción). Si el deploy sale antes, las
-  automatizaciones que heredaban quedan apagadas hasta correrlo.
+- **El script de «Misma persona» (scripts/misma-persona-propia.mts `--aplicar`)** lo corre Automations en la ventana del
+  deploy de `aut-au2-antiban`, con el simulacro antes y el antes y el después medidos en dos negocios reales (OK de
+  producción del Cerebro, 23/10). El orden no importa: sin las suyas sigue siendo la del negocio, y las nuevas nacen con la
+  suya apagada.
 
 **Nada de esta área se verificó con clics en PRODUCCIÓN.** Lo que sí se vio: la octava tanda se miró
 en el navegador en **dev local sobre el ws9, sin guardar nada** (paneo con el derecho, el lazo con 3
