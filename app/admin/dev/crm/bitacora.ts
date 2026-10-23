@@ -3134,6 +3134,8 @@ export const BITACORA: Hito[] = [
       'Si no se pudo leer Stripe, el pop-up lo dice. MaKo también puede traerlos, con tu «sí».',
     ],
     commits: [
+      { sha: '51c89251b', msg: '«Vincular cobro»: los productos de Stripe en «+ Producto», con su precio, encima del servidor de Cobros', lineas: 225, archivos: 3 },
+      { sha: '9b9795dad', msg: 'MaKo: ver y traer los precios de Stripe para Ganado, con las mismas funciones de Cobros', lineas: 140, archivos: 7 },
     ],
     archivos: [
       'app/crm/CobroDeEtapaModal.tsx · app/crm/cobro-ganado.ts — «+ Producto» con Stripe',
