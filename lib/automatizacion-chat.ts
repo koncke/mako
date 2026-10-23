@@ -35,6 +35,8 @@ export type MensajeChatMako = {
    * rojo; `avisos` son lo que MaKo reparó solo, en gris. Con algo acá el mensaje no dice «Listo».
    */
   noHecho?: string[];
+  /** Los nombres de lo que adjuntó con el «+» (23/10/2026, AU4): el hilo los muestra; el texto leído no se guarda acá. */
+  adjuntos?: string[];
   /**
    * DE QUÉ TARJETA SALIÓ (decimotercera tanda, 12/10/2026, punto 7: «las recomendaciones que te de MaKo, en "MaKo te
    * ayuda a escribirlo"... se debe quedar guardado como parte del historial del chat... se tiene que ver que el usuario
@@ -130,6 +132,10 @@ export function sanearMensaje(raw: unknown): MensajeChatMako | null {
   if (Array.isArray(raw.noHecho)) {
     const noHecho = raw.noHecho.map(texto).filter((a): a is string => !!a && a.trim().length > 0).slice(0, TOPE_AVISOS);
     if (noHecho.length) m.noHecho = noHecho;
+  }
+  if (Array.isArray(raw.adjuntos)) {
+    const adjuntos = raw.adjuntos.map(texto).filter((a): a is string => !!a && a.trim().length > 0).map((a) => a.slice(0, 120)).slice(0, 4);
+    if (adjuntos.length) m.adjuntos = adjuntos;
   }
   if (typeof raw.tarjeta === 'string' && raw.tarjeta.trim()) m.tarjeta = raw.tarjeta.trim().slice(0, TOPE_TARJETA_CHAT);
   return m;
