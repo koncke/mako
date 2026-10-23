@@ -16,10 +16,10 @@
 // =============================================================================
 
 import { OWNER_WS } from './auth-session';
-import { cabeOtra, textoTope, topeDe } from './topes-plan';
+import { RUTA_CAMBIAR_PLAN, cabeOtra, textoTope, topeDe } from './topes-plan';
 
-/** Adónde lleva «Pasar a Pro». */
-export const LINK_PLANES = '/planes';
+/** Adónde lleva «Pasar a Pro»: la de topes-plan (cambiar de plan desde Configuración), no una copia. */
+export const LINK_PLANES = RUTA_CAMBIAR_PLAN;
 
 /** null = puede conectarla; si no, el cartel corto. */
 export function topeAlConectar(p: { ws: number; cobradoPorPasarela: boolean; capa: string | null; usadas: number }): { texto: string; tope: number } | null {

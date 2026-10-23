@@ -81,7 +81,7 @@ export default function CuentasDePago({ proveedor, onCambio }: {
     setOcupada(null);
     if (Array.isArray(j.cuentas)) setCuentas(j.cuentas);
     // El tope del plan (402): el cartel corto y «Pasar a Pro».
-    if (!j.ok) { setMsg({ ok: false, text: j.error ?? 'No se pudo.', planes: j.tope ? (j.planes ?? '/planes') : null }); return false; }
+    if (!j.ok) { setMsg({ ok: false, text: j.error ?? 'No se pudo.', planes: j.tope ? (j.planes ?? null) : null }); return false; }
     if (j.aviso) setMsg({ ok: false, text: j.aviso });
     else if (j.mensaje) setMsg({ ok: j.completa !== false, text: j.mensaje });
     if (avisarArriba) onCambio?.();

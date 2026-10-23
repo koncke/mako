@@ -40,7 +40,7 @@ test('la regla: Esencial conecta una, Pro varias; el ws1 y los acuerdos a mano n
   assert.equal(topeAlConectar({ ...esencial, cobradoPorPasarela: false, usadas: 4 }), null, 'a un acuerdo a mano se le aplicaba el tope');
   assert.equal(topeAlConectar({ ...esencial, ws: 1, usadas: 4 }), null, 'al ws1 se le aplicaba el tope');
   assert.equal(topeAlConectar({ ws: 13, cobradoPorPasarela: true, capa: null, usadas: 4 }), null, 'una capa que no es un plan no tiene tope');
-  assert.equal(LINK_PLANES, '/planes');
+  assert.equal(LINK_PLANES, '/configuraciones/plan', '«Pasar a Pro» lleva a cambiar de plan (RUTA_CAMBIAR_PLAN de lib/topes-plan.ts)');
 });
 
 test('lo que lee el plan: primero si MaKo lo cobra por la pasarela, y sin poder leer, no frena', () => {

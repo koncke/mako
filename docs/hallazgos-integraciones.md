@@ -1233,8 +1233,8 @@ lib/tope-cuentas-reglas.ts. Lo que no se ve:
 - Se cuenta por grupo: las de cobro (Stripe y Mercado Pago juntas) y las de agenda (Calendly y Cal juntas).
 
 **Sin hacer:** la principal de Calendly o Cal por la tarjeta genérica (`guardar` de /api/integraciones/credencial) no
-mira el tope. Las ofertas sólo hablan de las de cobro. «Pasar a Pro» lleva a /planes, que llega con la rama de la
-suscripción (`suscripcion-mako-2310`); hasta entonces ningún negocio tiene `suscripcionDeMakoDe`, así que el tope
+mira el tope. Las ofertas sólo hablan de las de cobro. «Pasar a Pro» lleva a `RUTA_CAMBIAR_PLAN` (lib/topes-plan.ts,
+/configuraciones/plan), que llega con la rama de la suscripción (`suscripcion-mako-2310`); hasta entonces ningún negocio tiene `suscripcionDeMakoDe`, así que el tope
 no se aplica a nadie.
 
 **Vive en:** lib/tope-cuentas.ts · lib/tope-cuentas-reglas.ts · app/api/integraciones/cuentas/route.ts ·
