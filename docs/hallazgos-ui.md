@@ -4328,3 +4328,20 @@ con la caja abajo de la vista; los tres pasaron a `<section>` el 22/10. **Y mira
 el que se estiraba era la COLUMNA del editor (`aside.gma-izq`, 761 px en un cuerpo de 713), no el panel; pasar sólo el panel
 a `<section>` no cambió nada. Las tres columnas del editor (EditorLanding.tsx) son `<section>` desde esa noche. Sin hacer: acotar también la regla de la barra de
 agencia a `aside[data-sidebar]` (es de esta área; hay que mirar antes qué otro `<aside>` depende de ella).
+
+## Un pie `sticky` adentro del cuerpo de un Modal deja pasar filas por debajo (23/10/2026)
+
+- **Síntoma** (Martín, captura de «Traer de otro funnel» en el ws1): «se ven leads por detrás y debajo» del pie con
+  «← Atrás» y «Agregar aquí», «y parece roto».
+- **El diagnóstico obvio era el equivocado:** el pie YA tenía fondo sólido (`var(--surface)`). Lo que pasaba es que era
+  `position: sticky; bottom: 0` dentro de `.mk-modal__cuerpo`, el que scrollea, y ese cuerpo tiene 20 px de padding
+  abajo: las filas de la tabla pasaban por esa franja, debajo del pie (leído en el código y en la captura; no medido).
+- **Lo que quedó:** la vista mide el alto del cuerpo (`height: 100%`, que resuelve porque el Modal tiene `alto` fijo), la
+  que scrollea es la TABLA (`flex: 1; minHeight: 0; overflowY: auto`) y el pie es el último renglón: nada pasa por
+  detrás. El `sticky` queda de respaldo para un padre sin alto (el importador, en un WizardShell).
+- **Regla:** un pie con botones va en el `pie` del Modal, que no scrollea. Si el pie necesita el estado de la vista (la
+  selección, «Agregando…»), la vista mide el alto del cuerpo y hace scrollear su propia lista. Un `sticky` adentro del
+  cuerpo no alcanza.
+
+**Vive en:** app/crm/TraerDeOtroProducto.tsx · app/_ui/Modal.tsx (`.mk-modal__cuerpo` en app/_ui/ui.css) · tests/crm-traer-23-10.test.ts
+*23/10/2026, chat «CRM» (claude3).*

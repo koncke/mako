@@ -3023,6 +3023,42 @@ export const BITACORA: Hito[] = [
     revisar: '/crm',
   },
   {
+    fecha: '23 oct', hora: '00:05', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Instagram: «Conectar Meta» desde el buscador, y el mismo buscador en la ficha del lead',
+    puntos: [
+      'Martín: «La búsqueda de Instagram no funciona porque tengo que conectar Meta. No entiendo eso».',
+      'Si el negocio no tiene Meta conectado, el buscador lo dice al enfocarlo y ofrece «Conectar Meta» ahí mismo, sin salir de la tab. Al conectar, vuelve a buscar.',
+      'La ficha del lead edita el Instagram con el mismo buscador de «Nuevo lead»: elegir una cuenta la guarda, Enter o salir guardan el @ escrito, Escape cancela.',
+    ],
+    commits: [
+      { sha: '4487ac5d6', msg: 'CRM: «Conectar Meta» en el buscador de Instagram, y el mismo buscador en la ficha', lineas: 677, archivos: 8 },
+    ],
+    archivos: [
+      'app/crm/new/InstagramBuscador.tsx — el buscador, con «Conectar Meta»',
+      'app/crm/lead-view/CampoEditable.tsx — el Instagram de la ficha, con el mismo buscador',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '23 oct', hora: '00:20', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Vincular evento» y «Vincular cobro»: rápidos, con el nombre del CRM y de la etapa, y un aviso cuando falta',
+    puntos: [
+      '«Asignar evento» se llama «Vincular evento», como «Vincular cobro». Los dos pop-ups son una lista limpia, con poco texto, en la computadora y en el teléfono.',
+      'Arriba dicen el CRM y la etapa («Ventas › Agenda R1»), y cada evento muestra el nombre de la etapa donde está, no «Esta etapa».',
+      'Abren al toque con lo ya vinculado mientras llega lo de Calendly y Cal.com, y vincular o quitar ya no vuelve a cargar todo.',
+      'Lo de Google y lo que pasa al pagar quedó en una ⓘ.',
+      'Una etapa de reunión sin evento, o Ganado sin cobro, lleva un punto ámbar en sus 3 puntos y en «Vincular evento» o «Vincular cobro».',
+      'MaKo puede ver, vincular, elegir las cuentas y quitar el cobro de Ganado, siempre con tu «sí» y diciendo qué producto toca.',
+    ],
+    commits: [
+      { sha: '831ecb0ac', msg: 'CRM: «Vincular evento» y «Vincular cobro» rápidos, con el CRM y la etapa, el aviso del ⋯ y el cobro de Ganado por MaKo', lineas: 1370, archivos: 31 },
+    ],
+    archivos: [
+      'app/crm/EventosDeEtapaModal.tsx · app/crm/CobroDeEtapaModal.tsx · app/crm/vincular-etapa.ts — los dos pop-ups',
+      'lib/vinculos-de-columnas.ts — el aviso de la columna, de la base',
+      'lib/api-mako/areas/crm.def.ts · crm.run.ts — el cobro de Ganado por MaKo',
     fecha: '23 oct', hora: '01:30', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'La agenda del CRM, más rápida: Calendly, Cal.com y Google a la vez',
@@ -3038,6 +3074,21 @@ export const BITACORA: Hito[] = [
     archivos: [
       'lib/agenda-evento-etapa-server.ts · lib/agenda-cache.ts — las agendas a la vez, con su caché',
       'lib/calendly-agenda.ts — el dueño de cada cuenta, una vez',
+    fecha: '23 oct', hora: '02:00', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Traer de otro funnel»: un botón a la vista, una ruedita mientras carga y el pie firme abajo',
+    puntos: [
+      'En «Nuevo lead», «Traer de otro funnel» es un botón, al lado de «Crear lead», no un link chico al pie.',
+      'Al abrirlo, y al cambiar de funnel, se ve una ruedita mientras llega la lista. Al cambiar de etapa o buscar, una más chica y la tabla atenuada.',
+      'Sin la línea de «Se ven 300 de 869…»: si hay más de los que entran, la casilla de arriba dice «Tildar los 869».',
+      '«← Atrás» y «Agregar aquí» quedan abajo de todo, con fondo sólido: la que scrollea es la tabla y ya no se ven leads por detrás.',
+    ],
+    commits: [
+      { sha: '609d697f5', msg: 'CRM: «Traer de otro funnel» con un botón a la vista, el loader mientras carga y el pie firme abajo', lineas: 207, archivos: 8 },
+    ],
+    archivos: [
+      'app/crm/TraerDeOtroProducto.tsx — la vista de traer',
+      'app/crm/new/NewLeadForm.tsx — el botón',
     ],
     revisar: '/crm',
   },

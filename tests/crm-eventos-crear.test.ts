@@ -96,7 +96,8 @@ test('la pantalla: crear y asignar en un gesto, editar en el lugar, conectar sin
   assert.match(m, /const r = await editarEventoAgendaAction\(\{ proveedor: e\.proveedor, identificador: e\.identificador, nombre: editando\.nombre, duracionMin: editando\.duracionMin \}\);/);
   assert.match(m, /<BotonIntegracion key=\{p\} servicio=\{SERVICIO_INTEGRACION\[p\]\} onConectado=\{\(\) => leer\(\)\}/, 'conectar abre el modal de /integraciones acá');
   assert.doesNotMatch(m, /target="_blank"/, 'crear ya no manda a otra pestaña');
-  assert.match(m, /agenda\?\.google\.conectado \?/, 'Google Calendar, con su estado');
+  // Google Calendar: una ⓘ desde el 22/10/2026 (tests/crm-asignar-evento.test.ts).
+  assert.match(m, /title=\{AVISO_GOOGLE_AGENDA\}/, 'Google Calendar, dicho');
   const a = sinComentarios(leer('app/crm/agenda-evento-actions.ts'));
   for (const fn of ['crearEventoAgendaAction', 'editarEventoAgendaAction']) {
     const i = a.indexOf(`export async function ${fn}`);

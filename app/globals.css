@@ -877,6 +877,10 @@ textarea.mako-field {
 .mk-col-mas { background: transparent; }
 .mk-col-mas:hover, .mk-col-mas[aria-expanded='true'] { background: var(--surface-2); color: var(--ink); }
 .mk-col-mas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* Le falta su vínculo (22/10/2026): una etapa de reunión sin evento, o Ganado sin cobro. Un punto ámbar en la esquina. */
+.mk-col-mas[data-falta] { position: relative; color: var(--warn); }
+.mk-col-mas[data-falta]::after { content: ''; position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 99px;
+  background: var(--warn); box-shadow: 0 0 0 2px var(--surface-2); }
 
 /* LA COPIA QUE VIAJA CON VARIOS TILDADOS dice cuántos van (CRM, 22/10/2026: arrastrar uno de los tildados mueve a todos).
    La marca la pone el tablero en el origen sólo mientras se clona: la tarjeta que se queda no la lleva. */
