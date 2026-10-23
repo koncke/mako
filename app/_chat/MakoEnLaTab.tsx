@@ -185,7 +185,7 @@ function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, 
                 {onModo && <ModosMako modo={modo ?? 'editar'} onModo={onModo} />}
               </div>
             )}
-            <CajaDelCliente k={k} campo={caja} seguir={seguirHilo} />
+            <CajaDelCliente k={k} campo={caja} seguir={seguirHilo} angosta />
             </div>
           </>}
           estado={estadoDelCliente(k)}>

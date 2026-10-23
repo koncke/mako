@@ -205,6 +205,9 @@
   flex: none; align-self: center; margin: 0 4px; white-space: nowrap; font-weight: 600;
   color: var(--primary-strong); background: var(--primary-bg); border-color: var(--primary-weak);
 }
+/* En la caja angosta (la estrella, el teléfono), arriba del campo: al final de la fila le comía el ancho (22/10/2026). */
+.co-conectar-ia-arriba { display: flex; margin: 2px 4px 6px; }
+.co-conectar-ia-arriba > .co-conectar-ia { margin: 0; }
 
 /* MaKo en cada tab (21/10/2026, MakoEnLaTab.tsx): la estrella abajo a la izquierda, pegada a la barra de la app, y el panel del
    Cerebro a la IZQUIERDA («el chat de MaKo en las otras tabs se debe abrir siempre a la izquierda»), con la conversación del Ops
