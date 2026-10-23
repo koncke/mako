@@ -24,7 +24,7 @@
 
 import 'server-only';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
-import { chatCheapCascade, MODELO_DOCS, provsDe, provsGratisDePlataforma, tokensAprox, techoDeEntrada, type ProvName } from '@/lib/ai-cheap';
+import { chatCheapCascade, MODELO_DOCS, provsDe, provsGratisDePlataforma, suClaudeContesta, tokensAprox, techoDeEntrada, type ProvName } from '@/lib/ai-cheap';
 import { overrideDeFeature } from '@/lib/model-registry';
 import { getPromptText } from '@/lib/prompt-render';
 import { parseJsonObject } from '@/lib/json-del-modelo';
@@ -274,6 +274,14 @@ async function pasada<R extends { avisos: string[] }>(p: {
   return out;
 }
 
+/**
+ * ¿Su Claude puede armar el flujo? Su clave de Claude, o el crédito que le asignó Martín (el ws1, 22/10/2026: «habilita los
+ * tokens de la API de la cuenta de Mauricio… así puedo seguir probando en Automations»). La cascada lo prueba PRIMERO, así que
+ * quien lo tiene, tiene con qué crear, aunque no tenga ninguna clave barata. Sólo pregunta (lib/ai-cheap.ts): esta ruta no
+ * importa la capa de Claude.
+ */
+const suClaudeCrea = (): Promise<boolean> => suClaudeContesta(FEATURE_CREAR_IA).catch(() => false);
+
 /** La lista de proveedores con el pin de /modelos-ia PRIMERO si es gratis, y sus modelos. */
 async function proveedores(): Promise<{ provs: ProvName[]; modelos: Partial<Record<ProvName, string>> }> {
   // El pin de /modelos-ia va PRIMERO y el resto de la lista atrás: con el pin solo, una key de ese
@@ -301,6 +309,7 @@ async function proveedores(): Promise<{ provs: ProvName[]; modelos: Partial<Reco
  * le creaba sin problema.
  */
 export async function hayIAParaCrear(): Promise<boolean> {
+  if (await suClaudeCrea()) return true;
   const { provs } = await proveedores();
   if ((await Promise.all(provs.map((x) => provsDe(x).catch(() => [])))).some((l) => l.length > 0)) return true;
   return (await provsGratisDePlataforma().catch(() => [])).length > 0;
@@ -377,7 +386,8 @@ export async function generar<R extends { avisos: string[] }>(p: {
   }
   if (uno.crudos.length) return { error: 'MaKo escribió el flujo pero se cortó al leerlo. Prueba de nuevo.' };
   console.error('[secuencias/ia] ningún proveedor armó el flujo:', errores.join(' | '), erroresRed.length ? `· red de plataforma: ${erroresRed.join(' | ')}` : '');
-  const hayIA = (await Promise.all(provs.map((x) => provsDe(x).catch(() => [])))).some((l) => l.length > 0);
+  // Su Claude (su clave o el crédito asignado) también es una IA suya: el mensaje no le pide conectar lo que ya tiene.
+  const hayIA = (await Promise.all(provs.map((x) => provsDe(x).catch(() => [])))).some((l) => l.length > 0) || (await suClaudeCrea());
   // `erroresRed` sólo cuenta si el negocio no tiene keys propias: dice qué le pasó a la IA gratis de MaKo (AU3).
   return falloDeIA(errores, hayIA, erroresRed);
 }

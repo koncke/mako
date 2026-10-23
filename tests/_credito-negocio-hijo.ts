@@ -59,6 +59,7 @@ async function main() {
   const { estadoDeSusClaves } = await import('../lib/su-clave');
   const { claveDelCreditoAsignado, guardarInterruptorDeCredito } = await import('../lib/credito-negocio');
   const { leerCreditoApi } = await import('../lib/credito-api-db');
+  const { hayIAParaCrear } = await import('../lib/flujo-ia-crear');
   pg.db.workspaces.push({ id: PLATAFORMA, capa: 'superadmin', nombre: 'MaKo' }, { id: 1, capa: 'completo', nombre: 'Mauricio' }, { id: 13, capa: 'cliente', nombre: 'ws13' });
   const poner = (ws: number, clave: string, valor: string) => pg.db.credenciales.push({ workspace_id: ws, clave, valor_enc: cifrarSecreto(valor, ws, clave), servicio: clave.split('_')[0].toLowerCase() });
   poner(PLATAFORMA, 'ANTHROPIC_API_KEY', CLAUDE_MAKO);
@@ -89,6 +90,8 @@ async function main() {
   anthropic = [];
   out.automations = await runWithWorkspace(1, () => ai.chatCheapCascade({ system: 's', user: 'armá un flujo', feature: 'chatbot-crear-ia' })).catch((e) => `tiró: ${String(e)}`);
   out.automationsAnthropic = [...anthropic];
+  // La pregunta de la API de MaKo antes de proponer un flujo (lib/flujo-ia-crear.ts): su Claude también crea.
+  out.hayIAParaCrear = await runWithWorkspace(1, () => hayIAParaCrear());
   await espera();
   out.gasto = pg.db.anthropic_usage.filter((f) => f.workspace_id === 1).map((f) => ({ motivo: String(f.motivo ?? '').slice(0, 70), costo: Number(f.cost_usd ?? 0) }));
   out.ajustesWs1 = ajustesDe(1);
@@ -102,6 +105,7 @@ async function main() {
   out.ajustesPlataforma = ajustesDe(PLATAFORMA);
   out.apagadoPermiso = await permiso(1, 'mako-doer');
   out.apagadoClave = await claveDelCreditoAsignado(1);
+  out.apagadoHayIAParaCrear = await runWithWorkspace(1, () => hayIAParaCrear());
   out.apagadoTarjeta = await estadoDeSusClaves(1).then((l) => l?.map((c) => `${c.proveedor}:${c.es}`) ?? null);
   const apagado = await leerCreditoApi();
   out.apagadoUso = apagado.ok ? apagado.asignados?.map((a) => a.prendido) : apagado;
