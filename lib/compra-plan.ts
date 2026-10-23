@@ -1,0 +1,169 @@
+// =============================================================================
+// compra-plan — el checkout público de los planes de MaKo (/planes): pagar y quedar adentro, sin nadie en el medio
+// =============================================================================
+// Pedido de Martín (22/10/2026): «si alguien paga se ingresa automáticamente a la app con el email de bienvenida».
+// El alta automática ya existía (lib/cobros.ts, `altaSiCorresponde` → lib/alta-cliente.ts → `invitarPorEmail`), pero
+// su ÚNICO disparador era un link armado a mano en /admin/cobros. Esto es la puerta pública: el comprador elige un
+// plan, deja nombre y email, y sale al checkout de la pasarela con un cobro de SUSCRIPCIÓN que al pagarse da el alta.
+//
+// QUÉ HACE, en orden:
+//   1. El plan sale de lib/planes-mako.ts (con el setting `planes.mako` de la plataforma): la capa y el precio NUNCA
+//      salen del pedido.
+//   2. La pasarela: las conectadas en el workspace de la plataforma, y de esas las que tienen precio en su moneda (MP
+//      cobra en la del sitio de su cuenta: sin precio en ARS, una cuenta argentina no se ofrece).
+//   3. El lead del comprador en el CRM de la plataforma: el de ese email (se reusa) o uno nuevo, con la campaña.
+//   4. Si ya tiene un link VIVO de ese plan por esa pasarela (de las últimas 23 h), se devuelve ése: dos clics o
+//      volver atrás no crean otro checkout.
+//   5. `crearCobro` con `altaCapa` (sólo la plataforma puede: lib/cobros.ts lo valida en positivo).
+//   6. Se anotan en el cobro el plan, el origen (de qué landing vino: lo lee el onboarding) y el código de MaKo
+//      Partners. Best effort: sin la mig 0330 el cobro sigue y lo dice el log.
+//
+// ⚠️ PÚBLICO: lo llama POST /api/planes/comprar sin sesión. Todo lo del negocio corre en `runWithWorkspace` con el ws
+// de la PLATAFORMA (sin el contexto, `getTenantDb` cae al ws1, Mauricio, un cliente).
+// =============================================================================
+
+import 'server-only';
+import { getSupabaseServer } from './supabase';
+import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
+import { getSetting } from './settings';
+import { credDelCliente } from './credenciales';
+import { createLead, logLeadEvent } from './leads';
+import { esLeadDuplicado } from './leads-duplicados';
+import { leadPorEmail } from './editor-landing/pago-pedido';
+import { crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
+import { leerCuentaMp } from './mercadopago-api';
+import { COLS_COBRO, cobroDeFila, type Pasarela } from './cobros-tipos';
+import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, precioEn, type PlanMako } from './planes-mako';
+import { pasarelaDeLaCompra, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
+
+const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+/** Los planes que valen hoy (el setting de la plataforma, o los de siempre). Nunca tira: sin base, los de siempre. */
+export async function planesMako(): Promise<PlanMako[]> {
+  try {
+    const ws = await wsSuperAdmin();
+    const crudo = await runWithWorkspace(ws, () => getSetting(CLAVE_PLANES));
+    return planesDeSetting(crudo);
+  } catch (e) {
+    console.warn('[compra-plan] no pude leer los planes del setting:', msg(e));
+    return planesDeSetting(null);
+  }
+}
+
+/** La moneda en que cobraría HOY cada pasarela conectada de la plataforma (Stripe: USD; MP: la de su sitio). */
+async function monedasDeLaPlataforma(ws: number): Promise<Array<{ pasarela: Pasarela; moneda: string }>> {
+  const conectadas = await pasarelasConectadas(ws);
+  const out: Array<{ pasarela: Pasarela; moneda: string }> = [];
+  for (const p of conectadas) {
+    if (p === 'stripe') { out.push({ pasarela: 'stripe', moneda: 'USD' }); continue; }
+    const token = await credDelCliente('MERCADOPAGO_ACCESS_TOKEN', ws);
+    if (!token) continue;
+    const c = await leerCuentaMp(token);
+    if (c.ok && c.moneda) out.push({ pasarela: 'mercadopago', moneda: c.moneda });
+  }
+  return out;
+}
+
+/** Lo que la página /planes/<id> necesita para dibujar el formulario: el plan y con qué se puede pagar (y cuánto). */
+export async function ofertaDelPlan(planId: string): Promise<{ plan: PlanMako; pasarelas: Array<{ pasarela: Pasarela; moneda: string; monto: number }> } | null> {
+  const plan = (await planesMako()).find((p) => p.id === planId && p.activo);
+  if (!plan) return null;
+  try {
+    const ws = await wsSuperAdmin();
+    const monedas = await monedasDeLaPlataforma(ws);
+    const pasarelas = monedas.map((m) => ({ ...m, monto: precioEn(plan, m.moneda) })).filter((x): x is { pasarela: Pasarela; moneda: string; monto: number } => x.monto != null);
+    return { plan, pasarelas };
+  } catch (e) {
+    console.warn('[compra-plan] no pude leer las pasarelas de la plataforma:', msg(e));
+    return { plan, pasarelas: [] };
+  }
+}
+
+/** El lead de ese email en el CRM de la plataforma (exacto), o uno nuevo. Corre adentro de runWithWorkspace. */
+async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuevo: boolean }> {
+  const db = await getTenantDb();
+  const buscar = async () => {
+    const patron = p.email.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const { data, error } = await db.from('leads').select('id, email').ilike('email', patron).limit(20);
+    if (error) throw new Error(`No pude buscar el lead por email: ${error.message}`);
+    return leadPorEmail((data ?? []) as Array<{ id: number; email: string | null }>, p.email);
+  };
+  const ya = await buscar();
+  if (ya) return { leadId: ya.id, nuevo: false };
+  const o = p.origen ?? {};
+  try {
+    const lead = await createLead({
+      nombre: p.nombre, email: p.email, origen_lead: 'landing',
+      utm_source: o.utm_source, utm_medium: o.utm_medium, utm_campaign: o.utm_campaign, utm_content: o.utm_content, fbclid: o.fbclid,
+    });
+    return { leadId: Number(lead.id), nuevo: true };
+  } catch (e) {
+    if (!esLeadDuplicado(e)) throw e;
+    const otro = await buscar();
+    if (otro) return { leadId: otro.id, nuevo: false };
+    throw e;
+  }
+}
+
+/** Un link VIVO del mismo plan, pasarela y email de las últimas 23 h: se devuelve ése (sin la mig 0330, no se busca). */
+async function linkVivoDelPlan(ws: number, leadId: number, plan: string, pasarela: Pasarela): Promise<string | null> {
+  const desde = new Date(Date.now() - 23 * 3600_000).toISOString();
+  const { data, error } = await getSupabaseServer().from('cobros').select(COLS_COBRO)
+    .eq('workspace_id', ws).eq('lead_id', leadId).eq('plan_mako', plan).eq('proveedor', pasarela)
+    .eq('tipo', 'suscripcion').in('estado', ['pendiente', 'fallido']).gte('created_at', desde)
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (error) return null;
+  return data ? linkDelCobro(cobroDeFila(data as Record<string, unknown>).token) : null;
+}
+
+export type ResultadoCompra =
+  | { ok: true; link: string }
+  | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }> };
+
+/** El checkout de un plan. Ver el orden arriba. */
+export async function iniciarCompraDePlan(p: PedidoCompra): Promise<ResultadoCompra> {
+  const oferta = await ofertaDelPlan(p.plan);
+  if (!oferta) return { ok: false, status: 404, error: 'Ese plan no existe.' };
+  const { plan, pasarelas } = oferta;
+  const eleccion = pasarelaDeLaCompra({ pedida: p.pasarela, sirven: pasarelas.map((x) => x.pasarela) });
+  if (!eleccion.ok) {
+    if (eleccion.motivo === 'elegir') return { ok: false, status: 409, error: '¿Con qué quieres pagar?', elegir: pasarelas };
+    return { ok: false, status: 503, error: TEXTO_SIN_PASARELA };
+  }
+  const via = pasarelas.find((x) => x.pasarela === eleccion.pasarela)!;
+  const ws = await wsSuperAdmin();
+
+  return runWithWorkspace(ws, async () => {
+    let lead: { leadId: number; nuevo: boolean };
+    try {
+      lead = await leadDelComprador(p);
+    } catch (e) {
+      console.error('[compra-plan] no pude crear el lead del comprador:', msg(e));
+      return { ok: false, status: 503, error: 'No pudimos registrar tu compra. Prueba otra vez en un minuto.' };
+    }
+    const vivo = await linkVivoDelPlan(ws, lead.leadId, plan.id, via.pasarela);
+    if (vivo) return { ok: true, link: vivo };
+
+    const r = await crearCobro(ws, {
+      leadId: lead.leadId, pasarela: via.pasarela, tipo: 'suscripcion', concepto: conceptoDelPlan(plan),
+      monto: via.monto, moneda: via.moneda, montoUsd: plan.precioUsd, email: p.email, nombre: p.nombre,
+      altaCapa: plan.capa, creadoPor: `planes:${plan.id}`,
+    });
+    if (!r.ok) {
+      console.error(`[compra-plan] crearCobro (${plan.id}, ${via.pasarela}): ${r.error}`);
+      return { ok: false, status: 502, error: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' };
+    }
+    // Lo que el cobro tiene que recordar: el plan, de dónde vino y quién lo refirió. Antes de devolver el link: nadie
+    // puede haber pagado todavía. Best effort (sin la mig 0330 el cobro vale igual).
+    const { error } = await getSupabaseServer().from('cobros')
+      .update({ plan_mako: plan.id, origen: p.origen, ref_codigo: p.ref })
+      .eq('id', r.cobro.id).eq('workspace_id', ws);
+    if (error) console.warn(`[compra-plan] no pude anotar plan/origen/ref en el cobro ${r.cobro.id}: ${error.message}`);
+    if (lead.nuevo || !r.yaEstaba) {
+      const de = p.origen?.landing ? ` desde la landing «${p.origen.landing}»` : '';
+      const ref = p.ref ? ` (referido por ${p.ref})` : '';
+      await logLeadEvent(lead.leadId, 'Compra de plan', `Abrió el pago de ${plan.nombre}${de}${ref}.`, 'Checkout de MaKo').catch(() => {});
+    }
+    return { ok: true, link: r.link };
+  });
+}
