@@ -8,8 +8,9 @@
 //
 // ⚠️ SIN 'use client' y sin nada del navegador: el `traer` se inyecta, así lo prueba un test en node
 //    (tests/centro-fotos-enviadas.test.ts). Lo usa fotos-enviadas.ts.
-// ⚠️ LO QUE NO VOLVIÓ SE GUARDA POCO (`vacioMs`): la miniatura la sube el navegador que la mandó DESPUÉS de mandar, así que
-//    otro dispositivo que refrescó en ese segundo la pide antes de que exista. Un fallo de red no se guarda nunca.
+// ⚠️ LO INCOMPLETO SE GUARDA POCO (`vacioMs`): las miniaturas las sube el navegador que las mandó DESPUÉS de mandar, y de a
+//    una, así que otro dispositivo que refrescó en ese segundo pregunta cuando subió 1 de 2 (o ninguna). Sólo lo que trae
+//    TODAS las fotos que el trabajo dice tener se guarda mientras sirve la URL. Un fallo de red no se guarda nunca.
 
 export type FotoRemota = { url: string; nombre: string };
 /** Lo que contesta el servidor por cada trabajo pedido (null = no se pudo preguntar). */
@@ -18,9 +19,9 @@ export type TraerFotos = (ids: string[]) => Promise<Record<string, FotoRemota[]>
 export type OpcionesPedidor = {
   /** Cuánto espera a que lleguen otros pedidos antes de ir al servidor. */
   esperaMs?: number;
-  /** Cuánto sirve lo que volvió con fotos: menos que los 10 minutos de la URL firmada. */
+  /** Cuánto sirve lo que volvió completo: menos que los 10 minutos de la URL firmada. */
   vigenciaMs?: number;
-  /** Cuánto se cree un «no tiene» (ver arriba). */
+  /** Cuánto se cree un resultado incompleto (ver arriba). */
   vacioMs?: number;
   ahora?: () => number;
 };
@@ -34,7 +35,7 @@ export function crearPedidorDeFotos(traer: TraerFotos, o: OpcionesPedidor = {}) 
   const vacioMs = o.vacioMs ?? 10 * 1000;
   const ahora = o.ahora ?? (() => Date.now());
   const guardadas = new Map<string, { fotos: FotoRemota[]; hasta: number }>();
-  const esperando = new Map<string, Array<(f: FotoRemota[]) => void>>();
+  const esperando = new Map<string, { esperadas: number; avisar: Array<(f: FotoRemota[]) => void> }>();
   let reloj: ReturnType<typeof setTimeout> | null = null;
 
   async function ir() {
@@ -44,9 +45,10 @@ export function crearPedidorDeFotos(traer: TraerFotos, o: OpcionesPedidor = {}) 
     for (let i = 0; i < lote.length; i += POR_PEDIDO) {
       const tramo = lote.slice(i, i + POR_PEDIDO);
       const r = await traer(tramo.map(([id]) => id)).catch(() => null);
-      for (const [id, avisar] of tramo) {
+      for (const [id, { esperadas, avisar }] of tramo) {
         const fotos = r?.[id] ?? [];
-        if (r) guardadas.set(id, { fotos, hasta: ahora() + (fotos.length ? vigenciaMs : vacioMs) });
+        const completas = fotos.length > 0 && fotos.length >= esperadas;
+        if (r) guardadas.set(id, { fotos, hasta: ahora() + (completas ? vigenciaMs : vacioMs) });
         for (const a of avisar) a(fotos);
       }
     }
@@ -58,12 +60,13 @@ export function crearPedidorDeFotos(traer: TraerFotos, o: OpcionesPedidor = {}) 
     return g && g.hasta > ahora() ? g.fotos : null;
   }
 
-  /** Las fotos de un trabajo en el servidor ([] si no tiene, o si no se pudo preguntar). */
-  function pedir(id: string): Promise<FotoRemota[]> {
+  /** Las fotos de un trabajo en el servidor ([] si no tiene, o si no se pudo preguntar). `esperadas`: cuántas dice tener. */
+  function pedir(id: string, esperadas = 0): Promise<FotoRemota[]> {
     const ya = yaSabidas(id);
     if (ya) return Promise.resolve(ya);
     return new Promise((ok) => {
-      esperando.set(id, [...(esperando.get(id) ?? []), ok]);
+      const e = esperando.get(id);
+      esperando.set(id, { esperadas: Math.max(esperadas, e?.esperadas ?? 0), avisar: [...(e?.avisar ?? []), ok] });
       if (!reloj) reloj = setTimeout(() => { void ir(); }, esperaMs);
     });
   }

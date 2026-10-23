@@ -20,7 +20,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { wsSuperAdmin } from '@/lib/workspace';
 import { MAX_BYTES_MINIATURA, puedeOperar } from '@/lib/operaciones-reglas';
 import { ERROR_ADJUNTO, MARGEN_MULTIPART_BYTES, TOPE_TOTAL_BYTES } from '@/lib/mako-adjuntos';
-import { barrerMiniaturasViejas, firmarSubidasCentro, fotosEnviadasDe, guardarMiniaturaEnviada, subirAdjuntosCentro } from '@/lib/operaciones-adjuntos';
+import { barrerSiToca, firmarSubidasCentro, fotosEnviadasDe, guardarMiniaturaEnviada, subirAdjuntosCentro } from '@/lib/operaciones-adjuntos';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +32,10 @@ export async function GET(req: Request) {
   if (!puedeOperar(admin, await wsSuperAdmin())) return json({ ok: false, error: NO_PUEDE }, 403);
   const ids = (new URL(req.url).searchParams.get('enviadas') ?? '').split(',').filter(Boolean);
   try {
-    return json({ ok: true, fotos: await fotosEnviadasDe(ids) });
+    const fotos = await fotosEnviadasDe(ids);
+    // Las vencidas se barren también al leer (como mucho una vez por hora): si no se manda otra foto, igual se van.
+    after(() => barrerSiToca());
+    return json({ ok: true, fotos });
   } catch (e) {
     console.error('[operaciones/adjuntos] enviadas', e instanceof Error ? e.message : e);
     return json({ ok: false, error: 'No pude leer las fotos.' }, 503);
@@ -44,11 +47,14 @@ export async function POST(req: Request) {
   if (!puedeOperar(admin, await wsSuperAdmin())) return json({ ok: false, error: NO_PUEDE }, 403);
   const busca = new URL(req.url).searchParams;
   if (busca.has('miniatura')) {
-    if (Number(req.headers.get('content-length') ?? 0) > MAX_BYTES_MINIATURA) return json({ ok: false, error: 'La miniatura pesa demasiado.' }, 413);
+    // Sin un largo válido no se lee: un pedido «chunked» no trae Content-Length y se leería entero antes del tope. El
+    // navegador manda un Blob, y con un Blob fetch siempre lo pone.
+    const largo = Number(req.headers.get('content-length') ?? NaN);
+    if (!(largo > 0 && largo <= MAX_BYTES_MINIATURA)) return json({ ok: false, error: 'La miniatura pesa demasiado.' }, 413);
     try {
       const bytes = new Uint8Array(await req.arrayBuffer());
       const r = await guardarMiniaturaEnviada(busca.get('miniatura') ?? '', busca.get('ref') ?? '', bytes);
-      if (r.ok) after(() => barrerMiniaturasViejas());
+      if (r.ok) after(() => barrerSiToca());
       return r.ok ? json({ ok: true }) : json({ ok: false, error: r.error }, r.status);
     } catch (e) {
       console.error('[operaciones/adjuntos] miniatura', e instanceof Error ? e.message : e);

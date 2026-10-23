@@ -6,33 +6,41 @@
 //
 // De dónde sale la foto de una burbuja, en este orden:
 //   1. la memoria de este navegador: lo que mandó en esta sesión (el original, se ve en el acto);
-//   2. el SERVIDOR: la miniatura que subió el navegador que la mandó (desde el 23/10/2026), con una URL firmada de 10 minutos;
-//   3. IndexedDB (`enviado:<id>`): la miniatura que este navegador guardaba ANTES del 23/10. Ya no se escribe: se lee para
-//      no perder las fotos de esos días, y se barre la de un trabajo que ya no está en la conversación (`barrerEnviadasViejas`).
+//   2. el SERVIDOR: la miniatura que subió el navegador que la mandó (desde el 23/10/2026), con una URL firmada de 10
+//      minutos, si trae TODAS las fotos del trabajo;
+//   3. IndexedDB (`enviado:<id>`): la copia de la miniatura que guarda el navegador que la mandó, ANTES de subirla. Si se
+//      cerró la pestaña a mitad de la subida, ese navegador la sigue teniendo después de un F5. Se barre la de un trabajo
+//      que ya no está en la conversación (`barrerEnviadasViejas`).
 
 import { direccionesGuardadas, guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
 import { crearPedidorDeFotos, type FotoRemota } from './fotos-remotas';
 import { MAX_BYTES_MINIATURA, type AdjuntoPedido } from '@/lib/operaciones-reglas';
 
 export type Foto = FotoRemota;
-/** Lo que este navegador tiene de cada trabajo (por su id): lo que mandó, o lo que guardaba antes del 23/10. */
+/** Lo que este navegador tiene de cada trabajo (por su id): lo que mandó, o su copia en IndexedDB. */
 const leidas = new Map<string, Foto[]>();
 const PREFIJO = 'enviado:';
 const direccionDe = (id: string) => `${PREFIJO}${id}`;
 const LADO_MINIATURA = 640;
 
-async function miniatura(f: File): Promise<File> {
+/**
+ * La miniatura de una foto: dibujada de nuevo en un lienzo, a 640 px y en JPEG. null si no se pudo: NUNCA el original,
+ * que trae su EXIF (la ubicación incluida) y quedaría 14 días en el servidor (revisión del 23/10/2026).
+ */
+async function miniatura(f: File): Promise<File | null> {
   try {
     const bmp = await createImageBitmap(f);
     const k = Math.min(1, LADO_MINIATURA / Math.max(bmp.width, bmp.height));
     const lienzo = document.createElement('canvas');
     lienzo.width = Math.max(1, Math.round(bmp.width * k));
     lienzo.height = Math.max(1, Math.round(bmp.height * k));
-    lienzo.getContext('2d')?.drawImage(bmp, 0, 0, lienzo.width, lienzo.height);
+    const ctx = lienzo.getContext('2d');
+    if (!ctx) { bmp.close(); return null; }
+    ctx.drawImage(bmp, 0, 0, lienzo.width, lienzo.height);
     bmp.close();
     const blob = await new Promise<Blob | null>((ok) => lienzo.toBlob(ok, 'image/jpeg', 0.78));
-    return blob ? new File([blob], f.name, { type: 'image/jpeg' }) : f;
-  } catch { return f; }
+    return blob ? new File([blob], f.name, { type: 'image/jpeg' }) : null;
+  } catch { return null; }
 }
 
 const servidor = crearPedidorDeFotos(async (ids) => {
@@ -44,19 +52,23 @@ const servidor = crearPedidorDeFotos(async (ids) => {
 });
 
 /**
- * Lo llama el motor (useCentro.ts → mandar) apenas el trabajo salió: la foto se ve en el acto y su miniatura sube al
- * servidor, para verla en otro dispositivo. `subidos` son los adjuntos del trabajo, en el MISMO orden que `archivos`
- * (mandar.ts → subirAdjuntos): cada foto va con el `ref` de su original. Si no coinciden (otro tamaño), esa no sube.
- * Si la subida falla, no se avisa: en otro dispositivo se ve su nombre, como antes.
+ * Lo llama el motor (useCentro.ts → mandar) apenas el trabajo salió: la foto se ve en el acto, su miniatura queda en
+ * IndexedDB y después sube al servidor, para verla en otro dispositivo. `subidos` son los adjuntos del trabajo, en el
+ * MISMO orden que `archivos` (mandar.ts → subirAdjuntos): cada foto va con el `ref` de su original. Es foto lo que el
+ * trabajo FIRMÓ como foto (`a.mime`, sacado de los bytes), no el tipo que dice el navegador (algunos selectores de Android
+ * lo dejan vacío). Si no coinciden (otro tamaño), esa no sube. Si la subida falla, no se avisa: en otro dispositivo se ve
+ * su nombre, como antes.
  */
 export function recordarEnviadas(id: string, archivos: readonly File[], subidos: readonly AdjuntoPedido[]) {
-  const pares = archivos.map((f, i) => ({ f, a: subidos[i] })).filter(({ f, a }) => f.type.startsWith('image/') && a && a.bytes === f.size);
+  const pares = archivos.map((f, i) => ({ f, a: subidos[i] })).filter(({ f, a }) => !!a && a.mime.startsWith('image/') && a.bytes === f.size);
   if (!pares.length) return;
   leidas.set(id, pares.map(({ f }) => ({ url: URL.createObjectURL(f), nombre: f.name })));
   void (async () => {
-    for (const { f, a } of pares) {
-      const m = await miniatura(f);
-      if (!m.type.startsWith('image/') || m.size > MAX_BYTES_MINIATURA) continue;
+    const hechas = (await Promise.all(pares.map(async ({ f, a }) => ({ a, m: await miniatura(f) }))))
+      .filter((x): x is { a: AdjuntoPedido; m: File } => !!x.m && x.m.size <= MAX_BYTES_MINIATURA);
+    if (!hechas.length) return;
+    await guardarAdjuntos(direccionDe(id), hechas.map((x) => x.m));
+    for (const { a, m } of hechas) {
       const q = `miniatura=${encodeURIComponent(id)}&ref=${encodeURIComponent(a.ref)}`;
       await fetch(`/api/operaciones/adjuntos?${q}`, { method: 'POST', headers: { 'content-type': m.type }, body: m, signal: AbortSignal.timeout(30_000) }).catch(() => null);
     }
@@ -66,33 +78,50 @@ export function recordarEnviadas(id: string, archivos: readonly File[], subidos:
 /** Las fotos de un trabajo que ya se saben sin preguntar nada (null = todavía no). */
 export const fotosYaLeidas = (id: string): Foto[] | null => leidas.get(id) ?? servidor.yaSabidas(id);
 
-/** Las fotos de un trabajo: de este navegador, del servidor (sólo si el trabajo tiene fotos) o de lo guardado antes del 23/10. */
-export async function leerFotosEnviadas(id: string, conFotos: boolean): Promise<Foto[]> {
+/**
+ * Las fotos de un trabajo: de este navegador, del servidor (sólo si el trabajo dice tener `esperadas` fotos) o de su copia
+ * en IndexedDB. Gana la que trae más: el servidor puede estar a mitad de recibirlas.
+ */
+export async function leerFotosEnviadas(id: string, esperadas: number): Promise<Foto[]> {
   const ya = leidas.get(id);
   if (ya) return ya;
-  if (conFotos) {
-    const remotas = await servidor.pedir(id);
-    if (remotas.length) return remotas;
-  }
-  const antes = (await leerAdjuntosGuardados(direccionDe(id))).map((f) => ({ url: URL.createObjectURL(f), nombre: f.name }));
-  if (antes.length) leidas.set(id, antes);
-  return antes;
+  const remotas = esperadas > 0 ? await servidor.pedir(id, esperadas) : [];
+  if (esperadas > 0 && remotas.length >= esperadas) return remotas;
+  const locales = (await leerAdjuntosGuardados(direccionDe(id))).map((f) => ({ url: URL.createObjectURL(f), nombre: f.name }));
+  if (locales.length > remotas.length) { leidas.set(id, locales); return locales; }
+  return remotas;
 }
 
-/** De las direcciones guardadas en IndexedDB, las miniaturas de antes del 23/10 cuyo trabajo ya no está en la conversación. */
+/**
+ * Los adjuntos de una burbuja que NO tienen foto (van como renglón con su nombre). Se resta contando repeticiones: dos
+ * capturas pegadas se llaman las dos «image.png», y con una sola foto a la vista la otra tiene que seguir en la lista.
+ */
+export function nombresSinFoto(nombres: readonly string[], fotos: readonly { nombre: string }[]): string[] {
+  const quedan = new Map<string, number>();
+  for (const f of fotos) quedan.set(f.nombre, (quedan.get(f.nombre) ?? 0) + 1);
+  return nombres.filter((n) => {
+    const k = quedan.get(n) ?? 0;
+    if (!k) return true;
+    quedan.set(n, k - 1);
+    return false;
+  });
+}
+
+/** De las direcciones guardadas en IndexedDB, las miniaturas de trabajos que ya no están en la conversación. */
 export function enviadasParaBorrar(direcciones: readonly string[], vigentes: ReadonlySet<string>): string[] {
   return direcciones.filter((d) => d.startsWith(PREFIJO) && !vigentes.has(d.slice(PREFIJO.length)));
 }
 
 let barrida = false;
 /**
- * Barre, una vez por carga, las miniaturas que este navegador guardaba antes del 23/10 y que ya no tienen burbuja: las de
- * los trabajos que no vinieron en la conversación (`vigentes`, la cola entera que dibuja el Ops Center). Con la cola
- * vacía no hace nada: una lectura que falló no es «no hay trabajos».
+ * Barre, una vez por carga, las miniaturas de IndexedDB que ya no tienen burbuja: las de los trabajos que no vinieron en
+ * la conversación (`vigentes`, la cola entera que dibuja el Ops Center). Con la cola vacía no hace nada: una lectura que
+ * falló no es «no hay trabajos».
  */
 export async function barrerEnviadasViejas(vigentes: readonly string[]): Promise<void> {
   if (barrida || !vigentes.length) return;
   barrida = true;
-  const borrar = enviadasParaBorrar(await direccionesGuardadas(), new Set(vigentes));
+  // Lo que este navegador mandó en esta carga tampoco se barre, aunque la cola todavía no lo traiga.
+  const borrar = enviadasParaBorrar(await direccionesGuardadas(), new Set([...vigentes, ...leidas.keys()]));
   for (const d of borrar) await guardarAdjuntos(d, []);
 }

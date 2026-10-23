@@ -18,35 +18,39 @@
 // firmada y sólo para quien puede operar. El original se sigue borrando al entregar; el navegador que la mandó sube la
 // MINIATURA (640 px), y la burbuja de cualquier dispositivo la pide con una URL de 10 minutos (fotos-enviadas.ts, de dónde
 // sale cada una; lib/operaciones-adjuntos.ts → «Las fotos enviadas»). Sólo la pide un trabajo que TIENE fotos (`fotos`,
-// los nombres que el servidor saca del texto firmado): una burbuja con un PDF no va al servidor.
+// los nombres que el servidor saca del texto firmado): una burbuja con un PDF no va al servidor. Y sabe cuántas espera:
+// mientras falte alguna (subían de a una), vuelve a preguntar una vez.
 
 import { useEffect, useState } from 'react';
 import { IconoChat } from '@/app/m/mako/iconos';
-import { leerFotosEnviadas, fotosYaLeidas, type Foto } from './fotos-enviadas';
+import { leerFotosEnviadas, fotosYaLeidas, nombresSinFoto, type Foto } from './fotos-enviadas';
 import type { AdjuntoTurno } from '@/lib/operaciones-reglas';
 import { Visor } from './Visor';
 
-/** Cuánto espera para volver a pedir una foto que todavía no estaba: la miniatura sube después de mandar. */
+/** Cuánto espera para volver a pedir las fotos que faltan: las miniaturas suben después de mandar, de a una. */
 const OTRA_VEZ_MS = 12_000;
 
-/** Lo adjuntado en una burbuja propia: sus fotos (de este navegador o del servidor), y el nombre de lo demás. */
+/**
+ * Lo adjuntado en una burbuja propia: sus fotos (de este navegador o del servidor), y el nombre de lo demás.
+ * ⚠️ Quien la monta le da `key={id}` (Hilo.tsx): la conversación se dibuja por posición, y sin la clave una burbuja que
+ *    pasa a ser de OTRO mensaje mostraría las fotos del anterior hasta que llegan las suyas.
+ */
 export function AdjuntosEnBurbuja({ id, nombres, fotos: nombresDeFotos }: { id: string; nombres: readonly string[]; fotos?: readonly string[] }) {
   const [fotos, setFotos] = useState<Foto[] | null>(() => fotosYaLeidas(id));
   const [viendo, setViendo] = useState<Foto | null>(null);
-  const conFotos = !!nombresDeFotos?.length;
+  const esperadas = nombresDeFotos?.length ?? 0;
   useEffect(() => {
     let vivo = true;
     let reloj: ReturnType<typeof setTimeout> | null = null;
-    void leerFotosEnviadas(id, conFotos).then((lista) => {
+    void leerFotosEnviadas(id, esperadas).then((lista) => {
       if (!vivo) return;
       setFotos(lista);
-      // Otro dispositivo pudo ver el mensaje antes de que su miniatura terminara de subir: una vez más, un rato después.
-      if (conFotos && !lista.length) reloj = setTimeout(() => { void leerFotosEnviadas(id, true).then((otra) => { if (vivo && otra.length) setFotos(otra); }); }, OTRA_VEZ_MS);
+      // Otro dispositivo pudo ver el mensaje antes de que subieran todas sus miniaturas: una vez más, un rato después.
+      if (lista.length < esperadas) reloj = setTimeout(() => { void leerFotosEnviadas(id, esperadas).then((otra) => { if (vivo && otra.length > lista.length) setFotos(otra); }); }, OTRA_VEZ_MS);
     });
     return () => { vivo = false; if (reloj) clearTimeout(reloj); };
-  }, [id, conFotos]);
-  const conFoto = new Set((fotos ?? []).map((f) => f.nombre));
-  const otros = nombres.filter((n) => !conFoto.has(n));
+  }, [id, esperadas]);
+  const otros = nombresSinFoto(nombres, fotos ?? []);
   return (
     <>
       {!!fotos?.length && (
@@ -60,8 +64,8 @@ export function AdjuntosEnBurbuja({ id, nombres, fotos: nombresDeFotos }: { id: 
           ))}
         </span>
       )}
-      {otros.map((n) => (
-        <span key={n} className="co-doc-enviado"><IconoChat nombre={/\.pdf$/i.test(n) ? 'archivo' : 'foto'} size={18} /><span>{n}</span></span>
+      {otros.map((n, i) => (
+        <span key={`${n}-${i}`} className="co-doc-enviado"><IconoChat nombre={/\.pdf$/i.test(n) ? 'archivo' : 'foto'} size={18} /><span>{n}</span></span>
       ))}
       {viendo && <Visor url={viendo.url} nombre={viendo.nombre} tipo="image" onCerrar={() => setViendo(null)} />}
     </>

@@ -27,23 +27,52 @@ del código.
 - **La subida va por la RUTA de adjuntos, no por una server action:** las actions se encolan de a una, y subir fotos
   detrás del envío habría hecho esperar al refresco de la conversación. La lectura (`GET ?enviadas=`) también, y junta en
   una ida las burbujas que se abren juntas (`crearPedidorDeFotos`).
-- **Una carrera que no se ve en la computadora:** el otro dispositivo refresca cada 2,5 s y puede traer el trabajo antes
-  de que su miniatura termine de subir (sube DESPUÉS de mandar, con el id del trabajo). Un «no tiene» se cree 10 s y la
-  burbuja vuelve a preguntar una vez a los 12 s. Un fallo de red no se guarda.
-- **IndexedDB deja de escribir miniaturas** (una cosa, un lugar): lo mandado se ve en el acto desde la memoria y, después
-  de un F5, desde el servidor. Las de antes del 23/10 se leen igual, y se barren las de los trabajos que ya no están en la
-  cola (`barrerEnviadasViejas`). Con la cola vacía no se barre: una lectura que falló no es «no hay trabajos».
-- **Sin medir:** que `createSignedUrls` conteste por ítem cuando una miniatura no existe (el código lo trata como
-  `conUrlsDeTurnos`, que ya anda así en producción) y que `list` ordene por `created_at` en esa carpeta (el barrido).
-  Tampoco se vio en una pantalla: el guard no deja entrar a otra sesión.
+- **Una carrera que no se ve en la computadora:** el otro dispositivo refresca y puede traer el trabajo antes de que sus
+  miniaturas terminen de subir: suben DESPUÉS de mandar, con el id del trabajo, y de a una. Por eso la burbuja sabe
+  cuántas fotos ESPERA (`fotos`, del texto firmado). Lo incompleto (ninguna, o 1 de 2) se cree 10 s, y la burbuja vuelve a
+  preguntar una vez a los 12 s. Sólo lo completo se guarda mientras sirve la URL, y un fallo de red no se guarda nunca.
+- **IndexedDB guarda la copia del que manda, ANTES de subir** (la revisión lo pidió: si la pestaña se cierra a mitad de la
+  subida, ese navegador la sigue teniendo después de un F5). Se barren las de los trabajos que ya no están en la cola
+  (`barrerEnviadasViejas`), nunca lo recién mandado. Con la cola vacía no se barre: una lectura que falló no es «no hay
+  trabajos».
+
+**Lo que encontró la revisión adversarial, verificado uno por uno (23/10, 9 agentes sobre el commit, no sobre el disco):**
+- **El defecto medio no lo vio el revisor sino el crítico de completitud:** la conversación se dibuja por POSICIÓN
+  (`key={`l${i}`}` en Hilo.tsx), y la lista se corre sola (turnos que llegan después, la cola de 100 que suelta el más
+  viejo). Una burbuja que pasaba a ser de OTRO mensaje mostraba las fotos del anterior hasta que llegaban las suyas: la foto
+  equivocada en un mensaje. Va `key={w.id}` en la burbuja. **Regla:** un componente con estado sembrado de un id, adentro
+  de una lista dibujada por índice, lleva la clave de ese id.
+- **Lo que el revisor marcó medio y no era:** «cancelar no borra la miniatura». La mecánica es cierta, pero en la app no
+  hay botón de cancelar (`cancelarPedidoAction` no la importa nadie) y lo cancelado se sigue dibujando con su texto. Si
+  algún día hay botón, el arreglo es borrar `fotosDeFirmado(firmado)` en `cancelarPedido`.
+- **Una falla del storage parecía «no tiene foto»:** storage-js no RECHAZA la promesa ante un error, devuelve
+  `{ data: null, error }`, así que el `.catch` estaba muerto y el GET contestaba `ok: true, fotos: {}`. Ahora tira, la ruta
+  contesta 503 y el navegador no lo guarda.
+- **El original nunca sube:** si el navegador no puede redibujar la foto, `miniatura()` devuelve null (antes, el original
+  con su EXIF, la ubicación incluida). Y es foto lo que el trabajo FIRMÓ como foto (`a.mime`), no el tipo del navegador.
+- **La caché duraba una hora:** supabase-js sube con `max-age=3600` por defecto (también en su CDN). Va
+  `private, max-age=600`, lo que dura la URL.
+- **Un cuerpo sin Content-Length se leía entero** antes del tope (pedidos «chunked»): ahora sin un largo válido no se lee.
+- **La retención de 14 días dependía de mandar otra foto:** el barrido corre ahora también al LEER (como mucho una vez por
+  hora por instancia), vacía la cola de vencidas de a 100, y el GET no firma lo de más de 14 días aunque no haya pasado.
+- **El test de la subida daba verde sin mirar la miniatura:** en node no hay `createImageBitmap`, así que `miniatura()`
+  caía al original y el test sólo comparaba la URL. Ahora simula el lienzo y compara el CUERPO que sube; probado con 15
+  roturas, cada una con el test que la caza (al pie de tests/centro-fotos-enviadas.test.ts).
+- **Medido en el fuente instalado (storage-js 2.106.1):** `list` devuelve sólo ese nivel, sin recursión; un objeto que no
+  existe en `createSignedUrls` es un error POR ÍTEM (`signedUrl: null`); con `upsert` el `created_at` queda el del primer
+  alta. `after()` en un route handler de Next 16 atrapa lo que tire. No se vio en una pantalla: el guard no deja entrar a
+  otra sesión.
 
 **Vive en:** lib/operaciones-reglas.ts («Las fotos enviadas») · lib/operaciones-adjuntos.ts (`guardarMiniaturaEnviada`,
-`fotosEnviadasDe`, `barrerMiniaturasViejas`) · app/api/operaciones/adjuntos/route.ts · app/admin/operaciones/fotos-enviadas.ts,
-fotos-remotas.ts, FotosEnviadas.tsx · tests/centro-fotos-enviadas.test.ts.
+`fotosEnviadasDe`, `barrerMiniaturasViejas`, `barrerSiToca`) · app/api/operaciones/adjuntos/route.ts ·
+app/admin/operaciones/fotos-enviadas.ts, fotos-remotas.ts, FotosEnviadas.tsx, Hilo.tsx · tests/centro-fotos-enviadas.test.ts.
 
 **Sin hacer:**
 - que Martín lo pruebe: una captura desde la computadora y abrir ese chat en el teléfono;
 - un PDF o un documento en otro dispositivo sigue siendo su nombre (sólo las fotos tienen miniatura);
+- la conversación entera sigue dibujada por posición (`items.push({ k: `l${i}`, l })` en Hilo.tsx): la burbuja de fotos
+  ya tiene su clave, lo demás de cada línea no. `claveDeLinea` (lib/centro-estable.ts) ya existe; cambiarla se mide contra
+  `Linea` memorizada (`982d7564c`, el refresco que trababa), que es de otro chat del Ops Center;
 - el barrido de `operaciones-turnos/` (lo adjuntado en la app de Claude) y de lo subido que nunca se firmó
   (lib/operaciones-adjuntos.ts, cabecera).
 
