@@ -936,6 +936,8 @@ con la regla pura de lib/tope-equipo-reglas.ts (`topeAlInvitar`).
   invitación de más que frenar a quien paga por un error de la base.
 - **En el teléfono, el tope va aparte del error** (`role="status"`, con «Pasar a Pro»): no es un error para reportar, y el
   guardián de «Reportar a Soporte» exige ese botón en todo `role="alert"`.
+- **«Pasar a Pro» lleva a `RUTA_CAMBIAR_PLAN`** (lib/topes-plan.ts), nunca a una ruta escrita a mano. Si Planes la mueve,
+  todos los carteles de tope la siguen.
 tests/equipo-tope-plan.test.ts.
 
 **SIN HACER:** los otros topes de la tabla (leads, funnels, líneas, automatizaciones, landings, dominios, cuentas de cobro)
