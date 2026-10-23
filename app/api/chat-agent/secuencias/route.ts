@@ -72,7 +72,7 @@ import { envioWhatsappHabilitadoEstricto } from '@/lib/envio-flags';
 // «Duplicar» del «⋯» de la lista (tercera tanda, decisión 6). La copia entra por las puertas de cada
 // campo: los pasos por `setSecuenciaPasos` y el horario por `setCronSecuencia` (lib/secuencia-duplicar.ts).
 import { duplicarSecuencia, type DbDuplicar } from '@/lib/secuencia-duplicar';
-import { copiarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
+import { copiarConfigAutomatizacion, nacerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { setSecuenciaPasos, PasosInvalidosError } from '@/lib/nutricion';
 import { guardarPosicionesSecuencia, type DbPosiciones } from '@/lib/secuencia-posiciones';
 // El BORRADOR del lienzo (sexta tanda, mig 0240): lo que no se puede publicar todavía, en su columna.
@@ -462,6 +462,7 @@ export async function POST(req: NextRequest) {
           db: (await getTenantDb()) as unknown as DbPlantilla,
           setPasos: setSecuenciaPasos,
           setDisparadores: guardarDisparadores,
+          nacer: nacerConfigAutomatizacion,
           motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
           // Una plantilla de SuperAdmin (`soloPlataforma`) sólo se crea en el ws de la plataforma.
           plataforma: await esPlataformaActual(),

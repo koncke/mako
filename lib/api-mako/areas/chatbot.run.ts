@@ -58,7 +58,7 @@ import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } from '@/lib/limi
 import { horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, textoDeHorario, configParaGuardar, PERSONA_SIN_ESPERA } from '@/lib/config-automatizacion';
 import { textoDeGoteo } from '@/lib/goteo';
 import { cortarSinPartir } from '@/lib/unicode-seguro';
-import { leerConfigAutomatizacion, guardarConfigAutomatizacion, copiarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
+import { leerConfigAutomatizacion, guardarConfigAutomatizacion, copiarConfigAutomatizacion, nacerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { preguntaAntes, preguntaParaWhatsApp, respuestaDeTexto, sanearRespuestas } from '@/lib/flujo-ia-preguntas';
 import { TOPE_RONDAS, type RespuestaMako } from '@/lib/automatizacion-chat';
 import { falloDeIA } from '@/lib/flujo-ia';
@@ -710,6 +710,7 @@ export const RUNNERS: Runners = {
           db: (await getTenantDb()) as unknown as DbPlantilla,
           setPasos: setSecuenciaPasos,
           setDisparadores: guardarDisparadores,
+          nacer: nacerConfigAutomatizacion,
           motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
           plataforma: await esWsPlataforma(ctx.ws),
         }, { disparador: payload.disparador ?? undefined });
