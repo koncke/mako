@@ -6188,9 +6188,36 @@ estado, vence_at, created_at` y la tabla **sí** está en `TENANT_TABLES`, así 
 
 **Dónde vive el único lugar que puede devolver ese texto:** `proponerChat` (`lib/api-mako/acciones.ts:95`)
 lo devuelve cuando `crearPendiente` (`lib/mako-pendientes.ts:41`) contesta `null`, y esa función sólo
-contesta `null` en el `if (error)` del insert. O sea: **el insert falla en producción y no se puede
-reproducir desde acá**, y el motivo real sólo existe en un `console.error('[pendientes] crear:', …)` —
-los logs de Vercel, que nadie lee y que a los 60 minutos no existen.
+contesta `null` en el `if (error)` del insert. O sea: el insert falla en producción, el motivo sólo existe
+en un `console.error('[pendientes] crear:', …)` —los logs de Vercel, que nadie lee y que a los 60 minutos
+no existen— y desde acá no se reproduce.
+
+⚠️ **LA CAUSA, medida por Automations el mismo día: MEDIO EMOJI.** `avisar_al_equipo` arma el resumen de
+la pendiente con `mensaje.slice(0, 120)`. En las secuencias #241 y #264 ese texto mide 184 unidades y la
+**unidad 119 es U+D83D**, la primera mitad del par que forma el emoji del dardo. Cortar ahí deja un
+surrogate SUELTO, `JSON.stringify` lo manda escapado, y Postgres rechaza el insert ENTERO con «invalid
+input syntax for type json». Sólo el ws13 lo tenía, porque sólo su texto lleva un emoji justo en el 120.
+
+Y explica por qué las tres pruebas de arriba entraron: **el payload viaja entero; el que se corta es el
+RESUMEN.** La tercera medición llegó a imprimir «tiene surrogate suelto: true» sobre ese payload y se dejó
+pasar — ahí el par estaba completo. **Un `slice` sobre texto con emojis no corta caracteres: corta
+unidades UTF-16**, y la mitad de un par es JSON inválido aunque el original fuera perfecto. Lo cubren
+`cortarSinPartir` y el saneo de lo que `crearPendiente` inserta (había otros 7 resúmenes con `slice` en
+los runners).
+
+⚠️ **Y la vuelta de tuerca, que costó el documento entero: este archivo se volvió ilegible para Python por
+lo mismo.** Al escribir el párrafo de arriba con un script, `io.open(p, encoding='utf-8')` falló con
+«surrogates not allowed» —el documento ya traía un surrogate suelto adentro— y para entonces el
+`io.open(p, 'w')` **ya había truncado el archivo a 0 bytes**. El script reportó el error y aun así dejó
+385 KB de hallazgos en la nada; se recuperó con `git checkout HEAD -- <ruta>` porque estaba commiteado
+media hora antes. Dos reglas, y la segunda es la que salva:
+
+- **Un script que toca un fuente con emojis va con `errors='surrogatepass'`** en la lectura y en la
+  escritura, o se niega a guardar justo el documento que explica el bug.
+- **Y NUNCA abre el destino en `'w'`: escribe a un temporal y renombra.** `open(dest, 'w')` trunca ANTES
+  de saber si lo que sigue va a fallar, así que cualquier excepción posterior deja el archivo vacío. Es la
+  misma forma que «un reescritor de código fuente reporta éxito sobre un archivo roto», con el signo
+  cambiado: acá reportó el fallo correctamente y el daño ya estaba hecho.
 
 **La regla que queda, y es la que hubiera ahorrado los diez días:** un `console.error` no es un control
 (ya está en AGENTS.md) y acá se paga en su forma más cara — **el fallo que mata un flujo guarda SU MOTIVO
