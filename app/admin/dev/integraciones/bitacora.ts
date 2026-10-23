@@ -1009,7 +1009,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '23 oct', hora: '16:45', chat: 'Integraciones', cuenta: 'claude2',
+    fecha: '23 oct', hora: '16:45', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'El puente de leads de Meta por Zapier',
     pedido: 'armame el puente de leads por Zapier',
@@ -1018,7 +1018,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '23 oct', hora: '17:30', chat: 'Integraciones', cuenta: 'claude2',
+    fecha: '23 oct', hora: '17:30', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Un receptor por negocio que mete el lead por la puerta de Meta: la tarjeta, la guía y la prueba de punta a punta',
     puntos: [
