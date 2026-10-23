@@ -14,12 +14,19 @@
 //   · prefiere la opción MÁS larga                                         -> 12 / 3
 //   · tope de testeo al 100% del presupuesto                               -> 12 / 3
 //   · el cierre ignorado (todo resultado es una venta)                     -> 13 / 2
+// Y las del cableado (base 18 pasan):
+//   · la pantalla no le manda el plan a MaKo                               -> 17 / 1
+//   · sin la estrella en el Ads Manager                                    -> 17 / 1
+//   · el texto para MaKo sin las rondas                                    -> 17 / 1
+//   · el titular de la secuencial al revés                                 -> 17 / 1
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
-  calcularPresupuestoAds, opciones, RESULTADOS_PARA_DECIDIR, RESULTADOS_APRENDIZAJE, MAX_POR_DIMENSION,
+  calcularPresupuestoAds, opciones, titularDelPlan, textoParaMako, RESULTADOS_PARA_DECIDIR, RESULTADOS_APRENDIZAJE, MAX_POR_DIMENSION,
   type EntradaCalculadora, type PlanCalculadora,
 } from '../lib/calculadora-presupuesto-ads';
 import { RECON_LEADS_VALIDACION } from '../lib/config';
@@ -171,4 +178,37 @@ test('los campos que faltan contestan qué poner, en una frase', () => {
     assert.equal(p.ok, false, JSON.stringify(extra));
     assert.equal((p as { error: string }).error, error);
   }
+});
+
+// ── Lo que se dibuja, lo que lee MaKo y el cableado ─────────────────────────
+
+test('el titular dice el plan con sus números', () => {
+  assert.equal(titularDelPlan(plan(martin())), '3 avatares × 3 funcionalidades');
+  assert.equal(titularDelPlan(plan(martin({ costoPorResultado: 15 }))), '3 avatares, después 3 funcionalidades');
+  assert.equal(titularDelPlan(plan(martin({ costoPorResultado: 30 }))), '3 avatares');
+  assert.equal(titularDelPlan(plan(martin({ costoPorResultado: 125, evento: 'venta', cierre: undefined }))), 'Un solo anuncio');
+});
+
+test('a MaKo le llegan las entradas y el plan, no sólo la pregunta', () => {
+  const e = martin();
+  const t = textoParaMako(e, plan(e));
+  for (const pedazo of ['US$2,000', '45 días', 'Costo por lead: US$2.5', 'Ticket US$1,500', '0.672 de cada 100', '3 avatares × 3 funcionalidades', 'Semana 1: 9 anuncios', 'US$3.57 por día', 'Escala: US$46.71 por día durante 38 días']) {
+    assert.ok(t.includes(pedazo), `falta «${pedazo}» en: ${t}`);
+  }
+});
+
+const RAIZ = join(import.meta.dirname, '..');
+const fuente = (p: string) => readFileSync(join(RAIZ, p), 'utf8').replace(/\r\n/g, '\n');
+
+test('el Ads Manager abre la calculadora y monta la estrella con el pedido', () => {
+  const b = fuente('app/ads-manager/CampanasBrowser.tsx');
+  assert.match(b, /label: 'Calcular presupuesto', icono: '[a-z]+', onClick: \(\) => setCalcOpen\(true\)/);
+  assert.match(b, /<CalculadoraPresupuesto onCerrar=\{\(\) => setCalcOpen\(false\)\} onPreguntarMako=\{\(texto\) => setPedidoMako/);
+  assert.match(b, /<MakoEnLaTab tab="Ads Manager" modo="analizar" pedido=\{pedidoMako\} encimaDeModales \/>/);
+  // La pantalla NO hace la cuenta: la importa.
+  const c = fuente('app/ads-manager/CalculadoraPresupuesto.tsx');
+  assert.match(c, /calcularPresupuestoAds\(entrada\)/);
+  assert.doesNotMatch(c, /RESULTADOS_PARA_DECIDIR \* |\/ DIAS_RONDA/);
+  // Y la API de MaKo usa la misma función.
+  assert.match(fuente('lib/api-mako/areas/ads.run.ts'), /calcular_presupuesto_anuncios: \{[\s\S]{0,200}calcularPresupuestoAds\(/);
 });

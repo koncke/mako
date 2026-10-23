@@ -233,3 +233,31 @@ export function calcularPresupuestoAds(e: EntradaCalculadora): PlanCalculadora |
     rondas, testeo, escala, costoPorVenta, ventas, facturacion, roas, avisos,
   };
 }
+
+// ── Lo que se dibuja y lo que se le manda a MaKo (puro: lo usan la pantalla y los tests) ──
+
+export const usd = (n: number) => `US$${n.toLocaleString('es-MX', { maximumFractionDigits: n < 100 ? 2 : 0 })}`;
+export const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+
+/** El plan en una línea: lo que va arriba del resultado y lo primero que lee MaKo. */
+export function titularDelPlan(p: PlanCalculadora): string {
+  const [r1, r2] = p.rondas;
+  if (p.modo === 'matriz') return `${plural(r1.avatares, 'avatar', 'avatares')} × ${plural(r1.funcionalidades, 'funcionalidad', 'funcionalidades')}`;
+  if (p.modo === 'secuencial') return `${plural(r1.avatares, 'avatar', 'avatares')}, después ${plural(r2.funcionalidades, 'funcionalidad', 'funcionalidades')}`;
+  if (p.modo === 'una-dimension') return r1.que === 'avatares' ? plural(r1.avatares, 'avatar', 'avatares') : plural(r1.funcionalidades, 'funcionalidad', 'funcionalidades');
+  return 'Un solo anuncio';
+}
+
+/** Lo que se le manda a MaKo: los números de entrada y el plan, para que lo discuta (no lo recalcula a ojo). */
+export function textoParaMako(e: EntradaCalculadora, p: PlanCalculadora): string {
+  const rondas = p.rondas.map((r, i) => `Semana ${i + 1}: ${r.anuncios} anuncios (${r.que}), ${usd(r.diarioPorAnuncio)} por día cada uno, ${r.dias} días, ${usd(r.gasto)}.`);
+  return [
+    'Calculé el presupuesto de mis anuncios en el Ads Manager. ¿Qué me recomiendas testear?',
+    `Presupuesto ${usd(e.presupuesto)} en ${e.dias} días. ${e.evento === 'lead' ? 'Costo por lead' : 'Costo por venta'}: ${usd(e.costoPorResultado)}. Ticket ${usd(e.ticket)}${e.evento === 'lead' ? `, compran ${e.cierre} de cada 100` : ''}. Tengo ${e.avatares} avatares y ${e.funcionalidades} funcionalidades.`,
+    `Plan: ${titularDelPlan(p)} (${RESULTADOS_PARA_DECIDIR} resultados por ángulo).`,
+    ...rondas,
+    `Escala: ${usd(p.escala.diario)} por día durante ${p.escala.dias} días${p.escala.saleDeAprendizaje ? '' : ` (no sale de aprendizaje: pide ${usd(p.escala.diarioParaAprendizaje)} por día)`}.`,
+    `Ventas esperadas: ${p.ventas} (${usd(p.facturacion)}).`,
+    ...p.avisos,
+  ].join('\n');
+}

@@ -21,6 +21,7 @@ import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { runWithWorkspace } from '@/lib/workspace';
 import { filaDeRendimiento } from '@/lib/ads-rendimiento';
+import { calcularPresupuestoAds } from '@/lib/calculadora-presupuesto-ads';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { getMetaAccountHealth, type NodoEstado } from '@/lib/meta-health';
 // El aviso «es N veces el actual» vive en UN lugar con la tabla del Ads Manager: era la
@@ -364,6 +365,17 @@ export const RUNNERS: Runners = {
     },
   },
 
+  calcular_presupuesto_anuncios: {
+    leer: async (input) => {
+      const evento = str(input, 'evento') === 'venta' ? 'venta' : 'lead';
+      const plan = calcularPresupuestoAds({
+        presupuesto: num(input, 'presupuesto') ?? 0, dias: num(input, 'dias') ?? 0,
+        costoPorResultado: num(input, 'costoPorResultado') ?? 0, evento, ticket: num(input, 'ticket') ?? 0,
+        cierre: num(input, 'cierre') ?? undefined, avatares: num(input, 'avatares') ?? 3, funcionalidades: num(input, 'funcionalidades') ?? 3,
+      });
+      return plan.ok ? J(plan) : fallo(plan.error);
+    },
+  },
   ver_rendimiento_anuncios: {
     leer: async (input, ctx) => {
       const hoy = hoyEnTz(await tzDeWorkspace(ctx.ws));
