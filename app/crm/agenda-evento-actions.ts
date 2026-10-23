@@ -39,12 +39,15 @@ async function autorActual(): Promise<string> {
   }
 }
 
-/** Los eventos de la agenda del negocio (Calendly y Cal.com), con su vínculo, y las etapas que se pueden vincular. */
-export async function listarEventosAgendaAction(): Promise<({ ok: true } & AgendaDelNegocio) | { ok: false; error: string }> {
+/**
+ * Los eventos de la agenda del negocio (Calendly y Cal.com), con su vínculo, y las etapas que se pueden vincular.
+ * `fresco` (23/10/2026): sin la caché de un minuto de lo que contestan las APIs («Volver a leer» del pop-up).
+ */
+export async function listarEventosAgendaAction(opts?: { fresco?: boolean }): Promise<({ ok: true } & AgendaDelNegocio) | { ok: false; error: string }> {
   await exigirSesion();
   if (!(await esAdmin())) return { ok: false, error: SOLO_ADMIN };
   try {
-    return { ok: true, ...(await listarEventosDeAgenda()) };
+    return { ok: true, ...(await listarEventosDeAgenda({ fresco: opts?.fresco === true })) };
   } catch (e) {
     console.error('[agenda-evento] listar:', msg(e));
     return { ok: false, error: 'No pude leer los eventos de tu agenda. Intenta de nuevo.' };

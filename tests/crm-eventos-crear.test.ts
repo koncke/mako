@@ -83,7 +83,8 @@ test('Cal.com: crear y editar por /v2/event-types, con su versión, y lo que con
 
 test('Calendly: crear con el dueño del token y ACTIVO; editar por su uuid', () => {
   const c = sinComentarios(leer('lib/calendly-agenda.ts'));
-  assert.match(c, /const owner = await usuarioUri\(\);/);
+  // Con el token que recibe desde el 23/10/2026 (tests/agenda-velocidad-23-10.test.ts).
+  assert.match(c, /const owner = await usuarioUri\(token\);/);
   assert.match(c, /pedir<\{ resource\?: EventTypeCrudo \}>\(`\$\{API\}\/event_types`, \{\s*method: 'POST', body: JSON\.stringify\(\{ owner, name: i\.nombre, duration: i\.duracionMin, active: true \}\),/);
   assert.match(c, /pedir<\{ resource\?: EventTypeCrudo \}>\(`\$\{API\}\/event_types\/\$\{uuid\}`, \{ method: 'PATCH',/);
   assert.match(c, /if \(!\/\^\[A-Za-z0-9-\]\{6,\}\$\/\.test\(uuid\)\) throw/, 'un identificador cualquiera armaría otra ruta');

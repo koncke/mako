@@ -7686,6 +7686,10 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
   app/admin/dev/crm/bitacora.ts. No es un conflicto: el merge «sale bien» y lo frena la guarda de las bitácoras
   (`scripts/tsc-bitacoras.mjs`, dentro de `guardas-push.sh`). Se arregla insertando el cierre y la apertura. Por eso las
   guardas se corren DESPUÉS de mergear todo el tren, no sólo en cada punta.
+  **Y cuando SÍ es conflicto, «los dos lados enteros» también los parte** (23/10/2026, CRM, al juntar tres ramas): git
+  alinea el hunk en medio de un objeto, y pegar el lado de arriba y el de abajo deja un hito sin cerrar (`Expected "]"`;
+  rojos en progreso, chats-registro y dev-areas). Se rearma el final tomando cada hito ENTERO de su rama
+  (`git show <rama>:app/admin/dev/crm/bitacora.ts`) y se corre `node scripts/tsc-bitacoras.mjs` antes de commitear.
 - ⚠️ **La misma resolución hecha dos veces choca consigo misma.** Ticketera y CRM sumaron funciones al final de lib/perfil.ts;
   el tren lo resolvió con un orden y CRM, al mergear main en su rama, con el otro. La punta siguiente de CRM chocó contra la
   resolución del tren. Se deja el orden del tren (las mismas funciones; 0 errores de sintaxis), sin perder nada de lo demás.
