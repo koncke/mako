@@ -32,9 +32,15 @@ real si no se deja. Detalle: docs/hallazgos-editor-landing.md → «El Diagnóst
      cambia.
    - **Qué se pierde: nada hoy.** A futuro, una página con el código entero v24 o v25 iría a la ventana aislada hasta
      repegarlo (hoy, ninguna). La lectura por el Pixel llega ~1 s después (la consulta).
-2. **Animaciones, etapa 4** (efectos de scroll y piezas con movimiento: cinta, pasos, carrusel, máquina de escribir,
-   contador) y **etapa 6** (plantillas con movimiento e «Ilustración animada» con un Lottie de contenido PROPIO: la
-   licencia de cada pieza que se ofrezca queda escrita acá antes de publicarla).
+2. **Animaciones, etapa 4: RELEVADA en papel el 23/10; se construye después del 25/10.** La forma de cada pieza, la
+   referencia (Framer: su documentación oficial cubre Appear y Scroll Speed; el Ticker y el Slideshow hay que verlos en
+   su editor ANTES de construir), la trampa de deploy de una variante nueva y el orden, en
+   docs/hallazgos-editor-landing.md → «Animaciones, etapa 4: relevamiento en papel». En corto: la cinta, el contador,
+   los pasos y el carrusel son VARIANTES de los «Diseños optimizados» que ya existen (no bloques nuevos), y los efectos
+   de scroll son un attr de la sección. Para el lanzamiento no hace falta ninguna: la landing de MaKo ya se mueve con
+   `SCRIPT_DISENO`. Lo que sí hay que arreglar después del 25: sus carruseles avanzan solos sin pausa ni «reducir
+   movimiento» (WCAG 2.2.2). **Etapa 6** (plantillas con movimiento e «Ilustración animada» con un Lottie de contenido
+   PROPIO): la licencia de cada pieza que se ofrezca queda escrita acá antes de publicarla (el registro está abajo).
 3. El video de fondo sigue apagado hasta que el puente a Flow se mida en vivo (docs/relevo/video-generator.md).
 
 **El Pixel de las landings del lanzamiento (25/10), medido el 23/10:** la portada (hola-mako.com) y las de cada funnel
