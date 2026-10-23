@@ -30,7 +30,7 @@ test('1. la regla: Esencial 1, Pro 3, y sólo a quien MaKo le cobra el plan por 
   assert.deepEqual(topeParaLineaNueva({ ws: 40, cobradoPorPasarela: false, capa: 'completo', usadas: 5 }), { ok: true });
   // El ws1 (Mauricio), nunca, aunque algún día tuviera un cobro.
   assert.deepEqual(topeParaLineaNueva({ ws: 1, cobradoPorPasarela: true, capa: 'completo', usadas: 5 }), { ok: true });
-  assert.equal(RUTA_PASAR_A_PRO, '/planes/pro');
+  assert.equal(RUTA_PASAR_A_PRO, '/configuraciones/plan', 'quien ve el tope ya es cliente: el panel de su plan, no la compra');
 });
 
 test('2. conectar: el tope frena SÓLO la línea que se va a crear, antes de su fila, y si no se lee el plan deja conectar', () => {

@@ -27,8 +27,10 @@ El primer tope que se hizo cumplir fue el de las líneas de WhatsApp (Esencial 1
 - **La pantalla no importa la regla.** `lib/tope-lineas.ts` arrastra `aviso-arreglo-reglas` y `doer-salida`. La ruta
   responde 403 con el texto (`textoTope`) y el link, y EvolutionConnect dibuja el cartel con «Pasar a Pro».
 
-**Sin hacer:** «Pasar a Pro» lleva a `/planes/pro`, que vive en la rama de la suscripción. Si esta punta sale antes, el link
-da 404 hasta que salga esa. Sólo lo ve un negocio con cobro por la pasarela, que hoy nace por esa misma rama.
+- **«Pasar a Pro» va al panel del plan (`/configuraciones/plan`), no a `/planes/pro`:** quien ve el tope ya es cliente, y
+  `/planes/pro` es la compra para quien todavía no tiene cuenta.
+
+**Sin hacer:** cuando Planes deje `RUTA_CAMBIAR_PLAN` en lib/topes-plan.ts, `RUTA_PASAR_A_PRO` (lib/tope-lineas.ts) pasa a usarla.
 
 **Vive en:** `lib/tope-lineas.ts` · `conectar` en `lib/evolution.ts` · `app/api/whatsapp/evolution/route.ts` ·
 `app/whatsapp/EvolutionConnect.tsx` · `tests/tope-lineas.test.ts` (10 roturas, las 10 cazadas).
