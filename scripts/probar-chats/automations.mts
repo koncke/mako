@@ -48,6 +48,9 @@ const arg = (n: string): string | null => {
   return a ? a.slice(n.length + 3) : null;
 };
 const WS = Number(arg('ws') ?? 3);
+// SÓLO EL ws3 (Cliente de Prueba): el arnés crea automatizaciones y un CRM en el negocio que se le diga, y le escribe a la base
+// de PRODUCCIÓN. Con `--ws` de un cliente, le dejaba automatizaciones de prueba en su lista (23/10/2026).
+if (WS !== 3) throw new Error(`el arnés corre sólo en el ws3 (Cliente de Prueba), no en el ws${WS}`);
 const SOLO = (arg('casos') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 const EMAIL = arg('email') ?? 'martinkoncke@gmail.com';
 const SHA = (() => { try { return execFileSync('git', ['-C', RAIZ, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); } catch { return '?'; } })();
