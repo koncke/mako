@@ -599,11 +599,12 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'proponer_lead', area: 'crm', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/crm/revisar',
     titulo: 'Proponer alta de un lead',
-    descripcion: 'PROPONE dar de alta un contacto en el CRM: deja una propuesta y devuelve el LINK a /crm/revisar/<id>, donde una persona ve los datos, corrige y confirma; recién ahí se crea el lead (avisando duplicados). Úsala cuando pidan agregar a alguien al CRM. Necesita al menos el nombre; el teléfono es lo que después lo cruza con su WhatsApp. Pasa el link tal cual y no pidas confirmación por el chat. Para varios contactos a la vez usa proponer_leads.',
+    descripcion: 'PROPONE dar de alta un contacto en el CRM: deja una propuesta y devuelve el LINK a /crm/revisar/<id>, donde una persona ve los datos, corrige y confirma; recién ahí se crea el lead (avisando duplicados). Úsala cuando pidan agregar a alguien al CRM. Necesita al menos el nombre; el teléfono es lo que después lo cruza con su WhatsApp, y si sólo hay su Instagram, alcanza con el @. Pasa el link tal cual y no pidas confirmación por el chat. Para varios contactos a la vez usa proponer_leads.',
     parametros: [
       { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'nombre y apellido de la persona.' },
       { nombre: 'telefono', tipo: 'string', max: 40, descripcion: 'teléfono, solo dígitos con código de país si lo tienes.' },
       { nombre: 'email', tipo: 'string', max: 200, descripcion: 'email, si lo tienes.' },
+      { nombre: 'instagram', tipo: 'string', max: 200, descripcion: 'su usuario de Instagram (@usuario o el link del perfil), si lo tienes.' },
       { nombre: 'empresa', tipo: 'string', max: 200, descripcion: 'nombre del negocio, si lo dijeron.' },
       { nombre: 'nota', tipo: 'string', max: 1000, descripcion: 'el contexto que dio el dueño en sus palabras; va a la ficha y explica de dónde salió el lead.' },
     ],
@@ -1096,7 +1097,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'proponer_leads', area: 'crm', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/crm/revisar',
     titulo: 'Proponer alta de varios leads',
-    descripcion: 'PROPONE dar de alta un LOTE de contactos (hasta 200) en el CRM: deja UNA propuesta y devuelve el link a /crm/revisar/<id>, donde una persona ve la tabla, corrige, marca duplicados y confirma. Cada contacto necesita nombre y además email o teléfono; los que no traen ninguno de los dos se devuelven en `descartados`. Idempotente por `ref`: reenviar el mismo lote devuelve el mismo link. Para un solo contacto dicho en un chat, usa proponer_lead.',
+    descripcion: 'PROPONE dar de alta un LOTE de contactos (hasta 200) en el CRM: deja UNA propuesta y devuelve el link a /crm/revisar/<id>, donde una persona ve la tabla, corrige, marca duplicados y confirma. Cada contacto necesita nombre y además email, teléfono o Instagram; los que no traen ninguno se devuelven en `descartados`. Idempotente por `ref`: reenviar el mismo lote devuelve el mismo link. Para un solo contacto dicho en un chat, usa proponer_lead.',
     parametros: [
       {
         nombre: 'leads', tipo: 'object[]', obligatorio: true, max: 200, descripcion: 'los contactos del lote.',
@@ -1104,6 +1105,7 @@ export const DEFS: readonly OperacionDef[] = [
           { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'nombre y apellido.' },
           { nombre: 'email', tipo: 'string', max: 200, descripcion: 'email.' },
           { nombre: 'telefono', tipo: 'string', max: 40, descripcion: 'teléfono con código de país.' },
+          { nombre: 'instagram', tipo: 'string', max: 200, descripcion: 'usuario de Instagram (@usuario o el link del perfil).' },
           { nombre: 'empresa', tipo: 'string', max: 200, descripcion: 'empresa.' },
           { nombre: 'utm_source', tipo: 'string', max: 200, descripcion: 'utm_source de origen.' },
           { nombre: 'utm_medium', tipo: 'string', max: 200, descripcion: 'utm_medium de origen.' },

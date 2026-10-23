@@ -36,6 +36,7 @@ import { AREA_INFO, esAccion, type AccionDef, type Ctx, type Parametro } from '.
 import { getPropuesta, marcarAplicada, guardarResultadoPropuesta } from '@/lib/propuestas';
 import { aplicarPropuesta, getPropuesta as getBorradorPlan } from '@/lib/plan-propuesta';
 import { createLead } from '@/lib/leads';
+import { usuarioInstagram } from '@/app/crm/campo-inline';
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { enviarBorrador } from '@/lib/evolution-envio';
 import { runWithWorkspace } from '@/lib/workspace';
@@ -254,7 +255,7 @@ async function crearLeadsDePropuesta(ws: number, propuestaId: string, ctx: Ctx):
     }
     let creados = 0; let omitidos = 0; const errores: string[] = [];
     for (const f of filasDeLeads(prop.datos as Record<string, unknown>)) {
-      try { await createLead({ nombre: f.nombre, email: f.email, telefono: f.telefono, empresa: f.empresa }); creados++; }
+      try { await createLead({ nombre: f.nombre, email: f.email, telefono: f.telefono, instagram: usuarioInstagram(f.instagram), empresa: f.empresa }); creados++; }
       catch (e) {
         if (e instanceof LeadDuplicadoError) omitidos++;
         else errores.push(`${f.nombre}: ${e instanceof Error ? e.message : String(e)}`);

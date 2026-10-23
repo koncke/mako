@@ -2411,7 +2411,7 @@ curl -L \
 
 ### `POST /api/v1/crm/leads` — Proponer alta de un lead
 
-PROPONE dar de alta un contacto en el CRM: deja una propuesta y devuelve el LINK a /crm/revisar/<id>, donde una persona ve los datos, corrige y confirma; recién ahí se crea el lead (avisando duplicados). Úsala cuando pidan agregar a alguien al CRM. Necesita al menos el nombre; el teléfono es lo que después lo cruza con su WhatsApp. Pasa el link tal cual y no pidas confirmación por el chat. Para varios contactos a la vez usa proponer_leads.
+PROPONE dar de alta un contacto en el CRM: deja una propuesta y devuelve el LINK a /crm/revisar/<id>, donde una persona ve los datos, corrige y confirma; recién ahí se crea el lead (avisando duplicados). Úsala cuando pidan agregar a alguien al CRM. Necesita al menos el nombre; el teléfono es lo que después lo cruza con su WhatsApp, y si sólo hay su Instagram, alcanza con el @. Pasa el link tal cual y no pidas confirmación por el chat. Para varios contactos a la vez usa proponer_leads.
 
 - **Ruta por operación:** `POST /api/v1/crm/proponer_lead`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -2428,6 +2428,7 @@ PROPONE dar de alta un contacto en el CRM: deja una propuesta y devuelve el LINK
 | `nombre` | string | sí | nombre y apellido de la persona. |
 | `telefono` | string | no | teléfono, solo dígitos con código de país si lo tienes. |
 | `email` | string | no | email, si lo tienes. |
+| `instagram` | string | no | su usuario de Instagram (@usuario o el link del perfil), si lo tienes. |
 | `empresa` | string | no | nombre del negocio, si lo dijeron. |
 | `nota` | string | no | el contexto que dio el dueño en sus palabras; va a la ficha y explica de dónde salió el lead. |
 
@@ -3356,7 +3357,7 @@ curl -L \
 
 ### `POST /api/v1/crm/importaciones` — Proponer alta de varios leads
 
-PROPONE dar de alta un LOTE de contactos (hasta 200) en el CRM: deja UNA propuesta y devuelve el link a /crm/revisar/<id>, donde una persona ve la tabla, corrige, marca duplicados y confirma. Cada contacto necesita nombre y además email o teléfono; los que no traen ninguno de los dos se devuelven en `descartados`. Idempotente por `ref`: reenviar el mismo lote devuelve el mismo link. Para un solo contacto dicho en un chat, usa proponer_lead.
+PROPONE dar de alta un LOTE de contactos (hasta 200) en el CRM: deja UNA propuesta y devuelve el link a /crm/revisar/<id>, donde una persona ve la tabla, corrige, marca duplicados y confirma. Cada contacto necesita nombre y además email, teléfono o Instagram; los que no traen ninguno se devuelven en `descartados`. Idempotente por `ref`: reenviar el mismo lote devuelve el mismo link. Para un solo contacto dicho en un chat, usa proponer_lead.
 
 - **Ruta por operación:** `POST /api/v1/crm/proponer_leads`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -3374,6 +3375,7 @@ PROPONE dar de alta un LOTE de contactos (hasta 200) en el CRM: deja UNA propues
 | `leads.nombre` | string | sí | nombre y apellido. |
 | `leads.email` | string | no | email. |
 | `leads.telefono` | string | no | teléfono con código de país. |
+| `leads.instagram` | string | no | usuario de Instagram (@usuario o el link del perfil). |
 | `leads.empresa` | string | no | empresa. |
 | `leads.utm_source` | string | no | utm_source de origen. |
 | `leads.utm_medium` | string | no | utm_medium de origen. |

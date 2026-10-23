@@ -23,6 +23,7 @@ import { guardarPlantillaPropia, idPlantillaNueva, plantillaPuesta } from '@/lib
 import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, avisoCambioDeTipo, columnaConTipo, tipoDeColumna, type TipoEtapa } from '@/lib/etapa-reunion';
 import { cambiarTipoDeEtapa } from '@/lib/etapa-tipo-server';
 import { cambiarCursoAlGanar, estadoCursoAlGanarEstricto } from '@/lib/crm-curso-al-ganar';
+import { usuarioInstagram } from '@/app/crm/campo-inline';
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { runMakoTool } from '@/lib/mako-tools';
@@ -1683,10 +1684,12 @@ export const RUNNERS: Runners = {
         if (!nombre) return { error: 'Falta el nombre. Pídelo antes de proponer nada.' };
         const telefono = (s(input.telefono) ?? '').replace(/\D/g, '');
         const empresa = s(input.empresa) ?? null;
-        const ref = `wa:lead:${telefono || nombre.toLowerCase().replace(/\s+/g, '-')}`;
+        // El @ con la regla de la ficha, sin la @ (23/10/2026). Sin teléfono, el @ es la llave: es la persona.
+        const instagram = usuarioInstagram(s(input.instagram));
+        const ref = `wa:lead:${telefono || (instagram ? `ig:${instagram}` : nombre.toLowerCase().replace(/\s+/g, '-'))}`;
         const { id, nueva } = await crearPropuesta({
           ws: ctx.ws, tipo: 'lead', origen: origenPropuesta(ctx), ref,
-          datos: { nombre, telefono: telefono || null, email: s(input.email) ?? null, empresa, nota: s(input.nota) ?? null },
+          datos: { nombre, telefono: telefono || null, email: s(input.email) ?? null, instagram, empresa, nota: s(input.nota) ?? null },
           resumen: `${nombre}${empresa ? ` (${empresa})` : ''}${telefono ? ` · ${telefono}` : ''}`,
         });
         return { id, url: linkApp(`/crm/revisar/${id}`, await getWorkspaceActual()), nueva };
