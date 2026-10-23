@@ -301,12 +301,36 @@ export function origenDeClave(clave: string | null | undefined): string | null {
   if (/^mako-(general|doer)(:u\d+)?$/.test(k)) return ORIGEN_PREGUNTALE;
   if (/^mako-movil:[^:]+:crm:\d+$/.test(k)) return 'CRM';
   if (/^mako-movil:[^:]+:lead:\d+$/.test(k)) return 'Ficha';
+  if (k.endsWith(`:${TAB_SECOND_BRAIN}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_SECOND_BRAIN;
   if (/^(dashboard:|comercial-|marketing-(?!ad-))/.test(k)) return 'Dashboard';
   if (/^(ad-detail-|mkt-campaign-|marketing-ad-)/.test(k)) return 'Ads';
   if (/^whatsapp-/.test(k)) return 'Automations';
   return null;
 }
 export const ORIGEN_PREGUNTALE = 'Pregúntale a MaKo';
+
+// ── El chat del Second Brain (23/10/2026) ───────────────────────────────────────────────────────────────────────────
+// Martín: «quiero que Second Brain, la sidebar que tiene a la derecha sea reemplazada por un chat con MaKo, que tenga la criatura
+// de MaKo... Que se guarde el historial claro, pero que si no hay nada que MaKo mande el mensaje "Hola NOMBRE. Este es tu Second
+// Brain, aquí está toda la información de tu negocio. ¿Qué quieres saber hoy?"». UNA conversación por persona y por negocio,
+// guardada como las de las otras tabs (`mako-movil:<persona>:second-brain`, en chart_sessions del workspace): el Ops Center la
+// lista y la sigue como a las del CRM (lib/chat-mako-indice.ts → chatsDeLasTabs, claveDeTab).
+
+/** El sufijo de la clave de la conversación del Second Brain de una persona. */
+export const TAB_SECOND_BRAIN = 'second-brain';
+/** Su origen en la lista del Ops Center: el grupo «Second Brain». */
+export const ORIGEN_SECOND_BRAIN = 'Second Brain';
+/** Las tabs con una conversación propia por persona: lo único que acepta la ruta para crearla. */
+export const TABS_CON_CHAT_PROPIO: readonly string[] = [TAB_SECOND_BRAIN];
+
+/** El saludo del Second Brain con la conversación vacía, con el nombre de pila de quien mira (sin nombre, sin el «NOMBRE»). */
+export function saludoDelSecondBrain(nombre: string | null | undefined): string {
+  const pila = String(nombre ?? '').trim().split(/\s+/)[0] ?? '';
+  return `Hola${pila ? ` ${pila}` : ''}. Este es tu Second Brain, aquí está toda la información de tu negocio. ¿Qué quieres saber hoy?`;
+}
+
+/** Lo que el panel ofrece debajo del saludo: lo que antes se leía en la barra del grafo, ahora se le pregunta a MaKo. */
+export const ARRANQUES_DEL_SECOND_BRAIN = ['¿Qué es lo último que sabes?', '¿Cuál es mi Norte?', '¿Qué te falta saber de mi negocio?'] as const;
 
 // ── Las charlas del lienzo de Automations (22/10/2026, OC5) ─────────────────────────────────────────────────────────
 export const ORIGEN_AUTOMATIONS = 'Automations';

@@ -51,7 +51,7 @@ test('H: sin los tres puntos arriba de cada chat; en el teléfono, la criatura y
 
 test('I: «Second Brain» abre sólo el grafo y no cambia de chat ni de lista; «Mapa» no está en el Ops Center', () => {
   const sb = codigo('app/second-brain/ChatSecondBrain.tsx');
-  assert.match(sb, /aria-pressed=\{mapa != null && !ticketera\} onClick=\{irAlSecondBrain\}/, 'el botón abre el grafo, nada más');
+  assert.match(sb, /aria-pressed=\{verMapa && !ticketera\} onClick=\{irAlSecondBrain\}/, 'el botón abre el grafo, nada más');
   assert.doesNotMatch(sb, /irAClaudeCode/, 'ya no alterna la lista');
   assert.match(sb, /const listaSB = !ops;/, 'en Ops Center la lista es siempre la de Claude Code');
   assert.match(sb, /\{veMapa && listaSB && \(/, '«Mapa» sólo fuera del Ops Center');

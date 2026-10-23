@@ -41,7 +41,7 @@
 
 import type { NextRequest } from 'next/server';
 import {
-  personaDelRequest, listarSesiones, abrirSesion, nuevaSesion, turnoApp, confirmarDesdeTarjeta, cancelarDesdeTarjeta, urlDeAdjunto,
+  personaDelRequest, listarSesiones, abrirSesion, nuevaSesion, sesionDeTab, turnoApp, confirmarDesdeTarjeta, cancelarDesdeTarjeta, urlDeAdjunto,
   urlDeVozDelChat, escucharNotaDelChat,
 } from '@/lib/mako-turno-app';
 import { validarAdjuntos, esMp3, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
@@ -107,6 +107,8 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   try {
     if (sp.get('sesiones')) return json({ ok: true, sesiones: await listarSesiones(persona) });
+    // La conversación de una tab con chat propio (el Second Brain, 23/10/2026), si ya existe: se lee, no se crea.
+    if (sp.has('deTab')) return json({ ok: true, sesion: await sesionDeTab(persona, sp.get('deTab') ?? '', false) });
     // Y las cuentas que el «+» de la caja deja elegir para ESTE chat (8b, lib/chat-ia.ts): sin ellas, el selector no se dibuja.
     if (sp.get('suIA')) return json({ ok: true, conectada: await conSuIA(persona), cuentas: await cuentasDeIA(persona).catch(() => []) });
     if (sp.has('marcas')) {
@@ -257,10 +259,17 @@ export async function POST(req: NextRequest) {
       return json({ ok: false, error: 'Algo falló de nuestro lado. Intenta de nuevo.' }, 500);
     }
   }
-  let body: { action?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown; desde?: unknown; ia?: unknown };
+  let body: { action?: unknown; tab?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown; desde?: unknown; ia?: unknown };
   try { body = await req.json(); } catch { return json({ ok: false, error: 'Pedido inválido.' }, 400); }
   try {
-    if (body.action === 'new') return json({ ok: true, sesion: await nuevaSesion(persona) });
+    if (body.action === 'new') {
+      // La de una tab con chat propio (el Second Brain): la suya, o una nueva con el primer mensaje. Una tab que no la tiene, 400.
+      if (body.tab != null) {
+        const sesion = typeof body.tab === 'string' ? await sesionDeTab(persona, body.tab, true) : null;
+        return sesion ? json({ ok: true, sesion }) : json({ ok: false, error: 'Esa pantalla no tiene su chat.' }, 400);
+      }
+      return json({ ok: true, sesion: await nuevaSesion(persona) });
+    }
     // Las marcas de la persona en un mensaje (el menú del clic derecho): suyas, en su negocio (lib/chat-mako-marcas-db.ts).
     if (body.action === 'marcar') {
       const cambio = sanearCambio(body.cambio);

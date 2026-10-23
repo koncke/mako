@@ -62,7 +62,7 @@ test('2. lo elegido es por chat, vale mientras se pueda elegir, y un chat nuevo 
   assert.match(motor, /const iaDelChat = idOffer != null \? null : eleccionVigente\(iaDe\[chatAbierto\] \?\? null, cuentasIA\);/);
   assert.match(motor, /const elegirIA = \(e: EleccionIA\) => setIaDe\(\(m\) => \(\{ \.\.\.m, \[chatAbierto\]: e \}\)\);/);
   assert.match(motor, /chatAbierto === 'nuevo' && m\.nuevo !== undefined \? \{ \.\.\.m, \[`s\$\{sid\}`\]: m\.nuevo, nuevo: null \} : m/, 'el nuevo pasa a su fila');
-  assert.equal((motor.match(/setElegido\(\{ id: sid \}\);\n\s*pasarIaAlCreado\(sid\);/g) ?? []).length, 2, 'al crearse con un mensaje y con una nota de voz');
+  assert.equal((motor.match(/setElegido\(\{ id: sid \}\); \}\n\s*pasarIaAlCreado\(sid\);/g) ?? []).length, 2, 'al crearse con un mensaje y con una nota de voz');
 });
 
 test('3. viaja en cada mensaje, con archivos y en una nota de voz, y sólo si se eligió algo', () => {

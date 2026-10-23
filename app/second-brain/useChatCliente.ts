@@ -122,7 +122,7 @@ async function linksDelPedido(texto: string): Promise<IrA[]> {
 
 export type ChatCliente = ReturnType<typeof useChatCliente>;
 
-export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, chatInicial, opcionArmar, busca, caja, sesionesIniciales = null, desde: desdeTab = null }: {
+export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, chatInicial, opcionArmar, busca, caja, sesionesIniciales = null, desde: desdeTab = null, tab: tabPropia = null }: {
   elegido: ElegidoChat | null;
   setElegido: Dispatch<SetStateAction<ElegidoChat | null>>;
   /** Lee Offer, los chats de antes y si tiene su IA. En el Ops Center del super admin la lista es la de Claude Code: no. */
@@ -140,6 +140,9 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   sesionesIniciales?: SesionChat[] | null;
   /** Desde dónde escribe (OC6, lib/chat-desde.ts): la estrella de una tab, con su entidad y su modo. Viaja con cada mensaje. */
   desde?: Desde | null;
+  /** La tab con chat propio de la persona (el Second Brain, 23/10/2026: lib/chat-mako-reglas.ts → TAB_SECOND_BRAIN): el primer
+   *  mensaje crea ESA conversación (una por persona y negocio) y se sigue como las de las tabs (`antes`). */
+  tab?: string | null;
 }) {
   const ws = useWs();
   const [sesiones, setSesiones] = useState<SesionChat[] | null>(sesionesIniciales);
@@ -436,7 +439,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   // ── El turno ──
   const mandar = async (idU: string, mensaje: string, archivos: readonly ArchivoElegido[]) => {
     setTrabajo({ desde: Date.now() });
-    const deAntes = idAntes != null;
+    const deAntes = idAntes != null || tabPropia != null;
     const ia = iaDelChat;
     // Arranca ya, junto con el turno (tarda segundos; el turno, decenas).
     const irA = linksDelPedido(mensaje);
@@ -444,13 +447,14 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
       let sid = sesionRef.current;
       if (sid == null) {
         // El primer mensaje crea la conversación (el jefe que todavía no tenía, o un chat nuevo).
-        const n = await postJson<{ sesion: SesionChat }>({ action: 'new' });
+        const n = await postJson<{ sesion: SesionChat }>({ action: 'new', ...(tabPropia ? { tab: tabPropia } : {}) });
         if (!n.ok) { marcar(idU, { estado: 'error', error: n.reintentable ? n.error : 'No pude crear el chat.' }); return; }
         sid = n.datos.sesion.id;
         sesionRef.current = sid;
         recienCreada.current = sid;
-        setSesiones((ss) => [...(ss ?? []), n.datos.sesion]);
-        setElegido({ id: sid });
+        // La de una tab con chat propio (el Second Brain) no va en la lista de la persona: se sigue como las de las tabs.
+        if (tabPropia) setElegido({ antes: sid });
+        else { setSesiones((ss) => [...(ss ?? []), n.datos.sesion]); setElegido({ id: sid }); }
         pasarIaAlCreado(sid);
       }
       const l = archivos.length
@@ -514,7 +518,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
    */
   const mandarNotaAlChat = async (idU: string, a: NotaDeVoz): Promise<FinDeNota> => {
     setTrabajo({ desde: Date.now() });
-    const deAntes = idAntes != null;
+    const deAntes = idAntes != null || tabPropia != null;
     const ia = iaDelChat;
     const sacar = (error: string) => { setItems((xs) => xs.filter((x) => x.id !== idU)); setFaltaMic(error); };
     try {
@@ -523,13 +527,14 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
       let sid = sesionRef.current;
       if (sid == null) {
         // La primera nota crea la conversación, como el primer mensaje (`mandar`).
-        const n = await postJson<{ sesion: SesionChat }>({ action: 'new' });
+        const n = await postJson<{ sesion: SesionChat }>({ action: 'new', ...(tabPropia ? { tab: tabPropia } : {}) });
         if (!n.ok) { sacar(n.reintentable ? n.error : 'No pude crear el chat.'); return 'volver'; }
         sid = n.datos.sesion.id;
         sesionRef.current = sid;
         recienCreada.current = sid;
-        setSesiones((ss) => [...(ss ?? []), n.datos.sesion]);
-        setElegido({ id: sid });
+        // La de una tab con chat propio (el Second Brain) no va en la lista de la persona: se sigue como las de las tabs.
+        if (tabPropia) setElegido({ antes: sid });
+        else { setSesiones((ss) => [...(ss ?? []), n.datos.sesion]); setElegido({ id: sid }); }
         pasarIaAlCreado(sid);
       }
       const l = await postArchivos<RespuestaTurno>(sid, '', [], deAntes, desdeTab, { mp3, secs: Math.max(1, Math.round(a.secs)) }, ia);

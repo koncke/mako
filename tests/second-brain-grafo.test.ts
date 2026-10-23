@@ -45,7 +45,7 @@ test('11 · la pantalla: siempre en oscuro, «Second Brain» arriba, sin «Mapa�
   assert.ok(!existsSync(join(RAIZ, 'app/second-brain/BotonClaude.tsx')), 'el botón se fue entero');
 
   const chat = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
-  const panel = chat.slice(chat.indexOf(') : mapa ? ('), chat.indexOf(') : centro && chatCentro ? ('));
+  const panel = chat.slice(chat.indexOf(') : verMapa ? ('), chat.indexOf(') : centro && chatCentro ? ('));
   assert.ok(panel.length > 0, 'la rama del grafo en la pantalla del Ops Center');
   assert.ok(!/>Mapa</.test(panel), 'sin el título «Mapa»: el grafo trae su cabecera');
   assert.match(panel, /<VolverDelGrafo\.Provider value=\{/, 'el «volver» le llega al grafo por contexto');

@@ -61,6 +61,7 @@ import { getSetting, setSetting } from '@/lib/settings';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
+import { TABS_CON_CHAT_PROPIO } from '@/lib/chat-mako-reglas';
 import {
   createSession, getSession, listSessions, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
   renameSession, tituloDesde, type ChartSession, type ChartMsgConBloques,
@@ -157,6 +158,21 @@ export async function listarSesiones(persona: PersonaChat): Promise<SesionChat[]
  *  saludo y el título) en el chat de escritorio. */
 export async function nuevaSesion(persona: PersonaChat): Promise<SesionChat> {
   return runWithWorkspace(persona.ws, async () => aSesion(await createSession(persona.chartKey, null, '')));
+}
+
+/**
+ * LA conversación de una tab con chat propio (el Second Brain, 23/10/2026: lib/chat-mako-reglas.ts → TAB_SECOND_BRAIN), con la
+ * clave de la persona y el sufijo de la tab: UNA por persona y por negocio (`runWithWorkspace`). `crear`: si no hay, la crea
+ * (vacía, sin título: el primer turno se lo pone). Sin `crear`, null si todavía no habló. La tab es de una lista cerrada.
+ */
+export async function sesionDeTab(persona: PersonaChat, tab: string, crear: boolean): Promise<SesionChat | null> {
+  if (!TABS_CON_CHAT_PROPIO.includes(tab)) return null;
+  const clave = `${persona.chartKey}:${tab}`;
+  return runWithWorkspace(persona.ws, async () => {
+    const ya = (await listSessions(clave)).sort((a, b) => a.id - b.id)[0];
+    if (ya) return aSesion(ya);
+    return crear ? aSesion(await createSession(clave, null, '')) : null;
+  });
 }
 
 /** Las tarjetas de las pendientes vigentes de UN chat (las de este turno, con `desde`).

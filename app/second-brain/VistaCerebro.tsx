@@ -28,6 +28,7 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { AREAS, CAPA_CONSTRUCCION, type AreaId, type Cerebro } from '@/lib/cerebro-modelo';
 import { vistaValida } from '@/lib/secciones-negocio';
@@ -38,6 +39,16 @@ import { Grafo } from './Grafo';
 import { AreasHub } from './AreasHub';
 import { BotonExportar } from './BotonExportar';
 import { useVolverDelGrafo } from './volver';
+
+// EL CHAT CON MaKo en la columna derecha (23/10/2026), en lugar del navegador de «Tu negocio»: ChatDelSecondBrain.tsx dice
+// adónde fue cada cosa del navegador. Va aparte (next/dynamic): trae las piezas del Ops Center, con su CSS.
+const ChatDelSecondBrain = dynamic(() => import('./ChatDelSecondBrain'), { ssr: false });
+
+/** Lo que MaKo sabe, contado, en la cabecera: lo que el navegador decía arriba («62 cosas que MaKo sabe», «50 de MaKo · 12 tuyas»). */
+export function cuantoSabe(c: { total: number; mako: number; usuario: number }): string {
+  if (!c.total) return '';
+  return `${c.total} ${c.total === 1 ? 'dato' : 'datos'} · ${c.mako} de MaKo · ${c.usuario} ${c.usuario === 1 ? 'tuyo' : 'tuyos'}`;
+}
 
 /** Cada cuánto el grafo se vuelve a pedir mientras la pestaña está a la vista (el grafo VIVO). */
 const MS_GRAFO_VIVO = 180_000;
@@ -117,6 +128,7 @@ export function VistaCerebro({ cerebro: delServidor, funnelPanel, movil = false,
         .sb-cab { display: flex; align-items: center; gap: 10px; padding: 18px 22px 12px; flex: none; }
         .sb-cab__titulo { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; color: var(--ink); }
         .sb-cab__sub { margin: 2px 0 0; font-size: 13.5px; color: var(--dim); line-height: 1.4; }
+        .sb-cab__cuenta { margin-left: 10px; color: var(--faint); white-space: nowrap; }
         .sb-cab__volver {
           display: none; align-items: center; justify-content: center; flex: none;
           width: 36px; height: 36px; border-radius: 10px; border: none; background: none; color: var(--dim); cursor: pointer;
@@ -141,7 +153,7 @@ export function VistaCerebro({ cerebro: delServidor, funnelPanel, movil = false,
           )}
           <div style={{ minWidth: 0 }}>
             <h1 className="sb-cab__titulo">{TITULO_SECOND_BRAIN}</h1>
-            <p className="sb-cab__sub">{conObra ? SUBTITULO_UNIDO : SUBTITULO_SECOND_BRAIN}</p>
+            <p className="sb-cab__sub">{conObra ? SUBTITULO_UNIDO : SUBTITULO_SECOND_BRAIN}{cerebro.cuenta?.total ? <span className="sb-cab__cuenta">{cuantoSabe(cerebro.cuenta)}</span> : null}</p>
           </div>
         </header>
       )}
@@ -154,6 +166,7 @@ export function VistaCerebro({ cerebro: delServidor, funnelPanel, movil = false,
         onFiltro={setFiltro}
         movil={movil}
         alCerrar={alCerrar}
+        lateral={<ChatDelSecondBrain movil={movil} />}
         accion={movil ? accionMovil : filtroExportable ? <BotonExportar cerebro={delNegocio} filtroMapa={filtroExportable} recorte={verse} /> : undefined}
       />
       {!movil && <AreasHub abierta={editando} onAbrir={setEditando} funnelPanel={funnelPanel} vistaInicial={vistaInicial} />}
