@@ -4335,3 +4335,14 @@ clics llegan bien, porque esa parte no la tocó. Además la copia arranca el gra
   · `lib/landing-mapa-server.ts` (`masTocadoDeLaPagina`) · `lib/landing-analyst.ts` (`comportamientoConToques`).
 
 *17/10/2026, «Pendientes B3» (`claude4`).*
+
+## Los guiones de VSL para vender MaKo, y lo que la landing todavía no dice (23/10/2026)
+
+Los guiones (principal, 6 por funcionalidad, 3 por avatar) están en `docs/vsl/`, con su índice y las reglas de voz de
+`MaKo-VSL/_voz-martin.md`. Lo que salió al escribirlos:
+- **La landing `/` sigue vendiendo la Beta** («5 cupos», acompañamiento 1 a 1, «precio de fundador») y no nombra los
+  planes de US$47 y US$97 ni el grupal. Los guiones no dicen precios: van en la landing, que hay que alinear.
+- **No hay guion de texto del VSL principal** en ningún lado (sólo el video): `docs/vsl/principal.md` es el primero.
+- **Lo que hay que medir antes de grabar**, anotado en cada guion: el «nueve de cada diez» del CRM (lo medido era 7 de
+  10), el «ocho de cada diez ventas después del quinto mensaje» (dato de mercado sin fuente firme), y si una landing
+  del Web Generator trae el seguimiento del video por lead.

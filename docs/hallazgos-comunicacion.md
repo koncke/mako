@@ -10760,3 +10760,12 @@ WhatsApp de ESE lead, y la estrella (el Cerebro de la persona) no tiene cómo es
 y «Copiar» van en el hueco `enMensaje` de cada respuesta de MaKo. La pestaña «Consejo» no es un chat y quedó igual.
 
 **Vive en:** app/whatsapp/WhatsAppAdvisor.tsx · tests/whatsapp-asesor-piezas.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## Los miembros de un grupo de WhatsApp no se leen con la línea cerrada (23/10/2026)
+
+Medido al buscar las listas de Martín (formación de Jan, Mastery House, evento de Cancún) en sus grupos:
+- Su línea personal (`mako_superadmin_mtxclf3x`) está «close» desde que MaKo pasó a su número propio (07/10). Evolution
+  guarda el STORE (75 grupos, con nombre), pero `group/findGroupInfos` da **404**: los miembros se piden en vivo.
+- Del store sólo salen los que ESCRIBIERON en el grupo (0 a 6 por grupo): no sirve como lista de miembros.
+- Para «Traer de un grupo» hace falta una línea CONECTADA que esté en ese grupo. La de MaKo (…2605) no está en los
+  grupos de Martín: tiene que ser su número personal, vinculado de nuevo.

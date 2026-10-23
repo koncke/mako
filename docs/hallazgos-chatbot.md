@@ -6027,3 +6027,18 @@ app/automations/ConfigAutomatizacionPanel.tsx (`AntibanDeLaAutomatizacion`) · L
 · lib/config-automatizacion.ts · lib/flujo-ia-intencion.ts · test: tests/automations-antiban.test.ts. **Sin hacer:** el
 teléfono (/m/automations) no tiene Configuraciones: el anti-ban y el horario de una automatización sólo se cambian en la
 computadora.
+
+## Dejar armado un flujo en un negocio SIN línea conectada (23/10/2026)
+
+Las automatizaciones de venta de MaKo en el ws9 (#568 «Venta MaKo · apertura», #569 «Venta MaKo · conversación
+abierta»), pausadas, con la línea del ws9 sin QR:
+- **Publicar desde el lienzo pide la línea** (`medioSinConectar` en la ruta). `setSecuenciaPasos` no la pide y no toca
+  `activa`: es la vía para dejar un flujo armado y pausado en un negocio que todavía no conectó WhatsApp. Activar sí
+  vuelve a pasar por `validarActivacion`.
+- **Las piezas de la galería no se exportan** (`whatsapp()`, `condicion()`, `esperar()` en
+  lib/plantillas-automatizaciones.ts): un script copia su forma exacta (`RELLENO` + campos) y valida con
+  `validarGrafo` + `frenoDelFlujo` + `problemasDeForma` antes de escribir. Las dos pasaron sin nada.
+- **«Sale sola» se decide por tarjeta** (`revisar: true` → para aprobar): aunque alguien active el flujo, nada sale
+  solo. Se comprobó con `saleSolaDelPaso` en cada WhatsApp.
+
+**Sin hacer:** activarlas es de Martín, después de vincular la línea del ws9 y de cargar la base.

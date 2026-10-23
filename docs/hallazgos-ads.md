@@ -4350,3 +4350,32 @@ lib/meta-login.ts · tests/meta-permisos-conectar.test.ts.
     video del 21/10 se cortaron esos 7 segundos, y la columna «Agenda R1» del CRM del ws1 va borroneada.
 
 **Vive en:** lib/meta-login.ts (`config_id`, `WORKSPACES_DE_REVISION`, `botonMetaVisible`) · lib/meta-conexion.ts · app/api/integraciones/meta/ · tests/meta-login.test.ts · panel de la app 2586146911825340
+
+## «Calcular presupuesto»: cuántos ángulos se testean con lo que hay (23/10/2026)
+
+Pedido de Martín (22/10): con US$2.000, «¿cuántas funcionalidades y cuántos avatares ataco?». Vive en
+`lib/calculadora-presupuesto-ads.ts` (pura), el modal `app/ads-manager/CalculadoraPresupuesto.tsx` (⋯ → «Calcular
+presupuesto») y la capacidad `calcular_presupuesto_anuncios` de la API (sin HTTP).
+
+- **El diagnóstico obvio era el equivocado: «50 conversiones por ángulo».** Eso es el aprendizaje de Meta, y es por
+  CONJUNTO en 7 días, no por anuncio. Pedido por ángulo, con US$2.000 a US$2,50 alcanza para 8 y a US$8 para 2: la
+  respuesta sería siempre «una sola dimensión». Los dos criterios van cada uno donde corresponde: el TESTEO usa el
+  mínimo para decidir (un conjunto por ángulo, si no Meta le da todo a uno) y la ESCALA del ganador, los 50 en 7 días.
+- **El mínimo para decidir ya existía: `RECON_LEADS_VALIDACION` (lib/config.ts, hoy 10, la vara de Jan del panel
+  Recon).** La primera versión usaba 20 por su cuenta: el plan habría dicho «alcanza» y la tabla «sin validar» con los
+  mismos números. Ahora la calculadora importa esa constante (lo fija el test).
+- **Probar menos para que el ganador salga de aprendizaje.** La opción se elige por: (1) que compare algo, (2) que la
+  escala salga de aprendizaje, (3) cuántos avatares + funcionalidades prueba, (4) la más corta. A US$6 por resultado la
+  matriz 3 × 3 entra pero ahoga la escala; la cuenta prueba menos. Tope de 3 por dimensión (la matriz de Jan): sin él,
+  con 24 funcionalidades proponía probar 15.
+- **La respuesta para Martín (US$2.000, 45 días, US$2,50 por conversación como en Strategy):** 3 avatares × 3
+  funcionalidades en UNA semana (9 anuncios, US$3,57 por día cada uno, US$225), y US$46,71 por día durante 38 días al
+  ganador, que sale de aprendizaje. Hasta ~US$5,50 por resultado sigue entrando la matriz; arriba de ~US$6,20 ni sin
+  testear sale de aprendizaje. Optimizando a una agenda de US$125 no alcanza para comparar nada.
+- **El Ads Manager no tenía la estrella de MaKo.** Se montó `MakoEnLaTab` (modo analizar, encima de los modales) y el
+  `<main>` deja el lugar con `--ancho-panel-mako`.
+
+**Sin hacer:** verlo en pantalla después del deploy (no se levanta `next dev` local); que la calculadora tome el costo
+por resultado real de la cuenta (`ver_rendimiento_anuncios`) en vez de pedirlo.
+
+**Vive en:** lib/calculadora-presupuesto-ads.ts · app/ads-manager/CalculadoraPresupuesto.tsx · app/ads-manager/CampanasBrowser.tsx · lib/api-mako/areas/ads.def.ts · tests/calculadora-presupuesto-ads.test.ts
