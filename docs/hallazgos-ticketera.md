@@ -411,6 +411,38 @@ bug: es de la plataforma.
 
 ---
 
+## «No se entiende» la tarjeta del #5: lo técnico ya estaba plegado; faltaban el DÓNDE y QUÉ decidir (23/10/2026, feedback 7)
+
+**Síntoma (Martín, con captura):** la tarjeta «MaKo no le pudo contestar a Mauricio» no se entiende. Él quería tres cosas: DÓNDE
+(qué chat o tab), POR QUÉ en palabras, y QUÉ hay que decidir. Lo técnico, plegado.
+
+**El diagnóstico obvio era el equivocado:** no es una decisión de `admin_decisiones` ni del bloque del Ops Center. Es un ticket de
+la tabla `tickets`, y su frase se arma al dibujar (app/tickets/bandeja/mazo-reglas.ts → `leerTicket`). Y lo técnico («Claude
+vetado — lib/veto-claude.ts») ya iba plegado en «Detalle» desde el 22/10: lo medido en producción el 23/10 lo confirma. Lo que no
+se entendía era el resto:
+- «en su chat» sin decir cuál;
+- «→ Conectar su IA» y «Estado: el código ya está arreglado · lo decides tú», que no dicen qué se decide.
+- Los cuatro botones son redondos y sin rótulo: ↺ ✕ ↑ ✓.
+
+**Cómo quedó:**
+- **DÓNDE:** la bandeja suma a cada ticket el título y la clave del chat donde falló MaKo (`conChatDeLosTickets`: una lectura de
+  chart_sessions por `contexto.chat.hilo`). La tarjeta dice «En el chat de CRM «Ana»» o «En su chat «X» del Ops Center», con
+  `origenDeClave`, y vale también para los tickets viejos. Sabiendo cuál, la frase ya no repite «en su chat».
+- **POR QUÉ:** «No tiene su IA conectada (Claude o GPT), y MaKo no presta la suya»: la regla del 22/10, cada negocio usa su IA.
+  El texto de antes, «No tenía una IA», no decía de quién era lo que faltaba.
+- **QUÉ decidir:** una pregunta que se contesta con el ✓ (`queDecide`), por ejemplo «¿Le pedimos a Mauricio que conecte su IA?».
+- **El deshacer:** sale de la fila de botones y va arriba, a la franja de «1 de N», como un «Deshacer» sutil que aparece sólo con
+  algo para deshacer. ⌫ y Ctrl+Z siguen igual.
+
+**Trampa para lo que venga:** a lo que dice la tarjeta lo fija tests/ticketera-mazo.test.ts (F1, G1, H2); al dónde de la base,
+tests/ticketera-tarjeta-7.test.ts. MazoTickets.tsx lo toca también Chats de las tabs (el «Reportar a Soporte»), en otro lugar
+del archivo.
+
+**SIN HACER:** los tickets nuevos podrían guardar el chat al abrirse (en `registrarError` desde lib/mako-turno-app.ts:
+`s.titulo` y `entrada.desde.tab`), y así no habría que buscarlo después. Eso pasa por tres saneadores que tiran lo que no
+conocen: `sanearReporte`, `ticketDeError` y `sanearContexto`. Ojo: `chat.donde` acepta como mucho 40 caracteres de `[a-z0-9-]`.
+Lo que falla por WhatsApp no trae `hilo`, así que no dice dónde.
+
 ## Lo que quedó sin hacer
 
 | Qué | Dónde | Por qué |
