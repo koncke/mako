@@ -3033,6 +3033,7 @@ export const BITACORA: Hito[] = [
       'Crear o editar un evento, o conectar otra cuenta, se ve enseguida.',
     ],
     commits: [
+      { sha: '95d9b0204', msg: 'Agenda del CRM: Calendly, Cal.com y Google a la vez, un minuto de caché por cuenta, y el token de Calendly por parámetro', lineas: 402, archivos: 9 },
     ],
     archivos: [
       'lib/agenda-evento-etapa-server.ts · lib/agenda-cache.ts — las agendas a la vez, con su caché',
