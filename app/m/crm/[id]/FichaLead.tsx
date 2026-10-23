@@ -111,7 +111,7 @@ export type FichaLeadProps = {
 const ROTULO_RESUMEN: Readonly<Record<string, string>> = {
   siguiente: 'Siguiente', equipo: 'Setter · Closer', calificado: 'Calificación', ingreso: 'Ingreso estimado',
   'en-etapa': 'En la etapa', motivo: 'Motivo de salida', plazo: 'Nutrición manual', redes: 'Redes', pagina: 'Se registró en',
-  entrada: 'Entró', direccion: 'Dirección', sexo: 'Sexo',
+  entrada: 'Entró', direccion: 'Dirección', sexo: 'Sexo', automatizaciones: 'Automatización',
 };
 
 type Sheet = 'agendar' | 'nota' | 'notas' | 'mover' | 'llamada' | 'respuestas' | null;

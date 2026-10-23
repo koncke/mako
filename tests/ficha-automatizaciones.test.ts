@@ -10,7 +10,7 @@
 //
 // Correr: node --import tsx --test tests/ficha-automatizaciones.test.ts
 //
-// ⚠️ PROBADO ROMPIÉNDOLO (23/10/2026, base 9/0), de a una rotura y restaurada: ver el final del archivo.
+// ⚠️ PROBADO ROMPIÉNDOLO (23/10/2026, base 10/0), de a una rotura y restaurada: ver el final del archivo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,6 +25,7 @@ import { cambioDeInputApi } from '../lib/ficha/api';
 import { plantillaTabDeEntrada } from '../lib/ficha/plantillas-tab';
 import { IDS_PLANTILLA } from '../lib/ficha/plantillas';
 import { REGLAS_RESUMEN } from '../app/crm/lead-view/ficha/reglas-resumen';
+import { filaDeAutomatizaciones, PIEZA_DE_BLOQUE } from '../app/m/crm/ficha-bloques';
 
 const sinComentarios = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
 const fecha = (iso: string) => `F(${iso.slice(11, 16)})`;
@@ -130,7 +131,18 @@ test('el toast del movimiento dice POR QUÉ no entró (y no inventa nada si la r
   assert.match(board, /if \(l\) openDetail\(l\);/, '«Ver» abre la ficha, donde está el bloque');
 });
 
+test('el teléfono destila el bloque en una fila: en cuál está, su estado y lo próximo; sin ninguna, no hay fila', () => {
+  assert.equal(PIEZA_DE_BLOQUE['automatizaciones-en-curso'], 'automatizaciones');
+  const v = { vivas: [base, { ...base, secuenciaId: 300, nombre: 'Otra' }], terminadas: [], noEntro: [] };
+  assert.equal(filaDeAutomatizaciones(v, fecha), 'Sprint · apertura (Activa) · Lo próximo: WHATSAPP: Si no me das tu email… · F(16:12) · +1');
+  assert.equal(filaDeAutomatizaciones({ vivas: [], terminadas: [], noEntro: [] }, fecha), null);
+  const datos = sinComentarios('app/m/crm/datos.ts');
+  assert.match(datos, /const auts = delFunnel\.piezas\.some\(\(x\) => x\.pieza === 'automatizaciones'\)/, 'no se paga la lectura si la ficha no lo pone');
+  assert.match(datos, /automatizaciones: auts \? filaDeAutomatizaciones\(vistaDeEnAutomatizacion\(auts\), /);
+});
+
 // Roturas (23/10/2026, base 8/0): `chipDeInscripcion` sin el freno → 7 / 1; `lineaDelProximo` sin el freno → 7 / 1;
 // el registro con el componente de la charla → 7 / 1; el bloque fuera de «Antes de la llamada» → 6 / 2; el título sin
 // limpiar el vacío → 7 / 1; la API sin «titulo=» → 7 / 1; la grilla sin el título puesto → 7 / 1. Con el toast (base
-// 9/0): el arrastre sin `noEntroDelMovimiento` → 8 / 1; el lector sin el texto que trae la respuesta → 8 / 1.
+// 9/0): el arrastre sin `noEntroDelMovimiento` → 8 / 1; el lector sin el texto que trae la respuesta → 8 / 1. Con el
+// teléfono (base 10/0): el bloque sin pieza de teléfono → 9 / 1; el server sin armar la fila → 9 / 1.
