@@ -10,12 +10,49 @@ el server lee las cabeceras del marco al bajar la página (`dejaEmbeberse`, lib/
 real si no se deja. Detalle: docs/hallazgos-editor-landing.md → «El Diagnóstico el 23/10/2026».
 
 **Lo que sigue, en el orden que pidió Cerebro:**
-1. **El `window.opener` del Pixel**: medir qué se pierde con el cierre completo (la ventana sin opener y la lectura que
-   vuelve por el server) y pasárselo a Cerebro ANTES de tocarlo; decide Martín si se pierde algo.
+1. **El cierre completo del `window.opener` del Pixel: LISTO PARA ARRANCAR EL 26/10, no antes** (Cerebro, 23/10:
+   «va DESPUÉS del 25/10»: es superficie nueva —una ruta pública, una tabla y un Pixel v26— a 48 h del lanzamiento, y el
+   Pixel es lo que mide las landings con las que se vende; el riesgo que cierra no tiene víctimas hoy).
+   - **Medido el 23/10 (no hace falta repetirlo salvo que alguien haya repegado el Pixel):** de las 7 landings DECLARADAS
+     de todos los negocios, 0 toman hoy el camino del Pixel (la página real con opener). ws1 (multiplicatusresultados.com)
+     y ws11 (las 3 de leilafittipaldi.com) sirven el código entero **v22**, ws14 (p2plandingnutricion.vercel.app) el
+     **v15**, y ws13 (landingvsl / v0-joandowd en vercel.app) **no tiene Pixel**; el camino pide v24 o más con el token del
+     negocio (`VERSION_PIXEL_LECTOR`, `vaALaPaginaReal`), así que todas van a la ventana aislada, que ya es segura (el
+     lector suelta el opener antes de que corra un script de la página). Cómo se midió: las declaradas de
+     `landing.config` (o `landing.paginas`) de cada ws, bajadas con `paginaParaVer`, y `versionEnHtml` + el token.
+   - **El diseño:** (1) en el camino del Pixel la ruta (`responderPaginaLector`, lib/editor-landing/lector-pagina.ts) ya no
+     hace 303 a la página real: sirve una página puente NUESTRA (mismo origen que la pestaña de MaKo) que hace
+     `window.opener = null` y recién ahí `location.replace` a la landing con `mako_leer` y la firma de la lectura; la
+     landing nunca ve la pestaña de MaKo, ni en el rato antes del lector. (2) La lectura vuelve por el SERVER: el lector la
+     manda con la firma (`lector-firma.ts`) a una ruta pública nueva (sólo POST, firma válida, tope de tamaño, CORS
+     abierto porque no lleva cookies; entra en `lib/rutas-publicas.ts`), queda en una tabla nueva (migración con RLS +
+     revoke, en TENANT_TABLES y en el reset) y la pestaña de MaKo la pide por su id, autenticada, cada ~1 s, además de seguir
+     escuchando el postMessage de la ventana aislada. (3) Pixel **v26** (`lib/landing-token.ts`): con `mako_leer` y la
+     firma carga el lector sin mirar `window.opener`, y sube `VERSION_PIXEL_LECTOR` a 26. (4) La ventana aislada no
+     cambia.
+   - **Qué se pierde: nada hoy.** A futuro, una página con el código entero v24 o v25 iría a la ventana aislada hasta
+     repegarlo (hoy, ninguna). La lectura por el Pixel llega ~1 s después (la consulta).
 2. **Animaciones, etapa 4** (efectos de scroll y piezas con movimiento: cinta, pasos, carrusel, máquina de escribir,
    contador) y **etapa 6** (plantillas con movimiento e «Ilustración animada» con un Lottie de contenido PROPIO: la
    licencia de cada pieza que se ofrezca queda escrita acá antes de publicarla).
 3. El video de fondo sigue apagado hasta que el puente a Flow se mida en vivo (docs/relevo/video-generator.md).
+
+**El Pixel de las landings del lanzamiento (25/10), medido el 23/10:** la portada (hola-mako.com) y las de cada funnel
+(hola-mako.com/vsl/<slug> y hola-mako.site/<slug>: crear-landings, automatizaciones, dashboards, contenidos,
+inmobiliarias, infoproductores, coaches) cargan el Pixel por la línea corta `/m.js?id=` con el token del ws9, que sirve
+el v25 (el actual): en hola-mako.com lo inyecta app/vsl/Landing.tsx al correr, en hola-mako.site va en el HTML. Medido con
+Chrome sin ventana CORTANDO los pedidos a /api/track/* (no deja visitas falsas): las tres que se probaron mandan su beacon,
+y el mapa de versiones del ws9 tiene v25 en hola-mako.com, /vsl/coaches y hola-mako.site. **avatares-ia da 404 a
+propósito**: está `pausada` en scripts/landings-mako-funnels.mts (promete algo no confirmado para clientes). No hay que
+repegar nada: la línea corta se actualiza sola.
+
+**Licencias de lo que se ofrece para animar una landing (registro; se completa ANTES de publicar una pieza):** al
+23/10 no hay NINGUNA pieza Lottie, Rive ni de video ajena en el producto (`git grep`: ni dependencia en package.json, ni
+archivo, ni bloque). Lo que anima hoy es CSS propio (lib/editor-landing/animaciones.ts, css.ts) y el script propio de la
+publicada. La regla para la etapa 6: el FORMATO Lottie se puede usar; el CONTENIDO tiene que ser propio (hecho a mano o con
+la skill MIT diffusionstudio/lottie) o de una fuente cuya licencia permita por escrito redistribuirlo dentro de un
+producto que compite; las de LottieFiles NO (su Lottie Simple License prohíbe juntarlas en un servicio similar). Cada
+pieza que se sume se anota acá: nombre, fuente, licencia leída en su archivo y fecha.
 
 ## Estado al 17/10/2026 (rama pend-b3-1710, «Pendientes B3», cuenta claude4) — leer primero
 
