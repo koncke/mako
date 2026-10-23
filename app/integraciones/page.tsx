@@ -95,7 +95,9 @@ export default async function IntegracionesPage() {
 
   // Cuota GRATIS consumida hoy por cada IA barata (para el gauge "cuánto queda"
   // de cada proveedor y para el aviso proactivo de rotación). Nunca rompe la página.
-  const cuotas = await cuotasProveedores().catch(() => []);
+  // Sólo las que el negocio TIENE (o usó hoy): la plataforma no le presta IA, y una caja «gratis» de una IA que no
+  // conectó se lee como que MaKo se la da (IA16, 23/10/2026).
+  const cuotas = await cuotasProveedores(undefined, { soloCargadas: true }).catch(() => []);
 
   // Token del agente externo (Claude Code). Se LEE, no se acuña: es una credencial
   // real (da lectura del plan del workspace), así que solo nace cuando el humano

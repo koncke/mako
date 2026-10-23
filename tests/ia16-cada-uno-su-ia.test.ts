@@ -126,3 +126,22 @@ test('5. las listas de texto no nombran a Groq; las de audio sí; y la marca del
   assert.match(negocio, /export const CLAVES_SU_IA = \['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY'\] as const;/);
   assert.doesNotMatch(ai + readFileSync(new URL('../lib/embeddings.ts', import.meta.url), 'utf8'), /gemini-pago|plataforma_paga/, 'volvió la marca del Gemini pago: la IA de un cliente la paga el cliente');
 });
+
+// Lo vio Integraciones en producción el 23/10 (ws10, sin ninguna IA gratis): «Costo de MaKo» le dibujaba Gemini, Groq,
+// Mistral y OpenRouter como «gratis», como si la plataforma se las prestara.
+test('8. «Costo de MaKo» dibuja sólo las IA que el negocio TIENE; Mistral y OpenRouter ya no tienen caja', async () => {
+  const c = correr().cajas;
+  assert.deepEqual(c.ws14, [], 'a un negocio sin ninguna IA gratis se le dibujan cajas «gratis»');
+  assert.deepEqual(c.ws12, ['groq'], 'su Groq (sólo notas de voz)');
+  assert.deepEqual(c.ws13, ['gemini'], 'su Gemini');
+  assert.deepEqual(c.ws9, ['gemini', 'groq'], 'lo de la plataforma, en la plataforma');
+  assert.deepEqual(c.ws14Api, ['gemini', 'groq'], 'la API de MaKo (ver_cuotas_ia) dice también las que tienen 0 cuentas');
+  const { LIMITES_PROVEEDOR } = await import('../lib/ia-cuotas-calculo');
+  assert.deepEqual(Object.keys(LIMITES_PROVEEDOR).sort(), ['gemini', 'groq'], 'volvió un proveedor que IA8 sacó');
+  const pagina = readFileSync(new URL('../app/integraciones/page.tsx', import.meta.url), 'utf8');
+  assert.match(pagina, /const cuotas = await cuotasProveedores\(undefined, \{ soloCargadas: true \}\)/);
+  const board = readFileSync(new URL('../app/integraciones/IntegracionesBoard.tsx', import.meta.url), 'utf8');
+  const limite = board.slice(board.indexOf('const LIMITE_FREE'), board.indexOf('type Resumen'));
+  assert.ok(limite.length > 50 && limite.length < 600, `el recorte de LIMITE_FREE mide ${limite.length}`);
+  assert.doesNotMatch(limite, /cerebras|mistral|openrouter/i, 'el panel volvió a describir un proveedor sacado');
+});

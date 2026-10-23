@@ -136,6 +136,11 @@ async function main() {
     claves: [...new Set(red.map((x) => x.clave))],
     largos: pg.db.mako_knowledge.filter((f) => f.workspace_id === 13).map((f) => [f.titulo, Array.isArray(f.embedding) ? (f.embedding as unknown[]).length : 0]),
   };
+  // «Costo de MaKo» (23/10): las cajas de cuota son las IA que el negocio TIENE; la API de MaKo sigue pidiendo todas.
+  const { cuotasProveedores } = await import('../lib/ia-cuotas');
+  const cajas = (ws: number, soloCargadas: boolean) =>
+    runWithWorkspace(ws, () => cuotasProveedores(undefined, { soloCargadas })).then((l) => l.map((c) => c.provider).sort());
+  out.cajas = { ws14: await cajas(14, true), ws12: await cajas(12, true), ws13: await cajas(13, true), ws9: await cajas(PLATAFORMA, true), ws14Api: await cajas(14, false) };
   process.stdout.write(`@@IA16@@${JSON.stringify(out)}\n`);
 }
 

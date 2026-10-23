@@ -6152,6 +6152,16 @@ buscador sin el filtro de largo, el anuncio a Groq, una copia de la plataforma c
 revisión: su Gemini antes que su GPT, `ordenarPorCuota` con el orden de la lista, el método sin `deMako`, `deMako` para todo,
 re-embeber lo que ya estaba, El Archivero sólo con su OpenAI. La regla de Google sin `AQ.` pone en rojo sus dos tests.
 
+**Y «Costo de MaKo» le dibujaba IA gratis que no tenía** (lo vio Integraciones en producción el 23/10, en el ws10): Gemini,
+Groq, Mistral y OpenRouter como «gratis» a un negocio sin ninguna, como si la plataforma se las prestara. Eran dos cosas:
+la lista de cuotas (`LIMITES_PROVEEDOR`, lib/ia-cuotas-calculo.ts) seguía con los dos que IA8 sacó, y `cuotasProveedores`
+arma una caja por proveedor aunque el negocio no tenga una clave cargada («una fila vacía en el slot 1»). Ahora la lista es
+Gemini y Groq, y la página pide `soloCargadas`: las que el negocio tiene o usó hoy. La API de MaKo (`ver_cuotas_ia`) sigue
+pidiendo todas, porque su contrato dice también las que tienen 0 cuentas. ⚠️ **El test de IA8 daba verde**: miraba que
+/integraciones no OFRECIERA conectarlos (el catálogo), y la caja salía de OTRA lista. Un proveedor que se saca vive en todas
+las listas que lo nombran, no sólo en la que se ve primero (test 8 de tests/ia16-cada-uno-su-ia.test.ts, cuatro roturas,
+las cuatro caen).
+
 **SIN hacer:**
 - **Subir.** Apaga la IA de los negocios de la tabla hasta que conecten la suya. **Retenida** (el Cerebro, 22/10): no entra
   a main hasta que el ws1 conecte su IA o hasta el lunes 26/10, lo que llegue primero (el sábado 24 arranca la campaña de
