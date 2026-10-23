@@ -206,11 +206,14 @@ test('3b: «Nuevo chat» lleva un círculo, no el muñeco gris; en el Centro, el
   assert.match(html, /class="co-circulo-nuevo"[^>]*width:40px;height:40px/);
   assert.doesNotMatch(html, /mun-cuerpo|co-muneco-nuevo/, 'ningún muñeco');
   assert.match(css, /\.co-circulo-nuevo \{[^}]*border-radius: 50%; background: var\(--good\);/);
-  // El Ops Center del cliente usa el MISMO «Nuevo chat» del super admin (PiezasCentro.tsx → NuevoChatCentro, 21/10/2026).
+  // El Ops Center del cliente usa el MISMO «Nuevo chat» del super admin (PiezasCentro.tsx → NuevoChatCentro, 21/10/2026). En la
+  // computadora, desde el 22/10 (feedback 4: «con el diseño de "+ Nueva automatización"»), es la fila punteada con el ＋; en el
+  // teléfono sigue el círculo (tests/ops-center-barra.test.ts).
+  assert.match(sinComentarios(leer('app/admin/operaciones/PiezasCentro.tsx')), /className="co-fila co-fila--nuevo co-nueva"[\s\S]{0,140}?<span aria-hidden className="co-nueva__mas">＋<\/span>/);
+  assert.match(sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx')), /<CirculoNuevo/, 'el teléfono: el círculo');
+  assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /<NuevoChatCentro /);
   for (const f of ['app/admin/operaciones/PiezasCentro.tsx', 'app/m/operaciones/ChatsMovil.tsx', 'app/second-brain/ChatSecondBrain.tsx']) {
-    const s = sinComentarios(leer(f));
-    assert.match(s, /<CirculoNuevo|<NuevoChatCentro /, `${f}: el círculo`);
-    assert.doesNotMatch(s, /MunecoNuevo/, `${f}: sin el muñeco`);
+    assert.doesNotMatch(sinComentarios(leer(f)), /MunecoNuevo/, `${f}: sin el muñeco`);
   }
 });
 

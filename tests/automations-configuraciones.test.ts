@@ -235,7 +235,8 @@ test('ChatAgentApp monta el menú de Configuraciones en los dos lugares del hora
 // menú de la lista es sólo el «?». Lo nuevo, en tests/automations-chat-siempre.test.ts.
 test('el modal: dos pestañas, `onCerrar` fijo que no cierra con un guardado en vuelo, por portal', () => {
   const src = fuente('app/automations/ConfiguracionesBoton.tsx');
-  assert.match(src, /export function ConfiguracionesModal\(\{ secuenciaId, nombre, onCerrar \}: PropsConfiguraciones\) \{/);
+  // (22/10/2026: sin el nombre de la automatización arriba: el modal no lo usa.)
+  assert.match(src, /export function ConfiguracionesModal\(\{ secuenciaId, onCerrar \}: PropsConfiguraciones\) \{/);
   assert.match(src, /const cerrar = useCerrarEstable\(onCerrar, ocupado\);/, 'el Modal recibe una flecha nueva por render, o cierra con el guardado en vuelo');
   // Quien lo abre le pasa un `onCerrar` de identidad FIJA (el lienzo y la lista).
   assert.match(fuente('app/automations/SecuenciaPerfil.tsx'), /const cerrarConfig = useCallback\(\(\) => setConfigAbierta\(false\), \[\]\);/);
@@ -246,10 +247,12 @@ test('el modal: dos pestañas, `onCerrar` fijo que no cierra con un guardado en 
   assert.match(fuente('app/automations/ConfigAutomatizacionPanel.tsx'), /\{propio && <HorarioEnvioPanel key=\{vuelta\} fuente=\{fuente\} onSucio=\{onSucio\} \/>\}/, 'no es el MISMO editor del horario');
   // Los paneles MONTADOS: la pestaña sólo esconde (desmontar tiraba el guardado de su respiro).
   assert.match(src, /<div hidden=\{pestana !== 'horario'\}><HorarioDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucio=\{alSucioHorario\} \/><\/div>/);
-  assert.match(src, /<div hidden=\{pestana !== 'limites'\}>/);
+  // 22/10/2026: «Límites» pasa a llamarse «Anti-ban» (Martín).
+  assert.match(src, /<div hidden=\{pestana !== 'antiban'\}>/);
+  assert.match(src, /export const PESTANAS_CONFIGURACIONES = \[\{ id: 'horario', label: 'Horario' \}, \{ id: 'antiban', label: 'Anti-ban' \}\] as const;/);
   // Revisión del 20/10/2026: las horas a la misma persona del NEGOCIO se ven y se editan (rotuladas «por defecto»).
   assert.match(src, /<LimitesEnvioPanel onSucio=\{alSucioLimites\} personaPorDefecto \/>/);
-  assert.doesNotMatch(src, /\{pestana === '(horario|limites)' && /, 'una pestaña desmonta su panel');
+  assert.doesNotMatch(src, /\{pestana === '(horario|antiban)' && /, 'una pestaña desmonta su panel');
   for (const r of ['app/automations/ConfiguracionesBoton.tsx', 'app/automations/LimitesEnvioPanel.tsx']) {
     assert.doesNotMatch(fuente(r), /href=|<Link\b|router\.(push|replace)|window\.location|['"`]\/configuraciones/, `${r} manda a otro lado`);
   }

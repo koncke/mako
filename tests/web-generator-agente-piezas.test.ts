@@ -39,6 +39,11 @@ test('las piezas entran con next/dynamic (el panel lo cargan tests) y el panel n
 test('el panel no es un <aside> (la barra de la agencia lo estiraba y la caja quedaba fuera de la vista, 22/10/2026)', () => {
   assert.match(panel, /<section\s+role="complementary"\s+className="gma gma-pb gma-ag"/);
   assert.doesNotMatch(panel, /<aside\b/);
+  // Y tampoco las columnas del editor que lo contienen: medido en producción después del tren 11, la columna izquierda
+  // (`.gma-izq`) seguía en 761 px dentro de un cuerpo de 713, y la caja abajo de la vista. Verificado volviéndola <aside>: 3/1.
+  const editor = sinComentarios(readFileSync('app/web-generator/editor/EditorLanding.tsx', 'utf8'));
+  assert.doesNotMatch(editor, /<aside\b/, 'una columna del editor volvió a ser <aside>');
+  assert.match(editor, /<section role="complementary" className="gma-izq" data-panel="agente"/);
 });
 
 test('las piezas toman los colores del editor: sus tokens bajo `.gma-ag`, también el azul del botón', () => {

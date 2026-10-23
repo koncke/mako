@@ -59,7 +59,9 @@ import { useRouter } from '@/app/_ui/Link';
 import { Modal, Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operaciones/useCentro';
-import { claveParaUrl, partesDelNombre, seguirChat } from '@/lib/centro-chats';
+import { claveParaUrl, esperaDe, partesDelNombre, seguirChat } from '@/lib/centro-chats';
+import { pasaFiltroChats, type ChatFiltrable } from '@/lib/ops-center-filtro';
+import { FiltroChats } from '@/app/admin/operaciones/FiltroChats';
 import { ChatDelCentro, FilaDeChat, GruposPorJefe, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, RenglonDeFila, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { ChatNuevoCentro } from '@/app/admin/operaciones/ChatNuevo';
@@ -183,6 +185,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const [conChat, setConChat] = useState(chatInicial != null || offerInicial != null || antesInicial != null || mapa != null || centroInicial != null || ticketeraInicial != null);
   const [ticketera, setTicketera] = useState<VistaDeTicketera | null>(ticketeraInicial);
   const [busca, setBusca] = useState('');
+  /** El filtro de la barra (feedback 4, 22/10/2026): el de Automations, con las áreas y, para el super admin, el estado. */
+  const [filtros, setFiltros] = useState<string[]>([]);
   const [todas, setTodas] = useState(false);
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
@@ -251,8 +255,10 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   };
 
   // ── Lo que se dibuja ──
-  const [cerebroFila, ...restoFilas] = k.lista;
-  const corte = todas || busca.trim() ? restoFilas : restoFilas.filter((f, i) => i < FILAS_VISIBLES || esFilaDe(f, elegido));
+  const [cerebroFila, ...todasLasFilas] = k.lista;
+  // El filtro va sobre lo que ya dejó la búsqueda; el Cerebro queda siempre arriba.
+  const restoFilas = filtros.length ? todasLasFilas.filter((f) => pasaFiltroChats({ titulo: f.titulo }, filtros)) : todasLasFilas;
+  const corte = todas || busca.trim() || filtros.length ? restoFilas : restoFilas.filter((f, i) => i < FILAS_VISIBLES || esFilaDe(f, elegido));
   // El grafo se abre sin soltar el chat que estaba abierto: vuelve a él (17/10/2026: «nunca cambia de chat»).
   const hrefMapa = `${base}?panel=mapa${idElegido ? `&chat=${idElegido}` : urlCentro ? `&centro=${encodeURIComponent(urlCentro)}` : ''}`;
   /** Volver del Mapa a lo que estaba elegido (lo vuelve a armar el servidor). */
@@ -279,7 +285,14 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   };
   // Los chats de Claude Code que dicen lo buscado (el elegido, `chatCentro`, se sigue arriba).
   const chatsCentro = centro?.chats;
-  const delCentro = useMemo(() => (chatsCentro ? buscarChats(chatsCentro, busca) : []), [chatsCentro, busca]);
+  const esperasCentro = centro?.esperas;
+  /** Lo que el filtro sabe de un chat del super admin: su nombre, si trabaja y si espera su respuesta. */
+  const filtrableCentro = useCallback((c: NonNullable<typeof chatsCentro>[number]): ChatFiltrable => (
+    { titulo: c.titulo, trabajando: c.estado === 'trabajando', espera: esperaDe(c, esperasCentro ?? {}) > 0 }), [esperasCentro]);
+  const delCentro = useMemo(() => {
+    const buscados = chatsCentro ? buscarChats(chatsCentro, busca) : [];
+    return filtros.length ? buscados.filter((c) => pasaFiltroChats(filtrableCentro(c), filtros)) : buscados;
+  }, [chatsCentro, busca, filtros, filtrableCentro]);
 
   /** Una fila de la lista del cliente: la `FilaDeChat` del super admin, con SU criatura (una por chat: `aspecto`) y, si trabaja,
    *  «Trabajando…». En su grupo (`sub`), corrida a la derecha y sólo con lo de después de «›», como un sub-chat del super admin. */
@@ -298,43 +311,20 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     <div className="co" data-con-chat={conChat ? 'true' : 'false'}>
       <Recorrido id={RECORRIDO_INICIO} pasos={PASOS_INICIO} abierto={tutorial.abierto} onCerrar={tutorial.onCerrar} />
       <aside className="co-barra" aria-label="Chats" data-recorrido="sb-chats">
+        {/* ARRIBA, COMO LA LISTA DE AUTOMATIONS (feedback 4, 22/10/2026: «parecida a lo que tenemos en Automations»): el tutorial,
+            la búsqueda y el filtro en una fila. «Ticketera» y «Second Brain» bajaron, junto al Uso. */}
         <div className="co-barra__arriba">
-          <label className="co-buscar">
-            <Icon name="search" size={16} />
-            <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar" aria-label="Buscar un chat" />
-          </label>
-          {/* Ops Center: la Ticketera entera y, debajo, el Second Brain (Martín: «que "Second brain" sea la sub tab debajo de
-              la Ticketera»), como «Buscar» y «Biblioteca» en la barra de ChatGPT. */}
-          {centro && (
-            <button type="button" className="co-acceso co-acceso--ticketera" aria-pressed={ticketera != null}
-              onClick={() => (ticketera ? cerrarTicketera() : abrirTicketera('tickets'))}>
-              <Icon name="soporte" size={17} />Ticketera
-              {(ticketsPorDecidir ?? 0) > 0 && <span className="co-acceso__n">{ticketsPorDecidir}</span>}
+          <div className="co-barra__fila">
+            <button type="button" className="co-ayuda" onClick={tutorial.reabrir} aria-label="Ver el tutorial" title="Tutorial">
+              <Icon name="help" size={16} />
             </button>
-          )}
-          {/* La del cliente: el mismo botón, con los suyos (los que esperan su respuesta, en el número). */}
-          {!centro && !misTickets.fueraDelPlan && (
-            <button type="button" className="co-acceso co-acceso--ticketera" aria-pressed={ticketsCliente}
-              onClick={() => { setTicketsCliente((v) => !v); setConChat(true); }}>
-              <Icon name="soporte" size={17} />Ticketera
-              {misTickets.esperanTuRespuesta > 0 && <span className="co-acceso__n">{misTickets.esperanTuRespuesta}</span>}
-            </button>
-          )}
-          {centro && (
-            <button type="button" className="co-acceso" aria-pressed={mapa != null && !ticketera} onClick={irAlSecondBrain}>
-              <Icon name="cerebro" size={17} />Second Brain
-            </button>
-          )}
-          {/* El grafo del negocio, arriba de los chats: como la Ticketera en el Centro (el botón del grafo de Obsidian). En
-              Ops Center no está (17/10/2026: «la entrada "Mapa" se va»): el grafo lo abre «Second Brain». */}
-          {veMapa && listaSB && (
-            <button type="button" className="co-acceso" aria-pressed={mapa != null}
-              onClick={() => { setConChat(true); router.push(mapa ? hrefVolver : hrefMapa); }}>
-              {/* «Second Brain», no «Mapa» (Martín, llamada con Florencia del 18/10 [00:50:28]: «no debería llamarse mapa,
-                  debería llamarse second brain»). La TAB es «Ops Center»; lo que se llama «Second Brain» es el grafo. */}
-              <Icon name={centro ? 'grid' : 'cerebro'} size={17} />Second Brain
-            </button>
-          )}
+            <label className="co-buscar">
+              <Icon name="search" size={16} />
+              <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar" aria-label="Buscar un chat" />
+            </label>
+            <FiltroChats filas={centro ? (chatsCentro ?? []).map(filtrableCentro) : todasLasFilas.map((f) => ({ titulo: f.titulo }))}
+              valores={filtros} onCambio={setFiltros} conEstado={!!centro} />
+          </div>
         </div>
 
         <nav className="co-lista" aria-label="Chats">
@@ -372,6 +362,41 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           )}
           </>)}
         </nav>
+        {/* ABAJO, JUNTO AL USO (feedback 4): la Ticketera, con un ícono de ticket que se entienda, y el Second Brain. */}
+        <div className="co-barra__accesos">
+          {/* Ops Center: la Ticketera entera y el Second Brain (Martín: «que "Second brain" sea la sub tab debajo de la
+              Ticketera»). */}
+          {centro && (
+            <button type="button" className="co-acceso co-acceso--ticketera" aria-pressed={ticketera != null}
+              onClick={() => (ticketera ? cerrarTicketera() : abrirTicketera('tickets'))}>
+              <Icon name="ticket" size={17} />Ticketera
+              {(ticketsPorDecidir ?? 0) > 0 && <span className="co-acceso__n">{ticketsPorDecidir}</span>}
+            </button>
+          )}
+          {/* La del cliente: el mismo botón, con los suyos (los que esperan su respuesta, en el número). */}
+          {!centro && !misTickets.fueraDelPlan && (
+            <button type="button" className="co-acceso co-acceso--ticketera" aria-pressed={ticketsCliente}
+              onClick={() => { setTicketsCliente((v) => !v); setConChat(true); }}>
+              <Icon name="ticket" size={17} />Ticketera
+              {misTickets.esperanTuRespuesta > 0 && <span className="co-acceso__n">{misTickets.esperanTuRespuesta}</span>}
+            </button>
+          )}
+          {centro && (
+            <button type="button" className="co-acceso" aria-pressed={mapa != null && !ticketera} onClick={irAlSecondBrain}>
+              <Icon name="cerebro" size={17} />Second Brain
+            </button>
+          )}
+          {/* El grafo del negocio (el botón del grafo de Obsidian). En Ops Center no está (17/10/2026: «la entrada "Mapa" se
+              va»): el grafo lo abre «Second Brain». */}
+          {veMapa && listaSB && (
+            <button type="button" className="co-acceso" aria-pressed={mapa != null}
+              onClick={() => { setConChat(true); router.push(mapa ? hrefVolver : hrefMapa); }}>
+              {/* «Second Brain», no «Mapa» (Martín, llamada con Florencia del 18/10 [00:50:28]: «no debería llamarse mapa,
+                  debería llamarse second brain»). La TAB es «Ops Center»; lo que se llama «Second Brain» es el grafo. */}
+              <Icon name={centro ? 'grid' : 'cerebro'} size={17} />Second Brain
+            </button>
+          )}
+        </div>
         {/* El Uso de las cuentas y sus Runners, en un desplegable siempre a la vista (sólo Ops Center). */}
         {centro && <PieCentro centro={centro} />}
         {/* El del cliente: sus cuentas de IA (22/10/2026). */}

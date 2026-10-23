@@ -33,6 +33,7 @@ import { getHorarioEnvioAction, saveHorarioEnvioAction, saveZonaHorarioAction } 
 import { DIAS_PANTALLA, horaTexto, MEDIAS_HORAS_DESDE, MEDIAS_HORAS_HASTA, HORARIO_SUGERIDO, type HorarioEnvio, type DiaSemana } from '@/lib/horario-envio';
 import { ZONAS_POR_PAIS } from '@/lib/disparadores';
 import { PAISES, flagUrl } from '@/lib/paises';
+import { Info } from '@/app/automations/FilasOpciones';
 
 const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 18 };
@@ -79,8 +80,9 @@ export type FuenteHorario = {
   titulo?: string;
   /**
    * ⚠️ EL HUSO SE VE, NO SE EDITA (revisión del 20/10/2026). Es el de TODO el negocio (`mako.timezone`): elegir Madrid en la
-   * tuerca de UNA automatización dejaba a todas las demás mandando de madrugada. Con esto, «Huso del negocio: …» como
-   * texto; se cambia en Configuraciones › Horario.
+   * tuerca de UNA automatización dejaba a todas las demás mandando de madrugada. Con esto, «Huso del negocio: …» en el ⓘ
+   * del título (22/10/2026, Martín: «Elimina todo el texto innecesario»: era una línea suelta); se cambia en
+   * Configuraciones › Horario.
    */
   zonaSoloLectura?: true;
 };
@@ -155,14 +157,18 @@ export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO
   return (
     <div style={card}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontFamily: SANS }}>
-        <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--ink)' }}>{fuente.titulo ?? 'Horario de oficina'}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 15.5, fontWeight: 700, color: 'var(--ink)' }}>
+          {fuente.titulo ?? 'Horario de oficina'}
+          {fuente.zonaSoloLectura && <Info texto={`${ROTULO_ZONA_NEGOCIO}: ${opcionesDeZona(zona).find((o) => o.value === zona)?.label ?? zona}.`} />}
+        </span>
         <Interruptor on={h.activo} disabled={off} etiqueta={h.activo ? 'Apagar el horario de oficina' : 'Prender el horario de oficina'} onCambio={(v) => cambiar({ activo: v })} />
       </div>
 
-      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ marginTop: fuente.zonaSoloLectura && !h.activo ? 0 : 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* Las horas Y el huso en la MISMA fila (10/10/2026). El huso se ve también con el horario APAGADO
-            (decisión 4 de la décima, 11/10/2026): es la zona de TODO el negocio, no una del horario. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontFamily: SANS, fontSize: 14, color: 'var(--ink)' }}>
+            (decisión 4 de la décima, 11/10/2026): es la zona de TODO el negocio, no una del horario. En la tuerca de una
+            automatización (`zonaSoloLectura`) el huso está en el ⓘ del título: apagado, la fila no tiene nada. */}
+        {(h.activo || !fuente.zonaSoloLectura) && <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontFamily: SANS, fontSize: 14, color: 'var(--ink)' }}>
           {h.activo && (
             <>
               <span>De</span>
@@ -171,16 +177,12 @@ export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO
               <Dropdown value={String(h.hasta)} options={HASTA} width={104} ariaLabel="Hasta" disabled={off} onChange={(v) => cambiar({ hasta: Number(v) })} />
             </>
           )}
-          {fuente.zonaSoloLectura ? (
-            <span data-zona-del-negocio="" style={{ flex: '1 1 160px', minWidth: 0, fontSize: 13, color: 'var(--dim)' }}>
-              {ROTULO_ZONA_NEGOCIO}: {opcionesDeZona(zona).find((o) => o.value === zona)?.label ?? zona}
-            </span>
-          ) : (
+          {!fuente.zonaSoloLectura && (
             <div style={{ flex: '1 1 160px', minWidth: 0 }}>
               <Dropdown value={zona} options={opcionesDeZona(zona)} width="100%" search ariaLabel="Huso horario" disabled={off} onChange={cambiarZona} />
             </div>
           )}
-        </div>
+        </div>}
         {/* Los días CENTRADOS en el recuadro (décima tanda de Automations, general 3, 11/10/2026: «En "Horarios
             de Oficina" pon los días centrado en el recuadro, no alineado a la izquierda»). */}
         {h.activo && (

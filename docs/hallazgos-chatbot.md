@@ -5986,3 +5986,44 @@ app/automations/ChatMako.tsx · app/automations/SecuenciaPerfil.tsx · lib/mako-
 tests/chat-mako-segundo-plano.test.ts. **Sin hacer:** el globito de la estrella lo pinta `MakoEnLaTab` (chat «Ops Center»),
 y hoy la estrella sólo está en el CRM; un CRON elegido en una pregunta que termina sin nadie mirando no se guarda
 (`crons.guardar` vive en la pantalla); cerrar la pestaña del navegador sí corta el turno.
+
+## «Creó a la mitad»: las ramas según lo que conteste se perdían en el código, no en el modelo (22/10/2026, #289)
+
+**Síntoma (Martín, ws1, «Editar» con el crédito de Claude, Haiku):** pidió un saludo, una pregunta y DOS ramas según lo que
+conteste el lead, cada una con su mensaje. MaKo cambió el saludo, agregó la pregunta y las ramas no aparecieron. Abajo, en
+naranja: «No agregué otra «Si responde»: ya hay una, sumé un caso», «Saqué 3 tarjetas que no colgaban de nada». **El
+diagnóstico obvio era el equivocado:** «Haiku no alcanza». Medido en seco con una secuencia NEUTRA de la misma forma
+(scratchpad `medir-editar-ramas.mts`; Haiku 6 veces, Sonnet 3): los dos modelos SÍ mandan las ramas, de tres formas que el
+código descartaba: (1) un "si_responde" entero adentro del tramo, como al crear → se tiraba con «sumé un caso» SIN sumar
+nada (aun sin ninguna «Si responde») y sus mensajes quedaban colgando de nada; (2) «cambiar» del «Si responde» con casos
+nuevos (`sigue` a los mensajes del tramo, a veces con `"cuando": "respuesta_contiene"` o un objeto de palabras) → «se cambian
+en el lienzo»; (3) un tramo colgado del «Si responde» por su id, sin `salida: "caso"` → el default «paralelo» lo mandaba a «no
+puede abrir otro camino». Sonnet no lo arregla: armó una sola rama y preguntó por el link, en 71-82 s y ~US$ 0,13 por turno
+contra ~5 s y US$ 0,008 de Haiku. **Regla:** el código acepta las tres formas (`partirSiResponde`, `casosPedidos` +
+`repartirCasosPedidos`, el tramo colgado del «Si responde» es un caso) y nunca dice que hizo algo que no hizo. Y al final de
+cada turno de «Editar» hay un CONTROL: los textos que el dueño puso entre comillas (≥ 20 caracteres) que no quedaron en ningún
+mensaje (`faltantesDelPedido`). La primera vez es un error para el reintento; si sigue faltando, se aplica lo que hay y se
+dice en ROJO (`noHecho`), sin «Listo». Lo que MaKo acomodó solo va en gris y plegado; un turno sin nada afuera arranca con
+«✓ Listo» y una línea (`lineaDeListo`). **Trampa:** no cabe ni una línea más en el prompt de editar: el tope de entrada de Groq
+(tests/editar-ia-cambiar-quitar.test.ts) la rechaza, por eso el arreglo es de código. **Vive en:** lib/flujo-ia.ts
+(`agregarTramos`, `parcheRespuesta`) · lib/flujo-ia-intencion.ts (`faltantesDelPedido`) · app/api/chat-agent/secuencias/ia/route.ts
+· app/automations/ChatMako.tsx · test: tests/chat-mako-ramas-y-listo.test.ts (con las respuestas REALES de la medición).
+**Sin hacer:** el control sólo mira textos entre comillas (una rama pedida sin comillas no se controla); «crear» no tiene el
+control; un link que el dueño escribe y no está en sus links se sigue borrando del mensaje.
+
+## Configuraciones › Anti-ban: renombrar una pestaña es también el prompt de MaKo y su guard de lugares (22/10/2026)
+
+**Pedido (Martín, captura del modal de #289):** «Límites» pasa a llamarse «Anti-ban», cada opción con su interruptor (apagada
+no aplica, número gris, sin «Quitar») y fuera todo el texto suelto: cada fila es nombre, número, unidad e interruptor; lo que
+hay que explicar va en un ⓘ (app/automations/FilasOpciones.tsx). **Trampa 1:** la pestaña no vive sólo en la pantalla: el
+prompt de MaKo le dice al dueño dónde configurar el goteo y los topes (`LO_QUE_NO_ES_TARJETA`, `REGLAS_EDITAR`), los avisos lo
+nombran (`AVISO_MISMA_PERSONA`, `frenoAlAprobar` en lib/goteo.ts) y el guard de Editar rechaza una respuesta que nombra un lugar
+que no existe (`LUGARES_REALES`). Renombrar sólo la pantalla dejaba a MaKo mandando a «Configuraciones › Límites». **Trampa 2:**
+ese guard leía el lugar con `([\p{L}]+)`: «Anti-ban» se leía «Anti» y la respuesta CORRECTA se rechazaba por inventada. Ahora
+lleva el guion. **Decisión:** «Misma persona» apagado = 0 h guardado como propio (`PERSONA_SIN_ESPERA`); ausente sigue siendo
+la del negocio, así ninguna automatización que ya existía cambia, y el motor no necesita nada (con 0 h la ventana de «ya le
+escribimos» es vacía; lo de la misma corrida lo frena `frenadoPorAntiBan`). Los topes de la LÍNEA no se apagan. **Vive en:**
+app/automations/ConfigAutomatizacionPanel.tsx (`AntibanDeLaAutomatizacion`) · LimitesEnvioPanel.tsx · ConfiguracionesBoton.tsx
+· lib/config-automatizacion.ts · lib/flujo-ia-intencion.ts · test: tests/automations-antiban.test.ts. **Sin hacer:** el
+teléfono (/m/automations) no tiene Configuraciones: el anti-ban y el horario de una automatización sólo se cambian en la
+computadora.

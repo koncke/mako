@@ -31,7 +31,12 @@
 //
 // Un `Modal` de la casa con dos pestañas (`Tabs`):
 //   · Horario = HorarioEnvioPanel TAL CUAL (el mismo de Configuraciones › Horario, con sus acciones).
-//   · Límites = LimitesEnvioPanel (lib/limites-envio.ts).
+//   · Anti-ban (era «Límites») = lo de ESTA automatización (`AntibanDeLaAutomatizacion`) y los topes de la línea
+//     (LimitesEnvioPanel, lib/limites-envio.ts).
+//
+// 22/10/2026 (Martín, por el Cerebro, con captura de #289): «Límites» pasa a llamarse «Anti-ban»; fuera el subtítulo con el
+// nombre de la automatización y menos aire entre el título y las pestañas; y fuera todo el texto suelto de las opciones
+// («Jamás jamás pongas todo eso»): filas con nombre, número, unidad e interruptor (FilasOpciones.tsx), lo demás en su ⓘ.
 // Los dos paneles quedan MONTADOS y la pestaña sólo esconde: cambiar de pestaña con un guardado en su
 // respiro lo perdía (el panel lo cancela al desmontarse). Y el modal tiene ALTO FIJO: no salta al cambiar.
 //
@@ -56,50 +61,54 @@ import { createPortal } from 'react-dom';
 import { Modal, Tabs } from '@/app/_ui';
 import { useCerrarEstable } from '@/app/customer-success/curso/dialogo-foco';
 import { LimitesEnvioPanel } from './LimitesEnvioPanel';
-import { HorarioDeLaAutomatizacion, PersonaDeLaAutomatizacion, GoteoDeLaAutomatizacion } from './ConfigAutomatizacionPanel';
+import { HorarioDeLaAutomatizacion, AntibanDeLaAutomatizacion } from './ConfigAutomatizacionPanel';
+import { Info } from './FilasOpciones';
 import { getConfigAutomatizacionAction } from './config-automatizacion-actions';
 import { tieneConfigPropia, type PropsConfiguraciones } from '@/lib/config-automatizacion';
 import { LADO_FILTRO } from './FiltroLista';
 import { OBJETIVO_AYUDA } from './recorrido-automations';
 
-/** Las dos pestañas, en orden. */
-export const PESTANAS_CONFIGURACIONES = [{ id: 'horario', label: 'Horario' }, { id: 'limites', label: 'Límites' }] as const;
+/** Las dos pestañas, en orden. La de los topes se llama «Anti-ban» desde el 22/10/2026 (era «Límites»). */
+export const PESTANAS_CONFIGURACIONES = [{ id: 'horario', label: 'Horario' }, { id: 'antiban', label: 'Anti-ban' }] as const;
 type Pestana = (typeof PESTANAS_CONFIGURACIONES)[number]['id'];
 
 
 /** El rótulo de los límites de la línea, que son de TODAS las automatizaciones. */
 export const TITULO_LIMITES_LINEA = 'De la línea, para todas tus automatizaciones';
+/** Su ⓘ: por qué no se apagan. */
+export const INFO_LIMITES_LINEA = 'Valen para todas tus automatizaciones juntas y no se apagan: son lo que cuida a tu número de un bloqueo.';
 
 /**
  * EL MODAL DE CONFIGURACIONES DE UNA AUTOMATIZACIÓN (20/10/2026): su horario y sus límites. Lo montan la tuerca del título
  * y el «⋯» de la fila mientras está abierto; `onCerrar` lo desmonta.
  */
-export function ConfiguracionesModal({ secuenciaId, nombre, onCerrar }: PropsConfiguraciones) {
+export function ConfiguracionesModal({ secuenciaId, onCerrar }: PropsConfiguraciones) {
   const [pestana, setPestana] = useState<Pestana>('horario');
   /** Guardados en vuelo, por panel: mientras haya uno, el modal no se cierra. */
-  const [sucios, setSucios] = useState<{ horario: boolean; persona: boolean; goteo: boolean; limites: boolean }>({ horario: false, persona: false, goteo: false, limites: false });
-  const ocupado = sucios.horario || sucios.persona || sucios.goteo || sucios.limites;
+  const [sucios, setSucios] = useState<{ horario: boolean; antiban: boolean; limites: boolean }>({ horario: false, antiban: false, limites: false });
+  const ocupado = sucios.horario || sucios.antiban || sucios.limites;
   const cerrar = useCerrarEstable(onCerrar, ocupado);
   // Identidades FIJAS: los paneles las tienen en las dependencias de un efecto.
   const alSucioHorario = useCallback((s: boolean) => setSucios((p) => (p.horario === s ? p : { ...p, horario: s })), []);
-  const alSucioPersona = useCallback((s: boolean) => setSucios((p) => (p.persona === s ? p : { ...p, persona: s })), []);
-  const alSucioGoteo = useCallback((s: boolean) => setSucios((p) => (p.goteo === s ? p : { ...p, goteo: s })), []);
+  const alSucioAntiban = useCallback((s: boolean) => setSucios((p) => (p.antiban === s ? p : { ...p, antiban: s })), []);
   const alSucioLimites = useCallback((s: boolean) => setSucios((p) => (p.limites === s ? p : { ...p, limites: s })), []);
 
   return createPortal(
     <Modal titulo="Configuraciones" onCerrar={cerrar} ancho={600} alto="min(85vh, 680px)" sinFiletes>
       {/* UN SOLO HIJO (punto 1): el cuerpo del Modal le pone un filete arriba al segundo. Los paneles montados; la
-          pestaña sólo esconde (ver la cabecera). */}
-      <div data-config-automatizacion={secuenciaId}>
-        <p style={{ margin: '0 0 6px', fontSize: 13, color: 'var(--dim)', fontFamily: "'Geist', sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombre}</p>
+          pestaña sólo esconde (ver la cabecera). SIN el nombre de la automatización arriba y con `paddingTop: 0` (22/10/2026:
+          «achicá el espacio entre el título «Configuraciones» y las pestañas»): el cuerpo le pone 18 px a su hijo. */}
+      <div data-config-automatizacion={secuenciaId} style={{ paddingTop: 0 }}>
         <Tabs tabs={[...PESTANAS_CONFIGURACIONES]} activa={pestana} onCambio={(id) => setPestana(id as Pestana)} sinLinea />
         <div hidden={pestana !== 'horario'}><HorarioDeLaAutomatizacion secuenciaId={secuenciaId} onSucio={alSucioHorario} /></div>
-        <div hidden={pestana !== 'limites'}>
+        <div hidden={pestana !== 'antiban'}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {/* EL GOTEO (22/10/2026): sus WhatsApp de a uno y con tope, adentro del de la línea (lib/goteo.ts). */}
-            <GoteoDeLaAutomatizacion secuenciaId={secuenciaId} onSucio={alSucioGoteo} />
-            <PersonaDeLaAutomatizacion secuenciaId={secuenciaId} onSucio={alSucioPersona} />
-            <p style={{ margin: '6px 0 0', fontSize: 13, fontWeight: 600, color: 'var(--dim)', fontFamily: "'Geist', sans-serif" }}>{TITULO_LIMITES_LINEA}</p>
+            {/* EL GOTEO Y LA MISMA PERSONA de esta automatización (22/10/2026), con su interruptor cada uno. */}
+            <AntibanDeLaAutomatizacion secuenciaId={secuenciaId} onSucio={alSucioAntiban} />
+            <p style={{ margin: '6px 0 0', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600, color: 'var(--dim)', fontFamily: "'Geist', sans-serif" }}>
+              {TITULO_LIMITES_LINEA}
+              <Info texto={INFO_LIMITES_LINEA} />
+            </p>
             <LimitesEnvioPanel onSucio={alSucioLimites} personaPorDefecto />
           </div>
         </div>

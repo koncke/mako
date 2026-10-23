@@ -1097,6 +1097,31 @@ fila del ws1 (`soloLasPropias` compara contra las filas de la plataforma) y la p
 
 **Vive en:** lib/ws-tab.ts (`wsDeVuelta`) · app/api/integraciones/meta/callback/ · app/api/integraciones/google-calendar/callback/ · tests/ws-vuelta-oauth.test.ts
 
+## La agenda del CRM era lenta: tres APIs en fila, y el usuario de Calendly antes de cada lista (23/10/2026)
+
+- **Síntoma** (Martín, 22/10, en el ws1): «Vincular evento» tarda al abrir, al vincular y al «Conectar Cal».
+- **Causa, leída en el código:** `listarEventosDeAgenda` (lib/agenda-evento-etapa-server.ts) esperaba a Calendly, después
+  a Cal.com y después a Google: la suma de los tres. `prepararVinculo` vuelve a listar la cuenta para validar. Y
+  `listarEventTypes` de Calendly pedía `GET /users/me` antes de cada lista y de cada evento creado: dos viajes en fila.
+- **Lo que quedó:** todo a la vez (la base, cada agenda y Google). La lista de cada cuenta se guarda un minuto
+  (lib/agenda-cache.ts), y el usuario de cada token, para siempre (no cambia). Crear o editar un evento olvida la lista de
+  esa cuenta.
+- **La trampa de la llave:** esa lista decide QUÉ se puede vincular (`prepararVinculo`: sólo eventos de SU cuenta, porque
+  los identificadores no son secretos). Por eso la llave lleva el negocio y la huella del secreto (nunca el secreto). Con
+  la huella, conectar otra cuenta cambia la llave y nunca se ve la lista de la anterior: «Conectar Cal» no borra nada.
+- **Lo guardado se copia:** `eventosDelProveedor` le suma a la lista las R1/R2 que la cuenta no devolvió. Sin la copia,
+  eso ensuciaba lo guardado y cada lectura sumaba otra vez.
+- **El contrato con Cobros** (su fase B, varias cuentas por proveedor, va encima): `eventosDelProveedor(proveedor)` es LA
+  unidad de lectura de una cuenta, la llave le suma la cuenta, y Calendly recibe el token por parámetro.
+
+**Sin hacer:** «Volver a leer» del pop-up todavía no pide `fresco` (el pop-up vive en la rama de «Vincular evento»: es un
+renglón, `listarEventosAgendaAction({ fresco: true })` en app/crm/EventosDeEtapaModal.tsx, cuando las dos estén en main).
+Sin medir en producción. La caché vive en la memoria de cada instancia.
+
+**Vive en:** lib/agenda-cache.ts · lib/agenda-evento-etapa-server.ts (`eventosDelProveedor`, `listarEventosDeAgenda`,
+`olvidarCuentas`) · lib/calendly-agenda.ts (`usuarioUri`) · tests/agenda-velocidad-23-10.test.ts
+*23/10/2026, chat «CRM» (claude3).*
+
 ## Varias cuentas por pasarela: una cuenta es un SUFIJO, y todo lo que miraba el nombre exacto la dejaba afuera (22/10/2026)
 
 Martín pidió dos cuentas de Stripe, dos de Mercado Pago (y dos de Calendly o Cal). Medido en el ws3: no se podía; hoy

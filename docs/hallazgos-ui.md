@@ -4324,5 +4324,7 @@ afuera; sin el atributo, 588. **El cliente no lo ve nunca**, así que en una pru
 alerta de voz ya se había acotado al Sidebar (`aside[data-sidebar]`) por lo mismo, el 11/09. **Regla:** un panel flotante
 nuevo es un `<section role="complementary">` o un `<div>`, no un `<aside>`. **Pega también en un panel que NO flota**: el
 agente del Web Generator y el chat del Video Editor (dentro de su columna, con `size-full`) medían 761 px en lugares de 668,
-con la caja abajo de la vista; los tres pasaron a `<section>` el 22/10. Sin hacer: acotar también la regla de la barra de
+con la caja abajo de la vista; los tres pasaron a `<section>` el 22/10. **Y mirar también a los padres:** en el Web Generator
+el que se estiraba era la COLUMNA del editor (`aside.gma-izq`, 761 px en un cuerpo de 713), no el panel; pasar sólo el panel
+a `<section>` no cambió nada. Las tres columnas del editor (EditorLanding.tsx) son `<section>` desde esa noche. Sin hacer: acotar también la regla de la barra de
 agencia a `aside[data-sidebar]` (es de esta área; hay que mirar antes qué otro `<aside>` depende de ella).

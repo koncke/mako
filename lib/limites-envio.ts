@@ -210,8 +210,12 @@ export function rangoDe(grupo: Grupo, campo: string): readonly [number, number] 
 /** Lo que ya salió en la ventana de cada tope (`usoDelCupo`, lib/nutricion.ts). */
 export type UsoDelCupo = { waDia: number; waHora: number; emailDia: number };
 
-/** Un límite en la pantalla: su rótulo corto, la unidad al lado del número y la frase del `title`. */
-export type FilaLimite = { grupo: Grupo; campo: string; rotulo: string; unidad: string; ayuda: string };
+/**
+ * Un límite en la pantalla: su rótulo corto, la unidad al lado del número y su frase (`ayuda`, la de los mensajes). `info`
+ * (22/10/2026) es el ⓘ de la fila, SÓLO donde el rótulo no alcanza: el resto de la frase no se dibuja (Martín: «Elimina
+ * todo el texto innecesario»).
+ */
+export type FilaLimite = { grupo: Grupo; campo: string; rotulo: string; unidad: string; ayuda: string; info?: string };
 
 /** Los tres bloques, en el orden en que se dibujan. Los rótulos, de 1 a 3 palabras (AGENTS.md). */
 export const BLOQUES_LIMITES: ReadonlyArray<{ titulo: string; filas: FilaLimite[] }> = [
@@ -233,8 +237,8 @@ export const BLOQUES_LIMITES: ReadonlyArray<{ titulo: string; filas: FilaLimite[
   {
     titulo: 'MaKo contesta sola',
     filas: [
-      { grupo: 'mako', campo: 'solasPor24h', rotulo: 'Por persona', unidad: 'en 24 h', ayuda: 'Respuestas solas por persona en 24 h (0 = siempre borrador)' },
-      { grupo: 'mako', campo: 'diasCharla', rotulo: 'Charla abierta', unidad: 'días', ayuda: 'Días que la charla sigue abierta' },
+      { grupo: 'mako', campo: 'solasPor24h', rotulo: 'Por persona', unidad: 'en 24 h', ayuda: 'Respuestas solas por persona en 24 h (0 = siempre borrador)', info: 'Respuestas que MaKo manda sola a una persona en 24 h. Con 0, siempre deja un borrador.' },
+      { grupo: 'mako', campo: 'diasCharla', rotulo: 'Charla abierta', unidad: 'días', ayuda: 'Días que la charla sigue abierta', info: 'Días que la charla sigue abierta después del último mensaje.' },
     ],
   },
 ];

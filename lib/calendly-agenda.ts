@@ -46,6 +46,7 @@ import 'server-only';
 
 import { credWs } from './credenciales';
 import { mismoEventType } from './calendly';
+import { huellaDe } from './agenda-cache';
 
 const API = 'https://api.calendly.com';
 
@@ -71,10 +72,11 @@ export type HuecoCalendly = {
   startIso: string;
 };
 
-async function headers(): Promise<Record<string, string>> {
-  const token = await credWs('CALENDLY_API_TOKEN');
-  if (!token) throw new CalendlyAgendaError('Este negocio no tiene el token de Calendly cargado (Configuraciones › Integraciones).');
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+/** Con `token`, ése (23/10/2026: quien llama lo leyó, y con varias cuentas por proveedor elige cuál); sin él, el del negocio. */
+async function headers(token?: string): Promise<Record<string, string>> {
+  const t = token ?? await credWs('CALENDLY_API_TOKEN');
+  if (!t) throw new CalendlyAgendaError('Este negocio no tiene el token de Calendly cargado (Configuraciones › Integraciones).');
+  return { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' };
 }
 
 /**
@@ -89,26 +91,38 @@ function errorDeCalendly(status: number, body: unknown): string {
   return det.length ? `${base} (${det.join('; ')})` : base;
 }
 
-async function pedir<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, { ...init, headers: await headers(), cache: 'no-store' });
+async function pedir<T>(url: string, init?: RequestInit, token?: string): Promise<T> {
+  const res = await fetch(url, { ...init, headers: await headers(token), cache: 'no-store' });
   const body = await res.json().catch(() => null);
   if (!res.ok) throw new CalendlyAgendaError(errorDeCalendly(res.status, body));
   return body as T;
 }
 
+/** El usuario de cada token, por su huella (23/10/2026): no cambia nunca, y pedirlo era un viaje más en fila antes de
+ *  cada lista y de cada evento creado. En globalThis, como la caché de lib/credenciales.ts. */
+const gCal = globalThis as typeof globalThis & { __makoCalendlyUsuario?: Map<string, string> };
+const usuarios = (gCal.__makoCalendlyUsuario ??= new Map<string, string>());
+
 /** El usuario de Calendly detrás del token (su URI hace falta para listar event types). */
-async function usuarioUri(): Promise<string> {
-  const r = await pedir<{ resource?: { uri?: string } }>(`${API}/users/me`);
+async function usuarioUri(token?: string): Promise<string> {
+  const huella = token ? huellaDe(token) : null;
+  const ya = huella ? usuarios.get(huella) : undefined;
+  if (ya) return ya;
+  const r = await pedir<{ resource?: { uri?: string } }>(`${API}/users/me`, undefined, token);
   const uri = r.resource?.uri;
   if (!uri) throw new CalendlyAgendaError('Calendly no devolvió el usuario del token.');
+  if (huella) {
+    if (usuarios.size >= 200) usuarios.delete(usuarios.keys().next().value as string);
+    usuarios.set(huella, uri);
+  }
   return uri;
 }
 
-/** Los event types ACTIVOS de la cuenta. */
-export async function listarEventTypes(): Promise<EventTypeCalendly[]> {
-  const user = await usuarioUri();
+/** Los event types ACTIVOS de la cuenta del token (sin él, la del negocio: `eventTypeDeReunion` y `primerHuecoLibre`). */
+export async function listarEventTypes(token?: string): Promise<EventTypeCalendly[]> {
+  const user = await usuarioUri(token);
   const r = await pedir<{ collection?: Array<{ uri: string; name: string; duration: number; active: boolean; scheduling_url?: string; locations?: Array<{ kind?: string }> }> }>(
-    `${API}/event_types?user=${encodeURIComponent(user)}&count=100`,
+    `${API}/event_types?user=${encodeURIComponent(user)}&count=100`, undefined, token,
   );
   return (r.collection ?? [])
     .filter((e) => e.active)
@@ -141,22 +155,22 @@ function eventTypeDe(e: EventTypeCrudo | undefined): EventTypeCalendly {
 }
 
 /** Crea un tipo de evento uno a uno en la cuenta del token, ACTIVO (sin `active`, Calendly lo deja apagado). */
-export async function crearEventTypeCalendly(i: { nombre: string; duracionMin: number }): Promise<EventTypeCalendly> {
-  const owner = await usuarioUri();
+export async function crearEventTypeCalendly(token: string, i: { nombre: string; duracionMin: number }): Promise<EventTypeCalendly> {
+  const owner = await usuarioUri(token);
   const r = await pedir<{ resource?: EventTypeCrudo }>(`${API}/event_types`, {
     method: 'POST', body: JSON.stringify({ owner, name: i.nombre, duration: i.duracionMin, active: true }),
-  });
+  }, token);
   return eventTypeDe(r.resource);
 }
 
 /** Cambia el nombre o la duración de un tipo de evento (por su URI, la que se vincula). */
-export async function editarEventTypeCalendly(uri: string, i: { nombre?: string; duracionMin?: number }): Promise<EventTypeCalendly> {
+export async function editarEventTypeCalendly(token: string, uri: string, i: { nombre?: string; duracionMin?: number }): Promise<EventTypeCalendly> {
   const uuid = uri.trim().replace(/\/+$/, '').split('/').pop() ?? '';
   if (!/^[A-Za-z0-9-]{6,}$/.test(uuid)) throw new CalendlyAgendaError('Ese no es un evento de Calendly.');
   const cuerpo: Record<string, unknown> = {};
   if (i.nombre != null) cuerpo.name = i.nombre;
   if (i.duracionMin != null) cuerpo.duration = i.duracionMin;
-  const r = await pedir<{ resource?: EventTypeCrudo }>(`${API}/event_types/${uuid}`, { method: 'PATCH', body: JSON.stringify(cuerpo) });
+  const r = await pedir<{ resource?: EventTypeCrudo }>(`${API}/event_types/${uuid}`, { method: 'PATCH', body: JSON.stringify(cuerpo) }, token);
   return eventTypeDe(r.resource);
 }
 

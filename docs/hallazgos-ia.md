@@ -5351,6 +5351,27 @@ sea una app de escritorio con el típico panel de "avanzar"». El plan entero: d
 - **Sin medir (de antes):** `pensar` corre `claude -p` sin `--setting-sources`; si eso carga el `~/.claude/CLAUDE.md`
   personal de la persona, un negocio podría pedirle en un turno que lo repita. Se mide con un turno de prueba.
 
+## La computadora del cliente NUNCA atiende leads sola (Martín, 22/10/2026)
+
+**La decisión, textual** (Martín, sobre los términos de Anthropic con la suscripción en la PC del cliente, D6a): «No por
+ahora». La PC se usa SÓLO para que cada dueño trabaje con su propio Claude; NUNCA para atender leads solos, las 24 horas: ni
+respuestas automáticas de WhatsApp, ni AI Steps de Automations, ni nada que corra solo hacia un lead. Ésos van por clave de
+API, o por el crédito donde está asignado.
+
+**Vive en:** `encolarTurno` (lib/ia-pc.ts) · `turnoApp` (lib/mako-turno-app.ts) · tests/ia-pc-nunca-a-leads.test.ts · AGENTS.md.
+
+- **Medido el 23/10/2026: no había nada que cerrar.** Un solo lugar crea turnos de PC (`encolarTurno`), lo llama un solo
+  lugar (`turnoApp`), y a `turnoApp` lo llaman cuatro entradas, todas con la sesión de una persona adentro: el chat de la app
+  (app/api/mako/chat), el del teléfono (app/api/m/mako), el de MaKo en el CRM (app/crm/mako-crm/chat-server.ts) y el Analyst
+  de la ficha (lib/mako-analyst-lead.ts). Lo que proponen se confirma en una tarjeta. WhatsApp, Automations y los crons tienen
+  su propio motor y no importan lib/ia-pc.
+- **El riesgo era el de mañana, no el de hoy:** una entrada nueva que llamara a `turnoApp` desde un cron o un webhook
+  mandaría el turno a la PC sin que nada lo marcara. El guardián lo cuenta: quién toca la PC, quién llama a `turnoApp` y
+  con qué sesión. Probado rompiéndolo: un cron, un webhook, otro insert de turnos, el Analyst sin la sesión y la prueba a
+  mano sin el corte del ws3, los cinco en rojo.
+- **La excepción es a mano:** scripts/ia-pc/probar-punta-a-punta.mts llama a `turnoApp`, y se acepta porque nadie la
+  programa y se niega fuera del ws3.
+
 ## Varias computadoras por persona, «Desconectar» y el panel del super admin (22/10/2026)
 
 **El pedido, textual** (Martín): «el usuario debería poder abrir y ejecutar su Claude en varios dispositivos, por ejemplo,

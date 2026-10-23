@@ -134,3 +134,24 @@ export function respuestaMako(p: PreguntaMako, e: EleccionMako): { respuesta: Re
   if ('texto' in e) return { respuesta: { ...base, valor: null, texto: e.texto }, texto: e.texto };
   return { respuesta: { ...base, valor: null }, texto: ELIGE_TU };
 }
+
+/** El cierre de una edición: lo cambiado está en el borrador, no salió. (Lo reexporta lib/flujo-ia.ts.) */
+export const CIERRE_EDICION = 'Está en el borrador: toca Publicar.';
+
+/**
+ * LA LÍNEA DE «✓ LISTO» (22/10/2026, Martín: «El mensaje una vez realizada una tarea se tiene que ver como "Success"»): lo que
+ * quedó en UNA línea, con las cuentas del turno. null = no es un «Listo»: no cambió nada, falta algo de lo pedido
+ * (`noHecho`, va en rojo) o MaKo pregunta algo. Pura.
+ */
+export function lineaDeListo(m: Pick<MensajeChatMako, 'cambios' | 'noHecho' | 'pregunta'>): string | null {
+  const c = m.cambios;
+  if (!c || m.noHecho?.length || m.pregunta) return null;
+  const partes = [
+    c.cambiadas ? `cambié ${c.cambiadas === 1 ? '1 tarjeta' : `${c.cambiadas} tarjetas`}` : '',
+    c.agregadas ? `agregué ${c.agregadas}` : '',
+    c.quitadas ? `saqué ${c.quitadas}` : '',
+  ].filter(Boolean);
+  if (!partes.length) return null;
+  const lista = partes.length > 1 ? `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}` : partes[0];
+  return `${lista.charAt(0).toUpperCase()}${lista.slice(1)}. ${CIERRE_EDICION}`;
+}
