@@ -3000,6 +3000,8 @@ export const BITACORA: Hito[] = [
       'app/plan/board/BoardShell.tsx · app/customer-success/ClientesApp.tsx — la estrella en el Plan y en Clientes',
     ],
     revisar: '/plan',
+  },
+  {
     fecha: '22 oct', hora: '21:10', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Los 3 puntos de la columna por secciones, «Tipo de etapa» que se cambia ahí mismo, y «Tus reuniones» para preparar la llamada',
