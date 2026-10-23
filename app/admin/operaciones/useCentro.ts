@@ -37,7 +37,7 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { contestarPreguntaAction, creditoApiAction, fotoCentroAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { contestarPreguntaAction, creditoApiAction, creditoDelNegocioAction, fotoCentroAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, pushesCentroAction, turnosCentroAction } from './acciones';
 import type { CuentasConNombre } from '@/lib/centro-titulares';
 import type { LecturaCredito } from '@/lib/credito-api';
 import { pasosDelChat, type PasoDelTurno, type PasosPorChat } from '@/lib/centro-pasos';
@@ -178,6 +178,9 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   /** El crédito de API de los planes Max, para la sección «API» del Uso (UsoCredito.tsx): se pide al abrirla. */
   const leerCreditoApi = async (): Promise<LecturaCredito> =>
     (await creditoApiAction().catch(() => null)) ?? { ok: false, error: 'No pude leer el crédito: vuelve a intentarlo.' };
+  /** El interruptor del crédito de Claude de un negocio (el ws1): devuelve la lectura nueva de la sección. */
+  const cambiarCreditoDelNegocio = async (ws: number, prendido: boolean): Promise<LecturaCredito> =>
+    (await creditoDelNegocioAction(ws, prendido).catch(() => null)) ?? { ok: false, error: 'No pude cambiarlo: vuelve a intentarlo.' };
   const [citas, setCitas] = useState<Record<string, Cita | null>>({});
   const mirado = useRef<ChatCentro | null>(null);
   const pedirTurnos = useCallback(async (c: ChatCentro) => {
@@ -615,7 +618,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   return {
     chats, carteros, trabajos, porId, esperas: esperasConVigia, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
     turnosDe, preguntasDe, tareasDe, contestarPregunta, mirar,
-    marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, leerCreditoApi, pasosDe,
+    marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, leerCreditoApi, cambiarCreditoDelNegocio, pasosDe,
     lineasDe, previas, enCursos, yaSinVer, yaVistos, marcarYaVisto, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,

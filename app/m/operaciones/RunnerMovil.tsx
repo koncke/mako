@@ -16,13 +16,15 @@ import { FilaM, ListaM, PildoraM, SeccionM, VacioM } from '@/app/m/_ui';
 import type { CarteroP } from '@/lib/centro-chats';
 import type { ClaveDispositivo } from '@/app/admin/operaciones/clave-dispositivo';
 import { ListaUso, type CuentaUso, type RenombrarCuenta } from '@/app/admin/operaciones/Uso';
-import { SeccionCredito, type LeerCredito } from '@/app/admin/operaciones/UsoCredito';
+import { SeccionCredito, type CambiarCredito, type LeerCredito } from '@/app/admin/operaciones/UsoCredito';
 import { cuentasDeUso } from '@/lib/centro-uso';
 
-export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClave, cuentas, onRenombrar, onLeerCredito }: {
+export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClave, cuentas, onRenombrar, onLeerCredito, onCambiarCredito }: {
   carteros: CarteroP[] | null;
   /** El crédito de API de los planes (la sección «API» de la computadora, UsoCredito.tsx): se pide al abrir la hoja. */
   onLeerCredito?: LeerCredito;
+  /** El interruptor del crédito asignado a un negocio (el ws1), como en la computadora. */
+  onCambiarCredito?: CambiarCredito;
   /** Las cuentas del Uso con su nombre y su email (la G); sin esto, las de los Runners con «Cuenta N». */
   cuentas?: readonly CuentaUso[];
   onRenombrar?: RenombrarCuenta;
@@ -44,7 +46,7 @@ export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClav
       {!carteros && <VacioM frase="No pude leer el Uso: reintenta en un momento." />}
       {/* La API (22/10/2026, Martín: «En USO de SuperAdmin quiero ver también el USO de la API»): la misma pieza que la
           computadora, debajo de las cuentas. */}
-      {onLeerCredito && <SeccionCredito leer={onLeerCredito} cuentas={cuentas ?? cuentasDeUso(carteros ?? [])} />}
+      {onLeerCredito && <SeccionCredito leer={onLeerCredito} cambiar={onCambiarCredito} cuentas={cuentas ?? cuentasDeUso(carteros ?? [])} />}
       {/* Sin la sección «N de N activos» desde el 17/10/2026 (Martín: aparecía duplicado; el número ya está en la fila «Uso y
           Runners» de arriba, y cada cuenta del Uso dice «Runner activo» o «Runner sin conexión»). */}
       <SeccionM titulo="Este teléfono">

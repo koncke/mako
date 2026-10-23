@@ -15,10 +15,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { nombreDeLaCuenta } from '@/lib/centro-titulares';
-import type { FilaCredito, LecturaCredito } from '@/lib/credito-api';
+import type { AsignadoCredito, FilaCredito, LecturaCredito } from '@/lib/credito-api';
 import type { CuentaUso } from './Uso';
 
 export type LeerCredito = () => Promise<LecturaCredito>;
+/** El interruptor del crédito asignado a un negocio: devuelve la lectura nueva (o el error). */
+export type CambiarCredito = (ws: number, prendido: boolean) => Promise<LecturaCredito>;
 
 /** Lo que trae por mes cada plan Max 20x (lib/credito-api.ts → CREDITO_MENSUAL_USD; acá sin importarlo: es de la pantalla). */
 const POR_PLAN = 200;
@@ -80,8 +82,42 @@ function FilaDeCredito({ f, nombre }: { f: FilaCredito; nombre: string }) {
   );
 }
 
+/**
+ * EL CRÉDITO DE CLAUDE DE UN NEGOCIO, CON SU INTERRUPTOR (22/10/2026, Martín: «dame luego una opción para deshabilitarle esa API
+ * a Mauricio en SuperAdmin, tal vez en USO, que pueda desactivar»). Prendido, el negocio usa ese crédito como su Claude en los
+ * chats de MaKo; apagado, vuelve a «Conecta tu IA». Sólo el super admin ve esta sección.
+ */
+function FilaAsignado({ a, nombre, onCambiar, cambiando }: { a: AsignadoCredito; nombre: string; onCambiar?: (ws: number, prendido: boolean) => void; cambiando: boolean }) {
+  return (
+    <div className="co-uso__credito" data-asignado={a.ws}>
+      <div className="co-uso__fila">
+        <span className="co-uso__nombre">{`Crédito de Claude para ${a.quien}`}</span>
+        {a.prendido == null
+          ? <span className="co-uso__pct co-uso__pct--sin">No pude leerlo</span>
+          : (
+            <button type="button" role="switch" aria-checked={a.prendido} className={`co-uso__interruptor${a.prendido ? ' is-on' : ''}`}
+              disabled={!onCambiar || cambiando} onClick={() => onCambiar?.(a.ws, !a.prendido)}>
+              {cambiando ? 'Cambiando…' : a.prendido ? 'Prendido' : 'Apagado'}
+            </button>
+          )}
+      </div>
+      <p className="co-uso__reinicio">
+        {[
+          a.gastadoUsd == null ? 'No pude leer lo gastado' : `Lleva ${usd(a.gastadoUsd)} de ${nombre} este mes`,
+          a.prendido === false ? 'apagado: le pide «Conecta tu IA»' : null,
+        ].filter(Boolean).join(' · ')}
+      </p>
+    </div>
+  );
+}
+
 /** Lo que se dibuja con una lectura en la mano (lo usan la sección y los tests). `null` = leyendo. */
-export function VistaCredito({ lectura, cuentas }: { lectura: LecturaCredito | null; cuentas: readonly CuentaUso[] }) {
+export function VistaCredito({ lectura, cuentas, onCambiar, cambiando = null }: {
+  lectura: LecturaCredito | null; cuentas: readonly CuentaUso[];
+  onCambiar?: (ws: number, prendido: boolean) => void;
+  /** El negocio cuyo interruptor se está cambiando. */
+  cambiando?: number | null;
+}) {
   const nombre = (cuenta: string) => nombreDeLaCuenta(cuenta, cuentas.find((c) => c.cuenta === cuenta)?.titular);
   return (
     <div className="co-uso__api" role="group" aria-label="Crédito de la API">
@@ -103,6 +139,7 @@ export function VistaCredito({ lectura, cuentas }: { lectura: LecturaCredito | n
             </p>
           )}
           {lectura.filas.map((f) => <FilaDeCredito key={f.cuenta} f={f} nombre={nombre(f.cuenta)} />)}
+          {(lectura.asignados ?? []).map((a) => <FilaAsignado key={a.ws} a={a} nombre={nombre(a.cuenta)} onCambiar={onCambiar} cambiando={cambiando === a.ws} />)}
           {lectura.negociosSinLeer && <p className="co-uso__hacer">No pude leer las claves de los negocios: lo que gasta uno con su crédito no está sumado.</p>}
           <p className="co-uso__reinicio">
             Lo gastado es lo que registra MaKo. El saldo real, en platform.claude.com → Billing: Anthropic no lo deja leer con estas claves.
@@ -118,8 +155,19 @@ export function VistaCredito({ lectura, cuentas }: { lectura: LecturaCredito | n
  * ⚠️ `leer` llega nueva en cada redibujo (useCentro no la memoriza y el Centro se refresca cada pocos segundos): como
  *    dependencia del efecto, pediría la lectura en cada refresco. Se usa la del primer dibujo, en una ref.
  */
-export function SeccionCredito({ leer, cuentas }: { leer: LeerCredito; cuentas: readonly CuentaUso[] }) {
+export function SeccionCredito({ leer, cambiar, cuentas }: { leer: LeerCredito; cambiar?: CambiarCredito; cuentas: readonly CuentaUso[] }) {
   const [lectura, setLectura] = useState<LecturaCredito | null>(null);
+  const [cambiando, setCambiando] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // El interruptor: con la respuesta, la lectura nueva (lo gastado y el estado, del servidor). Si falla, se dice y queda como estaba.
+  const onCambiar = cambiar ? async (ws: number, prendido: boolean) => {
+    setCambiando(ws);
+    setError(null);
+    const r = await cambiar(ws, prendido).catch(() => null);
+    if (r?.ok) setLectura(r);
+    else setError(r && !r.ok ? r.error : 'No pude cambiarlo: vuelve a intentarlo.');
+    setCambiando(null);
+  } : undefined;
   const leerRef = useRef(leer);
   useEffect(() => {
     let vivo = true;
@@ -128,5 +176,10 @@ export function SeccionCredito({ leer, cuentas }: { leer: LeerCredito; cuentas: 
       .catch(() => { if (vivo) setLectura({ ok: false, error: 'No pude leer el crédito: vuelve a intentarlo.' }); });
     return () => { vivo = false; };
   }, []);
-  return <VistaCredito lectura={lectura} cuentas={cuentas} />;
+  return (
+    <>
+      <VistaCredito lectura={lectura} cuentas={cuentas} onCambiar={onCambiar} cambiando={cambiando} />
+      {error && <p className="co-uso__hacer" role="alert">{error}</p>}
+    </>
+  );
 }
