@@ -67,12 +67,14 @@ bash que baja `mako-pc`, lo empareja con un código, pregunta «¿Es tu negocio?
 
 1. **La app abre `mako://conectar` y pregunta en una ventana** (scripts/ia-pc/mako-pc.mjs) — HECHO (rama
    instalador-escritorio-2210, tests/ia-pc-enlace.test.ts). La ventana de Windows sale de user32 con `bun:ffi`: probado con
-   Bun 1.2.21 sin mostrarla (el texto llega entero en UTF-16).
+   Bun 1.2.21 sin mostrarla (el texto llega entero en UTF-16). La revisión adversarial (22/10) quedó cerrada: «No» por
+   defecto, el cambio de negocio dicho primero, dos enlaces a la vez y la configuración de la 0.2.0 (docs/hallazgos-ia.md).
 2. **El instalador de Windows** (installer/windows/mako.iss) — BORRADOR escrito; falta armarlo (Inno Setup no está en esta
    computadora: se instala gratis, o se arma en GitHub Actions, que trae Inno Setup) y sumarlo a `publicar-binarios`.
 3. **La pantalla nueva** de «Conectar mi computadora» (abrir, o descargar) y la página que abre el enlace al terminar.
 4. **Claude Code sin terminal** (según lo que se mida).
 5. **El `.pkg` de la Mac.**
 6. **Firmar** (con el OK de Martín, si se compra).
-7. Subir la versión (`VERSION_PC`, `publicar-binarios --aplicar` con el OK de Martín) y la prueba de punta a punta en una
+7. Subir la versión (`VERSION` del programa y `VERSION_PC` juntos, en el commit del instalador: hasta entonces nadie corre
+   `publicar-binarios` desde main, que pisaría la 0.3.2; `publicar-binarios --aplicar` con el OK de Martín) y la prueba de punta a punta en una
    computadora de verdad con el ws3.
