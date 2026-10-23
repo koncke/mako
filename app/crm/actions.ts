@@ -180,6 +180,7 @@ import { urlGravatar } from '@/lib/gravatar';
 import { type VisitasMap } from './crm-map';
 import { TOPE_NOTA, BUCKET_NOTAS_LEAD, pathEsNotaDelLead } from './notas-reglas';
 import { esMimeNota, TOPE_NOTA_BYTES, nombreDeAdjunto } from '@/app/customer-success/curso/reglas';
+import type { InformeMovimiento } from '@/lib/reentrada';
 
 /** Análisis de llamadas (Closing Analyst) matcheados a este lead. */
 export type LeadInsightRow = {
@@ -563,8 +564,13 @@ export async function requisitosDeEtapaAction(id: number, to: string, d: StageMo
  */
 export type StageMoveResultado =
   /** `sinTocar`: las cuotas que el plan no pudo cambiar (link sin pagar o recordatorio corriendo), dichas. */
-  | { ok: true; pendientes?: Step[]; sinTocar?: string; deshacer?: TokenDeshacer }
+  /** `automatizaciones`: en cuáles de la etapa entró y en cuáles NO, con su porqué (23/10/2026; sólo si hay algo que decir). */
+  | { ok: true; pendientes?: Step[]; sinTocar?: string; deshacer?: TokenDeshacer; automatizaciones?: InformeMovimiento }
   | { ok: false; faltan: Step[]; mensaje: string };
+
+/** El informe de las automatizaciones del movimiento, sólo si hay algo que decir (entró o no entró a alguna). */
+const conInforme = (i: InformeMovimiento | null | undefined): { automatizaciones?: InformeMovimiento } =>
+  i && (i.entro.length || i.noEntro.length) ? { automatizaciones: i } : {};
 
 /**
  * GUARDAR NUNCA SE BLOQUEA POR DATOS QUE FALTAN (decisión del 17/09, 08-T22).
@@ -802,12 +808,14 @@ export async function completeStageMoveAction(
   // único que el movimiento sincronizaba y no se guarda por otro lado es el monto de un Ganado.
   const etapaReal = (l: Lead | null): string =>
     (l?.pipeline_stage && stagesMove.some((s) => s.key === l.pipeline_stage) ? l.pipeline_stage : l ? deriveStageKey(l as unknown as StageDerivable) : to);
+  // Lo mueve una persona: en cuáles automatizaciones de la etapa entró y en cuáles no, con su porqué (23/10/2026).
+  let informe: InformeMovimiento | null = null;
   if (d.soloCompletar && before) {
     if (before.estado_lead === 'ganado' && d.monto != null && d.monto !== before.monto_cierre_usd) {
       await updateLead(id, { monto_cierre_usd: d.monto });
     }
   } else {
-    await setPipelineStage(id, to, { monto: d.monto ?? null, motivo: d.motivo ?? null });
+    await setPipelineStage(id, to, { monto: d.monto ?? null, motivo: d.motivo ?? null, porPersona: true }).then((m) => { informe = m.automatizaciones; });
   }
 
   const after = await getLead(id).catch(() => null);
@@ -825,7 +833,7 @@ export async function completeStageMoveAction(
   revalidatePath('/crm');
   revalidatePath(`/crm/${id}`);
   revalidatePath('/general');
-  return { ok: true, pendientes, ...(sinTocar ? { sinTocar } : {}), ...(deshacer ? { deshacer } : {}) };
+  return { ok: true, pendientes, ...(sinTocar ? { sinTocar } : {}), ...(deshacer ? { deshacer } : {}), ...conInforme(informe) };
 }
 
 /**
@@ -1336,7 +1344,8 @@ export async function setLeadStageAction(
   ]);
   const autor = await autorActual();
   const foto = await empezarDeshacer(id, before, false);
-  await setPipelineStage(id, stageKey, { ...opts, autor });
+  // Lo mueve una persona (con sesión): si no vuelve a entrar a una automatización de la etapa, se le dice por qué.
+  const { automatizaciones } = await setPipelineStage(id, stageKey, { ...opts, autor, porPersona: true });
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, autor);
   const pagosDespues = stageKey === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
@@ -1346,7 +1355,7 @@ export async function setLeadStageAction(
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/crm');
   revalidatePath('/general');
-  return { ok: true, pendientes, ...(deshacer ? { deshacer } : {}) };
+  return { ok: true, pendientes, ...(deshacer ? { deshacer } : {}), ...conInforme(automatizaciones) };
 }
 
 /**

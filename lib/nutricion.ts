@@ -71,7 +71,7 @@ import {
   ESTADOS_TERMINADOS, SIN_MARCAS, type JuntasLead, type FilaPrevia,
 } from '@/lib/nutricion-reinscripcion';
 // La «Reentrada» del CRON (14/10/2026, docs/diseno-mako-nada-por-detras.md §2.4-a): si un lead vuelve a entrar.
-import { reentradaDe, puedeReentrar, esReentrada, barridoEsEvento, type Reentrada } from '@/lib/reentrada';
+import { reentradaDe, puedeReentrar, esReentrada, barridoEsEvento, motivoNoVuelve, lineaNoVolvio, type Reentrada, type NoEntro, type InformeMovimiento } from '@/lib/reentrada';
 // El carril del recordatorio (undécima tanda, M3): la marca del emisor de hoy, compartida.
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
@@ -2197,6 +2197,15 @@ export type CtxEvento = {
    * el tope de la hora de la línea. Y en el historial queda sólo «Entró a …» (el porqué lo dicen la ficha y la tarjeta).
    */
   sinViaRapida?: boolean;
+  /**
+   * Quién lo movió, cuando es una PERSONA (el CRM: `setLeadStageAction`, que exige sesión). El motor, MaKo y los lotes no
+   * lo mandan: el evento de etapa solo no dice quién fue. Con esto, si el lead NO vuelve a entrar a una automatización de
+   * esa etapa (ya tiene su inscripción y no le toca, `motivoNoVuelve`), queda dicho en su historial, firmado por esa
+   * persona (23/10/2026, #289 del ws1).
+   */
+  persona?: string;
+  /** Lo llena `enrolarPorEvento`: en cuáles entró y en cuáles no (con su porqué). Vuelve a la pantalla que movió. */
+  informe?: InformeMovimiento;
 };
 
 /**
@@ -2499,6 +2508,8 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     let arrancadas = 0;
     /** Las que arrancó (para decirlo en el historial del lead, abajo). */
     const entro: number[] = [];
+    /** Las que NO volvieron a empezar, dichas para la persona que lo movió (`ctx.persona`). */
+    const noVolvio: NoEntro[] = [];
     for (const s of elegidas) {
       // El primer paso de una secuencia disparada por evento sale YA: el delay configurado
       // cuenta desde el evento, no desde el cron. Un paso anclado a la reunión, desde la agenda.
@@ -2506,7 +2517,10 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
       const previa = previaDe.get(s.id);
       if (previa) {
         const r = reusables.get(previa.id);
-        if (!r) continue;
+        if (!r) {
+          if (ctx?.persona) noVolvio.push({ secuenciaId: s.id, nombre: s.nombre, at: decididoAt, quien: ctx.persona, ...motivoNoVuelve(reentradaDeSecuencia(s), previa) });
+          continue;
+        }
         const reclamada = await reactivarInscripcion(supabase, {
           id: previa.id, leido: previa, proximoEnvioAt: proximo, reunionAt: r.reunionMs == null ? null : new Date(r.reunionMs).toISOString(), ahora: decididoAt,
         });
@@ -2529,6 +2543,8 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
       arrancadas += 1;
       entro.push(s.id);
     }
+    await decirQueNoVolvio(leadId, noVolvio, ctx);
+    if (ctx?.informe) for (const s of elegidas) if (entro.includes(s.id)) ctx.informe.entro.push({ secuenciaId: s.id, nombre: s.nombre });
     if (!arrancadas) return 0;
 
     // En LOTE, sin la vía rápida (`sinViaRapida`): lo manda el tick, y en el historial sólo «Entró a …».
@@ -2559,6 +2575,23 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
  * apertura». No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale mañana 9:00.» (lib/por-que-no-sale.ts,
  * la misma lectura que la ficha y la tarjeta del CRM). Si salió, sólo «Entró a …». Nunca tira: el lead ya está inscripto.
  */
+/**
+ * «No volvió a entrar a «…»: ya entró una vez…» (`lineaNoVolvio`), en el historial del lead y firmado por la persona que lo
+ * movió, y en el informe del movimiento (`ctx.informe`, vuelve a la pantalla). Sólo con `ctx.persona`: un movimiento del
+ * motor no es una pregunta de nadie. El bloque «Automatizaciones» de la ficha lo lee de vuelta del historial
+ * (`leerNoVolvio`). Nunca tira: el movimiento ya se escribió.
+ */
+async function decirQueNoVolvio(leadId: number, noVolvio: readonly NoEntro[], ctx?: CtxEvento): Promise<void> {
+  if (!ctx?.persona || !noVolvio.length) return;
+  ctx.informe?.noEntro.push(...noVolvio);
+  try {
+    const { logLeadEvent } = await import('@/lib/leads');
+    for (const n of noVolvio) await logLeadEvent(leadId, 'Automatización', lineaNoVolvio(n.nombre, n.texto), ctx.persona);
+  } catch (e) {
+    console.error(`[nutricion] lead ${leadId}: no pude anotar por qué no volvió a entrar:`, e instanceof Error ? e.message : e);
+  }
+}
+
 async function anotarLaEntrada(leadId: number, secuencias: readonly number[]): Promise<void> {
   if (!secuencias.length) return;
   try {
@@ -2612,7 +2645,8 @@ export type InscripcionManual =
 export async function inscribirEnSecuencia(
   leadId: number,
   secuenciaId: number,
-  opts?: { soloVer?: boolean; sinEnvioInmediato?: boolean; desdeFlujo?: boolean },
+  // `empezarDeNuevo`: una persona reinicia una en curso o que contestó (`decidirInscripcionManual`).
+  opts?: { soloVer?: boolean; sinEnvioInmediato?: boolean; desdeFlujo?: boolean; empezarDeNuevo?: boolean },
 ): Promise<InscripcionManual> {
   const supabase = await getTenantDb();
   // El ámbito (funnel_id, producto_id) viaja aunque acá no filtre —la secuencia la eligió una
@@ -2685,6 +2719,7 @@ export async function inscribirEnSecuencia(
     desdeFlujo: opts?.desdeFlujo === true,
     reentraDesdeFlujo,
     objetivoHecho: opts?.desdeFlujo === true && objetivo != null && hitoYaHecho(objetivo, lead) === true,
+    empezarDeNuevo: opts?.empezarDeNuevo === true,
   });
   if (!v.inscribe) return { inscribe: false, porque: v.porque, secuencia: ref, lead: quien };
 

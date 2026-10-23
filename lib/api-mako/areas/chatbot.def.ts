@@ -415,6 +415,21 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'cancela su inscripción en nutricion_inscripciones (estado cancelada, sin próximo envío), descarta sus borradores pendientes de esa secuencia y deja historial del lead',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
+  // «Empezar de nuevo» (23/10/2026, #289 del ws1): mover el lead a la etapa no reinicia una inscripción viva, y «Frenar» la
+  // cierra para siempre. La misma decisión que inscribir (`decidirInscripcionManual` con `empezarDeNuevo`); la ficha del
+  // lead tiene su botón (lib/automatizaciones-del-lead.ts). SIN http, como inscribir y sacar; y nunca desde un flujo (un
+  // paso que reinicia su propia automatización es un bucle).
+  {
+    id: 'empezar_de_nuevo_lead_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Empezar de nuevo una secuencia',
+    descripcion: 'PROPONE que UN lead vuelva a empezar desde el primer paso UNA secuencia en la que está EN CURSO o en la que contestó (queda pendiente hasta el «sí»). Lo que ya le salió le puede volver a salir. Mover el lead a la etapa de la secuencia NO la reinicia: esto sí. No reabre una inscripción cancelada (puede ser una baja) ni la de un lead que atiende una persona; si no está en esa secuencia, usa inscribir_lead_secuencia. No se usa desde una automatización. Pide antes el leadId (buscar_leads) y el secuenciaId (listar_secuencias_nutricion); para ver dónde está, inscripciones_lead.',
+    parametros: [
+      { nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads).' },
+      pSecuenciaId,
+    ],
+    reversible: false, escribe: 'reactiva su inscripción en nutricion_inscripciones desde el primer paso (desliga los envíos y borradores de la corrida anterior, sin borrarlos), deja historial del lead y dispara el primer envío si ya toca',
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
   // El «Otra cosa» de «Si responde» (08/10/2026): lo que antes era el hand-off —«MaKo se calla y
   // te avisa»— es ahora una tarjeta ⚡ Acción con esta operación, que el conversor de las
   // secuencias de antes pone sola (lib/flujo-legado.ts → OP_AVISAR; el id es el MISMO literal,

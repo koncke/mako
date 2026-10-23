@@ -997,6 +997,34 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // «Empezar de nuevo» (23/10/2026): la MISMA inscripción manual con `empezarDeNuevo` (`soloVer` al preparar), y al confirmar
+  // el núcleo de la ficha (`empezarDeNuevoEnAutomatizacion`: el historial con quién lo pidió y si algo frena lo primero).
+  empezar_de_nuevo_lead_secuencia: {
+    preparar: async (input, ctx) => {
+      if (desdeUnFlujo(ctx)) return { error: 'Empezar de nuevo no se usa desde una automatización: reiniciaría la suya en cada vuelta.' };
+      const leadId = num(input, 'leadId'); const secuenciaId = num(input, 'secuenciaId');
+      const v = await inscribirEnSecuencia(leadId, secuenciaId, { soloVer: true, empezarDeNuevo: true });
+      if (!v.inscribe) return { error: noSeInscribe(v, leadId, secuenciaId) };
+      if (v.como === 'nueva') return { error: `${v.lead.nombre} no está en «${v.secuencia.nombre}»: para meterlo, inscribir_lead_secuencia.` };
+      return {
+        payload: { leadId: v.lead.id, secuenciaId: v.secuencia.id },
+        resumen: `Hacer empezar de nuevo a ${v.lead.nombre} en «${v.secuencia.nombre}», desde el primer paso (lo que ya le salió le puede volver a salir); ${await cuandoSale(v.proximoEnvioAt, ctx.ws, false)}`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const leadId = Number(payload.leadId); const secuenciaId = Number(payload.secuenciaId);
+      try {
+        const { empezarDeNuevoEnAutomatizacion } = await import('@/lib/automatizaciones-del-lead');
+        const r = await empezarDeNuevoEnAutomatizacion(leadId, secuenciaId, ctx.actor?.trim() || 'MaKo');
+        return r.ok ? { ok: true, resumen: `Listo: ${r.resumen}`, datos: { leadId, secuenciaId } } : { ok: false, resumen: r.error };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[api-mako chatbot] empezar_de_nuevo_lead_secuencia:', msg);
+        return { ok: false, resumen: `No se pudo hacer empezar de nuevo al lead #${leadId} en la secuencia #${secuenciaId} (${msg}).` };
+      }
+    },
+  },
+
   // El espejo de inscribir_lead_secuencia (17/10/2026). La decisión pura y la escritura (compare-and-set sobre el
   // estado leído, con getTenantDb) son UNA función (sacarDeSecuencia, lib/nutricion-salida-manual.ts): acá con
   // `soloVer`, que no escribe; al confirmar, sin él, y vuelve a decidir contra la base.

@@ -6701,3 +6701,30 @@ lead_id). Un lead duplicado por teléfono contesta en el otro y la automatizaci�
 tests/aviso-equipo-no-vacio.test.ts. **Sin hacer:** el lienzo no avisa al escribir un renglón con varios datos
 opcionales; el duplicado por teléfono (`matchLeadPorTelefono`).
 *23/10/2026, chat «Automations» (claude2).*
+
+### Mover un lead a la etapa del CRON no lo hace empezar de nuevo, y no lo decía (23/10/2026)
+
+**El síntoma:** Martín llevó su lead a «Prospección activa» (el CRON de la #289) y «no pasó nada». **La causa, en dos
+capas:** la reentrada de la #289 era NULL, que para un flujo que no prepara reunión se lee «Una sola vez»
+(`reentradaDe`), así que `reusaInscripciones` la dejaba afuera; y aunque fuera «Cada vez», la inscripción seguía VIVA, y
+una viva nunca se reinicia por evento (`puedeReentrar` → 'no_termino'). En `enrolarPorEvento` las dos terminan en el
+mismo `if (!r) continue;`, sin escribir nada: ni historial, ni error. Y desde la pantalla no había salida: «Frenar» deja
+'cancelada', y una cancelada no vuelve nunca. **Arreglo:** si lo mueve una PERSONA, una línea en el historial firmada por
+ella («No volvió a entrar a «…»: ya entró una vez y su reentrada es «Una sola vez».», `motivoNoVuelve`) y el informe del
+movimiento (`automatizaciones`: en cuáles entró y en cuáles no) de vuelta a la pantalla; «Empezar de nuevo» (acción y
+operación de la API `empezar_de_nuevo_lead_secuencia`) por la inscripción manual de siempre (`decidirInscripcionManual`
+con `empezarDeNuevo` → `reactivarInscripcion`); y el detalle para el bloque «Automatizaciones» de la ficha
+(`detalleDelLead`). La pantalla es del chat del CRM. El «no entró» no tiene tabla: el detalle lo lee del historial
+(`leerNoVolvio`), y el id sale de las inscripciones del lead, porque sólo deja de entrar quien ya tiene una. **La trampa del autor:** el evento de etapa
+no dice quién movió (lo usan el motor, MaKo, los lotes y las confirmaciones, todos por `setPipelineStage`), y adivinarlo
+por el valor de `autor` firmaba como persona lo que hizo un proceso. Va EXPLÍCITO: `porPersona` lo pasan sólo
+`setLeadStageAction`, `completeStageMoveAction` y `moverEtapaEnProductoAction`, que exigen sesión. **Regla:** un `continue` que decide por el usuario
+tiene que dejar una línea en algún lado; si no, «no funcionó» es lo único que queda.
+**Vive en:** lib/nutricion.ts (`enrolarPorEvento`, `decirQueNoVolvio`, `inscribirEnSecuencia`) · lib/reentrada.ts
+(`motivoNoVuelve`, `lineaNoVolvio`, `leerNoVolvio`) · lib/leads.ts y lib/lead-funnel.ts (devuelven el informe) ·
+lib/nutricion-inscripcion-manual.ts · lib/automatizaciones-del-lead*.ts (`detalleDe`, `detalleDelLead`) ·
+lib/api-mako/areas/chatbot.* · tests/no-volvio-a-entrar.test.ts · tests/empezar-de-nuevo.test.ts ·
+tests/automatizaciones-del-lead-detalle.test.ts. **Sin hacer:** los lotes (tablero y agregados) y el celular
+(app/m/crm) no pasan la persona; el reinicio de una fila 'activa' no frena un envío que el tick esté mandando en ese
+mismo instante (el compare-and-set es sobre estado y desenlace); el envío no guarda «entregado/leído» del WhatsApp.
+*23/10/2026, chat «Automations» (claude2).*

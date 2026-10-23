@@ -94,13 +94,22 @@ export function decidirInscripcionManual(p: {
   reentraDesdeFlujo?: boolean;
   /** `hitoYaHecho(objetivo de la secuencia, lead) === true`. Sólo cuenta desde un flujo. */
   objetivoHecho?: boolean;
+  /**
+   * «EMPEZAR DE NUEVO» (23/10/2026, #289 del ws1): una PERSONA, desde la ficha, reinicia una que está EN CURSO o en la que el
+   * lead contestó (`reactivarInscripcion`: lo de la corrida vieja se desliga y vuelve al primer paso). Mover el lead a la
+   * etapa no lo hacía (una viva no se reinicia sola) y «Frenar» la deja cancelada para siempre. Cancelada y «la sigue una
+   * persona» (handoff) siguen sin reabrirse: puede ser una baja, o alguien atendiéndolo. Desde un flujo no vale.
+   */
+  empezarDeNuevo?: boolean;
 }): VeredictoInscripcion {
   const { secuencia, previa, motor } = p;
   if (secuencia.archivada) return { inscribe: false, porque: 'archivada' };
   if (!secuencia.activa) return { inscribe: false, porque: 'pausada' };
   if (secuencia.pasos <= 0) return { inscribe: false, porque: 'sin_pasos' };
 
-  if (previa) {
+  const deNuevo = p.empezarDeNuevo === true && !p.desdeFlujo && previa != null && previa.desenlace !== 'cancelado'
+    && (ESTADOS_EN_CURSO.includes(previa.estado) || previa.estado === 'respondio');
+  if (previa && !deNuevo) {
     if (ESTADOS_EN_CURSO.includes(previa.estado)) return { inscribe: false, porque: 'en_curso' };
     if (previa.estado === 'cancelada' || previa.desenlace === 'cancelado') return { inscribe: false, porque: 'cancelada' };
     if (previa.estado === 'respondio') return { inscribe: false, porque: 'respondio' };
