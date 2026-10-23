@@ -791,8 +791,8 @@ export const RUNNERS: Runners = {
   },
   duplicados_lead: {
     leer: async (input) => {
-      const cand = { nombre: s(input.nombre) ?? null, email: s(input.email) ?? null, telefono: s(input.telefono) ?? null };
-      if (!cand.nombre && !cand.email && !cand.telefono) return fallo('Pasa al menos un nombre, un email o un teléfono.');
+      const cand = { nombre: s(input.nombre) ?? null, email: s(input.email) ?? null, telefono: s(input.telefono) ?? null, instagram: usuarioInstagram(s(input.instagram)) };
+      if (!cand.nombre && !cand.email && !cand.telefono && !cand.instagram) return fallo('Pasa al menos un nombre, un email, un teléfono o un Instagram.');
       const r = await duplicadosDeLead(cand);
       return json({ coincidencias: r, ...(r.length ? {} : { nota: 'Sin coincidencias. Si la consulta falló también da vacío: no garantiza que no exista.' }) });
     },
@@ -2503,8 +2503,8 @@ export const RUNNERS: Runners = {
       // otro lead parte el cruce con WhatsApp y Calendly. Se avisa, no se bloquea
       // (duplicadosDeLead devuelve vacío si la consulta falla).
       let avisoDup = '';
-      if (payload.email !== undefined || payload.telefono !== undefined) {
-        const dups = (await duplicadosDeLead({ nombre: null, email: (payload.email as string | undefined) ?? null, telefono: (payload.telefono as string | undefined) ?? null }))
+      if (payload.email !== undefined || payload.telefono !== undefined || payload.instagram !== undefined) {
+        const dups = (await duplicadosDeLead({ nombre: null, email: (payload.email as string | undefined) ?? null, telefono: (payload.telefono as string | undefined) ?? null, instagram: (payload.instagram as string | undefined) ?? null }))
           .filter((d) => d.lead.id !== lead.id);
         if (dups.length) avisoDup = ` ⚠️ Ya lo tiene ${dups.slice(0, 3).map((d) => `el lead #${d.lead.id} (${d.texto})`).join(', ')}.`;
       }

@@ -23,7 +23,8 @@
 // =============================================================================
 
 import { useMemo, useState, type CSSProperties } from 'react';
-import { FILAS_POR_PAGINA, MOTIVO_DECIDIBLE, MOTIVO_LABEL, UMBRAL_PAGINADO, contar, destinoDe, entraGanado, type FilaImport } from './leads-importar';
+import { linkInstagram } from './campo-inline';
+import { FILAS_POR_PAGINA, MOTIVO_DECIDIBLE, MOTIVO_LABEL, UMBRAL_PAGINADO, arrobaEsSuUnicoCanal, claveInstagram, contar, destinoDe, entraGanado, type FilaImport } from './leads-importar';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -66,6 +67,9 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
   nota?: string;
 }) {
   const [pagina, setPagina] = useState(0);
+  // La fila cuyo input de email tiene el foco: mientras lo tiene, esa celda no se cambia por el link del @
+  // (ver `arrobaEsSuUnicoCanal`). Un id y no un booleano: es una sola celda a la vez.
+  const [emailEnEdicion, setEmailEnEdicion] = useState<string | null>(null);
   const c = useMemo(() => contar(filas), [filas]);
 
   const editar = (id: string, campo: 'nombre' | 'email' | 'telefono' | 'empresa', v: string) =>
@@ -141,8 +145,33 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
       (f.motivo === 'sin-contacto' && (k === 'email' || k === 'telefono'));
     const campo = (k: 'nombre' | 'email' | 'telefono' | 'empresa', ph: string) => (
       <input value={f[k]} placeholder={ph} onChange={(e) => editar(f.id, k, e.target.value)} aria-label={`${ph} de la fila ${f.id}`}
+        onFocus={k === 'email' ? () => setEmailEnEdicion(f.id) : undefined}
+        onBlur={k === 'email' ? () => setEmailEnEdicion((id) => (id === f.id ? null : id)) : undefined}
         style={{ ...celdaInput, borderColor: culpable(k) ? 'var(--bad)' : 'var(--border)' }} />
     );
+    // El @ de la fila (`FilaImport.instagram`, sin la @). Se DIBUJA y no se edita: ya viene
+    // normalizado del archivo (`usuarioInstagram`), y una celda de texto libre dejaría escribir algo que
+    // el server descarta sin avisar. Sirve para lo que sí hace falta al revisar: abrir el perfil y ver
+    // que es la persona.
+    // Con `claveInstagram` y no con el texto crudo: es la misma llave que usa `recalcular`, así que un valor
+    // que no es un usuario no se dibuja como si lo fuera (ni cuenta como canal).
+    const ig = claveInstagram(f.instagram);
+    // ¿Es su ÚNICO canal? La misma pregunta que contesta `recalcular`, salvo que el email se esté tipeando: ahí
+    // el input se queda donde está (si no, borrar el email para corregirlo lo desmonta con el foco puesto).
+    const soloIg = arrobaEsSuUnicoCanal(f, emailEnEdicion === f.id);
+    const arroba = (chico: boolean) => {
+      const nombreFila = f.nombre.trim() || 'este contacto';
+      const estilo: CSSProperties = {
+        ...(chico
+          ? { fontFamily: MONO, fontSize: 10.5, color: 'var(--dim)' }
+          : { ...celdaInput, display: 'block' }),
+        minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none',
+      };
+      return (
+        <a href={linkInstagram(ig) ?? undefined} target="_blank" rel="noopener noreferrer" data-instagram="" data-solo-instagram={chico ? undefined : ''}
+          title={`Abrir el Instagram de ${nombreFila}`} aria-label={`Abrir el Instagram de ${nombreFila}`} style={estilo}>@{ig}</a>
+      );
+    };
     return (
       <div key={f.id} style={{
         display: 'grid', gridTemplateColumns: GRID, gap: 8, alignItems: 'center',
@@ -167,7 +196,21 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
           {fuera ? '' : '✓'}
         </button>
         {campo('nombre', 'Nombre')}
-        {campo('email', 'Email')}
+        {/*
+          Con el @ como ÚNICO canal, el @ va EN EL LUGAR DEL EMAIL, igual que en la tabla del CRM
+          (`CeldasLead`): se dibuja el canal que la fila SÍ tiene y no un campo vacío que la señale
+          como incompleta (Martín, 22/10/2026: «si no tiene ese dato, que no lo muestre»). Con otro canal,
+          el @ va debajo del email: es un dato que se va a escribir y la persona tiene que poder verlo.
+          Sin @, la celda es la de siempre. Sin una columna nueva: la grilla fija no cambia.
+        */}
+        {soloIg ? arroba(false)
+          : ig ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+              {campo('email', 'Email')}
+              {arroba(true)}
+            </div>
+          )
+          : campo('email', 'Email')}
         {campo('telefono', 'Teléfono')}
         {campo('empresa', 'Empresa')}
         <span style={{ fontFamily: MONO, fontSize: 10.5, color: invalido ? 'var(--bad)' : destino === 'enriquecer' ? 'var(--good)' : decidible && !fuera ? 'var(--warn)' : fuera ? 'var(--dim)' : 'var(--faint)', textAlign: 'right', lineHeight: 1.3 }}>

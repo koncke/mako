@@ -21,7 +21,7 @@ import 'server-only';
 
 import { getTenantDb } from './workspace';
 import { createLead, updateLead, logLeadEvent } from './leads';
-import { LeadDuplicadoError } from './leads-duplicados';
+import { LeadDuplicadoError, type MotivoDuplicado } from './leads-duplicados';
 import { VENTA_SIN_COBRO } from './venta-tipo';
 import { ORIGEN_LEAD } from '@/app/crm/origen-lead';
 
@@ -43,7 +43,7 @@ export type ClienteNuevo = {
    * Con quién choca, cuando choca (07/10/2026). El alta desde el editor del curso necesita el LEAD para
    * ofrecer «usar ese» en vez de fallar.
    */
-  duplicados?: Array<{ leadId: number; nombre: string; motivo: 'email' | 'telefono' | 'nombre'; texto: string }>;
+  duplicados?: Array<{ leadId: number; nombre: string; motivo: MotivoDuplicado; texto: string }>;
 };
 
 /** Crea el cliente: crea el LEAD en el CRM y lo marca ganado. `por` firma el historial. */

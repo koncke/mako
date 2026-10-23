@@ -4454,6 +4454,26 @@ funden—, o se escapan `\`, `%` y `_` (molde: `leadDeAlumno`), o el patrón es 
 y la decisión la toma una igualdad exacta después.** Y si hay más de un candidato, no se
 elige el primero: se desempata con un dato (el único `ganado`) o no se elige.
 
+# Un canal de contacto nuevo se suma en SEIS lugares, y una unión exportada no se copia (23/10/2026)
+
+El @ de Instagram pasó a contar como contacto (`lib/contacto-minimo.ts`) y la tanda tocó más de veinte archivos para que cada puerta lo viera. Lo que
+cada una olvidaba, y qué falla en silencio:
+
+- `tieneContacto` (alta, importador, prospección) · `buscarDuplicados` y la consulta de `duplicadosDeLead` · `filasDePropuesta`
+  (`app/crm/revisar/[id]/propuesta-lead.ts`, copia campo por campo: lo que no conoce lo descarta y la fila cae como sin contacto) ·
+  la llave de idempotencia de la skill y de `proponerLote` (`refPorDefecto`: con sólo el campo nuevo daba `lead:null` y dos personas
+  colapsaban en UNA propuesta, con `ok` y sin error) · el predicado de «único canal» del escritorio y el del teléfono (`soloInstagram`,
+  dos copias, un test las iguala) · el parámetro declarado en la API de MaKo (`crm.def.ts`): el runner puede leerlo y el modelo no poder pasarlo.
+- **Un dato sólo apaga la comparación por nombre si está en casi todas las fichas.** El email y el teléfono sí; `leads.instagram` (mig 0258)
+  casi no. Copiar la regla dejó sin aviso al alta «Juan Pérez + @juanp», y el test que lo fijaba daba verde: se contrasta con la ficha VIEJA.
+- **Una unión de literales exportada se IMPORTA, no se reescribe** (`type MotivoDuplicado`, `lib/leads-duplicados.ts`): `tsx` borra los tipos,
+  ningún test corre `tsc`, y una copia a mano (`'email' | 'telefono' | 'nombre'` en `app/customer-success/actions.ts`) dejó de compilar el día
+  que se sumó un motivo. Su test de fuente no lleva lista de excepciones y barre todo `app/` y `lib/` (una lista de archivos no sobrevive a una mudanza: el cuerpo
+  de `crearClienteAction` se mudó a `lib/` y la copia con él). Y los usuarios de Instagram llevan `_`: `patronDeInstagram` escapa
+  (ver «Un patrón trae CANDIDATOS» más arriba) y la igualdad exacta de `instagramComparable` decide.
+- Detalle y trampas del CSV (`ig` por inclusión, «no» como usuario, encabezados de formulario): `docs/hallazgos-crm.md`, «Un lead puede entrar
+  con sólo su @ de Instagram».
+
 # Si hay que desempatar, todavía estás adivinando
 
 Cuando una extracción necesita **scoring** para elegir entre candidatos —frecuencia,

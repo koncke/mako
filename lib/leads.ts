@@ -9,7 +9,8 @@ import { linkApp } from './app-url';
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  buscarDuplicados, camposParaCompletar, elegirPorTelefono, emailComparable, LeadDuplicadoError, nombreComparable, patronesDeNombre, telefonoComparable,
+  buscarDuplicados, camposParaCompletar, elegirPorTelefono, emailComparable, instagramComparable, LeadDuplicadoError, nombreComparable,
+  patronDeInstagram, patronesDeNombre, telefonoComparable,
   type CandidatoLead, type Coincidencia, type LeadExistente,
 } from './leads-duplicados';
 import { getTenantDb, getWorkspaceActual, runWithWorkspace } from './workspace';
@@ -791,14 +792,15 @@ export async function vendedorUnicoDelWorkspace(): Promise<string | null> {
  *
  * La comparación vive en `lib/leads-duplicados.ts` (sin `server-only`, para poder
  * testearla); acá queda solo traer con qué comparar. Se acota a lo que puede
- * matchear —email, teléfono o, si no hay ninguno, nombre— en vez de bajar la
- * tabla entera: un CRM con 20.000 leads no entra en memoria por cada alta.
+ * matchear —email, teléfono, Instagram o, si no hay email ni teléfono, nombre— en
+ * vez de bajar la tabla entera: un CRM con 20.000 leads no entra en memoria por cada alta.
  */
 export async function duplicadosDeLead(cand: CandidatoLead): Promise<Coincidencia[]> {
   const email = emailComparable(cand.email);
   const tel = telefonoComparable(cand.telefonoNormalizado ?? cand.telefono);
+  const ig = instagramComparable(cand.instagram);
   const nombre = nombreComparable(cand.nombre);
-  if (!email && !tel && !nombre) return [];
+  if (!email && !tel && !ig && !nombre) return [];
   try {
     const db = await getTenantDb();
     // ⚠️ `funnel_id` VIAJA PARA QUE EL AVISO PUEDA NOMBRAR EL PRODUCTO. «Ya lo tienes» y
@@ -806,12 +808,34 @@ export async function duplicadosDeLead(cand: CandidatoLead): Promise<Coincidenci
     // moverlo, que es lo que pidió Martín («que le advierta que el lead ya existe y que
     // le pregunte si lo quiere traer»). Sin la columna, la pantalla no puede distinguirlas.
     const cols = 'id, nombre, email, telefono_normalizado, funnel_id';
-    const [porEmail, porTel, porNombre] = await Promise.all([
+    const [porEmail, porTel, porIg, porNombre] = await Promise.all([
       email ? db.from('leads').select(cols).ilike('email', email).limit(20) : { data: [] },
       tel ? db.from('leads').select(cols).ilike('telefono_normalizado', `%${tel}`).limit(20) : { data: [] },
-      // El nombre solo se consulta cuando NO hay dato fuerte, igual que la regla
+      // ⚠️ EL @ ES UNA CONSULTA PROPIA Y LA COLUMNA SE PIDE SÓLO ACÁ. `instagram` es de la mig 0258: pedirla en las otras
+      // tres haría que una base sin ella rechace TODAS las altas, también las que no traen @. Con la consulta propia, si
+      // falla, falla sólo el chequeo del @ (queda en el log) y email, teléfono y nombre siguen comparando.
+      //
+      // ⚠️ SUPERCONJUNTO POR SUBSTRING ESCAPADO, DECIDE LA COMPARACIÓN. Lo guardado puede ser `ana_lopez`, `@Ana_Lopez` o
+      // el link del perfil, así que un `eq` no alcanza; y en `ilike` el `_` es comodín y los usuarios de Instagram LO
+      // LLEVAN (`patronDeInstagram` lo escapa). Lo que trae el patrón sólo son candidatos: quién es el mismo usuario lo
+      // decide `buscarDuplicados`, con la forma normalizada de los dos lados. Sin `.limit`: un usuario corto (`ana`) está
+      // dentro de muchos otros y el tope dejaría afuera, a ciegas, al que sí es (el mismo bug que se pagó con el nombre).
+      ig
+        ? leerTodo<LeadExistente>(db, 'leads', `${cols}, instagram`, {
+            orden: 'id',
+            filtros: (q) => q.ilike('instagram', patronDeInstagram(ig)) as unknown as ConsultaPaginada,
+          }).then((data) => ({ data })).catch((e: unknown) => {
+            console.error('[duplicadosDeLead] la consulta por Instagram falló y se sigue sin ella:', e instanceof Error ? e.message : e);
+            return { data: [] as LeadExistente[] };
+          })
+        : { data: [] },
+      // El nombre solo se consulta cuando NO hay email ni teléfono, igual que la regla
       // de `buscarDuplicados`: pedirlo siempre sería una query por cada alta para
       // un criterio que en ese caso ni se mira.
+      //
+      // ⚠️ EL @ NO LA APAGA. Un alta «Juan Pérez + @juanp» tiene que avisar de un «Juan Pérez» que ya está con email y SIN
+      // @ (casi ninguna ficha vieja lo tiene: mig 0258), y esa ficha no sale por la consulta del @. Si el @ apagara ésta,
+      // el alta con @ perdería el aviso que el mismo alta sin @ sí daba. Corren las dos, y `buscarDuplicados` no repite.
       //
       // ⚠️ Antes era `.limit(500)` SIN filtro: con 1066 leads en ws1 comparaba
       // contra 500 arbitrarios y el duplicado existía y no se encontraba. Ahora
@@ -831,12 +855,27 @@ export async function duplicadosDeLead(cand: CandidatoLead): Promise<Coincidenci
               for (const pat of patronesDeNombre(nombre)) f = f.ilike('nombre', pat) as unknown as ConsultaPaginada;
               return f;
             },
-          }).then((data) => ({ data }))
+          }).then((data) => ({ data })).catch((e: unknown) => {
+            // Con el @ las dos consultas corren juntas: que ésta caiga no puede llevarse puesto lo que el @ ya encontró.
+            // Sin @ el resultado es el mismo de antes (vacío), sólo que el log dice cuál consulta fue.
+            console.error('[duplicadosDeLead] la consulta por nombre falló y se sigue sin ella:', e instanceof Error ? e.message : e);
+            return { data: [] as LeadExistente[] };
+          })
         : { data: [] },
     ]);
-    const todos = [...(porEmail.data ?? []), ...(porTel.data ?? []), ...(porNombre.data ?? [])] as LeadExistente[];
+    // Una consulta que devuelve `error` NO tira (es el contrato de supabase-js): sin esto una columna caída se leía como
+    // «no hay nadie con ese dato» y el alta pasaba sin comprobar, sin una línea en el log. Se sigue SIN esa consulta —el
+    // alta no se bloquea por un chequeo que no se pudo hacer— pero queda dicho cuál faltó. (Las de Instagram y nombre
+    // leen con `leerTodo`, que sí tira: cada una se atrapa en su propia rama, arriba.)
+    for (const [que, r] of [['email', porEmail], ['teléfono', porTel]] as const) {
+      const msg = (r as unknown as { error?: { message?: string } | null }).error?.message;
+      if (msg) console.error(`[duplicadosDeLead] la consulta por ${que} falló y se sigue sin ella:`, msg);
+    }
+    const todos = [...(porEmail.data ?? []), ...(porTel.data ?? []), ...(porIg.data ?? []), ...(porNombre.data ?? [])] as LeadExistente[];
+    // ⚠️ SE FUNDEN LAS FILAS DE UN MISMO LEAD, NO SE PISA UNA CON OTRA: el @ viene sólo en la fila de su consulta, y si
+    // el mismo lead también salió por teléfono (sin la columna), `set` a secas dejaba la última y el @ se perdía.
     const unicos = new Map<number, LeadExistente>();
-    for (const l of todos) unicos.set(l.id, l);
+    for (const l of todos) unicos.set(l.id, { ...unicos.get(l.id), ...l });
     return buscarDuplicados(cand, [...unicos.values()]);
   } catch (e) {
     // ⚠️ Si no se puede comprobar, NO se bloquea el alta: el lead es el hecho y

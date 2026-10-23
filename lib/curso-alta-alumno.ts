@@ -45,6 +45,7 @@ import { moverClienteDeEtapa } from './cs-mover-etapa';
 import { quitarClienteDeProducto } from './cs-quitar-producto';
 import { crearClienteGanado } from './cs-crear-cliente';
 import { updateLead } from './leads';
+import type { MotivoDuplicado } from './leads-duplicados';
 import { productosDelCliente } from '@/app/customer-success/entrega';
 
 export type PedidoAltaAlumno = {
@@ -78,7 +79,7 @@ export type AltaAlumno =
     /** El resultado de la invitación, o null si no se invitó (por `enKanban` o `soloAca`). */
     invitacion: IntentoInvitar | null;
   }
-  | { ok: false; error: string; duplicados?: Array<{ leadId: number; nombre: string; texto: string; motivo: 'email' | 'telefono' | 'nombre' }> };
+  | { ok: false; error: string; duplicados?: Array<{ leadId: number; nombre: string; texto: string; motivo: MotivoDuplicado }> };
 
 export async function darDeAltaAlumno(p: PedidoAltaAlumno): Promise<AltaAlumno> {
   const productoId = Number(p.productoId);
