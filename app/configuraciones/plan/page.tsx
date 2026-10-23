@@ -17,6 +17,7 @@ import { formatoMonto } from '@/lib/pasarela-moneda';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { AjustesPagina, TituloAjustes } from '../../_ui/Ajustes';
 import { PlanPanel, type SuscripcionVisible } from './PlanPanel';
+import { ofertaDeRetencion } from '@/lib/retencion-plan';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -26,9 +27,10 @@ export default async function PlanPage() {
   const ws = await getWorkspaceActual();
   // La plataforma no tiene un plan de MaKo (el índice ya no ofrece la sección ahí): un link viejo vuelve al índice.
   if (ws == null || ws === (await wsSuperAdmin())) redirect('/configuraciones');
-  const [capa, sus] = await Promise.all([
+  const [capa, sus, oferta] = await Promise.all([
     getCapaActual(),
     ws != null ? suscripcionDeMakoDe(ws).catch(() => null) : Promise.resolve(null),
+    ofertaDeRetencion(ws).catch(() => null),
   ]);
   // La pantalla no ve el cobro entero (ni el token, ni los ids del proveedor): sólo lo que dibuja.
   const suscripcion: SuscripcionVisible = sus
@@ -37,7 +39,7 @@ export default async function PlanPage() {
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} secciones={await seccionesNegocioActuales()} activa="plan">
       <TituloAjustes titulo="Tu plan" bajada="Tu plan de MaKo y cómo darte de baja." />
-      <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} />
+      <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} oferta={oferta} />
     </AjustesPagina>
   );
 }

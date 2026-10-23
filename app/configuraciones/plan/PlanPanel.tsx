@@ -11,7 +11,10 @@
 import { useState } from 'react';
 import { ConfirmDialog } from '../../_components/ChatItemMenu';
 import { CuerpoGrupo, FilaAjustes, GrupoAjustes } from '../../_ui/Ajustes';
-import { darmeDeBajaAction } from './actions';
+import { aceptarRetencionAction, darmeDeBajaAction } from './actions';
+import type { OfertaRetencion } from '@/lib/retencion-plan';
+
+const SANS = "'Geist', sans-serif";
 
 export type SuscripcionVisible = {
   proveedor: 'stripe' | 'mercadopago';
@@ -21,9 +24,21 @@ export type SuscripcionVisible = {
   baja: string | null;
 } | null;
 
-export function PlanPanel({ plan, suscripcion, emailMako }: { plan: string; suscripcion: SuscripcionVisible; emailMako: string }) {
+export function PlanPanel({ plan, suscripcion, emailMako, oferta }: { plan: string; suscripcion: SuscripcionVisible; emailMako: string; oferta?: OfertaRetencion }) {
   const [corriendo, setCorriendo] = useState(false);
   const [preguntar, setPreguntar] = useState(false);
+  // ANTES DE LA BAJA, LA OFERTA (23/10/2026, Martín: «debería habilitarte un descuento como lo tienen todas las
+  // aplicaciones»): una vez por negocio, la mitad por 2 meses. Quien la rechaza sigue a la confirmación de siempre.
+  const [ofrecer, setOfrecer] = useState(false);
+  const [ofertaViva, setOfertaViva] = useState(oferta ?? null);
+
+  const aceptarOferta = async () => {
+    setOfrecer(false); setCorriendo(true); setAviso(null);
+    const r = await aceptarRetencionAction().catch(() => ({ ok: false, resumen: 'No pudimos aplicar el descuento.' }));
+    setAviso({ ok: r.ok, texto: r.resumen });
+    if (r.ok) setOfertaViva(null);
+    setCorriendo(false);
+  };
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
 
   const darmeDeBaja = async () => {
@@ -44,7 +59,7 @@ export function PlanPanel({ plan, suscripcion, emailMako }: { plan: string; susc
         {puedeDarseDeBaja && (
           <FilaAjustes icono="pausar" titulo="Darme de baja"
             detalle="Lo sigues usando hasta el fin del mes pagado."
-            onClick={corriendo ? undefined : () => setPreguntar(true)} apilada />
+            onClick={corriendo ? undefined : () => (ofertaViva ? setOfrecer(true) : setPreguntar(true))} apilada />
         )}
       </GrupoAjustes>
       {!suscripcion && (
@@ -53,6 +68,20 @@ export function PlanPanel({ plan, suscripcion, emailMako }: { plan: string; susc
         </GrupoAjustes>
       )}
       {aviso && <p className="aj-texto" role="status" style={{ color: aviso.ok ? 'var(--good)' : 'var(--bad)' }}>{aviso.texto}</p>}
+      {ofrecer && ofertaViva && (
+        <div onClick={() => setOfrecer(false)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(18,21,27,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
+          <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 380, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.32)', padding: '20px 22px' }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Antes de irte: {ofertaViva.pct}% menos</div>
+            <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 6, lineHeight: 1.5 }}>
+              Te dejamos MaKo a {ofertaViva.montoConDescuento} por mes los próximos {ofertaViva.meses} meses, en vez de {ofertaViva.monto}. Después vuelve al precio de siempre.
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 18 }}>
+              <button type="button" onClick={aceptarOferta} style={{ padding: '10px 16px', borderRadius: 10, border: 0, background: 'var(--accent)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Quedarme con el descuento</button>
+              <button type="button" onClick={() => { setOfrecer(false); setPreguntar(true); }} style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 500, cursor: 'pointer' }}>Darme de baja igual</button>
+            </div>
+          </div>
+        </div>
+      )}
       {preguntar && (
         <ConfirmDialog titulo="¿Darte de baja?"
           detalle={suscripcion?.proveedor === 'stripe'

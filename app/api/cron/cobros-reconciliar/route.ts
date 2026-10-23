@@ -26,6 +26,7 @@ import { mantenerAvisosStripe, reconciliarCobros, workspacesConPasarela } from '
 import { esLaVueltaDelDia } from '@/lib/cobros-reglas';
 import { renovacionesDeAgencia } from '@/lib/agencia-cobro';
 import { revisarAccesosPorPago } from '@/lib/plan-acceso';
+import { restaurarRetencionesMp } from '@/lib/retencion-plan';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -97,5 +98,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, accesos, ms: Date.now() - t0 });
+  // EL DESCUENTO DE RETENCIÓN EN MERCADO PAGO (23/10/2026, lib/retencion-plan.ts): MP no vuelve solo al precio de lista; cuando ya
+  // se cobraron las cuotas con descuento, se restaura. Nunca tira.
+  const retencion = Date.now() - t0 < maxDuration * 1000 - RESERVA_MS ? await restaurarRetencionesMp() : null;
+  if (retencion?.restauradas) console.log(`[cron:cobros-reconciliar] retenciones de MP restauradas: ${retencion.restauradas}`);
+
+  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, accesos, retencion, ms: Date.now() - t0 });
 }
