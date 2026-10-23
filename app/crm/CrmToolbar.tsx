@@ -41,6 +41,7 @@ import { BANDAS_KANBAN } from './filtros-guardados';
 // El CUBO del desplegable de funnels (punto 24): el ícono `producto` del set de los menús, el
 // mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
 import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import { PasarAPro } from './PasarAPro';
 
 const SANS = "'Geist', sans-serif";
 
@@ -912,6 +913,8 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
   // Sigue editándose después, en el «Tipo de funnel» del editor de etapas.
   const [entradas, setEntradas] = useState<EntradaId[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  /** El error es el tope del plan (23/10/2026, MaKo Esencial tiene un CRM): al lado va «Pasar a Pro». */
+  const [tope, setTope] = useState(false);
   const [guardando, startGuardar] = useTransition();
 
   const aMano = tipo === TIPO_CRM_OTRO;
@@ -927,7 +930,7 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
       // CRM y la entrada se perdía sin aviso. Si las etapas del tipo no llegan a escribirse, el CRM
       // igual quedó creado y se abre: se ajusta desde su lápiz (lib/nuevo-crm.ts dice por qué).
       const r = await crearCrmAction(nombre.trim(), aMano ? { tipo, canal, entradas } : { tipo });
-      if ('error' in r) { setErr(r.error); return; }
+      if ('error' in r) { setErr(r.error); setTope(r.pasarAPro === true); return; }
       onCreado(r.funnelId);
     });
   };
@@ -1033,7 +1036,9 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
       )}
 
       {err && (
-        <div style={{ marginTop: 12, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>
+        <div style={{ marginTop: 12, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ flex: '1 1 220px' }}>{err}</span>{tope && <PasarAPro />}
+        </div>
       )}
       </div>
     </Modal>

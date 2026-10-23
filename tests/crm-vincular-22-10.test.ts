@@ -93,7 +93,8 @@ test('el «⋯» de la columna: punto ámbar y el aviso en su nombre; el tablero
   assert.match(leer('app/globals.css'), /\.mk-col-mas\[data-falta\]::after \{[^}]*background: var\(--warn\)/);
   const page = sinComentarios(leer('app/crm/page.tsx'));
   assert.match(page, /const pVinculados = vinculadosDelCrm\(/);
-  assert.match(page, /camposTarjeta, vinculados\] = await Promise\.all\(\[[^\]]*pVinculados\]\)/, 'en la ola, no después');
+  // Desde el 23/10/2026 la ola trae también el tope del plan (`pTope`, tests/crm-topes-plan-23-10.test.ts).
+  assert.match(page, /camposTarjeta, vinculados(, tope)?\] = await Promise\.all\(\[[^\]]*pVinculados(, pTope)?\]\)/, 'en la ola, no después');
   assert.match(page, /vinculados=\{vinculados\}/);
   // Lecturas de la base (los vínculos y qué pasarelas tienen claves), nunca la API de las agendas ni de las pasarelas, y
   // nunca tira.

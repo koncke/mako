@@ -124,6 +124,7 @@ import { tzDeWorkspace, TZ_DEFAULT, hoyEnWorkspace } from '@/lib/timezone';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual, rutaConWs } from '@/lib/workspace';
+import { TopeDelPlanError, frenarAltaPorTope } from '@/lib/topes-crm';
 import { ofrecePartners } from './partners-crm';
 import type { EstadoDatos } from '@/lib/datos-aviso';
 // La ficha del funnel del lead y «N sin marcar»: las MISMAS lecturas que la ficha del teléfono (app/m/crm/datos.ts).
@@ -883,6 +884,10 @@ async function altaDeLead(formData: FormData, funnelId?: number | null, permitir
   if (!nombre) {
     throw new Error('Nombre es requerido');
   }
+  // El tope del plan (23/10/2026, lib/topes-crm.ts): un alta A MANO no pasa los leads de MaKo Esencial. Lo que entra solo
+  // (anuncios, webhooks) no pasa por acá: entra igual y el tablero avisa.
+  const ws = await getWorkspaceActual();
+  if (ws != null) await frenarAltaPorTope(ws, 'crm.leads');
   // Un lead sin email NI teléfono es incontactable: el dato es posible de
   // conseguir al momento de crearlo, así que se exige al menos uno.
   if (!emptyToNull(formData.get('email')) && !emptyToNull(formData.get('telefono'))) {
@@ -933,6 +938,8 @@ async function altaDeLead(formData: FormData, funnelId?: number | null, permitir
  */
 export type ChoqueDeLead = {
   error: string;
+  /** El error es el tope del plan (23/10/2026): la pantalla ofrece «Pasar a Pro». */
+  pasarAPro?: boolean;
   /** Con quién choca. Vacío = el error no es un duplicado. */
   coincidencias: Array<{
     id: number; nombre: string;
@@ -1101,6 +1108,7 @@ export async function leadsDeProductoAction(funnelId: number | null, destino?: n
  * él se decide `estaAca` de cada coincidencia — por su casa o por una fila (mig 0207).
  */
 async function choqueDeLead(e: unknown, funnelActual: number | null): Promise<ChoqueDeLead> {
+  if (e instanceof TopeDelPlanError) return { error: e.message, coincidencias: [], pasarAPro: true };
   if (!(e instanceof LeadDuplicadoError)) {
     return { error: e instanceof Error ? e.message : 'No se pudo crear el lead.', coincidencias: [] };
   }
@@ -1208,6 +1216,9 @@ export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: str
   // un dato que se afirma sin medirlo es peor que la columna vacía—: dice por qué
   // puerta entró, que es lo que separa a este lead de los 1.000 de una lista en frío.
   try {
+    // Un alta a mano desde la conversación: con el tope del plan, como la del tablero.
+    const wsAlta = await getWorkspaceActual();
+    if (wsAlta != null) await frenarAltaPorTope(wsAlta, 'crm.leads');
     // ⚠️ `destino.casa` ya pasó por `casaParaEscribir`: el default va NULL. createLead escribe
     // lo que le llega, y con el id del default escrito el lead no sale en NINGÚN tablero.
     const created = await createLead({ nombre: n, telefono: t, origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa });
@@ -2027,6 +2038,18 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
     if (f.enriquecer && f.leadExistenteId !== idQueVio[i]) return { ...f, enriquecer: false };
     return f;
   });
+
+  // El tope del plan (23/10/2026): una importación a mano no pasa los leads de MaKo Esencial. Se mira con las que de
+  // verdad se crean (`entra`), antes de escribir ninguna: a medias sería peor que nada.
+  const wsImport = await getWorkspaceActual();
+  if (wsImport != null) {
+    try {
+      await frenarAltaPorTope(wsImport, 'crm.leads', validadas.filter((f) => entra(f)).length);
+    } catch (e) {
+      if (e instanceof TopeDelPlanError) return { creados: 0, enriquecidos: 0, ganados: 0, omitidos: 0, errores: [e.message] };
+      throw e;
+    }
+  }
 
   let creados = 0;
   let enriquecidos = 0;

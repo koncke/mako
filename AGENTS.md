@@ -10102,3 +10102,12 @@ Sacar `</style` (o `<script`, o `javascript:`) en UNA pasada se evade armándolo
 `</style>` entero. Lo que va crudo adentro de una etiqueta (el CSS de un `<style>`, un atributo) se limpia sacando el carácter que
 abre lo peligroso (todo `<` en una hoja: no lo necesita) o escapándolo, y se re-escapa al pintarlo. Medido el 23/10/2026: la
 hoja del «Diseño editable» se pintaba cruda en hola-mako.com (docs/hallazgos-editor-landing.md, «el CSS del diseño nunca lleva `<`»).
+
+## Los topes de los planes (lib/topes-plan.ts): dónde va el freno (23/10/2026)
+
+- **El freno va en el alta A MANO, nunca en la función que también llaman los webhooks.** Lo que entra solo (un anuncio,
+  una reserva, un mensaje) no se pierde por un tope: entra, y la pantalla avisa. En el CRM, `createLead` la usan los
+  webhooks: el freno está en `altaDeLead`, la de WhatsApp, importar y MaKo (docs/hallazgos-crm.md, «Los topes del plan»).
+- **Primero `suscripcionDeMakoDe(ws) != null`**: el ws1 y los acuerdos a mano también tienen capa `completo`, y no tienen tope.
+  Si la lectura falla, no hay tope.
+- Al llegar: `textoTope(n)` y «Pasar a Pro», sin borrar ni esconder nada.

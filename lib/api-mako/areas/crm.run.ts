@@ -49,6 +49,8 @@ import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
 import { bloqueEstadoDeCuenta, comprobanteDelPedido, notaEnPantalla } from '@/lib/pagos-bloque';
 import { listarCobros } from '@/lib/cobros';
+import { enElTope, estadoTopeCrm, frenarAltaPorTope } from '@/lib/topes-crm';
+import { textoTope } from '@/lib/topes-plan';
 import { cuentasValidas, type CuentaPago } from '@/lib/cobro-etapa';
 import { cuentasDePago } from '@/lib/cuentas-pago-server';
 import { importarPrecioDeStripe, preciosDeStripe } from '@/lib/stripe-catalogo';
@@ -2035,9 +2037,12 @@ export const RUNNERS: Runners = {
     }),
   },
   crear_crm: {
-    preparar: async (input) => {
+    preparar: async (input, ctx) => {
       const nombre = s(input.nombre);
       if (!nombre) return { error: 'Falta el nombre del CRM.', faltan: ['nombre'] };
+      // El tope del plan (23/10/2026, lib/topes-crm.ts): con MaKo Esencial, un CRM. No se propone lo que va a fallar.
+      const tope = await estadoTopeCrm(ctx.ws, 'crm.funnels');
+      if (tope && enElTope(tope, 'crm.funnels')) return { error: `${textoTope(tope.tope)} Planes: /planes.` };
       if (nombre.toLowerCase() === FUNNEL_DEFAULT_NOMBRE.toLowerCase()) return { error: `«${FUNNEL_DEFAULT_NOMBRE}» es el nombre del CRM que ya existe. Ponle otro.` };
       if (input.tipo === TIPO_CRM_OTRO && !esCanal(input.canal)) return { error: 'Con el tipo otro, pasa el canal: cómo se cierra la venta.', faltan: ['canal'] };
       if (input.tipo === TIPO_CRM_OTRO && !(Array.isArray(input.entradas) && input.entradas.length)) return { error: 'Con el tipo otro, pasa al menos una entrada: cómo llega la gente.', faltan: ['entradas'] };
@@ -2050,12 +2055,13 @@ export const RUNNERS: Runners = {
         resumen: `Crear el CRM «${nombre}», ${comoEs}: ${siembra.pipeline.map((st) => st.label).join(' → ')}. La gente llega por: ${siembra.entradas.map((e) => ENTRADAS[e]?.label ?? e).join(' · ')}.`,
       };
     },
-    ejecutar: (payload) => seguro('crear el CRM', async () => {
+    ejecutar: (payload, ctx) => seguro('crear el CRM', async () => {
       // Se vuelve a sanear con lo guardado en la pendiente: entre el «sí» y la propuesta pudo
       // cambiar el catálogo (un deploy), y un tipo que ya no existe no siembra otro por default.
       const siembra = siembraDeCrm({ tipo: payload.tipo, canal: payload.canal, entradas: payload.entradas });
       if ('error' in siembra) return { ok: false, resumen: siembra.error };
       try {
+        await frenarAltaPorTope(ctx.ws, 'crm.funnels');
         const r = await crearCrm(String(payload.nombre), siembra);
         invalidar('pipeline', 'leads');
         return { ok: true, resumen: `Listo: creado el CRM «${String(payload.nombre)}» (embudoId ${r.funnelId}).`, datos: { embudoId: r.funnelId, productoId: r.productoId } };

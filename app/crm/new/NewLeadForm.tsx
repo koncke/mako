@@ -37,6 +37,7 @@ import { instagramDelAlta } from '../campo-inline';
 import { createLeadAction, crearLeadEnTableroAction, type ChoqueDeLead } from '../actions';
 import { agregarAProductoAction, quitarDeProductoAction } from '../lead-funnel-actions';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { PasarAPro } from '../PasarAPro';
 
 const SANS = "'Geist', sans-serif";
 const field: CSSProperties = { width: '100%', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', boxSizing: 'border-box' };
@@ -71,6 +72,8 @@ export function NewLeadForm({ enModal }: {
   };
 } = {}) {
   const [err, setErr] = useState<string | null>(null);
+  /** El error es el tope del plan (23/10/2026): al lado va «Pasar a Pro». */
+  const [tope, setTope] = useState(false);
   const [guardando, startGuardar] = useTransition();
   /**
    * Con quién choca el alta. Reemplaza al string pelado de antes: sin los ids la
@@ -197,6 +200,7 @@ export function NewLeadForm({ enModal }: {
           const r = await crearLeadEnTableroAction(fd, enModal.funnelId ?? null);
           if ('error' in r) {
             setErr(r.error);
+            setTope(r.pasarAPro === true);
             // Las coincidencias son lo que convierte el aviso en una decisión. Si el
             // error no es un duplicado vienen vacías y la pantalla muestra sólo la frase.
             setChoque(r.coincidencias.length ? r.coincidencias : null);
@@ -235,7 +239,9 @@ export function NewLeadForm({ enModal }: {
       </Field>
 
       {err && !choque && (
-        <div style={{ borderRadius: 11, padding: '11px 16px', fontSize: 14, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>
+        <div style={{ borderRadius: 11, padding: '11px 16px', fontSize: 14, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ flex: '1 1 220px' }}>{err}</span>{tope && <PasarAPro />}
+        </div>
       )}
 
       {/* ⚠️ UN DUPLICADO NO ES UN ERROR: ES UNA DECISIÓN. El pedido, textual: «si se
