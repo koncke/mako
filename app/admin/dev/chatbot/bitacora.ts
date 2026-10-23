@@ -2430,4 +2430,23 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "23 oct", hora: "03:00", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "P0 #289: si un mensaje no sale, el lead y la tarjeta dicen por qué; y los agregados entran en el acto",
+    puntos: [
+      "Medido: Martín y su esposa SÍ entraron (en 8 s). No salió porque era fuera del horario de oficina (9 a 21, hora de Tijuana), y nada lo decía.",
+      "Ahora lo dicen el chip y la ficha del lead, su historial («Entró a … No salió: fuera del horario… Sale mañana 9:00.») y la tarjeta del lienzo («2 esperando · Abre mañana 9:00»). También un envío que falló.",
+      "Mover a los agregados de un CRM (como los 300 del Sprint), de a uno o en lote, los inscribe en el acto. El lote ya no les cambia la etapa de su otro CRM.",
+      "Probado de punta a punta en el ws de prueba, sin mandarle nada a nadie.",
+    ],
+    archivos: [
+      "lib/por-que-no-sale.ts — por qué no sale, con las reglas del motor",
+      "lib/lead-funnel.ts — el agregado entra por evento",
+      "app/crm/actions.ts — el lote mueve la fila del agregado",
+      "scripts/arnes-automatizacion-punta-a-punta.mts — el arnés del ws3",
+    ],
+    revisar: "/automations",
+  },
 ];

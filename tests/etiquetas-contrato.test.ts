@@ -216,8 +216,9 @@ test('etiquetas-3 / datos-2: el barrido corre en el cron del CRM automático (no
 test('etiquetas-4 / datos-3: mover en lote no sincroniza lead por lead; sincroniza al final con tope', () => {
   const acc = sinComentarios(leer('app/crm/actions.ts'));
   const lote = bloque(acc, 'export async function moverLeadsDeEtapaAction(', '\n}\n');
-  // El MISMO camino de a uno, adentro del contexto de lote (el flag llega hasta el espejo).
-  assert.match(lote, /const \{ sinSincronizar \} = await conLoteDeEtiquetas\(async \(\) => \{\s*for \(const id of ids\) \{\s*try \{\s*const r = await setLeadStageAction\(id, stageKey\);/);
+  // El MISMO camino de a uno, adentro del contexto de lote (el flag llega hasta el espejo). (23/10/2026, P0 de #289: un
+  // AGREGADO al CRM que se mira va por `moverEtapaEnProducto`, que también espeja adentro del lote; los demás, como siempre.)
+  assert.match(lote, /const \{ sinSincronizar \} = await conLoteDeEtiquetas\(async \(\) => \{\s*for \(const id of ids\) \{\s*try \{\s*const real = agregados\.get\(id\);\s*if \(real != null\) \{\s*await moverEtapaEnProducto\(id, real, stageKey, \{ enLote: true \}\);[\s\S]*?const r = await setLeadStageAction\(id, stageKey\);/);
   const et = sinComentarios(leer('lib/etiquetas.ts'));
   const espejo = bloque(et, 'export async function espejarEtapa(', '\n}\n');
   assert.match(espejo, /const lote = loteStore\.getStore\(\);\s*const r = await espejarEtapaCon\(puertos\(\), leadId, funnelId, desde, hacia, autor, \{ sincronizar: !lote \}\);\s*if \(lote\) lote\.cambios\.push\(\.\.\.r\.cambios\);/);
