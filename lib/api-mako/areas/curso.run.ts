@@ -19,11 +19,15 @@
 import 'server-only';
 import type { Ctx, Ejecutado, Preparado, Runners } from '../tipos';
 import { getTenantDb } from '@/lib/workspace';
-import { productosDeLaEntrega } from '@/app/customer-success/entrega';
+import { productosDeLaEntrega, productosDelCliente } from '@/app/customer-success/entrega';
 import { productoPropio } from '@/app/customer-success/curso/puerta-curso';
 import { modulosDelCurso, crearModulo, renombrarModulo, reordenarModulos } from '@/lib/curso-modulos-datos';
 import { nombreDeModulo, type ModuloCurso } from '@/lib/curso-modulos';
-import { clasesDelProducto, claseDeId } from '@/lib/curso-datos';
+import { clasesDelProducto, claseDeId, accesoDe, quitarCursoDelAcceso, revocarAcceso, reactivarAcceso } from '@/lib/curso-datos';
+import { invitarAlCurso, TEXTO_NO_INVITA } from '@/lib/curso-invitar';
+import { invitadoAlProducto, entroAlProducto, correoQueFallo, productosVisibles } from '@/lib/curso-invitar-reglas';
+import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
+import { logLeadEvent } from '@/lib/leads';
 import { nombresDeCursos } from '@/lib/curso-nombre-datos';
 import {
   crearClase, moverClaseA, guardarCampoClase, guardarLeccion, borrarClase, restaurarClases, productoConModulos,
@@ -34,7 +38,7 @@ import { porQueNoSeInserta } from '@/lib/embeds';
 import { tareaParaGuardar } from '@/lib/curso-tarea-html';
 import { borradorDe, videoParaGuardar } from '@/app/customer-success/curso/leccion-reglas';
 import { TOPE_TITULO_CLASE } from './curso.def';
-import { htmlDeTexto, modeloDeTareas, tareasParaApi, type TareaEntrada } from './curso.helpers';
+import { htmlDeTexto, modeloDeTareas, tareasParaApi, decidirQuitarCurso, type TareaEntrada } from './curso.helpers';
 import { randomBytes } from 'node:crypto';
 
 type In = Record<string, unknown>;
@@ -82,6 +86,22 @@ async function claseEnPapelera(claseId: number): Promise<{ id: number; productoI
   if (error) throw new Error(error.message);
   const f = data as { id: number; producto_id: number; titulo: string } | null;
   return f ? { id: Number(f.id), productoId: Number(f.producto_id), titulo: f.titulo } : null;
+}
+
+/** Quién firma la invitación y el historial: quien confirma (la sesión, o el token), o MaKo. */
+const autorDe = (ctx: Ctx): string => ctx.actor?.trim() || 'MaKo';
+
+/**
+ * El lead, de ESTE workspace y en CUALQUIER etapa (`getTenantDb`: el de otro inquilino no existe). La lectura dice si es
+ * cliente; abrir exige Ganado y cerrar no (ver curso.def.ts, «LOS ACCESOS»).
+ */
+async function leadDe(leadId: number): Promise<{ id: number; nombre: string; email: string | null; telefono: string | null; ganado: boolean } | null> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('leads').select('id, nombre, email, telefono, estado_lead').eq('id', leadId).maybeSingle();
+  if (error) throw new Error(error.message);
+  const f = data as { id: number; nombre: string | null; email: string | null; telefono: string | null; estado_lead: string | null } | null;
+  if (!f) return null;
+  return { id: Number(f.id), nombre: f.nombre?.trim() || `el lead #${f.id}`, email: f.email ?? null, telefono: f.telefono ?? null, ganado: f.estado_lead === 'ganado' };
 }
 
 const videoPublico = (c: Clase) => (c.videoTipo === 'ninguno' ? null : c.videoTipo === 'archivo' ? { tipo: 'archivo' } : { tipo: c.videoTipo, url: c.videoUrl });
@@ -481,6 +501,183 @@ export const RUNNERS: Runners = {
       if (!r.ok) return { ok: false, resumen: `No se pudo restaurar: ${r.error}` };
       if (!r.clases.length) return { ok: false, resumen: 'La clase ya no estaba en la papelera.' };
       return { ok: true, resumen: `Listo: clase «${r.clases[0].titulo}» devuelta.`, datos: { claseId: r.clases[0].id, moduloClave: r.clases[0].etapa } };
+    }),
+  },
+  // ── Los accesos (23/10/2026): ver curso.def.ts, «LOS ACCESOS» ─────────────────────────────────
+  ver_acceso_curso: {
+    leer: async (input) => {
+      try {
+        const id = num(input, 'leadId');
+        if (id == null) return fallo('Falta el leadId.');
+        const lead = await leadDe(id);
+        if (!lead) return fallo(`El lead #${id} no existe en este negocio.`);
+        const acc = await accesoDe(id);
+        const deCliente = (await productosDelCliente(id)).productos;
+        const abre = acc ? productosVisibles(deCliente, acc.productos) : [];
+        const nombres = await nombresDeCursos(abre, { conTitulo: true });
+        return J({
+          leadId: id, nombre: lead.nombre, es_cliente: lead.ganado,
+          tiene_acceso: acc != null,
+          cortado: acc?.revocado === true,
+          abre_el_portal: acc != null && !acc.revocado && lead.ganado,
+          cursos_que_abre: abre.map((p) => ({ productoId: p, nombre: nombres.get(p) ?? `Producto #${p}` })),
+          invitado: !!acc?.invitacionEnviadaAt, invitado_el: acc?.invitacionEnviadaAt ?? null,
+          entro: (acc?.ingresos ?? 0) > 0, ingresos: acc?.ingresos ?? 0, ultimo_ingreso: acc?.ultimoIngresoAt ?? null,
+          modulos_restringidos: acc?.alcance != null,
+          nota: !acc ? 'Nunca se le dio acceso: dar_acceso_curso se lo abre.'
+            : acc.revocado ? 'Está cortado: habilitar_acceso_curso lo vuelve a abrir.'
+              : !lead.ganado ? 'No está en Ganado: su portal no abre hasta que vuelva a ser cliente.'
+                : undefined,
+        });
+      } catch (e) {
+        return fallo(`No pude leer su acceso (${msg(e)}).`);
+      }
+    },
+  },
+
+  dar_acceso_curso: {
+    preparar: revisando(async (input) => {
+      const leadId = num(input, 'leadId');
+      const productoId = num(input, 'productoId');
+      if (leadId == null) return { error: 'Falta el leadId.' };
+      if (productoId == null) return { error: 'Falta el productoId (de listar_cursos).' };
+      const no = await productoPropio(productoId);
+      if (no) return { error: no === 'Ese producto no es tuyo.' ? `El producto #${productoId} no es de este negocio. Pide la lista con listar_cursos.` : no };
+      const lead = await leadDe(leadId);
+      if (!lead) return { error: `El lead #${leadId} no existe en este negocio.` };
+      if (!lead.ganado) return { error: `${lead.nombre} no está en Ganado: el portal sólo le abre a un cliente ganado, y por la API no se lo pasa a Ganado. Muévelo a Ganado en el funnel de ese producto y vuelve a pedirlo.` };
+      const acc = await accesoDe(leadId);
+      if (acc?.revocado) return { error: `${TEXTO_NO_INVITA.cortado} (habilitar_acceso_curso)` };
+      if (!(await productosDelCliente(leadId)).productos.includes(productoId)) {
+        return { error: `${lead.nombre} no es cliente de ese producto (no está en su kanban de Clientes). Por la API no se lo mueve de etapa: pásalo a Ganado en el funnel de ese producto.` };
+      }
+      const reenviar = input.reenviar === true;
+      if (!reenviar && invitadoAlProducto(acc, productoId)) return { error: `${TEXTO_NO_INVITA['ya-invitado']} Para mandarla otra vez, pide reenviar: true.`, yaEstaba: true };
+      if (!reenviar && entroAlProducto(acc, productoId)) return { error: `${TEXTO_NO_INVITA['ya-entro']} Para mandarla igual, pide reenviar: true.`, yaEstaba: true };
+      if (!(await clasesDelProducto(productoId)).length) return { error: TEXTO_NO_INVITA['sin-clases'] };
+      const pedido = str(input, 'email')?.trim() || '';
+      const correo = emailNormalizado(pedido || lead.email || '');
+      if (pedido && !emailUtilizable(correo)) return { error: 'Ese email no sirve.' };
+      if (!emailUtilizable(correo)) return { error: `${TEXTO_NO_INVITA['sin-email']} Pásalo en email.`, faltan: ['email'] };
+      const canales = Array.isArray(input.canales) ? input.canales : [];
+      const conWhatsapp = canales.includes('whatsapp');
+      if (conWhatsapp && !lead.telefono) return { error: `${lead.nombre} no tiene teléfono en el CRM: el WhatsApp no saldría. Pídelo sólo por email.` };
+      const curso = (await nombresDeCursos([productoId], { conTitulo: true })).get(productoId)?.trim() || `el producto #${productoId}`;
+      // ⚠️ SIN LA DIRECCIÓN en el resumen y en lo que vuelve: por HTTP, devolver el email del CRM de un lead sería una
+      // lectura de un dato de una persona por la puerta de una acción.
+      return {
+        payload: { leadId, productoId, email: correo, canales: conWhatsapp ? ['email', 'whatsapp'] : ['email'], reenviar },
+        resumen: `Abrirle a ${lead.nombre} el curso «${curso}» y mandarle la invitación por email${pedido ? ' (a la dirección que se pasó)' : ' (al del CRM)'}${conWhatsapp ? ' y por WhatsApp' : ''}.${pedido && !lead.email ? ' El email queda guardado en el CRM.' : ''}`,
+      };
+    }),
+    ejecutar: sinLanzar('darle el acceso', async (p, ctx) => {
+      const leadId = Number(p.leadId);
+      const productoId = Number(p.productoId);
+      // El núcleo vuelve a mirar todo (cortado, Ganado, «de ese producto», el reclamo): entre la propuesta y el «sí» pudo
+      // cambiar. Sin `reenviar` RECLAMA la fila antes del correo: un reintento del mismo pedido no manda dos.
+      const r = await invitarAlCurso({ ws: ctx.ws, leadId, email: String(p.email), autor: autorDe(ctx), reenviar: p.reenviar === true, canales: p.canales, productoId });
+      if (r.tipo === 'error') return { ok: false, resumen: `No se pudo darle el acceso: ${r.error}` };
+      if (r.tipo === 'no') return { ok: false, resumen: TEXTO_NO_INVITA[r.motivo] };
+      // ⚠️ EL ÉXITO SALE DE `enviado`, nunca de que haya un resultado; y si no salió, se dice de quién (el correo del
+      // negocio o el de MaKo), como `invitar_cliente_curso_cs`.
+      if (!r.enviado) {
+        const quien = correoQueFallo({ error: r.fallo, via: r.via });
+        const de = quien === 'tuyo' ? ' Es la configuración del correo de tu negocio (su remitente o su key de Resend).'
+          : quien === 'mako' ? ' Es el correo de MaKo, no el de tu negocio.' : '';
+        return { ok: false, resumen: `No salió el correo: ${r.fallo ?? 'el envío falló'}.${de} El acceso no quedó anotado como invitado.` };
+      }
+      const wa = r.whatsapp ? (r.whatsapp.enviado ? ' También salió por WhatsApp.' : ` El WhatsApp no salió (${r.whatsapp.motivo ?? 'sin motivo'}).`) : '';
+      return {
+        ok: true,
+        resumen: `Listo: se le abrió el curso y salió la invitación por email.${r.anotado ? '' : ' ⚠️ Salió, pero no quedó anotada: no la reenvíes por eso.'}${wa}`,
+        datos: { leadId, productoId, enviado: true, anotada: r.anotado, whatsapp: r.whatsapp ?? null },
+      };
+    }),
+  },
+
+  quitar_curso_del_acceso: {
+    preparar: revisando(async (input) => {
+      const leadId = num(input, 'leadId');
+      const productoId = num(input, 'productoId');
+      if (leadId == null) return { error: 'Falta el leadId.' };
+      if (productoId == null) return { error: 'Falta el productoId (de listar_cursos).' };
+      const no = await productoPropio(productoId);
+      if (no) return { error: no === 'Ese producto no es tuyo.' ? `El producto #${productoId} no es de este negocio. Pide la lista con listar_cursos.` : no };
+      // Cerrar se puede siempre: también a quien ya salió de Ganado (ver curso.def.ts).
+      const lead = await leadDe(leadId);
+      if (!lead) return { error: `El lead #${leadId} no existe en este negocio.` };
+      const acc = await accesoDe(leadId);
+      if (!acc) return { error: `${lead.nombre} nunca tuvo acceso al portal: no tiene ese curso.`, yaEstaba: true };
+      // La MISMA regla que va a aplicar `quitarCursoDelAcceso`, para fallar en preparar() y no al confirmar
+      // (`decidirQuitarCurso`, curso.helpers.ts, con test).
+      const d = decidirQuitarCurso(acc.productos, (await productosDelCliente(leadId)).productos, productoId);
+      if ('yaEstaba' in d) return { error: `${lead.nombre} no tiene ese curso en su acceso.`, yaEstaba: true };
+      if ('unico' in d) return { error: `Es el único curso que le abre su acceso a ${lead.nombre}: para sacárselo, cortar_acceso_curso (corta el portal entero).` };
+      const curso = (await nombresDeCursos([productoId], { conTitulo: true })).get(productoId)?.trim() || `el producto #${productoId}`;
+      return {
+        payload: { leadId, productoId },
+        resumen: `Sacarle a ${lead.nombre} el curso «${curso}»: deja de verlo en su portal (sus otros cursos siguen).${acc.revocado ? ' Su acceso ya está cortado.' : ''}`,
+      };
+    }),
+    ejecutar: sinLanzar('sacarle el curso', async (p, ctx) => {
+      const leadId = Number(p.leadId);
+      const productoId = Number(p.productoId);
+      const r = await quitarCursoDelAcceso(leadId, productoId);
+      if (!r.ok) return { ok: false, resumen: `No se le pudo sacar el curso: ${r.error}` };
+      // La misma línea que deja «Sacarle este curso» en la ficha (quitarCursoDelAccesoAction).
+      const nombre = (await nombresDeCursos([productoId], { conTitulo: true })).get(productoId)?.trim() || 'un curso';
+      await logLeadEvent(leadId, 'Curso', `Se le sacó «${nombre}» de su acceso`, autorDe(ctx));
+      return { ok: true, resumen: `Listo: ya no ve «${nombre}» en su portal.`, datos: { leadId, productoId, cursos_que_abre: r.productos } };
+    }),
+  },
+
+  cortar_acceso_curso: {
+    preparar: revisando(async (input) => {
+      const leadId = num(input, 'leadId');
+      if (leadId == null) return { error: 'Falta el leadId.' };
+      const lead = await leadDe(leadId);
+      if (!lead) return { error: `El lead #${leadId} no existe en este negocio.` };
+      const acc = await accesoDe(leadId);
+      // «Ya está así»: lo que se pide es que no entre, y no entra. Por HTTP es un 200 sin cambios, no un 422.
+      if (!acc) return { error: `${lead.nombre} nunca tuvo acceso al portal: no hay nada que cortar.`, yaEstaba: true };
+      if (acc.revocado) return { error: `El acceso de ${lead.nombre} ya estaba cortado.`, yaEstaba: true };
+      return {
+        payload: { leadId },
+        resumen: `Cortar el acceso de ${lead.nombre} al portal del curso: sus links dejan de abrir, con todos sus cursos y los de sus líderes de área. Se vuelve a abrir con habilitar_acceso_curso.`,
+      };
+    }),
+    ejecutar: sinLanzar('cortar el acceso', async (p) => {
+      const leadId = Number(p.leadId);
+      await revocarAcceso(leadId);
+      // Lo que QUEDÓ, como la ficha: si la fila no existía, revocar no hace nada.
+      const quedo = await accesoDe(leadId);
+      if (!quedo?.revocado) return { ok: false, resumen: 'No quedó cortado: no tenía acceso.' };
+      return { ok: true, resumen: 'Listo: su acceso quedó cortado. habilitar_acceso_curso lo vuelve a abrir, con un link nuevo.', datos: { leadId, cortado: true } };
+    }),
+  },
+
+  habilitar_acceso_curso: {
+    preparar: revisando(async (input) => {
+      const leadId = num(input, 'leadId');
+      if (leadId == null) return { error: 'Falta el leadId.' };
+      const lead = await leadDe(leadId);
+      if (!lead) return { error: `El lead #${leadId} no existe en este negocio.` };
+      // Abrir exige un cliente ganado, como la ficha (su puerta): el portal no le abriría a otro.
+      if (!lead.ganado) return { error: `${lead.nombre} no está en Ganado: el portal no le abriría igual. Muévelo a Ganado y vuelve a pedirlo.` };
+      const acc = await accesoDe(leadId);
+      if (!acc) return { error: `${lead.nombre} nunca tuvo acceso: para abrírselo, dar_acceso_curso.` };
+      if (!acc.revocado) return { error: `El acceso de ${lead.nombre} no estaba cortado.`, yaEstaba: true };
+      return {
+        payload: { leadId },
+        resumen: `Volver a habilitar el acceso de ${lead.nombre} al portal, con un link nuevo (el viejo sigue sin abrir). No le llega nada: para mandárselo, dar_acceso_curso con reenviar: true.`,
+      };
+    }),
+    ejecutar: sinLanzar('habilitar el acceso', async (p) => {
+      const leadId = Number(p.leadId);
+      await reactivarAcceso(leadId);
+      const quedo = await accesoDe(leadId);
+      if (!quedo || quedo.revocado) return { ok: false, resumen: 'Sigue cortado.' };
+      return { ok: true, resumen: 'Listo: su acceso volvió a abrir, con un link nuevo. Para que le llegue, dar_acceso_curso con reenviar: true.', datos: { leadId, cortado: false } };
     }),
   },
 };

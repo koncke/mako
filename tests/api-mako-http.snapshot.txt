@@ -124,6 +124,7 @@ contar_leads_por_etapa
 contar_segmento_email
 contexto_etapa
 contexto_negocio
+cortar_acceso_curso
 cortar_frase_video
 cortar_recordatorio_cuota
 cortar_tramo_video
@@ -151,6 +152,7 @@ crear_pagina_reserva
 crear_presentacion_desde_plantilla
 crear_secuencia_email
 cuentas_cobro_etapa
+dar_acceso_curso
 dar_de_baja_mi_plan
 dar_estrella
 declarar_entradas_funnel
@@ -259,6 +261,7 @@ guardar_publico_audios
 guardar_tema_landing
 guardar_termino_glosario
 guardar_version_landing
+habilitar_acceso_curso
 huecos_secuencias
 ignorar_datos_sin_marcar
 importar_borrador_landing
@@ -458,6 +461,7 @@ publicar_post_comunidad
 quitar_cobro_landing
 quitar_componente_dashboard
 quitar_conector_dashboard
+quitar_curso_del_acceso
 quitar_dependencia_plan
 quitar_estrella
 quitar_filtro_dashboard
@@ -511,6 +515,7 @@ transiciones_desde_etapa
 usar_creacion
 usar_plantilla_video
 variables_plantilla
+ver_acceso_curso
 ver_activacion_tab
 ver_analitica_landing
 ver_anuncio_planteado

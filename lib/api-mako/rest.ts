@@ -599,6 +599,14 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/curso/clases/{claseId}', 'borrar_clase_curso'],
   ['PUT', '/curso/clases/{claseId}/lugar', 'mover_clase_curso'],
   ['PUT', '/curso/clases/{claseId}/restauracion', 'restaurar_clase_curso'],
+  // Los ACCESOS (23/10/2026): quién abre el curso. Como los colaboradores de un repo de GitHub: PUT le da el curso y le
+  // manda la invitación («Add a repository collaborator»), DELETE se lo saca. El corte es un recurso del acceso: PUT
+  // corta y DELETE lo vuelve a habilitar («Suspend a user» / «Unsuspend a user»).
+  ['GET', '/curso/accesos/{leadId}', 'ver_acceso_curso'],
+  ['PUT', '/curso/cursos/{productoId}/accesos/{leadId}', 'dar_acceso_curso'],
+  ['DELETE', '/curso/cursos/{productoId}/accesos/{leadId}', 'quitar_curso_del_acceso'],
+  ['PUT', '/curso/accesos/{leadId}/corte', 'cortar_acceso_curso'],
+  ['DELETE', '/curso/accesos/{leadId}/corte', 'habilitar_acceso_curso'],
   // ── comunidad (17/10/2026: la comunidad de cada producto, por HTTP como el curso) ─────────────────────
   // La comunidad es el recurso del producto (`{productoId}`, de listar_comunidades); sus posts, categorías, miembros y
   // eventos cuelgan de ella. Un post y un comentario se piden por su propio id (`/posts/{postId}`), como el curso con sus

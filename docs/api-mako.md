@@ -44,7 +44,7 @@
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
-- **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
+- **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso` · `ver_acceso_curso` · `dar_acceso_curso` · `quitar_curso_del_acceso` · `cortar_acceso_curso` · `habilitar_acceso_curso`
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
@@ -14876,7 +14876,7 @@ curl -L \
 
 ## Curso (módulos y clases) — `curso`
 
-Tab **Clients › Classroom** (`/clients/classroom`). 3 lecturas · 8 acciones.
+Tab **Clients › Classroom** (`/clients/classroom`). 4 lecturas · 12 acciones.
 
 ### `GET /api/v1/curso/cursos` — Listar los cursos
 
@@ -15241,6 +15241,147 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/curso/clases/CLASE_ID/restauracion"
+```
+
+### `GET /api/v1/curso/accesos/{leadId}` — Ver el acceso de un cliente
+
+Cómo está el acceso al portal del curso de un lead: si tiene acceso, si está cortado, qué cursos le abre, si se le mandó la invitación y si ya entró (cuántas veces y cuándo fue la última). Sin su email ni su avance. Úsala antes de dar_acceso_curso o quitar_curso_del_acceso. abre_el_portal false con tiene_acceso true = está cortado o el lead ya no está en Ganado: el portal sólo le abre a un cliente ganado.
+
+- **Ruta por operación:** `GET /api/v1/curso/ver_acceso_curso`
+- **Token detallado:** permiso `curso=read` (Solo lectura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead en el CRM (el cliente). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/accesos/LEAD_ID"
+```
+
+### `PUT /api/v1/curso/cursos/{productoId}/accesos/{leadId}` — Dar acceso a un curso
+
+Le abre a un cliente el curso de UN producto y le manda la invitación por email con su link de entrada al portal: el mismo correo que «Invitar» en Customer Success. Se le crea el acceso si no lo tenía, y pasa a abrirle ese curso sin cerrarle los que ya veía. Tiene que ser un cliente GANADO de ese producto (en su kanban de Clientes): a otro lead el portal no le abre, y esto no lo mueve de etapa. Sin email usa el del CRM; si el CRM no tenía ninguno, el que se pasa queda guardado en el lead. Si ya estaba invitado a ese curso o ya entró, no la manda de nuevo, salvo reenviar: true. Con el acceso cortado no lo abre: primero habilitar_acceso_curso. Devuelve si el correo salió.
+
+- **Ruta por operación:** `POST /api/v1/curso/dar_acceso_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea su acceso al portal si no lo tenía, le suma ese curso (curso_accesos.productos), anota la invitación, guarda el email en el lead si no tenía y le manda un email (y opcionalmente un WhatsApp)
+- **Reversible:** no
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead en el CRM (el cliente). |
+| `productoId` | number | sí | id del producto cuyo curso se le abre (de listar_cursos). |
+| `email` | string | no | a qué email. Sin esto, el del CRM. |
+| `canales` | string[] (email \\| whatsapp) | no | por dónde: ["email"] (default) o ["email", "whatsapp"]. El WhatsApp sale sólo si salió el correo. |
+| `reenviar` | boolean | no | true = mandarla aunque ya esté invitado a ese curso o ya haya entrado. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID/accesos/LEAD_ID"
+```
+
+### `DELETE /api/v1/curso/cursos/{productoId}/accesos/{leadId}` — Sacarle un curso a un cliente
+
+Su acceso deja de abrir el curso de ESE producto: ya no lo ve en su portal. No le corta sus otros cursos, no lo saca del kanban de Clientes y no le avisa; queda en su historial. Si es el único curso que le abre, no se saca por acá: cortar_acceso_curso corta el portal entero. Para volver a abrírselo, dar_acceso_curso (que le manda la invitación de nuevo).
+
+- **Ruta por operación:** `POST /api/v1/curso/quitar_curso_del_acceso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** saca el producto de los cursos que abre su acceso (curso_accesos.productos) y deja una línea en el historial del lead
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead en el CRM (el cliente). |
+| `productoId` | number | sí | id del producto cuyo curso se le saca (de listar_cursos). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID/accesos/LEAD_ID"
+```
+
+### `PUT /api/v1/curso/accesos/{leadId}/corte` — Cortar el acceso al portal
+
+Corta el acceso de un lead al portal del curso: los links que ya tiene dejan de abrir, con todos sus cursos, y también los de sus líderes de área. No le avisa ni lo saca del kanban de Clientes. habilitar_acceso_curso lo vuelve a abrir con un link NUEVO (sus líderes vuelven desde su ficha). Para sacarle un solo curso, quitar_curso_del_acceso.
+
+- **Ruta por operación:** `POST /api/v1/curso/cortar_acceso_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** sube la versión de su acceso y lo marca cortado (curso_accesos), y lo mismo con los de sus líderes de área
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead en el CRM (el cliente). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/accesos/LEAD_ID/corte"
+```
+
+### `DELETE /api/v1/curso/accesos/{leadId}/corte` — Volver a habilitar el acceso
+
+Vuelve a abrir el acceso al portal de un cliente que estaba cortado, con un link NUEVO: el que tenía sigue sin abrir. No le llega nada: para mandárselo, dar_acceso_curso con reenviar: true. Tiene que ser un cliente ganado. Sus líderes de área no vuelven solos (cada uno, desde su ficha).
+
+- **Ruta por operación:** `POST /api/v1/curso/habilitar_acceso_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** saca la marca de cortado de su acceso (curso_accesos.revocado_at)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead en el CRM (el cliente). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/accesos/LEAD_ID/corte"
 ```
 
 ## Comunidad — `comunidad`
