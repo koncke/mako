@@ -49,7 +49,8 @@ export type OrigenCuenta = {
   /** El visitante del Pixel de MaKo (`nqe_visitor_id`), el UID que viaja a Meta como external_id. */
   visitorId: string | null;
   leadId: number | null;
-  fuente: 'lead' | 'manual';
+  /** 'checkout' = vino EXPLÍCITO en el link a /planes (cobros.origen); 'lead' = reconstruido del lead (primer toque). */
+  fuente: 'lead' | 'checkout' | 'manual';
   at: string;
 };
 
@@ -112,6 +113,28 @@ export function origenDe(lead: LeadParaOrigen, visitas: ReadonlyArray<{ landing_
   };
 }
 
+/**
+ * El origen EXPLÍCITO de un cobro del checkout público (`cobros.origen`, jsonb, mig 0330 del chat «Planes de MaKo y
+ * Partners»: `{landing, avatar, funcionalidad, utm_source, utm_medium, utm_campaign, utm_content, fbclid}`, de los
+ * parámetros del link a /planes). Si trae una landing, gana sobre el primer toque. null si no trae nada usable.
+ * El avatar y la funcionalidad salen de LANDINGS_MAKO cuando la landing es nuestra; si no, de lo que vino (validado).
+ */
+export function origenDeCheckout(raw: unknown, lead: { id?: number | null; visitor_id?: unknown } | null, ahora: string): OrigenCuenta | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const r = raw as Record<string, unknown>;
+  const landing = texto(r.landing);
+  if (!landing) return null;
+  const def = LANDINGS_MAKO[landing];
+  const avatar = def ? def.avatar : (AVATARES as readonly unknown[]).includes(r.avatar) ? (r.avatar as AvatarOrigen) : null;
+  const funcionalidad = def ? def.funcionalidad : (FUNCIONALIDADES as readonly unknown[]).includes(r.funcionalidad) ? (r.funcionalidad as FuncionalidadOrigen) : null;
+  return {
+    v: 1, landing, avatar, funcionalidad,
+    utm: { source: texto(r.utm_source), medium: texto(r.utm_medium), campaign: texto(r.utm_campaign), content: texto(r.utm_content) },
+    visitorId: texto(lead?.visitor_id), leadId: typeof lead?.id === 'number' && Number.isSafeInteger(lead.id) ? lead.id : null,
+    fuente: 'checkout', at: ahora,
+  };
+}
+
 /** El origen guardado (el JSON de app_settings), validado. null si no hay o no tiene la forma. */
 export function leerOrigen(valor: unknown): OrigenCuenta | null {
   if (typeof valor !== 'string') return null;
@@ -127,7 +150,7 @@ export function leerOrigen(valor: unknown): OrigenCuenta | null {
       utm: { source: texto(u.source), medium: texto(u.medium), campaign: texto(u.campaign), content: texto(u.content) },
       visitorId: texto(o.visitorId),
       leadId: typeof o.leadId === 'number' && Number.isSafeInteger(o.leadId) ? o.leadId : null,
-      fuente: o.fuente === 'manual' ? 'manual' : 'lead',
+      fuente: o.fuente === 'manual' || o.fuente === 'checkout' ? o.fuente : 'lead',
       at: o.at,
     };
   } catch {

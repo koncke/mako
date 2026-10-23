@@ -9,7 +9,7 @@ import 'server-only';
 
 import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual, wsSuperAdmin } from './workspace';
-import { CLAVE_ORIGEN_CUENTA, leerOrigen, origenDe, type OrigenCuenta } from './origen-cuenta';
+import { CLAVE_ORIGEN_CUENTA, leerOrigen, origenDe, origenDeCheckout, type OrigenCuenta } from './origen-cuenta';
 
 /** El origen de un lead de la plataforma: sus UTM, su visitante y su primera visita a una landing de MaKo. */
 export async function origenDeLeadMako(leadId: number): Promise<OrigenCuenta | null> {
@@ -38,10 +38,21 @@ export async function guardarOrigenCuenta(ws: number, origen: OrigenCuenta): Pro
   if (error) throw new Error(`cuenta.origen de ${ws}: ${error.message}`);
 }
 
-/** Para el alta: deriva el origen del lead del comprador y lo guarda en su cuenta. Sin lead, no hace nada. */
-export async function guardarOrigenDeAlta(wsNuevo: number, leadId: number | null): Promise<OrigenCuenta | null> {
-  if (!leadId) return null;
-  const origen = await origenDeLeadMako(leadId);
+/**
+ * Para el alta: el origen EXPLÍCITO del cobro (`cobros.origen`, el link a /planes) si lo trae; si no, el que se
+ * reconstruye del lead del comprador (primer toque). Lo guarda en la cuenta nueva. Sin ninguno de los dos, nada.
+ * `cobros.origen` puede no existir todavía en la base (mig 0330 de otra rama): un error al leerlo se ignora.
+ */
+export async function guardarOrigenDeAlta(wsNuevo: number, leadId: number | null, cobroId?: number | null): Promise<OrigenCuenta | null> {
+  let explicito: unknown = null;
+  if (cobroId) {
+    try {
+      const { data, error } = await getSupabaseServer().from('cobros').select('origen').eq('id', cobroId).maybeSingle();
+      if (!error) explicito = (data as { origen?: unknown } | null)?.origen ?? null;
+    } catch { /* sin la columna: el primer toque */ }
+  }
+  const delLead = leadId ? await origenDeLeadMako(leadId) : null;
+  const origen = origenDeCheckout(explicito, delLead ? { id: delLead.leadId, visitor_id: delLead.visitorId } : null, new Date().toISOString()) ?? delLead;
   if (origen) await guardarOrigenCuenta(wsNuevo, origen);
   return origen;
 }

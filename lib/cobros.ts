@@ -875,7 +875,7 @@ async function altaSiCorresponde(c: Cobro): Promise<void> {
       await logLeadEvent(c.lead_id, 'Cuenta de MaKo', `Alta automática por el pago: «${r.workspace.nombre}», plan ${capaDef(c.alta_capa).nombre}`, NOMBRE_PASARELA[c.proveedor]);
       // El ORIGEN de la cuenta (de qué landing / funnel de MaKo vino) para su onboarding: lib/origen-cuenta.ts.
       // Accesorio: la cuenta ya existe.
-      try { await guardarOrigenDeAlta(r.workspace.id, c.lead_id); } catch (e) { console.error(`[cobros] origen de la cuenta ${r.workspace.id}: ${e instanceof Error ? e.message : String(e)}`); }
+      try { await guardarOrigenDeAlta(r.workspace.id, c.lead_id, c.id); } catch (e) { console.error(`[cobros] origen de la cuenta ${r.workspace.id}: ${e instanceof Error ? e.message : String(e)}`); }
     }
   } else if (r.yaExiste) {
     // Ya es usuario (un upgrade, o alguien de otro negocio): NO se le toca la capa a ciegas. Lo

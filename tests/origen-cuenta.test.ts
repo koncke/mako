@@ -12,7 +12,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LANDINGS_MAKO, leerOrigen, origenDe, slugDeLandingMako } from '../lib/origen-cuenta';
+import { LANDINGS_MAKO, leerOrigen, origenDe, origenDeCheckout, slugDeLandingMako } from '../lib/origen-cuenta';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -57,6 +57,17 @@ test('las UTM del lead mandan, y sin visitas la página de registro', () => {
   const nada = origenDe({ id: 9 }, [], 'x');
   assert.equal(nada.landing, null);
   assert.equal(nada.visitorId, null);
+});
+
+test('el origen explícito del checkout (cobros.origen) gana, y sin landing no cuenta', () => {
+  const o = origenDeCheckout({ landing: 'coaches', avatar: 'astronautas', utm_source: 'meta', fbclid: 'x' }, { id: 4, visitor_id: 'v-9' }, 't');
+  assert.equal(o?.fuente, 'checkout');
+  assert.equal(o?.avatar, 'coaches', 'de LANDINGS_MAKO, no lo que vino');
+  assert.equal(o?.utm.source, 'meta');
+  assert.equal(o?.visitorId, 'v-9');
+  assert.equal(origenDeCheckout({ avatar: 'coaches' }, null, 't'), null);
+  assert.equal(origenDeCheckout(null, null, 't'), null);
+  assert.equal(leerOrigen(JSON.stringify(o))?.fuente, 'checkout');
 });
 
 test('lo guardado se lee validado', () => {
