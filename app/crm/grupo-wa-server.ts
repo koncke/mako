@@ -17,7 +17,10 @@
 import 'server-only';
 import { getWorkspaceActual, getTenantDb } from '@/lib/workspace';
 import { listarLineas } from '@/lib/evolution';
-import { createLead, LeadDuplicadoError, logLeadEvent } from '@/lib/leads';
+import { createLead, logLeadEvent } from '@/lib/leads';
+// LeadDuplicadoError vive en leads-duplicados: lib/leads la importa pero NO la reexporta (importada de ahí llegaba undefined y el
+// `instanceof` tiraba TypeError con cada participante que ya era lead).
+import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { agregarAProducto, etapasDeProducto } from '@/lib/lead-funnel';
 import { idDelFunnelDefault, listarFunnels } from '@/lib/funnels';
 import { secuenciasDeEtiqueta } from '@/lib/nutricion-etapa';
