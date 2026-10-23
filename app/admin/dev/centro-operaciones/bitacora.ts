@@ -1375,4 +1375,38 @@ export const BITACORA: Hito[] = [
       'tests/centro-fotos-enviadas.test.ts',
     ],
   },
+  {
+    fecha: '23 oct', hora: '20:20', chat: 'Cerebro', sesion: 'local_3c82c204-8262-460c-9fca-b164e2053c9a', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El Uso con su loader, y la app de escritorio antes que cualquier chat',
+    pedido: 'En Ops Center cuando abro "USO" aún no me sale el loader, al principio me aparecen solo los botones de "Conectar GPT o Claude"... Si hay cuentas conectadas debería aparecer el loader para que se sepa que falta info que cargar... Ahí me imagino el tipico loader de placeholder, de una sección o bloque que está cargando. Y muy importante, si detecta MaKo que no tienes instalado la app de escritorio, antes de mostrarte nada, o dejarte usar cualquier chat, en cualquier tab, te debe aparecer el botón para que puedas descargar la app.',
+    puntos: [
+      'Llegó por el Cerebro con tres capturas del modal «Tus cuentas de IA».',
+      'DECISIÓN de Martín, cuando el Cerebro propuso no bloquear a quien ya tiene su clave: «Bloqueá igual: aunque tenga su clave de IA, primero tiene que descargar la app de escritorio antes de usar cualquier chat.»',
+      'Por qué: el producto es MaKo en SU computadora con SU Claude; una clave sola no le da a MaKo lo que hace en la PC.',
+      'Los cuidados (del Cerebro): sólo los chats con MaKo (lo automático sigue igual: la PC del cliente nunca atiende leads); en el teléfono no se bloquea, se avisa; el chat se destraba solo al conectar.',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '20:45', chat: 'Ops Center', sesion: 'local_090698fe-36a3-4aab-ab7c-9c08a3639065', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Sin la app de escritorio, el chat muestra la descarga; y el Uso, su esqueleto mientras carga',
+    puntos: [
+      'Sin computadora conectada, todo chat con MaKo (el Ops Center, la estrella de cada tab, el Second Brain) muestra la descarga en lugar de la conversación, aunque el negocio tenga su clave.',
+      'En el teléfono no se bloquea: arriba de la caja dice «Descarga MaKo en tu computadora».',
+      'Mientras está bloqueado vuelve a preguntar cada 8 s: al conectar la computadora, el chat aparece solo.',
+      'La descarga y la detección de Windows o Mac son las de IA del cliente (NuevoDispositivo), no una copia.',
+      'El Uso: mientras carga, el esqueleto de una cuenta; «Nueva cuenta» recién con el estado.',
+      'Falta mirarlo en pantalla, en producción.',
+    ],
+    archivos: [
+      'lib/chat-mako-reglas.ts — appDeEscritorio (la decisión y su porqué)',
+      'app/api/mako/chat/route.ts — laApp en ?suIA=1',
+      'app/_chat/AppPrimero.tsx — la pieza común',
+      'app/second-brain/PiezasCliente.tsx, useChatCliente.ts',
+      'app/integraciones/TusCuentasIA.tsx — EsqueletoDeCuentas',
+      'tests/app-de-escritorio-primero.test.ts',
+    ],
+    revisar: '/second-brain',
+  },
 ];

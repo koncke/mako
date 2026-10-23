@@ -45,7 +45,8 @@ import {
   urlDeVozDelChat, escucharNotaDelChat,
 } from '@/lib/mako-turno-app';
 import { validarAdjuntos, esMp3, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
-import { CONTEXTO_SECOND_BRAIN, antesValido } from '@/lib/chat-mako-reglas';
+import { CONTEXTO_SECOND_BRAIN, antesValido, appDeEscritorio, type AppDeEscritorio } from '@/lib/chat-mako-reglas';
+import { tipoDeDispositivo } from '@/lib/movil-dispositivo';
 import { sanearDesde } from '@/lib/chat-desde';
 import { estadoDeTrabajo } from '@/lib/chat-trabajos';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
@@ -80,6 +81,20 @@ const enteroDe = (v: unknown): number | null => {
  * workspace de la plataforma, sí (contesta la de la plataforma). Si no se pudo saber, sí: un bache de la base no le pide que
  * conecte algo que ya está.
  */
+async function laApp(persona: PersonaChat, req: NextRequest): Promise<AppDeEscritorio> {
+  // La app de escritorio (23/10/2026, lib/chat-mako-reglas.ts → appDeEscritorio, «Bloqueá igual»). El teléfono sale del pedido,
+  // con la misma pregunta del proxy (`tipoDeDispositivo`): ahí no se instala, así que no se bloquea. Si no se pudo saber, `tiene`:
+  // un bache de la base no le tapa el chat a nadie.
+  try {
+    const plataforma = persona.ws === (await wsSuperAdmin());
+    const conComputadora = !plataforma && (await pcDe(persona.ws, persona.actor)) != null;
+    const telefono = tipoDeDispositivo(req.headers.get('user-agent'), req.headers.get('sec-ch-ua-mobile')) !== 'escritorio';
+    return appDeEscritorio({ plataforma, conComputadora, telefono });
+  } catch {
+    return 'tiene';
+  }
+}
+
 async function conSuIA(persona: PersonaChat): Promise<boolean> {
   try {
     if (persona.ws === (await wsSuperAdmin())) return true;
@@ -110,7 +125,10 @@ export async function GET(req: NextRequest) {
     // La conversación de una tab con chat propio (el Second Brain, 23/10/2026), si ya existe: se lee, no se crea.
     if (sp.has('deTab')) return json({ ok: true, sesion: await sesionDeTab(persona, sp.get('deTab') ?? '', false) });
     // Y las cuentas que el «+» de la caja deja elegir para ESTE chat (8b, lib/chat-ia.ts): sin ellas, el selector no se dibuja.
-    if (sp.get('suIA')) return json({ ok: true, conectada: await conSuIA(persona), cuentas: await cuentasDeIA(persona).catch(() => []) });
+    if (sp.get('suIA')) {
+      const [conectada, cuentas, app] = await Promise.all([conSuIA(persona), cuentasDeIA(persona).catch(() => []), laApp(persona, req)]);
+      return json({ ok: true, conectada, cuentas, app });
+    }
     if (sp.has('marcas')) {
       const chat = sp.get('marcas');
       if (!esChatDeMarcas(chat)) return json({ ok: false, error: 'Falta el chat.' }, 400);

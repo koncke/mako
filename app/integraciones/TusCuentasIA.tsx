@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LogoClaude } from '@/app/admin/operaciones/Uso';
+import { Skeleton } from '@/app/_ui/Feedback';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, TEXTO_CONSENTIMIENTO, VERSION_CONSENTIMIENTO, lineaDeInstalacion, type CuentaPc, type CuentasIA, type SistemaPc } from '@/lib/ia-pc-reglas';
@@ -369,6 +370,20 @@ function NuevaCuenta({ onElegir }: { onElegir: (ia: IaDelCliente) => void }) {
  * (adonde vuelve el instalador de Windows al terminar: RUTA_TRAS_INSTALAR). `conectar` (el Ops Center lo pasa al abrirlo desde
  * «Conectar tu IA»): ya no hace falta, «Nueva cuenta» está siempre a la vista.
  */
+/** El bloque de una cuenta mientras llega el estado: el nombre, el email, las dos ventanas y un dispositivo, en gris. */
+export function EsqueletoDeCuentas() {
+  return (
+    <div className="tci-esqueleto" role="status" aria-label="Cargando tus cuentas de IA" data-esqueleto="">
+      <Skeleton w="38%" h={18} />
+      <Skeleton w="62%" h={14} />
+      <div className="tci-esqueleto__ventana"><Skeleton w="34%" h={12} /><Skeleton h={6} radius={999} /></div>
+      <div className="tci-esqueleto__ventana"><Skeleton w="22%" h={12} /><Skeleton h={6} radius={999} /></div>
+      <Skeleton w="28%" h={11} style={{ marginTop: 6 }} />
+      <Skeleton h={88} radius={12} />
+    </div>
+  );
+}
+
 export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sinCabecera?: boolean; conectar?: boolean; computadora?: boolean } = {}) {
   const [estado, setEstado] = useState<Estado | null>(null);
   const [eligiendo, setEligiendo] = useState<IaDelCliente | null>(null);
@@ -376,8 +391,11 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
   const [pasoInicial, setPasoInicial] = useState(1);
   const [ahora, setAhora] = useState(() => Date.now());
   const antes = useRef<number[]>([]);
+  /** Ya se intentó leer una vez: sin estado después de eso (no se pudo), lo de siempre, no el esqueleto para siempre. */
+  const [leido, setLeido] = useState(false);
   const recargar = useCallback(async (): Promise<Estado | null> => {
     const e = await fetch('/api/ia-pc/estado', { cache: 'no-store' }).then((x) => x.json()).catch(() => null);
+    setLeido(true);
     if (e?.ok) { setEstado(e); setAhora(Date.now()); return e; }
     return null;
   }, []);
@@ -422,7 +440,11 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
       )}
       {tutorial && <Tutorial onCerrar={() => { setTutorial(false); void recargar(); }} pcsAntes={antes.current} recargar={recargar} pasoInicial={pasoInicial} />}
 
-      {!eligiendo && !tutorial && (
+      {/* MIENTRAS CARGA, EL ESQUELETO DEL BLOQUE (23/10/2026, Martín: «al principio me aparecen solo los botones de "Conectar GPT o
+          Claude"... Si hay cuentas conectadas debería aparecer el loader para que se sepa que falta info que cargar»). Antes del
+          estado no se sabe si hay cuentas: «Nueva cuenta» sola se leía como «no tienes nada». */}
+      {!estado && !leido && !eligiendo && !tutorial && <EsqueletoDeCuentas />}
+      {(estado || leido) && !eligiendo && !tutorial && (
         <>
           <NuevaCuenta onElegir={setEligiendo} />
           <CuentasYDispositivos grupos={grupos} ahora={ahora} onDesconectar={(d) => desconectar(d.id)}

@@ -38,7 +38,7 @@ import { conPegados, esPegadoLargo } from '@/lib/chat-pegado';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import {
   EDITORES, JEFE_SECOND_BRAIN, SECCION_OFFER, SIN_TITULO, TITULO_GRUPO, colgarIrA, criaturaDeOffer, esFilaDe, linksDePedidos, listaDelCliente, partesDeClaveDeEditor, rutaDelLienzo,
-  type ElegidoChat, type IrA,
+  type AppDeEscritorio, type ElegidoChat, type IrA,
 } from '@/lib/chat-mako-reglas';
 import type { ChatDeAntes, ChatDeAutomatizacion, ChatDeEditor, ChatDeOffer, GrupoDeMaKo } from '@/lib/chat-mako-indice';
 import { etiquetaDesde, type Desde } from '@/lib/chat-desde';
@@ -197,6 +197,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const [infoWA, setInfoWA] = useState<MensajeWA | null>(null);
   /** ¿Ya conectó su Claude o su GPT? null = todavía no se sabe (el botón no aparece hasta saberlo). */
   const [iaConectada, setIaConectada] = useState<boolean | null>(null);
+  /** ¿Instaló la app de escritorio? (23/10/2026, lib/chat-mako-reglas.ts → appDeEscritorio). null = todavía no se sabe. */
+  const [app, setApp] = useState<AppDeEscritorio | null>(null);
   // CON QUÉ IA CORRE CADA CHAT (8b, 23/10/2026, Martín: «el "+" de la caja deja elegir con qué corre ese chat: el modelo y la
   // cuenta… Por defecto decide el chat jefe»). Las cuentas que se pueden elegir las arma el servidor (`?suIA=1` → `cuentas`,
   // lib/chat-ia-reglas.ts): sin ellas no hay selector. Lo elegido, por chat y en esta pestaña, como la cuenta del super admin.
@@ -237,12 +239,21 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   }, []);
   useEffect(() => { if (activo) cargarOtros(); }, [activo, cargarOtros]);
   const mirarSuIA = useCallback(() => {
-    void pedir<{ conectada: boolean; cuentas?: CuentaDeIA[] }>(`${RUTA}?suIA=1`).then((l) => {
+    void pedir<{ conectada: boolean; cuentas?: CuentaDeIA[]; app?: AppDeEscritorio }>(`${RUTA}?suIA=1`).then((l) => {
       setIaConectada(l.ok ? l.datos.conectada !== false : true);
+      // La app de escritorio (23/10/2026): sin saberlo, `tiene` (un bache no le tapa el chat a nadie).
+      setApp(l.ok && (l.datos.app === 'bloquea' || l.datos.app === 'en-la-computadora') ? l.datos.app : 'tiene');
       setCuentasIA(l.ok && Array.isArray(l.datos.cuentas) && l.datos.cuentas.length ? l.datos.cuentas : null);
     });
   }, []);
   useEffect(() => { if (activo) mirarSuIA(); }, [activo, mirarSuIA]);
+  // BLOQUEADO SIN LA APP, SE DESTRABA SOLO (23/10/2026): mientras falta, se vuelve a preguntar; en cuanto la computadora se conecta,
+  // el chat aparece sin recargar. Sólo con la pestaña a la vista.
+  useEffect(() => {
+    if (app !== 'bloquea') return;
+    const t = window.setInterval(() => { if (document.visibilityState === 'visible') mirarSuIA(); }, 8_000);
+    return () => window.clearInterval(t);
+  }, [app, mirarSuIA]);
 
   // ── El hilo de lo elegido ──
   const idElegido = elegido && 'id' in elegido ? elegido.id : null;
@@ -580,7 +591,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     const t = mensaje.trim();
     // El grupo es de sólo lectura: lo que se escribe no va a ningún modelo ni al grupo (decisión 11).
     // Una charla del lienzo, tampoco: se sigue en el lienzo (`AVISO_LIENZO`).
-    if (esGrupo || esAutomatizacion || esEditor || (!t && !archivos.length) || ocupadoRef.current || !cargado || errorCarga) return false;
+    // Sin la app de escritorio, el chat no manda nada (tampoco un pedido de la tab: el «Hacerlo» de una sugerencia).
+    if (esGrupo || esAutomatizacion || esEditor || (!t && !archivos.length) || ocupadoRef.current || !cargado || errorCarga || app === 'bloquea') return false;
     ocupadoRef.current = true;
     setFaltaMic(null);
     const idU = idLocal('u');
@@ -726,7 +738,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     items, cargado, errorCarga, recargar, ahora, trabajo, segs, enCurso, armandoOffer, tarjeta, correrTarjeta, alTerminarTrabajo, reintentar,
     texto, setTexto, faltaMic, setFaltaMic, enviar, enviarCaja, adjuntosCaja, vozCaja, pegados, quitarPegado, pegarLargo, cita, setCita,
     marcas, ponerMarca, accionesWA, menuWA, setMenuWA, infoWA, setInfoWA, elegirEnMenu, mensajesWA,
-    iaConectada, conectando, setConectando, mirarSuIA,
+    iaConectada, app, conectando, setConectando, mirarSuIA,
     cuentasIA: idOffer != null ? null : cuentasIA, iaDelChat, elegirIA, resumenIA: resumenDeIA(iaDelChat, cuentasIA),
   };
 }

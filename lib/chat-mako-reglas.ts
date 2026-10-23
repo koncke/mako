@@ -309,6 +309,25 @@ export function origenDeClave(clave: string | null | undefined): string | null {
 }
 export const ORIGEN_PREGUNTALE = 'Pregúntale a MaKo';
 
+// ── La app de escritorio, primero (23/10/2026) ─────────────────────────────────────────────────────────────────────
+// Martín: «si detecta MaKo que no tienes instalado la app de escritorio, antes de mostrarte nada, o dejarte usar cualquier chat,
+// en cualquier tab, te debe aparecer el botón para que puedas descargar la app». Y ante la duda de bloquear a quien ya trabaja
+// con su clave, DECIDIÓ (23/10/2026): «Bloqueá igual: aunque tenga su clave de IA, primero tiene que descargar la app de escritorio
+// antes de usar cualquier chat». Por qué: el producto es MaKo en SU computadora con SU Claude (lib/ia-pc-reglas.ts); una clave
+// sola no le da a MaKo lo que hace en la PC. Los cuidados (del Cerebro, para no romper lo que no es chat):
+//   · sólo los CHATS con MaKo: las automatizaciones y lo que corre solo siguen igual (la PC del cliente nunca atiende leads);
+//   · en el teléfono no se puede instalar: ahí NO se bloquea, se avisa «Descarga MaKo en tu computadora» (`en-la-computadora`);
+//   · en cuanto la computadora se conecta, el chat se destraba solo (useChatCliente.ts relee mientras está bloqueado).
+// El negocio de la plataforma no la necesita (contesta su IA).
+
+/** Qué hace el chat con la app de escritorio: nada (`tiene`), la descarga en lugar del chat (`bloquea`), o en el teléfono, el
+ *  aviso de descargarla en la computadora sin tapar nada (`en-la-computadora`). */
+export type AppDeEscritorio = 'tiene' | 'bloquea' | 'en-la-computadora';
+export function appDeEscritorio(p: { plataforma: boolean; conComputadora: boolean; telefono: boolean }): AppDeEscritorio {
+  if (p.plataforma || p.conComputadora) return 'tiene';
+  return p.telefono ? 'en-la-computadora' : 'bloquea';
+}
+
 // ── El chat del Second Brain (23/10/2026) ───────────────────────────────────────────────────────────────────────────
 // Martín: «quiero que Second Brain, la sidebar que tiene a la derecha sea reemplazada por un chat con MaKo, que tenga la criatura
 // de MaKo... Que se guarde el historial claro, pero que si no hay nada que MaKo mande el mensaje "Hola NOMBRE. Este es tu Second
