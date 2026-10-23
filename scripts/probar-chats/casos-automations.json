@@ -1,0 +1,1305 @@
+{
+ "_comentario": "Casos del chat de MaKo de Automations (scripts/probar-chats/automations.mts). Cada caso: la partida (un lienzo de `partidas` o «vacia»), el CRON de partida en el CRM de prueba (opcional), etapas a crear antes, los turnos (lo que se dice, el botón que se elige, la burbuja que se toca) y lo que se espera (`espera`, lo mide el juez contra lo GUARDADO) con el criterio en palabras (`juicio`). Los textos de la campaña salen de campana-sprint-mauricio.md (las aperturas honestas: el «ya me llegó tu pago» NO se arma).",
+ "partidas": {
+  "dos-wa": [
+   {
+    "id": "entrada",
+    "nodo": "inicio",
+    "orden": 1,
+    "siguiente": "m1"
+   },
+   {
+    "id": "m1",
+    "tipo": "texto",
+    "canal": "whatsapp",
+    "proveedor": "no_oficial",
+    "orden": 2,
+    "cuerpo": "Hola estimado {{nombre}}, espero que estés muy bien.",
+    "partes": [],
+    "audio_id": null,
+    "media_id": null,
+    "asunto": null,
+    "template_wa": null,
+    "delay_horas": 0,
+    "siguiente": "m2"
+   },
+   {
+    "id": "m2",
+    "tipo": "texto",
+    "canal": "whatsapp",
+    "proveedor": "no_oficial",
+    "orden": 3,
+    "cuerpo": "Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?",
+    "partes": [],
+    "audio_id": null,
+    "media_id": null,
+    "asunto": null,
+    "template_wa": null,
+    "delay_horas": 0,
+    "siguiente": null
+   }
+  ],
+  "tres-wa": [
+   {
+    "id": "entrada",
+    "nodo": "inicio",
+    "orden": 1,
+    "siguiente": "m1"
+   },
+   {
+    "id": "m1",
+    "tipo": "texto",
+    "canal": "whatsapp",
+    "proveedor": "no_oficial",
+    "orden": 2,
+    "cuerpo": "Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?",
+    "partes": [],
+    "audio_id": null,
+    "media_id": null,
+    "asunto": null,
+    "template_wa": null,
+    "delay_horas": 0,
+    "siguiente": "e1"
+   },
+   {
+    "id": "e1",
+    "nodo": "esperar",
+    "orden": 3,
+    "espera": {
+     "modo": "tiempo",
+     "minutos": 1440
+    },
+    "siguiente": "m2"
+   },
+   {
+    "id": "m2",
+    "tipo": "texto",
+    "canal": "whatsapp",
+    "proveedor": "no_oficial",
+    "orden": 4,
+    "cuerpo": "Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?",
+    "partes": [],
+    "audio_id": null,
+    "media_id": null,
+    "asunto": null,
+    "template_wa": null,
+    "delay_horas": 0,
+    "siguiente": "e2"
+   },
+   {
+    "id": "e2",
+    "nodo": "esperar",
+    "orden": 5,
+    "espera": {
+     "modo": "tiempo",
+     "minutos": 2880
+    },
+    "siguiente": "m3"
+   },
+   {
+    "id": "m3",
+    "tipo": "texto",
+    "canal": "whatsapp",
+    "proveedor": "no_oficial",
+    "orden": 6,
+    "cuerpo": "{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?",
+    "partes": [],
+    "audio_id": null,
+    "media_id": null,
+    "asunto": null,
+    "template_wa": null,
+    "delay_horas": 0,
+    "siguiente": null
+   }
+  ],
+  "apertura-con-casos": [
+   {
+    "id": "entrada",
+    "nodo": "inicio",
+    "orden": 1,
+    "siguiente": "m1"
+   },
+   {
+    "id": "m1",
+    "tipo": "texto",
+    "canal": "whatsapp",
+    "proveedor": "no_oficial",
+    "orden": 2,
+    "cuerpo": "Hola {{nombre}}, te escribo de Estudio Norte.",
+    "partes": [],
+    "audio_id": null,
+    "media_id": null,
+    "asunto": null,
+    "template_wa": null,
+    "delay_horas": 0,
+    "siguiente": "m2"
+   },
+   {
+    "id": "m2",
+    "tipo": "texto",
+    "canal": "whatsapp",
+    "proveedor": "no_oficial",
+    "orden": 3,
+    "cuerpo": "¿Te paso la guía para planear tu proyecto?",
+    "partes": [],
+    "audio_id": null,
+    "media_id": null,
+    "asunto": null,
+    "template_wa": null,
+    "delay_horas": 0,
+    "siguiente": null
+   },
+   {
+    "id": "r1",
+    "nodo": "respuesta",
+    "orden": 4,
+    "casos": [
+     {
+      "id": "c1",
+      "titulo": "Pregunta qué guía",
+      "cuando": "Pregunta de qué se trata",
+      "siguiente": "m3"
+     },
+     {
+      "id": "c2",
+      "titulo": "No le interesa",
+      "cuando": "Dice que no le interesa",
+      "siguiente": "m5"
+     }
+    ],
+    "si_no": "a1"
+   },
+   {
+    "id": "m3",
+    "tipo": "texto",
+    "canal": "whatsapp",
+    "proveedor": "no_oficial",
+    "orden": 5,
+    "cuerpo": "Es la guía de Estudio Norte para ordenar tu proyecto en un mes",
+    "partes": [],
+    "audio_id": null,
+    "media_id": null,
+    "asunto": null,
+    "template_wa": null,
+    "delay_horas": 0,
+    "siguiente": "m4"
+   },
+   {
+    "id": "m4",
+    "tipo": "texto",
+    "canal": "whatsapp",
+    "proveedor": "no_oficial",
+    "orden": 6,
+    "cuerpo": "Te la mando en un rato, ¿te parece?",
+    "partes": [],
+    "audio_id": null,
+    "media_id": null,
+    "asunto": null,
+    "template_wa": null,
+    "delay_horas": 0,
+    "siguiente": null
+   },
+   {
+    "id": "m5",
+    "tipo": "texto",
+    "canal": "whatsapp",
+    "proveedor": "no_oficial",
+    "orden": 7,
+    "cuerpo": "Perfecto, gracias por tu tiempo. Si cambias de idea, aquí estoy",
+    "partes": [],
+    "audio_id": null,
+    "media_id": null,
+    "asunto": null,
+    "template_wa": null,
+    "delay_horas": 0,
+    "siguiente": null
+   },
+   {
+    "id": "a1",
+    "orden": 8,
+    "canal": "whatsapp",
+    "cuerpo": "",
+    "siguiente": null,
+    "accion": {
+     "operacion": "avisar_al_equipo",
+     "params": {
+      "leadId": "evento",
+      "partes": [
+       {
+        "tipo": "texto",
+        "cuerpo": "💬 {{nombre_completo}} respondió"
+       }
+      ],
+      "mensaje": "💬 {{nombre_completo}} respondió"
+     }
+    }
+   }
+  ]
+ },
+ "casos": [
+  {
+   "id": "mau-pega-secuencia",
+   "titulo": "Lo de Mauricio: lienzo vacío, pega la secuencia entera con «Quiero que estos sean los mensajes»",
+   "partida": "vacia",
+   "antes": [
+    {
+     "crearEtapa": "Prospección activa"
+    }
+   ],
+   "turnos": [
+    {
+     "dice": [
+      "Quiero que estos sean los mensajes:",
+      "",
+      "1) Hola {Nombre}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?",
+      "",
+      "(esperar 1 día)",
+      "",
+      "2) Hola {Nombre}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?",
+      "",
+      "(esperar 2 días)",
+      "",
+      "3) {Nombre}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?"
+     ]
+    },
+    {
+     "soloSiPregunta": true,
+     "elegir": "Prospección activa"
+    },
+    {
+     "soloSiPregunta": true,
+     "elegir": "Elige tú"
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "soy Mauricio Bustos. ¿Sigues al frente de tu empresa?",
+     "¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?",
+     "abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11"
+    ],
+    "cantidadMensajes": 3,
+    "esperasMin": [
+     1440,
+     2880
+    ],
+    "sinAudio": true,
+    "variablesValidas": true,
+    "textoNo": [
+     "ind[ií]came",
+     "indica qu[eé] cambios",
+     "qu[eé] cambios"
+    ]
+   },
+   "juicio": "Quedan ESAS tres tarjetas de WhatsApp, en ese orden, con 1 día y 2 días de espera entre ellas; {Nombre} pasa a {{nombre}}; nada de audios, tarjetas ni variables que nadie pidió. Como mucho UNA pregunta (qué la dispara)."
+  },
+  {
+   "id": "mau-pega-con-disparador",
+   "titulo": "La secuencia pegada + «arranca cuando entra a Prospección activa» (el CRM de prueba)",
+   "partida": "vacia",
+   "antes": [
+    {
+     "crearEtapa": "Prospección activa"
+    }
+   ],
+   "turnos": [
+    {
+     "dice": [
+      "Que arranque cuando el lead entra a la etapa Prospección activa del CRM «🧪 Prueba chats 22/10 · Automations». Quiero que estos sean los mensajes:",
+      "",
+      "Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?",
+      "",
+      "Esperar 1 día",
+      "",
+      "Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?",
+      "",
+      "Esperar 2 días",
+      "",
+      "{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?"
+     ]
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "soy Mauricio Bustos. ¿Sigues al frente de tu empresa?",
+     "¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?",
+     "abrí 3 lugares más para una capacitación en vivo"
+    ],
+    "cantidadMensajes": 3,
+    "esperasMin": [
+     1440,
+     2880
+    ],
+    "sinAudio": true,
+    "variablesValidas": true,
+    "pregunta": false,
+    "disparadorEtapa": "Prospección activa",
+    "textoNo": [
+     "no existe",
+     "ind[ií]came"
+    ]
+   },
+   "juicio": "Sin preguntar nada: el CRON en «Prospección activa» del CRM de prueba (recién creada) y las tres tarjetas tal cual, con sus esperas. Nunca «esta etapa no existe»."
+  },
+  {
+   "id": "agrega-estos-textos",
+   "titulo": "Lienzo con 2 WhatsApp: «agregá estos textos»",
+   "partida": "dos-wa",
+   "turnos": [
+    {
+     "dice": [
+      "Agregá estos textos después de los dos que ya están:",
+      "",
+      "Me quedan 3 lugares para este Sprint de tres días, del 18 al 20/11. ¿Quieres que te registre?",
+      "",
+      "Son 3 sesiones en vivo de 2 horas, de 19 a 21 h (CDMX), para dueños de empresa."
+     ]
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "Hola estimado {{nombre}}, espero que estés muy bien",
+     "soy Mauricio Bustos. ¿Sigues al frente de tu empresa?",
+     "Me quedan 3 lugares para este Sprint de tres días, del 18 al 20/11. ¿Quieres que te registre?",
+     "Son 3 sesiones en vivo de 2 horas, de 19 a 21 h (CDMX), para dueños de empresa"
+    ],
+    "cantidadMensajes": 4,
+    "pregunta": false,
+    "sinAudio": true,
+    "variablesValidas": true,
+    "sinCambiosNoNombrados": true,
+    "textoNo": [
+     "ind[ií]came",
+     "qu[eé] cambios"
+    ]
+   },
+   "juicio": "Agrega los dos textos al final, tal cual y en ese orden, sin preguntar y sin tocar los dos de antes."
+  },
+  {
+   "id": "quiero-que-estos-sean",
+   "titulo": "Lienzo con 2 WhatsApp: «Quiero que estos sean los mensajes» + 3 textos",
+   "partida": "dos-wa",
+   "turnos": [
+    {
+     "dice": [
+      "Quiero que estos sean los mensajes:",
+      "",
+      "Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?",
+      "",
+      "Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?",
+      "",
+      "{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?"
+     ]
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "soy Mauricio Bustos. ¿Sigues al frente de tu empresa?",
+     "¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?",
+     "abrí 3 lugares más para una capacitación en vivo"
+    ],
+    "cantidadMensajes": 3,
+    "noContiene": [
+     "Hola estimado {{nombre}}, espero que estés muy bien"
+    ],
+    "pregunta": false,
+    "sinAudio": true,
+    "variablesValidas": true,
+    "textoNo": [
+     "ind[ií]came",
+     "qu[eé] cambios"
+    ]
+   },
+   "juicio": "Los mensajes pasan a ser EXACTAMENTE esos tres, en ese orden (el «Hola estimado…» se va). Sin preguntar."
+  },
+  {
+   "id": "hazlo-como-te-indique",
+   "titulo": "«Editalos y agregalos» y después «Hazlo como te lo indiqué» (lo que pasó en la llamada)",
+   "partida": "dos-wa",
+   "turnos": [
+    {
+     "dice": [
+      "Los textos que te pasé no están en el flujo. Editalos y agregalos:",
+      "",
+      "Me quedan 3 lugares para este Sprint de tres días. ¿Quieres que te registre?",
+      "",
+      "Es una capacitación en vivo para empresarios, del 18 al 20/11, de 19 a 21 h (CDMX)."
+     ]
+    },
+    {
+     "dice": "Hazlo como te lo indiqué"
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "Me quedan 3 lugares para este Sprint de tres días. ¿Quieres que te registre?",
+     "Es una capacitación en vivo para empresarios, del 18 al 20/11"
+    ],
+    "sinAudio": true,
+    "variablesValidas": true,
+    "textoNo": [
+     "ind[ií]came",
+     "qu[eé] cambios",
+     "no entiendo"
+    ],
+    "sinDuplicados": true
+   },
+   "juicio": "Los dos textos quedan en el lienzo, en ese orden. Nunca «indícame qué cambios…»: el pedido es claro. El segundo turno no rompe lo que hizo el primero. Sin mensajes repetidos: «hazlo como te lo indiqué» con los textos ya puestos no los vuelve a agregar (medido el 22/10 contra 87365c830: los duplicó, o terminó en «No cambió nada»)."
+  },
+  {
+   "id": "haz-esta-secuencia",
+   "titulo": "En Editar, «haz esta secuencia:» + una lista numerada pegada (captura 14 de Martín, 22/10)",
+   "partida": "dos-wa",
+   "turnos": [
+    {
+     "dice": [
+      "haz esta secuencia: Hola {Nombre}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?",
+      "2.⁠ ⁠¿Te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?",
+      "3.⁠ ⁠Si te dicen que sí, les dices:",
+      "4.⁠ ⁠\"Me quedan 3 lugares para este Sprint de tres días. ¿Quieres que te registre?\""
+     ]
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "soy Mauricio Bustos. ¿Sigues al frente de tu empresa?",
+     "¿Te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?",
+     "Me quedan 3 lugares para este Sprint de tres días. ¿Quieres que te registre?"
+    ],
+    "sinAudio": true,
+    "variablesValidas": true,
+    "pregunta": false,
+    "sinDuplicados": true,
+    "textoNo": [
+     "[Pp]ulsa",
+     "crea las nuevas tarjetas",
+     "t[uú] mism[oa]",
+     "ind[ií]came",
+     "qu[eé] cambios",
+     "habr[ií]a que"
+    ]
+   },
+   "juicio": "Arma la secuencia en el lienzo: los tres mensajes, en ese orden, con {Nombre} como {{nombre}}; la línea 3 es una instrucción (no un mensaje). Nunca le dice a la persona que lo haga ella («Pulsa \"Editar\", crea las nuevas tarjetas…», lo que contestó en la captura 14) ni «habría que editarlos»."
+  },
+  {
+   "id": "ramas-segun-respuesta",
+   "titulo": "En Editar: saludo, una pregunta y DOS ramas según lo que conteste, cada una con su mensaje (#289, 22/10)",
+   "partida": "dos-wa",
+   "turnos": [
+    {
+     "dice": [
+      "Quiero que la secuencia sea así:",
+      "1. Primer mensaje: «Hola {Nombre}, soy Ana de Estudio Norte. ¿Cómo estás?»",
+      "2. Después le preguntas: «¿Ya tienes un plan para tu proyecto este mes?»",
+      "3. Si responde que sí, le mandas: «¡Genial! Te comparto nuestra guía para empezar»",
+      "4. Si responde que no, le mandas: «Entiendo. ¿Te gustaría que te cuente en 10 minutos cómo podemos ayudarte?»"
+     ]
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "soy Ana de Estudio Norte",
+     "¿Ya tienes un plan para tu proyecto este mes?",
+     "Te comparto nuestra guía para empezar",
+     "cómo podemos ayudarte"
+    ],
+    "sinAudio": true,
+    "variablesValidas": true,
+    "textoNo": [
+     "ind[ií]came",
+     "qu[eé] cambios",
+     "sumé un caso",
+     "no colgaban de nada"
+    ]
+   },
+   "juicio": "Los cuatro mensajes quedan en el lienzo: el saludo y la pregunta en el camino, y cada respuesta como un caso de «Si responde» con su mensaje. Si algo no quedó, MaKo lo dice en rojo y no dice «Listo»."
+  },
+  {
+   "id": "cambiar-texto-tarjeta-2",
+   "titulo": "Cambiar el texto de la tarjeta 2",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "Cambiá el texto del segundo mensaje por: «Hola {{nombre}}, ¿tienes 2 minutos para una pregunta sobre tu equipo?»"
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "soy Mauricio Bustos. ¿Sigues al frente de tu empresa?",
+     "Hola {{nombre}}, ¿tienes 2 minutos para una pregunta sobre tu equipo?",
+     "abrí 3 lugares más"
+    ],
+    "cantidadMensajes": 3,
+    "noContiene": [
+     "¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?"
+    ],
+    "esperasMin": [
+     1440,
+     2880
+    ],
+    "pregunta": false,
+    "sinCambiosNoNombrados": true
+   },
+   "juicio": "Sólo cambia el texto del segundo mensaje, tal cual. Las otras tarjetas y las esperas quedan iguales."
+  },
+  {
+   "id": "borrar-tarjeta",
+   "titulo": "Borrar una tarjeta",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "Borrá el tercer mensaje"
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "soy Mauricio Bustos",
+     "¿te puedo hacer una pregunta rápida"
+    ],
+    "cantidadMensajes": 2,
+    "noContiene": [
+     "abrí 3 lugares más"
+    ],
+    "pregunta": false
+   },
+   "juicio": "Se va el tercer mensaje (y su espera si queda colgando). Los otros dos quedan iguales."
+  },
+  {
+   "id": "mover-orden",
+   "titulo": "Mover el orden",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "Poné el tercer mensaje primero y después los otros dos como están"
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "abrí 3 lugares más",
+     "soy Mauricio Bustos",
+     "¿te puedo hacer una pregunta rápida"
+    ],
+    "cantidadMensajes": 3,
+    "pregunta": false,
+    "sinCambiosNoNombrados": true
+   },
+   "juicio": "El tercero pasa a ser el primero; los textos no cambian."
+  },
+  {
+   "id": "deshacer",
+   "titulo": "Borrar y después «deshacé eso»",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "Borrá el segundo mensaje"
+    },
+    {
+     "dice": "Deshacé eso: volvé a poner el segundo mensaje como estaba"
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "soy Mauricio Bustos",
+     "¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?",
+     "abrí 3 lugares más"
+    ],
+    "cantidadMensajes": 3
+   },
+   "juicio": "Vuelve el segundo mensaje con su texto de antes, en su lugar. Si no puede, lo dice y señala el ↶ del lienzo; nunca dice «listo» con otro texto inventado."
+  },
+  {
+   "id": "disparador-etapa-recien-creada",
+   "titulo": "«Cuando entra a la etapa X del CRM Y», con la etapa creada recién",
+   "partida": "tres-wa",
+   "antes": [
+    {
+     "crearEtapa": "Prospección activa",
+     "recrear": true
+    }
+   ],
+   "turnos": [
+    {
+     "dice": "Que arranque cuando el lead entra a la etapa Prospección activa del CRM «🧪 Prueba chats 22/10 · Automations»"
+    }
+   ],
+   "espera": {
+    "disparadorEtapa": "Prospección activa",
+    "textoNo": [
+     "no existe"
+    ],
+    "cantidadMensajes": 3
+   },
+   "juicio": "El CRON queda en la etapa recién creada (lo guarda la pantalla por `disparadores`). Nada de «esta etapa no existe»."
+  },
+  {
+   "id": "disparador-etapa-inexistente",
+   "titulo": "«Cuando entra a la etapa X», con una etapa que NO existe",
+   "partida": "tres-wa",
+   "disparador": {
+    "etapa": "Lead entrante"
+   },
+   "turnos": [
+    {
+     "dice": "Que arranque cuando el lead entra a la etapa «Clientes VIP Platino» del CRM «🧪 Prueba chats 22/10 · Automations»"
+    }
+   ],
+   "espera": {
+    "disparadorSinCambio": true,
+    "textoSi": [
+     "no (existe|est[aá]|la encuentro|la tiene|hay)|no tiene esa"
+    ],
+    "cantidadMensajes": 3
+   },
+   "juicio": "No inventa la etapa ni pone otra a escondidas: dice que no existe y ofrece las que hay (o pregunta cuál). El CRON queda como estaba."
+  },
+  {
+   "id": "crear-con-etapa-recien-creada",
+   "titulo": "Crear desde cero con el CRON en una etapa creada recién",
+   "partida": "vacia",
+   "antes": [
+    {
+     "crearEtapa": "Seguimiento Sprint",
+     "recrear": true
+    }
+   ],
+   "turnos": [
+    {
+     "dice": "Cuando un lead entra a la etapa Seguimiento Sprint del CRM «🧪 Prueba chats 22/10 · Automations», mandale este WhatsApp: «Hola {{nombre}}, ¿pudiste ver la info del Sprint?»"
+    }
+   ],
+   "espera": {
+    "disparadorEtapa": "Seguimiento Sprint",
+    "mensajes": [
+     "Hola {{nombre}}, ¿pudiste ver la info del Sprint?"
+    ],
+    "cantidadMensajes": 1,
+    "pregunta": false,
+    "textoNo": [
+     "no existe"
+    ]
+   },
+   "juicio": "Crea con el CRON en la etapa recién creada y ese único mensaje, sin preguntar."
+  },
+  {
+   "id": "esperar-2-dias",
+   "titulo": "«Esperá 2 días» entre los dos mensajes",
+   "partida": "dos-wa",
+   "turnos": [
+    {
+     "dice": "Entre el primer y el segundo mensaje esperá 2 días"
+    }
+   ],
+   "espera": {
+    "esperasMin": [
+     2880
+    ],
+    "cantidadMensajes": 2,
+    "pregunta": false,
+    "sinCambiosNoNombrados": true
+   },
+   "juicio": "Una espera de 2 días entre los dos mensajes; los textos iguales."
+  },
+  {
+   "id": "cinco-min-entre-mensajes",
+   "titulo": "«5 minutos entre cada uno» (entre los mensajes del flujo)",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "Cambiá las esperas: que entre cada mensaje haya 5 minutos"
+    }
+   ],
+   "espera": {
+    "cantidadMensajes": 3,
+    "sinCambiosNoNombrados": true,
+    "textoSi": [
+     "Configuraciones|L[ií]mites|misma persona"
+    ],
+    "textoNo": [
+     "Meta (exige|pide|obliga|no deja)|pol[ií]ticas de Meta"
+    ]
+   },
+   "juicio": "5 minutos entre dos WhatsApp a la MISMA persona no sale: el motor la frena hasta que pasen las horas de «Misma persona» (Configuraciones › Anti-ban, de 3 a 72 h, 20 por defecto; lib/limites-envio.ts y el freno «msg <20h» de lib/nutricion.ts). Lo correcto: lo dice con ESE lugar (o pone las esperas Y avisa que la línea las va a frenar) y ofrece lo más cercano. Nunca culpa a Meta ni inventa una regla suya."
+  },
+  {
+   "id": "goteo-entre-leads",
+   "titulo": "El goteo de Mauricio: «que no salgan todos juntos, uno, esperá 5 minutos, el siguiente»",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "Que no les llegue a todos juntos: mandale al primero, esperá 5 minutos y después al siguiente, y así"
+    }
+   ],
+   "espera": {
+    "noTocaLienzo": true,
+    "textoSi": [
+     "Configuraciones|L[ií]mites"
+    ]
+   },
+   "juicio": "Es el ritmo ENTRE PERSONAS, no una espera dentro del flujo de cada una: no mete esperas de 5 min en el lienzo haciéndolas pasar por goteo. Dice dónde se pone (los límites de envío) o, si no se puede, lo dice. Una pregunta si duda."
+  },
+  {
+   "id": "no-sabado-domingo",
+   "titulo": "«No mandes sábado ni domingo»",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "No mandes sábado ni domingo"
+    }
+   ],
+   "espera": {
+    "noTocaLienzo": true,
+    "textoSi": [
+     "Configuraciones|horario"
+    ],
+    "textoNo": [
+     "agregu[eé]",
+     "no es posible|no se puede"
+    ]
+   },
+   "juicio": "El horario es de la automatización (la tuerca › Configuraciones › Horario, con los días): lo dice y dónde se pone. Nunca mete esperas o condiciones que no existen («dia_semana»), ni dice «agregué» algo que no sirve, ni dice que no se puede."
+  },
+  {
+   "id": "cincuenta-por-dia",
+   "titulo": "«50 por día»",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "Que mande como máximo 50 por día"
+    }
+   ],
+   "espera": {
+    "noTocaLienzo": true,
+    "textoSi": [
+     "Configuraciones|L[ií]mites"
+    ]
+   },
+   "juicio": "El tope es del envío (Configuraciones › Anti-ban), no una tarjeta: lo dice con ESE lugar. No inventa otro lugar («los ajustes de la campaña») ni que lo puso."
+  },
+  {
+   "id": "variable-nombre",
+   "titulo": "Variables: {{nombre}} sí",
+   "partida": "vacia",
+   "turnos": [
+    {
+     "dice": "Cuando alguien entra a la etapa Lead entrante del CRM «🧪 Prueba chats 22/10 · Automations», mandale un WhatsApp que diga «Hola {{nombre}}, ¿cómo va todo por allá?»"
+    },
+    {
+     "soloSiPregunta": true,
+     "elegir": "Elige tú"
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "Hola {{nombre}}, ¿cómo va todo por allá?"
+    ],
+    "cantidadMensajes": 1,
+    "variablesValidas": true
+   },
+   "juicio": "El mensaje con {{nombre}} tal cual."
+  },
+  {
+   "id": "variable-inventada",
+   "titulo": "Variables: una que no existe ({{empresa_del_lead}})",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "En el primer mensaje agregá el nombre de su empresa con la variable {{empresa_del_lead}}"
+    }
+   ],
+   "espera": {
+    "variablesValidas": true,
+    "textoSi": [
+     "no existe|no (tengo|hay)|no est[aá]|no puedo|en su lugar|disponible",
+     "\\{\\{\\s*empresa\\s*\\}\\}"
+    ],
+    "lienzoNo": [
+     "\\bde\\s*[?.,]"
+    ]
+   },
+   "juicio": "No mete una variable que no existe (saldría cruda al lead): lo dice y ofrece la que hay ({{empresa}}, «Empresa del lead», lib/template-vars.ts), o la usa en su lugar. Nunca deja el texto roto («¿Sigues al frente de?»)."
+  },
+  {
+   "id": "si-responde-mover-avisar",
+   "titulo": "«Si responde, movelo a Respondió y avisame»",
+   "partida": "tres-wa",
+   "disparador": {
+    "etapa": "Lead entrante"
+   },
+   "antes": [
+    {
+     "crearEtapa": "Respondió"
+    }
+   ],
+   "turnos": [
+    {
+     "dice": "Si responde, movelo a la etapa Respondió del CRM «🧪 Prueba chats 22/10 · Automations» y avisame por WhatsApp"
+    }
+   ],
+   "espera": {
+    "operaciones": [
+     "proponer_cambio_etapa",
+     "avisar_al_equipo"
+    ],
+    "moverA": "Respondió",
+    "cantidadMensajes": 3,
+    "textoNo": [
+     "no existe"
+    ]
+   },
+   "juicio": "Un «Si responde» con dos acciones: mover a «Respondió» (de ESE CRM) y avisar al equipo. Los tres mensajes siguen."
+  },
+  {
+   "id": "condicion-etiqueta",
+   "titulo": "Condición por etiqueta (una que existe: «Sprint · audio»)",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "Antes del primer mensaje, si tiene la etiqueta «Sprint · audio» que siga el flujo; si no la tiene, que no le mande nada"
+    }
+   ],
+   "espera": {
+    "etiquetaCondicion": "Sprint · audio",
+    "sinEtiquetasNuevas": true,
+    "cantidadMensajes": 3,
+    "condicionPrimero": true
+   },
+   "juicio": "Una condición con la etiqueta que YA existe (no crea otra con el mismo nombre). Los mensajes quedan. La condición va ENTRE el CRON y el primer mensaje (no en paralelo: así no filtra nada)."
+  },
+  {
+   "id": "email",
+   "titulo": "Un email (el ws3 no tiene email conectado)",
+   "partida": "vacia",
+   "turnos": [
+    {
+     "dice": "Cuando alguien entra a la etapa Lead entrante del CRM «🧪 Prueba chats 22/10 · Automations», mandale un email con asunto «Tu lugar en el Sprint» que diga «Hola {{nombre}}, te guardé un lugar para el Sprint del 18 al 20/11.»"
+    },
+    {
+     "soloSiPregunta": true,
+     "elegir": "Elige tú"
+    }
+   ],
+   "espera": {
+    "canal": "email",
+    "sinCanal": "whatsapp",
+    "variablesValidas": true
+   },
+   "juicio": "Una tarjeta de EMAIL con ese asunto y ese texto (no un WhatsApp). Si el email no está conectado, lo avisa."
+  },
+  {
+   "id": "instagram",
+   "titulo": "Instagram (el ws3 NO lo tiene conectado)",
+   "partida": "vacia",
+   "turnos": [
+    {
+     "dice": "Cuando alguien me escribe por Instagram, contestale «¡Gracias por escribir! En un rato te respondo.»"
+    },
+    {
+     "soloSiPregunta": true,
+     "elegir": "Elige tú"
+    }
+   ],
+   "espera": {
+    "sinCanal": "whatsapp",
+    "textoSi": [
+     "instagram"
+    ]
+   },
+   "juicio": "No arma un WhatsApp haciéndolo pasar por Instagram: Instagram no está conectado en el ws3, lo dice (y dónde conectarlo)."
+  },
+  {
+   "id": "que-hace",
+   "titulo": "«¿Qué hace esta automatización?» (no toca el lienzo, fiel a lo que hay)",
+   "partida": "tres-wa",
+   "disparador": {
+    "etapa": "Lead entrante"
+   },
+   "turnos": [
+    {
+     "dice": "¿Qué hace esta automatización?"
+    }
+   ],
+   "espera": {
+    "noTocaLienzo": true,
+    "textoSi": [
+     "(un|1) d[ií]a",
+     "(dos|2) d[ií]as",
+     "lead"
+    ]
+   },
+   "juicio": "Explica sin cambiar nada: cuándo arranca (entra a «Lead entrante»), los tres mensajes y las esperas de 1 y 2 días. Nada que no esté."
+  },
+  {
+   "id": "que-recomendas",
+   "titulo": "«¿Qué me recomendás?» (no toca el lienzo)",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "¿Qué me recomendás para que me respondan más?"
+    }
+   ],
+   "espera": {
+    "noTocaLienzo": true,
+    "textoNo": [
+     "cambi[eé] ",
+     "agregu[eé]"
+    ]
+   },
+   "juicio": "Recomienda sin tocar el lienzo, sobre lo que hay, y sin inventar datos (tasas, resultados de otros)."
+  },
+  {
+   "id": "cuantos-les-llega",
+   "titulo": "«¿A cuántos les va a llegar?» (no inventa números)",
+   "partida": "tres-wa",
+   "disparador": {
+    "etapa": "Lead entrante"
+   },
+   "turnos": [
+    {
+     "dice": "¿A cuántos les va a llegar esto?"
+    }
+   ],
+   "espera": {
+    "noTocaLienzo": true,
+    "textoSi": [
+     "\\b0\\b|cero|ning[uú]n|nadie|no (hay|tengo|s[eé]|puedo)"
+    ]
+   },
+   "juicio": "El CRM de prueba no tiene leads en esa etapa: dice 0 o que no tiene el dato. Nunca un número inventado."
+  },
+  {
+   "id": "ambiguo",
+   "titulo": "Un pedido ambiguo: «cambiá el mensaje»",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "Cambiá el mensaje"
+    }
+   ],
+   "espera": {
+    "noTocaLienzo": true,
+    "unaPregunta": true,
+    "textoNo": [
+     "\\bm[0-9]\\b"
+    ]
+   },
+   "juicio": "Hay tres mensajes y no dice qué: UNA pregunta concreta (¿cuál y qué tiene que decir?) y no toca nada."
+  },
+  {
+   "id": "imposible",
+   "titulo": "Un pedido imposible: «que lo llame por teléfono»",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "Que después del primer mensaje lo llame por teléfono y le deje un mensaje de voz en el buzón"
+    }
+   ],
+   "espera": {
+    "textoSi": [
+     "no (puedo|se puede|es posible|hay|realiza|hace|llama)|llamadas? (no|tel)|lo m[aá]s cercano|en su lugar"
+    ],
+    "sinAudio": true,
+    "esperasMin": [
+     1440,
+     2880
+    ],
+    "cantidadMensajes": 3
+   },
+   "juicio": "Dice que llamar no se puede y ofrece lo más cercano (un audio por WhatsApp, avisarle a él para que llame). No inventa una tarjeta que no existe."
+  },
+  {
+   "id": "pedido-largo",
+   "titulo": "Un pedido largo (más de 8000 caracteres) con los mensajes AL FINAL",
+   "partida": "vacia",
+   "antes": [
+    {
+     "crearEtapa": "Prospección activa"
+    }
+   ],
+   "turnos": [
+    {
+     "dice": [
+      "Te paso todo el contexto de la campaña antes de los mensajes, léelo completo.",
+      "",
+      "EL PRODUCTO. El Sprint de Diseño para la Ejecución Empresarial son tres sesiones en vivo de dos horas cada una, del 18 al 20 de noviembre, de 19 a 21 h hora de la Ciudad de México. Cuesta 270 dólares en un solo pago con tarjeta, y se paga en la página sprint.mauriciobustos.com. Está pensado para dueños y directores de empresas pequeñas y medianas que ya facturan, que tienen equipo, y que sienten que la empresa depende demasiado de ellos. No es un curso grabado: es un taller en vivo, con ejercicios entre sesión y sesión, y al final cada participante se lleva su plan de ejecución de los próximos noventa días escrito y revisado.",
+      "",
+      "A QUIÉN LE ESCRIBIMOS. Son cerca de mil contactos de mi base que en algún momento dejaron sus datos por un anuncio, un webinar o una recomendación, y que nunca recibieron un WhatsApp mío. Muchos son dueños de empresas tradicionales: maquiladoras, distribuidoras, despachos contables, constructoras chicas, clínicas, escuelas privadas. Casi todos están en México, algunos en Colombia, Perú y Chile. La mayoría tiene más de cuarenta años y no les gusta que les hablen como a un influencer: prefieren un trato de usted o de tú respetuoso, directo, sin emojis de más y sin promesas exageradas. Muchos no se acuerdan de mí, así que el primer mensaje tiene que ser corto y fácil de contestar.",
+      "",
+      "EL TONO. Escribo como hablo: cercano pero profesional. Nada de «oferta irrepetible», nada de «últimos cupos» si no es verdad, nada de mayúsculas gritando. Prefiero una pregunta corta que abra la conversación antes que un párrafo con toda la información. Si la persona contesta, yo sigo a mano desde Chats: MaKo sólo manda la apertura y me avisa. No quiero que MaKo conteste por mí en esta campaña.",
+      "",
+      "LO QUE NO QUIERO. No quiero mensajes que hagan creer que hubo un pago o una compra, no quiero comprobantes, no quiero que suene a cobranza. No quiero mandar el link del pago en el primer mensaje. No quiero audios en esta versión: los voy a grabar después. No quiero que se le escriba a nadie que ya sea cliente o que ya haya hablado conmigo.",
+      "",
+      "PREGUNTAS QUE SUELEN HACER Y CÓMO LAS CONTESTO YO A MANO. Primera: «¿Quién eres?». Contesto que soy Mauricio Bustos, consultor de dirección, que ayudo a dueños de empresa a ordenar su estrategia y a que su equipo la ejecute, y que estuvo en contacto conmigo por un webinar o por un anuncio. Segunda: «¿Cuánto cuesta?». Contesto que son 270 dólares en un pago y que incluye las tres sesiones, los materiales y la revisión del plan. Tercera: «¿Queda grabado?». Contesto que sí, que las sesiones quedan grabadas por treinta días, pero que lo valioso es estar en vivo porque se trabaja sobre la empresa de cada uno. Cuarta: «¿Sirve para mi giro?». Contesto que el método no depende del giro sino de que haya un equipo que ejecutar, y le pregunto a qué se dedica y cuántas personas tiene. Quinta: «No tengo tiempo». Contesto que justamente por eso son sólo seis horas en total, en horario de noche, y que la idea es que después tenga más tiempo porque el equipo ejecuta sin él. Sexta: «¿Hay factura?». Contesto que sí, que se emite factura a nombre de la empresa. Séptima: «¿Puedo pagar en pesos?». Contesto que el cobro es en dólares con tarjeta y el banco hace la conversión. Octava: «¿Puedo mandar a alguien de mi equipo?». Contesto que sí, pero que recomiendo que venga el dueño o el director, porque las decisiones son suyas.",
+      "",
+      "EL RITMO. Quiero empezar el sábado 24 de octubre y mandar unos cincuenta por día, sin fines de semana si se puede, con unos minutos entre una persona y la siguiente para no quemar la línea. Eso lo configuramos aparte en los límites; acá sólo quiero los mensajes de la automatización.",
+      "",
+      "LO QUE ESPERO. Con mil contactos, si contesta un diez por ciento son cien conversaciones, y si de esas se registra una de cada diez, son diez lugares, que es lo que tengo. No me importa que contesten muchos; me importa que los que contesten sean dueños de empresa de verdad.",
+      "",
+      "OTRAS NOTAS. La etapa donde voy a poner a los contactos es Prospección activa, en el CRM de prueba. Cuando alguien conteste lo voy a mover a mano. El nombre del contacto está bien cargado en casi todos, así que se puede usar su nombre. Si alguno no tiene nombre, mejor que el mensaje no quede raro. Mi número es el mismo que uso para todo, así que cuidemos la cantidad. Repito lo importante para que no se pierda: mensajes cortos, una pregunta por mensaje, sin link en el primero, sin audios, sin nada que suene a pago.",
+      "",
+      "MÁS CONTEXTO DEL PRODUCTO. El primer día trabajamos el diagnóstico: dónde está la empresa, qué la frena y qué depende del dueño. El segundo día armamos la estrategia de los próximos noventa días, con tres prioridades y nada más. El tercer día bajamos esa estrategia a un tablero de ejecución con responsables, fechas y una reunión semanal de seguimiento de treinta minutos. Cada participante sale con su tablero listo para usar el lunes siguiente. Entre sesión y sesión hay una tarea de veinte minutos. El grupo es chico, de máximo veinticinco empresas, para que haya tiempo de revisar el caso de cada uno.",
+      "",
+      "SOBRE MÍ. Llevo quince años acompañando a dueños de empresa. Trabajé con más de doscientas empresas medianas en México y Latinoamérica. No vendo fórmulas mágicas: vendo un método probado para que la estrategia no se quede en un documento. Mis clientes suelen ser personas ocupadas, prácticas, que valoran que se les hable claro y que no se les haga perder el tiempo. Por eso los mensajes tienen que ser breves y respetuosos.",
+      "",
+      "CASOS DE CLIENTES QUE PUEDO CONTAR SI PREGUNTAN. Una maquiladora de empaque de Guadalajara, con sesenta personas, donde el dueño revisaba cada pedido antes de que saliera: en tres meses armó un tablero semanal y dejó de ser el cuello de botella. Una distribuidora de material eléctrico en Monterrey, con tres sucursales que competían entre sí: alinearon una sola meta trimestral y una reunión de seguimiento de media hora los lunes. Un despacho contable de Puebla que crecía en clientes pero no en margen: definieron qué clientes no aceptar y subieron precios con un plan de comunicación. Estos casos los cuento sólo si me preguntan, nunca en el primer mensaje, y nunca con nombres de empresas.",
+      "",
+      "LO QUE PASÓ EN CAMPAÑAS ANTERIORES. La última vez que escribí en frío a una lista mandé un mensaje largo con el link y el precio: contestó menos del dos por ciento y varios me bloquearon. Cuando probé con una pregunta corta, sin link, contestó cerca del doce por ciento y casi nadie se molestó. Por eso esta vez la apertura es una pregunta y el link va recién cuando la persona muestra interés. Tampoco funcionó mandar tres mensajes el mismo día: la gente siente que la persiguen. Por eso entre un mensaje y otro tiene que haber al menos un día, y el tercero es el único que menciona la capacitación.",
+      "",
+      "LO QUE VOY A MEDIR. Cada día quiero ver cuántos pasaron a contactado y cuántos respondieron, y al final de la primera semana decidir si subimos el ritmo o cambiamos el primer mensaje. Si a la semana contestó menos del cinco por ciento, cambiamos la apertura; si contestó más del diez, seguimos igual y subimos un poco la cantidad por día.",
+      "",
+      "SOBRE LOS HORARIOS. Mis contactos leen WhatsApp temprano en la mañana y después de las seis de la tarde. A mediodía están en operación y no contestan. Si se puede, que los mensajes salgan entre las nueve y las once de la mañana, hora de la Ciudad de México, y nunca de noche: un mensaje de un desconocido a las diez de la noche se siente invasivo, y eso es lo último que quiero que piense un dueño de empresa de mí.",
+      "",
+      "UNA ÚLTIMA COSA. Si en algún momento no entiendes algo de lo que te pido, pregúntame una sola vez y concreto. Pero si te pido algo claro, hazlo como te lo pido, sin cambiarle las palabras.",
+      "",
+      "Ahora sí. Que arranque cuando el lead entra a la etapa Prospección activa del CRM «🧪 Prueba chats 22/10 · Automations». Quiero que estos sean los mensajes:",
+      "",
+      "Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?",
+      "",
+      "Esperar 1 día",
+      "",
+      "Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?",
+      "",
+      "Esperar 2 días",
+      "",
+      "{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?"
+     ]
+    },
+    {
+     "soloSiPregunta": true,
+     "elegir": "Prospección activa"
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "soy Mauricio Bustos. ¿Sigues al frente de tu empresa?",
+     "¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?",
+     "abrí 3 lugares más para una capacitación en vivo"
+    ],
+    "cantidadMensajes": 3,
+    "esperasMin": [
+     1440,
+     2880
+    ],
+    "sinAudio": true,
+    "variablesValidas": true,
+    "disparadorEtapa": "Prospección activa"
+   },
+   "juicio": "Un pedido largo se lee ENTERO: los tres mensajes del final quedan tal cual, con sus esperas y el CRON. Si hay un tope de largo, se dice (no se corta en silencio)."
+  },
+  {
+   "id": "emojis-saltos",
+   "titulo": "Con emojis y saltos de línea",
+   "partida": "vacia",
+   "turnos": [
+    {
+     "dice": [
+      "Cuando alguien entra a la etapa Lead entrante del CRM «🧪 Prueba chats 22/10 · Automations», mandale estos 2 mensajes tal cual:",
+      "",
+      "👋 Hola {{nombre}}!",
+      "¿Sigues al frente de tu empresa? 🏢",
+      "",
+      "---",
+      "",
+      "🔥 Me quedan 3 lugares 🔥",
+      "✅ Del 18 al 20/11",
+      "✅ En vivo",
+      "¿Te paso la info? 🙌"
+     ]
+    },
+    {
+     "soloSiPregunta": true,
+     "elegir": "Elige tú"
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "👋 Hola {{nombre}}! ¿Sigues al frente de tu empresa? 🏢",
+     "🔥 Me quedan 3 lugares 🔥 ✅ Del 18 al 20/11 ✅ En vivo ¿Te paso la info? 🙌"
+    ],
+    "cantidadMensajes": 2,
+    "variablesValidas": true,
+    "esperasMin": []
+   },
+   "juicio": "Dos mensajes con los emojis y los saltos de línea tal cual, sin una espera que nadie pidió (la regla 3 del prompt metía 20 h)."
+  },
+  {
+   "id": "mexicano",
+   "titulo": "En mexicano: «órale, ponle que…»",
+   "partida": "dos-wa",
+   "turnos": [
+    {
+     "dice": "Órale, ponle al final uno que diga «¿Te late que platiquemos 10 minutos esta semana?» y que espere un día antes de mandarlo, ¿sale?"
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "Hola estimado",
+     "soy Mauricio Bustos",
+     "¿Te late que platiquemos 10 minutos esta semana?"
+    ],
+    "cantidadMensajes": 3,
+    "esperasMin": [
+     1440
+    ],
+    "pregunta": false,
+    "sinCambiosNoNombrados": true
+   },
+   "juicio": "Entiende el mexicano: espera de 1 día y el mensaje nuevo al final, tal cual."
+  },
+  {
+   "id": "creame-otra",
+   "titulo": "«Créame otra automatización para…» desde el chat de una abierta",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "Créame otra automatización para los que respondieron: que les mande el link del Sprint https://sprint.mauriciobustos.com/"
+    },
+    {
+     "pulsar": "crear-ahora"
+    },
+    {
+     "soloSiPregunta": true,
+     "elegir": "Elige tú"
+    }
+   ],
+   "espera": {
+    "filaNueva": true,
+    "abiertaSinCambio": true,
+    "mensajes": [
+     "sprint.mauriciobustos.com"
+    ]
+   },
+   "juicio": "No edita la abierta: ofrece crear OTRA (burbuja), y al tocar «Crear ahora» nace una nueva con el link. La abierta queda igual."
+  },
+  {
+   "id": "pideselo-a-mako-modal",
+   "titulo": "«Pídeselo a MaKo» del modal «Nueva automatización» (pedido inicial)",
+   "partida": "vacia",
+   "antes": [
+    {
+     "crearEtapa": "Prospección activa"
+    }
+   ],
+   "turnos": [
+    {
+     "origen": "afuera",
+     "dice": "Créame una automatización que cuando un lead entra a la etapa Prospección activa del CRM «🧪 Prueba chats 22/10 · Automations» le mande: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?»"
+    }
+   ],
+   "espera": {
+    "disparadorEtapa": "Prospección activa",
+    "mensajes": [
+     "Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?"
+    ],
+    "cantidadMensajes": 1,
+    "pregunta": false
+   },
+   "juicio": "Nace con el CRON en esa etapa y ese único mensaje, sin preguntar."
+  },
+  {
+   "id": "usa-plantilla-lead-nuevo",
+   "titulo": "Usar una plantilla: «usá la de un lead nuevo»",
+   "partida": "vacia",
+   "turnos": [
+    {
+     "dice": "Usá la plantilla de un lead nuevo"
+    },
+    {
+     "soloSiPregunta": true,
+     "elegir": "Elige tú"
+    }
+   ],
+   "espera": {
+    "minMensajes": 1,
+    "variablesValidas": true,
+    "sinAudio": true
+   },
+   "juicio": "Arma la de «Un Lead Entró» (la bienvenida) o dice cómo usarla desde la galería; no inventa audios ni datos."
+  },
+  {
+   "id": "audio-sin-audios",
+   "titulo": "«Que el primer mensaje sea un audio» (el ws3 no tiene audios)",
+   "partida": "tres-wa",
+   "turnos": [
+    {
+     "dice": "Que el primer mensaje sea un audio mío en vez de texto"
+    }
+   ],
+   "espera": {
+    "textoSi": [
+     "audio|grab"
+    ]
+   },
+   "juicio": "No hay audios guardados: no inventa uno («Sprint de audio»). Dice que lo grabe (en la tarjeta) o lo deja listo para grabar, y lo dice."
+  },
+  {
+   "id": "no-repite-pregunta",
+   "titulo": "No repite una pregunta ya contestada",
+   "partida": "vacia",
+   "turnos": [
+    {
+     "dice": "Armame una bienvenida por WhatsApp para los leads nuevos"
+    },
+    {
+     "soloSiPregunta": true,
+     "elegir": "Elige tú"
+    },
+    {
+     "soloSiPregunta": true,
+     "elegir": "Elige tú"
+    }
+   ],
+   "espera": {
+    "noRepitePregunta": true,
+    "minMensajes": 1,
+    "variablesValidas": true
+   },
+   "juicio": "Como mucho una pregunta por tema (las rondas tienen tope); contestada, no vuelve a preguntarla. Termina armando."
+  },
+  {
+   "id": "seguimiento-no-contesto",
+   "titulo": "Un seguimiento «si no responde» lleva «No contestó desde que entró» (#289, neutro)",
+   "partida": "dos-wa",
+   "turnos": [
+    {
+     "dice": "Agregá al final un seguimiento a los 2 días si no responde: «{Nombre}, ¿pudiste ver lo que te mandé? Me avisas»"
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "pudiste ver lo que te mandé"
+    ],
+    "seguimientoNoContesto": "pudiste ver lo que te mandé",
+    "esperasMin": [
+     2880
+    ],
+    "sinDuplicados": true
+   },
+   "juicio": "El seguimiento sale sólo si el lead no contestó: la espera de 2 días, la condición «No contestó desde que entró» y el mensaje. Sin ella le llega aunque haya contestado."
+  },
+  {
+   "id": "solo-apertura",
+   "titulo": "«Sólo quiero que sea de apertura» + seguimiento + avisar al responder: borra lo que sobra (#289, neutro)",
+   "partida": "apertura-con-casos",
+   "turnos": [
+    {
+     "dice": "En realidad solo quiero que la automatización sea de \"Apertura\", y de última con un seguimiento si no responden con algo como \"Hola querido {Nombre}, si no me confirmas no puedo reservarte la guía\"... Y una vez que alguien responde en cualquier parte del flujo, se corta la automatización y le avisa a Ana por el grupo de WhatsApp de MaKo."
+    }
+   ],
+   "espera": {
+    "mensajes": [
+     "te escribo de Estudio Norte",
+     "si no me confirmas no puedo reservarte la guia"
+    ],
+    "noContiene": [
+     "Es la guía de Estudio Norte para ordenar tu proyecto",
+     "Te la mando en un rato",
+     "Perfecto, gracias por tu tiempo"
+    ],
+    "seguimientoNoContesto": "si no me confirmas no puedo reservarte",
+    "operaciones": [
+     "avisar_al_equipo"
+    ]
+   },
+   "juicio": "Quedan la apertura y el seguimiento (detrás de «No contestó»); los mensajes de los casos se van; cuando responde, avisa al grupo. Nada de lo que pidió sacar queda."
+  }
+ ]
+}

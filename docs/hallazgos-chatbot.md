@@ -6501,3 +6501,111 @@ que otras filas es la firma de un script.
 
 **Vive en:** `lib/plantilla-crear.ts` · `lib/setting-secuencias.ts` · `lib/workspace.ts` (`crearWorkspace`: sólo
 el funnel) · `lib/sugerencias-crm-server.ts` · `scripts/arnes-automatizacion-punta-a-punta.mts`
+
+## El chat de MaKo de Automations, probado con 36 casos SIN PANTALLA (22/10/2026)
+
+Martín, 22/10: «prueba los chats... Como el chat de MaKo en Automations, todo debe funcionar. Prueba muchos casos de
+uso». Lo que pasó en la llamada con Mauricio (01:51-02:10): pegó la secuencia con «Quiero que estos sean los mensajes»,
+MaKo armó dos WhatsApp, contestó «indícame qué cambios…» y después metió un audio y una variable que no existe.
+El arnés es `scripts/probar-chats/automations.mts` con `casos-automations.json` (cómo correrlo y contra otra rama, en su
+cabecera): llama a las MISMAS rutas que la pantalla (`/api/mako/pedidos`, `/api/chat-agent/secuencias/ia`,
+`/api/chat-agent/secuencias`) en el orden de `ChatMako.tsx`, en el ws3, y juzga lo GUARDADO, no el texto de MaKo.
+Corrido contra origin/main 43b0c2625: **18 pasan y 18 fallan**. Lo que falla, por causa (no por caso):
+
+### «Quiero que estos sean los mensajes» terminaba en una RESPUESTA: el «?» de lo PEGADO lo volvía una pregunta
+
+**Síntoma (medido, caso `quiero-que-estos-sean`):** lienzo con 2 WhatsApp + «Quiero que estos sean los mensajes:» y tres
+textos. MaKo contestó «Yo no puedo modificar el flujo directamente desde aquí, pero si quieres… pídemelo en el chat», sin
+tocar nada. Lo mismo con «…si no la tiene, que no le mande nada» (caso `condicion-etiqueta`): «Tendrías que insertar una
+condición…».
+**El diagnóstico obvio era el equivocado:** no es el modelo «que no quiere». Es el enrutador por regex de ANTES del modelo:
+`esConsulta` (lib/flujo-ia-consulta.ts) da consulta si no ve un verbo de cambio Y hay un «?» en CUALQUIER parte — y los
+mensajes pegados llevan «¿Sigues al frente de tu empresa?». «Quiero que estos sean» no tiene infinitivo, así que no
+cuenta como pedido. Y `RX_NADA` lee «que no le mande nada» (lo que se PIDE que haga el flujo) como «no cambies nada». La
+consulta va al prompt de explicar, que sólo puede devolver `{"respuesta"}`: no hay forma de que edite.
+**Además:** el voseo no es un verbo de cambio para `pideCambio`: «poné» → «pone», que no es «pon» (`IMPERATIVOS`).
+**Regla:** lo que viene después de «:» o entre comillas es MATERIAL (lo pegado), no cuenta para decidir si es pregunta; y
+una negación DENTRO de lo pedido no es «no toques nada». Ante la duda, editar (la capa 2 contesta si no había cambio).
+**Vive en:** `lib/flujo-ia-consulta.ts` (`esConsulta`, `RX_NADA`, `IMPERATIVOS`) · la ruta, `esConsulta(pedido)`.
+
+### «Hazlo como te lo indiqué» → «indícame qué cambios…»: EDITAR no ve el chat
+
+**Síntoma (caso `hazlo-como-te-indique`, la llamada tal cual):** turno 1 «Editalos y agregalos: <dos textos>» pisó los
+dos mensajes de antes (no los agregó) y le sumó «Hola {{nombre}},» a uno de los textos pegados. Turno 2, «Hazlo como te lo
+indiqué»: «Por favor indícame con más detalle qué cambios te gustaría hacer en el flujo». Y «Deshacé eso» (caso
+`deshacer`): «No tengo el registro del texto anterior exacto de ese mensaje».
+**Causa:** la ruta recibe `historial`, pero editar no se lo pasa al modelo: `userDeEditar` (lib/flujo-ia.ts) manda sólo
+el pedido de ESTE turno y el lienzo. El modelo no sabe qué «te indiqué» ni qué había antes; el hilo sólo lo usan las
+preguntas con botones.
+**Vive en:** `lib/flujo-ia.ts` (`userDeEditar`) · `app/api/chat-agent/secuencias/ia/route.ts` (editar). El ↶ del lienzo
+sí deshace, pero MaKo no lo dice.
+
+### «Que arranque cuando…» ponía el CRON en la etapa de ENTREGA «Arranque»
+
+**Síntoma (casos `mau-pega-con-disparador` y `disparador-etapa-recien-creada`):** «Que arranque cuando el lead entra a la
+etapa Prospección activa del CRM X» → «arranca cuando llega a «Arranque»», con el aviso «Elegí la etapa de entrega
+«Arranque»». Con «Cuando un lead entra a la etapa…» (sin «arranque») la misma etapa recién creada sale bien (casos
+`crear-con-etapa-recien-creada`, `pideselo-a-mako-modal`): no es caché ni que la etapa «no se vea».
+**Causa:** `entregaNombrada` (lib/flujo-ia.ts) busca los NOMBRES de las etapas de entrega como palabras sueltas del pedido
+y PISA lo que eligió el modelo. «arranque» (el verbo) = «Arranque» (la etapa del producto del ws3).
+**Regla:** un nombre de etapa de una o dos palabras comunes no basta para pisar al modelo; si se pisa, que sea porque el
+pedido habla de un cliente (`hablaDeAlumno`) o nombra el producto.
+
+### «Movelo a Respondió»: «esa etapa no existe» con la etapa recién creada (la pista del «esta etapa no existe» de la llamada)
+
+**Síntoma (caso `si-responde-mover-avisar`):** automatización con el CRON en el CRM de prueba, «Respondió» creada en ese
+CRM: «Saqué «Mover de etapa»: esa etapa no existe». Tampoco quedó el aviso pedido, y dijo «Cambié «…abrí 3 lugares…»».
+**Causa:** `resolverAccion` (lib/flujo-ia.ts) resuelve el CRM de «Mover de etapa» con `resolverProducto(datos.embudoId ??
+datos.producto ?? null)`: si el modelo no escribe el nombre EXACTO del CRM (con «🧪», «·»…), cae al PRINCIPAL
+(`esDefault`), no al CRM del CRON de la automatización, y ahí la etapa no está. Las condiciones sí prueban «el principal y
+después cualquiera» (`resolverEtapa`); la acción no. En la campaña de Mauricio, «mover a Contactado/Respondió» del CRM
+Sprint va por acá. **No se midió en el ws1** (no se toca): es la hipótesis más fuerte para el A5 de la llamada.
+
+### Un pedido de más de 2.000 caracteres se CORTA EN SILENCIO y MaKo inventa lo que falta
+
+**Síntoma (caso `pedido-largo`, 8.304 caracteres con los mensajes al final):** «Creé «Primer contacto Sprint Diseño»…
+Manda «Hola {{nombre}}, soy Mauricio de Sprint Diseño. ¿Le gustaría conversar brevemente…»» y un AI Step: nada de lo
+pedido, sin decir que no leyó el final.
+**Causa, en tres topes que no se hablan:** la ruta corta `pedido.slice(0, 2000)` (y otra vez `userDeCrear`,
+`userDeEditar` y `userDeExplicar`); el modal «Pídeselo a MaKo» deja escribir 8.000 (`TOPE_PEDIDO`, CajaPedido) y la
+barra del chat no tiene tope; `/api/mako/pedidos` contesta 400 «muy largo» desde 4.000 y el chat sigue con el texto
+entero. Nadie lo dice.
+**Regla:** un tope se DICE (o se lee entero); nunca se manda a un modelo la mitad de un pedido sin avisar.
+
+### La regla 3 del prompt («entre dos WhatsApp, 20 horas o más») le gana a lo pedido, y se usa para inventar
+
+**Síntomas:** «estos 2 mensajes tal cual» → metió una espera de 20 h entre ellos (caso `emojis-saltos`). «Que entre cada
+mensaje haya 5 minutos» → se negó con un dato inventado: «Meta exige al menos 20 horas entre mensajes de seguimiento»
+(caso `cinco-min-entre-mensajes`). La regla 8 dice «SÓLO lo que pide el pedido»: las dos chocan y gana la 3.
+**Vive en:** `lib/flujo-ia.ts` (`TARJETAS_Y_REGLAS`, reglas 2, 3 y 8).
+
+### Lo demás que se midió (cada uno con su caso)
+
+- **Un link escrito en el pedido se saca** (caso `creame-otra`): «No tengo guardado el link «sprint»: el mensaje va sin
+  link». La regla 2 del prompt sólo deja links del catálogo, aunque el dueño lo escriba.
+- **Editar no puede INSERTAR entre dos tarjetas** (caso `esperar-2-dias`): «agregar» cuelga sólo de una salida VACÍA
+  («Esa salida ya tiene tarjetas: no la pisé») y el resumen dice igual «Cambié «Hola estimado…»» con el borrador idéntico
+  al publicado (61,7 s y 5 intentos). Una flecha reescrita cuenta como «Cambié».
+- **Dos textos pegados para agregar quedaron en UNA tarjeta** (caso `agrega-estos-textos`).
+- **Una variable que no existe se borra y deja el texto roto**: «¿Sigues al frente de?» (caso `variable-inventada`), con
+  el aviso «Borré una variable que no existe» y nada más.
+- **Límites y horario: el modelo de editar no sabe dónde viven** e inventa lugares («se configura desde la campaña o
+  difusión al momento de programarla», «la configuración general del disparador»). Los reales: Configuraciones › Límites
+  y el horario de la automatización. Ante «no mandes sábado ni domingo» intentó una condición `dia_semana` (no existe) y
+  terminó agregando dos «Esperar 2 días» al final.
+- **«Que lo llame por teléfono»** (caso `imposible`): no dijo que no puede; sacó la espera de 1 día que nadie nombró y
+  metió un aviso al equipo «Llamar a {{lead_telefono}}».
+- **Al borrar un mensaje del medio quedan dos esperas seguidas** (1 día + 2 días = 3 días hasta el siguiente).
+- **Lo que anda:** crear sobre el lienzo VACÍO con la secuencia pegada (el caso de Mauricio en vacío: tres tarjetas, 1 y 2
+  días, `{Nombre}` → `{{nombre}}`), cambiar un texto, borrar, mover, el mexicano, emojis, email, Instagram sin conectar
+  (avisa), la etapa inexistente (lista las que hay), preguntas que no tocan el lienzo, «créame otra» por la burbuja (la
+  abierta queda igual), la plantilla de un lead nuevo, un audio que no hay (lo dice).
+
+### El tiempo: 26 de 36 casos tienen un turno de más de 20 s
+
+Dónde se va, medido en las fases: `/api/mako/pedidos` tarda 7-8 s cuando llama a la IA (antes de que MaKo empiece);
+`armarContexto` ~4 s; y el primer intento del ws3 rebota casi siempre (la key propia de Gemini al tope diario, 429) y
+recién contesta la red de plataforma (Gemini flash / flash-lite o Groq gpt-oss). Un caso hizo 11 intentos (45 s).
+
+**Sin hacer (todo lo de arriba):** ningún arreglo se hizo en esta corrida; el arnés queda como prueba de aceptación del
+chat del área (`node … scripts/probar-chats/automations.mts --casos=…`).

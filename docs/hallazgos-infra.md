@@ -7755,3 +7755,29 @@ ode.exe` como dato de un argv: PERMITIDOS en `scripts/rutas-windows-en-tests.mjs
 **Sin hacer:** Planes (`cfcf01abd` + `75e10a6ee`) y Ventas (`0c28ccf39`) vuelven a sus chats; Planes tiene que mergear a Cobros (`ac21e6b4b`) y
 Ventas arreglar la regex de `tests/crm-tarjeta-personalizable.test.ts` ("los chips en el orden de la persona").
 **Vive en:** scripts/tests-afectados.mjs · scripts/guardas-push.sh · tests/crm-tarjeta-personalizable.test.ts · lib/compra-plan.ts
+
+## Correr una RUTA de la app sin Next: lo que hay que poner alrededor (22/10/2026, scripts/probar-chats/entorno.mts)
+
+Para probar un chat sin levantar la app (bootear local escribe en producción) se llama al `POST` de la ruta de verdad con
+`node --env-file=<.env.local> --conditions=react-server --import tsx`. Tres cosas que Next pone y un script no, y cómo
+se ven cuando faltan:
+
+- **La sesión.** `getUsuarioActual` (lib/auth.ts) usa `cookies()`, que fuera de un pedido TIRA («`cookies` was called
+  outside a request scope»). No se fabrica un token (sería saltear el segundo factor del super admin): `entorno.mts`
+  reemplaza el módulo lib/auth.ts en `require.cache` antes de importar nada de la app (las libs se cargan como CJS por
+  tsx, así que el reemplazo lo ven todas). Quien ya importó lib/auth.ts antes se queda con el real.
+- **El workspace.** `runWithWorkspace(ws)` es lo que lee `getWorkspaceActual` antes que las cookies. `enWs` tira con un
+  ws que no es de prueba (`esClienteDePrueba`): nunca el ws1.
+- **⚠️ La caché de Next, la trampa que no avisa.** `cachedRead` (lib/cache.ts) usa `unstable_cache`, que sin Next tira
+  «incrementalCache missing». Adentro de un `.catch(() => [])` (como `productosConEtapas` en `armarContexto`) NO se ve:
+  el contexto de MaKo sale sin CRMs ni etapas y MaKo «dice» que la etapa no existe. Se pone un
+  `globalThis.__incrementalCache` de paso (nunca guarda). Consecuencia: un arnés no reproduce una caché vieja de
+  producción (TTL 60-600 s).
+- **Una server action de app/ no siempre se puede importar:** app/crm/actions.ts arrastra `next/navigation` y con
+  `--conditions=react-server` tira «_react.default.createContext is not a function» al CARGAR. Para preparar datos se usa
+  la lib que la acción llama (`saveFunnelDe`, `crearCrm`). Y `revalidatePath` sin Next tira DESPUÉS de guardar.
+- **Una regex con `\b` no ve las tildes:** `/cambi[eé]\b/` no da con «Cambié» (para JS la «é» no es letra). Para
+  palabras en español: `(?<![a-záéíóúñ])…(?![a-záéíóúñ])`.
+- **La cuota es compartida:** cada turno de un arnés gasta la IA de verdad del ws3, que hoy es la RED DE PLATAFORMA (las
+  keys gratis de la agencia: la key propia del ws3 rebota con 429 diario). Los 36 casos del 22/10 quedaron anotados en
+  `anthropic_usage` del ws3.
