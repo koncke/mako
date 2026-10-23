@@ -18,11 +18,15 @@ export default function PreciosPlanesMp({ moneda, planes }: { moneda: string; pl
   const [guardando, setGuardando] = useState<string | null>(null);
   const [, start] = useTransition();
   const { toast, show, clear } = useToast();
-  const n = (s: string): number | null => { const x = Number(s.replace(',', '.')); return s.trim() && Number.isFinite(x) && x > 0 ? x : null; };
+  // «130.000» y «130.000,50» son pesos con punto de miles (revisión del diff, 23/10/2026: el input numérico lo leía como 130).
+  const n = (s: string): number | null => { const x = Number(s.replace(/[\s.]/g, '').replace(',', '.')); return s.trim() && Number.isFinite(x) && x > 0 ? x : null; };
 
   const guardar = (id: string) => start(async () => {
+    const texto = (valores[id] ?? '').trim();
+    // Un valor que no se entiende NO borra el precio: se dice. Vacío sí lo saca (a propósito).
+    if (texto && n(texto) == null) { show('Ese precio no se entiende: escribe sólo el número', undefined, 'bad'); return; }
     setGuardando(id);
-    const r = await guardarPrecioLocalAction(id, n(valores[id] ?? ''));
+    const r = await guardarPrecioLocalAction(id, n(texto));
     setGuardando(null);
     if (!r.ok) { show(r.error, undefined, 'bad'); return; }
     show('Precio guardado');
@@ -38,7 +42,7 @@ export default function PreciosPlanesMp({ moneda, planes }: { moneda: string; pl
         <div key={p.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 10 }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: 'var(--dim)', flex: '1 1 180px' }}>
             {p.nombre} · {formatoMonto(p.precioUsd, 'USD')}
-            <input className="mk-input" type="number" inputMode="decimal" min={0} placeholder="Sin cargar" value={valores[p.id] ?? ''}
+            <input className="mk-input" type="text" inputMode="decimal" placeholder="Sin cargar" value={valores[p.id] ?? ''}
               onChange={(e) => setValores((v) => ({ ...v, [p.id]: e.target.value }))} />
           </label>
           <Button variant="secondary" size="sm" onClick={() => guardar(p.id)} loading={guardando === p.id}>Guardar</Button>

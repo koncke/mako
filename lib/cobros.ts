@@ -1021,9 +1021,12 @@ export async function atarCobroASuCuenta(ws: number, id: number, autor: string):
   if (u.workspace_id === plataforma) return { ok: false, resumen: 'Ese email es del equipo de MaKo: no se le asigna un plan.' };
   if (u.rol_ws !== 'admin') return { ok: false, resumen: 'Ese email es del equipo de otro negocio, no su dueño: no lo ato solo.' };
   const { data: otro, error } = await getSupabaseServer().from('cobros').select('id')
-    .eq('workspace_id', plataforma).eq('alta_ws', u.workspace_id).neq('id', c.id).in('estado', ['pagado']).limit(1);
+    .eq('workspace_id', plataforma).eq('alta_ws', u.workspace_id).neq('id', c.id)
+    // Sólo lo que TODAVÍA cobra (la lectura de «suscripción viva» de /admin/cobros): cortar uno de verdad destraba, y una
+    // suscripción devuelta pero viva sí traba (revisión del diff, 23/10/2026).
+    .eq('tipo', 'suscripcion').in('estado', ['pagado', 'reembolsado']).or('suscripcion_estado.is.null,suscripcion_estado.neq.cancelada').limit(1);
   if (error) throw new Error(`No pude revisar los cobros de esa cuenta: ${error.message}`);
-  if ((otro ?? []).length) return { ok: false, resumen: 'Esa cuenta ya tiene otro cobro de MaKo atado: corta uno de los dos primero.' };
+  if ((otro ?? []).length) return { ok: false, resumen: 'Esa cuenta ya tiene otra suscripción de MaKo que se sigue cobrando: córtala primero.' };
   const w = await getWorkspace(u.workspace_id);
   if (!w) return { ok: false, resumen: 'Esa cuenta ya no existe.' };
   if (w.capa !== c.alta_capa) await actualizarWorkspace(w.id, { capa: c.alta_capa });
