@@ -73,7 +73,7 @@ test('el anti-ban de la automatización: goteo, por día y misma persona, cada u
   // 23/10/2026: un hook (`useAntibanDeLaAutomatizacion`) cuyas filas reparte la pantalla por canal.
   const a = tramo(p, 'export function useAntibanDeLaAutomatizacion(', '\n}\n');
   // Las cuatro filas: tres de WhatsApp y una de Email.
-  assert.match(a, /whatsapp: d \? \[\s*filaGoteo\('minutos', 'Goteo', 'el goteo', 'min',[\s\S]*filaGoteo\('dia', 'Tope por día', 'el tope por día', 'mensajes',[\s\S]*filaPersona\('whatsapp', RANGOS_LIMITES\.wa\.personaHoras\),\s*\] : \[\],\s*email: d \? \[filaPersona\('email', RANGOS_LIMITES\.email\.personaHoras\)\] : \[\],/);
+  assert.match(a, /whatsapp: d \? \[\s*filaGoteo\('minutos', 'Goteo', 'el goteo', 'min',[\s\S]*filaGoteo\('dia', 'Tope por día', 'el tope por día', 'mensajes',[\s\S]*filaPersona\('whatsapp', RANGOS_LIMITES\.wa\.personaHoras\),\s*filaVistaPrevia\(\),\s*\] : \[\],\s*email: d \? \[filaPersona\('email', RANGOS_LIMITES\.email\.personaHoras\)\] : \[\],/);
   // Goteo y tope: apagar SACA el campo; prender arranca con el número que se veía gris.
   const g = tramo(a, 'const filaGoteo = ', '\n  };');
   assert.match(g, /const on = v !== undefined;/);
@@ -88,7 +88,7 @@ test('el anti-ban de la automatización: goteo, por día y misma persona, cada u
   assert.match(m, /if \(!d\) return null;/);
   assert.match(m, /<Numero valor=\{valor\}[^\n]*apagado=\{!on\}/);
   // Los dos con el interruptor de la casa (el de «Horario de oficina» y «Activar»).
-  assert.equal((a.match(/interruptor=\{<Interruptor on=\{on\}/g) ?? []).length, 2);
+  assert.equal((a.match(/interruptor=\{<Interruptor on=\{on\}/g) ?? []).length, 3, 'filaGoteo, filaPersona y filaVistaPrevia: cada una con el interruptor de la casa');
   for (const viejo of [/>\s*Quitar\s*</, /Poner \{/, /Como el negocio/, /GoteoDeLaAutomatizacion|PersonaDeLaAutomatizacion/]) assert.doesNotMatch(p, viejo, `volvió ${viejo}`);
 });
 
