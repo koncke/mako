@@ -57,12 +57,35 @@ export const esEstadoMeta = (x: unknown): x is EstadoMeta =>
  */
 export function avisoSinResultados(p: { esUsuario: boolean; meta: EstadoMeta | null; porNombre: boolean | null }): string {
   if (!p.esUsuario && p.porNombre !== true) return 'Por nombre no se puede: escribe su @';
-  if (p.meta === 'sin-conexion') return 'Conecta Meta para ver su cuenta';
+  // 22/10/2026: la fila lleva al lado el botón «Conectar Meta» (`pideConectarMeta`): la frase dice POR QUÉ, no repite
+  // la orden del botón. Antes decía «Conecta Meta para ver su cuenta» y no había con qué.
+  if (p.meta === 'sin-conexion') return 'Su cuenta se busca con tu Meta';
   if (p.meta === 'sin-permiso') return 'Meta no da permiso: revisa la conexión';
   if (p.meta === 'no-pude') return 'Meta no contestó';
   if (p.meta === 'no-esta') return 'Meta no la muestra: es personal o no existe';
   return 'Sin resultados';
 }
+
+// ⚠️ «CONECTAR META» ANTES DE ESCRIBIR, NO DESPUÉS DE BUSCAR (22/10/2026). Martín, textual: «La búsqueda de Instagram: no
+// funciona porque tengo que conectar Meta. No entiendo eso». El campo dejaba escribir el @ a ciegas, y recién la lista,
+// después de buscar, decía «Conecta Meta»: sin un botón y sin decir que la búsqueda ES con la Meta del negocio. Ahora el
+// buscador pregunta UNA vez, al enfocar el campo (`?estado=1` de la ruta), si el negocio puede buscar en Meta; sin
+// conexión, debajo del campo va `AVISO_SIN_META` y «Conectar Meta», que abre el modal de la casa sin salir de la tab
+// (AGENTS.md). La fila de la lista sin resultados lleva el mismo botón. «Usar @x» a mano sigue.
+
+/** Si el negocio puede buscar en Meta: lo que contesta `?estado=1` de la ruta, sin buscar ningún perfil. */
+export type ConexionMeta = 'conectado' | 'sin-conexion' | 'sin-permiso' | 'no-pude';
+export const esConexionMeta = (x: unknown): x is ConexionMeta =>
+  x === 'conectado' || x === 'sin-conexion' || x === 'sin-permiso' || x === 'no-pude';
+
+/**
+ * ¿Va «Conectar Meta»? Sólo sin conexión (el negocio sin token, o su página sin Instagram profesional): es lo que se
+ * arregla conectando. Sin permiso o sin respuesta de Meta, ofrecer «Conectar» sería mandar a conectar lo conectado.
+ */
+export const pideConectarMeta = (estado: ConexionMeta | EstadoMeta | null): boolean => estado === 'sin-conexion';
+
+/** La línea de debajo del campo cuando el negocio no puede buscar en Meta: el porqué; el botón dice qué hacer. */
+export const AVISO_SIN_META = 'Las cuentas se buscan con tu Meta';
 
 /** Un perfil de Instagram para elegir. `usuario` va sin la @ y en minúsculas (Instagram no distingue). */
 export type PerfilIg = { usuario: string; nombre: string | null; foto: string | null };

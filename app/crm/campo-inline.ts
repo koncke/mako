@@ -248,6 +248,23 @@ export function instagramDelAlta(elegido: string | null | undefined, escrito: st
   return usuarioInstagram(elegido) ?? usuarioInstagram(escrito) ?? '';
 }
 
+/**
+ * Qué hace la FICHA al cerrar su campo de Instagram (22/10/2026: el campo es el buscador del alta, `InstagramEditable`).
+ * `antes` es lo guardado; `escrito`, el perfil elegido o lo que quedó en el campo al dar Enter o salir.
+ *   · `{ guardar: null }`  → lo vaciaron: se borra (si había algo);
+ *   · `{ guardar: u }`     → un usuario distinto del guardado, normalizado con la regla de siempre (`usuarioInstagram`);
+ *   · `'nada'`             → lo mismo de antes (o vacío sobre vacío): no se escribe ni deja línea en el historial;
+ *   · `'invalido'`         → no es un usuario (un nombre, un post): se avisa y el campo vuelve a lo guardado.
+ */
+export function instagramDeLaFicha(antes: string | null | undefined, escrito: string): { guardar: string | null } | 'nada' | 'invalido' {
+  const actual = usuarioInstagram(antes);
+  const s = escrito.trim();
+  if (!s) return actual ? { guardar: null } : 'nada';
+  const u = usuarioInstagram(s);
+  if (!u) return 'invalido';
+  return u === actual ? 'nada' : { guardar: u };
+}
+
 export function esCampoInline(campo: string): campo is CampoInline {
   return Object.prototype.hasOwnProperty.call(VIA_INLINE, campo);
 }

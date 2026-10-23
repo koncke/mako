@@ -1,6 +1,9 @@
 // =============================================================================
 // /api/crm/instagram-buscar — el buscador de Instagram del alta de un lead (punto 28, 12/10/2026)
 // =============================================================================
+// GET ?estado=1 → { ok, conexion: ConexionMeta } (22/10/2026): ¿el negocio puede buscar en Meta? Sin buscar a nadie
+//   (`conexionDeMeta`, abajo). El buscador lo pregunta al enfocar el campo, para ofrecer «Conectar Meta» ANTES de que se
+//   escriba el @ a ciegas. `&fresco=1` (después de conectar) olvida lo guardado en la caché de ese negocio.
 // GET ?q=<texto> → { ok, perfiles: PerfilIg[], porNombre, meta }
 //   · perfiles   — lo que contestaron Meta y Google, sin repetidos, Meta primero (hasta 8).
 //   · porNombre  — true si Google contestó: el buscador por NOMBRE está andando. Con false (sin las
@@ -43,7 +46,7 @@ import { getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
 import { credDelCliente, credWs } from '@/lib/credenciales';
 import {
   MAX_LARGO, alcanzaParaBuscar, combinarPerfiles, leerRespuestaGoogle, leerRespuestaMeta,
-  motivoDeErrorGraph, normalizarBusqueda, usuarioDeTexto, usuariosCandidatos, type EstadoMeta, type PerfilIg,
+  motivoDeErrorGraph, normalizarBusqueda, usuarioDeTexto, usuariosCandidatos, type ConexionMeta, type EstadoMeta, type PerfilIg,
 } from '@/lib/instagram-buscar';
 import { leerPerfilInstagram } from '@/lib/instagram-perfil-server';
 
@@ -189,6 +192,30 @@ async function buscarEnMeta(usuarios: string[], ws: number): Promise<{ perfiles:
   return { perfiles: encontrados, estado: estadoDe(encontrados, peor) };
 }
 
+/**
+ * ¿El negocio puede buscar en Meta? (22/10/2026) Martín: «La búsqueda de Instagram: no funciona porque tengo que
+ * conectar Meta. No entiendo eso». Lee LO MISMO que `buscarEnMeta` (el token del negocio y la cuenta de Instagram de su
+ * página, con la caché de `igDelNegocio`) y no busca ningún perfil: no gasta Business Discovery, Google ni Apify.
+ *
+ * ⚠️ `fresco` OLVIDA LA CACHÉ DE ESTE NEGOCIO (la cuenta de la página y la pausa): el buscador lo manda después de
+ * conectar. Sin eso, `ig:<ws>` (null = «la página no tiene Instagram») o la pausa por permiso seguían diciendo «sin
+ * conexión» diez minutos después de haber conectado. Nada de acá escribe en la caché por su cuenta.
+ */
+async function conexionDeMeta(ws: number, fresco: boolean): Promise<ConexionMeta> {
+  if (fresco) { cache.delete(`ig:${ws}`); cache.delete(`mx:${ws}`); }
+  const pausa = leerCache<string>(`mx:${ws}`);
+  if (pausa) return pausa === 'limite' ? 'no-pude' : 'sin-permiso';
+  try {
+    const token = await credWs('META_ACCESS_TOKEN', ws);
+    const ig = token ? await igDelNegocio(ws, token) : null;
+    return token && ig ? 'conectado' : 'sin-conexion';
+  } catch (e) {
+    // Lo que no se pudo leer NO es «sin conexión»: no se manda a conectar lo que quizá ya está conectado.
+    console.error(`[api:crm/instagram-buscar] el estado de Meta del ws ${ws}: ${msg(e)}`);
+    return (e as { motivo?: unknown } | null)?.motivo === 'sin-permiso' ? 'sin-permiso' : 'no-pude';
+  }
+}
+
 // ── 2. Google: Custom Search JSON API ─────────────────────────────────────────
 
 type EstadoGoogle = { perfiles: PerfilIg[]; respondio: boolean };
@@ -242,6 +269,10 @@ export async function GET(req: NextRequest) {
   const s = await getUsuarioActual();
   const ws = s ? await getWorkspaceActual() : null;
   if (!s || ws == null) return Response.json({ ok: false, error: 'No autorizado' }, { status: 401 });
+
+  // El estado de la conexión, sin buscar (22/10/2026): lo pregunta el buscador al enfocar el campo.
+  const sp = req.nextUrl.searchParams;
+  if (sp.get('estado') === '1') return Response.json({ ok: true, conexion: await conexionDeMeta(ws, sp.get('fresco') === '1') });
 
   const texto = (req.nextUrl.searchParams.get('q') ?? '').trim().slice(0, MAX_LARGO);
   if (!alcanzaParaBuscar(texto)) return Response.json({ ok: true, perfiles: [], porNombre: false, meta: null });
