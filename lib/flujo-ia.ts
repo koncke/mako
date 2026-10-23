@@ -117,7 +117,6 @@ import type { PreguntaMako, ExtrasEdicionIA } from './automatizacion-chat';
 import type { CronAviso } from './cron-aviso';
 import { respuestaDelModelo } from './flujo-ia-consulta';
 import { OP_MOVER_ETAPA } from './flujo-legado';
-import { LIMITES_CONSTANTES } from './limites-envio';
 import { sinCitas, citasQueFaltan, minutosDelPedido } from './flujo-ia-intencion';
 
 // ── Constantes que comparten la ruta y los tests ─────────────────────────────────
@@ -2003,24 +2002,8 @@ function claseEditable(p: PasoGrafo): ClaseEditable {
 const CLASE_DE_TIPO: Readonly<Record<TipoTarjeta, ClaseEditable>> = {
   mensaje: 'mensaje', email: 'mensaje', esperar: 'esperar', condicion: 'condicion', etiqueta: 'etiqueta', accion: 'accion', ir_a: 'ir_a', si_responde: 'respuesta',
 };
-/**
- * UNA ESPERA CORTA ENTRE DOS WHATSAPP NO SE CUMPLE (22/10/2026, la prueba de los chats del Cerebro, cinco-min-entre-mensajes 3 de
- * 3): el motor frena el segundo hasta que pasan las horas de «Misma persona» (Configuraciones, WhatsApp; de 3 a 72, 20 de
- * fábrica: `LIMITES_CONSTANTES`). El modelo ponía los 5 minutos sin decirlo, o se negaba culpando a Meta. Lo dice el código.
- */
-export const AVISO_MISMA_PERSONA = 'Entre dos WhatsApp a la misma persona la línea espera las horas de «Misma persona» (en Configuraciones; 20 de fábrica): el segundo sale cuando pasen';
-const MINUTOS_MISMA_PERSONA = LIMITES_CONSTANTES.wa.personaHoras * 60;
-function esperaCortaEntreWhatsapp(pasos: readonly PasoIA[], tocadas: ReadonlySet<string>): boolean {
-  const porId = new Map(pasos.map((p, i) => [idDe(p, i), p]));
-  const esWa = (q: PasoIA | undefined) => !!q && claseDe(q) === 'mensaje' && (q.canal ?? 'whatsapp') === 'whatsapp';
-  return pasos.some((p, i) => {
-    const id = idDe(p, i);
-    if (!tocadas.has(id) || claseDe(p) !== 'esperar') return false;
-    const e = p.espera as { modo?: string; minutos?: number } | undefined;
-    if (e?.modo !== 'tiempo' || !(Number(e.minutos) < MINUTOS_MISMA_PERSONA)) return false;
-    return esWa(porId.get(String(p.siguiente ?? ''))) && pasos.some((q) => q.siguiente === id && esWa(q));
-  });
-}
+// (Hasta el 23/10/2026 acá vivía `AVISO_MISMA_PERSONA`: una espera corta entre dos WhatsApp no se cumplía porque «Misma
+// persona» frenaba el segundo. «Misma persona» se fue del motor: la espera que se pide es la que se cumple.)
 
 /**
  * UN SEGUIMIENTO SIEMPRE VA DETRÁS DE «NO CONTESTÓ DESDE QUE ENTRÓ» (23/10/2026, #289 en el ws1, por el Cerebro: Martín pidió
@@ -2688,7 +2671,6 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
   if (seg.cambiadas.length) { pasos = seg.pasos; est.avisos.push(AVISO_SEGUIMIENTO_CAMBIADA); }
   const vaciados = sinCasosVaciados(pasos, base);
   if (vaciados.sacados) { pasos = vaciados.pasos; est.avisos.push(AVISO_CASOS_VACIOS); }
-  if (esperaCortaEntreWhatsapp(pasos, new Set([...ed.agregadas, ...ed.cambiadas]))) est.avisos.push(AVISO_MISMA_PERSONA);
   const vivos = new Set(pasos.map((p, i) => idDe(p, i)));
   const out: ResultadoEdicion = {
     pasos: renumerar(pasos),

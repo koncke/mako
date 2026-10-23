@@ -14,7 +14,7 @@
 //   1. la sidebar dibuja el chat de la abierta (por portal, SIEMPRE montado, sin ✕ ni botón para abrirlo) y la «←»
 //      vuelve a la lista; el muelle de la derecha es sólo de «Probar»;
 //   2. en el título, la tuerca en lugar del logo de MaKo; el «⋯» de la fila también abre Configuraciones;
-//   3. Configuraciones de UNA automatización: el horario propio o el del negocio, las horas a la misma persona, y el
+//   3. Configuraciones de UNA automatización: el horario propio o el del negocio, el goteo (de WhatsApp y de email; 23/10/2026: sin «Misma persona»), y el
 //      motor y el tick que las respetan (cada automatización con el suyo);
 //   4. el menú de la lista, sólo el «?»;
 //   5. el aviso de Prospección al Publicar o Probar.
@@ -29,11 +29,10 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  sanearConfigAutomatizacion, horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, configParaGuardar, cerradasAhora,
+  sanearConfigAutomatizacion, horarioDeLaAutomatizacion, configParaGuardar, cerradasAhora,
   abrioAlgunaPropia, cronDeProspeccion, tieneConfigPropia, textoDeHorario, claveConfigAutomatizacion, secuenciaDeClave,
   type ConfigAutomatizacion,
 } from '../lib/config-automatizacion';
-import { LIMITES_CONSTANTES } from '../lib/limites-envio';
 import type { HorarioEnvio } from '../lib/horario-envio';
 import { BotonTuerca, TITULO_TUERCA } from '../app/automations/SecuenciaPerfil';
 import { opcionesDeFila } from '../app/automations/SimuladorWhatsApp';
@@ -112,11 +111,11 @@ test('3: sin nada propio, la del negocio; con horario propio (o «sin horario»)
   // «Sin horario» propio: manda a cualquier hora aunque el negocio tenga uno.
   assert.equal(horarioDeLaAutomatizacion({ horario: { ...PROPIO_10_A_12, activo: false } }, NEGOCIO_9_A_21), null);
   assert.equal(horarioDeLaAutomatizacion({ horario: null }, NEGOCIO_9_A_21), null);
-  // Las horas a la misma persona, por canal.
-  assert.deepEqual(personaHorasDeLaAutomatizacion(vacia, LIMITES_CONSTANTES), { whatsapp: 20, email: 20 });
-  assert.deepEqual(personaHorasDeLaAutomatizacion({ personaHoras: { whatsapp: 4 } }, LIMITES_CONSTANTES), { whatsapp: 4, email: 20 });
+  // Lo propio que cuenta: el horario y el goteo de cada canal. «Misma persona» se fue (23/10/2026): una clave vieja no cuenta.
   assert.equal(tieneConfigPropia(vacia), false);
-  assert.equal(tieneConfigPropia({ personaHoras: { email: 30 } }), true);
+  assert.equal(tieneConfigPropia({ goteoEmail: { minutos: 30 } }), true);
+  assert.equal(tieneConfigPropia({ goteo: { dia: 40 } }), true);
+  assert.equal(tieneConfigPropia({ personaHoras: { email: 30 } } as ConfigAutomatizacion), false);
   assert.equal(textoDeHorario(NEGOCIO_9_A_21), 'de 09:00 a 21:00 · todos los días');
   assert.equal(textoDeHorario(null), 'sin horario: manda a cualquier hora');
   assert.equal(secuenciaDeClave(claveConfigAutomatizacion(284)), 284);
@@ -124,15 +123,15 @@ test('3: sin nada propio, la del negocio; con horario propio (o «sin horario»)
 
 test('3: lo guardado se sanea y un cambio con `null` vuelve a lo del negocio; fuera de rango, un error', () => {
   assert.deepEqual(sanearConfigAutomatizacion('basura'), {});
-  assert.deepEqual(sanearConfigAutomatizacion(JSON.stringify({ horario: PROPIO_10_A_12, personaHoras: { whatsapp: 4, email: 999 } })), { horario: PROPIO_10_A_12, personaHoras: { whatsapp: 4 } });
-  const r = configParaGuardar({ horario: PROPIO_10_A_12, personaHoras: { whatsapp: 4 } }, { horario: null });
+  assert.deepEqual(sanearConfigAutomatizacion(JSON.stringify({ horario: PROPIO_10_A_12, goteo: { minutos: 4, dia: 99999 }, goteoEmail: { minutos: 5, dia: 40 } })), { horario: PROPIO_10_A_12, goteo: { minutos: 4 }, goteoEmail: { minutos: 5, dia: 40 } });
+  const r = configParaGuardar({ horario: PROPIO_10_A_12, goteo: { minutos: 4 } }, { horario: null });
   assert.ok(r.ok);
-  assert.deepEqual(r.ok && r.config, { personaHoras: { whatsapp: 4 } });
-  const r2 = configParaGuardar({ personaHoras: { whatsapp: 4, email: 30 } }, { personaHoras: { whatsapp: null } });
-  assert.deepEqual(r2.ok && r2.config, { personaHoras: { email: 30 } });
-  const mal = configParaGuardar({}, { personaHoras: { whatsapp: 1 } });
+  assert.deepEqual(r.ok && r.config, { goteo: { minutos: 4 } });
+  const r2 = configParaGuardar({ goteo: { minutos: 4, dia: 30 } }, { goteo: { minutos: null } });
+  assert.deepEqual(r2.ok && r2.config, { goteo: { dia: 30 } });
+  const mal = configParaGuardar({}, { goteo: { minutos: 0 } });
   assert.equal(mal.ok, false);
-  assert.match(!mal.ok ? mal.error : '', /de 3 a 72/);
+  assert.match(!mal.ok ? mal.error : '', /van de 1 a 240/);
 });
 
 test('3: el motor cierra cada automatización con SU horario (y el tick barre al abrir el propio)', () => {
@@ -162,7 +161,9 @@ test('3: el motor lee lo de cada automatización UNA vez, estricto, y lo usa por
   assert.match(pe, /if \(limites === 'ilegible' \|\| \(configs === 'ilegible' && fueraDeHorario == null\)\) return \{ \.\.\.res, saltado: 'limites-ilegibles' \};/);
   assert.match(pe, /const configsCorrida: ReadonlyMap<number, ConfigAutomatizacion> = configs === 'ilegible' \? new Map\(\) : configs;/);
   assert.match(pe, /frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioRecienteDe\(insc\.secuencia_id\), enviadoEnCorrida\)/);
-  assert.match(pe, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configsCorrida\.get\(secId\) \?\? \{\}, limites\);/);
+  // Sin «Misma persona» (23/10/2026): ya no hay ventana por automatización; queda el freno de la misma corrida.
+  assert.match(pe, /const conEnvioRecienteDe = \(_secId: number\): RecientesPorCanal => SIN_VENTANA;/);
+  assert.doesNotMatch(pe, /ventanaDe|personaHorasDeLaAutomatizacion/);
   // «No pude leer» no es «no tiene nada propio».
   assert.match(m, /async function configsDeEnvio\(\): Promise<Map<number, ConfigAutomatizacion> \| 'ilegible'> \{\n\s+try \{ return await configsDelNegocio\(\); \} catch \{ return 'ilegible'; \}/);
   const tick = sinComentarios(leer('app/api/cron/nutricion-tick/route.ts'));
@@ -227,7 +228,7 @@ test('5: Publicar y Probar avisan si el CRON elige un funnel de Prospección y l
 //    5. el «⋯» sin «Configuraciones»                              → 7 / 1
 //    6. el horario propio no cuenta                               → 6 / 2
 //    7. «sin horario» propio vuelve al del negocio                → 6 / 2
-//    8. las horas propias a la misma persona no cuentan           → 7 / 1
+//    8. (era: las horas propias a la misma persona; se fue el 23/10/2026, ahora es el goteo propio)  → 7 / 1
 //    9. `null` no vuelve a lo del negocio                         → 7 / 1
 //   10. sin zona, abierta                                         → 7 / 1
 //   11. el motor no mira la automatización de la fila             → 7 / 1
@@ -237,5 +238,5 @@ test('5: Publicar y Probar avisan si el CRON elige un funnel de Prospección y l
 //   15. Prospección sin el funnel de la fila                      → 7 / 1
 //   16. Publicar sin el aviso                                     → 7 / 1
 //   17. avisa aunque tenga lo suyo                                → 7 / 1
-//   18. el freno con las horas de otra automatización             → 7 / 1
+//   18. (era: el freno con las horas de otra automatización; se fue el 23/10/2026 con «Misma persona»)
 //   19. la «←» sin `onVolver`                                     → 7 / 1

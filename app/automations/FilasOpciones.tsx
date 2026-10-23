@@ -80,7 +80,7 @@ export function GrupoOpciones({ titulo, info, primero = false }: { titulo: strin
  * punta, y suelto bajaba solo al renglón de abajo («Misma persona» / «ⓘ»).
  * Sólo si ni así entra, lo de la derecha baja entero, pegado a la derecha.
  */
-export function FilaOpcion({ nombre, info, children, interruptor, sinInterruptor = false, error, datos, primera = false }: {
+export function FilaOpcion({ nombre, info, children, interruptor, sinInterruptor = false, error, datos, primera = false, debajo }: {
   nombre: string;
   info?: string;
   /** El número y su unidad (`Unidad`). */
@@ -94,6 +94,11 @@ export function FilaOpcion({ nombre, info, children, interruptor, sinInterruptor
   datos?: Record<string, string>;
   /** La primera de la tarjeta, sin un grupo arriba: sin la raya de arriba. */
   primera?: boolean;
+  /**
+   * LO QUE SE ELIGE, EN EL RENGLÓN DE ABAJO (23/10/2026, el patrón de Ajustes de iOS: el nombre con su interruptor arriba y
+   * el valor debajo, sólo con la opción prendida). Quien lo pasa decide cuándo: ausente, la fila es sólo nombre e interruptor.
+   */
+  debajo?: ReactNode;
 }) {
   return (
     <div {...datos} data-fila-opcion="" style={{ display: 'flex', alignItems: 'center', gap: '6px 10px', flexWrap: 'wrap', minHeight: 50, padding: '7px 0', borderTop: primera ? 'none' : '1px solid var(--border)' }}>
@@ -104,6 +109,7 @@ export function FilaOpcion({ nombre, info, children, interruptor, sinInterruptor
         {children}
         {(interruptor || sinInterruptor) && <span style={{ width: ANCHO_INTERRUPTOR, display: 'inline-flex', justifyContent: 'flex-end', flex: 'none' }}>{interruptor}</span>}
       </span>
+      {debajo && <span data-fila-debajo="" style={{ flexBasis: '100%', display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 2 }}>{debajo}</span>}
       {error && <span role="alert" style={{ flexBasis: '100%', fontSize: 12.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></span>}
     </div>
   );
