@@ -6,7 +6,7 @@
 // Una pregunta por pantalla (WizardShell, la regla de la casa), y sólo las que hacen falta:
 //
 //   ¿Qué cobras?              los productos del catálogo + «Otro monto»
-//   ¿Con qué cobras?          sólo si hay DOS pasarelas conectadas
+//   ¿Con qué cobras?          sólo si hay DOS cuentas que cobran (Stripe y MP, o dos de Stripe: cada una con su nombre)
 //   ¿Cuánto cobras?           sólo si el precio no sale del producto (sin precio, o en otra moneda)
 //   ¿Cuánto es en dólares?    sólo si la moneda no es USD y no hay producto con precio
 //   ¿Una vez o todos los meses?  sólo si no lo define el producto
@@ -38,7 +38,7 @@ import { Button, ButtonLink, useOkFlash } from '@/app/_ui';
 import { WizardShell, wizardInput } from '@/app/_components/WizardShell';
 import { NOMBRE_PASARELA, type Pasarela, type TipoCobro } from '@/lib/cobros-tipos';
 import { formatoMonto } from '@/lib/pasarela-moneda';
-import { crearCobroAction, monedasCobroAction, type MonedasCobro, type ProductoCobrable } from './cobros-actions';
+import { crearCobroAction, monedasCobroAction, type CuentaCobrable, type MonedasCobro, type ProductoCobrable } from './cobros-actions';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -47,9 +47,11 @@ type LeadCobro = { id: number; nombre: string; email: string | null; telefono: s
 /** La cuota que salda el link: su id, cómo se llama («Cuota 2») y su valor en dólares. */
 export type CuotaACobrar = { pagoId: number; nombre: string; montoUsd: number };
 
-export function CobrarConLink({ lead, pasarelas, productos, onCreado }: {
+export function CobrarConLink({ lead, pasarelas, cuentas, productos, onCreado }: {
   lead: LeadCobro;
   pasarelas: Pasarela[];
+  /** Las cuentas que cobran, con su nombre (varias por proveedor). Sin ellas, una por pasarela. */
+  cuentas?: CuentaCobrable[];
   productos: ProductoCobrable[];
   /** Se creó un link: quien lo monta relee la lista de cobros. */
   onCreado: () => void;
@@ -73,7 +75,7 @@ export function CobrarConLink({ lead, pasarelas, productos, onCreado }: {
           envoltorio del wizard de etapas en app/crm/LeadSheet.tsx. */}
       {abierto && (
         <div onClick={(e) => e.stopPropagation()}>
-          <Asistente lead={lead} pasarelas={pasarelas} productos={productos} onCreado={onCreado} onCerrar={() => setAbierto(false)} />
+          <Asistente lead={lead} pasarelas={pasarelas} cuentas={cuentas} productos={productos} onCreado={onCreado} onCerrar={() => setAbierto(false)} />
         </div>
       )}
     </>
@@ -81,12 +83,12 @@ export function CobrarConLink({ lead, pasarelas, productos, onCreado }: {
 }
 
 /** El asistente sobre UNA cuota, abierto ya (lo abre el botón de la cuota o el del estado de cuenta). */
-export function CobrarCuotaConLink({ lead, pasarelas, cuota, onCreado, onCerrar }: {
-  lead: LeadCobro; pasarelas: Pasarela[]; cuota: CuotaACobrar; onCreado: () => void; onCerrar: () => void;
+export function CobrarCuotaConLink({ lead, pasarelas, cuentas, cuota, onCreado, onCerrar }: {
+  lead: LeadCobro; pasarelas: Pasarela[]; cuentas?: CuentaCobrable[]; cuota: CuotaACobrar; onCreado: () => void; onCerrar: () => void;
 }) {
   return (
     <div onClick={(e) => e.stopPropagation()}>
-      <Asistente lead={lead} pasarelas={pasarelas} productos={[]} cuota={cuota} onCreado={onCreado} onCerrar={onCerrar} />
+      <Asistente lead={lead} pasarelas={pasarelas} cuentas={cuentas} productos={[]} cuota={cuota} onCreado={onCreado} onCerrar={onCerrar} />
     </div>
   );
 }
@@ -129,12 +131,12 @@ const chipMoneda = (on: boolean): CSSProperties => ({
   fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: 'pointer',
 });
 
-function Asistente({ lead, pasarelas, productos, cuota = null, onCreado, onCerrar }: {
-  lead: LeadCobro; pasarelas: Pasarela[]; productos: ProductoCobrable[]; cuota?: CuotaACobrar | null; onCreado: () => void; onCerrar: () => void;
+function Asistente({ lead, pasarelas, cuentas, productos, cuota = null, onCreado, onCerrar }: {
+  lead: LeadCobro; pasarelas: Pasarela[]; cuentas?: CuentaCobrable[]; productos: ProductoCobrable[]; cuota?: CuotaACobrar | null; onCreado: () => void; onCerrar: () => void;
 }) {
   const [paso, setPaso] = useState<PasoId>('que');
   const [que, setQue] = useState<Que | null>(null);
-  const [pasarelaElegida, setPasarelaElegida] = useState<Pasarela | null>(null);
+  const [cuentaElegida, setCuentaElegida] = useState<string | null>(null);
   const [monto, setMonto] = useState('');
   const [concepto, setConcepto] = useState('');
   const [monedaElegida, setMonedaElegida] = useState<string | null>(null);
@@ -155,9 +157,16 @@ function Asistente({ lead, pasarelas, productos, cuota = null, onCreado, onCerra
   }, []);
 
   const producto = que?.tipo === 'producto' ? productos.find((p) => p.id === que.id) ?? null : null;
-  const pasarela: Pasarela | null = pasarelas.length === 1 ? pasarelas[0] : pasarelaElegida;
-  const monedaMp = monedas?.mercadopago ?? null;
-  const monedasStripe = [...new Set(['USD', ...(monedas?.stripe ? [monedas.stripe] : [])])];
+  // Las opciones de «¿Con qué cobras?»: las cuentas que cobran (varias por proveedor, 22/10/2026), o una por pasarela.
+  const opciones: CuentaCobrable[] = cuentas?.length ? cuentas : pasarelas.map((p) => ({ id: `${p}:principal`, proveedor: p, nombre: NOMBRE_PASARELA[p] }));
+  const cuenta: CuentaCobrable | null = opciones.length === 1 ? opciones[0] : opciones.find((c) => c.id === cuentaElegida) ?? null;
+  const pasarela: Pasarela | null = cuenta?.proveedor ?? null;
+  // La moneda de ESA cuenta (dos cuentas de Mercado Pago pueden ser de dos países); sin la lectura por cuenta, la de la pasarela.
+  const monedaDe = (c: CuentaCobrable): string | null =>
+    monedas?.cuentas && c.id in monedas.cuentas ? monedas.cuentas[c.id] : (monedas?.[c.proveedor] ?? null);
+  const monedaMp = cuenta && pasarela === 'mercadopago' ? monedaDe(cuenta) : null;
+  const monedaStripe = cuenta && pasarela === 'stripe' ? monedaDe(cuenta) : null;
+  const monedasStripe = [...new Set(['USD', ...(monedaStripe ? [monedaStripe] : [])])];
   const moneda: string | null = pasarela === 'mercadopago'
     ? monedaMp
     : monedaElegida && monedasStripe.includes(monedaElegida) ? monedaElegida : 'USD';
@@ -172,7 +181,7 @@ function Asistente({ lead, pasarelas, productos, cuota = null, onCreado, onCerra
     // La cuota tiene su paso aunque no haya nada que preguntar: con una sola pasarela en dólares, el asistente
     // sería sólo el botón «Crear link», sin decir qué ni cuánto se cobra.
     ...(cuota ? ['cuota' as const] : ['que' as const]),
-    ...(pasarelas.length > 1 ? ['pasarela' as const] : []),
+    ...(opciones.length > 1 ? ['pasarela' as const] : []),
     ...(necesitaMonto ? ['monto' as const] : []),
     ...(necesitaUsd ? ['usd' as const] : []),
     ...(!producto && !cuota ? ['frecuencia' as const] : []),
@@ -190,7 +199,7 @@ function Asistente({ lead, pasarelas, productos, cuota = null, onCreado, onCerra
     switch (actual) {
       case 'cuota': return true;
       case 'que': return que != null;
-      case 'pasarela': return pasarelaElegida != null && !(pasarelaElegida === 'mercadopago' && sinMonedaMp);
+      case 'pasarela': return cuenta != null && !(pasarela === 'mercadopago' && sinMonedaMp);
       case 'monto': return numero(monto) != null && !!moneda;
       case 'usd': return usd.trim() === '' || numero(usd) != null;
       case 'frecuencia': return frecuencia != null;
@@ -205,6 +214,8 @@ function Asistente({ lead, pasarelas, productos, cuota = null, onCreado, onCerra
     setError(null);
     const r = await crearCobroAction(lead.id, {
       pasarela,
+      // Sólo si se eligió entre varias: con una, `crearCobro` usa la de siempre (o la del vínculo del producto).
+      cuenta: opciones.length > 1 ? cuenta?.id ?? null : null,
       productoId: producto?.id ?? null,
       pagoId: cuota?.pagoId ?? null,
       concepto: producto ? null : cuota ? cuota.nombre : concepto.trim() || null,
@@ -276,11 +287,17 @@ function Asistente({ lead, pasarelas, productos, cuota = null, onCreado, onCerra
       case 'pasarela':
         return (
           <div style={columna}>
-            {pasarelas.map((p) => (
-              <Opcion key={p} on={pasarelaElegida === p} titulo={NOMBRE_PASARELA[p]}
-                sub={p === 'mercadopago' ? (monedas === null ? 'Leyendo tu cuenta…' : monedaMp ? `Cobra en ${monedaMp}` : 'No pude leer la moneda de tu cuenta') : 'Tarjeta, en dólares'}
-                onClick={() => setPasarelaElegida(p)} />
-            ))}
+            {opciones.map((c) => {
+              const deMp = c.proveedor === 'mercadopago';
+              const m = monedaDe(c);
+              // El nombre que le puso el negocio; abajo, de qué pasarela es y en qué cobra.
+              const dePasarela = c.nombre === NOMBRE_PASARELA[c.proveedor] ? '' : `${NOMBRE_PASARELA[c.proveedor]} · `;
+              return (
+                <Opcion key={c.id} on={cuenta?.id === c.id} titulo={c.nombre}
+                  sub={dePasarela + (deMp ? (monedas === null ? 'Leyendo tu cuenta…' : m ? `Cobra en ${m}` : 'No pude leer la moneda de tu cuenta') : 'Tarjeta, en dólares')}
+                  onClick={() => setCuentaElegida(c.id)} />
+              );
+            })}
           </div>
         );
       case 'monto':

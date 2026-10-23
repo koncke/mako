@@ -49,10 +49,13 @@ const codigo = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8')
   .replace(/^\s*\/\/.*$/gm, '');
 
 const PREFIJO = String.raw`(?:STRIPE_|MERCADOPAGO_|MP_)`;
+// La clave de la segunda cuenta (`STRIPE_SECRET_KEY__C2`, 22/10/2026) se ARMA con `claveDeCuenta(`: sin mirar eso, un
+// `credWs(claveDeCuenta('STRIPE_SECRET_KEY', c), ws)` pasaba el barrido (no lleva comilla después del paréntesis).
+const ARMADA = String.raw`claveDeCuenta\(\s*(?:['"\x60]${PREFIJO}|CLAVE_PASARELA|CLAVES_BASE)`;
 const PROHIBIDO: Array<[RegExp, string]> = [
-  [new RegExp(String.raw`process\.env(?:\.|\[\s*['"\x60])${PREFIJO}`), 'process.env: para el ws1 es la clave de Mauricio'],
-  [new RegExp(String.raw`\benvCred\(\s*(?:['"\x60]${PREFIJO}|CLAVE_PASARELA)`), 'envCred resuelve contra OWNER_WS (Mauricio)'],
-  [new RegExp(String.raw`\bcredWs\(\s*(?:['"\x60]${PREFIJO}|CLAVE_PASARELA)`), 'credWs cae a process.env para el ws1'],
+  [new RegExp(String.raw`process\.env(?:(?:\.|\[\s*['"\x60])${PREFIJO}|\[\s*${ARMADA})`), 'process.env: para el ws1 es la clave de Mauricio'],
+  [new RegExp(String.raw`\benvCred\(\s*(?:['"\x60]${PREFIJO}|CLAVE_PASARELA|${ARMADA})`), 'envCred resuelve contra OWNER_WS (Mauricio)'],
+  [new RegExp(String.raw`\bcredWs\(\s*(?:['"\x60]${PREFIJO}|CLAVE_PASARELA|${ARMADA})`), 'credWs cae a process.env para el ws1'],
 ];
 
 test('el barrido ve el repo: un guard que no encuentra nada no cubre nada', () => {
@@ -60,8 +63,11 @@ test('el barrido ve el repo: un guard que no encuentra nada no cubre nada', () =
   assert.ok(todos.length > 500, `git ls-files devolvió ${todos.length} archivos`);
   // Y la lectura BUENA existe donde se cobra: si esto cae, se renombraron las claves y los
   // prefijos de arriba ya no miran nada.
-  assert.match(codigo('lib/cobros.ts'), /credDelCliente\('STRIPE_SECRET_KEY', ws\)/);
-  assert.match(codigo('lib/cobros.ts'), /credDelCliente\('MERCADOPAGO_ACCESS_TOKEN', ws\)/);
+  // Desde las varias cuentas por proveedor (22/10/2026) la lectura vive en lib/cuentas-pago-server.ts, con el nombre de
+  // la clave de LA cuenta (`claveDeCuenta(base, cuenta)`); las bases, en lib/cuentas-integracion.ts.
+  assert.match(codigo('lib/cuentas-pago-server.ts'), /credDelCliente\(claveDeCuenta\(b\.clave, cuenta\), ws\)/);
+  assert.match(codigo('lib/cuentas-integracion.ts'), /stripe: \{ clave: 'STRIPE_SECRET_KEY',/);
+  assert.match(codigo('lib/cuentas-integracion.ts'), /mercadopago: \{ clave: 'MERCADOPAGO_ACCESS_TOKEN',/);
 });
 
 test('nadie lee una clave de cobro de process.env, envCred ni credWs', () => {

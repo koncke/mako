@@ -70,6 +70,17 @@ export const CSS_VINCULAR = `
 .vx-vacio[data-mal], .vx-nota[data-mal] { color: var(--warn); }
 .vx-nota { margin: 0; font-size: 12.5px; }
 .vx-donde-titulo { font-size: 12.5px; color: var(--faint); }
+.vx-editar { display: flex; flex-direction: column; gap: 10px; }
+.vx-area { width: 100%; box-sizing: border-box; min-height: 64px; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; line-height: 1.45; resize: vertical; }
+.vx-area:focus-visible, .vx-editar input:focus-visible, .vx-editar select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.vx-rotulo { min-width: 72px; font-size: 12.5px; color: var(--faint); }
+.vx-preguntas { display: flex; flex-direction: column; gap: 6px; }
+.vx-pregunta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vx-solo-leer { margin: 0; padding-left: 18px; font-size: 13px; color: var(--dim); }
+.vx-gris--bloque { display: flex; flex-direction: column; gap: 8px; }
+.vx-gris--bloque > span { height: 34px; }
+a.vx-link { text-decoration: none; align-self: flex-start; }
 @media (max-width: 560px) {
   .vx-fila { grid-template-columns: 20px minmax(0, 1fr) 28px; grid-template-areas: 'sel txt icono' '. donde donde'; row-gap: 6px; }
   .vx-fila > .vx-sel { grid-area: sel; }

@@ -3101,4 +3101,25 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '23 oct', hora: '01:40', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Vincular evento»: el evento se edita entero y se elige la cuenta',
+    puntos: [
+      'Al editar un evento, además del nombre y la duración: la descripción y dónde es la reunión (Google Meet, Zoom, llamada, en persona o un link).',
+      'En Cal.com también sus preguntas: el texto, si es obligatoria y si se ve. Las de Calendly se ven, y se editan en Calendly.',
+      'La disponibilidad se abre en Calendly o Cal.com, en otra pestaña: sus APIs no la dejan cambiar sin riesgo de borrar los horarios.',
+      'Con varias cuentas de Calendly o Cal.com, cada evento dice de cuál es, y al crear uno se elige en cuál.',
+      'MaKo también: crea en la cuenta que le digas y cambia la descripción o dónde es la reunión, siempre con tu «sí».',
+      'El cobro de Ganado acepta todas las cuentas conectadas de Stripe y Mercado Pago, no sólo la principal.',
+    ],
+    commits: [
+      { sha: 'cd0feaab9', msg: '«Vincular evento»: la edición completa del evento, la cuenta al crear, y el cobro de Ganado con todas las cuentas', lineas: 825, archivos: 19 },
+    ],
+    archivos: [
+      'app/crm/EventosDeEtapaModal.tsx — el formulario completo y la cuenta',
+      'lib/agenda-evento-detalle.ts · lib/calendly-agenda.ts · lib/calcom.ts — lo que deja editar cada API',
+    ],
+    revisar: '/crm',
+  },
 ];

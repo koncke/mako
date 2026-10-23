@@ -82,7 +82,12 @@ test('NINGÚN webhook rutea con la lectura que traga el error', () => {
 test('Cal.com: ruteo, firma y R1/R2 estrictos, y el fallo pasa por el clasificador', () => {
   const src = ruta('calcom');
   assert.ok(!/\bcredWs\(/.test(src), 'una credencial de Cal.com volvió a leerse con la lectura que traga el error');
-  assert.match(src, /credWsEstricta\('CALCOM_WEBHOOK_SECRET', ws\)/);
+  // Varias cuentas de Cal.com (fase B, 23/10/2026): el secreto de cada una, leído ESTRICTO por `firmasDeAgenda`.
+  assert.match(src, /firmasDeAgenda\(ws, 'calcom'\)/);
+  const firmas = readFileSync(new URL('../lib/cuentas-agenda-server.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const fn = firmas.slice(firmas.indexOf('export async function firmasDeAgenda('), firmas.indexOf('/** Le pone (o le cambia) el nombre a una cuenta de agenda'));
+  assert.match(fn, /await credWsEstricta\(claveDeCuenta\(b\.firmaAviso, cuenta\), ws\)/, 'los secretos de los avisos tienen que leerse estrictos');
+  assert.match(fn, /await clavesGuardadasConBase\(ws, \[b\.firmaAviso\]\)/, 'la lista de cuentas también: «no pude leer» no es «no hay»');
   assert.match(src, /credWsEstricta\('CALCOM_EVENT_TYPE_J2', ws\)/, 'sin J2 una R2 se clasifica como R1 y CREA un lead');
   assert.equal((src.match(/responderFalloDeRuteo\('calcom'/g) ?? []).length, 2, 'el ruteo y la key tienen que fallar por el clasificador');
   assert.match(src, /c\.length <= 300/, 'sin tope de largo, un identificador gigante sin firmar anota un fallo por pedido');
@@ -106,7 +111,7 @@ test('Stripe: ruteo por ?acct= y secreto estrictos, y el fallo pasa por el clasi
   const src = ruta('stripe');
   assert.ok(!/\bcredWs\(|\bcredDelCliente\(|\benvCred\(/.test(src), 'el secreto de Stripe volvió a leerse con una lectura que traga el error');
   assert.match(src, /wsPorIdentificadorEstricto\('stripe', acct\)/);
-  assert.match(src, /credWsEstricta\('STRIPE_WEBHOOK_SECRET', ws\)/);
+  assert.match(src, /credWsEstricta\(claveDeCuenta\('STRIPE_WEBHOOK_SECRET', cuenta\), ws\)/);
   assert.equal((src.match(/responderFalloDeRuteo\('stripe'/g) ?? []).length, 1, 'el ruteo y el secreto tienen que fallar por el clasificador');
   assert.match(src, /acctDelWebhook\(req\.nextUrl\.searchParams\.get\('acct'\)\)/, 'sin tope de largo, un ?acct= gigante sin firmar anota un fallo por pedido');
 });
@@ -115,7 +120,7 @@ test('Mercado Pago: ruteo por user_id y secreto estrictos, y el fallo pasa por e
   const src = ruta('mercadopago');
   assert.ok(!/\bcredWs\(|\bcredDelCliente\(|\benvCred\(/.test(src), 'el secreto de Mercado Pago volvió a leerse con una lectura que traga el error');
   assert.match(src, /wsPorIdentificadorEstricto\('mercadopago', n\.userId\)/);
-  assert.match(src, /credWsEstricta\('MERCADOPAGO_WEBHOOK_SECRET', ws\)/);
+  assert.match(src, /credWsEstricta\(claveDeCuenta\('MERCADOPAGO_WEBHOOK_SECRET', cuenta\), ws\)/);
   assert.equal((src.match(/responderFalloDeRuteo\('mercadopago'/g) ?? []).length, 1);
 });
 
