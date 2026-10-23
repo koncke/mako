@@ -30,6 +30,7 @@ import type { VersionCompleta } from '@/lib/editor-landing/server';
 import { temaPorId, type Tema } from '@/lib/editor-landing/temas';
 import { htmlDePagina } from '@/lib/editor-landing/render';
 import { EstilosContenido, EstilosPanelesB, Ico, pedirDocs, useAncho } from './PanelAgente';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** «11 oct, 14:32». */
 export function fechaVersion(iso: string): string {
@@ -104,12 +105,13 @@ export function PanelHistorial({ onCerrar }: { onCerrar?: () => void } = {}) {
           {guardando ? <span className="gma-pb-giro" aria-hidden /> : <Ico n="historial" t={15} />} Guardar versión
         </button>
       </div>
-      {falla && <p className="gma-rv-error gma-hi-falla" role="alert">{falla}</p>}
+      {falla && <p className="gma-rv-error gma-hi-falla" role="alert">{falla}<ReportarASoporte /></p>}
       <div className="gma-hi-lista">
         {error && (
           <div className="gma-hi-vacio" role="alert">
             <span>{error}</span>
             <button type="button" className="gma-pb-boton" data-v="contorno" data-t="s" onClick={() => { setError(null); void cargar(); }}>Reintentar</button>
+            <ReportarASoporte />
           </div>
         )}
         {!error && versiones === null && <div className="gma-hi-vacio"><span className="gma-pb-giro" aria-label="Cargando" /></div>}
@@ -259,7 +261,7 @@ function VisorVersion({ version, docId, paginaActual, temaActual, temaIdActual, 
             ))}
           </div>
         )}
-        {error && <div className="gma-hi-vacio" role="alert">{error}</div>}
+        {error && <div className="gma-hi-vacio" role="alert">{error}<ReportarASoporte /></div>}
         {!error && !completa && <div className="gma-hi-vacio"><span className="gma-pb-giro" aria-label="Cargando" /></div>}
         <div
           ref={lienzoRef}

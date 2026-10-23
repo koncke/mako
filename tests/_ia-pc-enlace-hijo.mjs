@@ -26,15 +26,19 @@ globalThis.fetch = async (entrada, init = {}) => {
 
 const pc = await import(new URL('../scripts/ia-pc/mako-pc.mjs', import.meta.url).href);
 const config = () => { try { return JSON.parse(readFileSync(join(dir, 'config.json'), 'utf8')); } catch { return null; } };
-const correr = async (enlace, contesta) => {
+const correr = async (enlace, contesta, claude = 'con-sesion') => {
   pedidos = [];
   const ventanas = [];
   let arrancado = 0;
+  let iniciadas = 0;
   const salida = await pc.conectarDesdeEnlace(enlace, {
     ventana: async (titulo, texto, botones = 'si-no') => { ventanas.push({ titulo, texto, botones }); return botones === 'si-no' ? contesta : true; },
     arrancar: () => { arrancado++; },
+    // La sesión de Claude de esta PC (0.4.0): sin sesión se ofrece iniciarla; sin Claude Code, se dice.
+    sesionDeClaude: async () => claude,
+    iniciarSesion: async () => { iniciadas++; return 0; },
   });
-  return { salida, ventanas, arrancado, pedidos: [...pedidos], config: config() };
+  return { salida, ventanas, arrancado, iniciadas, pedidos: [...pedidos], config: config() };
 };
 const BIEN = {
   '/api/ia-pc/emparejar': { status: 200, datos: { token: 'tok-nuevo', negocio: 'Pizzería Ana', persona: 'Ana' } },
@@ -83,6 +87,10 @@ const dosALaVez = async (contesta) => {
 respuestas = { ...BIEN, '/api/ia-pc/emparejar': { status: 200, datos: { token: 'tok-este', negocio: 'Este', persona: '' } } };
 out.dosSi = await dosALaVez(true);
 out.dosNo = await dosALaVez(false);
+// 7b) Conectada, pero su Claude sin la sesión: se ofrece iniciarla (con el «sí», arranca la página local); sin Claude Code, se dice.
+respuestas = BIEN;
+out.sinSesion = await correr('mako://conectar?codigo=ABCD2345', true, 'sin-sesion');
+out.sinClaude = await correr('mako://conectar?codigo=ABCD2345', true, 'falta');
 // 8) Una configuración de la 0.2.0 (con token y sin el negocio): también avisa que la reemplaza.
 guardar({ servidor: 'https://hola-mako.com', token: 'tok-viejo' });
 respuestas = BIEN;

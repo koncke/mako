@@ -22,6 +22,7 @@ import { CuerpoGrupo, FilaAjustes, GrupoAjustes, TituloAjustes } from '../_ui/Aj
 import { useRouter } from '@/app/_ui/Link';
 import { guardarNombreNegocioAction } from '@/app/configuraciones/negocio-actions';
 import { NOMBRE_NEGOCIO_MAX, muestraNegocio, type NegocioDelPerfil } from '@/lib/nombre-negocio';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 export type { NegocioDelPerfil };
 
 const TZ_OPTS = [
@@ -177,7 +178,7 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
     <>
       {!sinTitulo && <TituloAjustes titulo={titulo} bajada={bajada} />}
       {sinTitulo && vista.deOtro && <p className="aj-texto">{titulo}</p>}
-      {error && <div className="aj-error" role="alert">{error}</div>}
+      {error && <div className="aj-error" role="alert">{error}<ReportarASoporte /></div>}
 
       <GrupoAjustes titulo="Información básica" descripcion={vista.deOtro ? undefined : 'Tu nombre y tu foto aparecen en los chats, el tablero y los avisos.'}>
         <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />

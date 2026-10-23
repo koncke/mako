@@ -14,6 +14,7 @@
 import { Button, Spinner } from '@/app/_ui';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { MakoLoader } from '@/app/_components/MakoLoader';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type PasoGeneracion = 'diagnostico' | 'oferta' | 'listo';
 
@@ -61,7 +62,7 @@ export function GenerandoEnChat({ paso, corriendo, error, onReintentar }: {
       {!fallo && <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>Puede tardar unos minutos.</span>}
       {fallo && (
         <>
-          <span role="alert" style={{ fontSize: 'var(--fs-sm)', lineHeight: 1.45, color: 'var(--bad)' }}>{error}</span>
+          <span role="alert" style={{ fontSize: 'var(--fs-sm)', lineHeight: 1.45, color: 'var(--bad)' }}>{error}<ReportarASoporte /></span>
           <div><Button variant="secondary" size="sm" onClick={onReintentar}>{paso === 'oferta' ? 'Reintentar la oferta' : 'Reintentar el diagnóstico'}</Button></div>
         </>
       )}
@@ -97,7 +98,7 @@ export function Generando({ paso, corriendo, error, onReintentar, onVolver }: {
         )}
         {fallo && (
           <>
-            <p role="alert" style={{ margin: 0, fontSize: 'var(--fs-md)', lineHeight: 1.45, color: 'var(--bad)', textAlign: 'center' }}>{error}</p>
+            <p role="alert" style={{ margin: 0, fontSize: 'var(--fs-md)', lineHeight: 1.45, color: 'var(--bad)', textAlign: 'center' }}>{error}<ReportarASoporte /></p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
               <Button variant="primary" onClick={onReintentar}>
                 {paso === 'oferta' ? 'Reintentar la oferta' : 'Reintentar el diagnóstico'}

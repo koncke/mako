@@ -24,6 +24,7 @@ import { Modal } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
 import { emailUtilizable } from '@/lib/agencia-altas';
 import { llevarAPartnersAction, leadParaPartnersAction } from './actions';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Hecho = { clienteWs: number; link: string | null; sinLink: string | null };
 
@@ -131,7 +132,7 @@ export function ModalLlevarAPartners({ leadId = null, nombre: nombreInicial = ''
           onKeyDown={(e) => { if (e.key === 'Enter') void abrir(); }} />
         {/* La consecuencia, pegada al botón y antes del clic. */}
         <p className="pll-ayuda">Se crea su cuenta de MaKo y te damos el link de su primer mes.</p>
-        {mal && <p className="pll-mal" role="alert">{mal}</p>}
+        {mal && <p className="pll-mal" role="alert">{mal}<ReportarASoporte /></p>}
       </>
     );
     pie = (

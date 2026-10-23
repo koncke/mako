@@ -505,11 +505,20 @@ export type LineaChat =
  * ⚠️ NI LO QUE SE DICEN LOS CHATS ENTRE ELLOS (22/10/2026, `esParaMartin`, lib/operaciones-reglas.ts): un mensaje de otro
  *    chat y el resumen de una compactación no se dibujan, en la computadora ni en el teléfono (los dos pasan por acá).
  */
+/** La versión plegada de cada línea, UNA por línea (23/10/2026): armada de nuevo en cada dibujo, la línea plegada nunca era la
+ *  misma y el hilo memorizado la volvía a dibujar en cada refresco. Con la línea estable (lib/centro-estable.ts), la plegada
+ *  también. */
+const plegadas = new WeakMap<LineaChat, LineaChat>();
+const plegada = (l: LineaChat): LineaChat => {
+  let p = plegadas.get(l);
+  if (!p) { p = { ...l, plegado: true } as LineaChat; plegadas.set(l, p); }
+  return p;
+};
 export const lineasDeConversacion = (lineas: readonly LineaChat[]): LineaChat[] => {
   const paraOtro = turnosParaOtro(lineas);
   return lineas.filter((l) => l.tipo === 'trabajo' || l.tipo === 'respuesta' || l.tipo === 'pregunta'
     || (l.tipo === 'turno' && esParaMartin(l.turno) && !(l.turno.rol === 'yo' && l.turno.trabajo)))
-    .map((l) => (l.tipo === 'turno' && paraOtro.has(l.turno.uuid) ? { ...l, plegado: true } : l));
+    .map((l) => (l.tipo === 'turno' && paraOtro.has(l.turno.uuid) ? plegada(l) : l));
 };
 
 /**

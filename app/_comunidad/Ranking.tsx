@@ -15,6 +15,7 @@ import { Button, Input, Modal, Spinner } from '@/app/_ui';
 import type { FilaRanking, RankingVista } from '@/lib/comunidad-tipos';
 import { NIVEL_MAX, TOPE_NOMBRE_NIVEL, UMBRALES_NIVEL, nombreNivelDefault, rotuloNivel } from '@/lib/comunidad-niveles';
 import { AvatarNivel, Hace, Ico, useComunidad } from './piezas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export function Ranking() {
   const { api, comunidad } = useComunidad();
@@ -28,7 +29,7 @@ export function Ranking() {
     return () => { vivo = false; };
   }, [api, comunidad.nombresNivel]);
 
-  if (error) return <p className="cmu-error" role="alert">{error}</p>;
+  if (error) return <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p>;
   if (!r) return <div style={{ display: 'grid', placeItems: 'center', padding: 40 }}><Spinner /></div>;
   const miNivel = r.yo?.nivel ?? null;
 
@@ -140,7 +141,7 @@ function EditorNiveles({ onCerrar }: { onCerrar: () => void }) {
             <span className="cmu-meta" style={{ width: 72, textAlign: 'right' }}>{UMBRALES_NIVEL[i].toLocaleString('es')} pts</span>
           </label>
         ))}
-        {error && <p className="cmu-error" role="alert">{error}</p>}
+        {error && <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p>}
       </div>
     </Modal>
   );

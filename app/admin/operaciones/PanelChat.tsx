@@ -21,6 +21,7 @@ import { Icon } from '@/app/_components/icons';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { alSoltar, traeArchivos, type AdjuntosDeCaja } from './AdjuntosCaja';
 import { Muneco, type Animo } from './Muneco';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type CabeceraChat = {
   /** De qué chat es: cambiarlo suelta el renombre a medias (dos chats pueden llamarse igual). */
@@ -77,7 +78,7 @@ export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, a
               onClick={() => setEditando({ texto: titulo, error: null, mandando: false })}>{titulo}</button>
           ) : titulo}
         </h1>
-        {editando?.error && <span className="co-cab__error" role="alert">{editando.error}</span>}
+        {editando?.error && <span className="co-cab__error" role="alert">{editando.error}<ReportarASoporte /></span>}
       </div>
     </header>
   );

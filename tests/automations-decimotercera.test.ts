@@ -121,10 +121,12 @@ test('punto 2: «que dentro aparezca un loader»: la capa con «Creando tu autom
   assert.match(LISTA, /\{pedidoPara \? 'Creando tu automatización' : 'Creando…'\}/);
   // Sin el chat no hay pedido: el chat está SIEMPRE, también con el lienzo vacío (20/10/2026: en la sidebar, sin ✦).
   assert.match(PERFIL, /\{rolAdmin && ranuraChat && createPortal\(/);
-  // El hilo vacío de una fila nueva dice qué hacer, y la barra lo mismo.
-  const html = renderToStaticMarkup(createElement(ChatMako, { secuenciaId: 7, pasos: [], onListo: () => {} }));
-  assert.ok(html.includes(VACIO_CREAR));
-  assert.match(html, new RegExp(`<textarea[^>]*placeholder="${PLACEHOLDER_QUIETO}"`));
+  // El hilo vacío de una fila nueva dice qué hacer, y la caja lo mismo (23/10/2026, AU4: la vista entra con next/dynamic,
+  // así que se mira lo que ChatMako le pasa).
+  assert.match(CHAT, /vacio=\{<div style=\{S\.vacio\}>\{crea \? VACIO_CREAR : VACIO_EDITAR\}<\/div>\}/);
+  assert.match(CHAT, /const placeholder = ronda \? PLACEHOLDER_OTRA : crea \? PLACEHOLDER_QUIETO : PLACEHOLDER_EDITAR;/);
+  assert.match(renderToStaticMarkup(createElement(ChatMako, { secuenciaId: 7, pasos: [], onListo: () => {} })), /data-chat-mako="editar"/);
+  void VACIO_CREAR;
 });
 
 // ── 3. «Probar» frena con un medio sin conectar ───────────────────────────────────────────────────
@@ -169,24 +171,29 @@ test('punto 3: «Probar» pregunta ANTES de abrir el panel, dice qué falta y ab
 const yo = (id: string, texto: string, o: Partial<MensajeChatMako> = {}): MensajeChatMako => ({ id, de: 'yo', texto, at: AT, via: 'app', ...o });
 const mako = (id: string, texto: string, o: Partial<MensajeChatMako> = {}): MensajeChatMako => ({ id, de: 'mako', texto, at: AT, via: 'app', ...o });
 
-test('punto 6: el chat ES el hilo de WhatsApp (ChatHilo) con los colores de MaKo, el logo, «en línea», y sin clip', () => {
-  assert.match(CHAT, /import \{ ChatHilo, type HiloMsg \} from '@\/app\/whatsapp\/_shared\/ChatHilo';/);
-  assert.match(CHAT, /<ChatHilo\n\s+mensajes=\{hilo\}/);
+// ⚠️ 23/10/2026 (AU4, Martín por el Cerebro: «La criatura es SIEMPRE la de MaKo, la estrella... Falta el "+" para adjuntar
+// archivos e imágenes. Pasá el chat a la caja y el hilo únicos»): ya no es el hilo de WhatsApp con colores de MaKo (el punto
+// 6 de la decimotercera). El hilo es HiloMako y la caja CajaChat, en ChatMakoVista.tsx (entra con next/dynamic: trae CSS).
+test('punto 6 → AU4: el chat de MaKo es el hilo y la caja únicos, con la estrella, el «+» y la nota de voz', () => {
+  assert.doesNotMatch(CHAT, /<ChatHilo\b|import \{ ChatHilo/, 'volvió el hilo de WhatsApp');
+  assert.match(CHAT, /const ChatMakoVista = dynamic\(\(\) => import\('\.\/ChatMakoVista'\), \{ ssr: false,/);
+  const vista = fuente('app/automations/ChatMakoVista.tsx');
+  assert.match(vista, /<HiloMako items=\{p\.items\} quien=\{QUIEN_MAKO\}/);
+  assert.match(vista, /export const QUIEN_MAKO: Quien = \{ nombre: 'MaKo', aspecto: ASPECTO_MAKO \};/, 'la criatura no es la estrella');
+  assert.match(vista, /<CajaChat \{\.\.\.p\.caja\} \/>/);
+  // La cabecera: la estrella de MaKo y «en línea».
   const html = renderToStaticMarkup(createElement(ChatMako, {
     secuenciaId: 7, pasos: [P({ id: 'm1' })], onListo: () => {}, inicial: [yo('y1', 'Cambia el saludo'), mako('m1', 'Cambié 1')],
   }));
-  assert.ok(html.includes(`border-top:3px solid ${COLORES_MAKO.cinta}`), 'sin la cinta de MaKo');
-  assert.ok(html.includes(`background:${COLORES_MAKO.burbuja};border:1px solid ${COLORES_MAKO.borde}`), 'la burbuja propia no es la de MaKo');
-  assert.match(html, /aria-label="MaKo"/, 'sin el logo de MaKo en la cabecera');
+  assert.match(html, /aria-label="MaKo"/, 'sin la estrella en la cabecera');
   assert.ok(html.includes(`>${ESTADO_EN_LINEA}<`));
-  assert.match(html, /aria-label="Emojis"/);
-  assert.match(html, /aria-label="Grabar nota de voz"/);
-  assert.doesNotMatch(html, /aria-label="Adjuntar archivo"/, 'un clip que MaKo no recibe');
-  assert.doesNotMatch(html, />✦</, 'volvió la estrella de texto');
-  // La ➤ con el color de MaKo, y la nota de voz se transcribe (no viaja como archivo).
-  assert.match(CHAT, /acentoEnviar=\{COLORES_MAKO\.enviar\}/);
-  assert.match(CHAT, /onEnviarAudio=\{\(b\) => enviarAudio\(b\)\}/);
+  assert.match(CHAT, /<Muneco titulo="MaKo" aspecto=\{ASPECTO_MAKO\}/);
+  // El «+» (lo adjuntado se lee a texto al sumarlo) y la nota de voz (se transcribe y viaja como texto).
+  assert.match(CHAT, /adjuntos: adjuntosCaja,/);
+  assert.match(CHAT, /void leerArchivoParaPedido\(a\.file\)\.then\(/);
+  assert.match(CHAT, /voz: \{ onAudio: \(b\) => \{ void enviarAudio\(b\); \}/);
   assert.match(tramo(CHAT, 'const enviarAudio = async (blob: Blob)', '\n  };', 700), /const r = await transcribirNota\(blob\);/);
+  void COLORES_MAKO;
 });
 
 // DECIMOCUARTA (punto 2): la caja del modal es la del Landing Generator, sin cabecera (ni logo, ni título, ni «Nace

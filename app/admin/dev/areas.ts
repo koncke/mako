@@ -1161,7 +1161,7 @@ export const AREAS: AreaDev[] = [
     estado: 'parcial', verEnApp: '/tickets',
     alcance: 'El cliente levanta un ticket desde el chat de MaKo o en «Reportar problema»; el triage separa el bug evidente (se arregla solo) de lo nuevo (decide Martín); la decisión va firmada al Cerebro y el ticket se cierra solo cuando se despliega. Falta enchufar la entrega del bug automático en el cartero, la bandeja en el teléfono y WhatsApp.',
     vive: [
-      'app/tickets/page.tsx', 'app/tickets/TicketsCliente.tsx', 'app/tickets/acciones.ts', 'app/tickets/tickets.css', 'app/tickets/bandeja/',
+      'app/tickets/page.tsx', 'app/tickets/soporte/', 'lib/soporte-chat.ts', 'lib/soporte-reporte.ts', 'app/api/soporte/reportar/route.ts', 'app/_ui/ReportarASoporte.tsx', 'app/tickets/acciones.ts', 'app/tickets/tickets.css', 'app/tickets/bandeja/',
       'lib/tickets-reglas.ts', 'lib/tickets-db.ts', 'lib/tickets-cierre.ts', 'lib/tickets-aviso.ts', 'lib/tickets-runner.ts',
       'lib/api-mako/areas/tickets.def.ts', 'lib/api-mako/areas/tickets.run.ts', 'app/api/cron/tickets/route.ts', 'scripts/tickets.ts',
       'lib/errores-app.ts', 'lib/errores-app-reglas.ts', 'app/api/errores/route.ts', 'app/_components/ReportarErrores.tsx', 'supabase/migrations/0313_errores_app.sql', 'tests/errores-app.test.ts', 'tests/tickets-cartero.test.ts',

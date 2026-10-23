@@ -20,6 +20,7 @@ import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { CANTIDADES, FUENTES_PROSPECCION, contactable, rotuloDeBusqueda, techoUsd, type Cantidad, type FuenteProspeccion } from '@/lib/prospectos-reglas';
 import type { Busqueda, Prospecto, ListaProspectos } from '@/lib/prospectos';
 import { buscarProspectosAction, cambiarEstadoProspectosAction, funnelDeProspeccionAction, listarProspectosAction, pasarProspectosAlCrmAction } from './actions';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type FunnelOpcion = { id: number; nombre: string; esDefault: boolean };
 type Vista = 'nuevo' | 'descartado' | 'en_crm';
@@ -332,7 +333,7 @@ function NuevaBusqueda({ onCerrar, onLanzada }: { onCerrar: () => void; onLanzad
         )}
         <Select label="Cuántos" value={String(cuantos)} onChange={(v) => setCuantos(Number(v) as Cantidad)}
           options={CANTIDADES.map((n) => ({ value: String(n), label: String(n) }))} />
-        {error && <div role="alert" style={{ fontSize: 13.5, color: 'var(--bad)' }}>{error}</div>}
+        {error && <div role="alert" style={{ fontSize: 13.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
       </div>
     </Modal>
   );
@@ -385,7 +386,7 @@ function PasarAlCrm({ elegidos, funnels, onCerrar, onListo }: {
           Entran en la primera etapa. Si alguno ya está en tu CRM, no se duplica.
         </div>
         {noVan > 0 && <div style={{ fontSize: 13.5, color: 'var(--warn)' }}>{noVan} sin email ni teléfono: no van.</div>}
-        {error && <div role="alert" style={{ fontSize: 13.5, color: 'var(--bad)' }}>{error}</div>}
+        {error && <div role="alert" style={{ fontSize: 13.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
       </div>
     </Modal>
   );

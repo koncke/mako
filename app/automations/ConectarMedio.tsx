@@ -35,6 +35,7 @@ import { VincularRemitente } from './EditorEmailGmail';
 import type { DomState } from '../email/EmailApp';
 import { plataformaDe, NOMBRE_CANAL, type CanalSocial } from '@/lib/canal-social';
 import { consultaDeMedios, type EstadoMedios, type Medio } from '@/lib/medios-automatizacion';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 // ── «Algo se conectó»: las lecturas cacheadas se vacían ──────────────────────────────────────────
 
@@ -271,7 +272,7 @@ export function ConectarSocial({ medio, inicial = null, onCerrar, onConectado, o
                 )}
               </span>
             )}
-        {error && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}</span>}
+        {error && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></span>}
         {pago && <a href={pago} target="_blank" rel="noopener noreferrer" data-zernio-pago style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>Pagar en Zernio</a>}
       </div>
     </Modal>

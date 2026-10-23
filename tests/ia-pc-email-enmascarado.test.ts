@@ -32,7 +32,9 @@ test('1. el email se enmascara (m***@gmail.com) y lo demás de la cuenta va igua
 test('2. en el servidor: entero sólo para el dueño de la PC y para el super admin; si no se sabe, enmascarado', () => {
   const r = ruta();
   assert.match(r, /cuentas: cuentasParaVer\(d\.cuentas, d\.esMia \|\| superAdmin\),/, 'la ruta manda el email ajeno sin enmascarar');
-  assert.doesNotMatch(r, /cuentas: d\.cuentas/, 'las cuentas salen tal cual');
+  assert.doesNotMatch(r.slice(r.indexOf('pcs: pcs.map((d) => ({')), /cuentas: d\.cuentas/, 'las cuentas salen tal cual');
+  // Las cuentas con sus dispositivos (23/10/2026) se agrupan con el email entero y salen con la MISMA regla.
+  assert.match(r, /grupos: agruparPorCuenta\([\s\S]*?\}\)\), \(pc\) => pc\.esMia \|\| superAdmin\),/, 'las cuentas agrupadas salen sin la regla del enmascarado');
   // El super admin, con la MISMA puerta que SuperAdmin (lib/operaciones-reglas.ts); un error, enmascarado.
   assert.match(r, /puedeOperar\(await getSesionAdmin\(\), await wsSuperAdmin\(\)\)\)\(\)\.catch\(\(\) => false\)/);
   assert.doesNotMatch(r, /rol === 'admin'[^\n]*superAdmin|superAdmin = esAdmin;/, 'ser admin del negocio no es ser super admin');

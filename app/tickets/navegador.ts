@@ -23,10 +23,12 @@ export function hace(iso: string): string {
  * De dónde venía la persona, el navegador, la pantalla, la zona y la hora. Se limpia en el servidor (`sanearContexto`).
  * `donde` dice desde qué entrada se levantó (la de la computadora o la del teléfono).
  */
-export function contextoDelNavegador(donde: 'reportar-problema' | 'reportar-problema-movil' = 'reportar-problema'): Record<string, unknown> {
+export function contextoDelNavegador(donde: 'reportar-problema' | 'reportar-problema-movil' | 'soporte' | 'soporte-movil' = 'reportar-problema'): Record<string, unknown> {
   try {
     let ruta: string | undefined;
-    if (document.referrer) {
+    // El chat de Soporte vive en el Ops Center (23/10/2026): de dónde venía no es dónde le pasó (eso lo cuenta ella, «Dónde: …»),
+    // y una pantalla equivocada le cambiaría el triage (las zonas delicadas se leen de la ruta).
+    if (document.referrer && !donde.startsWith('soporte')) {
       const u = new URL(document.referrer);
       if (u.origin === window.location.origin && !u.pathname.startsWith('/tickets')) ruta = `${u.pathname}${u.search}`;
     }

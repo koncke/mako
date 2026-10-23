@@ -21,6 +21,7 @@ import { Dropdown } from '@/app/components/Dropdown';
 import { EditarEtiqueta } from '@/app/_components/EditarEtiqueta';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import type { Etiqueta } from '@/lib/etiquetas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type { Etiqueta };
 
@@ -276,7 +277,7 @@ export function SelectorEtiqueta({ value, onElegir, excluir, placeholder = 'Etiq
           <button type="button" className="mk-icon-btn" onClick={() => void crear()} disabled={ocupado || !nombre.trim()} aria-label="Crear la etiqueta" title="Crear la etiqueta" style={{ height: 32, width: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><IconoMenu nombre="check" size={16} /></button>
           <button type="button" className="mk-icon-btn" onClick={() => { setCreando(false); setFallo(null); }} aria-label="Cancelar" style={{ height: 32, width: 32 }}>×</button>
         </span>
-        {fallo && <span role="alert" style={{ fontSize: 12, color: 'var(--bad)' }}>{fallo}</span>}
+        {fallo && <span role="alert" style={{ fontSize: 12, color: 'var(--bad)' }}>{fallo}<ReportarASoporte /></span>}
       </span>
     );
   }
@@ -299,7 +300,7 @@ export function SelectorEtiqueta({ value, onElegir, excluir, placeholder = 'Etiq
           if (e) onElegir(e);
         }}
       />
-      {error && <span role="alert" style={{ fontSize: 12, color: 'var(--bad)' }}>{error}</span>}
+      {error && <span role="alert" style={{ fontSize: 12, color: 'var(--bad)' }}>{error}<ReportarASoporte /></span>}
       {editando && <EditarEtiqueta etiqueta={editando} onCerrar={cerrarEditor} onCambio={avisarCambioEtiquetas} />}
     </span>
   );

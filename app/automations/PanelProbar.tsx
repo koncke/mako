@@ -137,6 +137,7 @@ import {
   GRUPO_SIN_MENSAJES, type LecturaGrupo, type BurbujaGrupo,
 } from '@/lib/probar-grupo';
 import { TEXTO_SOLO_AUDIO } from '@/lib/mako-tarjeta';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /**
  * El tamaño que pide «Probar»: ancho y bajo (decisión 11 de la segunda tanda). La cuenta vive en
@@ -763,7 +764,7 @@ export function MenuDestinos({ refCaja, esEmail, guardados, onElegir, nuevo, onN
         {nuevo ? (
           <form onSubmit={onProbarNuevo} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '6px 4px 4px' }}>
             {esEmail ? formEmail : formTelefono}
-            {error && <span role="alert" style={{ fontSize: 12, color: 'var(--bad)' }}>{error}</span>}
+            {error && <span role="alert" style={{ fontSize: 12, color: 'var(--bad)' }}>{error}<ReportarASoporte /></span>}
             <Button type="submit" size="sm" disabled={!puedeProbarNuevo}>Probar</Button>
           </form>
         ) : (

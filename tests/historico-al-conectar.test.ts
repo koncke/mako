@@ -31,6 +31,7 @@ import {
   estadoInicial, estadoDeLoGuardado, historicoPorArrancar, reevaluarExtraccion, sirveAlHistorico,
   JOB_KEYS, JOBS_DE_META, JOBS_DEL_HISTORICO, type JobKey,
 } from '../lib/onboarding-contrato';
+import { CLAVES_AGENDA, CLAVES_BASE } from '../lib/cuentas-integracion';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -211,7 +212,16 @@ test('una puerta NUEVA que guarde credenciales tiene que decidir si arranca el h
     'lib/cobros-conexion.ts': 'las pasarelas de pago',
     'lib/credenciales.ts': 'la migración de las envs viejas (la declaración vive acá)',
     'lib/datos-mau.ts': 'la copia de los datos de Mauricio, que nunca arranca un onboarding',
+    // Varias cuentas por proveedor (Cobros, 22-23/10/2026): conectar otra cuenta, renombrarla, su secreto del aviso.
+    'app/api/integraciones/cuentas/route.ts': 'las cuentas de Stripe, Mercado Pago, Calendly y Cal.com: ninguno tiene histórico',
+    'lib/cuentas-pago-server.ts': 'el nombre de una cuenta de Stripe o Mercado Pago',
+    'lib/cuentas-agenda-server.ts': 'el nombre de una cuenta de Calendly o Cal.com',
   };
+  // Lo que decide «sin histórico» para las puertas de las cuentas: sus proveedores no tienen. El día que uno lo tenga,
+  // esa puerta pasa a PUERTAS y arranca el suyo.
+  for (const p of [...Object.keys(CLAVES_BASE), ...Object.keys(CLAVES_AGENDA)]) {
+    assert.equal(sirveAlHistorico(p), false, `«${p}» ahora tiene histórico: app/api/integraciones/cuentas/route.ts tiene que arrancarlo al conectar una cuenta`);
+  }
   const archivos = execFileSync('git', ['ls-files', 'app', 'lib'], { cwd: RAIZ, encoding: 'utf8' })
     .split('\n').filter((f) => /\.(ts|tsx)$/.test(f) && !f.startsWith('app/admin/dev/'));
   const llaman = archivos.filter((f) => /\bguardarCredencial\(/.test(sinComentarios(leer(f)).replace(/export async function guardarCredencial\(/, '')));
@@ -251,3 +261,6 @@ test('el cron recorre a quien tenga CUALQUIER integración con histórico, no s�
 //   - una puerta nueva guarda credenciales sin decidir            → 8/1
 //   - el cron vuelve a recorrer sólo a quien tiene Meta           → 8/1
 //   - la ronda sin el `break` (repite el workspace)               → 8/1
+// Con las puertas de varias cuentas (Cobros, 23/10/2026), base 9/0:
+//   - la ruta de las cuentas fuera de la lista                     → 8/1
+//   - Cal.com con un trabajo en JOBS_DEL_HISTORICO                 → 8/1

@@ -203,14 +203,21 @@ export async function dispositivoDelToken(token: unknown, o: { pendientesTambien
  * El latido: la PC está prendida, con sus cuentas. El primero de una PC confirmada que trae una cuenta con sesión la
  * ACTIVA (mig 0322): recién ahí cuenta para D6b. `sinClaude`: en esa PC no hay Claude Code.
  */
-export async function latir(d: Dispositivo, cuerpo: unknown): Promise<void> {
+export async function latir(d: Dispositivo, cuerpo: unknown, extra: { ubicacion?: string | null } = {}): Promise<void> {
   const o = cuerpo && typeof cuerpo === 'object' ? (cuerpo as Record<string, unknown>) : {};
   const version = typeof o.version === 'string' ? o.version.replace(/[^\w.\-+]/g, '').slice(0, 40) : null;
   const cuentas = sanearCuentas(o.cuentas);
   const ahora = new Date().toISOString();
-  const { error } = await db().from('ia_pc_dispositivos')
-    .update({ ultimo_latido: ahora, version, cuentas, claude_falta: o.sinClaude === true && !cuentas.length })
-    .eq('id', d.id).eq('workspace_id', d.ws);
+  const fila = { ultimo_latido: ahora, version, cuentas, claude_falta: o.sinClaude === true && !cuentas.length };
+  // La ubicación (sólo «ciudad, provincia, país»: textoDeUbicacion), si se supo; si no, queda la última. Sin la mig 0327, el
+  // latido igual se anota.
+  const conUbicacion = extra.ubicacion ? { ...fila, ubicacion: extra.ubicacion } : fila;
+  let { error } = await db().from('ia_pc_dispositivos').update(conUbicacion).eq('id', d.id).eq('workspace_id', d.ws);
+  if (error && conUbicacion !== fila) {
+    // Sin la mig 0327, o un texto que la base no acepta: el latido igual se anota, sin la ubicación (revisión de privacidad).
+    console.error(`[ia-pc] ⚠️ el latido no aceptó la ubicación${esErrorDeEsquema(error) ? ' (FALTA LA MIG 0327)' : ''}: ${error.message}`);
+    ({ error } = await db().from('ia_pc_dispositivos').update(fila).eq('id', d.id).eq('workspace_id', d.ws));
+  }
   if (error) throw new Error(`ia-pc: no pude anotar el latido: ${error.message}`);
   if (!d.activa && d.confirmado && cuentas.length) {
     const a = await db().from('ia_pc_dispositivos').update({ activa_at: ahora }).eq('id', d.id).eq('workspace_id', d.ws).is('activa_at', null);
@@ -280,7 +287,12 @@ export async function negocioConPc(ws: number): Promise<boolean> {
 
 /** Desconecta una PC: su token deja de servir, y el turno que tenía en curso también (sus herramientas no corren más). */
 export async function desconectar(ws: number, id: number): Promise<void> {
-  const { error } = await db().from('ia_pc_dispositivos').update({ revocado_at: new Date().toISOString() }).eq('id', id).eq('workspace_id', ws).is('revocado_at', null);
+  // Y se borra lo personal que guardó (revisión de privacidad, 23/10/2026): la fila queda para siempre, revocada, y su última
+  // ubicación y los emails de sus cuentas no tienen por qué quedar con ella. Sin la mig 0327, sin la ubicación.
+  const fila = { revocado_at: new Date().toISOString(), cuentas: [] };
+  const desconectarCon = (cambios: Record<string, unknown>) => db().from('ia_pc_dispositivos').update(cambios).eq('id', id).eq('workspace_id', ws).is('revocado_at', null);
+  let { error } = await desconectarCon({ ...fila, ubicacion: null });
+  if (error && esErrorDeEsquema(error)) ({ error } = await desconectarCon(fila));
   if (error) throw new Error(`ia-pc: no pude desconectar: ${error.message}`);
   // Si vencer sus turnos falla, se dice (antes contestaba ok igual); las herramientas igual miran la revocación.
   const t = await db().from('ia_pc_turnos').update({ estado: 'vencido' }).eq('dispositivo_id', id).eq('workspace_id', ws).in('estado', ['esperando', 'tomado']);
@@ -298,17 +310,23 @@ async function sigueConectada(dispositivoId: number): Promise<boolean> {
  * secreto. Una confirmada que todavía no latió se muestra («Esperando que se conecte»): tiene el arranque puesto y late
  * en el próximo inicio de sesión (antes se escondía a los 15 minutos y la purga la revocaba: tercera revisión).
  */
-export async function listarDispositivos(ws: number, persona: string, esAdmin: boolean): Promise<Array<Dispositivo & { enLinea: boolean; version: string | null; esMia: boolean; conectadaAt: string | null; sistema: 'Windows' | 'Mac' | null }>> {
-  let q = db().from('ia_pc_dispositivos')
-    .select(`${COLUMNAS_PC}, version, creado_at`)
-    .eq('workspace_id', ws).is('revocado_at', null).not('confirmado_at', 'is', null).order('creado_at', { ascending: false }).limit(20);
-  if (!esAdmin) q = q.eq('persona', persona);
-  const data = sinError(await q, 'las PC');
+export async function listarDispositivos(ws: number, persona: string, esAdmin: boolean): Promise<Array<Dispositivo & { enLinea: boolean; version: string | null; esMia: boolean; conectadaAt: string | null; sistema: 'Windows' | 'Mac' | null; ubicacion: string | null }>> {
+  const leer = (columnas: string) => {
+    let q = db().from('ia_pc_dispositivos')
+      .select(columnas)
+      .eq('workspace_id', ws).is('revocado_at', null).not('confirmado_at', 'is', null).order('creado_at', { ascending: false }).limit(20);
+    if (!esAdmin) q = q.eq('persona', persona);
+    return q;
+  };
+  // Con la ubicación (mig 0327); sin la migración, sin ella (null), y la tarjeta igual sale.
+  let r = await leer(`${COLUMNAS_PC}, version, creado_at, ubicacion`);
+  if (esErrorDeEsquema(r.error)) { console.error(`[ia-pc] ⚠️ FALTA LA MIG 0327 (la ubicación): ${r.error?.message}`); r = await leer(`${COLUMNAS_PC}, version, creado_at`); }
+  const data = sinError(r as { data: Array<Record<string, unknown>> | null; error: { message: string } | null }, 'las PC');
   return (data ?? [])
     .map((r) => {
       const d = aDispositivo(r);
       const version = (r.version as string | null) ?? null;
-      return { ...d, enLinea: enLinea(d.ultimoLatido), version, esMia: d.persona === persona, conectadaAt: (r.creado_at as string | null) ?? null, sistema: sistemaDeLaVersion(version) };
+      return { ...d, enLinea: enLinea(d.ultimoLatido), version, esMia: d.persona === persona, conectadaAt: (r.creado_at as string | null) ?? null, sistema: sistemaDeLaVersion(version), ubicacion: (r.ubicacion as string | null) ?? null };
     });
 }
 
@@ -318,9 +336,13 @@ export async function listarDispositivos(ws: number, persona: string, esAdmin: b
  * cuándo se conectó y cuándo latió. Quien llama mira que sea el super admin. Tira si falla.
  */
 export async function listarTodasLasPc(): Promise<PcDeNegocio[]> {
-  const data = sinError(await db().from('ia_pc_dispositivos')
-    .select('id, workspace_id, persona, nombre, ultimo_latido, cuentas, version, creado_at')
-    .is('revocado_at', null).not('confirmado_at', 'is', null).order('workspace_id').order('creado_at', { ascending: false }).limit(200), 'las PC de los negocios') ?? [];
+  const leer = (columnas: string) => db().from('ia_pc_dispositivos')
+    .select(columnas)
+    .is('revocado_at', null).not('confirmado_at', 'is', null).order('workspace_id').order('creado_at', { ascending: false }).limit(200);
+  // Con la ubicación (mig 0327); sin la migración, sin ella.
+  let r = await leer('id, workspace_id, persona, nombre, ultimo_latido, cuentas, version, creado_at, ubicacion');
+  if (esErrorDeEsquema(r.error)) r = await leer('id, workspace_id, persona, nombre, ultimo_latido, cuentas, version, creado_at');
+  const data = sinError(r as { data: Array<Record<string, unknown>> | null; error: { message: string } | null }, 'las PC de los negocios') ?? [];
   const wss = [...new Set(data.map((f) => Number(f.workspace_id)))];
   const nombres = new Map<number, string>();
   if (wss.length) {
@@ -332,6 +354,7 @@ export async function listarTodasLasPc(): Promise<PcDeNegocio[]> {
     persona: String(f.persona), nombre: String(f.nombre), sistema: sistemaDeLaVersion((f.version as string | null) ?? null),
     enLinea: enLinea((f.ultimo_latido as string | null) ?? null), conClaude: sanearCuentas(f.cuentas).length > 0,
     conectadaAt: (f.creado_at as string | null) ?? null, ultimoLatido: (f.ultimo_latido as string | null) ?? null,
+    cuentas: sanearCuentas(f.cuentas), ubicacion: (f.ubicacion as string | null) ?? null, version: (f.version as string | null) ?? null,
   }));
 }
 

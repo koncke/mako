@@ -19,6 +19,7 @@ import { VideoResult } from './VideoResult'
 import { loadVideoSettings, saveVideoSettings } from './videoSettings'
 import { useVideoJob } from './useVideoJob'
 import styles from './video.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export interface VideoSectionProps {
   format: VideoFormat
@@ -176,11 +177,13 @@ export function VideoSection({ format, pages, rangeInvalid, footer, onLockChange
               {estimate.tooLong ? (
                 <li className={styles.warning} role="alert">
                   {p.warnings.tooLong(`${limit} minutes`)}
+                  <ReportarASoporte />
                 </li>
               ) : null}
               {gif && estimate.bytes > GIF_WARN_BYTES ? (
                 <li className={styles.warning} role="alert" data-testid="video-gif-warning">
                   {p.warnings.gifLarge(formatBytes(estimate.bytes))}
+                  <ReportarASoporte />
                 </li>
               ) : null}
               {notes.map((note) => (
@@ -201,6 +204,7 @@ export function VideoSection({ format, pages, rangeInvalid, footer, onLockChange
                 {state.failure.detail}
               </details>
             ) : null}
+            <ReportarASoporte />
           </div>
         ) : null}
       </fieldset>

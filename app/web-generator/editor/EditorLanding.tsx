@@ -105,6 +105,7 @@ import DialogoConfiguracion from './dialogos/DialogoConfiguracion';
 import DialogoAnalitica from './dialogos/DialogoAnalitica';
 import DialogoAtajos from './dialogos/DialogoAtajos';
 import Presentar from './Presentar';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constantes
@@ -1040,6 +1041,7 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
           <div className="gma-aviso" role="alert">
             Hay una versión más nueva de esta landing.
             <button type="button" className="gma-boton gma-boton--chico gma-boton--primario" onClick={() => { void recargar(); }}>Recargar</button>
+            <ReportarASoporte />
           </div>
         ) : null}
 
@@ -1142,6 +1144,7 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
                       <button type="button" className="gma-boton gma-boton--primario" onClick={() => { void recargar(); }}>Recargar</button>
                       <button type="button" className="gma-boton gma-boton--contorno" onClick={() => setPanelDer('historial')}>Historial de versiones…</button>
                     </div>
+                    <ReportarASoporte />
                   </div>
                 ) : null}
                 <div

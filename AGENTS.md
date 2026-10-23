@@ -2342,6 +2342,16 @@ falla cerrada), no sólo el estado del turno:** «Desconectar» revoca la PC y v
 puede fallar (revisión adversarial del 22/10/2026, docs/hallazgos-ia.md). Y al elegir a qué PC va el turno, «la del último
 turno» cuenta el último TERMINADO, bien o mal: con sólo los buenos, se quedaba pegado a una que falla.
 
+**Y con qué IA corre un chat (el «+» de la caja, 8b) lo decide la RUTA, nunca el navegador:** toda entrada que pase `ia` a
+`turnoApp` lo valida antes con `eleccionDelPedido` (lib/chat-ia.ts), que lo cruza con las cuentas que se le ofrecerían ahora a
+esa persona. El turno no lo vuelve a validar. Y el modelo lo sigue cuidando la puerta 2: con el crédito de MaKo, Haiku siempre.
+
+**Y la sesión de Claude en la PC del cliente se inicia SIN consola (0.4.0):** `iniciarSesionDeClaude` (scripts/ia-pc/mako-pc.mjs),
+con su página local en 127.0.0.1. Nunca `stdio: 'inherit'` ni una ventana de terminal para un paso de la persona, y el
+código de autorización va directo al stdin de `claude`: nunca a MaKo, al registro ni a la consola (tests/ia-pc-login-sin-terminal.test.ts).
+Su página va con `Referrer-Policy: same-origin`, NUNCA `no-referrer`: con ésa el navegador manda su propio formulario con
+`Origin: null` y la página se rechaza a sí misma (la 0.4.0 publicada no servía por eso).
+
 **Y la computadora del cliente NUNCA atiende leads sola (Martín, 22/10/2026, sobre los términos de Anthropic: «No por
 ahora»).** Su Claude en su PC (D6a) es SÓLO para que el dueño trabaje con SU Claude desde la app: el chat de la app, el del
 teléfono, el de MaKo en el CRM y el de la ficha del lead, siempre con la sesión de una persona. Nada que corra solo hacia un
@@ -3580,6 +3590,18 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   condición, el plan sólo si la venta es la de ese pago, y la cuota 0 se busca por número y monto. El trato se RECLAMA en
   el cobro antes de armarse (`trato_estado`): dos avisos a la vez no arman dos. Y lo que se asienta sale de lo que COBRÓ
   el link (`cobros.plan_producto`, congelado al crearlo), nunca del producto de hoy: se puede haber editado en el medio.
+- **Una pasarela puede tener VARIAS cuentas** (22/10/2026, mig 0328, lib/cuentas-integracion.ts): las claves de una llevan un
+  sufijo (`STRIPE_SECRET_KEY__C2`) y cada cobro anota la suya: el sufijo (`cobros.cuenta`; NULL = la principal) y su id EN
+  EL PROVEEDOR (`cobros.cuenta_ref`), que es lo que la identifica: lo que toca un cobro ya creado la busca con
+  `cuentaVivaDelCobro` (lib/cobros.ts), nunca por el sufijo, que cambia si la cuenta se reconecta. Las claves de UNA
+  cuenta se leen con `credStripeDe` / `credMpDe` (lib/cuentas-pago-server.ts) o `credDelCliente(claveDeCuenta(base, cuenta), ws)`,
+  nunca armando el nombre a mano. Lo que toca un cobro ya creado usa SU cuenta, y un aviso sólo aplica cobros de la cuenta
+  que lo mandó. Una protección o lista que pregunte por una clave de pasarela mira el nombre BASE (`baseDeClave`): por el
+  nombre exacto, la segunda cuenta quedaba afuera sin fallar (sin ruteo, al entorno del ws1). Y una cuenta nueva no reusa
+  un sufijo que nombre un cobro o un vínculo (`proximaCuentaDe`). Y una lectura que DECIDE sobre plata (de qué cuenta es
+  un aviso, qué ruteo se suelta) es ESTRICTA: `credWsEstricta` para tirar si no pudo leer; `credDelCliente` sola da null
+  ante un error, y ese null se lee como «de ninguna». [docs/hallazgos-pagos.md](docs/hallazgos-pagos.md),
+  tests/cuentas-pago.test.ts.
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 
@@ -3864,6 +3886,14 @@ MaKo pisó los nombres de 1438 contactos de Mauricio, sin historial para volver 
   caminos que leen ese mapeo tienen que cortar explícitamente, y el corte va con test.
 - Antes de escanear o conectar algo que sincroniza datos (contactos, historial, etiquetas),
   preguntá a qué workspace van a caer.
+
+# Todo aviso de error lleva «Reportar a Soporte»
+
+Martín (22/10/2026): *«en toda la app, SIEMPRE que sale un error, en donde sea, debe aparecer el botón de "Reportar a Soporte"»*.
+Un aviso de error nuevo es un elemento con `role="alert"` y su ÚLTIMO hijo es `<ReportarASoporte />` (app/_ui/ReportarASoporte.tsx;
+en una lista, `<li><ReportarASoporte /></li>`). No se dibuja si el aviso está vacío o su `role` no es «alert», así que va también
+en los avisos que están siempre montados. Donde el error no es un `role="alert"` (un toast con su propia librería), se usa
+`reportarASoporte({ error })`. Lo exige tests/reportar-a-soporte.test.ts; el porqué y las trampas, en docs/hallazgos-ui.md.
 
 # Un mensaje de error dice DE QUIÉN fue y QUÉ HACER, o no sirve
 

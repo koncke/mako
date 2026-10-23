@@ -16,6 +16,7 @@ import { splitColumns } from './masonry'
 import { type TemplateMode, applyTemplate } from './templateOps'
 import stickers from './Sticker.module.css'
 import styles from './Templates.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Orientation = TemplateSummary['orientation']
 type Filter = { type: 'all' } | { type: 'category'; slug: string; name: string } | { type: 'orientation'; value: Orientation }
@@ -140,6 +141,7 @@ export function TemplatesPanel({ close }: { close: () => void }) {
             <button type="button" className={`${ed.btn} ${ed.ghost}`} onClick={list.reload}>
               {t.templates.retry}
             </button>
+            <ReportarASoporte />
           </div>
         ) : null}
         {loading ? (
@@ -185,6 +187,7 @@ export function TemplatesPanel({ close }: { close: () => void }) {
             <button type="button" className={`${ed.btn} ${ed.ghost}`} onClick={loadMore}>
               {t.templates.retry}
             </button>
+            <ReportarASoporte />
           </div>
         ) : null}
         <div ref={sentinel} className={stickers.sentinel} />

@@ -11,8 +11,7 @@
 
 import { leerVinculos } from '@/lib/agenda-evento-etapa-server';
 import { vinculosDeEtapa } from '@/lib/cobro-etapa-server';
-import { cuentasDePasarelas } from '@/lib/cobro-etapa';
-import { pasarelasConectadas } from '@/lib/cobros';
+import { cuentasDePago } from '@/lib/cuentas-pago-server';
 import { getWorkspaceActual } from '@/lib/workspace';
 
 import { cobraDeVerdad, type VinculadosDelCrm } from '@/lib/vinculos-de-columnas-reglas';
@@ -23,7 +22,8 @@ export async function vinculadosDelCrm(funnelId: number | null): Promise<Vincula
   try {
     const [{ vinculos }, cobros, conectadas] = await Promise.all([
       leerVinculos(), vinculosDeEtapa(funnelId, 'ganado'),
-      getWorkspaceActual().then((ws) => { if (ws == null) throw new Error('sin negocio'); return pasarelasConectadas(ws); }).then(cuentasDePasarelas),
+      // Las conectadas, VARIAS por pasarela (fase A de Cobros): las mismas que ofrece el pop-up.
+      getWorkspaceActual().then((ws) => { if (ws == null) throw new Error('sin negocio'); return cuentasDePago(ws); }).then((cs) => cs.filter((c) => c.conectada)),
     ]);
     return {
       eventos: [...new Set(vinculos.filter((v) => v.funnelId === funnelId).map((v) => v.etapa))],

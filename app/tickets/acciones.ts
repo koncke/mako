@@ -12,6 +12,7 @@ import { getCapaActual, getWorkspaceActual } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { comentarComoCliente, crearTicket, identidadDe, misTickets, miTicket } from '@/lib/tickets-db';
 import { paraElCliente, sanearAlta, type TicketCliente } from '@/lib/tickets-reglas';
+import { contextoDeSoporte } from '@/lib/soporte-chat';
 
 type Yo = { ws: number; email: string; nombre: string };
 async function yo(): Promise<Yo | null> {
@@ -23,17 +24,25 @@ async function yo(): Promise<Yo | null> {
 
 const SIN_SESION = 'Vuelve a entrar a MaKo para mandarlo';
 
-/** Levanta un ticket desde «Reportar problema». `ref` es la clave de idempotencia del navegador (un doble clic). */
-export async function levantarTicketAction(entrada: { tipo: string | null; texto: string; contexto?: unknown; ref?: string }): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
+/**
+ * Levanta el ticket que armó el chat de Soporte de su Ticketera (23/10/2026, lib/soporte-chat.ts): lo que contó, con el título
+ * de su primera oración. El tipo vale sólo si la persona lo eligió en la tarjeta (`elegido`); si no, lo lee el triage de sus
+ * palabras, como en el servidor de siempre. Quién es, de la sesión; `movil` sólo dice por dónde (el canal que ve).
+ * ⚠️ El contexto lo arma el SERVIDOR (`contextoDeSoporte`): del navegador, sólo lo que sabe de sí. Un `chat.hilo` de afuera
+ *    hacía que la respuesta de Martín se escribiera en el chat de MaKo de OTRA persona (la revisión de Integración, 23/10/2026).
+ */
+export async function levantarDesdeSoporteAction(entrada: {
+  tipo: string | null; elegido: boolean; titulo: string; descripcion: string; movil: boolean; contexto?: unknown; ref?: string;
+}): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
   const quien = await yo();
   if (!quien) return { ok: false, error: SIN_SESION };
-  const a = sanearAlta({ tipo: entrada.tipo, descripcion: entrada.texto });
+  const a = sanearAlta({ tipo: entrada.elegido ? entrada.tipo : null, titulo: entrada.titulo, descripcion: entrada.descripcion });
   if (!a.ok) return { ok: false, error: a.motivo };
-  const ref = typeof entrada.ref === 'string' && /^[A-Za-z0-9-]{8,80}$/.test(entrada.ref) ? `form:${entrada.ref}` : null;
+  const ref = typeof entrada.ref === 'string' && /^[A-Za-z0-9-]{8,80}$/.test(entrada.ref) ? `soporte-chat:${entrada.ref}` : null;
   const r = await crearTicket({
     identidad: await identidadDe(quien.ws, quien.email, quien.nombre),
     tipo: a.alta.tipo, declaradoPor: a.alta.tipo ? 'persona' : null,
-    titulo: a.alta.titulo, descripcion: a.alta.descripcion, canal: 'formulario', contexto: entrada.contexto, ref,
+    titulo: a.alta.titulo, descripcion: a.alta.descripcion, canal: entrada.movil ? 'chat_movil' : 'chat_app', contexto: contextoDeSoporte(entrada.contexto, entrada.movil), ref,
   });
   return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error };
 }

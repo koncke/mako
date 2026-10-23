@@ -12,7 +12,7 @@
 //   · `rutaMovil('/tickets')` sin mirar `?t=`                 → 4 / 1 (el link del aviso caía en la lista)
 //   · `esTrabajo` sin el ticket                               → 4 / 1 (la barra de abajo tapaba la caja de responder)
 //   · la página sin `onboarding: false`                       → 4 / 1 (el trabado en el wizard no podía reportar)
-//   · TicketsCliente.tsx con su propia copia de `contextoDelNavegador` → 4 / 1
+//   · TicketsCliente.tsx con su propia copia de `contextoDelNavegador` → 4 / 1 (desde el 23/10/2026, el motor del chat de Soporte)
 // =============================================================================
 
 import test from 'node:test';
@@ -64,13 +64,17 @@ test('la puerta y los datos son los de escritorio: todos los roles, sin el onboa
 });
 
 test('levanta y contesta con las acciones de escritorio, y el contexto del navegador es UNA copia', () => {
-  assert.match(leer('app/m/tickets/TicketsM.tsx'), /levantarTicketAction\(\{ tipo, texto, contexto: contextoDelNavegador\('reportar-problema-movil'\)/);
-  assert.match(leer('app/m/tickets/[id]/TicketM.tsx'), /contestarTicketAction\(id, x\)/);
-  for (const f of ['app/tickets/TicketsCliente.tsx', 'app/m/tickets/TicketsM.tsx']) {
+  // Desde el 23/10/2026 es el chat de Soporte: el MISMO motor en la computadora y en el teléfono (app/tickets/soporte/useSoporte.ts).
+  const motor = leer('app/tickets/soporte/useSoporte.ts');
+  assert.match(motor, /levantarDesdeSoporteAction\(\{[\s\S]{0,200}?contexto: contextoDelNavegador\(movil \? 'soporte-movil' : 'soporte'\)/);
+  assert.match(motor, /contestarTicketAction\(t\.id, x\)/);
+  assert.match(leer('app/m/tickets/TicketsM.tsx'), /useSoporte\(\{ tickets, movil: true \}\)/);
+  assert.match(leer('app/m/tickets/SoporteM.tsx'), /useSoporte\(\{ tickets: \[t\], inicial: t\.id, movil: true \}\)/);
+  for (const f of ['app/tickets/soporte/useSoporte.ts', 'app/m/tickets/TicketsM.tsx', 'app/m/tickets/SoporteM.tsx']) {
     const src = leer(f);
     assert.doesNotMatch(src, /function contextoDelNavegador/, `${f}: una copia propia del contexto`);
-    assert.match(src, /from '(\.\/|@\/app\/tickets\/)navegador'/, `${f}: el contexto sale de app/tickets/navegador.ts`);
   }
+  assert.match(motor, /from '\.\.\/navegador'/, 'el contexto sale de app/tickets/navegador.ts');
 });
 
 test('cada estado del cliente tiene su color en el teléfono', () => {

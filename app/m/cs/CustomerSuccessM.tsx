@@ -50,6 +50,7 @@ import {
   asignacionCon, claveMov, etapaDe, gruposDe, siguienteEtapa, tiempoDe,
   type ClienteCs, type EtapaCs, type FilaCs, type MovidosCs, type ServicioCs,
 } from './reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Hasta tres servicios entran en el segmentado; con más, una fila que abre la lista. */
 const MAX_SEGMENTADO = 3;
@@ -289,7 +290,7 @@ export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioC
 
       <SheetM id="cliente" abierto={abierto} onCerrar={cerrar} titulo={c?.nombre ?? 'Cliente'} snap="alto"
         ocupado={!!ocupado} pie={pie} rotuloCerrar="Cerrar el cliente">
-        {error && <p className="m-cs-error" role="alert">{error}</p>}
+        {error && <p className="m-cs-error" role="alert">{error}<ReportarASoporte /></p>}
         {c && (
           <>
             <ListaM etiqueta="Etapas">

@@ -19,6 +19,7 @@ import { ROTULO_CARTERA } from '@/lib/agencia-cartera';
 import type { CuentaPartner } from '@/lib/partners';
 import { llevarAPartnersAction } from '@/app/partners/actions';
 import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 function estadoDe(c: CuentaPartner): { texto: string; tono: TonoPildora } {
   if (c.cobro?.pagar) return { texto: 'Falta pagar', tono: 'warn' };
@@ -162,7 +163,7 @@ export function PartnersM({ cuentas, usd }: { cuentas: CuentaPartner[]; usd: num
             <label className="m-partners-lab" htmlFor="m-partners-email">Email de quien la va a usar</label>
             <input id="m-partners-email" className="m-partners-in" type="email" inputMode="email" value={email}
               onChange={(e) => setEmail(e.target.value)} />
-            {mal && <p className="m-partners-mal" role="alert">{mal}</p>}
+            {mal && <p className="m-partners-mal" role="alert">{mal}<ReportarASoporte /></p>}
           </div>
         ) : hecho.link ? null : (
           <p className="m-partners-nota">Le llega su acceso cuando MaKo la habilite.</p>

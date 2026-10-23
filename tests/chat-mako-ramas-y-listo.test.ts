@@ -130,8 +130,9 @@ test('A · «✓ Listo» y una línea cuando cambió algo y no falta nada; con a
   assert.equal(lineaDeListo({}), null);
   // La pantalla: el tilde verde arriba, lo acomodado plegado y en gris, lo no hecho en rojo.
   const chat = sinComentarios(leer('app/automations/ChatMako.tsx'));
-  const mensaje = chat.slice(chat.indexOf('function Mensaje('), chat.indexOf('function Mensaje(') + 4000);
-  assert.match(mensaje, /\{listo && <span data-listo-mako="" style=\{S\.listo\}>✓ Listo<\/span>\}/);
+  // (23/10/2026, AU4: en el globo del hilo único, `parteDeMako`.)
+  const mensaje = chat.slice(chat.indexOf('function parteDeMako('), chat.indexOf('function parteDeMako(') + 4000);
+  assert.match(mensaje, /arriba: listo \? <span data-listo-mako="" style=\{S\.listo\}>✓ Listo<\/span> : null,/);
   assert.match(mensaje, /<ul data-no-hecho-mako="" role="alert" style=\{S\.noHecho\}>/);
   assert.match(mensaje, /<details data-avisos-mako=""/);
   assert.match(chat, /\n {2}avisos: \{ maxWidth: '92%', fontSize: 12\.5, color: 'var\(--faint\)' \},/, 'lo acomodado volvió a naranja');

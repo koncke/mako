@@ -33,6 +33,7 @@ import { Confirm } from '@/app/_ui/Confirm';
 import { Dropdown, type DropdownGroup } from '@/app/components/Dropdown';
 import { avisarCambioEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { COLORES_ETIQUETA, TOPE_NOMBRE_ETIQUETA, consecuenciaDeArchivar } from '@/lib/etiquetas-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 
@@ -118,7 +119,7 @@ export function EditorEtiquetas() {
     else void correr({ action: 'archivar', id: e.id });
   };
 
-  if (error && !datos) return <p role="alert" style={{ color: 'var(--bad)', fontSize: 13.5, fontFamily: SANS }}>{error}</p>;
+  if (error && !datos) return <p role="alert" style={{ color: 'var(--bad)', fontSize: 13.5, fontFamily: SANS }}>{error}<ReportarASoporte /></p>;
   if (!datos) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
@@ -159,7 +160,7 @@ export function EditorEtiquetas() {
         <button type="button" className="mk-icon-btn" onClick={() => void agregar()} disabled={enCurso || !nueva.trim()}
           style={{ height: 36, padding: '0 14px', fontSize: 13.5, fontWeight: 600 }}>Agregar</button>
       </div>
-      {error && <p role="alert" style={{ color: 'var(--bad)', fontSize: 13, margin: '4px 0 0' }}>{error}</p>}
+      {error && <p role="alert" style={{ color: 'var(--bad)', fontSize: 13, margin: '4px 0 0' }}>{error}<ReportarASoporte /></p>}
 
       {archivadas.length > 0 && (
         <div style={{ marginTop: 14 }}>

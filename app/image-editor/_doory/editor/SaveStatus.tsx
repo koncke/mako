@@ -4,6 +4,7 @@ import { useEditor, useEditorState } from './context'
 import { t } from './strings'
 import { Tooltip } from './ui/Tooltip'
 import styles from './SaveStatus.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** The pill while the design is edited live: who is here, or what is wrong with the connection. */
 function LiveStatus() {
@@ -62,6 +63,7 @@ function LiveStatus() {
         <span className={`${styles.pill} ${styles.error}`} role="alert" data-testid="collab-status" data-state={status}>
           <AlertTriangle size={14} aria-hidden="true" />
           <span className={styles.text}>{status === 'forbidden' ? text.forbidden : status === 'not-found' ? text.notFound : status === 'too-large' ? text.tooLarge : text.unavailable}</span>
+          <ReportarASoporte />
         </span>
       )
     default:
@@ -124,6 +126,7 @@ export function SaveStatus() {
           <button type="button" className={styles.retry} onClick={() => void editor.persistence.saveNow()}>
             {t.save.retry}
           </button>
+          <ReportarASoporte />
         </span>
       )
     default: {

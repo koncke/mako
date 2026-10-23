@@ -42,6 +42,7 @@ import {
   MAX_ADJUNTOS, agregarALista, detalleDeAdjunto, elegidoTrasQuitar, teclaDeVista, tipoDeVista,
   type ItemAdjunto, type TipoVista, type TopesAdjuntos,
 } from './adjuntos-vista';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type { ItemAdjunto, TopesAdjuntos } from './adjuntos-vista';
 
@@ -392,7 +393,7 @@ export function VistaAdjuntos({
               <Spinner size={14} />{estado}
             </span>
           ) : (
-            <span role="alert" style={{ maxWidth: 680, padding: '6px 12px', borderRadius: 10, background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: 'var(--fs-sm)', lineHeight: 1.4, overflowWrap: 'anywhere' }}>{error}</span>
+            <span role="alert" style={{ maxWidth: 680, padding: '6px 12px', borderRadius: 10, background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: 'var(--fs-sm)', lineHeight: 1.4, overflowWrap: 'anywhere' }}>{error}<ReportarASoporte /></span>
           )}
         </div>
       )}

@@ -16,8 +16,8 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { misTickets, miTicket, SIN_TABLA } from '@/lib/tickets-db';
 import { paraElCliente, type TicketCliente } from '@/lib/tickets-reglas';
-import { Pagina, PageHeader } from '@/app/_ui';
-import { TicketsCliente } from './TicketsCliente';
+import { ErrorState, Pagina, PageHeader } from '@/app/_ui';
+import { SoporteDeLaPagina } from './soporte/SoporteDeLaPagina';
 import './tickets.css';
 
 export const dynamic = 'force-dynamic';
@@ -39,7 +39,9 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
   return (
     <Pagina>
       <PageHeader titulo="Reportar problema" proposito="Cuéntale al equipo de MaKo qué no anda o qué te falta. Te avisamos cuando cambie." />
-      <TicketsCliente tickets={tickets} error={error} abierto={abierto ? paraElCliente(abierto.ticket, abierto.eventos) : null} />
+      {/* Desde el 23/10/2026 es el chat de Soporte, el mismo de la Ticketera del Ops Center (app/tickets/soporte/ChatSoporte.tsx). */}
+      {error ? <ErrorState titulo="No pude leer tus tickets" detalle={error} />
+        : <SoporteDeLaPagina tickets={abierto ? [paraElCliente(abierto.ticket, abierto.eventos), ...tickets.filter((x) => x.id !== abierto.ticket.id)] : tickets} abierto={abierto ? abierto.ticket.id : null} />}
     </Pagina>
   );
 }

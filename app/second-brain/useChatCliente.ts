@@ -45,6 +45,7 @@ import { etiquetaDesde, type Desde } from '@/lib/chat-desde';
 import { aspectoDeChat } from '@/lib/centro-munecos';
 import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import type { OfferSesionVista } from '@/lib/offer-marco';
+import { eleccionVigente, resumenDeIA, type CuentaDeIA, type EleccionIA } from '@/lib/chat-ia-reglas';
 
 export const RUTA = '/api/mako/chat';
 /** El maxDuration de la ruta es 420 s: el corte del navegador va 5 s después (tests/mako-doer-plazo.test.ts). */
@@ -91,12 +92,14 @@ const postLargo = <T,>(cuerpo: Record<string, unknown>) =>
 /** Un turno con archivos: multipart, como el teléfono (el `?ws=` lo pone el `fetch` de la casa, WsFetch). `antes`: un chat
  *  de antes que se sigue (la ruta corre el turno sobre ESA sesión). */
 const postArchivos = <T,>(sessionId: number, mensaje: string, archivos: readonly ArchivoElegido[], antes: boolean, desde: Desde | null,
-  voz: { mp3: Blob; secs: number } | null = null) => {
+  voz: { mp3: Blob; secs: number } | null = null, ia: EleccionIA = null) => {
   const fd = new FormData();
   fd.append('sessionId', String(sessionId));
   fd.append('mensaje', mensaje);
   if (antes) fd.append('antes', '1');
   if (desde) fd.append('desde', JSON.stringify(desde));
+  // Con qué IA corre ESTE chat (8b), sólo si se eligió algo: sin el campo, Automático (lo decide el chat jefe).
+  if (ia) fd.append('ia', JSON.stringify(ia));
   for (const a of archivos) fd.append('adjuntos', a.file, a.file.name);
   // La nota de voz (OC7): SOLA, en MP3. La ruta la escucha con la IA del negocio antes de guardar nada.
   if (voz) { fd.append('voz', voz.mp3, 'nota-de-voz.mp3'); fd.append('vozSecs', String(voz.secs)); }
@@ -191,6 +194,11 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const [infoWA, setInfoWA] = useState<MensajeWA | null>(null);
   /** ¿Ya conectó su Claude o su GPT? null = todavía no se sabe (el botón no aparece hasta saberlo). */
   const [iaConectada, setIaConectada] = useState<boolean | null>(null);
+  // CON QUÉ IA CORRE CADA CHAT (8b, 23/10/2026, Martín: «el "+" de la caja deja elegir con qué corre ese chat: el modelo y la
+  // cuenta… Por defecto decide el chat jefe»). Las cuentas que se pueden elegir las arma el servidor (`?suIA=1` → `cuentas`,
+  // lib/chat-ia-reglas.ts): sin ellas no hay selector. Lo elegido, por chat y en esta pestaña, como la cuenta del super admin.
+  const [cuentasIA, setCuentasIA] = useState<CuentaDeIA[] | null>(null);
+  const [iaDe, setIaDe] = useState<Record<string, EleccionIA>>({});
   const [conectando, setConectando] = useState(false);
 
   useEffect(() => { const t = window.setInterval(() => setAhora(Date.now()), 60_000); return () => window.clearInterval(t); }, []);
@@ -226,7 +234,10 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   }, []);
   useEffect(() => { if (activo) cargarOtros(); }, [activo, cargarOtros]);
   const mirarSuIA = useCallback(() => {
-    void pedir<{ conectada: boolean }>(`${RUTA}?suIA=1`).then((l) => setIaConectada(l.ok ? l.datos.conectada !== false : true));
+    void pedir<{ conectada: boolean; cuentas?: CuentaDeIA[] }>(`${RUTA}?suIA=1`).then((l) => {
+      setIaConectada(l.ok ? l.datos.conectada !== false : true);
+      setCuentasIA(l.ok && Array.isArray(l.datos.cuentas) && l.datos.cuentas.length ? l.datos.cuentas : null);
+    });
   }, []);
   useEffect(() => { if (activo) mirarSuIA(); }, [activo, mirarSuIA]);
 
@@ -426,6 +437,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const mandar = async (idU: string, mensaje: string, archivos: readonly ArchivoElegido[]) => {
     setTrabajo({ desde: Date.now() });
     const deAntes = idAntes != null;
+    const ia = iaDelChat;
     // Arranca ya, junto con el turno (tarda segundos; el turno, decenas).
     const irA = linksDelPedido(mensaje);
     try {
@@ -439,10 +451,11 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
         recienCreada.current = sid;
         setSesiones((ss) => [...(ss ?? []), n.datos.sesion]);
         setElegido({ id: sid });
+        pasarIaAlCreado(sid);
       }
       const l = archivos.length
-        ? await postArchivos<RespuestaTurno>(sid, mensaje, archivos, deAntes, desdeTab)
-        : await postLargo<RespuestaTurno>({ action: 'send', sessionId: sid, mensaje, ...(deAntes ? { antes: 1 } : {}), ...(desdeTab ? { desde: desdeTab } : {}) });
+        ? await postArchivos<RespuestaTurno>(sid, mensaje, archivos, deAntes, desdeTab, null, ia)
+        : await postLargo<RespuestaTurno>({ action: 'send', sessionId: sid, mensaje, ...(deAntes ? { antes: 1 } : {}), ...(desdeTab ? { desde: desdeTab } : {}), ...(ia ? { ia } : {}) });
       if (!l.ok) { marcar(idU, { estado: l.reintentable ? 'error' : 'incierto', error: l.error }); return; }
       // Los archivos volvieron guardados: la burbuja pasa a pedirlos por su mensaje y la vista previa se suelta.
       const guardados = archivosDeRespuesta(l.datos);
@@ -502,6 +515,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const mandarNotaAlChat = async (idU: string, a: NotaDeVoz): Promise<FinDeNota> => {
     setTrabajo({ desde: Date.now() });
     const deAntes = idAntes != null;
+    const ia = iaDelChat;
     const sacar = (error: string) => { setItems((xs) => xs.filter((x) => x.id !== idU)); setFaltaMic(error); };
     try {
       let mp3: Blob;
@@ -516,8 +530,9 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
         recienCreada.current = sid;
         setSesiones((ss) => [...(ss ?? []), n.datos.sesion]);
         setElegido({ id: sid });
+        pasarIaAlCreado(sid);
       }
-      const l = await postArchivos<RespuestaTurno>(sid, '', [], deAntes, desdeTab, { mp3, secs: Math.max(1, Math.round(a.secs)) });
+      const l = await postArchivos<RespuestaTurno>(sid, '', [], deAntes, desdeTab, { mp3, secs: Math.max(1, Math.round(a.secs)) }, ia);
       if (!l.ok) {
         if (!l.reintentable) { marcar(idU, { estado: 'incierto', error: l.error }); return 'quedo'; }
         sacar(l.error);
@@ -683,6 +698,11 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const enCurso = !!trabajo || armandoOffer;
   /** La nota de voz de la caja (OC7): en cada chat que se sigue desde acá (el grupo, el lienzo y los editores no tienen caja). */
   const chatAbierto = filaAbierta?.clave ?? 'nuevo';
+  /** Lo elegido para el chat abierto, si todavía se puede (si no, Automático). Lo de Offer no pasa por acá: su motor es otro. */
+  const iaDelChat = idOffer != null ? null : eleccionVigente(iaDe[chatAbierto] ?? null, cuentasIA);
+  const elegirIA = (e: EleccionIA) => setIaDe((m) => ({ ...m, [chatAbierto]: e }));
+  /** Un chat nuevo se crea con el primer mensaje: lo elegido en «nuevo» pasa a su fila (`s<id>`). */
+  const pasarIaAlCreado = (sid: number) => setIaDe((m) => (chatAbierto === 'nuevo' && m.nuevo !== undefined ? { ...m, [`s${sid}`]: m.nuevo, nuevo: null } : m));
   const tirarNota = () => { if (notaEnEspera) URL.revokeObjectURL(notaEnEspera.url); setNotaEnEspera(null); };
   const reenviarNota = () => { const a = notaEnEspera; if (!a) return; setNotaEnEspera(null); void mandarNota(a, chatAbierto); };
   const vozCaja = {
@@ -702,5 +722,6 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     texto, setTexto, faltaMic, setFaltaMic, enviar, enviarCaja, adjuntosCaja, vozCaja, pegados, quitarPegado, pegarLargo, cita, setCita,
     marcas, ponerMarca, accionesWA, menuWA, setMenuWA, infoWA, setInfoWA, elegirEnMenu, mensajesWA,
     iaConectada, conectando, setConectando, mirarSuIA,
+    cuentasIA: idOffer != null ? null : cuentasIA, iaDelChat, elegirIA, resumenIA: resumenDeIA(iaDelChat, cuentasIA),
   };
 }

@@ -55,6 +55,7 @@ export function useCobrar(ctx: CtxFicha) {
   const { toast, show, clear } = useToast();
   const [, start] = useTransition();
   const pasarelas = opciones?.ok ? opciones.pasarelas : [];
+  const cuentas = opciones?.ok ? opciones.cuentas : undefined;
   const cuotaPorId = (id: number) => data.pagos.find((p) => p.id === id) ?? null;
 
   const cambio = () => { refrescarCobros(lead.id); ctx.releer(); };
@@ -120,7 +121,7 @@ export function useCobrar(ctx: CtxFicha) {
       onHecho={(m, deshacer) => { cerrar(); cambio(); show(m, deshacer ? () => deshacerMarca(q) : undefined); }} />;
   } else if (abierto?.que === 'link') {
     const q = abierto.cuota;
-    modal = <CobrarCuotaConLink lead={leadCobro} pasarelas={pasarelas} cuota={{ pagoId: q.id, nombre: nombreCuota(q.numero), montoUsd: Number(q.monto_usd) }}
+    modal = <CobrarCuotaConLink lead={leadCobro} pasarelas={pasarelas} cuentas={cuentas} cuota={{ pagoId: q.id, nombre: nombreCuota(q.numero), montoUsd: Number(q.monto_usd) }}
       onCreado={() => refrescarCobros(lead.id)} onCerrar={cerrar} />;
   } else if (abierto?.que === 'comprobante') {
     modal = <VerComprobante cuota={abierto.cuota} leadId={lead.id} onCerrar={cerrar} />;

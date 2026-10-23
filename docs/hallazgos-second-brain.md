@@ -2640,3 +2640,13 @@ tests/ops-center-caja-angosta.test.ts (dibuja `CajaChat` con los `.css` vacíos,
 
 **SIN HACER:** el placeholder es `Escribe a ${nombre}`. Con el nombre largo de un chat («Editar con MaKo · Página 1»), en el
 teléfono puede seguir saliendo cortado; la estrella siempre dice «Cerebro». No lo medí en un teléfono.
+
+## Un chat «CRM · 22 oct» forma su propio grupo (visto en producción, 23/10/2026)
+
+En el Ops Center del cliente de ws3, el filtro por área (lib/ops-center-filtro.ts) mostró «CRM · 22 oct · 1» aparte de «CRM · 40».
+No es un error del filtro: agrupa igual que la lista (`porJefe` → `partesDelNombre`, que parte en «›» o «>»). El título lleva
+la fecha con «·», que es el desempate de dos chats con el mismo nombre, y no con «›». Así queda como un jefe propio, en la lista y en
+el filtro.
+
+**SIN HACER:** decidir si un título «<Área> · <fecha>» va dentro de su área (se mostraría su fecha como sub-chat), o si el
+desempate se escribe con «›». Ojo: `partesDelNombre` es la misma para el super admin.

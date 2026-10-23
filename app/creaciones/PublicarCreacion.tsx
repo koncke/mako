@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Modal } from '@/app/_ui';
 import { INFO_TIPO, TOPE_AUTOR_CREACION, TOPE_DESCRIPCION_CREACION, TOPE_TITULO_CREACION, type TipoCreacion } from '@/lib/creaciones-reglas';
 import { opcionesPublicarAction, publicarCreacionAction } from './actions';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const campo: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)',
@@ -112,7 +113,7 @@ export function PublicarCreacion({
           <label style={rotulo} htmlFor="pub-autor">Firma</label>
           <input id="pub-autor" style={campo} value={autor} maxLength={TOPE_AUTOR_CREACION} placeholder="Un negocio de MaKo" onChange={(e) => setAutor(e.target.value)} />
           <p style={{ margin: '14px 0 0', fontSize: 13 }}>Los textos salen tal cual. No viajan tus audios, archivos, etiquetas ni contactos.</p>
-          {error && <p role="alert" style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--bad)' }}>{error}</p>}
+          {error && <p role="alert" style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></p>}
         </div>
       )}
     </Modal>
