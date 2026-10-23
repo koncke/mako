@@ -2341,3 +2341,123 @@ Lo que quedó SIN hacer:
 - La miniatura de una sección de diseño es un iframe de 640 px de alto (no se sabe su alto antes de dibujarla).
 - «Replicar → Página web» sigue armando HTML personalizado (aislado, sin texto editable); podría usar este bloque.
 - El tsc acotado de esta tanda lo cortó el vigía de RAM: los tipos los vio Integración.
+
+## El Diagnóstico el 23/10/2026: el 403 ya no estaba; lo que quedaba era el MARCO
+
+Chat «Landings de MaKo en Web Generator», cuenta claude1. Dos mensajes de Cerebro y Estrategia llegaron el 23/10 con el
+estado del 15/10 («el panel de animaciones no está», «dos `normalizarUrl` y un 403»). **El diagnóstico obvio era creerles:
+medido en producción (deploy `mako-jnb7ohn00` = `594ecd41b`), las dos cosas estaban cerradas desde el 16/10** (tanda 8,
+arriba). Un mensaje entre chats con un estado tiene la fecha de quien lo escribió, no la de cuando llega: se mide antes
+de construir.
+
+**Vive en:** `lib/landing-marco.ts` (`dejaEmbeberse`) · `lib/landing-fetch.ts` (`paginaParaVer`) ·
+`app/api/landing-generator/diagnostico/pagina/route.ts` · `lib/editor-landing/diagnostico.ts` (`data-marco`, `marco` en
+«listo» y «pinto») · `app/web-generator/diagnostico/VistaAfuera.tsx` · `tests/landing-marco.test.ts`,
+`tests/editor-landing-diagnostico.test.ts`
+
+- **Lo medido, con la landing del caso (multiplicatusresultados.com, armada con JavaScript) en el Chrome de Martín:** un
+  solo pedido a la vista, con la barra final, 200; el recuadro cae a la página real con «Esta página se dibuja con
+  JavaScript: se muestra la página real». En local, el mismo documento aislado manda «listo» a los ~110 ms y 9 caracteres
+  de texto; una estática (gnu.org) manda 6.439 y se queda en la vista aislada.
+- **El agujero que quedaba:** la caída a la página real se hacía SIEMPRE, y una página que no se deja embeber
+  (`X-Frame-Options` o `frame-ancestors`) se ve en blanco, con el aviso afirmando «se muestra la página real». Es una
+  pantalla que le dice al cliente algo falso sobre su propia página. Medido sobre páginas reales con la misma bajada que
+  la ruta: GitHub (`frame-ancestors 'none'`), Webflow (`frame-ancestors 'self' …`), Framer (`DENY`) y las publicadas de
+  hola-mako.site (`DENY` + `frame-ancestors 'none'`) no se dejan; la del caso, sí.
+- **El navegador no lo puede contar** (un iframe bloqueado dispara `load` igual) **y el server sí**: baja la página, así
+  que tiene las cabeceras. `pedirPagina` las guarda (las del ÚLTIMO salto), `dejaEmbeberse` decide con las reglas del
+  navegador (frame-ancestors manda sobre X-Frame-Options; cada política cuenta; `'self'` es la landing, nunca MaKo;
+  `*.dominio` no incluye al pelado; ALLOW-FROM no bloquea), y el veredicto viaja en `data-marco` del script del
+  documento, que lo lee al arrancar y lo manda con el texto. Con `false`, la vista no intenta la real: dice «Esta página se
+  dibuja con JavaScript y no deja mostrarse aquí» con «Abrir la página». Lo que NO se afirma: que esté vacía.
+- **Trampa de los tests:** el atributo se busca como `<script data-marco=`, nunca como `data-marco` suelto: el script
+  mismo contiene `getAttribute('data-marco')`, y un `doesNotMatch(/data-marco/)` falla siempre.
+- **Probado rompiéndolo** (base 40/0 en los dos archivos; 18/0 en `tests/editor-landing-crear-panel.test.ts`): la vista
+  que cae a la real igual → 1 rojo; el «listo» sin el marco → 2; el script que lee mal el atributo → 1 (lo ve el test que
+  EJECUTA el script en un contexto de vm); el documento sin `data-marco="no"` → 2; frame-ancestors ignorado → 3;
+  SAMEORIGIN que deja pasar → 1; la ruta que no decide → 1; `paginaParaVer` sin bajar tal cual → 1.
+- **Sin verificar en un navegador real con una página JS que no se deja embeber**: el componente se probó por su fuente y
+  el script ejecutándolo. Cuando esté desplegado, se mira con una landing así en el Diagnóstico.
+
+## Animaciones, etapa 4: relevamiento en papel (23/10/2026, sin código)
+
+Chat «Landings de MaKo en Web Generator», cuenta claude1. Hecho a mano y sin agentes (la guardia de RAM no dejó lanzar el
+workflow: 3 corriendo en la máquina) y sin navegador (once chats, 0,5-2,7 GB libres). Lo que falta para construir está
+dicho en cada punto.
+
+**Vive en:** `lib/editor-landing/animaciones.ts` · `lib/editor-landing/doc.ts` (`OPTIMIZADOS`) · `especificacion.ts`
+(`attrsOptimizado`) · `app/web-generator/editor/nodos/OptimizadoVista.tsx` · `lib/editor-landing/ia-bloques.ts`,
+`ia-reglas.ts` · `lib/editor-landing/html-editable.ts` (`SCRIPT_DISENO`) · `lib/editor-landing/pagina-publica.ts`
+(`SCRIPT_PAGINA`, la pausa del video)
+
+- **La mitad de las piezas YA tiene dónde vivir: los «Diseños optimizados»** (`NODO.optimizado`, la copia de los smart
+  layouts de Gamma, con su `variante`). La cinta es una forma de `logos` y de `citas`/`citas-caras`; el contador, de las
+  de «Estadísticas» (`numeros-grandes`, `metrica-destacada`, `estadisticas-*`: el número ya vive en `valor`, un attr del
+  ítem); los pasos que avanzan solos, de «Etapas» (`etapas-*`); el carrusel, de `galeria` y `citas-caras`. **El
+  diagnóstico obvio (un bloque nuevo por pieza) era el caro**: cada bloque nuevo son ~15 lugares (nodo, NodeView,
+  catálogo, insertar, especificación, render, CSS, IA, replicar, exportadores, API, móvil, tests); una variante nueva es
+  una fila de `OPTIMIZADOS` + su CSS + su descripción para la IA (`CUANDO_OPTIMIZADO`, ia-bloques.ts).
+- **Y como VARIANTE sobrevive a «Editar con IA»**, que es la razón por la que el panel «Animar» nunca anima por bloque:
+  la IA elige la variante del catálogo (ia-bloques.ts:1360) y la conserva; un attr suelto de «movimiento» en el bloque
+  se perdería al rehacerlo. Lo que es de la SECCIÓN (los efectos de scroll) va como attr de la sección, como el efecto de
+  entrada: eso sí sobrevive.
+- **Trampa de deploy de una variante nueva:** el selector la muestra apenas existe (`OptimizadoVista.tsx` dibuja
+  `OPTIMIZADOS` «sin filtro», y un test lo fija), y los saneos (`attrsOptimizado`, ia-reglas.ts:544, ia-bloques.ts:1253)
+  convierten un valor que no conocen en `vinetas-grandes`. Una pestaña del editor vieja abierta durante el deploy le
+  reescribe la variante nueva a viñetas en el próximo autoguardado. «El attr antes que su UI» acá quiere decir: un
+  deploy con el valor aceptado por los saneos y ESCONDIDO del selector y de la IA, y recién el siguiente lo ofrece (hace
+  falta una lista de ocultas y ajustar el test del selector).
+- **Las piezas, con su forma propuesta:**
+  - **Cinta** (variantes `logos-cinta` y `citas-cinta`): desplazamiento continuo en CSS (`transform` en bucle, la fila
+    duplicada para que no corte), velocidad en px/s, dirección izquierda/derecha, separación, bordes que se desvanecen
+    (una máscara, como enseña Framer), **pausa al pasar el mouse y con el foco**, y con «reducir movimiento» queda quieta
+    como la grilla de siempre. Más de 5 s en movimiento: lleva su botón de pausa (WCAG 2.2.2), el mismo mecanismo que el
+    video de fondo (`gm-video-pausa`, pagina-publica.ts:439).
+  - **Carrusel** (variantes `galeria-carrusel` y `citas-carrusel`): `scroll-snap` nativo (se desliza con el dedo sin
+    JavaScript), flechas y puntos con el script, avance solo APAGADO por defecto; si se prende, con pausa visible y pausa
+    al pasar el mouse o con el foco, y nada de avance con «reducir movimiento».
+  - **Contador** (comportamiento de las variantes de «Estadísticas», sin control nuevo): con «Animaciones» prendido, el
+    número de `valor` sube desde 0 al entrar. El HTML trae el número FINAL (sin JavaScript, para un buscador y con
+    «reducir movimiento», se ve el final); el script anima sólo la parte numérica, deja el prefijo y el sufijo («US$»,
+    «+», «%», «k») y termina exactamente en el texto escrito. Un `valor` sin número (el `[00]%` de una plantilla) no se
+    anima.
+  - **Pasos que avanzan solos** (opción de «Etapas», o una variante `etapas-automaticas`): uno resaltado a la vez cada
+    ~2,2 s (el de la página del video de Motion Sites), con pausa; quieto con «reducir movimiento».
+  - **Efectos de scroll** (un grupo nuevo «Al desplazarse» del panel «Animar», attr de la SECCIÓN, combinable con la
+    entrada): paralaje del fondo, «se desvanece al salir» (el hero) y «crece al entrar» (0,88 a 1). CSS puro con
+    `animation-timeline: view()` adentro de `@supports`: Chrome y Safari/iOS 26 los muestran; Firefox estable deja la
+    página quieta y completa. **Apagados en el teléfono y con «reducir movimiento»** (la regla de MaKo Mobile y WCAG
+    2.3.3). Sin tocar el script: no rompe las hojas congeladas.
+  - **Máquina de escribir**: ya existe como ESTILO de página («Máquina de escribir», los títulos de a letra). Lo que no
+    existe es el texto ROTATIVO (escribe, borra y escribe otra palabra): sería una marca de texto adentro de un título, y
+    una marca se pierde con «Editar con IA». Queda para después de las demás.
+- **La referencia, y lo que falta para copiarla:** la app que resolvió estas piezas para constructores de webs es
+  **Framer** (Gamma, la fuente del editor, no las tiene; en Canva no se encontraron). Lo que dice su documentación
+  oficial (no la app, que pide cuenta): el efecto **Appear** vive en Propiedades → Effects, con Trigger (On Appear, On
+  Scroll, Layer in View —top/center/bottom—, Section in View, Replay), Preset (Fade, Scale, Flip, Slide In), Enter
+  (Opacity, Scale, Rotation, Skew, Offset) y Transition (Spring por defecto, o Easing con curva, tiempo y demora), sin
+  stagger propio (https://www.framer.com/academy/lessons/framer-animations-appear-effect); **Scroll Speed** es el
+  paralaje (100 % = normal, menos para el fondo, más para el frente:
+  https://www.framer.com/academy/lessons/framer-animations-scroll-speed-parallax); y los bordes de una **Ticker** se
+  desvanecen con una máscara de degradé en un marco que recorta
+  (https://www.framer.com/academy/lessons/fading-the-edges-of-a-ticker). Los controles exactos del componente Ticker
+  (Speed, Hover —0 % pausa—, Direction, Gap) y del Slideshow sólo están en guías de TERCEROS: **antes de construir la
+  cinta y el carrusel hay que abrir el editor de Framer** (cuenta gratis, en el Chrome de Martín) y copiar su panel,
+  como manda AGENTS.md. Si no se puede abrir, se avisa y se frena.
+- **La demanda del 25/10 ya está cubierta por otro lado:** la landing de MaKo y las de cada funnel (documentos del ws9 con
+  el bloque «Diseño editable») se mueven con `SCRIPT_DISENO` (html-editable.ts:211): reveal al bajar, tres carruseles con
+  avance solo cada 5-6 s, video en bucle y la red en canvas, en hola-mako.com Y en hola-mako.site. No hace falta ninguna
+  pieza de la etapa 4 para el lanzamiento.
+- ⚠️ **Lo que SÍ quedó mal en esa landing, y es de la etapa 4: sus carruseles avanzan solos para siempre, sin pausa y sin
+  mirar «reducir movimiento»** (`SCRIPT_DISENO`, el `setInterval` de `arrancar`; el reveal tampoco lo mira, sólo la red
+  en canvas). Es WCAG 2.2.2 (más de 5 s, en paralelo con el resto, sin forma de pararlo). Arreglarlo es chico (pausa al
+  pasar el mouse y con el foco, un botón de pausa, nada de avance con «reducir movimiento») y toca el script de las
+  páginas con las que se vende: **después del 25/10**, por la misma vara que el cierre del opener.
+- **Sin medir:** el peso que suma cada pieza a la hoja (hoy 173 KB sin comprimir; si pesa, las velocidades y direcciones
+  van como variables CSS); la cinta y el carrusel en un iPhone y en un Android de gama baja; y los controles reales de
+  Framer.
+- **El orden para construir (después del 25/10):** (1) los efectos de scroll (CSS puro, attr de sección: el saneo y el
+  render en un deploy; el grupo del panel y `cambiar_animacion_landing` en el siguiente); (2) el contador (sin control
+  nuevo: el script y su test); (3) la cinta y el carrusel con el panel de Framer abierto (variantes ocultas en un deploy,
+  ofrecidas en el siguiente, con su descripción para la IA y su fila en Replicar: marquee, Swiper, Splide, Slick); (4) los
+  pasos; (5) el texto rotativo. Y el arreglo de la pausa de `SCRIPT_DISENO`, reusando el de la cinta.
