@@ -64,7 +64,15 @@ export type OpcionesBloque = {
   pregunta?: string;
   /** Un bloque con `datos` (el contacto, el setter y el closer): cuáles van adentro, en orden. Sin elegir, los de entrada. */
   datos?: string[];
+  /**
+   * EL TÍTULO del bloque en esta ficha (23/10/2026): cualquier bloque, como una tarjeta del Dashboard. Sin él, el del
+   * catálogo (o el nombre de la etapa en la R1 y la R2). En un cambio, `''` vuelve al de siempre.
+   */
+  titulo?: string;
 };
+
+/** El título de un bloque: corto, entra en la barra del bloque y en el rótulo. */
+export const TOPE_TITULO_BLOQUE = 40;
 
 /** Un bloque puesto en una tab. Es la forma de cada renglón de la lista guardada y de la que se dibuja. */
 export type BloquePuesto = {
@@ -130,9 +138,14 @@ export const TOPE_HOJAS = 8;
 
 /** El nombre de una tab tal como llega: sin espacios de más ni caracteres de control, con tope. Vacío → null. */
 export function sanearNombreTab(raw: unknown): string | null {
+  return sanearRotulo(raw, TOPE_NOMBRE_TAB);
+}
+
+/** Un rótulo corto (el nombre de una tab, el título de un bloque): sin caracteres de control ni espacios de más, con tope. */
+function sanearRotulo(raw: unknown, tope: number): string | null {
   if (typeof raw !== 'string') return null;
   // eslint-disable-next-line no-control-regex
-  const t = raw.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, TOPE_NOMBRE_TAB).trim();
+  const t = raw.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, tope).trim();
   return t || null;
 }
 
@@ -147,9 +160,12 @@ const lista = <T extends string>(x: unknown, validos: readonly T[]): T[] | undef
 
 /** Las opciones de un bloque, sólo las que declara. Vacío → undefined. */
 export function sanearOpciones(def: BloqueDef, raw: unknown): OpcionesBloque | undefined {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !def.opciones?.length) return undefined;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   const o = raw as Record<string, unknown>;
   const out: OpcionesBloque = {};
+  // El título vale para TODO bloque (no lo declara `opciones`). Vacío = el de siempre (lo borra `limpiarOpciones`).
+  if ('titulo' in o) out.titulo = sanearRotulo(o.titulo, TOPE_TITULO_BLOQUE) ?? '';
+  if (!def.opciones?.length) return Object.keys(out).length ? out : undefined;
   if (def.opciones.includes('redes')) { const r = lista(o.redes, REDES); if (r) out.redes = r; }
   if (def.opciones.includes('fuentes')) { const f = lista(o.fuentes, FUENTES_RESPUESTA); if (f) out.fuentes = f; }
   if (def.opciones.includes('pregunta') && typeof o.pregunta === 'string' && o.pregunta.trim()) out.pregunta = o.pregunta.trim().slice(0, TOPE_PREGUNTA);
@@ -192,19 +208,22 @@ export function sanearPuesto(raw: unknown, tab: LugarFicha): BloquePuesto | null
   const diseno = typeof o.diseno === 'string' && def.disenos.some((x) => x.id === o.diseno) ? o.diseno : def.disenos[0].id;
   const out: BloquePuesto = { id: def.id, ancho, diseno };
   if (esIconoMenu(o.icono) && o.icono !== def.icono) out.icono = o.icono;
-  const op = sinDatosDeEntrada(def, sanearOpciones(def, o.opciones));
+  const op = limpiarOpciones(def, sanearOpciones(def, o.opciones));
   if (op) out.opciones = op;
   return out;
 }
 
 /**
- * Las opciones de un bloque PUESTO sin los datos de entrada: dejar el contacto como venía es «sin elegir», y así la tab
- * sigue a su plantilla (`normalizar` compara contra ella). El cambio que los elige sí los lleva (`sanearCambio`).
+ * Las opciones de un bloque PUESTO sin lo que es «como venía»: los datos de entrada (dejar el contacto como venía es «sin
+ * elegir», y así la tab sigue a su plantilla: `normalizar` compara contra ella) y el título vacío o igual al del catálogo.
+ * El cambio que los elige sí los lleva (`sanearCambio`).
  */
-function sinDatosDeEntrada(def: BloqueDef, op: OpcionesBloque | undefined): OpcionesBloque | undefined {
-  if (!op?.datos || !def.datos || !igual(op.datos, def.datos.deEntrada)) return op;
-  const { datos: _deEntrada, ...resto } = op;
-  return Object.keys(resto).length ? resto : undefined;
+function limpiarOpciones(def: BloqueDef, op: OpcionesBloque | undefined): OpcionesBloque | undefined {
+  if (!op) return op;
+  const out: OpcionesBloque = { ...op };
+  if (out.datos && def.datos && igual(out.datos, def.datos.deEntrada)) delete out.datos;
+  if (out.titulo !== undefined && (!out.titulo || out.titulo === def.titulo)) delete out.titulo;
+  return Object.keys(out).length ? out : undefined;
 }
 
 /**
@@ -878,8 +897,8 @@ export function aplicarCambio(actual: FichaGuardada, c: CambioFicha, elegida: Pl
         l[i] = b;
       } else {
         const antes = l[i];
-        // Volver a dejar los datos como venían es «sin elegir» (`sinDatosDeEntrada`).
-        const op = sinDatosDeEntrada(def, { ...(antes.opciones ?? {}), ...c.opciones });
+        // Volver a dejar los datos como venían, o el título de siempre, es «sin elegir» (`limpiarOpciones`).
+        const op = limpiarOpciones(def, { ...(antes.opciones ?? {}), ...c.opciones });
         const nuevo: BloquePuesto = { ...antes };
         if (op) nuevo.opciones = op; else delete nuevo.opciones;
         l[i] = nuevo;
@@ -1025,7 +1044,9 @@ export function describirCambio(c: CambioFicha): string {
     case 'ancho': return `${b} en ${t}: ancho ${({ 3: '¼', 4: '⅓', 6: '½', 12: 'completo' })[c.ancho]}`;
     case 'diseno': return `${b} en ${t}: diseño «${bloqueDef(c.bloque)?.disenos.find((x) => x.id === c.diseno)?.nombre ?? c.diseno}»`;
     case 'icono': return `${b} en ${t}: ${c.icono ? `ícono «${c.icono}»` : 'su ícono de siempre'}`;
-    case 'opciones': return `${b} en ${t}: opciones`;
+    case 'opciones':
+      if (c.opciones.titulo !== undefined) return c.opciones.titulo ? `${b} en ${t}: se llama «${c.opciones.titulo}»` : `${b} en ${t}: su título de siempre`;
+      return c.opciones.datos ? `${b} en ${t}: sus datos` : `${b} en ${t}: opciones`;
     case 'lista': return `Ordenar ${t}`;
     case 'aviso': return `${c.avisa ? 'Avisar' : 'No avisar'}: ${DATOS_AVISABLES.find((x) => x.id === c.paso)?.label ?? c.paso}`;
     case 'avisos': return c.apagados.length ? `No avisar: ${c.apagados.map((id) => DATOS_AVISABLES.find((x) => x.id === id)?.label ?? id).join(', ')}` : 'Avisar de todo';

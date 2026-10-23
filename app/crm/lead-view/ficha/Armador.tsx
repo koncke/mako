@@ -24,7 +24,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEven
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { bloqueDef, casaDelBloque, esTabFicha, FUENTES_RESPUESTA, REDES, type BloqueId, type FuenteRespuesta, type LugarFicha, type Red } from '@/lib/ficha/catalogo';
-import { datosDelPuesto, type BloquePuesto, type CambioFicha } from '@/lib/ficha/config';
+import { datosDelPuesto, TOPE_TITULO_BLOQUE, type BloquePuesto, type CambioFicha } from '@/lib/ficha/config';
 import { tituloDeBloque } from '@/lib/ficha/registro';
 // La MISMA lista que ofrece la API de MaKo (cambiar_ficha_funnel, cambio icono): una sola fuente.
 import { ICONOS_BLOQUE } from '@/lib/ficha/api';
@@ -100,7 +100,8 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
   const celda = (b: BloqueEnGrilla, i: number) => {
     const entrada = entradaDe(b.def.id)!;
     const { Componente } = entrada;
-    const titulo = tituloDeBloque(b.def, ctx.stages);
+    // El título que le puso la persona (23/10/2026, «Título» en la barra), o el de siempre.
+    const titulo = b.puesto.opciones?.titulo || tituloDeBloque(b.def, ctx.stages);
     const icono: NombreIconoMenu = b.puesto.icono ?? b.def.icono;
     const elegido = editando && sel === b.indice;
     const enFila = compartiendoFila(b, dispositivo);
@@ -165,7 +166,7 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
           </span>
         )}
         {elegido && (
-          <BarraBloque tab={tab} b={b} icono={icono} titulo={titulo} incluidos={incluidos} onCambio={onCambio} avisaDe={avisaDe} hermanos={hermanos}
+          <BarraBloque tab={tab} b={b} icono={icono} titulo={titulo} tituloDeSiempre={tituloDeBloque(b.def, ctx.stages)} incluidos={incluidos} onCambio={onCambio} avisaDe={avisaDe} hermanos={hermanos}
             onQuitar={() => onSel(null)} onMoverTeclado={conTeclado}
             preguntas={b.def.opciones?.includes('pregunta') ? preguntasDelLead(ctx.data) : []} />
         )}
@@ -203,7 +204,7 @@ function padreQueScrollea(el: HTMLElement): HTMLElement | null {
   return null;
 }
 
-type TipoMenu = 'diseno' | 'icono' | 'opciones' | 'datos' | 'obligatorio';
+type TipoMenu = 'diseno' | 'icono' | 'opciones' | 'datos' | 'obligatorio' | 'titulo';
 type Menu = { tipo: TipoMenu; ancla: HTMLElement } | null;
 
 /** El nombre de un «dato sin marcar» en el menú «Obligatorio» (el de la lista de avisos). */
@@ -217,7 +218,9 @@ const NOMBRE_RED: Readonly<Record<Red, string>> = { web: 'Web', instagram: 'Inst
  * OPCIONES (16/10/2026): lo que el bloque declara configurar adentro (`def.opciones`): qué redes van en «Redes y web»,
  * qué fuentes en «Lo que contestó» y qué pregunta en «Respuesta destacada» (de las que contestó ESTE lead).
  */
-function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onMoverTeclado, preguntas, avisaDe, hermanos }: {
+function BarraBloque({ tab, b, icono, titulo, tituloDeSiempre, incluidos, onCambio, onQuitar, onMoverTeclado, preguntas, avisaDe, hermanos }: {
+  /** El título sin el que le puso la persona: el del catálogo, o el nombre de la etapa en la R1 y la R2. */
+  tituloDeSiempre: string;
   avisaDe?: (paso: StepId) => boolean;
   /** Los bloques de la misma hoja: lo que la hoja puso aparte no cuenta como de este bloque (`cubreDe`). */
   hermanos?: readonly string[];
@@ -237,7 +240,7 @@ function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onM
   const redes: readonly Red[] = b.puesto.opciones?.redes ?? REDES;
   const fuentes: readonly FuenteRespuesta[] = b.puesto.opciones?.fuentes ?? FUENTES_RESPUESTA;
   const pregunta = b.puesto.opciones?.pregunta ?? null;
-  const opciones = (o: { redes?: Red[]; fuentes?: FuenteRespuesta[]; pregunta?: string; datos?: string[] }) => onCambio({ op: 'opciones', tab, bloque: id, n: b.n, opciones: o });
+  const opciones = (o: { redes?: Red[]; fuentes?: FuenteRespuesta[]; pregunta?: string; datos?: string[]; titulo?: string }) => onCambio({ op: 'opciones', tab, bloque: id, n: b.n, opciones: o });
   /** Prende o apaga el aviso de UN dato en este funnel. */
   const pedir = (p: StepId, avisa: boolean) => onCambio({ op: 'aviso', paso: p, avisa });
   /** Prender o apagar uno de una lista, sin perder el orden de siempre. */
@@ -329,6 +332,10 @@ function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onM
         </>
       )}
       {sep}
+      <button type="button" className="fb-herr" aria-haspopup="dialog" aria-expanded={menu?.tipo === 'titulo'} onClick={abrir('titulo')}>
+        Título
+      </button>
+      {sep}
       <button type="button" className="fb-herr" title="Ícono" aria-label="Ícono" aria-haspopup="menu" aria-expanded={menu?.tipo === 'icono'} onClick={abrir('icono')}>
         <IconoMenu nombre={icono} size={15} />
       </button>
@@ -419,6 +426,12 @@ function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onM
           </div>
         </Flotante>
       )}
+      {menu?.tipo === 'titulo' && (
+        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={300} etiqueta="Título del bloque">
+          <TituloDelBloque actual={b.puesto.opciones?.titulo ?? ''} deSiempre={tituloDeSiempre}
+            onGuardar={(t) => { setMenu(null); if (t !== (b.puesto.opciones?.titulo ?? '')) opciones({ titulo: t }); }} />
+        </Flotante>
+      )}
       {menu?.tipo === 'icono' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={300} etiqueta="Ícono del bloque">
           <button type="button" className="fb-opcion" aria-checked={!b.puesto.icono} role="menuitemradio"
@@ -436,5 +449,21 @@ function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onM
         </Flotante>
       )}
     </div>
+  );
+}
+
+/** El título del bloque: se escribe y Enter lo guarda; «El de siempre» lo devuelve (23/10/2026). */
+function TituloDelBloque({ actual, deSiempre, onGuardar }: { actual: string; deSiempre: string; onGuardar: (t: string) => void }) {
+  const [v, setV] = useState(actual || deSiempre);
+  const guardar = () => onGuardar(v.trim() === deSiempre ? '' : v.trim());
+  return (
+    <form className="fb-titulo" onSubmit={(e) => { e.preventDefault(); guardar(); }}>
+      <input className="fb-titulo-input" value={v} maxLength={TOPE_TITULO_BLOQUE} autoFocus aria-label="Título del bloque"
+        onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') onGuardar(actual); }} />
+      <div className="fb-titulo-acciones">
+        {actual && <button type="button" className="fb-herr" onClick={() => onGuardar('')}>El de siempre</button>}
+        <button type="submit" className="fb-herr" aria-pressed="true">Guardar</button>
+      </div>
+    </form>
   );
 }

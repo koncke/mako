@@ -83,6 +83,9 @@ export function cambioDeInputApi(input: Record<string, unknown>): CambioFicha | 
       // el turno de WhatsApp. Qué es lo dice el bloque.
       const def = bloque ? bloqueDef(bloque) : undefined;
       const op = s(input.opcion);
+      // (23/10/2026) El título de CUALQUIER bloque: «titulo=Lo que pasa» (vacío: el de siempre).
+      const titulo = /^titulo\s*=/i.exec(op ?? '');
+      if (def && titulo) { crudo = { op: 'opciones', ...base, opciones: { titulo: (op ?? '').slice(titulo[0].length).trim() } }; break; }
       if (!def?.opciones?.length) return { error: 'Ese bloque no tiene opciones: sólo redes-y-web (redes), lo-que-contesto (fuentes), respuesta-destacada (pregunta), y contacto y setter-y-closer (sus datos).' };
       if (!op) return { error: 'Falta la opcion.' };
       if (def.opciones.includes('pregunta')) { crudo = { op: 'opciones', ...base, opciones: { pregunta: op } }; break; }
@@ -175,7 +178,7 @@ export function cambioDeInputApi(input: Record<string, unknown>): CambioFicha | 
 function bloqueDeSalida(p: { id: BloqueDef['id']; ancho: Ancho; diseno: string; icono?: string; opciones?: OpcionesBloque }, i: number) {
   const def = bloqueDef(p.id);
   return {
-    lugar: i + 1, bloque: p.id, titulo: def?.titulo ?? p.id, ancho: NOMBRE_ANCHO[p.ancho],
+    lugar: i + 1, bloque: p.id, titulo: p.opciones?.titulo || def?.titulo || p.id, ancho: NOMBRE_ANCHO[p.ancho],
     diseno: p.diseno, diseno_nombre: def?.disenos.find((x) => x.id === p.diseno)?.nombre ?? p.diseno,
     ...(p.icono ? { icono: p.icono } : {}), ...(p.opciones ? { opciones: p.opciones } : {}),
     // Lo que completa ESTE bloque puesto: un contacto sin la empresa no la completa (23/10/2026, `avisaDelPuesto`).

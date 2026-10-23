@@ -140,7 +140,7 @@ import { CartelTope } from './PasarAPro';
 import { faltaVincular, type VinculadosDelCrm } from '@/lib/vinculos-de-columnas-reglas';
 import { AVISO_VINCULO } from './menu-contextual-crm';
 import { FinDeColumna } from './FinDeColumna';
-import { chipDeAutomatizacion, enTandasDe, lineaDeAutomatizacion, preguntaDeFrenar } from './automatizacion-lead';
+import { chipDeAutomatizacion, enTandasDe, lineaDeAutomatizacion, noEntroDelMovimiento, preguntaDeFrenar } from './automatizacion-lead';
 import { enAutomatizacionesAction, frenarLeadsEnAutomatizacionesAction } from '@/app/automations/automatizaciones-del-lead-actions';
 import type { EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
@@ -645,7 +645,9 @@ export function CrmBoard({
   // `pendientes`: lo que la etapa pide y todavía falta. Desde el 17/09 eso NO frena
   // el movimiento (08-T22): se guarda igual y se avisa acá, sin pedir nada.
   // `deshacer`: la foto firmada que devolvió el movimiento (lib/deshacer-movimiento.ts). Sin ella, el botón va apagado.
-  const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string; pendientes?: string[]; deshacer?: TokenDeshacer } | null>(null);
+  // `noEntro` (23/10/2026): las automatizaciones de la etapa a las que NO entró, con el porqué («ya está adentro», «entra
+  // una sola vez»). Martín movió su lead para que «Sprint · apertura» le escribiera otra vez y nada lo dijo.
+  const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string; pendientes?: string[]; noEntro?: string[]; deshacer?: TokenDeshacer } | null>(null);
   // El Deshacer que no se pudo: se DICE, como en el teléfono (antes la card volvía sola, sin una palabra).
   const [avisoDeshacer, setAvisoDeshacer] = useState<string | null>(null);
   useEffect(() => {
@@ -755,7 +757,8 @@ export function CrmBoard({
         });
         if (r.ok) {
           const labels = r.pendientes?.length ? r.pendientes.map((p) => p.label) : undefined;
-          setUndoInfo((u) => (u && u.id === id ? { ...u, ...(labels ? { pendientes: labels } : {}), deshacer: r.deshacer } : u));
+          const noEntro = noEntroDelMovimiento(r);
+          setUndoInfo((u) => (u && u.id === id ? { ...u, ...(labels ? { pendientes: labels } : {}), ...(noEntro.length ? { noEntro } : {}), deshacer: r.deshacer } : u));
         }
         // Red de seguridad: el server de hoy ya no devuelve ok:false por datos
         // faltantes, pero si algún día lo hiciera, se abre el wizard en vez de
@@ -879,7 +882,7 @@ export function CrmBoard({
   // nada: lo pendiente queda marcado en la card y en la ficha.
   useEffect(() => {
     if (!undoInfo) return;
-    const t = setTimeout(() => setUndoInfo(null), undoInfo.pendientes?.length ? 10000 : 5000);
+    const t = setTimeout(() => setUndoInfo(null), undoInfo.pendientes?.length || undoInfo.noEntro?.length ? 10000 : 5000);
     return () => clearTimeout(t);
   }, [undoInfo]);
 
@@ -1610,7 +1613,8 @@ export function CrmBoard({
         setLocalStage((m) => ({ ...m, [leadId]: destino }));
         if (from !== destino) {
           const pendientes = r.pendientes?.map((p) => p.label);
-          setUndoInfo({ id: leadId, name: l.name, from, toLabel: destinoLabel, pendientes, deshacer: r.deshacer });
+          const noEntro = noEntroDelMovimiento(r);
+          setUndoInfo({ id: leadId, name: l.name, from, toLabel: destinoLabel, pendientes, ...(noEntro.length ? { noEntro } : {}), deshacer: r.deshacer });
         }
         router.refresh();
       } catch (e) {
@@ -3679,7 +3683,8 @@ export function CrmBoard({
               setStageMove(null);
               setLocalStage((m) => ({ ...m, [l.id]: stageMove.move.to }));
               if (from !== stageMove.move.to) {
-                setUndoInfo({ id: l.id, name: l.name, from, toLabel: findStage(stages, stageMove.move.to).label, deshacer: r && r.ok ? r.deshacer : undefined });
+                const noEntro = noEntroDelMovimiento(r);
+                setUndoInfo({ id: l.id, name: l.name, from, toLabel: findStage(stages, stageMove.move.to).label, ...(noEntro.length ? { noEntro } : {}), deshacer: r && r.ok ? r.deshacer : undefined });
               }
               router.refresh();
             }}
@@ -4243,6 +4248,18 @@ export function CrmBoard({
                 setUndoInfo(null);
                 if (l) openStageMove(l, { to: effStage(l) });
               }} style={{ background: '#F3F5F8', border: 'none', color: '#14161B', fontWeight: 700, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS }}>Completar ahora</button>
+            </>
+          )}
+          {/* POR QUÉ NO ENTRÓ a una automatización de la etapa (23/10/2026, P0 del lead 3099): «Ya está adentro (paso 2)» o
+              «entra una sola vez», y «Ver» abre la ficha, donde el bloque «Automatizaciones» ofrece «Empezar de nuevo». */}
+          {!!undoInfo.noEntro?.length && (
+            <>
+              <span data-no-entro style={{ flexBasis: '100%', color: '#F6D58E', fontSize: 13 }}>{undoInfo.noEntro.join(' ')}</span>
+              <button type="button" onClick={() => {
+                const l = leads.find((x) => x.id === undoInfo.id);
+                setUndoInfo(null);
+                if (l) openDetail(l);
+              }} style={{ background: 'transparent', border: '1px solid rgba(243,245,248,.35)', color: '#F3F5F8', fontWeight: 600, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS }}>Ver</button>
             </>
           )}
           {/* Apagado hasta que llega la foto del movimiento: un Deshacer que no deshace es peor que ninguno. */}
