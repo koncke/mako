@@ -292,7 +292,9 @@ const esParteDeLoAbierto = (tab: Area, palabra: string | undefined): boolean =>
  */
 export const esOrdenDelFlujo = (texto: string): boolean =>
   // (Con clases de acentos: el texto viene sin tildes por `plano`, y la palabra entera la marcaría el guardián del voseo.)
-  /\b(?:si (?:responde|contesta|no (?:responde|contesta)|agenda|paga)|cuando (?:entra|llega|responde|contesta|agenda|paga)|mu[eé]vel[oa]s?|mov[eé]l[oa]s?|av[ií]s[a]me|av[ií]s[a]nos|m[aá]nd[a]les?|esperar?|que (?:arranque|dispare|salga|le mande))\b/
+  // 23/10/2026 (el arnés del AU2, `solo-apertura`): también en plural («si no responden»), «un seguimiento» y «que la
+  // automatización sea…»: el pedido de #289 tenía las tres y no era una orden del flujo.
+  /\b(?:si (?:no )?(?:responde|contesta)n?|si (?:agenda|paga)n?|cuando (?:entra|llega|responde|contesta|agenda|paga)n?|mu[eé]vel[oa]s?|mov[eé]l[oa]s?|av[ií]s[a]me|av[ií]s[a]nos|m[aá]nd[a]les?|esperar?|seguimientos?|que (?:arranque|dispare|salga|le mande)|que (?:la automatizacion|el flujo|la secuencia) (?:sea|quede|tenga))\b/
     .test(plano(nfc(texto)));
 
 /**
@@ -854,6 +856,16 @@ function decidir(c: PedidoCrudo, ctx: ContextoPedidos): Decision {
   // cambio de lo abierto.
   if (c.verbo === 'crear' && l.objeto && deEstaTab && !parte) {
     return { pedido: { sobre: 'nuevo', texto: c.texto, operacion: operacionPara('crear', tab, c.texto, ctx) }, ambiguo: false, frase: l.objeto.frase, hacemos: hacemosDe(l) };
+  }
+  // ⚠️ Y UNA ORDEN SOBRE EL FLUJO ABIERTO TAMPOCO NOMBRA OTRA automatización por un nombre que la toca (23/10/2026, el arnés
+  // del AU2, `solo-apertura` en la 2ª pasada: «sólo quiero que la automatización sea de "Apertura", y un seguimiento si no
+  // responden» salió en la burbuja «Eso va en «… · solo-apertura»» y MaKo no hizo nada). La regla de arriba era sólo para
+  // otra ÁREA; dentro de la tab, `referidos` toma la primera cita como el nombre de otra si cabe en él. En una orden del
+  // flujo, lo citado es un ingrediente (una sección, una etapa, un mensaje). Salvo borrar y «la otra» / «la anterior», que
+  // sí señalan a otra.
+  if (actual && tab === 'chatbot' && c.verbo !== 'borrar' && esOrdenDelFlujo(c.texto)
+    && !/\b(?:l[ao]s?|el|mis?)\s+otr[ao]s?\b|\b(?:l[ao]|el)\s+anterior\b/.test(l.pl)) {
+    return { pedido: { sobre: 'actual', texto: c.texto }, ambiguo: false, frase: null };
   }
   const otros = (ctx.objetos ?? []).filter((o) => o.id !== actual?.id);
   const r = referidos(l, c.referencia, otros, tab);

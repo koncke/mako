@@ -118,6 +118,7 @@ import type { CronAviso } from './cron-aviso';
 import { respuestaDelModelo } from './flujo-ia-consulta';
 import { OP_MOVER_ETAPA } from './flujo-legado';
 import { LIMITES_CONSTANTES } from './limites-envio';
+import { sinCitas, citasQueFaltan, minutosDelPedido } from './flujo-ia-intencion';
 
 // ── Constantes que comparten la ruta y los tests ─────────────────────────────────
 
@@ -951,14 +952,15 @@ const OP_MAKO = 'avisar_al_equipo';
 
 /**
  * ¿El pedido pide que le avisen al equipo? («avísame», «notifica al grupo», «que el equipo se entere»). «Avísales» y
- * «avisarle» son al lead: no cuentan.
+ * «avisarle» son al lead: no cuentan. Sin las citas (`sinCitas`, 23/10/2026): el «Me avisas» de un mensaje al lead no es
+ * un aviso al equipo.
  */
 export const pidioAviso = (pedido: unknown): boolean =>
-  /\bavis(?!ar?les?\b)|notific|alert|\bequipo\b|\bgrupo\b|enter(?:arme|arnos|e|en)\b|que (?:yo )?sepa|me (?:digas|cuentes|escribas)\b/.test(normNombre(pedido));
+  /\bavis(?!ar?les?\b)|notific|alert|\bequipo\b|\bgrupo\b|enter(?:arme|arnos|e|en)\b|que (?:yo )?sepa|me (?:digas|cuentes|escribas)\b/.test(normNombre(sinCitas(pedido)));
 
-/** ¿El pedido habla de lo que contesta el lead? («si confirma», «si van a asistir», «cuando responda»). */
+/** ¿El pedido habla de lo que contesta el lead? («si confirma», «si van a asistir», «cuando responda»). Sin las citas. */
 export const pidioRespuesta = (pedido: unknown): boolean =>
-  /respond|contest|confirm|asist|si (?:dice|quiere|viene|vienen|van|puede|pueden)\b|pregunta(?:le|les)?\b|preguntal|\bresponda/.test(normNombre(pedido));
+  /respond|contest|confirm|asist|si (?:dice|quiere|viene|vienen|van|puede|pueden)\b|pregunta(?:le|les)?\b|preguntal|\bresponda/.test(normNombre(sinCitas(pedido)));
 
 /** La sugerencia cuando se saca un «Avisar al equipo» que nadie pidió (va en el chat, en palabras de la persona). */
 export const SUGERENCIA_AVISO = 'Si quieres que te avise en el grupo cuando alguien contesta, pídemelo';
@@ -1945,11 +1947,12 @@ export function disparadorReal(valor: string | null, ids: ReadonlyMap<number, nu
  * con el `ctxGrande` de tests/editar-ia-cambiar-quitar.test.ts: con él, editar pasa de ~3.483 a ~4.293 y Groq queda afuera).
  */
 const RX_PIDE_CRON = /dispar|\bcron\b|arranqu|arranc|empie[zc]|cuando (?:llega|llegue|llegan|entra|entre|entran|pasa a|pase a|se le pone|se le ponga|le ponen|comenta|comente|comentan|escribe|escriba|escriben|paga|pague|pagan)\b|comentario|historia|stor(?:y|ies)|en vivo|\blive\b|referencia|\bqr\b|mensaje directo/;
-const pideCron = (pedido: unknown): boolean => RX_PIDE_CRON.test(normNombre(pedido));
+// Sin las citas (`sinCitas`): «Empieza hoy tu historia» adentro de un mensaje no habla del CRON.
+const pideCron = (pedido: unknown): boolean => RX_PIDE_CRON.test(normNombre(sinCitas(pedido)));
 
 /** El canal social que nombra el pedido (Instagram o Messenger), o null. */
 const socialDelPedido = (pedido: unknown): CanalSocial | null => {
-  const c = canalDelPedido(pedido);
+  const c = canalDelPedido(sinCitas(pedido));
   return c && esCanalSocial(c) ? c : null;
 };
 
@@ -1978,9 +1981,10 @@ const RX_CAMBIO_CANAL: readonly RegExp[] = [
 
 /** EL CANAL SOCIAL AL QUE EL PEDIDO PASA EL FLUJO («cambia WhatsApp por Instagram»), o null. Pura. */
 export function cambioDeCanal(pedido: unknown): CanalSocial | null {
-  const c = canalDelPedido(pedido);
+  const orden = sinCitas(pedido);
+  const c = canalDelPedido(orden);
   if (!c || !esCanalSocial(c)) return null;
-  const t = normNombre(pedido);
+  const t = normNombre(orden);
   return RX_CAMBIO_CANAL.some((rx) => rx.test(t)) ? c : null;
 }
 
@@ -2035,7 +2039,7 @@ export const AVISO_SEGUIMIENTO = 'Puse «No contestó desde que entró» antes d
 export function seguimientosConNoContesto(pasos: readonly PasoIA[], nuevas: ReadonlySet<string>, pedido: unknown, rnd: () => number = Math.random): { pasos: PasoIA[]; puestas: string[] } {
   let out = pasos.map((p) => p);
   const puestas: string[] = [];
-  if (!RE_SEGUIMIENTO.test(String(pedido ?? ''))) return { pasos: out, puestas };
+  if (!RE_SEGUIMIENTO.test(sinCitas(pedido))) return { pasos: out, puestas };
   const porId = () => new Map(out.map((p, i) => [idDe(p, i), p]));
   const esMensaje = (q: PasoIA | undefined) => !!q && claseDe(q) === 'mensaje';
   /** ¿Hay un mensaje al lead ANTES de `id` (subiendo por sus padres)? */
@@ -2070,6 +2074,86 @@ export function seguimientosConNoContesto(pasos: readonly PasoIA[], nuevas: Read
     puestas.push(c.id!);
   }
   return { pasos: out, puestas };
+}
+
+/**
+ * ¿HAY UN SEGUIMIENTO en el flujo? Una espera de tiempo (no la de «antes de la reunión») seguida de un mensaje, directo o
+ * por la primera rama de una condición. Lo pregunta el control de lo pedido (`formaPedida`, lib/flujo-ia-revision-editar.ts)
+ * y `seguimientoQueFalta`: una sola definición.
+ */
+export function haySeguimiento(pasos: readonly PasoGrafo[]): boolean {
+  const m = new Map(pasos.map((p, i) => [idDe(p, i), p]));
+  return pasos.some((p) => {
+    if (claseDe(p) !== 'esperar' || (p.espera as { modo?: string } | undefined)?.modo === 'antes_reunion') return false;
+    let q = m.get(String(p.siguiente ?? ''));
+    if (q && claseDe(q) === 'condicion') q = m.get(String(q.ramas?.[0]?.siguiente ?? ''));
+    return !!q && claseDe(q) === 'mensaje';
+  });
+}
+
+/**
+ * EL SEGUIMIENTO PEDIDO QUE EL MODELO NO DEJÓ, LO ARMA EL CÓDIGO (23/10/2026, el arnés del AU2: `seguimiento-no-contesto` en
+ * rojo en las dos pasadas, con gpt-oss-120b por la red de plataforma). «Agregá al final un seguimiento a los 2 días si no
+ * responde: «…»»: el modelo dejó la espera y una condición «Contestó» (la positiva) colgando de una tarjeta que no existía, y
+ * el mensaje se cortó («Una tarjeta seguía en otra que no existe»). El texto está entre comillas y la espera la dice el
+ * pedido: no hace falta el modelo para eso. Sólo si:
+ *   · el pedido (sin las citas) nombra un seguimiento (`RE_SEGUIMIENTO`) y no hay ninguno (`haySeguimiento`);
+ *   · falta exactamente UNA cita (con dos, no se sabe cuál es el seguimiento: queda el control, que lo dice en rojo);
+ *   · después del último mensaje del camino del lead hay nada, o sólo esperas y condiciones de «Contestó» SIN salida que
+ *     puso este turno (lo que dejó el modelo a medias: se reemplaza). Una tarjeta de antes o un mensaje ahí no se tocan;
+ *   · se sabe cuánto esperar: la espera que dejó el modelo, o la del pedido (`minutosDelPedido`). Sin eso, no se inventa.
+ * Arma el tramo con el MISMO formato que el modelo (`agregarTramos`: sus ids, el canal, la limpieza del texto y «{Nombre}»),
+ * y «No contestó desde que entró» lo pone `seguimientosConNoContesto`, que corre después.
+ */
+export const AVISO_SEGUIMIENTO_ARMADO = 'Puse el seguimiento con tu texto después del último mensaje';
+function seguimientoQueFalta(pasosIn: PasoIA[], ed: Edicion, social: CanalSocial | null): PasoIA[] {
+  const pedido = String(ed.est.ctx.pedido ?? '');
+  const orden = sinCitas(pedido);
+  const seg = RE_SEGUIMIENTO.exec(orden);
+  if (!seg || haySeguimiento(pasosIn)) return pasosIn;
+  const faltan = citasQueFaltan(pedido, textosDeMensajes(pasosIn));
+  if (faltan.length !== 1) return pasosIn;
+  const ultimo = ultimoMensajeDelCamino(pasosIn);
+  if (!ultimo) return pasosIn;
+  const porId = new Map(pasosIn.map((p, i) => [idDe(p, i), p]));
+  // Lo que cuelga del último mensaje: sólo lo que dejó el modelo a medias (esperas y condiciones de «Contestó» sin salida).
+  const cola: string[] = [];
+  let minutosDelModelo: number | null = null;
+  for (let x = String(porId.get(ultimo)?.siguiente ?? ''); x; ) {
+    const p = porId.get(x);
+    if (!p || !ed.agregadas.has(x) || cola.includes(x)) return pasosIn;
+    const c = claseDe(p);
+    if (c === 'esperar') {
+      const e = p.espera as { modo?: string; minutos?: number } | undefined;
+      if (e?.modo !== 'tiempo') return pasosIn;
+      minutosDelModelo = Number(e.minutos) > 0 ? Number(e.minutos) : minutosDelModelo;
+      cola.push(x);
+      x = String(p.siguiente ?? '');
+      continue;
+    }
+    const soloContesto = c === 'condicion' && (p.ramas ?? []).length === 1 && p.ramas![0].filas.every((f) => f.campo === 'contesto')
+      && !p.ramas![0].siguiente && !p.si_no;
+    if (!soloContesto) return pasosIn;
+    cola.push(x);
+    break;
+  }
+  const minutos = minutosDelModelo ?? minutosDelPedido(orden, seg.index);
+  // Un email necesita su asunto, y ése no está en el pedido: queda el control.
+  const canal = canalDePaso(porId.get(ultimo)!);
+  if (!minutos || canal === 'email') return pasosIn;
+  let pasos = pasosIn;
+  for (const id of [...cola].reverse()) pasos = borrarNodo(pasos, id) as PasoIA[];
+  const tramo = {
+    despues_de: ultimo, salida: 'sig',
+    tarjetas: [
+      { id: 'seg1', tipo: 'esperar', minutos, sigue: 'seg2' },
+      { id: 'seg2', tipo: 'mensaje', canal, texto: faltan[0] },
+    ],
+  };
+  const antes = pasos.length;
+  pasos = agregarTramos(pasos, [tramo], ed, social, null);
+  if (pasos.length > antes) ed.est.avisos.push(AVISO_SEGUIMIENTO_ARMADO);
+  return pasos;
 }
 
 /**
@@ -2536,7 +2620,9 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
     }
   }
 
-  // Un seguimiento NUEVO sin «No contestó desde que entró» la lleva (`seguimientosConNoContesto`, 23/10/2026, #289).
+  // El seguimiento pedido que el modelo no dejó lo arma el código (`seguimientoQueFalta`), y uno NUEVO sin «No contestó
+  // desde que entró» la lleva (`seguimientosConNoContesto`, 23/10/2026, #289).
+  pasos = seguimientoQueFalta(pasos, ed, social);
   const seg = seguimientosConNoContesto(pasos, ed.agregadas, ctx.pedido, rnd);
   if (seg.puestas.length) { pasos = seg.pasos; for (const x of seg.puestas) ed.agregadas.add(x); est.avisos.push(AVISO_SEGUIMIENTO); }
   const vaciados = sinCasosVaciados(pasos, base);

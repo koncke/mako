@@ -6137,3 +6137,33 @@ app/api/flujos/misma-persona/route.ts. Y la pantalla de Configuraciones pasó a 
 oficina» y un bloque por canal; la «Misma persona, por defecto» de la línea ya no tiene fila (cada automatización muestra la del
 negocio mientras no tenga la suya). **Sin hacer:** el valor del negocio de «Misma persona» no se edita desde ninguna pantalla
 (sólo por la API de límites); el lienzo no relee el valor si se cambia con el modal abierto (al volver a abrir la automatización, sí).
+
+## El seguimiento «si no responde» que pidió el dueño no quedaba: tres causas, y ninguna era el prompt (23/10/2026, arnés del AU2)
+
+**Síntoma:** en el arnés del AU2 (`scripts/probar-chats/automations.mts`, ws3, c08b5e729) `seguimiento-no-contesto` dio rojo en las
+dos pasadas y `solo-apertura` en la segunda: MaKo dejaba la espera de 2 días y una condición, y el mensaje del seguimiento no
+estaba. **El diagnóstico obvio («el modelo no cumple la regla 3») era el equivocado.** Las causas, medidas en el informe:
+1. **La cita se leía como orden.** El pedido era «un seguimiento a los 2 días si no responde: «{Nombre}, ¿pudiste ver lo que te
+   mandé? Me avisas»». `pidioAviso` veía «avisas» ADENTRO de la cita; el control de lo pedido le exigía al modelo «falta el aviso
+   al grupo» y el reintento ponía un aviso al equipo en vez del seguimiento (pasada 2, tal cual). Lo mismo podía pasar con
+   `pidioRespuesta`, el cambio de canal, el CRON, «agregá» y «sólo X». **Regla:** lo que lee la INTENCIÓN del pedido pregunta
+   sobre `sinCitas(pedido)`: lo citado (20+ caracteres) es el mensaje para el lead; lo corto entre comillas (una etapa, una
+   etiqueta) sí es parte de la orden y se queda.
+2. **El modelo lo dejó a medias** (gpt-oss-120b por la red de plataforma): la espera y la condición POSITIVA («Contestó»)
+   colgando de una tarjeta que no existía, y el mensaje cortado («Una tarjeta seguía en otra que no existe: lo corté»). El texto
+   estaba citado y la espera la decía el pedido. **Regla:** lo que el modelo no cumple lo hace el código — `seguimientoQueFalta`
+   arma el tramo en el formato del modelo (espera + mensaje, por `agregarTramos`) y «No contestó» la pone
+   `seguimientosConNoContesto`. Sólo con UNA cita faltante, nada del dueño después del último mensaje, y una espera dicha (la del
+   modelo o la del pedido): no inventa la espera ni pisa lo que estaba.
+3. **El ruteo de «pedidos sueltos» se lo tragó** (pasada 2 de `solo-apertura`): «que la automatización sea de "Apertura"» calzó
+   en `referidos` con OTRA automatización cuyo nombre tenía «apertura» (la fila del caso anterior del arnés), salió la burbuja
+   «Eso va en «…»» y MaKo no recibió nada. En ws1 alcanza con que exista una automatización con esa palabra en el nombre.
+   **Regla:** en Automations, con una abierta, una orden sobre el flujo (`esOrdenDelFlujo`: ahora también «si no responden»,
+   «seguimiento», «que la automatización sea…») es de la abierta aunque una cita calce en otro nombre; borrar y «la otra»
+   siguen señalando a otra.
+**Vive en:** lib/flujo-ia-intencion.ts (`sinCitas`, `citasQueFaltan`, `minutosDelPedido`) · lib/flujo-ia.ts (`seguimientoQueFalta`,
+`haySeguimiento`, `pidioAviso`, `pidioRespuesta`, `cambioDeCanal`, `pideCron`) · lib/flujo-ia-revision-editar.ts (`formaPedida`,
+`pideAgregar`) · lib/mako-pedidos.ts (`decidir`, `esOrdenDelFlujo`) · test: tests/chat-mako-seguimiento-citas.test.ts (7 roturas → 7
+rojos). **Sin hacer:** al CREAR (`deIA`) el código todavía no arma el seguimiento que falta (sólo le pone «No contestó» al que
+haya); con dos citas faltantes no se sabe cuál es el seguimiento y queda el rojo; el arnés no se volvió a correr contra
+producción con este arreglo.

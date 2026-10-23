@@ -13,10 +13,10 @@
 //   · UNA ETAPA QUE NO EXISTE («que arranque cuando entra a la etapa «Clientes VIP Platino»»): el modelo no devolvía nada y
 //     salía «No cambió nada». Se contesta ANTES del modelo, con las etapas que tiene ese CRM, y el CRON no se toca.
 // =============================================================================
-import { deIAEdicion, erroresEdicion, textosDeMensajes, pidioAviso, ultimoMensajeDelCamino, RE_SEGUIMIENTO, type CtxIA, type ResultadoEdicion } from './flujo-ia';
+import { deIAEdicion, erroresEdicion, textosDeMensajes, pidioAviso, ultimoMensajeDelCamino, haySeguimiento, RE_SEGUIMIENTO, type CtxIA, type ResultadoEdicion } from './flujo-ia';
 import {
   errorDeRespuestaEnEditar, charlaConTextos, traeTextosPegados, faltantesDelPedido, errorDeFaltantes, sobrantesDelPedido, pideQueQuedeSolo,
-  errorDeSobrantes, NO_HECHO_SOLO_ESO, noHechoSobrante, type IntencionChat,
+  errorDeSobrantes, NO_HECHO_SOLO_ESO, noHechoSobrante, sinCitas, type IntencionChat,
 } from './flujo-ia-intencion';
 import { esConsulta } from './flujo-ia-consulta';
 import { claseDe, idDe, raizRespuesta, descendientes, type PasoGrafo } from './flujo-grafo';
@@ -33,7 +33,8 @@ export const ERROR_AGREGAR_PISA = 'El dueño pidió AGREGAR: los mensajes que ya
 
 /** ¿El pedido es SUMAR («agregá», «sumá», «añadí», «incluí»), sin pedir cambiar lo que hay? («Editalos y agregalos» suma.) */
 export function pideAgregar(pedido: string): boolean {
-  const t = plano(pedido);
+  // Sin las citas (`sinCitas`): «te agrego al grupo» adentro de un mensaje no es «agregá».
+  const t = plano(sinCitas(pedido));
   return /\b(agreg|suma|sume|anad|inclu)/.test(t) && !/\b(cambi|reemplaz|sustitu|reescrib|modific|corrig|en (lugar|vez) de)/.test(t);
 }
 
@@ -117,24 +118,20 @@ export function textoEtapaQueNoExiste(x: EtapaQueNoExiste): string {
 const RE_AVISO_AL_RESPONDER = /(?<!no )(?:cuando|una vez que|apenas|en cuanto|si)\s+(?:alguien |el lead |la persona |me |te |le |nos )?(?:responde|contesta)n?(?!\p{L})[^.]{0,160}?(?:avis|notific)/iu;
 const esAviso = (p: PasoGrafo): boolean => (p as { accion?: { operacion?: string } }).accion?.operacion === 'avisar_al_equipo';
 const RE_SACAR_AVISO = /(?<!\p{L})(?:sac|quit|elimin|borr(?!ador))\p{L}*\s+(?:\p{L}+\s+){0,2}avis/iu;
-function formaPedida(pedido: string, pasos: readonly PasoGrafo[], base: readonly PasoGrafo[]): Array<{ error: string; rojo: string }> {
+function formaPedida(pedidoEntero: string, pasos: readonly PasoGrafo[], base: readonly PasoGrafo[]): Array<{ error: string; rojo: string }> {
   const out: Array<{ error: string; rojo: string }> = [];
-  const m = new Map(pasos.map((p, i) => [idDe(p, i), p]));
+  // La ORDEN, sin los textos citados (`sinCitas`, 23/10/2026): el «Me avisas» de un seguimiento no es un aviso al grupo, y
+  // el control le pedía al modelo un aviso que nadie pidió (el arnés del AU2, `seguimiento-no-contesto`).
+  const pedido = sinCitas(pedidoEntero);
   if (RE_SEGUIMIENTO.test(pedido)) {
-    const hay = pasos.some((p) => {
-      if (claseDe(p) !== 'esperar' || (p.espera as { modo?: string } | undefined)?.modo === 'antes_reunion') return false;
-      let q = m.get(String(p.siguiente ?? ''));
-      if (q && claseDe(q) === 'condicion') q = m.get(String(q.ramas?.[0]?.siguiente ?? ''));
-      return !!q && claseDe(q) === 'mensaje';
-    });
-    if (!hay) out.push({
+    if (!haySeguimiento(pasos)) out.push({
       error: 'El dueño pidió un SEGUIMIENTO si no responde: va en el camino del lead, después del último mensaje: un "esperar" y el mensaje, detrás de "contesto" con "no": true. Nunca adentro de "si_responde".',
       rojo: 'El seguimiento «si no responde» no quedó: falta la espera y su mensaje después del último mensaje',
     });
   }
   // «Sólo X» que se llevó X (medido en seco: «sólo apertura» terminó sin un solo mensaje): el camino del lead no puede quedar
   // sin mensajes si los tenía.
-  if (pideQueQuedeSolo(pedido) && base.some((p) => claseDe(p) === 'mensaje') && ultimoMensajeDelCamino(pasos) == null) {
+  if (pideQueQuedeSolo(pedidoEntero) && base.some((p) => claseDe(p) === 'mensaje') && ultimoMensajeDelCamino(pasos) == null) {
     out.push({
       error: 'Con «sólo X» se queda X: quitaste también los mensajes del camino del lead. Devuelve los que son X (por ejemplo, los de apertura) y quita sólo lo que sobra.',
       rojo: 'Quedó sin ningún mensaje al lead: no saqué lo que pediste conservar',

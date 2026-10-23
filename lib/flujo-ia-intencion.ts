@@ -144,16 +144,58 @@ export function faltantesDelPedido(pedido: string, textosDelFlujo: readonly stri
     .filter((t, i, xs) => xs.indexOf(t) === i);
 }
 
+/** Como `faltantesDelPedido`, con el texto ENTERO (el que el código pone en una tarjeta, no el que se muestra). Pura. */
+export function citasQueFaltan(pedido: string, textosDelFlujo: readonly string[]): string[] {
+  return citasDelPedido(pedido).filter((c) => !c.sacar && !estaEnElFlujo(c.texto, textosDelFlujo)).map((c) => c.texto)
+    .filter((t, i, xs) => xs.indexOf(t) === i);
+}
+
+const NUMEROS: Readonly<Record<string, number>> = { un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10 };
+const RE_LAPSO = /(?<!\p{L})(\d{1,3}|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s*(minutos?|min|horas?|hs|d[ií]as?|semanas?)(?!\p{L})/giu;
+const MINUTOS_DE: ReadonlyArray<readonly [RegExp, number]> = [[/^min/i, 1], [/^h/i, 60], [/^d/i, 1440], [/^s/i, 10080]];
+
+/**
+ * CUÁNTO ESPERA EL SEGUIMIENTO, según lo que dice el pedido FUERA de las citas («a los 2 días», «en 3 horas», «al día
+ * siguiente»): el primer lapso DESPUÉS de donde nombra el seguimiento (`desde`), o el último de antes. null si no dice
+ * ninguno: sin un número de la persona, el código no inventa la espera. Pura.
+ */
+export function minutosDelPedido(orden: string, desde = 0): number | null {
+  const lapsos = [...String(orden ?? '').matchAll(RE_LAPSO)].map((m) => {
+    const n = NUMEROS[m[1].toLowerCase()] ?? Number(m[1]);
+    const por = MINUTOS_DE.find(([re]) => re.test(m[2]))?.[1] ?? 0;
+    return { en: m.index ?? 0, minutos: n * por };
+  }).filter((x) => x.minutos > 0);
+  if (/(?<!\p{L})(?:al d[ií]a siguiente|ma[ñn]ana)(?!\p{L})/iu.test(orden)) lapsos.push({ en: orden.search(/(?<!\p{L})(?:al d[ií]a siguiente|ma[ñn]ana)(?!\p{L})/iu), minutos: 1440 });
+  lapsos.sort((a, b) => a.en - b.en);
+  const despues = lapsos.find((x) => x.en >= desde);
+  return (despues ?? lapsos[lapsos.length - 1])?.minutos ?? null;
+}
+
 /** «Sacá», «quitá», «eliminá», «borrá» y sus formas (no «borrador»). Límites por Unicode, no `\b` (AGENTS.md). */
 const RE_SACAR = /(?<!\p{L})(?:sac|quit|elimin|borr(?!ador))\p{L}*/iu;
+
+/** Un texto entre comillas del pedido (las tres formas que escribe la gente). */
+const RE_CITA = /[«"“]([^«»"“”\n]{1,600})[»"”]/g;
 
 /** Los textos entre comillas del pedido (≥ `LARGO_TEXTO_PEDIDO`), y si el dueño pidió SACARLOS: un verbo de sacar antes, en la misma frase. */
 function citasDelPedido(pedido: string): Array<{ texto: string; sacar: boolean }> {
   const s = String(pedido ?? '');
-  return [...s.matchAll(/[«"“]([^«»"“”\n]{1,600})[»"”]/g)].map((m) => {
+  return [...s.matchAll(RE_CITA)].map((m) => {
     const frase = s.slice(Math.max(0, (m.index ?? 0) - 100), m.index ?? 0).split(/[.\n!?;]/).pop() ?? '';
     return { texto: m[1].trim(), sacar: RE_SACAR.test(frase) };
   }).filter((c) => c.texto.length >= LARGO_TEXTO_PEDIDO);
+}
+
+/**
+ * EL PEDIDO SIN LOS TEXTOS CITADOS (23/10/2026, el arnés del AU2, `seguimiento-no-contesto` 2 de 2 en rojo). Lo que va entre
+ * comillas es el MENSAJE para el lead, no la orden: «un seguimiento si no responde: «{Nombre}, ¿pudiste verlo? Me avisas»»
+ * leía «avisas» como un aviso al equipo (`pidioAviso`), el control le pedía al modelo «falta el aviso al grupo» y el
+ * reintento ponía un aviso en vez del seguimiento. Todo lo que lee la INTENCIÓN del pedido (el aviso, el «Si responde», el
+ * seguimiento, el cambio de canal) pregunta sobre esto. Sólo las citas de `LARGO_TEXTO_PEDIDO` o más: lo corto entre
+ * comillas es el nombre de una etapa o una etiqueta, y ése sí es parte de la orden. Pura.
+ */
+export function sinCitas(pedido: unknown): string {
+  return String(pedido ?? '').replace(RE_CITA, (todo, texto: string) => (texto.trim().length >= LARGO_TEXTO_PEDIDO ? '«…»' : todo));
 }
 
 /** ¿Está en algún mensaje? Al menos el 80% de sus palabras en UN mismo mensaje (links y variables no cuentan). */
@@ -181,7 +223,7 @@ export function sobrantesDelPedido(pedido: string, textosDelFlujo: readonly stri
  */
 const RE_SOLO_ESO = /(?<!\p{L})(?:s[oó]lo|solamente|[uú]nicamente)\s+quiero\s+que\s+(?:la\s+automatizaci[oó]n|el\s+flujo|la\s+secuencia|esta|sea|quede|tenga)(?!\p{L})|(?<!\p{L})que\s+(?:sea|quede|tenga)\s+(?:s[oó]lo|solamente|[uú]nicamente)(?!\p{L})|(?<!\p{L})d[eé]j[aá](?:le|la|lo)?\s+(?:s[oó]lo|solamente|[uú]nicamente)(?!\p{L})/iu;
 export function pideQueQuedeSolo(pedido: string): boolean {
-  return RE_SOLO_ESO.test(String(pedido ?? ''));
+  return RE_SOLO_ESO.test(sinCitas(pedido));
 }
 
 /** El error para el reintento: lo que pidió sacar y sigue, y/o que pidió que quede sólo eso y no quitó nada. */
