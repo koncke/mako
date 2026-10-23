@@ -54,6 +54,8 @@ import { enrolarPorEvento } from '@/lib/nutricion';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
 import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
 import { credWsEstricta, envCred } from '@/lib/credenciales';
+import { CUENTA_PRINCIPAL, cuentaQueFirmo } from '@/lib/cuentas-integracion';
+import { firmasDeAgenda } from '@/lib/cuentas-agenda-server';
 import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { decidirReserva } from '@/lib/agenda-evento-etapa';
 import { rutaDeReserva, ubicarReservaVinculada } from '@/lib/agenda-evento-etapa-server';
@@ -335,18 +337,21 @@ export async function POST(request: NextRequest) {
   //    La key se lee ESTRICTA por la misma razón: con `credWs`, una base caída daba null, se caía a
   //    la de plataforma y la firma de un negocio con key propia daba 401 — un no-2xx que Calendly
   //    cuenta para deshabilitar, con un mensaje que culpa a la firma.
-  let keyWs: string | null;
+  //
+  //    VARIAS CUENTAS DE CALENDLY (fase B, 23/10/2026): cada una firma con SU secreto (`…__C2`), y vale la que verifique
+  //    (`cuentaQueFirmo`). Las lee `firmasDeAgenda`, estricta, por lo mismo de arriba.
+  let secretos: Array<{ cuenta: string; firma: string }>;
   try {
-    keyWs = ws == null ? null : await credWsEstricta('CALENDLY_WEBHOOK_SIGNING_KEY', ws);
+    secretos = ws == null ? [] : await firmasDeAgenda(ws, 'calendly');
   } catch (err) {
     return responderFalloDeProceso(err, { evento: body.event, rama: 'ruteo', payload: body.payload });
   }
-  const signingKey = keyWs ?? (await envCred('CALENDLY_WEBHOOK_SIGNING_KEY'));
-  if (ws != null && !keyWs) {
-    console.warn(`[webhook:calendly] ws ${ws} sin CALENDLY_WEBHOOK_SIGNING_KEY propia — usando la de plataforma`);
+  if (!secretos.length) {
+    secretos = [{ cuenta: CUENTA_PRINCIPAL, firma: (await envCred('CALENDLY_WEBHOOK_SIGNING_KEY')) ?? '' }];
+    if (ws != null) console.warn(`[webhook:calendly] ws ${ws} sin CALENDLY_WEBHOOK_SIGNING_KEY propia — usando la de plataforma`);
   }
   try {
-    verifyCalendlySignature(rawBody, signatureHeader, signingKey ?? '');
+    cuentaQueFirmo(secretos, (s) => verifyCalendlySignature(rawBody, signatureHeader, s));
   } catch (err) {
     if (err instanceof CalendlySignatureError) {
       console.warn(`[webhook:calendly] firma rechazada (ws ${ws ?? '—'}): ${err.message}`);

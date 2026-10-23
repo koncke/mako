@@ -43,11 +43,13 @@ import { cabeceraPorRuta, nivel, rotuloVolver, RUTA_CONFIGURAR, RUTA_CUENTA, TIT
 import { ShellCtx, type CabeceraPisada, type ConexionM, type OpcionesToast } from './contexto';
 import { horaCorta } from './formato';
 import { MARCA_TEMA_M } from './tema';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { esTextoDeError } from '@/lib/soporte-reporte';
 
 /** Un lugar de la barra (lib/movil-rutas.ts → `barraMovil`). */
 export type DestinoBarra = ItemBarra;
 
-type Toast = { id: number; mensaje: string; deshacer?: () => void; saliendo?: boolean };
+type Toast = { id: number; mensaje: string; deshacer?: () => void; saliendo?: boolean; error?: boolean };
 
 let secuenciaToast = 0;
 
@@ -159,13 +161,14 @@ export function ShellM({
   const [toast, setToast] = useState<Toast | null>(null);
   const mostrarToast = useCallback((mensaje: string, opciones?: OpcionesToast) => {
     secuenciaToast += 1;
-    setToast({ id: secuenciaToast, mensaje, deshacer: opciones?.deshacer });
+    setToast({ id: secuenciaToast, mensaje, deshacer: opciones?.deshacer, error: opciones?.error ?? esTextoDeError(mensaje) });
   }, []);
   useEffect(() => {
     if (!toast) return;
     const id = toast.id;
-    // Con «Deshacer» manda la ventana para revertir; sin él, es sólo un acuse.
-    const espera = toast.saliendo ? 200 : toast.deshacer ? 5000 : 3200;
+    // Con «Deshacer» manda la ventana para revertir; sin él, es sólo un acuse. Un error se queda más: da tiempo a leerlo y a
+    // tocar «Reportar a Soporte».
+    const espera = toast.saliendo ? 200 : toast.error ? 8000 : toast.deshacer ? 5000 : 3200;
     const t = setTimeout(() => {
       setToast((x) => (x && x.id === id ? (x.saliendo ? null : { ...x, saliendo: true }) : x));
     }, espera);
@@ -415,8 +418,10 @@ export function ShellM({
 
         <div className="m-toast-capa" aria-live="polite">
           {toast && (
-            <div key={toast.id} className="m-toast" role="status" data-saliendo={toast.saliendo ? '' : undefined}>
+            <div key={toast.id} className="m-toast" role={toast.error ? 'alert' : 'status'} data-saliendo={toast.saliendo ? '' : undefined}>
               <span className="m-toast__msg">{toast.mensaje}</span>
+              {/* Un error lleva «Reportar a Soporte» (23/10/2026); con `role="status"` el botón no se dibuja. */}
+              <ReportarASoporte />
               {toast.deshacer && (
                 <button
                   type="button"

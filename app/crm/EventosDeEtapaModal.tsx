@@ -33,9 +33,12 @@ import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import {
   listarEventosAgendaAction, vincularEventoEtapaAction, desvincularEventoEtapaAction, crearEventoAgendaAction, editarEventoAgendaAction,
-  vinculadosDeEtapaAction, type AgendaDelNegocio, type EventoDeAgenda,
+  vinculadosDeEtapaAction, detalleEventoAgendaAction, type AgendaDelNegocio, type EventoDeAgenda,
 } from './agenda-evento-actions';
 import { DURACIONES_EVENTO, MAX_NOMBRE_EVENTO, type ProveedorAgenda } from '@/lib/agenda-evento-etapa';
+import {
+  MAX_DESCRIPCION_EVENTO, MAX_PREGUNTA_EVENTO, UBICACIONES, type DetalleEvento, type PreguntaEvento, type TipoUbicacion, type UbicacionEvento,
+} from '@/lib/agenda-evento-detalle';
 import { AVISO_GOOGLE_AGENDA, CSS_VINCULAR, PASTILLA_CONECTAR, ordenarEventos, ubicacionDe } from './vincular-etapa';
 
 const NOMBRE_PROVEEDOR: Record<EventoDeAgenda['proveedor'], string> = { calendly: 'Calendly', calcom: 'Cal.com' };
@@ -45,7 +48,17 @@ const CAMPO: CSSProperties = {
   height: 34, padding: '0 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)',
   color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, minWidth: 0,
 };
-type Borrador = { nombre: string; duracionMin: number; proveedor: ProveedorAgenda };
+/** Lo que se crea: con su CUENTA (varias por proveedor desde el 23/10/2026, fase B de Cobros). */
+type Borrador = { nombre: string; duracionMin: number; proveedor: ProveedorAgenda; cuenta: string };
+/**
+ * Lo que se edita en el lugar (23/10/2026, «Edición COMPLETA del evento desde ahí»): el nombre y la duración al toque, y
+ * la descripción, dónde y las preguntas cuando llega `original` (lo lee de la API: null = cargando).
+ */
+type Editando = {
+  k: string; nombre: string; duracionMin: number;
+  original: DetalleEvento | null; fallo: string | null;
+  descripcion: string; ubicacion: UbicacionEvento | null; preguntas: PreguntaEvento[];
+};
 type Rapido = { proveedor: ProveedorAgenda; identificador: string; nombre: string };
 const clave = (e: { proveedor: string; identificador: string }) => `${e.proveedor}:${e.identificador}`;
 
@@ -66,11 +79,13 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, o
   const { toast, show, clear } = useToast();
   useEffect(() => { setMontado(true); }, []);
   const [creando, setCreando] = useState<Borrador | null>(null);
-  const [editando, setEditando] = useState<{ k: string; nombre: string; duracionMin: number } | null>(null);
+  const [editando, setEditando] = useState<Editando | null>(null);
 
-  const leer = useCallback(() => {
+  /** `fresco`: sin el minuto de caché de las APIs (lib/agenda-cache.ts). Lo pide sólo «Volver a leer»: conectar otra cuenta
+   *  ya cambia la llave de la caché, y abrir el pop-up la aprovecha. */
+  const leer = useCallback((fresco = false) => {
     setError(null);
-    void listarEventosAgendaAction()
+    void listarEventosAgendaAction(fresco ? { fresco: true } : undefined)
       .then((r) => { if (r.ok) setAgenda(r); else setError(r.error); })
       .catch(() => setError('No pude leer tu agenda. Intenta de nuevo.'));
   }, []);
@@ -117,6 +132,7 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, o
       const nuevo: EventoDeAgenda = {
         proveedor: r.evento.proveedor, identificador: r.evento.identificador, nombre: r.evento.nombre, duracionMin: r.evento.duracionMin,
         credencial: null, enLaCuenta: true, vinculo: r.vinculado ? { ...aqui, reunion: null } : null,
+        cuenta: r.evento.cuenta, cuentaNombre: nombreDeCuenta(r.evento.proveedor, r.evento.cuenta),
       } as EventoDeAgenda;
       setAgenda((a) => (a ? { ...a, eventos: [nuevo, ...a.eventos.filter((x) => clave(x) !== clave(nuevo))] } : a));
       show(r.vinculado ? `Creado y vinculado a «${etapaNombre}»` : (r.avisoVinculo ?? 'Creado'), undefined, r.vinculado ? undefined : 'bad');
@@ -126,12 +142,32 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, o
       setOcupado(null);
     }
   };
+  /** Abre la edición: el nombre y la duración al toque; lo demás, cuando la API lo devuelve. */
+  const abrirEdicion = (e: EventoDeAgenda) => {
+    const k = clave(e);
+    setEditando({ k, nombre: e.nombre, duracionMin: e.duracionMin ?? 30, original: null, fallo: null, descripcion: '', ubicacion: null, preguntas: [] });
+    void detalleEventoAgendaAction({ proveedor: e.proveedor, cuenta: e.cuenta, identificador: e.identificador })
+      .then((r) => setEditando((ed) => (ed?.k !== k ? ed : r.ok
+        ? { ...ed, original: r, descripcion: r.descripcion, ubicacion: r.ubicacion, preguntas: r.preguntas }
+        : { ...ed, fallo: r.error })))
+      .catch(() => setEditando((ed) => (ed?.k !== k ? ed : { ...ed, fallo: 'No pude leer el evento.' })));
+  };
   const guardarEdicion = async (e: EventoDeAgenda) => {
     if (!editando) return;
     const k = clave(e);
+    // Sólo lo que CAMBIÓ: lo que no se toca no viaja (y en Cal.com, una pregunta que no cambió no se reescribe).
+    const o = editando.original;
+    const cambios = {
+      ...(editando.nombre.trim() !== e.nombre ? { nombre: editando.nombre } : {}),
+      ...(editando.duracionMin !== e.duracionMin ? { duracionMin: editando.duracionMin } : {}),
+      ...(o && editando.descripcion.trim() !== o.descripcion ? { descripcion: editando.descripcion } : {}),
+      ...(o && !o.ubicacionAlla && editando.ubicacion && JSON.stringify(editando.ubicacion) !== JSON.stringify(o.ubicacion) ? { ubicacion: editando.ubicacion } : {}),
+      ...(o?.preguntasEditables && JSON.stringify(editando.preguntas) !== JSON.stringify(o.preguntas) ? { preguntas: editando.preguntas } : {}),
+    };
+    if (!Object.keys(cambios).length) { setEditando(null); return; }
     setOcupado(k);
     try {
-      const r = await editarEventoAgendaAction({ proveedor: e.proveedor, identificador: e.identificador, nombre: editando.nombre, duracionMin: editando.duracionMin });
+      const r = await editarEventoAgendaAction({ proveedor: e.proveedor, cuenta: e.cuenta ?? undefined, identificador: e.identificador, ...cambios });
       if (!r.ok) { show(r.error, undefined, 'bad'); return; }
       setEditando(null);
       setAgenda((a) => (a ? { ...a, eventos: a.eventos.map((x) => (clave(x) === k ? { ...x, nombre: r.evento.nombre, duracionMin: r.evento.duracionMin } : x)) } : a));
@@ -146,6 +182,9 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, o
   const duraciones = (actual: number | null) => (actual != null && !DURACIONES_EVENTO.includes(actual) ? [...DURACIONES_EVENTO, actual].sort((a, b) => a - b) : DURACIONES_EVENTO);
 
   const conectados = agenda?.proveedores.filter((p) => p.conectado) ?? [];
+  /** Con más de una cuenta de un proveedor, cada evento dice de cuál es (y al crear, se elige). */
+  const variasCuentas = (p: ProveedorAgenda) => (agenda?.proveedores.filter((x) => x.proveedor === p).length ?? 0) > 1;
+  const nombreDeCuenta = (p: ProveedorAgenda, cuenta: string) => agenda?.proveedores.find((x) => x.proveedor === p && x.cuenta === cuenta)?.cuentaNombre ?? NOMBRE_PROVEEDOR[p];
   const sinConectar = (['calendly', 'calcom'] as const).filter((p) => !conectados.some((c) => c.proveedor === p));
   const eventos = useMemo(() => (agenda ? ordenarEventos(agenda.eventos, funnelId, etapa) : []), [agenda, funnelId, etapa]);
 
@@ -154,16 +193,76 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, o
     const enEstaEtapa = enEsta(e);
     const donde = ubicacionDe(e.vinculo);
     if (editando?.k === k) {
+      const o = editando.original;
+      const alla = NOMBRE_PROVEEDOR[e.proveedor];
+      const defUbic = UBICACIONES.find((u) => u.tipo === editando.ubicacion?.tipo);
+      const ponerPregunta = (i: number, p: Partial<PreguntaEvento>) =>
+        setEditando({ ...editando, preguntas: editando.preguntas.map((x, j) => (j === i ? { ...x, ...p } : x)) });
       return (
         <li key={k} className="vx-fila vx-fila--abierta">
-          <form className="vx-form" onSubmit={(ev) => { ev.preventDefault(); void guardarEdicion(e); }}>
-            <input autoFocus value={editando.nombre} maxLength={MAX_NOMBRE_EVENTO} aria-label="Nombre del evento"
-              onChange={(ev) => setEditando({ ...editando, nombre: ev.target.value })} style={{ ...CAMPO, flex: '1 1 200px' }} />
-            <select value={editando.duracionMin} aria-label="Duración" onChange={(ev) => setEditando({ ...editando, duracionMin: Number(ev.target.value) })} style={CAMPO}>
-              {duraciones(e.duracionMin).map((d) => <option key={d} value={d}>{d} min</option>)}
-            </select>
-            <Button size="sm" type="submit" loading={ocupado === k} disabled={ocupado != null || !editando.nombre.trim()}>Guardar</Button>
-            <Button size="sm" variant="secondary" onClick={() => setEditando(null)}>Cancelar</Button>
+          <form className="vx-editar" onSubmit={(ev) => { ev.preventDefault(); void guardarEdicion(e); }}>
+            <div className="vx-form">
+              <input autoFocus value={editando.nombre} maxLength={MAX_NOMBRE_EVENTO} aria-label="Nombre del evento"
+                onChange={(ev) => setEditando({ ...editando, nombre: ev.target.value })} style={{ ...CAMPO, flex: '1 1 200px' }} />
+              <select value={editando.duracionMin} aria-label="Duración" onChange={(ev) => setEditando({ ...editando, duracionMin: Number(ev.target.value) })} style={CAMPO}>
+                {duraciones(e.duracionMin).map((d) => <option key={d} value={d}>{d} min</option>)}
+              </select>
+            </div>
+            {editando.fallo ? <p className="vx-nota" data-mal>{editando.fallo}</p>
+              : !o ? <div className="vx-gris vx-gris--bloque" aria-hidden><span /><span /></div>
+                : (
+                  <>
+                    <textarea className="vx-area" value={editando.descripcion} placeholder="Descripción" aria-label="Descripción" rows={3}
+                      maxLength={MAX_DESCRIPCION_EVENTO} onChange={(ev) => setEditando({ ...editando, descripcion: ev.target.value })} />
+                    <div className="vx-form">
+                      <span className="vx-rotulo">Dónde</span>
+                      {o.ubicacionAlla ? (
+                        <a className="vx-link" href={o.editarAlla} target="_blank" rel="noreferrer">Varias · en {alla} ↗</a>
+                      ) : (
+                        <>
+                          <select value={editando.ubicacion?.tipo ?? ''} aria-label="Dónde es la reunión" style={CAMPO}
+                            onChange={(ev) => {
+                              const def = UBICACIONES.find((u) => u.tipo === ev.target.value);
+                              setEditando({ ...editando, ubicacion: def ? { tipo: ev.target.value as TipoUbicacion, ...(def.conValor ? { valor: editando.ubicacion?.valor ?? '' } : {}) } : null });
+                            }}>
+                            {!editando.ubicacion && <option value="">Sin definir</option>}
+                            {UBICACIONES.map((u) => <option key={u.tipo} value={u.tipo}>{u.nombre}</option>)}
+                          </select>
+                          {defUbic?.conValor && (
+                            <input value={editando.ubicacion?.valor ?? ''} aria-label={defUbic.conValor === 'direccion' ? 'Dirección' : 'Link'}
+                              placeholder={defUbic.conValor === 'direccion' ? 'Dirección' : 'https://'} maxLength={300}
+                              onChange={(ev) => setEditando({ ...editando, ubicacion: { tipo: defUbic.tipo, valor: ev.target.value } })} style={{ ...CAMPO, flex: '1 1 200px' }} />
+                          )}
+                        </>
+                      )}
+                    </div>
+                    {o.preguntas.length > 0 && (
+                      <div className="vx-preguntas">
+                        <span className="vx-rotulo">Preguntas</span>
+                        {o.preguntasEditables ? editando.preguntas.map((p, i) => (
+                          <div key={p.id} className="vx-pregunta">
+                            <input value={p.texto} aria-label={`Pregunta ${i + 1}`} maxLength={MAX_PREGUNTA_EVENTO}
+                              onChange={(ev) => ponerPregunta(i, { texto: ev.target.value })} style={{ ...CAMPO, flex: '1 1 220px' }} />
+                            <button type="button" className="vx-cuenta" aria-pressed={p.obligatoria} onClick={() => ponerPregunta(i, { obligatoria: !p.obligatoria })}>Obligatoria</button>
+                            <button type="button" className="vx-cuenta" aria-pressed={!p.oculta} onClick={() => ponerPregunta(i, { oculta: !p.oculta })}>Visible</button>
+                          </div>
+                        )) : (
+                          <ul className="vx-solo-leer">{o.preguntas.map((p) => <li key={p.id}>{p.texto}{p.obligatoria ? ' *' : ''}</li>)}</ul>
+                        )}
+                      </div>
+                    )}
+                    {/* Lo que la API no deja: la disponibilidad (y en Calendly, las preguntas). Se edita allá, en otra pestaña:
+                        acá no hay cómo, y salir de MaKo perdería el pop-up. */}
+                    <a className="vx-link" href={o.editarAlla} target="_blank" rel="noreferrer">
+                      Disponibilidad{o.preguntasEditables || !o.preguntas.length ? '' : ' y preguntas'} en {alla} ↗
+                    </a>
+                  </>
+                )}
+            <div className="vx-form">
+              <span className="vx-elastico" />
+              <Button size="sm" variant="secondary" onClick={() => setEditando(null)}>Cancelar</Button>
+              <Button size="sm" type="submit" loading={ocupado === k} disabled={ocupado != null || !editando.nombre.trim()}>Guardar</Button>
+            </div>
           </form>
         </li>
       );
@@ -175,7 +274,7 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, o
           onChange={() => { void cambiar(e, enEstaEtapa ? 'desvincular' : 'vincular'); }} />
         <div className="vx-txt">
           <span className="vx-nombre" title={e.enLaCuenta ? e.nombre : `${e.nombre} · ya no está en tu cuenta`} data-fuera={!e.enLaCuenta || undefined}>{e.nombre}</span>
-          <span className="vx-meta">{[NOMBRE_PROVEEDOR[e.proveedor], e.duracionMin != null ? `${e.duracionMin} min` : null, e.credencial].filter(Boolean).join(' · ')}</span>
+          <span className="vx-meta">{[variasCuentas(e.proveedor) && e.cuentaNombre ? e.cuentaNombre : NOMBRE_PROVEEDOR[e.proveedor], e.duracionMin != null ? `${e.duracionMin} min` : null, e.credencial].filter(Boolean).join(' · ')}</span>
         </div>
         <div className="vx-donde">
           {ocupado === k ? <Spinner size={13} />
@@ -189,7 +288,7 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, o
         </div>
         {e.enLaCuenta ? (
           <button type="button" className="vx-icono" disabled={ocupado != null} aria-label={`Editar ${e.nombre}`} title="Editar"
-            onClick={() => setEditando({ k, nombre: e.nombre, duracionMin: e.duracionMin ?? 30 })}>
+            onClick={() => abrirEdicion(e)}>
             <IconoMenu nombre="editar" size={15} />
           </button>
         ) : <span />}
@@ -223,12 +322,12 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, o
         ))}
         <span className="vx-elastico" />
         <span className="vx-info" role="img" aria-label={AVISO_GOOGLE_AGENDA} title={AVISO_GOOGLE_AGENDA}>ⓘ</span>
-        <button type="button" className="vx-icono" aria-label="Volver a leer tu agenda" title="Volver a leer" onClick={leer} disabled={!agenda && !error}>
+        <button type="button" className="vx-icono" aria-label="Volver a leer tu agenda" title="Volver a leer" onClick={() => leer(true)} disabled={!agenda && !error}>
           <IconoMenu nombre="restaurar" size={15} />
         </button>
         {conectados.length > 0 && !creando && (
           <Button size="sm" icon={<IconoMenu nombre="agregar" size={15} />} disabled={ocupado != null || agenda?.sePuedeVincular === false}
-            onClick={() => setCreando({ nombre: '', duracionMin: 30, proveedor: conectados[0].proveedor })}>
+            onClick={() => setCreando({ nombre: '', duracionMin: 30, proveedor: conectados[0].proveedor, cuenta: conectados[0].cuenta })}>
             Crear evento
           </Button>
         )}
@@ -241,9 +340,15 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, o
           <select value={creando.duracionMin} aria-label="Duración" onChange={(ev) => setCreando({ ...creando, duracionMin: Number(ev.target.value) })} style={CAMPO}>
             {DURACIONES_EVENTO.map((d) => <option key={d} value={d}>{d} min</option>)}
           </select>
+          {/* La agenda: el proveedor y, si tiene varias, la CUENTA (23/10/2026). */}
           {conectados.length > 1 && (
-            <select value={creando.proveedor} aria-label="Agenda" onChange={(ev) => setCreando({ ...creando, proveedor: ev.target.value as ProveedorAgenda })} style={CAMPO}>
-              {conectados.map((p) => <option key={p.proveedor} value={p.proveedor}>{NOMBRE_PROVEEDOR[p.proveedor]}</option>)}
+            <select value={`${creando.proveedor}|${creando.cuenta}`} aria-label="Agenda" style={CAMPO}
+              onChange={(ev) => { const [p, c] = ev.target.value.split('|'); setCreando({ ...creando, proveedor: p as ProveedorAgenda, cuenta: c }); }}>
+              {conectados.map((p) => (
+                <option key={`${p.proveedor}|${p.cuenta}`} value={`${p.proveedor}|${p.cuenta}`}>
+                  {variasCuentas(p.proveedor) ? p.cuentaNombre : NOMBRE_PROVEEDOR[p.proveedor]}
+                </option>
+              ))}
             </select>
           )}
           <Button size="sm" type="submit" loading={ocupado === 'crear'} disabled={ocupado != null || !creando.nombre.trim()}>Crear</Button>

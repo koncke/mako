@@ -6,6 +6,7 @@ import { useElementSize } from '../presenter/useElementSize'
 import type { FrameCache } from '../presenter/frames'
 import { t } from '../strings'
 import styles from './Presenter.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** How long the stage may hold still before the pages are rendered again for its new size (window drag, notes opening). */
 const RESIZE_SETTLE_MS = 150
@@ -101,6 +102,7 @@ export function PresenterStage({ doc, index, cache, onPointerDown, onPointerUp, 
             <button type="button" className={styles.textButton} onClick={() => setAttempt((n) => n + 1)}>
               {t.presenter.retry}
             </button>
+            <ReportarASoporte />
           </div>
         ) : null}
       </div>

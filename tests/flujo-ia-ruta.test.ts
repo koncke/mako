@@ -84,7 +84,7 @@ test('un pedido cancelado no escribe nada: se mira la señal ANTES de crear etiq
   const c = CORE.indexOf('await deps.insertar(');
   const d = CORE.indexOf('await deps.guardarPasos(');
   assert.ok(a > 0 && b > a && c > b && d > c, `crear: señal ${a} · etiquetas ${b} · fila ${c} · guardar ${d}`);
-  assert.match(RUTA_SOLA, /crearFlujoConIA\(\{ ws, pedido, secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req\.signal, alFase: send, respuestas, historial, via: 'app' \}\)/);
+  assert.match(RUTA_SOLA, /crearFlujoConIA\(\{ ws, pedido: conAdjuntos\(pedido\), secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req\.signal, alFase: send, respuestas, historial, via: 'app' \}\)/);
 });
 
 // rotura 4 (crear sin exigir la vacía): 1 fallo.

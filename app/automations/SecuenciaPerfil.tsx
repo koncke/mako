@@ -68,6 +68,7 @@ import { abrirGuiaVoz } from '@/lib/chatbot-puerta';
 // Un medio sin conectar frena Publicar (409) y Activar (décima tanda, GENERAL 6): el modal de la tab lo conecta ahí mismo.
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
 import { medioDelError, medioQueFrena, mediosQueUsa, type Medio } from '@/lib/medios-automatizacion';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 // El wizard son ~1.800 líneas y sólo se abre UNA vez por workspace (la primera vez que
 // se tilda la IA): no tiene por qué viajar en el bundle de cada apertura del lienzo.
@@ -1365,7 +1366,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             {/* El error va ACÁ, pegado al botón que lo produce: abajo del lienzo y a la
                 izquierda nacía debajo de la lista de secuencias, que flota encima. */}
             {rolAdmin && (err ? (
-              <span role="alert" title={avisosIA && avisosIA.texto === err ? avisosIA.todos.join('\n') : undefined} style={{ ...tarjetaChrome, maxWidth: 380, fontSize: 12.5, color: 'var(--bad)', borderColor: 'var(--bad)', lineHeight: 1.4 }}>{err}</span>
+              <span role="alert" title={avisosIA && avisosIA.texto === err ? avisosIA.todos.join('\n') : undefined} style={{ ...tarjetaChrome, maxWidth: 380, fontSize: 12.5, color: 'var(--bad)', borderColor: 'var(--bad)', lineHeight: 1.4 }}>{err}<ReportarASoporte /></span>
             ) : flash ? (
               <span style={{ ...tarjetaChrome, fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>{flash}</span>
             ) : null)}

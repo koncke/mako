@@ -31,6 +31,8 @@ import { soltarIdentificador, upsertRouting, wsPorIdentificadorEstricto } from '
 import { asegurarWebhookStripe, borrarWebhooksStripe, leerCuentaStripe, type CuentaStripe } from './stripe-api';
 import { leerCuentaMp, type CuentaMp } from './mercadopago-api';
 import { NOMBRE_PASARELA, type Pasarela } from './cobros-tipos';
+import { CLAVES_BASE, CUENTA_PRINCIPAL, claveDeCuenta, type ProveedorConCuentas } from './cuentas-integracion';
+import { cuentaDeIdentificador, cuentasDePago } from './cuentas-pago-server';
 
 /** La clave que PEGA la persona en cada pasarela. El resto de los campos se deriva de esta. */
 export const CLAVE_PASARELA: Readonly<Record<Pasarela, string>> = {
@@ -164,6 +166,17 @@ async function reclamarCuenta(ws: number, env: string, id: string, servicio: Pas
   return { ok: true, cambio };
 }
 
+/**
+ * ¿Esta cuenta del proveedor ya está conectada en ESTE negocio como OTRA de sus cuentas? Dos cuentas de MaKo con el mismo
+ * `acct_…` compartirían los avisos y los cobros se releerían con las claves de la primera. Se dice con su nombre.
+ */
+async function yaConectadaComoOtra(ws: number, p: ProveedorConCuentas, id: string, cuenta: string): Promise<ResultadoConexionPago | null> {
+  const otra = await cuentaDeIdentificador(ws, p, id);
+  if (!otra || otra === cuenta) return null;
+  const nombre = (await cuentasDePago(ws, p)).find((x) => x.cuenta === otra)?.nombre ?? NOMBRE_PASARELA[p];
+  return { ok: false, status: 409, nadaGuardado: true, error: `Esa cuenta de ${NOMBRE_PASARELA[p]} ya está conectada aquí como «${nombre}».` };
+}
+
 const ocupada = (servicio: Pasarela): ResultadoConexionPago => ({
   ok: false,
   status: 409,
@@ -192,24 +205,28 @@ async function borrarVieja(ws: number, env: string, autor: string | null, motivo
  * (asegurarWebhookStripe): la firma cambia cada vez. Es lo que permite volver a conectar después de
  * una mudanza de dominio, y por eso este paso no se saltea aunque la firma ya esté guardada.
  */
-export async function descubrirStripe(ws: number, key: string, autor: string | null, opts: { guardarClave: boolean } = { guardarClave: true }): Promise<ResultadoConexionPago> {
+export async function descubrirStripe(ws: number, key: string, autor: string | null, opts: { guardarClave: boolean; cuenta?: string } = { guardarClave: true }): Promise<ResultadoConexionPago> {
   const clave = key.trim();
+  // La cuenta (varias por proveedor, 22/10/2026): la principal, sin sufijo; las demás con `__C2` (lib/cuentas-integracion.ts).
+  const k = (base: string) => claveDeCuenta(base, opts.cuenta ?? CUENTA_PRINCIPAL);
   const c = await leerCuentaStripe(clave);
   if (!c.ok) return { ok: false, status: c.status === 0 ? 504 : 422, nadaGuardado: true, error: errorDeStripe(c, clave) };
+  const repetida = await yaConectadaComoOtra(ws, 'stripe', c.id, opts.cuenta ?? CUENTA_PRINCIPAL);
+  if (repetida) return repetida;
 
-  const r = await reclamarCuenta(ws, 'STRIPE_ACCOUNT_ID', c.id, 'stripe', autor);
+  const r = await reclamarCuenta(ws, k('STRIPE_ACCOUNT_ID'), c.id, 'stripe', autor);
   if (!r.ok) return ocupada('stripe');
-  const guardadas = ['STRIPE_ACCOUNT_ID'];
+  const guardadas = [k('STRIPE_ACCOUNT_ID')];
   if (opts.guardarClave) {
-    await guardar(ws, 'STRIPE_SECRET_KEY', clave, 'stripe', autor);
-    guardadas.push('STRIPE_SECRET_KEY');
+    await guardar(ws, k('STRIPE_SECRET_KEY'), clave, 'stripe', autor);
+    guardadas.push(k('STRIPE_SECRET_KEY'));
   }
 
   const w = await asegurarWebhookStripe(clave, urlAvisoStripe(c.id));
   if (!w.ok) {
     // Con otra cuenta, la firma guardada es de un aviso que ya no es de este workspace. Con la
     // misma, puede seguir valiendo (si falló al LISTAR, el aviso viejo sigue ahí): se deja.
-    if (r.cambio) await borrarVieja(ws, 'STRIPE_WEBHOOK_SECRET', autor, 'firma de la cuenta de Stripe anterior');
+    if (r.cambio) await borrarVieja(ws, k('STRIPE_WEBHOOK_SECRET'), autor, 'firma de la cuenta de Stripe anterior');
     const e = errorDeStripe(w).replace(/[.\s»]*$/, (m) => (m.includes('»') ? '».' : '.'));
     // Va después de dos puntos: minúscula, salvo que arranque con la marca.
     const motivo = e.startsWith('Stripe') ? e : e.charAt(0).toLowerCase() + e.slice(1);
@@ -221,8 +238,8 @@ export async function descubrirStripe(ws: number, key: string, autor: string | n
       mensaje: `Guardada, pero no pude registrar el aviso de pagos: ${motivo} Sin el aviso, los pagos no entran a tu CRM.`,
     };
   }
-  await guardar(ws, 'STRIPE_WEBHOOK_SECRET', w.secret, 'stripe', autor);
-  guardadas.push('STRIPE_WEBHOOK_SECRET');
+  await guardar(ws, k('STRIPE_WEBHOOK_SECRET'), w.secret, 'stripe', autor);
+  guardadas.push(k('STRIPE_WEBHOOK_SECRET'));
 
   const avisos: string[] = [];
   if (c.modo === 'prueba') avisos.push('Es una clave de prueba: los pagos no son reales.');
@@ -243,26 +260,30 @@ export async function descubrirStripe(ws: number, key: string, autor: string | n
  * en Mercado Pago: la clave secreta del aviso sólo existe en su panel (no hay API para leerla), así
  * que ese paso lo hace la persona (el `pasoExterno` del catálogo).
  */
-export async function descubrirMercadoPago(ws: number, token: string, autor: string | null, opts: { guardarClave: boolean } = { guardarClave: true }): Promise<ResultadoConexionPago> {
+export async function descubrirMercadoPago(ws: number, token: string, autor: string | null, opts: { guardarClave: boolean; cuenta?: string } = { guardarClave: true }): Promise<ResultadoConexionPago> {
   const t = token.trim();
+  const k = (base: string) => claveDeCuenta(base, opts.cuenta ?? CUENTA_PRINCIPAL);
   const c = await leerCuentaMp(t);
   if (!c.ok) return { ok: false, status: c.status === 0 ? 504 : 422, nadaGuardado: true, error: errorDeMercadoPago(c) };
+  const repetida = await yaConectadaComoOtra(ws, 'mercadopago', c.id, opts.cuenta ?? CUENTA_PRINCIPAL);
+  if (repetida) return repetida;
 
-  const r = await reclamarCuenta(ws, 'MERCADOPAGO_USER_ID', c.id, 'mercadopago', autor);
+  const r = await reclamarCuenta(ws, k('MERCADOPAGO_USER_ID'), c.id, 'mercadopago', autor);
   if (!r.ok) return ocupada('mercadopago');
-  const guardadas = ['MERCADOPAGO_USER_ID'];
+  const guardadas = [k('MERCADOPAGO_USER_ID')];
   if (opts.guardarClave) {
-    await guardar(ws, 'MERCADOPAGO_ACCESS_TOKEN', t, 'mercadopago', autor);
-    guardadas.push('MERCADOPAGO_ACCESS_TOKEN');
+    await guardar(ws, k('MERCADOPAGO_ACCESS_TOKEN'), t, 'mercadopago', autor);
+    guardadas.push(k('MERCADOPAGO_ACCESS_TOKEN'));
   }
   // La clave del aviso es de la APLICACIÓN de la cuenta vieja: con ella, cada aviso firmado de la
   // nueva se rechazaría como falso. Se borra y se pide de nuevo.
-  if (r.cambio) await borrarVieja(ws, 'MERCADOPAGO_WEBHOOK_SECRET', autor, 'clave del aviso de la cuenta de Mercado Pago anterior');
+  if (r.cambio) await borrarVieja(ws, k('MERCADOPAGO_WEBHOOK_SECRET'), autor, 'clave del aviso de la cuenta de Mercado Pago anterior');
 
-  const conClave = !!(await credDelCliente('MERCADOPAGO_WEBHOOK_SECRET', ws));
+  const conClave = !!(await credDelCliente(k('MERCADOPAGO_WEBHOOK_SECRET'), ws));
   const avisos: string[] = [];
   if (c.modo === 'prueba') avisos.push('Es una cuenta de prueba: los pagos no son reales.');
-  if (!conClave) avisos.push('Para las suscripciones, falta el paso del recuadro amarillo.');
+  // El recuadro amarillo es de la tarjeta de la principal; el de una cuenta de más está en su fila (CuentasDePago).
+  if (!conClave) avisos.push((opts.cuenta ?? CUENTA_PRINCIPAL) === CUENTA_PRINCIPAL ? 'Para las suscripciones, falta el paso del recuadro amarillo.' : 'Para sus suscripciones, falta su aviso: está en su fila.');
   return {
     ok: true,
     // «Conectada» no exige la clave del aviso (es opcional): los cobros únicos entran sin ella.
@@ -274,7 +295,7 @@ export async function descubrirMercadoPago(ws: number, token: string, autor: str
 }
 
 /** El descubrimiento de la pasarela que corresponda. */
-export function descubrirPasarela(p: Pasarela, ws: number, clave: string, autor: string | null, opts: { guardarClave: boolean }): Promise<ResultadoConexionPago> {
+export function descubrirPasarela(p: Pasarela, ws: number, clave: string, autor: string | null, opts: { guardarClave: boolean; cuenta?: string }): Promise<ResultadoConexionPago> {
   return p === 'stripe' ? descubrirStripe(ws, clave, autor, opts) : descubrirMercadoPago(ws, clave, autor, opts);
 }
 
@@ -296,10 +317,12 @@ export const CAMPOS_PASARELA: Readonly<Record<Pasarela, readonly string[]>> = {
  * de ruteo (`eliminarCredencial`, ROUTING_CREDS). En Mercado Pago el aviso vive en el panel del negocio: se le
  * dice que lo quite ahí.
  */
-export async function desconectarPasarela(ws: number, p: Pasarela, autor: string | null): Promise<{ ok: true; aviso: string | null }> {
+export async function desconectarPasarela(ws: number, p: Pasarela, autor: string | null, cuenta: string = CUENTA_PRINCIPAL): Promise<{ ok: true; aviso: string | null }> {
+  // UNA cuenta (varias por proveedor, 22/10/2026): sus campos, su aviso y su fila de ruteo; las otras cuentas quedan.
+  const k = (base: string) => claveDeCuenta(base, cuenta);
   let aviso: string | null = null;
   if (p === 'stripe') {
-    const [key, acct] = await Promise.all([credDelCliente('STRIPE_SECRET_KEY', ws), credDelCliente('STRIPE_ACCOUNT_ID', ws)]);
+    const [key, acct] = await Promise.all([credDelCliente(k('STRIPE_SECRET_KEY'), ws), credDelCliente(k('STRIPE_ACCOUNT_ID'), ws)]);
     if (key && acct) {
       const r = await borrarWebhooksStripe(key, urlAvisoStripe(acct));
       if (!r.ok) {
@@ -310,7 +333,8 @@ export async function desconectarPasarela(ws: number, p: Pasarela, autor: string
   } else {
     aviso = 'Quita la URL de MaKo en Mercado Pago → Webhooks.';
   }
-  for (const env of CAMPOS_PASARELA[p]) {
+  // Los campos de ESA cuenta, y su nombre (`…_ALIAS`): una cuenta desconectada no deja nada que la nombre.
+  for (const env of [...CAMPOS_PASARELA[p], CLAVES_BASE[p].alias].map(k)) {
     const habia = await credDelCliente(env, ws);
     // Se borra AUNQUE no se lea: una fila que no descifra, o un ruteo sin su fila, también atan la cuenta.
     await eliminarCredencial(ws, env);

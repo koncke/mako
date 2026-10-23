@@ -29,7 +29,7 @@ import { revalidatePath, updateTag } from 'next/cache';
 import { TAG } from '@/lib/cache';
 import { getUsuarioActual } from '@/lib/auth';
 import { adminDeWorkspaceActual, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
-import { credDelCliente } from '@/lib/credenciales';
+import { credMpDe, credStripeDe, cuentasDePago } from '@/lib/cuentas-pago-server';
 import { listProductos } from '@/lib/productos';
 import {
   anularCobro, cancelarSuscripcionCobro, crearCobro, getCobro, linkDelCobro, listarCobros, pasarelasConectadas, reembolsarCobro,
@@ -94,8 +94,11 @@ const SIN_SESION = 'Tu sesión no está activa en este negocio. Recarga la pági
 
 export type ProductoCobrable = { id: number; nombre: string; tipo: TipoCobro; monto_usd: number | null };
 
+/** Una cuenta que cobra (varias por proveedor, 22/10/2026): `id` como `stripe:principal`, `stripe:c2`. */
+export type CuentaCobrable = { id: string; proveedor: Pasarela; nombre: string };
+
 export type OpcionesCobro =
-  | { ok: true; pasarelas: Pasarela[]; productos: ProductoCobrable[]; esAdmin: boolean }
+  | { ok: true; pasarelas: Pasarela[]; cuentas: CuentaCobrable[]; productos: ProductoCobrable[]; esAdmin: boolean }
   | { ok: false; error: string };
 
 /**
@@ -110,14 +113,17 @@ export async function opcionesCobroAction(leadId: number): Promise<OpcionesCobro
   const ctx = await sesionDelWs();
   if (!ctx) return { ok: false, error: SIN_SESION };
   try {
-    const [pasarelas, productos, esAdmin] = await Promise.all([
-      pasarelasConectadas(ctx.ws),
+    const [cuentas, productos, esAdmin] = await Promise.all([
+      cuentasDePago(ctx.ws),
       runWithWorkspace(ctx.ws, () => listProductos(true)),
       esAdminDe(ctx.ws),
     ]);
+    // Las que cobran, con su nombre: el asistente deja elegir la cuenta cuando hay más de una.
+    const cobran = cuentas.filter((c) => c.conectada).map((c) => ({ id: c.id, proveedor: c.proveedor, nombre: c.nombre }));
     return {
       ok: true,
-      pasarelas,
+      pasarelas: (['stripe', 'mercadopago'] as const).filter((p) => cobran.some((c) => c.proveedor === p)),
+      cuentas: cobran,
       esAdmin,
       productos: productos.map((p) => ({
         id: p.id, nombre: p.nombre, tipo: p.tipo === 'suscripcion' ? 'suscripcion' : 'unico',
@@ -129,8 +135,11 @@ export async function opcionesCobroAction(leadId: number): Promise<OpcionesCobro
   }
 }
 
-/** La moneda de la CUENTA de cada pasarela conectada (null = no se pudo leer). */
-export type MonedasCobro = Partial<Record<Pasarela, string | null>>;
+/**
+ * La moneda de la CUENTA de cada pasarela conectada (null = no se pudo leer): la de la cuenta con que cobra si nadie
+ * elige, y en `cuentas` la de cada una por su id (varias por proveedor: dos cuentas de Mercado Pago de dos países).
+ */
+export type MonedasCobro = Partial<Record<Pasarela, string | null>> & { cuentas?: Record<string, string | null> };
 
 /**
  * La moneda en la que cobra cada cuenta. Le pregunta a la PASARELA, no a una constante (AGENTS.md
@@ -142,17 +151,23 @@ export async function monedasCobroAction(): Promise<MonedasCobro> {
   await exigirSesion();
   const ctx = await sesionDelWs();
   if (!ctx) return {};
-  const [keyStripe, tokenMp] = await Promise.all([
-    credDelCliente('STRIPE_SECRET_KEY', ctx.ws).catch(() => null),
-    credDelCliente('MERCADOPAGO_ACCESS_TOKEN', ctx.ws).catch(() => null),
-  ]);
-  const [stripe, mp] = await Promise.all([
-    keyStripe ? leerCuentaStripe(keyStripe).catch(() => null) : Promise.resolve(undefined),
-    tokenMp ? leerCuentaMp(tokenMp).catch(() => null) : Promise.resolve(undefined),
-  ]);
-  const out: MonedasCobro = {};
-  if (stripe !== undefined) out.stripe = stripe && stripe.ok ? normalizarMoneda(stripe.moneda) : null;
-  if (mp !== undefined) out.mercadopago = mp && mp.ok ? normalizarMoneda(mp.moneda) : null;
+  const cuentas = (await cuentasDePago(ctx.ws).catch(() => [])).filter((c) => c.conectada);
+  const leidas = await Promise.all(cuentas.map(async (c): Promise<string | null> => {
+    if (c.proveedor === 'stripe') {
+      const s = await credStripeDe(ctx.ws, c.cuenta).catch(() => null);
+      const r = s ? await leerCuentaStripe(s.key).catch(() => null) : null;
+      return r && r.ok ? normalizarMoneda(r.moneda) : null;
+    }
+    const m = await credMpDe(ctx.ws, c.cuenta).catch(() => null);
+    const r = m ? await leerCuentaMp(m.token).catch(() => null) : null;
+    return r && r.ok ? normalizarMoneda(r.moneda) : null;
+  }));
+  const out: MonedasCobro = { cuentas: {} };
+  cuentas.forEach((c, i) => {
+    out.cuentas![c.id] = leidas[i];
+    // La de la pasarela: la de su principal, o la de la primera que cobre (la que usa `crearCobro` si nadie elige).
+    if (!(c.proveedor in out) || c.principal) out[c.proveedor] = leidas[i];
+  });
   return out;
 }
 
@@ -214,6 +229,8 @@ export type DatosCobro = {
   email?: string | null;
   /** La CUOTA del CRM que salda el link (`pagos.id`): el «cobrar una cuota con link» del bloque `cuotas`. */
   pagoId?: number | null;
+  /** La cuenta que cobra (`stripe:c2`), si el negocio tiene más de una. `crearCobro` la valida contra las conectadas. */
+  cuenta?: string | null;
 };
 
 export type ResultadoCobrar =
@@ -248,6 +265,7 @@ export async function crearCobroAction(leadId: number, datos: DatosCobro): Promi
       pasarela: esPasarela(d.pasarela) ? d.pasarela : null,
       productoId: idValido(d.productoId) ? d.productoId : null,
       pagoId: idValido(d.pagoId) ? d.pagoId : null,
+      cuenta: textoCorto(d.cuenta, 60),
       concepto: textoCorto(d.concepto, 200),
       monto: positivo(d.monto),
       moneda: d.moneda ? normalizarMoneda(d.moneda) : null,

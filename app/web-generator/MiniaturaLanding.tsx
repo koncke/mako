@@ -55,6 +55,7 @@ import { parrafo, tarjeta, titulo, type JsonNodo } from '@/lib/editor-landing/do
 import type { FormatoDoc, Proporcion } from '@/lib/editor-landing/api-tipos';
 import type { BorradorViejo } from '@/lib/editor-landing/server';
 import { pedirDocs, marcarReciente } from './cliente';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 // Los pedidos a las rutas, los plazos, la letra del chrome y lo que se recuerda en el navegador
 // viven en ./cliente (un módulo SIN 'use client': cuatro copias divergían). Se re-exportan para
 // que el Panel y Crear sigan importando de acá.
@@ -547,6 +548,7 @@ export function DialogoBorradores({ onCerrar, ws, ahora }: { onCerrar: () => voi
         <div className="gp-error" role="alert">
           <span>{error}</span>
           {!borradores && <button type="button" className="gp-btn gp-btn-contorno" onClick={() => { setError(null); void cargar(); }}>Reintentar</button>}
+          <ReportarASoporte />
         </div>
       )}
       {!borradores && !error && <div className="gp-esperando-centro"><span className="gp-giro" /></div>}

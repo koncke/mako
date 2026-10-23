@@ -102,12 +102,12 @@ test('una computadora «En línea» sin ninguna cuenta dice «Sin sesión de Cla
   assert.deepEqual(estadoDePc({ enLinea: false, ultimoLatido: null, cuentas: [] }, AHORA), { texto: 'Esperando que se conecte', tono: 'apagada' });
   // El texto es el de la computadora (lib/ia-pc-reglas.ts): el teléfono no escribe su propia copia de la regla.
   const reglas = sinComentarios(leer('app/m/cuenta/ia/ia-ui.ts'));
-  assert.match(reglas, /import \{ estadoDeLaPc, yaPaso, type CuentaPc \} from '@\/lib\/ia-pc-reglas';/);
+  assert.match(reglas, /import \{ estadoDeLaPc, yaPaso, type CuentaPc, type CuentasIA \} from '@\/lib\/ia-pc-reglas';/);
   assert.match(reglas, /texto: estadoDeLaPc\(pc, ahora, hace\)/);
   assert.doesNotMatch(reglas, /Sin sesión de Claude|Esperando que se conecte|Sin conexión/, 'una segunda copia de la regla en el teléfono');
   // La pantalla escribe lo que decide la regla: ni un «En línea» ni un «Sin sesión» a mano que se salte el caso.
   const componente = sinComentarios(leer('app/m/cuenta/ia/IaM.tsx'));
-  assert.match(componente, /titulo=\{estado\.texto\}/);
+  assert.match(componente, /segunda=\{\[estado\.texto, dondeEsta\(d\), d\.de \? `De \$\{d\.de\}` : null\]\.filter\(Boolean\)\.join\(' · '\)\}/);
   assert.doesNotMatch(componente, /'En línea'|"En línea"|Sin sesión de Claude/);
 });
 
@@ -141,8 +141,8 @@ test('la hora de reinicio que ya pasó no se muestra', () => {
   assert.match(reglas, /!yaPaso\(repone, ahora\)/);
   // La pantalla usa esa regla para las dos barras: la de 5 horas con su hora, la semana sin ella.
   const componente = sinComentarios(leer('app/m/cuenta/ia/IaM.tsx'));
-  assert.match(componente, /barraDeUso\(c\.usado5h, c\.repone, ahora\)/);
-  assert.match(componente, /barraDeUso\(c\.usadoSemana, undefined, ahora\)/);
+  assert.match(componente, /barraDeUso\(cuenta\.usado5h, cuenta\.repone, ahora\)/);
+  assert.match(componente, /barraDeUso\(cuenta\.usadoSemana, cuenta\.reponeSemana, ahora\)/);
   assert.match(componente, /\{b\.reinicio && <p className="m-cuenta-ia-nota">\{b\.reinicio\}<\/p>\}/, 'la hora sale de la regla, no de la cuenta');
 });
 
@@ -156,8 +156,8 @@ test('«Desconectar» confirma en una hoja y hace POST /api/ia-pc/desconectar co
 
   const c = sinComentarios(leer('app/m/cuenta/ia/IaM.tsx'));
   // El toque de la fila SÓLO abre la hoja: el POST está detrás del botón de la hoja.
-  assert.match(c, /onDesconectar=\{\(\) => \{ setPorDesconectar\(pc\); setHojaAbierta\(true\); \}\}/);
-  assert.match(c, /<FilaM navegacion titulo="Desconectar" etiqueta=\{`Desconectar \$\{pc\.nombre\}`\} onClick=\{onDesconectar\} \/>/);
+  assert.match(c, /onDesconectar=\{\(d\) => \{ setPorDesconectar\(d\); setHojaAbierta\(true\); \}\}/);
+  assert.match(c, /<FilaM navegacion titulo="Desconectar" etiqueta=\{`Desconectar \$\{d\.nombre\}`\} onClick=\{onDesconectar\} \/>/);
   assert.match(c, /<SheetM id="desconectar" abierto=\{hojaAbierta\} onCerrar=\{\(\) => setHojaAbierta\(false\)\}/);
   assert.match(c, /\{preguntaDesconectar\(porDesconectar\)\}/);
   assert.match(c, /<Button variant="danger" size="lg" full loading=\{ocupado\} onClick=\{\(\) => \{ void desconectar\(\); \}\}>Desconectar<\/Button>/);
@@ -171,7 +171,9 @@ test('«Desconectar» confirma en una hoja y hace POST /api/ia-pc/desconectar co
   assert.doesNotMatch(c, /setPorDesconectar\(null\)/);
   // Sólo lectura + desconectar: conectar y el modelo se hacen en la computadora.
   assert.doesNotMatch(c, /\/api\/ia-pc\/(codigo|emparejar|modelo|instalar)/);
-  assert.match(c, /<FilaEnComputadoraM icono="plus" titulo="Conectar mi computadora" href="\/perfil\/ia"/);
+  // «Nueva cuenta» y «Nuevo dispositivo» (23/10/2026): se conectan en la computadora.
+  assert.match(c, /<FilaEnComputadoraM icono="plus" titulo="Nueva cuenta" href="\/perfil\/ia"/);
+  assert.match(c, /<FilaEnComputadoraM icono="plus" titulo="Nuevo dispositivo" href="\/perfil\/ia"/);
 });
 
 test('tirar para refrescar vuelve a pedir el estado, y se vuelve a leer cada 20 s', () => {
@@ -186,7 +188,7 @@ test('tirar para refrescar vuelve a pedir el estado, y se vuelve a leer cada 20 
   assert.match(c, /removeEventListener\('visibilitychange', alVolver\)/);
   // Una lectura que falla con datos a la vista no los tapa con un error; sin datos, error con reintento.
   assert.match(c, /estado == null\s*\?\s*\(fallo\s*\?\s*<ErrorM [^>]*onReintentar=\{\(\) => void recargar\(\)\} \/>\s*:\s*<SkeletonFilas /);
-  assert.match(c, /estado\.pcs\.length === 0\s*\?\s*<VacioM frase="Todavía no conectaste ninguna computadora\." \/>/);
+  assert.match(c, /!\(estado\.grupos\?\.cuentas\.length \|\| estado\.grupos\?\.sinCuenta\.length\)\s*\?\s*<VacioM frase="Todavía no conectaste ninguna cuenta\." \/>/);
 });
 
 test('la página dibuja todo adentro de PantallaM y es para todos los roles', () => {

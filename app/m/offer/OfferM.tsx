@@ -48,6 +48,7 @@ import {
   ROTULOS, caminoEnUnaLinea, cuantosArchivos, fuenteDelTexto, opcionesRapidas, progresoDePiezas, sinContestar, trasRefrescar,
   type PasoGeneracion,
 } from './modelo';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const GEN_QUIETA: GenM = { paso: 'diagnostico', corriendo: false, error: null };
 
@@ -655,7 +656,7 @@ export function OfferM({ arbolInicial, arbolFallo, sesionInicial, opcionArmar, o
           {ROTULOS.noCargaron} <button type="button" className="m-offer-lnk" onClick={() => void recargarArbol()} disabled={recargando}>{ROTULOS.volverACargar}</button>
         </p>
       )}
-      {errorSelector && <p className="m-offer-linea m-offer-linea--bad" role="alert">{errorSelector}</p>}
+      {errorSelector && <p className="m-offer-linea m-offer-linea--bad" role="alert">{errorSelector}<ReportarASoporte /></p>}
 
       {!sesion ? (
         bienvenida === 'no-cargo'
@@ -686,7 +687,7 @@ export function OfferM({ arbolInicial, arbolFallo, sesionInicial, opcionArmar, o
           key={sesion.id}
           arriba={(
             <>
-              {errorChat && !hayVista && <p className="m-offer-dock__error" role="alert">{errorChat}</p>}
+              {errorChat && !hayVista && <p className="m-offer-dock__error" role="alert">{errorChat}<ReportarASoporte /></p>}
               {progreso && (
                 // El riel de escritorio en una franja (el prototipo: «Tu oferta 9/14», la barra y «Ver»). La franja
                 // abre las piezas; «Ver», con la oferta ya armada, la abre a ella (el «Ver mi oferta» del riel).

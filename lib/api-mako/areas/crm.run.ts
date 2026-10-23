@@ -50,8 +50,9 @@ import { avisoDeConservadas, avisoMonedaPorOmision, avisoPlanUniforme, cobroManu
 import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
 import { bloqueEstadoDeCuenta, comprobanteDelPedido, notaEnPantalla } from '@/lib/pagos-bloque';
-import { listarCobros, pasarelasConectadas } from '@/lib/cobros';
-import { cuentasDePasarelas, cuentasValidas } from '@/lib/cobro-etapa';
+import { listarCobros } from '@/lib/cobros';
+import { cuentasValidas, type CuentaPago } from '@/lib/cobro-etapa';
+import { cuentasDePago } from '@/lib/cuentas-pago-server';
 import {
   cambiarCuentas as cambiarCuentasCobro, desvincular as desvincularCobro, ganadoDelCrm, productosParaCobrar, vincular as vincularCobro,
   vinculoPorId as vinculoCobroPorId, vinculosDelNegocio,
@@ -96,6 +97,7 @@ import {
   crearEventoDeAgenda, editarEventoDeAgenda,
 } from '@/lib/agenda-evento-etapa-server';
 import { datosDeEvento, mismoIdentificador } from '@/lib/agenda-evento-etapa';
+import { UBICACIONES, datosDeDetalle } from '@/lib/agenda-evento-detalle';
 import { puedeQuitar, aQuienPromover, etapaDeEntrada, nombreVisible, type ProductoDelLead } from '@/lib/lead-funnel-reglas';
 import {
   listarEtiquetas, etiquetaPorId, etiquetasDeLead, conteoPorEtiqueta, crearEtiqueta, editarEtiqueta,
@@ -409,8 +411,13 @@ async function etapasDelCrm(input: Record<string, unknown>): Promise<SalidaLectu
 // ── «Vincular cobro» por MaKo (22/10/2026) ────────────────────────────────────────
 /** La etapa que cobra: Ganado (una terminal, la misma key en todos los CRM). */
 const ETAPA_COBRO = 'ganado';
-/** Las cuentas de Stripe y Mercado Pago conectadas del negocio, como las arma el pop-up. */
-const cuentasDelNegocio = async (ws: number) => cuentasDePasarelas(await pasarelasConectadas(ws));
+/**
+ * Las cuentas de Stripe y Mercado Pago conectadas del negocio, como las arma el pop-up (`cuentasConectadas` de
+ * app/crm/cobro-etapa-actions.ts): VARIAS por pasarela desde la fase A de Cobros (23/10/2026). Con
+ * `cuentasDePasarelas`, sólo la principal: MaKo rechazaba una cuenta secundaria que el pop-up sí ofrece.
+ */
+const cuentasDelNegocio = async (ws: number): Promise<CuentaPago[]> =>
+  (await cuentasDePago(ws)).filter((c) => c.conectada).map(({ id, proveedor, nombre, principal }) => ({ id, proveedor, nombre, principal }));
 /** El CRM del pedido (sin id, el principal), con su nombre. null = no es de este negocio. */
 async function crmDeCobro(id: unknown): Promise<{ id: number; nombre: string } | null> {
   const funnels = await listarFunnels();
@@ -1226,7 +1233,7 @@ export const RUNNERS: Runners = {
       try { a = await listarEventosDeAgenda(); } catch { return fallo('No pude leer los eventos de la agenda. Intenta de nuevo.'); }
       return json({
         eventos: a.eventos.map((e) => ({
-          proveedor: e.proveedor, evento: e.identificador, nombre: e.nombre, duracion_min: e.duracionMin,
+          proveedor: e.proveedor, evento: e.identificador, nombre: e.nombre, duracion_min: e.duracionMin, cuenta: e.cuenta, cuenta_nombre: e.cuentaNombre,
           de_integraciones: e.credencial, en_la_cuenta: e.enLaCuenta,
           vinculado_a: e.vinculo ? { embudoId: e.vinculo.funnelId, crm: e.vinculo.funnel, etapa: e.vinculo.etapa, etapa_nombre: e.vinculo.etapaNombre, reunion: e.vinculo.reunion } : null,
         })),
@@ -1259,14 +1266,23 @@ export const RUNNERS: Runners = {
       if (input.proveedor !== 'calendly' && input.proveedor !== 'calcom') return { error: 'La agenda es calendly o calcom.', faltan: ['proveedor'] };
       const d = datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin });
       if (!d.ok) return { error: d.error };
-      const agenda = input.proveedor === 'calcom' ? 'Cal.com' : 'Calendly';
+      // La cuenta (varias por proveedor, 23/10/2026): una de las conectadas, dicha por su nombre en el «sí».
+      let agenda = input.proveedor === 'calcom' ? 'Cal.com' : 'Calendly';
+      const cuenta = s(input.cuenta);
+      if (cuenta) {
+        let a: AgendaDelNegocio;
+        try { a = await listarEventosDeAgenda(); } catch { return { error: 'No pude leer las cuentas de la agenda. Intenta de nuevo.' }; }
+        const c = a.proveedores.find((x) => x.proveedor === input.proveedor && x.cuenta === cuenta && x.conectado);
+        if (!c) return { error: 'Esa cuenta no está conectada.', disponibles: a.proveedores.filter((x) => x.proveedor === input.proveedor && x.conectado).map((x) => ({ cuenta: x.cuenta, nombre: x.cuentaNombre })) };
+        agenda = c.cuentaNombre;
+      }
       return {
-        payload: { proveedor: input.proveedor, nombre: d.nombre, duracionMin: d.duracionMin },
+        payload: { proveedor: input.proveedor, nombre: d.nombre, duracionMin: d.duracionMin, ...(cuenta ? { cuenta } : {}) },
         resumen: `Crear en ${agenda} el evento «${d.nombre}», de ${d.duracionMin} minutos, con la disponibilidad de la cuenta.`,
       };
     },
     ejecutar: (payload) => seguro('crear el evento', async () => {
-      const r = await crearEventoDeAgenda({ proveedor: payload.proveedor, nombre: payload.nombre, duracionMin: payload.duracionMin });
+      const r = await crearEventoDeAgenda({ proveedor: payload.proveedor, cuenta: payload.cuenta, nombre: payload.nombre, duracionMin: payload.duracionMin });
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: `Listo: creado «${r.evento.nombre}». Para que sus reservas caigan en una etapa, vincular_evento_etapa con el evento ${r.evento.identificador}.`, datos: { evento: r.evento.identificador, proveedor: r.evento.proveedor } };
     }),
@@ -1274,7 +1290,15 @@ export const RUNNERS: Runners = {
   editar_pagina_reserva: {
     preparar: async (input) => {
       if (input.proveedor !== 'calendly' && input.proveedor !== 'calcom') return { error: 'La agenda es calendly o calcom.', faltan: ['proveedor'] };
-      const d = datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin }, true);
+      // La edición completa (23/10/2026): la descripción y dónde, validados como en la pantalla (`datosDeDetalle`).
+      const dd = datosDeDetalle({
+        descripcion: input.descripcion,
+        ubicacion: input.ubicacion != null ? { tipo: input.ubicacion, valor: input.ubicacionValor } : undefined,
+      });
+      if (!dd.ok) return { error: dd.error };
+      const { descripcion, ubicacion } = dd.cambios;
+      const conBasico = input.nombre != null || input.duracionMin != null;
+      const d = conBasico || (descripcion === undefined && !ubicacion) ? datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin }, true) : { ok: true as const, nombre: undefined, duracionMin: undefined };
       if (!d.ok) return { error: d.error };
       let agenda: Awaited<ReturnType<typeof listarEventosDeAgenda>>;
       try { agenda = await listarEventosDeAgenda(); } catch { return { error: 'No pude leer los eventos de la agenda. Intenta de nuevo.' }; }
@@ -1283,15 +1307,28 @@ export const RUNNERS: Runners = {
       const e = delProveedor.find((x) => mismoIdentificador(x.identificador, buscado))
         ?? delProveedor.find((x) => x.nombre.trim().toLowerCase() === buscado.toLowerCase());
       if (!e) return { error: `No encontré ese evento en la cuenta.`, disponibles: delProveedor.map((x) => ({ evento: x.identificador, nombre: x.nombre })) };
-      const cambios = [d.nombre != null && d.nombre !== e.nombre ? `el nombre a «${d.nombre}»` : null, d.duracionMin != null && d.duracionMin !== e.duracionMin ? `la duración a ${d.duracionMin} minutos` : null].filter(Boolean);
+      const dondeNombre = ubicacion ? `${UBICACIONES.find((u) => u.tipo === ubicacion.tipo)?.nombre ?? ubicacion.tipo}${ubicacion.valor ? ` (${ubicacion.valor})` : ''}` : null;
+      const cambios = [
+        d.nombre != null && d.nombre !== e.nombre ? `el nombre a «${d.nombre}»` : null,
+        d.duracionMin != null && d.duracionMin !== e.duracionMin ? `la duración a ${d.duracionMin} minutos` : null,
+        descripcion !== undefined ? (descripcion ? 'la descripción' : 'la descripción (queda vacía)') : null,
+        dondeNombre ? `dónde es la reunión a ${dondeNombre} (reemplaza la de hoy)` : null,
+      ].filter(Boolean);
       if (!cambios.length) return { error: `«${e.nombre}» ya está así.`, yaEstaba: true };
       return {
-        payload: { proveedor: e.proveedor, evento: e.identificador, ...(d.nombre != null ? { nombre: d.nombre } : {}), ...(d.duracionMin != null ? { duracionMin: d.duracionMin } : {}) },
+        payload: {
+          proveedor: e.proveedor, evento: e.identificador, ...(e.cuenta ? { cuenta: e.cuenta } : {}),
+          ...(d.nombre != null ? { nombre: d.nombre } : {}), ...(d.duracionMin != null ? { duracionMin: d.duracionMin } : {}),
+          ...(descripcion !== undefined ? { descripcion } : {}), ...(ubicacion ? { ubicacion } : {}),
+        },
         resumen: `Cambiar en «${e.nombre}» ${cambios.join(' y ')}.${e.vinculo ? ` Sigue vinculado a «${e.vinculo.etapaNombre}».` : ''}`,
       };
     },
     ejecutar: (payload) => seguro('editar el evento', async () => {
-      const r = await editarEventoDeAgenda({ proveedor: payload.proveedor, identificador: payload.evento, nombre: payload.nombre, duracionMin: payload.duracionMin });
+      const r = await editarEventoDeAgenda({
+        proveedor: payload.proveedor, identificador: payload.evento, cuenta: payload.cuenta, nombre: payload.nombre, duracionMin: payload.duracionMin,
+        descripcion: payload.descripcion, ubicacion: payload.ubicacion,
+      });
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: `Listo: «${r.evento.nombre}»${r.evento.duracionMin ? `, ${r.evento.duracionMin} minutos` : ''}.` };
     }),
@@ -1487,7 +1524,7 @@ export const RUNNERS: Runners = {
       if (!r) return { error: `${lead.nombre} no tiene una reunión de Calendly por delante: no hay nada que cancelar.`, yaEstaba: true };
       const cuando = new Date(r.inicioIso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
       return {
-        payload: { leadId: lead.id, leadNombre: lead.nombre, email: lead.email, uri: r.uri, reunion: r.nombre, inicioIso: r.inicioIso, motivo: s(input.motivo) ?? '' },
+        payload: { leadId: lead.id, leadNombre: lead.nombre, email: lead.email, uri: r.uri, reunion: r.nombre, inicioIso: r.inicioIso, cuenta: r.cuenta, motivo: s(input.motivo) ?? '' },
         resumen: `Cancelar en Calendly «${r.nombre || 'la reunión'}» de ${lead.nombre} (${cuando}). A ${lead.nombre} le llega el aviso de Calendly.`,
       };
     },
@@ -1497,7 +1534,8 @@ export const RUNNERS: Runners = {
       try {
         const ahora = await proximaReunionCalendly(String(payload.email ?? ''));
         if (!ahora || ahora.uri !== payload.uri) return { ok: false, resumen: 'Esa reunión ya no es la próxima (la cancelaron, la movieron o ya empezó): no cancelé nada.' };
-        await cancelarReunionCalendly(String(payload.uri), String(payload.motivo ?? ''));
+        // Con la cuenta de Calendly que la TIENE (varias cuentas, fase B): la que acaba de encontrarla.
+        await cancelarReunionCalendly(String(payload.uri), String(payload.motivo ?? ''), ahora.cuenta);
       } catch (e) {
         return { ok: false, resumen: `No se canceló en Calendly: ${e instanceof Error ? e.message : String(e)}` };
       }

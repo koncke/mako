@@ -36,6 +36,7 @@ import { InstagramBuscador, type PerfilIg } from '@/app/crm/new/InstagramBuscado
 import { instagramDelAlta } from '../campo-inline';
 import { createLeadAction, crearLeadEnTableroAction, type ChoqueDeLead } from '../actions';
 import { agregarAProductoAction, quitarDeProductoAction } from '../lead-funnel-actions';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
 
 const SANS = "'Geist', sans-serif";
 const field: CSSProperties = { width: '100%', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', boxSizing: 'border-box' };
@@ -317,10 +318,10 @@ export function NewLeadForm({ enModal }: {
           formulario, y con eso el modal pedía dos cosas a la vez —cargar a alguien nuevo y
           buscar a alguien que ya está—, que son dos tareas y ninguna es un paso de la otra. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', borderTop: enModal?.onTraer ? '1px solid var(--border)' : undefined, paddingTop: enModal?.onTraer ? 14 : 4 }}>
+        {/* Un BOTÓN, no un link chico al pie (Martín, 23/10/2026: «tiene que ser más visible... que sea un botón claro»). */}
         {enModal?.onTraer && (
-          <button type="button" onClick={enModal.onTraer}
-            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
-            Traer de otro funnel
+          <button type="button" onClick={enModal.onTraer} style={BTN_TRAER}>
+            <IconoMenu nombre="descargar" size={16} /> Traer de otro funnel
           </button>
         )}
         {enModal?.onTraerGrupo && (
@@ -343,6 +344,13 @@ export function NewLeadForm({ enModal }: {
     </form>
   );
 }
+
+/** «Traer de otro funnel»: un botón secundario, a la altura de «Crear lead». */
+const BTN_TRAER: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none', padding: '10px 16px', borderRadius: 10,
+  border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)',
+  fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+};
 
 /**
  * Un campo con su rótulo, su asterisco de obligatorio y su ayuda.

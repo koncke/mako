@@ -401,7 +401,8 @@ test('⚠️ importar tiene DOS orígenes, y el de otro producto no pasa por la 
   // ⚠️ «Tildar todos» tilda a TODOS LOS QUE CUMPLEN EL FILTRO (22/10/2026, llamada con Mauricio: «que se puedan traer
   //    los 1.050»), no sólo los 300 que se dibujan; lo que el filtro deja afuera NO entra. Y los que ya están acá
   //    (`yaEsta`) ni se listan ni entran. Lo prueba ejecutándolo tests/crm-traer-todos.test.ts.
-  assert.match(tr, /filasParaTraer\(filas \?\? \[\], \{ q, etapa \}\)/,
+  //    El filtro va diferido desde el 23/10/2026 (el loader al filtrar: tests/crm-traer-23-10.test.ts).
+  assert.match(tr, /filasParaTraer\(filas \?\? \[\], \{ q: qDiferida, etapa: etapaDiferida \}\)/,
     '«tildar todos» dejó de usar el filtro que saca a los que YA están en este producto');
   assert.match(tr, /const ids = new Set\(candidatos\.map/,
     '«tildar todos» volvió a mirar sólo lo que está en pantalla');

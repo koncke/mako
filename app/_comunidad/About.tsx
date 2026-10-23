@@ -19,6 +19,7 @@ import {
 import { NIVEL_MAX, rotuloNivel } from '@/lib/comunidad-niveles';
 import { AvatarNivel, Ico, Texto, useComunidad } from './piezas';
 import { zonaDelNavegador, zonasDisponibles } from './tiempo';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export function About() {
   const { api, setComunidad, abrirPerfil } = useComunidad();
@@ -32,7 +33,7 @@ export function About() {
     return () => { vivo = false; };
   }, [api]);
 
-  if (error && !about) return <p className="cmu-error" role="alert">{error}</p>;
+  if (error && !about) return <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p>;
   if (!about) return <div style={{ display: 'grid', placeItems: 'center', padding: 40 }}><Spinner /></div>;
   const c = about.conteos;
 
@@ -155,7 +156,7 @@ function EditorAbout({ about, onCerrar, onListo }: { about: AboutVista; onCerrar
             </div>
           </div>
         )}
-        {error && <p className="cmu-error" role="alert">{error}</p>}
+        {error && <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p>}
       </div>
     </Modal>
   );

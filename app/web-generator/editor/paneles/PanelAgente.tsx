@@ -96,6 +96,7 @@ import {
   MOTIVO_ANTES_DE_IA, anclasResueltas, diffTarjetas, idDe, planDeAplicacion, resumenDeCambios, tarjetasDelDoc, tocadasDesde,
   type CambioSeccion,
 } from '../diff-tarjetas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pedidos a las rutas: viven en ../../cliente (una sola copia; había cuatro). Se re-exportan
@@ -394,7 +395,7 @@ export function RevisionPropuesta({ propuesta, estado, aviso, onAceptar, onAplic
       </ul>
       {diff.cambios.length > MAX_FILAS && <span className="gma-rv-mas">y {diff.cambios.length - MAX_FILAS} más</span>}
       {tocadas.length > 0 && <p className="gma-rv-aviso">{tocadas.length === 1 ? `Editaste esa ${terminoTarjeta(config)} mientras tanto.` : `Editaste ${tocadas.length} de esas ${terminoTarjeta(config, { plural: true })} mientras tanto.`}</p>}
-      {aviso && <p className="gma-rv-error" role="alert">{aviso}</p>}
+      {aviso && <p className="gma-rv-error" role="alert">{aviso}<ReportarASoporte /></p>}
       <div className="gma-rv-acciones">
         {estado === 'pendiente' && (
           <>
@@ -621,6 +622,7 @@ function BurbujaDePedido({ burbuja, onBoton }: { burbuja: BurbujaPedido; onBoton
           {v.nota && (
             <span className="gma-ag-nota" data-error={v.error ? '' : undefined} role={v.error ? 'alert' : undefined}>
               {v.ocupado && <span className="gma-pb-giro" aria-hidden />}{v.nota}
+              <ReportarASoporte />
             </span>
           )}
         </div>
@@ -967,7 +969,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
         {/* La caja única (./ChatAgente.tsx): el «+», las miniaturas, pegar, los emojis y el micrófono que dicta. */}
         <CajaAgente campo={inputRef} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj} ocupado={hilo.corriendo}
           apagado={!editor} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda />
-        {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}</p>}
+        {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}<ReportarASoporte /></p>}
       </footer>
     </section>
   );

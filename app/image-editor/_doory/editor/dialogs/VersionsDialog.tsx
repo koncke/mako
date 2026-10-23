@@ -10,6 +10,7 @@ import { Dialog } from '../ui/Dialog'
 import { Skeleton } from '../ui/Skeleton'
 import dlg from './dialogs.module.css'
 import styles from './Share.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const when = (iso: string): string => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso))
 
@@ -72,6 +73,7 @@ export function VersionsDialog() {
         {error ? (
           <p className={dlg.error} role="alert">
             {error}
+            <ReportarASoporte />
           </p>
         ) : null}
         {!versions ? <p className={styles.empty}>{t.versions.unavailable}</p> : null}

@@ -26,6 +26,7 @@ import { FilaMenu, Icono, MenuFilas } from '../BarraFormato';
 import {
   TEXTO_NO_COBRA, pasarelaDeLanding, precioDe, productoDeHref, type EstadoCobroLanding,
 } from '@/lib/editor-landing/pago-landing';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const VIGENCIA_MS = 30_000;
 type Guardado = { estado: EstadoCobroLanding; at: number };
@@ -165,7 +166,7 @@ export function PanelCobro({ valor, onElegir, onQuitar }: { valor: string; onEle
     <div className="gmx-cobro">
       <style href="gmx-cobro" precedence="medium">{CSS_COBRO}</style>
       <div className="gmx-grupo">Cobrar con MaKo</div>
-      {inactivo && <div className="gmx-cobro-aviso" role="alert"><Icono nombre="advertencia" tam={14} />{TEXTO_NO_COBRA['sin-producto']}</div>}
+      {inactivo && <div className="gmx-cobro-aviso" role="alert"><Icono nombre="advertencia" tam={14} />{TEXTO_NO_COBRA['sin-producto']}<ReportarASoporte /></div>}
       {cuerpo}
       {modal}
       {elegido !== null && (

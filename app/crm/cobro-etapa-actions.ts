@@ -15,8 +15,8 @@ import { revalidatePath } from 'next/cache';
 import { getRolWsEfectivo, wsObligatorio } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { exigirSesion } from '@/lib/sesion-accion';
-import { pasarelasConectadas } from '@/lib/cobros';
-import { cuentasDePasarelas, type CuentaPago, type FotoCobroEtapa, type ProductoCobro, type ProductoCobroInput, type ResCobro, type VinculoCobro } from '@/lib/cobro-etapa';
+import { cuentasDePago } from '@/lib/cuentas-pago-server';
+import { type CuentaPago, type FotoCobroEtapa, type ProductoCobro, type ProductoCobroInput, type ResCobro, type VinculoCobro } from '@/lib/cobro-etapa';
 import { cambiarCuentas, desvincular, guardarProducto, productosParaCobrar, vincular, vinculosDeEtapa } from '@/lib/cobro-etapa-server';
 
 export type { CuentaPago, FotoCobroEtapa, ProductoCobro, ProductoCobroInput, ResCobro, VinculoCobro } from '@/lib/cobro-etapa';
@@ -36,9 +36,13 @@ async function autorActual(): Promise<string> {
   }
 }
 
-/** Las cuentas conectadas del negocio en curso. */
+/**
+ * Las cuentas que cobran del negocio en curso, cada una con su nombre (varias por proveedor, 22/10/2026): las que el
+ * modal deja elegir. Una a la que le falta el aviso de pagos no está: su pago nunca volvería al CRM.
+ */
 async function cuentasConectadas(): Promise<CuentaPago[]> {
-  return cuentasDePasarelas(await pasarelasConectadas(await wsObligatorio()));
+  const cs = await cuentasDePago(await wsObligatorio());
+  return cs.filter((c) => c.conectada).map(({ id, proveedor, nombre, principal }) => ({ id, proveedor, nombre, principal }));
 }
 
 /** Lo que el modal necesita de una vez: las cuentas, los productos activos, los vínculos de ESTA etapa y si puede editar. */

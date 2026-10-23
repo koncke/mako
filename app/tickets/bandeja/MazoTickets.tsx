@@ -43,6 +43,7 @@ import {
   RESPUESTAS_GUARDADAS, VENTANA_DESHACER_MS, accionesDe, gestoMarcado, ordenDelMazo, quePaso, refrescarMazo, teclaDelMazo, veredictoGesto,
   versionesDe, type AccionMazo, type Salida,
 } from './mazo-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Manejo = { volar: (s: Salida, velocidad?: number) => Promise<void> };
 /** Una decisión tomada que todavía no salió: «Volver» la trae de vuelta entera. */
@@ -299,6 +300,7 @@ export function MazoTickets({ tickets, cerebro, ahora, onCambio, onVerTodo, quie
               {aviso.pendiente != null && (
                 <i key={aviso.pendiente} className="tickets-bandeja__aviso-reloj" style={{ animationDuration: `${VENTANA_DESHACER_MS}ms` }} aria-hidden />
               )}
+              <ReportarASoporte />
             </div>
           )}
         </div>

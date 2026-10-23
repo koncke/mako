@@ -28,6 +28,7 @@ import type { FormatoDoc, Proporcion } from '@/lib/editor-landing/api-tipos';
 import type { Sugerencia } from '@/lib/editor-landing/diagnostico';
 import { Ico, MiniaturaLanding } from '../MiniaturaLanding';
 import type { Ubicacion } from './vista';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Lo que pasa con «Aplicar» de un comentario. */
 export type EstadoArreglo =
@@ -103,7 +104,7 @@ export function Comentario({
       {arreglo?.fase === 'deshaciendo' && (
         <p className="gdg-com-trabajando"><span className="gp-giro" aria-hidden /> Deshaciendo…</p>
       )}
-      {arreglo?.fase === 'error' && <p className="gdg-com-error" role="alert">{arreglo.error}</p>}
+      {arreglo?.fase === 'error' && <p className="gdg-com-error" role="alert">{arreglo.error}<ReportarASoporte /></p>}
 
       {aplicado ? (
         <>

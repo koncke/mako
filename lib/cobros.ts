@@ -30,7 +30,7 @@ import { getPipelineStagesDeLead } from './funnels';
 import { etapaDeGanado } from './pipeline';
 import { listProductos } from './productos';
 import {
-  TratoEnCursoError, cobroDelProducto, ganarEnElCrm, marcarBajaPorReembolso, otroCobroPagadoDelProducto, planesDadosDeBajaDelLead,
+  TratoEnCursoError, cobroDelProducto, cuentasDelVinculoDelProducto, ganarEnElCrm, marcarBajaPorReembolso, otroCobroPagadoDelProducto, planesDadosDeBajaDelLead,
   planesDevueltosDelLead, prepararTratoDelPago, type TratoDelPago,
 } from './cobro-etapa-server';
 import { decidirBajaDelPlan, mismoCentavo, type PlanCongelado } from './cobro-etapa';
@@ -56,6 +56,8 @@ import {
   asegurarEventosStripe, cancelarSuscripcionStripe, programarBajaStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
 } from './stripe-api';
 import { urlAvisoStripe } from './cobros-conexion';
+import { CUENTA_PRINCIPAL, claveDeCuenta, cuentaSinElegir, partirIdDeCuenta } from './cuentas-integracion';
+import { credMpDe, credStripeDe, cuentaDeIdentificador, cuentasDePago } from './cuentas-pago-server';
 import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, leerSuscripcionMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,26 +77,57 @@ export const linkDeRetorno = (token: string): string => `${linkDelCobro(token)}/
 /** 32 caracteres base64url (192 bits): el token público de /pagar/<token>. No se adivina ni se enumera. */
 export const nuevoTokenCobro = (): string => crypto.randomBytes(24).toString('base64url');
 
-type CredStripe = { pasarela: 'stripe'; key: string };
-type CredMp = { pasarela: 'mercadopago'; token: string; userId: string };
+type CredStripe = { pasarela: 'stripe'; key: string; acct: string; cuenta: string };
+type CredMp = { pasarela: 'mercadopago'; token: string; userId: string; cuenta: string };
 
-async function credStripe(ws: number): Promise<CredStripe | null> {
-  const [key, acct, secreto] = await Promise.all([
-    credDelCliente('STRIPE_SECRET_KEY', ws),
-    credDelCliente('STRIPE_ACCOUNT_ID', ws),
-    credDelCliente('STRIPE_WEBHOOK_SECRET', ws),
-  ]);
-  // Sin la cuenta y el secreto del aviso, un cobro se crearía bien y su pago NUNCA volvería al CRM:
-  // «conectado» es las tres, no la clave sola.
-  return key && acct && secreto ? { pasarela: 'stripe', key } : null;
+/**
+ * Las claves de UNA cuenta de la pasarela (varias por proveedor, 22/10/2026, lib/cuentas-pago-server.ts). Sin la cuenta,
+ * la principal. En Stripe, «conectada» es la clave, el id de la cuenta Y el secreto del aviso: sin los dos últimos, un
+ * cobro se crearía bien y su pago NUNCA volvería al CRM.
+ */
+const credStripe = (ws: number, cuenta: string | null = CUENTA_PRINCIPAL): Promise<CredStripe | null> => (cuenta == null ? Promise.resolve(null) : credStripeDe(ws, cuenta));
+const credMp = (ws: number, cuenta: string | null = CUENTA_PRINCIPAL): Promise<CredMp | null> => (cuenta == null ? Promise.resolve(null) : credMpDe(ws, cuenta));
+
+/**
+ * La cuenta del negocio que tiene HOY el cobro (mig 0328). Manda su id en el proveedor (`cuenta_ref`): si esa cuenta se
+ * desconectó y volvió con otro sufijo, sigue siendo la suya (revisión de plata del 22/10/2026: por el sufijo, sus avisos
+ * se ignoraban y no se podía devolver ni cancelar). null = esa cuenta ya no está conectada. Un cobro de antes, sin
+ * `cuenta_ref`, es de su sufijo (NULL = la principal), como siempre. Tira si no puede leer.
+ */
+async function cuentaVivaDelCobro(ws: number, c: Pick<Cobro, 'proveedor' | 'cuenta' | 'cuenta_ref'>): Promise<string | null> {
+  if (c.cuenta_ref) return cuentaDeIdentificador(ws, c.proveedor, c.cuenta_ref);
+  return c.cuenta ?? CUENTA_PRINCIPAL;
 }
 
-async function credMp(ws: number): Promise<CredMp | null> {
-  const [token, userId] = await Promise.all([
-    credDelCliente('MERCADOPAGO_ACCESS_TOKEN', ws),
-    credDelCliente('MERCADOPAGO_USER_ID', ws),
-  ]);
-  return token && userId ? { pasarela: 'mercadopago', token, userId } : null;
+/** La cuenta con la que cobra una pasarela si nadie elige: la principal si cobra, si no la primera que cobre. null = ninguna. */
+async function cuentaPorDefecto(ws: number, pasarela: Pasarela): Promise<string | null> {
+  const cs = (await cuentasDePago(ws, pasarela)).filter((x) => x.conectada);
+  return (cs.find((x) => x.principal) ?? cs[0])?.cuenta ?? null;
+}
+
+/**
+ * Con qué cuenta de esa pasarela se cobraría HOY: la pedida (si es de esa pasarela), o sin pedir la de siempre o la del
+ * vínculo del producto (`cuentaSinElegir`, lib/cuentas-integracion.ts). null = ninguna que cobre.
+ */
+async function cuentaParaCobrar(ws: number, pas: Pasarela, pedida: { proveedor: Pasarela; cuenta: string } | null, delVinculo: readonly string[]): Promise<string | null> {
+  if (pedida) return pedida.proveedor === pas ? pedida.cuenta : null;
+  const cobran = (await cuentasDePago(ws, pas)).filter((x) => x.conectada);
+  const porDefecto = (cobran.find((x) => x.principal) ?? cobran[0])?.cuenta ?? null;
+  return cuentaSinElegir(pas, porDefecto, delVinculo, cobran.map((x) => x.cuenta));
+}
+
+/**
+ * El id EN EL PROVEEDOR de la cuenta con que se cobraría hoy ese producto por esa pasarela (sin cuenta elegida, como un
+ * link de landing). Lo usa la landing para no reusar un pendiente de OTRA cuenta (revisión de plata del 22/10/2026).
+ * null = ninguna que cobre.
+ */
+export async function refParaCobrar(ws: number, pasarela: Pasarela, productoId: number | null): Promise<string | null> {
+  return runWithWorkspace(ws, async () => {
+    const delVinculo = productoId ? await cuentasDelVinculoDelProducto(productoId) : [];
+    const cuenta = await cuentaParaCobrar(ws, pasarela, null, delVinculo);
+    if (!cuenta) return null;
+    return pasarela === 'stripe' ? (await credStripe(ws, cuenta))?.acct ?? null : (await credMp(ws, cuenta))?.userId ?? null;
+  });
 }
 
 /**
@@ -103,21 +136,27 @@ async function credMp(ws: number): Promise<CredMp | null> {
  * `crearCobro` para anotar el `modo` de un cobro nuevo (17/10/2026): la landing la usa para no reusar un pendiente de
  * PRUEBA después de pasar a claves reales (lib/editor-landing/pago-pedido.ts, `cobroReusable`).
  */
-export async function modoDeLaPasarela(ws: number, pasarela: Pasarela): Promise<'real' | 'prueba' | null> {
+export async function modoDeLaPasarela(ws: number, pasarela: Pasarela, productoId?: number | null): Promise<'real' | 'prueba' | null> {
+  // Con el producto, el de la cuenta que lo cobraría (la de su vínculo): la landing compara este modo con el id de ESA
+  // cuenta (`refParaCobrar`); con el de la principal, reusaba el pendiente de prueba de la otra (revisión del 22/10/2026).
+  const cuenta = productoId
+    ? await runWithWorkspace(ws, async () => cuentaParaCobrar(ws, pasarela, null, await cuentasDelVinculoDelProducto(productoId)))
+    : await cuentaPorDefecto(ws, pasarela);
+  if (!cuenta) return null;
   if (pasarela === 'stripe') {
-    const s = await credStripe(ws);
+    const s = await credStripe(ws, cuenta);
     return s ? (modoDeClaveStripe(s.key) ?? 'real') : null;
   }
-  const m = await credMp(ws);
+  const m = await credMp(ws, cuenta);
   if (!m) return null;
   const c = await leerCuentaMp(m.token);
   return c.ok ? c.modo : null;
 }
 
-/** Las pasarelas con las que ESTE workspace puede cobrar hoy (las dos, una o ninguna). */
+/** Las pasarelas con las que ESTE workspace puede cobrar hoy (las dos, una o ninguna): con ALGUNA cuenta que cobre. */
 export async function pasarelasConectadas(ws: number): Promise<Pasarela[]> {
-  const [s, m] = await Promise.all([credStripe(ws), credMp(ws)]);
-  return [...(s ? (['stripe'] as const) : []), ...(m ? (['mercadopago'] as const) : [])];
+  const cs = (await cuentasDePago(ws)).filter((x) => x.conectada);
+  return (['stripe', 'mercadopago'] as const).filter((p) => cs.some((x) => x.proveedor === p));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -279,6 +318,11 @@ export async function crearCobro(ws: number, p: {
   paraCliente?: { agenciaWs: number; clienteWs: number } | null;
   /** Una suscripción que empieza a cobrar más adelante (#867): sólo con Mercado Pago, que lo recibe al crearla (`start_date`). */
   inicioAt?: string | null;
+  /**
+   * La CUENTA que cobra (mig 0328, varias por proveedor): un id de lib/cuentas-integracion.ts (`stripe:c2`). Sin ella, la
+   * principal de la pasarela (o la primera que cobre). Fija la pasarela.
+   */
+  cuenta?: string | null;
   creadoPor: string;
 }): Promise<ResultadoCrearCobro> {
   // Un inquilino no crea inquilinos (AGENTS.md «Un permiso de UN inquilino sobre OTRO»): la pregunta
@@ -322,7 +366,19 @@ export async function crearCobro(ws: number, p: {
       cuota = v.cuota;
     }
 
-    const [stripe, mp] = await Promise.all([credStripe(ws), credMp(ws)]);
+    // La CUENTA (mig 0328): la pedida, o la de cada pasarela por defecto (la principal si cobra, si no la primera).
+    const pedida = p.cuenta ? partirIdDeCuenta(p.cuenta) : null;
+    if (p.cuenta && !pedida) return { ok: false, error: 'Esa cuenta de cobro no existe.' };
+    if (pedida && p.pasarela && pedida.proveedor !== p.pasarela) return { ok: false, error: `Esa cuenta no es de ${NOMBRE_PASARELA[p.pasarela]}.` };
+    // Sin cuenta pedida, un producto vinculado a un CRM («Vincular cobro») cobra por una cuenta de SU vínculo: la de siempre
+    // si está en él, si no la primera del vínculo que cobre. Así su pago encuentra el vínculo (`vinculoDelPago`).
+    const delVinculo = !pedida && p.productoId ? await cuentasDelVinculoDelProducto(p.productoId) : [];
+    const [conStripe, conMp] = await Promise.all([cuentaParaCobrar(ws, 'stripe', pedida, delVinculo), cuentaParaCobrar(ws, 'mercadopago', pedida, delVinculo)]);
+    const [stripe, mp] = await Promise.all([
+      conStripe ? credStripe(ws, conStripe) : Promise.resolve(null),
+      conMp ? credMp(ws, conMp) : Promise.resolve(null),
+    ]);
+    if (pedida && !(pedida.proveedor === 'stripe' ? stripe : mp)) return { ok: false, error: 'Esa cuenta de cobro no está conectada.' };
     const conectadas: Pasarela[] = [...(stripe ? (['stripe'] as const) : []), ...(mp ? (['mercadopago'] as const) : [])];
 
     let producto: { id: number; nombre: string; tipo: TipoCobro; monto_usd: number | null } | null = null;
@@ -349,7 +405,7 @@ export async function crearCobro(ws: number, p: {
     if (altaCapa && !email) return { ok: false, error: 'Para dar de alta la cuenta hace falta el email de quien paga.', faltan: ['email'] };
 
     // Mercado Pago cobra en la moneda del sitio de SU cuenta: se le pregunta a la cuenta, no a una constante.
-    const elegida = p.pasarela ?? (conectadas.length === 1 ? conectadas[0] : null);
+    const elegida = p.pasarela ?? pedida?.proveedor ?? (conectadas.length === 1 ? conectadas[0] : null);
     let cuentaMp: { moneda: string | null; modo: 'real' | 'prueba' } | null = null;
     if (elegida === 'mercadopago' && mp) {
       const c = await leerCuentaMp(mp.token);
@@ -358,7 +414,7 @@ export async function crearCobro(ws: number, p: {
     }
 
     const d = decidirCobro({
-      pasarela: p.pasarela ?? null, conectadas, monto: p.monto, moneda: p.moneda,
+      pasarela: p.pasarela ?? pedida?.proveedor ?? null, conectadas, monto: p.monto, moneda: p.moneda,
       productoMontoUsd: cuota?.monto_usd ?? producto?.monto_usd ?? null, monedaDeLaCuenta: cuentaMp?.moneda ?? null, tipo, email,
     });
     if (!d.ok) return d;
@@ -376,6 +432,7 @@ export async function crearCobro(ws: number, p: {
     const concepto = (p.concepto ?? '').trim() || (cuota ? (cuota.numero === 0 ? 'Cobro inicial' : `Cuota ${cuota.numero}`) : '') || producto?.nombre || (altaCapa ? `MaKo · plan ${capaDef(altaCapa).nombre}` : 'Pago');
     const modo = d.pasarela === 'stripe' ? (modoDeClaveStripe(stripe?.key) ?? 'real') : (cuentaMp?.modo ?? 'real');
     const token = nuevoTokenCobro();
+    const cuentaUsada = (d.pasarela === 'stripe' ? stripe?.cuenta : mp?.cuenta) ?? CUENTA_PRINCIPAL;
 
     const db = await getTenantDb();
     const { data: fila, error } = await db.from('cobros').insert({
@@ -389,6 +446,10 @@ export async function crearCobro(ws: number, p: {
       ...(inicioAt ? { inicio_at: inicioAt } : {}),
       // Mig 0326: sólo con un producto con precio. Sin él no se manda (un cobro sin producto no la necesita).
       ...(congelado ? { plan_producto: congelado } : {}),
+      // Mig 0328: el sufijo sólo si no es la principal (NULL es la principal: todo cobro de antes), y SIEMPRE el id de la
+      // cuenta en el proveedor: es lo que la encuentra después aunque vuelva a conectarse con otro sufijo.
+      ...(cuentaUsada !== CUENTA_PRINCIPAL ? { cuenta: cuentaUsada } : {}),
+      cuenta_ref: (d.pasarela === 'stripe' ? stripe?.acct : mp?.userId) ?? null,
     }).select(COLS_COBRO).single();
     // ⚠️ DOS PEDIDOS A LA VEZ PARA LA MISMA CUOTA (mig 0295): el segundo choca con `cobros_un_link_vivo_por_cuota` y
     // se devuelve el link que ganó, como cuando ya existía (`yaEstaba`). Dos links vivos eran dos cobros de la misma plata.
@@ -478,13 +539,19 @@ async function crearCheckout(
  * (o ya venció), crea otra sesión — con una clave de idempotencia atada al vencimiento anterior, así
  * dos clics simultáneos sobre un link vencido no crean dos sesiones.
  */
-export async function urlParaPagar(c: Cobro): Promise<{ url: string } | { error: 'ya_pagado' | 'no_disponible' | 'pasarela'; detalle?: string }> {
+export async function urlParaPagar(c: Cobro): Promise<{ url: string } | { error: 'ya_pagado' | 'no_disponible' | 'pasarela' | 'desconectada'; detalle?: string }> {
   if (c.estado === 'pagado') return { error: 'ya_pagado' };
   if (c.estado !== 'pendiente' && c.estado !== 'fallido') return { error: 'no_disponible' };
-  if (c.proveedor === 'mercadopago') return c.url_proveedor ? { url: c.url_proveedor } : { error: 'no_disponible' };
+  // La cuenta que lo cobra HOY (mig 0328). Desconectada, el link no abre aunque su URL siga viva en el proveedor: el pago
+  // entraría a una cuenta de la que MaKo ya no se entera (revisión de plata del 22/10/2026; antes, Mercado Pago abría igual).
+  const cuenta = await cuentaVivaDelCobro(c.workspace_id, c);
+  if (c.proveedor === 'mercadopago') {
+    if (!(await credMp(c.workspace_id, cuenta))) return { error: 'desconectada' };
+    return c.url_proveedor ? { url: c.url_proveedor } : { error: 'no_disponible' };
+  }
+  const stripe = await credStripe(c.workspace_id, cuenta);
+  if (!stripe) return { error: 'desconectada' };
   if (c.url_proveedor && !urlPorVencer(c.url_vence_at, Date.now())) return { url: c.url_proveedor };
-  const stripe = await credStripe(c.workspace_id);
-  if (!stripe) return { error: 'pasarela', detalle: 'Stripe ya no está conectado en este negocio.' };
   const vuelta = Math.max(1, Math.floor((Date.parse(c.url_vence_at ?? '') || 0) / 60_000));
   const r = await crearCheckout(c, { stripe, mp: null }, vuelta);
   if (!r.ok) return { error: 'pasarela', detalle: r.error };
@@ -747,7 +814,7 @@ async function alCron(c: Cobro, subtipo: SubtipoPago): Promise<void> {
 /** Programa el fin del plazo en Stripe (`programarFinSuscripcionStripe`). Nunca tira: la plata ya entró. Si falla, lo dice el cobro. */
 async function programarPlazoStripe(c: Cobro, meses: number): Promise<Cobro> {
   try {
-    const stripe = await credStripe(c.workspace_id);
+    const stripe = await credStripe(c.workspace_id, await cuentaVivaDelCobro(c.workspace_id, c));
     const r = stripe && c.proveedor_suscripcion_id ? await programarFinSuscripcionStripe(stripe.key, c.proveedor_suscripcion_id, meses) : null;
     if (r?.ok) return c;
     const por = r && !r.ok ? r.error : 'Stripe no está conectado';
@@ -1039,8 +1106,11 @@ export async function aplicarContracargo(c: Cobro, p: { fase: FaseContracargo; t
  * Un contracargo llega sin que MaKo haga nada, así que no alcanza con ponerlo al día al reembolsar (15/10/2026).
  */
 export async function mantenerAvisosStripe(ws: number): Promise<void> {
-  const stripe = await credStripe(ws);
-  if (stripe) await asegurarEventosDelAviso(ws, stripe.key);
+  // Cada cuenta de Stripe que cobra tiene su aviso (varias por proveedor, 22/10/2026).
+  for (const x of (await cuentasDePago(ws, 'stripe')).filter((y) => y.conectada)) {
+    const stripe = await credStripe(ws, x.cuenta);
+    if (stripe) await asegurarEventosDelAviso(ws, stripe.key, x.cuenta);
+  }
 }
 
 /**
@@ -1100,20 +1170,26 @@ export async function anularCobro(ws: number, id: number, autor: string): Promis
   // (`vencerPreferenciaMp`) o cancela la suscripción que nadie autorizó todavía. Hasta el 15/10/2026 MP quedaba
   // abierto. Si el cierre falla (o MP lo ignora), un pago que igual entre se registra CON su aviso
   // (`avisoPagoPorLinkAnulado`, en aplicarPagoAprobado).
-  if (c.proveedor === 'stripe' && c.proveedor_ref) {
-    const stripe = await credStripe(ws);
-    if (stripe) {
-      const e = await expirarCheckoutStripe(stripe.key, c.proveedor_ref);
-      if (!e.ok) console.warn(`[cobros] no pude expirar la sesión ${c.proveedor_ref}: ${e.error}`);
+  // ⚠️ NUNCA TIRA: el cobro YA está anulado. Buscar su cuenta (mig 0328) puede tirar si la base no contesta, y cortar acá
+  // decía «No pude anular» de algo anulado, y `anularLinksDeCuota` dejaba vivos los otros links de una cuota ya pagada.
+  try {
+    if (c.proveedor === 'stripe' && c.proveedor_ref) {
+      const stripe = await credStripe(ws, await cuentaVivaDelCobro(ws, c));
+      if (stripe) {
+        const e = await expirarCheckoutStripe(stripe.key, c.proveedor_ref);
+        if (!e.ok) console.warn(`[cobros] no pude expirar la sesión ${c.proveedor_ref}: ${e.error}`);
+      }
+    } else if (c.proveedor === 'mercadopago' && c.proveedor_ref) {
+      const mp = await credMp(ws, await cuentaVivaDelCobro(ws, c));
+      if (mp) {
+        const e = c.tipo === 'suscripcion'
+          ? await cancelarSuscripcionMp(mp.token, c.proveedor_ref, idemAnular(c.id))
+          : await vencerPreferenciaMp(mp.token, c.proveedor_ref, idemAnular(c.id));
+        if (!e.ok) console.warn(`[cobros] no pude cerrar el link ${c.proveedor_ref} en Mercado Pago: ${e.error}`);
+      }
     }
-  } else if (c.proveedor === 'mercadopago' && c.proveedor_ref) {
-    const mp = await credMp(ws);
-    if (mp) {
-      const e = c.tipo === 'suscripcion'
-        ? await cancelarSuscripcionMp(mp.token, c.proveedor_ref, idemAnular(c.id))
-        : await vencerPreferenciaMp(mp.token, c.proveedor_ref, idemAnular(c.id));
-      if (!e.ok) console.warn(`[cobros] no pude cerrar el link ${c.proveedor_ref} en Mercado Pago: ${e.error}`);
-    }
+  } catch (e) {
+    console.warn(`[cobros] el cobro ${c.id} quedó anulado, pero no pude cerrar su link en la pasarela: ${e instanceof Error ? e.message : String(e)}`);
   }
   if (c.lead_id) await runWithWorkspace(ws, () => logLeadEvent(c.lead_id!, 'Link de pago', `Anulado: ${c.concepto}`, autor));
   return { ok: true };
@@ -1148,9 +1224,9 @@ export async function anularLinksDeCuota(ws: number, pagoId: number, autor: stri
 }
 
 /** Best effort: que el aviso de Stripe de este negocio escuche la lista de HOY (`asegurarEventosStripe`). */
-async function asegurarEventosDelAviso(ws: number, key: string): Promise<void> {
+async function asegurarEventosDelAviso(ws: number, key: string, cuenta: string = CUENTA_PRINCIPAL): Promise<void> {
   try {
-    const acct = await credDelCliente('STRIPE_ACCOUNT_ID', ws);
+    const acct = await credDelCliente(claveDeCuenta('STRIPE_ACCOUNT_ID', cuenta), ws);
     if (!acct) return;
     const r = await asegurarEventosStripe(key, urlAvisoStripe(acct));
     if (!r.ok) console.warn(`[cobros] no pude poner al día los eventos del aviso de Stripe (ws ${ws}): ${r.error}`);
@@ -1172,10 +1248,10 @@ export async function reembolsarCobro(ws: number, id: number, autor: string, mot
   // `pending` cuenta como hecha, como la cuenta Stripe (el cargo ya figura devuelto); si después falla, entra `refund.failed`.
   let enCurso = false;
   if (c.proveedor === 'stripe') {
-    const stripe = await credStripe(ws);
+    const stripe = await credStripe(ws, await cuentaVivaDelCobro(ws, c));
     if (!stripe) return { ok: false, resumen: 'Stripe no está conectado.' };
     // Que el aviso escuche `refund.failed` ANTES de pedirla: si la devolución falla después, es por ahí que se sabe.
-    await asegurarEventosDelAviso(ws, stripe.key);
+    await asegurarEventosDelAviso(ws, stripe.key, stripe.cuenta);
     const pid = c.proveedor_pago_id;
     const idem = idemReembolso(c.id, esDevolucionFallida(c.motivo) ? String(Date.parse(c.updated_at)) : null);
     const r = await reembolsarStripe(stripe.key, { idem, paymentIntent: pid.startsWith('pi_') ? pid : null, invoice: pid.startsWith('in_') ? pid : null });
@@ -1184,7 +1260,7 @@ export async function reembolsarCobro(ws: number, id: number, autor: string, mot
     if (r.estado === 'failed' || r.estado === 'canceled') return { ok: false, resumen: 'Stripe no pudo hacer la devolución: la plata sigue cobrada.' };
     enCurso = r.estado !== 'succeeded';
   } else {
-    const mp = await credMp(ws);
+    const mp = await credMp(ws, await cuentaVivaDelCobro(ws, c));
     if (!mp) return { ok: false, resumen: 'Mercado Pago no está conectado.' };
     const r = await reembolsarMp(mp.token, c.proveedor_pago_id, idemReembolso(c.id));
     if (!r.ok) return { ok: false, resumen: `Mercado Pago no hizo el reembolso: ${r.error}` };
@@ -1203,7 +1279,7 @@ export async function reembolsarCobro(ws: number, id: number, autor: string, mot
 export async function anotarAutorizacionMp(c: Cobro): Promise<boolean> {
   if (c.proveedor !== 'mercadopago' || c.tipo !== 'suscripcion' || c.estado !== 'pendiente' || c.suscripcion_estado || !c.proveedor_ref) return false;
   try {
-    const mp = await credMp(c.workspace_id);
+    const mp = await credMp(c.workspace_id, await cuentaVivaDelCobro(c.workspace_id, c));
     if (!mp) return false;
     const s = await leerSuscripcionMp(mp.token, c.proveedor_ref);
     if (!s.ok || s.estado !== 'authorized' || s.cobradorId !== mp.userId || s.referencia !== c.token) return false;
@@ -1224,12 +1300,12 @@ export async function cancelarSuscripcionCobro(ws: number, id: number, autor: st
   if (c.tipo !== 'suscripcion' || !susId) return { ok: false, resumen: 'Ese cobro no es una suscripción activa.' };
   if (c.suscripcion_estado === 'cancelada') return { ok: false, resumen: 'Esa suscripción ya estaba cancelada.' };
   if (c.proveedor === 'stripe') {
-    const stripe = await credStripe(ws);
+    const stripe = await credStripe(ws, await cuentaVivaDelCobro(ws, c));
     if (!stripe) return { ok: false, resumen: 'Stripe no está conectado.' };
     const r = await cancelarSuscripcionStripe(stripe.key, susId, idemBaja(c.id));
     if (!r.ok) return { ok: false, resumen: `Stripe no canceló la suscripción: ${r.error}` };
   } else {
-    const mp = await credMp(ws);
+    const mp = await credMp(ws, await cuentaVivaDelCobro(ws, c));
     if (!mp) return { ok: false, resumen: 'Mercado Pago no está conectado.' };
     const r = await cancelarSuscripcionMp(mp.token, susId, idemBaja(c.id));
     if (!r.ok) return { ok: false, resumen: `Mercado Pago no canceló la suscripción: ${r.error}` };
@@ -1278,7 +1354,7 @@ export async function darDeBajaMiPlan(ws: number, autor: string): Promise<Result
   const pedida = new Date().toISOString();
   let finAt: string | null = null;
   if (c.proveedor === 'stripe') {
-    const stripe = await credStripe(c.workspace_id);
+    const stripe = await credStripe(c.workspace_id, await cuentaVivaDelCobro(c.workspace_id, c));
     if (!stripe || !c.proveedor_suscripcion_id) return { ok: false, resumen: `No pudimos darte de baja. Escríbenos a ${EMAIL_MAKO}.` };
     // Su propia clave: la de `idemBaja` es la de cancelar EN EL ACTO (DELETE), y una clave repetida con otro pedido dentro
     // de las 24 h Stripe la rechaza (si el super admin la cancela del todo el mismo día).
@@ -1348,7 +1424,7 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
 
   let cambiados = 0;
   let errores = 0;
-  const [stripe, mp] = await Promise.all([credStripe(ws), credMp(ws)]);
+  const credsDe = credsPorCuenta(ws);
 
   for (const c of pagados) {
     // El cliente de agencia que pagó y quedó sin habilitar (el aviso se cortó después del pago): compare-and-set, no tira.
@@ -1368,6 +1444,7 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
 
   for (const c of pendientes) {
     try {
+      const { stripe, mp } = await credsDe(c);
       const pago = await pagoDelLinkEnLaPasarela(c, stripe, mp);
       if (pago) {
         const r = await aplicarPagoAprobado(c, pago);
@@ -1382,6 +1459,22 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
 }
 
 type PagoDeLaPasarela = Parameters<typeof aplicarPagoAprobado>[1];
+
+/**
+ * Las claves de la cuenta de CADA cobro, leídas una vez por cuenta (varias por proveedor, 22/10/2026): un barrido que
+ * leía las de la principal miraba en Stripe el link de la segunda cuenta con la clave equivocada (404, «no está»).
+ */
+function credsPorCuenta(ws: number): (c: Cobro) => Promise<{ stripe: CredStripe | null; mp: CredMp | null }> {
+  const memo = new Map<string, Promise<{ stripe: CredStripe | null; mp: CredMp | null }>>();
+  return (c) => {
+    // Por su cuenta en el proveedor (`cuenta_ref`) si la tiene; si no, por su sufijo.
+    const llave = c.cuenta_ref ? `${c.proveedor}|${c.cuenta_ref}` : `sufijo|${c.cuenta ?? CUENTA_PRINCIPAL}`;
+    if (!memo.has(llave)) {
+      memo.set(llave, cuentaVivaDelCobro(ws, c).then((cuenta) => Promise.all([credStripe(ws, cuenta), credMp(ws, cuenta)])).then(([stripe, mp]) => ({ stripe, mp })));
+    }
+    return memo.get(llave)!;
+  };
+}
 
 /**
  * ¿La pasarela COBRÓ este link? Lo que se le pasa a `aplicarPagoAprobado`, o null si no (o si todavía no se puede
@@ -1447,11 +1540,12 @@ export async function asentarLinkPagadoDeCuota(ws: number, pagoId: number): Prom
   // 2. Vivo en MaKo: se le pregunta a la pasarela.
   const vivos = links.filter((c) => c.estado === 'pendiente' || c.estado === 'fallido');
   if (!vivos.length) return { asentado: false, sinLeer: 0 };
-  const [stripe, mp] = await Promise.all([credStripe(ws), credMp(ws)]);
+  const credsDe = credsPorCuenta(ws);
   let sinLeer = 0;
   for (const c of vivos) {
     let pago: PagoDeLaPasarela | null;
     try {
+      const { stripe, mp } = await credsDe(c);
       pago = await pagoDelLinkEnLaPasarela(c, stripe, mp);
     } catch (e) {
       sinLeer++;

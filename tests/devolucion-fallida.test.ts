@@ -170,7 +170,9 @@ test('revertir: sólo si el cargo ya no está devuelto; el cobro con compare-and
 
 test('pedir una devolución: el aviso al día ANTES, una ya fallida no se da por hecha, y el reintento lleva otra clave', () => {
   const f = cuerpo(fuente('lib/cobros.ts'), 'reembolsarCobro');
-  assert.ok(f.indexOf('await asegurarEventosDelAviso(ws, stripe.key);') >= 0 && f.indexOf('await asegurarEventosDelAviso(ws, stripe.key);') < f.indexOf('reembolsarStripe('),
+  // Con la cuenta del cobro (varias por proveedor, 22/10/2026): el aviso de ESA cuenta es el que trae la devolución.
+  const aviso = 'await asegurarEventosDelAviso(ws, stripe.key, stripe.cuenta);';
+  assert.ok(f.indexOf(aviso) >= 0 && f.indexOf(aviso) < f.indexOf('reembolsarStripe('),
     'el aviso se pone al día DESPUÉS de pedirla: si falla rápido, no llega');
   const corte = f.indexOf("if (r.estado === 'failed' || r.estado === 'canceled') return { ok: false,");
   assert.ok(corte > 0 && corte < f.indexOf('await aplicarReembolso('), 'una devolución que Stripe contesta fallida se da por hecha');

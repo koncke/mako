@@ -5,6 +5,7 @@ import { t } from '../strings'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
 import styles from './dialogs.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Status = { kind: 'running'; phase: BgRemovalPhase; percent: number } | { kind: 'error'; reason: BgRemovalFailure }
 
@@ -85,6 +86,7 @@ export function BackgroundRemovalDialog() {
       ) : (
         <p role="alert" className={styles.error}>
           {FAILURE_MESSAGE[status.reason]}
+          <ReportarASoporte />
         </p>
       )}
     </Dialog>

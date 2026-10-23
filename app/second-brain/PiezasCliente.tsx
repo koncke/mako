@@ -18,6 +18,7 @@ import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { caracteres, nombrePegado } from '@/lib/chat-pegado';
 import { ARRANQUES_SECOND_BRAIN, AVISO_EDITOR, AVISO_EDITOR_AJENO, AVISO_GRUPO, AVISO_LIENZO } from '@/lib/chat-mako-reglas';
+import { NOMBRE_MODELO_IA, type CuentaIA } from '@/lib/chat-ia-reglas';
 import type { ChatCliente } from './useChatCliente';
 
 /** El hilo del chat abierto: lo que dijo cada uno, con lo de WhatsApp; vacío, la portada con lo que más se le pide. */
@@ -39,6 +40,42 @@ export function UsoDelCliente({ conectada, onAbrir }: { conectada: boolean | nul
     </div>
   );
 }
+
+/**
+ * CON QUÉ IA CORRE ESTE CHAT (8b, 23/10/2026, Martín: «el "+" de la caja deja elegir con qué corre ese chat: el modelo y la
+ * cuenta (Claude o GPT, y cuál). Por defecto decide el chat jefe»). Copiado del selector del super admin (PiezasCentro.tsx →
+ * `SelectoresDeEnvio`): un desplegable chico por cosa, adentro del «+», con «Automático» primero. Las cuentas son las que
+ * arma el servidor para ESTA persona (lib/chat-ia-reglas.ts → `CuentaDeIA`); sin ellas no se dibuja.
+ */
+export function SelectoresDelCliente({ k }: { k: ChatCliente }) {
+  const cuentas = k.cuentasIA;
+  if (!cuentas?.length) return null;
+  const e = k.iaDelChat;
+  const cuenta = e ? cuentas.find((c) => c.cuenta === e.cuenta) ?? null : null;
+  return (
+    <>
+      <label className="co-envio-fila">
+        <span>Cuenta</span>
+        <select className="co-chip co-envio-sel" title="Con qué cuenta corre este chat" value={e?.cuenta ?? AUTOMATICO_IA} disabled={k.enCurso}
+          onChange={(ev) => k.elegirIA(ev.target.value === AUTOMATICO_IA ? null : { cuenta: ev.target.value as CuentaIA })}>
+          <option value={AUTOMATICO_IA}>Automático · lo decide el chat jefe</option>
+          {cuentas.map((c) => <option key={c.cuenta} value={c.cuenta}>{c.nombre}</option>)}
+        </select>
+      </label>
+      {cuenta && cuenta.modelos.length > 0 && (
+        <label className="co-envio-fila">
+          <span>Modelo</span>
+          <select className="co-chip co-envio-sel" title="Con qué modelo corre" value={e?.modelo ?? AUTOMATICO_IA} disabled={k.enCurso}
+            onChange={(ev) => k.elegirIA({ cuenta: cuenta.cuenta, ...(ev.target.value === AUTOMATICO_IA ? {} : { modelo: ev.target.value }) })}>
+            <option value={AUTOMATICO_IA}>{cuenta.modeloDefault ? `Automático · ${NOMBRE_MODELO_IA[cuenta.modeloDefault] ?? cuenta.modeloDefault}` : 'Automático'}</option>
+            {cuenta.modelos.map((m) => <option key={m} value={m}>{NOMBRE_MODELO_IA[m] ?? m}</option>)}
+          </select>
+        </label>
+      )}
+    </>
+  );
+}
+const AUTOMATICO_IA = '';
 
 export function HiloDelCliente({ k }: { k: ChatCliente }) {
   // El grupo de WhatsApp se lee: sin el menú de un mensaje (no se responde, no se reacciona; se contesta en el grupo).
@@ -106,6 +143,8 @@ export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movi
       enterManda={!movil} campo={campo} seguir={seguir} onErrorMic={k.setFaltaMic} adjuntos={k.adjuntosCaja} voz={k.vozCaja}
       {...(movil ? { altoMax: null, fila: 'm-operaciones-caja__fila' } : {})}
       hayAlgoMas={k.pegados.length > 0} onPegar={k.pegarLargo}
+      // Con qué IA corre este chat (8b): adentro del «+», sólo si hay cuentas para elegir.
+      mas={k.cuentasIA?.length ? <SelectoresDelCliente k={k} /> : undefined}
       alFinal={angosta ? null : conectar}
       arriba={<>
         {angosta && conectar && <div className="co-conectar-ia-arriba">{conectar}</div>}
@@ -128,4 +167,4 @@ export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movi
 }
 
 /** La línea de abajo de la caja: lo que dijo el micrófono, el «+», una marca que no se guardó, o que Offer está armando. */
-export const estadoDelCliente = (k: ChatCliente): string => k.faltaMic ?? (k.armandoOffer ? 'MaKo está armando tu oferta. Puede tardar unos minutos.' : '');
+export const estadoDelCliente = (k: ChatCliente): string => k.faltaMic ?? (k.armandoOffer ? 'MaKo está armando tu oferta. Puede tardar unos minutos.' : k.resumenIA ?? '');

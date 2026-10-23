@@ -34,6 +34,7 @@ import type { PreguntaDeLaTab } from '@/app/admin/operaciones/PreguntasDelChat';
 import { entidadDelLead, useLeadAbierto } from '../lead-abierto';
 import { leerRespuesta } from '@/app/m/mako/chat-ui';
 import { pedidoParaElCerebro, type SugerenciaDePantalla } from '@/lib/sugerencias-crm';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const RUTA = '/api/crm/mako';
 
@@ -163,7 +164,7 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
               <div key={s.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, paddingBottom: 4 }}>
                 <p style={{ margin: 0, fontSize: 13, lineHeight: 1.4, color: 'var(--dim)', overflowWrap: 'anywhere' }}>{s.texto}</p>
                 <Button variant="secondary" size="sm" loading={enCurso} disabled={!!ocupada && !enCurso} onClick={() => void pedirAlServer('volver_a_mostrar', s)}>Volver a mostrar</Button>
-                {errorFila[s.id] && <p role="alert" style={{ margin: 0, fontSize: 12.5, color: 'var(--warn)' }}>{errorFila[s.id]}</p>}
+                {errorFila[s.id] && <p role="alert" style={{ margin: 0, fontSize: 12.5, color: 'var(--warn)' }}>{errorFila[s.id]}<ReportarASoporte /></p>}
               </div>
             );
           })}

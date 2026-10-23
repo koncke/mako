@@ -71,6 +71,7 @@ import {
   valorInicial, yaNoPendiente, type VistaInbox,
 } from './inbox-ui';
 import type { DecisionM } from './decision-m';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Un aviso del feed, ya traducido por el server (ruta MÓVIL o null = sólo lectura). */
 export type AvisoM = {
@@ -406,7 +407,7 @@ function SheetDecision({ item, ahora, onCerrar, onResuelto, onYaNo }: {
 
   // ── El pie: el motivo si algo falló, la consecuencia en tinta, y los botones ──
   const aviso = error
-    ? <p className="m-inbox-aviso m-inbox-aviso--error" role="alert">{error}</p>
+    ? <p className="m-inbox-aviso m-inbox-aviso--error" role="alert">{error}<ReportarASoporte /></p>
     : !enLinea && it.accionMovil !== 'computadora'
       ? <p className="m-inbox-aviso" role="status">Sin conexión: no se puede aprobar.</p>
       : null;

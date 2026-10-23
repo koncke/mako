@@ -28,6 +28,7 @@ import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { useEditorLanding } from './contexto';
 import { DialogoGma, Ico, ItemMenu, Menu, SepMenu } from './MenuDocumento';
 import { useReordenar } from './TiraSecciones';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reglas puras (las fija tests/editor-landing-armazon.test.ts)
@@ -218,7 +219,7 @@ export default function PanelPaginas({ onCerrar }: { onCerrar: () => void }) {
                       onBlur={() => terminarEdicion(true)}
                       onClick={(e) => e.stopPropagation()}
                     />
-                    {editando.error ? <span className="gma-campo-error" role="alert">{editando.error}</span> : null}
+                    {editando.error ? <span className="gma-campo-error" role="alert">{editando.error}<ReportarASoporte /></span> : null}
                   </span>
                 ) : (
                   <>

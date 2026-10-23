@@ -31,6 +31,8 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g,
 
 /** Las pantallas de MaKo con chat, y en qué están. «pendiente, de <chat>»: la migra el chat de esa área. */
 const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
+  // La Ticketera del cliente como chat (23/10/2026): la computadora y el teléfono.
+  'app/tickets/soporte/PiezasSoporte.tsx': 'caja única',
   'app/admin/operaciones/Conversacion.tsx': 'caja única',
   'app/m/operaciones/ChatsMovil.tsx': 'caja única',
   // El chat del cliente (22/10/2026): su caja vive en PiezasCliente.tsx y la montan la computadora y el teléfono.
@@ -38,7 +40,9 @@ const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
   // Offer, la tab y el onboarding, y Offer en el teléfono (22/10/2026, OF4): con el hilo del Ops Center (HiloMako) en la tab.
   'app/offer/ChatOffer.tsx': 'caja única',
   'app/m/offer/ComposerOfferM.tsx': 'caja única',
-  'app/automations/ChatMako.tsx': 'pendiente, de Automations',
+  // 23/10/2026 (AU4): el chat de MaKo de Automations dibuja el hilo y la caja únicos desde ChatMakoVista.tsx, que ChatMako.tsx
+  // carga con next/dynamic (ChatMako lo importan el lienzo y la galería, que dibujan muchos tests; las piezas traen CSS).
+  'app/automations/ChatMakoVista.tsx': 'caja única',
   // El MaKo Analyst de la ficha de un lead (22/10/2026, CR3): el hilo y la caja del Ops Center, con su motor (/api/crm/analyst).
   'app/crm/lead-view/MakoAnalystLead.tsx': 'caja única',
   // 22/10/2026 (OC2): EditorMako.tsx no es un chat (edita el pedido y las sugerencias del botón de un gráfico) y salió de la
