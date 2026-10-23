@@ -5420,9 +5420,47 @@ tests/ia-pc-firma.test.ts · los pasos de Martín en docs/plan-instalador-escrit
 - **El desinstalador de Inno (`unins000.exe`) queda sin firmar.** Firmarlo pide la directiva `SignTool` de Inno, con el
   comando en la línea de ISCC, que lo imprime con la clave. No baja de internet (no tiene la marca de la web), así que
   SmartScreen no lo revisa.
-- **La Mac** espera la respuesta por Apple Developer (US$99/año a nombre de Martín).
+- **La Mac:** su firma está en la entrada de abajo.
 - `buscarCodeSignTool` supone la carpeta del .zip de Windows de hoy (`jar/code_sign_tool-*.jar`, `jdk-*`). Si SSL.com la
   cambia, el script dice qué no encontró.
+
+## Firmar y notarizar la Mac DESDE ESTA PC (Developer ID + rcodesign), listo antes del certificado (23/10/2026)
+
+**El porqué:** Martín abre Apple Developer individual a su nombre (02:17: «Sí, a mi nombre ahora»). El Cerebro: «Dejala
+preparada como la de Windows, con sus pasos y sin probar hasta tener el certificado».
+
+**Vive en:** scripts/ia-pc/firmar-mac.mjs · `esLaAppDeMac` y `copiarLaAppAlArranque` (scripts/ia-pc/mako-pc.mjs) ·
+publicar-binarios (`firmaMacDeEstaPc`, `FIRMAR_MAC`) · tests/ia-pc-firma-mac.test.ts · los pasos de Martín en
+docs/plan-instalador-escritorio.md › «Firmar la Mac: lo que hace Martín».
+
+- **Las firmas que traen los ejecutables de Bun están VENCIDAS** (medido con Bun 1.2.21 armando en esta PC, hash por hash):
+  - el de arm64 trae una firma local del linker que no coincide en la última página;
+  - el de Intel trae la de Oven, rota en dos páginas: la cabecera y la de `__BUN`, donde Bun mete el programa.
+  Sin una firma nueva, el chip de Apple no lo corre. La firma local que pone el lanzador de la app sin firmar
+  (`codesign --force --sign -`) NO es opcional.
+- **Bun guarda el programa en una sección propia (`__BUN,__bun`):** firmarlo después no lo rompe, y un universal anda.
+- **Firmada, la app no puede tener un guion como ejecutable.** La firma de un guion vive en atributos extendidos, y un .zip
+  no los guarda. Va UN Mach-O universal (Intel y Apple, armado en JS como `lipo -create`, alineado a 16 KB) en
+  Contents/MacOS/MaKo. Al abrirse, se copia a ~/.mako-pc/bin sin cuarentena. Nunca le pone la firma local: pisaría la de
+  Apple.
+- **Sin Mac, se firma y se notariza con rcodesign** (indygreg/apple-platform-rs, trae .exe de Windows):
+  - `sign --for-notarization` exige el Developer ID, la marca de tiempo y el hardened runtime;
+  - los entitlements de Bun (el JIT) van aparte;
+  - `notary-submit --staple` deja el ticket en Contents/CodeResources, que se zipea con lo demás.
+- **«Firmado» se lee como la Mac** (`problemasParaNotarizar`), no por el código de salida, y se mira ANTES de notarizar. En
+  las dos rebanadas: cada página contra su hash (la última, parcial), la firma CMS del certificado (una local no la trae, o
+  la trae vacía), la marca de tiempo, el runtime y el JIT.
+- **La trampa del test:** la guarda de OneDrive «pasaba» sin la guarda. El camino de prueba (`C:\Users\m\OneDrive\x`) no
+  existía, y el error de permisos al crearlo también decía «OneDrive». Se prueba con una carpeta temporal que tiene OneDrive
+  en el camino, y con el mensaje entero.
+- **El tamaño:** el universal comprimido mide 48 MB; Supabase corta en 50.
+
+### Lo que quedó SIN hacer
+- **Sin probar en una Mac ni con Apple:** no hay certificado ni Mac. Los primeros intentos de notarizar suelen fallar
+  (rcodesign recomienda tener antes una prueba con las herramientas de Apple). Falta ver que macOS deje abrir el universal
+  de Bun con el runtime y que la copia corra desde el arranque. Lo mira el log de `notary-log`.
+- **La línea de «Abrir igualmente»** (`AVISO_GATEKEEPER`) se saca de la pantalla en la versión que salga firmada.
+- **El margen de 2 MB** con el tope de Supabase: si el programa crece, el .zip de la Mac no entra.
 
 ## MaKo.app: la Mac SIN Terminal (0.4.2, 23/10/2026)
 
