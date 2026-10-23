@@ -104,6 +104,24 @@ export const CSS_BASE_LIBRE = [
   '.gm-libre-seccion { display: contents; }',
 ].join('\n');
 
+/**
+ * ¿Un medio (src, poster, srcset, un url() de un estilo) puede cargarse desde una sección de diseño? Sólo una URL
+ * ABSOLUTA https (o una imagen `data:`) y nunca a una ruta /api/. ⚠️ El editor dibuja la sección en un iframe del
+ * MISMO origen que la app (para poder editarla): un `<img src="/api/…">` ahí sale con la cookie de quien la abre
+ * (un GET con su sesión). Un relativo, además, en hola-mako.site apuntaría a otro lado que en hola-mako.com.
+ */
+export function medioPermitido(raw: string): boolean {
+  const v = raw.trim();
+  if (/^data:image\/(png|jpe?g|gif|webp|avif);/i.test(v)) return true;
+  if (!/^https:\/\//i.test(v)) return false;
+  try {
+    const ruta = decodeURIComponent(new URL(v).pathname).replace(/\/+/g, '/').toLowerCase();
+    return !ruta.startsWith('/api/') && ruta !== '/api';
+  } catch {
+    return false;
+  }
+}
+
 /** Lo único que puede importar la hoja del diseño: una fuente de Google Fonts. */
 // La URL de Google Fonts LLEVA `;` (`wght@400;500;600`): el `@import` se lee hasta el cierre de su url() o
 // de sus comillas, no hasta el primer `;` (con eso no matcheaba y el import quedaba después de la base).
@@ -125,7 +143,9 @@ export function cssDisenoLimpio(raw: unknown): string {
     .replace(/<!--|-->/g, '')
     .replace(RE_IMPORT, (todo: string) => (DE_GOOGLE_FONTS.test(todo) ? todo : ''))
     // Un `@import` con otra forma (sin url ni comillas) no se lee: se va.
-    .replace(/@import(?![^;]*fonts\.googleapis\.com)[^;]*;?/gi, '');
+    .replace(/@import(?![^;]*fonts\.googleapis\.com)[^;]*;?/gi, '')
+    // Un url() de la hoja carga en el editor con la sesión de quien lo abre (`medioPermitido`): sólo los permitidos.
+    .replace(/url\(\s*(["']?)(.*?)\1\s*\)/gi, (todo: string, _c: string, url: string) => (medioPermitido(url) || /^https:\/\/fonts\.googleapis\.com\//i.test(url) ? todo : 'url()'));
 }
 
 /**
@@ -180,7 +200,7 @@ export function usaCalendly(html: string): boolean {
  *     del Pixel de MaKo en `utm_term` (la cadena de atribución: docs/hallazgos-landing.md).
  *   · La agenda confirmada (`calendly.event_scheduled`, origen exacto) → `Schedule` al Píxel de Meta si la
  *     página lo cargó. Una sola vez por carga (Calendly puede repetir el mensaje).
- * La raíz `.gm-libre` dice de dónde sale lo de MaKo (`data-app`, el origen de la app). Idempotente: corre
+ * Lo de MaKo (la red) sale SIEMPRE de https://hola-mako.com (fijo: el HTML no lo elige). Idempotente: corre
  * una vez por página (`window.__gmDiseno`).
  */
 export const SCRIPT_DISENO = [
@@ -190,7 +210,8 @@ export const SCRIPT_DISENO = [
   '  var raiz = d.querySelector(".gm-libre");',
   '  if (!raiz) return;',
   '  window.__gmDiseno = 1;',
-  '  var APP = (raiz.getAttribute("data-app") || "https://hola-mako.com").replace(/\\/+$/, "");',
+  // El origen FIJO de lo de MaKo (la red): un atributo del HTML no lo puede cambiar.
+  '  var APP = "https://hola-mako.com";',
   '  var todos = function (sel) { return Array.prototype.slice.call(raiz.querySelectorAll(sel)); };',
   '',
   '  var rev = todos("[data-reveal]");',

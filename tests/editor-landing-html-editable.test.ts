@@ -15,7 +15,7 @@
 // Probado rompiéndolo (23/10/2026): con el `return htmlDePaginaLibre(...)` de render.ts apagado fallan 2 de 9
 // («la página libre no envuelve…» y «una sección de Gamma en el medio…»: el diseño sale adentro de
 // section.gm-tarjeta, con el marco de Gamma). Con la base ADELANTE del @import en `hojaDeDiseno`, falla 1 de 10
-// («la hoja publicada lleva el @import…»). Con todo en su lugar, 10 de 10.
+// («la hoja publicada lleva el @import…»). Con todo en su lugar,  11 de 11. Con `medioPermitido` aceptando todo, falla 1 de 11 («ningún medio de un diseño apunta a la API…»).
 // =============================================================================
 
 import { test } from 'node:test';
@@ -125,6 +125,15 @@ test('el saneo del server saca scripts y eventos, y deja el VSL de Panda con su 
   assert.ok(limpio.includes(`src="${panda.replace(/&/g, '&amp;')}"`), 'el VSL con su color');
   assert.ok(limpio.includes('data-reveal="1"') && limpio.includes('style="color:red"'));
   assert.match(limpio, /<svg viewBox="0 0 24 24">/);
+});
+
+test('ningún medio de un diseño apunta a la API ni es relativo (el editor lo carga con la sesión de quien abre)', () => {
+  const limpio = sanearHtmlEditable('<div style="background:url(/api/salir);color:red"><img src="/api/x"><img src="https://hola-mako.com/api/y">'
+    + '<img src="https://hola-mako.com/vsl-assets/a.png"><video poster="//evil.tld/p.png"></video><div style="background-image:url(\'https://hola-mako.com//API/z\')"></div></div>');
+  assert.ok(!/\/api\//i.test(limpio) && !/evil\.tld/.test(limpio), limpio);
+  assert.ok(limpio.includes('src="https://hola-mako.com/vsl-assets/a.png"'));
+  assert.ok(limpio.includes('color:red'), 'el resto del estilo queda');
+  assert.equal(cssDisenoLimpio('.a{background:url(/api/x)}.b{background:url(https://hola-mako.com/vsl-assets/b.png)}'), '.a{background:url()}.b{background:url(https://hola-mako.com/vsl-assets/b.png)}');
 });
 
 test('la publicada lleva la hoja y el script del diseño, con la política que los deja correr', () => {

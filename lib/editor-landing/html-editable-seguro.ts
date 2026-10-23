@@ -21,6 +21,7 @@ import 'server-only';
 import sanitizeHtml from 'sanitize-html';
 import { embedDe } from '../embeds';
 import { NODO, TOPES, type JsonNodo, type LandingContenido } from './doc';
+import { medioPermitido } from './html-editable';
 
 const ETIQUETAS = [
   // cajas y texto
@@ -88,10 +89,25 @@ function iframePermitido(src: unknown): boolean {
   }
 }
 
+const desescapar = (v: string) => v.replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, '&');
+
+/** Saca de un estilo los `url()` que no son un medio permitido (quedan `url()`, que no carga nada). */
+function estiloSeguro(estilo: string): string {
+  return estilo.replace(/url\(\s*(["']?)(.*?)\1\s*\)/gi, (todo: string, _c: string, url: string) => (medioPermitido(url) ? todo : 'url()'));
+}
+
+/** La segunda pasada sobre lo que dejó sanitize-html: los medios y los url() de los estilos (ver `medioPermitido`). */
+function endurecer(html: string): string {
+  return html
+    .replace(/\s(src|poster)="([^"]*)"/g, (todo: string, _a: string, v: string) => (medioPermitido(desescapar(v)) ? todo : ''))
+    .replace(/\ssrcset="([^"]*)"/g, (todo: string, v: string) => (desescapar(v).split(',').every((c) => medioPermitido(c.trim().split(/\s+/)[0] ?? '')) ? todo : ''))
+    .replace(/\sstyle="([^"]*)"/g, (_t: string, v: string) => ` style="${estiloSeguro(desescapar(v)).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`);
+}
+
 /** El HTML de una sección de diseño, saneado. Pasado el tope (`TOPES.htmlEditable`), vacío. */
 export function sanearHtmlEditable(html: unknown): string {
   if (typeof html !== 'string' || !html.trim() || html.length > TOPES.htmlEditable) return '';
-  return sanitizeHtml(html, OPCIONES).trim();
+  return endurecer(sanitizeHtml(html, OPCIONES)).trim();
 }
 
 /** El contenido con cada «Diseño editable» saneado (no muta: devuelve otro). */
