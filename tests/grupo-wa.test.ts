@@ -208,6 +208,9 @@ test('7. el traído de un grupo QUEDA DONDE LO PUSIERON: ni el CRM automático n
 });
 
 test('8. la revisión de privacidad del 23/10: nace en su etapa, sin terminales, y sin su foto en el bucket público', async () => {
+  // PROBADO ROMPIÉNDOLO (arnés `romper-grupo3.mjs`; base 9/0, 8 de 8): nace en la entrada · createLead ignora la etapa · vuelve
+  // a moverlo después · el texto de la base a la pantalla · la pantalla no los nombra · ofrece Ganado y las terminales · la foto
+  // de los traídos al bucket público · el cron de fotos no lee el origen. Cada una, en rojo.
   const { readFileSync } = await import('node:fs');
   const { join } = await import('node:path');
   const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');

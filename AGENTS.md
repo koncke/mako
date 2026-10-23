@@ -10105,3 +10105,8 @@ Y DESPUÉS TAMPOCO: un lead que nadie decidió contactar (el traído de un grupo
 los barridos que toman leads por edad o por estado sin colgar de una etapa ni de una etiqueta. Un barrido nuevo de esos
 tiene que filtrarlo, y el que lea leads con una lista de columnas tiene que traer `origen_lead`: sin la columna llega
 `undefined` y el filtro no filtra.
+
+Y NACE DONDE VA: un lead que no debe recibir nada nace en su etapa final (`createLead({ pipeline_stage })`), nunca en la de
+entrada y movido después. Entre el alta y el movimiento, el barrido de la hora lo inscribe en lo que cuelga de la entrada
+(«Un Lead Entró»), y si el movimiento falla queda ahí. Tampoco a una etapa terminal (`terminalEstadoFor ≠ abierto`): «Ganado»
+lo vuelve venta y cliente de Customer Success, con el onboarding de la entrega.

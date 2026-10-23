@@ -69,9 +69,30 @@ No se probó con una línea de un cliente (las del ws3 y ws9 están cerradas): l
   ahí, el planificador recibe `undefined` y lo mueve igual, y el test del planificador puro no lo ve: se fija aparte.
 - Las cohortes se filtran DESPUÉS de leer, no con otro `.or()`: `conAmbito` ya pone el suyo en la misma consulta.
 
+### Lo que encontró la revisión de Integración (23/10/2026)
+
+- **H1. Revisar la etapa DESTINO no alcanzaba: el lead pasaba por la de ENTRADA.** `createLead` no recibía la etapa, así que
+  el lead nacía en la entrada y `setPipelineStage` lo movía después. Entre una cosa y la otra pasaban varias consultas, y con
+  un grupo grande el barrido de la hora caía en esa ventana, lo inscribía en «Un Lead Entró» y la inscripción seguía viva
+  después del movimiento. Y si el movimiento fallaba, el lead quedaba en la entrada para siempre, y la pantalla sólo contaba
+  «N no se pudieron». **La regla:** un lead que no debe recibir nada NACE en su etapa final (`createLead({ pipeline_stage })`),
+  nunca en la de entrada y movido después. La pantalla nombra a los que fallaron.
+- **H2. «Ganado» no manda nada y aun así hace daño.** Una etapa terminal escribe el estado: con «Ganado», el grupo entero
+  quedaba como venta (Revenue, Closing) y como cliente de Customer Success, y el barrido de la entrega le mandaba el
+  onboarding. `etapasQueDisparan` sólo conoce `etapa_actual` y las etiquetas, no la entrega. Las terminales
+  (`terminalEstadoFor ≠ abierto`) no se ofrecen ni se aceptan.
+- **H3.** El cron diario de fotos (`lib/fotos-contacto.ts`) copiaba a un bucket público la foto de WhatsApp de cualquier lead
+  con teléfono. Ahora también deja afuera a `quedaDondeLoPusieron`.
+- **Sin hacer (bajas, del informe):** H4, los traídos cuentan como «entraron por un canal» en la cola de prioridad
+  (`esEntradaFresca`, lib/nutricion-prioridad.ts; el mismo agujero ya existía con `importacion`). H5, sin tope total ni
+  confirmación por cantidad. H6, `lineasDelNegocio` sin `esLineaDelWorkspace`. H7, `traer_contactos_de_grupo` se puede usar
+  como acción de una automatización: falta decidir si va a propósito. H8, el nombre del grupo llega del navegador. H9, no se
+  miran `wa_bloqueados`/`wa_ocultos`. H10, mensajes crudos de las acciones. El informe está en la carpeta de notas del
+  Cerebro (`revision-offer-grupo-wa-2310.md`).
+
 **Vive en:** `app/crm/grupo-wa-server.ts` · `app/crm/grupo-wa-actions.ts` · `app/crm/TraerDeGrupoWA.tsx` ·
 `lib/grupo-wa-reglas.ts` · `quedaDondeLoPusieron` en `app/crm/origen-lead.ts` (lo leen lib/crm-auto-plan.ts y
-lib/nutricion.ts) · `tests/grupo-wa.test.ts` (21 + 10 roturas). Lo de Evolution, en hallazgos-comunicacion.md.
+lib/nutricion.ts) · `tests/grupo-wa.test.ts` (21 + 10 + 8 roturas). Lo de Evolution, en hallazgos-comunicacion.md.
 
 *23/10/2026, chat «Offer» (claude3).*
 
