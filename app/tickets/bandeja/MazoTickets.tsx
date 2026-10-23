@@ -252,6 +252,13 @@ export function MazoTickets({ tickets, cerebro, ahora, onCambio, onVerTodo, quie
             </button>
           </div>
         )}
+        {/* EL DESHACER, ARRIBA Y SUTIL (23/10/2026, Martín: «no va con los otros cuatro: arriba de las tarjetas, sutil, como
+            "Deshacer"»). Sólo con algo para deshacer. ⌫ y Ctrl+Z siguen igual. */}
+        {hayVuelta && (
+          <button type="button" className="tickets-bandeja__deshacer" onClick={volver} title="Deshacer la última (⌫)">
+            <Icon name="regenerar" size={14} />Deshacer
+          </button>
+        )}
         <div className="tickets-bandeja__franja-der">{barra}</div>
       </header>
 
@@ -297,15 +304,8 @@ export function MazoTickets({ tickets, cerebro, ahora, onCambio, onVerTodo, quie
         </div>
       </div>
 
-      {/* La fila de los botones, centrada debajo de la tarjeta: ↺ ✕ ↑ ✓ (el orden de Tinder: volver, no, el del medio, sí). */}
+      {/* La fila de los botones, centrada debajo de la tarjeta: ✕ ↑ ✓ (no, el del medio, sí). El deshacer va arriba. */}
       <div className="tickets-bandeja__pulgar">
-        <button type="button" className="tickets-bandeja__gesto tickets-bandeja__gesto--volver" onClick={volver} disabled={!hayVuelta}
-          aria-label={hayVuelta ? 'Volver: deshacer la última (⌫)' : 'Nada para volver'} title={hayVuelta ? 'Volver: deshacer la última (⌫)' : 'Nada para volver'}>
-          <svg viewBox="0 0 24 24" width="25" height="25" aria-hidden>
-            <path d="M4.5 9.5h9.8a4.7 4.7 0 010 9.4H9" stroke="currentColor" strokeWidth="2.3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M8 5.2L3.8 9.5 8 13.8" stroke="currentColor" strokeWidth="2.3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
         {actual && acciones && (
           <>
             <BotonGesto s="izquierda" a={acciones.izquierda} marcado={marca === 'izquierda'} onClick={() => decidir('izquierda')} />

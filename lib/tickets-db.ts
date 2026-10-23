@@ -71,6 +71,9 @@ export type FilaTicket = {
   avisado_at: string | null;
   /** El nombre del negocio (join con workspaces), sólo en lo que lee Martín. */
   negocio?: string | null;
+  /** El chat donde MaKo falló (`contexto.chat.hilo`, de chart_sessions): su título y su clave, para decir DÓNDE. Sólo en la
+   *  bandeja (`conChatDeLosTickets`, 23/10/2026). */
+  chatDelTicket?: { titulo: string | null; clave: string | null } | null;
   /** La foto de perfil de quien lo levantó (`usuarios.foto_url`, la misma de /api/perfil), sólo en lo que lee Martín.
    *  null = no tiene, o no es https (un ticket por WhatsApp sin usuario no tiene fila). */
   foto?: string | null;
@@ -280,6 +283,23 @@ export async function comentarComoCliente(ws: number, email: string, id: number,
 // ── Lo de MARTÍN: quien llama ya pasó por `puedeOperar` ───────────────────────────────────────────────────────────
 /** Lo que lee Martín: la fila, el negocio y la FOTO de quien lo levantó (el `usuario_id` apunta a `usuarios`). */
 const COLS_MARTIN = `${COLS}, workspaces(nombre), usuarios(foto_url)`;
+
+/**
+ * El chat de cada ticket que MaKo levantó al fallar en un chat (`contexto.chat.hilo`): su título y su clave (23/10/2026, Martín:
+ * la tarjeta tiene que decir DÓNDE). Una lectura para todos; si falla, la bandeja sale igual, sin el dónde.
+ */
+export async function conChatDeLosTickets(filas: FilaTicket[]): Promise<FilaTicket[]> {
+  const ids = [...new Set(filas.map((f) => f.contexto?.chat?.hilo).filter((h): h is string => !!h && /^\d{1,12}$/.test(h)))];
+  if (!ids.length) return filas;
+  try {
+    const { data, error } = await getSupabaseServer().from('chart_sessions').select('id, chart_key, titulo').in('id', ids.map(Number));
+    if (error || !data) return filas;
+    const porId = new Map(data.map((s) => [String(s.id), { titulo: (s.titulo as string | null) ?? null, clave: (s.chart_key as string | null) ?? null }]));
+    return filas.map((f) => { const c = f.contexto?.chat?.hilo ? porId.get(f.contexto.chat.hilo) : undefined; return c ? { ...f, chatDelTicket: c } : f; });
+  } catch {
+    return filas;
+  }
+}
 
 export async function bandeja(limite = 200): Promise<Lectura<FilaTicket[]>> {
   const db = getSupabaseServer();

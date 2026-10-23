@@ -110,8 +110,24 @@ seguidos**, con tareas de 300 a 620 ms, y volvía cada 2 o 3 s con tareas de 100
 Nace y flota sobre el Ops Center hasta que la conversación se dibujó, y vuela a la criatura de la cabecera. Va una vez por
 documento. `.co` pasó a `position: relative`; ningún absoluto de adentro dependía de que no lo fuera.
 
+**El después, medido igual (tren 17, 23/10/2026 00:50, en caliente, con el MISMO chat abierto, Cobros):** en la entrada, 517 ms
+de tareas largas en total, la peor de 176 ms; antes, ~1,9 s seguidos, con tareas de hasta 624 ms. El refresco dejó tareas de 63 a
+152 ms; antes llegaban a 330. La criatura entra sola sobre el Ops Center y se va cuando se dibujó la conversación. El HTML sigue
+en 1,3–1,5 s.
+
+**Trampas de esa medición:**
+- `/admin/operaciones` sin `?centro=` abre el último chat, y el número cambia mucho según cuál sea. Se compara con el mismo chat
+  fijo en la URL.
+- Una captura de pantalla de la extensión EN PLENA carga infló la entrada a 3,4 s.
+- La primera visita después de un deploy es en frío: el HTML a 3,9 s y la página a 13 s.
+
 **Regla:** algo que se calcula por chat no recorre en cada vuelta lo que no depende del chat. Se lo calcula una vez por refresco y
 se lo busca. tests/ops-center-carga.test.ts.
+
+**SIN HACER, lo primero:** un chat que está TRABAJANDO (con sus pasos en vivo y el refresco cada 2,5 s) sigue trabando.
+Medido con el chat «Ops Center» abierto mientras trabajaba: 1,6 s en la entrada y después tareas de 745 ms y 2,7 s, con sólo 26
+mensajes dibujados. No es el historial: es lo que se vuelve a dibujar en cada vuelta mientras trabaja (`Trabajando` con sus
+pasos, `pasosPorChat`, y el `set` con referencias nuevas de cada refresco).
 
 **SIN HACER (lo que encontró la investigación del 23/10, por orden de impacto probable):**
 - `pedidos` viaja entero al navegador: 721 KB, 450 pedidos. Se hidrata con el resto (`DatosCentro`).
