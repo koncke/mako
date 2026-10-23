@@ -36,7 +36,7 @@
 // 23/10/2026 (Martín, por el Cerebro): «Todo vive en UNA sola pantalla, sin pestañas ni nombre de pestaña: sólo el título
 // "Configuraciones"». Eran dos pestañas (Horario y «Anti-ban», antes «Límites»). Ahora el cuerpo es
 // `AjustesDeLaAutomatizacion` (ConfigAutomatizacionPanel.tsx): «Horario de oficina» y un bloque por canal. El modal tiene
-// ALTO FIJO y el cuerpo scrollea.
+// ALTO FIJO y el cuerpo scrollea. Y desde ese mismo día, nada «para todas» (los límites de la línea ya no se ven acá).
 //
 // ⚠️ EL `onCerrar` DEL MODAL TIENE IDENTIDAD FIJA (`useCerrarEstable`, AGENTS.md: «Todo `<Modal>` recibe un
 // `onCerrar` de identidad FIJA»): una flecha nueva por render re-corre el efecto de foco del Modal y el
@@ -60,7 +60,7 @@ import { Modal } from '@/app/_ui';
 import { useCerrarEstable } from '@/app/customer-success/curso/dialogo-foco';
 import { AjustesDeLaAutomatizacion } from './ConfigAutomatizacionPanel';
 import { getConfigAutomatizacionAction } from './config-automatizacion-actions';
-import { tieneConfigPropia, type PropsConfiguraciones } from '@/lib/config-automatizacion';
+import { tieneRitmoPropio, type PropsConfiguraciones } from '@/lib/config-automatizacion';
 import { LADO_FILTRO } from './FiltroLista';
 import { OBJETIVO_AYUDA } from './recorrido-automations';
 
@@ -70,29 +70,28 @@ import { OBJETIVO_AYUDA } from './recorrido-automations';
  */
 export function ConfiguracionesModal({ secuenciaId, onCerrar }: PropsConfiguraciones) {
   /** Guardados en vuelo, por panel: mientras haya uno, el modal no se cierra. */
-  const [sucios, setSucios] = useState<{ horario: boolean; antiban: boolean; limites: boolean }>({ horario: false, antiban: false, limites: false });
-  const ocupado = sucios.horario || sucios.antiban || sucios.limites;
+  const [sucios, setSucios] = useState<{ horario: boolean; antiban: boolean }>({ horario: false, antiban: false });
+  const ocupado = sucios.horario || sucios.antiban;
   const cerrar = useCerrarEstable(onCerrar, ocupado);
   // Identidades FIJAS: los paneles las tienen en las dependencias de un efecto.
   const alSucioHorario = useCallback((s: boolean) => setSucios((p) => (p.horario === s ? p : { ...p, horario: s })), []);
   const alSucioAntiban = useCallback((s: boolean) => setSucios((p) => (p.antiban === s ? p : { ...p, antiban: s })), []);
-  const alSucioLimites = useCallback((s: boolean) => setSucios((p) => (p.limites === s ? p : { ...p, limites: s })), []);
 
   return createPortal(
     <Modal titulo="Configuraciones" onCerrar={cerrar} ancho={600} alto="min(85vh, 680px)" sinFiletes>
       {/* UN SOLO HIJO (punto 1): el cuerpo del Modal le pone un filete arriba al segundo. Con `paddingTop: 0` (22/10/2026:
           «achicá el espacio»): el cuerpo le pone 18 px a su hijo. Una sola pantalla, sin pestañas (23/10/2026). */}
       <div data-config-automatizacion={secuenciaId} style={{ paddingTop: 0 }}>
-        <AjustesDeLaAutomatizacion secuenciaId={secuenciaId} onSucioHorario={alSucioHorario} onSucioAntiban={alSucioAntiban} onSucioLinea={alSucioLimites} />
+        <AjustesDeLaAutomatizacion secuenciaId={secuenciaId} onSucioHorario={alSucioHorario} onSucioAntiban={alSucioAntiban} />
       </div>
     </Modal>,
     document.body,
   );
 }
 
-/** ¿Esa automatización tiene algo propio? (el aviso de Prospección de Publicar y Probar). */
+/** ¿Esa automatización ya tiene su ritmo (horario o goteo)? (el aviso de Prospección de Publicar y Probar: `tieneRitmoPropio`). */
 export async function tieneConfigPropiaDe(secuenciaId: number): Promise<boolean> {
-  return tieneConfigPropia((await getConfigAutomatizacionAction(secuenciaId)).config);
+  return tieneRitmoPropio((await getConfigAutomatizacionAction(secuenciaId)).config);
 }
 
 /** El rótulo del «?». */

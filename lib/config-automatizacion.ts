@@ -41,8 +41,9 @@ export function secuenciaDeClave(clave: string): number | null {
 }
 
 /**
- * Lo propio de una automatización. Cada parte AUSENTE = la del negocio. `horario: null` también se guarda: es «sin
- * horario» propio (manda a cualquier hora aunque el negocio tenga uno), distinto de no haber elegido.
+ * Lo propio de una automatización. Cada parte AUSENTE = la del negocio (desde el 23/10/2026 toda automatización NACE con su
+ * «Misma persona» guardada: `CONFIG_DE_NACIMIENTO`). `horario: null` también se guarda: es «sin horario» propio (manda a
+ * cualquier hora aunque el negocio tenga uno), distinto de no haber elegido.
  */
 export type ConfigAutomatizacion = {
   horario?: HorarioEnvio | null;
@@ -55,7 +56,7 @@ export type ConfigAutomatizacion = {
 /**
  * «MISMA PERSONA» APAGADO (22/10/2026, Martín, Configuraciones › Anti-ban: «Cada opción se prende y se apaga con un
  * interruptor... Apagada, no aplica»): 0 horas entre dos mensajes a la misma persona, sólo para ESTA automatización (los
- * leads de un anuncio, el caso del 16/10). Ausente sigue siendo «la del negocio»: ninguna que ya existía cambia. El motor
+ * leads de un anuncio, el caso del 16/10). Ausente sigue siendo «la del negocio» (y desde el 23/10/2026 las nuevas nacen con la suya apagada). El motor
  * no necesita nada propio: con 0 h la ventana de `leadsConEnvioReciente` (lib/nutricion.ts) es vacía, y lo que ya salió
  * en la MISMA corrida lo sigue frenando `frenadoPorAntiBan`.
  */
@@ -114,6 +115,13 @@ export type PropsConfiguraciones = { secuenciaId: number; nombre: string; onCerr
 export const tieneConfigPropia = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.personaHoras !== undefined || c.goteo !== undefined;
 
 /**
+ * ¿Ya le eligieron el RITMO? (el aviso de Prospección de Publicar y Probar: «revisa su horario y sus límites»). Su horario o
+ * su goteo, no la «Misma persona»: desde el 23/10/2026 TODAS las que existían tienen la suya guardada
+ * (scripts/misma-persona-propia.mts), y con `tieneConfigPropia` ninguna vieja volvía a avisar.
+ */
+export const tieneRitmoPropio = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.goteo !== undefined;
+
+/**
  * EL HORARIO QUE VALE PARA ESA AUTOMATIZACIÓN: el propio si eligió uno (también «sin horario»), si no el del negocio.
  * Un horario guardado APAGADO es «sin horario» (como el del negocio: `horarioVigente`).
  */
@@ -122,12 +130,46 @@ export function horarioDeLaAutomatizacion(c: ConfigAutomatizacion, delNegocio: H
   return c.horario && c.horario.activo ? c.horario : null;
 }
 
-/** LAS HORAS ENTRE DOS MENSAJES A LA MISMA PERSONA que valen para esa automatización, por canal. */
+/**
+ * LAS HORAS ENTRE DOS MENSAJES A LA MISMA PERSONA que valen para esa automatización, por canal: las suyas, y sin las suyas, las
+ * del negocio (la regla de siempre, que NO cambia: así el deploy y el paso de una vez se pueden hacer en cualquier orden).
+ *
+ * «"Misma persona" apagado por defecto» (Martín, 23/10/2026) se cumple al NACER: toda automatización nueva guarda la suya
+ * apagada (`CONFIG_DE_NACIMIENTO`, `nacerConfigAutomatizacion` en lib/config-automatizacion-db.ts), y las que ya existían
+ * guardan como suya la que heredaban (`fijarPersonaPropia`, scripts/misma-persona-propia.mts). Después del paso, «sin las
+ * suyas» ya no le pasa a ninguna: la herencia queda sólo como red.
+ */
 export function personaHorasDeLaAutomatizacion(c: ConfigAutomatizacion, delNegocio: LimitesEnvio): { whatsapp: number; email: number } {
   return {
     whatsapp: c.personaHoras?.whatsapp ?? delNegocio.wa.personaHoras,
     email: c.personaHoras?.email ?? delNegocio.email.personaHoras,
   };
+}
+
+/** CON LO QUE NACE una automatización nueva (23/10/2026, Martín: «"Misma persona" apagado por defecto»): la suya, apagada. */
+export const CONFIG_DE_NACIMIENTO: ConfigAutomatizacion = Object.freeze({
+  personaHoras: Object.freeze({ whatsapp: PERSONA_SIN_ESPERA, email: PERSONA_SIN_ESPERA }),
+}) as ConfigAutomatizacion;
+
+/**
+ * EL PASO DE UNA VEZ (23/10/2026): a una automatización que HEREDABA las horas del negocio le guarda esas horas como suyas,
+ * canal por canal. `null` = no hay nada que guardar (ya tiene las suyas en los dos canales: por eso se puede correr dos
+ * veces). Lo que hereda se lee con la MISMA regla del motor (`delNegocio`, los límites vigentes del negocio), y lo guardado tiene
+ * que volver igual del saneo: si el número del negocio no entra en el rango de una automatización (un default de fábrica
+ * fuera de rango, por el env), no se puede fijar sin cambiarle el anti-ban, y se dice en vez de escribir otra cosa.
+ */
+export function fijarPersonaPropia(c: ConfigAutomatizacion, delNegocio: LimitesEnvio):
+  { cambia: false } | { cambia: true; config: ConfigAutomatizacion; valor: string } | { cambia: false; error: string } {
+  const wa = c.personaHoras?.whatsapp;
+  const em = c.personaHoras?.email;
+  if (wa !== undefined && em !== undefined) return { cambia: false };
+  const config: ConfigAutomatizacion = { ...c, personaHoras: { whatsapp: wa ?? delNegocio.wa.personaHoras, email: em ?? delNegocio.email.personaHoras } };
+  const valor = JSON.stringify(config);
+  const vuelta = sanearConfigAutomatizacion(valor).personaHoras;
+  if (vuelta?.whatsapp !== config.personaHoras?.whatsapp || vuelta?.email !== config.personaHoras?.email) {
+    return { cambia: false, error: `las horas del negocio (${delNegocio.wa.personaHoras} h WhatsApp, ${delNegocio.email.personaHoras} h email) no entran en el rango de una automatización` };
+  }
+  return { cambia: true, config, valor };
 }
 
 /**

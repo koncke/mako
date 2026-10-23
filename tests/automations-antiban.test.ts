@@ -80,10 +80,10 @@ test('el anti-ban de la automatización: goteo, por día y misma persona, cada u
   assert.match(g, /onCambio=\{\(x\) => guardar\('goteo', \{ \[campo\]: x \? sugerido : null \}\)\}/);
   assert.match(g, /<Numero valor=\{v \?\? sugerido\}[^\n]*apagado=\{!on\}/);
   assert.match(g, /<Unidad apagada=\{!on\}>\{unidad\}<\/Unidad>/);
-  // Misma persona: apagar guarda 0 h; prender la vuelve a la del negocio; apagada, se ve el del negocio en gris.
+  // Misma persona: apagar guarda 0 h; prender guarda el número que se ve, como SUYO (23/10/2026: nada «para todas»).
   const m = tramo(a, 'const filaPersona = ', '\n  };');
   assert.match(m, /const on = propio !== PERSONA_SIN_ESPERA;/);
-  assert.match(m, /onCambio=\{\(x\) => guardar\('personaHoras', \{ \[canal\]: x \? null : PERSONA_SIN_ESPERA \}\)\}/);
+  assert.match(m, /onCambio=\{\(x\) => guardar\('personaHoras', \{ \[canal\]: x \? valor : PERSONA_SIN_ESPERA \}\)\}/);
   assert.match(m, /const valor = propio !== undefined && propio !== PERSONA_SIN_ESPERA \? propio : d\.personaNegocio\[canal\];/);
   assert.match(m, /if \(!d\) return null;/);
   assert.match(m, /<Numero valor=\{valor\}[^\n]*apagado=\{!on\}/);
@@ -130,11 +130,11 @@ test('sin descripciones: ni el goteo, ni la misma persona, ni el horario, ni la 
   // 23/10/2026 («"propio" se dice "Horario de oficina"»): el horario ES el panel «Horario de oficina», sin «Horario propio».
   assert.match(tramo(auto, 'export function HorarioDeLaAutomatizacion(', '\n}\n'), /return <HorarioEnvioPanel fuente=\{fuente\} onSucio=\{onSucio\} \/>;/);
   assert.doesNotMatch(auto, /Horario propio/, 'volvió «Horario propio»');
-  // La línea: sin la línea de uso ni la de «Primero lo que entra» sueltas (van en el ⓘ del bloque), y sin `title` por fila.
+  // La línea (23/10/2026, «nada para todas»): ni sus filas ni su uso en la pantalla. «Primero lo que entra», que sigue
+  // frenando por dentro, va en el ⓘ del bloque WhatsApp (`infoWhatsapp`), no como línea suelta.
   const lim = fuente('app/automations/LimitesEnvioPanel.tsx');
-  assert.doesNotMatch(lim, /data-uso|data-prioridad|title=\{f\.ayuda\}/);
-  assert.match(auto, /<GrupoOpciones titulo="WhatsApp" info=\{linea\.info\('WhatsApp'\)\} primero \/>/);
-  assert.match(lim, /<FilaOpcion key=\{clave\} nombre=\{f\.rotulo\} info=\{f\.info\} sinInterruptor /, 'los topes de la línea se apagan (o perdieron su columna)');
+  assert.doesNotMatch(lim, /data-uso|data-prioridad|title=\{f\.ayuda\}|<FilaOpcion|useLimitesDeLaLinea/, 'volvieron los topes de la línea');
+  assert.match(auto, /<GrupoOpciones titulo="WhatsApp" info=\{auto\.infoWhatsapp\} primero \/>/);
   // El huso de la tuerca: en el ⓘ de «Horario de oficina», no como línea.
   const hor = fuente('app/configuraciones/HorarioEnvioPanel.tsx');
   assert.doesNotMatch(hor, /data-zona-del-negocio/);
@@ -148,19 +148,20 @@ test('el modal: una sola pantalla sin pestañas ni nombre de pestaña, «Horario
   assert.doesNotMatch(src, /<Tabs |PESTANAS_CONFIGURACIONES|Anti-ban|'Límites'/, 'volvieron las pestañas');
   const modal = tramo(src, '<Modal titulo="Configuraciones"', '</Modal>');
   assert.doesNotMatch(modal, /\{nombre\}/, 'volvió el subtítulo con el nombre');
-  assert.match(modal, /<div data-config-automatizacion=\{secuenciaId\} style=\{\{ paddingTop: 0 \}\}>\s*<AjustesDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucioHorario=\{alSucioHorario\} onSucioAntiban=\{alSucioAntiban\} onSucioLinea=\{alSucioLimites\} \/>\s*<\/div>/);
-  assert.match(src, /const ocupado = sucios\.horario \|\| sucios\.antiban \|\| sucios\.limites;/, 'un guardado en vuelo deja cerrar el modal');
-  // La pantalla: el horario y los bloques WhatsApp, Email y MaKo; en cada uno, lo de la automatización y después lo de la línea.
+  assert.match(modal, /<div data-config-automatizacion=\{secuenciaId\} style=\{\{ paddingTop: 0 \}\}>\s*<AjustesDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucioHorario=\{alSucioHorario\} onSucioAntiban=\{alSucioAntiban\} \/>\s*<\/div>/);
+  assert.match(src, /const ocupado = sucios\.horario \|\| sucios\.antiban;/, 'un guardado en vuelo deja cerrar el modal');
+  // La pantalla: el horario y los bloques WhatsApp y Email, con lo de ESTA automatización y nada más (23/10/2026).
   const aj = tramo(fuente('app/automations/ConfigAutomatizacionPanel.tsx'), 'export function AjustesDeLaAutomatizacion(', '\n}\n');
   assert.match(aj, /<HorarioDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucio=\{onSucioHorario\} \/>/);
-  assert.match(aj, /<GrupoOpciones titulo="WhatsApp" [^\n]*\/>\s*\{auto\.whatsapp\}\s*\{linea\.filasDe\('wa'\)\}[\s\S]*<GrupoOpciones titulo="Email" [^\n]*\/>\s*\{auto\.email\}\s*\{linea\.filasDe\('email'\)\}[\s\S]*<GrupoOpciones titulo="MaKo contesta sola" primero \/>\s*\{linea\.filasDe\('mako'\)\}/);
+  assert.match(aj, /<GrupoOpciones titulo="WhatsApp" [^\n]*\/>\s*\{auto\.whatsapp\}\s*<\/TarjetaOpciones>[\s\S]*<GrupoOpciones titulo="Email" [^\n]*\/>\s*\{auto\.email\}\s*<\/TarjetaOpciones>/);
+  assert.doesNotMatch(aj, /linea\.|MaKo contesta sola|data-restaurar/, 'volvió lo «para todas»');
 });
 
-test('UNA «Misma persona» por canal: la de la automatización; la línea no la muestra, y «Restaurar» no la toca', () => {
+test('UNA «Misma persona» por canal: la de la automatización, y nada de la línea en la pantalla', () => {
   assert.ok(!FILAS_LINEA.some((f) => f.campo === 'personaHoras'), 'volvió la «Misma persona, por defecto» de la línea');
   assert.deepEqual(FILAS_LINEA.map((f) => `${f.grupo}.${f.campo}:${f.rotulo}`), ['wa.dia:Línea por día', 'wa.hora:Línea por hora', 'email.dia:Línea por día', 'mako.solasPor24h:Por persona', 'mako.diasCharla:Charla abierta']);
-  const lim = fuente('app/automations/LimitesEnvioPanel.tsx');
-  assert.match(lim, /guardar\(\{ \.\.\.fabrica, wa: \{ \.\.\.fabrica\.wa, personaHoras: l\.wa\.personaHoras \}, email: \{ \.\.\.fabrica\.email, personaHoras: l\.email\.personaHoras \} \}\);/, '«Restaurar» pisa las horas del negocio, que no están en la pantalla');
+  // 23/10/2026: sin «Restaurar» (era de la línea, que ya no está en la pantalla).
+  assert.doesNotMatch(fuente('app/automations/ConfigAutomatizacionPanel.tsx'), /Restaurar|Línea por día|Línea por hora/);
   assert.equal((fuente('app/automations/ConfigAutomatizacionPanel.tsx').match(/nombre="Misma persona"/g) ?? []).length, 1);
 });
 

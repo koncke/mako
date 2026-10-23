@@ -48,6 +48,7 @@ import { esColumnaInexistente } from '@/lib/nutricion-grafo-motor';
 import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
 import { setSecuenciaPasos, PasosInvalidosError } from '@/lib/nutricion';
 import { guardarDisparadores } from '@/lib/disparadores-guardar';
+import { nacerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { TriggerInvalidoError } from '@/lib/setting-secuencias';
 import { plantillaPorId } from '@/lib/plantillas-automatizaciones';
 import { CONFIG_KEY as CLAVE_LANDINGS, parsearConfig, funnelIdsDeLanding } from '@/lib/landing-config';
@@ -516,6 +517,7 @@ export async function hacerSugerencia(ws: number, crmPedido: number | null, suge
           db: (await getTenantDb()) as unknown as DbPlantilla,
           setPasos: setSecuenciaPasos,
           setDisparadores: guardarDisparadores,
+          nacer: nacerConfigAutomatizacion,
           motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
         }, { disparador: s.accion.disparador ?? undefined });
         // Se calla DESPUÉS de crear: si callar falla, la automatización igual quedó (y la cuenta fresca la ve).

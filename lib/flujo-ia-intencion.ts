@@ -45,9 +45,8 @@ export const REGLAS_EDITAR = [
 export const LO_QUE_NO_ES_TARJETA = [
   'LO QUE NO SE ARMA CON TARJETAS: el horario, el goteo y los topes se configuran en «Configuraciones», en el «⋯» de esta automatización: UNA pantalla con «Horario de oficina» y un bloque por canal (WhatsApp, Email). Si el dueño pide ESO, no armes tarjetas: dile dónde está, en una frase. Lo que no está aquí ni en las tarjetas (llamar por teléfono, un SMS) no se puede: dilo, sin inventar un lugar.',
   '- Los días y las horas en que sale (por ejemplo, ni sábado ni domingo): Configuraciones, «Horario de oficina».',
-  '- Que no salgan todos juntos (uno cada N minutos) y cuántos como mucho por día en ESTA automatización: Configuraciones, WhatsApp, «Goteo» y «Tope por día».',
-  '- Cuántos por día y por hora salen de la línea, sumando todas las automatizaciones: Configuraciones, WhatsApp, «Línea por día» y «Línea por hora».',
-  '- Las horas mínimas entre dos WhatsApp a la misma persona (de 3 a 72; 20 de fábrica; se puede apagar): Configuraciones, WhatsApp, «Misma persona».',
+  '- Que no salgan todos juntos (uno cada N minutos) y cuántos como mucho por día: Configuraciones, WhatsApp, «Goteo» y «Tope por día».',
+  '- Las horas mínimas entre dos WhatsApp a la misma persona (de 3 a 72; se prende y se apaga): Configuraciones, WhatsApp, «Misma persona».',
   '- Deshacer el último cambio: el botón ↶ arriba del lienzo.',
 ].join('\n');
 
@@ -64,9 +63,10 @@ export const ERROR_EDITAR_SIN_CAMBIOS = 'En modo EDITAR no se contesta con "resp
 /**
  * Las pestañas de Configuraciones de una automatización (app/automations/ConfiguracionesBoton.tsx, `PESTANAS_CONFIGURACIONES`).
  * Desde el 23/10/2026 es UNA pantalla, sin pestañas (Martín: «sin pestañas ni nombre de pestaña»): lo que vale después de
- * «Configuraciones ›» es un bloque o una fila de ella. «Límites» y «Anti-ban» (las pestañas de antes) ya no existen.
+ * «Configuraciones ›» es un bloque o una fila de ella. «Límites» y «Anti-ban» (las pestañas de antes) ya no existen, y desde el
+ * mismo día tampoco lo de la línea («Línea por día», «MaKo contesta sola»: nada «para todas»).
  */
-const LUGARES_REALES = ['Horario', 'WhatsApp', 'Email', 'MaKo', 'Goteo', 'Tope', 'Misma', 'Línea', 'Linea'];
+const LUGARES_REALES = ['Horario', 'WhatsApp', 'Email', 'Goteo', 'Tope', 'Misma'];
 
 /**
  * ¿VALE UNA «RESPUESTA» EN EDITAR? null = vale; si no, el error para el reintento. (22/10/2026, las corridas del arnés del
