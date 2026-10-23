@@ -1240,3 +1240,21 @@ no se aplica a nadie.
 **Vive en:** lib/tope-cuentas.ts · lib/tope-cuentas-reglas.ts · app/api/integraciones/cuentas/route.ts ·
 app/api/integraciones/credencial/route.ts (`descubrir-pago`) · app/integraciones/CuentasDePago.tsx ·
 tests/tope-cuentas.test.ts.
+
+## La agenda de MaKo NO entra al CRM de MaKo (medido en la base el 23/10/2026)
+
+**Síntoma:** a dos días del lanzamiento, toda venta de MaKo pasa por la agenda `calendly.com/koncke/asesoria` (/planes sin
+pasarela, la VSL, las landings), y ninguna reserva llega al CRM del ws 9. **Medido:** `webhook_routing` de Calendly tiene
+filas sólo del ws 1 (los eventos de Mauricio); `credenciales` de Calendly sólo en el ws 1 y el ws 4; el ws 9 no tiene token,
+ni signing key, ni tipo de evento de R1. Leads del ws 9 con `origen_lead = 'calendly'`: 0.
+
+**El diagnóstico obvio era el equivocado:** «la huella `calendly.reservas_sin_ruteo` está vacía, así que no hubo reservas».
+No prueba eso. La huella se escribe recién DESPUÉS de verificar la firma con la key de plataforma
+(app/api/webhooks/calendly/route.ts:343-398): si la cuenta koncke no tiene una suscripción apuntada a MaKo, no llega nada; si
+la tiene y firma con otra key, es un 401 sin rastro en la base (y Calendly la cuenta para deshabilitar la suscripción). Lo
+que se ve es idéntico: nada. La prueba está en Calendly (el registro de entregas de las suscripciones de webhook de koncke).
+
+**Mientras tanto:** la reserva existe en Calendly (mail y calendario de Martín) con las UTM del link; lo que falta es el
+lead, el seguimiento y el origen en el CRM. **Arreglo (de Martín, en /integraciones?ws=9, donde va la pasarela):** conectar
+la cuenta de Calendly de koncke y cargar el tipo de evento de R1. **Vive en:** app/api/webhooks/calendly/route.ts ·
+lib/webhook-routing.ts · lib/compra-plan-reglas.ts (`AGENDA_MAKO`) · app/vsl/Landing.tsx (`CALENDLY_URL`).

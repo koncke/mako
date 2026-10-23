@@ -211,6 +211,15 @@ ese mismo email»* a alguien que acaba de pagar con un correo que no es Gmail.
 
 No falla en el alta: falla en el primer login, cuando ya cobraste.
 
+**Al 23/10 ya no es cierto al pie de la letra, y en la práctica casi sí.** Desde el 15/10 hay contraseña por usuario
+(1b177b414, mig 0286) y «¿Olvidaste tu contraseña?» sirve para crear la primera. Pero el mail de bienvenida dice sólo
+«Importante: entra con Google usando exactamente esta dirección» (lib/invitaciones.ts:185) y la página de después de pagar
+repite «Entra con Google usando ese email» (app/pagar/[token]/listo/AccesoMako.tsx:73): quien no tiene Google tiene que
+adivinar «o entra con tu correo» → «¿Olvidaste tu contraseña?» de una contraseña que nunca tuvo. Ese mail lo manda la
+automatización «Restablecer Contraseña» del ws 9 (lib/restablecer-aviso.ts); apagada, la pantalla igual dice «te llega un
+mail» y no llega nada (medido: el único pedido registrado, el 21/10, dice `corrio`). El pago en línea SÍ pasa por esta alta:
+webhook → `aplicarPagoAprobado` → `altaSiCorresponde` → `darDeAltaCliente` (lib/cobros.ts:723 y 914-958).
+
 ---
 
 ## Lo que le pasa en el CRM al que PAGA sin agendar
@@ -1147,8 +1156,9 @@ pasarelas, NO es cobrable: una agenda de más es un llamado, un pago que no exis
 sin la subida en el acto se le ofrece Pro por llamada (`proPorLlamada`).
 
 **La trampa:** Calendly sólo guarda `utm_source/medium/campaign/content` (y `utm_term`, que la VSL ya usa para su uuid), así
-que por la agenda se PIERDEN el slug de la landing, el avatar, la funcionalidad, el fbclid y el código de MaKo Partners. Un
-link de partner (/r/<código> → /planes) termina hoy en una llamada sin el referido: esa venta se atribuye a mano.
+que por la agenda se PIERDEN el slug de la landing, el avatar, la funcionalidad y el fbclid. El código de MaKo Partners
+también se perdía; ahora viaja como UTM cuando no hay campaña (docs/hallazgos-partners.md, «Una venta POR LLAMADA»). Y la
+agenda de MaKo hoy no entra al CRM del ws 9 (docs/hallazgos-integraciones.md): las UTM quedan sólo en Calendly.
 
 **Sin hacer:** aplicar el crédito de MaKo Partners (relevo, punto 5): /mako-partners y /partners/referidos dicen «se
 descuenta de tus próximos meses» y nada lo descuenta. Sin pasarela no nace ningún crédito (nace del segundo mes pagado

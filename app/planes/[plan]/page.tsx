@@ -53,7 +53,7 @@ export default async function PlanPage({ params, searchParams }: {
             : (
               <>
                 <p className="planes-sub">{TEXTO_SIN_PASARELA}</p>
-                <a className="planes-btn" href={agendaConOrigen(origen)}>Agendar una llamada</a>
+                <a className="planes-btn" href={agendaConOrigen(origen, ref)}>Agendar una llamada</a>
               </>
             )}
         </div>

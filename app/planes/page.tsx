@@ -12,7 +12,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ofertasDeLosPlanes } from '@/lib/compra-plan';
-import { bajadaDePlanes, botonDelPlan, origenLimpio } from '@/lib/compra-plan-reglas';
+import { bajadaDePlanes, botonDelPlan, codigoRefLimpio, origenLimpio } from '@/lib/compra-plan-reglas';
 import { CSS_PLANES } from './estilo';
 
 export const dynamic = 'force-dynamic';
@@ -35,6 +35,7 @@ export default async function PlanesPage({ searchParams }: { searchParams: Promi
   // de la campaña (lib/compra-plan-reglas.ts). Se decide por plan, con la misma cuenta que el checkout.
   const ofertas = await ofertasDeLosPlanes();
   const origen = origenLimpio(Object.fromEntries(qs.entries()));
+  const ref = codigoRefLimpio(qs.get('ref'));
   return (
     <main className="planes-root">
       <style dangerouslySetInnerHTML={{ __html: CSS_PLANES }} />
@@ -44,7 +45,7 @@ export default async function PlanesPage({ searchParams }: { searchParams: Promi
         <p className="planes-sub">{bajadaDePlanes(ofertas.some((o) => o.cobrable))}</p>
         <div className="planes-grilla">
           {ofertas.map(({ plan: p, cobrable }) => {
-            const boton = botonDelPlan({ id: p.id, nombre: p.nombre, cobrable, sufijo, origen });
+            const boton = botonDelPlan({ id: p.id, nombre: p.nombre, cobrable, sufijo, origen, ref });
             return (
               <section key={p.id} className={`planes-card${p.destacado ? ' destacado' : ''}`}>
                 <h2>{p.nombre}</h2>
