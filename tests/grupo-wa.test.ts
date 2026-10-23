@@ -163,6 +163,10 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
 
 test('7. el traído de un grupo QUEDA DONDE LO PUSIERON: ni el CRM automático ni los barridos que mandan solos', async () => {
   // El Cerebro, 23/10/2026, con la regla de Martín «nada por detrás»: no entra a nutri ni a reactivación por su cuenta.
+  // PROBADO ROMPIÉNDOLO (arnés `romper-grupo2.mjs`, con crm-auto-plan y crm-origen-lead; base 33/0, 10 de 10): nadie queda
+  // quieto · nace como importado de un archivo · T2 lo manda a nutri · T6 a reactivación · T1 también lo deja (de más) · el
+  // CRM automático no lee el origen · la reactivación lo toma · el último intento lo toma · la pantalla no lo dice · la ficha
+  // dice «Sin dato de origen». Cada una, en rojo.
   const { planLeadAuto } = await import('../lib/crm-auto-plan');
   const { quedaDondeLoPusieron, origenLista } = await import('../app/crm/origen-lead');
   const { canalDeEntrada } = await import('../app/crm/lead-view/ficha/resumen/logica');
