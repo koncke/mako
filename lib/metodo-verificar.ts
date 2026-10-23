@@ -510,6 +510,20 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     };
   },
 
+  // El puente de leads por Zapier (23/10/2026): la clave la inventa el negocio y no abre ninguna API, igual que la de Skool.
+  async zapier(v) {
+    const t = (v.ZAPIER_LEADS_CLAVE ?? '').trim();
+    if (!t) return { ok: false, error: 'Falta la clave del aviso: sin eso no entra ningún lead de tus formularios.' };
+    // Es lo ÚNICO que separa tu CRM de cualquiera que conozca la dirección: corta, se adivina.
+    if (t.length < 12) return { ok: false, error: 'Usa una clave de 12 caracteres o más: es lo que protege tu CRM.' };
+    if (t.length > 200) return { ok: false, error: 'Esa clave es demasiado larga: usa una de menos de 200 caracteres.' };
+    return {
+      ok: true,
+      detalle: 'Tu clave está guardada. Los leads entran en cuanto publiques el Zap con la misma clave.',
+      facts: [{ k: 'Leads en vivo', v: 'Listos, cuando publiques el Zap', c: 'var(--good)' }],
+    };
+  },
+
   // Apify (15/10/2026): la cuenta de la key. Sin plan pago igual busca (el gratis trae saldo).
   async apify(v) {
     const t = (v.APIFY_TOKEN ?? '').trim();

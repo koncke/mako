@@ -77,6 +77,10 @@ export const DEFS: Def[] = [
   // lib/fuentes-leads-catalogo.ts): sin configurar no bajan el medidor de nadie.
   { key: 'hotmart', nombre: 'Hotmart', categoria: 'Pagos', descripcion: 'Cada compra y cada carrito abandonado de Hotmart entran solos a tu CRM.', envs: ['HOTMART_HOTTOK'] },
   { key: 'skool', nombre: 'Skool', categoria: 'Contenido', descripcion: 'Quien pide entrar a tu comunidad de Skool entra solo a tu CRM, con sus respuestas.', envs: ['SKOOL_WEBHOOK_CLAVE'] },
+  // El puente de leads de Meta por Zapier o Make (23/10/2026, lib/zapier-lead.ts): mientras la app de MaKo no tiene
+  // `leads_retrieval`, el negocio manda sus leads de formularios instantáneos desde su propio Zap. Opcional como las de
+  // arriba (`esIntegracionDeLeads`): la mayoría de los negocios conecta Meta de frente.
+  { key: 'zapier', nombre: 'Leads de Meta por Zapier', categoria: 'Publicidad', descripcion: 'Los leads de tus formularios de Meta entran solos a tu CRM, por Zapier o Make.', envs: ['ZAPIER_LEADS_CLAVE'] },
   // Donde corren las búsquedas de prospectos del Leads Scraper (15/10/2026, decisión 5): la cuenta de
   // Apify de cada negocio, que paga lo que encuentra. Opcional como las de arriba.
   { key: 'apify', nombre: 'Apify', categoria: 'Datos', descripcion: 'Busca prospectos en Google Maps e Instagram con tu cuenta de Apify.', envs: ['APIFY_TOKEN'] },
