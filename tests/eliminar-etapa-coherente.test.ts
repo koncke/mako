@@ -85,9 +85,12 @@ test('CABLEADO: la opción de borrar del menú cuelga de `colsBorrables`', () =>
   // completo daría verde con el bug puesto, que es el modo de falla que AGENTS.md ya
   // tiene medido («un guard que lee el archivo entero encuentra lo que el archivo dice
   // de sí»).
-  const linea = SRC.split('\n').find((l) => l.includes("value: 'eliminar'") && l.includes('Eliminar etapa'));
-  assert.ok(linea, 'no encontré la línea que arma la opción «Eliminar etapa» del menú de columna');
-  assert.match(linea, /colsBorrables\.has\(c\.key\)/, 'la opción de borrar no cuelga de `colsBorrables`');
+  // Desde el 22/10/2026 el «⋯» abre el menú del clic derecho: la línea es la que dice si la columna se borra
+  // (`contextoBajo`), y el menú ofrece «Eliminar etapa» sólo con eso (app/crm/menu-contextual-crm.ts).
+  const linea = SRC.split('\n').find((l) => /\bborrable: /.test(l));
+  assert.ok(linea, 'no encontré la línea que dice si la columna se puede borrar');
+  assert.match(linea, /borrable: colsBorrables\.has\(c\.key\)/, 'la opción de borrar no cuelga de `colsBorrables`');
+  assert.match(readFileSync('app/crm/menu-contextual-crm.ts', 'utf8'), /\.\.\.\(c\.borrable \? \['col_eliminar' as const\] : \[\]\)/);
   assert.doesNotMatch(linea, /esTerminal/, 'volvió la condición vieja: `esTerminal` no alcanza, ver el encabezado');
 });
 

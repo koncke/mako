@@ -522,6 +522,9 @@ export const RUNNERS: Runners = {
           lead_id: j.lead_id, reunion: j.tipo === 'J1' ? 'R1' : 'R2', fecha: j.fecha, dia: j.dia, nombre: j.nombre, empresa: j.empresa,
           respuestas: j.respuestas, vsl_estado: j.vsl_estado, vsl_plays: j.vsl_plays, vsl_max_pct: j.vsl_max_pct,
           origen: j.origen, madurez: j.madurez, estado: j.estado_lead,
+          // La hora y el link para entrar (22/10/2026, lo mismo que dibuja la tarjeta de «Tus reuniones»). La hora es el instante
+          // de Calendly, y puede ser de OTRO día si se reagendó sin hora: sólo cuando cae en `fecha`.
+          hora: j.at && new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(j.at)) === j.fecha ? j.at : null, link: j.url ?? null,
         })),
       });
     },

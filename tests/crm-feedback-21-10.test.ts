@@ -24,7 +24,7 @@ import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { IconoMenu } from '../app/_ui/iconos-menu';
-import { OPCION_CRM } from '../app/crm/menu-contextual-crm';
+import { OPCION_CRM, opcionesCrm } from '../app/crm/menu-contextual-crm';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -33,31 +33,27 @@ const sinComentarios = (src: string) => src
   .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
   .replace(/\/\*[\s\S]*?\*\//g, '');
 const BOARD = sinComentarios(leer('app/crm/CrmBoard.tsx'));
-/** Las opciones del «⋯» de una columna, hasta su `onChange`, y el `onChange` hasta el cierre del Dropdown. */
-const menuColumna = () => {
-  const ini = BOARD.indexOf('ariaLabel={`Opciones de la etapa ${c.label}`}');
-  const fin = BOARD.indexOf('/>', BOARD.indexOf('onChange={(v) => {', ini));
-  assert.ok(ini > 0 && fin > ini, 'no encontré el «⋯» de la columna');
-  return BOARD.slice(ini, fin);
-};
+/** Una columna para el menú (el «⋯» abre el del clic derecho desde el 22/10/2026). */
+const col = (o: Partial<{ mover: boolean; entrada: boolean; ganado: boolean; borrable: boolean }> = {}) =>
+  ({ sobre: 'columna' as const, mover: true, entrada: false, curso: null, borrable: true, ...o });
 
 test('«Nuevo lead» sale del carril y va al «⋯» de cada columna, por el mismo camino que antes', () => {
   const ini = BOARD.indexOf('<div data-carril');
   const carril = BOARD.slice(ini, BOARD.indexOf('{dibujadas.map(', ini));
   assert.ok(ini > 0, 'no encontré el carril');
   assert.doesNotMatch(carril, /Nuevo lead|<button/, 'el placeholder volvió al carril');
-  const menu = menuColumna();
-  assert.match(menu, /\{ value: 'nuevo', label: 'Nuevo lead', icono: 'persona-mas' as const \}/);
-  // Sin condición: está en TODAS las columnas (las cuatro terminales también; cada una abre lo suyo por `handleDrop`).
-  assert.doesNotMatch(menu, /\? \[\{ value: 'nuevo'/);
-  assert.match(menu, /if \(v === 'nuevo'\) \{ setAltaPendiente\(null\); setNuevoLead\(\{ etapa: c\.key \}\); return; \}/);
-  // El clic derecho de la columna dice lo mismo y hace lo mismo.
+  // Sin condición: está en TODAS las columnas (las cuatro terminales también; cada una abre lo suyo por `handleDrop`). Desde el
+  // 22/10/2026 el «⋯» abre el menú del clic derecho: una sola lista.
+  for (const c of [col(), col({ entrada: true, mover: false, borrable: false }), col({ ganado: true, borrable: false })]) {
+    assert.ok(opcionesCrm(c).includes('col_nuevo_lead'), 'una columna sin «Nuevo lead»');
+  }
   assert.equal(OPCION_CRM.col_nuevo_lead.texto, 'Nuevo lead');
+  assert.equal(OPCION_CRM.col_nuevo_lead.icono, 'persona-mas');
   assert.match(BOARD, /case 'col_nuevo_lead': if \(c\) \{ setAltaPendiente\(null\); setNuevoLead\(\{ etapa: c\.key \}\); \} return;/);
 });
 
 test('«Asignar evento» con el calendario de línea de la casa, sin el logo a color', () => {
-  assert.match(menuColumna(), /\{ value: 'evento', label: 'Asignar evento', icono: 'evento' as const \}/);
+  assert.equal(OPCION_CRM.col_evento.texto, 'Asignar evento');
   assert.doesNotMatch(BOARD, /LogoMeet/);
   const modal = sinComentarios(leer('app/crm/EventosDeEtapaModal.tsx'));
   assert.doesNotMatch(modal, /LogoMeet/);

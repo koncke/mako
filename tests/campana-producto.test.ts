@@ -489,8 +489,11 @@ test('el «⋯» de la columna de ENTRADA ofrece las campañas, y sólo esa colu
   // Desde el 16/10/2026 dice «Asignar campañas» con el logo de Meta (Martín), como la sección del pop-up de etapas.
   // Probado (09/10/2026, parte «barrido»): base 35/0 con el ícono; sacando la condición de la entrada
   // (el renglón en todas las columnas) → 34/1.
-  assert.match(b, /\.\.\.\(c\.kind === 'entrada' \? \[\{ value: 'campanas', label: 'Asignar campañas', icono: <LogoMeta size=\{\d+\} \/> \}\] : \[\]\)/);
-  assert.match(b, /if \(v === 'campanas'\) \{ setCampanasAbierto\(true\); return; \}/);
+  // Desde el 22/10/2026 el «⋯» abre el MISMO menú que el clic derecho (app/crm/menu-contextual-crm.ts, «ponlas en secciones»).
+  // La entrada la marca `contextoBajo`, el logo de Meta va por `logoMeta`, y lo abre su `case`.
+  assert.match(b, /sobre: 'columna', mover: seArrastraCol\(c\), entrada: c\.kind === 'entrada'/);
+  assert.match(b, /logoMeta: <LogoMeta size=\{\d+\} \/>/);
+  assert.match(b, /case 'col_campanas': setCampanasAbierto\(true\); return;/);
   assert.match(b, /funnelActivo == null \|\| funnels\.find\(\(f\) => f\.id === funnelActivo\)\?\.esDefault \? null : funnelActivo/,
     'el principal va como null');
 });

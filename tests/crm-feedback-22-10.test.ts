@@ -91,24 +91,24 @@ test('4: la casilla de la columna tilda lo que SE VE de esa columna, suma a lo t
   assert.match(BOARD, /className="mk-col-crm"/);
 });
 
-test('5: «Tienes N reuniones cerca» abre el MISMO pop-up para todos, con el bloque azul de cada reunión y «Ver detalle»', () => {
+test('5: «Tienes N reuniones cerca» abre el MISMO pop-up para todos, con la tarjeta de cada reunión y «Ver detalle»', () => {
   const boton = sinComentarios(leer('app/crm/ReunionesProximas.tsx'));
   assert.match(boton, /onClick=\{\(\) => setAbierto\(true\)\}/, 'el calendario no abre el pop-up');
   assert.doesNotMatch(boton, /onAlternar|desplegado/, 'volvió el calendario que despliega «Próximo» arriba del tablero');
-  assert.match(boton, /<Modal titulo="Tus reuniones" ancho=\{960\} onCerrar=\{cerrar\}>\s*<div style=\{\{ display: 'flex', flexDirection: 'column', gap: 12 \}\}>\{contenido\(cerrar\)\}<\/div>/);
-  // El tablero arma el bloque azul de CADA reunión; ya no hay «Próximo» desplegado arriba.
+  // 640 desde la segunda vuelta (22/10/2026): una columna de tarjetas que se leen de arriba abajo.
+  assert.match(boton, /<Modal titulo="Tus reuniones" ancho=\{640\} onCerrar=\{cerrar\}>\s*\{contenido\(cerrar\)\}/);
+  // El tablero arma la tarjeta de CADA reunión; ya no hay «Próximo» desplegado arriba.
   assert.match(BOARD, /<BotonReuniones juntas=\{juntas\} contenido=\{bloquesDeReuniones\} \/>/);
   assert.doesNotMatch(BOARD, /verProximo|hayProxima/, 'volvió «Próximo» arriba del tablero');
-  const bloques = BOARD.slice(BOARD.indexOf('const bloquesDeReuniones = '), BOARD.indexOf('return (', BOARD.indexOf('const bloquesDeReuniones = ') + 1200));
-  assert.match(bloques, /return juntas\.map\(\(j, k\) => \{/);
-  assert.match(BOARD, /<TarjetaDestacada key=\{j\.id\} ancha\s+sobre=\{\/pas\[oó\]\/i\.test\(j\.when\) \? 'Ya pasó' : k === primera \? 'Próximo' : 'Después'\}/);
-  // «Ver detalle»: cierra el pop-up y abre la ficha en «Reuniones».
-  assert.match(BOARD, /\{ texto: 'Ver detalle', onClick: \(\) => \{ cerrar\(\); openDetail\(l, 'reuniones'\); \}, primaria: !tel \}/);
+  // Desde la segunda vuelta (22/10/2026) es la tarjeta que PREPARA la reunión (app/crm/TarjetaReunion.tsx; sus reglas, en
+  // tests/crm-feedback-22-10-c.test.ts). «Ver detalle»: cierra el pop-up y abre la ficha en «Reuniones».
+  assert.match(BOARD, /<ReunionesParaPreparar reuniones=\{reuniones\} onVerDetalle=\{\(id\) => \{/);
+  assert.match(BOARD, /if \(!l\) return;\s*cerrar\(\);\s*openDetail\(l, 'reuniones'\);/);
   assert.match(BOARD, /const openDetail = \(l: CrmLead, foco\?: string\) => \{ setFocoFicha\(foco\); setSelectedId\(l\.id\); \};/);
   assert.match(BOARD, /<LeadEditModal leadId=\{selected\.id\} seed=\{\{ nombre: selected\.name, empresa: selected\.company \}\} focus=\{focoFicha\} onClose=\{closeDetail\} \/>/);
   assert.match(leer('app/crm/LeadEditModal.tsx'), /const initialTab = focus === 'plan-pagos' \? 'cobranza' : focus === 'reuniones' \? 'reuniones' : 'resumen';/);
-  // En el teléfono el bloque azul ya va arriba de la lista (sin barra no hay calendario): lleva «Ver detalle» también.
-  assert.match(sinComentarios(leer('app/m/crm/TableroCrm.tsx')), /\{ texto: 'Ver detalle', onClick: \(\) => router\.push\(ficha\(px\.id\)\), primaria: !px\.telefono \},/);
+  // En el teléfono la MISMA tarjeta va arriba de la lista (sin barra no hay calendario), con «Ver detalle».
+  assert.match(sinComentarios(leer('app/m/crm/TableroCrm.tsx')), /\}\]\} onVerDetalle=\{\(\) => router\.push\(ficha\(px\.id\)\)\} \/>/);
 });
 
 test('6 (Instagram): el buscador encuentra al lead por su @, con o sin @, en mayúsculas o no, y por el link del perfil', () => {

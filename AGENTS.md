@@ -1639,6 +1639,11 @@ código nuevo:
   Sin el registro, la fila dice «No pude leer lo gastado», nunca «US$0». Anthropic no deja leer el saldo con estas claves
   (docs/hallazgos-ia.md). Una clave de crédito nueva se suma en `CUENTAS_DEL_CREDITO`; usarla en el onboarding es otra
   decisión (`CLAVES_CREDITO_PLATAFORMA`, lib/veto-claude.ts). Lo fija tests/credito-api.test.ts.
+- **EL «⋯» Y EL CLIC DERECHO DE LO MISMO SON UN MENÚ** (22/10/2026; Martín, sobre el «⋯» de una columna del CRM: «Ya no se
+  entienden si son tantas, ponlas en secciones»). Un botón «⋯» que ofrece lo mismo que el clic derecho de ese lugar abre
+  el MISMO `MenuContextual`, armado por la misma función (en el CRM, `opcionesCrm`; el «⋯» llama a `abrirMenuDeColumna`).
+  No se arma una segunda lista en un `Dropdown`: dos listas de lo mismo se desincronizan. Un menú largo va por secciones
+  (`seccion` en el primer renglón de cada una) y lo que borra va al final, en rojo (`peligro`).
 - **EN EL OPS CENTER, EL «ATRÁS» CIERRA LA CAPA DE ARRIBA** (17/10/2026; Martín: «si abro la vista de una imagen y voy para
   atrás, se cierra la imagen, no el chat»). Toda capa nueva que se abra encima de una conversación (un visor, la hoja de un
   mensaje, un selector a pantalla completa) usa `useAtrasCierra` (app/admin/operaciones/atras.ts), y va en un portal: dentro

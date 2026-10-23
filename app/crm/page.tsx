@@ -219,6 +219,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     company: j.empresa ?? 'Sin empresa',
     phone: telById.get(j.lead_id) ?? '—',
     goal: j.respuestas.objetivo ?? '—',
+    cual: j.tipo === 'J1' ? 'R1' : 'R2',
+    fecha: j.fecha,
+    dia: j.dia,
+    at: j.at ?? null,
+    url: j.url ?? null,
+    facturacion: j.respuestas.facturacion ?? null,
   }));
 
   const marcar: CrmMarcar[] = pendientesRaw.map((p) => ({

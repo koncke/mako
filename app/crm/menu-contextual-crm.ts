@@ -31,6 +31,7 @@ import type { ReactElement } from 'react';
 import type { EntradaMenuContextual, ItemMenuContextual } from '@/app/_ui/MenuContextual';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { ICONO_FUNNEL } from '@/app/_ui/icono-funnel';
+import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, type TipoEtapa } from '@/lib/etapa-reunion';
 
 export type IdOpcionCrm =
   // un lead
@@ -117,20 +118,24 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
     return compactar(['nuevo_lead', null, 'importar', 'exportar', null, 'editar_etapas', 'personalizar_tarjetas', null, ...(c.seleccionados > 0 ? ['lote_limpiar' as const] : [])]);
   }
   if (c.sobre === 'columna') {
+    // ⚠️ POR SECCIONES (22/10/2026, Martín: «Ordena las opciones del desplegable de los 3 puntos... Ya no se entienden si
+    // son tantas, ponlas en secciones»). Es el MISMO menú en el «⋯» y en el clic derecho: el «⋯» abre esta lista. Los
+    // títulos los pone `SECCION_COLUMNA` (en `itemsCrm`), así que entre secciones no va `null`: la raya la pone el título.
+    //   · Columnas: las flechas PRIMERO («debería estar primero de todos ese botón», Martín, 30/09/2026), en UNA línea
+    //     (`EN_LINEA`), y «Agregar etapa», que también cambia las columnas.
+    //   · Leads: lo que entra a la columna.
+    //   · Etapa: lo de ESTA etapa (su nombre, su tipo, su evento, su cobro, el curso al ganar).
+    //   · «Eliminar etapa», sola al final y en rojo.
     return compactar([
-      // Las flechas primero, como en el «⋯»: «debería estar primero de todos ese botón» (Martín,
-      // 30/09/2026). Las dos van en UNA línea (`EN_LINEA`).
       ...(c.mover ? ['col_izquierda', 'col_derecha'] as const : []),
-      null,
+      'col_agregar',
       'col_nuevo_lead',
-      null,
       ...(c.entrada ? ['col_campanas' as const] : []),
+      'col_renombrar',
+      ...(c.tipo ? ['col_tipo' as const] : []),
       ...(c.reunion ? ['col_evento' as const] : []),
       ...(c.ganado ? ['col_cobro' as const] : []),
-      ...(c.tipo ? ['col_tipo' as const] : []),
       ...(c.curso === null ? [] : [c.curso ? 'col_curso_apagar' as const : 'col_curso_prender' as const]),
-      'col_renombrar',
-      'col_agregar',
       null,
       ...(c.borrable ? ['col_eliminar' as const] : []),
     ]);
@@ -168,6 +173,16 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
     'eliminar',
   ]);
 }
+
+/** El título de la sección de cada opción de una columna (22/10/2026). «Eliminar etapa» no lleva: va sola, separada. */
+export const SECCION_COLUMNA: Partial<Record<IdOpcionCrm, string>> = {
+  col_izquierda: 'Columnas', col_derecha: 'Columnas', col_agregar: 'Columnas',
+  col_nuevo_lead: 'Leads', col_campanas: 'Leads',
+  col_renombrar: 'Etapa', col_tipo: 'Etapa', col_evento: 'Etapa', col_cobro: 'Etapa', col_curso_prender: 'Etapa', col_curso_apagar: 'Etapa',
+};
+
+/** El ícono de cada tipo de etapa (el submenú de «Tipo de etapa» y su pop-up). */
+export const ICONO_TIPO_ETAPA: Readonly<Record<TipoEtapa, NombreIconoMenu>> = { etapa: 'etapa', reunion: 'evento', nutricion: 'repetir' };
 
 /** Las que van JUNTAS en una línea de botones sin rótulo (las flechas de la columna). */
 export const EN_LINEA: ReadonlyArray<readonly [IdOpcionCrm, IdOpcionCrm]> = [['col_izquierda', 'col_derecha']];
@@ -242,6 +257,11 @@ export type DatosMenuCrm = {
   sinEtiquetas?: string;
   /** A qué funnels se puede AGREGAR la selección (`destinosDeLote`: todos menos el que se mira). */
   funnels: ReadonlyArray<{ fid: number | null; nombre: string }>;
+  /** El logo de Meta de «Asignar campañas» («La primera opción debería decir "Asignar campañas" y con el logo de Meta»,
+   *  Martín, 16/10/2026): un dibujo de la pantalla, como las flechas. Sin él, el ícono del set. */
+  logoMeta?: ReactElement;
+  /** El tipo de la columna HOY (22/10/2026): «Tipo de etapa ›» abre los tres, con el actual tildado, y se cambia ahí. */
+  tipoActual?: TipoEtapa | null;
   /** Las flechas de la columna: hacia dónde se puede ir, y con qué dibujo (el mismo del «⋯»). */
   flechas?: { izquierda: boolean; derecha: boolean; iconoIzquierda?: ReactElement; iconoDerecha?: ReactElement };
 };
@@ -271,6 +291,15 @@ function conDatos(id: IdOpcionCrm, d: DatosMenuCrm): ItemMenuContextual {
       };
     case 'lote_funnel':
       return { ...base, hijos: d.funnels.map((f) => ({ id: f.fid == null ? FUNNEL_DEL_NEGOCIO : String(f.fid), label: f.nombre })) };
+    case 'col_campanas':
+      return d.logoMeta ? { ...base, icono: d.logoMeta } : base;
+    case 'col_tipo':
+      // «Al apretar o pasar el cursor me debería abrir un segundo desplegable allí mismo para ver el tipo de etapa actual y
+      // poder cambiarlo» (Martín, 22/10/2026). Sin el tipo actual (no se sabe), el renglón abre el pop-up de siempre.
+      return d.tipoActual ? {
+        ...base,
+        hijos: TIPOS_ETAPA.map((t) => ({ id: t, label: NOMBRE_TIPO_ETAPA[t], icono: ICONO_TIPO_ETAPA[t], marcado: t === d.tipoActual })),
+      } : base;
     case 'col_izquierda':
       return { ...base, ...(d.flechas?.iconoIzquierda ? { icono: d.flechas.iconoIzquierda } : {}), deshabilitado: d.flechas ? !d.flechas.izquierda : false };
     case 'col_derecha':
@@ -287,16 +316,24 @@ function conDatos(id: IdOpcionCrm, d: DatosMenuCrm): ItemMenuContextual {
  */
 export function itemsCrm(ids: ReadonlyArray<IdOpcionCrm | null>, d: DatosMenuCrm): EntradaMenuContextual[] {
   const out: EntradaMenuContextual[] = [];
+  // El título va en el PRIMER renglón de cada sección que quedó (una sección sin renglones no deja título).
+  let seccion: string | null = null;
+  const conSeccion = (id: IdOpcionCrm, it: ItemMenuContextual): ItemMenuContextual => {
+    const s = SECCION_COLUMNA[id] ?? null;
+    if (!s || s === seccion) return it;
+    seccion = s;
+    return { ...it, seccion: s };
+  };
   for (let i = 0; i < ids.length; i++) {
     const id = ids[i];
     if (id === null) { out.push(null); continue; }
     const par = EN_LINEA.find(([a]) => a === id);
     if (par && ids[i + 1] === par[1]) {
-      out.push({ id: `${par[0]}+${par[1]}`, label: 'Mover la etapa', enLinea: [conDatos(par[0], d), conDatos(par[1], d)] });
+      out.push(conSeccion(id, { id: `${par[0]}+${par[1]}`, label: 'Mover la etapa', enLinea: [conDatos(par[0], d), conDatos(par[1], d)] }));
       i++;
       continue;
     }
-    out.push(conDatos(id, d));
+    out.push(conSeccion(id, conDatos(id, d)));
   }
   return out;
 }
