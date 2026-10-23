@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ARCHIVOS_PC, VERSION_PC, archivoDelInstalador, archivoDelPrograma, faltanEnElBucket, informeDeBinarios } from '../lib/ia-pc-reglas';
+import { ARCHIVOS_PC, VERSION_PC, archivoDelInstalador, archivoDelInstaladorMac, archivoDelPrograma, faltanEnElBucket, informeDeBinarios } from '../lib/ia-pc-reglas';
 
 const RAIZ = join(__dirname, '..');
 const sinComentarios = (s: string) => s.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -26,14 +26,15 @@ const sinComentarios = (s: string) => s.replace(/^\s*\/\/.*$/gm, '').replace(/\/
 test('qué falta en el bucket: los archivos de la versión (desde la 0.4.0, también el instalador), y qué versiones hay', () => {
   // El bucket del 22/10 a las 12:45 UTC.
   const hoy = ['0.2.0', '0.3.0'].flatMap((v) => ARCHIVOS_PC.map((a) => `mako-pc-${v}-${a}.gz`));
-  const todos = [...ARCHIVOS_PC.map(archivoDelPrograma), archivoDelInstalador()];
+  const todos = [...ARCHIVOS_PC.map(archivoDelPrograma), archivoDelInstalador(), archivoDelInstaladorMac()];
   assert.deepEqual(faltanEnElBucket(hoy), { faltan: todos, versiones: ['0.2.0', '0.3.0'] });
   assert.deepEqual(faltanEnElBucket([...hoy, ...todos]).faltan, [], `con los 4 de la ${VERSION_PC}, nada`);
   // Un archivo solo no alcanza: Windows, las dos Mac y el instalador con asistente (0.4.0: sin él, «Descargar» falla).
-  assert.equal(faltanEnElBucket([archivoDelPrograma('windows-x64')]).faltan.length, 3);
-  assert.deepEqual(faltanEnElBucket([...hoy, ...ARCHIVOS_PC.map(archivoDelPrograma)]).faltan, [archivoDelInstalador()], 'sin el instalador, la versión está completa');
+  // Desde la 0.4.2, también MaKo.app para la Mac (sin ella, «Descargar MaKo para Mac» falla).
+  assert.equal(faltanEnElBucket([archivoDelPrograma('windows-x64')]).faltan.length, 4);
+  assert.deepEqual(faltanEnElBucket([...hoy, ...ARCHIVOS_PC.map(archivoDelPrograma)]).faltan, [archivoDelInstalador(), archivoDelInstaladorMac()], 'sin los instaladores, la versión está completa');
   // Otra versión (la que pida el código de mañana).
-  assert.deepEqual(faltanEnElBucket(hoy, '0.9.9').faltan, ['mako-pc-0.9.9-windows-x64.gz', 'mako-pc-0.9.9-mac-arm64.gz', 'mako-pc-0.9.9-mac-x64.gz', 'mako-pc-0.9.9-windows-setup.exe']);
+  assert.deepEqual(faltanEnElBucket(hoy, '0.9.9').faltan, ['mako-pc-0.9.9-windows-x64.gz', 'mako-pc-0.9.9-mac-arm64.gz', 'mako-pc-0.9.9-mac-x64.gz', 'mako-pc-0.9.9-windows-setup.exe', 'mako-pc-0.9.9-mac-app.zip']);
   assert.deepEqual(faltanEnElBucket(['otro.txt', 'mako-pc-0.10.0-mac-x64.gz', 'mako-pc-0.9.0-mac-x64.gz']).versiones, ['0.9.0', '0.10.0'], 'orden numérico');
 });
 
@@ -59,10 +60,10 @@ test('publicar-binarios: mira el bucket en seco, firma lo que sube, y no revient
 // lo listado → «verificar-binarios» en rojo.
 
 test('verificar-binarios: dice «falta 0.9.9» con una versión sin ejecutables, y lista y firma como el instalador', () => {
-  const hoy = [...['0.2.0', '0.3.0', VERSION_PC].flatMap((v) => ARCHIVOS_PC.map((a) => `mako-pc-${v}-${a}.gz`)), archivoDelInstalador()];
+  const hoy = [...['0.2.0', '0.3.0', VERSION_PC].flatMap((v) => ARCHIVOS_PC.map((a) => `mako-pc-${v}-${a}.gz`)), archivoDelInstalador(), archivoDelInstaladorMac()];
   const r = informeDeBinarios(hoy, '0.9.9');
   assert.equal(r.completa, false);
-  assert.match(r.texto, /^⛔ falta 0\.9\.9: mako-pc-0\.9\.9-windows-x64\.gz, mako-pc-0\.9\.9-mac-arm64\.gz, mako-pc-0\.9\.9-mac-x64\.gz, mako-pc-0\.9\.9-windows-setup\.exe\./);
+  assert.match(r.texto, /^⛔ falta 0\.9\.9: mako-pc-0\.9\.9-windows-x64\.gz, mako-pc-0\.9\.9-mac-arm64\.gz, mako-pc-0\.9\.9-mac-x64\.gz, mako-pc-0\.9\.9-windows-setup\.exe, mako-pc-0\.9\.9-mac-app\.zip\./);
   assert.deepEqual(informeDeBinarios(hoy), { completa: true, texto: `✓ ${VERSION_PC} completa: el instalador puede bajarla.` });
   assert.equal(informeDeBinarios(hoy, VERSION_PC, [archivoDelPrograma('mac-x64')]).completa, false, 'listado pero sin firmar no es completo');
   const s = sinComentarios(readFileSync(join(RAIZ, 'scripts/ia-pc/verificar-binarios.mts'), 'utf8'));

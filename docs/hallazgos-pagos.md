@@ -1155,3 +1155,39 @@ cuenta pasan a la nueva (lo de siempre). (2) Dos «conectar» a la vez reciben e
 (`yaEstaba`, la misma regla que con la pasarela). (4) `cuentasDePago` decide «conectada» por los NOMBRES de las claves,
 no por si descifran: una principal ilegible puede elegirse como cuenta por defecto. Todo en lib/cobros.ts y
 lib/cuentas-pago-server.ts.
+
+## «Vincular cobro» no mostraba los productos de Stripe: MaKo nunca leía su catálogo (23/10/2026)
+
+Llamada con Mauricio (Fathom 195591907, min 20-28): pegó su clave secreta de Stripe, fue a «Vincular cobro» en Ganado
+de «Sprint 3 días», y su producto de US$270 no aparecía; «Volver a leer» no hacía nada y el «Sprint 3 días» de MaKo
+decía «no tiene precio». **Lo obvio era la clave en otra fila o cuenta, la caché o la moneda. No era nada de eso.**
+Medido en el ws1 (sólo leyendo): la clave es `sk_live`, lee la cuenta de México (moneda por defecto MXN) y su precio
+está en USD, con producto activo y precio por defecto. Lo que pasaba: el pop-up lista SÓLO `productos` de MaKo, y nada
+en el repo leía `/v1/prices`. «Volver a leer» volvía a pedir lo mismo.
+- **Ahora:** `preciosDeStripe` lee en vivo, sin caché, los precios activos de todas las cuentas de Stripe conectadas,
+  cada una con su clave. Elegir uno vuelve a leer el precio en Stripe con la clave de ESA cuenta (del navegador viene
+  sólo el `price_…`) y lo trae al catálogo.
+- **El mismo nombre es el mismo producto, pero sólo se le pone precio al que NO tenía.** La revisión adversarial
+  encontró el agujero: un mismo producto de Stripe con dos precios (US$600 único y US$100 por mes) pisaba el de MaKo
+  con el segundo. Eso cambiaba el vínculo de Ganado y todo link nuevo, y uno en cuotas cobraba la cuota de un precio
+  que nadie vio. Uno que cobra otra cosa ahora es un conflicto con los dos precios a la vista, y se cambia a mano.
+- **Lo que frena el vínculo frena ANTES de escribir:** que el CRM exista, que la etapa sea su Ganado, las cuentas, y
+  que el producto no cobre ya en otro CRM. Antes, el precio quedaba cambiado para todo el negocio y el vínculo fallaba
+  después.
+- Lo que MaKo no cobra tal cual se muestra con el porqué: otra moneda (el catálogo va en dólares), cada año o cada N
+  meses (MaKo cobra por mes), un monto que elige quien paga, por escalones o con fracción de centavo (Stripe manda
+  `unit_amount: null`). Los montos se convierten con `deUnidadMinima`, la de los cobros: una lista copiada trataba
+  UGX sin el ×100.
+
+**Sin hacer:**
+- Dos clics a la vez sin producto en MaKo crean dos con el mismo nombre (`productos` no tiene índice único por
+  nombre). El pop-up bloquea mientras guarda.
+- El producto de MaKo no guarda su `price_…`: el match es por nombre, y si se renombra en MaKo, traerlo crea otro.
+- ⚠️ **Lo de fondo sigue:** su landing cobra con un Payment Link propio de Stripe (`plink_…`). Las 10 sesiones
+  medidas llegan sin metadata de MaKo, y el aviso las ignora con «no es un cobro de MaKo» (la entrada del 21/10, más
+  arriba). Vincular el producto hace que cobre en Ganado lo que se paga por un link de MaKo, no lo que entra por
+  ese link.
+
+**Vive en:** lib/stripe-catalogo.ts · lib/stripe-catalogo-reglas.ts · lib/stripe-api.ts (`listarPreciosStripe`,
+`leerPrecioStripe`) · app/crm/cobro-etapa-actions.ts (`preciosDeStripeAction`, `vincularPrecioDeStripeAction`) ·
+tests/stripe-catalogo.test.ts. El pop-up es del CRM (app/crm/CobroDeEtapaModal.tsx).
