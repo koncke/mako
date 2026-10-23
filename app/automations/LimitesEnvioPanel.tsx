@@ -8,9 +8,14 @@
 // momento tuvimos en cuenta, como que no se envien más de X cantidad de mensajes... Que todo eso sea
 // configurable.»
 //
-// Tres bloques —WhatsApp, Email y «MaKo contesta sola»— con un número y sus flechas por límite, rótulos de
-// 1-3 palabras, la línea de uso («24 h: 6 de 40») y «Restaurar» (vuelve todo a lo de fábrica). Las reglas, los
-// rangos y lo de fábrica viven en lib/limites-envio.ts; esto sólo los dibuja.
+// Tres grupos —WhatsApp, Email y «MaKo contesta sola»— con un número y sus flechas por límite, rótulos de
+// 1-3 palabras y «Restaurar» (vuelve todo a lo de fábrica). Las reglas, los rangos y lo de fábrica viven en
+// lib/limites-envio.ts; esto sólo los dibuja.
+//
+// SIN TEXTO SUELTO (22/10/2026, Martín: «Jamás jamás pongas todo eso... Elimina todo el texto innecesario y diseñalo
+// mejor»): las filas de FilasOpciones.tsx (nombre, número y unidad). Lo que se usó del cupo («24 h: 6 de 40») y la regla
+// de «Primero lo que entra» van en el ⓘ del grupo; la ayuda de una fila que la necesita, en el suyo (`info`). Los topes de
+// la LÍNEA no se apagan (son lo que la protege del baneo): sus filas dejan el hueco del interruptor.
 //
 // ⚠️ SE GUARDA SOLO, CADA CAMBIO, como el horario de oficina (HorarioEnvioPanel: «elimina el botón de
 // guardar, si se hace un cambio ya se debe quedar guardado»). Lo que está fuera de rango NO se guarda: se
@@ -22,21 +27,25 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { Spinner } from '@/app/_ui';
+import { FilaOpcion, GrupoOpciones, Unidad, TarjetaOpciones } from './FilasOpciones';
 import { getLimitesEnvioAction, saveLimitesEnvioAction } from '@/app/configuraciones/limites-actions';
 import { textoPrioridad } from '@/lib/nutricion-prioridad';
 import { BLOQUES_LIMITES, conLimite, difiereDeFabrica, leerLimite, leerNumero, lineaDeUso, rangoDe, type LimitesEnvio, type UsoDelCupo } from '@/lib/limites-envio';
 
 const SANS = "'Geist', sans-serif";
-const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 18 };
 
 type Grupo = keyof LimitesEnvio;
 type Uso = UsoDelCupo | null;
 
-/** El número con sus dos flechas. Las flechas no pasan del rango; lo escrito a mano se valida al salir. */
-export function Numero({ valor, min, max, disabled, etiqueta, onCambio, onInvalido }: {
+/**
+ * El número con sus dos flechas. Las flechas no pasan del rango; lo escrito a mano se valida al salir.
+ * `apagado` (22/10/2026, Anti-ban): la opción no aplica, el número se ve GRIS y no se toca (se prende con su interruptor).
+ */
+export function Numero({ valor, min, max, disabled: noEdita, etiqueta, onCambio, onInvalido, apagado = false }: {
   valor: number; min: number; max: number; disabled: boolean; etiqueta: string;
-  onCambio: (n: number) => void; onInvalido: (error: string | null) => void;
+  onCambio: (n: number) => void; onInvalido: (error: string | null) => void; apagado?: boolean;
 }) {
+  const disabled = noEdita || apagado;
   const [texto, setTexto] = useState(String(valor));
   // Lo guardado cambió por otro lado («Restaurar», la lectura): el campo lo sigue.
   const [visto, setVisto] = useState(valor);
@@ -56,11 +65,11 @@ export function Numero({ valor, min, max, disabled, etiqueta, onCambio, onInvali
     display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: disabled ? 'default' : 'pointer',
   };
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', border: '1px solid var(--border-strong)', borderRadius: 10, background: 'var(--surface)', height: 34, boxSizing: 'border-box', overflow: 'hidden' }}>
+    <div data-numero-apagado={apagado ? '' : undefined} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${apagado ? 'var(--border)' : 'var(--border-strong)'}`, borderRadius: 10, background: apagado ? 'var(--surface-2)' : 'var(--surface)', height: 34, boxSizing: 'border-box', overflow: 'hidden', flex: 'none' }}>
       <input value={texto} disabled={disabled} inputMode="numeric" aria-label={etiqueta}
         onChange={(e) => escribir(e.target.value.replace(/[^\d]/g, ''))}
         onKeyDown={(e) => { if (e.key === 'ArrowUp') { e.preventDefault(); flecha(1); } else if (e.key === 'ArrowDown') { e.preventDefault(); flecha(-1); } }}
-        style={{ width: 52, height: '100%', border: 'none', outline: 'none', background: 'transparent', textAlign: 'center', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }} />
+        style={{ width: 52, height: '100%', border: 'none', outline: 'none', background: 'transparent', textAlign: 'center', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: apagado ? 'var(--faint)' : 'var(--ink)' }} />
       <div style={{ display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border)' }}>
         <button type="button" aria-label={`Subir ${etiqueta}`} disabled={disabled || valor >= max} onClick={() => flecha(1)} style={btn}>
           <span style={{ display: 'flex', transform: 'rotate(180deg)' }}><Icon name="chevron" size={13} /></span>
@@ -73,6 +82,15 @@ export function Numero({ valor, min, max, disabled, etiqueta, onCambio, onInvali
   );
 }
 
+/**
+ * EL ⓘ DE UN GRUPO (22/10/2026): lo que ya salió del cupo y, en WhatsApp, la regla de la cola («Primero lo que entra»,
+ * 21/10/2026). Eran dos líneas de texto sueltas arriba y abajo del grupo.
+ */
+export function infoDelGrupo(titulo: string, uso: Uso, l: LimitesEnvio): string | undefined {
+  const partes = [lineaDeUso(titulo, uso, l), titulo === 'WhatsApp' ? textoPrioridad(l.wa) : null].filter((x): x is string => !!x);
+  return partes.length ? partes.join('. ') : undefined;
+}
+
 /** `onSucio`: hay un guardado en vuelo (el modal no se cierra mientras tanto). */
 /**
  * `personaPorDefecto` (20/10/2026): en Configuraciones de UNA automatización, las horas entre dos mensajes a la misma
@@ -81,7 +99,7 @@ export function Numero({ valor, min, max, disabled, etiqueta, onCambio, onInvali
  * heredan todas las automatizaciones que ya existían quedó sin pantalla donde cambiarlo (revisión del 20/10/2026).
  */
 export const ROTULO_PERSONA_DEFECTO = 'Misma persona, por defecto';
-export const AYUDA_PERSONA_DEFECTO = 'Para las automatizaciones que no tienen las suyas';
+export const AYUDA_PERSONA_DEFECTO = 'Horas entre dos mensajes a la misma persona, en las automatizaciones que no tienen las suyas.';
 export function LimitesEnvioPanel({ onSucio, personaPorDefecto = false }: { onSucio?: (sucio: boolean) => void; personaPorDefecto?: boolean }) {
   const [l, setL] = useState<LimitesEnvio | null>(null);
   const [fabrica, setFabrica] = useState<LimitesEnvio | null>(null);
@@ -137,34 +155,27 @@ export function LimitesEnvioPanel({ onSucio, personaPorDefecto = false }: { onSu
   });
 
   const off = !puedeEditar;
+  const bloques = BLOQUES_LIMITES.map((b) => ({ ...b, filas: b.filas.map((f) => (personaPorDefecto && f.campo === 'personaHoras' ? { ...f, rotulo: ROTULO_PERSONA_DEFECTO, info: AYUDA_PERSONA_DEFECTO } : f)) }));
   return (
-    <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 16, fontFamily: SANS }}>
-      {BLOQUES_LIMITES.map((b0) => ({ ...b0, filas: b0.filas.map((f) => (personaPorDefecto && f.campo === 'personaHoras' ? { ...f, rotulo: ROTULO_PERSONA_DEFECTO, ayuda: AYUDA_PERSONA_DEFECTO } : f)) })).map((b, i) => {
-        const usoTxt = lineaDeUso(b.titulo, uso, l);
-        return (
-          <section key={b.titulo} aria-label={b.titulo} style={{ display: 'flex', flexDirection: 'column', gap: 10, ...(i ? { borderTop: '1px solid var(--border)', paddingTop: 14 } : null) }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{b.titulo}</span>
-              {usoTxt && <span data-uso style={{ fontSize: 12.5, color: 'var(--dim)' }}>{usoTxt}</span>}
-            </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontFamily: SANS }}>
+      <TarjetaOpciones>
+        {bloques.map((b, i) => (
+          <section key={b.titulo} aria-label={b.titulo}>
+            <GrupoOpciones titulo={b.titulo} info={infoDelGrupo(b.titulo, uso, l)} primero={i === 0} />
             {b.filas.map((f) => {
               const clave = `${f.grupo}.${f.campo}`;
               const [min, max] = rangoDe(f.grupo, f.campo);
               return (
-                <div key={clave} title={f.ayuda} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={{ flex: '1 1 120px', minWidth: 0, fontSize: 14, color: 'var(--ink)' }}>{f.rotulo}</span>
+                <FilaOpcion key={clave} nombre={f.rotulo} info={f.info} sinInterruptor error={invalidos[clave]} datos={{ 'data-limite': clave }}>
                   <Numero key={`${clave}:${vuelta}`} valor={leerLimite(l, f.grupo, f.campo)} min={min} max={max} disabled={off} etiqueta={`${b.titulo} · ${f.rotulo}`}
                     onCambio={(n) => cambiar(f.grupo, f.campo, n)} onInvalido={(e) => marcarInvalido(clave, e)} />
-                  <span style={{ flex: '0 0 64px', fontSize: 13, color: 'var(--dim)' }}>{f.unidad}</span>
-                  {invalidos[clave] && <span role="alert" style={{ flexBasis: '100%', fontSize: 12.5, color: 'var(--bad)' }}>{invalidos[clave]}</span>}
-                </div>
+                  <Unidad>{f.unidad}</Unidad>
+                </FilaOpcion>
               );
             })}
-            {/* PRIMERO LO QUE ENTRA (21/10/2026): la regla de la cola, dicha con los números de este negocio. */}
-            {b.titulo === 'WhatsApp' && <span data-prioridad style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.45 }}>{textoPrioridad(l.wa)}</span>}
           </section>
-        );
-      })}
+        ))}
+      </TarjetaOpciones>
       {(aviso || (!off && difiereDeFabrica(l, fabrica))) && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
           <span role={aviso ? 'alert' : undefined} style={{ fontSize: 13, color: 'var(--bad)' }}>{aviso}</span>

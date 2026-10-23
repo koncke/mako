@@ -2399,4 +2399,58 @@ FEEDBACK PROBAR:
     ],
     pedido: "«elimina el texto \"Pausada, no sale nada\", eso es completamente innecesario... Para eso ya tenemos el \"ACTIVAR\" de abajo»",
   },
+  {
+    fecha: "22 oct", hora: "22:27", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Configuraciones: «Límites» pasa a ser «Anti-ban», cada opción con su interruptor y sin texto de más",
+    puntos: [
+      "Llegó por el Cerebro, con una captura del modal de «Sprint · apertura».",
+      "El goteo, el tope por día y las horas a la misma persona (WhatsApp y email) se prenden y se apagan; apagada, el número en gris. Sin «Quitar».",
+      "Sin el nombre de la automatización arriba y con menos aire entre el título y las pestañas.",
+      "Cada fila: el nombre, el número con su unidad y el interruptor. Lo que hay que explicar, en un ⓘ. Lo mismo en Horario y en lo de la línea.",
+    ],
+    pedido: "«en las opciones hay una cantidad aberrante de texto innecesario. Jamás jamás pongas todo eso... Elimina todo el texto innecesario y diseñalo mejor»",
+  },
+  {
+    fecha: "22 oct", hora: "23:05", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: mientras MaKo trabaja en Automations puedes ir a otra tab, y «No se envió» sólo cuando no salió",
+    puntos: [
+      "La barra de la app queda nítida y se toca; el lienzo sigue sin editarse mientras MaKo trabaja.",
+      "Si te vas, el pedido sigue en el servidor: al volver se ve el resultado, y estando en otra tab te avisa con un globito.",
+      "«No se envió · Reintentar» aparece sólo si tu mensaje no llegó; si lo que falló fue la IA, lo dice MaKo.",
+      "En producción: deploy de c3ee81654 (lo verificó Integración).",
+    ],
+    commits: [
+      { sha: "0c4fd604e", msg: "Automations · el chat de MaKo trabaja en segundo plano: la barra de la app se toca mientras MaKo trabaja, irse no corta el pedido, y «No se envió» sólo cuando no salió", lineas: 565, archivos: 15 },
+    ],
+    archivos: [
+      "app/automations/stream-ia.ts — el pedido sigue aunque cierres el chat",
+      "lib/mako-trabajos.ts — el aviso de «terminó» en otra tab",
+    ],
+    revisar: "/automations",
+  },
+  {
+    fecha: "22 oct", hora: "23:05", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: «Editar» arma todas las ramas que pides, «✓ Listo» en verde cuando no falta nada, y sin el chip «Pausada»",
+    puntos: [
+      "Las respuestas según lo que conteste el lead entran todas. Si algo de lo que pediste no quedó, lo dice en rojo, sin «Listo».",
+      "Lo que MaKo acomodó solo va en gris y plegado.",
+      "El estado de la automatización lo dice sólo «Activar» (visto en producción en el ws de prueba: sin el chip arriba del lienzo).",
+      "En producción: deploy de 9b6b36d9f (lo verificó Integración).",
+    ],
+    commits: [
+      { sha: "ff537c716", msg: "Automations · «Editar» ya no arma las ramas a la mitad: las respuestas según lo que conteste entran, un control de lo pedido contra el lienzo, y «✓ Listo» sólo cuando no falta nada", lineas: 537, archivos: 13 },
+      { sha: "59d7eb3d5", msg: "Automations · sin el chip «⏸ Pausada · no sale nada» arriba del lienzo: el estado lo dice sólo el interruptor «Activar» del pie", lineas: 46, archivos: 4 },
+    ],
+    archivos: [
+      "lib/flujo-ia.ts — las ramas pedidas entran (las tres formas en que llegan)",
+      "lib/flujo-ia-intencion.ts — el control de lo pedido contra el lienzo",
+      "app/automations/ChatMako.tsx — «✓ Listo», lo acomodado plegado, lo que falta en rojo",
+    ],
+    revisar: "/automations",
+  },
 ];

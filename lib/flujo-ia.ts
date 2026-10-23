@@ -1997,10 +1997,10 @@ const CLASE_DE_TIPO: Readonly<Record<TipoTarjeta, ClaseEditable>> = {
 };
 /**
  * UNA ESPERA CORTA ENTRE DOS WHATSAPP NO SE CUMPLE (22/10/2026, la prueba de los chats del Cerebro, cinco-min-entre-mensajes 3 de
- * 3): el motor frena el segundo hasta que pasan las horas de «Misma persona» (Configuraciones › Límites; de 3 a 72, 20 de
+ * 3): el motor frena el segundo hasta que pasan las horas de «Misma persona» (Configuraciones › Anti-ban; de 3 a 72, 20 de
  * fábrica: `LIMITES_CONSTANTES`). El modelo ponía los 5 minutos sin decirlo, o se negaba culpando a Meta. Lo dice el código.
  */
-export const AVISO_MISMA_PERSONA = 'Entre dos WhatsApp a la misma persona la línea espera las horas de «Misma persona» (Configuraciones › Límites; 20 de fábrica): el segundo sale cuando pasen';
+export const AVISO_MISMA_PERSONA = 'Entre dos WhatsApp a la misma persona la línea espera las horas de «Misma persona» (Configuraciones › Anti-ban; 20 de fábrica): el segundo sale cuando pasen';
 const MINUTOS_MISMA_PERSONA = LIMITES_CONSTANTES.wa.personaHoras * 60;
 function esperaCortaEntreWhatsapp(pasos: readonly PasoIA[], tocadas: ReadonlySet<string>): boolean {
   const porId = new Map(pasos.map((p, i) => [idDe(p, i), p]));

@@ -175,7 +175,9 @@ test('(f) el modal: `sinFiletes`, Tabs con `sinLinea` y UN SOLO hijo con los dos
   // 20/10/2026: de UNA automatización (su nombre arriba, y sus paneles), con el mismo cuerpo de un solo hijo.
   const modal = tramo(src, '<Modal titulo="Configuraciones" onCerrar={cerrar} ancho={600} alto="min(85vh, 680px)" sinFiletes>', '</Modal>', 1_800);
   const cuerpo = modal.slice(modal.indexOf('>') + 1).replace(/\{\}/g, '').trim();
-  assert.match(cuerpo, /^<div data-config-automatizacion=\{secuenciaId\}>[\s\S]*<Tabs tabs=\{\[\.\.\.PESTANAS_CONFIGURACIONES\]\} activa=\{pestana\} onCambio=\{\(id\) => setPestana\(id as Pestana\)\} sinLinea \/>\s*<div hidden=\{pestana !== 'horario'\}><HorarioDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucio=\{alSucioHorario\} \/><\/div>\s*<div hidden=\{pestana !== 'limites'\}>[\s\S]*<\/div>\s*<\/div>$/,
+  // 22/10/2026 (Martín): sin el nombre de la automatización arriba y sin el aire de arriba (`paddingTop: 0`): las pestañas
+  // pegadas al título. Y «Límites» es «Anti-ban».
+  assert.match(cuerpo, /^<div data-config-automatizacion=\{secuenciaId\} style=\{\{ paddingTop: 0 \}\}>\s*<Tabs tabs=\{\[\.\.\.PESTANAS_CONFIGURACIONES\]\} activa=\{pestana\} onCambio=\{\(id\) => setPestana\(id as Pestana\)\} sinLinea \/>\s*<div hidden=\{pestana !== 'horario'\}><HorarioDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucio=\{alSucioHorario\} \/><\/div>\s*<div hidden=\{pestana !== 'antiban'\}>[\s\S]*<\/div>\s*<\/div>$/,
     'el cuerpo no es UN hijo con Tabs sin línea y los paneles montados (el segundo hijo lleva un filete arriba)');
   assert.match(src, /const cerrar = useCerrarEstable\(onCerrar, ocupado\);/, 'el Modal recibe una flecha nueva por render, o cierra con el guardado en vuelo');
   assert.match(src, /return createPortal\(\s*<Modal /);
