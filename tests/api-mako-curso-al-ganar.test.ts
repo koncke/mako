@@ -54,7 +54,7 @@ test('las dos están declaradas: la lectura para cualquiera de la tab; cambiarla
   assert.equal(cambiar.confirmacion, 'chat');
   assert.equal(cambiar.reversible, true);
   assert.equal(cambiar.aTerceros, true, 'prendida, a cada cliente nuevo le llega un email: por WhatsApp se confirma con un «sí»');
-  assert.equal(cambiar.gating.rolMinimo, 'admin', 'como el interruptor de la pantalla: sólo el admin');
+  assert.equal(cambiar.gating?.rolMinimo, 'admin', 'como el interruptor de la pantalla: sólo el admin');
 });
 
 test('«¿tiene curso?» es UNA regla para el tablero y la API, y la API lee el interruptor ESTRICTO', () => {

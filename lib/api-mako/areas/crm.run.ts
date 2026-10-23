@@ -23,7 +23,6 @@ import { guardarPlantillaPropia, idPlantillaNueva, plantillaPuesta } from '@/lib
 import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, avisoCambioDeTipo, columnaConTipo, tipoDeColumna, type TipoEtapa } from '@/lib/etapa-reunion';
 import { cambiarTipoDeEtapa } from '@/lib/etapa-tipo-server';
 import { cambiarCursoAlGanar, estadoCursoAlGanarEstricto } from '@/lib/crm-curso-al-ganar';
-import { usuarioInstagram } from '@/app/crm/campo-inline';
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { runMakoTool } from '@/lib/mako-tools';
