@@ -153,6 +153,30 @@ test('a Calendly no le llega ninguna UTM en undefined (el widget la escribe como
   assert.match(SCRIPT_DISENO, /if \(uid\) utm\.utmTerm = uid;/);
 });
 
+test('los carruseles del diseño se pueden parar y respetan «reducir movimiento» (WCAG 2.2.2)', () => {
+  // Medido en hola-mako.site/avatares-ia el 23/10/2026 con Chrome sin ventana: el script anterior avanzaba cada 5-6 s
+  // para siempre, con el mouse encima, sin botón y con «reducir movimiento» prendido.
+  assert.doesNotThrow(() => new Function(SCRIPT_DISENO), 'el script tiene que ser JavaScript válido');
+  // La preferencia del sistema se lee ANTES de armar los relojes, y con ella el avance solo ni arranca.
+  assert.ok(SCRIPT_DISENO.indexOf('prefers-reduced-motion') < SCRIPT_DISENO.indexOf('setInterval'), 'la preferencia, antes del reloj');
+  assert.match(SCRIPT_DISENO, /var arrancar = function \(\) \{\s*relojes\.forEach\(clearInterval\); relojes = \[\];\s*if \(reducir\) return;/);
+  // Cada tic pregunta si el carrusel está parado (mouse o foco encima, o su botón de pausa).
+  assert.match(SCRIPT_DISENO, /if \(!parado\(k\)\) ir\(k, cars\[k\]\.i \+ 1\)/);
+  assert.match(SCRIPT_DISENO, /c\.hover \|\| c\.foco \|\| c\.manual/);
+  // Sólo un mouse de verdad y sólo el foco de teclado frenan: un toque o un clic dejan el «encima» y el foco puestos, y
+  // el carrusel quedaba parado para siempre (medido en un teléfono con toque real).
+  assert.match(SCRIPT_DISENO, /e\.pointerType === "mouse"/);
+  assert.match(SCRIPT_DISENO, /matches\(":focus-visible"\)/);
+  // El botón de pausa existe, dice su estado y no se arma con «reducir movimiento» (no hay nada que parar).
+  assert.match(SCRIPT_DISENO, /data-act", "pausa"/);
+  assert.match(SCRIPT_DISENO, /aria-pressed/);
+  assert.match(SCRIPT_DISENO, /if \(reducir\) \{ cars\[k\]\.t\.style\.transition = "none"; return; \}/);
+  // El reveal de la entrada tampoco se desliza con «reducir movimiento».
+  assert.match(SCRIPT_DISENO, /var rev = reducir \? \[\] : todos\("\[data-reveal\]"\);/);
+  // Los símbolos del botón van como escape \u: el script se sirve tal cual y su hash lo calcula la CSP.
+  assert.ok(!/[^\x00-\x7F]/.test(SCRIPT_DISENO), 'un carácter fuera de ASCII en el script');
+});
+
 test('la publicada lleva la hoja y el script del diseño, con la política que los deja correr', () => {
   const html = htmlDePagina(pagina([tarjeta([editable('<div id="cal-embed" data-calendly="https://calendly.com/koncke/asesoria"></div>')], { id: 'tc' })]), config, tema, { modo: 'publico' });
   const doc = armarDocumento(
