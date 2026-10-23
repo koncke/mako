@@ -1155,3 +1155,28 @@ cuenta pasan a la nueva (lo de siempre). (2) Dos «conectar» a la vez reciben e
 (`yaEstaba`, la misma regla que con la pasarela). (4) `cuentasDePago` decide «conectada» por los NOMBRES de las claves,
 no por si descifran: una principal ilegible puede elegirse como cuenta por defecto. Todo en lib/cobros.ts y
 lib/cuentas-pago-server.ts.
+
+## El USD de una cuota de renovación: cero vale cero, y en pesos con descuento no vale el de lista (23/10/2026)
+
+Lo encontró el chat «Suscripción y Partners» (el cobro del plan de MaKo) leyendo `montoUsdDeLaCuota`
+(lib/cobros-reglas.ts). Pasaban dos cosas:
+- **Una cuota de 0** (saldo a favor, cupón del 100%) **valía lo del cobro.** Sumaba US$47 de cash que no entraron.
+  Stripe no llegaba a ese punto, porque `confirmarFactura` ya ignora la factura en cero; Mercado Pago no tiene ese
+  filtro. Y tres lugares de `aplicarPagoAprobado` usaban `p.monto ? p.monto : actual.monto`, así que un 0 se guardaba
+  y se avisaba con el monto del cobro.
+- **Una cuota en pesos con descuento valía el USD de lista.**
+
+⚠️ **Lo obvio era «convertir con la cotización del día». Cobros no tiene ninguna**, y la regla de la casa es no
+inventar una tasa. Lo único declarado es la relación del cobro: sus pesos frente a sus dólares. Con eso:
+- una cuota MENOR que el cobro es un descuento y vale su parte de esos dólares;
+- una IGUAL o MAYOR vale lo declarado. Escalarla convertiría cada ajuste por inflación en pesos en más dólares
+  vendidos, y en Argentina se ajusta seguido.
+
+**Medido en producción (sólo leyendo):** ningún negocio tiene cobros de suscripción ni cuotas de pasarela todavía.
+No quedó nada mal anotado.
+
+**Sin hacer:** con una cotización diaria de verdad (otra fuente, y decidir cuál: oficial o MEP), una renovación en
+pesos valdría lo de ese día. Es una decisión de producto, no de este arreglo.
+
+**Vive en:** lib/cobros-reglas.ts (`montoUsdDeLaCuota`) · lib/cobros.ts (`aplicarPagoAprobado`) ·
+tests/cobros-reglas.test.ts.
