@@ -64,8 +64,8 @@ export const DONDE_SE_EDITA: Readonly<Record<SeccionNegocio, DondeSeEdita>> = {
   avatares: { ...SB, area: 'avatares', nombre: 'Avatares', candidata: 'Writer' },
   razones: { ...SB, area: 'razones', vista: 'razones', nombre: 'Razones', candidata: 'Writer' },
   matriz: { ...SB, area: 'razones', vista: 'matriz', nombre: 'Matriz', candidata: 'Writer' },
-  // ⚠️ DECISIÓN PENDIENTE DE MARTÍN: la recomendación de formatos no la lee ningún generador (`elegirAngulo`
-  // elige de la biblioteca entera) y cada «regenerar» paga IA. Se queda donde está hasta que él decida.
+  // Ángulos = la biblioteca de formatos con cuántos anuncios de la matriz usa cada uno, sin IA. La recomendación
+  // a nivel negocio (que pagaba IA y no la leía ningún generador) se sacó el 23/10/2026: 0 negocios la tenían.
   angulos: { ...SB, area: 'razones', vista: 'angulos', nombre: 'Ángulos' },
 };
 

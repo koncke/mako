@@ -46,7 +46,7 @@ import { claveDeLinea, estabilizarLista, minutoDe, mismoValor } from '@/lib/cent
 import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, textoParaMandar, type Borrador } from '@/lib/centro-caja';
 import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
-import { recordarEnviadas } from './fotos-enviadas';
+import { barrerEnviadasViejas, recordarEnviadas } from './fotos-enviadas';
 import { textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
@@ -102,11 +102,14 @@ const trabajoDe = (p: Pedido): TrabajoP => ({
   id: p.id, destino: p.destino, destino_titulo: p.destino_titulo, destino_cuenta: p.destino_cuenta, created_at: p.created_at,
   texto: p.texto, estado: p.estado, motivo: p.motivo, entregado_at: p.entregado_at, cerrado_at: p.cerrado_at, cierre: p.cierre,
   ...(p.adjuntos?.length ? { adjuntos: p.adjuntos } : {}),
+  ...(p.fotos?.length ? { fotos: p.fotos } : {}),
 });
 
 export function useCentro(d: DatosCentro, avisar: Avisar) {
   const { base, pedidos, sub, tabs, responder, deshacer } = d;
   const [cola, setCola] = useState<Pedido[]>(d.colaInicial ?? []);
+  // Las miniaturas que este navegador guardaba antes del 23/10 y ya no tienen burbuja (fotos-enviadas.ts): una vez por carga.
+  useEffect(() => { void barrerEnviadasViejas(cola.map((p) => p.id)); }, [cola]);
   // Lo recién mandado se ve enseguida; cuando el refresco lo trae de la cola, se usa el de la cola.
   const [locales, setLocales] = useState<TrabajoP[]>([]);
   const [estado, setEstado] = useState<EstadoCarteros | null>(d.carterosIniciales);
@@ -538,8 +541,9 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
       id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: texto.trim() || TEXTO_SOLO_ADJUNTOS,
       estado: 'escrito', motivo: null, cierre: null, ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
     });
-    // Las fotos se quedan en este navegador para dibujarlas en su burbuja (FotosEnviadas.tsx: el bucket las borra al entregar).
-    if (subidos.length) recordarEnviadas(r.id, archivos.map((a) => a.file));
+    // Las fotos se ven en el acto en este navegador, y su miniatura sube al servidor para verla en otro dispositivo
+    // (FotosEnviadas.tsx: el bucket borra el original al entregar). `subidos` va en el orden de `archivos`.
+    if (subidos.length) recordarEnviadas(r.id, archivos.map((a) => a.file), subidos);
     vaciarAdjuntos(c.clave);
     limpiarBorrador(c.clave);
     citar(c.clave, null);

@@ -70,7 +70,11 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
   // DECIRLO: hasta el 15/10/2026 quedaba un rectángulo blanco sin una palabra, que se lee como que la
   // app está rota. No lo puede contestar el server: el HTTP es 200 y el HTML viene lleno de scripts.
   const graciaRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const anotarTexto = useCallback((v: unknown) => {
+  // ¿La página REAL se deja mostrar acá? Lo decide el server con las cabeceras de la respuesta
+  // (`dejaEmbeberse`, lib/landing-marco.ts) y llega con el texto. null = no lo dijo (un documento viejo).
+  const marcoRef = useRef<boolean | null>(null);
+  const anotarTexto = useCallback((v: unknown, marco?: unknown) => {
+    if (typeof marco === 'boolean') marcoRef.current = marco;
     const n = typeof v === 'number' && Number.isFinite(v) ? v : -1;
     if (n < 0) return;                       // el documento no lo pudo medir: no se afirma nada
     if (n >= PISO_TEXTO) {
@@ -85,12 +89,16 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
       // que se renderice de manera automatica ahi». El documento aislado sirve el HTML crudo, y
       // una landing armada en un constructor lo trae vacio; la pagina REAL, en cambio, corre su
       // propio JavaScript con SU origen y se ve. Se cae a eso solo cuando el aislado no pinto.
-      // Si el sitio se niega a ser embebido (X-Frame-Options o frame-ancestors) el recuadro queda
-      // vacio igual, y para eso sigue abajo la barra con el motivo y el boton de abrirla.
-      setEstado((e) => (e === 'lista' || e === 'cargando' ? 'directo' : e));
+      // PERO SOLO SI LA PAGINA SE DEJA EMBEBER (23/10/2026). Con X-Frame-Options o frame-ancestors el
+      // navegador dibuja un recuadro vacio, y el aviso decia «se muestra la pagina real» sobre un blanco:
+      // una pantalla que le afirma al cliente algo falso sobre su propia pagina. Si el server dijo que no
+      // se deja, no se intenta: el recuadro dice que no se puede mostrar aqui y ofrece abrirla.
+      setEstado((e) => (e === 'lista' || e === 'cargando' ? (marcoRef.current === false ? 'vacia' : 'directo') : e));
     }, ESPERA_PINTA_MS);
   }, []);
   useEffect(() => () => { if (graciaRef.current) clearTimeout(graciaRef.current); }, []);
+  // Otra página: lo que dijo la anterior sobre su marco ya no vale.
+  useEffect(() => { marcoRef.current = null; }, [src]);
 
   const mandar = useCallback((m: Record<string, unknown>) => {
     try { iframeRef.current?.contentWindow?.postMessage({ ...m, [MARCA_MENSAJE]: 1 }, '*'); } catch { /* el iframe se fue */ }
@@ -105,8 +113,8 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
       if (!iframeRef.current || ev.source !== iframeRef.current.contentWindow) return;
       const d = ev.data as Record<string, unknown> | null;
       if (!d || typeof d !== 'object' || d[MARCA_MENSAJE] !== 1) return;
-      if (d.tipo === 'listo') { setEstado('lista'); anotarTexto(d.texto); mandarCitas(); return; }
-      if (d.tipo === 'pinto') { anotarTexto(d.texto); return; }
+      if (d.tipo === 'listo') { setEstado('lista'); anotarTexto(d.texto, d.marco); mandarCitas(); return; }
+      if (d.tipo === 'pinto') { anotarTexto(d.texto, d.marco); return; }
       if (d.tipo === 'error') { setEstado('error'); setMensaje(String(d.mensaje ?? '').slice(0, 300)); return; }
       if (d.tipo === 'cajas' && Array.isArray(d.cajas)) {
         const nuevas = (d.cajas as unknown[]).slice(0, TOPES_DIAGNOSTICO.citas).map(cajaDeMensaje);
@@ -198,7 +206,7 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
           <p>
             {estado === 'error' && mensaje ? mensaje
               : estado === 'directo' ? 'Esta página se dibuja con JavaScript: se muestra la página real.'
-              : estado === 'vacia' ? 'Esta página se dibuja con JavaScript y aquí no llega a verse.'
+              : estado === 'vacia' ? 'Esta página se dibuja con JavaScript y no deja mostrarse aquí.'
               : 'No pude mostrar la página aquí.'}
           </p>
           <a className="gp-btn gp-btn-contorno" href={url} target="_blank" rel="noopener noreferrer">Abrir la página</a>

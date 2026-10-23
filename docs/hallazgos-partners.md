@@ -74,3 +74,47 @@ de $0; Mercado Pago no tiene prueba gratis en una suscripción sin plan). El pri
 referido. Y la entrada «MaKo Partners» de la barra sigue `soloCapas: ['agencia']` (app/_components/nav.ts, del chat Sidebar):
 un cliente común llega por «Tu plan» › «Recomienda MaKo» y por los mails. **Vive en:** `lib/partners-reglas.ts` ·
 `lib/partners-programa.ts` · `app/partners/referidos/` · `app/mako-partners/` · `tests/partners-referidos.test.ts`.
+
+## Una venta POR LLAMADA perdía al partner del todo (medido el 23/10/2026)
+
+**El síntoma que se temía:** sin pasarela, quien llega con /r/<código> termina en la agenda, compra por teléfono, y el partner
+reclama una comisión que el sistema no sabe que es suya. **Medido (8 agentes, cada uno con un refutador, y la base en solo
+lectura):** hasta el commit que sigue a bf60e15ef, el código NO quedaba en ninguna tabla. Sólo vive:
+- en la cookie httpOnly `mako_ref` del navegador del comprador (60 días desde el primer clic, por host: `www` y el dominio sin
+  `www` no la comparten). Nadie de MaKo la puede leer; se ve en las herramientas del navegador del comprador;
+- en los logs de requests de Vercel (GET /r/<código>, /planes?ref=) y en los de PostgREST de Supabase (el SELECT de /r lleva
+  el código en la query): hora y código, SIN persona. Cruzarlo con una reserva por horario es una atribución débil.
+
+**Se pierde en:** el link a Calendly (llevaba sólo 4 UTM; la Referrer-Policy `strict-origin-when-cross-origin` no deja ver la
+query); /r arma /planes de cero y descarta las UTM del link del partner; el webhook de Calendly no guarda el payload crudo
+ni tiene columna de partner; el alta a mano («Nuevo cliente» en /admin) no tiene campo de partner ni crea un cobro; «Vender
+un plan» (/admin/cobros, sólo con pasarela) no lleva `ref_codigo`, y /pagar/<token> no lee la cookie aunque sea el mismo
+navegador. **El único que escribe `cobros.ref_codigo` es el checkout** (lib/compra-plan.ts), y sin pasarela devuelve 503
+antes de escribir nada.
+
+**Lo que se arregló:** sin campaña (por /r siempre es así), el código viaja a la agenda como `utm_source=mako-partners`,
+`utm_medium=referido`, `utm_campaign=<código>` (`agendaConOrigen`, lib/compra-plan-reglas.ts). Queda en la reserva de
+Calendly y, cuando la agenda de MaKo entre al CRM del ws 9 (hoy NO entra: docs/hallazgos-integraciones.md), en el lead.
+Con campaña gana la campaña. Un comprador que no pasó por /r (lo recomendaron de palabra) sigue sin código: la única huella
+es lo que escriba en «¿Cómo llegaste a MaKo?» del onboarding (`onboarding.encuesta` del negocio; no pregunta QUIÉN).
+
+**Reconstruir a mano una comisión (no hay pantalla: es SQL):** `acreditarReferidos` lee SÓLO cobros de la plataforma con
+`ref_codigo`, `alta_ws`, `alta_estado = 'hecha'` y estado pagado; acredita con 2 filas de `pagos` pagado=true cuyo
+`cobro_id` sea un cobro de la plataforma con ese `alta_ws`. No mira la pasarela.
+- **A (el sistema lo reconoce solo):** un cobro en el ws 9 con `tipo = 'unico'` (con `'suscripcion'` el negocio pasa a «MaKo
+  le cobra por la pasarela»: topes, «Tu plan», «Darme de baja» contra una pasarela que no intervino, y mora si se prende el
+  corte), `proveedor` cualquiera de los dos (lo exige el CHECK aunque no intervino), `monto_usd` = precio de lista (ESO es el
+  crédito), `alta_ws = N`, `alta_estado = 'hecha'`, `alta_capa = NULL` (con capa puesta, la reconciliación intentaría otra
+  alta), `ref_codigo` y `created_at` de la compra (el primero vale). Las dos cuotas, con «Registrar pago suelto» en la ficha
+  del lead del ws 9 y después `cobro_id`. El cron ata, manda las dos bienvenidas y acredita.
+- **B (sólo la plata):** un renglón en `partner_creditos` (`tipo 'ajuste'` lo admite el CHECK; nadie lo escribe en código).
+  El saldo se ve, pero el referido NO aparece en la lista del tablero (sale de cobros con `ref_codigo`).
+
+**Trampas:** `workspaces.referido_por_ws` no tiene NINGÚN lector: cargarlo a mano no da crédito ni se ve. `existe()` de /r
+trata un error de Supabase como «código inexistente» (sin cookie ni ?ref, sin log). `comprasConCodigo` corta en 500 y
+`acreditarReferidos` en 1000, en silencio. **Medido en la base el 23/10:** `partner_codigos` = 0 (el código nace al abrir
+/partners/referidos), y 0 cobros con `ref_codigo`: hoy no hay ningún link de partner en la calle.
+
+**Sin hacer:** un campo de partner en el alta a mano («Nuevo cliente» y «Vender un plan») que escriba el cobro de la opción A;
+leer la cookie en /pagar/<token>. **Vive en:** app/r/[codigo]/route.ts · lib/compra-plan-reglas.ts (`agendaConOrigen`) ·
+lib/partners-programa.ts · app/admin/cobros/actions.ts · lib/alta-cliente.ts · tests/planes-sin-pasarela.test.ts.

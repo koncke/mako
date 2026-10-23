@@ -42,7 +42,8 @@ import type { NextRequest } from 'next/server';
 import { getCapaActual, getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { tabEnCapa } from '@/lib/capas';
-import { htmlDePagina } from '@/lib/landing-fetch';
+import { htmlDePagina, paginaParaVer } from '@/lib/landing-fetch';
+import { dejaEmbeberse } from '@/lib/landing-marco';
 import { CABECERAS_PAGINA_DIAGNOSTICO, responderPaginaDiagnostico } from '@/lib/editor-landing/diagnostico';
 import { PARAM_CAMINO, PARAM_FIRMA, PARAM_LECTOR, responderPaginaLector } from '@/lib/editor-landing/lector-pagina';
 import { bajarModulo, paginasPropias } from '@/lib/editor-landing/lector-server';
@@ -85,7 +86,15 @@ export async function GET(req: NextRequest) {
   }
   // La vista previa también baja la URL TAL CUAL la pegó la persona (tanda 6): normalizada pierde el www y el
   // query, y hay hosts que sólo existen con www. El panel le pasa la pegada (PanelDiagnostico.tsx, `urlPegada`).
-  return responderPaginaDiagnostico(req, q.get('url'), { bajar: (url) => htmlDePagina(url, { talCual: true }) });
+  // Y con la página viene lo que dice de su MARCO (23/10/2026): si el aislado no pinta, la vista cae a la página
+  // real, y eso sólo se ve si se deja embeber (VistaAfuera.tsx). Lo decide el server, que tiene las cabeceras.
+  const origen = req.nextUrl.origin;
+  return responderPaginaDiagnostico(req, q.get('url'), {
+    bajar: async (url) => {
+      const p = await paginaParaVer(url);
+      return { html: p.html, embebible: dejaEmbeberse(p.marco, origen) };
+    },
+  });
 }
 
 /**

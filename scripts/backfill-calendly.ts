@@ -10,6 +10,11 @@
 //   NODE_OPTIONS="--conditions=react-server" npx tsx scripts/backfill-calendly.ts
 // Token: CALENDLY_API_TOKEN.
 //
+// OTRO NEGOCIO (23/10/2026, la agenda de MaKo en el ws 9): con --ws=N el token, el R1 y el R2 salen de las credenciales
+// de N (nunca de .env.local) y se importan SÓLO las reservas cuyo tipo de evento rutea a N en webhook_routing: lo mismo
+// que habría entrado por el webhook. Sin --ws, lo de siempre. --simulacro es --dry.
+//   NODE_OPTIONS="--conditions=react-server" npx tsx scripts/backfill-calendly.ts --ws=9 --desde=2026-10-01 --simulacro
+//
 // ⚠️ YA NO CAE A `CALENDLY_WEBHOOK_SIGNING_KEY`, y el comentario que decía que era el mismo
 // PAT dejó de ser cierto el 19/09/2026: al recrear la suscripción, la signing key pasó a
 // ser 32 bytes aleatorios guardados en la tabla `credenciales`
@@ -37,11 +42,23 @@ import { upsertLeadFromCalendly, saveLeadRespuestas, normalizarTelefono, findLea
 import { isoToFechaTijuana, extractAnswer, extractRespuestaPorFrase, clasificarJunta } from '../lib/calendly';
 import { linkDeReunion } from '../lib/recordatorio-lead';
 import { runWithWorkspace, OWNER_WS, getTenantDb } from '../lib/workspace';
-import { credWs } from '../lib/credenciales';
+import { credWsEstricta } from '../lib/credenciales';
+import { wsPorIdentificadorEstricto } from '../lib/webhook-routing';
+import { argsDeScriptCalendly } from '../lib/calendly-scripts-reglas';
+import { rutaDeReserva } from '../lib/agenda-evento-etapa-server';
 
 const API = 'https://api.calendly.com';
 const PAUSA_MS = 300;
-const DRY = process.argv.includes('--dry');
+const ARGS = (() => {
+  const r = argsDeScriptCalendly(process.argv, ['--desde=']);
+  if (!r.ok) { console.error(r.error); process.exit(1); }
+  return r.args;
+})();
+const DRY = ARGS.simulacro;
+/** El negocio donde se escribe: el pedido con --ws, o el dueño como siempre. */
+const WS = ARGS.ws ?? OWNER_WS;
+/** Con --ws, el token de ESE negocio (lo lee `main` al arrancar); sin --ws, el de .env.local como siempre. */
+let TOKEN_DEL_WS: string | null = null;
 // Desde cuándo mirar. Sin el flag son diez meses de reservas: no es destructivo
 // (soloCompletarVacios) pero escribe en leads históricos y hace ilegible el resumen —
 // «Existentes (revisados)» dice cientos y el agujero que se vino a tapar se pierde ahí.
@@ -65,6 +82,10 @@ function sleep(ms: number): Promise<void> {
 }
 
 function token(): string {
+  if (ARGS.ws != null) {
+    if (!TOKEN_DEL_WS) throw new Error(`El ws ${ARGS.ws} no tiene CALENDLY_API_TOKEN: pégalo en /integraciones?ws=${ARGS.ws}`);
+    return TOKEN_DEL_WS;
+  }
   const t = process.env.CALENDLY_API_TOKEN;
   if (!t) throw new Error('Falta CALENDLY_API_TOKEN en .env.local (la signing key del webhook YA NO sirve: desde el 19/09 es una clave aleatoria, no un PAT)');
   return t;
@@ -134,7 +155,8 @@ type Invitee = {
 };
 
 async function main() {
-  console.log(`▶ Backfill Calendly${DRY ? ' (DRY RUN — no escribe)' : ''}`);
+  console.log(`▶ Backfill Calendly${DRY ? ' (DRY RUN — no escribe)' : ''} · ws ${WS}${ARGS.ws == null ? ' (el dueño, sin --ws)' : ''}`);
+  if (ARGS.ws != null) TOKEN_DEL_WS = await credWsEstricta('CALENDLY_API_TOKEN', ARGS.ws, { ilegibleTira: true });
   console.log(`  Eventos desde: ${MIN_START_TIME}\n`);
 
   // a) Organización
@@ -151,8 +173,10 @@ async function main() {
   // ese regex acierta de casualidad por «reunión 2», y una R2 renombrada se habría
   // importado como si fuera una primera reunión.
   const cfgJuntas = {
-    j1: await credWs('CALENDLY_EVENT_TYPE_J1', OWNER_WS),
-    j2: await credWs('CALENDLY_EVENT_TYPE_J2', OWNER_WS),
+    // ESTRICTA, como el webhook (route.ts, medido el 06/10/2026): con `credWs` una base que tose daba null, y sin el tipo
+    // de evento de la R2 una reunión R2 se importaba como R1.
+    j1: await credWsEstricta('CALENDLY_EVENT_TYPE_J1', WS),
+    j2: await credWsEstricta('CALENDLY_EVENT_TYPE_J2', WS),
   };
   console.log(`  R1: ${cfgJuntas.j1 ?? '— (sin configurar)'}`);
   console.log(`  R2: ${cfgJuntas.j2 ?? '— (sin configurar)'}\n`);
@@ -173,6 +197,40 @@ async function main() {
     await sleep(PAUSA_MS);
   }
   console.log(`  Eventos encontrados: ${eventos.length}\n`);
+
+  // Con --ws, sólo lo que el webhook habría metido en ESE negocio: la cuenta puede tener otras reuniones (con clientes,
+  // personales) que no son leads. Mismos candidatos y misma tabla que el webhook (app/api/webhooks/calendly/route.ts).
+  if (ARGS.ws != null) {
+    if (!cfgJuntas.j1) {
+      console.error(`El ws ${ARGS.ws} no tiene «Tipo de evento de R1»: sin ruteo no entra nada (/integraciones?ws=${ARGS.ws}).`);
+      process.exit(1);
+    }
+    const delWs: ScheduledEvent[] = [];
+    const vinculados = new Map<string, number>();
+    for (const ev of eventos) {
+      const candidatos = [ev.event_type, ev.name, ev.uri].filter((c): c is string => !!c && c.trim() !== '' && c.length <= 300);
+      let destino: number | null = null;
+      for (const c of candidatos) {
+        destino = await wsPorIdentificadorEstricto('calendly', c);
+        if (destino != null) break;
+      }
+      if (destino !== ARGS.ws) continue;
+      // Un tipo de evento VINCULADO a una etapa de un embudo lo decide la ETAPA, no la R1/R2 (el webhook: `rutaDeReserva` +
+      // `decidirReserva`): una R2 vinculada no crea nada y una R1 vinculada cae en el embudo del vínculo. Este script no sabe
+      // ubicar ahí, así que esas reservas NO se importan (se cuentan abajo), en vez de crear una R1 fantasma por cada una.
+      if ((await rutaDeReserva('calendly', candidatos, ARGS.ws)).ruta) {
+        const nombre = ev.name ?? ev.event_type ?? '?';
+        vinculados.set(nombre, (vinculados.get(nombre) ?? 0) + 1);
+        continue;
+      }
+      delWs.push(ev);
+    }
+    const nVinculados = [...vinculados.values()].reduce((x, y) => x + y, 0);
+    console.log(`  De esos, rutean al ws ${ARGS.ws}: ${delWs.length + nVinculados} (los demás son otros tipos de evento: no se tocan)`);
+    for (const [nombre, n] of vinculados) console.log(`  ⚠ ${n} de «${nombre}»: vinculado a una etapa de un embudo; el backfill no lo importa (lo decide la etapa: cargalo a mano)`);
+    console.log('');
+    eventos.splice(0, eventos.length, ...delWs);
+  }
 
   // c) Por cada evento, traer invitees y cargar
   let creados = 0;
@@ -390,7 +448,7 @@ async function main() {
 
 // Sin request (script) no hay cookies: fijamos el workspace del dueño para que
 // getTenantDb() escriba en el workspace correcto sin llamar a cookies().
-runWithWorkspace(OWNER_WS, () => main()).catch((err) => {
+runWithWorkspace(WS, () => main()).catch((err) => {
   console.error('Fatal:', err);
   process.exit(1);
 });

@@ -57,13 +57,18 @@ con las LECTURAS del registro de la API de MaKo, sin las acciones.
   Los que guardan en el navegador o en memoria (Editar con MaKo, Web Generator) pasan ahí. Los que tienen tabla propia
   (Offer, Image/Video Editor, el doer) NO se copian: los lee el índice (`lib/chat-mako-indice.ts`).
 - **En el Ops Center**: la barra jefe › sub, con jefe = la tab y sub = la entidad. Sale del índice, no de una lista a mano.
-- **En el grafo**: `lib/cerebro-chats.ts` ya le pasa a `construirCerebro` los chats de quien mira. Va un nodo por chat
-  jefe con conversación, con una arista a la entidad de su clave (hoja, landing, oferta, lead, automatización). Nada se
-  copia a markdown: el grafo es una proyección. Se mide con `scripts/medir-grafo.mjs` antes y después.
+- **En el grafo** (hecho el 23/10/2026): `lib/cerebro-chats.ts` le pasa a `construirCerebro` los chats de quien mira, con
+  las MISMAS lecturas de la lista del Ops Center, y `lib/cerebro-chats-tabs.ts` les pone su tab y su entidad. Va un nodo por
+  chat jefe (`tabchat:<tab>`, «MaKo en CRM»), nunca uno por charla, con una arista a cada entidad de sus charlas que esté en el
+  mapa (el funnel de las del CRM, el cliente o los leads de una ficha); sin ninguna, a la raíz. Una hoja, una landing por id,
+  una automatización y un diseño no son nodos del mapa. Nada se copia a markdown: el grafo es una proyección. Falta medirlo con
+  `scripts/medir-grafo.mjs` en pantalla (docs/hallazgos-second-brain.md, 23/10).
 
 ## Lo que no se sabe todavía
 
-- Dónde guardan Automations y el asesor de WhatsApp, y si el Video Editor ya guarda (las tablas existen).
+- ~~Dónde guardan Automations y el asesor de WhatsApp, y si el Video Editor ya guarda.~~ Medido el 22/10: Automations en
+  app_settings (`automatizacion.chat:<id>`, OC5), el asesor en chart_sessions (`wa-advisor:<grupo>`, sin origen en
+  `origenDeClave`: no se agrupa en el Ops Center ni entra al grafo) y los dos editores en sus tablas (TB2).
 - Si el teléfono (`/m/dashboard`) necesita el modo «editar», porque hoy no tiene el panel.
 
 *17/10/2026, claude4 (agente del Cerebro, rama `dash-mako-vista-1710`).*

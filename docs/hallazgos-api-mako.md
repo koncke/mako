@@ -1961,3 +1961,38 @@ que inserta; un paso de acción con hilos o en el carril sigue sin reintento; lo
 #2771, #2762, #2761) no recibieron su aviso, y mandárselo ahora al grupo del ws13 lo decide Martín; #264 dice «Nuevo agendado»
 y su CRON también dispara al entrar a «lead» (es de ellos: se le muestra a Martín antes de tocarla).
 *23/10/2026, chat «Automations» (claude1).*
+
+## Sacar una operación del registro: qué da rojo y qué NO avisa (23/10/2026)
+
+Al sacar `recomendar_formatos_creativo` (docs/hallazgos-onboarding.md → «Ángulos»). **Dan rojo** si falta una mitad:
+`tests/api-mako-registro.test.ts` («toda def tiene su runner, y todo runner tiene def»), el snapshot HTTP
+(`tests/api-mako-http.snapshot.txt`, que se REGENERA con `node --import tsx scripts/generar-api-doc.mjs` junto con
+docs/api-mako.md), `tests/api-mako-rest.test.ts` (la fila REST huérfana) y el clasificador
+(`tests/ops-center-clasificador-app.test.ts`, si una frase esperaba la operación). El pre-push frena con docs/api-mako.md viejo.
+
+**Lo que NO avisaba nadie:** una LECTURA cuya descripción, o la nota que devuelve su runner, nombra la operación muerta. El
+modelo la lee y va a buscar una herramienta que ya no existe. Una guarda general por patrón (todo `verbo_algo` de las
+descripciones que no sea un id) da 24 falsos positivos (nombres de campos como `etapa_actual` o `lead_form_id`), así que
+es una lista EXPLÍCITA: `OPERACIONES_RETIRADAS` en tests/angulos-sin-recomendacion.test.ts. **Al sacar una operación, se
+suma ahí**, y su nombre no puede quedar en ningún texto del registro ni en ningún runner o helper.
+
+**Al redirigir una frase a otra operación, mirá lo que esa operación acepta.** Sin la recomendación, «recomendame formatos
+para mi anuncio» lleva a `elegir_formato_creativo_anuncio`, que aceptaba la celda virtual de los guiones propios
+(`guiones-propios`, que `listar_anuncios_planteados` devuelve con `es_guiones_propios: true`): pagaba IA para fijarle un
+formato a algo que no es un anuncio. Las hermanas (`escribir_guion_anuncio`, `_auto`) ya la frenaban; ahora también ésta,
+en `preparar` y en `ejecutar` (que relee la celda).
+
+**Vive en:** `tests/angulos-sin-recomendacion.test.ts` (`OPERACIONES_RETIRADAS`) · `lib/api-mako/areas/contenido.def.ts` · `contenido.run.ts` · `lib/api-mako/rest.ts`
+
+*23/10/2026 · chat «Offer» (cuenta claude1) · medido en prod con un SELECT; no se miró en el navegador.*
+
+**La cuenta de los perdidos no era 6 (23/10, después del deploy).** Los envíos en `fallo` del ws13 son 21 desde el 12/10, no
+6. Pero hasta el 17/10 a la mañana igual salía el aviso del SISTEMA «Nuevo agendado» (en `notificaciones` sin
+`salida`); desde el 17/10 13:58 UTC esas filas dicen `salida: 'sin_automatizacion'`: el aviso pasó a depender de la
+automatización, y la automatización fallaba. Los que de verdad nadie avisó son 11 (Monica Fantoni, Giselle Bellanti,
+Agustina Campo montilla, Mirta G Loiacono, Matías Molina y los 6), y a Mirta el cliente ya la tenía. Martín (por el Cerebro):
+van los 10 en UN mensaje, en orden de llegada REAL (la lista dictada estaba al revés), y sólo después de ver un lead nuevo
+avisar en producción. **Regla:** para contar «a quién no le llegó», cruzar el envío fallido con la fila del feed de ese
+mismo evento: un envío en `fallo` no prueba que el dueño no se enteró. **Sin hacer:** el envío de los dos mensajes
+(scripts/avisar-arreglo-al-grupo.mts y la lista que arma el código) espera ese lead.
+*23/10/2026, chat «Automations» (claude2).*

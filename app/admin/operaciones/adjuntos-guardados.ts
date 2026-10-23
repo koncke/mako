@@ -45,6 +45,12 @@ export async function leerAdjuntosGuardados(direccion: string): Promise<File[]> 
   return Array.isArray(v) ? v.filter((f): f is File => typeof File !== 'undefined' && f instanceof File) : [];
 }
 
+/** Todas las direcciones guardadas (para barrer las miniaturas de antes del 23/10: fotos-enviadas.ts). */
+export async function direccionesGuardadas(): Promise<string[]> {
+  const v = await conTienda<unknown>('readonly', (t) => t.getAllKeys(), []);
+  return Array.isArray(v) ? v.filter((k): k is string => typeof k === 'string') : [];
+}
+
 /** Guarda (o, con la lista vacía, borra) los archivos sin mandar de un chat. */
 export async function guardarAdjuntos(direccion: string, archivos: readonly File[]): Promise<void> {
   await conTienda<undefined>('readwrite', (t) => (archivos.length ? t.put([...archivos], direccion) : t.delete(direccion)), undefined);

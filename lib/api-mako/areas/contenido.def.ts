@@ -24,8 +24,9 @@
 //   · Escribir un guion con IA entra porque la función de lib existe Y persiste (lo
 //     agrega en borrador sin pisar nada). El «en un clic» es `chat` (sin campos
 //     libres, resultado borrable); el guiado (ángulo, estructura, respuestas, nota)
-//     es `pantalla`. Elegir formato y recomendar formatos son `chat`: un campo de
-//     UNA celda o las recomendaciones del negocio, regenerables.
+//     es `pantalla`. Elegir formato es `chat`: un campo de UNA celda, regenerable.
+//     ⚠️ Ya NO hay `recomendar_formatos_creativo` (salió el 23/10/2026): elegía formatos a nivel
+//     negocio que ningún generador leía; medido en prod, 0 negocios la tenían y 0 llamadas.
 //   · Editar el texto y BORRAR un guion son `pantalla` + admin: texto libre largo que
 //     pisa la versión anterior (no hay historial), y borrar no tiene papelera.
 //   · NO entran (ver omitidas en la cosecha): regenerar o guardar la matriz entera
@@ -133,8 +134,8 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'listar_formatos_creativo', area: 'contenido', tipo: 'lectura',
-    titulo: 'Formatos de creativo y recomendados',
-    descripcion: 'La biblioteca fija de FORMATOS de creativo, que dicen cómo se VE el anuncio: de imagen (comparación, antes y después, checklist…) y de video (hook de problema, testimonio hablado, demo, mini-VSL…), con descripción y ejemplo; más los que MaKo ya recomendó para este negocio (formato, para qué caso y por qué). Úsalo para «¿en qué formato conviene hacer este anuncio?». Si no hay recomendaciones, se generan con recomendar_formatos_creativo.',
+    titulo: 'Formatos de creativo',
+    descripcion: 'La biblioteca fija de FORMATOS de creativo, que dicen cómo se VE el anuncio: de imagen (comparación, antes y después, checklist…) y de video (hook de problema, testimonio hablado, demo, mini-VSL…), con descripción, ejemplo y cuántos anuncios planteados de la matriz usan cada uno. Úsalo para «¿en qué formato conviene hacer este anuncio?»; para fijarlo en un anuncio, elegir_formato_creativo_anuncio.',
     parametros: [
       { nombre: 'medio', tipo: 'string', enum: ['imagen', 'video'], descripcion: 'Filtra la biblioteca por medio. Sin esto, trae los dos.' },
     ],
@@ -236,15 +237,6 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [CELDA, { nombre: 'medio', tipo: 'string', obligatorio: true, enum: ['imagen', 'video'], descripcion: 'Qué formato elegir.' }],
     confirmacion: 'chat', reversible: false,
     escribe: 'cambia anguloImagen o anguloVideo del anuncio en app_settings mako.razones',
-    canales: TODOS, costo: 'ia', gating: G_ADS,
-  },
-  {
-    id: 'recomendar_formatos_creativo', area: 'contenido', tipo: 'accion',
-    titulo: 'MaKo recomienda formatos de creativo',
-    descripcion: 'A nivel negocio (no por anuncio), MaKo elige de la biblioteca los formatos de creativo que mejor le sirven según sus motivaciones de compra y su lead magnet, con para qué y por qué cada uno, y REEMPLAZA las recomendaciones guardadas. No cambia ningún anuncio. Requiere tener anuncios planteados. Úsalo cuando la persona pide ideas de formatos o las recomendaciones están vacías. Las anteriores no se guardan en otro lado.',
-    parametros: [],
-    confirmacion: 'chat', reversible: false,
-    escribe: 'reemplaza las recomendaciones de formatos en app_settings mako.formatos_recom',
     canales: TODOS, costo: 'ia', gating: G_ADS,
   },
 

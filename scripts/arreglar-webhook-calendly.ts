@@ -30,6 +30,13 @@
 // Uso (--conditions=react-server neutraliza `server-only` fuera de Next):
 //   NODE_OPTIONS="--conditions=react-server" npx tsx scripts/arreglar-webhook-calendly.ts --dry
 //   NODE_OPTIONS="--conditions=react-server" npx tsx scripts/arreglar-webhook-calendly.ts
+//
+// OTRO NEGOCIO (23/10/2026, la agenda de MaKo en el ws 9): con --ws=N el token sale de las credenciales de N (nunca de
+// .env.local) y la clave nueva se guarda en N. Sin --ws, lo de siempre (el ws 1). --simulacro es --dry y sirve para
+// MEDIR: dice qué avisos a MaKo tiene la cuenta y si Calendly los apagó, sin tocar nada. Con --ws no borra el aviso si lo creó
+// otro usuario de Calendly o si la organización tiene tipos de evento que rutean a OTRO negocio (le trae sus reservas), salvo
+// con --reemplazar (lib/calendly-scripts-reglas.ts, `puedeBorrarAvisos`). Un argumento que no reconoce lo rechaza.
+//   NODE_OPTIONS="--conditions=react-server" npx tsx scripts/arreglar-webhook-calendly.ts --ws=9 --simulacro
 // =============================================================================
 
 import { config } from 'dotenv';
@@ -38,17 +45,24 @@ import { randomBytes, createHmac } from 'node:crypto';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
-import { guardarCredencial, credWs } from '../lib/credenciales';
+import { guardarCredencial, credWs, credWsEstricta } from '../lib/credenciales';
+import { argsDeScriptCalendly, puedeBorrarAvisos } from '../lib/calendly-scripts-reglas';
+import { esWebhookDeMako } from '../lib/calendly-aviso-reglas';
+import { wsPorIdentificadorEstricto } from '../lib/webhook-routing';
 
 const API = 'https://api.calendly.com';
 const URL_WEBHOOK = 'https://hola-mako.com/api/webhooks/calendly';
 const EVENTOS = ['invitee.created', 'invitee.canceled'];
-const WS = 1; // Mauricio
-const DRY = process.argv.includes('--dry');
+const ARGS = (() => {
+  const r = argsDeScriptCalendly(process.argv, ['--reemplazar']);
+  if (!r.ok) { console.error(r.error); process.exit(1); }
+  return r.args;
+})();
+const WS = ARGS.ws ?? 1; // sin --ws, Mauricio, como siempre
+const DRY = ARGS.simulacro;
 
-const token = process.env.CALENDLY_API_TOKEN;
-if (!token) throw new Error('Falta CALENDLY_API_TOKEN en .env.local');
-const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+/** El token: con --ws, el de ESE negocio (nunca el de .env.local, que es de otra cuenta); sin --ws, el de siempre. */
+let H: Record<string, string> = {};
 
 async function api(path: string, init?: RequestInit) {
   const r = await fetch(`${API}${path}`, { ...init, headers: { ...H, ...(init?.headers ?? {}) } });
@@ -58,23 +72,76 @@ async function api(path: string, init?: RequestInit) {
   return { ok: r.ok, status: r.status, json: json as any, txt };
 }
 
+/**
+ * A qué negocios rutean los tipos de evento de la organización (webhook_routing, con los mismos candidatos que el webhook:
+ * el URI del tipo y su nombre). null = no se pudo leer algo: el freno no adivina.
+ */
+async function negociosDeLosTiposDeEvento(org: string): Promise<number[] | null> {
+  const ws = new Set<number>();
+  let siguiente: string | null = `/event_types?${new URLSearchParams({ organization: org, count: '100' })}`;
+  for (let pagina = 0; siguiente && pagina < 10; pagina++) {
+    const r = await api(siguiente);
+    if (!r.ok) return null;
+    for (const t of r.json?.collection ?? []) {
+      for (const c of [t.uri, t.name]) {
+        if (typeof c !== 'string' || !c.trim() || c.length > 300) continue;
+        const destino = await wsPorIdentificadorEstricto('calendly', c);
+        if (destino != null) ws.add(destino);
+      }
+    }
+    const sig: string | null | undefined = r.json?.pagination?.next_page;
+    siguiente = sig ? sig.replace(API, '') : null;
+  }
+  return siguiente ? null : [...ws];
+}
+
 async function main() {
+  const token = ARGS.ws != null ? await credWsEstricta('CALENDLY_API_TOKEN', ARGS.ws, { ilegibleTira: true }) : process.env.CALENDLY_API_TOKEN;
+  if (!token) throw new Error(ARGS.ws != null ? `El ws ${ARGS.ws} no tiene CALENDLY_API_TOKEN: pégalo en /integraciones?ws=${ARGS.ws}` : 'Falta CALENDLY_API_TOKEN en .env.local');
+  H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  console.log(`ws ${WS}${ARGS.ws == null ? ' (sin --ws: el de siempre)' : ''}`);
+
   const me = await api('/users/me');
   if (!me.ok) throw new Error(`users/me ${me.status}: ${me.txt.slice(0, 200)}`);
   const org = me.json.resource.current_organization as string;
   console.log(`cuenta: ${me.json.resource.name} · org ${org.split('/').pop()}`);
 
-  // Estado actual
-  const q = new URLSearchParams({ organization: org, scope: 'organization', count: '20' });
+  // Estado actual. ⚠️ Si la lista falla NO se sigue ni se mide: «0 avisos» por un 403 se leía como «no hay aviso».
+  const q = new URLSearchParams({ organization: org, scope: 'organization', count: '100' });
   const antes = await api(`/webhook_subscriptions?${q}`);
-  const nuestras = (antes.json?.collection ?? []).filter((w: any) => w.callback_url === URL_WEBHOOK);
+  if (!antes.ok) { console.error(`no pude leer los avisos de la organización: ${antes.status} ${antes.txt.slice(0, 200)}`); process.exit(1); }
+  const coleccion: any[] = antes.json?.collection ?? [];
+  const nuestras = coleccion.filter((w) => w.callback_url === URL_WEBHOOK);
   console.log(`suscripciones a ${URL_WEBHOOK}: ${nuestras.length}`);
-  for (const w of nuestras) console.log(`  - ${w.state} · creada ${w.created_at?.slice(0, 10)} · reintentos desde ${w.retry_started_at ?? '—'}`);
+  for (const w of nuestras) console.log(`  - ${w.state} · creada ${w.created_at?.slice(0, 10)} · reintentos desde ${w.retry_started_at ?? '—'} · eventos ${(w.events ?? []).join(',')} · creador ${w.creator ?? '—'}`);
+  // Los que apuntan al webhook de MaKo por OTRO dominio (el de antes de la mudanza): el proxy los deja pasar, y este script
+  // no los borra (Calendly sólo choca con la misma dirección exacta). Se muestran para que la medición no los esconda.
+  for (const w of coleccion.filter((x) => x.callback_url !== URL_WEBHOOK && esWebhookDeMako(x.callback_url))) {
+    console.log(`  - (otro dominio: ${new URL(w.callback_url).host}) ${w.state} · creada ${w.created_at?.slice(0, 10)}`);
+  }
+  // Y los de ALCANCE USUARIO, que la pantalla (/integraciones) también cuenta: sin esto el script y la pantalla se
+  // contradicen. Sólo se miran: este script nunca los borra.
+  const qu = new URLSearchParams({ organization: org, scope: 'user', user: me.json.resource.uri, count: '100' });
+  const deUsuario = await api(`/webhook_subscriptions?${qu}`);
+  if (deUsuario.ok) {
+    for (const w of (deUsuario.json?.collection ?? []).filter((x: any) => esWebhookDeMako(x.callback_url))) {
+      console.log(`  - (alcance usuario) ${w.callback_url} · ${w.state} · reintentos desde ${w.retry_started_at ?? '—'}`);
+    }
+  } else console.log(`  (no pude leer los avisos de alcance usuario: ${deUsuario.status})`);
 
   const claveVieja = await credWs('CALENDLY_WEBHOOK_SIGNING_KEY', WS);
   console.log(`clave guardada en el ws ${WS}: ${claveVieja ? `sí (${claveVieja.length} caracteres)` : 'NO'}`);
 
+  // Con --ws, de quién es el aviso se decide con datos de Calendly (lib/calendly-scripts-reglas.ts): los tipos de evento de
+  // la organización y a qué negocio rutean. null = no se pudo leer.
+  const negociosDeLosTipos = ARGS.ws != null && nuestras.length > 0 ? await negociosDeLosTiposDeEvento(org) : [];
+  const { puede, motivo } = puedeBorrarAvisos({
+    porWs: ARGS.ws != null, ws: WS, avisos: nuestras, yo: me.json.resource.uri ?? null, negociosDeLosTipos, reemplazar: ARGS.reemplazar,
+  });
+  if (!puede) console.log(`⚠ no se borra el aviso a MaKo sin --reemplazar: ${motivo}.`);
+
   if (DRY) { console.log('\n--dry: no se creó ni borró nada.'); return; }
+  if (!puede) process.exit(1);
 
   // 1) Borrar la vieja PRIMERO: Calendly rechaza con 409 «Hook with this url
   //    already exists» si ya hay una suscripción con esa URL, aunque esté

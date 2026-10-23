@@ -361,10 +361,12 @@ test('⚠️ el PAGO por CÓDIGO: el monto con su moneda, la pasarela, el tipo, 
 test('CABLEADO: los emisores pasan los datos (el pago y la charla), y el texto de siempre se queda hasta la limpieza', () => {
   // lib/cobros.ts lleva `server-only` (no carga bajo tsx): se lee su fuente sin comentarios.
   const cobros = sinComentarios(leer('lib/cobros.ts'));
-  const aviso = cobros.slice(cobros.indexOf('async function avisarPagoRecibido('), cobros.indexOf('async function estadoDelAlta('));
+  const aviso = cobros.slice(cobros.indexOf('async function avisarPagoRecibido('), cobros.indexOf('async function altaDelPago('));
   assert.ok(aviso.length > 200, 'no encontré el aviso del pago');
-  assert.match(aviso, /const alta = await estadoDelAlta\(c\);\n\s*const cuenta = lineaDelAlta\(c, alta\);/, 'el alta se lee dos veces (o ninguna)');
-  assert.match(aviso, /datos: valoresDelPago\(\{\n\s*monto: p\.monto, moneda: p\.moneda, concepto: c\.concepto, proveedor: c\.proveedor,\n\s*renovacion: p\.renovacion, modo: c\.modo, alta,\n\s*\}\),/, 'el aviso del pago no pasa sus datos');
+  // `altaDelPago` lee el estado Y si el mail salió en UNA lectura (cambiado a propósito el 23/10/2026: el aviso decía «le
+  // llegó el acceso» con el mail caído).
+  assert.match(aviso, /const \{ estado: alta, sinMail \} = await altaDelPago\(c\);\n\s*const cuenta = lineaDelAlta\(c, alta, sinMail\);/, 'el alta se lee dos veces (o ninguna)');
+  assert.match(aviso, /datos: valoresDelPago\(\{\n\s*monto: p\.monto, moneda: p\.moneda, concepto: c\.concepto, proveedor: c\.proveedor,\n\s*renovacion: p\.renovacion, modo: c\.modo, alta, altaSinMail: sinMail,\n\s*\}\),/, 'el aviso del pago no pasa sus datos');
   assert.match(aviso, /\n\s*texto: `💰 \*Entró un pago\*/, 'el texto de siempre (compatibilidad de `{{mensaje_mako}}`) se fue antes de la limpieza');
   const handoff = sinComentarios(leer('lib/chat-agent-handoff.ts'));
   assert.match(handoff, /lead: \{ id: input\.leadId, nombre: input\.leadNombre \?\? null \},\n\s*datos: valoresDeLoEscrito\(input\.mensaje\),/, 'la charla no pasa lo que escribió el lead');

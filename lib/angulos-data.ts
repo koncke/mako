@@ -33,3 +33,43 @@ export const BIBLIOTECA_ANGULOS: FormatoAngulo[] = [
 export function formatoPorId(id: string): FormatoAngulo | undefined {
   return BIBLIOTECA_ANGULOS.find((f) => f.id === id);
 }
+
+/**
+ * Cuántos anuncios de la matriz usan cada formato: el formato lo elige `elegirAngulo` POR CELDA (`anguloImagen` /
+ * `anguloVideo`), y esto lo cuenta, sin IA. Lo leen la vista Ángulos (GET /api/onboarding/formatos), el grafo de
+ * Second Brain (lib/cerebro-grafo.ts) y `listar_formatos_creativo` de la API de MaKo: UNA cuenta, o MaKo dice «3
+ * anuncios usan Comparación» y la pantalla 2.
+ *
+ * ⚠️ `avatares`: con ellos, sólo cuenta las celdas de un avatar que EXISTE, que son las que la Matriz y el teléfono
+ * dibujan (MatrizView recorre `avatares.map`; app/m/copywriting/modelo.ts, `gruposDeAnuncios`). Las celdas huérfanas
+ * existen de verdad: borrar un avatar no borra sus razones (`borrarAvatar`, la acción «guardar» de
+ * /api/onboarding/avatares) y regenerar con menos avatares deja ids sueltos (`preservarIds` asigna por posición). La
+ * vista y la API los pasan; el grafo NO, porque dibuja también las razones huérfanas (colgadas de la raíz) y su
+ * cuenta tiene que ser la de sus aristas.
+ *
+ * Una celda suma como mucho 1 a cada formato (los ids de imagen y de video no se repiten). La celda virtual de los
+ * guiones propios no es un anuncio planteado y no cuenta (`CELDA_GUIONES_PROPIOS`: lib/api-mako/areas/contenido.run.ts
+ * la importa de acá; app/video-generator/cargar-guiones-action.ts tiene su propia copia, `CELDA_PROPIOS`). Un id que la
+ * biblioteca no tiene no se cuenta.
+ *
+ * Reemplaza a la «recomendación de formatos» a nivel negocio, que se sacó el 23/10/2026: 0 negocios la tenían
+ * guardada, 0 llamadas en la historia, y ningún generador la leía (docs/hallazgos-onboarding.md).
+ */
+export const CELDA_GUIONES_PROPIOS = 'guiones-propios';
+export function usosPorFormato(
+  celdas: ReadonlyArray<{ id: string; avatarId?: string; anguloImagen?: string; anguloVideo?: string }>,
+  avatares?: ReadonlyArray<{ id: string }>,
+): Record<string, number> {
+  const ids = new Set(BIBLIOTECA_ANGULOS.map((f) => f.id));
+  const vivos = avatares ? new Set(avatares.map((a) => a.id)) : null;
+  const usos: Record<string, number> = {};
+  for (const c of celdas) {
+    if (c.id === CELDA_GUIONES_PROPIOS) continue;
+    if (vivos && !vivos.has(c.avatarId ?? '')) continue;
+    for (const id of new Set([c.anguloImagen, c.anguloVideo])) {
+      if (id && ids.has(id)) usos[id] = (usos[id] ?? 0) + 1;
+    }
+  }
+  return usos;
+}
+
