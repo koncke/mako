@@ -4224,6 +4224,13 @@ conecten con la app de MaKo (que espera el App Review); **reusar un post existen
 ganador»). Qué modo tiene la app de un cliente no lo dice `debug_token`: lo dice una corrida en seco
 (`validate_only`) sobre SU cuenta, y eso lo decide Martín.
 
+**Medido de nuevo el 23/10 (sólo lectura), igual que el 17/10:** ws13 y ws14 con «Joan P2P app», válido y sin
+vencimiento, el mismo token (guardado 18/08 y 04/09) sobre la misma `act_1357728489423123`. El último intento de
+publicar desde MaKo sigue siendo del 17/09 (error); ws14 nunca intentó. Mientras tanto, Joan armó campañas **en Meta
+directo** (la última, «P2P | TEST CALIDAD | OCT26», el 15/10). El token del botón «Conectar con Meta» de MaKo sigue sin
+permisos de anuncios (vigía de las 15:49 del 23/10: «ninguno»), así que **reconectar con la app de MaKo todavía no
+arregla publicar**: la salida más corta es que Joan pase «Joan P2P app» a modo Activo en su panel de desarrollador.
+
 ### Editar el público por la API: la superposición tenía que vivir en el SERVER
 
 - **Qué faltaba.** `POST /{adset}` con `targeting` REEMPLAZA el objeto entero y la superposición vivía sólo en el
