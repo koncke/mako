@@ -179,9 +179,17 @@ export function listaDeTab(p: PlantillaFicha, tab: TabBloque): readonly BloqueId
 }
 
 /**
- * Los avisos que NACEN apagados con esta plantilla: los del documento más los de todo dato que ningún
- * bloque de la plantilla completa (en ninguna de sus cuatro listas, con el respaldo donde no trae una),
- * menos los que el documento deja avisando. Nunca las asistencias (`sanearApagados`).
+ * LOS QUE NACEN APAGADOS EN TODAS (23/10/2026). Martín: «en todos me dice "empresa obligatorio" porque está dentro de un
+ * bloque que tiene 3 datos... me obligas a hacer obligatorio un dato que no quería que lo fuera». La empresa avisaba en
+ * seis de las nueve plantillas SÓLO porque viene en el contacto, al lado del teléfono: «nada es obligatorio porque viene
+ * con otro». Nace apagada; quien la quiera obligatoria la prende en el bloque (y eso queda guardado en su funnel).
+ */
+export const NACEN_APAGADOS: readonly StepId[] = ['empresa'];
+
+/**
+ * Los avisos que NACEN apagados con esta plantilla: los del documento, los de `NACEN_APAGADOS` y los de todo dato que
+ * ningún bloque de la plantilla completa (en ninguna de sus cuatro listas, con el respaldo donde no trae una), menos los
+ * que el documento deja avisando. Nunca las asistencias (`sanearApagados`).
  */
 export function apagadosDePlantilla(p: PlantillaFicha): StepId[] {
   const cubiertos = new Set<StepId>();
@@ -190,7 +198,7 @@ export function apagadosDePlantilla(p: PlantillaFicha): StepId[] {
   }
   const sinBloque = DATOS_AVISABLES.map((x) => x.id).filter((id) => !cubiertos.has(id));
   const siguen = new Set(p.siguenAvisando ?? []);
-  return sanearApagados([...p.apagados, ...sinBloque]).filter((id) => !siguen.has(id));
+  return sanearApagados([...p.apagados, ...NACEN_APAGADOS, ...sinBloque]).filter((id) => !siguen.has(id));
 }
 
 // ── Elegir la plantilla de un funnel ──────────────────────────────────────────

@@ -5,44 +5,23 @@
 // =============================================================================
 // Estaban en las plantillas y sin componente, así que el armador los salteaba en silencio (docs/relevo/crm.md
 // §0-Ω9): `charla-whatsapp`, `charla-dm`, `pase-a-humano`, `cambios-de-mako`, `mensaje-listo`,
-// `automatizaciones-en-curso` y `lo-que-le-mandamos`. Cada uno lee lo suyo al montarse (./charla-actions.ts) y, si no
+// `automatizaciones-en-curso` (hasta el 23/10/2026: ahora en ./automatizaciones.tsx) y `lo-que-le-mandamos`. Cada uno lee lo suyo al montarse (./charla-actions.ts) y, si no
 // hay nada, se calla (como `posibles-duplicados`); si no pudo leer, lo dice en una línea.
 //
 // ⚠️ SÓLO MUESTRAN. Lo que se hace con eso (contestar, mandar, confirmar) vive en su pantalla y el bloque lleva ahí:
 //    un bloque que manda un mensaje a un cliente es una puerta nueva a un envío, y eso pide su propia revisión.
 // =============================================================================
 
-import { useCallback, useEffect, useState } from 'react';
 import Link from '@/app/_ui/Link';
-import { Button } from '@/app/_ui';
-import { Confirm } from '@/app/_ui/Confirm';
-import { lineaDeAutomatizacion, preguntaDeFrenar, estadoDeAutomatizacion } from '@/app/crm/automatizacion-lead';
-import { automatizacionesDelLeadAction, frenarEnAutomatizacionAction } from '@/app/automations/automatizaciones-del-lead-actions';
-import type { EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
 import type { PropsBloque } from '../tipos';
 import { Bloque } from './piezas';
+import { useLectura } from './lectura';
 import {
   cambiosDeMakoAction, charlaDmAction, charlaWhatsAppAction, loQueLeMandamosAction,
   mensajesListosAction, paseAHumanoAction, type CambioDeMako, type LoQueLeMandamos,
   type MensajeCorto, type MensajeListo, type PaseAHumano,
 } from './charla-actions';
 
-/**
- * Lee al montarse (y cuando cambia el lead): `'cargando'`, `null` (no se pudo) o lo leído. `ahora` es la hora de la
- * lectura: lo que dice «hace 3 h» se calcula contra ella, no al dibujar (un render tiene que ser puro).
- */
-function useLectura<T>(leadId: number, leer: (id: number) => Promise<T | null>): { dato: T | null | 'cargando'; ahora: number } {
-  const [v, setV] = useState<{ id: number; dato: T | null; ahora: number } | null>(null);
-  useEffect(() => {
-    let vivo = true;
-    void leer(leadId).then(
-      (d) => { if (vivo) setV({ id: leadId, dato: d, ahora: Date.now() }); },
-      () => { if (vivo) setV({ id: leadId, dato: null, ahora: Date.now() }); },
-    );
-    return () => { vivo = false; };
-  }, [leadId, leer]);
-  return v && v.id === leadId ? { dato: v.dato, ahora: v.ahora } : { dato: 'cargando', ahora: 0 };
-}
 
 /** El link a la charla en la bandeja de WhatsApp (el de siempre: `?canal=no-oficial&chat=<jid>`). */
 const aLaCharla = (jid: string | null | undefined) => (jid ? `/whatsapp?canal=no-oficial&chat=${encodeURIComponent(jid)}` : '/whatsapp');
@@ -191,71 +170,7 @@ export function MensajeListoBloque({ ctx, titulo, diseno, epico }: PropsBloque) 
   );
 }
 
-// ── Las automatizaciones en curso ────────────────────────────────────────────
-
-/**
- * En qué automatización está, en qué paso y cuándo sale lo próximo; si respondió, que se frenó. Sin ninguna, se calla.
- * «FRENAR» EN CADA UNA (22/10/2026, Martín: «que desde el CRM también se pueda frenar»): lo saca de ESA automatización y
- * no le sale nada más. No se deshace, así que pregunta antes. Después se vuelve a leer (`version` cambia la identidad de
- * `leer`, que es lo que mira `useLectura`). Los datos y el frenar son de Automations
- * (app/automations/automatizaciones-del-lead-actions.ts).
- */
-export function AutomatizacionesEnCurso({ ctx, titulo, diseno, epico }: PropsBloque) {
-  const [version, setVersion] = useState(0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const leer = useCallback((id: number) => automatizacionesDelLeadAction(id), [version]);
-  const { dato: r } = useLectura<EnAutomatizacion[]>(ctx.lead.id, leer);
-  const [frenar, setFrenar] = useState<EnAutomatizacion | null>(null);
-  const [frenando, setFrenando] = useState(false);
-  const [resultado, setResultado] = useState<string | null>(null);
-  const cancelar = useCallback(() => setFrenar(null), []);
-  const confirmar = async () => {
-    if (!frenar || frenando) return;
-    setFrenando(true);
-    try {
-      const q = await frenarEnAutomatizacionAction(ctx.lead.id, frenar.secuenciaId);
-      setResultado(q.ok ? q.resumen : q.error);
-    } catch {
-      setResultado('No se pudo frenar.');
-    }
-    setFrenando(false);
-    setFrenar(null);
-    setVersion((v) => v + 1);
-  };
-  if (r === 'cargando' || (r !== null && !r.length)) {
-    // Frenó la última: lo dice, en vez de desaparecer sin explicación.
-    return resultado ? <Bloque titulo={titulo} epico={epico}><span className="fr-sub" role="status">{resultado}</span></Bloque> : null;
-  }
-  if (r === null) return <NoPude titulo={titulo} epico={epico} que="sus automatizaciones" />;
-  // Con POR QUÉ NO LE SALE, si algo lo frena (23/10/2026, P0 de #289: app/crm/automatizacion-lead.ts).
-  const estado = (a: EnAutomatizacion) => estadoDeAutomatizacion(a, (iso) => new Date(iso).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }));
-  const pregunta = frenar ? preguntaDeFrenar({ leads: 1, nombre: ctx.lead.nombre, auts: [frenar] }) : null;
-  return (
-    <>
-      {diseno === 'linea' && !epico ? (
-        <Bloque titulo={titulo} epico={false}><span className="fr-linea">{r.map((a) => `${a.nombre} (${estado(a)})`).join(' · ')}</span></Bloque>
-      ) : (
-        <Bloque titulo={titulo} epico={epico} derecha={<Link href="/automations" className="fr-link">Ver</Link>}>
-          <div className="fr-props">
-            {r.map((a) => (
-              <div key={a.secuenciaId} className="fr-prop" data-automatizacion={a.secuenciaId}>
-                <span className="fr-k"><Link href={a.link} className="fr-link">{a.nombre}</Link></span>
-                <span className="fr-v">{estado(a)}</span>
-                <span className="fr-sub">{a.paso ? `Paso ${a.paso.numero}: ${a.paso.titulo}` : lineaDeAutomatizacion(a)}</span>
-                <span><Button variant="tertiary" size="sm" onClick={() => { setResultado(null); setFrenar(a); }}>Frenar</Button></span>
-              </div>
-            ))}
-          </div>
-          {resultado && <span className="fr-sub" role="status">{resultado}</span>}
-        </Bloque>
-      )}
-      {pregunta && (
-        <Confirm title={pregunta.titulo} message={pregunta.mensaje} confirmLabel="Frenar" tone="danger" loading={frenando}
-          onConfirm={() => void confirmar()} onCancel={cancelar} />
-      )}
-    </>
-  );
-}
+// «Automatizaciones» (`automatizaciones-en-curso`) se mudó el 23/10/2026 a ./automatizaciones.tsx, con lo que pasa entero.
 
 // ── Lo que le mandamos ───────────────────────────────────────────────────────
 

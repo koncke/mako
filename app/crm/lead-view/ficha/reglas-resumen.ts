@@ -121,6 +121,7 @@ export const REGLAS_RESUMEN = {
   'pase-a-humano': { estaVacio: (ctx) => sinTelefono(ctx), disenos: ['banner', 'fila'] },
   'cambios-de-mako': { estaVacio: () => false, disenos: ['tarjeta', 'renglon'] },
   'mensaje-listo': { estaVacio: (ctx) => sinTelefono(ctx), disenos: ['tarjeta', 'renglon', 'llamada'] },
-  'automatizaciones-en-curso': { estaVacio: sinEmailNiTelefono, disenos: ['lista', 'linea'] },
+  // «Automatizaciones» (23/10/2026, ./resumen/automatizaciones.tsx): los tres diseños del catálogo.
+  'automatizaciones-en-curso': { estaVacio: sinEmailNiTelefono, disenos: ['lista', 'linea', 'tiempo'] },
   'lo-que-le-mandamos': { estaVacio: sinEmailNiTelefono, disenos: ['contador', 'canal'] },
 } satisfies ReglasDeTab;
