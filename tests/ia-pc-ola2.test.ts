@@ -156,7 +156,7 @@ test('«Tus cuentas de IA»: con sesión, cada uno lo suyo, el modelo es del adm
   assert.doesNotMatch(pantalla, /\b(tenés|podés|elegí|instalá|iniciá|escribí|pegá|apretá|abrí|conectá|dejala|prendela)\b/i, 'de tú, no de vos');
   assert.match(leer('app/integraciones/page.tsx'), /<TusCuentasIA \/>/);
   // Y en «Tu cuenta», para todo el equipo: la PC es de la persona (revisión del 21/10/2026: un closer no tenía dónde).
-  assert.match(leer('app/perfil/ia/page.tsx'), /await requireRolWs\(\['closer', 'setter'\]\);[\s\S]*<TusCuentasIA sinCabecera \/>/);
+  assert.match(leer('app/perfil/ia/page.tsx'), /await requireRolWs\(\['closer', 'setter'\]\);[\s\S]*<TusCuentasIA sinCabecera computadora=\{\(await searchParams\)\.computadora === '1'\} \/>/);
 });
 
 test('al conectar, la persona acepta con un toque que es SU Claude y SU cuenta, y queda guardado', () => {

@@ -18,6 +18,8 @@
 // ⚠️ No se espera a Vercel: los pushes llegan después de dibujar (pushesCentroAction).
 
 import './operaciones.css';
+// Las cuentas y sus dispositivos del Uso (CuentasYDispositivos.tsx): el mismo dibujo que «Tus cuentas de IA».
+import '@/app/integraciones/tus-cuentas-ia.css';
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { contextoMovil, requireMovil } from '@/lib/movil-guard';

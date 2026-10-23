@@ -93,7 +93,7 @@ test('3. el turno la usa y la ruta y el motor la pasan', () => {
   assert.match(turno, /\$\{ctxDesde \? `\\n\\n\$\{ctxDesde\}` : ''\}\$\{ctxAtado \? /);
   assert.match(turno, /appendMessage\(s\.id, 'user', conDesde\(textoMemoria, desde\), aGuardar\)/);
   const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
-  assert.match(ruta, /desde: sanearDesde\(body\.desde\) \}\);/, 'el cuerpo, saneado');
+  assert.match(ruta, /desde: sanearDesde\(body\.desde\), ia \}\);/, 'el cuerpo, saneado');
   assert.match(ruta, /sanearDesde\(\(\(\) => \{ try \{ return JSON\.parse\(String\(form\.get\('desde'\)/, 'y el form, con archivos');
   const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
   assert.match(motor, /\.\.\.\(desdeTab \? \{ desde: desdeTab \} : \{\}\)/);

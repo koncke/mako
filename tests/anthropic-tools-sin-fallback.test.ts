@@ -17,22 +17,27 @@ import { readFileSync } from 'node:fs';
 const SRC = readFileSync(new URL('../lib/anthropic.ts', import.meta.url), 'utf8');
 const desde = SRC.indexOf('export async function chatClaudeTools');
 const CUERPO = SRC.slice(desde, SRC.indexOf('EL VETO, la MISMA puerta que chatClaude', desde));
+// La cascada DEL REGISTRO (la de la feature ruteada a otra IA). Antes de ella está la de «sólo su OpenAI» (8b, 23/10/2026),
+// que corre aparte y se cierra sola.
+const CASCADA_DEL_REGISTRO = CUERPO.indexOf('chatCheapToolsCascade(', CUERPO.indexOf('modeloDeFeature'));
 
 test('chatClaudeTools: el catch del registro termina ANTES de la cascada gratis', () => {
   assert.ok(desde > 0 && CUERPO.length > 0, 'no encontré chatClaudeTools ni su veto');
   const registro = CUERPO.indexOf('sin registro');
-  const cascada = CUERPO.indexOf('chatCheapToolsCascade(');
+  const cascada = CASCADA_DEL_REGISTRO;
   assert.ok(registro > 0 && cascada > 0, 'falta la lectura del registro o la cascada');
   assert.ok(registro < cascada, 'el catch del registro envuelve la cascada: se traga el «falló la IA» y el veto contesta por él');
 });
 
 test('chatClaudeTools: entre la cascada y el veto, ningún catch se traga el error', () => {
-  const tras = CUERPO.slice(CUERPO.indexOf('chatCheapToolsCascade('));
+  const tras = CUERPO.slice(CASCADA_DEL_REGISTRO);
   assert.doesNotMatch(tras, /catch\s*\{/, 'un `catch {}` sin variable después de la cascada se come el re-lanzado de sinFallbackClaude');
   assert.doesNotMatch(tras, /catch\s*\(\w+\)\s*\{\s*(\/\*[\s\S]*?\*\/\s*)?\}/, 'un catch vacío después de la cascada');
 });
 
 test('chatClaudeTools: sin registro y sin respaldo de Claude, el error dice «falló la IA», no «Claude vetado»', () => {
-  const registro = CUERPO.slice(0, CUERPO.indexOf('chatCheapToolsCascade('));
+  const registro = CUERPO.slice(0, CASCADA_DEL_REGISTRO);
   assert.match(registro, /catch \(e\) \{\s*if \(opts\.sinFallbackClaude\) throw new Error\(`falló la IA/);
+  // Y «sólo su OpenAI» (8b): si no contesta, tira «falló la IA»; nunca sigue a Claude.
+  assert.match(CUERPO, /if \(opts\.soloSuOpenAI\) \{[\s\S]*?if \(r\) return [^\n]*\n\s*throw new Error\(`falló la IA/);
 });

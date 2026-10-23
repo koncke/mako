@@ -35,7 +35,7 @@ if (!existsSync(ENV)) {
 (dotenv.default ?? dotenv).config({ path: ENV, quiet: true });
 const APLICAR = process.argv.includes('--aplicar');
 
-const { VERSION_PC, archivoDelPrograma, faltanEnElBucket, marcarDeVentana, subsistemaPe } = await imp('lib/ia-pc-reglas.ts');
+const { VERSION_PC, archivoDelInstalador, archivoDelPrograma, faltanEnElBucket, marcarDeVentana, nombreDelInstalador, subsistemaPe } = await imp('lib/ia-pc-reglas.ts');
 const programa = path.join(REPO, 'scripts', 'ia-pc', 'mako-pc.mjs');
 const vPrograma = /export const VERSION = '([^']+)'/.exec(readFileSync(programa, 'utf8'))?.[1];
 if (vPrograma !== VERSION_PC) { console.error(`⛔ el programa dice ${vPrograma} y lib/ia-pc-reglas.ts dice ${VERSION_PC}: tienen que ser iguales.`); process.exit(1); }
@@ -48,7 +48,7 @@ const OBJETIVOS = [
 ] as const;
 const dir = mkdtempSync(path.join(tmpdir(), 'mako-pc-binarios-'));
 console.log(`${APLICAR ? 'APLICAR' : 'EN SECO'} · versión ${VERSION_PC} · en ${dir}`);
-const armados: Array<{ nombre: string; datos: Buffer }> = [];
+const armados: Array<{ nombre: string; datos: Buffer; tipo?: string }> = [];
 for (const o of OBJETIVOS) {
   const salida = path.join(dir, o.salida);
   execFileSync('npx', ['--yes', BUN, 'build', programa, '--compile', `--target=${o.target}`, '--outfile', salida], { stdio: 'inherit', shell: process.platform === 'win32' });
@@ -66,6 +66,16 @@ for (const o of OBJETIVOS) {
   if (datos.length > 50e6) { console.error(`⛔ ${nombre} pasa los 50 MB de Supabase`); process.exit(1); }
   armados.push({ nombre, datos });
 }
+// El instalador CON ASISTENTE de Windows (0.4.0, installer/windows/mako.iss), con el programa de recién: Inno Setup 6 en esta
+// PC (winget install --id JRSoftware.InnoSetup -e --scope user). Sin comprimir: Inno ya comprime.
+const ISCC = process.env.ISCC ?? path.join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Inno Setup 6', 'ISCC.exe');
+if (!existsSync(ISCC)) { console.error(`⛔ falta Inno Setup 6 (${ISCC}): winget install --id JRSoftware.InnoSetup -e --scope user`); process.exit(1); }
+execFileSync(ISCC, ['/Q', `/DAppVersion=${VERSION_PC}`, `/DPrograma=${path.join(dir, 'mako-pc.exe')}`, `/O${dir}`, path.join(REPO, 'installer', 'windows', 'mako.iss')], { stdio: 'inherit' });
+const setup = readFileSync(path.join(dir, nombreDelInstalador()));
+if (subsistemaPe(setup) !== 2) { console.error('⛔ el instalador no es un ejecutable de Windows con ventana'); process.exit(1); }
+console.log(`  ${archivoDelInstalador()}: ${Math.round(setup.length / 1e6)} MB (el instalador con asistente)`);
+if (setup.length > 50e6) { console.error(`⛔ ${archivoDelInstalador()} pasa los 50 MB de Supabase`); process.exit(1); }
+armados.push({ nombre: archivoDelInstalador(), datos: setup, tipo: 'application/octet-stream' });
 const { getSupabaseServer } = await imp('lib/supabase.ts');
 const storage = getSupabaseServer().storage;
 // Lo que hay hoy en el bucket (sólo lectura): en seco se dice qué falta; al aplicar, qué se reemplaza.
@@ -73,7 +83,7 @@ const { data: listado, error: errLista } = await storage.from('ia-pc').list('', 
 if (errLista) console.log(`  (no pude mirar el bucket: ${errLista.message})`);
 else {
   const { faltan, versiones } = faltanEnElBucket((listado ?? []).map((f: { name: string }) => f.name));
-  console.log(`  en el bucket hoy: ${versiones.length ? versiones.join(', ') : 'nada'} · de la ${VERSION_PC} ${faltan.length ? `faltan ${faltan.length}: ${faltan.join(', ')}` : 'están los 3 (se reemplazan)'}`);
+  console.log(`  en el bucket hoy: ${versiones.length ? versiones.join(', ') : 'nada'} · de la ${VERSION_PC} ${faltan.length ? `faltan ${faltan.length}: ${faltan.join(', ')}` : `están los ${armados.length} (se reemplazan)`}`);
 }
 /**
  * Sube y firma. Devuelve el código de salida. ⚠️ Sin `process.exit()` después de los pedidos: en Windows, Node revienta
@@ -90,7 +100,7 @@ async function subir(): Promise<number> {
   }
   let mal = 0;
   for (const a of armados) {
-    const { error } = await storage.from('ia-pc').upload(a.nombre, a.datos, { contentType: 'application/gzip', upsert: true });
+    const { error } = await storage.from('ia-pc').upload(a.nombre, a.datos, { contentType: a.tipo ?? 'application/gzip', upsert: true });
     if (error) mal++;
     console.log(error ? `  ⛔ ${a.nombre}: ${error.message}` : `  ✓ ${a.nombre} subido`);
   }
