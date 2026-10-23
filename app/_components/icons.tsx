@@ -172,6 +172,8 @@ const PATHS: Record<string, ReactNode> = {
   // Boya / salvavidas: REPORTAR PROBLEMA. Es el ícono universal de ayuda y no
   // se pisa con el interrogante, que ya significa «cómo consigo esta key».
   soporte: (<><circle cx="12" cy="12" r="8.6" /><circle cx="12" cy="12" r="3.4" /><path d="M6 6l3.6 3.6M18 6l-3.6 3.6M6 18l3.6-3.6M18 18l-3.6-3.6" /></>),
+  // La Ticketera (22/10/2026, Martín: «otro ícono, que se entienda fácil»): un ticket con su línea de cortar.
+  ticket: (<><path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5V14a2 2 0 0 0 0-4Z" /><path d="M14.5 6.5v1.8M14.5 11.1v1.8M14.5 15.7v1.8" /></>),
   // Lamparita: IDEAS. El primer paso de la fábrica, antes de que haya pieza.
   idea: (<><path d="M12 3.4a6 6 0 0 0-3.6 10.8c.5.4.8 1 .8 1.6v.7h5.6v-.7c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3.4Z" /><path d="M9.4 18.9h5.2" /><path d="M10.6 21.2h2.8" /></>),
   // ── Marcas ────────────────────────────────────────────────────────────────
