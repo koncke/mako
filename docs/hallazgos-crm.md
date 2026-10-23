@@ -9031,13 +9031,12 @@ elegidos. Lo que costó o no se ve:
   pantalla dice «N ya estaban». Leer el importador antes de escribir el texto lo hubiera evitado.
 - **El contacto MANDA en el puntaje, por construcción:** un teléfono o un email valen 35 cada uno y todo
   lo demás junto suma 30 como mucho. Así un prospecto que se puede contactar queda siempre arriba de uno
-  que no (el importador exige email o teléfono). Con los pesos de la primera versión (30/25 contra 35 de
+  que no (el importador exige un canal). Con los pesos de la primera versión (30/25 contra 35 de
   tamaño), uno sin contacto le ganaba a uno con email: lo cazó el test, no la lectura.
 - **Instagram casi nunca trae contacto.** El actor público no da el email ni el teléfono del perfil:
-  sólo los que la persona escribió en su bio. Con la regla del CRM (email o teléfono), la mayoría de los
-  prospectos de Instagram se ven pero no pueden pasar. **Sin hacer:** que un @ de Instagram cuente como
-  contacto (los leads de Zernio ya entran así). Es una regla del CRM (`altaDeLead`, `NewLeadForm`, el
-  importador): se le pasa al chat del CRM, no se cambia desde acá.
+  sólo los que la persona escribió en su bio. Con la regla vieja del CRM (email o teléfono), la mayoría
+  de los prospectos de Instagram se veían pero no podían pasar. **Hecho el 23/10:** el @ cuenta como
+  contacto — ver «Un lead puede entrar con sólo su @ de Instagram», más abajo.
 - **Apify no firma sus avisos.** Cada búsqueda guarda el hash de una clave al azar que viaja en el CUERPO
   del aviso (`payloadTemplate`), no en la URL. Y en local el aviso no llega nunca (Apify no ve
   localhost): la pantalla vuelve a preguntar por las búsquedas que siguen corriendo (`revisarPendientes`,
@@ -9060,6 +9059,55 @@ elegidos. Lo que costó o no se ve:
 - **La migración 0289 va ANTES del deploy:** sin ella la pantalla dice «Falta aplicar la migración». Nació 0288 y se renumeró: el Centro de Operaciones tomó la 0288 a las 05:58 del 15/10 y la APLICÓ en prod, minutos después de que se recorrieran los worktrees. El número se elige al commitear, no al escribir.
 
 *15/10/2026, chat «Leads Scraper» (`claude1`).*
+
+## Un lead puede entrar con sólo su @ de Instagram (23/10/2026)
+
+**Vive en:** `lib/contacto-minimo.ts` · `app/crm/actions.ts` (`altaDeLead`, `importarLeadsRevisadosAction`) ·
+`app/crm/leads-importar.ts` (`recalcular`) · `app/crm/importar-server.ts` · `app/crm/new/NewLeadForm.tsx` ·
+`lib/prospectos-reglas.ts` (`contactable`) · `lib/prospectos.ts` · `app/crm/CrmBoard.tsx` (`soloInstagram`) ·
+`tests/contacto-instagram.test.ts`
+
+El criterio lo pasó el Cerebro: «si el único dato que hay es el @, el lead se crea igual… un lead sin
+teléfono es un lead al que todavía no le escribiste, no un lead inválido».
+
+- **El bloqueo no estaba en la base.** `leads.instagram` existe desde la 0258 y `createLead` sólo exige
+  el nombre. Lo frenaban validaciones de CÓDIGO escritas por separado con la misma regla («email o
+  teléfono»): el alta del server, el form del alta y `recalcular` del importador, más el `contactable`
+  de la prospección, que copiaba la del importador. Ahora las cuatro llaman a `tieneContacto`.
+- **Nada se rellena:** el lead con sólo el @ nace con el email y el teléfono vacíos. Un teléfono
+  inventado matchearía el chat de WhatsApp de otra persona.
+- **El @ pasó a ser una llave de duplicados**, en el mismo lote (`recalcular`, `igsNuevos`) y contra el
+  CRM (`indiceContactos` lee `instagram`). Sin eso, pasar dos veces el mismo perfil hacía dos fichas: el
+  único freno que quedaba era `duplicadosDeLead`, que para un lead sin email ni teléfono compara por NOMBRE.
+- **«Que se note que falta el contacto» choca con Martín (22/10: «si no tiene ese dato, que no lo
+  muestre»).** Se resolvió dibujando el canal que SÍ tiene: en la tarjeta del kanban (`TarjetaPersona`,
+  la de «Personalizar tarjetas») va un chip `@usuario` que sale SIEMPRE, como el de la automatización,
+  porque no es un dato que se elige sino por dónde se le escribe; en la tabla (`CeldasLead`) va en el lugar
+  del email, y la fila ofrece abrir su Instagram donde las demás ofrecen WhatsApp. Sin rótulo de «falta».
+- **Al rearmarlo sobre main, la tarjeta ya no era la misma.** El commit se escribió sobre un clon con main
+  de una semana atrás; en el medio el CRM pasó a `TarjetaPersona` + `CeldasLead` (de3be68bb) y el buscador
+  ya leía el @ (3ad5b5c3e). Conservar «ambos lados» del conflicto habría dibujado la tarjeta vieja ADENTRO
+  de la nueva: el @ se rehízo en las piezas nuevas. Y main sumó el tope del plan al importador contando
+  `entra(f)`, así que una fila con sólo el @ cuenta para el tope, que es lo correcto.
+- **Trampa del entorno:** `Write` sobre `lib/contacto-lead.ts` (el de la ficha: link de la web y fotos)
+  lo PISÓ sin haberlo leído en la sesión, y contestó «updated» en vez de «created»: ésa es la única
+  pista. Estaba limpio y se restauró de git. Antes de crear un archivo con un nombre obvio, `ls`.
+
+### Sin hacer, con su archivo
+
+- **El CSV no lee una columna de Instagram** y la tabla de revisión no la dibuja (`filasDesdeCsv` en
+  `app/crm/leads-importar.ts`, `app/crm/TablaRevisionLeads.tsx`, de grilla fija): una lista exportada de
+  otra herramienta con sólo el @ sigue cayendo como «sin email ni teléfono».
+- **Proponer un lead por API sigue exigiendo email o teléfono**, en las dos puertas: la API de MaKo
+  (`proponerLote`, `lib/api-mako/areas/crm.helpers.ts`) y la skill de Claude (`aFila`,
+  `app/api/agente/lead/route.ts`). Y `/crm/revisar` no lleva el @ a la fila: uno propuesto por WhatsApp
+  con sólo el @ no pasa.
+- **`duplicadosDeLead` (`lib/leads.ts`) no compara por @:** el alta manual de un @ que ya está en el CRM
+  sólo se frena si coincide el nombre.
+- **Completar una ficha no llena el @:** `camposParaCompletar` (`lib/leads-duplicados.ts`) no lo conoce.
+- **MaKo Mobile no dibuja el @** en las tarjetas del CRM del teléfono (`app/m/crm/`).
+
+*23/10/2026, chat «Ventas de MaKo» (ex «Leads Scraper», `claude1`).*
 
 ## Las migraciones de la tanda del CRM se llaman `XXXX`, y el número libre es 0290, no 0287 (15/10/2026)
 

@@ -80,6 +80,12 @@ export type IndiceContactos = {
    * 6 workspaces.
    */
   telsSufijo: Map<string, number | null>;
+  /**
+   * El usuario de Instagram (sin la @, en minúsculas: como lo guarda `leads.instagram`).
+   * Desde el 23/10/2026 un lead puede entrar con el @ como único contacto (la prospección),
+   * así que es una llave más: sin ella, pasar dos veces el mismo perfil creaba dos fichas.
+   */
+  igs: Map<string, number | null>;
 };
 
 export async function indiceContactos(): Promise<IndiceContactos> {
@@ -87,6 +93,7 @@ export async function indiceContactos(): Promise<IndiceContactos> {
   const emails = new Map<string, number | null>();
   const tels = new Map<string, number | null>();
   const telsSufijo = new Map<string, number | null>();
+  const igs = new Map<string, number | null>();
   // Dos leads con el mismo dato no se desempatan acá: la clave queda en `null` y el
   // «ya existe» sigue siendo cierto. Lo que se pierde es la oferta de completar, que es
   // exactamente lo correcto — no hay a quién.
@@ -107,14 +114,16 @@ export async function indiceContactos(): Promise<IndiceContactos> {
     // matchean todos los webhooks, así que un lead con la llave puesta y el `telefono`
     // vacío está en el CRM aunque esta lectura no lo viera. Hoy son 0 filas en los 6
     // workspaces; cuesta una columna y cierra el caso antes de que exista.
-    await leerPorPaginas<{ id: number; email: string | null; telefono: string | null; telefono_normalizado: string | null }>(
-      db, 'leads', 'id, email, telefono, telefono_normalizado',
+    // `instagram` existe desde la mig 0258 (ya la lee LISTA_COLS del tablero).
+    await leerPorPaginas<{ id: number; email: string | null; telefono: string | null; telefono_normalizado: string | null; instagram: string | null }>(
+      db, 'leads', 'id, email, telefono, telefono_normalizado, instagram',
       (chunk) => {
         for (const r of chunk) {
           if (r.email) anotar(emails, r.email.trim().toLowerCase(), r.id);
           const { exacta, sufijo } = clavesDeTelefono(r.telefono || r.telefono_normalizado || '');
           if (exacta) anotar(tels, exacta, r.id);
           if (sufijo) anotar(telsSufijo, sufijo, r.id);
+          if (r.instagram?.trim()) anotar(igs, r.instagram.trim().toLowerCase(), r.id);
         }
       },
     );
@@ -123,7 +132,7 @@ export async function indiceContactos(): Promise<IndiceContactos> {
     // así que esto NUNCA degrada a "no hay duplicados".
     throw new Error(`No se pudo revisar los duplicados: ${e instanceof Error ? e.message : String(e)}`);
   }
-  return { emails, tels, telsSufijo };
+  return { emails, tels, telsSufijo, igs };
 }
 
 /**
@@ -143,7 +152,7 @@ export async function indiceContactos(): Promise<IndiceContactos> {
  * completar» no tiene respuesta — se ofrece saltear o duplicar, que es lo reversible.
  */
 export async function marcarExistentes(filas: FilaImport[]): Promise<FilaImport[]> {
-  const { emails, tels, telsSufijo } = await indiceContactos();
+  const { emails, tels, telsSufijo, igs } = await indiceContactos();
   return recalcular(filas.map((f) => {
     const email = f.email.trim().toLowerCase();
     // `undefined` = ese dato no está en el CRM. `null` = está y lo tienen dos leads.
@@ -151,7 +160,9 @@ export async function marcarExistentes(filas: FilaImport[]): Promise<FilaImport[
     // El teléfono lo decide `buscarTelefono` (exacto primero, sufijo después), que vive
     // sin `server-only` en ./leads-importar para que la COMPARACIÓN tenga test.
     const porTel = buscarTelefono({ exactos: tels, sufijos: telsSufijo }, f.telefono);
-    const apuntan = [porEmail, porTel].filter((v) => v !== undefined);
+    const ig = (f.instagram ?? '').trim().toLowerCase();
+    const porIg = ig && igs.has(ig) ? igs.get(ig) ?? null : undefined;
+    const apuntan = [porEmail, porTel, porIg].filter((v) => v !== undefined);
     const unico = apuntan.length && apuntan.every((v) => v != null && v === apuntan[0])
       ? (apuntan[0] as number)
       : null;
