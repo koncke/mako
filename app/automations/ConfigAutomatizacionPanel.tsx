@@ -83,7 +83,8 @@ export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
   const { d, error, poner } = useConfig(secuenciaId);
   if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}<ReportarASoporte /></p> : <Spinner />;
   const fuente: FuenteHorario = {
-    zonaSoloLectura: true,
+    // El huso se ve y se cambia acá, y es el del NEGOCIO (23/10/2026): lo dice la línea de debajo.
+    zonaDelNegocio: true,
     leer: async () => ({ horario: d.config.horario ?? d.horarioNegocio ?? { ...HORARIO_SUGERIDO, activo: false }, zona: d.zona, puedeEditar: d.puedeEditar }),
     guardar: async (h) => {
       const r = await saveConfigAutomatizacionAction(secuenciaId, { horario: h });

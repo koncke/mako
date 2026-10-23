@@ -33,7 +33,7 @@ import { getHorarioEnvioAction, saveHorarioEnvioAction, saveZonaHorarioAction } 
 import { DIAS_PANTALLA, horaTexto, MEDIAS_HORAS_DESDE, MEDIAS_HORAS_HASTA, HORARIO_SUGERIDO, type HorarioEnvio, type DiaSemana } from '@/lib/horario-envio';
 import { ZONAS_POR_PAIS } from '@/lib/disparadores';
 import { PAISES, flagUrl } from '@/lib/paises';
-import { Info } from '@/app/automations/FilasOpciones';
+import { zonaCanonica } from '@/lib/zona-negocio-reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
@@ -42,12 +42,28 @@ const card: CSSProperties = { background: 'var(--surface)', border: '1px solid v
 const DESDE = MEDIAS_HORAS_DESDE.map((h) => ({ value: String(h), label: horaTexto(h), icono: 'reloj' as const }));
 const HASTA = MEDIAS_HORAS_HASTA.map((h) => ({ value: String(h), label: horaTexto(h), icono: 'reloj' as const }));
 
-/** Los husos que se ofrecen: los de la lista de países del teléfono, con su bandera (como el Recurrente). */
-function opcionesDeZona(actual: string) {
+/** La zona del navegador de quien mira, canónica (`zonaCanonica`), o null. Es la que se SUGIERE arriba de la lista. */
+function zonaDelNavegador(): string | null {
+  try { return zonaCanonica(Intl.DateTimeFormat().resolvedOptions().timeZone); } catch { return null; }
+}
+
+/** El rótulo de la sugerida: la marca de que es la de quien mira (23/10/2026). */
+export const ROTULO_ZONA_NAVEGADOR = 'la de tu navegador';
+
+/**
+ * Los husos que se ofrecen: los de la lista de países del teléfono, con su bandera (como el Recurrente). La del navegador
+ * de quien mira va PRIMERA, marcada (23/10/2026: «lista de zonas canónicas y la del navegador sugerida»).
+ */
+export function opcionesDeZona(actual: string, navegador: string | null = null) {
   const out: Array<{ value: string; label: string; avatar?: string; avatarCuadrado?: boolean }> = [];
   for (const p of PAISES) {
     const zonas = ZONAS_POR_PAIS[p.iso2] ?? [];
     for (const z of zonas) out.push({ value: z.tz, label: zonas.length > 1 ? `${p.nombre} · ${z.label}` : p.nombre, avatar: flagUrl(p.iso2), avatarCuadrado: true });
+  }
+  if (navegador) {
+    const i = out.findIndex((o) => o.value === navegador);
+    const sugerida = i >= 0 ? out.splice(i, 1)[0] : { value: navegador, label: navegador };
+    out.unshift({ ...sugerida, label: `${sugerida.label} · ${ROTULO_ZONA_NAVEGADOR}` });
   }
   // La que está puesta entra aunque no sea de la lista (AGENTS.md: el `<select>` que borra datos).
   if (actual && !out.some((o) => o.value === actual)) out.unshift({ value: actual, label: actual });
@@ -80,15 +96,17 @@ export type FuenteHorario = {
   /** El título del recuadro (sin esto, «Horario de oficina»). */
   titulo?: string;
   /**
-   * ⚠️ EL HUSO SE VE, NO SE EDITA (revisión del 20/10/2026). Es el de TODO el negocio (`mako.timezone`): elegir Madrid en la
-   * tuerca de UNA automatización dejaba a todas las demás mandando de madrugada. Con esto, «Huso del negocio: …» en el ⓘ
-   * del título (22/10/2026, Martín: «Elimina todo el texto innecesario»: era una línea suelta); se cambia en
-   * Configuraciones › Horario.
+   * EL HUSO EN LA TUERCA DE UNA AUTOMATIZACIÓN (23/10/2026, Martín: «en configuraciones de Automations, no hay opción para
+   * poner el huso horario»). Es el de TODO el negocio (`mako.timezone`, AGENTS.md: UNA zona por negocio): el 20/10 se dejó
+   * de sólo lectura en el ⓘ porque elegir Madrid en UNA automatización dejaba a las demás mandando de madrugada sin
+   * saberlo. Ahora va en la fila de las horas, con el MISMO selector que Configuraciones › Horario
+   * (`saveZonaHorarioAction` → `fijarZonaDelNegocio`, origen 'persona') y una línea que dice que vale para todo el negocio
+   * (`AVISO_ZONA_NEGOCIO`): el riesgo de antes era cambiarlo sin saberlo.
    */
-  zonaSoloLectura?: true;
+  zonaDelNegocio?: true;
 };
-/** El huso, de sólo lectura en el horario de UNA automatización (`zonaSoloLectura`). */
-export const ROTULO_ZONA_NEGOCIO = 'Huso del negocio';
+/** La línea de debajo del huso en la tuerca de una automatización (`zonaDelNegocio`). */
+export const AVISO_ZONA_NEGOCIO = 'El huso vale para todo el negocio.';
 const FUENTE_NEGOCIO: FuenteHorario = { leer: () => getHorarioEnvioAction(), guardar: (h) => saveHorarioEnvioAction(h) };
 
 export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO }: {
@@ -98,6 +116,9 @@ export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO
 }) {
   const [h, setH] = useState<HorarioEnvio | null>(null);
   const [zona, setZona] = useState('');
+  // La del navegador, después de montar (en el server no hay `Intl` de quien mira).
+  const [navegador, setNavegador] = useState<string | null>(null);
+  useEffect(() => { setNavegador(zonaDelNavegador()); }, []);
   const [puedeEditar, setPuedeEditar] = useState(false);
   const [aviso, setAviso] = useState('');
   /** Hay un guardado en vuelo (o esperando su respiro). */
@@ -160,16 +181,16 @@ export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontFamily: SANS }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 15.5, fontWeight: 700, color: 'var(--ink)' }}>
           {fuente.titulo ?? 'Horario de oficina'}
-          {fuente.zonaSoloLectura && <Info texto={`${ROTULO_ZONA_NEGOCIO}: ${opcionesDeZona(zona).find((o) => o.value === zona)?.label ?? zona}.`} />}
         </span>
         <Interruptor on={h.activo} disabled={off} etiqueta={h.activo ? 'Apagar el horario de oficina' : 'Prender el horario de oficina'} onCambio={(v) => cambiar({ activo: v })} />
       </div>
 
-      <div style={{ marginTop: fuente.zonaSoloLectura && !h.activo ? 0 : 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ marginTop: fuente.zonaDelNegocio && !h.activo ? 0 : 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* Las horas Y el huso en la MISMA fila (10/10/2026). El huso se ve también con el horario APAGADO
             (decisión 4 de la décima, 11/10/2026): es la zona de TODO el negocio, no una del horario. En la tuerca de una
-            automatización (`zonaSoloLectura`) el huso está en el ⓘ del título: apagado, la fila no tiene nada. */}
-        {(h.activo || !fuente.zonaSoloLectura) && <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontFamily: SANS, fontSize: 14, color: 'var(--ink)' }}>
+            automatización (`zonaDelNegocio`) va sólo con el horario prendido (apagado manda a cualquier hora), y debajo dice
+            que vale para todo el negocio. */}
+        {(h.activo || !fuente.zonaDelNegocio) && <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontFamily: SANS, fontSize: 14, color: 'var(--ink)' }}>
           {h.activo && (
             <>
               <span>De</span>
@@ -178,12 +199,13 @@ export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO
               <Dropdown value={String(h.hasta)} options={HASTA} width={104} ariaLabel="Hasta" disabled={off} onChange={(v) => cambiar({ hasta: Number(v) })} />
             </>
           )}
-          {!fuente.zonaSoloLectura && (
-            <div style={{ flex: '1 1 160px', minWidth: 0 }}>
-              <Dropdown value={zona} options={opcionesDeZona(zona)} width="100%" search ariaLabel="Huso horario" disabled={off} onChange={cambiarZona} />
-            </div>
-          )}
+          <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+            <Dropdown value={zona} options={opcionesDeZona(zona, navegador)} width="100%" search ariaLabel="Huso horario" disabled={off} onChange={cambiarZona} />
+          </div>
         </div>}
+        {fuente.zonaDelNegocio && h.activo && (
+          <span data-aviso-zona-negocio="" style={{ marginTop: -6, fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)' }}>{AVISO_ZONA_NEGOCIO}</span>
+        )}
         {/* Los días CENTRADOS en el recuadro (décima tanda de Automations, general 3, 11/10/2026: «En "Horarios
             de Oficina" pon los días centrado en el recuadro, no alineado a la izquierda»). */}
         {h.activo && (
