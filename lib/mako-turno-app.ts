@@ -40,7 +40,7 @@ import { registrarError } from '@/lib/errores-app';
 import { avisoClaveTapada, taparClaves } from '@/lib/claves-en-el-chat';
 import { encolarTurno, esperarALaPc, pcDe, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
 import { armarPrompt, AVISO_PC_ILEGIBLE, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, modeloPc, pcUsable, type FalloDeLaPc } from '@/lib/ia-pc-reglas';
-import type { EleccionIA } from '@/lib/chat-ia-reglas';
+import { MODELO_SU_OPENAI_DEFAULT, NOMBRE_MODELO_IA, type EleccionIA } from '@/lib/chat-ia-reglas';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
 import { entrarSoloSuIA } from '@/lib/solo-su-ia';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
@@ -88,7 +88,7 @@ import {
   type FormularioPropuesta, type PropuestaPantalla,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA, TEXTO_SOLO_BLOQUE,
   historialParaModelo, bloquesDelMensaje, entraOtroDibujo, confirmadoTrasElUltimoPedido, esPedido, salioBien, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA, porQueSinRespuesta,
-  iaParaConectar, IA_PARA_CONECTAR, ENV_DE_IA, falloDeSuClave, AVISO_SU_CLAVE, AVISO_CONECTA_TU_PC, AVISO_NO_LEI_SU_IA, AVISO_SIN_ARCHIVERO, AVISO_ARCHIVERO_EN_PAUSA,
+  iaParaConectar, IA_PARA_CONECTAR, ENV_DE_IA, falloDeSuClave, AVISO_SU_CLAVE, falloDeSuOpenAI, AVISO_SU_OPENAI, avisoSinElModelo, AVISO_CONECTA_TU_PC, AVISO_NO_LEI_SU_IA, AVISO_SIN_ARCHIVERO, AVISO_ARCHIVERO_EN_PAUSA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
 
@@ -779,8 +779,10 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       try {
         const r = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
           feature: FEATURE, maxSteps: 8, sinFallbackClaude: true, soloSuIA: negocio.suIA,
-          // Lo que eligió (8b): directo a SU Claude con ese modelo, o directo a SU OpenAI; si no, la cascada de siempre.
-          ...(ia?.cuenta === 'anthropic' ? { soloSuClaude: true, ...(ia.modelo ? { modeloSuClaude: ia.modelo } : {}) } : ia?.cuenta === 'openai' ? { soloSuOpenAI: true } : {}),
+          // Lo que eligió (8b): directo a SU Claude con ese modelo, o directo a SU OpenAI con el suyo (o uno que sabe orquestar
+          // herramientas, `MODELO_SU_OPENAI_DEFAULT`, nunca el `gpt-4o-mini` de la capa barata); si no, la cascada de siempre.
+          ...(ia?.cuenta === 'anthropic' ? { soloSuClaude: true, ...(ia.modelo ? { modeloSuClaude: ia.modelo } : {}) }
+            : ia?.cuenta === 'openai' ? { soloSuOpenAI: true, modeloSuOpenAI: ia.modelo ?? MODELO_SU_OPENAI_DEFAULT } : {}),
           motivo: `app ${intencion.intencion} «${(textoPersona || textoMemoria).slice(0, 60)}»`,
         });
         texto = (r.text ?? '').trim();
@@ -796,10 +798,17 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     }
     if (fallo) console.error(`[mako-turno-app] ws=${ws} sesión=${s.id} ${intencion.intencion}: ${fallo.slice(0, 300)}`);
     // Lo que falló de SU cuenta (su Claude en pausa, su clave sin crédito) se le dice a la persona: no es un bug.
+    // Con «Tu ChatGPT» elegido, lo de SU OpenAI también (`falloDeSuOpenAI`): su cuenta, o el modelo que no le dejaron usar.
+    const suOpenAI = ia?.cuenta === 'openai' ? falloDeSuOpenAI(fallo) : null;
+    const modeloOpenAI = ia?.cuenta === 'openai' ? ia.modelo ?? MODELO_SU_OPENAI_DEFAULT : '';
     const deSuClave = fallo?.includes(CLAUDE_EN_PAUSA) ? { aviso: CLAUDE_EN_PAUSA, conectar: null }
       : falloDeSuClave(fallo) ? { aviso: AVISO_SU_CLAVE, conectar: 'anthropic' } : null;
+    const deSuOpenAI = suOpenAI === 'cuenta' ? { aviso: AVISO_SU_OPENAI, conectar: 'openai' }
+      : suOpenAI ? { aviso: avisoSinElModelo(NOMBRE_MODELO_IA[modeloOpenAI] ?? modeloOpenAI, persona.rol === 'admin'), conectar: null } : null;
+    /** Lo de su cuenta, de cualquiera de las dos: es lo que leen el ticket, el porqué y el botón. */
+    const deSuCuenta = deSuClave ?? deSuOpenAI;
     // Sin una IA propia no es un bug: es configuración del negocio, y se le pide a la persona (tickets #5 y #6).
-    const sinIA = !falloDeLaPc && !deSuClave && faltaIADelNegocio(fallo, fallo ? await iaPropiaDelTurno() : null);
+    const sinIA = !falloDeLaPc && !deSuCuenta && faltaIADelNegocio(fallo, fallo ? await iaPropiaDelTurno() : null);
 
     // ── Lo que falló de MaKo va SOLO a la Ticketera ─────────────────────────────
     // Martín (17/10/2026): «córrelo en toda la app: MaKo en los chats de la app... Y todo lo solucionas
@@ -811,7 +820,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const fallasDeMako = [
       // `etiqueta`: el nombre humano de la operación («Mover un lead de etapa»), para el título que lee el cliente.
       ...erroresDelTurno.map((e) => ({ nombre: e.herramienta, mensaje: e.error, etiqueta: porId(e.herramienta)?.titulo })),
-      ...(fallo && !sinIA && !falloDeLaPc && !deSuClave ? [{ nombre: 'responder', mensaje: fallo, etiqueta: 'contestarte' }] : []),
+      // Un 404 de su OpenAI sí va: puede ser un id de modelo nuestro mal puesto (`falloDeSuOpenAI`, 'no-existe').
+      ...(fallo && !sinIA && !falloDeLaPc && (!deSuCuenta || suOpenAI === 'no-existe') ? [{ nombre: 'responder', mensaje: fallo, etiqueta: 'contestarte' }] : []),
       // No poder leer la PC sí es de MaKo (la base), si por eso no hubo respuesta.
       ...(pcIlegible && !texto ? [{ nombre: 'leer-la-pc', mensaje: `no pude leer la computadora: ${pcIlegible}`, etiqueta: 'ver tu computadora' }] : []),
     ];
@@ -907,14 +917,14 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       const delaPc = avisoDeLaPc(falloDeLaPc, false, { repone: reponeDeLaPc, tz: tzAviso });
       // Con un porqué conocido, MaKo lo dice EN EL HILO (`porQueSinRespuesta`): al volver a entrar está ahí, y no «No te pude
       // contestar esto». En la respuesta sigue yendo como aviso, con su botón (no en `guardados`: saldría dos veces).
-      const porQue = porQueSinRespuesta({ delaPc, deSuClave: deSuClave?.aviso, sinIA: sinIAEs?.aviso, pcIlegible: pcIlegible && negocio.suIA ? AVISO_PC_ILEGIBLE : null });
+      const porQue = porQueSinRespuesta({ delaPc, deSuClave: deSuCuenta?.aviso, sinIA: sinIAEs?.aviso, pcIlegible: pcIlegible && negocio.suIA ? AVISO_PC_ILEGIBLE : null });
       if (porQue) {
-        const boton = sinIAEs?.conectar ?? deSuClave?.conectar ?? null;
+        const boton = sinIAEs?.conectar ?? deSuCuenta?.conectar ?? null;
         await anotarEnHilo(s.id, porQue, [{ t: 'porque', ...(boton ? { conectar: boton } : {}) }]);
       }
       aviso = [aviso, porQue ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
     }
-    let conectar = sinIAEs?.conectar ?? (respuesta ? null : deSuClave?.conectar ?? null);
+    let conectar = sinIAEs?.conectar ?? (respuesta ? null : deSuCuenta?.conectar ?? null);
     // La clave tapada se le dice, con el botón del servicio que se reconoció. ⚠️ ESE BOTÓN GANA (22/10/2026, la prueba de
     // los chats): sin IA, el botón del «sin IA» (Gemini) se ponía primero, y a quien pegó su clave de OpenAI le abría el de
     // Gemini. Lo que quiere conectar es lo que pegó; si no se reconoció el servicio, el de siempre.

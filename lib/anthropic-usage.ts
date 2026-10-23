@@ -15,6 +15,7 @@ import { getSupabaseServer } from './supabase';
 import { leerTodo } from './supabase-paginado';
 import { saldoOpenRouter } from './openrouter-saldo';
 import { esDelCreditoDeLaPlataforma } from './veto-claude';
+import { tokensDeSalida } from './ai-cheap-techo';
 
 // A QUÉ workspace pertenece el saldo/gasto de un proveedor. La regla real no es
 // "qué proveedor es" sino **de quién es la key que lo pagó**:
@@ -104,6 +105,11 @@ const PRICING: Record<string, { in: number; out: number }> = {
   'openai/gpt-oss-120b': { in: 0.15, out: 0.60 },   // Groq
   'llama-3.3-70b-versatile': { in: 0.59, out: 0.79 }, // Groq
   'gpt-4o-mini': { in: 0.15, out: 0.60 },           // OpenAI
+  // Los de «Tu ChatGPT» (lib/chat-ia-reglas.ts, MODELOS_SU_OPENAI). Sin fila caían a DEFAULT_PRICE (5/25), o sea que el
+  // gasto de un negocio con GPT-5.6 Luna se anotaba unas 25 veces más caro. developers.openai.com/api/docs/pricing, 23/10/2026.
+  'gpt-5.6-luna': { in: 0.20, out: 1.20 },
+  'gpt-6-luna': { in: 0.10, out: 0.50 },
+  'gpt-6.1-sol': { in: 2, out: 10 },
 };
 const DEFAULT_PRICE = { in: 5, out: 25 };
 // Precio de Gemini cuando el cliente cargó créditos (tier pago). En free tier no cobra
@@ -184,13 +190,10 @@ async function insertUsage(row: Record<string, unknown>, wsForzado?: number): Pr
 export async function recordUsage(feature: string, model: string, rawUsage: unknown, motivo?: string, provider = 'anthropic', cuenta?: number, wsForzado?: number): Promise<UsageInfo> {
   const u = (rawUsage && typeof rawUsage === 'object' ? rawUsage : {}) as Record<string, unknown>;
   const input = Number(u.input_tokens ?? u.prompt_tokens ?? 0) || 0;
-  const outputVisible = Number(u.output_tokens ?? u.completion_tokens ?? 0) || 0;
-  // Gemini (y otros con "thinking") cobran tokens de razonamiento que NO vienen en
-  // completion_tokens pero SÍ en total_tokens. Si total > input+visible, el excedente
-  // son tokens ocultos billables → los sumamos al output para que el costo dé bien.
-  const total = Number(u.total_tokens ?? 0) || 0;
-  const reasoning = Number((u.completion_tokens_details as Record<string, unknown> | undefined)?.reasoning_tokens ?? 0) || 0;
-  const output = Math.max(outputVisible + reasoning, total > input ? total - input : 0);
+  // Gemini (y otros con "thinking") cobran tokens de razonamiento que NO vienen en completion_tokens pero SÍ en
+  // total_tokens; en OpenAI ya vienen ADENTRO de completion_tokens. `tokensDeSalida` cuenta los dos sin duplicar
+  // (lib/ai-cheap-techo.ts: sumarlos siempre contaba dos veces lo que piensa un modelo de OpenAI, 23/10/2026).
+  const output = tokensDeSalida(u);
   const cacheCreation = Number(u.cache_creation_input_tokens ?? 0) || 0;
   const cacheRead = Number(u.cache_read_input_tokens ?? 0) || 0;
   // ⚠️ LO CACHEADO DE LOS COMPATIBLES CON OPENAI (Gemini, Groq, OpenAI) VIENE ADENTRO de

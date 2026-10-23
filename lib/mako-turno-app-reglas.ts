@@ -25,6 +25,7 @@ import type { FilaPendiente } from '../app/mako/pendientes/BandejaPendientes';
 import type { AdjuntoVisible } from './chat-mako-bloques';
 import { rutaInterna, type Abrir, type Bloque } from './chat-bloques';
 import { APP_BASE_URL } from './app-url';
+import { motivoCorto } from './su-clave-reglas';
 
 // ── De quién es una sesión ────────────────────────────────────────────────────
 
@@ -586,6 +587,28 @@ export function iaParaConectar(conFila: readonly string[], soloSuya = false): st
 export const falloDeSuClave = (fallo: string | null): boolean =>
   !!fallo && /tu clave de Claude: .*(credit balance|invalid x-api-key|authentication|permission|billing|\b40[13]\b)/i.test(fallo);
 export const AVISO_SU_CLAVE = 'Tu clave de Claude no funcionó (sin crédito o desconectada): revísala y mándamelo de nuevo.';
+
+/**
+ * Lo mismo para SU OpenAI, con «Tu ChatGPT» elegido (revisión del 23/10/2026, al darle modelo a elegir). Hasta ahí un
+ * fallo de su clave de OpenAI se leía «No pude contestar ahora», y una clave rota abría un ticket de bug para el Cerebro.
+ *   · 'cuenta': sin crédito, clave inválida o sin permiso: es de su cuenta. Se le dice con el botón de su OpenAI, sin ticket.
+ *   · 'sin-acceso': OpenAI dijo que su cuenta no tiene ese modelo (403): elige otro. Sin ticket.
+ *   · 'no-existe': OpenAI no encontró el modelo (404). No distingue «no existe» de «no lo tenés», y los tres modelos no se
+ *     midieron, así que puede ser un id nuestro mal puesto: se le dice qué hacer Y sigue el ticket.
+ * Sólo lee lo que vino de SU OpenAI (`chatCheapTools(openai`): el error de otra IA no se le atribuye.
+ */
+export function falloDeSuOpenAI(fallo: string | null): 'cuenta' | 'sin-acceso' | 'no-existe' | null {
+  if (!fallo || !/chatCheapTools\(openai/.test(fallo)) return null;
+  if (/HTTP 403\b.*\bmodel\b/i.test(fallo)) return 'sin-acceso';
+  if (/HTTP 404\b|model_not_found|does not exist/i.test(fallo)) return 'no-existe';
+  const m = motivoCorto(fallo);
+  return m === 'sin crédito' || m === 'clave inválida' || m === 'sin permiso' ? 'cuenta' : null;
+}
+export const AVISO_SU_OPENAI = 'Tu clave de OpenAI no funcionó (sin crédito o desconectada): revísala y mándamelo de nuevo.';
+/** El modelo elegido (o el de por defecto) no está para su cuenta. Un miembro no elige modelo: elige otra IA. */
+export const avisoSinElModelo = (nombre: string, admin: boolean): string => admin
+  ? `Elige otro modelo en el «+» y mándamelo de nuevo: OpenAI no dejó usar ${nombre} con tu cuenta.`
+  : `Elige otra IA en el «+» y mándamelo de nuevo: OpenAI no dejó usar ${nombre} con la cuenta del negocio.`;
 /** A quien no conectó su computadora, en un negocio que corre con su propio Claude (D6b): dónde conectar la suya. */
 export const AVISO_CONECTA_TU_PC = 'Tu negocio contesta con su propio Claude. Para que te conteste a ti, conecta tu computadora en Tu cuenta → Tus cuentas de IA.';
 /** Con su propio Claude, una foto o un PDF escaneado se leen con SU OpenAI (D6b): nunca con Gemini. */

@@ -81,6 +81,7 @@ import { SUBS_VISIBLES, edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } fr
 import { aspectoDeChat } from '@/lib/centro-munecos';
 import { tocarEnLaBarra, type EntradaBarra } from '@/lib/ops-center-navegar';
 import { Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
+// Directo y no desde el índice de app/_ui (ver app/_ui/CargandoMako.tsx).
 import { CargandoMako } from '@/app/_ui/CargandoMako';
 import { RECORRIDO_INICIO } from '@/lib/onboarding-arranque';
 import { PASOS_INICIO } from './recorrido-inicio';
@@ -273,6 +274,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const estadoPanel = () => ({ ticketera: ticketera != null, mapa: verMapa, nuevo: nuevoCentro });
   const elegir = (e: Elegido) => {
     if (!k.elegir(e)) return;
+    setYendoAlGrafo(false);
     const paso = tocarEnLaBarra('chat', estadoPanel());
     setNuevoCentro(paso.nuevo);
     setConChat(true);
