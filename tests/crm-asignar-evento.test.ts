@@ -28,15 +28,20 @@ test('el «⋯» de una etapa de REUNIÓN (sólo esas) ofrece «Asignar evento»
 });
 
 test('marcar vincula, desmarcar desvincula, y «Traer aquí» primero desvincula de la otra etapa', () => {
-  assert.match(modal, /listarEventosAgendaAction\(\)/);
+  assert.match(modal, /listarEventosAgendaAction\(fresco \?/);
   const cambiar = modal.slice(modal.indexOf('const cambiar = async'), modal.indexOf('const conectados'));
   assert.match(cambiar, /if \(accion !== 'vincular'\) \{\s*const d = await desvincularEventoEtapaAction/);
   assert.match(cambiar, /if \(accion !== 'desvincular'\) \{\s*const v = await vincularEventoEtapaAction\(\{ proveedor: e\.proveedor, identificador: e\.identificador, funnelId, etapa \}\)/);
   assert.match(modal, /onClick=\{\(\) => \{ void cambiar\(e, 'traer'\); \}\}/);
-  // Crear un evento: desde el 21/10/2026 AHÍ MISMO (tests/crm-eventos-crear.test.ts); «Actualizar» sigue releyendo.
-  assert.match(modal, /onClick=\{leer\}>Actualizar</);
+  // Crear un evento: desde el 21/10/2026 AHÍ MISMO (tests/crm-eventos-crear.test.ts). «Actualizar» es un ícono desde el
+  // 22/10/2026 (el rediseño, «con poco texto») y sigue releyendo.
+  // Sin la caché de las APIs desde el 23/10/2026 (`fresco`: tests/agenda-velocidad-23-10.test.ts).
+  assert.match(modal, /aria-label="Volver a leer tu agenda" title="Volver a leer" onClick=\{\(\) => leer\(true\)\}/);
+  assert.match(modal, /void listarEventosAgendaAction\(fresco \? \{ fresco: true \} : undefined\)/);
   // Google Calendar (17/10/2026): no hay cómo vincular sus páginas de reserva (su API no las expone); el modal lo dice
   // en vez de callarlo (Martín las nombró en el pedido). Probado rompiéndolo: sin la línea, 1 fallo. Desde el 21/10, con
   // su estado (conectado o no).
-  assert.match(modal, /Google no comparte sus páginas de reserva, así que no se pueden asignar\./);
+  // Desde el 22/10/2026 es una ⓘ («Fuera textos... Si hace falta decir algo de Google, que sea un ⓘ», Martín).
+  assert.match(modal, /<span className="vx-info" role="img" aria-label=\{AVISO_GOOGLE_AGENDA\} title=\{AVISO_GOOGLE_AGENDA\}>ⓘ<\/span>/);
+  assert.doesNotMatch(modal, /Quien se agende en el evento que marques/, 'volvió el texto largo');
 });

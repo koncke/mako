@@ -16,10 +16,11 @@ import { revalidatePath } from 'next/cache';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import {
-  listarEventosDeAgenda, vincularEvento, desvincularEvento, crearEventoDeAgenda, editarEventoDeAgenda,
+  listarEventosDeAgenda, vincularEvento, desvincularEvento, crearEventoDeAgenda, editarEventoDeAgenda, leerVinculos, detalleDeEventoDeAgenda,
   type AgendaDelNegocio, type ResultadoVincular, type ResultadoDesvincular, type ResultadoEventoEscrito,
 } from '@/lib/agenda-evento-etapa-server';
 import type { ProveedorAgenda } from '@/lib/agenda-evento-etapa';
+import type { DetalleEvento, PreguntaEvento, UbicacionEvento } from '@/lib/agenda-evento-detalle';
 import { exigirSesion } from '@/lib/sesion-accion';
 
 export type { AgendaDelNegocio, EventoDeAgenda, EtapaVinculable, ResultadoEventoEscrito } from '@/lib/agenda-evento-etapa-server';
@@ -51,6 +52,26 @@ export async function listarEventosAgendaAction(opts?: { fresco?: boolean }): Pr
   } catch (e) {
     console.error('[agenda-evento] listar:', msg(e));
     return { ok: false, error: 'No pude leer los eventos de tu agenda. Intenta de nuevo.' };
+  }
+}
+
+/**
+ * Lo vinculado a UNA etapa, de la BASE (22/10/2026, Martín: «abrir el modal queda cargando mucho»): el pop-up lo muestra
+ * al toque, mientras la lista de la agenda (que le pregunta a Calendly y a Cal.com) llega por `listarEventosAgendaAction`.
+ */
+export async function vinculadosDeEtapaAction(funnelId: number, etapa: string): Promise<{ ok: true; eventos: Array<{ proveedor: ProveedorAgenda; identificador: string; nombre: string }> } | { ok: false; error: string }> {
+  await exigirSesion();
+  if (!(await esAdmin())) return { ok: false, error: SOLO_ADMIN };
+  try {
+    const { vinculos } = await leerVinculos();
+    return {
+      ok: true,
+      eventos: vinculos.filter((v) => v.funnelId === funnelId && v.etapa === etapa)
+        .map((v) => ({ proveedor: v.proveedor, identificador: v.identificador, nombre: v.nombre || v.identificador })),
+    };
+  } catch (e) {
+    console.error('[agenda-evento] vinculados:', msg(e));
+    return { ok: false, error: 'No pude leer lo vinculado.' };
   }
 }
 
@@ -87,7 +108,7 @@ export async function desvincularEventoEtapaAction(input: { proveedor: Proveedor
  * `etapa`, lo vincula a esa etapa de reunión en el mismo gesto: se crea PARA asignarlo. Si crear sale y vincular no,
  * se dice: el evento ya existe en la cuenta y se marca a mano en la lista.
  */
-export async function crearEventoAgendaAction(input: { proveedor: ProveedorAgenda; nombre: string; duracionMin: number; vincularA?: { funnelId: number; etapa: string } }): Promise<ResultadoEventoEscrito & { vinculado?: boolean; avisoVinculo?: string }> {
+export async function crearEventoAgendaAction(input: { proveedor: ProveedorAgenda; cuenta?: string; nombre: string; duracionMin: number; vincularA?: { funnelId: number; etapa: string } }): Promise<ResultadoEventoEscrito & { vinculado?: boolean; avisoVinculo?: string }> {
   await exigirSesion();
   if (!(await esAdmin())) return { ok: false, error: SOLO_ADMIN };
   const r = await crearEventoDeAgenda(input);
@@ -103,8 +124,19 @@ export async function crearEventoAgendaAction(input: { proveedor: ProveedorAgend
 }
 
 /** Cambia el nombre o la duración de un evento de la agenda del negocio. */
-export async function editarEventoAgendaAction(input: { proveedor: ProveedorAgenda; identificador: string; nombre?: string; duracionMin?: number }): Promise<ResultadoEventoEscrito> {
+export async function editarEventoAgendaAction(input: {
+  proveedor: ProveedorAgenda; cuenta?: string; identificador: string; nombre?: string; duracionMin?: number;
+  /** La edición completa (23/10/2026): sólo lo que cambió. */
+  descripcion?: string; ubicacion?: UbicacionEvento; preguntas?: PreguntaEvento[];
+}): Promise<ResultadoEventoEscrito> {
   await exigirSesion();
   if (!(await esAdmin())) return { ok: false, error: SOLO_ADMIN };
   return editarEventoDeAgenda(input);
+}
+
+/** Lo que se edita de un evento además del nombre (23/10/2026): su descripción, dónde y sus preguntas, de la API. */
+export async function detalleEventoAgendaAction(input: { proveedor: ProveedorAgenda; cuenta?: string | null; identificador: string }): Promise<({ ok: true } & DetalleEvento) | { ok: false; error: string }> {
+  await exigirSesion();
+  if (!(await esAdmin())) return { ok: false, error: SOLO_ADMIN };
+  return detalleDeEventoDeAgenda({ proveedor: input.proveedor, cuenta: input.cuenta ?? undefined, identificador: input.identificador });
 }

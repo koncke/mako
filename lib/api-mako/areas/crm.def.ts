@@ -1143,6 +1143,8 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
       { nombre: 'nombre', tipo: 'string', obligatorio: true, max: MAX_NOMBRE_EVENTO, descripcion: 'el nombre del evento («Llamada de diagnóstico»).' },
       { nombre: 'duracionMin', tipo: 'number', obligatorio: true, entero: true, minimo: 5, maximo: 720, descripcion: 'cuánto dura, en minutos.' },
+      // Varias cuentas por proveedor (23/10/2026, fase B de Cobros).
+      { nombre: 'cuenta', tipo: 'string', max: 20, descripcion: 'la cuenta (de listar_eventos_agenda); sin ella, la principal.' },
     ],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: false, escribe: 'crea el tipo de evento en la cuenta de Calendly o Cal.com del negocio (se borra desde esa cuenta)',
@@ -1150,15 +1152,19 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'editar_pagina_reserva', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Editar una página de reserva (Calendly o Cal.com)',
-    descripcion: 'PROPONE cambiar el nombre o la duración de una página de reserva de Calendly o Cal.com del negocio (queda pendiente hasta el «sí»). Lo que no se pasa queda como está. Su identificador sale de listar_eventos_agenda. Solo el administrador.',
+    descripcion: 'PROPONE cambiar el nombre, la duración, la descripción o dónde es la reunión de una página de reserva de Calendly o Cal.com del negocio (queda pendiente hasta el «sí»). Lo que no se pasa queda como está. Su identificador sale de listar_eventos_agenda. Solo el administrador.',
     parametros: [
       { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
       { nombre: 'evento', tipo: 'string', obligatorio: true, max: 300, descripcion: 'el identificador del evento (de listar_eventos_agenda), o su nombre.' },
       { nombre: 'nombre', tipo: 'string', max: MAX_NOMBRE_EVENTO, descripcion: 'el nombre nuevo.' },
       { nombre: 'duracionMin', tipo: 'number', entero: true, minimo: 5, maximo: 720, descripcion: 'la duración nueva, en minutos.' },
+      // La edición completa (23/10/2026): lib/agenda-evento-detalle.ts. Las preguntas y la disponibilidad, en la pantalla o allá.
+      { nombre: 'descripcion', tipo: 'string', max: 1000, descripcion: 'la descripción nueva.' },
+      { nombre: 'ubicacion', tipo: 'string', enum: ['meet', 'zoom', 'llamada', 'presencial', 'link'], descripcion: 'dónde es la reunión.' },
+      { nombre: 'ubicacionValor', tipo: 'string', max: 300, descripcion: 'la dirección (presencial) o el link (link).' },
     ],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
-    reversible: true, escribe: 'cambia el nombre o la duración del tipo de evento en la cuenta de Calendly o Cal.com del negocio',
+    reversible: true, escribe: 'cambia el nombre, la duración, la descripción o la ubicación del tipo de evento en la cuenta de Calendly o Cal.com del negocio',
   },
   {
     // 21/10/2026: las plantillas de la tarjeta (Martín: «poder ver TEMPLATES de estilos de tarjeta… y puedes crear otras
@@ -1188,6 +1194,51 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'el tipo de la etapa en el pipeline del funnel (y su banda: Nutrición o el recorrido)',
+  },
+  // ── «Vincular cobro» por MaKo (22/10/2026) ────────────────────────────────────────
+  // `plata: true` en las tres que escriben (revisión del 23/10/2026): deciden si un pago gana el trato y arma su plan de
+  // pagos. Por WhatsApp, un «ok, después lo veo» no las confirma: sólo un «sí» (tests/confirmacion-terceros.test.ts).
+  // Martín: «Que MaKo pueda hacer todo eso y que quede en la API de MaKo... Así el chat de MaKo crea, edita y vincula
+  // eventos y cobros sin problemas». Las MISMAS funciones del pop-up (lib/cobro-etapa-server.ts, de Cobros); crear o
+  // editar el producto es `guardar_producto`. Al final del área, antes de `armar_tab_ficha` (AGENTS.md: una op nueva no
+  // puede dejar afuera a las de antes en el presupuesto), y sin las palabras que el clasificador suma a todo un tipo de pedido.
+  {
+    id: 'ver_cobro_etapa', area: 'crm', tipo: 'lectura',
+    titulo: 'Qué cobra Ganado en un CRM',
+    descripcion: 'Los productos vinculados a Ganado de un CRM (quien paga uno pasa a Ganado ahí, con su plan de pagos), por qué cuentas de Stripe o Mercado Pago cobra cada uno, las cuentas conectadas y los productos del catálogo que se pueden sumar. Paso previo a vincular_cobro_etapa. Solo el administrador.',
+    parametros: [{ nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+  },
+  {
+    id: 'vincular_cobro_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', plata: true,
+    titulo: 'Vincular un producto a Ganado',
+    descripcion: 'PROPONE vincular un producto del catálogo a Ganado de un CRM (queda pendiente hasta el «sí»): quien lo pague por esas cuentas pasa a Ganado ahí, con su plan de pagos. Un producto cobra en un solo CRM. Producto y cuentas salen de ver_cobro_etapa. Solo el administrador.',
+    parametros: [
+      { nombre: 'productoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el producto (de ver_cobro_etapa o listar_productos).' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal del negocio.' },
+      { nombre: 'cuentas', tipo: 'string[]', max: 20, descripcion: 'las cuentas por las que cobra (sus id de ver_cobro_etapa, como stripe:principal). Sin ellas, todas las conectadas.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'guarda el vínculo del producto con Ganado de ese CRM (cobro_etapa_vinculos): desde ahí, quien lo pague por esas cuentas pasa a Ganado con su plan de pagos',
+  },
+  {
+    id: 'cuentas_cobro_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', plata: true,
+    titulo: 'Cuentas de cobro en Ganado',
+    descripcion: 'PROPONE fijar por qué cuentas de Stripe o Mercado Pago cobra un producto ya vinculado a Ganado (queda pendiente hasta el «sí»). La lista que se pasa es la NUEVA y entera; vacía no se acepta (eso es desvincular_cobro_etapa). El vínculo sale de ver_cobro_etapa. Solo el administrador.',
+    parametros: [
+      { nombre: 'vinculoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el vínculo (de ver_cobro_etapa).' },
+      { nombre: 'cuentas', tipo: 'string[]', obligatorio: true, max: 20, descripcion: 'las cuentas por las que cobra desde ahora (sus id de ver_cobro_etapa).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'fija las cuentas del vínculo (cobro_etapa_vinculos.cuentas): un pago por una cuenta que salió ya no pasa a Ganado ahí',
+  },
+  {
+    id: 'desvincular_cobro_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', plata: true,
+    titulo: 'Quitar un producto de Ganado',
+    descripcion: 'PROPONE sacar un producto de Ganado de un CRM (queda pendiente hasta el «sí»): sus pagos ya no pasan a Ganado ahí. Lo ya cobrado queda igual. El vínculo sale de ver_cobro_etapa. Solo el administrador.',
+    parametros: [{ nombre: 'vinculoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el vínculo (de ver_cobro_etapa).' }],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'borra el vínculo del producto con Ganado (cobro_etapa_vinculos); los cobros y planes ya hechos no se tocan',
   },
   // ── «¿Qué vas a crear hoy?» de una tab de la ficha (16/10/2026) ──────────────────
   // ⚠️ AL FINAL DE LA LISTA A PROPÓSITO: con un mensaje que no la nombra, el presupuesto del turno de WhatsApp

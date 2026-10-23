@@ -31,7 +31,9 @@ test('la frase dice por qué: por nombre no se puede, y por @ lo que pasó con M
   assert.equal(nombre, 'Por nombre no se puede: escribe su @');
   assert.equal(avisoSinResultados({ esUsuario: false, meta: 'sin-conexion', porNombre: null }), nombre, 'con un nombre, primero lo que puede hacer');
   assert.equal(avisoSinResultados({ esUsuario: true, meta: 'no-esta', porNombre: false }), 'Meta no la muestra: es personal o no existe');
-  assert.equal(avisoSinResultados({ esUsuario: true, meta: 'sin-conexion', porNombre: false }), 'Conecta Meta para ver su cuenta');
+  // ⚠️ CAMBIADO A PROPÓSITO EL 22/10/2026: la fila lleva al lado el botón «Conectar Meta» (`pideConectarMeta`), así que
+  // la frase dice el porqué y no repite la orden (tests/crm-instagram-meta-22-10.test.ts).
+  assert.equal(avisoSinResultados({ esUsuario: true, meta: 'sin-conexion', porNombre: false }), 'Su cuenta se busca con tu Meta');
   assert.equal(avisoSinResultados({ esUsuario: true, meta: 'sin-permiso', porNombre: false }), 'Meta no da permiso: revisa la conexión');
   assert.equal(avisoSinResultados({ esUsuario: true, meta: 'no-pude', porNombre: null }), 'Meta no contestó');
   // Con una fuente por nombre que SÍ contestó (hoy ninguna), un nombre sin resultados es un «no hay» de verdad.

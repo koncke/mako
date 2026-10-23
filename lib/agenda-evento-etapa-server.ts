@@ -28,8 +28,12 @@ import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { credWs, credWsEstricta } from './credenciales';
 import { upsertRouting, soltarIdentificador } from './webhook-routing';
-import { listarEventTypes, crearEventTypeCalendly, editarEventTypeCalendly } from './calendly-agenda';
-import { listarEventTypesCalcom, crearEventTypeCalcom, editarEventTypeCalcom } from './calcom';
+import { listarEventTypes, crearEventTypeCalendly, editarEventTypeCalendly, detalleEventTypeCalendly } from './calendly-agenda';
+import { listarEventTypesCalcom, crearEventTypeCalcom, editarEventTypeCalcom, detalleEventTypeCalcom, editarPreguntasCalcom } from './calcom';
+import {
+  datosDeDetalle, editarAllaDe, preguntasCambiadas, preguntasDeCalcom, preguntasDeCalendly, ubicacionACalcom, ubicacionACalendly,
+  ubicacionDeCalcom, ubicacionDeCalendly, type DetalleEvento,
+} from './agenda-evento-detalle';
 import { conCache, crearCacheAgenda, llaveAgenda, type CacheAgenda } from './agenda-cache';
 import { CUENTA_PRINCIPAL, cuentaValida, nombreDeCuenta } from './cuentas-integracion';
 import { cuentasConToken, tokenDeAgenda } from './cuentas-agenda-server';
@@ -407,13 +411,51 @@ export async function crearEventoDeAgenda(input: { proveedor: unknown; cuenta?: 
   }
 }
 
-export async function editarEventoDeAgenda(input: { proveedor: unknown; cuenta?: unknown; identificador: unknown; nombre?: unknown; duracionMin?: unknown }): Promise<ResultadoEventoEscrito> {
+/**
+ * Lo que se edita de un evento además del nombre y la duración (23/10/2026, la edición completa de «Vincular evento»):
+ * la descripción, dónde es la reunión y sus preguntas. Lo puro, en lib/agenda-evento-detalle.ts. Nunca tira.
+ */
+export async function detalleDeEventoDeAgenda(input: { proveedor: unknown; cuenta?: unknown; identificador: unknown }): Promise<({ ok: true } & DetalleEvento) | { ok: false; error: string }> {
   if (!esProveedorAgenda(input.proveedor)) return { ok: false, error: 'La agenda es Calendly o Cal.com.' };
   const identificador = String(input.identificador ?? '').trim();
   if (!identificador || identificador.length > MAX_IDENTIFICADOR) return { ok: false, error: 'Falta el evento.' };
-  const d = datosDeEvento(input, true);
+  const proveedor = input.proveedor;
+  const cta = await cuentaParaEscribir(proveedor, input.cuenta, identificador);
+  if ('error' in cta) return { ok: false, error: cta.error };
+  const token = await tokenDeAgenda(proveedor, cta.cuenta);
+  if (!token) return { ok: false, error: `Esa cuenta de ${NOMBRE_PROVEEDOR[proveedor]} no está conectada.` };
+  try {
+    if (proveedor === 'calendly') {
+      const d = await detalleEventTypeCalendly(token, identificador);
+      const u = ubicacionDeCalendly(d.locations);
+      return { ok: true, descripcion: d.descripcion, ubicacion: u.ubicacion, ubicacionAlla: u.alla, preguntas: preguntasDeCalendly(d.preguntas), preguntasEditables: false, editarAlla: editarAllaDe(proveedor, identificador) };
+    }
+    const d = await detalleEventTypeCalcom(token, identificador);
+    const u = ubicacionDeCalcom(d.locations);
+    return { ok: true, descripcion: d.descripcion, ubicacion: u.ubicacion, ubicacionAlla: u.alla, preguntas: preguntasDeCalcom(d.bookingFields), preguntasEditables: true, editarAlla: editarAllaDe(proveedor, identificador) };
+  } catch (e) {
+    return { ok: false, error: `${NOMBRE_PROVEEDOR[proveedor]} no lo mostró: ${msg(e).slice(0, 200)}` };
+  }
+}
+
+export async function editarEventoDeAgenda(input: {
+  proveedor: unknown; cuenta?: unknown; identificador: unknown; nombre?: unknown; duracionMin?: unknown;
+  /** La edición completa (23/10/2026): lib/agenda-evento-detalle.ts → `datosDeDetalle`. */
+  descripcion?: unknown; ubicacion?: unknown; preguntas?: unknown;
+}): Promise<ResultadoEventoEscrito> {
+  if (!esProveedorAgenda(input.proveedor)) return { ok: false, error: 'La agenda es Calendly o Cal.com.' };
+  const identificador = String(input.identificador ?? '').trim();
+  if (!identificador || identificador.length > MAX_IDENTIFICADOR) return { ok: false, error: 'Falta el evento.' };
+  const dd = datosDeDetalle(input);
+  if (!dd.ok) return dd;
+  const { descripcion, ubicacion, preguntas } = dd.cambios;
+  const hayDetalle = descripcion !== undefined || !!ubicacion || !!preguntas;
+  // Con algo del detalle, el nombre y la duración pueden no venir; sin nada, `datosDeEvento` dice qué falta.
+  const hayBasico = input.nombre != null || (input.duracionMin != null && input.duracionMin !== '');
+  const d = hayBasico || !hayDetalle ? datosDeEvento(input, true) : { ok: true as const, nombre: undefined, duracionMin: undefined };
   if (!d.ok) return d;
   const proveedor = input.proveedor;
+  if (proveedor === 'calendly' && preguntas) return { ok: false, error: 'Calendly no deja cambiar sus preguntas desde afuera: se editan en Calendly.' };
   // La cuenta que TIENE el evento: la pedida, o la que lo lista (con el token de otra, el proveedor contesta 404).
   const cta = await cuentaParaEscribir(proveedor, input.cuenta, identificador);
   if ('error' in cta) return { ok: false, error: cta.error };
@@ -423,15 +465,31 @@ export async function editarEventoDeAgenda(input: { proveedor: unknown; cuenta?:
     if (proveedor === 'calendly') {
       const token = await tokenDeAgenda('calendly', cuenta);
       if (!token) return { ok: false, error: otra ? 'Esa cuenta de Calendly no está conectada.' : 'Conecta Calendly para editar sus eventos.' };
-      const e = await editarEventTypeCalendly(token, identificador, { nombre: d.nombre, duracionMin: d.duracionMin });
+      const e = await editarEventTypeCalendly(token, identificador, {
+        nombre: d.nombre, duracionMin: d.duracionMin, descripcion, locations: ubicacion ? ubicacionACalendly(ubicacion) : undefined,
+      });
       await olvidarCuentas(proveedor);
       return { ok: true, evento: { proveedor, identificador: e.uri, nombre: e.nombre, duracionMin: e.duracionMin, cuenta } };
     }
     const key = await tokenDeAgenda('calcom', cuenta);
     if (!key) return { ok: false, error: otra ? 'Esa cuenta de Cal.com no está conectada.' : 'Conecta Cal.com con su API key para editar sus eventos.' };
-    const e = await editarEventTypeCalcom(key, identificador, { nombre: d.nombre, duracionMin: d.duracionMin });
+    // Las preguntas de Cal.com: sólo las que CAMBIARON, contra lo que tiene hoy (su ruta no inventa una nueva).
+    const cambiadas = preguntas ? preguntasCambiadas(preguntasDeCalcom((await detalleEventTypeCalcom(key, identificador)).bookingFields), preguntas) : [];
+    const algoDelEvento = d.nombre !== undefined || d.duracionMin !== undefined || descripcion !== undefined || !!ubicacion;
+    const e = algoDelEvento
+      ? await editarEventTypeCalcom(key, identificador, { nombre: d.nombre, duracionMin: d.duracionMin, descripcion, locations: ubicacion ? ubicacionACalcom(ubicacion) : undefined })
+      : null;
+    try {
+      await editarPreguntasCalcom(key, identificador, cambiadas.map((p) => ({ slug: p.id, label: p.texto, required: p.obligatoria, hidden: p.oculta })));
+    } catch (err) {
+      await olvidarCuentas(proveedor);
+      return { ok: false, error: `${e ? 'Cal.com guardó lo demás, pero no las preguntas' : 'Cal.com no cambió las preguntas'}: ${msg(err).slice(0, 200)}` };
+    }
     await olvidarCuentas(proveedor);
-    return { ok: true, evento: { proveedor, identificador: e.id, nombre: e.nombre, duracionMin: e.duracionMin, cuenta } };
+    if (e) return { ok: true, evento: { proveedor, identificador: e.id, nombre: e.nombre, duracionMin: e.duracionMin, cuenta } };
+    // Sólo las preguntas: el nombre y la duración, de la lista de la cuenta.
+    const ya = (await eventosDelProveedor(proveedor).catch(() => null))?.eventos.find((x) => mismoIdentificador(x.identificador, identificador));
+    return { ok: true, evento: { proveedor, identificador, nombre: ya?.nombre ?? identificador, duracionMin: ya?.duracionMin ?? null, cuenta } };
   } catch (e) {
     return { ok: false, error: `${NOMBRE_PROVEEDOR[proveedor]} no lo cambió: ${msg(e).slice(0, 200)}` };
   }

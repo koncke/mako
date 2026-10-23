@@ -6,6 +6,27 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω21. 22-23/10/2026, madrugada (chat «CRM», cuenta `claude3`): «Vincular evento / cobro» e Instagram
+
+**«Vincular evento» y «Vincular cobro»** (feedback de Martín con capturas del ws1, vía el Cerebro): rama `crm-vinc-2210` en
+C:/dev/wt-crm-vinc, sobre main d0ec8904f. El nombre, el CRM › la etapa arriba, los dos pop-ups rediseñados (app/crm/vincular-etapa.ts),
+lo vinculado al toque desde la base y cada cambio en su lugar, el aviso del «⋯» (lib/vinculos-de-columnas.ts) y el cobro de
+Ganado por MaKo (cuatro ops al final del área crm, `plata: true` las que escriben). Pasó la revisión adversarial del cobro.
+tests/crm-vincular-22-10.test.ts. **Sin hacer** (en este orden): (1) la velocidad del server de la agenda, sobre main, con el
+contrato que pidió Cobros: `eventosDelProveedor(proveedor)` sigue siendo la unidad de lectura, la caché por negocio + proveedor,
+el input de crear/editar como objeto y el token o la key por parámetro a lib/calendly-agenda.ts y lib/calcom.ts (Cobros mergea su
+fase B, «por cuenta», encima); (2) «Traer de otro funnel» (pedido del Cerebro del 23/10: botón visible, loader, sin el texto de
+«Se ven 300 de 869», el pie pegado con fondo sólido); (3) la edición completa del evento (lo que deja cada API, en
+docs/hallazgos-integraciones.md) y elegir la cuenta en el pop-up; (4) las capturas del después en el ws3.
+
+**La tanda junta** (vincular + Instagram + agenda rápida + «Traer de otro funnel»): rama `crm-tanda-2310` en
+C:/dev/wt-crm-tanda, punta 44db84a2e, pasada a Integración. **La edición completa del evento y la cuenta en el pop-up**: rama
+`crm-edicion-2310` en C:/dev/wt-crm-edicion, ENCIMA de la de Cobros (`cuentas-2210`, fases A y B de varias cuentas): sale
+con ellos, no antes. Ahí también el cobro de Ganado toma todas las cuentas conectadas (`cuentasDePago`), no sólo la principal.
+
+**Instagram, «Conectar Meta»**: rama `crm-ig-2210` en C:/dev/wt-crm-ig. 4487ac5d6 salió del tren 16 por `fresco` sin tope; la
+punta 18146bffd le pone el tope (una cada 10 minutos por negocio, 20 por día) y no borra la pausa de un límite de Meta.
+
 ## 0-Ω20. 21-22/10/2026, noche (chat «CRM», cuenta `claude3`): el feedback de Martín de las 23:10
 
 **22/10, 21:10, el feedback con capturas del ws1** (rama `crm-fb-2210c` en C:/dev/wt-crm-fb3, sobre main 449247716): el

@@ -1,47 +1,46 @@
 'use client';
 
 // =============================================================================
-// EventosDeEtapaModal — «Asignar evento»: qué evento de Calendly o Cal.com cae en ESTA etapa de reunión
+// EventosDeEtapaModal — «Vincular evento»: qué evento de Calendly o Cal.com cae en ESTA etapa de reunión
 // =============================================================================
 // Feedback de Martín del 16/10/2026 (punto 3 del CRM): «Falta la misma opción para las etapas de reunión "Asignar
-// evento" con el logo de Meet, y que ahí se puedan seleccionar de la misma manera (en diseño) que la lista de
-// campañas, la lista de eventos de Calendly o Cal o Calendar... Y que tenga la opción ahí mismo de crear un nuevo
-// evento para asignarse a esa etapa». Se abre desde el «⋯» de la columna (app/crm/CrmBoard.tsx), como «Asignar
-// campañas» desde «Lead entrante», y tiene el diseño de la tabla de campañas (app/crm/CampanasModal.tsx).
+// evento"... y que ahí se puedan seleccionar de la misma manera (en diseño) que la lista de campañas... Y que tenga la
+// opción ahí mismo de crear un nuevo evento para asignarse a esa etapa». Se abre desde el «⋯» de la columna
+// (app/crm/CrmBoard.tsx) y su clic derecho.
 //
-// El MOTOR ya estaba (mig 0293, lib/agenda-evento-etapa*.ts, app/crm/agenda-evento-actions.ts): un evento va a UNA
-// sola etapa, y quien se agenda en él cae en esa etapa de ese funnel. Acá sólo hay pantalla:
-//   · Marcar un evento lo vincula a esta etapa; desmarcarlo lo desvincula.
-//   · Uno que ya está en OTRA etapa dice dónde, y «Traer aquí» lo desvincula de allá y lo vincula acá.
-//   · ~~«Crear un evento» abre la página de Calendly o Cal.com en otra pestaña~~ Desde el 21/10/2026 se CREA y se EDITA
-//     acá (Martín: «me gustaría que se pueda editar o crear eventos desde allí también»): el nombre y la duración, por
-//     sus APIs (Calendly abrió `POST`/`PATCH /event_types` el 17/06/2025; Cal.com, `/v2/event-types`). Lo creado se
-//     asigna a esta etapa en el mismo gesto. La disponibilidad y la ubicación siguen siendo las de la cuenta.
-//   · Sin Calendly ni Cal.com conectados, se conectan AHÍ MISMO (21/10: «si no se conectó un calendly o cal se debería
-//     poder hacer desde allí mismo»): el modal de /integraciones se abre arriba de éste (`BotonIntegracion`).
-//   · Google Calendar NO está, y se dice abajo (17/10/2026): su API no lista las páginas de reserva («appointment
-//     schedules») ni marca de cuál viene una reserva (llega como un evento común, `eventType: default`; developers.google.com,
-//     «Event types»). Vincular una a una etapa pediría adivinar por el título y leer el calendario con un cron: no se hace
-//     hasta que Google lo exponga (docs/hallazgos-crm.md, «Las tabs como HOJAS…» §6).
+// El MOTOR (mig 0293, lib/agenda-evento-etapa*.ts, app/crm/agenda-evento-actions.ts): un evento va a UNA sola etapa, y
+// quien se agenda en él cae en esa etapa de ese funnel. Acá sólo hay pantalla:
+//   · Marcar un evento lo vincula a esta etapa; desmarcarlo lo desvincula. Uno que ya está en OTRA etapa dice dónde
+//     («CRM › Etapa») y «Traer aquí» lo desvincula de allá y lo vincula acá.
+//   · Se CREA y se EDITA acá (21/10/2026): lo creado nace vinculado a esta etapa.
+//   · Sin Calendly ni Cal.com, se conectan AHÍ MISMO (`BotonIntegracion`, el modal de /integraciones arriba de éste).
+//
+// SEGUNDA VUELTA (22/10/2026, noche). Martín, con capturas del ws1:
+//   · «Asignar evento» pasa a llamarse «Vincular evento», como «Vincular cobro».
+//   · LENTO: abrir quedaba cargando (la lista le pregunta a Calendly y a Cal.com) y cada cambio la volvía a pedir entera.
+//     Ahora (1) lo vinculado a ESTA etapa sale de la base y se ve al toque (`vinculadosDeEtapaAction`) mientras llega la
+//     agenda, y (2) vincular, desvincular, crear y editar cambian la lista EN EL LUGAR con lo que contestó el server, sin
+//     volver a pedirla. Lo del server (los proveedores en paralelo, la caché) en lib/agenda-evento-etapa-server.ts.
+//   · En vez de «Esta etapa», el nombre de la etapa; y el del CRM, que faltaba.
+//   · Fuera los textos largos: lo de Google Calendar es una ⓘ.
+//   · Rediseñado: una lista de renglones (no una tabla), que en el teléfono apila el «dónde» debajo del nombre.
 // =============================================================================
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { Modal, Spinner, Toast, useToast, Button, SANS, MONO } from '@/app/_ui';
+import { Modal, Spinner, Toast, useToast, Button, SANS } from '@/app/_ui';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import {
   listarEventosAgendaAction, vincularEventoEtapaAction, desvincularEventoEtapaAction, crearEventoAgendaAction, editarEventoAgendaAction,
-  type AgendaDelNegocio, type EventoDeAgenda,
+  vinculadosDeEtapaAction, detalleEventoAgendaAction, type AgendaDelNegocio, type EventoDeAgenda,
 } from './agenda-evento-actions';
 import { DURACIONES_EVENTO, MAX_NOMBRE_EVENTO, type ProveedorAgenda } from '@/lib/agenda-evento-etapa';
+import {
+  MAX_DESCRIPCION_EVENTO, MAX_PREGUNTA_EVENTO, UBICACIONES, type DetalleEvento, type PreguntaEvento, type TipoUbicacion, type UbicacionEvento,
+} from '@/lib/agenda-evento-detalle';
+import { AVISO_GOOGLE_AGENDA, CSS_VINCULAR, PASTILLA_CONECTAR, ordenarEventos, ubicacionDe } from './vincular-etapa';
 
-const TH: CSSProperties = {
-  fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase',
-  color: 'var(--faint)', fontWeight: 600, whiteSpace: 'nowrap',
-};
-const CASILLA: CSSProperties = { width: 16, height: 16, margin: 0, cursor: 'pointer', accentColor: 'var(--primary)' };
-const COLUMNAS = '28px minmax(0, 1fr) 110px 80px minmax(0, 170px) 30px';
 const NOMBRE_PROVEEDOR: Record<EventoDeAgenda['proveedor'], string> = { calendly: 'Calendly', calcom: 'Cal.com' };
 /** El servicio de /integraciones de cada agenda (lib/integraciones-catalogo.ts), para conectarla sin salir. */
 const SERVICIO_INTEGRACION: Record<ProveedorAgenda, string> = { calendly: 'calendly', calcom: 'calcom' };
@@ -49,49 +48,73 @@ const CAMPO: CSSProperties = {
   height: 34, padding: '0 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)',
   color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, minWidth: 0,
 };
-type Borrador = { nombre: string; duracionMin: number; proveedor: ProveedorAgenda };
-const clave = (e: EventoDeAgenda) => `${e.proveedor}:${e.identificador}`;
+/** Lo que se crea: con su CUENTA (varias por proveedor desde el 23/10/2026, fase B de Cobros). */
+type Borrador = { nombre: string; duracionMin: number; proveedor: ProveedorAgenda; cuenta: string };
+/**
+ * Lo que se edita en el lugar (23/10/2026, «Edición COMPLETA del evento desde ahí»): el nombre y la duración al toque, y
+ * la descripción, dónde y las preguntas cuando llega `original` (lo lee de la API: null = cargando).
+ */
+type Editando = {
+  k: string; nombre: string; duracionMin: number;
+  original: DetalleEvento | null; fallo: string | null;
+  descripcion: string; ubicacion: UbicacionEvento | null; preguntas: PreguntaEvento[];
+};
+type Rapido = { proveedor: ProveedorAgenda; identificador: string; nombre: string };
+const clave = (e: { proveedor: string; identificador: string }) => `${e.proveedor}:${e.identificador}`;
 
-export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: {
+export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, onCerrar }: {
   funnelId: number;
   etapa: string;
   etapaNombre: string;
+  /** El nombre del CRM, para decir dónde cae («Sprint 3 días › Agenda R1»). */
+  crmNombre: string;
   onCerrar: () => void;
 }) {
   const [montado, setMontado] = useState(false);
   const [agenda, setAgenda] = useState<AgendaDelNegocio | null>(null);
+  /** Lo vinculado a esta etapa, de la base: se ve mientras llega la agenda. */
+  const [rapidos, setRapidos] = useState<Rapido[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const { toast, show, clear } = useToast();
   useEffect(() => { setMontado(true); }, []);
-  /** «Crear evento»: el renglón de arriba de la lista. */
   const [creando, setCreando] = useState<Borrador | null>(null);
-  /** El evento que se está editando (por `clave`), con lo escrito. */
-  const [editando, setEditando] = useState<{ k: string; nombre: string; duracionMin: number } | null>(null);
+  const [editando, setEditando] = useState<Editando | null>(null);
 
-  const leer = useCallback(() => {
+  /** `fresco`: sin el minuto de caché de las APIs (lib/agenda-cache.ts). Lo pide sólo «Volver a leer»: conectar otra cuenta
+   *  ya cambia la llave de la caché, y abrir el pop-up la aprovecha. */
+  const leer = useCallback((fresco = false) => {
     setError(null);
-    void listarEventosAgendaAction()
+    void listarEventosAgendaAction(fresco ? { fresco: true } : undefined)
       .then((r) => { if (r.ok) setAgenda(r); else setError(r.error); })
-      .catch(() => setError('No pude leer los eventos de tu agenda. Intenta de nuevo.'));
+      .catch(() => setError('No pude leer tu agenda. Intenta de nuevo.'));
   }, []);
-  useEffect(() => { leer(); }, [leer]);
+  useEffect(() => {
+    void vinculadosDeEtapaAction(funnelId, etapa).then((r) => { if (r.ok) setRapidos(r.eventos); }).catch(() => {});
+    leer();
+  }, [funnelId, etapa, leer]);
 
+  const aqui = { funnelId, funnel: crmNombre, etapa, etapaNombre };
   const enEsta = (e: EventoDeAgenda) => !!e.vinculo && e.vinculo.funnelId === funnelId && e.vinculo.etapa === etapa;
+  /** La lista cambia EN EL LUGAR con lo que contestó el server: no se vuelve a pedir la agenda entera. */
+  const ponerVinculo = (k: string, vinculo: EventoDeAgenda['vinculo']) =>
+    setAgenda((a) => (a ? { ...a, eventos: a.eventos.map((x) => (clave(x) === k ? { ...x, vinculo } : x)) } : a));
 
   const cambiar = async (e: EventoDeAgenda, accion: 'vincular' | 'desvincular' | 'traer') => {
-    setOcupado(clave(e));
+    const k = clave(e);
+    setOcupado(k);
     try {
       if (accion !== 'vincular') {
         const d = await desvincularEventoEtapaAction({ proveedor: e.proveedor, identificador: e.identificador });
         if (!d.ok) { show(d.error, undefined, 'bad'); return; }
+        ponerVinculo(k, null);
       }
       if (accion !== 'desvincular') {
         const v = await vincularEventoEtapaAction({ proveedor: e.proveedor, identificador: e.identificador, funnelId, etapa });
         if (!v.ok) { show(v.error, undefined, 'bad'); return; }
+        ponerVinculo(k, { ...aqui, funnel: v.funnel || crmNombre, etapaNombre: v.etapaNombre || etapaNombre, reunion: v.reunion });
       }
       show(accion === 'desvincular' ? 'Evento quitado' : `Cae en «${etapaNombre}»`);
-      leer();
     } catch {
       show('No se pudo guardar', undefined, 'bad');
     } finally {
@@ -106,23 +129,49 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: 
       const r = await crearEventoAgendaAction({ ...creando, vincularA: { funnelId, etapa } });
       if (!r.ok) { show(r.error, undefined, 'bad'); return; }
       setCreando(null);
-      show(r.vinculado ? `Creado y asignado a «${etapaNombre}»` : (r.avisoVinculo ?? 'Creado'), undefined, r.vinculado ? undefined : 'bad');
-      leer();
+      const nuevo: EventoDeAgenda = {
+        proveedor: r.evento.proveedor, identificador: r.evento.identificador, nombre: r.evento.nombre, duracionMin: r.evento.duracionMin,
+        credencial: null, enLaCuenta: true, vinculo: r.vinculado ? { ...aqui, reunion: null } : null,
+        cuenta: r.evento.cuenta, cuentaNombre: nombreDeCuenta(r.evento.proveedor, r.evento.cuenta),
+      } as EventoDeAgenda;
+      setAgenda((a) => (a ? { ...a, eventos: [nuevo, ...a.eventos.filter((x) => clave(x) !== clave(nuevo))] } : a));
+      show(r.vinculado ? `Creado y vinculado a «${etapaNombre}»` : (r.avisoVinculo ?? 'Creado'), undefined, r.vinculado ? undefined : 'bad');
     } catch {
       show('No se pudo crear', undefined, 'bad');
     } finally {
       setOcupado(null);
     }
   };
+  /** Abre la edición: el nombre y la duración al toque; lo demás, cuando la API lo devuelve. */
+  const abrirEdicion = (e: EventoDeAgenda) => {
+    const k = clave(e);
+    setEditando({ k, nombre: e.nombre, duracionMin: e.duracionMin ?? 30, original: null, fallo: null, descripcion: '', ubicacion: null, preguntas: [] });
+    void detalleEventoAgendaAction({ proveedor: e.proveedor, cuenta: e.cuenta, identificador: e.identificador })
+      .then((r) => setEditando((ed) => (ed?.k !== k ? ed : r.ok
+        ? { ...ed, original: r, descripcion: r.descripcion, ubicacion: r.ubicacion, preguntas: r.preguntas }
+        : { ...ed, fallo: r.error })))
+      .catch(() => setEditando((ed) => (ed?.k !== k ? ed : { ...ed, fallo: 'No pude leer el evento.' })));
+  };
   const guardarEdicion = async (e: EventoDeAgenda) => {
     if (!editando) return;
-    setOcupado(clave(e));
+    const k = clave(e);
+    // Sólo lo que CAMBIÓ: lo que no se toca no viaja (y en Cal.com, una pregunta que no cambió no se reescribe).
+    const o = editando.original;
+    const cambios = {
+      ...(editando.nombre.trim() !== e.nombre ? { nombre: editando.nombre } : {}),
+      ...(editando.duracionMin !== e.duracionMin ? { duracionMin: editando.duracionMin } : {}),
+      ...(o && editando.descripcion.trim() !== o.descripcion ? { descripcion: editando.descripcion } : {}),
+      ...(o && !o.ubicacionAlla && editando.ubicacion && JSON.stringify(editando.ubicacion) !== JSON.stringify(o.ubicacion) ? { ubicacion: editando.ubicacion } : {}),
+      ...(o?.preguntasEditables && JSON.stringify(editando.preguntas) !== JSON.stringify(o.preguntas) ? { preguntas: editando.preguntas } : {}),
+    };
+    if (!Object.keys(cambios).length) { setEditando(null); return; }
+    setOcupado(k);
     try {
-      const r = await editarEventoAgendaAction({ proveedor: e.proveedor, identificador: e.identificador, nombre: editando.nombre, duracionMin: editando.duracionMin });
+      const r = await editarEventoAgendaAction({ proveedor: e.proveedor, cuenta: e.cuenta ?? undefined, identificador: e.identificador, ...cambios });
       if (!r.ok) { show(r.error, undefined, 'bad'); return; }
       setEditando(null);
+      setAgenda((a) => (a ? { ...a, eventos: a.eventos.map((x) => (clave(x) === k ? { ...x, nombre: r.evento.nombre, duracionMin: r.evento.duracionMin } : x)) } : a));
       show('Evento guardado');
-      leer();
     } catch {
       show('No se pudo guardar', undefined, 'bad');
     } finally {
@@ -133,158 +182,203 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: 
   const duraciones = (actual: number | null) => (actual != null && !DURACIONES_EVENTO.includes(actual) ? [...DURACIONES_EVENTO, actual].sort((a, b) => a - b) : DURACIONES_EVENTO);
 
   const conectados = agenda?.proveedores.filter((p) => p.conectado) ?? [];
-  // Crear sólo donde hay con qué escribir (el token de Calendly o la API key de Cal.com). Lo cargado como R1/R2 sin
-  // token cuenta como conectado para la lista, pero no alcanza para crear: lo dice el error de la API.
+  /** Con más de una cuenta de un proveedor, cada evento dice de cuál es (y al crear, se elige). */
+  const variasCuentas = (p: ProveedorAgenda) => (agenda?.proveedores.filter((x) => x.proveedor === p).length ?? 0) > 1;
+  const nombreDeCuenta = (p: ProveedorAgenda, cuenta: string) => agenda?.proveedores.find((x) => x.proveedor === p && x.cuenta === cuenta)?.cuentaNombre ?? NOMBRE_PROVEEDOR[p];
   const sinConectar = (['calendly', 'calcom'] as const).filter((p) => !conectados.some((c) => c.proveedor === p));
+  const eventos = useMemo(() => (agenda ? ordenarEventos(agenda.eventos, funnelId, etapa) : []), [agenda, funnelId, etapa]);
+
   const fila = (e: EventoDeAgenda) => {
-    const enEstaEtapa = enEsta(e);
-    const enOtra = !!e.vinculo && !enEstaEtapa;
     const k = clave(e);
+    const enEstaEtapa = enEsta(e);
+    const donde = ubicacionDe(e.vinculo);
     if (editando?.k === k) {
+      const o = editando.original;
+      const alla = NOMBRE_PROVEEDOR[e.proveedor];
+      const defUbic = UBICACIONES.find((u) => u.tipo === editando.ubicacion?.tipo);
+      const ponerPregunta = (i: number, p: Partial<PreguntaEvento>) =>
+        setEditando({ ...editando, preguntas: editando.preguntas.map((x, j) => (j === i ? { ...x, ...p } : x)) });
       return (
-        <form key={k} role="row" onSubmit={(ev) => { ev.preventDefault(); void guardarEdicion(e); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '9px 12px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-          <input autoFocus value={editando.nombre} maxLength={MAX_NOMBRE_EVENTO} aria-label="Nombre del evento"
-            onChange={(ev) => setEditando({ ...editando, nombre: ev.target.value })} style={{ ...CAMPO, flex: '1 1 200px' }} />
-          <select value={editando.duracionMin} aria-label="Duración" onChange={(ev) => setEditando({ ...editando, duracionMin: Number(ev.target.value) })} style={CAMPO}>
-            {duraciones(e.duracionMin).map((d) => <option key={d} value={d}>{d} min</option>)}
-          </select>
-          <Button size="sm" type="submit" loading={ocupado === k} disabled={ocupado != null || !editando.nombre.trim()}>Guardar</Button>
-          <Button size="sm" variant="secondary" onClick={() => setEditando(null)}>Cancelar</Button>
-        </form>
+        <li key={k} className="vx-fila vx-fila--abierta">
+          <form className="vx-editar" onSubmit={(ev) => { ev.preventDefault(); void guardarEdicion(e); }}>
+            <div className="vx-form">
+              <input autoFocus value={editando.nombre} maxLength={MAX_NOMBRE_EVENTO} aria-label="Nombre del evento"
+                onChange={(ev) => setEditando({ ...editando, nombre: ev.target.value })} style={{ ...CAMPO, flex: '1 1 200px' }} />
+              <select value={editando.duracionMin} aria-label="Duración" onChange={(ev) => setEditando({ ...editando, duracionMin: Number(ev.target.value) })} style={CAMPO}>
+                {duraciones(e.duracionMin).map((d) => <option key={d} value={d}>{d} min</option>)}
+              </select>
+            </div>
+            {editando.fallo ? <p className="vx-nota" data-mal>{editando.fallo}</p>
+              : !o ? <div className="vx-gris vx-gris--bloque" aria-hidden><span /><span /></div>
+                : (
+                  <>
+                    <textarea className="vx-area" value={editando.descripcion} placeholder="Descripción" aria-label="Descripción" rows={3}
+                      maxLength={MAX_DESCRIPCION_EVENTO} onChange={(ev) => setEditando({ ...editando, descripcion: ev.target.value })} />
+                    <div className="vx-form">
+                      <span className="vx-rotulo">Dónde</span>
+                      {o.ubicacionAlla ? (
+                        <a className="vx-link" href={o.editarAlla} target="_blank" rel="noreferrer">Varias · en {alla} ↗</a>
+                      ) : (
+                        <>
+                          <select value={editando.ubicacion?.tipo ?? ''} aria-label="Dónde es la reunión" style={CAMPO}
+                            onChange={(ev) => {
+                              const def = UBICACIONES.find((u) => u.tipo === ev.target.value);
+                              setEditando({ ...editando, ubicacion: def ? { tipo: ev.target.value as TipoUbicacion, ...(def.conValor ? { valor: editando.ubicacion?.valor ?? '' } : {}) } : null });
+                            }}>
+                            {!editando.ubicacion && <option value="">Sin definir</option>}
+                            {UBICACIONES.map((u) => <option key={u.tipo} value={u.tipo}>{u.nombre}</option>)}
+                          </select>
+                          {defUbic?.conValor && (
+                            <input value={editando.ubicacion?.valor ?? ''} aria-label={defUbic.conValor === 'direccion' ? 'Dirección' : 'Link'}
+                              placeholder={defUbic.conValor === 'direccion' ? 'Dirección' : 'https://'} maxLength={300}
+                              onChange={(ev) => setEditando({ ...editando, ubicacion: { tipo: defUbic.tipo, valor: ev.target.value } })} style={{ ...CAMPO, flex: '1 1 200px' }} />
+                          )}
+                        </>
+                      )}
+                    </div>
+                    {o.preguntas.length > 0 && (
+                      <div className="vx-preguntas">
+                        <span className="vx-rotulo">Preguntas</span>
+                        {o.preguntasEditables ? editando.preguntas.map((p, i) => (
+                          <div key={p.id} className="vx-pregunta">
+                            <input value={p.texto} aria-label={`Pregunta ${i + 1}`} maxLength={MAX_PREGUNTA_EVENTO}
+                              onChange={(ev) => ponerPregunta(i, { texto: ev.target.value })} style={{ ...CAMPO, flex: '1 1 220px' }} />
+                            <button type="button" className="vx-cuenta" aria-pressed={p.obligatoria} onClick={() => ponerPregunta(i, { obligatoria: !p.obligatoria })}>Obligatoria</button>
+                            <button type="button" className="vx-cuenta" aria-pressed={!p.oculta} onClick={() => ponerPregunta(i, { oculta: !p.oculta })}>Visible</button>
+                          </div>
+                        )) : (
+                          <ul className="vx-solo-leer">{o.preguntas.map((p) => <li key={p.id}>{p.texto}{p.obligatoria ? ' *' : ''}</li>)}</ul>
+                        )}
+                      </div>
+                    )}
+                    {/* Lo que la API no deja: la disponibilidad (y en Calendly, las preguntas). Se edita allá, en otra pestaña:
+                        acá no hay cómo, y salir de MaKo perdería el pop-up. */}
+                    <a className="vx-link" href={o.editarAlla} target="_blank" rel="noreferrer">
+                      Disponibilidad{o.preguntasEditables || !o.preguntas.length ? '' : ' y preguntas'} en {alla} ↗
+                    </a>
+                  </>
+                )}
+            <div className="vx-form">
+              <span className="vx-elastico" />
+              <Button size="sm" variant="secondary" onClick={() => setEditando(null)}>Cancelar</Button>
+              <Button size="sm" type="submit" loading={ocupado === k} disabled={ocupado != null || !editando.nombre.trim()}>Guardar</Button>
+            </div>
+          </form>
+        </li>
       );
     }
     return (
-      <div key={k} role="row" style={{ display: 'grid', gridTemplateColumns: COLUMNAS, alignItems: 'center', gap: 10, padding: '10px 12px', borderTop: '1px solid var(--border)' }}>
-        <span role="cell">
-          <input type="checkbox" style={CASILLA} checked={enEstaEtapa} disabled={enOtra || ocupado != null || agenda?.sePuedeVincular === false}
-            aria-label={enEstaEtapa ? `Quitar ${e.nombre} de ${etapaNombre}` : `Asignar ${e.nombre} a ${etapaNombre}`}
-            onChange={() => { void cambiar(e, enEstaEtapa ? 'desvincular' : 'vincular'); }} />
-        </span>
-        <span role="cell" style={{ minWidth: 0, fontSize: 13.5, fontWeight: 600, color: e.enLaCuenta ? 'var(--ink)' : 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          title={e.enLaCuenta ? e.nombre : `${e.nombre} · ya no está en tu cuenta`}>
-          {e.nombre}{e.credencial && <span style={{ marginLeft: 6, fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{e.credencial}</span>}
-        </span>
-        <span role="cell" style={{ fontSize: 12.5, color: 'var(--dim)' }}>{NOMBRE_PROVEEDOR[e.proveedor]}</span>
-        <span role="cell" style={{ fontSize: 12.5, color: 'var(--dim)' }}>{e.duracionMin != null ? `${e.duracionMin} min` : '—'}</span>
-        <span role="cell" style={{ minWidth: 0, fontSize: 12.5, color: enEstaEtapa ? 'var(--primary)' : 'var(--dim)', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <li key={k} className="vx-fila" data-aqui={enEstaEtapa || undefined}>
+        <input type="checkbox" className="vx-sel" checked={enEstaEtapa} disabled={(!!donde && !enEstaEtapa) || ocupado != null || agenda?.sePuedeVincular === false}
+          aria-label={enEstaEtapa ? `Quitar ${e.nombre} de ${etapaNombre}` : `Vincular ${e.nombre} a ${etapaNombre}`}
+          onChange={() => { void cambiar(e, enEstaEtapa ? 'desvincular' : 'vincular'); }} />
+        <div className="vx-txt">
+          <span className="vx-nombre" title={e.enLaCuenta ? e.nombre : `${e.nombre} · ya no está en tu cuenta`} data-fuera={!e.enLaCuenta || undefined}>{e.nombre}</span>
+          <span className="vx-meta">{[variasCuentas(e.proveedor) && e.cuentaNombre ? e.cuentaNombre : NOMBRE_PROVEEDOR[e.proveedor], e.duracionMin != null ? `${e.duracionMin} min` : null, e.credencial].filter(Boolean).join(' · ')}</span>
+        </div>
+        <div className="vx-donde">
           {ocupado === k ? <Spinner size={13} />
-            : enEstaEtapa ? 'Esta etapa'
-              : enOtra ? (
+            : enEstaEtapa ? <span className="vx-chip vx-chip--aqui">{etapaNombre}</span>
+              : donde ? (
                 <>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${e.vinculo!.funnel} › ${e.vinculo!.etapaNombre}`}>{e.vinculo!.etapaNombre}</span>
-                  <button type="button" disabled={ocupado != null} onClick={() => { void cambiar(e, 'traer'); }}
-                    style={{ flex: 'none', border: 'none', background: 'none', padding: 0, cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, color: 'var(--primary)' }}>
-                    Traer aquí
-                  </button>
+                  <span className="vx-chip" title={donde}>{donde}</span>
+                  <button type="button" className="vx-link" disabled={ocupado != null} onClick={() => { void cambiar(e, 'traer'); }}>Traer aquí</button>
                 </>
-              ) : '—'}
-        </span>
-        <span role="cell">
-          {/* EDITAR (21/10/2026): el nombre y la duración, en el lugar. Lo que ya no está en la cuenta no se edita. */}
-          {e.enLaCuenta && (
-            <button type="button" disabled={ocupado != null} aria-label={`Editar ${e.nombre}`} title="Editar"
-              onClick={() => setEditando({ k, nombre: e.nombre, duracionMin: e.duracionMin ?? 30 })}
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, border: 'none', borderRadius: 7, background: 'transparent', color: 'var(--dim)', cursor: 'pointer', padding: 0 }}>
-              <IconoMenu nombre="editar" size={15} />
-            </button>
-          )}
-        </span>
-      </div>
+              ) : null}
+        </div>
+        {e.enLaCuenta ? (
+          <button type="button" className="vx-icono" disabled={ocupado != null} aria-label={`Editar ${e.nombre}`} title="Editar"
+            onClick={() => abrirEdicion(e)}>
+            <IconoMenu nombre="editar" size={15} />
+          </button>
+        ) : <span />}
+      </li>
     );
   };
 
+  // Mientras llega la agenda: lo vinculado a esta etapa (de la base), marcado, y unas filas grises.
+  const mientras = !agenda && !error ? (
+    <>
+      {(rapidos ?? []).map((r) => (
+        <li key={clave(r)} className="vx-fila" data-aqui>
+          <input type="checkbox" className="vx-sel" checked readOnly disabled aria-label={`${r.nombre}, vinculado a ${etapaNombre}`} />
+          <div className="vx-txt"><span className="vx-nombre">{r.nombre}</span><span className="vx-meta">{NOMBRE_PROVEEDOR[r.proveedor]}</span></div>
+          <div className="vx-donde"><span className="vx-chip vx-chip--aqui">{etapaNombre}</span></div>
+          <span />
+        </li>
+      ))}
+      {[0, 1].map((i) => <li key={`g${i}`} className="vx-fila vx-gris" aria-hidden><span /><span /><span /><span /></li>)}
+    </>
+  ) : null;
+
   const contenido = (
-    <div style={{ fontFamily: SANS }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-        <span style={{ fontSize: 13.5, color: 'var(--dim)', flex: '1 1 260px' }}>
-          Quien se agende en el evento que marques cae en «{etapaNombre}».
-        </span>
+    <div className="vx" style={{ fontFamily: SANS }}>
+      <style>{CSS_VINCULAR}</style>
+      <div className="vx-barra">
+        {agenda && sinConectar.map((p) => (
+          <BotonIntegracion key={p} servicio={SERVICIO_INTEGRACION[p]} onConectado={() => leer()} style={PASTILLA_CONECTAR}>
+            <IconoMenu nombre="link" size={14} /> Conectar {NOMBRE_PROVEEDOR[p]}
+          </BotonIntegracion>
+        ))}
+        <span className="vx-elastico" />
+        <span className="vx-info" role="img" aria-label={AVISO_GOOGLE_AGENDA} title={AVISO_GOOGLE_AGENDA}>ⓘ</span>
+        <button type="button" className="vx-icono" aria-label="Volver a leer tu agenda" title="Volver a leer" onClick={() => leer(true)} disabled={!agenda && !error}>
+          <IconoMenu nombre="restaurar" size={15} />
+        </button>
         {conectados.length > 0 && !creando && (
           <Button size="sm" icon={<IconoMenu nombre="agregar" size={15} />} disabled={ocupado != null || agenda?.sePuedeVincular === false}
-            onClick={() => setCreando({ nombre: '', duracionMin: 30, proveedor: conectados[0].proveedor })}>
+            onClick={() => setCreando({ nombre: '', duracionMin: 30, proveedor: conectados[0].proveedor, cuenta: conectados[0].cuenta })}>
             Crear evento
           </Button>
         )}
-        <Button size="sm" variant="secondary" onClick={leer}>Actualizar</Button>
       </div>
 
-      {/* CONECTAR SIN SALIR DE LA TAB (21/10/2026): la agenda que falta, con el modal de /integraciones acá arriba. */}
-      {agenda && sinConectar.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12, fontSize: 13, color: 'var(--dim)' }}>
-          {sinConectar.map((p) => (
-            <BotonIntegracion key={p} servicio={SERVICIO_INTEGRACION[p]} onConectado={() => leer()}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 12px', borderRadius: 99, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 }}>
-              <IconoMenu nombre="link" size={14} /> Conectar {NOMBRE_PROVEEDOR[p]}
-            </BotonIntegracion>
-          ))}
-        </div>
-      )}
-
-      {/* CREAR (21/10/2026): el nombre, la duración y en qué agenda; nace asignado a esta etapa. */}
       {creando && (
-        <form onSubmit={(ev) => { ev.preventDefault(); void crear(); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: 12, marginBottom: 12, borderRadius: 12, background: 'var(--surface-2)' }}>
+        <form className="vx-form vx-form--crear" onSubmit={(ev) => { ev.preventDefault(); void crear(); }}>
           <input autoFocus value={creando.nombre} maxLength={MAX_NOMBRE_EVENTO} placeholder="Nombre del evento" aria-label="Nombre del evento"
             onChange={(ev) => setCreando({ ...creando, nombre: ev.target.value })} style={{ ...CAMPO, flex: '1 1 220px' }} />
           <select value={creando.duracionMin} aria-label="Duración" onChange={(ev) => setCreando({ ...creando, duracionMin: Number(ev.target.value) })} style={CAMPO}>
             {DURACIONES_EVENTO.map((d) => <option key={d} value={d}>{d} min</option>)}
           </select>
+          {/* La agenda: el proveedor y, si tiene varias, la CUENTA (23/10/2026). */}
           {conectados.length > 1 && (
-            <select value={creando.proveedor} aria-label="Agenda" onChange={(ev) => setCreando({ ...creando, proveedor: ev.target.value as ProveedorAgenda })} style={CAMPO}>
-              {conectados.map((p) => <option key={p.proveedor} value={p.proveedor}>{NOMBRE_PROVEEDOR[p.proveedor]}</option>)}
+            <select value={`${creando.proveedor}|${creando.cuenta}`} aria-label="Agenda" style={CAMPO}
+              onChange={(ev) => { const [p, c] = ev.target.value.split('|'); setCreando({ ...creando, proveedor: p as ProveedorAgenda, cuenta: c }); }}>
+              {conectados.map((p) => (
+                <option key={`${p.proveedor}|${p.cuenta}`} value={`${p.proveedor}|${p.cuenta}`}>
+                  {variasCuentas(p.proveedor) ? p.cuentaNombre : NOMBRE_PROVEEDOR[p.proveedor]}
+                </option>
+              ))}
             </select>
           )}
-          <Button size="sm" type="submit" loading={ocupado === 'crear'} disabled={ocupado != null || !creando.nombre.trim()}>Crear y asignar</Button>
+          <Button size="sm" type="submit" loading={ocupado === 'crear'} disabled={ocupado != null || !creando.nombre.trim()}>Crear</Button>
           <Button size="sm" variant="secondary" onClick={() => setCreando(null)}>Cancelar</Button>
         </form>
       )}
 
-      <div role="table" aria-label={`Eventos de agenda para ${etapaNombre}`} style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-        <div role="row" style={{ display: 'grid', gridTemplateColumns: COLUMNAS, alignItems: 'center', gap: 10, padding: '9px 12px', background: 'var(--surface-2)' }}>
-          <span />
-          <span style={TH}>Evento</span>
-          <span style={TH}>Agenda</span>
-          <span style={TH}>Duración</span>
-          <span style={TH}>Etapa</span>
-          <span />
-        </div>
-        {agenda?.eventos.map(fila)}
-        {!agenda && !error && <div style={{ padding: '34px 0', display: 'flex', justifyContent: 'center', borderTop: '1px solid var(--border)' }}><Spinner size={18} /></div>}
-        {!agenda && error && <p style={vacio('var(--bad)')}>{error}</p>}
-        {agenda && agenda.eventos.length === 0 && (
-          conectados.length === 0
-            ? <p style={vacio()}>Conecta Calendly o Cal.com para ver tus eventos.</p>
-            : <p style={vacio()}>Tu agenda no tiene eventos. Toca «Crear evento».</p>
-        )}
-      </div>
-      {agenda?.proveedores.filter((p) => p.conectado && p.error).map((p) => (
-        <p key={p.proveedor} style={{ margin: '10px 0 0', fontSize: 12.5, color: 'var(--warn)' }}>{NOMBRE_PROVEEDOR[p.proveedor]}: {p.error}</p>
-      ))}
-      {/* GOOGLE CALENDAR (Martín, 21/10/2026: «puedo tener eventos en Calendly, Cal o Google Calendar»): su API no lista
-          las páginas de reserva ni dice de cuál viene una reserva (docs/hallazgos-crm.md). Se dice en una línea, con su
-          estado, y la decisión de cómo sumarlo quedó planteada a Martín. */}
-      <p style={{ margin: '10px 0 0', fontSize: 12.5, color: 'var(--faint)' }}>
-        {agenda?.google.conectado ? 'Google Calendar está conectado, pero' : 'Google Calendar:'} Google no comparte sus páginas de reserva, así que no se pueden asignar.
-      </p>
-      {agenda && !agenda.sePuedeVincular && (
-        <p style={{ margin: '10px 0 0', fontSize: 12.5, color: 'var(--warn)' }}>Todavía no se pueden asignar eventos en esta cuenta.</p>
+      <ul className="vx-lista" aria-label={`Eventos para ${etapaNombre}`} aria-busy={!agenda && !error}>
+        {eventos.map(fila)}
+        {mientras}
+      </ul>
+      {!agenda && error && <p className="vx-vacio" data-mal>{error}</p>}
+      {agenda && agenda.eventos.length === 0 && (
+        <p className="vx-vacio">{conectados.length === 0 ? 'Conecta Calendly o Cal.com.' : 'Tu agenda no tiene eventos.'}</p>
       )}
+      {agenda?.proveedores.filter((p) => p.conectado && p.error).map((p) => (
+        <p key={p.proveedor} className="vx-nota" data-mal>{NOMBRE_PROVEEDOR[p.proveedor]}: {p.error}</p>
+      ))}
+      {agenda && !agenda.sePuedeVincular && <p className="vx-nota" data-mal>Todavía no se pueden vincular eventos en esta cuenta.</p>}
       <Toast state={toast} onClose={clear} />
     </div>
   );
 
   if (!montado) return null;
   return createPortal(
-    <Modal titulo={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><IconoMenu nombre="evento" size={18} /> Asignar evento</span>}
-      encabezado={<span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{etapaNombre}</span>}
-      onCerrar={onCerrar} ancho={820} alto="min(80vh, 640px)" sinFiletes>
+    <Modal titulo={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><IconoMenu nombre="evento" size={18} /> Vincular evento</span>}
+      encabezado={<span className="vx-donde-titulo">{crmNombre} › {etapaNombre}</span>}
+      onCerrar={onCerrar} ancho={640} alto="min(80vh, 620px)" sinFiletes>
       {contenido}
     </Modal>,
     document.body,
   );
 }
-
-const vacio = (color = 'var(--dim)'): CSSProperties => ({
-  fontFamily: SANS, fontSize: 13.5, color, padding: '28px 12px', margin: 0, textAlign: 'center', borderTop: '1px solid var(--border)',
-});

@@ -124,11 +124,12 @@ test('eventosDelProveedor: la unidad de lectura de una cuenta, con su caché, si
 test('crear o editar un evento olvida la lista de ESA cuenta, después de escribir', () => {
   for (const firma of ['export async function crearEventoDeAgenda(', 'export async function editarEventoDeAgenda(']) {
     const f = cuerpo(SRV, firma);
-    assert.equal((f.match(/await olvidarCuentas\(proveedor\);/g) ?? []).length, 2, `${firma}: Calendly y Cal.com`);
+    // Calendly y Cal.com; editar en Cal.com olvida también si las preguntas fallan después de guardar lo demás (23/10/2026).
+    assert.ok((f.match(/await olvidarCuentas\(proveedor\);/g) ?? []).length >= 2, `${firma}: Calendly y Cal.com`);
     assert.ok(f.indexOf('await olvidarCuentas(proveedor);') > f.indexOf('EventType'), `${firma}: olvida antes de escribir`);
   }
   assert.match(SRV, /const e = await crearEventTypeCalendly\(token, \{ nombre: d\.nombre!, duracionMin: d\.duracionMin! \}\);/);
-  assert.match(SRV, /const e = await editarEventTypeCalendly\(token, identificador, \{ nombre: d\.nombre, duracionMin: d\.duracionMin \}\);/);
+  assert.match(SRV, /const e = await editarEventTypeCalendly\(token, identificador, \{\s*nombre: d\.nombre, duracionMin: d\.duracionMin,/);
   assert.match(cuerpo(SRV, 'async function olvidarCuentas('), /if \(ws != null\) cacheCuentas\.olvidar\(ws, proveedor\);/);
 });
 

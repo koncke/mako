@@ -34,10 +34,18 @@
 // ⚠️ EL DESHACER VIAJA AL PADRE: este componente se desmonta al terminar (el modal se
 // cierra), así que un aviso propio moriría con él. `onTraidos` recibe la función que borra
 // SÓLO las filas que este lote creó, y el padre la cuelga del «Deshacer» de su aviso.
+//
+// ⚠️ LO QUE PIDIÓ MARTÍN EL 23/10/2026 (captura del ws1): «al abrir el pop-up, un loader mientras carga la lista, porque
+// sin él parece roto. Al cambiar de funnel o de etapa, también»; fuera la línea «Se ven 300 de 869; la casilla de arriba
+// tilda a los 869. 300 ya están en este funnel y no se muestran» («si hace falta algo, que sea el número en la casilla»);
+// y el pie con «← Atrás» y «Agregar aquí» pegado al fondo, con fondo sólido: «se ven leads por detrás y debajo, y parece
+// roto». El pie era `sticky` dentro del cuerpo del modal, que tiene 20 px de padding abajo: las filas pasaban por ahí.
+// Ahora la vista mide el alto del cuerpo (`height: 100%`), la que scrollea es la tabla y el pie es el último renglón.
 
-import { useEffect, useMemo, useState, useTransition, type CSSProperties } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState, useTransition, type CSSProperties } from 'react';
 import { TANDA_AGREGAR, TOPE_PANTALLA, enTandas, filasParaTraer, miles } from './traer-seleccion';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
+import { Spinner } from '@/app/_ui';
 import { leadsDeProductoAction, type LeadParaTraer } from './actions';
 import { agregarLoteAProductoAction, quitarLoteDeProductoAction } from './lead-funnel-actions';
 
@@ -112,8 +120,12 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
     return [...m].map(([key, label]) => ({ key, label }));
   }, [filas]);
 
-  // Los que cumplen el filtro y NO están en este funnel (los que ya están, sólo se cuentan).
-  const { candidatos, yaEstan } = useMemo(() => filasParaTraer(filas ?? [], { q, etapa }), [filas, q, etapa]);
+  // Los que cumplen el filtro y NO están en este funnel. Con el filtro DIFERIDO: la lista de 869 se vuelve a armar en
+  // segundo plano y, mientras, se ve que está filtrando (`filtrando`) en vez de una pantalla que no contesta.
+  const qDiferida = useDeferredValue(q);
+  const etapaDiferida = useDeferredValue(etapa);
+  const filtrando = q !== qDiferida || etapa !== etapaDiferida;
+  const { candidatos, yaEstan } = useMemo(() => filasParaTraer(filas ?? [], { q: qDiferida, etapa: etapaDiferida }), [filas, qDiferida, etapaDiferida]);
   const enPantalla = candidatos.slice(0, TOPE_PANTALLA);
   const ocultos = candidatos.length - enPantalla.length;
   const tildados = useMemo(() => new Set(sel), [sel]);
@@ -147,7 +159,7 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0, height: '100%' }}>
       {/* La barra: de dónde, qué busco, qué etapa. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--faint)', flex: 'none' }}>Traer de</span>
@@ -178,20 +190,27 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
             width={190}
           />
         )}
+        {filtrando && <Spinner size={16} />}
       </div>
 
       {/* La tabla. */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 12 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 12, opacity: filtrando ? 0.55 : 1, transition: 'opacity .12s' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead style={{ position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
             <tr>
-              <th style={{ ...th, width: 34, padding: '10px 0 7px 12px' }}>
-                <input type="checkbox" checked={todosTildados} onChange={alternarTodos}
-                  disabled={!candidatos.length}
-                  aria-label={`Tildar a los ${miles(candidatos.length)}`} title={`Tildar a los ${miles(candidatos.length)}`}
-                  style={{ width: 16, height: 16, cursor: candidatos.length ? 'pointer' : 'default', accentColor: 'var(--primary)' }} />
+              {/* La casilla de «todos» y, si hay más de los que se dibujan, CUÁNTOS toma: «Tildar los 869» (Martín, 23/10/2026:
+                  «si hace falta algo, que sea el número en la casilla»). Ocupa el lugar del rótulo «Nombre». */}
+              <th colSpan={2} style={{ ...th, padding: '10px 10px 7px 12px' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 12, cursor: candidatos.length ? 'pointer' : 'default' }}>
+                  <input type="checkbox" checked={todosTildados} onChange={alternarTodos}
+                    disabled={!candidatos.length}
+                    aria-label={`Tildar los ${miles(candidatos.length)}`}
+                    style={{ width: 16, height: 16, margin: 0, cursor: candidatos.length ? 'pointer' : 'default', accentColor: 'var(--primary)' }} />
+                  {ocultos > 0
+                    ? <span style={TILDAR_TODOS}>Tildar los {miles(candidatos.length)}</span>
+                    : 'Nombre'}
+                </label>
               </th>
-              <th style={th}>Nombre</th>
               <th style={th}>Empresa</th>
               <th style={th}>Email</th>
               <th style={th}>Teléfono</th>
@@ -223,8 +242,11 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
         {/* Los tres estados, y son DISTINTOS: todavía no llegó · llegó vacío · el filtro
             no deja nada. Un solo texto para los tres haría pensar que el producto está
             vacío cuando lo que pasa es que el filtro no deja pasar a nadie. */}
+        {/* El loader (23/10/2026): al abrir y al cambiar de funnel la lista viene del server, y sin él parecía roto. */}
         {filas === null && (
-          <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--faint)', padding: '22px 14px', margin: 0 }}>Cargando…</p>
+          <div role="status" aria-label="Cargando los leads" style={{ display: 'grid', placeItems: 'center', gap: 10, padding: '56px 14px' }}>
+            <Spinner size={22} />
+          </div>
         )}
         {filas?.length === 0 && (
           <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 }}>Ese funnel no tiene leads.</p>
@@ -236,18 +258,11 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
         )}
       </div>
 
-      {/* ⚠️ EL PIE VA PEGADO ABAJO (22/10/2026, «que el botón no se tenga que desplazar»): el cuerpo del modal es el que
-          scrollea, y sin `sticky` el «Agregar» quedaba debajo de 300 filas. Arriba del botón, lo que no se ve: cuántos
-          hay más allá del tope (y que «todos» también los toma) y cuántos no se listan porque ya están acá. */}
-      <div style={{ position: 'sticky', bottom: 0, zIndex: 2, background: 'var(--surface)', borderTop: '1px solid var(--border)', padding: '10px 0 2px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {(ocultos > 0 || yaEstan > 0) && (
-        <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)' }}>
-          {ocultos > 0 ? `Se ven ${miles(TOPE_PANTALLA)} de ${miles(candidatos.length)}; la casilla de arriba tilda a los ${miles(candidatos.length)}.` : ''}
-          {ocultos > 0 && yaEstan > 0 ? ' ' : ''}
-          {yaEstan > 0 ? `${miles(yaEstan)} ${yaEstan === 1 ? 'ya está' : 'ya están'} en este funnel y no se ${yaEstan === 1 ? 'muestra' : 'muestran'}.` : ''}
-        </span>
-      )}
-
+      {/* ⚠️ EL PIE ES EL ÚLTIMO RENGLÓN, CON FONDO SÓLIDO (22/10 «que el botón no se tenga que desplazar»; 23/10 «se ven
+          leads por detrás y debajo»): la vista mide el alto del cuerpo y la que scrollea es la tabla, así que nada pasa por
+          detrás. El `sticky` queda de respaldo, para un padre sin alto (el importador). Sin textos: lo que no se ve lo dice
+          la casilla de arriba. */}
+      <div style={{ position: 'sticky', bottom: 0, zIndex: 2, flex: 'none', background: 'var(--surface)', borderTop: '1px solid var(--border)', padding: '12px 0 0' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <button type="button" onClick={onAtras} disabled={agregando} style={btnAtras}>← Atrás</button>
         <span style={{ flex: 1 }} />
@@ -293,6 +308,11 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
     </div>
   );
 }
+
+/** «Tildar los 869», en la casilla de arriba: con letra de texto, no de rótulo de columna. */
+const TILDAR_TODOS: CSSProperties = {
+  fontFamily: SANS, fontSize: 13, letterSpacing: 0, textTransform: 'none', color: 'var(--ink)', fontWeight: 600,
+};
 
 const btnAtras: CSSProperties = {
   flex: 'none', padding: '10px 16px', borderRadius: 10,

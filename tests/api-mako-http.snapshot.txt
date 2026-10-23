@@ -150,6 +150,7 @@ crear_oferta_lead
 crear_pagina_reserva
 crear_presentacion_desde_plantilla
 crear_secuencia_email
+cuentas_cobro_etapa
 dar_de_baja_mi_plan
 dar_estrella
 declarar_entradas_funnel
@@ -160,6 +161,7 @@ descartar_item_plan_retro
 deshacer_item_plan_retro
 despublicar_landing
 destacados_periodo_retro
+desvincular_cobro_etapa
 desvincular_evento_etapa
 detectar_fatiga_adsets
 detectar_piezas_landing
@@ -531,6 +533,7 @@ ver_catalogo_dashboard
 ver_ciclo_venta
 ver_clase_curso
 ver_cobro
+ver_cobro_etapa
 ver_cobro_landing
 ver_codigo_pixel
 ver_comentarios_clase_comunidad
@@ -615,6 +618,7 @@ verificar_aprobacion_meta
 verificar_dominio_envio
 verificar_ganadores_reusables
 verificar_pagina_pixel
+vincular_cobro_etapa
 vincular_evento_etapa
 vista_experimentos
 volver_a_mostrar_sugerencia

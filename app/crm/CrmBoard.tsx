@@ -135,6 +135,8 @@ import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type Cont
 import { alternarColumna, estadoDeColumna, rotuloDeColumna } from './seleccion-columna';
 import { cuantasDibujar, TANDA_COLUMNA } from './columna-por-tandas';
 import { publicarLeadAbierto } from './lead-abierto';
+import { faltaVincular, type VinculadosDelCrm } from '@/lib/vinculos-de-columnas-reglas';
+import { AVISO_VINCULO } from './menu-contextual-crm';
 import { FinDeColumna } from './FinDeColumna';
 import { chipDeAutomatizacion, enTandasDe, lineaDeAutomatizacion, preguntaDeFrenar } from './automatizacion-lead';
 import { enAutomatizacionesAction, frenarLeadsEnAutomatizacionesAction } from '@/app/automations/automatizaciones-del-lead-actions';
@@ -465,6 +467,7 @@ export function CrmBoard({
   disenoTarjeta = 'completa',
   plantillasTarjeta = [],
   camposGuardables = false,
+  vinculados = null,
 }: {
   leads: CrmLead[];
   stages: Stage[];
@@ -524,6 +527,8 @@ export function CrmBoard({
   plantillasTarjeta?: readonly PlantillaTarjetaLead[];
   /** ¿Se puede guardar? (sin fila propia en `usuarios`, vale sólo en esta pestaña). */
   camposGuardables?: boolean;
+  /** Qué etapas de este CRM tienen su evento y si Ganado cobra (22/10/2026): el aviso del «⋯». null = no se sabe, no se avisa. */
+  vinculados?: VinculadosDelCrm | null;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -2649,6 +2654,8 @@ export function CrmBoard({
       etiquetas, sinEtiquetas,
       funnels: destinosLote,
       tipoActual: c && columnaConTipo(c) ? tipoDeColumna(c) : null,
+      // «Una etapa de tipo Reunión sin evento vinculado muestra un warning... Lo mismo una etapa Ganado sin cobro» (Martín, 22/10/2026).
+      avisos: c ? avisosDeColumna(c) : undefined,
       logoMeta: <LogoMeta size={17} />,
       // Las flechas, con el dibujo del «⋯». La que no tiene a dónde ir se apaga (ver `moverCol`: en la
       // punta derecha, `soltarCol` reescribiría el mismo orden).
@@ -2677,7 +2684,15 @@ export function CrmBoard({
   const totalesCol = new Map(columnasKanban.map((c) => [c.key, totalDeColumna(c.key, filtered.filter((l) => effStage(l) === c.key))] as const));
   const hayPlataEnColumnas = [...totalesCol.values()].some((t) => t != null);
 
+  /** Lo que le falta a una columna: su evento (una de reunión) o su cobro (Ganado). El renglón del menú lo dice. */
+  const avisosDeColumna = (c: Stage): Partial<Record<IdOpcionCrm, string>> => {
+    const f = faltaVincular(c, vinculados);
+    return f === 'evento' ? { col_evento: AVISO_VINCULO.evento } : f === 'cobro' ? { col_cobro: AVISO_VINCULO.cobro } : {};
+  };
+
   const renderColumn = (c: Stage) => {
+    // Le falta su vínculo (22/10/2026): el «⋯» lleva el punto ámbar y su renglón, el aviso.
+    const falta = faltaVincular(c, vinculados);
     const cards = enOrden(filtered.filter((l) => effStage(l) === c.key));
     // Las que se DIBUJAN (una tanda, y más al llegar al fondo). El conteo, la casilla de la columna, el lote y el orden al
     // soltar siguen mirando `cards`, la columna entera.
@@ -2843,8 +2858,9 @@ export function CrmBoard({
                   por portal: el tablero vive en un `overflowX: auto` que recortaría un menú en flujo). Qué opción sale en qué
                   columna (las flechas sólo si se arrastra, «Eliminar etapa» sólo si el server la sabe borrar, «Asignar evento» en
                   las de reunión…) lo dice `contextoBajo`, con los mismos predicados de siempre. */}
-              <button type="button" className="mk-col-mas" aria-label={`Opciones de la etapa ${c.label}`} aria-haspopup="menu"
-                title="Opciones de la etapa" onClick={(e) => abrirMenuDeColumna(e.currentTarget)}
+              <button type="button" className="mk-col-mas" aria-haspopup="menu" data-falta={falta ?? undefined}
+                aria-label={`Opciones de la etapa ${c.label}${falta ? ` · ${AVISO_VINCULO[falta]}` : ''}`}
+                title={falta ? AVISO_VINCULO[falta] : 'Opciones de la etapa'} onClick={(e) => abrirMenuDeColumna(e.currentTarget)}
                 style={{ width: 28, height: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid transparent', borderRadius: 8, color: 'var(--dim)', fontFamily: 'inherit', fontSize: 16, lineHeight: 1, cursor: 'pointer' }}>
                 ⋯
               </button>
@@ -3434,11 +3450,11 @@ export function CrmBoard({
       {/* Importar / exportar: los MISMOS formularios de a una pregunta que el plan. */}
       {eventoDe && (funnelActivo ?? funnels.find((f) => f.esDefault)?.id) != null && (
         <EventosDeEtapaModal funnelId={(funnelActivo ?? funnels.find((f) => f.esDefault)?.id) as number}
-          etapa={eventoDe.etapa} etapaNombre={eventoDe.nombre} onCerrar={() => setEventoDe(null)} />
+          etapa={eventoDe.etapa} etapaNombre={eventoDe.nombre} crmNombre={nombreDeFunnel(funnelActivo)} onCerrar={() => setEventoDe(null)} />
       )}
       {cobroDe && (funnelActivo ?? funnels.find((f) => f.esDefault)?.id) != null && (
         <CobroDeEtapaModal funnelId={(funnelActivo ?? funnels.find((f) => f.esDefault)?.id) as number}
-          etapa={cobroDe.etapa} etapaNombre={cobroDe.nombre} onCerrar={cerrarCobro} />
+          etapa={cobroDe.etapa} etapaNombre={cobroDe.nombre} crmNombre={nombreDeFunnel(funnelActivo)} onCerrar={cerrarCobro} />
       )}
       {tipoDe && (() => {
         const col = columnasKanban.find((s) => s.key === tipoDe);

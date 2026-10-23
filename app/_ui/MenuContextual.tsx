@@ -78,6 +78,8 @@ export type ItemMenuContextual = {
   seccion?: string;
   /** Lo elegido HOY en un submenú de una sola opción (el tipo de una etapa): un ✓ a la derecha. */
   marcado?: boolean;
+  /** Algo pendiente que este renglón arregla («Sin evento vinculado»): un punto ámbar a la derecha, con el texto de título. */
+  aviso?: string;
 };
 export type EntradaMenuContextual = ItemMenuContextual | null;
 
@@ -218,6 +220,7 @@ export function ListaMenuContextual({ items, padre = null, abierto = null, onEle
             <span style={{ minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.label}</span>
             {conHijos && <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', fontSize: 15, lineHeight: 1 }}>›</span>}
             {it.marcado && <span aria-hidden style={{ flex: 'none', color: 'var(--primary)', fontSize: 14, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+            {it.aviso && <span role="img" aria-label={it.aviso} title={it.aviso} style={{ flex: 'none', width: 8, height: 8, borderRadius: 99, background: 'var(--warn)' }} />}
           </button>
           </Fragment>
         );

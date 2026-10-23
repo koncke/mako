@@ -109,6 +109,11 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/automatizaciones/simulacion', 'evaluar_crm_automatico'],
   ['GET', '/crm/busqueda/duplicados', 'duplicados_lead'],
   ['GET', '/crm/busqueda/leads', 'buscar_leads'],
+  // Lo que cobra Ganado de un CRM (22/10/2026, «Vincular cobro» por MaKo). PUT de las cuentas porque las FIJA enteras.
+  ['GET', '/crm/cobro-ganado', 'ver_cobro_etapa'],
+  ['POST', '/crm/cobro-ganado/vinculos', 'vincular_cobro_etapa'],
+  ['PUT', '/crm/cobro-ganado/vinculos/{vinculoId}/cuentas', 'cuentas_cobro_etapa'],
+  ['DELETE', '/crm/cobro-ganado/vinculos/{vinculoId}', 'desvincular_cobro_etapa'],
   // Una campaña o un conjunto de Meta va a uno o varios funnels (#893, 17/10/2026). PUT porque FIJA la lista entera.
   ['GET', '/crm/campanas', 'ver_campanas_funnels'],
   ['PUT', '/crm/campanas/funnels', 'asignar_campana_funnels'],
