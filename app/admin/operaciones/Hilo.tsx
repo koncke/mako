@@ -124,7 +124,7 @@ function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; 
       <Deslizable m={mensajeDeLinea(l, quien.titulo)} className="co-yo">
         <div className={`co-burbuja${w.adjuntos?.length ? ' co-burbuja--con-adjuntos' : ''}`}>
           {/* Las fotos arriba del texto, como WhatsApp (FotosEnviadas.tsx: por qué no se veían y de dónde salen). */}
-          {w.adjuntos?.length ? <AdjuntosEnBurbuja id={w.id} nombres={w.adjuntos} /> : null}
+          {w.adjuntos?.length ? <AdjuntosEnBurbuja id={w.id} nombres={w.adjuntos} fotos={w.fotos} /> : null}
           {!(w.adjuntos?.length && w.texto === TEXTO_SOLO_ADJUNTOS) && <TextoMio texto={w.texto ?? ''} lineas={wa.lineas} />}
           <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{Number.isFinite(t) ? horaAR(t) : ''}<Tick estado={estado} /></span>
         </div>

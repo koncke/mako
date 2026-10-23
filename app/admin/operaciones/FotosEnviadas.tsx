@@ -10,11 +10,15 @@
 // la burbuja nunca dibujó imágenes. El trabajo sólo guarda los NOMBRES (`TrabajoP.adjuntos`), y el binario del bucket se
 // BORRA cuando la PC lo baja (lib/operaciones-adjuntos.ts: «EL BINARIO NO QUEDA», es la protección del canal). No hay de
 // dónde firmar una URL después de entregado.
-// Lo que se hizo: la foto la tiene el navegador que la mandó. Al mandar, el original queda en memoria (se ve en el acto,
-// también en el mensaje optimista) y una MINIATURA (640 px, JPEG) en IndexedDB con la dirección `enviado:<id del trabajo>`
-// (adjuntos-guardados.ts), así sobrevive a un F5. En otro dispositivo, o un PDF, va el renglón con el nombre (WhatsApp
-// dibuja así un documento).
-// ⚠️ Sin miniatura en el servidor a propósito: guardarla ahí es un binario de Martín que queda, contra la regla de arriba.
+// Lo que se hizo el 17/10: la foto la tenía el navegador que la mandó (el original en memoria y una miniatura en
+// IndexedDB). En otro dispositivo, o un PDF, iba el renglón con el nombre (WhatsApp dibuja así un documento).
+//
+// EN CUALQUIER DISPOSITIVO (23/10/2026): Martín decidió el 18/10 que las fotos del Ops Center SÍ quedan del lado del
+// servidor («cuando envío imágenes por aquí o adjunto cosas también deberían aparecer en el Center»): bucket privado, URL
+// firmada y sólo para quien puede operar. El original se sigue borrando al entregar; el navegador que la mandó sube la
+// MINIATURA (640 px), y la burbuja de cualquier dispositivo la pide con una URL de 10 minutos (fotos-enviadas.ts, de dónde
+// sale cada una; lib/operaciones-adjuntos.ts → «Las fotos enviadas»). Sólo la pide un trabajo que TIENE fotos (`fotos`,
+// los nombres que el servidor saca del texto firmado): una burbuja con un PDF no va al servidor.
 
 import { useEffect, useState } from 'react';
 import { IconoChat } from '@/app/m/mako/iconos';
@@ -22,15 +26,25 @@ import { leerFotosEnviadas, fotosYaLeidas, type Foto } from './fotos-enviadas';
 import type { AdjuntoTurno } from '@/lib/operaciones-reglas';
 import { Visor } from './Visor';
 
-/** Lo adjuntado en una burbuja propia: las fotos que este navegador tiene, y el nombre de lo demás. */
-export function AdjuntosEnBurbuja({ id, nombres }: { id: string; nombres: readonly string[] }) {
+/** Cuánto espera para volver a pedir una foto que todavía no estaba: la miniatura sube después de mandar. */
+const OTRA_VEZ_MS = 12_000;
+
+/** Lo adjuntado en una burbuja propia: sus fotos (de este navegador o del servidor), y el nombre de lo demás. */
+export function AdjuntosEnBurbuja({ id, nombres, fotos: nombresDeFotos }: { id: string; nombres: readonly string[]; fotos?: readonly string[] }) {
   const [fotos, setFotos] = useState<Foto[] | null>(() => fotosYaLeidas(id));
   const [viendo, setViendo] = useState<Foto | null>(null);
+  const conFotos = !!nombresDeFotos?.length;
   useEffect(() => {
     let vivo = true;
-    void leerFotosEnviadas(id).then((lista) => { if (vivo) setFotos(lista); });
-    return () => { vivo = false; };
-  }, [id]);
+    let reloj: ReturnType<typeof setTimeout> | null = null;
+    void leerFotosEnviadas(id, conFotos).then((lista) => {
+      if (!vivo) return;
+      setFotos(lista);
+      // Otro dispositivo pudo ver el mensaje antes de que su miniatura terminara de subir: una vez más, un rato después.
+      if (conFotos && !lista.length) reloj = setTimeout(() => { void leerFotosEnviadas(id, true).then((otra) => { if (vivo && otra.length) setFotos(otra); }); }, OTRA_VEZ_MS);
+    });
+    return () => { vivo = false; if (reloj) clearTimeout(reloj); };
+  }, [id, conFotos]);
   const conFoto = new Set((fotos ?? []).map((f) => f.nombre));
   const otros = nombres.filter((n) => !conFoto.has(n));
   return (

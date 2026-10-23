@@ -7,6 +7,46 @@ del código.
 
 ---
 
+## La foto que se manda por la caja, vista en otro dispositivo: la «decisión pendiente» ya estaba tomada (23/10/2026)
+
+- **Síntoma:** una foto mandada desde la computadora se veía en el teléfono como un renglón con su nombre (y al revés).
+  Desde el quinto Ops Center (17/10) figuraba como «es una decisión de Martín, no un arreglo», en el relevo, en este
+  documento y en docs/pendientes.md («depende de Martín»).
+- **El diagnóstico obvio era el equivocado:** no faltaba la decisión. Martín la había tomado el 18/10 («cuando envío
+  imágenes por aquí o adjunto cosas también deberían aparecer en el Center»), y quedó escrita en la memoria del Centro:
+  las fotos del Ops Center SÍ quedan del lado del servidor, en un bucket privado, con URL firmada y sólo para quien puede
+  operar. El 20/10 se hizo con eso lo de la app de Claude (`operaciones-turnos/`), y nadie volvió a esta fila. **Regla:**
+  antes de dejar algo como «depende de Martín», se busca la decisión en la memoria y en las bitácoras. Una pendiente que
+  ya se contestó traba igual que una sin contestar, y encima le cuesta a él una pregunta repetida.
+- **Lo que protege el canal a la PC no es borrar:** es que el cartero sólo baja lo que nombra un trabajo firmado y en
+  vuelo (`seLeDa`) y que compara el sha256 firmado. Borrar el original al entregar cuida el storage, y se sigue haciendo.
+  Lo que queda es la MINIATURA de 640 px que ya armaba el navegador que la mandó, en `operaciones-enviados/<ref>`: el
+  `ref` es el del original adentro del texto firmado. Por eso el servidor sabe qué adjuntos son fotos (`fotosDeFirmado`)
+  sin adivinar por la extensión, y no se puede guardar una «miniatura» de algo que no es una foto de ese trabajo
+  (`problemaDeMiniatura`).
+- **La subida va por la RUTA de adjuntos, no por una server action:** las actions se encolan de a una, y subir fotos
+  detrás del envío habría hecho esperar al refresco de la conversación. La lectura (`GET ?enviadas=`) también, y junta en
+  una ida las burbujas que se abren juntas (`crearPedidorDeFotos`).
+- **Una carrera que no se ve en la computadora:** el otro dispositivo refresca cada 2,5 s y puede traer el trabajo antes
+  de que su miniatura termine de subir (sube DESPUÉS de mandar, con el id del trabajo). Un «no tiene» se cree 10 s y la
+  burbuja vuelve a preguntar una vez a los 12 s. Un fallo de red no se guarda.
+- **IndexedDB deja de escribir miniaturas** (una cosa, un lugar): lo mandado se ve en el acto desde la memoria y, después
+  de un F5, desde el servidor. Las de antes del 23/10 se leen igual, y se barren las de los trabajos que ya no están en la
+  cola (`barrerEnviadasViejas`). Con la cola vacía no se barre: una lectura que falló no es «no hay trabajos».
+- **Sin medir:** que `createSignedUrls` conteste por ítem cuando una miniatura no existe (el código lo trata como
+  `conUrlsDeTurnos`, que ya anda así en producción) y que `list` ordene por `created_at` en esa carpeta (el barrido).
+  Tampoco se vio en una pantalla: el guard no deja entrar a otra sesión.
+
+**Vive en:** lib/operaciones-reglas.ts («Las fotos enviadas») · lib/operaciones-adjuntos.ts (`guardarMiniaturaEnviada`,
+`fotosEnviadasDe`, `barrerMiniaturasViejas`) · app/api/operaciones/adjuntos/route.ts · app/admin/operaciones/fotos-enviadas.ts,
+fotos-remotas.ts, FotosEnviadas.tsx · tests/centro-fotos-enviadas.test.ts.
+
+**Sin hacer:**
+- que Martín lo pruebe: una captura desde la computadora y abrir ese chat en el teléfono;
+- un PDF o un documento en otro dispositivo sigue siendo su nombre (sólo las fotos tienen miniatura);
+- el barrido de `operaciones-turnos/` (lo adjuntado en la app de Claude) y de lo subido que nunca se firmó
+  (lib/operaciones-adjuntos.ts, cabecera).
+
 ## La estrella con una tarjeta abierta: el fondo del modal la tapa (22/10/2026, CR4)
 
 - **Síntoma** (el caso de uso de CR4): en /plan, con una tarea abierta, «cerrala» desde la estrella. La estrella no se podía
@@ -1868,9 +1908,9 @@ Microfono.tsx (`BotonMandar`), Emojis.tsx, MiFoto.tsx, pegar.ts · lib/centro-ch
 lib/centro-uso.ts (`USO_VENCIDO_MS`) · tests/centro-ops5.test.ts.
 
 **Sin hacer:**
-- la foto enviada en OTRO dispositivo (hoy, su nombre): pide guardar una miniatura en el servidor, que es un binario de Martín
-  que queda contra la regla de lib/operaciones-adjuntos.ts; es una decisión, no un arreglo;
-- las miniaturas `enviado:*` de IndexedDB no se barren nunca (app/admin/operaciones/adjuntos-guardados.ts);
+- ~~la foto enviada en OTRO dispositivo (hoy, su nombre)~~ HECHO el 23/10: la decisión ya la había tomado Martín el 18/10
+  (arriba, «La foto que se manda por la caja, vista en otro dispositivo»);
+- ~~las miniaturas `enviado:*` de IndexedDB no se barren nunca~~ HECHO el 23/10: ya no se escriben, y las de antes se barren;
 - el aviso de «Completado» sin ver es por dispositivo (localStorage), no viaja al teléfono (useCentro.ts → `vistos`);
 - SheetM en «medio» con un cuerpo largo, para todas las hojas (app/m/_ui/SheetM.tsx);
 - nada de esto se vio en una pantalla real: ni la hoja del mensaje en el Android de Martín, ni los globos, ni los emojis.
