@@ -2311,6 +2311,11 @@ con el OK de Martín), después el deploy. Y una ruta que no puede servir lo que
 antes:** en Windows PowerShell 5.1 la barra de progreso hace que el programa (42,7 MB) tarde 58,6 s en vez de 4,1 s
 (medido el 22/10/2026; con ventana, peor), y la persona ve «Descargando…» para siempre.
 
+**Y toda puerta de lib/ia-pc.ts que da un turno o corre una herramienta mira si la PC sigue conectada (`sigueConectada`,
+falla cerrada), no sólo el estado del turno:** «Desconectar» revoca la PC y vence sus turnos en dos pasos, y el segundo
+puede fallar (revisión adversarial del 22/10/2026, docs/hallazgos-ia.md). Y al elegir a qué PC va el turno, «la del último
+turno» cuenta el último TERMINADO, bien o mal: con sólo los buenos, se quedaba pegado a una que falla.
+
 # NINGUNA pantalla se diseña de cero: se COPIA de una app que ya resolvió eso
 
 Pedido de Martín, textual, el 15/10/2026, después de rechazar dos pantallas seguidas (la de

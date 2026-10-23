@@ -23,7 +23,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import {
   CODIGO_MS, ESPERA_TURNO_MS, LARGO_CODIGO, PREFIJO_TOKEN_PC, PREFIJO_TOKEN_TURNO, SIN_LATIDO_MS, SIN_TOMAR_MS, TURNO_MS, VERSION_CONSENTIMIENTO,
-  codigoDe, enLinea, normalizarCodigo, sanearCuentas, sanearNombrePc, sanearRespuesta, tieneFormaDeToken, type CuentaPc, type TipoFalloPc,
+  codigoDe, elegirPc, enLinea, type PcDeNegocio, normalizarCodigo, sanearCuentas, sanearNombrePc, sanearRespuesta, sistemaDeLaVersion, tieneFormaDeToken, type CuentaPc, type TipoFalloPc,
 } from './ia-pc-reglas';
 import type { ToolDef } from './anthropic';
 
@@ -228,16 +228,30 @@ export async function soltar(d: Dispositivo): Promise<void> {
  * pendiente no es de nadie todavía. Tira si falla.
  */
 export async function pcDe(ws: number, persona: string): Promise<(Dispositivo & { enLinea: boolean }) | null> {
+  // VARIAS COMPUTADORAS (22/10/2026): todas las de la persona, y el turno va a la que elige `elegirPc` (lib/ia-pc-reglas.ts).
   const r = await db().from('ia_pc_dispositivos')
-    .select(COLUMNAS_PC)
+    .select(`${COLUMNAS_PC}, creado_at`)
     .eq('workspace_id', ws).eq('persona', persona).is('revocado_at', null).not('confirmado_at', 'is', null)
-    .order('ultimo_latido', { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
+    .order('ultimo_latido', { ascending: false, nullsFirst: false }).limit(10);
   // Sin la mig 0322 ninguna PC puede estar confirmada: «sin PC», dicho fuerte en el log (ver `negocioConPc`).
   if (esErrorDeEsquema(r.error)) { console.error(`[ia-pc] ⚠️ FALTA LA MIG 0322: ${r.error?.message}`); return null; }
-  const data = sinError(r, 'la PC de la persona');
-  if (!data) return null;
-  const d = aDispositivo(data);
-  return { ...d, enLinea: enLinea(d.ultimoLatido) };
+  const filas = sinError(r, 'las PC de la persona') ?? [];
+  const pcs = filas.map((f) => { const d = aDispositivo(f); return { ...d, enLinea: enLinea(d.ultimoLatido), conectadaAt: (f.creado_at as string | null) ?? null }; });
+  // El último turno TERMINADO de cada una (bien, con error o vencido), sólo si hay más de una que conteste (si no, no hace
+  // falta preguntar). Con sólo los contestados bien, una que falla seguía siendo «la del último turno» (revisión adversarial).
+  const ultimoTurno = new Map<number, { at: string; ok: boolean }>();
+  if (pcs.filter((p) => p.enLinea && p.cuentas.length).length > 1) {
+    const t = await db().from('ia_pc_turnos').select('dispositivo_id, estado, creado_at')
+      .eq('workspace_id', ws).in('dispositivo_id', pcs.map((p) => p.id)).in('estado', ['listo', 'error', 'vencido'])
+      .order('creado_at', { ascending: false }).limit(50);
+    for (const f of (t.data ?? []) as Array<{ dispositivo_id: number; estado: string; creado_at: string }>) {
+      if (!ultimoTurno.has(Number(f.dispositivo_id))) ultimoTurno.set(Number(f.dispositivo_id), { at: f.creado_at, ok: f.estado === 'listo' });
+    }
+  }
+  const elegida = elegirPc(pcs, ultimoTurno);
+  if (!elegida) return null;
+  const { conectadaAt: _c, ...d } = elegida;
+  return d;
 }
 
 /**
@@ -268,7 +282,15 @@ export async function negocioConPc(ws: number): Promise<boolean> {
 export async function desconectar(ws: number, id: number): Promise<void> {
   const { error } = await db().from('ia_pc_dispositivos').update({ revocado_at: new Date().toISOString() }).eq('id', id).eq('workspace_id', ws).is('revocado_at', null);
   if (error) throw new Error(`ia-pc: no pude desconectar: ${error.message}`);
-  await db().from('ia_pc_turnos').update({ estado: 'vencido' }).eq('dispositivo_id', id).eq('workspace_id', ws).in('estado', ['esperando', 'tomado']);
+  // Si vencer sus turnos falla, se dice (antes contestaba ok igual); las herramientas igual miran la revocación.
+  const t = await db().from('ia_pc_turnos').update({ estado: 'vencido' }).eq('dispositivo_id', id).eq('workspace_id', ws).in('estado', ['esperando', 'tomado']);
+  if (t.error) throw new Error(`ia-pc: la desconecté, pero no pude cortar su turno: ${t.error.message}`);
+}
+
+/** ¿Esta PC sigue conectada? Si la base falla, «no» (falla cerrada: una herramienta de más es peor que una de menos). */
+async function sigueConectada(dispositivoId: number): Promise<boolean> {
+  const { data, error } = await db().from('ia_pc_dispositivos').select('revocado_at').eq('id', dispositivoId).maybeSingle();
+  return !error && !!data && !data.revocado_at;
 }
 
 /**
@@ -276,7 +298,7 @@ export async function desconectar(ws: number, id: number): Promise<void> {
  * secreto. Una confirmada que todavía no latió se muestra («Esperando que se conecte»): tiene el arranque puesto y late
  * en el próximo inicio de sesión (antes se escondía a los 15 minutos y la purga la revocaba: tercera revisión).
  */
-export async function listarDispositivos(ws: number, persona: string, esAdmin: boolean): Promise<Array<Dispositivo & { enLinea: boolean; version: string | null; esMia: boolean }>> {
+export async function listarDispositivos(ws: number, persona: string, esAdmin: boolean): Promise<Array<Dispositivo & { enLinea: boolean; version: string | null; esMia: boolean; conectadaAt: string | null; sistema: 'Windows' | 'Mac' | null }>> {
   let q = db().from('ia_pc_dispositivos')
     .select(`${COLUMNAS_PC}, version, creado_at`)
     .eq('workspace_id', ws).is('revocado_at', null).not('confirmado_at', 'is', null).order('creado_at', { ascending: false }).limit(20);
@@ -285,8 +307,32 @@ export async function listarDispositivos(ws: number, persona: string, esAdmin: b
   return (data ?? [])
     .map((r) => {
       const d = aDispositivo(r);
-      return { ...d, enLinea: enLinea(d.ultimoLatido), version: (r.version as string | null) ?? null, esMia: d.persona === persona };
+      const version = (r.version as string | null) ?? null;
+      return { ...d, enLinea: enLinea(d.ultimoLatido), version, esMia: d.persona === persona, conectadaAt: (r.creado_at as string | null) ?? null, sistema: sistemaDeLaVersion(version) };
     });
+}
+
+/**
+ * TODAS las PC conectadas de TODOS los negocios, para el super admin (SuperAdmin › Uso, 22/10/2026: «Lo mismo en SuperAdmin. Y
+ * poder "Desconectar" dispositivos»). Sin ningún secreto: el negocio, la persona, el nombre, el sistema, si está en línea,
+ * cuándo se conectó y cuándo latió. Quien llama mira que sea el super admin. Tira si falla.
+ */
+export async function listarTodasLasPc(): Promise<PcDeNegocio[]> {
+  const data = sinError(await db().from('ia_pc_dispositivos')
+    .select('id, workspace_id, persona, nombre, ultimo_latido, cuentas, version, creado_at')
+    .is('revocado_at', null).not('confirmado_at', 'is', null).order('workspace_id').order('creado_at', { ascending: false }).limit(200), 'las PC de los negocios') ?? [];
+  const wss = [...new Set(data.map((f) => Number(f.workspace_id)))];
+  const nombres = new Map<number, string>();
+  if (wss.length) {
+    const w = sinError(await db().from('workspaces').select('id, nombre').in('id', wss), 'los negocios') ?? [];
+    for (const f of w) nombres.set(Number(f.id), String(f.nombre ?? '').trim() || `Negocio ${f.id}`);
+  }
+  return data.map((f) => ({
+    id: Number(f.id), ws: Number(f.workspace_id), negocio: nombres.get(Number(f.workspace_id)) ?? `Negocio ${f.workspace_id}`,
+    persona: String(f.persona), nombre: String(f.nombre), sistema: sistemaDeLaVersion((f.version as string | null) ?? null),
+    enLinea: enLinea((f.ultimo_latido as string | null) ?? null), conClaude: sanearCuentas(f.cuentas).length > 0,
+    conectadaAt: (f.creado_at as string | null) ?? null, ultimoLatido: (f.ultimo_latido as string | null) ?? null,
+  }));
 }
 
 /** ¿Puede esta persona desconectar esa PC? La suya, siempre; la de otro, sólo el admin del negocio. */
@@ -333,7 +379,14 @@ export async function tomarTurno(d: Dispositivo, hastaMs = ESPERA_TURNO_MS): Pro
       const data = sinError(await db().from('ia_pc_turnos')
         .update({ estado: 'tomado', tomado_at: ahora, token_hash: hash(token) })
         .eq('id', prox.id).eq('estado', 'esperando').select('id, pedido').maybeSingle(), 'el turno');
-      if (data) return { id: Number(data.id), pedido: data.pedido as PedidoPc, token };
+      if (data) {
+        // La espera usa la PC leída al empezar: si la desconectaron en el medio, el turno no se le da (revisión adversarial).
+        if (!(await sigueConectada(d.id))) {
+          await db().from('ia_pc_turnos').update({ estado: 'vencido' }).eq('id', data.id).eq('estado', 'tomado');
+          return null;
+        }
+        return { id: Number(data.id), pedido: data.pedido as PedidoPc, token };
+      }
     }
     if (Date.now() + 1000 > fin) return null;
     await esperar(1000);
@@ -377,8 +430,10 @@ export async function turnoDelToken(token: unknown): Promise<{ id: number; ws: n
  */
 export async function pedirLlamada(turnoId: number, nombre: string, entrada: Record<string, unknown>, hastaMs: number): Promise<{ salida: string; esError: boolean } | null> {
   // Un turno que ya no está tomado (lo desconectaron, venció) no recibe llamadas nuevas.
-  const { data: vivo, error: ev } = await db().from('ia_pc_turnos').select('estado').eq('id', turnoId).maybeSingle();
+  const { data: vivo, error: ev } = await db().from('ia_pc_turnos').select('estado, dispositivo_id').eq('id', turnoId).maybeSingle();
   if (ev || vivo?.estado !== 'tomado') return null;
+  // Ni de una PC desconectada (aunque vencer su turno haya fallado).
+  if (!(await sigueConectada(Number(vivo.dispositivo_id)))) return null;
   const { data, error } = await db().from('ia_pc_llamadas').insert({ turno_id: turnoId, nombre: nombre.slice(0, 120), entrada }).select('id').single();
   if (error || !data) return null;
   const fin = Date.now() + hastaMs;
@@ -428,7 +483,7 @@ export async function esperarALaPc(turnoId: number, ws: number, dispositivoId: n
   const vencer = () => db().from('ia_pc_turnos').update({ estado: 'vencido' }).eq('id', turnoId).in('estado', ['esperando', 'tomado']).then(() => undefined, () => undefined);
   const turnoTomado = async () => {
     const { data, error } = await db().from('ia_pc_turnos').select('estado').eq('id', turnoId).maybeSingle();
-    return !error && data?.estado === 'tomado';
+    return !error && data?.estado === 'tomado' && (await sigueConectada(dispositivoId));
   };
   let ultimaMirada = 0;
   while (Date.now() < fin) {

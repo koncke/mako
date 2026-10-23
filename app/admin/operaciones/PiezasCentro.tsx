@@ -374,7 +374,7 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
   return (
     <div className="co-barra__abajo">
       {/* Las CUATRO cuentas siempre, tengan o no Runner (Martín: «no sale el uso de las otras 2 cuentas»). */}
-      <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} onCambiarCredito={k.cambiarCreditoDelNegocio} />
+      <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} onCambiarCredito={k.cambiarCreditoDelNegocio} onLeerComputadoras={k.leerComputadoras} onDesconectarComputadora={k.desconectarComputadora} />
     </div>
   );
 }

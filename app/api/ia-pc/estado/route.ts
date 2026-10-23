@@ -39,6 +39,8 @@ export async function GET() {
     pcs: pcs.map((d) => ({
       id: d.id, nombre: d.nombre, esMia: d.esMia, ...(esAdmin && !d.esMia ? { de: d.persona } : {}),
       enLinea: d.enLinea, ultimoLatido: d.ultimoLatido, version: d.version, cuentas: d.cuentas,
+      // Varias computadoras (22/10/2026): cuándo se conectó y su sistema (desde la 0.4.0), para saber cuál es cuál.
+      conectadaAt: d.conectadaAt, sistema: d.sistema,
       // En esa PC no hay Claude Code (mig 0322): la tarjeta y el tutorial mandan al paso 2, no al 3.
       ...(d.claudeFalta ? { sinClaude: true } : {}),
     })),
