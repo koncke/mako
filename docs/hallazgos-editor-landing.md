@@ -2461,3 +2461,59 @@ dicho en cada punto.
   nuevo: el script y su test); (3) la cinta y el carrusel con el panel de Framer abierto (variantes ocultas en un deploy,
   ofrecidas en el siguiente, con su descripción para la IA y su fila en Replicar: marquee, Swiper, Splide, Slick); (4) los
   pasos; (5) el texto rotativo. Y el arreglo de la pausa de `SCRIPT_DISENO`, reusando el de la cinta.
+
+## Publicar una landing de MaKo, y los carruseles que no se paraban (23/10/2026)
+
+Chat «Landings de MaKo en Web Generator», cuenta claude2. Dos cosas se vieron al sacar `avatares-ia`, la única de las
+ocho que nunca había estado arriba, y las dos son trampas del camino, no del contenido.
+
+**Publicar una de las ocho con el script: SIEMPRE con `--solo <slug>`.** `scripts/landings-mako-funnels.mts` llama a
+`subir(doc, undefined, slug, false)`: sin id de documento, `subir` hace un `insert` y no un `update`. Correr
+`--subir --incluir-pausadas` a secas vuelve a insertar **las ocho** como documentos nuevos (ids nuevos, el mismo slug) y
+la portada y las siete que estaban arriba quedan con un duplicado al lado. Antes de escribir, mirar qué documentos
+`Landing MaKo · …` hay en el ws9 (hoy: #33–#39 las siete, #40 `avatares-ia`) y subir sólo la que falta:
+`node --conditions=react-server --import tsx scripts/landings-mako-funnels.mts --subir --incluir-pausadas --solo avatares-ia`.
+Para REEMPLAZAR el texto de una ya publicada el script no sirve tal cual: hace falta pasarle su id.
+
+**El 404 de `/vsl/<slug>` se queda 5 minutos después de publicar.** `app/vsl/[slug]/page.tsx` es `revalidate = 300` y
+`landingMako(slug)` va por `unstable_cache` (300 s, tag `TAG_LANDING_MAKO`, clave por slug) y **también cachea el «no
+existe»**. Si alguien pidió `/vsl/avatares-ia` mientras estaba pausada, la dirección de hola-mako.com sigue en 404 hasta
+5 minutos después de subir el documento aunque hola-mako.site/<slug> ya dé 200 (ese lado lee la foto publicada sin esa
+caché). Medido el 23/10: 200 en `.site` a los segundos, 200 en `/vsl/` a los ~4 min. No es un fallo: se espera, y se
+verifica **las dos direcciones**, no una. El script escribe directo en la base, así que no revalida el tag; publicar
+desde el editor sí.
+
+**Los carruseles de `SCRIPT_DISENO` avanzaban solos para siempre.** Medido en la landing real con Chrome sin ventana
+(`/api/track/*` cortado): cada 5-6 s, con el mouse encima, sin botón y con «reducir movimiento» prendido. WCAG 2.2.2
+(más de 5 s, sin forma de pararlo) en las páginas con las que se vende MaKo. El diagnóstico «es de la etapa 4 de
+animaciones, queda para después» era el equivocado: no hacía falta ninguna pieza nueva, sólo cuatro reglas dentro del
+mismo script (html-editable.ts): con «reducir movimiento» no arranca el reloj ni se desliza el reveal; mouse o foco
+encima de CUALQUIER parte del carrusel (su contenedor con las flechas, y el marco del carril si es otro) lo frena; un
+botón de pausa (`data-act="pausa"`, `aria-pressed`) que el propio script arma arriba a la derecha, sólo si hay más de
+una foto y no hay «reducir movimiento»; las flechas y los puntos siguen andando siempre. El script lo comparten
+hola-mako.com (`app/vsl/Landing.tsx`) y hola-mako.site (`pagina-publica.ts`), y el hash de la CSP sale de la misma
+constante: un deploy lo cambia en los dos lados.
+
+**Cómo se midió un script de página sin levantar la app** (para la próxima): bajar la página publicada, reemplazar el
+texto del script por el nuevo y **cambiar el hash en el `<meta>` de la CSP** (si no, Chrome bloquea el script nuevo y la
+prueba da «no avanza» por una razón que no es la tuya), servirla con `route` de Playwright y medir contando los cambios
+del `transform` del carril (comparar posiciones engaña: con 2-3 fotos vuelve al mismo lugar). Dos trampas del arnés: la
+página tiene `scroll-behavior: smooth`, así que `scrollIntoView` hay que pasarlo con `behavior: 'instant'` o el mouse
+cae fuera de lugar; y el carril se desplaza dentro de su marco, así que el centro del CARRIL puede estar fuera de
+pantalla: el mouse va al centro del MARCO. Probado rompiéndolo: el script viejo falla las tres (hover, botón,
+«reducir movimiento») y el nuevo las pasa; el test de `tests/editor-landing-html-editable.test.ts` falla con el script
+viejo, sin el corte del reloj y sin mirar `parado()`.
+
+**La primera versión «pasaba» y en un teléfono dejaba el carrusel parado para siempre.** Frenaba con `mouseenter` y
+`focusin`. En el arnés de escritorio todo andaba porque yo le quitaba el foco al botón con `blur()` a mano; con un toque
+real (Chrome emulando móvil, `hasTouch`) el toque deja puesto el «mouse encima» emulado y el foco del botón, y nada los
+saca hasta tocar otra cosa: el carrusel no volvía a avanzar tras reanudarlo. Lo mismo con un clic en una flecha o un
+punto en escritorio. La regla que quedó: frena **sólo un mouse de verdad** (`pointerenter` con `pointerType ===
+"mouse"`) y **sólo el foco de teclado** (`:focus-visible`); un toque o un clic nunca dejan parado. **Un arnés que
+arregla a mano lo que el usuario no puede arreglar mide otra cosa:** no limpiar el estado entre pasos de la prueba.
+Medido en móvil (390 px, toque): el botón (32 px, dentro de la pantalla) frena y reanuda.
+
+**Lo que NO se midió:** el botón con lector de pantalla, y el reveal sin movimiento en un iPhone real (sólo Chrome
+emulado). Y sigue pendiente (después del 25/10) todo lo que
+no es esto de la etapa 4: efectos de scroll, contador, cinta y carrusel como variantes, pasos y texto rotativo, con el
+panel de Framer abierto antes de copiar sus controles (relevo de Web Generator, «Animaciones, etapa 4»).
