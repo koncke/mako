@@ -1,22 +1,9 @@
-// =============================================================================
-// /m/curso — mientras se lee el curso: la FORMA de la pantalla, no un spinner
-// =============================================================================
-// ./datos.ts lee la cartera de la entrega (servicios, etapas, clientes y secuencias de cada producto),
-// las clases de cada curso y el progreso de cada cliente ganado (paginado: clientes × clases pasa las
-// 1000 filas en el ws1). Sin esto, tocar «Curso» en More dejaba More congelado hasta que llegaba todo. La
-// fila del curso y dos módulos con sus clases; el título grande lo sigue poniendo el shell.
+// /m/curso mientras carga: EL loader de las tabs grandes, el mismo de la computadora (app/_ui/CargandoMako.tsx, 23/10/2026).
+// Martín: «Los loader de las tabs o secciones grandes, quiero que sean todos como el de Ops Center. Con la criatura de
+// MaKo», y con una barra que diga que carga. Hasta acá era un esqueleto gris: no se leía como «tocaste y está cargando».
+// ⚠️ Un loading.tsx es un Suspense: va en la lista blanca de tests/layout-sin-suspense.test.ts (/m es privado entero).
+import { CargandoMako } from '@/app/_ui/CargandoMako';
 
-import { SkeletonFilas } from '@/app/m/_ui';
-import './curso.css';
-
-export default function CursoCargando() {
-  return (
-    <div aria-busy="true" aria-label="Cargando el curso">
-      <div className="mk-skel m-curso-skel-curso" />
-      <div className="mk-skel m-curso-skel-titulo" />
-      <SkeletonFilas filas={3} />
-      <div className="mk-skel m-curso-skel-titulo" />
-      <SkeletonFilas filas={2} />
-    </div>
-  );
+export default function Cargando() {
+  return <CargandoMako que="el curso" alto="calc(100dvh - var(--m-abajo, 72px) - 96px)" />;
 }

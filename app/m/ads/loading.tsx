@@ -1,19 +1,9 @@
-// =============================================================================
-// /m/ads — mientras se leen Meta y el gasto: la FORMA de la pantalla, no un spinner
-// =============================================================================
-// El árbol de Meta son varias páginas de la Graph API cuando la caché venció, y el gasto es una
-// lectura paginada: sin esto, tocar «Ads Manager» en More no hacía nada visible hasta que llegaba
-// todo. El título grande lo sigue poniendo el shell.
+// /m/ads mientras carga: EL loader de las tabs grandes, el mismo de la computadora (app/_ui/CargandoMako.tsx, 23/10/2026).
+// Martín: «Los loader de las tabs o secciones grandes, quiero que sean todos como el de Ops Center. Con la criatura de
+// MaKo», y con una barra que diga que carga. Hasta acá era un esqueleto gris: no se leía como «tocaste y está cargando».
+// ⚠️ Un loading.tsx es un Suspense: va en la lista blanca de tests/layout-sin-suspense.test.ts (/m es privado entero).
+import { CargandoMako } from '@/app/_ui/CargandoMako';
 
-import { SkeletonFilas } from '@/app/m/_ui';
-import './ads.css';
-
-export default function AdsCargando() {
-  return (
-    <div className="m-ads" aria-busy="true" aria-label="Cargando Ads Manager">
-      <div className="m-ads-seg"><div className="mk-skel m-ads-skel-seg" /></div>
-      <div className="m-ads-resumen"><SkeletonFilas filas={3} /></div>
-      <div className="m-ads-skel-lista"><SkeletonFilas filas={4} /></div>
-    </div>
-  );
+export default function Cargando() {
+  return <CargandoMako que="Ads Manager" alto="calc(100dvh - var(--m-abajo, 72px) - 96px)" />;
 }

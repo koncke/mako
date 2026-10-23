@@ -15,6 +15,7 @@ export { Select, type SelectOption, type SelectGroup } from './Select';
 export { Checkbox, Radio, RadioGroup, Switch } from './Toggle';
 export { Badge, Tag, Status } from './Badge';
 export { Spinner, Progress, Skeleton, SkeletonLines, Divider } from './Feedback';
+export { CargandoMako, BarraCargando } from './CargandoMako';
 export { Tooltip } from './Tooltip';
 export { Avatar } from './Avatar';
 export { EmptyState, NoResults, ErrorState, StaleData, PermissionState, Banner, Alert } from './Estados';
