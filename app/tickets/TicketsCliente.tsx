@@ -114,11 +114,20 @@ function DetalleCliente({ t, onCerrar, onCambio }: { t: TicketCliente; onCerrar:
       <header className="tickets-detalle__cab">
         <button type="button" className="tickets-detalle__volver" onClick={onCerrar} aria-label="Volver a tus tickets">←</button>
         <div>
-          <p className="tickets-detalle__meta">#{t.id} · {tipo}</p>
+          <p className="tickets-detalle__meta">#{t.id} · {tipo}{t.canal ? ` · ${t.canal}` : ''}</p>
           <h2 className="tickets-detalle__titulo">{t.titulo}</h2>
         </div>
         <Status tono={TONO_ESTADO[t.estado]} solido>{t.rotulo}</Status>
       </header>
+      {/* El historial: cada cambio de estado con su fecha (22/10/2026). */}
+      <ol className="tickets-historial" aria-label="Historial del ticket">
+        {t.historial.map((p) => (
+          <li key={`${p.paso}-${p.at}`} className="tickets-historial__paso" data-paso={p.paso}>
+            <span className="tickets-historial__rotulo">{p.rotulo}</span>
+            <span className="tickets-historial__cuando">{hace(p.at)}</span>
+          </li>
+        ))}
+      </ol>
       <ol className="tickets-conversacion">
         {t.lineas.map((l, i) => (
           <li key={i} className={`tickets-burbuja tickets-burbuja--${l.quien}`}>

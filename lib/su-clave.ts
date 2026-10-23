@@ -101,9 +101,10 @@ export async function estadoDeSusClaves(ws: number): Promise<SuClaveEnTarjeta[] 
     if (!guardadas.length && !conCredito) return [];
     const desde = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const { data, error } = await getSupabaseServer().from('anthropic_usage')
-      .select('created_at, provider, model, motivo')
+      .select('created_at, provider, model, motivo, cost_usd')
       .eq('workspace_id', ws).in('provider', [...PROVS_SU_CLAVE]).gte('created_at', desde)
-      .order('created_at', { ascending: false }).limit(500);
+      // 2000 y no 500 (D3, 22/10/2026): el gasto de 30 días se suma de estas filas, y con 500 un negocio con uso se quedaba corto.
+      .order('created_at', { ascending: false }).limit(2000);
     if (error) throw new Error(error.message);
     const filas = (data ?? []) as FilaUsoClave[];
     const claude = guardadas.find((c) => c.clave === 'ANTHROPIC_API_KEY' && c.es === 'propia') ? await modeloDeSuClaudeEn(ws) : null;

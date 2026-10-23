@@ -18,7 +18,7 @@ import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { hace } from '@/lib/progreso-reglas';
 import { TEXTO_CONSENTIMIENTO, VERSION_CONSENTIMIENTO, estadoDeLaPc, lineaDeInstalacion, yaPaso, type CuentaPc, type SistemaPc } from '@/lib/ia-pc-reglas';
-import { nombreDeSuClave, queHacer, textoDeSuClave, type EstadoSuClave, type ProvSuClave } from '@/lib/su-clave-reglas';
+import { nombreDeSuClave, queHacer, textoDeSuClave, textoDelGasto, type EstadoSuClave, type ProvSuClave } from '@/lib/su-clave-reglas';
 import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
 import './tus-cuentas-ia.css';
 
@@ -264,6 +264,10 @@ function SusClaves({ claves, ahora, recargar }: { claves: SuClave[] | null; ahor
               )}
             </div>
             {linea && <p className={`tci-nota tci-clave__estado tci-clave__estado--${linea.tono}`}>{linea.texto}</p>}
+            {/* Lo que gastó (D3, 22/10/2026: «Que vean el USO»), y cambiarla o quitarla en el modal de su integración. */}
+            {c.es === 'propia' && (
+              <p className="tci-nota">{textoDelGasto(c.gastado)} · <BotonIntegracion servicio={c.proveedor} style={{ color: 'var(--primary)', fontWeight: 600 }}>Cambiar o quitar</BotonIntegracion></p>
+            )}
             {hacer && <p className="tci-nota">{hacer}</p>}
             {c.es === 'credito' && <p className="tci-nota">Usa el crédito de Claude que te dio MaKo.</p>}
             {c.es === 'copia' && <p className="tci-nota">Es la clave de MaKo, no la tuya. <BotonIntegracion servicio={c.proveedor} style={{ color: 'var(--primary)', fontWeight: 600 }}>Pegar la tuya</BotonIntegracion></p>}

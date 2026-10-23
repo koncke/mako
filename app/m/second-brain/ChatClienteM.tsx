@@ -26,7 +26,9 @@ import { TEXTO_SEGUNDO_RENGLON, partesDelNombre, porJefe } from '@/lib/centro-ch
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { useChatCliente } from '@/app/second-brain/useChatCliente';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from '@/app/second-brain/PiezasCliente';
-import { edadCorta, esFilaDe, type ElegidoChat } from '@/lib/chat-mako-reglas';
+import { edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
+import { aspectoDeChat } from '@/lib/centro-munecos';
+import { useMisTickets } from '@/app/tickets/usarMisTickets';
 import type { SesionChat } from '@/lib/mako-turno-app-reglas';
 
 /** Cuántos chats se ven antes de «Ver todos» (los de ChatsMovil.tsx). */
@@ -50,6 +52,11 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   const caja = useRef<HTMLTextAreaElement>(null);
   const hilo = useRef<HTMLDivElement>(null);
   const k = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: false, chatInicial, opcionArmar, busca: '', caja, sesionesIniciales });
+  // Su Ticketera: el número de la fila (los que esperan su respuesta).
+  // Para el super admin que mira un cliente (`masChats`), no: lo suyo está en su Ops Center, como en la computadora.
+  const misTickets = useMisTickets(!masChats);
+  // Su «Uso» (D3): «Tus cuentas de IA» en una hoja, sin ir directo a conectar.
+  const [verUso, setVerUso] = useState(false);
 
   // Como un chat: abre en lo último. La hoja monta su cuerpo en un portal y lo mide después del primer pintado, así que se baja
   // en el cuadro siguiente (el mismo cuidado que ChatsMovil.tsx).
@@ -71,7 +78,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   /** Una fila: la criatura (la SUYA), el nombre, la edad a la derecha y, si trabaja, «Trabajando…» (las de ChatsMovil.tsx). En su
    *  grupo (`sub`, debajo de su jefe), corrida a la derecha y con «↳» y lo de después de «›», como un sub-chat del super admin. */
   const fila = (f: (typeof k.lista)[number], sub = false) => {
-    const vivo = esFilaDe(f, elegido) && k.enCurso;
+    const vivo = !f.jefeDeGrupo && esFilaDe(f, elegido) && k.enCurso;
     return (
       <FilaM key={f.clave} chevron={false}
         leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={f.criatura} aspecto={f.aspecto} animo={vivo ? 'trabajando' : 'despierto'} size={sub ? 32 : 40} /></span>}
@@ -87,18 +94,34 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
     <>
       {/* El grafo del negocio, arriba de los chats (como «Second Brain» en el Ops Center del super admin). */}
       {hrefMapa && <ListaM etiqueta="Second Brain"><FilaM navegacion titulo="Second Brain" icono="cerebro" href={hrefMapa} /></ListaM>}
+      {/* Su Ticketera (22/10/2026), como la del Ops Center del super admin en el teléfono: levantar uno y ver los suyos. */}
+      {!masChats && !misTickets.fueraDelPlan && <ListaM etiqueta="Ticketera">
+        <FilaM navegacion titulo="Ticketera" icono="soporte" href="/m/tickets"
+          segunda={misTickets.esperanTuRespuesta > 0 ? `${misTickets.esperanTuRespuesta} esperan tu respuesta` : 'Tus tickets'} />
+      </ListaM>}
       <SeccionM titulo="Chats">
         <ListaM etiqueta="Chats">
           <FilaM leading={<CirculoNuevo size={40} />} titulo="Nuevo chat" onClick={() => abrir({ virtual: 'nuevo' })} navegacion />
           {cerebro && fila(cerebro)}
-          {/* Agrupados por su origen (22/10/2026), con el agrupado del super admin: un grupo con su jefe lleva los suyos debajo; uno
-              sin jefe («Offer», «Dashboard»), sus chats juntos y con el nombre entero. */}
-          {porJefe(corte).flatMap((g) => (g.chat ? [fila(g.chat), ...g.subs.map((f) => fila(f, true))] : g.subs.map((f) => fila(f))))}
+          {/* Agrupados por su origen (22/10/2026), con el agrupado del super admin: cada grupo con su fila JEFE (la suya, o la de
+              `jefeDelGrupo` si no tiene chat propio: «Offer», «Dashboard») y los suyos debajo, sin títulos de sección. */}
+          {porJefe(corte).flatMap((g) => {
+            const j = g.chat ?? (() => { const v = jefeDelGrupo(g); return v ? { ...v, aspecto: aspectoDeChat(v.clave) } : null; })();
+            return j ? [fila(j), ...g.subs.map((f) => fila(f, true))] : g.subs.map((f) => fila(f));
+          })}
           {!todas && resto.length > corte.length && <FilaM titulo={`Ver los ${resto.length} chats`} onClick={() => setTodas(true)} navegacion />}
         </ListaM>
       </SeccionM>
       {k.errorLista && <p className="m-operaciones-hilo__meta" role="alert">{k.errorLista}</p>}
       {masChats?.()}
+      {/* Su «Uso», abajo como en el Ops Center del super admin («Uso y Runners»): sus cuentas de IA, conectar y desconectar. */}
+      {!masChats && <ListaM etiqueta="Uso">
+        <FilaM navegacion titulo="Uso" icono="config" onClick={() => setVerUso(true)}
+          segunda={k.iaConectada == null ? 'Tus cuentas de IA' : k.iaConectada ? 'Tu IA conectada' : 'Conecta tu IA'} />
+      </ListaM>}
+      <SheetM abierto={verUso} onCerrar={() => { setVerUso(false); k.mirarSuIA(); }} snap="alto" id="uso-cliente" titulo="Tus cuentas de IA">
+        <TusCuentasIA sinCabecera />
+      </SheetM>
 
       <SheetM abierto={abierta && elegido != null} onCerrar={cerrar} snap="alto" id="chat-cliente"
         titulo={panel === 'conectar' ? 'Tus cuentas de IA' : panel === 'info' ? 'Info del mensaje' : (

@@ -316,8 +316,10 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const avisos = useMemo(() => (c: ChatCentro) => avisosDe(esperaDe(c, esperasConVigia), yaSinVer.has(c.clave)), [esperasConVigia, yaSinVer]);
 
   const refrescar = useCallback(async () => {
-    const f = await fotoCentroAction();
-    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.ultimos) { const firma = JSON.stringify(f.ultimos); if (firma !== ultimosFirma.current) { ultimosFirma.current = firma; setUltimos(f.ultimos); } } if (f.cuentas) setNombresCuentas(f.cuentas); setPasos(f.pasos ?? {}); if (f.yaVistos) setYaVistos(f.yaVistos); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
+    // ⚠️ UN REFRESCO QUE FALLA NO CAMBIA LO DIBUJADO (22/10/2026): un 503 hace que la acción TIRE (Next: «An unexpected response
+    // was received from the server»). Queda lo último que se vio, sin tocar ninguna fila, y el intervalo reintenta.
+    const f = await fotoCentroAction().catch(() => null);
+    if (f?.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.ultimos) { const firma = JSON.stringify(f.ultimos); if (firma !== ultimosFirma.current) { ultimosFirma.current = firma; setUltimos(f.ultimos); } } if (f.cuentas) setNombresCuentas(f.cuentas); setPasos(f.pasos ?? {}); if (f.yaVistos) setYaVistos(f.yaVistos); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
     if (mirado.current) void pedirTurnos(mirado.current);
     setAhora(Date.now());
   }, [pedirTurnos]);

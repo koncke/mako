@@ -11,7 +11,7 @@
 // SIN imports de valores: lo usan la pantalla, la ruta y los tests.
 
 export type ModoChat = 'analizar' | 'editar';
-export type TipoEntidad = 'lead' | 'automatizacion' | 'hoja' | 'oferta' | 'landing' | 'campana';
+export type TipoEntidad = 'lead' | 'automatizacion' | 'hoja' | 'oferta' | 'landing' | 'campana' | 'tarea' | 'proyecto';
 export type EntidadChat = { tipo: TipoEntidad; id: string | number; titulo: string };
 export type Desde = { tab: string; entidad: EntidadChat | null; modo: ModoChat | null };
 
@@ -23,6 +23,10 @@ export const ENTIDADES: Readonly<Record<TipoEntidad, { nombre: string; param: st
   oferta: { nombre: 'la oferta', param: 'ofertaId' },
   landing: { nombre: 'la landing', param: null },
   campana: { nombre: 'la campaña', param: null },
+  // El Plan (22/10/2026, CR4): sus herramientas nombran la tarea con un `id` genérico (el de cualquier cosa), así que no se
+  // mete solo; el system dice «usa ese id» y el modelo lo pasa. Un cliente de Clientes es un lead: va como 'lead'.
+  tarea: { nombre: 'la tarea', param: null },
+  proyecto: { nombre: 'el proyecto', param: null },
 };
 
 /** Las que se nombran por un número (su id en la base). */

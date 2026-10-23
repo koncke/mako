@@ -4,6 +4,29 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## La Ticketera del CLIENTE, en su Ops Center: sus tickets con su historial (22/10/2026, D2)
+
+Martín: «Que el Ops Center de clientes sea IGUAL que el de SuperAdmin, que tengan su ticketera, pero en este caso ellos suben el
+ticket y ven sus tickets ya subidos y el historial con el status». El botón «Ticketera» va arriba de su barra, como el del super
+admin, con su número (los que esperan su respuesta). Abre el panel con la pieza de /tickets (TicketsCliente): levantar uno y ver
+los suyos. En el teléfono es una fila a /m/tickets.
+
+- **No hizo falta otra Ticketera:** /tickets ya era la del cliente (Intercom + Zendesk, docs/diseno-ticketera-usuarios.md). Se montó
+  la misma pieza, con una acción que lee lo mismo que la página (app/tickets/acciones.ts → `misTicketsAction`: workspace y email
+  de la SESIÓN, y la lectura filtra por los dos).
+- **El historial sale de las FECHAS del ticket** (`historialDelTicket`): recibido, en curso, arreglado y resuelto. No hay un evento
+  por cada cambio de estado, pero `created_at`, `despachado_at`, `decidido_at`, `arreglado_at` y `resuelto_at` alcanzan.
+- **Trampa: «Arreglado» sólo con el ticket resuelto** (la revisión de privacidad). `arreglado` es «commiteado, sin desplegar», y al
+  cliente se le muestra «En curso» a propósito. Con el paso a la vista, diría «Arreglado» con el error todavía en producción.
+- **Trampa: un canal con una clave inventada da null en silencio.** El mapa usaba `app`, `chat` y `telefono`, pero los canales de
+  verdad son los de `CANALES` (`chat_app`, `chat_movil`, `whatsapp`, `formulario`, `api`, `sistema`). Se tipó contra `Canal`.
+  `sistema` no se dice.
+- **La puerta del plan:** la acción mira la tab `tickets` como /tickets (`tabEnCapa`), y sin ella no se ofrece el botón.
+- **SIN HACER:** dentro del panel abierto, un cambio de estado no se ve hasta volver a abrirlo (TicketsCliente parte de lo que
+  recibió). Con el super admin en «ver como», el botón muestra los tickets de Martín en ese negocio, no los del cliente: el email
+  sale de la sesión. Y ya existía antes: un ticket de WhatsApp se asigna por los últimos 8 dígitos de `perfil.telefono` sin mirar si
+  está verificado (lib/tickets-db.ts), así que otra persona del negocio con ese teléfono en su perfil lo vería.
+
 ## La tarjeta se entiende en 3 segundos: Martín no lee el título del cliente, y «Pedido» era el efecto de DEVOLVERLO (22/10/2026, 17:25)
 
 **El síntoma** (Martín, desde el Ops Center, con la captura del #5): el mazo corrido a la izquierda con «#6 …» suelta a la

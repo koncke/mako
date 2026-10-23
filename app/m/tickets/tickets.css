@@ -67,3 +67,10 @@
 .m-tickets-enviar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .m-tickets-spin { width: 18px; height: 18px; color: var(--on-primary); }
 @media (prefers-reduced-motion: reduce) { .m-tickets-enviar { transition: none; } }
+
+/* El historial del ticket (22/10/2026): cada cambio de estado con su fecha, como en la computadora (app/tickets/tickets.css). */
+.tickets-historial { list-style: none; margin: 0 16px 12px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.tickets-historial__paso { display: inline-flex; align-items: baseline; gap: 6px; font-size: 13px; color: var(--dim); }
+.tickets-historial__paso::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); align-self: center; }
+.tickets-historial__paso[data-paso='resuelto']::before, .tickets-historial__paso[data-paso='arreglado']::before { background: var(--good); }
+.tickets-historial__rotulo { color: var(--ink); font-weight: 600; }

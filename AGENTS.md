@@ -1740,6 +1740,10 @@ código nuevo:
     de la ficha, la automatización del lienzo), y una pantalla que mira sin editar pasa `modo="analizar"`. Las herramientas toman
     la entidad por defecto, y en «analizar» el servidor no deja nada que escriba. Un tipo de entidad nuevo va en `ENTIDADES`,
     con su parámetro.
+    **Y SI LO ABIERTO ES UN MODAL, `encimaDeModales`** (22/10/2026, CR4): la estrella vive en z 55 y la pila de modales
+    arranca en 130, así que con la tarjeta abierta el fondo la tapa y no se puede tocar. El Plan y Clientes lo pasan: la
+    estrella queda encima del modal y el panel entra a la pila como capa `anidada` (la tarjeta se sigue viendo y el Escape
+    cierra sólo el panel). Un parámetro genérico (`id`) no se toma por defecto (`param: null`): «usa ese id» lo dice el system.
   - **EL OPS CENTER SÓLO MUESTRA LO QUE ES PARA MARTÍN; LO QUE SE DICEN LOS CHATS ENTRE ELLOS NO SE DIBUJA** (22/10/2026;
     Martín: «me salen estos textos largos innecesarios en muchos chats... No los quiero»). Se dibuja lo que él escribe y lo
     que el chat le contesta («Voy a trabajar en…», «Ya está», sus preguntas). Un mensaje de otro chat (`otro`) y el resumen de
@@ -1749,8 +1753,11 @@ código nuevo:
     dice «Espera tu respuesta» SÓLO con una pregunta abierta: un «Ya está» sin su ✓ dice «Completado» (22/10/2026).
     La criatura de la cabecera y la de la fila cuentan con UN número, `avisos` (useCentro.ts), en la computadora y en el teléfono:
     nunca `esperaDe` suelto, que no cuenta el «Completado» sin ✓ (tests/ops-center-bloque-y-estado.test.ts, 6).
-    «El bloque de decisiones» son dos tarjetas, las preguntas de un chat (PreguntasDelChat.tsx) y las decisiones de la Ticketera
-    (Pregunta.tsx): un cambio de cómo se ven va a las dos, con las piezas que exporta PreguntasDelChat.tsx (el 7 de ese test).
+    Todo lo que espera a Martín arriba de la caja va en UN bloque (PreguntasDelChat.tsx → `BloqueDePreguntas`): la Ticketera, lo
+    que pregunta el chat, lo de la app y lo que pregunta una TAB (la estrella: `MakoEnLaTab preguntas`, las sugerencias del CRM). Una
+    fuente nueva se suma a `itemsDelBloque`, nunca como otra tarjeta ni como una lista arriba del hilo (el 8 y el 9 de ese test).
+    Y un refresco que falla no cambia lo dibujado: ni «Cargando…» otra vez, ni una fila que cambia de estado (22/10/2026,
+    tests/ops-center-refresco-sin-parpadeo.test.ts).
   - **UNA CLAVE PEGADA EN EL OPS CENTER NO SALE** (22/10/2026, la de Apify que quedó en un pedido firmado). Lo que escribe Martín
     en el Ops Center del super admin sale FIRMADO desde el navegador y no se puede tapar después: `mandar` (app/admin/operaciones/
     mandar.ts) lo frena si `hayClave` (lib/claves-en-el-chat.ts), y `encolarPedido` no lo guarda. Un texto nuevo que salga de ahí

@@ -32,8 +32,7 @@ import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import { Hilo, TANDA_HILO } from './Hilo';
 import type { Responder } from './PreguntaChat';
 import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat';
-import { Pregunta } from './Pregunta';
-import { PreguntasDeLaApp, PreguntasDelChat } from './PreguntasDelChat';
+import { BloqueDePreguntas } from './PreguntasDelChat';
 import { AvisoClave } from '@/app/_chat/AvisoClave';
 import { hayClave } from '@/lib/claves-en-el-chat';
 import type { AdjuntosDeCaja } from './AdjuntosCaja';
@@ -216,14 +215,11 @@ export function Conversacion({
         )}
       </>}
       caja={<>
-        {/* Lo que el empleado espera de Martín, arriba de la caja, como AskUserQuestion de Claude Code (Pregunta.tsx).
-            La que se contesta se va de acá y queda en la conversación. */}
-        {preguntas.length > 0 && <Pregunta key={chat.clave} chat={chat.clave} preguntas={preguntas} responder={responder} />}
-        {/* Lo que ESTE chat le pregunta, de a una y como en Claude (22/10/2026, PreguntasDelChat.tsx): las de `cartero preguntar` y
-            los botones del cierre con wrap_up se contestan acá (quedan en el hilo como «Decisión: …»); las de AskUserQuestion se
-            ven, y se contestan en la app de Claude. */}
-        {deLaApp.length > 0 && <PreguntasDeLaApp key={`a-${chat.clave}`} chat={chat.clave} preguntas={deLaApp} />}
-        {onResponder && bloque.length > 0 && <PreguntasDelChat key={`p-${chat.clave}`} chat={chat.clave} preguntas={bloque} onResponder={responderPregunta} />}
+        {/* TODO lo que espera a Martín, arriba de la caja y en UN bloque (PreguntasDelChat.tsx → BloqueDePreguntas, 22/10/2026):
+            las decisiones de la Ticketera, lo que pregunta el chat (`cartero preguntar` y los botones del cierre) y lo de
+            AskUserQuestion, que se contesta en la app de Claude. Lo contestado se va de acá y queda en la conversación. */}
+        <BloqueDePreguntas key={`b-${chat.clave}`} chat={chat.clave} ticketera={preguntas} responderTicketera={responder}
+          delChat={bloque} onResponder={onResponder ? responderPregunta : undefined} deLaApp={deLaApp} />
         {/* Una clave pegada no sale (mandar.ts): se dice apenas aparece, con el botón a /integraciones. */}
         {envio.puede && hayClave(texto) && <AvisoClave />}
         {envio.puede ? (

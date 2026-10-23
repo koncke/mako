@@ -4857,6 +4857,29 @@ medias y tres bajas. Lo no obvio:
   saltear la ilegible o fallar cerrado daban lo mismo («sí»). Con la copia de la SEGUNDA cuenta (legible) se distinguen:
   saltear la da por copia («no»). Un caso de falla cerrada se prueba donde el error de saltear cambia la respuesta.
 
+## Lo que gastó la clave del negocio: el «⚠» no dice de quién es la fila (D3 del Ops Center, 22/10/2026)
+
+**El diagnóstico obvio era el equivocado.** Al medir en producción el «Gastó US$ … en los últimos 30 días» de «Tus cuentas de
+IA», una consulta con un regex propio (`⚠` o «clave … del negocio») contaba en el ws21 19 filas «de su clave», todas con costo, y
+`estadoDeSuClave` sumaba 0. Parecía la regla rota. Era la medición: el «⚠» lo llevan también las filas del **crédito del
+onboarding** (`⚠ crédito de Claude de la plataforma (cuenta 1) · Offer: conversar con el dueño`), que paga MaKo.
+
+**Dónde vive:** `esDeSuClave` en `lib/su-clave-reglas.ts`. Para Claude cuenta sólo lo que EMPIEZA con `MARCA_SU_CLAVE.anthropic`
+o con `MOTIVO_CREDITO_SU_CLAVE` (el crédito que ES la clave del negocio, como en el ws10). Un prefijo más corto, «⚠ crédito de
+Claude de la plataforma», le cobraría al negocio el regalo del onboarding. El test lo cubre con los motivos copiados de producción
+(`tests/ops-center-uso-cliente.test.ts`, probado rompiéndolo).
+
+**Medido el 22/10/2026, 30 días:** las únicas filas con la marca «del negocio» son 3 fallos del ws11 («sin crédito»), sin costo.
+Ningún negocio gastó todavía con su clave, así que «Sin gasto en los últimos 30 días» es lo cierto hoy, no un default. El que más
+filas tiene es el ws9, con 87, y la lectura subió de 500 a 2000.
+
+**Regla:** «de quién es esta fila» se mide con la MISMA función del código (`estadoDeSuClave`), nunca con un regex propio. Los
+fixtures de un test que filtra por `motivo` llevan los motivos copiados de producción, no uno inventado: el primer test pasaba
+con `«marca» chat`, que no existe.
+
+**SIN HACER:** el gasto es un piso (`anthropic_usage` no anota todo: ver «Tres módulos gastan sin registrar»), y un negocio con
+más de 2000 filas en 30 días vería un número corto sin aviso. Hoy el techo es 87 filas.
+
 ## Lo que midió la verificación del debate «quién paga el chat» (20/10/2026)
 
 Cuatro verificadores revisaron `docs/debate-ops-center-decisiones-20-10.md` contra producción antes de llevárselo a

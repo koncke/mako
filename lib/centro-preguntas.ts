@@ -55,7 +55,7 @@ export function respuestasDelChat(c: { miembros: readonly string[] }, decisiones
  * otro lado). ⚠️ Nunca por su posición: el refresco de cada 8 s puede meter adelante una tarjeta que frena, y con la
  * posición lo que se escribía para una se guardaba en otra (revisión adversarial, 16/10/2026).
  */
-export function preguntaAbierta<T extends { id: number }>(preguntas: readonly T[], elegida: number | null): { d: T | undefined; pos: number } {
+export function preguntaAbierta<T extends { id: number | string }>(preguntas: readonly T[], elegida: T['id'] | null): { d: T | undefined; pos: number } {
   const i = elegida == null ? -1 : preguntas.findIndex((p) => p.id === elegida);
   const pos = Math.max(0, i);
   return { d: preguntas[pos], pos };
