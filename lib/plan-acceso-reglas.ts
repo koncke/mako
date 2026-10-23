@@ -35,6 +35,10 @@
 // =============================================================================
 
 import { esBajaPedida } from './cobros-reglas';
+import { PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
+
+/** ¿La pasarela avisó que la renovación de esta suscripción FALLÓ? (el motivo que deja `aplicarPagoFallido` y borra la renovación que entra). */
+const renovacionFallida = (m: string | null | undefined): boolean => typeof m === 'string' && m.startsWith(PREFIJO_RENOVACION_FALLIDA);
 
 /**
  * ⚠️ EL CORTE DE ACCESO. APAGADO desde la revisión adversarial del 17/10/2026; los defectos (el cron sólo veía `alta_ws`,
@@ -152,26 +156,51 @@ export function ciclosDesde(desde: string, ahoraMs: number): number {
 }
 
 /** La vigencia del lugar de UN negocio. `ahoraMs` es el reloj (se pasa, no se lee: las reglas son puras). */
+/**
+ * Desde cuándo se debe con una suscripción que la pasarela sigue cobrando: un mes después del ÚLTIMO pago de ESA
+ * suscripción (su ancla real, no la cadena de cobertura), corrido por los meses pagados aparte después de ese pago (la
+ * deuda en un cobro único) y por la pausa de la retención.
+ */
+export function proximoCobro(cobrando: CobroDelLugar, cobros: readonly CobroDelLugar[], pagos: readonly PagoDelLugar[], extras: readonly MesSinCobro[] = []): string | null {
+  const suyas = pagos.filter((p) => p.cobro_id === cobrando.id && p.pagado && p.fecha_pago).map((p) => p.fecha_pago!.slice(0, 10));
+  const ultimo = [...suyas, dia(cobrando.pagado_at)].filter((x): x is string => !!x).sort().at(-1);
+  if (!ultimo) return null;
+  let desde = unMesDespuesDe(ultimo);
+  for (const c of cobros) {
+    if (c.tipo !== 'unico' || c.id === cobrando.id) continue;
+    const m = Math.max(1, Math.min(24, Math.floor(Number(c.meses) || 1)));
+    for (const p of pagos) if (p.cobro_id === c.id && p.pagado && p.fecha_pago && p.fecha_pago.slice(0, 10) >= ultimo) desde = mesesDespuesDe(desde, m);
+  }
+  for (const e of extras) if (e.fecha.slice(0, 10) >= ultimo) desde = mesesDespuesDe(desde, Math.max(1, Math.min(3, Math.floor(e.meses) || 1)));
+  return desde;
+}
+
 export function vigenciaDelLugar(cobros: readonly CobroDelLugar[], pagos: readonly PagoDelLugar[], ahoraMs: number, extras: readonly MesSinCobro[] = []): Vigencia {
   if (!cobros.length) return { estado: 'sin-pasarela' };
-  if (cobros.some((c) => c.cliente_ws != null)) return vigenciaDeClienteDeAgencia(cobros, pagos, ahoraMs);
+  // El cliente de agencia, y un negocio SIN ninguna suscripción (los planes de pago único de /admin/cobros, que nunca
+  // vencían: revisión del 23/10), siguen con las reglas del 17/10.
+  if (cobros.some((c) => c.cliente_ws != null) || !cobros.some((c) => c.tipo === 'suscripcion')) return vigenciaDeClienteDeAgencia(cobros, pagos, ahoraMs);
 
   const cubierto = finDeLoCubierto(cobros, pagos, extras);
   const cobrando = cobros.filter(cobra).sort((a, b) => (dia(b.pagado_at) ?? '').localeCompare(dia(a.pagado_at) ?? '') || b.id - a.id)[0] ?? null;
 
   if (cobrando) {
-    if (!cubierto || ahoraMs < masDias(cubierto.hasta, DIAS_SIN_AVISO)) return { estado: 'al-dia', cobroId: cobrando.id, ...(cubierto ? { hasta: cubierto.hasta } : {}) };
-    const ciclos = Math.max(1, ciclosDesde(cubierto.hasta, ahoraMs));
+    // ⚠️ LA MORA LA DICE LA PASARELA, NO EL CALENDARIO (revisión adversarial del 23/10, altas 2, 3 y 4): la cobertura
+    // encadenada se corría con los días 29-31, con un mes devuelto o con una reactivación, y le daba mora a quien pagaba.
+    // Hay mora SÓLO si la pasarela avisó que la renovación falló; desde un mes después del último pago de ESA suscripción.
+    const desde = proximoCobro(cobrando, cobros, pagos, extras);
+    if (!renovacionFallida(cobrando.motivo) || !desde || ahoraMs < ms(desde)) return { estado: 'al-dia', cobroId: cobrando.id, ...(desde ? { hasta: desde } : {}) };
+    const ciclos = Math.max(1, ciclosDesde(desde, ahoraMs));
     const monto = Number(cobrando.monto);
     const usd = Number(cobrando.monto_usd);
     const deuda: Deuda = {
-      cobroId: cobrando.id, ciclos, desde: cubierto.hasta,
+      cobroId: cobrando.id, ciclos, desde,
       monto: Number.isFinite(monto) && monto > 0 ? Math.round(monto * ciclos * 100) / 100 : null,
       moneda: cobrando.moneda ?? null,
       montoUsd: Number.isFinite(usd) && usd > 0 ? Math.round(usd * ciclos * 100) / 100 : null,
     };
-    if (ahoraMs < masDias(cubierto.hasta, DIAS_PARA_SUSPENDER)) return { estado: 'mora', cobroId: cobrando.id, hasta: cubierto.hasta, deuda };
-    return { estado: 'vencido', cobroId: cobrando.id, hasta: cubierto.hasta, motivo: 'impago', deuda };
+    if (ahoraMs < masDias(desde, DIAS_PARA_SUSPENDER)) return { estado: 'mora', cobroId: cobrando.id, hasta: desde, deuda };
+    return { estado: 'vencido', cobroId: cobrando.id, hasta: desde, motivo: 'impago', deuda };
   }
 
   // Nadie cobra: lo pagado llega hasta donde llega. Sin nada cobrado, un plan devuelto corta desde la devolución.
@@ -186,6 +215,14 @@ export function vigenciaDelLugar(cobros: readonly CobroDelLugar[], pagos: readon
     if (devuelto) fin = { ...fin, motivo: 'devuelto' };
   }
   if (!fin) return { estado: 'sin-pasarela' };
+  // La pasarela la dio de baja por falta de pago (la renovación fallida quedó dicha): es un impago, con su deuda (un ciclo:
+  // sin la fecha de la baja no se cuentan más, mejor de menos que de más).
+  const ultimaSus = cobros.filter((c) => c.tipo === 'suscripcion').sort((a, b) => b.id - a.id)[0];
+  if (ultimaSus && renovacionFallida(ultimaSus.motivo)) {
+    const monto = Number(ultimaSus.monto), usd = Number(ultimaSus.monto_usd);
+    const deuda: Deuda = { cobroId: ultimaSus.id, ciclos: 1, desde: fin.hasta, monto: monto > 0 ? monto : null, moneda: ultimaSus.moneda ?? null, montoUsd: usd > 0 ? usd : null };
+    return ahoraMs >= masDias(fin.hasta, DIAS_PARA_SUSPENDER) ? { estado: 'vencido', cobroId: ultimaSus.id, hasta: fin.hasta, motivo: 'impago', deuda } : { estado: 'mora', cobroId: ultimaSus.id, hasta: fin.hasta, deuda };
+  }
   return ahoraMs >= masDias(fin.hasta, GRACIA_DIAS) ? { estado: 'vencido', ...fin } : { estado: 'cubierto', ...fin };
 }
 
@@ -294,7 +331,7 @@ export function textoDelCorte(c: CorteGuardado | null, opts: { paraAgencia?: boo
       : { titulo: 'Falta activar la renovación', detalle: `El mes pagado terminó el ${fecha}. Tu agencia tiene que activar la renovación para volver a entrar.` };
   }
   if (c.motivo === 'impago') {
-    return { titulo: 'Tu pago no entró', detalle: `Tu plan está pago hasta el ${fecha} y la renovación no se pudo cobrar. Tus datos están guardados: paga y vuelves a entrar en el acto.` };
+    return { titulo: 'Tu pago no entró', detalle: `Tu plan está pagado hasta el ${fecha} y la renovación no se pudo cobrar. Tus datos están guardados: paga y vuelves a entrar en el acto.` };
   }
   if (c.motivo === 'devuelto') return { titulo: 'Tu plan se devolvió', detalle: 'El pago de tu plan se devolvió. Para volver a entrar, escríbenos.' };
   return { titulo: 'Tu plan terminó', detalle: `Lo pagado cubría hasta el ${fecha}. Tus datos están guardados: renueva tu plan y vuelves a entrar.` };

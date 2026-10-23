@@ -155,13 +155,16 @@ test('el corte de acceso por falta de pago está APAGADO: el cron no toca nada y
 //   · el cliente de agencia pasa por la cobertura nueva (su mes es desde el onboarding)    -> 19 / 1
 // =============================================================================
 
-const sus = (extra: Partial<CobroDelLugar> = {}) => plan({ monto: 47, moneda: 'USD', monto_usd: 47, ...extra });
+const FALLIDA = { motivo: 'Falló el cobro de la renovación: la tarjeta fue rechazada' };
+const sus = (extra: Partial<CobroDelLugar> = {}) => plan({ monto: 47, moneda: 'USD', monto_usd: 47, ...FALLIDA, ...extra });
 
 test('la renovación que no entró: 2 días sin aviso, después MORA (se entra), y a los 7 días VENCIDO por impago, con la deuda', () => {
   const cobros = [sus()];
   const pagos = [cuota('2026-08-10'), cuota('2026-09-10')]; // cubre hasta el 10/10
   assert.equal(DIAS_PARA_SUSPENDER, 7);
-  assert.equal(vigenciaDelLugar(cobros, pagos, T('2026-10-11')).estado, 'al-dia', 'el aviso de la renovación puede tardar');
+  assert.equal(vigenciaDelLugar(cobros, pagos, T('2026-10-09')).estado, 'al-dia', 'antes del día de la renovación');
+  // ⚠️ SIN EL AVISO DE LA PASARELA NO HAY MORA, aunque pasen meses (revisión del 23/10: la cadena daba mora a quien pagaba).
+  assert.equal(vigenciaDelLugar([sus({ motivo: null })], pagos, T('2027-03-01')).estado, 'al-dia');
   const m = vigenciaDelLugar(cobros, pagos, T('2026-10-13'));
   assert.equal(m.estado, 'mora');
   assert.deepEqual(m.estado === 'mora' && m.deuda, { cobroId: 7, ciclos: 1, desde: '2026-10-10', monto: 47, moneda: 'USD', montoUsd: 47 });
@@ -190,12 +193,12 @@ test('la deuda pagada con un cobro único de N meses vuelve a cubrir; un reembol
   assert.equal(finDeLoCubierto(cobros, pagos)?.hasta, '2026-12-10', 'los dos meses debidos, desde el 10/10');
   assert.equal(vigenciaDelLugar(cobros, pagos, T('2026-11-21')).estado, 'al-dia');
   // El primer pago se devolvió pero la pasarela sigue cobrando: no se pausa a quien paga (revisión del 17/10).
-  const devuelto = [sus({ estado: 'reembolsado', reembolsado_at: '2026-08-12T10:00:00Z' })];
+  const devuelto = [sus({ estado: 'reembolsado', reembolsado_at: '2026-08-12T10:00:00Z', motivo: null })];
   assert.equal(vigenciaDelLugar(devuelto, [], T('2026-08-20')).estado, 'al-dia');
 });
 
 test('con la baja pedida la suscripción deja de «cobrar»: no hay deuda, termina con la gracia de una baja', () => {
-  const cobros = [sus({ motivo: 'Baja pedida el 2026-09-20 (código BAJA-7). Deja de cobrarse el 2026-10-10.' })];
+  const cobros = [plan({ monto: 47, moneda: 'USD', monto_usd: 47, motivo: 'Baja pedida el 2026-09-20 (código BAJA-7). Deja de cobrarse el 2026-10-10.' })];
   const pagos = [cuota('2026-08-10'), cuota('2026-09-10')];
   const v = vigenciaDelLugar(cobros, pagos, T('2026-10-13'));
   assert.deepEqual(v, { estado: 'cubierto', cobroId: 7, hasta: '2026-10-10', motivo: 'baja' });
@@ -215,11 +218,9 @@ test('el corte guarda la deuda y la pantalla dice que los datos están guardados
 
 test('el cron: antes de pausar por impago le pregunta a la pasarela, lee las cuotas de a tandas y ata la compra de quien ya tenía cuenta', () => {
   const p = fuente('lib/plan-acceso.ts');
-  assert.match(p, /if \(paso\.tipo === 'cortar' && paso\.corte\.motivo === 'impago'\) \{[\s\S]*?confirmarImpago\(c, \{ reparar: !enSeco \}\)[\s\S]*?if \(r !== 'impago'\) \{ out\.noCortados\.push/);
+  assert.match(p, /if \(paso\.tipo === 'cortar' && paso\.corte\.motivo === 'impago'\) \{[\s\S]*?confirmarImpago\(c, \{ reparar: !enSeco && opts\.soloWs == null \}\)[\s\S]*?if \(r !== 'impago'\) \{ out\.noCortados\.push/);
   assert.match(p, /\.range\(desde, desde \+ 999\)/);
-  assert.match(p, /await atarCompraDeQuienYaTeniaCuenta\(plataforma\)/);
-  assert.match(p, /\.eq\('alta_estado', 'ya_tenia_cuenta'\)\.is\('alta_ws', null\)/);
-  assert.match(p, /if \(new Set\(suyos\)\.size !== 1\) continue;/, 'sólo si el email es admin de UN negocio');
+  assert.doesNotMatch(p, /\.eq\('alta_estado', 'ya_tenia_cuenta'\)/, 'una compra NUNCA se ata sola a un negocio por el email (alta 5)');
   const d = fuente('lib/plan-deuda.ts');
   assert.match(d, /const faltan = deSuscripcion\.filter\(\(x\) => !ya\.has\(x\.id\)\);/, 'sólo se asientan los pagos que no estaban');
   assert.match(d, /if \(!f\.ok\) return \{ tipo: 'nada'/, 'si Stripe no contesta, no se abre un cobro aparte');
@@ -233,4 +234,17 @@ test('el mes pausado de la retención cuenta como cubierto: no hay mora', () => 
   assert.equal(vigenciaDelLugar(cobros, pagos, T('2026-10-20')).estado, 'vencido', 'sin la pausa, impago');
   const v = vigenciaDelLugar(cobros, pagos, T('2026-10-20'), [{ fecha: '2026-09-25', meses: 1 }]);
   assert.deepEqual(v, { estado: 'al-dia', cobroId: 7, hasta: '2026-11-10' });
+});
+
+// Revisión adversarial del 23/10 (alta 6): un negocio SIN ninguna suscripción (los planes de pago único que vende /admin/cobros)
+// no vence (sigue con las reglas del 17/10). Y la suscripción que la pasarela dio de baja por falta de pago es un impago.
+// Probado rompiéndolo: sin el `!cobros.some(tipo suscripcion)` del despacho -> 1 fallo; sin la rama del impago dado de baja -> 1 fallo.
+test('un plan de pago único no vence; una suscripción dada de baja por falta de pago es un impago con su deuda', () => {
+  const unico: CobroDelLugar = plan({ id: 30, tipo: 'unico', suscripcion_estado: null, pagado_at: '2026-08-10T10:00:00Z' });
+  assert.deepEqual(vigenciaDelLugar([unico], [cuota('2026-08-10', 30)], T('2027-01-01')), { estado: 'sin-pasarela' });
+  const baja = sus({ suscripcion_estado: 'cancelada' });
+  const v = vigenciaDelLugar([baja], [cuota('2026-08-10'), cuota('2026-09-10')], T('2026-10-20'));
+  assert.equal(v.estado, 'vencido');
+  assert.equal(v.estado === 'vencido' && v.motivo, 'impago');
+  assert.equal(v.estado === 'vencido' && v.deuda?.ciclos, 1);
 });

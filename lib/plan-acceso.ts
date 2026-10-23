@@ -20,9 +20,8 @@
 //   · un negocio reactivado a mano por el mismo vencimiento no se vuelve a cortar (`pasoDeAcceso`).
 //
 // LOS TRES DEFECTOS DE LA REVISIÓN DEL 17/10, arreglados el 23/10:
-//   · el cron sólo veía `alta_ws`: un plan pagado con un email que YA era de MaKo (`ya_tenia_cuenta`) quedaba afuera y
-//     su pausa no se levantaba aunque pagara. Ahora ese cobro se ata al negocio del que ese email es ADMIN
-//     (`atarCompraDeQuienYaTeniaCuenta`), y desde ahí cuenta como cualquiera;
+//   · el cron sólo veía `alta_ws`: quien vuelve a pagar después de una pausa no volvía a entrar. Ahora reactiva desde adentro
+//     de su cuenta y el cobro nace atado a su negocio (atarlo por el email era una puerta para pausar negocios ajenos);
 //   · un primer pago devuelto con la suscripción activa pausaba a quien paga: la cobertura (plan-acceso-reglas) no corta
 //     por un reembolso mientras la pasarela siga cobrando;
 //   · las cuotas se leían sin paginar (PostgREST corta en 1.000): se leen de a tandas.
@@ -84,30 +83,11 @@ export async function cuotasDeLugares(plataforma: number, ids: readonly number[]
 }
 
 /**
- * ⚠️ UN PLAN PAGADO CON UN EMAIL QUE YA ERA DE MAKO (`ya_tenia_cuenta`, revisión del 17/10, alta): el alta no crea otra
- * cuenta y el cobro quedaba sin `alta_ws`, o sea fuera del corte: quien volvía a pagar después de una pausa no volvía
- * a entrar. Se ata al negocio del que ese email es ADMIN, sólo si es UNO solo y no es la plataforma (un setter de otro
- * negocio que se compra su plan NO paga el lugar de ese otro negocio). Compare-and-set sobre `alta_ws is null`.
+ * ⚠️ UN PLAN PAGADO CON UN EMAIL QUE YA ERA DE MAKO (`ya_tenia_cuenta`) NO SE ATA SOLO A NINGÚN NEGOCIO (revisión adversarial
+ * del 23/10, alta 5): atarlo por el email dejaba que CUALQUIERA comprara un plan con el email del admin de otro negocio (el
+ * ws1 incluido) y, dejando fallar la renovación, lo hiciera pausar. Quien vuelve, reactiva desde adentro de su cuenta
+ * (/cuenta-pausada, «Tu plan»: el cobro nace atado a SU negocio); un `ya_tenia_cuenta` lo resuelve el super admin.
  */
-async function atarCompraDeQuienYaTeniaCuenta(plataforma: number): Promise<number> {
-  const db = getSupabaseServer();
-  const { data, error } = await db.from('cobros').select('id, email').eq('workspace_id', plataforma)
-    .eq('alta_estado', 'ya_tenia_cuenta').is('alta_ws', null).eq('estado', 'pagado').limit(20);
-  if (error || !data?.length) return 0;
-  let atados = 0;
-  for (const c of data as Array<{ id: number; email: string | null }>) {
-    if (!c.email) continue;
-    const { data: us } = await db.from('usuarios').select('workspace_id, rol_ws').eq('email', c.email.toLowerCase()).limit(5);
-    const suyos = ((us ?? []) as Array<{ workspace_id: number | null; rol_ws: string | null }>)
-      .filter((u) => u.rol_ws === 'admin' && u.workspace_id != null && Number(u.workspace_id) !== plataforma)
-      .map((u) => Number(u.workspace_id));
-    if (new Set(suyos).size !== 1) continue;
-    const { data: ok } = await db.from('cobros').update({ alta_ws: suyos[0], updated_at: new Date().toISOString() })
-      .eq('id', c.id).is('alta_ws', null).select('id');
-    if (ok?.length) { atados++; console.log(`[plan-acceso] cobro ${c.id} (ya tenía cuenta) atado al negocio ${suyos[0]}`); }
-  }
-  return atados;
-}
 
 export type Revision = {
   revisados: number;
@@ -140,8 +120,6 @@ export async function revisarAccesosPorPago(opts: { enSeco?: boolean; ahoraMs?: 
   const db = getSupabaseServer();
   const out: Revision = { revisados: 0, cortados: [], reabiertos: [], soltados: [], postergados: [], noCortados: [], errores: 0, enSeco, pasos: [] };
   if (!CORTE_DE_ACCESO_PRENDIDO) return out; // apagado (lib/plan-acceso-reglas.ts): no lee ni escribe nada
-
-  if (!enSeco && opts.soloWs == null) await atarCompraDeQuienYaTeniaCuenta(plataforma).catch((e) => console.warn('[plan-acceso] atar ya_tenia_cuenta:', e instanceof Error ? e.message : String(e)));
 
   const cobros = await cobrosDeLugares(plataforma, opts.soloWs);
   const porWs = new Map<number, FilaCobroLugar[]>();
@@ -181,7 +159,8 @@ export async function revisarAccesosPorPago(opts: { enSeco?: boolean; ahoraMs?: 
     if (paso.tipo === 'cortar' && paso.corte.motivo === 'impago') {
       const c = suyos.find((x) => x.id === paso.corte.cobroId);
       const { confirmarImpago } = await import('./plan-deuda');
-      const r = c ? await confirmarImpago(c, { reparar: !enSeco }).catch(() => 'no-se-sabe' as const) : 'no-se-sabe';
+      // `reparar` sólo en la vuelta del cron: desde un pago (`soloWs`) asentar llama otra vez a esto (revisión del 23/10, media 10).
+      const r = c ? await confirmarImpago(c, { reparar: !enSeco && opts.soloWs == null }).catch(() => 'no-se-sabe' as const) : 'no-se-sabe';
       if (r !== 'impago') { out.noCortados.push({ ws, por: r }); continue; }
     }
     if (enSeco) {
