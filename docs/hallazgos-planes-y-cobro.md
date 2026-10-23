@@ -922,3 +922,21 @@ tamaño del cartel de upgrade).*
   filas que no cierran. Y las tareas #771, #783 y #840 del Plan con los precios del 20/09.
 
 *17/10/2026, «Pendientes B3» (`claude4`).*
+
+## El tope de usuarios del plan, al invitar al equipo (23/10/2026)
+
+Esencial permite 1 usuario y Pro 5 (lib/topes-plan.ts → 'equipo.usuarios'). Lo hace cumplir `/api/equipo` en `invitar`,
+con la regla pura de lib/tope-equipo-reglas.ts (`topeAlInvitar`).
+- **Sólo a quien MaKo le cobra por la pasarela** (`suscripcionDeMakoDe(ws) != null`). El ws1 y los acuerdos a mano también
+  tienen capa `completo`, así que la capa sola no alcanza para decidirlo.
+- **Lo que no es obvio:** el dueño CUENTA. `equipoDe(ws)` trae a todos los del negocio, suspendidos incluidos, y en Esencial
+  el admin solo ya llena el lugar. Invitar a alguien es pasar a Pro.
+- **Nadie pierde el acceso:** el tope frena SÓLO invitar. Cambiar el rol, suspender, reactivar y reenviar no lo miran.
+- **Si no se puede leer el cobro, no se frena a nadie** (`cobraMako` devuelve false y queda en el log): es mejor una
+  invitación de más que frenar a quien paga por un error de la base.
+- **En el teléfono, el tope va aparte del error** (`role="status"`, con «Pasar a Pro»): no es un error para reportar, y el
+  guardián de «Reportar a Soporte» exige ese botón en todo `role="alert"`.
+tests/equipo-tope-plan.test.ts.
+
+**SIN HACER:** los otros topes de la tabla (leads, funnels, líneas, automatizaciones, landings, dominios, cuentas de cobro)
+los hace cumplir el chat de cada área.

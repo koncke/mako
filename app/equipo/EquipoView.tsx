@@ -16,8 +16,10 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
+import Link from '@/app/_ui/Link';
 
-type Respuesta = { ok: boolean; error?: string; invitacion?: ResultadoInvitacion | null };
+/** `pasarAPro`: el tope de usuarios del plan (lib/tope-equipo-reglas.ts): el cartel lleva el link para pasar a Pro. */
+type Respuesta = { ok: boolean; error?: string; invitacion?: ResultadoInvitacion | null; pasarAPro?: string };
 
 function Aviso({ aviso }: { aviso: AvisoInvitacion }) {
   return (
@@ -77,6 +79,7 @@ export function EquipoView() {
   const [rol, setRol] = useState('setter');
   const [creando, setCreando] = useState(false);
   const [errCrear, setErrCrear] = useState<string | null>(null);
+  const [aPro, setAPro] = useState<string | null>(null);
   const [hintCrear, setHintCrear] = useState<AvisoInvitacion | null>(null);
 
   const [errAccion, setErrAccion] = useState<string | null>(null);
@@ -101,11 +104,11 @@ export function EquipoView() {
 
   const invitar = async () => {
     if (creando) return;
-    setErrCrear(null); setHintCrear(null); setCreando(true);
+    setErrCrear(null); setAPro(null); setHintCrear(null); setCreando(true);
     try {
       const destino = email.trim();
       const j = await post({ action: 'invitar', email: destino, nombre: nombre.trim(), rol_ws: rol });
-      if (!j.ok) { setErrCrear(j.error ?? 'No se pudo invitar.'); return; }
+      if (!j.ok) { setErrCrear(j.error ?? 'No se pudo invitar.'); setAPro(j.pasarAPro ?? null); return; }
       setNombre(''); setEmail(''); setRol('setter');
       setHintCrear(avisoInvitacion(j.invitacion, destino));
       await cargar();
@@ -147,7 +150,7 @@ export function EquipoView() {
           <div><label style={labelStyle}>Rol</label><Dropdown value={rol} options={ROL_OPTS} onChange={setRol} width="100%" ariaLabel="Rol del miembro" /></div>
           <button style={{ ...btnDark, opacity: creando || !email.trim() ? 0.5 : 1 }} disabled={creando || !email.trim()} onClick={invitar}>{creando ? 'Invitando…' : 'Invitar'}</button>
         </div>
-        {errCrear && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{errCrear}</div>}
+        {errCrear && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{errCrear}{aPro && <> <Link href={aPro} style={{ color: 'var(--primary)' }}>Pasar a Pro</Link></>}</div>}
         {hintCrear && <Aviso aviso={hintCrear} />}
       </div>
 
