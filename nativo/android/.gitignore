@@ -1,0 +1,19 @@
+# Lo generado por generar.mjs (se rehace desde twa-manifest.json) y lo que compila Gradle.
+/app/
+/gradle/
+/build.gradle
+/settings.gradle
+/gradle.properties
+/gradlew
+/gradlew.bat
+/store_icon.png
+/build/
+/.gradle/
+/node_modules/
+/local.properties
+# LA CLAVE DE FIRMA NUNCA VA AL REPO (la guarda Martín, ver README.md).
+*.keystore
+*.jks
+*.aab
+*.apk
+*.idsig

@@ -1,0 +1,49 @@
+# =============================================================================
+# La app de MaKo para iPhone (nativo/ios, Capacitor) compilada en las Mac de Codemagic y subida a TestFlight (23/10/2026)
+# =============================================================================
+# NO en GitHub Actions: los minutos no alcanzan, y las Mac de Codemagic sí compilan iOS (500 min gratis por mes).
+# Se corre A MANO desde Codemagic (sin `triggering`). Antes de la primera vez, Martín:
+#   · conecta el repo en Codemagic con su GitHub;
+#   · crea en App Store Connect la API key (rol App Manager) y la carga en Codemagic como la integración «MaKo»;
+#   · crea la app con el id com.holamako.app y pone su número (Apple ID de la app) en APP_STORE_APPLE_ID.
+# ⚠️ BORRADOR hasta la primera corrida con la cuenta: el proyecto es SPM (.xcodeproj, sin .xcworkspace ni CocoaPods).
+# Plan: docs/tiendas-play-appstore.md (paso 10). Cómo se arma: nativo/README.md.
+# =============================================================================
+workflows:
+  ios-testflight:
+    name: iOS → TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: MaKo
+    environment:
+      xcode: latest
+      node: 22
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.holamako.app
+      vars:
+        APP_STORE_APPLE_ID: 0
+        XCODE_PROJECT: nativo/ios/ios/App/App.xcodeproj
+        XCODE_SCHEME: App
+    scripts:
+      - name: Las dependencias de Capacitor
+        script: cd nativo/ios && npm ci
+      - name: La configuración y los plugins al proyecto nativo
+        script: cd nativo/ios && npx cap sync ios
+      - name: La firma (perfiles de la integración)
+        script: xcode-project use-profiles --project "$XCODE_PROJECT"
+      - name: El número de build, uno más que el último del App Store
+        script: |
+          ULTIMO=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          cd nativo/ios/ios/App && agvtool new-version -all $(($ULTIMO + 1))
+      - name: El ipa
+        script: xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
