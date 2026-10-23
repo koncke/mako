@@ -633,8 +633,8 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       pasos: [
         'Entra a dashboard.stripe.com/apikeys con la cuenta donde quieres recibir el dinero.',
         'Toca "Create restricted key" y ponle de nombre MaKo.',
-        'Permisos "Write": Checkout Sessions, Webhook Endpoints, Refunds y Subscriptions.',
-        'Permisos "Read": Invoices, Charges, Payment Intents y Accounts. Lo demás, en "None".',
+        'Permisos "Write": Checkout Sessions, Webhook Endpoints, Refunds, Subscriptions y Coupons.',
+        'Permisos "Read": Invoices, Charges, Payment Intents, Disputes, Prices, Products y Accounts. Lo demás, en "None".',
         'Toca "Create key", copia la clave (rk_live_…, se ve UNA vez) y pégala en "Clave de Stripe".',
       ],
     },
@@ -1194,12 +1194,15 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   // → verificación en dos pasos → la clave se copia UNA vez. Los nombres de los recursos NO se pudieron
   // ver en el panel: si falta uno, MaKo lo nombra al guardar (el 403 de Stripe trae el permiso en el mensaje,
   // y lib/cobros-conexion.ts lo muestra tal cual).
+  // ⚠️ LOS PERMISOS SON LOS QUE EL CÓDIGO USA (revisión del 23/10/2026): Coupons (la retención de un plan), Disputes (los
+  // contracargos) y Prices/Products («Vincular cobro») no estaban, y una rk_ armada con la lista vieja conectaba bien y
+  // fallaba después, con un 403, en la retención o en un contracargo. Una clave nueva que use otro recurso se suma acá.
   STRIPE_SECRET_KEY: {
     pasos: [
         'Para qué sirve: con esta clave MaKo crea tus links de pago y anota cada pago en la ficha del lead.',
         'En dashboard.stripe.com/apikeys toca "Create restricted key" y ponle de nombre MaKo.',
-        'Permisos "Write": Checkout Sessions, Webhook Endpoints, Refunds y Subscriptions.',
-        'Permisos "Read": Invoices, Charges, Payment Intents y Accounts. Lo demás, en "None".',
+        'Permisos "Write": Checkout Sessions, Webhook Endpoints, Refunds, Subscriptions y Coupons.',
+        'Permisos "Read": Invoices, Charges, Payment Intents, Disputes, Prices, Products y Accounts. Lo demás, en "None".',
         'Toca "Create key", copia la clave (rk_live_…, se ve UNA vez) y pégala en este campo.',
       ],
     url: 'https://dashboard.stripe.com/apikeys',
@@ -1219,7 +1222,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
     pasos: [
         'Para qué sirve: confirma el aviso de pagos, que es lo que hace entrar las renovaciones de una suscripción.',
         'En tu aplicación de Mercado Pago (la del access token) entra a "Webhooks" → "Configurar notificaciones".',
-        'En la URL de producción pega {{APP_URL}}/api/webhooks/mercadopago (está en el recuadro amarillo).',
+        'En la URL de producción pega la dirección completa del recuadro amarillo (termina en ?u= y tu número).',
         'Marca los eventos "Pagos" y "Planes y suscripciones" y guarda.',
         'Copia la "clave secreta" que aparece y pégala en este campo.',
       ],
