@@ -2449,4 +2449,22 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "23 oct", hora: "04:00", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "«Contestó» corta de verdad: si el lead contesta, se avisa en el acto y no le sale nada más",
+    puntos: [
+      "Si el lead contesta en cualquier momento, corre la rama «Contestó» (el aviso al equipo) en ese momento.",
+      "Desde ahí no le sale ningún mensaje más de esa automatización.",
+      "La condición se llama «Contestó» / «No contestó».",
+      "Probado en el ws de prueba: contesta antes del primer mensaje, durante cada espera, y uno que no contesta.",
+    ],
+    archivos: [
+      "lib/nutricion.ts — el corte al contestar",
+      "lib/nutricion-grafo-motor.ts — a dónde va quien contestó",
+      "scripts/arnes-contesto-corta.mts — el arnés del ws3",
+    ],
+    revisar: "/automations",
+  },
 ];

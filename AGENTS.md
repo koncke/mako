@@ -10034,6 +10034,8 @@ lo usan la ficha y el chip del CRM, el historial al inscribirse y la tarjeta del
 (lib/nutricion.ts) entra también ahí, con su test en tests/automations-por-que-no-sale.test.ts. Y un camino nuevo que
 mueve a un lead de etapa (también un AGREGADO, `lead_funnel`) dispara el evento de etapa: nunca escribe la etapa de un
 CRM en la casa de un lead de otro. El arnés de punta a punta es scripts/arnes-automatizacion-punta-a-punta.mts (ws3).
+Y en una automatización que usa «Contestó», la respuesta del lead la corta EN EL ACTO (`alContestar`) y después no le sale
+ningún mensaje más (la guarda de `procesarEnvios`): un «Contestó» que no corta es scripts/arnes-contesto-corta.mts en rojo.
 Detalle: docs/hallazgos-chatbot.md («No salió ni a mí ni a mi esposa»).
 
 ## Una tabla en grilla aguanta un escritorio chico (21/10/2026)
