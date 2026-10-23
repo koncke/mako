@@ -146,6 +146,12 @@ await runWithWorkspace(WS, async () => {
   } finally {
     await setEnvioWhatsapp(false);
     if (secId != null) await nut.setSecuenciaActiva(secId, false).catch((e: unknown) => console.error('no pude pausar la del arnés', e));
+    // ARCHIVADA, no sólo pausada (23/10/2026): pausada quedaba viva en la lista del ws3, una por corrida (370 en dos
+    // días, que se sumaban a «cuántas automatizaciones hay»). tests/automatizaciones-solo-plantillas.test.ts, test 3.
+    if (secId != null) {
+      const { error: eArch } = await db.from('nutricion_secuencias').update({ archivada_at: new Date().toISOString() }).eq('id', secId);
+      if (eArch) console.error('no pude archivar la del arnés', eArch.message);
+    }
     if (horarioAntes != null) await setSetting(KEY_HORARIO_ENVIO, horarioAntes);
     else await horario({ activo: false });
     console.log(`al final: automatización #${secId} pausada · envío de WhatsApp ${await envioWhatsappHabilitado()} · horario ${await getSettingEstricto(KEY_HORARIO_ENVIO)}`);
