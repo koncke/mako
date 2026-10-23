@@ -46,16 +46,26 @@ export function secuenciaDeClave(clave: string): number | null {
  */
 export type ConfigAutomatizacion = {
   horario?: HorarioEnvio | null;
+  /** Por canal. `PERSONA_SIN_ESPERA` (0) = APAGADO: esta automatización no espera entre dos mensajes a la misma persona. */
   personaHoras?: { whatsapp?: number; email?: number };
   /** El goteo de sus WhatsApp (lib/goteo.ts): minutos entre dos envíos y tope en 24 h. Ausente = sin goteo propio. */
   goteo?: { minutos?: number; dia?: number };
 };
 
+/**
+ * «MISMA PERSONA» APAGADO (22/10/2026, Martín, Configuraciones › Anti-ban: «Cada opción se prende y se apaga con un
+ * interruptor... Apagada, no aplica»): 0 horas entre dos mensajes a la misma persona, sólo para ESTA automatización (los
+ * leads de un anuncio, el caso del 16/10). Ausente sigue siendo «la del negocio»: ninguna que ya existía cambia. El motor
+ * no necesita nada propio: con 0 h la ventana de `leadsConEnvioReciente` (lib/nutricion.ts) es vacía, y lo que ya salió
+ * en la MISMA corrida lo sigue frenando `frenadoPorAntiBan`.
+ */
+export const PERSONA_SIN_ESPERA = 0;
 /** Los rangos del goteo: hasta 4 h entre envíos, y el tope por día no pasa el máximo de la línea. */
 export const RANGOS_GOTEO = { minutos: [1, 240] as const, dia: RANGOS_LIMITES.wa.dia } as const;
 
 const enRango = (n: unknown, [min, max]: readonly [number, number]): n is number =>
   typeof n === 'number' && Number.isInteger(n) && n >= min && n <= max;
+const enRangoPersona = (n: unknown, rango: readonly [number, number]): n is number => n === PERSONA_SIN_ESPERA || enRango(n, rango);
 
 /** Lo guardado, saneado: lo que no se entiende queda AUSENTE (= el del negocio). Nunca tira. */
 export function sanearConfigAutomatizacion(raw: unknown): ConfigAutomatizacion {
@@ -74,8 +84,8 @@ export function sanearConfigAutomatizacion(raw: unknown): ConfigAutomatizacion {
   }
   const ph = o.personaHoras && typeof o.personaHoras === 'object' ? o.personaHoras as Record<string, unknown> : null;
   if (ph) {
-    const wa = enRango(ph.whatsapp, RANGOS_LIMITES.wa.personaHoras) ? ph.whatsapp : undefined;
-    const em = enRango(ph.email, RANGOS_LIMITES.email.personaHoras) ? ph.email : undefined;
+    const wa = enRangoPersona(ph.whatsapp, RANGOS_LIMITES.wa.personaHoras) ? ph.whatsapp : undefined;
+    const em = enRangoPersona(ph.email, RANGOS_LIMITES.email.personaHoras) ? ph.email : undefined;
     if (wa !== undefined || em !== undefined) out.personaHoras = { ...(wa !== undefined ? { whatsapp: wa } : {}), ...(em !== undefined ? { email: em } : {}) };
   }
   const go = o.goteo && typeof o.goteo === 'object' ? o.goteo as Record<string, unknown> : null;
@@ -151,7 +161,7 @@ export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown)
       for (const [canal, rango, nombre] of [['whatsapp', RANGOS_LIMITES.wa.personaHoras, 'WhatsApp'], ['email', RANGOS_LIMITES.email.personaHoras, 'email']] as const) {
         if (!(canal in ph)) continue;
         if (ph[canal] === null) { delete nuevo[canal]; continue; }
-        if (!enRango(ph[canal], rango)) return { ok: false, error: `Las horas entre dos ${nombre} van de ${rango[0]} a ${rango[1]}.` };
+        if (!enRangoPersona(ph[canal], rango)) return { ok: false, error: `Las horas entre dos ${nombre} van de ${rango[0]} a ${rango[1]}.` };
         nuevo[canal] = ph[canal] as number;
       }
       if (Object.keys(nuevo).length) out.personaHoras = nuevo; else delete out.personaHoras;

@@ -6010,3 +6010,20 @@ dice en ROJO (`noHecho`), sin «Listo». Lo que MaKo acomodó solo va en gris y 
 · app/automations/ChatMako.tsx · test: tests/chat-mako-ramas-y-listo.test.ts (con las respuestas REALES de la medición).
 **Sin hacer:** el control sólo mira textos entre comillas (una rama pedida sin comillas no se controla); «crear» no tiene el
 control; un link que el dueño escribe y no está en sus links se sigue borrando del mensaje.
+
+## Configuraciones › Anti-ban: renombrar una pestaña es también el prompt de MaKo y su guard de lugares (22/10/2026)
+
+**Pedido (Martín, captura del modal de #289):** «Límites» pasa a llamarse «Anti-ban», cada opción con su interruptor (apagada
+no aplica, número gris, sin «Quitar») y fuera todo el texto suelto: cada fila es nombre, número, unidad e interruptor; lo que
+hay que explicar va en un ⓘ (app/automations/FilasOpciones.tsx). **Trampa 1:** la pestaña no vive sólo en la pantalla: el
+prompt de MaKo le dice al dueño dónde configurar el goteo y los topes (`LO_QUE_NO_ES_TARJETA`, `REGLAS_EDITAR`), los avisos lo
+nombran (`AVISO_MISMA_PERSONA`, `frenoAlAprobar` en lib/goteo.ts) y el guard de Editar rechaza una respuesta que nombra un lugar
+que no existe (`LUGARES_REALES`). Renombrar sólo la pantalla dejaba a MaKo mandando a «Configuraciones › Límites». **Trampa 2:**
+ese guard leía el lugar con `([\p{L}]+)`: «Anti-ban» se leía «Anti» y la respuesta CORRECTA se rechazaba por inventada. Ahora
+lleva el guion. **Decisión:** «Misma persona» apagado = 0 h guardado como propio (`PERSONA_SIN_ESPERA`); ausente sigue siendo
+la del negocio, así ninguna automatización que ya existía cambia, y el motor no necesita nada (con 0 h la ventana de «ya le
+escribimos» es vacía; lo de la misma corrida lo frena `frenadoPorAntiBan`). Los topes de la LÍNEA no se apagan. **Vive en:**
+app/automations/ConfigAutomatizacionPanel.tsx (`AntibanDeLaAutomatizacion`) · LimitesEnvioPanel.tsx · ConfiguracionesBoton.tsx
+· lib/config-automatizacion.ts · lib/flujo-ia-intencion.ts · test: tests/automations-antiban.test.ts. **Sin hacer:** el
+teléfono (/m/automations) no tiene Configuraciones: el anti-ban y el horario de una automatización sólo se cambian en la
+computadora.

@@ -44,10 +44,12 @@ const cuerpo = (src: string, firma: string, fin = '\n}\n'): string => {
 test('1. en la tuerca el huso se VE («Huso del negocio: …») y no se cambia; en Configuraciones › Horario, sí', () => {
   const panel = sinComentarios(leer('app/configuraciones/HorarioEnvioPanel.tsx'));
   // El desplegable (y con él `cambiarZona` → `saveZonaHorarioAction`) sólo en la rama editable.
-  assert.match(panel, /\{fuente\.zonaSoloLectura \? \(\n\s+<span data-zona-del-negocio=""[^>]*>\n\s+\{ROTULO_ZONA_NEGOCIO\}: \{opcionesDeZona\(zona\)\.find\(\(o\) => o\.value === zona\)\?\.label \?\? zona\}\n\s+<\/span>\n\s+\) : \(\n\s+<div[^>]*>\n\s+<Dropdown value=\{zona\}[^\n]*onChange=\{cambiarZona\} \/>/);
+  // 22/10/2026 (Martín: «Elimina todo el texto innecesario»): en la tuerca, «Huso del negocio: …» va en el ⓘ del título.
+  assert.match(panel, /\{fuente\.zonaSoloLectura && <Info texto=\{`\$\{ROTULO_ZONA_NEGOCIO\}: \$\{opcionesDeZona\(zona\)\.find\(\(o\) => o\.value === zona\)\?\.label \?\? zona\}\.`\} \/>\}/);
+  assert.match(panel, /\{!fuente\.zonaSoloLectura && \(\n\s+<div[^>]*>\n\s+<Dropdown value=\{zona\}[^\n]*onChange=\{cambiarZona\} \/>/);
   assert.equal((panel.match(/onChange=\{cambiarZona\}/g) ?? []).length, 1, 'el huso se cambia por otro lado');
   const auto = sinComentarios(leer('app/automations/ConfigAutomatizacionPanel.tsx'));
-  assert.match(auto, /titulo: 'Horario de esta automatización',\n\s+zonaSoloLectura: true,/);
+  assert.match(auto, /const fuente: FuenteHorario = \{\n\s+zonaSoloLectura: true,/);
   // El del negocio (sin `fuente`) sigue editándolo.
   assert.match(panel, /const FUENTE_NEGOCIO: FuenteHorario = \{ leer: \(\) => getHorarioEnvioAction\(\), guardar: \(h\) => saveHorarioEnvioAction\(h\) \};/);
 });
@@ -94,7 +96,8 @@ test('2. «Duplicar» copia la configuración propia de la original a la copia, 
 test('3. las horas «misma persona» del NEGOCIO se ven y se editan en el modal, rotuladas «por defecto»', () => {
   const lim = sinComentarios(leer('app/automations/LimitesEnvioPanel.tsx'));
   assert.match(lim, /export const ROTULO_PERSONA_DEFECTO = 'Misma persona, por defecto';/);
-  assert.match(lim, /filas: b0\.filas\.map\(\(f\) => \(personaPorDefecto && f\.campo === 'personaHoras' \? \{ \.\.\.f, rotulo: ROTULO_PERSONA_DEFECTO, ayuda: AYUDA_PERSONA_DEFECTO \} : f\)\)/);
+  // (22/10/2026: la ayuda va en el ⓘ de la fila, `info`.)
+  assert.match(lim, /filas: b\.filas\.map\(\(f\) => \(personaPorDefecto && f\.campo === 'personaHoras' \? \{ \.\.\.f, rotulo: ROTULO_PERSONA_DEFECTO, info: AYUDA_PERSONA_DEFECTO \} : f\)\)/);
   assert.doesNotMatch(lim, /f\.campo !== 'personaHoras'/, 'volvió a esconder las horas del negocio');
   assert.match(sinComentarios(leer('app/automations/ConfiguracionesBoton.tsx')), /<LimitesEnvioPanel onSucio=\{alSucioLimites\} personaPorDefecto \/>/);
 });
@@ -166,9 +169,13 @@ test('m. un horario sin `activo` booleano se rechaza; apagado con días vacíos 
   assert.match(db, /if \(r\.vacia\) await borrarConfig\(ws, secuenciaId\);\n\s+else await setSetting\(claveConfigAutomatizacion\(secuenciaId\), r\.valor\);/);
 });
 
-test('m. la tarjeta «Horario propio» apagado dice «manda a cualquier hora», en el color de aviso', () => {
+// 22/10/2026 (Martín: «Elimina todo el texto innecesario... Lo mismo en «Horario»»): sin la línea «Como el negocio: …» ni
+// «Sólo para esta automatización: sin horario…». «Horario propio» es una fila con su interruptor; lo del negocio, en su ⓘ.
+// Propio y «Horario de oficina» apagado (manda a cualquier hora) lo dice el interruptor de «Horario de oficina».
+test('m. «Horario propio» es una fila con interruptor y lo del negocio va en su ⓘ, sin texto suelto', () => {
   const p = sinComentarios(leer('app/automations/ConfigAutomatizacionPanel.tsx'));
-  assert.match(p, /\{propio && !d\.config\.horario\?\.activo\n\s+\? <span data-sin-horario="" style=\{\{ color: 'var\(--warn\)' \}\}>Sólo para esta automatización: \{textoDeHorario\(null\)\}\.<\/span>/);
+  assert.match(p, /<FilaOpcion primera nombre="Horario propio" info=\{`Apagado, usa el del negocio: \$\{textoDeHorario\(d\.horarioNegocio\)\}\.`\}/);
+  assert.doesNotMatch(p, /Como el negocio|Sólo para esta automatización|data-sin-horario/, 'volvió el texto suelto');
   assert.equal(textoDeHorario(null), 'sin horario: manda a cualquier hora');
 });
 
@@ -196,13 +203,14 @@ test('m. el tick: la lectura de los horarios propios trae sólo los prendidos, c
   assert.ok(r.ok && r.valor.includes('"activo":true'));
 });
 
-test('m. las horas de esta automatización: lo tocado se ve ya y los cambios del respiro se juntan', () => {
+// 22/10/2026: el goteo y la misma persona en UN componente (`AntibanDeLaAutomatizacion`) y UN guardado por respiro.
+test('m. el anti-ban de esta automatización: lo tocado se ve ya y los cambios del respiro se juntan (las dos partes)', () => {
   const p = sinComentarios(leer('app/automations/ConfigAutomatizacionPanel.tsx'));
-  const g = cuerpo(p, 'const guardar = (cambio: Record<string, number | null>) => {', '\n  };');
-  assert.match(g, /pendiente\.current = \{ \.\.\.pendiente\.current, \.\.\.cambio \};/);
-  assert.match(g, /setLocal\(\(p\) => \(\{ \.\.\.p, \.\.\.cambio \}\)\);/);
-  assert.match(g, /const personaHoras = pendiente\.current;\n\s+pendiente\.current = \{\};/);
-  assert.match(p, /const propio = f\.canal in local \? \(local\[f\.canal\] \?\? undefined\) : d\.config\.personaHoras\?\.\[f\.canal\];/);
+  const g = cuerpo(p, "const guardar = (parte: 'goteo' | 'personaHoras', cambio: Record<string, number | null>) => {", '\n  };');
+  assert.match(g, /pendiente\.current = \{ \.\.\.pendiente\.current, \[parte\]: \{ \.\.\.\(pendiente\.current\[parte\] \?\? \{\}\), \.\.\.cambio \} \};/);
+  assert.match(g, /setLocal\(\(p\) => \(\{ \.\.\.p, \.\.\.Object\.fromEntries\(Object\.entries\(cambio\)\.map\(\(\[k, v\]\) => \[`\$\{parte\}\.\$\{k\}`, v\]\)\) \}\)\);/);
+  assert.match(g, /const envio = pendiente\.current;\n\s+pendiente\.current = \{\};[\s\S]*saveConfigAutomatizacionAction\(secuenciaId, envio\)/);
+  assert.match(p, /if \(k in local\) return local\[k\] \?\? undefined;\n\s+return \(d\.config\[parte\] as Record<string, number> \| undefined\)\?\.\[campo\];/);
 });
 
 test('m. la tuerca la ve también quien no es admin (el modal entra en sólo lectura)', () => {
