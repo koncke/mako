@@ -14,7 +14,7 @@
 //    pueden decir cosas distintas.
 // ⚠️ PURO (sin React ni red): lo usan la pantalla de la computadora, la del teléfono y los tests.
 
-import { TIPOS, TOPES, clasificar, tituloDe, type TipoTicket } from './tickets-reglas';
+import { TIPOS, TOPES, clasificar, sanearContexto, tituloDe, type ContextoTicket, type TipoTicket } from './tickets-reglas';
 
 /** Lo que MaKo puede repreguntar: que cuente más, dónde le pasó y si le pasa siempre. */
 export type ClavePregunta = 'mas' | 'donde' | 'cuando';
@@ -109,6 +109,24 @@ export function queSigue(c: Charla): Paso | null {
     if (!hecha('cuando')) return { k: 'pregunta', clave: 'cuando', ...PREGUNTAS.cuando };
   }
   return { k: 'ticket', texto: AL_ARMAR[b.tipo], borrador: b };
+}
+
+/**
+ * El contexto del ticket del chat, armado en el SERVIDOR (la revisión de Integración, 23/10/2026): de lo que manda el navegador,
+ * sólo lo que el navegador sabe de sí (la pantalla, el navegador, la zona, el idioma y la hora). La acción es una server action:
+ * se la puede llamar a mano con cualquier argumento, y lo demás del contexto NO es del navegador:
+ *   · `chat.hilo` dice en qué chat se avisa la respuesta (lib/tickets-cierre.ts → `avisarUno`): apuntado a la sesión de MaKo
+ *     del dueño, la respuesta de Martín quedaba en SU chat como si la dijera MaKo, y el modelo la leía en el turno siguiente;
+ *   · `error` y `herramienta` el triage los lee como lo que vio fallar el sistema (arreglo automático);
+ *   · `ruta` y `noExiste` también cambian el triage.
+ */
+export function contextoDeSoporte(delNavegador: unknown, movil: boolean): ContextoTicket {
+  const c = sanearContexto(delNavegador);
+  return {
+    chat: { donde: movil ? 'soporte-movil' : 'soporte' },
+    ...(c.navegador ? { navegador: c.navegador } : {}), ...(c.pantalla ? { pantalla: c.pantalla } : {}),
+    ...(c.zona ? { zona: c.zona } : {}), ...(c.idioma ? { idioma: c.idioma } : {}), ...(c.hora ? { hora: c.hora } : {}),
+  };
 }
 
 /** El tipo con las palabras de la pantalla (las mismas del formulario y de la bandeja de Martín). */

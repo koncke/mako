@@ -16,6 +16,8 @@ import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { Status } from '@/app/_ui';
 import { TIPOS } from '@/lib/tickets-reglas';
+import { hayClave } from '@/lib/claves-en-el-chat';
+import { AvisoClave } from '@/app/_chat/AvisoClave';
 import { rotuloTipo } from '@/lib/soporte-chat';
 import { hace } from '../navegador';
 import { TONO_ESTADO } from './hilo-soporte';
@@ -107,6 +109,8 @@ export function CajaSoporte({ s, movil = false }: { s: Soporte; movil?: boolean 
   return (
     <CajaChat texto={s.texto} onTexto={s.setTexto} onMandar={() => { s.mandar(); }} enviando={s.enviando} apagado={s.apagado || s.cargando}
       placeholder={s.placeholder} tituloMandar={s.ticket ? 'Mandárselo al equipo' : 'Contárselo a MaKo'} enterManda={!movil}
+      // Una clave pegada se tapa al guardar (lib/tickets-db.ts); antes, se le dice dónde va, como en la caja del Ops Center.
+      arriba={hayClave(s.texto) ? <AvisoClave /> : undefined}
       {...(movil ? { fila: 'm-operaciones-caja__fila' } : {})} />
   );
 }

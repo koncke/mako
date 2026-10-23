@@ -15,6 +15,7 @@ import 'server-only';
 // entre marcas (scripts/tickets.ts). El triage lo lee con reglas (lib/tickets-reglas.ts), sin mandarlo a ninguna IA.
 
 import { getSupabaseServer } from './supabase';
+import { taparClaves } from './claves-en-el-chat';
 import { getWorkspace, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { capaDef } from './capas';
@@ -206,8 +207,10 @@ export type Creado = { ok: true; id: number; estado: EstadoTicket; triage: Triag
 
 export async function crearTicket(n: NuevoTicket): Promise<Creado> {
   const db = getSupabaseServer();
-  const titulo = n.titulo.trim().slice(0, TOPES.titulo);
-  const descripcion = n.descripcion.trim().slice(0, TOPES.descripcion);
+  // Las claves tapadas ANTES de guardar (la revisión de Integración, 23/10/2026): el chat de Soporte se ve como los del Ops
+  // Center, que las tapan, y lo de un ticket viaja en el push, en la bandeja y al Cerebro (scripts/tickets.ts ver).
+  const titulo = taparClaves(n.titulo.trim()).texto.slice(0, TOPES.titulo);
+  const descripcion = taparClaves(n.descripcion.trim()).texto.slice(0, TOPES.descripcion);
   if (!titulo) return { ok: false, error: 'Escribe qué pasó' };
   if (n.ref) {
     const { data: ya } = await db.from(T).select('id, estado, triage').eq('ref', n.ref).maybeSingle();
@@ -264,7 +267,7 @@ export async function miTicket(ws: number, email: string, id: number): Promise<{
 
 /** La persona contesta su ticket (cuando Martín le preguntó algo, o para sumar un dato). Vuelve a la bandeja. */
 export async function comentarComoCliente(ws: number, email: string, id: number, texto: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const t = texto.trim();
+  const t = taparClaves(texto.trim()).texto;
   if (!t) return { ok: false, error: 'Escribe tu respuesta' };
   if (t.length > TOPES.nota) return { ok: false, error: `Acórtala a ${TOPES.nota} caracteres` };
   const db = getSupabaseServer();

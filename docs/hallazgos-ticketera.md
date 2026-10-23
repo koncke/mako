@@ -34,6 +34,23 @@ comenten a MaKo cual fue su problema... Y en toda la app, SIEMPRE que sale un er
   usuario gastando los 8 arreglos del día. Ahora el error va en el detalle y el ticket lo decide Martín (lo fija un test con
   `clasificar`). Regla: `contexto.error` es SÓLO lo que registró el código del servidor (lib/errores-app.ts, el turno de MaKo).
 
+- **Trampa: una server action acepta CUALQUIER argumento, y el `contexto` del ticket no es del navegador** (la revisión de
+  Integración, 23/10/2026, sobre la punta que ya había pasado la mía). `levantarDesdeSoporteAction` guardaba el contexto que le
+  mandaban. Alguien del negocio que la llamara a mano con `chat.hilo` = la sesión de MaKo del dueño (los ids son correlativos)
+  hacía que, al contestar Martín, `avisarUno` (lib/tickets-cierre.ts) escribiera la respuesta en el chat del DUEÑO como si la
+  dijera MaKo, y el modelo la leía en el turno siguiente: la puerta que se cerró el 11/10 (lib/chart-chats.ts), abierta por otro
+  lado. Y por ahí entraba también el `contexto.error` que el botón ya no mandaba. Ahora el contexto lo arma el servidor
+  (`contextoDeSoporte`, lib/soporte-chat.ts: del navegador sólo navegador, pantalla, zona, idioma y hora). El formulario viejo
+  (`levantarTicketAction`) tenía lo mismo y no lo usaba nadie: se borró. Regla: `chat.hilo`, `error`, `herramienta`, `ruta` y
+  `noExiste` los pone SÓLO el código del servidor que los vio.
+- **Un ticket del chat sin hilo nunca quedaba «avisado», y 30 así trababan el cron.** `avisarUno` no tenía rama para canal de
+  chat sin hilo: sin push, `avisado_at` no se marcaba, y `avisarPendientes` toma los 30 más viejos sin avisar, así que esos 30
+  ocupaban la ventana para siempre y no salía NINGÚN aviso (tampoco los de WhatsApp ni los de los grupos). La conversación del
+  chat de Soporte ES /tickets: cuenta como avisado.
+- **Lo que se escribe en Soporte se guarda con las claves tapadas** (`taparClaves` en `crearTicket` y `comentarComoCliente`,
+  lib/tickets-db.ts). El chat se ve como los del Ops Center, que las tapan, y lo de un ticket viaja en el push, la bandeja y al
+  Cerebro. La caja dice «Eso parece una clave» como la del Ops Center.
+
 **Vive en:** lib/soporte-chat.ts · lib/soporte-reporte.ts · app/tickets/soporte/ · app/tickets/acciones.ts (`levantarDesdeSoporteAction`) · app/api/soporte/reportar/route.ts · tests/ticketera-chat-soporte.test.ts · tests/reportar-a-soporte.test.ts
 
 ---

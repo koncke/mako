@@ -17,7 +17,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { CHARLA_VACIA, LUGARES, borradorDe, preguntar, queSigue, sumar, type Charla } from '../lib/soporte-chat';
+import { CHARLA_VACIA, LUGARES, borradorDe, contextoDeSoporte, preguntar, queSigue, sumar, type Charla } from '../lib/soporte-chat';
+import { taparClaves } from '../lib/claves-en-el-chat';
 import { idDelBorrador, itemsDeCharla, itemsDeTicket, placeholderDe, type Turno } from '../app/tickets/soporte/hilo-soporte';
 import { paraElCliente } from '../lib/tickets-reglas';
 
@@ -127,9 +128,33 @@ test('3b. el ticket del chat sale con el workspace y el email de la SESIÓN, por
   assert.match(sinComentarios(leer('app/tickets/navegador.ts')), /if \(document\.referrer && !donde\.startsWith\('soporte'\)\)/, 'de dónde venía no es dónde le pasó');
 });
 
+test('4. lo que encontró la revisión de Integración (23/10/2026): el contexto lo arma el servidor, el aviso no se traba, las claves se tapan', () => {
+  // M1: del navegador, sólo lo que sabe de sí. Un `chat.hilo` de afuera escribía la respuesta de Martín en el chat de MaKo del
+  // dueño; `error`, `herramienta`, `ruta` y `noExiste` cambian el triage.
+  const c = contextoDeSoporte({ chat: { donde: 'soporte', hilo: '123' }, error: 'MaKo falló', herramienta: 'borrar_lead', ruta: '/pagos',
+    noExiste: true, navegador: 'Mozilla/5.0 (X11)', pantalla: '390x844', zona: 'UTC', idioma: 'es', hora: '2026-10-23T10:00:00Z' }, true);
+  assert.deepEqual(c, { chat: { donde: 'soporte-movil' }, navegador: 'Mozilla/5.0 (X11)', pantalla: '390x844', zona: 'UTC', idioma: 'es', hora: '2026-10-23T10:00:00.000Z' });
+  const acc = sinComentarios(leer('app/tickets/acciones.ts'));
+  assert.match(acc, /contexto: contextoDeSoporte\(entrada\.contexto, entrada\.movil\), ref,/);
+  assert.doesNotMatch(acc, /contexto: entrada\.contexto/, 'ninguna acción guarda el contexto del navegador tal cual');
+  // M2: un ticket del chat sin hilo cuenta como avisado (su conversación ES /tickets); si no, 30 así trababan el cron.
+  assert.match(sinComentarios(leer('lib/tickets-cierre.ts')),
+    /if \(\(f\.canal === 'chat_app' \|\| f\.canal === 'chat_movil'\) && !\/\^\\d\{1,12\}\$\/\.test\(hilo\)\) salio\.push\('tickets'\);/);
+  // M3: lo que escribe la persona se guarda con las claves tapadas, en el alta y en lo que contesta.
+  const db = sinComentarios(leer('lib/tickets-db.ts'));
+  assert.match(db, /const titulo = taparClaves\(n\.titulo\.trim\(\)\)\.texto\.slice\(0, TOPES\.titulo\);/);
+  assert.match(db, /const descripcion = taparClaves\(n\.descripcion\.trim\(\)\)\.texto\.slice\(0, TOPES\.descripcion\);/);
+  assert.match(db, /const t = taparClaves\(texto\.trim\(\)\)\.texto;/);
+  assert.ok(!taparClaves('mi clave es sk-ant-api03-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789 y no anda').texto.includes('AbCdEfGh'));
+  assert.match(sinComentarios(leer('app/tickets/soporte/PiezasSoporte.tsx')), /arriba=\{hayClave\(s\.texto\) \? <AvisoClave \/> : undefined\}/);
+});
+
 // PROBADO ROMPIÉNDOLO (23/10/2026, base 6/0, de a una; cada una → 5/1):
 //   · «dónde» aunque nombró la tab                       → 1
 //   · un pedido también se interroga                     → 1b
 //   · la tarjeta en la PRIMERA propuesta                 → 2
 //   · la Ticketera del Ops Center importa el chat directo → 3
 //   · el tipo adivinado viaja como si lo hubiera dicho   → 3b
+// Y los de la revisión de Integración (test 4, base 7/0; cada una → 6/1): el contexto del navegador entero en
+// `contextoDeSoporte`; la acción guardando `entrada.contexto` tal cual; el ticket del chat sin hilo sin contar como avisado;
+// `comentarComoCliente` sin tapar las claves.
