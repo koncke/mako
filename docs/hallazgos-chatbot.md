@@ -6038,7 +6038,12 @@ abierta»), pausadas, con la línea del ws9 sin QR:
 - **Las piezas de la galería no se exportan** (`whatsapp()`, `condicion()`, `esperar()` en
   lib/plantillas-automatizaciones.ts): un script copia su forma exacta (`RELLENO` + campos) y valida con
   `validarGrafo` + `frenoDelFlujo` + `problemasDeForma` antes de escribir. Las dos pasaron sin nada.
-- **«Sale sola» se decide por tarjeta** (`revisar: true` → para aprobar): aunque alguien active el flujo, nada sale
-  solo. Se comprobó con `saleSolaDelPaso` en cada WhatsApp.
+- **Lo que frena es la PAUSA, no la aprobación por mensaje.** Nacieron con `revisar: true` (para aprobar) y el mismo
+  día se sacó: Martín, 23/10, «si estoy haciendo una AUTOMATIZACIÓN es OBVIO que debe llegar sola». Quedan pausadas,
+  con cada WhatsApp que sale solo (`saleSolaDelPaso`), «Misma persona» apagado en cada una (las 20 h del negocio
+  retrasaban un seguimiento corto) y goteo de la apertura en 5 min / 40 por día.
+- **El orden importa al activar:** «Traer de un grupo de WhatsApp» no ofrece una etapa de la que cuelga una
+  automatización ACTIVA (`etapasQueDisparan`). Con #568 activa, TIBIO deja de ofrecerse: primero se traen los grupos,
+  después se activa.
 
-**Sin hacer:** activarlas es de Martín, después de vincular la línea del ws9 y de cargar la base.
+**Sin hacer:** activarlas es de Martín, después de vincular su WhatsApp al ws9 y de traer los grupos.

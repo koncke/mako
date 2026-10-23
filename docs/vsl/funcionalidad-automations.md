@@ -28,7 +28,7 @@ Un flujo. // Cuatro tarjetas. // Cada lead nuevo pasa por ahí, // sin que tenga
 
 **OBJECIÓN (1:24–1:36)**
 Y si tu objeción es «no quiero sonar a robot»… // déjame decirte algo: ///
-tú escribes los mensajes. // Y puedes **aprobar cada uno** antes de que salga.
+los mensajes los escribes tú, // con tus palabras. // MaKo sólo elige **cuándo** mandarlos.
 
 **CIERRE (1:36–1:40)**
 El dinero no está en el primer mensaje. // **Está en el que nadie manda.** /// Entra a MaKo.
@@ -41,5 +41,7 @@ El dinero no está en el primer mensaje. // **Está en el que nadie manda.** ///
 ## Lo que NO dice, a propósito
 - El «ocho de cada diez después del quinto contacto» es un dato de mercado que circula sin fuente firme: si Martín
   prefiere no usarlo, el gancho alternativo es el 2.
-- Que MaKo «contesta solo»: el AI Step clasifica la respuesta y deja el mensaje para aprobar, salvo que la persona
-  elija que salga solo.
+- Que MaKo «contesta solo» cualquier cosa: el AI Step clasifica la respuesta y necesita la IA del negocio conectada;
+  sin IA, avisa y responde una persona.
+- La aprobación mensaje por mensaje: Martín (23/10) «si estoy haciendo una AUTOMATIZACIÓN es OBVIO que debe llegar
+  sola». La objeción se contesta con que el texto es suyo.

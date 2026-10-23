@@ -1,7 +1,7 @@
 # VSL · Ads Manager
 
 > **Para:** el que pauta y mira el costo por lead pero no sabe qué anuncio le vende · **Ángulo:** el anuncio más barato no es el que vende
-> **Dura:** ~1:45 · **CTA:** Entra a MaKo (o agenda tu diagnóstico) · **Landing:** Ads Manager
+> **Dura:** ~1:45 · **CTA:** Entra a MaKo Pro (o agenda tu diagnóstico) · **Landing:** Ads Manager
 
 **La idea en una frase:** MaKo te muestra cuánto dinero cobrado trajo cada anuncio y te dice cuánto invertir para testear.
 
@@ -33,7 +33,7 @@ Y si tu objeción es «Meta ya optimiza solo»… // déjame decirte algo: ///
 Meta optimiza lo que le muestras. // **Si no sabe quién te pagó, optimiza a ciegas.**
 
 **CIERRE (1:40–1:45)**
-No necesitas más presupuesto. // Necesitas saber dónde ponerlo. /// Entra a MaKo.
+No necesitas más presupuesto. // Necesitas saber dónde ponerlo. /// Entra a MaKo Pro.
 
 ## 3 ganchos para testear
 1. «Tu anuncio más barato puede ser el que menos vende.»
@@ -43,3 +43,4 @@ No necesitas más presupuesto. // Necesitas saber dónde ponerlo. /// Entra a Ma
 ## Lo que NO dice, a propósito
 - La calculadora entra a producción con la punta 42cc940c6: grabar la PRUEBA después de que esté desplegada.
 - Que MaKo pausa o escala solo: lo que escribe en Meta pasa por una confirmación.
+- El Ads Manager completo y la calculadora son del plan Pro (US$97): el CTA lo nombra.

@@ -2,7 +2,7 @@
 
 > **Para:** dueño de 35 a 55, vende un programa o una consultoría cara con anuncios y llamada, ya factura
 > **Ángulo:** facturas bien y no sabes por qué; si se cae, no sabrías arreglarlo
-> **Dura:** ~1:50 · **CTA:** Agenda tu diagnóstico gratis · **Landing:** por avatar
+> **Dura:** ~1:50 · **CTA:** Agenda tu diagnóstico gratis · **Empuja:** el Acelerador · **Landing:** por avatar
 
 **La idea en una frase:** ya llegaste por intuición; para crecer, MaKo te muestra el número que se rompe antes de que te cueste el mes.
 

@@ -1,9 +1,13 @@
 // =============================================================================
 // cargar-base-venta — una lista de Martín al CRM «PROSPECCIÓN» del ws9, con su ORIGEN, sin duplicar nunca
 // =============================================================================
+// ⚠️ RESPALDO, no el camino (Martín, 23/10: «Esto justamente lo debería hacer yo desde MaKo con la funcionalidad de
+// scrapear los grupos de WhatsApp»). La base la trae él con «Traer de un grupo de WhatsApp» (CRM). Esto sirve sólo si
+// llega una lista en archivo; nadie lo corre solo, y sin `--escribir` no escribe nada.
 // Pedido de Martín (22/10/2026): la base de leads para vender MaKo, «con el ORIGEN de cada uno (de la formación de Jan,
 // de Mastery House, del evento de Cancún…)» y una clasificación mínima. La clasificación es la que su CRM ya tiene:
-// Círculo ROJO (st0) / TIBIO (st1) / FRÍO (st2). El origen va en una etiqueta «Origen: <nombre>», porque `origen_lead`
+// Círculo ROJO (st0) / TIBIO (st1) / FRÍO (st2); todos entran en TIBIO salvo que se pida otro («Todos empiezan en
+// TIBIO y los muevo yo», Martín, 23/10). El origen va en una etiqueta «Origen: <nombre>», porque `origen_lead`
 // es un catálogo cerrado (app/crm/origen-lead.ts) y un texto libre ahí se pinta «Sin origen».
 //
 // NUNCA DUPLICA (regla de la casa): cada fila se busca con `duplicadosDeLead` (teléfono comparable, email, y el nombre
@@ -16,7 +20,7 @@
 // Sin `--escribir` es EN SECO: cuenta y muestra, no escribe nada. El ws1 (Mauricio) no se toca nunca.
 //
 //   node --env-file=<repo>/.env.local --conditions=react-server --import tsx scripts/cargar-base-venta.mts \
-//     --archivo lista.csv --origen "Formación de Jan" --circulo tibio [--escribir]
+//     --archivo lista.csv --origen "Formación de Jan" [--circulo tibio] [--escribir]
 // =============================================================================
 
 import { readFileSync } from 'node:fs';
@@ -30,10 +34,10 @@ const ETAPA_DEL_CIRCULO: Record<string, string> = { rojo: 'st0', tibio: 'st1', f
 
 const archivo = arg('archivo');
 const origen = (arg('origen') ?? '').trim();
-const circulo = (arg('circulo') ?? '').toLowerCase();
+const circulo = (arg('circulo') ?? 'tibio').toLowerCase();
 if (WS !== 9) throw new Error('Este script es para el CRM de Martín (ws9). El ws1 no se toca nunca.');
 if (!archivo || !origen || !ETAPA_DEL_CIRCULO[circulo]) {
-  throw new Error('Uso: --archivo <csv> --origen "<de dónde viene>" --circulo rojo|tibio|frio [--escribir]');
+  throw new Error('Uso: --archivo <csv> --origen "<de dónde viene>" [--circulo rojo|tibio|frio, default tibio] [--escribir]');
 }
 const etiquetaNombre = `Origen: ${origen}`.slice(0, 40);
 const etapa = ETAPA_DEL_CIRCULO[circulo];
