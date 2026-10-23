@@ -181,21 +181,27 @@ nuevo de `pasos` que arme la lista de cero choca con esa red en vez de aplanar e
 
 ## El motor
 
-### «Misma persona» apagada por defecto sin cambiarle nada a nadie: el paso de una vez y lo que invierte (23/10/2026)
+### «Misma persona» apagada por defecto sin cambiarle nada a nadie, y en cualquier orden (23/10/2026)
 
-**El pedido:** Martín, «"Misma persona" apagado por defecto» y «nada para todas». Lo ingenuo es cambiar el default y listo,
-pero hasta ese día AUSENTE quería decir «la del negocio» (20 h), así que 510 de las 518 automatizaciones de producción se
-habrían apagado de golpe y habrían empezado a mandarle dos mensajes seguidos a la misma persona. **Cómo quedó:** sin las suyas,
-APAGADA (`personaHorasDeLaAutomatizacion(c)`), y antes del deploy un script guarda en cada una como SUYO lo que heredaba
-(`fijarPersonaPropia`, scripts/misma-persona-propia.mts, con `--creadas-antes`). Es un script y no un `.sql` porque lo que
-heredaban sale de `limitesVigentes(raw, limitesDeFabrica(env))`, y un SQL tendría que copiar esa regla; el test compara la
-regla vieja con la nueva en 48 casos. **La trampa que destapó:** el aviso de Prospección de Publicar («revisa su horario y
-sus límites») salía sólo si la automatización no tenía NADA propio (`tieneConfigPropia`), y después del paso todas tienen
-algo. Es la trampa del backfill de AGENTS.md («invierte en silencio a todo el que cuenta filas»), pero con un campo: ahora
-mira el ritmo (`tieneRitmoPropio`: horario o goteo). **Regla:** antes de cambiar qué significa «ausente», grepear quién
-pregunta «¿tiene algo?», no sólo quién lee el valor. **El orden:** el script ANTES del deploy, y nunca sobre lo creado
-después (esas son las nuevas). **Vive en:** lib/config-automatizacion.ts · scripts/misma-persona-propia.mts ·
-app/automations/ConfiguracionesBoton.tsx · tests/misma-persona-propia.test.ts.
+**El pedido:** Martín, «"Misma persona" apagado por defecto» y «nada para todas». Lo ingenuo es cambiar el default, pero
+AUSENTE quiere decir «la del negocio» (20 h): 510 de las 518 automatizaciones de producción se habrían apagado de golpe y le
+habrían mandado dos mensajes seguidos a la misma persona. **La primera vuelta también estaba mal:** ausente = apagada, con un
+script que había que correr ANTES del deploy. El Cerebro lo frenó: un deploy sin el script era una trampa armada. **Cómo
+quedó:** «sin las suyas» sigue siendo la del negocio (`personaHorasDeLaAutomatizacion` no cambió), y lo de «apagado por
+defecto» se cumple al NACER: cada alta guarda la suya apagada (`CONFIG_DE_NACIMIENTO`, `nacerConfigAutomatizacion`). El
+script (`fijarPersonaPropia`, scripts/misma-persona-propia.mts) es una limpieza que guarda como suyo lo que cada vieja
+heredaba, antes o después del deploy, igual da. Es un script y no un `.sql` porque lo heredado sale de
+`limitesVigentes(raw, limitesDeFabrica(env))`. El test compara los TRES órdenes contra la regla de hoy en 48 casos.
+**La trampa que destapó:** el aviso de Prospección de Publicar («revisa su horario y sus límites») salía sólo si la
+automatización no tenía NADA propio (`tieneConfigPropia`), y ahora todas nacen con algo. Es la trampa del backfill de
+AGENTS.md («invierte en silencio a todo el que cuenta filas»), pero con un campo: ahora mira el ritmo (`tieneRitmoPropio`:
+horario o goteo). **Reglas:** un default nuevo va AL NACER, no cambiando qué significa «ausente»; y antes de que todas
+tengan algo, grepear quién pregunta «¿tiene algo?». **Y el barrido de las altas** (que cada insert en
+`nutricion_secuencias` la haga nacer apagada) dejó pasar dos roturas en su primera versión: una llamada después del
+`return` y una segunda alta en un archivo ya listado. Ahora cuenta las altas por archivo y mira el orden.
+**Vive en:** lib/config-automatizacion.ts · lib/config-automatizacion-db.ts (`nacerConfigAutomatizacion`) · las altas
+(lib/setting-secuencias.ts, lib/plantilla-crear.ts, lib/flujo-copia-negocio.ts, lib/secuencias-audios.ts) ·
+scripts/misma-persona-propia.mts · app/automations/ConfiguracionesBoton.tsx · tests/misma-persona-propia.test.ts.
 *23/10/2026, chat «Automations» (claude2).*
 
 ### La entrada es `raizSalida`, nunca `pasos[0]`, y el índice se traduce en UNA puerta [M, motor-10, lienzo-1]
