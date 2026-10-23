@@ -1,6 +1,28 @@
 # Relevo · Web Generator, ex Landing Generator (el editor copiado de Gamma)
 
-## Estado al 23/10/2026 (chat «Landings de MaKo en Web Generator», cuenta claude1) — leer primero
+## Estado al 23/10/2026 tarde (mismo chat, cuenta claude2, retoma a claude1 cortado por cuota) — leer primero
+
+**Las ocho landings del lanzamiento (domingo 25/10) están arriba**, documentos #33–#40 del ws9, y se dibujan en las dos
+direcciones (hola-mako.com/vsl/<slug> y hola-mako.site/<slug>) con el Pixel v25. La última en salir fue `avatares-ia`
+(#40, la que estaba `pausada` en `scripts/landings-mako-funnels.mts`): **Martín decidió el 23/10 11:57 sacarla TAL CUAL**,
+con el texto que tenía, y así está. Medido: `.site` dio 200 a los segundos; `/vsl/avatares-ia` dio 404 unos 4 min y
+después 200 (el slug se cachea 5 min, también el «no existe»). El script solo alcanza: no hace falta «Publicar».
+⚠️ El script se corre SIEMPRE con `--solo <slug>`: sin id inserta documentos nuevos y duplica las ocho.
+
+**Los carruseles de `SCRIPT_DISENO` ya se pueden parar** (commit `af67986ab`, en producción desde `309c54ef4`): con
+«reducir movimiento» no avanzan, mouse real o foco de teclado encima los frena, y hay un botón de pausa. Verificado en
+producción sin tocar la página, escritorio y móvil con toque: avanzan solos, frenan, reanudan, el botón se ve (3 por
+página, 32 px) y con «reducir movimiento» no hay botón ni avance. Es lo que antes figuraba abajo como «después del 25».
+Detalle y trampas (un toque deja foco y «encima» puestos; el arnés de medición): docs/hallazgos-editor-landing.md →
+«Publicar una landing de MaKo, y los carruseles que no se paraban». El Diagnóstico de la página que no se deja embeber
+(`web-diag-2310`) también está en producción.
+
+**Sigue para después del 25/10, en este orden** (lo de abajo no cambió): el cierre del `window.opener` del Pixel (26/10,
+diseñado y medido), la etapa 4 de animaciones (con el editor de Framer abierto en el Chrome de Martín antes de copiar el
+Ticker y el Slideshow, y con una cuenta que crea él) y el video de fondo. **Sin medir:** el botón de pausa con lector de
+pantalla y el reveal sin movimiento en un iPhone real.
+
+## Estado al 23/10/2026 por la mañana (cuenta claude1; lo de arriba lo corrige)
 
 **Medido en producción** (deploy `mako-jnb7ohn00` = `594ecd41b`), porque llegaron mensajes con el estado del 15/10: el
 panel «Animar» está (tanda 8, abajo), el 403 del Diagnóstico ya no sale y la landing armada con JavaScript se ve con su
@@ -38,8 +60,8 @@ real si no se deja. Detalle: docs/hallazgos-editor-landing.md → «El Diagnóst
    docs/hallazgos-editor-landing.md → «Animaciones, etapa 4: relevamiento en papel». En corto: la cinta, el contador,
    los pasos y el carrusel son VARIANTES de los «Diseños optimizados» que ya existen (no bloques nuevos), y los efectos
    de scroll son un attr de la sección. Para el lanzamiento no hace falta ninguna: la landing de MaKo ya se mueve con
-   `SCRIPT_DISENO`. Lo que sí hay que arreglar después del 25: sus carruseles avanzan solos sin pausa ni «reducir
-   movimiento» (WCAG 2.2.2). **Etapa 6** (plantillas con movimiento e «Ilustración animada» con un Lottie de contenido
+   `SCRIPT_DISENO`. Sus carruseles avanzaban solos sin pausa ni «reducir movimiento» (WCAG 2.2.2): ARREGLADO el
+   23/10 por la tarde (ver arriba). **Etapa 6** (plantillas con movimiento e «Ilustración animada» con un Lottie de contenido
    PROPIO): la licencia de cada pieza que se ofrezca queda escrita acá antes de publicarla (el registro está abajo).
 3. El video de fondo sigue apagado hasta que el puente a Flow se mida en vivo (docs/relevo/video-generator.md).
 
