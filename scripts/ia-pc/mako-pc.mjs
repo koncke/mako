@@ -344,6 +344,13 @@ async function cancelar() {
 // (y la suscripción de Claude de la persona) a su MaKo. Del enlace sale sólo el código; la ventana dice a qué negocio y como
 // quién se conecta, como el «¿Es tu negocio?» del instalador de consola.
 
+/**
+ * La versión con el sistema, para el latido: `0.4.0+windows` o `0.4.0+mac` (varias computadoras, 22/10/2026: la tarjeta dice
+ * cuál es cuál; lib/ia-pc-reglas.ts → `sistemaDeLaVersion`). Sin migración: el servidor ya acepta el `+`.
+ */
+export const versionConSistema = (plataforma = process.platform) =>
+  `${VERSION}${plataforma === 'win32' ? '+windows' : plataforma === 'darwin' ? '+mac' : ''}`;
+
 /** Las mismas reglas del código que lib/ia-pc-reglas.ts (`normalizarCodigo`; tests/ia-pc-enlace.test.ts compara las dos). */
 export const ALFABETO_CODIGO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const LARGO_CODIGO = 8;
@@ -496,6 +503,7 @@ async function desconectada(miToken) {
   log('MaKo desconectó esta computadora. Para volver a usarla, conéctala de nuevo desde MaKo.');
   const c = { ...(leerConfig() ?? {}) };
   if (c.token && c.token !== miToken) return;
+  const negocio = c.negocio;
   delete c.token;
   try { guardarConfig(c); } catch { /* */ }
   // `MAKO_PC_SIN_ARRANQUE=1`: los tests (tests/ia-pc-revision.test.ts) no tocan el arranque de la PC donde corren.
@@ -511,6 +519,10 @@ async function desconectada(miToken) {
       rmSync(join(homedir(), 'Library', 'LaunchAgents', 'com.hola-mako.pc.plist'), { force: true });
     }
   } catch { /* lo intenta y sale igual */ }
+  // Lo DICE (varias computadoras, 22/10/2026: «Desconectar» desde MaKo o desde SuperAdmin): sin consola, nadie leía el
+  // registro. Sólo cuando la desconectaron a ELLA (al reemplazarla por otra conexión, arriba ya salió sin decir nada), y al
+  // FINAL, esperándola: quien llama sale apenas esto vuelve, y la ventana no llegaba a salir.
+  await ventana('MaKo', `MaKo desconectó esta computadora${negocio ? ` de «${negocio}»` : ''}. Para volver a usarla, conéctala de nuevo desde MaKo (Tus cuentas de IA).`, 'ok');
 }
 
 // ── Esperar turnos ────────────────────────────────────────────────────────────
@@ -555,7 +567,7 @@ async function correr() {
   const latir = async () => {
     if (fuera) return;
     await revisarSesiones(cuentas).catch(() => {});
-    const r = await api(c, 'POST', '/api/ia-pc/latido', { version: VERSION, cuentas: paraElLatido(cuentas), ...extrasDelLatido(cuentas) }).catch(() => null);
+    const r = await api(c, 'POST', '/api/ia-pc/latido', { version: versionConSistema(), cuentas: paraElLatido(cuentas), ...extrasDelLatido(cuentas) }).catch(() => null);
     if (esRevocado(r)) { fuera = true; await desconectada(c.token); process.exit(0); }
   };
   await latir();

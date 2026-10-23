@@ -95,3 +95,16 @@ test('4. la ventana es del sistema (sin consola), y sin poder mostrarla es «no�
   // Del enlace no sale el servidor: emparejar va siempre con el suyo.
   assert.match(src, /await emparejar\(\{ codigo, servidor: SERVIDOR_DEFAULT, nombre: hostname\(\) \}\)/);
 });
+
+test('5. varias computadoras: el latido manda el sistema, y la desconectada lo dice en una ventana (sólo si fue ella)', async () => {
+  const pc = await import('../scripts/ia-pc/mako-pc.mjs');
+  assert.equal(pc.versionConSistema('win32'), `${pc.VERSION}+windows`);
+  assert.equal(pc.versionConSistema('darwin'), `${pc.VERSION}+mac`);
+  assert.equal(pc.versionConSistema('linux'), pc.VERSION);
+  const src = programa();
+  assert.match(src, /api\(c, 'POST', '\/api\/ia-pc\/latido', \{ version: versionConSistema\(\),/);
+  const d = src.slice(src.indexOf('async function desconectada('), src.indexOf('// ── Esperar turnos'));
+  // Primero mira que sea SU token (reemplazada por otra conexión, no dice nada), y la ventana va al final, esperada.
+  assert.ok(d.indexOf('if (c.token && c.token !== miToken) return;') < d.indexOf('await ventana('), 'la ventana sale aunque la hayan reemplazado');
+  assert.match(d, /await ventana\('MaKo', `MaKo desconectó esta computadora\$\{negocio \? ` de «\$\{negocio\}»` : ''\}\. Para volver a usarla, conéctala de nuevo desde MaKo \(Tus cuentas de IA\)\.`, 'ok'\);\n\}/);
+});
