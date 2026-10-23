@@ -34,7 +34,8 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 
 const CUENTAS: CuentaDeIA[] = [
   { cuenta: 'pc', nombre: 'Tu computadora (Oficina)', modelos: ['sonnet', 'opus', 'haiku'], modeloDefault: 'sonnet' },
-  { cuenta: 'openai', nombre: 'Tu ChatGPT', modelos: [], modeloDefault: null },
+  // Como lo ve un MIEMBRO desde el 23/10/2026 (lib/chat-ia.ts): sin elegir modelo, con el de por defecto.
+  { cuenta: 'openai', nombre: 'Tu ChatGPT', modelos: [], modeloDefault: 'gpt-5.6-luna' },
 ];
 const kDe = (iaDelChat: EleccionIA, cuentasIA: CuentaDeIA[] | null = CUENTAS) => ({ cuentasIA, iaDelChat, enCurso: false, elegirIA: () => {} }) as never;
 

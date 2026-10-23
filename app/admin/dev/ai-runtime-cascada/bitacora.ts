@@ -331,4 +331,51 @@ export const BITACORA: Hito[] = [
       'tests/ia-keys-propias.test.ts — ocho roturas, todas caen',
     ],
   },
+  {
+    fecha: '23 oct', hora: '16:14', chat: 'Cerebro', sesion: 'local_3c82c204-8262-460c-9fca-b164e2053c9a', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: '«¿Ya implementaste GPT?»',
+    pedido: '¿Ya implementaste GPT? Para usarlo en el Ops Center de todos. Eso ya debería estar...',
+    puntos: [
+      'Llegó por el Ops Center al Cerebro, que se lo pasó al chat «IA del cliente».',
+      'El Cerebro decidió después: «Tu ChatGPT» con modelo a elegir por el admin, por defecto uno capaz de orquestar herramientas y no gpt-4o-mini, elegido con datos y probado con la clave de MaKo.',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '16:14', chat: 'IA del cliente', sesion: 'local_69cd6bec-816b-4118-b8ba-f815253e19e9', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: '«Tu ChatGPT» anda por clave, pero nunca se usó y corría siempre gpt-4o-mini',
+    puntos: [
+      'Elegirlo en el «+» va directo a la OpenAI del negocio, sin caer a Claude. Cinco negocios tienen su clave.',
+      'En 14 días hubo cero turnos del Ops Center con GPT: el camino no lo probó ningún cliente.',
+      'Por la computadora sigue apagado: falta instalar Codex, el login de Martín y que entre IA16.',
+    ],
+    commits: [
+      { sha: '78da3821', msg: 'IA del cliente: «Tu ChatGPT» del Ops Center anda por clave, nunca se usó, y la ola 3 tiene tres llaves', lineas: 47, archivos: 1 },
+    ],
+    archivos: ['docs/hallazgos-ia.md — la sección de «Tu ChatGPT» en el Ops Center'],
+  },
+  {
+    fecha: '23 oct', hora: '17:59', chat: 'IA del cliente', sesion: 'local_69cd6bec-816b-4118-b8ba-f815253e19e9', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Tu ChatGPT» con modelo a elegir, listo para subirse sin medir',
+    puntos: [
+      'El admin elige GPT-5.6 Luna, GPT-6 Luna o GPT-6.1 Sol. Por defecto va GPT-5.6 Luna, elegido con números publicados: la cuenta de OpenAI de MaKo no tiene crédito.',
+      'Los modelos que razonan rechazan los campos que mandaba la capa barata. Ahora se les mandan los suyos, y si OpenAI rechaza uno, se repite el paso con el otro formato.',
+      'Si falla su OpenAI, la persona lee qué pasó y qué hacer, y una clave rota ya no abre un ticket de bug.',
+      'El gasto ya no cuenta dos veces lo que piensa el modelo, y los tres modelos tienen su precio y su nombre.',
+      'Retenido: va al tren cuando el Cerebro decida entre medir y subirlo sin medir.',
+    ],
+    commits: [
+      { sha: '903f7954', msg: 'IA del cliente: «Tu ChatGPT» con modelo a elegir (el admin), y por defecto GPT-5.6 Luna en vez de gpt-4o-mini', lineas: 341, archivos: 14 },
+      { sha: '325719ff', msg: 'IA del cliente: «Tu ChatGPT» listo para subirse sin medir (lo que encontró la revisión adversarial)', lineas: 301, archivos: 15 },
+      { sha: '39b51c68', msg: 'IA del cliente: lo de su OpenAI en su propia variable, para que IA16 entre sin choques', lineas: 38, archivos: 5 },
+    ],
+    archivos: [
+      'lib/chat-ia-reglas.ts — los modelos que se ofrecen y el de por defecto',
+      'lib/ai-cheap-techo.ts — los campos de salida, lo aprendido del 400 y la salida que se cobra',
+      'lib/mako-turno-app-reglas.ts — falloDeSuOpenAI y sus avisos',
+      'scripts/medir-openai-herramientas.mts — la medición, para cuando haya crédito',
+    ],
+  },
 ];
