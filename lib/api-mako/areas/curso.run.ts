@@ -28,6 +28,9 @@ import { invitarAlCurso, TEXTO_NO_INVITA } from '@/lib/curso-invitar';
 import { invitadoAlProducto, entroAlProducto, correoQueFallo, productosVisibles } from '@/lib/curso-invitar-reglas';
 import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
 import { logLeadEvent } from '@/lib/leads';
+import { darDeAltaAlumno } from '@/lib/curso-alta-alumno';
+import { canalesDeInvitacion } from '@/lib/curso-invitar-canales';
+import { frenarAltaPorTope, TopeDelPlanError } from '@/lib/topes-crm';
 import { nombresDeCursos } from '@/lib/curso-nombre-datos';
 import {
   crearClase, moverClaseA, guardarCampoClase, guardarLeccion, borrarClase, restaurarClases, productoConModulos,
@@ -678,6 +681,85 @@ export const RUNNERS: Runners = {
       const quedo = await accesoDe(leadId);
       if (!quedo || quedo.revocado) return { ok: false, resumen: 'Sigue cortado.' };
       return { ok: true, resumen: 'Listo: su acceso volvió a abrir, con un link nuevo. Para que le llegue, dar_acceso_curso con reenviar: true.', datos: { leadId, cortado: false } };
+    }),
+  },
+
+  // ── El alumno nuevo (23/10/2026, P0-3): ver curso.def.ts. El MISMO alta que el editor del curso (`darDeAltaAlumno`). ──
+  crear_alumno_curso: {
+    preparar: revisando(async (input, ctx) => {
+      const productoId = num(input, 'productoId');
+      if (productoId == null) return { error: 'Falta el productoId (de listar_cursos).' };
+      const no = await productoPropio(productoId);
+      if (no) return { error: no === 'Ese producto no es tuyo.' ? `El producto #${productoId} no es de este negocio. Pide la lista con listar_cursos.` : no };
+      if (!(await clasesDelProducto(productoId)).length) return { error: TEXTO_NO_INVITA['sin-clases'] };
+      const correo = emailNormalizado(str(input, 'email') ?? '');
+      if (!emailUtilizable(correo)) return { error: 'Ese email no sirve.', faltan: ['email'] };
+      const canales = canalesDeInvitacion(input.canales);
+      const conWhatsapp = canales.includes('whatsapp');
+      const usar = num(input, 'usarLeadId');
+      const curso = (await nombresDeCursos([productoId], { conTitulo: true })).get(productoId)?.trim() || `el producto #${productoId}`;
+      if (usar != null) {
+        // Sólo a alguien que YA es cliente: pasar a Ganado es del CRM (ver curso.def.ts).
+        const lead = await leadDe(usar);
+        if (!lead) return { error: `El lead #${usar} no existe en este negocio.` };
+        if (!lead.ganado) return { error: `${lead.nombre} no está en Ganado: por la API no se lo pasa a Ganado. Muévelo a Ganado en el CRM y usa dar_acceso_curso.` };
+        if (conWhatsapp && !lead.telefono) return { error: `${lead.nombre} no tiene teléfono en el CRM: el WhatsApp no saldría. Pídelo sólo por email.` };
+        return {
+          payload: { productoId, email: correo, usarLeadId: usar, canales },
+          resumen: `Sumar a ${lead.nombre} al curso «${curso}» (lo pone en su kanban de Clientes) y mandarle la invitación por email${conWhatsapp ? ' y por WhatsApp' : ''}.`,
+        };
+      }
+      const nombre = str(input, 'nombre') ?? '';
+      if (nombre.trim().length < 2) return { error: 'Falta el nombre.', faltan: ['nombre'] };
+      const telefono = str(input, 'telefono') || undefined;
+      if (conWhatsapp && !telefono) return { error: 'Sin teléfono el WhatsApp no saldría. Pásalo, o pídelo sólo por email.' };
+      // El tope de leads del plan, como el alta a mano del CRM: un alumno nuevo es un lead más.
+      try { await frenarAltaPorTope(ctx.ws, 'crm.leads'); } catch (e) { if (e instanceof TopeDelPlanError) return { error: e.message }; throw e; }
+      return {
+        payload: {
+          productoId, nombre: nombre.trim(), email: correo, telefono: telefono ?? null, empresa: str(input, 'empresa') || null,
+          sinCobro: input.sinCobro === true, crearIgual: input.crearIgual === true, canales,
+        },
+        // Sin la dirección: por HTTP, el resumen vuelve al que pidió (ver dar_acceso_curso).
+        resumen: `Dar de alta a ${nombre.trim()} como cliente${input.sinCobro === true ? ' (sin cobro)' : ''}, ponerlo en el kanban de Clientes de «${curso}» y mandarle la invitación por email${conWhatsapp ? ' y por WhatsApp' : ''}.`,
+      };
+    }),
+    ejecutar: sinLanzar('darlo de alta', async (p, ctx) => {
+      const usar = typeof p.usarLeadId === 'number' ? p.usarLeadId : null;
+      if (usar == null) {
+        // El tope se vuelve a mirar: entre la propuesta y el «sí» pudieron entrar otros.
+        try { await frenarAltaPorTope(ctx.ws, 'crm.leads'); } catch (e) { if (e instanceof TopeDelPlanError) return { ok: false, resumen: e.message }; throw e; }
+      } else {
+        const lead = await leadDe(usar);
+        if (!lead?.ganado) return { ok: false, resumen: 'Ese lead ya no es un cliente ganado: no se lo sumó.' };
+      }
+      const a = await darDeAltaAlumno({
+        ws: ctx.ws, productoId: Number(p.productoId), nombre: String(p.nombre ?? ''), email: String(p.email),
+        telefono: typeof p.telefono === 'string' ? p.telefono : undefined, empresa: typeof p.empresa === 'string' ? p.empresa : undefined,
+        sinCobro: p.sinCobro === true, usarLeadId: usar, crearIgual: p.crearIgual === true,
+        canales: canalesDeInvitacion(p.canales), autor: autorDe(ctx),
+      });
+      if (!a.ok) {
+        // ⚠️ SIN LOS NOMBRES: son del CRM, y un token de «Curso» no los lee. El id alcanza para usarLeadId o crearIgual.
+        if (a.duplicados?.length) {
+          const unos = [...new Map(a.duplicados.map((d) => [d.leadId, { leadId: d.leadId, motivo: d.motivo }])).values()].slice(0, 5);
+          return { ok: false, resumen: `Ya hay alguien parecido en el CRM (${unos.map((d) => `#${d.leadId}, por ${d.motivo}`).join('; ')}). No se creó: pide usarLeadId (si ya es cliente) o crearIgual: true.`, datos: { duplicados: unos } };
+        }
+        return { ok: false, resumen: `No se pudo dar de alta: ${a.error}` };
+      }
+      // Después del alta nada es «no se pudo»: el cliente ya existe, y reintentar chocaría con su propio duplicado.
+      if (!a.enKanban) return { ok: true, resumen: 'Se cargó, pero no entró al kanban de ese producto: no se lo invitó. Muévelo y usa dar_acceso_curso.', datos: { leadId: a.leadId, invitado: false } };
+      if (!a.soloAca || !a.invitacion) return { ok: true, resumen: 'Se cargó, pero quedó también en otro producto: no se lo invitó. Sácalo de ahí y usa dar_acceso_curso.', datos: { leadId: a.leadId, invitado: false } };
+      const r = a.invitacion;
+      if (r.tipo === 'error') return { ok: true, resumen: `Se cargó, pero no se lo pudo invitar: ${r.error}. Usa dar_acceso_curso.`, datos: { leadId: a.leadId, invitado: false } };
+      if (r.tipo === 'no') return { ok: true, resumen: `Se cargó, pero no se lo invitó: ${TEXTO_NO_INVITA[r.motivo]}`, datos: { leadId: a.leadId, invitado: false } };
+      if (!r.enviado) {
+        const quien = correoQueFallo({ error: r.fallo, via: r.via });
+        const de = quien === 'tuyo' ? ' Es la configuración del correo de tu negocio.' : quien === 'mako' ? ' Es el correo de MaKo, no el de tu negocio.' : '';
+        return { ok: true, resumen: `Se cargó, pero no salió el correo: ${r.fallo ?? 'el envío falló'}.${de} Reintenta con dar_acceso_curso.`, datos: { leadId: a.leadId, invitado: false } };
+      }
+      const wa = r.whatsapp ? (r.whatsapp.enviado ? ' También salió por WhatsApp.' : ` El WhatsApp no salió (${r.whatsapp.motivo ?? 'sin motivo'}).`) : '';
+      return { ok: true, resumen: `Listo: quedó como cliente de ese producto y salió la invitación por email.${wa}`, datos: { leadId: a.leadId, productoId: Number(p.productoId), invitado: true, nuevo: a.nuevoCliente } };
     }),
   },
 };

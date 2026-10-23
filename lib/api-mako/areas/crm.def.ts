@@ -251,11 +251,12 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'duplicados_lead', area: 'crm', tipo: 'lectura',
     titulo: 'Contacto ya cargado en el CRM',
-    descripcion: 'Dado un nombre, email o teléfono, qué leads existentes parecen la misma persona y por qué (email, teléfono por sus últimos 10 dígitos, o nombre sin acentos solo cuando no hay email ni teléfono). Úsala antes de proponer_lead para avisar «ya está cargado» con su id. Si la consulta falla devuelve vacío: vacío no garantiza que no exista.',
+    descripcion: 'Dado un nombre, email, teléfono o Instagram, qué leads existentes parecen la misma persona y por qué (email, teléfono por sus últimos 10 dígitos, Instagram, o nombre sin acentos solo cuando no hay email ni teléfono). Úsala antes de proponer_lead para avisar «ya está cargado» con su id. Si la consulta falla devuelve vacío: vacío no garantiza que no exista.',
     parametros: [
       { nombre: 'nombre', tipo: 'string', max: 200, descripcion: 'nombre y apellido.' },
       { nombre: 'email', tipo: 'string', max: 200, descripcion: 'email.' },
       { nombre: 'telefono', tipo: 'string', max: 40, descripcion: 'teléfono en cualquier formato.' },
+      { nombre: 'instagram', tipo: 'string', max: 200, descripcion: 'usuario de Instagram, con o sin @, o el link del perfil.' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },

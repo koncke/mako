@@ -129,6 +129,7 @@ cortar_acceso_curso
 cortar_frase_video
 cortar_recordatorio_cuota
 cortar_tramo_video
+crear_alumno_curso
 crear_borrador_whatsapp_empresa
 crear_broadcast
 crear_categoria_comunidad

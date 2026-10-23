@@ -91,7 +91,9 @@ function llamadasACreateLead(src: string): string[] {
 /** Las cuatro altas, por archivo. Son las que crean un lead que nadie escribió solo. */
 // La quinta vive en lib/ desde el 06/10/2026: la llaman el botón de la prueba y el
 // cron que avisa por WhatsApp, y el alta no puede depender de quién tenga la sesión.
-const ALTAS = ['app/crm/actions.ts', 'app/customer-success/actions.ts', 'lib/lead-de-prueba.ts'];
+// El alta de Customer Success vive en lib/cs-crear-cliente.ts desde el 23/10/2026 (la usan la pantalla, el alta de un
+// alumno y la API de MaKo): su createLead se busca ahí.
+const ALTAS = ['app/crm/actions.ts', 'lib/cs-crear-cliente.ts', 'lib/lead-de-prueba.ts'];
 
 test('las cuatro altas estampan `origen_lead`: ninguna crea un lead sin procedencia', () => {
   let total = 0;

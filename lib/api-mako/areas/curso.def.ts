@@ -324,4 +324,31 @@ export const DEFS: readonly OperacionDef[] = [
     confirmacion: 'chat', reversible: true,
     escribe: 'saca la marca de cortado de su acceso (curso_accesos.revocado_at)',
   },
+  // ── EL ALUMNO NUEVO (23/10/2026, P0-3 de la auditoría): la migración de un curso de Panda trae alumnos que no están en
+  //    el CRM. Lo mismo que «Invitar a alguien nuevo» del editor del curso (`darDeAltaAlumno`, lib/curso-alta-alumno.ts):
+  //    lo crea como cliente ganado, lo pone en el kanban de ESE producto y lo invita. Dos diferencias, a propósito:
+  //    ⚠️ `usarLeadId` sólo vale para alguien que YA es cliente (ganado): pasar un lead a Ganado es del CRM, y por la API no
+  //       se hace (como dar_acceso_curso). En la pantalla el botón lo dice; acá no hay botón.
+  //    ⚠️ si se parece a un lead que existe, NO crea y devuelve sólo el id y por qué choca: los nombres de los leads son
+  //       del CRM, y un token de «Curso» no tiene por qué leerlos.
+  //    Y el tope de leads del plan frena el alta, como el alta a mano del CRM.
+  {
+    id: 'crear_alumno_curso', area: 'curso', tipo: 'accion', aTerceros: true,
+    titulo: 'Dar de alta un alumno nuevo',
+    descripcion: 'Da de alta a un alumno que NO está en el CRM y le abre el curso de ese producto: lo crea como cliente ganado, lo pone en el kanban de Clientes de ese producto (sólo de ése) y le manda la invitación por email (y por WhatsApp si se pide). Si se parece a alguien que ya está, no lo crea: devuelve el id y por qué choca; con crearIgual: true lo crea igual, y con usarLeadId usa ese (sólo si ya es cliente; si no, se lo pasa a Ganado en el CRM primero). Con sinCobro: true es un becado (la venta no cuenta). Devuelve el leadId.',
+    parametros: [
+      productoId,
+      { nombre: 'nombre', tipo: 'string', max: 200, descripcion: 'nombre y apellido (hace falta salvo con usarLeadId).' },
+      { nombre: 'email', tipo: 'string', obligatorio: true, max: 200, descripcion: 'a qué email va la invitación.' },
+      { nombre: 'telefono', tipo: 'string', max: 40, descripcion: 'teléfono con código de país (opcional: sin él no sale el WhatsApp).' },
+      { nombre: 'empresa', tipo: 'string', max: 200, descripcion: 'empresa, si la hay.' },
+      { nombre: 'sinCobro', tipo: 'boolean', descripcion: 'true = becado o bonificado: la venta se marca «sin cobro».' },
+      { nombre: 'usarLeadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'usar este lead (uno que ya es cliente ganado) en vez de crear uno.' },
+      { nombre: 'crearIgual', tipo: 'boolean', descripcion: 'true = crearlo aunque se parezca a alguien que ya está.' },
+      { nombre: 'canales', tipo: 'string[]', enum: ['email', 'whatsapp'], max: 2, descripcion: 'por dónde va la invitación: ["email"] (default) o ["email", "whatsapp"].' },
+    ],
+    canales: HTTP, costo: 'externo', gating: GATING,
+    confirmacion: 'chat', reversible: false,
+    escribe: 'crea el lead como cliente ganado (o usa uno que ya lo es), lo pone en la entrega de ese producto, crea su acceso al portal con ese curso, anota la invitación y le manda un email (y opcionalmente un WhatsApp)',
+  },
 ];

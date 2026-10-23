@@ -189,13 +189,16 @@ const QUE_VE: Record<string, string> = {
 const ES_CLIENTE: Record<string, string> = {
   'lib/curso-invitar.ts': '¿es cliente del producto al que se lo invita?',
   'lib/curso-datos.ts': 'la etapa de la entrega (un hecho del kanban) y la definición de lo que ve',
-  'app/customer-success/curso/invitar-actions.ts': 'el alta de cero: entra al kanban de ESTE producto y sale de los otros',
-  'app/customer-success/actions.ts': 'quitar de un producto (el kanban)',
+  // Desde el 23/10/2026 el alta de cero y «quitar de un producto» viven en lib/ (las usan también la pantalla y la API de MaKo).
+  'lib/curso-alta-alumno.ts': 'el alta de cero: entra al kanban de ESTE producto y sale de los otros',
+  'lib/cs-quitar-producto.ts': 'quitar de un producto (el kanban)',
   'app/customer-success/entrega.ts': 'la definición',
   // Desde el 09/10/2026 (revisión de la corrida): la ficha es del EQUIPO — sus cursos, su casa y agendar
   // una llamada son de todo producto del que es cliente, aunque su acceso todavía no lo abra.
   'app/customer-success/curso-ficha-actions.ts': 'la ficha: sus cursos, su casa y agendar una llamada',
-  'lib/api-mako/areas/cs.run.ts': 'invitar_cliente_curso_cs: ¿es cliente del servicio al que se lo invita? (la regla del kanban)',
+  'lib/api-mako/areas/cs.run.ts': 'invitar_cliente_curso_cs: ¿es cliente del servicio al que se lo invita? (la regla del kanban); la entrega (mover, quitar, devolver)',
+  // (23/10/2026) El acceso por HTTP: abrir exige ser cliente de ESE producto; lo que VE sale de productosVisibles.
+  'lib/api-mako/areas/curso.run.ts': 'dar_acceso_curso y quitar_curso_del_acceso: ¿es cliente de ese producto? (la regla del kanban)',
 };
 
 function archivos(dir: string): string[] {
@@ -273,8 +276,10 @@ test('las actions: toda invitación del editor lleva su producto, y «es cliente
   const clientes = bloque(ACC, 'export async function invitarClientesAction(', 'export async function invitarNuevoAlumnoAction(');
   assert.match(clientes, /if \(productoId == null\) return \{ ok: false, error: 'Falta el producto\.' \};/);
   assert.match(clientes, /reenviar: false, canales, productoId \}\)/);
+  // El alta de cero vive en lib/curso-alta-alumno.ts desde el 23/10/2026: ahí lleva su producto.
   const nuevo = bloque(ACC, 'export async function invitarNuevoAlumnoAction(', 'export async function invitarAlCursoDelProductoAction(');
-  assert.match(nuevo, /productoId \}\)\);/);
+  assert.match(nuevo, /await darDeAltaAlumno\(\{\s*ws, productoId: Number\(datos\?\.productoId\),/);
+  assert.match(sinComentarios(leer('lib/curso-alta-alumno.ts')), /reenviar: false, canales: p\.canales, productoId \}\)/);
   assert.doesNotMatch(ACC, /productosDelAlumno\(/, 'el editor preguntó «qué ve» donde quería «de qué es cliente»');
   const uno = bloque(ACC, 'export async function invitarAlCursoDelProductoAction(', 'export async function opcionesDeInvitarAction(');
   assert.match(uno, /reenviar: true, productoId: producto \}\)/);

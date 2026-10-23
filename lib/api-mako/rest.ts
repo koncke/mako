@@ -610,6 +610,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/curso/cursos/{productoId}/accesos/{leadId}', 'quitar_curso_del_acceso'],
   ['PUT', '/curso/accesos/{leadId}/corte', 'cortar_acceso_curso'],
   ['DELETE', '/curso/accesos/{leadId}/corte', 'habilitar_acceso_curso'],
+  // El alumno nuevo (23/10/2026): crea al cliente y le abre ese curso. Devuelve su leadId.
+  ['POST', '/curso/cursos/{productoId}/alumnos', 'crear_alumno_curso'],
   // ── comunidad (17/10/2026: la comunidad de cada producto, por HTTP como el curso) ─────────────────────
   // La comunidad es el recurso del producto (`{productoId}`, de listar_comunidades); sus posts, categorías, miembros y
   // eventos cuelgan de ella. Un post y un comentario se piden por su propio id (`/posts/{postId}`), como el curso con sus

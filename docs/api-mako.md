@@ -44,7 +44,7 @@
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
-- **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso` · `ver_acceso_curso` · `dar_acceso_curso` · `quitar_curso_del_acceso` · `cortar_acceso_curso` · `habilitar_acceso_curso`
+- **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso` · `ver_acceso_curso` · `dar_acceso_curso` · `quitar_curso_del_acceso` · `cortar_acceso_curso` · `habilitar_acceso_curso` · `crear_alumno_curso`
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
@@ -1835,7 +1835,7 @@ curl -L \
 
 ### `GET /api/v1/crm/busqueda/duplicados` — Contacto ya cargado en el CRM
 
-Dado un nombre, email o teléfono, qué leads existentes parecen la misma persona y por qué (email, teléfono por sus últimos 10 dígitos, o nombre sin acentos solo cuando no hay email ni teléfono). Úsala antes de proponer_lead para avisar «ya está cargado» con su id. Si la consulta falla devuelve vacío: vacío no garantiza que no exista.
+Dado un nombre, email, teléfono o Instagram, qué leads existentes parecen la misma persona y por qué (email, teléfono por sus últimos 10 dígitos, Instagram, o nombre sin acentos solo cuando no hay email ni teléfono). Úsala antes de proponer_lead para avisar «ya está cargado» con su id. Si la consulta falla devuelve vacío: vacío no garantiza que no exista.
 
 - **Ruta por operación:** `GET /api/v1/crm/duplicados_lead`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -1849,6 +1849,7 @@ Dado un nombre, email o teléfono, qué leads existentes parecen la misma person
 | `nombre` | string | no | nombre y apellido. |
 | `email` | string | no | email. |
 | `telefono` | string | no | teléfono en cualquier formato. |
+| `instagram` | string | no | usuario de Instagram, con o sin @, o el link del perfil. |
 
 ```bash
 curl -L \
@@ -14932,7 +14933,7 @@ curl -L \
 
 ## Curso (módulos y clases) — `curso`
 
-Tab **Clients › Classroom** (`/clients/classroom`). 4 lecturas · 12 acciones.
+Tab **Clients › Classroom** (`/clients/classroom`). 4 lecturas · 13 acciones.
 
 ### `GET /api/v1/curso/cursos` — Listar los cursos
 
@@ -15438,6 +15439,44 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/curso/accesos/LEAD_ID/corte"
+```
+
+### `POST /api/v1/curso/cursos/{productoId}/alumnos` — Dar de alta un alumno nuevo
+
+Da de alta a un alumno que NO está en el CRM y le abre el curso de ese producto: lo crea como cliente ganado, lo pone en el kanban de Clientes de ese producto (sólo de ése) y le manda la invitación por email (y por WhatsApp si se pide). Si se parece a alguien que ya está, no lo crea: devuelve el id y por qué choca; con crearIgual: true lo crea igual, y con usarLeadId usa ese (sólo si ya es cliente; si no, se lo pasa a Ganado en el CRM primero). Con sinCobro: true es un becado (la venta no cuenta). Devuelve el leadId.
+
+- **Ruta por operación:** `POST /api/v1/curso/crear_alumno_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea el lead como cliente ganado (o usa uno que ya lo es), lo pone en la entrega de ese producto, crea su acceso al portal con ese curso, anota la invitación y le manda un email (y opcionalmente un WhatsApp)
+- **Reversible:** no
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuyo curso se toca (de listar_cursos). |
+| `nombre` | string | no | nombre y apellido (hace falta salvo con usarLeadId). |
+| `email` | string | sí | a qué email va la invitación. |
+| `telefono` | string | no | teléfono con código de país (opcional: sin él no sale el WhatsApp). |
+| `empresa` | string | no | empresa, si la hay. |
+| `sinCobro` | boolean | no | true = becado o bonificado: la venta se marca «sin cobro». |
+| `usarLeadId` | number | no | usar este lead (uno que ya es cliente ganado) en vez de crear uno. |
+| `crearIgual` | boolean | no | true = crearlo aunque se parezca a alguien que ya está. |
+| `canales` | string[] (email \\| whatsapp) | no | por dónde va la invitación: ["email"] (default) o ["email", "whatsapp"]. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID/alumnos" \
+  -d '{"email":"EMAIL"}'
 ```
 
 ## Comunidad — `comunidad`
