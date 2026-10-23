@@ -4883,8 +4883,21 @@ Por defecto, que decida el chat jefe.
   OpenAI con `soloSuOpenAI`.
 - `GET ?suIA=1` devuelve también las cuentas que se pueden elegir.
 
-**SIN HACER:** todo, hasta que se acuerde el reparto. **Regla:** el selector no sale antes que el servidor que lo respeta. Si
-no, ofrece una cuenta que no se usa.
+**Acordado y repartido (23/10):**
+- **El contrato:** lib/chat-ia-reglas.ts (`EleccionIA`, `sanearIA`, `CuentaDeIA`), en ea27aab61. Puro y sin importar el veto,
+  porque el selector corre en el navegador; el test exige que los modelos de su Claude sean los de `MODELO_SU_CLAUDE`.
+- **La caja (Ops Center):** está en e316a1918. `SelectoresDelCliente` va adentro del «+». La elección es por chat, y un chat nuevo
+  se la lleva a `s<id>` al crearse. Viaja como `ia` en el JSON y en el multipart (archivos y nota de voz), sólo si se eligió algo.
+- **El servidor (IA del cliente):** la ruta (validación y `?suIA=1` con `cuentasDeIA`), `turnoApp`, anthropic.ts y ai-cheap.ts.
+
+**Regla, y cómo se cumple:** el selector no sale antes que el servidor que lo respeta. Sólo se dibuja con las `cuentas` que manda
+`?suIA=1`, y hoy la ruta no las manda. La caja puede entrar antes y se enciende sola cuando llegue la parte del servidor.
+
+**Trampa:** la nota de voz y los archivos van por OTRO camino (`postArchivos`, multipart) que el texto (`postLargo`, JSON). Un campo
+nuevo del turno tiene que ir en los dos, o la nota de voz corre con la IA de siempre.
+
+**SIN HACER:** la parte del servidor; que lo elegido sobreviva a recargar (por ahora vive en la pestaña); y OpenAI con elección de
+modelo.
 
 ## Lo que gastó la clave del negocio: el «⚠» no dice de quién es la fila (D3 del Ops Center, 22/10/2026)
 
