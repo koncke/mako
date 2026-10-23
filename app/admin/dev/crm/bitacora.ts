@@ -3033,6 +3033,7 @@ export const BITACORA: Hito[] = [
       '«← Atrás» y «Agregar aquí» quedan abajo de todo, con fondo sólido: la que scrollea es la tabla y ya no se ven leads por detrás.',
     ],
     commits: [
+      { sha: '609d697f5', msg: 'CRM: «Traer de otro funnel» con un botón a la vista, el loader mientras carga y el pie firme abajo', lineas: 207, archivos: 8 },
     ],
     archivos: [
       'app/crm/TraerDeOtroProducto.tsx — la vista de traer',
