@@ -2340,6 +2340,8 @@ turno» cuenta el último TERMINADO, bien o mal: con sólo los buenos, se quedab
 **Y la sesión de Claude en la PC del cliente se inicia SIN consola (0.4.0):** `iniciarSesionDeClaude` (scripts/ia-pc/mako-pc.mjs),
 con su página local en 127.0.0.1. Nunca `stdio: 'inherit'` ni una ventana de terminal para un paso de la persona, y el
 código de autorización va directo al stdin de `claude`: nunca a MaKo, al registro ni a la consola (tests/ia-pc-login-sin-terminal.test.ts).
+Su página va con `Referrer-Policy: same-origin`, NUNCA `no-referrer`: con ésa el navegador manda su propio formulario con
+`Origin: null` y la página se rechaza a sí misma (la 0.4.0 publicada no servía por eso).
 
 **Y la computadora del cliente NUNCA atiende leads sola (Martín, 22/10/2026, sobre los términos de Anthropic: «No por
 ahora»).** Su Claude en su PC (D6a) es SÓLO para que el dueño trabaje con SU Claude desde la app: el chat de la app, el del

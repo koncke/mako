@@ -250,7 +250,7 @@ export function reponeDelTope(l: { usadoSemana?: number; repone?: string; repone
 // curl, el programa no lleva la marca de «descargado de internet», así que SmartScreen y Gatekeeper no lo frenan.
 
 /** La versión del programa que sirven los instaladores (la misma que `VERSION` de scripts/ia-pc/mako-pc.mjs). */
-export const VERSION_PC = '0.4.0';
+export const VERSION_PC = '0.4.1';
 export const SISTEMAS_PC = ['windows', 'mac'] as const;
 export type SistemaPc = (typeof SISTEMAS_PC)[number];
 /** Los archivos que sube scripts/ia-pc/publicar-binarios.mts al bucket privado `ia-pc` (comprimidos: entran en 50 MB). */
@@ -572,7 +572,7 @@ export function detalleDeLaPc(pc: { sistema?: string | null; conectadaAt?: strin
 export const AVISO_PC_APAGADA = 'Tu computadora está apagada: préndela y mándamelo de nuevo.';
 export const AVISO_PC_TARDE = 'Tu Claude tardó demasiado: mándamelo de nuevo.';
 export const AVISO_PC_ERROR = 'Tu Claude no pudo contestar ahora: mándamelo de nuevo en un rato.';
-export const AVISO_PC_SIN_SESION = 'Tu Claude no tiene la sesión iniciada en tu computadora: inicia sesión (paso 3 de «Tus cuentas de IA») y mándamelo de nuevo.';
+export const AVISO_PC_SIN_SESION = 'Tu Claude no tiene la sesión iniciada en tu computadora: inicia sesión desde «Tus cuentas de IA» y mándamelo de nuevo.';
 /** El negocio pasó su tope de turnos por minuto (§3, regla 6). */
 export const AVISO_PC_MUCHOS = 'Me mandaron muchos pedidos seguidos: espera un minuto y mándamelo de nuevo.';
 /** En la PC no hay Claude Code (el paso que falta es el 2). */
