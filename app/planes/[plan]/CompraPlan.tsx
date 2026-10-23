@@ -65,7 +65,8 @@ export function CompraPlan(p: {
         </>
       )}
       <button className="planes-btn" type="submit" disabled={enviando}>{enviando ? 'Abriendo el pago…' : 'Ir a pagar'}</button>
-      {error && <p className="planes-error" role="alert">{error}</p>}
+      {/* role="status" y no "alert": /planes es pública y sin sesión, así que «Reportar a soporte» no serviría acá. */}
+      {error && <p className="planes-error" role="status" aria-live="polite">{error}</p>}
       <p className="planes-nota">Con ese email entras a MaKo: te llega el acceso apenas se confirme el pago.</p>
     </form>
   );
