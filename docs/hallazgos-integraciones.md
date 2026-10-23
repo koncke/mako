@@ -1256,5 +1256,19 @@ que se ve es idéntico: nada. La prueba está en Calendly (el registro de entreg
 
 **Mientras tanto:** la reserva existe en Calendly (mail y calendario de Martín) con las UTM del link; lo que falta es el
 lead, el seguimiento y el origen en el CRM. **Arreglo (de Martín, en /integraciones?ws=9, donde va la pasarela):** conectar
-la cuenta de Calendly de koncke y cargar el tipo de evento de R1. **Vive en:** app/api/webhooks/calendly/route.ts ·
+la cuenta de Calendly de koncke y cargar el tipo de evento de R1.
+
+**Conectar no es todo, y lo que trampea es creer que sí:**
+- Guardar el token y el R1 escribe el RUTEO (`ROUTING_CREDS`), no el AVISO. La suscripción de webhook no tiene pantalla en
+  Calendly ni en MaKo («los webhooks se configuran aparte», lib/metodo-catalogo.ts): se crea por API con el token
+  (scripts/arreglar-webhook-calendly.ts, fijo al ws 1) y requiere un plan pago de Calendly.
+- Lo agendado ANTES no entra solo: Calendly no reenvía avisos viejos, ningún cron lee la agenda y el «histórico al
+  conectar» (lib/onboarding-contrato.ts) no incluye Calendly. No se pierde: la API lista las reservas pasadas con sus UTM y
+  scripts/backfill-calendly.ts las importa (idempotente, sólo completa vacíos), pero está fijo al ws del dueño y al token de
+  `.env.local`.
+- **MaKo no tiene ningún token de la cuenta koncke** (medido el 23/10): el de `.env.local` es de otra cuenta (por
+  `/users/me`, sin imprimirlo), y los únicos otros están en el ws 1 y el ws 4, que son clientes y no se usan para esto. Hasta
+  que Martín pegue el suyo, no se puede ver si koncke tiene una suscripción apuntada a MaKo ni cuántas reservas quedaron
+  afuera. Con el token, la API dice qué suscripciones hay y si están `active` o `disabled`; los intentos de entrega uno por
+  uno no los da. **Vive en:** app/api/webhooks/calendly/route.ts ·
 lib/webhook-routing.ts · lib/compra-plan-reglas.ts (`AGENDA_MAKO`) · app/vsl/Landing.tsx (`CALENDLY_URL`).

@@ -23,9 +23,15 @@
 1. **Migración 0330** (aditiva): la aplica el Cerebro en producción ANTES del deploy, con su OK.
 2. **Prender el corte** (`CORTE_DE_ACCESO_PRENDIDO` en `lib/plan-acceso-reglas.ts`): después de la revisión adversarial y con la
    0330 aplicada. Con el corte apagado la deuda se VE (aviso y /cuenta-pausada) pero nadie se pausa.
-3. **Martín**: conectar en `/integraciones?ws=9` la cuenta de Calendly de koncke con el tipo de evento de R1 (medido el
-   23/10: el ws 9 no tiene credenciales ni ruteo de Calendly, así que ninguna reserva de la agenda de MaKo crea un lead), y la
-   pasarela de MaKo. Hasta entonces (23/10) /planes, /planes/<plan> y «Pasar a
+3. **Martín**: en `hola-mako.com/integraciones?ws=9` → Calendly, pegar un «Personal access token» de la cuenta koncke
+   (calendly.com → Integrations & apps → API and webhooks → Generate new token) y en «Tipo de evento de R1» el NOMBRE del
+   evento de koncke/asesoria tal cual figura en Calendly (no el slug `asesoria`: el ruteo compara el nombre o la URI).
+   Medido el 23/10: el ws 9 no tiene credenciales ni ruteo de Calendly, así que ninguna reserva de la agenda de MaKo crea
+   un lead. **Eso solo no alcanza:** el aviso (la suscripción de webhook) no tiene pantalla en Calendly ni en MaKo; se crea
+   con el token por la API (`scripts/arreglar-webhook-calendly.ts`, hoy fijo al ws 1: hay que pasarlo al ws 9), y pide un
+   plan pago de Calendly. **Y lo agendado antes no entra solo** (Calendly no reenvía avisos viejos y ningún cron lee la
+   agenda): se trae con `scripts/backfill-calendly.ts` (idempotente, sólo completa vacíos, trae las UTM de cada reserva),
+   hoy fijo al ws del dueño y al token de `.env.local`, que NO es el de koncke. Después, la pasarela de MaKo. Hasta entonces (23/10) /planes, /planes/<plan> y «Pasar a
    Pro» en «Tu plan» llevan a la agenda con las UTM, y se vende por llamada (hallazgos: «Sin pasarela, el checkout era un
    callejón»); al conectarla vuelven solos al pago en línea. Además, en Stripe, Billing › Revenue recovery › Retries (Smart
    Retries) y qué pasa al agotarlos (recomendado: dejar la suscripción `past_due` o cancelarla; MaKo pausa igual a los 7 días);
