@@ -6,6 +6,8 @@
 // IA y qué MODELO. La comparte el chip de la sidebar, la tab Integraciones ›
 // Saldo de IA y (a futuro) la tab Modelos por tarea. Sin 'server-only': puro.
 
+import { NOMBRE_MODELO_IA } from './chat-ia-reglas';
+
 /** Proceso (feature tag) → nombre claro en español. */
 export const IA_FEATURE_LABEL: Record<string, string> = {
   // MaKo conversacional
@@ -88,6 +90,8 @@ export function modeloLegible(model: string | null | undefined): string {
   if (m.includes('gpt-oss')) return 'Groq OSS 20B';
   if (m.includes('gpt-4o-mini')) return 'GPT-4o mini';
   if (m.includes('gpt-4o')) return 'GPT-4o';
+  // Los de «Tu ChatGPT», con el nombre del selector (23/10/2026): sin esto GPT-5.6 Luna se leía «GPT-5» y los GPT-6, crudos.
+  for (const [id, nombre] of Object.entries(NOMBRE_MODELO_IA)) if (id.startsWith('gpt-') && m.includes(id)) return nombre;
   if (m.includes('gpt-5')) return 'GPT-5';
   if (m.includes('gemini')) return m.includes('lite') ? 'Gemini Flash-Lite' : 'Gemini Flash';
   if (m.includes('llama')) return m.includes('70b') ? 'Llama 3.3 70B' : 'Llama';

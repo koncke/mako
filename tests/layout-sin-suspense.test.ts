@@ -87,7 +87,9 @@ const LOADING_PERMITIDOS = [
   'app/second-brain/loading.tsx',
   'app/plan/loading.tsx',
   'app/dashboard/loading.tsx',
-  'app/general/loading.tsx',
+  // ⛔ /general NO (ticket #7, 23/10/2026): siempre redirige a /dashboard, y con un loading.tsx su redirect() pasa a ir
+  // ADENTRO del stream (200 + meta refresh, en vez del 307): la carrera con la hidratación tiró «React error #310» en el
+  // router de Next y la app entera cayó. Una página que redirige siempre no lleva loading.tsx (lo fija tests/cargando-mako.test.ts).
   'app/chats/loading.tsx',
   'app/calendario/loading.tsx',
   'app/clients/loading.tsx',
