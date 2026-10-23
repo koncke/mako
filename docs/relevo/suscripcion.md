@@ -26,8 +26,10 @@
 3. **Martín**: conectar la pasarela de MaKo en `/integraciones?ws=9`; en Stripe, Billing › Revenue recovery › Retries (Smart
    Retries) y qué pasa al agotarlos (recomendado: dejar la suscripción `past_due` o cancelarla; MaKo pausa igual a los 7 días);
    y si cobra en pesos, cargar `preciosLocales` del plan en el setting `planes.mako`.
-4. **El campo del origen** con el chat «Landings de MaKo en Web Generator»: pregunta mandada el 23/10 ~02:40, sin respuesta
-   todavía. Mi propuesta: los links de la landing a `/planes/<plan>?landing=<slug>&avatar=<x>&funcionalidad=<y>`.
+4. **El origen, ACORDADO con «Landings de MaKo en Web Generator»** (23/10): vive en `cuenta.origen` (app_settings del negocio
+   nuevo), lo escribe su alta (efb194eb1: `cobros.origen` del checkout gana, si no el primer toque del lead) y lo lee
+   `lib/origen-negocio.ts`. **Cuando /planes esté en producción, avisarle a ese chat**: hoy el CTA de sus landings es la agenda
+   (Calendly), y pasa a `/planes/<plan>?landing=<slug>&avatar=<x>&funcionalidad=<y>`.
 5. MaKo Partners: APLICAR el crédito en la suscripción del partner y el beneficio del que llega (hallazgos-partners). La
    entrada de la barra para clientes comunes es del chat Sidebar (`app/_components/nav.ts`, `soloCapas: ['agencia']`).
 
