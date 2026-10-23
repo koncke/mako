@@ -12,7 +12,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TOPES, cabeOtra, topeDe } from '../lib/topes-plan';
+import { RUTA_CAMBIAR_PLAN, TOPES, cabeOtra, topeDe } from '../lib/topes-plan';
 
 test('los números de la oferta: Esencial con topes, Pro sin ellos salvo 3 líneas y 5 usuarios', () => {
   assert.deepEqual(TOPES.completo, {
@@ -34,4 +34,8 @@ test('una capa que no es un plan (pm, superadmin) no tiene topes', () => {
   assert.equal(topeDe('pm', 'crm.leads'), null);
   assert.equal(topeDe('superadmin', 'equipo.usuarios'), null);
   assert.equal(cabeOtra('superadmin', 'equipo.usuarios', 50), true);
+});
+
+test('«Pasar a Pro» tiene UNA ruta: «Tu plan»', () => {
+  assert.equal(RUTA_CAMBIAR_PLAN, '/configuraciones/plan');
 });
