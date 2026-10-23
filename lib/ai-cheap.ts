@@ -24,7 +24,7 @@
 
 import 'server-only';
 import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
-import { paramsDeSalida } from '@/lib/ai-cheap-techo';
+import { aprenderFormatoSiLoRechaza, paramsDeSalida } from '@/lib/ai-cheap-techo';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
 import { createHash } from 'node:crypto';
 import { credDelCliente, credWs, credWsEstricta } from '@/lib/credenciales';
@@ -1324,6 +1324,12 @@ export async function chatCheapTools(
       // El status va adelante: los clasificadores de río abajo (fallo-ia-texto) leen
       // `\b429\b` y `HTTP 503`, y el texto del proveedor no siempre los trae.
       const detalle = status && !leido.mensaje.startsWith(`HTTP ${status}`) ? `HTTP ${status} · ${leido.mensaje}` : leido.mensaje;
+      // Un modelo de OpenAI que rechaza un campo de salida: se aprende el OTRO formato y se repite el paso una sola vez
+      // (lib/ai-cheap-techo.ts, `aprenderFormatoSiLoRechaza`). Si el otro también falla, sigue la rotación de siempre.
+      if (p.nombre === 'openai' && status === 400 && aprenderFormatoSiLoRechaza(model, leido.mensaje)) {
+        console.warn(`[ai-cheap] chatCheapTools(${rotulo(p)}) ${model}: ${detalle.slice(0, 200)} → otro formato de salida`);
+        continue;
+      }
       const tipo = tipoDeFallo(status, leido.mensaje);
       const paso = rotacion.trasFallo({ tipo, esperaMs: leido.esperaMs, porDia: leido.porDia });
       if (!paso) { falloFinal = detalle; break; }

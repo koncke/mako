@@ -6,7 +6,8 @@
 // re-priorizar), anotado como fallo de SU clave. Un modelo que no está en la tabla va con el más chico: anda, aunque corte
 // antes. Los demás proveedores manejan su tope solos.
 //
-// Pura (sin `server-only`): la prueba la importa. La usa lib/ai-cheap.ts en los tres pedidos de la capa barata.
+// Pura (sin `server-only`): la prueba la importa. La usa lib/ai-cheap.ts en los tres pedidos de la capa barata, y
+// lib/anthropic-usage.ts para contar la salida que se cobró (`tokensDeSalida`).
 // =============================================================================
 
 export const TECHO_SALIDA_OPENAI: Readonly<Record<string, number>> = {
@@ -37,11 +38,50 @@ export const esRazonadorOpenAI = (model: string): boolean =>
 /** Lo que se le suma al tope de un modelo con razonamiento para que pensar no se coma la respuesta. */
 export const AIRE_RAZONAMIENTO = 4_000;
 
+/**
+ * ⚠️ Y SI EL SUPUESTO ESTÁ MAL, SE APRENDE DEL 400 (revisión del 23/10/2026): como no se pudo medir, un modelo puede
+ * rechazar el formato que le eligió `esRazonadorOpenAI`. Entonces `chatCheapTools` repite el pedido UNA vez con el OTRO
+ * formato y lo recuerda POR MODELO y en este proceso (el molde de lib/gemini-esfuerzo.ts). Si el otro también falla, no se
+ * da vuelta de nuevo: el error sube tal cual, con su ticket.
+ */
+const FORMATO_APRENDIDO = new Map<string, 'razonador' | 'clasico'>();
+
+/** El formato de salida que se le manda a un modelo de OpenAI: el aprendido de un 400, o el que dice su nombre. */
+export const formatoDeSalida = (model: string): 'razonador' | 'clasico' =>
+  FORMATO_APRENDIDO.get(model) ?? (esRazonadorOpenAI(model) ? 'razonador' : 'clasico');
+
+/** Un 400 que dice que un CAMPO DE SALIDA no se acepta: aprende el otro formato para ese modelo. true = hay que repetir. */
+export function aprenderFormatoSiLoRechaza(model: string, mensaje: string): boolean {
+  if (FORMATO_APRENDIDO.has(model)) return false;
+  if (!/\b(max_tokens|max_completion_tokens|temperature)\b/.test(mensaje)) return false;
+  if (!/unsupported|not supported|does not support|only the default/i.test(mensaje)) return false;
+  FORMATO_APRENDIDO.set(model, formatoDeSalida(model) === 'razonador' ? 'clasico' : 'razonador');
+  return true;
+}
+
+/** Para los tests: un proceso nuevo arranca sin nada aprendido. */
+export const olvidarFormatos = (): void => FORMATO_APRENDIDO.clear();
+
 /** Los campos de SALIDA de un pedido de la capa barata: el tope (con su nombre) y la temperatura, sólo donde se acepta. */
 export function paramsDeSalida(p: { nombre: string }, model: string, pedido: number, temperatura: number):
   { max_tokens: number; temperature: number } | { max_completion_tokens: number } {
-  if (p.nombre === 'openai' && esRazonadorOpenAI(model)) {
+  if (p.nombre === 'openai' && formatoDeSalida(model) === 'razonador') {
     return { max_completion_tokens: conTechoDeSalida(p, model, pedido + AIRE_RAZONAMIENTO) };
   }
   return { max_tokens: conTechoDeSalida(p, model, pedido), temperature: temperatura };
+}
+
+/**
+ * Cuántos tokens de SALIDA se cobraron, según la forma del `usage` (revisión del 23/10/2026). `recordUsage` sumaba
+ * `completion_tokens_details.reasoning_tokens` a `completion_tokens`, pensado para Gemini, que cobra lo que piensa APARTE
+ * de `completion_tokens` (sólo lo trae `total_tokens`). En OpenAI es al revés: lo pensado ya está ADENTRO de
+ * `completion_tokens` (total = prompt + completion), así que con un modelo que razona se contaba dos veces, en cada paso.
+ * Con `total_tokens` manda la resta (vale para los dos); sin él (Anthropic), lo visible más lo pensado.
+ */
+export function tokensDeSalida(u: Record<string, unknown>): number {
+  const input = Number(u.input_tokens ?? u.prompt_tokens ?? 0) || 0;
+  const visible = Number(u.output_tokens ?? u.completion_tokens ?? 0) || 0;
+  const total = Number(u.total_tokens ?? 0) || 0;
+  const pensado = Number((u.completion_tokens_details as Record<string, unknown> | undefined)?.reasoning_tokens ?? 0) || 0;
+  return total > input ? Math.max(visible, total - input) : visible + pensado;
 }

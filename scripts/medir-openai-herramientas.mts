@@ -15,6 +15,9 @@
 //     de salida, acá sale el 400 que vería un cliente, no uno que armó la prueba.
 //   · Cuatro herramientas con la forma de las de MaKo (buscar un id, mover con un enum, crear con fecha, una métrica) y tres
 //     pedidos × 2: encadenar (buscar → mover → tarea de mañana a las 10), contestar con UNA herramienta, y NO llamar ninguna.
+//   · El mismo plazo por pedido que la capa barata (45 s): un modelo que razona y tarda más, acá falla igual que en el chat.
+//   · ⚠️ El system es de una línea y el del Ops Center pesa 13-16 mil tokens: los segundos y el costo que salen acá son un
+//     PISO. Lo que decide es «acertó N/6»; la latencia real la da la prueba de punta a punta.
 //   · Nunca imprime la clave.
 // =============================================================================
 import path from 'node:path';
@@ -70,8 +73,9 @@ async function turno(modelo: string, pedido: string) {
     const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST', headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: modelo, messages: msgs, tools, tool_choice: 'auto', ...paramsDeSalida({ nombre: 'openai' }, modelo, 1400, 0.2) }),
-      signal: AbortSignal.timeout(90_000),
-    });
+      signal: AbortSignal.timeout(45_000),
+    }).catch((e: unknown) => e instanceof Error ? e : new Error(String(e)));
+    if (r instanceof Error) return { error: `no contestó en 45 s (${r.message.slice(0, 80)})` };
     const j = await r.json().catch(() => ({})) as Record<string, any>;
     if (!r.ok) return { error: `${r.status} ${String(j.error?.message ?? '').slice(0, 140)}` };
     tin += j.usage?.prompt_tokens ?? 0; tout += j.usage?.completion_tokens ?? 0;

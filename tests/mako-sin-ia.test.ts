@@ -109,7 +109,7 @@ test('¿falta la IA del negocio?: el texto de la cascada, o cero cuentas propias
   // Rota: `...(fallo ? [...responder...])` sin el `!sinIA` → este test falla (el ticket #6 de vuelta).
   // Desde el 21/10 también sin lo que falló en la computadora del cliente (`falloDeLaPc`, tests/ia-pc.test.ts) ni en SU
   // cuenta (`deSuClave`: su Claude en pausa o su clave sin crédito, tests/ia-pc-revision.test.ts).
-  assert.match(turno, /\.\.\.\(fallo && !sinIA(?: && !falloDeLaPc)?(?: && !deSuClave)? \? \[\{ nombre: 'responder'/);
+  assert.match(turno, /\.\.\.\(fallo && !sinIA(?: && !falloDeLaPc)?(?: && !deSuClave| && \(!deSuClave \|\| suOpenAI === 'no-existe'\))? \? \[\{ nombre: 'responder'/);
   assert.match(turno, /const sinIA = (?:!falloDeLaPc && )?(?:!deSuClave && )?faltaIADelNegocio\(fallo, fallo \? await iaPropiaDelTurno\(\) : null\)/);
   assert.match(turno, /provsDe, CASCADA_TOOLS/, 'cuenta con la MISMA lectura que la cascada');
   // Desde el 21/10, con su computadora conectada (aunque apagada) no se le pide otra IA: `&& !pc` (tests/ia-pc.test.ts); y

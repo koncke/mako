@@ -6073,11 +6073,12 @@ con `soloSuOpenAI: true` (`lib/mako-turno-app.ts`, el `ia?.cuenta === 'openai'`)
 OpenAI del negocio y sin caer a Claude. Cinco negocios tienen su clave cargada (ws1, ws4, ws9,
 ws11, ws14), y la de Leila (ws11) contestó hoy mismo.
 
-**Trampa 1 — no se elige modelo.** `cuentasDeIA` (`lib/chat-ia.ts`) ofrece la cuenta con
-`modelos: []` y `modeloDefault: null`, así que el turno corre siempre con el `chatModel` de
-OpenAI en `cfgDe` de `lib/ai-cheap.ts`: **`gpt-4o-mini`**, el más chico, para el chat que
-orquesta herramientas. Claude sí ofrece modelos (y desde la revisión del 23/10 los elige el
-admin). Antes de sumar un selector para GPT hay que decidir lo mismo: quién lo elige.
+**Trampa 1 — no se elegía modelo, y corría el más chico.** `cuentasDeIA` (`lib/chat-ia.ts`) ofrecía
+la cuenta con `modelos: []`, así que el turno corría con el `chatModel` de OpenAI en `cfgDe` de
+`lib/ai-cheap.ts`: **`gpt-4o-mini`**, para el chat que orquesta herramientas. Desde la tarde del
+23/10 el admin elige y hay un default capaz (abajo), **pero SÓLO con «Tu ChatGPT» elegido en el
+«+»**. En Automático (lo que ve todo el mundo, y a lo que vuelve cada recarga porque la elección no
+se guarda) y en el doer de WhatsApp sigue `gpt-4o-mini`.
 
 **Trampa 2 — que haya clave no prueba que alguien lo use.** En 14 días hay **cero turnos del Ops
 Center con GPT**. Todo el uso de OpenAI de ws11 es de otras features (`plan-fathom`,
@@ -6120,26 +6121,58 @@ capaz de orquestar herramientas, no gpt-4o-mini». El cambio obvio —pasar el n
   `max_tokens` como incompatible con ellos y el foro de OpenAI lo reporta para GPT-5. Y el 400 se lee como «se cayó tu
   clave». Ahora el pedido sale de `paramsDeSalida` (lib/ai-cheap-techo.ts): a un razonador, `max_completion_tokens` con
   aire (el pensar sale del mismo tope y sin aire contesta vacío) y sin `temperature`; a los demás, lo de siempre. Lo
-  decide el PROVEEDOR además del nombre: `openai/gpt-oss-20b` es de Groq.
+  decide el PROVEEDOR además del nombre: `openai/gpt-oss-20b` es de Groq. Y como el supuesto no se pudo medir, si un
+  modelo igual rechaza un campo de salida, `chatCheapTools` aprende el OTRO formato de ese 400 y repite el paso una vez
+  (`aprenderFormatoSiLoRechaza`, por modelo y por proceso, el molde de lib/gemini-esfuerzo.ts).
 - ⚠️ **NO MEDIDO contra los modelos nuevos.** La cuenta de OpenAI de MaKo (la del workspace de la plataforma) contesta
   429 `credit_balance_exhausted` a todo, **y lo contesta ANTES de mirar los parámetros**: los 12 pedidos de prueba
   (tres modelos × cuatro combinaciones de campos) dieron el mismo 429. Sin crédito no se puede saber ni si un campo
-  está bien, así que no hay forma barata de validar esto sin cargar plata.
+  está bien. Y el 22/10 Martín decidió no cargarle crédito («Tenemos Gemini que hace todo eso»): la prueba la pregunta
+  aparte el Cerebro, o se sube sin medir. **Lo que SÍ anda sin crédito es `GET /v1/models`** (74 modelos con esa misma
+  clave): sirve para saber si una clave TIENE un modelo, no si lo usa bien.
 - **El default salió de números publicados, no medidos**: GPT-5.6 Luna (Toolathlon 53,4 contra 42,9 de GPT-5.4 mini,
   las tablas de OpenAI citadas por codingfleet.com; US$0,20/1,20 por millón contra 0,75/4,50). GPT-6 Luna es más nuevo
   y más barato (0,10/0,50) y no tiene número de herramientas publicado: se ofrece, y es el primer candidato a default.
 
-**Lo que quedó SIN hacer**, en este orden:
+**Lo que encontró una revisión adversarial ANTES de subirlo sin medir** (39 agentes, 30 de 34 hallazgos confirmados).
+Lo caro no era el modelo: era todo lo que rodea a una IA que el negocio paga, que con `gpt-4o-mini` nunca se había
+ejercitado. Arreglado en el mismo cambio:
 
-1. Cargar crédito en la cuenta de OpenAI de MaKo (lo decide Martín: es plata).
-2. Medir: `npx tsx --conditions=react-server scripts/medir-openai-herramientas.mts gpt-5.6-luna gpt-6-luna gpt-6.1-sol`
-   desde el clon (lee el `.env.local` del directorio donde se corre). Usa el MISMO cuerpo que la capa barata, así que
-   también prueba los campos de salida. Si GPT-6 Luna acierta igual, pasa a ser el default (`MODELO_SU_OPENAI_DEFAULT`,
-   lib/chat-ia-reglas.ts).
-3. La prueba de punta a punta del turno del Ops Center con «Tu ChatGPT» elegido, con esa misma clave.
-4. Sin hacer a propósito: un modelo de OpenAI GUARDADO por negocio (como `ia.su_claude.modelo` de su Claude). Hoy el
-   admin elige por chat y un miembro corre el default fijo.
+- **Un fallo de SU OpenAI se leía «No pude contestar ahora», y una clave rota abría un ticket de bug** para el Cerebro
+  («Le avisé al equipo» sobre la clave del cliente). `falloDeSuClave` sólo reconocía Claude. Ahora `falloDeSuOpenAI`
+  (lib/mako-turno-app-reglas.ts) separa su cuenta (sin crédito, clave rota: aviso con el botón de su OpenAI, sin
+  ticket), el modelo que su cuenta no tiene (403: «Elige otro modelo en el «+»») y el modelo que OpenAI no encontró
+  (404: el mismo aviso Y el ticket, porque puede ser un id NUESTRO mal puesto).
+- **El gasto contaba dos veces lo que piensa un modelo de OpenAI.** `recordUsage` sumaba `reasoning_tokens` a
+  `completion_tokens`, que es lo correcto para Gemini (lo pensado va aparte, sólo en `total_tokens`) y el doble en
+  OpenAI (`reasoning_tokens` es un DESGLOSE de `completion_tokens`). Con `gpt-4o-mini` daba 0 y no se veía. Ahora
+  `tokensDeSalida` (lib/ai-cheap-techo.ts).
+- **Los tres modelos no tenían precio** y caían a `DEFAULT_PRICE` (5/25): el gasto de un negocio con GPT-5.6 Luna se
+  anotaba unas 25 veces más caro. Y el historial los nombraba «GPT-5» o con el id crudo (`modeloLegible`,
+  lib/ia-labels.ts, ahora con los nombres del selector).
 
-**Vive en:** lib/ai-cheap-techo.ts (`paramsDeSalida`, `esRazonadorOpenAI`) · lib/chat-ia-reglas.ts (`MODELOS_SU_OPENAI`,
-`MODELO_SU_OPENAI_DEFAULT`) · lib/chat-ia.ts · lib/anthropic.ts (`modeloSuOpenAI`) · lib/mako-turno-app.ts ·
-scripts/medir-openai-herramientas.mts · *2026-10-23, chat «IA del cliente»*
+**Lo que quedó SIN hacer**, con dónde vive:
+
+1. **Medir** (necesita crédito): `npx tsx --conditions=react-server scripts/medir-openai-herramientas.mts gpt-5.6-luna
+   gpt-6-luna gpt-6.1-sol` desde el clon. Usa el MISMO cuerpo y plazo que la capa barata. Si GPT-6 Luna acierta igual,
+   pasa a ser el default (`MODELO_SU_OPENAI_DEFAULT`). Después, la prueba de punta a punta del turno.
+2. **Automático y WhatsApp siguen en `gpt-4o-mini`, a propósito hasta medir**: si el default está mal, a un negocio que
+   sólo tiene su GPT se le caería CADA turno; hoy `gpt-4o-mini` anda. Viven en lib/anthropic.ts (la rama del registro
+   pasa `modelos: { [ref.provider]: ref.model }`, y el default del doer es Gemini) y en lib/mako-doer-in.ts (el modelo
+   escrito a mano).
+3. **Sin plazo**: cada pedido de `chatCheapTools` tiene 45 s, un timeout se reintenta idéntico, y nada lo topa contra los
+   420 s de la ruta del chat (`chatCheapToolsCascade` no acepta `timeoutMs` ni `hastaMs`). Un modelo que razona lo hace
+   más probable. El molde ya existe en `chatCheapCascade` (`plazoDeIntento`, `MIN_INTENTO_MS`).
+4. **lib/costos-ia.ts cuenta el gasto de la OpenAI de un negocio como costo de MaKo**: `costoDe` sólo reconoce la marca de
+   la clave de Anthropic del negocio. Ya pasaba con el escalón OpenAI de la cascada; esto lo agranda.
+5. **Ningún modelo guardado por negocio** (como `ia.su_claude.modelo` de su Claude): lo que elige el admin vive en el
+   estado de la pantalla (app/second-brain/useChatCliente.ts) y se pierde al recargar.
+6. **Una respuesta cortada por `finish_reason: length`**: vacía, el turno pierde el porqué (queda «centinela»); con
+   `tool_calls` a medias, la herramienta corre con `{}` (lib/ai-cheap.ts, chatCheapTools).
+7. **«Probar mi clave» de OpenAI no mira si la clave tiene el modelo por defecto** (lib/su-clave.ts). `GET /v1/models`
+   lo contesta sin gastar crédito.
+
+**Vive en:** lib/ai-cheap-techo.ts (`paramsDeSalida`, `aprenderFormatoSiLoRechaza`, `tokensDeSalida`) ·
+lib/chat-ia-reglas.ts (`MODELOS_SU_OPENAI`, `MODELO_SU_OPENAI_DEFAULT`) · lib/chat-ia.ts · lib/anthropic.ts
+(`modeloSuOpenAI`) · lib/mako-turno-app.ts + lib/mako-turno-app-reglas.ts (`falloDeSuOpenAI`) · lib/anthropic-usage.ts ·
+lib/ia-labels.ts · scripts/medir-openai-herramientas.mts · *2026-10-23, chat «IA del cliente»*

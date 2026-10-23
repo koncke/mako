@@ -47,8 +47,10 @@ export async function cuentasDeIA(persona: { ws: number; actor: string; rol?: 'a
         modeloDefault: suClaude.permiso.model === MODELO_SU_CLAUDE.sonnet ? 'sonnet' : 'haiku', ...(soloHaiku ? { soloHaiku: true } : {}),
       });
     }
-    // Su ChatGPT, con la misma regla que su Claude: el modelo lo elige el ADMIN, y un miembro corre el de por defecto, que es
-    // uno que sabe orquestar herramientas (hasta el 23/10/2026 era siempre `gpt-4o-mini`; el porqué, en `MODELOS_SU_OPENAI`).
+    // Su ChatGPT: el modelo lo elige el ADMIN, como el de su Claude, y un miembro corre el de por defecto, que es uno que sabe
+    // orquestar herramientas (hasta el 23/10/2026 era siempre `gpt-4o-mini`; el porqué, en `MODELOS_SU_OPENAI`). A diferencia
+    // de su Claude, no hay un modelo GUARDADO por negocio: el admin lo elige en cada chat, y en Automático corre `gpt-4o-mini`
+    // hasta que se mida (docs/hallazgos-ia.md).
     const suOpenAI = await provsDe('openai').catch(() => []);
     if (suOpenAI.length) {
       out.push({

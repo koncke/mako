@@ -26,6 +26,8 @@
 // el MCP que dice «no se corrió» y la corre · emparejar pisando · el código viejo vivo · sin tope por negocio · la purga sin
 // agendar · instalar con un 400 · la clave de API para un closer → cada una 13 / 1. Y EPIPE sin escucha: el 'error' tira
 // el proceso del test entero, que es lo que protege. Restaurado: 14 / 0.
+// Y SU OpenAI con «Tu ChatGPT» elegido (23/10/2026, base 15 / 0): sin crédito como si no fuera de su cuenta · el error de
+// otra IA atribuido a su OpenAI · el 404 sin ticket → cada una 14 / 1.
 //
 // Correr: npx tsx --test tests/ia-pc-revision.test.ts
 // =============================================================================
@@ -44,7 +46,7 @@ import {
   esperaDelTurno, estadoDeLaPc, falloDeClaude, marcarDeVentana, pcUsable, respuestaSinPc, scriptDeInstalacion, subsistemaPe, yaPaso,
 } from '../lib/ia-pc-reglas';
 import { esDeConfiguracion } from '../lib/errores-app-reglas';
-import { AVISO_SU_CLAVE, falloDeSuClave, iaParaConectar } from '../lib/mako-turno-app-reglas';
+import { AVISO_SU_CLAVE, AVISO_SU_OPENAI, avisoSinElModelo, falloDeSuClave, falloDeSuOpenAI, iaParaConectar } from '../lib/mako-turno-app-reglas';
 import * as programa from '../scripts/ia-pc/mako-pc.mjs';
 
 const RAIZ = join(__dirname, '..');
@@ -287,6 +289,29 @@ test('el turno: la PC que se apaga a mitad se ve (no 4 minutos), y se espera lo 
   assert.match(sinComentarios(leer('lib/mako-turno-app.ts')), /if \(!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos' && ia\?\.cuenta !== 'pc'\) \{\s*try \{\s*const r = await chatClaudeTools\(/);
 });
 
+test('su OpenAI que falla con «Tu ChatGPT» elegido se le dice: su cuenta, o el modelo que no le dejaron usar (23/10/2026)', () => {
+  // La forma real: anthropic.ts arma «falló la IA (<errores de la cascada>)», y cada error lleva `chatCheapTools(openai…`.
+  const de = (e: string) => `falló la IA (openai: chatCheapTools(openai): ${e})`;
+  assert.equal(falloDeSuOpenAI(de('HTTP 429 · You exceeded your current quota, please check your plan and billing details.')), 'cuenta');
+  assert.equal(falloDeSuOpenAI(de('HTTP 401 · Incorrect API key provided: sk-proj-****abcd.')), 'cuenta');
+  assert.equal(falloDeSuOpenAI(de('HTTP 403 · Project proj_x does not have access to model gpt-6.1-sol')), 'sin-acceso');
+  assert.equal(falloDeSuOpenAI(de('HTTP 404 · The model `gpt-6.1-sol` does not exist or you do not have access to it.')), 'no-existe');
+  // Lo que no es de su cuenta sigue el camino de siempre: un 400 de NUESTRO pedido, el tope del minuto, un 5xx.
+  assert.equal(falloDeSuOpenAI(de("HTTP 400 · Unsupported parameter: 'max_tokens' is not supported with this model.")), null);
+  assert.equal(falloDeSuOpenAI(de('HTTP 429 · Rate limit reached for requests')), null);
+  assert.equal(falloDeSuOpenAI(de('HTTP 503 · The server is overloaded')), null);
+  // El error de otra IA no se le atribuye a su OpenAI.
+  assert.equal(falloDeSuOpenAI('falló la IA (tu clave de Claude: Your credit balance is too low)'), null);
+  assert.equal(falloDeSuOpenAI(null), null);
+  assert.match(AVISO_SU_OPENAI, /^Tu clave de OpenAI no funcionó/);
+  assert.match(avisoSinElModelo('GPT-6.1 Sol', true), /^Elige otro modelo en el «\+».*GPT-6\.1 Sol/);
+  assert.match(avisoSinElModelo('GPT-5.6 Luna', false), /^Elige otra IA en el «\+».*GPT-5\.6 Luna/, 'un miembro no elige modelo');
+  // En el turno: sólo con su ChatGPT elegido, y un 404 sigue abriendo el ticket (puede ser un id nuestro).
+  const t = sinComentarios(leer('lib/mako-turno-app.ts'));
+  assert.match(t, /const suOpenAI = ia\?\.cuenta === 'openai' \? falloDeSuOpenAI\(fallo\) : null;/);
+  assert.match(t, /\.\.\.\(fallo && !sinIA && !falloDeLaPc && \(!deSuClave \|\| suOpenAI === 'no-existe'\) \? \[\{ nombre: 'responder'/);
+});
+
 test('su clave de Claude que falla (sin crédito, revocada) o en pausa se le dice: no es un ticket de bug', () => {
   const sinCredito = 'falló la IA (tu clave de Claude: Your credit balance is too low to access the Anthropic API)';
   assert.equal(falloDeSuClave(sinCredito), true);
@@ -297,7 +322,7 @@ test('su clave de Claude que falla (sin crédito, revocada) o en pausa se le dic
   assert.equal(esDeConfiguracion({ mensaje: 'falló la IA (tu clave de Claude: HTTP 400 bad request)' }), false);
   assert.match(AVISO_SU_CLAVE, /Tu clave de Claude no funcionó/);
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(t, /const deSuClave = fallo\?\.includes\(CLAUDE_EN_PAUSA\) \? \{ aviso: CLAUDE_EN_PAUSA, conectar: null \}\s*: falloDeSuClave\(fallo\) \? \{ aviso: AVISO_SU_CLAVE, conectar: 'anthropic' \} : null;/);
+  assert.match(t, /const deSuClave = fallo\?\.includes\(CLAUDE_EN_PAUSA\) \? \{ aviso: CLAUDE_EN_PAUSA, conectar: null \}\s*: falloDeSuClave\(fallo\) \? \{ aviso: AVISO_SU_CLAVE, conectar: 'anthropic' \}\s*: suOpenAI === 'cuenta' \? \{ aviso: AVISO_SU_OPENAI, conectar: 'openai' \}\s*: suOpenAI \? \{ aviso: avisoSinElModelo\(/);
   // Con su propio Claude (D6b), «Conectar tu IA» abre su Claude o su OpenAI, nunca Gemini.
   assert.equal(iaParaConectar(['gemini'], true), 'anthropic');
   assert.equal(iaParaConectar(['gemini', 'openai'], true), 'openai');
