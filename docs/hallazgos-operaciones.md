@@ -124,10 +124,29 @@ en 1,3–1,5 s.
 **Regla:** algo que se calcula por chat no recorre en cada vuelta lo que no depende del chat. Se lo calcula una vez por refresco y
 se lo busca. tests/ops-center-carga.test.ts.
 
-**SIN HACER, lo primero:** un chat que está TRABAJANDO (con sus pasos en vivo y el refresco cada 2,5 s) sigue trabando.
-Medido con el chat «Ops Center» abierto mientras trabajaba: 1,6 s en la entrada y después tareas de 745 ms y 2,7 s, con sólo 26
-mensajes dibujados. No es el historial: es lo que se vuelve a dibujar en cada vuelta mientras trabaja (`Trabajando` con sus
-pasos, `pasosPorChat`, y el `set` con referencias nuevas de cada refresco).
+**Un chat TRABAJANDO trababa en cada refresco (23/10/2026, después del 5b): era todo lo que llegaba nuevo sin cambiar.** Medido
+en producción con el chat «IA del cliente», que estaba trabajando: React trabajaba de 1 a 3,6 s cada pocos segundos. Las causas
+están en app/admin/operaciones/useCentro.ts:
+- `refrescar` hacía `set` de la cola, los carteros, las decisiones, los pasos, las cuentas y los vistos con arreglos NUEVOS
+  aunque valieran lo mismo.
+- `setAhora(Date.now())` cambiaba el reloj de `conVigia` al milisegundo, y con eso se rehacían TODOS los chats cada 2,5 s.
+- Las preguntas, tareas y marcas del chat abierto llegaban como objetos nuevos en cada `pedirTurnos`.
+- `lineasDeConversacion` armaba de nuevo cada turno plegado («Avance: …»), así que el `Hilo` memorizado no acertaba nunca.
+
+**Cómo quedó** (lib/centro-estable.ts):
+- `mismoValor` devuelve el de antes si vale lo mismo, en cada `set` del refresco y del chat abierto.
+- Los chats se completan con el reloj al minuto (`ahoraLista`), que es lo que usa `viejo` (4 min).
+- Los chats y sus líneas mantienen su referencia si valen lo mismo (`estabilizarLista`, `claveDeLinea`), y el plegado se guarda
+  en un `WeakMap`.
+- `Linea` va con `memo` y su propia comparación (`mismaLinea`): un trabajo en camino se redibuja con el reloj y el Runner, y lo
+  demás no. tests/ops-center-refresco-estable.test.ts.
+
+**Trampa de la medición:** en la ventana del grupo de la extensión aparecieron tareas de 10 a 45 s SIN NINGÚN script atribuido en
+`long-animation-frame`: es trabajo del navegador, no de la app. Se distingue por eso, y a la app se la mide por lo atribuido al
+scheduler de React (`MessagePort.onmessage`).
+
+**SIN HACER:** la lista (`FilaCentro`) se redibuja entera en cada render del `Cuerpo`. Recibe el `Centro` entero y closures
+nuevos, y memorizarla así podría dejar acciones viejas pegadas.
 
 **SIN HACER (lo que encontró la investigación del 23/10, por orden de impacto probable):**
 - `pedidos` viaja entero al navegador: 721 KB, 450 pedidos. Se hidrata con el resto (`DatosCentro`).
