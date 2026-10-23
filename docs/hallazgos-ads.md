@@ -4229,7 +4229,8 @@ vencimiento, el mismo token (guardado 18/08 y 04/09) sobre la misma `act_1357728
 publicar desde MaKo sigue siendo del 17/09 (error); ws14 nunca intentó. Mientras tanto, Joan armó campañas **en Meta
 directo** (la última, «P2P | TEST CALIDAD | OCT26», el 15/10). El token del botón «Conectar con Meta» de MaKo sigue sin
 permisos de anuncios (vigía de las 15:49 del 23/10: «ninguno»), así que **reconectar con la app de MaKo todavía no
-arregla publicar**: la salida más corta es que Joan pase «Joan P2P app» a modo Activo en su panel de desarrollador.
+arregla publicar**. Lo más corto a probar es que Joan pase «Joan P2P app» a modo Activo, pero **es dudoso que alcance**
+(ver «Meta mientras se aprueba la app de MaKo», 23/10).
 
 ### Editar el público por la API: la superposición tenía que vivir en el SERVER
 
@@ -4433,3 +4434,50 @@ bundle de producción sí trae los textos nuevos. Lo mira un super admin en `/ad
 **Vive en:** lib/meta-health.ts (`edgeUrl`, `campanasYConjuntos`, `_getMetaHealth`) · lib/credenciales.ts (`credWs`) ·
 lib/meta-cuenta-leida.ts · app/ads-manager/CampanasBrowser.tsx (`matchEstado`, `cuentaLeida`) ·
 app/crm/CampanasModal.tsx · app/crm/campanas-actions.ts (`cuentaMeta`) · tests/meta-cuenta-leida.test.ts
+
+## Meta mientras se aprueba la app de MaKo: qué puentes existen y cuáles no (23/10/2026)
+
+Investigación del Cerebro el 23/10: 5 investigadores web y un escéptico contrastando todo contra la documentación de
+Meta. El informe entero, con los enlaces: `C:/dev/cerebro-herramientas/meta-mientras-tanto-23-10.md` (fuera del repo).
+La pregunta: cómo operan los clientes con Meta (anuncios, leads, páginas, mensajes) mientras la app MaKo
+(2586146911825340) no tiene los permisos de anuncios.
+
+- **El diagnóstico obvio era el equivocado: «compartimos los activos del cliente con el portafolio de MaKo y operamos
+  con un usuario del sistema».** Está REFUTADO: el nivel de acceso «Limited» que tiene una app sin revisión es, según
+  Meta, sólo para desarrollo y no para anunciantes reales (developers.facebook.com/docs/marketing-api/get-started/
+  authorization). Sumar a los clientes como testers de la app es lo mismo y además pone en riesgo la app que está en
+  revisión.
+- **Zernio (antes «Late») es el ÚNICO intermediario que dice cubrir todo**: anuncios, formularios de leads con aviso,
+  métricas, páginas y mensajes; el cliente toca «Conectar» sin registrarse ahí. Lo paga MaKo por cuenta conectada (2
+  gratis, US$6 de la 3 a la 10, US$3 de la 11 a la 100). **Su aprobación de Meta («No Meta App Review») la dice sólo el
+  vendedor: no está verificada.** Además, en la ventana de Facebook el cliente probablemente ve «Zernio», si Zernio cae
+  caen todos, al aprobarse la app de MaKo hay que reconectar a cada cliente, y las Condiciones de Meta (5.b.ii) exigen
+  que cada anunciante sea cliente formal de Zernio. Antes de un piloto (con una cuenta de prueba de MaKo, nunca de un
+  cliente), pedirles por escrito de quién es su app, qué permisos tienen con acceso completo y qué ve el cliente.
+- **Dudoso: que Joan pase su app a Live destrabe el 1885183.** Meta dice que para la cuenta propia alcanza el acceso
+  básico, pero otra página suya dice que en Live sólo se piden permisos aprobados por revisión. Es gratis y se sabe
+  probándolo con el OK de Joan. Sirve para él, no para todos.
+- **Para leads hay un puente que anda en días: Zapier o Make** mandándole el lead a MaKo. Le exige al cliente una cuenta
+  paga (Zapier Professional ronda US$20–30 por mes, sin verificar; Make sin verificar) y asignar Zapier como CRM en
+  Leads Access, que es el paso que más falla. A MaKo le pide un receptor por cliente, una guía y una alerta de «hace X
+  horas que no entra un lead»: si el cliente deja de pagar, los leads dejan de llegar sin que nadie se entere. Que la
+  app de Zapier sirva para páginas de terceros está deducido, no documentado: se prueba con un cliente real. De
+  emergencia, el CSV de Leads Center se importa hoy al CRM.
+- **Descartes:**
+  - Ayrshare: sólo impulsa posts, no maneja leads.
+  - Outstand, bundle.social, Upload-Post: publican, sin anuncios ni leads.
+  - Unipile: pide la contraseña de Instagram y no es socio de Meta.
+  - Nango, Paragon, Pipedream, Composio: usan NUESTRA app, el mismo cuello de botella.
+  - n8n: exige que cada cliente tenga su propia app activa y verificada.
+  - La conexión de CRM nativa de Meta: MaKo no aparece hasta que se apruebe `leads_retrieval`.
+  - Unified.to: sin precio público ni dueño de la app conocido.
+- **Lo que falta del lado de MaKo:** la SEGUNDA tanda de App Review (`ads_management`, `ads_read`,
+  `business_management`), que no se envió. Pedir el acceso completo abre la verificación de MaKo como proveedor de
+  tecnología (unos 5 días), y subir de nivel exige 500 llamadas en 15 días con menos de 15% de error, que se pueden ir
+  generando desde las cuentas propias.
+
+**Sin hacer:** todo lo de arriba es una recomendación; nada se construyó ni se contrató. El receptor de leads de
+Zapier, el mail a Zernio y la prueba de Joan en Live esperan la decisión de Martín.
+
+**Vive en:** fuera del código: el panel de la app MaKo en Meta, `vigia-revisiones/` (si el botón ya trae permisos de
+anuncios) · memoria `meta-oauth-app-review` · lib/meta-publicar-errores.ts (cómo se muestra el 1885183).
