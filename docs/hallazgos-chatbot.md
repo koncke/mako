@@ -181,6 +181,23 @@ nuevo de `pasos` que arme la lista de cero choca con esa red en vez de aplanar e
 
 ## El motor
 
+### «Misma persona» apagada por defecto sin cambiarle nada a nadie: el paso de una vez y lo que invierte (23/10/2026)
+
+**El pedido:** Martín, «"Misma persona" apagado por defecto» y «nada para todas». Lo ingenuo es cambiar el default y listo,
+pero hasta ese día AUSENTE quería decir «la del negocio» (20 h), así que 510 de las 518 automatizaciones de producción se
+habrían apagado de golpe y habrían empezado a mandarle dos mensajes seguidos a la misma persona. **Cómo quedó:** sin las suyas,
+APAGADA (`personaHorasDeLaAutomatizacion(c)`), y antes del deploy un script guarda en cada una como SUYO lo que heredaba
+(`fijarPersonaPropia`, scripts/misma-persona-propia.mts, con `--creadas-antes`). Es un script y no un `.sql` porque lo que
+heredaban sale de `limitesVigentes(raw, limitesDeFabrica(env))`, y un SQL tendría que copiar esa regla; el test compara la
+regla vieja con la nueva en 48 casos. **La trampa que destapó:** el aviso de Prospección de Publicar («revisa su horario y
+sus límites») salía sólo si la automatización no tenía NADA propio (`tieneConfigPropia`), y después del paso todas tienen
+algo. Es la trampa del backfill de AGENTS.md («invierte en silencio a todo el que cuenta filas»), pero con un campo: ahora
+mira el ritmo (`tieneRitmoPropio`: horario o goteo). **Regla:** antes de cambiar qué significa «ausente», grepear quién
+pregunta «¿tiene algo?», no sólo quién lee el valor. **El orden:** el script ANTES del deploy, y nunca sobre lo creado
+después (esas son las nuevas). **Vive en:** lib/config-automatizacion.ts · scripts/misma-persona-propia.mts ·
+app/automations/ConfiguracionesBoton.tsx · tests/misma-persona-propia.test.ts.
+*23/10/2026, chat «Automations» (claude2).*
+
 ### La entrada es `raizSalida`, nunca `pasos[0]`, y el índice se traduce en UNA puerta [M, motor-10, lienzo-1]
 
 **Síntoma:** tres caras del mismo dato. Una inscripción que nunca avanzó (`paso_actual` 0,

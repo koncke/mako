@@ -846,6 +846,15 @@ viejo: **una automatización dejó de ser una lista de mensajes y pasó a ser un
 
 ## 4. Lo que está a medio hacer o sin verificar, con el archivo
 
+- **P2, después del 25/10: «MaKo contesta sola» no se edita desde ninguna pantalla** (23/10/2026). Eran «Por persona»
+  (veces que MaKo contesta sola a una persona en 24 h) y «Charla abierta» (días), los límites de la LÍNEA que se fueron de
+  Configuraciones de una automatización con «nada para todas» (`aut-au2-antiban`). Hoy viven en `app_settings`
+  `mako.limites_envio`, grupo `mako` (`solasPor24h`, `diasCharla`; fábrica 3 y 7, lib/limites-envio.ts), y siguen con
+  su último valor. Decisión del Cerebro: su lugar es la pantalla de la línea de WhatsApp (/whatsapp), no Automations.
+- **El script de «Misma persona» se corre ANTES del deploy de `aut-au2-antiban`** (scripts/misma-persona-propia.mts
+  `--creadas-antes=<ahora> --aplicar`, con el permiso de Martín: escribe en producción). Si el deploy sale antes, las
+  automatizaciones que heredaban quedan apagadas hasta correrlo.
+
 **Nada de esta área se verificó con clics en PRODUCCIÓN.** Lo que sí se vio: la octava tanda se miró
 en el navegador en **dev local sobre el ws9, sin guardar nada** (paneo con el derecho, el lazo con 3
 elegidas y la cuarta atenuada, el menú del CRON, el modal con 6 CRON y 7 plantillas, el panel del
