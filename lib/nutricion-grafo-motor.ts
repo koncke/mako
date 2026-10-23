@@ -160,9 +160,9 @@ export type Resolucion = (
   /**
    * Una espera «después de» (14/10/2026) sin la fecha de la que cuenta: el lead no tiene esa reunión (o se canceló), o no
    * tiene plazo de nutrición. Se cierra ESE hilo, con el motivo (`motivoSinAncla`): esperar «3 h después» de nada no es
-   * esperar.
+   * esperar. Salvo en las primeras horas de la inscripción (`reintentoSinAncla`): ahí se vuelve a mirar ESTA espera (`idx`).
    */
-  | { tipo: 'sin_ancla'; motivo: string; via: string[] }
+  | { tipo: 'sin_ancla'; motivo: string; idx: number; via: string[] }
   /** Más de `TOPE_SALTOS` «Ir a» seguidos: un bucle que `validarGrafo` no dejó guardar, hecho a mano. */
   | { tipo: 'tope_saltos'; via: string[] }
 ) & {
@@ -276,7 +276,7 @@ export function resolverControl(pasos: readonly PasoGrafo[], desde: number, ctx:
         // 14/10/2026: N después de una fecha del lead (la reunión, la 1ª, la 2ª o el plazo de nutrición). Si ya pasó, se
         // sigue de largo como cualquier espera vencida: al activar una automatización pausada, lo vencido sale enseguida.
         const desde = anclaDeEspera(ctx.fechasDespues, p.espera.de);
-        if (desde == null) return { tipo: 'sin_ancla', motivo: motivoSinAncla(p.espera.de), via, repartos };
+        if (desde == null) return { tipo: 'sin_ancla', motivo: motivoSinAncla(p.espera.de), idx, via, repartos };
         objetivo = desde + minutos * 60_000;
       } else {
         objetivo = ctx.ahoraMs + minutos * 60_000;
@@ -704,6 +704,24 @@ export function anclaDeEspera(f: FechasDespues | null | undefined, de: AnclaDesp
 /** Por qué se cerró el hilo de una espera «después de» sin su fecha (el rastro de la corrida). */
 export function motivoSinAncla(de: AnclaDespues): string {
   return de === 'plazo_nutricion' ? 'no tiene plazo de nutrición manual' : 'no tiene esa reunión (o se canceló)';
+}
+
+/**
+ * LA GRACIA DE UNA ESPERA «DESPUÉS DE» SIN SU FECHA (23/10/2026, la revisión de Automations de b5): el lead puede entrar a
+ * la etapa de reunión un instante ANTES de que llegue la fecha (lo movieron a mano y la reserva entra después por el
+ * webhook, o la fecha se carga a mano más tarde). Cerrar en el acto le haría perder la espera para siempre (una
+ * inscripción por lead y automatización). Durante las primeras `GRACIA_SIN_ANCLA_MIN` desde que se inscribió, ESA espera
+ * se vuelve a mirar cada `REINTENTO_SIN_ANCLA_MIN`; pasado eso se cierra con su motivo. Acotado a propósito: «no tiene
+ * esa reunión» no puede quedar reintentando para siempre.
+ */
+export const GRACIA_SIN_ANCLA_MIN = 24 * 60;
+export const REINTENTO_SIN_ANCLA_MIN = 60;
+
+/** Cuándo se vuelve a mirar (ms), o null = se cierra. Sin la fecha de la inscripción no se inventa una gracia. Pura. */
+export function reintentoSinAncla(inscriptoAt: string | null | undefined, ahoraMs: number): number | null {
+  const desde = typeof inscriptoAt === 'string' ? Date.parse(inscriptoAt) : NaN;
+  if (!Number.isFinite(desde) || ahoraMs - desde >= GRACIA_SIN_ANCLA_MIN * 60_000) return null;
+  return ahoraMs + REINTENTO_SIN_ANCLA_MIN * 60_000;
 }
 
 /** ¿El flujo tiene alguna espera «después de»? (Si no, el motor no calcula las fechas.) */

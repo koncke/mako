@@ -27,6 +27,7 @@ import { readFileSync } from 'node:fs';
 import {
   resolverControl, camposDelFlujo, fechasDespuesDe, finDelDiaEnZonaMs, anclaDeEspera, motivoSinAncla, tieneEsperaDespues,
   tieneCarril, esHiloDelCarril, minutosAntesDeReunion, decidirToqueDelCarril, seMueveEnLaCorrida, RELLENO_CONTROL,
+  reintentoSinAncla, GRACIA_SIN_ANCLA_MIN,
 } from '../lib/nutricion-grafo-motor';
 import { validarGrafo, normalizar, textoEspera, indicePorId, ANCLAS_DESPUES, type PasoGrafo, type Espera } from '../lib/flujo-grafo';
 import { problemasDeForma } from '../lib/flujo-forma';
@@ -152,8 +153,27 @@ test('5. la pantalla y la API la dicen y la conservan', () => {
   const motor = sinComentarios(leer('lib/nutricion.ts'));
   assert.match(motor, /const fechasDespues = tieneEsperaDespues\(sec\.pasos\) \? fechasDespuesDe\(lead, await zonaCarril\(\)\) : undefined;/);
   assert.match(motor, /reunionConHoraMs, fechasDespues \}\);/);
-  assert.match(motor, /if \(r\.tipo === 'sin_ancla'\) \{ await cerrar\(r\.motivo, true\); continue; \}/);
+  // Sin la fecha: dentro de la gracia vuelve a mirar ESTA espera; pasada, cierra el hilo con el motivo (23/10/2026).
+  assert.match(motor, /const otraVez = reintentoSinAncla\(insc\.inscripto_at, Date\.now\(\)\);\s*if \(otraVez == null\) \{ await cerrar\(r\.motivo, true\); continue; \}\s*await escribir\(insc, \{ paso_actual: r\.idx,/);
+  assert.match(motor, /estado, desenlace, inscripto_at'\)/, 'la cola no trae cuándo entró');
   assert.match(motor, /estado_lead, nutricion_manual_deadline'\)/, 'la fila del lead no trae el plazo');
+});
+
+// LA GRACIA (23/10/2026, la revisión de Automations): el lead entra a la etapa de reunión un instante ANTES de que llegue la
+// fecha (lo movieron a mano y la reserva entra por el webhook). Cerrar en el acto le hacía perder la espera para siempre.
+// Roturas (base 7/0): `reintentoSinAncla` devolviendo siempre null → 6/1 (cae éste); el motor cerrando en el acto
+// (`otraVez = null`) → 6/1 (cae la 5).
+test('5c. sin la fecha, en las primeras horas de la inscripción se vuelve a mirar; pasadas, se cierra', () => {
+  const ahora = Date.parse('2026-10-23T15:00:00Z');
+  const hace = (min: number) => new Date(ahora - min * 60_000).toISOString();
+  assert.equal(reintentoSinAncla(hace(5), ahora), ahora + 60 * 60_000, 'recién inscripta: se vuelve a mirar en una hora');
+  assert.equal(reintentoSinAncla(hace(GRACIA_SIN_ANCLA_MIN - 1), ahora), ahora + 60 * 60_000, 'todavía en la gracia');
+  assert.equal(reintentoSinAncla(hace(GRACIA_SIN_ANCLA_MIN), ahora), null, 'pasada la gracia: se cierra');
+  assert.equal(reintentoSinAncla(null, ahora), null, 'sin la fecha de la inscripción no se inventa una gracia');
+  assert.equal(reintentoSinAncla('no es una fecha', ahora), null);
+  // El resultado del motor lleva QUÉ espera volver a mirar.
+  const r = resolverControl(F, 0, { hechos: null, ahoraMs: ahora, reunionMs: null, fechasDespues: fechasDespuesDe({}, MX) });
+  assert.equal(r.tipo === 'sin_ancla' ? r.idx : -1, 0);
 });
 
 // «PROBAR» (23/10/2026, al portar a main): el simulador trataba toda espera que no fuera «por tiempo» como «antes de la

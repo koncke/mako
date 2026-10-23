@@ -87,7 +87,7 @@ import { esperaQueAbra } from '@/lib/mako-tarjeta';
 import { usaEquipoContesto, contestoElEquipo, type TurnoDelGrupo } from '@/lib/equipo-contesto';
 import {
   indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
-  tieneEsperaDespues, fechasDespuesDe,
+  tieneEsperaDespues, fechasDespuesDe, reintentoSinAncla,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
   condicionDeArriba, condicionSigueLlevando, usaContesto, destinoAlContestar, ramaDeQuienContesto,
   esNodoDeControl, RELLENO_CONTROL, TOPE_SALTOS, esColumnaInexistente, etiquetasQueCuentan, barridoInscribe, irAEstaMisma,
@@ -3488,6 +3488,8 @@ async function hechosDelCatalogo(
 type FilaCola = {
   id: number; lead_id: number; secuencia_id: number; paso_actual: number; nodo_actual: string | null;
   proximo_envio_at?: string | null; hilos?: unknown; hilos_rev?: number | null; h?: string | null;
+  /** Cuándo entró (la gracia de una espera «después de» sin su fecha, `reintentoSinAncla`). */
+  inscripto_at?: string | null;
   /**
    * Lo que se LEYÓ (undécima tanda, M4): 'activa', o 'respondio' con el carril del recordatorio vivo. Es el
    * compare-and-set de toda escritura de la posición, y una 'respondio' sigue en 'respondio' (`estadoAlEscribir`).
@@ -4327,7 +4329,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     let q = supabase
       .from('nutricion_inscripciones')
       // `hilos, hilos_rev` (mig 0228, ANTES del deploy): sin la columna PostgREST rechaza la consulta entera.
-      .select('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace')
+      .select('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace, inscripto_at')
       // Y las 'respondio' con el carril del recordatorio vivo (undécima tanda, M4): `pausarPorRespuesta` les deja el
       // próximo envío SÓLO a ésas, y acá se mueven sólo sus tarjetas del carril (`seMueveEnLaCorrida`).
       .in('estado', ['activa', 'respondio'])
@@ -4570,7 +4572,15 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // La reunión sólo tiene FECHA: el recordatorio no inventa una hora, y se cierra ESE hilo (M3 g).
         if (r.tipo === 'sin_hora') { await cerrar('la reunión no tiene hora', true); continue; }
         // Una espera «después de» sin su fecha (no tiene esa reunión, o no tiene plazo): se cierra ESE hilo, con el motivo.
-        if (r.tipo === 'sin_ancla') { await cerrar(r.motivo, true); continue; }
+        // Salvo en las primeras horas de la inscripción (`reintentoSinAncla`, 23/10/2026): la fecha puede llegar un instante
+        // DESPUÉS del cambio de etapa (la reserva por el webhook, o cargada a mano), y ahí se vuelve a mirar ESTA espera.
+        if (r.tipo === 'sin_ancla') {
+          const otraVez = reintentoSinAncla(insc.inscripto_at, Date.now());
+          if (otraVez == null) { await cerrar(r.motivo, true); continue; }
+          await escribir(insc, { paso_actual: r.idx, nodo_actual: idDe(sec.pasos[r.idx], r.idx), proximo_envio_at: new Date(otraVez).toISOString() }, { modo: 'cas', nuevos });
+          res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: `${r.motivo}: se vuelve a mirar en una hora` });
+          continue;
+        }
         if (r.tipo === 'tope_saltos') { await cerrar(`el flujo da más de ${TOPE_SALTOS} saltos sin esperar: se cortó`, true, 'inscripcion'); continue; }
         if (r.tipo === 'ir_a_secuencia') {
           // A ESTA MISMA automatización: un bucle (la cierra, la reinicia y al terminar vuelve a
