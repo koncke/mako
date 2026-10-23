@@ -22,6 +22,7 @@ import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, DETALLE_DISENO_TARJETA, DI
 import { guardarPlantillaPropia, idPlantillaNueva, plantillaPuesta } from '@/lib/plantillas-tarjeta';
 import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, avisoCambioDeTipo, columnaConTipo, tipoDeColumna, type TipoEtapa } from '@/lib/etapa-reunion';
 import { cambiarTipoDeEtapa } from '@/lib/etapa-tipo-server';
+import { cambiarCursoAlGanar, estadoCursoAlGanarEstricto } from '@/lib/crm-curso-al-ganar';
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { runMakoTool } from '@/lib/mako-tools';
@@ -1534,6 +1535,62 @@ export const RUNNERS: Runners = {
       if (!r.ok) return { ok: false, resumen: r.error };
       invalidar('pipeline', 'leads');
       return { ok: true, resumen: `Listo: «${String(payload.nombre)}» es ${NOMBRE_TIPO_ETAPA[tipo]}. Para volver, el mismo pedido con el tipo ${String(payload.previo)}.` };
+    }),
+  },
+  // «Invitar al curso al ganar» (23/10/2026, P0-4 de la auditoría): las MISMAS funciones que el «⋯» de la columna
+  // Ganado (`cambiarCursoAlGanarAction`, app/crm/curso-al-ganar-actions.ts). El CRM se busca entre los DEL NEGOCIO
+  // (productosCrm, que scopea) y va por su id REAL: es lo que guarda el interruptor. La lectura es la ESTRICTA: con la
+  // base caída, «apagado» sería una afirmación falsa.
+  ver_curso_al_ganar: {
+    leer: async (input) => {
+      const pedido = n(input.embudoId);
+      const crms = await productosCrm().catch(() => null);
+      if (!crms) return fallo(NO_LEI_PRODUCTOS);
+      const elegidos = pedido != null ? crms.filter((p) => p.embudoId === pedido) : crms;
+      if (!elegidos.length) return fallo(json({ error: `El CRM #${pedido} no es de este negocio.`, disponibles: crms.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })) }));
+      try {
+        const filas = await Promise.all(elegidos.map(async (p) => {
+          const e = await estadoCursoAlGanarEstricto(p.embudoId);
+          return {
+            embudoId: p.embudoId, nombre: p.nombre, principal: p.esDefault, prendido: e.prendido, tiene_curso: e.curso,
+            ...(e.prendido && !e.curso ? { nota: 'Está prendida, pero su producto ya no tiene clases: no invita a nadie.' } : {}),
+          };
+        }));
+        return json({ crms: filas });
+      } catch {
+        return fallo('No pude leer si invita al curso al ganar. Intenta de nuevo.');
+      }
+    },
+  },
+  cambiar_curso_al_ganar: {
+    preparar: async (input) => {
+      if (typeof input.prendido !== 'boolean') return { error: 'Falta decir si se prende (true) o se apaga (false).', faltan: ['prendido'] };
+      const prendido = input.prendido;
+      const pedido = n(input.embudoId);
+      const crms = await productosCrm().catch(() => null);
+      if (!crms) return { error: NO_LEI_PRODUCTOS };
+      const crm = pedido != null ? crms.find((p) => p.embudoId === pedido) : crms.find((p) => p.esDefault);
+      if (!crm) return { error: pedido != null ? `El CRM #${pedido} no es de este negocio.` : 'Este negocio todavía no tiene un CRM.', disponibles: crms.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })) };
+      let e: { curso: boolean; prendido: boolean };
+      try { e = await estadoCursoAlGanarEstricto(crm.embudoId); } catch { return { error: 'No pude leer cómo está. Intenta de nuevo.' }; }
+      if (prendido && !e.curso) return { error: `El producto de «${crm.nombre}» no tiene un curso con clases: no hay a qué invitar.` };
+      if (e.prendido === prendido) return { error: `«Invitar al curso al ganar» ya estaba ${prendido ? 'prendida' : 'apagada'} en «${crm.nombre}».`, yaEstaba: true };
+      return {
+        payload: { embudoId: crm.embudoId, prendido, nombre: crm.nombre },
+        resumen: prendido
+          ? `Prender «Invitar al curso al ganar» en «${crm.nombre}»: cada persona que pase a Ganado ahí va a recibir sola la invitación al curso por email. A los que ya están en Ganado no les llega nada.`
+          : `Apagar «Invitar al curso al ganar» en «${crm.nombre}»: quien pase a Ganado ya no recibe la invitación sola (se lo invita desde su ficha).`,
+      };
+    },
+    ejecutar: (payload) => seguro('cambiar la invitación al ganar', async () => {
+      const embudoId = Number(payload.embudoId);
+      const prendido = payload.prendido === true;
+      // Prender vuelve a mirar el curso: entre la propuesta y el «sí» el producto pudo quedarse sin clases.
+      if (prendido && !(await estadoCursoAlGanarEstricto(embudoId)).curso) return { ok: false, resumen: 'Su producto ya no tiene clases: no se prendió.' };
+      const lista = await cambiarCursoAlGanar(embudoId, prendido);
+      invalidar('pipeline');
+      const quedo = lista.includes(embudoId);
+      return { ok: true, resumen: `Listo: «Invitar al curso al ganar» quedó ${quedo ? 'prendida' : 'apagada'} en «${String(payload.nombre)}».`, datos: { embudoId, prendido: quedo } };
     }),
   },
   ver_campanas_funnels: {

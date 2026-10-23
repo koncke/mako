@@ -116,6 +116,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/crm/cobro-ganado/vinculos/{vinculoId}', 'desvincular_cobro_etapa'],
   // Una campaña o un conjunto de Meta va a uno o varios funnels (#893, 17/10/2026). PUT porque FIJA la lista entera.
   ['GET', '/crm/campanas', 'ver_campanas_funnels'],
+  // «Invitar al curso al ganar» (23/10/2026): el CRM va por `embudoId` (opcional), como /crm/automatizaciones/estado.
+  ['GET', '/crm/curso-al-ganar', 'ver_curso_al_ganar'],
+  ['PUT', '/crm/curso-al-ganar', 'cambiar_curso_al_ganar'],
   ['PUT', '/crm/campanas/funnels', 'asignar_campana_funnels'],
   // Un CRM nuevo por su tipo (14/10/2026): crea el embudo y devuelve su embudoId.
   ['POST', '/crm/embudos', 'crear_crm'],
