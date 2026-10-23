@@ -1008,5 +1008,9 @@ La oferta se reclama con compare-and-set desde null: una vez por negocio. **Vive
   `next_payment_date`). Con 30 días fijos se salteaban cero o dos cobros.
 - **Sin retención válida en el plan, no hay oferta** (recibía el 50% por defecto, el Esencial incluido).
 - **En mora no hay ofertas**: la pausa borraba el mes adeudado y «bajar» reescribía la deuda. Primero «Pagar y volver».
-- **Sin hacer:** la baja durante una pausa deja ese mes sin pagar (R7); bajar de Pro a Esencial es un 51% de descuento hasta
+- **La pausa en Mercado Pago se reanuda un día antes del FIN del ciclo cubierto**, no a los 2 días del cobro salteado (eso sirve
+  para Stripe, que anula la factura con `void`): si MP cobra la cuota atrasada al reactivar o recalcula `next_payment_date`
+  desde hoy, cobraba justo el ciclo salteado. Al reanudar se relee `next_payment_date` y se avisa si quedó en el pasado.
+- **Sin hacer:** la conciliación de un DESCUENTO de Stripe da «tomó» con cualquier descuento de la suscripción (comparar el
+  cupón); la baja durante una pausa deja ese mes sin pagar (R7); bajar de Pro a Esencial es un 51% de descuento hasta
   que los topes de Esencial se cumplan (R8). La tabla: C:/dev/cerebro-herramientas/revision-retencion-2310.md.

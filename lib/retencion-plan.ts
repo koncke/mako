@@ -44,6 +44,19 @@ const DIA = 86_400_000;
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const mismo = (a: number | null | undefined, b: number | null | undefined) => a != null && b != null && Math.abs(a - b) < 0.01;
 
+/**
+ * Cuándo vuelve a cobrar una pausa. Stripe: 2 días después del cobro salteado (`resumes_at` con `void` anula la factura de ese
+ * día y la siguiente cae al fin del período). ⚠️ MERCADO PAGO: un día ANTES del fin del ciclo cubierto (revisión del Cerebro,
+ * 23/10): si MP cobra la cuota atrasada al reactivar, o recalcula `next_payment_date` desde hoy, reanudar a los 2 días cobraba
+ * justo el ciclo salteado; reanudando al final, el próximo cobro cae en el ciclo que sigue con cualquiera de los dos.
+ */
+export function reanudaDeLaPausa(pasarela: 'stripe' | 'mercadopago', proximo: string, meses: number): string {
+  const base = pasarela === 'stripe'
+    ? Date.parse(`${proximo}T00:00:00Z`) + 2 * DIA
+    : Date.parse(`${mesesDespuesDe(proximo, meses)}T00:00:00Z`) - DIA;
+  return new Date(base).toISOString();
+}
+
 export type OfertaRetencion = {
   descuento?: { pct: number; meses: number; monto: string; montoConDescuento: string };
   pausa?: { meses: number };
@@ -124,7 +137,7 @@ export async function aplicarRetencion(ws: number, autor: string, opcion: Opcion
     estado: 'aplicando', opcion, cobroId: c.id, pasarela: c.proveedor, aplicadaAt: new Date().toISOString(), montoOriginal: c.monto, moneda: c.moneda,
     ...(opcion === 'descuento' ? { pct: retencion.descuento!.pct, meses, objetivo: r2(c.monto * (100 - retencion.descuento!.pct) / 100), ...(proximo ? { restaurarDesde: proximo } : {}) } : {}),
     // La pausa cubre UN ciclo: el que empieza en el próximo cobro (R3).
-    ...(opcion === 'pausa' ? { meses, hasta: mesesDespuesDe(proximo!, meses ?? 1), reanudaAt: new Date(reanudaMs).toISOString() } : {}),
+    ...(opcion === 'pausa' ? { meses, hasta: mesesDespuesDe(proximo!, meses ?? 1), reanudaAt: reanudaDeLaPausa(c.proveedor, proximo!, meses ?? 1) } : {}),
     ...(opcion === 'bajar' ? { objetivo: precioDestino!, planDestino: destino!.id, capaPendiente: { capa: destino!.capa, desde: proximo! } } : {}),
   };
   const gano = await runWithWorkspace(ws, () => cambiarSettingSi(CLAVE_RETENCION, null, JSON.stringify(marca)));
@@ -228,6 +241,8 @@ export async function conciliarRetenciones(): Promise<{ conciliadas: number; lib
           const s = await suscripcionMpDetalle(token, id);
           if (s.ok) tomo = g.opcion === 'pausa' ? s.estado === 'paused' : mismo(s.monto, g.objetivo);
         }
+        // Una PAUSA que la pasarela ya no muestra porque YA PASÓ su reanudación no se libera (la oferta volvería): se consumió.
+        if (tomo === false && g.opcion === 'pausa' && g.reanudaAt && Date.now() >= Date.parse(g.reanudaAt)) tomo = true;
         if (tomo === true && (await marcarAplicada(ws, g, plataforma))) out.conciliadas++;
         else if (tomo === false && (await runWithWorkspace(ws, () => borrarSettingSi(CLAVE_RETENCION, fila.value)))) out.liberadas++;
         continue;
@@ -255,6 +270,11 @@ export async function conciliarRetenciones(): Promise<{ conciliadas: number; lib
         ? await estadoSuscripcionMp(token, id, 'authorized', `mako-retencion-fin-${g.cobroId}-pausa`)
         : await montoSuscripcionMp(token, id, g.montoOriginal, `mako-retencion-fin-${g.cobroId}`);
       if (!r.ok) { console.error(`[retencion] no pude restaurar el cobro ${g.cobroId} (${g.opcion}): ${r.error}`); continue; }
+      if (g.opcion === 'pausa') {
+        // Que el próximo cobro de MP quede en el ciclo que sigue: si quedó en el pasado, MP puede cobrar el ciclo salteado.
+        const d = await suscripcionMpDetalle(token, id);
+        if (d.ok && d.proximo && Date.parse(d.proximo) < Date.now()) console.error(`[retencion] ⚠️ cobro ${g.cobroId}: MP reanudó con next_payment_date en el pasado (${d.proximo}): revisar que no cobre el ciclo salteado`);
+      }
       await runWithWorkspace(ws, () => setSetting(CLAVE_RETENCION, JSON.stringify({ ...g, restaurada: true })));
       out.restauradas++;
     }

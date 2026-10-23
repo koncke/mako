@@ -52,6 +52,16 @@ test('segunda revisión del 23/10: sin oferta en mora ni sin retención en el pl
   assert.match(r, /if \(g\.estado === 'error' \|\| \(g\.estado === 'aplicando' && Date\.now\(\) - Date\.parse\(g\.aplicadaAt\) > 10 \* 60_000\)\)/, 'R1: concilia las trabadas');
 });
 
+// Revisión del Cerebro (23/10): en MP la pausa se reanudaba a los 2 días del cobro salteado y podía cobrarlo. Probado rompiéndolo:
+// MP con la regla de Stripe -> 1 fallo (éste).
+test('la pausa vuelve a cobrar: Stripe a los 2 días del cobro salteado, Mercado Pago un día antes del fin del ciclo cubierto', async () => {
+  const r = fuente('lib/retencion-plan.ts');
+  assert.match(r, /reanudaAt: reanudaDeLaPausa\(c\.proveedor, proximo!, meses \?\? 1\)/);
+  assert.match(r, /: Date\.parse\(`\$\{mesesDespuesDe\(proximo, meses\)\}T00:00:00Z`\) - DIA;/, 'MP: fin del ciclo cubierto menos un día');
+  assert.match(r, /\? Date\.parse\(`\$\{proximo\}T00:00:00Z`\) \+ 2 \* DIA/, 'Stripe: 2 días después del cobro salteado');
+  assert.match(r, /if \(tomo === false && g\.opcion === 'pausa' && g\.reanudaAt && Date\.now\(\) >= Date\.parse\(g\.reanudaAt\)\) tomo = true;/, 'una pausa vencida no libera la oferta');
+});
+
 test('«Darme de baja» muestra la oferta antes de la confirmación, y rechazarla sigue a la baja de siempre', () => {
   const p = fuente('app/configuraciones/plan/PlanPanel.tsx');
   assert.match(p, /onClick=\{corriendo \? undefined : \(\) => \(ofertaViva \? setOfrecer\(true\) : setPreguntar\(true\)\)\}/);
