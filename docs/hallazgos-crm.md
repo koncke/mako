@@ -47,7 +47,9 @@ en [corridas-multiagente.md](corridas-multiagente.md).
     ⚠️ `junta_N_at` puede ser de OTRO día (un reagendado sin hora): se usa sólo si cae en la fecha de la reunión
     (`instanteDe`). Es la misma trampa que ya cuidaba lib/crm-movil.ts.
   - Lo último y la R1 se piden AL ABRIR el pop-up (app/crm/reuniones-actions.ts), no al cargar el CRM: la página ya hace su
-    ola. La R1 sale de Closing Analyst (`closing_analyses`, tipo R1 y `analizada`). Lo último sigue la regla de Clientes:
+    ola. La R1 sale de Closing Analyst (`closing_analyses`, tipo R1, `analizada` y categoría `venta`). ⚠️ Sin la categoría
+    entraba una sesión de ENTREGA, que desde #107 también queda `analizada`: lo frenó tests/closing-entrega en el tren 9 y
+    Integración sumó el filtro. Todo lector nuevo de `closing_analyses` filtra los dos. Lo último sigue la regla de Clientes:
     lo que escribió EL LEAD, no lo que le mandamos.
   - La hora se cuenta después de montar: el HTML del server diría otro «En 25 min» que el navegador.
 
