@@ -85,6 +85,7 @@ test('4. la criatura de MaKo entra mientras carga y vuela a su lugar, la criatur
   assert.equal(panelDibujado(doc(['.co-panel', '.co-panel .co-hilo'])), false, 'un chat sin líneas todavía: no');
   assert.equal(panelDibujado(doc(['.co-panel', '.co-panel .co-hilo', '.co-panel .co-hilo__col > *'])), true, 'con sus líneas');
   assert.equal(panelDibujado(doc(['.co-panel', '.co-panel.co-ticketera'])), true, 'la Ticketera abierta');
+  assert.equal(panelDibujado(doc(['.co-panel', '.co-panel .co-hilo', '.co-panel.co-ticketera'])), true, 'la Ticketera aunque sea un chat (la de Soporte, con su hilo)');
   assert.equal(panelDibujado(doc(['.co-panel'])), true, 'un panel que no es un chat (el grafo)');
   assert.equal(panelDibujado(doc([])), false, 'sin panel, todavía no');
   // Lo dibuja el server: la capa con la criatura de MaKo.
@@ -113,3 +114,4 @@ test('4. la criatura de MaKo entra mientras carga y vuela a su lugar, la criatur
 //   · se va sin la conversación dibujada               → 3/1 (4)
 //   · la entrada sin montar en la página               → 3/1 (4)
 //   · la Ticketera abierta espera una conversación      → 3/1 (4)
+//   · la Ticketera como chat espera sus líneas          → 3/1 (4)
