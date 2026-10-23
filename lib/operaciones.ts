@@ -32,7 +32,7 @@ import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'no
 import { getSupabaseServer } from './supabase';
 import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from './claves-en-el-chat';
 import {
-  CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, UUID_RE, claveIdDe, sanearAbre, estadoDeCierre, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
+  CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, UUID_RE, claveIdDe, sanearAbre, estadoDeCierre, fotosDeFirmado, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
   sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
 } from './operaciones-reglas';
 import { cuentaDeLaSemana, sanearCuota, type Cuota } from './centro-uso';
@@ -70,6 +70,8 @@ export type Pedido = {
   cierre: Cierre | null;
   /** Los nombres de las fotos y los PDF que llevó (17/10/2026), sacados de su texto firmado. */
   adjuntos?: string[];
+  /** De esos, los que son fotos (23/10/2026): su miniatura se puede pedir al servidor (lib/operaciones-adjuntos.ts). */
+  fotos?: string[];
 };
 
 export type Cartero = {
@@ -104,10 +106,11 @@ export async function listarPedidos(limite = 100): Promise<Pedido[]> {
   const { data, error } = await getSupabaseServer()
     .from(T_PEDIDOS).select(`${COLS}, firmado`).order('created_at', { ascending: false }).limit(limite);
   if (error) throw new Error(`no pude leer la cola: ${error.message}`);
-  // El texto firmado no sale de acá: sólo los nombres de sus adjuntos, si tiene.
+  // El texto firmado no sale de acá: sólo los nombres de sus adjuntos, si tiene, y cuáles son fotos.
   return (data ?? []).map(({ firmado, ...p }) => {
     const adjuntos = nombresDeAdjuntos(firmado as string | null);
-    return (adjuntos.length ? { ...p, adjuntos } : p) as Pedido;
+    const fotos = fotosDeFirmado(firmado as string | null).map((f) => f.nombre);
+    return (adjuntos.length ? { ...p, adjuntos, ...(fotos.length ? { fotos } : {}) } : p) as Pedido;
   });
 }
 

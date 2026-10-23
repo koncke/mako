@@ -3856,6 +3856,10 @@ creía que había funcionado.**
   llamada, la respuesta casi siempre trae N estados y el HTTP es uno solo.
 - Y **traducí ese estado a una frase**, no lo pases crudo: `403` no le dice nada a nadie
   (ver `RESULTADO_PARTICIPANTE` en `lib/mako-grupo.ts`).
+- ⚠️ **supabase-js (y su storage) NO rechaza la promesa ante un error: devuelve `{ data: null, error }`.** Un `.catch`
+  encadenado está muerto para ese caso, y quien destructura sólo `data` lee la falla como «no hay nada». Medido el
+  23/10/2026 en storage-js 2.106.1 (`createSignedUrls`): el Ops Center contestaba «esta foto no existe» con el storage
+  caído. Se lee `error` siempre, y una falla de la llamada se distingue de un ítem que no existe.
 
 # La salida de un estado trabado no puede pasar por lo que está trabado
 
@@ -6545,6 +6549,11 @@ SÍ se publica:
 concretas y excluyentes, y el contexto dice qué se rompe con cada una. Si para contestar hay
 que abrir el código, falta trabajo tuyo, no decisión suya — la prueba está en que una de las 56
 volvió contestada con **«No entiendo esta pregunta»**.
+
+⚠️ **Y antes de dejar algo como «depende de Martín», se busca si ya lo decidió** (la memoria, las bitácoras de
+`/admin/dev`, el relevo del área). Medido el 23/10/2026: «la foto enviada en otro dispositivo» figuró seis días como «es
+una decisión de Martín» en el relevo, en los hallazgos y en docs/pendientes.md, y la decisión estaba tomada desde el 18/10.
+Una pendiente que ya se contestó traba igual que una sin contestar, y le cuesta a él una pregunta repetida.
 
 **DESDE EL 17/10/2026 LA PREGUNTA DE UN CHAT VA A SU CONVERSACIÓN, NO A LA TICKETERA** (Martín: «me pide
 que responda, en lugar de darme las opciones tipo multiple select»). La Ticketera queda para los tickets de
@@ -9362,6 +9371,12 @@ es el camino que ya guarda el borrador al desmontar.
 **Y la regla general: cuando cambies CUÁNDO se monta un componente, grepeá sus
 `useState(props.…)`.** Pasar de «se abre» a «siempre visible» no toca una línea del
 componente y le cambia el ciclo de vida entero.
+
+⚠️ **Y lo mismo adentro de una LISTA dibujada por posición** (`key={i}`): cuando la lista se corre (llega algo arriba,
+sale lo más viejo), React le pasa al mismo componente las props de OTRA fila, y su estado sigue siendo el de la anterior.
+Medido el 23/10/2026 en la conversación del Ops Center: la burbuja de un mensaje mostraba las fotos del mensaje de al lado
+hasta que llegaban las suyas. Un componente con estado sembrado de un id lleva `key={ese id}`, aunque sus hermanos no
+(docs/hallazgos-operaciones.md, «La foto que se manda por la caja…»).
 
 # /automations (ex /chatbot) es un FLUJO CON RAMAS: lo que gobierna el código nuevo
 

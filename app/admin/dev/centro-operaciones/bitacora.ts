@@ -1356,4 +1356,23 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-offer-voz.test.ts',
     ],
   },
+  {
+    fecha: '23 oct', hora: '10:10', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: la foto que mandas por la caja se ve también en el teléfono (y en cualquier dispositivo)',
+    pedido: 'Lo abierto del quinto Ops Center: «la foto enviada en otro dispositivo (hoy, su nombre)». Lo destrabó Martín el 18/10: «cuando envío imágenes por aquí o adjunto cosas también deberían aparecer en el Center»',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Una foto que mandas a un chat desde la computadora ahora se ve en su burbuja también en el teléfono, y al revés. Antes, en el otro dispositivo salía sólo su nombre.',
+      'Se guarda una copia chica de la foto (640 px), privada y sólo para ti. El original se sigue borrando apenas le llega a la PC, como siempre. La copia chica se borra sola a los 14 días.',
+      'Las fotos que mandaste antes de hoy siguen viéndose donde se veían; en el otro dispositivo, su nombre.',
+      '**Cómo se prueba:** desde la computadora, manda una captura a cualquier chat con el «+». Abre ese chat en el teléfono: la foto está en tu burbuja, y al tocarla se agranda.',
+    ],
+    archivos: [
+      'lib/operaciones-reglas.ts (fotosDeFirmado, problemaDeMiniatura, miniaturasVencidas)',
+      'lib/operaciones-adjuntos.ts (guardarMiniaturaEnviada, fotosEnviadasDe, barrerMiniaturasViejas), app/api/operaciones/adjuntos/route.ts',
+      'app/admin/operaciones/fotos-enviadas.ts, fotos-remotas.ts, FotosEnviadas.tsx, adjuntos-guardados.ts, useCentro.ts, Hilo.tsx',
+      'tests/centro-fotos-enviadas.test.ts',
+    ],
+  },
 ];

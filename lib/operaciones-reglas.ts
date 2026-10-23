@@ -246,6 +246,63 @@ export function nombresDeAdjuntos(firmado: string | null | undefined): string[] 
   }
 }
 
+// ── Las fotos enviadas, vistas desde cualquier dispositivo (23/10/2026) ────────────────────────────────────────────────
+// Hasta acá una foto mandada por la caja se veía SÓLO en el navegador que la mandó (su miniatura en IndexedDB): en el
+// teléfono salía su nombre. Martín, 18/10: «cuando envío imágenes por aquí o adjunto cosas también deberían aparecer en el
+// Center», y con eso quedó decidido que las fotos del Ops Center SÍ quedan del lado del servidor: bucket privado, URL
+// firmada, y sólo para quien puede operar. El ORIGINAL se sigue borrando al entregar (lo que protege el canal a la PC,
+// lib/operaciones-adjuntos.ts); lo que queda es la MINIATURA de 640 px que arma el navegador que la mandó, atada a la foto
+// por su `ref` (el uuid del original, adentro del texto firmado).
+/** Lo que pesa como mucho una miniatura. Medido: la de 640 px en JPEG al 0,78 pesa de 40 a 150 KB. */
+export const MAX_BYTES_MINIATURA = 400 * 1024;
+const MIMES_MINIATURA: readonly string[] = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+/** Cuánto queda una miniatura en el servidor. La conversación dibuja los últimos 100 trabajos (lib/operaciones.ts →
+ *  `listarPedidos`), que son días: pasado esto, no hay burbuja que la pida. */
+export const MINIATURA_VENCE_MS = 14 * 24 * 60 * 60 * 1000;
+export type FotoDeTrabajo = { ref: string; nombre: string };
+
+/**
+ * Las FOTOS de un texto firmado (no los PDF ni los documentos), en su orden y con su `ref`. El nombre se recorta igual que
+ * en `nombresDeAdjuntos`: la burbuja separa lo que es foto de lo que es documento comparando nombres. Vacío si no tiene.
+ */
+export function fotosDeFirmado(firmado: string | null | undefined): FotoDeTrabajo[] {
+  try {
+    const o = JSON.parse(firmado ?? '') as { adjuntos?: unknown };
+    if (!Array.isArray(o.adjuntos)) return [];
+    const fotos: FotoDeTrabajo[] = [];
+    for (const a of o.adjuntos.slice(0, MAX_ADJUNTOS)) {
+      const x = (a ?? {}) as { ref?: unknown; nombre?: unknown; mime?: unknown };
+      if (typeof x.ref !== 'string' || !UUID_RE.test(x.ref) || typeof x.mime !== 'string' || !MIMES_MINIATURA.includes(x.mime)) continue;
+      if (typeof x.nombre !== 'string' || !x.nombre.trim()) continue;
+      fotos.push({ ref: x.ref, nombre: x.nombre.slice(0, MAX_NOMBRE_ADJUNTO) });
+    }
+    return fotos;
+  } catch {
+    return [];
+  }
+}
+
+/** El tipo de una miniatura por sus BYTES (una foto, nunca otra cosa). null = no es una foto. */
+export function mimeDeMiniatura(b: Uint8Array): string | null {
+  const m = tipoPorFirma(b)?.mime;
+  return m && MIMES_MINIATURA.includes(m) ? m : null;
+}
+
+/** null si la miniatura vale para ESA foto de ESE trabajo; si no, el motivo (lo que contesta la ruta). */
+export function problemaDeMiniatura(bytes: Uint8Array, fotos: readonly FotoDeTrabajo[], ref: string): string | null {
+  if (!UUID_RE.test(ref) || !fotos.some((f) => f.ref === ref)) return 'Esa foto no es de este mensaje.';
+  if (!bytes.length || bytes.length > MAX_BYTES_MINIATURA) return 'La miniatura pesa demasiado.';
+  return mimeDeMiniatura(bytes) ? null : 'Solo una foto.';
+}
+
+/** De lo que lista el storage, las miniaturas que ya vencieron (su nombre). Sin fecha legible, no se toca. */
+export function miniaturasVencidas(objetos: ReadonlyArray<{ name?: string | null; created_at?: string | null }>, ahora: number): string[] {
+  return objetos.flatMap((o) => {
+    const t = o.created_at ? Date.parse(o.created_at) : NaN;
+    return o.name && UUID_RE.test(o.name) && Number.isFinite(t) && ahora - t > MINIATURA_VENCE_MS ? [o.name] : [];
+  });
+}
+
 // ── Abrir un chat de terminal con un clic (17/10/2026, docs/diseno-nuevo-chat-un-clic.md) ──────────────────────────────
 // Martín: «un clic + el permiso de la PC», nunca pegar un comando en PowerShell. Es un trabajo firmado como cualquiera,
 // con `destino: 'nuevo'`: la `cuenta` dice en qué terminal, el `titulo` es el nombre del chat y el `texto` su primer
