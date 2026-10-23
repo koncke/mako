@@ -32,11 +32,16 @@ import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import {
   leerCobroDeEtapaAction, vincularProductoAEtapaAction, cambiarCuentasDelVinculoAction, desvincularProductoAction,
-  guardarProductoCobroAction,
+  guardarProductoCobroAction, preciosDeStripeAction, vincularPrecioDeStripeAction, type AvisoDeCuentaStripe, type PrecioDeStripe,
 } from './cobro-etapa-actions';
 import { TEXTO_AL_PAGAR, type FotoCobroEtapa, type ProductoCobro, type VinculoCobro } from '@/lib/cobro-etapa';
-import { MAX_NOMBRE_PRODUCTO, NOMBRE_PROVEEDOR_PAGO, nombreDeCuenta, precioDeProducto, productoDeLoEscrito, productosParaVincular } from './cobro-ganado';
+import {
+  MAX_NOMBRE_PRODUCTO, NOMBRE_PROVEEDOR_PAGO, nombreDeCuenta, opcionesDeCobro, precioDeProducto, precioDeStripeTexto, productoDeLoEscrito,
+} from './cobro-ganado';
 import { CSS_VINCULAR, PASTILLA_CONECTAR } from './vincular-etapa';
+
+/** Un renglón de «+ Producto»: nombre · precio · ruedita. */
+const FILA_OPCION: CSSProperties = { width: '100%', gridTemplateColumns: 'minmax(0, 1fr) auto auto', cursor: 'pointer', textAlign: 'left', font: 'inherit' };
 
 const CAMPO: CSSProperties = {
   height: 34, padding: '0 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)',
@@ -70,12 +75,22 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, onC
   /** El producto que se edita en el lugar. */
   const [editando, setEditando] = useState<{ id: number; escrito: Escrito } | null>(null);
   const [errorForm, setErrorForm] = useState<string | null>(null);
+  /**
+   * Los precios de las cuentas de Stripe, EN VIVO (23/10/2026, la llamada con Mauricio: su producto estaba en Stripe con
+   * precio y el pop-up decía «Este producto no tiene precio»). Llegan aparte y no frenan la foto. null = leyendo.
+   */
+  const [stripe, setStripe] = useState<{ precios: PrecioDeStripe[]; errores: AvisoDeCuentaStripe[] } | null>(null);
 
   const leer = useCallback(() => {
     setError(null);
     void leerCobroDeEtapaAction(funnelId, etapa)
       .then((r) => { if (r.ok) setFoto(r.foto); else setError(r.error); })
       .catch(() => setError('No pude leer los cobros de esta etapa. Intenta de nuevo.'));
+    // En paralelo: «Volver a leer» y conectar una cuenta los traen de nuevo. Un fallo se dice, nunca es «no hay».
+    setStripe(null);
+    void preciosDeStripeAction()
+      .then((r) => setStripe(r.ok ? { precios: r.precios, errores: r.errores } : { precios: [], errores: [{ cuenta: 'stripe', cuentaNombre: 'Stripe', error: r.error }] }))
+      .catch(() => setStripe({ precios: [], errores: [{ cuenta: 'stripe', cuentaNombre: 'Stripe', error: 'no contestó' }] }));
   }, [funnelId, etapa]);
   useEffect(() => { leer(); }, [leer]);
 
@@ -116,6 +131,24 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, onC
     show(`«${nombre}» ya no cobra aquí`, () => {
       void vincularProductoAEtapaAction(d).then((q) => { if (q.ok) ponerVinculo(q.vinculo); else show(q.error, undefined, 'bad'); });
     });
+    return true;
+  });
+  /**
+   * Un precio de Stripe: Cobros lo trae al catálogo (o le pone ese precio al de MaKo con el mismo nombre) y lo vincula.
+   * Sin `cuentas`: cobra por la cuenta de Stripe donde está (las pastillas lo cambian después). El monto lo vuelve a leer
+   * el server en Stripe: de acá sale sólo QUÉ precio.
+   */
+  const traerDeStripe = (precio: PrecioDeStripe) => correr(`s:${precio.precio}`, async () => {
+    const r = await vincularPrecioDeStripeAction({ funnelId, etapa, cuenta: precio.cuenta, precio: precio.precio });
+    // Si lo trajo y no se vinculó, el producto ya está en el catálogo: se pone igual, y el error dice qué quedó hecho.
+    if ('producto' in r && r.producto) ponerProducto(r.producto);
+    if (!r.ok) { show(r.error, undefined, 'bad'); return false; }
+    ponerVinculo(r.vinculo);
+    setStripe((s) => (s ? { ...s, precios: s.precios.map((x) => (x.precio === precio.precio ? { ...x, enMako: r.producto.id } : x)) } : s));
+    setSumando(null);
+    show(r.cambio === 'creado' ? `Traje «${r.producto.nombre}» de Stripe: cobra en «${etapaNombre}»`
+      : r.cambio === 'precio' ? `«${r.producto.nombre}» con el precio de Stripe: cobra en «${etapaNombre}»`
+        : `Cobra en «${etapaNombre}»`);
     return true;
   });
   /** Crear (y vincular con todas las cuentas) o guardar lo editado. */
@@ -214,7 +247,10 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, onC
     );
   };
 
-  const paraVincular = foto ? productosParaVincular(foto) : [];
+  const opciones = foto ? opcionesDeCobro(foto, stripe?.precios ?? []) : [];
+  const hayStripe = !!foto?.cuentas.some((c) => c.proveedor === 'stripe');
+  /** Con más de una cuenta de Stripe, cada precio dice de cuál es. */
+  const variasStripe = (foto?.cuentas.filter((c) => c.proveedor === 'stripe').length ?? 0) > 1;
   const contenido = (
     <div className="vx" style={{ fontFamily: SANS }}>
       <style>{CSS_VINCULAR}</style>
@@ -232,7 +268,7 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, onC
         </button>
         {foto?.puedeEditar && foto.cuentas.length > 0 && !sumando && (
           <Button size="sm" icon={<IconoMenu nombre="agregar" size={15} />} disabled={ocupado != null}
-            onClick={() => { setErrorForm(null); setSumando(paraVincular.length ? { modo: 'elegir' } : { modo: 'crear', escrito: VACIO }); }}>
+            onClick={() => { setErrorForm(null); setSumando(opciones.length || (hayStripe && !stripe) ? { modo: 'elegir' } : { modo: 'crear', escrito: VACIO }); }}>
             Producto
           </Button>
         )}
@@ -241,18 +277,51 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, onC
       {/* «+ PRODUCTO»: uno del catálogo, o crearlo ahí mismo (nace cobrando por todas las cuentas). */}
       {sumando?.modo === 'elegir' && (
         <div className="vx-form--crear" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <ul className="vx-lista" role="listbox" aria-label="Productos del catálogo">
-            {paraVincular.map((p) => (
-              <li key={p.id} role="option" aria-selected={false}>
-                <button type="button" className="vx-fila" disabled={ocupado != null} onClick={() => void vincular(p.id)}
-                  style={{ width: '100%', gridTemplateColumns: 'minmax(0, 1fr) auto auto', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
-                  <span className="vx-nombre">{p.nombre}</span>
-                  <span className="vx-meta">{precioDeProducto(p)}</span>
-                  {ocupado === `p:${p.id}` ? <Spinner size={13} /> : <span />}
-                </button>
-              </li>
-            ))}
+          <ul className="vx-lista" role="listbox" aria-label="Productos para cobrar">
+            {opciones.map((o) => {
+              if (o.tipo === 'mako') {
+                const p = o.producto;
+                return (
+                  <li key={`m${p.id}`} role="option" aria-selected={false}>
+                    <button type="button" className="vx-fila" disabled={ocupado != null} onClick={() => void vincular(p.id)} style={FILA_OPCION}>
+                      <span className="vx-nombre">{p.nombre}</span>
+                      <span className="vx-meta">{precioDeProducto(p)}</span>
+                      {ocupado === `p:${p.id}` ? <Spinner size={13} /> : <span />}
+                    </button>
+                  </li>
+                );
+              }
+              const p = o.precio;
+              const donde = variasStripe ? p.cuentaNombre : 'Stripe';
+              // Uno que no se puede traer va APAGADO y dice por qué (otra moneda, el monto lo elige quien paga, ya cobra otra cosa).
+              if (o.tipo === 'no') {
+                return (
+                  <li key={`n${p.precio}`} role="option" aria-selected={false} aria-disabled>
+                    <div className="vx-fila" data-apagada style={{ ...FILA_OPCION, cursor: 'default', opacity: 0.75 }} title={p.noSe ?? undefined}>
+                      <span className="vx-txt"><span className="vx-nombre" data-fuera>{p.nombre}</span><span className="vx-meta">{p.noSe}</span></span>
+                      <span className="vx-meta">{precioDeStripeTexto(p)} · {donde}</span>
+                      <span />
+                    </div>
+                  </li>
+                );
+              }
+              return (
+                <li key={`s${p.precio}`} role="option" aria-selected={false}>
+                  <button type="button" className="vx-fila" disabled={ocupado != null} onClick={() => void traerDeStripe(p)} style={FILA_OPCION}>
+                    <span className="vx-nombre">{o.producto?.nombre ?? p.nombre}</span>
+                    <span className="vx-meta">{precioDeStripeTexto(p)} · {donde}</span>
+                    {ocupado === `s:${p.precio}` ? <Spinner size={13} /> : <span />}
+                  </button>
+                </li>
+              );
+            })}
+            {hayStripe && !stripe && (
+              <li className="vx-fila vx-gris" aria-label="Leyendo los productos de Stripe" style={FILA_OPCION}><span /><span /><Spinner size={13} /></li>
+            )}
           </ul>
+          {stripe?.errores.map((e) => (
+            <p key={e.cuenta} className="vx-nota" data-mal>No pude leer los productos de {e.cuentaNombre}: {e.error}</p>
+          ))}
           <div style={{ display: 'flex', gap: 8 }}>
             <Button size="sm" variant="secondary" icon={<IconoMenu nombre="agregar" size={15} />} onClick={() => setSumando({ modo: 'crear', escrito: VACIO })}>Crear producto</Button>
             <Button size="sm" variant="secondary" onClick={() => setSumando(null)}>Cancelar</Button>
