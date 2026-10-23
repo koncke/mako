@@ -10,6 +10,7 @@
 // vencimiento" — un "sí" viejo o de otra charla nunca dispara algo por accidente.
 
 import 'server-only';import { MOLDE_DETALLE, MOLDE_ADVERTENCIA } from './detalle-contrato';
+import { topeAlActivar } from './tope-automations';
 
 
 import type { ToolDef, ToolRunner } from '@/lib/anthropic';
@@ -156,6 +157,11 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         const activa = Boolean(payload.activa);
         // `aunqueDuplique` sólo si la PROPUESTA ya dijo que otra le escribe lo mismo (y la persona dijo que sí). Si la
         // gemela apareció entre la propuesta y el «sí», no se prende: se dice, y se vuelve a proponer con el aviso.
+        // El tope del plan (MaKo Esencial: hasta 3 activas, lib/tope-automations.ts), antes de prender nada.
+        if (activa) {
+          const tope = await topeAlActivar(id, ws);
+          if (tope) return { ok: false, resumen: `No activé la secuencia #${id}: ${tope}` };
+        }
         try {
           await setSecuenciaActiva(id, activa, { aunqueDuplique: payload.aunqueDuplique === true });
         } catch (e) {

@@ -10,6 +10,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { topeAlActivar } from '@/lib/tope-automations';
 import { setSecuenciaActiva, publicarPasos, duplicadaDeLaActivacion, DuplicadaError, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
 import {
   getEmailKpis, getEmailSecuencias, crearEmailSecuencia, actualizarMetaEmailSecuencia, DisparadorEmailError,
@@ -86,6 +87,11 @@ export async function PATCH(req: NextRequest) {
       // Activar una secuencia dispara envíos a leads → solo el admin del workspace.
       if (body.activa && (await getRolWsEfectivo()) !== 'admin') {
         return Response.json({ ok: false, error: 'Solo el admin puede activar secuencias.' }, { status: 403 });
+      }
+      // El tope del plan (MaKo Esencial: hasta 3 activas, lib/tope-automations.ts), antes de prender nada.
+      if (body.activa) {
+        const tope = await topeAlActivar(id);
+        if (tope) return Response.json({ ok: false, error: tope, tope: true }, { status: 403 });
       }
       await setSecuenciaActiva(id, body.activa, { aunqueDuplique: body.aunqueDuplique === true });
     }
