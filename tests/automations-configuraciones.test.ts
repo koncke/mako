@@ -243,8 +243,8 @@ test('el modal: dos pestañas, `onCerrar` fijo que no cierra con un guardado en 
   assert.match(fuente('app/automations/SimuladorWhatsApp.tsx'), /const cerrarConfigDe = useCallback\(\(\) => setConfigDe\(null\), \[\]\);/);
   assert.match(src, /<Modal titulo="Configuraciones" onCerrar=\{cerrar\} ancho=\{600\} alto="[^"]+" sinFiletes>/, 'el modal salta de alto al cambiar de pestaña');
   assert.match(src, /createPortal\(\s*<Modal /);
-  // El MISMO editor del horario, guardando en ESTA automatización (`fuente`).
-  assert.match(fuente('app/automations/ConfigAutomatizacionPanel.tsx'), /\{propio && <HorarioEnvioPanel key=\{vuelta\} fuente=\{fuente\} onSucio=\{onSucio\} \/>\}/, 'no es el MISMO editor del horario');
+  // El MISMO editor del horario, guardando en ESTA automatización (`fuente`). Desde el 23/10/2026, sin «Horario propio».
+  assert.match(fuente('app/automations/ConfigAutomatizacionPanel.tsx'), /return <HorarioEnvioPanel fuente=\{fuente\} onSucio=\{onSucio\} \/>;/, 'no es el MISMO editor del horario');
   // Los paneles MONTADOS: la pestaña sólo esconde (desmontar tiraba el guardado de su respiro).
   assert.match(src, /<div hidden=\{pestana !== 'horario'\}><HorarioDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucio=\{alSucioHorario\} \/><\/div>/);
   // 22/10/2026: «Límites» pasa a llamarse «Anti-ban» (Martín).

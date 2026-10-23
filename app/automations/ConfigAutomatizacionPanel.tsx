@@ -44,26 +44,16 @@ function useConfig(secuenciaId: number) {
 }
 
 /**
- * EL HORARIO DE ESTA AUTOMATIZACIÓN: «Horario propio» apagado = el del negocio (dicho en su ⓘ); prendido, el panel de
- * siempre (`HorarioEnvioPanel`, «Horario de oficina») guardando en ESTA automatización, que arranca con lo del negocio.
- * Propio con «Horario de oficina» apagado = manda a cualquier hora (lo dice ese interruptor).
+ * EL HORARIO DE ESTA AUTOMATIZACIÓN: UN interruptor, «Horario de oficina» (23/10/2026, P0 de #289). Era «Horario propio»:
+ * apagado volvía al del NEGOCIO (9 a 21), y en la llamada lo apagaron creyendo que mandaba a cualquier hora: así no les
+ * salió nada a las 21:47 de Tijuana. Ahora el panel muestra el horario que VALE para esta automatización (el suyo, o el del
+ * negocio) y lo guarda en ella: apagado = sale a cualquier hora (`horario.activo = false`, «sin horario»), prendido = de
+ * tal a tal hora. El huso es del negocio: acá se ve, no se cambia.
  */
 export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaId: number; onSucio?: (s: boolean) => void }) {
   const { d, error, poner } = useConfig(secuenciaId);
-  const [aviso, setAviso] = useState('');
-  const [vuelta, setVuelta] = useState(0);
   if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}<ReportarASoporte /></p> : <Spinner />;
-  const propio = d.config.horario !== undefined;
-  const off = !d.puedeEditar;
-  const alternar = (v: boolean) => {
-    setAviso('');
-    const horario = v ? (d.horarioNegocio ?? { ...HORARIO_SUGERIDO, activo: false }) : null;
-    void saveConfigAutomatizacionAction(secuenciaId, { horario })
-      .then((r) => { if (!r.ok || !r.config) { setAviso(r.error || 'No se pudo guardar.'); return; } poner(r.config); setVuelta((n) => n + 1); })
-      .catch(() => setAviso('No se pudo guardar.'));
-  };
   const fuente: FuenteHorario = {
-    // El huso es del NEGOCIO: acá se ve (en el ⓘ), no se cambia (revisión del 20/10/2026).
     zonaSoloLectura: true,
     leer: async () => ({ horario: d.config.horario ?? d.horarioNegocio ?? { ...HORARIO_SUGERIDO, activo: false }, zona: d.zona, puedeEditar: d.puedeEditar }),
     guardar: async (h) => {
@@ -72,16 +62,7 @@ export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
       return { ok: r.ok, error: r.error, horario: r.config?.horario ?? undefined };
     },
   };
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <TarjetaOpciones>
-        <FilaOpcion primera nombre="Horario propio" info={`Apagado, usa el del negocio: ${textoDeHorario(d.horarioNegocio)}.`} datos={{ 'data-horario-propio': propio ? 'si' : 'no' }}
-          interruptor={<Interruptor on={propio} disabled={off} etiqueta={propio ? 'Volver al horario del negocio' : 'Ponerle un horario propio'} onCambio={alternar} />} />
-      </TarjetaOpciones>
-      {aviso && <p role="alert" style={{ margin: 0, fontSize: 13, color: 'var(--bad)', fontFamily: SANS }}>{aviso}<ReportarASoporte /></p>}
-      {propio && <HorarioEnvioPanel key={vuelta} fuente={fuente} onSucio={onSucio} />}
-    </div>
-  );
+  return <HorarioEnvioPanel fuente={fuente} onSucio={onSucio} />;
 }
 
 /** Un cambio del anti-ban de esta automatización: por parte, los campos que cambian (`null` = se saca). */
