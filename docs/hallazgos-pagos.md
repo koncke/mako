@@ -1210,6 +1210,14 @@ inventar una tasa. Lo único declarado es la relación del cobro: sus pesos fren
 
 **Medido en producción (sólo leyendo):** ningún negocio tiene cobros de suscripción ni cuotas de pasarela todavía.
 No quedó nada mal anotado.
+**La revisión adversarial encontró dos más:**
+- El historial del lead decía el USD de lista («ARS 40.000 (US$ 47)») mientras al cash entraban US$37,60. Ahora dice
+  lo de esa cuota.
+- Una cuota de cero dispararía «Entró un pago» y las automatizaciones de «Pagos». Ya no los dispara. Hoy esa cuota
+  no llega por ningún camino: Stripe descarta la factura en cero y Mercado Pago no aprueba pagos de cero. El arreglo
+  es por si algún día llega.
+- Queda fijo: de Mercado Pago se toma el bruto (`transaction_amount`), no `net_received_amount`. Con el neto, la
+  comisión parecería un descuento.
 
 **Sin hacer:** con una cotización diaria de verdad (otra fuente, y decidir cuál: oficial o MEP), una renovación en
 pesos valdría lo de ese día. Es una decisión de producto, no de este arreglo.

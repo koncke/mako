@@ -661,10 +661,15 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     // 2. El CRM: la cuota. Idempotente por (workspace, proveedor, proveedor_pago_id).
     let cuotaNueva = false;
     let cuotaAsentada = false;
+    // Lo que vale ESTA cuota en dólares: lo que entra al cash y lo que dice el historial (revisión del 23/10/2026: el
+    // historial decía el USD de lista de una renovación con descuento, y el cash otro).
+    const montoUsd = renovacion
+      ? montoUsdDeLaCuota({ montoCuota: p.monto, monedaCuota: p.moneda ?? actual.moneda, cobroMontoUsd: actual.monto_usd, cobroMonto: actual.monto, cobroMoneda: actual.moneda })
+      : actual.monto_usd;
+    // Una cuota de cero (saldo a favor, cupón del 100%) queda asentada, pero no es «entró un pago»: ni el aviso al
+    // equipo ni las automatizaciones de «Pagos» al lead.
+    const enCero = renovacion && p.monto != null && Number(p.monto) === 0;
     if (actual.lead_id) {
-      const montoUsd = renovacion
-        ? montoUsdDeLaCuota({ montoCuota: p.monto, monedaCuota: p.moneda ?? actual.moneda, cobroMontoUsd: actual.monto_usd, cobroMonto: actual.monto, cobroMoneda: actual.moneda })
-        : actual.monto_usd;
       if (montoUsd == null) {
         // Sin valor en dólares no hay cuota (pagos.monto_usd es NOT NULL y nunca se inventa una tasa).
         // El cobro igual queda pagado y lo dice.
@@ -699,7 +704,7 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     if (actual.lead_id && cuotaNueva) {
       await logLeadEvent(actual.lead_id, 'Pago registrado', textoPagoRegistrado({
         concepto: actual.concepto, monto: renovacion && p.monto != null ? p.monto : actual.monto, moneda: (renovacion && p.moneda) || actual.moneda,
-        montoUsd: actual.monto_usd, pasarela: actual.proveedor, prueba, renovacion,
+        montoUsd, pasarela: actual.proveedor, prueba, renovacion,
       }), autor);
     }
 
@@ -731,7 +736,7 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     //    un intento la insertó y se cortó antes de avisar, el reintento la encuentra «ya estaba» y antes no
     //    avisaba nunca. Repetir es seguro: el aviso deduplica por el pago del proveedor (3 días, lo que reintenta
     //    Stripe; un evento ya PROCESADO no vuelve a entrar por `pasarela_eventos`) y la inscripción es única.
-    if (actual.lead_id && (nuevo || cuotaAsentada)) {
+    if (actual.lead_id && (nuevo || cuotaAsentada) && !enCero) {
       await avisarPagoRecibido(actual, { proveedorPagoId: p.proveedorPagoId, renovacion, monto: renovacion && p.monto != null ? p.monto : actual.monto, moneda: (renovacion && p.moneda) || actual.moneda });
       await alCron(actual, 'aprobado');
     }

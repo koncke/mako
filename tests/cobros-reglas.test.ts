@@ -164,6 +164,11 @@ test('montoUsdDeLaCuota: lo que se cobró de verdad, nunca el precio de lista (2
   const cobros = readFileSync(join(RAIZ, 'lib', 'cobros.ts'), 'utf8');
   assert.match(cobros, /montoUsdDeLaCuota\(\{ montoCuota: p\.monto, monedaCuota: p\.moneda \?\? actual\.moneda, cobroMontoUsd: actual\.monto_usd, cobroMonto: actual\.monto, cobroMoneda: actual\.moneda \}\)/);
   assert.doesNotMatch(cobros, /renovacion && p\.monto \?/, 'un monto de cero se guardaba y se avisaba como el del cobro');
+  // Revisión adversarial: el historial dice el USD de ESTA cuota (el del cash), y una de cero no avisa ni dispara «Pagos».
+  const historial = cobros.slice(cobros.indexOf("'Pago registrado', textoPagoRegistrado({"), cobros.indexOf("'Pago registrado', textoPagoRegistrado({") + 400);
+  assert.match(historial, /\n\s+montoUsd, pasarela: actual\.proveedor, prueba, renovacion,/, 'el historial decía el USD de lista y el cash otro');
+  assert.match(cobros, /const enCero = renovacion && p\.monto != null && Number\(p\.monto\) === 0;/);
+  assert.match(cobros, /if \(actual\.lead_id && \(nuevo \|\| cuotaAsentada\) && !enCero\) \{\s*await avisarPagoRecibido\(/, 'una cuota de cero avisaba «Entró un pago» y disparaba las automatizaciones de Pagos');
 });
 
 // ── Estados ───────────────────────────────────────────────────────────────────
