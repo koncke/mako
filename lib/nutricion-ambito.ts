@@ -204,3 +204,22 @@ export function agregadosQueEntran(
   }
   return [...out];
 }
+
+/**
+ * ¿UN AGREGADO ENTRA POR EVENTO a un CRON por etapa? (23/10/2026, P0 de #289). Mover la tarjeta de un agregado (o
+ * agregarlo) dispara el evento de etapa (lib/lead-funnel.ts, `enrolarAgregado`), y cada CRON lo deja entrar SÓLO si el
+ * barrido de la hora lo dejaría: es `agregadosQueEntran` con la fila y el lead de ese evento. Una automatización de
+ * «Todos los productos» no (la etapa de un segundo CRM le escribiría dos veces a la misma persona), un lead cerrado no,
+ * su casa no (decide la etapa de la casa), una fila que nació con el lead no. Sin ámbito resuelto, no.
+ */
+export function agregadoEntraPorEvento(
+  ambito: AmbitoFunnel | null | undefined,
+  etapas: readonly string[],
+  leadId: number,
+  corteMs: number,
+  filas: readonly FilaAgregado[],
+  leads: readonly LeadDelAgregado[],
+): boolean {
+  if (!ambito || ambito.modo === 'todos') return false;
+  return agregadosQueEntran(ambito, etapas, corteMs, filas, leads).includes(leadId);
+}
