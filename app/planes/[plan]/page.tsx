@@ -12,6 +12,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ofertaDelPlan } from '@/lib/compra-plan';
+import { getSesionAdmin } from '@/lib/auth';
 import { origenLimpio, codigoRefLimpio, TEXTO_SIN_PASARELA } from '@/lib/compra-plan-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { CSS_PLANES } from '../estilo';
@@ -28,7 +29,8 @@ export default async function PlanPage({ params, searchParams }: {
 }) {
   const { plan: id } = await params;
   if (!/^[a-z0-9-]{1,32}$/.test(id)) notFound();
-  const oferta = await ofertaDelPlan(id);
+  // Una pasarela en modo prueba sólo la ve el super admin (la prueba de humo): lib/compra-plan.ts, `ofertaDelPlan`.
+  const oferta = await ofertaDelPlan(id, { conPrueba: (await getSesionAdmin().catch(() => null)) != null });
   if (!oferta) notFound();
   const sp = await searchParams;
   const uno = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);

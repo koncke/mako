@@ -68,6 +68,8 @@ export function CompraPlan(p: {
       {/* role="status" y no "alert": /planes es pública y sin sesión, así que «Reportar a soporte» no serviría acá. */}
       {error && <p className="planes-error" role="status" aria-live="polite">{error}</p>}
       <p className="planes-nota">Con ese email entras a MaKo: te llega el acceso apenas se confirme el pago.</p>
+      {/* La suscripción de Mercado Pago va a nombre de ESE email (payer_email): con otro, MP no deja autorizarla (revisión del 23/10/2026). */}
+      {pasarela === 'mercadopago' && <p className="planes-nota">Con Mercado Pago, usa el email de tu cuenta de Mercado Pago.</p>}
     </form>
   );
 }

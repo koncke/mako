@@ -14,8 +14,10 @@
 import { useState, type FormEvent } from 'react';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
-export function AccesoMako({ token, emailInicial, yaEntro, puedeCambiar, contacto }: {
+export function AccesoMako({ token, emailInicial, yaEntro, puedeCambiar, contacto, mailSalio = true }: {
   token: string;
+  /** false = la cuenta está creada pero el mail de acceso no salió: no se promete un mail que no va a llegar. */
+  mailSalio?: boolean;
   /** Ya enmascarado (`ma***@gmail.com`): el link se reenvía. */
   emailInicial: string;
   yaEntro: boolean;
@@ -69,8 +71,10 @@ export function AccesoMako({ token, emailInicial, yaEntro, puedeCambiar, contact
 
   return (
     <div className="pagar-acceso">
-      <p>Te mandamos el acceso a <strong>{email}</strong>.</p>
-      <p>Entra con Google usando ese email.</p>
+      {mailSalio || aviso
+        ? <p>Te mandamos el acceso a <strong>{email}</strong>.</p>
+        : <p>Tu cuenta ya está creada, pero no pudimos mandarte el mail. Entra con el botón usando <strong>{email}</strong>.</p>}
+      <p>Entra con Google usando ese email. Si no usas Google, en «o entra con tu correo» toca «¿Olvidaste tu contraseña?» y crea la tuya.</p>
       {aviso && <p className="pagar-ok" role="status">{aviso}</p>}
       <a className="pagar-btn" href="/login">Entrar a MaKo</a>
 

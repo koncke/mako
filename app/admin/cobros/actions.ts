@@ -27,13 +27,14 @@ import { getTenantDb, getWorkspace, runWithWorkspace, wsSuperAdmin } from '@/lib
 import { createLead, findLeadByContacto } from '@/lib/leads';
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { esCapaVendible } from '@/lib/alta-cliente';
-import { anularCobro, crearCobro, linkDelCobro, listarCobros, pasarelasConectadas, reembolsarCobro } from '@/lib/cobros';
+import { anularCobro, atarCobroASuCuenta, cancelarSuscripcionCobro, crearCobro, getCobro, linkDelCobro, listarCobros, pasarelasConectadas, reembolsarCobro } from '@/lib/cobros';
 import { esPasarela, type Cobro, type EstadoAlta, type EstadoCobro, type ModoCobro, type Pasarela, type TipoCobro } from '@/lib/cobros-tipos';
 import { normalizarMoneda } from '@/lib/pasarela-moneda';
 import { capaDef } from '@/lib/capas';
 import { ORIGEN_LEAD } from '@/app/crm/origen-lead';
 import { guardarPrecioClienteDeAgencia, precioClienteDeAgencia } from '@/lib/agencia-cobro';
 import type { PrecioClienteAgencia } from '@/lib/agencia-cobro-reglas';
+import { guardarPrecioLocal, monedaDeMercadoPagoDeMako, planesMako } from '@/lib/compra-plan';
 
 const NO_ADMIN = 'Sólo el super admin vende planes de MaKo.';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -166,6 +167,11 @@ export type CobroMako = {
   pagado_at: string | null;
   /** /pagar/<token>, sólo mientras se puede pagar (pendiente o rechazado). */
   link: string | null;
+  /**
+   * Una suscripción que la pasarela SIGUE cobrando todos los meses (pagada o con el primer pago devuelto, y no cancelada).
+   * Es lo que habilita «Cortar la suscripción»: reembolsar no la corta (revisión del 23/10/2026).
+   */
+  suscripcionViva: boolean;
 };
 
 export type DatosCobrosMako =
@@ -201,7 +207,17 @@ function fila(c: Cobro, nombres: Map<number, string>): CobroMako {
     alta_ws_nombre: c.alta_ws != null ? nombres.get(c.alta_ws) ?? null : null,
     created_at: c.created_at, pagado_at: c.pagado_at,
     link: c.estado === 'pendiente' || c.estado === 'fallido' ? linkDelCobro(c.token) : null,
+    suscripcionViva: suscripcionViva(c),
   };
+}
+
+/**
+ * ¿La pasarela le sigue cobrando todos los meses? La misma lectura del id que `cancelarSuscripcionCobro` (en Mercado Pago
+ * el id del preapproval es el `proveedor_ref` del cobro). Un primer pago devuelto NO la corta: la pasarela sigue cobrando.
+ */
+function suscripcionViva(c: Cobro): boolean {
+  const susId = c.proveedor_suscripcion_id ?? (c.proveedor === 'mercadopago' && c.tipo === 'suscripcion' ? c.proveedor_ref : null);
+  return c.tipo === 'suscripcion' && !!susId && c.suscripcion_estado !== 'cancelada' && (c.estado === 'pagado' || c.estado === 'reembolsado');
 }
 
 /** Anula un link que todavía no se pagó (Stripe expira la sesión; Mercado Pago no tiene cómo). */
@@ -221,17 +237,65 @@ export async function anularCobroMakoAction(id: number): Promise<{ ok: boolean; 
 /**
  * Devuelve el pago ENTERO por la pasarela. Una sola vez por pedido: si falla, lo dice y no reintenta.
  * La cuenta que se creó al pagar NO se toca: darla de baja es otra decisión.
+ *
+ * ⚠️ REEMBOLSAR UNA SUSCRIPCIÓN NO LA CORTA (revisión del 23/10/2026): la pasarela devuelve el pago y sigue cobrando cada
+ * mes, y la renovación entra como plata nueva. Con `cortarSuscripcion` se corta ANTES de devolver: si la pasarela no la
+ * corta, no se devuelve nada y se dice por qué (un reembolso hecho con la suscripción viva es justo lo que hay que evitar).
  */
-export async function reembolsarCobroMakoAction(id: number, motivo?: string | null): Promise<{ ok: boolean; resumen: string }> {
+export async function reembolsarCobroMakoAction(
+  id: number,
+  motivo?: string | null,
+  opts: { cortarSuscripcion?: boolean } = {},
+): Promise<{ ok: boolean; resumen: string }> {
   const admin = await getSesionAdmin();
   if (!admin) return { ok: false, resumen: NO_ADMIN };
   if (!Number.isInteger(id) || id <= 0) return { ok: false, resumen: 'Ese cobro no existe.' };
   try {
-    const r = await reembolsarCobro(await wsSuperAdmin(), id, autorDe(admin), (motivo ?? '').trim().slice(0, 300) || null);
+    const ws = await wsSuperAdmin();
+    let cortada = false;
+    if (opts.cortarSuscripcion === true) {
+      const c = await getCobro(ws, id);
+      if (c && suscripcionViva(c)) {
+        const corte = await cancelarSuscripcionCobro(ws, id, autorDe(admin));
+        if (!corte.ok) return { ok: false, resumen: `No devolví nada: ${corte.resumen}` };
+        cortada = true;
+      }
+    }
+    const r = await reembolsarCobro(ws, id, autorDe(admin), (motivo ?? '').trim().slice(0, 300) || null);
+    revalidatePath('/admin/cobros');
+    // Cortada y sin devolver: que se sepa que el corte SÍ quedó (no se le vuelve a cobrar), y que la plata falta devolverla.
+    if (cortada && !r.ok) return { ok: false, resumen: `La suscripción quedó cortada, pero el reembolso no: ${r.resumen}` };
+    return cortada && r.ok ? { ok: true, resumen: `${r.resumen} La suscripción quedó cortada.` } : r;
+  } catch (e) {
+    return { ok: false, resumen: mensaje(e, 'No pude hacer el reembolso.') };
+  }
+}
+
+/** «Darle el plan a su cuenta»: un cobro «Ya tenía cuenta» queda atado a la cuenta de ese email, con el plan que pagó. */
+export async function atarCobroMakoAction(id: number): Promise<{ ok: boolean; resumen: string }> {
+  const admin = await getSesionAdmin();
+  if (!admin) return { ok: false, resumen: NO_ADMIN };
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, resumen: 'Ese cobro no existe.' };
+  try {
+    const r = await atarCobroASuCuenta(await wsSuperAdmin(), id, autorDe(admin));
     if (r.ok) revalidatePath('/admin/cobros');
     return r;
   } catch (e) {
-    return { ok: false, resumen: mensaje(e, 'No pude hacer el reembolso.') };
+    return { ok: false, resumen: mensaje(e, 'No pude atar el cobro a su cuenta.') };
+  }
+}
+
+/** «Cortar la suscripción»: la pasarela deja de cobrar en el acto. Irreversible en Mercado Pago. No devuelve nada. */
+export async function cancelarSuscripcionMakoAction(id: number): Promise<{ ok: boolean; resumen: string }> {
+  const admin = await getSesionAdmin();
+  if (!admin) return { ok: false, resumen: NO_ADMIN };
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, resumen: 'Ese cobro no existe.' };
+  try {
+    const r = await cancelarSuscripcionCobro(await wsSuperAdmin(), id, autorDe(admin));
+    if (r.ok) revalidatePath('/admin/cobros');
+    return r;
+  } catch (e) {
+    return { ok: false, resumen: mensaje(e, 'No pude cortar la suscripción.') };
   }
 }
 
@@ -255,5 +319,41 @@ export async function guardarPrecioClienteAgenciaAction(p: { usd: number; moneda
     return { ok: true, precio };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+// ── El precio de cada plan en la moneda de la Mercado Pago de MaKo (revisión del 23/10/2026) ─────────────────────
+// Sin él, /planes no ofrece Mercado Pago (nunca se inventa una tasa). Lo pone Martín: precio y cobros son decisión suya.
+
+export type PrecioLocalPlan = { id: string; nombre: string; precioUsd: number; local: number | null; activo: boolean };
+
+/** La moneda de la Mercado Pago de MaKo (null = no está conectada) y cada plan con su precio en esa moneda. */
+export async function preciosLocalesAction(): Promise<{ ok: true; moneda: string | null; planes: PrecioLocalPlan[] } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!admin) return { ok: false, error: NO_ADMIN };
+  try {
+    const [moneda, planes] = await Promise.all([monedaDeMercadoPagoDeMako(), planesMako()]);
+    return {
+      ok: true, moneda,
+      planes: planes.map((p) => ({ id: p.id, nombre: p.nombre, precioUsd: p.precioUsd, local: moneda ? p.preciosLocales[moneda] ?? null : null, activo: p.activo })),
+    };
+  } catch (e) {
+    return { ok: false, error: mensaje(e, 'No pude leer los planes.') };
+  }
+}
+
+/** Guarda (o saca, con null) el precio de un plan en la moneda de la Mercado Pago de MaKo. */
+export async function guardarPrecioLocalAction(planId: string, monto: number | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!admin) return { ok: false, error: NO_ADMIN };
+  try {
+    const moneda = await monedaDeMercadoPagoDeMako();
+    if (!moneda) return { ok: false, error: 'Conecta la Mercado Pago de MaKo primero: el precio va en su moneda.' };
+    const r = await guardarPrecioLocal(String(planId ?? ''), moneda, monto == null ? null : Number(monto));
+    if (!r.ok) return r;
+    revalidatePath('/admin/cobros');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: mensaje(e, 'No pude guardar el precio.') };
   }
 }
