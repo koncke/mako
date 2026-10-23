@@ -5345,6 +5345,32 @@ mismo dibujo en SuperAdmin; en la computadora y en el teléfono.
   cuentas de los dispositivos; los nombres de los estados de EE.UU. (sin tabla, se saltean); y la captura del «después» en el
   ws3 (el permiso de esta sesión no deja abrir el ws3 en producción).
 
+## MaKo.app: la Mac SIN Terminal (0.4.2, 23/10/2026)
+
+**El porqué:** en la llamada del 23/10 (Fathom 195591907), Mauricio conectó su MacBook por la Terminal y le costó («No abrió
+nada», «escribí S y apretá Enter»). El Cerebro: el mismo criterio que Windows, sin firmar por ahora, con la línea de cómo
+abrirla si macOS la frena.
+
+**Vive en:** `abrirLaApp`, `codigoDelTexto`, `instalarArranqueMac` e `instalarClaudeCode` (scripts/ia-pc/mako-pc.mjs) ·
+`lanzadorDeLaAppMac` e `infoPlistDeLaAppMac` (lib/ia-pc-reglas.ts) · scripts/ia-pc/zip-unix.mjs · publicar-binarios · GET
+/api/ia-pc/descargar?os=mac · tests/ia-pc-mac-app.test.ts.
+
+- **Dos cosas que en Windows salen solas y en la Mac no:**
+  - Un `.pkg` o un `.dmg` no se arman en Windows: pkgbuild y hdiutil son sólo de Mac, y Actions no tiene minutos. Va un `.zip`
+    con MaKo.app.
+  - En la Mac un enlace `mako://` le llega a la app como un evento de macOS (Apple Event), no como argumento, y un programa de
+    Bun sin Cocoa no lo recibe. El código lo toma la app del PORTAPAPELES (sólo si es el código entero: cualquier otro texto, no)
+    o lo pide en una ventana.
+- **Un `.zip` armado en Windows no guarda los permisos de Unix,** y sin el permiso de ejecución la app no abre.
+  scripts/ia-pc/zip-unix.mjs lo arma «hecho en Unix», con 0755 en el lanzador y en los programas. Verificado con el `unzip` del
+  sistema y con la app real de 47,6 MB.
+- **La app es un guion que copia el programa a ~/.mako-pc/bin,** le saca la cuarentena y le pone la firma local que pide el chip
+  de Apple (lo mismo que hace la línea de la Terminal). Así macOS sólo pregunta por la app, que no está firmada: «Abrir
+  igualmente». El arranque es el MISMO LaunchAgent de la Terminal, y una Mac conectada así (la de Mauricio) no cambia.
+- **SIN probar en una Mac de verdad,** porque no hay ninguna acá: que macOS deje abrir una app sin firmar cuyo ejecutable es un guion,
+  que `osascript` muestre las ventanas desde una app sin Dock y que `install.sh` corra sin Terminal. La firma de Apple espera
+  el D-U-N-S.
+
 ## «Conectar mi computadora» en Windows SIN terminal: el instalador con asistente y la sesión de Claude (0.4.0, 23/10/2026)
 
 **El pedido** (Martín, 22/10, y su OK del 22/10 23:21 por el Cerebro): «jamás por Powershell, ni siquiera que se tenga que
