@@ -4296,6 +4296,10 @@ lib/meta-login.ts · tests/meta-permisos-conectar.test.ts.
   de los permisos de anuncios no se pueden grabar con el producto hasta que Meta conteste.
 - **La regla:** «en revisión» se mira permiso por permiso en el panel (Revisión → Tests y Revisión de la app), no en la
   memoria. Un borrador sin enviar se ve igual que una revisión en curso si nadie entra a mirar.
+- **Una revisión en curso BLOQUEA la siguiente (medido el 23/10).** Con la primera tanda «Revisión en curso», «Añadir a
+  la revisión de la aplicación» sobre `ads_management` contesta: «Esta solicitud ya está pendiente de revisión… puedes
+  cancelar la solicitud y enviar una nueva o esperar hasta que se complete la actual». Partir los permisos en tandas
+  no adelanta nada: la segunda espera a que se resuelva la primera, o se cancela la primera y van juntos.
 - **Lo que quedó SIN hacer:** los videos y textos de cada permiso (los de anuncios necesitan el botón dando los
   permisos), «Tratamiento de datos» e «Instrucciones para revisores», y el envío, que **no se edita ni se cancela**. Si
   la verificación de acceso no se mueve, el camino es un caso en Meta Business Support con la fecha y el ID de la app.
