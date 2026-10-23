@@ -207,7 +207,8 @@ export function PanelMakoIA() {
 
   return (
     <div className={styles.panel}>
-      <div ref={hiloRef} className={`co-hilo ${styles.hilo}`} aria-live="polite">
+      {/* Con su propio aire: el del Ops Center (24 px por lado) dejaba el hilo en 206 px en este panel. */}
+      <div ref={hiloRef} className={`co-hilo ${styles.hilo}`} style={{ padding: '8px 4px' }} aria-live="polite">
         <div className="co-hilo__col">
           {hilo.mensajes.length === 0 && (
             <div className={styles.saludo}>

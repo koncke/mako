@@ -560,7 +560,8 @@ const CAMPO: CSSProperties = { height: 32, padding: '0 10px', borderRadius: 8, g
 // tamaño al abrirlo). Ahora flota arriba de la grilla, con su sombra: tapa 360 px
 // y la grilla no se entera. ⚠️ Desde el 22/10/2026 (TB3) va a la IZQUIERDA (Martín, 21/10: «el chat de MaKo en las otras
 // tabs se debe abrir siempre a la izquierda»): tapa los primeros 360 px. El editor le deja a la estrella su lugar con
-// `--ancho-panel-mako` (editor-css.ts), así que abierta la estrella, este panel queda a su derecha. Antes de v4 había sido `fixed` (montado al final de `.lk-app`, una COLUMNA): eso tapaba
+// `--ancho-panel-mako` (editor-css.ts), así que abierta la estrella, este panel queda a su derecha; y cerrada, el panel
+// arranca a 84 px para no quedar debajo de su botón (56 px, fijo a 16 px del borde de la barra: tapaba la caja). Antes de v4 había sido `fixed` (montado al final de `.lk-app`, una COLUMNA): eso tapaba
 // también la topbar. `absolute` contra `.lk-cuerpo` (que tiene que ir `position: relative`: lo pone P5 para el panel
 // de propiedades) lo deja entre la barra de edición y el borde de abajo, quieto mientras la grilla scrollea (no va
 // adentro de `.lk-lienzo`, que es lo que scrollea).
@@ -570,7 +571,7 @@ const CAMPO: CSSProperties = { height: 32, padding: '0 10px', borderRadius: 8, g
 //   · En el celular (≤ 760 px) va encima a pantalla completa, fixed: al lado no entra.
 //   · al imprimir no sale: `.lk-app *` se fuerza visible para el PDF, y el panel no es parte del informe.
 const CSS = `
-.an { flex: none; position: absolute; top: 12px; left: 12px; bottom: 12px; z-index: 21; width: 360px; max-width: calc(100% - 24px);
+.an { flex: none; position: absolute; top: 12px; left: 84px; bottom: 12px; z-index: 21; width: 360px; max-width: calc(100% - 96px);
   box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column;
   background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 14px;
   box-shadow: 0 18px 44px rgba(18,21,27,.18); font-family: 'Geist', system-ui, sans-serif; }

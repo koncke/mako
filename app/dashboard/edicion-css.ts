@@ -23,7 +23,7 @@ export const CSS_EDICION = `
   .lk-props { position: absolute; top: 12px; bottom: 12px; width: 300px; z-index: 20; border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 14px 36px rgba(0,0,0,.16); }
   .lk-props[data-lado="der"] { right: 12px; }
   .lk-props[data-lado="izq"] { left: 12px; }
-  .lk-cuerpo > .an { position: absolute; top: 12px; left: 12px; bottom: 12px; z-index: 21; border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 14px 36px rgba(0,0,0,.16); }
+  .lk-cuerpo > .an { position: absolute; top: 12px; left: 84px; bottom: 12px; z-index: 21; border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 14px 36px rgba(0,0,0,.16); }
 }
 
 /* ── La grilla y lo que va detrás y delante de ella: el fondo de las secciones y los conectores. */

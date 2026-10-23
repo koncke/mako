@@ -902,7 +902,9 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   };
 
   return (
-    <aside
+    // Un <section> y no un <aside>: con la barra de la agencia, `[data-barra-agencia] aside` (app/globals.css) le fuerza a todo <aside> el alto de la ventana, y la caja quedaba fuera de la vista (medido el 22/10/2026).
+    <section
+      role="complementary"
       className="gma gma-pb gma-ag"
       aria-label="Edición con IA"
       data-encima={encima ? '' : undefined}
@@ -967,7 +969,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
           apagado={!editor} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda />
         {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}</p>}
       </footer>
-    </aside>
+    </section>
   );
 }
 

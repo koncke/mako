@@ -516,7 +516,8 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 	};
 
 	return (
-		<aside className="cc-chat flex size-full min-h-0 flex-col bg-(--cc-panel)" aria-label="Editar con IA">
+		// Un <section> y no un <aside>: con la barra de la agencia, `[data-barra-agencia] aside` (app/globals.css) le fuerza a todo <aside> el alto de la ventana, y la caja quedaba fuera de la vista (medido el 22/10/2026).
+		<section role="complementary" className="cc-chat flex size-full min-h-0 flex-col bg-(--cc-panel)" aria-label="Editar con IA">
 			<style href="cc-chat" precedence="medium">{CSS_CHAT}</style>
 			<header className="flex h-10 shrink-0 items-center gap-2 bg-(--cc-panel-head) pr-1.5 pl-3">
 				<HugeiconsIcon icon={AiMagicIcon} className="size-4 text-(--cc-accent)" />
@@ -590,7 +591,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 						apagado={!proyectoId} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda />
 				</div>
 			</footer>
-		</aside>
+		</section>
 	);
 }
 

@@ -1573,6 +1573,8 @@ Analyst y «Editar con MaKo») pasó a la IZQUIERDA; el editor le deja el lugar 
 - **El panel no es un `<aside>`**: con el super admin mirando un cliente, `[data-barra-agencia] aside` (app/globals.css) le
   fuerza a todo `<aside>` el `top` y el alto de la ventana con !important. «Editar con MaKo» medía 761 px en un lienzo de
   612 y su caja quedaba fuera de la vista (sin el atributo, 588). Ya pasaba a la derecha; ahora los dos son un `<section>`.
+- **El panel arranca a 84 px**: a 12 px, el botón de la estrella (56 px, fijo a 16 px del borde de la barra) le tapaba el
+  emoji de la caja. Abierta la estrella, el editor se corre (`--ancho-panel-mako`) y el panel queda a su derecha.
 - **Sin hacer:** las sugerencias propias de cada gráfico (`makoIA.sugerencias`) no viajan a la estrella; los chats de los
   gráficos de antes siguen en el Ops Center como «de antes» (`dashboard:<hoja>:<gráfico>`). Y el «Deshacer» de MaKo no
   aparece cuando lo que agregó es un GRÁFICO: la grilla le reescribe las posiciones al montarlo, y la comparación por

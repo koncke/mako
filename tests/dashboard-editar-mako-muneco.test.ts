@@ -41,8 +41,9 @@ test('la caja es la única, con la hoja del Centro cargada', () => {
 
 test('el marco del panel va a la izquierda (todo MaKo en una tab), y el editor le deja el lugar a la estrella', () => {
   const marco = readFileSync('app/dashboard/PanelAnalista.tsx', 'utf8');
-  assert.match(marco, /\.an \{ flex: none; position: absolute; top: 12px; left: 12px; bottom: 12px;/);
-  assert.match(readFileSync('app/dashboard/edicion-css.ts', 'utf8'), /\.lk-cuerpo > \.an \{ position: absolute; top: 12px; left: 12px; bottom: 12px;/);
+  // A 84 px: la columna del botón de la estrella (56 px, fijo a 16 px del borde de la barra), que tapaba la caja (22/10/2026).
+  assert.match(marco, /\.an \{ flex: none; position: absolute; top: 12px; left: 84px; bottom: 12px;/);
+  assert.match(readFileSync('app/dashboard/edicion-css.ts', 'utf8'), /\.lk-cuerpo > \.an \{ position: absolute; top: 12px; left: 84px; bottom: 12px;/);
   assert.match(readFileSync('app/dashboard/editor-css.ts', 'utf8'), /margin-left: var\(--ancho-panel-mako, 0px\); \}/);
 });
 
