@@ -86,6 +86,18 @@ test('la tarjeta dice cuándo sale de verdad: el WhatsApp que sigue a otro antes
   assert.match(leer('app/api/flujos/misma-persona/route.ts'), /personaHorasDeLaAutomatizacion\(config, limitesVigentes\(raw, limitesDeFabrica\(process\.env\)\)\)\.whatsapp/);
 });
 
+test('el lienzo no lee los minutos de una «Misma persona» que todavía no llegó (sin automatización guardada, sin pedido)', () => {
+  const lienzo = leer('app/automations/FlujoLienzo.tsx');
+  assert.match(lienzo, /mismaPersonaMin: mismaPersona && mismaPersona\.id === secuenciaId \? mismaPersona\.min : null,/);
+  // Lo que pasaba: con `secuenciaId` y el pedido sin valor, `undefined === undefined` da true y se leía `.min` de null.
+  const viejo = (mp: { id: number; min: number | null } | null, sec?: number) => (mp?.id === sec ? (mp as { min: number | null }).min : null);
+  assert.throws(() => viejo(null, undefined), TypeError);
+  const nuevo = (mp: { id: number; min: number | null } | null, sec?: number) => (mp && mp.id === sec ? mp.min : null);
+  assert.equal(nuevo(null, undefined), null);
+  assert.equal(nuevo({ id: 7, min: 1200 }, 7), 1200);
+  assert.equal(nuevo({ id: 7, min: 1200 }, 8), null);
+});
+
 // ── ROTURAS (23/10/2026) ───────────────────────────────────────────────────────────────────────────
 // Con romper.mjs del scratchpad, una por vez. Base 2 / 0:
 //   P1. la tarjeta no avisa (`retrasada` siempre false)                                        → rojo
