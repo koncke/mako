@@ -346,4 +346,24 @@ export const BITACORA: Hito[] = [
       'app/api-mako/Articulos.tsx — la guía «Migrar un curso con Claude» suma a los alumnos',
     ],
   },
+  {
+    fecha: '23 oct', hora: '16:45', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Invitar al curso al ganar» por la API, y el @ de Instagram en las propuestas de leads',
+    puntos: [
+      'P0-4 de la auditoría: ver y cambiar el interruptor de cada CRM, con las funciones del «⋯» de la columna Ganado. La API lo lee estricto: con la lectura del tablero, una base caída se leía «apagada».',
+      'Pedido del chat de Ventas: proponer_lead y proponer_leads aceptan el @ como contacto, con la regla única del alta, y el flujo que crea en el acto se lo pasa a createLead.',
+    ],
+    commits: [
+      { sha: 'd3db7d8d', msg: 'API de MaKo: «Invitar al curso al ganar» de un CRM, por la API (P0-4 de la auditoría)', lineas: 269, archivos: 7 },
+      { sha: 'ea508152', msg: 'API de MaKo: el @ de Instagram como contacto en las propuestas de leads (pedido del chat «Ventas»)', lineas: 148, archivos: 10 },
+    ],
+    archivos: [
+      'lib/crm-curso-al-ganar.ts — tieneCurso (una regla) y estadoCursoAlGanarEstricto',
+      'lib/api-mako/areas/crm.def.ts + crm.run.ts — ver_curso_al_ganar y cambiar_curso_al_ganar; el @ en proponer_lead',
+      'lib/api-mako/areas/crm.helpers.ts — proponerLote con tieneContacto',
+      'lib/api-mako/flujo.ts — el @ hasta createLead',
+      'tests/api-mako-curso-al-ganar.test.ts y tests/api-mako-leads-instagram.test.ts — probados rompiéndolos',
+    ],
+  },
 ];

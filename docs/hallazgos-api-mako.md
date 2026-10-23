@@ -2051,3 +2051,39 @@ avisó al chat de Customer Success.
 
 *23/10/2026 · chat «API de MaKo» (claude2) · medido contra origin/main 4a2e7f9f0; tests y rotura en el worktree, sin tipos
 (el acotado lo mató el vigía de RAM), sin navegador.*
+
+## «Invitar al curso al ganar» y el @ de Instagram, por la API (23/10/2026, auditoría P0-4 y un pedido de Ventas)
+
+**«Invitar al curso al ganar».** El interruptor del «⋯» de la columna Ganado sólo se prendía desde la pantalla. Ahora
+están `ver_curso_al_ganar` y `cambiar_curso_al_ganar` (`GET`/`PUT /crm/curso-al-ganar`), con las mismas funciones que
+la pantalla. Dos cosas que no se ven en el código:
+
+- **La lectura del tablero (`estadoCursoAlGanar`) NO sirve para la API.** Lee el interruptor con `getSetting`, que con
+  la base caída devuelve null; eso se lee como «ninguno prendido», y cualquier error también devuelve null. Para
+  dibujar está bien: la opción no se ofrece. Pero MaKo, con esa lectura, le habría dicho al dueño «está apagada» sobre
+  un CRM que invita. La API usa `estadoCursoAlGanarEstricto`, que tira y además separa «tiene curso» de «está
+  prendida»: un CRM puede quedar prendido después de que su producto se quedó sin clases, y eso hay que poder decirlo.
+- **«¿Tiene curso?» es UNA regla** (`tieneCurso`), que usan las dos lecturas. Copiarla en la estricta habría dejado dos
+  definiciones de «se puede prender».
+
+**El @ de Instagram en las propuestas de leads.** El CRM ya acepta un lead con sólo el @ (`tieneContacto`,
+lib/contacto-minimo.ts, del chat de Ventas). La API lo perdía en tres lugares:
+- el lote lo descartaba con la regla vieja, «email o teléfono»;
+- `proponer_lead` no tenía dónde recibirlo;
+- el flujo que escribe la propuesta en el acto (`crearLeadsDePropuesta`) no se lo pasaba a `createLead`, aunque
+  llegara.
+
+⚠️ **`lib/api-mako/flujo-params.ts` no puede importar valores**: es apto para el navegador, y
+`tests/api-mako-registro.test.ts` lo frena. Por eso el @ se normaliza (`usuarioInstagram`) en quien propone y otra vez
+en `flujo.ts`, nunca en `filasDeLeads`.
+
+**Una dependencia entre dos ramas del tren se copia con el MISMO blob.** Esta punta necesitaba
+`lib/contacto-minimo.ts`, que todavía estaba sólo en la rama de Ventas. Se trajo con `git show <sha>:<ruta>` (mismo
+hash: `git hash-object` contra `git rev-parse <sha>:<ruta>`). Así la punta compila sola, y git funde las dos sin
+conflicto en cualquier orden. Si el archivo cambia en la otra rama antes del merge, ya no es el mismo blob: se avisa.
+
+**Vive en:** `lib/crm-curso-al-ganar.ts` · `lib/api-mako/areas/crm.def.ts` · `crm.run.ts` · `crm.helpers.ts` (`proponerLote`) ·
+`lib/api-mako/flujo.ts` · `lib/api-mako/flujo-params.ts` · `lib/mako-doer-acciones.ts` · `tests/api-mako-curso-al-ganar.test.ts` ·
+`tests/api-mako-leads-instagram.test.ts`
+
+*23/10/2026 · chat «API de MaKo» (claude2) · tests y rotura en el worktree, sin tipos, sin navegador.*
