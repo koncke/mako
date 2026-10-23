@@ -12,9 +12,11 @@ import { useState } from 'react';
 import { ConfirmDialog } from '../../_components/ChatItemMenu';
 import { CuerpoGrupo, FilaAjustes, GrupoAjustes } from '../../_ui/Ajustes';
 import { aceptarRetencionAction, darmeDeBajaAction } from './actions';
-import type { OfertaRetencion } from '@/lib/retencion-plan';
+import type { OfertaRetencion, OpcionRetencion } from '@/lib/retencion-plan';
 
 const SANS = "'Geist', sans-serif";
+const BTN_PRIMARIO = { padding: '10px 16px', borderRadius: 10, border: 0, background: 'var(--accent)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' } as const;
+const BTN_SECUNDARIO = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--accent)', background: 'var(--surface)', color: 'var(--accent)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' } as const;
 
 export type SuscripcionVisible = {
   proveedor: 'stripe' | 'mercadopago';
@@ -32,9 +34,9 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta }: { plan: stri
   const [ofrecer, setOfrecer] = useState(false);
   const [ofertaViva, setOfertaViva] = useState(oferta ?? null);
 
-  const aceptarOferta = async () => {
+  const aceptarOferta = async (opcion: OpcionRetencion) => {
     setOfrecer(false); setCorriendo(true); setAviso(null);
-    const r = await aceptarRetencionAction().catch(() => ({ ok: false, resumen: 'No pudimos aplicar el descuento.' }));
+    const r = await aceptarRetencionAction(opcion).catch(() => ({ ok: false, resumen: 'No pudimos aplicarlo.' }));
     setAviso({ ok: r.ok, texto: r.resumen });
     if (r.ok) setOfertaViva(null);
     setCorriendo(false);
@@ -73,12 +75,12 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta }: { plan: stri
       {ofrecer && ofertaViva && (
         <div onClick={() => setOfrecer(false)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(18,21,27,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
           <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 380, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.32)', padding: '20px 22px' }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Antes de irte: {ofertaViva.pct}% menos</div>
-            <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 6, lineHeight: 1.5 }}>
-              Te dejamos MaKo a {ofertaViva.montoConDescuento} por mes los próximos {ofertaViva.meses} meses, en vez de {ofertaViva.monto}. Después vuelve al precio de siempre.
-            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Antes de irte</div>
+            <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 6, lineHeight: 1.5 }}>Tus datos quedan guardados siempre. Si te sirve, elige una de estas:</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 18 }}>
-              <button type="button" onClick={aceptarOferta} style={{ padding: '10px 16px', borderRadius: 10, border: 0, background: 'var(--accent)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Quedarme con el descuento</button>
+              {ofertaViva.descuento && <button type="button" onClick={() => aceptarOferta('descuento')} style={BTN_PRIMARIO}>{ofertaViva.descuento.meses} meses a {ofertaViva.descuento.montoConDescuento} ({ofertaViva.descuento.pct}% menos)</button>}
+              {ofertaViva.bajar && <button type="button" onClick={() => aceptarOferta('bajar')} style={ofertaViva.descuento ? BTN_SECUNDARIO : BTN_PRIMARIO}>Pasar a {ofertaViva.bajar.nombre} ({ofertaViva.bajar.monto} por mes)</button>}
+              {ofertaViva.pausa && <button type="button" onClick={() => aceptarOferta('pausa')} style={BTN_PRIMARIO}>Pausar {ofertaViva.pausa.meses === 1 ? 'un mes' : `${ofertaViva.pausa.meses} meses`} gratis</button>}
               <button type="button" onClick={() => { setOfrecer(false); setPreguntar(true); }} style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 500, cursor: 'pointer' }}>Darme de baja igual</button>
             </div>
           </div>

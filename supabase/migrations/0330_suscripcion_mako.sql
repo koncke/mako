@@ -9,10 +9,11 @@
 --
 --   · `cobros.plan_mako`: el plan de MaKo que compra este cobro (lib/planes-mako.ts). Sólo en cobros de la plataforma.
 --   · `cobros.origen`: de dónde vino quien compró ({ landing, avatar, funcionalidad, utm_* }), para que el onboarding
---     vaya directo a lo que buscaba. Se copia a `workspaces.origen` al darse de alta: el PRIMERO vale, nunca se pisa.
+--     vaya directo a lo que buscaba. El origen de la CUENTA vive en `cuenta.origen` (app_settings, contrato con el chat de
+--     Landings del 23/10): éste es el dato explícito del checkout, que ese alta prefiere.
 --   · `cobros.ref_codigo`: el código de MaKo Partners con el que llegó (el link /r/<código>). El PRIMERO vale.
 --   · `cobros.meses`: cuántos meses del lugar paga un cobro ÚNICO (la deuda de varios meses). null = 1.
---   · `workspaces.origen`, `workspaces.referido_por_ws`: lo de arriba, ya en el negocio.
+--   · `workspaces.referido_por_ws`: el negocio de MaKo Partners que lo refirió (el primero vale).
 --   · `partner_codigos`: el código de cada negocio que refiere (uno por negocio, único, en minúscula).
 --   · `partner_creditos`: el libro de lo que gana un partner (un renglón por referido que llegó a su 2º pago, y uno por
 --     cada uso). Único por (referidor, referido, tipo): acreditar dos veces el mismo referido choca y no suma.
@@ -32,10 +33,8 @@ comment on column cobros.origen is 'De qué landing vino quien compró ({landing
 comment on column cobros.ref_codigo is 'El código de MaKo Partners con el que llegó quien compró. Mig 0330.';
 comment on column cobros.meses is 'Cuántos meses del lugar paga un cobro único (la deuda). null = 1. Mig 0330.';
 
-alter table workspaces add column if not exists origen jsonb check (origen is null or (jsonb_typeof(origen) = 'object' and pg_column_size(origen) <= 2048));
 alter table workspaces add column if not exists referido_por_ws bigint references workspaces(id) on delete set null;
 
-comment on column workspaces.origen is 'De qué landing vino el negocio (la copia del cobro del alta; el primero vale). Mig 0330.';
 comment on column workspaces.referido_por_ws is 'El negocio de MaKo Partners que lo refirió (el primero vale). Mig 0330.';
 
 create table if not exists partner_codigos (

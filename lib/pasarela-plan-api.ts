@@ -18,7 +18,7 @@
 import 'server-only';
 import { llamar as llamarStripe } from './stripe-api';
 import { llamar as llamarMp } from './mercadopago-api';
-import { deUnidadMinima } from './pasarela-moneda';
+import { aUnidadMinima, deUnidadMinima } from './pasarela-moneda';
 
 type Json = Record<string, unknown>;
 type R<T> = ({ ok: true } & T) | { ok: false; status: number; error: string };
@@ -92,3 +92,44 @@ export async function montoSuscripcionMp(token: string, id: string, monto: numbe
   return { ok: true, monto: Number.isFinite(nuevo) ? nuevo : monto };
 }
 
+
+/**
+ * PAUSAR UN MES GRATIS EN STRIPE: `pause_collection` con `void` (las facturas del período se anulan, la suscripción sigue)
+ * y `resumes_at` (vuelve sola a cobrar). La clave de idempotencia la arma quien llama.
+ */
+export async function pausarStripe(key: string, subId: string, p: { hastaMs: number; idem: string }): Promise<R<{ hasta: string }>> {
+  if (!SUB_RE.test(subId)) return { ok: false, status: 400, error: 'id de suscripción inválido' };
+  const r = await llamarStripe(key, 'POST', `/v1/subscriptions/${encodeURIComponent(subId)}`, {
+    pause_collection: { behavior: 'void', resumes_at: Math.floor(p.hastaMs / 1000) },
+  }, p.idem);
+  if (!r.ok) return fallo(r);
+  return { ok: true, hasta: new Date(p.hastaMs).toISOString() };
+}
+
+/**
+ * PASAR A UN PLAN MÁS BARATO EN STRIPE: el ítem de la suscripción con el precio nuevo desde el PRÓXIMO período
+ * (`proration_behavior: none`: lo de este mes ya está pago). `price_data` de un ítem pide el `product`: se reusa el del ítem.
+ */
+export async function cambiarPrecioStripe(key: string, subId: string, p: { monto: number; moneda: string; idem: string }): Promise<R<{ ok: true }>> {
+  if (!SUB_RE.test(subId)) return { ok: false, status: 400, error: 'id de suscripción inválido' };
+  const s = await llamarStripe(key, 'GET', `/v1/subscriptions/${encodeURIComponent(subId)}`);
+  if (!s.ok) return fallo(s);
+  const item = obj((Array.isArray(obj(s.body.items).data) ? (obj(s.body.items).data as unknown[]) : [])[0]);
+  const itemId = str(item.id);
+  const prod = str(obj(item.price).product) ?? str(obj(obj(item.price).product).id);
+  if (!itemId || !prod) return { ok: false, status: 502, error: 'Stripe no devolvió el ítem de la suscripción.' };
+  const r = await llamarStripe(key, 'POST', `/v1/subscriptions/${encodeURIComponent(subId)}`, {
+    items: [{ id: itemId, price_data: { currency: p.moneda.toLowerCase(), product: prod, unit_amount: aUnidadMinima(p.monto, p.moneda), recurring: { interval: 'month' } } }],
+    proration_behavior: 'none',
+  }, p.idem);
+  if (!r.ok) return fallo(r);
+  return { ok: true };
+}
+
+/** PAUSAR / REANUDAR EN MERCADO PAGO: PUT /preapproval/{id} { status: 'paused' | 'authorized' }. ⚠️ Sin medir con claves de prueba. */
+export async function estadoSuscripcionMp(token: string, id: string, estado: 'paused' | 'authorized', idem: string): Promise<R<{ estado: string | null }>> {
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, status: 400, error: 'id de suscripción inválido' };
+  const r = await llamarMp(token, 'PUT', `/preapproval/${id}`, { status: estado }, idem);
+  if (!r.ok) return fallo(r);
+  return { ok: true, estado: str(r.body.status) };
+}

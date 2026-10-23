@@ -28,9 +28,13 @@ const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\/?\*.*$/gm, '');
 
-test('los planes de hoy: Pro 47 (completo) y Growth 97 (agencia)', () => {
-  const ids = PLANES_MAKO_DEFAULT.map((p) => `${p.id}:${p.precioUsd}:${p.capa}`);
-  assert.deepEqual(ids, ['pro:47:completo', 'growth:97:agencia']);
+test('las ofertas del 23/10: Esencial 47 (completo), Pro 97 (agencia), Continuidad 297 sin publicar; la baja de cada uno', () => {
+  const ids = PLANES_MAKO_DEFAULT.map((p) => `${p.id}:${p.precioUsd}:${p.capa}:${p.activo ? 'publico' : 'oculto'}`);
+  assert.deepEqual(ids, ['esencial:47:completo:publico', 'pro:97:agencia:publico', 'continuidad:297:agencia:oculto']);
+  const [esencial, pro] = PLANES_MAKO_DEFAULT;
+  assert.deepEqual(esencial.retencion, { pausa: { meses: 1 } });
+  assert.deepEqual(pro.retencion, { descuento: { pct: 50, meses: 2 }, bajarA: 'esencial' });
+  assert.equal(planValido({ id: 'x', nombre: 'X', capa: 'pm', precioUsd: 5, retencion: { descuento: { pct: 100, meses: 2 } } })?.retencion, null, 'un 100% no es una oferta');
 });
 
 test('un plan escrito a mano pasa entero o no existe; la capa superadmin nunca se vende', () => {

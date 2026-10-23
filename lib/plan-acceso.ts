@@ -35,6 +35,7 @@ import {
   CLAVE_CORTE, CORTE_DE_ACCESO_PRENDIDO, finDeLoCubierto, leerCorte, pasoDeAcceso, vigenciaDelLugar,
   type CobroDelLugar, type CorteGuardado, type PagoDelLugar, type Paso, type Vigencia,
 } from './plan-acceso-reglas';
+import { CLAVE_RETENCION, leerRetencion, mesesDePausa } from './retencion-reglas';
 
 /** Cuántos negocios puede pausar una corrida. */
 export const TOPE_POR_CORRIDA = 5;
@@ -153,21 +154,24 @@ export async function revisarAccesosPorPago(opts: { enSeco?: boolean; ahoraMs?: 
   if (!porWs.size) return out;
 
   const wss = [...porWs.keys()];
-  const [pagos, wsR, cortesR] = await Promise.all([
+  const [pagos, wsR, cortesR, pausasR] = await Promise.all([
     cuotasDeLugares(plataforma, cobros.map((c) => c.id)),
     db.from('workspaces').select('id, estado').in('id', wss),
     db.from('app_settings').select('workspace_id, value').eq('key', CLAVE_CORTE).in('workspace_id', wss),
+    // El mes pausado de la retención cuenta como cubierto (lib/retencion-plan.ts): no es una deuda.
+    db.from('app_settings').select('workspace_id, value').eq('key', CLAVE_RETENCION).in('workspace_id', wss),
   ]);
   if (wsR.error) throw new Error(`No pude leer el estado de los negocios: ${wsR.error.message}`);
   if (cortesR.error) throw new Error(`No pude leer los cortes guardados: ${cortesR.error.message}`);
   const estados = new Map(((wsR.data ?? []) as Array<{ id: number; estado: string }>).map((w) => [Number(w.id), w.estado]));
   const cortes = new Map(((cortesR.data ?? []) as Array<{ workspace_id: number; value: string }>).map((r) => [Number(r.workspace_id), leerCorte(r.value)]));
+  const pausas = new Map(((pausasR.data ?? []) as Array<{ workspace_id: number; value: string }>).map((r) => [Number(r.workspace_id), mesesDePausa(leerRetencion(r.value))]));
 
   for (const [ws, suyos] of porWs) {
     const estado = estados.get(ws);
     if (estado !== 'activo' && estado !== 'pausado') continue; // borrado, o un estado que no es de esto
     out.revisados++;
-    const v = vigenciaDelLugar(suyos, pagos, ahoraMs);
+    const v = vigenciaDelLugar(suyos, pagos, ahoraMs, pausas.get(ws) ?? []);
     const corte = cortes.get(ws) ?? null;
     const paso = pasoDeAcceso(v, estado, corte);
     out.pasos.push({ ws, paso: paso.tipo, vigencia: describir(v) });
@@ -254,8 +258,12 @@ export async function vigenciaDe(ws: number, ahoraMs: number = Date.now()): Prom
     if (ws === plataforma) return null;
     const cobros = (await cobrosDeLugares(plataforma, ws)).filter((c) => Number(c.alta_ws ?? c.cliente_ws) === ws);
     if (!cobros.length) return null;
-    const pagos = await cuotasDeLugares(plataforma, cobros.map((c) => c.id));
-    return { vigencia: vigenciaDelLugar(cobros, pagos, ahoraMs), cobros, cubierto: finDeLoCubierto(cobros, pagos)?.hasta ?? null };
+    const [pagos, ret] = await Promise.all([
+      cuotasDeLugares(plataforma, cobros.map((c) => c.id)),
+      getSupabaseServer().from('app_settings').select('value').eq('workspace_id', ws).eq('key', CLAVE_RETENCION).maybeSingle(),
+    ]);
+    const extras = mesesDePausa(leerRetencion((ret.data as { value?: string } | null)?.value ?? null));
+    return { vigencia: vigenciaDelLugar(cobros, pagos, ahoraMs, extras), cobros, cubierto: finDeLoCubierto(cobros, pagos, extras)?.hasta ?? null };
   } catch (e) {
     console.warn(`[plan-acceso] no pude leer la vigencia del negocio ${ws}:`, e instanceof Error ? e.message : String(e));
     return null;

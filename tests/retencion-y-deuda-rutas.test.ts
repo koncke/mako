@@ -27,14 +27,16 @@ test('la oferta se reclama UNA vez por negocio (compare-and-set de null) antes d
   const reclamo = r.indexOf('cambiarSettingSi(CLAVE_RETENCION, null,');
   assert.ok(reclamo > 0, 'el reclamo es un compare-and-set desde null');
   assert.ok(reclamo < r.indexOf('descuentoStripe(key'), 'y va ANTES de pedirle el descuento a Stripe');
-  assert.ok(reclamo < r.indexOf('montoSuscripcionMp(token, id, Math.round'), 'y ANTES de cambiar el monto en MP');
+  assert.ok(reclamo < r.indexOf('montoSuscripcionMp(token, subMp, Math.round'), 'y ANTES de cambiar el monto en MP');
+  assert.ok(reclamo < r.indexOf('pausarStripe(key, sub,'), 'y ANTES de pausar');
+  assert.ok(reclamo < r.indexOf('cambiarPrecioStripe(key, sub,'), 'y ANTES de bajar de plan');
 });
 
 test('Stripe vuelve solo al precio de lista (cupón repeating); MP se restaura con las cuotas cobradas DESPUÉS', () => {
   assert.match(fuente('lib/pasarela-plan-api.ts'), /duration: 'repeating', duration_in_months: p\.meses/);
   const r = fuente('lib/retencion-plan.ts');
   assert.match(r, /\.gt\('fecha_pago', g\.aplicadaAt\.slice\(0, 10\)\)/);
-  assert.match(r, /if \(\(count \?\? 0\) < g\.meses\) continue;/);
+  assert.match(r, /if \(\(count \?\? 0\) < \(g\.meses \?\? 1\)\) continue;/);
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /await restaurarRetencionesMp\(\)/);
 });
 

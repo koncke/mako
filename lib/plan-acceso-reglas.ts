@@ -116,8 +116,11 @@ const cobra = (c: CobroDelLugar): boolean =>
  * ninguna cuota (no se pudo asentar en el CRM: sin valor en USD, sin lead) cuenta su pago igual: un asiento que faltó no
  * es una deuda. Y con la suscripción ACTIVA, su primer pago devuelto cuenta (un reembolso no corta a quien sigue pagando).
  */
-function mesesCobrados(cobros: readonly CobroDelLugar[], pagos: readonly PagoDelLugar[]): Array<{ fecha: string; meses: number; cobroId: number }> {
-  const out: Array<{ fecha: string; meses: number; cobroId: number }> = [];
+/** Meses cubiertos SIN cobro (la pausa de un mes gratis de la retención, lib/retencion-reglas.ts): no son una deuda. */
+export type MesSinCobro = { fecha: string; meses: number };
+
+function mesesCobrados(cobros: readonly CobroDelLugar[], pagos: readonly PagoDelLugar[], extras: readonly MesSinCobro[] = []): Array<{ fecha: string; meses: number; cobroId: number }> {
+  const out: Array<{ fecha: string; meses: number; cobroId: number }> = extras.map((e) => ({ fecha: e.fecha.slice(0, 10), meses: Math.max(1, Math.min(3, Math.floor(e.meses) || 1)), cobroId: 0 }));
   for (const c of cobros) {
     const suyas = pagos.filter((p) => p.cobro_id === c.id && p.pagado && p.fecha_pago).map((p) => p.fecha_pago!.slice(0, 10));
     const meses = c.tipo === 'unico' ? Math.max(1, Math.min(24, Math.floor(Number(c.meses) || 1))) : 1;
@@ -130,13 +133,13 @@ function mesesCobrados(cobros: readonly CobroDelLugar[], pagos: readonly PagoDel
 }
 
 /** Hasta qué día cubre lo cobrado (YYYY-MM-DD), con la regla de la tolerancia. null si no se cobró nada. */
-export function finDeLoCubierto(cobros: readonly CobroDelLugar[], pagos: readonly PagoDelLugar[]): { hasta: string; cobroId: number } | null {
+export function finDeLoCubierto(cobros: readonly CobroDelLugar[], pagos: readonly PagoDelLugar[], extras: readonly MesSinCobro[] = []): { hasta: string; cobroId: number } | null {
   let fin: string | null = null;
   let cobroId = 0;
-  for (const m of mesesCobrados(cobros, pagos)) {
+  for (const m of mesesCobrados(cobros, pagos, extras)) {
     const inicio: string = fin && ms(m.fecha) <= masDias(fin, TOLERANCIA_DIAS) ? fin : m.fecha;
     const nuevo = mesesDespuesDe(inicio, m.meses);
-    if (!fin || nuevo > fin) { fin = nuevo; cobroId = m.cobroId; }
+    if (!fin || nuevo > fin) { fin = nuevo; cobroId = m.cobroId || cobroId; }
   }
   return fin ? { hasta: fin, cobroId } : null;
 }
@@ -149,11 +152,11 @@ export function ciclosDesde(desde: string, ahoraMs: number): number {
 }
 
 /** La vigencia del lugar de UN negocio. `ahoraMs` es el reloj (se pasa, no se lee: las reglas son puras). */
-export function vigenciaDelLugar(cobros: readonly CobroDelLugar[], pagos: readonly PagoDelLugar[], ahoraMs: number): Vigencia {
+export function vigenciaDelLugar(cobros: readonly CobroDelLugar[], pagos: readonly PagoDelLugar[], ahoraMs: number, extras: readonly MesSinCobro[] = []): Vigencia {
   if (!cobros.length) return { estado: 'sin-pasarela' };
   if (cobros.some((c) => c.cliente_ws != null)) return vigenciaDeClienteDeAgencia(cobros, pagos, ahoraMs);
 
-  const cubierto = finDeLoCubierto(cobros, pagos);
+  const cubierto = finDeLoCubierto(cobros, pagos, extras);
   const cobrando = cobros.filter(cobra).sort((a, b) => (dia(b.pagado_at) ?? '').localeCompare(dia(a.pagado_at) ?? '') || b.id - a.id)[0] ?? null;
 
   if (cobrando) {

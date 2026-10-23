@@ -5,8 +5,9 @@
 // Hasta hoy un plan se vendía SÓLO armando el link a mano en /admin/cobros (el super admin tipeaba el precio). El
 // checkout público de /planes necesita saber qué se vende, a cuánto y qué capa abre: eso vive acá.
 //
-// PARAMETRIZABLE (las ofertas finales las define el Cerebro): los planes de abajo son los de HOY (Pro US$47, Growth
-// US$97, docs/costos-ia-y-planes.md). El super admin los cambia sin deploy con el setting `planes.mako` del workspace de
+// LAS OFERTAS (el Cerebro, 23/10/2026, docs/ofertas-mako.md): MaKo Esencial US$47/mes (US$470/año), MaKo Pro US$97/mes
+// (US$970/año), y la Continuidad del Acelerador, US$297/mes (no se vende en /planes: se ofrece al terminar el programa).
+// PARAMETRIZABLE: El super admin los cambia sin deploy con el setting `planes.mako` del workspace de
 // la plataforma (lib/planes-mako-server.ts): el setting manda, y un plan mal escrito se descarta (nunca se vende un
 // precio que no pasó `planesDeSetting`).
 //
@@ -35,6 +36,13 @@ export type PlanMako = {
   destacado?: boolean;
   /** Un plan apagado no se ofrece en /planes, pero quien ya lo paga lo sigue pagando. */
   activo: boolean;
+  /** El precio por año (2 meses gratis). ⚠️ Todavía no se vende: el checkout cobra por mes. */
+  precioAnualUsd?: number | null;
+  /**
+   * Lo que se le ofrece antes de darse de baja (docs/ofertas-mako.md, «Baja»): un descuento por meses, pausar meses gratis,
+   * y/o pasar a otro plan más barato. Lo aplica lib/retencion-plan.ts.
+   */
+  retencion?: { descuento?: { pct: number; meses: number }; pausa?: { meses: number }; bajarA?: string } | null;
 };
 
 export const CLAVE_PLANES = 'planes.mako';
@@ -42,25 +50,40 @@ export const CLAVE_PLANES = 'planes.mako';
 /** Los planes de hoy (23/10/2026). Cambiar acá es un deploy; cambiar el setting `planes.mako`, no. */
 export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
   {
-    id: 'pro',
-    nombre: 'MaKo Pro',
+    id: 'esencial',
+    nombre: 'MaKo Esencial',
     capa: 'completo',
     precioUsd: 47,
+    precioAnualUsd: 470,
     preciosLocales: {},
-    resumen: 'Para tu negocio: anuncios, CRM, WhatsApp y tu plan, con MaKo.',
-    incluye: ['Anuncios de Meta con sus analistas', 'CRM y seguimiento de cada lead', 'WhatsApp y chats con MaKo', 'Tu plan y el Perro Guardián'],
+    resumen: 'Para el que arranca solo y quiere vender con un embudo.',
+    incluye: ['Ops Center con MaKo y tu propia IA', 'CRM: 1 funnel, hasta 2.000 leads', '1 WhatsApp más Instagram', 'Hasta 3 automatizaciones y 3 landings', 'Calendar, Plan, Offer y Cobros'],
     activo: true,
+    retencion: { pausa: { meses: 1 } },
   },
   {
-    id: 'growth',
-    nombre: 'MaKo Growth',
+    id: 'pro',
+    nombre: 'MaKo Pro',
     capa: 'agencia',
     precioUsd: 97,
+    precioAnualUsd: 970,
     preciosLocales: {},
-    resumen: 'Todo Pro y, además, tus clientes adentro de MaKo.',
-    incluye: ['Todo lo de MaKo Pro', 'Tus clientes en MaKo Partners', 'Cada cliente con su cuenta y su plan'],
+    resumen: 'Para el que ya vende y quiere escalar con anuncios y equipo.',
+    incluye: ['Todo Esencial, sin topes', 'Ads Manager, Dashboard y Closing Analyst', 'Hasta 3 WhatsApp y 5 usuarios', 'Image Editor, Video Editor y AI Avatar', 'Los negocios de tus clientes (agencia)'],
     destacado: true,
     activo: true,
+    retencion: { descuento: { pct: 50, meses: 2 }, bajarA: 'esencial' },
+  },
+  {
+    id: 'continuidad',
+    nombre: 'Continuidad del Acelerador',
+    capa: 'agencia',
+    precioUsd: 297,
+    preciosLocales: {},
+    resumen: 'MaKo Pro y la asesoría grupal de Martín, al terminar el Acelerador.',
+    incluye: ['MaKo Pro', 'La asesoría grupal de los jueves'],
+    activo: false,
+    retencion: { descuento: { pct: 50, meses: 2 }, bajarA: 'pro' },
   },
 ];
 
@@ -97,7 +120,22 @@ export function planValido(v: unknown): PlanMako | null {
   return {
     id, nombre, capa: capa as CapaId, precioUsd: usd, preciosLocales,
     resumen: texto(o.resumen, 140) ?? '', incluye, destacado: o.destacado === true, activo: o.activo !== false,
+    precioAnualUsd: precio(o.precioAnualUsd), retencion: retencionValida(o.retencion),
   };
+}
+
+/** La retención de un plan escrito a mano: lo que no pasa se tira (sin oferta, la baja va directo). */
+function retencionValida(v: unknown): PlanMako['retencion'] {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const d = o.descuento as Record<string, unknown> | undefined;
+  const p = o.pausa as Record<string, unknown> | undefined;
+  const pct = Number(d?.pct), meses = Number(d?.meses), pausa = Number(p?.meses);
+  const out: NonNullable<PlanMako['retencion']> = {};
+  if (Number.isInteger(pct) && pct >= 10 && pct <= 90 && Number.isInteger(meses) && meses >= 1 && meses <= 6) out.descuento = { pct, meses };
+  if (Number.isInteger(pausa) && pausa >= 1 && pausa <= 3) out.pausa = { meses: pausa };
+  if (typeof o.bajarA === 'string' && ID_RE.test(o.bajarA)) out.bajarA = o.bajarA;
+  return Object.keys(out).length ? out : null;
 }
 
 /**
@@ -118,7 +156,7 @@ export function planesDeSetting(crudo: string | null | undefined): PlanMako[] {
       if (buenos.length) return buenos;
     } catch { /* setting roto: los de hoy */ }
   }
-  return PLANES_MAKO_DEFAULT.map((p) => ({ ...p, preciosLocales: { ...p.preciosLocales }, incluye: [...p.incluye] }));
+  return PLANES_MAKO_DEFAULT.map((p) => ({ ...p, preciosLocales: { ...p.preciosLocales }, incluye: [...p.incluye], retencion: p.retencion ? { ...p.retencion } : null }));
 }
 
 /** El precio del plan en la moneda que cobra la pasarela: USD en Stripe, la del sitio en Mercado Pago. null = no se ofrece. */

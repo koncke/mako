@@ -15,7 +15,7 @@ import { adminDeWorkspaceActual, getCapaActual } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { darDeBajaMiPlan, type ResultadoBaja } from '@/lib/cobros';
 import { mandarCodigoDeBaja } from '@/lib/invitaciones';
-import { aplicarRetencion } from '@/lib/retencion-plan';
+import { aplicarRetencion, type OpcionRetencion } from '@/lib/retencion-plan';
 
 export async function darmeDeBajaAction(): Promise<ResultadoBaja> {
   const ws = await adminDeWorkspaceActual().catch(() => null);
@@ -33,11 +33,12 @@ export async function darmeDeBajaAction(): Promise<ResultadoBaja> {
 }
 
 /** «Quedarme con el descuento» (23/10/2026): la oferta de retención antes de la baja (lib/retencion-plan.ts). Sólo el admin, una vez. */
-export async function aceptarRetencionAction(): Promise<{ ok: boolean; resumen: string }> {
+export async function aceptarRetencionAction(opcion: OpcionRetencion = 'descuento'): Promise<{ ok: boolean; resumen: string }> {
   const ws = await adminDeWorkspaceActual().catch(() => null);
   if (ws == null) return { ok: false, resumen: 'Sólo quien administra el negocio puede cambiar su plan.' };
   const sesion = await getUsuarioActual();
-  const r = await aplicarRetencion(ws, sesion?.nombre || sesion?.email || 'el negocio');
+  if (opcion !== 'descuento' && opcion !== 'pausa' && opcion !== 'bajar') return { ok: false, resumen: 'Opción inválida.' };
+  const r = await aplicarRetencion(ws, sesion?.nombre || sesion?.email || 'el negocio', opcion);
   revalidatePath('/configuraciones/plan');
   return r;
 }

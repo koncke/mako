@@ -224,3 +224,13 @@ test('el cron: antes de pausar por impago le pregunta a la pasarela, lee las cuo
   assert.match(d, /const faltan = deSuscripcion\.filter\(\(x\) => !ya\.has\(x\.id\)\);/, 'sólo se asientan los pagos que no estaban');
   assert.match(d, /if \(!f\.ok\) return \{ tipo: 'nada'/, 'si Stripe no contesta, no se abre un cobro aparte');
 });
+
+// La PAUSA de un mes gratis (la retención del Esencial, docs/ofertas-mako.md): ese mes está cubierto, no es deuda.
+// Probado rompiéndolo: sin sumar los `extras` en la cobertura -> 1 fallo (éste).
+test('el mes pausado de la retención cuenta como cubierto: no hay mora', () => {
+  const cobros = [sus()];
+  const pagos = [cuota('2026-08-10'), cuota('2026-09-10')]; // cubre hasta el 10/10
+  assert.equal(vigenciaDelLugar(cobros, pagos, T('2026-10-20')).estado, 'vencido', 'sin la pausa, impago');
+  const v = vigenciaDelLugar(cobros, pagos, T('2026-10-20'), [{ fecha: '2026-09-25', meses: 1 }]);
+  assert.deepEqual(v, { estado: 'al-dia', cobroId: 7, hasta: '2026-11-10' });
+});
