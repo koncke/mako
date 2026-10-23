@@ -68,9 +68,11 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, o
   const [creando, setCreando] = useState<Borrador | null>(null);
   const [editando, setEditando] = useState<{ k: string; nombre: string; duracionMin: number } | null>(null);
 
-  const leer = useCallback(() => {
+  /** `fresco`: sin el minuto de caché de las APIs (lib/agenda-cache.ts). Lo pide sólo «Volver a leer»: conectar otra cuenta
+   *  ya cambia la llave de la caché, y abrir el pop-up la aprovecha. */
+  const leer = useCallback((fresco = false) => {
     setError(null);
-    void listarEventosAgendaAction()
+    void listarEventosAgendaAction(fresco ? { fresco: true } : undefined)
       .then((r) => { if (r.ok) setAgenda(r); else setError(r.error); })
       .catch(() => setError('No pude leer tu agenda. Intenta de nuevo.'));
   }, []);
@@ -223,7 +225,7 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, o
         ))}
         <span className="vx-elastico" />
         <span className="vx-info" role="img" aria-label={AVISO_GOOGLE_AGENDA} title={AVISO_GOOGLE_AGENDA}>ⓘ</span>
-        <button type="button" className="vx-icono" aria-label="Volver a leer tu agenda" title="Volver a leer" onClick={leer} disabled={!agenda && !error}>
+        <button type="button" className="vx-icono" aria-label="Volver a leer tu agenda" title="Volver a leer" onClick={() => leer(true)} disabled={!agenda && !error}>
           <IconoMenu nombre="restaurar" size={15} />
         </button>
         {conectados.length > 0 && !creando && (

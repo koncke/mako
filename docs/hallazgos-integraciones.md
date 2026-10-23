@@ -1114,9 +1114,9 @@ fila del ws1 (`soloLasPropias` compara contra las filas de la plataforma) y la p
 - **El contrato con Cobros** (su fase B, varias cuentas por proveedor, va encima): `eventosDelProveedor(proveedor)` es LA
   unidad de lectura de una cuenta, la llave le suma la cuenta, y Calendly recibe el token por parámetro.
 
-**Sin hacer:** «Volver a leer» del pop-up todavía no pide `fresco` (el pop-up vive en la rama de «Vincular evento»: es un
-renglón, `listarEventosAgendaAction({ fresco: true })` en app/crm/EventosDeEtapaModal.tsx, cuando las dos estén en main).
-Sin medir en producción. La caché vive en la memoria de cada instancia.
+«Volver a leer» del pop-up pide `fresco` (`leer(true)` en app/crm/EventosDeEtapaModal.tsx); abrirlo y «Conectar» no.
+
+**Sin hacer:** sin medir en producción. La caché vive en la memoria de cada instancia.
 
 **Vive en:** lib/agenda-cache.ts · lib/agenda-evento-etapa-server.ts (`eventosDelProveedor`, `listarEventosDeAgenda`,
 `olvidarCuentas`) · lib/calendly-agenda.ts (`usuarioUri`) · tests/agenda-velocidad-23-10.test.ts
