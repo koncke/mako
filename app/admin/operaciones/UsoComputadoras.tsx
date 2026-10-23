@@ -45,7 +45,7 @@ export function VistaComputadoras({ lectura, ahora, onDesconectar }: {
         const porId = new Map(g.pcs.map((pc) => [pc.id, pc]));
         const grupos = agruparPorCuenta(g.pcs.map((pc) => ({
           id: pc.id, nombre: pc.nombre, esMia: false, de: pc.persona, enLinea: pc.enLinea, ultimoLatido: pc.ultimoLatido,
-          version: pc.version, sistema: pc.sistema, ubicacion: pc.ubicacion, conectadaAt: pc.conectadaAt, cuentas: pc.cuentas,
+          version: pc.version, sistema: pc.sistema, ubicacion: pc.ubicacion, conectadaAt: pc.conectadaAt, cuentas: pc.cuentas, persona: pc.persona,
         })), () => true);
         return (
           <div key={g.ws} className="tci" role="group" aria-label={g.negocio}>

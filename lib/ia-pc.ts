@@ -213,8 +213,9 @@ export async function latir(d: Dispositivo, cuerpo: unknown, extra: { ubicacion?
   // latido igual se anota.
   const conUbicacion = extra.ubicacion ? { ...fila, ubicacion: extra.ubicacion } : fila;
   let { error } = await db().from('ia_pc_dispositivos').update(conUbicacion).eq('id', d.id).eq('workspace_id', d.ws);
-  if (error && conUbicacion !== fila && esErrorDeEsquema(error)) {
-    console.error(`[ia-pc] ⚠️ FALTA LA MIG 0327 (la ubicación): ${error.message}`);
+  if (error && conUbicacion !== fila) {
+    // Sin la mig 0327, o un texto que la base no acepta: el latido igual se anota, sin la ubicación (revisión de privacidad).
+    console.error(`[ia-pc] ⚠️ el latido no aceptó la ubicación${esErrorDeEsquema(error) ? ' (FALTA LA MIG 0327)' : ''}: ${error.message}`);
     ({ error } = await db().from('ia_pc_dispositivos').update(fila).eq('id', d.id).eq('workspace_id', d.ws));
   }
   if (error) throw new Error(`ia-pc: no pude anotar el latido: ${error.message}`);
@@ -286,7 +287,12 @@ export async function negocioConPc(ws: number): Promise<boolean> {
 
 /** Desconecta una PC: su token deja de servir, y el turno que tenía en curso también (sus herramientas no corren más). */
 export async function desconectar(ws: number, id: number): Promise<void> {
-  const { error } = await db().from('ia_pc_dispositivos').update({ revocado_at: new Date().toISOString() }).eq('id', id).eq('workspace_id', ws).is('revocado_at', null);
+  // Y se borra lo personal que guardó (revisión de privacidad, 23/10/2026): la fila queda para siempre, revocada, y su última
+  // ubicación y los emails de sus cuentas no tienen por qué quedar con ella. Sin la mig 0327, sin la ubicación.
+  const fila = { revocado_at: new Date().toISOString(), cuentas: [] };
+  const desconectarCon = (cambios: Record<string, unknown>) => db().from('ia_pc_dispositivos').update(cambios).eq('id', id).eq('workspace_id', ws).is('revocado_at', null);
+  let { error } = await desconectarCon({ ...fila, ubicacion: null });
+  if (error && esErrorDeEsquema(error)) ({ error } = await desconectarCon(fila));
   if (error) throw new Error(`ia-pc: no pude desconectar: ${error.message}`);
   // Si vencer sus turnos falla, se dice (antes contestaba ok igual); las herramientas igual miran la revocación.
   const t = await db().from('ia_pc_turnos').update({ estado: 'vencido' }).eq('dispositivo_id', id).eq('workspace_id', ws).in('estado', ['esperando', 'tomado']);

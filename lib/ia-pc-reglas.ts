@@ -578,11 +578,16 @@ export function textoDeUbicacion(u: { pais: string | null; region: string | null
   const region = !u.region ? null : pais === 'AR' ? PROVINCIAS_AR[u.region.toUpperCase()] ?? null : pais === 'MX' ? ESTADOS_MX[`MX-${u.region.toUpperCase()}`] ?? null : null;
   const partes: string[] = [];
   for (const p of [u.ciudad, region, nombreDePais(pais)]) {
-    const t = (p ?? '').replace(/[\u0000-\u001f<>]/g, '').trim();
+    // Ni control (U+0000–U+001F, U+007F), ni los invisibles de ancho cero, ni los que invierten la dirección del texto (U+202A–
+    // U+202E, U+2066–U+2069), ni < > (revisión de privacidad, 23/10/2026: deformaban cómo se lee en la pantalla del admin).
+    const t = bienFormado((p ?? '').replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff<>]/g, '')).trim();
     if (t && !partes.some((x) => x.toLowerCase() === t.toLowerCase())) partes.push(t);
   }
-  return partes.length ? partes.join(', ').slice(0, 120) : null;
+  return partes.length ? bienFormado(partes.join(', ').slice(0, 120)) : null;
 }
+
+/** Sin medios caracteres sueltos: cortar un texto puede partir un emoji en dos, y la base no acepta la mitad. */
+const bienFormado = (s: string): string => ((s as { toWellFormed?: () => string }).toWellFormed?.() ?? s).replace(/\ufffd/g, '');
 
 // ── Las cuentas y sus dispositivos (23/10/2026) ───────────────────────────────
 // Martín: cada cuenta conectada es UN bloque, «Cuenta 1», «Cuenta 2» (no el nombre de la PC), con su email, su plan y su uso;
@@ -593,9 +598,11 @@ export function textoDeUbicacion(u: { pais: string | null; region: string | null
 export type PcParaAgrupar = {
   id: number; nombre: string; esMia: boolean; de?: string; enLinea: boolean; ultimoLatido: string | null; version: string | null;
   sistema: 'Windows' | 'Mac' | null; ubicacion: string | null; conectadaAt: string | null; sinClaude?: boolean; cuentas: readonly CuentaPc[];
+  /** De quién es la PC: sólo para agrupar (no sale en el dispositivo). */
+  persona?: string;
 };
 /** Un dispositivo de «Tus cuentas de IA». `conCuenta`: su Claude tiene la sesión (alguna cuenta). */
-export type DispositivoIA = Omit<PcParaAgrupar, 'cuentas'> & { conCuenta: boolean };
+export type DispositivoIA = Omit<PcParaAgrupar, 'cuentas' | 'persona'> & { conCuenta: boolean };
 /** Una cuenta (de Claude o de ChatGPT) con sus dispositivos. `numero`: «Cuenta 1», por orden de conexión. */
 export type CuentaIA = CuentaPc & { numero: number; dispositivos: DispositivoIA[] };
 export type CuentasIA = { cuentas: CuentaIA[]; sinCuenta: DispositivoIA[] };
@@ -611,13 +618,15 @@ export const dondeEsta = (d: { sistema?: string | null; ubicacion?: string | nul
  */
 export function agruparPorCuenta(pcs: readonly PcParaAgrupar[], verEmail: (pc: PcParaAgrupar) => boolean): CuentasIA {
   const ms = (s: string | null | undefined) => (s ? Date.parse(s) || 0 : 0);
-  const dispositivo = (pc: PcParaAgrupar): DispositivoIA => { const { cuentas, ...d } = pc; return { ...d, conCuenta: cuentas.length > 0 }; };
+  const dispositivo = (pc: PcParaAgrupar): DispositivoIA => { const { cuentas, persona: _persona, ...d } = pc; return { ...d, conCuenta: cuentas.length > 0 }; };
   const grupos = new Map<string, { pcs: PcParaAgrupar[]; cuenta: CuentaPc; latido: number }>();
   const sinCuenta: DispositivoIA[] = [];
   for (const pc of pcs) {
     if (!pc.cuentas.length) { sinCuenta.push(dispositivo(pc)); continue; }
     for (const c of pc.cuentas) {
-      const clave = c.email ? `${c.proveedor}:${c.email.trim().toLowerCase()}` : `${c.proveedor}:pc${pc.id}`;
+      // Por PERSONA y email (revisión de privacidad, 23/10/2026): el email lo declara la PC, y un miembro podía meter la suya en el
+      // bloque del admin con el email de él (y su uso pasaba por el del admin).
+      const clave = c.email ? `${c.proveedor}:${pc.persona ?? ''}:${c.email.trim().toLowerCase()}` : `${c.proveedor}:pc${pc.id}`;
       const g = grupos.get(clave) ?? { pcs: [], cuenta: c, latido: -1 };
       if (!g.pcs.includes(pc)) g.pcs.push(pc);
       if (ms(pc.ultimoLatido) > g.latido) { g.cuenta = c; g.latido = ms(pc.ultimoLatido); }

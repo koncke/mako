@@ -5336,6 +5336,11 @@ mismo dibujo en SuperAdmin; en la computadora y en el teléfono.
   cargar. CuentasYDispositivos.tsx no lo importa: lo importan TusCuentasIA.tsx y las páginas del super admin.
 - **Lo que se fue a pedido de Martín:** el «Modelo» del panel, «Tu clave de Claude» y su gasto (lo había sumado Ops Center en
   D3), y «Usa el crédito de Claude que te dio MaKo». El crédito queda en SuperAdmin › Uso.
+- **La revisión de privacidad (23/10) agarró lo que queda DESPUÉS:** «Desconectar» revoca la fila pero no la borra, y su
+  última ubicación y los emails de sus cuentas quedaban para siempre. Ahora desconectar los borra. También quedó cerrado:
+  - el latido se anota aunque la base rechace el texto de la ubicación (no sólo sin la columna);
+  - se sacan los caracteres invisibles y los que invierten el texto, y los medios emojis que deja un corte;
+  - la cuenta se agrupa por PERSONA y email: el email lo declara la PC, y un miembro podía meter la suya en el bloque del admin.
 - **SIN hacer:** una cuenta de ChatGPT conectada SÓLO con una clave de API no aparece como «Cuenta», porque el panel muestra las
   cuentas de los dispositivos; los nombres de los estados de EE.UU. (sin tabla, se saltean); y la captura del «después» en el
   ws3 (el permiso de esta sesión no deja abrir el ws3 en producción).

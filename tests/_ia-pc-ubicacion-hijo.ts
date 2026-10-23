@@ -19,6 +19,7 @@ const pg = crearPostgrest({
     : tabla === 'ia_pc_codigos' ? { usado_at: null, dispositivo_id: null, ...f } : f,
 });
 let sinLaColumna = false;
+let rechazarUbicacion = false;
 const pedidos: string[] = [];
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
@@ -28,6 +29,10 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   // Sin la mig 0327: la columna no existe.
   if (sinLaColumna && u.pathname.endsWith('/ia_pc_dispositivos') && (u.search.includes('ubicacion') || cuerpo.includes('"ubicacion"'))) {
     return new Response(JSON.stringify({ code: '42703', message: 'column ia_pc_dispositivos.ubicacion does not exist', details: null, hint: null }), { status: 400, headers: { 'content-type': 'application/json' } });
+  }
+  // Un texto que la base rechaza (p. ej. medio carácter suelto): 22P05, no un error de esquema.
+  if (rechazarUbicacion && u.pathname.endsWith('/ia_pc_dispositivos') && cuerpo.includes('"ubicacion"')) {
+    return new Response(JSON.stringify({ code: '22P05', message: 'unsupported Unicode escape sequence', details: null, hint: null }), { status: 400, headers: { 'content-type': 'application/json' } });
   }
   return pg.responder(u, init);
 }) as typeof fetch;
@@ -65,6 +70,22 @@ async function main() {
   let todasSinColumna: unknown;
   try { todasSinColumna = (await pc.listarTodasLasPc()).map((x) => [x.nombre, x.ubicacion]); } catch (x) { todasSinColumna = x instanceof Error ? x.message : String(x); }
   out.todasSinColumna = todasSinColumna;
+  // Un texto que la base no acepta (no por esquema): el latido igual se anota, sin la ubicación.
+  sinLaColumna = false;
+  rechazarUbicacion = true;
+  const antes2 = pg.db.ia_pc_dispositivos.find((f) => f.id === d.id)?.ultimo_latido;
+  await new Promise((r) => setTimeout(r, 5));
+  let latioConTextoMalo: string | true = true;
+  try { await pc.latir(d, { version: '0.4.0+windows', cuentas: [] }, { ubicacion: 'Rosario, Santa Fe, Argentina' }); } catch (x) { latioConTextoMalo = x instanceof Error ? x.message : String(x); }
+  out.latioConTextoMalo = latioConTextoMalo;
+  out.latidoNuevo2 = pg.db.ia_pc_dispositivos.find((f) => f.id === d.id)?.ultimo_latido !== antes2;
+  rechazarUbicacion = false;
+  // Desconectar borra lo personal: la ubicación y los emails de sus cuentas.
+  pg.db.ia_pc_dispositivos.find((f) => f.id === d.id)!.ubicacion = 'Grandbourg, Buenos Aires, Argentina';
+  pg.db.ia_pc_dispositivos.find((f) => f.id === d.id)!.cuentas = [{ proveedor: 'claude', email: 'ana@gmail.com' }];
+  await pc.desconectar(3, d.id);
+  const revocada = pg.db.ia_pc_dispositivos.find((f) => f.id === d.id)!;
+  out.desconectada = { revocada: !!revocada.revocado_at, ubicacion: revocada.ubicacion ?? null, cuentas: revocada.cuentas };
   // Nada de la IP ni de coordenadas viajó a la base.
   out.ipOCoordenadas = pedidos.filter((p) => /x-forwarded-for|\bip\b|lat|lon/i.test(p.replace(/latido|ultimo_latido/g, ''))).length;
   process.stdout.write(`@@UBICACION@@${JSON.stringify(out)}\n`);

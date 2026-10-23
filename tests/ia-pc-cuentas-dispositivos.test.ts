@@ -48,6 +48,9 @@ test('1. la ubicación como Google: ciudad, provincia y país; lo que no se sabe
   assert.equal(textoDeUbicacion({ pais: null, region: 'B', ciudad: 'Grandbourg' }), null, 'sin país, nada');
   assert.equal(textoDeUbicacion(null), null);
   assert.doesNotMatch(textoDeUbicacion({ pais: 'AR', region: 'B', ciudad: 'Grand<img src=x>bourg\u0007' }) ?? '', /[<>\u0000-\u001f]/);
+  // Ni lo invisible ni lo que invierte el texto (revisión de privacidad), ni medio emoji suelto.
+  assert.equal(textoDeUbicacion({ pais: 'AR', region: 'B', ciudad: 'Grand\u202ebourg\u200b\u007f' }), 'Grandbourg, Buenos Aires, Argentina');
+  assert.equal(textoDeUbicacion({ pais: 'AR', region: null, ciudad: 'Rosario\ud83c' }), 'Rosario, Argentina');
   assert.equal(dondeEsta({ sistema: 'Windows', ubicacion: 'Grandbourg, Buenos Aires, Argentina' }), 'Windows · Grandbourg, Buenos Aires, Argentina');
   assert.equal(dondeEsta({ sistema: null, ubicacion: null }), null, 'sin dato, no se muestra');
 });
@@ -64,6 +67,10 @@ test('2. el latido la guarda sola (sólo el texto, de los headers de Vercel, nun
   assert.deepEqual(r.listaSinColumna, [['PC de Ana', null]], 'sin la mig 0327 la tarjeta no sale');
   assert.deepEqual(r.todasSinColumna, [['PC de Ana', null]], 'sin la mig 0327 SuperAdmin no sale');
   assert.equal(r.ipOCoordenadas, 0, 'viajó la IP o coordenadas a la base');
+  // Revisión de privacidad: un texto que la base no acepta no tira el latido; y desconectar borra lo personal.
+  assert.equal(r.latioConTextoMalo, true, `un texto malo tiró el latido: ${r.latioConTextoMalo}`);
+  assert.equal(r.latidoNuevo2, true, 'con un texto malo el latido no se anotó');
+  assert.deepEqual(r.desconectada, { revocada: true, ubicacion: null, cuentas: [] }, 'desconectar dejó la ubicación o los emails');
   // La ruta del latido: de los headers de Vercel, con la regla que nunca lee la IP.
   const ruta = sinComentarios(leer('app/api/ia-pc/latido/route.ts'));
   assert.match(ruta, /const ubicacion = textoDeUbicacion\(ubicacionDeHeaders\(\(n\) => req\.headers\.get\(n\)\)\);/);
@@ -91,6 +98,13 @@ test('3. las cuentas con sus dispositivos: una cuenta en dos PC es UN bloque, nu
   assert.equal(g.cuentas[0].usado5h, 40, 'el uso es el del dispositivo que latió último');
   assert.deepEqual(g.sinCuenta.map((d) => [d.id, d.conCuenta]), [[4, false]]);
   assert.equal(g.cuentas[1].dispositivos[0].de, 'beto@negocio.com');
+  // La cuenta es de una persona: un miembro que declara el email del admin no entra al bloque del admin (revisión de privacidad).
+  const ajena = agruparPorCuenta([
+    pc(7, { persona: 'admin@negocio.com', cuentas: [{ proveedor: 'claude', email: 'admin@gmail.com', usado5h: 5 }] }),
+    pc(8, { esMia: false, persona: 'beto@negocio.com', de: 'beto@negocio.com', ultimoLatido: '2026-10-23T12:00:00Z', cuentas: [{ proveedor: 'claude', email: 'admin@gmail.com', usado5h: 99 }] }),
+  ], (p) => p.esMia);
+  assert.deepEqual(ajena.cuentas.map((c) => [c.dispositivos.map((d) => d.id), c.usado5h]), [[[7], 5], [[8], 99]]);
+  assert.ok(!JSON.stringify(ajena).includes('"persona"'), 'la persona salió en el dispositivo');
   // El super admin: todo entero.
   assert.equal(agruparPorCuenta([pc(3, { esMia: false, cuentas: [{ proveedor: 'claude', email: 'beto@gmail.com' }] })], () => true).cuentas[0].email, 'beto@gmail.com');
   // Una PC con dos cuentas está en las dos.

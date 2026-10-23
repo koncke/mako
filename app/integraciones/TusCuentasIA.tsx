@@ -410,7 +410,17 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
           <CuentasYDispositivos grupos={grupos} ahora={ahora} onDesconectar={(d) => desconectar(d.id)}
             nuevoDispositivo={() => <NuevoDispositivo onConectar={() => abrirTutorialEn(4)} onPasosMac={abrirTutorial} />}
             extraSinCuenta={(d) => (d.esMia && d.enLinea && !d.sinClaude
-              ? <a className="tci-boton tci-boton--suave" href="mako://iniciar-sesion">Iniciar sesión en Claude</a>
+              ? (
+                <>
+                  <a className="tci-boton tci-boton--suave" href="mako://iniciar-sesion">Iniciar sesión en Claude</a>
+                  {/* Una PC de la 0.3.2 (instalada con la línea de comandos) no abre mako://: ahí, la de siempre. */}
+                  <details className="tci-respaldo">
+                    <summary>¿No funciona? Con la línea de comandos</summary>
+                    <p>{DONDE_PEGAR.windows}</p>
+                    <Copiar texto={LOGIN_CLAUDE.windows} />
+                  </details>
+                </>
+              )
               : null)} />
         </>
       )}

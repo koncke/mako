@@ -48,7 +48,7 @@ export async function GET() {
     grupos: agruparPorCuenta(pcs.map((d) => ({
       id: d.id, nombre: d.nombre, esMia: d.esMia, ...(esAdmin && !d.esMia ? { de: d.persona } : {}), enLinea: d.enLinea,
       ultimoLatido: d.ultimoLatido, version: d.version, sistema: d.sistema, ubicacion: d.ubicacion, conectadaAt: d.conectadaAt,
-      ...(d.claudeFalta ? { sinClaude: true } : {}), cuentas: d.cuentas,
+      ...(d.claudeFalta ? { sinClaude: true } : {}), cuentas: d.cuentas, persona: d.persona,
     })), (pc) => pc.esMia || superAdmin),
     pcs: pcs.map((d) => ({
       id: d.id, nombre: d.nombre, esMia: d.esMia, ...(esAdmin && !d.esMia ? { de: d.persona } : {}),
