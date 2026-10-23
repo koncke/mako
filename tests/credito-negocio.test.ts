@@ -55,6 +55,8 @@ test('1. prendido, el ws1 usa el crédito de la cuenta 1 en sus chats (Haiku, co
   }
   assert.ok(r.gasto.length >= 2 && r.gasto.every((g: { motivo: string; costo: number }) => g.motivo.startsWith(MOTIVO_CREDITO_SU_CLAVE) && g.costo > 0), `el gasto no quedó como del crédito: ${JSON.stringify(r.gasto)}`);
   assert.deepEqual(r.ajustesWs1, [], 'se escribió en el ws1 (la marca del crédito u otra cosa)');
+  // Automations: la API de MaKo pregunta antes de proponer un flujo, y su Claude (el crédito) cuenta.
+  assert.equal(r.hayIAParaCrear, true, 'la API de MaKo diría «conecta tu IA» con el crédito prendido');
 });
 
 test('2. la tarjeta dice «crédito» (no «Es la clave de MaKo»); la caja y /integraciones, que tiene IA', () => {
@@ -72,6 +74,7 @@ test('3. el interruptor: en la plataforma, apaga y prende; sin leerlo, apagado; 
   assert.deepEqual(r.ajustesPlataforma, [`${claveDelInterruptorDeCredito(1)}=apagado`]);
   assert.equal(r.apagadoPermiso, null, 'apagado, siguió usando el crédito');
   assert.equal(r.apagadoClave, null);
+  assert.equal(r.apagadoHayIAParaCrear, false, 'apagado, Automations siguió creyendo que tiene IA');
   assert.deepEqual(r.apagadoTarjeta, ['anthropic:copia', 'openai:copia'], 'apagado, vuelve a como estaba');
   assert.deepEqual(r.apagadoUso, [false]);
   assert.equal(r.otroNegocio, 'tiró: Ese negocio no tiene un crédito asignado.');
