@@ -14,6 +14,14 @@ import 'server-only';
 // persona) y no cambia la etiqueta de WhatsApp. Todo eso sigue a la CASA. Las excepciones, en
 // `moverEtapaEnProducto`: el enganche «al ganar» y las etiquetas del CRM vinculadas a una etapa
 // de ESE producto (mig 0224).
+//
+// ⚠️ Y DESDE EL 23/10/2026 (P0 de #289), LAS AUTOMATIZACIONES DE ESE CRM, POR EVENTO: MOVER la tarjeta de un agregado lo
+// inscribe en el acto en las automatizaciones cuyo CRON es esa etapa de ESE CRM (`enrolarAgregado`). Desde el 21/10 el
+// barrido de la hora ya veía a los agregados (lib/nutricion-ambito.ts): esto no inscribe a nadie de más, lo inscribe una
+// hora antes. La regla es la MISMA (`agregadoEntraPorEvento`): una automatización de «Todos los productos» sigue sin
+// agarrar la etapa de un segundo CRM. AGREGARLO no dispara (revisión adversarial del 23/10/2026): la página de gracias y
+// el cobro agregan y en el mismo pedido mueven a Ganado, y el evento de la entrada le mandaba la prospección a quien
+// acababa de pagar. Lo agregado lo levanta el barrido, que ya lo ve en su etapa de verdad.
 
 import { getTenantDb } from './workspace';
 import { getLead, logLeadEvent, autorDelMovimiento, updateLead } from './leads';
@@ -135,6 +143,21 @@ export async function agregarAProducto(leadId: number, funnelId: number, opts?: 
   return { agregado: true, etapa };
 }
 
+/**
+ * Las automatizaciones de ESA etapa de ESE CRM, en el acto (23/10/2026, P0 de #289: ver la cabecera). Import dinámico
+ * (lib/nutricion.ts importa lib/leads.ts, que importa éste) y nunca tira: la fila ya se escribió, y lo que no entre lo
+ * levanta el barrido de la hora.
+ */
+async function enrolarAgregado(leadId: number, funnelId: number, etapa: string, o?: { enLote?: boolean }): Promise<void> {
+  try {
+    const { enrolarPorEvento } = await import('./nutricion');
+    // En LOTE, sin la vía rápida: la manda el tick con el tope de la hora (ver `moverEtapaEnProducto`).
+    await enrolarPorEvento(leadId, 'etapa', { etapa, funnelId, agregado: true, ...(o?.enLote ? { sinViaRapida: true } : {}) });
+  } catch (e) {
+    console.error(`[lead-funnel] lead ${leadId}: no pude inscribirlo por llegar a «${etapa}» del CRM ${funnelId}:`, e instanceof Error ? e.message : e);
+  }
+}
+
 /** Lo que hace falta para deshacer un «quitar». */
 export type DeshacerQuitar = {
   leadId: number;
@@ -253,7 +276,7 @@ export async function deshacerQuitar(d: DeshacerQuitar, opts?: { autor?: string 
  * Mueve la tarjeta de un lead AGREGADO dentro de ese producto: escribe la fila y nada más. Si el
  * producto es su casa, no es esta función (el tablero usa el camino de siempre).
  */
-export async function moverEtapaEnProducto(leadId: number, funnelId: number, etapa: string, opts?: { autor?: string }): Promise<{ antes: string }> {
+export async function moverEtapaEnProducto(leadId: number, funnelId: number, etapa: string, opts?: { autor?: string; enLote?: boolean }): Promise<{ antes: string }> {
   const db = await getTenantDb();
   const { data, error } = await db.from('lead_funnel').select('etapa').eq('lead_id', leadId).eq('funnel_id', funnelId).limit(1);
   if (error) throw new Error('No se pudo leer la etapa: ' + error.message);
@@ -290,6 +313,11 @@ export async function moverEtapaEnProducto(leadId: number, funnelId: number, eta
   } catch (e) {
     console.error(`[lead-funnel] lead ${leadId}: el espejo de etiquetas falló:`, e instanceof Error ? e.message : e);
   }
+  // Y LAS AUTOMATIZACIONES DE ESA ETAPA DE ESTE CRM, en el acto (23/10/2026, P0 de #289): la tercera excepción. En LOTE
+  // (`enLote`, la barra del CRM) se inscribe sin la vía rápida: 200 vías rápidas en fila no entran en los 60 s de la
+  // acción, y la vía rápida no mira el tope de la HORA (sólo el cron, `cupoPorHora`): serían 200 en frío de golpe por la
+  // línea. Las manda el tick del minuto que viene, con sus topes.
+  await enrolarAgregado(leadId, funnelId, etapa, { enLote: opts?.enLote });
   return { antes: fila.etapa };
 }
 
