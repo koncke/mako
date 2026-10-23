@@ -426,6 +426,24 @@
 }
 .mk-scroll-oscuro::-webkit-scrollbar-thumb:hover { background: var(--sidebar-text); }
 
+/* ── LA SIDEBAR PLEGADA NO MUESTRA BARRA DE SCROLL (23/10/2026) ───────────
+   Martín: «siempre cuando la sidebar principal esté plegada, no debe aparecer la barra de scroll». Vale para TODA la app,
+   por eso va acá y no en cada tab: el rail de íconos (68 px) con una barra de 6 px al lado se ve como un defecto, y la
+   regla de AGENTS.md («una columna de navegación NO scrollea nunca») sigue en pie: la barra se esconde, pero el menú se
+   reorganiza o se pliega para que NO haga falta scrollear (esto es la red de seguridad si en una pantalla bajísima un
+   destino queda abajo: se llega con la rueda o el dedo, sin barra). Se engancha en `data-fija="no"` (la barra no está
+   abierta y fija: el rail, también cuando se abre encima al pasar el cursor, así no aparece y desaparece al pasar el mouse).
+   Abierta y fija sigue la receta de arriba: adelgazada, nunca escondida. */
+aside[data-sidebar][data-fija="no"] .mk-scroll-oscuro {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+aside[data-sidebar][data-fija="no"] .mk-scroll-oscuro::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* ── Y en una PANTALLA oscura, lo mismo para todo lo que scrollee ──────────
    ⚠️ ESTO NO ES DEL VIDEO-GENERATOR: es del `Modal` de `app/_ui`, o sea de las
    nueve pantallas que lo usan.
