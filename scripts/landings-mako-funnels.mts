@@ -33,6 +33,8 @@ type Copy = {
   queEs: string;
   seoTitulo: string;
   seoDescripcion: string;
+  /** No se sube con `--subir` (sí con `--incluir-pausadas`): lo que promete no está confirmado para clientes. */
+  pausada?: boolean;
 };
 
 export const COPY: Record<string, Copy> = {
@@ -44,13 +46,14 @@ export const COPY: Record<string, Copy> = {
     seoTitulo: 'MaKo — Tu landing de VSL, sin programador',
     seoDescripcion: 'Crea, publica y mide tu landing de VSL con IA, y sabe qué arreglar para que convierta. Agenda tu diagnóstico gratuito.',
   },
+  // Alineada con el guion de Ventas (docs/vsl/funcionalidad-automations.md, 23/10): vende el SEGUIMIENTO.
   automatizaciones: {
-    h1: ['Responde cada DM y WhatsApp ', 'en segundos', ', sin ManyChat'],
-    sub: ['Flujos que contestan, califican y agendan solos.', 'Cada conversación queda en la ficha del lead, en tu CRM.', 'Tú entras cuando el lead está listo para comprar.'],
+    h1: ['Escríbele a cada lead ', 'hasta que conteste', ', sin hacerlo a mano'],
+    sub: ['Dibujas una vez cómo le escribes y MaKo hace el seguimiento.', 'Si contesta, lee qué dijo y le pasa tu calendario.', 'Sale de tu número, en tu horario, como si lo mandaras tú.'],
     bajoCta: 'Diagnóstico gratuito de tus automatizaciones',
-    queEs: '¿Qué es MaKo... y por qué tus chats lo necesitan?',
-    seoTitulo: 'MaKo — Automatiza tus DMs y tu WhatsApp',
-    seoDescripcion: 'Flujos que responden, califican y agendan a tus leads en Instagram y WhatsApp, conectados a tu CRM. Agenda tu diagnóstico.',
+    queEs: '¿Qué es MaKo... y por qué tu seguimiento lo necesita?',
+    seoTitulo: 'MaKo — Seguimiento por WhatsApp hasta que contesten',
+    seoDescripcion: 'Dibujas una vez cómo le escribes a un lead y MaKo hace el seguimiento por WhatsApp hasta que contesta. Agenda tu diagnóstico.',
   },
   dashboards: {
     h1: ['Del anuncio al cobro, ', 'en un solo dashboard', ''],
@@ -62,13 +65,17 @@ export const COPY: Record<string, Copy> = {
   },
   contenidos: {
     h1: ['Todo tu contenido, ', 'en un solo lugar', ''],
-    sub: ['Videos, imágenes, landings y anuncios se crean y se guardan en MaKo.', 'Planeas tus publicaciones en un calendario.', 'Y sabes qué pieza trajo ventas.'],
+    // Sin «calendario de publicaciones»: el Calendario de MaKo es de reuniones y tareas (Ventas, 23/10).
+    sub: ['Videos, imágenes, landings y anuncios se crean y se guardan en MaKo.', 'Lo que creas queda a mano para tu próxima campaña.', 'Y sabes qué pieza trajo ventas.'],
     bajoCta: 'Diagnóstico gratuito de tu contenido',
     queEs: '¿Qué es MaKo... y por qué tu contenido lo necesita?',
     seoTitulo: 'MaKo — Todo tu contenido en un solo lugar',
-    seoDescripcion: 'Crea y guarda tus videos, imágenes, landings y anuncios, planea tus publicaciones y mide qué vende. Agenda tu diagnóstico.',
+    seoDescripcion: 'Crea y guarda tus videos, imágenes, landings y anuncios en un solo lugar y mide qué vende. Agenda tu diagnóstico.',
   },
+  // EN PAUSA (Ventas, 23/10): AI Avatar era sólo del super admin el 17/10. No se sube (ni se pauta) hasta confirmar
+  // que un cliente lo usa: `--incluir-pausadas` la sube igual.
   'avatares-ia': {
+    pausada: true,
     h1: ['Anuncios en video con ', 'tu avatar de IA', ', sin grabarte cada vez'],
     sub: ['Escribes el guion y MaKo arma el video.', 'Lo editas ahí mismo y lo usas en tus anuncios.', 'Más creativos para testear, sin horas de grabación.'],
     bajoCta: 'Diagnóstico gratuito de tus creativos',
@@ -136,6 +143,7 @@ const solo = arg('--solo');
 const base = await seccionesDeLaLanding();
 for (const [slug, c] of Object.entries(COPY)) {
   if (solo && slug !== solo) continue;
+  if (c.pausada && !args.includes('--incluir-pausadas') && !solo) { console.log(`${slug}: en pausa, no se sube`); continue; }
   if (!LANDINGS_MAKO[slug]) throw new Error(`${slug} no está en LANDINGS_MAKO (lib/origen-cuenta.ts)`);
   const doc = documentoDeLaLanding(seccionesDeFunnel(base, c));
   const origen = LANDINGS_MAKO[slug];
