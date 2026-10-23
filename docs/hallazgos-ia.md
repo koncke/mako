@@ -5351,6 +5351,31 @@ sea una app de escritorio con el típico panel de "avanzar"». El plan entero: d
 - **Sin medir (de antes):** `pensar` corre `claude -p` sin `--setting-sources`; si eso carga el `~/.claude/CLAUDE.md`
   personal de la persona, un negocio podría pedirle en un turno que lo repita. Se mide con un turno de prueba.
 
+## Con qué IA corre UN chat: el «+» de la caja (8b, 23/10/2026)
+
+**El pedido** (Martín): «En el Ops Center, el "+" de la caja deja elegir con qué corre ese chat: el modelo y la cuenta (Claude
+o GPT, y cuál). Por defecto decide el chat jefe, salvo que se elija otro». El selector es de Ops Center (lib/chat-ia-reglas.ts y
+la caja); el servidor, de la IA del cliente.
+
+**Vive en:** `cuentasDeIA` y `eleccionDelPedido` (lib/chat-ia.ts) · GET /api/mako/chat?suIA=1 y las dos ramas del POST · el
+campo `ia` de `turnoApp` (lib/mako-turno-app.ts) · `soloSuClaude` con `modeloSuClaude` y `soloSuOpenAI` (lib/anthropic.ts) ·
+tests/chat-ia.test.ts.
+
+- **La elección se valida en la RUTA, contra lo que se le ofrecería AHORA,** no en el turno ni en el navegador.
+  `eleccionDelPedido` sanea lo que llega (`sanearIA`) y lo cruza con `cuentasDeIA`, así que una cuenta que ya no está, o la
+  computadora de otra persona, vuelven a Automático. El turno confía en esa validación.
+- **La plata la sigue cuidando la puerta 2:** con el crédito de Claude de MaKo, pedir Sonnet sale en Haiku igual
+  (`evaluarClaveDelNegocio`), y por eso el crédito se ofrece con `soloHaiku`. Medido con el arnés: la llamada sale en Haiku y
+  con la clave del crédito.
+- **Elegir una cuenta es elegirla:** con la computadora elegida, el turno no cae a las claves; con SU OpenAI, no cae a Claude
+  (`soloSuOpenAI` tira «falló la IA»). Automático sigue igual que antes: la computadora y, si no puede, sus claves.
+- **Un test que busca «la PRIMERA llamada a la cascada» se equivoca cuando aparece otra antes:** anthropic-tools-sin-fallback se
+  ancló a la cascada del registro.
+- **Dos tests fallaron SÓLO en la corrida grande** (chats-mako-envio, doer-recetas-video-imagen): pasan solos, en main y en esta
+  rama. Fue la carga, no el cambio.
+- **SIN hacer:** OpenAI todavía sin elegir el modelo (`MODELOS_DE_LA_CUENTA.openai = []`); el chat del teléfono (/api/m/mako)
+  no lee `ia` (el selector va en la caja del Ops Center, que usa /api/mako/chat).
+
 ## La computadora del cliente NUNCA atiende leads sola (Martín, 22/10/2026)
 
 **La decisión, textual** (Martín, sobre los términos de Anthropic con la suscripción en la PC del cliente, D6a): «No por

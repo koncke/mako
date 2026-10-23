@@ -282,7 +282,7 @@ test('el turno: la PC que se apaga a mitad se ve (no 4 minutos), y se espera lo 
   const rutas = { chat: leer('app/api/mako/chat/route.ts'), movil: leer('app/api/m/mako/route.ts') };
   for (const [n, r] of Object.entries(rutas)) assert.match(r, /plazoMs: maxDuration \* 1000/, `${n} dice su plazo`);
   // Con la PC apagada (o al tope, o sin sesión), su clave si la tiene (§5).
-  assert.match(sinComentarios(leer('lib/mako-turno-app.ts')), /if \(!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos'\) \{\s*try \{\s*const r = await chatClaudeTools\(/);
+  assert.match(sinComentarios(leer('lib/mako-turno-app.ts')), /if \(!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos' && ia\?\.cuenta !== 'pc'\) \{\s*try \{\s*const r = await chatClaudeTools\(/);
 });
 
 test('su clave de Claude que falla (sin crédito, revocada) o en pausa se le dice: no es un ticket de bug', () => {

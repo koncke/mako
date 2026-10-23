@@ -40,6 +40,7 @@ import { registrarError } from '@/lib/errores-app';
 import { avisoClaveTapada, taparClaves } from '@/lib/claves-en-el-chat';
 import { encolarTurno, esperarALaPc, pcDe, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
 import { armarPrompt, AVISO_PC_ILEGIBLE, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, modeloPc, pcUsable, type FalloDeLaPc } from '@/lib/ia-pc-reglas';
+import type { EleccionIA } from '@/lib/chat-ia-reglas';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
 import { entrarSoloSuIA } from '@/lib/solo-su-ia';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
@@ -371,6 +372,15 @@ export type EntradaTurnoApp = {
    * (`esperaDelTurno`). El Analyst del lead tiene 300 s y no 420, y Vercel cortaba sin aviso (revisión del 21/10/2026).
    */
   plazoMs?: number;
+  /**
+   * CON QUÉ IA CORRE ESTE MENSAJE (8b, 23/10/2026; lib/chat-ia-reglas.ts): lo que la persona eligió en el «+» de la caja, YA
+   * validado por la ruta (lib/chat-ia.ts → eleccionDelPedido: una cuenta suya, que se le ofrecería ahora). null o sin esto,
+   * Automático (lo decide el chat jefe: su computadora, y si no puede, sus claves).
+   *   · pc: su computadora, con el modelo elegido, y si no contesta NO cae a las claves (eligió ésa);
+   *   · anthropic: directo a SU Claude (la puerta 2), con el modelo elegido; con el crédito de MaKo, Haiku igual;
+   *   · openai: directo a SU OpenAI, sin caer a Claude.
+   */
+  ia?: EleccionIA;
 };
 
 /** El plazo de una ruta que no dice el suyo: el más corto de las que llaman al turno (app/api/crm/analyst). */
@@ -719,10 +729,17 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const pcPuede = pcUsable(pc);
     // Lo que falló en la PC del cliente (apagada, sin Claude, sin sesión, al tope, no contestó a tiempo) no es un bug.
     let falloDeLaPc: FalloDeLaPc | null = pc && !pcPuede ? (pc.enLinea ? (pc.claudeFalta ? 'sin-claude' : 'sesion') : 'apagada') : null;
+    // Lo que eligió en el «+» (8b, ya validado por la ruta): con una de sus claves, la computadora no se usa; con la
+    // computadora, las claves no.
+    const ia = entrada.ia ?? null;
+    const conLaPc = !ia || ia.cuenta === 'pc';
+    // Eligió su computadora y no hay ninguna conectada (si no se pudo LEER, lo dice su propio aviso): eso es lo que pasa.
+    if (ia?.cuenta === 'pc' && !pc && !pcIlegible) falloDeLaPc = 'apagada';
     let reponeDeLaPc: string | null = null;
-    if (pc && pcPuede) {
+    if (conLaPc && pc && pcPuede) {
       try {
-        const modelo = modeloPc(await getSetting(CLAVE_MODELO_PC).catch(() => null));
+        // El modelo que eligió para este chat; si no, el del negocio.
+        const modelo = ia?.cuenta === 'pc' && ia.modelo ? modeloPc(ia.modelo) : modeloPc(await getSetting(CLAVE_MODELO_PC).catch(() => null));
         const turnoPc = await encolarTurno(pc, s.id, { system, prompt: armarPrompt(historial, textoModelo), tools, modelo });
         // Lo que le queda a la ruta, no 240 s fijos (el Analyst del lead tiene 300 s: Vercel cortaba sin aviso).
         const espera = esperaDelTurno(entrada.plazoMs ?? PLAZO_RUTA_MS, Date.now() - inicio);
@@ -740,10 +757,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // Sin su PC (no tiene, está apagada o sin sesión, o no pudo): con su clave, si la tiene (docs/ia-del-cliente.md §5).
     // Con «sólo su IA» (D6b) la cascada barata no participa: chatClaudeTools usa su OpenAI o su Claude, o nada. Si la PC
     // tardó (ya no queda tiempo) o el negocio pasó su tope, no se prueba otra cosa.
-    if (!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos') {
+    if (!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos' && ia?.cuenta !== 'pc') {
       try {
         const r = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
           feature: FEATURE, maxSteps: 8, sinFallbackClaude: true, soloSuIA: negocio.suIA,
+          // Lo que eligió (8b): directo a SU Claude con ese modelo, o directo a SU OpenAI; si no, la cascada de siempre.
+          ...(ia?.cuenta === 'anthropic' ? { soloSuClaude: true, ...(ia.modelo ? { modeloSuClaude: ia.modelo } : {}) } : ia?.cuenta === 'openai' ? { soloSuOpenAI: true } : {}),
           motivo: `app ${intencion.intencion} «${(textoPersona || textoMemoria).slice(0, 60)}»`,
         });
         texto = (r.text ?? '').trim();
