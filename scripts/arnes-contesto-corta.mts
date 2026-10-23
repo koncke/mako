@@ -5,11 +5,11 @@
 //   entrada → M1 → «Contestó?» (sí → AVISO) / no → esperar 1 día → M2 → esperar 2 días → «No contestó?» → M3
 // El AVISO es «poner una etiqueta» (en el ws3, «avisar al equipo» saldría por la línea de MaKo al grupo: un WhatsApp de
 // verdad). Tres leads de prueba, uno por momento en que contesta:
-//   A. ANTES de que le salga M1 (M1 parado: el envío del ws3 está apagado);
+//   A. ANTES de que le salga M1 (le escribió al negocio por otra cosa): M1 le sale igual, y enseguida «Contestó»;
 //   B. DURANTE la espera de 1 día (ya le salió M1);
 //   C. DURANTE la espera de 2 días (ya le salieron M1 y M2);
-// y D, que no contesta (el control: le sale todo). En A, B y C la rama «Contestó» corre EN EL ACTO (la etiqueta) y
-// después no le sale ningún mensaje más, aunque venzan las esperas. La respuesta se marca como la marca el motor
+// y D, que no contesta (el control: le sale todo). En B y C la rama «Contestó» corre EN EL ACTO (la etiqueta) y después
+// no le sale ningún mensaje más, aunque venzan las esperas. La respuesta se marca como la marca el motor
 // (`pausarPorRespuesta`: la inscripción pasa a 'respondio') y se llama a `alContestar` (lo que corre después), sin el
 // resto de sus avisos. Todo SIMULADO: el ws3 no tiene número vinculado y su envío de WhatsApp queda apagado.
 //   node --env-file=.env.local --conditions=react-server --import tsx scripts/arnes-contesto-corta.mts
@@ -84,14 +84,14 @@ await runWithWorkspace(WS, async () => {
     const pasaElTiempo = async (lead: number) => { for (let i = 0; i < 4; i++) { await vence(lead); await correr(lead); } };
     const lista = (xs: string[]) => JSON.stringify(xs);
 
-    // A. Contesta ANTES de que le salga M1.
+    // A. Contesta ANTES de que le salga M1 (le escribió al negocio por otra cosa): no se corta nada todavía; M1 le sale,
+    // la condición ya ve que contestó y corre lo de «Contestó». Ningún mensaje más.
     const a = await nuevoLead('A', '+000000000311');
     ver((await salidos(a)).length === 0, 'A: todavía no le salió nada', await fila(a));
     await contesta(a);
-    await correr(a); // por si la vía rápida de `alContestar` no tuvo el turno: lo que hace el tick.
-    ver(await etiquetado(a), 'A: la rama «Contestó» corrió (la etiqueta)', await fila(a));
     await pasaElTiempo(a);
-    ver((await salidos(a)).length === 0, 'A: no le salió ningún mensaje', await salidos(a));
+    ver(lista(await salidos(a)) === '["m1"]', 'A: le salió M1 (contestó antes: no se le corta el primero)', await salidos(a));
+    ver(await etiquetado(a), 'A: y corrió la rama «Contestó» (la etiqueta)', await fila(a));
 
     // B. Contesta DURANTE la espera de 1 día (ya le salió M1).
     const b = await nuevoLead('B', '+000000000312');

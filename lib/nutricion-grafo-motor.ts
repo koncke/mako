@@ -1463,13 +1463,39 @@ export function usaContesto(pasos: readonly PasoGrafo[]): boolean {
   return pasos.some((p) => claseDe(p) === 'condicion' && (p.ramas ?? []).some((r) => (r.filas ?? []).some((f) => f.campo === 'contesto')));
 }
 
-/** La rama de una condición que toma quien CONTESTÓ: la de «Contestó»; si sólo pregunta «No contestó», el «si no». */
-function ramaDeContesto(c: PasoGrafo): { hay: boolean; destino: string | null } {
+/**
+ * La salida de una condición que toma quien CONTESTÓ: la rama «Contestó»; si sólo pregunta «No contestó», su «si no»
+ * (revisión adversarial del 23/10/2026: «No contestó → M2 / si no → aviso» perdía el aviso). `mezcla`: una rama que junta
+ * «Contestó» con otra cosa («Contestó y sigue en la etapa»): sin los demás hechos no se puede elegir, y no se decide acá.
+ */
+function ramaDeContesto(c: PasoGrafo): { hay: boolean; destino: string | null; mezcla?: boolean } {
   const ramas = c.ramas ?? [];
+  if (ramas.some((r) => (r.filas ?? []).some((f) => f.campo === 'contesto') && (r.filas ?? []).some((f) => f.campo !== 'contesto'))) return { hay: false, destino: null, mezcla: true };
   const si = ramas.find((r) => (r.filas ?? []).length > 0 && (r.filas ?? []).every((f) => f.campo === 'contesto' && !f.no));
   if (si) return { hay: true, destino: si.siguiente ?? null };
   const no = ramas.find((r) => (r.filas ?? []).some((f) => f.campo === 'contesto' && f.no));
-  return no ? { hay: false, destino: c.si_no ?? null } : { hay: false, destino: null };
+  return no && c.si_no ? { hay: true, destino: c.si_no } : { hay: false, destino: null };
+}
+
+/**
+ * Lo que cuelga de la salida «Contestó» de cada condición que pregunta «Contestó»: ahí los MENSAJES salen (están dibujados
+ * para quien contestó: «¡Genial! Te paso el link»). La guarda de `procesarEnvios` corta lo demás.
+ */
+export function ramaDeQuienContesto(pasos: readonly PasoGrafo[]): Set<string> {
+  const out = new Set<string>();
+  const pila: string[] = [];
+  for (const p of pasos) if (preguntaContesto(p)) { const r = ramaDeContesto(p); if (r.hay && r.destino) pila.push(r.destino); }
+  while (pila.length) {
+    const id = pila.pop()!;
+    if (out.has(id)) continue;
+    const i = indicePorId(pasos, id);
+    if (i < 0) continue;
+    out.add(id);
+    const q = pasos[i];
+    if (q.siguiente) pila.push(q.siguiente);
+    if (claseDe(q) === 'condicion') { for (const r of q.ramas ?? []) if (r.siguiente) pila.push(r.siguiente); if (q.si_no) pila.push(q.si_no); }
+  }
+  return out;
 }
 
 const preguntaContesto = (p: PasoGrafo | undefined): boolean =>
@@ -1491,7 +1517,11 @@ export function destinoAlContestar(pasos: readonly PasoGrafo[], idx: number): st
   for (let n = 0; n < 60 && !vistos.has(id); n++) {
     vistos.add(id);
     const i = indicePorId(pasos, id);
-    if (i >= 0 && preguntaContesto(pasos[i])) { const r = ramaDeContesto(pasos[i]); if (r.hay) return r.destino && indicePorId(pasos, r.destino) >= 0 ? r.destino : null; }
+    if (i >= 0 && preguntaContesto(pasos[i])) {
+      const r = ramaDeContesto(pasos[i]);
+      if (r.mezcla) return undefined;
+      if (r.hay) return r.destino && indicePorId(pasos, r.destino) >= 0 ? r.destino : null;
+    }
     const padres = padresSinVuelta(pasos, id);
     if (padres.length !== 1) break;
     id = padres[0].id;
@@ -1502,7 +1532,7 @@ export function destinoAlContestar(pasos: readonly PasoGrafo[], idx: number): st
   while (j >= 0 && !adelante.has(j) && adelante.size < 60) {
     adelante.add(j);
     const q = pasos[j];
-    if (preguntaContesto(q)) { const r = ramaDeContesto(q); return r.hay && r.destino && indicePorId(pasos, r.destino) >= 0 ? r.destino : null; }
+    if (preguntaContesto(q)) { const r = ramaDeContesto(q); if (r.mezcla) return undefined; return r.hay && r.destino && indicePorId(pasos, r.destino) >= 0 ? r.destino : null; }
     j = claseDe(q) === 'condicion' ? (q.si_no ? indicePorId(pasos, q.si_no) : -1) : siguienteIndice(pasos, j);
   }
   return null;

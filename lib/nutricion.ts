@@ -88,7 +88,7 @@ import { usaEquipoContesto, contestoElEquipo, type TurnoDelGrupo } from '@/lib/e
 import {
   indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
-  condicionDeArriba, condicionSigueLlevando, usaContesto, destinoAlContestar,
+  condicionDeArriba, condicionSigueLlevando, usaContesto, destinoAlContestar, ramaDeQuienContesto,
   esNodoDeControl, RELLENO_CONTROL, TOPE_SALTOS, esColumnaInexistente, etiquetasQueCuentan, barridoInscribe, irAEstaMisma,
   avisoSalio, frenadoPorAntiBan, anotarEnCorrida,
   filasDelFlujo, catalogoDeLead, resumenCursoDeAlumno, resumenPagos,
@@ -4602,14 +4602,19 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // termina, con su rastro. Las acciones (el aviso al equipo, una etiqueta, mover de etapa) sí corren: la rama
       // «Contestó» a la que lo llevó `alContestar`. Fuera de esto: el carril del recordatorio (sigue aunque conteste, M4) y
       // una automatización con «Si responde» (la respuesta la atiende su AI Step, como `alContestar`).
-      if (enRespuesta && claseDe(pasoLeido) === 'mensaje' && usaContesto(sec.pasos) && raizRespuesta(sec.pasos) == null
-          && !esHiloDelCarril(sec.pasos, insc.paso_actual)) {
+      // (Revisión adversarial del 23/10/2026: el nodo RESUELTO, no el leído; lo que cuelga de la rama «Contestó» sale, que
+      // está dibujado para quien contestó; y nada se corta antes de que a esa inscripción le haya salido algo: quien le
+      // escribió al negocio por otra cosa mientras esperaba el goteo recibe su primer mensaje.)
+      const nodoAhora = sec.pasos[insc.paso_actual];
+      if (enRespuesta && nodoAhora && claseDe(nodoAhora) === 'mensaje' && usaContesto(sec.pasos) && raizRespuesta(sec.pasos) == null
+          && !esHiloDelCarril(sec.pasos, insc.paso_actual) && !ramaDeQuienContesto(sec.pasos).has(idDe(nodoAhora, insc.paso_actual))
+          && await yaLeSalioAlgo(supabase, insc.id)) {
         if (await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', alcance: 'hilo' })) {
           res.omitidos += 1;
-          await anotarCierreSinEnvio(insc, pasoLeido, lead, 'el lead contestó: no le sale nada más de esta automatización');
-          res.detalle.push({ lead_id: insc.lead_id, canal: pasoLeido.canal, estado: 'omitido', nota: 'el lead contestó' });
+          await anotarCierreSinEnvio(insc, nodoAhora, lead, 'el lead contestó: no le sale nada más de esta automatización');
+          res.detalle.push({ lead_id: insc.lead_id, canal: nodoAhora.canal, estado: 'omitido', nota: 'el lead contestó' });
         } else {
-          res.detalle.push({ lead_id: insc.lead_id, canal: pasoLeido.canal, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' });
+          res.detalle.push({ lead_id: insc.lead_id, canal: nodoAhora.canal, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' });
         }
         continue;
       }
@@ -5488,6 +5493,13 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
  * AI Step), una fila con hilos en paralelo (la guarda igual le corta los mensajes) ni el carril del recordatorio.
  * Exportada para el arnés del ws3. Nunca tira: el lead ya quedó marcado, que es lo crítico.
  */
+/** ¿A esta inscripción ya le salió algo? (enviado, o simulado en una prueba.) Un error cuenta como sí: corta de más, nunca manda de más. */
+async function yaLeSalioAlgo(db: Awaited<ReturnType<typeof getTenantDb>>, inscId: number): Promise<boolean> {
+  const { data, error } = await db.from('nutricion_envios').select('id').eq('inscripcion_id', inscId).in('estado', ['enviado', 'simulado']).limit(1);
+  if (error) { console.error(`[nutricion] ¿le salió algo a la inscripción ${inscId}?: ${error.message}`); return true; }
+  return (data ?? []).length > 0;
+}
+
 export async function alContestar(leadId: number, inscripciones: ReadonlyArray<{ id: number; secuencia_id: number }>, secs?: Secuencia[] | null): Promise<number> {
   let movidas = 0;
   try {
@@ -5502,14 +5514,20 @@ export async function alContestar(leadId: number, inscripciones: ReadonlyArray<{
     for (const f of (data ?? []) as Array<{ id: number; secuencia_id: number; paso_actual: number; nodo_actual: string | null; hilos: unknown }>) {
       const sec = porId.get(f.secuencia_id);
       if (!sec || raizRespuesta(sec.pasos) != null || sanearHilos(f.hilos)) continue;
+      // Sin nada que le haya salido, no está contestando esta automatización (le escribió al negocio por otra cosa): no
+      // se toca, y le sale su primer mensaje (revisión adversarial del 23/10/2026). Después, «Contestó» lo ve.
+      if (!(await yaLeSalioAlgo(db, f.id))) continue;
       const idx = indiceActual(sec.pasos, f);
       if (idx < 0 || esHiloDelCarril(sec.pasos, idx)) continue;
       const destino = destinoAlContestar(sec.pasos, idx);
       if (destino === undefined) continue;
       const j = destino ? indicePorId(sec.pasos, destino) : -1;
+      // ⚠️ SIN RAMA «CONTESTÓ», LA FILA QUEDA EN 'respondio' SIN PRÓXIMO ENVÍO (revisión adversarial del 23/10/2026): un
+      // 'completada' directo se salteaba `estadoAlEscribir`, y el desenlace la daba por FALLIDA (`no_responde`, la etapa
+      // de fallo y su automatización: más mensajes a quien SÍ contestó). Así la cierra el desenlace como lograda.
       const campos = j >= 0
         ? { paso_actual: j, nodo_actual: destino, proximo_envio_at: ahoraISO(), updated_at: ahoraISO() }
-        : { estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() };
+        : { proximo_envio_at: null, updated_at: ahoraISO() };
       // Compare-and-set contra la posición leída: si el motor la movió entre medio, la guarda de `procesarEnvios` corta igual.
       const { data: upd, error: eU } = await db.from('nutricion_inscripciones').update(campos)
         .eq('id', f.id).eq('estado', 'respondio').eq('paso_actual', f.paso_actual).select('id');

@@ -6106,6 +6106,14 @@ las que no usan «Contestó», las que tienen «Si responde», las filas con hil
 a «Contestó» / «No contestó». El arnés: contesta antes de M1, durante la espera de 1 día, durante la de 2 días, y uno que no
 contesta (le sale todo).
 
-**Lo que quedó SIN hacer.** Un mensaje DENTRO de la rama «Contestó» también se corta (la regla es «ningún mensaje más»): si
-alguien quiere contestarle al lead, va «Si responde». Una fila con hilos en paralelo no salta a la rama (la guarda igual le
-corta los mensajes). «Probar» (lib/simulador-grafo.ts) todavía no imita el corte.
+**Lo que cambió la revisión adversarial (las trampas).** (1) Cerrar con `estado: 'completada'` directo se salteaba
+`estadoAlEscribir`: el desenlace la daba por FALLIDA (`no_responde`, la etapa de fallo y su automatización: más mensajes a
+quien SÍ contestó). Sin rama «Contestó» la fila queda en 'respondio' sin próximo envío. (2) «No contestó → M2 / si no →
+aviso»: el aviso es el «si no», y se perdía. (3) Lo dibujado DENTRO de la rama «Contestó» sale (`ramaDeQuienContesto`). (4)
+Quien le escribió al negocio antes de que le saliera algo de esa automatización no se corta: le sale su primer mensaje y
+después «Contestó» lo ve (`yaLeSalioAlgo`).
+
+**Lo que quedó SIN hacer.** Una fila con hilos en paralelo no salta a la rama (la guarda igual le corta los mensajes). Una
+fila que junta «Contestó» con otra cosa («Contestó y sigue en la etapa») no salta: lo decide la condición. «Probar»
+(lib/simulador-grafo.ts) todavía no imita el corte. Un DM de Instagram también cuenta como respuesta para los flujos de
+WhatsApp que usan «Contestó». Un «N antes de la reunión» que va en el MISMO camino se corta con él.
