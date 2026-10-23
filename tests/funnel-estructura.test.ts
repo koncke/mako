@@ -389,12 +389,13 @@ test('⚠️ y el guardado las respeta, no sólo la función', () => {
   // capacidad no se perdió —se movió—, y lo que hay que exigir es que el menú de la
   // columna SIGA ofreciendo renombrar una terminal. Si eso se cae, las cuatro se vuelven
   // intocables y nadie se entera.
+  // Desde el 22/10/2026 el «⋯» abre el menú del clic derecho (app/crm/menu-contextual-crm.ts): «Cambiar el nombre» va en
+  // TODAS las columnas, sin condición (renombrar NO se apaga para una terminal: sólo eliminar).
+  const mc = readFileSync(join(RAIZ, 'app/crm/menu-contextual-crm.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const menu = mc.slice(mc.indexOf("if (c.sobre === 'columna') {"), mc.indexOf('if (esLote(c))'));
+  assert.match(menu, /\n\s*'col_renombrar',\n/, 'el menú de la columna dejó de ofrecer renombrar, o lo puso con condición');
   const bd = readFileSync(join(RAIZ, 'app/crm/CrmBoard.tsx'), 'utf8');
-  assert.ok(bd.includes("value: 'renombrar'"), 'el menú de la columna dejó de ofrecer renombrar');
-  // Y renombrar NO se apaga para una terminal: sólo eliminar.
-  const menu = bd.slice(bd.indexOf("value: 'renombrar'"), bd.indexOf("onChange={(v) => {", bd.indexOf("value: 'renombrar'")));
-  assert.ok(!/renombrar[\s\S]{0,120}disabled: esTerminal/.test(menu),
-    'el menú de la columna apagó el renombre de una terminal: quedarían intocables');
+  assert.match(bd, /case 'col_renombrar': if \(c\) setRenombrando\(c\.key\); return;/);
   const md = readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8');
   assert.ok(!md.includes('En todos tus embudos'), 'volvió el bloque de las terminales al pop-up');
 });
@@ -438,8 +439,9 @@ test('⚠️ la etapa se edita desde su COLUMNA, y el menú está enchufado', ()
   const bd = readFileSync(join(import.meta.dirname, '../app/crm/CrmBoard.tsx'), 'utf8');
 
   // 1) El menú existe, y las tres opciones.
+  // (El «⋯» abre el menú del clic derecho desde el 22/10/2026: las opciones viven en app/crm/menu-contextual-crm.ts.)
   for (const op of ['renombrar', 'agregar', 'eliminar']) {
-    assert.ok(bd.includes(`value: '${op}'`), `falta la opción «${op}» en el menú de la columna`);
+    assert.match(bd, new RegExp(`case 'col_${op}': if \\(c\\)`), `falta la opción «${op}» en el menú de la columna`);
   }
   // 2) Y está ENCHUFADO: escribir la salida no es ofrecerla.
   assert.match(bd, /editarEtapaAction\(op, funnelActivo/, 'el menú no llama a la action con el funnel activo');
@@ -477,7 +479,7 @@ test('⚠️ la etapa se edita desde su COLUMNA, y el menú está enchufado', ()
   //    rechaza y dejaba el menú ofreciendo «Eliminar etapa» en 102 columnas de nutrición
   //    (medido contra producción) más la entrada de cada embudo. Quién es borrable de
   //    verdad lo prueba `tests/eliminar-etapa-coherente.test.ts`, contra `generateFunnel`.
-  assert.match(bd, /colsBorrables\.has\(c\.key\) \? \[\{ value: 'eliminar'/,
+  assert.match(bd, /borrable: colsBorrables\.has\(c\.key\)/,
     'la opción de eliminar dejó de colgar de `colsBorrables`: vuelve a ofrecerse sobre etapas que el server rechaza');
   assert.ok(!/label: 'No se puede eliminar'/.test(bd), 'volvió el rótulo de la opción apagada');
 });
@@ -855,9 +857,11 @@ test('⚠️ un menú de acciones no lleva la flecha del desplegable', () => {
   //   · se le saca el `sinFlecha` al menú de la columna     -> 14 / 1
   const dd = readFileSync(join(RAIZ, 'app/components/Dropdown.tsx'), 'utf8');
   assert.match(dd, /\{!sinFlecha && \(/, 'el Dropdown volvió a dibujar la flecha sin preguntar');
-  const bd = readFileSync(join(RAIZ, 'app/crm/CrmBoard.tsx'), 'utf8');
-  const menu = bd.slice(bd.indexOf('placeholder="⋯"'));
-  assert.ok(menu.slice(0, 400).includes('sinFlecha'), 'el menú «⋯» de la columna volvió a llevar flecha');
+  // Desde el 22/10/2026 el «⋯» de la columna es un botón suelto que abre el menú del clic derecho: dice «⋯» y nada más.
+  const bd = readFileSync(join(RAIZ, 'app/crm/CrmBoard.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  const boton = bd.slice(bd.indexOf('className="mk-col-mas"'), bd.indexOf('</button>', bd.indexOf('className="mk-col-mas"')));
+  assert.ok(boton.length > 0, 'no encontré el «⋯» de la columna');
+  assert.match(boton, />\s*⋯\s*$/, 'el «⋯» de la columna volvió a llevar flecha u otra cosa');
 });
 
 test('⚠️ las líneas divisorias se van por la CAJA, no fila por fila', () => {
@@ -1032,19 +1036,16 @@ test('⚠️ las flechas de mover son DOS botones sin rótulo, y van primeras de
   // Los dos botones se reparten la línea: si uno no tiene `flex: 1`, no son dos mitades.
   assert.ok(/flex: 1, height: 30/.test(rama), 'los dos botones dejaron de repartirse la línea');
 
-  // ── 2. En el menú de la columna: con el flag, y ANTES que todo lo demás ──
-  const menu = bd.slice(bd.indexOf('ariaLabel={`Opciones de la etapa'));
-  const opciones = menu.slice(menu.indexOf('options={['), menu.indexOf('onChange={(v) =>'));
-  assert.match(opciones, /value: 'mover', label: 'Mover', soloAcciones: true/,
-    'el renglón de mover volvió a dibujar la palabra «Mover»');
-  const iMover = opciones.indexOf("value: 'mover'");
-  const iRenombrar = opciones.indexOf("value: 'renombrar'");
-  assert.ok(iMover > -1 && iRenombrar > -1, 'faltan opciones del menú de la columna');
-  assert.ok(iMover < iRenombrar, 'las flechas dejaron de ser lo primero del menú');
+  // ── 2. En el menú de la columna (desde el 22/10/2026 el «⋯» abre el del clic derecho): ANTES que todo lo demás, en UNA
+  //    línea de dos botones sin rótulo (`EN_LINEA`) ──
+  const mc = readFileSync(join(RAIZ, 'app/crm/menu-contextual-crm.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const opciones = mc.slice(mc.indexOf("if (c.sobre === 'columna') {"), mc.indexOf('if (esLote(c))'));
+  assert.match(opciones, /return compactar\(\[\s*\.\.\.\(c\.mover \? \['col_izquierda', 'col_derecha'\] as const : \[\]\),/,
+    'las flechas dejaron de ser lo primero del menú');
+  assert.match(mc, /export const EN_LINEA[^=]*= \[\['col_izquierda', 'col_derecha'\]\];/, 'las flechas dejaron de ir en una línea');
   // Y siguen colgando del MISMO predicado que habilita el arrastre: dos formas del mismo
   // gesto que se contradigan es peor que tener una sola.
-  assert.match(opciones, /\.\.\.\(seArrastraCol\(c\) \? \[\{[\s\S]*?value: 'mover'/,
-    'las flechas dejaron de mirar el mismo predicado que el arrastre');
+  assert.match(bd, /mover: seArrastraCol\(c\)/, 'las flechas dejaron de mirar el mismo predicado que el arrastre');
 });
 
 test('⚠️ el título del pop-up es el nombre del PRODUCTO, igual que el desplegable', () => {

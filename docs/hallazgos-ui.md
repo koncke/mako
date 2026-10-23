@@ -12,6 +12,16 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## El menú de la casa (MenuContextual) tiene SECCIONES y lo tildado (22/10/2026)
+
+- **`seccion` en un renglón** es el título de la sección que empieza ahí. La pieza dibuja la raya de arriba (si no es el
+  primero, y si un `null` no la puso ya) y el título chico. Una sección que quedó sin renglones no deja título: lo pone
+  quien arma la lista en el PRIMER renglón que quedó (`itemsCrm`, app/crm/menu-contextual-crm.ts).
+- **`marcado`** es lo elegido hoy en un submenú de una sola opción (el tipo de una etapa): un ✓ a la derecha y
+  `aria-current`. El renglón sigue siendo `menuitem`: con `menuitemradio`, el teclado (`itemsDe`) no lo encontraba.
+- **Por qué no el `Dropdown`**: no dibuja un submenú al costado ni un renglón en rojo, y un menú que se abre con un botón y
+  con el clic derecho del mismo lugar tiene que ser UNO (ver docs/hallazgos-crm.md, el «⋯» de una columna).
+
 ## Lo que más muerde acá
 
 - **«No se autoguarda» no era el campo: era el MODAL** (14/10/2026). Los campos de la ficha del lead

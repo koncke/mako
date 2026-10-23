@@ -73,6 +73,11 @@ export type ItemMenuContextual = {
   vacio?: string;
   /** Una LÍNEA de botones sin rótulo: cada uno se anuncia por su `label`. El `id` de afuera es sólo la key. */
   enLinea?: ReadonlyArray<ItemMenuContextual>;
+  /** El título de la SECCIÓN que empieza en este renglón (22/10/2026, el «⋯» de una columna del CRM: «Ya no se entienden si
+   *  son tantas, ponlas en secciones»): una raya arriba, si no es el primero, y el título chico. */
+  seccion?: string;
+  /** Lo elegido HOY en un submenú de una sola opción (el tipo de una etapa): un ✓ a la derecha. */
+  marcado?: boolean;
 };
 export type EntradaMenuContextual = ItemMenuContextual | null;
 
@@ -135,6 +140,7 @@ const RENGLON: CSSProperties = {
   borderRadius: radius.sm, border: 'none', fontFamily: SANS, fontSize: 13.5, fontWeight: weight.medium, color: 'var(--ink)', cursor: 'pointer',
 };
 const SEPARADOR: CSSProperties = { height: 1, background: 'var(--border)', margin: '4px 6px' };
+const TITULO_SECCION: CSSProperties = { padding: '6px 10px 2px', fontSize: 11.5, fontWeight: 600, color: 'var(--faint)', letterSpacing: '.02em', whiteSpace: 'nowrap' };
 
 const itemsDe = (panel: HTMLElement | null) =>
   [...(panel?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? [])];
@@ -167,13 +173,22 @@ export function ListaMenuContextual({ items, padre = null, abierto = null, onEle
   onAbrir?: (it: ItemMenuContextual, el: HTMLElement, teclado: boolean) => void;
   onEncima?: (it: ItemMenuContextual, el: HTMLElement) => void;
 }) {
+  const lista = sinSeparadoresDeMas(items);
+  /** El título de la sección que empieza en `it`, con la raya que la separa de la anterior (si no la puso ya un `null`). */
+  const titulo = (it: ItemMenuContextual, k: number) => (it.seccion ? (
+    <Fragment key={`sec${k}`}>
+      {k > 0 && lista[k - 1] !== null && <div role="separator" style={SEPARADOR} />}
+      <div aria-hidden style={TITULO_SECCION}>{it.seccion}</div>
+    </Fragment>
+  ) : null);
   return (
     <>
-      {sinSeparadoresDeMas(items).map((it, k) => {
+      {lista.map((it, k) => {
         if (!it) return <div key={`sep${k}`} role="separator" style={SEPARADOR} />;
         if (it.enLinea?.length) {
           return (
-            <div key={it.id} role="group" aria-label={it.label} style={{ display: 'flex', gap: 4 }}
+            <Fragment key={it.id}>{titulo(it, k)}
+            <div role="group" aria-label={it.label} style={{ display: 'flex', gap: 4 }}
               onMouseEnter={(e) => onEncima?.(it, e.currentTarget)}>
               {it.enLinea.map((b) => (
                 <button key={b.id} type="button" role="menuitem" className="mk-mctx__item" disabled={b.deshabilitado}
@@ -184,14 +199,17 @@ export function ListaMenuContextual({ items, padre = null, abierto = null, onEle
                 </button>
               ))}
             </div>
+            </Fragment>
           );
         }
         const conHijos = it.hijos !== undefined;
         return (
-          <button key={it.id} type="button" role="menuitem" className="mk-mctx__item" disabled={it.deshabilitado}
+          <Fragment key={it.id}>{titulo(it, k)}
+          <button type="button" role="menuitem" className="mk-mctx__item" disabled={it.deshabilitado}
             data-id={conHijos ? it.id : undefined}
             aria-haspopup={conHijos ? 'menu' : undefined}
             aria-expanded={conHijos ? abierto === it.id : undefined}
+            aria-current={it.marcado ? 'true' : undefined}
             onMouseEnter={(e) => onEncima?.(it, e.currentTarget)}
             // `detail === 0` es un «clic» que vino del teclado (Enter / Espacio): ahí el foco entra al submenú.
             onClick={(e) => (conHijos ? onAbrir?.(it, e.currentTarget, e.detail === 0) : onElegir(it, padre))}
@@ -199,7 +217,9 @@ export function ListaMenuContextual({ items, padre = null, abierto = null, onEle
             <Marca it={it} />
             <span style={{ minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.label}</span>
             {conHijos && <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', fontSize: 15, lineHeight: 1 }}>›</span>}
+            {it.marcado && <span aria-hidden style={{ flex: 'none', color: 'var(--primary)', fontSize: 14, fontWeight: 700, lineHeight: 1 }}>✓</span>}
           </button>
+          </Fragment>
         );
       })}
     </>

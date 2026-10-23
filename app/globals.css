@@ -872,6 +872,12 @@ textarea.mako-field {
 .mk-sel-columna[data-seleccionando='1'] { width: 15px; margin-right: 0; opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .mk-sel-columna { transition: none; } }
 
+/* EL «⋯» DE UNA COLUMNA DEL CRM (22/10/2026): abre el menú del clic derecho (app/crm/menu-contextual-crm.ts). Era un
+   `Dropdown`, que ponía su propio fondo al pasar el cursor; el botón suelto lo pone acá. */
+.mk-col-mas { background: transparent; }
+.mk-col-mas:hover, .mk-col-mas[aria-expanded='true'] { background: var(--surface-2); color: var(--ink); }
+.mk-col-mas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
 /* LA COPIA QUE VIAJA CON VARIOS TILDADOS dice cuántos van (CRM, 22/10/2026: arrastrar uno de los tildados mueve a todos).
    La marca la pone el tablero en el origen sólo mientras se clona: la tarjeta que se queda no la lleva. */
 .mk-tarjeta-lead[data-varios]::after {

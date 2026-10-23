@@ -131,7 +131,8 @@ test('el interruptor: sólo el admin, y prender exige que el producto tenga clas
   assert.match(src, /if \(prendido && !\(await estadoCursoAlGanar\(real\)\)\) return \{ ok: false/);
   // El tablero lo ofrece sólo en Ganado y sólo si el server dijo que hay curso.
   const board = leer('app/crm/CrmBoard.tsx');
-  assert.match(board, /\.\.\.\(cursoAlGanar && terminalEstadoFor\(c\.key\) === 'ganado'/);
+  // Desde el 22/10/2026 el «⋯» abre el menú del clic derecho: la condición vive en `contextoBajo`.
+  assert.match(board, /curso: cursoAlGanar && terminalEstadoFor\(c\.key\) === 'ganado' \? cursoPrendido : null,/);
   // Y no es un useState sembrado de la prop (el tablero no se desmonta al cambiar de embudo).
   assert.doesNotMatch(board, /useState\(cursoAlGanar/);
 });

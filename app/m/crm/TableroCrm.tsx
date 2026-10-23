@@ -41,7 +41,8 @@ import {
 } from '@/app/m/_ui';
 import { buscarLeadsAction, deshacerMoverAction, moverEtapaAction } from './acciones';
 import { MIN_BUSQUEDA, type FilaLeadM } from './reglas';
-import { CaraTarjeta, CuerpoFichaRapida, EstiloTarjetas, TarjetaDestacada } from '@/app/_ui/TarjetaKanban';
+import { CaraTarjeta, CuerpoFichaRapida, EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
+import { ReunionesParaPreparar } from '@/app/crm/TarjetaReunion';
 import { insigniaDeCanal, subtituloEnOrden, subtituloLead, type CampoTarjetaLead } from '@/lib/tarjeta-kanban';
 import type { TableroCrmM } from './datos';
 
@@ -110,22 +111,20 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
     </button>
   ) : undefined;
 
-  // «Próximo» (17/10/2026, la destacada del prototipo): la próxima reunión que todavía no pasó, con Llamar / WhatsApp.
+  // «Próximo»: la próxima reunión que todavía no pasó, con LA tarjeta de la computadora (22/10/2026, app/crm/TarjetaReunion.tsx):
+  // cuánto falta, quién es, lo útil para entrar y, cerca de la hora, «Entrar a la reunión». Sin «Llamar» ni «WhatsApp»
+  // (Martín: «Y que no tenga "Llamar o WhatsApp"»; las dos siguen en la ficha rápida y en la ficha).
   const px = datos.proximo;
   // El paso cuenta el CAMINO (las columnas del pipeline), como en la computadora.
   const camino = datos.columnas.filter((c) => c.camino);
   const iPx = px ? camino.findIndex((c) => c.key === px.col) : -1;
   const proximo = px ? (
-    <TarjetaDestacada sobre="Próximo" titulo={`Reunión con ${px.nombre}`}
-      bajada={[px.cuando, px.plata].filter(Boolean).join(' · ')}
-      cara={{ nombre: px.nombre, foto: px.foto }}
-      avance={iPx >= 0 ? { pct: ((iPx + 1) / camino.length) * 100, izq: `Paso ${iPx + 1} de ${camino.length} · ${camino[iPx].titulo}` } : null}
-      // «Ver detalle» SIEMPRE, como el bloque azul de la computadora (22/10/2026, Martín: «Quiero siempre unificar las cosas
-      // en todos lados... me falta un botón para poder ver el detalle»). Acá no hay pop-up: el bloque ya va arriba de la lista.
-      acciones={[
-        ...(px.telefono ? [{ texto: 'Llamar', href: `tel:+${px.telefono}`, primaria: true }, { texto: 'WhatsApp', href: `https://wa.me/${px.telefono}`, externo: true }] : []),
-        { texto: 'Ver detalle', onClick: () => router.push(ficha(px.id)), primaria: !px.telefono },
-      ]} />
+    <ReunionesParaPreparar reuniones={[{
+      id: `${px.id}-J1`, leadId: px.id, cual: 'R1', fecha: px.fecha, dia: px.dia, at: px.at, url: px.url,
+      nombre: px.nombre, empresa: px.empresa, foto: px.foto,
+      paso: iPx >= 0 ? { n: iPx + 1, de: camino.length, etapa: camino[iPx].titulo } : null,
+      plata: px.plata, objetivo: null, facturacion: null, sinVsl: false,
+    }]} onVerDetalle={() => router.push(ficha(px.id))} />
   ) : null;
   const arriba = selector || proximo ? <div className="m-crm-arriba">{selector}{proximo}</div> : undefined;
 
