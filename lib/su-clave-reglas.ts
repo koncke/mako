@@ -52,7 +52,7 @@ export function filaDeFallo(p: ProvSuClave, modelo: string | null | undefined, m
   return { model: `${PREFIJO_FALLO}${(modelo ?? '').trim() || '-'}`, motivo: `${MARCA_SU_CLAVE[p]} · falló: ${motivo}` };
 }
 
-export type FilaUsoClave = { created_at: string; provider: string | null; model: string | null; motivo: string | null };
+export type FilaUsoClave = { created_at: string; provider: string | null; model: string | null; motivo: string | null; cost_usd?: number | null };
 
 export type EstadoSuClave = {
   proveedor: ProvSuClave;
@@ -60,7 +60,13 @@ export type EstadoSuClave = {
   anduvo: string | null;
   /** El último fallo (ISO y su motivo corto), o null. */
   fallo: { at: string; motivo: string } | null;
+  /** Lo que gastó en dólares en lo que se leyó (30 días): sólo las llamadas que contestaron con SU clave (22/10/2026, D3). */
+  gastado?: number;
 };
+
+/** Lo que gastó una clave, en sus palabras (Martín: «Que vean el USO»). Sin gasto se dice, no se esconde. */
+export const textoDelGasto = (usd: number | undefined): string =>
+  (usd && usd >= 0.005 ? `Gastó US$ ${usd.toFixed(2)} en los últimos 30 días` : 'Sin gasto en los últimos 30 días');
 
 /** Las filas que no son una llamada que contestó: los bloqueos del veto, los rebotes por cuota y los fallos. */
 const MARCAS_NO_CONTESTO = ['vetado:', 'rebote429:', PREFIJO_FALLO];
@@ -85,6 +91,7 @@ function esDeSuClave(p: ProvSuClave, f: FilaUsoClave): boolean {
 export function estadoDeSuClave(p: ProvSuClave, filas: FilaUsoClave[]): EstadoSuClave {
   let anduvo: string | null = null;
   let fallo: EstadoSuClave['fallo'] = null;
+  let gastado = 0;
   const ms = (s: string | null) => (s ? Date.parse(s) : Number.NEGATIVE_INFINITY);
   for (const f of filas) {
     if (!esDeSuClave(p, f)) continue;
@@ -93,11 +100,14 @@ export function estadoDeSuClave(p: ProvSuClave, filas: FilaUsoClave[]): EstadoSu
         const m = /falló: (.+)$/.exec(f.motivo ?? '');
         fallo = { at: f.created_at, motivo: m ? m[1].trim() : 'otro error' };
       }
-    } else if (esLlamadaQueContesto(f) && ms(f.created_at) > ms(anduvo)) {
-      anduvo = f.created_at;
+    } else if (esLlamadaQueContesto(f)) {
+      if (ms(f.created_at) > ms(anduvo)) anduvo = f.created_at;
+      // Sólo lo que gastó SU clave: lo de la plataforma (otra marca, la red gratis) ya quedó afuera en `esDeSuClave`.
+      const c = Number(f.cost_usd);
+      if (Number.isFinite(c) && c > 0) gastado += c;
     }
   }
-  return { proveedor: p, anduvo, fallo };
+  return { proveedor: p, anduvo, fallo, gastado: Math.round(gastado * 100) / 100 };
 }
 
 /**

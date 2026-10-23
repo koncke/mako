@@ -73,7 +73,7 @@ import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operacione
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { VolverDelGrafo } from './volver';
 import { useChatCliente } from './useChatCliente';
-import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from './PiezasCliente';
+import { CajaDelCliente, HiloDelCliente, UsoDelCliente, estadoDelCliente } from './PiezasCliente';
 import { SUBS_VISIBLES, edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { aspectoDeChat } from '@/lib/centro-munecos';
 import { Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
@@ -226,6 +226,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   // ticketera»): sus tickets, con su número (los que esperan su respuesta), en el mismo lugar que la del super admin.
   const misTickets = useMisTickets(!ops);
   const [ticketsCliente, setTicketsCliente] = useState(false);
+  // Su «Uso» (D3): el modal «Tus cuentas de IA», sin ir directo a conectar.
+  const [verUso, setVerUso] = useState(false);
   const abrirTicketera = (v: VistaDeTicketera) => { setNuevoCentro(false); setTicketera(v); setConChat(true); anotarParam('ticketera', v); };
   const cerrarTicketera = () => { setTicketera(null); anotarParam('ticketera', null); };
 
@@ -372,6 +374,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         </nav>
         {/* El Uso de las cuentas y sus Runners, en un desplegable siempre a la vista (sólo Ops Center). */}
         {centro && <PieCentro centro={centro} />}
+        {/* El del cliente: sus cuentas de IA (22/10/2026). */}
+        {!centro && <UsoDelCliente conectada={k.iaConectada} onAbrir={() => setVerUso(true)} />}
       </aside>
 
       {centro && ticketera ? (
@@ -414,6 +418,11 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       {k.conectando && (
         <Modal titulo="Tus cuentas de IA" onCerrar={() => { k.setConectando(false); k.mirarSuIA(); }} ancho={640}>
           <TusCuentasIA sinCabecera conectar />
+        </Modal>
+      )}
+      {verUso && !k.conectando && (
+        <Modal titulo="Tus cuentas de IA" onCerrar={() => { setVerUso(false); k.mirarSuIA(); }} ancho={640}>
+          <TusCuentasIA sinCabecera />
         </Modal>
       )}
     </div>

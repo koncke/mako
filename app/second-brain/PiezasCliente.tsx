@@ -21,6 +21,25 @@ import { ARRANQUES_SECOND_BRAIN, AVISO_EDITOR, AVISO_EDITOR_AJENO, AVISO_GRUPO, 
 import type { ChatCliente } from './useChatCliente';
 
 /** El hilo del chat abierto: lo que dijo cada uno, con lo de WhatsApp; vacío, la portada con lo que más se le pide. */
+/**
+ * EL «USO» DEL CLIENTE, abajo de su barra como el del super admin (PiezasCentro.tsx → PieCentro), 22/10/2026. Martín: «Que vean el
+ * USO, para poder conectar si quieren más cuentas de Claude o GPT... O desconectar». Abre el MISMO modal de siempre, «Tus cuentas
+ * de IA» (su computadora con su Claude y su uso, sus claves con lo que gastó cada una, conectar otra y desconectar). Sólo lo del
+ * negocio: nada de las cuentas de Martín ni de la plataforma (lo lee /api/ia-pc/estado con la sesión).
+ */
+export function UsoDelCliente({ conectada, onAbrir }: { conectada: boolean | null; onAbrir: () => void }) {
+  return (
+    <div className="co-barra__abajo">
+      <div className="co-uso">
+        <button type="button" className="co-acceso" onClick={onAbrir} title="Tus cuentas de IA">
+          <Icon name="config" size={17} />Uso
+          <span className="co-uso__principal">{conectada == null ? '—' : conectada ? 'Tu IA' : 'Conecta tu IA'}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function HiloDelCliente({ k }: { k: ChatCliente }) {
   // El grupo de WhatsApp se lee: sin el menú de un mensaje (no se responde, no se reacciona; se contesta en el grupo).
   return (

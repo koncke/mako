@@ -53,7 +53,10 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   const hilo = useRef<HTMLDivElement>(null);
   const k = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: false, chatInicial, opcionArmar, busca: '', caja, sesionesIniciales });
   // Su Ticketera: el número de la fila (los que esperan su respuesta).
-  const misTickets = useMisTickets(true);
+  // Para el super admin que mira un cliente (`masChats`), no: lo suyo está en su Ops Center, como en la computadora.
+  const misTickets = useMisTickets(!masChats);
+  // Su «Uso» (D3): «Tus cuentas de IA» en una hoja, sin ir directo a conectar.
+  const [verUso, setVerUso] = useState(false);
 
   // Como un chat: abre en lo último. La hoja monta su cuerpo en un portal y lo mide después del primer pintado, así que se baja
   // en el cuadro siguiente (el mismo cuidado que ChatsMovil.tsx).
@@ -92,7 +95,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
       {/* El grafo del negocio, arriba de los chats (como «Second Brain» en el Ops Center del super admin). */}
       {hrefMapa && <ListaM etiqueta="Second Brain"><FilaM navegacion titulo="Second Brain" icono="cerebro" href={hrefMapa} /></ListaM>}
       {/* Su Ticketera (22/10/2026), como la del Ops Center del super admin en el teléfono: levantar uno y ver los suyos. */}
-      {!misTickets.fueraDelPlan && <ListaM etiqueta="Ticketera">
+      {!masChats && !misTickets.fueraDelPlan && <ListaM etiqueta="Ticketera">
         <FilaM navegacion titulo="Ticketera" icono="soporte" href="/m/tickets"
           segunda={misTickets.esperanTuRespuesta > 0 ? `${misTickets.esperanTuRespuesta} esperan tu respuesta` : 'Tus tickets'} />
       </ListaM>}
@@ -111,6 +114,14 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
       </SeccionM>
       {k.errorLista && <p className="m-operaciones-hilo__meta" role="alert">{k.errorLista}</p>}
       {masChats?.()}
+      {/* Su «Uso», abajo como en el Ops Center del super admin («Uso y Runners»): sus cuentas de IA, conectar y desconectar. */}
+      {!masChats && <ListaM etiqueta="Uso">
+        <FilaM navegacion titulo="Uso" icono="config" onClick={() => setVerUso(true)}
+          segunda={k.iaConectada == null ? 'Tus cuentas de IA' : k.iaConectada ? 'Tu IA conectada' : 'Conecta tu IA'} />
+      </ListaM>}
+      <SheetM abierto={verUso} onCerrar={() => { setVerUso(false); k.mirarSuIA(); }} snap="alto" id="uso-cliente" titulo="Tus cuentas de IA">
+        <TusCuentasIA sinCabecera />
+      </SheetM>
 
       <SheetM abierto={abierta && elegido != null} onCerrar={cerrar} snap="alto" id="chat-cliente"
         titulo={panel === 'conectar' ? 'Tus cuentas de IA' : panel === 'info' ? 'Info del mensaje' : (
