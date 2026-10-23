@@ -8,6 +8,8 @@
 //   · los 150 ms del CSS iguales a MS_APARECE, y la barra que no se queda quieta con movimiento reducido;
 //   · que cada tab grande de la barra (escritorio y /m) tiene su loading.tsx con ESTE loader;
 //   · que la criatura del Ops Center también lleva la barra.
+// ROTURAS (23/10/2026, una por vez y restaurada; base 4 / 0): sin la barra en CargandoMako → 3 / 1; sin app/plan/loading.tsx
+// → 3 / 1; la barra quieta con movimiento reducido → 2 / 2; la salida de EntradaOps sin `animation: none` → 2 / 2.
 // Correr: node --import tsx --test tests/cargando-mako.test.ts
 // =============================================================================
 import test from 'node:test';
@@ -36,6 +38,8 @@ test('dibuja la criatura de MaKo y la barra que corre, con el nombre de lo que c
   // Con `cubre` tapa lo de abajo (un esqueleto), como la capa del Ops Center; sin él, tiene el alto de la pantalla.
   assert.match(renderToStaticMarkup(createElement(CargandoMako, { cubre: true })), /class="cm-carga cm-carga--cubre"/);
   assert.match(html, /height:calc\(100dvh - var\(--barra-agencia, 0px\)\)/);
+  // Se importa directo: desde el índice de app/_ui iría al bundle de cientos de pantallas de cliente.
+  assert.doesNotMatch(leer('app/_ui/index.ts'), /CargandoMako/);
   assert.match(renderToStaticMarkup(createElement(BarraCargando, { que: 'la bandeja' })), /aria-label="Cargando la bandeja"[^>]*><span class="cm-carga__tramo">/);
 });
 

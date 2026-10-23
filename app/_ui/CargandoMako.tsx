@@ -14,6 +14,8 @@
 //
 // ⚠️ SIN HOOKS y sin 'use client': lo dibujan los `loading.tsx` (server) y las cargas de cliente por igual. El CSS
 // vive en app/_ui/ui.css (global): no depende de la hoja del Centro.
+// ⚠️ SE IMPORTA DIRECTO (`@/app/_ui/CargandoMako`), no desde el índice de app/_ui: el índice lo importan cientos de pantallas
+// de cliente, y meterlo ahí sumaba la criatura (y lib/centro-munecos) a todos esos bundles.
 // ⚠️ SIN TEXTO A LA VISTA: un «Cargando…» que aparece y se va en un segundo es ruido (app/crm/loading.tsx). Para el
 // lector de pantalla va `role="status"` con el nombre de lo que carga.
 // =============================================================================
