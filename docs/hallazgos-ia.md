@@ -5321,9 +5321,11 @@ app/integraciones/TusCuentasIA.tsx · tests/ia-pc-varias.test.ts.
   el segundo podía fallar callado; `pedirLlamada`, `esperarALaPc` y `tomarTurno` miraban el estado del TURNO, no la PC.
   Ahora el segundo paso tira, y las tres miran `revocado_at` (`sigueConectada`, falla cerrada). **La regla: toda puerta que
   da un turno o corre una herramienta mira la revocación de la PC, no sólo el estado del turno.**
-- **Quedó SIN decidir (es de Martín):** el admin de un negocio ve el email de la cuenta personal de Claude, el plan y el %
-  de uso de las computadoras de sus empleados (app/api/ia-pc/estado/route.ts y TusCuentasIA.tsx). Era así antes; es un dato
-  personal.
+- **El email de Claude de un empleado va enmascarado (decidió el Cerebro, 22/10):** el admin ve de cada computadora de su
+  equipo el nombre, de quién es, si está en línea, el plan y el % de uso (para manejar la capacidad), y el email como
+  `m***@gmail.com`; entero, sólo el dueño de esa computadora y el super admin (`puedeOperar`). Se enmascara en el SERVIDOR
+  (`cuentasParaVer` en GET /api/ia-pc/estado, que leen la computadora y el teléfono): enmascararlo en la tarjeta dejaba el
+  email entero en la respuesta. Si no se puede saber si es el super admin, enmascarado. tests/ia-pc-email-enmascarado.test.ts.
 - **Quedó SIN medir:** si el programa sigue mandando la cuenta en el latido cuando la sesión de Claude venció. Si la manda,
   esa PC cuenta como «usable» hasta que falla un turno (después, el arreglo de arriba la manda al final).
 
