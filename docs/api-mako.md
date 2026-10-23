@@ -15301,7 +15301,7 @@ curl -L \
 
 ### `DELETE /api/v1/curso/cursos/{productoId}/accesos/{leadId}` — Sacarle un curso a un cliente
 
-Su acceso deja de abrir el curso de ESE producto: ya no lo ve en su portal. No le corta sus otros cursos, no lo saca del kanban de Clientes y no le avisa; queda en su historial. Si es el único curso que le abre, no se saca por acá: cortar_acceso_curso corta el portal entero. Para volver a abrírselo, dar_acceso_curso (que le manda la invitación de nuevo).
+Su acceso deja de abrir el curso de ESE producto: ya no lo ve en su portal. No le corta sus otros cursos, no lo saca del kanban de Clientes y no le avisa; queda en su historial. Si es el único curso que le abre, no se saca con esta operación: cortar_acceso_curso corta el portal entero. Para volver a abrírselo, dar_acceso_curso (que le manda la invitación de nuevo).
 
 - **Ruta por operación:** `POST /api/v1/curso/quitar_curso_del_acceso`
 - **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
