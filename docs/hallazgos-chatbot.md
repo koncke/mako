@@ -6128,3 +6128,8 @@ que quedaba para aprobar: #289 (ws1) y #282 (ws11, dos mensajes). 43 borradores 
 eso cambió `saleSolo`: un mensaje de una automatización SALE; sólo lo que escribe la IA (`tipo: 'ia'`) sigue con su
 `revisar`. La reentrada («Una sola vez / otra vez que es reunión») no se elige más en pantalla: el motor sigue con la
 `reentrada_efectiva`; lo de volver a escribirle se dice con condiciones.
+
+**Lo retenido no se saltea (medido antes del deploy).** #282 del ws11 (activa) tenía 31 borradores esperando aprobación
+desde el 20/10 y 29 inscripciones paradas en su SEGUNDO WhatsApp, esperando por eso. Con `saleSolo` a secas, el segundo
+mensaje habría salido de golpe a quien no recibió el primero. Regla: si el lead tiene un borrador pendiente, lo que sigue
+espera (como hasta hoy); el borrador sale cuando alguien lo aprueba, o se descarta. Lo nuevo sale solo.

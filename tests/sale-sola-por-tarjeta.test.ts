@@ -71,6 +71,17 @@ test('el lienzo ya NO dibuja «Sale sola» en la tarjeta de WhatsApp', () => {
   void casilla;
 });
 
+// ⚠️ 23/10/2026: lo RETENIDO no se saltea. Con «Sale sola» fuera, un mensaje nuevo sale solo, pero si el lead tiene un
+// borrador esperando aprobación, lo que sigue espera (los 29 de #282 del ws11 tenían el primero en Borradores).
+test('lo retenido no se saltea: con un borrador pendiente, lo que sigue espera aunque salga solo', () => {
+  const motor = readFileSync(join(__dirname, '..', 'lib/nutricion.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const i = motor.indexOf('const saleSoloEste = saleSolo(paso, sec.envio_automatico);');
+  assert.ok(i > 0);
+  const despues = motor.slice(i, i + 3000);
+  assert.match(despues, /if \(!carril && await tieneBorradorNutriPendiente\(lead\.id\) && !\(await esLeadCliente\(lead\.id\)\)\) \{\n\s+res\.detalle\.push\(\{ lead_id: insc\.lead_id, canal: paso\.canal, estado: 'saltado', nota: 'borrador pendiente' \}\);\n\s+await escribir\(insc, \{ proximo_envio_at: enHorasISO\(6\) \}, \{ modo: 'fila' \}\);\n\s+continue;/, 'con un borrador retenido, el mensaje que sigue sale solo');
+  assert.ok(despues.indexOf('tieneBorradorNutriPendiente') < despues.indexOf('if (partesMulti)'), 'la espera va antes de mandar');
+});
+
 // ── Las roturas (4 tests; sin romper nada: 4 pases, 0 fallos) ──────────────────────────────────────────────────────
 // 1. `saleSolaDelPaso` sin el `revisarHeredado` (sin elegir = la secuencia a secas, el bug de costuras-3): 1 fallo / 3 pases.
 // 2. `saleSolaDelPaso` con `revisar` truthy (no estricto): 1 fallo / 3 pases.

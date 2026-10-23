@@ -5096,6 +5096,16 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const esMedia = paso.tipo === 'media' && Number(paso.media_id) > 0;
         // «Sale sola» POR MENSAJE (`revisar`); sin el campo, lo de la secuencia, como siempre.
         const saleSoloEste = saleSolo(paso, sec.envio_automatico);
+        // ⚠️ LO RETENIDO NO SE SALTEA (23/10/2026, al sacar «Sale sola»: `saleSolo` ya no deja borradores nuevos). Si el
+        // lead tiene un borrador de una automatización esperando aprobación, lo que sigue ESPERA, como hasta hoy: el
+        // borrador sale cuando alguien lo aprueba, o se descarta, y recién ahí sigue el flujo. Sin esto, el deploy le
+        // mandaba de golpe el SEGUNDO mensaje a quien todavía no recibió el primero (los 29 de #282 del ws11, parados en
+        // su segundo WhatsApp con el primero en Borradores desde el 20/10). A quien ya pagó le sale igual, como siempre.
+        if (!carril && await tieneBorradorNutriPendiente(lead.id) && !(await esLeadCliente(lead.id))) {
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
+          await escribir(insc, { proximo_envio_at: enHorasISO(6) }, { modo: 'fila' });
+          continue;
+        }
         // La línea de ESTA tarjeta si eligió una (sexta tanda, WhatsApp 2: `lineaDelPaso`), si no la de
         // la secuencia (`null` = la de por default), y si puede mandar ahora. Una línea pedida que no es
         // del negocio no está en `lineasEvo`: `canalDeLinea` la frena con su motivo, sin caer a otra.
