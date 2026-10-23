@@ -2279,6 +2279,9 @@ del pedido va como «desde …» y sus archivos como fichas del hilo (sin abrir:
   test ni carga (probado). La guarda del chat único registra ChatAgente.tsx como «caja única»; PanelAgente salió de la lista.
 - Las piezas usan los tokens de la app: `.gma-ag` ya redefinía `--surface`, `--ink`…, y ahora también `--primary` (el
   botón de mandar, con el azul del editor).
+- **Con el super admin mirando un cliente, la caja del agente quedaba abajo de la vista**: la barra de la agencia estira todo
+  `<aside>` (docs/hallazgos-ui.md). El que se pasaba era la columna `aside.gma-izq` (761 px en un cuerpo de 713), no el
+  panel: las tres columnas del editor son `<section>` desde el 22/10.
 
 **Vive en:** app/web-generator/editor/paneles/ChatAgente.tsx, PanelAgente.tsx · tests/web-generator-agente-piezas.test.ts,
 tests/web-generator-adjuntos.test.ts · *22/10/2026, chat «Chats de las tabs».*

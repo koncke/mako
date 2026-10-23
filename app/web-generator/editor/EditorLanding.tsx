@@ -1045,15 +1045,18 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
 
         <div className="gma-cuerpo">
           {/* ── Panel izquierdo: el agente o las páginas ── */}
+          {/* Columnas en <section> y no en <aside> (22/10/2026): con la barra de la agencia, `[data-barra-agencia] aside`
+              (app/globals.css) le fuerza a todo <aside> el alto de la ventana, y la columna se pasaba 48 px del cuerpo: la caja
+              del agente quedaba fuera de la vista. Medido en producción, ws3 (761 px en un cuerpo de 713). */}
           {panelIzq === 'agente' ? (
-            <aside className="gma-izq" data-panel="agente" aria-label="Edición con IA">
+            <section role="complementary" className="gma-izq" data-panel="agente" aria-label="Edición con IA">
               {/* Sin cabecera propia: la del agente (casa, título y plegar) es la única. Había dos. */}
               <div className="gma-izq-cuerpo"><PanelAgente /></div>
-            </aside>
+            </section>
           ) : panelIzq === 'paginas' ? (
-            <aside className="gma-izq" data-panel="paginas" aria-label="Páginas">
+            <section role="complementary" className="gma-izq" data-panel="paginas" aria-label="Páginas">
               <PanelPaginas onCerrar={cerrarPaginas} />
-            </aside>
+            </section>
           ) : null}
 
           <main className="gma-centro">
@@ -1175,12 +1178,12 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
 
           {/* ── Panel derecho ── */}
           {panelDer ? (
-            <aside className="gma-der" aria-label={panelDer === 'tema' ? 'Tema' : panelDer === 'comentarios' ? 'Comentarios' : panelDer === 'animacion' ? 'Animar' : 'Historial de versiones'}>
+            <section role="complementary" className="gma-der" aria-label={panelDer === 'tema' ? 'Tema' : panelDer === 'comentarios' ? 'Comentarios' : panelDer === 'animacion' ? 'Animar' : 'Historial de versiones'}>
               {panelDer === 'tema' ? <PanelTema onCerrar={cerrarPanelDer} /> : null}
               {panelDer === 'comentarios' ? <PanelComentarios /> : null}
               {panelDer === 'historial' ? <PanelHistorial /> : null}
               {panelDer === 'animacion' ? <PanelAnimacion onCerrar={cerrarPanelDer} pedido={pedidoAnimar} /> : null}
-            </aside>
+            </section>
           ) : null}
         </div>
 
