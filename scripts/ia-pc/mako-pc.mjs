@@ -34,10 +34,10 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync, chmodSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync, chmodSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { homedir, hostname } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 export const VERSION = '0.4.2';
 const CARPETA = process.env.MAKO_PC_DIR || join(homedir(), '.mako-pc');
@@ -730,6 +730,33 @@ export function instalarArranqueMac() {
   }
 }
 
+/**
+ * ¿Lo abrieron como MaKo.app FIRMADA? Firmada, el ejecutable de la app es este programa (un universal, scripts/ia-pc/
+ * firmar-mac.mjs): la firma de un guion vive en atributos que el .zip no guarda. Sin firmar, el ejecutable es un guion
+ * (lib/ia-pc-reglas.ts → lanzadorDeLaAppMac) que corre la copia de ~/.mako-pc/bin con `app`, y esto da false.
+ */
+export function esLaAppDeMac(ejecutable = process.execPath) {
+  return /\.app\/Contents\/MacOS\/[^/]+$/.test(ejecutable);
+}
+
+/**
+ * Lo que hace el guion de la app sin firmar, para la firmada: se copia a ~/.mako-pc/bin, donde lo busca el arranque (el
+ * mismo de la Terminal), y le saca la cuarentena. SIN la firma local del guion: la de Apple ya vale, y pisarla la perdería.
+ */
+export function copiarLaAppAlArranque(p = {}) {
+  const {
+    origen = process.execPath, destino = join(homedir(), '.mako-pc', 'bin', 'mako-pc'),
+    quitarCuarentena = (f) => spawnSync('xattr', ['-d', 'com.apple.quarantine', f], { stdio: 'ignore' }),
+  } = p;
+  mkdirSync(dirname(destino), { recursive: true });
+  const nuevo = `${destino}.nuevo`;
+  copyFileSync(origen, nuevo);
+  chmodSync(nuevo, 0o755);
+  quitarCuarentena(nuevo);
+  renameSync(nuevo, destino);
+  return destino;
+}
+
 /** Claude Code con su instalador OFICIAL (code.claude.com/docs/en/setup), sin Terminal: lo corre la app, oculto. 0 si quedó. */
 export function instalarClaudeCode(p = {}) {
   const { correr = spawn, plazoMs = 10 * 60_000 } = p;
@@ -962,7 +989,10 @@ const esPrincipal = import.meta.main === true || (() => {
   try { return !!process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href; } catch { return false; }
 })();
 if (esPrincipal) {
-  const cmd = process.argv[2] ?? 'correr';
+  // Abierta como MaKo.app firmada (desde Finder llega sin nada, o con un `-psn_…` en macOS viejos): `app-firmada`. El
+  // arranque corre la copia de ~/.mako-pc/bin, que no está en una .app: ésa sigue con `correr`.
+  const primero = process.argv[2];
+  const cmd = esLaAppDeMac() && (primero == null || primero.startsWith('-psn_')) ? 'app-firmada' : primero ?? 'correr';
   // ⚠️ Los comandos de una vez NO salen con `process.exit()`: en Windows, con un pedido recién cerrado (confirmar hace
   // dos), Node revienta con «Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), src\win\async.c» y sale con
   // 0xC0000409: corrido con Node (el test, el e2e), «no se confirmó» con la conexión ya guardada (medido el 21/10/2026,
@@ -976,6 +1006,7 @@ if (esPrincipal) {
   if (cmd === '--version') decir(VERSION);
   else if (/^mako:/i.test(cmd)) (accionDelEnlace(cmd) === 'iniciar-sesion' ? iniciarSesionDesdeEnlace() : conectarDesdeEnlace(cmd)).then(salir, fallar);
   else if (cmd === 'app') abrirLaApp().then(salir, fallar);
+  else if (cmd === 'app-firmada') Promise.resolve().then(() => { copiarLaAppAlArranque(); return abrirLaApp(); }).then(salir, fallar);
   else if (cmd === 'emparejar') emparejar().then(salir, fallar);
   else if (cmd === 'confirmar') confirmar().then(salir, fallar);
   else if (cmd === 'cancelar') cancelar().then(salir, fallar);

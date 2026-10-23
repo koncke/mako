@@ -20,7 +20,7 @@
 // =============================================================================
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -52,6 +52,14 @@ const FIRMAR = FIRMA != null && (APLICAR || process.argv.includes('--probar-firm
 const firmar = (archivo: string): Uint8Array => {
   try { return firmarExe(FIRMA, archivo); } catch (e) { console.error(`⛔ ${(e as Error).message}`); process.exit(1); }
 };
+// La de la Mac (Developer ID + notarización con rcodesign, scripts/ia-pc/firmar-mac.mjs): activa cuando el certificado de Apple
+// está en %USERPROFILE%\.mako-firma-mac. Sin él, la app sin firmar de la 0.4.2. Como la de Windows: en seco, sólo con --probar-firma.
+const { entradasDeLaApp, firmaMacDeEstaPc, firmarAppMac, machoUniversal } = await import(pathToFileURL(path.join(REPO, 'scripts', 'ia-pc', 'firmar-mac.mjs')).href);
+let FIRMA_MAC: { carpeta: string } | null = null;
+try {
+  FIRMA_MAC = firmaMacDeEstaPc({ rutaFirma: ARCHIVO_FIRMA, parse: (dotenv.default ?? dotenv).parse });
+} catch (e) { console.error(`⛔ ${(e as Error).message}`); process.exit(1); }
+const FIRMAR_MAC = FIRMA_MAC != null && (APLICAR || process.argv.includes('--probar-firma'));
 
 const { VERSION_PC, archivoDelInstalador, archivoDelInstaladorMac, archivoDelPrograma, faltanEnElBucket, infoPlistDeLaAppMac, lanzadorDeLaAppMac, marcarDeVentana, nombreDelInstalador, subsistemaPe } = await imp('lib/ia-pc-reglas.ts');
 const programa = path.join(REPO, 'scripts', 'ia-pc', 'mako-pc.mjs');
@@ -67,6 +75,7 @@ const OBJETIVOS = [
 const dir = mkdtempSync(path.join(tmpdir(), 'mako-pc-binarios-'));
 console.log(`${APLICAR ? 'APLICAR' : 'EN SECO'} · versión ${VERSION_PC} · en ${dir}`);
 console.log(FIRMAR ? `  Windows: se firma con SSL.com eSigner (${FIRMA!.herramienta}; gasta 2 firmas)` : FIRMA ? '  Windows: la firma está cargada; en seco no se firma (--probar-firma para probarla)' : `  Windows: SIN firmar (no está ${ARCHIVO_FIRMA}; docs/plan-instalador-escritorio.md › Firmar)`);
+console.log(FIRMAR_MAC ? `  Mac: se firma y se notariza (Developer ID, ${FIRMA_MAC!.carpeta})` : FIRMA_MAC ? '  Mac: la firma está cargada; en seco no se firma (--probar-firma para probarla)' : '  Mac: SIN firmar (falta el certificado de Apple; docs/plan-instalador-escritorio.md › Firmar la Mac)');
 const armados: Array<{ nombre: string; datos: Buffer; tipo?: string }> = [];
 /** Los programas sin comprimir, para MaKo.app (la Mac). */
 const crudos: Record<string, Uint8Array> = {};
@@ -111,16 +120,29 @@ armados.push({ nombre: archivoDelInstalador(), datos: setup, tipo: 'application/
 // MaKo.app para la Mac (0.4.2): un .zip «hecho en Unix» (scripts/ia-pc/zip-unix.mjs) con el lanzador y los dos programas, con
 // sus permisos: sin ellos, el Archive Utility de la Mac la deja sin poder abrirse.
 const { zipConPermisos } = await import(pathToFileURL(path.join(REPO, 'scripts', 'ia-pc', 'zip-unix.mjs')).href);
-const appMac: Buffer = zipConPermisos([
-  { nombre: 'MaKo.app', dir: true },
-  { nombre: 'MaKo.app/Contents', dir: true },
-  { nombre: 'MaKo.app/Contents/Info.plist', datos: infoPlistDeLaAppMac(), modo: 0o644 },
-  { nombre: 'MaKo.app/Contents/MacOS', dir: true },
-  { nombre: 'MaKo.app/Contents/MacOS/MaKo', datos: lanzadorDeLaAppMac(), modo: 0o755 },
-  { nombre: 'MaKo.app/Contents/Resources', dir: true },
-  { nombre: 'MaKo.app/Contents/Resources/mako-pc-arm64', datos: crudos['mac-arm64'], modo: 0o755 },
-  { nombre: 'MaKo.app/Contents/Resources/mako-pc-x64', datos: crudos['mac-x64'], modo: 0o755 },
-]);
+let appMac: Buffer;
+if (FIRMAR_MAC) {
+  // FIRMADA: el ejecutable de la app es UN universal (Intel y Apple) del programa, no el guion (la firma de un guion vive en
+  // atributos que el .zip no guarda). Se firma, se notariza y se engrapa ANTES de zipearla; si algo falla, no sube nada.
+  const app = path.join(dir, 'mac', 'MaKo.app');
+  mkdirSync(path.join(app, 'Contents', 'MacOS'), { recursive: true });
+  writeFileSync(path.join(app, 'Contents', 'Info.plist'), infoPlistDeLaAppMac());
+  writeFileSync(path.join(app, 'Contents', 'MacOS', 'MaKo'), machoUniversal([crudos['mac-x64'], crudos['mac-arm64']]));
+  try { firmarAppMac(FIRMA_MAC, app); } catch (e) { console.error(`⛔ ${(e as Error).message}`); process.exit(1); }
+  appMac = zipConPermisos(entradasDeLaApp(app));
+  console.log('  Mac: MaKo.app firmada, notarizada y engrapada (Developer ID)');
+} else {
+  appMac = zipConPermisos([
+    { nombre: 'MaKo.app', dir: true },
+    { nombre: 'MaKo.app/Contents', dir: true },
+    { nombre: 'MaKo.app/Contents/Info.plist', datos: infoPlistDeLaAppMac(), modo: 0o644 },
+    { nombre: 'MaKo.app/Contents/MacOS', dir: true },
+    { nombre: 'MaKo.app/Contents/MacOS/MaKo', datos: lanzadorDeLaAppMac(), modo: 0o755 },
+    { nombre: 'MaKo.app/Contents/Resources', dir: true },
+    { nombre: 'MaKo.app/Contents/Resources/mako-pc-arm64', datos: crudos['mac-arm64'], modo: 0o755 },
+    { nombre: 'MaKo.app/Contents/Resources/mako-pc-x64', datos: crudos['mac-x64'], modo: 0o755 },
+  ]);
+}
 console.log(`  ${archivoDelInstaladorMac()}: ${Math.round(appMac.length / 1e6)} MB (MaKo.app para la Mac)`);
 if (appMac.length > 50e6) { console.error(`⛔ ${archivoDelInstaladorMac()} pasa los 50 MB de Supabase`); process.exit(1); }
 armados.push({ nombre: archivoDelInstaladorMac(), datos: appMac, tipo: 'application/zip' });
