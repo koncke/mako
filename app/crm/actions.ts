@@ -66,7 +66,7 @@ import { actualizarEtiquetaLead } from '@/lib/evolution-labels';
 import { desenlaceAntesDelMovimiento, lineasTocanElDesenlace, LINEA_DEL_DESENLACE, type Desenlace } from '@/lib/lead-desenlace';
 import { LeadDuplicadoError, estaEnProducto } from '@/lib/leads-duplicados';
 import { casaReal, destinoDelAlta, nombreVisible, type ProductoParaAlta } from '@/lib/lead-funnel-reglas';
-import { agregarAProducto } from '@/lib/lead-funnel';
+import { agregarAProducto, moverEtapaEnProducto } from '@/lib/lead-funnel';
 // El plazo de una suscripción cancelada no se revierte desde el historial (revisión del 14/10/2026).
 import { PLAZO_DE_CANCELADA, plazoSeRevierte } from '@/lib/suscripcion-manual';
 import { conLoteDeEtiquetas, espejarEtapa } from '@/lib/etiquetas';
@@ -1425,6 +1425,33 @@ export async function bulkFillLeadFieldAction(
 const TOPE_LOTE = 200;
 
 /**
+ * Los tildados que estan AGREGADOS al CRM que se mira (tienen su fila en `lead_funnel` y su casa es otro), con el id real
+ * de ese CRM. Tira si no puede leer: mover a ciegas es justo pisar la casa de alguien.
+ */
+async function agregadosDelCrm(ids: readonly number[], funnelId: number | null): Promise<Map<number, number>> {
+  const out = new Map<number, number>();
+  if (!ids.length) return out;
+  const def = await idDelFunnelDefault();
+  const real = funnelId ?? def;
+  if (real == null) return out;
+  const db = await getTenantDb();
+  for (let i = 0; i < ids.length; i += 200) {
+    const tanda = ids.slice(i, i + 200);
+    const [{ data: filas, error: eF }, { data: casas, error: eC }] = await Promise.all([
+      db.from('lead_funnel').select('lead_id').eq('funnel_id', real).in('lead_id', tanda),
+      db.from('leads').select('id, funnel_id').in('id', tanda),
+    ]);
+    if (eF || eC) throw new Error(`No pude leer en que CRM esta cada lead: ${(eF ?? eC)?.message}`);
+    const conFila = new Set(((filas ?? []) as Array<{ lead_id: number | string }>).map((f) => Number(f.lead_id)));
+    for (const l of (casas ?? []) as Array<{ id: number | string; funnel_id: number | string | null }>) {
+      const casa = casaReal(l.funnel_id == null ? null : Number(l.funnel_id), def);
+      if (conFila.has(Number(l.id)) && casa !== real) out.set(Number(l.id), real);
+    }
+  }
+  return out;
+}
+
+/**
  * Mueve VARIOS leads a una etapa.
  *
  * ⚠️ LLAMA AL MISMO `setLeadStageAction` DE A UNO, y es a proposito: ese es el unico camino
@@ -1438,14 +1465,23 @@ const TOPE_LOTE = 200;
  * distingue TRES numeros y no uno: cuantos se movieron, a cuantos de esos les falta algo, y
  * cuantos fallaron. Con un solo «N movidos», un lote entero que quedo a medias se lee como
  * un exito.
+ *
+ * ⚠️ LOS AGREGADOS SE MUEVEN EN SU FILA, NO EN SU CASA (23/10/2026, P0 de #289). `funnelId` es el CRM que se esta mirando
+ * (null = el del negocio). Un lead AGREGADO a ese CRM (`lead_funnel`: los 300 del Sprint de Mauricio en el CRM 44) tiene su
+ * casa en otro: `setLeadStageAction` le escribia la etapa de ESTE CRM («Prospeccion activa») en la casa, una etapa que su
+ * casa no tiene, y la fila seguia en «Lead entrante», asi que la automatizacion de esa etapa no lo veia nunca. Va por el
+ * MISMO camino que arrastrar su tarjeta (`moverEtapaEnProducto`: la fila, su historial, y desde ese dia sus
+ * automatizaciones por evento). Quien es agregado lo decide el server con las filas, no la pantalla.
  */
 export async function moverLeadsDeEtapaAction(
   leadIds: number[],
   stageKey: string,
+  funnelId?: number | null,
 ): Promise<{ movidos: number; conPendientes: number; fallaron: number; sinSincronizar: number }> {
   await exigirSesion();
   const ids = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0).slice(0, TOPE_LOTE);
   let movidos = 0, conPendientes = 0, fallaron = 0;
+  const agregados = await agregadosDelCrm(ids, funnelId ?? null);
   // ⚠️ LAS ETIQUETAS ESPEJADAS SE SINCRONIZAN AL FINAL, NO LEAD POR LEAD (revision del
   // 08/10/2026, etiquetas-4/datos-3). Con una etiqueta vinculada a la etapa, cada vuelta esperaba
   // WhatsApp y tres llamadas a Chatwoot por etiqueta: 200 leads eran cientos de viajes HTTP en
@@ -1457,6 +1493,12 @@ export async function moverLeadsDeEtapaAction(
     // nada util y se multiplica la chance de que un lote quede a medias sin poder decir donde.
     for (const id of ids) {
       try {
+        const real = agregados.get(id);
+        if (real != null) {
+          await moverEtapaEnProducto(id, real, stageKey, { enLote: true });
+          movidos += 1;
+          continue;
+        }
         const r = await setLeadStageAction(id, stageKey);
         // ⚠️ `StageMoveResultado` ES UNA UNION, y la rama `ok: false` NO movio el lead.
         // Contarla como movida seria exactamente el «N movidos» mentiroso que esta action
@@ -1470,6 +1512,7 @@ export async function moverLeadsDeEtapaAction(
       }
     }
   });
+  if (agregados.size) { bust(TAG.leads); revalidatePath('/crm'); }
   return { movidos, conPendientes, fallaron, sinSincronizar };
 }
 

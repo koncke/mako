@@ -57,6 +57,13 @@ const PRENDEN = ['app/api/email/secuencias/route.ts', 'app/api/whatsapp/secuenci
  * 21/10/2026), pero acá no hay otra: nunca reciben `DuplicadaError`. Si uno prende otra cosa, que la maneje.
  */
 const SCRIPTS_DE_EVENTOS = ['scripts/mudanza-avisos-plataforma.mts', 'scripts/mudanza-nuevo-agendado.mts'];
+/**
+ * LOS ARNESES DE PUNTA A PUNTA DEL WS3 (23/10/2026, P0 de #289): crean una automatización de prueba (nace PAUSADA), le
+ * escriben sus pasos y su CRON, la prenden con la misma escritura de `setSecuenciaActiva` sin la guarda de la línea (el ws3
+ * no tiene número vinculado: no sale nada a nadie), mueven leads de prueba con teléfonos que no existen y la pausan o la
+ * archivan al terminar. No son un camino de una persona ni de la app: por eso van en las listas del sistema.
+ */
+const ARNESES_WS3 = ['scripts/arnes-automatizacion-punta-a-punta.mts', 'scripts/arnes-contesto-corta.mts'];
 
 test('(a) la puerta: `setSecuenciaActiva` pregunta por la duplicada salvo con `aunqueDuplique`', () => {
   const n = FUENTE.get('lib/nutricion.ts')!;
@@ -127,7 +134,9 @@ test('(b) nadie más escribe `activa: true` ni `.update({ activa` en una automat
   }
   // La puerta, y el plan de la undécima (un script que se corrió UNA vez, con su revisión; no es un camino de la app).
   // Y el script de la undécima (una sola vez, en el ws13; revisión del 21/10/2026: era un .mts y no se veía).
-  assert.deepEqual(escriben.sort(), ['lib/nutricion.ts', 'lib/undecima-flujos-plan.ts', 'scripts/undecima-flujos.mts']);
+  // Y los dos ARNESES del ws3 (23/10/2026, P0 de #289): crean SU automatización de prueba, la activan sin la guarda de la
+  // línea (el ws3 no tiene número: no sale nada) y la pausan o archivan al terminar. No son un camino de la app.
+  assert.deepEqual(escriben.sort(), [...ARNESES_WS3, 'lib/nutricion.ts', 'lib/undecima-flujos-plan.ts', 'scripts/undecima-flujos.mts'].sort());
   const n = FUENTE.get('lib/nutricion.ts')!;
   assert.equal((n.match(/\.update\(\{ activa\b(?!: false)/g) ?? []).length, 1, 'lib/nutricion.ts prende por otro lado que `setSecuenciaActiva`');
 });
@@ -207,6 +216,8 @@ const PUBLICAN = [
 const SISTEMA = [
   'lib/api-mako/areas/chatbot.run.ts', 'lib/chat-agent-handoff.ts', 'lib/flujo-copia-negocio.ts', 'lib/flujo-ia-crear.ts',
   'lib/nutricion-plantillas.ts', 'lib/nutricion.ts', 'lib/secuencias-variantes.ts', 'scripts/reescribir-filas-plataforma.mts',
+  // Los arneses del ws3 escriben los pasos de SU automatización de prueba, que nace pausada (ver `ARNESES_WS3`).
+  ...ARNESES_WS3,
 ];
 
 test('(d) quién escribe lo publicado: cada uno pregunta (`publicarPasos`) o está en la lista del sistema con su motivo', () => {
@@ -258,7 +269,7 @@ test('(d) las pantallas de /email: «Guardar igual» al guardar el copy o la sec
  * (pregunta como Activar). El lienzo guarda en vivo y lo DICE al lado de «Activar» (`dupActiva`); copiar y Crear con IA
  * escriben en una que nace pausada.
  */
-const CRONS_SIN_PREGUNTA = ['app/api/chat-agent/secuencias/route.ts', 'lib/flujo-copia-negocio.ts', 'lib/flujo-ia-crear.ts'];
+const CRONS_SIN_PREGUNTA = ['app/api/chat-agent/secuencias/route.ts', 'lib/flujo-copia-negocio.ts', 'lib/flujo-ia-crear.ts', ...ARNESES_WS3].sort();
 
 test('(e) la API de MaKo: cambiar los CRON de una activa, o el canal de su primer mensaje, pregunta por la duplicada', () => {
   const escriben: string[] = [];

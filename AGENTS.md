@@ -10021,6 +10021,16 @@ pasos de una ACTIVA también es prender: un camino de una PERSONA escribe por `p
 cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
 («La revisión adversarial lo frenó»).
 
+## Un freno del motor que no se dice es un «no funciona» (23/10/2026)
+
+Si algo frena un envío (el horario, la pausa, el envío apagado, la línea, un fallo, «Misma persona», los topes), el lead y
+la tarjeta del paso lo DICEN, con las mismas reglas que el motor: `lib/por-que-no-sale.ts` (puro, en el orden del motor)
+lo usan la ficha y el chip del CRM, el historial al inscribirse y la tarjeta del lienzo. Un corte NUEVO en `procesarEnvios`
+(lib/nutricion.ts) entra también ahí, con su test en tests/automations-por-que-no-sale.test.ts. Y un camino nuevo que
+mueve a un lead de etapa (también un AGREGADO, `lead_funnel`) dispara el evento de etapa: nunca escribe la etapa de un
+CRM en la casa de un lead de otro. El arnés de punta a punta es scripts/arnes-automatizacion-punta-a-punta.mts (ws3).
+Detalle: docs/hallazgos-chatbot.md («No salió ni a mí ni a mi esposa»).
+
 ## Una tabla en grilla aguanta un escritorio chico (21/10/2026)
 
 En una grilla CSS lo que no recorta no empuja la columna: se dibuja encima de la de al lado, sin error. Cada celda lleva
