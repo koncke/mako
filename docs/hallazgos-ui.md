@@ -4322,5 +4322,7 @@ admin mira un cliente: un panel flotante (`position: absolute`) que sea un `<asi
 de abajo sale de la vista. Medido en el Dashboard del ws3: «Editar con MaKo» medía 761 px en un lienzo de 612, con la caja
 afuera; sin el atributo, 588. **El cliente no lo ve nunca**, así que en una prueba con su sesión todo se ve bien. Con la
 alerta de voz ya se había acotado al Sidebar (`aside[data-sidebar]`) por lo mismo, el 11/09. **Regla:** un panel flotante
-nuevo es un `<section role="complementary">` o un `<div>`, no un `<aside>`. Sin hacer: acotar también la regla de la barra
-de agencia a `aside[data-sidebar]` (es de esta área; hay que mirar antes qué otro `<aside>` depende de ella).
+nuevo es un `<section role="complementary">` o un `<div>`, no un `<aside>`. **Pega también en un panel que NO flota**: el
+agente del Web Generator y el chat del Video Editor (dentro de su columna, con `size-full`) medían 761 px en lugares de 668,
+con la caja abajo de la vista; los tres pasaron a `<section>` el 22/10. Sin hacer: acotar también la regla de la barra de
+agencia a `aside[data-sidebar]` (es de esta área; hay que mirar antes qué otro `<aside>` depende de ella).

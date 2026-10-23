@@ -36,6 +36,11 @@ test('las piezas entran con next/dynamic (el panel lo cargan tests) y el panel n
   assert.match(chat, /import '@\/app\/admin\/operaciones\/centro\.css';/);
 });
 
+test('el panel no es un <aside> (la barra de la agencia lo estiraba y la caja quedaba fuera de la vista, 22/10/2026)', () => {
+  assert.match(panel, /<section\s+role="complementary"\s+className="gma gma-pb gma-ag"/);
+  assert.doesNotMatch(panel, /<aside\b/);
+});
+
 test('las piezas toman los colores del editor: sus tokens bajo `.gma-ag`, también el azul del botón', () => {
   assert.match(panel, /\.gma-ag\{--primary:var\(--pb-azul\);[^}]*--on-primary:var\(--pb-azul-txt\)/);
 });
