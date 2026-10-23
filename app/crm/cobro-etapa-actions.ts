@@ -18,8 +18,10 @@ import { exigirSesion } from '@/lib/sesion-accion';
 import { cuentasDePago } from '@/lib/cuentas-pago-server';
 import { type CuentaPago, type FotoCobroEtapa, type ProductoCobro, type ProductoCobroInput, type ResCobro, type VinculoCobro } from '@/lib/cobro-etapa';
 import { cambiarCuentas, desvincular, guardarProducto, productosParaCobrar, vincular, vinculosDeEtapa } from '@/lib/cobro-etapa-server';
+import { importarPrecioDeStripe, preciosDeStripe, type AvisoDeCuentaStripe, type PrecioDeStripe } from '@/lib/stripe-catalogo';
 
 export type { CuentaPago, FotoCobroEtapa, ProductoCobro, ProductoCobroInput, ResCobro, VinculoCobro } from '@/lib/cobro-etapa';
+export type { AvisoDeCuentaStripe, PrecioDeStripe } from '@/lib/stripe-catalogo';
 
 const SOLO_ADMIN = 'Solo el administrador del negocio puede vincular cobros.';
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -70,6 +72,47 @@ export async function vincularProductoAEtapaAction(p: { funnelId: number; etapa:
   } catch (e) {
     console.error('[cobro-etapa] vincular:', msg(e));
     return { ok: false, error: `No se pudo vincular: ${msg(e)}` };
+  }
+}
+
+/**
+ * Los precios activos de las cuentas de Stripe conectadas, EN VIVO (23/10/2026, llamada con Mauricio: su producto de
+ * Stripe no aparecía y «Volver a leer» no traía nada). Aparte de la foto para que el modal abra sin esperar a Stripe.
+ */
+export async function preciosDeStripeAction(): Promise<ResCobro<{ precios: PrecioDeStripe[]; errores: AvisoDeCuentaStripe[] }>> {
+  await exigirSesion();
+  try {
+    return { ok: true, ...(await preciosDeStripe(await wsObligatorio())) };
+  } catch (e) {
+    console.error('[cobro-etapa] precios de Stripe:', msg(e));
+    return { ok: false, error: `No pude leer los productos de Stripe: ${msg(e)}` };
+  }
+}
+
+/**
+ * Trae un precio de Stripe al catálogo (lo crea, o le pone ese precio al producto de MaKo con el mismo nombre) y lo
+ * vincula a Ganado. El monto se vuelve a leer en Stripe: del navegador viene sólo QUÉ precio. Sin `cuentas`, cobra por
+ * la cuenta de Stripe donde está. Si lo trajo y no se pudo vincular, el error lleva el producto (el modal lo pone).
+ */
+export async function vincularPrecioDeStripeAction(p: { funnelId: number; etapa: string; cuenta: string; precio: string; cuentas?: string[] }): Promise<
+  ResCobro<{ producto: ProductoCobro; vinculo: VinculoCobro; cambio: 'creado' | 'precio' | 'igual' }> | { ok: false; error: string; producto: ProductoCobro }
+> {
+  await exigirSesion();
+  if (!(await esAdmin())) return { ok: false, error: SOLO_ADMIN };
+  try {
+    const imp = await importarPrecioDeStripe(await wsObligatorio(), p.cuenta, p.precio);
+    if (!imp.ok) return imp;
+    const pedidas = Array.isArray(p.cuentas) && p.cuentas.length ? p.cuentas : [String(p.cuenta)];
+    const v = await vincular({ funnelId: Number(p.funnelId), etapa: String(p.etapa), productoId: imp.producto.id, cuentas: pedidas }, await cuentasConectadas(), await autorActual());
+    if (imp.cambio !== 'igual' || v.ok) revalidatePath('/crm');
+    if (!v.ok) {
+      const hecho = imp.cambio === 'creado' ? `Traje «${imp.producto.nombre}» al catálogo` : imp.cambio === 'precio' ? `Le puse el precio de Stripe a «${imp.producto.nombre}»` : null;
+      return { ok: false, error: hecho ? `${hecho}, pero no se vinculó: ${v.error}` : v.error, producto: imp.producto };
+    }
+    return { ok: true, producto: imp.producto, vinculo: v.vinculo, cambio: imp.cambio };
+  } catch (e) {
+    console.error('[cobro-etapa] traer de Stripe:', msg(e));
+    return { ok: false, error: `No se pudo traer de Stripe: ${msg(e)}` };
   }
 }
 
