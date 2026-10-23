@@ -193,7 +193,7 @@ test('la ruta de las cuentas: sólo el admin, cerrada sin negocio, y nunca devue
   // La pantalla no arrastra nada del server.
   const ui = leer('app/integraciones/CuentasDePago.tsx');
   assert.deepEqual([...ui.matchAll(/^import .* from '([^']+)';$/gm)].map((m) => m[1]).sort(), ['../components/ConfirmDialog', '@/lib/cuentas-integracion', 'react']);
-  assert.match(leer('app/integraciones/ServicioConfigForm.tsx'), /esPasarela\(servicio\.key\) && \(\s*\n\s*<CuentasDePago/);
+  assert.match(leer('app/integraciones/ServicioConfigForm.tsx'), /\(esPasarela\(servicio\.key\) \|\| esProveedorAgendaConCuentas\(servicio\.key\)\) && \(\s*\n\s*<CuentasDePago/);
 });
 
 test('la MISMA cuenta que se va y vuelve: el sufijo de sus cobros, y sus avisos la encuentran por su id', () => {

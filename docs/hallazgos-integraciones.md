@@ -1129,5 +1129,16 @@ llevan un sufijo (`STRIPE_SECRET_KEY__C2`; la principal, sin sufijo, como siempr
 **Vive en:** lib/cuentas-integracion.ts (puro) · lib/cuentas-pago-server.ts (`cuentasDePago`, `credStripeDe`, `credMpDe`,
 `cuentaDeIdentificador`, `proximaCuentaDe`) · lib/credenciales.ts · lib/cobros-conexion.ts · app/api/integraciones/cuentas ·
 app/integraciones/CuentasDePago.tsx · tests/cuentas-pago.test.ts. Lo de la plata, en docs/hallazgos-pagos.md.
-**Sin hacer:** la fase B (varias cuentas de Calendly y Cal, y elegirla en «Asignar evento»): lib/agenda-evento-etapa-server.ts
-y la rama de agenda de `eliminarCredencial`, con el CRM.
+**La fase B (Calendly y Cal.com, 23/10/2026)** usa el mismo sufijo (`CALENDLY_API_TOKEN__C2`, `CALCOM_WEBHOOK_SECRET__C2`;
+`CLAVES_AGENDA`, lib/cuentas-agenda-server.ts). Lo que mordía:
+- **El aviso de la segunda cuenta no verificaba**: los webhooks leían UN secreto por negocio, y la reserva de la otra
+  cuenta daba 401 «firma rechazada» (Calendly deshabilita la suscripción después de varios no-2xx). Ahora prueban el
+  secreto de cada cuenta (`cuentaQueFirmo`, puro), leídos estrictos (`firmasDeAgenda`).
+- **Buscar o cancelar la reunión de un lead con UN token no ve la otra cuenta**, y cancelar con el token equivocado da
+  404. `proximaReunionCalendly` busca en todas (`tokensDeAgenda`) y devuelve de cuál es; cancelar usa ese token. Una
+  cuenta que no se puede leer TIRA con su nombre.
+- Lo que rutea una reserva sigue siendo el TIPO DE EVENTO (R1/R2 o un vínculo de «Asignar evento»), no la cuenta.
+**Sin hacer:** listar, crear y editar los tipos de evento por cuenta en «Asignar evento» (lib/agenda-evento-etapa-server.ts y
+lib/calendly-agenda.ts, sobre el sha del CRM, que los está acelerando); el link de la R1/R2, la anticipación y las
+herramientas de agenda del doer siguen con la principal (la R1/R2 es de la principal); no se detecta la misma cuenta de
+Calendly conectada dos veces (haría falta guardar su `/users/me`).

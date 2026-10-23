@@ -7,11 +7,16 @@
 // nombre (el que se elige en «Vincular cobro» y en el link de la ficha), si cobra, y sus acciones: cambiarle el nombre,
 // volver a conectarla, desconectarla. «Conectar otra cuenta» pide un nombre y su clave; la conexión es la misma que la
 // de la principal (lib/cobros-conexion.ts). Ruta: /api/integraciones/cuentas. Ninguna clave vuelve al navegador.
+//
+// Y CALENDLY Y CAL.COM (fase B, 23/10/2026), con la misma lista: cada cuenta lee su agenda con su token (o su API key)
+// y firma sus reservas con su secreto. Sin el secreto, sus reservas no entran: la fila lo pide ahí mismo.
 // =============================================================================
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { TOPE_ALIAS, type ProveedorConCuentas } from '@/lib/cuentas-integracion';
+import { TOPE_ALIAS, type ProveedorAgendaConCuentas, type ProveedorConCuentas } from '@/lib/cuentas-integracion';
+
+type Proveedor = ProveedorConCuentas | ProveedorAgendaConCuentas;
 
 type Cuenta = { id: string; cuenta: string; nombre: string; principal: boolean; conectada: boolean; conAviso: boolean };
 
@@ -21,8 +26,14 @@ const caja: CSSProperties = { background: 'var(--surface-2)', border: '1px solid
 const boton: CSSProperties = { padding: '6px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12, fontWeight: 500, cursor: 'pointer' };
 const input: CSSProperties = { width: '100%', padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13 };
 
-const NOMBRE: Record<ProveedorConCuentas, string> = { stripe: 'Stripe', mercadopago: 'Mercado Pago' };
-const CLAVE: Record<ProveedorConCuentas, string> = { stripe: 'Clave secreta (sk_live_…)', mercadopago: 'Access token (APP_USR-…)' };
+const NOMBRE: Record<Proveedor, string> = { stripe: 'Stripe', mercadopago: 'Mercado Pago', calendly: 'Calendly', calcom: 'Cal.com' };
+const CLAVE: Record<Proveedor, string> = {
+  stripe: 'Clave secreta (sk_live_…)', mercadopago: 'Access token (APP_USR-…)', calendly: 'Personal access token', calcom: 'API key (cal_live_…)',
+};
+/** El secreto del aviso de una cuenta de más, por proveedor (el de la principal se pega en la tarjeta de arriba). */
+const SECRETO: Partial<Record<Proveedor, string>> = {
+  mercadopago: 'Clave secreta del aviso', calendly: 'Signing key del webhook', calcom: 'Contraseña del webhook',
+};
 
 async function pedir(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; mensaje?: string; aviso?: string | null; completa?: boolean; cuentas?: Cuenta[]; nadaGuardado?: boolean }> {
   try {
@@ -34,7 +45,7 @@ async function pedir(body: Record<string, unknown>): Promise<{ ok: boolean; erro
 }
 
 export default function CuentasDePago({ proveedor, onCambio }: {
-  proveedor: ProveedorConCuentas;
+  proveedor: Proveedor;
   /** Cambió la principal (se desconectó o se conectó): el formulario de arriba recarga sus campos. */
   onCambio?: () => void;
 }) {
@@ -47,6 +58,14 @@ export default function CuentasDePago({ proveedor, onCambio }: {
   const [aDesconectar, setADesconectar] = useState<Cuenta | null>(null);
   const [secretos, setSecretos] = useState<Record<string, string>>({});
   const nombre = NOMBRE[proveedor];
+  const esAgenda = proveedor === 'calendly' || proveedor === 'calcom';
+  const origen = typeof window === 'undefined' ? '' : window.location.origin;
+  /** Lo que dice una fila: si cobra (o lee su agenda) y qué le falta. */
+  const estado = (c: Cuenta): { ok: boolean; texto: string } => {
+    if (!esAgenda) return c.conectada ? { ok: true, texto: 'Cobra' } : { ok: false, texto: 'Le falta el aviso de pagos' };
+    if (!c.conectada) return { ok: false, texto: proveedor === 'calendly' ? 'Le falta su token' : 'Le falta su API key' };
+    return c.conAviso ? { ok: true, texto: 'Lee su agenda' } : { ok: false, texto: 'Sin el aviso: no entran sus reservas' };
+  };
 
   const cargar = useCallback(() => {
     fetch(`/api/integraciones/cuentas?servicio=${proveedor}`)
@@ -91,13 +110,13 @@ export default function CuentasDePago({ proveedor, onCambio }: {
             </form>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ width: 8, height: 8, borderRadius: 99, background: c.conectada ? 'var(--good)' : 'var(--warn)', flex: 'none' }} aria-hidden />
+              <span style={{ width: 8, height: 8, borderRadius: 99, background: estado(c).ok ? 'var(--good)' : 'var(--warn)', flex: 'none' }} aria-hidden />
               <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{c.nombre}</span>
               {c.principal && <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--faint)' }}>PRINCIPAL</span>}
-              <span style={{ fontSize: 12, color: c.conectada ? 'var(--dim)' : 'var(--warn)' }}>{c.conectada ? 'Cobra' : 'Le falta el aviso de pagos'}</span>
+              <span style={{ fontSize: 12, color: estado(c).ok ? 'var(--dim)' : 'var(--warn)' }}>{estado(c).texto}</span>
               <span style={{ flex: 1 }} />
               <button type="button" style={boton} onClick={() => setEditando({ cuenta: c.cuenta, nombre: c.nombre })}>Cambiar nombre</button>
-              {!c.conectada && (
+              {!esAgenda && !c.conectada && (
                 <button type="button" style={boton} disabled={ocupada === c.cuenta} onClick={() => void accion(c.cuenta, { action: 'reconectar', cuenta: c.cuenta })}>
                   {ocupada === c.cuenta ? 'Conectando…' : '↻ Volver a conectar'}
                 </button>
@@ -105,18 +124,21 @@ export default function CuentasDePago({ proveedor, onCambio }: {
               <button type="button" style={{ ...boton, color: 'var(--bad)' }} disabled={ocupada === c.cuenta} onClick={() => setADesconectar(c)}>Desconectar</button>
             </div>
           )}
-          {/* Mercado Pago, una cuenta de más sin su aviso: sus suscripciones no renuevan en el CRM. El de la principal se
-              pega en la tarjeta de arriba. La dirección es la misma para todas (rutea por el user_id de la cuenta). */}
-          {proveedor === 'mercadopago' && !c.principal && c.conectada && !c.conAviso && editando?.cuenta !== c.cuenta && (
+          {/* Una cuenta de más sin su aviso (el de la principal se pega en la tarjeta de arriba). Mercado Pago: sus
+              suscripciones no renuevan en el CRM. Calendly y Cal.com: sus reservas no se pueden verificar y no entran.
+              La dirección es la misma para todas las cuentas (el aviso dice de cuál es). */}
+          {(proveedor === 'mercadopago' ? c.conectada : esAgenda) && !c.principal && !c.conAviso && editando?.cuenta !== c.cuenta && (
             <form style={{ display: 'flex', flexDirection: 'column', gap: 6 }} onSubmit={(e) => {
               e.preventDefault();
               void accion(c.cuenta, { action: 'aviso', cuenta: c.cuenta, secreto: secretos[c.cuenta] ?? '' }).then((ok) => { if (ok) setSecretos((x) => ({ ...x, [c.cuenta]: '' })); });
             }}>
               <span style={{ fontSize: 12, color: 'var(--dim)' }}>
-                Para sus suscripciones: en su aplicación de Mercado Pago → Webhooks, pega <code style={{ fontFamily: MONO }}>{typeof window === 'undefined' ? '' : window.location.origin}/api/webhooks/mercadopago</code> y su clave secreta acá.
+                {proveedor === 'mercadopago' && <>Para sus suscripciones: en su aplicación de Mercado Pago → Webhooks, pega <code style={{ fontFamily: MONO }}>{origen}/api/webhooks/mercadopago</code> y su clave secreta acá.</>}
+                {proveedor === 'calendly' && <>Para que entren sus reservas, pega acá la signing key del aviso de esta cuenta.</>}
+                {proveedor === 'calcom' && <>Para que entren sus reservas: en Cal.com → Settings → Developer → Webhooks, pega <code style={{ fontFamily: MONO }}>{origen}/api/webhooks/calcom</code> y una contraseña; la misma, acá.</>}
               </span>
               <div style={{ display: 'flex', gap: 6 }}>
-                <input type="password" autoComplete="off" value={secretos[c.cuenta] ?? ''} placeholder="Clave secreta del aviso" aria-label="Clave secreta del aviso" style={{ ...input, fontFamily: MONO }}
+                <input type="password" autoComplete="off" value={secretos[c.cuenta] ?? ''} placeholder={SECRETO[proveedor]} aria-label={SECRETO[proveedor]} style={{ ...input, fontFamily: MONO }}
                   onChange={(e) => setSecretos((x) => ({ ...x, [c.cuenta]: e.target.value }))} />
                 <button type="submit" disabled={ocupada === c.cuenta || !(secretos[c.cuenta] ?? '').trim()} style={boton}>Guardar</button>
               </div>
@@ -154,7 +176,9 @@ export default function CuentasDePago({ proveedor, onCambio }: {
           zIndex={310}
           tone="danger"
           title={`¿Desconectar «${aDesconectar.nombre}»?`}
-          message={<>MaKo deja de enterarse de sus pagos y no crea links con ella. Lo que ya cobra en {nombre} sigue cobrando allá. <b>Tus otras cuentas siguen igual.</b></>}
+          message={esAgenda
+            ? <>MaKo deja de leer su agenda y de recibir sus reservas. <b>Tus otras cuentas siguen igual.</b></>
+            : <>MaKo deja de enterarse de sus pagos y no crea links con ella. Lo que ya cobra en {nombre} sigue cobrando allá. <b>Tus otras cuentas siguen igual.</b></>}
           confirmLabel="Desconectar"
           onCancel={() => setADesconectar(null)}
           onConfirm={() => { const c = aDesconectar; setADesconectar(null); void accion(c.cuenta, { action: 'desconectar', cuenta: c.cuenta }, c.principal); }}

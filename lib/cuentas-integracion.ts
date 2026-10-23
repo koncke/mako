@@ -1,5 +1,5 @@
 // =============================================================================
-// cuentas-integracion — varias cuentas por proveedor (Stripe, Mercado Pago; después Calendly y Cal.com)
+// cuentas-integracion — varias cuentas por proveedor (Stripe, Mercado Pago, Calendly y Cal.com)
 // =============================================================================
 // Martín, 22/10/2026 (feedback del CRM, punto 3): «que pueda tener de MP y de Stripe al mismo tiempo... e incluso que pueda
 // tener varias cuentas de Stripe y MP conectadas, lo mismo que Calendly o Cal, que pueda tener varias».
@@ -20,6 +20,20 @@
 // =============================================================================
 
 export type ProveedorConCuentas = 'stripe' | 'mercadopago';
+
+/**
+ * La agenda (fase B, 23/10/2026): Calendly y Cal.com, con el MISMO modelo de sufijo. Una cuenta de agenda no cobra:
+ * lee y crea tipos de evento con su token o su API key, y firma sus avisos con su secreto. Lo que rutea un aviso de
+ * agenda es el tipo de evento (R1/R2 o un vínculo de «Asignar evento»), no la cuenta.
+ */
+export type ProveedorAgendaConCuentas = 'calendly' | 'calcom';
+export const esProveedorAgendaConCuentas = (v: unknown): v is ProveedorAgendaConCuentas => v === 'calendly' || v === 'calcom';
+
+/** Las claves de una agenda, por cuenta: la que lee sus eventos (token / API key), la firma de su aviso y su nombre. */
+export const CLAVES_AGENDA: Readonly<Record<ProveedorAgendaConCuentas, { clave: string; firmaAviso: string; alias: string }>> = {
+  calendly: { clave: 'CALENDLY_API_TOKEN', firmaAviso: 'CALENDLY_WEBHOOK_SIGNING_KEY', alias: 'CALENDLY_ALIAS' },
+  calcom: { clave: 'CALCOM_API_KEY', firmaAviso: 'CALCOM_WEBHOOK_SECRET', alias: 'CALCOM_ALIAS' },
+};
 
 /** La cuenta de siempre: sus claves no llevan sufijo. */
 export const CUENTA_PRINCIPAL = 'principal';
@@ -76,11 +90,16 @@ export const CLAVES_BASE: Readonly<Record<ProveedorConCuentas, { clave: string; 
   mercadopago: { clave: 'MERCADOPAGO_ACCESS_TOKEN', identificador: 'MERCADOPAGO_USER_ID', secretoAviso: 'MERCADOPAGO_WEBHOOK_SECRET', alias: 'MERCADOPAGO_ALIAS' },
 };
 
-/** El nombre que ve la persona: el que le puso, o «Stripe» / «Stripe 2». */
-export function nombreDeCuenta(p: ProveedorConCuentas, cuenta: string, alias: string | null | undefined): string {
+/** El nombre de fábrica de cada proveedor con cuentas (el de la principal sin nombre propio). */
+const NOMBRE_BASE: Readonly<Record<ProveedorConCuentas | ProveedorAgendaConCuentas, string>> = {
+  stripe: 'Stripe', mercadopago: 'Mercado Pago', calendly: 'Calendly', calcom: 'Cal.com',
+};
+
+/** El nombre que ve la persona: el que le puso, o «Stripe» / «Stripe 2» (lo mismo para Calendly y Cal.com). */
+export function nombreDeCuenta(p: ProveedorConCuentas | ProveedorAgendaConCuentas, cuenta: string, alias: string | null | undefined): string {
   const a = (alias ?? '').trim();
   if (a) return a;
-  const base = p === 'stripe' ? 'Stripe' : 'Mercado Pago';
+  const base = NOMBRE_BASE[p];
   return cuenta === CUENTA_PRINCIPAL ? base : `${base} ${cuenta.slice(1)}`;
 }
 
@@ -96,6 +115,24 @@ export function cuentaSinElegir(p: ProveedorConCuentas, porDefecto: string | nul
   // Si ninguna del vínculo cobra (se desconectó), ninguna: cobrar ese producto por la principal podía ser cobrarlo en la
   // cuenta de OTRA razón social (segunda revisión de plata, 22/10/2026). El link dice «no conectada».
   return delV.find((c) => cobran.includes(c)) ?? null;
+}
+
+/**
+ * Verifica un aviso con el secreto de CADA cuenta del negocio y devuelve la cuenta que firmó. Si ninguno verifica, tira
+ * el error del primero (el de la principal: el mensaje de siempre). `verificar` tira si la firma no corresponde.
+ * Lo usan los avisos de Calendly y Cal.com (fase B, 23/10/2026): con dos cuentas, cada una firma con SU secreto.
+ */
+export function cuentaQueFirmo(secretos: ReadonlyArray<{ cuenta: string; firma: string }>, verificar: (secreto: string) => void): string {
+  let primero: unknown = null;
+  for (const s of secretos) {
+    try {
+      verificar(s.firma);
+      return s.cuenta;
+    } catch (e) {
+      if (primero == null) primero = e;
+    }
+  }
+  throw primero ?? new Error('No hay ningún secreto con que verificar el aviso.');
 }
 
 /** Lo más largo de un nombre de cuenta. */

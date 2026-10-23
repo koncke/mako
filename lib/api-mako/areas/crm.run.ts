@@ -1306,7 +1306,7 @@ export const RUNNERS: Runners = {
       if (!r) return { error: `${lead.nombre} no tiene una reunión de Calendly por delante: no hay nada que cancelar.`, yaEstaba: true };
       const cuando = new Date(r.inicioIso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
       return {
-        payload: { leadId: lead.id, leadNombre: lead.nombre, email: lead.email, uri: r.uri, reunion: r.nombre, inicioIso: r.inicioIso, motivo: s(input.motivo) ?? '' },
+        payload: { leadId: lead.id, leadNombre: lead.nombre, email: lead.email, uri: r.uri, reunion: r.nombre, inicioIso: r.inicioIso, cuenta: r.cuenta, motivo: s(input.motivo) ?? '' },
         resumen: `Cancelar en Calendly «${r.nombre || 'la reunión'}» de ${lead.nombre} (${cuando}). A ${lead.nombre} le llega el aviso de Calendly.`,
       };
     },
@@ -1316,7 +1316,8 @@ export const RUNNERS: Runners = {
       try {
         const ahora = await proximaReunionCalendly(String(payload.email ?? ''));
         if (!ahora || ahora.uri !== payload.uri) return { ok: false, resumen: 'Esa reunión ya no es la próxima (la cancelaron, la movieron o ya empezó): no cancelé nada.' };
-        await cancelarReunionCalendly(String(payload.uri), String(payload.motivo ?? ''));
+        // Con la cuenta de Calendly que la TIENE (varias cuentas, fase B): la que acaba de encontrarla.
+        await cancelarReunionCalendly(String(payload.uri), String(payload.motivo ?? ''), ahora.cuenta);
       } catch (e) {
         return { ok: false, resumen: `No se canceló en Calendly: ${e instanceof Error ? e.message : String(e)}` };
       }

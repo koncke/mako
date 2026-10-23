@@ -20,8 +20,13 @@ import { auditarCredencial, credDelCliente, eliminarCredencial, guardarCredencia
 import { leerCuentaStripe } from '@/lib/stripe-api';
 import { leerCuentaMp } from '@/lib/mercadopago-api';
 import { desconectarPasarela, descubrirPasarela, CLAVE_PASARELA } from '@/lib/cobros-conexion';
-import { aliasLimpio, claveDeCuenta, cuentaValida, type ProveedorConCuentas } from '@/lib/cuentas-integracion';
+import {
+  CLAVES_AGENDA, CUENTA_PRINCIPAL, aliasLimpio, claveDeCuenta, cuentaValida, esProveedorAgendaConCuentas,
+  type ProveedorAgendaConCuentas, type ProveedorConCuentas,
+} from '@/lib/cuentas-integracion';
 import { cuentaParaConectar, cuentasDePago, guardarAliasCuenta } from '@/lib/cuentas-pago-server';
+import { cuentasDeAgenda, guardarAliasAgenda, proximaCuentaDeAgenda } from '@/lib/cuentas-agenda-server';
+import { perfilDeCalcom } from '@/lib/calcom';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +48,13 @@ export async function GET(req: NextRequest) {
   const ctx = await contexto();
   if ('error' in ctx) return NextResponse.json({ ok: false, error: ctx.error }, { status: ctx.status });
   const servicio = req.nextUrl.searchParams.get('servicio');
+  if (esProveedorAgendaConCuentas(servicio)) {
+    try {
+      return NextResponse.json({ ok: true, cuentas: await listaAgenda(ctx.ws, servicio) });
+    } catch (e) {
+      return NextResponse.json({ ok: false, error: `No pude leer las cuentas: ${e instanceof Error ? e.message : String(e)}` }, { status: 500 });
+    }
+  }
   if (!esProveedor(servicio)) return NextResponse.json({ ok: false, error: 'servicio inválido' }, { status: 400 });
   try {
     return NextResponse.json({ ok: true, cuentas: await cuentasDePago(ctx.ws, servicio) });
@@ -52,6 +64,80 @@ export async function GET(req: NextRequest) {
 }
 
 type Body = { action?: string; servicio?: string; cuenta?: string; clave?: string; nombre?: string; secreto?: string };
+
+// ── LA AGENDA (fase B, 23/10/2026): Calendly y Cal.com con la misma lista ─────────────────────────────────────────
+// La misma forma que las cuentas de pago, así la pantalla es una sola: `conectada` = lee su agenda (token / API key),
+// `conAviso` = tiene el secreto de su aviso (sin él, sus reservas no se pueden verificar).
+
+async function listaAgenda(ws: number, p: ProveedorAgendaConCuentas) {
+  return (await cuentasDeAgenda(ws, p)).map((c) => ({
+    id: `${p}:${c.cuenta}`, cuenta: c.cuenta, nombre: c.nombre, principal: c.principal, conectada: c.conToken, conAviso: c.conFirma,
+  }));
+}
+
+/** ¿El proveedor acepta el token (Calendly) o la API key (Cal.com)? Lo pregunta, nunca lo supone. */
+async function tokenDeAgendaValido(p: ProveedorAgendaConCuentas, token: string): Promise<boolean> {
+  if (p === 'calcom') return (await perfilDeCalcom(token)) != null;
+  try {
+    const r = await fetch('https://api.calendly.com/users/me', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: AbortSignal.timeout(8000) });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+const NOMBRE_AGENDA: Record<ProveedorAgendaConCuentas, string> = { calendly: 'Calendly', calcom: 'Cal.com' };
+
+async function postAgenda(ctx: { ws: number; autor: string | null }, p: ProveedorAgendaConCuentas, body: Body): Promise<NextResponse> {
+  const b = CLAVES_AGENDA[p];
+  const lista = () => listaAgenda(ctx.ws, p);
+  const guardar = async (clave: string, valor: string) => {
+    await guardarCredencial(ctx.ws, clave, valor, p, ctx.autor);
+    await auditarCredencial(ctx.ws, clave, 'guardar', ctx.autor);
+  };
+  if (body.action === 'conectar') {
+    const token = typeof body.clave === 'string' ? body.clave.trim() : '';
+    if (!token) return NextResponse.json({ ok: false, error: p === 'calendly' ? 'Pega el token de esa cuenta.' : 'Pega la API key de esa cuenta.', nadaGuardado: true }, { status: 400 });
+    if (!(await tokenDeAgendaValido(p, token))) {
+      return NextResponse.json({ ok: false, error: `${NOMBRE_AGENDA[p]} no aceptó esa clave. No la guardé.`, nadaGuardado: true }, { status: 422 });
+    }
+    // Sin ninguna cuenta, la principal (como la tarjeta); con alguna, la que sigue: nunca pisa la de otra.
+    const cuenta = (await lista()).length ? await proximaCuentaDeAgenda(ctx.ws, p) : CUENTA_PRINCIPAL;
+    await guardar(claveDeCuenta(b.clave, cuenta), token);
+    const secreto = typeof body.secreto === 'string' ? body.secreto.trim() : '';
+    if (secreto) await guardar(claveDeCuenta(b.firmaAviso, cuenta), secreto.slice(0, 300));
+    const nombre = aliasLimpio(body.nombre);
+    if (nombre) await guardarAliasAgenda(ctx.ws, p, cuenta, nombre, ctx.autor);
+    const mensaje = secreto ? 'Conectada.' : 'Conectada. Para que entren sus reservas, falta el secreto de su aviso.';
+    return NextResponse.json({ ok: true, cuenta, completa: !!secreto, mensaje, cuentas: await lista() });
+  }
+  const cuenta = body.cuenta;
+  if (!cuentaValida(cuenta)) return NextResponse.json({ ok: false, error: 'cuenta inválida' }, { status: 400 });
+  if (!(await lista()).some((x) => x.cuenta === cuenta)) return NextResponse.json({ ok: false, error: 'Esa cuenta ya no está conectada. Recarga.' }, { status: 404 });
+  if (body.action === 'renombrar') {
+    await guardarAliasAgenda(ctx.ws, p, cuenta, typeof body.nombre === 'string' ? body.nombre : '', ctx.autor);
+    return NextResponse.json({ ok: true, cuentas: await lista() });
+  }
+  if (body.action === 'aviso') {
+    const secreto = typeof body.secreto === 'string' ? body.secreto.trim() : '';
+    if (secreto.length > 300) return NextResponse.json({ ok: false, error: 'Esa clave es demasiado larga.' }, { status: 400 });
+    const env = claveDeCuenta(b.firmaAviso, cuenta);
+    if (secreto) await guardar(env, secreto);
+    else { await eliminarCredencial(ctx.ws, env); await auditarCredencial(ctx.ws, env, 'borrar', ctx.autor); }
+    return NextResponse.json({ ok: true, cuentas: await lista() });
+  }
+  if (body.action === 'desconectar') {
+    // UNA cuenta: su token, su secreto y su nombre. La R1/R2 y los vínculos de «Asignar evento» no se tocan: son del
+    // negocio, no de la cuenta (un tipo de evento de esa cuenta deja de listarse, y su vínculo queda para desvincular).
+    for (const base of [b.clave, b.firmaAviso, b.alias]) {
+      const env = claveDeCuenta(base, cuenta);
+      await eliminarCredencial(ctx.ws, env);
+      await auditarCredencial(ctx.ws, env, 'borrar', ctx.autor);
+    }
+    return NextResponse.json({ ok: true, aviso: null, cuentas: await lista() });
+  }
+  return NextResponse.json({ ok: false, error: 'acción inválida' }, { status: 400 });
+}
 
 /** El id de la cuenta EN EL PROVEEDOR de una clave; null si no la acepta (la conexión lo dice después). */
 async function idEnElProveedor(p: ProveedorConCuentas, clave: string): Promise<string | null> {
@@ -69,6 +155,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'body inválido' }, { status: 400 });
   }
   const p = body.servicio;
+  if (esProveedorAgendaConCuentas(p)) {
+    try {
+      return await postAgenda(ctx, p, body);
+    } catch (e) {
+      console.error(`[integraciones/cuentas] ws ${ctx.ws} ${p} ${body.action}:`, e instanceof Error ? e.message : String(e));
+      return NextResponse.json({ ok: false, error: `No se pudo: ${e instanceof Error ? e.message : String(e)}` }, { status: 500 });
+    }
+  }
   if (!esProveedor(p)) return NextResponse.json({ ok: false, error: 'servicio inválido' }, { status: 400 });
   const lista = async () => cuentasDePago(ctx.ws, p);
 
