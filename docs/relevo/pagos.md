@@ -16,6 +16,15 @@ En /admin/cobros: «Cortar la suscripción», la casilla de cortar al reembolsar
 Mercado Pago» (el precio en pesos). En /planes, las claves de prueba sólo para el super admin. En /integraciones, la
 dirección del aviso de MP con `?u=` y una clave de prueba de Stripe que ya no pisa a la real.
 
+**En producción el 23/10/2026** (`309c54ef4`, con `630c44b4e` de Planes que la contiene): la tanda `ac21e6b4b` y la punta del alta
+(`33c44d41e`, chat «Cobros», cuenta `claude2`). Medido ese día: el acceso sin Gmail ya lo dicen el mail y /listo (correo y
+contraseña, «¿Olvidaste tu contraseña?»); el «Vincular cobro» de Stripe ya lee los productos en vivo (`51c89251b`, sin medir con
+clave real: la primera lectura real es la de Mauricio); y el alta se prueba ejecutándola (tests/alta-cliente-conducta.test.ts),
+con un mail que tira ya no tumbando el alta. **No hay botón para reenviar el mail de acceso a la MISMA dirección** (solo
+«cambiar el email»); no urge porque la fila de usuario ya autoriza el ingreso. **Lo único que falta para cobrar es de Martín:**
+conectar la pasarela, el precio en pesos, la automatización «Entró un pago» y la prueba de humo. Detalle y lo sin hacer:
+hallazgos-planes-y-cobro.md → «Quien paga sin Gmail…».
+
 ## 17/10/2026 · los pendientes B4 (rama `pend-b4-1710`, agente «Pendientes B4: Ads y plata»)
 
 Lo aprendido: `docs/hallazgos-pagos.md` §5 y `docs/hallazgos-planes-y-cobro.md` → «Quien deja de pagar deja de entrar».
