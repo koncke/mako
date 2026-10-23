@@ -10,6 +10,31 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## Hacer cumplir un tope del plan: la tabla sola le pone tope a quien no paga por la pasarela (23/10/2026)
+
+El primer tope que se hizo cumplir fue el de las líneas de WhatsApp (Esencial 1, Pro 3, en `lib/topes-plan.ts`).
+- **La capa no dice si el negocio paga un plan.** El ws1 y los acuerdos a mano también tienen capa `completo`, así que con
+  `topeDe` solo quedaban en una línea. **La regla:** un tope se aplica sólo si MaKo le cobra el plan por la pasarela
+  (`suscripcionDeMakoDe(ws) != null`, lib/cobros.ts), y el ws1 nunca, además explícito. Está en `topeParaLineaNueva`
+  (lib/tope-lineas.ts), que es puro y es el molde para los demás topes.
+- **Frenar sólo lo que se va a crear.** Toda línea nueva de un negocio nace en `conectar({ nueva: true })` (lib/evolution.ts),
+  y ahí se mira el tope, antes de escribir su fila. Reconectar una que ya existe (el «↻ Nuevo QR») no pasa por ahí, así que
+  una línea conectada nunca se corta por el tope. Cuentan todas las filas del negocio, conectadas o no: una caída se
+  reconecta con su QR. La línea personal de Martín (lib/mako-canal.ts) también nace por ahí, pero en el workspace de la
+  plataforma, que no tiene cobro.
+- **Si no se puede leer el plan, deja conectar.** Un tope que se equivoca para el lado de frenar le corta el WhatsApp a un
+  negocio que paga.
+- **La pantalla no importa la regla.** `lib/tope-lineas.ts` arrastra `aviso-arreglo-reglas` y `doer-salida`. La ruta
+  responde 403 con el texto (`textoTope`) y el link, y EvolutionConnect dibuja el cartel con «Pasar a Pro».
+
+**Sin hacer:** «Pasar a Pro» lleva a `/planes/pro`, que vive en la rama de la suscripción. Si esta punta sale antes, el link
+da 404 hasta que salga esa. Sólo lo ve un negocio con cobro por la pasarela, que hoy nace por esa misma rama.
+
+**Vive en:** `lib/tope-lineas.ts` · `conectar` en `lib/evolution.ts` · `app/api/whatsapp/evolution/route.ts` ·
+`app/whatsapp/EvolutionConnect.tsx` · `tests/tope-lineas.test.ts` (10 roturas, las 10 cazadas).
+
+---
+
 ## El diagnóstico obvio era el equivocado: la cuenta del runway NO está rota
 
 Al leer el audio —el embudo nuevo entra por una app de ~US$20— la conclusión inmediata fue

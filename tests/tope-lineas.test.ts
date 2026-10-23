@@ -6,7 +6,7 @@
 // (`suscripcionDeMakoDe(ws) != null`), nunca al ws1 ni a los acuerdos a mano. Una línea ya conectada nunca se desconecta
 // por el tope». La regla es lib/tope-lineas.ts; la usa `conectar({ nueva: true })` (lib/evolution.ts).
 //
-// PROBADO ROMPIÉNDOLO (23/10/2026, arnés `romper-topes.mjs` del scratchpad de la sesión de Offer; base 3/0): ver la lista
+// PROBADO ROMPIÉNDOLO (23/10/2026, arnés `romper-topes.mjs` del scratchpad de la sesión de Offer; base 3/0, 10 de 10 cazadas): ver la lista
 // al pie de este archivo.
 
 import { test } from 'node:test';
@@ -58,4 +58,4 @@ test('3. la ruta y la pantalla: un 403 con el tope, y el cartel corto con «Pasa
 
 // Las roturas del arnés (cada una, en rojo): el tope a un acuerdo a mano · el tope al ws1 · Pro con el tope de Esencial ·
 // el tope también al reconectar · sin poder leer el plan, no deja conectar · todos como cobrados · la ruta sin el 403 ·
-// la pantalla sin el cartel · el cartel sin «Pasar a Pro».
+// la pantalla sin el cartel · el cartel sin «Pasar a Pro» · el cartel en rojo, como un error.
