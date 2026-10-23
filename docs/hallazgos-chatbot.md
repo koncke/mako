@@ -6027,3 +6027,41 @@ app/automations/ConfigAutomatizacionPanel.tsx (`AntibanDeLaAutomatizacion`) · L
 · lib/config-automatizacion.ts · lib/flujo-ia-intencion.ts · test: tests/automations-antiban.test.ts. **Sin hacer:** el
 teléfono (/m/automations) no tiene Configuraciones: el anti-ban y el horario de una automatización sólo se cambian en la
 computadora.
+
+## «No salió ni a mí ni a mi esposa»: SÍ se inscribieron; el motor cortó por el horario y no lo dijo en ningún lado (23/10/2026, P0 de #289)
+
+**Síntoma.** Martín probó en vivo la #289 de Mauricio (ws1) con su lead y el de su esposa: los movió a «Prospección activa»
+y no les llegó nada. «No funcionó».
+
+**El diagnóstico obvio era el equivocado.** «No se enrolaron: entran por el barrido de la hora» (lo que este documento
+anotaba de los agregados). Medido en producción: se inscribieron **por evento en 8 s** (#291 y #292, `paso_actual` 0,
+`proximo_envio_at` = ya). La vía rápida corrió y `procesarEnvios` devolvió `saltado: 'fuera-de-horario'`: la #289 usa el
+horario del negocio, 9 a 21 en **America/Tijuana**, y lo probaron a las 21:47 de allá (01:47 en Argentina). Descartado con
+dato: la línea conectada, el envío prendido, los topes en 0, «Misma persona» apagada, «Nunca le escribiste» pasa, los
+teléfonos bien.
+
+**La causa de verdad: el silencio.** Un corte por horario no deja NADA: ni un `nutricion_envios`, ni un aviso, ni una
+línea en el lead. La ficha decía «Lo próximo sale 22 oct, 21:47» (una hora pasada, en la hora del navegador). Cualquier
+freno que no escribe es un «no funciona». ⚠️ Y una trampa al medir: `nutricion_inscripciones` NO tiene `created_at` (es
+`inscripto_at`); un `.order('created_at')` devuelve `data: null` sin tirar, y el primer conteo dio «0 inscripciones».
+
+**La regla que queda.** Si algo frena un envío, el lead y la tarjeta lo DICEN, con las mismas reglas que el motor
+(`lib/por-que-no-sale.ts`, puro; lo del negocio en `lib/por-que-no-sale-db.ts`): el chip y la ficha del CRM, una línea en
+el historial al inscribirse («Entró a «X». No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale mañana
+9:00.», `anotarLaEntrada`), y la tarjeta del lienzo («2 esperando · Abre mañana 9:00», `/api/flujos/en-cola`). Lo
+permanente va ANTES que el horario (el envío apagado, sin línea): decir «Sale 9:00» cuando igual no va a salir es mentir.
+Un **fallo no avanza el paso**: el motor lo reprograma, la fila deja de estar vencida y sin mirarlo se volvía a callar
+(lo encontró el arnés): el fallo se dice también con su reintento.
+
+**El arnés de punta a punta** (`scripts/arnes-automatizacion-punta-a-punta.mts`, ws3): mueve un agregado y un lead de casa
+con las funciones del tablero y compara lo que la pantalla DICE con lo que el motor HACE (horario cerrado, fallo de
+línea, simulado, envío apagado). El ws3 no tiene número vinculado y los teléfonos no existen: no sale nada. «Activar»
+exige un WhatsApp conectado, así que el arnés activa con la misma escritura sin esa guarda.
+
+**Lo que quedó SIN hacer.**
+- Agregar EN LOTE a un CRM (`agregarLoteAProducto`, lib/lead-funnel.ts) no inscribe por evento: 300 de una vez serían 300
+  vías rápidas. Lo levanta el barrido de la hora. Hoy ninguna automatización del Sprint cuelga de «Lead entrante».
+- Una fila de `lead_funnel` creada Y movida dentro de los 10 min del alta del lead cuenta como «parte del alta» y no entra
+  ni por evento ni por barrido (`filaNacidaConElLead`, lib/nutricion-ambito.ts): crear un lead de prueba y moverlo al
+  minuto en un CRM agregado no lo inscribe. El arnés usa un lead con alta vieja, como los 300.
+- La inscripción MANUAL (`inscribirEnSecuencia`) no anota la entrada en el historial: sólo el evento.

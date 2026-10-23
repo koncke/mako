@@ -114,6 +114,7 @@ import { condicionesDelEvento, datosDeLaPersona } from '@/lib/aviso-evento';
 // El chip «Sin conectar» de una tarjeta (décima tanda, GENERAL 6) y el modal que conecta ahí mismo.
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
 import { chipDeTarjeta, lineaDePaso, mediosQueUsa, MOTIVO_MEDIO, type Medio } from '@/lib/medios-automatizacion';
+import type { EnColaDelPaso } from '@/lib/en-cola-por-paso';
 
 const SANS = "'Geist', sans-serif";
 
@@ -348,6 +349,22 @@ export function FlujoLienzo({
       .catch(() => { if (vivo) setAnticipacion(null); });
     return () => { vivo = false; };
   }, [rolAdmin, hayAntes, anticipacion]);
+
+  // QUIÉN ESPERA EN CADA TARJETA Y POR QUÉ NO LE SALE (23/10/2026, P0 de #289: Martín y su esposa entraron fuera del horario
+  // de oficina y nada lo decía). El chip «2 esperando · Sale mañana 9:00» abajo de la tarjeta, con el porqué al pasar
+  // (lib/en-cola-por-paso.ts). Se vuelve a pedir cada minuto: es lo que hace el motor. Sin poder leerlo, sin chip.
+  const [enCola, setEnCola] = useState<Record<string, EnColaDelPaso>>({});
+  useEffect(() => {
+    if (!rolAdmin || !secuenciaId) return;
+    let vivo = true;
+    const pedir = () => fetch(`/api/flujos/en-cola?sec=${secuenciaId}`, { cache: 'no-store', signal: AbortSignal.timeout(30_000) })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; porPaso?: Record<string, EnColaDelPaso> }) => { if (vivo && j?.ok && j.porPaso) setEnCola(j.porPaso); })
+      .catch(() => {});
+    void pedir();
+    const t = setInterval(() => void pedir(), 60_000);
+    return () => { vivo = false; clearInterval(t); };
+  }, [rolAdmin, secuenciaId]);
 
   // Los catálogos de las condiciones (cursos, clases, posts, campañas), para que la tarjeta diga el
   // nombre de lo elegido («Completó la clase «Bienvenida»» y no «una clase»). Se piden sólo si hay una
@@ -708,6 +725,7 @@ export function FlujoLienzo({
             <ChipMedio nodo={n} texto={chip.texto} frena={chip.frena} motivo={MOTIVO_MEDIO[chip.medio]}
               onConectar={!chip.informa && rolAdmin && paso ? () => setConectarMedio({ medio: chip.medio, linea: chip.medio === 'whatsapp' ? lineaDePaso(paso, linea?.actual ?? null) : null }) : undefined} />
           )}
+          {enCola[n.id] && <ChipEnCola nodo={n} chip={enCola[n.id].chip} texto={enCola[n.id].texto} />}
           </>
         );
       }}
@@ -783,6 +801,22 @@ export function ChipMedio({ nodo, texto, frena, motivo, onConectar }: {
   return (
     <button type="button" data-chip-medio data-no-pan title={frena ? motivo : texto}
       onClick={(e) => { e.stopPropagation(); onConectar(); }} style={{ ...estilo, cursor: 'pointer' }}>{texto}</button>
+  );
+}
+
+/**
+ * QUIÉN ESPERA EN ESTA TARJETA Y POR QUÉ (23/10/2026, P0 de #289): «2 esperando · Sale mañana 9:00», colgado del borde de
+ * ABAJO a la izquierda (arriba van «Sin conectar» y el de MaKo que espera), con el porqué entero en el `title` y para el
+ * lector de pantalla. Ámbar: algo lo frena, no es un error de la tarjeta.
+ */
+export function ChipEnCola({ nodo, chip, texto }: { nodo: { x: number; y: number; alto: number }; chip: string; texto: string }) {
+  return (
+    <span data-chip-en-cola title={texto} aria-label={`${chip}. ${texto}`} style={{
+      position: 'absolute', left: nodo.x + 10, top: nodo.y + nodo.alto - 10, zIndex: 2,
+      display: 'inline-flex', alignItems: 'center', height: 19, padding: '0 8px', boxSizing: 'border-box', borderRadius: 999,
+      border: '1px solid var(--warn)', background: 'var(--surface)', color: 'var(--warn)', fontFamily: SANS,
+      fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1,
+    }}>{chip}</span>
   );
 }
 
