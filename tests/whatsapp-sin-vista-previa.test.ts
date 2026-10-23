@@ -74,9 +74,8 @@ test('el envío: `linkPreview: false` a Evolution, en lo que sale solo, en el bo
   assert.match(leer('lib/prueba-paso.ts'), /sinVistaPrevia: mensaje\.sin_vista_previa === true/);
   assert.match(leer('lib/setting-secuencias.ts'), /linea: lineaSec, sinVistaPrevia: sinVistaPrevia\(paso\) \}\);/);
   assert.match(leer('app/automations/PanelProbar.tsx'), /mandarReal\(\{ canal: 'whatsapp', tipo: 'texto', texto, \.\.\.\(sinTarjeta \? \{ sin_vista_previa: true \} : \{\}\) \}, clave, enRespuesta\);/);
-  // La tarjeta: el interruptor, sólo con un link (17/10, también en el recordatorio: `ofreceVistaPrevia`,
-  // tests/recordatorio-vista-previa.test.ts).
-  assert.match(leer('app/automations/FlujoLienzo.tsx'), /\{noOficial && ofreceVistaPrevia\(paso, recordatorio\) && \(/);
+  // La tarjeta: sin interruptor desde el 23/10/2026 (una tarjeta no gana controles); el motor sigue honrando lo guardado.
+  assert.doesNotMatch(leer('app/automations/FlujoLienzo.tsx'), /data-vista-previa/);
 });
 
 // El borrador NUNCA se pierde: sin la columna (la 0309 sin aplicar) se escribe sin la marca.

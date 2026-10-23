@@ -48,8 +48,7 @@ test('el lienzo lo ofrece en el recordatorio con la tarjeta vacía o con {{link}
   assert.equal(ofreceVistaPrevia({ ...con('sin link'), sin_vista_previa: true } as PasoGrafo, false), true, 'apagado, que se pueda volver a prender');
 });
 
-test('la tarjeta del lienzo pregunta lo mismo (`ofreceVistaPrevia`), sin dejar afuera al recordatorio', () => {
+test('la tarjeta del lienzo ya no tiene el interruptor (23/10/2026, revisión de las tarjetas, punto 7); lo guardado sigue valiendo', () => {
   const lienzo = leer('app/automations/FlujoLienzo.tsx');
-  assert.match(lienzo, /\{noOficial && ofreceVistaPrevia\(paso, recordatorio\) && \(/);
-  assert.doesNotMatch(lienzo, /noOficial && !recordatorio && \(tieneLink\(paso\)/, 'volvió a quedar afuera el recordatorio');
+  assert.doesNotMatch(lienzo, /data-vista-previa|label="Vista previa del link"/, 'volvió el interruptor suelto a la tarjeta');
 });

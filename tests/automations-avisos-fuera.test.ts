@@ -96,8 +96,9 @@ test('la pantalla: el chip en el lienzo (sin desplegable en la tarjeta desde el 
   const lienzo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
   // 23/10/2026 (Martín: «no rompas el diseño de las tarjetas»): se elige pidiéndoselo a MaKo (`fueraDeHorario` de la API).
   assert.doesNotMatch(lienzo, /data-fuera-de-horario|campoFuera/, 'volvió el desplegable «Fuera del horario» a la tarjeta');
-  assert.match(leer('app/automations/FlujoLienzo.tsx'), /title="Fuera del horario de oficina sale cuando abre\. Para que salga igual, pídeselo a MaKo\."/);
-  assert.match(lienzo, /\{espera && <ChipEspera nodo=\{n\} texto=\{espera\} \/>\}/);
+  // El cartel «Espera a que abra» se fue (23/10/2026, revisión de las tarjetas 1 y 11): leía el horario del NEGOCIO y no el de
+  // la automatización. Cuándo sale lo dice `ChipEnCola`, con el horario de ESA automatización.
+  assert.doesNotMatch(lienzo, /ChipEspera|chipDeEspera|useHorarioOficina/, 'volvió el cartel que lee el horario del negocio');
   assert.match(sinComentarios(leer('lib/api-mako/areas/chatbot.def.ts')), /nombre: 'fueraDeHorario', tipo: 'string', enum: \['espera', 'igual'\]/);
 });
 
