@@ -103,8 +103,8 @@ export function SelectorEtapa({ label, required, disabled, params, opciones, cam
   return (
     <>
       {conEtapas.length > 1 && (
-        <Select label="Producto" required={required} value={producto ? String(producto.embudoId) : ''} onChange={elegirProducto}
-          options={conEtapas.map((p) => ({ value: String(p.embudoId), label: p.nombre }))} placeholder="Elige el producto" disabled={disabled} ariaLabel="Producto" />
+        <Select label="Funnel" required={required} value={producto ? String(producto.embudoId) : ''} onChange={elegirProducto}
+          options={conEtapas.map((p) => ({ value: String(p.embudoId), label: p.nombre }))} placeholder="Elige el funnel" disabled={disabled} ariaLabel="Funnel" />
       )}
       <Select label={label} required={required} value={etapa} onChange={elegirEtapa} options={opcionesEtapa}
         placeholder="Elige la etapa" disabled={disabled || !producto} ariaLabel="Etapa" />
@@ -121,8 +121,8 @@ export function SelectorProducto({ label, required, disabled, valor, opciones, o
   const lista: ProductoDeAccion[] | null | undefined = opciones?.productos;
   return (
     <Select label={label} required={required} value={puesto} onChange={(v) => onCambio(v ? Number(v) : undefined)}
-      options={conLaPuesta((lista ?? []).map((p) => ({ value: String(p.embudoId), label: p.nombre })), puesto, `Producto ${puesto} (ya no está)`)}
-      placeholder={lista === undefined ? CARGANDO : lista === null ? NO_SE_PUDO : 'Elige el producto'}
+      options={conLaPuesta((lista ?? []).map((p) => ({ value: String(p.embudoId), label: p.nombre })), puesto, `Funnel ${puesto} (ya no está)`)}
+      placeholder={lista === undefined ? CARGANDO : lista === null ? NO_SE_PUDO : 'Elige el funnel'}
       error={lista === null ? NO_SE_PUDO : undefined} disabled={disabled || !lista} ariaLabel={label} />
   );
 }

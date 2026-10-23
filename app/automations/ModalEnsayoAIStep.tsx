@@ -27,6 +27,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Modal, Button } from '@/app/_ui';
 import { ChatHilo, type HiloMsg } from '@/app/whatsapp/_shared/ChatHilo';
+import { SimuladorSocial } from './SimuladorSocial';
 import { inpLienzo } from '@/app/_components/Lienzo';
 import { ejemplosDeCharla, OBJECIONES_ENSAYO, type AIStepDelEnsayo, type LineaEnsayo } from '@/lib/ai-step-ensayo';
 import type { EjemploCaso, MedioAIStep, PasoGrafo } from '@/lib/flujo-grafo';
@@ -175,6 +176,7 @@ export function ModalEnsayoAIStep({ ai, pasos, medio, secuenciaId, onCerrar, onG
   const mensajes: HiloMsg[] = hilo.map((l) => (l.de === 'sistema'
     ? { id: l.id, fromMe: false, tipo: 'sistema', texto: l.texto }
     : { id: l.id, fromMe: l.de !== 'lead', texto: l.texto, ...(l.de === 'mako' ? { ia: true } : {}) }));
+  const placeholderEnsayo = desenlace ? 'El ensayo terminó' : modo === 'mako' ? 'Contesta MaKo' : 'Responde como lo harías…';
   const chip = (activo: boolean): CSSProperties => ({
     flex: 1, padding: '7px 10px', borderRadius: 9, border: `1px solid ${activo ? 'var(--primary)' : 'var(--border)'}`,
     background: activo ? 'var(--primary-bg)' : 'var(--surface)', color: activo ? 'var(--primary-strong)' : 'var(--ink)',
@@ -193,13 +195,24 @@ export function ModalEnsayoAIStep({ ai, pasos, medio, secuenciaId, onCerrar, onG
       )}>
       <div data-ensayo-ai-step style={{ display: 'flex', gap: 16, height: '100%', minHeight: 420, fontFamily: SANS, flexWrap: 'wrap' }}>
         <div style={{ flex: '3 1 420px', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 420 }}>
-          <ChatHilo accent="var(--wa)" accentBubble="var(--wa-bubble)" mensajes={mensajes} animarNuevos
-            typing={escribe ? { lado: escribe === 'lead' ? 'left' : 'right' } : null}
-            readOnly={!!desenlace || modo === 'mako'}
-            placeholder={desenlace ? 'El ensayo terminó' : modo === 'mako' ? 'Contesta MaKo' : 'Responde como lo harías…'}
-            onEnviarTexto={responder}
-            onEnviarArchivo={medio === 'whatsapp' ? (blob, tipo) => (tipo === 'audio' ? responderAudio(blob) : Promise.resolve(false)) : undefined}
-            vacio={<div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13 }}>{err ? '' : 'Preparando el ensayo…'}</div>} />
+          {/* EL CHAT CON LA PIEL DEL MEDIO (revisión de las tarjetas, 23/10/2026, punto 9): Instagram y Messenger con
+              `SimuladorSocial`, como «Probar» (PanelProbar). Antes era siempre el verde de WhatsApp. */}
+          {medio === 'whatsapp' ? (
+            <ChatHilo accent="var(--wa)" accentBubble="var(--wa-bubble)" mensajes={mensajes} animarNuevos
+              typing={escribe ? { lado: escribe === 'lead' ? 'left' : 'right' } : null}
+              readOnly={!!desenlace || modo === 'mako'}
+              placeholder={placeholderEnsayo}
+              onEnviarTexto={responder}
+              onEnviarArchivo={(blob, tipo) => (tipo === 'audio' ? responderAudio(blob) : Promise.resolve(false))}
+              vacio={<div style={{ margin: 'auto', color: 'var(--faint)', fontSize: 13 }}>{err ? '' : 'Preparando el ensayo…'}</div>} />
+          ) : (
+            <div data-ensayo-social={medio} style={{ position: 'relative', flex: 1, minHeight: 420 }}>
+              <SimuladorSocial canal={medio} mensajes={mensajes} negocio="Lead de prueba"
+                typing={escribe ? { lado: escribe === 'lead' ? 'left' : 'right' } : null}
+                soloLectura={!!desenlace || modo === 'mako'} placeholder={placeholderEnsayo}
+                onEnviarTexto={responder} />
+            </div>
+          )}
         </div>
         <div style={{ flex: '2 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>

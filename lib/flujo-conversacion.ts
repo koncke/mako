@@ -254,7 +254,8 @@ export function resumenPasoIA(p: PasoGrafo): ResumenPasoIA {
     escenarios,
     loDemas: loDemas ? libertadDeCaso(loDemas) : 'avisa',
     conteo,
-    audio: !!p.audio || casos.some((c) => !!c.audio),
+    // El audio sale sólo por WhatsApp (`erroresDelPasoIA`): en Instagram o Messenger la tarjeta no dibuja el 🎙.
+    audio: medioDe(p) === 'whatsapp' && (!!p.audio || casos.some((c) => !!c.audio)),
     falta: erroresDelPasoIA(p, idDe(p, 0), true).length > 0,
     medio: medioDe(p),
   };

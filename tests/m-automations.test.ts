@@ -112,7 +112,7 @@ test('el disparador nombra la etapa con el kanban de SU embudo', () => {
   assert.equal(textoDelDisparador(d, nombres), 'Llega a «Llamada reservada»');
   assert.equal(textoDelDisparador({ ...d, funnel_id: 7 }, nombres), 'Llega a «Agendado»');
   // Un evento de antes se dice como es y con su MARCA, igual que la tarjeta CRON del lienzo.
-  assert.equal(textoDelDisparador({ id: 'd1', trigger_tipo: 'instant_form_sin_agenda' }, nombres), 'Dejó el formulario sin agendar (de antes)');
+  assert.equal(textoDelDisparador({ id: 'd1', trigger_tipo: 'instant_form_sin_agenda' }, nombres), 'Dejó el formulario sin agendar', 'sin la marca «(de antes)» (revisión de las tarjetas, 23/10/2026, punto 12)');
   assert.equal(textoDelDisparador({ id: 'd1', trigger_tipo: 'etiqueta_puesta', etiqueta_id: 5 }, nombres), 'Se le puso «Cualificado»');
 });
 
