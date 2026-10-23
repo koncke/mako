@@ -13,7 +13,11 @@
 // =============================================================================
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MODELOS_DE_LA_CUENTA, MODELOS_SU_CLAUDE, eleccionVigente, resumenDeIA, sanearIA, type CuentaDeIA } from '../lib/chat-ia-reglas';
+import {
+  MODELOS_DE_LA_CUENTA, MODELOS_SU_CLAUDE, MODELOS_SU_OPENAI, MODELO_SU_OPENAI_DEFAULT, NOMBRE_MODELO_IA, eleccionVigente, resumenDeIA, sanearIA,
+  type CuentaDeIA,
+} from '../lib/chat-ia-reglas';
+import { esRazonadorOpenAI } from '../lib/ai-cheap-techo';
 import { MODELOS_PC } from '../lib/ia-pc-reglas';
 import { MODELO_SU_CLAUDE } from '../lib/veto-claude';
 
@@ -27,7 +31,8 @@ test('1. sanearIA: sólo una cuenta conocida y un modelo que esa cuenta acepta; 
   assert.deepEqual(sanearIA({ cuenta: 'anthropic', modelo: 'sonnet' }), { cuenta: 'anthropic', modelo: 'sonnet' });
   assert.deepEqual(sanearIA({ cuenta: 'anthropic', modelo: 'opus' }), { cuenta: 'anthropic' }, 'su Claude por clave: Haiku o Sonnet');
   assert.deepEqual(sanearIA({ cuenta: 'anthropic', modelo: 'constructor' }), { cuenta: 'anthropic' }, 'ni lo heredado');
-  assert.deepEqual(sanearIA({ cuenta: 'openai', modelo: 'gpt-4o' }), { cuenta: 'openai' }, 'OpenAI, por ahora, sin elegir modelo');
+  assert.deepEqual(sanearIA({ cuenta: 'openai', modelo: 'gpt-5.6-luna' }), { cuenta: 'openai', modelo: 'gpt-5.6-luna' }, 'su ChatGPT con modelo (23/10)');
+  assert.deepEqual(sanearIA({ cuenta: 'openai', modelo: 'gpt-4o-mini' }), { cuenta: 'openai' }, 'el chico de antes ya no se ofrece');
   assert.deepEqual(sanearIA('{"cuenta":"anthropic","modelo":"haiku"}'), { cuenta: 'anthropic', modelo: 'haiku' }, 'el JSON de un multipart');
   assert.deepEqual(sanearIA({ cuenta: 'pc', modelo: 'haiku', otra: 'cosa' }), { cuenta: 'pc', modelo: 'haiku' }, 'sólo lo del contrato');
 });
@@ -35,7 +40,15 @@ test('1. sanearIA: sólo una cuenta conocida y un modelo que esa cuenta acepta; 
 test('2. los modelos por cuenta son los de sus configuraciones', () => {
   assert.deepEqual([...MODELOS_DE_LA_CUENTA.pc], [...MODELOS_PC]);
   assert.deepEqual([...MODELOS_SU_CLAUDE].sort(), Object.keys(MODELO_SU_CLAUDE).sort(), 'los de su Claude (IA5): si cambian allá, cambian acá');
-  assert.deepEqual([...MODELOS_DE_LA_CUENTA.openai], []);
+  assert.deepEqual([...MODELOS_DE_LA_CUENTA.openai], [...MODELOS_SU_OPENAI]);
+  // El de por defecto es uno de la lista, y no el chico que corría sin que nadie lo eligiera.
+  assert.ok((MODELOS_SU_OPENAI as readonly string[]).includes(MODELO_SU_OPENAI_DEFAULT));
+  assert.ok(!(MODELOS_SU_OPENAI as readonly string[]).some((m) => /4o|3\.5|4\.1/.test(m)), 'volvió un modelo viejo a la lista');
+  for (const m of MODELOS_SU_OPENAI) {
+    assert.ok(NOMBRE_MODELO_IA[m], `${m} sin nombre para el renglón`);
+    // Todos razonan: la capa barata tiene que mandarles max_completion_tokens (lib/ai-cheap-techo.ts).
+    assert.ok(esRazonadorOpenAI(m), `${m}: la capa barata le mandaría max_tokens y temperature`);
+  }
 });
 
 test('3. lo guardado vale mientras se pueda elegir; el renglón dice con qué va', () => {
@@ -50,6 +63,9 @@ test('3. lo guardado vale mientras se pueda elegir; el renglón dice con qué va
   assert.equal(resumenDeIA({ cuenta: 'pc', modelo: 'opus' }, cuentas), 'Con tu computadora (Oficina) · Opus');
   assert.equal(resumenDeIA({ cuenta: 'anthropic' }, cuentas), 'Con tu Claude');
   assert.equal(resumenDeIA(null, cuentas), null, 'en Automático no se dice nada');
+  const conGpt: CuentaDeIA[] = [{ cuenta: 'openai', nombre: 'Tu ChatGPT', modelos: [...MODELOS_SU_OPENAI], modeloDefault: MODELO_SU_OPENAI_DEFAULT }];
+  assert.equal(resumenDeIA({ cuenta: 'openai', modelo: 'gpt-6.1-sol' }, conGpt), 'Con tu ChatGPT · GPT-6.1 Sol');
+  assert.deepEqual(eleccionVigente({ cuenta: 'openai', modelo: 'gpt-6.1-sol' }, [{ ...conGpt[0], modelos: [] }]), { cuenta: 'openai' }, 'un miembro no elige: corre el de por defecto');
 });
 
 // PROBADO ROMPIÉNDOLO (23/10/2026, base 3/0):
@@ -57,3 +73,4 @@ test('3. lo guardado vale mientras se pueda elegir; el renglón dice con qué va
 //   · pasa cualquier cuenta                            → 2/1 (1)
 //   · los de su Claude se desvían de IA5               → 1/2 (1, 2)
 //   · lo guardado vale aunque la cuenta ya no esté     → 2/1 (3)
+//   · su ChatGPT otra vez sin modelos (`openai: []`)  → 1/2 (1, 2)   [«Tu ChatGPT» con modelo, 23/10/2026]

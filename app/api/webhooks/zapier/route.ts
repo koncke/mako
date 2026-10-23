@@ -36,7 +36,7 @@ export const maxDuration = 30;
 const TOPE_CUERPO = 64 * 1024;
 
 export async function GET() {
-  return Response.json({ ok: true, endpoint: 'zapier webhook (leads de Meta)', usage: 'POST con X-MaKo-Clave' });
+  return Response.json({ ok: true, endpoint: 'webhook de leads de Meta (Make o Zapier)', usage: 'POST con X-MaKo-Clave' });
 }
 
 /** El cuerpo de Zapier o Make: JSON («Payload Type: json»), o un formulario («form»). */

@@ -81,7 +81,7 @@ async function estadoLanding(): Promise<Pick<Integracion, 'estado' | 'detalle'>>
       };
 }
 
-// Leads de Meta por Zapier (23/10/2026): tener la clave guardada no prueba que el Zap ande —vive en la cuenta de un
+// Leads de Meta por Make o Zapier (23/10/2026): tener la clave guardada no prueba que el Zap ande —vive en la cuenta de un
 // tercero y se corta sin avisar si deja de pagarlo—, así que la señal honesta es la misma que la del Pixel: que lleguen
 // leads. Lo que se anotó en cada aviso (`app/api/webhooks/zapier`) se resume en `tarjetaDelPuente`. Nunca lanza: es una
 // tarjeta, no puede tumbar la página.
