@@ -1682,7 +1682,9 @@ export function revisarHeredado(pasos: readonly PasoGrafo[], id: string, envioAu
  * tiene, y si no, lo que el motor hace con él (`revisarHeredado`). Un `revisar` que no es booleano no cuenta: el motor
  * sólo lee `true` y `false` (`saleSolo`, lib/nutricion-grafo-motor.ts).
  */
-export function saleSolaDelPaso(paso: { revisar?: unknown }, pasos: readonly PasoGrafo[], id: string, envioAutoSecuencia: boolean): boolean {
+export function saleSolaDelPaso(paso: { revisar?: unknown; tipo?: unknown }, pasos: readonly PasoGrafo[], id: string, envioAutoSecuencia: boolean): boolean {
+  // Un mensaje de una automatización SALE (23/10/2026, `saleSolo`): sólo lo que escribe la IA puede quedar para aprobar.
+  if (paso.tipo !== 'ia') return true;
   if (paso.revisar === true) return false;
   if (paso.revisar === false) return true;
   return !revisarHeredado(pasos, id, envioAutoSecuencia);

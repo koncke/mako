@@ -1302,24 +1302,11 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
         <Switch checked={!sinVistaPrevia(paso)} onChange={(v) => cambiar({ sin_vista_previa: !v }, true)} label="Vista previa del link" />
       </div>
     )}
-    {/* «SALE SOLA», DE VUELTA Y A LA VISTA (21/10/2026, la prospección del Sprint de Mauricio). Salió de la pantalla el
-        09/10 («¿Qué es "Revisar antes de enviar"?... Quitalo») y el dato `revisar` lo siguió leyendo el motor: una
-        tarjeta nueva, a un lead sin pago, quedaba como BORRADOR en Chats sin que nada lo dijera (los 31 de Leila del
-        20/10; una campaña de 1.000 serían 1.000 borradores). Ahora se elige acá, con lo que pasa en cada caso. El valor
-        sin elegir es el que el MOTOR le da (`saleSolaDelPaso`), y la regla de a quien ya pagó va dicha. */}
-    {noOficial && !recordatorio && paso.canal === 'whatsapp' && (
-      <div data-sale-sola style={{ flex: 'none', marginTop: 10 }}>
-        <Switch checked={saleSolaDelPaso(paso, pasos, id, envioAutoSecuencia)} onChange={(v) => cambiar({ revisar: !v }, true)}
-          label="Sale sola"
-          hint={saleSolaDelPaso(paso, pasos, id, envioAutoSecuencia)
-            ? 'Le llega sin que la apruebes.'
-            : 'Queda en Chats › Borradores para que la apruebes. A quien ya te pagó le sale sola igual.'} />
-      </div>
-    )}
-    {/* La reentrada de la automatización (#846): debajo del WhatsApp, fuera del teléfono, como un ajuste. */}
-    {pieWhatsApp && paso.canal === 'whatsapp' && (
-      <div data-pie-whatsapp style={{ flex: 'none', marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>{pieWhatsApp}</div>
-    )}
+    {/* ⚠️ SIN «SALE SOLA» NI LA REENTRADA (23/10/2026, Martín por el Cerebro: «cambiaste una cantidad de cosas
+        impresionante en las tarjetas de las automatizaciones, cosas innecesarias»). «Sale sola»: un mensaje de una
+        automatización SALE, y el motor ya no lo deja de borrador (`saleSolo`, lib/nutricion-grafo-motor.ts: sin el
+        interruptor no queda nada escondido). La reentrada («Una sola vez» / «Cada vez que vuelve a entrar»): «para eso
+        tenemos CONDITION». La de la automatización sigue la que el motor usa (`reentrada_efectiva`). */}
     </>
   );
 }

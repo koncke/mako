@@ -2467,4 +2467,19 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "23 oct", hora: "04:10", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La tarjeta de WhatsApp sin «Sale sola» ni la reentrada",
+    puntos: [
+      "Un mensaje de una automatización sale solo: se fue el interruptor «Sale sola», y nada queda de borrador escondido.",
+      "Se fue el desplegable «Una sola vez / otra vez»: para eso están las condiciones.",
+    ],
+    archivos: [
+      "lib/nutricion-grafo-motor.ts — un mensaje sale solo",
+      "app/automations/FlujoLienzo.tsx — la tarjeta sin los dos controles",
+    ],
+    revisar: "/automations",
+  },
 ];

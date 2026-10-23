@@ -6109,3 +6109,14 @@ contesta (le sale todo).
 **Lo que quedó SIN hacer.** Un mensaje DENTRO de la rama «Contestó» también se corta (la regla es «ningún mensaje más»): si
 alguien quiere contestarle al lead, va «Si responde». Una fila con hilos en paralelo no salta a la rama (la guarda igual le
 corta los mensajes). «Probar» (lib/simulador-grafo.ts) todavía no imita el corte.
+
+## «Sale sola» y la reentrada se fueron de la tarjeta de WhatsApp (23/10/2026)
+
+**Medido antes de sacarlo.** El primer mensaje de #289 salía solo (`revisar: false`): no fue el P0. Pero el SEGUNDO no
+tenía el interruptor y heredaba `estrategia.envio_automatico` (nace apagado): habría quedado de BORRADOR. Activas con algo
+que quedaba para aprobar: #289 (ws1) y #282 (ws11, dos mensajes). 43 borradores de automatizaciones pendientes ese día.
+
+**La regla.** Sacar el interruptor sin cambiar el motor era volver al borrador escondido del 09/10 (los 31 de Leila). Por
+eso cambió `saleSolo`: un mensaje de una automatización SALE; sólo lo que escribe la IA (`tipo: 'ia'`) sigue con su
+`revisar`. La reentrada («Una sola vez / otra vez que es reunión») no se elige más en pantalla: el motor sigue con la
+`reentrada_efectiva`; lo de volver a escribirle se dice con condiciones.

@@ -33,7 +33,6 @@ import { etapasDeCondicion } from '@/lib/condiciones-catalogos';
 import { usePosicionesLienzo } from './usePosicionesLienzo';
 import { useBorradorSecuencia, ERROR_DESACTUALIZADO } from './useBorradorSecuencia';
 import { Dropdown } from '@/app/components/Dropdown';
-import { REENTRADAS, ROTULO_REENTRADA, type Reentrada } from '@/lib/reentrada';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import type { ListoCrearIA } from './CrearConIA';
 import { ChatMako } from './ChatMako';
@@ -205,8 +204,6 @@ export type FrenoDelFlujo = NonNullable<ReturnType<typeof frenoDelFlujo>>;
  */
 export type FrenoDeProbar = FrenoDelFlujo & { medio?: Medio; linea?: string | null };
 
-/** El ícono de cada opción de la «Reentrada» (del set de la casa). */
-const ICONO_REENTRADA: Readonly<Record<Reentrada, string>> = { una_vez: 'check', otra_reunion: 'calendario', siempre: 'repetir' };
 
 export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, cronAlAbrir = false, pedidoAlAbrir = null, ranuraChat = null, onVolverALista, Configuraciones, configPropia, onMakoTrabajando, onCrearOtra, onListaCambio }: {
   /** El modal de Configuraciones de UNA automatización (lo pasa la tab). Sin él, no hay tuerca. */
@@ -913,9 +910,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    */
   const [lineasWa, setLineasWa] = useState<Array<{ linea: string; rotulo: string; estado: string; esDefault: boolean }>>([]);
   const [lineaSec, setLineaSec] = useState<string | null>(secuencia.instance_name ?? null);
-  // LA «REENTRADA» DEL CRON (14/10/2026, lib/reentrada.ts): la que el motor usa —la guardada, o sin guardar la regla de
-  // antes—, así que lo de fábrica se ve como lo elegido. Se guarda al elegirla, como la línea.
-  const [reentrada, setReentrada] = useState<Reentrada>(secuencia.reentrada_efectiva ?? 'una_vez');
+  // ⚠️ SIN LA «REENTRADA» EN PANTALLA (23/10/2026, Martín por el Cerebro: «Una sola vez / otra vez que es reunión... para
+  // eso tenemos CONDITION»). El motor sigue con la que tiene (`reentrada_efectiva`, lib/reentrada.ts); no se elige acá.
   useEffect(() => {
     let vivo = true;
     void (async () => {
@@ -958,17 +954,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       setErr(null);
       onCambio();
     } catch { setLineaSec(antes); setErr('Sin conexión — prueba de nuevo.'); }
-  };
-
-  const guardarReentrada = async (valor: Reentrada) => {
-    const antes = reentrada;
-    setReentrada(valor);
-    try {
-      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, reentrada: valor }) })).json();
-      if (!r.ok) { setReentrada(antes); setErr(r.error || 'No se pudo cambiar.'); return; }
-      setErr(null);
-      onCambio();
-    } catch { setReentrada(antes); setErr('Sin conexión — prueba de nuevo.'); }
   };
 
   const toggle = async () => {
@@ -1142,32 +1127,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   // con el mismo alto, `ALTO_ACCION`, para que se lean como la misma familia.
   const estiloProbar: CSSProperties = { ...tarjetaChrome, height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 18px', display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 14.5, fontWeight: 700, color: 'var(--ink)', cursor: 'pointer', fontFamily: 'inherit' };
 
-  /**
-   * LA «REENTRADA», EN EL PANEL DE CADA WHATSAPP (17/10/2026, tarjeta #846). Martín en la revisión con Joan (Fathom
-   * 863534246, 20:10): «la parte de reentrada y número no debería configurarse en el cron, debería configurarse en el
-   * WhatsApp». El CRON queda con el disparo. El NÚMERO ya era de cada mensaje (la cabecera, `CabeceraWhatsApp`; el motor
-   * usa `lineaDelPaso(paso) ?? sec.instance_name`, y una respuesta sale por la línea donde escribió el lead): el del CRON
-   * era el de toda la automatización repetido, y se fue. La reentrada SÍ es de toda la automatización, y lo dice: es el
-   * mismo valor en cada WhatsApp. Un flujo sin ningún WhatsApp (sólo email) la sigue teniendo en el CRON, para no
-   * quedarse sin ella.
-   */
-  const hayWhatsApp = pasos.some((p) => esNodoMensaje(p) && p.canal === 'whatsapp');
-  const controlReentrada = (
-    <div data-reentrada style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>Reentrada{hayWhatsApp ? ' · toda la automatización' : ''}</div>
-      {rolAdmin ? (
-        <Dropdown
-          value={reentrada}
-          options={REENTRADAS.map((r) => ({ value: r, label: ROTULO_REENTRADA[r], icono: ICONO_REENTRADA[r] }))}
-          onChange={(v) => void guardarReentrada(v as Reentrada)}
-          ariaLabel="Si un lead puede volver a entrar a esta automatización"
-          width="100%"
-        />
-      ) : (
-        <div style={{ fontSize: 13.5, color: 'var(--ink)' }}>{ROTULO_REENTRADA[reentrada]}</div>
-      )}
-    </div>
-  );
 
   /**
    * ⚠️ EL LIENZO ES LA PANTALLA. No hay barra, ni cabecera, ni pie: el título, el
@@ -1253,7 +1212,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         onTarjetaAbierta={setTarjetaAbierta}
         posiciones={lugares.posiciones} onPosiciones={rolAdmin ? lugares.mover : undefined}
         linea={rolAdmin ? { actual: lineaSec, onElegir: elegirLineaDesdeEditor } : undefined}
-        pieWhatsApp={controlReentrada}
         chrome={(
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
             {/* El ancho es FIJO por lo mismo que en /mensajes: en modo edición el
@@ -1420,8 +1378,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         editorEntrada={(
           /**
            * EL PANEL DEL CRON (sexta tanda: varios CRON, seis botones gigantes, cada uno con su editor).
-           * Vive en EditorDisparadores. Desde el 17/10 (#846) sólo el disparo: el número es de cada WhatsApp y
-           * la reentrada va en su panel (`controlReentrada`); en un flujo sin WhatsApp, abajo de todo (`pie`).
+           * Vive en EditorDisparadores. Desde el 17/10 (#846) sólo el disparo: el número es de cada WhatsApp, y la
+           * reentrada no se elige en pantalla desde el 23/10/2026 (para eso están las condiciones).
            *
            * Lo que mide el PANEL (que no quede aire debajo) es del lienzo (`MUELLE`, lib/lienzo-grafo.ts).
            */
@@ -1429,8 +1387,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             lista={crons.lista} editando={cronAbierto} onEditar={setCronAbierto} onGuardar={crons.guardar}
             productos={productos} etiquetas={etiquetas} disparadores={disparadores} etiquetaEtapa={etiquetaEtapa}
             tz={tz} busy={busy != null} rolAdmin={rolAdmin}
-            // La reentrada va en cada WhatsApp (#846, `controlReentrada`); acá sólo si el flujo no tiene ninguno.
-            pie={hayWhatsApp ? undefined : <div style={{ paddingTop: 10, borderTop: '1px solid var(--border)' }}>{controlReentrada}</div>}
           />
         )}
       />
