@@ -28,6 +28,7 @@ import { FilaOpcion, GrupoOpciones, Unidad, TarjetaOpciones } from './FilasOpcio
 import { HORARIO_SUGERIDO } from '@/lib/horario-envio';
 import { RANGOS_LIMITES } from '@/lib/limites-envio';
 import { RANGOS_GOTEO, PERSONA_SIN_ESPERA, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 
@@ -55,9 +56,8 @@ function useConfig(secuenciaId: number) {
  */
 export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaId: number; onSucio?: (s: boolean) => void }) {
   const { d, error, poner } = useConfig(secuenciaId);
-  if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}</p> : <Spinner />;
+  if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}<ReportarASoporte /></p> : <Spinner />;
   const fuente: FuenteHorario = {
-    // El huso es del NEGOCIO: acá se ve (en el ⓘ), no se cambia (revisión del 20/10/2026).
     zonaSoloLectura: true,
     leer: async () => ({ horario: d.config.horario ?? d.horarioNegocio ?? { ...HORARIO_SUGERIDO, activo: false }, zona: d.zona, puedeEditar: d.puedeEditar }),
     guardar: async (h) => {
@@ -181,7 +181,7 @@ export function AjustesDeLaAutomatizacion({ secuenciaId, onSucioHorario, onSucio
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontFamily: SANS }}>
       <HorarioDeLaAutomatizacion secuenciaId={secuenciaId} onSucio={onSucioHorario} />
       {!auto.listo || !linea.listo
-        ? (error ? <p role="alert" style={{ margin: 0, fontSize: 13.5, color: 'var(--bad)' }}>{error}</p> : <Spinner />)
+        ? (error ? <p role="alert" style={{ margin: 0, fontSize: 13.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></p> : <Spinner />)
         : (
           <>
             <TarjetaOpciones etiqueta="WhatsApp" datos={{ 'data-canal': 'whatsapp', 'data-goteo': secuenciaId }}>
@@ -200,7 +200,7 @@ export function AjustesDeLaAutomatizacion({ secuenciaId, onSucioHorario, onSucio
             </TarjetaOpciones>
             {(aviso || (!linea.off && linea.difiere)) && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                <span role={aviso ? 'alert' : undefined} style={{ fontSize: 13, color: 'var(--bad)' }}>{aviso}</span>
+                <span role={aviso ? 'alert' : undefined} style={{ fontSize: 13, color: 'var(--bad)' }}>{aviso}<ReportarASoporte /></span>
                 {!linea.off && linea.difiere && (
                   <button type="button" data-restaurar="" onClick={linea.restaurar}
                     style={{ border: 'none', background: 'transparent', padding: 0, fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>

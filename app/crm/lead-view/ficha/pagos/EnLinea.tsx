@@ -18,6 +18,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { fechaEnPalabras } from '@/lib/date-utils';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 
@@ -89,7 +90,7 @@ export function EnLinea({ valor, tipo = 'texto', vacio = '—', titulo, prefijo,
         ? <textarea className="mk-textarea" rows={3} {...comun} />
         : <input className="mk-input" type={tipo === 'numero' ? 'number' : tipo === 'fecha' ? 'date' : 'text'} inputMode={tipo === 'numero' ? 'decimal' : undefined} min={tipo === 'numero' ? 0 : undefined} step={tipo === 'numero' ? '0.01' : undefined} {...comun} />}
       {guardando && <span style={{ fontSize: 12, color: 'var(--faint)' }}>Guardando…</span>}
-      {error && <span role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}</span>}
+      {error && <span role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></span>}
     </span>
   );
 }

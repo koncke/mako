@@ -64,7 +64,8 @@ export function modoDeClaveStripe(key: string | null | undefined): 'real' | 'pru
   return null;
 }
 
-async function llamar(
+/** Exportada para lib/pasarela-plan-api.ts (la suscripción de MaKo): el mismo pedido, la misma versión y los mismos errores. */
+export async function llamar(
   key: string,
   metodo: 'GET' | 'POST' | 'DELETE',
   ruta: string,
@@ -461,4 +462,30 @@ export async function cancelarSuscripcionStripe(key: string, subId: string, idem
   const r = await llamar(key, 'DELETE', `/v1/subscriptions/${encodeURIComponent(subId)}`, undefined, idem);
   if (!r.ok) return fallo(r);
   return { ok: true, estado: str(r.body.status) };
+}
+
+/**
+ * LOS PRECIOS ACTIVOS de la cuenta, con su producto (`expand[]=data.product`: sin eso, `product` es un id y no hay
+ * nombre). «Vincular cobro» los ofrece para traer al catálogo (lib/stripe-catalogo.ts). Pagina de a 100 hasta 300:
+ * una cuenta con más devuelve `masDe` en true y la pantalla lo dice (no se corta callado).
+ */
+export async function listarPreciosStripe(key: string): Promise<R<{ precios: Json[]; masDe: boolean }>> {
+  const precios: Json[] = [];
+  let despues: string | null = null;
+  for (let vuelta = 0; vuelta < 3; vuelta++) {
+    const r = await llamar(key, 'GET', '/v1/prices', { active: true, limit: 100, expand: ['data.product'], ...(despues ? { starting_after: despues } : {}) });
+    if (!r.ok) return fallo(r);
+    const datos = Array.isArray(r.body.data) ? (r.body.data as unknown[]).map(obj) : [];
+    precios.push(...datos);
+    despues = str(datos[datos.length - 1]?.id);
+    if (r.body.has_more !== true || !despues) return { ok: true, precios, masDe: false };
+  }
+  return { ok: true, precios, masDe: true };
+}
+
+/** UN precio con su producto: lo que se trae al catálogo se vuelve a leer en Stripe, nunca se toma del navegador. */
+export async function leerPrecioStripe(key: string, id: string): Promise<R<{ precio: Json }>> {
+  const r = await llamar(key, 'GET', `/v1/prices/${encodeURIComponent(id)}`, { expand: ['product'] });
+  if (!r.ok) return fallo(r);
+  return { ok: true, precio: r.body };
 }

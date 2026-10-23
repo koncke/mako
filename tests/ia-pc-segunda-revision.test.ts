@@ -296,10 +296,10 @@ test('el tutorial: el código gastado sin conectar ofrece otro, cuenta con SU re
   assert.match(ui, /listo=\{!!estado\}/, 'hasta saber qué PC ya estaban');
   assert.match(ui, /const anda = o\.habilitada && \(o\.que !== 'pc' \|\| puedeComputadora\);/, '«Mi computadora» espera al estado (IA4)');
   assert.match(ui, /setSinSesion\(nueva\.sinClaude \? 'claude' : 'sesion'\)/);
-  assert.match(ui, /onClick=\{\(\) => setPaso\(2\)\}>Instalar Claude Code \(paso 2\)</);
+  assert.match(ui, /onClick=\{\(\) => setPaso\(2\)\}>\{sistema === 'windows' \? 'Volver a instalar \(paso 2\)' : 'Volver al paso 2'\}</);
   assert.match(ui, /no la app de escritorio/);
   // /perfil/ia ya tiene su título: el componente va sin cabecera.
-  assert.match(leer('app/perfil/ia/page.tsx'), /<TusCuentasIA sinCabecera \/>/);
+  assert.match(leer('app/perfil/ia/page.tsx'), /<TusCuentasIA sinCabecera computadora=\{\(await searchParams\)\.computadora === '1'\} \/>/);
   assert.match(sinComentarios(leer('app/m/cuenta/ia/ia-ui.ts')), /Pick<PcIA, 'enLinea' \| 'ultimoLatido' \| 'cuentas' \| 'sinClaude'>/);
 });
 

@@ -405,7 +405,7 @@ export function LinksDePago({ ctx, titulo, diseno, editando }: PropsBloque) {
     <Tarjeta titulo={titulo}
       derecha={!editando && opciones?.ok && (
         <CobrarConLink lead={{ id: lead.id, nombre: lead.nombre, email: lead.email, telefono: lead.telefono }}
-          pasarelas={opciones.pasarelas} productos={opciones.productos} onCreado={() => refrescarCobros(lead.id)} />
+          pasarelas={opciones.pasarelas} cuentas={opciones.cuentas} productos={opciones.productos} onCreado={() => refrescarCobros(lead.id)} />
       )}>
       {opciones && !opciones.ok && <p style={nada}>{opciones.error}</p>}
       <CobrosDelLead cobros={lista} error={errLeer} esAdmin={!!opciones?.ok && opciones.esAdmin} onCambio={cambio} />

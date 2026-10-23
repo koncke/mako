@@ -1244,6 +1244,11 @@ docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
   `crear_evento_agenda` dejó sin herramienta a «agenda un reel para el jueves a las 10» y a «crea una etiqueta
   llamada Caliente» con el piso nuevo de Ops Center. Se llama por lo que de verdad crea (`crear_pagina_reserva`), y la
   palabra común va en la descripción, donde pesa 1.
+- **Una acción que recibe sólo un id dice en su `resumen` QUÉ toca, y no propone lo que va a fallar** (23/10/2026,
+  docs/hallazgos-crm.md → «Vincular evento y Vincular cobro lentos»). `preparar` lee lo que el id nombra y lo pone en
+  el resumen («Sacar «Mentoría» de Ganado de «Ventas»»), nunca «ese producto»: el «sí» confirma lo que la persona lee.
+  Un id que no existe, o lo que va a chocar con una regla de la base (un producto cobra en un solo CRM), vuelve como
+  `error` desde `preparar`, no después del «sí». Lo que decide si un pago gana un trato lleva `plata: true`.
 
 `/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
@@ -2336,6 +2341,31 @@ antes:** en Windows PowerShell 5.1 la barra de progreso hace que el programa (42
 falla cerrada), no sólo el estado del turno:** «Desconectar» revoca la PC y vence sus turnos en dos pasos, y el segundo
 puede fallar (revisión adversarial del 22/10/2026, docs/hallazgos-ia.md). Y al elegir a qué PC va el turno, «la del último
 turno» cuenta el último TERMINADO, bien o mal: con sólo los buenos, se quedaba pegado a una que falla.
+
+**Y con qué IA corre un chat (el «+» de la caja, 8b) lo decide la RUTA, nunca el navegador:** toda entrada que pase `ia` a
+`turnoApp` lo valida antes con `eleccionDelPedido` (lib/chat-ia.ts), que lo cruza con las cuentas que se le ofrecerían ahora a
+esa persona. El turno no lo vuelve a validar. Y el modelo lo sigue cuidando la puerta 2: con el crédito de MaKo, Haiku siempre.
+
+**Y la sesión de Claude en la PC del cliente se inicia SIN consola (0.4.0):** `iniciarSesionDeClaude` (scripts/ia-pc/mako-pc.mjs),
+con su página local en 127.0.0.1. Nunca `stdio: 'inherit'` ni una ventana de terminal para un paso de la persona, y el
+código de autorización va directo al stdin de `claude`: nunca a MaKo, al registro ni a la consola (tests/ia-pc-login-sin-terminal.test.ts).
+Su página va con `Referrer-Policy: same-origin`, NUNCA `no-referrer`: con ésa el navegador manda su propio formulario con
+`Origin: null` y la página se rechaza a sí misma (la 0.4.0 publicada no servía por eso).
+
+**Y la computadora del cliente NUNCA atiende leads sola (Martín, 22/10/2026, sobre los términos de Anthropic: «No por
+ahora»).** Su Claude en su PC (D6a) es SÓLO para que el dueño trabaje con SU Claude desde la app: el chat de la app, el del
+teléfono, el de MaKo en el CRM y el de la ficha del lead, siempre con la sesión de una persona. Nada que corra solo hacia un
+lead —respuestas automáticas de WhatsApp, AI Steps de Automations, crons, webhooks, secuencias— va a la PC: va por clave de
+API, o por el crédito donde está asignado (lib/credito-negocio.ts). A la PC llega sólo `turnoApp` (lib/mako-turno-app.ts);
+una entrada nueva que lo llame se suma en tests/ia-pc-nunca-a-leads.test.ts con la sesión de su persona, y si corre sola, no.
+
+**Y todo .exe que publicar-binarios sube se firma con `firmar` (scripts/ia-pc/firmar-windows.mjs) DESPUÉS del último cambio
+a sus bytes y antes de subirlo.** «Firmado» es `peFirmado` y `peConMarcaDeTiempo` sobre lo que vuelve, nunca el código de
+salida de CodeSignTool. Las claves de SSL.com van en `%USERPROFILE%\.mako-firma.env`, nunca en el .env.local (OneDrive lo
+sube), en la consola ni en un mensaje de error (tests/ia-pc-firma.test.ts).
+La app de la Mac firmada se arma con `firmarAppMac` (scripts/ia-pc/firmar-mac.mjs): el ejecutable es un Mach-O universal, nunca
+un guion, y nada le pone la firma local. «Firmada» es `problemasParaNotarizar` vacío, mirado ANTES de notarizar. La clave y
+el certificado de Apple van en `%USERPROFILE%\.mako-firma-mac`, nunca en OneDrive (tests/ia-pc-firma-mac.test.ts).
 
 # NINGUNA pantalla se diseña de cero: se COPIA de una app que ya resolvió eso
 
@@ -3568,6 +3598,18 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   condición, el plan sólo si la venta es la de ese pago, y la cuota 0 se busca por número y monto. El trato se RECLAMA en
   el cobro antes de armarse (`trato_estado`): dos avisos a la vez no arman dos. Y lo que se asienta sale de lo que COBRÓ
   el link (`cobros.plan_producto`, congelado al crearlo), nunca del producto de hoy: se puede haber editado en el medio.
+- **Una pasarela puede tener VARIAS cuentas** (22/10/2026, mig 0328, lib/cuentas-integracion.ts): las claves de una llevan un
+  sufijo (`STRIPE_SECRET_KEY__C2`) y cada cobro anota la suya: el sufijo (`cobros.cuenta`; NULL = la principal) y su id EN
+  EL PROVEEDOR (`cobros.cuenta_ref`), que es lo que la identifica: lo que toca un cobro ya creado la busca con
+  `cuentaVivaDelCobro` (lib/cobros.ts), nunca por el sufijo, que cambia si la cuenta se reconecta. Las claves de UNA
+  cuenta se leen con `credStripeDe` / `credMpDe` (lib/cuentas-pago-server.ts) o `credDelCliente(claveDeCuenta(base, cuenta), ws)`,
+  nunca armando el nombre a mano. Lo que toca un cobro ya creado usa SU cuenta, y un aviso sólo aplica cobros de la cuenta
+  que lo mandó. Una protección o lista que pregunte por una clave de pasarela mira el nombre BASE (`baseDeClave`): por el
+  nombre exacto, la segunda cuenta quedaba afuera sin fallar (sin ruteo, al entorno del ws1). Y una cuenta nueva no reusa
+  un sufijo que nombre un cobro o un vínculo (`proximaCuentaDe`). Y una lectura que DECIDE sobre plata (de qué cuenta es
+  un aviso, qué ruteo se suelta) es ESTRICTA: `credWsEstricta` para tirar si no pudo leer; `credDelCliente` sola da null
+  ante un error, y ese null se lee como «de ninguna». [docs/hallazgos-pagos.md](docs/hallazgos-pagos.md),
+  tests/cuentas-pago.test.ts.
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 
@@ -3852,6 +3894,14 @@ MaKo pisó los nombres de 1438 contactos de Mauricio, sin historial para volver 
   caminos que leen ese mapeo tienen que cortar explícitamente, y el corte va con test.
 - Antes de escanear o conectar algo que sincroniza datos (contactos, historial, etiquetas),
   preguntá a qué workspace van a caer.
+
+# Todo aviso de error lleva «Reportar a Soporte»
+
+Martín (22/10/2026): *«en toda la app, SIEMPRE que sale un error, en donde sea, debe aparecer el botón de "Reportar a Soporte"»*.
+Un aviso de error nuevo es un elemento con `role="alert"` y su ÚLTIMO hijo es `<ReportarASoporte />` (app/_ui/ReportarASoporte.tsx;
+en una lista, `<li><ReportarASoporte /></li>`). No se dibuja si el aviso está vacío o su `role` no es «alert», así que va también
+en los avisos que están siempre montados. Donde el error no es un `role="alert"` (un toast con su propia librería), se usa
+`reportarASoporte({ error })`. Lo exige tests/reportar-a-soporte.test.ts; el porqué y las trampas, en docs/hallazgos-ui.md.
 
 # Un mensaje de error dice DE QUIÉN fue y QUÉ HACER, o no sirve
 
@@ -9979,6 +10029,28 @@ pasos de una ACTIVA también es prender: un camino de una PERSONA escribe por `p
 cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
 («La revisión adversarial lo frenó»).
 
+## Un freno del motor que no se dice es un «no funciona» (23/10/2026)
+
+Si algo frena un envío (el horario, la pausa, el envío apagado, la línea, un fallo, «Misma persona», los topes), el lead y
+la tarjeta del paso lo DICEN, con las mismas reglas que el motor: `lib/por-que-no-sale.ts` (puro, en el orden del motor)
+lo usan la ficha y el chip del CRM, el historial al inscribirse y la tarjeta del lienzo. Un corte NUEVO en `procesarEnvios`
+(lib/nutricion.ts) entra también ahí, con su test en tests/automations-por-que-no-sale.test.ts. Y un camino nuevo que
+mueve a un lead de etapa (también un AGREGADO, `lead_funnel`) dispara el evento de etapa: nunca escribe la etapa de un
+CRM en la casa de un lead de otro. El arnés de punta a punta es scripts/arnes-automatizacion-punta-a-punta.mts (ws3).
+Y nada de una tarjeta queda escondido: un control que se saca de la pantalla se saca también del motor (`saleSolo`).
+Y en una automatización que usa «Contestó», la respuesta del lead la corta EN EL ACTO (`alContestar`) y después no le sale
+ningún mensaje más (la guarda de `procesarEnvios`): un «Contestó» que no corta es scripts/arnes-contesto-corta.mts en rojo.
+Detalle: docs/hallazgos-chatbot.md («No salió ni a mí ni a mi esposa»).
+
+## Hacer cumplir un tope del plan: sólo a quien paga por la pasarela, y sólo al crear (23/10/2026)
+
+Un tope de `lib/topes-plan.ts` se aplica SÓLO si MaKo le cobra el plan al negocio por la pasarela
+(`suscripcionDeMakoDe(ws) != null`, lib/cobros.ts), y nunca al ws1: la capa sola no lo dice, porque el ws1 y los acuerdos
+a mano también son `completo`. Frena lo que se va a CREAR, en el único punto donde nace (una línea nueva: `conectar({ nueva:
+true })`), y nunca corta lo que ya existe. Si no se puede leer el plan, deja pasar. El molde es `topeParaLineaNueva`
+(lib/tope-lineas.ts, puro); el cartel es `textoTope(n)` con «Pasar a Pro». Lo hace cumplir tests/tope-lineas.test.ts; el
+porqué, docs/hallazgos-planes-y-cobro.md.
+
 ## Una tabla en grilla aguanta un escritorio chico (21/10/2026)
 
 En una grilla CSS lo que no recorta no empuja la columna: se dibuja encima de la de al lado, sin error. Cada celda lleva
@@ -10035,3 +10107,42 @@ por su nombre. El 22/10/2026 había mails de dueños y colaboradores, nombres y 
   ningún mail en claro. Un dueño nuevo: se suma su huella ahí.
 - Una guarda que necesita los nombres que prohíbe (la de las plantillas, tests/editor-landing-presentaciones.test.ts) es la
   excepción, y lo dice.
+
+# Un filtro de texto peligroso borra el CARÁCTER que lo abre, no la palabra
+
+Sacar `</style` (o `<script`, o `javascript:`) en UNA pasada se evade armándolo con sus pedazos: `<</style/style>` deja un
+`</style>` entero. Lo que va crudo adentro de una etiqueta (el CSS de un `<style>`, un atributo) se limpia sacando el carácter que
+abre lo peligroso (todo `<` en una hoja: no lo necesita) o escapándolo, y se re-escapa al pintarlo. Medido el 23/10/2026: la
+hoja del «Diseño editable» se pintaba cruda en hola-mako.com (docs/hallazgos-editor-landing.md, «el CSS del diseño nunca lleva `<`»).
+
+## Los topes de los planes (lib/topes-plan.ts): dónde va el freno (23/10/2026)
+
+- **El freno va en el alta A MANO, nunca en la función que también llaman los webhooks.** Lo que entra solo (un anuncio,
+  una reserva, un mensaje) no se pierde por un tope: entra, y la pantalla avisa. En el CRM, `createLead` la usan los
+  webhooks: el freno está en `altaDeLead`, la de WhatsApp, importar y MaKo (docs/hallazgos-crm.md, «Los topes del plan»).
+- **Primero `suscripcionDeMakoDe(ws) != null`**: el ws1 y los acuerdos a mano también tienen capa `completo`, y no tienen tope.
+  Si la lectura falla, no hay tope.
+- Al llegar: `textoTope(n)` y «Pasar a Pro», sin borrar ni esconder nada.
+
+## Traer leads de a muchos a una ETAPA: sólo a una que no mande nada (23/10/2026)
+
+Un camino que crea o suma leads en lote (un grupo de WhatsApp, una lista) y los deja en una etapa elegida NO puede dejarlos en
+una etapa que mande sola: la que tiene una automatización activa colgada (`etapa_actual`: la inscribe el movimiento y, si no,
+el barrido de la hora a todo lead abierto parado ahí) o una etiqueta vinculada (al caer la recibe, y la etiqueta dispara lo
+suyo). «Un Lead Entró» cuelga de la etapa de ENTRADA: traer 900 ahí es darles la bienvenida a los 900. Se preguntan con
+`etapasQueDisparan` (lib/grupo-wa-reglas.ts), se ofrecen sólo las demás y el servidor rechaza las otras. Lo mismo con la
+etiqueta que se les pone: una que ya tiene una automatización («Etiqueta puesta») no se usa, porque el barrido de la hora
+inscribe a todo lead que la tenga aunque el lote no dispare. Y si toca números de terceros, por la API de MaKo va SÓLO en la
+app (`canales: ['app']`): por WhatsApp el rol es siempre 'admin'. Lo hace cumplir tests/grupo-wa.test.ts; el porqué,
+docs/hallazgos-crm.md.
+
+Y DESPUÉS TAMPOCO: un lead que nadie decidió contactar (el traído de un grupo) nace con su origen propio y
+`quedaDondeLoPusieron` (app/crm/origen-lead.ts) lo deja fuera de lo que mueve o escribe SOLO: el CRM automático (T2, T6) y
+los barridos que toman leads por edad o por estado sin colgar de una etapa ni de una etiqueta. Un barrido nuevo de esos
+tiene que filtrarlo, y el que lea leads con una lista de columnas tiene que traer `origen_lead`: sin la columna llega
+`undefined` y el filtro no filtra.
+
+Y NACE DONDE VA: un lead que no debe recibir nada nace en su etapa final (`createLead({ pipeline_stage })`), nunca en la de
+entrada y movido después. Entre el alta y el movimiento, el barrido de la hora lo inscribe en lo que cuelga de la entrada
+(«Un Lead Entró»), y si el movimiento falla queda ahí. Tampoco a una etapa terminal (`terminalEstadoFor ≠ abierto`): «Ganado»
+lo vuelve venta y cliente de Customer Success, con el onboarding de la entrega.

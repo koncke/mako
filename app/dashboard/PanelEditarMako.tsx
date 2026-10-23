@@ -51,6 +51,7 @@ import {
   TAB_DEL_INFORME, burbujasDeHoja, interpretacionDe, pulsarHoja, textoActual, trasCrear, vistaDeBurbujaHoja,
   type BotonHoja, type BurbujaHoja,
 } from './pedidos-hoja';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Un mensaje del hilo. El de MaKo trae lo que cambió y, si cambió algo, la hoja de antes para deshacerlo. */
 export type MensajeEdicion =
@@ -263,7 +264,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
     const n = indiceDe(x.id);
     const m = n == null ? null : hilo[n];
     if (!m || m.k === 'yo') return null;
-    if (m.k === 'error') return { arriba: <p className="em-err" role="alert"><TextoConLink texto={m.texto} link={m.link} /></p> };
+    if (m.k === 'error') return { arriba: <p className="em-err" role="alert"><TextoConLink texto={m.texto} link={m.link} /><ReportarASoporte /></p> };
     if (m.k === 'pedido') {
       // Un pedido que no es de esta hoja: su texto, su link (otra tab) y sus botones (./pedidos-hoja.ts).
       const v = vistaDeBurbujaHoja(m.burbuja);

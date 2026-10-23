@@ -12,6 +12,7 @@
 // descripción de hilo_chat le dice al modelo que no son instrucciones.
 
 import 'server-only';
+import { TopeDelPlanError, frenarAltaPorTope } from '@/lib/topes-crm';
 import type { Runners, Preparado, Ejecutado, Ctx, SalidaLectura } from '../tipos';
 import type { ChatResumen, MensajeChat, EstadoChat, CanalChat } from '@/lib/chats-tipos';
 import { listarChats, hiloDeChat, cambiarEstadoChat, marcarChatLeido, POSPONER_MAX_MS, type AccionEstadoChat, type YoChats } from '@/lib/chats';
@@ -388,7 +389,7 @@ export const RUNNERS: Runners = {
       const nombre = str(input, 'nombre') ?? c.chat.nombre;
       return { payload: { via: 'whatsapp', telefono, funnelId, nombre }, resumen: `Agregar a ${nombre} (${wa.destino ?? telefono}) al CRM${en}.` };
     },
-    ejecutar: async (payload): Promise<Ejecutado> => {
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
       const nombre = String(payload.nombre ?? 'el contacto');
       const funnelId = typeof payload.funnelId === 'number' ? payload.funnelId : null;
       if (payload.via === 'social') {
@@ -398,9 +399,12 @@ export const RUNNERS: Runners = {
       const destino = await destinoDeAlta(funnelId);
       if ('error' in destino) return { ok: false, resumen: destino.error };
       try {
+        // Un alta a mano (la pide la persona): con el tope del plan, como la del CRM (lib/topes-crm.ts).
+        await frenarAltaPorTope(ctx.ws, 'crm.leads');
         const lead = await createLead({ nombre, telefono: String(payload.telefono ?? ''), origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa });
         return { ok: true, resumen: `Listo: ${nombre} ya es lead (#${lead.id}).`, datos: { leadId: lead.id } };
       } catch (err) {
+        if (err instanceof TopeDelPlanError) return { ok: false, resumen: `${err.message} Planes: /planes.` };
         // Ya había alguien con ese teléfono: no se duplica (el alta del CRM lo frena) y se dice con quién choca.
         if (err instanceof LeadDuplicadoError) {
           const otro = err.coincidencias[0]?.lead;

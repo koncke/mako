@@ -64,7 +64,9 @@ test('2. la tarjeta dice «crédito» (no «Es la clave de MaKo»); la caja y /i
   assert.deepEqual(r.tarjeta, ['anthropic:credito'], 'con el crédito prendido, la tarjeta muestra las copias de MaKo');
   assert.deepEqual(r.tarjetaWs13, ['anthropic:copia', 'openai:copia'], 'sin crédito, como siempre');
   const ui = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
-  assert.match(ui, /\{c\.es === 'credito' && <p className="tci-nota">Usa el crédito de Claude que te dio MaKo\.<\/p>\}/);
+  // 23/10/2026 (Martín): «Usa el crédito de Claude que te dio MaKo» no va en el panel del cliente; el crédito se ve en SuperAdmin.
+  assert.doesNotMatch(ui, /crédito de Claude que te dio MaKo|Tu clave de/, 'el panel del cliente muestra el crédito o la clave');
+  assert.match(sinComentarios(leer('app/admin/operaciones/UsoCredito.tsx')), /function FilaAsignado\(/, 'el crédito asignado ya no se ve en SuperAdmin');
   assert.match(sinComentarios(leer('app/api/mako/chat/route.ts')), /if \(await claveDelCreditoAsignado\(persona\.ws\)\) return true;/, 'la caja sigue ofreciendo «Conectar tu IA»');
   assert.match(sinComentarios(leer('lib/integraciones.ts')), /if \(key === 'anthropic' && \(await \(await import\('\.\/credito-negocio'\)\)\.claveDelCreditoAsignado\(ws\)\)\) return \{ fila: true, propia: true \};/);
 });

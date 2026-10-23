@@ -25,6 +25,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 export const PERMITIDOS = new Map([
   ['tests/agente-plugin.test.ts', 'texto que el plugin redacta: la ruta es contenido, no se abre'],
   ['tests/_crm-tablero-medir.mjs', 'el arnés local que mide el tablero del CRM busca chrome.exe en sus rutas de Windows con existsSync: si no está (Linux), sale; no se resuelve contra el cwd'],
+  ['tests/ia-pc-firma-mac.test.ts', 'las carpetas de la firma de la Mac como las escribe la PC que firma: se comparan como texto (la de OneDrive se rechaza por regex) o van de argumento a un rcodesign falso; nunca se abren'],
+  ['tests/_ia-pc-firma-mac-hijo.mjs', 'rutas de ejemplo que esLaAppDeMac clasifica como texto: no se abren'],
+  ['tests/ia-pc-firma.test.ts', 'la carpeta de CodeSignTool como la escribe la PC que firma: es un dato de configuración y una herramienta falsa que nunca se abre (buscarCodeSignTool se prueba con tmpdir)'],
   ['tests/curso-adjuntos.test.ts', 'el nombre que manda el navegador (C:\\docs\\…): se limpia, no se abre'],
   ['tests/curso-grabar-notas.test.ts', 'el nombre que manda el navegador (C:\\fakepath\\…): se limpia, no se abre'],
   ['tests/vista-adjuntos.test.ts', 'la extensión de un nombre de archivo: se parsea, no se abre'],

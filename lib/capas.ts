@@ -299,7 +299,10 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // CRM ni bandeja de leads: el WhatsApp propio de MaKo es la tab de admin «WhatsApp de MaKo» (/agencia), y
     // los chats de un cliente se miran entrando a SU workspace. tests/chats-registro.test.ts fija la paridad
     // chats ↔ whatsapp en TODAS las capas: si un día `whatsapp` entra acá, `chats` entra con ella.
-    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst', 'graphics', 'video-editor', 'calendario'],
+    // ⚠️ `landing-writer` (Web Generator) ENTRA ACÁ EL 23/10/2026: la landing de hola-mako.com y las de cada funnel de
+    // MaKo son documentos de Web Generator de ESTE workspace (lib/editor-landing/landing-mako.ts), y Martín pidió
+    // editarlas desde ahí («Que tenga la landing principal de MaKo en el editable de web generator»).
+    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst', 'graphics', 'video-editor', 'calendario', 'landing-writer'],
     userNavKeys: null,
     // Sin wizard: el super-admin no hace onboarding de cliente.
     onboarding: [],

@@ -54,14 +54,91 @@ bash que baja `mako-pc`, lo empareja con un código, pregunta «¿Es tu negocio?
 
 ## Lo que cuesta plata (lo decide Martín)
 
-- **Firmar el instalador de Windows.** Sin firma, Windows muestra «Windows protegió su PC» y hay que tocar «Más información
-  → Ejecutar de todas formas» (anda, pero asusta). Las opciones, con precios a verificar antes de comprar:
-  - Microsoft **Trusted Signing** (Artifact Signing): unos US$10 por mes; pide validar la identidad (empresa o persona) y no
-    está disponible en todos los países.
-  - Un certificado **OV** de una autoridad (Sectigo, Certum, DigiCert…): unos cientos de dólares por año; la reputación ante
-    SmartScreen se gana con las descargas.
+- **Firmar el instalador de Windows: DECIDIDO el 23/10, SSL.com IV a nombre de Martín.** No hay empresa registrada, y
+  Azure Artifact Signing sólo acepta empresas de algunos países. Cuesta unos US$309 el primer año: el certificado US$129 por
+  año y la firma en la nube (eSigner, plan 1) US$180 por año, con 240 firmas (cada versión gasta 2). Sin firma, Windows
+  muestra «Windows protegió su PC» (anda con «Más información → Ejecutar de todas formas», pero asusta). Lo que hace Martín
+  está en «Firmar: lo que hace Martín», abajo.
 - **Firmar y notarizar la app de la Mac.** Sin eso, macOS no la deja abrir (hay que ir a Ajustes › Privacidad y seguridad ›
-  «Abrir igual»). Hace falta la cuenta de **Apple Developer** (US$99 por año).
+  «Abrir igual»). **DECIDIDO el 23/10: Apple Developer individual a nombre de Martín (US$99 por año)**, la misma cuenta de
+  las tiendas (los pasos del alta, en la nota tiendas-pasos-de-martin-2310.md). Hasta que tenga el certificado, la Mac sale
+  sin firmar, con esa línea en la pantalla. Lo que hace Martín está en «Firmar la Mac: lo que hace Martín», abajo.
+
+## Firmar: lo que hace Martín (SSL.com IV + eSigner)
+
+Lo compra y lo valida Martín: nosotros no cargamos tarjetas, documentos ni claves. Los precios se confirman en el carrito
+(consultados el 23/10/2026).
+
+1. **Comprar.** En ssl.com › Code Signing, el certificado **«IV Code Signing»** (Individual Validation, a su nombre), por
+   1 año. Sumar **eSigner**, la firma en la nube, en el plan **Tier 1 anual** (240 firmas). El token USB no sirve: no
+   firma desde un script. Los primeros 30 días de eSigner son gratis.
+2. **Validar la identidad.** En el pedido (ssl.com › Dashboard › Orders), subir:
+   - un documento con foto vigente (DNI o pasaporte), **frente y dorso**;
+   - una **selfie con el documento en la mano**, con la cara y los datos legibles.
+   Si SSL.com pide algo más (una llamada, otro dato), lo contesta Martín.
+3. **Activar eSigner**, cuando el pedido diga «eSigner Ready»:
+   - crear un **PIN de 4 dígitos**;
+   - elegir el código **QR**, con una app de autenticación (no SMS: el SMS no sirve para firmar desde un script).
+   El QR aparece **una sola vez**. Hay que escanearlo con la app Y copiar el **«secret code»** que sale al lado (es el
+   secreto TOTP). El PIN y el secret code van a su gestor de contraseñas.
+4. **Bajar CodeSignTool** (gratis): el .zip para Windows de ssl.com (trae su propio Java), descomprimido en una carpeta, por
+   ejemplo `C:\herramientas\CodeSignTool`.
+5. **Dejar las claves en esta PC.** Martín crea el archivo `C:\Users\marti\.mako-firma.env`. Va fuera de OneDrive y NUNCA
+   en el `.env.local` del clon: el Escritorio está en OneDrive, que lo sube a la nube, y `publicar-binarios` corta si las
+   encuentra ahí. El archivo:
+   ```
+   CODESIGNTOOL=C:\herramientas\CodeSignTool
+   SSL_COM_USUARIO=<el usuario de ssl.com>
+   SSL_COM_CLAVE=<la contraseña de ssl.com>
+   SSL_COM_TOTP=<el secret code del paso 3>
+   ```
+   Si la cuenta tiene más de un certificado, también `SSL_COM_CREDENCIAL=<el id>`. El id sale de
+   `CodeSignTool get_credential_ids`.
+6. **Avisar al Cerebro.** De ahí en más, del lado nuestro:
+   - `publicar-binarios --probar-firma` en seco firma sin subir nada (gasta 2 firmas);
+   - con el OK de Martín, `--aplicar` firma el programa y el instalador antes de subirlos;
+   - si la firma falla, no sube nada.
+   Para comprobarlo: clic derecho en `MaKo-Setup-<versión>.exe` › Propiedades › Firmas digitales tiene que decir «Martín
+   Koncke», con marca de tiempo.
+
+El aviso de SmartScreen no se va enseguida: Windows arma la reputación con semanas de instalaciones limpias.
+
+## Firmar la Mac: lo que hace Martín (Apple Developer, Developer ID y notarización)
+
+Firmada y notarizada, macOS abre MaKo.app con un «¿Abrirla?» común, sin pasar por Ajustes. Se firma DESDE ESTA PC con
+rcodesign, sin una Mac: lo único que hace falta de Apple es el certificado y una clave para notarizar. Las dos se sacan con
+la cuenta de Martín, y nosotros no cargamos tarjetas, documentos ni claves.
+
+1. **El alta en Apple Developer**, como persona: los pasos están en la nota tiendas-pasos-de-martin-2310.md (Chats de las
+   tabs). Sólo el titular de la cuenta (él) puede pedir un certificado Developer ID.
+2. **Bajar rcodesign** (gratis, código abierto): en github.com/indygreg/apple-platform-rs/releases, la versión
+   **apple-codesign 0.29.0**, el archivo `apple-codesign-0.29.0-x86_64-pc-windows-msvc.zip` (8,5 MB). Descomprimirlo, por
+   ejemplo en `C:\herramientas\rcodesign`, y sumar al archivo de la firma (`C:\Users\marti\.mako-firma.env`, el mismo de
+   Windows) la línea `RCODESIGN=C:\herramientas\rcodesign\rcodesign.exe`.
+3. **Avisar al Cerebro.** Corremos `node scripts/ia-pc/firmar-mac.mjs pedido`. Arma la clave (queda en esta PC, en
+   `C:\Users\marti\.mako-firma-mac`, fuera de OneDrive) y el pedido del certificado, `developer-id.csr`, en esa carpeta.
+4. **El certificado.** En developer.apple.com/account/resources/certificates/add:
+   - elegir «Developer ID Application» › Continue;
+   - Profile Type «G2 Sub-CA (Xcode 11.4.1 or later)»;
+   - subir `developer-id.csr` › Continue › Download.
+   El archivo que baja, `developerID_application.cer`, va a `C:\Users\marti\.mako-firma-mac`.
+5. **La clave para notarizar.** En appstoreconnect.apple.com › Usuarios y acceso › Integraciones › App Store Connect API:
+   - la primera vez, «Solicitar acceso» (Apple lo aprueba);
+   - en Claves del equipo, «+»: nombre «MaKo notarización», acceso **Developer** › Generar;
+   - «Descargar clave»: el archivo `AuthKey_XXXX.p8` se baja **una sola vez**. Anotar el **Key ID** y el **Issuer ID**
+     (arriba de la lista).
+   Es una clave aparte de la de las tiendas (rol App Manager): ésta queda sólo en esta PC, y si hay que revocarla, la otra
+   sigue. El .p8 va a `C:\Users\marti\.mako-firma-mac`, y una copia a su gestor de contraseñas.
+6. **Avisar al Cerebro** con el Key ID y el Issuer ID (no son secretos; el .p8 sí, nunca en un chat). De ahí en más, del
+   lado nuestro:
+   - `node scripts/ia-pc/firmar-mac.mjs clave-api <Issuer ID> <Key ID> <ruta del .p8>` arma `api-key.json`;
+   - `publicar-binarios --probar-firma` en seco firma y notariza las dos (Windows y Mac) sin subir nada;
+   - con el OK de Martín, `--aplicar`;
+   - si algo falla, no sube nada.
+   Para comprobarlo, en una Mac (la de Mauricio): bajar MaKo para Mac, abrirla y ver que no pida «Abrir igualmente».
+
+Con la app firmada, la pantalla todavía dice la línea de «Abrir igualmente» (`AVISO_GATEKEEPER`). Se saca en la versión que
+salga firmada.
 
 ## Por partes
 
@@ -74,7 +151,9 @@ bash que baja `mako-pc`, lo empareja con un código, pregunta «¿Es tu negocio?
 3. **La pantalla nueva** de «Conectar mi computadora» (abrir, o descargar) y la página que abre el enlace al terminar.
 4. **Claude Code sin terminal** (según lo que se mida).
 5. **El `.pkg` de la Mac.**
-6. **Firmar** (con el OK de Martín, si se compra).
+6. **Firmar.** Windows: el lado nuestro está HECHO (rama firma-2310, scripts/ia-pc/firmar-windows.mjs,
+   tests/ia-pc-firma.test.ts). Espera el certificado de Martín (los pasos, arriba). La Mac: el lado nuestro también está
+   HECHO (scripts/ia-pc/firmar-mac.mjs, tests/ia-pc-firma-mac.test.ts). Espera la cuenta de Apple Developer de Martín.
 7. Subir la versión (`VERSION` del programa y `VERSION_PC` juntos, en el commit del instalador: hasta entonces nadie corre
    `publicar-binarios` desde main, que pisaría la 0.3.2; `publicar-binarios --aplicar` con el OK de Martín) y la prueba de punta a punta en una
    computadora de verdad con el ws3.

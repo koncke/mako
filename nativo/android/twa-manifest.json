@@ -1,0 +1,66 @@
+{
+  "packageId": "com.holamako.app",
+  "host": "hola-mako.com",
+  "name": "MaKo",
+  "launcherName": "MaKo",
+  "display": "standalone",
+  "themeColor": "#F4F6F9",
+  "themeColorDark": "#22262E",
+  "navigationColor": "#F4F6F9",
+  "navigationColorDark": "#22262E",
+  "navigationDividerColor": "#EAECF1",
+  "navigationDividerColorDark": "#383D47",
+  "backgroundColor": "#F4F6F9",
+  "enableNotifications": true,
+  "startUrl": "/inicio",
+  "iconUrl": "https://hola-mako.com/icon-512.png",
+  "maskableIconUrl": "https://hola-mako.com/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./upload.keystore",
+    "alias": "mako-upload"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "General",
+      "shortName": "General",
+      "url": "https://hola-mako.com/general",
+      "chosenIconUrl": "https://hola-mako.com/icon-192.png"
+    },
+    {
+      "name": "Avisos",
+      "shortName": "Avisos",
+      "url": "https://hola-mako.com/mako/pendientes",
+      "chosenIconUrl": "https://hola-mako.com/icon-192.png"
+    },
+    {
+      "name": "CRM",
+      "shortName": "CRM",
+      "url": "https://hola-mako.com/crm",
+      "chosenIconUrl": "https://hola-mako.com/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://hola-mako.com/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://hola-mako.com/",
+  "minSdkVersion": 21,
+  "orientation": "portrait",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": [],
+  "appVersion": "1.0.0"
+}

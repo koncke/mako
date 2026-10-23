@@ -20,6 +20,7 @@ import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -263,7 +264,7 @@ export function WhatsAppAdvisor({
               )}
               <HiloMako items={items} quien={MAKO} ahora={Date.now()} escribiendo={pensando ? { segs: 0 } : null}
                 tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
-              {chatError && <p className="co-nota co-nota--mal" role="alert">{chatError}</p>}
+              {chatError && <p className="co-nota co-nota--mal" role="alert">{chatError}<ReportarASoporte /></p>}
             </div>
           </div>
           <div style={{ flex: 'none', paddingTop: 8 }}>

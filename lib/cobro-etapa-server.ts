@@ -43,6 +43,21 @@ const vinculoDeFila = (f: Record<string, unknown>): VinculoCobro => ({
 // Lecturas
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Las cuentas del vínculo de un producto («Vincular cobro»; un producto cobra en UN CRM). `crearCobro` cobra por una de
+ * ellas cuando nadie elige la cuenta: si no, el pago de un producto vinculado sólo a la segunda cuenta de Stripe saldría por
+ * la principal y nunca encontraría su vínculo. [] sin vínculo o sin la 0326; otro error tira (no se cobra a ciegas).
+ */
+export async function cuentasDelVinculoDelProducto(productoId: number): Promise<string[]> {
+  const { data, error } = await (await getTenantDb()).from('cobro_etapa_vinculos').select('cuentas').eq('producto_id', productoId).maybeSingle();
+  if (error) {
+    if (falta0326(error.message)) return [];
+    throw new Error(`No pude leer el vínculo del producto ${productoId}: ${error.message}`);
+  }
+  const cs = (data as { cuentas?: unknown } | null)?.cuentas;
+  return Array.isArray(cs) ? cs.filter((x): x is string => typeof x === 'string') : [];
+}
+
 /** Los vínculos de una etapa de un CRM. Tira si no puede leer (el modal dice el error, no «no hay»). */
 export async function vinculosDeEtapa(funnelId: number, etapa: string): Promise<VinculoCobro[]> {
   const { data, error } = await (await getTenantDb()).from('cobro_etapa_vinculos').select(COLS_VINCULO).eq('funnel_id', funnelId).eq('etapa', etapa).order('id');
@@ -50,11 +65,19 @@ export async function vinculosDeEtapa(funnelId: number, etapa: string): Promise<
   return ((data ?? []) as Record<string, unknown>[]).map(vinculoDeFila);
 }
 
-/** Un vínculo por id (de este negocio: `getTenantDb`). null = no existe. */
-async function vinculoPorId(id: number): Promise<VinculoCobro | null> {
+/** Un vínculo por id (de este negocio: `getTenantDb`). null = no existe. También lo lee MaKo (crm.run.ts) para decir qué confirma. */
+export async function vinculoPorId(id: number): Promise<VinculoCobro | null> {
   const { data, error } = await (await getTenantDb()).from('cobro_etapa_vinculos').select(COLS_VINCULO).eq('id', id).maybeSingle();
   if (error) throw new Error(falta0326(error.message) ? FALTA_0326 : `No pude leer el vínculo: ${error.message}`);
   return data ? vinculoDeFila(data as Record<string, unknown>) : null;
+}
+
+/** Todos los vínculos del negocio (pocos: un producto cobra en un solo CRM). MaKo los lee para no proponer lo que va a
+ *  chocar con el índice único (lib/api-mako/areas/crm.run.ts). Tira si no puede leer. */
+export async function vinculosDelNegocio(): Promise<VinculoCobro[]> {
+  const { data, error } = await (await getTenantDb()).from('cobro_etapa_vinculos').select(COLS_VINCULO).order('id');
+  if (error) throw new Error(falta0326(error.message) ? FALTA_0326 : `No pude leer los cobros vinculados: ${error.message}`);
+  return ((data ?? []) as Record<string, unknown>[]).map(vinculoDeFila);
 }
 
 /** Los productos ACTIVOS del catálogo, con sus cuotas. Sin la 0326, sin cuotas (un pago cada uno). */
@@ -96,7 +119,7 @@ export async function cobroDelProducto(id: number): Promise<{ primerPagoUsd: num
 }
 
 /** La etapa de Ganado de un CRM de este negocio; null si el CRM no existe o no tiene una. */
-async function ganadoDelCrm(funnelId: number): Promise<{ etapa: string; nombre: string } | null> {
+export async function ganadoDelCrm(funnelId: number): Promise<{ etapa: string; nombre: string } | null> {
   const f = (await listarFunnels()).find((x) => x.id === funnelId);
   if (!f) return null;
   const etapa = etapaDeGanado((await etapasDeProducto(funnelId)) as Parameters<typeof etapaDeGanado>[0]);

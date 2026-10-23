@@ -96,7 +96,8 @@ test('pegar un token y el botón guardan por el MISMO camino', () => {
   const RUTA = sinComentarios(leer('app/api/integraciones/credencial/route.ts'));
   const ini = RUTA.indexOf("body.action === 'descubrir'");
   const bloque = RUTA.slice(ini, RUTA.indexOf("body.action === 'elegir'", ini));
-  assert.ok(ini > 0 && bloque.length < 2500, `el recorte mide ${bloque.length}: ¿se movió el bloque?`);
+  // 2500 → 3000 (23/10/2026): «descubrir-pago», adentro del recorte, suma el tope de cuentas del plan antes de guardar (lib/tope-cuentas.ts).
+  assert.ok(ini > 0 && bloque.length < 3000, `el recorte mide ${bloque.length}: ¿se movió el bloque?`);
   assert.match(bloque, /guardarConexionMeta\(ctx\.ws,/);
   assert.ok(!bloque.includes('guardarCredencial('), 'una segunda copia de lo que se guarda se queda vieja');
 });

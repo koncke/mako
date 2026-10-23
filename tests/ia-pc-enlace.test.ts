@@ -70,6 +70,18 @@ test('2. la ventana pregunta a qué negocio y como quién; con el «no», se sue
   assert.match(pc.preguntaDeConexion({ negocio: 'A', antes: 'A', conectada: true }), /^¿Conectar esta computadora a «A»\?[\s\S]*Hoy ya está conectada a «A»: esa conexión se reemplaza\.$/);
 });
 
+test('3b. conectada sin la sesión de Claude: se ofrece iniciarla sin terminal; sin Claude Code, se dice (0.4.0)', () => {
+  const r = correr();
+  assert.equal(r.sinSesion.salida, 0);
+  assert.equal(r.sinSesion.arrancado, 1);
+  assert.match(r.sinSesion.ventanas.at(-1)?.texto ?? '', /^¡Listo! Esta computadora quedó conectada a «Pizzería Ana»\.\n\nFalta iniciar sesión en tu Claude para que conteste\. ¿Te abro el navegador para iniciarla\?$/);
+  assert.equal(r.sinSesion.ventanas.at(-1)?.botones, 'si-no');
+  assert.equal(r.sinSesion.iniciadas, 1, 'con el «sí» no arrancó la página para iniciar la sesión');
+  assert.equal(r.si.iniciadas, 0, 'con la sesión iniciada, igual la ofreció');
+  assert.equal(r.sinClaude.ventanas.at(-1)?.texto, 'Esta computadora quedó conectada a «Pizzería Ana». Esta computadora no tiene Claude Code. Vuelve a abrir el instalador de MaKo: lo instala.');
+  assert.equal(r.sinClaude.iniciadas, 0);
+});
+
 test('2b. dos enlaces a la vez: ni el «Sí» ni el «No» de una ventana tocan el pendiente de la otra', () => {
   const r = correr();
   for (const caso of ['dosSi', 'dosNo']) {
@@ -113,9 +125,9 @@ test('4. la ventana es del sistema (sin consola), y sin poder mostrarla es «no�
   assert.match(v, /'\{"No", "Sí, conectar"\} default button 1 cancel button 1'/);
   assert.match(v, /\n  \}\n  return false;\n\}\n/, 'sin poder mostrar la ventana, tiene que ser «no»');
   assert.match(v, /if \(botones === 'si-no' && process\.env\.MAKO_PC_SI === '1'\) return true;/, 'MAKO_PC_SI sólo para la prueba de punta a punta');
-  assert.match(src, /else if \(\/\^mako:\/i\.test\(cmd\)\) conectarDesdeEnlace\(cmd\)\.then\(salir, fallar\);/);
+  assert.match(src, /else if \(\/\^mako:\/i\.test\(cmd\)\) \(accionDelEnlace\(cmd\) === 'iniciar-sesion' \? iniciarSesionDesdeEnlace\(\) : conectarDesdeEnlace\(cmd\)\)\.then\(salir, fallar\);/);
   // Del enlace no sale el servidor: emparejar va siempre con el suyo.
-  assert.match(src, /await emparejar\(\{ codigo, servidor: SERVIDOR_DEFAULT, nombre: hostname\(\) \}\)/);
+  assert.match(src, /await emparejar\(\{ codigo, servidor: SERVIDOR_DEFAULT, nombre: nombreDeLaComputadora\(\) \}\)/);
 });
 
 test('5. varias computadoras: el latido manda el sistema, y la desconectada lo dice en una ventana (sólo si fue ella)', async () => {

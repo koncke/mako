@@ -677,7 +677,7 @@ export const CONDICIONES: readonly DefCondicion[] = [
     // debería ir en el CRON, debería ser una CONDITION». Se pone delante del mensaje que no tiene que salir si contestó
     // («¿Viste mi mensaje?»); el motor la vuelve a pasar antes de mandar (`condicionDeArriba`). Es de la INSCRIPCIÓN, no
     // del lead: `contestoEnEsta`, que pone quien evalúa. La fuente es la base (`lead`): no lee nada aparte.
-    id: 'contesto', seccion: 'Mensajes', ambito: 'ambos', rotulo: ['Contestó desde que entró', 'No contestó desde que entró'], negable: true, valor: NINGUNO, fuentes: ['lead'],
+    id: 'contesto', seccion: 'Mensajes', ambito: 'ambos', rotulo: ['Contestó', 'No contestó'], negable: true, valor: NINGUNO, fuentes: ['lead'],
     evaluar: (_f, h) => tri(h.contestoEnEsta),
   },
   {

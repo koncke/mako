@@ -13,6 +13,8 @@
 //   C1 la próxima sin filtrar las que ya empezaron                                            → 2 / 1
 //   C2 al confirmar, sin volver a mirar que siga siendo la próxima                           → 2 / 1
 //   C3 sin reunión por delante como un error (sin `yaEstaba`)                                  → 2 / 1
+// Desde el 23/10/2026 corre dentro de un negocio (`runWithWorkspace`): con varias cuentas se buscan las de ese negocio.
+// C1 otra vez, ahí adentro                                                                     → 2 / 1
 //
 // Correr: node --import tsx --test tests/calendly-cancelar.test.ts
 // =============================================================================
@@ -49,8 +51,11 @@ globalThis.fetch = async (u, init) => {
   return json({});
 };
 const { proximaReunionCalendly, cancelarReunionCalendly } = await import(${url('lib/calendly-cancelar.ts')});
-const prox = await proximaReunionCalendly('lead@x.com', ahora);
-await cancelarReunionCalendly(prox.uri, 'Ya compró');
+const { runWithWorkspace } = await import(${url('lib/workspace.ts')});
+// Dentro de un negocio, como corre siempre (un request o un flujo): con varias cuentas (fase B de Cobros, 23/10/2026) se
+// buscan las de más de ESE negocio, y fuera de uno no hay a cuál preguntarle.
+const prox = await runWithWorkspace(3, () => proximaReunionCalendly('lead@x.com', ahora));
+await runWithWorkspace(3, () => cancelarReunionCalendly(prox.uri, 'Ya compró'));
 console.log(JSON.stringify({ prox, pedidos }));
 `;
 

@@ -25,6 +25,7 @@ import {
 import type { AdjuntoSubido, EntradaPost } from './api';
 import { CampoMenciones, mencionesVigentes, type Mencion } from './CampoMenciones';
 import { AvatarNivel, Ico, useComunidad } from './piezas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** El tipo de un archivo: el que dice el navegador si está en la lista; si no, por su extensión. */
 function mimeDeArchivo(f: File): string | null {
@@ -220,7 +221,7 @@ export function Compositor({ editando = null, categoriaInicial = null, onCerrar,
           </div>
         )}
         {editando && (editando.encuesta || editando.adjunto) && <p className="cmu-meta">La encuesta y el archivo no se editan.</p>}
-        {error && <p className="cmu-error" role="alert">{error}</p>}
+        {error && <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p>}
       </div>
     </Modal>
   );

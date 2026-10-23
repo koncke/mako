@@ -75,7 +75,8 @@ const chat = readFileSync(join(__dirname, '..', 'app/automations/ChatMako.tsx'),
 
 test('la ruta: la intención decide explicar o editar, la charla va en los dos, y en Editar contestar es un error', () => {
   assert.match(ruta, /const intencion = intencionDe\(body\.intencion\);/);
-  assert.match(ruta, /const extras = extrasDelUser\(intencion, historial\);\n\s+if \(vaAExplicar\(intencion, respuestas\.length > 0, esConsulta\(pedido\), esPreguntaDirecta\(pedido\)\)\) \{/);
+  // (23/10/2026, AU4: y lo adjuntado, leído, como un bloque más.)
+  assert.match(ruta, /const extras = \[\.\.\.extrasDelUser\(intencion, historial\), \.\.\.\(adjuntos\.length \? \[bloqueDeAdjuntos\(adjuntos\)\] : \[\]\)\];\n\s+if \(vaAExplicar\(intencion, respuestas\.length > 0, esConsulta\(pedido\), esPreguntaDirecta\(pedido\)\)\) \{/);
   assert.match(ruta, /const user = \[userDeExplicar\(\{[^\n]+\}\), \.\.\.extras\]\.join\('\\n\\n'\);/);
   assert.match(ruta, /const user = \[userDeEditar\(ctx, \{ perfil, voz, pedido: pedidoEditar \}, base\), \.\.\.extras\]\.join\('\\n\\n'\);/);
   // (22/10/2026: la revisión vive en `revisarEdicion`, lib/flujo-ia-revision-editar.ts.)

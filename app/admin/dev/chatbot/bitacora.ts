@@ -2465,4 +2465,56 @@ FEEDBACK PROBAR:
     ],
     pedido: "«Todo lo de Automations con prioridad»",
   },
+  {
+    fecha: "23 oct", hora: "03:00", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "P0 #289: si un mensaje no sale, el lead y la tarjeta dicen por qué; y los agregados entran en el acto",
+    puntos: [
+      "Medido: Martín y su esposa SÍ entraron (en 8 s). No salió porque era fuera del horario de oficina (9 a 21, hora de Tijuana), y nada lo decía.",
+      "Ahora lo dicen el chip y la ficha del lead, su historial («Entró a … No salió: fuera del horario… Sale mañana 9:00.») y la tarjeta del lienzo («2 esperando · Abre mañana 9:00»). También un envío que falló.",
+      "Mover a los agregados de un CRM (como los 300 del Sprint), de a uno o en lote, los inscribe en el acto. El lote ya no les cambia la etapa de su otro CRM.",
+      "Probado de punta a punta en el ws de prueba, sin mandarle nada a nadie.",
+    ],
+    archivos: [
+      "lib/por-que-no-sale.ts — por qué no sale, con las reglas del motor",
+      "lib/lead-funnel.ts — el agregado entra por evento",
+      "app/crm/actions.ts — el lote mueve la fila del agregado",
+      "scripts/arnes-automatizacion-punta-a-punta.mts — el arnés del ws3",
+    ],
+    revisar: "/automations",
+  },
+  {
+    fecha: "23 oct", hora: "04:00", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "«Contestó» corta de verdad: si el lead contesta, se avisa en el acto y no le sale nada más",
+    puntos: [
+      "Si el lead contesta en cualquier momento, corre la rama «Contestó» (el aviso al equipo) en ese momento.",
+      "Desde ahí no le sale ningún mensaje más de esa automatización.",
+      "La condición se llama «Contestó» / «No contestó».",
+      "Probado en el ws de prueba: contesta antes del primer mensaje, durante cada espera, y uno que no contesta.",
+    ],
+    archivos: [
+      "lib/nutricion.ts — el corte al contestar",
+      "lib/nutricion-grafo-motor.ts — a dónde va quien contestó",
+      "scripts/arnes-contesto-corta.mts — el arnés del ws3",
+    ],
+    revisar: "/automations",
+  },
+  {
+    fecha: "23 oct", hora: "04:10", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La tarjeta de WhatsApp sin «Sale sola» ni la reentrada",
+    puntos: [
+      "Un mensaje de una automatización sale solo: se fue el interruptor «Sale sola», y nada queda de borrador escondido.",
+      "Se fue el desplegable «Una sola vez / otra vez»: para eso están las condiciones.",
+    ],
+    archivos: [
+      "lib/nutricion-grafo-motor.ts — un mensaje sale solo",
+      "app/automations/FlujoLienzo.tsx — la tarjeta sin los dos controles",
+    ],
+    revisar: "/automations",
+  },
 ];

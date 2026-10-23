@@ -7,6 +7,7 @@ import { ImpersonationBanner } from './_components/ImpersonationBanner';
 import { AlertaVozMaKo } from './_components/AlertaVozMaKo';
 import { MakoConfirmGate } from './_components/MakoConfirmGate';
 import { AvisoPixelViejo } from './_components/AvisoPixelViejo';
+import { AvisoMoraPlan } from './_components/AvisoMoraPlan';
 import { EsquinaAvisos } from './_components/EsquinaAvisos';
 import { FueraDeLoPublico, HideOnPublicLanding } from './_components/PublicRouteGate';
 import { CentinelaArranque } from './_components/CentinelaArranque';
@@ -260,6 +261,8 @@ export default async function RootLayout({
                   pisarse. Ver app/_components/EsquinaAvisos.tsx. */}
               <EsquinaAvisos>
                 <AvisoPixelViejo />
+                {/* La renovación del plan de MaKo que no entró: cuánto, cuándo se pausa, y a pagar (23/10/2026). */}
+                {sesion && <AvisoMoraPlan />}
                 <MakoConfirmGate />
               </EsquinaAvisos>
               {/* Las secciones de las tabs unificadas (Video, Image, Copywriting): una barra, acá, para

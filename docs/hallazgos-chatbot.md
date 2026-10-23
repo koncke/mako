@@ -6167,3 +6167,129 @@ estaba. **El diagnóstico obvio («el modelo no cumple la regla 3») era el equi
 rojos). **Sin hacer:** al CREAR (`deIA`) el código todavía no arma el seguimiento que falta (sólo le pone «No contestó» al que
 haya); con dos citas faltantes no se sabe cuál es el seguimiento y queda el rojo; el arnés no se volvió a correr contra
 producción con este arreglo.
+
+## El chat de MaKo de Automations con el hilo y la caja únicos: las piezas traen CSS, el lienzo lo dibujan los tests (23/10/2026, AU4)
+
+**Pedido (Martín, por el Cerebro):** la estrella de MaKo como criatura, aire bajo la caja, el «+» para adjuntar, y el chat en
+CajaChat + HiloMako. **Trampa:** las piezas únicas importan su CSS y Node no lo carga; ChatMako.tsx lo importan
+SecuenciaPerfil y la galería, que ~90 archivos de test dibujan bajo tsx. Importarlas directo rompía todos. **Regla:** la vista
+(ChatMakoVista.tsx) entra con `next/dynamic` (el molde del agente del Web Generator) y ChatMako arma lo que le pasa
+(`hiloUnico`, exportada: los tests miran lo de cada globo sin dibujar las piezas; el test que sí las dibuja registra el hook
+que vacía los `.css`, como tests/ops-center-caja-angosta.test.ts). **Trampa 2:** el hilo del Ops Center calcula su margen
+lateral con el ANCHO DE LA VENTANA (`clamp(16px, 4vw, 56px)`): en la sidebar del lienzo (~380 px) dejaba ~270 al globo; la
+vista lo fija para la columna angosta. **El «+»:** la cascada de Automations lee texto, así que cada archivo se lee al
+adjuntarlo con la ruta que ya existía (`/api/chat-agent/secuencias/archivo`, `archivoATexto`: PDF, docx, imagen por visión con
+las keys del negocio) y viaja aparte del pedido (lib/chat-adjuntos-automatizacion.ts): el control de lo pedido sigue mirando
+sólo lo escrito. **Vive en:** app/automations/ChatMako.tsx · ChatMakoVista.tsx · app/api/chat-agent/secuencias/ia/route.ts ·
+test: tests/chat-mako-caja-unica.test.ts. **Sin hacer:** un archivo que es CONTENIDO del flujo («mandales este PDF») se lee
+como instrucciones en el chat (la galería ya lo sube a la biblioteca: `usoDelArchivo`); la «Pídeselo a MaKo» de la galería
+(CajaPedido) sigue con su caja.
+
+## Dejar armado un flujo en un negocio SIN línea conectada (23/10/2026)
+
+Las automatizaciones de venta de MaKo en el ws9 (#568 «Venta MaKo · apertura», #569 «Venta MaKo · conversación
+abierta»), pausadas, con la línea del ws9 sin QR:
+- **Publicar desde el lienzo pide la línea** (`medioSinConectar` en la ruta). `setSecuenciaPasos` no la pide y no toca
+  `activa`: es la vía para dejar un flujo armado y pausado en un negocio que todavía no conectó WhatsApp. Activar sí
+  vuelve a pasar por `validarActivacion`.
+- **Las piezas de la galería no se exportan** (`whatsapp()`, `condicion()`, `esperar()` en
+  lib/plantillas-automatizaciones.ts): un script copia su forma exacta (`RELLENO` + campos) y valida con
+  `validarGrafo` + `frenoDelFlujo` + `problemasDeForma` antes de escribir. Las dos pasaron sin nada.
+- **Lo que frena es la PAUSA, no la aprobación por mensaje.** Nacieron con `revisar: true` (para aprobar) y el mismo
+  día se sacó: Martín, 23/10, «si estoy haciendo una AUTOMATIZACIÓN es OBVIO que debe llegar sola». Quedan pausadas,
+  con cada WhatsApp que sale solo (`saleSolaDelPaso`), «Misma persona» apagado en cada una (las 20 h del negocio
+  retrasaban un seguimiento corto) y goteo de la apertura en 5 min / 40 por día.
+- **El orden importa al activar:** «Traer de un grupo de WhatsApp» no ofrece una etapa de la que cuelga una
+  automatización ACTIVA (`etapasQueDisparan`). Con #568 activa, TIBIO deja de ofrecerse: primero se traen los grupos,
+  después se activa.
+
+**Sin hacer:** activarlas es de Martín, después de vincular su WhatsApp al ws9 y de traer los grupos.
+
+## «No salió ni a mí ni a mi esposa»: SÍ se inscribieron; el motor cortó por el horario y no lo dijo en ningún lado (23/10/2026, P0 de #289)
+
+**Síntoma.** Martín probó en vivo la #289 de Mauricio (ws1) con su lead y el de su esposa: los movió a «Prospección activa»
+y no les llegó nada. «No funcionó».
+
+**El diagnóstico obvio era el equivocado.** «No se enrolaron: entran por el barrido de la hora» (lo que este documento
+anotaba de los agregados). Medido en producción: se inscribieron **por evento en 8 s** (#291 y #292, `paso_actual` 0,
+`proximo_envio_at` = ya). La vía rápida corrió y `procesarEnvios` devolvió `saltado: 'fuera-de-horario'`: la #289 usa el
+horario del negocio, 9 a 21 en **America/Tijuana**, y lo probaron a las 21:47 de allá (01:47 en Argentina). Descartado con
+dato: la línea conectada, el envío prendido, los topes en 0, «Misma persona» apagada, «Nunca le escribiste» pasa, los
+teléfonos bien.
+
+**La causa de verdad: el silencio.** Un corte por horario no deja NADA: ni un `nutricion_envios`, ni un aviso, ni una
+línea en el lead. La ficha decía «Lo próximo sale 22 oct, 21:47» (una hora pasada, en la hora del navegador). Cualquier
+freno que no escribe es un «no funciona». ⚠️ Y una trampa al medir: `nutricion_inscripciones` NO tiene `created_at` (es
+`inscripto_at`); un `.order('created_at')` devuelve `data: null` sin tirar, y el primer conteo dio «0 inscripciones».
+
+**La regla que queda.** Si algo frena un envío, el lead y la tarjeta lo DICEN, con las mismas reglas que el motor
+(`lib/por-que-no-sale.ts`, puro; lo del negocio en `lib/por-que-no-sale-db.ts`): el chip y la ficha del CRM, una línea en
+el historial al inscribirse («Entró a «X». No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale mañana
+9:00.», `anotarLaEntrada`), y la tarjeta del lienzo («2 esperando · Abre mañana 9:00», `/api/flujos/en-cola`). Lo
+permanente va ANTES que el horario (el envío apagado, sin línea): decir «Sale 9:00» cuando igual no va a salir es mentir.
+Un **fallo no avanza el paso**: el motor lo reprograma, la fila deja de estar vencida y sin mirarlo se volvía a callar
+(lo encontró el arnés): el fallo se dice también con su reintento.
+
+**El arnés de punta a punta** (`scripts/arnes-automatizacion-punta-a-punta.mts`, ws3): mueve un agregado y un lead de casa
+con las funciones del tablero y compara lo que la pantalla DICE con lo que el motor HACE (horario cerrado, fallo de
+línea, simulado, envío apagado). El ws3 no tiene número vinculado y los teléfonos no existen: no sale nada. «Activar»
+exige un WhatsApp conectado, así que el arnés activa con la misma escritura sin esa guarda.
+
+**Lo que quedó SIN hacer.**
+- Agregar EN LOTE a un CRM (`agregarLoteAProducto`, lib/lead-funnel.ts) no inscribe por evento: 300 de una vez serían 300
+  vías rápidas. Lo levanta el barrido de la hora. Hoy ninguna automatización del Sprint cuelga de «Lead entrante».
+- Una fila de `lead_funnel` creada Y movida dentro de los 10 min del alta del lead cuenta como «parte del alta» y no entra
+  ni por evento ni por barrido (`filaNacidaConElLead`, lib/nutricion-ambito.ts): crear un lead de prueba y moverlo al
+  minuto en un CRM agregado no lo inscribe. El arnés usa un lead con alta vieja, como los 300.
+- La inscripción MANUAL (`inscribirEnSecuencia`) no anota la entrada en el historial: sólo el evento.
+
+## «¿Contestó corta de verdad?»: NO cortaba, y la rama «Contestó» no corría nunca (23/10/2026, P0 de #289)
+
+**Síntoma (medido en el ws3, scripts/arnes-contesto-corta.mts, la forma de #289 con textos neutros).** «M1 → Contestó?
+(sí → aviso) / no → esperar 1 día → M2». El lead contesta durante la espera: le salía IGUAL M2, y lo de «Contestó» no
+salía nunca. Martín, en la llamada (min 49): «¿Contestó corta de verdad?».
+
+**Por qué.** La condición corre segundos después de M1, cuando nadie pudo contestar, y M2 cuelga de la ESPERA, no de la
+condición. Y desde el 14/10 contestar no corta nada por su cuenta: sólo la condición visible.
+
+**El diagnóstico obvio llevaba a un arreglo peligroso.** El primero fue «volver a mirar la condición de arriba cruzando las
+esperas» (y de paso se descubrió que esa segunda mirada era código muerto: `necesitaHechos` sólo miraba hacia ADELANTE y
+una fila parada en un mensaje nunca cargaba los hechos). La revisión adversarial le encontró 7 riesgos: el aviso dos veces
+con hilos en paralelo, condiciones que cambian por la espera misma («Llegó hace menos de N h»), las 13 plantillas, «Ir a».
+Se descartó entero.
+
+**La regla que quedó (por el Cerebro).** En una automatización que USA «Contestó» (`usaContesto`), la respuesta del lead lo
+saca de ella EN EL ACTO: `pausarPorRespuesta` → `alContestar` lleva la fila a la rama «Contestó» (`destinoAlContestar`:
+hacia arriba desde donde está, y si no, hacia adelante), que corre ya por la vía rápida; sin esa rama, la cierra. Y la
+guarda de `procesarEnvios`: a quien contestó no le sale ningún MENSAJE más de esa automatización (las acciones sí). No toca
+las que no usan «Contestó», las que tienen «Si responde», las filas con hilos ni el carril. «Contestó desde que entró» pasó
+a «Contestó» / «No contestó». El arnés: contesta antes de M1, durante la espera de 1 día, durante la de 2 días, y uno que no
+contesta (le sale todo).
+
+**Lo que cambió la revisión adversarial (las trampas).** (1) Cerrar con `estado: 'completada'` directo se salteaba
+`estadoAlEscribir`: el desenlace la daba por FALLIDA (`no_responde`, la etapa de fallo y su automatización: más mensajes a
+quien SÍ contestó). Sin rama «Contestó» la fila queda en 'respondio' sin próximo envío. (2) «No contestó → M2 / si no →
+aviso»: el aviso es el «si no», y se perdía. (3) Lo dibujado DENTRO de la rama «Contestó» sale (`ramaDeQuienContesto`). (4)
+Quien le escribió al negocio antes de que le saliera algo de esa automatización no se corta: le sale su primer mensaje y
+después «Contestó» lo ve (`yaLeSalioAlgo`).
+
+**Lo que quedó SIN hacer.** Una fila con hilos en paralelo no salta a la rama (la guarda igual le corta los mensajes). Una
+fila que junta «Contestó» con otra cosa («Contestó y sigue en la etapa») no salta: lo decide la condición. «Probar»
+(lib/simulador-grafo.ts) todavía no imita el corte. Un DM de Instagram también cuenta como respuesta para los flujos de
+WhatsApp que usan «Contestó». Un «N antes de la reunión» que va en el MISMO camino se corta con él.
+
+## «Sale sola» y la reentrada se fueron de la tarjeta de WhatsApp (23/10/2026)
+
+**Medido antes de sacarlo.** El primer mensaje de #289 salía solo (`revisar: false`): no fue el P0. Pero el SEGUNDO no
+tenía el interruptor y heredaba `estrategia.envio_automatico` (nace apagado): habría quedado de BORRADOR. Activas con algo
+que quedaba para aprobar: #289 (ws1) y #282 (ws11, dos mensajes). 43 borradores de automatizaciones pendientes ese día.
+
+**La regla.** Sacar el interruptor sin cambiar el motor era volver al borrador escondido del 09/10 (los 31 de Leila). Por
+eso cambió `saleSolo`: un mensaje de una automatización SALE; sólo lo que escribe la IA (`tipo: 'ia'`) sigue con su
+`revisar`. La reentrada («Una sola vez / otra vez que es reunión») no se elige más en pantalla: el motor sigue con la
+`reentrada_efectiva`; lo de volver a escribirle se dice con condiciones.
+
+**Lo retenido no se saltea (medido antes del deploy).** #282 del ws11 (activa) tenía 31 borradores esperando aprobación
+desde el 20/10 y 29 inscripciones paradas en su SEGUNDO WhatsApp, esperando por eso. Con `saleSolo` a secas, el segundo
+mensaje habría salido de golpe a quien no recibió el primero. Regla: si el lead tiene un borrador pendiente, lo que sigue
+espera (como hasta hoy); el borrador sale cuando alguien lo aprueba, o se descarta. Lo nuevo sale solo.

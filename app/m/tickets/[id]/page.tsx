@@ -3,7 +3,7 @@
 // =============================================================================
 // En la URL, /tickets?t=<id> (el link del aviso abre ése). Referencia: el detalle de un ticket del Messenger de Intercom
 // en el celular — el estado arriba, la conversación en burbujas (lo tuyo a la derecha) y la caja de responder pegada
-// abajo, como un chat. Es el `DetalleCliente` de la computadora (app/tickets/TicketsCliente.tsx) en su propia pantalla.
+// abajo, como un chat. Desde el 23/10/2026, la conversación del chat de Soporte (app/tickets/soporte/) en su propia pantalla.
 //
 // ⚠️ Sólo SUYO: `miTicket` filtra por el workspace y el email de la sesión, igual que escritorio; uno ajeno o que no
 // existe se ve como «No encuentro ese ticket», sin decir cuál de las dos.
@@ -16,7 +16,7 @@ import { getWorkspaceActual } from '@/lib/workspace';
 import { miTicket } from '@/lib/tickets-db';
 import { paraElCliente } from '@/lib/tickets-reglas';
 import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
-import { TicketM } from './TicketM';
+import { ChatTicketM } from '../SoporteM';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +39,8 @@ export default async function TicketMovil({ params }: { params: Promise<{ id: st
   return (
     <PantallaM>
       <CabeceraM titulo={`Ticket #${t.id}`} trabajo />
-      <TicketM t={t} />
+      {/* La conversación de ESE ticket con el equipo, como un chat (23/10/2026, ../SoporteM.tsx). */}
+      <ChatTicketM t={t} />
     </PantallaM>
   );
 }

@@ -103,7 +103,7 @@ test('el dibujo copia AskUserQuestion: el tema, «1 de 2», las opciones numerad
   assert.match(html, /co-preg__num" aria-hidden="true">1<[\s\S]*?Sí<span class="co-preg__rec"> \(Recomendada\)<\/span>[\s\S]*?co-preg__detalle">Se publica hoy</);
   assert.match(html, /co-preg__num" aria-hidden="true">2<[\s\S]*?>No</);
   assert.match(html, /co-preg__num" aria-hidden="true">3<[\s\S]*?placeholder="Escribe otra cosa"/, 'el último renglón es el libre');
-  assert.match(html, /Elige con 1 a 3/);
+  assert.doesNotMatch(html, /Elige con|para moverte/, 'sin la ayuda de las teclas (Martín, 22/10/2026)');
   // Una sola: sin «1 de 1».
   assert.doesNotMatch(renderToStaticMarkup(createElement(BloqueDePreguntas, { chat: 'local_infra', ticketera: [b], responderTicketera: async () => ({ error: null, ok: true }) })), /de 1</);
 });

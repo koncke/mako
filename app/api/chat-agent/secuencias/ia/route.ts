@@ -50,6 +50,7 @@ import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspa
 import { getPromptText } from '@/lib/prompt-render';
 import { valorDisparo } from '@/lib/flujo-conversacion';
 import { ordenarAvisos } from '@/lib/flujo-ia-cliente';
+import { sanearAdjuntos, bloqueDeAdjuntos } from '@/lib/chat-adjuntos-automatizacion';
 import { esColumnaInexistente } from '@/lib/nutricion-grafo-motor';
 import {
   EDITAR_IA_SYSTEM_TEMPLATE, ordenDeRevelado, conEtiquetasReales, refsSinResolver, disparadorReal,
@@ -85,7 +86,7 @@ const TOPE_PEDIDO = 2000;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-type Body = { pedido?: unknown; secuenciaId?: unknown; modo?: unknown; pasos?: unknown; respuestas?: unknown; historial?: unknown; intencion?: unknown };
+type Body = { pedido?: unknown; secuenciaId?: unknown; modo?: unknown; pasos?: unknown; respuestas?: unknown; historial?: unknown; intencion?: unknown; adjuntos?: unknown };
 
 /**
  * EL GUARD DE LAS DOS (POST y GET): el workspace del pedido y que sea su ADMINISTRADOR. El chat de una automatización
@@ -140,6 +141,10 @@ export async function POST(req: NextRequest) {
   // «Discutir» o «Editar» (22/10/2026, lib/flujo-ia-intencion.ts). Sin elegir (la API, un cliente viejo): lo de antes.
   const intencion = intencionDe(body.intencion);
   const historial = sanearChat({ v: 1, mensajes: Array.isArray(body.historial) ? body.historial : [] }).mensajes;
+  // LO ADJUNTADO CON EL «+» (23/10/2026, AU4), ya leído a texto (`/adjunto`): al modelo como un bloque aparte del pedido,
+  // así el control de lo pedido sigue mirando sólo lo que escribió (lib/chat-adjuntos-automatizacion.ts).
+  const adjuntos = sanearAdjuntos(body.adjuntos);
+  const conAdjuntos = (t: string) => (adjuntos.length ? `${t}\n\n${bloqueDeAdjuntos(adjuntos)}` : t);
   if (!pedido) return Response.json({ ok: false, error: 'Escribe qué quieres que haga.' }, { status: 400 });
   if (secuenciaId != null && (!Number.isInteger(secuenciaId) || secuenciaId <= 0)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
   if (!modo) return Response.json({ ok: false, error: 'modo inválido' }, { status: 400 });
@@ -234,12 +239,14 @@ export async function POST(req: NextRequest) {
       };
       try {
         // EL TURNO DE LA PERSONA, AL EMPEZAR (con la fila: editar, o crear sobre una vacía).
-        await anotar([turnoDelUsuario(pedido, respuestas, historial, 'app')]);
+        const yo = turnoDelUsuario(pedido, respuestas, historial, 'app');
+        // Lo adjuntado queda en el mensaje (sus nombres): al recargar, el hilo lo muestra.
+        await anotar([yo && adjuntos.length ? { ...yo, adjuntos: adjuntos.map((a) => a.nombre) } : yo]);
 
         if (modo === 'crear') {
           // UNA función para las dos puertas (lib/flujo-ia-crear.ts): sus fases son el stream. Cancelado mientras el
           // modelo escribía (`req.signal`): no escribió nada y no hay a quién contestarle.
-          const r = await crearFlujoConIA({ ws, pedido, secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req.signal, alFase: send, respuestas, historial, via: 'app' });
+          const r = await crearFlujoConIA({ ws, pedido: conAdjuntos(pedido), secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req.signal, alFase: send, respuestas, historial, via: 'app' });
           if (!r.ok && 'pregunta' in r) { await preguntar(r.pregunta); return; }
           if (!r.ok) {
             if (!r.cancelado) await fallar(r.error, r.link);
@@ -290,7 +297,7 @@ export async function POST(req: NextRequest) {
         // salía «No cambió nada»). Sin inventarla ni poner otra a escondidas: el CRON no se toca (lib/flujo-ia-revision-editar.ts).
         const sinEtapa = respuestas.length === 0 ? etapaQueNoExiste(pedido, ctx) : null;
         if (sinEtapa) { await contestar(textoEtapaQueNoExiste(sinEtapa)); return; }
-        const extras = extrasDelUser(intencion, historial);
+        const extras = [...extrasDelUser(intencion, historial), ...(adjuntos.length ? [bloqueDeAdjuntos(adjuntos)] : [])];
         if (vaAExplicar(intencion, respuestas.length > 0, esConsulta(pedido), esPreguntaDirecta(pedido))) {
           const system = await getPromptText('chatbot.explicar-ia.system', EXPLICAR_IA_SYSTEM_TEMPLATE);
           const cron = ctx.disparadores.find((x) => x.value === disparadorActual)?.label ?? null;

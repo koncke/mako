@@ -32,6 +32,7 @@ import { opcionesDePregunta, temaDePregunta } from '@/lib/centro-preguntas';
 import { AvisoClave } from '@/app/_chat/AvisoClave';
 import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from '@/lib/claves-en-el-chat';
 import { conLinks } from './bloque-texto';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export function CuerpoTicketera({ d, responder, onGuardada, onEscribe }: {
   d: Decision;
@@ -127,9 +128,8 @@ export function CuerpoTicketera({ d, responder, onGuardada, onEscribe }: {
           {hayClave(otra) && <AvisoClave />}
         </li>
       </ol>
-      <p className="co-preg__pie">
-        {error ? <span className="co-preg__error" role="alert">{error}</span> : <span className="co-preg__ayuda">{`Elige con 1 a ${n + 1} · ↑↓ para moverte`}</span>}
-      </p>
+      {/* Sin la ayuda de las teclas debajo (Martín, 22/10/2026: el bloque, sin «Elige con 1 a 4»): sólo el error. */}
+      {error && <p className="co-preg__pie"><span className="co-preg__error" role="alert">{error}<ReportarASoporte /></span></p>}
     </div>
   );
 }

@@ -48,6 +48,16 @@ const chipBase: CSSProperties = {
 };
 const MAX_FALLOS = 5; // tras N fallos seguidos del polling, cortar y avisar
 
+/** El cartel del tope del plan (el Cerebro, 23/10/2026): `textoTope(n)` y «Pasar a Pro». Corto, y no en rojo: no es un error. */
+function CartelTope({ texto, pasarAPro }: { texto: string; pasarAPro: string }) {
+  return (
+    <div role="status" style={{ marginTop: '12px', padding: '10px 12px', borderRadius: '9px', border: '1px solid var(--warn)', background: 'var(--warn-bg)', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontFamily: "'Geist', sans-serif", fontSize: '13px', color: 'var(--ink)' }}>
+      <span style={{ flex: '1 1 200px' }}>{texto}</span>
+      <a href={pasarAPro} style={{ padding: '7px 13px', borderRadius: '9px', background: 'var(--ink)', color: 'var(--surface)', fontWeight: 600, textDecoration: 'none' }}>Pasar a Pro</a>
+    </div>
+  );
+}
+
 export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbierto, inline = false, panelVisible = true, linea = null, nueva = false, onLineaCreada, onLineasCambiaron }: {
   /**
    * La línea de la que habla este panel (`evolution_instancias.instance_name`); `null` = la de
@@ -134,6 +144,8 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
   const [qr, setQr] = useState<Qr | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // El tope del plan al pedir una línea NUEVA (lib/tope-lineas.ts): no es un error, es el cartel con «Pasar a Pro».
+  const [tope, setTope] = useState<{ texto: string; pasarAPro: string } | null>(null);
   const [caido, setCaido] = useState(false); // Evolution no responde tras varios intentos
   const [wh, setWh] = useState<WhEstado | null>(null); // salud del espejo de mensajes
   const [reparando, setReparando] = useState(false);
@@ -342,12 +354,13 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
   }
 
   async function abrir() {
-    setOpen(true); setBusy(true); setErr(null); setQr(null); setCaido(false);
+    setOpen(true); setBusy(true); setErr(null); setTope(null); setQr(null); setCaido(false);
     try {
       // La primera vez de una línea NUEVA se pide «nueva-linea»; las siguientes (el «↻ Nuevo
       // QR») ya hablan de la que volvió. Pedir «nueva-linea» de nuevo crearía una tercera.
       const primeraDeNueva = nueva && !lineaRef.current;
-      const { body } = await apiPost<{ ok: boolean; error?: string; estado: Estado; qr: Qr; linea?: string }>('/api/whatsapp/evolution', primeraDeNueva ? { action: 'nueva-linea' } : conLinea({ action: 'conectar' }));
+      const { body } = await apiPost<{ ok: boolean; error?: string; estado: Estado; qr: Qr; linea?: string; tope?: number; pasarAPro?: string }>('/api/whatsapp/evolution', primeraDeNueva ? { action: 'nueva-linea' } : conLinea({ action: 'conectar' }));
+      if (!body.ok && body.tope != null && body.pasarAPro) { setTope({ texto: body.error ?? '', pasarAPro: body.pasarAPro }); return; }
       if (!body.ok) throw new Error(body.error || 'No se pudo iniciar la conexión');
       if (body.linea) lineaRef.current = body.linea;
       setEstado(body.estado); setQr(body.qr);
@@ -473,6 +486,7 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
           )}
           {!configurado && <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--warn)' }}>El WhatsApp no oficial no está configurado en el servidor.</div>}
           {err && <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--bad)' }}>{err}</div>}
+          {tope && <CartelTope {...tope} />}
         </div>
       </div>
     );
@@ -594,6 +608,7 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
             )}
 
             {err && <div style={{ marginTop: '14px', padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: '13px' }}>{err}</div>}
+            {tope && <CartelTope {...tope} />}
           </div>
         </div>
       )}

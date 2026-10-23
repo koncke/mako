@@ -11,7 +11,12 @@
 import { useState } from 'react';
 import { ConfirmDialog } from '../../_components/ChatItemMenu';
 import { CuerpoGrupo, FilaAjustes, GrupoAjustes } from '../../_ui/Ajustes';
-import { darmeDeBajaAction } from './actions';
+import { aceptarRetencionAction, darmeDeBajaAction, pasarAProAction } from './actions';
+import type { OfertaRetencion, OpcionRetencion } from '@/lib/retencion-plan';
+
+const SANS = "'Geist', sans-serif";
+const BTN_PRIMARIO = { padding: '10px 16px', borderRadius: 10, border: 0, background: 'var(--accent)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' } as const;
+const BTN_SECUNDARIO = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--accent)', background: 'var(--surface)', color: 'var(--accent)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' } as const;
 
 export type SuscripcionVisible = {
   proveedor: 'stripe' | 'mercadopago';
@@ -21,10 +26,34 @@ export type SuscripcionVisible = {
   baja: string | null;
 } | null;
 
-export function PlanPanel({ plan, suscripcion, emailMako }: { plan: string; suscripcion: SuscripcionVisible; emailMako: string }) {
+export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, subir }: {
+  plan: string; suscripcion: SuscripcionVisible; emailMako: string; oferta?: OfertaRetencion; retencion?: string | null;
+  /** «Pasar a Pro» (23/10/2026): a quien paga MaKo Esencial por la pasarela. El monto de Pro, en su moneda; null = no se ofrece. */
+  subir?: { nombre: string; monto: string } | null;
+}) {
   const [corriendo, setCorriendo] = useState(false);
+  const [confirmarSubida, setConfirmarSubida] = useState(false);
   const [preguntar, setPreguntar] = useState(false);
+  // ANTES DE LA BAJA, LA OFERTA (23/10/2026, Martín: «debería habilitarte un descuento como lo tienen todas las
+  // aplicaciones»): una vez por negocio, la mitad por 2 meses. Quien la rechaza sigue a la confirmación de siempre.
+  const [ofrecer, setOfrecer] = useState(false);
+  const [ofertaViva, setOfertaViva] = useState(oferta ?? null);
+
+  const aceptarOferta = async (opcion: OpcionRetencion) => {
+    setOfrecer(false); setCorriendo(true); setAviso(null);
+    const r = await aceptarRetencionAction(opcion).catch(() => ({ ok: false, resumen: 'No pudimos aplicarlo.' }));
+    setAviso({ ok: r.ok, texto: r.resumen });
+    if (r.ok) setOfertaViva(null);
+    setCorriendo(false);
+  };
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  const pasarAPro = async () => {
+    setConfirmarSubida(false); setCorriendo(true); setAviso(null);
+    const r = await pasarAProAction().catch(() => ({ ok: false, resumen: 'No pudimos cambiar tu plan. Intenta de nuevo.' }));
+    setAviso({ ok: r.ok, texto: r.resumen });
+    setCorriendo(false);
+  };
 
   const darmeDeBaja = async () => {
     setPreguntar(false); setCorriendo(true); setAviso(null);
@@ -41,10 +70,17 @@ export function PlanPanel({ plan, suscripcion, emailMako }: { plan: string; susc
         <FilaAjustes icono="repetir" titulo={plan} detalle={suscripcion ? `${suscripcion.monto} por mes` : 'Acordado con MaKo'}
           tono={suscripcion ? (suscripcion.cancelada || suscripcion.baja ? 'warn' : 'good') : undefined} estado={estado} apilada />
         {suscripcion?.baja && <FilaAjustes icono="nota" titulo="Tu baja" detalle={suscripcion.baja} apilada />}
+        {retencion && <FilaAjustes icono="nota" titulo="Tu oferta" detalle={retencion} apilada />}
+        {/* MaKo Partners (23/10/2026): cualquier negocio con plan recomienda MaKo y gana meses gratis. */}
+        <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle="Tu link de MaKo Partners: cada referido te suma un mes." href="/partners/referidos" apilada />
+        {subir && puedeDarseDeBaja && (
+          <FilaAjustes icono="subir" titulo={`Pasar a ${subir.nombre}`} detalle={`${subir.monto} por mes, sin topes. Lo tienes en el acto.`}
+            onClick={corriendo ? undefined : () => setConfirmarSubida(true)} apilada />
+        )}
         {puedeDarseDeBaja && (
           <FilaAjustes icono="pausar" titulo="Darme de baja"
             detalle="Lo sigues usando hasta el fin del mes pagado."
-            onClick={corriendo ? undefined : () => setPreguntar(true)} apilada />
+            onClick={corriendo ? undefined : () => (ofertaViva ? setOfrecer(true) : setPreguntar(true))} apilada />
         )}
       </GrupoAjustes>
       {!suscripcion && (
@@ -53,6 +89,27 @@ export function PlanPanel({ plan, suscripcion, emailMako }: { plan: string; susc
         </GrupoAjustes>
       )}
       {aviso && <p className="aj-texto" role="status" style={{ color: aviso.ok ? 'var(--good)' : 'var(--bad)' }}>{aviso.texto}</p>}
+      {ofrecer && ofertaViva && (
+        <div onClick={() => setOfrecer(false)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(18,21,27,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
+          <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 380, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.32)', padding: '20px 22px' }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Antes de irte</div>
+            <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 6, lineHeight: 1.5 }}>Tus datos quedan guardados siempre. Si te sirve, elige una de estas:</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 18 }}>
+              {ofertaViva.descuento && <button type="button" onClick={() => aceptarOferta('descuento')} style={BTN_PRIMARIO}>{ofertaViva.descuento.meses} meses a {ofertaViva.descuento.montoConDescuento} ({ofertaViva.descuento.pct}% menos)</button>}
+              {ofertaViva.bajar && <button type="button" onClick={() => aceptarOferta('bajar')} style={ofertaViva.descuento ? BTN_SECUNDARIO : BTN_PRIMARIO}>Pasar a {ofertaViva.bajar.nombre} ({ofertaViva.bajar.monto} por mes)</button>}
+              {ofertaViva.pausa && <button type="button" onClick={() => aceptarOferta('pausa')} style={BTN_PRIMARIO}>Pausar {ofertaViva.pausa.meses === 1 ? 'un mes' : `${ofertaViva.pausa.meses} meses`} gratis</button>}
+              <button type="button" onClick={() => { setOfrecer(false); setPreguntar(true); }} style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 500, cursor: 'pointer' }}>Darme de baja igual</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmarSubida && subir && (
+        <ConfirmDialog titulo={`¿Pasar a ${subir.nombre}?`}
+          detalle={suscripcion?.proveedor === 'stripe'
+            ? `Te cobramos ahora la diferencia de este período, y desde el próximo pagas ${subir.monto} por mes.`
+            : `Tienes ${subir.nombre} desde ya, y desde tu próximo cobro pagas ${subir.monto} por mes.`}
+          confirmLabel={`Pasar a ${subir.nombre}`} onCancel={() => setConfirmarSubida(false)} onConfirm={pasarAPro} />
+      )}
       {preguntar && (
         <ConfirmDialog titulo="¿Darte de baja?"
           detalle={suscripcion?.proveedor === 'stripe'

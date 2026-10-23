@@ -30,6 +30,7 @@ import { edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-
 import { aspectoDeChat } from '@/lib/centro-munecos';
 import { useMisTickets } from '@/app/tickets/usarMisTickets';
 import type { SesionChat } from '@/lib/mako-turno-app-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Cuántos chats se ven antes de «Ver todos» (los de ChatsMovil.tsx). */
 const VISIBLES = 10;
@@ -112,7 +113,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
           {!todas && resto.length > corte.length && <FilaM titulo={`Ver los ${resto.length} chats`} onClick={() => setTodas(true)} navegacion />}
         </ListaM>
       </SeccionM>
-      {k.errorLista && <p className="m-operaciones-hilo__meta" role="alert">{k.errorLista}</p>}
+      {k.errorLista && <p className="m-operaciones-hilo__meta" role="alert">{k.errorLista}<ReportarASoporte /></p>}
       {masChats?.()}
       {/* Su «Uso», abajo como en el Ops Center del super admin («Uso y Runners»): sus cuentas de IA, conectar y desconectar. */}
       {!masChats && <ListaM etiqueta="Uso">

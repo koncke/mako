@@ -12,6 +12,7 @@
 // (un paso por pantalla). Sólo recibe props: no importa nada del server.
 
 import { useState, type FormEvent } from 'react';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export function AccesoMako({ token, emailInicial, yaEntro, puedeCambiar, contacto }: {
   token: string;
@@ -94,7 +95,7 @@ export function AccesoMako({ token, emailInicial, yaEntro, puedeCambiar, contact
             onChange={(e) => setNuevo(e.target.value)}
             placeholder="tu@gmail.com"
           />
-          {error && <p className="pagar-error" role="alert">{error}</p>}
+          {error && <p className="pagar-error" role="alert">{error}<ReportarASoporte /></p>}
           <button type="submit" className="pagar-btn" disabled={enviando || !nuevo.trim()}>
             {enviando ? 'Cambiando…' : 'Cambiar email'}
           </button>

@@ -9,6 +9,7 @@ import ed from '../chrome/ed.module.css'
 import { useSentinel } from '../hooks/useSentinel'
 import { type CategoryEntry, CategoryMenu, LibrarySearch } from './library'
 import styles from './Sticker.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Filter = { type: 'all' } | { type: 'kind'; kind: ElementKind } | { type: 'pack'; pack: ElementPack }
 
@@ -94,6 +95,7 @@ export function StickerPanel({ query: external, preview, embedded, done }: Stick
             <button type="button" className={`${ed.btn} ${ed.ghost}`} onClick={list.reload}>
               {t.stickers.retry}
             </button>
+            <ReportarASoporte />
           </div>
         ) : null}
         {loading ? (
@@ -120,6 +122,7 @@ export function StickerPanel({ query: external, preview, embedded, done }: Stick
             <button type="button" className={`${ed.btn} ${ed.ghost}`} onClick={loadMore}>
               {t.stickers.retry}
             </button>
+            <ReportarASoporte />
           </div>
         ) : null}
         {paging ? <div ref={sentinel} className={styles.sentinel} /> : null}

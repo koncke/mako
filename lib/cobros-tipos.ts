@@ -25,6 +25,16 @@ export type EstadoAlta = 'pendiente' | 'hecha' | 'ya_tenia_cuenta' | 'error';
 export type Cobro = {
   id: number;
   workspace_id: number;
+  /**
+   * La cuenta de la pasarela que lo cobró (mig 0328, varias por proveedor): null = la principal (todo cobro de antes);
+   * 'c2', 'c3'… = las demás. Releerlo, devolverlo o cancelarlo va con las claves de ESA cuenta.
+   */
+  cuenta: string | null;
+  /**
+   * El id de esa cuenta EN EL PROVEEDOR (mig 0328): `acct_…` de Stripe, `user_id` de Mercado Pago. Manda sobre `cuenta`:
+   * una cuenta que se desconectó y volvió con otro sufijo sigue siendo la de este cobro. null en los cobros de antes.
+   */
+  cuenta_ref: string | null;
   token: string;
   lead_id: number | null;
   pago_id: number | null;
@@ -60,7 +70,7 @@ export type Cobro = {
 
 /** Las columnas de `cobros`, para los `select` (un select con una columna que no existe rechaza la consulta ENTERA). */
 export const COLS_COBRO =
-  'id, workspace_id, token, lead_id, pago_id, producto_id, proveedor, modo, tipo, concepto, monto, moneda, monto_usd, email, nombre, estado, suscripcion_estado, proveedor_ref, proveedor_pago_id, proveedor_suscripcion_id, url_proveedor, url_vence_at, alta_capa, alta_ws, alta_estado, alta_motivo, alta_email_cambios, motivo, creado_por, created_at, updated_at, pagado_at, reembolsado_at';
+  'id, workspace_id, token, lead_id, pago_id, producto_id, proveedor, cuenta, cuenta_ref, modo, tipo, concepto, monto, moneda, monto_usd, email, nombre, estado, suscripcion_estado, proveedor_ref, proveedor_pago_id, proveedor_suscripcion_id, url_proveedor, url_vence_at, alta_capa, alta_ws, alta_estado, alta_motivo, alta_email_cambios, motivo, creado_por, created_at, updated_at, pagado_at, reembolsado_at';
 
 /** Lo que se le puede mostrar a cualquiera de la ficha (sin el token ni la URL del proveedor). */
 export type CobroVisible = Pick<

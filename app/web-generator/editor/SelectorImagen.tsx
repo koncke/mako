@@ -39,6 +39,7 @@ import {
 import { EstilosPanelesB, Ico } from './paneles/PanelAgente';
 import { pedirImagenes } from '../cliente';
 import { motivoParaNoSubir, tipoDeArchivo } from './subir';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type PropsSelectorImagen = {
   abierto: boolean;
@@ -109,7 +110,7 @@ function SelectorAbierto({ modo, sugerencia, onElegir, onCerrar }: PropsSelector
             </button>
           ))}
         </div>
-        {falla && <p className="gma-rv-error" role="alert">{falla}</p>}
+        {falla && <p className="gma-rv-error" role="alert">{falla}<ReportarASoporte /></p>}
         <div className="gma-si-cuerpo">
           {pestana === 'subir' && <Subir modo={modo} subirArchivo={subirArchivo} onOcupado={setOcupado} onFalla={setFalla} onListo={elegido} />}
           {pestana === 'buscar' && <Buscar sugerencia={sugerencia ?? ''} onOcupado={setOcupado} onFalla={setFalla} onListo={elegido} ocupado={ocupado} />}

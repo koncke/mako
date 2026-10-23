@@ -1,5 +1,7 @@
 # Referidos de MaKo — la propuesta (10/10/2026)
 
+> **23/10/2026: CONSTRUIDO lo automático** (pedido de Martín del 22/10: «el sistema de referidos con la página de MaKo Partners... que se gestione de manera automática»): el link /r/<código>, la acreditación al 2º mes pagado, el tablero /partners/referidos y la página /mako-partners. Esto reemplaza el «nunca antes de 20 referidos» de la §6. Falta APLICAR el crédito y el beneficio del que llega: docs/hallazgos-partners.md.
+>
 > **Estado: DECIDIDO por Martín el 10/10/2026, sin aplicar todavía** (la sección «El programa
 > decidido», justo abajo, manda sobre el resto). Nada está prometido a nadie. El proyecto «Vender MaKo: Referidos» (P68) sigue
 > **tachado** en el Plan desde el 20/09: reabrirlo es parte de esa decisión.

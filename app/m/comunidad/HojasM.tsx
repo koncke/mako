@@ -29,6 +29,7 @@ import {
   R, T, categoriaInicial, categoriasParaPublicar, entradaPost, rotuloPuntosPerfil, segundaDeMiembro,
 } from './modelo';
 import { AvatarNivelM, useComunidadM } from './piezas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 // ── El perfil ───────────────────────────────────────────────────────────────────
 
@@ -203,7 +204,7 @@ export function HojaEscribirM({ abierta, categoriaDelFeed, onCerrar, onPublicado
         enterKeyHint="next" onChange={(e) => setTitulo(e.target.value)} />
       <textarea className="m-comunidad-cuerpo" value={cuerpo} maxLength={TOPE_CUERPO} placeholder={R.textoPost} aria-label="Texto del post"
         rows={8} onChange={(e) => setCuerpo(e.target.value)} />
-      {error && <p className="m-comunidad-error" role="alert">{error}</p>}
+      {error && <p className="m-comunidad-error" role="alert">{error}<ReportarASoporte /></p>}
     </SheetM>
   );
 }

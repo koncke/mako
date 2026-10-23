@@ -111,7 +111,9 @@ test('la columna que falta no frena al motor (se lee con la 0279 y sin ella)', (
 });
 
 // (17/10, #846) El control vive en el panel de cada WhatsApp; sin WhatsApp, en el del CRON (tests/cron-solo-disparo.test.ts).
-test('se guarda desde su panel, y el panel muestra la que el motor usa', () => {
+// ⚠️ 23/10/2026 (Martín por el Cerebro: «SACÁ el desplegable "Una sola vez / otra vez que es reunión": para eso tenemos
+// CONDITION»): la reentrada ya no se elige en la pantalla. El motor y la API la siguen guardando y leyendo.
+test('el motor y la API la guardan; la pantalla ya no la elige', () => {
   const set = bloque(NUTRI, 'export async function setSecuenciaReentrada(', '\n}\n');
   assert.match(set, /if \(!esReentrada\(reentrada\)\) throw/);
   const ruta = sinComentarios(leer('app/api/whatsapp/secuencias/route.ts'));
@@ -119,9 +121,7 @@ test('se guarda desde su panel, y el panel muestra la que el motor usa', () => {
   const dto = sinComentarios(leer('lib/setting-secuencias.ts'));
   assert.match(dto, /reentrada_efectiva: reentradaDeSecuencia\(s\),/);
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
-  assert.match(perfil, /useState<Reentrada>\(secuencia\.reentrada_efectiva \?\? 'una_vez'\)/, 'el panel mostraba «Una sola vez» en un flujo que vuelve a entrar');
-  assert.match(perfil, /options=\{REENTRADAS\.map\(\(r\) => \(\{ value: r, label: ROTULO_REENTRADA\[r\], icono: ICONO_REENTRADA\[r\] \}\)\)\}/);
-  assert.match(perfil, /body: JSON\.stringify\(\{ id: secuencia\.id, reentrada: valor \}\)/);
+  assert.doesNotMatch(perfil, /ROTULO_REENTRADA|guardarReentrada/, 'volvió el desplegable de la reentrada');
 });
 
 test('la migración acota los valores a los tres', () => {

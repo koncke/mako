@@ -9,7 +9,7 @@
 // el chat dejaba atrás quedaba ahí con «Ya no espera tu respuesta».
 //   · una tarjeta FLOTANTE arriba de la caja (no en el hilo) mientras algo espera a Martín: la pregunta, sus opciones
 //     numeradas (la recomendada primera y marcada) y el renglón libre «Escribe otra cosa»;
-//   · con varias, una por vez: «2 de 3», «‹ Anterior», «Siguiente ›» y los puntos para ir a cualquiera; sin pantalla de resumen;
+//   · con varias, una por vez: «2 de 3», las flechas ‹ › y los puntos para ir a cualquiera; sin pantalla de resumen;
 //   · al mandar, cada respuesta sale FIRMADA por el camino de siempre (useCentro.ts → contestarPregunta, una por pregunta, en
 //     orden) y en el hilo queda como un mensaje de Martín: «Decisión: …» con la pregunta citada (Hilo.tsx).
 // AJUSTES DE MARTÍN (22/10/2026, ya usándolo, con captura): «Que no se ponga con el fondo blanco, que sea un bloque flotante»
@@ -44,6 +44,7 @@ import { conLinks } from './bloque-texto';
 import { AvisoClave } from '@/app/_chat/AvisoClave';
 import { Icon } from '@/app/_components/icons';
 import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from '@/lib/claves-en-el-chat';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Elegido = { elegidas: number[]; otra: string };
 
@@ -145,7 +146,8 @@ const Plegar = ({ onPlegar, que = 'las preguntas' }: { onPlegar: () => void; que
   </button>
 );
 
-/** «‹ Anterior», los puntos (uno por pregunta: se toca para ir) y «Siguiente ›». */
+/** ‹, los puntos (uno por pregunta: se toca para ir) y ›. Las flechas solas (Martín, 22/10/2026: «alcanza con las flechas»):
+ *  sin una antes o después, la suya queda apagada, y el rótulo es para quien no ve. */
 function Pasos({ items, pos, ir, contestada, enviando, nombre = 'Pregunta' }: {
   items: ReadonlyArray<{ id: string }>; pos: number; ir: (i: number) => void; contestada: (id: string) => boolean; enviando?: boolean;
   /** Cómo se llama cada punto para quien no ve: «Pregunta 2», «Sugerencia 2». */
@@ -153,7 +155,7 @@ function Pasos({ items, pos, ir, contestada, enviando, nombre = 'Pregunta' }: {
 }) {
   return (
     <div className="co-preg__pasos">
-      <button type="button" className="co-chip" disabled={enviando || pos === 0} onClick={() => ir(pos - 1)}>‹ Anterior</button>
+      <button type="button" className="co-chip co-preg__flechita" disabled={enviando || pos === 0} onClick={() => ir(pos - 1)} aria-label="Anterior" title="Anterior">‹</button>
       <span className="co-preg__puntos" role="group" aria-label={`${pos + 1} de ${items.length}`}>
         {items.map((q, i) => (
           <button key={q.id} type="button" className="co-preg__punto" disabled={enviando} onClick={() => ir(i)}
@@ -162,7 +164,7 @@ function Pasos({ items, pos, ir, contestada, enviando, nombre = 'Pregunta' }: {
         ))}
       </span>
       <span className="co-preg__paso">{`${pos + 1} de ${items.length}`}</span>
-      <button type="button" className="co-chip" disabled={enviando || pos + 1 >= items.length} onClick={() => ir(pos + 1)}>Siguiente ›</button>
+      <button type="button" className="co-chip co-preg__flechita" disabled={enviando || pos + 1 >= items.length} onClick={() => ir(pos + 1)} aria-label="Siguiente" title="Siguiente">›</button>
     </div>
   );
 }
@@ -217,7 +219,7 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
   const p = it && (it.de === 'chat' || it.de === 'app') ? it.p : null;
   const ops = useMemo(() => (p ? opcionesEnOrden(p) : []), [p]);
 
-  // Al llegar a una pregunta del chat, lo que ya se había elegido en ella (al volver con «‹ Anterior» o un punto) o nada.
+  // Al llegar a una pregunta del chat, lo que ya se había elegido en ella (al volver con ‹ o un punto) o nada.
   useEffect(() => {
     if (!it) return;
     const ya = elegidos[it.id];
@@ -324,7 +326,7 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
           <Plegar onPlegar={() => setPlegado(true)} />
         </div>
       )}
-      {aviso && <p className="co-preg__error" role="alert">{aviso}</p>}
+      {aviso && <p className="co-preg__error" role="alert">{aviso}<ReportarASoporte /></p>}
       {it.de === 'ticketera' && responderTicketera ? (
         <CuerpoTicketera key={it.id} d={it.d} responder={responderTicketera} onGuardada={() => guardada(it.id)}
           onEscribe={(hay) => { escrito.current = hay ? it.id : escrito.current === it.id ? null : escrito.current; }} />
@@ -363,16 +365,16 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
             {hayClave(otra) && <AvisoClave />}
           </li>
         </ol>
-        <div className="co-preg__pie co-preg__pie--chat">
-          {error ? <span className="co-preg__error" role="alert">{error}</span>
-            : <span className="co-preg__ayuda">{p.varias ? 'Elige una o varias' : `Elige con 1 a ${ops.length + 1}`}{varias && ultimaDelChat ? ' · con ésta salen todas' : ''}</span>}
+        {/* El pie, sólo si tiene algo: el error, o el botón (con varias marcadas o algo escrito). */}
+        {(error || p.varias || otra.trim()) && <div className="co-preg__pie co-preg__pie--chat">
+          {error && <span className="co-preg__error" role="alert">{error}<ReportarASoporte /></span>}
           {(p.varias || otra.trim()) && (
             <button type="button" className="co-chip co-chip--primario" disabled={enviando || (!marcadas.length && !otra.trim())}
               onClick={() => guardar(p.varias ? marcadas : [], otra)}>
               {enviando ? 'Enviando…' : varias && !ultimaDelChat ? 'Siguiente' : varias ? 'Enviar' : 'Responder'}
             </button>
           )}
-        </div>
+        </div>}
       </>) : null}
     </div>
   </>);
@@ -412,10 +414,7 @@ export function CuerpoDeLaTab({ q }: { q: PreguntaDeLaTab }) {
             </li>
           ))}
         </ol>
-        <p className="co-preg__pie">
-          {q.error ? <span className="co-preg__error" role="alert">{q.error}</span>
-            : q.opciones.length ? <span className="co-preg__ayuda">{`Elige con 1 a ${q.opciones.length}`}</span> : null}
-        </p>
+        {q.error && <p className="co-preg__pie"><span className="co-preg__error" role="alert">{q.error}<ReportarASoporte /></span></p>}
       </>)}
     </div>
   );

@@ -112,6 +112,7 @@ test('CONTRATO inverse — toda tabla del loop bulk 0054 con workspace_id está 
 const FUERA_DEL_PROXY: Record<string, string> = {
   app_settings: 'settings por clave; lib/settings.ts pone el workspace_id a mano',
   credenciales: 'cifradas; lib/credenciales.ts resuelve el workspace y filtra a mano',
+  partner_codigos: 'el código de MaKo Partners (mig 0330): lib/partners-programa.ts con el cliente de servicio y el ws de la sesión; /r/<código> lo busca por código',
   funnel_config: 'deprecada por la mig 0170 (la reemplaza `funnels`), sin lectores',
   shares: 'cross-workspace por diseño: el link compartido trae su workspace',
   webhook_routing: 'cross-workspace por diseño: identificador de un proveedor → workspace',

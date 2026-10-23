@@ -7686,6 +7686,10 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
   app/admin/dev/crm/bitacora.ts. No es un conflicto: el merge «sale bien» y lo frena la guarda de las bitácoras
   (`scripts/tsc-bitacoras.mjs`, dentro de `guardas-push.sh`). Se arregla insertando el cierre y la apertura. Por eso las
   guardas se corren DESPUÉS de mergear todo el tren, no sólo en cada punta.
+  **Y cuando SÍ es conflicto, «los dos lados enteros» también los parte** (23/10/2026, CRM, al juntar tres ramas): git
+  alinea el hunk en medio de un objeto, y pegar el lado de arriba y el de abajo deja un hito sin cerrar (`Expected "]"`;
+  rojos en progreso, chats-registro y dev-areas). Se rearma el final tomando cada hito ENTERO de su rama
+  (`git show <rama>:app/admin/dev/crm/bitacora.ts`) y se corre `node scripts/tsc-bitacoras.mjs` antes de commitear.
 - ⚠️ **La misma resolución hecha dos veces choca consigo misma.** Ticketera y CRM sumaron funciones al final de lib/perfil.ts;
   el tren lo resolvió con un orden y CRM, al mergear main en su rama, con el otro. La punta siguiente de CRM chocó contra la
   resolución del tren. Se deja el orden del tren (las mismas funciones; 0 errores de sintaxis), sin perder nada de lo demás.
@@ -7697,3 +7701,29 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
   superconjunto y el único rojo era de ella. Así salió el tren 7 sin el aviso de Closing.
 - **Un hotfix de cliente roto no espera al tren:** se arma en un worktree aparte (`git worktree add --detach … origin/main`
   más la junction de node_modules) y se prueba ahí, en paralelo. El tren después mergea main.
+
+## En Git Bash, un argumento que empieza con «/» llega convertido en una ruta de Windows (23/10/2026)
+
+**Síntoma:** al romper un test a mano con `node -e "…split(process.argv[1])…" "/crm|venta|"`, la rotura «no pegaba» y el test
+seguía verde: parecía que la guarda no medía nada. **Causa:** MSYS convierte todo argumento que empieza con `/` en una ruta
+(`/crm|venta|` llega como `C:/Program Files/Git/crm|venta|`). **Regla:** `export MSYS_NO_PATHCONV=1` antes de pasarle a un
+programa un texto que empieza con barra (una regex, una ruta de la app). Antes de declarar débil una guarda, mirá si la rotura
+pegó (test-probado-rompiendolo).
+
+## Un tren con los TIPOS como red: el `tsc` acotado de lo resuelto a mano encontró dos bugs en OTROS archivos (23/10/2026, Cerebro › Integración, trenes 22+23)
+
+**Síntoma.** El tren juntó 20 puntas «sin tipos». El único choque de código (Cobros contra la suscripción, en
+app/configuraciones/plan) se resolvió a mano y se chequeó con `node scripts/tsc-acotado.mjs <los tres archivos>`.
+Esos tres salieron limpios, pero el tsc también reportó errores en los archivos que importaban:
+- `app/crm/grupo-wa-server.ts`: TS2459, `LeadDuplicadoError` importada de lib/leads, que la importa y NO la reexporta.
+  Sin tipos llega `undefined`, y `e instanceof LeadDuplicadoError` tira TypeError con cada participante que ya era lead.
+  Ningún test pasaba por ese camino. Detalle en docs/hallazgos-crm.md.
+- `lib/nutricion.ts`: TS18048, `lead.id` sin guarda en una línea nueva del motor, donde el resto usa `lead?.` o `insc.lead_id`.
+
+**La regla que queda.** Con los tipos como red y no como condición (con 8 chats no hay RAM para el tsc completo), el
+`tsc-acotado` de los archivos resueltos a mano es barato (≈1 GB, un par de minutos) y LEER todos sus errores, no sólo los
+de esos archivos, es la única mirada de tipos que tiene el tren. Un TS2459 o un TS18048 en código nuevo es un bug de
+ejecución, no ruido: se devuelve a su chat o se arregla en el tren antes de subir.
+
+**Además, en el mismo tren.** Las guardas cortan en la PRIMERA que frena: con «rutas de Windows» en rojo no se miraron las de
+después (los .ts sin módulo, la referencia de la API). Arreglada la primera, se corren TODAS de nuevo.

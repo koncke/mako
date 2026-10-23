@@ -36,6 +36,8 @@ import { InstagramBuscador, type PerfilIg } from '@/app/crm/new/InstagramBuscado
 import { instagramDelAlta } from '../campo-inline';
 import { createLeadAction, crearLeadEnTableroAction, type ChoqueDeLead } from '../actions';
 import { agregarAProductoAction, quitarDeProductoAction } from '../lead-funnel-actions';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { PasarAPro } from '../PasarAPro';
 
 const SANS = "'Geist', sans-serif";
 const field: CSSProperties = { width: '100%', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', boxSizing: 'border-box' };
@@ -67,9 +69,13 @@ export function NewLeadForm({ enModal }: {
      * el tamaño de la caja que lo contiene. Ausente = no se ofrece.
      */
     onTraer?: () => void;
+    /** Cambiar a «Traer de un grupo de WhatsApp» (23/10/2026). Sólo para el admin del negocio: ausente = no se ofrece. */
+    onTraerGrupo?: () => void;
   };
 } = {}) {
   const [err, setErr] = useState<string | null>(null);
+  /** El error es el tope del plan (23/10/2026): al lado va «Pasar a Pro». */
+  const [tope, setTope] = useState(false);
   const [guardando, startGuardar] = useTransition();
   /**
    * Con quién choca el alta. Reemplaza al string pelado de antes: sin los ids la
@@ -196,6 +202,7 @@ export function NewLeadForm({ enModal }: {
           const r = await crearLeadEnTableroAction(fd, enModal.funnelId ?? null);
           if ('error' in r) {
             setErr(r.error);
+            setTope(r.pasarAPro === true);
             // Las coincidencias son lo que convierte el aviso en una decisión. Si el
             // error no es un duplicado vienen vacías y la pantalla muestra sólo la frase.
             setChoque(r.coincidencias.length ? r.coincidencias : null);
@@ -234,7 +241,9 @@ export function NewLeadForm({ enModal }: {
       </Field>
 
       {err && !choque && (
-        <div style={{ borderRadius: 11, padding: '11px 16px', fontSize: 14, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>
+        <div style={{ borderRadius: 11, padding: '11px 16px', fontSize: 14, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ flex: '1 1 220px' }}>{err}</span>{tope && <PasarAPro />}
+        </div>
       )}
 
       {/* ⚠️ UN DUPLICADO NO ES UN ERROR: ES UNA DECISIÓN. El pedido, textual: «si se
@@ -315,10 +324,16 @@ export function NewLeadForm({ enModal }: {
           formulario, y con eso el modal pedía dos cosas a la vez —cargar a alguien nuevo y
           buscar a alguien que ya está—, que son dos tareas y ninguna es un paso de la otra. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', borderTop: enModal?.onTraer ? '1px solid var(--border)' : undefined, paddingTop: enModal?.onTraer ? 14 : 4 }}>
+        {/* Un BOTÓN, no un link chico al pie (Martín, 23/10/2026: «tiene que ser más visible... que sea un botón claro»). */}
         {enModal?.onTraer && (
-          <button type="button" onClick={enModal.onTraer}
+          <button type="button" onClick={enModal.onTraer} style={BTN_TRAER}>
+            <IconoMenu nombre="descargar" size={16} /> Traer de otro funnel
+          </button>
+        )}
+        {enModal?.onTraerGrupo && (
+          <button type="button" onClick={enModal.onTraerGrupo}
             style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
-            Traer de otro funnel
+            Traer de un grupo de WhatsApp
           </button>
         )}
         {/* Con un borrador guardado, la salida para empezar de cero (si no, sólo se borra
@@ -335,6 +350,13 @@ export function NewLeadForm({ enModal }: {
     </form>
   );
 }
+
+/** «Traer de otro funnel»: un botón secundario, a la altura de «Crear lead». */
+const BTN_TRAER: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none', padding: '10px 16px', borderRadius: 10,
+  border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)',
+  fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+};
 
 /**
  * Un campo con su rótulo, su asterisco de obligatorio y su ayuda.

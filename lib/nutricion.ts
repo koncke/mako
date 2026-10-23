@@ -41,7 +41,7 @@ import type { AutorTexto } from '@/lib/paso-ia';
 import { parseEstrategia, dentroDeAntiguedad, hitoYaHecho, type EscenarioSecuencia } from '@/lib/setting-estrategia';
 import type { TurnoSim } from '@/lib/setting-simulador';
 import { conversacionAbierta, atiendeAlResponder, charlaPasaAUnaPersona, escritoParaElAviso, type InscCharla, type AudioDelLead } from '@/lib/setter-conversacion';
-import { ambitoDeSecuencia, filtroDeAmbito, agregadosQueEntran, conAgregados, type AmbitoFunnel, type FilaAgregado, type LeadDelAgregado } from '@/lib/nutricion-ambito';
+import { ambitoDeSecuencia, filtroDeAmbito, agregadosQueEntran, agregadoEntraPorEvento, conAgregados, type AmbitoFunnel, type FilaAgregado, type LeadDelAgregado } from '@/lib/nutricion-ambito';
 import { corteEntrada, esEntradaFresca, reservaParaEntradas, cupoDeCampana, HORAS_ENTRADA } from '@/lib/nutricion-prioridad';
 import { frenoDeGoteo, turnoDeGoteo, conEnvio, cuentaParaElGoteo, ESTADOS_DEL_GOTEO, SIN_USO, type Goteo, type UsoGoteo } from '@/lib/goteo';
 import {
@@ -88,7 +88,7 @@ import { usaEquipoContesto, contestoElEquipo, type TurnoDelGrupo } from '@/lib/e
 import {
   indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
-  condicionDeArriba, condicionSigueLlevando,
+  condicionDeArriba, condicionSigueLlevando, usaContesto, destinoAlContestar, ramaDeQuienContesto,
   esNodoDeControl, RELLENO_CONTROL, TOPE_SALTOS, esColumnaInexistente, etiquetasQueCuentan, barridoInscribe, irAEstaMisma,
   avisoSalio, frenadoPorAntiBan, anotarEnCorrida,
   filasDelFlujo, catalogoDeLead, resumenCursoDeAlumno, resumenPagos,
@@ -140,6 +140,8 @@ import { datoDeCampo } from '@/lib/dato-evento';
 // El TURNO del motor por negocio (sexta tanda): lo toman las dos rutas del cron y, desde la
 // revisión de esa tanda, también la vía rápida de un lead (`viaRapidaConTurno`).
 import { conTurnoDelMotor } from '@/lib/motor-turno';
+// Los traídos de un grupo de WhatsApp no entran a los barridos que mandan solos (ver la cohorte de reactivación).
+import { quedaDondeLoPusieron } from '@/app/crm/origen-lead';
 
 export type CanalNutricion = 'email' | 'whatsapp' | CanalSocial;
 
@@ -706,8 +708,16 @@ async function equipoContestoDesdeElAviso(inscripcionId: number): Promise<boolea
  * Sin esto, «Activar» prendía un flujo que «Publicar» no habría dejado guardar (uno escrito por un
  * camino viejo, o anterior a una regla nueva), y el motor lo corría a ciegas. Apagar no valida.
  */
-export async function setSecuenciaActiva(id: number, activa: boolean, o: { aunqueDuplique?: boolean } = {}): Promise<void> {
+export async function setSecuenciaActiva(id: number, activa: boolean, o: { aunqueDuplique?: boolean; ws?: number } = {}): Promise<void> {
   const supabase = (await getTenantDb());
+  // ⚠️ EL TOPE DEL PLAN, ACÁ Y NO EN CADA PUERTA (23/10/2026, el chat de las tabs): «hasta 3 activas» del Esencial, antes de
+  // validar nada. Sólo al Esencial de la pasarela; volver a prender una prendida no cuenta (lib/tope-automations.ts). `ws`:
+  // MaKo por WhatsApp corre sin sesión y lo pasa quien llama. Import dinámico: el motor no carga los planes si no prende.
+  if (activa) {
+    const { topeAlActivar } = await import('./tope-automations');
+    const tope = await topeAlActivar(id, o.ws);
+    if (tope) throw new TopeDelPlanError(tope);
+  }
   // La red de seguridad: quien PROPONE activar ya validó (`validarActivacion`), pero entre la
   // propuesta y el «sí» los pasos pueden haber cambiado.
   if (activa) await validarActivacion(id);
@@ -807,6 +817,15 @@ export { textoDelPaso };
  * `setSecuenciaActiva` (y la ruta de Publicar, con una activa): las rutas contestan 409 con `duplicada` y la pantalla
  * pregunta; con «… igual», vuelve a pedirlo con `aunqueDuplique`. El mensaje es el aviso, listo para mostrar.
  */
+/**
+ * EL TOPE DEL PLAN (MaKo Esencial: hasta 3 automatizaciones activas, lib/tope-automations.ts) al ACTIVAR. Lo tira
+ * `setSecuenciaActiva`, la única puerta que prende: así lo cubre cualquier camino, también uno nuevo. Las rutas lo contestan
+ * 403 con `tope: true`; MaKo lo dice en su resumen. El texto es para la persona.
+ */
+export class TopeDelPlanError extends Error {
+  constructor(texto: string) { super(texto); this.name = 'TopeDelPlanError'; }
+}
+
 export class DuplicadaError extends Error {
   /** La otra y el arranque de los dos mensajes: la pantalla los muestra para que la persona compare. */
   readonly otra: Duplicada;
@@ -1588,23 +1607,28 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambit
       .in('estado_lead', ['abierto', 'ganado']));
   }
 
+  // ⚠️ LOS DOS DE ABAJO NO TOMAN A LOS TRAÍDOS DE UN GRUPO DE WHATSAPP (el Cerebro, 23/10/2026: «nada por detrás»): no
+  // cuelgan de una etapa ni de una etiqueta, así que un lead que nadie decidió contactar caía en ellos sólo por la edad.
+  // Se filtra DESPUÉS de leer y no con otro `.or()` en la consulta: `conAmbito` ya pone el suyo.
   if (triggerTipo === 'reactivacion_viejo') {
     // Frío: nunca agendó, abierto, creado entre 30 y 90 días atrás.
-    return idsCohorte(supabase, 'reactivacion-viejo', ambito, (q) => q
+    return (await filasCohorte<{ id: number; origen_lead: string | null }>(supabase, 'reactivacion-viejo', ambito, 'id, origen_lead', (q) => q
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
       .lt('created_at', desde)
-      .gte('created_at', haceDiasISO(90)));
+      .gte('created_at', haceDiasISO(90))))
+      .filter((r) => !quedaDondeLoPusieron(r.origen_lead)).map((r) => r.id);
   }
 
   if (triggerTipo === 'ultimo_intento_antes_noresp') {
     // Último intento antes de marcar no-responde: nunca agendó, abierto, creado
     // entre 90 y 365 días atrás (más viejo que la reactivación).
-    return idsCohorte(supabase, 'ultimo-intento', ambito, (q) => q
+    return (await filasCohorte<{ id: number; origen_lead: string | null }>(supabase, 'ultimo-intento', ambito, 'id, origen_lead', (q) => q
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
       .lt('created_at', haceDiasISO(90))
-      .gte('created_at', haceDiasISO(365)));
+      .gte('created_at', haceDiasISO(365))))
+      .filter((r) => !quedaDondeLoPusieron(r.origen_lead)).map((r) => r.id);
   }
 
   if (triggerTipo === TRIGGER_RESIDUO) {
@@ -2162,6 +2186,16 @@ export type CtxEvento = {
   etiquetaId?: number | string | null;
   /** Instagram / Messenger / Email: QUÉ pasó en el canal (ver `EventoNutricion`). */
   subtipo?: string;
+  /**
+   * El evento de etapa es de un lead AGREGADO a ese CRM (`lead_funnel`, lib/lead-funnel.ts), no de su casa: entra con la
+   * MISMA regla que el barrido de la hora (`agregadosQueEntran`). Ver `enrolarPorEvento`.
+   */
+  agregado?: boolean;
+  /**
+   * Inscribe SIN la vía rápida (un movimiento en LOTE, lib/lead-funnel.ts): el primer paso lo manda el tick del minuto, con
+   * el tope de la hora de la línea. Y en el historial queda sólo «Entró a …» (el porqué lo dicen la ficha y la tarjeta).
+   */
+  sinViaRapida?: boolean;
 };
 
 /**
@@ -2394,6 +2428,23 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
         conAmbito.push({ ...sec, ambito: sec.trigger_tipo === TRIGGER_ETAPA ? await ambitoDeFunnel(sec.funnel_id) : { modo: 'todos' } });
       }
       delEvento = deLaEtapaYLasDemas(conAmbito, donde?.etapa, donde?.funnelId);
+      // ⚠️ EL AGREGADO ENTRA POR EVENTO CON LA REGLA DEL BARRIDO (23/10/2026, P0 de #289). Los 300 del Sprint de Mauricio
+      // están AGREGADOS al CRM 44: moverlos a «Prospección activa» escribía sólo la fila (`moverEtapaEnProducto`) y la
+      // automatización los levantaba en el barrido de la hora. Ahora el movimiento dispara este evento, y cada CRON de
+      // etapa lo deja entrar SÓLO si el barrido lo dejaría (`agregadosQueEntran`, lib/nutricion-ambito.ts): una de
+      // «Todos los productos» no (la etapa de un segundo CRM le escribiría dos veces a la misma persona), un lead cerrado
+      // no, una fila que nació con el lead no. Sin poder leer la fila o el lead, nadie: lo levanta el barrido.
+      if (evento === 'etapa' && ctx?.agregado) {
+        const fid = Number(ctx.funnelId);
+        const [{ data: filas, error: eF }, { data: leads, error: eL }] = await Promise.all([
+          supabase.from('lead_funnel').select('lead_id, funnel_id, etapa, created_at, etapa_desde').eq('lead_id', leadId).eq('funnel_id', fid),
+          supabase.from('leads').select('id, funnel_id, estado_lead, created_at').eq('id', leadId),
+        ]);
+        if (eF || eL) throw new Error(`el agregado ${leadId} al CRM ${fid}: ${(eF ?? eL)?.message}`);
+        const corte = Date.now() - 90 * 86400 * 1000;
+        delEvento = delEvento.filter((s) => s.trigger_tipo !== TRIGGER_ETAPA
+          || agregadoEntraPorEvento((s as { ambito?: AmbitoFunnel }).ambito, etapasDe(s), leadId, corte, (filas ?? []) as FilaAgregado[], (leads ?? []) as LeadDelAgregado[]));
+      }
     }
     // La ENTREGA no necesita resolver ningún ámbito contra la base: el producto es el
     // producto, sin default ni NULL que signifique otra cosa.
@@ -2445,6 +2496,8 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     // cron en el mismo segundo— y el `return 0` dejaba al lead sin NINGUNA de las secuencias
     // del evento. Una fila que ya existe no se inserta: se reusa si se puede, y si no, se deja.
     let arrancadas = 0;
+    /** Las que arrancó (para decirlo en el historial del lead, abajo). */
+    const entro: number[] = [];
     for (const s of elegidas) {
       // El primer paso de una secuencia disparada por evento sale YA: el delay configurado
       // cuenta desde el evento, no desde el cron. Un paso anclado a la reunión, desde la agenda.
@@ -2459,6 +2512,7 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
         if (!reclamada) continue;
         console.log(`[nutricion] lead ${leadId}: la inscripción ${previa.id} (${s.clave}) vuelve a correr (${r.porque})`);
         arrancadas += 1;
+        entro.push(s.id);
         continue;
       }
       const reunion = anotaReunion(s) ? reunionQuePreparaMs(juntas) : null;
@@ -2472,17 +2526,46 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
       });
       if (error) { console.error(`[nutricion] enrolarPorEvento(${evento}) lead ${leadId} en ${s.clave}: ${error.message}`); continue; }
       arrancadas += 1;
+      entro.push(s.id);
     }
     if (!arrancadas) return 0;
 
+    // En LOTE, sin la vía rápida (`sinViaRapida`): lo manda el tick, y en el historial sólo «Entró a …».
+    if (ctx?.sinViaRapida) {
+      try {
+        const { logLeadEvent } = await import('@/lib/leads');
+        for (const s of elegidas) if (entro.includes(s.id)) await logLeadEvent(leadId, 'Automatización', `Entró a «${s.nombre}».`, 'MaKo');
+      } catch (e) { console.error(`[nutricion] lead ${leadId}: no pude anotar en qué automatización entró:`, e instanceof Error ? e.message : e); }
+      return arrancadas;
+    }
     // Vía rápida: intentamos mandar el primer paso ahora mismo, solo de este lead, con el turno
     // del negocio (si lo tiene otra corrida, lo manda el tick: `viaRapidaConTurno`).
     try { await viaRapidaConTurno(leadId); }
     catch (e) { console.error(`[nutricion] envío inmediato lead ${leadId} falló:`, e); }
+    await anotarLaEntrada(leadId, entro);
     return arrancadas;
   } catch (e) {
     console.error(`[nutricion] enrolarPorEvento(${evento}) lead ${leadId} falló:`, e);
     return 0;
+  }
+}
+
+/**
+ * ⚠️ LA ENTRADA QUEDA DICHA EN EL LEAD, Y SI NO LE SALIÓ, POR QUÉ (23/10/2026, P0 de #289). Martín y su esposa entraron a
+ * «Prospección activa» a las 21:47 de Tijuana, se inscribieron en 8 s, y la vía rápida cortó por el horario de oficina
+ * (9 a 21) sin escribirlo en ningún lado: ni un envío en fallo, ni un aviso, ni una línea en el lead. «No funcionó».
+ * Después de la vía rápida, una línea en su historial por cada automatización en la que entró: «Entró a «Sprint ·
+ * apertura». No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale mañana 9:00.» (lib/por-que-no-sale.ts,
+ * la misma lectura que la ficha y la tarjeta del CRM). Si salió, sólo «Entró a …». Nunca tira: el lead ya está inscripto.
+ */
+async function anotarLaEntrada(leadId: number, secuencias: readonly number[]): Promise<void> {
+  if (!secuencias.length) return;
+  try {
+    const [{ enAutomatizaciones }, { logLeadEvent }] = await Promise.all([import('@/lib/automatizaciones-del-lead'), import('@/lib/leads')]);
+    const suyas = ((await enAutomatizaciones([leadId])).get(leadId) ?? []).filter((a) => secuencias.includes(a.secuenciaId));
+    for (const a of suyas) await logLeadEvent(leadId, 'Automatización', `Entró a «${a.nombre}».${a.frenado ? ` ${a.frenado.texto}` : ''}`, 'MaKo');
+  } catch (e) {
+    console.error(`[nutricion] lead ${leadId}: no pude anotar en qué automatización entró:`, e instanceof Error ? e.message : e);
   }
 }
 
@@ -4538,6 +4621,27 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         insc.paso_actual = idxLeido;
         insc.nodo_actual = idDe(pasoLeido, idxLeido);
       }
+      // ── «CONTESTÓ» CORTA (23/10/2026, P0 de #289, lib/nutricion-grafo-motor.ts `destinoAlContestar`) ─────────
+      // En una automatización que USA «Contestó», a quien contestó no le sale ningún MENSAJE más de ella: este camino
+      // termina, con su rastro. Las acciones (el aviso al equipo, una etiqueta, mover de etapa) sí corren: la rama
+      // «Contestó» a la que lo llevó `alContestar`. Fuera de esto: el carril del recordatorio (sigue aunque conteste, M4) y
+      // una automatización con «Si responde» (la respuesta la atiende su AI Step, como `alContestar`).
+      // (Revisión adversarial del 23/10/2026: el nodo RESUELTO, no el leído; lo que cuelga de la rama «Contestó» sale, que
+      // está dibujado para quien contestó; y nada se corta antes de que a esa inscripción le haya salido algo: quien le
+      // escribió al negocio por otra cosa mientras esperaba el goteo recibe su primer mensaje.)
+      const nodoAhora = sec.pasos[insc.paso_actual];
+      if (enRespuesta && nodoAhora && claseDe(nodoAhora) === 'mensaje' && usaContesto(sec.pasos) && raizRespuesta(sec.pasos) == null
+          && !esHiloDelCarril(sec.pasos, insc.paso_actual) && !ramaDeQuienContesto(sec.pasos).has(idDe(nodoAhora, insc.paso_actual))
+          && await yaLeSalioAlgo(supabase, insc.id)) {
+        if (await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', alcance: 'hilo' })) {
+          res.omitidos += 1;
+          await anotarCierreSinEnvio(insc, nodoAhora, lead, 'el lead contestó: no le sale nada más de esta automatización');
+          res.detalle.push({ lead_id: insc.lead_id, canal: nodoAhora.canal, estado: 'omitido', nota: 'el lead contestó' });
+        } else {
+          res.detalle.push({ lead_id: insc.lead_id, canal: nodoAhora.canal, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' });
+        }
+        continue;
+      }
       // ── LA CONDICIÓN DE ARRIBA, OTRA VEZ (14/10/2026, §2.2 del plan «nada por detrás») ─────────
       // La fila despertó PARADA en un mensaje (un reintento, un borrador que esperaba, el anti-ban, el horario): la
       // condición que está justo arriba se vuelve a evaluar con los hechos de ahora. Si ya no lleva acá, este camino
@@ -5016,6 +5120,16 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const esMedia = paso.tipo === 'media' && Number(paso.media_id) > 0;
         // «Sale sola» POR MENSAJE (`revisar`); sin el campo, lo de la secuencia, como siempre.
         const saleSoloEste = saleSolo(paso, sec.envio_automatico);
+        // ⚠️ LO RETENIDO NO SE SALTEA (23/10/2026, al sacar «Sale sola»: `saleSolo` ya no deja borradores nuevos). Si el
+        // lead tiene un borrador de una automatización esperando aprobación, lo que sigue ESPERA, como hasta hoy: el
+        // borrador sale cuando alguien lo aprueba, o se descarta, y recién ahí sigue el flujo. Sin esto, el deploy le
+        // mandaba de golpe el SEGUNDO mensaje a quien todavía no recibió el primero (los 29 de #282 del ws11, parados en
+        // su segundo WhatsApp con el primero en Borradores desde el 20/10). A quien ya pagó le sale igual, como siempre.
+        if (!carril && await tieneBorradorNutriPendiente(insc.lead_id) && !(await esLeadCliente(insc.lead_id))) {
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
+          await escribir(insc, { proximo_envio_at: enHorasISO(6) }, { modo: 'fila' });
+          continue;
+        }
         // La línea de ESTA tarjeta si eligió una (sexta tanda, WhatsApp 2: `lineaDelPaso`), si no la de
         // la secuencia (`null` = la de por default), y si puede mandar ahora. Una línea pedida que no es
         // del negocio no está en `lineasEvo`: `canalDeLinea` la frena con su motivo, sin caer a otra.
@@ -5404,6 +5518,15 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 // `opts.audio` (16/10/2026): la nota de voz del lead, tal como llegó al webhook. La escucha `asistirRespuesta`, y sólo
 // si hay un AI Step que va a contestar (`escucharNotaDeVoz`, lib/setter-conversacion.ts). `opts.recibidoAt`: la hora del
 // PROPIO mensaje (la de WhatsApp), para que la guarda de «entró uno más nuevo» no confunda éste con el siguiente.
+/**
+ * «CONTESTÓ» CORTA, EN EL ACTO (23/10/2026, P0 de #289). Lo llama `pausarPorRespuesta` con las inscripciones que ACABAN de
+ * pasar a 'respondio'. En las automatizaciones que usan «Contestó» (`destinoAlContestar`, lib/nutricion-grafo-motor.ts): la
+ * fila va YA a la rama «Contestó» (su aviso corre ahora, por la vía rápida de abajo), o, sin esa rama, sale de la
+ * automatización. Desde ahí no le sale ningún mensaje más (la guarda de `procesarEnvios`). No toca: las que no usan
+ * «Contestó» (contestar no corta nada por su cuenta, 14/10), las que tienen «Si responde» (la respuesta la atiende su
+ * AI Step), una fila con hilos en paralelo (la guarda igual le corta los mensajes) ni el carril del recordatorio.
+ * Exportada para el arnés del ws3. Nunca tira: el lead ya quedó marcado, que es lo crítico.
+ */
 export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' | CanalSocial; cuenta?: string | null; audio?: AudioDelLead | null; recibidoAt?: string | null }): Promise<number> {
   const social: CanalSocial | null = esCanalSocial(opts?.origen) ? opts!.origen as CanalSocial : null;
   const medio: MedioAIStep = social ?? 'whatsapp';
@@ -5506,6 +5629,9 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     } catch (e) { console.error('[nutricion] destrabe de pasos condicionales falló:', e); }
   }
 
+  // «CONTESTÓ» CORTA, EN EL ACTO (23/10/2026, P0 de #289): a la rama «Contestó» (su aviso), o afuera. Nunca tira.
+  if (pausadas.length) await alContestar(leadId, pausadas, secsActivas);
+
   // Best-effort y en segundo plano conceptual: que un fallo del asistido NUNCA
   // rompa el webhook (el lead ya quedó despausado, que es lo crítico).
   const respondidas = [...pausadas, ...tardias];
@@ -5525,6 +5651,61 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     if (!atendida) await seguirCharla(leadId, charla, opts?.texto, opts?.linea ?? null, social ?? (opts?.origen === 'no_oficial' ? 'no_oficial' : 'oficial'), opts?.cuenta ?? null, opts?.audio ?? null, opts?.recibidoAt ?? null);
   } catch (e) { console.error(`[nutricion] modo asistido lead ${leadId} falló:`, e); }
   return respondidas.length;
+}
+
+/** ¿A esta inscripción ya le salió algo? (enviado, o simulado en una prueba.) Un error cuenta como sí: corta de más, nunca manda de más. */
+async function yaLeSalioAlgo(db: Awaited<ReturnType<typeof getTenantDb>>, inscId: number): Promise<boolean> {
+  const { data, error } = await db.from('nutricion_envios').select('id').eq('inscripcion_id', inscId).in('estado', ['enviado', 'simulado']).limit(1);
+  if (error) { console.error(`[nutricion] ¿le salió algo a la inscripción ${inscId}?: ${error.message}`); return true; }
+  return (data ?? []).length > 0;
+}
+
+export async function alContestar(leadId: number, inscripciones: ReadonlyArray<{ id: number; secuencia_id: number }>, secs?: Secuencia[] | null): Promise<number> {
+  let movidas = 0;
+  try {
+    const db = await getTenantDb();
+    const lista = secs ?? await getSecuenciasActivas();
+    const porId = new Map(lista.map((s) => [s.id, s]));
+    const ids = inscripciones.filter((i) => porId.has(i.secuencia_id)).map((i) => i.id);
+    if (!ids.length) return 0;
+    const { data, error } = await db.from('nutricion_inscripciones')
+      .select('id, lead_id, secuencia_id, estado, paso_actual, nodo_actual, hilos').in('id', ids).eq('estado', 'respondio');
+    if (error) throw new Error(error.message);
+    for (const f of (data ?? []) as Array<{ id: number; secuencia_id: number; paso_actual: number; nodo_actual: string | null; hilos: unknown }>) {
+      const sec = porId.get(f.secuencia_id);
+      if (!sec || raizRespuesta(sec.pasos) != null || sanearHilos(f.hilos)) continue;
+      // Sin nada que le haya salido, no está contestando esta automatización (le escribió al negocio por otra cosa): no
+      // se toca, y le sale su primer mensaje (revisión adversarial del 23/10/2026). Después, «Contestó» lo ve.
+      if (!(await yaLeSalioAlgo(db, f.id))) continue;
+      const idx = indiceActual(sec.pasos, f);
+      if (idx < 0 || esHiloDelCarril(sec.pasos, idx)) continue;
+      const destino = destinoAlContestar(sec.pasos, idx);
+      if (destino === undefined) continue;
+      const j = destino ? indicePorId(sec.pasos, destino) : -1;
+      // ⚠️ SIN RAMA «CONTESTÓ», LA FILA QUEDA EN 'respondio' SIN PRÓXIMO ENVÍO (revisión adversarial del 23/10/2026): un
+      // 'completada' directo se salteaba `estadoAlEscribir`, y el desenlace la daba por FALLIDA (`no_responde`, la etapa
+      // de fallo y su automatización: más mensajes a quien SÍ contestó). Así la cierra el desenlace como lograda.
+      const campos = j >= 0
+        ? { paso_actual: j, nodo_actual: destino, proximo_envio_at: ahoraISO(), updated_at: ahoraISO() }
+        : { proximo_envio_at: null, updated_at: ahoraISO() };
+      // Compare-and-set contra la posición leída: si el motor la movió entre medio, la guarda de `procesarEnvios` corta igual.
+      const { data: upd, error: eU } = await db.from('nutricion_inscripciones').update(campos)
+        .eq('id', f.id).eq('estado', 'respondio').eq('paso_actual', f.paso_actual).select('id');
+      if (eU) { console.error(`[nutricion] «Contestó» de la inscripción ${f.id}: ${eU.message}`); continue; }
+      if (!(upd ?? []).length) continue;
+      movidas += 1;
+      console.log(`[nutricion] lead ${leadId}: contestó en «${sec.clave}» → ${j >= 0 ? `la rama «Contestó» (${destino})` : 'sale de la automatización'}`);
+      try {
+        const { logLeadEvent } = await import('@/lib/leads');
+        await logLeadEvent(leadId, 'Automatización', `Contestó en «${sec.nombre}»: ${j >= 0 ? 'sigue por «Contestó».' : 'no le sale nada más.'}`, 'MaKo');
+      } catch { /* el historial no puede romper el corte */ }
+    }
+    // La rama «Contestó» corre YA (su aviso al equipo), con el turno del negocio.
+    if (movidas) await viaRapidaConTurno(leadId).catch((e: unknown) => console.error(`[nutricion] «Contestó» lead ${leadId}: la rama queda para el tick (${e instanceof Error ? e.message : String(e)})`));
+  } catch (e) {
+    console.error(`[nutricion] «Contestó» lead ${leadId}: no pude cortar (la guarda de procesarEnvios corta los mensajes igual):`, e instanceof Error ? e.message : String(e));
+  }
+  return movidas;
 }
 
 /**

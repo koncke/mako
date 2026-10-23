@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- El push por APNs. Al firmar para el App Store, el perfil de distribución lo pasa a «production». -->
+	<key>aps-environment</key>
+	<string>development</string>
+	<!-- Los links de hola-mako.com abren la app, y las contraseñas y passkeys guardadas valen en la app
+	     (public/.well-known/apple-app-site-association: falta el Team ID, que sale de la cuenta de Apple). -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:hola-mako.com</string>
+		<string>webcredentials:hola-mako.com</string>
+	</array>
+</dict>
+</plist>

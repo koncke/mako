@@ -28,6 +28,7 @@ import type { EventoVista, OcurrenciaVista, OpcionesEvento } from '@/lib/comunid
 import type { AlcanceEvento, EntradaEvento } from './api';
 import { Ico, useComunidad } from './piezas';
 import { diaDeSemanaTexto, duracionTexto, hoyEn, zonasDisponibles } from './tiempo';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const DURACIONES = [30, 45, 60, 90, 120, 180, 240, 360, 480, 720, 1440];
 const COLOR_PORTADA = '#7c8796';
@@ -256,7 +257,7 @@ export function EditorEvento({ evento, oc, zonaVista, onCerrar, onListo }: {
               <Textarea value={descripcion} maxLength={TOPE_DESCRIPCION_EVENTO} rows={4} onChange={(e) => setDescripcion(e.target.value)} />
             </label>
 
-            {error && <p className="cmu-error" role="alert">{error}</p>}
+            {error && <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p>}
           </div>
         )}
       </Modal>

@@ -324,7 +324,8 @@ test('⚠️ lo IMPORTADO nace en el tablero desde donde se importó', () => {
     'la importación volvió a no saber a qué producto van los leads');
   // Y lo ESCRIBE: recibirlo y no pasarlo a `createLead` es el mismo bug con un parámetro más.
   const cuerpo = ac.slice(ac.indexOf('importarLeadsRevisadosAction(filas'));
-  assert.match(cuerpo.slice(0, 4000), /funnel_id: funnelId \?\? null/,
+  // 6000 desde el 23/10/2026: el freno del tope del plan va antes (tests/crm-topes-plan-23-10.test.ts).
+  assert.match(cuerpo.slice(0, 6000), /funnel_id: funnelId \?\? null/,
     'la importación recibe el funnel y no lo escribe');
   const mod = limpio(leer('app/crm/ImportarLeadsModal.tsx'));
   assert.match(mod, /importarLeadsRevisadosAction\(filas, funnelId\)/,
@@ -401,7 +402,8 @@ test('⚠️ importar tiene DOS orígenes, y el de otro producto no pasa por la 
   // ⚠️ «Tildar todos» tilda a TODOS LOS QUE CUMPLEN EL FILTRO (22/10/2026, llamada con Mauricio: «que se puedan traer
   //    los 1.050»), no sólo los 300 que se dibujan; lo que el filtro deja afuera NO entra. Y los que ya están acá
   //    (`yaEsta`) ni se listan ni entran. Lo prueba ejecutándolo tests/crm-traer-todos.test.ts.
-  assert.match(tr, /filasParaTraer\(filas \?\? \[\], \{ q, etapa \}\)/,
+  //    El filtro va diferido desde el 23/10/2026 (el loader al filtrar: tests/crm-traer-23-10.test.ts).
+  assert.match(tr, /filasParaTraer\(filas \?\? \[\], \{ q: qDiferida, etapa: etapaDiferida \}\)/,
     '«tildar todos» dejó de usar el filtro que saca a los que YA están en este producto');
   assert.match(tr, /const ids = new Set\(candidatos\.map/,
     '«tildar todos» volvió a mirar sólo lo que está en pantalla');

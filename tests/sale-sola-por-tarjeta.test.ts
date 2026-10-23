@@ -51,10 +51,11 @@ test('la casilla dice lo que el MOTOR hace: para cada mensaje, con y sin «sale 
   assert.ok(combinaciones >= 24);
 });
 
-test('un revisar que no es booleano no cuenta (el motor sólo lee true y false)', () => {
+test('un revisar que no es booleano no cuenta, y un mensaje que no es de la IA sale solo (23/10/2026)', () => {
   const pasos = [msg('a')];
   assert.equal(saleSolaDelPaso({ revisar: 'no' }, pasos, 'a', true), true);
-  assert.equal(saleSolaDelPaso({ revisar: 1 }, pasos, 'a', false), false);
+  assert.equal(saleSolaDelPaso({ revisar: 1 }, pasos, 'a', false), true);
+  assert.equal(saleSolaDelPaso({ revisar: true }, pasos, 'a', false), true, 'un mensaje de una automatización quedó para aprobar');
 });
 
 // ── El lienzo ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -62,16 +63,23 @@ const LIENZO = readFileSync(join(__dirname, '..', 'app/automations/FlujoLienzo.t
 const ini = LIENZO.indexOf('<div data-sale-sola');
 const casilla = ini < 0 ? '' : LIENZO.slice(LIENZO.lastIndexOf('{noOficial', ini), LIENZO.indexOf('</div>', ini));
 
-test('el lienzo dibuja «Sale sola» en cada WhatsApp no oficial (no en el recordatorio) y escribe `revisar`', () => {
-  assert.ok(ini > 0, 'no está la casilla «Sale sola» en el editor del mensaje');
-  assert.match(casilla, /\{noOficial && !recordatorio && paso\.canal === 'whatsapp' && \(/);
-  assert.match(casilla, /checked=\{saleSolaDelPaso\(paso, pasos, id, envioAutoSecuencia\)\}/);
-  assert.match(casilla, /onChange=\{\(v\) => cambiar\(\{ revisar: !v \}, true\)\}/, 'prendida = revisar false; apila (es una decisión)');
-  assert.match(casilla, /label="Sale sola"/);
+// ⚠️ 23/10/2026 (Martín por el Cerebro: «SACÁ el "Llega sola" de la tarjeta de WhatsApp»): la casilla se fue, y con ella el
+// borrador escondido (el motor ya no deja de borrador un mensaje: `saleSolo`).
+test('el lienzo ya NO dibuja «Sale sola» en la tarjeta de WhatsApp', () => {
+  assert.equal(ini, -1, 'volvió la casilla «Sale sola»');
+  assert.doesNotMatch(LIENZO, /label="Sale sola"/);
+  void casilla;
 });
 
-test('apagada dice dónde queda y la regla de a quien ya pagó', () => {
-  assert.match(casilla, /Queda en Chats › Borradores para que la apruebes\. A quien ya te pagó le sale sola igual\./);
+// ⚠️ 23/10/2026: lo RETENIDO no se saltea. Con «Sale sola» fuera, un mensaje nuevo sale solo, pero si el lead tiene un
+// borrador esperando aprobación, lo que sigue espera (los 29 de #282 del ws11 tenían el primero en Borradores).
+test('lo retenido no se saltea: con un borrador pendiente, lo que sigue espera aunque salga solo', () => {
+  const motor = readFileSync(join(__dirname, '..', 'lib/nutricion.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const i = motor.indexOf('const saleSoloEste = saleSolo(paso, sec.envio_automatico);');
+  assert.ok(i > 0);
+  const despues = motor.slice(i, i + 3000);
+  assert.match(despues, /if \(!carril && await tieneBorradorNutriPendiente\(insc\.lead_id\) && !\(await esLeadCliente\(insc\.lead_id\)\)\) \{\n\s+res\.detalle\.push\(\{ lead_id: insc\.lead_id, canal: paso\.canal, estado: 'saltado', nota: 'borrador pendiente' \}\);\n\s+await escribir\(insc, \{ proximo_envio_at: enHorasISO\(6\) \}, \{ modo: 'fila' \}\);\n\s+continue;/, 'con un borrador retenido, el mensaje que sigue sale solo');
+  assert.ok(despues.indexOf('tieneBorradorNutriPendiente') < despues.indexOf('if (partesMulti)'), 'la espera va antes de mandar');
 });
 
 // ── Las roturas (4 tests; sin romper nada: 4 pases, 0 fallos) ──────────────────────────────────────────────────────

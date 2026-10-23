@@ -13,6 +13,7 @@ import type { CategoriaVista } from '@/lib/comunidad-tipos';
 import { MAX_CATEGORIAS, ORDENES_FEED, ROTULO_ORDEN, TOPE_CATEGORIA, type OrdenFeed, type PermisoCategoria } from '@/lib/comunidad-reglas';
 import { Ico, useComunidad } from './piezas';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const PERMISOS: Array<{ value: PermisoCategoria; label: string; icono: NombreIconoMenu }> = [
   { value: 'todos', label: 'Publican todos', icono: 'equipo' },
@@ -77,7 +78,7 @@ export function EditorCategorias({ onCerrar }: { onCerrar: () => void }) {
             <Button onClick={() => void agregar()} loading={enCurso}>Agregar</Button>
           </div>
         ) : <p className="cmu-meta" style={{ margin: 0 }}>Hasta {MAX_CATEGORIAS} categorías.</p>}
-        {error && <p className="cmu-error" role="alert">{error}</p>}
+        {error && <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p>}
       </div>
     </Modal>
   );

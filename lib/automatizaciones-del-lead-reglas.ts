@@ -5,7 +5,8 @@
 // =============================================================================
 import { indiceActual } from './nutricion-grafo-motor';
 import { nombreDeTarjeta } from './flujo-conversacion';
-import { idDe, type PasoGrafo } from './flujo-grafo';
+import { idDe, claseDe, type PasoGrafo } from './flujo-grafo';
+import type { FrenoDelEnvio } from './por-que-no-sale';
 
 export type EnAutomatizacion = {
   secuenciaId: number;
@@ -17,16 +18,29 @@ export type EnAutomatizacion = {
   paso: { numero: number; titulo: string } | null;
   proximoEnvioAt: string | null;
   link: string;
+  /**
+   * POR QUÉ NO LE SALE (todavía), en palabras (23/10/2026, P0 de #289: el motor cortaba por el horario sin decirlo):
+   * «No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale hoy 9:00.». null = nada lo frena.
+   */
+  frenado?: FrenoDelEnvio | null;
 };
 
 /** Las inscripciones que siguen vivas: corriendo, o frenadas porque contestó. */
 export const ESTADOS_VIVOS = ['activa', 'respondio'] as const;
 
 export type FilaInscripcion = { lead_id: number; secuencia_id: number; estado: string; paso_actual: number | null; nodo_actual: string | null; proximo_envio_at: string | null };
-export type FilaAutomatizacion = { id: number; nombre: string | null; activa: boolean | null; archivada_at: string | null; pasos: unknown };
+export type FilaAutomatizacion = { id: number; nombre: string | null; activa: boolean | null; archivada_at: string | null; pasos: unknown; instance_name?: string | null };
+
+/** El canal del MENSAJE que le toca (null = una acción, una condición, una espera, o no se pudo ubicar). */
+export function canalDelPaso(p: PasoGrafo | undefined): string | null {
+  return p && claseDe(p) === 'mensaje' && typeof p.canal === 'string' ? p.canal : null;
+}
+
+/** Lo que `frenoDe` sabe de cada fila (lo arma lib/automatizaciones-del-lead.ts con el contexto del negocio). */
+export type FrenoDeFila = (f: FilaInscripcion, s: FilaAutomatizacion, canal: string | null) => FrenoDelEnvio | null;
 
 /** Lo leído → lo de cada lead. Sin las archivadas ni las inscripciones que ya no corren. */
-export function enAutomatizacionesDe(filas: readonly FilaInscripcion[], secs: readonly FilaAutomatizacion[]): Map<number, EnAutomatizacion[]> {
+export function enAutomatizacionesDe(filas: readonly FilaInscripcion[], secs: readonly FilaAutomatizacion[], frenoDe?: FrenoDeFila): Map<number, EnAutomatizacion[]> {
   const porId = new Map(secs.filter((s) => s.archivada_at == null).map((s) => [Number(s.id), s]));
   const out = new Map<number, EnAutomatizacion[]>();
   for (const f of filas) {
@@ -40,6 +54,7 @@ export function enAutomatizacionesDe(filas: readonly FilaInscripcion[], secs: re
       secuenciaId: Number(s.id), nombre: s.nombre?.trim() || `Automatización #${s.id}`, automatizacionActiva: s.activa === true,
       estado: f.estado as EnAutomatizacion['estado'], paso: i >= 0 ? { numero: i + 1, titulo: nombreDeTarjeta(pasos, idDe(pasos[i], i)) } : null,
       proximoEnvioAt: f.proximo_envio_at, link: `/automations?sec=${s.id}`,
+      ...(frenoDe ? { frenado: frenoDe(f, s, canalDelPaso(i >= 0 ? pasos[i] : undefined)) } : {}),
     });
     out.set(Number(f.lead_id), lista);
   }

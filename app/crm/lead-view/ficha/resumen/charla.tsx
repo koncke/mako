@@ -16,7 +16,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import { Button } from '@/app/_ui';
 import { Confirm } from '@/app/_ui/Confirm';
-import { lineaDeAutomatizacion, preguntaDeFrenar } from '@/app/crm/automatizacion-lead';
+import { lineaDeAutomatizacion, preguntaDeFrenar, estadoDeAutomatizacion } from '@/app/crm/automatizacion-lead';
 import { automatizacionesDelLeadAction, frenarEnAutomatizacionAction } from '@/app/automations/automatizaciones-del-lead-actions';
 import type { EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
 import type { PropsBloque } from '../tipos';
@@ -227,10 +227,8 @@ export function AutomatizacionesEnCurso({ ctx, titulo, diseno, epico }: PropsBlo
     return resultado ? <Bloque titulo={titulo} epico={epico}><span className="fr-sub" role="status">{resultado}</span></Bloque> : null;
   }
   if (r === null) return <NoPude titulo={titulo} epico={epico} que="sus automatizaciones" />;
-  const estado = (a: EnAutomatizacion) => (a.estado === 'respondio'
-    ? 'Frenada: respondió'
-    : !a.automatizacionActiva ? 'La automatización está en pausa'
-    : a.proximoEnvioAt ? `Lo próximo sale ${new Date(a.proximoEnvioAt).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Corriendo');
+  // Con POR QUÉ NO LE SALE, si algo lo frena (23/10/2026, P0 de #289: app/crm/automatizacion-lead.ts).
+  const estado = (a: EnAutomatizacion) => estadoDeAutomatizacion(a, (iso) => new Date(iso).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }));
   const pregunta = frenar ? preguntaDeFrenar({ leads: 1, nombre: ctx.lead.nombre, auts: [frenar] }) : null;
   return (
     <>

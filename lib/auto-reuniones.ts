@@ -11,7 +11,7 @@
 
 import 'server-only';
 import { getTenantDb } from './workspace';
-import { credWs } from './credenciales';
+import { tokensDeAgenda } from './cuentas-agenda-server';
 import { buscarEventosGoogle } from './google-calendar';
 import type { FathomLink, Lead } from './leads';
 
@@ -37,19 +37,24 @@ type EventoCalendly = { name?: string; start_time?: string; status?: string };
 
 async function eventosCalendly(email: string | null): Promise<EventoCalendly[]> {
   if (!email) return [];
-  try {
-    const token = await credWs('CALENDLY_API_TOKEN');
-    if (!token) return [];
-    const h = { Authorization: `Bearer ${token}` };
-    const me = await fetch('https://api.calendly.com/users/me', { headers: h, cache: 'no-store' }).then((r) => r.json());
-    const org = (me?.resource as { current_organization?: string } | undefined)?.current_organization;
-    if (!org) return [];
-    const url = `https://api.calendly.com/scheduled_events?organization=${encodeURIComponent(org)}&invitee_email=${encodeURIComponent(email)}&count=20&sort=start_time:ascending`;
-    const res = await fetch(url, { headers: h, cache: 'no-store' }).then((r) => r.json());
-    return ((res?.collection ?? []) as EventoCalendly[]).filter((e) => e.status !== 'canceled');
-  } catch {
-    return [];
+  // En TODAS las cuentas de Calendly del negocio (varias cuentas, fase B, 23/10/2026): una reunión de la segunda no
+  // aparece con el token de la primera. Cada cuenta que falla se saltea (esto completa fechas: no decide nada).
+  const cuentas = await tokensDeAgenda('calendly').catch(() => [] as Array<{ cuenta: string; token: string }>);
+  const out: EventoCalendly[] = [];
+  for (const { token } of cuentas) {
+    try {
+      const h = { Authorization: `Bearer ${token}` };
+      const me = await fetch('https://api.calendly.com/users/me', { headers: h, cache: 'no-store' }).then((r) => r.json());
+      const org = (me?.resource as { current_organization?: string } | undefined)?.current_organization;
+      if (!org) continue;
+      const url = `https://api.calendly.com/scheduled_events?organization=${encodeURIComponent(org)}&invitee_email=${encodeURIComponent(email)}&count=20&sort=start_time:ascending`;
+      const res = await fetch(url, { headers: h, cache: 'no-store' }).then((r) => r.json());
+      out.push(...((res?.collection ?? []) as EventoCalendly[]).filter((e) => e.status !== 'canceled'));
+    } catch {
+      /* esa cuenta no contestó: las otras siguen */
+    }
   }
+  return out.sort((a, b) => Date.parse(a.start_time ?? '') - Date.parse(b.start_time ?? ''));
 }
 
 type AnalisisReunion = { tipo: string | null; started_at: string | null; share_url: string | null; call_url: string | null; category: string | null };

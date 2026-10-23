@@ -39,6 +39,7 @@ import {
 import { CONFIG_DEFAULT, FORMATOS, PROPORCIONES, type BotonNav, type ConfigLanding, type EnlaceNav } from './api-tipos';
 import { OBJETIVOS_LANDING, type ObjetivoLanding } from '../landing-spec';
 import { sanearEstilo } from './animaciones';
+import { cssDisenoLimpio } from './html-editable';
 import {
   NORMALIZAR_MARCAS, NORMALIZAR_NODOS, attrsFormulario, attrsTarjeta, hrefPermitido, idValido, obj,
   srcImagen, textoLimpio,
@@ -50,7 +51,7 @@ import {
 
 const INLINE = ['text', 'hardBreak'] as const;
 const TEXTO = ['paragraph', 'heading', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'horizontalRule', 'table'] as const;
-const ATOMOS = [NODO.imagen, NODO.video, NODO.insertado, NODO.formulario, NODO.grafico, NODO.espaciador, NODO.htmlLibre] as const;
+const ATOMOS = [NODO.imagen, NODO.video, NODO.insertado, NODO.formulario, NODO.grafico, NODO.espaciador, NODO.htmlLibre, NODO.htmlEditable] as const;
 /** Lo que puede ir suelto en una sección. */
 export const BLOQUES_TARJETA: readonly string[] = [...TEXTO, NODO.columnas, NODO.optimizado, NODO.botones, NODO.recuadro, NODO.desplegable, ...ATOMOS];
 /** En una columna: todo menos otras columnas. */
@@ -379,6 +380,12 @@ function sanearNodo(h: Record<string, unknown>, ctx: Ctx, prof: number, donde: s
       const nuevo = idHtmlDerivado(ctx);
       ctx.idsHtml.add(nuevo);
       attrs = { ...attrs, id: nuevo };
+    }
+  } else if (tipo === NODO.htmlEditable) {
+    // El HTML lo sanea el server al guardar (html-editable-seguro.ts, con sanitize-html): acá, sólo el tope.
+    attrs = attrsConMotivo(tipo, crudo, ctx, donde, ['html', 'id']);
+    if (typeof crudo.html === 'string' && crudo.html.length > TOPES.htmlEditable) {
+      descartar(ctx, `diseño editable de ${crudo.html.length} caracteres en ${donde} (tope ${TOPES.htmlEditable}): queda vacío`);
     }
   } else if (tipo === NODO.boton) {
     attrs = attrsConMotivo(tipo, crudo, ctx, donde, ['href']);
@@ -745,6 +752,14 @@ export function sanearConfig(raw: unknown): { config: ConfigLanding; descartes: 
   };
   if (pag.estiloAnimacion !== undefined && pag.estiloAnimacion !== null && config.pagina.estiloAnimacion !== pag.estiloAnimacion) {
     d.push(`estilo de animación «${recorte(pag.estiloAnimacion, 30)}» inválido: queda «${config.pagina.estiloAnimacion}»`);
+  }
+
+  // La hoja del «Diseño editable» (html-editable.ts): sólo se escribe si trae algo; pasada de tope, se anota.
+  const dis = obj(r.diseno);
+  if (typeof dis.css === 'string' && dis.css.trim()) {
+    const css = cssDisenoLimpio(dis.css);
+    if (css) config.diseno = { css };
+    else d.push(`la hoja del diseño pasa el tope de ${TOPES.cssDiseno} caracteres: se quita`);
   }
 
   const or = obj(r.origen);

@@ -10,7 +10,7 @@
 import { NextResponse } from 'next/server';
 import { personaDelRequest } from '@/lib/mako-turno-app';
 import { listarDispositivos } from '@/lib/ia-pc';
-import { CLAVE_MODELO_PC, cuentasParaVer, modeloPc } from '@/lib/ia-pc-reglas';
+import { CLAVE_MODELO_PC, agruparPorCuenta, cuentasParaVer, modeloPc } from '@/lib/ia-pc-reglas';
 import { getSesionAdmin } from '@/lib/auth';
 import { puedeOperar } from '@/lib/operaciones-reglas';
 import { getSetting } from '@/lib/settings';
@@ -43,11 +43,18 @@ export async function GET() {
   const admin = esAdmin ? undefined : await nombreAdminDelNegocio(persona.ws).catch(() => '');
   return NextResponse.json({
     ok: true, esAdmin, modelo: modeloPc(modelo), ...(esAdmin ? { claves } : { admin }),
+    // Las cuentas con sus dispositivos (23/10/2026: «Cuenta 1», «Cuenta 2», y adentro sus dispositivos). Se agrupa ACÁ, con los
+    // emails enteros, y sale con la misma regla del enmascarado.
+    grupos: agruparPorCuenta(pcs.map((d) => ({
+      id: d.id, nombre: d.nombre, esMia: d.esMia, ...(esAdmin && !d.esMia ? { de: d.persona } : {}), enLinea: d.enLinea,
+      ultimoLatido: d.ultimoLatido, version: d.version, sistema: d.sistema, ubicacion: d.ubicacion, conectadaAt: d.conectadaAt,
+      ...(d.claudeFalta ? { sinClaude: true } : {}), cuentas: d.cuentas, persona: d.persona,
+    })), (pc) => pc.esMia || superAdmin),
     pcs: pcs.map((d) => ({
       id: d.id, nombre: d.nombre, esMia: d.esMia, ...(esAdmin && !d.esMia ? { de: d.persona } : {}),
       enLinea: d.enLinea, ultimoLatido: d.ultimoLatido, version: d.version, cuentas: cuentasParaVer(d.cuentas, d.esMia || superAdmin),
       // Varias computadoras (22/10/2026): cuándo se conectó y su sistema (desde la 0.4.0), para saber cuál es cuál.
-      conectadaAt: d.conectadaAt, sistema: d.sistema,
+      conectadaAt: d.conectadaAt, sistema: d.sistema, ubicacion: d.ubicacion,
       // En esa PC no hay Claude Code (mig 0322): la tarjeta y el tutorial mandan al paso 2, no al 3.
       ...(d.claudeFalta ? { sinClaude: true } : {}),
     })),

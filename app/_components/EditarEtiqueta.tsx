@@ -24,6 +24,7 @@ import { Confirm } from '@/app/_ui/Confirm';
 import { COLORES_ETIQUETA, TOPE_NOMBRE_ETIQUETA, consecuenciaDeArchivar } from '@/lib/etiquetas-reglas';
 import type { Etiqueta } from '@/lib/etiquetas';
 import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 /** El campo del nombre, para enfocarlo cuando la caja YA se ve (`autoFocus` adentro de un Modal no llega). */
@@ -124,7 +125,7 @@ export function EditarEtiqueta({ etiqueta, onCerrar, onCambio }: { etiqueta: Eti
               ))}
             </div>
           </div>
-          {error && <p role="alert" style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--bad)' }}>{error}</p>}
+          {error && <p role="alert" style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--bad)' }}>{error}<ReportarASoporte /></p>}
         </div>
       </Modal>
       {freno && (

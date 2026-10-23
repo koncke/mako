@@ -20,6 +20,98 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Traer los contactos de un grupo de WhatsApp: una etapa puede mandar sola (23/10/2026)
+
+Martín, en la llamada del 23/10 (min 37:27): «una automatización que te agrega de un grupo de WhatsApp, te pone todos los
+números y los contactos en tu CRM de manera automática». Va en el alta del CRM («Traer de un grupo de WhatsApp», sólo el admin)
+y en la API de MaKo (`grupos_whatsapp`, `traer_contactos_de_grupo`). El pedido decía «No le manda NADA a nadie».
+- **El diagnóstico obvio («crear un lead no inscribe en nada») era el equivocado.** `createLead` no inscribe, es cierto. Pero
+  una etapa puede mandar SOLA por dos caminos: (1) una automatización activa colgada de la etapa (`etapa_actual`), que inscribe
+  al mover y, si no, el BARRIDO de la hora (`leadsDeCohorte`, lib/nutricion.ts) a todo lead abierto parado ahí con un hito de
+  90 días, y un lead recién creado lo tiene. «Un Lead Entró» cuelga de la etapa de ENTRADA: importar ahí era darle la bienvenida
+  a todo el grupo dentro de la hora. (2) una etiqueta vinculada a la etapa (mig 0224): al caer ahí el lead la recibe
+  (`espejarEtiquetasDeEtapa`) y poner una etiqueta dispara las automatizaciones de esa etiqueta. **La regla:** traer al CRM
+  sólo ofrece etapas sin ninguna de las dos (`etapasQueDisparan`, lib/grupo-wa-reglas.ts, con el MISMO criterio de ámbito que
+  el barrido: `leadEnAmbito`), y el servidor rechaza las otras. Moverlos después a mano sí dispara, que es lo que quiere quien
+  mueve.
+- **Nunca duplicar, de a muchos:** el índice de contactos de TODO el CRM una vez por tanda (`indiceContactos` +
+  `buscarTelefono`, el de la importación de archivos), no `duplicadosDeLead` por participante. El que ya es lead se SUMA al
+  funnel (`agregarAProducto` con la etapa); un número que tienen dos leads se saltea; `createLead` sigue chequeando como red.
+- **La etiqueta de ORIGEN la elige la persona** («Formación de Jan», «Evento Cancún»); viene con el nombre del grupo, entra en
+  40 caracteres (el tope de una etiqueta del CRM cortaba sin decirlo) y va en LOTE (`ponerEtiquetaLote`), que no dispara. Por
+  defecto, el CRM «Prospección» y ahí «Tibio», si existen. Varios grupos seguidos: el que ya es lead también se etiqueta, así que
+  quien está en dos grupos queda con las dos etiquetas.
+- **Pero una etiqueta que YA tiene una automatización («Etiqueta puesta») no se usa:** el lote no dispara, y aun así el barrido de
+  la hora (`leadsConEtiqueta`, lib/nutricion.ts) inscribe a todo lead que la tenga. Se rechaza antes de traer a nadie.
+- **De a tandas de 40** (`TANDA_GRUPO`): un grupo llega a 1.024 y cada lead nuevo son ~10 consultas. Hay tope de tiempo también
+  desde la pantalla (45 s): cortada por el límite de 60 s de la acción, un lead recién creado quedaba en la etapa de ENTRADA sin
+  moverse. Lo que no entra vuelve como `pendientes` y la pantalla lo reencola; si el movimiento falla, el error nombra al lead.
+- **La revisión de privacidad encontró tres puertas abiertas que los tests de forma no veían:** (1) por WhatsApp el rol del que
+  le escribe a MaKo es SIEMPRE 'admin' (lib/mako-doer-in.ts), así que «sólo el admin» no valía ahí: las dos operaciones de la API
+  son sólo de la app. (2) `lineasParaMandar` suma, en la plataforma, la línea de MaKo, que está en el grupo de MaKo de CADA
+  cliente: se usan sólo las líneas propias (`listarLineas`). (3) un `funnelId` ajeno caía en silencio al funnel del negocio, con
+  el chequeo de lo que manda hecho sobre OTRO funnel: se valida con `listarFunnels`.
+
+**Sin hacer:** no tiene «Deshacer»: los leads nuevos viven en su funnel de casa, y quitarlos es borrarlos (`eliminarLeadsAction`).
+No se probó con una línea de un cliente (las del ws3 y ws9 están cerradas): la línea de la plataforma sí.
+
+### Y después tampoco: el traído de un grupo queda donde lo pusieron (23/10/2026)
+
+- **«No le manda nada al traerlo» no alcanzaba:** lo que el negocio ya tiene prendido le escribía DESPUÉS, sin que nadie lo
+  decidiera. El CRM automático lo pasaba a `nutri` a los 2 días sin agendar y a `reactivacion` al enfriarse (T2) o a los 30 días
+  en No responde/Perdido (T6, lib/crm-auto-plan.ts). Y dos barridos que no cuelgan de ninguna etapa ni etiqueta lo tomaban sólo
+  por la edad: `reactivacion_viejo` (30 a 90 días sin agendar) y `ultimo_intento_antes_noresp` (90 a 365), en lib/nutricion.ts.
+- **La regla (el Cerebro, con la de Martín «nada por detrás»):** nace con su propio origen, `grupo_whatsapp` (app/crm/origen-lead.ts),
+  y `quedaDondeLoPusieron` lo saca de esos cuatro. T1 y T3 siguen: miran una reunión que él agendó o un plazo que escribió una
+  persona. Lo que alguien hace a PROPÓSITO también corre: moverlo a mano, o colgarle una automatización a su etapa o a su
+  etiqueta de origen. El que ya era lead y se SUMÓ desde el grupo conserva su origen y su recorrido: ya estaba en el CRM.
+- **La trampa:** el CRM automático lee los leads con una lista de columnas (`AUTO_COLS`, lib/crm-auto.ts). Sin `origen_lead`
+  ahí, el planificador recibe `undefined` y lo mueve igual, y el test del planificador puro no lo ve: se fija aparte.
+- Las cohortes se filtran DESPUÉS de leer, no con otro `.or()`: `conAmbito` ya pone el suyo en la misma consulta.
+
+### Lo que encontró la revisión de Integración (23/10/2026)
+
+- **H1. Revisar la etapa DESTINO no alcanzaba: el lead pasaba por la de ENTRADA.** `createLead` no recibía la etapa, así que
+  el lead nacía en la entrada y `setPipelineStage` lo movía después. Entre una cosa y la otra pasaban varias consultas, y con
+  un grupo grande el barrido de la hora caía en esa ventana, lo inscribía en «Un Lead Entró» y la inscripción seguía viva
+  después del movimiento. Y si el movimiento fallaba, el lead quedaba en la entrada para siempre, y la pantalla sólo contaba
+  «N no se pudieron». **La regla:** un lead que no debe recibir nada NACE en su etapa final (`createLead({ pipeline_stage })`),
+  nunca en la de entrada y movido después. La pantalla nombra a los que fallaron.
+- **H2. «Ganado» no manda nada y aun así hace daño.** Una etapa terminal escribe el estado: con «Ganado», el grupo entero
+  quedaba como venta (Revenue, Closing) y como cliente de Customer Success, y el barrido de la entrega le mandaba el
+  onboarding. `etapasQueDisparan` sólo conoce `etapa_actual` y las etiquetas, no la entrega. Las terminales
+  (`terminalEstadoFor ≠ abierto`) no se ofrecen ni se aceptan.
+- **H3.** El cron diario de fotos (`lib/fotos-contacto.ts`) copiaba a un bucket público la foto de WhatsApp de cualquier lead
+  con teléfono. Ahora también deja afuera a `quedaDondeLoPusieron`.
+- **Y una trampa que los tests de forma no veían (la encontró el tsc de Integración, 4f8b121b1):** `lib/leads` IMPORTA
+  `LeadDuplicadoError` pero no la reexporta. Importada de ahí, sin tipos, llega `undefined`, y `e instanceof LeadDuplicadoError`
+  tira TypeError justo en el camino del duplicado. Se importa de `lib/leads-duplicados`, y el test 8 lo fija.
+- **Sin hacer (bajas, del informe):** H4, los traídos cuentan como «entraron por un canal» en la cola de prioridad
+  (`esEntradaFresca`, lib/nutricion-prioridad.ts; el mismo agujero ya existía con `importacion`). H5, sin tope total ni
+  confirmación por cantidad. H6, `lineasDelNegocio` sin `esLineaDelWorkspace`. H7, `traer_contactos_de_grupo` se puede usar
+  como acción de una automatización: falta decidir si va a propósito. H8, el nombre del grupo llega del navegador. H9, no se
+  miran `wa_bloqueados`/`wa_ocultos`. H10, mensajes crudos de las acciones. El informe está en la carpeta de notas del
+  Cerebro (`revision-offer-grupo-wa-2310.md`).
+
+**Vive en:** `app/crm/grupo-wa-server.ts` · `app/crm/grupo-wa-actions.ts` · `app/crm/TraerDeGrupoWA.tsx` ·
+`lib/grupo-wa-reglas.ts` · `quedaDondeLoPusieron` en `app/crm/origen-lead.ts` (lo leen lib/crm-auto-plan.ts y
+lib/nutricion.ts) · `tests/grupo-wa.test.ts` (21 + 10 + 8 roturas). Lo de Evolution, en hallazgos-comunicacion.md.
+
+*23/10/2026, chat «Offer» (claude3).*
+
+## El «Mover de etapa» en lote les pisaba la CASA a los agregados (23/10/2026, P0 de #289)
+
+**Síntoma (medido leyendo el código, antes de que pasara).** Los 300 del Sprint de Mauricio están AGREGADOS al CRM 44
+(`lead_funnel`); su casa es otro CRM. El plan era tildar 50 por día y moverlos a «Prospección activa» con la barra de lote.
+`moverLeadsDeEtapaAction` llamaba `setLeadStageAction` de a uno: eso escribe `leads.pipeline_stage` de la CASA con la clave
+de una etapa de OTRO CRM (`setPipelineStage` no valida que la etapa sea del CRM del lead), y la fila del 44 seguía en
+«Lead entrante». La automatización de esa etapa no los veía nunca, y la casa quedaba en una etapa que no tiene.
+
+**La regla.** El lote recibe el CRM que se mira (`funnelActivo`) y decide en el server, con las filas, quién es agregado
+(`agregadosDelCrm`): ésos van por el MISMO camino que arrastrar su tarjeta (`moverEtapaEnProducto`), que desde ese día
+también los inscribe por evento con la regla del barrido (`agregadoEntraPorEvento`). Lo de la casa sigue por
+`setLeadStageAction`. Una etapa de un CRM nunca se escribe en la casa de un lead de otro.
+
 ## El «⋯» de una columna y su clic derecho eran DOS listas; y «Tus reuniones», una tarjeta para preparar (22/10/2026, noche)
 
 - **El «⋯» y el clic derecho de una columna se mantenían iguales A MANO.** El «⋯» era un `Dropdown` con su `options={[`
@@ -10351,3 +10443,140 @@ múltiple, así que el 4 es de la computadora. Del 5, el bloque azul del teléfo
 **Vive en:** app/crm/CrmBoard.tsx (`ALTO_TABLERO`, `bloquesDeReuniones`, la casilla en `renderColumn`) · app/crm/campo-inline.ts (`arrobaInstagram`) ·
 app/crm/ReunionesProximas.tsx · app/crm/seleccion-columna.ts · tests/crm-feedback-22-10.test.ts
 *22/10/2026, chat «CRM» (claude3).*
+
+## «Vincular evento» y «Vincular cobro» lentos: tres APIs en fila, y otra vez en cada clic (22/10/2026, segunda vuelta)
+
+- **Síntoma** (Martín, con capturas del ws1): abrir el pop-up, vincular y «Conectar Cal» tardan mucho.
+- **Causa, leída en el código** (no se pudo medir en producción: la PC estaba al 56 % de CPU y el Chrome se colgaba
+  midiendo). `listarEventosDeAgenda` (lib/agenda-evento-etapa-server.ts) le pregunta a Calendly, después a Cal.com y
+  después a Google, uno detrás del otro, y el pop-up no dibujaba nada hasta la última respuesta. Además, cada clic
+  (vincular, quitar, crear, editar) volvía a pedir la agenda entera: las tres APIs otra vez. Y `prepararVinculo` y
+  `vincularEvento` vuelven a listar los eventos del proveedor para validar.
+- **Lo que quedó:** lo vinculado a esa etapa sale de la base (`vinculadosDeEtapaAction`, una lectura) y se ve al toque,
+  con filas grises mientras llega la agenda. Cada cambio pone en su lugar lo que contestó el server (`ponerVinculo`), sin
+  releer. El pop-up de cobro hace lo mismo.
+- **Regla:** un pop-up que depende de APIs de terceros dibuja primero lo que ya sabe la base. Después de escribir, no
+  vuelve a leer lo de afuera: pone lo que devolvió la escritura.
+- **El aviso del «⋯» (reunión sin evento, Ganado sin cobro) lee SÓLO la base** (lib/vinculos-de-columnas.ts): dos
+  lecturas en la primera ola de app/crm/page.tsx, nunca las APIs. Si no puede leer, devuelve `null` y no avisa: un aviso
+  que miente es peor que ninguno. Se actualiza solo, porque las acciones hacen `revalidatePath('/crm')`.
+- **Lo que MaKo propone tiene que decir QUÉ toca.** `cuentas_cobro_etapa` y `desvincular_cobro_etapa` reciben sólo un
+  `vinculoId`, y el «sí» decía «ese producto». Ahora `preparar` lee el vínculo (`vinculoPorId`, exportado de
+  lib/cobro-etapa-server.ts) y nombra el producto y el CRM; un id que no existe no llega al «sí».
+  `vincular_cobro_etapa` frena un producto sin precio ANTES del «sí» (antes fallaba después).
+- **Lo que encontró la revisión adversarial del cobro (23/10/2026):**
+  - *Un producto cobra en UN solo CRM* (índice único de la 0326), pero el catálogo de `ver_cobro_etapa` sólo miraba los
+    vínculos de ESE CRM: MaKo ofrecía un producto que ya cobraba en otro, y el «sí» terminaba en error. Ahora `preparar`
+    lee todos los vínculos del negocio (`vinculosDelNegocio`), dice dónde cobra hoy y frena un CRM sin Ganado.
+  - *Las tres que escriben son de plata* (`plata: true`): deciden si un pago gana el trato y arma su plan de pagos. Por
+    WhatsApp, un «ok, después lo veo» no las confirma.
+  - *El aviso del «⋯» callaba con la pasarela desconectada:* el vínculo sigue, pero ningún pago pasa a Ganado.
+    `cobraDeVerdad` pide una cuenta del vínculo TODAVÍA conectada.
+  - *Crear un producto y vincularlo podía duplicarlo:* si vincular se caía, el formulario seguía abierto y reintentar
+    creaba otro igual. Se cierra antes de vincular.
+- **El diagnóstico obvio era el equivocado:** la batería del Ops Center se cayó porque «cambia el teléfono del lead Juan»
+  perdía su herramienta. No era la del teléfono: era una op NUEVA que decía «cambiar» en el título y le ganaba el lugar
+  en el presupuesto. Es la regla de AGENTS.md (palabras del clasificador): se ve sólo corriendo
+  `tests/ops-center-bateria.test.ts` SOLA después de declarar una op.
+
+**Sin hacer:**
+- La velocidad del server, en lib/agenda-evento-etapa-server.ts: las tres agendas en paralelo, una caché corta por
+  negocio que se borre al crear, editar o vincular, y que vincular no vuelva a listar del proveedor. Espera la firma
+  multicuenta de Cobros (`EventoDeAgenda.cuenta`, `crearEventoDeAgenda({ proveedor, cuenta?, … })`) para no pisarse.
+- La edición completa del evento (descripción, ubicación, disponibilidad, las preguntas en Cal.com) y elegir la cuenta
+  en el pop-up: lib/calendly-agenda.ts, lib/calcom.ts, app/crm/EventosDeEtapaModal.tsx y `editar_pagina_reserva`. Lo que
+  deja cada API está en docs/hallazgos-integraciones.md.
+- Medir los tiempos en producción.
+- Cuando MaKo vincula algo desde el panel del CRM, el aviso del «⋯» sigue hasta recargar: el panel no refresca el
+  tablero después de una acción (tampoco con los eventos). Vive en app/crm/PanelMakoCrm.tsx.
+
+**Vive en:** app/crm/EventosDeEtapaModal.tsx · app/crm/CobroDeEtapaModal.tsx · app/crm/vincular-etapa.ts (la hoja de los
+dos, computadora y teléfono) · lib/vinculos-de-columnas.ts · lib/api-mako/areas/crm.run.ts (`vinculoDeCobro`) ·
+tests/crm-vincular-22-10.test.ts
+*22/10/2026, chat «CRM» (claude3).*
+
+## «Conectar Meta» desde el buscador de Instagram: el modal no puede vivir en un botón que desaparece (22/10/2026)
+
+Martín: «La búsqueda de Instagram no funciona porque tengo que conectar Meta. No entiendo eso». Tres trampas del arreglo:
+
+- **`BotonIntegracion` guarda el modal ADENTRO del botón.** En el buscador, el clic le saca el foco al campo, la lista se
+  cierra (y en la ficha, salir del campo cierra la edición), el botón se desmonta y el modal se va con él. Va
+  `useConectarIntegracion`, con el modal fuera del botón.
+- **El blur del clic confirmaba la edición de la ficha.** El botón hace `onMouseDown` con `preventDefault` y marca
+  `conectandoRef` antes del blur. ModalShell no devuelve el foco al cerrarse: lo devuelve el buscador.
+- **Recién conectado, la caché seguía diciendo «no tiene».** La ruta guarda por negocio `ig:<ws>` (la cuenta de Instagram
+  de la página) y `mx:<ws>` (por qué Meta no sirve). Después de conectar se pregunta con `?estado=1&fresco=1`, que la
+  olvida.
+- **`fresco` sin tope era una puerta para pegarle a Meta en bucle** (Integración, 23/10/2026): cualquiera que lo mandara
+  repetido volvía a preguntar sin esperar, y borraba la pausa de un LÍMITE de Meta, que existe justamente para no trabar
+  el token del negocio. Ahora: una vez cada 10 minutos por negocio y 20 por día (`tocaRefrescar`), y la pausa de un
+  límite no se borra nunca (`clavesQueOlvida`). El tope vive en la memoria del proceso, como la caché.
+
+**Vive en:** app/crm/new/InstagramBuscador.tsx · app/api/crm/instagram-buscar/route.ts · app/crm/lead-view/CampoEditable.tsx ·
+app/crm/campo-inline.ts (`instagramDeLaFicha`) · tests/crm-instagram-meta-22-10.test.ts
+*22/10/2026, chat «CRM» (claude3).*
+
+## «Este producto no tiene precio» y estaba en Stripe a US$270: el pop-up nunca había leído Stripe (23/10/2026)
+
+- **Síntoma** (la llamada con Mauricio, ws1): en «Vincular cobro», su «Sprint 3 días» decía «Este producto no tiene
+  precio», y «Volver a leer» no cambiaba nada.
+- **El diagnóstico obvio era el equivocado:** no era la conexión. La clave de Stripe funcionaba (lo midió Cobros, sólo
+  leyendo). MaKo NUNCA leía el catálogo de Stripe: el pop-up listaba sólo los productos de MaKo, y ése estaba sin precio.
+  «Volver a leer» volvía a pedir la misma lista.
+- **Lo que quedó:** el servidor es de Cobros (lib/stripe-catalogo.ts: los precios en vivo, y traer uno al catálogo
+  volviéndolo a leer en Stripe). En el pop-up, «+ Producto» (`opcionesDeCobro`, puro):
+  - el producto de MaKo y su precio de Stripe van en UNA fila: son el mismo, y dos filas invitan a vincular el que no tiene
+    precio;
+  - los que no se pueden traer (otra moneda, el monto lo elige quien paga, ya cobra otra cosa en MaKo) van apagados y con
+    su porqué, nunca escondidos;
+  - un fallo de Stripe se dice («No pude leer los productos de Stripe 2: …»), nunca «no hay»;
+  - los precios llegan aparte y no frenan la foto.
+- **MaKo igual:** `ver_cobro_etapa` trae `de_stripe` y `vincular_cobro_etapa` acepta `precioStripe`, con las mismas dos
+  funciones y el mismo freno: si el producto ya cobra en otro CRM, se para antes de tocar el catálogo.
+
+**Vive en:** app/crm/cobro-ganado.ts (`opcionesDeCobro`, `precioDeStripeTexto`) · app/crm/CobroDeEtapaModal.tsx ·
+lib/api-mako/areas/crm.run.ts (`prepararPrecioDeStripe`, `ejecutarPrecioDeStripe`) · tests/crm-cobro-stripe-23-10.test.ts
+*23/10/2026, chat «CRM» (claude3).*
+
+## La base de leads de Martín para vender MaKo: el origen y la clasificación (23/10/2026)
+
+- **`origen_lead` es un catálogo CERRADO** (12 ids, `app/crm/origen-lead.ts`): «Formación de Jan» escrito ahí se pinta
+  «Sin origen». El origen de una LISTA va en una etiqueta («Origen: …»), igual que «Traer de un grupo de WhatsApp»
+  (chat Offer) pone «Grupo: <nombre>».
+- **El importador del CRM no deja elegir origen ni etiqueta por fila:** estampa `origen_lead='importacion'` y recibe un
+  solo CRM (`importarLeadsRevisadosAction`). Para una lista con origen está `scripts/cargar-base-venta.mts` (ws9): mismo
+  parser (`filasDesdeCsv`), `duplicadosDeLead` por fila, y al que ya está sólo le suma la etiqueta.
+- **La base NO tiene UNIQUE por teléfono ni email**: lo que impide el duplicado es buscar antes (`duplicadosDeLead`,
+  últimos 10 dígitos). Probado en seco: el mismo teléfono con otro formato da «ya está».
+- **La clasificación ya estaba:** el CRM PROSPECCIÓN del ws9 tiene Círculo ROJO (st0) / TIBIO (st1) / FRÍO (st2) →
+  Conversación abierta (st3). Medido el 23/10: 13 leads, todos a mano, ninguna lista con origen.
+
+**Sin hacer:** cargar las listas. Espera a Martín: qué grupo es cada origen, los archivos y el círculo de cada uno
+(se lo pidió el Cerebro).
+
+**Vive en:** scripts/cargar-base-venta.mts · app/crm/origen-lead.ts · app/crm/leads-importar.ts · lib/leads.ts (`duplicadosDeLead`)
+
+## Los topes del plan en el CRM: el freno va en las altas A MANO, nunca en `createLead` (23/10/2026)
+
+MaKo Esencial tiene 1 CRM y 2.000 leads (lib/topes-plan.ts, del Cerebro). Lo que no se ve en el código:
+
+- **El lugar obvio era el equivocado.** La tabla dice «se lee en el punto donde se crea la cosa», y para un lead ese punto es
+  `createLead`. Pero `createLead` también la llaman los webhooks (anuncios, reservas, Chats): un freno ahí PIERDE los leads
+  que entran solos. El freno (`frenarAltaPorTope`) va en las altas a mano: el tablero, la conversación de WhatsApp,
+  importar y MaKo. Un test enumera los archivos que lo llaman: uno nuevo se decide a propósito.
+- **La capa no alcanza para saber si hay tope.** El ws1 y los acuerdos a mano también son `completo`. Primero
+  `suscripcionDeMakoDe(ws)`; sin plan cobrado por la pasarela, no hay tope. Y si algo no se puede leer, tampoco: un
+  error nuestro no le corta el trabajo a un cliente.
+- **Importar se frena entero, antes de escribir**, contando las filas que de verdad se crean (`entra`): a medias es
+  peor. Con 1.996 usados entran 4, no 5.
+- **Contar sin traer** (`count: 'exact', head: true`): con `.length`, PostgREST corta en 1.000 y el tope nunca llegaría.
+
+**«Pasar a Pro» va a `RUTA_CAMBIAR_PLAN` de lib/topes-plan.ts** (`/configuraciones/plan`, el panel del plan de quien ya es
+cliente, con la punta de Planes), nunca a una ruta escrita a mano, ni a
+`/planes`, que es la página pública para quien todavía no compró. Como el tope sólo aplica a quien MaKo cobra por la
+pasarela, el link no queda roto. **Sin hacer:** cuando un webhook pasa el tope sólo avisa el tablero; no sale otra
+notificación.
+
+**Vive en:** lib/topes-crm.ts · lib/topes-crm-reglas.ts (puro) · app/crm/PasarAPro.tsx · app/crm/actions.ts (`altaDeLead`,
+la de WhatsApp, `importarLeadsRevisadosAction`) · app/crm/nuevo-crm-actions.ts · tests/crm-topes-plan-23-10.test.ts
+*23/10/2026, chat «CRM» (claude3).*

@@ -17,6 +17,7 @@
 
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const campo: CSSProperties = { width: '100%', padding: '11px 12px', borderRadius: '10px', border: '1px solid rgba(0,0,0,.18)', background: '#fff', color: '#14161B', fontSize: '15px', boxSizing: 'border-box', marginBottom: '8px' };
 
@@ -61,7 +62,7 @@ function ConCorreo({ next }: { next: string }) {
         <div style={{ fontSize: '14px', fontWeight: 600, color: '#14161B', marginBottom: '8px' }}>Restablecer tu contraseña</div>
         {aviso ? <div role="status" style={{ marginBottom: '10px', fontSize: '13px', color: '#14161B' }}>{aviso}</div> : (
           <>
-            {error && <div role="alert" style={{ marginBottom: '10px', fontSize: '13px', color: '#b91c1c' }}>{error}</div>}
+            {error && <div role="alert" style={{ marginBottom: '10px', fontSize: '13px', color: '#b91c1c' }}>{error}<ReportarASoporte /></div>}
             <input type="email" autoComplete="username" placeholder="Tu correo" value={email} onChange={(e) => setEmail(e.target.value)} required style={campo} />
             <button type="submit" disabled={ocupado || !email} style={{ width: '100%', padding: '12px', borderRadius: '11px', border: 'none', background: '#14161B', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', opacity: ocupado ? 0.6 : 1 }}>
               {ocupado ? 'Mandando…' : 'Mandarme el link'}
@@ -90,7 +91,7 @@ function ConCorreo({ next }: { next: string }) {
   };
   return (
     <form onSubmit={entrar} style={{ marginTop: '16px' }}>
-      {error && <div role="alert" style={{ marginBottom: '10px', fontSize: '13px', color: '#b91c1c' }}>{error}</div>}
+      {error && <div role="alert" style={{ marginBottom: '10px', fontSize: '13px', color: '#b91c1c' }}>{error}<ReportarASoporte /></div>}
       <input type="email" autoComplete="username" placeholder="Tu correo" value={email} onChange={(e) => setEmail(e.target.value)} required style={campo} />
       <input type="password" autoComplete="current-password" placeholder="Tu contraseña" value={contrasena} onChange={(e) => setContrasena(e.target.value)} required style={campo} />
       <button type="submit" disabled={ocupado || !email || !contrasena} style={{ width: '100%', padding: '12px', borderRadius: '11px', border: 'none', background: '#14161B', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', opacity: ocupado ? 0.6 : 1 }}>

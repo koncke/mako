@@ -164,7 +164,7 @@ test('cada función de plata del relevamiento sigue en un bloque, con la MISMA a
   // Cobrar con link, la lista de cobros con lo del admin, y el link de UNA cuota.
   assert.match(COBRO, /<CobrarConLink lead=\{/);
   assert.match(COBRO, /<CobrosDelLead cobros=\{lista\} error=\{errLeer\} esAdmin=\{!!opciones\?\.ok && opciones\.esAdmin\}/);
-  assert.match(COBRAR, /<CobrarCuotaConLink lead=\{leadCobro\} pasarelas=\{pasarelas\} cuota=\{\{ pagoId: q\.id,/);
+  assert.match(COBRAR, /<CobrarCuotaConLink lead=\{leadCobro\} pasarelas=\{pasarelas\} cuentas=\{cuentas\} cuota=\{\{ pagoId: q\.id,/);
   // Cancelar una suscripción: sólo el admin, con confirmación; la de la pasarela en la pasarela, la manual en el CRM.
   assert.match(COBRO, /\{ctx\.esAdmin && s\.estado === 'activa' && <Button[^\n]*setPreguntar\(true\)/);
   assert.match(COBRO, /activaPasarela\s*\? await cancelarSuscripcionAction\(activaPasarela\.id\)[\s\S]{0,200}: await cambiarEstadoSuscripcionAction\(lead\.id, 'cancelada'\)/);

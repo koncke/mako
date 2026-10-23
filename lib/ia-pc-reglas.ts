@@ -9,6 +9,8 @@
 // Claude Code, y el test compara las dos copias.
 // =============================================================================
 
+import { ESTADOS_MX } from './geo-regiones';
+
 /** El token de una PC emparejada: un negocio, una PC, una persona. Sólo late, toma turnos y los contesta. */
 export const PREFIJO_TOKEN_PC = 'mkopc_';
 /** El token de las herramientas de UN turno: lo recibe la PC que lo tomó y vence con el turno. */
@@ -250,12 +252,75 @@ export function reponeDelTope(l: { usadoSemana?: number; repone?: string; repone
 // curl, el programa no lleva la marca de «descargado de internet», así que SmartScreen y Gatekeeper no lo frenan.
 
 /** La versión del programa que sirven los instaladores (la misma que `VERSION` de scripts/ia-pc/mako-pc.mjs). */
-export const VERSION_PC = '0.3.2';
+export const VERSION_PC = '0.4.2';
 export const SISTEMAS_PC = ['windows', 'mac'] as const;
 export type SistemaPc = (typeof SISTEMAS_PC)[number];
 /** Los archivos que sube scripts/ia-pc/publicar-binarios.mts al bucket privado `ia-pc` (comprimidos: entran en 50 MB). */
 export const archivoDelPrograma = (archivo: 'windows-x64' | 'mac-arm64' | 'mac-x64'): string => `mako-pc-${VERSION_PC}-${archivo}.gz`;
 export const ARCHIVOS_PC = ['windows-x64', 'mac-arm64', 'mac-x64'] as const;
+/**
+ * El instalador CON ASISTENTE de Windows (0.4.0, installer/windows/mako.iss): Siguiente › Instalar › Finalizar, sin PowerShell
+ * (Martín, 22/10/2026: «jamás por Powershell, ni siquiera que se tenga que abrir»). Va SIN comprimir —Inno ya comprime— y se
+ * baja con \`nombreDelInstalador\` (GET /api/ia-pc/descargar).
+ */
+export const archivoDelInstalador = (version: string = VERSION_PC): string => `mako-pc-${version}-windows-setup.exe`;
+export const nombreDelInstalador = (version: string = VERSION_PC): string => `MaKo-Setup-${version}.exe`;
+/** La UNA línea de la página de descarga para el aviso de Windows mientras no esté firmado (Martín, 22/10/2026). */
+export const AVISO_SMARTSCREEN = 'Si Windows dice «protegió su PC»: Más información › Ejecutar de todas formas.';
+/**
+ * MaKo.app para la Mac (0.4.2; Mauricio conectó su MacBook por la Terminal el 23/10 y le costó): un .zip con la app (un .pkg o
+ * un .dmg no se arman en Windows). La app copia el programa de ESA Mac, le pone la firma local y lo abre con `app`
+ * (scripts/ia-pc/mako-pc.mjs → abrirLaApp): toma el código del portapapeles, sin Terminal.
+ */
+export const archivoDelInstaladorMac = (version: string = VERSION_PC): string => `mako-pc-${version}-mac-app.zip`;
+export const nombreDelInstaladorMac = (version: string = VERSION_PC): string => `MaKo-${version}-Mac.zip`;
+/** La UNA línea para cuando macOS frena la app sin firmar (la firma de Apple espera el D-U-N-S). */
+export const AVISO_GATEKEEPER = 'Si macOS dice que no puede comprobarla: Ajustes del Sistema › Privacidad y seguridad › Abrir igualmente.';
+
+/**
+ * El ejecutable de MaKo.app: copia el programa de ESTA Mac (chip de Apple o Intel) a ~/.mako-pc/bin —donde lo busca el
+ * arranque, el mismo de la línea de la Terminal—, le saca la cuarentena, le pone la firma local que pide el chip de Apple (un
+ * ejecutable sin firma no corre ahí) y lo abre con `app`. Un guion: la app no está firmada, y así macOS sólo pregunta por ella.
+ */
+export function lanzadorDeLaAppMac(): string {
+  return [
+    '#!/bin/sh',
+    '# MaKo.app: copia el programa de esta Mac a ~/.mako-pc/bin, con la firma local, y lo abre sin Terminal (0.4.2).',
+    'R="$(cd "$(dirname "$0")/../Resources" && pwd)"',
+    'D="$HOME/.mako-pc/bin"',
+    'mkdir -p "$D"',
+    'if [ "$(uname -m)" = "arm64" ]; then B="$R/mako-pc-arm64"; else B="$R/mako-pc-x64"; fi',
+    'cp -f "$B" "$D/mako-pc.nuevo" && chmod +x "$D/mako-pc.nuevo"',
+    'xattr -d com.apple.quarantine "$D/mako-pc.nuevo" 2>/dev/null || true',
+    'codesign --force --sign - "$D/mako-pc.nuevo" 2>/dev/null || true',
+    'mv -f "$D/mako-pc.nuevo" "$D/mako-pc"',
+    'exec "$D/mako-pc" app',
+    '',
+  ].join('\n');
+}
+
+/** El Info.plist de MaKo.app: sin ícono en el Dock (las ventanas son del sistema). */
+export function infoPlistDeLaAppMac(version: string = VERSION_PC): string {
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+    '<plist version="1.0"><dict>',
+    '<key>CFBundleName</key><string>MaKo</string>',
+    '<key>CFBundleDisplayName</key><string>MaKo</string>',
+    '<key>CFBundleIdentifier</key><string>com.hola-mako.app</string>',
+    `<key>CFBundleVersion</key><string>${version}</string>`,
+    `<key>CFBundleShortVersionString</key><string>${version}</string>`,
+    '<key>CFBundlePackageType</key><string>APPL</string>',
+    '<key>CFBundleExecutable</key><string>MaKo</string>',
+    '<key>LSMinimumSystemVersion</key><string>11.0</string>',
+    '<key>LSUIElement</key><true/>',
+    '</dict></plist>',
+    '',
+  ].join('\n');
+}
+
+/** Adónde vuelve el instalador al terminar: «Tus cuentas de IA», directo en «Conecta MaKo». */
+export const RUTA_TRAS_INSTALAR = '/perfil/ia?computadora=1';
 
 /**
  * Qué archivos de ESTA versión faltan en el bucket (IA1/IA2, 22/10/2026). La 0.3.2 se desplegó sin sus ejecutables y el
@@ -267,7 +332,7 @@ export function faltanEnElBucket(nombres: readonly string[], version: string = V
   const hay = new Set(nombres);
   const versiones = [...new Set(nombres.map((n) => /^mako-pc-(\d+\.\d+\.\d+)-/.exec(n)?.[1]).filter((v): v is string => !!v))]
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  return { faltan: ARCHIVOS_PC.map((a) => `mako-pc-${version}-${a}.gz`).filter((n) => !hay.has(n)), versiones };
+  return { faltan: [...ARCHIVOS_PC.map((a) => `mako-pc-${version}-${a}.gz`), archivoDelInstalador(version), archivoDelInstaladorMac(version)].filter((n) => !hay.has(n)), versiones };
 }
 
 /** Lo que dice scripts/ia-pc/verificar-binarios.mts: «0.3.2 completa» o «falta 0.3.2: …» (con lo que no firma). */
@@ -526,11 +591,111 @@ export function sistemaDeLaVersion(version: string | null | undefined): 'Windows
   return m ? (m[1].toLowerCase() === 'mac' ? 'Mac' : 'Windows') : null;
 }
 
-/** Una PC de un negocio, para el super admin (SuperAdmin › Uso → Computadoras). Sin ningún secreto. */
+/**
+ * Una PC de un negocio, para el super admin (SuperAdmin › Uso → Computadoras). Sin ningún secreto: el email de sus cuentas va
+ * ENTERO porque el super admin lo puede ver (decisión del Cerebro, 22/10/2026), y su ubicación es sólo ciudad, provincia y país.
+ */
 export type PcDeNegocio = {
   id: number; ws: number; negocio: string; persona: string; nombre: string; sistema: 'Windows' | 'Mac' | null;
   enLinea: boolean; conClaude: boolean; conectadaAt: string | null; ultimoLatido: string | null;
+  cuentas: CuentaPc[]; ubicacion: string | null; version: string | null;
 };
+
+// ── Dónde está cada dispositivo (23/10/2026) ───────────────────────────────────
+// Martín: «Cada dispositivo muestra su UBICACIÓN como lo hace Google en "Tus dispositivos": "Grandbourg, Buenos Aires,
+// Argentina"». Sale de los headers de geolocalización que Vercel le pone al latido (lib/graficos-datos-puro.ts →
+// `ubicacionDeHeaders`, que nunca lee la IP). ⚠️ DATO PERSONAL: sólo ciudad, provincia y país, como texto; nunca la IP ni
+// las coordenadas (supabase/migrations/0327_ia_pc_ubicacion.sql). Lo que no se sabe, no se muestra.
+
+/** Las provincias de Argentina por su código ISO 3166-2 (lo que manda `x-vercel-ip-country-region`). */
+export const PROVINCIAS_AR: Readonly<Record<string, string>> = {
+  A: 'Salta', B: 'Buenos Aires', C: 'Ciudad de Buenos Aires', D: 'San Luis', E: 'Entre Ríos', F: 'La Rioja',
+  G: 'Santiago del Estero', H: 'Chaco', J: 'San Juan', K: 'Catamarca', L: 'La Pampa', M: 'Mendoza', N: 'Misiones',
+  P: 'Formosa', Q: 'Neuquén', R: 'Río Negro', S: 'Santa Fe', T: 'Tucumán', U: 'Chubut', V: 'Tierra del Fuego',
+  W: 'Corrientes', X: 'Córdoba', Y: 'Jujuy', Z: 'Santa Cruz',
+};
+
+/** El nombre del país en español («Argentina», «México»), o null. */
+export function nombreDePais(iso2: string): string | null {
+  try { return new Intl.DisplayNames(['es'], { type: 'region' }).of(iso2.toUpperCase()) ?? null; } catch { return null; }
+}
+
+/**
+ * «Grandbourg, Buenos Aires, Argentina», como Google: ciudad, provincia y país; lo que no viene se saltea, y un nombre que se
+ * repite va una vez («Córdoba, Argentina»). La provincia, sólo donde se sabe su nombre (Argentina y México); si no, nada.
+ */
+export function textoDeUbicacion(u: { pais: string | null; region: string | null; ciudad: string | null } | null | undefined): string | null {
+  if (!u?.pais) return null;
+  const pais = u.pais.toUpperCase();
+  const region = !u.region ? null : pais === 'AR' ? PROVINCIAS_AR[u.region.toUpperCase()] ?? null : pais === 'MX' ? ESTADOS_MX[`MX-${u.region.toUpperCase()}`] ?? null : null;
+  const partes: string[] = [];
+  for (const p of [u.ciudad, region, nombreDePais(pais)]) {
+    // Ni control (U+0000–U+001F, U+007F), ni los invisibles de ancho cero, ni los que invierten la dirección del texto (U+202A–
+    // U+202E, U+2066–U+2069), ni < > (revisión de privacidad, 23/10/2026: deformaban cómo se lee en la pantalla del admin).
+    const t = bienFormado((p ?? '').replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff<>]/g, '')).trim();
+    if (t && !partes.some((x) => x.toLowerCase() === t.toLowerCase())) partes.push(t);
+  }
+  return partes.length ? bienFormado(partes.join(', ').slice(0, 120)) : null;
+}
+
+/** Sin medios caracteres sueltos: cortar un texto puede partir un emoji en dos, y la base no acepta la mitad. */
+const bienFormado = (s: string): string => ((s as { toWellFormed?: () => string }).toWellFormed?.() ?? s).replace(/\ufffd/g, '');
+
+// ── Las cuentas y sus dispositivos (23/10/2026) ───────────────────────────────
+// Martín: cada cuenta conectada es UN bloque, «Cuenta 1», «Cuenta 2» (no el nombre de la PC), con su email, su plan y su uso;
+// adentro, sus DISPOSITIVOS. Se agrupa en el SERVIDOR: quien mira recibe el email ajeno enmascarado, y con eso no se puede
+// agrupar (dos «m***@gmail.com» pueden ser dos cuentas).
+
+/** Una PC tal cual se agrupa: lo de la tarjeta, con sus cuentas SIN enmascarar. */
+export type PcParaAgrupar = {
+  id: number; nombre: string; esMia: boolean; de?: string; enLinea: boolean; ultimoLatido: string | null; version: string | null;
+  sistema: 'Windows' | 'Mac' | null; ubicacion: string | null; conectadaAt: string | null; sinClaude?: boolean; cuentas: readonly CuentaPc[];
+  /** De quién es la PC: sólo para agrupar (no sale en el dispositivo). */
+  persona?: string;
+};
+/** Un dispositivo de «Tus cuentas de IA». `conCuenta`: su Claude tiene la sesión (alguna cuenta). */
+export type DispositivoIA = Omit<PcParaAgrupar, 'cuentas' | 'persona'> & { conCuenta: boolean };
+/** Una cuenta (de Claude o de ChatGPT) con sus dispositivos. `numero`: «Cuenta 1», por orden de conexión. */
+export type CuentaIA = CuentaPc & { numero: number; dispositivos: DispositivoIA[] };
+export type CuentasIA = { cuentas: CuentaIA[]; sinCuenta: DispositivoIA[] };
+
+/** «Windows · Grandbourg, Buenos Aires, Argentina», como Google: lo que se sabe; sin nada, null (y no se muestra). */
+export const dondeEsta = (d: { sistema?: string | null; ubicacion?: string | null }): string | null => [d.sistema, d.ubicacion].filter(Boolean).join(' · ') || null;
+
+/**
+ * Las PC, por cuenta: la misma cuenta en dos computadoras es UN bloque con dos dispositivos, y una PC con dos cuentas está en
+ * las dos. Orden: la cuenta del primer dispositivo conectado es la «Cuenta 1». El uso (5 horas, semana) es el del dispositivo
+ * que latió último. El email, entero sólo si `verEmail` vale para alguno de sus dispositivos (el suyo, o el super admin); si
+ * no, enmascarado. Las PC sin ninguna cuenta (sin Claude, o sin la sesión) van aparte, en `sinCuenta`.
+ */
+export function agruparPorCuenta(pcs: readonly PcParaAgrupar[], verEmail: (pc: PcParaAgrupar) => boolean): CuentasIA {
+  const ms = (s: string | null | undefined) => (s ? Date.parse(s) || 0 : 0);
+  const dispositivo = (pc: PcParaAgrupar): DispositivoIA => { const { cuentas, persona: _persona, ...d } = pc; return { ...d, conCuenta: cuentas.length > 0 }; };
+  const grupos = new Map<string, { pcs: PcParaAgrupar[]; cuenta: CuentaPc; latido: number }>();
+  const sinCuenta: DispositivoIA[] = [];
+  for (const pc of pcs) {
+    if (!pc.cuentas.length) { sinCuenta.push(dispositivo(pc)); continue; }
+    for (const c of pc.cuentas) {
+      // Por PERSONA y email (revisión de privacidad, 23/10/2026): el email lo declara la PC, y un miembro podía meter la suya en el
+      // bloque del admin con el email de él (y su uso pasaba por el del admin).
+      const clave = c.email ? `${c.proveedor}:${pc.persona ?? ''}:${c.email.trim().toLowerCase()}` : `${c.proveedor}:pc${pc.id}`;
+      const g = grupos.get(clave) ?? { pcs: [], cuenta: c, latido: -1 };
+      if (!g.pcs.includes(pc)) g.pcs.push(pc);
+      if (ms(pc.ultimoLatido) > g.latido) { g.cuenta = c; g.latido = ms(pc.ultimoLatido); }
+      grupos.set(clave, g);
+    }
+  }
+  const primero = (g: { pcs: PcParaAgrupar[] }) => Math.min(...g.pcs.map((p) => ms(p.conectadaAt) || Number.MAX_SAFE_INTEGER));
+  const menorId = (g: { pcs: PcParaAgrupar[] }) => Math.min(...g.pcs.map((p) => p.id));
+  const cuentas = [...grupos.values()]
+    .sort((a, b) => primero(a) - primero(b) || menorId(a) - menorId(b))
+    .map((g, i): CuentaIA => {
+      const { email, ...resto } = g.cuenta;
+      const ver = g.pcs.some(verEmail);
+      return { ...resto, ...(email ? { email: ver ? email : enmascararEmail(email) } : {}), numero: i + 1, dispositivos: g.pcs.map(dispositivo) };
+    });
+  return { cuentas, sinCuenta };
+}
 export type LecturaComputadoras = { ok: true; pcs: PcDeNegocio[] } | { ok: false; error: string };
 
 /**
@@ -561,7 +726,7 @@ export function detalleDeLaPc(pc: { sistema?: string | null; conectadaAt?: strin
 export const AVISO_PC_APAGADA = 'Tu computadora está apagada: préndela y mándamelo de nuevo.';
 export const AVISO_PC_TARDE = 'Tu Claude tardó demasiado: mándamelo de nuevo.';
 export const AVISO_PC_ERROR = 'Tu Claude no pudo contestar ahora: mándamelo de nuevo en un rato.';
-export const AVISO_PC_SIN_SESION = 'Tu Claude no tiene la sesión iniciada en tu computadora: inicia sesión (paso 3 de «Tus cuentas de IA») y mándamelo de nuevo.';
+export const AVISO_PC_SIN_SESION = 'Tu Claude no tiene la sesión iniciada en tu computadora: inicia sesión desde «Tus cuentas de IA» y mándamelo de nuevo.';
 /** El negocio pasó su tope de turnos por minuto (§3, regla 6). */
 export const AVISO_PC_MUCHOS = 'Me mandaron muchos pedidos seguidos: espera un minuto y mándamelo de nuevo.';
 /** En la PC no hay Claude Code (el paso que falta es el 2). */

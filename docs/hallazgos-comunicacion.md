@@ -48,6 +48,26 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## Los grupos de una línea y sus participantes, en Evolution v2.3.7 (23/10/2026)
+
+Medido para traer los contactos de un grupo al CRM (hallazgos-crm.md), con una sonda de sólo lectura sobre la línea viva de la
+plataforma (las del ws3 y el ws9 estaban cerradas: `fetchAllGroups` contesta 500 «Connection Closed» y `findChats`, 0 chats).
+- `GET /group/fetchAllGroups/{inst}?getParticipants=false` → 200 en 2 s con 11 grupos: `id` (…@g.us), `subject`, `size`,
+  `isCommunity`. En una línea con muchos grupos llegó a no terminar (90 s en el ws11, 11/09: `sondearSocketDetalle`): va con tope
+  y, si no contesta, `POST /chat/findChats/{inst}` (0,2 s, lee la BASE de Evolution) da los grupos con los que la línea habló,
+  con su nombre en `pushName`. ⚠️ Las instancias de los negocios se crean con `groupsIgnore: true` (lib/evolution.ts): ese
+  respaldo puede venir vacío en una línea de cliente (no medido).
+- `GET /group/participants/{inst}?groupJid=` → 200 en 0,4 s: `{ participants: [{ id, phoneNumber, name?, admin, imgUrl }] }`.
+  **El `id` es un `@lid`, NO un teléfono** (un alias interno de WhatsApp, como ya decía lib/evolution-contactos.ts): el número
+  está en `phoneNumber` (…@s.whatsapp.net). El nombre no siempre viene. Uno sin `phoneNumber` no se puede traer: se cuenta.
+- ⚠️ **`lineasParaMandar` no sirve para LEER grupos:** en la plataforma pone primera la línea de MaKo, y esa línea está en el
+  grupo de MaKo de CADA cliente. Listar sus grupos es listar a los dueños y equipos de los clientes. Para leer, sólo las líneas
+  propias del negocio (`listarLineas`, por `getTenantDb`); `lineasParaMandar` es para mandar.
+
+*23/10/2026, chat «Offer» (claude3).*
+
+---
+
 ## Un aviso sobre un lead no decía de quién ni llevaba a la ficha (20/10/2026)
 
 - **El síntoma** (Martín, llamada con Leila del 19/10, 24:15): en el teléfono, «Cuota vencida → cobrar», sin el
@@ -10760,3 +10780,12 @@ WhatsApp de ESE lead, y la estrella (el Cerebro de la persona) no tiene cómo es
 y «Copiar» van en el hueco `enMensaje` de cada respuesta de MaKo. La pestaña «Consejo» no es un chat y quedó igual.
 
 **Vive en:** app/whatsapp/WhatsAppAdvisor.tsx · tests/whatsapp-asesor-piezas.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## Los miembros de un grupo de WhatsApp no se leen con la línea cerrada (23/10/2026)
+
+Medido al buscar las listas de Martín (formación de Jan, Mastery House, evento de Cancún) en sus grupos:
+- Su línea personal (`mako_superadmin_mtxclf3x`) está «close» desde que MaKo pasó a su número propio (07/10). Evolution
+  guarda el STORE (75 grupos, con nombre), pero `group/findGroupInfos` da **404**: los miembros se piden en vivo.
+- Del store sólo salen los que ESCRIBIERON en el grupo (0 a 6 por grupo): no sirve como lista de miembros.
+- Para «Traer de un grupo» hace falta una línea CONECTADA que esté en ese grupo. La de MaKo (…2605) no está en los
+  grupos de Martín: tiene que ser su número personal, vinculado de nuevo.

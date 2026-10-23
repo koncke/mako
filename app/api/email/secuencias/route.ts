@@ -10,7 +10,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { setSecuenciaActiva, publicarPasos, duplicadaDeLaActivacion, DuplicadaError, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
+import { setSecuenciaActiva, publicarPasos, duplicadaDeLaActivacion, DuplicadaError, PasosInvalidosError, TopeDelPlanError, type PasoSecuencia } from '@/lib/nutricion';
 import {
   getEmailKpis, getEmailSecuencias, crearEmailSecuencia, actualizarMetaEmailSecuencia, DisparadorEmailError,
   ETAPAS, TRIGGERS,
@@ -96,6 +96,8 @@ export async function PATCH(req: NextRequest) {
     if (e instanceof PasosInvalidosError) return Response.json({ ok: false, error: e.message }, { status: 400 });
     // Otra activa ya le escribe lo mismo a la misma gente (revisión del 21/10/2026): se pregunta, como en Automations.
     if (e instanceof DuplicadaError) return Response.json({ ok: false, error: e.message, duplicada: e.otra }, { status: 409 });
+    // El tope del plan (MaKo Esencial: hasta 3 activas): lo tira `setSecuenciaActiva`, la única puerta que prende.
+    if (e instanceof TopeDelPlanError) return Response.json({ ok: false, error: e.message, tope: true }, { status: 403 });
     console.error(`[api:email/secuencias PATCH] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
   }

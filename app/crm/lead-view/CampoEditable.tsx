@@ -40,7 +40,8 @@ import { deshacerCampoLeadAction, guardarCampoLeadAction } from '../actions';
 import { opcionesEquipo } from '../equipo-opciones';
 import { esMaKo, MAKO_STAR_URI } from '../mako-setter';
 import { ChipTri } from './chip-tri';
-import { FATHOM_URL, INGRESO_MAX_USD, montoDeTexto, telefonoAGuardar, usuarioInstagram, type CampoInline, type ValorInline } from '../campo-inline';
+import { FATHOM_URL, INGRESO_MAX_USD, instagramDeLaFicha, montoDeTexto, telefonoAGuardar, usuarioInstagram, type CampoInline, type ValorInline } from '../campo-inline';
+import { InstagramBuscador } from '@/app/crm/new/InstagramBuscador';
 import type { MiembroEquipo } from '../actions';
 
 const SANS = "'Geist', sans-serif";
@@ -619,9 +620,14 @@ export function MontoEditable({ leadId, campo, valor, titulo, vacio = '—', est
  * se acepta la @, el usuario pelado o el link del perfil, y se guarda normalizado
  * (`usuarioInstagram`, la MISMA regla del alta y del server).
  *
- * ⚠️ UN USUARIO QUE NO ES UN USUARIO SE RECHAZA ACÁ y el campo VUELVE a lo que tenía: el texto
- * editable ya se dio por confirmado al salir (`EditableInline`), así que sin el remonte quedaría
- * escrito algo que no se guardó.
+ * ⚠️ ES EL BUSCADOR DEL ALTA, NO UN TEXTO PLANO (22/10/2026). Martín: «La búsqueda de Instagram: no funciona porque
+ * tengo que conectar Meta. No entiendo eso», y en la ficha ni siquiera había búsqueda: era un `EditableInline`. Ahora
+ * tocar el dato abre `InstagramBuscador` (el de «Nuevo lead», con su «Conectar Meta») con el @ guardado: elegir un
+ * perfil lo guarda; Enter o salir del campo guardan lo escrito si es un usuario; Escape cancela; vaciarlo lo borra. Qué
+ * se escribe lo decide `instagramDeLaFicha` (app/crm/campo-inline.ts); un nombre se rechaza con un aviso y el dato
+ * queda como estaba.
+ * ⚠️ UNA SALIDA POR APERTURA (`cerrado`): elegir de la lista también deja al campo sin foco al desmontarse, y ese blur
+ * no puede escribir otra vez lo que ya se guardó.
  */
 export function InstagramEditable({ leadId, valor, titulo = 'Usuario de Instagram' }: {
   leadId: number;
@@ -629,25 +635,40 @@ export function InstagramEditable({ leadId, valor, titulo = 'Usuario de Instagra
   titulo?: string;
 }) {
   const { guardar, toast, clear, show } = useGuardarCampo(leadId, 'instagram');
-  const [vuelta, setVuelta] = useState(0);
+  const [abierto, setAbierto] = useState(false);
+  const cerrado = useRef(true);
   const actual = usuarioInstagram(valor);
+
+  /** Cierra el campo. `null` = Escape: no se escribe nada. */
+  const cerrar = (escrito: string | null) => {
+    if (cerrado.current) return;
+    cerrado.current = true;
+    setAbierto(false);
+    if (escrito == null) return;
+    const r = instagramDeLaFicha(valor, escrito);
+    if (r === 'nada') return;
+    if (r === 'invalido') { show('Usuario no válido', undefined, 'bad'); return; }
+    guardar(r.guardar, valor);
+  };
+
   return (
     <>
-      <EditableInline
-        key={vuelta}
-        valor={actual ? `@${actual}` : ''}
-        onGuardar={(v) => {
-          const s = v.trim();
-          if (!s) { if (actual) guardar(null, valor); return; }
-          const u = usuarioInstagram(s);
-          if (!u) { show('Usuario no válido', undefined, 'bad'); setVuelta((n) => n + 1); return; }
-          if (u === actual) { setVuelta((n) => n + 1); return; }
-          guardar(u, valor);
-        }}
-        placeholder="—"
-        titulo={titulo}
-        maxLargo={200}
-      />
+      {abierto ? (
+        // `data-campo-editando`: un clic en la tarjeta mientras está abierto es para SALIR (`CajaCampo`).
+        <span data-campo-editando style={{ display: 'block', width: '100%' }}>
+          <InstagramBuscador
+            valor={null}
+            textoInicial={actual ? `@${actual}` : ''}
+            onElegir={(p) => { if (p) cerrar(p.usuario); }}
+            enLaFicha={{ confirmar: cerrar, cancelar: () => cerrar(null) }}
+          />
+        </span>
+      ) : (
+        <button type="button" data-campo-abrir title={titulo} onClick={() => { cerrado.current = false; setAbierto(true); }}
+          style={{ ...disparador, maxWidth: '100%', color: actual ? 'inherit' : 'var(--faint)' }}>
+          {actual ? `@${actual}` : '—'}
+        </button>
+      )}
       <Toast state={toast} onClose={clear} />
     </>
   );

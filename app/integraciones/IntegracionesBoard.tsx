@@ -57,6 +57,7 @@ const MONO = "'Geist Mono', monospace";
 // arrastra nada. Lo que NO se puede es importar de ahí un valor: eso rompe el
 // build del cliente, que es exactamente el guard que queremos.
 import type { Integracion } from '@/lib/integraciones';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 // Incidente con período: startedAt → resolvedAt (null = en curso). Viene del server.
 type Incidente = { id: number; service: string; severidad: string; statusLabel: string; disableReason: string | null; entregaFrenada: boolean; detalle: string | null; startedAt: string; resolvedAt: string | null };
 
@@ -1358,7 +1359,7 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
       ) : (
         <button onClick={() => { setEditing(true); setInput(''); setFallo(null); }} style={{ border: '1px solid var(--primary)', borderRadius: 9, background: 'var(--surface)', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, padding: '8px 14px', cursor: 'pointer' }}>{saldo ? 'Actualizar saldo' : (gemini ? 'Registrar créditos' : 'Pon tu saldo')}</button>
       )}
-      {fallo && <div role="alert" style={{ marginTop: 7, fontSize: 12, color: 'var(--bad)' }}>{fallo}</div>}
+      {fallo && <div role="alert" style={{ marginTop: 7, fontSize: 12, color: 'var(--bad)' }}>{fallo}<ReportarASoporte /></div>}
       {cargas.length > 0 && (
         <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
           <div style={{ ...capMono, fontSize: 9, letterSpacing: '.09em', color: 'var(--faint)', marginBottom: 7 }}>Sincronizaciones</div>

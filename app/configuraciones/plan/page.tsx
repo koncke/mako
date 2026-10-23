@@ -17,6 +17,10 @@ import { formatoMonto } from '@/lib/pasarela-moneda';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { AjustesPagina, TituloAjustes } from '../../_ui/Ajustes';
 import { PlanPanel, type SuscripcionVisible } from './PlanPanel';
+import { planesMako } from '@/lib/compra-plan';
+import { precioEn } from '@/lib/planes-mako';
+import { PLAN_PRO } from '@/lib/subir-plan-reglas';
+import { estadoDeRetencion, ofertaDeRetencion } from '@/lib/retencion-plan';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -26,18 +30,25 @@ export default async function PlanPage() {
   const ws = await getWorkspaceActual();
   // La plataforma no tiene un plan de MaKo (el índice ya no ofrece la sección ahí): un link viejo vuelve al índice.
   if (ws == null || ws === (await wsSuperAdmin())) redirect('/configuraciones');
-  const [capa, sus] = await Promise.all([
+  const [capa, sus, oferta, retencion] = await Promise.all([
     getCapaActual(),
     ws != null ? suscripcionDeMakoDe(ws).catch(() => null) : Promise.resolve(null),
+    ofertaDeRetencion(ws).catch(() => null),
+    // Lo que «Tu plan» dice de una oferta aceptada (segunda revisión, R10): «En pausa…», «Con 50%…».
+    estadoDeRetencion(ws).catch(() => null),
   ]);
   // La pantalla no ve el cobro entero (ni el token, ni los ids del proveedor): sólo lo que dibuja.
   const suscripcion: SuscripcionVisible = sus
     ? { proveedor: sus.proveedor, monto: formatoMonto(sus.monto, sus.moneda), cancelada: sus.suscripcion_estado === 'cancelada', baja: esBajaPedida(sus.motivo) ? sus.motivo : null }
     : null;
+  // «Pasar a Pro»: a quien paga MaKo Esencial por la pasarela (capa `completo`), con el precio de Pro en SU moneda.
+  const pro = sus && capa === 'completo' ? (await planesMako().catch(() => [])).find((p) => p.id === PLAN_PRO && p.activo) ?? null : null;
+  const precioPro = pro && sus ? precioEn(pro, sus.moneda) : null;
+  const subir = pro && sus && precioPro != null ? { nombre: pro.nombre, monto: formatoMonto(precioPro, sus.moneda) } : null;
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} secciones={await seccionesNegocioActuales()} activa="plan">
       <TituloAjustes titulo="Tu plan" bajada="Tu plan de MaKo y cómo darte de baja." />
-      <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} />
+      <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} oferta={oferta} retencion={retencion} subir={subir} />
     </AjustesPagina>
   );
 }

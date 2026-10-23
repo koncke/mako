@@ -62,6 +62,7 @@ import {
   OPCIONES_ESTILO_ESCALA, campoNuevo, conCampoMovido, conEstilo, conFila, conFilaNueva, conPegado, correctasAlMarcar,
   correctasTrasQuitar, correctasTrasRenombrar, estiloDe, filasDe, motivoVisible, opcionesDeTipo, rangosDeEscala, sinFila,
 } from './tarea-editor-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const preguntaNueva = (existentes: readonly PreguntaQuiz[]): PreguntaQuiz =>
   ({ id: nuevoIdCampo(existentes), texto: '', opciones: [], correctas: [] });
@@ -230,7 +231,7 @@ export function EditorCampos({
               <Pregunta valor={c.label} n={i + 1} tipo={c.tipo} deshabilitado={deshabilitado} enfocar={enfocar === c.id} error={!!motivo}
                 onEnfocado={() => pedirFoco(null)} onSalir={() => onSalirDePregunta?.(c.id)} onCambio={(label) => cambiar(i, { label })} />
               {/* Lo que falta, en rojo y debajo de la pregunta (item 2): «falta completar la pregunta». */}
-              {motivo && <p className="ec-motivo" role="alert">{motivo}</p>}
+              {motivo && <p className="ec-motivo" role="alert">{motivo}<ReportarASoporte /></p>}
               <input className="ec-ayuda" value={c.ayuda ?? ''} placeholder="Ayuda (opcional)" aria-label={`Ayuda del campo ${i + 1}`}
                 disabled={deshabilitado} onChange={(e) => cambiar(i, { ayuda: e.target.value })} />
 

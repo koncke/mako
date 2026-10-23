@@ -12,6 +12,7 @@ import { Input, Modal, Spinner } from '@/app/_ui';
 import type { BusquedaVista } from '@/lib/comunidad-tipos';
 import { MIN_BUSQUEDA } from '@/lib/comunidad-reglas';
 import { AvatarNivel, Hace, Ico, useComunidad } from './piezas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export function Busqueda({ onCerrar }: { onCerrar: () => void }) {
   const { api, abrirPost, abrirPerfil } = useComunidad();
@@ -45,7 +46,7 @@ export function Busqueda({ onCerrar }: { onCerrar: () => void }) {
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Posts y miembros" aria-label="Buscar en la comunidad"
           prefix={<Ico n="lupa" size={16} />} autoFocus />
         {cargando && <div style={{ display: 'grid', placeItems: 'center', padding: 20 }}><Spinner /></div>}
-        {!cargando && res?.error && res.q === limpio && <p className="cmu-error" role="alert">{res.error}</p>}
+        {!cargando && res?.error && res.q === limpio && <p className="cmu-error" role="alert">{res.error}<ReportarASoporte /></p>}
         {vacio && <p className="cmu-meta" style={{ margin: 0 }}>Nada con «{limpio}».</p>}
         {vista && vista.miembros.length > 0 && (
           <div>

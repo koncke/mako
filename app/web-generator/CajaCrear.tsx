@@ -94,6 +94,7 @@ import {
 import { MODOS_TEXTO, paramsIniciales, type ModoGen } from './crear/ajustes';
 import { BotonComo, CSS_AJUSTES, PanelMasAjustes } from './crear/AjustesCaja';
 import { leerIndicaciones, type Indicacion } from './crear/recientes';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Lo que se eligió en la caja. El Panel lo abre a su derecha (Inicio.tsx, con `derechaDeAccion`). Vive en panel-reglas.ts (puro). */
 export type { AccionCaja };
@@ -502,7 +503,7 @@ export default function CajaCrear({
           onCerrar={() => setMasAjustes(false)}
         />
       )}
-      {error && <p className="gp-error gp-cc-error" role="alert">{error}</p>}
+      {error && <p className="gp-error gp-cc-error" role="alert">{error}<ReportarASoporte /></p>}
 
       <SelectorTipo valor={tipo} onCambio={setTipo} deshabilitado={!!creando} />
 

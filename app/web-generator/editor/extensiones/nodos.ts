@@ -29,7 +29,7 @@ import { Table } from '@tiptap/extension-table';
 import { DEGRADADOS, NODO, enLista, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA, DISENOS_TARJETA, SUPERPOSICIONES, FONDOS_TARJETA, AJUSTES_IMAGEN, esHex, type TipoCampo } from '@/lib/editor-landing/doc';
 import { CONTENIDO_TIPTAP } from '@/lib/editor-landing/validar';
 import {
-  SPEC_NODOS, attrsBoton, attrsBotones, attrsColumnas, attrsEspaciador, attrsFormulario, attrsHtmlLibre,
+  SPEC_NODOS, attrsBoton, attrsBotones, attrsColumnas, attrsEspaciador, attrsFormulario, attrsHtmlEditable, attrsHtmlLibre,
   attrsImagen, attrsInsertado, attrsOptimizado, attrsOptimizadoItem, attrsRecuadro, attrsTarjeta, attrsVideo,
   idValido, type NodoArbol,
 } from '@/lib/editor-landing/especificacion';
@@ -554,9 +554,25 @@ export const TablaLanding = Table.extend({
   },
 }).configure({ resizable: false, View: null });
 
+/**
+ * «Diseño editable» (lib/editor-landing/html-editable.ts): el HTML de una sección a medida. Átomo: su texto
+ * se edita adentro de su vista (HtmlEditableVista, en un iframe), no con el cursor de ProseMirror.
+ */
+export const HtmlEditable = Node.create<OpcionesNodo>({
+  name: NODO.htmlEditable,
+  ...atomo,
+  addOptions: sinVista,
+  addAttributes() { return attrsSinParseo(attrsHtmlEditable({})); },
+  parseHTML() {
+    return [{ tag: 'div.gm-editable', getAttrs: (el) => attrsDelJson(el as HTMLElement, NODO.htmlEditable) ?? attrsHtmlEditable({}) }];
+  },
+  renderHTML({ node }) { return especificar(forma(NODO.htmlEditable)(node.attrs)); },
+  addNodeView() { return this.options.vista; },
+});
+
 /** Todos los nodos propios, para armar el esquema. */
 export const NODOS_PROPIOS = [
   Documento, Tarjeta, Columnas, Columna, Optimizado, OptimizadoItem, Botones, Boton, Recuadro,
   Desplegable, DesplegableTitulo, DesplegableCuerpo, Imagen, Video, Insertado, Formulario, Grafico,
-  Espaciador, HtmlLibre,
+  Espaciador, HtmlLibre, HtmlEditable,
 ] as const;

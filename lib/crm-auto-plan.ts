@@ -6,6 +6,7 @@
 
 import type { EstadoLead } from './leads';
 import { pipelineStageOf } from './pipeline';
+import { quedaDondeLoPusieron } from '../app/crm/origen-lead';
 
 // Umbrales del motor (defaults). Cada workspace puede pisarlos desde su funnel
 // (funnels.data.umbrales del funnel default — ver umbralesDelWorkspace en lib/crm-auto.ts).
@@ -135,6 +136,8 @@ export type AutoLead = {
   nutricion_manual_deadline: string | null;
   created_at: string;
   updated_at: string | null;
+  /** De dónde vino: uno traído de un grupo de WhatsApp no se mueve solo (`quedaDondeLoPusieron`). */
+  origen_lead?: string | null;
 };
 
 /**
@@ -205,6 +208,10 @@ export function planLeadAuto(
   const nombre = l.nombre?.trim() || `Lead ${l.id}`;
   const hoy = hoyISO.slice(0, 10);
   const stage = pipelineStageOf(l);
+  // ⚠️ EL TRAÍDO DE UN GRUPO DE WHATSAPP QUEDA DONDE LO PUSIERON (el Cerebro, 23/10/2026: «nada por detrás»): ni T2 ni T6
+  // lo mueven, porque las dos lo llevan a una etapa que le escribe (nutri, reactivación) sin que nadie lo haya decidido.
+  // T1 y T3 sí: miran una reunión que él agendó o un plazo que una persona escribió.
+  const seMueveSolo = !quedaDondeLoPusieron(l.origen_lead);
 
   // ¿La reunión ya pasó lo suficiente para revisar Fathom? Con hora exacta
   // (junta_*_at) dispara a las N horas EXACTAS después; sin ella (leads viejos),
@@ -241,7 +248,7 @@ export function planLeadAuto(
     // frío (hace mucho, capaz ni se acuerda del servicio) → Nutrición - Reactivación
     // (re-introducir). Cubre el Instant form (stage 'lead') y también a los que YA
     // están en No Agenda hace mucho sin haber agendado nunca (los reclasifica).
-    if ((stage === 'lead' || stage === 'nutri') && !l.fecha_agenda && !l.fecha_junta_1 && !l.fecha_junta_2) {
+    if (seMueveSolo && (stage === 'lead' || stage === 'nutri') && !l.fecha_agenda && !l.fecha_junta_1 && !l.fecha_junta_2) {
       const d = diasEntre(hoy, l.created_at);
       // El plazo DECLARADO de la etapa es el PISO de cualquier salida: nada se mueve de
       // acá antes de que se cumpla. No pisa al umbral de frío, lo empuja — si no, declarar
@@ -277,7 +284,7 @@ export function planLeadAuto(
   }
 
   // T6 — Reactivación de fríos (No responde / Perdido) tras un tiempo enfriados.
-  if ((l.estado_lead === 'no_responde' || l.estado_lead === 'perdido') && l.pipeline_stage !== 'reactivacion') {
+  if (seMueveSolo && (l.estado_lead === 'no_responde' || l.estado_lead === 'perdido') && l.pipeline_stage !== 'reactivacion') {
     const d = diasEntre(hoy, l.updated_at ?? l.created_at);
     // Acá el plazo por etapa cae redondo: `updated_at` es cuándo entró a la etapa, así que
     // «N días quieto en No responde» es literalmente el plazo de esa columna.

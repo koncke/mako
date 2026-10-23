@@ -5,6 +5,7 @@
 // (b) pintar el banner de impersonación "estás viendo a <cliente>".
 
 import { NextResponse } from 'next/server';
+import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
 import { getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getWorkspaceActual, getRolWsEfectivo, estaImpersonando } from '@/lib/workspace';
 import { rutaDeSalida } from '@/lib/agencia-cartera';
@@ -78,6 +79,8 @@ export async function GET() {
     // Capa que compró el cliente (lib/capas.ts): el Sidebar esconde lo que no
     // incluye. Es cosmético — el enforcement real es requireCapa server-side.
     capa: await getCapaActual(),
+    // MaKo Esencial por la pasarela (23/10/2026): la barra dibuja las tabs de Pro con candado (lib/plan-esencial-reglas.ts).
+    planEsencial: await esEsencialDeLaSesion(),
     legacy: sesion.sub === 'legacy',
     impersonando,
     clienteNombre: vista?.clienteNombre ?? null,

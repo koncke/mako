@@ -15,6 +15,7 @@ import { getPageSize } from '../engine/pageSizes'
 import { t } from '../strings'
 import { IconButton } from '../ui/Button'
 import styles from './TimelinePreview.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const TYPING = 'input, textarea, select, [contenteditable="true"]'
 
@@ -181,6 +182,7 @@ function Preview({ scrollRef }: PreviewProps) {
             <button type="button" onClick={() => setAttempt((n) => n + 1)}>
               {t.presenter.retry}
             </button>
+            <ReportarASoporte />
           </p>
         ) : null}
       </div>

@@ -508,7 +508,7 @@ export function normalizarBusqueda(v: unknown): string {
 // (`tarjetaABloques`) y la vuelta (`bloquesATarjeta` con `base`) recorren el MISMO
 // original con la MISMA función, así el número siempre apunta al mismo nodo.
 
-const CON_REF = new Set<string>([NODO.imagen, NODO.video, NODO.insertado, NODO.htmlLibre, NODO.formulario]);
+const CON_REF = new Set<string>([NODO.imagen, NODO.video, NODO.insertado, NODO.htmlLibre, NODO.htmlEditable, NODO.formulario]);
 
 export function refsDe(base: JsonNodo | null | undefined): Map<string, JsonNodo> {
   const m = new Map<string, JsonNodo>();
@@ -1299,7 +1299,7 @@ function bloqueDeNodo(n: JsonNodo, base: JsonNodo, d: string[] | undefined, form
       const r = refDeNodo(base, n);
       return r ? [{ t: 'imagen', busqueda: '', alt: strCrudo(a.alt), ref: r }] : [];
     }
-    case NODO.video: case NODO.insertado: case NODO.htmlLibre: {
+    case NODO.video: case NODO.insertado: case NODO.htmlLibre: case NODO.htmlEditable: {
       const r = refDeNodo(base, n);
       const que = n.type === NODO.video ? 'video' : n.type === NODO.insertado ? 'insertado' : 'html';
       return r ? [{ t: 'conservar', ref: r, que }] : [];

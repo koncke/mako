@@ -23,8 +23,9 @@ import { haptico } from '@/lib/haptico';
 import { SECCIONES_CUENTA } from '@/lib/ajustes-secciones';
 import { CabeceraM, ErrorM, FilaM, ListaM, PieM, SeccionM, SheetM, SkeletonFilas, VacioM, useToastM } from '@/app/m/_ui';
 import { FilaEnComputadoraM } from '@/app/m/_ui/EnComputadoraM';
+import { dondeEsta, type CuentaIA, type DispositivoIA } from '@/lib/ia-pc-reglas';
 import {
-  REFRESCO_MS, barraDeUso, estadoDePc, nombreDeCuenta, preguntaDesconectar, type BarraUso, type EstadoIA, type PcIA,
+  REFRESCO_MS, barraDeUso, estadoDePc, nombreDeCuenta, preguntaDesconectar, type BarraUso, type EstadoIA,
 } from './ia-ui';
 
 // El mismo rótulo que «Tu cuenta» en la computadora (lib/ajustes-secciones.ts).
@@ -45,28 +46,39 @@ function Barra({ titulo, b }: { titulo: string; b: BarraUso }) {
   );
 }
 
-function Pc({ pc, ahora, onDesconectar }: { pc: PcIA; ahora: number; onDesconectar: () => void }) {
-  const estado = estadoDePc(pc, ahora);
+/** Un dispositivo de la cuenta: su nombre, en línea o no y dónde está (como Google), y «Desconectar». */
+function Dispositivo({ d, ahora, onDesconectar }: { d: DispositivoIA; ahora: number; onDesconectar: () => void }) {
+  const estado = estadoDePc({ enLinea: d.enLinea, ultimoLatido: d.ultimoLatido, cuentas: d.conCuenta ? [{ proveedor: 'claude' }] : [], sinClaude: d.sinClaude }, ahora);
   return (
-    <SeccionM titulo={pc.nombre}>
+    <>
+      <FilaM
+        leading={<span className={`m-cuenta-ia-punto m-cuenta-ia-punto--${estado.tono}`} aria-hidden />}
+        titulo={d.nombre}
+        segunda={[estado.texto, dondeEsta(d), d.de ? `De ${d.de}` : null].filter(Boolean).join(' · ')}
+      />
+      <FilaM navegacion titulo="Desconectar" etiqueta={`Desconectar ${d.nombre}`} onClick={onDesconectar} />
+    </>
+  );
+}
+
+/**
+ * Una cuenta (23/10/2026, Martín: cada cuenta conectada es UN bloque, «Cuenta 1», «Cuenta 2», con su email, su plan y su uso, y
+ * adentro sus DISPOSITIVOS). Lo mismo que la computadora (app/integraciones/CuentasYDispositivos.tsx), con las piezas del teléfono.
+ */
+function Cuenta({ cuenta, ahora, onDesconectar }: { cuenta: CuentaIA; ahora: number; onDesconectar: (d: DispositivoIA) => void }) {
+  return (
+    <SeccionM titulo={`Cuenta ${cuenta.numero}`}>
       <ListaM>
-        <FilaM
-          leading={<span className={`m-cuenta-ia-punto m-cuenta-ia-punto--${estado.tono}`} aria-hidden />}
-          titulo={estado.texto}
-          segunda={pc.de ? `De ${pc.de}` : undefined}
-        />
-        {pc.cuentas.map((c, i) => (
-          <div key={`${pc.id}-${i}`} className="m-cuenta-ia-cuenta">
-            <div className="m-cuenta-ia-quien">
-              {c.proveedor === 'claude' && <ClaudeMark size={20} />}
-              <span className="m-cuenta-ia-email">{nombreDeCuenta(c)}</span>
-              {c.plan && <span className="m-cuenta-ia-plan">{c.plan}</span>}
-            </div>
-            <Barra titulo="Sesión de 5 horas" b={barraDeUso(c.usado5h, c.repone, ahora)} />
-            <Barra titulo="Semana" b={barraDeUso(c.usadoSemana, undefined, ahora)} />
+        <div className="m-cuenta-ia-cuenta">
+          <div className="m-cuenta-ia-quien">
+            {cuenta.proveedor === 'claude' && <ClaudeMark size={20} />}
+            <span className="m-cuenta-ia-email">{nombreDeCuenta(cuenta)}</span>
+            {cuenta.plan && <span className="m-cuenta-ia-plan">{cuenta.plan}</span>}
           </div>
-        ))}
-        <FilaM navegacion titulo="Desconectar" etiqueta={`Desconectar ${pc.nombre}`} onClick={onDesconectar} />
+          <Barra titulo="Sesión de 5 horas" b={barraDeUso(cuenta.usado5h, cuenta.repone, ahora)} />
+          <Barra titulo="Semana" b={barraDeUso(cuenta.usadoSemana, cuenta.reponeSemana, ahora)} />
+        </div>
+        {cuenta.dispositivos.map((d) => <Dispositivo key={d.id} d={d} ahora={ahora} onDesconectar={() => onDesconectar(d)} />)}
       </ListaM>
     </SeccionM>
   );
@@ -79,7 +91,7 @@ export function IaM({ refresco }: { refresco: number }) {
   const [ahora, setAhora] = useState(() => Date.now());
   // La hoja de «Desconectar»: la computadora que se eligió NO se suelta al cerrar (la hoja sigue en pantalla los 220 ms de
   // su salida y se vaciaría a media animación); se pisa al abrir la próxima.
-  const [porDesconectar, setPorDesconectar] = useState<PcIA | null>(null);
+  const [porDesconectar, setPorDesconectar] = useState<DispositivoIA | null>(null);
   const [hojaAbierta, setHojaAbierta] = useState(false);
   const [ocupado, setOcupado] = useState(false);
 
@@ -109,7 +121,6 @@ export function IaM({ refresco }: { refresco: number }) {
       haptico('success');
       toast('Desconectada');
       setHojaAbierta(false);
-      setEstado((e) => (e ? { ...e, pcs: e.pcs.filter((p) => p.id !== id) } : e));
       void recargar();
     } finally { setOcupado(false); }
   };
@@ -121,15 +132,30 @@ export function IaM({ refresco }: { refresco: number }) {
         ? (fallo
           ? <ErrorM frase="No pudimos ver tus computadoras. No es nada tuyo." onReintentar={() => void recargar()} />
           : <SkeletonFilas filas={3} />)
-        : estado.pcs.length === 0
-          ? <VacioM frase="Todavía no conectaste ninguna computadora." />
-          : estado.pcs.map((pc) => <Pc key={pc.id} pc={pc} ahora={ahora} onDesconectar={() => { setPorDesconectar(pc); setHojaAbierta(true); }} />)}
+        : !(estado.grupos?.cuentas.length || estado.grupos?.sinCuenta.length)
+          ? <VacioM frase="Todavía no conectaste ninguna cuenta." />
+          : (
+            <>
+              {estado.grupos?.cuentas.map((c) => (
+                <Cuenta key={`${c.proveedor}-${c.numero}`} cuenta={c} ahora={ahora} onDesconectar={(d) => { setPorDesconectar(d); setHojaAbierta(true); }} />
+              ))}
+              {!!estado.grupos?.sinCuenta.length && (
+                <SeccionM titulo="Sin cuenta todavía">
+                  <ListaM>
+                    {estado.grupos.sinCuenta.map((d) => <Dispositivo key={d.id} d={d} ahora={ahora} onDesconectar={() => { setPorDesconectar(d); setHojaAbierta(true); }} />)}
+                  </ListaM>
+                </SeccionM>
+              )}
+            </>
+          )}
 
-      {/* Conectar una computadora se hace en la computadora: instalar un programa y pegar un código. */}
+      {/* «Nueva cuenta» y «Nuevo dispositivo» (23/10/2026): se conectan desde la computadora (instalar MaKo y conectarlo). */}
       <div className="m-cuenta-ia-conectar">
         <ListaM>
-          <FilaEnComputadoraM icono="plus" titulo="Conectar mi computadora" href="/perfil/ia"
-            motivo="Se conecta desde la computadora: instalas un programa y pegas un código." />
+          <FilaEnComputadoraM icono="plus" titulo="Nueva cuenta" href="/perfil/ia"
+            motivo="Se conecta desde la computadora: eliges Claude o ChatGPT y la conectas." />
+          <FilaEnComputadoraM icono="plus" titulo="Nuevo dispositivo" href="/perfil/ia"
+            motivo="Se conecta desde la computadora: descargas MaKo, lo instalas y lo conectas." />
         </ListaM>
       </div>
 

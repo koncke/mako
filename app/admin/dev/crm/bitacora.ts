@@ -3022,4 +3022,144 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '23 oct', hora: '00:04', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Instagram: «Conectar Meta» desde el buscador, y el mismo buscador en la ficha del lead',
+    puntos: [
+      'Martín: «La búsqueda de Instagram no funciona porque tengo que conectar Meta. No entiendo eso».',
+      'Si el negocio no tiene Meta conectado, el buscador lo dice al enfocarlo y ofrece «Conectar Meta» ahí mismo, sin salir de la tab. Al conectar, vuelve a buscar.',
+      'La ficha del lead edita el Instagram con el mismo buscador de «Nuevo lead»: elegir una cuenta la guarda, Enter o salir guardan el @ escrito, Escape cancela.',
+    ],
+    commits: [
+      { sha: '4487ac5d6', msg: 'CRM: «Conectar Meta» en el buscador de Instagram, y el mismo buscador en la ficha', lineas: 677, archivos: 8 },
+      { sha: '18146bffd', msg: 'Instagram: «fresco» con tope por negocio, y sin borrar la pausa de un límite de Meta', lineas: 106, archivos: 3 },
+    ],
+    archivos: [
+      'app/crm/new/InstagramBuscador.tsx — el buscador, con «Conectar Meta»',
+      'app/crm/lead-view/CampoEditable.tsx — el Instagram de la ficha, con el mismo buscador',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '23 oct', hora: '00:34', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Vincular evento» y «Vincular cobro»: rápidos, con el nombre del CRM y de la etapa, y un aviso cuando falta',
+    puntos: [
+      '«Asignar evento» se llama «Vincular evento», como «Vincular cobro». Los dos pop-ups son una lista limpia, con poco texto, en la computadora y en el teléfono.',
+      'Arriba dicen el CRM y la etapa («Ventas › Agenda R1»), y cada evento muestra el nombre de la etapa donde está, no «Esta etapa».',
+      'Abren al toque con lo ya vinculado mientras llega lo de Calendly y Cal.com, y vincular o quitar ya no vuelve a cargar todo.',
+      'Lo de Google y lo que pasa al pagar quedó en una ⓘ.',
+      'Una etapa de reunión sin evento, o Ganado sin cobro, lleva un punto ámbar en sus 3 puntos y en «Vincular evento» o «Vincular cobro».',
+      'MaKo puede ver, vincular, elegir las cuentas y quitar el cobro de Ganado, siempre con tu «sí» y diciendo qué producto toca.',
+    ],
+    commits: [
+      { sha: '831ecb0ac', msg: 'CRM: «Vincular evento» y «Vincular cobro» rápidos, con el CRM y la etapa, el aviso del ⋯ y el cobro de Ganado por MaKo', lineas: 1370, archivos: 31 },
+    ],
+    archivos: [
+      'app/crm/EventosDeEtapaModal.tsx · app/crm/CobroDeEtapaModal.tsx · app/crm/vincular-etapa.ts — los dos pop-ups',
+      'lib/vinculos-de-columnas.ts — el aviso de la columna, de la base',
+      'lib/api-mako/areas/crm.def.ts · crm.run.ts — el cobro de Ganado por MaKo',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '23 oct', hora: '00:43', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La agenda del CRM, más rápida: Calendly, Cal.com y Google a la vez',
+    puntos: [
+      'Abrir «Vincular evento» le preguntaba a Calendly, después a Cal.com y después a Google, uno detrás del otro. Ahora a los tres a la vez.',
+      'Lo que contesta cada cuenta se guarda un minuto: vincular, volver a abrir o pasar de una etapa a otra ya no espera a las APIs.',
+      'Calendly ya no pregunta quién es el dueño de la cuenta antes de cada lista.',
+      'Crear o editar un evento, o conectar otra cuenta, se ve enseguida.',
+    ],
+    commits: [
+      { sha: '95d9b0204', msg: 'Agenda del CRM: Calendly, Cal.com y Google a la vez, un minuto de caché por cuenta, y el token de Calendly por parámetro', lineas: 402, archivos: 9 },
+    ],
+    archivos: [
+      'lib/agenda-evento-etapa-server.ts · lib/agenda-cache.ts — las agendas a la vez, con su caché',
+      'lib/calendly-agenda.ts — el dueño de cada cuenta, una vez',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '23 oct', hora: '00:50', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Traer de otro funnel»: un botón a la vista, una ruedita mientras carga y el pie firme abajo',
+    puntos: [
+      'En «Nuevo lead», «Traer de otro funnel» es un botón, al lado de «Crear lead», no un link chico al pie.',
+      'Al abrirlo, y al cambiar de funnel, se ve una ruedita mientras llega la lista. Al cambiar de etapa o buscar, una más chica y la tabla atenuada.',
+      'Sin la línea de «Se ven 300 de 869…»: si hay más de los que entran, la casilla de arriba dice «Tildar los 869».',
+      '«← Atrás» y «Agregar aquí» quedan abajo de todo, con fondo sólido: la que scrollea es la tabla y ya no se ven leads por detrás.',
+    ],
+    commits: [
+      { sha: '609d697f5', msg: 'CRM: «Traer de otro funnel» con un botón a la vista, el loader mientras carga y el pie firme abajo', lineas: 207, archivos: 8 },
+    ],
+    archivos: [
+      'app/crm/TraerDeOtroProducto.tsx — la vista de traer',
+      'app/crm/new/NewLeadForm.tsx — el botón',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '23 oct', hora: '01:40', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Vincular evento»: el evento se edita entero y se elige la cuenta',
+    puntos: [
+      'Al editar un evento, además del nombre y la duración: la descripción y dónde es la reunión (Google Meet, Zoom, llamada, en persona o un link).',
+      'En Cal.com también sus preguntas: el texto, si es obligatoria y si se ve. Las de Calendly se ven, y se editan en Calendly.',
+      'La disponibilidad se abre en Calendly o Cal.com, en otra pestaña: sus APIs no la dejan cambiar sin riesgo de borrar los horarios.',
+      'Con varias cuentas de Calendly o Cal.com, cada evento dice de cuál es, y al crear uno se elige en cuál.',
+      'MaKo también: crea en la cuenta que le digas y cambia la descripción o dónde es la reunión, siempre con tu «sí».',
+      'El cobro de Ganado acepta todas las cuentas conectadas de Stripe y Mercado Pago, no sólo la principal.',
+    ],
+    commits: [
+      { sha: 'cd0feaab9', msg: '«Vincular evento»: la edición completa del evento, la cuenta al crear, y el cobro de Ganado con todas las cuentas', lineas: 825, archivos: 19 },
+    ],
+    archivos: [
+      'app/crm/EventosDeEtapaModal.tsx — el formulario completo y la cuenta',
+      'lib/agenda-evento-detalle.ts · lib/calendly-agenda.ts · lib/calcom.ts — lo que deja editar cada API',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '23 oct', hora: '02:55', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Vincular cobro» trae los productos de Stripe con su precio',
+    puntos: [
+      'En la llamada con Mauricio, su «Sprint 3 días» decía «Este producto no tiene precio» aunque en Stripe está a US$270: MaKo no miraba Stripe.',
+      'Ahora «+ Producto» muestra los productos de Stripe con su precio. Si el de MaKo se llama igual, va en la misma fila, con el precio de Stripe.',
+      'Elegir uno lo trae al catálogo con ese precio y lo vincula a Ganado.',
+      'Los que no se pueden traer (en otra moneda, o con un monto que elige quien paga) se ven apagados y dicen por qué.',
+      'Si no se pudo leer Stripe, el pop-up lo dice. MaKo también puede traerlos, con tu «sí».',
+    ],
+    commits: [
+      { sha: '51c89251b', msg: '«Vincular cobro»: los productos de Stripe en «+ Producto», con su precio, encima del servidor de Cobros', lineas: 225, archivos: 3 },
+      { sha: '9b9795dad', msg: 'MaKo: ver y traer los precios de Stripe para Ganado, con las mismas funciones de Cobros', lineas: 140, archivos: 7 },
+    ],
+    archivos: [
+      'app/crm/CobroDeEtapaModal.tsx · app/crm/cobro-ganado.ts — «+ Producto» con Stripe',
+      'lib/api-mako/areas/crm.run.ts — lo mismo por MaKo',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '23 oct', hora: '03:30', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los topes de MaKo Esencial en el CRM: 1 CRM y 2.000 leads',
+    puntos: [
+      'Con MaKo Esencial, al llegar a 2.000 leads el tablero muestra un cartel corto con «Pasar a Pro». No se borra ni se esconde nada.',
+      'Crear un lead a mano, importar o crear un segundo CRM más allá del tope dice lo mismo, con «Pasar a Pro».',
+      'Los leads que entran solos (anuncios, reservas, mensajes) nunca se pierden: entran igual y el tablero avisa.',
+      'Sólo a los negocios que pagan MaKo por la pasarela: Mauricio y los acuerdos a mano no tienen tope.',
+    ],
+    commits: [
+      { sha: 'a931f2c8e', msg: 'CRM: los topes de MaKo Esencial (1 CRM y 2.000 leads), con un cartel y «Pasar a Pro», sin perder lo que entra solo', lineas: 351, archivos: 18 },
+    ],
+    archivos: [
+      'lib/topes-crm.ts — quién tiene tope y el freno de las altas a mano',
+      'app/crm/PasarAPro.tsx — el cartel y «Pasar a Pro»',
+    ],
+    revisar: '/crm',
+  },
 ];

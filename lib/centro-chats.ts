@@ -505,11 +505,20 @@ export type LineaChat =
  * ⚠️ NI LO QUE SE DICEN LOS CHATS ENTRE ELLOS (22/10/2026, `esParaMartin`, lib/operaciones-reglas.ts): un mensaje de otro
  *    chat y el resumen de una compactación no se dibujan, en la computadora ni en el teléfono (los dos pasan por acá).
  */
+/** La versión plegada de cada línea, UNA por línea (23/10/2026): armada de nuevo en cada dibujo, la línea plegada nunca era la
+ *  misma y el hilo memorizado la volvía a dibujar en cada refresco. Con la línea estable (lib/centro-estable.ts), la plegada
+ *  también. */
+const plegadas = new WeakMap<LineaChat, LineaChat>();
+const plegada = (l: LineaChat): LineaChat => {
+  let p = plegadas.get(l);
+  if (!p) { p = { ...l, plegado: true } as LineaChat; plegadas.set(l, p); }
+  return p;
+};
 export const lineasDeConversacion = (lineas: readonly LineaChat[]): LineaChat[] => {
   const paraOtro = turnosParaOtro(lineas);
   return lineas.filter((l) => l.tipo === 'trabajo' || l.tipo === 'respuesta' || l.tipo === 'pregunta'
     || (l.tipo === 'turno' && esParaMartin(l.turno) && !(l.turno.rol === 'yo' && l.turno.trabajo)))
-    .map((l) => (l.tipo === 'turno' && paraOtro.has(l.turno.uuid) ? { ...l, plegado: true } : l));
+    .map((l) => (l.tipo === 'turno' && paraOtro.has(l.turno.uuid) ? plegada(l) : l));
 };
 
 /**
@@ -696,6 +705,17 @@ export function yaEstaSinVer(lineas: readonly LineaChat[], visto: number | null 
   let u: { instante: number; uuid: string } | null = null;
   for (const l of lineas) if (l.tipo === 'turno' && l.turno.rol === 'el' && esYaEsta(l.turno.texto) && (!u || l.instante > u.instante)) u = { instante: l.instante, uuid: l.turno.uuid };
   return u && !tieneCheck(u.instante, visto) ? u.uuid : null;
+}
+
+/**
+ * Cuántos de los últimos mensajes dibujar para que entre ese turno (el «Ya está» sin su ✓), con `margen` de antes como contexto;
+ * null si no está. Sobre la conversación que dibuja el hilo (`lineasDeConversacion`). Antes se dibujaba TODO el historial para
+ * llegar a él (22/10/2026), y con un chat largo eso era un render de segundos al entrar al Ops Center (23/10/2026).
+ */
+export function tandaHasta(lineas: readonly LineaChat[], uuid: string, margen = 5): number | null {
+  const conv = lineasDeConversacion(lineas);
+  const i = conv.findIndex((l) => l.tipo === 'turno' && l.turno.uuid === uuid);
+  return i < 0 ? null : conv.length - i + margen;
 }
 
 /** ¿El chat espera el ✓ de Martín? Sin saber qué tiene ✓ (`vistos` null, antes de leer), no avisa: nada de parpadeos. */
