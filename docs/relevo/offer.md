@@ -1,5 +1,24 @@
 # Relevo — la tab Offer
 
+## Estado al 23/10/2026 (chat «Offer», cuenta claude1) — leer esto primero
+
+**Todo lo de Offer del 12 al 22/10 está en origin/main** (lo último, OF1-OF4 de claude3 el 22/10; el detalle está en
+docs/hallazgos-offer.md, «Offer y el onboarding con el hilo y la caja del Ops Center»).
+
+Hecho hoy:
+- **Ángulos sin la recomendación de formatos** (rama `angulos-sin-recomendacion`, worktree C:/dev/wt-offer-angulos). Se
+  midió en prod y 0 negocios la tenían, con 0 llamadas en la historia. Se sacó entera; queda la biblioteca con cuántos
+  anuncios usan cada formato. Está en docs/hallazgos-onboarding.md → «Ángulos: la recomendación de formatos se sacó».
+- **La migración 0316 (`archivero_files.origen`), APLICADA en prod** el 23/10. Estaba pendiente desde el 17/10 y el código
+  la toleraba. Las 42 filas viejas quedan en NULL («subido en El Archivero»), como estaba previsto.
+
+Sigue abierto (P2, ninguno frena el 25/10):
+- **OF5**: el aviso «terminé de leer tus N documentos» por el grupo de WhatsApp (pide un evento nuevo en
+  lib/disparadores.ts) y volver a medir la latencia del turno.
+- **Lo que no se hizo de OF4**: verlo en un Android de verdad (/m/offer); el Ops Center no muestra el PDF ni la nota de voz
+  de una conversación de Offer; el hilo del teléfono sigue siendo propio; el teléfono ya no vibra al grabar.
+- **Sin ver en el navegador**: el PDF para un prospecto (17/10) y la vista Ángulos nueva.
+
 ## Estado al 17/10/2026 («Pendientes B3», claude4, rama pend-b3-1710)
 
 Hecho: «Los números» de la propuesta marcan lo que estimó MaKo (y lo guardado se lee marcado), la pestaña del PDF deja

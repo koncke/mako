@@ -1935,3 +1935,26 @@ todavía fuera de main.
 tests/ops-center-bateria.test.ts
 *22/10/2026, chat «CRM» (claude3).*
 
+## Sacar una operación del registro: qué da rojo y qué NO avisa (23/10/2026)
+
+Al sacar `recomendar_formatos_creativo` (docs/hallazgos-onboarding.md → «Ángulos»). **Dan rojo** si falta una mitad:
+`tests/api-mako-registro.test.ts` («toda def tiene su runner, y todo runner tiene def»), el snapshot HTTP
+(`tests/api-mako-http.snapshot.txt`, que se REGENERA con `node --import tsx scripts/generar-api-doc.mjs` junto con
+docs/api-mako.md), `tests/api-mako-rest.test.ts` (la fila REST huérfana) y el clasificador
+(`tests/ops-center-clasificador-app.test.ts`, si una frase esperaba la operación). El pre-push frena con docs/api-mako.md viejo.
+
+**Lo que NO avisaba nadie:** una LECTURA cuya descripción, o la nota que devuelve su runner, nombra la operación muerta. El
+modelo la lee y va a buscar una herramienta que ya no existe. Una guarda general por patrón (todo `verbo_algo` de las
+descripciones que no sea un id) da 24 falsos positivos (nombres de campos como `etapa_actual` o `lead_form_id`), así que
+es una lista EXPLÍCITA: `OPERACIONES_RETIRADAS` en tests/angulos-sin-recomendacion.test.ts. **Al sacar una operación, se
+suma ahí**, y su nombre no puede quedar en ningún texto del registro ni en ningún runner o helper.
+
+**Al redirigir una frase a otra operación, mirá lo que esa operación acepta.** Sin la recomendación, «recomendame formatos
+para mi anuncio» lleva a `elegir_formato_creativo_anuncio`, que aceptaba la celda virtual de los guiones propios
+(`guiones-propios`, que `listar_anuncios_planteados` devuelve con `es_guiones_propios: true`): pagaba IA para fijarle un
+formato a algo que no es un anuncio. Las hermanas (`escribir_guion_anuncio`, `_auto`) ya la frenaban; ahora también ésta,
+en `preparar` y en `ejecutar` (que relee la celda).
+
+**Vive en:** `tests/angulos-sin-recomendacion.test.ts` (`OPERACIONES_RETIRADAS`) · `lib/api-mako/areas/contenido.def.ts` · `contenido.run.ts` · `lib/api-mako/rest.ts`
+
+*23/10/2026 · chat «Offer» (cuenta claude1) · medido en prod con un SELECT; no se miró en el navegador.*

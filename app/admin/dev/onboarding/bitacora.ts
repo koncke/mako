@@ -829,4 +829,30 @@ export const BITACORA: Hito[] = [
       "tests/onboarding-historial.test.ts — el onboarding entero como lo corre la ruta; probado rompiéndolo (38 roturas)",
     ],
   },
+  {
+    fecha: "23 oct", hora: "—", chat: "Cerebro", sesion: "local_94ec0e46-f987-4530-a3cc-c5c1a0bc0601", cuenta: "claude1",
+    actor: "claude", tipo: "prompt",
+    titulo: "Ángulos: o se engancha a quien lo lea, o se saca el botón",
+    pedido: "«Ángulos» no lo lee ningún generador — cada «regenerar» paga IA para una lista que sólo se dibuja. O se engancha a quien debería consumirlo, o se saca el botón: pagar IA por un adorno no va.",
+    puntos: [
+      "Lo pidió el Cerebro (el chat orquestador) al chat «Offer», que había dejado la recomendación de formatos anotada como decisión pendiente el 15/10. No es una frase de Martín: es la regla con la que el Cerebro reparte.",
+    ],
+  },
+  {
+    fecha: "23 oct", hora: "—", chat: "Offer", sesion: "local_953fccaa-8857-4844-be5b-5655e08c5bba", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Ángulos sin la recomendación de formatos: la biblioteca con cuántos anuncios usan cada formato",
+    puntos: [
+      "Medido en prod antes de elegir: 0 negocios con mako.formatos_recom y 0 llamadas a la generación en toda la historia. Lo que sí se usa es el formato POR ANUNCIO (elegirAngulo), que ya recibe avatar, razón, copy y entregable: engancharla no le sumaba nada.",
+      "Se sacó entera (la lib, el POST, el botón y la operación recomendar_formatos_creativo de la API). Ángulos, el grafo de Second Brain y listar_formatos_creativo cuentan con UNA función, usosPorFormato.",
+      "OPERACIONES_RETIRADAS (tests/angulos-sin-recomendacion.test.ts): la descripción de una lectura que nombra una operación muerta no la cazaba ningún test.",
+      "La verificación encontró que la cuenta incluía los anuncios de un avatar borrado (la Matriz no los dibuja): la vista y la API cortan ahora por los avatares que existen. Y elegir_formato_creativo_anuncio ya no acepta la celda de los guiones propios.",
+    ],
+    archivos: [
+      "lib/angulos-data.ts — usosPorFormato, la única cuenta",
+      "app/onboarding/FormatosView.tsx y app/api/onboarding/formatos/route.ts — la vista y su GET, sin IA",
+      "tests/angulos-sin-recomendacion.test.ts — 5 tests, 4 roturas cazadas",
+      "docs/hallazgos-onboarding.md — «Ángulos: la recomendación de formatos se sacó»",
+    ],
+  },
 ];

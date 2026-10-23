@@ -2650,3 +2650,18 @@ el filtro.
 
 **SIN HACER:** decidir si un título «<Área> · <fecha>» va dentro de su área (se mostraría su fecha como sub-chat), o si el
 desempate se escribe con «›». Ojo: `partesDelNombre` es la misma para el super admin.
+
+## Los formatos del grafo salen sólo de la matriz (23/10/2026)
+
+Hasta el 23/10 entraban al grafo los formatos RECOMENDADOS a nivel negocio y los que usaba alguna celda; un recomendado
+sin celda colgaba de la raíz con «Un formato que MaKo eligió para este negocio». La recomendación se sacó (0 negocios la
+tenían: docs/hallazgos-onboarding.md → «Ángulos: la recomendación de formatos se sacó»), así que cada `fmt:` tiene como
+padre la razón que lo usa y ninguno cuelga de la raíz. En prod no cambió ningún mapa.
+
+El detalle del nodo dice cuántos anuncios lo usan con la MISMA cuenta que la vista Ángulos y la API (`usosPorFormato`,
+lib/angulos-data.ts). ⚠️ Al sacar una lectura del `Promise.all` de `construirCerebro` hay que sacar la variable del
+destructuring EN LA MISMA POSICIÓN: si se saca una sola, todo lo que sigue recibe la promesa de al lado.
+
+**Vive en:** `lib/cerebro-grafo.ts` (bloque «Formatos: solo los que ESTE negocio usa») · `lib/angulos-data.ts`
+
+*23/10/2026 · chat «Offer» (cuenta claude1) · medido en prod con un SELECT; no se miró en el navegador.*

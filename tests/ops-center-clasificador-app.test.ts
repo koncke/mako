@@ -486,7 +486,8 @@ const CONTENIDO: Caso[] = [
   ["reescribe el guion del anuncio ganador", ["editar_texto_guion_anuncio"]],
   ["borrá el guion 3 del anuncio", ["borrar_guion_anuncio"]],
   ["pasá el guion 3 a aprobado", ["mover_estado_guion_anuncio"]],
-  ["recomendame formatos de creativo para mi anuncio", ["recomendar_formatos_creativo"]],
+  // La recomendación de formatos a nivel negocio salió el 23/10/2026: la frase lleva al formato POR ANUNCIO.
+  ["recomendame formatos de creativo para mi anuncio", ["elegir_formato_creativo_anuncio", "listar_formatos_creativo"]],
   ["mostrame mis guiones de anuncio", ["listar_guiones_anuncio"]],
 ];
 

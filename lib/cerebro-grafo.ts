@@ -43,10 +43,9 @@ import { getAvatares } from './avatares';
 import { getRazones } from './razones';
 import { getPersona } from './persona';
 import { getPersonalidad } from './personalidad-store';
-import { getRecomendaciones } from './angulos-formatos';
 import { FASES, CANALES } from './fase-diagnostico';
 import { PERSONALIDAD_PREGUNTAS } from './personalidad';
-import { BIBLIOTECA_ANGULOS } from './angulos-data';
+import { BIBLIOTECA_ANGULOS, CELDA_GUIONES_PROPIOS, usosPorFormato } from './angulos-data';
 import { layoutCerebro } from './cerebro-layout';
 import { puentesARaiz } from './cerebro-union';
 import { getFunnelDefault } from './funnels';
@@ -325,7 +324,7 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } 
   // arma el ZIP— y un parámetro opcional que solo pasara uno dejaría el vault sin funnel
   // en silencio, que es la clase de bug que este repo ya pagó varias veces. Va en el
   // mismo Promise.all, así que no suma latencia, y `getFunnelDefault()` nunca lanza.
-  const [schema, diag, files, manual, panorama, productos, entregables, avatares, razones, persona, personalidad, recomendaciones, funnel, secuencias, landings, audios, vozManual, vozEvidencia, glosario, objCierres, objCash, vivo] = await Promise.all([
+  const [schema, diag, files, manual, panorama, productos, entregables, avatares, razones, persona, personalidad, funnel, secuencias, landings, audios, vozManual, vozEvidencia, glosario, objCierres, objCash, vivo] = await Promise.all([
     getSchema(),
     getDiagnosticoFase(),
     listFiles(),
@@ -337,7 +336,6 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } 
     getRazones(),
     getPersona(),
     getPersonalidad(),
-    getRecomendaciones(),
     getFunnelDefault(),
     // Las lecturas nuevas van con `.catch()` a un valor vacío: una fuente secundaria que
     // falle NO puede dejar sin mapa a un cliente. El grafo se degrada, no se cae.
@@ -613,7 +611,8 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } 
     const padre = avatarANodo.get(r.avatarId);
     if (padre) unir(padre, id, 'Este segmento compra por esta razón');
     else unir(RAIZ, id, 'Una razón de compra');
-    for (const f of usados) razonAFormatos.push({ razon: id, formato: f });
+    // La celda de los guiones propios no es un anuncio planteado: no se cuenta ni usa un formato.
+    if (r.id !== CELDA_GUIONES_PROPIOS) for (const f of usados) razonAFormatos.push({ razon: id, formato: f });
   }
 
   // ── Voz y cara ─────────────────────────────────────────────────────────────
@@ -653,29 +652,27 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } 
   }
 
   // ── Formatos: solo los que ESTE negocio usa ────────────────────────────────
-  // La biblioteca son 14 y es catálogo de MaKo, igual para todos. Entran los
-  // RECOMENDADOS más los que alguna celda eligió de verdad, y como nodo del área de
-  // razones porque es donde se usan.
-  const porRec = new Map(recomendaciones.map((r) => [r.formatoId, r]));
+  // La biblioteca son 14 y es catálogo de MaKo, igual para todos. Entran sólo los que
+  // alguna celda de la matriz eligió (anguloImagen/anguloVideo), como nodo del área de
+  // razones porque es donde se usan; su padre es la razón que lo usa (la arista 1, abajo).
+  // ⚠️ Hasta el 23/10/2026 entraban también los RECOMENDADOS a nivel negocio, colgados de la
+  // raíz. La recomendación se sacó (0 negocios la tenían): docs/hallazgos-second-brain.md.
+  // El conteo es la MISMA función que la vista Ángulos y la API (usosPorFormato), SIN cortar por avatares: el grafo
+  // dibuja también las razones de un avatar borrado (colgadas de la raíz), y la cuenta tiene que ser la de sus aristas.
+  const usos = usosPorFormato(razones);
   const usadosPorCelda = new Set(razonAFormatos.map((x) => x.formato));
-  for (const formatoId of new Set([...porRec.keys(), ...usadosPorCelda])) {
+  for (const formatoId of usadosPorCelda) {
     const nombre = formatoNombre.get(formatoId);
     if (!nombre) continue;
-    const rec = porRec.get(formatoId);
-    const id = push({
+    const n = usos[formatoId] ?? 0;
+    push({
       id: `fmt:${formatoId}`,
       area: 'razones',
       etiqueta: corto(nombre, 26),
-      detalle: rec
-        ? [limpio(rec.para) && `Para: ${limpio(rec.para)}`, limpio(rec.porque)].filter(Boolean).join(' · ')
-        : 'Lo elegiste para uno de tus anuncios.',
-      fuente: rec ? 'MaKo lo eligió de la biblioteca para tu negocio' : 'en uso en tu matriz',
+      detalle: n > 1 ? `Lo usan ${n} de tus anuncios.` : 'Lo usa uno de tus anuncios.',
+      fuente: 'en uso en tu matriz',
       autoria: 'mako',
     });
-    // A la raíz SOLO el formato que MaKo recomendó y todavía no usa ninguna celda. Si
-    // una razón ya lo usa, ése es su padre: colgarlo además de la raíz le suma un
-    // radio al hub sin agregar información, y el hub es lo que dibuja el asterisco.
-    if (!usadosPorCelda.has(formatoId)) unir(RAIZ, id, 'Un formato que MaKo eligió para este negocio');
   }
 
   // ── LAS ARISTAS LATERALES ──────────────────────────────────────────────────

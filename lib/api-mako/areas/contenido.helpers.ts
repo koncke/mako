@@ -16,8 +16,8 @@
 //     puede pasarse si su cascada cae), pero ya no se encadenan tres techos nominales.
 //     ⚠️ Nada de Promise.race alrededor de generarGuion/elegirAngulo: la lib ESCRIBE al
 //     final, y cortar la espera dejaría un guion guardado que se reporta como fallido
-//     (y un reintento lo duplica). La carrera (`conTope`) solo va donde la escritura
-//     es nuestra y viene DESPUÉS (recomendarFormatos, que no acepta timeoutMs).
+//     (y un reintento lo duplica). Una carrera sólo vale sobre lo que NO escribe (el único caso,
+//     recomendarFormatos, salió el 23/10/2026 con su helper `conTope`).
 //  2. PARTIR UN GUION EN BLOQUES. El parser vive SOLO en app/components/SeccionCard.tsx
 //     (`parsearSecciones`), que es 'use client': importarlo desde el server da una
 //     referencia de cliente, no la función. Se replicó la regla mínima (línea sola
@@ -163,17 +163,6 @@ export async function escribirGuionAuto(celdaId: string): Promise<{ ok: true; gu
     timeoutMs: t,
   });
   return g.ok ? { ...g, conSugerencia: sug.ok } : g;
-}
-
-/** Espera `p` hasta `ms`. SOLO para promesas que no escriben nada (ver punto 1). */
-export async function conTope<T>(p: Promise<T>, ms: number): Promise<T | 'tope'> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const tope = new Promise<'tope'>((res) => { timer = setTimeout(() => res('tope'), ms); });
-  try {
-    return await Promise.race([p, tope]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
 }
 
 // ── 2. Bloques de un guion ───────────────────────────────────────────────────
