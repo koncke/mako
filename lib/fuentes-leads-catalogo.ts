@@ -22,5 +22,5 @@ export const esFuenteQueAvisa = (v: unknown): v is FuenteQueAvisa => typeof v ==
  * Las integraciones del Leads Scraper que el tablero de /integraciones NO cuenta mientras no se
  * conecten: las fuentes que avisan y Apify, donde corren las búsquedas de prospectos (15/10/2026).
  */
-const INTEGRACIONES_DE_LEADS: ReadonlySet<string> = new Set([...Object.keys(NOMBRE_FUENTE), 'apify', 'zapier']);
+const INTEGRACIONES_DE_LEADS: ReadonlySet<string> = new Set([...Object.keys(NOMBRE_FUENTE), 'apify']);
 export const esIntegracionDeLeads = (v: unknown): boolean => typeof v === 'string' && INTEGRACIONES_DE_LEADS.has(v);

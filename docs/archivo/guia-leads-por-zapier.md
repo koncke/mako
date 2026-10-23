@@ -1,3 +1,7 @@
+> **RETIRADA el 23/10/2026.** Martín: «ya resolvimos todo con Zernio». El puente de leads por Make o Zapier se sacó de MaKo (la tarjeta,
+> el endpoint `/api/webhooks/zapier` y su clave); esta guía queda sólo como historia, con los precios y los límites leídos ese día.
+> El porqué y lo que sigue valiendo: `docs/hallazgos-integraciones.md`, «El puente de leads… se RETIRÓ».
+
 # Leads de Meta por Make o Zapier
 
 (El archivo conserva su nombre por los links; la tarjeta de Integraciones es **«Leads de Meta por Make o Zapier»**.)

@@ -70,7 +70,6 @@ export const RUNNERS: Runners = {
           '«conectada» significa que las credenciales están cargadas, no que funcionen: pruébala con probar_conexion_integracion.',
           'Google Calendar figura conectada si hay un permiso guardado, aunque Google ya lo haya rechazado: confirma con ver_estado_google_calendar.',
           'Pixel de MaKo figura conectada solo si llegaron eventos recientes de la landing.',
-          'Leads de Meta por Make o Zapier: con la clave puesta, su detalle dice cuándo llegó el último lead, y figura «falta» si pasaron 3 días sin ninguno (revisa el escenario de Make o el Zap).',
         ],
       });
     },
