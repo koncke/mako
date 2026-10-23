@@ -73,8 +73,8 @@ test('«No se envió» sólo si el pedido no llegó; si llegó (falta la IA, un 
   assert.match(responde, /ponerExtras\(\(xs\) => \[\.\.\.xs, \{ id: `\$\{PREFIJO_EXTRA\}\$\{nuevoId\('mako'\)\}`, at: new Date\(\)\.toISOString\(\), mako: e \}\]\);/);
   // Y se dibuja como MaKo, con el botón a donde se arregla.
   const chat = CHAT();
-  assert.match(chat, /: e\.mako \? <RespuestaDeMako texto=\{e\.mako\.texto\} link=\{e\.mako\.link\} at=\{e\.at\} \/> : null;/);
-  assert.match(tramo(chat, 'function RespuestaDeMako(', '\n}\n'), /\{link && <LinkIntegracion href=\{link\} style=\{S\.botonArreglo\}>/);
+  // (23/10/2026, AU4: en el globo de MaKo del hilo único, `hiloUnico`.)
+  assert.match(chat, /\} else if \(e\.mako\) \{\n\s+items\.push\(\{ k: 'msg', id, role: 'assistant', texto: e\.mako\.texto, at: e\.at \}\);\n\s+if \(e\.mako\.link\) enGlobo\.set\(id, \{ abajo: <LinkIntegracion href=\{e\.mako\.link\} style=\{S\.botonArreglo\}>/);
 });
 
 test('terminó sin nadie mirando: el borrador se guarda por la acción del lienzo, la lista se relee y queda el aviso', () => {
