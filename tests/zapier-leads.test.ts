@@ -261,6 +261,19 @@ test('el servicio está en todos los registros que lo hacen andar', () => {
   assert.match(sinComentarios(leer('../app/integraciones/IntegracionesBoard.tsx')), /&& !i\.callada\)/);
 });
 
+test('el negocio sabe que Zapier es de pago: en la tarjeta, y el plan mínimo en la guía con su fecha y su link', () => {
+  // Medido en las páginas oficiales el 23/10/2026: Facebook Lead Ads es una app premium (Professional, Team y Enterprise) y
+  // «Webhooks by Zapier» tampoco está en Free. Prometer el puente sin decirlo es prometerlo gratis.
+  const catalogo = sinComentarios(leer('../lib/metodo-catalogo.ts'));
+  const bloque = catalogo.slice(catalogo.indexOf("key: 'zapier'"), catalogo.indexOf("key: 'apify'"));
+  assert.match(bloque, /Necesitas Zapier de pago \(plan Professional\)/, 'la tarjeta no avisa que el plan gratis de Zapier no alcanza');
+  const guia = leer('../docs/guia-leads-por-zapier.md');
+  assert.match(guia, /Plan mínimo: Professional, desde US\$19,99/, 'la guía perdió el plan mínimo');
+  assert.match(guia, /leído en las páginas oficiales el 23\/10\/2026/, 'el precio sin fecha envejece sin que nadie lo vea');
+  assert.ok(guia.includes('https://help.zapier.com/hc/en-us/articles/8496061306253'), 'falta el link a la ayuda oficial de Facebook Lead Ads');
+  assert.ok(guia.includes('https://zapier.com/pricing'), 'falta el link a los precios oficiales');
+});
+
 test('la ruta es pública por el prefijo de webhooks, y sólo acepta POST con cuerpo', () => {
   assert.match(sinComentarios(leer('../lib/rutas-publicas.ts')), /'\/api\/webhooks'/);
   assert.match(RUTA, /export async function POST\(/);
@@ -282,4 +295,6 @@ test('la ruta es pública por el prefijo de webhooks, y sólo acepta POST con cu
 //     como lead_id.
 //   · LOS REGISTROS: la clave sin ir por hash · sin su fila de ruteo · sin logo · sin ping · sin la exención del medidor ·
 //     la grilla escondiendo al puente caído · la tarjeta leyendo la clave y no lo que llegó.
+//   · EL PLAN DE PAGO (mismo día, después del pedido del Cerebro): la tarjeta sin su primer paso «Necesitas Zapier de pago» · la
+//     guía sin el plan mínimo · sin la fecha · sin el link a la ayuda oficial · sin el link a los precios: 5 de 5 (base 30 / 0).
 // Y de punta a punta contra el ws3 (scripts/tmp-e2e-zapier.ts, no se commitea): docs/hallazgos-integraciones.md.

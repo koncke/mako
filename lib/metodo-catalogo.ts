@@ -777,6 +777,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       url: 'https://business.facebook.com/settings/leads-accesses/',
       urlLabel: 'Meta → Acceso a leads',
       pasos: [
+        'Necesitas Zapier de pago (plan Professional): el plan gratis no trae Facebook Lead Ads ni Webhooks.',
         'En «Clave del aviso» escribe una clave larga que inventes (por ejemplo micuenta2026clave).',
         'En Meta, asigna la app «Zapier» (no «Zapier Inc.») como CRM en business.facebook.com/settings/leads-accesses.',
         'En zapier.com crea un Zap: «Facebook Lead Ads» → «New Lead», y como acción «Webhooks by Zapier» → «POST».',

@@ -1369,6 +1369,22 @@ un secreto en un header, ruteo por su hash, lectura estricta) y la puerta de los
   del paso anterior; el CRM se asigna en `business.facebook.com/settings/leads-accesses` (la app «Zapier», no «Zapier Inc.»); si
   se edita el formulario, Facebook crea uno nuevo con otro id; un Zap por formulario.
 
+### Cuánto cuesta para el negocio (leído en las páginas oficiales el 23/10/2026)
+
+El Cerebro pidió medirlo antes del domingo: decide si se puede PROMETER el puente. **Zapier: el plan gratis no alcanza.**
+La ayuda oficial de Facebook Lead Ads (actualizada el 01/10/2026, `help.zapier.com/hc/en-us/articles/8496061306253`) dice «Facebook
+Lead Ads is a premium app on Zapier»: está en Professional, Team y Enterprise, y pide «A paid Zapier account». Y «Webhooks by
+Zapier» (el POST a MaKo) tampoco está en Free (`zapier.com/pricing`, actualizada el 23/10/2026). **El mínimo es Professional:
+US$19,99 al mes con facturación anual, US$29,99 mes a mes, 750 tareas.** Con **Make** no se puede prometer un precio: su página
+de precios no entrega los planes sin JavaScript (ningún precio legible), la del módulo no declara un plan, y los precios que
+circulan son de terceros. Lo que sí dice Make: hace falta una cuenta de Facebook Business Manager, y en Leads Access se asigna
+la app «Make» (no «Zapier»).
+
+⚠️ **Lo que se había escrito antes era una suposición.** El relevo del Cerebro decía «Zapier Professional ronda US$20–30, pero ese
+precio sale de un blog»; ahora es la página oficial. Y OJO con cómo se lee: una búsqueda resumió esa misma ayuda como si Free
+estuviera incluido, y la lectura directa de la página dice lo contrario (Free «no incluido» y «A paid Zapier account» como
+requisito). Se anotó la directa; si Zapier lo cambia, la guía lleva la fecha. La tarjeta lo dice en su primer paso y la guía lo anota con la fecha y los links (`tests/zapier-leads.test.ts`).
+
 ### Probado de punta a punta (ws3, Cliente de Prueba, 23/10/2026)
 
 La credencial por el camino del producto (`guardarCredencial`), un POST por la ruta con `NextRequest`, y limpieza completa. La
@@ -1381,7 +1397,8 @@ notificación «Lead entrante por formulario de Meta» en el feed (`canal_wa: no
 automatizaciones activas). Al terminar: 0 leads, 0 filas de ruteo, 0 credenciales, 0 estados, 0 filas colgando.
 
 **Probado rompiéndolo** (`tests/zapier-leads.test.ts`, 21 tests; roturas restauradas de memoria): las 28 cazadas, cada una por
-el test que corresponde (los números, al pie del archivo del test).
+el test que corresponde (los números, al pie del archivo del test). Y 5 más para el plan de pago (la tarjeta sin el aviso, y la guía
+sin el plan mínimo, la fecha o cualquiera de los dos links): 5 de 5.
 
 ### La API de MaKo
 

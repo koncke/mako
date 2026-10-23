@@ -9,13 +9,38 @@ o de Make). La tarjeta es **«Leads de Meta por Zapier»**, en Integraciones.
 > los campos del paso anterior; el CRM se asigna en Leads Access; si se edita el formulario, Facebook crea uno nuevo con
 > otro id. **NO medido:** los nombres exactos de los campos del trigger (por eso MaKo los lee por significado y devuelve en
 > `sin_usar` lo que no usó), la salida de Make, y si la app de Zapier alcanza para páginas de terceros. **Antes de ofrecerlo
-> a todos, probarlo con un negocio real.**
+> a todos, probarlo con un negocio real** (lo arma Martín: los clics de Facebook son suyos).
 
 ## Antes de empezar
 
 - Ser administrador de la página de Facebook, y tener su formulario instantáneo publicado.
-- Una cuenta de Zapier o de Make. Según guías de terceros el trigger de Facebook Lead Ads pide un plan de pago de Zapier:
-  verifícalo en su precio antes de prometerlo.
+- Una cuenta de Zapier **de pago** o de Make. El precio de abajo lo paga el negocio, no MaKo.
+
+## Cuánto cuesta (leído en las páginas oficiales el 23/10/2026)
+
+**Zapier: el plan gratis NO alcanza. El mínimo es Professional.**
+
+- «Facebook Lead Ads is a premium app on Zapier.» Está en Professional, Team y Enterprise; el plan Free figura como no
+  incluido, y entre los requisitos: «A paid Zapier account». Ayuda oficial, actualizada el 01/10/2026:
+  <https://help.zapier.com/hc/en-us/articles/8496061306253>
+- El paso «Webhooks by Zapier» (el POST a MaKo) tampoco está en Free: «Connections via webhooks» figura solo en Professional,
+  Team y Enterprise. Precios oficiales, actualizados el 23/10/2026: <https://zapier.com/pricing>
+- **Plan mínimo: Professional, desde US$19,99 al mes con facturación anual (US$29,99 si se paga mes a mes), con 750 tareas
+  al mes.** Los precios son en dólares; Zapier cobra en 19 monedas locales al cambio del día. Cada lead gasta tareas del plan.
+- Es el MISMO plan para cualquier negocio: no hay un camino gratis. Antes de prometerlo, el negocio tiene que saber que paga
+  Zapier aparte.
+
+**Make: no se puede prometer un precio con lo oficial que se pudo leer.**
+
+- La página de precios (<https://www.make.com/en/pricing>) no entrega los planes sin JavaScript: no se pudo leer ningún precio
+  de ahí. Los de Core, Pro y Teams que circulan son de terceros (alrededor de US$9 a US$10,59 el más barato): NO verificados.
+- La página oficial del módulo (<https://apps.make.com/facebook-lead-ads>) no dice que pida un plan determinado, pero sí que
+  hace falta una cuenta de Facebook Business Manager. Qué plan hace falta para el disparador instantáneo: NO medido.
+- Make tiene plan Free: 1.000 créditos al mes y 2 escenarios activos (según el blog y la comunidad de Make, no según la página
+  de precios). Alcanzaría para un negocio chico; si su disparador de leads corre en Free, sin medir.
+
+**Para el domingo:** con Zapier se puede prometer, diciendo que cuesta unos US$20 a US$30 al mes y lo paga el negocio. Con
+Make, no hasta mirar su página de precios con un navegador.
 
 ## Los pasos (15 a 30 minutos)
 
@@ -42,6 +67,10 @@ Si editas el formulario en Meta, Facebook crea uno nuevo: elígelo otra vez en e
 El mismo recorrido: módulo «Facebook Lead Ads» → «Watch Leads», y un módulo **HTTP → «Make a request»**: método POST, URL de la
 tarjeta, header `X-MaKo-Clave`, cuerpo JSON con los campos del lead. Make los llama como los mapees; MaKo los lee por
 significado (email, teléfono, nombre, campaña, anuncio…). No medido con una cuenta de Make.
+
+**Una diferencia en el paso 2:** en Meta se asigna la app **«Make»** (no «Zapier»), por la misma ruta (Business Manager →
+Settings → Integrations → Leads Access → CRMs → Assign CRMs), y hace falta una cuenta de Facebook Business Manager. Fuente
+oficial: <https://apps.make.com/facebook-lead-ads>.
 
 ## Qué contesta MaKo (se ve en el historial de tareas de Zapier)
 
