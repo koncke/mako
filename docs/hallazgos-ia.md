@@ -5309,6 +5309,37 @@ cascada de texto, la de herramientas, la visión y el audio) · `app/integracion
   `$ProgressPreference = 'SilentlyContinue'` antes de bajar. **Regla:** todo `Invoke-WebRequest` de un script que corre
   en la PC de un cliente va con la barra apagada.
 
+## «Tus cuentas de IA» por cuenta y dispositivo, y dónde está cada uno (23/10/2026)
+
+**El pedido** (Martín, por el Cerebro, con capturas del ws1): sin el botón «Conectar tu IA»; arriba «Nueva cuenta» (Claude o
+ChatGPT); cada cuenta, UN bloque «Cuenta 1», «Cuenta 2» (no «MSI») con su email, su plan y su uso; adentro sus dispositivos con
+«Desconectar», y «Nuevo dispositivo» con la descarga a la vista; cada dispositivo con su UBICACIÓN como Google («Grandbourg,
+Buenos Aires, Argentina»); fuera el «Modelo» (se elige en cada chat), «Tu clave de Claude» y el crédito (sólo SuperAdmin); el
+mismo dibujo en SuperAdmin; en la computadora y en el teléfono.
+
+**Vive en:** `agruparPorCuenta`, `textoDeUbicacion`, `dondeEsta` (lib/ia-pc-reglas.ts) · app/integraciones/CuentasYDispositivos.tsx
+(el dibujo compartido) · TusCuentasIA.tsx · app/m/cuenta/ia/IaM.tsx · app/admin/operaciones/UsoComputadoras.tsx · el latido
+(app/api/ia-pc/latido/route.ts) · supabase/migrations/0327_ia_pc_ubicacion.sql · tests/ia-pc-cuentas-dispositivos.test.ts.
+
+- **Agrupar por cuenta se hace en el SERVIDOR, no en la pantalla.** Quien mira recibe el email ajeno enmascarado, y dos
+  «m***@gmail.com» pueden ser dos cuentas distintas. Se agrupa con el email entero y recién después se enmascara, con la
+  misma regla de siempre.
+- **La ubicación sale de los headers de Vercel, sin ningún servicio de terceros:** `ubicacionDeHeaders` (la de las visitas
+  del VSL) nunca lee la IP. Se guarda sólo el TEXTO «ciudad, provincia, país», sin coordenadas. El nombre de la provincia
+  está para Argentina y México; en otro país se saltea, sin inventarlo. El país sale de `Intl.DisplayNames`. Un latido sin
+  los headers (local, o fuera de Vercel) no borra la última ubicación.
+- **El código aguanta la mig 0327 ausente:** el latido reintenta sin la columna (D6b depende de que se anote) y las listas
+  la dejan en null. La migración se aplica después de la revisión del Cerebro.
+- **Trampa del PostgREST de mentira:** devuelve la fila entera, sin mirar el `select`. Un test de «falta la columna» tiene que
+  sacar el campo de las filas; si no, pasa por la razón equivocada. Lo agarró la primera corrida.
+- **Un componente que un test dibuja en Node no importa su CSS:** Node no carga un `.css`, y el test de SuperAdmin dejó de
+  cargar. CuentasYDispositivos.tsx no lo importa: lo importan TusCuentasIA.tsx y las páginas del super admin.
+- **Lo que se fue a pedido de Martín:** el «Modelo» del panel, «Tu clave de Claude» y su gasto (lo había sumado Ops Center en
+  D3), y «Usa el crédito de Claude que te dio MaKo». El crédito queda en SuperAdmin › Uso.
+- **SIN hacer:** una cuenta de ChatGPT conectada SÓLO con una clave de API no aparece como «Cuenta», porque el panel muestra las
+  cuentas de los dispositivos; los nombres de los estados de EE.UU. (sin tabla, se saltean); y la captura del «después» en el
+  ws3 (el permiso de esta sesión no deja abrir el ws3 en producción).
+
 ## «Conectar mi computadora» en Windows SIN terminal: el instalador con asistente y la sesión de Claude (0.4.0, 23/10/2026)
 
 **El pedido** (Martín, 22/10, y su OK del 22/10 23:21 por el Cerebro): «jamás por Powershell, ni siquiera que se tenga que
