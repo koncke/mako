@@ -4427,6 +4427,13 @@ clientes nuevos (ws20 Sergio Arriata, ws21 Florencia Ayelen Carballo, ws22 Patri
   Y el ws1 decía **«Cuenta Cuenta 2 · 564003520636790»**: su cuenta se llama «Cuenta 2» y el prefijo lo ponía cada
   pantalla. Ahora lo pone `etiquetaCuentaMeta` y no lo repite si el nombre ya empieza con «Cuenta».
 
+- **Al conectar se ofrecen también las cuentas de los portafolios** (`lib/meta-cuentas-portafolio.ts`, el uso real de
+  `business_management` para la segunda tanda del App Review): `/me/adaccounts` no trae una cuenta del portafolio que
+  nadie asignó al usuario del sistema. **Trampa medida:** para un usuario del sistema `/me/businesses` devuelve `[]`
+  SIN error; el portafolio sale del campo `business` de sus cuentas, en un pedido aparte (si a un token sin el permiso
+  le fallara, no se lleva la lista de cuentas). Cada cuenta nueva se prueba con un GET antes de ofrecerla. Medido con
+  los tokens reales: ws20 suma `act_702839088096495` y ws22 `act_351188227049325`; ws1 y ws13, nada.
+
 **Sin hacer:** conectar Meta en ws21 (paso de Martín o de la clienta). **Verlo dibujado** con un negocio con Meta:
 el Chrome de esta PC está logueado como ws10 (sin Meta, muestra el onboarding) y no puede entrar a otro negocio; el
 bundle de producción sí trae los textos nuevos. Lo mira un super admin en `/ads-manager` del ws20.
