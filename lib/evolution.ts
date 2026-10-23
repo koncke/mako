@@ -16,13 +16,14 @@
 // borradores). Acá viven el cliente HTTP, la conexión (QR) y los helpers.
 
 import 'server-only';
-import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { getCapaActual, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { hayQueRecrear, mensajeEvolution, motivoDeEvolution, veredictoSondeo, type Sondeo } from './evolution-sonda';
 import { elegirLinea, esLineaDelWorkspace, instanceNameDeWs, nombreLineaNueva, lineaPorDefault } from './lineas-whatsapp';
 import { lineaDeMaKoPara, ETIQUETA_LINEA_MAKO } from './linea-plataforma';
 import { queryDeWebhook } from './evolution-firma';
 import { numeroParaWhatsApp, motivoConPista } from './numero-whatsapp';
+import { topeParaLineaNueva, type TopeLineaNueva } from './tope-lineas';
 
 // El nombre de la primera línea vive en lib/lineas-whatsapp.ts (sin `server-only`, con
 // test). Se re-exporta para que ningún import cambie.
@@ -287,6 +288,22 @@ async function upsertInstancia(instance: string, patch: Record<string, unknown>)
 
 // ── Acciones de conexión ─────────────────────────────────────────────────────
 
+/**
+ * ¿Le cabe otra línea al plan del negocio? La regla es pura (`topeParaLineaNueva`); acá se leen la capa y si MaKo le
+ * cobra el plan por la pasarela. `lib/cobros` va por import dinámico: es pesado y esto lo importa medio repo.
+ * ⚠️ SI NO SE PUEDE LEER EL PLAN, DEJA CONECTAR: un tope que se equivoca para el lado de frenar le corta el WhatsApp a
+ *    un negocio que paga; uno que se equivoca para el otro lado regala una línea hasta la próxima vez.
+ */
+async function topeDeLineaNueva(ws: number, usadas: number): Promise<TopeLineaNueva> {
+  try {
+    const [capa, { suscripcionDeMakoDe }] = await Promise.all([getCapaActual(), import('./cobros')]);
+    return topeParaLineaNueva({ ws, capa, cobradoPorPasarela: (await suscripcionDeMakoDe(ws)) != null, usadas });
+  } catch (e) {
+    console.warn(`[evolution] tope de líneas del ws ${ws}: no se pudo leer el plan (${e instanceof Error ? e.message : String(e)}); se deja conectar`);
+    return { ok: true };
+  }
+}
+
 // Crea (si no existe) la instancia de UNA línea y devuelve el QR para escanear.
 // Idempotente: si ya existe, pide un QR nuevo con /instance/connect.
 //
@@ -296,11 +313,14 @@ async function upsertInstancia(instance: string, patch: Record<string, unknown>)
 // que entra por ella contesta «instancia sin workspace» y se pierde.
 export async function conectar(
   opts: { linea?: string | null; nueva?: boolean; etiqueta?: string | null } = {},
-): Promise<{ ok: true; qr: QrData; estado: EstadoConexion; linea: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; qr: QrData; estado: EstadoConexion; linea: string } | { ok: false; error: string; tope?: number }> {
   const ws = await wsEstricto();
   let instance: string;
   if (opts.nueva) {
     const lineas = await listarLineas();
+    // El TOPE del plan (lib/tope-lineas.ts): sólo frena la línea que se va a CREAR, antes de escribir su fila.
+    const tope = await topeDeLineaNueva(ws, lineas.length);
+    if (!tope.ok) return { ok: false, error: tope.texto, tope: tope.tope };
     instance = nombreLineaNueva(ws, lineas.map((l) => l.instance_name));
     try {
       await upsertInstancia(instance, {
