@@ -2036,6 +2036,28 @@ export const FILA_NO_CONTESTO = { no: true, campo: 'contesto' } as const;
 /** ¿El pedido nombra un SEGUIMIENTO? («seguimiento», «si no responde/contesta», «si no hay respuesta»). */
 export const RE_SEGUIMIENTO = /seguimiento|(?<!\p{L})si no (?:te |me |le |nos )?(?:responde|contesta)n?(?!\p{L})|si no hay respuesta/iu;
 export const AVISO_SEGUIMIENTO = 'Puse «No contestó desde que entró» antes del seguimiento: si contesta, no le llega';
+/** «Cuando responde, le avisa al grupo» (sin las citas): lo miran el control de lo pedido y `protegidasPorElPedido`. */
+export const RE_AVISO_AL_RESPONDER = /(?<!no )(?:cuando|una vez que|apenas|en cuanto|si)\s+(?:alguien |el lead |la persona |me |te |le |nos )?(?:responde|contesta)n?(?!\p{L})[^.]{0,160}?(?:avis|notific)/iu;
+/** «Sacá / quitá el aviso»: el pedido pide sacarlo, y entonces nada lo protege. */
+export const RE_SACAR_AVISO = /(?<!\p{L})(?:sac|quit|elimin|borr(?!ador))\p{L}*\s+(?:\p{L}+\s+){0,2}avis/iu;
+
+/**
+ * LO QUE EL PEDIDO PIDE TENER NO SE QUITA (23/10/2026, el arnés del AU2: `solo-apertura` en la 2ª pasada). «Sólo quiero que sea
+ * de "Apertura"… y cuando alguien responde se corta y le avisa a Ana por el grupo»: el modelo leyó «sólo apertura» y quitó
+ * TAMBIÉN el «Si responde» con su aviso al equipo, que el mismo pedido pide. Si el pedido pide el aviso cuando el lead
+ * responde (y no pide sacarlo), el «Si responde» y los avisos que cuelgan de él no entran en "quitar": lo de los casos (los
+ * mensajes que sobran) sí se va. Devuelve los ids protegidos (vacío si no hay nada que proteger).
+ */
+export const AVISO_DEJE_EL_AVISO = 'Dejé el aviso al grupo cuando responde: lo pediste';
+export function protegidasPorElPedido(base: readonly PasoGrafo[], pedido: unknown): Set<string> {
+  const orden = sinCitas(pedido);
+  if (!RE_AVISO_AL_RESPONDER.test(orden) || RE_SACAR_AVISO.test(orden)) return new Set();
+  const resp = raizRespuesta(base);
+  if (!resp) return new Set();
+  const porId = new Map(base.map((p, i) => [idDe(p, i), p]));
+  const avisos = [...descendientes(base, resp)].filter((id) => (porId.get(id) as PasoIA | undefined)?.accion?.operacion === OP_MAKO);
+  return avisos.length ? new Set([resp, ...avisos]) : new Set();
+}
 export function seguimientosConNoContesto(pasos: readonly PasoIA[], nuevas: ReadonlySet<string>, pedido: unknown, rnd: () => number = Math.random): { pasos: PasoIA[]; puestas: string[] } {
   let out = pasos.map((p) => p);
   const puestas: string[] = [];
@@ -2131,16 +2153,21 @@ function seguimientoQueFalta(pasosIn: PasoIA[], ed: Edicion, social: CanalSocial
       x = String(p.siguiente ?? '');
       continue;
     }
+    // Una condición de «Contestó» sin salida. (Una VACÍA no llega hasta acá: el saneo la saca antes, «Saqué una condición que
+    // no tenía ninguna rama válida», medido el 23/10/2026.)
     const soloContesto = c === 'condicion' && (p.ramas ?? []).length === 1 && p.ramas![0].filas.every((f) => f.campo === 'contesto')
       && !p.ramas![0].siguiente && !p.si_no;
     if (!soloContesto) return pasosIn;
     cola.push(x);
     break;
   }
-  const minutos = minutosDelModelo ?? minutosDelPedido(orden, seg.index);
+  // Sin una espera dicha (ni del modelo ni del pedido: «un seguimiento si no responden»), la de la regla 3 del prompt, la
+  // misma que sigue el modelo: 20 h entre dos WhatsApp. Se dice en el aviso, y se cambia en la tarjeta.
+  const dicha = minutosDelModelo ?? minutosDelPedido(orden, seg.index);
+  const minutos = dicha ?? MINUTOS_REGLA_3;
   // Un email necesita su asunto, y ése no está en el pedido: queda el control.
   const canal = canalDePaso(porId.get(ultimo)!);
-  if (!minutos || canal === 'email') return pasosIn;
+  if (canal === 'email') return pasosIn;
   let pasos = pasosIn;
   for (const id of [...cola].reverse()) pasos = borrarNodo(pasos, id) as PasoIA[];
   const tramo = {
@@ -2152,9 +2179,12 @@ function seguimientoQueFalta(pasosIn: PasoIA[], ed: Edicion, social: CanalSocial
   };
   const antes = pasos.length;
   pasos = agregarTramos(pasos, [tramo], ed, social, null);
-  if (pasos.length > antes) ed.est.avisos.push(AVISO_SEGUIMIENTO_ARMADO);
+  if (pasos.length > antes) ed.est.avisos.push(dicha == null ? AVISO_SEGUIMIENTO_A_20 : AVISO_SEGUIMIENTO_ARMADO);
   return pasos;
 }
+/** Las horas de la regla 3 del prompt («Entre dos WhatsApp va un "esperar" de 20 horas o más»), en minutos. */
+const MINUTOS_REGLA_3 = 20 * 60;
+export const AVISO_SEGUIMIENTO_A_20 = 'Puse el seguimiento con tu texto después del último mensaje, a las 20 h: cámbialo en la espera';
 
 /**
  * LOS CASOS QUE EL TURNO DEJÓ VACÍOS SE VAN (23/10/2026, #289 medido en seco: «sólo quiero que sea de Apertura» sacaba los
@@ -2570,7 +2600,12 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
   est.social = social;
   est.cron = cron ?? null;
 
-  for (const id of refs(o.quitar)) pasos = quitarTarjeta(pasos, id, est);
+  // Lo que el pedido pide tener no se quita (`protegidasPorElPedido`, 23/10/2026).
+  const protegidas = protegidasPorElPedido(base, ctx.pedido);
+  for (const id of refs(o.quitar)) {
+    if (protegidas.has(id)) { est.avisos.push(AVISO_DEJE_EL_AVISO); continue; }
+    pasos = quitarTarjeta(pasos, id, est);
+  }
   for (const x of Array.isArray(o.cambiar) ? o.cambiar : []) {
     if (x && typeof x === 'object' && !Array.isArray(x)) pasos = cambiarTarjeta(pasos, x as Record<string, unknown>, ed);
   }

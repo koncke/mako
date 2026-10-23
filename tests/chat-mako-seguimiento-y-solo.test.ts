@@ -145,8 +145,15 @@ test('el control: la primera vez vuelve al modelo con todo lo que falta o sobra;
   // Un seguimiento pedido que no quedó (un mensaje sin espera).
   const sinEspera = { agregar: [{ despues_de: 'ne2rblm', salida: 'sig', tarjetas: [{ id: 't1', tipo: 'mensaje', texto: '¿Seguimos?' }] }] };
   assert.match(rev('agrega un seguimiento si no responde', sinEspera).errores.join(' '), /pidió un SEGUIMIENTO/);
-  // «Cuando responde, avisale al grupo» sin aviso debajo de «Si responde».
-  assert.match(rev('cuando responde le avisas al grupo y agrega un saludo más', { quitar: ['nresp289'], agregar: sinEspera.agregar }).errores.join(' '), /cuando el lead responda le avisen al grupo/);
+  // «Cuando responde, avisale al grupo» sin aviso debajo de «Si responde». Desde el 23/10/2026 quitar el que YA está no se
+  // puede (`protegidasPorElPedido`): el control lo pide cuando de verdad falta (una base sin aviso).
+  const sinAviso = BASE.filter((p) => p.id !== 'nresp289').map((p) => (p.id === 'nhhcilm' ? { ...p, si_no: null } : p)) as PasoGrafo[];
+  const pedidoAviso = 'cuando responde le avisas al grupo y agrega un saludo más';
+  const rAviso = revisarEdicion({ obj: { agregar: sinEspera.agregar }, base: sinAviso, ctx: ctxDe(pedidoAviso), pedido: pedidoAviso, historial: [], intencion: 'editar', control: { yaPidioLoQueFalta: false } });
+  assert.match(rAviso.errores.join(' '), /cuando el lead responda le avisen al grupo/);
+  const protegida = rev(pedidoAviso, { quitar: ['nresp289'], agregar: sinEspera.agregar });
+  assert.ok(protegida.r.pasos.some((p) => p.id === 'nresp289'), 'se quitó el aviso que el pedido pide');
+  assert.doesNotMatch(protegida.errores.join(' '), /cuando el lead responda le avisen al grupo/);
   // «Sólo X» que se llevó X: el camino del lead sin mensajes.
   assert.match(rev(PEDIDO, { quitar: ['npin7mc', 'ne2rblm', 'n1ugqas', 'notlxp0', 'n2cjf2m'] }).errores.join(' '), /Con «sólo X» se queda X/);
 });

@@ -16,7 +16,10 @@
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deIAEdicion, pidioAviso, pidioRespuesta, cambioDeCanal, LISTA_BLANCA_IA, AVISO_SEGUIMIENTO, AVISO_SEGUIMIENTO_ARMADO, type CtxIA } from '../lib/flujo-ia';
+import {
+  deIAEdicion, pidioAviso, pidioRespuesta, cambioDeCanal, protegidasPorElPedido, LISTA_BLANCA_IA, AVISO_SEGUIMIENTO, AVISO_SEGUIMIENTO_ARMADO,
+  AVISO_SEGUIMIENTO_A_20, AVISO_DEJE_EL_AVISO, type CtxIA,
+} from '../lib/flujo-ia';
 import { sinCitas, minutosDelPedido, citasQueFaltan, pideQueQuedeSolo } from '../lib/flujo-ia-intencion';
 import { revisarEdicion, pideAgregar } from '../lib/flujo-ia-revision-editar';
 import { nodoPorId, type PasoGrafo } from '../lib/flujo-grafo';
@@ -102,12 +105,21 @@ test('la pasada 1, tal cual quedó: espera + «Contestó» colgando de una tarje
   assert.equal(rev.r.noHecho, undefined);
 });
 
-test('sin nada del modelo, la espera sale del pedido; sin espera en ningún lado, no se inventa', () => {
+test('sin nada del modelo, la espera sale del pedido; sin espera dicha, la de la regla 3 (20 h), y se dice', () => {
   const nada = deIAEdicion({ agregar: [] }, BASE, ctxDe(PEDIDO), rnd());
   assert.equal((cadena(nada.pasos).espera as { espera?: { minutos?: number } } | null)?.espera?.minutos, 2880);
   assert.ok(esNoContesto(cadena(nada.pasos).cond));
+  assert.ok(nada.avisos.includes(AVISO_SEGUIMIENTO_ARMADO));
+  // 23/10/2026 (la pasada 1 de `solo-apertura`): «un seguimiento si no responden» no dice cuánto. Va la de la regla 3 del
+  // prompt (la misma que sigue el modelo), y el aviso lo dice para que se cambie.
   const sinLapso = deIAEdicion({ agregar: [] }, BASE, ctxDe('Agregá un seguimiento si no responde: «{Nombre}, ¿pudiste ver lo que te mandé?»'), rnd());
-  assert.equal(sinLapso.pasos.length, BASE.length, 'inventó una espera que nadie dijo');
+  assert.equal((cadena(sinLapso.pasos).espera as { espera?: { minutos?: number } } | null)?.espera?.minutos, 20 * 60);
+  assert.ok(esNoContesto(cadena(sinLapso.pasos).cond));
+  assert.ok(sinLapso.avisos.includes(AVISO_SEGUIMIENTO_A_20), JSON.stringify(sinLapso.avisos));
+  // Y una condición VACÍA del modelo (sin filas ni salida) no frena el seguimiento: el saneo la saca antes de mirar la cola.
+  const vacia = deIAEdicion({ agregar: [{ despues_de: 'nm2', salida: 'sig', tarjetas: [{ id: 't1', tipo: 'condicion', ramas: [] }] }] }, BASE, ctxDe('Agregá un seguimiento si no responde: «{Nombre}, ¿pudiste ver lo que te mandé?»'), rnd());
+  assert.ok(esNoContesto(cadena(vacia.pasos).cond), 'la condición vacía del modelo quedó colgando');
+  assert.equal(vacia.pasos.filter((p) => p.nodo === 'condicion').length, 1);
   assert.equal(minutosDelPedido('un seguimiento al día siguiente'), 1440);
   assert.equal(minutosDelPedido('espera 3 horas, y un seguimiento a los 2 días', 'espera 3 horas, y un '.length), 2880);
   assert.equal(minutosDelPedido('un seguimiento en una semana'), 10080);
@@ -134,6 +146,38 @@ test('el código no arma nada donde el modelo puso otra cosa, con dos citas, sin
   const email = BASE.map((p) => ({ ...p, canal: 'email', asunto: 'Hola' })) as unknown as PasoGrafo[];
   assert.ok(!deIAEdicion({ agregar: [] }, email, ctxDe(PEDIDO), rnd()).avisos.includes(AVISO_SEGUIMIENTO_ARMADO));
   assert.deepEqual(citasQueFaltan(PEDIDO, ['{{nombre}}, ¿pudiste ver lo que te mandé? Me avisas']), []);
+});
+
+/** La forma de #289 (la partida de `solo-apertura`): apertura, «Si responde» con dos casos y sus mensajes, aviso en «Otra cosa». */
+const BASE289 = [
+  { ...W, id: 'npin7mc', orden: 1, cuerpo: 'Hola {{nombre}}, te escribo de Estudio Norte.', siguiente: 'ne2rblm' },
+  { ...W, id: 'ne2rblm', orden: 2, cuerpo: '¿Te paso la guía para planear tu proyecto?', siguiente: null },
+  { ...W, id: 'nhhcilm', nodo: 'respuesta', orden: 3, cuerpo: '', casos: [
+    { id: 'nc1', titulo: 'Pregunta qué guía', cuando: 'Pregunta de qué se trata', siguiente: 'n1ugqas' },
+    { id: 'nc2', titulo: 'No le interesa', cuando: 'Dice que no le interesa', siguiente: 'n2cjf2m' },
+  ], si_no: 'nresp289' },
+  { ...W, id: 'n1ugqas', orden: 4, cuerpo: 'Es la guía de Estudio Norte para ordenar tu proyecto en un mes', siguiente: null },
+  { ...W, id: 'n2cjf2m', orden: 5, cuerpo: 'Perfecto, gracias por tu tiempo. Si cambias de idea, aquí estoy', siguiente: null },
+  { ...W, id: 'nresp289', orden: 6, cuerpo: '', siguiente: null, accion: { operacion: 'avisar_al_equipo', params: { leadId: 'evento', partes: [{ tipo: 'texto', cuerpo: '💬 {{nombre_completo}} respondió' }], mensaje: '💬 {{nombre_completo}} respondió' } } },
+] as unknown as PasoGrafo[];
+const PEDIDO_289 = 'En realidad solo quiero que la automatización sea de "Apertura", y de última con un seguimiento si no responden con algo como "Hola querido {Nombre}, si no me confirmas no puedo reservarte la guía"... Y una vez que alguien responde en cualquier parte del flujo, se corta la automatización y le avisa a Ana por el grupo de WhatsApp de MaKo.';
+
+test('«sólo X» no se lleva lo que el mismo pedido pide tener: el «Si responde» y su aviso al grupo quedan', () => {
+  // La pasada 2 de `solo-apertura` (gpt-oss-120b): quitó TODO lo que no era la apertura, aviso incluido.
+  const r = deIAEdicion({ quitar: ['nhhcilm', 'n1ugqas', 'n2cjf2m', 'nresp289'], agregar: [] }, BASE289, ctxDe(PEDIDO_289), rnd());
+  const vivo = (id: string) => r.pasos.some((p) => p.id === id);
+  assert.ok(vivo('nhhcilm') && vivo('nresp289'), 'se llevó el «Si responde» o el aviso que el pedido pide');
+  assert.ok(!vivo('n1ugqas') && !vivo('n2cjf2m'), 'los mensajes de los casos tenían que irse');
+  assert.equal(r.pasos.find((p) => p.id === 'nhhcilm')?.si_no, 'nresp289');
+  assert.ok(r.avisos.includes(AVISO_DEJE_EL_AVISO), JSON.stringify(r.avisos));
+  // Y el seguimiento igual (el código lo arma: la cita está y no dice cuánto → 20 h).
+  const espera = sig(r.pasos, sig(r.pasos, 'ne2rblm')?.siguiente);
+  assert.equal(espera?.nodo, 'esperar', 'el seguimiento no quedó después del último mensaje');
+  assert.ok(esNoContesto(sig(r.pasos, espera?.siguiente)), 'el seguimiento no va detrás de «No contestó»');
+  // Con «sacá el aviso», o sin pedir el aviso, nada se protege.
+  assert.equal(protegidasPorElPedido(BASE289, `${PEDIDO_289} Y sacá el aviso al grupo.`).size, 0);
+  assert.equal(protegidasPorElPedido(BASE289, 'Que sea sólo de apertura').size, 0);
+  assert.deepEqual([...protegidasPorElPedido(BASE289, PEDIDO_289)].sort(), ['nhhcilm', 'nresp289']);
 });
 
 // ── El ruteo de «pedidos sueltos» (lib/mako-pedidos.ts) ──────────────────────────────────────────────────────────
@@ -163,11 +207,13 @@ test('una orden sobre el flujo abierto no se va a otra automatización porque un
 });
 
 // ── ROTURAS (23/10/2026) ───────────────────────────────────────────────────────────────────────────
-// Una por vez (reemplazar el texto, correr este archivo, devolverlo de memoria). Base 6 pasan / 0 fallan:
+// Una por vez (reemplazar el texto, correr este archivo, devolverlo de memoria). Base 7 pasan / 0 fallan:
 //   C1. `sinCitas` devuelve el pedido entero                                                    → 3 fallan
 //   C2. `pidioAviso` sin `sinCitas`                                                             → 1 falla
 //   C3. `formaPedida` con el pedido entero                                                      → 1 falla
-//   C4. `seguimientoQueFalta` no se llama en `deIAEdicion`                                      → 2 fallan
+//   C4. `seguimientoQueFalta` no se llama en `deIAEdicion`                                      → 3 fallan
 //   C5. la cola acepta una tarjeta que ya estaba (sin `ed.agregadas.has`)                       → 1 falla
 //   C6. `minutosDelPedido` devuelve siempre 1440                                                → 1 falla
 //   C7. sin la regla de la orden del flujo en `decidir`                                         → 1 falla
+//   C8. `deIAEdicion` no mira `protegidasPorElPedido` al quitar                                 → 1 falla
+//   C9. sin espera dicha no arma nada (sin la de la regla 3)                                    → 2 fallan

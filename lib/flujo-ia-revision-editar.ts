@@ -13,7 +13,10 @@
 //   · UNA ETAPA QUE NO EXISTE («que arranque cuando entra a la etapa «Clientes VIP Platino»»): el modelo no devolvía nada y
 //     salía «No cambió nada». Se contesta ANTES del modelo, con las etapas que tiene ese CRM, y el CRON no se toca.
 // =============================================================================
-import { deIAEdicion, erroresEdicion, textosDeMensajes, pidioAviso, ultimoMensajeDelCamino, haySeguimiento, RE_SEGUIMIENTO, type CtxIA, type ResultadoEdicion } from './flujo-ia';
+import {
+  deIAEdicion, erroresEdicion, textosDeMensajes, pidioAviso, ultimoMensajeDelCamino, haySeguimiento, RE_SEGUIMIENTO, RE_AVISO_AL_RESPONDER, RE_SACAR_AVISO,
+  type CtxIA, type ResultadoEdicion,
+} from './flujo-ia';
 import {
   errorDeRespuestaEnEditar, charlaConTextos, traeTextosPegados, faltantesDelPedido, errorDeFaltantes, sobrantesDelPedido, pideQueQuedeSolo,
   errorDeSobrantes, NO_HECHO_SOLO_ESO, noHechoSobrante, sinCitas, type IntencionChat,
@@ -114,10 +117,9 @@ export function textoEtapaQueNoExiste(x: EtapaQueNoExiste): string {
  *     en el medio) en el camino del lead;
  *   · el AVISO al equipo (`pidioAviso`, salvo que pida sacarlo): una «MaKo en WhatsApp».
  */
-// (`RE_SEGUIMIENTO`, lib/flujo-ia.ts: la misma que decide cuándo poner «No contestó».)
-const RE_AVISO_AL_RESPONDER = /(?<!no )(?:cuando|una vez que|apenas|en cuanto|si)\s+(?:alguien |el lead |la persona |me |te |le |nos )?(?:responde|contesta)n?(?!\p{L})[^.]{0,160}?(?:avis|notific)/iu;
+// (`RE_SEGUIMIENTO`, `RE_AVISO_AL_RESPONDER` y `RE_SACAR_AVISO` viven en lib/flujo-ia.ts: las mismas que deciden qué pone o
+// protege el código.)
 const esAviso = (p: PasoGrafo): boolean => (p as { accion?: { operacion?: string } }).accion?.operacion === 'avisar_al_equipo';
-const RE_SACAR_AVISO = /(?<!\p{L})(?:sac|quit|elimin|borr(?!ador))\p{L}*\s+(?:\p{L}+\s+){0,2}avis/iu;
 function formaPedida(pedidoEntero: string, pasos: readonly PasoGrafo[], base: readonly PasoGrafo[]): Array<{ error: string; rojo: string }> {
   const out: Array<{ error: string; rojo: string }> = [];
   // La ORDEN, sin los textos citados (`sinCitas`, 23/10/2026): el «Me avisas» de un seguimiento no es un aviso al grupo, y

@@ -6162,11 +6162,21 @@ estaba. **El diagnóstico obvio («el modelo no cumple la regla 3») era el equi
    «seguimiento», «que la automatización sea…») es de la abierta aunque una cita calce en otro nombre; borrar y «la otra»
    siguen señalando a otra.
 **Vive en:** lib/flujo-ia-intencion.ts (`sinCitas`, `citasQueFaltan`, `minutosDelPedido`) · lib/flujo-ia.ts (`seguimientoQueFalta`,
-`haySeguimiento`, `pidioAviso`, `pidioRespuesta`, `cambioDeCanal`, `pideCron`) · lib/flujo-ia-revision-editar.ts (`formaPedida`,
-`pideAgregar`) · lib/mako-pedidos.ts (`decidir`, `esOrdenDelFlujo`) · test: tests/chat-mako-seguimiento-citas.test.ts (7 roturas → 7
-rojos). **Sin hacer:** al CREAR (`deIA`) el código todavía no arma el seguimiento que falta (sólo le pone «No contestó» al que
-haya); con dos citas faltantes no se sabe cuál es el seguimiento y queda el rojo; el arnés no se volvió a correr contra
-producción con este arreglo.
+`haySeguimiento`, `protegidasPorElPedido`, `pidioAviso`, `pidioRespuesta`, `cambioDeCanal`, `pideCron`) ·
+lib/flujo-ia-revision-editar.ts (`formaPedida`, `pideAgregar`) · lib/mako-pedidos.ts (`decidir`, `esOrdenDelFlujo`) · test:
+tests/chat-mako-seguimiento-citas.test.ts (9 roturas → 9 rojos).
+**La segunda vuelta (el arnés, ws3, gpt-oss-120b, dos pasadas):** `seguimiento-no-contesto` pasó 2 de 2 (antes 0 de 2) y
+`solo-apertura` ya llega a MaKo. Quedaban dos fallas del modelo, con su arreglo en código:
+4. **«Sólo X» se llevaba lo que el mismo pedido pide tener**: quitó el «Si responde» con su aviso al grupo, que el pedido pedía
+   («le avisa a Ana por el grupo»). Ahora, si el pedido pide el aviso cuando el lead responde (y no pide sacarlo), el «Si
+   responde» y los avisos de abajo no entran en "quitar" (`protegidasPorElPedido`); los mensajes de los casos sí se van.
+5. **Sin una espera dicha, el código no armaba el seguimiento** («un seguimiento si no responden»). Ahora toma las 20 h de la
+   regla 3 del prompt, la misma que sigue el modelo, y el aviso lo dice para cambiarla (`AVISO_SEGUIMIENTO_A_20`).
+**Trampa:** una condición VACÍA que deja el modelo no llega nunca a la cola del último mensaje: el saneo la saca antes (medido).
+Código que la contemple ahí es código muerto.
+**Sin hacer:** al CREAR (`deIA`) el código todavía no arma el seguimiento que falta (sólo le pone «No contestó» al que haya);
+con dos citas faltantes no se sabe cuál es el seguimiento y queda el rojo; si el negocio no tenía «Si responde» con aviso, el
+código no lo crea (lo pide el control, y en rojo).
 
 ## El chat de MaKo de Automations con el hilo y la caja únicos: las piezas traen CSS, el lienzo lo dibujan los tests (23/10/2026, AU4)
 
