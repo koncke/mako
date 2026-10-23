@@ -1,29 +1,30 @@
 'use client';
 
 // =============================================================================
-// ConfigAutomatizacionPanel — el horario y las horas entre mensajes de UNA automatización (20/10/2026)
+// ConfigAutomatizacionPanel — el horario y el anti-ban de UNA automatización (20/10/2026)
 // =============================================================================
 // Martín, 16/10/2026 (punto 5, texto entero en docs/relevo/chatbot.md): «"configuraciones" ya no viva para todo
 // Automations, sino para cada chat en los 3 puntos... si estoy corriendo ads en Meta y llegan leads, ahí no hay riesgo,
 // pero si tengo configurado eso y no salen mensajes si es un problema... como también el horario de oficina para cada
 // automatización». Lo abren la tuerca del título (SecuenciaPerfil) y «Configuraciones» del «⋯» de la fila.
 //
-// Sin nada propio, cada parte dice «Como el negocio» con lo que vale: así arranca toda automatización que ya existía.
-// Las reglas, en lib/config-automatizacion.ts.
+// 22/10/2026 (Martín, por el Cerebro, con captura de #289): «Cada opción se prende y se apaga con un interruptor on/off,
+// igual que «Horario de oficina»... Apagada, no aplica, y el número se ve gris. Chau los «Quitar»» y «Elimina todo el
+// texto innecesario». Desde ese día: filas de FilasOpciones.tsx (nombre, número, unidad, interruptor), sin «Como el
+// negocio» ni descripciones; lo que hace falta explicar va en su ⓘ. Las reglas, en lib/config-automatizacion.ts.
 // =============================================================================
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Spinner } from '@/app/_ui';
 import { HorarioEnvioPanel, Interruptor, type FuenteHorario } from '@/app/configuraciones/HorarioEnvioPanel';
 import { getConfigAutomatizacionAction, saveConfigAutomatizacionAction } from './config-automatizacion-actions';
 import { Numero } from './LimitesEnvioPanel';
+import { FilaOpcion, GrupoOpciones, Unidad, TarjetaOpciones } from './FilasOpciones';
 import { HORARIO_SUGERIDO } from '@/lib/horario-envio';
 import { RANGOS_LIMITES } from '@/lib/limites-envio';
-import { textoDeHorario, RANGOS_GOTEO, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
-import { textoDeGoteo } from '@/lib/goteo';
+import { textoDeHorario, RANGOS_GOTEO, PERSONA_SIN_ESPERA, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 
 const SANS = "'Geist', sans-serif";
-const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 18, fontFamily: SANS };
 
 type Leido = Awaited<ReturnType<typeof getConfigAutomatizacionAction>>;
 
@@ -42,8 +43,9 @@ function useConfig(secuenciaId: number) {
 }
 
 /**
- * EL HORARIO DE ESTA AUTOMATIZACIÓN: «Propio» apagado = el del negocio (dicho con sus horas); prendido, el panel de
- * siempre (`HorarioEnvioPanel`) guardando en ESTA automatización, que arranca con lo del negocio.
+ * EL HORARIO DE ESTA AUTOMATIZACIÓN: «Horario propio» apagado = el del negocio (dicho en su ⓘ); prendido, el panel de
+ * siempre (`HorarioEnvioPanel`, «Horario de oficina») guardando en ESTA automatización, que arranca con lo del negocio.
+ * Propio con «Horario de oficina» apagado = manda a cualquier hora (lo dice ese interruptor).
  */
 export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaId: number; onSucio?: (s: boolean) => void }) {
   const { d, error, poner } = useConfig(secuenciaId);
@@ -60,8 +62,7 @@ export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
       .catch(() => setAviso('No se pudo guardar.'));
   };
   const fuente: FuenteHorario = {
-    titulo: 'Horario de esta automatización',
-    // El huso es del NEGOCIO: acá se ve, no se cambia (revisión del 20/10/2026).
+    // El huso es del NEGOCIO: acá se ve (en el ⓘ), no se cambia (revisión del 20/10/2026).
     zonaSoloLectura: true,
     leer: async () => ({ horario: d.config.horario ?? d.horarioNegocio ?? { ...HORARIO_SUGERIDO, activo: false }, zona: d.zona, puedeEditar: d.puedeEditar }),
     guardar: async (h) => {
@@ -72,26 +73,30 @@ export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
   };
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div data-horario-propio={propio ? 'si' : 'no'} style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Horario propio</div>
-          <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 2 }}>
-            {/* Propio y APAGADO es «manda a cualquier hora» (revisión del 20/10/2026): la tarjeta lo dice con todas las letras. */}
-            {propio && !d.config.horario?.activo
-              ? <span data-sin-horario="" style={{ color: 'var(--warn)' }}>Sólo para esta automatización: {textoDeHorario(null)}.</span>
-              : propio ? 'Sólo para esta automatización.' : `Como el negocio: ${textoDeHorario(d.horarioNegocio)}.`}
-          </div>
-        </div>
-        <Interruptor on={propio} disabled={off} etiqueta={propio ? 'Volver al horario del negocio' : 'Ponerle un horario propio'} onCambio={alternar} />
-      </div>
+      <TarjetaOpciones>
+        <FilaOpcion primera nombre="Horario propio" info={`Apagado, usa el del negocio: ${textoDeHorario(d.horarioNegocio)}.`} datos={{ 'data-horario-propio': propio ? 'si' : 'no' }}
+          interruptor={<Interruptor on={propio} disabled={off} etiqueta={propio ? 'Volver al horario del negocio' : 'Ponerle un horario propio'} onCambio={alternar} />} />
+      </TarjetaOpciones>
       {aviso && <p role="alert" style={{ margin: 0, fontSize: 13, color: 'var(--bad)', fontFamily: SANS }}>{aviso}</p>}
       {propio && <HorarioEnvioPanel key={vuelta} fuente={fuente} onSucio={onSucio} />}
     </div>
   );
 }
 
-/** LAS HORAS ENTRE DOS MENSAJES A LA MISMA PERSONA de esta automatización, por canal (sin propio: las del negocio). */
-export function PersonaDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaId: number; onSucio?: (s: boolean) => void }) {
+/** Un cambio del anti-ban de esta automatización: por parte, los campos que cambian (`null` = se saca). */
+type CambioAntiban = { goteo?: Record<string, number | null>; personaHoras?: Record<string, number | null> };
+
+/**
+ * EL ANTI-BAN DE ESTA AUTOMATIZACIÓN (22/10/2026): el goteo de sus WhatsApp (lib/goteo.ts, la llamada con Mauricio: «envía
+ * uno, tal vez espera 4 minutos o 5, envía el otro»), su tope por día (un SUB-tope adentro del de la línea) y las horas
+ * entre dos mensajes a la misma persona por canal. Cada fila con su interruptor:
+ *   · goteo y tope: apagado = el campo AUSENTE (sin goteo / sin tope propio). Al prenderlo arranca con el número gris.
+ *   · misma persona: prendido = el propio, o el del negocio si no tiene (ausente); apagado = `PERSONA_SIN_ESPERA` (0 h).
+ *     Prenderlo de nuevo lo vuelve al del negocio (`null`).
+ * Era «Goteo de sus WhatsApp» y «A la misma persona, en esta automatización»: dos tarjetas con su párrafo, «Poner N»,
+ * «Quitar» y «Como el negocio». Ahora UN guardado para las dos partes (`pendiente` las junta en el respiro).
+ */
+export function AntibanDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaId: number; onSucio?: (s: boolean) => void }) {
   const { d, error, poner } = useConfig(secuenciaId);
   const [aviso, setAviso] = useState('');
   const [invalido, setInvalido] = useState<Record<string, string>>({});
@@ -100,141 +105,77 @@ export function PersonaDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
   /**
    * ⚠️ LO TOCADO SE VE YA Y SE JUNTA (revisión del 20/10/2026). Sin esto, tres ▲ rápidos sobre 20 calculaban 21 los tres
    * (el valor no cambiaba hasta que volvía el server) y un ▲ en Email dentro del respiro tiraba el de WhatsApp. `local`
-   * es lo que se ve hasta que el server contesta (null = «como el negocio»); `pendiente`, lo que sale al vencer el respiro.
+   * es lo que se ve hasta que el server contesta (null = sacado); `pendiente`, lo que sale al vencer el respiro.
    */
   const [local, setLocal] = useState<Record<string, number | null>>({});
-  const pendiente = useRef<Record<string, number | null>>({});
+  const pendiente = useRef<CambioAntiban>({});
   useEffect(() => () => { if (respiro.current) clearTimeout(respiro.current); }, []);
   useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);
   if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}</p> : <Spinner />;
   const off = !d.puedeEditar;
-  const guardar = (cambio: Record<string, number | null>) => {
+  const guardar = (parte: 'goteo' | 'personaHoras', cambio: Record<string, number | null>) => {
     setAviso('');
-    pendiente.current = { ...pendiente.current, ...cambio };
-    setLocal((p) => ({ ...p, ...cambio }));
+    pendiente.current = { ...pendiente.current, [parte]: { ...(pendiente.current[parte] ?? {}), ...cambio } };
+    setLocal((p) => ({ ...p, ...Object.fromEntries(Object.entries(cambio).map(([k, v]) => [`${parte}.${k}`, v])) }));
     if (respiro.current) clearTimeout(respiro.current);
     setEnVuelo(true);
     respiro.current = setTimeout(() => {
-      const personaHoras = pendiente.current;
+      const envio = pendiente.current;
       pendiente.current = {};
       // Lo que se mandó deja de ser «local» (si no se tocó otra vez mientras tanto): manda lo que contestó el server.
       const soltar = () => setLocal((p) => {
         const q = { ...p };
-        for (const [k, v] of Object.entries(personaHoras)) if (q[k] === v) delete q[k];
+        for (const [parteEnviada, campos] of Object.entries(envio)) for (const [k, v] of Object.entries(campos ?? {})) if (q[`${parteEnviada}.${k}`] === v) delete q[`${parteEnviada}.${k}`];
         return q;
       });
-      void saveConfigAutomatizacionAction(secuenciaId, { personaHoras })
+      void saveConfigAutomatizacionAction(secuenciaId, envio)
         .then((r) => { setEnVuelo(false); soltar(); if (!r.ok || !r.config) { setAviso(r.error || 'No se pudo guardar.'); return; } poner(r.config); })
         .catch(() => { setEnVuelo(false); soltar(); setAviso('No se pudo guardar.'); });
     }, 350);
   };
-  const filas = [
-    { canal: 'whatsapp' as const, rotulo: 'WhatsApp', rango: RANGOS_LIMITES.wa.personaHoras },
-    { canal: 'email' as const, rotulo: 'Email', rango: RANGOS_LIMITES.email.personaHoras },
-  ];
-  return (
-    <section aria-label="A la misma persona" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>A la misma persona, en esta automatización</div>
-      <div style={{ fontSize: 13, color: 'var(--dim)' }}>Las horas que espera entre dos mensajes a alguien. Con leads de un anuncio, pocas; prospectando en frío, más.</div>
-      {filas.map((f) => {
-        const propio = f.canal in local ? (local[f.canal] ?? undefined) : d.config.personaHoras?.[f.canal];
-        const valor = propio ?? d.personaNegocio[f.canal];
-        return (
-          <div key={f.canal} data-persona={f.canal} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ flex: '1 1 120px', minWidth: 0, fontSize: 14, color: 'var(--ink)' }}>{f.rotulo}</span>
-            <Numero valor={valor} min={f.rango[0]} max={f.rango[1]} disabled={off} etiqueta={`${f.rotulo} · horas entre dos mensajes`}
-              onCambio={(n) => guardar({ [f.canal]: n })} onInvalido={(e) => setInvalido((p) => ({ ...p, [f.canal]: e ?? '' }))} />
-            <span style={{ flex: '0 0 auto', fontSize: 13, color: 'var(--dim)' }}>horas</span>
-            {propio === undefined
-              ? <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Como el negocio</span>
-              : !off && (
-                <button type="button" onClick={() => guardar({ [f.canal]: null })}
-                  style={{ border: 'none', background: 'transparent', padding: 0, fontFamily: SANS, fontSize: 12.5, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>
-                  Como el negocio ({d.personaNegocio[f.canal]} h)
-                </button>
-              )}
-            {invalido[f.canal] && <span role="alert" style={{ flexBasis: '100%', fontSize: 12.5, color: 'var(--bad)' }}>{invalido[f.canal]}</span>}
-          </div>
-        );
-      })}
-      {aviso && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{aviso}</span>}
-    </section>
-  );
-}
-
-/**
- * EL GOTEO DE ESTA AUTOMATIZACIÓN (22/10/2026, la llamada con Mauricio: «envía uno, tal vez espera 4 minutos o 5, envía el
- * otro»): los minutos entre dos WhatsApp suyos y su tope por día. Es un SUB-tope adentro del de la línea, que va dicho al
- * lado (lib/goteo.ts). Vacío = sin goteo. Los días de la semana son los de su horario (la otra pestaña).
- */
-export function GoteoDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaId: number; onSucio?: (s: boolean) => void }) {
-  const { d, error, poner } = useConfig(secuenciaId);
-  const [aviso, setAviso] = useState('');
-  const [enVuelo, setEnVuelo] = useState(false);
-  const [local, setLocal] = useState<Record<string, number | null>>({});
-  const pendiente = useRef<Record<string, number | null>>({});
-  const respiro = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (respiro.current) clearTimeout(respiro.current); }, []);
-  useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);
-  if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}</p> : <Spinner />;
-  const off = !d.puedeEditar;
-  // Lo tocado se ve ya y se junta en UN guardado (el mismo molde que «A la misma persona», arriba).
-  const guardar = (cambio: Record<string, number | null>) => {
-    setAviso('');
-    pendiente.current = { ...pendiente.current, ...cambio };
-    setLocal((p) => ({ ...p, ...cambio }));
-    if (respiro.current) clearTimeout(respiro.current);
-    setEnVuelo(true);
-    respiro.current = setTimeout(() => {
-      const goteo = pendiente.current;
-      pendiente.current = {};
-      const soltar = () => setLocal((p) => { const q = { ...p }; for (const [k, v] of Object.entries(goteo)) if (q[k] === v) delete q[k]; return q; });
-      void saveConfigAutomatizacionAction(secuenciaId, { goteo })
-        .then((r) => { setEnVuelo(false); soltar(); if (!r.ok || !r.config) { setAviso(r.error || 'No se pudo guardar.'); return; } poner(r.config); })
-        .catch(() => { setEnVuelo(false); soltar(); setAviso('No se pudo guardar.'); });
-    }, 350);
+  /** Lo guardado de un campo, con lo tocado encima (undefined = ausente). */
+  const leido = (parte: 'goteo' | 'personaHoras', campo: string): number | undefined => {
+    const k = `${parte}.${campo}`;
+    if (k in local) return local[k] ?? undefined;
+    return (d.config[parte] as Record<string, number> | undefined)?.[campo];
   };
-  const valorDe = (campo: 'minutos' | 'dia'): number | undefined => (campo in local ? (local[campo] ?? undefined) : d.config.goteo?.[campo]);
-  const filas = [
-    { campo: 'minutos' as const, rotulo: 'Uno cada', unidad: 'minutos', rango: RANGOS_GOTEO.minutos, sugerido: 5 },
-    { campo: 'dia' as const, rotulo: 'Hasta', unidad: 'por día', rango: RANGOS_GOTEO.dia, sugerido: Math.min(50, d.lineaWa.dia) },
-  ];
-  const actual = { minutos: valorDe('minutos'), dia: valorDe('dia') };
+  const filaGoteo = (campo: 'minutos' | 'dia', nombre: string, objeto: string, unidad: string, info: string, sugerido: number) => {
+    const v = leido('goteo', campo);
+    const on = v !== undefined;
+    const clave = `goteo.${campo}`;
+    return (
+      <FilaOpcion key={clave} nombre={nombre} info={info} error={invalido[clave]} datos={{ 'data-goteo-campo': campo }}
+        interruptor={<Interruptor on={on} disabled={off} etiqueta={on ? `Apagar ${objeto}` : `Prender ${objeto}`} onCambio={(x) => guardar('goteo', { [campo]: x ? sugerido : null })} />}>
+        <Numero valor={v ?? sugerido} min={RANGOS_GOTEO[campo][0]} max={RANGOS_GOTEO[campo][1]} disabled={off} apagado={!on} etiqueta={`${nombre} · ${unidad}`}
+          onCambio={(n) => guardar('goteo', { [campo]: n })} onInvalido={(e) => setInvalido((p) => ({ ...p, [clave]: e ?? '' }))} />
+        <Unidad apagada={!on}>{unidad}</Unidad>
+      </FilaOpcion>
+    );
+  };
+  const filaPersona = (canal: 'whatsapp' | 'email', rango: readonly [number, number]) => {
+    const propio = leido('personaHoras', canal);
+    const on = propio !== PERSONA_SIN_ESPERA;
+    const valor = propio !== undefined && propio !== PERSONA_SIN_ESPERA ? propio : d.personaNegocio[canal];
+    const clave = `personaHoras.${canal}`;
+    const deQue = canal === 'whatsapp' ? 'mensajes' : 'emails';
+    return (
+      <FilaOpcion key={clave} nombre="Misma persona" info={`Horas entre dos ${deQue} a la misma persona. Apagado, no espera.`} error={invalido[clave]} datos={{ 'data-persona': canal }}
+        interruptor={<Interruptor on={on} disabled={off} etiqueta={on ? `Apagar la espera entre dos ${deQue}` : `Prender la espera entre dos ${deQue}`} onCambio={(x) => guardar('personaHoras', { [canal]: x ? null : PERSONA_SIN_ESPERA })} />}>
+        <Numero valor={valor} min={rango[0]} max={rango[1]} disabled={off} apagado={!on} etiqueta={`${canal === 'whatsapp' ? 'WhatsApp' : 'Email'} · horas entre dos mensajes`}
+          onCambio={(n) => guardar('personaHoras', { [canal]: n })} onInvalido={(e) => setInvalido((p) => ({ ...p, [clave]: e ?? '' }))} />
+        <Unidad apagada={!on}>h</Unidad>
+      </FilaOpcion>
+    );
+  };
   return (
-    <section aria-label="Goteo" data-goteo={secuenciaId} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Goteo de sus WhatsApp</div>
-      <div style={{ fontSize: 13, color: 'var(--dim)' }}>
-        {textoDeGoteo(actual)}: {d.lineaWa.dia} por día y {d.lineaWa.hora} por hora para todas.
-      </div>
-      {filas.map((f) => {
-        const v = valorDe(f.campo);
-        return (
-          <div key={f.campo} data-goteo-campo={f.campo} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ flex: '1 1 120px', minWidth: 0, fontSize: 14, color: 'var(--ink)' }}>{f.rotulo}</span>
-            {v === undefined
-              ? !off && (
-                <button type="button" onClick={() => guardar({ [f.campo]: f.sugerido })}
-                  style={{ border: 'none', background: 'transparent', padding: 0, fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>
-                  Poner {f.sugerido} {f.unidad}
-                </button>
-              )
-              : (
-                <>
-                  <Numero valor={v} min={f.rango[0]} max={f.rango[1]} disabled={off} etiqueta={`Goteo · ${f.rotulo} ${f.unidad}`}
-                    onCambio={(n) => guardar({ [f.campo]: n })} onInvalido={(e) => setAviso(e ?? '')} />
-                  <span style={{ flex: '0 0 auto', fontSize: 13, color: 'var(--dim)' }}>{f.unidad}</span>
-                  {!off && (
-                    <button type="button" onClick={() => guardar({ [f.campo]: null })}
-                      style={{ border: 'none', background: 'transparent', padding: 0, fontFamily: SANS, fontSize: 12.5, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>
-                      Quitar
-                    </button>
-                  )}
-                </>
-              )}
-          </div>
-        );
-      })}
-      {aviso && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{aviso}</span>}
-    </section>
+    <TarjetaOpciones etiqueta="Esta automatización" datos={{ 'data-goteo': secuenciaId }}>
+      <GrupoOpciones titulo="WhatsApp" primero />
+      {filaGoteo('minutos', 'Goteo', 'el goteo', 'min', 'Sus WhatsApp salen de a uno, con esta espera entre dos.', 5)}
+      {filaGoteo('dia', 'Por día', 'el tope por día', 'mensajes', `El tope de esta automatización, adentro del de la línea (${d.lineaWa.dia} por día y ${d.lineaWa.hora} por hora).`, Math.min(50, d.lineaWa.dia))}
+      {filaPersona('whatsapp', RANGOS_LIMITES.wa.personaHoras)}
+      <GrupoOpciones titulo="Email" />
+      {filaPersona('email', RANGOS_LIMITES.email.personaHoras)}
+      {aviso && <p role="alert" style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--bad)' }}>{aviso}</p>}
+    </TarjetaOpciones>
   );
 }

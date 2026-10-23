@@ -2376,4 +2376,16 @@ FEEDBACK PROBAR:
     ],
     pedido: "«elimina el texto \"Pausada, no sale nada\", eso es completamente innecesario... Para eso ya tenemos el \"ACTIVAR\" de abajo»",
   },
+  {
+    fecha: "22 oct", hora: "22:27", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Configuraciones: «Límites» pasa a ser «Anti-ban», cada opción con su interruptor y sin texto de más",
+    puntos: [
+      "Llegó por el Cerebro, con una captura del modal de «Sprint · apertura».",
+      "El goteo, el tope por día y las horas a la misma persona (WhatsApp y email) se prenden y se apagan; apagada, el número en gris. Sin «Quitar».",
+      "Sin el nombre de la automatización arriba y con menos aire entre el título y las pestañas.",
+      "Cada fila: el nombre, el número con su unidad y el interruptor. Lo que hay que explicar, en un ⓘ. Lo mismo en Horario y en lo de la línea.",
+    ],
+    pedido: "«en las opciones hay una cantidad aberrante de texto innecesario. Jamás jamás pongas todo eso... Elimina todo el texto innecesario y diseñalo mejor»",
+  },
 ];
