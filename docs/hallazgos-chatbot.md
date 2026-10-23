@@ -454,6 +454,22 @@ del repo.
 
 ## El lienzo
 
+### La tarjeta «MaKo en WhatsApp» con tres desplegables arriba del mensaje, y de dónde salieron (23/10/2026)
+
+**Síntoma:** en la #289 de Mauricio, la tarjeta abría con «Por dónde», «Sin grupo de MaKo» y «Fuera del horario» antes del
+mensaje. Martín: «Completamente roto y no se entiende». **De dónde salieron:** de tres pedidos legítimos, cada uno resuelto
+con un desplegable: `c46ee888f` (15/10, «que se pueda configurar que te mande el mensaje luego, cuando se abra la oficina»),
+`12ac3cb85` (16/10, el reporte semanal de la plataforma por email al equipo) y `e94f798a3` (17/10, qué pasa si el
+negocio no tiene grupo). Ninguno estaba mal por separado; sumados, la tarjeta dejó de parecerse a las demás.
+**Medido en producción antes de sacarlos:** de 57 tarjetas de MaKo vivas, una sola sale por email (la #256 del ws9, el
+reporte semanal, que sólo ve SuperAdmin), ninguna tiene «Sin grupo» elegido y 10 tienen «Lo manda igual» (9 del ws9 y la
+#289). Lo guardado sigue valiendo: el motor no cambió. La #256 conserva su asunto, porque sin él no se puede corregir. «Fuera
+del horario» lo dice el chip del lienzo y se cambia pidiéndoselo a MaKo (`fueraDeHorario` de la API).
+**Regla (AGENTS.md):** una tarjeta no gana controles, y cada canal es su tarjeta. **Sin hacer:** decidir si la #256 pasa
+a otra forma (hoy es la única tarjeta de MaKo por email). **Vive en:** app/automations/FlujoLienzo.tsx (`EditorMako`,
+`AsuntoDeMako`) · tests/tarjeta-mako-como-las-demas.test.ts.
+*23/10/2026, chat «Automations» (claude2).*
+
 ### Lo que la casilla pinta como heredado sale de la regla del motor [costuras-3, L]
 
 **Síntoma:** en una secuencia que sale sola, «＋ caso» en «Si responde» creaba el «MaKo contesta»

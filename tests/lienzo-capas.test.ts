@@ -61,7 +61,7 @@ test('⚠️ el panel apaisado va encima de la esquina de avisos y de «Crear co
   assert.ok(capa > esquina && capa > Z_ACCION_LIENZO, `la capa (${capa}) no tapa los avisos (${esquina}) y «Publicar» (${Z_ACCION_LIENZO})`);
   assert.ok(chat > capa && chat < barraApp && chat < modales, `la lista con el chat (${chat}) no queda entre la capa (${capa}) y la barra de la app (${barraApp})`);
   const lista = sinComentarios(leer('../app/automations/SimuladorWhatsApp.tsx'));
-  assert.match(lista, /<aside aria-label=\{verLista \? 'Tus automatizaciones' : 'Chat con MaKo'\} data-sidebar=[^>]*?zIndex: makoTrabajando \? Z_CHAT_ENCIMA : 3,/, 'la lista con el chat no sube encima de la capa: el chat queda tapado');
+  assert.match(lista, /<aside aria-label=\{verLista \? 'Tus automatizaciones' : 'Chat con MaKo'\} data-panel-automations=[^>]*?zIndex: makoTrabajando \? Z_CHAT_ENCIMA : 3,/, 'la lista con el chat no sube encima de la capa: el chat queda tapado');
   assert.match(lista, /setMakoTrabajando\(t\); onMakoTrabajando\?\.\(t\);/, 'la lista no se entera de que MaKo trabaja');
   assert.ok(Z_EDITOR_APAISADO > esquina, `el panel (${Z_EDITOR_APAISADO}) no le gana a la esquina de avisos (${esquina}): tapa «Revisar antes de enviar»`);
   // (Acá se comparaba con el z del chat de «Crear con IA» flotando: desde el 20/10/2026 el chat es la sidebar, sin z propio.)

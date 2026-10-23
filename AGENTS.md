@@ -9393,6 +9393,11 @@ Antes de una tarjeta nueva, mirá si las que hay ya la expresan: una rama sin fl
 el lead contesta" NO debería ir en el CRON, debería ser una CONDITION... Es obvio eso»). Que el lead
 conteste no corta nada: lo dice «No contestó desde que entró» (`contesto`) después de cada espera, y
 quien arma un flujo con seguimientos —plantilla, Crear con IA, API— la pone ahí.
+**Y una tarjeta NO GANA CONTROLES** (Martín, 23/10/2026: «Te había pedido que no rompas el diseño de las tarjetas, mirá
+esos 3 botones... Por qué agregar email si para eso ya tenemos una tarjeta de EMAIL»). Lo que haga falta va por CONDITION,
+DELAY, Configuraciones de la automatización o el ⓘ, o se le pide a MaKo con su operación de la API; nunca un desplegable
+suelto arriba del mensaje. Y cada canal es SU tarjeta: la de MaKo en WhatsApp no ofrece email. Lo fija
+tests/tarjeta-mako-como-las-demas.test.ts.
 
 Desde el 08/10/2026 una automatización de la tab Automations (ex Chatbot, renombrada el
 09/10/2026: la pantalla vive en `app/automations/`, /chatbot redirige con la query entera y las

@@ -1118,7 +1118,10 @@ const CSS = `
 const S: Record<string, CSSProperties> = {
   // El chat llena la caja que le da quien monta (un alto DEFINIDO: `ChatHilo` mide con `height: 100%`).
   raiz: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', minHeight: 0, boxShadow: '0 12px 34px rgba(18,21,27,.18)', borderRadius: 16 },
-  cabecera: { display: 'flex', alignItems: 'center', gap: 10, margin: '-4px -6px' },
+  // CON SU RELLENO (23/10/2026, Martín: «se corta el diseño del chat de MaKo al costado, con la criatura de MaKo y la topbar
+  // de ese chat cortado»): el margen negativo era del `ChatHilo` de antes, que tenía relleno. Sin él, la cabecera salía 4 px
+  // por encima del panel (que recorta) y el hilo le pisaba 4 px abajo.
+  cabecera: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px 8px', flex: 'none' },
   nombre: { fontSize: 14.5, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 },
   estado: { fontSize: 12, lineHeight: 1.3 },
   filaMako: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, minWidth: 0 },

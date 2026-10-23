@@ -264,8 +264,9 @@ test('6. el Sidebar la monta sin plegarse debajo, la ruta lee estricto y la tarj
     assert.doesNotMatch(cuerpo, /getGrupoJidMaKo\(/);
   }
   const lienzo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
-  assert.match(lienzo, /data-sin-grupo-mako/, 'la opción no se ve en la tarjeta');
-  assert.match(lienzo, /onCambio\(\{ sinGrupo: v as SinGrupo \}, true\)/);
+  // 23/10/2026 (Martín: «no rompas el diseño de las tarjetas»): ya no es un desplegable de la tarjeta. De fábrica queda en
+  // la app; lo guardado sigue valiendo y la API de MaKo lo sigue configurando.
+  assert.doesNotMatch(lienzo, /data-sin-grupo-mako/, 'volvió el desplegable a la tarjeta');
   const def = leer('lib/api-mako/areas/chatbot.def.ts');
   assert.match(def, /nombre: 'sinGrupo', tipo: 'string', enum: \['app', 'email'\]/, 'la API de MaKo no la puede configurar');
 });
