@@ -38,7 +38,6 @@ import { ElegirMuneco } from './ElegirMuneco';
 import { Conversacion } from './Conversacion';
 import { BotonUso } from './Uso';
 import { cuentasDeUso } from '@/lib/centro-uso';
-import { CirculoNuevo } from './NuevoChat';
 import { Muneco, animoDe, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
 import type { Centro } from './useCentro';
@@ -393,8 +392,9 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
  */
 export function NuevoChatCentro({ onNuevo, actual }: { onNuevo: () => void; actual: boolean }) {
   return (
-    <button type="button" className="co-fila co-fila--nuevo" aria-current={actual ? 'true' : undefined} onClick={onNuevo}>
-      <CirculoNuevo />
+    // Con el diseño de «＋ Nueva automatización» (feedback 4, 22/10/2026): la fila punteada con el ＋ que gira (`.co-nueva`).
+    <button type="button" className="co-fila co-fila--nuevo co-nueva" aria-current={actual ? 'true' : undefined} onClick={onNuevo}>
+      <span aria-hidden className="co-nueva__mas">＋</span>
       <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
     </button>
   );

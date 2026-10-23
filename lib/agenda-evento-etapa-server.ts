@@ -30,6 +30,7 @@ import { credWs, credWsEstricta } from './credenciales';
 import { upsertRouting, soltarIdentificador } from './webhook-routing';
 import { listarEventTypes, crearEventTypeCalendly, editarEventTypeCalendly } from './calendly-agenda';
 import { listarEventTypesCalcom, crearEventTypeCalcom, editarEventTypeCalcom } from './calcom';
+import { conCache, crearCacheAgenda, llaveAgenda, type CacheAgenda } from './agenda-cache';
 import { listarFunnels } from './funnels';
 import { googleCalendarConectado } from './google-calendar';
 import { filaAFunnel, COLS, type FilaFunnel } from './funnel-fila';
@@ -46,6 +47,18 @@ import {
 
 const TABLA = 'agenda_evento_etapa';
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** La lista de eventos de cada cuenta, un minuto (lib/agenda-cache.ts: la llave es negocio + proveedor + la huella del
+ *  secreto). En globalThis y no en una variable de módulo, como lib/credenciales.ts: Turbopack puede emitir una copia del
+ *  módulo por capa. */
+const gAgenda = globalThis as typeof globalThis & { __makoAgendaCuentas?: CacheAgenda<EventoDeCuenta[]> };
+const cacheCuentas = (gAgenda.__makoAgendaCuentas ??= crearCacheAgenda<EventoDeCuenta[]>());
+
+/** Crear o editar un evento cambia la lista de esa cuenta: se olvida (la próxima lectura le pregunta a la API). */
+async function olvidarCuentas(proveedor: ProveedorAgenda): Promise<void> {
+  const ws = await getWorkspaceActual().catch(() => null);
+  if (ws != null) cacheCuentas.olvidar(ws, proveedor);
+}
 
 /** Un error de la base con su `code` (lo lee el clasificador del webhook de Calendly). */
 function errorDeBase(donde: string, error: { message: string; code?: string; details?: string | null; hint?: string | null }): Error {
@@ -210,32 +223,35 @@ type EventoDeCuenta = { identificador: string; nombre: string; duracionMin: numb
 /**
  * Los eventos de UN proveedor: los de su cuenta (con el token o la API key) más los que estén
  * cargados como R1/R2 y la cuenta no devuelva. Nunca tira: lo que no se pudo leer va en `error`.
+ *
+ * Es LA unidad de lectura de una cuenta (23/10/2026, acordado con Cobros: su fase B la pasa a «por cuenta» adentro). Lo
+ * que contesta la API se guarda un minuto (`cacheCuentas`); `fresco` lo vuelve a preguntar.
  */
-async function eventosDelProveedor(proveedor: ProveedorAgenda): Promise<{ eventos: EventoDeCuenta[]; creds: { R1: string | null; R2: string | null }; conectado: boolean; error: string | null }> {
+async function eventosDelProveedor(proveedor: ProveedorAgenda, fresco = false): Promise<{ eventos: EventoDeCuenta[]; creds: { R1: string | null; R2: string | null }; conectado: boolean; error: string | null }> {
   const claves = CREDS_DE_REUNION[proveedor];
-  const [r1, r2] = await Promise.all([credWs(claves.R1).catch(() => null), credWs(claves.R2).catch(() => null)]);
+  // El secreto se pide junto con lo demás (antes, después de R1 y R2: un viaje más en fila).
+  const pSecreto = credWs(proveedor === 'calendly' ? 'CALENDLY_API_TOKEN' : 'CALCOM_API_KEY');
+  pSecreto.catch(() => {});
+  const [r1, r2, ws] = await Promise.all([credWs(claves.R1).catch(() => null), credWs(claves.R2).catch(() => null), getWorkspaceActual().catch(() => null)]);
   const creds = { R1: r1?.trim() || null, R2: r2?.trim() || null };
   let eventos: EventoDeCuenta[] = [];
   let error: string | null = null;
   let conAcceso = false;
   try {
-    if (proveedor === 'calendly') {
-      conAcceso = !!(await credWs('CALENDLY_API_TOKEN'));
-      if (conAcceso) {
-        eventos = (await listarEventTypes()).map((e) => ({
+    const secreto = await pSecreto;
+    conAcceso = !!secreto;
+    if (secreto) {
+      const llave = ws == null ? null : llaveAgenda(ws, proveedor, secreto);
+      // Una COPIA: abajo se le suman las R1/R2 que la cuenta no devolvió, y lo guardado no se toca.
+      eventos = [...await conCache(cacheCuentas, llave, fresco, async () => (proveedor === 'calendly'
+        ? (await listarEventTypes(secreto)).map((e) => ({
           identificador: e.uri, nombre: e.nombre || e.uri, duracionMin: e.duracionMin ?? null,
           alias: [e.nombre, e.schedulingUrl].filter((x): x is string => !!x && !!x.trim()),
-        }));
-      }
-    } else {
-      const key = await credWs('CALCOM_API_KEY');
-      conAcceso = !!key;
-      if (key) {
-        eventos = (await listarEventTypesCalcom(key)).map((e) => ({
+        }))
+        : (await listarEventTypesCalcom(secreto)).map((e) => ({
           identificador: e.id, nombre: e.nombre, duracionMin: e.duracionMin,
           alias: [e.slug, e.nombre].filter((x): x is string => !!x && !!x.trim()),
-        }));
-      }
+        }))))];
     }
   } catch (e) {
     error = msg(e).slice(0, 200);
@@ -266,14 +282,23 @@ function etapasVinculables(funnels: readonly FunnelLeido[], nombres: Map<number,
   return out;
 }
 
-/** Los eventos de la agenda del negocio en curso, con su vínculo. Tira sólo si la base no contesta. */
-export async function listarEventosDeAgenda(): Promise<AgendaDelNegocio> {
-  const [{ vinculos, tabla }, funnels, resumen] = await Promise.all([leerVinculos(), leerFunnelsActivos(), listarFunnels()]);
+/**
+ * Los eventos de la agenda del negocio en curso, con su vínculo. Tira sólo si la base no contesta.
+ * ⚠️ TODO A LA VEZ (23/10/2026, Martín: «abrir el modal queda cargando mucho»): la base, cada agenda y Google. Hasta hoy
+ * le preguntaba a Calendly, después a Cal.com y después a Google, uno detrás del otro: la suma de los tres.
+ * `fresco`: lo de las APIs sin la caché («Volver a leer»).
+ */
+export async function listarEventosDeAgenda(opts: { fresco?: boolean } = {}): Promise<AgendaDelNegocio> {
+  const [[{ vinculos, tabla }, funnels, resumen], cuentas, googleConectado] = await Promise.all([
+    Promise.all([leerVinculos(), leerFunnelsActivos(), listarFunnels()]),
+    Promise.all(PROVEEDORES_AGENDA.map((p) => eventosDelProveedor(p, !!opts.fresco))),
+    googleCalendarConectado().catch(() => false),
+  ]);
   const nombres = new Map(resumen.map((f) => [f.id, nombreVisible(f)]));
   const eventos: EventoDeAgenda[] = [];
   const proveedores: AgendaDelNegocio['proveedores'] = [];
-  for (const proveedor of PROVEEDORES_AGENDA) {
-    const p = await eventosDelProveedor(proveedor);
+  for (const [i, proveedor] of PROVEEDORES_AGENDA.entries()) {
+    const p = cuentas[i];
     proveedores.push({ proveedor, conectado: p.conectado, error: p.error });
     const suyos = vinculos.filter((v) => v.proveedor === proveedor);
     const vinculoVisible = (v: VinculoEvento | undefined): EventoDeAgenda['vinculo'] => {
@@ -295,8 +320,7 @@ export async function listarEventosDeAgenda(): Promise<AgendaDelNegocio> {
       eventos.push({ proveedor, identificador: v.identificador, nombre: v.nombre || v.identificador, duracionMin: null, credencial: null, enLaCuenta: false, vinculo: vinculoVisible(v) });
     }
   }
-  const google = { conectado: await googleCalendarConectado().catch(() => false) };
-  return { eventos, proveedores, etapas: etapasVinculables(funnels, nombres), sePuedeVincular: tabla, google };
+  return { eventos, proveedores, etapas: etapasVinculables(funnels, nombres), sePuedeVincular: tabla, google: { conectado: googleConectado } };
 }
 
 // ── CREAR Y EDITAR un evento (21/10/2026) ──────────────────────────────────────────────────────────
@@ -313,13 +337,16 @@ export async function crearEventoDeAgenda(input: { proveedor: unknown; nombre?: 
   const proveedor = input.proveedor;
   try {
     if (proveedor === 'calendly') {
-      if (!(await credWs('CALENDLY_API_TOKEN'))) return { ok: false, error: 'Conecta Calendly para crear eventos.' };
-      const e = await crearEventTypeCalendly({ nombre: d.nombre!, duracionMin: d.duracionMin! });
+      const token = await credWs('CALENDLY_API_TOKEN');
+      if (!token) return { ok: false, error: 'Conecta Calendly para crear eventos.' };
+      const e = await crearEventTypeCalendly(token, { nombre: d.nombre!, duracionMin: d.duracionMin! });
+      await olvidarCuentas(proveedor);
       return { ok: true, evento: { proveedor, identificador: e.uri, nombre: e.nombre || d.nombre!, duracionMin: e.duracionMin || d.duracionMin! } };
     }
     const key = await credWs('CALCOM_API_KEY');
     if (!key) return { ok: false, error: 'Conecta Cal.com con su API key para crear eventos.' };
     const e = await crearEventTypeCalcom(key, { nombre: d.nombre!, duracionMin: d.duracionMin! });
+    await olvidarCuentas(proveedor);
     return { ok: true, evento: { proveedor, identificador: e.id, nombre: e.nombre, duracionMin: e.duracionMin } };
   } catch (e) {
     return { ok: false, error: `${NOMBRE_PROVEEDOR[proveedor]} no lo creó: ${msg(e).slice(0, 200)}` };
@@ -335,13 +362,16 @@ export async function editarEventoDeAgenda(input: { proveedor: unknown; identifi
   const proveedor = input.proveedor;
   try {
     if (proveedor === 'calendly') {
-      if (!(await credWs('CALENDLY_API_TOKEN'))) return { ok: false, error: 'Conecta Calendly para editar sus eventos.' };
-      const e = await editarEventTypeCalendly(identificador, { nombre: d.nombre, duracionMin: d.duracionMin });
+      const token = await credWs('CALENDLY_API_TOKEN');
+      if (!token) return { ok: false, error: 'Conecta Calendly para editar sus eventos.' };
+      const e = await editarEventTypeCalendly(token, identificador, { nombre: d.nombre, duracionMin: d.duracionMin });
+      await olvidarCuentas(proveedor);
       return { ok: true, evento: { proveedor, identificador: e.uri, nombre: e.nombre, duracionMin: e.duracionMin } };
     }
     const key = await credWs('CALCOM_API_KEY');
     if (!key) return { ok: false, error: 'Conecta Cal.com con su API key para editar sus eventos.' };
     const e = await editarEventTypeCalcom(key, identificador, { nombre: d.nombre, duracionMin: d.duracionMin });
+    await olvidarCuentas(proveedor);
     return { ok: true, evento: { proveedor, identificador: e.id, nombre: e.nombre, duracionMin: e.duracionMin } };
   } catch (e) {
     return { ok: false, error: `${NOMBRE_PROVEEDOR[proveedor]} no lo cambió: ${msg(e).slice(0, 200)}` };
