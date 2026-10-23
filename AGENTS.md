@@ -2337,6 +2337,13 @@ falla cerrada), no sólo el estado del turno:** «Desconectar» revoca la PC y v
 puede fallar (revisión adversarial del 22/10/2026, docs/hallazgos-ia.md). Y al elegir a qué PC va el turno, «la del último
 turno» cuenta el último TERMINADO, bien o mal: con sólo los buenos, se quedaba pegado a una que falla.
 
+**Y la computadora del cliente NUNCA atiende leads sola (Martín, 22/10/2026, sobre los términos de Anthropic: «No por
+ahora»).** Su Claude en su PC (D6a) es SÓLO para que el dueño trabaje con SU Claude desde la app: el chat de la app, el del
+teléfono, el de MaKo en el CRM y el de la ficha del lead, siempre con la sesión de una persona. Nada que corra solo hacia un
+lead —respuestas automáticas de WhatsApp, AI Steps de Automations, crons, webhooks, secuencias— va a la PC: va por clave de
+API, o por el crédito donde está asignado (lib/credito-negocio.ts). A la PC llega sólo `turnoApp` (lib/mako-turno-app.ts);
+una entrada nueva que lo llame se suma en tests/ia-pc-nunca-a-leads.test.ts con la sesión de su persona, y si corre sola, no.
+
 # NINGUNA pantalla se diseña de cero: se COPIA de una app que ya resolvió eso
 
 Pedido de Martín, textual, el 15/10/2026, después de rechazar dos pantallas seguidas (la de

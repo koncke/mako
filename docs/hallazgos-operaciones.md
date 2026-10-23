@@ -62,6 +62,11 @@ un «Ya está» sin su ✓, que la fila dibujaba con el MISMO texto (`TEXTO_SEGU
   `idea`; se abren sólo tocándola, y abiertas dicen «Sugerencia de MaKo». La firma del plegado cuenta sólo las preguntas
   (`soloPreguntas`), y una pregunta nueva de un chat sigue abriendo el bloque y deja las sugerencias en su tira (`llegoUnaPregunta`).
   **Regla:** algo que no se pidió no se abre solo. Sólo lo que espera una respuesta puede abrir el bloque.
+- **Las flechas solas y sin la ayuda debajo** (Martín, 22/10: «alcanza con las flechas»; «Fuera "Elige con 1 a 4 · con ésta
+  salen todas"»). ‹ y › llevan su rótulo para quien no ve y se apagan en las puntas. El pie sólo se dibuja con un error o un botón.
+  **Trampa al romperlo:** devolver la ayuda adentro del pie no hacía fallar nada, porque el pie ya no se dibujaba sin botón. Una
+  condición de afuera tapa lo de adentro, así que el test dibuja también el caso con el botón (una pregunta de varias).
+  tests/ops-center-bloque-flechas.test.ts.
 - **Trampa de los tests: no hay DOM** (ni jsdom ni testing-library). `renderToStaticMarkup` dibuja sólo el estado inicial, así que
   lo que se ve tras un toque no se puede dibujar. Lo que decide qué se ve va en una función pura (`vistaDelBloque`) y se prueba en
   todos sus estados; el cuerpo abierto se dibuja suelto (`CuerpoDeLaTab`). tests/ops-center-sugerencias-plegadas.test.ts.
