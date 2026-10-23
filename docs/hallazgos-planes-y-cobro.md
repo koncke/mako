@@ -1027,6 +1027,41 @@ alta por cobro (`altaSiCorresponde` → `guardarOrigenDeAlta`) desde el lead del
 Sin hacer: el `Purchase`/`CompleteRegistration` por CAPI al dar de alta (hoy sólo viaja el Schedule con el UID), y
 confirmar que el evento de Calendly koncke/asesoria esté atado al ws9 (si no, el lead no nace en la plataforma).
 
+## Quien paga sin Gmail, el «Vincular cobro» de Stripe y el alta que no puede tumbarse por un mail (23/10/2026)
+
+Tres cosas medidas el día del lanzamiento, con dónde vive cada una.
+
+**El diagnóstico obvio era el equivocado, dos veces.**
+- *«El comprador sin Gmail no tiene cómo entrar» → sí tiene, nadie lo encuentra.* Correo y contraseña andan desde el 15/10
+  y «¿Olvidaste tu contraseña?» deja crear la PRIMERA a quien nunca tuvo una. Lo que faltaba era decirlo: el mail de acceso
+  (lib/invitaciones.ts) y la pantalla de después de pagar (app/pagar/[token]/listo/AccesoMako.tsx) decían sólo «entra con
+  Google». 10 de los 14 clientes de Mauricio no tienen Gmail. Va en la tanda del primer cobro (`ac21e6b4b`).
+- *«Vincular cobro» no mostraba el producto de US$270 de Stripe y «Actualizar» no hacía nada → no era la clave ni un caché:
+  MaKo no leía los productos de Stripe, nunca.* «Actualizar» recargaba un catálogo que sólo tenía los productos de MaKo.
+  Ya estaba arreglado en main desde la madrugada del 23/10 (`51c89251b`, `5ddbaf1aa`): los precios se leen EN VIVO con la clave
+  de cada cuenta (lib/stripe-catalogo.ts), «Volver a leer» los trae de nuevo y una cuenta que no se pudo leer se dice con su
+  nombre (nunca «no hay productos»). Se verificó el pedido a Stripe contra el código (GET /v1/prices, `active=true`,
+  `expand[]=data.product`, hasta 300) y sus 7 tests. **Sin medir con una clave real**: la primera lectura real es la de Mauricio.
+
+**El alta (lib/alta-cliente.ts) ahora se prueba EJECUTÁNDOLA, no leyendo el fuente** (tests/alta-cliente-conducta.test.ts,
+con lib/usuarios.ts de verdad y una base en memoria):
+- crea una fila de admin en el negocio nuevo (`rol_ws: 'admin'`, `workspace_id` del negocio, `estado: 'invitado'`) ANTES del mail;
+  esa fila ES la invitación (el login lo resuelve por email), y es lo que le faltó a la agencia aprobada con cero usuarios del 28/09;
+- si la base no deja crear a la persona, se borra el workspace y no sale ningún mail;
+- si el cobro entra y el mail REBOTA, el alta queda firme y `invitacion.enviado` es false (el cobro lo dice: `alta_motivo`);
+- **nuevo:** si el mail TIRA (leer el workspace de la plataforma o maquetar pueden fallar antes de mandar, aunque
+  `invitarPorEmail` «nunca tire»), antes la excepción subía hasta el aviso del pago con la cuenta ya creada y el cobro
+  «pendiente» hasta que el reintento (10 min) la terminaba. Ahora se atrapa en `darDeAltaCliente` y es un mail que no salió.
+- probado rompiéndolo: 5 roturas, cada una la cae un test (pie del archivo).
+
+**Sin hacer:**
+- El alta de AGENCIA (lib/agencia-habilitar.ts, app/api/admin/agencia/altas/route.ts) llama a `invitarPorEmail` por su
+  cuenta: no se midió si un `throw` ahí deja la misma alta a medias. El 25/10 no se vende por ahí.
+- Si el mail de acceso no sale, hoy la persona se entera sólo si mira el aviso «Entró un pago» o /admin/cobros: el
+  comprador ve «no pudimos mandarte el mail» en /listo, pero nadie le reenvía solo.
+
+**Vive en:** lib/alta-cliente.ts · tests/alta-cliente-conducta.test.ts · lib/stripe-catalogo.ts · app/crm/CobroDeEtapaModal.tsx.
+
 ## La suscripción de MaKo de punta a punta: pagar, quedar adentro, deber y volver (23/10/2026)
 
 *Pedido de Martín (audios del 22/10, para el domingo 25/10): «si alguien paga se ingresa automáticamente a la app con el email
