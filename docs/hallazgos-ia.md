@@ -5281,6 +5281,31 @@ cascada de texto, la de herramientas, la visión y el audio) · `app/integracion
   del ticket de la fila sale genérico («Falló la pantalla «Api»», de `tituloDeError` en lib/errores-app-reglas.ts); el
   mensaje sí dice qué falta.
 
+## «Conectar mi computadora» sin PowerShell: el enlace mako:// y la ventana del sistema (22/10/2026)
+
+**El pedido, textual** (Martín): «el proceso de instalación jamás sea por Powershell, ni siquiera que se tenga que abrir, que
+sea una app de escritorio con el típico panel de "avanzar"». El plan entero: docs/plan-instalador-escritorio.md.
+
+**Vive en:** `conectarDesdeEnlace`, `codigoDelEnlace` y `ventana` (scripts/ia-pc/mako-pc.mjs) · installer/windows/mako.iss
+(borrador) · tests/ia-pc-enlace.test.ts.
+
+- **Del enlace sale SÓLO el código.** Cualquier página puede abrir un `mako://`. Con el servidor en el enlace, un sitio se
+  llevaría la computadora, y con ella la suscripción de Claude de la persona, a su MaKo. La app usa siempre el suyo, y la
+  ventana dice a qué negocio y como quién se conecta, como el «¿Es tu negocio?» de la consola.
+- **La ventana es del sistema, sin consola:** `MessageBoxW` de user32 con `bun:ffi` dentro del ejecutable (probado con Bun
+  1.2.21 sin mostrarla: el texto en UTF-16 llega entero), y `osascript` en la Mac. Sin poder mostrarla, es «no».
+- **Si MaKo no confirma, se suelta lo pendiente** (como con el «no»). La primera versión lo dejaba guardado; lo mostró el
+  hijo del test.
+- **Lo que dice la doc de Claude Code** (leída el 22/10): `claude auth login` es el login oficial (abre el navegador, pero
+  la doc lo describe en una terminal); `claude auth status` sale 0 o 1 sin gastar; `claude setup-token` NO se usa (un tercero
+  no puede guardar tokens de la sesión). Que el instalador oficial ande oculto no está confirmado.
+- **⚠️ Para Martín:** los términos de Anthropic no dejan que un tercero «route requests through … Max plan credentials on
+  behalf of their users», y excluyen al que entra «with their own Claude subscription» en el Claude Code sin modificar. La
+  doc no dice de qué lado cae MaKo en la PC del cliente (D6a) y manda a preguntar a ventas.
+- **SIN hacer:** armar el instalador (Inno Setup no está en esta computadora; GitHub Actions lo trae), la pantalla nueva
+  (abrir o descargar), Claude Code sin terminal, el `.pkg` de la Mac, la firma (cuesta plata: lo decide Martín) y subir
+  `VERSION_PC` (con su OK).
+
 ## D6b para TODO el negocio: la decisión baja a la PUERTA de la capa de IA (IA6, 22/10/2026)
 
 **Vive en:** `lib/solo-su-ia.ts` (`conD6bDelPedido`, `esFueraDeD6b`) · la primera línea de cada función pública de

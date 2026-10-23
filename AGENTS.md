@@ -2297,6 +2297,12 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+## Y de un enlace `mako://` sale SÓLO el código, nunca el servidor
+
+scripts/ia-pc/mako-pc.mjs → `conectarDesdeEnlace` (22/10/2026): cualquier página puede abrir un `mako://`, y con su servidor se
+llevaría la computadora del cliente (y su Claude) a otro MaKo. La app pregunta en una ventana del sistema a qué negocio y como
+quién se conecta; sin poder mostrarla, «no» (docs/plan-instalador-escritorio.md).
+
 ## Y un código que pide un archivo del Storage no se sube sin el archivo
 
 La 0.3.2 de «MaKo en tu computadora» se desplegó el 21/10/2026 sin sus ejecutables en el bucket `ia-pc`: a todo cliente
