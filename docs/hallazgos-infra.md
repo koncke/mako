@@ -7752,6 +7752,8 @@ línea en blanco entre las dos; `unir-filas.cjs` es para el ÍNDICE (`hallazgos.
 odejs
 ode.exe` como dato de un argv: PERMITIDOS en `scripts/rutas-windows-en-tests.mjs`, con su motivo). (c) `tsc-acotado` de seis archivos nuevos imprime 8 archivos con errores (opencut, crm.run.ts, mako-turno-app.ts…) y NINGUNO lo toca el tren: se cruza la lista de errores con `git diff --name-only origin/main HEAD` antes de devolver nada.
 
+**Puntas que se reemplazan en pleno tren (23/10, tardes de 8 puntas).** Cuando un chat avisa «reemplazo de punta», no se mergea encima: se rearma desde la última base verde con la punta nueva (acá, aut-tarjetas 108cd8068 → aut-tarjetas2 b26cd3ffd). Dos chats que escriben la MISMA regla en AGENTS.md chocan, y el que "la reduce a una referencia" a una sección del otro deja un enlace roto si el otro reemplazó su punta: antes de resolver, `grep` del título de la sección en el árbol mergeado; si no está, se queda el texto completo. Y un error de tipos que un tren "hereda" (FlujoLienzo.tsx:392, `mismaPersona` posiblemente null) puede ser un bug de ejecución en potencia (`undefined === undefined` daba true): se verifica con `git show origin/main:<archivo> | grep` que ya estaba en main antes de achacárselo al tren, y se manda a su dueño igual.
+
 **Sin hacer:** Planes (`cfcf01abd` + `75e10a6ee`) y Ventas (`0c28ccf39`) vuelven a sus chats; Planes tiene que mergear a Cobros (`ac21e6b4b`) y
 Ventas arreglar la regex de `tests/crm-tarjeta-personalizable.test.ts` ("los chips en el orden de la persona").
 **Vive en:** scripts/tests-afectados.mjs · scripts/guardas-push.sh · tests/crm-tarjeta-personalizable.test.ts · lib/compra-plan.ts
