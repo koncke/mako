@@ -4461,7 +4461,8 @@ cada una olvidaba, y qué falla en silencio:
   casi no. Copiar la regla dejó sin aviso al alta «Juan Pérez + @juanp», y el test que lo fijaba daba verde: se contrasta con la ficha VIEJA.
 - **Una unión de literales exportada se IMPORTA, no se reescribe** (`type MotivoDuplicado`, `lib/leads-duplicados.ts`): `tsx` borra los tipos,
   ningún test corre `tsc`, y una copia a mano (`'email' | 'telefono' | 'nombre'` en `app/customer-success/actions.ts`) dejó de compilar el día
-  que se sumó un motivo. Su test de fuente no lleva lista de excepciones. Y los usuarios de Instagram llevan `_`: `patronDeInstagram` escapa
+  que se sumó un motivo. Su test de fuente no lleva lista de excepciones y barre todo `app/` y `lib/` (una lista de archivos no sobrevive a una mudanza: el cuerpo
+  de `crearClienteAction` se mudó a `lib/` y la copia con él). Y los usuarios de Instagram llevan `_`: `patronDeInstagram` escapa
   (ver «Un patrón trae CANDIDATOS» más arriba) y la igualdad exacta de `instagramComparable` decide.
 - Detalle y trampas del CSV (`ig` por inclusión, «no» como usuario, encabezados de formulario): `docs/hallazgos-crm.md`, «Un lead puede entrar
   con sólo su @ de Instagram».

@@ -9138,7 +9138,10 @@ teléfono es un lead al que todavía no le escribiste, no un lead inválido».
 - **Una unión de tipos copiada a mano no la ve ningún test.** `tsx` borra los tipos: `app/customer-success/actions.ts` tenía su propia
   copia de `'email' | 'telefono' | 'nombre'` y dejó de compilar al sumar `'instagram'` (TS2322). Lo encontró un revisor leyendo, no una
   corrida (el tren va sin tipos). Ahora importa `type MotivoDuplicado`, y `tests/duplicados-instagram.test.ts` falla si alguien repite la
-  unión **sin lista de excepciones**: una lista PENDIENTES esconde justo el rojo que debe mostrar. Regla en AGENTS.md.
+  unión **sin lista de excepciones**: una lista PENDIENTES esconde justo el rojo que debe mostrar. Regla en AGENTS.md. Y el mismo día
+  «API de MaKo» mudó el cuerpo de `crearClienteAction` a `lib/cs-crear-cliente.ts` y `lib/curso-alta-alumno.ts`, y la copia se fue con él
+  (TS2322 en las dos funciones movidas, que Integración marcó como choque): la lista de archivos del test ya no los nombraba. Ahora barre
+  TODO `app/` y `lib/` con `git ls-files`: **una red con lista de archivos no sobrevive a una mudanza.**
 - **CSV: el diagnóstico obvio era el equivocado, tres veces.** (1) Sumar `ig` e `insta` como alias por inclusión: «ig» está dentro de
   «Origen», «Digital» y «Significado», y la columna de origen de cualquier CRM («Referido») se guardaba como el @ de cada lead sin un
   error, porque «referido» es un usuario válido. `ig` e `insta` sólo como palabra entera. (2) «`usuarioInstagram` valida, entonces lo que
@@ -9182,8 +9185,6 @@ Hecho el 23/10 (tarde): `duplicadosDeLead` con @, el CSV con columna de Instagra
   deduplican por la conversación; un DM con el mismo @ de uno cargado a mano no se frena en `createLead`.
 - **`createLead` guarda `input.instagram.trim()` sin normalizar** (`lib/leads.ts`). Hoy los llamadores normalizan y la comparación lo
   tolera, pero un llamador nuevo que no lo haga deja `@Ana` o el link en la ficha (el teléfono y el escritorio mostrarían `@@ana`).
-- **`duplicados_lead` no declara el parámetro `instagram`** en `lib/api-mako/areas/crm.def.ts` (~L254): el runner ya lo lee, pero el modelo
-  no puede pasarlo. Pedido a «API de MaKo» el 23/10.
 - **La IA de extracción (PDF, foto, docx) no extrae el @** (`app/crm/importar-server.ts`, `SISTEMA_EXTRAER`): a propósito, un modelo que
   inventa handles es peor que no leerlos. Si se quiere, sumar `instagram` al JSON del prompt con `usuarioInstagram` y fila de baja confianza.
 - **El `ref` por defecto de la skill se corta a 200 caracteres** (`app/api/agente/lead/route.ts`, también `crearPropuesta`): un reenvío de
