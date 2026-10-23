@@ -86,3 +86,14 @@ test('productosConEtapas lee en dos olas: nada se espera adentro del recorrido d
   const gsd = src.slice(src.indexOf('export async function getSettingData('));
   assert.equal((gsd.slice(0, gsd.indexOf('\n}\n')).match(/await Promise\.all/g) ?? []).length, 1);
 });
+
+test('Automations pide secuencias, audios y onboarding A LA VEZ (iban en cascada: 3,0 s + 2,0 s + 3,7 s)', () => {
+  const app = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
+  const load = app.slice(app.indexOf('const load = useCallback(async () => {'));
+  const secuencias = load.indexOf("await fetch('/api/chat-agent/secuencias'");
+  const audios = load.indexOf("const pAudios = fetch('/api/chat-agent/audios', { cache: 'no-store' }).catch(() => null);");
+  const onboarding = load.indexOf("const pOnboarding = pasoWaResuelto.current ? null : fetch('/api/chat-agent/onboarding?tab=setting', { cache: 'no-store' }).catch(() => null);");
+  assert.ok(audios > 0 && onboarding > 0, 'los audios o el onboarding ya no se piden de entrada');
+  assert.ok(audios < secuencias && onboarding < secuencias, 'se piden DESPUÉS de esperar las secuencias: volvió la cascada');
+  assert.equal((load.slice(0, load.indexOf('useEffect(')).match(/fetch\('\/api\/chat-agent\/(audios|onboarding)/g) ?? []).length, 2, 'una segunda lectura de lo mismo');
+});

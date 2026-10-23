@@ -71,8 +71,9 @@ abierto lo mismo para `app_settings` y las credenciales (~90 consultas por turno
 
 **Lo que quedó SIN hacer, con dónde vive:**
 - **La región de las funciones** (vercel.json no fija `regions`; corren en iad1 y la base está en us-west-2, ~97 ms por
-  ida). Con `"regions": ["pdx1"]` cada consulta en serie bajaría a ~5 ms en TODA la app. Es una decisión de infra, del
-  Cerebro y de Martín: se planteó el 23/10 y no se aplicó.
+  ida). Con `"regions": ["pdx1"]` cada consulta en serie bajaría a ~5 ms en TODA la app. El Cerebro dio el OK el 23/10:
+  va en la rama `rendimiento-region` (a0737a635), en un tren APARTE, con tests/region-funciones.test.ts. El antes
+  (19:25 UTC, últimas 3 h): /api/auth/me p50 4,9 s · /secuencias p50 12,9 s · /crm p50 1,7 s · /second-brain p50 2,1 s.
 - `/api/auth/me` todavía son 5 idas y la pide el layout en cada carga: podría viajar con el primer cuadro.
 - Las pantallas que esperan en serie en el SERVER (render de página): /plan (`app/plan/page.tsx`, ~10 esperas y el
   autocompletado que ESCRIBE en el render), /dashboard (y la moneda de Meta en el render, `lib/moneda-meta.ts:81`),

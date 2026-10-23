@@ -35,9 +35,11 @@ el `loading.tsx` de cada tab grande de escritorio y de /m; el CRM conserva su es
   privados. Un `redirect()` de esa página llega como redirect de cliente (200), no 307: lo que redirige SIEMPRE (un
   repartidor) va en el proxy.
 
-**Lo que quedó SIN hacer:** las cargas de CLIENTE que todavía dibujan otra cosa: el «Abriendo Automations…» de
-`app/automations/ChatAgentApp.tsx:643` (se le pasó al chat de Automations, con el cambio exacto) y el cambio de panel
-del Ops Center al grafo, 2,7 s sin nada (se le pasó al chat del Ops Center).
+El «Abriendo Automations…» de `ChatAgentApp.tsx` también pasó a `CargandoMako`: el mismo del `loading.tsx`, así del
+server al cliente no hay salto.
+
+**Lo que quedó SIN hacer:** el cambio de panel del Ops Center al grafo, 2,7 s sin nada: va en la rama `mapa ? …` de
+`app/second-brain/ChatSecondBrain.tsx`, después de la punta 2df8aa56b del chat del Ops Center.
 
 *23/10/2026, chat «Rendimiento y loaders» (claude2).*
 
