@@ -32,7 +32,7 @@ import 'server-only';
 import type { Ctx, Ejecutado, Preparado, Runners } from '../tipos';
 import { cartera, type ClienteCartera, type EstadoCliente } from '@/lib/cs-cartera';
 import { claveNivel, conTrabajo, type ClaveNivel } from '@/lib/cs-senal';
-import { getWorkspace } from '@/lib/workspace';
+import { getWorkspace, getTenantDb } from '@/lib/workspace';
 import { tableroDeCapa } from '@/lib/tablero-de-capa';
 import { clientesGanados } from '@/lib/clientes-ganados';
 import { tableroDeLaCartera } from '@/app/customer-success/trabajo';
@@ -54,7 +54,10 @@ import { invitadoAlProducto, entroAlProducto, correoQueFallo } from '@/lib/curso
 import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
 import { listProductos } from '@/lib/productos';
 import { productosDelCliente } from '@/app/customer-success/entrega';
-import { POR_MAKO } from '@/lib/cs-mover-etapa';
+import { POR_MAKO, moverClienteDeEtapa } from '@/lib/cs-mover-etapa';
+import { quitarClienteDeProducto, volverClienteAProducto } from '@/lib/cs-quitar-producto';
+import { entregaDeProductoEstricta } from '@/lib/entrega-servicio';
+import { etapaDe, etapaInicial, type EtapaEntrega } from '@/lib/servicio-etapas';
 import { getTarjetaClientes, setTarjetaClientes } from '@/lib/perfil';
 import {
   CAMPOS_TARJETA_CLIENTE, CAMPOS_TARJETA_CLIENTE_DEFAULT, DETALLE_FORMA_TARJETA_CLIENTE, FORMAS_TARJETA_CLIENTE, NOMBRE_CAMPO_TARJETA_CLIENTE,
@@ -531,4 +534,138 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: `Listo: tu tarjeta de clientes quedó en forma ${NOMBRE_FORMA_TARJETA_CLIENTE[r.forma]}. Se ve al volver a Clientes.` };
     }),
   },
+
+  // ── La ENTREGA de un cliente (23/10/2026, P0-5): ver cs.def.ts. Las MISMAS funciones que el kanban y la ficha. ──
+  mover_cliente_entrega: {
+    preparar: revisando(async (input) => {
+      const cliente = await clienteDelWorkspace(num(input, 'leadId'));
+      if (!cliente) return { error: NO_ES_CLIENTE(num(input, 'leadId')) };
+      const suyos = (await productosDelCliente(cliente.id)).productos;
+      const s = await servicioPedido(num(input, 'productoId'), suyos);
+      if ('error' in s) return s;
+      const e = etapaPedida(s.etapas, str(input, 'etapa'));
+      if ('error' in e) return e;
+      const desde = await etapaGuardada(cliente.id, s.id);
+      if (desde === e.key) return { error: `${cliente.nombre} ya está en «${e.label}» en la entrega de «${s.nombre}».`, yaEstaba: true };
+      const entra = !suyos.includes(s.id);
+      return {
+        payload: { leadId: cliente.id, productoId: s.id, etapa: e.key },
+        resumen: `Pasar a ${cliente.nombre} a «${e.label}» en la entrega de «${s.nombre}»${desde ? ` (hoy está en «${etapaDe(s.etapas, desde)?.label ?? desde}»)` : ''}.`
+          + (entra ? ' No era de ese servicio: lo suma a esa entrega.' : '')
+          + ' Si esa etapa tiene automatizaciones de entrega, arrancan y le pueden escribir.',
+      };
+    }),
+    ejecutar: sinLanzar('moverlo en la entrega', async (p, ctx) => {
+      const leadId = Number(p.leadId);
+      if (!(await clienteDelWorkspace(leadId))) return { ok: false, resumen: NO_ES_CLIENTE(leadId) };
+      // El choke point vuelve a validar el servicio y la etapa (pudieron cambiar entre la propuesta y el «sí»), escribe
+      // el historial y enrola: no hay una segunda forma de escribir `cliente_entrega`.
+      const m = await moverClienteDeEtapa({ leadId, productoId: Number(p.productoId), etapa: String(p.etapa), por: autorDe(ctx) });
+      if (!m.ok) return { ok: false, resumen: `No se pudo mover: ${m.motivo ?? 'sin motivo'}` };
+      if (!m.cambio) return { ok: true, resumen: `Ya estaba en «${m.rotulo}»: no se cambió nada.`, datos: { leadId, productoId: m.productoId, etapa: m.hacia } };
+      return { ok: true, resumen: `Listo: quedó en «${m.rotulo}» en la entrega de «${m.producto}».`, datos: { leadId, productoId: m.productoId, desde: m.desde, etapa: m.hacia } };
+    }),
+  },
+  quitar_cliente_de_servicio: {
+    preparar: revisando(async (input) => {
+      const cliente = await clienteDelWorkspace(num(input, 'leadId'));
+      if (!cliente) return { error: NO_ES_CLIENTE(num(input, 'leadId')) };
+      const suyos = (await productosDelCliente(cliente.id)).productos;
+      const productoId = num(input, 'productoId');
+      if (productoId == null) return { error: 'Falta el servicio.', faltan: ['productoId'], disponibles: await serviciosDe(suyos) };
+      if (!suyos.includes(productoId)) return { error: `${cliente.nombre} no está en ese servicio.`, yaEstaba: true };
+      // La MISMA regla que va a aplicar `quitarClienteDeProducto`, para fallar en preparar() y no al confirmar.
+      if (suyos.length < 2) return { error: `Es el único servicio de ${cliente.nombre}: quitarlo lo dejaría sin ninguno.` };
+      const nombre = (await serviciosDe([productoId]))[0]?.nombre ?? `el servicio #${productoId}`;
+      return {
+        payload: { leadId: cliente.id, productoId },
+        resumen: `Quitar a ${cliente.nombre} de «${nombre}»: deja ese kanban y sigue en sus otros servicios. Sin aviso al cliente.`,
+      };
+    }),
+    ejecutar: sinLanzar('quitarlo del servicio', async (p, ctx) => {
+      const leadId = Number(p.leadId);
+      if (!(await clienteDelWorkspace(leadId))) return { ok: false, resumen: NO_ES_CLIENTE(leadId) };
+      const r = await quitarClienteDeProducto(leadId, Number(p.productoId), autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: `No se pudo quitar: ${r.error}` };
+      return {
+        ok: true,
+        resumen: `Listo: ya no está en ese servicio. Para volver, devolver_cliente_a_servicio${r.etapa ? ` con la etapa ${r.etapa}` : ''}.`,
+        datos: { leadId, productoId: Number(p.productoId), etapa: r.etapa },
+      };
+    }),
+  },
+  devolver_cliente_a_servicio: {
+    preparar: revisando(async (input) => {
+      const cliente = await clienteDelWorkspace(num(input, 'leadId'));
+      if (!cliente) return { error: NO_ES_CLIENTE(num(input, 'leadId')) };
+      const suyos = (await productosDelCliente(cliente.id)).productos;
+      const productoId = num(input, 'productoId');
+      if (productoId != null && suyos.includes(productoId)) return { error: `${cliente.nombre} ya está en ese servicio.`, yaEstaba: true };
+      const s = await servicioPedido(productoId, suyos, true);
+      if ('error' in s) return s;
+      const e = etapaPedida(s.etapas, str(input, 'etapa'));
+      if ('error' in e) return e;
+      return {
+        payload: { leadId: cliente.id, productoId: s.id, etapa: str(input, 'etapa') ? e.key : null },
+        resumen: `Devolver a ${cliente.nombre} a «${s.nombre}», en «${e.label}». Si esa etapa tiene automatizaciones de entrega, arrancan y le pueden escribir.`,
+      };
+    }),
+    ejecutar: sinLanzar('devolverlo al servicio', async (p, ctx) => {
+      const leadId = Number(p.leadId);
+      const productoId = Number(p.productoId);
+      if (!(await clienteDelWorkspace(leadId))) return { ok: false, resumen: NO_ES_CLIENTE(leadId) };
+      const etapa = typeof p.etapa === 'string' && p.etapa ? p.etapa : null;
+      const por = autorDe(ctx);
+      // El deshacer de la ficha: saca la marca de «fuera» y, con etapa, lo repone ahí. ⚠️ Sin etapa, si el servicio no era
+      // el de su embudo, sacar la marca no lo devuelve (no tenía fila que reponer): entonces entra a la primera etapa por el
+      // choke point. Se mira lo que QUEDÓ, no lo que se pidió.
+      const r = await volverClienteAProducto(leadId, productoId, etapa, null, por);
+      if (!r.ok) return { ok: false, resumen: `No se pudo devolver: ${r.error}` };
+      if (!(await productosDelCliente(leadId)).productos.includes(productoId)) {
+        const m = await moverClienteDeEtapa({ leadId, productoId, etapa: null, por });
+        if (!m.ok) return { ok: false, resumen: `No se pudo devolver: ${m.motivo ?? 'sin motivo'}` };
+      }
+      return { ok: true, resumen: 'Listo: volvió a ese servicio.', datos: { leadId, productoId } };
+    }),
+  },
 };
+
+/** Los servicios por id, con su nombre (los del negocio: `listProductos` scopea). */
+async function serviciosDe(ids: readonly number[]): Promise<Array<{ productoId: number; nombre: string }>> {
+  const catalogo = await listProductos();
+  return ids.map((id) => ({ productoId: id, nombre: catalogo.find((p) => Number(p.id) === id)?.nombre ?? `Servicio #${id}` }));
+}
+
+/**
+ * El servicio pedido, de ESTE negocio, con sus etapas leídas ESTRICTO: validar contra las de fábrica dejaría a un cliente
+ * en una columna que el kanban no dibuja (lib/cs-mover-etapa.ts). Sin servicio, o uno que no existe, vuelve con los suyos.
+ * `cualquiera` = no hace falta que sea suyo todavía (devolver).
+ */
+async function servicioPedido(productoId: number | null, suyos: readonly number[], cualquiera = false): Promise<{ id: number; nombre: string; etapas: readonly EtapaEntrega[] } | { error: string; faltan?: string[]; disponibles?: unknown }> {
+  const catalogo = await listProductos();
+  const prod = productoId == null ? null : catalogo.find((p) => Number(p.id) === productoId);
+  if (!prod) {
+    const lista = cualquiera ? catalogo.map((p) => ({ productoId: Number(p.id), nombre: p.nombre })) : await serviciosDe(suyos);
+    return { error: productoId == null ? 'Falta el servicio.' : `El servicio #${productoId} no es de este negocio.`, ...(productoId == null ? { faltan: ['productoId'] } : {}), disponibles: lista };
+  }
+  const entrega = await entregaDeProductoEstricta(Number(prod.id));
+  if (!entrega) return { error: `No pude leer las etapas de la entrega de «${prod.nombre}». Intenta de nuevo.` };
+  return { id: Number(prod.id), nombre: prod.nombre, etapas: entrega.etapas };
+}
+
+/** La etapa por su clave o su nombre (sin mayúsculas ni tildes). Vacía = la primera. Si no existe, vuelve con las que hay. */
+function etapaPedida(etapas: readonly EtapaEntrega[], pedida: string): EtapaEntrega | { error: string; disponibles: unknown } {
+  const sin = (x: string) => x.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const key = pedida.trim() ? (etapas.find((e) => e.key === pedida.trim()) ?? etapas.find((e) => sin(e.label ?? '') === sin(pedida)))?.key : etapaInicial(etapas);
+  const e = etapaDe(etapas, key ?? null);
+  if (!e) return { error: pedida.trim() ? `Esa entrega no tiene la etapa «${pedida.trim()}».` : 'Esa entrega no tiene etapas.', disponibles: etapas.map((x) => ({ key: x.key, nombre: x.label })) };
+  return e;
+}
+
+/** La etapa GUARDADA del cliente en ese servicio (su fila de `cliente_entrega`), o null si no tiene fila. Tira si no pudo leer. */
+async function etapaGuardada(leadId: number, productoId: number): Promise<string | null> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('cliente_entrega').select('etapa').eq('lead_id', leadId).eq('producto_id', productoId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as { etapa: string } | null)?.etapa ?? null;
+}
