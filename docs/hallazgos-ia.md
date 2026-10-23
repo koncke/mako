@@ -5309,6 +5309,40 @@ cascada de texto, la de herramientas, la visión y el audio) · `app/integracion
   `$ProgressPreference = 'SilentlyContinue'` antes de bajar. **Regla:** todo `Invoke-WebRequest` de un script que corre
   en la PC de un cliente va con la barra apagada.
 
+## «Conectar mi computadora» en Windows SIN terminal: el instalador con asistente y la sesión de Claude (0.4.0, 23/10/2026)
+
+**El pedido** (Martín, 22/10, y su OK del 22/10 23:21 por el Cerebro): «jamás por Powershell, ni siquiera que se tenga que
+abrir… el típico panel de "avanzar"… Que al darle conectar si no tenes instalada la app, te deje descargarla»; «la 0.4.0 sin
+firmar», con UNA línea para el aviso de Windows y la de PowerShell sólo como respaldo escondido.
+
+**Vive en:** installer/windows/mako.iss · scripts/ia-pc/publicar-binarios.mts (arma el instalador con Inno) · GET
+/api/ia-pc/descargar · el tutorial de app/integraciones/TusCuentasIA.tsx (Windows: tres pasos) · `RUTA_TRAS_INSTALAR`
+(/perfil/ia?computadora=1) · `iniciarSesionDeClaude` (scripts/ia-pc/mako-pc.mjs) · tests/ia-pc-instalador-040.test.ts y
+tests/ia-pc-login-sin-terminal.test.ts.
+
+- **El diagnóstico obvio era el equivocado: la terminal escondida era el LOGIN de Claude, no el instalador.** Instalar sin
+  consola se resuelve con Inno. Pero sin consola `claude auth login` no termina solo: imprime la URL y espera que le PEGUEN
+  el código por stdin (medido el 23/10 con una carpeta de Claude de prueba: un código falso da «Login failed … 400» y sale
+  con 1). Correrlo oculto deja a la persona sin dónde pegarlo. La salida: el programa sirve una página LOCAL (127.0.0.1, con
+  un secreto en la ruta, que contesta sólo a su dirección y acepta el envío sólo desde ella), y el código va directo al
+  stdin de `claude`. **Nunca pasa por MaKo:** un tercero no puede tocar las credenciales de la suscripción.
+- **GitHub Actions se quedó sin minutos el 22/10:** el instalador se arma en esta PC, con Inno Setup 6 por usuario (winget,
+  con el hash del instalador oficial verificado). publicar-binarios lo busca en %LOCALAPPDATA%\Programs\Inno Setup 6, o
+  en `ISCC=`.
+- **No se probó INSTALÁNDOLO en esta PC, y no hay que hacerlo:** acá corre `mako-pc.exe` como la computadora conectada al
+  ws1 (la de Martín en la cuenta de Mauricio), y el instalador la cierra al actualizar (CloseApplications). La prueba de punta
+  a punta va en una computadora de prueba con el ws3 (la parte 7 del plan).
+- **Al actualizar, la app quedaba apagada** hasta el próximo inicio de sesión: el instalador la cerraba y nadie la volvía a
+  abrir. Ahora la arranca al terminar; sin conexión guardada, sale sola.
+- **/conectar-mi-computadora nunca existió:** el instalador vuelve a /perfil/ia?computadora=1, que ve toda persona del
+  negocio, directo en «Conecta MaKo» y con las PC de antes YA leídas. Si no, una que ya estaba en línea se tomaba por la
+  nueva y decía «¡Listo!».
+- **Claude Code lo instala el instalador con un PowerShell OCULTO** (el instalador oficial de Anthropic; la persona no abre
+  nada) y sin la barra de progreso, que en PowerShell 5.1 vuelve lentísima la bajada.
+- **SIN hacer:** el `.pkg` de la Mac (la Mac sigue con la Terminal), la firma (lo decide Martín: nota firma-codigo-2310 en
+  las notas del Cerebro), `agregar-cuenta` todavía abre una consola (`stdio: 'inherit'`, en mako-pc.mjs), y la prueba de
+  punta a punta en una computadora de verdad.
+
 ## «Conectar mi computadora» sin PowerShell: el enlace mako:// y la ventana del sistema (22/10/2026)
 
 **El pedido, textual** (Martín): «el proceso de instalación jamás sea por Powershell, ni siquiera que se tenga que abrir, que

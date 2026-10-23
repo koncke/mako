@@ -2337,6 +2337,10 @@ falla cerrada), no sólo el estado del turno:** «Desconectar» revoca la PC y v
 puede fallar (revisión adversarial del 22/10/2026, docs/hallazgos-ia.md). Y al elegir a qué PC va el turno, «la del último
 turno» cuenta el último TERMINADO, bien o mal: con sólo los buenos, se quedaba pegado a una que falla.
 
+**Y la sesión de Claude en la PC del cliente se inicia SIN consola (0.4.0):** `iniciarSesionDeClaude` (scripts/ia-pc/mako-pc.mjs),
+con su página local en 127.0.0.1. Nunca `stdio: 'inherit'` ni una ventana de terminal para un paso de la persona, y el
+código de autorización va directo al stdin de `claude`: nunca a MaKo, al registro ni a la consola (tests/ia-pc-login-sin-terminal.test.ts).
+
 **Y la computadora del cliente NUNCA atiende leads sola (Martín, 22/10/2026, sobre los términos de Anthropic: «No por
 ahora»).** Su Claude en su PC (D6a) es SÓLO para que el dueño trabaje con SU Claude desde la app: el chat de la app, el del
 teléfono, el de MaKo en el CRM y el de la ficha del lead, siempre con la sesión de una persona. Nada que corra solo hacia un
