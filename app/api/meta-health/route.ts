@@ -28,6 +28,7 @@ export const dynamic = 'force-dynamic';
 const HEALTH_SIN_CONEXION: MetaHealth = {
   account: {
     accountId: null,
+    nombre: null,
     status: 0,
     statusLabel: 'Sin conexión',
     disableReason: 0,

@@ -1,0 +1,71 @@
+// =============================================================================
+// Qué cuenta de Meta está leyendo MaKo, dicho como lo dice Meta
+// =============================================================================
+// Pedido del 23/10/2026: Mauricio creó campañas para tres clientes en el
+// Administrador de anuncios de Meta y «no aparecían» en MaKo. MaKo no filtraba
+// nada: Meta no las tenía en la cuenta conectada a esos negocios (borrador sin
+// publicar, u otra cuenta). Nada en pantalla decía QUÉ cuenta se estaba leyendo,
+// así que la única lectura posible era «MaKo no las trae» (docs/hallazgos-ads.md,
+// «Creé la campaña en Meta y no me aparece en MaKo»).
+//
+// Lo usan el encabezado de /ads-manager (app/ads-manager/CampanasBrowser.tsx) y
+// el selector de campañas del CRM (app/crm/CampanasModal.tsx): los dos dicen lo
+// mismo, con el número como lo muestra Meta arriba a la izquierda (sin «act_»),
+// que es contra lo que el cliente lo compara.
+//
+// Pura y sin imports de servidor: la importan componentes de cliente.
+// =============================================================================
+
+export type CuentaLeida = { id: string | null; nombre: string | null };
+
+/** Días sin una campaña creada a partir de los cuales se avisa. Un mes: lo que tarda en
+ *  notarse que «la que creé no está», sin pintar el aviso a quien lanza todas las semanas. */
+export const DIAS_SIN_CAMPANAS_NUEVAS = 30;
+
+/** El número de la cuenta como lo muestra Meta: sin el prefijo `act_`. */
+export function numeroDeCuenta(id: string | null | undefined): string | null {
+  const n = (id ?? '').trim().replace(/^act_/, '');
+  return n || null;
+}
+
+/**
+ * «Patricia Contreras · 1551449682972756». Sin nombre —o cuando el nombre ES el número,
+ * como en las cuentas que nadie bautizó (ws20)— va sólo el número. `null` sin cuenta.
+ */
+export function etiquetaCuentaMeta(c: CuentaLeida | null | undefined): string | null {
+  const numero = numeroDeCuenta(c?.id);
+  if (!numero) return null;
+  const nombre = (c?.nombre ?? '').trim();
+  return nombre && nombre !== numero ? `${nombre} · ${numero}` : numero;
+}
+
+/** La fecha de creación más nueva (ISO de Meta, con o sin offset), o null. */
+export function ultimaCreada(fechas: ReadonlyArray<string | null | undefined>): string | null {
+  let mejor: { iso: string; t: number } | null = null;
+  for (const f of fechas) {
+    if (!f) continue;
+    const t = Date.parse(f);
+    if (Number.isNaN(t)) continue;
+    if (!mejor || t > mejor.t) mejor = { iso: f, t };
+  }
+  return mejor?.iso ?? null;
+}
+
+/**
+ * La frase que va cuando la cuenta no tiene campañas nuevas, para que no se lea como un
+ * error de MaKo. `null` si hay alguna creada en los últimos `DIAS_SIN_CAMPANAS_NUEVAS`.
+ *
+ * ⚠️ Sólo con Meta CONTESTANDO (quien llama no la pide con un error de Meta): sin
+ * respuesta no se sabe qué campañas hay, y afirmar «no tiene» mandaría a buscar mal.
+ * `hayCampanas` aparte de `ultima`: una cuenta con campañas sin fecha no es una vacía.
+ */
+export function avisoSinCampanasNuevas(
+  { hayCampanas, ultima }: { hayCampanas: boolean; ultima: string | null },
+  ahora: Date = new Date(),
+): string | null {
+  if (!hayCampanas) return 'Esta cuenta de Meta no tiene campañas: si creaste una, publícala o revisa que sea esta cuenta.';
+  if (!ultima) return null;
+  const dias = (ahora.getTime() - Date.parse(ultima)) / 86_400_000;
+  if (dias < DIAS_SIN_CAMPANAS_NUEVAS) return null;
+  return 'Sin campañas nuevas en esta cuenta de Meta: si creaste una, publícala o revisa que sea esta cuenta.';
+}

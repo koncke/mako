@@ -4379,3 +4379,45 @@ presupuesto») y la capacidad `calcular_presupuesto_anuncios` de la API (sin HTT
 por resultado real de la cuenta (`ver_rendimiento_anuncios`) en vez de pedirlo.
 
 **Vive en:** lib/calculadora-presupuesto-ads.ts · app/ads-manager/CalculadoraPresupuesto.tsx · app/ads-manager/CampanasBrowser.tsx · lib/api-mako/areas/ads.def.ts · tests/calculadora-presupuesto-ads.test.ts
+
+## «Creé la campaña en Meta y no me aparece en MaKo»: medir primero si Meta la tiene en la cuenta CONECTADA (23/10/2026)
+
+Pedido de Mauricio (ws1, audio del 23/10): las campañas que creó en el Administrador de anuncios de Meta para tres
+clientes nuevos (ws20 Sergio Arriata, ws21 Florencia Ayelen Carballo, ws22 Patricia Contreras) no aparecen en
+/ads-manager para vincularlas al CRM.
+
+- **El diagnóstico obvio era el equivocado: «MaKo las filtra».** /ads-manager no filtra nada (el filtro de estado
+  arranca en «Todos» y la tabla lista lo que devuelve `act_<id>/campaigns`); el selector del CRM
+  (`campanasYConjuntos`) lee la misma edge. Medido con el token de CADA negocio: ws20 lee `act_4171287933095795` (16
+  campañas, la última de 2023) y la otra cuenta de su BM `act_702839088096495` (0); ws22 lee `act_1551449682972756`
+  (5, la última del 07/08/2026) y `act_351188227049325` (la última de 2025). **Ninguna campaña creada en septiembre u
+  octubre en ninguna cuenta a la que llegan sus tokens**, ni pidiendo todos los estados. ws21 no tiene Meta conectado
+  (cero claves). Y la cuenta del ws1 tampoco las tiene (la última, «030.», del 30/09). La causa es de configuración o
+  de Meta, no de código: o quedaron como BORRADOR sin publicar, o están en una cuenta publicitaria que no es la
+  conectada a ese negocio.
+- **Cómo se mide, y en este orden:** `credWs('META_AD_ACCOUNT_ID'|'META_ACCESS_TOKEN', ws)` → `debug_token` (app,
+  tipo, scopes) → `me/adaccounts` → `act_<id>{business}` → `<bm>/owned_ad_accounts` → `act_<id>/campaigns` con
+  `filtering=[{field:'effective_status',operator:'IN',value:[…todos, ARCHIVED y DELETED incluidos]}]`. Sin el
+  `filtering`, Meta deja afuera lo archivado y lo borrado.
+- **Trampas medidas:** (1) los borradores del Administrador de anuncios **no existen para la API** (`act_<id>/addrafts`
+  da #100 «nonexisting field»): una campaña sin «Publicar» no la ve nadie, tampoco MaKo. (2) `act_<id>/activities`
+  devuelve `[]` con HTTP 200 al usuario del sistema de un cliente (ws20, ws22), aunque con el del ws1 trae eventos:
+  vacío ahí NO es «nadie tocó la cuenta». (3) `me/adaccounts` del token de ws20 listó una sola cuenta, pero el token
+  leyó también la otra del BM (`[]` sin error), mientras el token del ws1 contra esa misma cuenta da `#200 Ad account
+  owner has NOT grant ads_management` dentro de un 200: un `[]` sin `error` es acceso real.
+- **Regla:** ante «no me aparece», antes de tocar código se pide el número de cuenta que muestra Meta arriba a la
+  izquierda en esa campaña y si está publicada; se compara con el `META_AD_ACCOUNT_ID` del negocio.
+
+- **Lo que quedó (mismo día):** /ads-manager y el selector de campañas del CRM dicen al lado del título «Cuenta
+  Nombre · número», como Meta la muestra arriba a la izquierda, y si la cuenta no tiene campañas creadas en los
+  últimos 30 días, una frase que manda a publicar o a revisar la cuenta (lib/meta-cuenta-leida.ts). Sólo con Meta
+  CONTESTANDO y con cuenta: el health «Sin conexión» de /api/meta-health trae `campaigns: []`, y sin ese corte decía
+  «esta cuenta no tiene campañas» a quien no conectó nada. El `created_time` se compara como FECHA: Meta lo manda con
+  el offset de cada cuenta (`-0700`, `-0300`, `+0000`) y ordenar el texto elige mal.
+
+**Sin hacer:** conectar Meta en ws21 (paso de Martín o de la clienta); mirar el encabezado en pantalla después del
+deploy (no se levanta `next dev` local: escribe en producción).
+
+**Vive en:** lib/meta-health.ts (`edgeUrl`, `campanasYConjuntos`, `_getMetaHealth`) · lib/credenciales.ts (`credWs`) ·
+lib/meta-cuenta-leida.ts · app/ads-manager/CampanasBrowser.tsx (`matchEstado`, `cuentaLeida`) ·
+app/crm/CampanasModal.tsx · app/crm/campanas-actions.ts (`cuentaMeta`) · tests/meta-cuenta-leida.test.ts
