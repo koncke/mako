@@ -184,6 +184,11 @@ export async function invitarPorEmail(u: {
     // se puede accionar si no sabe cuál era la buena.
     `Importante: entra con Google usando exactamente esta dirección: ${destino}`,
     '',
+    // ⚠️ Y SI NO USA GOOGLE, CÓMO ENTRA (23/10/2026). 10 de los 14 clientes de Mauricio no tienen Gmail (lib/curso-acceso.ts),
+    // y el correo con contraseña existe desde el 15/10 pero plegado detrás de un link: quien pagaba con Hotmail no sabía que
+    // podía entrar. «¿Olvidaste tu contraseña?» le deja crear la primera, sin haber tenido una (app/api/auth/restablecer).
+    'Si no usas Google: toca «o entra con tu correo» y después «¿Olvidaste tu contraseña?» para crear la tuya con este mismo correo.',
+    '',
     // ⚠️ ACÁ DECÍA EL EMAIL DE QUIEN LO DIO DE ALTA, Y ESO MANDABA EL PROBLEMA AL LUGAR
     // EQUIVOCADO. Lo que falla en este mail es entrar —una cuenta de Google que no
     // matchea, un link que no abre, un dominio que rebota— y eso lo arregla MaKo, no el
@@ -193,7 +198,7 @@ export async function invitarPorEmail(u: {
   ].join('\n');
 
   const r = await enviarDePlataforma(
-    { to: destino, asunto: 'Tu acceso a MaKo', preheader: 'Tu cuenta ya está lista. Entra con Google.', cuerpo: bodyText, tag: 'invitacion' },
+    { to: destino, asunto: 'Tu acceso a MaKo', preheader: 'Tu cuenta ya está lista. Entra con Google o con tu correo.', cuerpo: bodyText, tag: 'invitacion' },
     async () => {
       // ⚠️ SE ESTAMPA SOLO SI SALIÓ (por eso va en `alSalir`). La columna contesta «¿ya se le
       // avisó?», así que marcarla en el intento la convierte en «¿lo intentamos?», que no le

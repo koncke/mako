@@ -73,6 +73,14 @@ export function laCobraLaPasarela(cobros: ReadonlyArray<{ tipo: string; estado: 
  * plata ENTRÓ, y esconderla sería peor: entra CON el aviso de `avisoPagoPorLinkAnulado`. `reembolsado` no:
  * un «aprobado» que llega después de un reembolso es una reentrega vieja.
  */
+/**
+ * El comienzo del `alta_motivo` de un alta HECHA cuyo mail de acceso no salió (lib/cobros.ts, `altaSiCorresponde`). Lo
+ * escribe y lo leen el aviso «Entró un pago» y /pagar/<token>/listo con el mismo texto: si uno cambia, el otro también.
+ */
+export const PREFIJO_MAIL_NO_SALIO = 'El mail de acceso no salió';
+export const mailDeAccesoNoSalio = (altaMotivo: string | null | undefined): boolean =>
+  typeof altaMotivo === 'string' && altaMotivo.startsWith(PREFIJO_MAIL_NO_SALIO);
+
 export const ESTADOS_QUE_PASAN_A_PAGADO: readonly EstadoCobro[] = ['pendiente', 'fallido', 'anulado'];
 export const pasaAPagado = (e: EstadoCobro): boolean => ESTADOS_QUE_PASAN_A_PAGADO.includes(e);
 

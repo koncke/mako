@@ -3576,6 +3576,11 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   cuerpo de un aviso nunca marca nada pagado. Y el orden es CRM → Ganado → alta → Automations.
 - **El alta automática de MaKo se pregunta por el WORKSPACE, en positivo** (`ws === await wsSuperAdmin()`): un
   cliente que vende con su Stripe no crea inquilinos.
+- **Devolver el pago de una suscripción NO la corta** (23/10/2026): la pasarela devuelve ese pago y sigue cobrando cada
+  mes, y la renovación entra como plata nueva. Cortarla es `cancelarSuscripcionCobro`. Una pantalla que devuelve el pago
+  de una suscripción ofrece cortarla en el mismo paso, y la corta ANTES de devolver (molde: /admin/cobros).
+- **Lo que se ofrece al PÚBLICO excluye una pasarela en modo prueba** (`ofertaDelPlan` con `conPrueba`, 23/10/2026): el
+  alta no mira el modo del cobro, así que un checkout público con claves de prueba regalaba cuentas reales con la 4242.
 - **La moneda la decide la pasarela, y en un formulario que cobra la pasarela se pregunta ANTES del monto.** El
   valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada. Tampoco la de una IA que lee un
   documento (21/10/2026): se le pide el monto y la moneda TAL COMO FIGURAN, sin convertir, y la pantalla decide

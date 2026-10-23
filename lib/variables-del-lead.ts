@@ -413,6 +413,8 @@ export type PagoDelAviso = {
   modo: string | null;
   /** Cómo quedó el alta en una venta de MaKo (la lectura de `lineaDelAlta`); null fuera de una venta de MaKo. */
   alta: EstadoAlta | null;
+  /** El alta quedó hecha pero el mail de acceso NO salió (lib/cobros-reglas.ts, `mailDeAccesoNoSalio`). */
+  altaSinMail?: boolean;
 };
 
 /**
@@ -430,7 +432,7 @@ export function valoresDelPago(p: PagoDelAviso): Record<string, string> {
   if (pasarela) out.pago_pasarela = pasarela;
   out.pago_tipo = p.renovacion ? 'Renovación' : 'Primer pago';
   if (p.modo === 'prueba') out.pago_modo = 'Prueba';
-  const alta = p.alta === 'hecha' ? 'Cuenta creada' : p.alta === 'ya_tenia_cuenta' ? 'Ya tenía cuenta' : p.alta === 'error' ? 'El alta falló' : null;
+  const alta = p.alta === 'hecha' ? (p.altaSinMail ? 'Cuenta creada, sin mail de acceso' : 'Cuenta creada') : p.alta === 'ya_tenia_cuenta' ? 'Ya tenía cuenta' : p.alta === 'error' ? 'El alta falló' : null;
   if (alta) out.pago_alta = alta;
   return out;
 }

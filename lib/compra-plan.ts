@@ -25,13 +25,14 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
-import { getSetting } from './settings';
+import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { credDelCliente } from './credenciales';
 import { createLead, logLeadEvent } from './leads';
 import { esLeadDuplicado } from './leads-duplicados';
 import { leadPorEmail } from './editor-landing/pago-pedido';
 import { crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
 import { leerCuentaMp } from './mercadopago-api';
+import { modoDeClaveStripe } from './stripe-api';
 import { COLS_COBRO, cobroDeFila, type Pasarela } from './cobros-tipos';
 import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, precioEn, type PlanMako } from './planes-mako';
 import { pasarelaDeLaCompra, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
@@ -50,28 +51,40 @@ export async function planesMako(): Promise<PlanMako[]> {
   }
 }
 
-/** La moneda en que cobraría HOY cada pasarela conectada de la plataforma (Stripe: USD; MP: la de su sitio). */
-async function monedasDeLaPlataforma(ws: number): Promise<Array<{ pasarela: Pasarela; moneda: string }>> {
+/**
+ * La moneda en que cobraría HOY cada pasarela conectada de la plataforma (Stripe: USD; MP: la de su sitio), y si está en
+ * modo PRUEBA (la clave sk_test_/rk_test_ de Stripe; la cuenta de prueba o el token TEST- de Mercado Pago).
+ */
+async function monedasDeLaPlataforma(ws: number): Promise<Array<{ pasarela: Pasarela; moneda: string; prueba: boolean }>> {
   const conectadas = await pasarelasConectadas(ws);
-  const out: Array<{ pasarela: Pasarela; moneda: string }> = [];
+  const out: Array<{ pasarela: Pasarela; moneda: string; prueba: boolean }> = [];
   for (const p of conectadas) {
-    if (p === 'stripe') { out.push({ pasarela: 'stripe', moneda: 'USD' }); continue; }
+    if (p === 'stripe') {
+      out.push({ pasarela: 'stripe', moneda: 'USD', prueba: modoDeClaveStripe(await credDelCliente('STRIPE_SECRET_KEY', ws)) === 'prueba' });
+      continue;
+    }
     const token = await credDelCliente('MERCADOPAGO_ACCESS_TOKEN', ws);
     if (!token) continue;
     const c = await leerCuentaMp(token);
-    if (c.ok && c.moneda) out.push({ pasarela: 'mercadopago', moneda: c.moneda });
+    if (c.ok && c.moneda) out.push({ pasarela: 'mercadopago', moneda: c.moneda, prueba: c.modo === 'prueba' });
   }
   return out;
 }
 
-/** Lo que la página /planes/<id> necesita para dibujar el formulario: el plan y con qué se puede pagar (y cuánto). */
-export async function ofertaDelPlan(planId: string): Promise<{ plan: PlanMako; pasarelas: Array<{ pasarela: Pasarela; moneda: string; monto: number }> } | null> {
+/**
+ * Lo que la página /planes/<id> necesita para dibujar el formulario: el plan y con qué se puede pagar (y cuánto).
+ *
+ * ⚠️ UNA PASARELA EN MODO PRUEBA NO SE OFRECE AL PÚBLICO (revisión del 23/10/2026): el alta no mira el modo del cobro, así
+ * que con las claves de prueba conectadas en el ws9 cualquiera sacaba una cuenta REAL pagando con la tarjeta 4242. Sólo
+ * el super admin la ve (`conPrueba`), que es quien hace la prueba de humo antes de pasar a las claves reales.
+ */
+export async function ofertaDelPlan(planId: string, opts: { conPrueba?: boolean } = {}): Promise<{ plan: PlanMako; pasarelas: Array<{ pasarela: Pasarela; moneda: string; monto: number }> } | null> {
   const plan = (await planesMako()).find((p) => p.id === planId && p.activo);
   if (!plan) return null;
   try {
     const ws = await wsSuperAdmin();
-    const monedas = await monedasDeLaPlataforma(ws);
-    const pasarelas = monedas.map((m) => ({ ...m, monto: precioEn(plan, m.moneda) })).filter((x): x is { pasarela: Pasarela; moneda: string; monto: number } => x.monto != null);
+    const monedas = (await monedasDeLaPlataforma(ws)).filter((m) => !m.prueba || opts.conPrueba === true);
+    const pasarelas = monedas.map((m) => ({ pasarela: m.pasarela, moneda: m.moneda, monto: precioEn(plan, m.moneda) })).filter((x): x is { pasarela: Pasarela; moneda: string; monto: number } => x.monto != null);
     return { plan, pasarelas };
   } catch (e) {
     console.warn('[compra-plan] no pude leer las pasarelas de la plataforma:', msg(e));
@@ -82,18 +95,67 @@ export async function ofertaDelPlan(planId: string): Promise<{ plan: PlanMako; p
 /**
  * Cada plan activo y si HOY se puede pagar en línea, con UNA lectura de las pasarelas (la misma cuenta que
  * `ofertaDelPlan`: una pasarela conectada con precio en su moneda). La usa /planes para no ofrecer «Empezar» donde el
- * checkout no puede cobrar (lib/compra-plan-reglas.ts, `botonDelPlan`). Sin poder leer las pasarelas, ninguno se cobra:
+ * checkout no puede cobrar (lib/compra-plan-reglas.ts, `botonDelPlan`). Una pasarela en modo prueba no cuenta. Sin poder leer las pasarelas, ninguno se cobra:
  * ofrecer la agenda de más es un llamado; ofrecer un pago que no existe es un callejón.
  */
 export async function ofertasDeLosPlanes(): Promise<Array<{ plan: PlanMako; cobrable: boolean }>> {
   const planes = (await planesMako()).filter((p) => p.activo);
   let monedas: Array<{ pasarela: Pasarela; moneda: string }> = [];
   try {
-    monedas = await monedasDeLaPlataforma(await wsSuperAdmin());
+    // Sin las de PRUEBA, como `ofertaDelPlan` para el público (revisión de Cobros, 23/10/2026): con sólo claves de prueba
+    // conectadas, /planes ofrecería «Empezar» y el checkout, que no las ofrece, mandaría a la agenda: un callejón.
+    monedas = (await monedasDeLaPlataforma(await wsSuperAdmin())).filter((m) => !m.prueba);
   } catch (e) {
     console.warn('[compra-plan] no pude leer las pasarelas de la plataforma:', msg(e));
   }
   return planes.map((plan) => ({ plan, cobrable: monedas.some((m) => precioEn(plan, m.moneda) != null) }));
+}
+
+/** La moneda de la Mercado Pago de MaKo (la de su sitio: ARS, MXN…), o null si no está conectada o no se pudo leer. */
+export async function monedaDeMercadoPagoDeMako(): Promise<string | null> {
+  try {
+    const ws = await wsSuperAdmin();
+    const token = await credDelCliente('MERCADOPAGO_ACCESS_TOKEN', ws);
+    if (!token) return null;
+    const c = await leerCuentaMp(token);
+    return c.ok ? c.moneda : null;
+  } catch (e) {
+    console.warn('[compra-plan] no pude leer la moneda de la Mercado Pago de MaKo:', msg(e));
+    return null;
+  }
+}
+
+/**
+ * Guarda el precio de un plan en una moneda LOCAL (la de la Mercado Pago de MaKo). null o 0 = lo saca (el plan deja de
+ * ofrecerse por Mercado Pago). Lo pone Martín en /admin/cobros: MaKo no inventa una tasa (lib/planes-mako.ts).
+ *
+ * ⚠️ NO HABÍA DÓNDE CARGARLO (revisión del 23/10/2026): los documentos le pedían «cargar preciosLocales en planes.mako» y
+ * ninguna pantalla lo escribía, así que con sólo Mercado Pago conectada /planes no vendía. Y el setting reemplaza la lista
+ * ENTERA: se escribe con todos los planes vigentes, leídos con `getSettingEstricto` (si la lectura falla, NO se escribe:
+ * con `getSetting` un error se leía como «no hay setting» y se pisaban los planes cargados con los de fábrica).
+ */
+export async function guardarPrecioLocal(planId: string, moneda: string, monto: number | null): Promise<{ ok: true; plan: PlanMako } | { ok: false; error: string }> {
+  const m = String(moneda ?? '').trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(m) || m === 'USD') return { ok: false, error: 'La moneda va en tres letras, y no USD (el precio en dólares es el del plan).' };
+  if (monto != null && !(Number.isFinite(monto) && monto > 0 && monto < 1_000_000_000)) return { ok: false, error: 'El precio tiene que ser mayor a cero.' };
+  const ws = await wsSuperAdmin();
+  return runWithWorkspace(ws, async () => {
+    const planes = planesDeSetting(await getSettingEstricto(CLAVE_PLANES));
+    const plan = planes.find((p) => p.id === planId);
+    if (!plan) return { ok: false as const, error: 'Ese plan no existe.' };
+    const locales = { ...plan.preciosLocales };
+    if (monto == null) delete locales[m]; else locales[m] = Math.round(monto * 100) / 100;
+    const nuevos = planes.map((p) => (p.id === planId ? { ...p, preciosLocales: locales } : p));
+    const json = JSON.stringify(nuevos);
+    // Lo que se escribe tiene que volver a leerse igual: si no, no se escribe (nunca un setting que se descarta en silencio).
+    const releido = planesDeSetting(json);
+    const vuelto = releido.find((p) => p.id === planId);
+    if (releido.length !== nuevos.length || !vuelto || (vuelto.preciosLocales[m] ?? null) !== (locales[m] ?? null)) {
+      return { ok: false as const, error: 'No pude guardar el precio: los planes no pasaron la validación.' };
+    }
+    await setSetting(CLAVE_PLANES, json);
+    return { ok: true as const, plan: vuelto };
+  });
 }
 
 /** El lead de ese email en el CRM de la plataforma (exacto), o uno nuevo. Corre adentro de runWithWorkspace. */
@@ -126,9 +188,9 @@ export type ResultadoCompra =
   | { ok: true; link: string }
   | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }> };
 
-/** El checkout de un plan. Ver el orden arriba. */
-export async function iniciarCompraDePlan(p: PedidoCompra): Promise<ResultadoCompra> {
-  const oferta = await ofertaDelPlan(p.plan);
+/** El checkout de un plan. Ver el orden arriba. `conPrueba`: quien compra es el super admin (ver `ofertaDelPlan`). */
+export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: boolean } = {}): Promise<ResultadoCompra> {
+  const oferta = await ofertaDelPlan(p.plan, opts);
   if (!oferta) return { ok: false, status: 404, error: 'Ese plan no existe.' };
   const { plan, pasarelas } = oferta;
   const eleccion = pasarelaDeLaCompra({ pedida: p.pasarela, sirven: pasarelas.map((x) => x.pasarela) });

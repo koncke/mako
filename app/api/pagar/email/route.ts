@@ -24,6 +24,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { getWorkspace, runWithWorkspace } from '@/lib/workspace';
 import { buscarUsuarioPorEmail } from '@/lib/usuarios';
 import { avisarCambioDeEmailDeAcceso, invitarPorEmail } from '@/lib/invitaciones';
+import { PREFIJO_MAIL_NO_SALIO } from '@/lib/cobros-reglas';
 import { logLeadEvent } from '@/lib/leads';
 import { getCobroPorToken } from '@/lib/cobros';
 import { emailEnmascarado } from '@/lib/cobros-reglas';
@@ -135,7 +136,7 @@ export async function POST(req: NextRequest) {
   const ws = await getWorkspace(cobro.alta_ws!).catch(() => null);
   const invitacion = await invitarPorEmail({ email: nuevo.email, workspace: ws?.nombre, rolWs: 'admin' });
   const { error: e4 } = await db.from('cobros')
-    .update({ alta_motivo: invitacion.enviado ? null : `El mail de acceso no salió: ${invitacion.error ?? 'sin detalle'}`.slice(0, 300) })
+    .update({ alta_motivo: invitacion.enviado ? null : `${PREFIJO_MAIL_NO_SALIO}: ${invitacion.error ?? 'sin detalle'}`.slice(0, 300) })
     .eq('id', cobro.id);
   if (e4) console.error(`[pagar-email] no pude anotar el envío en el cobro ${cobro.id}: ${e4.message}`);
 

@@ -87,6 +87,7 @@ test('/planes arma el botón con la regla y decide por plan con la misma cuenta 
   const lib = fuente('lib/compra-plan.ts');
   const ofertas = lib.slice(lib.indexOf('export async function ofertasDeLosPlanes'), lib.indexOf('export async function ofertasDeLosPlanes') + 700);
   assert.match(ofertas, /precioEn\(plan, m\.moneda\) != null/);
+  assert.match(ofertas, /\.filter\(\(m\) => !m\.prueba\)/, 'una pasarela en modo prueba no es cobrable al público (igual que ofertaDelPlan)');
   assert.match(ofertas, /catch/, 'sin poder leer las pasarelas, ninguno es cobrable (no se rompe la página)');
 });
 

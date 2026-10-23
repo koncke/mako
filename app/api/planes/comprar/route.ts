@@ -18,6 +18,7 @@ import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { origenDelPago } from '@/lib/editor-landing/pago-pedido';
 import { codigoRefLimpio, leerPedidoCompra } from '@/lib/compra-plan-reglas';
 import { iniciarCompraDePlan } from '@/lib/compra-plan';
+import { getSesionAdmin } from '@/lib/auth';
 import { COOKIE_REF } from '@/lib/partners-reglas';
 
 export const dynamic = 'force-dynamic';
@@ -42,7 +43,8 @@ export async function POST(req: NextRequest) {
   // El código de partner: el PRIMERO vale (revisión del 23/10, media 14): la cookie que dejó /r/<código> gana sobre el `?ref=`.
   const ref = codigoRefLimpio(req.cookies.get(COOKIE_REF)?.value) ?? pedido.ref;
 
-  const r = await iniciarCompraDePlan({ ...pedido, ref });
+  // Con las claves de PRUEBA conectadas, sólo el super admin compra (la prueba de humo): ver `ofertaDelPlan`.
+  const r = await iniciarCompraDePlan({ ...pedido, ref }, { conPrueba: (await getSesionAdmin().catch(() => null)) != null });
   if (!r.ok) return Response.json({ error: r.error, ...(r.elegir ? { elegir: r.elegir } : {}) }, { status: r.status });
   return Response.json({ ok: true, link: r.link });
 }
