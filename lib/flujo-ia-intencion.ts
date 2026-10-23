@@ -34,6 +34,7 @@ export const REGLAS_EDITAR = [
   '- Las 20 horas entre dos WhatsApp (regla 3) son para lo que armas tú: no agregues esperas que no pidió. Si pide otra espera, pon la que pide y di en "resumen" que la línea retiene el segundo mensaje hasta que pasen las horas de «Misma persona» (Configuraciones › Anti-ban).',
   '- «Avísame», «avísame por WhatsApp» o «que me llegue a mí» es la "accion" "avisar_al_equipo" (le llega al grupo de MaKo del negocio), nunca un mensaje al lead.',
   '- «Agrega», «suma» o «añade» (aunque diga «edítalos y agrégalos») es SUMAR: los textos nuevos van en "agregar", como tarjetas nuevas después del último mensaje, y los mensajes que ya están NO se cambian.',
+  '- «Que sea sólo X», «sólo quiero X» o «saca Y» es QUITAR lo que sobra: cada tarjeta que no es X (o que es Y) va en "quitar", con su id; X se queda. Un seguimiento («si no responde») va después del último mensaje, detrás de "contesto" con "no": true.',
 ].join('\n');
 
 /**
@@ -135,19 +136,63 @@ function palabrasDe(t: string): string[] {
  * mismo mensaje (los links y las variables no cuentan: MaKo los pone aparte). Sin textos entre comillas, nada. Pura.
  */
 export function faltantesDelPedido(pedido: string, textosDelFlujo: readonly string[]): string[] {
-  const citas = [...String(pedido ?? '').matchAll(/[«"“]([^«»"“”\n]{1,600})[»"”]/g)].map((m) => m[1].trim())
-    .filter((t) => t.length >= LARGO_TEXTO_PEDIDO);
-  if (!citas.length) return [];
-  const flujo = textosDelFlujo.map((t) => new Set(palabrasDe(t)));
-  const faltan: string[] = [];
-  for (const c of citas) {
-    const ws = palabrasDe(c);
-    if (!ws.length) continue;
-    const esta = flujo.some((f) => ws.filter((w) => f.has(w)).length >= Math.ceil(ws.length * 0.8));
-    if (!esta && !faltan.includes(c)) faltan.push(c.length > 80 ? `${c.slice(0, 79).trimEnd()}…` : c);
-  }
-  return faltan;
+  // ⚠️ SIN LO QUE PIDIÓ SACAR (23/10/2026): «sacá "…"» también va entre comillas, y el control le pedía al modelo volver a
+  // ponerlo. Eso lo mira `sobrantesDelPedido`.
+  return citasDelPedido(pedido).filter((c) => !c.sacar && !estaEnElFlujo(c.texto, textosDelFlujo)).map((c) => recorte(c.texto))
+    .filter((t, i, xs) => xs.indexOf(t) === i);
 }
+
+/** «Sacá», «quitá», «eliminá», «borrá» y sus formas (no «borrador»). Límites por Unicode, no `\b` (AGENTS.md). */
+const RE_SACAR = /(?<!\p{L})(?:sac|quit|elimin|borr(?!ador))\p{L}*/iu;
+
+/** Los textos entre comillas del pedido (≥ `LARGO_TEXTO_PEDIDO`), y si el dueño pidió SACARLOS: un verbo de sacar antes, en la misma frase. */
+function citasDelPedido(pedido: string): Array<{ texto: string; sacar: boolean }> {
+  const s = String(pedido ?? '');
+  return [...s.matchAll(/[«"“]([^«»"“”\n]{1,600})[»"”]/g)].map((m) => {
+    const frase = s.slice(Math.max(0, (m.index ?? 0) - 100), m.index ?? 0).split(/[.\n!?;]/).pop() ?? '';
+    return { texto: m[1].trim(), sacar: RE_SACAR.test(frase) };
+  }).filter((c) => c.texto.length >= LARGO_TEXTO_PEDIDO);
+}
+
+/** ¿Está en algún mensaje? Al menos el 80% de sus palabras en UN mismo mensaje (links y variables no cuentan). */
+function estaEnElFlujo(texto: string, textosDelFlujo: readonly string[]): boolean {
+  const ws = palabrasDe(texto);
+  if (!ws.length) return true;
+  return textosDelFlujo.some((t) => { const f = new Set(palabrasDe(t)); return ws.filter((w) => f.has(w)).length >= Math.ceil(ws.length * 0.8); });
+}
+const recorte = (t: string): string => (t.length > 80 ? `${t.slice(0, 79).trimEnd()}…` : t);
+
+/**
+ * LO QUE PIDIÓ SACAR Y SIGUE (23/10/2026, #289 en el ws1, por el Cerebro: «"sacá Y" BORRA lo que sobra»). Los textos entre
+ * comillas que el dueño pidió sacar («sacá el mensaje "…"») y siguen en algún mensaje del flujo. Pura.
+ */
+export function sobrantesDelPedido(pedido: string, textosDelFlujo: readonly string[]): string[] {
+  return citasDelPedido(pedido).filter((c) => c.sacar && estaEnElFlujo(c.texto, textosDelFlujo)).map((c) => recorte(c.texto))
+    .filter((t, i, xs) => xs.indexOf(t) === i);
+}
+
+/**
+ * ¿PIDE QUE QUEDE SÓLO ESO? (23/10/2026, #289: «En realidad solo quiero que la automatización sea de "Apertura"…»: MaKo
+ * agregó el seguimiento y dejó los mensajes de después.) Sólo las formas que restringen el FLUJO: «sólo quiero que la
+ * automatización/el flujo sea…», «que sea/quede sólo…», «dejá sólo…», «nada más que…». NO «sólo cambia el segundo» (eso
+ * restringe el cambio, no el flujo) ni «sólo explícamelo».
+ */
+const RE_SOLO_ESO = /(?<!\p{L})(?:s[oó]lo|solamente|[uú]nicamente)\s+quiero\s+que\s+(?:la\s+automatizaci[oó]n|el\s+flujo|la\s+secuencia|esta|sea|quede|tenga)(?!\p{L})|(?<!\p{L})que\s+(?:sea|quede|tenga)\s+(?:s[oó]lo|solamente|[uú]nicamente)(?!\p{L})|(?<!\p{L})d[eé]j[aá](?:le|la|lo)?\s+(?:s[oó]lo|solamente|[uú]nicamente)(?!\p{L})/iu;
+export function pideQueQuedeSolo(pedido: string): boolean {
+  return RE_SOLO_ESO.test(String(pedido ?? ''));
+}
+
+/** El error para el reintento: lo que pidió sacar y sigue, y/o que pidió que quede sólo eso y no quitó nada. */
+export function errorDeSobrantes(sobran: readonly string[], soloSinQuitar: boolean): string {
+  const partes: string[] = [];
+  if (sobran.length) partes.push(`El dueño pidió SACAR ${sobran.map((t) => `«${t}»`).join(', ')} y sigue en el flujo: va en "quitar", con su id.`);
+  if (soloSinQuitar) partes.push('El dueño pidió que el flujo quede SÓLO con lo que dice y no quitaste nada: cada tarjeta del flujo actual que no sea eso va en "quitar", con su id. Si de verdad va todo, devuélvelo igual y dilo en "resumen".');
+  return partes.join(' ');
+}
+
+/** Lo que va en ROJO si después del reintento sigue sobrando. */
+export const NO_HECHO_SOLO_ESO = 'Pediste que quede sólo eso y no saqué ninguno de los mensajes que ya estaban. Si sobra alguno, dime cuál.';
+export const noHechoSobrante = (t: string): string => `Pediste sacarlo y sigue en el lienzo: «${t}»`;
 
 /** El error que se le devuelve al modelo para el reintento (`generar`): qué de lo pegado no quedó, y cómo se pone una rama. */
 export function errorDeFaltantes(faltan: readonly string[]): string {

@@ -13,10 +13,13 @@
 //   · UNA ETAPA QUE NO EXISTE («que arranque cuando entra a la etapa «Clientes VIP Platino»»): el modelo no devolvía nada y
 //     salía «No cambió nada». Se contesta ANTES del modelo, con las etapas que tiene ese CRM, y el CRON no se toca.
 // =============================================================================
-import { deIAEdicion, erroresEdicion, textosDeMensajes, type CtxIA, type ResultadoEdicion } from './flujo-ia';
-import { errorDeRespuestaEnEditar, charlaConTextos, traeTextosPegados, faltantesDelPedido, errorDeFaltantes, type IntencionChat } from './flujo-ia-intencion';
+import { deIAEdicion, erroresEdicion, textosDeMensajes, pidioAviso, ultimoMensajeDelCamino, RE_SEGUIMIENTO, type CtxIA, type ResultadoEdicion } from './flujo-ia';
+import {
+  errorDeRespuestaEnEditar, charlaConTextos, traeTextosPegados, faltantesDelPedido, errorDeFaltantes, sobrantesDelPedido, pideQueQuedeSolo,
+  errorDeSobrantes, NO_HECHO_SOLO_ESO, noHechoSobrante, type IntencionChat,
+} from './flujo-ia-intencion';
 import { esConsulta } from './flujo-ia-consulta';
-import { claseDe, idDe, type PasoGrafo } from './flujo-grafo';
+import { claseDe, idDe, raizRespuesta, descendientes, type PasoGrafo } from './flujo-grafo';
 
 type Charla = readonly { de: string; texto?: string | null }[];
 
@@ -102,6 +105,61 @@ export function textoEtapaQueNoExiste(x: EtapaQueNoExiste): string {
 }
 
 /**
+ * LAS PIEZAS PEDIDAS QUE NO QUEDARON (23/10/2026, #289 medido en seco con Haiku, 3 corridas: «sólo apertura, un
+ * seguimiento si no responden, y si responde se corta y le avisa a Ana por el grupo»). Una corrida se llevó el aviso al
+ * grupo junto con los mensajes que sobraban; otra metió el seguimiento ADENTRO de «Si responde» (donde no hay esperas: el
+ * código las saca y el seguimiento quedaba sin espera). Lo que se mira, sólo si el pedido lo nombra:
+ *   · un SEGUIMIENTO («seguimiento», «si no responde»): una espera de tiempo seguida de un mensaje (con o sin la condición
+ *     en el medio) en el camino del lead;
+ *   · el AVISO al equipo (`pidioAviso`, salvo que pida sacarlo): una «MaKo en WhatsApp».
+ */
+// (`RE_SEGUIMIENTO`, lib/flujo-ia.ts: la misma que decide cuándo poner «No contestó».)
+const RE_AVISO_AL_RESPONDER = /(?<!no )(?:cuando|una vez que|apenas|en cuanto|si)\s+(?:alguien |el lead |la persona |me |te |le |nos )?(?:responde|contesta)n?(?!\p{L})[^.]{0,160}?(?:avis|notific)/iu;
+const esAviso = (p: PasoGrafo): boolean => (p as { accion?: { operacion?: string } }).accion?.operacion === 'avisar_al_equipo';
+const RE_SACAR_AVISO = /(?<!\p{L})(?:sac|quit|elimin|borr(?!ador))\p{L}*\s+(?:\p{L}+\s+){0,2}avis/iu;
+function formaPedida(pedido: string, pasos: readonly PasoGrafo[], base: readonly PasoGrafo[]): Array<{ error: string; rojo: string }> {
+  const out: Array<{ error: string; rojo: string }> = [];
+  const m = new Map(pasos.map((p, i) => [idDe(p, i), p]));
+  if (RE_SEGUIMIENTO.test(pedido)) {
+    const hay = pasos.some((p) => {
+      if (claseDe(p) !== 'esperar' || (p.espera as { modo?: string } | undefined)?.modo === 'antes_reunion') return false;
+      let q = m.get(String(p.siguiente ?? ''));
+      if (q && claseDe(q) === 'condicion') q = m.get(String(q.ramas?.[0]?.siguiente ?? ''));
+      return !!q && claseDe(q) === 'mensaje';
+    });
+    if (!hay) out.push({
+      error: 'El dueño pidió un SEGUIMIENTO si no responde: va en el camino del lead, después del último mensaje: un "esperar" y el mensaje, detrás de "contesto" con "no": true. Nunca adentro de "si_responde".',
+      rojo: 'El seguimiento «si no responde» no quedó: falta la espera y su mensaje después del último mensaje',
+    });
+  }
+  // «Sólo X» que se llevó X (medido en seco: «sólo apertura» terminó sin un solo mensaje): el camino del lead no puede quedar
+  // sin mensajes si los tenía.
+  if (pideQueQuedeSolo(pedido) && base.some((p) => claseDe(p) === 'mensaje') && ultimoMensajeDelCamino(pasos) == null) {
+    out.push({
+      error: 'Con «sólo X» se queda X: quitaste también los mensajes del camino del lead. Devuelve los que son X (por ejemplo, los de apertura) y quita sólo lo que sobra.',
+      rojo: 'Quedó sin ningún mensaje al lead: no saqué lo que pediste conservar',
+    });
+  }
+  // «Cuando responde, le avisa al grupo»: el aviso va DEBAJO de «Si responde» (medido en seco: quedaba colgado del
+  // seguimiento, o sin «Si responde», y nadie se enteraba de la respuesta).
+  const resp = raizRespuesta(pasos);
+  const bajoResp = new Set(resp ? [resp, ...descendientes(pasos, resp)] : []);
+  if (RE_AVISO_AL_RESPONDER.test(pedido) && !pasos.some((p, i) => bajoResp.has(idDe(p, i)) && esAviso(p))) {
+    out.push({
+      error: 'El dueño pidió que cuando el lead responda le avisen al grupo: la "accion" "avisar_al_equipo" va en el "otra_cosa" de "si_responde" (una sola "si_responde", sin padre).',
+      rojo: 'No quedó el aviso al grupo cuando el lead responde',
+    });
+  }
+  if (pidioAviso(pedido) && !RE_SACAR_AVISO.test(pedido) && !pasos.some(esAviso)) {
+    out.push({
+      error: 'El dueño pidió que le avisen al grupo y no quedó ningún aviso: falta la "accion" "avisar_al_equipo" donde lo pidió (si es cuando el lead responde, en el "otra_cosa" de "si_responde").',
+      rojo: 'No quedó el aviso al grupo que pediste',
+    });
+  }
+  return out;
+}
+
+/**
  * LO QUE SE HACE CON UN INTENTO DEL MODELO AL EDITAR: el borrador (`deIAEdicion`) y los errores que hacen reintentar.
  *   0. lo pedido en la charla YA está hecho (`yaEstaEnElFlujo`) y el modelo contestó o agregó copias → eso es la respuesta;
  *   1. una "respuesta" en Editar que no vale (`errorDeRespuestaEnEditar`) → error;
@@ -110,8 +168,11 @@ export function textoEtapaQueNoExiste(x: EtapaQueNoExiste): string {
  *   4. no cambió nada y lo pedido en la charla ya está hecho → eso es la respuesta;
  *   5. lo de siempre (`erroresEdicion`);
  *   6. EL CONTROL DE LO PEDIDO (22/10/2026, Martín: «creó a la mitad las cosas que le pedí»): lo que el dueño pegó entre
- *      comillas y no quedó en ningún mensaje (`faltantesDelPedido`). La PRIMERA vez del turno es un error para el reintento
- *      (`control`, que la ruta crea una vez por turno); después se aplica lo que hay y se dice en ROJO (`noHecho`).
+ *      comillas y no quedó en ningún mensaje (`faltantesDelPedido`). Y desde el 23/10 (#289: «sólo quiero que sea de
+ *      Apertura» y quedaron los mensajes de después) también lo que había que SACAR: lo que pidió sacar entre comillas y
+ *      sigue (`sobrantesDelPedido`), y «que quede sólo eso» sin quitar ninguno de los mensajes que había
+ *      (`pideQueQuedeSolo`). La PRIMERA vez del turno es UN error con todo para el reintento (`control`, que la ruta crea
+ *      una vez por turno); después se aplica lo que hay y se dice en ROJO (`noHecho`).
  */
 export function revisarEdicion(o: {
   obj: unknown; base: readonly PasoGrafo[]; ctx: CtxIA; pedido: string; historial: Charla; intencion: IntencionChat | null;
@@ -141,9 +202,23 @@ export function revisarEdicion(o: {
     if (ya) return { r: { ...r, respuesta: ya, resumen: ya }, errores: [] };
   }
   if (errores.length) return { r, errores };
-  const faltan = faltantesDelPedido(o.pedido, textosDeMensajes(r.pasos));
+  const textos = textosDeMensajes(r.pasos);
+  const faltan = faltantesDelPedido(o.pedido, textos);
+  const sobran = sobrantesDelPedido(o.pedido, textos);
+  const mensajesDeAntes = o.base.map((p, i) => ({ p, id: idDe(p, i) })).filter((x) => claseDe(x.p) === 'mensaje');
+  const soloSinQuitar = pideQueQuedeSolo(o.pedido) && mensajesDeAntes.length > 0 && !mensajesDeAntes.some((x) => r.quitadas.includes(x.id));
+  const forma = formaPedida(o.pedido, r.pasos, o.base);
   const control = o.control ?? { yaPidioLoQueFalta: false };
-  if (faltan.length && !control.yaPidioLoQueFalta) { control.yaPidioLoQueFalta = true; return { r, errores: [errorDeFaltantes(faltan)] }; }
-  if (faltan.length) r.noHecho = [...(r.noHecho ?? []), ...faltan.map((t) => `No quedó en el lienzo: «${t}»`)];
+  if ((faltan.length || sobran.length || soloSinQuitar || forma.length) && !control.yaPidioLoQueFalta) {
+    control.yaPidioLoQueFalta = true;
+    return { r, errores: [[faltan.length ? errorDeFaltantes(faltan) : '', errorDeSobrantes(sobran, soloSinQuitar), ...forma.map((f) => f.error)].filter(Boolean).join(' ')] };
+  }
+  const rojo = [
+    ...faltan.map((t) => `No quedó en el lienzo: «${t}»`),
+    ...sobran.map(noHechoSobrante),
+    ...(soloSinQuitar ? [NO_HECHO_SOLO_ESO] : []),
+    ...forma.map((f) => f.rojo),
+  ];
+  if (rojo.length) r.noHecho = [...(r.noHecho ?? []), ...rojo];
   return { r, errores: [] };
 }

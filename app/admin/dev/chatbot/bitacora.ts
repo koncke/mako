@@ -2453,4 +2453,16 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "23 oct", hora: "00:05", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Todo lo de Automations con prioridad: MaKo editó mal #289, Configuraciones en una pantalla y el chat con la caja única",
+    puntos: [
+      "Llegó por el Cerebro, en este orden.",
+      "MaKo agregó el seguimiento sin «si no respondió» y no sacó los mensajes que sobraban con «que sea sólo de apertura». El borrador de #289 lo arregla Martín con MaKo.",
+      "Configuraciones: una sola «Misma persona», los ajustes por canal, «Horario de oficina» en vez de «propio», todo en una pantalla sin pestañas. Y medir si «Misma persona» traba un seguimiento de 2 h.",
+      "El chat de MaKo en Automations pasa a la caja y el hilo únicos: la estrella, aire abajo y el «+» para adjuntar.",
+    ],
+    pedido: "«Todo lo de Automations con prioridad»",
+  },
 ];

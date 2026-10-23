@@ -230,7 +230,9 @@ test('resumenEdicion cuenta bien, sólo con lo que pasó', () => {
     quitar: ['k1'],
     agregar: [{ despues_de: 'm0', salida: 'sig', tarjetas: [{ id: 't1', tipo: 'esperar', dias: 1, sigue: 't2' }, { id: 't2', tipo: 'mensaje', texto: '¿Cómo vas?' }] }],
   }, baseCondicion(), ctx, rndDe());
-  assert.equal(resumenEdicion(r), 'Cambié 1 · saqué 4 · agregué 2');
+  // 23/10/2026: «agrega un seguimiento» lleva «No contestó desde que entró» entre la espera y el mensaje (la agrega el
+  // código, `seguimientosConNoContesto`): son 3, y la edición sigue sin errores.
+  assert.equal(resumenEdicion(r), 'Cambié 1 · saqué 4 · agregué 3');
   assert.deepEqual(erroresEdicion(baseCondicion(), r, ctx), []);
 });
 

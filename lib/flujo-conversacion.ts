@@ -826,6 +826,9 @@ export function esperaAntesDe(pasos: readonly PasoGrafo[], id: string, vistos: R
   for (const pa of padresDe(pasos, id)) {
     if (vistos.has(pa.id)) continue;
     const q = nodoPorId(pasos, pa.id);
+    // Una CONDICIÓN no lleva tiempo: la espera de antes sigue contando (23/10/2026: el seguimiento lleva «No contestó desde
+    // que entró» entre la espera y el mensaje, y la ventana de 24 h de Meta dejaba de verla).
+    if (q && claseDe(q) === 'condicion') { max = Math.max(max, esperaAntesDe(pasos, pa.id, new Set([...vistos, id]))); continue; }
     if (!q || claseDe(q) !== 'esperar' || q.espera?.modo === 'antes_reunion') continue;
     const m = Math.max(0, Number(q.espera?.minutos) || 0);
     max = Math.max(max, m + esperaAntesDe(pasos, pa.id, new Set([...vistos, id])));

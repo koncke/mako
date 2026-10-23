@@ -6100,3 +6100,23 @@ app/automations/ConfigAutomatizacionPanel.tsx (`AntibanDeLaAutomatizacion`) · L
 · lib/config-automatizacion.ts · lib/flujo-ia-intencion.ts · test: tests/automations-antiban.test.ts. **Sin hacer:** el
 teléfono (/m/automations) no tiene Configuraciones: el anti-ban y el horario de una automatización sólo se cambian en la
 computadora.
+
+## «Sólo apertura y un seguimiento si no responde»: el modelo piensa «Si responde» como un paso de la cadena (23/10/2026, #289)
+
+**Síntoma (Martín, ws1, Editar con Haiku):** «solo quiero que la automatización sea de "Apertura", y de última con un
+seguimiento si no responden… y cuando alguien responde se corta y le avisa a Mauricio». MaKo puso la espera de 2 días y el
+mensaje SIN la condición «no respondió», y no sacó los mensajes de los casos. **El diagnóstico obvio («la regla 3 del prompt
+no está») era el equivocado:** la regla ya pedía `contesto` con `no`. Medido en seco (scratchpad `medir-solo-apertura.mts`,
+forma de #289 con textos neutros): Haiku piensa «Si responde» como un PASO («si no responde → esperar → seguimiento») y le
+cuelga la espera; ahí no hay esperas, el código la tiraba y el seguimiento quedaba como respuesta, o no quedaba. Y con «sólo
+X», a veces se llevaba también X. **Regla:** lo que el modelo no cumple lo hace el código: un seguimiento NUEVO que el pedido
+nombra lleva «No contestó desde que entró» (`seguimientosConNoContesto`; un «recordatorio» no); un tramo que empieza con una
+espera y cuelga de «Si responde» va después del último mensaje; los casos que el turno vació se van; y el control de lo
+pedido mira también lo que había que SACAR (y no pide volver a poner lo que pidió sacar: `faltantesDelPedido` lo contaba),
+el seguimiento, el aviso cuando responde y que «sólo X» no se lleve X. Tras el arreglo, 8 de 8 corridas. **Trampa:**
+`esperaAntesDe` (la ventana de 24 h de Meta) no atravesaba una condición: una espera de 48 h antes de un DM con una
+condición en el medio pasaba. **Vive en:** lib/flujo-ia.ts (`seguimientosConNoContesto`, `sinCasosVaciados`,
+`agregarTramos`) · lib/flujo-ia-revision-editar.ts (`formaPedida`) · lib/flujo-ia-intencion.ts (`sobrantesDelPedido`,
+`pideQueQuedeSolo`) · lib/flujo-conversacion.ts · test: tests/chat-mako-seguimiento-y-solo.test.ts. **Sin hacer:** en 2 de 8
+corridas Haiku sacó también la pregunta de la apertura (no hay cómo saber qué es «apertura» sin el modelo); el «sólo X» sin
+comillas no se controla más que con «no quitaste nada».
