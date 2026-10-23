@@ -19,37 +19,44 @@
 // MINIATURA (640 px), y la burbuja de cualquier dispositivo la pide con una URL de 10 minutos (fotos-enviadas.ts, de dónde
 // sale cada una; lib/operaciones-adjuntos.ts → «Las fotos enviadas»). Sólo la pide un trabajo que TIENE fotos (`fotos`,
 // los nombres que el servidor saca del texto firmado): una burbuja con un PDF no va al servidor. Y sabe cuántas espera:
-// mientras falte alguna (subían de a una), vuelve a preguntar una vez.
+// mientras falte alguna (suben de a una), vuelve a preguntar durante los primeros minutos del mensaje.
 
 import { useEffect, useState } from 'react';
 import { IconoChat } from '@/app/m/mako/iconos';
-import { leerFotosEnviadas, fotosYaLeidas, nombresSinFoto, type Foto } from './fotos-enviadas';
+import { leerFotosEnviadas, fotosYaLeidas, nombresSinFoto, proximoIntento, type Foto } from './fotos-enviadas';
 import type { AdjuntoTurno } from '@/lib/operaciones-reglas';
 import { Visor } from './Visor';
-
-/** Cuánto espera para volver a pedir las fotos que faltan: las miniaturas suben después de mandar, de a una. */
-const OTRA_VEZ_MS = 12_000;
 
 /**
  * Lo adjuntado en una burbuja propia: sus fotos (de este navegador o del servidor), y el nombre de lo demás.
  * ⚠️ Quien la monta le da `key={id}` (Hilo.tsx): la conversación se dibuja por posición, y sin la clave una burbuja que
  *    pasa a ser de OTRO mensaje mostraría las fotos del anterior hasta que llegan las suyas.
+ * `creado`: cuándo salió el mensaje. Mientras falten fotos, vuelve a preguntar (12, 24, 48 s…) durante sus primeros 3
+ * minutos (`proximoIntento`): las miniaturas suben de a una, después de mandar.
  */
-export function AdjuntosEnBurbuja({ id, nombres, fotos: nombresDeFotos }: { id: string; nombres: readonly string[]; fotos?: readonly string[] }) {
+export function AdjuntosEnBurbuja({ id, nombres, fotos: nombresDeFotos, creado }: { id: string; nombres: readonly string[]; fotos?: readonly string[]; creado?: string }) {
   const [fotos, setFotos] = useState<Foto[] | null>(() => fotosYaLeidas(id));
   const [viendo, setViendo] = useState<Foto | null>(null);
   const esperadas = nombresDeFotos?.length ?? 0;
   useEffect(() => {
     let vivo = true;
     let reloj: ReturnType<typeof setTimeout> | null = null;
-    void leerFotosEnviadas(id, esperadas).then((lista) => {
-      if (!vivo) return;
-      setFotos(lista);
-      // Otro dispositivo pudo ver el mensaje antes de que subieran todas sus miniaturas: una vez más, un rato después.
-      if (lista.length < esperadas) reloj = setTimeout(() => { void leerFotosEnviadas(id, esperadas).then((otra) => { if (vivo && otra.length > lista.length) setFotos(otra); }); }, OTRA_VEZ_MS);
-    });
+    let tengo = -1;
+    let intento = 0;
+    const desde = creado ? Date.parse(creado) : NaN;
+    const mirar = () => {
+      void leerFotosEnviadas(id, esperadas).then((lista) => {
+        if (!vivo) return;
+        if (lista.length > tengo) { tengo = lista.length; setFotos(lista); }
+        if (tengo >= esperadas) return;
+        const espera = proximoIntento(intento, desde, Date.now());
+        intento += 1;
+        if (espera != null) reloj = setTimeout(mirar, espera);
+      });
+    };
+    mirar();
     return () => { vivo = false; if (reloj) clearTimeout(reloj); };
-  }, [id, esperadas]);
+  }, [id, esperadas, creado]);
   const otros = nombresSinFoto(nombres, fotos ?? []);
   return (
     <>

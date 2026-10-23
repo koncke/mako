@@ -8,9 +8,9 @@ docs/hallazgos-operaciones.md → «La foto que se manda por la caja, vista en o
 
 - **HECHO: la foto mandada por la caja se ve en el teléfono** (y al revés). La «decisión de Martín» que la trababa ya estaba
   tomada el 18/10. Queda una miniatura de 640 px en el storage (`operaciones-enviados/<ref>`), y el original se sigue
-  borrando al entregar. Pasó una revisión adversarial con cada hallazgo verificado aparte (9 agentes): 7 arreglados, 1 no
-  era un defecto. El que más importaba lo vio el crítico: la burbuja, dibujada por posición, podía mostrar las fotos de
-  OTRO mensaje (ahora `key={w.id}`).
+  borrando al entregar. Pasó dos revisiones adversariales, con cada hallazgo verificado aparte (9 y 6 agentes): 11
+  arreglados, 1 no era un defecto. El que más importaba lo vio el crítico: la burbuja, dibujada por posición, podía
+  mostrar las fotos de OTRO mensaje (ahora `key={w.id}`).
 - **Lo que quedaba abierto de las últimas vueltas, medido hoy:**
   - el «Completado» sin ver YA viaja entre dispositivos (el ✓ en el servidor, `marcarYaVistoAction`);
   - los documentos en una conversación de Offer YA están (OC7, `bbb766cac`): el punto 2 del 21/10, abajo, está hecho;

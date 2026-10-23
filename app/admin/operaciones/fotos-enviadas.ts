@@ -27,7 +27,7 @@ const LADO_MINIATURA = 640;
  * La miniatura de una foto: dibujada de nuevo en un lienzo, a 640 px y en JPEG. null si no se pudo: NUNCA el original,
  * que trae su EXIF (la ubicación incluida) y quedaría 14 días en el servidor (revisión del 23/10/2026).
  */
-async function miniatura(f: File): Promise<File | null> {
+async function miniatura(f: File, nombre: string): Promise<File | null> {
   try {
     const bmp = await createImageBitmap(f);
     const k = Math.min(1, LADO_MINIATURA / Math.max(bmp.width, bmp.height));
@@ -39,7 +39,7 @@ async function miniatura(f: File): Promise<File | null> {
     ctx.drawImage(bmp, 0, 0, lienzo.width, lienzo.height);
     bmp.close();
     const blob = await new Promise<Blob | null>((ok) => lienzo.toBlob(ok, 'image/jpeg', 0.78));
-    return blob ? new File([blob], f.name, { type: 'image/jpeg' }) : null;
+    return blob ? new File([blob], nombre, { type: 'image/jpeg' }) : null;
   } catch { return null; }
 }
 
@@ -58,21 +58,41 @@ const servidor = crearPedidorDeFotos(async (ids) => {
  * trabajo FIRMÓ como foto (`a.mime`, sacado de los bytes), no el tipo que dice el navegador (algunos selectores de Android
  * lo dejan vacío). Si no coinciden (otro tamaño), esa no sube. Si la subida falla, no se avisa: en otro dispositivo se ve
  * su nombre, como antes.
+ * ⚠️ El NOMBRE es el firmado (`a.nombre`, saneado y recortado), no el del archivo: la burbuja separa fotos de documentos
+ *    comparando con los nombres del trabajo, y con otro nombre se vería la foto Y su renglón (segunda revisión, 23/10).
+ * ⚠️ DE A UNA: cada foto se decodifica, se guarda en IndexedDB y sube antes de pasar a la siguiente. Decodificar 20 fotos
+ *    de 12 MP juntas es un pico de memoria que el teléfono no aguanta, y subir cada una apenas está achica la ventana en
+ *    que otro dispositivo ve el mensaje sin todas sus fotos.
  */
 export function recordarEnviadas(id: string, archivos: readonly File[], subidos: readonly AdjuntoPedido[]) {
   const pares = archivos.map((f, i) => ({ f, a: subidos[i] })).filter(({ f, a }) => !!a && a.mime.startsWith('image/') && a.bytes === f.size);
   if (!pares.length) return;
-  leidas.set(id, pares.map(({ f }) => ({ url: URL.createObjectURL(f), nombre: f.name })));
+  leidas.set(id, pares.map(({ f, a }) => ({ url: URL.createObjectURL(f), nombre: a.nombre })));
   void (async () => {
-    const hechas = (await Promise.all(pares.map(async ({ f, a }) => ({ a, m: await miniatura(f) }))))
-      .filter((x): x is { a: AdjuntoPedido; m: File } => !!x.m && x.m.size <= MAX_BYTES_MINIATURA);
-    if (!hechas.length) return;
-    await guardarAdjuntos(direccionDe(id), hechas.map((x) => x.m));
-    for (const { a, m } of hechas) {
+    const hechas: File[] = [];
+    for (const { f, a } of pares) {
+      const m = await miniatura(f, a.nombre);
+      if (!m || m.size > MAX_BYTES_MINIATURA) continue;
+      hechas.push(m);
+      await guardarAdjuntos(direccionDe(id), hechas);
       const q = `miniatura=${encodeURIComponent(id)}&ref=${encodeURIComponent(a.ref)}`;
       await fetch(`/api/operaciones/adjuntos?${q}`, { method: 'POST', headers: { 'content-type': m.type }, body: m, signal: AbortSignal.timeout(30_000) }).catch(() => null);
     }
   })();
+}
+
+/** La primera vuelta a preguntar por las fotos que faltan, y hasta cuánto después de mandar se sigue preguntando. */
+export const PRIMER_REINTENTO_MS = 12_000;
+export const TOPE_REINTENTOS_MS = 3 * 60 * 1000;
+/**
+ * Cuánto esperar para volver a preguntar por las fotos que faltan (null = no se pregunta más). La primera vez siempre; las
+ * siguientes, el doble cada vez (12, 24, 48 s…) mientras el mensaje tenga menos de `TOPE_REINTENTOS_MS`: con 15 fotos, la
+ * subida tarda más que un solo reintento. Un mensaje viejo no se queda preguntando.
+ */
+export function proximoIntento(intento: number, creado: number, ahora: number): number | null {
+  if (intento === 0) return PRIMER_REINTENTO_MS;
+  if (!Number.isFinite(creado) || ahora - creado > TOPE_REINTENTOS_MS) return null;
+  return PRIMER_REINTENTO_MS * 2 ** intento;
 }
 
 /** Las fotos de un trabajo que ya se saben sin preguntar nada (null = todavía no). */
@@ -112,16 +132,23 @@ export function enviadasParaBorrar(direcciones: readonly string[], vigentes: Rea
   return direcciones.filter((d) => d.startsWith(PREFIJO) && !vigentes.has(d.slice(PREFIJO.length)));
 }
 
+/** Desde cuándo una copia de IndexedDB se puede barrer: una más nueva pudo escribirla OTRA pestaña recién. */
+export const COPIA_NUEVA_MS = 60 * 60 * 1000;
+/** ¿Esta copia es vieja? Todos sus archivos (las miniaturas llevan la fecha en que se hicieron) de antes de `COPIA_NUEVA_MS`. */
+export const copiaVieja = (archivos: ReadonlyArray<{ lastModified: number }>, ahora: number): boolean =>
+  archivos.every((f) => ahora - f.lastModified > COPIA_NUEVA_MS);
+
 let barrida = false;
 /**
  * Barre, una vez por carga, las miniaturas de IndexedDB que ya no tienen burbuja: las de los trabajos que no vinieron en
  * la conversación (`vigentes`, la cola entera que dibuja el Ops Center). Con la cola vacía no hace nada: una lectura que
- * falló no es «no hay trabajos».
+ * falló no es «no hay trabajos». Y nunca una copia de la última hora: la cola de esta pestaña es de cuando se cargó, y
+ * otra pestaña del mismo navegador pudo mandar algo después (segunda revisión, 23/10).
  */
-export async function barrerEnviadasViejas(vigentes: readonly string[]): Promise<void> {
+export async function barrerEnviadasViejas(vigentes: readonly string[], ahora = Date.now()): Promise<void> {
   if (barrida || !vigentes.length) return;
   barrida = true;
   // Lo que este navegador mandó en esta carga tampoco se barre, aunque la cola todavía no lo traiga.
   const borrar = enviadasParaBorrar(await direccionesGuardadas(), new Set([...vigentes, ...leidas.keys()]));
-  for (const d of borrar) await guardarAdjuntos(d, []);
+  for (const d of borrar) if (copiaVieja(await leerAdjuntosGuardados(d), ahora)) await guardarAdjuntos(d, []);
 }

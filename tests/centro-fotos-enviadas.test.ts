@@ -18,7 +18,8 @@
 //   7. el barrido de IndexedDB borra sólo las miniaturas sin burbuja, nunca un borrador de la caja;
 //   8. el cableado: la cola dice qué adjuntos son fotos, la burbuja sabe cuántas espera, tiene la identidad de su mensaje,
 //      y sin fotos no va al servidor;
-//   9. la burbuja resta los nombres contando repeticiones: dos «image.png» con una sola foto a la vista dejan un renglón.
+//   9. la burbuja resta los nombres contando repeticiones: dos «image.png» con una sola foto a la vista dejan un renglón;
+//  10. mientras falten fotos se vuelve a preguntar, cada vez más espaciado, sólo en los primeros minutos del mensaje.
 //
 // Probado rompiéndolo (23/10/2026, con la base en 0 fallos): ver la tabla al pie del archivo.
 
@@ -170,17 +171,18 @@ const sub = (ref: string, f: File, mime: string, bytes = f.size) => ({ ref, nomb
 test('6. el que manda sube la miniatura REDIBUJADA de cada foto firmada, con el ref de su original; si no se pudo, nada', async () => {
   const { recordarEnviadas, fotosYaLeidas } = await import('../app/admin/operaciones/fotos-enviadas');
   await conNavegador(true, async (subidas) => {
-    const foto = new File([JPEG], 'captura.jpg', { type: 'image/jpeg' });
+    const foto = new File([JPEG], 'captura.jpg ', { type: 'image/jpeg' });
     const sinTipo = new File([JPEG, JPEG], 'de-android.jpg', { type: '' });
     const pdf = new File([PDF], 'presupuesto.pdf', { type: 'application/pdf' });
     const otra = new File([JPEG, JPEG, JPEG], 'otra.jpg', { type: 'image/jpeg' });
     const ID = '7a7a7a7a-1111-4111-8111-111111111111';
     // El PDF no es foto; la del selector de Android sin tipo SÍ (lo dice el trabajo firmado); la última llegó con otro
-    // tamaño (no es la misma): no sube con un ref que no es el suyo.
+    // tamaño (no es la misma): no sube con un ref que no es el suyo. La primera se firmó con su nombre saneado (sin el
+    // espacio del final): la burbuja compara con ése.
     recordarEnviadas(ID, [pdf, foto, sinTipo, otra], [
-      sub(REF_PDF, pdf, 'application/pdf'), sub(REF_FOTO, foto, 'image/jpeg'), sub(REF_OTRA, sinTipo, 'image/jpeg'), sub('0f69b05d-4444-4444-8444-444444444444', otra, 'image/jpeg', 1),
+      sub(REF_PDF, pdf, 'application/pdf'), { ...sub(REF_FOTO, foto, 'image/jpeg'), nombre: 'captura.jpg' }, sub(REF_OTRA, sinTipo, 'image/jpeg'), sub('0f69b05d-4444-4444-8444-444444444444', otra, 'image/jpeg', 1),
     ]);
-    assert.equal(fotosYaLeidas(ID)?.length, 2, 'se ven en el acto, sólo las fotos');
+    assert.deepEqual(fotosYaLeidas(ID)?.map((f) => f.nombre), ['captura.jpg', 'de-android.jpg'], 'se ven en el acto, sólo las fotos, con el nombre FIRMADO');
     await esperarSubidas(subidas, 2);
     assert.deepEqual(subidas.map((s) => s.url), [
       `/api/operaciones/adjuntos?miniatura=${ID}&ref=${REF_FOTO}`,
@@ -199,23 +201,29 @@ test('6. el que manda sube la miniatura REDIBUJADA de cada foto firmada, con el 
   });
 });
 
-test('7. el barrido de IndexedDB borra sólo las miniaturas sin burbuja, nunca un borrador de la caja', async () => {
-  const { enviadasParaBorrar } = await import('../app/admin/operaciones/fotos-enviadas');
+test('7. el barrido de IndexedDB borra sólo las miniaturas sin burbuja y viejas, nunca un borrador de la caja', async () => {
+  const { enviadasParaBorrar, copiaVieja, COPIA_NUEVA_MS } = await import('../app/admin/operaciones/fotos-enviadas');
   const borrar = enviadasParaBorrar(['enviado:viejo', 'enviado:vigente', 'local_11111111-1111-4111-8111-111111111111', 'nombre:cerebro'], new Set(['vigente']));
   assert.deepEqual(borrar, ['enviado:viejo']);
+  const ahora = Date.parse('2026-10-23T12:00:00Z');
+  assert.equal(copiaVieja([{ lastModified: ahora - COPIA_NUEVA_MS - 1 }], ahora), true);
+  assert.equal(copiaVieja([{ lastModified: ahora - COPIA_NUEVA_MS - 1 }, { lastModified: ahora - 60_000 }], ahora), false, 'una copia de la última hora pudo escribirla otra pestaña');
   const motor = sinComentarios(leer('app/admin/operaciones/fotos-enviadas.ts'));
   assert.match(motor, /if \(barrida \|\| !vigentes\.length\) return;/, 'con la cola vacía (una lectura que falló) no barre');
   assert.match(motor, /new Set\(\[\.\.\.vigentes, \.\.\.leidas\.keys\(\)\]\)/, 'lo recién mandado no se barre aunque la cola no lo traiga');
+  assert.match(motor, /if \(copiaVieja\(await leerAdjuntosGuardados\(d\), ahora\)\) await guardarAdjuntos\(d, \[\]\)/, 'sólo se borra una copia vieja');
 });
 
 test('8. el cableado: la cola dice qué son fotos, la burbuja sabe cuántas espera y es de SU mensaje, y sin fotos no pregunta', async () => {
   assert.match(sinComentarios(leer('lib/operaciones.ts')), /fotosDeFirmado\(firmado as string \| null\)/, 'listarPedidos saca las fotos del texto firmado');
   assert.match(leer('app/admin/operaciones/useCentro.ts'), /\.\.\.\(p\.fotos\?\.length \? \{ fotos: p\.fotos \} : \{\}\)/, 'el trabajo de la conversación las lleva');
-  assert.match(leer('app/admin/operaciones/Hilo.tsx'), /<AdjuntosEnBurbuja key=\{w\.id\} id=\{w\.id\} nombres=\{w\.adjuntos\} fotos=\{w\.fotos\} \/>/, 'la burbuja es de su mensaje y recibe sus fotos');
+  assert.match(leer('app/admin/operaciones/Hilo.tsx'), /<AdjuntosEnBurbuja key=\{w\.id\} id=\{w\.id\} nombres=\{w\.adjuntos\} fotos=\{w\.fotos\} creado=\{w\.created_at\} \/>/, 'la burbuja es de su mensaje, recibe sus fotos y cuándo salió');
   const burbuja = sinComentarios(leer('app/admin/operaciones/FotosEnviadas.tsx'));
   assert.match(burbuja, /const esperadas = nombresDeFotos\?\.length \?\? 0;/);
   assert.match(burbuja, /leerFotosEnviadas\(id, esperadas\)/);
-  assert.match(burbuja, /if \(lista\.length < esperadas\) reloj = setTimeout/, 'mientras falte alguna, vuelve a preguntar');
+  assert.match(burbuja, /if \(tengo >= esperadas\) return;/, 'con todas, no pregunta más');
+  assert.match(burbuja, /const espera = proximoIntento\(intento, desde, Date\.now\(\)\);/, 'mientras falte alguna, vuelve a preguntar con su espera');
+  assert.match(burbuja, /if \(espera != null\) reloj = setTimeout\(mirar, espera\);/);
   assert.match(leer('app/admin/operaciones/useCentro.ts'), /recordarEnviadas\(r\.id, archivos\.map\(\(a\) => a\.file\), subidos\)/, 'mandar pasa los refs');
   // Y de verdad: sin fotos esperadas, ninguna ida al servidor.
   const g = globalThis as Record<string, unknown>;
@@ -237,6 +245,17 @@ test('9. la burbuja resta los nombres contando repeticiones', async () => {
   assert.deepEqual(nombresSinFoto(['a.png'], []), ['a.png']);
 });
 
+test('10. mientras falten fotos se vuelve a preguntar, cada vez más espaciado, sólo en los primeros minutos del mensaje', async () => {
+  const { proximoIntento, PRIMER_REINTENTO_MS, TOPE_REINTENTOS_MS } = await import('../app/admin/operaciones/fotos-enviadas');
+  const creado = Date.parse('2026-10-23T12:00:00Z');
+  assert.equal(proximoIntento(0, creado, creado + 1_000), PRIMER_REINTENTO_MS, 'la primera vez siempre');
+  assert.equal(proximoIntento(0, NaN, creado), PRIMER_REINTENTO_MS, 'sin fecha, igual una vez');
+  assert.equal(proximoIntento(1, creado, creado + 20_000), PRIMER_REINTENTO_MS * 2);
+  assert.equal(proximoIntento(2, creado, creado + 45_000), PRIMER_REINTENTO_MS * 4, 'cada vez el doble');
+  assert.equal(proximoIntento(3, creado, creado + TOPE_REINTENTOS_MS + 1), null, 'un mensaje de hace más del tope no se queda preguntando');
+  assert.equal(proximoIntento(1, NaN, creado), null, 'sin fecha, una sola vez');
+});
+
 // Probado rompiéndolo (23/10/2026, con la base en 0 fallos), cada rotura con el test que la caza:
 //   · `fotosDeFirmado` sin mirar el mime (toma el PDF)                         → 1 y 2;
 //   · `problemaDeMiniatura` sin comparar el ref con las fotos del trabajo       → 2;
@@ -252,4 +271,8 @@ test('9. la burbuja resta los nombres contando repeticiones', async () => {
 //   · `enviadasParaBorrar` sin el prefijo (borra los borradores)                → 7;
 //   · Hilo.tsx sin `key={w.id}` en la burbuja                                   → 8;
 //   · `leerFotosEnviadas` preguntando al servidor sin fotos esperadas           → 8;
-//   · `nombresSinFoto` con un Set                                               → 9.
+//   · `nombresSinFoto` con un Set                                               → 9;
+//   · (segunda revisión) la foto local con el nombre del archivo y no el firmado → 6;
+//   · el barrido de IndexedDB sin `copiaVieja` (se lleva la de otra pestaña)    → 7;
+//   · `proximoIntento` sin el tope de tiempo (pregunta para siempre)            → 10;
+//   · la burbuja con un solo reintento (sin `proximoIntento`)                   → 8.

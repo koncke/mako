@@ -56,8 +56,21 @@ del código.
 - **La retención de 14 días dependía de mandar otra foto:** el barrido corre ahora también al LEER (como mucho una vez por
   hora por instancia), vacía la cola de vencidas de a 100, y el GET no firma lo de más de 14 días aunque no haya pasado.
 - **El test de la subida daba verde sin mirar la miniatura:** en node no hay `createImageBitmap`, así que `miniatura()`
-  caía al original y el test sólo comparaba la URL. Ahora simula el lienzo y compara el CUERPO que sube; probado con 15
+  caía al original y el test sólo comparaba la URL. Ahora simula el lienzo y compara el CUERPO que sube; probado con 19
   roturas, cada una con el test que la caza (al pie de tests/centro-fotos-enviadas.test.ts).
+- **La segunda vuelta (6 agentes sobre el delta de los arreglos) encontró lo que los arreglos mismos trajeron:**
+  - el arreglo de «la copia local antes de subir» decodificaba TODAS las fotos a la vez (`Promise.all`): 20 fotos de 12 MP
+    del Samsung son un pico de memoria que el commit anterior, de a una, no tenía. Ahora de a una: decodifica, guarda y
+    sube, y recién ahí la siguiente. **Regla:** un arreglo que reordena un bucle se revisa por lo que cambia de orden, no
+    sólo por lo que agrega;
+  - un solo reintento a los 12 s no alcanza para 15 fotos que suben de a una: la burbuja vuelve a preguntar con espera
+    doble (12, 24, 48 s…) mientras el mensaje tenga menos de 3 minutos (`proximoIntento`);
+  - la foto local llevaba el nombre del ARCHIVO y la burbuja compara con el FIRMADO (saneado, recortado a 120): con un
+    espacio al final se veía la foto Y su renglón. Va `a.nombre`;
+  - el barrido de IndexedDB usa la cola de cuando cargó la pestaña: otra pestaña del mismo navegador pudo mandar algo
+    después. No se borra una copia de la última hora (`copiaVieja`, por la fecha de sus archivos).
+  - El servidor y las regresiones (el teléfono, HiloMako, los tests que leen estos archivos, los globales de los tests)
+    salieron limpios.
 - **Medido en el fuente instalado (storage-js 2.106.1):** `list` devuelve sólo ese nivel, sin recursión; un objeto que no
   existe en `createSignedUrls` es un error POR ÍTEM (`signedUrl: null`); con `upsert` el `created_at` queda el del primer
   alta. `after()` en un route handler de Next 16 atrapa lo que tire. No se vio en una pantalla: el guard no deja entrar a
