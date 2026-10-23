@@ -55,5 +55,5 @@ test('3. lo guardado vale mientras se pueda elegir; el renglón dice con qué va
 // PROBADO ROMPIÉNDOLO (23/10/2026, base 3/0):
 //   · pasa cualquier modelo                            → 2/1 (1)
 //   · pasa cualquier cuenta                            → 2/1 (1)
-//   · los de su Claude se desvían de IA5               → 2/1 (2)
+//   · los de su Claude se desvían de IA5               → 1/2 (1, 2)
 //   · lo guardado vale aunque la cuenta ya no esté     → 2/1 (3)
