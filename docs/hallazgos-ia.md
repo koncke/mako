@@ -5387,6 +5387,43 @@ mismo dibujo en SuperAdmin; en la computadora y en el teléfono.
   cuentas de los dispositivos; los nombres de los estados de EE.UU. (sin tabla, se saltean); y la captura del «después» en el
   ws3 (el permiso de esta sesión no deja abrir el ws3 en producción).
 
+## Firmar Windows DESDE ESTA PC con CodeSignTool (SSL.com eSigner), listo antes del certificado (23/10/2026)
+
+**El porqué:** no hay empresa registrada, y Azure Artifact Signing sólo acepta empresas de algunos países (a una persona, sólo
+en EE.UU. o Canadá). Va SSL.com IV a nombre de Martín. El Cerebro: «la firma con CodeSignTool desde esta PC, sin Actions.
+Así cuando le aprueben el certificado, la 0.4.x sale firmada sin más trabajo».
+
+**Vive en:** scripts/ia-pc/firmar-windows.mjs · publicar-binarios (`firmaDeEstaPc`, `FIRMAR`, `firmar`) ·
+tests/ia-pc-firma.test.ts · los pasos de Martín en docs/plan-instalador-escritorio.md › «Firmar: lo que hace Martín».
+
+- **Las trampas de CodeSignTool** (su guía, 23/10):
+  - Sin `-output_dir_path` PISA la entrada y PREGUNTA antes: desde un script se queda esperando. Va una carpeta aparte, la
+    entrada cerrada (`input: ''`) y un reloj.
+  - Sus códigos de salida no están documentados, y «Error: invalid otp» sale como texto. «Firmado» es que el .exe que vuelve
+    TENGA la tabla de certificados del PE (el directorio 4) y la marca de tiempo, no que la herramienta salga con 0. Sin la
+    marca de tiempo, la firma vence con el certificado, al año.
+  - En Windows es un `.bat`. Desde abril de 2024 Node no corre un `.bat` sin `shell: true`, y por la consola una clave con `&`
+    o `"` se rompe. Por eso se corre su Java con su .jar, desde su carpeta (lee `conf/` de ahí).
+  - El error de `execFileSync` trae la línea de comandos ENTERA, con `-password=`. Se usa `spawnSync` y se tapa lo que conteste.
+- **Las claves NO van en el .env.local del clon:** está en el Escritorio, y OneDrive lo sube a la nube. Con el usuario, la
+  clave y el secreto TOTP, cualquiera firma a nombre de Martín. Van en `%USERPROFILE%\.mako-firma.env`, y publicar-binarios
+  corta si encuentra `SSL_COM_CLAVE` o `SSL_COM_TOTP` en el .env.local.
+- **Cada firma cuesta:** el plan 1 de eSigner trae 240 por año, y una versión gasta 2. En seco no se firma (`--probar-firma`
+  para probarla), y al aplicar, si la firma falla, se corta ANTES de subir nada.
+- **El orden:** la firma cubre la cabecera, así que va DESPUÉS de `marcarDeVentana` (marcar después la rompe). Va ANTES de
+  Inno: si no, el setup lleva el programa sin firmar. El setup se firma después de Inno y antes de subirlo.
+
+### Lo que quedó SIN hacer
+- **Sin probar con la herramienta de verdad,** porque no hay certificado: 28 roturas dan rojo, pero contra una CodeSignTool
+  de mentira. La primera vez: `--probar-firma` en seco, y mirar Propiedades › Firmas digitales del setup. Si CodeSignTool no
+  pone la marca de tiempo sola, el script corta.
+- **El desinstalador de Inno (`unins000.exe`) queda sin firmar.** Firmarlo pide la directiva `SignTool` de Inno, con el
+  comando en la línea de ISCC, que lo imprime con la clave. No baja de internet (no tiene la marca de la web), así que
+  SmartScreen no lo revisa.
+- **La Mac** espera la respuesta por Apple Developer (US$99/año a nombre de Martín).
+- `buscarCodeSignTool` supone la carpeta del .zip de Windows de hoy (`jar/code_sign_tool-*.jar`, `jdk-*`). Si SSL.com la
+  cambia, el script dice qué no encontró.
+
 ## MaKo.app: la Mac SIN Terminal (0.4.2, 23/10/2026)
 
 **El porqué:** en la llamada del 23/10 (Fathom 195591907), Mauricio conectó su MacBook por la Terminal y le costó («No abrió
