@@ -122,7 +122,7 @@ async function exigirClaveDeLaPlataforma(key: string, feature?: string): Promise
  * turno con herramientas del chat (`chatClaudeTools`): un negocio que conectó SÓLO su Claude no tenía ninguna IA para el
  * chat, y «Conectar tu IA» le pedía Gemini (docs/investigacion-ops-center-19-10.md).
  */
-export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ permiso: PermisoClaveDelNegocio } | { pausa: true } | { noPudeLeer: true } | null> {
+export async function permisoDeLaClaveDelNegocio(feature?: string, opts: { modelo?: string } = {}): Promise<{ permiso: PermisoClaveDelNegocio } | { pausa: true } | { noPudeLeer: true } | null> {
   let clave = await credDelCliente('ANTHROPIC_API_KEY').catch(() => null);
   // EL CRÉDITO ASIGNADO AL NEGOCIO (22/10/2026, Martín: «habilita los tokens de la API de la cuenta de Mauricio… para su Ops
   // Center»; lib/credito-negocio.ts): sin su clave propia —o con una copia de la de MaKo, como el ws1—, la del crédito que le
@@ -152,8 +152,10 @@ export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ pe
   let modelo: string;
   try {
     const { getSetting } = await import('@/lib/settings');
-    modelo = modeloDeSuClaude(await getSetting(CLAVE_MODELO_SU_CLAUDE));
-  } catch { modelo = modeloDeSuClaude(null); }
+    // El que eligió la persona para ESTE chat (8b, `opts.modelo`, sólo «haiku» o «sonnet»: `modeloDeSuClaude`), si no, el del
+    // negocio. Con el crédito de MaKo, `evaluarClaveDelNegocio` lo baja a Haiku igual.
+    modelo = modeloDeSuClaude(opts.modelo ?? await getSetting(CLAVE_MODELO_SU_CLAUDE));
+  } catch { modelo = modeloDeSuClaude(opts.modelo ?? null); }
   let creditosPlataforma: Array<string | null> | null;
   try {
     const { wsSuperAdmin } = await import('@/lib/workspace');
@@ -603,6 +605,10 @@ export async function chatClaudeTools(
     /** WA1 (22/10/2026): DIRECTO a la clave de Claude del negocio (la puerta 2 del veto), sin la cascada: el que llama ya
      *  probó su OpenAI (el doer de WhatsApp). Sin su clave, tira «falló la IA (…)». Nunca el Claude de MaKo. */
     soloSuClaude?: boolean;
+    /** 8b (23/10/2026): con `soloSuClaude`, el modelo que eligió la persona para ese chat («haiku» o «sonnet»). */
+    modeloSuClaude?: string;
+    /** 8b (23/10/2026): DIRECTO a la clave de OpenAI del negocio, sin la cascada y sin caer a Claude. Sin su clave, tira. */
+    soloSuOpenAI?: boolean;
     sinFallbackClaude?: boolean;    // si el override a IA barata falla, RE-LANZÁ el error (no caigas a Claude): el caller quiere avisar "falló", no gastar Claude en silencio.
     effort?: Effort;
     maxTokens?: number;
@@ -623,11 +629,21 @@ export async function chatClaudeTools(
   // modelo de Claude, lo usamos (antes chatClaudeTools ignoraba el registro y todo
   // corría en Opus). El doer de WhatsApp pasa `model` explícito (router) → salta
   // esto y sigue en Claude; su ruteo a barato va por su propio camino (DOER_GROQ_TOOLS).
+  // Lo que eligió la persona en el «+» (8b): SU OpenAI, y nada más. Nunca cae a Claude: eligió ésa.
+  if (opts.soloSuOpenAI) {
+    const errores: string[] = [];
+    const { chatCheapToolsCascade } = await import('@/lib/ai-cheap');
+    const r = await chatCheapToolsCascade(system, messages, tools, runTool, {
+      maxSteps: opts.maxSteps, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo, provs: ['openai'], erroresOut: errores,
+    });
+    if (r) return { text: r.text, steps: r.steps, stopReason: r.stopReason };
+    throw new Error(`falló la IA (${errores.join(' · ').slice(0, 200) || 'el negocio no tiene su clave de OpenAI'})`);
+  }
   let model = opts.model ?? '';   // sin default: el `?? MODEL` era la quinta puerta
   /** La clave de Claude del NEGOCIO, cuando ninguna IA barata suya contestó (abajo). */
   let delNegocio: PermisoClaveDelNegocio | null = null;
   if (opts.soloSuClaude) {
-    const n = await permisoDeLaClaveDelNegocio(opts.feature).catch(() => null);
+    const n = await permisoDeLaClaveDelNegocio(opts.feature, { modelo: opts.modeloSuClaude }).catch(() => null);
     if (n && 'permiso' in n) delNegocio = n.permiso;
     else throw new Error(`falló la IA (${n && 'pausa' in n ? CLAUDE_EN_PAUSA : n && 'noPudeLeer' in n ? NO_PUDE_COMPROBAR_SU_CLAUDE : 'el negocio no tiene su clave de Claude'})`);
   } else if (!opts.model && opts.feature) {

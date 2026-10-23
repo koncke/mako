@@ -58,13 +58,15 @@ test('C1: los que ya están no se listan (se cuentan), y «todos» son todos los
 
 test('C1: la pantalla tilda a TODOS los candidatos, agrega de a tandas, el botón queda abajo y se puede deshacer', () => {
   const t = sinComentarios(leer('app/crm/TraerDeOtroProducto.tsx'));
-  assert.match(t, /const \{ candidatos, yaEstan \} = useMemo\(\(\) => filasParaTraer\(filas \?\? \[\], \{ q, etapa \}\)/);
+  // Con el filtro diferido desde el 23/10/2026 (el loader al filtrar: tests/crm-traer-23-10.test.ts).
+  assert.match(t, /const \{ candidatos, yaEstan \} = useMemo\(\(\) => filasParaTraer\(filas \?\? \[\], \{ q: qDiferida, etapa: etapaDiferida \}\)/);
   assert.match(t, /const ids = new Set\(candidatos\.map\(\(f\) => f\.id\)\);/, '«todos» volvió a mirar sólo la pantalla');
   assert.match(t, /const todosTildados = candidatos\.length > 0 && candidatos\.every/);
   assert.doesNotMatch(t, /f\.yaEsta \?|Ya está\s*<\/span>/, 'volvieron las filas grises de los que ya están');
   assert.match(t, /position: 'sticky', bottom: 0/, 'el botón de agregar volvió a quedar abajo de todo');
   assert.match(t, /for \(const tanda of enTandas\(sel, TANDA_AGREGAR\)\) \{\s*const r = await agregarLoteAProductoAction\(tanda, destino\);/);
-  assert.match(t, /ya están'\} en este funnel y no se/, 'los que ya están se dicen, con su número');
+  // La línea «Se ven 300 de 869… 300 ya están en este funnel» se fue el 23/10/2026 (Martín: «si hace falta algo, que sea
+  // el número en la casilla»): tests/crm-traer-23-10.test.ts.
   const b = sinComentarios(leer('app/crm/CrmBoard.tsx'));
   assert.match(b, /onTraidos=\{\(movidos, fallaron, deshacer\) => \{/, 'el tablero volvió a tirar el deshacer');
   assert.match(b, /void deshacer\(\)\.then\(\(\) => router\.refresh\(\), \(\) => mostrarAviso\('No se pudo deshacer', undefined, 'bad'\)\);/);

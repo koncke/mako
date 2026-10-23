@@ -114,6 +114,7 @@ import {
 } from './panel-reglas';
 import { reservarVentanaLectura } from '@/lib/editor-landing/lector-navegador';
 import type { ModoCaja, SemillaCaja } from './crear/caja-modos';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El Panel
@@ -477,6 +478,7 @@ export function Inicio(props: PropsInicio) {
     <div className="gp-error gp-error-bloque" role="alert">
       <span>No se pudieron cargar las landings.</span>
       <button type="button" className="gp-btn gp-btn-contorno" onClick={() => void recargarLista()}>Reintentar</button>
+      <ReportarASoporte />
     </div>
   );
 
@@ -572,9 +574,10 @@ export function Inicio(props: PropsInicio) {
             <li className="gp-docs-aviso" role="alert">
               <span>No se pudieron cargar las landings.</span>
               <button type="button" className="gp-btn gp-btn-contorno" onClick={() => void recargarLista()}>Reintentar</button>
+              <ReportarASoporte />
             </li>
           )}
-          {props.errorAnalizadas && <li className="gp-docs-aviso" role="alert"><span>No se pudieron leer las páginas analizadas.</span></li>}
+          {props.errorAnalizadas && <li className="gp-docs-aviso" role="alert"><span>No se pudieron leer las páginas analizadas.</span><ReportarASoporte /></li>}
           {urlBuscada && (
             <li className="gp-doc">
               <button type="button" className="gp-doc-abrir" title={urlBuscada} onClick={() => analizarUrl(urlBuscada)}>
@@ -825,7 +828,7 @@ function GaleriaTemas({ propios, errorTemas, onVer }: { propios: readonly TemaPr
           ]}
         />
       </div>
-      {grupo === 'personalizado' && errorTemas && <div className="gp-error" role="alert">No se pudieron leer tus temas.</div>}
+      {grupo === 'personalizado' && errorTemas && <div className="gp-error" role="alert">No se pudieron leer tus temas.<ReportarASoporte /></div>}
       {lista.length ? (
         <div className="gp-tema-grilla">
           {lista.map((t) => <TileTema key={t.id} tema={t} etiqueta="Vista previa" onClick={() => onVer(t)} />)}
@@ -872,7 +875,7 @@ function DialogoEliminar({ frase, onCerrar, onConfirmar }: { frase: string; onCe
       )}
     >
       <p className="gp-dialogo-texto">{frase}</p>
-      {error && <div className="gp-error" role="alert">{error}</div>}
+      {error && <div className="gp-error" role="alert">{error}<ReportarASoporte /></div>}
     </DialogoGamma>
   );
 }

@@ -74,6 +74,7 @@ import { CampanasModal } from './CampanasModal';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 
@@ -1201,7 +1202,7 @@ function SeccionFunnel({ entradas, evento, canal, funnelId, funnelIdCampanas, no
           </label>
         </div>
       )}
-      {err && <p role="alert" style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--bad)' }}>{err}</p>}
+      {err && <p role="alert" style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--bad)' }}>{err}<ReportarASoporte /></p>}
     </div>
   );
 }

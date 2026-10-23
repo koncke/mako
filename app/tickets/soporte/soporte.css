@@ -1,0 +1,31 @@
+/* =============================================================================
+   El chat de Soporte de la Ticketera (23/10/2026): lo propio, arriba de las piezas del Ops Center (centro.css)
+   ============================================================================= */
+
+/* Arriba de la conversación: la tira de tickets y, con uno abierto, en qué anda. */
+.sp-arriba { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 10px 24px 8px; border-bottom: 1px solid var(--border); }
+.sp-tira { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }
+.sp-tira .co-chip { flex: none; display: inline-flex; align-items: center; gap: 8px; max-width: 320px; }
+.sp-tira__nuevo { font-weight: 600; }
+.sp-tira__num { color: var(--dim); font-variant-numeric: tabular-nums; }
+.sp-tira__titulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.sp-estado { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: var(--fs-sm); }
+.sp-estado__titulo { font-weight: 600; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+.sp-estado__canal { font-size: var(--fs-meta, 12.5px); color: var(--dim); }
+.sp-historial { margin: 0; flex-basis: 100%; }
+
+/* La tarjeta del ticket armado (adentro del mensaje de MaKo, en el hueco `enMensaje`). */
+.sp-tarjeta { margin-top: 8px; }
+.sp-tipos { display: flex; flex-wrap: wrap; gap: 6px; }
+.sp-tarjeta__detalle { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; color: var(--ink); }
+.sp-tarjeta__error { color: var(--bad); }
+
+/* En el teléfono: la tira no va (la lista es la página) y el estado va arriba del hilo, en la hoja. */
+.m-soporte-estado { padding: 8px 4px 10px; }
+.m-soporte-estado .sp-estado { font-size: 14px; }
+
+@media (max-width: 720px) {
+  .sp-arriba { padding: 8px 12px 6px; }
+  .sp-tira .co-chip { max-width: 240px; }
+}

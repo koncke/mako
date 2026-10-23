@@ -27,6 +27,7 @@ import {
   type BorradorNuevo,
 } from '@/app/calendario/comun';
 import { TEXTO_GUARDAR } from './modelo';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const CLASE_BOTON = (variante: 'primary' | 'secondary' | 'tertiary') => `mk-btn mk-btn--${variante} mk-btn--lg mk-btn--full`;
 
@@ -180,7 +181,7 @@ export function HojaNueva({ abierta, inicial, editables, guardando, error, onCer
           )}
         </label>
       </ListaM>
-      {error && <p className="m-calendario-error" role="alert">{error}</p>}
+      {error && <p className="m-calendario-error" role="alert">{error}<ReportarASoporte /></p>}
     </SheetM>
   );
 }

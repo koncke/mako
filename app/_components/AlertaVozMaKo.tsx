@@ -17,6 +17,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Alerta = { tipo: 'caida' | 'sin_confirmar'; instancia: string; desde: string | null; status: number };
 
@@ -134,6 +135,7 @@ export function AlertaVozMaKo() {
           {roja ? 'Reconectar ahora' : 'Ver estado'}
         </a>
       )}
+      <ReportarASoporte />
     </div>
   );
 }

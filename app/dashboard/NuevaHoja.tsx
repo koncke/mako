@@ -77,6 +77,7 @@ import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { dashPegado, hojaConIdsNuevos, rotuloDashPegado } from '@/lib/graficos-copia';
 import { leerDashPegado } from './copia-dash-cliente';
 import { CSS_MINIATURA, MiniaturaHoja, hojaDeMuestra } from './MiniaturaHoja';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** El tope de la ruta (`maxDuration = 120`) + margen: el `fetch` no puede esperar para siempre. */
 const TOPE_CLIENTE_MS = 125_000;
@@ -415,7 +416,7 @@ export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nu
               <span style={{ marginLeft: 'auto' }}><Button variant="tertiary" size="sm" onClick={cancelar}>Cancelar</Button></span>
             </div>
           )}
-          {error && <p role="alert" style={S.error}><TextoConLink texto={error.texto} link={error.link} /></p>}
+          {error && <p role="alert" style={S.error}><TextoConLink texto={error.texto} link={error.link} /><ReportarASoporte /></p>}
         </div>
 
         {/* 2 · El buscador */}

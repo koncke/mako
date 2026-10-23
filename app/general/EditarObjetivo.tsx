@@ -20,6 +20,7 @@ import { guardarObjectiveAction, cerrarObjectiveAction, setCapacidadAction } fro
 import { metricaPorFunnel, type MetricaObjetivo } from '@/lib/objectives-modelo';
 import { ElegirFunnels } from '../components/ElegirFunnels';
 import { useFunnelsGeneral } from '../dashboard/ElementoGeneral';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const METRICAS: Array<{ value: MetricaObjetivo; label: string; hint: string }> = [
   { value: 'cash_usd', label: 'Cobrado (USD)', hint: 'Lo que efectivamente entró en el período.' },
@@ -144,7 +145,7 @@ export function EditarObjetivo({ objetivo, anio, quarter, disparador }: {
                 { value: 'anual', label: `Todo el año ${anio}` },
               ]}
               hint="Un objetivo anual se sigue viendo dentro de cada trimestre." />
-            {error && <span className="mk-err" role="alert">{error}</span>}
+            {error && <span className="mk-err" role="alert">{error}<ReportarASoporte /></span>}
           </div>
         </Modal>
       )}
@@ -204,7 +205,7 @@ export function EditarCapacidad({ cupo, mesesEntrega, disparador }: {
             <TextField label="¿Cuántos meses dura tu entrega?" value={m}
               onChange={(e) => setM(e.target.value)} type="number" min="1" inputMode="numeric"
               hint="Es cuánto tiempo un cliente de pago único ocupa un lugar. Las suscripciones usan su propio plazo." />
-            {error && <span className="mk-err" role="alert">{error}</span>}
+            {error && <span className="mk-err" role="alert">{error}<ReportarASoporte /></span>}
           </div>
         </Modal>
       )}

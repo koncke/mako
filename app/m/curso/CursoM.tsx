@@ -31,6 +31,7 @@ import {
   rotuloClases, rotuloMinutos, seAbreDe, segundaDe,
   type ClaseDatos, type CursoDatos,
 } from './modelo';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export function CursoM({ cursos, puedeEditar }: { cursos: CursoDatos[]; puedeEditar: boolean }) {
   const sp = useSearchParams();
@@ -198,12 +199,12 @@ function HojaClase({ clase, curso, puedeEditar, acceso, seAbre, error, onAcceso 
         {acceso === 'privado' && seAbre && (
           <ListaM><FilaDatoM k={R.seAbre} v={seAbre} /></ListaM>
         )}
-        {error && <p className="m-curso-error" role="alert">{error}</p>}
+        {error && <p className="m-curso-error" role="alert">{error}<ReportarASoporte /></p>}
       </div>
 
       <SeccionM titulo={T.avance}>
         {avance === 'error' ? (
-          <p className="m-curso-error" role="alert">{R.sinAvance}</p>
+          <p className="m-curso-error" role="alert">{R.sinAvance}<ReportarASoporte /></p>
         ) : avance === 'vacio' ? (
           <p className="m-curso-nota">{R.sinClientes}.</p>
         ) : (

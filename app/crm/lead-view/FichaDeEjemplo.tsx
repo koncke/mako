@@ -25,6 +25,7 @@ import type { EstadoDatos } from '@/lib/datos-aviso';
 import { leerFichaFunnelAction } from '../ficha-actions';
 import { DatosSinMarcarCard } from './DatosSinMarcarCard';
 import { datosDeEjemplo } from './datos-de-ejemplo';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export function FichaDeEjemplo({ onCerrar, onCambio }: { onCerrar: () => void; onCambio: () => void }) {
   const [datos, setDatos] = useState<EstadoDatos | null>(null);
@@ -53,7 +54,7 @@ export function FichaDeEjemplo({ onCerrar, onCambio }: { onCerrar: () => void; o
           ) : undefined} />
       }>
       <div style={{ padding: '6px 0 4px', fontSize: 14, lineHeight: 1.5, color: 'var(--dim)' }}>
-        {error ? <p role="alert" style={{ margin: 0, color: 'var(--bad)', fontWeight: 600 }}>{error}</p>
+        {error ? <p role="alert" style={{ margin: 0, color: 'var(--bad)', fontWeight: 600 }}>{error}<ReportarASoporte /></p>
           : !datos ? <p style={{ margin: 0 }}>Leyendo…</p>
           : datos.avisar.length === 0 ? <p style={{ margin: 0 }}>MaKo no avisa de ningún dato en este funnel. Se prenden con «Obligatorio» en cada bloque de la ficha.</p>
           : <p style={{ margin: 0 }}>Toca el basurero rojo de un dato para que MaKo deje de avisarlo. Se vuelve a prender con «Obligatorio» en el bloque de la ficha.</p>}

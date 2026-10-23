@@ -29,6 +29,7 @@
 import type { ReactNode } from 'react';
 import { Button, ButtonLink, type ButtonVariant } from './Button';
 import { TONO, type Tono } from './tokens';
+import { ReportarASoporte } from './ReportarASoporte';
 
 /** La salida del estado: o navega (href) o hace algo (onClick). Nunca las dos. */
 type Accion = { label: string; onClick?: () => void; href?: string };
@@ -49,8 +50,11 @@ function Marco({ tono, ico, titulo, detalle, accion, secundaria, inline, extra }
   extra?: ReactNode;
 }) {
   const t = TONO[tono];
+  // Un error (ErrorState) es un aviso y lleva «Reportar a Soporte» (23/10/2026, tests/reportar-a-soporte.test.ts): manda lo
+  // que dice el marco (el título, el detalle y el detalle técnico plegado), no la pantalla. Con otro tono es `status` y el
+  // botón no se dibuja.
   return (
-    <div className={`mk-state${inline ? ' mk-state--inline' : ''}`} role="status">
+    <div className={`mk-state${inline ? ' mk-state--inline' : ''}`} role={tono === 'bad' ? 'alert' : 'status'}>
       <span className="mk-state__ico" style={{ background: t.bg, color: t.ink }} aria-hidden>{ico}</span>
       <span className="mk-state__t">{titulo}</span>
       {detalle && <span className="mk-state__d">{detalle}</span>}
@@ -61,6 +65,7 @@ function Marco({ tono, ico, titulo, detalle, accion, secundaria, inline, extra }
         </div>
       )}
       {extra}
+      <ReportarASoporte />
     </div>
   );
 }
@@ -182,6 +187,8 @@ export function Banner({ tono = 'info', children, accion, onCerrar, ico, alcance
     }}>
       {ico && <span style={{ display: 'flex', flex: 'none' }} aria-hidden>{ico}</span>}
       <span style={{ flex: 1, minWidth: 160 }}>{children}</span>
+      {/* Con tono `bad` es un error: «Reportar a Soporte» al lado de lo que dice (con otro tono, el botón no se dibuja). */}
+      <ReportarASoporte />
       {accion && <Boton a={accion} variant="secondary" />}
       {onCerrar && (
         <button type="button" onClick={onCerrar} aria-label="Descartar aviso"

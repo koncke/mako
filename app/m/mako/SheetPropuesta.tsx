@@ -20,6 +20,7 @@ import { PieM, SheetM, useConexion, useToastM } from '../_ui';
 import { confirmarEnChatAction, cancelarEnChatAction } from './acciones';
 import { SALIDA_PROPUESTA, rotuloPrimario, trasTarjeta, type EstadoPropuesta, type ItemHilo } from './chat-ui';
 import type { ResultadoTarjeta } from '@/lib/mako-turno-app-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type ItemPropuesta = Extract<ItemHilo, { k: 'propuesta' }>;
 
@@ -82,7 +83,7 @@ export function SheetPropuesta({ item, sessionId, onCerrar, onEstado }: {
   const cierre = vencida ? 'Venció: ya no se puede ejecutar.' : (it.nota ?? frase ?? '');
   const pie = abierta && !vencida ? (
     <PieM consecuencia={t.consecuencia ?? 'MaKo lo ejecuta en cuanto confirmes.'}>
-      {frase && <p className="m-mako-pie-nota" role="alert">{frase}</p>}
+      {frase && <p className="m-mako-pie-nota" role="alert">{frase}<ReportarASoporte /></p>}
       {!enLinea && <p className="m-mako-pie-nota m-mako-pie-nota--gris" role="status">Sin conexión: no se puede aprobar.</p>}
       <Button variant="primary" size="lg" full loading={enviando === 'confirmar'}
         disabled={!enLinea || enviando === 'cancelar'} onClick={() => correr('confirmar')}>

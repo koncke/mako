@@ -56,6 +56,7 @@ import { sanearCambio } from '@/lib/centro-mensajes';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
 import { claveDelCreditoAsignado } from '@/lib/credito-negocio';
 import { pcDe } from '@/lib/ia-pc';
+import { cuentasDeIA, eleccionDelPedido } from '@/lib/chat-ia';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 420;
@@ -106,7 +107,8 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   try {
     if (sp.get('sesiones')) return json({ ok: true, sesiones: await listarSesiones(persona) });
-    if (sp.get('suIA')) return json({ ok: true, conectada: await conSuIA(persona) });
+    // Y las cuentas que el «+» de la caja deja elegir para ESTE chat (8b, lib/chat-ia.ts): sin ellas, el selector no se dibuja.
+    if (sp.get('suIA')) return json({ ok: true, conectada: await conSuIA(persona), cuentas: await cuentasDeIA(persona).catch(() => []) });
     if (sp.has('marcas')) {
       const chat = sp.get('marcas');
       if (!esChatDeMarcas(chat)) return json({ ok: false, error: 'Falta el chat.' }, 400);
@@ -245,7 +247,9 @@ export async function POST(req: NextRequest) {
       const voz = bytesDeVoz ? { bytes: bytesDeVoz, secs: Number(form.get('vozSecs')) } : null;
       // Desde dónde escribe (OC6): la estrella de una tab lo manda como JSON en el form.
       const desde = sanearDesde((() => { try { return JSON.parse(String(form.get('desde') ?? 'null')); } catch { return null; } })());
-      const r = await turnoApp(quien, sessionId, { mensaje, adjuntos: v.adjuntos, voz, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde });
+      // Con qué IA corre (8b): lo que eligió en el «+», validado contra lo que se le ofrecería ahora; si no, Automático.
+      const ia = await eleccionDelPedido(quien, form.get('ia'));
+      const r = await turnoApp(quien, sessionId, { mensaje, adjuntos: v.adjuntos, voz, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde, ia });
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       return json({ ...r });
     } catch (e) {
@@ -253,7 +257,7 @@ export async function POST(req: NextRequest) {
       return json({ ok: false, error: 'Algo falló de nuestro lado. Intenta de nuevo.' }, 500);
     }
   }
-  let body: { action?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown; desde?: unknown };
+  let body: { action?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown; desde?: unknown; ia?: unknown };
   try { body = await req.json(); } catch { return json({ ok: false, error: 'Pedido inválido.' }, 400); }
   try {
     if (body.action === 'new') return json({ ok: true, sesion: await nuevaSesion(persona) });
@@ -276,7 +280,9 @@ export async function POST(req: NextRequest) {
       // la marca el turno no lo archivaba aunque el hilo dijera «el texto entero quedó en El Archivero». El teléfono ya la
       // pasaba (/api/m/mako); el MaKo Analyst de un lead, que no la pasa, es otra ruta.
       // Desde dónde escribe (OC6, lib/chat-desde.ts): la tab, la entidad y el modo de la estrella; saneado, nunca tal cual.
-      const r = await turnoApp(quien, sessionId, { mensaje, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde: sanearDesde(body.desde) });
+      // Con qué IA corre (8b): lo que eligió en el «+», validado contra lo que se le ofrecería ahora; si no, Automático.
+      const ia = await eleccionDelPedido(quien, body.ia);
+      const r = await turnoApp(quien, sessionId, { mensaje, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde: sanearDesde(body.desde), ia });
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       // Un fallo del modelo NO es un error HTTP: el mensaje quedó guardado y el aviso viaja adentro.
       return json({ ...r });

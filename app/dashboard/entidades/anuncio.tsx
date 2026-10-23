@@ -24,6 +24,7 @@ import { ayerEnTijuana, diasAntes } from '@/lib/date-utils';
 import type { ScriptView } from '@/lib/ads-analyst';
 import { AdCreative, AdDetailTabs, BreakdownCharts, RendimientoBody, TranscriptSection, fmtUSD, type AdInsights } from '@/app/marketing/ad-charts';
 import { FunnelModal, applyAngles, applyAvatares, type AngleDef, type AvatarDef } from '@/app/ads-analyst/ScriptsBrowser';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Cuánto espera cada pedido: Meta en vivo puede tardar (sin `signal`, una conexión caída gira para siempre). */
 const TOPE_MS = 45_000;
@@ -133,7 +134,7 @@ export default function PiezaAnuncio({ adId, pieza, periodo }: { adId: string; p
     // Sin él, la misma ficha con lo que hay: el creativo y los números de Meta.
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {a.error && <p role="alert" style={{ margin: 0, fontSize: 13, color: 'var(--bad)' }}>{a.error}</p>}
+        {a.error && <p role="alert" style={{ margin: 0, fontSize: 13, color: 'var(--bad)' }}>{a.error}<ReportarASoporte /></p>}
         <strong style={{ fontSize: 17, color: 'var(--ink)' }}>{p?.ad_name ?? 'Anuncio'}</strong>
         {p && <Creativo adId={adId} datos={a.datos!} guion={null} />}
         {p && <RendimientoBody data={a.datos!} cierres={0} cashUsd={null} />}

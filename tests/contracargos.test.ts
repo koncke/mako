@@ -145,7 +145,10 @@ test('el cron pone al día los avisos de Stripe UNA vez por día (los contracarg
   const r = fuente('app/api/cron/cobros-reconciliar/route.ts');
   assert.match(r, /const delDia = esLaVueltaDelDia\(t0\);/);
   assert.match(r, /if \(delDia\) await runWithWorkspace\(ws, \(\) => mantenerAvisosStripe\(ws\)\)\.catch\(/, 'sin el catch, una cuenta caída corta la corrida');
-  assert.match(cuerpo(fuente('lib/cobros.ts'), 'mantenerAvisosStripe'), /await asegurarEventosDelAviso\(ws, stripe\.key\)/);
+  // Cada cuenta de Stripe del negocio que cobra, con SU clave (varias por proveedor, 22/10/2026).
+  const m = cuerpo(fuente('lib/cobros.ts'), 'mantenerAvisosStripe');
+  assert.match(m, /for \(const x of \(await cuentasDePago\(ws, 'stripe'\)\)\.filter\(\(y\) => y\.conectada\)\)/);
+  assert.match(m, /const stripe = await credStripe\(ws, x\.cuenta\);\s*\n\s*if \(stripe\) await asegurarEventosDelAviso\(ws, stripe\.key, x\.cuenta\)/);
 });
 
 test('esLaVueltaDelDia: sólo la vuelta de las 06:17 UTC (el cron corre a los :17 y :47)', () => {

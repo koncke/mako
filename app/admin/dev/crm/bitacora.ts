@@ -3023,7 +3023,7 @@ export const BITACORA: Hito[] = [
     revisar: '/crm',
   },
   {
-    fecha: '23 oct', hora: '00:05', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    fecha: '23 oct', hora: '00:04', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Instagram: «Conectar Meta» desde el buscador, y el mismo buscador en la ficha del lead',
     puntos: [
@@ -3033,6 +3033,7 @@ export const BITACORA: Hito[] = [
     ],
     commits: [
       { sha: '4487ac5d6', msg: 'CRM: «Conectar Meta» en el buscador de Instagram, y el mismo buscador en la ficha', lineas: 677, archivos: 8 },
+      { sha: '18146bffd', msg: 'Instagram: «fresco» con tope por negocio, y sin borrar la pausa de un límite de Meta', lineas: 106, archivos: 3 },
     ],
     archivos: [
       'app/crm/new/InstagramBuscador.tsx — el buscador, con «Conectar Meta»',
@@ -3041,7 +3042,7 @@ export const BITACORA: Hito[] = [
     revisar: '/crm',
   },
   {
-    fecha: '23 oct', hora: '00:20', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    fecha: '23 oct', hora: '00:34', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
     actor: 'claude', tipo: 'implementacion',
     titulo: '«Vincular evento» y «Vincular cobro»: rápidos, con el nombre del CRM y de la etapa, y un aviso cuando falta',
     puntos: [
@@ -3059,6 +3060,65 @@ export const BITACORA: Hito[] = [
       'app/crm/EventosDeEtapaModal.tsx · app/crm/CobroDeEtapaModal.tsx · app/crm/vincular-etapa.ts — los dos pop-ups',
       'lib/vinculos-de-columnas.ts — el aviso de la columna, de la base',
       'lib/api-mako/areas/crm.def.ts · crm.run.ts — el cobro de Ganado por MaKo',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '23 oct', hora: '00:43', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La agenda del CRM, más rápida: Calendly, Cal.com y Google a la vez',
+    puntos: [
+      'Abrir «Vincular evento» le preguntaba a Calendly, después a Cal.com y después a Google, uno detrás del otro. Ahora a los tres a la vez.',
+      'Lo que contesta cada cuenta se guarda un minuto: vincular, volver a abrir o pasar de una etapa a otra ya no espera a las APIs.',
+      'Calendly ya no pregunta quién es el dueño de la cuenta antes de cada lista.',
+      'Crear o editar un evento, o conectar otra cuenta, se ve enseguida.',
+    ],
+    commits: [
+      { sha: '95d9b0204', msg: 'Agenda del CRM: Calendly, Cal.com y Google a la vez, un minuto de caché por cuenta, y el token de Calendly por parámetro', lineas: 402, archivos: 9 },
+    ],
+    archivos: [
+      'lib/agenda-evento-etapa-server.ts · lib/agenda-cache.ts — las agendas a la vez, con su caché',
+      'lib/calendly-agenda.ts — el dueño de cada cuenta, una vez',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '23 oct', hora: '00:50', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Traer de otro funnel»: un botón a la vista, una ruedita mientras carga y el pie firme abajo',
+    puntos: [
+      'En «Nuevo lead», «Traer de otro funnel» es un botón, al lado de «Crear lead», no un link chico al pie.',
+      'Al abrirlo, y al cambiar de funnel, se ve una ruedita mientras llega la lista. Al cambiar de etapa o buscar, una más chica y la tabla atenuada.',
+      'Sin la línea de «Se ven 300 de 869…»: si hay más de los que entran, la casilla de arriba dice «Tildar los 869».',
+      '«← Atrás» y «Agregar aquí» quedan abajo de todo, con fondo sólido: la que scrollea es la tabla y ya no se ven leads por detrás.',
+    ],
+    commits: [
+      { sha: '609d697f5', msg: 'CRM: «Traer de otro funnel» con un botón a la vista, el loader mientras carga y el pie firme abajo', lineas: 207, archivos: 8 },
+    ],
+    archivos: [
+      'app/crm/TraerDeOtroProducto.tsx — la vista de traer',
+      'app/crm/new/NewLeadForm.tsx — el botón',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '23 oct', hora: '01:40', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Vincular evento»: el evento se edita entero y se elige la cuenta',
+    puntos: [
+      'Al editar un evento, además del nombre y la duración: la descripción y dónde es la reunión (Google Meet, Zoom, llamada, en persona o un link).',
+      'En Cal.com también sus preguntas: el texto, si es obligatoria y si se ve. Las de Calendly se ven, y se editan en Calendly.',
+      'La disponibilidad se abre en Calendly o Cal.com, en otra pestaña: sus APIs no la dejan cambiar sin riesgo de borrar los horarios.',
+      'Con varias cuentas de Calendly o Cal.com, cada evento dice de cuál es, y al crear uno se elige en cuál.',
+      'MaKo también: crea en la cuenta que le digas y cambia la descripción o dónde es la reunión, siempre con tu «sí».',
+      'El cobro de Ganado acepta todas las cuentas conectadas de Stripe y Mercado Pago, no sólo la principal.',
+    ],
+    commits: [
+      { sha: 'cd0feaab9', msg: '«Vincular evento»: la edición completa del evento, la cuenta al crear, y el cobro de Ganado con todas las cuentas', lineas: 825, archivos: 19 },
+    ],
+    archivos: [
+      'app/crm/EventosDeEtapaModal.tsx — el formulario completo y la cuenta',
+      'lib/agenda-evento-detalle.ts · lib/calendly-agenda.ts · lib/calcom.ts — lo que deja editar cada API',
     ],
     revisar: '/crm',
   },

@@ -38,6 +38,7 @@ import type { Lectura } from '@/lib/editor-landing/lectura-tipos';
 import type { SalidaSinLectura } from '@/lib/editor-landing/lector-navegador';
 import { Ico } from '../Ico';
 import { useLectorEnNavegador } from './useLectorEnNavegador';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Lo que se dibuja (corto: es un rótulo o una línea). */
 export const TEXTO_NO_PUDO = 'MaKo no pudo leerla sola.';
@@ -88,7 +89,7 @@ export function LeerOPegar({ url, error, enNavegador, ocupado, accionTexto, text
   return (
     <div className="gp-leer" role="group" aria-label="Leer la página">
       <style href="gp-leer" precedence="medium">{CSS_LEER}</style>
-      <p className="gp-leer-error" role="alert">{enNavegador ? texto ?? TEXTO_NO_PUDO : error}</p>
+      <p className="gp-leer-error" role="alert">{enNavegador ? texto ?? TEXTO_NO_PUDO : error}<ReportarASoporte /></p>
       <div className="gp-leer-acciones">
         {enNavegador && (
           <button type="button" className="gp-btn gp-btn-primario" disabled={ocupado || leyendo} onClick={leerAhora}>

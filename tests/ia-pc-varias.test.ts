@@ -67,8 +67,10 @@ test('3. cada una dice su sistema y cuándo se conectó; la tarjeta ofrece «Con
   assert.equal(detalleDeLaPc({ sistema: 'Windows', conectadaAt: '2026-10-22T12:00:00Z' }, () => '22/10'), 'Windows · conectada el 22/10');
   assert.equal(detalleDeLaPc({ sistema: null, conectadaAt: null }, () => 'x'), null, 'sin dato, no se muestra');
   const ui = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
-  assert.match(ui, /<button type="button" className="tci-boton tci-boton--suave" onClick=\{abrirTutorial\}>Conectar otra computadora<\/button>/);
-  assert.match(ui, /detalleDeLaPc\(pc, fechaCorta\)/);
+  // 23/10/2026: «Nuevo dispositivo», dentro de cada cuenta, con la descarga a la vista (CuentasYDispositivos.tsx).
+  assert.match(ui, /nuevoDispositivo=\{\(\) => <NuevoDispositivo onConectar=\{\(\) => abrirTutorialEn\(4\)\} onPasosMac=\{abrirTutorial\} \/>\}/);
+  const dibujo = sinComentarios(leer('app/integraciones/CuentasYDispositivos.tsx'));
+  assert.match(dibujo, /\{d\.conectadaAt && <p className="tci-nota">\{`Conectada el \$\{fechaCorta\(d\.conectadaAt\)\}`\}<\/p>\}/);
   assert.match(sinComentarios(leer('app/api/ia-pc/estado/route.ts')), /conectadaAt: d\.conectadaAt, sistema: d\.sistema,/);
 });
 
@@ -95,14 +97,18 @@ test('4. el super admin: las de todos, sin secretos, con «Desconectar»; descon
     assert.ok(i > 0 && /if \(!puedeOperar\(admin, await wsSuperAdmin\(\)\)\) return \{ ok: false, error: NO_PUEDE \};/.test(acc.slice(i, i + 400)), `${n} sin la puerta del super admin`);
   }
   // La pantalla, por negocio y persona, con «Desconectar» que pide confirmar.
+  // 23/10/2026: el MISMO dibujo que el cliente (cuentas → dispositivos), negocio por negocio, con el email ENTERO.
+  const cuenta = { proveedor: 'claude' as const, email: 'mauricio@gmail.com', plan: 'max' };
   const pcs: PcDeNegocio[] = [
-    { id: 1, ws: 1, negocio: 'Mauricio Bustos', persona: 'mauricio@negocio.com', nombre: 'PC de Mauricio', sistema: 'Windows', enLinea: true, conClaude: true, conectadaAt: '2026-10-22T12:00:00Z', ultimoLatido: new Date().toISOString() },
-    { id: 2, ws: 1, negocio: 'Mauricio Bustos', persona: 'mauricio@negocio.com', nombre: 'PC de Martín', sistema: null, enLinea: false, conClaude: true, conectadaAt: null, ultimoLatido: '2026-10-22T10:00:00Z' },
+    { id: 1, ws: 1, negocio: 'Mauricio Bustos', persona: 'mauricio@negocio.com', nombre: 'PC de Mauricio', sistema: 'Windows', enLinea: true, conClaude: true, conectadaAt: '2026-10-22T12:00:00Z', ultimoLatido: new Date().toISOString(), cuentas: [cuenta], ubicacion: 'Grandbourg, Buenos Aires, Argentina', version: '0.4.0+windows' },
+    { id: 2, ws: 1, negocio: 'Mauricio Bustos', persona: 'mauricio@negocio.com', nombre: 'PC de Martín', sistema: null, enLinea: false, conClaude: true, conectadaAt: '2026-10-21T12:00:00Z', ultimoLatido: '2026-10-22T10:00:00Z', cuentas: [cuenta], ubicacion: null, version: '0.3.2' },
   ];
   const html = renderToStaticMarkup(createElement(VistaComputadoras, { lectura: { ok: true, pcs }, ahora: Date.parse('2026-10-22T12:30:00Z'), onDesconectar: () => {} }));
   assert.match(html, /Computadoras.*1 de 2 en línea/);
   assert.match(html, /Mauricio Bustos \(ws1\)/);
-  assert.match(html, /PC de Mauricio.*En línea.*Windows · conectada el/);
+  assert.equal((html.match(/>Cuenta 1</g) ?? []).length, 1, 'la misma cuenta en dos computadoras es UN bloque');
+  assert.match(html, /mauricio@gmail\.com/, 'el super admin ve el email entero');
+  assert.match(html, /PC de Mauricio.*En línea.*Windows · Grandbourg, Buenos Aires, Argentina/);
   assert.match(html, /PC de Martín.*Sin conexión/);
   assert.equal((html.match(/>Desconectar</g) ?? []).length, 2);
   // En la computadora y en el teléfono.

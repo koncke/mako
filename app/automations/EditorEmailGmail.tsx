@@ -97,6 +97,7 @@ import {
   esRemitenteDeMako, SIN_EMAIL_PROPIO,
 } from '@/lib/email-remitente';
 import type { DomState } from '../email/EmailApp';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type CambioEmail = {
   asunto?: string;
@@ -366,7 +367,7 @@ export function VincularRemitente({ inicial, reemplaza, onCerrar, onDominio }: {
         <div role="note" style={{ marginBottom: 12, fontSize: 13, color: 'var(--ink)' }}>{AVISO_REEMPLAZA}</div>
       )}
       {error ? (
-        <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>No se pudo abrir.</div>
+        <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>No se pudo abrir.<ReportarASoporte /></div>
       ) : Setup && dom ? (
         <Setup dom={dom} onUpdate={(d) => { setDom(d); onDominio(d); }} />
       ) : (

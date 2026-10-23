@@ -83,7 +83,8 @@ test('Cal.com: crear y editar por /v2/event-types, con su versión, y lo que con
 
 test('Calendly: crear con el dueño del token y ACTIVO; editar por su uuid', () => {
   const c = sinComentarios(leer('lib/calendly-agenda.ts'));
-  assert.match(c, /const owner = await usuarioUri\(\);/);
+  // Con el token que recibe desde el 23/10/2026 (tests/agenda-velocidad-23-10.test.ts).
+  assert.match(c, /const owner = await usuarioUri\(token\);/);
   assert.match(c, /pedir<\{ resource\?: EventTypeCrudo \}>\(`\$\{API\}\/event_types`, \{\s*method: 'POST', body: JSON\.stringify\(\{ owner, name: i\.nombre, duration: i\.duracionMin, active: true \}\),/);
   assert.match(c, /pedir<\{ resource\?: EventTypeCrudo \}>\(`\$\{API\}\/event_types\/\$\{uuid\}`, \{ method: 'PATCH',/);
   assert.match(c, /if \(!\/\^\[A-Za-z0-9-\]\{6,\}\$\/\.test\(uuid\)\) throw/, 'un identificador cualquiera armaría otra ruta');
@@ -92,9 +93,11 @@ test('Calendly: crear con el dueño del token y ACTIVO; editar por su uuid', () 
 test('la pantalla: crear y asignar en un gesto, editar en el lugar, conectar sin salir, y Google dicho', () => {
   const m = sinComentarios(leer('app/crm/EventosDeEtapaModal.tsx'));
   assert.match(m, /const r = await crearEventoAgendaAction\(\{ \.\.\.creando, vincularA: \{ funnelId, etapa \} \}\);/, 'se crea PARA asignarlo');
-  assert.match(m, /const r = await editarEventoAgendaAction\(\{ proveedor: e\.proveedor, identificador: e\.identificador, nombre: editando\.nombre, duracionMin: editando\.duracionMin \}\);/);
+  // Desde el 23/10/2026 manda la cuenta del evento y SÓLO lo que cambió (la edición completa: tests/agenda-edicion-completa-23-10.test.ts).
+  assert.match(m, /const r = await editarEventoAgendaAction\(\{ proveedor: e\.proveedor, cuenta: e\.cuenta \?\? undefined, identificador: e\.identificador, \.\.\.cambios \}\);/);
   assert.match(m, /<BotonIntegracion key=\{p\} servicio=\{SERVICIO_INTEGRACION\[p\]\} onConectado=\{\(\) => leer\(\)\}/, 'conectar abre el modal de /integraciones acá');
-  assert.doesNotMatch(m, /target="_blank"/, 'crear ya no manda a otra pestaña');
+  // Crear no manda a otra pestaña. Lo único que abre una (23/10/2026) es lo que la API no deja editar: la disponibilidad.
+  assert.equal((m.match(/target="_blank"/g) ?? []).length, (m.match(/href=\{o\.editarAlla\} target="_blank" rel="noreferrer"/g) ?? []).length, 'otra pestaña que no es «editar allá»');
   // Google Calendar: una ⓘ desde el 22/10/2026 (tests/crm-asignar-evento.test.ts).
   assert.match(m, /title=\{AVISO_GOOGLE_AGENDA\}/, 'Google Calendar, dicho');
   const a = sinComentarios(leer('app/crm/agenda-evento-actions.ts'));
@@ -115,9 +118,10 @@ test('la API de MaKo: crear y editar un evento, sólo el admin, con «sí», por
     assert.match(op, /gating: TAB_ADMIN/);
   }
   const run = sinComentarios(leer('lib/api-mako/areas/crm.run.ts'));
-  assert.match(run, /const r = await crearEventoDeAgenda\(\{ proveedor: payload\.proveedor, nombre: payload\.nombre, duracionMin: payload\.duracionMin \}\);/);
-  assert.match(run, /const r = await editarEventoDeAgenda\(\{ proveedor: payload\.proveedor, identificador: payload\.evento,/);
+  assert.match(run, /const r = await crearEventoDeAgenda\(\{ proveedor: payload\.proveedor, cuenta: payload\.cuenta, nombre: payload\.nombre, duracionMin: payload\.duracionMin \}\);/);
+  assert.match(run, /const r = await editarEventoDeAgenda\(\{\s*proveedor: payload\.proveedor, identificador: payload\.evento,/);
   const srv = sinComentarios(leer('lib/agenda-evento-etapa-server.ts'));
   assert.match(srv, /const d = datosDeEvento\(input\);/);
-  assert.match(srv, /const d = datosDeEvento\(input, true\);/);
+  // Editar valida el nombre y la duración igual, salvo que sólo cambie la descripción, dónde o las preguntas (23/10/2026).
+  assert.match(srv, /const d = hayBasico \|\| !hayDetalle \? datosDeEvento\(input, true\) :/);
 });

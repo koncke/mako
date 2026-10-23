@@ -60,6 +60,7 @@ import { ElementoGeneral, useEnGeneral, useFunnelsGeneral, useGeneral, useVariab
 import { PIEZAS_GENERAL, VARIABLES_TEXTO, atarFunnels, conVariables, esPiezaGeneral, funnelsDeBloque, opcionDe, opcionesDePieza, piezaPorFunnel, piezaPorVariosFunnels } from '@/lib/general-piezas';
 import { ElegirFunnels } from '../components/ElegirFunnels';
 import { Dropdown } from '@/app/components/Dropdown';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /**
  * Lo que la pantalla le cuenta a un elemento además de él mismo (interfaz I3). Todo opcional salvo la hoja: sin
@@ -889,7 +890,7 @@ function SeccionesEnlace({ e, onCambiar }: { e: Elemento; onCambiar: (p: Partial
           onChange={(ev) => setBorrador(ev.target.value)} onBlur={aplicar}
           onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); aplicar(); } }}
           style={S.campo} />
-        {error && <p role="alert" style={S.error}>{error}</p>}
+        {error && <p role="alert" style={S.error}>{error}<ReportarASoporte /></p>}
       </Seccion>
     </>
   );
@@ -923,7 +924,7 @@ function SeccionesVideo({ e, onCambiar }: { e: Elemento; onCambiar: (p: Partial<
           onChange={(ev) => setBorrador(ev.target.value)} onBlur={aplicar}
           onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); aplicar(); } }}
           style={S.campo} />
-        {aviso ? <p role="alert" style={S.error}>{aviso}</p> : actual?.ok && <Reconocido nombre={actual.valor.nombre} />}
+        {aviso ? <p role="alert" style={S.error}>{aviso}<ReportarASoporte /></p> : actual?.ok && <Reconocido nombre={actual.valor.nombre} />}
       </Seccion>
       <Seccion>
         <label htmlFor={idTitulo} style={S.titulo}>Título</label>
@@ -965,7 +966,7 @@ function SeccionesInsertado({ e, onCambiar }: { e: Elemento; onCambiar: (p: Part
           onChange={(ev) => setBorrador(ev.target.value)} onBlur={aplicar}
           onKeyDown={(ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); aplicar(); } }}
           style={{ ...S.campo, resize: 'vertical', lineHeight: 1.4, fontFamily: "'Geist Mono', monospace", fontSize: 12.5, wordBreak: 'break-all' }} />
-        {aviso ? <p role="alert" style={S.error}>{aviso}</p> : actual?.ok && <Reconocido nombre={actual.valor.nombre} />}
+        {aviso ? <p role="alert" style={S.error}>{aviso}<ReportarASoporte /></p> : actual?.ok && <Reconocido nombre={actual.valor.nombre} />}
       </Seccion>
       <Seccion>
         <label htmlFor={idTitulo} style={S.titulo}>Título</label>
@@ -1020,7 +1021,7 @@ function SeccionesImagen({ e, onCambiar }: { e: Elemento; onCambiar: (p: Partial
           onChange={(ev) => setBorrador(ev.target.value)} onBlur={aplicar}
           onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); aplicar(); } }}
           style={S.campo} />
-        {error && <p role="alert" style={S.error}>{error}</p>}
+        {error && <p role="alert" style={S.error}>{error}<ReportarASoporte /></p>}
       </Seccion>
       <Seccion titulo="Ajuste">
         <Opciones etiqueta="Ajuste" valor={e.ajuste} onElegir={(v) => onCambiar({ ajuste: v })}

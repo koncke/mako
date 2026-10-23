@@ -36,6 +36,8 @@
 import { after, type NextRequest } from 'next/server';
 import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { credWsEstricta } from '@/lib/credenciales';
+import { claveDeCuenta } from '@/lib/cuentas-integracion';
+import { cuentaDeIdentificador } from '@/lib/cuentas-pago-server';
 import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { verificarFirmaMercadoPago, MOTIVO_FIRMA_PASARELA } from '@/lib/pasarela-firma';
 import { runWithWorkspace } from '@/lib/workspace';
@@ -82,9 +84,12 @@ export async function POST(req: NextRequest) {
   // ── 2. De quién es: ESTRICTO ──
   let ws: number | null = null;
   let secreto: string | null = null;
+  // La CUENTA del negocio de la notificación (varias por proveedor, mig 0328): su `user_id` dice cuál.
+  let cuenta: string | null = null;
   try {
     ws = n.userId ? await wsPorIdentificadorEstricto('mercadopago', n.userId) : null;
-    secreto = ws == null ? null : await credWsEstricta('MERCADOPAGO_WEBHOOK_SECRET', ws);
+    cuenta = ws == null ? null : await cuentaDeIdentificador(ws, 'mercadopago', n.userId);
+    secreto = ws == null || cuenta == null ? null : await credWsEstricta(claveDeCuenta('MERCADOPAGO_WEBHOOK_SECRET', cuenta), ws);
   } catch (err) {
     return responderFalloDeRuteo('mercadopago', err, n.userId);
   }
@@ -115,11 +120,14 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: true });
   }
   const wsFinal = ws;
+  // Sin cuenta (un ruteo que quedó de una cuenta ya desconectada), la principal: su relectura exige que el pago lo haya
+  // cobrado SU user_id, así que no aplica nada ajeno.
+  const cuentaFinal = cuenta ?? undefined;
 
   // ── 4. La relectura (sólo lee) ──
   let lectura: LecturaMp;
   try {
-    lectura = await runWithWorkspace(wsFinal, () => releerNotificacionMp(wsFinal, n));
+    lectura = await runWithWorkspace(wsFinal, () => releerNotificacionMp(wsFinal, n, cuentaFinal));
   } catch (e) {
     await anotarEvento(
       { proveedor: 'mercadopago', eventoId: claveEventoMp(n.tipo, n.id, 'sin-leer'), ws: wsFinal, tipo: n.tipo },
@@ -138,7 +146,7 @@ export async function POST(req: NextRequest) {
   if (typeof reclamo === 'object') return responderFallo('registro', reclamo.error);
 
   // ── 6. El CRM, adentro de SU workspace ──
-  const trabajo = runWithWorkspace(wsFinal, () => aplicarNotificacionMp(wsFinal, lectura));
+  const trabajo = runWithWorkspace(wsFinal, () => aplicarNotificacionMp(wsFinal, lectura, cuentaFinal, cuenta ? n.userId : null));
   try {
     const r = await conPresupuesto(trabajo, PRESUPUESTO_MS);
     if (!r.listo) {

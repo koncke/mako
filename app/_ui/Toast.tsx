@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { TONO, type Tono } from './tokens';
+import { ReportarASoporte } from './ReportarASoporte';
 
 export type ToastState = { msg: ReactNode; tono?: Tono; onUndo?: () => void } | null;
 
@@ -33,8 +34,9 @@ export function useToast(ms = 5000) {
     if (!toast) return;
     if (timer.current) clearTimeout(timer.current);
     // Con Deshacer la ventana es la que manda: mientras el cartel está, se puede
-    // revertir. Sin él, el cartel es solo un acuse y puede irse antes.
-    timer.current = setTimeout(() => setToast(null), toast.onUndo ? ms : Math.min(ms, 3200));
+    // revertir. Sin él, el cartel es solo un acuse y puede irse antes. Un error
+    // se queda más: tiene que dar tiempo a leerlo y a tocar «Reportar a Soporte».
+    timer.current = setTimeout(() => setToast(null), toast.tono === 'bad' ? Math.max(ms, 8000) : toast.onUndo ? ms : Math.min(ms, 3200));
     return () => { if (timer.current) clearTimeout(timer.current); };
   }, [toast, ms]);
   return { toast, show, clear };
@@ -43,8 +45,10 @@ export function useToast(ms = 5000) {
 export function Toast({ state, onClose }: { state: ToastState; onClose: () => void }) {
   if (!state) return null;
   const t = state.tono ? TONO[state.tono] : null;
+  // Con tono `bad` es un error: un aviso (role="alert") con «Reportar a Soporte» (23/10/2026, tests/reportar-a-soporte.test.ts).
+  const error = state.tono === 'bad';
   return (
-    <div role="status" aria-live="polite" style={{
+    <div role={error ? 'alert' : 'status'} aria-live={error ? 'assertive' : 'polite'} style={{
       position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 600,
       display: 'flex', alignItems: 'center', gap: 14, maxWidth: 'calc(100vw - 32px)',
       background: 'var(--sidebar)', color: 'var(--on-sidebar)',
@@ -55,6 +59,7 @@ export function Toast({ state, onClose }: { state: ToastState; onClose: () => vo
       animation: 'mkPop .16s ease',
     }}>
       <span style={{ minWidth: 0 }}>{state.msg}</span>
+      <ReportarASoporte />
       {state.onUndo && (
         <button type="button" onClick={() => { state.onUndo!(); onClose(); }}
           style={{ flex: 'none', background: 'transparent', border: '1px solid rgba(243,245,248,.35)', color: 'var(--primary-weak)', fontWeight: 600, fontSize: 'var(--fs-sm)', padding: '6px 12px', borderRadius: 'var(--r-sm)', cursor: 'pointer', fontFamily: 'inherit' }}>

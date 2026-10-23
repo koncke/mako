@@ -34,6 +34,8 @@
 import { after, type NextRequest } from 'next/server';
 import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { credWsEstricta } from '@/lib/credenciales';
+import { claveDeCuenta } from '@/lib/cuentas-integracion';
+import { cuentaDeIdentificador } from '@/lib/cuentas-pago-server';
 import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { verificarFirmaStripe, MOTIVO_FIRMA_PASARELA } from '@/lib/pasarela-firma';
 import { runWithWorkspace } from '@/lib/workspace';
@@ -71,9 +73,13 @@ export async function POST(req: NextRequest) {
   // ── 2. De quién es: ESTRICTO ──
   let ws: number | null = null;
   let secreto: string | null = null;
+  // La CUENTA del negocio que manda el aviso (varias por proveedor, mig 0328): su `acct` dice cuál, y con ella el secreto
+  // que verifica la firma y la clave que relee. Sin cuenta, sin secreto: la firma se rechaza como siempre.
+  let cuenta: string | null = null;
   try {
     ws = acct ? await wsPorIdentificadorEstricto('stripe', acct) : null;
-    secreto = ws == null ? null : await credWsEstricta('STRIPE_WEBHOOK_SECRET', ws);
+    cuenta = ws == null ? null : await cuentaDeIdentificador(ws, 'stripe', acct);
+    secreto = ws == null || cuenta == null ? null : await credWsEstricta(claveDeCuenta('STRIPE_WEBHOOK_SECRET', cuenta), ws);
   } catch (err) {
     return responderFalloDeRuteo('stripe', err, acct);
   }
@@ -116,7 +122,8 @@ export async function POST(req: NextRequest) {
   if (typeof reclamo === 'object') return responderFallo('registro', reclamo.error);
 
   // ── 5. El cobro, la relectura y el CRM, adentro de SU workspace ──
-  const trabajo = runWithWorkspace(wsFinal, () => procesarEventoStripe(wsFinal, ev));
+  const cuentaFinal = cuenta ?? undefined;
+  const trabajo = runWithWorkspace(wsFinal, () => procesarEventoStripe(wsFinal, ev, cuentaFinal, cuenta ? acct : null));
   try {
     const r = await conPresupuesto(trabajo, PRESUPUESTO_MS);
     if (!r.listo) {

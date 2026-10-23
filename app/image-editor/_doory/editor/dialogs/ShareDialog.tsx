@@ -14,6 +14,7 @@ import { copyText } from './copyText'
 import { EXPIRIES, type Expiry, SHARE_ROLES, absoluteUrl, expiryDate, linkStatus, validPassword } from './shareOps'
 import dlg from './dialogs.module.css'
 import styles from './Share.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const when = (iso: string): string => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso))
 
@@ -194,6 +195,7 @@ export function ShareDialog() {
         {error ? (
           <p className={dlg.error} role="alert">
             {error}
+            <ReportarASoporte />
           </p>
         ) : null}
         {!sharing ? <p className={styles.empty}>{t.share.unavailable}</p> : null}

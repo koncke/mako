@@ -14,6 +14,7 @@ import { useRouter } from '@/app/_ui/Link';
 import { haptico } from '@/lib/haptico';
 import { deleteIdentidadFiscalAction, saveIdentidadFiscalAction, type IdentidadFiscal } from '@/app/crm/[id]/deal-actions';
 import { ErrorM, FilaM, InterruptorM, ListaM, PieM, PildoraM, SeccionM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Form = { id: number | null; nombre: string; idFiscal: string; domicilio: string; correo: string; esDefault: boolean };
 const VACIO: Form = { id: null, nombre: '', idFiscal: '', domicilio: '', correo: '', esDefault: false };
@@ -95,7 +96,7 @@ export function FiscalM({ identidades }: { identidades: IdentidadFiscal[] | null
           </PieM>
         ) : undefined}>
         {form && <CamposFiscal form={form} onCambio={(f) => { setForm(f); setError(null); }} />}
-        {error && <p className="m-configuraciones-aviso" data-tono="bad" role="alert">{error}</p>}
+        {error && <p className="m-configuraciones-aviso" data-tono="bad" role="alert">{error}<ReportarASoporte /></p>}
       </SheetM>
     </>
   );

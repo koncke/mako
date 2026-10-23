@@ -42,6 +42,7 @@ import type { CuentasConNombre } from '@/lib/centro-titulares';
 import type { LecturaCredito } from '@/lib/credito-api';
 import type { LecturaComputadoras } from '@/lib/ia-pc-reglas';
 import { pasosDelChat, type PasoDelTurno, type PasosPorChat } from '@/lib/centro-pasos';
+import { claveDeLinea, estabilizarLista, minutoDe, mismoValor } from '@/lib/centro-estable';
 import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, textoParaMandar, type Borrador } from '@/lib/centro-caja';
 import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
@@ -196,9 +197,10 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     if (r?.ok) {
       // Si no cambió nada, se queda el MISMO arreglo: así la conversación memorizada no se vuelve a dibujar en cada refresco.
       setTurnos((t) => (mismosTurnos(t[c.clave], r.turnos) ? t : { ...t, [c.clave]: r.turnos }));
-      setPreguntas((q) => ({ ...q, [c.clave]: r.preguntas ?? [] }));
-      setTareas((x) => ({ ...x, [c.clave]: r.tareas ?? [] }));
-      if (r.marcas) { const m = r.marcas; setMarcas((x) => ({ ...x, [c.clave]: m })); }
+      // Las preguntas, las tareas y las marcas, igual: un objeto nuevo de lo mismo rehacía el historial de TODOS los chats.
+      setPreguntas((q) => { const v = mismoValor(q[c.clave], r.preguntas ?? []); return v === q[c.clave] ? q : { ...q, [c.clave]: v }; });
+      setTareas((x) => { const v = mismoValor(x[c.clave], r.tareas ?? []); return v === x[c.clave] ? x : { ...x, [c.clave]: v }; });
+      if (r.marcas) { const m = r.marcas; setMarcas((x) => { const v = mismoValor(x[c.clave], m); return v === x[c.clave] ? x : { ...x, [c.clave]: v }; }); }
       // El borrador de MaKo: el del teléfono, si es más nuevo que lo de acá.
       cargarBorrador(c, r.borrador ?? null);
     }
@@ -266,7 +268,15 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // Sin el Runner (17/10/2026, Martín: «El chat de "Runner" no tiene sentido que esté visible en el Center»): sigue trabajando
   // por detrás y su estado está en «Uso y Runners». Se saca ACÁ, no en `completarChats`: la PC lo sube marcado (`esRunner`) y de
   // esa marca sale que no se le entrega nada (tests/centro-runner-nube.test.ts).
-  const conVigia = useMemo(() => sinElRunner(completarChats(base, { carteros, trabajos, ahora, pasos })), [base, carteros, trabajos, ahora, pasos]);
+  // El reloj de la lista, AL MINUTO: `completarChats` lo usa para `viejo` (4 min). Con el de cada refresco se rehacían todos los
+  // chats cada 2,5 s aunque nada cambiara. Y cada chat que vale lo mismo es el de antes (la fila y el hilo no se redibujan).
+  const ahoraLista = minutoDe(ahora);
+  const chatsAntes = useRef<readonly ChatCentro[] | undefined>(undefined);
+  const conVigia = useMemo(() => {
+    const v = estabilizarLista(chatsAntes.current, sinElRunner(completarChats(base, { carteros, trabajos, ahora: ahoraLista, pasos })), (c) => c.clave);
+    chatsAntes.current = v;
+    return v;
+  }, [base, carteros, trabajos, ahoraLista, pasos]);
   // «MaKo en WhatsApp» (el vigía: un cron que dice «Sin incidentes nuevos» cada rato) sale de la lista mientras está callado y
   // vuelve, avisando como «Espera tu respuesta», cuando deja un incidente de verdad (Martín, 17/10/2026). Con lo último que
   // trajo el refresco: abrirlo no hace falta para saberlo.
@@ -284,10 +294,15 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   );
   const porId = useMemo(() => new Map(pedidos.map((p) => [p.id, p])), [pedidos]);
   // La conversación de cada chat, una vez: de ella salen el segundo renglón y en qué está trabajando.
-  const lineasDe = useMemo(
-    () => new Map<string, LineaChat[]>(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros), turnosParaLaLista(c, turnos, ultimos, mirando === c.clave), preguntas[c.clave])])),
-    [chats, porId, trabajos, decisiones, carteros, turnos, ultimos, mirando, preguntas],
-  );
+  // Y cada línea que vale lo mismo es la de antes (por su turno, su pedido, su trabajo): el hilo memorizado sólo dibuja la nueva.
+  const lineasAntes = useRef(new Map<string, readonly LineaChat[]>());
+  const lineasDe = useMemo(() => {
+    const m = new Map<string, LineaChat[]>(chats.map((c) => [c.clave, estabilizarLista(lineasAntes.current.get(c.clave),
+      historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros), turnosParaLaLista(c, turnos, ultimos, mirando === c.clave), preguntas[c.clave]),
+      claveDeLinea) as LineaChat[]]));
+    lineasAntes.current = m;
+    return m;
+  }, [chats, porId, trabajos, decisiones, carteros, turnos, ultimos, mirando, preguntas]);
   const previas = useMemo(() => new Map<string, VistaPrevia | null>([...lineasDe].map(([k, l]) => [k, vistaPrevia(l)])), [lineasDe]);
   // Los pasos en vivo de cada chat (la E), una vez por refresco: el hilo memorizado compara por identidad.
   const pasosPorChat = useMemo(() => new Map<string, PasoDelTurno[]>(chats.map((c) => [c.clave, pasosDelChat(c, pasos)])), [chats, pasos]);
@@ -325,7 +340,17 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     // ⚠️ UN REFRESCO QUE FALLA NO CAMBIA LO DIBUJADO (22/10/2026): un 503 hace que la acción TIRE (Next: «An unexpected response
     // was received from the server»). Queda lo último que se vio, sin tocar ninguna fila, y el intervalo reintenta.
     const f = await fotoCentroAction().catch(() => null);
-    if (f?.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.ultimos) { const firma = JSON.stringify(f.ultimos); if (firma !== ultimosFirma.current) { ultimosFirma.current = firma; setUltimos(f.ultimos); } } if (f.cuentas) setNombresCuentas(f.cuentas); setPasos(f.pasos ?? {}); if (f.yaVistos) setYaVistos(f.yaVistos); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
+    // ⚠️ CADA COSA CAMBIA SÓLO SI CAMBIÓ (23/10/2026, un chat trabajando trababa 0,7–3,6 s en cada vuelta de 2,5 s): con un
+    // arreglo nuevo de lo mismo se rehacían todos los chats y su historial, y se volvía a dibujar la lista y el hilo enteros.
+    // `mismoValor` devuelve el de antes si vale lo mismo (lib/centro-estable.ts).
+    if (f?.ok) {
+      setCola((x) => mismoValor(x, f.pedidos)); setEstado((x) => mismoValor(x, f.carteros)); setAbiertas((x) => mismoValor(x, f.preguntasAbiertas ?? {}));
+      if (f.ultimos) { const firma = JSON.stringify(f.ultimos); if (firma !== ultimosFirma.current) { ultimosFirma.current = firma; setUltimos(f.ultimos); } }
+      if (f.cuentas) { const c = f.cuentas; setNombresCuentas((x) => mismoValor(x, c)); }
+      setPasos((x) => mismoValor(x, f.pasos ?? {}));
+      if (f.yaVistos) { const v = f.yaVistos; setYaVistos((x) => mismoValor(x, v)); }
+      if (f.decisiones) { const d = f.decisiones; setDecisiones((x) => mismoValor(x, d)); setDecisionesOk(true); }
+    }
     if (mirado.current) void pedirTurnos(mirado.current);
     setAhora(Date.now());
   }, [pedirTurnos]);

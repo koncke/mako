@@ -1,0 +1,78 @@
+'use client';
+
+// =============================================================================
+// ChatMakoVista — lo que se VE del chat de MaKo de Automations: el hilo y la caja únicos (23/10/2026, AU4)
+// =============================================================================
+// Martín, por el Cerebro: «La criatura es SIEMPRE la de MaKo, la estrella, en todos lados. La caja de escribir está pegada
+// abajo de todo: tiene que tener aire. Falta el "+" para adjuntar archivos e imágenes. Pasá el chat a la caja y el hilo
+// únicos (CajaChat y HiloMako)». Era el `ChatHilo` de WhatsApp con colores de MaKo y la criatura «Automations».
+//
+// ⚠️ VIVE APARTE Y ENTRA CON `next/dynamic` (ChatMako.tsx): las piezas únicas traen su CSS, y ChatMako lo importan
+// SecuenciaPerfil y la galería, que muchos tests dibujan bajo tsx (Node no carga CSS). El molde del agente del Web
+// Generator (ChatAgente.tsx). Esto sólo DIBUJA: el motor, el hilo y lo de cada mensaje los arma ChatMako.tsx.
+// =============================================================================
+
+import '@/app/admin/operaciones/centro.css';
+import '@/app/_chat/chat.css';
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { HiloMako, type EnMensaje, type Quien } from '@/app/_chat/HiloMako';
+import { CajaChat } from '@/app/_chat/CajaChat';
+import type { PropsCajaChat } from '@/app/_chat/CajaChat';
+import type { ItemHilo } from '@/app/m/mako/chat-ui';
+import { estaAbajo } from '@/lib/centro-caja';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+
+/** La criatura de MaKo: la estrella, siempre (23/10/2026). */
+export const QUIEN_MAKO: Quien = { nombre: 'MaKo', aspecto: ASPECTO_MAKO };
+
+type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
+
+/** La caja en la columna angosta, y la ➤ sin el verde de WhatsApp (como el MaKo Analyst del CRM, MakoAnalystLead.tsx). */
+const CAJA = { paddingInline: 12, '--good': 'var(--ink)', '--sobre-good': 'var(--surface)' } as CSSProperties;
+
+export type PropsVistaChatMako = {
+  items: readonly ItemHilo[];
+  /** Lo de ChatMako adentro de un mensaje de MaKo: «✓ Listo», lo que faltó, lo acomodado, la pregunta, los botones. */
+  enMensaje: (x: ItemMsg) => EnMensaje | null;
+  /** MaKo trabajando (los segundos que lleva), o null. */
+  escribiendo: { segs: number } | null;
+  /** Lo que se lee con el hilo vacío. */
+  vacio: ReactNode;
+  /** «Reintentar» de un mensaje que no salió. */
+  onReintentar: (id: string) => void;
+  /** Arriba de la caja: las fases con Cancelar, o Discutir / Editar y el error. */
+  encima: ReactNode;
+  caja: PropsCajaChat;
+};
+
+export default function ChatMakoVista(p: PropsVistaChatMako) {
+  const hiloRef = useRef<HTMLDivElement | null>(null);
+  /** ¿Se estaba mirando lo último? Entonces lo nuevo lo sigue (si se subió a leer algo de antes, no se lo mueve). */
+  const abajo = useRef(true);
+  const n = p.items.length + (p.escribiendo ? 1 : 0);
+  useLayoutEffect(() => {
+    const h = hiloRef.current;
+    if (h && abajo.current) h.scrollTop = h.scrollHeight;
+  }, [n]);
+  return (
+    <>
+      {/* ⚠️ EL MARGEN DEL HILO DEL OPS CENTER SALE DEL ANCHO DE LA VENTANA (`clamp(16px, 4vw, 56px)`): en la sidebar del lienzo
+          (~380 px) le dejaba al globo ~270. Acá, el de una columna angosta. */}
+      <div className="co-hilo" data-hilo-mako="" ref={hiloRef} onScroll={(e) => { abajo.current = estaAbajo(e.currentTarget); }} style={{ flex: 1, minHeight: 0, paddingInline: 14 }}>
+        <div className="co-hilo__col">
+          {p.items.length || p.escribiendo
+            ? <HiloMako items={p.items} quien={QUIEN_MAKO} ahora={Date.now()} escribiendo={p.escribiendo} tarjeta={null}
+                onTarjeta={() => {}} onReintentar={p.onReintentar} onRecargar={() => {}} enMensaje={p.enMensaje} />
+            : p.vacio}
+        </div>
+      </div>
+      {/* LA CAJA CON AIRE (23/10/2026: «está pegada abajo de todo: tiene que tener aire»): la del Ops Center, con su margen. */}
+      <div className="co-caja-wrap" data-caja-mako="" style={CAJA}>
+        {p.encima}
+        <div className="co-caja">
+          <CajaChat {...p.caja} />
+        </div>
+      </div>
+    </>
+  );
+}

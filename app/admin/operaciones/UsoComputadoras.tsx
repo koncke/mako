@@ -11,48 +11,27 @@
 //    los tests. La lectura y el «Desconectar» llegan por props (las acciones del Centro, useCentro.ts).
 
 import { useEffect, useRef, useState } from 'react';
-import { hace } from '@/lib/progreso-reglas';
-import { detalleDeLaPc, type LecturaComputadoras, type PcDeNegocio } from '@/lib/ia-pc-reglas';
+import { agruparPorCuenta, type LecturaComputadoras, type PcDeNegocio } from '@/lib/ia-pc-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { CuentasYDispositivos } from '@/app/integraciones/CuentasYDispositivos';
 
 export type LeerComputadoras = () => Promise<LecturaComputadoras>;
 export type DesconectarComputadora = (ws: number, id: number) => Promise<LecturaComputadoras>;
 
-const fechaCorta = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day: 'numeric', month: 'numeric' });
-
-function FilaPc({ pc, ahora, onDesconectar, ocupado }: { pc: PcDeNegocio; ahora: number; onDesconectar?: (pc: PcDeNegocio) => void; ocupado: boolean }) {
-  const [seguro, setSeguro] = useState(false);
-  const estado = pc.enLinea ? (pc.conClaude ? 'En línea' : 'Sin sesión de Claude') : pc.ultimoLatido ? `Sin conexión · ${hace(Date.parse(pc.ultimoLatido), ahora)}` : 'Esperando que se conecte';
-  const detalle = detalleDeLaPc(pc, fechaCorta);
-  return (
-    <div className="co-uso__credito" data-pc={pc.id}>
-      <div className="co-uso__fila">
-        <span className="co-uso__nombre">{pc.nombre}</span>
-        <span className={`co-uso__pct${pc.enLinea && pc.conClaude ? '' : ' co-uso__pct--sin'}`}>{estado}</span>
-      </div>
-      {detalle && <p className="co-uso__reinicio">{detalle}</p>}
-      {onDesconectar && (seguro
-        ? (
-          <p className="co-uso__reinicio">
-            ¿Desconectarla? Su chat deja de usarla.{' '}
-            <button type="button" className="co-uso__interruptor" disabled={ocupado} onClick={() => onDesconectar(pc)}>{ocupado ? 'Desconectando…' : 'Desconectar'}</button>{' '}
-            <button type="button" className="co-uso__interruptor" disabled={ocupado} onClick={() => setSeguro(false)}>Cancelar</button>
-          </p>
-        )
-        : <button type="button" className="co-uso__interruptor" onClick={() => setSeguro(true)}>Desconectar</button>)}
-    </div>
-  );
-}
-
-/** Lo que se dibuja con una lectura en la mano (la sección y los tests). `null` = leyendo. */
-export function VistaComputadoras({ lectura, ahora, onDesconectar, ocupado = null }: {
-  lectura: LecturaComputadoras | null; ahora: number; onDesconectar?: (pc: PcDeNegocio) => void; ocupado?: number | null;
+/**
+ * Lo que se dibuja con una lectura en la mano (la sección y los tests). `null` = leyendo. El MISMO dibujo que «Tus cuentas de
+ * IA» del cliente (23/10/2026, Martín: «El MISMO sistema en SuperAdmin, idéntico, más lo suyo»), negocio por negocio: cada
+ * cuenta, «Cuenta N» con su email ENTERO (el super admin lo ve) y su uso, y adentro sus dispositivos con dónde están y
+ * «Desconectar». Lo suyo de más: las computadoras de TODOS los negocios (y el crédito de Claude, en UsoCredito.tsx).
+ */
+export function VistaComputadoras({ lectura, ahora, onDesconectar }: {
+  lectura: LecturaComputadoras | null; ahora: number; onDesconectar?: (pc: PcDeNegocio) => Promise<unknown> | void; ocupado?: number | null;
 }) {
-  // Por negocio y, adentro, por persona.
-  const grupos = new Map<string, { negocio: string; ws: number; personas: Map<string, PcDeNegocio[]> }>();
+  const negocios = new Map<number, { negocio: string; ws: number; pcs: PcDeNegocio[] }>();
   for (const pc of lectura?.ok ? lectura.pcs : []) {
-    const g = grupos.get(String(pc.ws)) ?? { negocio: pc.negocio, ws: pc.ws, personas: new Map() };
-    g.personas.set(pc.persona, [...(g.personas.get(pc.persona) ?? []), pc]);
-    grupos.set(String(pc.ws), g);
+    const g = negocios.get(pc.ws) ?? { negocio: pc.negocio, ws: pc.ws, pcs: [] };
+    g.pcs.push(pc);
+    negocios.set(pc.ws, g);
   }
   return (
     <div className="co-uso__api" role="group" aria-label="Computadoras conectadas">
@@ -63,17 +42,20 @@ export function VistaComputadoras({ lectura, ahora, onDesconectar, ocupado = nul
       {!lectura && <p className="co-uso__reinicio">Leyendo las computadoras…</p>}
       {lectura && !lectura.ok && <p className="co-uso__reinicio">{lectura.error}</p>}
       {lectura?.ok && !lectura.pcs.length && <p className="co-uso__reinicio">Ningún negocio conectó una computadora.</p>}
-      {[...grupos.values()].map((g) => (
-        <div key={g.ws} role="group" aria-label={g.negocio}>
-          <p className="co-uso__reinicio"><strong>{`${g.negocio} (ws${g.ws})`}</strong></p>
-          {[...g.personas.entries()].map(([persona, pcs]) => (
-            <div key={persona}>
-              <p className="co-uso__reinicio">{persona}</p>
-              {pcs.map((pc) => <FilaPc key={pc.id} pc={pc} ahora={ahora} onDesconectar={onDesconectar} ocupado={ocupado === pc.id} />)}
-            </div>
-          ))}
-        </div>
-      ))}
+      {[...negocios.values()].map((g) => {
+        const porId = new Map(g.pcs.map((pc) => [pc.id, pc]));
+        const grupos = agruparPorCuenta(g.pcs.map((pc) => ({
+          id: pc.id, nombre: pc.nombre, esMia: false, de: pc.persona, enLinea: pc.enLinea, ultimoLatido: pc.ultimoLatido,
+          version: pc.version, sistema: pc.sistema, ubicacion: pc.ubicacion, conectadaAt: pc.conectadaAt, cuentas: pc.cuentas, persona: pc.persona,
+        })), () => true);
+        return (
+          <div key={g.ws} className="tci" role="group" aria-label={g.negocio}>
+            <h2 className="tci-titulo">{`${g.negocio} (ws${g.ws})`}</h2>
+            <CuentasYDispositivos grupos={grupos} ahora={ahora}
+              onDesconectar={onDesconectar ? (d) => { const pc = porId.get(d.id); return pc ? onDesconectar(pc) : undefined; } : undefined} />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -81,7 +63,6 @@ export function VistaComputadoras({ lectura, ahora, onDesconectar, ocupado = nul
 /** La sección: pide la lectura UNA vez al abrirse (la `leer` del primer dibujo, como UsoCredito.tsx). */
 export function SeccionComputadoras({ leer, desconectar, ahora }: { leer: LeerComputadoras; desconectar?: DesconectarComputadora; ahora: number }) {
   const [lectura, setLectura] = useState<LecturaComputadoras | null>(null);
-  const [ocupado, setOcupado] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const leerRef = useRef(leer);
   useEffect(() => {
@@ -92,17 +73,15 @@ export function SeccionComputadoras({ leer, desconectar, ahora }: { leer: LeerCo
     return () => { vivo = false; };
   }, []);
   const onDesconectar = desconectar ? async (pc: PcDeNegocio) => {
-    setOcupado(pc.id);
     setError(null);
     const r = await desconectar(pc.ws, pc.id).catch(() => null);
     if (r?.ok) setLectura(r);
     else setError(r && !r.ok ? r.error : 'No pude desconectarla: vuelve a intentarlo.');
-    setOcupado(null);
   } : undefined;
   return (
     <>
-      <VistaComputadoras lectura={lectura} ahora={ahora} onDesconectar={onDesconectar} ocupado={ocupado} />
-      {error && <p className="co-uso__hacer" role="alert">{error}</p>}
+      <VistaComputadoras lectura={lectura} ahora={ahora} onDesconectar={onDesconectar} />
+      {error && <p className="co-uso__hacer" role="alert">{error}<ReportarASoporte /></p>}
     </>
   );
 }

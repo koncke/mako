@@ -20,6 +20,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Elemento } from '@/lib/graficos-catalogo';
 import { metricaExperimento, textoDireccion, type PropuestaExperimento } from '@/lib/experimentos-catalogo';
 import { fmtDelta, fmtFechaCorta, fmtVal } from '@/lib/experimentos-formato';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Punto = { fecha: string; valor: number | null };
 type Leido = {
@@ -101,7 +102,7 @@ export function ElementoExperimento({ e, editando, compartido }: { e: Elemento; 
             <span style={S.dim}>MaKo mide cómo venía y desde hoy lo compara.</span>
           </div>
         )}
-        {error && <span style={S.error} role="alert">{error}</span>}
+        {error && <span style={S.error} role="alert">{error}<ReportarASoporte /></span>}
       </Caja>
     );
   }
@@ -144,7 +145,7 @@ export function ElementoExperimento({ e, editando, compartido }: { e: Elemento; 
           <span style={S.dim}>Se cumplió la ventana: MaKo dice si se cumplió.</span>
         </div>
       )}
-      {error && <span style={S.error} role="alert">{error}</span>}
+      {error && <span style={S.error} role="alert">{error}<ReportarASoporte /></span>}
     </Caja>
   );
 }

@@ -36,6 +36,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ApiComunidad } from '@/app/_comunidad/api';
 import type { ComentarioVista, HiloClaseVista, MiembroVista } from '@/lib/comunidad-tipos';
 import { TOPE_COMENTARIO, haceCuanto, mencionesDeTokens, nombraA, type TokenTexto } from '@/lib/comunidad-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Cuánto queda a la vista un aviso de la línea de estado (no hay toast adentro del curso). */
 const AVISO_MS = 4000;
@@ -87,7 +88,7 @@ export function ComentariosClase({ api, claseId, linkComunidad, vistaPrevia = fa
     );
   }
   if (!api?.hiloClase || !api.comentarClase) return null;
-  if (error) return <Caja n={null} acciones={null}><p className="ccl-mal" role="alert">{error}</p></Caja>;
+  if (error) return <Caja n={null} acciones={null}><p className="ccl-mal" role="alert">{error}<ReportarASoporte /></p></Caja>;
   // Un «Cargando…» escrito no es un loader (AGENTS.md): va el giro.
   if (!hilo) return <Caja n={null} acciones={null}><span className="ccl-giro" role="status" aria-label="Cargando los comentarios" /></Caja>;
 
