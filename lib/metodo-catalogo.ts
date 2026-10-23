@@ -223,10 +223,17 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     tutorial: {
       url: 'https://business.facebook.com/settings',
       urlLabel: 'Configuración del negocio en Meta',
+      // El camino que YA ANDA hoy, mientras la app de MaKo espera la revisión de Meta (23/10/2026): cada negocio
+      // conecta con SU app. Medido ese día en los 10 negocios conectados así (docs/hallazgos-ads.md, «Conectar con
+      // tu propia app»): métricas y leads andan en todos; publicar anuncios con creativo NUEVO anduvo sólo con una
+      // app activa (ws1), y la de ws13, en desarrollo, rebotó 14 de 14 con el 1885183.
+      // ⚠️ Y AUN ASÍ EL TUTORIAL NO PIDE PUBLICAR LA APP: es la regla de Martín del 16/09 («no me menciones más que el
+      // cliente tenga que publicar su app, esa no es opción», lib/meta-publicar-errores.ts). Un paso así entró y salió
+      // el mismo 23/10. Publicar con creativo nuevo va a ir por la Zernio del negocio (en construcción, 23/10).
+      // Estructura copiada de la guía de n8n para Facebook Lead Ads («Create the app»).
       pasos: [
-        'En business.facebook.com/settings → "Cuentas" → "Apps" anota tu app (si no hay: "Agregar" → "Crear un ID de app nueva").',
-        'En "Usuarios" → "Usuarios del sistema" crea uno de tipo "Administrador".',
-        'En "Agregar activos" dale "Control total" a tu cuenta publicitaria, página y píxel, y "Administrar app" a la app.',
+        'En developers.facebook.com/apps toca "Crear app", tipo "Negocio", con los casos de uso de anuncios y de leads.',
+        'En business.facebook.com/settings → "Usuarios del sistema" crea un "Administrador" con "Control total" de tus activos.',
         'Toca "Generar nuevo token": tu app, vencimiento "Nunca" y los 8 permisos: ads_read, ads_management, business_management, pages_show_list, pages_read_engagement, pages_manage_ads, leads_retrieval, pages_manage_metadata.',
         'Copia el token (empieza con EAA, se ve UNA vez) y pégalo en "Access token". MaKo completa el resto.',
       ],
