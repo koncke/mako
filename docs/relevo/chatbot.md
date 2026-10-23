@@ -846,6 +846,12 @@ viejo: **una automatización dejó de ser una lista de mensajes y pasó a ser un
 
 ## 4. Lo que está a medio hacer o sin verificar, con el archivo
 
+- **La #256 del ws9 (el reporte semanal de la plataforma) es la única tarjeta «MaKo en WhatsApp» que sale por EMAIL**
+  (23/10/2026). Con la regla «cada canal es su tarjeta» debería ser una tarjeta EMAIL, pero hoy no se puede: en un evento
+  de la plataforma `pasosDelEvento` (lib/aviso-evento.ts) rechaza todo mensaje (`MOTIVO_EVENTO.alLead`), y el «Email a la
+  persona» existe sólo en los eventos de una PERSONA y va a esa persona, nunca al equipo. Mudarla pide que el motor mande una
+  tarjeta EMAIL a los destinatarios de Notificaciones del negocio del evento. Queda como está: es de SuperAdmin y ningún
+  cliente la ve. Conserva su asunto en la tarjeta (`AsuntoDeMako`, app/automations/FlujoLienzo.tsx).
 - **P2, después del 25/10: «MaKo contesta sola» no se edita desde ninguna pantalla** (23/10/2026). Eran «Por persona»
   (veces que MaKo contesta sola a una persona en 24 h) y «Charla abierta» (días), los límites de la LÍNEA que se fueron de
   Configuraciones de una automatización con «nada para todas» (`aut-au2-antiban`). Hoy viven en `app_settings`

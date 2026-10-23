@@ -39,8 +39,7 @@ import {
 // La papelera de la casa, roja siempre (sexta tanda, general 9): la del menú de una tarjeta.
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { Icon } from '@/app/_components/icons';
-import { Toast, useToast, Switch } from '@/app/_ui';
-import { sinVistaPrevia } from '@/lib/mensaje-partes';
+import { Toast, useToast } from '@/app/_ui';
 import { conectar, desconectar, eliminar, soltar, crearSuelta, duplicar, partirConEspera, type Edicion } from '@/lib/flujo-edicion';
 import { insertarDesdeLienzo } from '@/lib/flujo-conversacion';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
@@ -51,10 +50,9 @@ import {
 } from './EditorMensajeWhatsApp';
 // La tarjeta «MaKo en WhatsApp» POR PARTES (undécima tanda): su editor es el de WhatsApp sobre ESTE DTO.
 import {
-  pasoDeMako, paramsDeMako, chipDeEspera, TOPE_ASUNTO_MAKO, esPorEmail, asuntoDeMako,
+  pasoDeMako, paramsDeMako, TOPE_ASUNTO_MAKO, esPorEmail, asuntoDeMako, partesDeMako, textoDePartes,
   type CambioDeMako,
 } from '@/lib/mako-tarjeta';
-import { useHorarioOficina } from './horario-oficina';
 // El contexto de los datos de una tarjeta: el MISMO con que Publicar los valida.
 import { contextoDeTarjeta } from '@/lib/tokens-del-flujo';
 import { EditorEmailGmail, type EditorEmailGmailProps } from './EditorEmailGmail';
@@ -75,7 +73,7 @@ import { Ticks } from '@/app/whatsapp/_shared/Ticks';
 import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
-import { TRIGGER_RECORDATORIO, DATOS_RECORDATORIO, ofreceVistaPrevia } from '@/lib/recordatorio-automatizacion';
+import { TRIGGER_RECORDATORIO, DATOS_RECORDATORIO } from '@/lib/recordatorio-automatizacion';
 import { aplicarVariables } from '@/lib/template-vars';
 import { datosOfrecidos, type ContextoDatos } from '@/lib/variables-aviso';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
@@ -282,8 +280,6 @@ export function FlujoLienzo({
   const usaMedios = useMemo(() => mediosQueUsa(pasos), [pasos]);
   const medios = useEstadoMedios(usaMedios);
   const [conectarMedio, setConectarMedio] = useState<{ medio: Medio; linea: string | null } | null>(null);
-  // El horario de oficina (15/10/2026): para el chip «Espera a que abra (mañana 9:00)» de la tarjeta «MaKo en WhatsApp».
-  const oficina = useHorarioOficina();
   // ⛔ EL QR YA NO SALTA AL CREAR (decimoquinta tanda, 12/10/2026, punto 4). La duodécima (§2.12) abría este modal
   // solo, una vez por visita y por medio, al crear una tarjeta de un medio sin conectar (`pedirConectar` +
   // `medioAConectarAlCrear`). Martín, textual: «Si creo una tarjeta de lo que sea y no lo tengo conectado, que en
@@ -708,10 +704,9 @@ export function FlujoLienzo({
           );
         }
         const chip = paso ? chipDeTarjeta(paso, medios, linea?.actual ?? null) : null;
-        // «MaKo en WhatsApp» que AHORA esperaría a que abra la oficina: lo dice, con cuándo (`chipDeEspera`).
-        const espera = paso && esMako(paso) && oficina?.horario
-          ? chipDeEspera(paso.accion?.params as Record<string, unknown> | undefined, oficina.horario, oficina.zona, Date.now())
-          : null;
+        // (Hasta el 23/10/2026 la tarjeta MaKo colgaba un cartel «Espera a que abra (mañana 9:00)» que leía el horario del
+        // NEGOCIO, no el de ESTA automatización: podía decir otra hora que el motor, y contradecir a `ChipEnCola`, que ya
+        // dice cuándo sale con el horario correcto. Se fue: revisión de las tarjetas del 23/10, puntos 1 y 11.)
         return (
           <>
           <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={(n.tipo === 'ir-a' && Boolean(n.advertencia)) || (cerradas.has(n.id) && incompletas.has(n.id))}>
@@ -733,7 +728,6 @@ export function FlujoLienzo({
                 }}>{n.detalle}</div>
                 : null}
           </TarjetaNodo>
-          {espera && <ChipEspera nodo={n} texto={espera} />}
           {chip && (
             <ChipMedio nodo={n} texto={chip.texto} frena={chip.frena} motivo={MOTIVO_MEDIO[chip.medio]}
               onConectar={!chip.informa && rolAdmin && paso ? () => setConectarMedio({ medio: chip.medio, linea: chip.medio === 'whatsapp' ? lineaDePaso(paso, linea?.actual ?? null) : null }) : undefined} />
@@ -830,21 +824,6 @@ export function ChipEnCola({ nodo, chip, texto }: { nodo: { x: number; y: number
       border: '1px solid var(--warn)', background: 'var(--surface)', color: 'var(--warn)', fontFamily: SANS,
       fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1,
     }}>{chip}</span>
-  );
-}
-
-/**
- * EL CHIP DE «MaKo en WhatsApp» QUE ESPERA A QUE ABRA (15/10/2026): arriba a la IZQUIERDA de la tarjeta, para no pisar
- * el de «Sin conectar» (a la derecha), y afuera del cuerpo, que tiene su alto medido. Neutro: no es un error.
- */
-export function ChipEspera({ nodo, texto }: { nodo: { x: number; y: number }; texto: string }) {
-  return (
-    <span data-chip-espera title="Fuera del horario de oficina sale cuando abre. Para que salga igual, pídeselo a MaKo." style={{
-      position: 'absolute', left: nodo.x + 10, top: nodo.y - 9, zIndex: 2,
-      display: 'inline-flex', alignItems: 'center', height: 19, padding: '0 8px', boxSizing: 'border-box', borderRadius: 999,
-      border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS,
-      fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1,
-    }}>{texto}</span>
   );
 }
 
@@ -1231,6 +1210,9 @@ function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto |
   if (paso && claseDe(paso) === 'mensaje') return <div style={txt}>{paso.cuerpo || 'Sin escribir'}</div>;
   // El AI Step no tiene filas de salida: sus casos son su contenido (lo mismo que dibuja la tarjeta).
   if (paso && esPasoIA(paso)) return <CuerpoPasoIA paso={paso} />;
+  // La tarjeta MaKo (23/10/2026, revisión de las tarjetas, punto 8): su texto ENTERO, con todas las partes. `nodo.detalle`
+  // es lo de la CARA, cortado a 90 con «…»: el setter veía el aviso a medias.
+  if (paso && esMako(paso)) return <div style={txt}>{textoDePartes(partesDeMako((paso.accion?.params ?? {}) as Record<string, unknown>)) || 'Sin escribir'}</div>;
   if (nodo.puertos?.some((p) => p.rotulo != null)) return <div style={txt}>{nodo.puertos.map((p) => p.rotulo).join('\n')}</div>;
   return <div style={{ ...txt, color: 'var(--dim)' }}>{nodo.detalle}</div>;
 }
@@ -1307,14 +1289,10 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
       placeholder={paso.tipo === 'ia' ? 'Cómo responder' : undefined}
       chatMako={chatMako}
     />
-    {/* LA VISTA PREVIA DE LOS LINKS (#869, Mauricio: «es más discreto»): de ESTA tarjeta, sólo si lleva un link (o si ya
-        se apagó: que se pueda volver a prender). Apagada, el link sale como texto, sin la tarjeta (`sinVistaPrevia`).
-        También en el recordatorio de la reunión, cuyo texto de fábrica trae el link (`ofreceVistaPrevia`). */}
-    {noOficial && ofreceVistaPrevia(paso, recordatorio) && (
-      <div data-vista-previa style={{ flex: 'none', marginTop: 10 }}>
-        <Switch checked={!sinVistaPrevia(paso)} onChange={(v) => cambiar({ sin_vista_previa: !v }, true)} label="Vista previa del link" />
-      </div>
-    )}
+    {/* ⚠️ SIN «VISTA PREVIA DEL LINK» (23/10/2026, revisión de las tarjetas, punto 7): era un interruptor suelto debajo del
+        chat que aparecía y desaparecía según hubiera un link (#869, lo pidió Mauricio). Una tarjeta no gana controles
+        (AGENTS.md). Lo guardado sigue valiendo: el motor manda sin la tarjeta del link a la que lo tenía apagado
+        (`sinVistaPrevia`, lib/mensaje-partes.ts). Si tiene que seguir apagable, va en Configuraciones: lo decide Martín. */}
     {/* ⚠️ SIN «SALE SOLA» NI LA REENTRADA (23/10/2026, Martín por el Cerebro: «cambiaste una cantidad de cosas
         impresionante en las tarjetas de las automatizaciones, cosas innecesarias»). «Sale sola»: un mensaje de una
         automatización SALE, y el motor ya no lo deja de borrador (`saleSolo`, lib/nutricion-grafo-motor.ts: sin el

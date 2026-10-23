@@ -51,7 +51,17 @@ export type ConfigAutomatizacion = {
   personaHoras?: { whatsapp?: number; email?: number };
   /** El goteo de sus WhatsApp (lib/goteo.ts): minutos entre dos envíos y tope en 24 h. Ausente = sin goteo propio. */
   goteo?: { minutos?: number; dia?: number };
+  /**
+   * SUS WhatsApp SIN LA VISTA PREVIA DE LOS LINKS (#869, Mauricio: «es más discreto»; 23/10/2026 pasó de la tarjeta a
+   * Configuraciones › WhatsApp). Ausente = con vista previa. Se suma a la de cada mensaje (`sin_vista_previa` del paso),
+   * que sigue valiendo: `sinVistaPreviaDe`.
+   */
+  sinVistaPrevia?: true;
 };
+
+/** ¿Este mensaje sale sin la tarjeta de sus links? Lo de la automatización o lo del mensaje (`sin_vista_previa`). */
+export const sinVistaPreviaDe = (delMensaje: boolean, c: ConfigAutomatizacion | null | undefined): boolean =>
+  delMensaje || c?.sinVistaPrevia === true;
 
 /**
  * «MISMA PERSONA» APAGADO (22/10/2026, Martín, Configuraciones › Anti-ban: «Cada opción se prende y se apaga con un
@@ -89,6 +99,7 @@ export function sanearConfigAutomatizacion(raw: unknown): ConfigAutomatizacion {
     const em = enRangoPersona(ph.email, RANGOS_LIMITES.email.personaHoras) ? ph.email : undefined;
     if (wa !== undefined || em !== undefined) out.personaHoras = { ...(wa !== undefined ? { whatsapp: wa } : {}), ...(em !== undefined ? { email: em } : {}) };
   }
+  if (o.sinVistaPrevia === true) out.sinVistaPrevia = true;
   const go = o.goteo && typeof o.goteo === 'object' ? o.goteo as Record<string, unknown> : null;
   if (go) {
     const min = enRango(go.minutos, RANGOS_GOTEO.minutos) ? go.minutos : undefined;
@@ -112,7 +123,7 @@ export function textoDeHorario(h: HorarioEnvio | null): string {
 export type PropsConfiguraciones = { secuenciaId: number; nombre: string; onCerrar: () => void };
 
 /** ¿Tiene algo propio? (si no, es la del negocio entera). */
-export const tieneConfigPropia = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.personaHoras !== undefined || c.goteo !== undefined;
+export const tieneConfigPropia = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.personaHoras !== undefined || c.goteo !== undefined || c.sinVistaPrevia === true;
 
 /**
  * ¿Ya le eligieron el RITMO? (el aviso de Prospección de Publicar y Probar: «revisa su horario y sus límites»). Su horario o
@@ -222,6 +233,11 @@ export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown)
       }
       if (Object.keys(nuevo).length) out.goteo = nuevo; else delete out.goteo;
     }
+  }
+  if ('sinVistaPrevia' in o) {
+    if (o.sinVistaPrevia === true) out.sinVistaPrevia = true;
+    else if (o.sinVistaPrevia === null || o.sinVistaPrevia === false) delete out.sinVistaPrevia;
+    else return { ok: false, error: 'No entiendo si va con vista previa o sin.' };
   }
   // Vacío = todo como el negocio: quien guarda BORRA la clave (`vacia`), no deja un '{}' (revisión del 20/10/2026).
   return { ok: true, config: out, valor: JSON.stringify(out), vacia: !tieneConfigPropia(out) };

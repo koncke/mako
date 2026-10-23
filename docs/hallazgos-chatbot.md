@@ -468,6 +468,11 @@ del horario» lo dice el chip del lienzo y se cambia pidiéndoselo a MaKo (`fuer
 **Regla (AGENTS.md):** una tarjeta no gana controles, y cada canal es su tarjeta. **Sin hacer:** decidir si la #256 pasa
 a otra forma (hoy es la única tarjeta de MaKo por email). **Vive en:** app/automations/FlujoLienzo.tsx (`EditorMako`,
 `AsuntoDeMako`) · tests/tarjeta-mako-como-las-demas.test.ts.
+**Y la revisión de todas las tarjetas (puntos 1, 7, 8 y 11 del informe del Cerebro)** dejó otra trampa: el cartel «Espera a
+que abra (mañana 9:00)» leía el horario del NEGOCIO desde el 15/10, y el 20/10 el motor pasó a usar el de CADA automatización
+(9d291d844) sin que nadie tocara la tarjeta. **Regla:** lo que una pantalla dice sobre cuándo sale algo se calcula con la
+MISMA función del motor (`horarioDeLaAutomatizacion`), o no se dice. El cartel se fue, porque `ChipEnCola` ya lo dice bien.
+También se fueron el interruptor suelto «Vista previa del link» y el aviso cortado a 90 caracteres que veía el setter.
 *23/10/2026, chat «Automations» (claude2).*
 
 ### Las otras ocho tarjetas de la revisión: lo roto entra de a uno, también lo que la cara DIBUJA (23/10/2026)

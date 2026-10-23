@@ -158,6 +158,25 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
       </FilaOpcion>
     );
   };
+  /**
+   * LA VISTA PREVIA DE LOS LINKS (#869, Mauricio: «es más discreto»; 23/10/2026 pasó de la tarjeta a esta pantalla, el
+   * Cerebro: «si lo pidió Mauricio, no se lo sacamos»). Prendido = con la tarjeta del link (ausente). Un toque se guarda solo,
+   * aparte del respiro de los números: es otra clave de la misma configuración y el server las junta (`configParaGuardar`).
+   */
+  const [vistaLocal, setVistaLocal] = useState<boolean | null>(null);
+  const filaVistaPrevia = () => {
+    if (!d) return null;
+    const on = vistaLocal ?? d.config.sinVistaPrevia !== true;
+    return (
+      <FilaOpcion key="vista-previa" nombre="Vista previa del link" info="Con un link, el mensaje lleva la tarjeta con su imagen y su título. Apagado, el link sale como texto." datos={{ 'data-vista-previa-config': '' }}
+        interruptor={<Interruptor on={on} disabled={off} etiqueta={on ? 'Apagar la vista previa de los links' : 'Prender la vista previa de los links'} onCambio={(x) => {
+          setAviso(''); setVistaLocal(x); setEnVuelo(true);
+          void saveConfigAutomatizacionAction(secuenciaId, { sinVistaPrevia: x ? null : true })
+            .then((r) => { setEnVuelo(false); setVistaLocal(null); if (!r.ok || !r.config) { setAviso(r.error || 'No se pudo guardar.'); return; } poner(r.config); })
+            .catch(() => { setEnVuelo(false); setVistaLocal(null); setAviso('No se pudo guardar.'); });
+        }} />} />
+    );
+  };
   return {
     listo: !!d, error, aviso,
     /** El ⓘ del bloque WhatsApp: la regla que sigue frenando por dentro aunque la línea ya no se edite acá (nada se decide
@@ -168,6 +187,7 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
       filaGoteo('minutos', 'Goteo', 'el goteo', 'min', 'Sus WhatsApp salen de a uno, con esta espera entre dos.', 5),
       filaGoteo('dia', 'Tope por día', 'el tope por día', 'mensajes', 'Cuántos WhatsApp de esta automatización salen como mucho por día.', Math.min(50, d.lineaWa.dia)),
       filaPersona('whatsapp', RANGOS_LIMITES.wa.personaHoras),
+      filaVistaPrevia(),
     ] : [],
     email: d ? [filaPersona('email', RANGOS_LIMITES.email.personaHoras)] : [],
   };

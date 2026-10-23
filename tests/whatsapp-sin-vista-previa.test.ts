@@ -60,12 +60,13 @@ test('el envío: `linkPreview: false` a Evolution, en lo que sale solo, en el bo
   assert.doesNotMatch(envio, /\.select\('id, telefono, texto, lead_id, chat_jid, instance_name, audio_id, adjunto_id, sin_vista_previa'\)/);
   assert.match(envio, /sinVistaPrevia: await borradorSinVistaPrevia\(supabase, b\.id\)/);
   const nut = leer('lib/nutricion.ts');
-  assert.match(nut, /const sinTarjeta = sinVistaPrevia\(paso\);/);
+  // Desde el 23/10/2026, lo del mensaje O lo de la automatización (Configuraciones › WhatsApp, `sinVistaPreviaDe`).
+  assert.match(nut, /const sinTarjeta = sinVistaPreviaDe\(sinVistaPrevia\(paso\), configsCorrida\.get\(insc\.secuencia_id\)\);/);
   assert.match(nut, /const r = await enviarYEspejar\(\{ telefono: lead\.telefono, texto: t\.texto, leadId: lead\.id, linea: lineaSec, sinVistaPrevia: sinTarjeta \}\);/);
   assert.match(nut, /partes: partesMulti, desde: partesSalidas, telefono: lead\.telefono, leadId: lead\.id, linea: lineaSec, vars: varsNO, sinVistaPrevia: sinTarjeta \}/);
   assert.match(nut, /r = await enviarYEspejar\(\{ telefono: a\.telefono, texto: t, leadId: a\.leadId, linea: a\.linea, sinVistaPrevia: a\.sinVistaPrevia \}\);/);
   assert.equal((nut.match(/linea: lineaSec, sinVistaPrevia: sinTarjeta/g) ?? []).length >= 4, true, 'algún borrador o envío del motor sin la marca');
-  assert.match(nut, /const r = await enviarYEspejar\(\{ telefono: lead\.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinVistaPrevia\(p\) \}\);/, '«Si responde» sin la marca');
+  assert.match(nut, /const r = await enviarYEspejar\(\{ telefono: lead\.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinTarjeta \}\);/, '«Si responde» sin la marca');
   assert.match(nut, /\.\.\.vistaPreviaAlGuardar\(p, antes\.find\(/, 'guardar la tira');
   // Las pruebas salen como al lead.
   const prueba = sanearMensajePrueba({ canal: 'whatsapp', tipo: 'texto', texto: 'https://x.com', sin_vista_previa: true });
@@ -74,9 +75,8 @@ test('el envío: `linkPreview: false` a Evolution, en lo que sale solo, en el bo
   assert.match(leer('lib/prueba-paso.ts'), /sinVistaPrevia: mensaje\.sin_vista_previa === true/);
   assert.match(leer('lib/setting-secuencias.ts'), /linea: lineaSec, sinVistaPrevia: sinVistaPrevia\(paso\) \}\);/);
   assert.match(leer('app/automations/PanelProbar.tsx'), /mandarReal\(\{ canal: 'whatsapp', tipo: 'texto', texto, \.\.\.\(sinTarjeta \? \{ sin_vista_previa: true \} : \{\}\) \}, clave, enRespuesta\);/);
-  // La tarjeta: el interruptor, sólo con un link (17/10, también en el recordatorio: `ofreceVistaPrevia`,
-  // tests/recordatorio-vista-previa.test.ts).
-  assert.match(leer('app/automations/FlujoLienzo.tsx'), /\{noOficial && ofreceVistaPrevia\(paso, recordatorio\) && \(/);
+  // La tarjeta: sin interruptor desde el 23/10/2026 (una tarjeta no gana controles); el motor sigue honrando lo guardado.
+  assert.doesNotMatch(leer('app/automations/FlujoLienzo.tsx'), /data-vista-previa/);
 });
 
 // El borrador NUNCA se pierde: sin la columna (la 0309 sin aplicar) se escribe sin la marca.

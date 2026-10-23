@@ -105,7 +105,7 @@ import { hoyEnTz } from '@/lib/date-utils';
 import { getSettingEstricto, cambiarSettingSi, setSetting } from '@/lib/settings';
 import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
-import { cerradasAhora, horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { cerradasAhora, horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, sinVistaPreviaDe, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 import { configsDelNegocio, leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { duplicadaAlActivar, avisoDuplicada, type Duplicada, type CronParaComparar } from '@/lib/automatizacion-duplicada';
 import {
@@ -5155,8 +5155,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // la secuencia (`null` = la de por default), y si puede mandar ahora. Una línea pedida que no es
         // del negocio no está en `lineasEvo`: `canalDeLinea` la frena con su motivo, sin caer a otra.
         const lineaSec = lineaDelPaso(paso) ?? sec.instance_name;
-        // Sus links sin la tarjeta de vista previa (#869): en lo que sale y en el borrador que lo espera.
-        const sinTarjeta = sinVistaPrevia(paso);
+        // Sus links sin la tarjeta de vista previa (#869): en lo que sale y en el borrador que lo espera. Lo del mensaje o lo de
+        // la automatización (Configuraciones › WhatsApp, 23/10/2026).
+        const sinTarjeta = sinVistaPreviaDe(sinVistaPrevia(paso), configsCorrida.get(insc.secuencia_id));
         if (partesMulti) {
           // ⚠️ «NO PUDE LEER» NO ES «NO SALIÓ NINGUNA». Sin saber cuántas salieron no se manda nada ni
           // se escribe nada: un `fallo` sin la marca borraría la del intento anterior. Vuelve en la
@@ -6522,6 +6523,9 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
  */
 async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: number, inscId: number | null): Promise<{ texto: string; contesto: boolean }> {
   const { leadId, secuencia, supabase, lead, linea } = c;
+  // Sus links sin la tarjeta de vista previa: lo del mensaje o lo de la automatización (Configuraciones › WhatsApp). Sin
+  // poder leer la configuración, lo del mensaje: es una cuestión de forma, no un freno.
+  const sinTarjeta = sinVistaPreviaDe(sinVistaPrevia(p), await leerConfigAutomatizacion(secuencia.id).catch(() => null));
   const no = (texto: string) => ({ texto, contesto: false });
   const si = (texto: string) => ({ texto, contesto: true });
   // El reclamo de esta tarjeta para esta inscripción, JUSTO antes de mandar o dejar el borrador
@@ -6595,12 +6599,12 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
     if (!audio || !b64) { await registrar('fallo', audio ? 'no pude bajar el audio del paso' : 'el audio del paso ya no existe', null); return no('No salió la nota de voz: el audio no está.'); }
     if (!(await reclamar())) return yaSalio;
     if (!sale) {
-      await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, audioId: audio.id, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinVistaPrevia(p) });
+      await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, audioId: audio.id, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinTarjeta });
       await registrar('borrador', null, pie || null);
       return si(`Te dejé la nota de voz «${audio.titulo}» para aprobar.`);
     }
     const r = await enviarAudioYEspejar({ telefono: lead.telefono, base64: b64, mimetype: audio.media_mime, leadId, linea });
-    if (r.ok && pie.trim()) await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinVistaPrevia(p) }).catch(() => { /* el audio ya salió */ });
+    if (r.ok && pie.trim()) await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinTarjeta }).catch(() => { /* el audio ya salió */ });
     await registrar(r.ok ? 'enviado' : 'fallo', r.ok ? null : (r.error ?? 'no salió'), pie.trim() || null);
     return r.ok ? si(`Le mandé la nota de voz «${audio.titulo}».`) : no(`No salió la nota de voz (${(r.error ?? '').slice(0, 120)}).`);
   }
@@ -6623,11 +6627,11 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
   if (!pie.trim()) return no('Un mensaje de la rama estaba vacío: no salió.');
   if (!(await reclamar())) return yaSalio;
   if (!sale) {
-    await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinVistaPrevia(p) });
+    await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinTarjeta });
     await registrar('borrador', null, pie);
     return si(`Te dejé para aprobar: «${pie.slice(0, 120)}».`);
   }
-  const r = await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinVistaPrevia(p) });
+  const r = await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinTarjeta });
   await registrar(r.ok ? 'enviado' : 'fallo', r.ok ? null : (r.error ?? 'no salió'), pie);
   return r.ok ? si(`Le contesté: «${pie.slice(0, 120)}».`) : no(`No salió la respuesta (${(r.error ?? '').slice(0, 120)}).`);
 }

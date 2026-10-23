@@ -33,3 +33,9 @@ test('la tarjeta de MaKo no ofrece email: ni «Por dónde», ni «Sin grupo de M
     assert.doesNotMatch(lienzo, rx, `volvió ${rx}`);
   }
 });
+
+test('quien no es administrador lee el aviso de MaKo ENTERO (todas sus partes), no los 90 caracteres de la cara', () => {
+  const solo = tramo('function SoloLectura(');
+  assert.match(solo, /if \(paso && esMako\(paso\)\) return <div style=\{txt\}>\{textoDePartes\(partesDeMako\(/, 'el setter vuelve a ver el aviso cortado');
+  assert.ok(solo.indexOf('esMako(paso)') < solo.indexOf("color: 'var(--dim)' }}>{nodo.detalle}"),'la tarjeta MaKo cae en el detalle de la cara antes de leer sus partes');
+});
