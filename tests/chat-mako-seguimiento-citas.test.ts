@@ -18,7 +18,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   deIAEdicion, pidioAviso, pidioRespuesta, cambioDeCanal, protegidasPorElPedido, LISTA_BLANCA_IA, AVISO_SEGUIMIENTO, AVISO_SEGUIMIENTO_ARMADO,
-  AVISO_SEGUIMIENTO_A_20, AVISO_DEJE_EL_AVISO, type CtxIA,
+  AVISO_SEGUIMIENTO_A_20, AVISO_DEJE_EL_AVISO, AVISO_SEGUIMIENTO_CAMBIADA, type CtxIA,
 } from '../lib/flujo-ia';
 import { sinCitas, minutosDelPedido, citasQueFaltan, pideQueQuedeSolo } from '../lib/flujo-ia-intencion';
 import { revisarEdicion, pideAgregar } from '../lib/flujo-ia-revision-editar';
@@ -103,6 +103,42 @@ test('la pasada 1, tal cual quedó: espera + «Contestó» colgando de una tarje
   const rev = revisarEdicion({ obj: amedias, base: BASE, ctx: ctxDe(PEDIDO), pedido: PEDIDO, historial: [], intencion: 'editar' });
   assert.deepEqual(rev.errores, []);
   assert.equal(rev.r.noHecho, undefined);
+});
+
+test('la tercera vuelta: el modelo puso «Nunca te escribió» (u otra de respuesta) → pasa a «No contestó desde que entró», y se dice', () => {
+  const conCond = (fila: Record<string, unknown>, extra: Record<string, unknown>[] = []) => ({ agregar: [{ despues_de: 'nm2', salida: 'sig', tarjetas: [
+    { id: 't1', tipo: 'esperar', dias: 2, sigue: 't2' },
+    { id: 't2', tipo: 'condicion', ramas: [{ si: [fila, ...extra], sigue: 't3' }] },
+    { id: 't3', tipo: 'mensaje', canal: 'whatsapp', texto: '{{nombre}}, ¿pudiste ver lo que te mandé? Me avisas' },
+  ] }] });
+  // gpt-oss-120b, tal cual: «Nunca te escribió» (`respondio` negada). Un lead que entró escribiendo no lo recibía nunca.
+  for (const fila of [{ campo: 'respondio', no: true }, { campo: 'respondio' }, { campo: 'contesto' }]) {
+    const r = deIAEdicion(conCond(fila), BASE, ctxDe(PEDIDO), rnd());
+    const { cond, msg } = cadena(r.pasos);
+    assert.ok(esNoContesto(cond), `quedó ${JSON.stringify(cond?.ramas?.[0]?.filas)} con ${JSON.stringify(fila)}`);
+    assert.match(String(msg?.cuerpo), /pudiste ver lo que te mandé/);
+    assert.equal(r.pasos.filter((p) => p.nodo === 'condicion').length, 1, 'quedaron dos condiciones');
+    assert.ok(r.avisos.includes(AVISO_SEGUIMIENTO_CAMBIADA), JSON.stringify(r.avisos));
+  }
+  // Una fila que no es de respuesta (una etiqueta) se queda, detrás de la «No contestó».
+  const conEtiq = deIAEdicion(conCond({ campo: 'respondio', no: true }, [{ campo: 'etiqueta', valor: 'vip' }]), BASE, ctxDe(PEDIDO), rnd());
+  const filas = cadena(conEtiq.pasos).cond?.ramas?.[0]?.filas ?? [];
+  assert.deepEqual(filas.map((f) => [f.campo, f.no === true]), [['contesto', true], ['etiqueta', false]], JSON.stringify(filas));
+  // Con «No contestó» bien puesta, no se cambia ni se dice nada.
+  const bien = deIAEdicion(conCond({ campo: 'contesto', no: true }), BASE, ctxDe(PEDIDO), rnd());
+  assert.ok(esNoContesto(cadena(bien.pasos).cond));
+  assert.ok(!bien.avisos.includes(AVISO_SEGUIMIENTO_CAMBIADA), JSON.stringify(bien.avisos));
+  // Sin seguimiento pedido (un recordatorio), la condición del modelo se queda como está.
+  const rec = 'Agregá un recordatorio a los 2 días si nunca te escribió: «{Nombre}, ¿pudiste ver lo que te mandé? Me avisas»';
+  const r2 = deIAEdicion(conCond({ campo: 'respondio', no: true }), BASE, ctxDe(rec), rnd());
+  assert.equal(cadena(r2.pasos).cond?.ramas?.[0]?.filas?.[0]?.campo, 'respondio');
+  // Una condición que el dueño ya tenía no se toca: sólo lo nuevo del turno.
+  const base3 = [{ ...BASE[0] }, { ...BASE[1], siguiente: 'ne' },
+    { id: 'ne', nodo: 'esperar', espera: { modo: 'tiempo', minutos: 2880 }, siguiente: 'nc' },
+    { id: 'nc', nodo: 'condicion', ramas: [{ id: 'nr', modo: 'todas', filas: [{ campo: 'respondio', no: true }], siguiente: 'nm3' }], si_no: null },
+    { ...W, id: 'nm3', cuerpo: '{{nombre}}, ¿lo viste?', siguiente: null }] as unknown as PasoGrafo[];
+  const r3 = deIAEdicion({ cambiar: [{ id: 'nm3', texto: '{{nombre}}, ¿pudiste ver lo que te mandé?' }] }, base3, ctxDe('Cambiá el seguimiento si no responde por «{Nombre}, ¿pudiste ver lo que te mandé?»'), rnd());
+  assert.equal(r3.pasos.find((p) => p.id === 'nc')?.ramas?.[0]?.filas?.[0]?.campo, 'respondio', 'tocó una condición que ya estaba');
 });
 
 test('sin nada del modelo, la espera sale del pedido; sin espera dicha, la de la regla 3 (20 h), y se dice', () => {
@@ -207,7 +243,7 @@ test('una orden sobre el flujo abierto no se va a otra automatización porque un
 });
 
 // ── ROTURAS (23/10/2026) ───────────────────────────────────────────────────────────────────────────
-// Una por vez (reemplazar el texto, correr este archivo, devolverlo de memoria). Base 7 pasan / 0 fallan:
+// Una por vez (reemplazar el texto, correr este archivo, devolverlo de memoria). Base 8 pasan / 0 fallan:
 //   C1. `sinCitas` devuelve el pedido entero                                                    → 3 fallan
 //   C2. `pidioAviso` sin `sinCitas`                                                             → 1 falla
 //   C3. `formaPedida` con el pedido entero                                                      → 1 falla
@@ -217,3 +253,7 @@ test('una orden sobre el flujo abierto no se va a otra automatización porque un
 //   C7. sin la regla de la orden del flujo en `decidir`                                         → 1 falla
 //   C8. `deIAEdicion` no mira `protegidasPorElPedido` al quitar                                 → 1 falla
 //   C9. sin espera dicha no arma nada (sin la de la regla 3)                                    → 2 fallan
+//   C10. `seguimientosConNoContesto` no cambia la condición de respuesta equivocada              → 1 falla
+//   C11. la cambia aunque no sea nueva (sin `nuevas.has(sig)`)                                  → 1 falla
+//   C12. al cambiarla se lleva también las filas que no son de respuesta                        → 1 falla
+//   C13. `deIAEdicion` no dice `AVISO_SEGUIMIENTO_CAMBIADA`                                     → 1 falla

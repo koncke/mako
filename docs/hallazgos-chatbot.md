@@ -6174,6 +6174,12 @@ tests/chat-mako-seguimiento-citas.test.ts (9 roturas → 9 rojos).
    regla 3 del prompt, la misma que sigue el modelo, y el aviso lo dice para cambiarla (`AVISO_SEGUIMIENTO_A_20`).
 **Trampa:** una condición VACÍA que deja el modelo no llega nunca a la cola del último mensaje: el saneo la saca antes (medido).
 Código que la contemple ahí es código muerto.
+**La tercera vuelta (sha c8c219cd8):** `solo-apertura` pasó; `seguimiento-no-contesto` pasó 1 de 2. En la otra, el modelo
+puso él mismo la condición, pero la equivocada: «Nunca te escribió» (`respondio`, «jamás te escribió, en ningún lado»). Con
+esa condición, un lead que entró escribiéndote no recibe nunca el seguimiento. Además, con una condición ya puesta, el
+código no ponía la suya. Ahora, en una condición NUEVA entre la espera del seguimiento y el mensaje, las filas de respuesta
+(`respondio` y `contesto` positiva) pasan a «No contestó desde que entró», y el resto de las filas se queda.
+`AVISO_SEGUIMIENTO_CAMBIADA` lo dice. **Sin hacer:** volver a correr el arnés sobre este commit.
 **Sin hacer:** al CREAR (`deIA`) el código todavía no arma el seguimiento que falta (sólo le pone «No contestó» al que haya);
 con dos citas faltantes no se sabe cuál es el seguimiento y queda el rojo; si el negocio no tenía «Si responde» con aviso, el
 código no lo crea (lo pide el control, y en rojo).

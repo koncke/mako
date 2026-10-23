@@ -1752,6 +1752,7 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
   // Un seguimiento sin «No contestó desde que entró» la lleva (`seguimientosConNoContesto`, 23/10/2026): al crear, todo es nuevo.
   const seg = seguimientosConNoContesto(pasos, new Set(pasos.map((p) => p.id ?? '')), ctx.pedido, rnd);
   if (seg.puestas.length) { pasos = seg.pasos; est.avisos.push(AVISO_SEGUIMIENTO); }
+  if (seg.cambiadas.length) { pasos = seg.pasos; est.avisos.push(AVISO_SEGUIMIENTO_CAMBIADA); }
   // EL AI STEP (undécima tanda, docs/diseno-undecima-tanda.md §6: UNO por objetivo, con los escenarios adentro). El
   // «Si responde» que arma el modelo se PLIEGA a UN AI Step cuando se puede sin cambiar lo que hace
   // (`respuestaAPasoIA`: cada caso es un «MaKo contesta» y/o un aviso), con el OBJETIVO de la tarjeta `si_responde`
@@ -2031,8 +2032,21 @@ function esperaCortaEntreWhatsapp(pasos: readonly PasoIA[], tocadas: ReadonlySet
  * que el dueño ya tenía no se toca sin que lo pida. Y sólo si el PEDIDO nombra un seguimiento (`RE_SEGUIMIENTO`): «agrega
  * un recordatorio a las 24 h» es otra cosa (le llega aunque haya contestado; lo fijó tests/editar-ia-cambiar-quitar.test.ts).
  * Devuelve los pasos y los ids de las condiciones que puso.
+ *
+ * Y SI EL MODELO PUSO OTRA CONDICIÓN DE RESPUESTA, SE CAMBIA (23/10/2026, la tercera vuelta del arnés: gpt-oss-120b armó la
+ * espera, «Nunca te escribió» y el mensaje). «Nunca te escribió» (`respondio`) es «jamás te escribió, en ningún lado»: un
+ * lead que entró escribiéndote no recibe nunca el seguimiento. «Te escribió alguna vez» y «Contestó» le mandan el
+ * seguimiento justo a quien contestó. En una condición NUEVA que sigue a la espera del seguimiento y lleva al mensaje por su
+ * primera rama, esas filas pasan a «No contestó desde que entró»; las demás filas (una etiqueta, un canal) se quedan. Lo dice
+ * `AVISO_SEGUIMIENTO_CAMBIADA` (nada por detrás). Devuelve también los ids de las que cambió (`cambiadas`).
  */
 export const FILA_NO_CONTESTO = { no: true, campo: 'contesto' } as const;
+/** ¿Esa fila es una condición de RESPUESTA que no es «No contestó desde que entró»? */
+const esRespuestaEquivocada = (f: unknown): boolean => {
+  const x = f as { campo?: unknown; no?: unknown } | null;
+  return !!x && (x.campo === 'respondio' || (x.campo === 'contesto' && x.no !== true));
+};
+export const AVISO_SEGUIMIENTO_CAMBIADA = 'Cambié la condición del seguimiento por «No contestó desde que entró»: le llega a quien no te contestó desde que entró, aunque te haya escrito antes';
 /** ¿El pedido nombra un SEGUIMIENTO? («seguimiento», «si no responde/contesta», «si no hay respuesta»). */
 export const RE_SEGUIMIENTO = /seguimiento|(?<!\p{L})si no (?:te |me |le |nos )?(?:responde|contesta)n?(?!\p{L})|si no hay respuesta/iu;
 export const AVISO_SEGUIMIENTO = 'Puse «No contestó desde que entró» antes del seguimiento: si contesta, no le llega';
@@ -2058,10 +2072,11 @@ export function protegidasPorElPedido(base: readonly PasoGrafo[], pedido: unknow
   const avisos = [...descendientes(base, resp)].filter((id) => (porId.get(id) as PasoIA | undefined)?.accion?.operacion === OP_MAKO);
   return avisos.length ? new Set([resp, ...avisos]) : new Set();
 }
-export function seguimientosConNoContesto(pasos: readonly PasoIA[], nuevas: ReadonlySet<string>, pedido: unknown, rnd: () => number = Math.random): { pasos: PasoIA[]; puestas: string[] } {
+export function seguimientosConNoContesto(pasos: readonly PasoIA[], nuevas: ReadonlySet<string>, pedido: unknown, rnd: () => number = Math.random): { pasos: PasoIA[]; puestas: string[]; cambiadas: string[] } {
   let out = pasos.map((p) => p);
   const puestas: string[] = [];
-  if (!RE_SEGUIMIENTO.test(sinCitas(pedido))) return { pasos: out, puestas };
+  const cambiadas: string[] = [];
+  if (!RE_SEGUIMIENTO.test(sinCitas(pedido))) return { pasos: out, puestas, cambiadas };
   const porId = () => new Map(out.map((p, i) => [idDe(p, i), p]));
   const esMensaje = (q: PasoIA | undefined) => !!q && claseDe(q) === 'mensaje';
   /** ¿Hay un mensaje al lead ANTES de `id` (subiendo por sus padres)? */
@@ -2085,6 +2100,16 @@ export function seguimientosConNoContesto(pasos: readonly PasoIA[], nuevas: Read
     if (espera?.modo === 'antes_reunion') continue;
     const sig = String(e.siguiente ?? '');
     const m = porId().get(sig);
+    const r0 = m && claseDe(m) === 'condicion' ? m.ramas?.[0] : undefined;
+    if (r0 && nuevas.has(sig) && esMensaje(porId().get(String(r0.siguiente ?? ''))) && vieneDeUnMensaje(id)
+      && (r0.filas ?? []).some(esRespuestaEquivocada)) {
+      // Sin las de respuesta (y sin una «No contestó» que ya estuviera: va una sola, adelante).
+      const resto = (r0.filas ?? []).filter((f) => !esRespuestaEquivocada(f) && (f as { campo?: unknown }).campo !== 'contesto');
+      const filas = [{ ...FILA_NO_CONTESTO }, ...resto];
+      out = out.map((p) => (p.id === sig ? { ...p, ramas: [{ ...r0, filas }, ...(p.ramas ?? []).slice(1)] } : p));
+      cambiadas.push(sig);
+      continue;
+    }
     if (!esMensaje(m) || !(nuevas.has(id) || nuevas.has(sig)) || !vieneDeUnMensaje(id)) continue;
     const usados: PasoGrafo[] = [...out];
     const nuevoIdAca = (): string => { const x = nuevoId(usados, rnd); usados.push({ id: x }); return x; };
@@ -2095,7 +2120,7 @@ export function seguimientosConNoContesto(pasos: readonly PasoIA[], nuevas: Read
     out = [...out.slice(0, i), c, ...out.slice(i)];
     puestas.push(c.id!);
   }
-  return { pasos: out, puestas };
+  return { pasos: out, puestas, cambiadas };
 }
 
 /**
@@ -2660,6 +2685,7 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
   pasos = seguimientoQueFalta(pasos, ed, social);
   const seg = seguimientosConNoContesto(pasos, ed.agregadas, ctx.pedido, rnd);
   if (seg.puestas.length) { pasos = seg.pasos; for (const x of seg.puestas) ed.agregadas.add(x); est.avisos.push(AVISO_SEGUIMIENTO); }
+  if (seg.cambiadas.length) { pasos = seg.pasos; est.avisos.push(AVISO_SEGUIMIENTO_CAMBIADA); }
   const vaciados = sinCasosVaciados(pasos, base);
   if (vaciados.sacados) { pasos = vaciados.pasos; est.avisos.push(AVISO_CASOS_VACIOS); }
   if (esperaCortaEntreWhatsapp(pasos, new Set([...ed.agregadas, ...ed.cambiadas]))) est.avisos.push(AVISO_MISMA_PERSONA);
