@@ -158,9 +158,10 @@ export function PartnersApp({ cartera, vistaInicial, cuentaInicial, leadNuevo, p
         accion={nuevo}
       />
       <Tabs
-        tabs={[{ id: 'clients', label: 'Clients' }, { id: 'program', label: 'Program' }]}
+        tabs={[{ id: 'clients', label: 'Clients' }, { id: 'program', label: 'Program' }, { id: 'referidos', label: 'Referidos' }]}
         activa={vista}
-        onCambio={(id) => setVista(id as Vista)}
+        // «Referidos» es su propia pantalla (/partners/referidos, 23/10/2026): el tablero de MaKo Partners de cualquier negocio.
+        onCambio={(id) => (id === 'referidos' ? router.push('/partners/referidos') : setVista(id as Vista))}
       />
 
       {vista === 'program' ? (

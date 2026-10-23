@@ -56,6 +56,8 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta }: { plan: stri
         <FilaAjustes icono="repetir" titulo={plan} detalle={suscripcion ? `${suscripcion.monto} por mes` : 'Acordado con MaKo'}
           tono={suscripcion ? (suscripcion.cancelada || suscripcion.baja ? 'warn' : 'good') : undefined} estado={estado} apilada />
         {suscripcion?.baja && <FilaAjustes icono="nota" titulo="Tu baja" detalle={suscripcion.baja} apilada />}
+        {/* MaKo Partners (23/10/2026): cualquier negocio con plan recomienda MaKo y gana meses gratis. */}
+        <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle="Tu link de MaKo Partners: cada referido te suma un mes." href="/partners/referidos" apilada />
         {puedeDarseDeBaja && (
           <FilaAjustes icono="pausar" titulo="Darme de baja"
             detalle="Lo sigues usando hasta el fin del mes pagado."

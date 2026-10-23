@@ -27,6 +27,7 @@ import { esLaVueltaDelDia } from '@/lib/cobros-reglas';
 import { renovacionesDeAgencia } from '@/lib/agencia-cobro';
 import { revisarAccesosPorPago } from '@/lib/plan-acceso';
 import { restaurarRetencionesMp } from '@/lib/retencion-plan';
+import { acreditarReferidos } from '@/lib/partners-programa';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -103,5 +104,10 @@ export async function GET(req: NextRequest) {
   const retencion = Date.now() - t0 < maxDuration * 1000 - RESERVA_MS ? await restaurarRetencionesMp() : null;
   if (retencion?.restauradas) console.log(`[cron:cobros-reconciliar] retenciones de MP restauradas: ${retencion.restauradas}`);
 
-  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, accesos, retencion, ms: Date.now() - t0 });
+  // MAKO PARTNERS (23/10/2026, lib/partners-programa.ts): el referido queda en su negocio con sus dos bienvenidas, y con su
+  // 2º mes pagado, el crédito al partner (una sola vez: el índice único de partner_creditos). Nunca tira.
+  const partners = Date.now() - t0 < maxDuration * 1000 - RESERVA_MS ? await acreditarReferidos().catch((e) => ({ error: msg(e) })) : null;
+  if (partners && 'acreditados' in partners && (partners.atados || partners.acreditados)) console.log(`[cron:cobros-reconciliar] MaKo Partners: ${JSON.stringify(partners)}`);
+
+  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, accesos, retencion, partners, ms: Date.now() - t0 });
 }

@@ -100,6 +100,8 @@ export const PUBLICOS = [
   // El link de MaKo Partners (`/r/<código>`, sólo GET): deja la cookie de quién lo mandó y lleva a
   // /planes. No lee la sesión.
   '/r',
+  // La página pública del programa de MaKo Partners (sólo GET): explica las reglas y lleva a /planes.
+  '/mako-partners',
   // El robots.txt (app/robots.ts). Sin esto el gate lo mandaba a /login: un crawler que
   // pedía reglas recibía una página de login.
   '/robots.txt',
