@@ -30,6 +30,9 @@
 // =============================================================================
 
 import { useEffect, useRef } from 'react';
+// El movimiento de la salida es UNO para todos los loaders con la criatura (23/10/2026): app/_ui/vuelo-mako.ts.
+import { MS_SALIDA, trayecto, volar } from '@/app/_ui/vuelo-mako';
+export { MS_SALIDA, trayecto };
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import {
@@ -50,9 +53,6 @@ export const MS_MINIMO = 1000;
 export const MS_SEGURO = 15000;
 /** Cada cuánto se vuelve a mirar si la página terminó de llegar. */
 const MS_SONDEO = 100;
-/** La salida: vuela a su lugar en la barra mientras el fondo se funde. Corta. */
-export const MS_SALIDA = 420;
-const MS_SALIDA_QUIETA = 150;
 
 /** ¿Ya salió en esta apertura? Sin sessionStorage no se sabe: como el script de antes de pintar, se da por vista. */
 export function entradaYaVista(): boolean {
@@ -120,21 +120,8 @@ export function marcarDocumento(doc: Pick<Document, 'documentElement'>): void {
   try { doc.documentElement.setAttribute(ATTR_ENTRADA_VISTA, ''); } catch { /* sin DOM */ }
 }
 
-type Caja = { left: number; top: number; width: number; height: number };
 
-/**
- * El vuelo a la barra: de la criatura (`desde`) al lugar del Ops Center (`hasta`), moviendo la capa que la lleva (`capa`).
- * Se achica desde el centro de la criatura —que flota unos px fuera del centro de la capa—, así aterriza justo en el
- * centro del destino. Sin destino visible, `null`: se funde en su lugar.
- */
-export function trayecto(desde: Caja | null | undefined, hasta: Caja | null | undefined, capa: Caja): { origen: string; fin: string } | null {
-  if (!desde || !hasta || desde.width <= 0 || hasta.width <= 0) return null;
-  const cx = desde.left + desde.width / 2;
-  const cy = desde.top + desde.height / 2;
-  const dx = hasta.left + hasta.width / 2 - cx;
-  const dy = hasta.top + hasta.height / 2 - cy;
-  return { origen: `${cx - capa.left}px ${cy - capa.top}px`, fin: `translate(${dx}px, ${dy}px) scale(${hasta.width / desde.width})` };
-}
+// El vuelo a la barra (`trayecto`) vive en app/_ui/vuelo-mako.ts desde el 23/10/2026: lo comparten todos los loaders.
 
 /**
  * Cuánto lleva la entrada en pantalla: el reloj de la animación CSS de la propia capa (`ea-seguro`, que arranca cuando la
@@ -183,22 +170,8 @@ export function EntradaApp({ destino, onFin }: {
       const v = vuelo.current;
       if (!el || !v) { terminar(); return; }
       el.setAttribute('data-sale', '');
-      const ms = quieta ? MS_SALIDA_QUIETA : MS_SALIDA;
       const t = quieta ? null : trayecto(cuerpo.current?.getBoundingClientRect(), document.querySelector(destino)?.getBoundingClientRect(), v.getBoundingClientRect());
-      if (typeof v.animate === 'function') {
-        if (t) {
-          v.style.transformOrigin = t.origen;
-          v.animate(
-            [{ transform: 'none', opacity: 1 }, { transform: t.fin, opacity: 1, offset: 0.85 }, { transform: t.fin, opacity: 0 }],
-            { duration: ms, easing: 'cubic-bezier(.16,.84,.34,1)', fill: 'forwards' },
-          );
-        } else {
-          v.animate(
-            [{ transform: 'none', opacity: 1 }, { transform: quieta ? 'none' : 'scale(.85)', opacity: 0 }],
-            { duration: ms, easing: 'ease-out', fill: 'forwards' },
-          );
-        }
-      }
+      const ms = volar(v, t, quieta);
       timers.push(window.setTimeout(terminar, ms + 30));
     };
     programarSalida({

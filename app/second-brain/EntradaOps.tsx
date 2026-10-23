@@ -16,7 +16,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
-import { MS_SALIDA, paginaLista, programarSalida, trayecto } from '@/app/m/_ui/EntradaApp';
+import { paginaLista, programarSalida } from '@/app/m/_ui/EntradaApp';
+// El movimiento de la salida es UNO para todos los loaders con la criatura (23/10/2026).
+import { trayecto, volar } from '@/app/_ui/vuelo-mako';
 
 /** Adónde vuela al irse: la criatura de la cabecera del chat abierto. */
 export const DESTINO_ENTRADA_OPS = '.co-cab__muneco';
@@ -81,19 +83,8 @@ export function EntradaOps({ espera = false }: {
       const v = vuelo.current;
       if (!el || !v) { terminar(); return; }
       el.setAttribute('data-sale', '');
-      const ms = quieta ? 150 : MS_SALIDA;
       const t = quieta ? null : trayecto(cuerpo.current?.getBoundingClientRect(), document.querySelector(DESTINO_ENTRADA_OPS)?.getBoundingClientRect(), v.getBoundingClientRect());
-      if (typeof v.animate === 'function') {
-        if (t) {
-          v.style.transformOrigin = t.origen;
-          v.animate(
-            [{ transform: 'none', opacity: 1 }, { transform: t.fin, opacity: 1, offset: 0.85 }, { transform: t.fin, opacity: 0 }],
-            { duration: ms, easing: 'cubic-bezier(.16,.84,.34,1)', fill: 'forwards' },
-          );
-        } else {
-          v.animate([{ transform: 'none', opacity: 1 }, { transform: quieta ? 'none' : 'scale(.85)', opacity: 0 }], { duration: ms, easing: 'ease-out', fill: 'forwards' });
-        }
-      }
+      const ms = volar(v, t, quieta);
       timers.push(window.setTimeout(terminar, ms + 30));
     };
     programarSalida({
