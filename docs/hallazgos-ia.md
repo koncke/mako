@@ -6161,6 +6161,11 @@ re-embeber lo que ya estaba, El Archivero sólo con su OpenAI. La regla de Googl
   ws9 y el método de MaKo del ws1. Las filas de los demás se embeben solas cuando conecten el suyo.
 - **Automations:** `SU_IA` y `SU_CLAVE` (lib/flujo-ia.ts) los cambió IA16, de acuerdo con ese chat. Cuando IA16 esté en main,
   Automations saca de `sinIAPropia` los textos de «la IA gratis de MaKo» (fuera del ws9 ya no se ven).
+- **El selector «+» de la caja no ofrece su Gemini** (medido al mergear main, 23/10): `cuentasDeIA` (lib/chat-ia.ts, el
+  «Con qué IA corre un chat» del 23/10) arma PC, «Tu Claude» y «Tu ChatGPT», y nada más. **Un negocio que sólo tiene Gemini ve
+  sólo Automático, aunque D6b lo mande a su Gemini.** No se rompe nada (Automático sale por su Gemini), pero contradice
+  «Conectar tu IA», que sí la ofrece. Lo reparte el Cerebro al chat del selector (8b): una cuenta `gemini` en `cuentasDeIA`,
+  en `CuentaDeIA` (lib/chat-ia-reglas.ts) y en el turno que honra la elección (lib/mako-turno-app.ts).
 - **Su Groq, con su IA:** D6b no deja a un negocio con su IA usar su propio Groq para las notas de voz (es así desde el
   21/10). El ws10 y el ws11 (los dos con su Claude) tienen una fila de Groq que por eso no escucha (medido el 22/10;
   no se miró si es una copia de la plataforma). Si se quiere, es una línea (`proveedorPermitido` y `ordenarPorCuota`).
