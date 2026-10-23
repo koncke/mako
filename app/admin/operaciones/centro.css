@@ -824,6 +824,14 @@
 .co-preg--plegada { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 10px 14px; border: 0; font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
 .co-preg--plegada:hover { background: var(--velo-hover); }
 .co-preg__flecha { color: var(--dim); }
+/* Las sugerencias de MaKo (22/10/2026): plegadas en una tira chica con su nombre, «Sugerencias de MaKo · 4 ▾»; abiertas, el
+   mismo nombre arriba. Nunca se confunden con una pregunta de un chat. */
+.co-preg__sug { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+.co-preg__sug svg { flex: none; color: var(--primary); }
+.co-preg--sugerencias { padding: 6px 12px; font-weight: 500; }
+.co-preg--sugerencias .co-preg__sug { font-weight: 500; color: var(--dim); }
+.co-preg--sugerencias:hover .co-preg__sug { color: var(--ink); }
+.co-preg__cab + .co-preg__pasos { margin-bottom: 8px; }
 /* «‹ Anterior», los puntos y «Siguiente ›» (sin pantalla de resumen: con la última, salen todas). */
 .co-preg__pasos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .co-preg__puntos { display: inline-flex; gap: 6px; }

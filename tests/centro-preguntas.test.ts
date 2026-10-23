@@ -122,7 +122,7 @@ test('la pregunta abierta se sigue por su id: una tarjeta que llega ADELANTE no 
   assert.equal(preguntaAbierta([p0, p1], null).d?.id, p0.id, 'sin elegir, la que frena');
   // El bloque único sigue lo abierto con esta MISMA regla (22/10/2026), y el cuerpo de la Ticketera guarda con la acción.
   const bloque = readFileSync(join(import.meta.dirname, '..', 'app/admin/operaciones/PreguntasDelChat.tsx'), 'utf8');
-  assert.match(bloque, /const \{ d: abierta, pos \} = preguntaAbierta\(items, idActual\);/, 'la pantalla usa esta misma regla');
+  assert.match(bloque, /const \{ d: abierta, pos \} = preguntaAbierta\(visibles, idActual\);/, 'la pantalla usa esta misma regla');
   const src = readFileSync(join(import.meta.dirname, '..', 'app/admin/operaciones/Pregunta.tsx'), 'utf8');
   assert.match(src, /try \{ r = await responder\(/, 'y un rechazo de la acción no deja la pregunta en «…»');
 });

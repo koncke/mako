@@ -42,6 +42,7 @@ import type { Responder } from './PreguntaChat';
 import { CuerpoTicketera } from './Pregunta';
 import { conLinks } from './bloque-texto';
 import { AvisoClave } from '@/app/_chat/AvisoClave';
+import { Icon } from '@/app/_components/icons';
 import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from '@/lib/claves-en-el-chat';
 
 type Elegido = { elegidas: number[]; otra: string };
@@ -81,6 +82,26 @@ export function itemsDelBloque(ticketera: readonly Decision[], delChat: readonly
   ];
 }
 
+/**
+ * Qué se ve del bloque (22/10/2026): las SUGERENCIAS de MaKo (lo que pregunta la tab) van aparte de las preguntas, plegadas en
+ * su tira hasta que se la toca (`verSugerencias`); las preguntas se pliegan como siempre (`plegado`). `visibles` es lo que se
+ * recorre de a una; las tiras, lo que queda plegado arriba.
+ */
+export function vistaDelBloque<T extends { de: ItemDelBloque['de'] }>(items: readonly T[], plegado: boolean, verSugerencias: boolean) {
+  const preguntas = items.filter((x) => x.de !== 'tab');
+  const sugerencias = items.filter((x) => x.de === 'tab');
+  const enSugerencias = verSugerencias && sugerencias.length > 0;
+  return {
+    preguntas, sugerencias, enSugerencias,
+    visibles: enSugerencias ? sugerencias : plegado ? [] : preguntas,
+    tiraDePreguntas: preguntas.length > 0 && (plegado || enSugerencias),
+    tiraDeSugerencias: sugerencias.length > 0 && !enSugerencias,
+  };
+}
+/** ¿Llegó una pregunta que no estaba? Es lo único que cierra las sugerencias abiertas: una pregunta nueva abre el bloque. */
+export const llegoUnaPregunta = (antes: ReadonlySet<string>, preguntas: ReadonlyArray<{ id: string }>): boolean =>
+  preguntas.some((x) => !antes.has(x.id));
+
 /** Plegado, por chat y por lo que espera: si llega algo nuevo, se abre solo. En el navegador: si no hay, abierto. */
 const CLAVE_PLEGADO = 'ops.preguntas.plegado.';
 const firmaDe = (items: ReadonlyArray<{ id: string | number }>) => items.map((p) => p.id).join(',');
@@ -107,16 +128,28 @@ function Plegada({ n, onAbrir, app = false }: { n: number; onAbrir: () => void; 
   );
 }
 
+/** Las sugerencias de MaKo, plegadas: la tira chica arriba de la caja, con su nombre y cuántas hay. Tocándola se abren. */
+function TiraSugerencias({ n, onAbrir }: { n: number; onAbrir: () => void }) {
+  return (
+    <button type="button" className="co-preg co-preg--arriba co-preg--plegada co-preg--sugerencias" onClick={onAbrir} aria-expanded={false}>
+      <span className="co-preg__sug"><Icon name="idea" size={15} />{n === 1 ? 'Sugerencia de MaKo' : 'Sugerencias de MaKo'} · {n}</span>
+      <span className="co-preg__flecha" aria-hidden>▾</span>
+    </button>
+  );
+}
+
 /** La flecha para plegar, arriba a la derecha de la tarjeta. */
-const Plegar = ({ onPlegar }: { onPlegar: () => void }) => (
-  <button type="button" className="co-preg__plegar" onClick={onPlegar} aria-expanded aria-label="Ocultar las preguntas" title="Ocultar">
+const Plegar = ({ onPlegar, que = 'las preguntas' }: { onPlegar: () => void; que?: string }) => (
+  <button type="button" className="co-preg__plegar" onClick={onPlegar} aria-expanded aria-label={`Ocultar ${que}`} title="Ocultar">
     <span aria-hidden>▾</span>
   </button>
 );
 
 /** «‹ Anterior», los puntos (uno por pregunta: se toca para ir) y «Siguiente ›». */
-function Pasos({ items, pos, ir, contestada, enviando }: {
+function Pasos({ items, pos, ir, contestada, enviando, nombre = 'Pregunta' }: {
   items: ReadonlyArray<{ id: string }>; pos: number; ir: (i: number) => void; contestada: (id: string) => boolean; enviando?: boolean;
+  /** Cómo se llama cada punto para quien no ve: «Pregunta 2», «Sugerencia 2». */
+  nombre?: string;
 }) {
   return (
     <div className="co-preg__pasos">
@@ -124,7 +157,7 @@ function Pasos({ items, pos, ir, contestada, enviando }: {
       <span className="co-preg__puntos" role="group" aria-label={`${pos + 1} de ${items.length}`}>
         {items.map((q, i) => (
           <button key={q.id} type="button" className="co-preg__punto" disabled={enviando} onClick={() => ir(i)}
-            aria-label={`Pregunta ${i + 1}${contestada(q.id) ? ' (contestada)' : ''}`} aria-current={i === pos ? 'step' : undefined}
+            aria-label={`${nombre} ${i + 1}${contestada(q.id) ? ' (contestada)' : ''}`} aria-current={i === pos ? 'step' : undefined}
             data-contestada={contestada(q.id) ? 'true' : undefined} />
         ))}
       </span>
@@ -159,13 +192,27 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [plegado, setPlegado] = usePlegado(chat, items);
+  // LAS SUGERENCIAS DE MAKO VAN PLEGADAS, APARTE DE LAS PREGUNTAS (22/10/2026). Martín, mirando producción: «no se entiende que
+  // son sugerencias y luego que son muy invasivas, se debería poder ver en un desplegable». Su tira dice qué son y cuántas hay;
+  // se abren SÓLO tocándola (una nueva suma al número y no abre nada), y abiertas dicen «Sugerencia de MaKo». Una pregunta nueva
+  // de un chat sí abre el bloque, como siempre (`usePlegado`), y deja las sugerencias en su tira.
+  const [verSugerencias, setVerSugerencias] = useState(false);
+  // El plegado se recuerda por las PREGUNTAS: una sugerencia nueva no cambia la firma, así que no abre nada.
+  const soloPreguntas = useMemo(() => items.filter((x) => x.de !== 'tab'), [items]);
+  const [plegado, setPlegado] = usePlegado(chat, soloPreguntas);
+  const { preguntas, sugerencias, enSugerencias, visibles, tiraDePreguntas, tiraDeSugerencias } =
+    useMemo(() => vistaDelBloque(items, plegado, verSugerencias), [items, plegado, verSugerencias]);
+  const yaVistas = useRef<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    if (llegoUnaPregunta(yaVistas.current, preguntas)) setVerSugerencias(false);
+    yaVistas.current = new Set(preguntas.map((x) => x.id));
+  }, [preguntas]);
   const campo = useRef<HTMLInputElement>(null);
   /** Dónde hay algo escrito sin mandar: si eso se contesta en otro lado (la Ticketera, el teléfono), se dice. */
   const escrito = useRef<string | null>(null);
 
   // La abierta se sigue por su id (la regla de siempre de la Ticketera: si se fue, la primera).
-  const { d: abierta, pos } = preguntaAbierta(items, idActual);
+  const { d: abierta, pos } = preguntaAbierta(visibles, idActual);
   const it = abierta ?? null;
   const p = it && (it.de === 'chat' || it.de === 'app') ? it.p : null;
   const ops = useMemo(() => (p ? opcionesEnOrden(p) : []), [p]);
@@ -183,16 +230,22 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
     if (escrito.current && !items.some((x) => x.id === escrito.current)) { setAviso('Esa pregunta ya se contestó en otro lado'); escrito.current = null; }
   }, [items]);
 
-  if (!it) return null;
-  if (plegado) return <Plegada n={items.length} onAbrir={() => setPlegado(false)} app={items.every((x) => x.de === 'app')} />;
+  // Lo plegado, en sus tiras: las preguntas (plegadas, o tapadas por las sugerencias abiertas) y las sugerencias.
+  const tiras = (<>
+    {tiraDePreguntas && (
+      <Plegada n={preguntas.length} onAbrir={() => { setVerSugerencias(false); setPlegado(false); }} app={preguntas.every((x) => x.de === 'app')} />
+    )}
+    {tiraDeSugerencias && <TiraSugerencias n={sugerencias.length} onAbrir={() => setVerSugerencias(true)} />}
+  </>);
+  if (!it) return items.length ? tiras : null;
 
-  const ir = (i: number) => { setAviso(null); setIdActual(items[Math.min(items.length - 1, Math.max(0, i))]?.id ?? null); };
+  const ir = (i: number) => { setAviso(null); setIdActual(visibles[Math.min(visibles.length - 1, Math.max(0, i))]?.id ?? null); };
   const contestada = (id: string) => !!elegidos[id] || guardadas.includes(id) || items.some((x) => x.id === id && x.de === 'tab' && !!x.q.hecha);
   /** A la próxima que falta contestar ACÁ (las de la app se contestan en la app): primero las de después, después las de antes. */
   const aLaSiguiente = (hecho: ReadonlySet<string>) => {
     const falta = (x: ItemDelBloque) => x.de !== 'app' && !hecho.has(x.id);
-    const i = items.findIndex((x, n) => n > pos && falta(x));
-    const j = i >= 0 ? i : items.findIndex(falta);
+    const i = visibles.findIndex((x, n) => n > pos && falta(x));
+    const j = i >= 0 ? i : visibles.findIndex(falta);
     if (j >= 0) ir(j);
   };
   const hechos = (mas: string) => new Set([...Object.keys(elegidos), ...guardadas, mas]);
@@ -252,14 +305,25 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
   const elegida = (i: number) => marcadas.includes(i);
   const ultimaDelChat = it.de === 'chat' && delChatAbiertas.every((q) => q.id === it.id || elegidos[q.id]);
   const titulo = it.de === 'ticketera' ? it.d.pregunta : it.de === 'tab' ? it.q.pregunta : it.p.pregunta;
-  return (
+  return (<>
+    {tiras}
     <div className={`co-preg co-preg--arriba${it.de === 'app' ? ' co-preg--app' : ''}`} role="group"
-      aria-label={it.de === 'app' ? `Pregunta en la app de Claude: ${titulo}` : `Pregunta: ${titulo}`} onKeyDown={it.de === 'chat' ? tecla : undefined}>
-      <div className="co-preg__cab">
-        {items.length > 1 ? <Pasos items={items} pos={pos} ir={ir} contestada={contestada} enviando={enviando} />
-          : <span className="co-preg__paso">{esperando(1)}</span>}
-        <Plegar onPlegar={() => setPlegado(true)} />
-      </div>
+      aria-label={it.de === 'tab' ? `Sugerencia de MaKo: ${titulo}` : it.de === 'app' ? `Pregunta en la app de Claude: ${titulo}` : `Pregunta: ${titulo}`}
+      onKeyDown={it.de === 'chat' ? tecla : undefined}>
+      {enSugerencias ? (<>
+        {/* Abiertas dicen qué son: no es una pregunta de un chat ni un mensaje. */}
+        <div className="co-preg__cab">
+          <span className="co-preg__sug"><Icon name="idea" size={15} />Sugerencia de MaKo</span>
+          <Plegar onPlegar={() => setVerSugerencias(false)} que="las sugerencias" />
+        </div>
+        {visibles.length > 1 && <Pasos items={visibles} pos={pos} ir={ir} contestada={contestada} nombre="Sugerencia" />}
+      </>) : (
+        <div className="co-preg__cab">
+          {visibles.length > 1 ? <Pasos items={visibles} pos={pos} ir={ir} contestada={contestada} enviando={enviando} />
+            : <span className="co-preg__paso">{esperando(1)}</span>}
+          <Plegar onPlegar={() => setPlegado(true)} />
+        </div>
+      )}
       {aviso && <p className="co-preg__error" role="alert">{aviso}</p>}
       {it.de === 'ticketera' && responderTicketera ? (
         <CuerpoTicketera key={it.id} d={it.d} responder={responderTicketera} onGuardada={() => guardada(it.id)}
@@ -311,11 +375,11 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
         </div>
       </>) : null}
     </div>
-  );
+  </>);
 }
 
 /** Lo que pregunta la tab (una sugerencia del CRM): sus opciones corren lo de la tab; hecha, dice qué quedó y dónde verlo. */
-function CuerpoDeLaTab({ q }: { q: PreguntaDeLaTab }) {
+export function CuerpoDeLaTab({ q }: { q: PreguntaDeLaTab }) {
   const quieta = q.quieta || q.ocupada != null;
   function tecla(e: KeyboardEvent<HTMLDivElement>) {
     if (quieta || q.hecha || !/^[1-9]$/.test(e.key)) return;

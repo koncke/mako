@@ -33,7 +33,7 @@ import { TEXTO_SEGUNDO_RENGLON, avisosDe, lineasDeConversacion, primeraOracion, 
 import { animoDe } from '../app/admin/operaciones/Muneco';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { BloqueDePreguntas, itemsDelBloque } from '../app/admin/operaciones/PreguntasDelChat';
+import { BloqueDePreguntas, CuerpoDeLaTab, itemsDelBloque } from '../app/admin/operaciones/PreguntasDelChat';
 import type { Decision } from '../app/admin/runway/decisiones';
 import type { PreguntaChat } from '../lib/centro-preguntas-chat';
 import { esCriaturaDeMako } from '../lib/centro-munecos';
@@ -51,7 +51,7 @@ test('1. flota sobre el fondo del chat y se pliega con una flecha, recordado por
   assert.match(css, /\.co-caja-wrap \{ background: var\(--bg\); \}/, 'el pie de la caja, con el fondo del chat (no la franja blanca)');
   assert.match(css, /\.co-preg--arriba \{ margin: 0 auto 10px; box-shadow: [^}]*0 10px 30px/, 'una tarjeta flotante, con su sombra');
   const b = bloque();
-  assert.match(b, /if \(plegado\) return <Plegada n=\{items\.length\} onAbrir=\{\(\) => setPlegado\(false\)\}/);
+  assert.match(b, /\{tiraDePreguntas && \(\n\s*<Plegada n=\{preguntas\.length\} onAbrir=\{\(\) => \{ setVerSugerencias\(false\); setPlegado\(false\); \}\}/);
   assert.match(b, /const esperando = \(n: number\) => \(n === 1 \? '1 pregunta esperando' : `\$\{n\} preguntas esperando`\);/);
   assert.match(b, /<Plegar onPlegar=\{\(\) => setPlegado\(true\)\} \/>/);
   // Por chat Y por las preguntas que espera: una nueva lo abre solo.
@@ -203,20 +203,20 @@ test('8. UN solo bloque: la Ticketera, lo que pregunta el chat y lo de la app, e
 });
 
 test('9. lo que una tab le pregunta (las sugerencias del CRM) va en EL bloque: una por vez, con «Hacerlo» y «Ahora no»', () => {
+  const cuota = { id: 'cuota', pregunta: '1 cuota vencida sin cobrar. ¿Te aviso cuando venza una?', opciones: [{ titulo: 'Hacerlo', recomendada: true, onElegir: () => {} }, { titulo: 'Ahora no', onElegir: () => {} }] };
   const html = renderToStaticMarkup(createElement(BloqueDePreguntas, {
     chat: 'tab:CRM',
-    deLaTab: [
-      { id: 'cuota', pregunta: '1 cuota vencida sin cobrar. ¿Te aviso cuando venza una?', opciones: [{ titulo: 'Hacerlo', recomendada: true, onElegir: () => {} }, { titulo: 'Ahora no', onElegir: () => {} }] },
-      { id: 'r1', pregunta: 'Escribirle para reagendar a quien cae en «Nutrición No Show R1»', opciones: [{ titulo: 'Hacerlo', href: '/automations?ws=1' }] },
-    ],
+    deLaTab: [cuota, { id: 'r1', pregunta: 'Escribirle para reagendar a quien cae en «Nutrición No Show R1»', opciones: [{ titulo: 'Hacerlo', href: '/automations?ws=1' }] }],
   }));
-  assert.equal((html.match(/class="co-preg co-preg--arriba/g) ?? []).length, 1, 'una tarjeta, no una lista');
-  assert.match(html, /1 cuota vencida sin cobrar/);
-  assert.doesNotMatch(html, /Nutrición No Show R1/, 'una por vez: la otra espera su turno');
-  assert.match(html, />1 de 2</);
-  assert.match(html, /Hacerlo<span class="co-preg__rec"> \(Recomendada\)<\/span>/);
-  assert.match(html, />Ahora no</);
-  assert.match(html, /class="co-preg__plegar"/, 'con la flecha');
+  // Plegadas en su tira (Martín, 22/10/2026: «muy invasivas»): tests/ops-center-sugerencias-plegadas.test.ts.
+  assert.equal((html.match(/class="co-preg co-preg--arriba/g) ?? []).length, 1, 'una tira, no una lista');
+  assert.doesNotMatch(html, /1 cuota vencida sin cobrar|Nutrición No Show R1/, 'plegadas: ninguna a la vista');
+  // Abierta, una por vez, con «Hacerlo» y «Ahora no» como sus opciones.
+  const abierta = renderToStaticMarkup(createElement(CuerpoDeLaTab, { q: cuota }));
+  assert.match(abierta, /1 cuota vencida sin cobrar/);
+  assert.match(abierta, /Hacerlo<span class="co-preg__rec"> \(Recomendada\)<\/span>/);
+  assert.match(abierta, />Ahora no</);
+  assert.match(bloque(), /\{visibles\.length > 1 && <Pasos items=\{visibles\} pos=\{pos\} ir=\{ir\} contestada=\{contestada\} nombre="Sugerencia" \/>\}/, 'una por vez, con ‹ ›');
   // La estrella lo monta arriba de la caja, y el CRM ya no dibuja su lista suelta arriba del hilo.
   const pieza = sinComentarios(leer('app/_chat/MakoEnLaTab.tsx'));
   assert.match(pieza, /\{preguntas && preguntas\.length > 0 && <BloqueDePreguntas chat=\{`tab:\$\{tab\}`\} deLaTab=\{preguntas\} \/>\}\n\s*<div className="co-caja">/);

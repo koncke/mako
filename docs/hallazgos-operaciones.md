@@ -55,6 +55,16 @@ un «Ya está» sin su ✓, que la fila dibujaba con el MISMO texto (`TEXTO_SEGU
   con un scroll propio que se comía la mitad del panel. Ahora la estrella las recibe como `preguntas` (MakoEnLaTab →
   BloqueDePreguntas, `PreguntaDeLaTab`) y van de a una, arriba de la caja. Arriba del hilo queda sólo lo que no es una pregunta: el
   aviso de que no se pudieron leer y «Calladas (N)».
+- **Pero en el bloque quedaron invasivas** (Martín, en producción: «no se entiende que son sugerencias y luego que son muy
+  invasivas»). La causa era la regla del plegado, no el diseño: `usePlegado` se abre solo cuando cambia la firma de lo que espera,
+  que es lo correcto para la pregunta de un chat. Con las sugerencias adentro, cada sugerencia nueva del CRM abría la tarjeta, y
+  decía «1 pregunta esperando». Ahora van aparte (`vistaDelBloque`): plegadas en su tira «Sugerencias de MaKo · N ▾», con el ícono
+  `idea`; se abren sólo tocándola, y abiertas dicen «Sugerencia de MaKo». La firma del plegado cuenta sólo las preguntas
+  (`soloPreguntas`), y una pregunta nueva de un chat sigue abriendo el bloque y deja las sugerencias en su tira (`llegoUnaPregunta`).
+  **Regla:** algo que no se pidió no se abre solo. Sólo lo que espera una respuesta puede abrir el bloque.
+- **Trampa de los tests: no hay DOM** (ni jsdom ni testing-library). `renderToStaticMarkup` dibuja sólo el estado inicial, así que
+  lo que se ve tras un toque no se puede dibujar. Lo que decide qué se ve va en una función pura (`vistaDelBloque`) y se prueba en
+  todos sus estados; el cuerpo abierto se dibuja suelto (`CuerpoDeLaTab`). tests/ops-center-sugerencias-plegadas.test.ts.
 - **Trampa: la cabecera de la estrella decía «Chat nuevo» con una criatura redonda hasta que llegaba la lista,** y recién ahí
   saltaba a «Cerebro» con la estrella. Sin la fila, `nombre` caía en `SIN_TITULO`. Con `entrarAlCerebro` y nada pedido ni elegido,
   ahora es el Cerebro desde el primer cuadro (useChatCliente.ts → `vaAlCerebro`). Pasaba también al entrar al Ops Center del cliente.
