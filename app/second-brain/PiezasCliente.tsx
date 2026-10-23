@@ -76,9 +76,10 @@ export function HiloDelCliente({ k }: { k: ChatCliente }) {
 /**
  * La caja del chat del cliente: la ÚNICA de la app (Martín, 20/10: «Te pedí que unificaras el chat del Ops Center en todos lados,
  * su diseño y funcionalidades»). `movil`: la del teléfono, como la de ChatsMovil.tsx (Enter baja de renglón, crece el CSS).
+ * `angosta`: el panel de la estrella (440 px) y el teléfono; lo que no es el campo va arriba y no le come el ancho.
  */
-export function CajaDelCliente({ k, campo, seguir, movil = false }: {
-  k: ChatCliente; campo: RefObject<HTMLTextAreaElement | null>; seguir: () => HTMLElement | null; movil?: boolean;
+export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movil }: {
+  k: ChatCliente; campo: RefObject<HTMLTextAreaElement | null>; seguir: () => HTMLElement | null; movil?: boolean; angosta?: boolean;
 }) {
   // El grupo de WhatsApp de MaKo no se sigue desde acá: en lugar de la caja, dónde se contesta.
   if (k.esGrupo) return <p className="co-solo-lectura" role="note">{AVISO_GRUPO}</p>;
@@ -93,17 +94,21 @@ export function CajaDelCliente({ k, campo, seguir, movil = false }: {
   if (k.esAutomatizacion) {
     return <p className="co-solo-lectura" role="note">{AVISO_LIENZO}{k.hrefLienzo && <> <a className="ch-enlace" href={k.hrefLienzo}>Seguir en el lienzo</a></>}</p>;
   }
+  // Sin su Claude o su GPT, el botón para conectarlo («Tus cuentas de IA», ahí mismo). En la caja ancha, al final de la fila (Martín,
+  // 21/10). En la ANGOSTA, como chip ARRIBA del campo: al final le comía el ancho y «Escribe a Cerebro» salía cortado (Offer, en
+  // producción, 22/10/2026). No con una container query: la contención de `.co-caja` volvería ella el marco de lo `fixed` de
+  // adentro (el «+», los emojis).
+  const conectar = k.iaConectada === false
+    ? <button type="button" className="co-chip co-conectar-ia" onClick={() => k.setConectando(true)}>Conectar tu IA</button> : null;
   return (
     <CajaChat texto={k.texto} onTexto={(v) => { k.setFaltaMic(null); k.setTexto(v); }} onMandar={k.enviarCaja}
       ocupado={k.enCurso} apagado={!k.cargado || !!k.errorCarga} placeholder={`Escribe a ${k.nombre}`} tituloMandar={movil ? undefined : 'Mandar (Enter)'}
       enterManda={!movil} campo={campo} seguir={seguir} onErrorMic={k.setFaltaMic} adjuntos={k.adjuntosCaja} voz={k.vozCaja}
       {...(movil ? { altoMax: null, fila: 'm-operaciones-caja__fila' } : {})}
       hayAlgoMas={k.pegados.length > 0} onPegar={k.pegarLargo}
-      // Sin su Claude o su GPT, el botón para conectarlo, al final de la caja (se abre acá mismo: «Tus cuentas de IA»).
-      alFinal={k.iaConectada === false ? (
-        <button type="button" className="co-chip co-conectar-ia" onClick={() => k.setConectando(true)}>Conectar tu IA</button>
-      ) : null}
+      alFinal={angosta ? null : conectar}
       arriba={<>
+        {angosta && conectar && <div className="co-conectar-ia-arriba">{conectar}</div>}
         {k.cita && <CitaCaja cita={k.cita} onQuitar={() => k.setCita(null)} />}
         {k.pegados.length > 0 && (
           <ul className="ch-elegidos" aria-label="Textos pegados">

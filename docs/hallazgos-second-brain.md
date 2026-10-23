@@ -2603,3 +2603,21 @@ el CRM, la ficha, los gráficos del Dashboard, Editar con MaKo y el Web Generato
   en CÓMO el motor pide el hilo se prueba contra la rama del GET que lo atiende, no sólo contra la lista.
 
 **Vive en:** app/api/mako/chat/route.ts (GET) · app/second-brain/useChatCliente.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## «Conectar tu IA» le comía el ancho al campo en la caja angosta (22/10/2026)
+
+**Síntoma (Offer, en producción, tren 9, ws3):** en el panel de la estrella, de 440 px, «Escribe a Cerebro» salía cortado:
+«Conectar tu IA» y el micrófono ocupaban casi toda la fila. Ahora, en la caja angosta (`CajaDelCliente` con `angosta`: el panel
+de la estrella, y el teléfono, que lo es por defecto con `movil`), el chip va ARRIBA del campo (`arriba`, `.co-conectar-ia-arriba`).
+En la ancha, el Ops Center, sigue al final de la fila, como lo pidió Martín el 21/10.
+
+**El arreglo obvio era el equivocado:** una container query sobre `.co-caja`, que se adaptaría sola a cualquier ancho.
+`container-type: inline-size` le pone contención de layout, y un elemento con contención de layout es el marco de lo `position:
+fixed` que lleva adentro. El panel del «+» y el de los emojis se habrían ubicado contra la caja, no contra la pantalla. Por eso es un
+prop que decide quien monta la caja, que sabe cuánto mide.
+
+**Regla:** en la fila de la caja van sólo el «+», los emojis, el campo y el botón de mandar; lo demás, en la caja angosta, va arriba.
+tests/ops-center-caja-angosta.test.ts (dibuja `CajaChat` con los `.css` vacíos, como tests/offer-hilo-unico.test.ts).
+
+**SIN HACER:** el placeholder es `Escribe a ${nombre}`. Con el nombre largo de un chat («Editar con MaKo · Página 1»), en el
+teléfono puede seguir saliendo cortado; la estrella siempre dice «Cerebro». No lo medí en un teléfono.
