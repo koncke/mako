@@ -31,6 +31,11 @@ export type MensajeChatMako = {
   pregunta?: PreguntaMako; respuesta?: RespuestaMako;
   cambios?: { cambiadas: number; quitadas: number; agregadas: number }; avisos?: string[];
   /**
+   * LO PEDIDO QUE NO SE HIZO (22/10/2026, Martín: «En rojo va SÓLO un error de verdad o algo que pidió y NO se hizo»). Va en
+   * rojo; `avisos` son lo que MaKo reparó solo, en gris. Con algo acá el mensaje no dice «Listo».
+   */
+  noHecho?: string[];
+  /**
    * DE QUÉ TARJETA SALIÓ (decimotercera tanda, 12/10/2026, punto 7: «las recomendaciones que te de MaKo, en "MaKo te
    * ayuda a escribirlo"... se debe quedar guardado como parte del historial del chat... se tiene que ver que el usuario
    * apretó el botón en X tarjeta»). El nombre de la tarjeta tal como se lee en el lienzo (`nombreDeTarjeta`,
@@ -122,6 +127,10 @@ export function sanearMensaje(raw: unknown): MensajeChatMako | null {
     const avisos = raw.avisos.map(texto).filter((a): a is string => !!a && a.trim().length > 0).slice(0, TOPE_AVISOS);
     if (avisos.length) m.avisos = avisos;
   }
+  if (Array.isArray(raw.noHecho)) {
+    const noHecho = raw.noHecho.map(texto).filter((a): a is string => !!a && a.trim().length > 0).slice(0, TOPE_AVISOS);
+    if (noHecho.length) m.noHecho = noHecho;
+  }
   if (typeof raw.tarjeta === 'string' && raw.tarjeta.trim()) m.tarjeta = raw.tarjeta.trim().slice(0, TOPE_TARJETA_CHAT);
   return m;
 }
@@ -164,4 +173,5 @@ export type ExtrasEdicionIA = {
   resumen: string; cambiadas: string[]; quitadas: string[];
   disparadores?: Disparador[] | null;   // CRON a guardar por action 'disparadores'; ausente = no lo toca
   pregunta?: PreguntaMako;               // p. ej. «¿Cambio qué la dispara?»
+  noHecho?: string[];                    // lo pedido que no se hizo (en rojo; 22/10/2026)
 };

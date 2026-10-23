@@ -112,6 +112,43 @@ export function traeTextosPegados(pedido: string): boolean {
   return renglones.length >= 2 || /[«"“][^«»"“”]{20,}[»"”]/.test(String(pedido ?? ''));
 }
 
+/** Lo mínimo para que un texto entre comillas cuente como un MENSAJE pedido (y no el nombre de una etiqueta o una etapa). */
+export const LARGO_TEXTO_PEDIDO = 20;
+
+/** Un texto para comparar: sin tildes, sin mayúsculas, sin links, con las variables iguales y sólo sus palabras. */
+function palabrasDe(t: string): string[] {
+  return t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .replace(/https?:\/\/\S+|\b[\w-]+\.(?:com|net|org|io|app|co|mx|ar|es)(?:\/\S*)?/g, ' ')
+    .replace(/\{\{?\s*[a-z_]+\s*\}?\}/g, ' ')
+    .split(/[^a-z0-9ñ]+/).filter((w) => w.length > 1);
+}
+
+/**
+ * EL CONTROL DE LO PEDIDO (22/10/2026, Martín: «revisa lo que le pedí vs lo que creó, creó a la mitad las cosas que le
+ * pedí»; el Cerebro: «que nunca diga "Listo" si falta algo»). Los textos que el dueño puso entre comillas (los mensajes
+ * que pegó) que NO quedaron en ningún mensaje del flujo. Cuenta como puesto si al menos el 80% de sus palabras está en un
+ * mismo mensaje (los links y las variables no cuentan: MaKo los pone aparte). Sin textos entre comillas, nada. Pura.
+ */
+export function faltantesDelPedido(pedido: string, textosDelFlujo: readonly string[]): string[] {
+  const citas = [...String(pedido ?? '').matchAll(/[«"“]([^«»"“”\n]{1,600})[»"”]/g)].map((m) => m[1].trim())
+    .filter((t) => t.length >= LARGO_TEXTO_PEDIDO);
+  if (!citas.length) return [];
+  const flujo = textosDelFlujo.map((t) => new Set(palabrasDe(t)));
+  const faltan: string[] = [];
+  for (const c of citas) {
+    const ws = palabrasDe(c);
+    if (!ws.length) continue;
+    const esta = flujo.some((f) => ws.filter((w) => f.has(w)).length >= Math.ceil(ws.length * 0.8));
+    if (!esta && !faltan.includes(c)) faltan.push(c.length > 80 ? `${c.slice(0, 79).trimEnd()}…` : c);
+  }
+  return faltan;
+}
+
+/** El error que se le devuelve al modelo para el reintento (`generar`): qué de lo pegado no quedó, y cómo se pone una rama. */
+export function errorDeFaltantes(faltan: readonly string[]): string {
+  return `Faltó en el flujo lo que pegó el dueño: ${faltan.map((t) => `«${t}»`).join(', ')}. Agrégalo con sus palabras, en su lugar. Lo que pasa según lo que conteste el lead va en un CASO de "si_responde" ("agregar" con "despues_de": "si_responde" y "caso": {"titulo", "cuando"}), con su mensaje.`;
+}
+
 /** Un mensaje del chat como lo lee este módulo (`MensajeChatMako`, lib/automatizacion-chat.ts). */
 type MensajeCharla = { de: string; texto?: string | null };
 

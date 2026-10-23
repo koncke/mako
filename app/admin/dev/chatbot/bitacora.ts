@@ -2355,4 +2355,15 @@ FEEDBACK PROBAR:
     ],
     pedido: "«En Automations, cuando está ejecutando algo, no debe deshabilitarme la navegación de la sidebar principal... Se debe ejecutar en segundo plano. Si está bien que deshabilite la edición del lienzo»",
   },
+  {
+    fecha: "22 oct", hora: "22:15", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "El chat de MaKo armaba las cosas a la mitad, y un «Listo» que no se veía como Listo",
+    puntos: [
+      "Llegó por el Cerebro, con una captura de «Sprint · apertura» en el ws1 (modo Editar, con su Claude).",
+      "Pidió un saludo, una pregunta y dos respuestas según lo que conteste el lead: quedaron el saludo y la pregunta, las dos respuestas no.",
+      "Un turno que hizo lo pedido arranca con «Listo» en verde; en rojo, sólo lo que pidió y no se hizo.",
+    ],
+    pedido: "«revisa lo que le pedí vs lo que creó, creó a la mitad las cosas que le pedí» · «Si me ponés un mensaje en rojo abajo y el de arriba no dice algo como \"Listo!\", parece que no funcionó»",
+  },
 ];
