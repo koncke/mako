@@ -92,6 +92,24 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'externo', gating: G_MANAGER,
   },
   {
+    // La misma cuenta que el modal «Calcular presupuesto» del Ads Manager (lib/calculadora-presupuesto-ads.ts, pura): no lee
+    // Meta ni la base. Sin HTTP: es un consejo para una persona, no un dato para un sistema.
+    id: 'calcular_presupuesto_anuncios', area: 'ads', tipo: 'lectura',
+    titulo: 'Cuánto testear con un presupuesto',
+    descripcion: 'Con un presupuesto de anuncios, cuántos avatares y funcionalidades (ángulos) se pueden testear con datos suficientes y cómo: matriz en una semana, dos rondas (avatares y después funcionalidades) o una sola dimensión. Devuelve cuánto por anuncio por día y por cuántos días, lo que queda para escalar al ganador, si la escala sale de la fase de aprendizaje de Meta (50 resultados en 7 días) y las ventas esperadas. El mínimo para decidir es el del panel Recon (10 resultados por ángulo). Úsala cuando pregunten «¿cuánto invierto?», «¿cuántos anuncios pruebo con X dólares?» o «¿testeo avatares o funcionalidades?». No lee Meta: si no te dan el costo por resultado, pídelo o tómalo de ver_rendimiento_anuncios.',
+    parametros: [
+      { nombre: 'presupuesto', tipo: 'number', obligatorio: true, minimo: 1, descripcion: 'Lo que hay para pautar en toda la ventana, en dólares.' },
+      { nombre: 'dias', tipo: 'number', entero: true, obligatorio: true, minimo: 1, maximo: 365, descripcion: 'Días de pauta.' },
+      { nombre: 'costoPorResultado', tipo: 'number', obligatorio: true, minimo: 0.01, descripcion: 'Lo que cuesta un resultado del evento al que optimiza la campaña (CPL o CPA), en dólares.' },
+      { nombre: 'evento', tipo: 'string', enum: ['lead', 'venta'], descripcion: 'lead = lead, registro o conversación iniciada (default); venta = compra.' },
+      { nombre: 'ticket', tipo: 'number', obligatorio: true, minimo: 0.01, descripcion: 'Lo que deja una venta, en dólares.' },
+      { nombre: 'cierre', tipo: 'number', minimo: 0.001, maximo: 100, descripcion: 'Sólo con evento lead: de cada 100 resultados, cuántos compran (admite decimales).' },
+      { nombre: 'avatares', tipo: 'number', entero: true, minimo: 1, maximo: 50, descripcion: 'Cuántos avatares tiene armados. Default 3.' },
+      { nombre: 'funcionalidades', tipo: 'number', entero: true, minimo: 1, maximo: 50, descripcion: 'Cuántas funcionalidades, razones u ofertas tiene para mostrar. Default 3.' },
+    ],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'ads-manager', rolMinimo: 'admin' },
+  },
+  {
     id: 'listar_conjuntos_meta', area: 'ads', tipo: 'lectura',
     titulo: 'Conjuntos de anuncios en vivo',
     descripcion: 'Los conjuntos de anuncios de una campaña (o de toda la cuenta) leídos en vivo de Meta: id, nombre, estado efectivo, semáforo, presupuesto diario y restante (moneda de la cuenta) y fase de aprendizaje (en aprendizaje, limitado, completado). Úsala para saber qué conjunto pausar, cuál está en aprendizaje limitado o para conseguir el adsetId antes de otra operación.',

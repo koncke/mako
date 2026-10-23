@@ -3496,7 +3496,7 @@ curl -L \
 
 ### `GET /api/v1/crm/cobro-ganado` — Qué cobra Ganado en un CRM
 
-Los productos vinculados a Ganado de un CRM (quien paga uno pasa a Ganado ahí, con su plan de pagos), por qué cuentas de Stripe o Mercado Pago cobra cada uno, las cuentas conectadas y los productos del catálogo que se pueden sumar. Paso previo a vincular_cobro_etapa. Solo el administrador.
+Los productos vinculados a Ganado de un CRM (quien paga uno pasa a Ganado ahí, con su plan de pagos), por qué cuentas de Stripe o Mercado Pago cobra cada uno, las cuentas conectadas, los productos del catálogo que se pueden sumar y los precios de Stripe que se pueden traer. Paso previo a vincular_cobro_etapa. Solo el administrador.
 
 - **Ruta por operación:** `GET /api/v1/crm/ver_cobro_etapa`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -3535,7 +3535,8 @@ PROPONE vincular un producto del catálogo a Ganado de un CRM (queda pendiente h
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `productoId` | number | sí | el producto (de ver_cobro_etapa o listar_productos). |
+| `productoId` | number | no | el producto (de ver_cobro_etapa o listar_productos). |
+| `precioStripe` | string | no | en vez del producto, un precio de Stripe (de ver_cobro_etapa). |
 | `embudoId` | number | no | el CRM, por el id de su embudo. Sin él, el CRM principal del negocio. |
 | `cuentas` | string[] | no | las cuentas por las que cobra (sus id de ver_cobro_etapa, como stripe:principal). Sin ellas, todas las conectadas. |
 
@@ -3545,9 +3546,7 @@ curl -L \
   -H "Accept: application/json" \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
-  -H "Content-Type: application/json" \
-  "https://hola-mako.com/api/v1/crm/cobro-ganado/vinculos" \
-  -d '{"productoId":1}'
+  "https://hola-mako.com/api/v1/crm/cobro-ganado/vinculos"
 ```
 
 ### `PUT /api/v1/crm/cobro-ganado/vinculos/{vinculoId}/cuentas` — Cuentas de cobro en Ganado
