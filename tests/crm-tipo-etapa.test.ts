@@ -88,9 +88,10 @@ test('lo que se dice antes de cambiarlo: los leads se quedan, las reuniones que 
 
 test('el tablero: «Tipo de etapa» en el «⋯» y en el clic derecho de las columnas que lo llevan, guardado por la op de siempre', () => {
   const b = sinComentarios(leer('app/crm/CrmBoard.tsx'));
-  assert.match(b, /\.\.\.\(columnaConTipo\(c\) \? \[\{ value: 'tipo', label: 'Tipo de etapa', icono: 'etapa' as const \}\] : \[\]\),/);
-  assert.match(b, /if \(v === 'tipo'\) \{ setTipoDe\(c\.key\); return; \}/);
-  assert.match(b, /case 'col_tipo': if \(c\) setTipoDe\(c\.key\); return;/);
+  // Desde el 22/10/2026 el «⋯» abre el menú del clic derecho, y «Tipo de etapa ›» trae los tres ahí mismo (con el actual
+  // tildado): elegir uno lo cambia; sin el tipo actual, el pop-up de siempre. tests/crm-feedback-22-10-c.test.ts.
+  assert.match(b, /case 'col_tipo': if \(c && valor\) void cambiarTipoColumna\(c, valor as TipoEtapa\); else if \(c\) setTipoDe\(c\.key\); return;/);
+  assert.match(b, /tipoActual: c && columnaConTipo\(c\) \? tipoDeColumna\(c\) : null,/);
   assert.match(b, /tipo: columnaConTipo\(c\),/, 'el clic derecho con la MISMA condición');
   // El pop-up guarda por la op `tipo` (la del pop-up de etapas) y deja deshacer al tipo de antes.
   assert.match(b, /const r = await opEtapa\(\{ op: 'tipo', key: col\.key, tipo \}\);/);

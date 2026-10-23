@@ -512,8 +512,10 @@ export type RespuestaTurno = {
 // SU IA. Sin una propia, el turno con herramientas no tiene ninguna cuenta que probar: es configuración del negocio, se
 // le dice a la persona qué hacer y no abre ticket (lib/errores-app-reglas.ts → `esDeConfiguracion`).
 
-/** Lo que dice MaKo, corto y en palabras de la persona. Su mensaje quedó guardado, pero el turno no corrió: hay que mandarlo de nuevo. */
-export const AVISO_SIN_IA = 'Para contestarte necesito una IA conectada. Conecta la tuya y mándamelo de nuevo.';
+/** Lo que dice MaKo, corto y en palabras de la persona. Su mensaje quedó guardado, pero el turno no corrió: hay que mandarlo de
+ *  nuevo. Nombra las tres IA que puede conectar (el Cerebro, 22/10/2026: «Para contestarte necesito tu IA: conectá tu Claude, GPT
+ *  o Gemini»): su Gemini por clave de AI Studio también le contesta. */
+export const AVISO_SIN_IA = 'Para contestarte necesito tu IA: conecta tu Claude, tu GPT o tu Gemini y mándamelo de nuevo.';
 /** El modal que abre el botón (app/m/mako/chat-ui.ts → `botonConectar`): el de las keys de IA, el mismo que manda WhatsApp
  *  (`linkKeysIA`, lib/fallo-ia-texto.ts). */
 // IA9 (22/10/2026): su Claude (antes, Gemini gratis). Desde el modal se llega también a su GPT.
@@ -539,6 +541,18 @@ export function faltaIADelNegocio(fallo: string | null, iaPropia: number | null)
  * Ahí no va el botón: va que lo resuelve el equipo, que es la verdad mientras Martín decide cómo separarlo.
  */
 export const AVISO_SIN_IA_EQUIPO = 'Para contestarte necesito una IA conectada. Ya lo está resolviendo el equipo de MaKo.';
+
+/**
+ * EL PORQUÉ DE UN TURNO SIN RESPUESTA, CUANDO SE SABE, QUEDA EN EL HILO (el Cerebro, 22/10/2026, el cliente roto del ws1).
+ * Mauricio escribió dos veces en su Cerebro el 18/10 y no tenía IA propia: el turno dijo «conecta tu IA» en un aviso de la
+ * pantalla, que NO se guardaba. Al volver a entrar, sus dos mensajes estaban sin nada debajo y, pasados 7 min, el chat decía
+ * «No te pude contestar esto» (`conSinRespuesta`), cuando sí se sabía por qué. Regla: con un porqué conocido —su computadora,
+ * su clave, la PC que no se pudo leer, la falta de su IA— el turno lo GUARDA como mensaje de MaKo. Sin porqué (`null`), el
+ * cartel de siempre y, al volver, «No te pude contestar esto» con «Reintentar».
+ */
+export function porQueSinRespuesta(p: { delaPc: string | null; deSuClave: string | null | undefined; sinIA: string | null | undefined; pcIlegible: string | null }): string | null {
+  return p.delaPc ?? p.deSuClave ?? p.sinIA ?? p.pcIlegible ?? null;
+}
 
 /** Lo que dice MaKo sin IA, y si lleva el botón para conectarla. `delEntorno` = `esNegocioDelEntorno(ws)`. */
 export function avisoSinIA(delEntorno: boolean, servicio: string = SERVICIO_IA): { aviso: string; conectar: string | null } {

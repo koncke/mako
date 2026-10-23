@@ -74,7 +74,7 @@ import { EtapasModal } from './EtapasModal';
 import { TraerDeOtroProducto } from './TraerDeOtroProducto';
 import { CampanasModal } from './CampanasModal';
 import { TipoEtapaModal } from './TipoEtapaModal';
-import { NOMBRE_TIPO_ETAPA, columnaConTipo, tipoDeColumna } from '@/lib/etapa-reunion';
+import { AVISO_SIN_LUGAR, NOMBRE_TIPO_ETAPA, avisoCambioDeTipo, columnaConTipo, tipoDeColumna, type TipoEtapa } from '@/lib/etapa-reunion';
 import { EventosDeEtapaModal } from './EventosDeEtapaModal';
 import { CobroDeEtapaModal } from './CobroDeEtapaModal';
 import { FlechaDerechaIcon, FlechaIzquierdaIcon } from './iconos';
@@ -98,7 +98,6 @@ import { SenalesMetaChips } from './MoverEtapaConfirm';
 import { coincideBusqueda } from '@/lib/buscar-texto';
 import { arrobaInstagram, linksDeInstagramComoArroba } from './campo-inline';
 import type { FunnelResumen } from '@/lib/funnel-fila';
-import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { LogoMeta } from '@/app/_components/ServicioVisual';
 import { openCalendlyEn } from './calendly-widget';
 import {
@@ -129,6 +128,7 @@ import { Spinner } from '@/app/_ui/Feedback';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { NewLeadForm } from './new/NewLeadForm';
 import { BotonReuniones } from './ReunionesProximas';
+import { ReunionesParaPreparar, type ReunionParaPreparar } from './TarjetaReunion';
 import { AccionesLoteLeads, destinosDeLote, type ManijaLote } from './AccionesLoteLeads';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
@@ -141,7 +141,7 @@ import { enAutomatizacionesAction, frenarLeadsEnAutomatizacionesAction } from '@
 import type { EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
-import { EstiloTarjetas, FichaRapida, TarjetaDestacada, TarjetaPersona } from '@/app/_ui/TarjetaKanban';
+import { EstiloTarjetas, FichaRapida, TarjetaPersona } from '@/app/_ui/TarjetaKanban';
 import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, FONDO_COLUMNA, NOMBRE_CAMPO_TARJETA, PLANTILLAS_TARJETA_LEAD, colorDeNombre, fechaReunionCorta, insigniaDeCanal, plataDeLead, subtituloEnOrden, subtituloLead, type CampoTarjetaLead, type DisenoTarjeta, type PlantillaTarjetaLead } from '@/lib/tarjeta-kanban';
 import { PersonalizarTarjetas } from '@/app/_ui/PersonalizarTarjetas';
 import { guardarCamposTarjetaAction } from './tarjeta-campos-actions';
@@ -246,6 +246,9 @@ export type CrmLead = {
   agenda: string | null;
   j2: string | null;
   fechaJ1: string | null;   // fecha_junta_1 (o fecha_agenda) en ISO, para editar
+  /** La hora de la R1 (`junta_1_at`) y su link para entrar (`junta_1_url`): la tarjeta de la reunión del teléfono (22/10/2026). */
+  atJ1?: string | null;
+  urlJ1?: string | null;
   fechaJ2: string | null;   // fecha_junta_2 en ISO, para editar
   phone: string;
   estadoLead: EstadoLead;
@@ -270,6 +273,14 @@ export type CrmJunta = {
   company: string;
   phone: string;
   goal: string;
+  /** Para la tarjeta que prepara la reunión (22/10/2026, app/crm/TarjetaReunion.tsx): R1 o R2, su día (AAAA-MM-DD y como
+   *  se dice), la hora (`junta_N_at`), el link para entrar (`junta_N_url`) y lo que contestó de su facturación. */
+  cual?: 'R1' | 'R2';
+  fecha?: string | null;
+  dia?: string;
+  at?: string | null;
+  url?: string | null;
+  facturacion?: string | null;
 };
 export type CrmMarcar = {
   id: string;
@@ -1859,6 +1870,8 @@ export function CrmBoard({
   const cerrarCobro = useCallback(() => setCobroDe(null), []);
   // «Tipo de etapa» de una columna (21/10/2026): Etapa / Reunión / Nutrición, con lo que pasa al cambiarlo (./TipoEtapaModal.tsx).
   const [tipoDe, setTipoDe] = useState<string | null>(null);
+  // El tipo elegido en el submenú que hay que mirar antes de guardar (la tercera reunión): el pop-up abre con él.
+  const [tipoPedido, setTipoPedido] = useState<TipoEtapa | null>(null);
   // El nombre que se acaba de escribir en el pop-up de etapas, por embudo, hasta que llegue la lista nueva del
   // server: el desplegable lo dibuja al instante (16/10/2026). Cuando `funnels` cambia, manda el server.
   const [nombresLocales, setNombresLocales] = useState<Record<number, string>>({});
@@ -2526,6 +2539,32 @@ export function CrmBoard({
     setMenuCtx({ n: aperturasMenu.current, x: conPunto ? e.clientX : r.left + 12, y: conPunto ? e.clientY : r.top + 12, ...bajo });
   };
 
+  /** El «⋯» de una columna: el MISMO menú que su clic derecho, debajo del botón (la pieza lo corre si no entra). */
+  const abrirMenuDeColumna = (el: HTMLElement) => {
+    const bajo = contextoBajo(el);
+    if (!bajo || !opcionesCrm(bajo.ctx).length) return;
+    const r = el.getBoundingClientRect();
+    aperturasMenu.current += 1;
+    setMenuCtx({ n: aperturasMenu.current, x: r.left, y: r.bottom + 4, ...bajo });
+  };
+
+  /**
+   * «Tipo de etapa ›» con un toque (22/10/2026, Martín: «al apretar o pasar el cursor me debería abrir un segundo desplegable
+   * allí mismo para ver el tipo de etapa actual y poder cambiarlo»): la MISMA op del pop-up de etapas, con su «Deshacer».
+   * ⚠️ Lo que no se puede hacer a ciegas va al pop-up, con el tipo ya elegido: la tercera reunión del funnel no tiene dónde
+   * guardar la fecha (`AVISO_SIN_LUGAR`, lib/etapa-reunion.ts), y eso se decide leyéndolo.
+   */
+  const cambiarTipoColumna = async (c: Stage, tipo: TipoEtapa) => {
+    const previo = tipoDeColumna(c);
+    if (tipo === previo) return;
+    const recorrido = columnasKanban.filter((s) => (s.band ?? 'pipeline') === 'pipeline');
+    const aviso = avisoCambioDeTipo({ recorrido, columna: c, tipo, leads: leads.filter((l) => effStage(l) === c.key).length });
+    if (aviso.includes(AVISO_SIN_LUGAR)) { setTipoPedido(tipo); setTipoDe(c.key); return; }
+    const r = await opEtapa({ op: 'tipo', key: c.key, tipo });
+    if (!r?.ok) return;
+    mostrarAviso(`«${c.label}» es ${NOMBRE_TIPO_ETAPA[tipo]}`, () => { void opEtapa({ op: 'tipo', key: c.key, tipo: previo }); });
+  };
+
   /** Copiar un dato del lead, con el aviso de la casa. Sin portapapeles (http, permiso negado) se dice. */
   const copiarDato = (texto: string, listo: string) => {
     const p = typeof navigator !== 'undefined' ? navigator.clipboard?.writeText(texto.trim()) : undefined;
@@ -2583,7 +2622,8 @@ export function CrmBoard({
       case 'col_campanas': setCampanasAbierto(true); return;
       case 'col_evento': if (c) setEventoDe({ etapa: c.key, nombre: c.label }); return;
       case 'col_cobro': if (c) setCobroDe({ etapa: c.key, nombre: c.label }); return;
-      case 'col_tipo': if (c) setTipoDe(c.key); return;
+      // Del submenú, el tipo elegido (`valor`); sin submenú (no se sabía el tipo), el pop-up de siempre.
+      case 'col_tipo': if (c && valor) void cambiarTipoColumna(c, valor as TipoEtapa); else if (c) setTipoDe(c.key); return;
       case 'col_curso_prender': void cambiarCurso(true); return;
       case 'col_curso_apagar': void cambiarCurso(false); return;
       case 'col_renombrar': if (c) setRenombrando(c.key); return;
@@ -2608,6 +2648,8 @@ export function CrmBoard({
       equipo: equipo.map((m) => ({ nombre: m.nombre, foto: m.foto_url ?? null })),
       etiquetas, sinEtiquetas,
       funnels: destinosLote,
+      tipoActual: c && columnaConTipo(c) ? tipoDeColumna(c) : null,
+      logoMeta: <LogoMeta size={17} />,
       // Las flechas, con el dibujo del «⋯». La que no tiene a dónde ir se apaga (ver `moverCol`: en la
       // punta derecha, `soltarCol` reescribiría el mismo orden).
       flechas: { izquierda: iProp > pisoCol, derecha: iProp >= 0 && iProp < colsPropias.length - 1, iconoIzquierda: <FlechaIzquierdaIcon />, iconoDerecha: <FlechaDerechaIcon /> },
@@ -2790,121 +2832,22 @@ export function CrmBoard({
           )}
           </div>
           {renombrando !== c.key && (
-            /* ⚠️ EL `⋯` QUEDA FUERA DEL AGARRE, y por eso el `<span data-nodrag>`: el
-               `Dropdown` tiene la lista de props cerrada (sin `...rest`), así que el atributo
-               no se le puede pasar. Sin esto, abrir el menú arrastra la columna.
+            /* ⚠️ EL `⋯` QUEDA FUERA DEL AGARRE (`<span data-nodrag>`): sin esto, abrir el menú arrastra la columna.
                Con el renglón de la plata, la cabecera se alinea arriba y el «⋯» sube 4 px para
                quedar a la altura del título, no entre los dos renglones. */
             <span data-nodrag style={{ flex: 'none', display: 'inline-flex', marginTop: hayPlataEnColumnas ? -4 : 0 }}>
-              {/* ⚠️ VA EL `Dropdown` DEL REPO Y NO UN MENÚ PROPIO: el tablero vive dentro de un
-                 `overflowX: auto`, así que un menú en flujo normal se recorta contra el borde
-                 de la columna. Éste se dibuja por portal. */}
-              <Dropdown
-                value=""
-                placeholder="⋯"
-                align="right"
-                resetAfterSelect
-                sinFlecha
-                ariaLabel={`Opciones de la etapa ${c.label}`}
-                buttonStyle={{ width: 28, height: 28, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
-                options={[
-                  // ⚠️ LAS FLECHAS VAN PRIMERO Y SIN RÓTULO: «el botón de mover no debería
-                  // tener la palabra mover, solo las flechas. Debería estar primero de todos
-                  // ese botón, y en realidad, deberían ser 2 botones diferentes, solo que
-                  // están en la misma linea» (Martín, 30/09/2026). Antes de eso estuvieron
-                  // sueltas en la cabecera menos de un día —con 12 columnas son dos botones
-                  // más por cabecera, o sea una barra de controles arriba de cada lista— y
-                  // después como un renglón «Mover» con las flechas al costado.
-                  //
-                  // `soloAcciones` es lo que hace que sean DOS botones y no un renglón con
-                  // adornos: sin él, el rótulo se queda con el `flex: 1` y media fila queda
-                  // clicable sin hacer nada. Y sólo se dibuja en las que se pueden mover: es
-                  // el MISMO predicado que habilita el arrastre, para que las dos formas del
-                  // gesto no se contradigan.
-                  ...(seArrastraCol(c) ? [{
-                    value: 'mover', label: 'Mover', soloAcciones: true,
-                    acciones: [
-                      {
-                        icono: <FlechaIzquierdaIcon />,
-                        title: `Mover ${c.label} a la izquierda`,
-                        onClick: () => moverCol(c.key, -1),
-                      },
-                      {
-                        icono: <FlechaDerechaIcon />,
-                        title: `Mover ${c.label} a la derecha`,
-                        onClick: () => moverCol(c.key, 1),
-                      },
-                    ],
-                  }] : []),
-                  // «Quiero que elimines el botón de "nuevo lead" de donde está en las columnas y lo pongas dentro de los 3
-                  // puntos de cada columna» (Martín, 21/10/2026). Era un placeholder punteado arriba de cada carril
-                  // (29/09). Sigue entrando por el MISMO camino (`setNuevoLead({ etapa })` → `altaPendiente` → `handleDrop`).
-                  { value: 'nuevo', label: 'Nuevo lead', icono: 'persona-mas' as const },
-                  // «En la opción de los 3 puntos de "Lead entrante" debería estar la opción
-                  // para asignar una campaña» (Martín, 05/10/2026). Sólo en la ENTRADA: es la
-                  // etapa por la que entra un lead de Meta, y es el mismo lugar donde vive la
-                  // sección en el pop-up del embudo.
-                  // «La primera opción debería decir "Asignar campañas" y con el logo de Meta» (Martín, 16/10/2026): el
-                  // mismo rótulo y logo que la sección del pop-up de etapas (EtapasModal → CabeceraSeccion).
-                  ...(c.kind === 'entrada' ? [{ value: 'campanas', label: 'Asignar campañas', icono: <LogoMeta size={17} /> }] : []),
-                  // «Falta la misma opción para las etapas de reunión "Asignar evento" con el logo de Meet» (Martín,
-                  // 16/10/2026): el evento de agenda cuyas reservas caen en esta etapa (./EventosDeEtapaModal.tsx).
-                  // El ícono, desde el 21/10/2026, es el calendario de línea de la casa (`evento`) y no el logo de Meet a color:
-                  // «no me gusta que tenga color, un ícono más simple, que se entienda» (Martín).
-                  ...(c.kind === 'reunion' ? [{ value: 'evento', label: 'Asignar evento', icono: 'evento' as const }] : []),
-                  // «Vincular cobro» en Ganado (22/10/2026), como «Asignar evento» en las de reunión.
-                  ...(c.key === 'ganado' ? [{ value: 'cobro', label: 'Vincular cobro', icono: 'dinero' as const }] : []),
-                  // «En cada columna, a excepción de las que ya sabes que no deberían cambiar, debes poner en los 3 puntos una
-                  // opción de "Tipo de etapa"» (Martín, 21/10/2026). Las que no cambian: la entrada, el cierre y las terminales
-                  // (`columnaConTipo`, lib/etapa-reunion.ts; el server lo vuelve a mirar en `cambiarTipo`).
-                  ...(columnaConTipo(c) ? [{ value: 'tipo', label: 'Tipo de etapa', icono: 'etapa' as const }] : []),
-                  // «Automatizar la invitación al curso cuando un lead cae a Ganado... Pero que sea
-                  // opcional» (Martín, 07/10/2026). En Ganado, que es donde se ve a quién le llega, y
-                  // sólo si el producto tiene clases (sin curso no hay a qué invitar).
-                  ...(cursoAlGanar && terminalEstadoFor(c.key) === 'ganado'
-                    // ⚠️ SIN SUBTÍTULO desde el 14/10/2026: «elimina todos los subtitulos de los botones de
-                    // los 3 puntos» (Martín). Era «Prendido»/«Apagado» debajo del rótulo; ahora el estado lo
-                    // dice el rótulo mismo, que nombra lo que va a pasar al tocarlo — los MISMOS textos que el
-                    // clic derecho (`OPCION_CRM` en app/crm/menu-contextual-crm.ts).
-                    ? [{ value: 'curso', label: cursoPrendido ? 'Dejar de invitar al curso' : 'Invitar al curso al ganar', icono: 'curso' as const }]
-                    : []),
-                  { value: 'renombrar', label: 'Cambiar el nombre', icono: 'renombrar' },
-                  // «En lugar de "Agregar etapa después" simplemente "Agregar etapa"» (Martín,
-                  // 29/09/2026). Sigue insertando DESPUÉS de esta: el rótulo explicaba el
-                  // mecanismo, y desde el menú de una columna el lugar ya se entiende.
-                  { value: 'agregar', label: 'Agregar etapa', icono: 'agregar' },
-                  // ⚠️ LA OPCIÓN NO EXISTE CUANDO NO SE PUEDE, en vez de dibujarse apagada:
-                  // «si no se puede eliminar, no pongas directamente esa opción, no la dejes en
-                  // gris» (Martín, 29/09/2026). Las cuatro terminales están en todos los
-                  // funnels: se renombran, no se borran — y el que lo hace cumplir es el server
-                  // (`editarEtapaAction` rechaza `eliminar` sobre una terminal), no este array.
-                  //
-                  // ⚠️ Y LA CONDICIÓN ES `colsPropias`, NO `!esTerminal`. El server sólo sabe
-                  // borrar lo que está GUARDADO en `pipeline` (app/crm/actions.ts: «Esa etapa
-                  // no es del pipeline: no se puede eliminar, solo renombrar»), y las de
-                  // nutrición/salidas no están ahí: las agrega `generateFunnel` en cada
-                  // lectura. Con `!esTerminal` el menú las ofrecía igual y el server las
-                  // rechazaba SIEMPRE — medido el 04/10/2026 contra producción: **102 columnas
-                  // en los 16 embudos**, todas de la banda `nutricion`. Leila lo encontró en
-                  // vivo el 01/10 intentando borrar «Nutrición No Show R1» (00:11:07).
-                  //
-                  // La condición correcta ya estaba escrita arriba, en `colsPropias`, con su
-                  // porqué — y la usaba el ARRASTRE (`seArrastraCol`) y no el borrado. Es «una
-                  // regla aplicada en un lugar de dos no está implementada, está documentada».
-                  ...(colsBorrables.has(c.key) ? [{ value: 'eliminar', label: 'Eliminar etapa', icono: 'borrar' as const }] : []),
-                ]}
-                onChange={(v) => {
-                  if (v === 'nuevo') { setAltaPendiente(null); setNuevoLead({ etapa: c.key }); return; }
-                  if (v === 'campanas') { setCampanasAbierto(true); return; }
-                  if (v === 'evento') { setEventoDe({ etapa: c.key, nombre: c.label }); return; }
-                  if (v === 'cobro') { setCobroDe({ etapa: c.key, nombre: c.label }); return; }
-                  if (v === 'tipo') { setTipoDe(c.key); return; }
-                  if (v === 'curso') { void cambiarCurso(!cursoPrendido); return; }
-                  if (v === 'renombrar') { setRenombrando(c.key); return; }
-                  if (v === 'agregar') { void opEtapa({ op: 'agregar', despuesDe: c.key }); return; }
-                  if (v === 'eliminar') void quitarColumna(c);
-                }}
-              />
+              {/* ⚠️ EL «⋯» ABRE EL MISMO MENÚ QUE EL CLIC DERECHO DE LA COLUMNA (22/10/2026, Martín: «Ordena las opciones del
+                  desplegable de los 3 puntos... Ya no se entienden si son tantas, ponlas en secciones»). Era un `Dropdown` con su
+                  propia lista y el clic derecho otra: dos listas que había que mantener iguales a mano. Ahora la lista es UNA
+                  (`opcionesCrm`, app/crm/menu-contextual-crm.ts, con sus secciones) y la pieza también (app/_ui/MenuContextual.tsx,
+                  por portal: el tablero vive en un `overflowX: auto` que recortaría un menú en flujo). Qué opción sale en qué
+                  columna (las flechas sólo si se arrastra, «Eliminar etapa» sólo si el server la sabe borrar, «Asignar evento» en
+                  las de reunión…) lo dice `contextoBajo`, con los mismos predicados de siempre. */}
+              <button type="button" className="mk-col-mas" aria-label={`Opciones de la etapa ${c.label}`} aria-haspopup="menu"
+                title="Opciones de la etapa" onClick={(e) => abrirMenuDeColumna(e.currentTarget)}
+                style={{ width: 28, height: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid transparent', borderRadius: 8, color: 'var(--dim)', fontFamily: 'inherit', fontSize: 16, lineHeight: 1, cursor: 'pointer' }}>
+                ⋯
+              </button>
             </span>
           )}
         </div>
@@ -3085,37 +3028,38 @@ export function CrmBoard({
       ?? muestraTarjeta;
 
   /**
-   * «TUS REUNIONES» (22/10/2026): el bloque azul de cada reunión cercana, en el pop-up del calendario de la barra
-   * (ReunionesProximas.tsx). Era «Próximo», arriba del tablero y sólo para la próxima (17/10, la tarjeta destacada del
-   * prototipo), y el pop-up viejo para el resto: Martín pidió UNO, igual para todos, con «Ver detalle». El paso cuenta el
-   * CAMINO (las etapas del pipeline): «Paso 1 de 17» contaba la nutrición y las salidas (visto en el ws3 el 18/10). Un
-   * lead en nutrición o salido no tiene paso: no hay barra. En Ganado, la plata es la del helper de la casa
-   * (`montoDeTarjeta`: la mensualidad de una suscripción, «Sin cobro» de un becado).
+   * «TUS REUNIONES»: la tarjeta de cada reunión que viene, para PREPARARLA (22/10/2026, app/crm/TarjetaReunion.tsx). Martín:
+   * «Tampoco me gustó el pop-up con los bloques azules, rediseñalo... justamente se acerca la reunión que la tarjeta refleje
+   * algo al respecto... Y que no tenga "Llamar o WhatsApp"». Cuánto falta (y cambia solo), la hora, quién es, el paso del
+   * CAMINO (las etapas del pipeline: «Paso 1 de 17» contaba la nutrición y las salidas, visto en el ws3 el 18/10), lo que hay
+   * en juego, lo que contestó y, al abrir, lo último que hizo y lo de su R1. A 10 minutos, «Entrar a la reunión» con el link.
+   * En Ganado, la plata es la del helper de la casa (`montoDeTarjeta`: la mensualidad de una suscripción, «Sin cobro» de un
+   * becado). «Ver detalle» abre la ficha en «Reuniones» y cierra el pop-up antes: dos diálogos encimados no.
    */
   const bloquesDeReuniones = (cerrar: () => void) => {
     const camino = stages.filter((s) => (s.band ?? 'pipeline') === 'pipeline');
-    const primera = juntas.findIndex((x) => !/pas[oó]/i.test(x.when));
-    return juntas.map((j, k) => {
+    const reuniones: ReunionParaPreparar[] = juntas.map((j) => {
       const l = leads.find((x) => x.id === j.leadId);
       const etapa = l ? effStage(l) : null;
       const i = etapa ? camino.findIndex((s) => s.key === etapa) : -1;
       const plata = !l ? null : etapa === 'ganado' ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado });
-      const tel = l?.telefonoNorm;
-      const acciones = [
-        ...(tel ? [{ texto: 'Llamar', href: `tel:+${tel}`, primaria: true }, { texto: 'WhatsApp', href: waDe(tel), externo: true }] : []),
-        // «Ver detalle»: la ficha del lead, abierta en «Reuniones». Cierra el pop-up antes: dos diálogos encimados no.
-        ...(l ? [{ texto: 'Ver detalle', onClick: () => { cerrar(); openDetail(l, 'reuniones'); }, primaria: !tel }] : []),
-      ];
-      return (
-        <TarjetaDestacada key={j.id} ancha
-          sobre={/pas[oó]/i.test(j.when) ? 'Ya pasó' : k === primera ? 'Próximo' : 'Después'}
-          titulo={`Reunión con ${l?.name || j.name}`}
-          bajada={[j.when, plata, j.warn ? `⚠ ${j.warnText}` : null].filter(Boolean).join(' · ')}
-          cara={{ nombre: l?.name || j.name, foto: l?.foto }}
-          avance={i >= 0 ? { pct: ((i + 1) / camino.length) * 100, izq: `Paso ${i + 1} de ${camino.length} · ${camino[i].label}`, der: camino[i + 1] ? `Después: ${camino[i + 1].label}` : undefined } : null}
-          acciones={acciones} />
-      );
+      return {
+        id: j.id, leadId: j.leadId, cual: j.cual ?? (/^R2/.test(j.when) ? 'R2' : 'R1'),
+        fecha: j.fecha ?? null, dia: j.dia ?? j.when.replace(/^R[12] · /, ''), at: j.at ?? null, url: j.url ?? null,
+        nombre: l?.name || j.name, empresa: l?.company || (j.company && j.company !== 'Sin empresa' ? j.company : null), foto: l?.foto ?? null,
+        paso: i >= 0 ? { n: i + 1, de: camino.length, etapa: camino[i].label } : null,
+        plata: plata || null,
+        objetivo: j.goal && j.goal !== '—' ? j.goal : null, facturacion: j.facturacion ?? null, sinVsl: j.warn,
+      };
     });
+    return (
+      <ReunionesParaPreparar reuniones={reuniones} onVerDetalle={(id) => {
+        const l = leads.find((x) => x.id === id);
+        if (!l) return;
+        cerrar();
+        openDetail(l, 'reuniones');
+      }} />
+    );
   };
 
   return (
@@ -3501,7 +3445,8 @@ export function CrmBoard({
         return (
           <TipoEtapaModal columna={col} recorrido={columnasKanban.filter((s) => (s.band ?? 'pipeline') === 'pipeline')}
             leads={leads.filter((l) => effStage(l) === col.key).length} funnelId={funnelActivo ?? null}
-            onCerrar={() => setTipoDe(null)}
+            inicial={tipoPedido ?? undefined}
+            onCerrar={() => { setTipoDe(null); setTipoPedido(null); }}
             onCambiar={async (tipo) => {
               // La MISMA op que el desplegable del pop-up de etapas, con su «Deshacer» (vuelve al tipo de antes).
               const r = await opEtapa({ op: 'tipo', key: col.key, tipo });

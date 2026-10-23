@@ -14,17 +14,19 @@
 
 import { useEffect, useState } from 'react';
 import { Modal } from '@/app/_ui';
-import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
 import {
   DETALLE_TIPO_ETAPA, NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, avisoCambioDeTipo, tipoDeColumna, type TipoEtapa,
 } from '@/lib/etapa-reunion';
 import { listarEventosAgendaAction } from './agenda-evento-actions';
+import { ICONO_TIPO_ETAPA } from './menu-contextual-crm';
 
-const ICONO_TIPO: Readonly<Record<TipoEtapa, NombreIconoMenu>> = { etapa: 'etapa', reunion: 'evento', nutricion: 'repetir' };
+// El ícono de cada tipo: el MISMO del submenú «Tipo de etapa ›» del menú de la columna.
+const ICONO_TIPO = ICONO_TIPO_ETAPA;
 
 type Columna = { key: string; label: string; kind?: string; marcadaComo?: string; band?: string };
 
-export function TipoEtapaModal({ columna, recorrido, leads, funnelId, onCambiar, onCerrar }: {
+export function TipoEtapaModal({ columna, recorrido, leads, funnelId, onCambiar, onCerrar, inicial }: {
   columna: Columna;
   /** Las etapas del recorrido del funnel, en orden (banda `pipeline`): para contar las reuniones. */
   recorrido: readonly Columna[];
@@ -34,9 +36,11 @@ export function TipoEtapaModal({ columna, recorrido, leads, funnelId, onCambiar,
   funnelId: number | null;
   onCambiar: (tipo: TipoEtapa) => Promise<boolean>;
   onCerrar: () => void;
+  /** El tipo ya elegido en el submenú, cuando hay que leer lo que pasa antes de guardar (la tercera reunión). */
+  inicial?: TipoEtapa;
 }) {
   const actual = tipoDeColumna(columna);
-  const [elegido, setElegido] = useState<TipoEtapa>(actual);
+  const [elegido, setElegido] = useState<TipoEtapa>(inicial ?? actual);
   const [guardando, setGuardando] = useState(false);
   const [evento, setEvento] = useState<string | null>(null);
 

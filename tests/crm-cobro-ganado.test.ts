@@ -66,9 +66,9 @@ test('el ⋯ y el clic derecho de Ganado (y sólo de Ganado) abren «Vincular co
   assert.ok(opcionesCrm({ ...col, ganado: true }).includes('col_cobro'));
   assert.deepEqual(OPCION_CRM.col_cobro, { texto: 'Vincular cobro', icono: 'dinero' });
   const b = sinComentarios(leer('app/crm/CrmBoard.tsx'));
-  // El MISMO rótulo e ícono en el «⋯» de la cabecera (tests/crm-menu-contextual.test.ts cruza los de la columna).
-  assert.match(b, /\.\.\.\(c\.key === 'ganado' \? \[\{ value: 'cobro', label: 'Vincular cobro', icono: 'dinero' as const \}\] : \[\]\),/);
-  assert.match(b, /if \(v === 'cobro'\) \{ setCobroDe\(\{ etapa: c\.key, nombre: c\.label \}\); return; \}/);
+  // Desde el 22/10/2026 el «⋯» abre el MISMO menú que el clic derecho (app/crm/menu-contextual-crm.ts, «ponlas en secciones»).
+  assert.match(b, /ganado: c\.key === 'ganado'/);
+  assert.match(b, /case 'col_cobro': if \(c\) setCobroDe\(\{ etapa: c\.key, nombre: c\.label \}\); return;/);
   assert.match(b, /ganado: c\.key === 'ganado',/);
   assert.match(b, /case 'col_cobro': if \(c\) setCobroDe\(\{ etapa: c\.key, nombre: c\.label \}\); return;/);
   assert.match(b, /<CobroDeEtapaModal funnelId=\{\(funnelActivo \?\? funnels\.find\(\(f\) => f\.esDefault\)\?\.id\) as number\}\s*etapa=\{cobroDe\.etapa\} etapaNombre=\{cobroDe\.nombre\} onCerrar=\{cerrarCobro\} \/>/);

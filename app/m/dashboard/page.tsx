@@ -29,6 +29,8 @@ import { ComputadoraM, FilaM, ListaM, PantallaM, SeccionM } from '@/app/m/_ui';
 import { DashboardM } from './DashboardM';
 import { entraEnTelefono, esHojaInicial, hojaComercial, hojaMarketing, hojaPropia, periodoPropio } from './datos';
 import { PERIODOS_MOVIL, PERIODO_DEFAULT, periodoDeParam, periodosParaHoja } from './modelo';
+import { conQueAnalizaElClosing, CONECTA_TU_CLAUDE_CLOSING } from '@/lib/closing';
+import { avisoDeClosing, esHojaClosing } from '@/app/dashboard/aviso-closing';
 import './dashboard.css';
 
 export const dynamic = 'force-dynamic';
@@ -54,9 +56,15 @@ export default async function DashboardPagina({ searchParams }: { searchParams: 
     const def = periodoPropio(h);
     const periodos = def ? periodosParaHoja(def) : [];
     const periodo = def ? periodoDeParam(uno(p.periodo), periodos, def) : null;
-    const hoja = await hojaPropia(h, periodo, hoy);
+    const [hoja, closing] = await Promise.all([
+      hojaPropia(h, periodo, hoy),
+      // La hoja Closing sin con qué analizar (IA12, app/dashboard/aviso-closing.ts). El closer no conecta nada: sólo lo lee.
+      esHojaClosing(h) ? conQueAnalizaElClosing().catch(() => 'no-se' as const) : null,
+    ]);
+    const aviso = avisoDeClosing(closing, CONECTA_TU_CLAUDE_CLOSING);
     return (
       <PantallaM>
+        {aviso && <p className="m-dash-aviso" role="status">{aviso}</p>}
         <DashboardM hojas={[hoja]} hojaInicial={hoja.id} periodo={periodo} periodos={periodos} fichaLead={false} />
         <ComputadoraM que={unica.plantilla === 'closing' ? 'Llamadas, embudo y factores' : 'Las conversaciones y sus tablas'} />
       </PantallaM>

@@ -8,6 +8,11 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 
 ## 0-Ω20. 21-22/10/2026, noche (chat «CRM», cuenta `claude3`): el feedback de Martín de las 23:10
 
+**22/10, 21:10, el feedback con capturas del ws1** (rama `crm-fb-2210c` en C:/dev/wt-crm-fb3, sobre main 449247716): el
+«⋯» de la columna abre el menú del clic derecho, por secciones; «Tipo de etapa ›» con los tipos ahí mismo; el ícono `etapa`
+es una bandera; «Tus reuniones» es una tarjeta para preparar cada reunión (app/crm/TarjetaReunion.tsx).
+tests/crm-feedback-22-10-c.test.ts. **Sin ver en pantalla**: después del deploy, capturas en el ws3 (Chrome, grupo propio).
+
 El pedido, literal, en la bitácora del CRM (hito `actor: 'martin'` del 21/10 23:10). Rama final `crm-2110-t3` en
 `C:/dev/wt-crm-2110c` (lleva adentro `crm-2110-t1` y `crm-2110-t2b`). **Sin subir: la punta va a «Cerebro › Integración».**
 Lo que no se deduce del código, en docs/hallazgos-crm.md («El feedback del 21/10 (noche)…») y docs/hallazgos-ui.md.

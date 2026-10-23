@@ -20,7 +20,7 @@
 //    de los negocios no se pudieron leer, `negociosSinLeer` lo avisa (lo de ese negocio no estaría sumado).
 // ⚠️ SIN `server-only`: lo leen el servidor y los tests; la pantalla importa sólo los tipos.
 
-import { MOTIVO_CREDITO_PLATAFORMA, esDelCreditoDeLaPlataforma } from './veto-claude';
+import { CREDITO_DE_UN_NEGOCIO, MOTIVO_CREDITO_PLATAFORMA, esDelCreditoDeLaPlataforma } from './veto-claude';
 
 /** Lo que trae por mes el plan Max 20x (Max 5x: 100). */
 export const CREDITO_MENSUAL_USD = 200;
@@ -71,9 +71,15 @@ export type FilaCredito = {
 };
 /** Lo de arriba de la sección (`totalCredito`). */
 export type TotalCredito = { gastadoUsd: number | null; vinculadas: number; rindeUsd: number; totalUsd: number };
+/**
+ * Un negocio con un crédito ASIGNADO como su Claude (lib/veto-claude.ts → CREDITO_DE_UN_NEGOCIO; el ws1, 22/10/2026), con su
+ * interruptor de SuperAdmin › Uso. `prendido` null = no se pudo leer (y apagado para la puerta 2: falla cerrada). `gastadoUsd`:
+ * lo que lleva gastado ESE negocio de ese crédito en el ciclo de la cuenta; null = el registro no se pudo leer.
+ */
+export type AsignadoCredito = { ws: number; quien: string; cuenta: string; prendido: boolean | null; gastadoUsd: number | null; llamadas: number };
 /** Lo que recibe la pantalla: las filas y el total ya armados en el servidor (la pantalla importa sólo los tipos). */
 export type LecturaCredito =
-  | { ok: true; filas: FilaCredito[]; total: TotalCredito; negociosSinLeer: boolean }
+  | { ok: true; filas: FilaCredito[]; total: TotalCredito; negociosSinLeer: boolean; asignados?: AsignadoCredito[] }
   | { ok: false; error: string };
 
 const AR_MS = 3 * 3_600_000;
@@ -111,6 +117,14 @@ export function creditoQuePago(
 ): { cuenta: string; negocio: number | null } | null {
   if (esDelCreditoDeLaPlataforma(f.motivo)) {
     const enMotivo = /^\s*\(cuenta (\d+)\)/.exec((f.motivo ?? '').trimStart().slice(MOTIVO_CREDITO_PLATAFORMA.length))?.[1];
+    // «(su clave es el crédito)» no trae el número: lo dice el NEGOCIO, con la clave de un crédito como su Claude (el ws10, la
+    // cuenta 2) o con un crédito asignado (el ws1, la cuenta 1). Sin esto, todo iba a la cuenta 1 (la columna `cuenta` es la
+    // de su proveedor, 1), y lo del ws10 se le sumaba a Mauricio (22/10/2026).
+    if (!enMotivo) {
+      const asignado = CREDITO_DE_UN_NEGOCIO.find((a) => a.ws === f.workspace_id);
+      const delNegocio = wsConClave.get(f.workspace_id) ?? (asignado ? cuentas.find((x) => x.clave === asignado.clave)?.cuenta : undefined);
+      if (delNegocio) return { cuenta: delNegocio, negocio: f.workspace_id };
+    }
     const n = Number(enMotivo ?? f.cuenta ?? 1);
     const c = cuentas.find((x) => x.clave === `ANTHROPIC_CREDITO_CUENTA${n}`);
     return c ? { cuenta: c.cuenta, negocio: null } : null;
@@ -119,6 +133,19 @@ export function creditoQuePago(
   // La clave del negocio es su `ANTHROPIC_API_KEY` (la cuenta 1 de su proveedor): otra cuenta suya sería otra clave.
   const c = wsConClave.get(f.workspace_id);
   return c && (f.cuenta ?? 1) === 1 ? { cuenta: c, negocio: f.workspace_id } : null;
+}
+
+/** Lo que gastó un negocio del crédito asignado, desde `desde`: sus filas con la marca del crédito. null = sin registro. */
+export function gastoDelAsignado(gastos: readonly FilaGasto[] | null, ws: number, desde: number): { usd: number; llamadas: number } | null {
+  if (!gastos) return null;
+  let usd = 0;
+  let llamadas = 0;
+  for (const f of gastos) {
+    if (Number(f.workspace_id) !== ws || !esDelCreditoDeLaPlataforma(f.motivo) || Date.parse(f.created_at) < desde) continue;
+    usd += Number(f.cost_usd ?? 0) || 0;
+    llamadas++;
+  }
+  return { usd: Math.round(usd * 1e6) / 1e6, llamadas };
 }
 
 const SIN_CREDITO_RE = /sin crédito hasta el próximo ciclo/;

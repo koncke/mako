@@ -56,6 +56,8 @@ export function BloqueHilo({ b, onResponder, respondida, onTermina, ocupado }: {
   onTermina?: (ok: boolean | null) => void;
 }) {
   if (esBloqueWeb(b)) return <BloqueWeb b={b} onResponder={onResponder} respondida={respondida} ocupado={ocupado} />;
+  // La marca del porqué (lib/chat-bloques.ts): la dibuja el hilo como aviso (`conSusBloques`); acá no hay nada que dibujar.
+  if (b.t === 'porque') return null;
   if (b.t === 'creado') return <Creado b={b} />;
   if (b.t === 'cobranza') return <CobranzaHilo b={b} />;
   if (b.t === 'estado_cuenta') return <EstadoCuentaHilo b={b} />;

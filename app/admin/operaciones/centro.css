@@ -1037,6 +1037,10 @@
 .co-uso__api { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
 .co-uso__credito { padding: 10px; border-radius: var(--r-md); background: var(--velo-hover); display: flex; flex-direction: column; gap: 6px; }
 .co-uso__pct--falta { color: var(--warn); font-weight: 600; }
+/* El interruptor del crédito de un negocio (22/10/2026): una píldora, prendida en el color de la marca. */
+.co-uso__interruptor { border: 1px solid var(--border-strong); background: var(--surface); color: var(--dim); border-radius: 999px; padding: 3px 12px; font: inherit; font-size: var(--fs-meta); font-weight: 600; cursor: pointer; }
+.co-uso__interruptor.is-on { background: var(--primary-bg); border-color: var(--primary); color: var(--primary-strong); }
+.co-uso__interruptor:disabled { opacity: .6; cursor: default; }
 
 /* La caja (17/10/2026, la B), copiada de la de Claude: el «+» abajo a la izquierda abre su menú hacia arriba (adjuntar,
    y con qué corre), y lo adjuntado son cuadritos arriba del texto, con aire respecto del placeholder. */

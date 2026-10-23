@@ -123,7 +123,17 @@ async function exigirClaveDeLaPlataforma(key: string, feature?: string): Promise
  * chat, y «Conectar tu IA» le pedía Gemini (docs/investigacion-ops-center-19-10.md).
  */
 export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ permiso: PermisoClaveDelNegocio } | { pausa: true } | { noPudeLeer: true } | null> {
-  const clave = await credDelCliente('ANTHROPIC_API_KEY').catch(() => null);
+  let clave = await credDelCliente('ANTHROPIC_API_KEY').catch(() => null);
+  // EL CRÉDITO ASIGNADO AL NEGOCIO (22/10/2026, Martín: «habilita los tokens de la API de la cuenta de Mauricio… para su Ops
+  // Center»; lib/credito-negocio.ts): sin su clave propia —o con una copia de la de MaKo, como el ws1—, la del crédito que le
+  // asignó Martín, prendido en SuperAdmin › Uso. Sigue por esta misma puerta como el crédito del ws10: el barato, nunca el Plan,
+  // y su gasto con la marca del crédito. Su clave propia, si la conecta, gana.
+  let asignada = false;
+  const delCredito = await (await import('@/lib/credito-negocio')).claveDelCreditoAsignado().catch(() => null);
+  if (delCredito && (!clave || (await esClaveAnthropicDeLaPlataforma(clave)) !== false)) {
+    clave = delCredito;
+    asignada = true;
+  }
   if (!clave) return null;
   // ⚠️ EL PLAN, SÓLO CON LA DECISIÓN DEL PLAN EN «SÍ» Y CIERTA (revisión adversarial de IA15, 22/10/2026). La cascada prueba
   // esta puerta en cualquier pedido, decida lo que decida el Plan: con una fila de la plataforma ilegible, la frontera no
@@ -155,8 +165,9 @@ export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ pe
       const env = process.env[nombre]?.trim() || null;
       const fila = await credWsEstricta(nombre, wsSA, { ilegibleTira: true });
       creditosPlataforma.push(env, fila);
-      // Reconocido por su VALOR y sin marca: se marca, para que la próxima vez no dependa de que esa fila siga ahí.
-      if ([env, fila].some((x) => x && x.trim() === clave.trim())) {
+      // Reconocido por su VALOR y sin marca: se marca, para que la próxima vez no dependa de que esa fila siga ahí. El asignado
+      // no: no es su fila (y el ws1 no se toca).
+      if (!asignada && [env, fila].some((x) => x && x.trim() === clave!.trim())) {
         const { leerMarcaDeCredito, esElCreditoMarcado, marcarCredito } = await import('@/lib/credito-marca');
         if (!esElCreditoMarcado(clave, await leerMarcaDeCredito().catch(() => null))) await marcarCredito(clave, nombre);
       }

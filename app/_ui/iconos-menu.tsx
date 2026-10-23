@@ -82,7 +82,10 @@ const TRAZOS = {
   equipo: <><circle cx="9" cy="8" r="3.2" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 5.2a3 3 0 0 1 0 5.6" /><path d="M17.5 14.2A5.5 5.5 0 0 1 21.5 20" /></>,
   cliente: <><circle cx="10" cy="8" r="3.5" /><path d="M3.5 20a6.5 6.5 0 0 1 13 0" /><path d="m15.5 11 2 2 3.5-4" /></>,
   producto: <><path d="M12 3.5 4.5 7.5v9l7.5 4 7.5-4v-9L12 3.5Z" /><path d="m4.5 7.5 7.5 4 7.5-4" /><path d="M12 11.5v9" /></>,
-  etapa: <><rect x="4" y="4" width="4.3" height="16" rx="1" /><rect x="9.85" y="4" width="4.3" height="10" rx="1" /><rect x="15.7" y="4" width="4.3" height="13" rx="1" /></>,
+  // Una BANDERA, el hito del camino (22/10/2026, Martín sobre «Tipo de etapa»: «no me gusta ese ícono, eliminalo de todos
+  // lados, por otro»). Eran tres columnas de alturas distintas, que se leían como el Kanban y no como una etapa. Cambia en
+  // todos los que lo usan: «Tipo de etapa», «Mover a etapa», «Editar las etapas» y el dato «Etapa» del teléfono.
+  etapa: <><path d="M5.5 20.5v-17" /><path d="M5.5 4.5h12l-2.8 4.25 2.8 4.25h-12" /></>,
   calificado: <><circle cx="12" cy="12" r="8.5" /><path d="m8.4 12.2 2.5 2.5 4.8-5" /></>,
   silenciar: <><path d="M4 4l16 16" /><path d="M9.5 5.3A5.5 5.5 0 0 1 17.5 10v3.5l1.5 2.5H8M6.5 8.6V13.5L5 16h3" /><path d="M10 19.5a2.2 2.2 0 0 0 4 0" /></>,
   avisar: <><path d="M6.5 10a5.5 5.5 0 0 1 11 0v3.5l1.5 2.5H5l1.5-2.5V10Z" /><path d="M10 19.5a2.2 2.2 0 0 0 4 0" /></>,

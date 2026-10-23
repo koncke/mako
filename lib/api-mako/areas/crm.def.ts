@@ -202,7 +202,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'reuniones_proximas', area: 'crm', tipo: 'lectura',
     titulo: 'Reuniones de los próximos días',
-    descripcion: 'Las R1 y R2 agendadas desde hoy (en la zona del negocio) y los próximos días, con lo que hay que saber antes de la llamada: quién es, empresa, respuestas del formulario, si vio el VSL (vio / sin_ver / sin_datos: sin datos NO significa que no lo vio), origen, madurez y estado. Solo el día, sin hora: para la hora usa reuniones_recientes. Responde «¿qué reuniones tengo hoy?».',
+    descripcion: 'Las R1 y R2 agendadas desde hoy (en la zona del negocio) y los próximos días, con lo que hay que saber antes de la llamada: quién es, empresa, respuestas del formulario, si vio el VSL (vio / sin_ver / sin_datos: sin datos NO significa que no lo vio), origen, madurez y estado, la hora (si la tiene) y el link para entrar. Responde «¿qué reuniones tengo hoy?».',
     parametros: [{ nombre: 'dias', tipo: 'number', entero: true, minimo: 1, maximo: 14, descripcion: 'cuántos días contando hoy (default 2: hoy y mañana; máximo 14).' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },

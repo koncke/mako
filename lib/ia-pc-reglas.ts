@@ -356,6 +356,11 @@ export function scriptDeInstalacion(p: { sistema: SistemaPc; codigo: string; ser
       // Sin esto, PowerShell 5.1 muestra «qued�» en vez de «quedó» (medido el 21/10/2026 con el instalador).
       '[Console]::OutputEncoding = [Text.Encoding]::UTF8',
       "$ErrorActionPreference = 'Stop'",
+      // ⚠️ SIN LA BARRA DE PROGRESO (22/10/2026, Martín: se quedó en «Descargando MaKo en tu computadora…» para siempre). En
+      // Windows PowerShell 5.1 la barra de `Invoke-WebRequest` se redibuja por cada pedazo que llega: con los 42,7 MB del
+      // programa: 58,6 s con la barra contra 4,1 s sin ella (medido el 22/10/2026, el mismo archivo, desde un PowerShell sin
+      // ventana; con ventana, la barra se dibuja y es peor). Tiene que ir ANTES de bajar (tests/ia-pc-ola2.test.ts).
+      "$ProgressPreference = 'SilentlyContinue'",
       "$dir = Join-Path $env:LOCALAPPDATA 'MaKo'",
       'New-Item -ItemType Directory -Force -Path $dir | Out-Null',
       "$exe = Join-Path $dir 'mako-pc.exe'",

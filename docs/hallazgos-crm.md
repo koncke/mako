@@ -20,6 +20,41 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## El «⋯» de una columna y su clic derecho eran DOS listas; y «Tus reuniones», una tarjeta para preparar (22/10/2026, noche)
+
+- **El «⋯» y el clic derecho de una columna se mantenían iguales A MANO.** El «⋯» era un `Dropdown` con su `options={[`
+  y el clic derecho, `opcionesCrm`. Diecisiete tests de doce archivos fijaban la lista del «⋯» línea por línea (sus `value:`,
+  sus `if (v === …)`). Martín pidió secciones, y el `Dropdown` no sabe dibujar ni un submenú al costado ni un renglón en
+  rojo. Ahora el «⋯» abre el menú del clic derecho (`abrirMenuDeColumna`): una sola lista, con las secciones Columnas ·
+  Leads · Etapa y «Eliminar etapa» sola. Los tests miran ahora `contextoBajo` (la condición de cada opción) y
+  `opcionesCrm` (el orden). Las flechas siguen primero, como pidió Martín el 30/09.
+- **«Tipo de etapa ›» cambia con un toque, MENOS la tercera reunión.** El pop-up existía para leer lo que pasa antes de
+  cambiar (`avisoCambioDeTipo`). Con el «Deshacer» del toast, casi todo se puede cambiar a ciegas. Lo que no:
+  `AVISO_SIN_LUGAR` (sería la tercera reunión y no hay dónde guardar la fecha). Ese caso abre el pop-up con el tipo ya
+  elegido (`inicial`).
+- **El ícono `etapa` eran tres columnas de alturas distintas**, que se leen como el Kanban. Ahora es una bandera. Como todos
+  lo piden por NOMBRE (`IconoMenu nombre="etapa"`), cambiarlo en app/_ui/iconos-menu.tsx lo cambia en «Tipo de etapa»,
+  «Mover a etapa», «Editar las etapas» y en el teléfono a la vez.
+- **«Tus reuniones» sin el bloque azul ni «Llamar/WhatsApp»** (app/crm/TarjetaReunion.tsx). Cada reunión es una tarjeta
+  para prepararla:
+  - cuánto falta, que cambia solo: de a minuto, y de a 15 s cuando falta poco;
+  - quién es y su paso;
+  - lo que hay en juego y lo que contestó en el formulario;
+  - lo último que hizo el lead y lo de su R1.
+  A 10 minutos se marca («Empieza en 5 min») y ofrece «Entrar a la reunión» con el link de Calendly. Es la misma tarjeta en
+  el teléfono.
+  - La hora y el link YA estaban en el lead (`junta_N_at`, `junta_N_url`) y no viajaban: ahora los trae `getJuntasProximas`.
+    ⚠️ `junta_N_at` puede ser de OTRO día (un reagendado sin hora): se usa sólo si cae en la fecha de la reunión
+    (`instanteDe`). Es la misma trampa que ya cuidaba lib/crm-movil.ts.
+  - Lo último y la R1 se piden AL ABRIR el pop-up (app/crm/reuniones-actions.ts), no al cargar el CRM: la página ya hace su
+    ola. La R1 sale de Closing Analyst (`closing_analyses`, tipo R1 y `analizada`). Lo último sigue la regla de Clientes:
+    lo que escribió EL LEAD, no lo que le mandamos.
+  - La hora se cuenta después de montar: el HTML del server diría otro «En 25 min» que el navegador.
+
+**Vive en:** app/crm/menu-contextual-crm.ts · app/crm/CrmBoard.tsx (`abrirMenuDeColumna`, `cambiarTipoColumna`,
+`bloquesDeReuniones`) · app/crm/TarjetaReunion.tsx · app/crm/reunion-tarjeta.ts · lib/reunion-preparar.ts ·
+tests/crm-feedback-22-10-c.test.ts
+
 ## El MaKo Analyst de la ficha con el hilo y la caja del Ops Center (22/10/2026, CR3)
 
 - **Cambió la cara, no el motor**: /api/crm/analyst, la conversación por lead y por persona, las tarjetas que se confirman y
@@ -10219,6 +10254,15 @@ tests/crm-traer-todos.test.ts
   - Con la ventana minimizada (`innerWidth` e `innerHeight` en 0) no se mide nada: no hay cuadros, y React 19 revela
     lo que llegó por streaming con `requestAnimationFrame` (`$RV`). La copia queda escondida en `div#S:2`, con un
     segundo `<main>` y el doble de tarjetas en el DOM.
+    **El 0×0 es la ventana del GRUPO de la extensión, minimizada**, no la de Martín. La salida: cerrar las pestañas del
+    grupo (al quedar vacío se borra solo) y pedir otro con `tabs_context_mcp` y `createIfEmpty`, que abre una ventana NUEVA,
+    a la vista (el 22/10 midió 1707×748).
+- **Medido en producción con la ventana a la vista (22/10/2026, 20:40, tren 5 con las tandas de 30):**
+  - ws1 principal (1.169 leads): primer pintado 0,70 s (el esqueleto) y el tablero a los 2,64 s. Cuatro cuadros largos
+    suman 2,15 s (el peor, 1,0 s) y 0,47 s de bloqueo. Quedan 126 tarjetas y 2.582 nodos. Antes: la carga tardaba 92 s,
+    sumaba 114 s de tareas largas y la pestaña seguía trabada una hora después.
+  - «Sprint 3 días» (300 en «Lead entrante»): primer pintado 1,67 s y el tablero a los 2,4 s. Un cuadro largo de 0,5 s,
+    sin bloqueo. Quedan 30 tarjetas y 949 nodos. Al bajar por la columna llegan 30 más («Ver 30 más · quedan 240»).
 - **Trampas del arnés** (para el próximo que mida una pantalla así):
   - Una acción `'use server'` se cambia por funciones vacías. Lo que sólo existe en el server (módulos de Node, SDKs,
     `next/server`) va como ESM con los nombres que pide quien lo importa. Un CommonJS no sirve: esbuild copia sólo las

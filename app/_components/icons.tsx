@@ -132,6 +132,10 @@ const PATHS: Record<string, ReactNode> = {
   // llave de Create y del gráfico de Analyze: tres siluetas que no se confunden
   // ni en el rail plegado, que es donde el ícono tiene que trabajar solo.
   rayo: (<path d="M13.6 2.6 5.4 13.2h5.3l-1.3 8.2 8.2-10.6h-5.3l1.3-8.2Z" />),
+  // Automations: un FLUJO AUTOMÁTICO, tres pasos unidos (el primero se abre en dos), como los lienzos de n8n o Zapier
+  // (22/10/2026, Martín: «no me gusta el ícono de "Automations", cambialo por otro que se entienda más»; era `chatbot`,
+  // el globito de chat con chispas).
+  flujo: (<><rect x="3" y="3" width="7" height="6.5" rx="1.6" /><circle cx="17.5" cy="6.25" r="2.75" /><rect x="14" y="14.5" width="7" height="6.5" rx="1.6" /><path d="M10 6.25h4.75" /><path d="M6.5 9.5v5.25a3 3 0 0 0 3 3H14" /></>),
   // SECOND BRAIN: un cerebro dibujado como RED DE NODOS. El contorno da la
   // silueta y los nodos dicen de qué está hecho — conectar señales sueltas es
   // literalmente lo que hace el módulo. Los aros van con strokeWidth propio

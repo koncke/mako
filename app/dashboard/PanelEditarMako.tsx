@@ -301,7 +301,9 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   };
 
   return (
-    <aside className="an em" aria-label="Editar con MaKo" onClick={(e) => e.stopPropagation()}
+    // Un <section> y no un <aside>: la barra de la agencia (app/globals.css, `[data-barra-agencia] aside`) le fuerza a todo
+    // <aside> el alto de la ventana y su `top`, y el panel quedaba más alto que el lienzo, con la caja fuera de la vista.
+    <section role="complementary" className="an em" aria-label="Editar con MaKo" onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onCerrar(); } }}>
       <style>{CSS_PANEL_LATERAL + CSS + CSS_MODOS_MAKO}</style>
       <div className="an-cab">
@@ -340,7 +342,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
         </div>
         {errorDictado && <p className="em-err">{errorDictado}</p>}
       </div>
-    </aside>
+    </section>
   );
 }
 

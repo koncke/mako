@@ -84,8 +84,12 @@ export const viewport: Viewport = { themeColor: '#171511' };
 //
 // Venía de la «réplica del rootStyle del prototipo», o sea copiado de un HTML suelto
 // donde no había ninguna pantalla que tuviera que llenar el alto.
+//
+// ⚠️ EL ALTO MÍNIMO DESCUENTA LA BARRA DE ARRIBA (22/10/2026): con la barra de «Estás viendo el dashboard de…» o la alerta de
+// la voz caída, `body` gana su padding-top, y un `100vh` a secas dejaba el documento 50 px más alto que la ventana (medido en
+// el CRM: 860 de 811). app/globals.css lo corrige también para todo `min-height: 100vh` en línea.
 const rootStyle: CSSProperties = {
-  minHeight: '100vh',
+  minHeight: 'calc(100vh - var(--barra-agencia, 0px))',
   background: 'var(--bg)',
   color: 'var(--ink)',
   fontFamily: "'Geist', system-ui, sans-serif",

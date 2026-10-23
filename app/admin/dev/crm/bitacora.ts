@@ -3001,4 +3001,25 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/plan',
   },
+  {
+    fecha: '22 oct', hora: '21:10', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los 3 puntos de la columna por secciones, «Tipo de etapa» que se cambia ahí mismo, y «Tus reuniones» para preparar la llamada',
+    puntos: [
+      'Es el feedback de Martín de la noche del 22/10, con capturas del CRM del ws1.',
+      'Los 3 puntos de una columna y su clic derecho son el MISMO menú, por secciones: Columnas (las flechas y «Agregar etapa»), Leads, Etapa y «Eliminar etapa» sola al final, en rojo.',
+      '«Tipo de etapa ›» abre al costado los tres tipos, con el actual tildado; tocar otro lo cambia, con «Deshacer». Si sería la tercera reunión del funnel, abre el pop-up para leer lo que pasa.',
+      'El ícono de las etapas ya no son tres columnas: es una bandera, en todos lados.',
+      '«Tus reuniones»: cada reunión es una tarjeta para prepararla. Cuánto falta («En 25 min», cambia solo), la hora, quién es, su paso, lo que hay en juego y lo que contestó; al abrir, lo último que hizo el lead y lo que quedó de su R1.',
+      'Al acercarse la hora la tarjeta se marca («Empieza en 5 min») y aparece «Entrar a la reunión» con el link. Sin «Llamar» ni «WhatsApp». Es la misma en el teléfono.',
+    ],
+    commits: [
+      { sha: 'd7b6b6ae5', msg: 'CRM (feedback de Martín del 22/10, noche): el ⋯ de la columna por secciones, «Tipo de etapa ›» ahí mismo y «Tus reuniones» para preparar', lineas: 1207, archivos: 39 },
+    ],
+    archivos: [
+      'app/crm/menu-contextual-crm.ts · app/_ui/MenuContextual.tsx — el menú de la columna, por secciones',
+      'app/crm/TarjetaReunion.tsx · app/crm/reunion-tarjeta.ts · lib/reunion-preparar.ts — la tarjeta de cada reunión',
+    ],
+    revisar: '/crm',
+  },
 ];

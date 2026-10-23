@@ -2321,8 +2321,27 @@ negocio (`chatCheapToolsCascade` no tiene la red de la plataforma, a diferencia 
 - **El silencio era de la pantalla, no del turno:** lo que dice un turno que falla es un aviso que NO se guarda. Al recargar,
   el hilo terminaba en la pregunta de la persona. Ahora, pasado el techo del turno (7 minutos), se dice «No te pude
   contestar esto.» con «Reintentar» (app/m/mako/chat-ui.ts → `conSinRespuesta`; test: tests/ops-sin-silencio.test.ts).
-- **DECIDIDO (el Cerebro, 22/10):** «Gemini de base» (Martín: «No quiero que se corte Gemini») y la regla del 16/10 (los
-  datos de los clientes de un cliente no van a un proveedor que entrena) se cumplen juntas sólo con Gemini PAGO. Hasta que
+- **Pero «No te pude contestar» tapaba el porqué (segunda pasada, el Cerebro con otra captura de Martín, 22/10):** el
+  diagnóstico de arriba era cierto y el remedio, incompleto. Cuando el turno SABE por qué no contestó —sin su IA, su
+  computadora apagada, su clave sin crédito o en pausa, la PC que no se pudo leer— lo decía en un aviso que no se guardaba,
+  y al volver la persona leía «No te pude contestar esto», como si fuera un error. **Regla:** con un porqué conocido, el turno
+  lo guarda en el hilo (`porQueSinRespuesta`, lib/mako-turno-app-reglas.ts; `anotarEnHilo` en el turno), CON LA MARCA
+  `porque` (lib/chat-bloques.ts). Al volver, la pantalla lo dibuja como aviso de MaKo con su botón («Conectar tu IA»). En la
+  respuesta sigue como aviso (no en `guardados`: saldría dos veces). Sin porqué, como antes: «No te pude contestar esto».
+- **La trampa: guardarlo como un mensaje común de MaKo era el arreglo obvio, y estaba prohibido.** AGENTS.md, «Un cartel de
+  la PLATAFORMA no es un turno de la conversación»: lo guardado como `assistant` vuelve al modelo como algo que dijo, y lo
+  continúa (el 30/09 arrancó con «Ya estoy de vuelta»). El rol en la base sólo admite `user` o `assistant`, así que la marca
+  va en los bloques (que no viajan al modelo), y el turno saca del historial (`previos`) lo que la lleva. Lo vio leer
+  AGENTS.md antes de subir, no un test: los 46 archivos que leen el turno daban verde con el arreglo obvio. El aviso sin IA nombra las tres que
+  puede conectar: «Para contestarte necesito tu IA: conecta tu Claude, tu GPT o tu Gemini y mándamelo de nuevo.»
+- **Medido en la misma pasada (22/10, sólo lectura):** los dos mensajes son del 18/10 a las 03:50 y 04:13 UTC (00:50 y 01:13
+  en Argentina), no de hoy. El ws1 sigue sin IA propia: sus filas de Claude y OpenAI (y la de Gemini) son copias de la
+  plataforma, sin PC. Los dos mensajes viejos se quedan como están: no se escribió nada en el ws1.
+- **SUPERADO (Martín, 22/10 17:20: «Cada usuario debe poder pagar su token, su propia IA de gemini»):** no hay Gemini pago de
+  la plataforma; cada negocio conecta la suya (IA16, retenida hasta que el ws1 conecte su IA o el lunes 26/10). Lo que sigue
+  es lo que se había decidido antes. **DECIDIDO (el Cerebro, 22/10):** «Gemini de base» (Martín: «No quiero que se corte
+  Gemini») y la regla del 16/10 (los datos de los clientes de un cliente no van a un proveedor que entrena) se cumplen
+  juntas sólo con Gemini PAGO. Hasta que
   Martín active el pago por uso (pregunta f50d3545), el chat de un negocio sin IA contesta «Conecta la tuya» con el botón,
   sin Gemini gratis y sin el crédito de Claude de la plataforma (sigue sólo para el onboarding). Medido: eso ya lo hacía el
   turno (`soloSuIA` en chatClaudeTools, lib/mako-turno-app.ts → `AVISO_SIN_IA`). El cambio a Gemini pago es una marca de la

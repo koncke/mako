@@ -160,6 +160,8 @@ export function mapToCrmLead(
     agenda: fmtDay(l.fecha_junta_1 ?? l.fecha_agenda),
     j2: fmtDay(l.fecha_junta_2),
     fechaJ1: l.fecha_junta_1 ?? l.fecha_agenda,
+    atJ1: l.junta_1_at ?? null,
+    urlJ1: l.junta_1_url ?? null,
     fechaJ2: l.fecha_junta_2,
     phone: l.telefono ?? '—',
     telefonoNorm: l.telefono_normalizado ?? null,

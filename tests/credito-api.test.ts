@@ -159,6 +159,6 @@ test('6: la sección se pide UNA vez al abrir, con la acción guardada, en la co
   assert.match(codigo('app/admin/operaciones/useCentro.ts'), /const leerCreditoApi = async \(\): Promise<LecturaCredito> =>\s*\(await creditoApiAction\(\)/);
   // La acción pasa por la guarda (la lista de tests/operaciones.test.ts la incluye) y devuelve sólo números.
   const lector = codigo('lib/credito-api-db.ts');
-  assert.match(lector, /return \{ ok: true, filas, total: totalCredito\(filas\), negociosSinLeer \};/);
+  assert.match(lector, /return \{ ok: true, filas, total: totalCredito\(filas\), negociosSinLeer, asignados \};/, 'con los negocios con crédito asignado (el ws1)');
   assert.doesNotMatch(lector, /\.(insert|update|upsert|delete)\(/, 'sólo lee');
 });

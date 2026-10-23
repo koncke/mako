@@ -1742,7 +1742,7 @@ curl -L \
 
 ### `GET /api/v1/crm/reuniones/proximas` — Reuniones de los próximos días
 
-Las R1 y R2 agendadas desde hoy (en la zona del negocio) y los próximos días, con lo que hay que saber antes de la llamada: quién es, empresa, respuestas del formulario, si vio el VSL (vio / sin_ver / sin_datos: sin datos NO significa que no lo vio), origen, madurez y estado. Solo el día, sin hora: para la hora usa reuniones_recientes. Responde «¿qué reuniones tengo hoy?».
+Las R1 y R2 agendadas desde hoy (en la zona del negocio) y los próximos días, con lo que hay que saber antes de la llamada: quién es, empresa, respuestas del formulario, si vio el VSL (vio / sin_ver / sin_datos: sin datos NO significa que no lo vio), origen, madurez y estado, la hora (si la tiene) y el link para entrar. Responde «¿qué reuniones tengo hoy?».
 
 - **Ruta por operación:** `GET /api/v1/crm/reuniones_proximas`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)

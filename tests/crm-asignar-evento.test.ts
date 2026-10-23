@@ -21,8 +21,9 @@ const modal = leer('app/crm/EventosDeEtapaModal.tsx');
 
 test('el «⋯» de una etapa de REUNIÓN (sólo esas) ofrece «Asignar evento» y abre la lista', () => {
   // Desde el 21/10/2026 con el calendario de línea de la casa y no el logo de Meet (Martín: «no me gusta que tenga color»).
-  assert.match(board, /\.\.\.\(c\.kind === 'reunion' \? \[\{ value: 'evento', label: 'Asignar evento', icono: 'evento' as const \}\] : \[\]\)/);
-  assert.match(board, /if \(v === 'evento'\) \{ setEventoDe\(\{ etapa: c\.key, nombre: c\.label \}\); return; \}/);
+  // Desde el 22/10/2026 el «⋯» abre el MISMO menú que el clic derecho (app/crm/menu-contextual-crm.ts, «ponlas en secciones»).
+  assert.match(board, /reunion: c\.kind === 'reunion'/);
+  assert.match(board, /case 'col_evento': if \(c\) setEventoDe\(\{ etapa: c\.key, nombre: c\.label \}\); return;/);
   assert.match(board, /<EventosDeEtapaModal funnelId=/);
 });
 

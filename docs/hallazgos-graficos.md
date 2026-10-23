@@ -1568,9 +1568,29 @@ Analyst y «Editar con MaKo») pasó a la IZQUIERDA; el editor le deja el lugar 
   --listar --explicar` con un cambio de sonda en ese archivo).
 - **El texto que sale es `contextoDeGrafico`** (las personas ya cambiadas por alias), el mismo que leía el modelo antes;
   ahora además se ve en el mensaje de la persona.
+- **Medido en producción (tren 8, ws3):** el botón de «Salud del Funnel» abrió la estrella con el chip «desde Dashboard ›
+  Marketing» y lo que muestra el gráfico; el Cerebro del ws3 no tiene IA, así que la respuesta pide conectarla.
+- **El panel no es un `<aside>`**: con el super admin mirando un cliente, `[data-barra-agencia] aside` (app/globals.css) le
+  fuerza a todo `<aside>` el `top` y el alto de la ventana con !important. «Editar con MaKo» medía 761 px en un lienzo de
+  612 y su caja quedaba fuera de la vista (sin el atributo, 588). Ya pasaba a la derecha; ahora los dos son un `<section>`.
 - **Sin hacer:** las sugerencias propias de cada gráfico (`makoIA.sugerencias`) no viajan a la estrella; los chats de los
-  gráficos de antes siguen en el Ops Center como «de antes» (`dashboard:<hoja>:<gráfico>`).
+  gráficos de antes siguen en el Ops Center como «de antes» (`dashboard:<hoja>:<gráfico>`). Y el «Deshacer» de MaKo no
+  aparece cuando lo que agregó es un GRÁFICO: la grilla le reescribe las posiciones al montarlo, y la comparación por
+  referencia (`leerHoja(id) === m.aplicada`) lo da por tocado. Con un cambio que no suma nada (el nombre) sí aparece. Ya
+  pasaba antes de TB3; queda el Ctrl+Z del editor.
 
 **Vive en:** app/dashboard/pregunta-grafico.ts, items-edicion.ts, PanelAnalista.tsx (`ChatMakoGrafico`, `.an`),
 PanelEditarMako.tsx, EditorInforme.tsx, editor-css.ts · tests/dashboard-estrella-grafico.test.ts,
 tests/dashboard-editar-mako-muneco.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## La hoja Closing dice «Conecta tu Claude» sólo con un «no» seguro (22/10/2026)
+
+- **El aviso lee la MISMA pregunta que el cron** (`conQueAnalizaElClosing`, lib/closing.ts): 'no' = no hay su Claude ni el
+  permiso de la plataforma. Con 'no-se' (la base no contestó) se calla: un «conecta tu Claude» a quien ya lo tiene es
+  mentira, y lo manda a pegar una clave que ya pegó (app/dashboard/aviso-closing.ts).
+- **Se reconoce la hoja por su plantilla, no por su nombre** (`Hoja.plantilla === 'closing'`): una hoja renombrada sigue
+  siendo la Closing, y una copia a mano llamada «Closing» no lo es. Sólo se pregunta si el informe tiene una.
+- **Conectar es con EL modal de /integraciones, sin salir de la hoja** (`BotonIntegracion servicio="anthropic"`). La primera
+  versión tenía un link a /integraciones y la frenó tests/integracion-sin-salir.test.ts: un aviso que conecta algo no
+  manda a otra pantalla. Al conectarlo, el aviso se va sin recargar la hoja.
+- El closer mira su hoja en sólo lectura y no conecta: lee el aviso sin botón. Un link compartido no lo muestra.
