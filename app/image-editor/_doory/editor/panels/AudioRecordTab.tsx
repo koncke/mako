@@ -15,6 +15,7 @@ import { t } from '../strings'
 import { Button } from '../ui/Button'
 import { AudioWaveform } from './AudioWaveform'
 import styles from './Audio.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 function useRecorder(): VoiceRecorder {
   const recorder = useMemo(() => new VoiceRecorder(browserDeps()), [])
@@ -103,6 +104,7 @@ function Take({ state, recorder }: { state: Extract<RecorderState, { status: 're
       {problem ? (
         <p className={styles.warn} role="alert" data-testid="audio-record-error">
           {problem}
+          <ReportarASoporte />
         </p>
       ) : null}
       <div className={styles.cardActions}>
@@ -152,6 +154,7 @@ export function AudioRecordTab() {
           {blocked ? (
             <p className={styles.warn} role="alert" data-testid="audio-record-denied">
               {t.audio.record.blocked}
+              <ReportarASoporte />
             </p>
           ) : null}
           <Button variant="primary" icon={<Mic size={16} aria-hidden="true" />} onClick={() => void recorder.begin()} data-testid="audio-record-start">
@@ -204,6 +207,7 @@ export function AudioRecordTab() {
           <Button size="sm" variant="soft" onClick={() => void recorder.begin()} data-testid="audio-record-retry">
             {t.audio.record.tryAgain}
           </Button>
+          <ReportarASoporte />
         </div>
       ) : null}
     </div>

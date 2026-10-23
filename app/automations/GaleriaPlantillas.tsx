@@ -65,6 +65,7 @@ import { BarraPideselo } from './ChatMako';
 import { CSS_NUEVO } from './NuevoPlaceholder';
 import { IconoDisparador } from './IconosDisparador';
 import { usePlataforma } from './plataforma';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Lo que contesta el server al crear una desde una plantilla. */
 export type CreadaGaleria = {
@@ -246,7 +247,7 @@ export function GaleriaPlantillas(p: {
             botonLabel={rotuloDeEleccion(pideElegida, secciones, valor)}
             onChange={setValor} ariaLabel={pregunta} disabled={ocupado} />
           <div style={LINEA}>{elegida.cron.ayuda}</div>
-          {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}</div>}
+          {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
         </div>
       </Modal>
     );
@@ -303,7 +304,7 @@ export function GaleriaPlantillas(p: {
           </span>
         </div>
 
-        {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}</div>}
+        {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
 
         {/* 3. La grilla: «Lienzo en blanco» PRIMERA SIEMPRE, lo copiado y las plantillas que pasan el filtro. */}
         <div className="gal-grilla" data-galeria-grilla>

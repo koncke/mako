@@ -15,6 +15,7 @@ import 'server-only';
 // entre marcas (scripts/tickets.ts). El triage lo lee con reglas (lib/tickets-reglas.ts), sin mandarlo a ninguna IA.
 
 import { getSupabaseServer } from './supabase';
+import { taparClaves } from './claves-en-el-chat';
 import { getWorkspace, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { capaDef } from './capas';
@@ -71,6 +72,9 @@ export type FilaTicket = {
   avisado_at: string | null;
   /** El nombre del negocio (join con workspaces), sólo en lo que lee Martín. */
   negocio?: string | null;
+  /** El chat donde MaKo falló (`contexto.chat.hilo`, de chart_sessions): su título y su clave, para decir DÓNDE. Sólo en la
+   *  bandeja (`conChatDeLosTickets`, 23/10/2026). */
+  chatDelTicket?: { titulo: string | null; clave: string | null } | null;
   /** La foto de perfil de quien lo levantó (`usuarios.foto_url`, la misma de /api/perfil), sólo en lo que lee Martín.
    *  null = no tiene, o no es https (un ticket por WhatsApp sin usuario no tiene fila). */
   foto?: string | null;
@@ -206,8 +210,10 @@ export type Creado = { ok: true; id: number; estado: EstadoTicket; triage: Triag
 
 export async function crearTicket(n: NuevoTicket): Promise<Creado> {
   const db = getSupabaseServer();
-  const titulo = n.titulo.trim().slice(0, TOPES.titulo);
-  const descripcion = n.descripcion.trim().slice(0, TOPES.descripcion);
+  // Las claves tapadas ANTES de guardar (la revisión de Integración, 23/10/2026): el chat de Soporte se ve como los del Ops
+  // Center, que las tapan, y lo de un ticket viaja en el push, en la bandeja y al Cerebro (scripts/tickets.ts ver).
+  const titulo = taparClaves(n.titulo.trim()).texto.slice(0, TOPES.titulo);
+  const descripcion = taparClaves(n.descripcion.trim()).texto.slice(0, TOPES.descripcion);
   if (!titulo) return { ok: false, error: 'Escribe qué pasó' };
   if (n.ref) {
     const { data: ya } = await db.from(T).select('id, estado, triage').eq('ref', n.ref).maybeSingle();
@@ -264,7 +270,7 @@ export async function miTicket(ws: number, email: string, id: number): Promise<{
 
 /** La persona contesta su ticket (cuando Martín le preguntó algo, o para sumar un dato). Vuelve a la bandeja. */
 export async function comentarComoCliente(ws: number, email: string, id: number, texto: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const t = texto.trim();
+  const t = taparClaves(texto.trim()).texto;
   if (!t) return { ok: false, error: 'Escribe tu respuesta' };
   if (t.length > TOPES.nota) return { ok: false, error: `Acórtala a ${TOPES.nota} caracteres` };
   const db = getSupabaseServer();
@@ -280,6 +286,23 @@ export async function comentarComoCliente(ws: number, email: string, id: number,
 // ── Lo de MARTÍN: quien llama ya pasó por `puedeOperar` ───────────────────────────────────────────────────────────
 /** Lo que lee Martín: la fila, el negocio y la FOTO de quien lo levantó (el `usuario_id` apunta a `usuarios`). */
 const COLS_MARTIN = `${COLS}, workspaces(nombre), usuarios(foto_url)`;
+
+/**
+ * El chat de cada ticket que MaKo levantó al fallar en un chat (`contexto.chat.hilo`): su título y su clave (23/10/2026, Martín:
+ * la tarjeta tiene que decir DÓNDE). Una lectura para todos; si falla, la bandeja sale igual, sin el dónde.
+ */
+export async function conChatDeLosTickets(filas: FilaTicket[]): Promise<FilaTicket[]> {
+  const ids = [...new Set(filas.map((f) => f.contexto?.chat?.hilo).filter((h): h is string => !!h && /^\d{1,12}$/.test(h)))];
+  if (!ids.length) return filas;
+  try {
+    const { data, error } = await getSupabaseServer().from('chart_sessions').select('id, chart_key, titulo').in('id', ids.map(Number));
+    if (error || !data) return filas;
+    const porId = new Map(data.map((s) => [String(s.id), { titulo: (s.titulo as string | null) ?? null, clave: (s.chart_key as string | null) ?? null }]));
+    return filas.map((f) => { const c = f.contexto?.chat?.hilo ? porId.get(f.contexto.chat.hilo) : undefined; return c ? { ...f, chatDelTicket: c } : f; });
+  } catch {
+    return filas;
+  }
+}
 
 export async function bandeja(limite = 200): Promise<Lectura<FilaTicket[]>> {
   const db = getSupabaseServer();

@@ -33,6 +33,7 @@ import { resumenDeCambios, type CambioImagen } from '@/lib/image-editor/chat/apl
 import { cambiarMensaje, cargarHilo, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from './hilo';
 import { aceptarPropuesta, detener, pedirEdicion, restaurarPropuesta, rotuloSeleccion, type AlcanceChat } from './acciones';
 import styles from './chat.module.css';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const HILO_SERVER: Hilo = { mensajes: [], corriendo: false };
 const useHilo = (disenoId: string): Hilo => useSyncExternalStore(suscribir, () => leerHilo(disenoId), () => HILO_SERVER);
@@ -90,7 +91,7 @@ function RevisionPropuesta({ m, tocada, onAceptar, onDescartar, onRestaurar }: {
         </p>
       )}
       {tocada && m.estado === 'pendiente' && <p className={styles.cuidado}>Cambiaste el diseño mientras tanto.</p>}
-      {m.aviso && <p role="alert" className={styles.alerta}>{m.aviso}</p>}
+      {m.aviso && <p role="alert" className={styles.alerta}>{m.aviso}<ReportarASoporte /></p>}
       <div className={styles.botones}>
         {m.estado === 'pendiente' && (
           <>

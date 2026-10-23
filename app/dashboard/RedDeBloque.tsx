@@ -20,6 +20,7 @@
 // =============================================================================
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Lo que dice una tarjeta que no se pudo dibujar (corto: es texto de pantalla). */
 export const TEXTO_BLOQUE_ROTO = 'Este bloque no cargó';
@@ -50,7 +51,7 @@ export class RedDeBloque extends Component<Props, { roto: boolean }> {
     return (
       <>
         <style>{CSS}</style>
-        <div className="red-bloque-roto" role="alert" title={`«${this.props.nombre}» no se pudo dibujar`}>{TEXTO_BLOQUE_ROTO}</div>
+        <div className="red-bloque-roto" role="alert" title={`«${this.props.nombre}» no se pudo dibujar`}>{TEXTO_BLOQUE_ROTO}<ReportarASoporte /></div>
       </>
     );
   }

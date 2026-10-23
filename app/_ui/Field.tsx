@@ -19,6 +19,7 @@
 //   el campo (y en un teléfono eso es la diferencia entre poder y no poder).
 
 import { useId, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import { ReportarASoporte } from './ReportarASoporte';
 
 type FieldProps = {
   label?: string;
@@ -49,7 +50,7 @@ export function Field({ label, required, hint, error, count, children, htmlFor, 
       {pie && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, justifyContent: 'space-between' }}>
           {error
-            ? <span className="mk-err" role="alert">{error}</span>
+            ? <span className="mk-err" role="alert">{error}<ReportarASoporte /></span>
             : hint ? <span className="mk-hint">{hint}</span> : <span />}
           {count && (
             <span className={`mk-count${count[0] > count[1] ? ' is-over' : ''}`}>{count[0]}/{count[1]}</span>

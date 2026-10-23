@@ -17,11 +17,17 @@
 //   · Sin cuentas, se conectan AHÍ MISMO (el modal de /integraciones arriba de éste: `BotonIntegracion`).
 // El modelo y las acciones son de Cobros (lib/cobro-etapa.ts y app/crm/cobro-etapa-actions.ts); lo que se dice, en
 // app/crm/cobro-ganado.ts.
+//
+// SEGUNDA VUELTA (22/10/2026, noche): lo mismo que «Vincular evento» (Martín: «aplicá todo lo de abajo a los dos»):
+//   · cada cambio queda EN EL LUGAR con lo que contestó el server (el vínculo, el producto): no se vuelve a leer todo;
+//   · el CRM y la etapa arriba («Sprint 3 días › Ganado»); el texto largo («Cuando alguien paga…») va en una ⓘ;
+//   · rediseñado con la hoja de los dos pop-ups (app/crm/vincular-etapa.ts): renglones y, por cuenta, una pastilla que
+//     se prende o se apaga (en vez de una casilla con el nombre al lado).
 // =============================================================================
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { Modal, Spinner, Toast, useToast, Button, SANS, MONO } from '@/app/_ui';
+import { Modal, Spinner, Toast, useToast, Button, SANS } from '@/app/_ui';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import {
@@ -30,17 +36,13 @@ import {
 } from './cobro-etapa-actions';
 import { TEXTO_AL_PAGAR, type FotoCobroEtapa, type ProductoCobro, type VinculoCobro } from '@/lib/cobro-etapa';
 import { MAX_NOMBRE_PRODUCTO, NOMBRE_PROVEEDOR_PAGO, nombreDeCuenta, precioDeProducto, productoDeLoEscrito, productosParaVincular } from './cobro-ganado';
+import { CSS_VINCULAR, PASTILLA_CONECTAR } from './vincular-etapa';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
-const TH: CSSProperties = {
-  fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase',
-  color: 'var(--faint)', fontWeight: 600, whiteSpace: 'nowrap',
-};
-const CASILLA: CSSProperties = { width: 16, height: 16, margin: 0, cursor: 'pointer', accentColor: 'var(--primary)' };
 const CAMPO: CSSProperties = {
   height: 34, padding: '0 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)',
   color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, minWidth: 0,
 };
-const ICONO: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, border: 'none', borderRadius: 7, background: 'transparent', color: 'var(--dim)', cursor: 'pointer', padding: 0 };
 
 /** Lo escrito en «Crear producto» / «Editar» (textos: lo valida `productoDeLoEscrito`). */
 type Escrito = { nombre: string; tipo: 'unico' | 'suscripcion'; monto: string; meses: string; cuotas: string };
@@ -50,10 +52,12 @@ const deProducto = (p: ProductoCobro): Escrito => ({
   meses: p.suscripcionMeses ? String(p.suscripcionMeses) : '', cuotas: p.cuotas ? String(p.cuotas) : '',
 });
 
-export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: {
+export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, onCerrar }: {
   funnelId: number;
   etapa: string;
   etapaNombre: string;
+  /** El nombre del CRM, para decir dónde cobra («Sprint 3 días › Ganado»). */
+  crmNombre: string;
   onCerrar: () => void;
 }) {
   const [montado, setMontado] = useState(false);
@@ -76,16 +80,22 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: {
   }, [funnelId, etapa]);
   useEffect(() => { leer(); }, [leer]);
 
-  /** Una escritura: marca qué está ocupado y, si cambió algo, vuelve a leer. */
+  /** Una escritura: marca qué está ocupado. La foto la deja al día cada una, con lo que contestó el server (sin volver a leer). */
   const correr = async (clave: string, hacer: () => Promise<boolean>) => {
     setOcupado(clave);
-    try { if (await hacer()) leer(); } catch { show('No se pudo guardar', undefined, 'bad'); } finally { setOcupado(null); }
+    try { await hacer(); } catch { show('No se pudo guardar', undefined, 'bad'); } finally { setOcupado(null); }
   };
+  /** El vínculo que contestó el server, en su lugar (o agregado). */
+  const ponerVinculo = (v: VinculoCobro) =>
+    setFoto((f) => (f ? { ...f, vinculos: f.vinculos.some((x) => x.id === v.id) ? f.vinculos.map((x) => (x.id === v.id ? v : x)) : [...f.vinculos, v] } : f));
+  const ponerProducto = (p: ProductoCobro) =>
+    setFoto((f) => (f ? { ...f, productos: f.productos.some((x) => x.id === p.id) ? f.productos.map((x) => (x.id === p.id ? p : x)) : [...f.productos, p] } : f));
   const todasLasCuentas = foto?.cuentas.map((c) => c.id) ?? [];
 
   const vincular = (productoId: number) => correr(`p:${productoId}`, async () => {
     const r = await vincularProductoAEtapaAction({ funnelId, etapa, productoId, cuentas: todasLasCuentas });
     if (!r.ok) { show(r.error, undefined, 'bad'); return false; }
+    ponerVinculo(r.vinculo);
     setSumando(null);
     show(`Cobra en «${etapaNombre}»`);
     return true;
@@ -96,14 +106,16 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: {
     if (!cuentas.length) { show('Deja al menos una cuenta, o quita el producto.', undefined, 'bad'); return false; }
     const r = await cambiarCuentasDelVinculoAction(v.id, cuentas);
     if (!r.ok) { show(r.error, undefined, 'bad'); return false; }
+    ponerVinculo(r.vinculo);
     return true;
   });
   const quitar = (v: VinculoCobro, nombre: string) => correr(`v:${v.id}`, async () => {
     const r = await desvincularProductoAction(v.id);
     if (!r.ok) { show(r.error, undefined, 'bad'); return false; }
+    setFoto((f) => (f ? { ...f, vinculos: f.vinculos.filter((x) => x.id !== v.id) } : f));
     const d = r.deshacer;
     show(`«${nombre}» ya no cobra aquí`, () => {
-      void vincularProductoAEtapaAction(d).then((q) => { if (!q.ok) show(q.error, undefined, 'bad'); leer(); });
+      void vincularProductoAEtapaAction(d).then((q) => { if (q.ok) ponerVinculo(q.vinculo); else show(q.error, undefined, 'bad'); });
     });
     return true;
   });
@@ -114,9 +126,13 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: {
     setErrorForm(null);
     const r = await guardarProductoCobroAction(p.input, id);
     if (!r.ok) { setErrorForm(r.error); return false; }
+    ponerProducto(r.producto);
     if (id != null) { setEditando(null); show('Producto guardado'); return true; }
-    const v = await vincularProductoAEtapaAction({ funnelId, etapa, productoId: r.producto.id, cuentas: todasLasCuentas });
+    // Creado: el formulario se cierra YA. Si vincular se cae, reintentar con el mismo formulario crearía otro producto igual.
     setSumando(null);
+    const v = await vincularProductoAEtapaAction({ funnelId, etapa, productoId: r.producto.id, cuentas: todasLasCuentas })
+      .catch(() => ({ ok: false as const, error: 'no contestó' }));
+    if (v.ok) ponerVinculo(v.vinculo);
     show(v.ok ? `Creado y cobra en «${etapaNombre}»` : `Creado, pero no se vinculó: ${v.error}`, undefined, v.ok ? undefined : 'bad');
     return true;
   });
@@ -140,7 +156,7 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: {
           : <input value={escrito.cuotas} inputMode="numeric" aria-label="Cuotas" placeholder="Cuotas (1)"
             onChange={(ev) => poner({ ...escrito, cuotas: ev.target.value })} style={{ ...CAMPO, width: 110 }} />}
       </div>
-      {errorForm && <p role="alert" style={{ margin: 0, fontSize: 12.5, color: 'var(--bad)' }}>{errorForm}</p>}
+      {errorForm && <p role="alert" style={{ margin: 0, fontSize: 12.5, color: 'var(--bad)' }}>{errorForm}<ReportarASoporte /></p>}
       <div style={{ display: 'flex', gap: 8 }}>
         <Button size="sm" type="submit" loading={cargando} disabled={ocupado != null}>{rotulo}</Button>
         <Button size="sm" variant="secondary" onClick={cancelar}>Cancelar</Button>
@@ -154,121 +170,108 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: {
     const nombre = p?.nombre ?? `Producto #${v.productoId}`;
     if (p && editando?.id === p.id) {
       return (
-        <div key={v.id} role="row" style={{ padding: 8, borderTop: '1px solid var(--border)' }}>
+        <li key={v.id} className="vx-fila vx-fila--abierta">
           {formProducto(editando.escrito, (e) => setEditando({ id: p.id, escrito: e }), () => void guardarProducto(editando.escrito, p.id),
             () => { setEditando(null); setErrorForm(null); }, 'Guardar', ocupado === `e:${p.id}`)}
-        </div>
+        </li>
       );
     }
     return (
-      <div key={v.id} role="row" data-vinculo-cobro={v.id} style={{ padding: '11px 12px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <span role="cell" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{nombre}</span>
-            {p && <span style={{ marginLeft: 8, fontSize: 12.5, color: 'var(--dim)' }}>{precioDeProducto(p)}</span>}
-          </span>
-          {ocupado === `v:${v.id}` && <Spinner size={13} />}
+      <li key={v.id} className="vx-fila" data-aqui data-vinculo-cobro={v.id} style={{ gridTemplateColumns: '20px minmax(0, 1fr) auto auto' }}>
+        <span aria-hidden style={{ color: 'var(--primary)', display: 'inline-flex' }}><IconoMenu nombre="dinero" size={16} /></span>
+        <div className="vx-txt">
+          <span className="vx-nombre" title={nombre}>{nombre}</span>
+          {p && <span className="vx-meta">{precioDeProducto(p)}</span>}
+        </div>
+        <div className="vx-donde">{ocupado === `v:${v.id}` && <Spinner size={13} />}</div>
+        <div style={{ display: 'inline-flex' }}>
           {foto.puedeEditar && p && (
-            <button type="button" disabled={ocupado != null} aria-label={`Editar ${nombre}`} title="Editar" style={ICONO}
+            <button type="button" className="vx-icono" disabled={ocupado != null} aria-label={`Editar ${nombre}`} title="Editar"
               onClick={() => { setErrorForm(null); setEditando({ id: p.id, escrito: deProducto(p) }); }}>
               <IconoMenu nombre="editar" size={15} />
             </button>
           )}
           {foto.puedeEditar && (
-            <button type="button" disabled={ocupado != null} aria-label={`Quitar ${nombre} de ${etapaNombre}`} title="Quitar" style={ICONO}
+            <button type="button" className="vx-icono" disabled={ocupado != null} aria-label={`Quitar ${nombre} de ${etapaNombre}`} title="Quitar"
               onClick={() => void quitar(v, nombre)}>
               <IconoMenu nombre="quitar" size={15} />
             </button>
           )}
         </div>
-        {/* UNA CASILLA POR CUENTA: Stripe y Mercado Pago a la vez, y varias de cada uno. */}
-        <div role="cell" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        {/* UNA PASTILLA POR CUENTA: Stripe y Mercado Pago a la vez, y varias de cada uno. Prendida = cobra por ahí. */}
+        <div className="vx-cuentas" role="group" aria-label={`Cuentas por las que cobra ${nombre}`}>
           {foto.cuentas.map((c) => {
             const marcada = v.cuentas.includes(c.id);
             return (
-              <span key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--ink)' }}>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: foto.puedeEditar ? 'pointer' : 'default' }}>
-                  <input type="checkbox" style={CASILLA} checked={marcada} disabled={!foto.puedeEditar || ocupado != null}
-                    onChange={() => void alternarCuenta(v, c.id)} />
-                  {nombreDeCuenta(c, foto.cuentas)}
-                </label>
-              </span>
+              <button key={c.id} type="button" className="vx-cuenta" aria-pressed={marcada} disabled={!foto.puedeEditar || ocupado != null}
+                onClick={() => void alternarCuenta(v, c.id)}>
+                {marcada && <span aria-hidden>✓</span>}
+                {nombreDeCuenta(c, foto.cuentas)}
+              </button>
             );
           })}
         </div>
-      </div>
+      </li>
     );
   };
 
   const paraVincular = foto ? productosParaVincular(foto) : [];
   const contenido = (
-    <div style={{ fontFamily: SANS }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-        <span style={{ fontSize: 13.5, color: 'var(--dim)', flex: '1 1 260px' }}>{TEXTO_AL_PAGAR}</span>
+    <div className="vx" style={{ fontFamily: SANS }}>
+      <style>{CSS_VINCULAR}</style>
+      <div className="vx-barra">
+        {/* SIN CUENTAS, SE CONECTAN AHÍ MISMO: el modal de /integraciones arriba de éste (no se sale de la tab). */}
+        {foto && foto.cuentas.length === 0 && (['stripe', 'mercadopago'] as const).map((prov) => (
+          <BotonIntegracion key={prov} servicio={prov} onConectado={() => leer()} style={PASTILLA_CONECTAR}>
+            <IconoMenu nombre="link" size={14} /> Conectar {NOMBRE_PROVEEDOR_PAGO[prov]}
+          </BotonIntegracion>
+        ))}
+        <span className="vx-elastico" />
+        <span className="vx-info" role="img" aria-label={TEXTO_AL_PAGAR} title={TEXTO_AL_PAGAR}>ⓘ</span>
+        <button type="button" className="vx-icono" aria-label="Volver a leer" title="Volver a leer" onClick={leer} disabled={!foto && !error}>
+          <IconoMenu nombre="restaurar" size={15} />
+        </button>
         {foto?.puedeEditar && foto.cuentas.length > 0 && !sumando && (
           <Button size="sm" icon={<IconoMenu nombre="agregar" size={15} />} disabled={ocupado != null}
             onClick={() => { setErrorForm(null); setSumando(paraVincular.length ? { modo: 'elegir' } : { modo: 'crear', escrito: VACIO }); }}>
             Producto
           </Button>
         )}
-        <Button size="sm" variant="secondary" onClick={leer}>Actualizar</Button>
       </div>
-
-      {/* SIN CUENTAS, SE CONECTAN AHÍ MISMO: el modal de /integraciones arriba de éste (no se sale de la tab). */}
-      {foto && foto.cuentas.length === 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12, fontSize: 13, color: 'var(--dim)' }}>
-          <span>Conecta Stripe o Mercado Pago para cobrar desde esta etapa.</span>
-          {(['stripe', 'mercadopago'] as const).map((prov) => (
-            <BotonIntegracion key={prov} servicio={prov} onConectado={() => leer()}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 12px', borderRadius: 99, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 }}>
-              <IconoMenu nombre="link" size={14} /> Conectar {NOMBRE_PROVEEDOR_PAGO[prov]}
-            </BotonIntegracion>
-          ))}
-        </div>
-      )}
 
       {/* «+ PRODUCTO»: uno del catálogo, o crearlo ahí mismo (nace cobrando por todas las cuentas). */}
       {sumando?.modo === 'elegir' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, marginBottom: 12, borderRadius: 12, background: 'var(--surface-2)' }}>
-          <span style={{ fontSize: 13, color: 'var(--dim)' }}>Elige un producto de tu catálogo:</span>
-          <div role="listbox" aria-label="Productos del catálogo" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className="vx-form--crear" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <ul className="vx-lista" role="listbox" aria-label="Productos del catálogo">
             {paraVincular.map((p) => (
-              <button key={p.id} type="button" role="option" aria-selected={false} disabled={ocupado != null} onClick={() => void vincular(p.id)}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontFamily: SANS, textAlign: 'left' }}>
-                <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{p.nombre}</span>
-                <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{precioDeProducto(p)}</span>
-                {ocupado === `p:${p.id}` && <Spinner size={13} />}
-              </button>
+              <li key={p.id} role="option" aria-selected={false}>
+                <button type="button" className="vx-fila" disabled={ocupado != null} onClick={() => void vincular(p.id)}
+                  style={{ width: '100%', gridTemplateColumns: 'minmax(0, 1fr) auto auto', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}>
+                  <span className="vx-nombre">{p.nombre}</span>
+                  <span className="vx-meta">{precioDeProducto(p)}</span>
+                  {ocupado === `p:${p.id}` ? <Spinner size={13} /> : <span />}
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
           <div style={{ display: 'flex', gap: 8 }}>
             <Button size="sm" variant="secondary" icon={<IconoMenu nombre="agregar" size={15} />} onClick={() => setSumando({ modo: 'crear', escrito: VACIO })}>Crear producto</Button>
             <Button size="sm" variant="secondary" onClick={() => setSumando(null)}>Cancelar</Button>
           </div>
         </div>
       )}
-      {sumando?.modo === 'crear' && (
-        <div style={{ marginBottom: 12 }}>
-          {formProducto(sumando.escrito, (e) => setSumando({ modo: 'crear', escrito: e }), () => void guardarProducto(sumando.escrito),
-            () => { setSumando(null); setErrorForm(null); }, 'Crear y vincular', ocupado === 'crear')}
-        </div>
-      )}
+      {sumando?.modo === 'crear' && formProducto(sumando.escrito, (e) => setSumando({ modo: 'crear', escrito: e }), () => void guardarProducto(sumando.escrito),
+        () => { setSumando(null); setErrorForm(null); }, 'Crear y vincular', ocupado === 'crear')}
 
-      <div role="table" aria-label={`Productos que cobran en ${etapaNombre}`} style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-        <div role="row" style={{ display: 'flex', gap: 10, padding: '9px 12px', background: 'var(--surface-2)' }}>
-          <span style={{ ...TH, flex: 1 }}>Producto</span>
-          <span style={TH}>Cuentas</span>
-        </div>
+      <ul className="vx-lista" aria-label={`Productos que cobran en ${etapaNombre}`} aria-busy={!foto && !error}>
         {foto?.vinculos.map(fila)}
-        {!foto && !error && <div style={{ padding: '34px 0', display: 'flex', justifyContent: 'center', borderTop: '1px solid var(--border)' }}><Spinner size={18} /></div>}
-        {!foto && error && <p style={vacio('var(--bad)')}>{error}</p>}
-        {foto && foto.vinculos.length === 0 && (
-          <p style={vacio()}>{foto.cuentas.length ? 'Ningún producto cobra en esta etapa todavía.' : 'Sin una cuenta conectada no hay con qué cobrar.'}</p>
-        )}
-      </div>
-      {foto && !foto.puedeEditar && (
-        <p style={{ margin: '10px 0 0', fontSize: 12.5, color: 'var(--warn)' }}>Sólo el administrador puede cambiar los cobros.</p>
+        {!foto && !error && [0, 1].map((i) => <li key={`g${i}`} className="vx-fila vx-gris" aria-hidden><span /><span /><span /><span /></li>)}
+      </ul>
+      {!foto && error && <p className="vx-vacio" data-mal>{error}</p>}
+      {foto && foto.vinculos.length === 0 && (
+        <p className="vx-vacio">{foto.cuentas.length ? 'Ningún producto cobra aquí todavía.' : 'Conecta Stripe o Mercado Pago.'}</p>
       )}
+      {foto && !foto.puedeEditar && <p className="vx-nota" data-mal>Sólo el administrador puede cambiar los cobros.</p>}
       <Toast state={toast} onClose={clear} />
     </div>
   );
@@ -276,14 +279,11 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: {
   if (!montado) return null;
   return createPortal(
     <Modal titulo={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><IconoMenu nombre="dinero" size={18} /> Vincular cobro</span>}
-      encabezado={<span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{etapaNombre}</span>}
-      onCerrar={onCerrar} ancho={820} alto="min(80vh, 640px)" sinFiletes>
+      encabezado={<span className="vx-donde-titulo">{crmNombre} › {etapaNombre}</span>}
+      onCerrar={onCerrar} ancho={640} alto="min(80vh, 620px)" sinFiletes>
       {contenido}
     </Modal>,
     document.body,
   );
 }
 
-const vacio = (color = 'var(--dim)'): CSSProperties => ({
-  fontFamily: SANS, fontSize: 13.5, color, padding: '28px 12px', margin: 0, textAlign: 'center', borderTop: '1px solid var(--border)',
-});

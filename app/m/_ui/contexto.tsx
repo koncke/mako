@@ -45,6 +45,9 @@ export type ConexionM = {
 export type OpcionesToast = {
   /** Si la acción se puede revertir: aparece «Deshacer» y el toast dura 5 s en vez de 3,2. */
   deshacer?: () => void;
+  /** Es un error: el toast es un aviso con «Reportar a Soporte» y dura más. Sin pasarlo, lo dice la frase («No se pudo…»,
+   *  `esTextoDeError`, lib/soporte-reporte.ts). */
+  error?: boolean;
 };
 
 type ValorShell = {

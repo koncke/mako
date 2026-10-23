@@ -18,6 +18,7 @@
 import { PRIORIDADES, TIPOS, decisionDeAprobar, type DecisionTicket, type EstadoTicket, type TipoTicket } from '@/lib/tickets-reglas';
 import { tituloDe } from '@/lib/titulo-tab';
 import type { FilaTicket, NotaTicket } from '@/lib/tickets-db';
+import { origenDeClave } from '@/lib/chat-mako-reglas';
 
 export type VistaBandeja = 'mazo' | 'tabla';
 export const esVistaBandeja = (v: unknown): v is VistaBandeja => v === 'mazo' || v === 'tabla';
@@ -152,7 +153,19 @@ export function quienDiceLaNota(n: { actor: string; tipo: string }): string {
 // ⚠️ SIN IA (la regla del triage): todo sale del ticket —el canal, el contexto, el código de error, la nota— y de las
 //    tablas de acá. Una frase que no calza con ninguna regla cae en un genérico que se lee bien, nunca en un modelo.
 
-type ParaLeer = Pick<FilaTicket, 'tipo' | 'canal' | 'contexto' | 'titulo' | 'usuario_nombre' | 'usuario_email'>;
+type ParaLeer = Pick<FilaTicket, 'tipo' | 'canal' | 'contexto' | 'titulo' | 'usuario_nombre' | 'usuario_email' | 'chatDelTicket'>;
+
+/**
+ * DÓNDE falló MaKo (23/10/2026, Martín: la tarjeta «no se entiende»): el chat, por su clave y su título (`chatDelTicket`, lo
+ * suma la bandeja). Con origen («CRM», «Dashboard»), el de esa tab; sin origen, uno del Ops Center. null = no se sabe.
+ */
+export function dondeDelChat(c: FilaTicket['chatDelTicket']): string | null {
+  if (!c) return null;
+  const origen = origenDeClave(c.clave);
+  const titulo = (c.titulo ?? '').replace(/\s+/g, ' ').trim();
+  if (origen) return titulo && normal(titulo) !== normal(origen) ? `En el chat de ${origen} «${cortar(titulo, 40)}»` : `En el chat de ${origen}`;
+  return titulo ? `En su chat «${cortar(titulo, 40)}» del Ops Center` : 'En su chat del Ops Center';
+}
 
 // ⚠️ EL TIPO ES EL DE LA FILA, que es el ÚLTIMO juicio (el triage, después el Cerebro al devolverlo, después Martín a mano):
 //    no se «corrige» contra el error (revisión del 22/10/2026, noche). El triage da `bug` a todo automático con error
@@ -225,7 +238,9 @@ function quePasoAutomatico(t: ParaLeer): string {
   const donde = t.contexto.chat?.donde ?? '';
   if (donde === 'error-mako') {
     const intento = loQueIntento(t);
-    if (t.contexto.herramienta === 'responder' || /^contestarte$/i.test(intento)) return n ? `MaKo no le pudo contestar a ${n} en su chat` : 'MaKo no pudo contestar en un chat';
+    // Sabiendo en qué chat, el dónde va en su renglón (`dondeDelChat`): la frase no repite «en su chat».
+    const enSuChat = t.chatDelTicket ? '' : ' en su chat';
+    if (t.contexto.herramienta === 'responder' || /^contestarte$/i.test(intento)) return n ? `MaKo no le pudo contestar a ${n}${enSuChat}` : 'MaKo no pudo contestar en un chat';
     // El título le habla al cliente («avisarte»): para Martín, «avisar a Mauricio».
     const te = /^(\p{L}+(?:ar|er|ir))te$/iu.exec(intento);
     if (te) return n ? `MaKo no le pudo ${te[1].toLowerCase()} a ${n} en su chat` : `MaKo no pudo ${te[1].toLowerCase()} en un chat`;
@@ -247,7 +262,8 @@ function quePasoAutomatico(t: ParaLeer): string {
  * `esDeConfiguracion` (lib/errores-app-reglas.ts): al negocio le falta algo SUYO, no hay código roto.
  */
 export const ERRORES_FRECUENTES: ReadonlyArray<{ re: RegExp; porque: string; hacer: string }> = [
-  { re: /claude vetado|sin proveedor (gratis|de ia)|red gratis salteada/i, porque: 'No tenía una IA para {lo}', hacer: 'Conectar su IA' },
+  // Desde el 22/10/2026 la plataforma no presta IA: cada negocio usa la suya (Claude o GPT). Sin ella, nadie contesta.
+  { re: /claude vetado|sin proveedor (gratis|de ia)|red gratis salteada/i, porque: 'No tiene su IA conectada (Claude o GPT), y MaKo no presta la suya', hacer: 'Conectar su IA' },
   { re: /tu clave de claude: .*(credit balance|billing)/i, porque: 'Su Claude se quedó sin crédito', hacer: 'Cargar crédito en su Claude' },
   { re: /tu clave de claude: .*(invalid x-api-key|authentication|permission|\b40[13]\b)/i, porque: 'Su clave de Claude no anda', hacer: 'Volver a conectar su Claude' },
   { re: /en pausa por un rato/i, porque: 'Claude estaba en pausa', hacer: 'Esperar a que vuelva Claude' },
@@ -274,6 +290,27 @@ export function errorFrecuente(crudo: string, herramienta?: string): { porque: s
   const error = crudo.replace(/\s*\(digest [^)]*\)/g, '').replace(/\s*·\s*\d+ veces\s*$/, '');
   const f = ERRORES_FRECUENTES.find((x) => x.re.test(error)) ?? ERROR_GENERICO;
   return { porque: f.porque.replace('{lo}', herramienta === 'responder' ? 'contestarle' : 'hacerlo'), hacer: f.hacer };
+}
+
+/**
+ * QUÉ HAY QUE DECIDIR, como una pregunta que se contesta con el ✓ (23/10/2026, Martín: «escrita para que decida en 5
+ * segundos»). Sale de lo que hay que hacer; lo que no está en la tabla, como pregunta.
+ */
+const DECIDE_POR_HACER: Readonly<Record<string, (a: string) => string>> = {
+  'Conectar su IA': (a) => `¿Le pedimos${a} que conecte su IA?`,
+  'Cargar crédito en su Claude': (a) => `¿Le avisamos${a} que cargue crédito en su Claude?`,
+  'Volver a conectar su Claude': (a) => `¿Le pedimos${a} que vuelva a conectar su Claude?`,
+  'Volver a conectar la cuenta': (a) => `¿Le pedimos${a} que vuelva a conectar la cuenta?`,
+  'Esperar a que vuelva Claude': () => '¿Lo dejamos pasar? Claude vuelve solo',
+  'Probar de nuevo': () => '¿Lo probamos de nuevo?',
+  'Arreglar el código': () => '¿Lo arreglamos?',
+  'Revisar y arreglar': () => '¿Lo arreglamos?',
+  'Decidir si se hace': () => '¿Lo hacemos?',
+  'Responderle': (a) => `¿Qué le respondemos${a}?`,
+};
+export function queDecide(hacer: string, nombre: string | null): string {
+  const a = nombre ? ` a ${nombre}` : '';
+  return DECIDE_POR_HACER[hacer]?.(a) ?? `¿${hacer}?`;
 }
 
 /** Qué hay que hacer cuando no hay un error que lo diga: lo que pide el tipo. */
@@ -313,6 +350,8 @@ export type LecturaTicket = {
   negocio: string | null;
   /** Qué hay que hacer, en un renglón. */
   hacer: string;
+  /** Qué hay que decidir: la pregunta que se contesta con el ✓ (`queDecide`). */
+  decide: string;
   /** Lo que dejó el Cerebro o contestó el cliente, en una línea (va después de «Estado:»). */
   estado: string | null;
   /** El tipo de la fila: el último juicio (el triage, el Cerebro al devolverlo, Martín a mano). */
@@ -341,10 +380,12 @@ export function leerTicket(t: ParaLeer & Pick<FilaTicket, 'workspace_id'> & { ne
     quePaso: quePaso(t),
     porque: fallo ? fallo.porque : t.contexto.noExiste ? 'La app todavía no lo tiene' : null,
     quien: sistema ? { mako: true, texto: 'Lo detectó MaKo solo' } : { mako: false, texto: `Lo levantó ${primerNombre(nombre)} ${desde}` },
-    donde: pantalla ? `En «${pantalla}»` : null,
+    // La pantalla de la persona; en uno que detectó MaKo, el chat donde falló.
+    donde: pantalla ? `En «${pantalla}»` : dondeDelChat(t.chatDelTicket),
     // Sin persona, el negocio de la fila es el de la PLATAFORMA (`identidadDelSistema`): no es de nadie a quien decirle.
     negocio: mismo || sinPersona(t) ? null : neg || `Negocio ${t.workspace_id}`,
     hacer: hacerDelError ?? HACER_POR_TIPO[t.contexto.noExiste ? 'pedido' : tipo],
+    decide: queDecide(hacerDelError ?? HACER_POR_TIPO[t.contexto.noExiste ? 'pedido' : tipo], sinPersona(t) ? null : primerNombre(nombre)),
     estado: estadoDeLaNota(t.nota),
     tipo,
   };

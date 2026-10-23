@@ -34,6 +34,7 @@ import { DIAS_PANTALLA, horaTexto, MEDIAS_HORAS_DESDE, MEDIAS_HORAS_HASTA, HORAR
 import { ZONAS_POR_PAIS } from '@/lib/disparadores';
 import { PAISES, flagUrl } from '@/lib/paises';
 import { Info } from '@/app/automations/FilasOpciones';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 18 };
@@ -204,7 +205,7 @@ export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO
         {/* (14/10/2026 al 15/10/2026 vivió acá la casilla «Los avisos al equipo salen igual». Se fue a la tarjeta «MaKo en
             WhatsApp», donde se piensa ese envío: lib/mako-tarjeta.ts, `FueraDeHorario`.) */}
       </div>
-      {aviso && <div role="alert" style={{ marginTop: 12, fontSize: 13, color: 'var(--bad)', fontFamily: SANS }}>{aviso}</div>}
+      {aviso && <div role="alert" style={{ marginTop: 12, fontSize: 13, color: 'var(--bad)', fontFamily: SANS }}>{aviso}<ReportarASoporte /></div>}
     </div>
   );
 }

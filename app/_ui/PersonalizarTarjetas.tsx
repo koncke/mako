@@ -24,6 +24,7 @@ import {
   MAX_NOMBRE_PLANTILLA, MAX_PLANTILLAS_PROPIAS, esPropia, guardarPlantillaPropia, idPlantillaNueva, plantillaPuesta,
   type PlantillaTarjeta,
 } from '@/lib/plantillas-tarjeta';
+import { ReportarASoporte } from './ReportarASoporte';
 
 export type ResultadoGuardarTarjeta = { ok: true } | { ok: false; error: string };
 
@@ -206,7 +207,7 @@ export function PersonalizarTarjetas<F extends string, C extends string>({
             <span style={{ flex: 1 }} />
             {!guardable && <span style={{ fontSize: 12, color: 'var(--dim)' }}>Sin guardar: vale en esta pestaña.</span>}
           </div>
-          {error && <p role="alert" style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--bad)' }}>{error}</p>}
+          {error && <p role="alert" style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></p>}
         </section>
       </div>
     </Modal>

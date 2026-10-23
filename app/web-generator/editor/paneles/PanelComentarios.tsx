@@ -29,6 +29,7 @@ import type { Comentario } from '@/lib/editor-landing/api-tipos';
 import { tarjetasDe, tituloDeTarjeta } from '@/lib/editor-landing/doc';
 import { EstilosPanelesB, Ico, pedirDocs } from './PanelAgente';
 import { idDe, recortar } from '../diff-tarjetas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const rtf = typeof Intl !== 'undefined' && 'RelativeTimeFormat' in Intl ? new Intl.RelativeTimeFormat('es', { numeric: 'auto' }) : null;
 function hace(iso: string): string {
@@ -249,10 +250,11 @@ export function PanelComentarios({ onCerrar }: { onCerrar?: () => void } = {}) {
           <div className="gma-cm-vacio" role="alert">
             <span>{error}</span>
             <button type="button" className="gma-pb-boton" data-v="contorno" data-t="s" onClick={() => { setError(null); void cargar(); }}>Reintentar</button>
+            <ReportarASoporte />
           </div>
         )}
         {!error && comentarios === null && <div className="gma-cm-vacio"><span className="gma-pb-giro" aria-label="Cargando" /></div>}
-        {fallaAccion && <p className="gma-rv-error" role="alert">{fallaAccion}</p>}
+        {fallaAccion && <p className="gma-rv-error" role="alert">{fallaAccion}<ReportarASoporte /></p>}
 
         {comentarios !== null && (
           <section className="gma-cm-grupo" data-activa="">

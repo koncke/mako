@@ -4,6 +4,7 @@ import { t } from '../strings'
 import { Button, IconButton } from '../ui/Button'
 import { useCollabSession, useCollabState } from './context'
 import styles from './CollabBanner.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** What the live connection tells the user when it cannot simply carry on: lost access, a stale session, a design too large to sync. */
 export function CollabBanner() {
@@ -34,6 +35,7 @@ export function CollabBanner() {
           <X size={16} />
         </IconButton>
       ) : null}
+      <ReportarASoporte />
     </div>
   )
 }

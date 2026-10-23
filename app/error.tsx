@@ -52,9 +52,35 @@ async function avisarAlEquipo(error: Error & { digest?: string }): Promise<boole
   }
 }
 
+/**
+ * «Reportar a Soporte» (23/10/2026, Martín: «SIEMPRE que sale un error, en donde sea, debe aparecer el botón»): el mismo pedido
+ * que el botón de la app (app/_ui/ReportarASoporte.tsx), a mano y sin imports por lo de arriba. Es un ticket que la persona ve
+ * en su Ticketera; el servidor lo sanea (sin claves ni datos) y dice de quién es por la sesión. Devuelve qué decir.
+ */
+async function reportarASoporte(error: Error & { digest?: string }, que: string): Promise<string> {
+  try {
+    let zona: string | undefined;
+    try { zona = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { zona = undefined; }
+    const r = await fetch('/api/soporte/reportar', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        error: `${que}: ${String(error?.message || '(sin mensaje)').slice(0, 240)}`,
+        ruta: `${window.location.pathname}${window.location.search}`, hora: new Date().toISOString(), zona,
+        navegador: navigator.userAgent, pantalla: `${window.innerWidth}x${window.innerHeight}`, idioma: navigator.language,
+      }),
+    });
+    const j = (await r.json().catch(() => null)) as { ok?: boolean; id?: number; error?: string } | null;
+    return j?.ok ? `Lo mandamos al equipo · ticket #${j.id}` : (j?.error || 'No salió: vuelve a tocar en un rato.');
+  } catch {
+    return 'No salió: revisa tu conexión y vuelve a tocar.';
+  }
+}
+
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const [copiado, setCopiado] = useState(false);
   const [avisado, setAvisado] = useState(false);
+  const [reporte, setReporte] = useState<string | null>(null);
+  const [reportando, setReportando] = useState(false);
 
   useEffect(() => {
     // Queda en la consola del navegador además de en pantalla: si alguien SÍ
@@ -95,6 +121,15 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
             style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border-strong, #cfd4dc)', background: 'var(--surface, #fff)', color: 'var(--dim, #5b6472)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
             Ir al inicio
           </button>
+          {reporte ? (
+            <span role="status" style={{ alignSelf: 'center', fontSize: 14, fontWeight: 600, color: 'var(--dim, #5b6472)' }}>{reporte}</span>
+          ) : (
+            <button type="button" disabled={reportando}
+              onClick={() => { setReportando(true); void reportarASoporte(error, 'La pantalla se rompió al dibujarse').then((t) => { setReporte(t); setReportando(false); }); }}
+              style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border-strong, #cfd4dc)', background: 'var(--surface, #fff)', color: 'var(--dim, #5b6472)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {reportando ? 'Mandando…' : 'Reportar a Soporte'}
+            </button>
+          )}
         </div>
       </div>
     </main>

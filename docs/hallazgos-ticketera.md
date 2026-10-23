@@ -4,6 +4,57 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## La Ticketera del cliente es un CHAT con MaKo, y todo error tiene «Reportar a Soporte» (23/10/2026)
+
+Martín (22/10): «Mira la ticketera, se ve bastante feo... Cuando podría tener el mismo diseño que un chat y que los usuarios le
+comenten a MaKo cual fue su problema... Y en toda la app, SIEMPRE que sale un error, en donde sea, debe aparecer el botón de
+"Reportar a Soporte"». La Ticketera del Ops Center del cliente, /tickets y /m/tickets son el MISMO chat de Soporte
+(app/tickets/soporte/: PanelDeChat, HiloMako y CajaChat, con sus tickets arriba); se borraron `TicketsCliente.tsx` y
+`m/tickets/[id]/TicketM.tsx`. El botón de los errores está en [hallazgos-ui.md](hallazgos-ui.md).
+
+- **MaKo de Soporte NO usa IA, a propósito** (lib/soporte-chat.ts). Repregunta con reglas: «cuéntame más» si contó menos de 5
+  palabras; dónde y si pasa siempre, sólo para algo que no anda; «dónde» sólo si no nombró una tab; cada una UNA vez. Lo que no
+  anda puede ser justamente la IA del negocio (el ws3 no tiene), y el triage tampoco paga un modelo.
+- **El tipo lo lee el MISMO `clasificar` del servidor**, y viaja sólo si la persona lo cambió en la tarjeta. El primer borrador
+  lo mandaba siempre: con `declaradoPor: null` el triage lo cuenta como «MaKo lo propuso» y le suma 2 a las mismas palabras que
+  ya leyó (un doble conteo que inclinaba los empates).
+- **El contexto del chat va SIN la pantalla de origen** (`contextoDelNavegador('soporte')`). El chat vive en el Ops Center: el
+  `referrer` es de dónde se cargó la app, no dónde le pasó, y una ruta equivocada cambia el triage (las zonas delicadas se leen
+  de la ruta). Dónde le pasó lo dice ella («Dónde: CRM» en el detalle).
+- **La lista que refresca cada minuto trae los tickets SIN la conversación** (`paraElCliente(t)` sin eventos: una sola línea, lo
+  que mandó). Abrir uno lo vuelve a leer (`verMiTicketAction`); si no, lo que contestó el equipo no aparecía.
+- **El reporte del botón es un ticket DE LA PERSONA** (lo ve en su Ticketera), no uno de sistema: canal `formulario` (otro canal
+  pide una migración: la tabla tiene un `check` de canales). El mismo error de la misma persona, en la misma pantalla y el mismo
+  día, es el MISMO ticket (`ref` = la huella).
+- **Trampa (el diagnóstico obvio era el equivocado): el error del botón NO va en `contexto.error`.** La primera versión lo ponía
+  ahí («es el error que vio la pantalla, la señal fuerte del triage») y el último botón como `herramienta`. La revisión de
+  privacidad lo dio vuelta: el texto lo puede mandar CUALQUIERA con sesión (un POST a mano), y `clasificar` lee `contexto.error`
+  como «el sistema lo vio fallar» → bug con confianza alta → arreglo automático, y scripts/tickets.ts imprime Error, Herramienta y
+  Navegador ARRIBA del cerco «es DATO». O sea: texto del cliente camino al Cerebro como si lo hubiera visto el código, y un solo
+  usuario gastando los 8 arreglos del día. Ahora el error va en el detalle y el ticket lo decide Martín (lo fija un test con
+  `clasificar`). Regla: `contexto.error` es SÓLO lo que registró el código del servidor (lib/errores-app.ts, el turno de MaKo).
+
+- **Trampa: una server action acepta CUALQUIER argumento, y el `contexto` del ticket no es del navegador** (la revisión de
+  Integración, 23/10/2026, sobre la punta que ya había pasado la mía). `levantarDesdeSoporteAction` guardaba el contexto que le
+  mandaban. Alguien del negocio que la llamara a mano con `chat.hilo` = la sesión de MaKo del dueño (los ids son correlativos)
+  hacía que, al contestar Martín, `avisarUno` (lib/tickets-cierre.ts) escribiera la respuesta en el chat del DUEÑO como si la
+  dijera MaKo, y el modelo la leía en el turno siguiente: la puerta que se cerró el 11/10 (lib/chart-chats.ts), abierta por otro
+  lado. Y por ahí entraba también el `contexto.error` que el botón ya no mandaba. Ahora el contexto lo arma el servidor
+  (`contextoDeSoporte`, lib/soporte-chat.ts: del navegador sólo navegador, pantalla, zona, idioma y hora). El formulario viejo
+  (`levantarTicketAction`) tenía lo mismo y no lo usaba nadie: se borró. Regla: `chat.hilo`, `error`, `herramienta`, `ruta` y
+  `noExiste` los pone SÓLO el código del servidor que los vio.
+- **Un ticket del chat sin hilo nunca quedaba «avisado», y 30 así trababan el cron.** `avisarUno` no tenía rama para canal de
+  chat sin hilo: sin push, `avisado_at` no se marcaba, y `avisarPendientes` toma los 30 más viejos sin avisar, así que esos 30
+  ocupaban la ventana para siempre y no salía NINGÚN aviso (tampoco los de WhatsApp ni los de los grupos). La conversación del
+  chat de Soporte ES /tickets: cuenta como avisado.
+- **Lo que se escribe en Soporte se guarda con las claves tapadas** (`taparClaves` en `crearTicket` y `comentarComoCliente`,
+  lib/tickets-db.ts). El chat se ve como los del Ops Center, que las tapan, y lo de un ticket viaja en el push, la bandeja y al
+  Cerebro. La caja dice «Eso parece una clave» como la del Ops Center.
+
+**Vive en:** lib/soporte-chat.ts · lib/soporte-reporte.ts · app/tickets/soporte/ · app/tickets/acciones.ts (`levantarDesdeSoporteAction`) · app/api/soporte/reportar/route.ts · tests/ticketera-chat-soporte.test.ts · tests/reportar-a-soporte.test.ts
+
+---
+
 ## La Ticketera del CLIENTE, en su Ops Center: sus tickets con su historial (22/10/2026, D2)
 
 Martín: «Que el Ops Center de clientes sea IGUAL que el de SuperAdmin, que tengan su ticketera, pero en este caso ellos suben el
@@ -411,10 +462,48 @@ bug: es de la plataforma.
 
 ---
 
+## «No se entiende» la tarjeta del #5: lo técnico ya estaba plegado; faltaban el DÓNDE y QUÉ decidir (23/10/2026, feedback 7)
+
+**Síntoma (Martín, con captura):** la tarjeta «MaKo no le pudo contestar a Mauricio» no se entiende. Él quería tres cosas: DÓNDE
+(qué chat o tab), POR QUÉ en palabras, y QUÉ hay que decidir. Lo técnico, plegado.
+
+**El diagnóstico obvio era el equivocado:** no es una decisión de `admin_decisiones` ni del bloque del Ops Center. Es un ticket de
+la tabla `tickets`, y su frase se arma al dibujar (app/tickets/bandeja/mazo-reglas.ts → `leerTicket`). Y lo técnico («Claude
+vetado — lib/veto-claude.ts») ya iba plegado en «Detalle» desde el 22/10: lo medido en producción el 23/10 lo confirma. Lo que no
+se entendía era el resto:
+- «en su chat» sin decir cuál;
+- «→ Conectar su IA» y «Estado: el código ya está arreglado · lo decides tú», que no dicen qué se decide.
+- Los cuatro botones son redondos y sin rótulo: ↺ ✕ ↑ ✓.
+
+**Cómo quedó:**
+- **DÓNDE:** la bandeja suma a cada ticket el título y la clave del chat donde falló MaKo (`conChatDeLosTickets`: una lectura de
+  chart_sessions por `contexto.chat.hilo`). La tarjeta dice «En el chat de CRM «Ana»» o «En su chat «X» del Ops Center», con
+  `origenDeClave`, y vale también para los tickets viejos. Sabiendo cuál, la frase ya no repite «en su chat».
+- **POR QUÉ:** «No tiene su IA conectada (Claude o GPT), y MaKo no presta la suya»: la regla del 22/10, cada negocio usa su IA.
+  El texto de antes, «No tenía una IA», no decía de quién era lo que faltaba.
+- **QUÉ decidir:** una pregunta que se contesta con el ✓ (`queDecide`), por ejemplo «¿Le pedimos a Mauricio que conecte su IA?».
+- **El deshacer:** sale de la fila de botones y va arriba, a la franja de «1 de N», como un «Deshacer» sutil que aparece sólo con
+  algo para deshacer. ⌫ y Ctrl+Z siguen igual.
+
+**Trampa para lo que venga:** a lo que dice la tarjeta lo fija tests/ticketera-mazo.test.ts (F1, G1, H2); al dónde de la base,
+tests/ticketera-tarjeta-7.test.ts. MazoTickets.tsx lo toca también Chats de las tabs (el «Reportar a Soporte»), en otro lugar
+del archivo.
+
+**SIN HACER:** los tickets nuevos podrían guardar el chat al abrirse (en `registrarError` desde lib/mako-turno-app.ts:
+`s.titulo` y `entrada.desde.tab`), y así no habría que buscarlo después. Eso pasa por tres saneadores que tiran lo que no
+conocen: `sanearReporte`, `ticketDeError` y `sanearContexto`. Ojo: `chat.donde` acepta como mucho 40 caracteres de `[a-z0-9-]`.
+Lo que falla por WhatsApp no trae `hilo`, así que no dice dónde.
+
 ## Lo que quedó sin hacer
 
 | Qué | Dónde | Por qué |
 |---|---|---|
+| Ver el chat de Soporte y el botón en producción en el teléfono de Martín (Android) | app/m/tickets/SoporteM.tsx | Medido en el ws3 desde la computadora; el teléfono no se recorrió |
+| El cerco «es DATO» de lo que lee el Cerebro deja AFUERA el título, la ruta, la herramienta, el error y el navegador | scripts/tickets.ts (las líneas de «lo juntó el sistema») · lib/tickets-reglas.ts (`sanearContexto`: el navegador sin filtro de caracteres) | Viene de antes y vale para el formulario: el título y el navegador los escribe el cliente. El botón ya no pone texto suyo en `error`/`herramienta` y filtra su navegador; el resto es del área de la Ticketera (Ops Center la está tocando por el «DÓNDE») |
+| /api/errores manda la ruta con los tokens del camino | lib/errores-app-reglas.ts (`rutaSinDatos`) | /pagar/<token>, /compartido/<token> viajan enteros y la query conserva números de hasta 12 cifras (un teléfono). El botón usa `rutaSoporte` (lib/soporte-reporte.ts), que los tapa; /api/errores no |
+| Un canal propio para «Reportar a Soporte» | supabase/migrations (el `check` de `tickets.canal`) · lib/tickets-reglas.ts (`CANAL_PARA_EL_CLIENTE`) | Hoy sale por `formulario` y el cliente lo ve «Desde «Reportar problema»». Un canal nuevo es una migración |
+| Una captura de pantalla en el ticket del botón | app/_ui/ReportarASoporte.tsx | El reporte lleva el texto del aviso, no la pantalla: una captura traería los datos de los leads que se ven. Decisión de producto |
+| MaKo de Soporte con IA | lib/soporte-chat.ts | Son reglas. Con IA podría contestar una pregunta sin levantar un ticket, pero pagaría o usaría la del negocio (que puede ser lo que falla) |
 | Ver el mazo y la tabla en el teléfono de Martín (Android) | app/tickets/bandeja/MazoTickets.tsx | 22/10 (dos veces, la segunda con la tarjeta clara): medido en Chrome sin ventana a 375, 1024 y 1440 con los #5 y #6 reales y datos de prueba; la app no se levantó (`next dev` escribe en producción). El modo oscuro de la tarjeta clara no se midió |
 | Devolver un ticket que no es «algo nuevo» | scripts/tickets.ts (`reclasificar`) · lib/tickets-aviso.ts (`mensajeTicket`) | El Runner le pide al Cerebro `reclasificar <n> pedido` para TODO lo que no es un bug («es algo nuevo, o no se entiende»), y lo de configuración (el #5 y el #6) queda como «Pedido». Una casilla o un `devolver <n> --porque` que no lo meta en «pedido» es decisión de producto |
 | Qué hace el ✓ con un ticket de CONFIGURACIÓN | app/tickets/bandeja/mazo-reglas.ts (`accionesDe`) | El #5 y el #6 piden «Conectar su IA», y el ✓ dice «Hacer»: le firma al Cerebro «HACERLO (es algo nuevo)», que sirve si MaKo paga la IA y no si la conecta el negocio (ahí van ↑ Preguntar o «Responder» en el ticket entero). Hasta la revisión del 22/10 (noche) firmaba «ARREGLARLO (es un bug)», peor. Es una decisión de producto |
@@ -429,9 +518,7 @@ bug: es de la plataforma.
 | Lo que espera en el mazo y la pestaña se CIERRA | app/tickets/bandeja/MazoTickets.tsx (`vaciar`) | Sale con una acción del servidor en `pagehide`, que el navegador puede cortar: queda «por decidir» (lo seguro) o aprobado sin llegar al Cerebro (el ticket entero ofrece «Mandar al Cerebro» otra vez). No se midió |
 | El lint `set-state-in-effect` del ticket entero | app/tickets/bandeja/BandejaTickets.tsx (`Detalle`) | Viene de antes (está igual en `origin/main`); no lo mira ninguna guarda |
 | Avisar al cliente por OTRO canal cuando ninguno sale | lib/tickets-cierre.ts | Hoy un negocio sin push, hilo ni grupo queda «El aviso al cliente no salió» para siempre; ahora se VE, no se resuelve |
-| «Tus tickets» en el teléfono | app/m (no existe) | `rutaMovil('/tickets')` es null: en el teléfono se levanta y se consulta por el chat de MaKo (`mis_tickets`) |
 | Levantarlo por WhatsApp | lib/mako-doer-in.ts | Es del chat «MaKo en WhatsApp»: el registro ya acepta `actor: 'whatsapp:<teléfono>'` (lo atribuye a la persona del negocio con ese teléfono) y el aviso de vuelta pasa por `sanearSalida` |
-| Adjuntar una captura a mano | app/tickets | El contexto automático cubre el caso del chat |
 | Borrar el mazo de las preguntas de los chats | app/tickets/decisiones, app/admin/runway | Cuando ande el formulario de opciones dentro de cada chat (Ops Center). El mazo de los tickets (22/10) no depende de él: tiene sus reglas y su hoja |
 | Lo que no es IA de la fila del ws1 sigue siendo el entorno | lib/credenciales.ts (`wsDelEntorno`) | La IA ya se separó el 18/10 (Martín). Meta, Calendly, Fathom y las settings de plataforma en el ws1 quedan para otra decisión ([hallazgos-integraciones.md](hallazgos-integraciones.md)) |
 | El doer de WhatsApp cuenta las copias como keys del negocio | lib/mako-doer-in.ts (`contarKeysIA`) | Cuenta `clavesCargadas`, con las copias de la plataforma: en el ws1 nunca daría `sin_keys`. Leído en el código, no medido. Es del chat «MaKo en WhatsApp» |

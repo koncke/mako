@@ -42,6 +42,7 @@ import { idDeLinea, leerCita, leerReenvio, mensajeDeLinea, sinOcultos, type Marc
 import { CitaEnBurbuja, Deslizable, MarcasEnHora, ReaccionWA } from './MensajeWA';
 import type { PasoDelTurno } from '@/lib/centro-pasos';
 import { Trabajando } from './Trabajando';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** «10:52», con el reloj de Argentina. */
 const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -130,7 +131,7 @@ function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; 
         <MiFoto />
         <ReaccionWA id={id} marcas={wa.marcas} />
         {/* Un aviso se ve como aviso (17/10/2026: «los mensajes especiales se tienen que ver más llamativos»). */}
-        {mal && <p className="co-nota co-nota--mal co-aviso" role="alert"><Icon name="x" size={12} />{`${ROTULO[estado]}${w.motivo ? ` · ${w.motivo}` : ''}`}</p>}
+        {mal && <p className="co-nota co-nota--mal co-aviso" role="alert"><Icon name="x" size={12} />{`${ROTULO[estado]}${w.motivo ? ` · ${w.motivo}` : ''}`}<ReportarASoporte /></p>}
         {va && (
           <p className={`co-envio co-envio--${va.fase}${va.porQue ? ' co-envio--tarda' : ''}`} role="status">
             <span className="co-envio__paso">{va.texto}</span>
@@ -267,7 +268,7 @@ function Avance({ texto }: { texto: string }) {
 /** Lo de WhatsApp que el hilo necesita para dibujar: las marcas de Martín y la conversación (para encontrar lo citado). */
 type DelHiloWA = { marcas: MarcasChat | null | undefined; lineas: readonly LineaChat[] };
 
-function Linea({ l, pushes, ahora, quien, vivo, extras, wa }: { l: LineaChat; pushes: readonly PushP[]; ahora: number; quien: Quien; vivo?: VivoDelHilo; extras?: ExtrasDelHilo; wa: DelHiloWA }) {
+function LineaSinMemo({ l, pushes, ahora, quien, vivo, extras, wa }: { l: LineaChat; pushes: readonly PushP[]; ahora: number; quien: Quien; vivo?: VivoDelHilo; extras?: ExtrasDelHilo; wa: DelHiloWA }) {
   if (l.tipo === 'turno') return <Turno l={l} t={l.turno} quien={quien} vivo={vivo} extras={extras} wa={wa} />;
   if (l.tipo === 'pregunta') {
     // 22/10/2026, Martín: «Las decisiones deben salir como en Claude, un bloque arriba del chat con las opciones». La pregunta
@@ -334,6 +335,23 @@ function Linea({ l, pushes, ahora, quien, vivo, extras, wa }: { l: LineaChat; pu
     </>
   );
 }
+
+type PropsLinea = Parameters<typeof LineaSinMemo>[0];
+const minuto = (t: number) => Math.floor(t / 60_000);
+const mismosElementos = <T,>(a: readonly T[], b: readonly T[]) => a === b || (a.length === b.length && a.every((x, i) => x === b[i]));
+/**
+ * ¿Se puede NO volver a dibujar esta línea? (23/10/2026: un chat trabajando trababa 0,7–3,6 s en cada refresco). Con la línea
+ * estable (lib/centro-estable.ts), lo mismo de antes no se redibuja: sólo lo nuevo. Un TRABAJO en camino dice en qué está con
+ * el reloj y el Runner (`estadoDelEnvio`): ése sí, cada vez. Lo demás mira el reloj al minuto, y del chat, el chat.
+ */
+export function mismaLinea(a: PropsLinea, b: PropsLinea): boolean {
+  if (a.l !== b.l || a.quien !== b.quien || a.pushes !== b.pushes || a.wa.marcas !== b.wa.marcas || !mismosElementos(a.wa.lineas, b.wa.lineas)) return false;
+  const ea = a.extras, eb = b.extras;
+  if (ea?.tareas !== eb?.tareas || ea?.onFeedback !== eb?.onFeedback || ea?.yaVisto !== eb?.yaVisto || ea?.onYaVisto !== eb?.onYaVisto) return false;
+  if (a.l.tipo === 'trabajo') return a.ahora === b.ahora && a.vivo === b.vivo;
+  return minuto(a.ahora) === minuto(b.ahora) && a.vivo?.chat === b.vivo?.chat;
+}
+const Linea = memo(LineaSinMemo, mismaLinea);
 
 /** Las líneas de un chat, la más vieja arriba, con la píldora del día cada vez que cambia (WhatsApp). Sólo la
  *  conversación (`lineasDeConversacion`): los hitos van a la barra del Plan. */

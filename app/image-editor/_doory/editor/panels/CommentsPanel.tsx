@@ -14,6 +14,7 @@ import { setCommentMode, setCommentPins } from './commentsMode'
 import { type CommentActions, ensureCommenter, revealThread, useCommentActions, useCommentsController, useVisibleThreads } from './commentsUi'
 import styles from './Comments.module.css'
 import brand from './Brand.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 interface ThreadCardProps {
   thread: Thread
@@ -183,6 +184,7 @@ function Comments({ controller, close }: { controller: CommentsController; close
           <Button size="sm" variant="soft" onClick={() => void controller.refresh()} data-testid="comments-retry">
             {t.comments.retry}
           </Button>
+          <ReportarASoporte />
         </div>
       ) : null}
       {loading && !failed ? (

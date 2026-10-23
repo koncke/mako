@@ -15,6 +15,7 @@
 import { TextField, Field, Textarea, Select, Checkbox } from '@/app/_ui';
 import type { Parametro } from '@/lib/api-mako/tipos';
 import { rotuloDeParametro } from '@/lib/editor-acciones';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type OperacionPlana = {
   id: string;
@@ -113,7 +114,7 @@ export function Campo({ p, valor, error, disabled, onChange, paraCliente = false
     return (
       <div>
         <Checkbox checked={valor === true} onChange={onChange} label={rotulo} hint={hint || undefined} disabled={disabled} />
-        {error && <span className="mk-err" role="alert">{error}</span>}
+        {error && <span className="mk-err" role="alert">{error}<ReportarASoporte /></span>}
       </div>
     );
   }

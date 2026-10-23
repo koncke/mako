@@ -1244,6 +1244,11 @@ docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
   `crear_evento_agenda` dejó sin herramienta a «agenda un reel para el jueves a las 10» y a «crea una etiqueta
   llamada Caliente» con el piso nuevo de Ops Center. Se llama por lo que de verdad crea (`crear_pagina_reserva`), y la
   palabra común va en la descripción, donde pesa 1.
+- **Una acción que recibe sólo un id dice en su `resumen` QUÉ toca, y no propone lo que va a fallar** (23/10/2026,
+  docs/hallazgos-crm.md → «Vincular evento y Vincular cobro lentos»). `preparar` lee lo que el id nombra y lo pone en
+  el resumen («Sacar «Mentoría» de Ganado de «Ventas»»), nunca «ese producto»: el «sí» confirma lo que la persona lee.
+  Un id que no existe, o lo que va a chocar con una regla de la base (un producto cobra en un solo CRM), vuelve como
+  `error` desde `preparar`, no después del «sí». Lo que decide si un pago gana un trato lleva `plata: true`.
 
 `/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
@@ -3869,6 +3874,14 @@ MaKo pisó los nombres de 1438 contactos de Mauricio, sin historial para volver 
   caminos que leen ese mapeo tienen que cortar explícitamente, y el corte va con test.
 - Antes de escanear o conectar algo que sincroniza datos (contactos, historial, etiquetas),
   preguntá a qué workspace van a caer.
+
+# Todo aviso de error lleva «Reportar a Soporte»
+
+Martín (22/10/2026): *«en toda la app, SIEMPRE que sale un error, en donde sea, debe aparecer el botón de "Reportar a Soporte"»*.
+Un aviso de error nuevo es un elemento con `role="alert"` y su ÚLTIMO hijo es `<ReportarASoporte />` (app/_ui/ReportarASoporte.tsx;
+en una lista, `<li><ReportarASoporte /></li>`). No se dibuja si el aviso está vacío o su `role` no es «alert», así que va también
+en los avisos que están siempre montados. Donde el error no es un `role="alert"` (un toast con su propia librería), se usa
+`reportarASoporte({ error })`. Lo exige tests/reportar-a-soporte.test.ts; el porqué y las trampas, en docs/hallazgos-ui.md.
 
 # Un mensaje de error dice DE QUIÉN fue y QUÉ HACER, o no sirve
 

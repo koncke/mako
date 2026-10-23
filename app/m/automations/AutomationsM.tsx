@@ -34,6 +34,7 @@ import {
 } from '@/app/m/_ui';
 import { haptico } from '@/lib/haptico';
 import { avisoCorto, type AutomatizacionM, type BorradorM, type PasoM } from './reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const RUTA_PASOS = '/api/whatsapp/secuencias';
 const RUTA_SECUENCIAS = '/api/chat-agent/secuencias';
@@ -261,12 +262,12 @@ export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[];
             <Button variant="tertiary" size="lg" full onClick={() => setAActivar(null)}>Cancelar</Button>
           </PieM>
         ) : undefined}>
-        {aActivar && <p className="m-auto-error" role="alert">{aActivar.texto}</p>}
+        {aActivar && <p className="m-auto-error" role="alert">{aActivar.texto}<ReportarASoporte /></p>}
       </SheetM>
 
       <SheetM id="automatizacion" abierto={abierto} onCerrar={cerrar} titulo={a?.nombre ?? 'Automatización'} snap="alto"
         ocupado={!!ocupado} pie={pie} rotuloCerrar="Cerrar la automatización">
-        {error && <p className="m-auto-error" role="alert">{error}</p>}
+        {error && <p className="m-auto-error" role="alert">{error}<ReportarASoporte /></p>}
         {a && v && (
           <>
             {a.numeros && (

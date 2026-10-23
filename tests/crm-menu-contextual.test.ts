@@ -161,7 +161,8 @@ test('cada opción tiene su `case` en el tablero (ninguna se dibuja muerta)', ()
 test('el «⋯» de la columna abre EL MISMO menú que su clic derecho: una sola lista, sin subtítulos', () => {
   // «Ordena las opciones del desplegable de los 3 puntos... ponlas en secciones» (Martín, 22/10/2026). Eran dos listas
   // (un `Dropdown` en la cabecera y `opcionesCrm` en el clic derecho) que se mantenían iguales a mano.
-  assert.match(BOARD, /<button type="button" className="mk-col-mas" aria-label=\{`Opciones de la etapa \$\{c\.label\}`\} aria-haspopup="menu"\s+title="Opciones de la etapa" onClick=\{\(e\) => abrirMenuDeColumna\(e\.currentTarget\)\}/);
+  // Con el aviso de lo que le falta (22/10/2026: el evento de una de reunión, el cobro de Ganado) en el nombre y el título.
+  assert.match(BOARD, /<button type="button" className="mk-col-mas" aria-haspopup="menu" data-falta=\{falta \?\? undefined\}\s+aria-label=\{`Opciones de la etapa \$\{c\.label\}\$\{falta \? ` · \$\{AVISO_VINCULO\[falta\]\}` : ''\}`\}\s+title=\{falta \? AVISO_VINCULO\[falta\] : 'Opciones de la etapa'\} onClick=\{\(e\) => abrirMenuDeColumna\(e\.currentTarget\)\}/);
   const abrir = BOARD.slice(BOARD.indexOf('const abrirMenuDeColumna = '), BOARD.indexOf('const cambiarTipoColumna = '));
   assert.match(abrir, /const bajo = contextoBajo\(el\);/, 'el «⋯» no mira la MISMA columna que el clic derecho');
   assert.match(abrir, /setMenuCtx\(\{ n: aperturasMenu\.current, x: r\.left, y: r\.bottom \+ 4, \.\.\.bajo \}\);/);

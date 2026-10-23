@@ -10,6 +10,7 @@ import { t } from '../strings'
 import { CANVAS_SIDE_PX, canvasSideRange, clampTo, rangeHint } from '../toolbar/limits'
 import ed from '../chrome/ed.module.css'
 import styles from './Floating.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const { min: MIN_PX, max: MAX_DIMENSION_PX } = CANVAS_SIDE_PX
 /** Sizes offered right in the popover. */
@@ -146,6 +147,7 @@ export function SizePanel({ close, pageId, defaultScope, showFlip = false }: Siz
       {touched && !valid ? (
         <p className={styles.error} role="alert">
           {t.canvasSize.invalid(MIN_PX, MAX_DIMENSION_PX)}
+          <ReportarASoporte />
         </p>
       ) : null}
       {multiple ? (

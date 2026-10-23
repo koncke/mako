@@ -4857,6 +4857,48 @@ medias y tres bajas. Lo no obvio:
   saltear la ilegible o fallar cerrado daban lo mismo («sí»). Con la copia de la SEGUNDA cuenta (legible) se distinguen:
   saltear la da por copia («no»). Un caso de falla cerrada se prueba donde el error de saltear cambia la respuesta.
 
+## Elegir con qué IA corre UN chat: hoy no se puede, ni por pedido ni por chat (23/10/2026, feedback 8b, investigado)
+
+**El pedido (Martín):** que el «+» de la caja del Ops Center deje elegir el modelo y la cuenta de ese chat (Claude o GPT, y cuál).
+Por defecto, que decida el chat jefe.
+
+**Cómo está hoy** (lo leyó una investigación del Ops Center, sin tocar nada):
+- **No hay por dónde pasarlo.** Ni POST /api/mako/chat (el body de la línea ~256), ni `EntradaTurnoApp`
+  (lib/mako-turno-app.ts) tienen un campo de IA. Todo sale de la configuración del negocio.
+- **La computadora:** `pcDe(ws, actor)`, sólo la de quien escribe, y `elegirPc` si tiene varias. El modelo es el de `ia_pc.modelo`
+  (MODELOS_PC). Sólo corre Claude: la cuenta `chatgpt` de una PC se informa, pero no contesta.
+- **Las claves:** `chatClaudeTools(..., { feature: 'mako-doer', soloSuIA, sinFallbackClaude })`. Con «sólo su IA» va OpenAI
+  (`gpt-4o-mini`, sin elección por negocio) y después su Claude, con `permisoDeLaClaveDelNegocio`, que incluye el crédito
+  asignado. El modelo de su Claude es `ia.su_claude.modelo` (IA5).
+- **`opts.model` NO sirve para esto:** pasa por el control de gasto de la plataforma, no por la clave del negocio.
+- **Ya hay piezas:** `soloSuClaude` (directo a su clave de Claude) y `soloSuIA`. Falta un `soloSuOpenAI` que no caiga a Claude.
+- **Por chat no se guarda nada:** `chart_sessions.contexto` se crea vacío y nadie lo lee.
+- **Las opciones no se pueden leer del navegador:** `/api/ia-pc/estado` le esconde las claves a quien no es admin, y muestra
+  las computadoras de todos aunque el turno sólo pueda usar la propia. Las opciones tienen que salir de la MISMA función que valida.
+
+**El contrato propuesto (a IA del cliente, 23/10):**
+- `ia?: { cuenta: 'pc' | 'anthropic' | 'openai'; modelo? } | null` en el body, con null = Automático.
+- La ruta valida con `cuentasDeIA(persona)` antes de `turnoApp`; en el ws del super admin se ignora y nunca se sale de D6b.
+- `turnoApp` lo respeta: la computadora con su modelo sin caer a las claves; su Claude con `soloSuClaude` y el modelo;
+  OpenAI con `soloSuOpenAI`.
+- `GET ?suIA=1` devuelve también las cuentas que se pueden elegir.
+
+**Acordado y repartido (23/10):**
+- **El contrato:** lib/chat-ia-reglas.ts (`EleccionIA`, `sanearIA`, `CuentaDeIA`), en ea27aab61. Puro y sin importar el veto,
+  porque el selector corre en el navegador; el test exige que los modelos de su Claude sean los de `MODELO_SU_CLAUDE`.
+- **La caja (Ops Center):** está en e316a1918. `SelectoresDelCliente` va adentro del «+». La elección es por chat, y un chat nuevo
+  se la lleva a `s<id>` al crearse. Viaja como `ia` en el JSON y en el multipart (archivos y nota de voz), sólo si se eligió algo.
+- **El servidor (IA del cliente):** la ruta (validación y `?suIA=1` con `cuentasDeIA`), `turnoApp`, anthropic.ts y ai-cheap.ts.
+
+**Regla, y cómo se cumple:** el selector no sale antes que el servidor que lo respeta. Sólo se dibuja con las `cuentas` que manda
+`?suIA=1`, y hoy la ruta no las manda. La caja puede entrar antes y se enciende sola cuando llegue la parte del servidor.
+
+**Trampa:** la nota de voz y los archivos van por OTRO camino (`postArchivos`, multipart) que el texto (`postLargo`, JSON). Un campo
+nuevo del turno tiene que ir en los dos, o la nota de voz corre con la IA de siempre.
+
+**SIN HACER:** la parte del servidor; que lo elegido sobreviva a recargar (por ahora vive en la pestaña); y OpenAI con elección de
+modelo.
+
 ## Lo que gastó la clave del negocio: el «⚠» no dice de quién es la fila (D3 del Ops Center, 22/10/2026)
 
 **El diagnóstico obvio era el equivocado.** Al medir en producción el «Gastó US$ … en los últimos 30 días» de «Tus cuentas de

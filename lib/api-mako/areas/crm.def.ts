@@ -1189,6 +1189,51 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'el tipo de la etapa en el pipeline del funnel (y su banda: Nutrición o el recorrido)',
   },
+  // ── «Vincular cobro» por MaKo (22/10/2026) ────────────────────────────────────────
+  // `plata: true` en las tres que escriben (revisión del 23/10/2026): deciden si un pago gana el trato y arma su plan de
+  // pagos. Por WhatsApp, un «ok, después lo veo» no las confirma: sólo un «sí» (tests/confirmacion-terceros.test.ts).
+  // Martín: «Que MaKo pueda hacer todo eso y que quede en la API de MaKo... Así el chat de MaKo crea, edita y vincula
+  // eventos y cobros sin problemas». Las MISMAS funciones del pop-up (lib/cobro-etapa-server.ts, de Cobros); crear o
+  // editar el producto es `guardar_producto`. Al final del área, antes de `armar_tab_ficha` (AGENTS.md: una op nueva no
+  // puede dejar afuera a las de antes en el presupuesto), y sin las palabras que el clasificador suma a todo un tipo de pedido.
+  {
+    id: 'ver_cobro_etapa', area: 'crm', tipo: 'lectura',
+    titulo: 'Qué cobra Ganado en un CRM',
+    descripcion: 'Los productos vinculados a Ganado de un CRM (quien paga uno pasa a Ganado ahí, con su plan de pagos), por qué cuentas de Stripe o Mercado Pago cobra cada uno, las cuentas conectadas y los productos del catálogo que se pueden sumar. Paso previo a vincular_cobro_etapa. Solo el administrador.',
+    parametros: [{ nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+  },
+  {
+    id: 'vincular_cobro_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', plata: true,
+    titulo: 'Vincular un producto a Ganado',
+    descripcion: 'PROPONE vincular un producto del catálogo a Ganado de un CRM (queda pendiente hasta el «sí»): quien lo pague por esas cuentas pasa a Ganado ahí, con su plan de pagos. Un producto cobra en un solo CRM. Producto y cuentas salen de ver_cobro_etapa. Solo el administrador.',
+    parametros: [
+      { nombre: 'productoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el producto (de ver_cobro_etapa o listar_productos).' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal del negocio.' },
+      { nombre: 'cuentas', tipo: 'string[]', max: 20, descripcion: 'las cuentas por las que cobra (sus id de ver_cobro_etapa, como stripe:principal). Sin ellas, todas las conectadas.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'guarda el vínculo del producto con Ganado de ese CRM (cobro_etapa_vinculos): desde ahí, quien lo pague por esas cuentas pasa a Ganado con su plan de pagos',
+  },
+  {
+    id: 'cuentas_cobro_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', plata: true,
+    titulo: 'Cuentas de cobro en Ganado',
+    descripcion: 'PROPONE fijar por qué cuentas de Stripe o Mercado Pago cobra un producto ya vinculado a Ganado (queda pendiente hasta el «sí»). La lista que se pasa es la NUEVA y entera; vacía no se acepta (eso es desvincular_cobro_etapa). El vínculo sale de ver_cobro_etapa. Solo el administrador.',
+    parametros: [
+      { nombre: 'vinculoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el vínculo (de ver_cobro_etapa).' },
+      { nombre: 'cuentas', tipo: 'string[]', obligatorio: true, max: 20, descripcion: 'las cuentas por las que cobra desde ahora (sus id de ver_cobro_etapa).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'fija las cuentas del vínculo (cobro_etapa_vinculos.cuentas): un pago por una cuenta que salió ya no pasa a Ganado ahí',
+  },
+  {
+    id: 'desvincular_cobro_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', plata: true,
+    titulo: 'Quitar un producto de Ganado',
+    descripcion: 'PROPONE sacar un producto de Ganado de un CRM (queda pendiente hasta el «sí»): sus pagos ya no pasan a Ganado ahí. Lo ya cobrado queda igual. El vínculo sale de ver_cobro_etapa. Solo el administrador.',
+    parametros: [{ nombre: 'vinculoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el vínculo (de ver_cobro_etapa).' }],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'borra el vínculo del producto con Ganado (cobro_etapa_vinculos); los cobros y planes ya hechos no se tocan',
+  },
   // ── «¿Qué vas a crear hoy?» de una tab de la ficha (16/10/2026) ──────────────────
   // ⚠️ AL FINAL DE LA LISTA A PROPÓSITO: con un mensaje que no la nombra, el presupuesto del turno de WhatsApp
   //    (12.000 caracteres, lib/doer-herramientas.ts) corta por orden de declaración, y declarada antes dejaba

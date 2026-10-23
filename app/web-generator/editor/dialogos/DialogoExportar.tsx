@@ -32,6 +32,7 @@ import { exportarPng } from '@/lib/editor-landing/exportar-png';
 import { exportarPptx, fuentesDelTema } from '@/lib/editor-landing/exportar-pptx';
 import { useEditorLanding } from '../contexto';
 import { EstilosGmp, Icono, ModalGma, SelectorGma, useFijo } from './piezas-gma';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Formato = 'pdf' | 'pptx' | 'png' | 'html';
 type TipoRango = RangoExportar['tipo'];
@@ -138,7 +139,7 @@ export function CuerpoExportar() {
           );
         })}
       </div>
-      {error && <p className="gmp-error" role="alert" style={{ marginTop: 10 }}>{error}</p>}
+      {error && <p className="gmp-error" role="alert" style={{ marginTop: 10 }}>{error}<ReportarASoporte /></p>}
       <div className="gmp-fuentes">
         <p>Instalar fuentes</p>
         <div>

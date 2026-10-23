@@ -31,6 +31,7 @@ import {
   COLOR_CAPA, NOMBRE_CAPA, TIPOS_RAPIDO, colorDe, duracionEntre, lineaDeFecha, minutosDeHora as minutos, nombreCalendarioDe, rotuloDeIr, vaAGoogle,
   type BorradorNuevo, type TipoRapido,
 } from './comun';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 // Lo que también usa el teléfono vive en ./comun (puro) desde el 15/10/2026; acá se re-exporta para quien lo
 // importaba de este archivo.
@@ -239,7 +240,7 @@ export function RapidoNuevo({ ancla, inicial, editables, guardando, error, onCer
           <span>{b.tipo === 'evento' ? 'MaKo · Bloques de trabajo' : `MaKo · ${NOMBRE_CAPA[b.tipo === 'publicacion' ? 'publicaciones' : b.tipo === 'llamada' ? 'llamadas' : 'bloques']}`}</span>
         )}
       </Fila>
-      {error && <div role="alert" style={{ padding: '4px 16px 0 64px', fontSize: 13, color: 'var(--bad)' }}>{error}</div>}
+      {error && <div role="alert" style={{ padding: '4px 16px 0 64px', fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
       <div className="gc-pie">
         <button type="button" className="gc-boton-texto" onClick={() => onMas({ ...b, calendarioId: aGoogle ? (b.calendarioId ?? editables[0].id) : null })}>Más opciones</button>
         <button type="button" className="gc-boton-azul" disabled={guardando} onClick={enviar}>{guardando ? 'Guardando…' : 'Guardar'}</button>
@@ -344,7 +345,7 @@ export function EventoGoogleModal({ inicial, editables, guardando, error, onCerr
             Avisar el cambio a {inicial.invitados === 1 ? 'la persona invitada' : `las ${inicial.invitados} personas invitadas`}
           </label>
         )}
-        {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}</div>}
+        {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
       </div>
     </Modal>
   );

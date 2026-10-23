@@ -44,6 +44,7 @@ import { PLANTILLAS_FICHA, type PlantillaId } from '@/lib/ficha/plantillas';
 import { plantillaTabPorId, sugeridasDeTab, type PlantillaTab } from '@/lib/ficha/plantillas-tab';
 import { TOPE_PEDIDO_TAB } from '@/lib/ficha/ia';
 import { EJEMPLOS_HOJA, EJEMPLOS_TAB, EN_BLANCO_HOJA, esLaDeHoy, galeriaDeLugar, miniaturaDe, rotuloUsar, type VistaGaleria } from './galeria';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** El tope de la ruta (`maxDuration = 100`) + margen: el `fetch` no puede esperar para siempre. */
 const TOPE_CLIENTE_MS = 105_000;
@@ -189,6 +190,7 @@ export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onElegir, on
           {error && (
             <p role="alert" style={S.error}>
               {error.texto}{error.link && <> <LinkIntegracion href={error.link} style={S.link}>Abrir</LinkIntegracion></>}
+              <ReportarASoporte />
             </p>
           )}
         </div>

@@ -31,7 +31,7 @@ import {
   setMeetingManual, setPipelineStage, duplicadosDeLead, getTrackingEvents, getVslEngagement,
   contarVisitasLanding, esRequisitosFaltantes, type Lead, type FathomLink,
 } from '@/lib/leads';
-import { getFunnelDefault, getFunnelDe } from '@/lib/funnels';
+import { getFunnelDefault, getFunnelDe, listarFunnels } from '@/lib/funnels';
 import { salidasDeEtapa, stageMetaOpt, ENTRADAS, MAKO_SETTER, type EntradaId, type Stage } from '@/lib/pipeline';
 // «Nuevo CRM» por su tipo (14/10/2026): el catálogo puro y el alta que comparte con el modal.
 import { TIPOS_CRM, TIPO_CRM_OTRO, ENTRADAS_OFRECIDAS, siembraDeCrm, tipoCrmPorId } from '@/lib/pipeline';
@@ -48,7 +48,12 @@ import { avisoDeConservadas, avisoMonedaPorOmision, avisoPlanUniforme, cobroManu
 import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
 import { bloqueEstadoDeCuenta, comprobanteDelPedido, notaEnPantalla } from '@/lib/pagos-bloque';
-import { listarCobros } from '@/lib/cobros';
+import { listarCobros, pasarelasConectadas } from '@/lib/cobros';
+import { cuentasDePasarelas, cuentasValidas } from '@/lib/cobro-etapa';
+import {
+  cambiarCuentas as cambiarCuentasCobro, desvincular as desvincularCobro, ganadoDelCrm, productosParaCobrar, vincular as vincularCobro,
+  vinculoPorId as vinculoCobroPorId, vinculosDelNegocio,
+} from '@/lib/cobro-etapa-server';
 import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
@@ -89,7 +94,7 @@ import {
   crearEventoDeAgenda, editarEventoDeAgenda,
 } from '@/lib/agenda-evento-etapa-server';
 import { datosDeEvento, mismoIdentificador } from '@/lib/agenda-evento-etapa';
-import { puedeQuitar, aQuienPromover, etapaDeEntrada, type ProductoDelLead } from '@/lib/lead-funnel-reglas';
+import { puedeQuitar, aQuienPromover, etapaDeEntrada, nombreVisible, type ProductoDelLead } from '@/lib/lead-funnel-reglas';
 import {
   listarEtiquetas, etiquetaPorId, etiquetasDeLead, conteoPorEtiqueta, crearEtiqueta, editarEtiqueta,
   archivarEtiqueta, usoDeEtiqueta, ponerEtiqueta, sacarEtiqueta, catalogoWhatsApp, esEtiquetaError,
@@ -398,6 +403,33 @@ async function etapasDelCrm(input: Record<string, unknown>): Promise<SalidaLectu
 }
 
 // ── los runners ───────────────────────────────────────────────────────────────
+
+// ── «Vincular cobro» por MaKo (22/10/2026) ────────────────────────────────────────
+/** La etapa que cobra: Ganado (una terminal, la misma key en todos los CRM). */
+const ETAPA_COBRO = 'ganado';
+/** Las cuentas de Stripe y Mercado Pago conectadas del negocio, como las arma el pop-up. */
+const cuentasDelNegocio = async (ws: number) => cuentasDePasarelas(await pasarelasConectadas(ws));
+/** El CRM del pedido (sin id, el principal), con su nombre. null = no es de este negocio. */
+async function crmDeCobro(id: unknown): Promise<{ id: number; nombre: string } | null> {
+  const funnels = await listarFunnels();
+  const f = id == null || id === '' ? funnels.find((x) => x.esDefault) : funnels.find((x) => x.id === Number(id));
+  return f ? { id: f.id, nombre: nombreVisible(f) } : null;
+}
+
+/** Un vínculo de cobro por id, con el producto y el CRM por su nombre: lo que se confirma dice QUÉ se toca. */
+async function vinculoDeCobro(id: unknown): Promise<{ id: number; producto: string; crm: string } | { error: string }> {
+  const n = Number(id);
+  if (!Number.isInteger(n) || n < 1) return { error: 'Falta el vínculo (vinculoId, de ver_cobro_etapa).' };
+  try {
+    const v = await vinculoCobroPorId(n);
+    if (!v) return { error: 'Ese vínculo ya no existe (ver_cobro_etapa).' };
+    const [productos, funnels] = await Promise.all([productosParaCobrar(), listarFunnels()]);
+    const f = funnels.find((x) => x.id === v.funnelId);
+    return { id: v.id, producto: productos.find((p) => p.id === v.productoId)?.nombre ?? `producto #${v.productoId}`, crm: f ? nombreVisible(f) : `CRM #${v.funnelId}` };
+  } catch (e) {
+    return { error: `No pude leer el vínculo: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
 
 export const RUNNERS: Runners = {
   // Lecturas heredadas de MAKO_TOOLS → runMakoTool con el MISMO nombre.
@@ -1003,6 +1035,94 @@ export const RUNNERS: Runners = {
     }),
   },
 
+  // «Vincular cobro» por MaKo (22/10/2026): las MISMAS funciones del pop-up (lib/cobro-etapa-server.ts, de Cobros).
+  ver_cobro_etapa: {
+    leer: async (input, ctx) => {
+      const crm = await crmDeCobro(input.embudoId);
+      if (!crm) return fallo('No encontré ese CRM.');
+      try {
+        const [cuentas, productos, todos, funnels] = await Promise.all([cuentasDelNegocio(ctx.ws), productosParaCobrar(), vinculosDelNegocio(), listarFunnels()]);
+        const nombre = (id: number) => productos.find((p) => p.id === id)?.nombre ?? `#${id}`;
+        const vinculos = todos.filter((v) => v.funnelId === crm.id && v.etapa === ETAPA_COBRO);
+        // Un producto cobra en UN solo CRM (el índice único): el que ya cobra en otro no se ofrece; se dice dónde está.
+        const enOtro = todos.filter((v) => v.funnelId !== crm.id);
+        const crmDe = (id: number) => { const f = funnels.find((x) => x.id === id); return f ? nombreVisible(f) : `CRM #${id}`; };
+        return json({
+          crm: { embudoId: crm.id, nombre: crm.nombre },
+          cuentas: cuentas.map((c) => ({ id: c.id, nombre: c.nombre, proveedor: c.proveedor })),
+          vinculados: vinculos.map((v) => ({ vinculoId: v.id, productoId: v.productoId, producto: nombre(v.productoId), cuentas: v.cuentas })),
+          catalogo: productos.filter((p) => !todos.some((v) => v.productoId === p.id)).map((p) => ({ productoId: p.id, nombre: p.nombre, tipo: p.tipo, monto_usd: p.montoUsd })),
+          ...(enOtro.length ? { cobran_en_otro_crm: enOtro.map((v) => ({ productoId: v.productoId, producto: nombre(v.productoId), crm: crmDe(v.funnelId) })) } : {}),
+          ...(cuentas.length ? {} : { nota: 'No hay Stripe ni Mercado Pago conectado: sin cuentas no hay con qué cobrar.' }),
+        });
+      } catch (e) {
+        return fallo(`No pude leer lo que cobra Ganado: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    },
+  },
+  vincular_cobro_etapa: {
+    preparar: async (input, ctx) => {
+      const crm = await crmDeCobro(input.embudoId);
+      if (!crm) return { error: 'No encontré ese CRM.' };
+      const [cuentas, productos, todos, ganado] = await Promise.all([cuentasDelNegocio(ctx.ws), productosParaCobrar(), vinculosDelNegocio(), ganadoDelCrm(crm.id)]);
+      if (!ganado) return { error: `«${crm.nombre}» no tiene la etapa Ganado.` };
+      if (!cuentas.length) return { error: 'No hay Stripe ni Mercado Pago conectado: conéctalos en Integraciones primero.' };
+      const p = productos.find((x) => x.id === Number(input.productoId));
+      if (!p) return { error: 'Ese producto no está activo en el catálogo (listar_productos).' };
+      // Un producto cobra en UN solo CRM: lo que va a chocar con el índice único no llega al «sí» (revisión del 23/10/2026).
+      const ya = todos.find((v) => v.productoId === p.id);
+      if (ya?.funnelId === crm.id) return { error: `«${p.nombre}» ya cobra en Ganado de «${crm.nombre}».`, yaEstaba: true };
+      if (ya) {
+        const otro = (await listarFunnels()).find((f) => f.id === ya.funnelId);
+        return { error: `«${p.nombre}» ya cobra en «${otro ? nombreVisible(otro) : `CRM #${ya.funnelId}`}»: quítalo de ahí primero (desvincular_cobro_etapa).` };
+      }
+      // Lo mismo que frena `vincular`, pero ANTES del «sí»: no se propone lo que va a fallar.
+      if (p.montoUsd == null) return { error: `«${p.nombre}» no tiene precio: ponle uno primero (guardar_producto).` };
+      const pedidas = Array.isArray(input.cuentas) && input.cuentas.length ? cuentasValidas(input.cuentas, cuentas) : cuentas.map((c) => c.id);
+      if (!pedidas.length) return { error: `Esas cuentas no están conectadas. Las conectadas: ${cuentas.map((c) => c.id).join(', ')}.` };
+      const por = pedidas.map((id) => cuentas.find((c) => c.id === id)?.nombre ?? id).join(' y ');
+      return {
+        payload: { embudoId: crm.id, productoId: p.id, cuentas: pedidas },
+        resumen: `Vincular «${p.nombre}» a Ganado de «${crm.nombre}»: quien lo pague por ${por} pasa a Ganado ahí, con su plan de pagos.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('vincular el producto', async () => {
+      const r = await vincularCobro({ funnelId: payload.embudoId, etapa: ETAPA_COBRO, productoId: payload.productoId, cuentas: payload.cuentas }, await cuentasDelNegocio(ctx.ws), autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: 'Listo: el producto cobra en Ganado.', datos: { vinculoId: r.vinculo.id } };
+    }),
+  },
+  cuentas_cobro_etapa: {
+    preparar: async (input, ctx) => {
+      const v = await vinculoDeCobro(input.vinculoId);
+      if ('error' in v) return v;
+      const cuentas = await cuentasDelNegocio(ctx.ws);
+      const pedidas = cuentasValidas(Array.isArray(input.cuentas) ? input.cuentas : [], cuentas);
+      if (!pedidas.length) return { error: 'Deja al menos una cuenta conectada; para que no cobre más, desvincular_cobro_etapa.' };
+      const por = pedidas.map((id) => cuentas.find((c) => c.id === id)?.nombre ?? id).join(' y ');
+      return { payload: { vinculoId: v.id, cuentas: pedidas }, resumen: `«${v.producto}» cobra en Ganado de «${v.crm}» desde ahora por ${por}.` };
+    },
+    ejecutar: (payload, ctx) => seguro('cambiar las cuentas', async () => {
+      const r = await cambiarCuentasCobro(payload.vinculoId, payload.cuentas, await cuentasDelNegocio(ctx.ws));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: 'Listo: cambié por qué cuentas cobra.', datos: { vinculoId: r.vinculo.id, cuentas: r.vinculo.cuentas } };
+    }),
+  },
+  desvincular_cobro_etapa: {
+    preparar: async (input) => {
+      const v = await vinculoDeCobro(input.vinculoId);
+      if ('error' in v) return v;
+      return {
+        payload: { vinculoId: v.id },
+        resumen: `Sacar «${v.producto}» de Ganado de «${v.crm}»: sus pagos dejan de mover leads ahí. Lo ya cobrado no cambia.`,
+      };
+    },
+    ejecutar: (payload) => seguro('quitar el producto', async () => {
+      const r = await desvincularCobro(payload.vinculoId);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: 'Listo: ese producto ya no cobra en Ganado.', datos: { deshacer: r.deshacer } };
+    }),
+  },
   // «¿Qué vas a crear hoy?» de una tab (16/10/2026): MaKo la arma ANTES de proponerla, como la pantalla
   // (app/api/crm/ficha/armar) y como crear_hoja_dashboard con pedido. Lo que se confirma es lo que se guarda.
   armar_tab_ficha: {

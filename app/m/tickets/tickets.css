@@ -1,76 +1,15 @@
 /* =============================================================================
-   /m/tickets — «Reportar problema» en el teléfono. Clases `.m-tickets-*`, sólo tokens de app/globals.css.
-   Las burbujas y la caja de responder copian las del chat de un lead (app/m/crm/crm.css), con lo tuyo a la derecha.
+   /m/tickets — la Ticketera del cliente en el teléfono, como un chat (23/10/2026). Clases `.m-soporte-*`; el hilo y la caja
+   son los del Ops Center en el teléfono (centro.css, app/m/operaciones/operaciones.css), lo propio de Soporte está en
+   app/tickets/soporte/soporte.css.
    ============================================================================= */
 
-/* ── La hoja para levantar uno ─────────────────────────────────────────────── */
-.m-tickets-tipos { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
-.m-tickets-chip {
-  min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border-strong);
-  background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; cursor: pointer;
-  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-}
-.m-tickets-chip[aria-checked='true'] { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-strong, var(--primary)); font-weight: 600; }
-.m-tickets-chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-[data-m] .m-tickets-pregunta { display: block; margin: 0 4px 6px; font-size: var(--fs-md); font-weight: 600; color: var(--ink); }
-.m-tickets-texto {
-  box-sizing: border-box; width: 100%; min-height: 160px; padding: 12px 14px; border-radius: var(--r-md);
-  border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
-  font: inherit; font-size: 16px; line-height: 1.5; resize: none;
-}
-.m-tickets-texto:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.m-tickets-texto::placeholder { color: var(--faint); }
-
-/* Lo que no salió: el punto rojo y el texto en TINTA (el rojo como texto no pasa AA a este tamaño). */
-[data-m] .m-tickets-error { display: flex; gap: 8px; align-items: baseline; margin: 8px 4px 0; font-size: var(--fs-sm); line-height: 1.4; color: var(--ink); }
-[data-m] .m-tickets-error::before { content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); transform: translateY(-1px); }
-
-/* ── Un ticket ─────────────────────────────────────────────────────────────── */
-.m-tickets-cab { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 4px 4px 14px; border-bottom: 1px solid var(--border); }
-[data-m] .m-tickets-meta { margin: 0; font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }
-[data-m] .m-tickets-titulo { margin: 0; font-size: 20px; font-weight: 600; line-height: 1.3; color: var(--ink); overflow-wrap: anywhere; }
-
-.m-tickets-hilo { margin: 0; padding: 14px 0 24px; list-style: none; display: flex; flex-direction: column; gap: 10px; }
-.m-tickets-hilo--composer { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
-.m-tickets-burbuja {
-  max-width: 85%; padding: 8px 13px 10px; border-radius: 14px;
-  font-size: var(--fs-md); line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere;
-}
-.m-tickets-burbuja--equipo { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-top-left-radius: 4px; }
-.m-tickets-burbuja--tu { align-self: flex-end; background: var(--primary-bg); border-top-right-radius: 4px; }
-.m-tickets-burbuja__quien { display: block; margin-bottom: 2px; font-size: 12.5px; color: var(--dim); white-space: normal; }
-[data-m] .m-tickets-cerrado { margin: 4px 4px 24px; font-size: var(--fs-sm); line-height: 1.45; color: var(--dim); }
-
-/* La caja de responder: pegada abajo de todo; su fondo cubre también el área segura. */
-.m-tickets-composer {
+/* La conversación de un ticket (/m/tickets/<id>): el hilo en la página y la caja pegada abajo de todo, con su fondo hasta el
+   área segura (la de /m/chats/<clave>). */
+[data-m] .m-soporte-hilo { padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)); }
+.m-soporte-caja {
   position: fixed; z-index: 30; left: 0; right: 0; bottom: 0;
   padding: 8px calc(var(--m-gutter) + env(safe-area-inset-right, 0px)) calc(8px + var(--m-abajo, env(safe-area-inset-bottom, 0px))) calc(var(--m-gutter) + env(safe-area-inset-left, 0px));
   background: var(--bg); border-top: 1px solid var(--border);
 }
-.m-tickets-composer > * { max-width: 560px; margin-left: auto; margin-right: auto; }
-.m-tickets-composer .m-tickets-error { margin: 0 0 8px; }
-.m-tickets-composer__fila { display: flex; align-items: flex-end; gap: 8px; }
-.m-tickets-composer textarea {
-  flex: 1; min-width: 0; box-sizing: border-box; min-height: 44px; max-height: 140px;
-  padding: 10px 16px; border-radius: 22px; border: 1px solid var(--border-strong);
-  background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; line-height: 1.4; resize: none;
-}
-.m-tickets-composer textarea:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.m-tickets-enviar {
-  flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0;
-  border: 0; border-radius: 999px; background: var(--primary); color: var(--on-primary);
-  transition: transform var(--dur-press) var(--ease-out), opacity var(--dur-press) ease;
-  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-}
-.m-tickets-enviar:active:not(:disabled) { transform: scale(.94); }
-.m-tickets-enviar:disabled { opacity: .45; }
-.m-tickets-enviar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.m-tickets-spin { width: 18px; height: 18px; color: var(--on-primary); }
-@media (prefers-reduced-motion: reduce) { .m-tickets-enviar { transition: none; } }
-
-/* El historial del ticket (22/10/2026): cada cambio de estado con su fecha, como en la computadora (app/tickets/tickets.css). */
-.tickets-historial { list-style: none; margin: 0 16px 12px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
-.tickets-historial__paso { display: inline-flex; align-items: baseline; gap: 6px; font-size: 13px; color: var(--dim); }
-.tickets-historial__paso::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); align-self: center; }
-.tickets-historial__paso[data-paso='resuelto']::before, .tickets-historial__paso[data-paso='arreglado']::before { background: var(--good); }
-.tickets-historial__rotulo { color: var(--ink); font-weight: 600; }
+.m-soporte-caja > * { max-width: 560px; margin-left: auto; margin-right: auto; }

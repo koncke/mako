@@ -31,6 +31,7 @@ import {
   mmss, nombreDeLlamada, partirResumen, postearTarea, promedio, puntajeEnVivo, reproductorFathom, esLinkHttp,
   type LineaTranscript, type LlamadaFicha,
 } from '@/lib/llamadas-modelo';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export const CSS_FICHA = `
 .fl-boton { font: inherit; font-size: 12.5px; font-weight: 600; color: var(--primary); background: none; border: none; padding: 0; cursor: pointer; text-align: left; }
@@ -545,7 +546,7 @@ function RevisarForm({ llamada, ocupado, onOcupado, onListo, onVolver }: {
       <textarea value={nota} onChange={(e) => setNota(e.target.value)} disabled={ocupado != null} rows={3} aria-label="Qué viste distinto"
         placeholder="¿Qué viste distinto a lo que dijo la IA? Queda en el historial; para re-evaluar con MaKo es obligatorio."
         style={{ width: '100%', boxSizing: 'border-box', padding: '9px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface)', fontSize: 13, color: 'var(--ink)', fontFamily: 'inherit', resize: 'vertical' }} />
-      {error && <div role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}</div>}
+      {error && <div role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <Button size="sm" variant="primary" loading={ocupado === 'manual'} disabled={ocupado != null && ocupado !== 'manual'} onClick={() => void mandar('manual')}>Guardar cambios</Button>
         <Button size="sm" variant="mako" loading={ocupado === 'mako'} disabled={ocupado != null && ocupado !== 'mako'} onClick={() => void mandar('mako')}>✦ Re-evaluar con MaKo</Button>
@@ -664,6 +665,7 @@ export function CuerpoFichaLlamada({ f }: { f: EstadoFicha }) {
       {(f.aviso || (f.error && !f.cargando)) && (
         <div role="alert" style={{ border: `1px solid ${f.aviso?.tono === 'warn' ? 'var(--warn)' : 'var(--bad)'}`, background: f.aviso?.tono === 'warn' ? 'var(--warn-bg)' : 'var(--bad-bg)', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: 'var(--ink)' }}>
           {f.aviso?.texto ?? f.error}
+          <ReportarASoporte />
         </div>
       )}
       {estado && (

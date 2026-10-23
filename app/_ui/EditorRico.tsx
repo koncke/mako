@@ -109,6 +109,7 @@ import { repartoDeBarra, recortarSeparadores, anchoDeArrastre, anchoInicialDeIma
 import { embedDe, embedDeIframe, atributosDeIframe, altoDeEmbed, claseDeProveedor, porQueNoSeInserta, type Embed } from '@/lib/embeds';
 import { Toast, useToast } from './Toast';
 import { IconoBorrar } from './BotonBorrar';
+import { ReportarASoporte } from './ReportarASoporte';
 
 // ── El contrato ──────────────────────────────────────────────────────────────
 
@@ -2035,7 +2036,7 @@ function PanelInsertar({ onInsertar }: { onInsertar: (e: Embed) => void }) {
         onChange={(e) => { setTexto(e.target.value); setError(null); }}
         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); aplicar(); } }}
       />
-      {error && <div className="mk-er-error" role="alert">{error}</div>}
+      {error && <div className="mk-er-error" role="alert">{error}<ReportarASoporte /></div>}
       <div className="mk-er-nota">YouTube, Vimeo, Panda, Calendly, Cal.com…</div>
       <div className="mk-er-acciones">
         <button type="submit" className="mk-er-accion es-primaria">Insertar</button>

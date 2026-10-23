@@ -5,7 +5,7 @@
 import type { TonoPildora } from '@/app/m/_ui/Piezas';
 import type { EstadoCliente } from '@/lib/tickets-reglas';
 
-/** El color del punto de cada estado: los mismos tonos que la computadora (`TONO_ESTADO` de app/tickets/TicketsCliente.tsx). */
+/** El color del punto de cada estado: los mismos tonos que la computadora (`TONO_ESTADO` de app/tickets/soporte/hilo-soporte.ts). */
 export const TONO_TICKET: Record<EstadoCliente, TonoPildora> = {
   recibido: 'neutro', en_curso: 'info', tu_respuesta: 'warn', resuelto: 'good', cerrado: 'neutro',
 };

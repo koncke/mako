@@ -174,6 +174,9 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
   ]);
 }
 
+/** Lo que dice el aviso de una columna sin su vínculo (el «⋯» y el renglón que lo arregla). */
+export const AVISO_VINCULO = { evento: 'Sin evento vinculado', cobro: 'Sin cobro vinculado' } as const;
+
 /** El título de la sección de cada opción de una columna (22/10/2026). «Eliminar etapa» no lleva: va sola, separada. */
 export const SECCION_COLUMNA: Partial<Record<IdOpcionCrm, string>> = {
   col_izquierda: 'Columnas', col_derecha: 'Columnas', col_agregar: 'Columnas',
@@ -218,7 +221,8 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   col_derecha: { texto: 'Mover a la derecha', icono: 'mover' },
   // «Asignar campañas» desde el 16/10/2026, como el «⋯» (que lleva el logo de Meta; acá van sólo los íconos de la casa).
   col_campanas: { texto: 'Asignar campañas', icono: 'anuncio' },
-  col_evento: { texto: 'Asignar evento', icono: 'evento' },
+  // «Asignar evento» pasa a llamarse «Vincular evento» (Martín, 22/10/2026), como «Vincular cobro».
+  col_evento: { texto: 'Vincular evento', icono: 'evento' },
   col_cobro: { texto: 'Vincular cobro', icono: 'dinero' },
   col_tipo: { texto: 'Tipo de etapa', icono: 'etapa' },
   col_curso_prender: { texto: 'Invitar al curso al ganar', icono: 'curso' },
@@ -257,6 +261,8 @@ export type DatosMenuCrm = {
   sinEtiquetas?: string;
   /** A qué funnels se puede AGREGAR la selección (`destinosDeLote`: todos menos el que se mira). */
   funnels: ReadonlyArray<{ fid: number | null; nombre: string }>;
+  /** Lo que le falta a la columna (22/10/2026): el renglón que lo arregla lleva el aviso (`AVISO_VINCULO`). */
+  avisos?: Partial<Record<IdOpcionCrm, string>>;
   /** El logo de Meta de «Asignar campañas» («La primera opción debería decir "Asignar campañas" y con el logo de Meta»,
    *  Martín, 16/10/2026): un dibujo de la pantalla, como las flechas. Sin él, el ícono del set. */
   logoMeta?: ReactElement;
@@ -272,7 +278,7 @@ function renglon(id: IdOpcionCrm): ItemMenuContextual {
 }
 
 function conDatos(id: IdOpcionCrm, d: DatosMenuCrm): ItemMenuContextual {
-  const base = renglon(id);
+  const base = { ...renglon(id), ...(d.avisos?.[id] ? { aviso: d.avisos[id] } : {}) };
   switch (id) {
     case 'mover_etapa':
     case 'lote_etapa': {

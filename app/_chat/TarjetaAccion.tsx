@@ -11,6 +11,7 @@
 import { Button, Status } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
 import { PILL_PROPUESTA, SALIDA_PROPUESTA, rotuloPrimario, type ItemHilo } from '@/app/m/mako/chat-ui';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type ItemPropuesta = Extract<ItemHilo, { k: 'propuesta' }>;
 
@@ -39,7 +40,7 @@ export function TarjetaAccion({ x, enCurso, bloqueada, onCorrer }: {
       )}
       {abierta ? (
         <>
-          {x.nota && <p className="ch-tarjeta__nota" role="alert">{x.nota}</p>}
+          {x.nota && <p className="ch-tarjeta__nota" role="alert">{x.nota}<ReportarASoporte /></p>}
           {/* G3 (lib/chat-bloques.ts): lo que no se deshace va en rojo, pegado al botón. */}
           <p className={`ch-tarjeta__consecuencia${t.deshacer === false ? ' ch-tarjeta__consecuencia--irreversible' : ''}`}>
             {t.consecuencia ?? 'MaKo lo ejecuta en cuanto confirmes.'}

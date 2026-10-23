@@ -53,11 +53,12 @@ test('«Nuevo lead» sale del carril y va al «⋯» de cada columna, por el mis
 });
 
 test('«Asignar evento» con el calendario de línea de la casa, sin el logo a color', () => {
-  assert.equal(OPCION_CRM.col_evento.texto, 'Asignar evento');
+  // «Vincular evento» desde el 22/10/2026 (Martín: «Asignar evento pasa a llamarse VINCULAR EVENTO»).
+  assert.equal(OPCION_CRM.col_evento.texto, 'Vincular evento');
   assert.doesNotMatch(BOARD, /LogoMeet/);
   const modal = sinComentarios(leer('app/crm/EventosDeEtapaModal.tsx'));
   assert.doesNotMatch(modal, /LogoMeet/);
-  assert.match(modal, /<IconoMenu nombre="evento" size=\{18\} \/> Asignar evento/);
+  assert.match(modal, /<IconoMenu nombre="evento" size=\{18\} \/> Vincular evento/);
   assert.equal(OPCION_CRM.col_evento.icono, 'evento');
   assert.match(BOARD, /case 'col_evento': if \(c\) setEventoDe\(\{ etapa: c\.key, nombre: c\.label \}\); return;/);
 });

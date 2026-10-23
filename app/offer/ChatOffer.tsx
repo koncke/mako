@@ -45,6 +45,7 @@ import { ChipArchivo } from './ChipArchivo';
 import { DocumentoPdf } from './DocumentoPdf';
 import { esOpcionArmar, esOpcionNinguna, notaDelAdjunto, pdfDeMensaje } from './ayudas';
 import { GenerandoEnChat, type PasoGeneracion } from './Generando';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** El ➤ y el ✓ de la barra de grabar van en el negro del Ops Center: la barra los pinta con `--good` (el verde), y el ícono,
  *  con `--sobre-good` (sin él, el ✓ blanco no se veía sobre la tinta clara del modo oscuro). */
@@ -289,7 +290,7 @@ export function ChatOffer({
       </div>
       {/* El cartel de soltar del Ops Center (centro.css → .co-soltar). */}
       {encima && <div className="co-soltar" aria-hidden>Suelta para adjuntar</div>}
-      {error && <div role="alert" className="of-error">{error}{errorExtra ? <> {errorExtra}</> : null}</div>}
+      {error && <div role="alert" className="of-error">{error}{errorExtra ? <> {errorExtra}</> : null}<ReportarASoporte /></div>}
       {/* La caja va POR CONVERSACIÓN (`key`): una grabación a medias no viaja a otra (la grabación guarda el `onAudio` del
           render en que se apretó el micrófono). */}
       <div key={sesion.id} className="co-caja-wrap" style={SIN_VERDE}>

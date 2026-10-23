@@ -87,6 +87,7 @@ import { editorDeTarjeta, type NodoFlujo, type Muelles, type TipoNodo } from '@/
 import { SEGUNDOS_DE, rotuloUnidad, type UnidadEspera } from '@/lib/espera-duracion';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 
@@ -1287,7 +1288,7 @@ function RedactaAviso({ prueba, probando, onProbar, onUsar, onCerrar, deshabilit
           {probando ? <><Spinner size={12} /> {GRAMATICA.analizando.rotulo}…</> : nueva ? 'Escribir otro' : 'Escribir'}
         </button>
       </div>
-      {error && <div role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}</div>}
+      {error && <div role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
       {nueva && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 10, borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
           <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--mako-ink)' }}>✦ {GRAMATICA.recomienda.rotulo}</div>

@@ -15,9 +15,16 @@
 .tickets-bandeja__vacio { margin: 0; padding: 24px 8px; color: var(--dim); text-align: center; }
 .tickets-bandeja__kbd { margin-left: 6px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); font-size: 11px; color: var(--dim); font-family: inherit; }
 
-/* ── La franja de arriba: «1 de N», y a la derecha la vista y el arreglo automático (Volver está en la fila de botones) */
+/* ── La franja de arriba: «1 de N», el «Deshacer» (sutil, sólo con algo para deshacer: 23/10/2026, Martín: «no va con los otros
+   cuatro»), y a la derecha la vista y el arreglo automático */
 .tickets-bandeja__franja { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 38px; }
 .tickets-bandeja__franja-der { margin-left: auto; display: flex; align-items: center; gap: 6px; flex: none; }
+.tickets-bandeja__deshacer {
+  display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border: 0; border-radius: 8px; background: none;
+  font: inherit; font-size: var(--fs-sm); color: var(--dim); cursor: pointer;
+}
+.tickets-bandeja__deshacer:hover { color: var(--ink); background: var(--velo-hover); }
+.tickets-bandeja__deshacer:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .tickets-bandeja__cuenta { display: inline-flex; align-items: center; gap: 2px; min-width: 0; font-size: 14px; color: var(--dim); white-space: nowrap; }
 .tickets-bandeja__cuenta b { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }

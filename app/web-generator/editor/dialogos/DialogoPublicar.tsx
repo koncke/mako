@@ -70,6 +70,7 @@ import {
   Campo, CampoImagen, EstilosGmp, FilaAjuste, Giro, Icono, Interruptor, MenuGma, ModalGma, Pestanas, Segmentado,
   cambiarSitio, copiarTexto, pedir, sinAcentos, useConfigViva, useConfirmaGma, useFijo, useRebote,
 } from './piezas-gma';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /**
  * La base de las landings como se DIBUJA: sin el protocolo (`hola-mako.site`, o `localhost:3000/l` en
@@ -537,7 +538,7 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
           {publicando ? <Giro chico etiqueta="Publicando" /> : <Icono nombre="subir" tam={14} />}Publicar sitio
         </button>
       </div>
-      {error && <p className="gmp-error" style={{ margin: '-6px 0 12px' }} role="alert">{error}</p>}
+      {error && <p className="gmp-error" style={{ margin: '-6px 0 12px' }} role="alert">{error}<ReportarASoporte /></p>}
       {avisoCobro && (
         <p className="gmp-error" style={{ margin: '-6px 0 12px' }} role="status">
           {avisoCobro.texto}
@@ -745,7 +746,7 @@ function SeccionDominio({ docId, urlMako, prefijo, publicado, confirmar, avisar 
           </form>
         </Campo>
       )}
-      {error && <p className="gmp-error" role="alert" style={{ marginTop: 8 }}>{error}</p>}
+      {error && <p className="gmp-error" role="alert" style={{ marginTop: 8 }}>{error}<ReportarASoporte /></p>}
     </>
   );
 }

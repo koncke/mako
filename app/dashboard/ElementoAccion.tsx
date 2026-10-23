@@ -31,6 +31,7 @@ import {
 import { postearTarea, textoDeSync } from '@/lib/llamadas-modelo';
 import { FichaLlamada } from './entidades/FichaLlamada';
 import { Capa } from './piezas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Abierto = { tipo: 'llamada'; id: number; revisar: boolean } | null;
 
@@ -104,7 +105,7 @@ export function ElementoAccion({ e, contexto, editando, soloLectura = false, onC
           </Button>
           {corriendo && a.enCurso && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--dim)' }}><Spinner size={12} /> {a.enCurso}</span>}
           {motivo && editando && <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{motivo}</span>}
-          {error && <span role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}</span>}
+          {error && <span role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></span>}
         </>
       )}
       {abierto?.tipo === 'llamada' && (

@@ -46,13 +46,13 @@ test('1. el historial: cada cambio de estado con su fecha, y por dónde lo levan
   assert.equal(paraElCliente(fila({ canal: 'chat_app' })).canal, 'Desde el chat de MaKo', 'los canales de verdad (CANALES)');
   assert.equal(paraElCliente(fila({ canal: 'sistema' })).canal, null, '«lo abrió el sistema» no se dice');
   assert.equal(paraElCliente(fila({ canal: 'raro' })).canal, null, 'un canal que no se conoce no se inventa');
-  // En el detalle de la computadora y en el del teléfono (TicketsCliente importa sus acciones del servidor: se mira el código).
-  for (const f of ['app/tickets/TicketsCliente.tsx', 'app/m/tickets/[id]/TicketM.tsx']) {
-    const src = sinComentarios(leer(f));
-    assert.match(src, /<ol className="tickets-historial" aria-label="Historial del ticket">\n\s*\{t\.historial\.map\(\(p\) => \(/, `${f}: el historial`);
-    assert.match(src, /<span className="tickets-historial__rotulo">\{p\.rotulo\}<\/span>\n\s*<span className="tickets-historial__cuando">\{hace\(p\.at\)\}<\/span>/, `${f}: con su fecha`);
-    assert.match(src, /t\.canal/, `${f}: y por dónde lo levantó`);
-  }
+  // Arriba de la conversación de un ticket, en la computadora y en el teléfono: desde el 23/10/2026 es el chat de Soporte, con
+  // UNA pieza para el estado (EstadoDelTicket, app/tickets/soporte/PiezasSoporte.tsx). Se mira el código (trae CSS).
+  const piezas = sinComentarios(leer('app/tickets/soporte/PiezasSoporte.tsx'));
+  assert.match(piezas, /<ol className="tickets-historial sp-historial" aria-label="Historial del ticket">\n\s*\{t\.historial\.map\(\(p\) => \(/, 'el historial');
+  assert.match(piezas, /<span className="tickets-historial__rotulo">\{p\.rotulo\}<\/span>\n\s*<span className="tickets-historial__cuando">\{hace\(p\.at\)\}<\/span>/, 'con su fecha');
+  assert.match(piezas, /\{t\.canal && <span className="sp-estado__canal">\{t\.canal\}<\/span>\}/, 'y por dónde lo levantó');
+  for (const f of ['app/tickets/soporte/ChatSoporte.tsx', 'app/m/tickets/SoporteM.tsx']) assert.match(sinComentarios(leer(f)), /<EstadoDelTicket s=\{s\} \/>/, `${f}: se ve el estado`);
 });
 
 test('2. sólo los suyos: la acción no recibe nada del navegador; workspace y email de la sesión; lo que llega es paraElCliente', () => {
@@ -79,7 +79,7 @@ test('3. el botón «Ticketera» arriba, con su número, y su panel; en el telé
   assert.match(sb, /\{misTickets\.esperanTuRespuesta > 0 && <span className="co-acceso__n">\{misTickets\.esperanTuRespuesta\}<\/span>\}/);
   assert.match(sb, /: !centro && ticketsCliente \? \(\n\s*<TicketeraDelCliente mis=\{misTickets\}/);
   assert.match(sb, /const misTickets = useMisTickets\(!ops\);/, 'sólo para el cliente');
-  assert.match(sinComentarios(leer('app/second-brain/TicketeraDelCliente.tsx')), /<TicketsCliente tickets=\{mis\.tickets\} error=\{null\} abierto=\{null\} \/>/, 'la pieza de /tickets');
+  assert.match(sinComentarios(leer('app/second-brain/TicketeraDelCliente.tsx')), /<ChatSoporte tickets=\{mis\.tickets\} onVolver=\{onVolver\} \/>/, 'el chat de Soporte (el mismo de /tickets)');
   assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /<FilaM navegacion titulo="Ticketera" icono="soporte" href="\/m\/tickets"/);
 });
 

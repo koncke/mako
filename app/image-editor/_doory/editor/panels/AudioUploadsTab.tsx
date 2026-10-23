@@ -17,6 +17,7 @@ import { uploadsOf, useUploads } from '../audio/uploads'
 import { t } from '../strings'
 import { Button, IconButton } from '../ui/Button'
 import styles from './Audio.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const formatBytes = (n: number): string => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
 
@@ -59,6 +60,7 @@ function UploadRow({ item, used, canWrite, onAdd, onRemove }: { item: Item; used
         {preview.key === key && preview.error ? (
           <p className={styles.warn} role="alert">
             {t.audio.library.previewFailed}
+            <ReportarASoporte />
           </p>
         ) : null}
       </div>
@@ -193,6 +195,7 @@ export function AudioUploadsTab() {
       {problem ? (
         <p className={styles.warn} role="alert" data-testid="audio-upload-error">
           {problem}
+          <ReportarASoporte />
         </p>
       ) : null}
       {items.length > 0 ? (
@@ -208,6 +211,7 @@ export function AudioUploadsTab() {
       {list.error && items.length === 0 ? (
         <p className={styles.warn} role="alert">
           {t.audio.uploads.loadFailed}
+          <ReportarASoporte />
         </p>
       ) : null}
       {list.hasMore && list.items.length > 0 ? (
