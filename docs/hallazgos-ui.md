@@ -75,8 +75,8 @@ el `loading.tsx` de cada tab grande de escritorio y de /m; el CRM conserva su es
 El «Abriendo Automations…» de `ChatAgentApp.tsx` también pasó a `CargandoMako`: el mismo del `loading.tsx`, así del
 server al cliente no hay salto.
 
-**Lo que quedó SIN hacer:** el cambio de panel del Ops Center al grafo, 2,7 s sin nada: va en la rama `mapa ? …` de
-`app/second-brain/ChatSecondBrain.tsx`, después de la punta 2df8aa56b del chat del Ops Center.
+Ir al grafo del Second Brain también: eran 2,7 s sin nada en el panel. Desde el toque, el panel muestra el loader
+(`yendoAlGrafo` en `ChatSecondBrain.tsx`) hasta que el servidor manda el grafo.
 
 *23/10/2026, chat «Rendimiento y loaders» (claude2).*
 
