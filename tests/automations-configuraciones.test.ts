@@ -246,8 +246,8 @@ test('el modal: una pantalla, `onCerrar` fijo que no cierra con un guardado en v
   assert.match(src, /createPortal\(\s*<Modal /);
   // El MISMO editor del horario, guardando en ESTA automatización (`fuente`).
   assert.match(fuente('app/automations/ConfigAutomatizacionPanel.tsx'), /return <HorarioEnvioPanel fuente=\{fuente\} onSucio=\{onSucio\} \/>;/, 'no es el MISMO editor del horario');
-  // UNA pantalla, con los tres «sucio» (horario, lo de la automatización y la línea).
-  assert.match(src, /<AjustesDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucioHorario=\{alSucioHorario\} onSucioAntiban=\{alSucioAntiban\} onSucioLinea=\{alSucioLimites\} \/>/);
+  // UNA pantalla, con los dos «sucio» (horario y lo de la automatización; la línea se fue el 23/10/2026).
+  assert.match(src, /<AjustesDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucioHorario=\{alSucioHorario\} onSucioAntiban=\{alSucioAntiban\} \/>/);
   assert.doesNotMatch(src, /<Tabs |hidden=\{pestana/, 'volvieron las pestañas');
   for (const r of ['app/automations/ConfiguracionesBoton.tsx', 'app/automations/LimitesEnvioPanel.tsx', 'app/automations/ConfigAutomatizacionPanel.tsx']) {
     assert.doesNotMatch(fuente(r), /href=|<Link\b|router\.(push|replace)|window\.location|['"`]\/configuraciones/, `${r} manda a otro lado`);
@@ -256,23 +256,14 @@ test('el modal: una pantalla, `onCerrar` fijo que no cierra con un guardado en v
   assert.doesNotMatch(src, /<Dropdown /, 'el menú volvió a ser un desplegable');
 });
 
-// 23/10/2026: el panel es un hook (`useLimitesDeLaLinea`): sin return temprano; el aviso de «sucio» es un efecto suyo.
-test('los límites de la línea: se guardan solos, avisan «sucio», y la lista no importa las acciones', () => {
+// 23/10/2026 (Martín: «No quiero nada para todas las automatizaciones»): los límites de la LÍNEA se fueron de la pantalla,
+// con su hook y sus acciones. Los topes duros siguen por dentro (lib/limites-envio.ts) y frenan con su motivo en la tarjeta.
+test('los límites de la línea ya no se ven ni se editan desde una automatización; queda el número', () => {
   const p = fuente('app/automations/LimitesEnvioPanel.tsx');
-  assert.ok(p.indexOf('useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);') > 0, 'no avisa «sucio»');
-  assert.doesNotMatch(p, />Guardar</, 'se guarda solo, sin botón');
-  const g = bloque(p, 'const guardar = (nuevo: LimitesEnvio) => {', 'const cambiar = ');
-  assert.match(g, /saveLimitesEnvioAction\(nuevo\)/);
-  assert.match(g, /setEnVuelo\(true\);[\s\S]*setTimeout\(/, 'sin respiro: tres flechas son tres guardados');
-  assert.match(p, /setInvalidos\(\{\}\); setVuelta\(\(v\) => v \+ 1\);\n\s+guardar\(\{ \.\.\.fabrica, /, '«Restaurar» no vuelve a lo de fábrica');
-  assert.match(fuente('app/automations/ConfigAutomatizacionPanel.tsx'), /<button type="button" data-restaurar="" onClick=\{linea\.restaurar\}/);
-  // Lo escrito que no vale NO se guarda: se dice al lado.
+  assert.doesNotMatch(p, /useLimitesDeLaLinea|saveLimitesEnvioAction|getLimitesEnvioAction|data-restaurar/, 'volvió lo de la línea');
+  // El número que usan las filas de la automatización: lo escrito que no vale NO se guarda, se dice al lado.
   assert.match(p, /if \(r\.ok\) \{ onInvalido\(null\); onCambio\(r\.n\); \} else onInvalido\(r\.error\);/);
-  const acciones = leer('app/configuraciones/limites-actions.ts');
-  assert.match(acciones, /^'use server';/);
-  // En un 'use server' sólo funciones async exportadas (AGENTS.md).
-  for (const m of sinComentarios(acciones).matchAll(/^export\s+(\S+)\s+(\S+)/gm)) assert.equal(`${m[1]} ${m[2]}`, 'async function', `exporta «${m[0]}»`);
-  assert.match(acciones, /if \(rol !== 'admin'\) return \{ ok: false, error: 'Solo un admin puede cambiar los límites\.' \};/);
+  assert.ok(!existsSync(new URL('../app/configuraciones/limites-actions.ts', import.meta.url)), 'volvieron las acciones de la línea');
   // (Desde la undécima tanda también los nombres nuevos: el menú y el modal viven en ConfiguracionesBoton.tsx.)
   for (const r of ['app/automations/SimuladorWhatsApp.tsx']) assert.doesNotMatch(fuente(r), /ConfiguracionesBoton|MenuAutomations|ConfiguracionesModal|limites-actions|horario-actions/, `${r} arrastraría server-only a los tests`);
 });
