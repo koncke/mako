@@ -3023,7 +3023,7 @@ export const BITACORA: Hito[] = [
     revisar: '/crm',
   },
   {
-    fecha: '23 oct', hora: '00:05', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    fecha: '23 oct', hora: '00:04', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Instagram: «Conectar Meta» desde el buscador, y el mismo buscador en la ficha del lead',
     puntos: [
@@ -3033,6 +3033,7 @@ export const BITACORA: Hito[] = [
     ],
     commits: [
       { sha: '4487ac5d6', msg: 'CRM: «Conectar Meta» en el buscador de Instagram, y el mismo buscador en la ficha', lineas: 677, archivos: 8 },
+      { sha: '18146bffd', msg: 'Instagram: «fresco» con tope por negocio, y sin borrar la pausa de un límite de Meta', lineas: 106, archivos: 3 },
     ],
     archivos: [
       'app/crm/new/InstagramBuscador.tsx — el buscador, con «Conectar Meta»',
@@ -3041,7 +3042,7 @@ export const BITACORA: Hito[] = [
     revisar: '/crm',
   },
   {
-    fecha: '23 oct', hora: '00:20', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    fecha: '23 oct', hora: '00:34', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
     actor: 'claude', tipo: 'implementacion',
     titulo: '«Vincular evento» y «Vincular cobro»: rápidos, con el nombre del CRM y de la etapa, y un aviso cuando falta',
     puntos: [
@@ -3059,7 +3060,11 @@ export const BITACORA: Hito[] = [
       'app/crm/EventosDeEtapaModal.tsx · app/crm/CobroDeEtapaModal.tsx · app/crm/vincular-etapa.ts — los dos pop-ups',
       'lib/vinculos-de-columnas.ts — el aviso de la columna, de la base',
       'lib/api-mako/areas/crm.def.ts · crm.run.ts — el cobro de Ganado por MaKo',
-    fecha: '23 oct', hora: '01:30', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '23 oct', hora: '00:43', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'La agenda del CRM, más rápida: Calendly, Cal.com y Google a la vez',
     puntos: [
@@ -3074,7 +3079,11 @@ export const BITACORA: Hito[] = [
     archivos: [
       'lib/agenda-evento-etapa-server.ts · lib/agenda-cache.ts — las agendas a la vez, con su caché',
       'lib/calendly-agenda.ts — el dueño de cada cuenta, una vez',
-    fecha: '23 oct', hora: '02:00', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '23 oct', hora: '00:50', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
     actor: 'claude', tipo: 'implementacion',
     titulo: '«Traer de otro funnel»: un botón a la vista, una ruedita mientras carga y el pie firme abajo',
     puntos: [
