@@ -35,8 +35,14 @@ export function listaParaSalir(pagina: boolean, hilo: boolean, ahora: number, de
   return { lista: hilo || ahora - d >= MS_TOPE_SIN_HILO, desde: d };
 }
 
-/** ¿La conversación (o su portada) ya se dibujó? */
-const hiloDibujado = (doc: Document) => !!doc.querySelector('.co-panel .co-hilo__col > *, .co-panel .co-portada');
+/**
+ * ¿Ya se dibujó lo del panel? La conversación o su portada; y si el panel no es un chat (la Ticketera, el grafo), ya está: no
+ * hay conversación que esperar (23/10/2026: con la Ticketera abierta, la criatura se quedaba los 3 s de `MS_TOPE_SIN_HILO`).
+ */
+export function panelDibujado(doc: Pick<Document, 'querySelector'>): boolean {
+  if (doc.querySelector('.co-panel .co-hilo__col > *, .co-panel .co-portada, .co-panel.co-ticketera')) return true;
+  return !!doc.querySelector('.co-panel') && !doc.querySelector('.co-panel .co-hilo');
+}
 
 /** Cuánto lleva en pantalla: el reloj de la animación de la propia capa (arranca al pintarse). */
 function enPantalla(capa: HTMLElement | null): number {
@@ -92,7 +98,7 @@ export function EntradaOps({ espera = false }: {
     };
     programarSalida({
       lleva: () => enPantalla(capa.current),
-      lista: () => { const r = listaParaSalir(paginaLista(document), hiloDibujado(document), performance.now(), desde); desde = r.desde; return r.lista; },
+      lista: () => { const r = listaParaSalir(paginaLista(document), panelDibujado(document), performance.now(), desde); desde = r.desde; return r.lista; },
       esperar: (fn, ms) => { timers.push(window.setTimeout(() => { if (viva) fn(); }, ms)); },
       dosCuadros: (fn) => requestAnimationFrame(() => requestAnimationFrame(fn)),
     }, salir);

@@ -1096,3 +1096,62 @@ inicial (333,33 en vez de 333,34) ya no lo salda el link del producto: entra com
 - **Un id de cuota no identifica una baja.** Si el closer deshacía a mano la baja del reembolso y después daba de baja al
   cliente a mano, las mismas cuotas volvían a estar de baja, y la devolución fallida las reabría (la cobranza le escribía a
   quien se fue). El deshacer reabre sólo lo que tiene el `baja_at` de ESA baja, también en el compare-and-set.
+
+## Varias cuentas de Stripe y de MP: cada cobro con la suya, y el vínculo que nunca encontraba su pago (22/10/2026, mig 0328)
+
+Un negocio puede conectar varias cuentas por pasarela (docs/hallazgos-integraciones.md, el modelo). Cada cobro anota la suya
+dos veces: el SUFIJO (`cobros.cuenta`, `c2`; NULL = la principal, todo cobro de antes) y su id EN EL PROVEEDOR
+(`cobros.cuenta_ref`: el `acct_…` de Stripe, el `user_id` de MP). Todo lo que se hace después con él —el link, el plazo, la
+baja, anular, devolver, cancelar, la conciliación— busca la cuenta de HOY por ese id (`cuentaVivaDelCobro`, lib/cobros.ts).
+Lo que mordía:
+
+- **⚠️ El diagnóstico obvio era el equivocado: el sufijo NO es la identidad de una cuenta.** La primera versión ataba el cobro
+  a su sufijo. La revisión adversarial lo rompió con un caso de todos los días: rotar la clave de la segunda cuenta es
+  desconectarla y volver a conectarla, y vuelve como `c3` (el `c2` lo nombran sus cobros). Sus cobros de `c2` quedaban
+  huérfanos: cada renovación se ignoraba con un 200 (Stripe y MP no reintentan un 200) y «devolver» o «cancelar» decían
+  «Stripe no está conectado». Lo que identifica una cuenta es su id en el proveedor; el sufijo es sólo dónde viven sus
+  claves hoy. Conectar una cuenta que vuelve cae en el sufijo de SUS cobros (`cuentaParaConectar`) y nunca hereda la
+  principal de otra cuenta. La 0328 completa `cuenta_ref` de los cobros de ANTES desde `webhook_routing` (que guarda el
+  id en claro), sólo donde el negocio tiene UNA cuenta de esa pasarela: medido el 23/10, producción no tenía ningún
+  cobro todavía, así que hoy no toca filas.
+- **«Conectar otra» sobre una cuenta YA conectada pisaba su clave sin avisar** (lo metió el arreglo de arriba, y lo
+  rompió la segunda revisión): la clave de PRUEBA de una cuenta de Stripe trae el MISMO `acct` que la real, así que
+  «sumar Stripe pruebas» dejaba a la principal cobrando en modo prueba, con la firma de otro aviso. Ahora contesta
+  «ya está conectada aquí» (409); cambiarle la clave es desconectarla y volver a conectarla (vuelve a su sufijo).
+- **Anular no corta después de anular**: buscar la cuenta del cobro puede tirar, y cortaba con el cobro YA anulado
+  («No pude anular» de algo anulado, y `anularLinksDeCuota` dejaba vivos los otros links de una cuota pagada).
+- **El aviso usa el id que la ruta ya validó** (el `acct`, el `user_id`), no lo relee con la lectura tolerante: con la
+  base caída, el null hacía tomar el cobro como «de otra cuenta» y se ignoraba con un 200.
+- **Un vínculo cuya cuenta ya no cobra no cobra por la principal** (`cuentaSinElegir` devuelve null): con dos razones
+  sociales, la plata entraba en la cuenta equivocada. El link dice «no conectada».
+
+- **El vínculo de «Vincular cobro» nunca encontraba el pago de la segunda cuenta.** El vínculo guarda ids (`stripe:c2`) y
+  `cuentaDelCobro` devolvía `c.cuenta` tal cual (`c2`): la comparación daba falso y el pago caía en la casa del lead. Lo
+  obvio era guardar el id entero en el cobro; la columna guarda el sufijo (el check de la 0328 lo fija) y el id se ARMA
+  en `cuentaDelCobro`.
+- **Sin cuenta elegida, un producto vinculado sólo a la segunda cuenta cobraba por la principal** (la landing, la API, el
+  link de un producto): el pago tampoco llegaba a su CRM. `crearCobro` elige por el vínculo (`cuentaSinElegir`): la de
+  siempre si está en él, si no la primera del vínculo que cobre.
+- **Una cuenta nueva heredaba el sufijo de la que se fue.** `proximaCuenta` era «la más alta + 1» de las claves guardadas:
+  desconectada la `c2`, la próxima volvía a ser `c2`, y un link pendiente de la vieja se pagaba con las claves de la nueva
+  (y una devolución iba a otra cuenta de Stripe). `proximaCuentaDe` suma los sufijos que nombran los cobros y los vínculos.
+- **Un aviso de una cuenta nunca aplica un cobro de otra** (`deOtraCuenta`, lib/cobros-webhook.ts): compara el id en el
+  proveedor del cobro con el de la cuenta del aviso (sin `cuenta_ref`, el sufijo).
+- **Un link de una cuenta desconectada no abre** (`urlParaPagar`): Mercado Pago devolvía su URL vieja sin mirar nada, y el
+  pago entraba a una cuenta de la que MaKo ya no se entera. Y la landing no reusa un pendiente de OTRA cuenta
+  (`cobroReusable` + `refParaCobrar`): el de la principal, cuando el producto ya cobra por la de su vínculo, pagaba fuera
+  de su CRM.
+- La misma cuenta de Stripe dos veces en un negocio se rechaza (`yaConectadaComoOtra`): dos filas de un `acct` eran dos
+  avisos y dos secretos para la misma plata.
+
+**La regla:** lo que toca un cobro YA creado usa `cobros.cuenta`, nunca «la principal»; lo que crea uno nuevo deja elegir la
+cuenta (`crearCobro({ cuenta })`, el asistente de la ficha) o la saca del vínculo. **⚠️ La 0328 va ANTES del deploy:**
+`COLS_COBRO` lee `cuenta`, y sin la columna se cae toda lectura de cobros.
+**Vive en:** lib/cobros.ts · lib/cobros-webhook.ts · lib/cobro-etapa.ts (`cuentaDelCobro`) · lib/cobro-etapa-server.ts
+(`cuentasDelVinculoDelProducto`) · app/crm/[id]/CobrarConLink.tsx · app/crm/cobro-etapa-actions.ts · tests/cuentas-pago.test.ts.
+**Sin hacer:** (1) los cobros de ANTES de la 0328 no tienen `cuenta_ref`: siguen a su sufijo, y si la principal cambia de
+cuenta pasan a la nueva (lo de siempre). (2) Dos «conectar» a la vez reciben el mismo sufijo y el segundo pisa al primero
+(`proximaCuentaDe` no reserva): raro, sin arreglar. (3) El link de una cuota con uno vivo de otra cuenta devuelve ése
+(`yaEstaba`, la misma regla que con la pasarela). (4) `cuentasDePago` decide «conectada» por los NOMBRES de las claves,
+no por si descifran: una principal ilegible puede elegirse como cuenta por defecto. Todo en lib/cobros.ts y
+lib/cuentas-pago-server.ts.

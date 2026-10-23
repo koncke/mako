@@ -21,6 +21,7 @@ import { RedDeBloque } from '@/app/dashboard/RedDeBloque';
 import { conWs } from '@/lib/ws-tab';
 import { ELIGE_TU_PREGUNTA, MAX_CONSULTAS, ROTULO_PASO, SALTEAR_PREGUNTA, leerConsulta, proporcion, razon, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
 import { esBloqueWeb } from '@/lib/editor-landing/bloques-web';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Los bloques del Web Generator (la tarjeta de una landing, elegir entre 3, lo publicado, el dominio), aparte: traen la
  *  hoja del contenido de las landings (~100 KB) y sólo se cargan cuando un hilo tiene uno. */
@@ -146,6 +147,7 @@ function TrabajoHilo({ b, onTermina }: { b: Trabajo; onTermina?: (ok: boolean | 
       {fin && (
         <p className={`ch-tarjeta__nota${fin.ok === false ? ' ch-form__error' : ''}`} role={fin.ok === false ? 'alert' : 'status'}>
           {fin.texto ?? (fin.ok == null ? 'No sé cómo terminó: recarga el chat para verlo.' : null)}
+          <ReportarASoporte />
         </p>
       )}
       {actual.listo && <Creado b={actual.listo} />}
@@ -214,7 +216,7 @@ function PreguntaHilo({ b, onResponder, respondida, ocupado }: { b: Pregunta; on
           </button>
         ))}
       </div>
-      {noSalio && dicha == null && <p className="ch-tarjeta__nota" role="alert">No salió: espera a que MaKo termine y vuelve a tocar.</p>}
+      {noSalio && dicha == null && <p className="ch-tarjeta__nota" role="alert">No salió: espera a que MaKo termine y vuelve a tocar.<ReportarASoporte /></p>}
       {dicha == null ? (
         <div className="ch-tarjeta__botones">
           {b.varias && (

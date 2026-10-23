@@ -64,6 +64,7 @@ import { conWs } from '@/lib/ws-tab';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const RUTA = '/api/crm/analyst';
 /** El maxDuration de la ruta es 300 s: el corte del navegador va 5 s después. */
@@ -391,6 +392,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
     <div role="alert" style={{ margin: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center', color: 'var(--dim)', fontSize: 13.5 }}>
       <span>{errorCarga}</span>
       <Button variant="secondary" size="sm" onClick={recargar}>Volver a cargar el chat</Button>
+      <ReportarASoporte />
     </div>
   ) : (
     <div style={{ margin: 'auto', maxWidth: 360, textAlign: 'center', color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.5 }}>
@@ -427,7 +429,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
       {/* El cartel de soltar del Ops Center (centro.css → .co-soltar). */}
       {encima && <div className="co-soltar" aria-hidden>Suelta para adjuntar</div>}
       {preguntas}
-      {error && <div role="alert" className="of-error">{error}</div>}
+      {error && <div role="alert" className="of-error">{error}<ReportarASoporte /></div>}
       {/* La caja va POR LEAD (`key`): una grabación a medias no viaja a la ficha de otro. */}
       <div key={leadId} className="co-caja-wrap" style={SIN_VERDE}>
         <div className="co-caja">

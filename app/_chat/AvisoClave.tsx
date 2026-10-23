@@ -8,11 +8,13 @@
 // clave es la del chat del negocio (lib/claves-en-el-chat.ts → taparClaves).
 
 import { AVISO_CLAVE_EN_EL_CENTRO, RUTA_INTEGRACIONES } from '@/lib/claves-en-el-chat';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export function AvisoClave() {
   return (
     <p className="co-nota co-nota--mal" role="alert">
       {AVISO_CLAVE_EN_EL_CENTRO} <a className="ch-enlace" href={RUTA_INTEGRACIONES}>Abrir Integraciones</a>
+      <ReportarASoporte />
     </p>
   );
 }

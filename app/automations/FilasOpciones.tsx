@@ -17,6 +17,7 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 import { Tooltip } from '@/app/_ui/Tooltip';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 
@@ -103,7 +104,7 @@ export function FilaOpcion({ nombre, info, children, interruptor, sinInterruptor
         {children}
         {(interruptor || sinInterruptor) && <span style={{ width: ANCHO_INTERRUPTOR, display: 'inline-flex', justifyContent: 'flex-end', flex: 'none' }}>{interruptor}</span>}
       </span>
-      {error && <span role="alert" style={{ flexBasis: '100%', fontSize: 12.5, color: 'var(--bad)' }}>{error}</span>}
+      {error && <span role="alert" style={{ flexBasis: '100%', fontSize: 12.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></span>}
     </div>
   );
 }

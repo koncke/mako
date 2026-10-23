@@ -7,6 +7,8 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { latir } from '@/lib/ia-pc';
+import { textoDeUbicacion } from '@/lib/ia-pc-reglas';
+import { ubicacionDeHeaders } from '@/lib/graficos-datos-puro';
 import { pcDelPedido, respuestaDe } from '@/lib/ia-pc-ruta';
 import { limitePorClave } from '@/lib/limite-publico';
 
@@ -22,7 +24,10 @@ export async function POST(req: NextRequest) {
   if (frenado) return frenado;
   let body: unknown = {};
   try { body = await req.json(); } catch { /* un latido sin cuerpo también vale */ }
-  try { await latir(d, body); } catch (e) {
+  // Dónde está, como Google en «Tus dispositivos»: sólo «ciudad, provincia, país», de los headers que pone Vercel. ⚠️ NUNCA la
+  // IP ni las coordenadas (supabase/migrations/0327_ia_pc_ubicacion.sql).
+  const ubicacion = textoDeUbicacion(ubicacionDeHeaders((n) => req.headers.get(n)));
+  try { await latir(d, body, { ubicacion }); } catch (e) {
     console.error(`[ia-pc/latido] ws=${d.ws} pc=${d.id}:`, e instanceof Error ? e.message : String(e));
     return respuestaDe('no-pude-leer');
   }

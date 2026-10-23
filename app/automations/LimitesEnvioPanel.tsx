@@ -31,6 +31,7 @@ import { FilaOpcion, GrupoOpciones, Unidad, TarjetaOpciones } from './FilasOpcio
 import { getLimitesEnvioAction, saveLimitesEnvioAction } from '@/app/configuraciones/limites-actions';
 import { textoPrioridad } from '@/lib/nutricion-prioridad';
 import { BLOQUES_LIMITES, conLimite, difiereDeFabrica, leerLimite, leerNumero, lineaDeUso, rangoDe, type LimitesEnvio, type UsoDelCupo } from '@/lib/limites-envio';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 
@@ -125,7 +126,7 @@ export function LimitesEnvioPanel({ onSucio, personaPorDefecto = false }: { onSu
   // ⚠️ ANTES DEL `return` de abajo (AGENTS.md: ningún hook detrás de un return temprano).
   useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);
 
-  if (!l || !fabrica) return aviso ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{aviso}</p> : <Spinner />;
+  if (!l || !fabrica) return aviso ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{aviso}<ReportarASoporte /></p> : <Spinner />;
 
   /** Cada cambio se GUARDA, con un respiro: tres flechas seguidas son un guardado, no tres. */
   const guardar = (nuevo: LimitesEnvio) => {
@@ -178,7 +179,7 @@ export function LimitesEnvioPanel({ onSucio, personaPorDefecto = false }: { onSu
       </TarjetaOpciones>
       {(aviso || (!off && difiereDeFabrica(l, fabrica))) && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-          <span role={aviso ? 'alert' : undefined} style={{ fontSize: 13, color: 'var(--bad)' }}>{aviso}</span>
+          <span role={aviso ? 'alert' : undefined} style={{ fontSize: 13, color: 'var(--bad)' }}>{aviso}<ReportarASoporte /></span>
           {!off && difiereDeFabrica(l, fabrica) && (
             <button type="button" onClick={() => { setInvalidos({}); setVuelta((v) => v + 1); guardar(fabrica); }}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', padding: 0, fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>

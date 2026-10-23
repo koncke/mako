@@ -25,6 +25,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { IconButton } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** El id del cartel (para un test o para señalarlo). */
 export const ID_AVISO_VENTANAS = 'mk-aviso-ventanas';
@@ -58,6 +59,7 @@ export function AvisoVentanasBloqueadas({ abierto, onCerrar, texto }: {
         </div>
         <IconButton title="Cerrar" small onClick={onCerrar}><Icon name="x" size={14} /></IconButton>
       </div>
+      <ReportarASoporte />
     </div>,
     document.body,
   );

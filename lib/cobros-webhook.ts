@@ -29,6 +29,7 @@ import {
   aplicarContracargo, aplicarPagoAprobado, aplicarPagoFallido, aplicarReembolso, aplicarReembolsoFallido, aplicarSuscripcionCancelada, cobroDelAviso,
 } from './cobros';
 import type { Cobro } from './cobros-tipos';
+import { CUENTA_PRINCIPAL, claveDeCuenta } from './cuentas-integracion';
 import { textoContracargo } from './cobros-reglas';
 import {
   avisoStripe, buscarDePagoMp, claveEventoMp, confirmarCargo, confirmarCheckout, confirmarDevolucionFallida, confirmarFactura, esDelCobro, faseDeDisputa,
@@ -73,10 +74,21 @@ function invalidarLecturas(): void {
 // Stripe
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** El cobro del aviso de Stripe, con el corte de modo (real/prueba) contra el del evento. */
-async function cobroStripe(ws: number, ev: EventoStripe, buscar: ClaveCobro): Promise<{ cobro: Cobro } | { ignorar: ResultadoEvento }> {
+/**
+ * ¿El cobro es de OTRA cuenta del negocio que la que mandó el aviso? (varias por proveedor, mig 0328). Un pago de la
+ * cuenta A nunca aplica un cobro de la cuenta B: se releyó con las claves de A.
+ */
+type QuienAvisa = { cuenta: string; ref: string | null };
+const PRINCIPAL_SIN_REF: QuienAvisa = { cuenta: CUENTA_PRINCIPAL, ref: null };
+// Por el id en el proveedor cuando el cobro lo tiene (mig 0328): una cuenta que volvió con otro sufijo sigue siendo la suya.
+const deOtraCuenta = (c: Cobro, q: QuienAvisa): boolean =>
+  c.cuenta_ref ? c.cuenta_ref.trim() !== (q.ref ?? '').trim() : (c.cuenta ?? CUENTA_PRINCIPAL) !== q.cuenta;
+
+/** El cobro del aviso de Stripe, con el corte de modo (real/prueba) contra el del evento, y el de la cuenta. */
+async function cobroStripe(ws: number, ev: EventoStripe, buscar: ClaveCobro, quien: QuienAvisa = PRINCIPAL_SIN_REF): Promise<{ cobro: Cobro } | { ignorar: ResultadoEvento }> {
   const c = await cobroDelAviso(ws, { proveedor: 'stripe', ...buscar });
   if (!c) return { ignorar: ignorado('no es un cobro de MaKo') };
+  if (deOtraCuenta(c, quien)) return { ignorar: ignorado('el cobro es de otra cuenta de Stripe del negocio', c.id) };
   if (!mismoModo(ev.livemode, c.modo)) {
     return { ignorar: ignorado(`el aviso es de modo ${nombreModo(ev.livemode!)} y el cobro de modo ${c.modo}`, c.id) };
   }
@@ -87,12 +99,16 @@ async function cobroStripe(ws: number, ev: EventoStripe, buscar: ClaveCobro): Pr
  * Un evento de Stripe ya verificado (firma del webhook de ESE negocio) y ya reclamado en
  * `pasarela_eventos`. Devuelve lo que queda en la fila; tira lo que la ruta tiene que clasificar.
  */
-export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promise<ResultadoEvento> {
+export async function procesarEventoStripe(ws: number, ev: EventoStripe, cuenta: string = CUENTA_PRINCIPAL, acct?: string | null): Promise<ResultadoEvento> {
   const aviso = avisoStripe(ev);
   if (aviso.accion === 'ignorar') return ignorado(aviso.motivo);
 
-  const key = await credPasarela('STRIPE_SECRET_KEY', ws);
+  // Las claves de LA cuenta que mandó el aviso (la ruta la saca de su `acct`): con varias cuentas, releer con otra da 404.
+  const key = await credPasarela(claveDeCuenta('STRIPE_SECRET_KEY', cuenta), ws);
   if (!key) return ignorado('Stripe no está conectado en este negocio');
+  // El `acct` que la ruta ya validó (rutea y verifica la firma con él). Releerlo con la lectura tolerante daba null ante un
+  // error de la base, y el cobro se tomaba como «de otra cuenta» y se ignoraba con un 200 (segunda revisión de plata).
+  const quien: QuienAvisa = { cuenta, ref: acct ?? (await credPasarela(claveDeCuenta('STRIPE_ACCOUNT_ID', cuenta), ws)) };
   // Un aviso de prueba releído con una clave real (o al revés) da 404 «a similar object exists in
   // test mode»: no es un error, es otro modo.
   const modoClave = modoDeClaveStripe(key);
@@ -103,7 +119,7 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promis
   const { objeto, id } = aviso.leer;
 
   if (objeto === 'checkout') {
-    const b = await cobroStripe(ws, ev, aviso.buscar);
+    const b = await cobroStripe(ws, ev, aviso.buscar, quien);
     if ('ignorar' in b) return b.ignorar;
     const c = b.cobro;
     const s = await leerCheckoutStripe(key, id);
@@ -123,7 +139,7 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promis
   }
 
   if (objeto === 'factura') {
-    const b = await cobroStripe(ws, ev, aviso.buscar);
+    const b = await cobroStripe(ws, ev, aviso.buscar, quien);
     if ('ignorar' in b) return b.ignorar;
     const c = b.cobro;
     const f = await leerFacturaStripe(key, id);
@@ -144,7 +160,7 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promis
   }
 
   if (objeto === 'suscripcion') {
-    const b = await cobroStripe(ws, ev, aviso.buscar);
+    const b = await cobroStripe(ws, ev, aviso.buscar, quien);
     if ('ignorar' in b) return b.ignorar;
     const c = b.cobro;
     const s = await leerSuscripcionStripe(key, id);
@@ -167,7 +183,7 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promis
     const cargo = await leerCargoStripe(key, d.cargo);
     if (!cargo.ok) throw errorDelProveedor('Stripe', 'el cargo', cargo);
     const pi = cargo.paymentIntent ?? d.paymentIntent ?? aviso.buscar.pagoId ?? null;
-    const { b, pagoId } = await cobroDelPagoStripe(key, ws, ev, null, pi);
+    const { b, pagoId } = await cobroDelPagoStripe(key, ws, ev, null, pi, quien);
     if ('ignorar' in b) return b.ignorar;
     // Una disputa PARCIAL no mueve la cuota (no se parte), y un cargo ya devuelto entero tampoco (la cuota ya salió).
     const total = d.monto != null && cargo.monto != null && d.monto >= cargo.monto - 0.005;
@@ -190,7 +206,7 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promis
     const cargo = await leerCargoStripe(key, fallo.cargo);
     if (!cargo.ok) throw errorDelProveedor('Stripe', 'el cargo', cargo);
     const pi = cargo.paymentIntent ?? dev.paymentIntent ?? aviso.buscar.pagoId ?? null;
-    const { b, pagoId } = await cobroDelPagoStripe(key, ws, ev, aviso.buscar.token ?? null, pi);
+    const { b, pagoId } = await cobroDelPagoStripe(key, ws, ev, aviso.buscar.token ?? null, pi, quien);
     if ('ignorar' in b) return b.ignorar;
     await aplicarReembolsoFallido(b.cobro, { proveedorPagoId: pagoId, sigueDevuelto: cargo.reembolsado, razon: dev.motivo, fechaCargo: cargo.creado });
     invalidarLecturas();
@@ -203,7 +219,7 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promis
   const conf = confirmarCargo(cargo);
   if (!conf.ok) return ignorado(conf.motivo);
   const pi = conf.paymentIntent ?? aviso.buscar.pagoId ?? null;
-  const { b, pagoId } = await cobroDelPagoStripe(key, ws, ev, aviso.buscar.token ?? null, pi);
+  const { b, pagoId } = await cobroDelPagoStripe(key, ws, ev, aviso.buscar.token ?? null, pi, quien);
   if ('ignorar' in b) return b.ignorar;
   await aplicarReembolso(b.cobro, { proveedorPagoId: pagoId, total: conf.total });
   invalidarLecturas();
@@ -216,10 +232,10 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promis
  * `invoice`). Devuelve también el id con que se asentó ese pago en el CRM (el payment intent o la factura).
  */
 async function cobroDelPagoStripe(
-  key: string, ws: number, ev: EventoStripe, token: string | null, pi: string | null,
+  key: string, ws: number, ev: EventoStripe, token: string | null, pi: string | null, quien: QuienAvisa = PRINCIPAL_SIN_REF,
 ): Promise<{ b: { cobro: Cobro } | { ignorar: ResultadoEvento }; pagoId: string | null }> {
   let pagoId: string | null = pi;
-  let b = await cobroStripe(ws, ev, { token, pagoId: pi });
+  let b = await cobroStripe(ws, ev, { token, pagoId: pi }, quien);
   // Sólo si NO apareció (cobroId null): uno que apareció y se ignoró por el modo ya está decidido.
   if ('ignorar' in b && b.ignorar.cobroId == null && pi) {
     const fp = await facturaDePagoStripe(key, pi);
@@ -228,7 +244,7 @@ async function cobroDelPagoStripe(
       const f = await leerFacturaStripe(key, fp.invoice);
       if (!f.ok) throw errorDelProveedor('Stripe', 'la factura', f);
       pagoId = f.id;
-      b = await cobroStripe(ws, ev, { token: tokenReleido({ metadata: f.metadata }), suscripcionId: f.suscripcion, pagoId: f.id });
+      b = await cobroStripe(ws, ev, { token: tokenReleido({ metadata: f.metadata }), suscripcionId: f.suscripcion, pagoId: f.id }, quien);
     }
   }
   return { b, pagoId };
@@ -264,10 +280,11 @@ const lecturaIgnorada = (n: { tipo: string; id: string }, estado: string, motivo
  * su `external_reference` sea el token de un cobro de ESE negocio. Una notificación falsa sólo
  * provoca una relectura: no puede inventar un pago ni marcar pagado uno ajeno.
  */
-export async function releerNotificacionMp(ws: number, n: Extract<NotificacionMp, { ok: true }>): Promise<LecturaMp> {
+export async function releerNotificacionMp(ws: number, n: Extract<NotificacionMp, { ok: true }>, cuentaMp: string = CUENTA_PRINCIPAL): Promise<LecturaMp> {
   if (!n.procesable) return { clave: claveEventoMp(n.tipo, n.id, 'recibido'), tipo: n.tipo, que: { accion: 'ignorar', motivo: `notificación ${n.tipo}: MaKo no la procesa` } };
 
-  const [token, cuenta] = [await credPasarela('MERCADOPAGO_ACCESS_TOKEN', ws), await credPasarela('MERCADOPAGO_USER_ID', ws)];
+  // Las claves de LA cuenta de la notificación (la ruta la saca de su `user_id`; varias por proveedor, mig 0328).
+  const [token, cuenta] = [await credPasarela(claveDeCuenta('MERCADOPAGO_ACCESS_TOKEN', cuentaMp), ws), await credPasarela(claveDeCuenta('MERCADOPAGO_USER_ID', cuentaMp), ws)];
   if (!token || !cuenta) return lecturaIgnorada(n, 'sin-conexion', 'Mercado Pago no está conectado en este negocio');
 
   if (n.tipo === 'subscription_preapproval') {
@@ -309,13 +326,17 @@ export async function releerNotificacionMp(ws: number, n: Extract<NotificacionMp
 }
 
 /** Aplica lo releído (la fila ya está reclamada). */
-export async function aplicarNotificacionMp(ws: number, l: LecturaMp): Promise<ResultadoEvento> {
+export async function aplicarNotificacionMp(ws: number, l: LecturaMp, cuenta: string = CUENTA_PRINCIPAL, userId?: string | null): Promise<ResultadoEvento> {
   const que = l.que;
   if (que.accion === 'ignorar') return ignorado(que.motivo);
   if (que.accion === 'pago' && que.plan.accion === 'ignorar') return ignorado(que.plan.motivo);
 
   const c = await cobroDelAviso(ws, { proveedor: 'mercadopago', ...que.buscar });
   if (!c) return ignorado('no es un cobro de MaKo');
+  // La cuenta que lo cobró (mig 0328): un pago de la cuenta A nunca aplica un cobro de la cuenta B.
+  // El `user_id` que la ruta ya validó (ver procesarEventoStripe).
+  const quien: QuienAvisa = { cuenta, ref: userId ?? (await credPasarela(claveDeCuenta('MERCADOPAGO_USER_ID', cuenta), ws)) };
+  if (deOtraCuenta(c, quien)) return ignorado('el cobro es de otra cuenta de Mercado Pago del negocio', c.id);
   const releido = que.accion === 'pago' ? que.pago.referencia : que.buscar.token ?? null;
   if (!esDelCobro(c.token, tokenReleido({ referencia: releido }))) return ignorado('el recurso releído es de otro cobro', c.id);
 

@@ -41,6 +41,7 @@ import { guardarKpiAction, apagarKpiAction, registrarKpiAction, sembrarKpisActio
 import { Cabeza } from './bloques/comun';
 import { ElegirFunnels } from '../components/ElegirFunnels';
 import { useFunnelsGeneral } from '../dashboard/ElementoGeneral';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type KpiVista = {
   id: string;
@@ -302,7 +303,7 @@ function Propuesta({ candidatos, objetivoPrincipalId, onManual }: {
         ))}
       </div>
 
-      {error && <span className="mk-err" role="alert">{error}</span>}
+      {error && <span className="mk-err" role="alert">{error}<ReportarASoporte /></span>}
 
       <div style={{ marginTop: 20 }}>
         <Button onClick={sembrar} loading={pendiente}>Seguir estos {candidatos.length}</Button>
@@ -431,7 +432,7 @@ function EditorKpi({ kpi, objetivos, objetivoPrincipalId, onCerrar }: {
             options={[{ value: '', label: 'A ninguno por ahora' }, ...objetivos.map((o) => ({ value: o.id, label: o.titulo }))]} />
         )}
 
-        {error && <span className="mk-err" role="alert">{error}</span>}
+        {error && <span className="mk-err" role="alert">{error}<ReportarASoporte /></span>}
       </div>
     </Modal>
   );

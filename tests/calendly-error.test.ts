@@ -445,8 +445,9 @@ test('GUARD: el ruteo y la key leen ESTRICTO, acotados, y su fallo contesta por 
   const porElClasificador = String.raw`\} catch \(err\) \{\s*return responderFalloDeProceso\(err, \{ evento: body\.event, rama: 'ruteo'`;
   assert.match(ruteo, new RegExp(String.raw`try \{\s*for \(const c of candidatosWs\) \{\s*const r = await wsPorIdentificadorEstricto\('calendly', c\);[\s\S]{0,120}?` + porElClasificador),
     'el ruteo va adentro de un try que contesta por el clasificador');
-  assert.match(ruteo, new RegExp(String.raw`try \{\s*keyWs = ws == null \? null : await credWsEstricta\('CALENDLY_WEBHOOK_SIGNING_KEY', ws\);\s*` + porElClasificador),
-    'la key de firma, ídem');
+  // Varias cuentas (fase B, 23/10/2026): los secretos de todas, estrictos (`firmasDeAgenda`), en el mismo try.
+  assert.match(ruteo, new RegExp(String.raw`try \{\s*secretos = ws == null \? \[\] : await firmasDeAgenda\(ws, 'calendly'\);\s*` + porElClasificador),
+    'los secretos de firma, ídem');
   // La R1/R2 estricta: sin el tipo de la R2, una R2 se graba como R1.
   assert.match(ROUTE, /j1: await credWsEstricta\('CALENDLY_EVENT_TYPE_J1', ws\),\s*j2: await credWsEstricta\('CALENDLY_EVENT_TYPE_J2', ws\)/);
   // Y lo de la rama `ruteo` se anota en el super admin: fuera de runWithWorkspace caería al ws1.

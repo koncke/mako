@@ -29,6 +29,7 @@ import { CampoCodigo } from '@/app/login/2fa/CampoCodigo';
 import {
   VER_DISPOSITIVOS, cantidadMetodos, detalleDeUrl, estadoGeneral, fechaCorta, filasDeAcceso, filasDeDispositivos, type EstadoSeguridad,
 } from './reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const BASE = '/perfil/seguridad';
 const VOLVER = { href: BASE, label: 'Seguridad' };
@@ -93,7 +94,7 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
     );
   }
 
-  const avisoError = error && <div className="aj-error" role="alert">{error}</div>;
+  const avisoError = error && <div className="aj-error" role="alert">{error}<ReportarASoporte /></div>;
   // Los códigos recién creados se muestran en la vista que sea: no se vuelven a ver nunca.
   const tarjetaCodigos = codigos && (
     <GrupoAjustes titulo="Guarda estos códigos" descripcion="Cada uno sirve una vez, si pierdes el celular. No se vuelven a mostrar.">

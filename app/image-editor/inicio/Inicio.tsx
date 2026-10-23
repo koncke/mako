@@ -42,6 +42,7 @@ import {
   type NuevoDiseno, type Tipo,
 } from './tamanos';
 import styles from './inicio.module.css';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Dónde busca el buscador: en todo, sólo en los diseños o sólo en los tamaños. */
 type Ambito = 'todo' | 'disenos' | 'plantillas';
@@ -290,7 +291,7 @@ export function Inicio({ ws }: { ws: number | null }) {
         </form>
       </section>
 
-      {error && <p className={styles.error} role="alert">{error}</p>}
+      {error && <p className={styles.error} role="alert">{error}<ReportarASoporte /></p>}
 
       {verAccesos && (
         <>

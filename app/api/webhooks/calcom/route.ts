@@ -52,6 +52,8 @@ import { dispararEvento } from '@/lib/flujos';
 import { enrolarPorEvento } from '@/lib/nutricion';
 import { runWithWorkspace } from '@/lib/workspace';
 import { credWsEstricta } from '@/lib/credenciales';
+import { CUENTA_PRINCIPAL, cuentaQueFirmo } from '@/lib/cuentas-integracion';
+import { firmasDeAgenda } from '@/lib/cuentas-agenda-server';
 import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { decidirReserva } from '@/lib/agenda-evento-etapa';
@@ -126,14 +128,17 @@ export async function POST(request: NextRequest) {
   //    La key se lee ESTRICTA por lo mismo: con `credWs`, una base caída daba null y la firma de
   //    un negocio con su key cargada daba 401 «firma rechazada», que manda a revisar un secreto
   //    que está bien.
-  let key: string | null;
+  //
+  //    VARIAS CUENTAS DE CAL.COM (fase B, 23/10/2026): cada una firma con SU secreto (`…__C2`), y vale la que verifique
+  //    (`cuentaQueFirmo`). Sin ninguno, se verifica contra '' y se rechaza, como antes.
+  let secretos: Array<{ cuenta: string; firma: string }>;
   try {
-    key = ws == null ? null : await credWsEstricta('CALCOM_WEBHOOK_SECRET', ws);
+    secretos = ws == null ? [] : await firmasDeAgenda(ws, 'calcom');
   } catch (err) {
     return responderFalloDeRuteo('calcom', err, candidatos[0]);
   }
   try {
-    verifyCalcomSignature(rawBody, firma, key ?? '');
+    cuentaQueFirmo(secretos.length ? secretos : [{ cuenta: CUENTA_PRINCIPAL, firma: '' }], (s) => verifyCalcomSignature(rawBody, firma, s));
   } catch (err) {
     if (err instanceof CalcomSignatureError) {
       console.warn(`[webhook:calcom] firma rechazada (ws ${ws ?? '—'}): ${err.message}`);

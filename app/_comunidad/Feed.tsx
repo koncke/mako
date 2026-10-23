@@ -18,6 +18,7 @@ import { Compositor } from './Compositor';
 import { EditorCategorias } from './EditorCategorias';
 import { PostAbierto } from './PostAbierto';
 import { AvatarNivel, BotonLike, Hace, Ico, Menu, NombreMiembro, useComunidad, type ItemMenu } from './piezas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** La miniatura de YouTube de un video embebido (los otros no la publican sin pedirla a su API). */
 function tapaDeVideo(embed: string): string | null {
@@ -175,7 +176,7 @@ export function Feed({ inicial, postPedido = null, onPostAbierto, version = 0 }:
         </div>
       </div>
 
-      {error && <p className="cmu-error" role="alert">{error}</p>}
+      {error && <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p>}
 
       {fijados.map((p) => (
         <TarjetaPost key={`f${p.id}`} p={p} categoria={nombreCategoria(p.categoriaId)} menu={menuDe(p)}

@@ -7,6 +7,7 @@ import { Button, IconButton } from '../ui/Button'
 import { describeCommentFailure } from './commentFailure'
 import { MAX_COMMENT_LENGTH, formatWhen, initials } from './commentOps'
 import styles from './Comments.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export function Avatar({ name, src, size = 26 }: { name: string; src: string | null; size?: number }) {
   const [broken, setBroken] = useState(false)
@@ -163,6 +164,7 @@ export function CommentComposer({ placeholder, submitLabel, onSubmit, value, onC
       {failure ? (
         <p className={styles.error} role="alert" data-testid={`${testId}-error`}>
           {failure}
+          <ReportarASoporte />
         </p>
       ) : null}
       <div className={styles.row}>

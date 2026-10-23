@@ -20,6 +20,7 @@ import { BRAND_ROLES, MAX_BRAND_COLORS, MAX_BRAND_LOGOS, assetToRef, emptyKit, f
 import { setBrandPalette } from './brandPalette'
 import { CategoryMenu, type CategoryEntry } from './library'
 import styles from './Brand.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Brand = NonNullable<ReturnType<typeof useEditor>['adapter']['services']['brand']>
 
@@ -209,6 +210,7 @@ function Kit({ brand }: { brand: Brand }) {
       <div className={styles.gate} role="alert">
         <span>{error}</span>
         <Button onClick={resource.reload}>{t.stickers.retry}</Button>
+        <ReportarASoporte />
       </div>
     )
   }
@@ -301,6 +303,7 @@ function Kit({ brand }: { brand: Brand }) {
       {error ? (
         <p className={styles.error} role="alert">
           {error}
+          <ReportarASoporte />
         </p>
       ) : null}
     </div>

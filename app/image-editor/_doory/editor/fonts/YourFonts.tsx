@@ -11,6 +11,7 @@ import { countTextLayersUsing } from './fontUsage'
 import { useUserFonts, useUserFontsStore } from './userFonts'
 import { useFontUploadEntry } from './useFontUploadEntry'
 import styles from './YourFonts.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** The families' own faces are loaded so each name is shown in the font it names. */
 function useShowInOwnFace(families: readonly FontFamily[]): void {
@@ -47,6 +48,7 @@ function Confirm({ family, onCancel, onDone }: { family: FontFamily; onCancel: (
       {failed ? (
         <span className={styles.error} role="alert">
           {t.userFonts.deleteFailed(family.family)}
+          <ReportarASoporte />
         </span>
       ) : null}
       <div className={styles.confirmActions}>
@@ -110,6 +112,7 @@ export function YourFonts() {
           <Button size="sm" variant="ghost" onClick={() => void store.reload()}>
             {t.userFonts.retry}
           </Button>
+          <ReportarASoporte />
         </div>
       ) : null}
       {state.status === 'ready' && state.families.length === 0 ? <p className={styles.note}>{t.userFonts.manageEmpty}</p> : null}

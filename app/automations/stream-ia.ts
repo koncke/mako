@@ -69,6 +69,8 @@ export type PedidoIA = {
   historial?: readonly MensajeChatMako[];
   /** «Discutir» o «Editar» (22/10/2026, lib/flujo-ia-intencion.ts). Ausente = lo de antes. */
   intencion?: 'discutir' | 'editar';
+  /** Lo adjuntado con el «+», ya leído a texto (23/10/2026, AU4: lib/chat-adjuntos-automatizacion.ts). */
+  adjuntos?: ReadonlyArray<{ nombre: string; texto: string }>;
 };
 
 /** Cómo terminó un turno. */

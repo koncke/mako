@@ -28,6 +28,7 @@ import { fechaEnPalabras, horaEnTz } from '@/lib/date-utils';
 import { useTzWorkspace } from '../../useTzWorkspace';
 import { usd } from '@/lib/pagos-vistazo';
 import { marcarPagoManualAction, registrarPagoSueltoAction } from '@/app/crm/[id]/deal-actions';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export const SANS = "'Geist', sans-serif";
 export const MONO = "'Geist Mono', monospace";
@@ -55,7 +56,7 @@ export function Tarjeta({ titulo, derecha, marca, children, style }: { titulo: s
 /** Un aviso dentro de un bloque: una línea con su color, que pide que alguien haga algo. */
 export function Aviso({ tono, children }: { tono: 'rojo' | 'ambar' | 'verde'; children: ReactNode }) {
   const c = tono === 'rojo' ? { bg: 'var(--bad-bg)', ink: 'var(--bad)' } : tono === 'ambar' ? { bg: 'var(--warn-bg)', ink: 'var(--warn)' } : { bg: 'var(--good-bg)', ink: 'var(--good)' };
-  return <div role={tono === 'rojo' ? 'alert' : 'status'} style={{ borderRadius: 11, padding: '10px 14px', fontSize: 13.5, lineHeight: 1.5, fontWeight: 600, background: c.bg, color: c.ink }}>{children}</div>;
+  return <div role={tono === 'rojo' ? 'alert' : 'status'} style={{ borderRadius: 11, padding: '10px 14px', fontSize: 13.5, lineHeight: 1.5, fontWeight: 600, background: c.bg, color: c.ink }}>{children}<ReportarASoporte /></div>;
 }
 
 export function Semaforo({ tono, children }: { tono: Tono; children: ReactNode }) {

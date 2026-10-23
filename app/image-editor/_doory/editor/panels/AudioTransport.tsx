@@ -7,6 +7,7 @@ import { audioRuntime, usePlayer } from '../audio/runtime'
 import { t } from '../strings'
 import { Button } from '../ui/Button'
 import styles from './Audio.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const sameRange = (a: PlayRange | null, b: PlayRange): boolean => a !== null && a.mode === b.mode && (a.mode === 'all' || (b.mode === 'page' && a.pageId === b.pageId))
 
@@ -72,16 +73,19 @@ export function AudioTransport() {
       {state.blocked ? (
         <p className={styles.warn} role="alert">
           {t.audio.transport.blocked}
+          <ReportarASoporte />
         </p>
       ) : null}
       {state.error ? (
         <p className={styles.warn} role="alert">
           {state.error}
+          <ReportarASoporte />
         </p>
       ) : null}
       {state.failed.length > 0 ? (
         <p className={styles.warn} role="alert" data-testid="audio-failed">
           {t.audio.transport.failed} ({state.failed.join(', ')})
+          <ReportarASoporte />
         </p>
       ) : null}
     </section>

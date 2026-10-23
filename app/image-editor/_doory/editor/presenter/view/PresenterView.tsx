@@ -15,6 +15,7 @@ import { useElementSize } from '../useElementSize'
 import { bestFrame, configOf, extrapolate, frameWidthFor, pageClock, VIEW_TICK_MS } from './model'
 import { type Show, useShow } from './useShow'
 import styles from './PresenterView.module.css'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const NOTES_SIZES = [14, 18, 22, 28, 36, 48, 64] as const
 const DEFAULT_SIZE_INDEX = 3
@@ -130,7 +131,7 @@ export function PresenterView({ session, createChannel }: PresenterViewProps) {
     return (
       <main className={styles.card}>
         <h1>{t.presenterView.title}</h1>
-        <p role="alert">{phase === 'invalid' ? t.presenterView.invalid : t.presenterView.unsupported}</p>
+        <p role="alert">{phase === 'invalid' ? t.presenterView.invalid : t.presenterView.unsupported}<ReportarASoporte /></p>
       </main>
     )
   }
@@ -168,6 +169,7 @@ export function PresenterView({ session, createChannel }: PresenterViewProps) {
       {lost && !finished ? (
         <p className={styles.lost} role="alert" data-testid="view-lost">
           {t.presenterView.lost}
+          <ReportarASoporte />
         </p>
       ) : null}
 

@@ -44,6 +44,7 @@ import { hrefProbar } from '@/lib/experimentos-catalogo';
 import { VistaPdf } from './VistaPdf';
 import { Dropdown } from '@/app/components/Dropdown';
 import { ElegirFunnels, type FunnelElegible } from '@/app/components/ElegirFunnels';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const LECTURA = 880;
 
@@ -294,7 +295,7 @@ function BarraAcciones({ sesion, funnels, onSeguir, onGuardar }: {
             </Button>
           )}
       </div>
-      {error && <p role="alert" style={{ margin: '8px 2px 0', fontSize: 'var(--fs-sm)', lineHeight: 1.4, color: 'var(--bad)' }}>{error}</p>}
+      {error && <p role="alert" style={{ margin: '8px 2px 0', fontSize: 'var(--fs-sm)', lineHeight: 1.4, color: 'var(--bad)' }}>{error}<ReportarASoporte /></p>}
       {aviso?.texto.trim() && <p role="status" style={{ margin: '8px 2px 0', fontSize: 'var(--fs-sm)', lineHeight: 1.4, color: 'var(--warn)' }}>{aviso.texto}</p>}
     </div>
   );

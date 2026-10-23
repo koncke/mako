@@ -20,6 +20,7 @@ import { Modal } from '@/app/_ui/Modal';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { MODELOS_OFERTA, type ModeloOferta, type OfertaParaLead } from '@/lib/oferta-modelo';
 import { ofertasDelLeadAction, asignarOfertaLeadAction, crearOfertaDesdeLeadAction } from '../oferta-lead-actions';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -111,7 +112,7 @@ export function OfertaDelLead({ leadId, funnelId, onCambio }: {
       {ofertas != null && ofertas.length === 0 && !error && (
         <div style={{ marginTop: 8, fontSize: 13, color: 'var(--faint)' }}>{puedeCrear ? 'Todavía no hay ofertas: crea la primera.' : 'Todavía no hay ofertas.'}</div>
       )}
-      {error && <div role="alert" style={{ marginTop: 8, fontSize: 13, color: 'var(--bad)' }}>{error}</div>}
+      {error && <div role="alert" style={{ marginTop: 8, fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
       {creando && (
         <NuevaOferta
           leadId={leadId}
@@ -187,7 +188,7 @@ function NuevaOferta({ leadId, onCerrar, onCreada }: { leadId: number; onCerrar:
           <input value={ticket} inputMode="decimal" onChange={(e) => { setError(null); setTicket(e.target.value.replace(/[^\d.,]/g, '')); }}
             onKeyDown={(e) => { if (e.key === 'Enter') crear(); }} style={campo} />
         </label>
-        {error && <p role="alert" style={{ margin: 0, fontSize: 13, color: 'var(--bad)', fontWeight: 600 }}>{error}</p>}
+        {error && <p role="alert" style={{ margin: 0, fontSize: 13, color: 'var(--bad)', fontWeight: 600 }}>{error}<ReportarASoporte /></p>}
       </div>
     </Modal>
   );

@@ -45,6 +45,7 @@ import {
 import { seccionesDelMenu, type ItemMenuEstructura } from './estructura';
 import { TOPE_TITULO } from './reglas';
 import { AYUDA_OBLIGATORIA, ROTULO_OBLIGATORIA } from './leccion-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** Una clase, en lo que el menú necesita para elegirla (el candado `tarea`). */
 export type ClaseParaMenu = { id: number; etapa: string; titulo: string };
@@ -229,7 +230,7 @@ function RenombrarEnMenu({ valor, ocupado, onGuardar }: { valor: string; ocupado
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void guardar(); } }}
           onBlur={() => void guardar()} />
       </label>
-      {error && <p className="ugc-menu-error" role="alert">{error}</p>}
+      {error && <p className="ugc-menu-error" role="alert">{error}<ReportarASoporte /></p>}
     </div>
   );
 }
@@ -293,7 +294,7 @@ function AccesoMenu({ objeto, valor, clases, propia, ocupado, onGuardar }: {
       {acceso === 'publico'
         ? <p className="ugc-menu-nota">Entra cualquiera con el curso.</p>
         : <SelectorCondicion objeto={objeto} valor={valor} clases={clases} propia={propia} ocupado={apagado} onGuardar={onGuardar} />}
-      {error && <p className="ugc-menu-error" role="alert">{error}</p>}
+      {error && <p className="ugc-menu-error" role="alert">{error}<ReportarASoporte /></p>}
     </div>
   );
 }
@@ -395,7 +396,7 @@ function SelectorCondicion({ objeto, valor, clases, propia, ocupado, onGuardar }
           </select>
         </label>
       )}
-      {error && <p className="ugc-menu-error" role="alert">{error}</p>}
+      {error && <p className="ugc-menu-error" role="alert">{error}<ReportarASoporte /></p>}
     </>
   );
 }

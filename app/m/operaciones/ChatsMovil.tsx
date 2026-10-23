@@ -56,6 +56,7 @@ import { SelectoresDeEnvio, resumenDeEnvio } from '@/app/admin/operaciones/Pieza
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import type { Responder } from '@/app/admin/operaciones/PreguntaChat';
 import { SIN_MARCAS } from '@/lib/centro-mensajes';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /**
  * El título de la hoja de un chat, como la cabecera de WhatsApp (17/10/2026, Martín): la criatura a la izquierda del nombre.
@@ -90,7 +91,7 @@ function TituloDeChat({ chat, aspecto, avisos, renombre, onMuneco, onRenombrar, 
         ) : onRenombrar
           ? <button type="button" className="m-operaciones-titulo__nombre" onClick={onRenombrar} aria-label={`Renombrar ${chat.titulo}`}>{chat.titulo}</button>
           : <span className="m-operaciones-titulo__nombre">{chat.titulo}</span>}
-        {renombre?.error && <span className="m-operaciones-titulo__error" role="alert">{renombre.error}</span>}
+        {renombre?.error && <span className="m-operaciones-titulo__error" role="alert">{renombre.error}<ReportarASoporte /></span>}
       </span>
     </span>
   );

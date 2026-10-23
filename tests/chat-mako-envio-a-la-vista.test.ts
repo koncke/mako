@@ -59,15 +59,18 @@ test('2 · si no salió, queda en el hilo con «No se envió · Reintentar», y 
   const chat = CHAT();
   const deshacer = bloque(chat, 'const deshacer = (');
   // Un error (no Cancelar, no una opción tocada): el mensaje queda, marcado; no vuelve a la barra.
-  assert.match(deshacer, /if \(e && origen !== 'boton'\) \{\n\s+ponerExtras\(\(xs\) => \[\.\.\.xs, \{ id: `\$\{PREFIJO_EXTRA\}\$\{yo\.id\}`, at: yo\.at, yo: dicho, fallido: e\.texto \}\]\);\n\s+return true;\n\s+\}/);
+  // (23/10/2026, AU4: con lo adjuntado, para que «Reintentar» lo mande otra vez.)
+  assert.match(deshacer, /if \(e && origen !== 'boton'\) \{\n\s+ponerExtras\(\(xs\) => \[\.\.\.xs, \{ id: `\$\{PREFIJO_EXTRA\}\$\{yo\.id\}`, at: yo\.at, yo: dicho, fallido: e\.texto, \.\.\.\(adj\.length \? \{ adjuntos: adj \} : \{\}\) \}\]\);\n\s+return true;\n\s+\}/);
   assert.ok(deshacer.indexOf("if (e && origen !== 'boton')") < deshacer.indexOf("if (origen === 'barra') return { error: null };"), 'el error vuelve a la barra antes de quedar en el hilo');
   // Cancelar sigue igual: lo escrito vuelve a la barra.
   assert.match(chat, /if \(fin\.t === 'cancelado'\) return deshacer\(null\);/);
-  // Se dibuja debajo del mensaje, con el botón.
-  assert.match(chat, /\{e\.fallido !== undefined && \(\n\s+<div data-yo-fallido="" role="alert" title=\{e\.fallido\} style=\{S\.fallido\}>\n\s+No se envió\n\s+<button type="button" onClick=\{\(\) => reintentar\(e\.id, e\.yo!\)\}/);
+  // Se dibuja debajo del mensaje, con el botón: el error y el «Reintentar» del hilo único (HiloMako, 23/10/2026, AU4).
+  assert.match(chat, /\.\.\.\(e\.fallido !== undefined \? \{ estado: 'error' as const, error: NO_SE_ENVIO \} : \{\}\)/);
+  assert.match(chat, /export const NO_SE_ENVIO = 'No se envió';/);
+  assert.match(chat, /onReintentar=\{\(id\) => \{ const e = extrasRef\.current\.find\(\(y\) => y\.id === id\); if \(e\?\.yo !== undefined\) reintentar\(e\.id, e\.yo\); \}\}/);
   const reintentar = bloque(chat, 'const reintentar = (');
   assert.match(reintentar, /ponerExtras\(\(xs\) => xs\.filter\(\(x\) => x\.id !== id\)\);/, 'Reintentar deja el viejo y suma otro: el mensaje queda dos veces');
-  assert.match(reintentar, /void enviarTexto\(texto, 'afuera'\);/, 'Reintentar no lo manda');
+  assert.match(reintentar, /void enviarTexto\(texto, 'afuera', adj\);/, 'Reintentar no lo manda (con lo adjuntado)');
   assert.match(reintentar, /if \(trabajando \|\| interpretando\) return;/, 'Reintentar con MaKo trabajando pisa el turno en curso');
 });
 

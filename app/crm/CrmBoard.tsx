@@ -148,6 +148,7 @@ import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, FONDO_COLUMNA, NOMBRE_CAMP
 import { PersonalizarTarjetas } from '@/app/_ui/PersonalizarTarjetas';
 import { guardarCamposTarjetaAction } from './tarjeta-campos-actions';
 import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -4235,6 +4236,7 @@ export function CrmBoard({
       {avisoDeshacer && !undoInfo && (
         <div role="alert" style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 70, maxWidth: 'min(640px, calc(100vw - 32px))', background: '#14161B', color: '#F3F5F8', padding: '12px 16px', borderRadius: 12, boxShadow: '0 12px 32px rgba(18,21,27,.35)', fontFamily: SANS, fontSize: 14 }}>
           {avisoDeshacer}
+          <ReportarASoporte />
         </div>
       )}
       {/* Eliminar una etapa es irreversible y mueve leads: se pregunta, y la pregunta dice

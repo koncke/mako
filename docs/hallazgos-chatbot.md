@@ -6028,6 +6028,23 @@ app/automations/ConfigAutomatizacionPanel.tsx (`AntibanDeLaAutomatizacion`) · L
 teléfono (/m/automations) no tiene Configuraciones: el anti-ban y el horario de una automatización sólo se cambian en la
 computadora.
 
+## El chat de MaKo de Automations con el hilo y la caja únicos: las piezas traen CSS, el lienzo lo dibujan los tests (23/10/2026, AU4)
+
+**Pedido (Martín, por el Cerebro):** la estrella de MaKo como criatura, aire bajo la caja, el «+» para adjuntar, y el chat en
+CajaChat + HiloMako. **Trampa:** las piezas únicas importan su CSS y Node no lo carga; ChatMako.tsx lo importan
+SecuenciaPerfil y la galería, que ~90 archivos de test dibujan bajo tsx. Importarlas directo rompía todos. **Regla:** la vista
+(ChatMakoVista.tsx) entra con `next/dynamic` (el molde del agente del Web Generator) y ChatMako arma lo que le pasa
+(`hiloUnico`, exportada: los tests miran lo de cada globo sin dibujar las piezas; el test que sí las dibuja registra el hook
+que vacía los `.css`, como tests/ops-center-caja-angosta.test.ts). **Trampa 2:** el hilo del Ops Center calcula su margen
+lateral con el ANCHO DE LA VENTANA (`clamp(16px, 4vw, 56px)`): en la sidebar del lienzo (~380 px) dejaba ~270 al globo; la
+vista lo fija para la columna angosta. **El «+»:** la cascada de Automations lee texto, así que cada archivo se lee al
+adjuntarlo con la ruta que ya existía (`/api/chat-agent/secuencias/archivo`, `archivoATexto`: PDF, docx, imagen por visión con
+las keys del negocio) y viaja aparte del pedido (lib/chat-adjuntos-automatizacion.ts): el control de lo pedido sigue mirando
+sólo lo escrito. **Vive en:** app/automations/ChatMako.tsx · ChatMakoVista.tsx · app/api/chat-agent/secuencias/ia/route.ts ·
+test: tests/chat-mako-caja-unica.test.ts. **Sin hacer:** un archivo que es CONTENIDO del flujo («mandales este PDF») se lee
+como instrucciones en el chat (la galería ya lo sube a la biblioteca: `usoDelArchivo`); la «Pídeselo a MaKo» de la galería
+(CajaPedido) sigue con su caja.
+
 ## «No salió ni a mí ni a mi esposa»: SÍ se inscribieron; el motor cortó por el horario y no lo dijo en ningún lado (23/10/2026, P0 de #289)
 
 **Síntoma.** Martín probó en vivo la #289 de Mauricio (ws1) con su lead y el de su esposa: los movió a «Prospección activa»

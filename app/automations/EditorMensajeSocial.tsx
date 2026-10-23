@@ -57,6 +57,7 @@ import { BurbujaSocial, ArchivoSocial, LogoSocial } from './social-ui';
 // «Conectar» AHÍ MISMO (décima tanda, GENERAL 6): el OAuth de Zernio en una ventana emergente y el sondeo de la
 // cuenta, en el modal de la tab (antes se abría una pestaña nueva y el editor no se enteraba de la vuelta).
 import { ConectarMedio, useAlConectarMedio, leerZernio, type CuentaZernio, type EstadoZernio, type RespuestaZernio } from './ConectarMedio';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type EditorMensajeSocialProps = {
   paso: PasoSecuenciaDto;
@@ -352,7 +353,7 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
           <button type="button" onClick={limpiarBarra} aria-label="Cancelar edición" title="Cancelar" style={{ background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 14, padding: 0 }}>✕</button>
         </div>
       )}
-      {error && <div role="alert" style={{ flex: 'none', padding: '6px 12px', borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--bad)' }}>{error}</div>}
+      {error && <div role="alert" style={{ flex: 'none', padding: '6px 12px', borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
       {/* LA SUGERENCIA DE MaKo (punto 8), arriba de la barra: no es un mensaje enviado. */}
       {sugerencia && !panelMako && (
         <div data-sugerencia-social="" role="region" aria-label="Sugerencia de MaKo"

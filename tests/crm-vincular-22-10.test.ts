@@ -24,6 +24,7 @@
 //   · `ver_cobro_etapa` que ofrece en el catálogo lo que cobra en otro CRM           → 9 / 1
 //   · `desvincular_cobro_etapa` sin `plata: true`                                     → 9 / 1
 //   · crear un producto que cierra el formulario DESPUÉS de vincular                  → 9 / 1
+//   · las cuentas de MaKo sólo de la principal (con la fase A de Cobros, 23/10/2026)    → 9 / 1
 // Correr: node --import tsx --test tests/crm-vincular-22-10.test.ts
 // =============================================================================
 
@@ -203,6 +204,11 @@ test('la revisión adversarial (23/10/2026): un producto cobra en UN solo CRM, l
   const iVincular = guardar.indexOf('await vincularProductoAEtapaAction(');
   assert.ok(iCerrar > 0 && iVincular > iCerrar, 'el formulario sigue abierto mientras vincula');
   assert.match(guardar, /\.catch\(\(\) => \(\{ ok: false as const, error: 'no contestó' \}\)\)/);
+  // Las cuentas: VARIAS por pasarela desde la fase A de Cobros, las mismas que ofrece el pop-up (`cuentasConectadas`).
+  // Con `cuentasDePasarelas`, sólo la principal: MaKo rechazaba la secundaria y el aviso del «⋯» no la contaba.
+  assert.match(run, /\(await cuentasDePago\(ws\)\)\.filter\(\(c\) => c\.conectada\)/);
+  assert.match(sinComentarios(leer('lib/vinculos-de-columnas.ts')), /return cuentasDePago\(ws\); \}\)\.then\(\(cs\) => cs\.filter\(\(c\) => c\.conectada\)\)/);
+  assert.doesNotMatch(run + leer('lib/vinculos-de-columnas.ts'), /cuentasDePasarelas\(/);
 });
 
 test('«Asignar evento» ya no se dice en ningún lado', () => {

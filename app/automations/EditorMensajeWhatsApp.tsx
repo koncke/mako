@@ -120,6 +120,7 @@ import {
   ACEPTA_FOTO_VIDEO, ACEPTA_DOCUMENTO, validarArchivoWA, archivoConTipoWA, tituloDeArchivo, pesoLegible,
   tipoEnvioDeMime, type AdjuntoDto,
 } from '@/lib/setting-adjuntos-reglas';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export type VariableEditor = { key: string; label: string; ejemplo?: string };
 
@@ -1272,7 +1273,7 @@ export function EditorMensajeWhatsApp({
         style={{ background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 14, padding: 0 }}>✕</button>
     </div>
   ) : null;
-  const errorNodo = error ? <div role="alert" style={{ flex: 'none', padding: '6px 12px', borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--bad)' }}>{error}</div> : null;
+  const errorNodo = error ? <div role="alert" style={{ flex: 'none', padding: '6px 12px', borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div> : null;
   const composerNodo = varias ? (
     <ComposerWhatsApp
       ref={composer}

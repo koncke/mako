@@ -23,9 +23,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createElement } from 'react';
+import { createElement, Fragment } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ChatMako, TarjetaPregunta, textoDeListo, juntarHilo, PLACEHOLDER_OTRA, PLACEHOLDER_EDITAR, NO_APLICADO } from '../app/automations/ChatMako';
+import { ChatMako, TarjetaPregunta, textoDeListo, juntarHilo, hiloDeChat, hiloUnico, PLACEHOLDER_OTRA, PLACEHOLDER_EDITAR, NO_APLICADO } from '../app/automations/ChatMako';
 import { cuerpoIA, eventoDeLinea, leerRespuestaIA, TOPE_CLIENTE_MS } from '../app/automations/stream-ia';
 import { rondaAbierta, respuestaMako, edicionTocaPasos, ELIGE_TU, OTRA_COSA } from '../lib/flujo-ia-cliente';
 import { SecuenciaPerfil } from '../app/automations/SecuenciaPerfil';
@@ -72,8 +72,22 @@ const HILO2: MensajeChatMako[] = [...HILO, yo('y2', R_CANAL.texto, { respuesta: 
 
 // Con el lienzo vacío MaKo CREA sobre la fila; con tarjetas, EDITA (decimotercera tanda).
 const PASO_LIENZO = { id: 'm1', orden: 0, canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: 'Hola', template_wa: null };
-const dibujarChat = (inicial: MensajeChatMako[], modo: 'crear' | 'editar' = 'crear') => renderToStaticMarkup(createElement(ChatMako,
-  { secuenciaId: 7, pasos: modo === 'editar' ? [PASO_LIENZO] : [], onListo: () => {}, inicial } as unknown as Parameters<typeof ChatMako>[0]));
+/**
+ * EL HILO COMO LO ARMA ChatMako (23/10/2026, AU4): la vista (HiloMako y CajaChat) entra con next/dynamic y trae CSS, así que
+ * acá se dibuja lo que ChatMako le pasa: cada mensaje (`hiloUnico`) con su texto y lo que va en su globo.
+ */
+const dibujarChat = (inicial: MensajeChatMako[]) => {
+  const porId = new Map(inicial.map((m, i) => [m.id, { m, i }] as const));
+  const ronda = rondaAbierta(inicial);
+  const ultimoMako = inicial.reduce((k, m, i) => (m.de === 'mako' ? i : k), -1);
+  const { items, enGlobo } = hiloUnico({
+    hilo: hiloDeChat(inicial), porId, extraPorId: new Map(), total: inicial.length, preguntaViva: ronda?.pregunta ?? null, ultimoMako,
+    deshabilitado: false, trabajando: false, elegir: () => {}, tocarBurbuja: () => {},
+  });
+  return renderToStaticMarkup(createElement(Fragment, null, ...items.map((it) => createElement('div', { key: it.id, 'data-item': it.k === 'msg' ? it.role : it.k },
+    createElement('span', null, it.k === 'msg' ? it.texto : ''), enGlobo.get(it.id)?.arriba ?? null, enGlobo.get(it.id)?.abajo ?? null))));
+};
+void ChatMako;
 
 // ── 1. La pregunta como tarjeta ─────────────────────────────────────────────────────────────────
 
@@ -87,9 +101,10 @@ test('ChatMako dibuja la pregunta VIVA: sus botones con los rótulos TAL CUAL, �
   assert.equal(cuantas(html, /data-opcion="/g), CANAL.opciones.length, 'un botón de más o de menos');
   assert.match(html, new RegExp(`data-otra-cosa=""[^>]*>${OTRA_COSA}</button>`));
   assert.match(html, new RegExp(`data-elige-tu=""[^>]*>${ELIGE_TU}</button>`));
-  // El pedido en el hilo (la burbuja de WhatsApp), y la barra lista para «Otra cosa».
+  // El pedido en el hilo, y la caja lista para «Otra cosa» (su placeholder lo elige ChatMako: la caja entra con next/dynamic).
   assert.ok(html.includes(`<span>${PEDIDO}</span>`));
-  assert.ok(html.includes(`placeholder="${PLACEHOLDER_OTRA}"`));
+  assert.match(CHAT, /const placeholder = ronda \? PLACEHOLDER_OTRA : crea \? PLACEHOLDER_QUIETO : PLACEHOLDER_EDITAR;/);
+  assert.match(CHAT, /ocupado: trabajando \|\| interpretando, apagado: !!p\.deshabilitado, placeholder,/);
   // La de ANTES (ya contestada) queda como texto, sin botones: sólo la viva los lleva.
   const html2 = dibujarChat(HILO2);
   assert.equal(cuantas(html2, /data-pregunta-mako="/g), 1);
@@ -97,16 +112,15 @@ test('ChatMako dibuja la pregunta VIVA: sus botones con los rótulos TAL CUAL, �
   assert.doesNotMatch(html2, /data-opcion="instagram"/, 'la pregunta contestada sigue con botones');
   assert.ok(html2.includes('<span>Instagram</span>'), 'la respuesta no quedó en el hilo');
   // Sin pregunta, no hay tarjeta; en el lienzo la caja dice «Pídele un cambio».
-  const sin = dibujarChat([yo('y1', PEDIDO), mako('m1', 'Cambié 1')], 'editar');
+  const sin = dibujarChat([yo('y1', PEDIDO), mako('m1', 'Cambié 1')]);
   assert.doesNotMatch(sin, /data-pregunta-mako/);
-  assert.ok(sin.includes(`placeholder="${PLACEHOLDER_EDITAR}"`));
   // La tarjeta sola (la misma pieza que usa el hilo).
   const t = renderToStaticMarkup(createElement(TarjetaPregunta, { pregunta: PRODUCTO, onElegir: () => {}, onOtraCosa: () => {} }));
   assert.equal(cuantas(t, /<button/g), PRODUCTO.opciones.length + 2);
 });
 
 test('los avisos van en el mensaje de MaKo, y lo que se dibuja va en tú', () => {
-  const html = dibujarChat([yo('y1', 'Cambia WhatsApp por Instagram'), mako('m1', 'Cambié 2', { avisos: ['Saqué el Si responde: por Instagram todavía no contesta'] })], 'editar');
+  const html = dibujarChat([yo('y1', 'Cambia WhatsApp por Instagram'), mako('m1', 'Cambié 2', { avisos: ['Saqué el Si responde: por Instagram todavía no contesta'] })]);
   // (22/10/2026: lo que MaKo acomodó va plegado y en gris: tests/chat-mako-ramas-y-listo.test.ts.)
   assert.match(html, /<details data-avisos-mako=""[\s\S]*?<li>Saqué el Si responde: por Instagram todavía no contesta<\/li><\/ul><\/details>/);
   for (const s of [ELIGE_TU, OTRA_COSA, PLACEHOLDER_OTRA, PLACEHOLDER_EDITAR, NO_APLICADO,
@@ -164,7 +178,8 @@ test('cada turno re-POSTea el pedido ORIGINAL con las respuestas acumuladas (y l
   // El hilo de ANTES del turno (`mensajes`): la ruta guarda el turno.
   // (Y desde el 22/10/2026, detrás, Discutir / Editar al editar: tests/chat-mako-discutir-editar.test.ts.)
   // (22/10/2026: con lo que pasa si nadie lo está mirando al terminar, `siNadieMira`: tests/chat-mako-segundo-plano.test.ts.)
-  assert.match(turno, /historial: mensajes,\n(?:\s+\/\/[^\n]*\n)*\s+\.\.\.\(modo === 'editar' \? \{ intencion \} : \{\}\),\n\s+\}, \{ siNadieMira \}\);/);
+  // (23/10/2026, AU4: y lo adjuntado con el «+», ya leído.)
+  assert.match(turno, /historial: mensajes,\n(?:\s+\/\/[^\n]*\n)*\s+\.\.\.\(modo === 'editar' \? \{ intencion \} : \{\}\),\n(?:\s+\/\/[^\n]*\n)*\s+\.\.\.\(adj\.length \? \{ adjuntos: adj \} : \{\}\),\n\s+\}, \{ siNadieMira \}\);/);
   // Por qué (lo hace la ruta, lib/flujo-ia-preguntas.ts): la pregunta que se contesta se busca EN EL HILO.
   const conCron = [...HILO, mako('m2', 'Cambié 2', { cambios: { cambiadas: 2, quitadas: 0, agregadas: 0 }, pregunta: cron })];
   const eligeTu = respuestaMako(cron, { eligeTu: true });
@@ -174,7 +189,7 @@ test('cada turno re-POSTea el pedido ORIGINAL con las respuestas acumuladas (y l
   assert.equal(turnoDelUsuario(PEDIDO, [opcion.respuesta], conCron, 'app')?.texto, 'Comenta un post', 'el turno se guarda con el rótulo');
   assert.equal(turnoDelUsuario(PEDIDO, [opcion.respuesta], [...conCron, yo('y3', 'Comenta un post')], 'app'), null, 'con el turno al final, no se guarda');
   // Lo escrito con una pregunta abierta ES «Otra cosa».
-  assert.match(CHAT, /if \(ronda\) \{ const r = respuestaMako\(ronda\.pregunta, \{ texto: t \}\); return turno\(r\.texto, r\.respuesta, origen\); \}/);
+  assert.match(CHAT, /if \(ronda\) \{ const r = respuestaMako\(ronda\.pregunta, \{ texto: t \}\); return turno\(r\.texto, r\.respuesta, origen, undefined, adj\); \}/);
 });
 
 // ── 3. El lector ─────────────────────────────────────────────────────────────────────────────────
@@ -279,9 +294,9 @@ test('abierto al entrar: el chat está siempre; ?mako=1 y la fila que nace con u
   assert.match(ancla, /const conMako = params\.get\('mako'\) === '1';\s*if \(hallada\) setAbrirSec\(conMako \? \{ id: hallada\.id, mako: true \} : \{ id: hallada\.id \}\);/);
   // Elegir otra saca `mako=1` de la URL: si no, el ancla le abriría el chat a la otra.
   assert.match(tramo(APP, 'const escribirSec = useCallback(', '}, [params, router]);', 600), /q\.set\('sec', String\(id\)\);\s*q\.delete\('mako'\);/);
-  // Al abrir, el hilo va al último mensaje: lo hace el hilo de WhatsApp que el chat monta (decimotercera, punto 6).
-  assert.match(CHAT, /<ChatHilo\n/);
-  assert.match(sinComentarios(leer('app/whatsapp/_shared/ChatHilo.tsx')), /useEffect\(\(\) => \{ const el = scrollRef\.current; if \(el && stickRef\.current\) el\.scrollTop = el\.scrollHeight; \}, \[mensajes, typing\]\);/);
+  // Al abrir, el hilo va al último mensaje (y lo sigue si se estaba mirando lo último): lo hace la vista del hilo único (AU4).
+  assert.match(CHAT, /<ChatMakoVista\n/);
+  assert.match(sinComentarios(leer('app/automations/ChatMakoVista.tsx')), /useLayoutEffect\(\(\) => \{\n\s+const h = hiloRef\.current;\n\s+if \(h && abajo\.current\) h\.scrollTop = h\.scrollHeight;\n\s+\}, \[n\]\);/);
   // Y lee el chat guardado: si falla, arranca vacío (nada lo bloquea).
   assert.match(CHAT, /const r = await fetch\(`\$\{RUTA_IA\}\?secuenciaId=\$\{secId\}`, \{ cache: 'no-store' \}\);/);
   assert.deepEqual(juntarHilo([yo('a', '1')], [yo('a', '1'), yo('b', '2')]).map((m) => m.id), ['a', 'b']);
@@ -293,7 +308,9 @@ test('la barra vieja («Pídele un cambio» + «Agregar») ya no se monta: en su
   const html = dibujarChatSolo();
   assert.doesNotMatch(html, /<input[^>]*placeholder="Pídele un cambio"/, 'volvió la barra de una línea');
   assert.doesNotMatch(html, />Agregar<\/button>/, 'volvió el «Agregar» de la barra');
-  assert.match(html, /<textarea[^>]*placeholder="Pídele un cambio"/);
+  // La caja es la única (AU4), con su placeholder: entra con next/dynamic, así que se mira en la fuente.
+  assert.match(CHAT, /export const PLACEHOLDER_EDITAR = 'Pídele un cambio';/);
+  assert.match(html, /data-chat-mako="editar"/);
   assert.doesNotMatch(PERFIL, /<CrearConIA\b/);
   // 13/10/2026: entre `pasos` y `onListo` va `publicadas` (con algo publicado, MaKo no crea: el 409 de la decimotercera).
   // (20/10/2026: en la sidebar, con la «←» en el renglón de abajo.)

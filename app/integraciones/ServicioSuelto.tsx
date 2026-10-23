@@ -28,6 +28,7 @@ import { integracionAction } from './servicio-actions';
 import { getGoogleCalendarStatusAction, type GoogleCalendarStatus } from '@/app/configuraciones/gcal-actions';
 import { GCAL_MSG } from '@/app/configuraciones/GoogleCalendarPanel';
 import type { Integracion } from '@/lib/integraciones';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export default function ServicioSuelto({ servicio, motivoGoogle = null, onCerrar, onConectado }: {
   /** La clave de la integración (la de lib/integraciones-catalogo.ts: 'zernio'). */
@@ -62,7 +63,7 @@ export default function ServicioSuelto({ servicio, motivoGoogle = null, onCerrar
     return (
       <ModalShell w={440} label="Integraciones" onClose={onCerrar}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '18px 20px', fontSize: 13.5, color: error ? 'var(--bad)' : 'var(--dim)' }}>
-          {error ? <span role="alert" style={{ flex: 1 }}>{error}</span> : <><Spinner size={14} /><span style={{ flex: 1 }}>Abriendo…</span></>}
+          {error ? <span role="alert" style={{ flex: 1 }}>{error}<ReportarASoporte /></span> : <><Spinner size={14} /><span style={{ flex: 1 }}>Abriendo…</span></>}
           <button type="button" onClick={onCerrar} style={closeBtn} title="Cerrar" aria-label="Cerrar">✕</button>
         </div>
       </ModalShell>
