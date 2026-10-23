@@ -104,10 +104,13 @@ test('2. las fechas: la hora; cancelada, nada; una fecha sola, el final de SU d�
 test('3. el motor: espera hasta la fecha + N; si ya pasó, sigue de largo; sin la fecha, cierra ESE hilo con el motivo', () => {
   const fechas = fechasDespuesDe({ junta_1_at: REUNION, fecha_junta_1: '2026-10-14' }, MX);
   // Antes de la reunión: espera a las 3 h DESPUÉS de la reunión (no a las 3 h de ahora).
-  const antes = resolverControl(F, 0, { hechos: null, ahoraMs: T - 24 * H, reunionMs: null, fechasDespues: fechas });
+  // La fila queda EN la espera (23/10/2026: se vuelve a mirar la fecha al vencer) y se mira al menos una vez por día.
+  const antes = resolverControl(F, 0, { hechos: null, ahoraMs: T - 2 * H, reunionMs: null, fechasDespues: fechas });
   assert.equal(antes.tipo, 'esperar');
   assert.equal(antes.tipo === 'esperar' && antes.proximoMs, T + 3 * H);
-  assert.equal(antes.tipo === 'esperar' && antes.idx, indicePorId(F, 'w1'));
+  assert.equal(antes.tipo === 'esperar' && antes.idx, indicePorId(F, 'e1'), 'la fila queda en la espera, no en la tarjeta siguiente');
+  const lejos = resolverControl(F, 0, { hechos: null, ahoraMs: T - 48 * H, reunionMs: null, fechasDespues: fechas });
+  assert.equal(lejos.tipo === 'esperar' && lejos.proximoMs, T - 24 * H, 'a más de un día, vuelve a mirar a las 24 h');
   // Pasadas las 3 h (al activar una pausada, lo vencido sale enseguida): sigue al WhatsApp en esta misma vuelta.
   const despuesDe = resolverControl(F, 0, { hechos: null, ahoraMs: T + 4 * H, reunionMs: null, fechasDespues: fechas });
   assert.equal(despuesDe.tipo, 'nodo');
@@ -163,6 +166,35 @@ test('5. la pantalla y la API la dicen y la conservan', () => {
 // fecha (lo movieron a mano y la reserva entra por el webhook). Cerrar en el acto le hacía perder la espera para siempre.
 // Roturas (base 7/0): `reintentoSinAncla` devolviendo siempre null → 6/1 (cae éste); el motor cerrando en el acto
 // (`otraVez = null`) → 6/1 (cae la 5).
+// LA FECHA SE MUEVE DESPUÉS DE ENTRAR (23/10/2026, la revisión adversarial de b5): el instante se fijaba al entrar y el hilo
+// despertaba en la tarjeta siguiente con la fecha vieja. Ahora la espera se vuelve a resolver con la fecha de cada vuelta.
+// Rotura (devolver `idx: j` con el objetivo de la entrada, como antes): 7/2, caen éste y el 3.
+test('5d. si la fecha del lead se corre, la espera la vuelve a mirar: plazo alargado, reunión corrida en el día, cancelada', () => {
+  const P: PasoGrafo[] = [despues('e1', 540, 'plazo_nutricion', 'w1'), msg('w1', { siguiente: null })];
+  const plazo = (d: string | null) => fechasDespuesDe({ nutricion_manual_deadline: d }, MX);
+  // Entra con plazo al 20/10: espera EN e1.
+  const entra = resolverControl(P, 0, { hechos: null, ahoraMs: Date.parse('2026-10-19T12:00:00Z'), reunionMs: null, fechasDespues: plazo('2026-10-20') });
+  assert.equal(entra.tipo === 'esperar' && entra.idx, 0);
+  // Al vencer, con el plazo alargado al 25/10: vuelve a esperar (no pasa a la tarjeta siguiente).
+  const alVencer = Date.parse('2026-10-21T14:59:59Z');
+  const alargado = resolverControl(P, 0, { hechos: null, ahoraMs: alVencer, reunionMs: null, fechasDespues: plazo('2026-10-25') });
+  assert.equal(alargado.tipo, 'esperar', 'con el plazo alargado tiene que volver a esperar');
+  assert.equal(alargado.tipo === 'esperar' && alargado.idx, 0);
+  // Y al vencer el plazo nuevo, sigue al mensaje.
+  const nuevo = resolverControl(P, 0, { hechos: null, ahoraMs: Date.parse('2026-10-26T15:00:00Z'), reunionMs: null, fechasDespues: plazo('2026-10-25') });
+  assert.equal(nuevo.tipo === 'nodo' && nuevo.idx, 1);
+  // Plazo ACORTADO: la vuelta de cada día lo ve y no avisa tarde.
+  const acortado = resolverControl(P, 0, { hechos: null, ahoraMs: Date.parse('2026-10-19T16:00:00Z'), reunionMs: null, fechasDespues: plazo('2026-10-18') });
+  assert.equal(acortado.tipo === 'nodo' && acortado.idx, 1, 'con el plazo acortado y ya vencido, sale en esa vuelta');
+  // La reunión se corre de las 10:00 a las 16:00 del mismo día: a las 13:00 vuelve a esperar hasta las 19:00.
+  const r1 = (at: string) => fechasDespuesDe({ junta_1_at: at, fecha_junta_1: '2026-10-14' }, MX);
+  const corrida = resolverControl(F, 0, { hechos: null, ahoraMs: Date.parse('2026-10-14T19:00:00Z'), reunionMs: null, fechasDespues: r1('2026-10-14T22:00:00Z') });
+  assert.equal(corrida.tipo === 'esperar' && corrida.proximoMs, Date.parse('2026-10-15T01:00:00Z'));
+  // Cancelada después de entrar: sin la fecha, `sin_ancla` (y la gracia de 24 h decide si se vuelve a mirar).
+  const cancelada = resolverControl(F, 0, { hechos: null, ahoraMs: T + 3 * H, reunionMs: null, fechasDespues: fechasDespuesDe({ junta_1_at: REUNION, fecha_junta_1: null }, MX) });
+  assert.equal(cancelada.tipo, 'sin_ancla');
+});
+
 test('5c. sin la fecha, en las primeras horas de la inscripción se vuelve a mirar; pasadas, se cierra', () => {
   const ahora = Date.parse('2026-10-23T15:00:00Z');
   const hace = (min: number) => new Date(ahora - min * 60_000).toISOString();

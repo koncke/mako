@@ -278,6 +278,20 @@ export function resolverControl(pasos: readonly PasoGrafo[], desde: number, ctx:
         const desde = anclaDeEspera(ctx.fechasDespues, p.espera.de);
         if (desde == null) return { tipo: 'sin_ancla', motivo: motivoSinAncla(p.espera.de), idx, via, repartos };
         objetivo = desde + minutos * 60_000;
+        // ⚠️ ESTACIONADA EN LA ESPERA (23/10/2026, la revisión adversarial de b5): la fecha del lead se MUEVE después de
+        // entrar (le alargan el plazo, la reunión se corre en el día). Con el instante fijado al entrar, el hilo despertaba
+        // en la tarjeta siguiente con la fecha vieja, la condición contestaba «no» y el aviso del plazo nuevo no salía nunca.
+        // Mientras falte, la fila queda EN la espera (`idx` = la espera) y al vencer se vuelve a resolver con la fecha de
+        // ESE momento: corrida, vuelve a esperar; borrada, `sin_ancla`. Se mira al menos una vez por día
+        // (`VUELTA_DESPUES_DE_MIN`), así una fecha que se ADELANTA tampoco avisa tarde. Sus flechas en paralelo arrancan
+        // recién al pasar: estacionada, se resolvería una vez por vuelta.
+        if (objetivo > ctx.ahoraMs) {
+          return { tipo: 'esperar', idx, proximoMs: Math.min(objetivo, ctx.ahoraMs + VUELTA_DESPUES_DE_MIN * 60_000), via, repartos };
+        }
+        repartir(idx, ctx.ahoraMs);
+        if (j < 0) return { tipo: 'fin', motivo: 'no hay nada después de la espera', via, repartos };
+        idx = j;
+        continue;
       } else {
         objetivo = ctx.ahoraMs + minutos * 60_000;
       }
@@ -716,6 +730,8 @@ export function motivoSinAncla(de: AnclaDespues): string {
  */
 export const GRACIA_SIN_ANCLA_MIN = 24 * 60;
 export const REINTENTO_SIN_ANCLA_MIN = 60;
+/** Cada cuánto se vuelve a mirar, como mucho, una espera «después de» estacionada (ver `resolverControl`). */
+export const VUELTA_DESPUES_DE_MIN = 24 * 60;
 
 /** Cuándo se vuelve a mirar (ms), o null = se cierra. Sin la fecha de la inscripción no se inventa una gracia. Pura. */
 export function reintentoSinAncla(inscriptoAt: string | null | undefined, ahoraMs: number): number | null {
