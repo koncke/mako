@@ -28,6 +28,36 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## Las charlas de las tabs en el grafo: un nodo por chat jefe, de la misma fuente que el Ops Center (23/10/2026)
+
+Martín, 17/10/2026: «todo siempre guardarse en chats en el Ops Center e ir guardándose en el grafo del Second Brain». Al 23/10
+el Ops Center ya listaba las charlas de las tabs, pero el grafo sumaba sólo dos clases de chat: las de Offer (colgadas de la oferta)
+y las de la estrella de la persona (`listarSesiones`, colgadas de lo que nombra su título). Las de las tabs no llegaban nunca.
+Medido en la base ese día: 344 de Automations, 68 del CRM, pocas del Dashboard y una de una landing, del asesor y de cada editor.
+
+**La forma, y por qué:** un nodo por chat JEFE (la tab, como agrupa el Ops Center), con sus charlas como dato, nunca uno por
+charla. Automations sola tiene cientos, y la regla del grafo es que el volumen no es un nodo. Se cuelga de cada entidad que el mapa
+ya tiene: el funnel de una charla del CRM, el cliente (o los leads) de una ficha. Si no, de la raíz. Una hoja, una landing por id,
+una automatización o un diseño no son nodos del mapa, y no se inventa a qué colgarlas.
+
+**La fuente es la MISMA que la lista del Ops Center** (lib/chat-mako-indice.ts: `chatsDeAntes`, `chatsDeLasTabs`,
+`chatsDeAutomations`, `chatsDeLosEditores`), con su regla de quién ve qué. Si el grafo leyera las tablas por su cuenta, le mostraría
+a un closer charlas que su Ops Center le esconde. Un test lo fija leyendo los dos fuentes.
+
+**Las dos trampas medidas:**
+- `chatsDeLasTabs` devuelve la clave RELATIVA (`crm:47`, `lead:77`), y `origenDeClave` sólo reconoce la completa
+  (`mako-movil:<p>:crm:47`): con esa función sola, las charlas del CRM no tenían tab. El índice ya trae el origen dicho («CRM»,
+  «Ficha · Ana»), y la tab sale de ahí.
+- El número de `crm:<id>` es un FUNNEL (`crmDeLaPantalla` → `leerFunnels`), no un CRM aparte: por eso la arista va a `funnel:<id>`.
+
+**Sin hacer:**
+- El agente del Web Generator podría colgarse de su landing (`land:<url>`) si se resuelve el id del documento a su URL publicada.
+- `wa-advisor:<grupo>` no tiene origen en `origenDeClave`: no se agrupa en el Ops Center ni entra al grafo.
+- Sin mirar en pantalla ni con `scripts/medir-grafo.mjs` (la máquina no tuvo RAM para la app). Suma hasta 8 nodos por persona.
+
+**Vive en:** `lib/cerebro-chats-tabs.ts` (la clave → tab y entidad, puro) · `lib/cerebro-chats.ts` (las lecturas) ·
+`lib/cerebro-vivo.ts` (`agregarLoVivo`, `AREA_DE_TAB`) · `tests/cerebro-chats-tabs.test.ts` · *23/10/2026, chat «Chats de las tabs».*
+
 ## Cada documento de una conversación de Offer decía «No pude abrir el archivo.» (22/10/2026)
 
 Medido al pasar la tab Offer al hilo del Ops Center (OF4, hallazgos-offer.md). La ficha de un archivo del hilo
