@@ -1011,7 +1011,7 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPubli
 }) {
   // El emoji con el punto de estado: el MISMO en la fila y mientras se renombra.
   // El punto dice el estado sin una palabra: en una fila de 320 px, «pausada» se come el nombre. El rótulo
-  // entero está en el lienzo (`EstadoDeLaAutomatizacion`, SecuenciaPerfil.tsx). 22/10/2026 (Martín: «se puede pausar el envío
+  // lo dice el interruptor «Activar» del lienzo (sin chip arriba desde el 22/10/2026). 22/10/2026 (Martín: «se puede pausar el envío
   // desde Automations»): la pausada lleva ⏸ en vez de un punto gris, que sólo decía «Pausada» al pasar el cursor.
   const circulo = (
     <span style={{ position: 'relative', width: 36, height: 36, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>

@@ -2366,4 +2366,14 @@ FEEDBACK PROBAR:
     ],
     pedido: "«revisa lo que le pedí vs lo que creó, creó a la mitad las cosas que le pedí» · «Si me ponés un mensaje en rojo abajo y el de arriba no dice algo como \"Listo!\", parece que no funcionó»",
   },
+  {
+    fecha: "22 oct", hora: "22:25", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Sin el «Pausada · no sale nada» arriba del lienzo: el estado lo dice «Activar»",
+    puntos: [
+      "Llegó por el Cerebro. Sale en la misma punta que el arreglo del «Listo».",
+      "Fuera en la computadora; en el teléfono no estaba. El ⏸ de la fila de la lista queda.",
+    ],
+    pedido: "«elimina el texto \"Pausada, no sale nada\", eso es completamente innecesario... Para eso ya tenemos el \"ACTIVAR\" de abajo»",
+  },
 ];

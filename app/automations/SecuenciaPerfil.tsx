@@ -153,19 +153,6 @@ export const TITULO_TUERCA = 'Configuraciones de esta automatización';
  * LA TUERCA DEL TÍTULO (20/10/2026), en el lugar del logo de MaKo y con su MISMA cara (`tarjetaChrome`, el lado del título):
  * abre Configuraciones de ESTA automatización.
  */
-/** «Activa» o «Pausada · no sale nada», al lado del título (el interruptor sigue en el pie). */
-export function EstadoDeLaAutomatizacion({ activa }: { activa: boolean }) {
-  return (
-    <span data-estado-automatizacion={activa ? 'activa' : 'pausada'} role="status"
-      title={activa ? 'Le escribe a quien entra' : 'No le sale nada a nadie hasta que la actives: cada lead espera en su paso'}
-      style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 10px', borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-        background: activa ? 'color-mix(in srgb, var(--good) 14%, transparent)' : 'var(--surface-2)', color: activa ? 'var(--good)' : 'var(--dim)', border: `1px solid ${activa ? 'color-mix(in srgb, var(--good) 35%, transparent)' : 'var(--border)'}` }}>
-      {activa
-        ? <><span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--good)' }} />Activa</>
-        : <><span aria-hidden>⏸</span>Pausada · no sale nada</>}
-    </span>
-  );
-}
 
 export function BotonTuerca({ onClick, lado }: { onClick: () => void; lado: number }) {
   return (
@@ -1313,11 +1300,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             {Configuraciones && (
               <BotonTuerca lado={ALTO_ACCION} onClick={() => setConfigAbierta(true)} />
             )}
-            {/* EL ESTADO, A LA VISTA (22/10/2026, Martín: «se puede pausar el envío desde Automations»). Hasta acá una pausada se
-                notaba sólo por el gris de la fila y por el «Activar» del pie, que en una pantalla baja queda abajo de todo. Pausada
-                = el motor congela su cola (lib/nutricion.ts, `idsDePausadas`) y aprobar sus borradores no los manda
-                (lib/borrador-camino.ts): no sale nada. */}
-            <EstadoDeLaAutomatizacion activa={activa} />
+            {/* SIN CHIP DE ESTADO (22/10/2026, Martín: «elimina el texto "Pausada, no sale nada", eso es completamente innecesario... Para
+                eso ya tenemos el "ACTIVAR" de abajo»): el estado lo dice sólo el interruptor «Activar» del pie. */}
 
             {configAbierta && Configuraciones && <Configuraciones secuenciaId={secuencia.id} nombre={nombre || secuencia.nombre} onCerrar={cerrarConfig} />}
             {avisoProspeccion && (
