@@ -533,6 +533,24 @@ export type PcDeNegocio = {
 };
 export type LecturaComputadoras = { ok: true; pcs: PcDeNegocio[] } | { ok: false; error: string };
 
+/**
+ * El email de la cuenta de Claude de OTRA persona, enmascarado: `m***@gmail.com` (decisión del Cerebro, 22/10/2026). El admin
+ * del negocio ve de las computadoras de su equipo el nombre, de quién es, si está en línea, el plan y el % de uso —lo necesita
+ * para manejar la capacidad—, pero el email de su Claude es un dato personal. Sin «@», `***`.
+ */
+export function enmascararEmail(email: string): string {
+  const i = email.lastIndexOf('@');
+  return i > 0 ? `${email[0]}***${email.slice(i)}` : '***';
+}
+
+/**
+ * Las cuentas de una PC tal cual las ve quien mira: el email entero sólo con `verEmail` (es SU computadora, o es el super
+ * admin); si no, enmascarado. Lo demás (plan, % de uso, cuándo se repone) va igual.
+ */
+export function cuentasParaVer<T extends { email?: string }>(cuentas: readonly T[], verEmail: boolean): T[] {
+  return verEmail ? [...cuentas] : cuentas.map((c) => (c.email ? { ...c, email: enmascararEmail(c.email) } : c));
+}
+
 /** La línea de debajo del nombre: el sistema y cuándo se conectó. Sin dato, no se muestra. */
 export function detalleDeLaPc(pc: { sistema?: string | null; conectadaAt?: string | null }, fecha: (iso: string) => string): string | null {
   const partes = [pc.sistema ?? null, pc.conectadaAt ? `conectada el ${fecha(pc.conectadaAt)}` : null].filter(Boolean);
