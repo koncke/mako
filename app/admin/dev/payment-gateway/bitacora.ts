@@ -300,4 +300,34 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain?ws=3',
   },
+  {
+    fecha: '22 oct', hora: '—', chat: '—', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Varias cuentas de Stripe, MP y Calendly o Cal en un negocio',
+    pedido: 'Medilo en producción en el ws3, sólo leyendo: ¿un negocio puede conectar 2 cuentas de Stripe, 2 de MP y 2 de Calendly o Cal a la vez? ¿el «Vincular cobro» y el «Asignar evento» dejan elegir de cuál? Si no se puede, hacelo ahora: varias cuentas por proveedor, con un nombre para cada una, elegir la cuenta en «Vincular cobro» y en «Asignar evento», y desconectar cada una. Toca plata, así que va con su revisión adversarial antes de la punta.',
+    puntos: [
+      'Llegó por el Cerebro (punto 3 del feedback del CRM: «que pueda tener varias cuentas de Stripe y MP conectadas»). Medido: no se podía; cada pasarela tenía UNA cuenta, la de las claves sin sufijo.',
+      'Calendly y Cal.com (la fase B) los hace este chat del lado del servidor; la pantalla y la API de «Asignar evento», el CRM.',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '00:27', chat: 'Cobros', sesion: 'local_460ff1f0-0675-4371-b228-594a9bd828e3', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Varias cuentas de Stripe y Mercado Pago: cada una con su nombre, y cada cobro con la suya',
+    puntos: [
+      'En Integraciones, el modal de Stripe y el de Mercado Pago listan «Tus cuentas»: conectar otra con un nombre, cambiarle el nombre, volver a conectarla y desconectar una sola.',
+      '«Vincular cobro» y el link de la ficha dejan elegir la cuenta por su nombre; un producto vinculado cobra por la cuenta de su vínculo.',
+      '⚠️ **El sufijo no es la identidad de una cuenta**: la primera versión ataba cada cobro a «c2», y una cuenta que se desconecta y vuelve cae en otro sufijo: sus renovaciones se ignoraban con un 200. Cada cobro guarda también su id en el proveedor (`cuenta_ref`), y todo lo que se hace con él la busca por ahí.',
+      '⚠️ **Sin hacer:** la fase B (Calendly y Cal por cuenta); y la 0328 se aplica ANTES del deploy.',
+    ],
+    commits: [
+      { sha: '9b30c3197', msg: 'Cobros: varias cuentas de Stripe y de Mercado Pago en un negocio (mig 0328)', lineas: 2081, archivos: 37 },
+    ],
+    archivos: [
+      'lib/cuentas-integracion.ts (puro) y lib/cuentas-pago-server.ts — el modelo de las cuentas y sus lecturas',
+      'app/api/integraciones/cuentas/route.ts y app/integraciones/CuentasDePago.tsx — la lista de cuentas en Integraciones',
+      'lib/cobros.ts (`cuentaVivaDelCobro`), lib/cobros-webhook.ts (`deOtraCuenta`) — cada cobro con su cuenta',
+      'supabase/migrations/0328_cobro_por_cuenta.sql — antes del deploy',
+      'tests/cuentas-pago.test.ts — 17, probado con 29 roturas',
+    ],
+    revisar: '/integraciones?ws=3',
+  },
 ];
