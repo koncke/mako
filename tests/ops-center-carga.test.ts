@@ -24,7 +24,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { preguntasDelChat, respuestasDelChat } from '../lib/centro-preguntas';
 import { tandaHasta, type LineaChat } from '../lib/centro-chats';
-import { DESTINO_ENTRADA_OPS, EntradaOps, MS_TOPE_SIN_HILO, listaParaSalir } from '../app/second-brain/EntradaOps';
+import { DESTINO_ENTRADA_OPS, EntradaOps, MS_TOPE_SIN_HILO, listaParaSalir, panelDibujado } from '../app/second-brain/EntradaOps';
 import type { Decision } from '../app/admin/runway/decisiones';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -80,6 +80,14 @@ test('4. la criatura de MaKo entra mientras carga y vuela a su lugar, la criatur
   assert.deepEqual(listaParaSalir(true, true, 100, null), { lista: true, desde: 100 });
   assert.deepEqual(listaParaSalir(true, false, 100, null), { lista: false, desde: 100 });
   assert.equal(listaParaSalir(true, false, 100 + MS_TOPE_SIN_HILO, 100).lista, true, 'sin conversación, como mucho 3 s');
+  // Lo del panel: la conversación o su portada; un panel que no es un chat (la Ticketera, el grafo) ya está (23/10/2026).
+  const doc = (hay: string[]) => ({ querySelector: (sel: string) => (sel.split(',').some((x) => hay.includes(x.trim())) ? {} : null) }) as never;
+  assert.equal(panelDibujado(doc(['.co-panel', '.co-panel .co-hilo'])), false, 'un chat sin líneas todavía: no');
+  assert.equal(panelDibujado(doc(['.co-panel', '.co-panel .co-hilo', '.co-panel .co-hilo__col > *'])), true, 'con sus líneas');
+  assert.equal(panelDibujado(doc(['.co-panel', '.co-panel.co-ticketera'])), true, 'la Ticketera abierta');
+  assert.equal(panelDibujado(doc(['.co-panel', '.co-panel .co-hilo', '.co-panel.co-ticketera'])), true, 'la Ticketera aunque sea un chat (la de Soporte, con su hilo)');
+  assert.equal(panelDibujado(doc(['.co-panel'])), true, 'un panel que no es un chat (el grafo)');
+  assert.equal(panelDibujado(doc([])), false, 'sin panel, todavía no');
   // Lo dibuja el server: la capa con la criatura de MaKo.
   const html = renderToStaticMarkup(createElement(EntradaOps));
   assert.match(html, /^<div class="eo-capa" role="presentation" aria-hidden="true"><div class="eo-vuelo"><div class="eo-cria"><svg/);
@@ -105,3 +113,5 @@ test('4. la criatura de MaKo entra mientras carga y vuela a su lugar, la criatur
 //   · los lotes otra vez en serie                      → 3/1 (3)
 //   · se va sin la conversación dibujada               → 3/1 (4)
 //   · la entrada sin montar en la página               → 3/1 (4)
+//   · la Ticketera abierta espera una conversación      → 3/1 (4)
+//   · la Ticketera como chat espera sus líneas          → 3/1 (4)

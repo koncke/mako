@@ -1143,6 +1143,8 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
       { nombre: 'nombre', tipo: 'string', obligatorio: true, max: MAX_NOMBRE_EVENTO, descripcion: 'el nombre del evento («Llamada de diagnóstico»).' },
       { nombre: 'duracionMin', tipo: 'number', obligatorio: true, entero: true, minimo: 5, maximo: 720, descripcion: 'cuánto dura, en minutos.' },
+      // Varias cuentas por proveedor (23/10/2026, fase B de Cobros).
+      { nombre: 'cuenta', tipo: 'string', max: 20, descripcion: 'la cuenta (de listar_eventos_agenda); sin ella, la principal.' },
     ],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: false, escribe: 'crea el tipo de evento en la cuenta de Calendly o Cal.com del negocio (se borra desde esa cuenta)',
@@ -1150,15 +1152,19 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'editar_pagina_reserva', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Editar una página de reserva (Calendly o Cal.com)',
-    descripcion: 'PROPONE cambiar el nombre o la duración de una página de reserva de Calendly o Cal.com del negocio (queda pendiente hasta el «sí»). Lo que no se pasa queda como está. Su identificador sale de listar_eventos_agenda. Solo el administrador.',
+    descripcion: 'PROPONE cambiar el nombre, la duración, la descripción o dónde es la reunión de una página de reserva de Calendly o Cal.com del negocio (queda pendiente hasta el «sí»). Lo que no se pasa queda como está. Su identificador sale de listar_eventos_agenda. Solo el administrador.',
     parametros: [
       { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
       { nombre: 'evento', tipo: 'string', obligatorio: true, max: 300, descripcion: 'el identificador del evento (de listar_eventos_agenda), o su nombre.' },
       { nombre: 'nombre', tipo: 'string', max: MAX_NOMBRE_EVENTO, descripcion: 'el nombre nuevo.' },
       { nombre: 'duracionMin', tipo: 'number', entero: true, minimo: 5, maximo: 720, descripcion: 'la duración nueva, en minutos.' },
+      // La edición completa (23/10/2026): lib/agenda-evento-detalle.ts. Las preguntas y la disponibilidad, en la pantalla o allá.
+      { nombre: 'descripcion', tipo: 'string', max: 1000, descripcion: 'la descripción nueva.' },
+      { nombre: 'ubicacion', tipo: 'string', enum: ['meet', 'zoom', 'llamada', 'presencial', 'link'], descripcion: 'dónde es la reunión.' },
+      { nombre: 'ubicacionValor', tipo: 'string', max: 300, descripcion: 'la dirección (presencial) o el link (link).' },
     ],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
-    reversible: true, escribe: 'cambia el nombre o la duración del tipo de evento en la cuenta de Calendly o Cal.com del negocio',
+    reversible: true, escribe: 'cambia el nombre, la duración, la descripción o la ubicación del tipo de evento en la cuenta de Calendly o Cal.com del negocio',
   },
   {
     // 21/10/2026: las plantillas de la tarjeta (Martín: «poder ver TEMPLATES de estilos de tarjeta… y puedes crear otras

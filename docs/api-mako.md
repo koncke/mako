@@ -3413,6 +3413,7 @@ PROPONE crear una página de reserva (lo que Calendly y Cal.com llaman tipo de e
 | `proveedor` | string (calendly \\| calcom) | sí | la agenda: calendly o calcom. |
 | `nombre` | string | sí | el nombre del evento («Llamada de diagnóstico»). |
 | `duracionMin` | number | sí | cuánto dura, en minutos. |
+| `cuenta` | string | no | la cuenta (de listar_eventos_agenda); sin ella, la principal. |
 
 ```bash
 curl -L \
@@ -3427,14 +3428,14 @@ curl -L \
 
 ### `PATCH /api/v1/crm/paginas-reserva/pagina` — Editar una página de reserva (Calendly o Cal.com)
 
-PROPONE cambiar el nombre o la duración de una página de reserva de Calendly o Cal.com del negocio (queda pendiente hasta el «sí»). Lo que no se pasa queda como está. Su identificador sale de listar_eventos_agenda. Solo el administrador.
+PROPONE cambiar el nombre, la duración, la descripción o dónde es la reunión de una página de reserva de Calendly o Cal.com del negocio (queda pendiente hasta el «sí»). Lo que no se pasa queda como está. Su identificador sale de listar_eventos_agenda. Solo el administrador.
 
 - **Ruta por operación:** `POST /api/v1/crm/editar_pagina_reserva`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** cambia el nombre o la duración del tipo de evento en la cuenta de Calendly o Cal.com del negocio
+- **Escribe:** cambia el nombre, la duración, la descripción o la ubicación del tipo de evento en la cuenta de Calendly o Cal.com del negocio
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -3446,6 +3447,9 @@ PROPONE cambiar el nombre o la duración de una página de reserva de Calendly o
 | `evento` | string | sí | el identificador del evento (de listar_eventos_agenda), o su nombre. |
 | `nombre` | string | no | el nombre nuevo. |
 | `duracionMin` | number | no | la duración nueva, en minutos. |
+| `descripcion` | string | no | la descripción nueva. |
+| `ubicacion` | string (meet \\| zoom \\| llamada \\| presencial \\| link) | no | dónde es la reunión. |
+| `ubicacionValor` | string | no | la dirección (presencial) o el link (link). |
 
 ```bash
 curl -L \

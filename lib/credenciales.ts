@@ -25,7 +25,8 @@ import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual, wsSuperAdmin, WS_NINGUNO } from './workspace';
 import { OWNER_WS } from './auth-session';
 import { ENVS_METODO, servicioDeEnv, servicioMetodo } from './metodo-catalogo';
-import { ROUTING_CREDS, upsertRouting, borrarRoutingDeWs } from './webhook-routing';
+import { ROUTING_CREDS, upsertRouting, borrarRoutingDeWs, soltarIdentificador, normalizar } from './webhook-routing';
+import { CUENTA_PRINCIPAL, baseDeClave, cuentaDeClave } from './cuentas-integracion';
 import { identificadorDeRuteo } from './ruteo-hash';
 import { esClaveDeCuenta, esClaveDeIA } from './ia-keys';
 import { problemaDeRemitenteGuardado } from './email-remitente';
@@ -267,7 +268,18 @@ export async function integracionConectada(servicioKey: string, ws?: number): Pr
   const requeridos = s.campos.filter((c) => !c.opcional);
   const objetivo = requeridos.length ? requeridos : s.campos;
   const vals = await Promise.all(objetivo.map((c) => credWs(c.env, w)));
-  return requeridos.length ? vals.every(esValorReal) : vals.some(esValorReal);
+  const principal = requeridos.length ? vals.every(esValorReal) : vals.some(esValorReal);
+  if (principal || (servicioKey !== 'stripe' && servicioKey !== 'mercadopago')) return principal;
+  // Una pasarela con sólo una cuenta de más (la principal desconectada) también cobra (22/10/2026): sus claves con sufijo.
+  const nombres = await clavesGuardadasConBase(w, objetivo.map((c) => c.env)).catch(() => [] as string[]);
+  const porCuenta = new Map<string, Set<string>>();
+  for (const n of nombres) {
+    const c = cuentaDeClave(n);
+    if (!c || c === CUENTA_PRINCIPAL) continue;
+    if (!porCuenta.has(c)) porCuenta.set(c, new Set());
+    porCuenta.get(c)!.add(baseDeClave(n));
+  }
+  return [...porCuenta.values()].some((bases) => objetivo.every((c) => bases.has(c.env)));
 }
 
 /**
@@ -384,9 +396,12 @@ export async function guardarCredencial(ws: number, clave: string, valor: string
   // identificador fuera de otro, o sea una credencial que no rutea a ningún lado.
   // Y sin el fail-closed, pegar el identificador de otro le secuestraba los
   // webhooks — los identificadores son públicos, no hace falta robar nada.
-  if (ROUTING_CREDS[clave]) {
+  // ⚠️ POR EL NOMBRE BASE (22/10/2026, varias cuentas por proveedor): `STRIPE_ACCOUNT_ID__C2` rutea como `STRIPE_ACCOUNT_ID`.
+  // Por el nombre exacto, la segunda cuenta se guardaba SIN reclamar su id: sus avisos no llegaban a ningún negocio.
+  const servicioDeRuteo = ROUTING_CREDS[baseDeClave(clave)];
+  if (servicioDeRuteo) {
     // Un SECRETO que rutea (el hottok de Hotmart, la clave de Skool) va como su hash: lib/ruteo-hash.ts.
-    const r = await upsertRouting(ROUTING_CREDS[clave], identificadorDeRuteo(clave, valor), ws);
+    const r = await upsertRouting(servicioDeRuteo, identificadorDeRuteo(baseDeClave(clave), valor), ws);
     if (r === 'ocupado') throw new IdentificadorOcupadoError(clave);
     // 'error' NO frena el guardado: es un problema de base, no del usuario. La
     // credencial se guarda y el índice se re-siembra en el próximo boot.
@@ -403,14 +418,24 @@ export async function guardarCredencial(ws: number, clave: string, valor: string
 }
 
 export async function eliminarCredencial(ws: number, clave: string): Promise<void> {
+  // ⚠️ UNA PASARELA PUEDE TENER VARIAS CUENTAS (22/10/2026): al borrar el id de UNA, se suelta SU fila de ruteo y no todas
+  // las del servicio (`borrarRoutingDeWs`), que cortaba los avisos de las otras cuentas del negocio. Se lee antes de borrar.
+  const servicioDeRuteo = ROUTING_CREDS[baseDeClave(clave)];
+  const porCuenta = servicioDeRuteo === 'stripe' || servicioDeRuteo === 'mercadopago';
+  const idAntes = porCuenta ? await credDeBase(ws, clave).catch(() => null) : null;
   const { error } = await getSupabaseServer().from('credenciales').delete().eq('workspace_id', ws).eq('clave', clave);
   if (error) throw new Error(`credenciales: ${error.message}`);
   if (hidratadas.has(clave) && ws === (await wsDelEntorno(clave))) {
     delete process.env[clave];
     hidratadas.delete(clave);
   }
-  // Al quitar la credencial de routing de un ws, se van sus mapeos del servicio.
-  if (ROUTING_CREDS[clave]) {
+  // Al quitar la credencial de routing de un ws, se van sus mapeos del servicio (de una pasarela, sólo el de ESA cuenta).
+  if (porCuenta) {
+    if (idAntes) await soltarIdentificador(servicioDeRuteo, idAntes, ws);
+    // Una fila que no descifra (o que no se pudo leer) también ata la cuenta (revisión de plata del 22/10/2026): se
+    // sueltan las filas de ruteo del servicio que NO son de otra cuenta legible del negocio.
+    else await soltarRuteoSinCuenta(ws, servicioDeRuteo, clave);
+  } else if (ROUTING_CREDS[clave]) {
     await borrarRoutingDeWs(ROUTING_CREDS[clave], ws);
     // ⚠️ Y EN LA AGENDA SE VUELVE A RECLAMAR LO QUE SE SIGUE USANDO (16/10/2026). Calendly y Cal.com tienen DOS
     // credenciales en el mismo servicio (la R1 y la R2) y, desde la mig 0293, los eventos vinculados a una etapa:
@@ -421,6 +446,44 @@ export async function eliminarCredencial(ws: number, clave: string): Promise<voi
       await reclamarRuteoDeAgenda(ROUTING_CREDS[clave], ws);
     }
   }
+}
+
+/**
+ * Las filas de ruteo de una pasarela del negocio que no son de ninguna OTRA de sus cuentas. Si el id de alguna otra no se
+ * puede leer (la base no contesta, la fila no descifra), no se suelta NADA: soltar de más corta los avisos de una cuenta
+ * que cobra, y a un cliente nadie le vuelve a sembrar el ruteo (segunda revisión de plata, 22/10/2026). Nunca tira.
+ */
+async function soltarRuteoSinCuenta(ws: number, servicio: string, clave: string): Promise<void> {
+  try {
+    const otras = (await clavesGuardadasConBase(ws, [baseDeClave(clave)])).filter((n) => n !== clave);
+    const ids = await Promise.all(otras.map((n) => credWsEstricta(n, ws)));
+    if (ids.some((v) => !v)) {
+      console.error(`[credenciales] ws ${ws}: no pude leer el id de otra cuenta de ${servicio}; no suelto ningún ruteo`);
+      return;
+    }
+    const quedan = new Set(ids.map((v) => normalizar(String(v))));
+    const { data, error } = await getSupabaseServer().from('webhook_routing').select('identificador').eq('servicio', servicio).eq('workspace_id', ws);
+    if (error) throw new Error(`webhook_routing: ${error.message}`);
+    for (const f of (data ?? []) as Array<{ identificador: string }>) {
+      if (!quedan.has(normalizar(String(f.identificador)))) await soltarIdentificador(servicio, String(f.identificador), ws);
+    }
+  } catch (e) {
+    console.error(`[credenciales] ws ${ws}: no pude soltar el ruteo de ${servicio}:`, e instanceof Error ? e.message : e);
+  }
+}
+
+/**
+ * Los NOMBRES de las claves guardadas de un negocio con alguna de estas bases (sin sufijo o con el de una cuenta:
+ * `STRIPE_SECRET_KEY`, `STRIPE_SECRET_KEY__C2`). Nunca los valores. Lo usa la lista de cuentas de una pasarela
+ * (lib/cuentas-pago-server.ts). Tira si no puede leer: «no pude» no es «no hay cuentas».
+ */
+export async function clavesGuardadasConBase(ws: number, bases: readonly string[]): Promise<string[]> {
+  const { data, error } = await getSupabaseServer().from('credenciales').select('clave').eq('workspace_id', ws)
+    // `like` con `*` (el comodín de PostgREST) trae de más (`STRIPE_SECRET_KEYX`): la base exacta la decide el filtro de abajo.
+    .or(bases.map((b) => `clave.like.${b}*`).join(','));
+  if (error) throw new Error(`credenciales: ${error.message}`);
+  const set = new Set(bases);
+  return ((data ?? []) as Array<{ clave: string }>).map((r) => r.clave).filter((c) => set.has(baseDeClave(c)));
 }
 
 /** Metadatos (máscara, nunca el valor) de las credenciales cargadas en un workspace. */
@@ -588,7 +651,8 @@ const NO_MIGRAR_A_WS: ReadonlySet<string> = new Set([
 
 /** Para que otros módulos pregunten en vez de repetir la lista. */
 export function esCredencialDeLaCasa(clave: string): boolean {
-  return NO_MIGRAR_A_WS.has(clave);
+  // Por el nombre base: la segunda cuenta de una pasarela (`STRIPE_SECRET_KEY__C2`) es tan de la casa como la primera.
+  return NO_MIGRAR_A_WS.has(baseDeClave(clave));
 }
 
 export async function migrarEnvACredenciales(ws: number = OWNER_WS): Promise<number> {
@@ -663,7 +727,8 @@ const CLAVES_DE_PASARELA: ReadonlySet<string> = new Set([
   'STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET',
   'MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID', 'MERCADOPAGO_WEBHOOK_SECRET',
 ]);
-export const esClaveDePasarela = (clave: string): boolean => CLAVES_DE_PASARELA.has(clave);
+// Por el nombre base: `STRIPE_SECRET_KEY__C2` y el nombre de la cuenta (`STRIPE_ALIAS`, `…__C2`) también son de la pasarela.
+export const esClaveDePasarela = (clave: string): boolean => CLAVES_DE_PASARELA.has(baseDeClave(clave)) || /^(STRIPE|MERCADOPAGO)_ALIAS$/.test(baseDeClave(clave));
 
 /**
  * Refleja al process.env global el valor que manda (el de la base). Solo dueño.
@@ -674,7 +739,7 @@ export const esClaveDePasarela = (clave: string): boolean => CLAVES_DE_PASARELA.
  */
 function aplicarAEnv(clave: string, valor: string): boolean {
   if (INFRA_ENV.has(clave)) return false;
-  if (CLAVES_DE_PASARELA.has(clave)) return false;
+  if (esClaveDePasarela(clave)) return false;
   hidratadas.add(clave);
   if (process.env[clave] === valor) return false;
   process.env[clave] = valor;

@@ -57,9 +57,22 @@ function bloque(firma: string): string {
 const veces = (s: string, sub: string) => s.split(sub).length - 1;
 
 test('las claves de la pasarela: credDelCliente(clave, ws) y nada más (ni credWs*, ni envCred, ni process.env)', () => {
-  const lecturas = SRC.match(/credDelCliente\([^)]*\)/g) ?? [];
+  // Varias cuentas por proveedor (22/10/2026): las claves de UNA cuenta se leen en lib/cuentas-pago-server.ts, con el nombre
+  // de esa cuenta (`claveDeCuenta(base, cuenta)`). La única lectura estricta es la de `cuentaDeIdentificador` (la usan los
+  // avisos: tiene que TIRAR si la base no contesta), y su valor sale de `credDelCliente`, nunca de la estricta.
+  const CUENTAS = sinComentarios(readFileSync(join(RAIZ, 'lib/cuentas-pago-server.ts'), 'utf8'));
+  const iId = CUENTAS.indexOf('export async function cuentaDeIdentificador(');
+  const fId = CUENTAS.indexOf('\n}\n', iId);
+  assert.ok(iId > 0 && fId > iId, 'no encontré cuentaDeIdentificador en lib/cuentas-pago-server.ts');
+  const identificador = CUENTAS.slice(iId, fId);
+  const resto = CUENTAS.slice(0, iId) + CUENTAS.slice(fId);
+  const lecturas = [...(SRC.match(/credDelCliente\((?:[^()]|\([^()]*\))*\)/g) ?? []), ...(resto.match(/credDelCliente\((?:[^()]|\([^()]*\))*\)/g) ?? [])];
   assert.ok(lecturas.length >= 5, `esperaba las 5 lecturas (3 de Stripe, 2 de MP), hay ${lecturas.length}`);
-  for (const l of lecturas) assert.match(l, /^credDelCliente\('[A-Z_]+', ws\)$/, `una lectura sin el ws explícito: ${l}`);
+  for (const l of lecturas) {
+    assert.match(l, /^credDelCliente\((?:'[A-Z_]+'|claveDeCuenta\((?:'[A-Z_]+'|b\.\w+), cuenta\)), ws\)$/, `una lectura sin el ws explícito: ${l}`);
+  }
+  assert.doesNotMatch(resto, /\bcredWs\w*\(/, 'credWs/credWsEstricta caen a process.env para el ws1 (Mauricio)');
+  assert.match(identificador, /await credWsEstricta\(n, ws\);\s*\n\s*const v = await credDelCliente\(n, ws\);/, 'la cuenta del aviso: la estricta sólo para tirar, el valor de credDelCliente');
   assert.doesNotMatch(SRC, /\bcredWs\w*\(/, 'credWs/credWsEstricta caen a process.env para el ws1 (Mauricio)');
   assert.doesNotMatch(SRC, /\benvCred\(/, 'envCred resuelve contra OWNER_WS');
   assert.doesNotMatch(SRC, /process\.env/);

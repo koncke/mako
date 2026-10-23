@@ -99,8 +99,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   if (error === 'no_disponible') {
     return pagina(410, { negocio, titulo: 'Este link ya no está disponible', texto: 'Si todavía quieres pagar, pídele un link nuevo a quien te lo mandó.' });
   }
-  // La pasarela: o el negocio la desconectó (es de él, y se dice), o el proveedor no contestó.
-  const conectada = await pasarelasConectadas(c.workspace_id).then((ps) => ps.includes(c.proveedor)).catch(() => true);
+  // La pasarela: o el negocio desconectó la CUENTA de este cobro (es de él, y se dice), o el proveedor no contestó. Con
+  // varias cuentas (mig 0328) mirar la pasarela no alcanza: la otra cuenta conectada decía «prueba en unos minutos».
+  const conectada = error !== 'desconectada' && await pasarelasConectadas(c.workspace_id).then((ps) => ps.includes(c.proveedor)).catch(() => true);
   if (!conectada) {
     return pagina(503, { negocio, titulo: 'Este link no puede cobrar ahora', texto: `${negocio ?? 'El negocio'} desconectó ${pasarela}, así que el pago no se puede abrir. Pídele un link nuevo.` });
   }

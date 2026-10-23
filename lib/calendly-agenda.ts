@@ -163,15 +163,42 @@ export async function crearEventTypeCalendly(token: string, i: { nombre: string;
   return eventTypeDe(r.resource);
 }
 
-/** Cambia el nombre o la duración de un tipo de evento (por su URI, la que se vincula). */
-export async function editarEventTypeCalendly(token: string, uri: string, i: { nombre?: string; duracionMin?: number }): Promise<EventTypeCalendly> {
+/** El uuid de un event type, de su URI (la que se vincula). Un identificador cualquiera armaría otra ruta. */
+function uuidDeCalendly(uri: string): string {
   const uuid = uri.trim().replace(/\/+$/, '').split('/').pop() ?? '';
   if (!/^[A-Za-z0-9-]{6,}$/.test(uuid)) throw new CalendlyAgendaError('Ese no es un evento de Calendly.');
+  return uuid;
+}
+
+/**
+ * Cambia un tipo de evento (por su URI): el nombre, la duración y, desde el 23/10/2026 (la edición completa), la
+ * descripción y dónde es la reunión. ⚠️ El campo es `description`: `description_plain` es sólo de la respuesta.
+ * `locations` reemplaza la lista entera.
+ */
+export async function editarEventTypeCalendly(token: string, uri: string, i: { nombre?: string; duracionMin?: number; descripcion?: string; locations?: Array<{ kind: string; location?: string }> }): Promise<EventTypeCalendly> {
+  const uuid = uuidDeCalendly(uri);
   const cuerpo: Record<string, unknown> = {};
   if (i.nombre != null) cuerpo.name = i.nombre;
   if (i.duracionMin != null) cuerpo.duration = i.duracionMin;
+  if (i.descripcion != null) cuerpo.description = i.descripcion;
+  if (i.locations) cuerpo.locations = i.locations;
   const r = await pedir<{ resource?: EventTypeCrudo }>(`${API}/event_types/${uuid}`, { method: 'PATCH', body: JSON.stringify(cuerpo) }, token);
   return eventTypeDe(r.resource);
+}
+
+/** Lo que se edita de un tipo de evento además del nombre (23/10/2026): su descripción, dónde y sus preguntas (éstas,
+ *  sólo para mostrarlas: la API de Calendly no deja cambiarlas). */
+export async function detalleEventTypeCalendly(token: string, uri: string): Promise<{
+  descripcion: string; locations: Array<{ kind?: string; location?: string }>;
+  preguntas: Array<{ name?: string; position?: number; enabled?: boolean; required?: boolean }>;
+}> {
+  const r = await pedir<{ resource?: {
+    description_plain?: string | null; locations?: Array<{ kind?: string; location?: string }> | null;
+    custom_questions?: Array<{ name?: string; position?: number; enabled?: boolean; required?: boolean }> | null;
+  } }>(`${API}/event_types/${uuidDeCalendly(uri)}`, undefined, token);
+  const e = r.resource;
+  if (!e) throw new CalendlyAgendaError('Calendly no devolvió el evento.');
+  return { descripcion: (e.description_plain ?? '').trim(), locations: e.locations ?? [], preguntas: e.custom_questions ?? [] };
 }
 
 /**
