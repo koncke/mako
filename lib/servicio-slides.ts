@@ -141,7 +141,7 @@ export const SLIDES: Record<string, Slide[]> = {
     // lib/skool-evento.ts (respuestasDelOptin) + la columna optin_respuestas (mig 0274)
     { t: 'Con sus respuestas', d: 'Lo que contestó en las preguntas de ingreso queda en su ficha, para calificarlo antes de escribirle.' },
   ],
-  // El puente de leads de Meta por Zapier o Make (23/10/2026). Cada slide afirma sólo lo que hacen lib/zapier-lead.ts,
+  // El puente de leads de Meta por Make o Zapier (23/10/2026; Make es el principal). Cada slide afirma sólo lo que hacen lib/zapier-lead.ts,
   // lib/zapier-leads.ts y la tarjeta (lib/zapier-estado.ts: ámbar a las 72 h sin un lead).
   zapier: [
     // lib/zapier-leads.ts (upsertLeadFromMeta: la misma puerta que el webhook de Meta)
@@ -151,7 +151,7 @@ export const SLIDES: Record<string, Slide[]> = {
     // lib/zapier-leads.ts (alNacerLeadDeMeta: el aviso, los flujos y las automatizaciones de un lead nuevo)
     { t: 'Como si entrara directo de Meta', d: 'Un lead nuevo dispara tus avisos y tus automatizaciones igual que uno que llega de frente.' },
     // lib/zapier-estado.ts (HORAS_SIN_LEADS)
-    { t: 'Te avisa si se corta', d: 'Si pasan 3 días sin leads, la tarjeta se pone ámbar para que revises tu Zap.' },
+    { t: 'Te avisa si se corta', d: 'Si pasan 3 días sin leads, la tarjeta se pone ámbar para que revises tu escenario de Make o tu Zap.' },
   ],
   // Claude enchufado a MaKo. Sin API key: se instala una skill del lado del usuario y
   // habla por /api/agente/* con un token.

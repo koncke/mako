@@ -1036,4 +1036,50 @@ export const BITACORA: Hito[] = [
       'docs/guia-leads-por-zapier.md · docs/hallazgos-integraciones.md',
     ],
   },
+  {
+    fecha: '23 oct', hora: '18:20', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Make pasa a ser el camino principal del puente de leads',
+    pedido: 'Con respecto a Zapier... Obvio que es mejor Make si tiene plan gratis... Y que los usuarios traigan su propia API como siempre...',
+    puntos: [
+      'Lo trajo el Cerebro desde el Ops Center, después de leer en un navegador los precios de Make.',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '19:00', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El plan gratis de Make no sirve: los dos caminos son de pago',
+    pedido: 'El plan gratis de Make NO trae la integración API... No nos sirve en ese caso',
+    puntos: [
+      'Corrige lo anterior pocos minutos después. El Cerebro pidió verificarlo en lo oficial: Make dice que casi toda su API es de planes de pago, y la página del módulo HTTP no nombra ningún plan; no se confirma ni se descarta, y no se ofrece.',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '19:14', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tarjeta y la guía del puente de leads arrancan por Make y dicen que los dos caminos son de pago, con su plan y su precio',
+    puntos: [
+      'La tarjeta se llama «Leads de Meta por Make o Zapier»; sus pasos son los de Make (plan Core, US$9 al mes: Watch Leads → HTTP, POST con el header X-MaKo-Clave; en Leads Access se asigna la app «Make») y Zapier es el último (plan Professional, desde US$20 al mes). Cada negocio usa su propia cuenta de pago.',
+      '⚠️ **Nada de lo que lee el negocio dice «gratis», promete «al instante» ni cuántos leads aguanta un plan**: un test lee la tarjeta, las slides, el estado, el aviso de la API y la guía. El plan gratis de Make lo habían leído como suficiente en la página de precios; lo que el puente necesita es el POST desde el módulo HTTP, y eso lo oficial no lo confirma.',
+      'La key del servicio sigue siendo zapier (está en la base, el ruteo y la ruta): lo que cambia es el nombre. 13 + 10 roturas, todas cazadas.',
+    ],
+    archivos: [
+      'lib/metodo-catalogo.ts · lib/integraciones-catalogo.ts · lib/zapier-estado.ts · lib/servicio-slides.ts — los textos de la tarjeta',
+      'docs/guia-leads-por-zapier.md — arranca por Make, con los datos que MaKo entiende y lo que cuesta',
+      'tests/zapier-leads.test.ts — Make principal, de pago y sin promesas',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '19:40', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'cosecha',
+    titulo: 'Lo confirmado sobre los créditos de Make y sobre una sola cuenta de MaKo para todos los clientes',
+    puntos: [
+      'Pregunta de Martín (sin decidir): ¿una cuenta de Make Core de MaKo para todos los clientes resuelve todo, y alcanzan los créditos? Un workflow de 4 investigadores con refutador leyó las fuentes oficiales; se sumó a la guía y al hallazgo lo confirmado, marcando qué verifiqué yo en la fuente y qué es del workflow.',
+      '⚠️ **Confirmado en la ayuda oficial: un disparador cobra 1 crédito por corrida aunque no traiga nada.** Eso cambia la recomendación: con intervalo, cuatro escenarios a 15 minutos son 11.520 créditos al mes contra los 10.000 de Core; con webhook, ~400. La tarjeta sigue diciendo «Watch Leads» (el de intervalo según la comunidad) hasta medirlo con una cuenta.',
+      'El contrato de Make (cláusula 4.1, «solely for Your internal purposes») choca con una cuenta de MaKo para los leads de los clientes, y Core no separa clientes. La tarjeta no cambia: se sigue mostrando como de pago y de cada negocio.',
+    ],
+    archivos: [
+      'docs/guia-leads-por-zapier.md · docs/hallazgos-integraciones.md — lo confirmado, con su fuente',
+    ],
+  },
 ];
