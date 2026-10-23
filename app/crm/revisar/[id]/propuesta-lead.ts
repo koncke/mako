@@ -19,6 +19,7 @@
 import { recalcular, type FilaImport } from '@/app/crm/leads-importar';
 import { respuestasGuardadas, type RespuestaOptin } from '@/lib/optin-respuestas';
 import { normalizarUrl } from '@/lib/landing-paginas';
+import { usuarioInstagram } from '@/app/crm/campo-inline';
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
@@ -31,6 +32,13 @@ function crudos(datos: Record<string, unknown>): Record<string, unknown>[] {
  * Los leads propuestos, con la forma que espera la tabla del importador. El id es `p<i>`,
  * la posición en la propuesta: con él el server vuelve a encontrar la atribución de cada
  * fila sin creerle nada al navegador.
+ *
+ * ⚠️ EL @ DE INSTAGRAM VIAJA (23/10/2026). Esta función copiaba cuatro campos —nombre, email,
+ * teléfono, empresa— y tiraba el resto, así que una propuesta con solo el @ llegaba a la
+ * pantalla como una fila sin ningún contacto: `recalcular` la marcaba «sin contacto» y nacía
+ * atenuada, sin poder tildarse, aunque quien la propuso había mandado un perfil de Instagram
+ * válido. Se vuelve a normalizar (`usuarioInstagram`) aunque la ruta ya lo haga: se lee de la
+ * base y la propuesta pudo armarla otro canal. Vacío = no hay @, y nada se rellena.
  */
 export function filasDePropuesta(datos: Record<string, unknown>): FilaImport[] {
   return recalcular(crudos(datos).map((c, i) => ({
@@ -39,6 +47,7 @@ export function filasDePropuesta(datos: Record<string, unknown>): FilaImport[] {
     email: str(c.email),
     telefono: str(c.telefono),
     empresa: str(c.empresa),
+    instagram: usuarioInstagram(str(c.instagram)) ?? '',
     incluir: true,
     yaExiste: false,
   })));
