@@ -38,7 +38,7 @@ import { pathToFileURL } from 'node:url';
 import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 
-export const VERSION = '0.4.0';
+export const VERSION = '0.4.1';
 const CARPETA = process.env.MAKO_PC_DIR || join(homedir(), '.mako-pc');
 const CONFIG = join(CARPETA, 'config.json');
 const REGISTRO = join(CARPETA, 'registro.txt');
@@ -584,7 +584,10 @@ export async function iniciarSesionDeClaude(p = {}) {
   const servidor = createServer((req, res) => {
     const direccion = `127.0.0.1:${servidor.address().port}`;
     const responder = (http, html) => {
-      res.writeHead(http, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer', 'x-frame-options': 'DENY' });
+      // ⚠️ `same-origin`, NUNCA `no-referrer` (revisión de la 0.4.0, 23/10/2026): con `no-referrer` el navegador manda el POST
+      // de esta misma página con `Origin: null`, el chequeo de abajo lo rechaza y al pegar el código salía un 403 en blanco.
+      // Con `same-origin` el POST lleva su origen, y a Claude no le llega ningún Referer (el enlace ya va con `noreferrer`).
+      res.writeHead(http, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'referrer-policy': 'same-origin', 'x-frame-options': 'DENY' });
       res.end(html);
     };
     if (req.headers.host !== direccion || (req.url ?? '').split('?')[0] !== `/${secreto}`) return responder(404, '');

@@ -23,12 +23,12 @@ import { fileURLToPath } from 'node:url';
 const FALSO = fileURLToPath(new URL('./_claude-de-mentira.mjs', import.meta.url));
 const programa = () => readFileSync(new URL('../scripts/ia-pc/mako-pc.mjs', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const esperar = async (cond: () => unknown, ms = 15_000) => { const fin = Date.now() + ms; while (!cond()) { if (Date.now() > fin) throw new Error('no llegó'); await new Promise((r) => setTimeout(r, 50)); } };
-type Resp = { status: number; cuerpo: string };
+type Resp = { status: number; cuerpo: string; politica?: string };
 function pedir(url: string, o: { metodo?: string; cuerpo?: string; headers?: Record<string, string> } = {}): Promise<Resp> {
   const u = new URL(url);
   return new Promise((ok, mal) => {
     const r = request({ host: u.hostname, port: u.port, path: u.pathname, method: o.metodo ?? 'GET', headers: { ...(o.cuerpo ? { 'content-type': 'application/x-www-form-urlencoded' } : {}), ...(o.headers ?? {}) } }, (res) => {
-      let cuerpo = ''; res.on('data', (b) => { cuerpo += b; }); res.on('end', () => ok({ status: res.statusCode ?? 0, cuerpo }));
+      let cuerpo = ''; res.on('data', (b) => { cuerpo += b; }); res.on('end', () => ok({ status: res.statusCode ?? 0, cuerpo, politica: String(res.headers['referrer-policy'] ?? '') }));
     });
     r.on('error', mal);
     if (o.cuerpo) r.write(o.cuerpo);
@@ -50,8 +50,10 @@ async function unaSesion(codigos: string[], extra: { origen?: string } = {}) {
     plazoMs: 20_000, configDir: join(dir, 'cuenta'),
   });
   await esperar(() => local);
-  const origen = extra.origen ?? new URL(local).origin;
   const paginas: Resp[] = [await pedir(local)];
+  // El Origin que manda un NAVEGADOR en el POST del formulario de esta página, por su Referrer-Policy (la especificación Fetch:
+  // con `no-referrer`, `Origin: null`). Antes el test lo ponía a mano y no vio el 403 (revisión de la 0.4.0, 23/10/2026).
+  const origen = extra.origen ?? (paginas[0].politica === 'no-referrer' ? 'null' : new URL(local).origin);
   for (const c of codigos) paginas.push(await pedir(local, { metodo: 'POST', cuerpo: `codigo=${encodeURIComponent(c)}`, headers: { origin: origen } }));
   const salida = extra.origen ? null : await fin;
   let recibido: Record<string, unknown> | null = null;
@@ -68,6 +70,8 @@ test('1. la página: el botón a Claude y el campo; sólo con su dirección y su
     assert.match(s.paginas[0].cuerpo, /<a class="boton" href="https:\/\/claude\.com\/cai\/oauth\/authorize\?code=true&amp;client_id=prueba&amp;state=abc" target="_blank" rel="noopener noreferrer">Entrar a Claude<\/a>/);
     assert.match(s.paginas[0].cuerpo, /<form method="post"><input name="codigo"/);
     assert.match(s.paginas[0].cuerpo, /MaKo nunca lo ve/);
+    // Con `no-referrer` el navegador manda su propio formulario con `Origin: null` y la página lo rechaza (403 en blanco).
+    assert.equal(s.paginas[0].politica, 'same-origin', 'con esta política el navegador rechaza su propio formulario');
     const u = new URL(s.local);
     assert.equal((await pedir(`${u.origin}/otro-secreto`)).status, 404, 'sin el secreto contesta');
     assert.equal((await pedir(s.local, { headers: { host: `localhost:${u.port}` } })).status, 404, 'con otro nombre (un DNS que apunta acá) contesta');

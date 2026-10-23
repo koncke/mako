@@ -5370,6 +5370,18 @@ tests/ia-pc-login-sin-terminal.test.ts.
   nueva y decía «¡Listo!».
 - **Claude Code lo instala el instalador con un PowerShell OCULTO** (el instalador oficial de Anthropic; la persona no abre
   nada) y sin la barra de progreso, que en PowerShell 5.1 vuelve lentísima la bajada.
+- **La 0.4.0 publicada NO servía: la página local rechazaba su propio formulario** (revisión de Integración, 23/10; arreglado
+  en la 0.4.1). La página salía con `Referrer-Policy: no-referrer`, y con esa política el navegador manda el POST de la MISMA
+  página con `Origin: null` (lo dice la especificación Fetch; medido en Chromium 152). El chequeo «Origin igual al mío» daba 403
+  en blanco al pegar el código. El test no lo vio porque ponía el Origin A MANO. Ahora usa `same-origin` y el test manda el
+  Origin que mandaría un navegador según la política de la página. **La regla: un test de un formulario manda los encabezados
+  que deriva el navegador, no los que uno supone.**
+- **El Setup de Inno es de 32 bits**, y sin `ArchitecturesInstallIn64BitMode` el PowerShell oculto salía de SysWOW64.
+  install.ps1 corta con «does not support 32-bit Windows» si el proceso no es de 64 bits (medido el 23/10), así que Claude Code
+  no se instalaba en NINGUNA computadora, y en silencio. La 0.4.1 instala en modo 64 bits, sin preguntar (`-NonInteractive`), y
+  arranca la app antes de instalar Claude Code.
+- **El aviso del chat sin sesión mandaba al «paso 3»,** que en Windows ya no existe. Ahora dice «desde Tus cuentas de IA», y
+  la línea de comandos queda plegada para las PC de la 0.3.2, como la del ws1, que no abren `mako://`.
 - **SIN hacer:** el `.pkg` de la Mac (la Mac sigue con la Terminal), la firma (lo decide Martín: nota firma-codigo-2310 en
   las notas del Cerebro), `agregar-cuenta` todavía abre una consola (`stdio: 'inherit'`, en mako-pc.mjs), y la prueba de
   punta a punta en una computadora de verdad.

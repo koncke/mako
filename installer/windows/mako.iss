@@ -37,6 +37,11 @@ OutputBaseFilename=MaKo-Setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+; En modo 64 bits (revisión de la 0.4.0, 23/10/2026): el Setup de Inno es de 32 bits, y sin esto `powershell.exe` salía de
+; SysWOW64. El instalador de Claude Code corta con «does not support 32-bit Windows» si el proceso no es de 64 bits (medido el
+; 23/10/2026: install.ps1 mira [Environment]::Is64BitProcess), y fallaba OCULTO. El programa también es x64.
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayName=MaKo
 CloseApplications=force
 
@@ -60,10 +65,12 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 [Run]
 ; Claude Code, si no está: el instalador oficial (code.claude.com/docs/en/setup), sin ventana. Lo corre el instalador, nunca la
 ; persona. A PROBAR en una computadora de verdad: la doc no dice si anda oculto.
-; Sin la barra de progreso: en Windows PowerShell 5.1 la bajada tardaba 58,6 s en vez de 4,1 (AGENTS.md).
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""$ProgressPreference = 'SilentlyContinue'; if (-not (Test-Path ([Environment]::GetFolderPath('UserProfile') + '\.local\bin\claude.exe'))) {{ irm https://claude.ai/install.ps1 | iex }"""; StatusMsg: "Instalando Claude Code…"; Flags: runhidden waituntilterminated
-; La app, de nuevo en marcha: al actualizar, el instalador la cerró (CloseApplications); sin conexión guardada, sale sola.
+; La app, de nuevo en marcha PRIMERO: al actualizar, el instalador la cerró (CloseApplications), y si instalar Claude Code
+; tarda, la PC no queda sin conexión mientras tanto. Sin conexión guardada, sale sola; sin Claude todavía, lo busca en cada latido.
 Filename: "{app}\mako-pc.exe"; Flags: nowait
+; Sin la barra de progreso (en Windows PowerShell 5.1 la bajada tardaba 58,6 s en vez de 4,1: AGENTS.md), sin preguntar nada
+; (-NonInteractive: oculto, una pregunta lo dejaba esperando para siempre) y con el PowerShell de 64 bits.
+Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""$ProgressPreference = 'SilentlyContinue'; if (-not (Test-Path ([Environment]::GetFolderPath('UserProfile') + '\.local\bin\claude.exe'))) {{ irm https://claude.ai/install.ps1 | iex }"""; StatusMsg: "Instalando Claude Code…"; Flags: runhidden waituntilterminated 64bit
 ; Al terminar: «Tus cuentas de IA», directo en «Conecta MaKo» (RUTA_TRAS_INSTALAR).
 Filename: "https://hola-mako.com/perfil/ia?computadora=1"; Description: "Conectar con MaKo"; Flags: postinstall shellexec nowait
 

@@ -216,6 +216,12 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
                 <>
                   <a className="tci-boton" href="mako://iniciar-sesion">Iniciar sesión en Claude</a>
                   <p className="tci-nota">Se abre el navegador: entra con tu cuenta de Claude y pega el código que te muestra.</p>
+                  {/* Una PC instalada con la línea de comandos (la 0.3.2, como la del ws1) no abre mako://: ahí, la de siempre. */}
+                  <details className="tci-respaldo">
+                    <summary>¿No funciona? Con la línea de comandos</summary>
+                    <p>{DONDE_PEGAR.windows}</p>
+                    <Copiar texto={LOGIN_CLAUDE.windows} />
+                  </details>
                 </>
               ) : <button type="button" className="tci-boton tci-boton--suave" onClick={() => setPaso(3)}>Iniciar sesión (paso 3)</button>}
             </>
