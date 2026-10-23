@@ -24,13 +24,18 @@ import { movimientoReducido, trayecto, volar } from './vuelo-mako';
 
 /**
  * Dónde vive la criatura en cada pantalla, en orden: el primero que se VE gana.
- *   · `[data-mako-casa]`: el lugar que una pantalla marca a mano (lo nuevo entra por acá, sin tocar esta lista);
+ *   · `[data-mako-casa]`: el lugar que una pantalla marca a mano (lo nuevo entra por acá, sin tocar esta lista). Automations
+ *     lo pone en la figura de MaKo de la cabecera de su lista, que abre el chat (acordado con su chat el 23/10/2026);
+ *   · la criatura de la cabecera de un chat del Ops Center (`.co-cab__muneco`): la misma del Ops Center y la del chat de MaKo
+ *     del grafo del Second Brain (acordado con el chat del Ops Center el 23/10/2026; con menos de 1100 px esa columna está
+ *     plegada y no se ve: se funde);
  *   · la criatura del chat de Automations (la sidebar del lienzo, app/automations/ChatMako.tsx);
  *   · la estrella de abajo de cada tab, «Escríbele a MaKo» (app/_chat/MakoEnLaTab.tsx): CRM, Plan, General, Clients…;
  *   · en el teléfono, la criatura del Ops Center en la barra de abajo (app/m/_ui/ShellM.tsx, la misma de EntradaApp).
  */
 export const DESTINOS_CASA = [
   '[data-mako-casa]',
+  '.co-cab__muneco',
   '[data-chat-sidebar] [role="img"][aria-label="MaKo"]',
   '.ch-tab-mako',
   '[data-mako-foto-barra]',

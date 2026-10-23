@@ -58,10 +58,15 @@ function doc(porSelector: Record<string, ReturnType<typeof el>[]>) {
 }
 
 test('adónde va: el primer lugar que SE VE, en orden; nunca uno escondido, fuera de pantalla o adentro del loader', () => {
+  // Lo marcado a mano gana; si está escondido (0×0), se saltea y sigue la lista.
+  const [selCasa, selCab] = DESTINOS_CASA;
+  const cab = el('cabecera', { x: 900, y: 20, w: 30, h: 30 });
+  assert.equal((casaVisible(doc({ [selCasa]: [el('casa', { x: 300, y: 20, w: 26, h: 26 })], [selCab]: [cab] }), 670, 1536) as unknown as { nombre: string }).nombre, 'casa');
+  assert.equal((casaVisible(doc({ [selCasa]: [el('casa escondida', { x: 0, y: 0, w: 0, h: 0 })], [selCab]: [cab] }), 670, 1536) as unknown as { nombre: string }).nombre, 'cabecera');
   const estrella = el('estrella', { x: 260, y: 598, w: 56, h: 56 });
   const chat = el('chat', { x: 40, y: 80, w: 30, h: 30 });
   const chatEscondido = el('chat escondido', { x: 0, y: 0, w: 0, h: 0 });
-  const [, selChat, selEstrella, selBarra] = DESTINOS_CASA;
+  const [, , selChat, selEstrella, selBarra] = DESTINOS_CASA;
   // El chat de Automations le gana a la estrella; escondido (la lista está arriba), va a la estrella.
   assert.equal((casaVisible(doc({ [selChat]: [chat], [selEstrella]: [estrella] }), 670, 1536) as unknown as { nombre: string }).nombre, 'chat');
   assert.equal((casaVisible(doc({ [selChat]: [chatEscondido], [selEstrella]: [estrella] }), 670, 1536) as unknown as { nombre: string }).nombre, 'estrella');
@@ -83,7 +88,9 @@ test('cuándo NO vuela: carga corta, sin de dónde, entrada propia, movimiento r
 });
 
 test('los lugares de la lista existen donde viven (si uno se renombra, la criatura deja de llegar)', () => {
-  assert.deepEqual([...DESTINOS_CASA], ['[data-mako-casa]', '[data-chat-sidebar] [role="img"][aria-label="MaKo"]', '.ch-tab-mako', '[data-mako-foto-barra]']);
+  assert.deepEqual([...DESTINOS_CASA], ['[data-mako-casa]', '.co-cab__muneco', '[data-chat-sidebar] [role="img"][aria-label="MaKo"]', '.ch-tab-mako', '[data-mako-foto-barra]']);
+  // La cabecera de un chat del Ops Center (y la del chat del grafo del Second Brain, que usa la misma).
+  assert.match(leer('app/second-brain/EntradaOps.tsx'), /export const DESTINO_ENTRADA_OPS = '\.co-cab__muneco';/);
   assert.match(leer('app/_chat/MakoEnLaTab.tsx'), /<button type="button" className="ch-tab-mako"/);
   assert.match(leer('app/automations/SecuenciaPerfil.tsx'), /data-chat-sidebar=""/);
   assert.match(leer('app/automations/ChatMako.tsx'), /<span role="img" aria-label="MaKo"[^>]*><Muneco titulo="MaKo"/);

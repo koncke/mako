@@ -264,7 +264,7 @@ export const BITACORA: Hito[] = [
     revisar: '/integraciones',
   },
   {
-    fecha: '23 oct', hora: '17:30', chat: 'Rendimiento y loaders', sesion: "cli_b58e7c0c-4f00-4c8d-8e53-0a6368e1cf04", cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    fecha: '23 oct', hora: '17:30', chat: 'Rendimiento y loaders', sesion: "local_1c58f6ef-9076-48da-a3ae-1c9915dbe834", cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
     titulo: 'Hecho: un loader con la criatura en todas las tabs, y más rápido',
     pedido: 'Al abrir Automations tarda mucho... cuando entro a Second Brain tarda muchísimo, y ni siquiera hay un loader. Los loader de las tabs, que sean todos como el de Ops Center, con la criatura de MaKo',
     puntos: [
@@ -277,7 +277,7 @@ export const BITACORA: Hito[] = [
     revisar: '/automations',
   },
   {
-    fecha: '23 oct', hora: '20:10', chat: 'Rendimiento y loaders', sesion: "cli_b58e7c0c-4f00-4c8d-8e53-0a6368e1cf04", cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    fecha: '23 oct', hora: '20:10', chat: 'Rendimiento y loaders', sesion: "local_1c58f6ef-9076-48da-a3ae-1c9915dbe834", cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
     titulo: 'Hecho: al terminar de cargar, la criatura vuela a su lugar',
     pedido: 'Todos los loaders que tengan la figura de MaKo, luego de terminar de cargar, la figura de MaKo se debe ir a su lugar, como lo hace en ops center',
     puntos: [
