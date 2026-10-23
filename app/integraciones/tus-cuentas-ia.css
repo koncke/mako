@@ -6,6 +6,9 @@
 .tci-titulo { margin: 0; font-size: var(--fs-card); font-weight: 600; }
 .tci-bajada { margin: 2px 0 0; color: var(--dim); font-size: var(--fs-sm); }
 .tci-vacio, .tci-nota { margin: 0; color: var(--dim); font-size: var(--fs-sm); }
+.tci-respaldo { font-size: var(--fs-sm); color: var(--dim); }
+.tci-respaldo > summary { cursor: pointer; }
+a.tci-boton { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 .tci-otra { padding-top: 4px; border-top: 1px solid var(--border); }
 .tci-boton { min-height: 36px; padding: 6px 14px; border-radius: var(--r-md); border: 1px solid var(--primary); background: var(--primary); color: var(--on-primary, #fff); font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
 .tci-boton--suave { background: var(--surface); color: var(--text); border-color: var(--border-strong); font-weight: 500; }

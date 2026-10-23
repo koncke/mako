@@ -250,12 +250,23 @@ export function reponeDelTope(l: { usadoSemana?: number; repone?: string; repone
 // curl, el programa no lleva la marca de «descargado de internet», así que SmartScreen y Gatekeeper no lo frenan.
 
 /** La versión del programa que sirven los instaladores (la misma que `VERSION` de scripts/ia-pc/mako-pc.mjs). */
-export const VERSION_PC = '0.3.2';
+export const VERSION_PC = '0.4.0';
 export const SISTEMAS_PC = ['windows', 'mac'] as const;
 export type SistemaPc = (typeof SISTEMAS_PC)[number];
 /** Los archivos que sube scripts/ia-pc/publicar-binarios.mts al bucket privado `ia-pc` (comprimidos: entran en 50 MB). */
 export const archivoDelPrograma = (archivo: 'windows-x64' | 'mac-arm64' | 'mac-x64'): string => `mako-pc-${VERSION_PC}-${archivo}.gz`;
 export const ARCHIVOS_PC = ['windows-x64', 'mac-arm64', 'mac-x64'] as const;
+/**
+ * El instalador CON ASISTENTE de Windows (0.4.0, installer/windows/mako.iss): Siguiente › Instalar › Finalizar, sin PowerShell
+ * (Martín, 22/10/2026: «jamás por Powershell, ni siquiera que se tenga que abrir»). Va SIN comprimir —Inno ya comprime— y se
+ * baja con \`nombreDelInstalador\` (GET /api/ia-pc/descargar).
+ */
+export const archivoDelInstalador = (version: string = VERSION_PC): string => `mako-pc-${version}-windows-setup.exe`;
+export const nombreDelInstalador = (version: string = VERSION_PC): string => `MaKo-Setup-${version}.exe`;
+/** La UNA línea de la página de descarga para el aviso de Windows mientras no esté firmado (Martín, 22/10/2026). */
+export const AVISO_SMARTSCREEN = 'Si Windows dice «protegió su PC»: Más información › Ejecutar de todas formas.';
+/** Adónde vuelve el instalador al terminar: «Tus cuentas de IA», directo en «Conecta MaKo». */
+export const RUTA_TRAS_INSTALAR = '/perfil/ia?computadora=1';
 
 /**
  * Qué archivos de ESTA versión faltan en el bucket (IA1/IA2, 22/10/2026). La 0.3.2 se desplegó sin sus ejecutables y el
@@ -267,7 +278,7 @@ export function faltanEnElBucket(nombres: readonly string[], version: string = V
   const hay = new Set(nombres);
   const versiones = [...new Set(nombres.map((n) => /^mako-pc-(\d+\.\d+\.\d+)-/.exec(n)?.[1]).filter((v): v is string => !!v))]
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  return { faltan: ARCHIVOS_PC.map((a) => `mako-pc-${version}-${a}.gz`).filter((n) => !hay.has(n)), versiones };
+  return { faltan: [...ARCHIVOS_PC.map((a) => `mako-pc-${version}-${a}.gz`), archivoDelInstalador(version)].filter((n) => !hay.has(n)), versiones };
 }
 
 /** Lo que dice scripts/ia-pc/verificar-binarios.mts: «0.3.2 completa» o «falta 0.3.2: …» (con lo que no firma). */
