@@ -1117,3 +1117,26 @@ fila del ws1 (`soloLasPropias` compara contra las filas de la plataforma) y la p
 
 **Vive en:** lib/credenciales.ts (`NO_MIGRAR_A_WS`, `CLAVES_DE_PASARELA`) · lib/cobros-conexion.ts · lib/webhook-routing.ts ·
 app/api/webhooks/stripe/route.ts · lib/cobro-etapa.ts (`cuentaPrincipal`, `cuentaDelCobro`).
+
+## Editar un evento de Calendly o Cal.com por API: lo que se puede y lo que no (22/10/2026)
+
+Martín pidió «edición COMPLETA del evento» desde el CRM. Esto es lo que dejan las APIs (leído en su documentación el
+22/10/2026; hoy el código edita sólo nombre y duración):
+
+| | Calendly (API v2) | Cal.com (API v2) |
+|---|---|---|
+| Nombre, duración, descripción | `PATCH /event_types/{uuid}` (también `active`, `locations`, `color`, `locale`) | `PATCH /event-types/{id}` (`title`, `slug`, `lengthInMinutes`, `description`, `hidden`, `locations`) |
+| Preguntas del formulario | **No se editan**: `custom_questions` es de lectura | `bookingFields`, que se **reemplaza entero** en el PATCH |
+| Disponibilidad | `GET`/`PATCH /event_type_availability_schedules?event_type=<URI>` | `scheduleId` del evento + `PATCH /schedules/{id}` |
+| Límite | 500 por minuto (pago), 50 (gratis) | 120 por minuto |
+
+- **Un PATCH que reemplaza todo:** en Calendly, mandar sólo el día que cambió borra las reglas de los demás días. En
+  Cal.com, mandar sólo la pregunta nueva borra las otras. Hay que leer, cambiar y mandar la lista entera.
+- **Cal.com versiona cada endpoint aparte con el header `cal-api-version`:** `2024-06-14` para los tipos de evento
+  (`VERSION_EVENT_TYPES_CALCOM`), `2024-06-11` para los horarios y `2024-08-13` para las reservas. Con la versión
+  equivocada contesta igual, con la forma vieja y sin error (lib/calcom.ts, arriba de `eventTypesDeRespuestaCalcom`).
+- En Calendly, las preguntas se muestran de lectura y se editan en Calendly (un link).
+
+**Vive en:** lib/calendly-agenda.ts (`editarEventTypeCalendly`) · lib/calcom.ts (`editarEventTypeCalcom`) ·
+lib/agenda-evento-etapa-server.ts (`editarEventoDeAgenda`)
+*22/10/2026, chat «CRM» (claude3).*

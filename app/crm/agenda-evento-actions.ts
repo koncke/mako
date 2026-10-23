@@ -16,7 +16,7 @@ import { revalidatePath } from 'next/cache';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import {
-  listarEventosDeAgenda, vincularEvento, desvincularEvento, crearEventoDeAgenda, editarEventoDeAgenda,
+  listarEventosDeAgenda, vincularEvento, desvincularEvento, crearEventoDeAgenda, editarEventoDeAgenda, leerVinculos,
   type AgendaDelNegocio, type ResultadoVincular, type ResultadoDesvincular, type ResultadoEventoEscrito,
 } from '@/lib/agenda-evento-etapa-server';
 import type { ProveedorAgenda } from '@/lib/agenda-evento-etapa';
@@ -48,6 +48,26 @@ export async function listarEventosAgendaAction(): Promise<({ ok: true } & Agend
   } catch (e) {
     console.error('[agenda-evento] listar:', msg(e));
     return { ok: false, error: 'No pude leer los eventos de tu agenda. Intenta de nuevo.' };
+  }
+}
+
+/**
+ * Lo vinculado a UNA etapa, de la BASE (22/10/2026, Martín: «abrir el modal queda cargando mucho»): el pop-up lo muestra
+ * al toque, mientras la lista de la agenda (que le pregunta a Calendly y a Cal.com) llega por `listarEventosAgendaAction`.
+ */
+export async function vinculadosDeEtapaAction(funnelId: number, etapa: string): Promise<{ ok: true; eventos: Array<{ proveedor: ProveedorAgenda; identificador: string; nombre: string }> } | { ok: false; error: string }> {
+  await exigirSesion();
+  if (!(await esAdmin())) return { ok: false, error: SOLO_ADMIN };
+  try {
+    const { vinculos } = await leerVinculos();
+    return {
+      ok: true,
+      eventos: vinculos.filter((v) => v.funnelId === funnelId && v.etapa === etapa)
+        .map((v) => ({ proveedor: v.proveedor, identificador: v.identificador, nombre: v.nombre || v.identificador })),
+    };
+  } catch (e) {
+    console.error('[agenda-evento] vinculados:', msg(e));
+    return { ok: false, error: 'No pude leer lo vinculado.' };
   }
 }
 

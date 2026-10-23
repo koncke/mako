@@ -29,7 +29,7 @@
 
 - **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos` · `listar_hojas_general` · `crear_hoja_general` · `editar_hoja_general_con_ia` · `agregar_bloque_general` · `configurar_bloque_general`
 - **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `ver_repriorizacion_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `cambiar_fecha_tarea_plan` · `mover_tarea_plan` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `cerrar_tareas_plan` · `proponer_ampliar_tareas`
-- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `ver_campanas_funnels` · `asignar_campana_funnels` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads` · `crear_pagina_reserva` · `editar_pagina_reserva` · `cambiar_tipo_etapa` · `armar_tab_ficha`
+- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `ver_campanas_funnels` · `asignar_campana_funnels` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads` · `crear_pagina_reserva` · `editar_pagina_reserva` · `cambiar_tipo_etapa` · `ver_cobro_etapa` · `vincular_cobro_etapa` · `cuentas_cobro_etapa` · `desvincular_cobro_etapa` · `armar_tab_ficha`
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_editar_publico_conjunto` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
@@ -1497,7 +1497,7 @@ curl -L \
 
 ## CRM — `crm`
 
-Tab **CRM** (`/crm`). 31 lecturas · 40 acciones.
+Tab **CRM** (`/crm`). 32 lecturas · 43 acciones.
 
 ### `GET /api/v1/crm/busqueda/leads` — Buscar leads por texto
 
@@ -3488,6 +3488,121 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/crm/etapas/ETAPA/tipo" \
   -d '{"tipo":"etapa"}'
+```
+
+### `GET /api/v1/crm/cobro-ganado` — Qué cobra Ganado en un CRM
+
+Los productos vinculados a Ganado de un CRM (quien paga uno pasa a Ganado ahí, con su plan de pagos), por qué cuentas de Stripe o Mercado Pago cobra cada uno, las cuentas conectadas y los productos del catálogo que se pueden sumar. Paso previo a vincular_cobro_etapa. Solo el administrador.
+
+- **Ruta por operación:** `GET /api/v1/crm/ver_cobro_etapa`
+- **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `embudoId` | number | no | el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/cobro-ganado"
+```
+
+### `POST /api/v1/crm/cobro-ganado/vinculos` — Vincular un producto a Ganado
+
+PROPONE vincular un producto del catálogo a Ganado de un CRM (queda pendiente hasta el «sí»): quien lo pague por esas cuentas pasa a Ganado ahí, con su plan de pagos. Un producto cobra en un solo CRM. Producto y cuentas salen de ver_cobro_etapa. Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/crm/vincular_cobro_etapa`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** guarda el vínculo del producto con Ganado de ese CRM (cobro_etapa_vinculos): desde ahí, quien lo pague por esas cuentas pasa a Ganado con su plan de pagos
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | el producto (de ver_cobro_etapa o listar_productos). |
+| `embudoId` | number | no | el CRM, por el id de su embudo. Sin él, el CRM principal del negocio. |
+| `cuentas` | string[] | no | las cuentas por las que cobra (sus id de ver_cobro_etapa, como stripe:principal). Sin ellas, todas las conectadas. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/cobro-ganado/vinculos" \
+  -d '{"productoId":1}'
+```
+
+### `PUT /api/v1/crm/cobro-ganado/vinculos/{vinculoId}/cuentas` — Cuentas de cobro en Ganado
+
+PROPONE fijar por qué cuentas de Stripe o Mercado Pago cobra un producto ya vinculado a Ganado (queda pendiente hasta el «sí»). La lista que se pasa es la NUEVA y entera; vacía no se acepta (eso es desvincular_cobro_etapa). El vínculo sale de ver_cobro_etapa. Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/crm/cuentas_cobro_etapa`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** fija las cuentas del vínculo (cobro_etapa_vinculos.cuentas): un pago por una cuenta que salió ya no pasa a Ganado ahí
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `vinculoId` | number | sí | el vínculo (de ver_cobro_etapa). |
+| `cuentas` | string[] | sí | las cuentas por las que cobra desde ahora (sus id de ver_cobro_etapa). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/cobro-ganado/vinculos/VINCULO_ID/cuentas" \
+  -d '{"cuentas":[]}'
+```
+
+### `DELETE /api/v1/crm/cobro-ganado/vinculos/{vinculoId}` — Quitar un producto de Ganado
+
+PROPONE sacar un producto de Ganado de un CRM (queda pendiente hasta el «sí»): sus pagos ya no pasan a Ganado ahí. Lo ya cobrado queda igual. El vínculo sale de ver_cobro_etapa. Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/crm/desvincular_cobro_etapa`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** borra el vínculo del producto con Ganado (cobro_etapa_vinculos); los cobros y planes ya hechos no se tocan
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `vinculoId` | number | sí | el vínculo (de ver_cobro_etapa). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/cobro-ganado/vinculos/VINCULO_ID"
 ```
 
 ### `POST /api/v1/crm/ficha/tabs` — Armar una tab de la ficha

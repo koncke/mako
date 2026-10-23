@@ -3022,4 +3022,43 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '23 oct', hora: '00:05', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Instagram: «Conectar Meta» desde el buscador, y el mismo buscador en la ficha del lead',
+    puntos: [
+      'Martín: «La búsqueda de Instagram no funciona porque tengo que conectar Meta. No entiendo eso».',
+      'Si el negocio no tiene Meta conectado, el buscador lo dice al enfocarlo y ofrece «Conectar Meta» ahí mismo, sin salir de la tab. Al conectar, vuelve a buscar.',
+      'La ficha del lead edita el Instagram con el mismo buscador de «Nuevo lead»: elegir una cuenta la guarda, Enter o salir guardan el @ escrito, Escape cancela.',
+    ],
+    commits: [
+      { sha: '4487ac5d6', msg: 'CRM: «Conectar Meta» en el buscador de Instagram, y el mismo buscador en la ficha', lineas: 677, archivos: 8 },
+    ],
+    archivos: [
+      'app/crm/new/InstagramBuscador.tsx — el buscador, con «Conectar Meta»',
+      'app/crm/lead-view/CampoEditable.tsx — el Instagram de la ficha, con el mismo buscador',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '23 oct', hora: '00:20', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Vincular evento» y «Vincular cobro»: rápidos, con el nombre del CRM y de la etapa, y un aviso cuando falta',
+    puntos: [
+      '«Asignar evento» se llama «Vincular evento», como «Vincular cobro». Los dos pop-ups son una lista limpia, con poco texto, en la computadora y en el teléfono.',
+      'Arriba dicen el CRM y la etapa («Ventas › Agenda R1»), y cada evento muestra el nombre de la etapa donde está, no «Esta etapa».',
+      'Abren al toque con lo ya vinculado mientras llega lo de Calendly y Cal.com, y vincular o quitar ya no vuelve a cargar todo.',
+      'Lo de Google y lo que pasa al pagar quedó en una ⓘ.',
+      'Una etapa de reunión sin evento, o Ganado sin cobro, lleva un punto ámbar en sus 3 puntos y en «Vincular evento» o «Vincular cobro».',
+      'MaKo puede ver, vincular, elegir las cuentas y quitar el cobro de Ganado, siempre con tu «sí» y diciendo qué producto toca.',
+    ],
+    commits: [
+    ],
+    archivos: [
+      'app/crm/EventosDeEtapaModal.tsx · app/crm/CobroDeEtapaModal.tsx · app/crm/vincular-etapa.ts — los dos pop-ups',
+      'lib/vinculos-de-columnas.ts — el aviso de la columna, de la base',
+      'lib/api-mako/areas/crm.def.ts · crm.run.ts — el cobro de Ganado por MaKo',
+    ],
+    revisar: '/crm',
+  },
 ];
