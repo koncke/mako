@@ -133,8 +133,23 @@
    estar separados... Todos juntos»): sin filete ni hueco; lo distingue su criatura, la estrella de MaKo. */
 .co-cuenta--cerebro + .co-cuenta { margin-top: 0; }
 
-/* «Nuevo chat»: el primer renglón, con el muñeco de un lugar vacío (gris y transparente). */
+/* «Nuevo chat»: el primer renglón, con el diseño de «＋ Nueva automatización» (feedback 4, 22/10/2026; la receta de `.chb-nueva`,
+   app/automations/SimuladorWhatsApp.tsx): punteado, y al pasar el cursor el borde se vuelve primario y el ＋ gira. */
 .co-fila--nuevo { margin-bottom: 4px; color: var(--dim); }
+.co-nueva { border: 1px dashed var(--border-strong); background: transparent; opacity: .85; transition: border-color .16s ease, color .16s ease, background .16s ease, opacity .16s ease; }
+.co-nueva:hover, .co-nueva:focus-visible { opacity: 1; color: var(--primary); border-color: var(--primary); background: var(--primary-bg); }
+.co-nueva .co-fila__titulo { color: inherit; font-weight: 600; }
+.co-nueva__mas {
+  width: 36px; height: 36px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 20px;
+  background: var(--surface-2); border: 1px dashed var(--border-strong); color: var(--faint);
+  transition: transform .24s cubic-bezier(.34, 1.36, .64, 1), color .16s ease, border-color .16s ease, background .16s ease;
+}
+.co-nueva:hover .co-nueva__mas, .co-nueva:focus-visible .co-nueva__mas { transform: rotate(90deg) scale(1.06); color: var(--primary); border-color: var(--primary); border-style: solid; background: var(--surface); }
+.co-nueva:active .co-nueva__mas { transform: rotate(90deg) scale(.92); }
+@media (prefers-reduced-motion: reduce) {
+  .co-nueva__mas { transition: none; }
+  .co-nueva:hover .co-nueva__mas, .co-nueva:focus-visible .co-nueva__mas, .co-nueva:active .co-nueva__mas { transform: none; }
+}
 /* Un chat sin trabajo y sin nada para Martín duerme: ojos cerrados (Muneco) y la fila apagada (17/10/2026). */
 .co-fila--dormida .co-fila__titulo { color: var(--dim); font-weight: 400; }
 .co-fila--dormida .co-fila__hace { color: var(--faint); }
@@ -211,6 +226,20 @@
 .co-punto--viejo { border: 1.5px solid var(--faint); }
 .co-punto--nada { background: transparent; }
 
+/* Arriba, como la lista de Automations (feedback 4): el tutorial, la búsqueda con su borde y el filtro, en una fila. */
+.co-barra__fila { display: flex; align-items: center; gap: 6px; }
+.co-barra__fila > .co-buscar { flex: 1; min-width: 0; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong); }
+.co-ayuda {
+  flex: none; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0;
+  border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: var(--dim); cursor: pointer;
+}
+.co-ayuda:hover { color: var(--ink); background: var(--velo-hover); }
+.co-ayuda:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* Abajo, junto al Uso: la Ticketera y el Second Brain. */
+.co-barra__accesos { flex: none; display: flex; flex-direction: column; gap: 2px; padding: 6px 10px 0; border-top: 1px solid var(--border); }
+.co-barra__accesos:empty { display: none; }
+.co-barra__accesos .co-acceso--ticketera { margin-top: 0; }
+.co-barra__accesos + .co-barra__abajo { border-top: 0; padding-top: 2px; }
 /* Abajo de todo, como la cuenta en Claude y los ajustes en Codex: el cartero. */
 .co-barra__abajo {
   flex: none;
