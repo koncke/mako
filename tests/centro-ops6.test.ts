@@ -153,7 +153,8 @@ test('7: el chat del Runner no está en la lista del Ops Center', () => {
   assert.equal(esChatDelRunner(chat('Runner de pruebas')), false, 'ni uno que sólo empieza igual');
   assert.equal(esChatDelRunner(chat('Cualquiera', { esRunner: true })), true, 'la marca de la PC manda');
   // La pantalla lo saca; `completarChats` lo sigue devolviendo marcado (de ahí sale que no se le entrega nada).
-  assert.match(codigo('app/admin/operaciones/useCentro.ts'), /const conVigia = useMemo\(\(\) => sinElRunner\(completarChats\(base, \{ carteros, trabajos, ahora, pasos \}\)\), \[base, carteros, trabajos, ahora, pasos\]\);/);
+  // Desde el 23/10/2026 con el reloj al minuto y cada chat que vale lo mismo, el de antes (tests/ops-center-refresco-estable.test.ts).
+  assert.match(codigo('app/admin/operaciones/useCentro.ts'), /estabilizarLista\(chatsAntes\.current, sinElRunner\(completarChats\(base, \{ carteros, trabajos, ahora: ahoraLista, pasos \}\)\), \(c\) => c\.clave\)/);
 });
 
 test('8: un «Completado» sin ver avisa IGUAL que «Espera tu respuesta»: el mismo renglón y el mismo globito', () => {
