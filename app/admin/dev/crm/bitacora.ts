@@ -3053,6 +3053,7 @@ export const BITACORA: Hito[] = [
       'MaKo puede ver, vincular, elegir las cuentas y quitar el cobro de Ganado, siempre con tu «sí» y diciendo qué producto toca.',
     ],
     commits: [
+      { sha: '831ecb0ac', msg: 'CRM: «Vincular evento» y «Vincular cobro» rápidos, con el CRM y la etapa, el aviso del ⋯ y el cobro de Ganado por MaKo', lineas: 1370, archivos: 31 },
     ],
     archivos: [
       'app/crm/EventosDeEtapaModal.tsx · app/crm/CobroDeEtapaModal.tsx · app/crm/vincular-etapa.ts — los dos pop-ups',
