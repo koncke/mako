@@ -10445,3 +10445,21 @@ app/crm/campo-inline.ts (`instagramDeLaFicha`) · tests/crm-instagram-meta-22-10
 **Vive en:** app/crm/cobro-ganado.ts (`opcionesDeCobro`, `precioDeStripeTexto`) · app/crm/CobroDeEtapaModal.tsx ·
 lib/api-mako/areas/crm.run.ts (`prepararPrecioDeStripe`, `ejecutarPrecioDeStripe`) · tests/crm-cobro-stripe-23-10.test.ts
 *23/10/2026, chat «CRM» (claude3).*
+
+## La base de leads de Martín para vender MaKo: el origen y la clasificación (23/10/2026)
+
+- **`origen_lead` es un catálogo CERRADO** (12 ids, `app/crm/origen-lead.ts`): «Formación de Jan» escrito ahí se pinta
+  «Sin origen». El origen de una LISTA va en una etiqueta («Origen: …»), igual que «Traer de un grupo de WhatsApp»
+  (chat Offer) pone «Grupo: <nombre>».
+- **El importador del CRM no deja elegir origen ni etiqueta por fila:** estampa `origen_lead='importacion'` y recibe un
+  solo CRM (`importarLeadsRevisadosAction`). Para una lista con origen está `scripts/cargar-base-venta.mts` (ws9): mismo
+  parser (`filasDesdeCsv`), `duplicadosDeLead` por fila, y al que ya está sólo le suma la etiqueta.
+- **La base NO tiene UNIQUE por teléfono ni email**: lo que impide el duplicado es buscar antes (`duplicadosDeLead`,
+  últimos 10 dígitos). Probado en seco: el mismo teléfono con otro formato da «ya está».
+- **La clasificación ya estaba:** el CRM PROSPECCIÓN del ws9 tiene Círculo ROJO (st0) / TIBIO (st1) / FRÍO (st2) →
+  Conversación abierta (st3). Medido el 23/10: 13 leads, todos a mano, ninguna lista con origen.
+
+**Sin hacer:** cargar las listas. Espera a Martín: qué grupo es cada origen, los archivos y el círculo de cada uno
+(se lo pidió el Cerebro).
+
+**Vive en:** scripts/cargar-base-venta.mts · app/crm/origen-lead.ts · app/crm/leads-importar.ts · lib/leads.ts (`duplicadosDeLead`)

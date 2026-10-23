@@ -1,7 +1,7 @@
 # VSL principal · MaKo
 
 > **Para:** todo el que llega del anuncio · **Ángulo:** inviertes en anuncios y no sabes cuál te trae clientes
-> **Dura:** ~2:20 · **CTA:** Agenda tu diagnóstico gratis · **Landing:** `/`
+> **Dura:** ~2:25 · **CTA:** Agenda tu diagnóstico gratis · **Empuja:** el Acelerador (en la llamada) · **Landing:** `/`
 
 **La idea en una frase:** tus datos de venta viven en cinco apps que no se hablan; MaKo los junta y te dice qué hacer.
 
@@ -37,11 +37,12 @@ Sin cambiar la oferta. // Sin cambiar el funnel. // Lo único que cambió: // em
 Y si tu objeción es «yo ya tengo un CRM»… // déjame decirte algo: ///
 tu CRM guarda nombres. // No sabe de qué anuncio vino cada uno, // cuánto te costó // ni si te pagó.
 
-**OFERTA (2:05–2:15)** [tres tarjetas]
-Puedes usar MaKo para tu negocio. // Con tu agencia, para todos tus clientes. //
-O entrar al programa grupal: // tres meses de MaKo y asesoría en grupo para dejar tu funnel andando.
+**OFERTA (2:05–2:20)** [tres tarjetas: Esencial · Pro · Acelerador]
+Puedes empezar con MaKo **desde 47 dólares al mes**. // Con catorce días para probarlo. ///
+O, si no quieres armarlo solo, // entrar al **Acelerador**: // tres meses de MaKo Pro, //
+la asesoría grupal de Martín cada semana, // y tu funnel armado en los primeros siete días.
 
-**CIERRE (2:15–2:20)**
+**CIERRE (2:20–2:25)**
 Escalar no es meterle más dinero a los anuncios. // **Es saber a cuál.** ///
 Agenda tu diagnóstico gratis, // aquí abajo.
 
@@ -51,7 +52,7 @@ Agenda tu diagnóstico gratis, // aquí abajo.
 3. «Tu CRM guarda nombres. No sabe quién te pagó.»
 
 ## Lo que NO dice, a propósito
-- **Precios.** Van en la landing y en la llamada: un video vive meses y el precio se puede mover.
-- **Qué trae el grupal** más allá de «tres meses de MaKo y asesoría en grupo»: los entregables los está definiendo el Cerebro.
+- **El precio del Pro y del Acelerador.** El video ancla en «desde 47»; los otros van en la landing y en la llamada.
+- **La garantía del Acelerador**: es la que arma la tab Offer, no está escrita todavía.
+- **Que la IA viene incluida**: cada negocio conecta la suya.
 - **Que MaKo mueve los leads solo** en el CRM: hoy propone y la persona confirma.
-- **Garantía**: no hay una decidida para MaKo.

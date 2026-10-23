@@ -1,7 +1,7 @@
 # VSL · Avatar: agencia o trafficker
 
 > **Para:** el que maneja los anuncios de varios clientes y vive mandando reportes · **Ángulo:** tu cliente no te paga por leads; te paga por ventas
-> **Dura:** ~1:45 · **CTA:** Agenda tu diagnóstico gratis · **Landing:** por avatar (plan de US$97)
+> **Dura:** ~1:45 · **CTA:** Agenda tu diagnóstico gratis · **Empuja:** MaKo Pro (US$97, el modo agencia) · **Landing:** por avatar
 
 **La idea en una frase:** con MaKo le muestras a cada cliente las ventas que trajeron tus anuncios, no sólo los leads.
 

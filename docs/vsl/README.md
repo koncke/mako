@@ -4,18 +4,18 @@ Pedido de Martín (audios del 15/10 y del 22/10/2026), textual: «no creo que me
 sino que al menos los guiones». Son para la ventana de anuncios del 1/11 al 15/12 (US$2.000 de pauta, objetivo
 US$15.000). Cada guion se lee en 2 minutos y se graba en unos 2.
 
-| Guion | Para quién | Landing | Dura |
-|---|---|---|---|
-| [Principal](principal.md) | Todo el que llega del anuncio | `/` (la de MaKo) | ~2:20 |
-| [CRM](funcionalidad-crm.md) | El que pierde leads en el WhatsApp | CRM | ~1:40 |
-| [Automations](funcionalidad-automations.md) | El que no hace seguimiento | Automations | ~1:40 |
-| [Ads Manager](funcionalidad-ads-manager.md) | El que no sabe qué anuncio le vende | Ads Manager | ~1:45 |
-| [MaKo, tu consultor](funcionalidad-mako.md) | El que decide solo y a ojo | Second Brain | ~1:40 |
-| [Offer](funcionalidad-offer.md) | El que tiene una oferta que no se entiende | Offer | ~1:35 |
-| [Web Generator](funcionalidad-web-generator.md) | El que paga diseñador por cada landing | Web Generator | ~1:35 |
-| [Coach o consultor](avatar-coach-consultor.md) | Ya vende high ticket con anuncios | por avatar | ~1:50 |
-| [Agencia](avatar-agencia.md) | Maneja los anuncios de varios clientes | por avatar | ~1:45 |
-| [Empieza con anuncios](avatar-empieza-con-anuncios.md) | Vende por WhatsApp y quiere pautar | por avatar | ~1:45 |
+| Guion | Para quién | Landing | Empuja | Dura |
+|---|---|---|---|---|
+| [Principal](principal.md) | Todo el que llega del anuncio | `/` (la de MaKo) | Acelerador (por la llamada) | ~2:25 |
+| [CRM](funcionalidad-crm.md) | El que pierde leads en el WhatsApp | CRM | Esencial | ~1:40 |
+| [Automations](funcionalidad-automations.md) | El que no hace seguimiento | Automations | Esencial | ~1:40 |
+| [Ads Manager](funcionalidad-ads-manager.md) | El que no sabe qué anuncio le vende | Ads Manager | Pro | ~1:45 |
+| [MaKo, tu consultor](funcionalidad-mako.md) | El que decide solo y a ojo | Second Brain | Esencial | ~1:40 |
+| [Offer](funcionalidad-offer.md) | El que tiene una oferta que no se entiende | Offer | Esencial | ~1:35 |
+| [Web Generator](funcionalidad-web-generator.md) | El que paga diseñador por cada landing | Web Generator | Esencial | ~1:35 |
+| [Coach o consultor](avatar-coach-consultor.md) | Ya vende high ticket con anuncios | por avatar | Acelerador | ~1:50 |
+| [Agencia](avatar-agencia.md) | Maneja los anuncios de varios clientes | por avatar | Pro | ~1:45 |
+| [Empieza con anuncios](avatar-empieza-con-anuncios.md) | Vende por WhatsApp y quiere pautar | por avatar | Acelerador | ~1:45 |
 
 Las landings las arma el chat «Landings de MaKo en Web Generator». Si una landing nueva no tiene guion acá, falta
 escribirlo; si un guion no tiene landing, falta la landing.
@@ -40,10 +40,22 @@ escribirlo; si un guion no tiene landing, falta la landing.
 9. **Sólo lo que MaKo hace hoy.** Cada guion dice qué dejó afuera y por qué.
 10. Para la voz de IA (ElevenLabs): «MaKo» se escribe «Máko» y «VSL» en minúscula («vsl»).
 
+## Las ofertas (las del Cerebro, 23/10: C:/dev/cerebro-herramientas/ofertas-mako-23-10.md)
+
+| Oferta | Precio | En una línea |
+|---|---|---|
+| **MaKo Esencial** | US$47 por mes (US$470 por año) | Todo MaKo con topes: 1 funnel, 2.000 leads, 1 WhatsApp, 3 automatizaciones, 3 landings |
+| **MaKo Pro** | US$97 por mes (US$970 por año) | Sin topes, más Ads Manager completo (con la calculadora), Closing Analyst, equipo de 5 y agencia |
+| **Programa MaKo Acelerador** | US$1.500 en 3 cuotas de US$500 | MaKo Pro 3 meses + la asesoría grupal de Martín cada jueves + el funnel armado en la semana 1. Después, Continuidad a US$297 por mes |
+
+Los planes tienen 14 días de garantía. Cada negocio conecta su propia IA: ningún guion dice que la IA viene incluida.
+
 ## El CTA
 
-- **Principal y avatares:** «Agenda tu diagnóstico gratis» (la llamada de la landing, `calendly.com/koncke/asesoria`).
-- **Funcionalidades:** «Entra a MaKo» (los planes de US$47 y US$97 por mes), con el diagnóstico como segunda opción.
+- **Principal y avatares** (empujan el Acelerador): «Agenda tu diagnóstico gratis» (la llamada de la landing,
+  `calendly.com/koncke/asesoria`). En la llamada se ofrece el Acelerador.
+- **Funcionalidades** (empujan un plan): «Entra a MaKo», desde US$47 por mes, con el diagnóstico como segunda opción.
+  Ads Manager y Agencia nombran el Pro: la calculadora y el modo agencia son del Pro.
 - Si la campaña optimiza a conversaciones de WhatsApp (lo aprobado en Strategy), el cierre cambia a
   «Escríbenos por WhatsApp y pide tu diagnóstico».
 

@@ -2,7 +2,7 @@
 
 > **Para:** emprendedor con una oferta que ya vende por recomendación o en frío, que nunca pautó o pautó y perdió
 > **Ángulo:** no le tengas miedo a los anuncios; tenle miedo a pautar sin saber cuánto
-> **Dura:** ~1:45 · **CTA:** Agenda tu diagnóstico gratis · **Landing:** por avatar
+> **Dura:** ~1:45 · **CTA:** Agenda tu diagnóstico gratis · **Empuja:** el Acelerador · **Landing:** por avatar
 
 **La idea en una frase:** MaKo te dice cuánto invertir, qué probar y le escribe a cada lead que llega.
 
@@ -44,4 +44,4 @@ Los anuncios no son una apuesta. // Son una cuenta. /// Agenda tu diagnóstico g
 ## Lo que NO dice, a propósito
 - La PRUEBA con US$500 depende del costo por lead: con más de ~US$8 por lead la calculadora propone menos de tres
   anuncios. Antes de grabar, correr la calculadora con el costo real del rubro y ajustar la frase.
-- La calculadora entra a producción con la punta 42cc940c6.
+- La calculadora entra a producción con la punta 42cc940c6, y es del plan Pro: en el Acelerador viene incluida (3 meses de Pro).

@@ -6044,3 +6044,23 @@ sólo lo escrito. **Vive en:** app/automations/ChatMako.tsx · ChatMakoVista.tsx
 test: tests/chat-mako-caja-unica.test.ts. **Sin hacer:** un archivo que es CONTENIDO del flujo («mandales este PDF») se lee
 como instrucciones en el chat (la galería ya lo sube a la biblioteca: `usoDelArchivo`); la «Pídeselo a MaKo» de la galería
 (CajaPedido) sigue con su caja.
+
+## Dejar armado un flujo en un negocio SIN línea conectada (23/10/2026)
+
+Las automatizaciones de venta de MaKo en el ws9 (#568 «Venta MaKo · apertura», #569 «Venta MaKo · conversación
+abierta»), pausadas, con la línea del ws9 sin QR:
+- **Publicar desde el lienzo pide la línea** (`medioSinConectar` en la ruta). `setSecuenciaPasos` no la pide y no toca
+  `activa`: es la vía para dejar un flujo armado y pausado en un negocio que todavía no conectó WhatsApp. Activar sí
+  vuelve a pasar por `validarActivacion`.
+- **Las piezas de la galería no se exportan** (`whatsapp()`, `condicion()`, `esperar()` en
+  lib/plantillas-automatizaciones.ts): un script copia su forma exacta (`RELLENO` + campos) y valida con
+  `validarGrafo` + `frenoDelFlujo` + `problemasDeForma` antes de escribir. Las dos pasaron sin nada.
+- **Lo que frena es la PAUSA, no la aprobación por mensaje.** Nacieron con `revisar: true` (para aprobar) y el mismo
+  día se sacó: Martín, 23/10, «si estoy haciendo una AUTOMATIZACIÓN es OBVIO que debe llegar sola». Quedan pausadas,
+  con cada WhatsApp que sale solo (`saleSolaDelPaso`), «Misma persona» apagado en cada una (las 20 h del negocio
+  retrasaban un seguimiento corto) y goteo de la apertura en 5 min / 40 por día.
+- **El orden importa al activar:** «Traer de un grupo de WhatsApp» no ofrece una etapa de la que cuelga una
+  automatización ACTIVA (`etapasQueDisparan`). Con #568 activa, TIBIO deja de ofrecerse: primero se traen los grupos,
+  después se activa.
+
+**Sin hacer:** activarlas es de Martín, después de vincular su WhatsApp al ws9 y de traer los grupos.
