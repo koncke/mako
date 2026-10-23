@@ -5463,6 +5463,10 @@ del layout lee las cookies en cada request. Medido: build verde, 70 páginas, to
   blanca vive en el test. **Cada tab grande lleva su `loading.tsx` con `CargandoMako`** (23/10/2026,
   `app/_ui/CargandoMako.tsx`, importado directo y nunca desde el índice de `_ui`): ningún clic queda sin respuesta
   visible. Lo fija `tests/cargando-mako.test.ts`.
+  ⛔ **Pero una página que REDIRIGE no lo lleva así** (ticket #7, 23/10/2026): con loader, su `redirect()` va adentro
+  del stream (200 + meta refresh, no 307) y el router de Next se cayó con React #310. Si redirige SIEMPRE, sin loader; si
+  redirige a algunos, la redirección va en el `layout.tsx` del segmento (`pedidoActual()`, lib/pedido-actual.ts). Lo fija
+  `tests/redirige-antes-del-loader.test.ts`.
 - **En una ruta /api o una server action, el `cache()` de React NO memoiza** (23/10/2026): no hay render. La sesión ya
   se lee una vez por pedido (`enElPedido`, lib/sesion-por-pedido.ts); lo demás que se lea muchas veces por pedido va
   igual, y las lecturas que no dependen una de otra van en `Promise.all`. Medido: `/api/auth/me` hacía 41 idas a la

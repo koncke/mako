@@ -37,6 +37,39 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un `redirect()` adentro de una página con `loading.tsx` rompió la app: React #310 (23/10/2026, ticket #7)
+
+**Síntoma:** «La pantalla General se rompió», con «Minified React error #310» (más hooks que en el render anterior) en el
+AppRouter de Next (`L`, el `useMemo` del canonicalUrl). Quedó en errores_app id 5 (ws13 a las 22:35 y ws10 a las 23:03 UTC),
+con ruta /general. El centinela (`CentinelaArranque`) lo reporta y recarga la página sola: la pantalla de error de Next dura
+un instante y casi no se ve.
+
+**El diagnóstico obvio era otro:** el tren de ese deploy (las lecturas por GET, /api/auth/me, el Sidebar) o un cambio de
+versión con la pestaña abierta. No era nada de eso. Era el `app/general/loading.tsx` de ese mismo día. /general sólo
+redirige a /dashboard. **Un loading.tsx es un Suspense**, y con él el `redirect()` de la página deja de ser un 307: llega un
+**200 con el loader, el `NEXT_REDIRECT` adentro del stream y un `<meta http-equiv="refresh">`**. La redirección queda en
+carrera con la hidratación y, a veces, el router se cae. Medido: 1 de cada ~10 cargas directas; nunca navegando adentro.
+Antes del loader, /general respondía 307 (`fetch('/general', { redirect: 'manual' })` da `opaqueredirect`; con el loader,
+`200 basic`).
+
+**El arreglo:**
+- /general sin `loading.tsx` (137b91f76; verificado en producción: vuelve a dar `opaqueredirect`).
+- /plan y /second-brain, que redirigen al super admin y conservan el loader porque Martín lo pidió: la redirección va
+  **en su `layout.tsx`**. El layout de un segmento queda AFUERA de su loading.tsx, así que devuelve el 307. Un layout no
+  recibe `searchParams` ni sabe qué ruta se pidió (envuelve también a sus hijas): el proxy le pasa la ruta y la query en
+  `x-mako-ruta` y `x-mako-query`, que pisa los que mande el cliente. La decisión es la misma de la página, que la conserva:
+  navegando de /plan/agencia a /plan el layout no se vuelve a dibujar.
+- **Por qué no en el proxy:** /second-brain decide con `puedeOperar` contra el workspace del super admin, que se lee de
+  la base. El proxy no lee la base, y fijar ese 9 a mano en la puerta de seguridad era peor.
+
+**La regla:** una página que redirige SIEMPRE no lleva loading.tsx. Una que redirige a ALGUNOS y tiene loader, redirige
+en su layout. Lo fijan `tests/cargando-mako.test.ts` y `tests/redirige-antes-del-loader.test.ts`.
+
+**Para medir:** el centinela de arranque recarga la página una vez por minuto (`mako_reintento_arranque` en
+sessionStorage). Para VER la pantalla de error al reproducir, se pone esa clave en el futuro antes de cargar.
+
+*23/10/2026, chat «Rendimiento y loaders» (claude2).*
+
 ## Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO: el `cache()` de React no memoiza fuera de un render (23/10/2026)
 
 **Síntoma (Martín):** «Al abrir Automations tarda mucho… Debería ser más rápido todo». Medido en producción

@@ -86,7 +86,8 @@ El loader al ir al grafo del Second Brain (2,7 s sin nada) queda con la implemen
 ⛔ **Una página que redirige SIEMPRE no lleva `loading.tsx`** (ticket #7, 23/10/2026). Con él, su `redirect()` va adentro
 del stream: llega un 200 con meta refresh en lugar del 307, y la carrera con la hidratación tiró «Minified React error #310»
 en el AppRouter de Next. Pasó en /general, que sólo redirige a /dashboard. El centinela lo reportó y recargó la página.
-Quedan con el mismo riesgo /plan y /second-brain, que redirigen al super admin.
+/plan y /second-brain, que redirigen al super admin y conservan el loader, redirigen ahora en su layout, que queda
+afuera del loader (docs/hallazgos-infra.md).
 
 *23/10/2026, chat «Rendimiento y loaders» (claude2).*
 

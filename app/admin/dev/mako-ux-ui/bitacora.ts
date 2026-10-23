@@ -289,4 +289,16 @@ export const BITACORA: Hito[] = [
     archivos: ['app/_ui/vuelo-mako.ts', 'app/_ui/VueloDeCarga.tsx', 'app/m/_ui/EntradaApp.tsx', 'app/second-brain/EntradaOps.tsx', 'tests/vuelo-mako.test.ts'],
     revisar: '/crm',
   },
+  {
+    fecha: '23 oct', hora: '20:50', chat: 'Rendimiento y loaders', sesion: "local_1c58f6ef-9076-48da-a3ae-1c9915dbe834", cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: Plan y Second Brain conservan el loader sin el riesgo de General',
+    pedido: 'Que no aparezca el error de General en la pantalla que Martín abre todos los días',
+    puntos: [
+      'Plan (para el super admin) y Second Brain (para quien opera) mandan a su pantalla antes del loader, como un salto normal del servidor.',
+      'El loader sigue para todos los demás.',
+      'Sin probar en producción con la cuenta de Martín: la sesión del Chrome conectado no es super admin.',
+    ],
+    archivos: ['app/plan/layout.tsx', 'app/second-brain/layout.tsx', 'lib/pedido-actual.ts', 'proxy.ts', 'tests/redirige-antes-del-loader.test.ts'],
+    revisar: '/plan',
+  },
 ];
