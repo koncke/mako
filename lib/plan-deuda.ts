@@ -23,7 +23,7 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { wsSuperAdmin } from './workspace';
 import { credDelCliente } from './credenciales';
-import { APP_BASE_URL } from './app-url';
+import { linkApp } from './app-url';
 import { aplicarPagoAprobado, crearCobro, getCobro, linkDelCobro } from './cobros';
 import { buscarPagosMp, leerCuentaMp } from './mercadopago-api';
 import { facturasStripe, suscripcionStripe } from './pasarela-plan-api';
@@ -192,7 +192,7 @@ export async function avisarSuspension(ws: number, c: CorteGuardado): Promise<vo
       : 'Tu plan de MaKo terminó, así que tu cuenta quedó pausada.',
     '',
     'Tus datos están guardados y no se borra nada. Apenas pagues, vuelves a entrar en el acto:',
-    `${APP_BASE_URL}/cuenta-pausada`,
+    linkApp('/cuenta-pausada', ws),
   ].join('\n');
   for (const to of a) {
     await avisarDePlataforma({ to, asunto: 'Tu cuenta de MaKo está pausada', preheader: 'Paga y vuelves a entrar en el acto.', cuerpo, tag: 'plan-pausado' })
