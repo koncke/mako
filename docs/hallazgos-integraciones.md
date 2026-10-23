@@ -1375,16 +1375,17 @@ El Cerebro pidió medirlo antes del domingo: decide si se puede PROMETER el puen
 La ayuda oficial de Facebook Lead Ads (actualizada el 01/10/2026, `help.zapier.com/hc/en-us/articles/8496061306253`) dice «Facebook
 Lead Ads is a premium app on Zapier»: está en Professional, Team y Enterprise, y pide «A paid Zapier account». Y «Webhooks by
 Zapier» (el POST a MaKo) tampoco está en Free (`zapier.com/pricing`, actualizada el 23/10/2026). **El mínimo es Professional:
-US$19,99 al mes con facturación anual, US$29,99 mes a mes, 750 tareas.** **Make puede arrancar gratis, con dos cosas sin medir.**
-Mi lectura de su página de precios no sirvió (la dibuja JavaScript; ningún precio legible), pero el Cerebro la leyó con un navegador
-el mismo día (`make.com/pricing`): Free US$0, 1.000 créditos al mes, 15 minutos de intervalo mínimo entre corridas; Core US$9
-(con el descuento anual) con escenarios ilimitados y programación al minuto; Pro US$16; Teams US$29. Facebook Lead Ads no es una de
-las «Enterprise apps», que son las únicas fuera de los planes comunes. En Leads Access se asigna la app «Make» (no «Zapier») y
-hace falta una cuenta de Facebook Business Manager. **Sin medir (1):** si «Watch Leads» es instantáneo o corre por intervalo (en la
-página del módulo aparece sin la etiqueta de instantáneo): en Free, hasta 15 minutos tarde. **Sin medir (2): cuántos leads
-alcanzan en Free.** El Cerebro estimó unos 500 al mes (2 créditos por lead), pero un disparador por intervalo puede gastar un
-crédito por CADA corrida aunque no haya leads —la ayuda oficial de Make no lo dice; una fuente de su comunidad sí—, y a 15 minutos
-son ~2.900 corridas al mes contra 1.000 créditos. Hasta medirlo con una cuenta, «gratis» es «gratis para probar».
+US$19,99 al mes con facturación anual, US$29,99 mes a mes, 750 tareas.** **Make: el mínimo que se ofrece es Core** (corregido el mismo día: ver abajo).
+Mi lectura de su página de precios no sirvió (la dibuja JavaScript), pero el Cerebro la leyó con un navegador
+(`make.com/pricing`): Core US$9 al mes (con el descuento anual) con escenarios ilimitados y programación al minuto; Pro US$16;
+Teams US$29; Free US$0, con 1.000 créditos y 15 minutos de intervalo mínimo. Facebook Lead Ads no es una de las «Enterprise apps».
+En Leads Access se asigna la app «Make» (no «Zapier») y hace falta una cuenta de Facebook Business Manager. **Lo oficial sobre
+el plan Free:** Make dice que «most Make API endpoints are reserved for our paid subscription plans» (`developers.make.com`; es su
+API de gestión, no el módulo HTTP) y la página del módulo HTTP (`apps.make.com/http`) no nombra ningún plan: si «Make a request»
+manda el POST en Free no se confirmó ni a favor ni en contra, y no se ofrece. **Sin medir (1):** si «Watch Leads» es instantáneo
+(en la página del módulo aparece sin esa etiqueta) o corre por intervalo. **Sin medir (2):** si una corrida vacía gasta crédito: a un
+minuto serían ~43.000 corridas al mes (a 15 minutos, ~2.900) contra los créditos del plan (10.000 en Core según terceros, no
+verificado). Hasta medirlo con una cuenta, no se recomienda un intervalo corto.
 
 ⚠️ **Lo que se había escrito antes era una suposición.** El relevo del Cerebro decía «Zapier Professional ronda US$20–30, pero ese
 precio sale de un blog»; ahora es la página oficial. Y OJO con cómo se lee: una búsqueda resumió esa misma ayuda como si Free
@@ -1403,9 +1404,34 @@ notificación «Lead entrante por formulario de Meta» en el feed (`canal_wa: no
 automatizaciones activas). Al terminar: 0 leads, 0 filas de ruteo, 0 credenciales, 0 estados, 0 filas colgando.
 
 **Probado rompiéndolo** (`tests/zapier-leads.test.ts`, 21 tests; roturas restauradas de memoria): las 28 cazadas, cada una por
-el test que corresponde (los números, al pie del archivo del test). Y 12 más para lo que cuesta (la tarjeta sin el aviso de Zapier de pago, sin
-Make gratis o sin la app «Make» como CRM; la guía sin el plan mínimo, la fecha, los links de Zapier o de Make, el plan Free de Make
-o lo que falta medir): 12 de 12.
+el test que corresponde (los números, al pie del archivo del test). Y las de los precios y las promesas: 13 contra la versión «Make principal» y 10 contra la final («de pago, sin gratis»), todas cazadas
+(los números, al pie del archivo del test).
+
+### Make pasa a ser el camino PRINCIPAL, y los dos son de pago (decisión y corrección de Martín, 23/10/2026, más tarde ese día)
+
+Textual: «Con respecto a Zapier… Obvio que es mejor Make si tiene plan gratis… Y que los usuarios traigan su propia API como
+siempre…». Qué cambió, con el porqué:
+
+- **La tarjeta se llama «Leads de Meta por Make o Zapier»** y sus pasos son los de Make: «Facebook Lead Ads → Watch Leads» y
+  «HTTP → Make a request» (POST, JSON) con el header `X-MaKo-Clave`; en Leads Access se asigna la app «Make». Zapier queda como
+  el último paso, de pago, en una línea. **La key del servicio sigue siendo `zapier`** (credencial `ZAPIER_LEADS_CLAVE`, servicio de
+  ruteo `zapier`, ruta `/api/webhooks/zapier`): está escrita en la base y en las filas de ruteo, y cambiarla por el nombre de una
+  tarjeta rompería a quien ya conectó (la regla de «las claves no se renombran con la ruta»). Lo que cambia es lo que se lee.
+- **Cada negocio usa SU PROPIA cuenta** de Make o de Zapier, como con sus claves de IA: la tarjeta y la guía lo dicen en una frase.
+  MaKo no paga ni comparte ninguna.
+- **La pantalla no promete «al instante», ni cuántos leads aguanta un plan, ni dice «gratis»**, y un test lo fija leyendo la tarjeta, las
+  slides, el estado y el aviso de la API (los textos que lee el negocio) y la guía. Los dos «Sin medir» siguen escritos en la guía.
+- ⚠️ **CORRECCIÓN, minutos después, también de Martín:** «El plan gratis de Make NO trae la integración API… No nos sirve en ese
+  caso». Entonces **los DOS caminos son de pago**: Make desde Core (US$9 al mes, anual) y Zapier desde Professional (US$19,99 anual,
+  US$29,99 mensual), cada uno con su plan y su precio en el paso de la tarjeta y en la guía con la fecha. Lo que el Cerebro había
+  leído («Make tiene plan Free, así que se puede arrancar sin pagar») era cierto de la página de precios; Martín dice que el Free
+  no trae lo que el puente necesita. La lección es que **un plan «gratis» se mide contra la función que se va a usar** (acá, el
+  POST desde un módulo HTTP), no contra el nombre del plan. Lo oficial no lo confirma ni lo descarta (ver «Cuánto cuesta»), así
+  que no se ofrece.
+- ⚠️ **Make no manda «todos los campos» por defecto, Zapier sí** (con «Data» vacío). En el módulo HTTP de Make hay que armar el
+  JSON a mano con lo que se mapea, así que la guía trae la lista de lo que MaKo entiende (`email`, `phone_number`, `full_name`,
+  `lead_id`, `created_time`, campaña, anuncio y conjunto; cualquier otra clave es una pregunta del formulario). Lo único obligatorio
+  es un email o un teléfono válido. También acepta `field_data` tal cual lo entrega Meta. NO medido con una cuenta de Make.
 
 ### La API de MaKo
 
@@ -1421,15 +1447,16 @@ snapshot y `plugin/` no cambian).
   (el molde es `tracking-apagado`: `lib/avisos-catalogo.ts`, `lib/disparadores.ts`, `lib/notif-catalogo.ts`,
   `lib/plantillas-automatizaciones.ts`, `lib/variables-aviso.ts` y su función de datos como `lib/tracking-aviso.ts`) y un
   cron que lo emita (`tracking-vigilante` ya itera los workspaces). Son ~6 archivos y sus guardas; no entró en esta tanda.
-- **Un Zap real.** Nada de acá se probó contra el trigger de Facebook Lead Ads de Zapier ni contra Make. El primer negocio que
-  lo arme confirma (o corrige) los nombres de los campos: lo que MaKo no use vuelve en `sin_usar`.
+- **Un escenario real de Make (y un Zap).** Nada de acá se probó contra «Watch Leads» de Make ni contra el trigger de Zapier. El
+  primer negocio que lo arme confirma (o corrige) los nombres de los campos y las opciones del módulo HTTP (la guía las nombra de
+  memoria): lo que MaKo no use vuelve en `sin_usar`.
 - **El umbral de 72 h contra el ritmo propio de cada negocio.**
-- **Medir Make con una cuenta**: si «Watch Leads» es instantáneo y si una corrida vacía gasta un crédito (decide si el plan gratis
-  alcanza). Hoy la guía lo dice como «gratis para probar».
+- **Medir Make con una cuenta de Core**: si «Watch Leads» es instantáneo, si una corrida vacía gasta un crédito (decide qué intervalo
+  se recomienda), y —aunque no se ofrezca— si «Make a request» manda el POST en Free.
 - **Tipos:** este trabajo salió «sin tipos» (política del tren): los chequea el `tsc` acotado de Integración.
 
 **Vive en:** `lib/zapier-lead.ts` (el lector) · `lib/zapier-leads.ts` (la puerta) · `lib/zapier-estado.ts` (la tarjeta) ·
 `app/api/webhooks/zapier/route.ts` · `lib/integraciones.ts` (`estadoPuenteZapier`) · `lib/metodo-catalogo.ts` ·
 `lib/ruteo-hash.ts` · `lib/webhook-routing.ts` · `tests/zapier-leads.test.ts` · `docs/guia-leads-por-zapier.md`.
 
-_23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2). Probado de punta a punta contra el ws3 y rompiendo cada guarda._
+_23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2). Probado de punta a punta contra el ws3 y rompiendo cada guarda. Make como camino principal y de pago: 13 + 10 roturas, todas cazadas._

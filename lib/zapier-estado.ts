@@ -1,7 +1,7 @@
 // =============================================================================
 // zapier-estado — qué dice la tarjeta del puente de leads, y cuándo se queda callada de más (puro)
 // =============================================================================
-// El puente (lib/zapier-lead.ts) vive en una cuenta de un TERCERO: si el negocio deja de pagar Zapier, apaga el Zap
+// El puente (lib/zapier-lead.ts) vive en una cuenta de un TERCERO (Make o Zapier): si el negocio deja de pagarla, apaga el escenario o el Zap
 // o se le corta el disparador, los leads dejan de llegar y NADA lo dice —el webhook no recibe nada que contestar—.
 // La investigación del 23/10/2026 lo nombra como el riesgo del puente («si el cliente deja de pagar, los leads dejan
 // de llegar y nadie se entera»; en Make hay disparadores que se cortan solos). La señal honesta de «anda» es la
@@ -76,9 +76,9 @@ export function haceCuanto(desde: string, ahoraMs: number): string {
 export function tarjetaDelPuente(e: EstadoZapier, ahoraMs: number): { estado: 'conectada' | 'falta'; detalle: string } {
   if (e.lead) {
     const horas = (ahoraMs - Date.parse(e.lead)) / 3_600_000;
-    if (horas > HORAS_SIN_LEADS) return { estado: 'falta', detalle: `Sin leads hace ${haceCuanto(e.lead, ahoraMs)}. Revisa tu Zap.` };
+    if (horas > HORAS_SIN_LEADS) return { estado: 'falta', detalle: `Sin leads hace ${haceCuanto(e.lead, ahoraMs)}. Revisa tu escenario de Make o tu Zap.` };
     return { estado: 'conectada', detalle: `Último lead hace ${haceCuanto(e.lead, ahoraMs)}.` };
   }
-  if (e.entrega) return { estado: 'conectada', detalle: 'Llegó un aviso sin email ni teléfono. Revisa tu Zap.' };
-  return { estado: 'conectada', detalle: 'Esperando tu primer lead. Prueba tu Zap.' };
+  if (e.entrega) return { estado: 'conectada', detalle: 'Llegó un aviso sin email ni teléfono. Revisa lo que manda tu escenario o tu Zap.' };
+  return { estado: 'conectada', detalle: 'Esperando tu primer lead. Prueba tu escenario de Make o tu Zap.' };
 }
