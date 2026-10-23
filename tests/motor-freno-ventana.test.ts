@@ -71,7 +71,7 @@ test('⚠️ la guarda mira la BASE y lo que salió EN ESTA CORRIDA (dos hilos d
 
 test('el motor consulta el freno con las dos fuentes y anota cada envío o borrador de la corrida', () => {
   // Probado rompiéndolo (08/10/2026): borrando el `anotarEnCorrida(...)` del motor → 8 pasan / 1 falla.
-  // 20/10/2026: con las horas a la misma persona de CADA automatización (`conEnvioRecienteDe`, lib/config-automatizacion.ts).
+  // 23/10/2026: `conEnvioRecienteDe` devuelve SIN_VENTANA (sin «Misma persona»); lo que frena es lo de la corrida.
   assert.match(PROC, /frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioRecienteDe\(insc\.secuencia_id\), enviadoEnCorrida\)/);
   assert.match(PROC, /if \(estado === 'enviado' \|\| estado === 'simulado' \|\| estado === 'borrador'\) anotarEnCorrida\(enviadoEnCorrida, insc\.lead_id, paso\.canal\);/);
   // El set nace UNA vez por corrida, afuera del bucle de lotes: por lote se perdería entre lotes.
@@ -80,18 +80,21 @@ test('el motor consulta el freno con las dos fuentes y anota cada envío o borra
   assert.ok(decl > 0 && bucle > decl, 'el set de la corrida tiene que nacer antes del bucle de lotes');
 });
 
-test('la lectura de la base parte el freno en dos: WhatsApp (con la reunión cercana) y email (con el masivo)', () => {
-  const f = cuerpo(NUTRI, 'async function leadsConEnvioReciente(', '\nasync function leadIdsDe(');
-  assert.match(f, /Promise<RecientesPorCanal>/);
-  assert.match(f, /\.eq\('canal', canal\)/, 'la nutrición se cuenta por canal');
-  assert.match(f, /porVentana\(fuera, desde, qNutri\('whatsapp'\), 'nutricion_envios'\)/);
-  assert.match(f, /porVentana\(enPrep, desdeCorto, qNutri\('whatsapp'\), 'nutricion_envios'\)/, 'la excepción de la reunión cercana es del WhatsApp');
-  // El email frena con SUS horas (Configuraciones › Límites, décima tanda).
-  assert.match(f, /porVentana\(leadIds, desdeEmail, qNutri\('email'\), 'nutricion_envios'\)/);
-  // El masivo cuenta SÓLO para el email: el bloque del WhatsApp no lo nombra.
-  const wa = f.slice(f.indexOf('const resultados = await Promise.all(['));
-  assert.doesNotMatch(wa, /email_broadcast_envios/, 'un email masivo frenaba al WhatsApp');
-  assert.match(f, /return \{ whatsapp: set, email \};/);
+test('la base ya no se lee para el freno (23/10/2026, sin «Misma persona»): queda el de la MISMA corrida, por canal', () => {
+  // Hasta el 23/10/2026 `leadsConEnvioReciente` leía la base partida en dos: WhatsApp (con la excepción de la reunión
+  // cercana) y email (con el masivo). Martín: «elimina "Misma persona"». Se fue la lectura y sus dos ventanas: el motor trae
+  // un `SIN_VENTANA` y el freno sólo mira lo que salió en esta vuelta.
+  assert.doesNotMatch(NUTRI, /leadsConEnvioReciente|HS_MIN_PREPARACION|HS_REUNION_CERCA|desdeCorto|qEspejo/, 'volvió la lectura de la ventana');
+  assert.match(PROC, /const SIN_VENTANA: RecientesPorCanal = \{ whatsapp: new Set<number>\(\), email: new Set<number>\(\) \};/);
+  assert.match(PROC, /const conEnvioRecienteDe = \(_secId: number\): RecientesPorCanal => SIN_VENTANA;/);
+  // El freno de la corrida sigue siendo por canal: lo que salió por WhatsApp no frena al email, ni al revés.
+  const vacia = { whatsapp: new Set<number>(), email: new Set<number>() };
+  const corrida: EnviadoEnCorrida = new Map();
+  anotarEnCorrida(corrida, 5, 'email');
+  assert.equal(frenadoPorAntiBan(5, 'email', vacia, corrida), true);
+  assert.equal(frenadoPorAntiBan(5, 'whatsapp', vacia, corrida), false, 'un email de esta vuelta frenaba al WhatsApp');
+  // El masivo y la nutrición de afuera de la corrida ya no frenan al email (era parte de la ventana de la base).
+  assert.doesNotMatch(NUTRI, /from\('email_broadcast_envios'\)\.select\('lead_id'\)\s*\.in\('lead_id', pend\)/);
 });
 
 test('los topes: el diario y el de la corrida son de WhatsApp; el email, con el suyo', () => {

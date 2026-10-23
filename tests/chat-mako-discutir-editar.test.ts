@@ -55,9 +55,13 @@ test('a cada intención, sus reglas; sin elegir, sólo la charla', () => {
   assert.deepEqual(extrasDelUser(null, h), [bloqueDeLaCharla(h), LO_QUE_NO_ES_TARJETA]);
   assert.match(LO_QUE_NO_ES_TARJETA, /Configuraciones, «Horario de oficina»/);
   // (23/10/2026: UNA pantalla, sin pestañas: el bloque del canal y la fila. «Límites» y «Anti-ban» ya no existen.)
-  assert.match(LO_QUE_NO_ES_TARJETA, /Configuraciones, WhatsApp, «Goteo» y «Tope por día»/);
+  // (23/10/2026, Martín: «en Email también pon goteo y tope por día»: el lugar es WhatsApp o Email.)
+  assert.match(LO_QUE_NO_ES_TARJETA, /Configuraciones, en WhatsApp o en Email, «Goteo» y «Tope por día»/);
   assert.doesNotMatch(LO_QUE_NO_ES_TARJETA, /Límites|Anti-ban|pestaña/);
-  assert.match(LO_QUE_NO_ES_TARJETA, /Misma persona/);
+  // «Misma persona» se fue entera (23/10/2026, Martín: «elimina "Misma persona"»): el chat no manda a buscarla a ningún lado.
+  assert.doesNotMatch(LO_QUE_NO_ES_TARJETA, /Misma persona|misma persona/);
+  assert.doesNotMatch(REGLAS_EDITAR, /Misma persona/);
+  assert.match(REGLAS_EDITAR, /Si pide otra espera, pon la que pide\./);
   assert.match(REGLAS_EDITAR, /no agregues esperas que no pidió/);
   assert.match(REGLAS_EDITAR, /TAL CUAL/);
   assert.match(REGLAS_EDITAR, /«\{Nombre\}».*es \{\{nombre\}\}/);

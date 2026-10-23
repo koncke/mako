@@ -154,15 +154,12 @@ test('los cuatro topes y el freno salen de lo leído, no de una constante', () =
   assert.match(PROC, /const presupuestoEmail = conEmail\.length \? limites\.email\.dia - \(await enviosUltimas24h\('email'\)\) : 0;/);
   assert.match(PROC, /const cupo = Math\.max\(0, Math\.min\(limites\.wa\.hora - enLaHora, presupuesto\)\);/);
   assert.match(PROC, /const LOTE = \(cupo > 0 \? cupo : limites\.wa\.hora\) \* 3;/);
-  // 20/10/2026: las horas a la misma persona son de CADA automatización (las propias o las del negocio): una lectura
-  // por ventana distinta del lote.
-  assert.match(PROC, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configsCorrida\.get\(secId\) \?\? \{\}, limites\);/);
-  assert.match(PROC, /recientesPorVentana\.set\(k, await leadsConEnvioReciente\(\[\.\.\.g\.leads\], g\.v\)\);/);
-  assert.doesNotMatch(NUTRI, /\b(MAX_POR_DIA|MAX_POR_CORRIDA|MAX_EMAIL_POR_DIA|HS_MIN_ENTRE_MSGS)\b/, 'volvió una constante cableada');
-  const freno = bloque(NUTRI, 'async function leadsConEnvioReciente(', '\nasync function leadIdsDe(');
-  assert.match(freno, /const desde = haceHorasISO\(personaHoras\.whatsapp\);/);
-  assert.match(freno, /const desdeEmail = haceHorasISO\(personaHoras\.email\);/);
-  assert.match(freno, /porVentana\(leadIds, desdeEmail, qNutri\('email'\), 'nutricion_envios'\)/, 'el email frena con SUS horas');
+  // 23/10/2026 (Martín: «elimina "Misma persona"»): el motor ya no lee horas a la misma persona, ni las del negocio ni las de cada
+  // automatización. No hay ventana de la base: `conEnvioRecienteDe` devuelve SIN_VENTANA y sólo queda el freno de la MISMA corrida.
+  assert.match(PROC, /const conEnvioRecienteDe = \(_secId: number\): RecientesPorCanal => SIN_VENTANA;/);
+  assert.doesNotMatch(PROC, /ventanaDe|recientesPorVentana|leadsConEnvioReciente|personaHoras/);
+  assert.doesNotMatch(NUTRI, /\b(MAX_POR_DIA|MAX_POR_CORRIDA|MAX_EMAIL_POR_DIA|HS_MIN_ENTRE_MSGS|HS_MIN_PREPARACION|HS_REUNION_CERCA)\b/, 'volvió una constante cableada');
+  assert.doesNotMatch(NUTRI, /async function leadsConEnvioReciente\(/, 'volvió la lectura de la ventana de «Misma persona»');
   // El uso de la pantalla sale de los MISMOS contadores que el motor.
   const uso = bloque(NUTRI, 'export async function usoDelCupo(', '\n}');
   assert.match(uso, /enviosUltimas24h\('whatsapp'\), enviosEnLaHora\('whatsapp'\), enviosUltimas24h\('email'\)/);
