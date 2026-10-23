@@ -225,8 +225,8 @@ test('9. MaKo en cada tab (la estrella, a la izquierda, al Cerebro) y las criatu
   // Encima de un modal de la tab, con el z de la pila (CR4, 22/10/2026): `sobre`.
   assert.match(t, /className="ch-tab-panel" style=\{\{ left: izquierda, \.\.\.\(sobre \? \{ zIndex: capa\.z \} : \{\}\) \}\}/, 'el panel, pegado a la barra de la app');
   // Lo que pidió el CRM: lo suyo arriba del hilo, su número en la estrella, y que la tab le deje el lugar.
-  assert.match(t, /arriba=\{<>\{arriba\}<BarraFijados /);
-  assert.match(t, /<Muneco titulo=\{JEFE_SECOND_BRAIN\} animo="despierto" size=\{40\} espera=\{aviso\} \/>/);
+  assert.match(t, /arriba=\{<><TrabajosTerminados trabajos=\{trabajos\} \/>\{arriba\}<BarraFijados /);
+  assert.match(t, /<Muneco titulo=\{JEFE_SECOND_BRAIN\} animo="despierto" size=\{40\} espera=\{espera\} \/>/);
   assert.match(t, /raiz\.setProperty\('--ancho-panel-mako', abierto \? `\$\{ANCHO_PANEL\}px` : '0px'\);/);
   assert.match(leer('app/_chat/chat.css'), /\.ch-tab-panel \{\s*position: fixed; top: 0; bottom: 0;/);
   const { renderToStaticMarkup } = await import('react-dom/server');

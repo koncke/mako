@@ -2122,6 +2122,14 @@ animación de movimiento, y parpadeo». Código: app/_chat/MakoEnLaTab.tsx, Mune
 - **Lo de cada tab entra por la pieza, no al lado (22/10, pedido del CRM):** `arriba` (las sugerencias, sobre el hilo), `aviso` (el
   globito de la estrella plegada) y, abierto, `--ancho-panel-mako` en <html> (440 px; 0 cerrado) para que la tab le deje el margen
   con `padding-left: var(--ancho-panel-mako, 0px)`. Una tab que mide el panel por su cuenta se desfasa cuando la barra se fija.
+- **Lo que MaKo terminó en OTRA tab también suma al globito (22/10, pedido del chat Automations).** El turno de Automations
+  sigue aunque la persona se vaya. Si termina sin que nadie lo mire, queda en lib/mako-trabajos.ts y sale el evento
+  `mako:trabajo-terminado`. La estrella lo lee al montar y con cada evento (TrabajosDeMako.tsx): globito = `aviso` + eso, y
+  abierta dice «MaKo terminó en Automations › …» con su link. **Trampa: esa lista vive sólo en la memoria de la pestaña.** Un
+  `<a>` a mano recarga la página y la borra antes de que Automations la marque vista; el `Link` de la casa navega sin recargar
+  y pone el `?ws=`. tests/ops-center-trabajos-mako.test.ts.
+  **SIN HACER:** recargar la página pierde lo que no se vio (la lista no se guarda). Y la estrella está montada en el CRM, el
+  Plan, Clientes y el editor del Dashboard (22/10): en las demás tabs no se ve hasta que su chat la monte.
 - **El desfase de cada criatura sale de su ASPECTO, no de su nombre.** Con el nombre, la estrella del «Ops Center» de la barra y la
   del «Cerebro» dejaban de ser la misma criatura (tests/centro-ops7.test.ts lo fija comparando el HTML). Sin desfase, todas
   parpadeaban a la vez, como un tablero.
