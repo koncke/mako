@@ -10423,3 +10423,25 @@ Martín: «La búsqueda de Instagram no funciona porque tengo que conectar Meta.
 **Vive en:** app/crm/new/InstagramBuscador.tsx · app/api/crm/instagram-buscar/route.ts · app/crm/lead-view/CampoEditable.tsx ·
 app/crm/campo-inline.ts (`instagramDeLaFicha`) · tests/crm-instagram-meta-22-10.test.ts
 *22/10/2026, chat «CRM» (claude3).*
+
+## «Este producto no tiene precio» y estaba en Stripe a US$270: el pop-up nunca había leído Stripe (23/10/2026)
+
+- **Síntoma** (la llamada con Mauricio, ws1): en «Vincular cobro», su «Sprint 3 días» decía «Este producto no tiene
+  precio», y «Volver a leer» no cambiaba nada.
+- **El diagnóstico obvio era el equivocado:** no era la conexión. La clave de Stripe funcionaba (lo midió Cobros, sólo
+  leyendo). MaKo NUNCA leía el catálogo de Stripe: el pop-up listaba sólo los productos de MaKo, y ése estaba sin precio.
+  «Volver a leer» volvía a pedir la misma lista.
+- **Lo que quedó:** el servidor es de Cobros (lib/stripe-catalogo.ts: los precios en vivo, y traer uno al catálogo
+  volviéndolo a leer en Stripe). En el pop-up, «+ Producto» (`opcionesDeCobro`, puro):
+  - el producto de MaKo y su precio de Stripe van en UNA fila: son el mismo, y dos filas invitan a vincular el que no tiene
+    precio;
+  - los que no se pueden traer (otra moneda, el monto lo elige quien paga, ya cobra otra cosa en MaKo) van apagados y con
+    su porqué, nunca escondidos;
+  - un fallo de Stripe se dice («No pude leer los productos de Stripe 2: …»), nunca «no hay»;
+  - los precios llegan aparte y no frenan la foto.
+- **MaKo igual:** `ver_cobro_etapa` trae `de_stripe` y `vincular_cobro_etapa` acepta `precioStripe`, con las mismas dos
+  funciones y el mismo freno: si el producto ya cobra en otro CRM, se para antes de tocar el catálogo.
+
+**Vive en:** app/crm/cobro-ganado.ts (`opcionesDeCobro`, `precioDeStripeTexto`) · app/crm/CobroDeEtapaModal.tsx ·
+lib/api-mako/areas/crm.run.ts (`prepararPrecioDeStripe`, `ejecutarPrecioDeStripe`) · tests/crm-cobro-stripe-23-10.test.ts
+*23/10/2026, chat «CRM» (claude3).*

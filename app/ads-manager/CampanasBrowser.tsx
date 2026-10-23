@@ -36,6 +36,7 @@ import { hayQuePreguntar, valorDeProducto, funnelDeValor } from '@/lib/campana-a
 import { Confirm, Modal, Toast, useToast } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import { MenuAcciones, FiltrosMenu, BarraLoteAds } from './BarraAcciones';
+import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 
 const AdDetailTabs = dynamic(() => import('../marketing/ad-charts').then((m) => m.AdDetailTabs), { ssr: false });
 const EntityDetalle = dynamic(() => import('./EntityDetalle').then((m) => m.EntityDetalle), { ssr: false });
@@ -44,6 +45,7 @@ const EditarTextosModal = dynamic(() => import('./EditarTextosModal').then((m) =
 const EditarPublicoModal = dynamic(() => import('./EditarPublicoModal').then((m) => m.EditarPublicoModal), { ssr: false });
 const AgregarAnuncioModal = dynamic(() => import('./AgregarAnuncioModal').then((m) => m.AgregarAnuncioModal), { ssr: false });
 const AgregarConjuntoModal = dynamic(() => import('./AgregarConjuntoModal').then((m) => m.AgregarConjuntoModal), { ssr: false });
+const CalculadoraPresupuesto = dynamic(() => import('./CalculadoraPresupuesto').then((m) => m.CalculadoraPresupuesto), { ssr: false });
 const TutorialAprobacionMeta = dynamic(() => import('./TutorialAprobacionMeta').then((m) => m.TutorialAprobacionMeta), { ssr: false });
 
 const pad = (n: number, w: number): string => String(Math.max(0, Math.floor(n))).padStart(w, '0');
@@ -207,6 +209,9 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
   const [adSel, setAdSel] = useState<SenalRecon | null>(null);
   const [entSel, setEntSel] = useState<{ node: NodoEstado; level: 'campaign' | 'adset'; cross: CrossData } | null>(null);
   const [recosOpen, setRecosOpen] = useState(false);
+  const [calcOpen, setCalcOpen] = useState(false);
+  // Lo que la tab le manda a la estrella (el plan de la calculadora): sale UNA vez por `vez`, como en el Dashboard.
+  const [pedidoMako, setPedidoMako] = useState<{ texto: string; vez: number } | null>(null);
   // `abrirNueva`: el último paso del onboarding (#801) termina acá, con el asistente abierto.
   const [nuevaOpen, setNuevaOpen] = useState(abrirNueva);
   // modo del wizard: campaña nueva vs subir creativos a una campaña existente
@@ -754,6 +759,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
             { label: 'Subir creativos a una campaña', icono: 'creativos', onClick: () => { setNuevaModo('existente'); setNuevaOpen(true); } },
             { label: 'Agregar conjunto a una campaña', icono: 'users', onClick: () => setElegirCampana(true) },
             { label: 'Analizar con Meta', icono: 'meta', onClick: () => setRecosOpen(true) },
+            { label: 'Calcular presupuesto', icono: 'analytics', onClick: () => setCalcOpen(true) },
           ]} />
         </div>
       </header>
@@ -896,6 +902,10 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
           versionGeo={versionGeo} />
       )}
       {recosOpen && <RecosModal onClose={() => setRecosOpen(false)} />}
+      {calcOpen && <CalculadoraPresupuesto onCerrar={() => setCalcOpen(false)} onPreguntarMako={(texto) => setPedidoMako((x) => ({ texto, vez: (x?.vez ?? 0) + 1 }))} />}
+      {/* La estrella de la tab (el chat de MaKo de toda la app): mirando campañas, sólo analiza. Encima de los modales, para
+          que la calculadora siga a la vista mientras MaKo contesta. */}
+      <MakoEnLaTab tab="Ads Manager" modo="analizar" pedido={pedidoMako} encimaDeModales />
       {/* Renombra LO ELEGIDO, no la tab entera: el único camino de entrada es la barra
           de la selección, y proponerle una nomenclatura a 80 campañas cuando se tildaron
           tres es cambiar lo que nadie pidió. */}

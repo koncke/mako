@@ -28,6 +28,7 @@
 //   mako-pc estado
 //   mako-pc mako://conectar?codigo=ABCD2345   (el ENLACE de «Conectar mi computadora», sin terminal: pregunta en una ventana)
 //   mako-pc mako://iniciar-sesion             (la sesión de Claude sin terminal: una página LOCAL para pegar el código, 0.4.0)
+//   mako-pc app                               (MaKo.app en la Mac, 0.4.2: sin Terminal; el código, del portapapeles)
 // =============================================================================
 
 import { spawn, spawnSync } from 'node:child_process';
@@ -38,7 +39,7 @@ import { pathToFileURL } from 'node:url';
 import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 
-export const VERSION = '0.4.1';
+export const VERSION = '0.4.2';
 const CARPETA = process.env.MAKO_PC_DIR || join(homedir(), '.mako-pc');
 const CONFIG = join(CARPETA, 'config.json');
 const REGISTRO = join(CARPETA, 'registro.txt');
@@ -452,7 +453,7 @@ export async function conectarDesdeEnlace(enlace, p = { ventana, arrancar: arran
   oyente = [];
   try {
     const antes = leerConfig() ?? {};
-    if (await emparejar({ codigo, servidor: SERVIDOR_DEFAULT, nombre: hostname() }) !== 0) {
+    if (await emparejar({ codigo, servidor: SERVIDOR_DEFAULT, nombre: nombreDeLaComputadora() }) !== 0) {
       await p.ventana('MaKo', oyente.at(-1) ?? 'No pude conectar esta computadora. Pide otro código en MaKo.', 'ok');
       return 1;
     }
@@ -650,6 +651,143 @@ export function accionDelEnlace(enlace) {
   return accion === 'conectar' || accion === 'iniciar-sesion' ? accion : null;
 }
 
+// ── La app de la Mac (0.4.2): sin Terminal ─────────────────────────────────────
+// Martín (22/10/2026): «jamás por Powershell, ni siquiera que se tenga que abrir». Y en la llamada del 23/10 (Fathom 195591907),
+// Mauricio conectó su MacBook por la Terminal y le costó («No abrió nada», «escribí S y apretá Enter»). MaKo.app (la arma
+// scripts/ia-pc/publicar-binarios.mts) copia este programa a ~/.mako-pc/bin, le pone la firma local que pide el chip de
+// Apple y lo abre con `app`. ⚠️ En la Mac un enlace mako:// llega como un EVENTO de macOS (Apple Event), no como argumento,
+// y este programa no los recibe: el código lo toma del PORTAPAPELES (la persona tocó «Copiar código» en MaKo) o lo pide en
+// una ventana. El arranque es el MISMO LaunchAgent que deja la línea de la Terminal: una Mac ya conectada así no cambia.
+
+/** El código de MaKo en lo que se copió o se escribió: SÓLO el código («ABCD-2345»), normalizado; cualquier otro texto, null. */
+export function codigoDelTexto(texto) {
+  const t = String(texto ?? '').trim().toUpperCase().replace(/[\s-]/g, '');
+  return t.length === LARGO_CODIGO && [...t].every((ch) => ALFABETO_CODIGO.includes(ch)) ? t : null;
+}
+
+/** Lo que hay en el portapapeles (en la Mac, `pbpaste`); '' si no se puede. */
+export function portapapeles() {
+  if (process.platform !== 'darwin') return '';
+  try { return spawnSync('pbpaste', [], { encoding: 'utf8', timeout: 5000 }).stdout ?? ''; } catch { return ''; }
+}
+
+/** Una ventana del sistema que pide un texto (en la Mac, `osascript`). null si cancela o no se puede mostrar. */
+export async function pedirTexto(titulo, texto, inicial = '') {
+  if (process.platform !== 'darwin') return null;
+  try {
+    const r = spawnSync('osascript', ['-e', `display dialog ${comillasAs(texto)} default answer ${comillasAs(inicial)} with title ${comillasAs(titulo)} buttons {"Cancelar", "Conectar"} default button 2 cancel button 1 with icon note`], { encoding: 'utf8' });
+    if (r.status !== 0) return null;
+    const m = /text returned:(.*)$/m.exec(r.stdout ?? '');
+    return m ? m[1].trim() : null;
+  } catch { return null; }
+}
+
+/** Un aviso que no espera (en la Mac, una notificación): mientras se instala algo, la persona sabe qué pasa. */
+export function avisar(texto) {
+  if (process.platform !== 'darwin') return;
+  try { spawn('osascript', ['-e', `display notification ${comillasAs(texto)} with title "MaKo"`], { detached: true, stdio: 'ignore' }).unref(); } catch { /* sin aviso */ }
+}
+
+/** El nombre de esta computadora como lo ve la persona («MacBook Pro de Mauricio»), no el de la red. */
+export function nombreDeLaComputadora() {
+  if (process.platform === 'darwin') {
+    try { const n = spawnSync('scutil', ['--get', 'ComputerName'], { encoding: 'utf8', timeout: 5000 }).stdout?.trim(); if (n) return n; } catch { /* */ }
+  }
+  return hostname();
+}
+
+const escXml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+export const ARRANQUE_MAC = 'com.hola-mako.pc';
+
+/** El LaunchAgent de la Mac: el MISMO que deja la línea de la Terminal (lib/ia-pc-reglas.ts → scriptDeInstalacion). */
+export function plistDelArranque(binario = join(homedir(), '.mako-pc', 'bin', 'mako-pc'), home = homedir()) {
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+    '<plist version="1.0"><dict>',
+    `<key>Label</key><string>${ARRANQUE_MAC}</string>`,
+    `<key>ProgramArguments</key><array><string>${escXml(binario)}</string></array>`,
+    // Relanza sólo si se CAYÓ: al desconectarla sale con 0 y se queda quieto.
+    '<key>RunAtLoad</key><true/><key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>',
+    `<key>EnvironmentVariables</key><dict><key>PATH</key><string>${escXml(home)}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>`,
+    '</dict></plist>',
+    '',
+  ].join('\n');
+}
+
+/** Deja el arranque de la Mac puesto y lo (re)carga: así corre YA, con el programa recién copiado. */
+export function instalarArranqueMac() {
+  if (process.platform !== 'darwin' || process.env.MAKO_PC_SIN_ARRANQUE === '1') return;
+  try {
+    const dir = join(homedir(), 'Library', 'LaunchAgents');
+    mkdirSync(dir, { recursive: true });
+    const plist = join(dir, `${ARRANQUE_MAC}.plist`);
+    writeFileSync(plist, plistDelArranque());
+    spawnSync('launchctl', ['unload', plist], { stdio: 'ignore' });
+    spawnSync('launchctl', ['load', plist], { stdio: 'ignore' });
+  } catch (e) {
+    log(`No pude dejar el arranque de la Mac: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/** Claude Code con su instalador OFICIAL (code.claude.com/docs/en/setup), sin Terminal: lo corre la app, oculto. 0 si quedó. */
+export function instalarClaudeCode(p = {}) {
+  const { correr = spawn, plazoMs = 10 * 60_000 } = p;
+  return new Promise((ok) => {
+    let proc;
+    try {
+      proc = correr('/bin/bash', ['-c', 'curl -fsSL https://claude.ai/install.sh | bash'], {
+        stdio: 'ignore', env: { ...process.env, PATH: `${join(homedir(), '.local', 'bin')}:/usr/bin:/bin:/usr/sbin:/sbin` },
+      });
+    } catch { return ok(1); }
+    const reloj = setTimeout(() => { try { proc.kill(); } catch { /* ya salió */ } ok(1); }, plazoMs);
+    reloj.unref?.();
+    proc.on('close', (n) => { clearTimeout(reloj); ok(n ?? 1); });
+    proc.on('error', () => { clearTimeout(reloj); ok(1); });
+  });
+}
+
+/**
+ * MaKo.app en la Mac (0.4.2): Claude Code si falta; si ya está conectada (y no copió un código nuevo), que siga andando con el
+ * programa recién copiado, y si a su Claude le falta la sesión, ofrecerla; si no, el código —del portapapeles o escrito— y la
+ * misma conexión que el enlace de Windows (`conectarDesdeEnlace`: a qué negocio, el «sí», el arranque y la sesión).
+ * 0 = quedó conectada (o ya lo estaba). `p` es para los tests.
+ */
+export async function abrirLaApp(p = {}) {
+  const {
+    ventana: v = ventana, pedir = pedirTexto, copiado: leerCopiado = portapapeles, sesion = sesionDeClaude,
+    instalarClaude = instalarClaudeCode, iniciarSesion = iniciarSesionDeClaude, arrancar = instalarArranqueMac,
+    conectar = conectarDesdeEnlace, aviso = avisar,
+  } = p;
+  // Claude Code primero: sin él, la Mac se conecta y no contesta nada.
+  if ((await sesion().catch(() => 'con-sesion')) === 'falta') {
+    aviso('Instalo Claude Code en esta Mac: tarda un minuto.');
+    if ((await instalarClaude()) !== 0) {
+      await v('MaKo', 'No pude instalar Claude Code. Revisa la conexión a internet y vuelve a abrir MaKo.', 'ok');
+      return 1;
+    }
+  }
+  const c = leerConfig() ?? {};
+  const delCopiado = codigoDelTexto(leerCopiado());
+  if (c.token && !delCopiado) {
+    // Ya conectada: que siga andando, con el programa recién copiado.
+    arrancar();
+    const neg = c.negocio ?? 'tu negocio';
+    if ((await sesion().catch(() => 'con-sesion')) === 'sin-sesion') {
+      if (await v('MaKo', `Esta Mac está conectada a «${neg}», pero tu Claude no tiene la sesión iniciada: no contesta. ¿Te abro el navegador para iniciarla?`)) await iniciarSesion();
+      return 0;
+    }
+    await v('MaKo', `Esta Mac está conectada a «${neg}» y andando. Para conectarla a otro negocio, copia un código nuevo en MaKo y vuelve a abrir MaKo.`, 'ok');
+    return 0;
+  }
+  const codigo = delCopiado ?? codigoDelTexto(await pedir('MaKo', 'Copia el código de «Tus cuentas de IA» en MaKo y pégalo acá:', ''));
+  if (!codigo) {
+    await v('MaKo', 'No encontré el código. Cópialo en MaKo (Tus cuentas de IA › Conectar) y vuelve a abrir MaKo.', 'ok');
+    return 1;
+  }
+  return conectar(`mako://conectar?codigo=${codigo}`, { ventana: v, arrancar, sesionDeClaude: sesion, iniciarSesion });
+}
+
 /** ¿Hay un Claude con sesión? 0 sí, 2 sin sesión, 3 sin Claude instalado (el instalador decide qué hacer). */
 async function sesion() {
   const c = leerConfig() ?? {};
@@ -837,6 +975,7 @@ if (esPrincipal) {
   const fallar = (e) => { decir(e instanceof Error ? e.message : String(e)); salir(1); };
   if (cmd === '--version') decir(VERSION);
   else if (/^mako:/i.test(cmd)) (accionDelEnlace(cmd) === 'iniciar-sesion' ? iniciarSesionDesdeEnlace() : conectarDesdeEnlace(cmd)).then(salir, fallar);
+  else if (cmd === 'app') abrirLaApp().then(salir, fallar);
   else if (cmd === 'emparejar') emparejar().then(salir, fallar);
   else if (cmd === 'confirmar') confirmar().then(salir, fallar);
   else if (cmd === 'cancelar') cancelar().then(salir, fallar);

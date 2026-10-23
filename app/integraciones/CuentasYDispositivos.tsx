@@ -18,7 +18,7 @@ import { useState, type ReactNode } from 'react';
 import { ClaudeMark } from '@/app/_components/icons';
 import { SvcIcon } from '@/app/_components/ServicioVisual';
 import { hace } from '@/lib/progreso-reglas';
-import { AVISO_SMARTSCREEN, dondeEsta, estadoDeLaPc, yaPaso, type CuentaIA, type CuentasIA, type DispositivoIA } from '@/lib/ia-pc-reglas';
+import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, dondeEsta, estadoDeLaPc, yaPaso, type CuentaIA, type CuentasIA, type DispositivoIA } from '@/lib/ia-pc-reglas';
 
 /** «22/10»: cuándo se conectó un dispositivo (en la zona de quien mira). */
 const fechaCorta = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day: 'numeric', month: 'numeric' });
@@ -140,28 +140,23 @@ export function CuentasYDispositivos({ grupos, ahora, onDesconectar, nuevoDispos
 }
 
 /**
- * «Nuevo dispositivo», dentro de una cuenta: la DESCARGA a la vista (el instalador de la 0.4.0) y, ya instalado, conectar. En la
- * Mac, los pasos de siempre (hasta tener su instalador).
+ * «Nuevo dispositivo», dentro de una cuenta: la DESCARGA a la vista —el instalador de Windows (0.4.0) o MaKo.app para la Mac
+ * (0.4.2), según la computadora desde la que se mira, y el otro a un toque— y, ya instalado, conectar.
  */
-export function NuevoDispositivo({ onConectar, onPasosMac }: { onConectar: () => void; onPasosMac: () => void }) {
+export function NuevoDispositivo({ onConectar }: { onConectar: () => void; onPasosMac?: () => void }) {
   const esMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent);
+  const sistemas = esMac ? (['mac', 'windows'] as const) : (['windows', 'mac'] as const);
+  const nombre = { windows: 'Windows', mac: 'Mac' } as const;
   return (
     <div className="tci-nuevo-disp" role="group" aria-label="Nuevo dispositivo">
       <h4>Nuevo dispositivo</h4>
-      {esMac ? (
-        <div className="tci-nuevo-disp__acciones">
-          <button type="button" className="tci-boton tci-boton--suave" onClick={onPasosMac}>Conectar una Mac</button>
-        </div>
-      ) : (
-        <>
-          <p className="tci-nota">Instala MaKo en otra computadora y conéctala: puede usar esta misma cuenta de Claude.</p>
-          <div className="tci-nuevo-disp__acciones">
-            <a className="tci-boton" href="/api/ia-pc/descargar?os=windows">Descargar MaKo para Windows</a>
-            <button type="button" className="tci-boton tci-boton--suave" onClick={onConectar}>Ya lo instalé: conectar</button>
-          </div>
-          <p className="tci-nota">{AVISO_SMARTSCREEN}</p>
-        </>
-      )}
+      <p className="tci-nota">Instala MaKo en otra computadora y conéctala: puede usar esta misma cuenta de Claude.</p>
+      <div className="tci-nuevo-disp__acciones">
+        <a className="tci-boton" href={`/api/ia-pc/descargar?os=${sistemas[0]}`}>{`Descargar MaKo para ${nombre[sistemas[0]]}`}</a>
+        <button type="button" className="tci-boton tci-boton--suave" onClick={onConectar}>Ya lo instalé: conectar</button>
+      </div>
+      <p className="tci-nota">{sistemas[0] === 'mac' ? AVISO_GATEKEEPER : AVISO_SMARTSCREEN}</p>
+      <p className="tci-nota"><a href={`/api/ia-pc/descargar?os=${sistemas[1]}`}>{`¿Es una ${sistemas[1] === 'mac' ? 'Mac' : 'computadora con Windows'}? Descárgalo para ${nombre[sistemas[1]]}`}</a></p>
     </div>
   );
 }
