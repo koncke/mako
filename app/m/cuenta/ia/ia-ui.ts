@@ -13,7 +13,7 @@
 // que en la computadora, el % se sigue mostrando: lo mide la PC después de cada turno y es lo último que se supo.
 // =============================================================================
 
-import { estadoDeLaPc, yaPaso, type CuentaPc } from '@/lib/ia-pc-reglas';
+import { estadoDeLaPc, yaPaso, type CuentaPc, type CuentasIA } from '@/lib/ia-pc-reglas';
 import { hace } from '@/lib/progreso-reglas';
 import { horaCorta } from '../../_ui/formato';
 
@@ -30,7 +30,8 @@ export type PcIA = {
   /** Su último latido dijo que no tiene Claude Code (mig 0322): «Falta instalar Claude», no «Sin sesión». */
   sinClaude?: boolean;
 };
-export type EstadoIA = { ok: boolean; esAdmin: boolean; modelo: string; pcs: PcIA[] };
+/** `grupos`: las cuentas con sus dispositivos (23/10/2026), agrupadas en el servidor como en la computadora. */
+export type EstadoIA = { ok: boolean; esAdmin: boolean; modelo: string; pcs: PcIA[]; grupos?: CuentasIA };
 
 /** Cada cuánto vuelve a mirar, igual que la computadora. */
 export const REFRESCO_MS = 20_000;

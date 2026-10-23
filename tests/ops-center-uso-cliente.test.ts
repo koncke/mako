@@ -46,9 +46,11 @@ test('1. lo que gastó cada clave: sólo lo que contestó con SU clave, ni la pl
   assert.match(db, /\.limit\(2000\);/);
 });
 
-test('2. «Tus cuentas de IA» lo dice por clave, con «Cambiar o quitar»', () => {
+test('2. «Tus cuentas de IA» muestra el USO de cada cuenta, y ya no las claves (23/10/2026)', () => {
   const modal = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
-  assert.match(modal, /\{c\.es === 'propia' && \(\n\s*<p className="tci-nota">\{textoDelGasto\(c\.gastado\)\} · <BotonIntegracion servicio=\{c\.proveedor\}[^>]*>Cambiar o quitar<\/BotonIntegracion><\/p>/);
+  // Martín, 23/10: «Fuera "Tu clave de Claude"... Si no le sirven al cliente, no van». El uso que ve es el de cada cuenta.
+  assert.doesNotMatch(modal, /SusClaves|textoDelGasto|Tu clave de/, 'volvieron las claves al panel del cliente');
+  assert.match(sinComentarios(leer('app/integraciones/CuentasYDispositivos.tsx')), /<Barra titulo="Sesión de 5 horas" pct=\{cuenta\.usado5h\}/);
   // Sólo lo del negocio: el estado sale de la sesión (persona.ws), nunca de un parámetro.
   assert.match(sinComentarios(leer('app/api/ia-pc/estado/route.ts')), /await estadoDeSusClaves\(persona\.ws\)/);
 });
