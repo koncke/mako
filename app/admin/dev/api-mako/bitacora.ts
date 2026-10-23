@@ -314,4 +314,36 @@ export const BITACORA: Hito[] = [
       'lib/api-mako/areas/creaciones.def.ts + .run.ts — las 8 operaciones',
     ],
   },
+  {
+    fecha: '23 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude2', sesion: 'local_3c82c204-8262-460c-9fca-b164e2053c9a',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Dar y quitar el acceso a un curso por la API, y revisar qué le falta a la API',
+    pedido: 'Revisá esto... Y si hay que hacer una revisión completa de la API, porque creo que faltan muchas acciones posibles',
+    puntos: [
+      'Lo escribió en el Ops Center sobre la captura de un chat que no encontraba «cómo dar o quitar el acceso al curso». Lo pide la migración de un curso de Panda: no vender sin entregar, y cortarle el acceso a quien se da de baja.',
+      'El Cerebro lo repartió en dos: primero el acceso, y después una auditoría completa de la API, área por área.',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '16:23', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El acceso a un curso, por HTTP: verlo, darlo, sacar un curso, cortar y habilitar',
+    puntos: [
+      'Invitar existía, pero en el área «cs», que no sale por HTTP; sacar un curso o cortar el portal no estaba en ningún lado. Ahora son cinco operaciones del área «curso», con las mismas funciones de lib/ que la ficha.',
+      'Abrir exige un cliente ganado de ese producto, porque el portal no abre a otro. Cerrar se puede siempre: quien se da de baja suele salir del embudo antes.',
+      'Nada de lo que vuelve trae el email del lead. Y el «ya está así» de sacar un curso se decide por lo que el alumno ve, no por el texto de un error.',
+      'Encontrado de paso: la invitación desde el buscador de cualquier etapa manda un link que no abre hasta que el lead gane. Queda en docs/hallazgos-api-mako.md, avisado a Customer Success.',
+    ],
+    commits: [
+      { sha: '6a50f127', msg: 'API de MaKo: dar y quitar el acceso a un curso por HTTP (lo necesita la migración de Panda)', lineas: 594, archivos: 9 },
+    ],
+    archivos: [
+      'lib/api-mako/areas/curso.def.ts — las cinco operaciones y el porqué de la frontera («LOS ACCESOS»)',
+      'lib/api-mako/areas/curso.run.ts — los runners, sobre invitarAlCurso, quitarCursoDelAcceso, revocarAcceso y reactivarAcceso',
+      'lib/api-mako/areas/curso.helpers.ts — decidirQuitarCurso: el «no» de sacar un curso, puro y con test',
+      'lib/api-mako/rest.ts — las rutas, como los colaboradores de un repo de GitHub',
+      'tests/api-mako-curso-accesos.test.ts — probado rompiéndolo: 6 roturas, cada una 1 fallo',
+      'app/api-mako/Articulos.tsx — la guía «Migrar un curso con Claude» suma a los alumnos',
+    ],
+  },
 ];

@@ -1996,3 +1996,58 @@ avisar en producción. **Regla:** para contar «a quién no le llegó», cruzar 
 mismo evento: un envío en `fallo` no prueba que el dueño no se enteró. **Sin hacer:** el envío de los dos mensajes
 (scripts/avisar-arreglo-al-grupo.mts y la lista que arma el código) espera ese lead.
 *23/10/2026, chat «Automations» (claude2).*
+
+## Dar y quitar el acceso a un curso por HTTP: invitar existía, pero en un área que no sale por HTTP (23/10/2026)
+
+**Síntoma.** Un chat que migraba un curso de Panda con un token «Curso» no encontró en la API cómo darles el curso a los
+alumnos ni cómo cortárselo a quien se da de baja. Martín: «Revisá esto... Y si hay que hacer una revisión completa de la
+API, porque creo que faltan muchas acciones posibles».
+
+**Causa.** `invitar_cliente_curso_cs` existía, pero en el área `cs`, que no lleva `'http'` (lee cartera, emails y avance).
+Sacarle un curso o cortarle el portal no estaba en ninguna área. La pantalla lo hacía todo (ficha, tarjeta del kanban).
+Para alguien que integra por HTTP, eso era lo mismo que no existir: no hay pista de que la capacidad vive en otra área.
+
+**Lo que quedó.** Cinco operaciones en `curso`, sólo HTTP y `rolMinimo: 'admin'` como el resto del área: `ver_acceso_curso`,
+`dar_acceso_curso`, `quitar_curso_del_acceso`, `cortar_acceso_curso` y `habilitar_acceso_curso`, con rutas copiadas de los
+colaboradores de un repo de GitHub (`PUT/DELETE /curso/cursos/{productoId}/accesos/{leadId}`, `PUT/DELETE
+/curso/accesos/{leadId}/corte`). Cada una llama a la MISMA función de lib/ que la pantalla: `invitarAlCurso`,
+`quitarCursoDelAcceso`, `revocarAcceso`, `reactivarAcceso`. El área `curso` pasa a decidir quién abre el curso, y nada más:
+ni el email del lead, ni su avance, ni la cartera.
+
+Tres decisiones que no se ven en el código:
+
+- **Abrir exige un cliente ganado de ESE producto; cerrar se puede siempre.** `resolverAcceso` (lib/curso-datos.ts) sólo
+  abre el portal a un lead con `estado_lead = 'ganado'`, así que un link mandado antes llega muerto. Y la API no mueve a
+  nadie de etapa: eso lo decide el CRM. Cerrar no lo pide porque quien se da de baja suele salir del embudo ANTES de que
+  alguien le corte el curso.
+- **El «no» de sacar un curso se decide por lo que el alumno VE, nunca por el texto del error de la regla**
+  (`decidirQuitarCurso`, curso.helpers.ts). Si no lo ve, es «ya está así» (200 sin cambios); si es lo único que le abre, el
+  error manda a `cortar_acceso_curso`. La primera versión comparaba el texto de `productosTrasQuitar`: un texto
+  reescrito habría convertido un «ya estaba» en un 422 sin que nada fallara.
+- **Nada de lo que vuelve trae el email del lead**, ni el resumen ni los `datos`. Por HTTP, devolverlo sería leer un dato
+  de una persona a través de una acción.
+
+`habilitar_acceso_curso` no manda nada, y el link viejo sigue sin abrir: `revocarAcceso` subió la `version` del acceso, y
+`reactivarAcceso` sólo borra el `revocado_at`. Para que le llegue un link que abre, `dar_acceso_curso` con `reenviar: true`.
+
+⚠️ **Encontrado de paso, NO arreglado (no es de esta área):** «Invitar» desde el buscador de leads de cualquier etapa
+(`invitarLeadDeCualquierEtapaAction`, pedido del 13/10, `cualquierEtapa: true`) le manda por email un link a un lead que
+NO está en Ganado. Como `resolverAcceso` exige Ganado, ese link no abre hasta que el lead gane, y el mail no lo dice. Se le
+avisó al chat de Customer Success.
+**Vive en:** `app/customer-success/curso/invitar-actions.ts` · `lib/curso-invitar.ts` · `lib/curso-datos.ts` (`resolverAcceso`)
+
+**Sin hacer** (la API sigue sin poder lo que la pantalla sí puede):
+
+- el «Invitar al curso al ganar» de cada funnel (`cambiarCursoAlGanar`, lib/crm-curso-al-ganar.ts). Es lo que hace solo lo
+  de «no vender sin entregar»;
+- los líderes de área: invitarlos, cortarlos y habilitarlos;
+- el alcance (qué módulos ve) y desbloquear;
+- listar quién tiene acceso a un curso;
+- sacar o cortar como «⚡ Acción» de un flujo. Hoy son sólo HTTP; para un flujo hace falta `'app'` y una forma en
+  `lib/editor-acciones.ts`.
+
+**Vive en:** `lib/api-mako/areas/curso.def.ts` («LOS ACCESOS») · `curso.run.ts` · `curso.helpers.ts` (`decidirQuitarCurso`) ·
+`lib/api-mako/rest.ts` · `tests/api-mako-curso-accesos.test.ts` · `app/api-mako/Articulos.tsx` (la guía «Migrar un curso»)
+
+*23/10/2026 · chat «API de MaKo» (claude2) · medido contra origin/main 4a2e7f9f0; tests y rotura en el worktree, sin tipos
+(el acotado lo mató el vigía de RAM), sin navegador.*
