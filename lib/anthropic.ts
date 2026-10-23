@@ -609,6 +609,9 @@ export async function chatClaudeTools(
     modeloSuClaude?: string;
     /** 8b (23/10/2026): DIRECTO a la clave de OpenAI del negocio, sin la cascada y sin caer a Claude. Sin su clave, tira. */
     soloSuOpenAI?: boolean;
+    /** Con `soloSuOpenAI`, el modelo de OpenAI que corre (el elegido o el de por defecto, `MODELO_SU_OPENAI_DEFAULT`). Sin
+     *  esto, el de la capa barata (`gpt-4o-mini`). */
+    modeloSuOpenAI?: string;
     sinFallbackClaude?: boolean;    // si el override a IA barata falla, RE-LANZÁ el error (no caigas a Claude): el caller quiere avisar "falló", no gastar Claude en silencio.
     effort?: Effort;
     maxTokens?: number;
@@ -635,6 +638,7 @@ export async function chatClaudeTools(
     const { chatCheapToolsCascade } = await import('@/lib/ai-cheap');
     const r = await chatCheapToolsCascade(system, messages, tools, runTool, {
       maxSteps: opts.maxSteps, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo, provs: ['openai'], erroresOut: errores,
+      ...(opts.modeloSuOpenAI ? { modelos: { openai: opts.modeloSuOpenAI } } : {}),
     });
     if (r) return { text: r.text, steps: r.steps, stopReason: r.stopReason };
     throw new Error(`falló la IA (${errores.join(' · ').slice(0, 200) || 'el negocio no tiene su clave de OpenAI'})`);

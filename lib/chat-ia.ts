@@ -19,7 +19,9 @@ import { provsDe } from '@/lib/ai-cheap';
 import { getSetting } from '@/lib/settings';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
 import { MODELO_SU_CLAUDE } from '@/lib/veto-claude';
-import { MODELOS_SU_CLAUDE, eleccionVigente, sanearIA, type CuentaDeIA, type EleccionIA } from '@/lib/chat-ia-reglas';
+import {
+  MODELOS_SU_CLAUDE, MODELOS_SU_OPENAI, MODELO_SU_OPENAI_DEFAULT, eleccionVigente, sanearIA, type CuentaDeIA, type EleccionIA,
+} from '@/lib/chat-ia-reglas';
 
 /** La feature del turno del chat (lib/mako-turno-app.ts → FEATURE): la puerta 2 decide con ella. */
 const FEATURE_DEL_CHAT = 'mako-doer';
@@ -45,8 +47,14 @@ export async function cuentasDeIA(persona: { ws: number; actor: string; rol?: 'a
         modeloDefault: suClaude.permiso.model === MODELO_SU_CLAUDE.sonnet ? 'sonnet' : 'haiku', ...(soloHaiku ? { soloHaiku: true } : {}),
       });
     }
+    // Su ChatGPT, con la misma regla que su Claude: el modelo lo elige el ADMIN, y un miembro corre el de por defecto, que es
+    // uno que sabe orquestar herramientas (hasta el 23/10/2026 era siempre `gpt-4o-mini`; el porqué, en `MODELOS_SU_OPENAI`).
     const suOpenAI = await provsDe('openai').catch(() => []);
-    if (suOpenAI.length) out.push({ cuenta: 'openai', nombre: 'Tu ChatGPT', modelos: [], modeloDefault: null });
+    if (suOpenAI.length) {
+      out.push({
+        cuenta: 'openai', nombre: 'Tu ChatGPT', modelos: persona.rol === 'admin' ? MODELOS_SU_OPENAI : [], modeloDefault: MODELO_SU_OPENAI_DEFAULT,
+      });
+    }
     return out;
   });
 }

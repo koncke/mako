@@ -6108,3 +6108,38 @@ Plus y Pro: el camino es el login del propio Codex CLI en la PC del cliente, no 
 **Vive en:** lib/chat-ia.ts (`cuentasDeIA`) · lib/mako-turno-app.ts (`soloSuOpenAI`) ·
 lib/ai-cheap.ts (`cfgDe`, `CHEAP_MODEL`) · lib/conectar-ia-reglas.ts (`CHATGPT_EN_LA_PC`) ·
 scripts/ia-pc/medir-codex-mcp.mjs · *2026-10-23, chat «IA del cliente»*
+
+### Darle un modelo capaz NO era cambiar el nombre: la capa barata le mandaba campos que rechaza (23/10/2026, tarde)
+
+El Cerebro decidió darle modelo a elegir, «con la misma regla que Claude: el modelo lo elige el ADMIN… por defecto uno
+capaz de orquestar herramientas, no gpt-4o-mini». El cambio obvio —pasar el nombre del modelo— **rompía cada turno**:
+
+- **La capa barata manda `max_tokens` y `temperature: 0.2`** en sus tres pedidos (texto, herramientas y el cierre sin
+  herramientas). Con `gpt-4o-mini` anda, y por eso nunca se vio: era el único modelo de OpenAI que corría. Los modelos
+  con razonamiento (o1/o3, GPT-5 en adelante) contestan 400 a los dos: la referencia de Chat Completions marca
+  `max_tokens` como incompatible con ellos y el foro de OpenAI lo reporta para GPT-5. Y el 400 se lee como «se cayó tu
+  clave». Ahora el pedido sale de `paramsDeSalida` (lib/ai-cheap-techo.ts): a un razonador, `max_completion_tokens` con
+  aire (el pensar sale del mismo tope y sin aire contesta vacío) y sin `temperature`; a los demás, lo de siempre. Lo
+  decide el PROVEEDOR además del nombre: `openai/gpt-oss-20b` es de Groq.
+- ⚠️ **NO MEDIDO contra los modelos nuevos.** La cuenta de OpenAI de MaKo (la del workspace de la plataforma) contesta
+  429 `credit_balance_exhausted` a todo, **y lo contesta ANTES de mirar los parámetros**: los 12 pedidos de prueba
+  (tres modelos × cuatro combinaciones de campos) dieron el mismo 429. Sin crédito no se puede saber ni si un campo
+  está bien, así que no hay forma barata de validar esto sin cargar plata.
+- **El default salió de números publicados, no medidos**: GPT-5.6 Luna (Toolathlon 53,4 contra 42,9 de GPT-5.4 mini,
+  las tablas de OpenAI citadas por codingfleet.com; US$0,20/1,20 por millón contra 0,75/4,50). GPT-6 Luna es más nuevo
+  y más barato (0,10/0,50) y no tiene número de herramientas publicado: se ofrece, y es el primer candidato a default.
+
+**Lo que quedó SIN hacer**, en este orden:
+
+1. Cargar crédito en la cuenta de OpenAI de MaKo (lo decide Martín: es plata).
+2. Medir: `npx tsx --conditions=react-server scripts/medir-openai-herramientas.mts gpt-5.6-luna gpt-6-luna gpt-6.1-sol`
+   desde el clon (lee el `.env.local` del directorio donde se corre). Usa el MISMO cuerpo que la capa barata, así que
+   también prueba los campos de salida. Si GPT-6 Luna acierta igual, pasa a ser el default (`MODELO_SU_OPENAI_DEFAULT`,
+   lib/chat-ia-reglas.ts).
+3. La prueba de punta a punta del turno del Ops Center con «Tu ChatGPT» elegido, con esa misma clave.
+4. Sin hacer a propósito: un modelo de OpenAI GUARDADO por negocio (como `ia.su_claude.modelo` de su Claude). Hoy el
+   admin elige por chat y un miembro corre el default fijo.
+
+**Vive en:** lib/ai-cheap-techo.ts (`paramsDeSalida`, `esRazonadorOpenAI`) · lib/chat-ia-reglas.ts (`MODELOS_SU_OPENAI`,
+`MODELO_SU_OPENAI_DEFAULT`) · lib/chat-ia.ts · lib/anthropic.ts (`modeloSuOpenAI`) · lib/mako-turno-app.ts ·
+scripts/medir-openai-herramientas.mts · *2026-10-23, chat «IA del cliente»*

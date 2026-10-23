@@ -40,7 +40,7 @@ import { registrarError } from '@/lib/errores-app';
 import { avisoClaveTapada, taparClaves } from '@/lib/claves-en-el-chat';
 import { encolarTurno, esperarALaPc, pcDe, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
 import { armarPrompt, AVISO_PC_ILEGIBLE, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, modeloPc, pcUsable, type FalloDeLaPc } from '@/lib/ia-pc-reglas';
-import type { EleccionIA } from '@/lib/chat-ia-reglas';
+import { MODELO_SU_OPENAI_DEFAULT, type EleccionIA } from '@/lib/chat-ia-reglas';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
 import { entrarSoloSuIA } from '@/lib/solo-su-ia';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
@@ -763,8 +763,10 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       try {
         const r = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
           feature: FEATURE, maxSteps: 8, sinFallbackClaude: true, soloSuIA: negocio.suIA,
-          // Lo que eligió (8b): directo a SU Claude con ese modelo, o directo a SU OpenAI; si no, la cascada de siempre.
-          ...(ia?.cuenta === 'anthropic' ? { soloSuClaude: true, ...(ia.modelo ? { modeloSuClaude: ia.modelo } : {}) } : ia?.cuenta === 'openai' ? { soloSuOpenAI: true } : {}),
+          // Lo que eligió (8b): directo a SU Claude con ese modelo, o directo a SU OpenAI con el suyo (o uno que sabe orquestar
+          // herramientas, `MODELO_SU_OPENAI_DEFAULT`, nunca el `gpt-4o-mini` de la capa barata); si no, la cascada de siempre.
+          ...(ia?.cuenta === 'anthropic' ? { soloSuClaude: true, ...(ia.modelo ? { modeloSuClaude: ia.modelo } : {}) }
+            : ia?.cuenta === 'openai' ? { soloSuOpenAI: true, modeloSuOpenAI: ia.modelo ?? MODELO_SU_OPENAI_DEFAULT } : {}),
           motivo: `app ${intencion.intencion} «${(textoPersona || textoMemoria).slice(0, 60)}»`,
         });
         texto = (r.text ?? '').trim();
