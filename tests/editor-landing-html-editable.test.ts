@@ -146,6 +146,13 @@ test('ningún medio de un diseño apunta a la API ni es relativo (el editor lo c
   assert.equal(cssDisenoLimpio('.a{background:url(/api/x)}.b{background:url(https://hola-mako.com/vsl-assets/b.png)}'), '.a{background:url()}.b{background:url(https://hola-mako.com/vsl-assets/b.png)}');
 });
 
+test('a Calendly no le llega ninguna UTM en undefined (el widget la escribe como el texto «undefined»)', () => {
+  // Medido en producción el 23/10/2026: sin utm_medium en el link, Calendly recibía `utm_medium=undefined`.
+  assert.ok(!/\|\| undefined/.test(SCRIPT_DISENO), 'una UTM armada con «|| undefined»');
+  assert.match(SCRIPT_DISENO, /if \(v\) utm\[p\[0\]\] = v;/);
+  assert.match(SCRIPT_DISENO, /if \(uid\) utm\.utmTerm = uid;/);
+});
+
 test('la publicada lleva la hoja y el script del diseño, con la política que los deja correr', () => {
   const html = htmlDePagina(pagina([tarjeta([editable('<div id="cal-embed" data-calendly="https://calendly.com/koncke/asesoria"></div>')], { id: 'tc' })]), config, tema, { modo: 'publico' });
   const doc = armarDocumento(

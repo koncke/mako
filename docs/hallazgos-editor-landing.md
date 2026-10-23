@@ -2330,6 +2330,9 @@ cambios de allí y se apliquen. Revisa que no se dañe la landing». Contrato: l
   corría en hola-mako.com, donde la portada pinta la hoja tal cual). Ahora se saca TODO `<` (una hoja no lo necesita; el `>`
   del selector hijo se queda) y la portada re-escapa `</style` como pagina-publica.ts. Un filtro que borra una palabra
   peligrosa en una pasada se evade armándola con sus pedazos: se borra el CARÁCTER que la abre.
+- **El widget de Calendly escribe una UTM en `undefined` como el TEXTO «undefined»** (medido en producción el 23/10, ya
+  con la landing subida: `utm_medium=undefined` en la URL de la agenda, que llega a las UTM del lead). El objeto `utm` se arma
+  sólo con las que vienen. Lo vio la verificación en producción, no los tests: la URL del iframe se mira.
 - **Y la revisión mía (063f3932f): el iframe del editor es del MISMO origen que la app** (para poder editar su DOM): un
   `<img src="/api/…">` o un url() relativo salía con la cookie de quien abre. Medios sólo https absolutos y nunca /api/.
 
