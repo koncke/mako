@@ -10021,6 +10021,15 @@ pasos de una ACTIVA también es prender: un camino de una PERSONA escribe por `p
 cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
 («La revisión adversarial lo frenó»).
 
+## Hacer cumplir un tope del plan: sólo a quien paga por la pasarela, y sólo al crear (23/10/2026)
+
+Un tope de `lib/topes-plan.ts` se aplica SÓLO si MaKo le cobra el plan al negocio por la pasarela
+(`suscripcionDeMakoDe(ws) != null`, lib/cobros.ts), y nunca al ws1: la capa sola no lo dice, porque el ws1 y los acuerdos
+a mano también son `completo`. Frena lo que se va a CREAR, en el único punto donde nace (una línea nueva: `conectar({ nueva:
+true })`), y nunca corta lo que ya existe. Si no se puede leer el plan, deja pasar. El molde es `topeParaLineaNueva`
+(lib/tope-lineas.ts, puro); el cartel es `textoTope(n)` con «Pasar a Pro». Lo hace cumplir tests/tope-lineas.test.ts; el
+porqué, docs/hallazgos-planes-y-cobro.md.
+
 ## Una tabla en grilla aguanta un escritorio chico (21/10/2026)
 
 En una grilla CSS lo que no recorta no empuja la columna: se dibuja encima de la de al lado, sin error. Cada celda lleva
@@ -10077,12 +10086,3 @@ por su nombre. El 22/10/2026 había mails de dueños y colaboradores, nombres y 
   ningún mail en claro. Un dueño nuevo: se suma su huella ahí.
 - Una guarda que necesita los nombres que prohíbe (la de las plantillas, tests/editor-landing-presentaciones.test.ts) es la
   excepción, y lo dice.
-
-## Hacer cumplir un tope del plan: sólo a quien paga por la pasarela, y sólo al crear (23/10/2026)
-
-Un tope de `lib/topes-plan.ts` se aplica SÓLO si MaKo le cobra el plan al negocio por la pasarela
-(`suscripcionDeMakoDe(ws) != null`, lib/cobros.ts), y nunca al ws1: la capa sola no lo dice, porque el ws1 y los acuerdos
-a mano también son `completo`. Frena lo que se va a CREAR, en el único punto donde nace (una línea nueva: `conectar({ nueva:
-true })`), y nunca corta lo que ya existe. Si no se puede leer el plan, deja pasar. El molde es `topeParaLineaNueva`
-(lib/tope-lineas.ts, puro); el cartel es `textoTope(n)` con «Pasar a Pro». Lo hace cumplir tests/tope-lineas.test.ts; el
-porqué, docs/hallazgos-planes-y-cobro.md.
