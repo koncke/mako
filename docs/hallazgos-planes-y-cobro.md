@@ -940,3 +940,23 @@ tests/equipo-tope-plan.test.ts.
 
 **SIN HACER:** los otros topes de la tabla (leads, funnels, líneas, automatizaciones, landings, dominios, cuentas de cobro)
 los hace cumplir el chat de cada área.
+
+## El ORIGEN de la cuenta: de qué landing / funnel vino (23/10/2026)
+
+Contrato: lib/origen-cuenta.ts (`cuenta.origen` en app_settings del ws nuevo; lo lee el onboarding). Lo escribe el
+alta por cobro (`altaSiCorresponde` → `guardarOrigenDeAlta`) desde el lead del comprador en ws9.
+
+- **No hay registro propio**: una cuenta nace SÓLO del alta por cobro, del panel o de Partners. El origen sale del
+  LEAD (sus UTM y su visitante), no de un formulario de registro.
+- **hola-mako.com no cargaba el Pixel de MaKo**: sin visitante (`nqe_visitor_id`) ni `landing_visits` del ws9, la
+  cadena visita → agenda → lead → cuenta se cortaba en la primera. Ahora la carga la capa de la landing (Landing.tsx)
+  ANTES del Píxel de Meta, que lleva ese visitante como `external_id` (el mismo UID que el Schedule de CAPI).
+- **Calendly no recibía nada**: `initInlineWidget` iba sin `utm`. Ahora SCRIPT_DISENO le pasa las UTM de la página y
+  el visitante en `utmTerm`, esperando hasta 2,5 s a que el Pixel lo cree en la primera visita.
+- **Trampa**: el Ads Manager de MaKo arma los anuncios con `utm_term={{adset.name}}` (lib/meta-ads-create.ts) y el
+  webhook de Calendly lee `utm_term` como visitante. La landing NO reenvía el `utm_term` de la URL: manda el visitante.
+- **La landing es el PRIMER toque**: la primera visita a una landing de MaKo del visitante (`origenDe` ordena, porque
+  las visitas no llegan ordenadas), y si no hay visitas, la página de registro del lead.
+
+Sin hacer: el `Purchase`/`CompleteRegistration` por CAPI al dar de alta (hoy sólo viaja el Schedule con el UID), y
+confirmar que el evento de Calendly koncke/asesoria esté atado al ws9 (si no, el lead no nace en la plataforma).

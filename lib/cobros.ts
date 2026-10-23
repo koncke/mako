@@ -58,6 +58,7 @@ import {
 import { urlAvisoStripe } from './cobros-conexion';
 import { CUENTA_PRINCIPAL, claveDeCuenta, cuentaSinElegir, partirIdDeCuenta } from './cuentas-integracion';
 import { credMpDe, credStripeDe, cuentaDeIdentificador, cuentasDePago } from './cuentas-pago-server';
+import { guardarOrigenDeAlta } from './origen-cuenta-server';
 import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, leerSuscripcionMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -939,6 +940,9 @@ async function altaSiCorresponde(c: Cobro): Promise<void> {
       const { error: e2 } = await db.from('leads').update({ cliente_ws: r.workspace.id }).eq('id', c.lead_id);
       if (e2) console.error(`[cobros] no pude atar el lead ${c.lead_id} a su cuenta ${r.workspace.id}: ${e2.message}`);
       await logLeadEvent(c.lead_id, 'Cuenta de MaKo', `Alta automática por el pago: «${r.workspace.nombre}», plan ${capaDef(c.alta_capa).nombre}`, NOMBRE_PASARELA[c.proveedor]);
+      // El ORIGEN de la cuenta (de qué landing / funnel de MaKo vino) para su onboarding: lib/origen-cuenta.ts.
+      // Accesorio: la cuenta ya existe.
+      try { await guardarOrigenDeAlta(r.workspace.id, c.lead_id, c.id); } catch (e) { console.error(`[cobros] origen de la cuenta ${r.workspace.id}: ${e instanceof Error ? e.message : String(e)}`); }
     }
   } else if (r.yaExiste) {
     // Ya es usuario (un upgrade, o alguien de otro negocio): NO se le toca la capa a ciegas. Lo

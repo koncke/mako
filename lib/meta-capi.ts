@@ -58,6 +58,12 @@ export type CAPIEventParams = {
   customData?: Record<string, unknown>;
   /** Clave de deduplicación pixel↔CAPI (mismo event_name + event_id = 1 evento). */
   eventId?: string;
+  /**
+   * El visitante del Pixel de MaKo (`nqe_visitor_id`), el UID que la landing de MaKo le pasa al Píxel de Meta como
+   * `external_id` (app/vsl/Landing.tsx). Va hasheado (sha256), como lo hashea el Píxel: así Meta cruza la visita con
+   * el evento del server. No cuenta como identidad por sí solo (sin email, teléfono ni lead_id no se manda).
+   */
+  externalId?: string | null;
   /** URL de origen (para action_source='website'). */
   eventSourceUrl?: string;
   /** Por defecto 'system_generated'; usar 'website' para deduplicar con el pixel. */
@@ -83,6 +89,8 @@ type CAPIDataEntry = {
     ph?: string[];
     /** SIN hashear, a propósito: la doc de Meta lo pide en claro. */
     lead_id?: string;
+    /** sha256 del visitante del Pixel de MaKo (`externalId`). */
+    external_id?: string[];
   };
   custom_data?: Record<string, unknown>;
 };
@@ -204,6 +212,8 @@ export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIRe
   if (emHash) user_data.em = [emHash];
   if (phHash) user_data.ph = [phHash];
   if (leadId) user_data.lead_id = leadId;
+  const uid = typeof params.externalId === 'string' ? params.externalId.trim().toLowerCase() : '';
+  if (uid) user_data.external_id = [sha256Hex(uid)];
 
   const t = tiempoDelHecho(params.eventTime, new Date());
   if (t.recortado) {

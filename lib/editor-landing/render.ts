@@ -29,7 +29,7 @@ import { estiloDeTema, varsDeFondoPropio, type Tema } from './temas';
 import { svgIcono } from './iconos';
 import { claseDeProveedor } from '../embeds';
 import {
-  CLASE_A_COMPLETAR, NORMALIZAR_MARCAS, ORDEN_MARCAS, SPEC_MARCAS, SPEC_NODOS, attrsColumnas, attrsHtmlLibre, attrsImagen,
+  CLASE_A_COMPLETAR, NORMALIZAR_MARCAS, ORDEN_MARCAS, SPEC_MARCAS, SPEC_NODOS, attrsColumnas, attrsHtmlEditable, attrsHtmlLibre, attrsImagen,
   attrsInsertado, attrsTarjeta, attrsVideo, hrefPermitido, idValido, rangosACompletar, srcImagen, tramosACompletar,
   type CtxSpec, type ModoRender,
 } from './especificacion';
@@ -38,6 +38,7 @@ import { sanearConfig } from './validar';
 import { urlBloqueHtmlLibre } from './html-libre';
 import { productoDeHref, urlPasoPago } from './pago-landing';
 import { animacionDeSeccion } from './animaciones';
+import { CLASE_LIBRE, CLASE_SECCION_LIBRE, esTarjetaEditable } from './html-editable';
 
 export { ORIGEN_IMAGENES, origenImagenes, srcPermitido, hrefPermitido } from './especificacion';
 export type { ModoRender } from './especificacion';
@@ -83,6 +84,8 @@ export type OpRender = {
    * cuenta las secciones visibles.
    */
   animacion?: { pagina: { animaciones: boolean; estiloAnimacion?: unknown }; indice?: number };
+  /** La hoja del documento (`config.diseno.css`) para un «Diseño editable» en una sección suelta (html-editable.ts). */
+  cssDiseno?: string;
 };
 
 /** La dirección de MaKo del sello «Hecho con MaKo». */
@@ -424,6 +427,7 @@ function pieArbol(texto: string): NodoArbol {
 export function htmlDeTarjeta(tarjeta: JsonNodo, tema: Tema, op?: Partial<OpRender>): string {
   if (!esObj(tarjeta) || tarjeta.type !== NODO.tarjeta) return '';
   const ctx = ctxDe(op, tema, idConFormulario([tarjeta]));
+  ctx.spec.cssDiseno = typeof op?.cssDiseno === 'string' ? op.cssDiseno : '';
   if (op?.animacion && esObj(op.animacion.pagina)) {
     const indice = typeof op.animacion.indice === 'number' && op.animacion.indice >= 0 ? Math.floor(op.animacion.indice) : 0;
     ctx.spec.seccion = { indice, animacion: animacionDeSeccion(attrsTarjeta(tarjeta.attrs), op.animacion.pagina, indice) };
@@ -442,6 +446,9 @@ export function htmlDePagina(pagina: Pagina, config: ConfigLanding, tema: Tema, 
   const tarjetas = tarjetasDePagina(pagina);
   const ctx = ctxDe(op, tema, idConFormulario(tarjetas));
   const cfg = sanearConfig(config).config;
+  ctx.spec.cssDiseno = cfg.diseno?.css ?? '';
+  // Una página con diseño editable se publica «libre» (html-editable.ts): sin el marco de Gamma.
+  if (ctx.modo === 'publico' && tarjetas.some(esTarjetaEditable)) return htmlDePaginaLibre(pagina, tarjetas, cfg, tema, ctx);
   // Cada sección con su lugar entre las VISIBLES (el orden que ve quien entra: una oculta no cuenta, ni cuando la
   // tira la dibuja) y su animación resuelta con el estilo de la landing (animaciones.ts). Con el interruptor
   // apagado, `animacionDeSeccion` no devuelve nada y no sale `data-anim`.
@@ -472,6 +479,45 @@ export function htmlDePagina(pagina: Pagina, config: ConfigLanding, tema: Tema, 
     'data-animaciones': cfg.pagina.animaciones ? 'si' : undefined,
     'data-pagina': esObj(pagina) ? idValido(pagina.id) ?? undefined : undefined,
   });
+}
+
+/**
+ * La página LIBRE (html-editable.ts): `.gm-libre` > las secciones en orden. Una sección de diseño
+ * editable sale A SANGRE, su HTML tal cual en un `div.gm-libre-seccion` (que no es una caja:
+ * `display: contents`, así el header pegajoso tiene a la página entera de contenedor). Las secciones
+ * de Gamma que haya entre medio salen en TRAMOS, cada tramo en su propia raíz `.gm-doc` con el tema
+ * (el fondo del tramo no ocupa la pantalla: `data-tramo`, css.ts). La barra, el pie y el sello, si
+ * la configuración los pide, también en su raíz. Ninguna regla de CSS_CONTENIDO toca el diseño.
+ */
+function htmlDePaginaLibre(pagina: Pagina, tarjetas: Record<string, unknown>[], cfg: ConfigLanding, tema: Tema, ctx: Ctx): string {
+  const partes: string[] = [];
+  let tramo: string[] = [];
+  const conRaiz = (interior: string) => raiz(htmlDeArbol(['div', { class: 'gm-fondo', 'data-tramo': 'si' }, 0], interior), tema, ctx, { 'data-tema': cfg.tema });
+  const cerrarTramo = () => {
+    if (tramo.length) partes.push(conRaiz(htmlDeArbol(['main', { class: 'gm-pagina' }, 0], tramo.join(''))));
+    tramo = [];
+  };
+  let visibles = 0;
+  for (const t of tarjetas) {
+    const a = attrsTarjeta(t.attrs);
+    const indice = visibles;
+    if (!a.oculta) visibles++;
+    else if (!ctx.incluirOcultas) continue;
+    if (esTarjetaEditable(t)) {
+      cerrarTramo();
+      const html = (t.content as unknown[]).map((n) => attrsHtmlEditable(esObj(n) ? n.attrs : null).html).join('');
+      partes.push(htmlDeArbol(['div', { class: CLASE_SECCION_LIBRE, 'data-seccion': a.id }, 0], html));
+      continue;
+    }
+    ctx.spec.seccion = { indice, animacion: animacionDeSeccion(a, cfg.pagina, indice) };
+    try { tramo.push(htmlDeNodo(t, ctx, 0)); } finally { ctx.spec.seccion = undefined; }
+  }
+  cerrarTramo();
+  const nav = cfg.sitio.nav.mostrar ? navArbol(cfg, ctx) : null;
+  const pie = cfg.sitio.pie.mostrar && cfg.sitio.pie.texto.trim() ? htmlDeArbol(pieArbol(cfg.sitio.pie.texto.trim())) : '';
+  const marca = cfg.sitio.marcaMako ? htmlDeArbol(['a', { class: 'gm-marca', href: URL_MAKO, target: '_blank', rel: 'noopener' }, 'Hecho con MaKo']) : '';
+  return htmlDeArbol(['div', { class: CLASE_LIBRE, 'data-pagina': idValido(pagina.id) ?? undefined }, 0],
+    (nav ? conRaiz(htmlDeArbol(nav)) : '') + partes.join('') + (pie || marca ? conRaiz(pie + marca) : ''));
 }
 
 export type PaginaHtml = { id: string; ruta: string; titulo: string; html: string };

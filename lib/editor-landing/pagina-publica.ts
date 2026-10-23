@@ -80,6 +80,7 @@
 import { createHash } from 'node:crypto';
 import { CONFIG_DEFAULT, type ConfigLanding } from './api-tipos';
 import { CSS_CONTENIDO } from './css';
+import { SCRIPT_DISENO, usaCalendly } from './html-editable';
 import { PREFIJO_PUBLICO, rutaInternaL, rutaValida, slugValido } from './doc';
 import { origenImagenes } from './especificacion';
 import { CORTE_CELULAR, ESTILOS_PAGINA, efectoPorId, sanearEstilo, type DefEstilo } from './animaciones';
@@ -133,6 +134,8 @@ export type LecturaPublica = {
   titulo?: string | null;
   foto: {
     css?: string | null;
+    /** «Diseño editable» (html-editable.ts): la base de la página libre y la hoja del documento. */
+    cssDiseno?: string | null;
     fuentes?: string | readonly string[] | null;
     sitio: ConfigLanding['sitio'];
     temaId?: string | null;
@@ -147,6 +150,11 @@ export type EntradaDocumento = {
   config: ConfigLanding;
   /** La hoja del contenido congelada en la foto. Vacía o ausente: CSS_CONTENIDO de hoy. */
   css?: string | null;
+  /**
+   * «Diseño editable» (html-editable.ts): la base de la página libre y la hoja del documento. Con ella la
+   * página lleva además `SCRIPT_DISENO` (por hash) y la política deja pasar lo que el diseño usa.
+   */
+  cssDiseno?: string | null;
   fuentes?: string | readonly string[] | null;
   workspaceId: number;
   modo: ModoDocumento;
@@ -614,6 +622,7 @@ export function hashScript(texto: string): string {
 }
 
 const HASH_SCRIPT_PAGINA = hashScript(SCRIPT_PAGINA);
+const HASH_SCRIPT_DISENO = hashScript(SCRIPT_DISENO);
 
 /**
  * De dónde puede venir un iframe: los MISMOS hosts que acepta el bloque «Insertar»
@@ -633,6 +642,13 @@ export type OpcionesPolitica = {
   conPixel: boolean;
   /** El Píxel de Meta (sólo en la página publicada, con un id válido). */
   conMeta: boolean;
+  /**
+   * Una página con «Diseño editable» (html-editable.ts): su script trae la animación de red de MaKo desde la
+   * app, y sus videos e imágenes pueden venir de /vsl-assets de la app.
+   */
+  conDiseno?: boolean;
+  /** El diseño embebe la agenda de Calendly con su widget (`data-calendly`). */
+  conCalendly?: boolean;
 };
 
 /**
@@ -657,11 +673,13 @@ export function politicaDeContenido(o: OpcionesPolitica): string {
       HASH_SCRIPT_PAGINA,
       ...(o.hashesExtra ?? []),
       ...(o.conMeta ? ['https://connect.facebook.net'] : []),
+      ...(o.conDiseno && app ? [app] : []),
+      ...(o.conCalendly ? ['https://assets.calendly.com'] : []),
     ]],
-    ['style-src', ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com']],
+    ['style-src', ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', ...(o.conCalendly ? ['https://assets.calendly.com'] : [])]],
     ['font-src', ["'self'", 'https://fonts.gstatic.com', 'data:']],
     ['img-src', ["'self'", 'data:', ...(app ? [app] : []), ...(bucket ? [bucket] : []), ...(o.conMeta ? ['https://www.facebook.com'] : [])]],
-    ['media-src', ["'self'", ...(bucket ? [bucket] : [])]],
+    ['media-src', ["'self'", ...(bucket ? [bucket] : []), ...(o.conDiseno && app ? [app] : [])]],
     ['connect-src', ["'self'", ...(o.conPixel && app ? [app] : []), ...(o.conMeta ? ['https://www.facebook.com', 'https://connect.facebook.net'] : [])]],
     // 'self': el «HTML personalizado» se sirve desde /l/html/<doc>/<bloque> del MISMO host (T6).
     ['frame-src', ["'self'", ...hostsDeIframes()]],
@@ -702,11 +720,14 @@ export function armarDocumento(e: EntradaDocumento & { tokenPixel?: string | nul
 
   const token = publico && typeof e.tokenPixel === 'string' && FORMA_TOKEN.test(e.tokenPixel) ? e.tokenPixel : null;
   const meta = publico ? codigoMetaPixel(idMetaPixel(cfg)) : null;
+  const cssDiseno = typeof e.cssDiseno === 'string' && e.cssDiseno.trim() ? e.cssDiseno : '';
   const politica = politicaDeContenido({
     entorno,
-    hashesExtra: meta ? [hashScript(meta.script)] : [],
+    hashesExtra: [...(meta ? [hashScript(meta.script)] : []), ...(cssDiseno ? [HASH_SCRIPT_DISENO] : [])],
     conPixel: !!token,
     conMeta: !!meta,
+    conDiseno: !!cssDiseno,
+    conCalendly: !!cssDiseno && usaCalendly(e.html),
   });
 
   const a = escaparHtml;
@@ -735,9 +756,11 @@ export function armarDocumento(e: EntradaDocumento & { tokenPixel?: string | nul
   // La hoja no viene de nadie de afuera, pero un `</style>` adentro cortaría el documento.
   const hoja = typeof e.css === 'string' && e.css.trim() ? e.css : CSS_CONTENIDO;
   head.push(`<style>${`${CSS_DOCUMENTO}\n${hoja}`.replace(/<\/style/gi, '<\\/style')}</style>`);
+  if (cssDiseno) head.push(`<style>${cssDiseno.replace(/<\/style/gi, '<\\/style')}</style>`);
 
   const animar = cfg?.pagina?.animaciones !== false;
   const cola: string[] = [`<script>${SCRIPT_PAGINA}</script>`];
+  if (cssDiseno) cola.push(`<script>${SCRIPT_DISENO}</script>`);
   if (meta) cola.push(`<script>${meta.script}</script>`, meta.noscript);
   if (token) cola.push(lineaCargador(token, entorno.appBaseUrl));
 
@@ -930,7 +953,7 @@ export async function responderPublico(req: Request, pedido: PedidoPublico, dep:
   try {
     doc = await documentoPublico(
       {
-        html: lectura.pagina.html, config, css: lectura.foto.css, fuentes: lectura.foto.fuentes,
+        html: lectura.pagina.html, config, css: lectura.foto.css, cssDiseno: lectura.foto.cssDiseno, fuentes: lectura.foto.fuentes,
         workspaceId: lectura.workspaceId, modo, urlCanonica,
         titulo: lectura.pagina.titulo, descripcion: lectura.pagina.descripcion, tituloRespaldo: lectura.titulo,
       },

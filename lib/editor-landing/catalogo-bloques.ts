@@ -48,7 +48,7 @@ export type IdBloque =
   // Videos y multimedia
   | 'video-subir' | 'video-enlace'
   // Incrustaciones
-  | 'insertar' | 'html-libre'
+  | 'insertar' | 'html-libre' | 'html-editable'
   // Gráficos y diagramas
   | 'grafico-barras' | 'grafico-columnas' | 'grafico-lineas' | 'grafico-circular' | 'grafico-dona'
   // Tablas
@@ -140,6 +140,7 @@ export const BLOQUES: readonly DefBloque[] = [
   // ── Incrustaciones ──────────────────────────────────────────────────────────
   { id: 'insertar', nombre: 'Insertar', categoria: 'Incrustaciones', ayuda: 'Calendly, Cal.com, Google Calendar y más', buscar: ['embed', 'iframe', 'calendly', 'agenda', 'calcom', 'hubspot'], icono: 'insertar' },
   { id: 'html-libre', nombre: 'HTML personalizado', categoria: 'Incrustaciones', ayuda: 'Tu propio HTML, en un recuadro aislado', buscar: ['html', 'codigo', 'code', 'custom'], icono: 'codigo' },
+  { id: 'html-editable', nombre: 'Diseño editable', categoria: 'Incrustaciones', ayuda: 'Una sección a medida, con su texto a la vista', buscar: ['html', 'diseno', 'design', 'landing', 'seccion', 'a medida'], icono: 'codigo' },
 
   // ── Gráficos y diagramas ────────────────────────────────────────────────────
   { id: 'grafico-barras', nombre: 'Gráfico de barras', categoria: 'Gráficos y diagramas', ayuda: 'Barras horizontales', buscar: ['chart', 'bar', 'grafico'], icono: 'grafico-barras', variante: 'barras' },
