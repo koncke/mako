@@ -19,7 +19,8 @@ import { AjustesPagina, TituloAjustes } from '../../_ui/Ajustes';
 import { PlanPanel, type SuscripcionVisible } from './PlanPanel';
 import { planesMako } from '@/lib/compra-plan';
 import { precioEn } from '@/lib/planes-mako';
-import { PLAN_PRO } from '@/lib/subir-plan-reglas';
+import { PLAN_PRO, proPorLlamada } from '@/lib/subir-plan-reglas';
+import { AGENDA_MAKO } from '@/lib/compra-plan-reglas';
 import { estadoDeRetencion, ofertaDeRetencion } from '@/lib/retencion-plan';
 
 export const dynamic = 'force-dynamic';
@@ -42,13 +43,18 @@ export default async function PlanPage() {
     ? { proveedor: sus.proveedor, monto: formatoMonto(sus.monto, sus.moneda), cancelada: sus.suscripcion_estado === 'cancelada', baja: esBajaPedida(sus.motivo) ? sus.motivo : null }
     : null;
   // «Pasar a Pro»: a quien paga MaKo Esencial por la pasarela (capa `completo`), con el precio de Pro en SU moneda.
-  const pro = sus && capa === 'completo' ? (await planesMako().catch(() => [])).find((p) => p.id === PLAN_PRO && p.activo) ?? null : null;
+  const pro = capa === 'completo' ? (await planesMako().catch(() => [])).find((p) => p.id === PLAN_PRO && p.activo) ?? null : null;
   const precioPro = pro && sus ? precioEn(pro, sus.moneda) : null;
   const subir = pro && sus && precioPro != null ? { nombre: pro.nombre, monto: formatoMonto(precioPro, sus.moneda) } : null;
+  // Sin esa subida en línea (hoy, todos: la pasarela de MaKo no está conectada), la agenda. Es a donde llevan los carteles
+  // de tope, y antes no ofrecía ninguna forma de pasar a Pro (lib/subir-plan-reglas.ts, `proPorLlamada`).
+  const porLlamada = pro && proPorLlamada({ capa, subidaEnLinea: subir != null })
+    ? { titulo: `Pasar a ${pro.nombre}`, detalle: `US$ ${pro.precioUsd} por mes. Agenda una llamada y te lo activamos.`, href: AGENDA_MAKO }
+    : null;
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} secciones={await seccionesNegocioActuales()} activa="plan">
       <TituloAjustes titulo="Tu plan" bajada="Tu plan de MaKo y cómo darte de baja." />
-      <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} oferta={oferta} retencion={retencion} subir={subir} />
+      <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} oferta={oferta} retencion={retencion} subir={subir} porLlamada={porLlamada} />
     </AjustesPagina>
   );
 }

@@ -211,6 +211,15 @@ ese mismo email»* a alguien que acaba de pagar con un correo que no es Gmail.
 
 No falla en el alta: falla en el primer login, cuando ya cobraste.
 
+**Al 23/10 ya no es cierto al pie de la letra, y en la práctica casi sí.** Desde el 15/10 hay contraseña por usuario
+(1b177b414, mig 0286) y «¿Olvidaste tu contraseña?» sirve para crear la primera. Pero el mail de bienvenida dice sólo
+«Importante: entra con Google usando exactamente esta dirección» (lib/invitaciones.ts:185) y la página de después de pagar
+repite «Entra con Google usando ese email» (app/pagar/[token]/listo/AccesoMako.tsx:73): quien no tiene Google tiene que
+adivinar «o entra con tu correo» → «¿Olvidaste tu contraseña?» de una contraseña que nunca tuvo. Ese mail lo manda la
+automatización «Restablecer Contraseña» del ws 9 (lib/restablecer-aviso.ts); apagada, la pantalla igual dice «te llega un
+mail» y no llega nada (medido: el único pedido registrado, el 21/10, dice `corrio`). El pago en línea SÍ pasa por esta alta:
+webhook → `aplicarPagoAprobado` → `altaSiCorresponde` → `darDeAltaCliente` (lib/cobros.ts:723 y 914-958).
+
 ---
 
 ## Lo que le pasa en el CRM al que PAGA sin agendar
@@ -1134,6 +1143,29 @@ adversarial y quedó arreglado:
 
 **Vive en:** lib/subir-plan.ts · lib/subir-plan-reglas.ts · lib/pasarela-plan-api.ts (`subirPlanStripe`) ·
 app/configuraciones/plan · tests/subir-plan.test.ts.
+
+## Sin pasarela, el checkout era un callejón con cara de checkout (23/10/2026)
+
+**Síntoma:** con la pasarela de MaKo sin conectar (ws 9), /planes decía «Pagas por mes y entras en el acto» y «Empezar con…»
+en cada plan; /planes/<plan> recién ahí descubría que no había cómo cobrar y decía «Escríbenos», sin a dónde. Y todo cartel
+de tope («Pasar a Pro») lleva a «Tu plan», que sólo ofrece la subida a quien paga Esencial POR LA PASARELA: hoy, nadie.
+**Causa:** lo cobrable se decidía en el ÚLTIMO paso (`ofertaDelPlan`); el listado y «Tu plan» nunca lo preguntaban.
+**La regla:** un botón de compra se decide con la MISMA cuenta que el checkout (`ofertasDeLosPlanes`: algún precio en la
+moneda de una pasarela conectada); sin eso, la salida es la agenda (`AGENDA_MAKO`) con las UTM. Si no se pueden leer las
+pasarelas, NO es cobrable: una agenda de más es un llamado, un pago que no existe es un callejón. En «Tu plan», a Esencial
+sin la subida en el acto se le ofrece Pro por llamada (`proPorLlamada`).
+
+**La trampa:** Calendly sólo guarda `utm_source/medium/campaign/content` (y `utm_term`, que la VSL ya usa para su uuid), así
+que por la agenda se PIERDEN el slug de la landing, el avatar, la funcionalidad y el fbclid. El código de MaKo Partners
+también se perdía; ahora viaja como UTM cuando no hay campaña (docs/hallazgos-partners.md, «Una venta POR LLAMADA»). Y la
+agenda de MaKo hoy no entra al CRM del ws 9 (docs/hallazgos-integraciones.md): las UTM quedan sólo en Calendly.
+
+**Sin hacer:** aplicar el crédito de MaKo Partners (relevo, punto 5): /mako-partners y /partners/referidos dicen «se
+descuenta de tus próximos meses» y nada lo descuenta. Sin pasarela no nace ningún crédito (nace del segundo mes pagado
+del referido), así que no muerde el 25/10. La VSL repite el link de la agenda (`app/vsl/Landing.tsx`, `CALENDLY_URL`).
+
+**Vive en:** lib/compra-plan-reglas.ts · lib/compra-plan.ts (`ofertasDeLosPlanes`) · app/planes/ · lib/subir-plan-reglas.ts
+(`proPorLlamada`) · app/configuraciones/plan · tests/planes-sin-pasarela.test.ts.
 
 ## El primer cobro real de un plan de MaKo: la revisión antes del lanzamiento (23/10/2026)
 

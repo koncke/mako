@@ -92,6 +92,25 @@ export async function ofertaDelPlan(planId: string, opts: { conPrueba?: boolean 
   }
 }
 
+/**
+ * Cada plan activo y si HOY se puede pagar en línea, con UNA lectura de las pasarelas (la misma cuenta que
+ * `ofertaDelPlan`: una pasarela conectada con precio en su moneda). La usa /planes para no ofrecer «Empezar» donde el
+ * checkout no puede cobrar (lib/compra-plan-reglas.ts, `botonDelPlan`). Una pasarela en modo prueba no cuenta. Sin poder leer las pasarelas, ninguno se cobra:
+ * ofrecer la agenda de más es un llamado; ofrecer un pago que no existe es un callejón.
+ */
+export async function ofertasDeLosPlanes(): Promise<Array<{ plan: PlanMako; cobrable: boolean }>> {
+  const planes = (await planesMako()).filter((p) => p.activo);
+  let monedas: Array<{ pasarela: Pasarela; moneda: string }> = [];
+  try {
+    // Sin las de PRUEBA, como `ofertaDelPlan` para el público (revisión de Cobros, 23/10/2026): con sólo claves de prueba
+    // conectadas, /planes ofrecería «Empezar» y el checkout, que no las ofrece, mandaría a la agenda: un callejón.
+    monedas = (await monedasDeLaPlataforma(await wsSuperAdmin())).filter((m) => !m.prueba);
+  } catch (e) {
+    console.warn('[compra-plan] no pude leer las pasarelas de la plataforma:', msg(e));
+  }
+  return planes.map((plan) => ({ plan, cobrable: monedas.some((m) => precioEn(plan, m.moneda) != null) }));
+}
+
 /** La moneda de la Mercado Pago de MaKo (la de su sitio: ARS, MXN…), o null si no está conectada o no se pudo leer. */
 export async function monedaDeMercadoPagoDeMako(): Promise<string | null> {
   try {

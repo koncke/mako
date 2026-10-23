@@ -44,6 +44,7 @@ import { getGoogleCalendarStatusAction, disconnectGoogleCalendarAction, type Goo
 import { GCAL_MSG } from '@/app/configuraciones/GoogleCalendarPanel';
 import { ProbarTracking } from './ProbarTracking';
 import { ROTULO_PIXEL_VIEJO } from '@/lib/pixel-aviso';
+import { motivoDelAviso, type EstadoAvisoCalendly } from '@/lib/calendly-aviso-reglas';
 import { ARCHIVO_PIXEL, pixelComoArchivo } from '@/lib/pixel-archivo';
 import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO } from '@/lib/ia-keys';
 
@@ -167,7 +168,7 @@ function fmtDuracion(desde: string, hasta: string): string {
 }
 
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, cargadorLanding, landingVieja = false, cuotas = [], agenteActual, appUrl, pixel, embebido = false }: {
+export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, cargadorLanding, landingVieja = false, avisoCalendly = null, cuotas = [], agenteActual, appUrl, pixel, embebido = false }: {
   integraciones: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
@@ -179,6 +180,8 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   cargadorLanding?: string | null;
   /** El código pegado en su página es de una versión vieja (lo sabe el beacon). */
   landingVieja?: boolean;
+  /** ¿Entran a MaKo las reservas nuevas de su Calendly? (lib/calendly-aviso.ts). null = sin Calendly o no se pudo leer. */
+  avisoCalendly?: EstadoAvisoCalendly | null;
   /** Cuota gratis consumida hoy por cada IA barata (gauge "cuánto queda"). */
   cuotas?: CuotaProv[];
   /** Token del agente externo (Claude Code): sólo su pista y su alcance —el token no está
@@ -319,6 +322,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // token está presente pero la lectura en vivo falló); Google, su PERMISO real; el
   // resto, conectada (verde) vs falta de config (ámbar "Por configurar", NO rojo:
   // todavía no es un incidente).
+  const faltaAvisoCalendly = motivoDelAviso(avisoCalendly);
   const sevOf = (i: Integracion): 'good' | 'warn' | 'bad' => {
     if (i.key === 'meta') {
       if (metaSev) return metaSev === 'verde' ? 'good' : metaSev === 'ambar' ? 'warn' : 'bad';
@@ -334,6 +338,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     // Google, y se elige por lo mismo: que el contador, el medidor, el punto y el
     // chip digan todos lo mismo, en vez de esconderlo en una nota que nadie abre.
     if (i.key === 'landing' && landingVieja) return 'warn';
+    // Y Calendly con el token y el R1 pero sin el aviso que trae las reservas nuevas (23/10/2026): lee la agenda y no
+    // recibe nada. El mismo ámbar, por lo mismo: el verde no sabe decir «conectada, pero no entra ninguna reserva».
+    if (i.key === 'calendly' && i.estado === 'conectada' && faltaAvisoCalendly) return 'warn';
     return i.estado === 'conectada' ? 'good' : 'warn';
   };
   const dotColor = (s: 'good' | 'warn' | 'bad') => (s === 'good' ? 'var(--good)' : s === 'warn' ? 'var(--warn-fill)' : 'var(--bad)');
@@ -388,6 +395,8 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
       // verdad o el usuario busca el permiso que no es.
       motivo = 'Google ya no acepta la agenda — hay que reconectarla';
       accion = 'Conectar';
+    } else if (i.key === 'calendly' && i.estado === 'conectada' && faltaAvisoCalendly) {
+      motivo = faltaAvisoCalendly.motivo;
     }
     atencion.push({ i, sev: s === 'bad' ? 'bad' : 'warn', motivo, accion });
   }
@@ -529,6 +538,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           // buscar una credencial que no existe: acá lo que falta es un permiso.
           chipWord={modal.key === 'google' && gcalIncompleta ? 'Falta permiso'
             : modal.key === 'landing' && landingVieja ? ROTULO_PIXEL_VIEJO
+            : modal.key === 'calendly' && faltaAvisoCalendly ? faltaAvisoCalendly.chip
             : undefined}
           gcal={gcal}
           health={health} metaError={metaError} usage={usage}

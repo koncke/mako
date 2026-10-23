@@ -26,10 +26,12 @@ export type SuscripcionVisible = {
   baja: string | null;
 } | null;
 
-export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, subir }: {
+export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, subir, porLlamada }: {
   plan: string; suscripcion: SuscripcionVisible; emailMako: string; oferta?: OfertaRetencion; retencion?: string | null;
   /** «Pasar a Pro» (23/10/2026): a quien paga MaKo Esencial por la pasarela. El monto de Pro, en su moneda; null = no se ofrece. */
   subir?: { nombre: string; monto: string } | null;
+  /** «Pasar a Pro» sin la subida en el acto (sin pasarela): la agenda. Es a donde llevan los carteles de tope. */
+  porLlamada?: { titulo: string; detalle: string; href: string } | null;
 }) {
   const [corriendo, setCorriendo] = useState(false);
   const [confirmarSubida, setConfirmarSubida] = useState(false);
@@ -77,6 +79,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
           <FilaAjustes icono="subir" titulo={`Pasar a ${subir.nombre}`} detalle={`${subir.monto} por mes, sin topes. Lo tienes en el acto.`}
             onClick={corriendo ? undefined : () => setConfirmarSubida(true)} apilada />
         )}
+        {porLlamada && <FilaAjustes icono="subir" titulo={porLlamada.titulo} detalle={porLlamada.detalle} href={porLlamada.href} apilada />}
         {puedeDarseDeBaja && (
           <FilaAjustes icono="pausar" titulo="Darme de baja"
             detalle="Lo sigues usando hasta el fin del mes pagado."
