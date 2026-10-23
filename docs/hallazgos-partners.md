@@ -53,3 +53,24 @@ CRM». Chat «Clients», cuenta 4.
   /clients (`rutaDeSalida` en lib/agencia-cartera.ts y sus tres lectores): debería volver a /partners.
 - **Nada se miró en el navegador** (sin extensión de Chrome, sin RAM). En el ws3 no hay agencia: para verla hace falta
   el ws13 (Código Inmobiliario, una agencia real: SÓLO mirar) o ponerle el plan Agencia a un workspace de prueba.
+
+## El programa de referidos se automatiza (23/10/2026)
+
+Martín (22/10) pidió el sistema de referidos con «la página de MaKo Partners», automático, con el dashboard de lo acumulado y los
+meses gratis. Eso **reemplaza** la regla de docs/referidos.md §6 («nunca antes de 20 referidos pagando: no panel, no pestaña, no
+página pública»), que era una recomendación de la corrida del 10/10 y no una decisión de Martín.
+
+- **Un referido es una compra que CREÓ la cuenta con el código** (`cobros.ref_codigo` + `alta_estado = hecha`): quien ya tenía
+  MaKo nunca cuenta, y el primer código que lo trajo vale (`/r/<código>` no pisa la cookie; el cron toma la compra más vieja).
+- **El crédito es un renglón del libro** (`partner_creditos`), con índice único por (referidor, referido): dos corridas del
+  cron no acreditan dos veces. Las bienvenidas salen una vez: su marca es haber escrito `workspaces.referido_por_ws` con
+  compare-and-set sobre null.
+- **Cualquier admin con plan es partner**: el tablero es /partners/referidos (la agencia lo ve como tercera pestaña). El test
+  de D7 (tests/partners.test.ts) sigue valiendo para la pestaña «Program» de la agencia, que no habla de premios.
+
+**Sin hacer:** APLICAR el crédito en la suscripción del partner (Stripe: saldo del cliente; Mercado Pago: el monto de la cuota)
+y el beneficio del que llega (el 1er mes gratis en el de 47, 50% en el de 97: en Stripe es una prueba o un cupón y una factura
+de $0; Mercado Pago no tiene prueba gratis en una suscripción sin plan). El primer crédito madura con el 2º pago del primer
+referido. Y la entrada «MaKo Partners» de la barra sigue `soloCapas: ['agencia']` (app/_components/nav.ts, del chat Sidebar):
+un cliente común llega por «Tu plan» › «Recomienda MaKo» y por los mails. **Vive en:** `lib/partners-reglas.ts` ·
+`lib/partners-programa.ts` · `app/partners/referidos/` · `app/mako-partners/` · `tests/partners-referidos.test.ts`.

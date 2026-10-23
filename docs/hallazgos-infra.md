@@ -7697,3 +7697,11 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
   superconjunto y el único rojo era de ella. Así salió el tren 7 sin el aviso de Closing.
 - **Un hotfix de cliente roto no espera al tren:** se arma en un worktree aparte (`git worktree add --detach … origin/main`
   más la junction de node_modules) y se prueba ahí, en paralelo. El tren después mergea main.
+
+## En Git Bash, un argumento que empieza con «/» llega convertido en una ruta de Windows (23/10/2026)
+
+**Síntoma:** al romper un test a mano con `node -e "…split(process.argv[1])…" "/crm|venta|"`, la rotura «no pegaba» y el test
+seguía verde: parecía que la guarda no medía nada. **Causa:** MSYS convierte todo argumento que empieza con `/` en una ruta
+(`/crm|venta|` llega como `C:/Program Files/Git/crm|venta|`). **Regla:** `export MSYS_NO_PATHCONV=1` antes de pasarle a un
+programa un texto que empieza con barra (una regex, una ruta de la app). Antes de declarar débil una guarda, mirá si la rotura
+pegó (test-probado-rompiendolo).

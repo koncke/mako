@@ -922,3 +922,60 @@ tamaño del cartel de upgrade).*
   filas que no cierran. Y las tareas #771, #783 y #840 del Plan con los precios del 20/09.
 
 *17/10/2026, «Pendientes B3» (`claude4`).*
+
+## La suscripción de MaKo de punta a punta: pagar, quedar adentro, deber y volver (23/10/2026)
+
+*Pedido de Martín (audios del 22/10, para el domingo 25/10): «si alguien paga se ingresa automáticamente a la app con el email
+de bienvenida y si alguien no paga que se le expulse de la app... le tiene que quedar una deuda pendiente... y si te querés dar
+de baja... un descuento». Rama `suscripcion-mako-2310` (chat «Suscripción y Partners», `claude3`).*
+
+### El alta automática tenía UN disparador, y era a mano
+
+**Síntoma:** «si alguien paga entra solo» ya estaba hecho desde el 11/10 (`altaSiCorresponde`), y nadie podía pagar solo: el
+único camino que crea un cobro con `alta_capa` era «Vender un plan» de /admin/cobros, con el precio tipeado por el super admin. El
+«Botón de pago» de las landings lo rechaza a propósito. **Regla:** el checkout público es /planes → `POST /api/planes/comprar`
+(lib/compra-plan.ts): el plan, la capa y el precio salen de lib/planes-mako.ts (setting `planes.mako` de la plataforma), nunca
+del pedido. **Vive en:** `lib/planes-mako.ts` · `lib/compra-plan.ts` · `app/planes/` · `tests/compra-plan.test.ts`.
+
+### El diagnóstico obvio era el equivocado: «activa y pagada» daba al día PARA SIEMPRE
+
+**Síntoma:** con el corte del 17/10 prendido, un negocio cuya renovación rechaza la tarjeta todos los meses nunca se pausaba.
+**Causa:** `vigenciaDelLugar` miraba el ESTADO del cobro (`pagado` + `activa`), y una renovación rechazada no cambia ninguno de
+los dos: sólo deja un `motivo`. El corte sólo veía bajas, devoluciones y renovaciones de agencia. **Regla:** la vigencia es la
+COBERTURA: cada mes cobrado (una cuota pagada; un cobro único de deuda vale `meses`) extiende un mes; un pago que llega hasta
+62 días tarde paga el período que se debía (sin correr la fecha); con la suscripción activa y lo cubierto terminado hay MORA
+(2 días sin aviso, después el aviso en la esquina) y a los 7 días VENCIDO por impago con la deuda en ciclos. **Y antes de pausar
+por impago se le pregunta a la pasarela** (`confirmarImpago`): una renovación cobrada cuyo aviso se perdió se asienta y no se
+corta; si la pasarela no contesta, tampoco. El cliente de agencia sigue con sus reglas del 17/10 (su mes corre desde el fin del
+onboarding, no desde el pago). **Vive en:** `lib/plan-acceso-reglas.ts` · `lib/plan-acceso.ts` · `lib/plan-deuda.ts` ·
+`tests/plan-acceso.test.ts`.
+
+### Pagar la deuda aparte mientras la pasarela reintenta es cobrar dos veces
+
+**Regla:** Stripe con la suscripción viva → la FACTURA ABIERTA (`hosted_invoice_url`), que al pagarse entra como renovación; si
+Stripe no contesta, NO se abre un cobro aparte (Smart Retries puede cobrarla después). Mercado Pago reintenta cada cuota 4 veces en
+10 días y da de baja la suscripción con 3 cuotas rechazadas: dentro de esos días, «cambia la tarjeta en Mercado Pago»; después, un
+cobro único por los meses debidos, atado al negocio (`alta_ws`) ANTES de devolver el link. **Vive en:** `lib/plan-deuda.ts`
+(`pagarDeuda`) · `app/api/plan/pagar` · `app/cuenta-pausada`.
+
+### Los tres defectos de la revisión del 17/10, cerrados
+
+`ya_tenia_cuenta` quedaba fuera del corte (ahora se ata al negocio del que ese email es admin, si es uno solo); un primer pago
+devuelto con la suscripción activa pausaba a quien paga (la cobertura no corta por un reembolso mientras la pasarela cobra); las
+cuotas se leían sin paginar (PostgREST corta en 1.000 sin error: ahora de a tandas con `range`).
+
+### La retención: Stripe vuelve sola al precio, Mercado Pago no
+
+Un cupón `repeating` de Stripe termina solo. El monto de un preapproval de MP queda cambiado para siempre: el cron lo restaura
+cuando se cobraron las cuotas con descuento (contando las de DESPUÉS de aceptar: la del mismo día pudo cobrarse a precio de lista).
+La oferta se reclama con compare-and-set desde null: una vez por negocio. **Vive en:** `lib/retencion-plan.ts`.
+
+### Lo que quedó SIN hacer (23/10), con el archivo
+
+| Qué | Dónde |
+|---|---|
+| **Prender el corte** (`CORTE_DE_ACCESO_PRENDIDO`): con su revisión adversarial y la mig 0330 aplicada | `lib/plan-acceso-reglas.ts` |
+| Los planes en ARS/MXN: sin `preciosLocales`, Mercado Pago no se ofrece en /planes (nunca se inventa una tasa) | setting `planes.mako` del ws de la plataforma |
+| Medir con claves de PRUEBA: el PUT del monto de un preapproval de MP, `hosted_invoice_url` con la suscripción `past_due`, y la factura de $0 | `lib/pasarela-plan-api.ts` |
+| Una factura de $0 (saldo o cupón del 100%) asentaría US$47 de cash: `montoUsdDeLaCuota` cae al monto del cobro con 0 | `lib/cobros-reglas.ts` (del chat Cobros) |
+| En Mercado Pago (ARS) una cuota con descuento de retención se asienta con el USD de lista | `lib/cobros-reglas.ts` (`montoUsdDeLaCuota`) |
