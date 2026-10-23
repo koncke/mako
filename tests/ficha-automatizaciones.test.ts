@@ -10,14 +10,14 @@
 //
 // Correr: node --import tsx --test tests/ficha-automatizaciones.test.ts
 //
-// ⚠️ PROBADO ROMPIÉNDOLO (23/10/2026, base 10/0), de a una rotura y restaurada: ver el final del archivo.
+// ⚠️ PROBADO ROMPIÉNDOLO (23/10/2026, base 11/0), de a una rotura y restaurada: ver el final del archivo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   chipDeInscripcion, lineaDelBloque, lineaDelEnvio, lineaDelPaso, lineaDelProximo, noEntroDelMovimiento, preguntaDeEmpezarDeNuevo,
-  textoDeNoEntro, vistaDeEnAutomatizacion, vistaVacia, type InscripcionVista,
+  textoDeNoEntro, vistaDeDetalle, vistaDeEnAutomatizacion, vistaVacia, type InscripcionVista,
 } from '../app/crm/automatizacion-lead';
 import { bloqueDef } from '../lib/ficha/catalogo';
 import { aplicarCambio, describirCambio, fichaEfectiva, sanearCambio, sanearFicha, type ResultadoCambio } from '../lib/ficha/config';
@@ -60,9 +60,42 @@ test('en qué paso va y qué sale después, a qué hora; o por qué no sale. Nun
   assert.ok(lineaDelProximo({ ...base, proximo: null }, fecha).length > 0);
 });
 
-test('lo que ya le salió, con su estado; el fallo dice su error', () => {
-  assert.deepEqual(lineaDelEnvio({ at: '2026-10-23T16:00:00Z', paso: 'Paso 1', canal: 'whatsapp', estado: 'entregado', error: null }, fecha), { texto: 'Entregado · WhatsApp · F(16:00)', tono: 'ok' });
+test('lo que ya le salió, con su estado (el de `nutricion_envios`, sin inventar «entregado»); el fallo dice su error', () => {
+  assert.deepEqual(lineaDelEnvio({ at: '2026-10-23T16:00:00Z', paso: 'Paso 1', canal: 'whatsapp', estado: 'enviado', error: null }, fecha), { texto: 'Enviado · WhatsApp · F(16:00)', tono: 'ok' });
   assert.deepEqual(lineaDelEnvio({ at: '2026-10-23T16:00:00Z', paso: null, canal: 'whatsapp', estado: 'fallo', error: 'el número no tiene WhatsApp' }, fecha), { texto: 'Falló: el número no tiene WhatsApp · WhatsApp · F(16:00)', tono: 'mal' });
+  assert.deepEqual(lineaDelEnvio({ at: '2026-10-23T16:00:00Z', paso: null, canal: null, estado: 'saltado', error: null }, fecha), { texto: 'Se saltó · F(16:00)', tono: 'gris' });
+  assert.equal(lineaDelEnvio({ at: '2026-10-23T16:00:00Z', paso: null, canal: null, estado: 'borrador', error: null }, fecha).texto, 'Quedó en borrador, sin mandar · F(16:00)');
+  // Un estado que no se conoce se dice tal cual, sin pasarlo por «entregado».
+  assert.deepEqual(lineaDelEnvio({ at: '2026-10-23T16:00:00Z', paso: null, canal: null, estado: 'raro', error: null }, fecha), { texto: 'Raro · F(16:00)', tono: 'gris' });
+});
+
+test('el detalle de Automations en la vista: vivas y terminadas, lo enviado con su paso, y lo que no entró con el paso en que está', () => {
+  const v = vistaDeDetalle({
+    zona: 'America/Tijuana',
+    inscripciones: [
+      { secuenciaId: 289, nombre: 'Sprint · apertura', link: '/automations?sec=289', automatizacionActiva: true, estado: 'activa', desde: '2026-10-23T04:47:00Z', termino: null,
+        reentrada: 'una_vez', reentradaTexto: 'Una sola vez', paso: { numero: 2, titulo: 'W', total: 5 }, proximo: { at: '2026-10-24T16:12:00Z', titulo: 'W2', canal: 'whatsapp' },
+        frenado: null, enviados: [{ at: '2026-10-23T16:00:00Z', paso: { numero: 1, titulo: 'Hola' }, canal: 'whatsapp', estado: 'enviado', error: null }], puede: { frenar: true, empezarDeNuevo: true } },
+      { secuenciaId: 300, nombre: 'Vieja', link: '/automations?sec=300', automatizacionActiva: true, estado: 'completada', desde: null, termino: { at: '2026-10-20T10:00:00Z', texto: 'Terminó el recorrido.' },
+        reentrada: 'siempre', reentradaTexto: 'Cada vez', paso: null, proximo: null, frenado: null, enviados: [], puede: { frenar: false, empezarDeNuevo: false, porQueNo: 'Terminó.' } },
+      { secuenciaId: 301, nombre: 'Con persona', link: '/automations?sec=301', automatizacionActiva: true, estado: 'handoff', desde: null, termino: null,
+        reentrada: 'una_vez', reentradaTexto: 'Una sola vez', paso: null, proximo: null, frenado: null, enviados: [], puede: { frenar: true, empezarDeNuevo: false, porQueNo: 'Está con una persona.' } },
+    ],
+    noEntro: [
+      { secuenciaId: 289, nombre: 'Sprint · apertura', at: '2026-10-23T20:04:00Z', porque: 'una_sola_vez', texto: 'ya entró una vez y su reentrada es «Una sola vez»', quien: 'martin' },
+      { secuenciaId: 289, nombre: 'Sprint · apertura', at: '2026-10-23T19:00:00Z', porque: 'una_sola_vez', texto: 'otra vez', quien: 'martin' },
+    ],
+  });
+  assert.deepEqual(v.vivas.map((i) => i.secuenciaId), [289, 301], 'con una persona sigue viva');
+  assert.deepEqual(v.terminadas.map((i) => i.secuenciaId), [300]);
+  assert.equal(v.vivas[0].enviados[0].paso, 'Paso 1: Hola');
+  assert.deepEqual(v.vivas[0].proximo, { at: '2026-10-24T16:12:00Z', titulo: 'W2' });
+  assert.equal(chipDeInscripcion(v.vivas[1]).texto, 'Con una persona');
+  assert.equal(v.vivas[1].puede.porQueNo, 'Está con una persona.');
+  assert.deepEqual(v.noEntro.map((n) => n.texto), ['No volvió a entrar a «Sprint · apertura»: ya entró una vez y su reentrada es «Una sola vez» (va en el paso 2).'], 'la última por automatización');
+  const comp = sinComentarios('app/crm/lead-view/ficha/resumen/automatizaciones-datos.ts');
+  assert.match(comp, /const r = await automatizacionesDelLeadDetalleAction\(leadId\);\s*return r \? vistaDeDetalle\(r\) : null;/);
+  assert.match(comp, /return empezarDeNuevoEnAutomatizacionAction\(leadId, secuenciaId\);/);
 });
 
 test('por qué no entró al moverlo, y la pregunta antes de «Empezar de nuevo»', () => {
@@ -125,8 +158,11 @@ test('el toast del movimiento dice POR QUÉ no entró (y no inventa nada si la r
   assert.deepEqual(noEntroDelMovimiento({ ok: true, automatizaciones: { entro: [], noEntro: [{ secuenciaId: 289, nombre: 'Sprint · apertura', porque: 'en_curso', paso: { numero: 2 } }] } }),
     ['No volvió a empezar «Sprint · apertura»: ya está adentro (paso 2).']);
   assert.deepEqual(noEntroDelMovimiento({ automatizaciones: { noEntro: [{ texto: 'Ya estaba en «X»: no vuelve a empezar.' }, null, 3] } }), ['Ya estaba en «X»: no vuelve a empezar.']);
+  // La forma de Automations: el motivo SIN el nombre, y el nombre aparte.
+  assert.deepEqual(noEntroDelMovimiento({ ok: true, automatizaciones: { entro: [], noEntro: [{ secuenciaId: 289, nombre: 'Sprint · apertura', at: 'x', porque: 'una_sola_vez', texto: 'ya entró una vez y su reentrada es «Una sola vez»', quien: null }] } }),
+    ['No volvió a entrar a «Sprint · apertura»: ya entró una vez y su reentrada es «Una sola vez».']);
   const board = sinComentarios('app/crm/CrmBoard.tsx');
-  assert.equal((board.match(/const noEntro = noEntroDelMovimiento\(r\);/g) ?? []).length, 3, 'el arrastre, «¿Qué hacer ahora?» y el asistente');
+  assert.equal((board.match(/const noEntro = noEntroDelMovimiento\(r\);/g) ?? []).length, 4, 'el arrastre, «¿Qué hacer ahora?», el asistente y el agregado');
   assert.match(board, /\{!!undoInfo\.noEntro\?\.length && \(/);
   assert.match(board, /if \(l\) openDetail\(l\);/, '«Ver» abre la ficha, donde está el bloque');
 });
@@ -146,3 +182,6 @@ test('el teléfono destila el bloque en una fila: en cuál está, su estado y lo
 // limpiar el vacío → 7 / 1; la API sin «titulo=» → 7 / 1; la grilla sin el título puesto → 7 / 1. Con el toast (base
 // 9/0): el arrastre sin `noEntroDelMovimiento` → 8 / 1; el lector sin el texto que trae la respuesta → 8 / 1. Con el
 // teléfono (base 10/0): el bloque sin pieza de teléfono → 9 / 1; el server sin armar la fila → 9 / 1.
+// Con el detalle de Automations (base 11/0): lo que no entró sin la última por automatización → 10 / 1; «con una
+// persona» contada como terminada → 10 / 1; «Empezar de nuevo» sin su acción → 10 / 1; el toast con el motivo sin el
+// nombre → 10 / 1; un estado de envío desconocido pintado como enviado → 10 / 1.
