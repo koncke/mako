@@ -79,8 +79,9 @@ el `loading.tsx` de cada tab grande de escritorio y de /m; el CRM conserva su es
 El «Abriendo Automations…» de `ChatAgentApp.tsx` también pasó a `CargandoMako`: el mismo del `loading.tsx`, así del
 server al cliente no hay salto.
 
-El loader al ir al grafo del Second Brain (2,7 s sin nada) lo hace el chat del Ops Center, en su rama `ops-sb-chat-2310`,
-junto con el pedido de que el clic cambie la vista en el acto.
+El loader al ir al grafo del Second Brain (2,7 s sin nada) queda con la implementación del chat del Ops Center (`yendo` /
+`verMapa` en `ChatSecondBrain.tsx`, rama `ops-sb-chat-2310`), que además muestra el chat en el acto al salir. Mi versión
+(ea9092f40) entró por las dos ramas y su merge se queda con la de ellos.
 
 ⛔ **Una página que redirige SIEMPRE no lleva `loading.tsx`** (ticket #7, 23/10/2026). Con él, su `redirect()` va adentro
 del stream: llega un 200 con meta refresh en lugar del 307, y la carrera con la hidratación tiró «Minified React error #310»
