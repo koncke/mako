@@ -160,3 +160,50 @@ export async function suscripcionMpDetalle(token: string, id: string): Promise<R
   const m = Number(obj(r.body.auto_recurring).transaction_amount);
   return { ok: true, estado: str(r.body.status), monto: Number.isFinite(m) ? m : null, proximo: str(r.body.next_payment_date) };
 }
+
+/**
+ * SUBIR DE PLAN EN STRIPE («Pasar a Pro», 23/10/2026): el ítem con el precio nuevo y la DIFERENCIA COBRADA AHORA
+ * (`proration_behavior: always_invoice`). Con `payment_behavior: error_if_incomplete`, si ese cobro falla Stripe contesta
+ * error y la suscripción NO cambia: quien llama no sube la capa. El precio sale del intervalo que ya tiene la suscripción
+ * (mensual o anual): nunca se pasa un anual a mensual. `yaEstaba`: ya cobra ese precio (un segundo clic, o un reintento
+ * después de un corte), y no se toca nada.
+ */
+export async function subirPlanStripe(key: string, subId: string, p: { mensual: number; anual: number | null; moneda: string; idem: string }): Promise<R<{ yaEstaba: boolean; intervalo: 'month' | 'year'; monto: number }>> {
+  if (!SUB_RE.test(subId)) return { ok: false, status: 400, error: 'id de suscripción inválido' };
+  const s = await llamarStripe(key, 'GET', `/v1/subscriptions/${encodeURIComponent(subId)}`);
+  if (!s.ok) return fallo(s);
+  // Sólo una suscripción al día (revisión adversarial): pausada daba Pro gratis el mes pausado; `past_due`, pagar el
+  // prorrateo la dejaba «activa» con la renovación abierta.
+  if (s.body.status !== 'active' || (s.body.pause_collection != null && s.body.pause_collection !== '')) {
+    return { ok: false, status: 409, error: 'Tu suscripción no está al día o está en pausa: cuando vuelva a estar activa puedes cambiar de plan.' };
+  }
+  const item = obj((Array.isArray(obj(s.body.items).data) ? (obj(s.body.items).data as unknown[]) : [])[0]);
+  const precio = obj(item.price);
+  const itemId = str(item.id);
+  const prod = str(precio.product) ?? str(obj(precio.product).id);
+  if (!itemId || !prod) return { ok: false, status: 502, error: 'Stripe no devolvió el ítem de la suscripción.' };
+  const rec = obj(precio.recurring);
+  const intervalo = rec.interval === 'year' ? 'year' : rec.interval === 'month' ? 'month' : null;
+  if (!intervalo || Number(rec.interval_count ?? 1) !== 1) return { ok: false, status: 409, error: 'La suscripción no es mensual ni anual: escríbenos para cambiar de plan.' };
+  const monto = intervalo === 'year' ? p.anual : p.mensual;
+  if (monto == null || !(monto > 0)) return { ok: false, status: 409, error: 'Ese plan no tiene precio anual.' };
+  if (String(precio.currency ?? '').toUpperCase() !== p.moneda.toUpperCase()) return { ok: false, status: 409, error: 'La suscripción cobra en otra moneda: escríbenos para cambiar de plan.' };
+  const actual = Number(precio.unit_amount);
+  if (Number.isFinite(actual) && actual === aUnidadMinima(monto, p.moneda)) return { ok: true, yaEstaba: true, intervalo, monto };
+  const r = await llamarStripe(key, 'POST', `/v1/subscriptions/${encodeURIComponent(subId)}`, {
+    items: [{ id: itemId, price_data: { currency: p.moneda.toLowerCase(), product: prod, unit_amount: aUnidadMinima(monto, p.moneda), recurring: { interval: intervalo } } }],
+    proration_behavior: 'always_invoice',
+    payment_behavior: 'error_if_incomplete',
+  }, p.idem);
+  if (!r.ok) {
+    // Sin respuesta (un timeout, un 5xx) el cambio PUDO haber pasado: se vuelve a leer antes de decir «sigue igual».
+    if (r.status === 0 || r.status >= 500) {
+      const otra = await llamarStripe(key, 'GET', `/v1/subscriptions/${encodeURIComponent(subId)}`);
+      const it = obj((Array.isArray(obj(otra.ok ? otra.body.items : null).data) ? (obj(otra.ok ? otra.body.items : null).data as unknown[]) : [])[0]);
+      if (otra.ok && Number(obj(it.price).unit_amount) === aUnidadMinima(monto, p.moneda)) return { ok: true, yaEstaba: false, intervalo, monto };
+      return { ok: false, status: 504, error: 'Stripe no contestó y no sabemos si el cambio pasó. Recarga en un minuto antes de intentar de nuevo.' };
+    }
+    return fallo(r);
+  }
+  return { ok: true, yaEstaba: false, intervalo, monto };
+}

@@ -11,7 +11,7 @@
 import { useState } from 'react';
 import { ConfirmDialog } from '../../_components/ChatItemMenu';
 import { CuerpoGrupo, FilaAjustes, GrupoAjustes } from '../../_ui/Ajustes';
-import { aceptarRetencionAction, darmeDeBajaAction } from './actions';
+import { aceptarRetencionAction, darmeDeBajaAction, pasarAProAction } from './actions';
 import type { OfertaRetencion, OpcionRetencion } from '@/lib/retencion-plan';
 
 const SANS = "'Geist', sans-serif";
@@ -26,8 +26,13 @@ export type SuscripcionVisible = {
   baja: string | null;
 } | null;
 
-export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion }: { plan: string; suscripcion: SuscripcionVisible; emailMako: string; oferta?: OfertaRetencion; retencion?: string | null }) {
+export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, subir }: {
+  plan: string; suscripcion: SuscripcionVisible; emailMako: string; oferta?: OfertaRetencion; retencion?: string | null;
+  /** «Pasar a Pro» (23/10/2026): a quien paga MaKo Esencial por la pasarela. El monto de Pro, en su moneda; null = no se ofrece. */
+  subir?: { nombre: string; monto: string } | null;
+}) {
   const [corriendo, setCorriendo] = useState(false);
+  const [confirmarSubida, setConfirmarSubida] = useState(false);
   const [preguntar, setPreguntar] = useState(false);
   // ANTES DE LA BAJA, LA OFERTA (23/10/2026, Martín: «debería habilitarte un descuento como lo tienen todas las
   // aplicaciones»): una vez por negocio, la mitad por 2 meses. Quien la rechaza sigue a la confirmación de siempre.
@@ -42,6 +47,13 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion }: {
     setCorriendo(false);
   };
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  const pasarAPro = async () => {
+    setConfirmarSubida(false); setCorriendo(true); setAviso(null);
+    const r = await pasarAProAction().catch(() => ({ ok: false, resumen: 'No pudimos cambiar tu plan. Intenta de nuevo.' }));
+    setAviso({ ok: r.ok, texto: r.resumen });
+    setCorriendo(false);
+  };
 
   const darmeDeBaja = async () => {
     setPreguntar(false); setCorriendo(true); setAviso(null);
@@ -61,6 +73,10 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion }: {
         {retencion && <FilaAjustes icono="nota" titulo="Tu oferta" detalle={retencion} apilada />}
         {/* MaKo Partners (23/10/2026): cualquier negocio con plan recomienda MaKo y gana meses gratis. */}
         <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle="Tu link de MaKo Partners: cada referido te suma un mes." href="/partners/referidos" apilada />
+        {subir && puedeDarseDeBaja && (
+          <FilaAjustes icono="subir" titulo={`Pasar a ${subir.nombre}`} detalle={`${subir.monto} por mes, sin topes. Lo tienes en el acto.`}
+            onClick={corriendo ? undefined : () => setConfirmarSubida(true)} apilada />
+        )}
         {puedeDarseDeBaja && (
           <FilaAjustes icono="pausar" titulo="Darme de baja"
             detalle="Lo sigues usando hasta el fin del mes pagado."
@@ -86,6 +102,13 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion }: {
             </div>
           </div>
         </div>
+      )}
+      {confirmarSubida && subir && (
+        <ConfirmDialog titulo={`¿Pasar a ${subir.nombre}?`}
+          detalle={suscripcion?.proveedor === 'stripe'
+            ? `Te cobramos ahora la diferencia de este período, y desde el próximo pagas ${subir.monto} por mes.`
+            : `Tienes ${subir.nombre} desde ya, y desde tu próximo cobro pagas ${subir.monto} por mes.`}
+          confirmLabel={`Pasar a ${subir.nombre}`} onCancel={() => setConfirmarSubida(false)} onConfirm={pasarAPro} />
       )}
       {preguntar && (
         <ConfirmDialog titulo="¿Darte de baja?"
