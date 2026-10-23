@@ -14,30 +14,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import ts from 'typescript';
 import { argsDeScriptCalendly, puedeBorrarAvisos } from '../lib/calendly-scripts-reglas';
-
-const RAIZ = join(import.meta.dirname, '..');
-
-/**
- * La fuente SIN comentarios (los reemplaza por espacios, así las posiciones y los renglones no se mueven). Con un regex por
- * línea una guardia pasaba gracias a una nota «antes: …» con el código viejo adentro, y en este repo esas notas abundan.
- */
-function sinComentarios(src: string): string {
-  const sf = ts.createSourceFile('x.ts', src, ts.ScriptTarget.Latest, true);
-  const rangos = new Map<number, number>();
-  const visitar = (n: ts.Node) => {
-    for (const r of [...(ts.getLeadingCommentRanges(src, n.pos) ?? []), ...(ts.getTrailingCommentRanges(src, n.end) ?? [])]) rangos.set(r.pos, r.end);
-    for (const h of n.getChildren(sf)) visitar(h);
-  };
-  visitar(sf);
-  let salida = src;
-  for (const [ini, fin] of rangos) salida = salida.slice(0, ini) + salida.slice(ini, fin).replace(/[^\n]/g, ' ') + salida.slice(fin);
-  return salida;
-}
-const fuente = (rel: string) => sinComentarios(readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n'));
+import { fuenteSinComentarios as fuente, sinComentarios } from './_fuente-sin-comentarios';
 
 const args = (argv: string[], permitidos: string[] = []) => argsDeScriptCalendly(argv, permitidos);
 

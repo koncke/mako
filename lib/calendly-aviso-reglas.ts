@@ -65,6 +65,22 @@ export function estadoDelAviso(subs: readonly SuscripcionCalendly[]): EstadoAvis
   return 'apagado';
 }
 
+/**
+ * El veredicto de las DOS lecturas de la pantalla: las suscripciones de la organización (las que crea el script) y las del
+ * usuario. null = no afirmar nada. ⚠️ Si Calendly niega el permiso de la organización ('sin-permiso': el usuario no la
+ * administra), «no vi ningún aviso» NO es «no hay»: el de la organización es justo el que no se puede ver. Entonces sólo
+ * «activo» (visto, sano) es un veredicto; lo demás (sin-aviso, apagado…) se calla. Antes decía «sin-aviso» y pintaba de
+ * ámbar a quien tenía el aviso (revisión adversarial, 23/10/2026).
+ */
+export function estadoDeLasLecturas(l: {
+  org: readonly SuscripcionCalendly[] | 'sin-permiso' | null;
+  user: readonly SuscripcionCalendly[] | null;
+}): EstadoAvisoCalendly | null {
+  if (l.org == null || l.user == null) return null;
+  const e = estadoDelAviso([...(l.org === 'sin-permiso' ? [] : l.org), ...l.user]);
+  return l.org === 'sin-permiso' && e !== 'activo' ? null : e;
+}
+
 /** Lo que dice la pantalla cuando el aviso no anda (null = anda, o no se pudo leer: «no pude leer» no es «no está»). */
 export function motivoDelAviso(e: EstadoAvisoCalendly | null): { chip: string; motivo: string } | null {
   if (e === 'sin-aviso') return { chip: 'Falta el aviso', motivo: 'Lee tu agenda, pero las reservas nuevas no entran: falta el aviso' };

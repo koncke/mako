@@ -1270,5 +1270,45 @@ la cuenta de Calendly de koncke y cargar el tipo de evento de R1.
   `/users/me`, sin imprimirlo), y los únicos otros están en el ws 1 y el ws 4, que son clientes y no se usan para esto. Hasta
   que Martín pegue el suyo, no se puede ver si koncke tiene una suscripción apuntada a MaKo ni cuántas reservas quedaron
   afuera. Con el token, la API dice qué suscripciones hay y si están `active` o `disabled`; los intentos de entrega uno por
-  uno no los da. **Vive en:** app/api/webhooks/calendly/route.ts ·
+  uno no los da.
+
+**La pantalla ya no miente (23/10):** /integraciones pregunta a Calendly, con el token del negocio, si hay un aviso a MaKo
+(lib/calendly-aviso.ts) y, si no anda, baja Calendly a ámbar con su motivo: «Falta el aviso», «Aviso apagado», «Aviso con
+fallas» (reintentando) o «Aviso incompleto» (sin invitee.created). Reglas aprendidas con la revisión adversarial, todas en
+lib/calendly-aviso-reglas.ts con test:
+- **«Es de MaKo» pide camino Y dominio.** Con el camino solo, el webhook de otro CRM, de un túnel o de localhost
+  (`/api/webhooks/calendly` es el camino de cualquier app Next) daba «activo» y la pantalla pintaba verde sin que entrara una
+  reserva. El dominio es cualquiera de `DOMINIOS_DE_MAKO` (el de antes también: el proxy exime a /api/webhooks del 410 y
+  puede seguir entregando), https y sin puerto.
+- **«Activo» no es `state: active`.** Pide además sin `retry_started_at` (Calendly reintenta una entrega que falla antes de
+  apagarla) y con `invitee.created` en sus eventos (sin él entrega cancelaciones y ninguna reserva nueva).
+- **Un 403 de la organización no es «sin aviso».** Un usuario que no administra su organización no ve las suscripciones de
+  alcance organización, y esas son justo las que crea el script. Con 403 sólo un aviso visto y sano (`activo`) es veredicto;
+  lo demás se calla (`estadoDeLasLecturas`). Falló antes: pintaba de ámbar a quien sí tenía el aviso.
+- **No puede colgar la página.** Eran dos viajes en serie a una API ajena con tope por llamada (hasta 8 s de render). Ahora UN
+  tope de 3 s para toda la cadena, el veredicto claro se recuerda 60 s por negocio, y la página lo lanza al principio y lo espera
+  al final. «No pude leer» (null) no se recuerda y no pinta a nadie.
+- **Verde NO prueba que las reservas lleguen.** Dice: token + R1 + aviso sano. No dice que el ruteo (`webhook_routing`)
+  resuelva el tipo de evento de la asesoría, ni que la firma valide, ni que la entrega funcione. La prueba de punta a punta es
+  UNA reserva de prueba que aparezca como lead en el ws 9 (y se cancela). El relevo lo pide así.
+
+**Los scripts, por negocio:** `--ws=N` en scripts/backfill-calendly.ts y scripts/arreglar-webhook-calendly.ts toma el token
+de las credenciales de N y NUNCA el de `.env.local` (con el de otra cuenta, el backfill metería una agenda ajena en el CRM
+de N); `--simulacro` mide sin escribir. Lo que NO era obvio y la revisión adversarial encontró:
+- **Un flag mal escrito caía en silencio al ws 1.** `--ws 9` (con espacio), `--WS=9`, `--dry-run` o `--simulacro=1` se
+  ignoraban: el script corría sobre Mauricio con el token de `.env.local` y ESCRIBÍA (borraba su aviso, rotaba su clave).
+  Los argumentos son estrictos (lib/calendly-scripts-reglas.ts): lo que no se reconoce, o se repite, se rechaza.
+- **«El negocio tiene clave guardada» no prueba que el aviso sea suyo.** Calendly no devuelve la signing key, y una
+  organización puede tener tipos de evento de dos negocios; borrar su único aviso (la dirección es la misma: 409) y guardar la
+  clave nueva sólo en N deja a los otros con 401 y se pierden las reservas de los dos. El freno de `--reemplazar` ahora se
+  decide con datos de Calendly: que el aviso lo haya creado el dueño del token y que ningún tipo de evento de la organización
+  rutee a OTRO negocio (`puedeBorrarAvisos`); si no se pudo leer algo, frena.
+- **El backfill con `--ws` no importa lo vinculado a una etapa de un embudo.** El webhook decide ESAS reservas por la etapa
+  (`rutaDeReserva` + `decidirReserva`: una R2 vinculada no crea nada); el backfill las pasaba por la rama R1 y creaba una R1
+  fantasma por cada una, con el No Show corriendo desde esa fecha. Hoy las salta y las cuenta, para cargarlas a mano.
+- **La R1/R2 se leen con `credWsEstricta`**, como el webhook: con la no estricta una base que tose daba null y una R2 entraba
+  como R1. Y la medición del arreglo ya no lee «0 avisos» cuando la lista falla (403): corta, y mira también los de alcance usuario.
+Los pasos exactos, en docs/relevo/suscripcion.md (punto 3). **Quedó SIN hacer:** el backfill no ubica las reservas de eventos
+vinculados a una etapa (scripts/backfill-calendly.ts, el salto con `rutaDeReserva`); si hace falta, se arma con
+`ubicarReservaVinculada` de lib/agenda-evento-etapa-server.ts, como el webhook. **Vive en:** app/api/webhooks/calendly/route.ts ·
 lib/webhook-routing.ts · lib/compra-plan-reglas.ts (`AGENDA_MAKO`) · app/vsl/Landing.tsx (`CALENDLY_URL`).

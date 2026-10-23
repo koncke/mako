@@ -28,10 +28,23 @@
    evento de koncke/asesoria tal cual figura en Calendly (no el slug `asesoria`: el ruteo compara el nombre o la URI).
    Medido el 23/10: el ws 9 no tiene credenciales ni ruteo de Calendly, así que ninguna reserva de la agenda de MaKo crea
    un lead. **Eso solo no alcanza:** el aviso (la suscripción de webhook) no tiene pantalla en Calendly ni en MaKo; se crea
-   con el token por la API (`scripts/arreglar-webhook-calendly.ts`, hoy fijo al ws 1: hay que pasarlo al ws 9), y pide un
-   plan pago de Calendly. **Y lo agendado antes no entra solo** (Calendly no reenvía avisos viejos y ningún cron lee la
-   agenda): se trae con `scripts/backfill-calendly.ts` (idempotente, sólo completa vacíos, trae las UTM de cada reserva),
-   hoy fijo al ws del dueño y al token de `.env.local`, que NO es el de koncke. Después, la pasarela de MaKo. Hasta entonces (23/10) /planes, /planes/<plan> y «Pasar a
+   con el token por la API, y pide un plan pago de Calendly (si la cuenta es gratuita, NO hay aviso posible: el plan es el
+   backfill). **Y lo agendado antes no entra solo** (Calendly no reenvía avisos viejos y ningún cron lee la agenda).
+   Con el token pegado, en este orden (desde un worktree con `.env.local`; sólo el 3 y el 5 escriben; los scripts rechazan cualquier
+   argumento que no reconocen, así que `--ws=9` va junto):
+   1. `node --conditions=react-server --import tsx scripts/arreglar-webhook-calendly.ts --ws=9 --simulacro` — MIDE: qué
+      avisos a MaKo tiene la cuenta y si Calendly los apagó.
+   2. `node --conditions=react-server --import tsx scripts/backfill-calendly.ts --ws=9 --desde=2026-10-01 --simulacro` —
+      cuántas reservas de la asesoría quedaron afuera y qué haría con cada una (CREA / COMPLETA / NADA).
+   3. Con el OK de Martín (escribe en SU Calendly): el mismo arreglo sin `--simulacro`. Si el aviso lo creó otro usuario de
+      Calendly, o la organización tiene tipos de evento que rutean a OTRO negocio, frena y dice por qué: con `--reemplazar`
+      lo borra, sabiendo que le quita las reservas a ese otro.
+   4. Ver /integraciones?ws=9: Calendly sin ámbar. **Eso NO prueba que las reservas lleguen** (sólo token + R1 + aviso sano):
+      la prueba es UNA reserva de prueba en la asesoría que aparezca como lead en el ws 9, y cancelarla.
+   5. El backfill sin `--simulacro`. Las reservas de tipos de evento vinculados a una etapa las salta y las lista (cargarlas a mano).
+   **Dos manos sobre los dos scripts (23/10):** el `--ws`, `--simulacro` y `--reemplazar` son de este chat (35eb66fc7); sin `--ws` hacen exactamente lo de antes (ws 1 y el token de `.env.local`). El chat de Agenda («varias cuentas
+   de Calendly», fase B parte 1: ee1abc6a9) no los tocó; si su parte 2 los toca, su versión manda y esto se funde sin
+   pelear. Después, la pasarela de MaKo. Hasta entonces (23/10) /planes, /planes/<plan> y «Pasar a
    Pro» en «Tu plan» llevan a la agenda con las UTM, y se vende por llamada (hallazgos: «Sin pasarela, el checkout era un
    callejón»); al conectarla vuelven solos al pago en línea. Además, en Stripe, Billing › Revenue recovery › Retries (Smart
    Retries) y qué pasa al agotarlos (recomendado: dejar la suscripción `past_due` o cancelarla; MaKo pausa igual a los 7 días);
