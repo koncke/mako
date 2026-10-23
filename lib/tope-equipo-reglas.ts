@@ -9,10 +9,10 @@
 // Puro: la ruta le pasa si MaKo le cobra, la capa y cuántos son.
 // =============================================================================
 
-import { cabeOtra, textoTope, topeDe } from './topes-plan';
+import { RUTA_CAMBIAR_PLAN, cabeOtra, textoTope, topeDe } from './topes-plan';
 
-/** Donde se ve el plan y se pasa a Pro. */
-export const HREF_PASAR_A_PRO = '/configuraciones/plan';
+/** Donde se ve el plan y se pasa a Pro: la de Planes, nunca una propia. */
+export const HREF_PASAR_A_PRO = RUTA_CAMBIAR_PLAN;
 
 export type TopeAlInvitar = { ok: true } | { ok: false; tope: number; error: string; pasarAPro: string };
 

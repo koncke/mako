@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HREF_PASAR_A_PRO, topeAlInvitar } from '../lib/tope-equipo-reglas';
-import { textoTope } from '../lib/topes-plan';
+import { RUTA_CAMBIAR_PLAN, textoTope } from '../lib/topes-plan';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -32,7 +32,8 @@ test('1. la regla: Esencial con su dueño ya está lleno; Pro, con 5; sin cobro 
   assert.deepEqual(topeAlInvitar({ cobraMako: false, capa: 'completo', miembros: 9 }), { ok: true });
   assert.deepEqual(topeAlInvitar({ cobraMako: true, capa: null, miembros: 9 }), { ok: true }, 'sin capa, sin tope');
   assert.deepEqual(topeAlInvitar({ cobraMako: true, capa: 'superadmin', miembros: 9 }), { ok: true }, 'una capa que no es un plan');
-  assert.equal(HREF_PASAR_A_PRO, '/configuraciones/plan');
+  assert.equal(HREF_PASAR_A_PRO, RUTA_CAMBIAR_PLAN, 'la ruta de Planes (lib/topes-plan.ts), nunca una propia');
+  assert.doesNotMatch(sinComentarios(leer('lib/tope-equipo-reglas.ts')), /'\/configuraciones\/plan'/, 'la ruta escrita a mano');
 });
 
 test('2. la ruta lo mira SÓLO al invitar, antes de crear la cuenta, y sin poder leer el cobro no frena', () => {
@@ -59,3 +60,4 @@ test('3. el cartel con «Pasar a Pro», en la computadora y en el teléfono', ()
 //   · sin poder leer el cobro, frena                   → 2/1 (2)
 //   · el tope después de crear la cuenta               → 2/1 (2)
 //   · el cartel del teléfono sin «Pasar a Pro»         → 2/1 (3)
+//   · la ruta escrita a mano, no la de Planes          → 2/1 (1)
