@@ -1,19 +1,9 @@
-// =============================================================================
-// /m/second-brain — mientras se arma el mapa: la FORMA de la pantalla, no un spinner
-// =============================================================================
-// `construirCerebro()` son 21 lecturas en paralelo y el layout de d3-force en el server: sin esto, tocar
-// «Second Brain» en More dejaba More congelado hasta que llegaba todo. El buscador, la caja del mapa y una
-// lista; el título grande lo sigue poniendo el shell.
+// /m/second-brain mientras carga: EL loader de las tabs grandes, el mismo de la computadora (app/_ui/CargandoMako.tsx, 23/10/2026).
+// Martín: «Los loader de las tabs o secciones grandes, quiero que sean todos como el de Ops Center. Con la criatura de
+// MaKo», y con una barra que diga que carga. Hasta acá era un esqueleto gris: no se leía como «tocaste y está cargando».
+// ⚠️ Un loading.tsx es un Suspense: va en la lista blanca de tests/layout-sin-suspense.test.ts (/m es privado entero).
+import { CargandoMako } from '@/app/_ui/CargandoMako';
 
-import { SkeletonFilas } from '@/app/m/_ui';
-import './second-brain.css';
-
-export default function SecondBrainCargando() {
-  return (
-    <div aria-busy="true" aria-label="Cargando tu Second Brain">
-      <div className="mk-skel m-second-brain-skel-buscar" />
-      <div className="mk-skel m-second-brain-skel-mapa" />
-      <div className="m-second-brain-skel-lista"><SkeletonFilas filas={4} /></div>
-    </div>
-  );
+export default function Cargando() {
+  return <CargandoMako que="tu Second Brain" alto="calc(100dvh - var(--m-abajo, 72px) - 96px)" />;
 }

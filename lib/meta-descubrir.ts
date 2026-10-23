@@ -6,7 +6,7 @@
 // la página, le pedía literalmente abrir el Explorador de la API Graph y hacer un
 // GET a /me/accounts a mano). De las seis, CINCO salen solas del token principal:
 //
-//   · META_AD_ACCOUNT_ID     → GET /me/adaccounts
+//   · META_AD_ACCOUNT_ID     → GET /me/adaccounts (+ las de sus portafolios: lib/meta-cuentas-portafolio.ts)
 //   · META_PAGE_ID           → GET /me/accounts
 //   · META_PAGE_ACCESS_TOKEN → viene DENTRO de esa misma respuesta (campo access_token)
 //   · META_PIXEL_ID          → GET /{act_id}/adspixels
@@ -21,6 +21,7 @@
 
 import 'server-only';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
+import { cuentasDePortafolios } from './meta-cuentas-portafolio';
 
 const GRAPH = 'https://graph.facebook.com';
 const ver = () => process.env.META_API_VERSION || 'v24.0';
@@ -109,6 +110,9 @@ export async function descubrirMeta(token: string): Promise<Descubrimiento> {
   const cuentas: OpcionCuenta[] = ctas.error ? [] : arr(ctas.body).map((c) => ({
     id: s(c.id), nombre: s(c.name) || s(c.id), activa: Number(c.account_status) === 1, moneda: s(c.currency) || undefined,
   })).filter((c) => c.id);
+  // Y las de sus portafolios que el token lee pero nadie le asignó (business_management, 23/10/2026).
+  // Sin ese permiso no suma nada y no avisa: queda como antes.
+  if (!ctas.error) cuentas.push(...await cuentasDePortafolios((p, q) => get(p, limpio, q), new Set(cuentas.map((c) => c.id))));
   if (ctas.error) avisos.push(`No pudimos listar tus cuentas publicitarias (${ctas.error}).`);
   else if (!cuentas.length) avisos.push('Tu usuario de sistema no tiene ninguna cuenta publicitaria asignada: agrégala en Configuración del negocio → Agregar activos.');
 

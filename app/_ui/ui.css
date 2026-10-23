@@ -2262,3 +2262,39 @@
 :root:not([data-tema="oscuro"]):not([data-tema-candidato]) [data-sidebar] > div {
   border-right: 1px solid var(--sidebar-line);
 }
+
+/* ── CargandoMako (app/_ui/CargandoMako.tsx, 23/10/2026): EL loader de las tabs y secciones grandes ─────────────────
+   La criatura del Ops Center (nace con rebote y flota, como .eo-cria en centro.css) y la barra indeterminada de Linear y
+   Material debajo: una pista y un tramo que la cruza. El fondo tapa al instante; la criatura y la barra aparecen a los
+   150 ms (MS_APARECE), así una carga corta no parpadea. */
+.cm-carga {
+  flex: 1; min-width: 0; width: 100%; display: flex; align-items: center; justify-content: center;
+}
+/* Tapa lo de abajo (un esqueleto) con el fondo, como la capa del Ops Center (.eo-capa). Sin `cubre`, el fondo es el de la
+   pantalla: en /m el fondo no es --surface y una caja blanca se notaría. */
+.cm-carga--cubre { position: absolute; inset: 0; z-index: 20; background-color: var(--surface); }
+.cm-carga__centro {
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+  animation: cm-aparece .2s ease-out .15s both;
+}
+.cm-carga__cria { display: flex; animation: cm-nace .5s cubic-bezier(.34, 1.56, .64, 1) .15s both, cm-flota 3.2s ease-in-out .65s infinite; }
+.cm-carga__cria .mun-cuerpo { animation: none; }
+.cm-carga__pista {
+  position: relative; width: 88px; height: 3px; border-radius: 999px; overflow: hidden;
+  background: color-mix(in srgb, var(--mako) 22%, transparent);
+}
+.cm-carga__pista--sola { width: 100%; max-width: 160px; margin: 24px auto; animation: cm-aparece .2s ease-out .15s both; }
+.cm-carga__tramo {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 40%; border-radius: inherit;
+  background: var(--mako); animation: cm-corre 1.15s cubic-bezier(.65, 0, .35, 1) infinite;
+}
+@keyframes cm-aparece { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cm-nace { 0% { opacity: 0; transform: scale(.94); } 45% { opacity: 1; transform: scale(1.07); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes cm-flota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes cm-corre { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+@keyframes cm-late { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .cm-carga__cria { animation: cm-aparece .2s ease-out .15s both; }
+  /* Quieta, la barra igual tiene que decir «cargando»: late en vez de correr. */
+  .cm-carga__tramo { width: 100%; animation: cm-late 1.4s ease-in-out infinite; }
+}
