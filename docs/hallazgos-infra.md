@@ -37,6 +37,62 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO: el `cache()` de React no memoiza fuera de un render (23/10/2026)
+
+**Síntoma (Martín):** «Al abrir Automations tarda mucho… Debería ser más rápido todo». Medido en producción
+(request-logs de Vercel, 8 h): `/api/auth/me` p50 **4,8 s** —con la función CALIENTE, 4,4-4,9 s en cada pedido, y la
+pide el layout en cada carga— y `/api/chat-agent/secuencias` p50 3,0 s, p90 **15 s** (la pantalla de Automations no se
+dibuja hasta que contesta: usable a los 15 s).
+
+**El diagnóstico obvio era otro:** arranques en frío (`[credenciales] boot: listo en 1595ms` aparece en los logs) o
+consultas pesadas. No: `functionStartType: "hot"` en todas, y las consultas de a una son baratas.
+
+**La causa:** `getUsuarioActual` (lib/auth.ts) está envuelta en `cache()` de React, que SÓLO memoiza dentro de un render
+de React (páginas, layouts). En una ruta /api (y en una server action) no hay render y no memoiza nada. Y cada
+`getTenantDb()` → `getWorkspaceActual()` → `getUsuarioActual()` vuelve a leer `usuarios` y la fecha del 2FA. Medido con
+`scripts/consultas-por-pedido.mts` (imita la sesión con las mismas lecturas, sin fabricar un token):
+
+| pedido | antes | después |
+|---|---|---|
+| /api/auth/me | 41 idas a la base, sesión leída 19 veces, 9,5 s desde acá | 5 idas, 1 vez, 0,96 s |
+| /api/chat-agent/secuencias | 150 idas, 61 veces, 27,9 s desde acá | 30 idas, 1 vez, 2,1 s |
+
+(Desde la PC cada ida son ~230 ms; desde iad1, ~97 ms. La respuesta, comparada byte a byte, es la misma.)
+
+**El arreglo:** `enElPedido` (lib/sesion-por-pedido.ts) memoiza la sesión con un `WeakMap` cuya clave es el objeto de
+cookies del pedido. En Next 16.2.6 `cookies()` devuelve el MISMO objeto durante todo el pedido (en una ruta /api es
+`userspaceMutableCookies`; ver `node_modules/next/dist/server/request/cookies.js`, `makeUntrackedCookies`) y uno nuevo
+en el siguiente. La segunda clave es el valor del token: un pedido que cambia la cookie de sesión (un login) vuelve a
+leer. Lo fija `tests/rendimiento-pedido.test.ts`.
+
+**La regla que queda:** en una ruta /api o una server action, **`cache()` de React no deduplica nada**. Lo que se lee
+muchas veces por pedido (sesión, workspace, settings) se memoiza por el objeto de cookies, como `enElPedido`. Sigue
+abierto lo mismo para `app_settings` y las credenciales (~90 consultas por turno de Offer, entrada del 22/10).
+
+**Lo que quedó SIN hacer, con dónde vive:**
+- **La región de las funciones** (vercel.json no fija `regions`; corren en iad1 y la base está en us-west-2, ~97 ms por
+  ida). Con `"regions": ["pdx1"]` cada consulta en serie bajaría a ~5 ms en TODA la app. Es una decisión de infra, del
+  Cerebro y de Martín: se planteó el 23/10 y no se aplicó.
+- `/api/auth/me` todavía son 5 idas y la pide el layout en cada carga: podría viajar con el primer cuadro.
+- Las pantallas que esperan en serie en el SERVER (render de página): /plan (`app/plan/page.tsx`, ~10 esperas y el
+  autocompletado que ESCRIBE en el render), /dashboard (y la moneda de Meta en el render, `lib/moneda-meta.ts:81`),
+  /second-brain (`page.tsx:41-59`), /m/operaciones sin loading.tsx. Medido: /plan p50 1,6 s, /dashboard 1,7 s,
+  /second-brain 2,1 s, /crm 2,0 s (p90 5,2 s).
+- Las server actions del Ops Center hacen COLA (Next corre una a la vez por cliente): `pushesCentroAction` espera a la
+  API de Vercel hasta 8 s y la Ticketera y Uso de IA quedan detrás (app/admin/operaciones/useCentro.ts:361-368). Se le
+  pasó al chat del Ops Center: las LECTURAS van por GET.
+
+**Medir antes de tocar:** `scripts/medir-rendimiento.mts <ws> <pantalla>` cronometra cada lectura de una pantalla en el
+server; `scripts/consultas-por-pedido.mts <email> <ruta>` cuenta idas a la base y lecturas de la sesión de UN pedido.
+En producción, la API de request-logs (`requestDurationMs` y `functionEvents[].functionStartType`) es la verdad.
+
+⚠️ **`/tmp` es COMPARTIDO entre las sesiones de la PC.** Un `mv archivo /tmp/pl.bak` que falló («Device or resource
+busy») y el `mv /tmp/pl.bak archivo` de vuelta trajeron el `pl.bak` de OTRA sesión (un archivo de AI Avatar) a mi
+worktree; se devolvió a su lugar. Las copias de una rotura van al scratchpad propio, nunca a `/tmp`.
+
+*23/10/2026, chat «Rendimiento y loaders» (claude2).*
+
+
 ## `/.well-known/` no se sirve: el proxy lo manda a /login (14/10/2026)
 
 **Síntoma (anticipado, sin pasar todavía):** para publicar MaKo en Play Store (TWA) y en el App Store, el dominio tiene
