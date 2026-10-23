@@ -167,3 +167,54 @@ export async function iniciarCompraDePlan(p: PedidoCompra): Promise<ResultadoCom
     return { ok: true, link: r.link };
   });
 }
+
+/**
+ * VOLVER A MaKo (23/10/2026): quien tuvo un plan que terminó (se dio de baja, o la pasarela dejó de cobrar) lo
+ * reactiva desde /cuenta-pausada o «Tu plan», con su misma pasarela y el precio de HOY de su plan. Es una suscripción
+ * nueva atada a SU negocio (`alta_ws`, sin `alta_capa`: no crea otra cuenta). Con deuda, primero la deuda
+ * (lib/plan-deuda.ts): quien llama lo decide con `pagarDeuda`.
+ */
+export async function reactivarPlan(ws: number, p: { email: string; nombre: string | null }): Promise<ResultadoCompra> {
+  const plataforma = await wsSuperAdmin();
+  if (ws === plataforma) return { ok: false, status: 400, error: 'La cuenta de MaKo no tiene plan.' };
+  const db = getSupabaseServer();
+  const { data, error } = await db.from('cobros').select(COLS_COBRO).eq('workspace_id', plataforma).eq('alta_ws', ws)
+    .order('created_at', { ascending: false }).limit(20);
+  if (error) return { ok: false, status: 503, error: 'No pudimos leer tu plan. Prueba otra vez en un minuto.' };
+  const cobros = (data ?? []).map((x) => cobroDeFila(x as Record<string, unknown>));
+  const base = cobros.find((c) => c.estado === 'pagado' || c.estado === 'reembolsado');
+  if (!base || !base.lead_id) return { ok: false, status: 404, error: 'Tu plan no se cobra en línea: escríbenos y lo reactivamos.' };
+  // Una suscripción que la pasarela SIGUE cobrando no se duplica: sería cobrar dos veces el mismo mes.
+  if (cobros.some((c) => c.tipo === 'suscripcion' && c.estado === 'pagado' && c.suscripcion_estado !== 'cancelada')) {
+    return { ok: false, status: 409, error: 'Tu suscripción sigue activa: no hace falta reactivarla.' };
+  }
+  const desde = new Date(Date.now() - 23 * 3600_000).toISOString();
+  const vivo = cobros.find((c) => c.tipo === 'suscripcion' && (c.estado === 'pendiente' || c.estado === 'fallido') && c.created_at >= desde && c.creado_por === `reactivar:${ws}`);
+  if (vivo) return { ok: true, link: linkDelCobro(vivo.token) };
+  // El plan que tenía (mig 0330; sin ella, el precio del último cobro).
+  const { data: conPlan } = await db.from('cobros').select('plan_mako').eq('workspace_id', plataforma).eq('alta_ws', ws)
+    .not('plan_mako', 'is', null).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  const planId = (conPlan as { plan_mako?: string | null } | null)?.plan_mako ?? null;
+  const plan = planId ? (await planesMako()).find((x) => x.id === planId) ?? null : null;
+  const monto = (plan ? precioEn(plan, base.moneda) : null) ?? base.monto;
+  const montoUsd = plan?.precioUsd ?? base.monto_usd;
+  return runWithWorkspace(plataforma, async () => {
+    const r = await crearCobro(plataforma, {
+      leadId: base.lead_id!, pasarela: base.proveedor, tipo: 'suscripcion', concepto: plan ? conceptoDelPlan(plan) : base.concepto,
+      monto, moneda: base.moneda, montoUsd, email: p.email, nombre: p.nombre ?? base.nombre, creadoPor: `reactivar:${ws}`,
+    });
+    if (!r.ok) {
+      console.error(`[compra-plan] reactivar ws=${ws}: ${r.error}`);
+      return { ok: false, status: 502, error: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' };
+    }
+    // ⚠️ ATADO A SU NEGOCIO ANTES DE DEVOLVER EL LINK: sin `alta_ws` el pago no le devolvería el acceso.
+    const { error: e2 } = await getSupabaseServer().from('cobros').update({ alta_ws: ws, ...(planId ? { plan_mako: planId } : {}) })
+      .eq('id', r.cobro.id).eq('workspace_id', plataforma);
+    if (e2) {
+      console.error(`[compra-plan] reactivar ws=${ws}: no pude atar el cobro ${r.cobro.id}: ${e2.message}`);
+      return { ok: false, status: 502, error: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' };
+    }
+    await logLeadEvent(base.lead_id!, 'Compra de plan', 'Abrió el pago para reactivar su plan.', 'Checkout de MaKo').catch(() => {});
+    return { ok: true, link: r.link };
+  });
+}

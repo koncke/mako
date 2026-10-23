@@ -28,7 +28,8 @@ const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : typ
 const num = (v: unknown): number | null => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 const fallo = <T>(x: { status: number; error: string }): R<T> => ({ ok: false, status: x.status, error: x.error });
 
-async function llamar(
+/** Exportada para lib/pasarela-plan-api.ts (la suscripción de MaKo): el mismo pedido, la misma versión y los mismos errores. */
+export async function llamar(
   token: string,
   metodo: 'GET' | 'POST' | 'PUT',
   ruta: string,

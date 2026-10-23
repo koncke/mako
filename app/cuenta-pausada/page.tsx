@@ -13,6 +13,9 @@ import { EMAIL_MAKO } from '@/lib/app-url';
 import { ButtonLink } from '@/app/_ui/Button';
 import { contextoDeAgencia } from '@/lib/agencia';
 import { SalirDeLaCuenta } from './SalirDeLaCuenta';
+import { PagarPlan } from './PagarPlan';
+import { deudaDe } from '@/lib/plan-deuda';
+import { formatoMonto } from '@/lib/pasarela-moneda';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -25,12 +28,20 @@ export default async function CuentaPausadaPage() {
   // La AGENCIA que miraba a un cliente pausado no está «pausada»: el pausado es el cliente, y ella vuelve a lo suyo.
   const esAgencia = cliente != null;
   const t = textoDelCorte(corte?.vigente ? corte : null, { paraAgencia: esAgencia });
+  // PAGAR Y VOLVER (23/10/2026): con un corte por la pasarela, lo que se debe y el botón (lib/plan-deuda.ts). La agencia que
+  // mira a un cliente no paga desde acá: lo resuelve en MaKo Partners. Una pausa a mano (sin corte) sigue siendo «escríbenos».
+  const porPago = !esAgencia && !!corte?.vigente && corte.motivo !== 'renovacion-sin-autorizar' && corte.motivo !== 'devuelto';
+  const d = porPago ? await deudaDe(ws).catch(() => null) : null;
+  const debe = d?.deuda?.monto != null && d.deuda.moneda ? formatoMonto(d.deuda.monto, d.deuda.moneda) : null;
   return (
     <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: '24px 16px', background: 'var(--bg)' }}>
       <section style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '28px 24px', textAlign: 'center' }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{t.titulo}</h1>
         <p style={{ margin: '12px 0 22px', fontSize: 'var(--fs-md)', lineHeight: 1.5, color: 'var(--dim)' }}>{t.detalle}</p>
-        <ButtonLink href={`mailto:${EMAIL_MAKO}`} variant="primary">Escribir a MaKo</ButtonLink>
+        {debe && <p style={{ margin: '-8px 0 18px', fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--ink)' }}>Pendiente: {debe}</p>}
+        {porPago
+          ? <PagarPlan accion={d?.deuda ? 'deuda' : 'reactivar'} texto={d?.deuda ? 'Pagar y volver a entrar' : 'Reactivar mi plan'} />
+          : <ButtonLink href={`mailto:${EMAIL_MAKO}`} variant="primary">Escribir a MaKo</ButtonLink>}
         <div style={{ marginTop: 14 }}><SalirDeLaCuenta esAgencia={esAgencia} /></div>
       </section>
     </main>
