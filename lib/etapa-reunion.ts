@@ -277,7 +277,7 @@ export function avisoCambioDeTipo(i: {
     out.push('Cada lead que pase por aquí lleva la fecha y la asistencia de la reunión.');
     out.push(c.sinLugar.includes(i.columna.key)
       ? AVISO_SIN_LUGAR
-      : 'Le puedes asignar un evento de Calendly o Cal.com.');
+      : 'Le puedes vincular un evento de Calendly o Cal.com.');
   }
   if (baja) {
     out.push('Deja de llevar la fecha y la asistencia de la reunión.');

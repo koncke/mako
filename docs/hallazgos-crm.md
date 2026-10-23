@@ -10351,3 +10351,75 @@ múltiple, así que el 4 es de la computadora. Del 5, el bloque azul del teléfo
 **Vive en:** app/crm/CrmBoard.tsx (`ALTO_TABLERO`, `bloquesDeReuniones`, la casilla en `renderColumn`) · app/crm/campo-inline.ts (`arrobaInstagram`) ·
 app/crm/ReunionesProximas.tsx · app/crm/seleccion-columna.ts · tests/crm-feedback-22-10.test.ts
 *22/10/2026, chat «CRM» (claude3).*
+
+## «Vincular evento» y «Vincular cobro» lentos: tres APIs en fila, y otra vez en cada clic (22/10/2026, segunda vuelta)
+
+- **Síntoma** (Martín, con capturas del ws1): abrir el pop-up, vincular y «Conectar Cal» tardan mucho.
+- **Causa, leída en el código** (no se pudo medir en producción: la PC estaba al 56 % de CPU y el Chrome se colgaba
+  midiendo). `listarEventosDeAgenda` (lib/agenda-evento-etapa-server.ts) le pregunta a Calendly, después a Cal.com y
+  después a Google, uno detrás del otro, y el pop-up no dibujaba nada hasta la última respuesta. Además, cada clic
+  (vincular, quitar, crear, editar) volvía a pedir la agenda entera: las tres APIs otra vez. Y `prepararVinculo` y
+  `vincularEvento` vuelven a listar los eventos del proveedor para validar.
+- **Lo que quedó:** lo vinculado a esa etapa sale de la base (`vinculadosDeEtapaAction`, una lectura) y se ve al toque,
+  con filas grises mientras llega la agenda. Cada cambio pone en su lugar lo que contestó el server (`ponerVinculo`), sin
+  releer. El pop-up de cobro hace lo mismo.
+- **Regla:** un pop-up que depende de APIs de terceros dibuja primero lo que ya sabe la base. Después de escribir, no
+  vuelve a leer lo de afuera: pone lo que devolvió la escritura.
+- **El aviso del «⋯» (reunión sin evento, Ganado sin cobro) lee SÓLO la base** (lib/vinculos-de-columnas.ts): dos
+  lecturas en la primera ola de app/crm/page.tsx, nunca las APIs. Si no puede leer, devuelve `null` y no avisa: un aviso
+  que miente es peor que ninguno. Se actualiza solo, porque las acciones hacen `revalidatePath('/crm')`.
+- **Lo que MaKo propone tiene que decir QUÉ toca.** `cuentas_cobro_etapa` y `desvincular_cobro_etapa` reciben sólo un
+  `vinculoId`, y el «sí» decía «ese producto». Ahora `preparar` lee el vínculo (`vinculoPorId`, exportado de
+  lib/cobro-etapa-server.ts) y nombra el producto y el CRM; un id que no existe no llega al «sí».
+  `vincular_cobro_etapa` frena un producto sin precio ANTES del «sí» (antes fallaba después).
+- **Lo que encontró la revisión adversarial del cobro (23/10/2026):**
+  - *Un producto cobra en UN solo CRM* (índice único de la 0326), pero el catálogo de `ver_cobro_etapa` sólo miraba los
+    vínculos de ESE CRM: MaKo ofrecía un producto que ya cobraba en otro, y el «sí» terminaba en error. Ahora `preparar`
+    lee todos los vínculos del negocio (`vinculosDelNegocio`), dice dónde cobra hoy y frena un CRM sin Ganado.
+  - *Las tres que escriben son de plata* (`plata: true`): deciden si un pago gana el trato y arma su plan de pagos. Por
+    WhatsApp, un «ok, después lo veo» no las confirma.
+  - *El aviso del «⋯» callaba con la pasarela desconectada:* el vínculo sigue, pero ningún pago pasa a Ganado.
+    `cobraDeVerdad` pide una cuenta del vínculo TODAVÍA conectada.
+  - *Crear un producto y vincularlo podía duplicarlo:* si vincular se caía, el formulario seguía abierto y reintentar
+    creaba otro igual. Se cierra antes de vincular.
+- **El diagnóstico obvio era el equivocado:** la batería del Ops Center se cayó porque «cambia el teléfono del lead Juan»
+  perdía su herramienta. No era la del teléfono: era una op NUEVA que decía «cambiar» en el título y le ganaba el lugar
+  en el presupuesto. Es la regla de AGENTS.md (palabras del clasificador): se ve sólo corriendo
+  `tests/ops-center-bateria.test.ts` SOLA después de declarar una op.
+
+**Sin hacer:**
+- La velocidad del server, en lib/agenda-evento-etapa-server.ts: las tres agendas en paralelo, una caché corta por
+  negocio que se borre al crear, editar o vincular, y que vincular no vuelva a listar del proveedor. Espera la firma
+  multicuenta de Cobros (`EventoDeAgenda.cuenta`, `crearEventoDeAgenda({ proveedor, cuenta?, … })`) para no pisarse.
+- La edición completa del evento (descripción, ubicación, disponibilidad, las preguntas en Cal.com) y elegir la cuenta
+  en el pop-up: lib/calendly-agenda.ts, lib/calcom.ts, app/crm/EventosDeEtapaModal.tsx y `editar_pagina_reserva`. Lo que
+  deja cada API está en docs/hallazgos-integraciones.md.
+- Medir los tiempos en producción.
+- Cuando MaKo vincula algo desde el panel del CRM, el aviso del «⋯» sigue hasta recargar: el panel no refresca el
+  tablero después de una acción (tampoco con los eventos). Vive en app/crm/PanelMakoCrm.tsx.
+
+**Vive en:** app/crm/EventosDeEtapaModal.tsx · app/crm/CobroDeEtapaModal.tsx · app/crm/vincular-etapa.ts (la hoja de los
+dos, computadora y teléfono) · lib/vinculos-de-columnas.ts · lib/api-mako/areas/crm.run.ts (`vinculoDeCobro`) ·
+tests/crm-vincular-22-10.test.ts
+*22/10/2026, chat «CRM» (claude3).*
+
+## «Conectar Meta» desde el buscador de Instagram: el modal no puede vivir en un botón que desaparece (22/10/2026)
+
+Martín: «La búsqueda de Instagram no funciona porque tengo que conectar Meta. No entiendo eso». Tres trampas del arreglo:
+
+- **`BotonIntegracion` guarda el modal ADENTRO del botón.** En el buscador, el clic le saca el foco al campo, la lista se
+  cierra (y en la ficha, salir del campo cierra la edición), el botón se desmonta y el modal se va con él. Va
+  `useConectarIntegracion`, con el modal fuera del botón.
+- **El blur del clic confirmaba la edición de la ficha.** El botón hace `onMouseDown` con `preventDefault` y marca
+  `conectandoRef` antes del blur. ModalShell no devuelve el foco al cerrarse: lo devuelve el buscador.
+- **Recién conectado, la caché seguía diciendo «no tiene».** La ruta guarda por negocio `ig:<ws>` (la cuenta de Instagram
+  de la página) y `mx:<ws>` (por qué Meta no sirve). Después de conectar se pregunta con `?estado=1&fresco=1`, que la
+  olvida.
+- **`fresco` sin tope era una puerta para pegarle a Meta en bucle** (Integración, 23/10/2026): cualquiera que lo mandara
+  repetido volvía a preguntar sin esperar, y borraba la pausa de un LÍMITE de Meta, que existe justamente para no trabar
+  el token del negocio. Ahora: una vez cada 10 minutos por negocio y 20 por día (`tocaRefrescar`), y la pausa de un
+  límite no se borra nunca (`clavesQueOlvida`). El tope vive en la memoria del proceso, como la caché.
+
+**Vive en:** app/crm/new/InstagramBuscador.tsx · app/api/crm/instagram-buscar/route.ts · app/crm/lead-view/CampoEditable.tsx ·
+app/crm/campo-inline.ts (`instagramDeLaFicha`) · tests/crm-instagram-meta-22-10.test.ts
+*22/10/2026, chat «CRM» (claude3).*
