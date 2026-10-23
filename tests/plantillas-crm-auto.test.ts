@@ -272,7 +272,13 @@ test('4b. «Una Reunión Sin Marcar» = T1: a las 3 h de la reunión avisa si na
   const fila = (o: FilaLeadCatalogo = {}): FilaLeadCatalogo => ({ estado_lead: 'abierto', junta_1_at: isoDe(REUNION), fecha_junta_1: '2026-10-16', ...o });
   const avisa = (f: FilaLeadCatalogo) => correr(pasos, CRON('agenda'), { etapa: 'agenda', agendo: true, creadoMs: T0, fila: f }, T0, T0 + 10 * DIA);
   const sin = avisa(fila());
-  assert.deepEqual(sin.map((h) => h.op), [OP_AVISAR]);
+  // Dos avisos si nadie marca (23/10/2026: la pregunta no muere en silencio): a las 3 h y a los 2 días; nunca un tercero.
+  // Roturas (base 10/0): sin el segundo aviso → 9/1; sin «Sigue en la etapa» en las dos condiciones → 9/1.
+  assert.deepEqual(sin.map((h) => h.op), [OP_AVISAR, OP_AVISAR]);
+  assert.equal(correr(pasos, CRON('agenda'), { etapa: 'agenda', agendo: true, creadoMs: T0, fila: fila() }, T0, REUNION + 3 * H + 2 * DIA - 60_000).length, 1, 'el segundo aviso sale antes de los 2 días');
+  assert.equal(correr(pasos, CRON('agenda'), { etapa: 'agenda', agendo: true, creadoMs: T0, fila: fila() }, T0, REUNION + 3 * H + 2 * DIA).length, 2);
+  // Si ya no está en la etapa de reunión (lo movieron), no se le pregunta.
+  assert.deepEqual(correr(pasos, CRON('agenda'), { etapa: 'facturando', agendo: true, creadoMs: T0, fila: fila() }, T0, T0 + 10 * DIA), []);
   // A las 3 h EXACTAS después de la reunión (`horasPostReunion`): el motor, un minuto antes no; un minuto después, sí.
   const motor = (ms: number, o: Partial<AutoLead> = {}) => planLeadAuto(autoLead({ pipeline_stage: 'agenda', junta_1_at: isoDe(REUNION), fecha_junta_1: '2026-10-16', ...o }), '2026-10-16', ms).some((a) => a.regla === 'T1');
   assert.equal(motor(REUNION + 3 * H - 60_000), false);

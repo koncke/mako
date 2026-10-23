@@ -473,6 +473,11 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     // En Automations no hay una pieza que proponga ni una que busque en Fathom: la tarjeta «MaKo en WhatsApp» le pide a
     // una persona que la marque, que es la confirmación. A las 3 h de la reunión (`horasPostReunion`), sólo a los
     // abiertos. Al activarla también avisa de las reuniones de antes que siguen sin marcar: lo vencido sale enseguida.
+    // ⚠️ LA PREGUNTA NO MUERE EN SILENCIO (23/10/2026, el Cerebro: «una pregunta que no se responde nunca es peor que la
+    // marca automática que reemplaza»). La salida, en los dos sentidos, es la ficha del link (asistió sí / no): MaKo en el
+    // grupo no sabe de qué lead habla una respuesta a este aviso (lib/mako-doer-in.ts lee el texto, no el mensaje citado).
+    // El aviso no deja nada pendiente; si a los 2 días sigue sin marcar, avisa UNA vez más y termina. Nadie decide por la
+    // persona: no hay No Show automático.
     id: 'reunion-sin-marcar',
     nombre: 'Una Reunión Sin Marcar',
     emoji: '❓',
@@ -482,8 +487,11 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     cron: { pide: 'etapa_venta', ayuda: 'La etapa de quien agendó una reunión.' },
     pasos: [
       despuesDe('rm_e', 3 * HORA, 'reunion', 'rm_c'),
-      condicion('rm_c', [[[SIN_MARCAR, ABIERTO], 'rm_mk']], null),
-      mako('rm_mk', '❓ ¿{{nombre_completo}} fue a su reunión? Nadie lo marcó todavía: márcalo en su ficha.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', null),
+      condicion('rm_c', [[[SIN_MARCAR, ABIERTO, SIGUE_EN_LA_ETAPA], 'rm_mk']], null),
+      mako('rm_mk', '❓ ¿{{nombre_completo}} fue a su reunión? Nadie lo marcó todavía: márcalo en su ficha (fue o no fue).\n📱 {{lead_telefono}}\n👉 {{link_lead}}', 'rm_e2'),
+      esperar('rm_e2', 2 * DIA, 'rm_c2'),
+      condicion('rm_c2', [[[SIN_MARCAR, ABIERTO, SIGUE_EN_LA_ETAPA], 'rm_mk2']], null),
+      mako('rm_mk2', '❓ {{nombre_completo}} sigue sin marcar: ¿fue a su reunión? Márcalo en su ficha para que siga su camino.\n👉 {{link_lead}}', null),
     ],
   },
   {
