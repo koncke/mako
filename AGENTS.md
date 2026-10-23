@@ -2359,6 +2359,11 @@ lead —respuestas automáticas de WhatsApp, AI Steps de Automations, crons, web
 API, o por el crédito donde está asignado (lib/credito-negocio.ts). A la PC llega sólo `turnoApp` (lib/mako-turno-app.ts);
 una entrada nueva que lo llame se suma en tests/ia-pc-nunca-a-leads.test.ts con la sesión de su persona, y si corre sola, no.
 
+**Y todo .exe que publicar-binarios sube se firma con `firmar` (scripts/ia-pc/firmar-windows.mjs) DESPUÉS del último cambio
+a sus bytes y antes de subirlo.** «Firmado» es `peFirmado` y `peConMarcaDeTiempo` sobre lo que vuelve, nunca el código de
+salida de CodeSignTool. Las claves de SSL.com van en `%USERPROFILE%\.mako-firma.env`, nunca en el .env.local (OneDrive lo
+sube), en la consola ni en un mensaje de error (tests/ia-pc-firma.test.ts).
+
 # NINGUNA pantalla se diseña de cero: se COPIA de una app que ya resolvió eso
 
 Pedido de Martín, textual, el 15/10/2026, después de rechazar dos pantallas seguidas (la de

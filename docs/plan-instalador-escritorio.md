@@ -54,14 +54,53 @@ bash que baja `mako-pc`, lo empareja con un código, pregunta «¿Es tu negocio?
 
 ## Lo que cuesta plata (lo decide Martín)
 
-- **Firmar el instalador de Windows.** Sin firma, Windows muestra «Windows protegió su PC» y hay que tocar «Más información
-  → Ejecutar de todas formas» (anda, pero asusta). Las opciones, con precios a verificar antes de comprar:
-  - Microsoft **Trusted Signing** (Artifact Signing): unos US$10 por mes; pide validar la identidad (empresa o persona) y no
-    está disponible en todos los países.
-  - Un certificado **OV** de una autoridad (Sectigo, Certum, DigiCert…): unos cientos de dólares por año; la reputación ante
-    SmartScreen se gana con las descargas.
+- **Firmar el instalador de Windows: DECIDIDO el 23/10, SSL.com IV a nombre de Martín.** No hay empresa registrada, y
+  Azure Artifact Signing sólo acepta empresas de algunos países. Cuesta unos US$309 el primer año: el certificado US$129 por
+  año y la firma en la nube (eSigner, plan 1) US$180 por año, con 240 firmas (cada versión gasta 2). Sin firma, Windows
+  muestra «Windows protegió su PC» (anda con «Más información → Ejecutar de todas formas», pero asusta). Lo que hace Martín
+  está en «Firmar: lo que hace Martín», abajo.
 - **Firmar y notarizar la app de la Mac.** Sin eso, macOS no la deja abrir (hay que ir a Ajustes › Privacidad y seguridad ›
-  «Abrir igual»). Hace falta la cuenta de **Apple Developer** (US$99 por año).
+  «Abrir igual»). Hace falta la cuenta de **Apple Developer** (US$99 por año, a nombre de Martín). Hasta que Martín conteste,
+  la Mac sale sin firmar, con esa línea en la pantalla.
+
+## Firmar: lo que hace Martín (SSL.com IV + eSigner)
+
+Lo compra y lo valida Martín: nosotros no cargamos tarjetas, documentos ni claves. Los precios se confirman en el carrito
+(consultados el 23/10/2026).
+
+1. **Comprar.** En ssl.com › Code Signing, el certificado **«IV Code Signing»** (Individual Validation, a su nombre), por
+   1 año. Sumar **eSigner**, la firma en la nube, en el plan **Tier 1 anual** (240 firmas). El token USB no sirve: no
+   firma desde un script. Los primeros 30 días de eSigner son gratis.
+2. **Validar la identidad.** En el pedido (ssl.com › Dashboard › Orders), subir:
+   - un documento con foto vigente (DNI o pasaporte), **frente y dorso**;
+   - una **selfie con el documento en la mano**, con la cara y los datos legibles.
+   Si SSL.com pide algo más (una llamada, otro dato), lo contesta Martín.
+3. **Activar eSigner**, cuando el pedido diga «eSigner Ready»:
+   - crear un **PIN de 4 dígitos**;
+   - elegir el código **QR**, con una app de autenticación (no SMS: el SMS no sirve para firmar desde un script).
+   El QR aparece **una sola vez**. Hay que escanearlo con la app Y copiar el **«secret code»** que sale al lado (es el
+   secreto TOTP). El PIN y el secret code van a su gestor de contraseñas.
+4. **Bajar CodeSignTool** (gratis): el .zip para Windows de ssl.com (trae su propio Java), descomprimido en una carpeta, por
+   ejemplo `C:\herramientas\CodeSignTool`.
+5. **Dejar las claves en esta PC.** Martín crea el archivo `C:\Users\marti\.mako-firma.env`. Va fuera de OneDrive y NUNCA
+   en el `.env.local` del clon: el Escritorio está en OneDrive, que lo sube a la nube, y `publicar-binarios` corta si las
+   encuentra ahí. El archivo:
+   ```
+   CODESIGNTOOL=C:\herramientas\CodeSignTool
+   SSL_COM_USUARIO=<el usuario de ssl.com>
+   SSL_COM_CLAVE=<la contraseña de ssl.com>
+   SSL_COM_TOTP=<el secret code del paso 3>
+   ```
+   Si la cuenta tiene más de un certificado, también `SSL_COM_CREDENCIAL=<el id>`. El id sale de
+   `CodeSignTool get_credential_ids`.
+6. **Avisar al Cerebro.** De ahí en más, del lado nuestro:
+   - `publicar-binarios --probar-firma` en seco firma sin subir nada (gasta 2 firmas);
+   - con el OK de Martín, `--aplicar` firma el programa y el instalador antes de subirlos;
+   - si la firma falla, no sube nada.
+   Para comprobarlo: clic derecho en `MaKo-Setup-<versión>.exe` › Propiedades › Firmas digitales tiene que decir «Martín
+   Koncke», con marca de tiempo.
+
+El aviso de SmartScreen no se va enseguida: Windows arma la reputación con semanas de instalaciones limpias.
 
 ## Por partes
 
@@ -74,7 +113,9 @@ bash que baja `mako-pc`, lo empareja con un código, pregunta «¿Es tu negocio?
 3. **La pantalla nueva** de «Conectar mi computadora» (abrir, o descargar) y la página que abre el enlace al terminar.
 4. **Claude Code sin terminal** (según lo que se mida).
 5. **El `.pkg` de la Mac.**
-6. **Firmar** (con el OK de Martín, si se compra).
+6. **Firmar.** Windows: el lado nuestro está HECHO (rama firma-2310, scripts/ia-pc/firmar-windows.mjs,
+   tests/ia-pc-firma.test.ts). Espera el certificado de Martín (los pasos, arriba). La Mac: espera la respuesta por Apple
+   Developer.
 7. Subir la versión (`VERSION` del programa y `VERSION_PC` juntos, en el commit del instalador: hasta entonces nadie corre
    `publicar-binarios` desde main, que pisaría la 0.3.2; `publicar-binarios --aplicar` con el OK de Martín) y la prueba de punta a punta en una
    computadora de verdad con el ws3.

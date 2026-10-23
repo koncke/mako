@@ -6,6 +6,8 @@
 //   npx tsx --conditions=react-server scripts/ia-pc/publicar-binarios.mts --aplicar --env <.env.local>  ← sube
 // Un worktree no trae `.env.local`: va el del clon (C:/Users/marti/OneDrive/Escritorio/dashboard-marketing-main/
 // dashboard-marketing/.env.local). Sin `--env` y sin `.env.local` en la carpeta, el script lo dice y sale.
+// La firma de Windows (cuando Martín tenga el certificado de SSL.com) sale de %USERPROFILE%\.mako-firma.env
+// o de `--firma <ruta>`: los pasos en docs/plan-instalador-escritorio.md › Firmar. Sin ese archivo, sube sin firmar.
 //
 // Un ejecutable de un archivo por sistema (Bun compila para los tres desde esta PC), comprimido: el de Windows mide 118
 // MB y comprimido 41, y Supabase corta en 50 por archivo (medido el 21/10/2026). El instalador
@@ -19,7 +21,7 @@
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -34,6 +36,22 @@ if (!existsSync(ENV)) {
 }
 (dotenv.default ?? dotenv).config({ path: ENV, quiet: true });
 const APLICAR = process.argv.includes('--aplicar');
+// La FIRMA de Windows (SSL.com eSigner, scripts/ia-pc/firmar-windows.mjs). Las claves van en un archivo FUERA de OneDrive
+// (--firma <ruta>, si no %USERPROFILE%\.mako-firma.env): el .env.local del clon está en el Escritorio, que OneDrive sube.
+// Sin ese archivo se arma sin firmar, como hasta la 0.4.2; a medio cargar, o con las claves en el .env.local, no se arma.
+const { firmaDeEstaPc, firmarExe, peFirmado } = await import(pathToFileURL(path.join(REPO, 'scripts', 'ia-pc', 'firmar-windows.mjs')).href);
+const ARCHIVO_FIRMA = arg('--firma') ?? path.join(homedir(), '.mako-firma.env');
+let FIRMA: { herramienta: string } | null = null;
+try {
+  FIRMA = firmaDeEstaPc({ envLocal: readFileSync(ENV, 'utf8'), rutaFirma: ARCHIVO_FIRMA, pedida: arg('--firma') != null, parse: (dotenv.default ?? dotenv).parse });
+} catch (e) { console.error(`⛔ ${(e as Error).message}`); process.exit(1); }
+// Cada archivo firmado gasta una firma del plan de eSigner: en seco no se firma, salvo con --probar-firma (y si falla, al
+// aplicar se corta ANTES de subir nada).
+const FIRMAR = FIRMA != null && (APLICAR || process.argv.includes('--probar-firma'));
+/** Firma un .exe en su lugar (o corta todo, ANTES de subir nada, sin las claves en el mensaje). */
+const firmar = (archivo: string): Uint8Array => {
+  try { return firmarExe(FIRMA, archivo); } catch (e) { console.error(`⛔ ${(e as Error).message}`); process.exit(1); }
+};
 
 const { VERSION_PC, archivoDelInstalador, archivoDelInstaladorMac, archivoDelPrograma, faltanEnElBucket, infoPlistDeLaAppMac, lanzadorDeLaAppMac, marcarDeVentana, nombreDelInstalador, subsistemaPe } = await imp('lib/ia-pc-reglas.ts');
 const programa = path.join(REPO, 'scripts', 'ia-pc', 'mako-pc.mjs');
@@ -48,6 +66,7 @@ const OBJETIVOS = [
 ] as const;
 const dir = mkdtempSync(path.join(tmpdir(), 'mako-pc-binarios-'));
 console.log(`${APLICAR ? 'APLICAR' : 'EN SECO'} · versión ${VERSION_PC} · en ${dir}`);
+console.log(FIRMAR ? `  Windows: se firma con SSL.com eSigner (${FIRMA!.herramienta}; gasta 2 firmas)` : FIRMA ? '  Windows: la firma está cargada; en seco no se firma (--probar-firma para probarla)' : `  Windows: SIN firmar (no está ${ARCHIVO_FIRMA}; docs/plan-instalador-escritorio.md › Firmar)`);
 const armados: Array<{ nombre: string; datos: Buffer; tipo?: string }> = [];
 /** Los programas sin comprimir, para MaKo.app (la Mac). */
 const crudos: Record<string, Uint8Array> = {};
@@ -61,6 +80,12 @@ for (const o of OBJETIVOS) {
     if (subsistemaPe(bytes) !== 2) { console.error('⛔ el ejecutable de Windows no quedó «de ventana»'); process.exit(1); }
     writeFileSync(salida, bytes);
     console.log('  windows-x64: marcado «de ventana» (subsistema 2)');
+    // La firma va DESPUÉS de marcarlo (cubre la cabecera: tocarla después la rompe) y ANTES de Inno, que lo mete en el setup.
+    if (FIRMAR) {
+      bytes = firmar(salida);
+      if (subsistemaPe(bytes) !== 2) { console.error('⛔ firmado, el ejecutable de Windows dejó de ser «de ventana»'); process.exit(1); }
+      console.log('  windows-x64: firmado (SSL.com)');
+    }
   }
   crudos[o.archivo] = bytes;
   const datos = gzipSync(bytes, { level: 9 });
@@ -74,8 +99,12 @@ for (const o of OBJETIVOS) {
 const ISCC = process.env.ISCC ?? path.join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Inno Setup 6', 'ISCC.exe');
 if (!existsSync(ISCC)) { console.error(`⛔ falta Inno Setup 6 (${ISCC}): winget install --id JRSoftware.InnoSetup -e --scope user`); process.exit(1); }
 execFileSync(ISCC, ['/Q', `/DAppVersion=${VERSION_PC}`, `/DPrograma=${path.join(dir, 'mako-pc.exe')}`, `/O${dir}`, path.join(REPO, 'installer', 'windows', 'mako.iss')], { stdio: 'inherit' });
-const setup = readFileSync(path.join(dir, nombreDelInstalador()));
+const rutaDelSetup = path.join(dir, nombreDelInstalador());
+if (FIRMAR) { firmar(rutaDelSetup); console.log(`  ${archivoDelInstalador()}: firmado (SSL.com)`); }
+const setup = readFileSync(rutaDelSetup);
 if (subsistemaPe(setup) !== 2) { console.error('⛔ el instalador no es un ejecutable de Windows con ventana'); process.exit(1); }
+// Con firma, NINGÚN .exe sube sin ella (lo que se baja es esto, no lo que dijo la herramienta).
+if (FIRMAR && !(peFirmado(crudos['windows-x64']) && peFirmado(setup))) { console.error('⛔ con la firma cargada, un .exe quedó sin firmar'); process.exit(1); }
 console.log(`  ${archivoDelInstalador()}: ${Math.round(setup.length / 1e6)} MB (el instalador con asistente)`);
 if (setup.length > 50e6) { console.error(`⛔ ${archivoDelInstalador()} pasa los 50 MB de Supabase`); process.exit(1); }
 armados.push({ nombre: archivoDelInstalador(), datos: setup, tipo: 'application/octet-stream' });
