@@ -33,7 +33,7 @@ export function sanearAdjuntos(raw: unknown): AdjuntoLeido[] {
     const texto = crudo.slice(0, Math.min(TOPE_TEXTO_ADJUNTO, TOPE_TEXTO_ADJUNTOS - total));
     if (!texto) break;
     total += texto.length;
-    out.push({ nombre, texto: texto.length < crudo.length ? `${texto}\n[…sigue: lo corté acá]` : texto });
+    out.push({ nombre, texto: texto.length < crudo.length ? `${texto}\n[…sigue: lo corté aquí]` : texto });
   }
   return out;
 }

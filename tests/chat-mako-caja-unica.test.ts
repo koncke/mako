@@ -91,7 +91,7 @@ test('lo adjuntado viaja LEÍDO y aparte del pedido; queda su nombre en el mensa
   const largo = 'x'.repeat(TOPE_TEXTO_ADJUNTO + 50);
   const s = sanearAdjuntos([{ nombre: 'a.pdf', texto: largo }, { nombre: 'b.png', texto: '' }, null, { texto: 'sin nombre' }, { nombre: 'c', texto: 'c' }, { nombre: 'd', texto: 'd' }]);
   assert.deepEqual(s.map((a) => a.nombre), ['a.pdf', 'archivo', 'c', 'd'], 'uno vacío o malformado pasó, o le quitó el lugar a uno bueno');
-  assert.ok(s[0].texto.endsWith('[…sigue: lo corté acá]'));
+  assert.ok(s[0].texto.endsWith('[…sigue: lo corté aquí]'));
   assert.equal(s[1].nombre, 'archivo');
   assert.ok(s.length <= TOPE_ADJUNTOS_AUTOMATIZACION);
   assert.match(bloqueDeAdjuntos([{ nombre: 'guion.pdf', texto: 'Paso 1' }]), /^LO QUE ADJUNTÓ EL DUEÑO[^\n]*\n\n«guion\.pdf»:\nPaso 1$/);
