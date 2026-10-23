@@ -846,6 +846,19 @@ viejo: **una automatización dejó de ser una lista de mensajes y pasó a ser un
 
 ## 4. Lo que está a medio hacer o sin verificar, con el archivo
 
+- **23/10 (claude2), noche — la #289 «Sprint · apertura» del ws1:** el aviso «Contestó» partido en renglones (dato) y
+  `textoConDatosParaEquipo` (un aviso al equipo no queda vacío); «no volvió a entrar» dicho a la persona, «Empezar de nuevo»
+  (acción, API `empezar_de_nuevo_lead_secuencia`) y el detalle del lead (`detalleDelLead`) para el bloque «Automatizaciones»
+  de la ficha, que dibuja el chat del CRM (`aut2-aviso-vacio`). Ritmo de la #289 por pedido de Martín: goteo 65/día cada 11
+  min, horario 9 a 21 (Tijuana); su recordatorio de 24 h comparte ese tope, así que los 1050 llevan ~33 días, no 16 (subir
+  `mako.limites_envio` lo decide Martín). **No mirada en pantalla:** la vista previa del link con su X (sale del link
+  guardado en el mensaje; el ws10 no tiene ninguno y no se tocó contenido del cliente); la cubre
+  tests/punto5-goteo-email-y-vista-link.test.ts. Lo demás de la tanda de la tarde se recorrió en el ws10 el 23/10 (deploy
+  c0b47d416): sidebar plegada, Configuraciones con Email y sin «Misma persona», Probar con personas.
+- **23/10 (claude2), la tanda de Martín de la tarde:** «Misma persona» eliminada (pantalla, API y motor), la vista previa del
+  link con su X en el editor del WhatsApp, Goteo y Tope por día también en Email (`aut2-punto5`); Automations arranca con la
+  sidebar plegada y el panel en 400 (`aut2-sidebar-plegada`); Probar con personas falsas (`aut2-probar-personas`). La
+  `personaHoras` del negocio sigue en lib/limites-envio.ts sin lectores: se puede sacar.
 - **La #256 del ws9 (el reporte semanal de la plataforma) es la única tarjeta «MaKo en WhatsApp» que sale por EMAIL**
   (23/10/2026). Con la regla «cada canal es su tarjeta» debería ser una tarjeta EMAIL, pero hoy no se puede: en un evento
   de la plataforma `pasosDelEvento` (lib/aviso-evento.ts) rechaza todo mensaje (`MOTIVO_EVENTO.alLead`), y el «Email a la

@@ -1,5 +1,27 @@
 # Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~20:00; cuenta 4, `claude4`)
 
+## 23/10 tarde (claude2, chat «Ops Center»): la Ticketera del cliente, la barra, el Uso y la caja
+
+Pedidos 6, 7 y 8 de Martín mirando `/second-brain?chat=40`, y uno que dejó Automations. Rama `ops-ticketera-2310` (worktree
+`C:/dev/wt-ops-ticketera`), punta `2df8aa56b` (con main mergeado, `ae37e12f5`). Lo que costó: docs/hallazgos-operaciones.md →
+«La Ticketera del cliente, la barra que «no hace nada», el Uso que salta y la caja con el texto bajo».
+
+| Pedido | Estado |
+|---|---|
+| 6. La criatura de MaKo en la Ticketera, el chat «roto», la lista de tickets en la topbar | HECHO: la estrella; la caja adentro de `.co-caja` (era eso lo roto); el botón con ícono de lista al lado de «Soporte» (`ListaTickets`, PanelDeChat → `acciones`) |
+| 7. «Si estoy dentro de la ticketera y entro [al Second Brain] no hace nada» | HECHO: la Ticketera del cliente vive en `?ticketera=`; lib/ops-center-navegar.ts decide cada entrada de la barra |
+| 8. El Uso del super admin IGUAL al del cliente, sin el desplegable | HECHO: el modal «Tus cuentas de IA» con lo suyo debajo; fuera `.co-uso__panel`. En el teléfono, «Uso» y la misma hoja |
+| CajaChat: «Pídele un cambio» bajo | HECHO: `altoDelCampo` y la medida al aparecer |
+
+**Sin mirar en pantalla con MI código** (el Cerebro frenó el build local: la PC llegó a 33 MB libres). Medido en producción
+antes: la causa del 7 y el arreglo de la caja (sacándole el `0px` al campo: 40 px y centrado). **Lo que sigue:**
+1. Apenas esté en producción, recorrerlo con la sesión del ws10 en `https://hola-mako.com/second-brain`: «Ticketera», el botón
+   de lista, «Second Brain» con la Ticketera abierta, y el chat del lienzo de Automations; también a 390 px.
+2. El Uso del super admin lo mira Martín (el Chrome sólo tiene la sesión de un cliente).
+3. Rendimiento (`local_1c58f6ef…`) hace las lecturas del Centro por GET, el Promise.all de app/second-brain/page.tsx, la ventana
+   de datos.ts y, cuando esto esté en main, el loader del grafo en ChatSecondBrain.tsx.
+4. Un link `/second-brain?ticketera=tickets` en el teléfono del cliente no abre su Ticketera (lib/movil-rutas.ts).
+
 ## 23/10 mañana (claude1, chat «Centro de Operaciones», `local_5cc6190d…`): las fotos en cualquier dispositivo
 
 Lo tomé por el pedido del Cerebro («si quedó algo abierto de las últimas vueltas, el WhatsApp de verdad, las fotos, el Uso, eso

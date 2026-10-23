@@ -7,6 +7,46 @@ del código.
 
 ---
 
+## La Ticketera del cliente, la barra que «no hace nada», el Uso que salta y la caja con el texto bajo (23/10/2026)
+
+Cuatro pedidos de Martín mirando la vista de un cliente (`/second-brain?chat=40`), medidos en producción con la sesión del ws10.
+
+- **«Si estoy dentro de la ticketera y entro [al Second Brain] no hace nada».** La URL SÍ cambiaba (`?panel=mapa`) y el grafo
+  llegaba del servidor; la pantalla seguía en Soporte porque la Ticketera del cliente era un estado suelto (`ticketsCliente`)
+  que nadie cerraba, y el panel la dibuja ANTES que el grafo. La del super admin no fallaba por una razón que no estaba escrita:
+  vive en la URL (`?ticketera=`, seguida con `useSearchParams`) y su «Second Brain» la cerraba a mano. **Regla:** lo que ocupa
+  el panel vive en la URL, y lo que hace cada entrada de la barra está UNA vez, en `lib/ops-center-navegar.ts`
+  (`tocarEnLaBarra`): lo tocado se ve siempre, desde cualquier panel. **Y la Ticketera se cierra ANTES del `router.push`**
+  (`cerrarTicketera(false)`): reescribir la URL con `replaceState` en medio de una navegación deja a Next en la URL vieja (el
+  mismo choque del grafo que no se iba, más abajo). tests/ops-center-navegacion.test.ts recorre los 8 estados del panel.
+- **«El chat [de Soporte] se ve horrible, está roto».** No era el hilo: Soporte ya usaba `HiloMako` y `CajaChat`, las piezas
+  del Cerebro. Le faltaba el `<div className="co-caja">` alrededor de la caja: el marco, el relleno y el campo de un renglón
+  son de esa clase, y sin ella salía sin borde, con el tirador del `<textarea>` y sin el «+». **Regla:** quien monta
+  `CajaChat` en un `PanelDeChat` la envuelve en `.co-caja` (como Conversacion.tsx, ChatSecondBrain.tsx y ChatMakoVista.tsx).
+  La criatura era la «de Soporte» porque sale del NOMBRE (una verde y redonda); ahora es MaKo con `ASPECTO_MAKO`.
+- **«Me sigue saltando el desplegable» (el Uso del super admin, la segunda vez que lo pide).** El desplegable era
+  `.co-uso__panel`: absoluto, encima del botón. El del cliente abre el modal «Tus cuentas de IA». Ahora el super admin abre
+  ESE modal (`tusCuentas`, con `TusCuentasIA`) y debajo lo suyo: las cuatro cuentas de Claude Code, la API y las computadoras.
+  `TusCuentasIA` trae CSS, y Uso.tsx lo renderizan tests en node: llega como prop desde PiezasCentro.tsx. En el teléfono, la
+  fila «Uso y Runners» pasó a «Uso» y su hoja a «Tus cuentas de IA».
+- **«Pídele un cambio» bajo dentro de la caja (el chat del lienzo de Automations).** El diagnóstico obvio era el CSS de la fila;
+  era la MEDIDA: ese chat vive montado en una ranura con `display: none`, `CajaChat` midió el campo ahí (`scrollHeight` 0) y
+  escribió `height: 0px`; el `min-height` de 24 px le ganaba a un renglón de 40, y el texto quedaba abajo, cortado y con
+  flechas de scroll. Nunca se volvía a medir porque sólo se mide al cambiar el texto. **Regla:** un alto medido en 0 no se
+  escribe (`altoDelCampo`, lib/centro-caja.ts) y la caja se vuelve a medir cuando aparece (un `ResizeObserver` en CajaChat).
+  Probado en la pantalla de producción sacándole el `0px`: 40 px y centrado.
+
+**Vive en:** `lib/ops-center-navegar.ts` · `app/second-brain/ChatSecondBrain.tsx` · `app/second-brain/pagina.tsx` ·
+`app/tickets/soporte/ChatSoporte.tsx` · `PiezasSoporte.tsx` (`ListaTickets`) · `app/admin/operaciones/PanelChat.tsx`
+(`acciones`) · `Uso.tsx` · `PiezasCentro.tsx` · `app/m/operaciones/CentroAppMovil.tsx` · `app/_chat/CajaChat.tsx` ·
+`lib/centro-caja.ts`
+
+**Sin hacer:** el Uso del super admin no se miró en pantalla (la sesión del Chrome es de un cliente, y una sesión de super
+admin local pide firmar el segundo factor a mano): lo mira Martín. Un link `/second-brain?ticketera=tickets` en el TELÉFONO
+del cliente no abre su Ticketera (la suya es /m/tickets; lib/movil-rutas.ts no traduce ese query para el cliente).
+
+---
+
 ## La foto que se manda por la caja, vista en otro dispositivo: la «decisión pendiente» ya estaba tomada (23/10/2026)
 
 - **Síntoma:** una foto mandada desde la computadora se veía en el teléfono como un renglón con su nombre (y al revés).

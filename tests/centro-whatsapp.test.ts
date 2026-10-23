@@ -156,7 +156,7 @@ test('(2) una sola lista: «Nuevo chat» arriba, el Cerebro con la estrella de M
 
 test('(4) «Uso y Runners» va arriba de los chats, junto a Second Brain', () => {
   const app = codigo('app/m/operaciones/CentroAppMovil.tsx');
-  const uso = app.indexOf('titulo="Uso y Runners"');
+  const uso = app.indexOf('titulo="Uso"');
   assert.ok(uso > app.indexOf('titulo="Second Brain"') && uso < app.indexOf('<ChatsMDelCentro'));
 });
 

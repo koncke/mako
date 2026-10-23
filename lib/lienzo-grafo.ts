@@ -731,8 +731,13 @@ export function vistaConPanelAbajo(
 export const MUELLE = {
   /** El hueco de las cosas que flotan contra el borde (la lista, «Probar»). */
   hueco: 16,
-  /** La lista de automatizaciones, a la izquierda. */
-  listaAncho: 320,
+  /**
+   * La lista de automatizaciones y el chat con MaKo, a la izquierda. De 320 a 400 el 23/10/2026 (Martín: «la sidebar de
+   * las automatizaciones y el chat con MaKo sea más gruesa, así se puede escribir con más comodidad», con la sidebar
+   * principal plegada al entrar). 400 + 2 huecos = 432: en 1366 de ancho (rail de 68) quedan ~866 de lienzo. No más: a 1024 el chat de «Probar» tiene que seguir
+   * quedando lejos de la lista (tests/crear-ia-lugar.test.ts pide 200 de aire entre los dos).
+   */
+  listaAncho: 400,
   /** «Probar», apilado arriba a la derecha (pedido literal, punto 8: «más ancho, no tan largo»). */
   probarAncho: 560,
   probarAnchoMin: 360,

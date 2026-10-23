@@ -58,7 +58,8 @@ test('la puerta del QR se fue: sin EvolutionConnect, sin abreEnQR, y el spinner 
   assert.doesNotMatch(app, /EvolutionConnect|abreEnQR|puertaAlRecargar|enOnboarding/, 'volvió la puerta del QR');
   assert.ok(!('abreEnQR' in puerta) && !('puertaAlRecargar' in puerta), 'lib/chatbot-puerta.ts volvió a exportar la puerta');
   // «¿Ya cargó?» es `secuencias !== null`: el spinner no espera al onboarding (que se lee sólo para el tilde).
-  assert.match(app, /if \(secuencias === null\) \{\n\s+return \(\n\s+<main [^\n]*>\n[\s\S]{0,600}Abriendo Automations…/);
+  // Desde el 23/10/2026 el loader es CargandoMako, el de todas las tabs (tests/cargando-mako.test.ts).
+  assert.match(app, /if \(secuencias === null\) \{\n\s+return <CargandoMako que="Automations" alto="100vh" \/>;\n\s+\}/);
   assert.ok(app.includes('if (marcarWhatsappAlCargar({ onboarding, canal: estadoCanal })) {'), 'el onboarding se lee para rellenar el paso');
 });
 

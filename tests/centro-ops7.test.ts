@@ -331,7 +331,8 @@ test('g: con el grafo abierto, tocar un chat no deja que la URL vuelva a «?pane
   assert.match(src, /const hayMapa = mapa != null;/);
   assert.match(src, /useEffect\(\(\) => \{ if \(elegido && !hayMapa\) anotarEnUrl\(elegido, urlCentro\); \}, \[elegido, urlCentro, hayMapa\]\);/,
     'el grafo es dueño de la URL mientras está: anotar el chat con replaceState antes de que termine el router.push lo dejaba en el grafo');
-  assert.match(src, /if \(mapa\) \{\s*router\.push\('id' in e/, 'tocar un chat con el grafo abierto navega a ese chat');
+  // Desde el 23/10/2026 lo decide lib/ops-center-navegar.ts (`ir: 'chat'` con el grafo abierto; tests/ops-center-navegacion.test.ts).
+  assert.match(src, /if \(paso\.ir\) \{\s*router\.push\('id' in e/, 'tocar un chat con el grafo abierto navega a ese chat');
 });
 
 test('6: un chat sin aviso y sin trabajo se ve DORMIDO; despierto sólo con un aviso, y trabajando si trabaja', () => {

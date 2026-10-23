@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// El Uso de las cuatro cuentas y sus Runners, en UN desplegable siempre a la vista (16/10/2026; 17/10 las cuatro)
+// El Uso de las cuatro cuentas y sus Runners, siempre a la vista (16/10/2026; 17/10 las cuatro; 23/10 el modal del cliente)
 // =============================================================================
 // Martín: «El "Uso" debe ser visible siempre, me imagino como un desplegable donde hoy está "Cartero". Y que "Cartero"
 // (que ya no debería llamarse así), sea también el mismo desplegable... Que ahí se vean ambas cosas». Y en producción:
@@ -30,8 +30,9 @@
 // el Runner anduviera): el nombre sale de lib/centro-titulares.ts (el que le puso Martín, o el titular de cuentas.tsv que
 // sube su Runner), copiado del selector de cuentas de Google (avatar, nombre y el email debajo, en gris).
 
-import { useEffect, useRef, useState, type KeyboardEvent as TeclaReact } from 'react';
+import { useState, type KeyboardEvent as TeclaReact, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
+import { Modal } from '@/app/_ui/Modal';
 import { carteroVivo } from '@/lib/operaciones-reglas';
 import { nombreCuenta } from '@/lib/centro-chats';
 import { hace } from '@/lib/progreso-reglas';
@@ -210,9 +211,17 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
   );
 }
 
-/** El botón de abajo de la barra: el número siempre a la vista, y el desplegable al tocarlo. Desde el 17/10/2026 no copia
- *  ningún comando (Martín: «no quiero copiar en PowerShell, que se instale todo solo»). */
-export function BotonUso({ cuentas, ahora, onRenombrar, onLeerCredito, onCambiarCredito, onLeerComputadoras, onDesconectarComputadora }: {
+/**
+ * El botón de abajo de la barra: el número siempre a la vista. Desde el 17/10/2026 no copia ningún comando (Martín: «no quiero
+ * copiar en PowerShell, que se instale todo solo»).
+ *
+ * IGUAL QUE EL DEL CLIENTE (23/10/2026, Martín, la segunda vez: «En SuperAdmin te había pedido que "USO de IA" sea IGUAL que en
+ * los clientes, sólo que SuperAdmin tiene más configuraciones... Pero aún me sigue saltando el desplegable»). Tocarlo abre el
+ * MISMO modal del cliente, «Tus cuentas de IA» (`tusCuentas`: las del negocio, conectar y desconectar), y debajo lo que es sólo
+ * del super admin: las cuatro cuentas de Claude Code con sus Runners, la API y las computadoras. Ya no hay un panel que salta
+ * sobre la barra (`.co-uso__panel`, absoluto encima del botón): ése era el desplegable.
+ */
+export function BotonUso({ cuentas, ahora, onRenombrar, onLeerCredito, onCambiarCredito, onLeerComputadoras, onDesconectarComputadora, tusCuentas }: {
   cuentas: readonly CuentaUso[]; ahora: number; onRenombrar?: RenombrarCuenta;
   /** El crédito de API de los planes (UsoCredito.tsx): se pide recién al abrir. Sin esto, la sección no sale. */
   onLeerCredito?: LeerCredito;
@@ -221,31 +230,28 @@ export function BotonUso({ cuentas, ahora, onRenombrar, onLeerCredito, onCambiar
   /** Las computadoras de los negocios, con su «Desconectar» (UsoComputadoras.tsx). Sin esto, la sección no sale. */
   onLeerComputadoras?: LeerComputadoras;
   onDesconectarComputadora?: DesconectarComputadora;
+  /** Lo mismo que ve el cliente: «Tus cuentas de IA» (app/integraciones/TusCuentasIA.tsx). Llega de afuera porque trae CSS, y
+   *  esta pieza la renderizan los tests en node. */
+  tusCuentas?: ReactNode;
 }) {
   const [abierto, setAbierto] = useState(false);
-  const caja = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!abierto) return;
-    const fuera = (e: MouseEvent) => { if (caja.current && !caja.current.contains(e.target as Node)) setAbierto(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAbierto(false); };
-    document.addEventListener('mousedown', fuera);
-    document.addEventListener('keydown', esc);
-    return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', esc); };
-  }, [abierto]);
   const principal = usoPrincipal(cuentas, ahora);
   const estados = cuentas.map((k) => estadoRunnerUso(carteroVivo(k, ahora), k.cuota, ahora));
   const activos = estados.filter((e) => e !== 'apagado').length;
   return (
-    <div className="co-uso" ref={caja}>
+    <div className="co-uso">
       {abierto && (
-        <div className="co-uso__panel" role="dialog" aria-label="Uso y Runners">
-          <p className="co-uso__cab">Uso</p>
-          <ListaUso cuentas={cuentas} ahora={ahora} onRenombrar={onRenombrar} />
-          {onLeerCredito && <SeccionCredito leer={onLeerCredito} cambiar={onCambiarCredito} cuentas={cuentas} />}
-          {onLeerComputadoras && <SeccionComputadoras leer={onLeerComputadoras} desconectar={onDesconectarComputadora} ahora={ahora} />}
-        </div>
+        <Modal titulo="Tus cuentas de IA" onCerrar={() => setAbierto(false)} ancho={640}>
+          {tusCuentas}
+          <div className="co-uso__mas">
+            <p className="co-uso__cab">Cuentas de Claude Code</p>
+            <ListaUso cuentas={cuentas} ahora={ahora} onRenombrar={onRenombrar} />
+            {onLeerCredito && <SeccionCredito leer={onLeerCredito} cambiar={onCambiarCredito} cuentas={cuentas} />}
+            {onLeerComputadoras && <SeccionComputadoras leer={onLeerComputadoras} desconectar={onDesconectarComputadora} ahora={ahora} />}
+          </div>
+        </Modal>
       )}
-      <button type="button" className="co-acceso" aria-expanded={abierto} onClick={() => setAbierto((a) => !a)}
+      <button type="button" className="co-acceso" aria-haspopup="dialog" aria-expanded={abierto} onClick={() => setAbierto(true)}
         title={`${activos} de ${cuentas.length} Runners activos`}>
         <Icon name="config" size={17} />Uso
         <span className={`co-uso__principal${principal?.viejo ? ' co-uso__principal--viejo' : ''}`}>{principal ? `${principal.pct}%` : '—'}</span>

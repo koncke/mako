@@ -35,6 +35,8 @@ import type { Step, StepId } from '@/lib/stage-requirements';
 import { IGNORABLES, avisanDelLead, sanearIds } from '@/lib/datos-aviso';
 import { escribirDatosIgnorados } from '@/lib/datos-aviso-config';
 import { apagadosDeFunnel } from '@/lib/ficha/config-server';
+import { tieneContacto } from '@/lib/contacto-minimo';
+import { usuarioInstagram } from '@/app/crm/campo-inline';
 
 /** La caché de lecturas (listLeads, getJuntasProximas…) vence sola a los 60 s; esto
  *  la adelanta. ⚠️ NO `updateTag`: solo corre dentro de una server action, y
@@ -272,6 +274,9 @@ const txt = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? 
 
 /** Copia de aFila + el alta de app/api/agente/lead/route.ts: mismo saneo, misma ref
  *  por defecto (los contactos, no los nombres), misma forma de `datos.leads`. */
+// ⚠️ EL @ DE INSTAGRAM CUENTA COMO CONTACTO (23/10/2026): la MISMA regla que el alta, el importador y la prospección
+// (`tieneContacto`, lib/contacto-minimo.ts). Un lead con sólo el @ viaja con el email y el teléfono VACÍOS: nada se
+// rellena. El @ se normaliza con la regla de la ficha (`usuarioInstagram`) y se guarda sin la @.
 export async function proponerLote(ws: number, crudos: Array<Record<string, unknown>>, origenTxt: string | null, refPedida: string | null, origen: string) {
   const filas: Array<Record<string, unknown>> = [];
   const descartados: string[] = [];
@@ -279,12 +284,13 @@ export async function proponerLote(ws: number, crudos: Array<Record<string, unkn
     const nombre = txt(c.nombre);
     const email = txt(c.email)?.toLowerCase() ?? null;
     const telefono = txt(c.telefono);
+    const instagram = usuarioInstagram(txt(c.instagram));
     if (!nombre) { descartados.push(`el contacto #${i + 1} no tiene nombre`); return; }
-    if (!email && !telefono) { descartados.push(`«${nombre}» no tiene email ni teléfono`); return; }
-    filas.push({ nombre, email, telefono, empresa: txt(c.empresa), utm_source: txt(c.utm_source), utm_medium: txt(c.utm_medium), utm_campaign: txt(c.utm_campaign), utm_content: txt(c.utm_content) });
+    if (!tieneContacto({ email, telefono, instagram })) { descartados.push(`«${nombre}» no tiene email, teléfono ni Instagram`); return; }
+    filas.push({ nombre, email, telefono, instagram, empresa: txt(c.empresa), utm_source: txt(c.utm_source), utm_medium: txt(c.utm_medium), utm_campaign: txt(c.utm_campaign), utm_content: txt(c.utm_content) });
   });
   if (!filas.length) return { error: descartados.join(' · ') || 'ningún contacto válido' };
-  const ref = refPedida ?? `lead:${filas.map((f) => f.telefono ?? f.email).join(',')}`.slice(0, 200);
+  const ref = refPedida ?? `lead:${filas.map((f) => f.telefono ?? f.email ?? f.instagram).join(',')}`.slice(0, 200);
   const resumen = filas.length === 1 ? `${filas[0].nombre}${origenTxt ? ` · ${origenTxt}` : ''}` : `${filas.length} contactos${origenTxt ? ` · ${origenTxt}` : ''}`;
   const { id, nueva } = await crearPropuesta({ ws, tipo: 'lead', origen, ref, resumen, datos: { leads: filas, origen: origenTxt } });
   return { id, nueva, leads: filas.length, descartados };

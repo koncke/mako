@@ -99,8 +99,9 @@ test('el Second Brain pide los links EN PARALELO al turno, con la tab de MaKo, y
 // el grafo». Probado ROMPIÉNDOLO: irAlSecondBrain eligiendo el chat aunque vea el Mapa → 1 fallo (éste).
 test('«Second Brain», debajo de la Ticketera, abre el grafo (el chat con MaKo queda en la lista)', () => {
   const src = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
-  const ir = src.slice(src.indexOf('const irAlSecondBrain = () => {'), src.indexOf('const irAClaudeCode'));
-  assert.match(ir, /if \(veMapa\) \{[^}]*router\.push\(hrefMapa\); return; \}/, 'con el Mapa, el panel es el grafo');
+  // Desde el 23/10/2026 lo decide lib/ops-center-navegar.ts: «Second Brain» va al grafo (`ir: 'mapa'`), desde cualquier panel.
+  assert.match(src, /const irAlSecondBrain = \(\) => \(veMapa \? tocar\('second-brain'\) : elegir\(cerebroFila\.elegido\)\);/, 'con el Mapa, el panel es el grafo');
+  assert.match(src, /if \(paso\.ir\) router\.push\(paso\.ir === 'mapa' \? hrefMapa :/);
 });
 
 // Lo mismo en el teléfono: la fila «Second Brain» debajo de «Ticketera» (/m/operaciones). /m/second-brain manda

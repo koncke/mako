@@ -9,8 +9,9 @@
 // Telefono, Instagram"». Se fueron la empresa y las dos fechas (agendamiento y Reunión 1, punto
 // 6): todo eso se edita en la ficha, que se abre sola al crear (el tablero: `onCreado`).
 //
-// Validación: nombre + (email O teléfono). Sin contacto el lead es incontactable, así que se
-// exige al menos un canal. El submit va a la server action, que RE-valida.
+// Validación: nombre + un canal (email, teléfono o su Instagram: `tieneContacto`,
+// lib/contacto-minimo.ts, la misma regla que el server y el importador). El submit va a la
+// server action, que RE-valida.
 //
 // ⚠️ EL MISMO FORM EN DOS CONTENEDORES: la ruta /crm/new (que navega a la ficha
 // nueva) y el modal del tablero (que se cierra y la abre ahí mismo). Lo único que
@@ -33,7 +34,8 @@ import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { DIAL_DEFAULT, unirTelefono } from '@/lib/paises';
 import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
 import { InstagramBuscador, type PerfilIg } from '@/app/crm/new/InstagramBuscador';
-import { instagramDelAlta } from '../campo-inline';
+import { instagramDelAlta, usuarioInstagram } from '../campo-inline';
+import { PEDIR_CONTACTO, tieneContacto } from '@/lib/contacto-minimo';
 import { createLeadAction, crearLeadEnTableroAction, type ChoqueDeLead } from '../actions';
 import { agregarAProductoAction, quitarDeProductoAction } from '../lead-funnel-actions';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
@@ -177,8 +179,11 @@ export function NewLeadForm({ enModal }: {
   /** La validación de acá es la MISMA que la del server, y corre antes para no
    *  perder lo tipeado en un viaje. El server la repite: este chequeo es
    *  comodidad, no la guarda. */
-  const faltaContacto = (fd: FormData) =>
-    !String(fd.get('email') ?? '').trim() && !String(fd.get('telefono') ?? '').trim();
+  const faltaContacto = (fd: FormData) => !tieneContacto({
+    email: String(fd.get('email') ?? ''),
+    telefono: String(fd.get('telefono') ?? ''),
+    instagram: usuarioInstagram(String(fd.get('instagram') ?? '')),
+  });
 
   return (
     <form
@@ -188,7 +193,7 @@ export function NewLeadForm({ enModal }: {
         const fd = new FormData(e.currentTarget);
         if (faltaContacto(fd)) {
           e.preventDefault();
-          setErr('Carga al menos un email o un teléfono: sin eso el lead es incontactable.');
+          setErr(PEDIR_CONTACTO);
           return;
         }
         setErr(null);
@@ -222,7 +227,7 @@ export function NewLeadForm({ enModal }: {
           value={nombre} onChange={(e) => setNombre(e.target.value)} />
       </Field>
 
-      <Field label="Email" hint="Al menos uno: email o teléfono.">
+      <Field label="Email" hint="Al menos uno: email, teléfono o Instagram.">
         <input type="email" name="email" style={field} value={email} onChange={(e) => setEmail(e.target.value)} />
       </Field>
 

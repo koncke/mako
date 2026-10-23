@@ -1996,3 +1996,214 @@ avisar en producción. **Regla:** para contar «a quién no le llegó», cruzar 
 mismo evento: un envío en `fallo` no prueba que el dueño no se enteró. **Sin hacer:** el envío de los dos mensajes
 (scripts/avisar-arreglo-al-grupo.mts y la lista que arma el código) espera ese lead.
 *23/10/2026, chat «Automations» (claude2).*
+
+## Dar y quitar el acceso a un curso por HTTP: invitar existía, pero en un área que no sale por HTTP (23/10/2026)
+
+**Síntoma.** Un chat que migraba un curso de Panda con un token «Curso» no encontró en la API cómo darles el curso a los
+alumnos ni cómo cortárselo a quien se da de baja. Martín: «Revisá esto... Y si hay que hacer una revisión completa de la
+API, porque creo que faltan muchas acciones posibles».
+
+**Causa.** `invitar_cliente_curso_cs` existía, pero en el área `cs`, que no lleva `'http'` (lee cartera, emails y avance).
+Sacarle un curso o cortarle el portal no estaba en ninguna área. La pantalla lo hacía todo (ficha, tarjeta del kanban).
+Para alguien que integra por HTTP, eso era lo mismo que no existir: no hay pista de que la capacidad vive en otra área.
+
+**Lo que quedó.** Cinco operaciones en `curso`, sólo HTTP y `rolMinimo: 'admin'` como el resto del área: `ver_acceso_curso`,
+`dar_acceso_curso`, `quitar_curso_del_acceso`, `cortar_acceso_curso` y `habilitar_acceso_curso`, con rutas copiadas de los
+colaboradores de un repo de GitHub (`PUT/DELETE /curso/cursos/{productoId}/accesos/{leadId}`, `PUT/DELETE
+/curso/accesos/{leadId}/corte`). Cada una llama a la MISMA función de lib/ que la pantalla: `invitarAlCurso`,
+`quitarCursoDelAcceso`, `revocarAcceso`, `reactivarAcceso`. El área `curso` pasa a decidir quién abre el curso, y nada más:
+ni el email del lead, ni su avance, ni la cartera.
+
+Tres decisiones que no se ven en el código:
+
+- **Abrir exige un cliente ganado de ESE producto; cerrar se puede siempre.** `resolverAcceso` (lib/curso-datos.ts) sólo
+  abre el portal a un lead con `estado_lead = 'ganado'`, así que un link mandado antes llega muerto. Y la API no mueve a
+  nadie de etapa: eso lo decide el CRM. Cerrar no lo pide porque quien se da de baja suele salir del embudo ANTES de que
+  alguien le corte el curso.
+- **El «no» de sacar un curso se decide por lo que el alumno VE, nunca por el texto del error de la regla**
+  (`decidirQuitarCurso`, curso.helpers.ts). Si no lo ve, es «ya está así» (200 sin cambios); si es lo único que le abre, el
+  error manda a `cortar_acceso_curso`. La primera versión comparaba el texto de `productosTrasQuitar`: un texto
+  reescrito habría convertido un «ya estaba» en un 422 sin que nada fallara.
+- **Nada de lo que vuelve trae el email del lead**, ni el resumen ni los `datos`. Por HTTP, devolverlo sería leer un dato
+  de una persona a través de una acción.
+
+`habilitar_acceso_curso` no manda nada, y el link viejo sigue sin abrir: `revocarAcceso` subió la `version` del acceso, y
+`reactivarAcceso` sólo borra el `revocado_at`. Para que le llegue un link que abre, `dar_acceso_curso` con `reenviar: true`.
+
+⚠️ **Encontrado de paso, NO arreglado (no es de esta área):** «Invitar» desde el buscador de leads de cualquier etapa
+(`invitarLeadDeCualquierEtapaAction`, pedido del 13/10, `cualquierEtapa: true`) le manda por email un link a un lead que
+NO está en Ganado. Como `resolverAcceso` exige Ganado, ese link no abre hasta que el lead gane, y el mail no lo dice. Se le
+avisó al chat de Customer Success.
+**Vive en:** `app/customer-success/curso/invitar-actions.ts` · `lib/curso-invitar.ts` · `lib/curso-datos.ts` (`resolverAcceso`)
+
+**Sin hacer** (la API sigue sin poder lo que la pantalla sí puede):
+
+- el «Invitar al curso al ganar» de cada funnel (`cambiarCursoAlGanar`, lib/crm-curso-al-ganar.ts). Es lo que hace solo lo
+  de «no vender sin entregar»;
+- los líderes de área: invitarlos, cortarlos y habilitarlos;
+- el alcance (qué módulos ve) y desbloquear;
+- listar quién tiene acceso a un curso;
+- sacar o cortar como «⚡ Acción» de un flujo. Hoy son sólo HTTP; para un flujo hace falta `'app'` y una forma en
+  `lib/editor-acciones.ts`.
+
+**Vive en:** `lib/api-mako/areas/curso.def.ts` («LOS ACCESOS») · `curso.run.ts` · `curso.helpers.ts` (`decidirQuitarCurso`) ·
+`lib/api-mako/rest.ts` · `tests/api-mako-curso-accesos.test.ts` · `app/api-mako/Articulos.tsx` (la guía «Migrar un curso»)
+
+*23/10/2026 · chat «API de MaKo» (claude2) · medido contra origin/main 4a2e7f9f0; tests y rotura en el worktree, sin tipos
+(el acotado lo mató el vigía de RAM), sin navegador.*
+
+## «Invitar al curso al ganar» y el @ de Instagram, por la API (23/10/2026, auditoría P0-4 y un pedido de Ventas)
+
+**«Invitar al curso al ganar».** El interruptor del «⋯» de la columna Ganado sólo se prendía desde la pantalla. Ahora
+están `ver_curso_al_ganar` y `cambiar_curso_al_ganar` (`GET`/`PUT /crm/curso-al-ganar`), con las mismas funciones que
+la pantalla. Dos cosas que no se ven en el código:
+
+- **La lectura del tablero (`estadoCursoAlGanar`) NO sirve para la API.** Lee el interruptor con `getSetting`, que con
+  la base caída devuelve null; eso se lee como «ninguno prendido», y cualquier error también devuelve null. Para
+  dibujar está bien: la opción no se ofrece. Pero MaKo, con esa lectura, le habría dicho al dueño «está apagada» sobre
+  un CRM que invita. La API usa `estadoCursoAlGanarEstricto`, que tira y además separa «tiene curso» de «está
+  prendida»: un CRM puede quedar prendido después de que su producto se quedó sin clases, y eso hay que poder decirlo.
+- **«¿Tiene curso?» es UNA regla** (`tieneCurso`), que usan las dos lecturas. Copiarla en la estricta habría dejado dos
+  definiciones de «se puede prender».
+
+**El @ de Instagram en las propuestas de leads.** El CRM ya acepta un lead con sólo el @ (`tieneContacto`,
+lib/contacto-minimo.ts, del chat de Ventas). La API lo perdía en tres lugares:
+- el lote lo descartaba con la regla vieja, «email o teléfono»;
+- `proponer_lead` no tenía dónde recibirlo;
+- el flujo que escribe la propuesta en el acto (`crearLeadsDePropuesta`) no se lo pasaba a `createLead`, aunque
+  llegara.
+
+⚠️ **`lib/api-mako/flujo-params.ts` no puede importar valores**: es apto para el navegador, y
+`tests/api-mako-registro.test.ts` lo frena. Por eso el @ se normaliza (`usuarioInstagram`) en quien propone y otra vez
+en `flujo.ts`, nunca en `filasDeLeads`.
+
+**Una dependencia entre dos ramas del tren se copia con el MISMO blob.** Esta punta necesitaba
+`lib/contacto-minimo.ts`, que todavía estaba sólo en la rama de Ventas. Se trajo con `git show <sha>:<ruta>` (mismo
+hash: `git hash-object` contra `git rev-parse <sha>:<ruta>`). Así la punta compila sola, y git funde las dos sin
+conflicto en cualquier orden. Si el archivo cambia en la otra rama antes del merge, ya no es el mismo blob: se avisa.
+
+**Vive en:** `lib/crm-curso-al-ganar.ts` · `lib/api-mako/areas/crm.def.ts` · `crm.run.ts` · `crm.helpers.ts` (`proponerLote`) ·
+`lib/api-mako/flujo.ts` · `lib/api-mako/flujo-params.ts` · `lib/mako-doer-acciones.ts` · `tests/api-mako-curso-al-ganar.test.ts` ·
+`tests/api-mako-leads-instagram.test.ts`
+
+*23/10/2026 · chat «API de MaKo» (claude2) · tests y rotura en el worktree, sin tipos, sin navegador.*
+
+## La entrega de un cliente y el alumno nuevo, por la API (23/10/2026, auditoría P0-5 y P0-3)
+
+**El síntoma.** Por la API se movía el CRM (`proponer_cambio_etapa`, `mover_lead_en_producto`, que escriben
+`lead_funnel`), pero nada del registro escribía la entrega de Customer Success (`cliente_entrega`). Tampoco se podía dar
+de alta a un alumno que no está en el CRM, que es lo primero que pide migrar un curso de Panda.
+
+**Lo que quedó.**
+- Área `cs`, sin HTTP: `mover_cliente_entrega`, `quitar_cliente_de_servicio` y `devolver_cliente_a_servicio`.
+- Área `curso`, con HTTP (`POST /curso/cursos/{productoId}/alumnos`): `crear_alumno_curso`.
+
+Las cuatro usan las funciones de la pantalla. Para eso hubo que sacarlas de las server actions, porque un runner no
+llama server actions:
+- `lib/cs-quitar-producto.ts`: «Quitar de este producto» y su deshacer;
+- `lib/cs-crear-cliente.ts`: el alta de la cartera;
+- `lib/curso-alta-alumno.ts`: el alta de un alumno, en cuatro pasos: crearlo, ponerlo en el kanban, dejarlo sólo en ese
+  producto e invitarlo.
+
+Las actions delegan y conservan la puerta, el autor y el `revalidatePath`.
+
+Decisiones que no se ven en el código:
+
+- **Sacarle la fila de entrega a un cliente NO es una operación de la API.** `sacarDeEntregaAction` borra la fila y deja
+  al cliente en su «estado derivado»: es el deshacer del primer movimiento. Expuesta como «sacarlo de la entrega»,
+  contestaría distinto según el servicio sea o no el de su embudo. Lo que la persona quiere decir con «sacarlo» es
+  `quitar_cliente_de_servicio`.
+- **`devolver_cliente_a_servicio` mira lo que QUEDÓ.** Si el servicio no era el de su embudo, sacarle la marca de
+  «fuera» no lo devuelve, porque no tenía fila que reponer. En ese caso entra a la primera etapa por el choke point. La
+  pantalla no tiene este problema: su deshacer manda la etapa y el reloj que guardó al quitar.
+- **`crear_alumno_curso` no pasa a nadie a Ganado.** `usarLeadId` sólo vale para quien ya es cliente, al proponer y al
+  confirmar, igual que `dar_acceso_curso`. En la pantalla, el botón «Marcar como cliente e invitar» lo dice; por la API
+  no hay botón que lo diga.
+- **Un duplicado vuelve con el id y el motivo, sin el nombre.** Los nombres son del CRM, y un token de «Curso» no tiene
+  por qué leerlos.
+- **El tope de leads del plan frena el alta**, al proponer y al confirmar. El alta de Customer Success de la pantalla
+  todavía NO lo aplica: queda anotado abajo.
+
+⚠️ **Mover código fuera de una server action rompe los guards que la leen por regex, aunque el código esté bien.** Seis
+tests fijaban el cuerpo de las actions: `cs-pertenencia`, `cs-acciones-puerta`, `curso-invitar`, `curso-invitar-reglas`,
+`venta-sin-cobro` y `crm-origen-lead`, este último con su lista `ALTAS` de quién hace `createLead`. Los seis siguen a la
+regla a su archivo nuevo. Ninguno se debilitó: cada aserción busca lo mismo en otro lugar.
+
+⚠️ **Y un runner nuevo cae en guards que barren el repo por SÍMBOLO, no por área.** El clasificador de
+`tests/curso-invitar-reglas.test.ts` exige que todo archivo que llama `productosDelCliente(` esté en su lista con un
+motivo. `curso.run.ts` lo llama desde el acceso a cursos, y esa primera punta salió con ese rojo: corrí los tests «del
+área» y éste no lo era. **Antes de pasar una punta, un `grep` de cada símbolo y cada ruta tocada sobre `tests/`, y se
+corren todos los que aparecen.** Acá fueron unos 300 archivos con `--test-concurrency=2`, sin tocar el límite de RAM.
+
+**Sin hacer:**
+- la ⚡ Acción de un flujo para mover, quitar, cortar y habilitar. Es de Automations (`lib/editor-acciones.ts`,
+  `flujo-params.ts`), y le pregunté;
+- `crearClienteAction`, el alta de la pantalla de Customer Success, no frena por el tope del plan. La API sí;
+- leer las etapas de la entrega de un servicio sin moverlo (`ver_etapas_entrega`, P1). Hoy las devuelve el error de
+  `mover_cliente_entrega` cuando la etapa no existe.
+
+**Vive en:** `lib/api-mako/areas/cs.def.ts` · `cs.run.ts` · `lib/api-mako/areas/curso.def.ts` · `curso.run.ts` · `lib/cs-quitar-producto.ts` ·
+`lib/cs-crear-cliente.ts` · `lib/curso-alta-alumno.ts` · `app/customer-success/actions.ts` · `app/customer-success/curso/invitar-actions.ts` ·
+`tests/api-mako-cs-entrega.test.ts` · `tests/api-mako-curso-alumno.test.ts`
+
+*23/10/2026 · chat «API de MaKo» (claude2) · tests y rotura en el worktree, tsc acotado sin errores propios, sin navegador.*
+
+## «Toda capacidad nace en la API» es regla desde el 13/10, y la guarda que la hacía cumplir nunca llegó a main (23/10/2026)
+
+**El síntoma.** La auditoría del 23/10 contó 788 operaciones y **174 acciones de pantalla sin declarar** (14 P0, 85 P1, 75
+P2). Por grupo de pantallas:
+
+| Grupo | Faltas sin repetir |
+|---|---|
+| cursos | 22 |
+| contenido | 21 |
+| operaciones (Customer Success, CRM y curso vistos desde la operación) | 18 |
+| tablero (Plan, General, Dashboard) | 17 |
+| crm | 15 |
+| huérfanas (Offer, Onboarding, Archivero) | 15 |
+| automations | 13 |
+| canales (WhatsApp, email, calendario) | 13 |
+| cobros | 12 |
+| ads | 12 |
+| cuenta | 10 |
+| landings | 6 |
+
+Hay además tabs enteras sin área: AI Avatar; generar Reels, Carousels y Stories; escribir Offer y Onboarding; pedir y
+filmar en el Video Generator; las escrituras de Integraciones que no llevan secretos; el admin de la plataforma. La
+auditoría está fuera del repo, en `C:/dev/cerebro-herramientas/auditoria-api-mako-23-10.md`.
+
+**La causa.** El 13/10 Martín pidió «un sistema para que siempre se implementen los llamados a la API», y se escribió:
+- `scripts/api-cobertura.mjs`: un inventario de 1.273 capacidades;
+- `lib/api-mako/cobertura.ts`;
+- `tests/api-mako-cobertura.test.ts`, que fallaba a propósito porque faltaban clasificar 931.
+
+Todo quedó en el commit `b85971b9b`, «A MEDIAS — NO PUSHEAR», de la rama `wip/api-acciones-1410`. Esa foto se sacó al
+cierre del 14/10, con trabajo a medias de quince áreas, y nadie la retomó. **La bitácora de `/admin/dev` describe la guarda
+como hecha** («El sistema es un GUARD: tests/api-mako-cobertura.test.ts falla…»). Cualquiera que la leyera daba el agujero
+por cerrado. Una semana después eran 174.
+
+⚠️ **La guarda que sí está, `tests/api-mako-registro.test.ts`, no puede ver esto.** Revisa las operaciones que EXISTEN
+(canales, gating, filas REST, confirmación) y el snapshot de lo que sale por HTTP. Una acción de pantalla que nadie
+declaró no está en ningún lugar que esas guardas miren. Da verde siempre, y el verde se lee como «la API está completa».
+
+⚠️ **La rama `wip/api-acciones-1410` no se puede fusionar tal cual: es una cantera, no una rama.** Tiene versiones a medio
+hacer de lo que se hizo el 23/10:
+- `invitar_al_curso`;
+- `app/customer-success/entrega-acciones.ts`;
+- `clientes-escritura.ts`.
+Fusionada, duplica o pisa. Lo que sirve de ahí es el inventario.
+
+**La propuesta de guarda (sin hacer).** Lo más chico que cierra el agujero, con la forma de `tests/cs-acciones-puerta.test.ts`.
+Lee con el parser de TypeScript cada función exportada de cada archivo `'use server'` de `app/` y exige que esté:
+- **cubierta**: en un mapa `accion → operaciones del registro`, y el test comprueba que esas operaciones existan;
+- **exceptuada con su motivo**: una lectura que sólo sirve para dibujar, un paso de la interfaz;
+- **o en una lista de deuda que sólo baja**: arranca con lo que no esté cubierto (las 174 de la auditoría y lo que
+  aparezca), y una entrada que ya está cubierta también falla, para que la lista no quede vieja.
+Los route handlers de `/api` que despachan por `action:` van en una segunda fase. `scripts/api-cobertura.mjs` de
+`b85971b9b` sirve de punto de partida para el inventario.
+
+**Vive en:** `tests/api-mako-registro.test.ts` · `lib/api-mako/registro.ts` · rama `wip/api-acciones-1410` (`b85971b9b`) ·
+`app/admin/dev/api-mako/bitacora.ts` (el hito del 13/10)
+
+*23/10/2026 · chat «API de MaKo» (claude2) · medido con `git cat-file` sobre origin/main y `git log --all` de los tres
+archivos.*

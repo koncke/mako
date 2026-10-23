@@ -37,11 +37,13 @@ export type CabeceraChat = {
   onMuneco?: () => void;
   /** Renombrar en el lugar: devuelve el error, o null si salió. Sin esto el título no se toca. */
   onRenombrar?: (nombre: string) => Promise<string | null>;
+  /** Lo que va al lado del título, en la misma barra (la lista de tickets de Soporte, 23/10/2026). */
+  acciones?: ReactNode;
   onVolver: () => void;
 };
 
 /** La cabecera: «volver» (en la ventana angosta), la criatura, el título que se renombra en el lugar. */
-export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, aspecto, animo, espera = 0, onMuneco, onRenombrar, onVolver }: CabeceraChat) {
+export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, aspecto, animo, espera = 0, onMuneco, onRenombrar, acciones, onVolver }: CabeceraChat) {
   // El título se renombra en el lugar: `editando` es lo que se está escribiendo.
   const [editando, setEditando] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
   useEffect(() => { setEditando(null); }, [clave]);
@@ -80,6 +82,7 @@ export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, a
         </h1>
         {editando?.error && <span className="co-cab__error" role="alert">{editando.error}<ReportarASoporte /></span>}
       </div>
+      {acciones}
     </header>
   );
 }

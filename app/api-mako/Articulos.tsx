@@ -382,6 +382,7 @@ function MigrarCurso({ d }: { d: DatosArticulos }) {
     '4. Para cada clase, EN ORDEN: POST /api/v1/curso/cursos/{productoId}/clases con moduloClave, titulo, videoUrl, descripcion, minutos y, si tiene, sus tareas (en «tareas»).',
     '   El video: el link, o el código para insertar (el <iframe> entero) si viene de Panda u otra plataforma que no da un link público.',
     '5. Al final, GET /api/v1/curso/cursos/{productoId} y dime cuántas clases quedaron contra cuántas tenía el origen.',
+    '6. (Si te paso los alumnos que ya pagaron) Para cada uno: búscalo por su email con GET /api/v1/crm/busqueda/leads, y dale el curso con PUT /api/v1/curso/cursos/{productoId}/accesos/{leadId} (le llega la invitación por email). Tiene que ser un cliente en Ganado de ese producto: si no lo es, dímelo y no lo cambies de etapa.',
     '',
     'Si un pedido falla, NO lo repitas a ciegas: mira primero el curso, para no duplicar clases.',
   ].join('\n');
@@ -389,7 +390,7 @@ function MigrarCurso({ d }: { d: DatosArticulos }) {
     <>
       <h2 id="necesitas">Lo que necesitas</h2>
       <ul>
-        <li>Un <strong>token detallado</strong> con <strong>Lectura y escritura</strong> en «Curso (módulos y clases)». Nada más: no hace falta darle acceso al CRM ni a los clientes.</li>
+        <li>Un <strong>token detallado</strong> con <strong>Lectura y escritura</strong> en «Curso (módulos y clases)». Para el contenido, nada más: no hace falta darle acceso al CRM ni a los clientes (para darles el curso a tus alumnos, mira «Los alumnos»).</li>
         <li><strong>Claude</strong> con la posibilidad de hacer pedidos a una API: Claude Code, o Claude con una herramienta que llame a URLs.</li>
         <li>El curso de origen: el acceso a la API de tu plataforma (por ejemplo, Panda) o una lista con los títulos, los links de los videos y las descripciones.</li>
       </ul>
@@ -410,6 +411,14 @@ function MigrarCurso({ d }: { d: DatosArticulos }) {
         <li><strong>Las tareas van en <C>tareas</C>.</strong> La primera es la principal y va sin título; las demás, con título. El quiz y los campos de la comunidad se arman en MaKo.</li>
         <li><strong>El ritmo:</strong> hasta {d.limites.ws} pedidos por minuto. Un curso de 100 clases tarda unos pocos minutos.</li>
         <li><strong>Si algo sale mal</strong>, <C>DELETE /api/v1/curso/clases/&#123;claseId&#125;</C> manda una clase a la papelera, y <C>PUT …/restauracion</C> la devuelve durante 7 días.</li>
+      </ul>
+
+      <h2 id="alumnos">Los alumnos</h2>
+      <ul>
+        <li><strong>Para darles el curso</strong>, el token necesita además <strong>Lectura</strong> en «CRM» (para encontrar a cada alumno por su email). Sólo se le abre a un cliente en Ganado de ese producto.</li>
+        <li><C>PUT /api/v1/curso/cursos/&#123;productoId&#125;/accesos/&#123;leadId&#125;</C> le abre el curso y le manda la invitación. Si ya estaba invitado, no la repite.</li>
+        <li><strong>A quien se da de baja:</strong> <C>DELETE /api/v1/curso/cursos/&#123;productoId&#125;/accesos/&#123;leadId&#125;</C> le saca ese curso, y <C>PUT /api/v1/curso/accesos/&#123;leadId&#125;/corte</C> le corta el portal entero.</li>
+        <li><C>GET /api/v1/curso/accesos/&#123;leadId&#125;</C> dice qué cursos le abre y si ya entró.</li>
       </ul>
 
       <h2 id="endpoints">Los endpoints</h2>

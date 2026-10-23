@@ -75,7 +75,9 @@ test('faltanEnPaso: lo obligatorio que el paso no trae, con el lead del evento y
 });
 
 test('Las personas de una propuesta de leads: una sola o un lote, y sin nombre no hay persona', () => {
-  assert.deepEqual(filasDeLeads({ nombre: 'Ana', telefono: '5215512345678', email: 'A@X.COM' }), [{ nombre: 'Ana', email: 'a@x.com', telefono: '5215512345678', empresa: null }]);
+  assert.deepEqual(filasDeLeads({ nombre: 'Ana', telefono: '5215512345678', email: 'A@X.COM' }), [{ nombre: 'Ana', email: 'a@x.com', telefono: '5215512345678', instagram: null, empresa: null }]);
+  // El @ de Instagram viaja en la fila (23/10/2026): un lead con sólo el @ tiene canal.
+  assert.equal(filasDeLeads({ nombre: 'Lu', instagram: 'lu.perez' })[0].instagram, 'lu.perez');
   assert.equal(filasDeLeads({ leads: [{ nombre: 'Ana', email: 'a@x.com' }, { nombre: '', email: 'b@x.com' }, { nombre: 'Bea', telefono: '1' }] }).length, 2);
   assert.deepEqual(filasDeLeads(null), []);
 });

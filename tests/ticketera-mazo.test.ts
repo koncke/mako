@@ -445,7 +445,7 @@ test('G4: sin «Actualizar»: se refresca sola; el arreglo automático, en el ra
   assert.match(src.slice(src.indexOf('function AutoArreglo(')), /<Switch checked=\{prendido\} onChange=\{onCambio\} label="Arreglar solos los bugs evidentes" \/>/);
   assert.match(src, /void guardarVistaAction\(v\)/);
   // La lectura no pierde pedidos y pide la vista hasta tenerla (el comportamiento, en D3).
-  assert.match(src, /const cargar = useMemo\(\(\) => lectorDeBandeja\(leerBandejaAction, /);
+  assert.match(src, /const cargar = useMemo\(\(\) => lectorDeBandeja\(\(conVista: boolean\) => leerCentro<LecturaBandeja>\('bandeja', conVista \? \{ vista: '1' \} : \{\}\), /);
   assert.match(leer('lib/perfil.ts'), /const TICKETERA_VISTA_KEY = 'ticketeraVista';/);
   assert.match(leer('app/tickets/bandeja/acciones.ts'), /export async function guardarVistaAction\(v: VistaTicketera\)[\s\S]{0,120}if \(!\(await opera\(\)\)\) return/);
 });

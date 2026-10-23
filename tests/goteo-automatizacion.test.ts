@@ -64,9 +64,12 @@ const ini = motor.indexOf('export async function procesarEnvios(');
 const proc = motor.slice(ini, motor.indexOf('\n}\n', ini));
 
 test('procesarEnvios: el goteo frena además de la línea, y lo frenado pasa a su turno', () => {
-  assert.match(proc, /const sinLugar = \(insc: \{ lead_id: number; secuencia_id: number \}\): boolean => sinLugarEnLaLinea\(insc\.lead_id\) \|\| frenoGoteo\(insc\.secuencia_id\)\.frena;/);
-  assert.equal((proc.match(/if \(sinLugar\(insc\) && !/g) ?? []).length, 2, 'los dos puntos donde un mensaje espera lugar');
-  assert.equal((proc.match(/await quedaFrenada\(insc, sec\); continue;/g) ?? []).length, 2);
+  // Desde el 23/10/2026 `sinLugar` y `quedaFrenada` miran el CANAL de la tarjeta: el goteo de WhatsApp ya no frena al email.
+  assert.match(proc, /const sinLugar = \(insc: \{ lead_id: number; secuencia_id: number \}, canal: string \| null \| undefined\): boolean =>\n\s+sinLugarEnLaLinea\(insc\.lead_id\) \|\| \(esEmail\(canal\) \? frenoGoteoEmail\(insc\.secuencia_id\) : frenoGoteo\(insc\.secuencia_id\)\)\.frena;/);
+  assert.equal((proc.match(/if \(sinLugar\(insc, /g) ?? []).length, 2, 'los dos puntos donde un mensaje espera lugar');
+  assert.match(proc, /if \(sinLugar\(insc, pasoLeido\?\.canal\) && !\(pasoLeido && sec && sigueSinCupo\(sec\.pasos, idxLeido\)\)\) \{ await quedaFrenada\(insc, sec, pasoLeido\?\.canal\); continue; \}/);
+  assert.match(proc, /if \(sinLugar\(insc, destino\.canal\) && !sigueSinCupo\(sec\.pasos, r\.idx\)\) \{ await quedaFrenada\(insc, sec, destino\.canal\); continue; \}/);
+  assert.equal((proc.match(/await quedaFrenada\(insc, sec, /g) ?? []).length, 2);
   const q = proc.slice(proc.indexOf('const quedaFrenada = async'), proc.indexOf('const soltarToque'));
   assert.match(q, /if \(g && f\.frena && !sinLugarEnLaLinea\(insc\.lead_id\)\)/, 'sólo si lo frena el goteo, no la línea');
   assert.match(q, /proximo_envio_at: new Date\(turnoDeGoteo\(f\.desdeMs, k, g\)\)\.toISOString\(\)/);
@@ -78,7 +81,7 @@ test('procesarEnvios: el goteo frena además de la línea, y lo frenado pasa a s
 test('el uso del goteo cuenta los WhatsApp ENVIADOS (y los que quedan para aprobar) de esas automatizaciones en 24 h', () => {
   const i = motor.indexOf('async function usoDelGoteo(');
   const cuerpo = motor.slice(i, motor.indexOf('\n}\n', i));
-  assert.match(cuerpo, /\.in\('secuencia_id', \[\.\.\.ids\]\)\.eq\('canal', 'whatsapp'\)\.in\('estado', \[\.\.\.ESTADOS_DEL_GOTEO\]\)\.gte\('created_at', haceHorasISO\(24\)\)/);
+  assert.match(cuerpo, /\.in\('secuencia_id', \[\.\.\.ids\]\)\.eq\('canal', canal\)\.in\('estado', \[\.\.\.ESTADOS_DEL_GOTEO\]\)\.gte\('created_at', haceHorasISO\(24\)\)/);
 });
 
 // ── Las roturas (7 tests; sin romper nada: 7 pases, 0 fallos) ──────────────────────────────────────────────────────

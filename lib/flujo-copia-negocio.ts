@@ -31,7 +31,7 @@ import { productosConEtapas, TriggerInvalidoError } from './setting-secuencias';
 import { cronParaEsteNegocio } from './copia-disparador';
 import { nombreLibre } from './plantillas-automatizaciones';
 import { emojiDeSecuencia } from './flujo-conversacion';
-import { copiarConfigAutomatizacion, nacerConfigAutomatizacion } from './config-automatizacion-db';
+import { copiarConfigAutomatizacion } from './config-automatizacion-db';
 import { leerCopia, limpiarReferencias, tokenDeBytes, tokenDeTexto, LARGO_TOKEN, type CopiaFlujo, type Existentes, type PasoCopiado } from './flujo-copia';
 
 // ── El token: guardar y leer la copia ─────────────────────────────────────────────────────────────
@@ -163,9 +163,7 @@ export async function crearDesdeCopia(copia: CopiaFlujo, o: { configDe?: number 
   const id = (nueva as { id: number }).id;
   try {
     await setSecuenciaPasos(id, pasos as unknown as PasoSecuencia[]);
-    // La de su original si es de ESTE negocio; si no, la de una nueva: «Misma persona» propia apagada (23/10/2026).
     if (o.configDe) await copiarConfigAutomatizacion(o.configDe, id);
-    else await nacerConfigAutomatizacion(id);
   } catch (e) {
     await Promise.resolve(db.from('nutricion_secuencias').delete().eq('id', id)).catch(() => {});
     throw e;

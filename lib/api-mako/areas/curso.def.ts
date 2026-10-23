@@ -68,6 +68,11 @@ const claseId: Parametro = {
   nombre: 'claseId', tipo: 'number', obligatorio: true, entero: true, minimo: 1,
   descripcion: 'id de la clase (de ver_curso).',
 };
+/** El lead (cliente) cuyo acceso se toca: los accesos (23/10/2026, ver «LOS ACCESOS» abajo). */
+const leadId: Parametro = {
+  nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1,
+  descripcion: 'id del lead en el CRM (el cliente).',
+};
 const moduloClave: Parametro = {
   nombre: 'moduloClave', tipo: 'string', obligatorio: true, max: 60,
   descripcion: 'la clave del módulo (de ver_curso: `modulos[].clave`), no su nombre.',
@@ -249,5 +254,101 @@ export const DEFS: readonly OperacionDef[] = [
     canales: HTTP, costo: 'gratis', gating: GATING,
     confirmacion: 'chat', reversible: true,
     escribe: 'limpia curso_clases.borrada_at de la clase',
+  },
+  // ── LOS ACCESOS: quién abre el curso (23/10/2026) ──────────────────────────────────────────────
+  // Pedido de Martín (23/10/2026, desde el Ops Center, sobre un chat que no encontraba «cómo dar o quitar el acceso al
+  // curso»): «Revisá esto... Y si hay que hacer una revisión completa de la API». La migración de un curso de Panda
+  // necesita, además del contenido, QUIÉN lo abre: dárselo a quien lo compró (no vender sin entregar) y sacárselo a quien
+  // se da de baja.
+  //
+  //   · ACÁ Y NO EN `cs`: el token de la migración es «Curso: Lectura y escritura», y `cs` no sale por HTTP (sus lecturas
+  //     son la cartera entera). El límite del área se mueve —la estructura del curso Y quién lo abre—, el de los datos de
+  //     las personas no: estas operaciones piden un leadId y devuelven el ESTADO DEL ACCESO, nunca el email, el avance ni
+  //     la cartera.
+  //   · LA MISMA PUERTA DE LA PANTALLA (app/customer-success/curso-ficha-actions.ts): dar es `invitarAlCurso`
+  //     (lib/curso-invitar.ts, el núcleo de la ficha, la tarjeta del kanban, el CRM al ganar e `invitar_cliente_curso_cs`);
+  //     sacar un curso es `quitarCursoDelAcceso`; cortar y habilitar, `revocarAcceso` y `reactivarAcceso`
+  //     (lib/curso-datos.ts). Ninguna segunda forma de abrir o cerrar un portal.
+  //   · ABRIR EXIGE UN CLIENTE GANADO DE ESE PRODUCTO; CERRAR SE PUEDE SIEMPRE. El portal no le abre a nadie más
+  //     (`resolverAcceso` pide el lead en Ganado), y por la API no se pasa a nadie a Ganado ni se lo mueve de etapa (lo de
+  //     arriba: eso manda mensajes). Sacar o cortar, en cambio, también a quien ya salió de Ganado: el que se da de baja
+  //     suele salir del embudo, y su acceso volvería a abrir el día que vuelva a Ganado.
+  //   · Por WhatsApp y en los flujos, invitar sigue siendo `invitar_cliente_curso_cs` (el mismo núcleo). Sumar éstas al
+  //     doer es otra decisión, como el resto del área.
+  {
+    id: 'ver_acceso_curso', area: 'curso', tipo: 'lectura',
+    titulo: 'Ver el acceso de un cliente',
+    descripcion: 'Cómo está el acceso al portal del curso de un lead: si tiene acceso, si está cortado, qué cursos le abre, si se le mandó la invitación y si ya entró (cuántas veces y cuándo fue la última). Sin su email ni su avance. Úsala antes de dar_acceso_curso o quitar_curso_del_acceso. abre_el_portal false con tiene_acceso true = está cortado o el lead ya no está en Ganado: el portal sólo le abre a un cliente ganado.',
+    parametros: [leadId],
+    canales: HTTP, costo: 'gratis', gating: GATING, salida: 'json',
+  },
+  {
+    id: 'dar_acceso_curso', area: 'curso', tipo: 'accion', aTerceros: true,
+    titulo: 'Dar acceso a un curso',
+    descripcion: 'Le abre a un cliente el curso de UN producto y le manda la invitación por email con su link de entrada al portal: el mismo correo que «Invitar» en Customer Success. Se le crea el acceso si no lo tenía, y pasa a abrirle ese curso sin cerrarle los que ya veía. Tiene que ser un cliente GANADO de ese producto (en su kanban de Clientes): a otro lead el portal no le abre, y esto no lo mueve de etapa. Sin email usa el del CRM; si el CRM no tenía ninguno, el que se pasa queda guardado en el lead. Si ya estaba invitado a ese curso o ya entró, no la manda de nuevo, salvo reenviar: true. Con el acceso cortado no lo abre: primero habilitar_acceso_curso. Devuelve si el correo salió.',
+    parametros: [
+      leadId,
+      { ...productoId, descripcion: 'id del producto cuyo curso se le abre (de listar_cursos).' },
+      { nombre: 'email', tipo: 'string', max: 200, descripcion: 'a qué email. Sin esto, el del CRM.' },
+      { nombre: 'canales', tipo: 'string[]', enum: ['email', 'whatsapp'], max: 2, descripcion: 'por dónde: ["email"] (default) o ["email", "whatsapp"]. El WhatsApp sale sólo si salió el correo.' },
+      { nombre: 'reenviar', tipo: 'boolean', descripcion: 'true = mandarla aunque ya esté invitado a ese curso o ya haya entrado.' },
+    ],
+    canales: HTTP, costo: 'externo', gating: GATING,
+    confirmacion: 'chat', reversible: false,
+    escribe: 'crea su acceso al portal si no lo tenía, le suma ese curso (curso_accesos.productos), anota la invitación, guarda el email en el lead si no tenía y le manda un email (y opcionalmente un WhatsApp)',
+  },
+  {
+    id: 'quitar_curso_del_acceso', area: 'curso', tipo: 'accion',
+    titulo: 'Sacarle un curso a un cliente',
+    descripcion: 'Su acceso deja de abrir el curso de ESE producto: ya no lo ve en su portal. No le corta sus otros cursos, no lo saca del kanban de Clientes y no le avisa; queda en su historial. Si es el único curso que le abre, no se saca con esta operación: cortar_acceso_curso corta el portal entero. Para volver a abrírselo, dar_acceso_curso (que le manda la invitación de nuevo).',
+    parametros: [leadId, { ...productoId, descripcion: 'id del producto cuyo curso se le saca (de listar_cursos).' }],
+    canales: HTTP, costo: 'gratis', gating: GATING,
+    confirmacion: 'chat', reversible: true,
+    escribe: 'saca el producto de los cursos que abre su acceso (curso_accesos.productos) y deja una línea en el historial del lead',
+  },
+  {
+    id: 'cortar_acceso_curso', area: 'curso', tipo: 'accion',
+    titulo: 'Cortar el acceso al portal',
+    descripcion: 'Corta el acceso de un lead al portal del curso: los links que ya tiene dejan de abrir, con todos sus cursos, y también los de sus líderes de área. No le avisa ni lo saca del kanban de Clientes. habilitar_acceso_curso lo vuelve a abrir con un link NUEVO (sus líderes vuelven desde su ficha). Para sacarle un solo curso, quitar_curso_del_acceso.',
+    parametros: [leadId],
+    canales: HTTP, costo: 'gratis', gating: GATING,
+    confirmacion: 'chat', reversible: true,
+    escribe: 'sube la versión de su acceso y lo marca cortado (curso_accesos), y lo mismo con los de sus líderes de área',
+  },
+  {
+    id: 'habilitar_acceso_curso', area: 'curso', tipo: 'accion',
+    titulo: 'Volver a habilitar el acceso',
+    descripcion: 'Vuelve a abrir el acceso al portal de un cliente que estaba cortado, con un link NUEVO: el que tenía sigue sin abrir. No le llega nada: para mandárselo, dar_acceso_curso con reenviar: true. Tiene que ser un cliente ganado. Sus líderes de área no vuelven solos (cada uno, desde su ficha).',
+    parametros: [leadId],
+    canales: HTTP, costo: 'gratis', gating: GATING,
+    confirmacion: 'chat', reversible: true,
+    escribe: 'saca la marca de cortado de su acceso (curso_accesos.revocado_at)',
+  },
+  // ── EL ALUMNO NUEVO (23/10/2026, P0-3 de la auditoría): la migración de un curso de Panda trae alumnos que no están en
+  //    el CRM. Lo mismo que «Invitar a alguien nuevo» del editor del curso (`darDeAltaAlumno`, lib/curso-alta-alumno.ts):
+  //    lo crea como cliente ganado, lo pone en el kanban de ESE producto y lo invita. Dos diferencias, a propósito:
+  //    ⚠️ `usarLeadId` sólo vale para alguien que YA es cliente (ganado): pasar un lead a Ganado es del CRM, y por la API no
+  //       se hace (como dar_acceso_curso). En la pantalla el botón lo dice; acá no hay botón.
+  //    ⚠️ si se parece a un lead que existe, NO crea y devuelve sólo el id y por qué choca: los nombres de los leads son
+  //       del CRM, y un token de «Curso» no tiene por qué leerlos.
+  //    Y el tope de leads del plan frena el alta, como el alta a mano del CRM.
+  {
+    id: 'crear_alumno_curso', area: 'curso', tipo: 'accion', aTerceros: true,
+    titulo: 'Dar de alta un alumno nuevo',
+    descripcion: 'Da de alta a un alumno que NO está en el CRM y le abre el curso de ese producto: lo crea como cliente ganado, lo pone en el kanban de Clientes de ese producto (sólo de ése) y le manda la invitación por email (y por WhatsApp si se pide). Si se parece a alguien que ya está, no lo crea: devuelve el id y por qué choca; con crearIgual: true lo crea igual, y con usarLeadId usa ese (sólo si ya es cliente; si no, se lo pasa a Ganado en el CRM primero). Con sinCobro: true es un becado (la venta no cuenta). Devuelve el leadId.',
+    parametros: [
+      productoId,
+      { nombre: 'nombre', tipo: 'string', max: 200, descripcion: 'nombre y apellido (hace falta salvo con usarLeadId).' },
+      { nombre: 'email', tipo: 'string', obligatorio: true, max: 200, descripcion: 'a qué email va la invitación.' },
+      { nombre: 'telefono', tipo: 'string', max: 40, descripcion: 'teléfono con código de país (opcional: sin él no sale el WhatsApp).' },
+      { nombre: 'empresa', tipo: 'string', max: 200, descripcion: 'empresa, si la hay.' },
+      { nombre: 'sinCobro', tipo: 'boolean', descripcion: 'true = becado o bonificado: la venta se marca «sin cobro».' },
+      { nombre: 'usarLeadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'usar este lead (uno que ya es cliente ganado) en vez de crear uno.' },
+      { nombre: 'crearIgual', tipo: 'boolean', descripcion: 'true = crearlo aunque se parezca a alguien que ya está.' },
+      { nombre: 'canales', tipo: 'string[]', enum: ['email', 'whatsapp'], max: 2, descripcion: 'por dónde va la invitación: ["email"] (default) o ["email", "whatsapp"].' },
+    ],
+    canales: HTTP, costo: 'externo', gating: GATING,
+    confirmacion: 'chat', reversible: false,
+    escribe: 'crea el lead como cliente ganado (o usa uno que ya lo es), lo pone en la entrega de ese producto, crea su acceso al portal con ese curso, anota la invitación y le manda un email (y opcionalmente un WhatsApp)',
   },
 ];

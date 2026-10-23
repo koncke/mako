@@ -234,7 +234,7 @@ test('el email del recorrido va a la BANDEJA con su minuto, y lo que sale de ver
   // (Cuarta tanda, punto 15: lo que sigue a la rama del email es el WhatsApp de VARIAS partes.)
   const rama = src.slice(src.indexOf("if (p.canal === 'email') {"), src.indexOf("if (redactado == null && p.tipo !== 'ia') {"));
   assert.ok(rama.length > 0 && rama.length < 700, `el recorte de la rama del email mide ${rama.length}`);
-  assert.match(rama, /const correo = correoDeEjemplo\(p, c\.negocio\);/);
+  assert.match(rama, /const correo = correoDeEjemplo\(p, c\.negocio, datosDelMomento\(\)\);/);
   assert.match(rama, /ponerCorreo\(\{ id: nuevoId\('em'\), \.\.\.correo, minuto, leido: false \}\);/);
   // (Integración, parte C: lo que sale de verdad lleva el HTML del editor rico, el mismo de la bandeja.)
   assert.match(rama, /mandarReal\(\{ canal: 'email', tipo: 'texto', texto: correo\.cuerpo, asunto: correo\.asunto, \.\.\.\(correo\.html \? \{ html: correo\.html \} : \{\}\) \}, nodo, enRespuesta\);/);

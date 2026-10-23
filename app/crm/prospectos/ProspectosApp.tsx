@@ -6,8 +6,9 @@
 // barra abajo con lo que se hace con los elegidos. Lo que cambia la pantalla:
 //   · «Elegir los 100 mejores» es lo que faltaba desde el 03/10 (separar los 100 mejores de 1.000):
 //     elige por puntaje entre los que se pueden contactar.
-//   · Un prospecto sin email ni teléfono se ve, pero no va al CRM (la regla del importador): la
-//     fila lo dice y el diálogo de «Pasar al CRM» lo cuenta.
+//   · Un prospecto sin email, teléfono ni @ se ve, pero no va al CRM (la regla del importador,
+//     `tieneContacto`): la fila lo dice y el diálogo de «Pasar al CRM» lo cuenta. Con sólo el @
+//     SÍ va (23/10/2026): es casi todo lo que da un perfil de Instagram.
 //   · Mientras una búsqueda corre, la lista se vuelve a pedir cada 20 s: así entran los resultados
 //     aunque el aviso de Apify no llegue.
 // El trabajo termina cuando el lead entra al CRM: qué se le escribe lo decide Automations.
@@ -81,7 +82,7 @@ function Contacto({ p }: { p: Prospecto }) {
       {p.email && <a href={`mailto:${p.email}`} title={p.email}><Icon name="email" size={14} />{p.email}</a>}
       {p.web && <a href={p.web} target="_blank" rel="noopener noreferrer" title={p.web}><Icon name="web" size={14} />{p.web.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</a>}
       {p.instagram && <a href={`https://www.instagram.com/${p.instagram}/`} target="_blank" rel="noopener noreferrer"><Icon name="instagram" size={14} />@{p.instagram}</a>}
-      {!contactable(p) && <span style={{ color: 'var(--warn)' }}>Sin email ni teléfono</span>}
+      {!contactable(p) && <span style={{ color: 'var(--warn)' }}>Sin email, teléfono ni Instagram</span>}
     </div>
   );
 }
@@ -385,7 +386,7 @@ function PasarAlCrm({ elegidos, funnels, onCerrar, onListo }: {
         <div style={{ fontSize: 14, color: 'var(--ink)' }}>
           Entran en la primera etapa. Si alguno ya está en tu CRM, no se duplica.
         </div>
-        {noVan > 0 && <div style={{ fontSize: 13.5, color: 'var(--warn)' }}>{noVan} sin email ni teléfono: no van.</div>}
+        {noVan > 0 && <div style={{ fontSize: 13.5, color: 'var(--warn)' }}>{noVan} sin email, teléfono ni Instagram: no van.</div>}
         {error && <div role="alert" style={{ fontSize: 13.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}
       </div>
     </Modal>

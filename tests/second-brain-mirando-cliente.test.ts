@@ -25,6 +25,6 @@ test('quienOpera dice que no mientras se mira a un cliente', () => {
 });
 
 test('la página no lee el Centro si quien mira no opera', () => {
-  assert.match(leer('app/second-brain/page.tsx'), /const centro = \(await quienOpera\(\)\) \? await datosDelCentroSiOpera\(\)\.catch\(\(\) => null\) : null;/,
+  assert.match(leer('app/second-brain/page.tsx'), /const centro = opera \? await datosDelCentroSiOpera\(\)\.catch\(\(\) => null\) : null;/,
     'los chats del super admin se leen aunque esté mirando a un cliente');
 });

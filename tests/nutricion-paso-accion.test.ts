@@ -259,8 +259,8 @@ test('el cupo de mensajes no frena a las acciones: con el tope cumplido el motor
   // (Y lo que se deja, si la fila tiene el carril pendiente, se aplaza para no taparlo: `aplazarSiTapa`.)
   // (Desde el 21/10/2026 el freno es `sinLugar`, el cupo entero o el de campaña; y desde el 22/10 lo frenado pasa por
   // `quedaFrenada`, que si lo frena el goteo lo lleva a su turno y si no, `aplazarSiTapa`: tests/goteo-automatizacion.test.ts.)
-  assert.match(PROC, /if \(sinLugar\(insc\) && !\(pasoLeido && sec && sigueSinCupo\(sec\.pasos, idxLeido\)\)\) \{ await quedaFrenada\(insc, sec\); continue; \}/);
-  assert.match(PROC, /if \(sinLugar\(insc\) && !sigueSinCupo\(sec\.pasos, r\.idx\)\) \{ await quedaFrenada\(insc, sec\); continue; \}/);
+  assert.match(PROC, /if \(sinLugar\(insc, pasoLeido\?\.canal\) && !\(pasoLeido && sec && sigueSinCupo\(sec\.pasos, idxLeido\)\)\) \{ await quedaFrenada\(insc, sec, pasoLeido\?\.canal\); continue; \}/);
+  assert.match(PROC, /if \(sinLugar\(insc, destino\.canal\) && !sigueSinCupo\(sec\.pasos, r\.idx\)\) \{ await quedaFrenada\(insc, sec, destino\.canal\); continue; \}/);
   assert.match(PROC, /!!pasos\[idx\] && \(sigueSinCupoWa\(pasos\[idx\]\) \|\| esHiloDelCarril\(pasos, idx\)\)/);
   // Y la ventana horaria vale para todo: el corte sigue ANTES de mirar nada.
   assert.ok(PROC.indexOf("saltado: 'fuera-de-ventana-horaria'") < PROC.indexOf('const conAcciones'));

@@ -74,12 +74,6 @@ export type DepsPlantilla = {
   db: DbPlantilla;
   /** `setSecuenciaPasos` (lib/nutricion.ts). */
   setPasos: (id: number, pasos: never[]) => Promise<void>;
-  /**
-   * `nacerConfigAutomatizacion` (lib/config-automatizacion-db.ts, 23/10/2026): la «Misma persona» propia, apagada, con la que
-   * nace toda automatización nueva. Opcional por los tests con dependencias falsas; cada llamador de la app la pasa
-   * (tests/misma-persona-propia.test.ts lo barre).
-   */
-  nacer?: (id: number) => Promise<void>;
   /** `guardarDisparadores` (lib/disparadores-guardar.ts). */
   setDisparadores: (id: number, lista: Disparador[]) => Promise<unknown>;
   /**
@@ -151,7 +145,6 @@ export async function crearDesdePlantilla(plantillaId: unknown, deps: DepsPlanti
   const borrar = () => Promise.resolve(deps.db.from('nutricion_secuencias').delete().eq('id', nueva.id)).catch(() => {});
   try {
     await deps.setPasos(nueva.id, pasosDePlantilla(p) as never[]);
-    await deps.nacer?.(nueva.id);
   } catch (e) {
     // El motivo de `setSecuenciaPasos` es el que la pantalla muestra («No se guardó: …»). Si el
     // borrado falla, el motivo sigue siendo el otro.

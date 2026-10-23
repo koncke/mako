@@ -79,6 +79,7 @@ import { AVISO_SIN_LUGAR, NOMBRE_TIPO_ETAPA, avisoCambioDeTipo, columnaConTipo, 
 import { EventosDeEtapaModal } from './EventosDeEtapaModal';
 import { CobroDeEtapaModal } from './CobroDeEtapaModal';
 import { FlechaDerechaIcon, FlechaIzquierdaIcon } from './iconos';
+import { Icon } from '@/app/_components/icons';
 import { ExportarLeadsModal } from './ExportarLeadsModal';
 import { LeadEditModal } from './LeadEditModal';
 import { StageMoveDialog, leadToMoveInfo, type StageMoveTarget } from './StageMoveDialog';
@@ -202,7 +203,11 @@ export type CrmLead = {
   stageFuera?: string | null;   // posición real en el funnel (ignora override) — para el worklist
   created: string;
   telefonoNorm: string | null;   // teléfono solo-dígitos — para wa.me / WhatsApp
-  /** El usuario de Instagram, sin @ (`leads.instagram`): el buscador lo encuentra (22/10/2026, `arrobaInstagram`). */
+  /**
+   * El usuario de Instagram, sin @ (`leads.instagram`): el buscador lo encuentra (22/10/2026, `arrobaInstagram`).
+   * Y desde el 23/10/2026 un lead puede entrar con el @ como ÚNICO canal (la prospección: un perfil público no da ni
+   * email ni teléfono): la tarjeta lo dice mostrando ese canal (`soloInstagram`), no un «falta».
+   */
   instagram?: string | null;
   // Fechas crudas (ISO) para la línea de tiempo del recorrido.
   createdISO: string;
@@ -327,6 +332,15 @@ const rotWa = (nombre: string) => `Escribirle a ${nombre} por WhatsApp`;
 const rotEliminar = (nombre: string) => `Eliminar «${nombre}»`;
 /** El telefono ya viene solo-digitos (`telefonoNorm`), que es lo que wa.me espera. */
 const waDe = (telefono: string) => `https://wa.me/${telefono}`;
+const rotIg = (nombre: string) => `Abrir el Instagram de ${nombre}`;
+const igDe = (usuario: string) => `https://www.instagram.com/${encodeURIComponent(usuario)}/`;
+/**
+ * El @ es su ÚNICO canal: sin email y sin teléfono. Así se ve distinto de uno completo sin un
+ * rótulo de «falta» (Martín, 22/10/2026: «si no tiene ese dato, que no lo muestre»): lo que se
+ * dibuja es el canal que SÍ tiene, donde los demás muestran el suyo.
+ */
+const soloInstagram = (l: Pick<CrmLead, 'email' | 'telefonoNorm' | 'instagram'>): string | null =>
+  !l.email?.trim() && !l.telefonoNorm && l.instagram?.trim() ? l.instagram.trim() : null;
 
 function IconoWhatsapp() {
   return (
@@ -3039,7 +3053,10 @@ export function CrmBoard({
       avance: dis === 'avance' && iPaso >= 0
         ? { pct: ((iPaso + 1) / caminoTarjeta.length) * 100, texto: `Paso ${iPaso + 1} de ${caminoTarjeta.length} · ${caminoTarjeta[iPaso].label}` }
         : null,
-      chips: <>{csChicos.map((c) => <Fragment key={c}>{chip(c)}</Fragment>)}{aut && <span className={`tk-chip tk-chip--${aut.tono}`} data-en-automatizacion title={aut.detalle}>{aut.texto}</span>}</>,
+      // EL @ COMO ÚNICO CANAL (23/10/2026): va SIEMPRE, como el de la automatización — no es un dato que se elige en
+      // «Personalizar tarjetas», es POR DÓNDE se le escribe a este lead (sin email ni teléfono no hay WhatsApp que abrir).
+      // Se dibuja el canal que SÍ tiene, no un «falta» (Martín, 22/10: «si no tiene ese dato, que no lo muestre»).
+      chips: <>{csChicos.map((c) => <Fragment key={c}>{chip(c)}</Fragment>)}{aut && <span className={`tk-chip tk-chip--${aut.tono}`} data-en-automatizacion title={aut.detalle}>{aut.texto}</span>}{soloInstagram(l) && <span className="tk-chip tk-chip--gris" data-solo-instagram title="Su único contacto es Instagram">@{soloInstagram(l)}</span>}</>,
     };
   };
   // La vista previa del pop-up: un lead del tablero, con lo que se está eligiendo. Para «Monto grande» y «Próxima
@@ -3397,7 +3414,7 @@ export function CrmBoard({
                   title={tildado ? rotQuitar(l.name) : rotPoner(l.name)}
                   aria-label={tildado ? rotQuitar(l.name) : rotPoner(l.name)}
                   style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
-                <CeldasLead cols={colsTabla} nombre={l.name} email={l.email} empresa={l.company} origen={l.origin}
+                <CeldasLead cols={colsTabla} nombre={l.name} email={l.email || (soloInstagram(l) ? `@${soloInstagram(l)}` : '')} empresa={l.company} origen={l.origin}
                   etapa={{ rotulo: m.label, estilo: chipStyle(m.tone) }} agenda={l.agenda}
                   monto={{ texto: isGanado ? montoDeTarjeta(l).texto : '', ganado: isGanado }} creado={l.created} />
                 {/* ── LAS ACCIONES DE LA FILA. «Con acciones utiles» (05/10/2026). Son las dos
@@ -3414,6 +3431,16 @@ export function CrmBoard({
                       className="mk-icon-btn" data-tone="dim"
                       style={{ width: 28, height: 28, textDecoration: 'none' }}>
                       <IconoWhatsapp />
+                    </a>
+                  )}
+                  {/* Sin teléfono ni email pero con @: escribirle es por Instagram. */}
+                  {soloInstagram(l) && (
+                    <a href={igDe(soloInstagram(l)!)} target="_blank" rel="noopener noreferrer"
+                      onClick={(ev) => ev.stopPropagation()}
+                      title={rotIg(l.name)} aria-label={rotIg(l.name)}
+                      className="mk-icon-btn" data-tone="dim"
+                      style={{ width: 28, height: 28, textDecoration: 'none' }}>
+                      <Icon name="instagram" size={14} />
                     </a>
                   )}
                   {/* El tacho de la casa, rojo (general 9). Antes era un trazo propio en `--dim`. */}

@@ -59,8 +59,9 @@ export type HiloMsg = {
   /**
    * Sólo para `tipo: 'caso'` («Probar», 16/10/2026): el encabezado de un caso, que dibuja quien monta el hilo
    * (`renderMensaje`). No es un mensaje de la charla: no se le pasa a la IA ni cuenta como el último.
+   * 23/10/2026: el `titulo` es la persona falsa del caso (nombre y apellido), con su `foto`; «Caso N» va de `subtitulo`.
    */
-  caso?: { titulo: string; hechos: readonly string[]; contesta?: string | null };
+  caso?: { titulo: string; subtitulo?: string; foto?: string; hechos: readonly string[]; contesta?: string | null };
 };
 
 function fmtHora(iso: string | null | undefined): string {
