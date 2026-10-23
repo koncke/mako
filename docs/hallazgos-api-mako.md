@@ -1935,3 +1935,29 @@ todavía fuera de main.
 tests/ops-center-bateria.test.ts
 *22/10/2026, chat «CRM» (claude3).*
 
+
+## El ws13 no avisó de un solo lead nuevo del 13 al 22/10: medio emoji en el resumen de una pendiente (23/10/2026)
+
+**Síntoma (medido por el Cerebro contra producción):** 20 envíos seguidos en `fallo`, todos del ws13, con «No se pudo
+registrar la acción pendiente.»; cada lead nuevo se inscribía, el paso «MaKo en WhatsApp» fallaba y la inscripción quedaba
+`completada` en el paso 1. **El diagnóstico obvio («el INSERT falla por el esquema o por el payload») era el equivocado:** el
+Cerebro probó el insert por tres caminos, con el payload exacto, y entró las tres veces. **La causa:** el `preparar` de
+`avisar_al_equipo` arma el RESUMEN con `mensaje.slice(0, 120)`, y en el texto de #241 y #264 (184 unidades) la unidad 119 es la
+primera mitad de un emoji (U+D83D). `JSON.stringify` la manda como `\ud83d` y Postgres rechaza el pedido entero («invalid input
+syntax for type json», medido con un `select …::jsonb` sin tocar tablas). El payload iba entero: por eso entraba. Sólo el ws13
+tenía un emoji justo en ese corte. Y el motivo vivía en un `console.error` que nadie lee: `crearPendiente` devolvía `null`.
+**Regla:** un texto que va a la base se corta con `cortarSinPartir`; lo que escribe una puerta compartida pasa por
+`datosSinMediosEmojis` (`crearPendiente` lo hace con todo lo que inserta, así cubre los otros siete resúmenes cortados con
+`slice` en los runners); una puerta que no puede escribir devuelve el MOTIVO, y el paso de una automatización lo deja en
+`nutricion_envios.error` (`motivo` viaja APARTE: a una persona por el chat, WhatsApp o /api/v1 le llega la frase de siempre).
+Y una acción que se sabe que NO corrió (`noCorrio`: la pendiente no entró) ya no cierra la inscripción: vuelve a su paso con
+compare-and-set contra lo que escribió el reclamo y reintenta a 1 h, 6 h y 24 h (`REINTENTOS_ACCION_MS`); después sigue como
+siempre, con «intento N de 4» en la fila. Sólo en el caso simple (sin hilos, sin flechas en paralelo, fuera del carril).
+**Vive en:** lib/unicode-seguro.ts · lib/mako-pendientes.ts (`crearPendiente`) · lib/api-mako/areas/chatbot.run.ts
+(`avisar_al_equipo`) · lib/api-mako/acciones.ts (`proponerChat`) · lib/api-mako/ejecutar.ts · lib/api-mako/flujo.ts
+(`aplicarEnElActo`) · lib/nutricion-paso-accion.ts (`correrPasoAccion`) · lib/nutricion.ts (la rama del paso de acción) ·
+test: tests/pendiente-medio-emoji.test.ts (6 roturas → 6 rojos). **Sin hacer:** `crearPropuesta` (lib/propuestas.ts) no sanea lo
+que inserta; un paso de acción con hilos o en el carril sigue sin reintento; los 6 leads que se perdieron (#3098, #3096, #3091,
+#2771, #2762, #2761) no recibieron su aviso, y mandárselo ahora al grupo del ws13 lo decide Martín; #264 dice «Nuevo agendado»
+y su CRON también dispara al entrar a «lead» (es de ellos: se le muestra a Martín antes de tocarla).
+*23/10/2026, chat «Automations» (claude1).*

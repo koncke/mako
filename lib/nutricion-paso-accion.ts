@@ -79,8 +79,18 @@ export function sanearAccion(crudo: unknown): AccionSaneada | null {
  */
 export const origenDelPaso = (secuenciaId: number, orden: number): string => `secuencia:${secuenciaId}:paso:${orden}`;
 
-/** Lo que devuelve `ejecutarDesdeFlujo` (lib/api-mako/flujo.ts), escrito estructural: este módulo no lo importa. */
-export type ResultadoEjecucion = { ok: boolean; resumen: string; via?: string };
+/** Lo que devuelve `ejecutarDesdeFlujo` (lib/api-mako/flujo.ts), escrito estructural: este módulo no lo importa.
+ *  `noCorrio`: se sabe que NO se ejecutó nada (la pendiente no entró), así que reintentar no repite nada. */
+export type ResultadoEjecucion = { ok: boolean; resumen: string; via?: string; noCorrio?: boolean; motivo?: string };
+
+/**
+ * CUÁNDO SE VUELVE A INTENTAR UNA ACCIÓN QUE NO CORRIÓ (23/10/2026, el ws13: cada lead nuevo se inscribía, el aviso fallaba
+ * y la inscripción quedaba `completada` en el paso 1, sin reintento y sin que ninguna pantalla lo dijera). Sólo cuando se
+ * SABE que no se ejecutó nada (`noCorrio`): una acción que hizo algo y después falló, reintentada, lo haría dos veces. Tres
+ * reintentos (1 h, 6 h, 24 h): lo transitorio se cura en el primero, y lo que falla igual cada vez no queda en bucle. Después,
+ * lo de siempre: registrado con su motivo, y la secuencia sigue.
+ */
+export const REINTENTOS_ACCION_MS: readonly number[] = [3_600_000, 6 * 3_600_000, 24 * 3_600_000];
 
 export type DepsPasoAccion = {
   /**
@@ -97,6 +107,13 @@ export type DepsPasoAccion = {
   ) => Promise<ResultadoEjecucion>;
   /** La fila de `nutricion_envios`: 'accion' si salió bien, 'fallo' con el motivo si no. */
   registrar: (r: { estado: 'accion' | 'fallo'; operacion: string; resumen: string }) => Promise<void>;
+  /** Cuántos 'fallo' de ESTE paso ya tiene la inscripción, sin contar el de ahora. Sin él, no se reintenta. */
+  fallosPrevios?: () => Promise<number>;
+  /**
+   * DEVUELVE la inscripción a este paso (compare-and-set contra lo que escribió el reclamo) para que vuelva en `enMs`.
+   * `true` = quedó devuelta. Sin él (con hilos en paralelo, en el carril), no se reintenta: lo de siempre.
+   */
+  devolver?: (enMs: number) => Promise<boolean>;
 };
 
 export type EntradaPasoAccion = {
@@ -114,8 +131,9 @@ export type EntradaPasoAccion = {
 export type ResultadoPasoAccion =
   /** Corrió y salió bien. La inscripción ya avanzó. */
   | { estado: 'accion'; nota: string }
-  /** Corrió y falló: quedó registrado y la inscripción YA avanzó — no se reintenta. */
-  | { estado: 'fallo'; nota: string }
+  /** Corrió y falló: quedó registrado y la inscripción YA avanzó — no se reintenta. Con `reintento`, NO avanzó: quedó
+   *  devuelta a este paso y vuelve más tarde (`REINTENTOS_ACCION_MS`). */
+  | { estado: 'fallo'; nota: string; reintento?: true }
   /** No corrió: otra corrida lo tomó, o no se pudo reclamar. La inscripción no se tocó acá. */
   | { estado: 'saltado'; nota: string };
 
@@ -155,12 +173,31 @@ export async function correrPasoAccion(e: EntradaPasoAccion, deps: DepsPasoAccio
     }
   }
   const estado = r.ok ? 'accion' as const : 'fallo' as const;
+  // ¿Se reintenta? Sólo si no corrió nada y hay cómo devolverla. El intento va en el texto («intento 1 de 4»), que es cierto
+  // pase lo que pase con la devolución; el «cuándo» lo dice la fila de la inscripción.
+  let espera: number | null = null;
+  // Lo que contestó la base va al rastro (23/10/2026, el ws13: diez días con «no pude registrarla» y la causa en un log).
+  let resumen = r.motivo ? `${r.resumen} La base contestó: ${r.motivo}` : r.resumen;
+  if (!r.ok && r.noCorrio && deps.devolver && deps.fallosPrevios) {
+    const previos = await deps.fallosPrevios().catch(() => null);
+    if (previos != null) {
+      espera = REINTENTOS_ACCION_MS[previos] ?? null;
+      resumen = `${resumen} (intento ${Math.min(previos, REINTENTOS_ACCION_MS.length) + 1} de ${REINTENTOS_ACCION_MS.length + 1}${espera == null ? ': no se reintenta más' : ''})`;
+    }
+  }
+  let registrado = false;
   try {
-    await deps.registrar({ estado, operacion: e.accion.operacion, resumen: r.resumen });
+    await deps.registrar({ estado, operacion: e.accion.operacion, resumen });
+    registrado = true;
   } catch (err) {
     // El rastro es best-effort: la acción ya corrió (o ya falló) y el reclamo ya avanzó la
     // inscripción. Un registro que falla no puede reabrir nada.
     console.error(`[nutricion] rastro de la acción ${e.accion.operacion} (secuencia ${e.secuenciaId}, paso ${e.orden}):`, err instanceof Error ? err.message : String(err));
   }
-  return { estado, nota: r.resumen };
+  // ⚠️ SIN RASTRO NO SE DEVUELVE: el conteo de intentos sale de esas filas, y una devolución sin fila sería un bucle.
+  if (espera != null && registrado && deps.devolver) {
+    const devuelta = await deps.devolver(espera).catch(() => false);
+    if (devuelta) return { estado: 'fallo', nota: resumen, reintento: true };
+  }
+  return { estado, nota: resumen };
 }

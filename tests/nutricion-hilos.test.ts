@@ -361,5 +361,5 @@ test('⚠️ la acción con flechas en paralelo vuelve a la cola si sólo vencie
   assert.match(acc, /const nuevosAccion = nuevosDe\(sec, repartosDe\(sec\.pasos, insc\.paso_actual\)\.map\(\(destino\) => \(\{ destino, desdeMs: Date\.now\(\) \}\)\), lead\);/);
   assert.ok(acc.indexOf('const nuevosAccion') < acc.indexOf('correrPasoAccion('), 'se calculan ANTES de correr');
   assert.match(acc, /\{ modo: 'cas', nuevos: nuevosAccion \}/, 'el reclamo suma los MISMOS hilos que mira el re-encolado');
-  assert.match(acc, /if \(r\.estado !== 'saltado' && vuelveALaCola\(proximo, nuevosAccion, Date\.now\(\)\)\) \{\s*vistos\.delete\(insc\.id\);\s*otraVuelta = true;/);
+  assert.match(acc, /if \(r\.estado !== 'saltado' && !\(r\.estado === 'fallo' && r\.reintento\) && vuelveALaCola\(proximo, nuevosAccion, Date\.now\(\)\)\) \{\s*vistos\.delete\(insc\.id\);\s*otraVuelta = true;/);
 });

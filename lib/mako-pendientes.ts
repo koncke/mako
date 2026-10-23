@@ -11,6 +11,7 @@ import 'server-only';
 import { getTenantDb, runWithWorkspace } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { pendienteRepetida, MARGEN_RELOJ_MS } from './turno-sin-duplicar';
+import { datosSinMediosEmojis } from './unicode-seguro';
 
 export type EstadoPendiente = 'pendiente' | 'confirmada' | 'ejecutada' | 'cancelada' | 'vencida' | 'error';
 export type Pendiente = {
@@ -37,11 +38,19 @@ const toP = (r: Row): Pendiente => ({
  * acciones pendientes» o, confirmadas las dos, dos invitaciones (lib/turno-sin-duplicar.ts).
  * Si la búsqueda falla, se crea igual: es lo que pasaba siempre, y perder la propuesta
  * sería peor.
+ *
+ * ⚠️ SI NO ENTRA, DEVUELVE EL MOTIVO (23/10/2026, el ws13): devolvía `null` y la causa vivía
+ * sólo en un `console.error` que nadie lee. Diez días de avisos perdidos con «No se pudo
+ * registrar la acción pendiente.» en cada fila, y la base diciendo otra cosa. Y lo que entra
+ * va sin mitades de emoji (`datosSinMediosEmojis`): un resumen cortado con `slice` en el
+ * medio de un emoji era exactamente lo que la base rechazaba.
  */
+export type PendienteCreada = { id: number } | { error: string };
 export async function crearPendiente(
   ws: number,
-  data: { grupoJid: string; tipo: string; payload?: Record<string, unknown>; resumen: string; origen?: string; ttlMin?: number; mismoTurnoDesde?: number },
-): Promise<number | null> {
+  dataCruda: { grupoJid: string; tipo: string; payload?: Record<string, unknown>; resumen: string; origen?: string; ttlMin?: number; mismoTurnoDesde?: number },
+): Promise<PendienteCreada> {
+  const data = { ...dataCruda, ...datosSinMediosEmojis({ grupoJid: dataCruda.grupoJid, tipo: dataCruda.tipo, payload: dataCruda.payload ?? {}, resumen: dataCruda.resumen, origen: dataCruda.origen }) };
   return runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
     if (data.mismoTurnoDesde && data.mismoTurnoDesde > 0) {
@@ -53,19 +62,22 @@ export async function crearPendiente(
       const repetida = e ? null : pendienteRepetida((previas ?? []) as Array<{ id: number; payload: unknown; created_at: string }>, data.payload ?? {}, data.mismoTurnoDesde);
       if (repetida != null) {
         console.warn(`[pendientes] ${data.tipo}: este turno ya dejó la #${repetida} igual; no se crea otra`);
-        return repetida;
+        return { id: repetida };
       }
     }
     const venceAt = new Date(Date.now() + (data.ttlMin ?? 120) * 60_000).toISOString();
     const { data: row, error } = await db.from('mako_acciones_pendientes')
       .insert({ grupo_jid: data.grupoJid, tipo: data.tipo, payload: data.payload ?? {}, resumen: data.resumen, origen: data.origen ?? null, vence_at: venceAt })
       .select('id').single();
-    if (error) { console.error('[pendientes] crear:', error.message); return null; }
+    if (error) {
+      console.error('[pendientes] crear:', error.message);
+      return { error: [error.message, error.details, error.code ? `(${error.code})` : ''].filter(Boolean).join(' ').slice(0, 300) };
+    }
     const id = (row as { id: number }).id;
     // El push va SÓLO acá, después del insert que salió bien: la rama de la repetida (arriba)
     // devuelve una pendiente que ya avisó cuando nació.
     await avisarPendiente(ws, id, data.resumen, data.origen ?? null, data.ttlMin ?? 120);
-    return id;
+    return { id };
   });
 }
 

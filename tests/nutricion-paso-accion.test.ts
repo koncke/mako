@@ -180,7 +180,8 @@ const MOTOR = sinComentarios(leer('lib/nutricion.ts'));
 const PROC = bloque(MOTOR, 'export async function procesarEnvios(', '\nexport async function pausarPorRespuesta(', 65_000); // 23/10/2026: 65_000, creció con «Contestó» corta y la espera de lo retenido.
 // Hasta la primera guarda que es sólo del mensaje que sigue a la rama (`canalOn`). Perezoso:
 // si la rama se mueve de lugar, que caigan los tests que la miran, no el archivo entero.
-const rama = (): string => bloque(PROC, 'if (esPasoAccion(paso)) {', 'const canalOn = ', 4_000);
+// 23/10/2026: 5_200 (medía 4.310 con el reintento de una acción que no corrió: `fallosPrevios` y `devolver`, el ws13).
+const rama = (): string => bloque(PROC, 'if (esPasoAccion(paso)) {', 'const canalOn = ', 5_200);
 
 test('⚠️ el motor corre el paso con `correrPasoAccion` → `ejecutarDesdeFlujo`, y RECLAMA con compare-and-set', () => {
   assert.match(rama(), /await correrPasoAccion\(/);
@@ -210,11 +211,12 @@ test('⚠️ la acción queda en `nutricion_envios` con estado PROPIO, nunca com
   // Todo lector de esa tabla cuenta MENSAJES por estado: el anti-ban, el tope diario,
   // «¿ya le hablamos?», el silencio del desenlace. Como 'enviado', una acción frenaría el
   // próximo WhatsApp del lead 20 h.
-  const registro = bloque(rama(), 'registrar: async (x) => {', '\n          },', 1_000);
+  // Hasta el cierre del PROPIO `registrar` (23/10/2026: después vienen `fallosPrevios` y `devolver`).
+  const registro = bloque(rama(), 'registrar: async (x) => {', '\n            },', 1_000);
   assert.match(registro, /from\('nutricion_envios'\)\.insert\(\{/);
   assert.match(registro, /estado: x\.estado,/);
   assert.doesNotMatch(registro, /'enviado'/);
-  assert.match(registro, /error: x\.estado === 'fallo' \? x\.resumen : null,/, 'el motivo del fallo tiene que quedar escrito');
+  assert.match(registro, /error: x\.estado === 'fallo' \? sinMediosEmojis\(x\.resumen\) : null,/, 'el motivo del fallo tiene que quedar escrito');
 });
 
 test('⚠️ la acción va DESPUÉS de las guardas de la inscripción y ANTES de las del mensaje', () => {
@@ -269,7 +271,7 @@ test('«Enseguida» quiere decir enseguida: lo que sigue a una acción ya vencid
   // tarea, el mensaje) salían de a uno por hora de cron, con el lienzo diciendo «Enseguida».
   // (09/10/2026: la condición pasó a `vuelveALaCola`, que mira además los hilos que la acción
   // arrancó por sus flechas en paralelo; su test, en tests/nutricion-hilos.test.ts.)
-  assert.match(rama(), /if \(r\.estado !== 'saltado' && vuelveALaCola\(proximo, nuevosAccion, Date\.now\(\)\)\) \{\s*vistos\.delete\(insc\.id\);\s*otraVuelta = true;\s*\}/);
+  assert.match(rama(), /if \(r\.estado !== 'saltado' && !\(r\.estado === 'fallo' && r\.reintento\) && vuelveALaCola\(proximo, nuevosAccion, Date\.now\(\)\)\) \{\s*vistos\.delete\(insc\.id\);\s*otraVuelta = true;\s*\}/);
   const t = Date.parse('2026-10-09T15:00:00Z');
   assert.equal(vuelveALaCola(new Date(t).toISOString(), [], t), true, 'lo que sigue ya vencido vuelve a la cola');
   assert.equal(vuelveALaCola(new Date(t + 3_600_000).toISOString(), [], t), false);

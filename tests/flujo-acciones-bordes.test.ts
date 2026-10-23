@@ -78,7 +78,7 @@ test('las tools de MaKo que tocan pasos no pierden ni rompen una acción', () =>
 
 test('«ya está así» es un éxito para un flujo: no le manda una alarma al dueño', () => {
   const flujo = sinComentarios(leer('../lib/api-mako/flujo.ts'));
-  assert.match(flujo, /if \(!r\.ok\) return \{ ok: r\.yaEstaba === true, resumen: r\.error, via: 'ninguna' \};/);
+  assert.match(flujo, /if \(!r\.ok\) \{\n\s+return \{\n\s+ok: r\.yaEstaba === true, resumen: r\.error, via: 'ninguna',/);
   const ejecutar = sinComentarios(leer('../lib/api-mako/ejecutar.ts'));
   assert.match(ejecutar, /\.\.\.\(prep\.yaEstaba \? \{ yaEstaba: true \} : \{\}\)/, 'ejecutarOperacion se come la marca y el flujo vuelve a alarmar');
   // Y las operaciones que un flujo pide más seguido la ponen.

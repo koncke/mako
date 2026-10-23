@@ -2317,6 +2317,14 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+⚠️ **Y un cuarto, de la misma familia: un `slice` de texto corta MEDIO emoji, y la base rechaza el pedido ENTERO.** `slice(0, N)` cuenta unidades UTF-16:
+si la N cae en un emoji deja un surrogate suelto, `JSON.stringify` lo manda como `\ud83d` y Postgres contesta «invalid
+input syntax for type json» a todo el insert. Medido el 23/10/2026: el ws13 sin un solo aviso de lead nuevo en diez días,
+porque el resumen del aviso cortaba el mensaje a 120 justo en un emoji (el payload iba entero, y por eso probar con él
+daba verde). Un texto que va a la base se corta con `cortarSinPartir` (lib/unicode-seguro.ts), y lo que escribe una puerta
+compartida pasa por `datosSinMediosEmojis` (molde: `crearPendiente`). Y una puerta que no puede escribir devuelve el
+MOTIVO, no `null`: el porqué vivía en un `console.error` que nadie lee.
+
 ## Y de un enlace `mako://` sale SÓLO el código, nunca el servidor
 
 scripts/ia-pc/mako-pc.mjs → `conectarDesdeEnlace` (22/10/2026): cualquier página puede abrir un `mako://`, y con su servidor se
