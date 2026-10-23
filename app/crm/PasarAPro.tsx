@@ -9,16 +9,12 @@
 
 import Link from '@/app/_ui/Link';
 import { SANS } from '@/app/_ui';
-import { textoTope } from '@/lib/topes-plan';
-
-/** Donde cambia de plan quien ya es cliente (el Cerebro, 23/10/2026): el panel del plan. `/planes` es la página pública
- *  para quien todavía no compró. Un solo lugar, por si cambia. */
-export const RUTA_PLANES = '/configuraciones/plan';
+import { RUTA_CAMBIAR_PLAN, textoTope } from '@/lib/topes-plan';
 
 /** El link «Pasar a Pro», al lado de un error de tope. */
 export function PasarAPro() {
   return (
-    <Link href={RUTA_PLANES} style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 650, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+    <Link href={RUTA_CAMBIAR_PLAN} style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 650, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
       Pasar a Pro
     </Link>
   );

@@ -89,8 +89,9 @@ test('la pantalla: el cartel en el tablero y «Pasar a Pro» al lado del error, 
   assert.match(b, /\{topeLeads != null && <div style=\{\{ flex: 'none' \}\}><CartelTope tope=\{topeLeads\} \/><\/div>\}/);
   const v = sinComentarios(leer('app/crm/PasarAPro.tsx'));
   assert.match(v, /<span style=\{\{ flex: '1 1 260px' \}\}>\{textoTope\(tope\)\}<\/span>\s*<PasarAPro \/>/);
-  // El panel del plan de quien ya es cliente (el Cerebro, 23/10/2026), no la página pública `/planes`.
-  assert.match(v, /export const RUTA_PLANES = '\/configuraciones\/plan';/);
+  // La ruta de «Pasar a Pro» es UNA, la de lib/topes-plan.ts (Planes, 23/10/2026): el panel del plan, no `/planes`.
+  assert.match(v, /<Link href=\{RUTA_CAMBIAR_PLAN\} /);
+  assert.doesNotMatch(v, /href=['"]\//, 'una ruta escrita a mano');
   assert.match(sinComentarios(leer('app/crm/new/NewLeadForm.tsx')), /setTope\(r\.pasarAPro === true\);[\s\S]*\{err\}<\/span>\{tope && <PasarAPro \/>\}/);
   assert.match(sinComentarios(leer('app/crm/CrmToolbar.tsx')), /setTope\(r\.pasarAPro === true\);[\s\S]*\{err\}<\/span>\{tope && <PasarAPro \/>\}/);
 });
