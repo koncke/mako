@@ -53,6 +53,9 @@ import { bloqueEstadoDeCuenta, comprobanteDelPedido, notaEnPantalla } from '@/li
 import { listarCobros } from '@/lib/cobros';
 import { cuentasValidas, type CuentaPago } from '@/lib/cobro-etapa';
 import { cuentasDePago } from '@/lib/cuentas-pago-server';
+import { importarPrecioDeStripe, preciosDeStripe } from '@/lib/stripe-catalogo';
+import type { PrecioDeStripe } from '@/lib/stripe-catalogo-reglas';
+import { precioDeStripeTexto } from '@/app/crm/cobro-ganado';
 import {
   cambiarCuentas as cambiarCuentasCobro, desvincular as desvincularCobro, ganadoDelCrm, productosParaCobrar, vincular as vincularCobro,
   vinculoPorId as vinculoCobroPorId, vinculosDelNegocio,
@@ -423,6 +426,58 @@ async function crmDeCobro(id: unknown): Promise<{ id: number; nombre: string } |
   const funnels = await listarFunnels();
   const f = id == null || id === '' ? funnels.find((x) => x.esDefault) : funnels.find((x) => x.id === Number(id));
   return f ? { id: f.id, nombre: nombreVisible(f) } : null;
+}
+
+/**
+ * Un precio de Stripe para Ganado (23/10/2026), lo que propone MaKo: el precio en vivo, que se pueda traer, y el «sí» dice
+ * qué entra al catálogo y a qué precio. Lo mismo que «+ Producto» del pop-up (lib/stripe-catalogo.ts, de Cobros).
+ */
+async function prepararPrecioDeStripe(precioId: string, crm: { id: number; nombre: string }, ws: number): Promise<{ payload: Record<string, unknown>; resumen: string } | { error: string; disponibles?: unknown }> {
+  const g = await ganadoDelCrm(crm.id);
+  if (!g) return { error: `«${crm.nombre}» no tiene la etapa Ganado.` };
+  const { precios, errores } = await preciosDeStripe(ws);
+  const p = precios.find((x) => x.precio === precioId);
+  if (!p) {
+    return {
+      error: errores.length ? `No pude leer Stripe: ${errores.map((e) => `${e.cuentaNombre}: ${e.error}`).join(' · ')}` : 'Ese precio no está en Stripe (ver_cobro_etapa).',
+      disponibles: precios.filter((x) => !x.noSe).map((x) => ({ precioStripe: x.precio, nombre: x.nombre, precio: precioDeStripeTexto(x) })),
+    };
+  }
+  if (p.noSe) return { error: `«${p.nombre}»: ${p.noSe}` };
+  const productos = await productosParaCobrar();
+  const deMako = p.enMako != null ? productos.find((x) => x.id === p.enMako) : null;
+  const que = deMako ? `«${deMako.nombre}» del catálogo, con el precio de Stripe (${precioDeStripeTexto(p)})` : `«${p.nombre}» de Stripe al catálogo (${precioDeStripeTexto(p)})`;
+  return {
+    payload: { embudoId: crm.id, precioStripe: p.precio, cuentaStripe: p.cuenta },
+    resumen: `Traer ${que} y vincularlo a Ganado de «${crm.nombre}»: quien lo pague por ${p.cuentaNombre} pasa a Ganado ahí.`,
+  };
+}
+
+/** Lo confirmado: traer el precio (el server lo vuelve a leer en Stripe) y vincularlo, con los mismos frenos que el pop-up. */
+async function ejecutarPrecioDeStripe(payload: Record<string, unknown>, ws: number, autor: string): Promise<{ ok: boolean; resumen: string; datos?: Record<string, unknown> }> {
+  const funnelId = Number(payload.embudoId);
+  // Lo que puede frenar el vínculo, ANTES de tocar el catálogo (revisión de Cobros, 23/10/2026): el CRM y su Ganado (entre
+  // el «sí» y esto pudo desaparecer, y el producto quedaría traído sin vínculo), y que no cobre ya en otro CRM.
+  if (!(await ganadoDelCrm(funnelId))) return { ok: false, resumen: 'Ese CRM ya no tiene la etapa Ganado: no traje nada.' };
+  const imp = await importarPrecioDeStripe(ws, payload.cuentaStripe, payload.precioStripe, async (productoId) => {
+    if (productoId == null) return null;
+    const ya = (await vinculosDelNegocio()).find((v) => v.productoId === productoId);
+    if (!ya || ya.funnelId === funnelId) return null;
+    const f = (await listarFunnels()).find((x) => x.id === ya.funnelId);
+    return `Ese producto ya cobra en ${f ? `«${nombreVisible(f)}»` : 'otro CRM'}: quítalo de ahí primero.`;
+  });
+  if (!imp.ok) return { ok: false, resumen: imp.error };
+  const hecho = imp.cambio === 'creado' ? `traje «${imp.producto.nombre}» al catálogo` : imp.cambio === 'precio' ? `le puse el precio de Stripe a «${imp.producto.nombre}»` : null;
+  const noSeVinculo = (error: string) => ({ ok: false, resumen: hecho ? `${hecho[0].toUpperCase()}${hecho.slice(1)}, pero no se vinculó: ${error}` : error });
+  // Un `try` propio: si vincular TIRA, lo dicho tiene que contar que ya se trajo (con `seguro` diría sólo «no se pudo»).
+  let v: Awaited<ReturnType<typeof vincularCobro>>;
+  try {
+    v = await vincularCobro({ funnelId, etapa: ETAPA_COBRO, productoId: imp.producto.id, cuentas: [String(payload.cuentaStripe)] }, await cuentasDelNegocio(ws), autor);
+  } catch (e) {
+    return noSeVinculo(e instanceof Error ? e.message : String(e));
+  }
+  if (!v.ok) return noSeVinculo(v.error);
+  return { ok: true, resumen: `Listo: ${hecho ? `${hecho}, y ` : ''}cobra en Ganado.`, datos: { vinculoId: v.vinculo.id, productoId: imp.producto.id } };
 }
 
 /** Un vínculo de cobro por id, con el producto y el CRM por su nombre: lo que se confirma dice QUÉ se toca. */
@@ -1109,7 +1164,11 @@ export const RUNNERS: Runners = {
       const crm = await crmDeCobro(input.embudoId);
       if (!crm) return fallo('No encontré ese CRM.');
       try {
-        const [cuentas, productos, todos, funnels] = await Promise.all([cuentasDelNegocio(ctx.ws), productosParaCobrar(), vinculosDelNegocio(), listarFunnels()]);
+        const [cuentas, productos, todos, funnels, stripe] = await Promise.all([
+          cuentasDelNegocio(ctx.ws), productosParaCobrar(), vinculosDelNegocio(), listarFunnels(),
+          // Los precios de Stripe, en vivo (23/10/2026): lo mismo que «+ Producto» del pop-up. Un fallo se dice, no frena.
+          preciosDeStripe(ctx.ws).catch((e) => ({ precios: [] as PrecioDeStripe[], errores: [{ cuenta: 'stripe', cuentaNombre: 'Stripe', error: e instanceof Error ? e.message : String(e) }] })),
+        ]);
         const nombre = (id: number) => productos.find((p) => p.id === id)?.nombre ?? `#${id}`;
         const vinculos = todos.filter((v) => v.funnelId === crm.id && v.etapa === ETAPA_COBRO);
         // Un producto cobra en UN solo CRM (el índice único): el que ya cobra en otro no se ofrece; se dice dónde está.
@@ -1121,6 +1180,13 @@ export const RUNNERS: Runners = {
           vinculados: vinculos.map((v) => ({ vinculoId: v.id, productoId: v.productoId, producto: nombre(v.productoId), cuentas: v.cuentas })),
           catalogo: productos.filter((p) => !todos.some((v) => v.productoId === p.id)).map((p) => ({ productoId: p.id, nombre: p.nombre, tipo: p.tipo, monto_usd: p.montoUsd })),
           ...(enOtro.length ? { cobran_en_otro_crm: enOtro.map((v) => ({ productoId: v.productoId, producto: nombre(v.productoId), crm: crmDe(v.funnelId) })) } : {}),
+          ...(stripe.precios.length ? {
+            de_stripe: stripe.precios.map((p) => ({
+              precioStripe: p.precio, nombre: p.nombre, precio: precioDeStripeTexto(p), cuenta: p.cuentaNombre,
+              ...(p.enMako != null ? { es_del_catalogo: nombre(p.enMako) } : {}), ...(p.noSe ? { no_se_puede: p.noSe } : {}),
+            })),
+          } : {}),
+          ...(stripe.errores.length ? { stripe_sin_leer: stripe.errores.map((e) => `${e.cuentaNombre}: ${e.error}`) } : {}),
           ...(cuentas.length ? {} : { nota: 'No hay Stripe ni Mercado Pago conectado: sin cuentas no hay con qué cobrar.' }),
         });
       } catch (e) {
@@ -1132,6 +1198,10 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const crm = await crmDeCobro(input.embudoId);
       if (!crm) return { error: 'No encontré ese CRM.' };
+      // Un precio de Stripe en vez de un producto (23/10/2026): se trae al catálogo y se vincula, como en el pop-up.
+      const precioStripe = s(input.precioStripe);
+      if (precioStripe) return prepararPrecioDeStripe(precioStripe, crm, ctx.ws);
+      if (input.productoId == null) return { error: 'Falta qué vincular: el producto, o un precio de Stripe (de ver_cobro_etapa).', faltan: ['productoId'] };
       const [cuentas, productos, todos, ganado] = await Promise.all([cuentasDelNegocio(ctx.ws), productosParaCobrar(), vinculosDelNegocio(), ganadoDelCrm(crm.id)]);
       if (!ganado) return { error: `«${crm.nombre}» no tiene la etapa Ganado.` };
       if (!cuentas.length) return { error: 'No hay Stripe ni Mercado Pago conectado: conéctalos en Integraciones primero.' };
@@ -1155,6 +1225,7 @@ export const RUNNERS: Runners = {
       };
     },
     ejecutar: (payload, ctx) => seguro('vincular el producto', async () => {
+      if (payload.precioStripe) return ejecutarPrecioDeStripe(payload, ctx.ws, autorDe(ctx));
       const r = await vincularCobro({ funnelId: payload.embudoId, etapa: ETAPA_COBRO, productoId: payload.productoId, cuentas: payload.cuentas }, await cuentasDelNegocio(ctx.ws), autorDe(ctx));
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: 'Listo: el producto cobra en Ganado.', datos: { vinculoId: r.vinculo.id } };

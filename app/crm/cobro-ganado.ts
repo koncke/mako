@@ -9,6 +9,8 @@
 // =============================================================================
 
 import { MAX_CUOTAS_PRODUCTO, type CuentaPago, type FotoCobroEtapa, type ProductoCobro, type ProductoCobroInput } from '@/lib/cobro-etapa';
+import type { PrecioDeStripe } from '@/lib/stripe-catalogo-reglas';
+import { formatoMonto } from '@/lib/pasarela-moneda';
 
 export const NOMBRE_PROVEEDOR_PAGO: Record<CuentaPago['proveedor'], string> = { stripe: 'Stripe', mercadopago: 'Mercado Pago' };
 export const MAX_NOMBRE_PRODUCTO = 80;
@@ -46,4 +48,41 @@ export function productoDeLoEscrito(f: { nombre: string; tipo: 'unico' | 'suscri
   if (meses != null && !(meses >= 1 && meses <= 60)) return { ok: false, error: 'Los meses van de 1 a 60 (vacío: sin fin).' };
   if (cuotas != null && !(cuotas >= 1 && cuotas <= MAX_CUOTAS_PRODUCTO)) return { ok: false, error: `Un pago único va en 1 a ${MAX_CUOTAS_PRODUCTO} cuotas.` };
   return { ok: true, input: { nombre, tipo: f.tipo, montoUsd: Math.round(monto * 100) / 100, suscripcionMeses: meses, cuotas } };
+}
+
+// ── «+ Producto» con el catálogo de Stripe (23/10/2026) ─────────────────────────
+// La llamada con Mauricio: su «Sprint 3 días» está en Stripe a US$270 y en MaKo sin precio, y el pop-up decía «Este producto
+// no tiene precio». Cobros lee los precios de Stripe en vivo (lib/stripe-catalogo.ts); acá, qué ofrece la lista.
+
+/** Una opción de «+ Producto»: un producto de MaKo, un precio de Stripe (con el de MaKo que es él, si hay) o uno apagado. */
+export type OpcionDeCobro =
+  | { tipo: 'mako'; producto: ProductoCobro }
+  | { tipo: 'stripe'; precio: PrecioDeStripe; producto: ProductoCobro | null }
+  | { tipo: 'no'; precio: PrecioDeStripe };
+
+/** «USD 270 · pago único» · «USD 97 al mes»: en su moneda (sólo se traen los de dólares). */
+export const precioDeStripeTexto = (p: Pick<PrecioDeStripe, 'monto' | 'moneda' | 'tipo'>): string =>
+  `${formatoMonto(p.monto, p.moneda)}${p.tipo === 'suscripcion' ? ' al mes' : ' · pago único'}`;
+
+/**
+ * Lo que ofrece «+ Producto», en orden: cada producto de MaKo que todavía no cobra acá (si Stripe tiene su precio, va en
+ * la MISMA fila con el precio de Stripe: es el caso de Mauricio); después los de Stripe que no están en MaKo; al final,
+ * apagados, los que no se pueden traer (`noSe`, con su porqué). Lo que ya cobra en esta etapa no se ofrece.
+ */
+export function opcionesDeCobro(foto: FotoCobroEtapa, precios: readonly PrecioDeStripe[]): OpcionDeCobro[] {
+  const yaVinculados = new Set(foto.vinculos.map((v) => v.productoId));
+  const traibles = precios.filter((p) => !p.noSe && !(p.enMako != null && yaVinculados.has(p.enMako)));
+  const out: OpcionDeCobro[] = [];
+  for (const producto of productosParaVincular(foto)) {
+    const suyos = traibles.filter((p) => p.enMako === producto.id);
+    if (!suyos.length) out.push({ tipo: 'mako', producto });
+    for (const precio of suyos) out.push({ tipo: 'stripe', precio, producto });
+  }
+  const enMako = new Set(out.flatMap((o) => (o.tipo === 'stripe' ? [o.precio.precio] : [])));
+  for (const precio of traibles) {
+    if (enMako.has(precio.precio)) continue;
+    out.push({ tipo: 'stripe', precio, producto: precio.enMako != null ? foto.productos.find((x) => x.id === precio.enMako) ?? null : null });
+  }
+  for (const precio of precios) if (precio.noSe) out.push({ tipo: 'no', precio });
+  return out;
 }

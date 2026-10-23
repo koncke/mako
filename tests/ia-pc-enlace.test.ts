@@ -127,7 +127,7 @@ test('4. la ventana es del sistema (sin consola), y sin poder mostrarla es «no�
   assert.match(v, /if \(botones === 'si-no' && process\.env\.MAKO_PC_SI === '1'\) return true;/, 'MAKO_PC_SI sólo para la prueba de punta a punta');
   assert.match(src, /else if \(\/\^mako:\/i\.test\(cmd\)\) \(accionDelEnlace\(cmd\) === 'iniciar-sesion' \? iniciarSesionDesdeEnlace\(\) : conectarDesdeEnlace\(cmd\)\)\.then\(salir, fallar\);/);
   // Del enlace no sale el servidor: emparejar va siempre con el suyo.
-  assert.match(src, /await emparejar\(\{ codigo, servidor: SERVIDOR_DEFAULT, nombre: hostname\(\) \}\)/);
+  assert.match(src, /await emparejar\(\{ codigo, servidor: SERVIDOR_DEFAULT, nombre: nombreDeLaComputadora\(\) \}\)/);
 });
 
 test('5. varias computadoras: el latido manda el sistema, y la desconectada lo dice en una ventana (sólo si fue ella)', async () => {
