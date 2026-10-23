@@ -1,16 +1,9 @@
-// =============================================================================
-// /m/automations — mientras se leen las automatizaciones: la FORMA de la lista, no un spinner
-// =============================================================================
-// `getSettingData` lee paginados los envíos de 30 días y todas las inscripciones: sin esto, tocar
-// «Automations» en More no hacía nada visible hasta que llegaba todo. El título grande lo pone el shell.
+// /m/automations mientras carga: EL loader de las tabs grandes, el mismo de la computadora (app/_ui/CargandoMako.tsx, 23/10/2026).
+// Martín: «Los loader de las tabs o secciones grandes, quiero que sean todos como el de Ops Center. Con la criatura de
+// MaKo», y con una barra que diga que carga. Hasta acá era un esqueleto gris: no se leía como «tocaste y está cargando».
+// ⚠️ Un loading.tsx es un Suspense: va en la lista blanca de tests/layout-sin-suspense.test.ts (/m es privado entero).
+import { CargandoMako } from '@/app/_ui/CargandoMako';
 
-import { SkeletonFilas } from '@/app/m/_ui';
-import './automations.css';
-
-export default function AutomationsCargando() {
-  return (
-    <div className="m-auto-skel" aria-busy="true" aria-label="Cargando Automations">
-      <SkeletonFilas filas={4} />
-    </div>
-  );
+export default function Cargando() {
+  return <CargandoMako que="Automations" alto="calc(100dvh - var(--m-abajo, 72px) - 96px)" />;
 }

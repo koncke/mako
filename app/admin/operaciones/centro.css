@@ -31,6 +31,10 @@
   animation: eo-seguro .3s ease 15s forwards;
 }
 .eo-capa[data-sale] { background-color: transparent; pointer-events: none; }
+/* Con la barra de CargandoMako debajo (23/10/2026): en columna, y la barra se apaga al irse (la criatura vuela sola). */
+.eo-capa { flex-direction: column; gap: 18px; }
+.eo-pista { animation: cm-aparece .2s ease-out .15s both; }
+.eo-capa[data-sale] .eo-pista { animation: none; opacity: 0; }
 .eo-vuelo { display: flex; }
 .eo-cria { display: flex; animation: eo-nace .5s cubic-bezier(.34, 1.56, .64, 1) .1s both, eo-flota 3.2s ease-in-out .6s infinite; }
 /* La de la página sigue a la del loading.tsx: flota, sin volver a nacer. */

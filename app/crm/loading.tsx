@@ -13,11 +13,14 @@
 // esqueleto más chico o más grande que lo que llega hace un salto que se nota más
 // que un spinner, y entonces cuesta más de lo que ahorra.
 //
+// Desde el 23/10/2026 lo tapa CargandoMako (la criatura y la barra), como la capa del Ops Center.
+//
 // Y no lleva texto. Un «Cargando tus leads…» acá es una frase que aparece y
 // desaparece en menos de un segundo sobre una pantalla que ya está diciendo, con
 // su forma, que viene un tablero.
 
 import { Skeleton } from '@/app/_ui';
+import { CargandoMako } from '@/app/_ui/CargandoMako';
 
 /** Las cinco primeras columnas del pipeline por default, para que el ancho del
  *  scroll horizontal arranque donde va a arrancar. */
@@ -25,7 +28,7 @@ const COLUMNAS = [4, 3, 5, 2, 3];
 
 export default function CargandoCrm() {
   return (
-    <main aria-busy="true" aria-label="Cargando el CRM" style={{ flex: 1, minWidth: 0, padding: '16px 44px 4px', display: 'flex', flexDirection: 'column', height: 'calc(100dvh - var(--barra-agencia, 0px))', minHeight: 0 }}>
+    <main aria-busy="true" aria-label="Cargando el CRM" style={{ flex: 1, minWidth: 0, padding: '16px 44px 4px', display: 'flex', flexDirection: 'column', height: 'calc(100dvh - var(--barra-agencia, 0px))', minHeight: 0, position: 'relative' }}>
       {/* SIN HEADER desde el 12/10/2026 (puntos 22-23): el título «CRM» se fue y la barra sube
           arriba del todo, con 16 de aire y no 34. La barra: funnel · vista · buscar · filtrar
           ····· + Nuevo lead · ⋯ (las bandas viven adentro de «Filtrar»). Desde el segundo feedback
@@ -59,6 +62,9 @@ export default function CargandoCrm() {
           ))}
         </div>
       </div>
+      {/* Y encima, EL loader de las tabs grandes (23/10/2026, Martín: «quiero que sean todos como el de Ops Center»): tapa el
+          esqueleto como la capa del Ops Center y se ve a los 150 ms. El esqueleto queda debajo con las medidas del tablero. */}
+      <CargandoMako cubre que="el CRM" />
     </main>
   );
 }

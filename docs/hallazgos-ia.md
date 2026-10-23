@@ -6061,3 +6061,50 @@ interruptor y la clave) · la puerta 2 (`permisoDeLaClaveDelNegocio`, lib/anthro
     final de una frase), no sólo el que se quería dejar pasar.
 - **Una fila de IA ilegible en el ws9 apagaría la IA propia de todos los negocios** (por `ilegibleTira`). Se miró antes de
   subir: 22 de 22 filas legibles. El mensaje ya no dice «la base no contestó», que en ese caso era falso.
+
+## «Tu ChatGPT» en el Ops Center: cableado, nunca usado, y siempre el modelo más chico (23/10/2026)
+
+**El pedido:** Martín, desde el Ops Center: *«¿Ya implementaste GPT? Para usarlo en el Ops Center de
+todos. Eso ya debería estar...»*. La respuesta corta es «por clave sí, por la computadora no», y la
+larga tiene tres trampas que no se ven mirando el código de una sola capa.
+
+**Por clave, anda — medido, no supuesto.** Elegir «Tu ChatGPT» en el «+» del chat manda el turno
+con `soloSuOpenAI: true` (`lib/mako-turno-app.ts`, el `ia?.cuenta === 'openai'`): directo a la
+OpenAI del negocio y sin caer a Claude. Cinco negocios tienen su clave cargada (ws1, ws4, ws9,
+ws11, ws14), y la de Leila (ws11) contestó hoy mismo.
+
+**Trampa 1 — no se elige modelo.** `cuentasDeIA` (`lib/chat-ia.ts`) ofrece la cuenta con
+`modelos: []` y `modeloDefault: null`, así que el turno corre siempre con el `chatModel` de
+OpenAI en `cfgDe` de `lib/ai-cheap.ts`: **`gpt-4o-mini`**, el más chico, para el chat que
+orquesta herramientas. Claude sí ofrece modelos (y desde la revisión del 23/10 los elige el
+admin). Antes de sumar un selector para GPT hay que decidir lo mismo: quién lo elige.
+
+**Trampa 2 — que haya clave no prueba que alguien lo use.** En 14 días hay **cero turnos del Ops
+Center con GPT**. Todo el uso de OpenAI de ws11 es de otras features (`plan-fathom`,
+`mako-guardian`, `setting-simulador`, `chat-agent-handoff`). «Ya debería estar» y «alguien lo
+probó» son dos cosas: el camino del Ops Center con GPT nunca se ejercitó con un cliente real.
+
+**Trampa 3, la que parece un bug y no lo es:** `CHEAP_MODEL` lo leen Groq **y** OpenAI en
+`cfgDe`, así que si alguien lo setea para Groq, OpenAI recibiría un nombre de modelo de Groq.
+Hoy no está seteado ni en `.env.local` ni en Vercel (38 variables, medido), así que no pasa.
+Queda escrito para que el día que alguien lo setee sepa que pisa a los dos.
+
+**Por la computadora (ola 3), apagado y con un portón que no es de código.** `CHATGPT_EN_LA_PC`
+sigue en `false` (`lib/conectar-ia-reglas.ts`). El §9 de `docs/ia-del-cliente.md` pone la
+medición IA11 como portón —¿`codex exec` carga el MCP de MaKo?— y el 23/10 **Codex no está
+instalado en la PC de Martín ni hay `~/.codex`**. Lo que destraba, y en este orden:
+
+1. Instalar Codex y que **Martín** haga `codex login` con su cuenta de ChatGPT: es su sesión y no
+   la puede iniciar un chat. Después, `node scripts/ia-pc/medir-codex-mcp.mjs`.
+2. Con ✓, el corredor de Codex va en el programa de la PC, que **es del chat del Instalador
+   (cuenta 3)**: lo modificó cuatro veces el 23/10 (0.4.0 a 0.4.2 y la firma de Windows y Mac).
+   Meterle cambios en paralelo choca con su trabajo.
+3. Prender `CHATGPT_EN_LA_PC` toca `lib/conectar-ia-reglas.ts`, **que IA16 también modifica** y
+   está retenida hasta el 26/10: va después de que IA16 entre.
+
+«Sign in with ChatGPT» para apps de terceros (SIWC) sigue en prueba limitada con socios, sólo
+Plus y Pro: el camino es el login del propio Codex CLI en la PC del cliente, no un botón de MaKo.
+
+**Vive en:** lib/chat-ia.ts (`cuentasDeIA`) · lib/mako-turno-app.ts (`soloSuOpenAI`) ·
+lib/ai-cheap.ts (`cfgDe`, `CHEAP_MODEL`) · lib/conectar-ia-reglas.ts (`CHATGPT_EN_LA_PC`) ·
+scripts/ia-pc/medir-codex-mcp.mjs · *2026-10-23, chat «IA del cliente»*

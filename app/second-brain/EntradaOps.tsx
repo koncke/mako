@@ -113,6 +113,10 @@ export function EntradaOps({ espera = false }: {
           <Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo="despierto" size={76} />
         </div>
       </div>
+      {/* La barra que corre (23/10/2026, Martín: «le falta algún elemento tipo loader para que se entienda que es un loader,
+          si está solo la criatura no se entiende»): la de CargandoMako (app/_ui/CargandoMako.tsx), el loader de todas las
+          tabs. No vuela con la criatura: se apaga cuando la capa se va. */}
+      <div className="cm-carga__pista eo-pista"><span className="cm-carga__tramo" /></div>
     </div>
   );
 }
