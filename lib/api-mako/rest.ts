@@ -542,7 +542,6 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/contenido/contexto', 'estado_contexto_contenido'],
   ['GET', '/contenido/estructuras', 'catalogo_estructuras_guion'],
   ['GET', '/contenido/formatos', 'listar_formatos_creativo'],
-  ['POST', '/contenido/formatos/recomendaciones', 'recomendar_formatos_creativo'],
   ['GET', '/contenido/guiones', 'listar_guiones_anuncio'],
   ['GET', '/contenido/guiones/cobertura', 'cobertura_guiones_anuncio'],
   ['GET', '/contenido/limites-instagram/{formato}', 'limites_formato_instagram'],

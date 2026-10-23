@@ -1809,7 +1809,8 @@ Productos, la oferta como entidad y el funnel. Medido en prod: los 12 negocios a
 ⚠️ **Ángulos es trabajo a cambio de nada.** `elegirAngulo` (lib/angulos-formatos.ts), que es lo que elige el
 formato de cada guion, elige de la biblioteca ENTERA y no mira `getRecomendaciones`: lo dice su propio
 comentario («a diferencia de recomendarFormatos»). Cada «regenerar» paga IA para una lista que ningún
-generador consulta. Sacarla también de Second Brain es otra decisión.
+generador consulta. Sacarla también de Second Brain es otra decisión. → **Decidido y hecho el 23/10/2026**: ver «Ángulos: la
+recomendación de formatos se sacó», al final.
 
 **Lo que NO se puede borrar con el hub**, y por qué:
 - **La ruta `/onboarding`**: ahí vive el wizard del primer ingreso. Lo mandan `lib/tab-access.ts` y
@@ -1846,9 +1847,8 @@ Writer y la de Avatar con IA». Lo que no se deduce del commit:
   wizard (`AL_WIZARD` en tests/onboarding-hub-retirado.test.ts, cada uno con su motivo); un link nuevo al hub
   frena ese test.
 
-⚠️ **DECISIÓN PENDIENTE DE MARTÍN: «Ángulos».** Se quedó en Second Brain → Razones → Ángulos porque él no eligió
-sacarla. Ningún generador lee sus recomendaciones (`elegirAngulo` elige de la biblioteca entera) y cada
-«regenerar» paga IA. La nota está también en su fila de `DONDE_SE_EDITA`.
+~~⚠️ **DECISIÓN PENDIENTE DE MARTÍN: «Ángulos».**~~ **Cerrado el 23/10/2026**: la recomendación se sacó y Ángulos quedó como
+la biblioteca con cuántos anuncios usan cada formato (ver «Ángulos: la recomendación de formatos se sacó», al final).
 
 **Vive en:** `lib/secciones-negocio.ts` · `app/onboarding/tabs-catalogo.ts` · `app/onboarding/page.tsx` ·
 `app/second-brain/AreasHub.tsx` · `app/second-brain/VistaCerebro.tsx`
@@ -2867,3 +2867,45 @@ analiza, no el negocio: el ws1 (Mauricio) subió su Sprint, una oferta de entrad
 oferta principal y su avatar (04:08 UTC). Desde el 22/10 sólo llena lo que el perfil no tiene. La regla para quien
 escriba el brief desde otra tab: una feature que analiza UNA cosa no escribe el perfil del negocio con lo de esa cosa.
 Detalle en docs/hallazgos-offer.md → «Un archivo subido en Offer pisaba el perfil del negocio».
+
+## Ángulos: la recomendación de formatos se sacó (23/10/2026)
+
+Lo pidió el Cerebro, textual: «O lo enganchás a quien debería leerlo, o se saca el botón: pagar IA por un adorno no
+va». Se midió antes de elegir, y **la medición decidió**:
+
+- **0 negocios** tienen el setting `mako.formatos_recom`, y la generación («Elegir formatos de creativo de la
+  biblioteca», feature `angulos-formatos`) tiene **0 llamadas en toda la historia** de `anthropic_usage`. Nadie apretó
+  el botón nunca. El «paga IA» era un riesgo, no un gasto.
+- Lo que SÍ se usa es elegir el formato POR ANUNCIO (`elegirAngulo`): 6 negocios lo tienen en todas sus celdas.
+- **Engancharla no sumaba nada.** El prompt de `elegirAngulo` ya recibe el avatar, la razón, el copy y el entregable, que
+  es todo lo que usaba la recomendación (perfil, razones y entregable). Hacerla entrada del formato por anuncio habría
+  agregado un paso pago para darle al modelo lo que ya tenía.
+
+Se sacó entera: `recomendarFormatos`, `get/setRecomendaciones`, sus prompts, el setting, el POST de
+`/api/onboarding/formatos`, el botón de `FormatosView` y la operación `recomendar_formatos_creativo` de la API (con su ruta
+REST y el helper `conTope`, que sólo usaba ella). Ángulos muestra la biblioteca con **cuántos anuncios de la matriz usan
+cada formato**, sin IA. La cuenta es UNA, `usosPorFormato` (lib/angulos-data.ts), y la leen la vista, el grafo y
+`listar_formatos_creativo`: con dos cuentas, MaKo dice «3 anuncios usan Comparación» y la pantalla 2.
+
+**La regla que queda:** una generación con IA cuyo resultado sólo se DIBUJA se mide en producción (el setting y las
+llamadas) antes de decidir si se engancha o se saca. «Pagar IA por un adorno» se resuelve con dos SELECT, no con una
+opinión.
+
+**Lo que no avisaba nadie:** la descripción de `listar_formatos_creativo` y la nota de su runner MANDABAN a
+`recomendar_formatos_creativo`. Si se borraba sólo la operación, el modelo iba a buscar una herramienta que no existe, y
+ningún test lo cazaba. Ahora `OPERACIONES_RETIRADAS` (tests/angulos-sin-recomendacion.test.ts) lo frena: ver
+docs/hallazgos-api-mako.md.
+
+**La cuenta corta como la Matriz, no como la base** (lo encontró la verificación del mismo día). Contar las celdas de
+`mako.razones` parece lo obvio, y miente: **borrar un avatar no borra sus razones** (`borrarAvatar`, la acción «guardar»
+de /api/onboarding/avatares) y regenerar con menos avatares deja ids sueltos (`preservarIds` asigna por posición). La
+Matriz y el teléfono sólo dibujan las celdas de un avatar que existe (`avatares.map` en MatrizView, `gruposDeAnuncios`),
+así que con una huérfana la vista decía «En 3 anuncios» y la Matriz mostraba 2 tarjetas. Ahora la vista y
+`listar_formatos_creativo` le pasan los avatares a `usosPorFormato`; el grafo NO, porque dibuja también las razones
+huérfanas (colgadas de la raíz) y su cuenta tiene que ser la de sus aristas. Regla: **un conteo que se muestra al lado de
+otra pantalla cuenta lo que esa pantalla dibuja**, no las filas que hay.
+
+**Vive en:** `lib/angulos-data.ts` (`usosPorFormato`) · `app/api/onboarding/formatos/route.ts` · `app/onboarding/FormatosView.tsx` ·
+`lib/angulos-formatos.ts` · `lib/cerebro-grafo.ts` · `lib/api-mako/areas/contenido.*` · `tests/angulos-sin-recomendacion.test.ts`
+
+*23/10/2026 · chat «Offer» (cuenta claude1) · medido en prod con un SELECT; no se miró en el navegador.*

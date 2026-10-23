@@ -4,8 +4,8 @@
 // Un runner por id de contenido.def.ts. Lecturas: { leer }. Acciones: { preparar,
 // ejecutar }. Todo corre adentro de runWithWorkspace(ctx.ws).
 //
-// ⚠️ SETTINGS CAE AL DUEÑO SIN WORKSPACE. getRazones/setRazones, las recomendaciones
-// de formatos y el onboarding leen y ESCRIBEN app_settings con
+// ⚠️ SETTINGS CAE AL DUEÑO SIN WORKSPACE. getRazones/setRazones y el onboarding leen y
+// ESCRIBEN app_settings con
 // `getWorkspaceActual() ?? OWNER_WS`: fuera de runWithWorkspace tocarían el negocio de
 // Mauricio sin ningún error. El choke point (ejecutar.ts) envuelve y lo comprueba;
 // no llamar nada de esto desde otro lado sin ese wrap.
@@ -38,8 +38,8 @@ import { ESTADOS_GUION, esEstadoGuion, estadoMasAvanzado, type EstadoGuion, type
 import { getAvatares, type Avatar } from '@/lib/avatares';
 import { getAngulosGuion } from '@/lib/guion-angulos-store';
 import { getEstructurasGuion } from '@/lib/guion-estructuras-store';
-import { BIBLIOTECA_ANGULOS, formatoPorId, type FormatoAngulo } from '@/lib/angulos-data';
-import { getRecomendaciones, setRecomendaciones, recomendarFormatos, elegirAngulo } from '@/lib/angulos-formatos';
+import { BIBLIOTECA_ANGULOS, CELDA_GUIONES_PROPIOS, formatoPorId, usosPorFormato, type FormatoAngulo } from '@/lib/angulos-data';
+import { elegirAngulo } from '@/lib/angulos-formatos';
 import { separarGuiones } from '@/lib/guiones-separar';
 import { huellaGuion } from '@/lib/guiones-normalizar';
 import { cierreDeGuion, ctaInventado, fidelidad } from '@/lib/guion-cierre';
@@ -47,7 +47,8 @@ import { getEstadoTab, tabOnboardingDef } from '@/lib/tab-onboarding-state';
 import { limitesDe, CAPTION_MAX, CAPTION_VISIBLE, LIMITES_IMAGEN, type FormatoIg } from '@/lib/ig-formatos';
 import { estadoContextoReels } from '@/app/reels/reels-datos';
 import { getSettingEstricto } from '@/lib/settings';
-import { escribirGuionAuto, escribirGuionConDecisiones, bloquesDeGuion, tzSinResolver, diaEnTz, getRazonesEstricto, leerMatrizEstricta, grabadoComoDe, huellaTexto, conTope } from './contenido.helpers';
+import { escribirGuionAuto, escribirGuionConDecisiones, bloquesDeGuion, tzSinResolver, diaEnTz, getRazonesEstricto, leerMatrizEstricta, grabadoComoDe, huellaTexto } from './contenido.helpers';
+import { avataresParaEscribir } from './negocio.helpers';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
 
@@ -64,8 +65,8 @@ const palabras = (t: string): number => t.split(/\s+/).filter((p) => /[\p{L}\p{N
 const fallo = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** La celda virtual donde caen los guiones que el cliente cargó (app/video-generator). */
-const CELDA_PROPIOS = 'guiones-propios';
+/** La celda virtual donde caen los guiones que el cliente cargó (app/video-generator). Vive en lib/angulos-data.ts. */
+const CELDA_PROPIOS = CELDA_GUIONES_PROPIOS;
 
 const formatoCorto = (id: string): { id: string; nombre: string } | null => {
   if (!id) return null;
@@ -334,11 +335,20 @@ export const RUNNERS: Runners = {
   listar_formatos_creativo: {
     leer: async (input) => {
       const medio = str(input, 'medio');
-      const recomendaciones = await getRecomendaciones();
+      const biblioteca = BIBLIOTECA_ANGULOS.filter((f) => !medio || f.medio === medio).map(formatoLargo);
+      // La lectura de la matriz es ESTRICTA: «no pude leer» no es «ningún anuncio lo usa» (cabecera de este
+      // archivo). Si falla, se devuelve la biblioteca sin el conteo y se dice por qué.
+      const m = await matriz();
+      if ('error' in m) return json({ biblioteca, nota: `No pude leer la matriz para contar cuántos anuncios usan cada formato: ${m.error}` });
+      // Los avatares, también en estricto: con [] por un error, todo daría 0.
+      let avatares: Avatar[];
+      try { avatares = await avataresParaEscribir(); } catch (err) { return json({ biblioteca, nota: `No pude leer los avatares para contar cuántos anuncios usan cada formato: ${fallo(err)}` }); }
+      // La MISMA cuenta que la vista Ángulos (usosPorFormato, lib/angulos-data.ts): sólo los anuncios de un avatar
+      // que existe, los que dibuja la Matriz.
+      const usos = usosPorFormato(m.razones, avatares);
       return json({
-        biblioteca: BIBLIOTECA_ANGULOS.filter((f) => !medio || f.medio === medio).map(formatoLargo),
-        recomendaciones: recomendaciones.map((r) => ({ formatoId: r.formatoId, formato: formatoPorId(r.formatoId)?.nombre ?? r.formatoId, medio: formatoPorId(r.formatoId)?.medio ?? null, para: r.para, porque: r.porque })),
-        nota: recomendaciones.length ? 'recomendaciones = las que MaKo eligió para este negocio (no se filtran por medio).' : 'Sin recomendaciones guardadas: se generan con recomendar_formatos_creativo.',
+        biblioteca: biblioteca.map((f) => ({ ...f, anuncios: usos[f.id] ?? 0 })),
+        nota: 'anuncios = cuántos anuncios de la matriz (los de un avatar que existe, como la pantalla) tienen ese formato elegido. Para fijarlo en un anuncio, elegir_formato_creativo_anuncio.',
       });
     },
   },
@@ -521,6 +531,7 @@ export const RUNNERS: Runners = {
       if (medio !== 'imagen' && medio !== 'video') return { error: '«medio» tiene que ser imagen o video.' };
       const c = await celdaEn(str(input, 'celdaId'));
       if ('error' in c) return { error: c.error };
+      if (c.celda.id === CELDA_PROPIOS) return { error: 'Los guiones propios no son un anuncio planteado: elige un anuncio de listar_anuncios_planteados.' };
       const actual = formatoCorto(medio === 'imagen' ? c.celda.anguloImagen : c.celda.anguloVideo);
       return {
         payload: { celdaId: c.celda.id, medio },
@@ -531,33 +542,11 @@ export const RUNNERS: Runners = {
       const medio = str(payload, 'medio') === 'video' ? 'video' : 'imagen';
       const c = await celdaEn(str(payload, 'celdaId'));
       if ('error' in c) return { ok: false, resumen: c.error };
+      if (c.celda.id === CELDA_PROPIOS) return { ok: false, resumen: 'Los guiones propios no son un anuncio planteado: no se les elige formato.' };
       // 12 s POR PROVEEDOR (ver helpers, punto 1): sin carrera, porque elegirAngulo escribe.
       const r = await elegirAngulo(c.celda.id, medio, 12000);
       if (!r.ok) return { ok: false, resumen: `No se pudo elegir el formato: ${r.error}` };
       return { ok: true, resumen: `Formato de ${medio} de «${c.celda.nombre}»: ${r.formato.nombre} — ${r.formato.descripcion}`, datos: { celdaId: c.celda.id, medio, formatoId: r.formatoId } };
-    },
-  },
-
-  recomendar_formatos_creativo: {
-    preparar: async (): Promise<Preparado> => {
-      const [m, recs] = await Promise.all([matriz(), getRecomendaciones()]);
-      if ('error' in m) return { error: m.error };
-      const razones = m.razones;
-      if (!razones.some((r) => r.id !== CELDA_PROPIOS)) return { error: 'El negocio todavía no tiene anuncios planteados: de ahí salen los formatos. Se arman en la tab Ads Writer.' };
-      return {
-        payload: {},
-        resumen: `MaKo elige los formatos de creativo que mejor le sirven al negocio${recs.length ? ` y reemplaza las ${recs.length} recomendaciones guardadas` : ''}.`,
-      };
-    },
-    ejecutar: async (): Promise<Ejecutado> => {
-      // recomendarFormatos no acepta timeoutMs (30 s por proveedor × la cascada). Aquí SÍ
-      // hay carrera: la función no escribe, y setRecomendaciones va después y solo si ganó.
-      const r = await conTope(recomendarFormatos(), 45000);
-      if (r === 'tope') return { ok: false, resumen: 'La IA tardó demasiado en elegir los formatos. No se cambió nada: vuelve a intentarlo en un momento.' };
-      if (!r.ok) return { ok: false, resumen: `No se pudieron generar las recomendaciones: ${r.error}` };
-      await setRecomendaciones(r.recomendaciones);
-      const nombres = r.recomendaciones.map((x) => formatoPorId(x.formatoId)?.nombre ?? x.formatoId);
-      return { ok: true, resumen: `${r.recomendaciones.length} formatos recomendados: ${nombres.join(', ')}.`, datos: { total: r.recomendaciones.length } };
     },
   },
 
@@ -671,4 +660,6 @@ export const RUNNERS: Runners = {
   },
   // `crear_borrador_instagram` salió el 06/10/2026 con la tab Instagram: dejaba un
   // borrador en un programador que ya no existe (contenido_posts sin pantalla).
+  // `recomendar_formatos_creativo` salió el 23/10/2026: pagaba IA por una lista de formatos a nivel negocio que
+  // ningún generador leía (elegirAngulo elige uno POR ANUNCIO). Medido en prod: 0 negocios la tenían y 0 llamadas.
 };

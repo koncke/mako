@@ -15,7 +15,7 @@ import { getWorkspaceActual } from './workspace';
 import { setSetting } from './settings';
 import { secuenciaDelWorkspace } from './automatizacion-chat-db';
 import {
-  CLAVE_PREFIJO, claveConfigAutomatizacion, configParaGuardar, sanearConfigAutomatizacion, secuenciaDeClave, tieneConfigPropia,
+  CLAVE_PREFIJO, CONFIG_DE_NACIMIENTO, claveConfigAutomatizacion, configParaGuardar, sanearConfigAutomatizacion, secuenciaDeClave, tieneConfigPropia,
   type ConfigAutomatizacion,
 } from './config-automatizacion';
 
@@ -85,4 +85,15 @@ export async function copiarConfigAutomatizacion(de: number, a: number): Promise
   const c = await leerConfigAutomatizacion(de);
   if (!tieneConfigPropia(c)) return;
   await setSetting(claveConfigAutomatizacion(a), JSON.stringify(c));
+}
+
+/**
+ * LA CONFIGURACIÓN CON LA QUE NACE (23/10/2026, Martín: «"Misma persona" apagado por defecto»): la «Misma persona» propia,
+ * APAGADA (`CONFIG_DE_NACIMIENTO`). La llama cada camino que crea una automatización NUEVA (no una copia de otra del mismo
+ * negocio: ésa hereda la de su original, `copiarConfigAutomatizacion`), justo después del insert. Estricta: si no puede
+ * escribir, TIRA, y quien la llama borra la automatización recién creada (una que naciera heredando las 20 h del negocio sería
+ * justo lo que se pidió que no pase). tests/misma-persona-propia.test.ts barre que cada alta la llame.
+ */
+export async function nacerConfigAutomatizacion(secuenciaId: number): Promise<void> {
+  await setSetting(claveConfigAutomatizacion(secuenciaId), JSON.stringify(CONFIG_DE_NACIMIENTO));
 }

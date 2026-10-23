@@ -28,7 +28,7 @@ import 'server-only';
 import { APP_BASE_URL } from './app-url';
 import { auditarCredencial, credDelCliente, eliminarCredencial, guardarCredencial, IdentificadorOcupadoError } from './credenciales';
 import { soltarIdentificador, upsertRouting, wsPorIdentificadorEstricto } from './webhook-routing';
-import { asegurarWebhookStripe, borrarWebhooksStripe, leerCuentaStripe, type CuentaStripe } from './stripe-api';
+import { asegurarWebhookStripe, borrarWebhooksStripe, leerCuentaStripe, modoDeClaveStripe, type CuentaStripe } from './stripe-api';
 import { leerCuentaMp, type CuentaMp } from './mercadopago-api';
 import { NOMBRE_PASARELA, type Pasarela } from './cobros-tipos';
 import { CLAVES_BASE, CUENTA_PRINCIPAL, claveDeCuenta, type ProveedorConCuentas } from './cuentas-integracion';
@@ -213,6 +213,16 @@ export async function descubrirStripe(ws: number, key: string, autor: string | n
   if (!c.ok) return { ok: false, status: c.status === 0 ? 504 : 422, nadaGuardado: true, error: errorDeStripe(c, clave) };
   const repetida = await yaConectadaComoOtra(ws, 'stripe', c.id, opts.cuenta ?? CUENTA_PRINCIPAL);
   if (repetida) return repetida;
+  // ⚠️ UNA CLAVE DE PRUEBA NO PISA A UNA REAL (revisión del 23/10/2026). Hay UNA firma por cuenta (STRIPE_WEBHOOK_SECRET) y
+  // dos avisos en Stripe (el real y el de prueba), cada uno con la suya: pegar sk_test encima de sk_live guardaba la firma del
+  // de prueba, y desde ahí cada pago, renovación y devolución REAL daba 401 hasta volver a la clave real (que además borra el
+  // aviso real con sus reintentos). Para probar con una cuenta que ya cobra en vivo, se desconecta antes, a propósito.
+  if (opts.guardarClave && c.modo === 'prueba' && modoDeClaveStripe(await credDelCliente(k('STRIPE_SECRET_KEY'), ws)) === 'real') {
+    return {
+      ok: false, status: 409, nadaGuardado: true,
+      error: 'Ya cobras en vivo con Stripe aquí: una clave de prueba encima rompería los avisos de los pagos reales. Para probar, desconecta Stripe primero.',
+    };
+  }
 
   const r = await reclamarCuenta(ws, k('STRIPE_ACCOUNT_ID'), c.id, 'stripe', autor);
   if (!r.ok) return ocupada('stripe');

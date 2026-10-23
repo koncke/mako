@@ -33,6 +33,8 @@ import { estaBloqueado } from './evolution-block';
 import { normalizarTelefono } from './leads';
 import { tzDeWorkspace, TZ_DEFAULT } from './timezone';
 import { TRIGGER_RECORDATORIO, toquesDeLaAutomatizacion } from './recordatorio-automatizacion';
+import { configsDelNegocio } from './config-automatizacion-db';
+import { sinVistaPreviaDe, type ConfigAutomatizacion } from './config-automatizacion';
 import {
   KEY_RECORDATORIO, TOQUES, TOLERANCIA_MIN as TOLERANCIA_LEAD_MIN, configDeRecordatorio, juntasDe, leadAbierto, reunionParaElDueno,
   toquesVencidos, estadoDeLaMarca, envioIncierto, textoDelToque, type ConfigRecordatorio, type CualReunion, type Toque,
@@ -267,10 +269,13 @@ export async function toquesDelNegocio(ws: number): Promise<{
     const problemas: string[] = [];
     const porMin = new Map<number, { min: number; texto: string; linea: string | null; sinVistaPrevia?: boolean }>();
     const activas = filas.filter((f) => f.activa === true);
+    // Lo de cada automatización (Configuraciones › WhatsApp, 23/10/2026): sus links sin la vista previa. Sin poder leerlo,
+    // lo de cada mensaje.
+    const configs = await configsDelNegocio().catch(() => new Map<number, ConfigAutomatizacion>());
     for (const f of activas.length ? activas : filas.slice(0, 1)) {
       const r = toquesDeLaAutomatizacion(Array.isArray(f.pasos) ? f.pasos : []);
       if (r.problema) { problemas.push(`#${f.id}: ${r.problema}`); continue; }
-      for (const t of r.toques) if (!porMin.has(t.min)) porMin.set(t.min, { min: t.min, texto: t.texto, linea: t.linea, sinVistaPrevia: t.sinVistaPrevia === true });
+      for (const t of r.toques) if (!porMin.has(t.min)) porMin.set(t.min, { min: t.min, texto: t.texto, linea: t.linea, sinVistaPrevia: sinVistaPreviaDe(t.sinVistaPrevia === true, configs.get(Number(f.id))) });
     }
     return { activo: activas.length > 0, fuente: 'automatizacion', toques: [...porMin.values()], problemas };
   }

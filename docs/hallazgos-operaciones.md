@@ -7,6 +7,88 @@ del código.
 
 ---
 
+## La foto que se manda por la caja, vista en otro dispositivo: la «decisión pendiente» ya estaba tomada (23/10/2026)
+
+- **Síntoma:** una foto mandada desde la computadora se veía en el teléfono como un renglón con su nombre (y al revés).
+  Desde el quinto Ops Center (17/10) figuraba como «es una decisión de Martín, no un arreglo», en el relevo, en este
+  documento y en docs/pendientes.md («depende de Martín»).
+- **El diagnóstico obvio era el equivocado:** no faltaba la decisión. Martín la había tomado el 18/10 («cuando envío
+  imágenes por aquí o adjunto cosas también deberían aparecer en el Center»), y quedó escrita en la memoria del Centro:
+  las fotos del Ops Center SÍ quedan del lado del servidor, en un bucket privado, con URL firmada y sólo para quien puede
+  operar. El 20/10 se hizo con eso lo de la app de Claude (`operaciones-turnos/`), y nadie volvió a esta fila. **Regla:**
+  antes de dejar algo como «depende de Martín», se busca la decisión en la memoria y en las bitácoras. Una pendiente que
+  ya se contestó traba igual que una sin contestar, y encima le cuesta a él una pregunta repetida.
+- **Lo que protege el canal a la PC no es borrar:** es que el cartero sólo baja lo que nombra un trabajo firmado y en
+  vuelo (`seLeDa`) y que compara el sha256 firmado. Borrar el original al entregar cuida el storage, y se sigue haciendo.
+  Lo que queda es la MINIATURA de 640 px que ya armaba el navegador que la mandó, en `operaciones-enviados/<ref>`: el
+  `ref` es el del original adentro del texto firmado. Por eso el servidor sabe qué adjuntos son fotos (`fotosDeFirmado`)
+  sin adivinar por la extensión, y no se puede guardar una «miniatura» de algo que no es una foto de ese trabajo
+  (`problemaDeMiniatura`).
+- **La subida va por la RUTA de adjuntos, no por una server action:** las actions se encolan de a una, y subir fotos
+  detrás del envío habría hecho esperar al refresco de la conversación. La lectura (`GET ?enviadas=`) también, y junta en
+  una ida las burbujas que se abren juntas (`crearPedidorDeFotos`).
+- **Una carrera que no se ve en la computadora:** el otro dispositivo refresca y puede traer el trabajo antes de que sus
+  miniaturas terminen de subir: suben DESPUÉS de mandar, con el id del trabajo, y de a una. Por eso la burbuja sabe
+  cuántas fotos ESPERA (`fotos`, del texto firmado). Lo incompleto (ninguna, o 1 de 2) se cree 10 s, y la burbuja vuelve a
+  preguntar una vez a los 12 s. Sólo lo completo se guarda mientras sirve la URL, y un fallo de red no se guarda nunca.
+- **IndexedDB guarda la copia del que manda, ANTES de subir** (la revisión lo pidió: si la pestaña se cierra a mitad de la
+  subida, ese navegador la sigue teniendo después de un F5). Se barren las de los trabajos que ya no están en la cola
+  (`barrerEnviadasViejas`), nunca lo recién mandado. Con la cola vacía no se barre: una lectura que falló no es «no hay
+  trabajos».
+
+**Lo que encontró la revisión adversarial, verificado uno por uno (23/10, 9 agentes sobre el commit, no sobre el disco):**
+- **El defecto medio no lo vio el revisor sino el crítico de completitud:** la conversación se dibuja por POSICIÓN
+  (`key={`l${i}`}` en Hilo.tsx), y la lista se corre sola (turnos que llegan después, la cola de 100 que suelta el más
+  viejo). Una burbuja que pasaba a ser de OTRO mensaje mostraba las fotos del anterior hasta que llegaban las suyas: la foto
+  equivocada en un mensaje. Va `key={w.id}` en la burbuja. **Regla:** un componente con estado sembrado de un id, adentro
+  de una lista dibujada por índice, lleva la clave de ese id.
+- **Lo que el revisor marcó medio y no era:** «cancelar no borra la miniatura». La mecánica es cierta, pero en la app no
+  hay botón de cancelar (`cancelarPedidoAction` no la importa nadie) y lo cancelado se sigue dibujando con su texto. Si
+  algún día hay botón, el arreglo es borrar `fotosDeFirmado(firmado)` en `cancelarPedido`.
+- **Una falla del storage parecía «no tiene foto»:** storage-js no RECHAZA la promesa ante un error, devuelve
+  `{ data: null, error }`, así que el `.catch` estaba muerto y el GET contestaba `ok: true, fotos: {}`. Ahora tira, la ruta
+  contesta 503 y el navegador no lo guarda.
+- **El original nunca sube:** si el navegador no puede redibujar la foto, `miniatura()` devuelve null (antes, el original
+  con su EXIF, la ubicación incluida). Y es foto lo que el trabajo FIRMÓ como foto (`a.mime`), no el tipo del navegador.
+- **La caché duraba una hora:** supabase-js sube con `max-age=3600` por defecto (también en su CDN). Va
+  `private, max-age=600`, lo que dura la URL.
+- **Un cuerpo sin Content-Length se leía entero** antes del tope (pedidos «chunked»): ahora sin un largo válido no se lee.
+- **La retención de 14 días dependía de mandar otra foto:** el barrido corre ahora también al LEER (como mucho una vez por
+  hora por instancia), vacía la cola de vencidas de a 100, y el GET no firma lo de más de 14 días aunque no haya pasado.
+- **El test de la subida daba verde sin mirar la miniatura:** en node no hay `createImageBitmap`, así que `miniatura()`
+  caía al original y el test sólo comparaba la URL. Ahora simula el lienzo y compara el CUERPO que sube; probado con 19
+  roturas, cada una con el test que la caza (al pie de tests/centro-fotos-enviadas.test.ts).
+- **La segunda vuelta (6 agentes sobre el delta de los arreglos) encontró lo que los arreglos mismos trajeron:**
+  - el arreglo de «la copia local antes de subir» decodificaba TODAS las fotos a la vez (`Promise.all`): 20 fotos de 12 MP
+    del Samsung son un pico de memoria que el commit anterior, de a una, no tenía. Ahora de a una: decodifica, guarda y
+    sube, y recién ahí la siguiente. **Regla:** un arreglo que reordena un bucle se revisa por lo que cambia de orden, no
+    sólo por lo que agrega;
+  - un solo reintento a los 12 s no alcanza para 15 fotos que suben de a una: la burbuja vuelve a preguntar con espera
+    doble (12, 24, 48 s…) mientras el mensaje tenga menos de 3 minutos (`proximoIntento`);
+  - la foto local llevaba el nombre del ARCHIVO y la burbuja compara con el FIRMADO (saneado, recortado a 120): con un
+    espacio al final se veía la foto Y su renglón. Va `a.nombre`;
+  - el barrido de IndexedDB usa la cola de cuando cargó la pestaña: otra pestaña del mismo navegador pudo mandar algo
+    después. No se borra una copia de la última hora (`copiaVieja`, por la fecha de sus archivos).
+  - El servidor y las regresiones (el teléfono, HiloMako, los tests que leen estos archivos, los globales de los tests)
+    salieron limpios.
+- **Medido en el fuente instalado (storage-js 2.106.1):** `list` devuelve sólo ese nivel, sin recursión; un objeto que no
+  existe en `createSignedUrls` es un error POR ÍTEM (`signedUrl: null`); con `upsert` el `created_at` queda el del primer
+  alta. `after()` en un route handler de Next 16 atrapa lo que tire. No se vio en una pantalla: el guard no deja entrar a
+  otra sesión.
+
+**Vive en:** lib/operaciones-reglas.ts («Las fotos enviadas») · lib/operaciones-adjuntos.ts (`guardarMiniaturaEnviada`,
+`fotosEnviadasDe`, `barrerMiniaturasViejas`, `barrerSiToca`) · app/api/operaciones/adjuntos/route.ts ·
+app/admin/operaciones/fotos-enviadas.ts, fotos-remotas.ts, FotosEnviadas.tsx, Hilo.tsx · tests/centro-fotos-enviadas.test.ts.
+
+**Sin hacer:**
+- que Martín lo pruebe: una captura desde la computadora y abrir ese chat en el teléfono;
+- un PDF o un documento en otro dispositivo sigue siendo su nombre (sólo las fotos tienen miniatura);
+- la conversación entera sigue dibujada por posición (`items.push({ k: `l${i}`, l })` en Hilo.tsx): la burbuja de fotos
+  ya tiene su clave, lo demás de cada línea no. `claveDeLinea` (lib/centro-estable.ts) ya existe; cambiarla se mide contra
+  `Linea` memorizada (`982d7564c`, el refresco que trababa), que es de otro chat del Ops Center;
+- el barrido de `operaciones-turnos/` (lo adjuntado en la app de Claude) y de lo subido que nunca se firmó
+  (lib/operaciones-adjuntos.ts, cabecera).
+
 ## La estrella con una tarjeta abierta: el fondo del modal la tapa (22/10/2026, CR4)
 
 - **Síntoma** (el caso de uso de CR4): en /plan, con una tarea abierta, «cerrala» desde la estrella. La estrella no se podía
@@ -1868,9 +1950,9 @@ Microfono.tsx (`BotonMandar`), Emojis.tsx, MiFoto.tsx, pegar.ts · lib/centro-ch
 lib/centro-uso.ts (`USO_VENCIDO_MS`) · tests/centro-ops5.test.ts.
 
 **Sin hacer:**
-- la foto enviada en OTRO dispositivo (hoy, su nombre): pide guardar una miniatura en el servidor, que es un binario de Martín
-  que queda contra la regla de lib/operaciones-adjuntos.ts; es una decisión, no un arreglo;
-- las miniaturas `enviado:*` de IndexedDB no se barren nunca (app/admin/operaciones/adjuntos-guardados.ts);
+- ~~la foto enviada en OTRO dispositivo (hoy, su nombre)~~ HECHO el 23/10: la decisión ya la había tomado Martín el 18/10
+  (arriba, «La foto que se manda por la caja, vista en otro dispositivo»);
+- ~~las miniaturas `enviado:*` de IndexedDB no se barren nunca~~ HECHO el 23/10: ya no se escriben, y las de antes se barren;
 - el aviso de «Completado» sin ver es por dispositivo (localStorage), no viaja al teléfono (useCentro.ts → `vistos`);
 - SheetM en «medio» con un cuerpo largo, para todas las hojas (app/m/_ui/SheetM.tsx);
 - nada de esto se vio en una pantalla real: ni la hoja del mensaje en el Android de Martín, ni los globos, ni los emojis.
@@ -2336,3 +2418,33 @@ tests/ops-center-solo-para-martin.test.ts.
 **SIN HACER:** el cartero podría no subir la compactación (`isCompactSummary`), pero no hace falta mientras el servidor la
 saque, y cambiarlo pide reinstalar el Runner.
 
+## El cambio de cuenta del 23/10: el Cerebro viejo no podía abrir chats, «›» se rompe al abrirlos y subir `integracion` no subía `main` (23/10/2026)
+
+Ese día Martín pasó de claude1 a claude2 a las 12:13 ART, porque la ventana de 5 horas de la 1 se agotó. Cuatro trampas,
+ninguna con error a la vista:
+
+- **Un Cerebro DESARCHIVADO no tenía `start_session`; uno NUEVO, sí.** En claude1 el Cerebro era la sesión de agosto
+  `e680c815`, desarchivada y renombrada. Buscó la herramienta de cuatro formas y no estaba, así que no pudo abrir ni el
+  Runner: lo intentó por terminal (`claude1 -n Runner`), que se trabó en el selector de tema. El uso de la cuenta lo
+  subió a mano, renombrándose «Cerebro › Runner» para una vuelta. En claude2 el Cerebro fue un chat creado ese día y
+  abrió el Runner y cinco chats con `start_session` sin trabas. No está probado que la causa sea la edad de la sesión;
+  lo que sí está medido es que el camino nuevo anduvo. **Regla:** al cambiar de cuenta, el Cerebro es un chat nuevo.
+- **`start_session` cambia «›» por «'» en el título.** «Cerebro › Integración» nació como «Cerebro ' Integración», y
+  el Ops Center une los chats por nombre. **Regla:** renombrar en el acto con `set_session_title`.
+- **Sin minutos de Actions, subir `integracion` NO avanza `main`.** El Cerebro de claude1 subió el arreglo del ws13
+  (`cd3827f44`, con antes-de-subir en verde) a `integracion` a las 12:02 y reportó que «GitHub Actions lo chequea y
+  avanza main». Pero Actions no tiene minutos desde el 22/10, así que `main` siguió en `594ecd41b` con un cliente roto
+  hace diez días. Lo subió el Cerebro de claude2 a las 12:36 (Ready a las 12:40). **Regla:** después de cada push,
+  `git ls-remote origin refs/heads/main`; mientras no haya minutos, `main` lo sube el Cerebro.
+- **La ventana de 5 horas es de la CUENTA.** Al agotarse se cortaron los 11 chats de claude1 entre las 11:56 y las 12:02.
+  El Cerebro había escrito «los demás chats siguen trabajando; ellos no comparten mi límite», y era falso. Planes quedó
+  con trabajo sin commitear en su worktree. **Regla:** con la ventana arriba del 85 %, cada chat commitea o escribe lo que
+  tiene en el disco antes de seguir.
+
+Y una de método que ahorró horas: **lo que un chat dice «listo» o «tomado para el tren» se verifica con git.** Diez
+lectores (Sonnet, 4 minutos) sobre las cronologías de claude1, con `git merge-base --is-ancestor`, encontraron que
+ninguna de las 7 puntas «tomadas» estaba en `main`. También apareció una punta que nadie tenía en la lista (Chats de las
+tabs, `256f46e07`), el «P1 de Stripe» que ya estaba en main desde antes y la punta real del CRM, que era otra
+(`60bd69812`, no `886cb3545`). Las herramientas están en `C:/dev/cerebro-herramientas/`: `listar.cjs` (chats por cuenta),
+`cola.cjs` (la cronología de un transcript desde una hora), `digest.cjs` (sólo los mensajes del usuario) y
+`workflow-relevo-chats-cuenta.js`. El método quedó en `docs/relevo/cerebro.md`, «LEER PRIMERO».

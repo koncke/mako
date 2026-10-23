@@ -31,6 +31,7 @@
 // lib/setting-semillas.ts, que es puro y tiene test. Acá queda sólo lo que toca la base.
 
 import 'server-only';
+import { nacerConfigAutomatizacion } from './config-automatizacion-db';
 
 import { getTenantDb } from './workspace';
 import { getSetting } from './settings';
@@ -141,12 +142,18 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
 
     // ⚠️ NACE COMO TARJETAS (sexta tanda): los pasos y la estrategia de `comoNace`, no la lista.
     const nace = comoNace(plan);
-    const { error } = await supabase.from('nutricion_secuencias').insert({
+    const { data: nueva, error } = await supabase.from('nutricion_secuencias').insert({
       clave: plan.clave, nombre: plan.nombre, etapa: plan.etapa,
       trigger_tipo: plan.trigger, activa: false, pasos: nace.pasos,
       estrategia: nace.estrategia,
-    });
-    if (error) { console.error(`[secuencias-audios] ${plan.clave}: ${error.message}`); continue; }
+    }).select('id').single();
+    if (error || !nueva) { console.error(`[secuencias-audios] ${plan.clave}: ${error?.message ?? 'no se creó'}`); continue; }
+    // Nace con la «Misma persona» propia APAGADA (23/10/2026, `nacerConfigAutomatizacion`); si no se puede, se borra.
+    try { await nacerConfigAutomatizacion((nueva as { id: number }).id); } catch (e) {
+      console.error(`[secuencias-audios] ${plan.clave}: ${e instanceof Error ? e.message : String(e)}`);
+      await Promise.resolve(supabase.from('nutricion_secuencias').delete().eq('id', (nueva as { id: number }).id)).catch(() => {});
+      continue;
+    }
     out.push({ clave: plan.clave, nombre: plan.nombre, creada: true, audios: plan.pasos.length });
   }
 

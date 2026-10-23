@@ -502,6 +502,22 @@ export const esPasoIA = (p: PasoGrafo | null | undefined): boolean => !!p && cla
 export const medioDe = (p: Pick<PasoGrafo, 'medio'> | null | undefined): MedioAIStep =>
   (p?.medio === 'instagram' || p?.medio === 'messenger' ? p.medio : 'whatsapp');
 
+/**
+ * LO QUE SE GUARDA AL ELEGIR EL MEDIO de un AI Step (revisión de las tarjetas, 23/10/2026, punto 3). El audio sale sólo
+ * por WhatsApp: al pasar a Instagram o Messenger se va el de la tarjeta y el de cada escenario, en la MISMA escritura.
+ * Antes el chip escribía sólo `medio`. El editor mostraba «Texto», la tarjeta seguía con el 🎙, el freno de Publicar
+ * (`erroresDelPasoIA`) decía «el audio sale sólo por WhatsApp» y el paso «Escenarios» quedaba en rojo sin decir por qué:
+ * un audio guardado que nadie veía.
+ */
+export function cambioDeMedio(p: Pick<PasoGrafo, 'casos'>, m: MedioAIStep): Pick<PasoGrafo, 'medio' | 'audio' | 'casos'> {
+  if (m === 'whatsapp') return { medio: undefined };
+  const conAudio = (p.casos ?? []).some((c) => !!c.audio);
+  return {
+    medio: m, audio: undefined,
+    ...(conAudio ? { casos: (p.casos ?? []).map((c) => { const { audio: _sinAudio, ...resto } = c; return resto; }) } : {}),
+  };
+}
+
 // Por SALIDA: una tarjeta de una salida, o cada RESULTADO de una condición (cuarta tanda, punto 8:
 // «varias si se cumple y varias si no se cumple»).
 export const TOPE_PARALELOS = 3;   // flechas en paralelo por tarjeta (o por resultado de una condición)

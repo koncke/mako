@@ -181,6 +181,29 @@ nuevo de `pasos` que arme la lista de cero choca con esa red en vez de aplanar e
 
 ## El motor
 
+### «Misma persona» apagada por defecto sin cambiarle nada a nadie, y en cualquier orden (23/10/2026)
+
+**El pedido:** Martín, «"Misma persona" apagado por defecto» y «nada para todas». Lo ingenuo es cambiar el default, pero
+AUSENTE quiere decir «la del negocio» (20 h): 510 de las 518 automatizaciones de producción se habrían apagado de golpe y le
+habrían mandado dos mensajes seguidos a la misma persona. **La primera vuelta también estaba mal:** ausente = apagada, con un
+script que había que correr ANTES del deploy. El Cerebro lo frenó: un deploy sin el script era una trampa armada. **Cómo
+quedó:** «sin las suyas» sigue siendo la del negocio (`personaHorasDeLaAutomatizacion` no cambió), y lo de «apagado por
+defecto» se cumple al NACER: cada alta guarda la suya apagada (`CONFIG_DE_NACIMIENTO`, `nacerConfigAutomatizacion`). El
+script (`fijarPersonaPropia`, scripts/misma-persona-propia.mts) es una limpieza que guarda como suyo lo que cada vieja
+heredaba, antes o después del deploy, igual da. Es un script y no un `.sql` porque lo heredado sale de
+`limitesVigentes(raw, limitesDeFabrica(env))`. El test compara los TRES órdenes contra la regla de hoy en 48 casos.
+**La trampa que destapó:** el aviso de Prospección de Publicar («revisa su horario y sus límites») salía sólo si la
+automatización no tenía NADA propio (`tieneConfigPropia`), y ahora todas nacen con algo. Es la trampa del backfill de
+AGENTS.md («invierte en silencio a todo el que cuenta filas»), pero con un campo: ahora mira el ritmo (`tieneRitmoPropio`:
+horario o goteo). **Reglas:** un default nuevo va AL NACER, no cambiando qué significa «ausente»; y antes de que todas
+tengan algo, grepear quién pregunta «¿tiene algo?». **Y el barrido de las altas** (que cada insert en
+`nutricion_secuencias` la haga nacer apagada) dejó pasar dos roturas en su primera versión: una llamada después del
+`return` y una segunda alta en un archivo ya listado. Ahora cuenta las altas por archivo y mira el orden.
+**Vive en:** lib/config-automatizacion.ts · lib/config-automatizacion-db.ts (`nacerConfigAutomatizacion`) · las altas
+(lib/setting-secuencias.ts, lib/plantilla-crear.ts, lib/flujo-copia-negocio.ts, lib/secuencias-audios.ts) ·
+scripts/misma-persona-propia.mts · app/automations/ConfiguracionesBoton.tsx · tests/misma-persona-propia.test.ts.
+*23/10/2026, chat «Automations» (claude2).*
+
 ### La entrada es `raizSalida`, nunca `pasos[0]`, y el índice se traduce en UNA puerta [M, motor-10, lienzo-1]
 
 **Síntoma:** tres caras del mismo dato. Una inscripción que nunca avanzó (`paso_actual` 0,
@@ -436,6 +459,71 @@ del repo.
 ---
 
 ## El lienzo
+
+### La tarjeta «MaKo en WhatsApp» con tres desplegables arriba del mensaje, y de dónde salieron (23/10/2026)
+
+**Síntoma:** en la #289 de Mauricio, la tarjeta abría con «Por dónde», «Sin grupo de MaKo» y «Fuera del horario» antes del
+mensaje. Martín: «Completamente roto y no se entiende». **De dónde salieron:** de tres pedidos legítimos, cada uno resuelto
+con un desplegable: `c46ee888f` (15/10, «que se pueda configurar que te mande el mensaje luego, cuando se abra la oficina»),
+`12ac3cb85` (16/10, el reporte semanal de la plataforma por email al equipo) y `e94f798a3` (17/10, qué pasa si el
+negocio no tiene grupo). Ninguno estaba mal por separado; sumados, la tarjeta dejó de parecerse a las demás.
+**Medido en producción antes de sacarlos:** de 57 tarjetas de MaKo vivas, una sola sale por email (la #256 del ws9, el
+reporte semanal, que sólo ve SuperAdmin), ninguna tiene «Sin grupo» elegido y 10 tienen «Lo manda igual» (9 del ws9 y la
+#289). Lo guardado sigue valiendo: el motor no cambió. La #256 conserva su asunto, porque sin él no se puede corregir. «Fuera
+del horario» lo dice el chip del lienzo y se cambia pidiéndoselo a MaKo (`fueraDeHorario` de la API).
+**Regla (AGENTS.md):** una tarjeta no gana controles, y cada canal es su tarjeta. **Sin hacer:** decidir si la #256 pasa
+a otra forma (hoy es la única tarjeta de MaKo por email). **Vive en:** app/automations/FlujoLienzo.tsx (`EditorMako`,
+`AsuntoDeMako`) · tests/tarjeta-mako-como-las-demas.test.ts.
+**Y la revisión de todas las tarjetas (puntos 1, 7, 8 y 11 del informe del Cerebro)** dejó otra trampa: el cartel «Espera a
+que abra (mañana 9:00)» leía el horario del NEGOCIO desde el 15/10, y el 20/10 el motor pasó a usar el de CADA automatización
+(9d291d844) sin que nadie tocara la tarjeta. **Regla:** lo que una pantalla dice sobre cuándo sale algo se calcula con la
+MISMA función del motor (`horarioDeLaAutomatizacion`), o no se dice. El cartel se fue, porque `ChipEnCola` ya lo dice bien.
+También se fueron el interruptor suelto «Vista previa del link» y el aviso cortado a 90 caracteres que veía el setter.
+*23/10/2026, chat «Automations» (claude2).*
+
+### Las otras ocho tarjetas de la revisión: lo roto entra de a uno, también lo que la cara DIBUJA (23/10/2026)
+
+**Síntoma.** Después de la tarjeta de MaKo (la entrada de arriba, que trae la regla y los tres desplegables), la
+revisión con escépticos confirmó otros hallazgos en las demás tarjetas. Ninguno lo había pedido Martín. Este chat
+arregló ocho; los de `FlujoLienzo.tsx` (1, 7, 8 y 11) los tiene «Automations». El detalle con archivo:línea está en
+`C:/dev/cerebro-herramientas/revision-tarjetas-automations-23-10.md`.
+
+**El patrón, con estos ejemplos: cada uno entró solo, en una tanda que tenía otro foco, y nadie lo vio hasta abrir la
+tarjeta.**
+- **Una ACTION traída entera de la API** (57bc44ea4, 17/10, «Invitar al curso»): la def venía de la rama
+  `wip/api-acciones-1410` con email escrito a mano, canales y reenviar. El editor dibuja todo parámetro que no esté
+  escondido, así que la ACTION hacía de EMAIL y de WHATSAPP. Cualquier acción nueva de la API que entra a los flujos
+  trae el mismo riesgo: `FUERA_DEL_FLUJO` (lib/api-mako/flujo-params.ts) es dónde se esconde, y lo leen el editor Y el
+  motor.
+- **Un canal nuevo que reusa el componente sin repasar lo de antes** (c9cdbdf3a, 14/10, el AI Step por Instagram y
+  Messenger): volvió a ofrecer el chip de medio, pero no limpiaba el audio al cambiar y no le dio piel al Ensayo.
+  Quedaba un audio guardado e invisible que frenaba Publicar con el paso «Escenarios» en rojo.
+- **Lo que la cara dibuja contra lo que mide** (04f40af49, la foto de Instagram de hasta 90 px en un hueco de 34): el
+  alto se calcula antes de pintar (lib/flujo-conversacion.ts) y lo que sobra se corta sin error. La zona del CRON
+  (d98dd86aa) es el mismo caso en texto: tres renglones donde caben dos, y el corte se comía el «A quién».
+- **Textos que quedan viejos**: «Producto» después del renombre a Funnel (53ba64509 no tocó CamposAccion), el motivo
+  repetido junto al link de Pagos (184c0b377), y la marca «(de antes)» que la undécima tanda había rechazado.
+
+Ningún test miraba la tarjeta entera. El revisor de cada tanda mira el diff, no la tarjeta abierta.
+
+**Qué quedó.** Todo saca o corrige, nada suma. Lo fija tests/tarjetas-revision-23-10.test.ts, probado rompiéndolo:
+- **4** «Invitar al curso» muestra sólo el Curso. Medido: ningún paso guardado usaba los otros tres.
+- **2** la foto va como chip en la cara, igual que en WhatsApp.
+- **3** pasar a Instagram o Messenger saca el audio de la tarjeta y de cada escenario (`cambioDeMedio`,
+  lib/flujo-grafo.ts).
+- **9** el Ensayo con `SimuladorSocial`, como «Probar».
+- **10** «Funnel».
+- **5** el link de Pagos sin el motivo repetido.
+- **6** la zona sólo si la eligió la persona.
+- **12** sin «(de antes)». Medido: 0 filas vivas lo tenían.
+
+**Sin hacer.** No se vio en pantalla ni se chequearon los tipos en local (el vigía de RAM cortó `tsc-acotado`). La
+pantalla se mira en el ws3 de producción después del deploy, sin guardar nada.
+
+**Vive en:** `lib/api-mako/flujo-params.ts` (`FUERA_DEL_FLUJO`) · `lib/api-mako/flujo.ts` ·
+`app/_components/EditorAccionMako.tsx` · `app/automations/social-ui.tsx` · `lib/flujo-grafo.ts` (`cambioDeMedio`) ·
+`app/automations/ModalEnsayoAIStep.tsx` · `lib/disparadores.ts` (`textoDeDisparador`)
+*23/10/2026, chat «Automations › Limpieza» (claude2).*
 
 ### Lo que la casilla pinta como heredado sale de la regla del motor [costuras-3, L]
 
@@ -5949,6 +6037,55 @@ en 4 h 5 min, y con 60, 50 en 24 h. **Vive en:** lib/goteo.ts · lib/nutricion.t
 lib/borrador-camino.ts · test: tests/goteo-con-aprobacion.test.ts. **Sin hacer:** aprobar no PROGRAMA el envío para su
 turno (`wa_borradores` no tiene dónde guardarlo; haría falta una columna): dice cuándo, y hay que volver a tocar.
 
+## Lo de la llamada que seguía a medias, con el arnés contra producción (22/10/2026, AU2 del plan del Cerebro)
+
+Medido por el Cerebro contra 87365c830 (el arnés `probar-chats-automations` @ eee20b3ab) y arreglado con tests que usan la
+RESPUESTA DEL MODELO GRABADA (lib/flujo-ia-revision-editar.ts: lo que la ruta hace con cada intento, puro). El modelo de
+verdad lo vuelve a medir el arnés cuando hay cuota.
+
+### «Editalos y agregalos» PISABA, y «Hazlo como te lo indiqué» DUPLICABA
+
+**Síntoma:** con dos WhatsApp, «Los textos que te pasé no están en el flujo. Editalos y agregalos:» + dos textos → el modelo
+CAMBIÓ los dos mensajes que había (2 de 2). Y el segundo turno, con todo hecho, los agregó OTRA vez (#491) o terminó en «No
+cambió nada» (#481). **Causa, tres piezas:** nada distinguía sumar de cambiar; el filtro de copias (`huellas`) sólo corría en
+un cambio de canal; y la respuesta honesta «Ya están en el flujo» la rechazaba MI regla de Editar (`errorDeRespuestaEnEditar`:
+no era pregunta, ni lugar, ni «no se puede»), así que el reintento duplicaba. **Es la segunda vez en el día que una regla de
+Editar bloquea una respuesta buena:** una regla que rechaza respuestas se prueba con las respuestas que SÍ valen. **Regla:**
+pedir SUMAR («agrega», «suma», «añade», aunque diga «edítalos») y cambiar el texto de lo que había vuelve al modelo con el
+error que lo dice (`pideAgregar`, y la regla en `REGLAS_EDITAR`: las dos capas); un WhatsApp idéntico a uno que ya está,
+también (`mensajesCopiados`); y si lo pegado en la charla ya está en el flujo, eso es lo que se contesta (`yaEstaEnElFlujo`).
+
+### La condición «antes del primer mensaje»: el diagnóstico obvio era el equivocado
+
+**Síntoma:** «Antes del primer mensaje, si tiene la etiqueta «Sprint · audio» que siga el flujo; si no, que no le mande nada»
+→ el primer mensaje quedaba DOS veces, sin condición (#535). **Lo obvio:** el camino de consulta (`RX_NADA` lee «que no le
+mande nada» como «no cambies nada»). **Lo de verdad:** con Editar eso ya no pasaba; el lenguaje de editar NO TENÍA DÓNDE
+PONERLA. «despues_de: cron» con el CRON ocupado colgaba EN PARALELO sin aviso; «en el medio» rechazaba una condición (no
+termina en una sola punta); una flecha del tramo a una tarjeta que ya existe se cortaba («Una tarjeta seguía en dos
+lugares»); y «cambiar» el mensaje a condición no cambia de tipo. **Regla:** desde el CRON con «sig», o con el tramo que ya
+sigue en la primera tarjeta, va EN EL MEDIO; el tramo PUEDE seguir en la tarjeta que seguía (`OpcionesArmar.enElMedio`); y
+una condición sola sigue por su primera rama. **Vive en:** lib/flujo-ia.ts (`armar`, `agregarTramos`).
+
+### «Si responde, movelo… y avisame por WhatsApp» se iba a OTRAS tabs
+
+**Síntoma:** dos burbujas «ir» (CRM y WhatsApp), y MaKo no hacía nada. **Causa:** la IA de pedidos lo partió en área crm +
+área whatsapp, y lo que etiqueta la IA es «fuerte» (lib/mako-pedidos.ts, `decidir`). **Regla:** en Automations, con una
+abierta, una orden sobre el flujo («si responde», «cuando entra», «movelo», «avisame», «mandale») es un cambio de lo
+abierto (`esOrdenDelFlujo`): la etapa, el CRM y el WhatsApp son ingredientes del flujo.
+
+### Una etapa que no existe se dice ANTES del modelo
+
+«Que arranque cuando el lead entra a la etapa «Clientes VIP Platino»» → el modelo no devolvía nada y salía «No cambió nada».
+Con la etapa entre comillas que ese CRM no tiene, MaKo contesta sin llamar al modelo, con las etapas que sí tiene, y el CRON
+no se toca (`etapaQueNoExiste`). Sólo entre comillas: un nombre suelto no se sabe dónde termina.
+
+**Vive en:** lib/flujo-ia-revision-editar.ts · lib/flujo-ia.ts · lib/mako-pedidos.ts · app/api/chat-agent/secuencias/ia/route.ts ·
+tests: tests/chat-mako-agregar-y-etapa.test.ts, tests/chat-mako-orden-del-flujo.test.ts.
+
+**Sin hacer (AU2):** «reordená» (no es una operación de editar), «deshacé eso» (el modelo no tiene lo borrado), la tarjeta de
+audio que el modelo inventa al CREAR; el aviso interno «Una tarjeta seguía en dos lugares» le llega a la persona; «Borrá el
+segundo mensaje» deja «1 día» y «2 días» seguidos sin avisar. Y el arnés con IA sobre esta rama: corre cuando vuelve la cuota
+de Gemini (~04:00 ART del 23/10).
 ## «No tienes ninguna IA gratis conectada» era la red de MaKo al tope de hoy (22/10/2026, AU3 del plan del Cerebro)
 
 **Síntoma:** Mauricio (ws1) leyó en el chat de su automatización «No tienes ninguna IA gratis conectada.», con el link a
@@ -5966,6 +6103,30 @@ lib/flujo-ia.ts (`falloDeIA`, `sinIAPropia`) · lib/flujo-ia-crear.ts (`generar`
 tests/ia-aviso-sin-ia-propia.test.ts. **Sin hacer:** las otras pantallas que llaman `falloDeIA` (la ficha, los gráficos,
 el «preparar» de la API de MaKo) no le pasan su red. Ven el texto nuevo sin la causa: lib/ficha/ia-generar.ts,
 lib/graficos-ia-*.ts, lib/api-mako/areas/chatbot.run.ts.
+
+## Un flujo que no depende de la IA: el «Si responde» SIN casos y sin `paso_ia` (22/10/2026, #289 del ws1)
+
+**Por qué:** IA16 apaga la red gratis de la plataforma para los negocios, y el ws1 no tiene IA propia. El AI Step de
+«Sprint · apertura» («Que responda: avisarle a Mauricio…») habría dejado de clasificar las respuestas el día de la campaña.
+**Lo que se sabe del motor:** un «Si responde» (`nodo: 'respuesta'`) sin `paso_ia` y con `casos: []` manda TODA respuesta
+por su `si_no`, que el lienzo rotula «Respondió» (`rotuloSiNoDeRespuesta`). `responderConGrafo` llama igual a
+`clasificarEscenario`, pero con la lista vacía vuelve ANTES de llamar a una IA («esta secuencia todavía no tiene casos»).
+O sea: «cualquier respuesta → aviso fijo al grupo → etiqueta» corre sin ninguna IA. **Regla:** cuando un flujo de un
+cliente no puede depender de la IA (sin key propia, o una campaña con fecha), el «Si responde» va sin casos y lo que sigue
+son acciones fijas. Las variables del aviso son `{{nombre_completo}}` y `{{link_chat_lead}}`; `{{lead_escribio}}` es de los
+avisos de eventos de MaKo y en un flujo no está garantizada. Para marcar al que respondió sin tocar las etapas que armó el
+cliente: una etiqueta sin vínculo a etapa (`poner_etiqueta_lead` no lo mueve). **Vive en:** lib/nutricion.ts
+(`responderConGrafo`) · lib/chat-agent-handoff.ts (`clasificarEscenario`) · lib/flujo-grafo.ts (`rotuloSiNoDeRespuesta`).
+
+## Probar un aviso en seco: sin `leadNombre`, el renglón del nombre desaparece (22/10/2026, auditoría de #289)
+
+**Síntoma:** resolviendo el aviso de «Sprint · apertura» con `conVariables(texto, { ws, leadId, destino: 'equipo' })`,
+salió sólo «Síguelo a mano desde Chats 👉 …»: el renglón «💬 {{nombre_completo}} respondió…» no estaba. **El
+diagnóstico obvio era el equivocado:** el aviso está bien. **Causa:** `{{nombre_completo}}` no sale de la ficha, sale de
+`leadNombre` del contexto (`fuente: 'nombre'`, lib/variables-aviso.ts), y `textoConDatos` borra entero un renglón cuyo dato
+quedó vacío. La tarjeta real (`textoDelAviso`, lib/api-mako/areas/chatbot.run.ts) sí pasa `leadNombre`, y además le suma
+`valoresVariablesLead`. **Regla:** una prueba en seco de un aviso se resuelve como la tarjeta: con `leadNombre` (o con
+`textoDelAviso`), nunca con `conVariables` pelado. Lo mismo vale para un lead sin nombre de verdad: ese renglón no sale.
 
 ## El chat de MaKo en segundo plano: irse cortaba el pedido, y el resultado de «Editar» no lo guarda la ruta (22/10/2026)
 
@@ -6027,6 +6188,89 @@ app/automations/ConfigAutomatizacionPanel.tsx (`AntibanDeLaAutomatizacion`) · L
 · lib/config-automatizacion.ts · lib/flujo-ia-intencion.ts · test: tests/automations-antiban.test.ts. **Sin hacer:** el
 teléfono (/m/automations) no tiene Configuraciones: el anti-ban y el horario de una automatización sólo se cambian en la
 computadora.
+
+## «Sólo apertura y un seguimiento si no responde»: el modelo piensa «Si responde» como un paso de la cadena (23/10/2026, #289)
+
+**Síntoma (Martín, ws1, Editar con Haiku):** «solo quiero que la automatización sea de "Apertura", y de última con un
+seguimiento si no responden… y cuando alguien responde se corta y le avisa a Mauricio». MaKo puso la espera de 2 días y el
+mensaje SIN la condición «no respondió», y no sacó los mensajes de los casos. **El diagnóstico obvio («la regla 3 del prompt
+no está») era el equivocado:** la regla ya pedía `contesto` con `no`. Medido en seco (scratchpad `medir-solo-apertura.mts`,
+forma de #289 con textos neutros): Haiku piensa «Si responde» como un PASO («si no responde → esperar → seguimiento») y le
+cuelga la espera; ahí no hay esperas, el código la tiraba y el seguimiento quedaba como respuesta, o no quedaba. Y con «sólo
+X», a veces se llevaba también X. **Regla:** lo que el modelo no cumple lo hace el código: un seguimiento NUEVO que el pedido
+nombra lleva «No contestó desde que entró» (`seguimientosConNoContesto`; un «recordatorio» no); un tramo que empieza con una
+espera y cuelga de «Si responde» va después del último mensaje; los casos que el turno vació se van; y el control de lo
+pedido mira también lo que había que SACAR (y no pide volver a poner lo que pidió sacar: `faltantesDelPedido` lo contaba),
+el seguimiento, el aviso cuando responde y que «sólo X» no se lleve X. Tras el arreglo, 8 de 8 corridas. **Trampa:**
+`esperaAntesDe` (la ventana de 24 h de Meta) no atravesaba una condición: una espera de 48 h antes de un DM con una
+condición en el medio pasaba. **Vive en:** lib/flujo-ia.ts (`seguimientosConNoContesto`, `sinCasosVaciados`,
+`agregarTramos`) · lib/flujo-ia-revision-editar.ts (`formaPedida`) · lib/flujo-ia-intencion.ts (`sobrantesDelPedido`,
+`pideQueQuedeSolo`) · lib/flujo-conversacion.ts · test: tests/chat-mako-seguimiento-y-solo.test.ts. **Sin hacer:** en 2 de 8
+corridas Haiku sacó también la pregunta de la apertura (no hay cómo saber qué es «apertura» sin el modelo); el «sólo X» sin
+comillas no se controla más que con «no quitaste nada».
+
+## «Misma persona» retrasa los pasos de la MISMA automatización: dos WhatsApp seguidos salen con 20 h entre uno y otro (23/10/2026)
+
+**Pregunta (Martín, por el Cerebro):** «si "Misma persona" dice 20 h y el flujo tiene un seguimiento o un delay de 2 h, ¿se
+rompe la automatización?». **Medido** (tests/automations-misma-persona-pasos.test.ts, con la ventana del motor): NO se rompe,
+se RETRASA. A las 2 h el segundo WhatsApp encuentra el primero dentro de la ventana (`leadsConEnvioReciente`: lo enviado con
+`created_at >= ahora − 20 h`, y lo de la misma corrida en `enviadoEnCorrida`), queda «saltado: msg <20h», la inscripción sigue
+en ese paso y sale en la primera corrida después de las 20 h. **Trampa:** vale también para dos WhatsApp SEGUIDOS sin espera
+(el segundo sale 20 h después) y para cualquier espera menor: la tarjeta decía «2 h» y salía a las 20. **Decisión:** el motor
+no se toca (frenar a la misma persona ES el anti-ban; sacarlo para los pasos propios haría salir en minutos flujos que hoy
+esperan 20 h, en producción); la tarjeta del WhatsApp lo dice («Sale 20 h después del anterior («Misma persona»)»), con el
+valor de ESA automatización (`/api/flujos/misma-persona`), que se apaga en su Configuraciones. **Vive en:**
+lib/flujo-conversacion.ts (`minutosDesdeElWhatsappAnterior`) · app/automations/FlujoLienzo.tsx ·
+app/api/flujos/misma-persona/route.ts. Y la pantalla de Configuraciones pasó a ser UNA (sin pestañas), con «Horario de
+oficina» y un bloque por canal; la «Misma persona, por defecto» de la línea ya no tiene fila (cada automatización muestra la del
+negocio mientras no tenga la suya). **Sin hacer:** el valor del negocio de «Misma persona» no se edita desde ninguna pantalla
+(sólo por la API de límites); el lienzo no relee el valor si se cambia con el modal abierto (al volver a abrir la automatización, sí).
+
+## El seguimiento «si no responde» que pidió el dueño no quedaba: tres causas, y ninguna era el prompt (23/10/2026, arnés del AU2)
+
+**Síntoma:** en el arnés del AU2 (`scripts/probar-chats/automations.mts`, ws3, c08b5e729) `seguimiento-no-contesto` dio rojo en las
+dos pasadas y `solo-apertura` en la segunda: MaKo dejaba la espera de 2 días y una condición, y el mensaje del seguimiento no
+estaba. **El diagnóstico obvio («el modelo no cumple la regla 3») era el equivocado.** Las causas, medidas en el informe:
+1. **La cita se leía como orden.** El pedido era «un seguimiento a los 2 días si no responde: «{Nombre}, ¿pudiste ver lo que te
+   mandé? Me avisas»». `pidioAviso` veía «avisas» ADENTRO de la cita; el control de lo pedido le exigía al modelo «falta el aviso
+   al grupo» y el reintento ponía un aviso al equipo en vez del seguimiento (pasada 2, tal cual). Lo mismo podía pasar con
+   `pidioRespuesta`, el cambio de canal, el CRON, «agregá» y «sólo X». **Regla:** lo que lee la INTENCIÓN del pedido pregunta
+   sobre `sinCitas(pedido)`: lo citado (20+ caracteres) es el mensaje para el lead; lo corto entre comillas (una etapa, una
+   etiqueta) sí es parte de la orden y se queda.
+2. **El modelo lo dejó a medias** (gpt-oss-120b por la red de plataforma): la espera y la condición POSITIVA («Contestó»)
+   colgando de una tarjeta que no existía, y el mensaje cortado («Una tarjeta seguía en otra que no existe: lo corté»). El texto
+   estaba citado y la espera la decía el pedido. **Regla:** lo que el modelo no cumple lo hace el código — `seguimientoQueFalta`
+   arma el tramo en el formato del modelo (espera + mensaje, por `agregarTramos`) y «No contestó» la pone
+   `seguimientosConNoContesto`. Sólo con UNA cita faltante, nada del dueño después del último mensaje, y una espera dicha (la del
+   modelo o la del pedido): no inventa la espera ni pisa lo que estaba.
+3. **El ruteo de «pedidos sueltos» se lo tragó** (pasada 2 de `solo-apertura`): «que la automatización sea de "Apertura"» calzó
+   en `referidos` con OTRA automatización cuyo nombre tenía «apertura» (la fila del caso anterior del arnés), salió la burbuja
+   «Eso va en «…»» y MaKo no recibió nada. En ws1 alcanza con que exista una automatización con esa palabra en el nombre.
+   **Regla:** en Automations, con una abierta, una orden sobre el flujo (`esOrdenDelFlujo`: ahora también «si no responden»,
+   «seguimiento», «que la automatización sea…») es de la abierta aunque una cita calce en otro nombre; borrar y «la otra»
+   siguen señalando a otra.
+**Vive en:** lib/flujo-ia-intencion.ts (`sinCitas`, `citasQueFaltan`, `minutosDelPedido`) · lib/flujo-ia.ts (`seguimientoQueFalta`,
+`haySeguimiento`, `protegidasPorElPedido`, `pidioAviso`, `pidioRespuesta`, `cambioDeCanal`, `pideCron`) ·
+lib/flujo-ia-revision-editar.ts (`formaPedida`, `pideAgregar`) · lib/mako-pedidos.ts (`decidir`, `esOrdenDelFlujo`) · test:
+tests/chat-mako-seguimiento-citas.test.ts (9 roturas → 9 rojos).
+**La segunda vuelta (el arnés, ws3, gpt-oss-120b, dos pasadas):** `seguimiento-no-contesto` pasó 2 de 2 (antes 0 de 2) y
+`solo-apertura` ya llega a MaKo. Quedaban dos fallas del modelo, con su arreglo en código:
+4. **«Sólo X» se llevaba lo que el mismo pedido pide tener**: quitó el «Si responde» con su aviso al grupo, que el pedido pedía
+   («le avisa a Ana por el grupo»). Ahora, si el pedido pide el aviso cuando el lead responde (y no pide sacarlo), el «Si
+   responde» y los avisos de abajo no entran en "quitar" (`protegidasPorElPedido`); los mensajes de los casos sí se van.
+5. **Sin una espera dicha, el código no armaba el seguimiento** («un seguimiento si no responden»). Ahora toma las 20 h de la
+   regla 3 del prompt, la misma que sigue el modelo, y el aviso lo dice para cambiarla (`AVISO_SEGUIMIENTO_A_20`).
+**Trampa:** una condición VACÍA que deja el modelo no llega nunca a la cola del último mensaje: el saneo la saca antes (medido).
+Código que la contemple ahí es código muerto.
+**La tercera vuelta (sha c8c219cd8):** `solo-apertura` pasó; `seguimiento-no-contesto` pasó 1 de 2. En la otra, el modelo
+puso él mismo la condición, pero la equivocada: «Nunca te escribió» (`respondio`, «jamás te escribió, en ningún lado»). Con
+esa condición, un lead que entró escribiéndote no recibe nunca el seguimiento. Además, con una condición ya puesta, el
+código no ponía la suya. Ahora, en una condición NUEVA entre la espera del seguimiento y el mensaje, las filas de respuesta
+(`respondio` y `contesto` positiva) pasan a «No contestó desde que entró», y el resto de las filas se queda.
+`AVISO_SEGUIMIENTO_CAMBIADA` lo dice. **Sin hacer:** volver a correr el arnés sobre este commit.
+**Sin hacer:** al CREAR (`deIA`) el código todavía no arma el seguimiento que falta (sólo le pone «No contestó» al que haya);
+con dos citas faltantes no se sabe cuál es el seguimiento y queda el rojo; si el negocio no tenía «Si responde» con aviso, el
+código no lo crea (lo pide el control, y en rojo).
 
 ## El chat de MaKo de Automations con el hilo y la caja únicos: las piezas traen CSS, el lienzo lo dibujan los tests (23/10/2026, AU4)
 
@@ -6153,3 +6397,286 @@ eso cambió `saleSolo`: un mensaje de una automatización SALE; sólo lo que esc
 desde el 20/10 y 29 inscripciones paradas en su SEGUNDO WhatsApp, esperando por eso. Con `saleSolo` a secas, el segundo
 mensaje habría salido de golpe a quien no recibió el primero. Regla: si el lead tiene un borrador pendiente, lo que sigue
 espera (como hasta hoy); el borrador sale cuando alguien lo aprueba, o se descarta. Lo nuevo sale solo.
+---
+
+## El ws13 lleva DIEZ DÍAS sin avisarle al equipo de un solo lead nuevo, y el diagnóstico obvio es el equivocado (23/10/2026)
+
+**Síntoma:** nada. Ninguna pantalla lo dice, ningún aviso sale, el cron termina con éxito. Se encontró de
+rebote, verificando otra cosa (que dos leads del ws1 esperaran la apertura de su horario).
+
+**Lo medido, contra producción, el 23/10 a las 10:00 ART:**
+
+- **20 envíos consecutivos en `fallo`, TODOS del ws13** (Código Inmobiliario, un cliente real), desde el
+  **13/10/2026 08:18** hasta el **22/10 23:09**, con el mismo texto:
+  `No se pudo registrar la acción pendiente.` Cero fallos de esta familia en los otros nueve workspaces.
+- Afecta a **dos** secuencias distintas —la #241 hasta el 20/10 y la #264 desde el 20/10—, y lo que comparten
+  es el paso con `operacion: 'avisar_al_equipo'`.
+- El efecto en el cliente: cada lead nuevo del ws13 se inscribe, el paso del aviso falla, y la inscripción
+  queda **`completada` en el paso 1**. O sea el flujo no reintenta, no deja pendiente, y el equipo no se
+  entera de ningún lead. Los últimos: Stefanie Ambrois (#3098), Fernando Gomez (#3096), Malena Piaggio
+  (#3091), Pablo Rodriguez (#2771), Marcela Fernandez (#2762), Eugenia (#2761)…
+
+**El diagnóstico obvio —«el INSERT de la pendiente está fallando»— es FALSO, y se descartó por tres
+caminos distintos:**
+
+| Cómo se probó | Resultado |
+|---|---|
+| SQL directo (driver `postgres`) en una transacción con ROLLBACK | el insert entra (id 377) |
+| El MISMO camino del código: `runWithWorkspace(13)` + `getTenantDb()` + PostgREST | entra (id 378), se borró |
+| Idem, con el **payload exacto** del paso de la secuencia #264 (448 caracteres, emojis, un surrogate suelto) | entra (id 379), se borró |
+
+Y el esquema no tiene nada que lo explique: `mako_acciones_pendientes` no tiene un solo CHECK, ni índice
+único además del pkey, ni trigger; sus NOT NULL son `id, workspace_id, grupo_jid, tipo, payload, resumen,
+estado, vence_at, created_at` y la tabla **sí** está en `TENANT_TABLES`, así que `getTenantDb` le pone el
+`workspace_id`.
+
+**Dónde vive el único lugar que puede devolver ese texto:** `proponerChat` (`lib/api-mako/acciones.ts:95`)
+lo devuelve cuando `crearPendiente` (`lib/mako-pendientes.ts:41`) contesta `null`, y esa función sólo
+contesta `null` en el `if (error)` del insert. O sea: el insert falla en producción, el motivo sólo existe
+en un `console.error('[pendientes] crear:', …)` —los logs de Vercel, que nadie lee y que a los 60 minutos
+no existen— y desde acá no se reproduce.
+
+⚠️ **LA CAUSA, medida por Automations el mismo día: MEDIO EMOJI.** `avisar_al_equipo` arma el resumen de
+la pendiente con `mensaje.slice(0, 120)`. En las secuencias #241 y #264 ese texto mide 184 unidades y la
+**unidad 119 es U+D83D**, la primera mitad del par que forma el emoji del dardo. Cortar ahí deja un
+surrogate SUELTO, `JSON.stringify` lo manda escapado, y Postgres rechaza el insert ENTERO con «invalid
+input syntax for type json». Sólo el ws13 lo tenía, porque sólo su texto lleva un emoji justo en el 120.
+
+Y explica por qué las tres pruebas de arriba entraron: **el payload viaja entero; el que se corta es el
+RESUMEN.** La tercera medición llegó a imprimir «tiene surrogate suelto: true» sobre ese payload y se dejó
+pasar — ahí el par estaba completo. **Un `slice` sobre texto con emojis no corta caracteres: corta
+unidades UTF-16**, y la mitad de un par es JSON inválido aunque el original fuera perfecto. Lo cubren
+`cortarSinPartir` y el saneo de lo que `crearPendiente` inserta (había otros 7 resúmenes con `slice` en
+los runners).
+
+⚠️ **Y la vuelta de tuerca, que costó el documento entero: este archivo se volvió ilegible para Python por
+lo mismo.** Al escribir el párrafo de arriba con un script, `io.open(p, encoding='utf-8')` falló con
+«surrogates not allowed» —el documento ya traía un surrogate suelto adentro— y para entonces el
+`io.open(p, 'w')` **ya había truncado el archivo a 0 bytes**. El script reportó el error y aun así dejó
+385 KB de hallazgos en la nada; se recuperó con `git checkout HEAD -- <ruta>` porque estaba commiteado
+media hora antes. Dos reglas, y la segunda es la que salva:
+
+- **Un script que toca un fuente con emojis va con `errors='surrogatepass'`** en la lectura y en la
+  escritura, o se niega a guardar justo el documento que explica el bug.
+- **Y NUNCA abre el destino en `'w'`: escribe a un temporal y renombra.** `open(dest, 'w')` trunca ANTES
+  de saber si lo que sigue va a fallar, así que cualquier excepción posterior deja el archivo vacío. Es la
+  misma forma que «un reescritor de código fuente reporta éxito sobre un archivo roto», con el signo
+  cambiado: acá reportó el fallo correctamente y el daño ya estaba hecho.
+
+**La regla que queda, y es la que hubiera ahorrado los diez días:** un `console.error` no es un control
+(ya está en AGENTS.md) y acá se paga en su forma más cara — **el fallo que mata un flujo guarda SU MOTIVO
+en la fila que ya está escribiendo**. `nutricion_envios.error` recibió la frase genérica del proponedor en
+vez del `error.message` de Postgres, que es el único dato que distingue las cinco causas posibles. Un
+error de un tercero (o de la base) se propaga ENTERO hasta la fila que alguien va a poder leer después.
+
+**Lo que queda SIN hacer**, y le toca al chat de Automations:
+1. Hacer que `crearPendiente` devuelva el motivo (no `null`) y que `proponerChat` lo escriba en el envío.
+   Hoy «no pude registrarla» y «la base dijo X» son el mismo texto.
+2. Que un fallo del paso de aviso **no cierre la inscripción**: hoy queda `completada` y el lead se pierde
+   sin reintento. Es la contracara de «un 200 es un ACK» del lado del motor.
+3. Reparar el ws13: ese cliente no tiene aviso de ningún lead desde el 13/10. Y revisar la secuencia #264,
+   que quedó con un único paso `nodo: 'mensaje'` con una `accion` adentro, **sin nodo `inicio`**, y con el
+   token `{{mensaje_mako}}` en su hermana #240 — justo el que `problemasDeTokens` prohíbe publicar.
+
+**Vive en:** `lib/mako-pendientes.ts` (`crearPendiente`) · `lib/api-mako/acciones.ts:95` (`proponerChat`) ·
+`lib/api-mako/areas/chatbot.run.ts` (`avisar_al_equipo`) · `nutricion_envios.error`
+
+---
+
+## Una inscripción ACTIVA con el envío vencido hace horas puede ser lo CORRECTO: es el horario del negocio (23/10/2026)
+
+El 23/10 a las 10:00 ART, las únicas tres inscripciones vencidas de toda la app eran del ws1 (Mauricio): la
+#280 desde la 01:02, y la #291 y #292 —los leads #3099 Martín Koncke y #3100 Maria del Carmen Galvan
+Castro, de la secuencia #289 «Sprint · apertura»— desde la 01:47 y la 01:51, **las dos en paso 0 y sin un
+solo envío**. Leído de frente eso es un motor caído; no lo era.
+
+El ws1 tiene `mako.horario_envio` = `{activo:true, desde:9, hasta:21}` y `mako.timezone` =
+**`America/Tijuana`**. A las 10:00 de Argentina en Tijuana son las 06:00: fuera de la ventana. **Lo vencido
+de noche queda en la fila a propósito** y sale a las 9:00 de Tijuana, que son las **13:00 ART** — el
+«timbre de las 13:00» no era un cron ni un recordatorio: es la apertura del horario de un cliente que vive
+en Baja California.
+
+**Y el barrido de la apertura es robusto, medido en `vercel.json`:** `nutricion-tick` corre `1-59 * * * *`
+(cada minuto salvo el 0) y `acabaDeAbrir` da verdadero durante los primeros `VENTANA_FRESCA_MIN` = **10**
+minutos desde la apertura, barriendo TODO lo vencido de ese negocio y no sólo lo fresco. La apertura cae a
+las 16:00 UTC, así que hay ~9 ticks que la ven, más la corrida de cada hora (`nutricion`, `0 * * * *`) que
+cae justo en el minuto que el tick se saltea. Para que esas tres se pierdan tendrían que fallar diez
+corridas seguidas.
+
+**Antes de diagnosticar un motor por una inscripción vencida, leé el horario y la ZONA del negocio.** Son
+dos consultas a `app_settings` (`mako.horario_envio`, `mako.timezone`) y descartan la clase entera. Y la
+pregunta que sí importaba era la otra: **si la línea va a poder mandar cuando abra** — se sondeó
+(`sondearSocket`) y `mako_ws1` contestó `vivo`, número 5216862168122, así que a las 13:00 los dos mensajes
+salen en vez de fallar. Un cliente del ws3 tenía su línea caída ese mismo día («WhatsApp de empresa
+desconectado: hay que volver a vincular el QR»), que es exactamente lo que convierte una espera sana en
+dos mensajes perdidos.
+
+**Vive en:** `lib/horario-envio.ts` (`acabaDeAbrir`, `proximaApertura`) ·
+`app/api/cron/nutricion-tick/route.ts` · `lib/espera-duracion.ts` (`VENTANA_FRESCA_MIN`) · `vercel.json`
+
+## «518 automatizaciones» (23/10/2026): por qué había tantas sin que nadie lo notara
+
+**Síntoma.** Un simulacro de Automations contó 518 filas en `nutricion_secuencias`, en 14 negocios. Martín:
+«No creo que existan tantas… hoy sólo Mauricio y Leila usan Automations».
+
+**El diagnóstico obvio era el equivocado.** «Las crea el alta de cada negocio» o «las crea MaKo sola». Medido en
+producción, ninguna de las dos:
+- **97 ya estaban ARCHIVADAS.** El conteo leía la tabla entera. Una cuenta de «cuántas hay» tiene que filtrar
+  `archivada_at is null`, y si importa, también `activa`. Vivas había 421; prendidas, 21 (todas fuera del ws3),
+  y 13 de ésas son los avisos de la plataforma del ws9. El 23/10 se archivaron las 374 que no usaba nadie (las del
+  ws3, la #242 y la #257 del ws10 y la #209 y la #210 del ws4) y quedaron 47 vivas.
+- **370 de las vivas eran del ws3**, todas del 22 y 23/10: «🧪 Prueba chats N/M · …» y «🧪 Arnés …». Los arneses
+  crean una fila por corrida en producción. `scripts/arnes-automatizacion-punta-a-punta.mts` la PAUSABA al
+  terminar pero no la archivaba, y la de «Prueba chats» no vive en el repo. Pausada no se ve en ningún tablero,
+  pero cuenta. Nadie lo notó porque el ws3 no lo mira nadie y ninguna fila estaba prendida.
+- **Los clientes nuevos con «Un Lead Entró»** (ws15/18/19/20/22) las crearon ellos. La clave es
+  `plantilla-lead-entro-*` y aparecen entre 1 h y 5 días después del alta (el ws21 no tiene ninguna). Es un clic
+  en la galería o en la sugerencia del CRM, que crean al primer toque.
+- **Lo que sí sembró el sistema** es de julio y agosto: el ws10 nació con 5 en el mismo segundo que el negocio, el
+  31/07 se sembraron más en los ws9, ws10 y ws11, y el 10/10 la mudanza del recordatorio. Todo eso ya estaba
+  archivado.
+
+**Cómo se averigua quién creó una fila (no hay columna de autor).** `api_llamadas` sólo guarda la API externa
+por token, no lo que se hace en la app. Lo que sirve, en este orden:
+- **`app_settings` con la clave `automatizacion.chat:<id>`** (lib/automatizacion-chat.ts): el chat de Crear con IA
+  guarda el pedido textual de la persona y la respuesta «Creé «X». Quedó pausada.». Así se probó que la #268 del
+  ws1 («Crea una automatización… le envié el acceso al curso») y la #249 del ws11 las pidió la persona. Existe
+  desde la duodécima tanda (12/10): una fila de antes no lo tiene.
+- **La clave**: `plantilla-<id>-…` es la galería o la sugerencia del CRM, `automatizacion-…` es ＋Nueva o Crear con
+  IA, y `copia-…` es duplicar.
+- **Los `disparadores` y el ritmo**: varias plantillas creadas con 8 a 12 s de diferencia, cada una con su CRON ya
+  puesto en una etapa distinta (noshow_r1, noshow_r2, facturando…), es el «Hacerlo» de las sugerencias «MaKo te
+  sugiere» del CRM (`hacerSugerencia`, lib/sugerencias-crm-server.ts; POST /api/crm/mako sólo con `rol admin`): un
+  clic por tarjeta. Así salieron las #577–#581 del ws1, el 23/10 a las 03:32 AR. La galería de /automations, en
+  cambio, crea sin CRON.
+- **`created_at`** contra el alta del negocio y contra la ventana de los arneses.
+
+**La regla que queda.** `tests/automatizaciones-solo-plantillas.test.ts` tiene tres chequeos:
+- la lista CERRADA de los archivos que insertan en la tabla, cada uno con la persona que lo dispara;
+- que el alta, el onboarding, los cron y los webhooks no llamen a ningún creador;
+- que el arnés archive su fila.
+
+Un arnés que escribe en producción ARCHIVA lo que crea, no sólo lo pausa.
+
+**Sin hacer.**
+- El arnés de «Prueba chats» no está en el repo: quien lo tenga, que archive al terminar.
+
+**Falsa alarma: «el recordatorio de la reunión del ws1 está archivado».** La #228 la archivó a propósito
+`scripts/undecima-flujos.mts --aplicar` el 12/10 a las 02:01 UTC, en la misma corrida que la #239 y las #223, #224 y
+#240 del ws13. Fue por el pedido de Martín del 11/10: el recordatorio no es un flujo aparte, va dentro de «Un Lead
+Agendó Llamada». La #212 la archivó `scripts/novena-tanda-ws1.mts` el 11/10 a las 03:55 UTC («Agendó» unificado en
+la #213). Hoy el recordatorio vive en la #213, en las tarjetas «60 min antes» y «15 min antes» (`antes_reunion`).
+El lead 2725 lo recibió el 21/10 a las 15:00 y a las 15:45 para su reunión de las 16:00. Antes de tomar una
+decisión de la memoria como vigente, mirar si una tanda posterior la reemplazó: `archivada_at` en el mismo segundo
+que otras filas es la firma de un script.
+
+**Vive en:** `lib/plantilla-crear.ts` · `lib/setting-secuencias.ts` · `lib/workspace.ts` (`crearWorkspace`: sólo
+el funnel) · `lib/sugerencias-crm-server.ts` · `scripts/arnes-automatizacion-punta-a-punta.mts`
+
+## El chat de MaKo de Automations, probado con 36 casos SIN PANTALLA (22/10/2026)
+
+Martín, 22/10: «prueba los chats... Como el chat de MaKo en Automations, todo debe funcionar. Prueba muchos casos de
+uso». Lo que pasó en la llamada con Mauricio (01:51-02:10): pegó la secuencia con «Quiero que estos sean los mensajes»,
+MaKo armó dos WhatsApp, contestó «indícame qué cambios…» y después metió un audio y una variable que no existe.
+El arnés es `scripts/probar-chats/automations.mts` con `casos-automations.json` (cómo correrlo y contra otra rama, en su
+cabecera): llama a las MISMAS rutas que la pantalla (`/api/mako/pedidos`, `/api/chat-agent/secuencias/ia`,
+`/api/chat-agent/secuencias`) en el orden de `ChatMako.tsx`, en el ws3, y juzga lo GUARDADO, no el texto de MaKo.
+Corrido contra origin/main 43b0c2625: **18 pasan y 18 fallan**. Lo que falla, por causa (no por caso):
+
+### «Quiero que estos sean los mensajes» terminaba en una RESPUESTA: el «?» de lo PEGADO lo volvía una pregunta
+
+**Síntoma (medido, caso `quiero-que-estos-sean`):** lienzo con 2 WhatsApp + «Quiero que estos sean los mensajes:» y tres
+textos. MaKo contestó «Yo no puedo modificar el flujo directamente desde aquí, pero si quieres… pídemelo en el chat», sin
+tocar nada. Lo mismo con «…si no la tiene, que no le mande nada» (caso `condicion-etiqueta`): «Tendrías que insertar una
+condición…».
+**El diagnóstico obvio era el equivocado:** no es el modelo «que no quiere». Es el enrutador por regex de ANTES del modelo:
+`esConsulta` (lib/flujo-ia-consulta.ts) da consulta si no ve un verbo de cambio Y hay un «?» en CUALQUIER parte — y los
+mensajes pegados llevan «¿Sigues al frente de tu empresa?». «Quiero que estos sean» no tiene infinitivo, así que no
+cuenta como pedido. Y `RX_NADA` lee «que no le mande nada» (lo que se PIDE que haga el flujo) como «no cambies nada». La
+consulta va al prompt de explicar, que sólo puede devolver `{"respuesta"}`: no hay forma de que edite.
+**Además:** el voseo no es un verbo de cambio para `pideCambio`: «poné» → «pone», que no es «pon» (`IMPERATIVOS`).
+**Regla:** lo que viene después de «:» o entre comillas es MATERIAL (lo pegado), no cuenta para decidir si es pregunta; y
+una negación DENTRO de lo pedido no es «no toques nada». Ante la duda, editar (la capa 2 contesta si no había cambio).
+**Vive en:** `lib/flujo-ia-consulta.ts` (`esConsulta`, `RX_NADA`, `IMPERATIVOS`) · la ruta, `esConsulta(pedido)`.
+
+### «Hazlo como te lo indiqué» → «indícame qué cambios…»: EDITAR no ve el chat
+
+**Síntoma (caso `hazlo-como-te-indique`, la llamada tal cual):** turno 1 «Editalos y agregalos: <dos textos>» pisó los
+dos mensajes de antes (no los agregó) y le sumó «Hola {{nombre}},» a uno de los textos pegados. Turno 2, «Hazlo como te lo
+indiqué»: «Por favor indícame con más detalle qué cambios te gustaría hacer en el flujo». Y «Deshacé eso» (caso
+`deshacer`): «No tengo el registro del texto anterior exacto de ese mensaje».
+**Causa:** la ruta recibe `historial`, pero editar no se lo pasa al modelo: `userDeEditar` (lib/flujo-ia.ts) manda sólo
+el pedido de ESTE turno y el lienzo. El modelo no sabe qué «te indiqué» ni qué había antes; el hilo sólo lo usan las
+preguntas con botones.
+**Vive en:** `lib/flujo-ia.ts` (`userDeEditar`) · `app/api/chat-agent/secuencias/ia/route.ts` (editar). El ↶ del lienzo
+sí deshace, pero MaKo no lo dice.
+
+### «Que arranque cuando…» ponía el CRON en la etapa de ENTREGA «Arranque»
+
+**Síntoma (casos `mau-pega-con-disparador` y `disparador-etapa-recien-creada`):** «Que arranque cuando el lead entra a la
+etapa Prospección activa del CRM X» → «arranca cuando llega a «Arranque»», con el aviso «Elegí la etapa de entrega
+«Arranque»». Con «Cuando un lead entra a la etapa…» (sin «arranque») la misma etapa recién creada sale bien (casos
+`crear-con-etapa-recien-creada`, `pideselo-a-mako-modal`): no es caché ni que la etapa «no se vea».
+**Causa:** `entregaNombrada` (lib/flujo-ia.ts) busca los NOMBRES de las etapas de entrega como palabras sueltas del pedido
+y PISA lo que eligió el modelo. «arranque» (el verbo) = «Arranque» (la etapa del producto del ws3).
+**Regla:** un nombre de etapa de una o dos palabras comunes no basta para pisar al modelo; si se pisa, que sea porque el
+pedido habla de un cliente (`hablaDeAlumno`) o nombra el producto.
+
+### «Movelo a Respondió»: «esa etapa no existe» con la etapa recién creada (la pista del «esta etapa no existe» de la llamada)
+
+**Síntoma (caso `si-responde-mover-avisar`):** automatización con el CRON en el CRM de prueba, «Respondió» creada en ese
+CRM: «Saqué «Mover de etapa»: esa etapa no existe». Tampoco quedó el aviso pedido, y dijo «Cambié «…abrí 3 lugares…»».
+**Causa:** `resolverAccion` (lib/flujo-ia.ts) resuelve el CRM de «Mover de etapa» con `resolverProducto(datos.embudoId ??
+datos.producto ?? null)`: si el modelo no escribe el nombre EXACTO del CRM (con «🧪», «·»…), cae al PRINCIPAL
+(`esDefault`), no al CRM del CRON de la automatización, y ahí la etapa no está. Las condiciones sí prueban «el principal y
+después cualquiera» (`resolverEtapa`); la acción no. En la campaña de Mauricio, «mover a Contactado/Respondió» del CRM
+Sprint va por acá. **No se midió en el ws1** (no se toca): es la hipótesis más fuerte para el A5 de la llamada.
+
+### Un pedido de más de 2.000 caracteres se CORTA EN SILENCIO y MaKo inventa lo que falta
+
+**Síntoma (caso `pedido-largo`, 8.304 caracteres con los mensajes al final):** «Creé «Primer contacto Sprint Diseño»…
+Manda «Hola {{nombre}}, soy Mauricio de Sprint Diseño. ¿Le gustaría conversar brevemente…»» y un AI Step: nada de lo
+pedido, sin decir que no leyó el final.
+**Causa, en tres topes que no se hablan:** la ruta corta `pedido.slice(0, 2000)` (y otra vez `userDeCrear`,
+`userDeEditar` y `userDeExplicar`); el modal «Pídeselo a MaKo» deja escribir 8.000 (`TOPE_PEDIDO`, CajaPedido) y la
+barra del chat no tiene tope; `/api/mako/pedidos` contesta 400 «muy largo» desde 4.000 y el chat sigue con el texto
+entero. Nadie lo dice.
+**Regla:** un tope se DICE (o se lee entero); nunca se manda a un modelo la mitad de un pedido sin avisar.
+
+### La regla 3 del prompt («entre dos WhatsApp, 20 horas o más») le gana a lo pedido, y se usa para inventar
+
+**Síntomas:** «estos 2 mensajes tal cual» → metió una espera de 20 h entre ellos (caso `emojis-saltos`). «Que entre cada
+mensaje haya 5 minutos» → se negó con un dato inventado: «Meta exige al menos 20 horas entre mensajes de seguimiento»
+(caso `cinco-min-entre-mensajes`). La regla 8 dice «SÓLO lo que pide el pedido»: las dos chocan y gana la 3.
+**Vive en:** `lib/flujo-ia.ts` (`TARJETAS_Y_REGLAS`, reglas 2, 3 y 8).
+
+### Lo demás que se midió (cada uno con su caso)
+
+- **Un link escrito en el pedido se saca** (caso `creame-otra`): «No tengo guardado el link «sprint»: el mensaje va sin
+  link». La regla 2 del prompt sólo deja links del catálogo, aunque el dueño lo escriba.
+- **Editar no puede INSERTAR entre dos tarjetas** (caso `esperar-2-dias`): «agregar» cuelga sólo de una salida VACÍA
+  («Esa salida ya tiene tarjetas: no la pisé») y el resumen dice igual «Cambié «Hola estimado…»» con el borrador idéntico
+  al publicado (61,7 s y 5 intentos). Una flecha reescrita cuenta como «Cambié».
+- **Dos textos pegados para agregar quedaron en UNA tarjeta** (caso `agrega-estos-textos`).
+- **Una variable que no existe se borra y deja el texto roto**: «¿Sigues al frente de?» (caso `variable-inventada`), con
+  el aviso «Borré una variable que no existe» y nada más.
+- **Límites y horario: el modelo de editar no sabe dónde viven** e inventa lugares («se configura desde la campaña o
+  difusión al momento de programarla», «la configuración general del disparador»). Los reales: Configuraciones › Límites
+  y el horario de la automatización. Ante «no mandes sábado ni domingo» intentó una condición `dia_semana` (no existe) y
+  terminó agregando dos «Esperar 2 días» al final.
+- **«Que lo llame por teléfono»** (caso `imposible`): no dijo que no puede; sacó la espera de 1 día que nadie nombró y
+  metió un aviso al equipo «Llamar a {{lead_telefono}}».
+- **Al borrar un mensaje del medio quedan dos esperas seguidas** (1 día + 2 días = 3 días hasta el siguiente).
+- **Lo que anda:** crear sobre el lienzo VACÍO con la secuencia pegada (el caso de Mauricio en vacío: tres tarjetas, 1 y 2
+  días, `{Nombre}` → `{{nombre}}`), cambiar un texto, borrar, mover, el mexicano, emojis, email, Instagram sin conectar
+  (avisa), la etapa inexistente (lista las que hay), preguntas que no tocan el lienzo, «créame otra» por la burbuja (la
+  abierta queda igual), la plantilla de un lead nuevo, un audio que no hay (lo dice).
+
+### El tiempo: 26 de 36 casos tienen un turno de más de 20 s
+
+Dónde se va, medido en las fases: `/api/mako/pedidos` tarda 7-8 s cuando llama a la IA (antes de que MaKo empiece);
+`armarContexto` ~4 s; y el primer intento del ws3 rebota casi siempre (la key propia de Gemini al tope diario, 429) y
+recién contesta la red de plataforma (Gemini flash / flash-lite o Groq gpt-oss). Un caso hizo 11 intentos (45 s).
+
+**Sin hacer (todo lo de arriba):** ningún arreglo se hizo en esta corrida; el arnés queda como prueba de aceptación del
+chat del área (`node … scripts/probar-chats/automations.mts --casos=…`).

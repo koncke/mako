@@ -85,6 +85,8 @@ export type TrabajoP = {
   entregado_at?: string | null; cerrado_at?: string | null; cierre?: Cierre | null;
   /** Los nombres de lo que se adjuntó (17/10/2026). */
   adjuntos?: string[];
+  /** De esos, los que son FOTOS (23/10/2026): sólo su burbuja le pide la miniatura al servidor (FotosEnviadas.tsx). */
+  fotos?: string[];
 };
 
 const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();

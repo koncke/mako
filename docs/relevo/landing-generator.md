@@ -1,5 +1,87 @@
 # Relevo · Web Generator, ex Landing Generator (el editor copiado de Gamma)
 
+## Estado al 23/10/2026 tarde (mismo chat, cuenta claude2, retoma a claude1 cortado por cuota) — leer primero
+
+**Las ocho landings del lanzamiento (domingo 25/10) están arriba**, documentos #33–#40 del ws9, y se dibujan en las dos
+direcciones (hola-mako.com/vsl/<slug> y hola-mako.site/<slug>) con el Pixel v25. La última en salir fue `avatares-ia`
+(#40, la que estaba `pausada` en `scripts/landings-mako-funnels.mts`): **Martín decidió el 23/10 11:57 sacarla TAL CUAL**,
+con el texto que tenía, y así está. Medido: `.site` dio 200 a los segundos; `/vsl/avatares-ia` dio 404 unos 4 min y
+después 200 (el slug se cachea 5 min, también el «no existe»). El script solo alcanza: no hace falta «Publicar».
+⚠️ El script se corre SIEMPRE con `--solo <slug>`: sin id inserta documentos nuevos y duplica las ocho.
+
+**Los carruseles de `SCRIPT_DISENO` ya se pueden parar** (commit `af67986ab`, en producción desde `309c54ef4`): con
+«reducir movimiento» no avanzan, mouse real o foco de teclado encima los frena, y hay un botón de pausa. Verificado en
+producción sin tocar la página, escritorio y móvil con toque: avanzan solos, frenan, reanudan, el botón se ve (3 por
+página, 32 px) y con «reducir movimiento» no hay botón ni avance. Es lo que antes figuraba abajo como «después del 25».
+Detalle y trampas (un toque deja foco y «encima» puestos; el arnés de medición): docs/hallazgos-editor-landing.md →
+«Publicar una landing de MaKo, y los carruseles que no se paraban». El Diagnóstico de la página que no se deja embeber
+(`web-diag-2310`) también está en producción.
+
+**Sigue para después del 25/10, en este orden** (lo de abajo no cambió): el cierre del `window.opener` del Pixel (26/10,
+diseñado y medido), la etapa 4 de animaciones (con el editor de Framer abierto en el Chrome de Martín antes de copiar el
+Ticker y el Slideshow, y con una cuenta que crea él) y el video de fondo. **Sin medir:** el botón de pausa con lector de
+pantalla y el reveal sin movimiento en un iPhone real.
+
+## Estado al 23/10/2026 por la mañana (cuenta claude1; lo de arriba lo corrige)
+
+**Medido en producción** (deploy `mako-jnb7ohn00` = `594ecd41b`), porque llegaron mensajes con el estado del 15/10: el
+panel «Animar» está (tanda 8, abajo), el 403 del Diagnóstico ya no sale y la landing armada con JavaScript se ve con su
+página real. Lo que quedaba: una página JS que NO se deja embeber quedaba en blanco con un aviso que afirmaba «se muestra
+la página real». **Arreglado en la rama `web-diag-2310` (worktree `C:/dev/wt-web-diag`), lo sube Cerebro por el tren**:
+el server lee las cabeceras del marco al bajar la página (`dejaEmbeberse`, lib/landing-marco.ts) y la vista no intenta la
+real si no se deja. Detalle: docs/hallazgos-editor-landing.md → «El Diagnóstico el 23/10/2026».
+
+**Lo que sigue, en el orden que pidió Cerebro:**
+1. **El cierre completo del `window.opener` del Pixel: LISTO PARA ARRANCAR EL 26/10, no antes** (Cerebro, 23/10:
+   «va DESPUÉS del 25/10»: es superficie nueva —una ruta pública, una tabla y un Pixel v26— a 48 h del lanzamiento, y el
+   Pixel es lo que mide las landings con las que se vende; el riesgo que cierra no tiene víctimas hoy).
+   - **Medido el 23/10 (no hace falta repetirlo salvo que alguien haya repegado el Pixel):** de las 7 landings DECLARADAS
+     de todos los negocios, 0 toman hoy el camino del Pixel (la página real con opener). ws1 (multiplicatusresultados.com)
+     y ws11 (las 3 de leilafittipaldi.com) sirven el código entero **v22**, ws14 (p2plandingnutricion.vercel.app) el
+     **v15**, y ws13 (landingvsl / v0-joandowd en vercel.app) **no tiene Pixel**; el camino pide v24 o más con el token del
+     negocio (`VERSION_PIXEL_LECTOR`, `vaALaPaginaReal`), así que todas van a la ventana aislada, que ya es segura (el
+     lector suelta el opener antes de que corra un script de la página). Cómo se midió: las declaradas de
+     `landing.config` (o `landing.paginas`) de cada ws, bajadas con `paginaParaVer`, y `versionEnHtml` + el token.
+   - **El diseño:** (1) en el camino del Pixel la ruta (`responderPaginaLector`, lib/editor-landing/lector-pagina.ts) ya no
+     hace 303 a la página real: sirve una página puente NUESTRA (mismo origen que la pestaña de MaKo) que hace
+     `window.opener = null` y recién ahí `location.replace` a la landing con `mako_leer` y la firma de la lectura; la
+     landing nunca ve la pestaña de MaKo, ni en el rato antes del lector. (2) La lectura vuelve por el SERVER: el lector la
+     manda con la firma (`lector-firma.ts`) a una ruta pública nueva (sólo POST, firma válida, tope de tamaño, CORS
+     abierto porque no lleva cookies; entra en `lib/rutas-publicas.ts`), queda en una tabla nueva (migración con RLS +
+     revoke, en TENANT_TABLES y en el reset) y la pestaña de MaKo la pide por su id, autenticada, cada ~1 s, además de seguir
+     escuchando el postMessage de la ventana aislada. (3) Pixel **v26** (`lib/landing-token.ts`): con `mako_leer` y la
+     firma carga el lector sin mirar `window.opener`, y sube `VERSION_PIXEL_LECTOR` a 26. (4) La ventana aislada no
+     cambia.
+   - **Qué se pierde: nada hoy.** A futuro, una página con el código entero v24 o v25 iría a la ventana aislada hasta
+     repegarlo (hoy, ninguna). La lectura por el Pixel llega ~1 s después (la consulta).
+2. **Animaciones, etapa 4: RELEVADA en papel el 23/10; se construye después del 25/10.** La forma de cada pieza, la
+   referencia (Framer: su documentación oficial cubre Appear y Scroll Speed; el Ticker y el Slideshow hay que verlos en
+   su editor ANTES de construir), la trampa de deploy de una variante nueva y el orden, en
+   docs/hallazgos-editor-landing.md → «Animaciones, etapa 4: relevamiento en papel». En corto: la cinta, el contador,
+   los pasos y el carrusel son VARIANTES de los «Diseños optimizados» que ya existen (no bloques nuevos), y los efectos
+   de scroll son un attr de la sección. Para el lanzamiento no hace falta ninguna: la landing de MaKo ya se mueve con
+   `SCRIPT_DISENO`. Sus carruseles avanzaban solos sin pausa ni «reducir movimiento» (WCAG 2.2.2): ARREGLADO el
+   23/10 por la tarde (ver arriba). **Etapa 6** (plantillas con movimiento e «Ilustración animada» con un Lottie de contenido
+   PROPIO): la licencia de cada pieza que se ofrezca queda escrita acá antes de publicarla (el registro está abajo).
+3. El video de fondo sigue apagado hasta que el puente a Flow se mida en vivo (docs/relevo/video-generator.md).
+
+**El Pixel de las landings del lanzamiento (25/10), medido el 23/10:** la portada (hola-mako.com) y las de cada funnel
+(hola-mako.com/vsl/<slug> y hola-mako.site/<slug>: crear-landings, automatizaciones, dashboards, contenidos,
+inmobiliarias, infoproductores, coaches) cargan el Pixel por la línea corta `/m.js?id=` con el token del ws9, que sirve
+el v25 (el actual): en hola-mako.com lo inyecta app/vsl/Landing.tsx al correr, en hola-mako.site va en el HTML. Medido con
+Chrome sin ventana CORTANDO los pedidos a /api/track/* (no deja visitas falsas): las tres que se probaron mandan su beacon,
+y el mapa de versiones del ws9 tiene v25 en hola-mako.com, /vsl/coaches y hola-mako.site. **avatares-ia da 404 a
+propósito**: está `pausada` en scripts/landings-mako-funnels.mts (promete algo no confirmado para clientes). No hay que
+repegar nada: la línea corta se actualiza sola.
+
+**Licencias de lo que se ofrece para animar una landing (registro; se completa ANTES de publicar una pieza):** al
+23/10 no hay NINGUNA pieza Lottie, Rive ni de video ajena en el producto (`git grep`: ni dependencia en package.json, ni
+archivo, ni bloque). Lo que anima hoy es CSS propio (lib/editor-landing/animaciones.ts, css.ts) y el script propio de la
+publicada. La regla para la etapa 6: el FORMATO Lottie se puede usar; el CONTENIDO tiene que ser propio (hecho a mano o con
+la skill MIT diffusionstudio/lottie) o de una fuente cuya licencia permita por escrito redistribuirlo dentro de un
+producto que compite; las de LottieFiles NO (su Lottie Simple License prohíbe juntarlas en un servicio similar). Cada
+pieza que se sume se anota acá: nombre, fuente, licencia leída en su archivo y fecha.
+
 ## Estado al 17/10/2026 (rama pend-b3-1710, «Pendientes B3», cuenta claude4) — leer primero
 
 **Hecho, con su test probado rompiéndolo (lo sube el Cerebro):** #863 (el Diagnóstico ya no dice «nada que señalar»

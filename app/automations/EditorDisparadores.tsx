@@ -322,7 +322,9 @@ export function EventosDeCanal({ clase, d, estado, onElegir, disabled }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {motivo && (
         <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--warn)', fontFamily: SANS }}>
-          <span>{motivo}</span>
+          {/* En Pagos el link ya dice «Conectar Stripe o Mercado Pago»: el motivo («Conecta Stripe o Mercado Pago») era
+              la MISMA frase dos veces (revisión de las tarjetas, 23/10/2026, punto 5). «No pude comprobarlo» sí va. */}
+          {!(ofrecerConectar && clase === 'pagos') && <span>{motivo}</span>}
           {/* «CONECTAR» SIN SALIR DE LA PESTAÑA (décima tanda, GENERAL 6; duodécima, §2.11; 14/10/2026): el email,
               Instagram y Messenger, en el modal de la tab (el MISMO de la tarjeta); los pagos, en el modal de
               Stripe o de Mercado Pago de /integraciones, abierto acá. */}
@@ -593,7 +595,7 @@ function EditorDeClase({ d, clase, textos, estadoCanales, productos, etiquetas, 
   if (clase === 'producto') {
     const hay = deProductos.length > 0;
     // ⚠️ UN EVENTO DE ANTES TAMBIÉN TIENE VALOR (décima tanda, CRON 2): abre ESTE desplegable con lo puesto en
-    // el botón, «(de antes)» (`textos.texto`, que lo marca), y elegir una etapa lo reemplaza (`tocarEtapa`
+    // el botón (`textos.texto`, sin marca desde el 23/10), y elegir una etapa lo reemplaza (`tocarEtapa`
     // arranca de cero con otro tipo). No entra a las opciones: «La que tiene puesta» salió en la cuarta tanda
     // (punto 2), y el desplegable de la casa no es un `<select>` (nada lo pisa hasta que se elija otra cosa).
     const valor = d.trigger_tipo === 'etapa_actual' || d.trigger_tipo === 'entrega_actual' || esEventoDeAntes(d) ? valorDisparo(actual) : '';

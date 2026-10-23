@@ -19,6 +19,21 @@ la tab **`/instagram`**, que se retiró el 06/10 y hoy sólo redirige.
 
 ---
 
+## 23/10/2026 · «creé campañas en Meta y no aparecen» (Mauricio, ws20/21/22) — cuenta claude2
+
+Lo aprendido está en `docs/hallazgos-ads.md` → «Creé la campaña en Meta y no me aparece en MaKo».
+
+- **La causa NO es de código** (medido en producción, sólo lectura): ninguna cuenta a la que llegan los tokens de ws20
+  (Sergio) y ws22 (Patricia) tiene campañas de septiembre u octubre, ni pidiendo todos los estados; ws21 (Florencia)
+  no tiene Meta conectado. O son borradores sin publicar, o están en otra cuenta. **Espera a Mauricio:** en qué cuenta
+  (el número arriba a la izquierda en Meta) y si están publicadas. Cuando aparezcan en MaKo, el aviso al grupo lo manda
+  MaKo Alert, con el texto pasado antes al Cerebro.
+- **Lo que quedó en producción** (`db2687103`, dentro de `3e8462653`): /ads-manager y el selector de campañas del CRM
+  dicen «Cuenta Nombre · número» al lado del título, y si la cuenta no tiene campañas creadas en 30 días, una frase que
+  manda a publicar o a revisar la cuenta (`lib/meta-cuenta-leida.ts`, `tests/meta-cuenta-leida.test.ts`).
+- **Después del deploy:** el ws1 decía «Cuenta Cuenta 2 · …»; arreglado en la rama `ads-cuenta-prefijo-2310`.
+- **Sin ver dibujado** con un negocio con Meta: el Chrome de la PC está logueado como ws10 (sin Meta).
+
 ## 17/10/2026 · los pendientes B4 (rama `pend-b4-1710`, agente «Pendientes B4: Ads y plata»)
 
 Lo aprendido está en `docs/hallazgos-ads.md` → «Los pendientes del 17/10 (B4)». Hecho:

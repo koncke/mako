@@ -53,10 +53,10 @@ test('a cada intención, sus reglas; sin elegir, sólo la charla', () => {
   assert.ok(extrasDelUser('discutir', h).includes(REGLAS_DISCUTIR));
   // Y siempre, lo que no se arma con tarjetas (22/10/2026, la prueba de los chats del Cerebro).
   assert.deepEqual(extrasDelUser(null, h), [bloqueDeLaCharla(h), LO_QUE_NO_ES_TARJETA]);
-  assert.match(LO_QUE_NO_ES_TARJETA, /Configuraciones › Horario/);
-  // (22/10/2026: la pestaña es «Anti-ban» y sus filas, «Goteo» y «Por día»; «Límites» ya no existe.)
-  assert.match(LO_QUE_NO_ES_TARJETA, /Configuraciones › Anti-ban, «Goteo» y «Por día»/);
-  assert.doesNotMatch(LO_QUE_NO_ES_TARJETA, /Límites/);
+  assert.match(LO_QUE_NO_ES_TARJETA, /Configuraciones, «Horario de oficina»/);
+  // (23/10/2026: UNA pantalla, sin pestañas: el bloque del canal y la fila. «Límites» y «Anti-ban» ya no existen.)
+  assert.match(LO_QUE_NO_ES_TARJETA, /Configuraciones, WhatsApp, «Goteo» y «Tope por día»/);
+  assert.doesNotMatch(LO_QUE_NO_ES_TARJETA, /Límites|Anti-ban|pestaña/);
   assert.match(LO_QUE_NO_ES_TARJETA, /Misma persona/);
   assert.match(REGLAS_EDITAR, /no agregues esperas que no pidió/);
   assert.match(REGLAS_EDITAR, /TAL CUAL/);
@@ -79,7 +79,9 @@ test('la ruta: la intención decide explicar o editar, la charla va en los dos, 
   assert.match(ruta, /const extras = \[\.\.\.extrasDelUser\(intencion, historial\), \.\.\.\(adjuntos\.length \? \[bloqueDeAdjuntos\(adjuntos\)\] : \[\]\)\];\n\s+if \(vaAExplicar\(intencion, respuestas\.length > 0, esConsulta\(pedido\), esPreguntaDirecta\(pedido\)\)\) \{/);
   assert.match(ruta, /const user = \[userDeExplicar\(\{[^\n]+\}\), \.\.\.extras\]\.join\('\\n\\n'\);/);
   assert.match(ruta, /const user = \[userDeEditar\(ctx, \{ perfil, voz, pedido: pedidoEditar \}, base\), \.\.\.extras\]\.join\('\\n\\n'\);/);
-  assert.match(ruta, /const errorRespuesta = r\.respuesta && intencion === 'editar' \? errorDeRespuestaEnEditar\(pedido, r\.respuesta, \{ esPregunta: esConsulta\(pedido\), charlaConTextos: charlaConTextos\(historial\) \}\) : null;\n\s+if \(errorRespuesta\) return \{ r, errores: \[errorRespuesta\] \};/);
+  // (22/10/2026: la revisión vive en `revisarEdicion`, lib/flujo-ia-revision-editar.ts.)
+  const rev = readFileSync(join(__dirname, '..', 'lib/flujo-ia-revision-editar.ts'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(rev, /const e = o\.intencion === 'editar' \? errorDeRespuestaEnEditar\(o\.pedido, r\.respuesta, \{ esPregunta: esConsulta\(o\.pedido\), charlaConTextos: charlaConTextos\(o\.historial\) \}\) : null;/);
   assert.ok(ERROR_EDITAR_SIN_CAMBIOS.length > 20);
   // En Editar, una pregunta DIRECTA va a explicar (22/10/2026: «¿A cuántos les va a llegar?» en editar decía «Configuraciones»).
   assert.equal(vaAExplicar('editar', false, true, true), true);
@@ -113,13 +115,14 @@ test('en Editar vale aclarar, decir dónde se configura (un lugar real) o que no
   assert.equal(traeTextosPegados('Que arranque en la etapa Prospección activa del CRM «Sprint 3 días»'), false);
   // Lo de la llamada: a textos pegados no se contesta, aunque traigan «?».
   assert.equal(errorDeRespuestaEnEditar(pegado, 'Habría que editarlos o añadir nuevas tarjetas.', { ...sin, esPregunta: true }), ERROR_EDITAR_SIN_CAMBIOS);
-  assert.equal(errorDeRespuestaEnEditar(pegado, 'Eso va en Configuraciones › Anti-ban.', sin), ERROR_EDITAR_SIN_CAMBIOS);
+  assert.equal(errorDeRespuestaEnEditar(pegado, 'Eso va en Configuraciones, WhatsApp.', sin), ERROR_EDITAR_SIN_CAMBIOS);
   // Una pregunta sobre el flujo, sí.
   assert.equal(errorDeRespuestaEnEditar('¿Qué hace esta automatización?', 'Le escribe a quien entra a Prospección activa.', { ...sin, esPregunta: true }), null);
   // Lo que se configura fuera de las tarjetas, sí, aunque sea una orden; un lugar que NO existe, no (y el error lo dice).
-  // 22/10/2026: la pestaña es «Anti-ban» (con guion: el lugar se lee entero); «Límites» ya no existe.
-  assert.match(String(errorDeRespuestaEnEditar('que no salgan todos juntos', 'Eso va en Configuraciones › Límites.', sin)), /«Configuraciones › Límites» no existe: Configuraciones tiene sólo Horario y Anti-ban\./);
-  assert.equal(errorDeRespuestaEnEditar('que no salgan todos juntos, esperá 5 minutos', 'Eso se configura en Configuraciones › Anti-ban, «Goteo».', sin), null);
+  // 23/10/2026: una pantalla sin pestañas; «Límites» y «Anti-ban» ya no existen; nombrar Configuraciones y su bloque, sí.
+  assert.match(String(errorDeRespuestaEnEditar('que no salgan todos juntos', 'Eso va en Configuraciones › Anti-ban.', sin)), /«Configuraciones › Anti-ban» no existe: Configuraciones es una sola pantalla/);
+  assert.equal(errorDeRespuestaEnEditar('que no salgan todos juntos', 'Eso va en Configuraciones › WhatsApp › Goteo.', sin), null);
+  assert.equal(errorDeRespuestaEnEditar('que no salgan todos juntos, esperá 5 minutos', 'Eso se configura en Configuraciones, WhatsApp, «Goteo».', sin), null);
   assert.match(String(errorDeRespuestaEnEditar('que lo llame por teléfono', 'Configura la llamada en Configuraciones › Acciones de la automatización.', sin)), /«Configuraciones › Acciones» no existe/);
   // Lo que no se puede, sí; pero no «pídemelo» ni «habría que».
   assert.equal(errorDeRespuestaEnEditar('que lo llame por teléfono', 'No se puede: MaKo no hace llamadas, sólo escribe.', sin), null);

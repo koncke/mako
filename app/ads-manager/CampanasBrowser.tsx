@@ -37,6 +37,7 @@ import { Confirm, Modal, Toast, useToast } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import { MenuAcciones, FiltrosMenu, BarraLoteAds } from './BarraAcciones';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
+import { etiquetaCuentaMeta, avisoSinCampanasNuevas, ultimaCreada } from '@/lib/meta-cuenta-leida';
 
 const AdDetailTabs = dynamic(() => import('../marketing/ad-charts').then((m) => m.AdDetailTabs), { ssr: false });
 const EntityDetalle = dynamic(() => import('./EntityDetalle').then((m) => m.EntityDetalle), { ssr: false });
@@ -729,6 +730,13 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
   // conjunto, así que esos botones no se dibujan (uno que no hace nada se lee como roto).
   const unaSola = selSet.size === 1 ? sorted.find((r) => selSet.has(r.node.id)) : undefined;
 
+  // La cuenta leída y, si no tiene campañas nuevas, la frase que lo dice: sólo con Meta CONTESTANDO.
+  const cuentaLeida = health && !error ? etiquetaCuentaMeta({ id: health.account.accountId, nombre: health.account.nombre ?? null }) : null;
+  // Sin cuenta (el health «Sin conexión» de /api/meta-health) no se afirma nada: no es una cuenta vacía.
+  const avisoCuenta = health && cuentaLeida && !loading
+    ?avisoSinCampanasNuevas({ hayCampanas: health.campaigns.length > 0, ultima: ultimaCreada(health.campaigns.map((c) => c.createdTime)) })
+    : null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Sticky de la primera columna + hover. En <style> co-locado porque Tailwind
@@ -746,6 +754,12 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="grid" size={34} /></span>
           <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Ads Manager</h1>
+          {/* QUÉ cuenta de Meta lee la tab, como la muestra Meta arriba a la izquierda (23/10/2026):
+              «la que creé no aparece» fue otra cuenta o un borrador sin publicar, y sin esto se leía
+              como un error de MaKo. El molde es el `estado` de PageHeader, al lado del título. */}
+          {cuentaLeida && (
+            <span title="La cuenta de Meta que lee esta tab" style={{ fontFamily: MONO, fontSize: 12, color: 'var(--dim)' }}>{cuentaLeida}</span>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button type="button" onClick={() => { setNuevaModo('nueva'); setNuevaOpen(true); }} title="Crear una campaña nueva con MaKo"
@@ -806,6 +820,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
 
       {health && !loading && (
         <>
+          {avisoCuenta && <p style={{ margin: 0, fontSize: 13, color: 'var(--dim)' }}>{avisoCuenta}</p>}
           {accountFrozen && (
             <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px' }}>
               <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--bad)' }}>Cuenta: {health.account.statusLabel}.</span>

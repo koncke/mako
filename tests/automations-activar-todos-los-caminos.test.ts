@@ -225,6 +225,9 @@ const SISTEMA = [
   'lib/nutricion-plantillas.ts', 'lib/nutricion.ts', 'lib/secuencias-variantes.ts', 'scripts/reescribir-filas-plataforma.mts',
   // Los arneses del ws3 escriben los pasos de SU automatización de prueba, que nace pausada (ver `ARNESES_WS3`).
   ...ARNESES_WS3,
+  // El arnés del chat de MaKo (23/10/2026): guarda lo que el chat dejó en el borrador de la automatización de prueba que él
+  // mismo creó en el ws3, PAUSADA (no la prende ni toca sus CRON), como lo guarda crear. Sólo corre en el ws3.
+  'scripts/probar-chats/automations.mts',
 ];
 
 test('(d) quién escribe lo publicado: cada uno pregunta (`publicarPasos`) o está en la lista del sistema con su motivo', () => {

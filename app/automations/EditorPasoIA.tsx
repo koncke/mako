@@ -54,7 +54,7 @@ import { VozAIStep } from './VozAIStep';
 import { ModalEnsayoAIStep } from './ModalEnsayoAIStep';
 import {
   TOPE_OBJETIVO, TOPE_ESCENARIOS_AI_STEP, ROTULO_LO_DEMAS, ROTULO_MEDIO,
-  faltaEnCaso, medioDe, erroresDelPasoIA, puedeSumarAIStep,
+  faltaEnCaso, medioDe, erroresDelPasoIA, puedeSumarAIStep, cambioDeMedio,
   type CasoRespuesta, type PasoGrafo, type MedioAIStep, type EjemploCaso,
 } from '@/lib/flujo-grafo';
 import { resumenPasoIA, FILA_OBJETIVO_IA, FILA_ESCENARIOS_IA, FILA_CHIPS_IA, ICONOS_MAS } from '@/lib/flujo-conversacion';
@@ -270,7 +270,7 @@ export function EditorPasoIA({ id, paso, pasos, busy, cambiar, secuenciaId, onEr
               <button key={m} type="button" role="radio" aria-checked={medio === m}
                 disabled={busy || (medio !== m && !puedeSumarAIStep(pasos.filter((x) => x.id !== id), m))}
                 title={medio !== m && !puedeSumarAIStep(pasos.filter((x) => x.id !== id), m) ? `Ya hay un AI Step de ${ROTULO_MEDIO[m]}` : undefined}
-                onClick={() => cambiar({ medio: m === 'whatsapp' ? undefined : m }, true)}
+                onClick={() => cambiar(cambioDeMedio(paso, m), true)}
                 style={chipOpcion(medio === m)}>
                 <img src={m === 'whatsapp' ? ICONOS_MAS.whatsapp : ICONOS_MAS[m]} alt="" width={14} height={14} />{ROTULO_MEDIO[m]}
               </button>

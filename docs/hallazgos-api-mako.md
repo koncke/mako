@@ -1935,3 +1935,64 @@ todavía fuera de main.
 tests/ops-center-bateria.test.ts
 *22/10/2026, chat «CRM» (claude3).*
 
+
+## El ws13 no avisó de un solo lead nuevo del 13 al 22/10: medio emoji en el resumen de una pendiente (23/10/2026)
+
+**Síntoma (medido por el Cerebro contra producción):** 20 envíos seguidos en `fallo`, todos del ws13, con «No se pudo
+registrar la acción pendiente.»; cada lead nuevo se inscribía, el paso «MaKo en WhatsApp» fallaba y la inscripción quedaba
+`completada` en el paso 1. **El diagnóstico obvio («el INSERT falla por el esquema o por el payload») era el equivocado:** el
+Cerebro probó el insert por tres caminos, con el payload exacto, y entró las tres veces. **La causa:** el `preparar` de
+`avisar_al_equipo` arma el RESUMEN con `mensaje.slice(0, 120)`, y en el texto de #241 y #264 (184 unidades) la unidad 119 es la
+primera mitad de un emoji (U+D83D). `JSON.stringify` la manda como `\ud83d` y Postgres rechaza el pedido entero («invalid input
+syntax for type json», medido con un `select …::jsonb` sin tocar tablas). El payload iba entero: por eso entraba. Sólo el ws13
+tenía un emoji justo en ese corte. Y el motivo vivía en un `console.error` que nadie lee: `crearPendiente` devolvía `null`.
+**Regla:** un texto que va a la base se corta con `cortarSinPartir`; lo que escribe una puerta compartida pasa por
+`datosSinMediosEmojis` (`crearPendiente` lo hace con todo lo que inserta, así cubre los otros siete resúmenes cortados con
+`slice` en los runners); una puerta que no puede escribir devuelve el MOTIVO, y el paso de una automatización lo deja en
+`nutricion_envios.error` (`motivo` viaja APARTE: a una persona por el chat, WhatsApp o /api/v1 le llega la frase de siempre).
+Y una acción que se sabe que NO corrió (`noCorrio`: la pendiente no entró) ya no cierra la inscripción: vuelve a su paso con
+compare-and-set contra lo que escribió el reclamo y reintenta a 1 h, 6 h y 24 h (`REINTENTOS_ACCION_MS`); después sigue como
+siempre, con «intento N de 4» en la fila. Sólo en el caso simple (sin hilos, sin flechas en paralelo, fuera del carril).
+**Vive en:** lib/unicode-seguro.ts · lib/mako-pendientes.ts (`crearPendiente`) · lib/api-mako/areas/chatbot.run.ts
+(`avisar_al_equipo`) · lib/api-mako/acciones.ts (`proponerChat`) · lib/api-mako/ejecutar.ts · lib/api-mako/flujo.ts
+(`aplicarEnElActo`) · lib/nutricion-paso-accion.ts (`correrPasoAccion`) · lib/nutricion.ts (la rama del paso de acción) ·
+test: tests/pendiente-medio-emoji.test.ts (6 roturas → 6 rojos). **Sin hacer:** `crearPropuesta` (lib/propuestas.ts) no sanea lo
+que inserta; un paso de acción con hilos o en el carril sigue sin reintento; los 6 leads que se perdieron (#3098, #3096, #3091,
+#2771, #2762, #2761) no recibieron su aviso, y mandárselo ahora al grupo del ws13 lo decide Martín; #264 dice «Nuevo agendado»
+y su CRON también dispara al entrar a «lead» (es de ellos: se le muestra a Martín antes de tocarla).
+*23/10/2026, chat «Automations» (claude1).*
+
+## Sacar una operación del registro: qué da rojo y qué NO avisa (23/10/2026)
+
+Al sacar `recomendar_formatos_creativo` (docs/hallazgos-onboarding.md → «Ángulos»). **Dan rojo** si falta una mitad:
+`tests/api-mako-registro.test.ts` («toda def tiene su runner, y todo runner tiene def»), el snapshot HTTP
+(`tests/api-mako-http.snapshot.txt`, que se REGENERA con `node --import tsx scripts/generar-api-doc.mjs` junto con
+docs/api-mako.md), `tests/api-mako-rest.test.ts` (la fila REST huérfana) y el clasificador
+(`tests/ops-center-clasificador-app.test.ts`, si una frase esperaba la operación). El pre-push frena con docs/api-mako.md viejo.
+
+**Lo que NO avisaba nadie:** una LECTURA cuya descripción, o la nota que devuelve su runner, nombra la operación muerta. El
+modelo la lee y va a buscar una herramienta que ya no existe. Una guarda general por patrón (todo `verbo_algo` de las
+descripciones que no sea un id) da 24 falsos positivos (nombres de campos como `etapa_actual` o `lead_form_id`), así que
+es una lista EXPLÍCITA: `OPERACIONES_RETIRADAS` en tests/angulos-sin-recomendacion.test.ts. **Al sacar una operación, se
+suma ahí**, y su nombre no puede quedar en ningún texto del registro ni en ningún runner o helper.
+
+**Al redirigir una frase a otra operación, mirá lo que esa operación acepta.** Sin la recomendación, «recomendame formatos
+para mi anuncio» lleva a `elegir_formato_creativo_anuncio`, que aceptaba la celda virtual de los guiones propios
+(`guiones-propios`, que `listar_anuncios_planteados` devuelve con `es_guiones_propios: true`): pagaba IA para fijarle un
+formato a algo que no es un anuncio. Las hermanas (`escribir_guion_anuncio`, `_auto`) ya la frenaban; ahora también ésta,
+en `preparar` y en `ejecutar` (que relee la celda).
+
+**Vive en:** `tests/angulos-sin-recomendacion.test.ts` (`OPERACIONES_RETIRADAS`) · `lib/api-mako/areas/contenido.def.ts` · `contenido.run.ts` · `lib/api-mako/rest.ts`
+
+*23/10/2026 · chat «Offer» (cuenta claude1) · medido en prod con un SELECT; no se miró en el navegador.*
+
+**La cuenta de los perdidos no era 6 (23/10, después del deploy).** Los envíos en `fallo` del ws13 son 21 desde el 12/10, no
+6. Pero hasta el 17/10 a la mañana igual salía el aviso del SISTEMA «Nuevo agendado» (en `notificaciones` sin
+`salida`); desde el 17/10 13:58 UTC esas filas dicen `salida: 'sin_automatizacion'`: el aviso pasó a depender de la
+automatización, y la automatización fallaba. Los que de verdad nadie avisó son 11 (Monica Fantoni, Giselle Bellanti,
+Agustina Campo montilla, Mirta G Loiacono, Matías Molina y los 6), y a Mirta el cliente ya la tenía. Martín (por el Cerebro):
+van los 10 en UN mensaje, en orden de llegada REAL (la lista dictada estaba al revés), y sólo después de ver un lead nuevo
+avisar en producción. **Regla:** para contar «a quién no le llegó», cruzar el envío fallido con la fila del feed de ese
+mismo evento: un envío en `fallo` no prueba que el dueño no se enteró. **Sin hacer:** el envío de los dos mensajes
+(scripts/avisar-arreglo-al-grupo.mts y la lista que arma el código) espera ese lead.
+*23/10/2026, chat «Automations» (claude2).*

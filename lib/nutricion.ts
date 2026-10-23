@@ -76,6 +76,7 @@ import { reentradaDe, puedeReentrar, esReentrada, barridoEsEvento, type Reentrad
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from '@/lib/nutricion-paso-accion';
+import { sinMediosEmojis } from '@/lib/unicode-seguro';
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
   escenariosDeRespuesta, expandirPasoIA, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
@@ -104,7 +105,7 @@ import { hoyEnTz } from '@/lib/date-utils';
 import { getSettingEstricto, cambiarSettingSi, setSetting } from '@/lib/settings';
 import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
-import { cerradasAhora, horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { cerradasAhora, horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, sinVistaPreviaDe, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 import { configsDelNegocio, leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { duplicadaAlActivar, avisoDuplicada, type Duplicada, type CronParaComparar } from '@/lib/automatizacion-duplicada';
 import {
@@ -4918,13 +4919,33 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
                 inscripcion_id: insc.id, lead_id: insc.lead_id, secuencia_id: insc.secuencia_id, paso: n,
                 nodo_id: idDe(paso, insc.paso_actual),
                 canal: paso.canal, estado: x.estado, destino: null, asunto: x.operacion,
-                error: x.estado === 'fallo' ? x.resumen : null,
+                // Sin medio emoji: el motivo puede traer un pedazo del texto, y eso la base no lo acepta (lib/unicode-seguro.ts).
+                error: x.estado === 'fallo' ? sinMediosEmojis(x.resumen) : null,
               });
               if (error) throw new Error(error.message);
             },
+            // ⚠️ EL REINTENTO DE UNA ACCIÓN QUE NO CORRIÓ (23/10/2026, el ws13: el aviso fallaba y la inscripción quedaba
+            // `completada` en el paso 1). Sólo en el caso simple: sin hilos, sin flechas en paralelo que el reclamo arrancó, fuera
+            // del carril y con la fila 'activa'. Ahí devolverla es UN compare-and-set contra lo que escribió el reclamo; con hilos
+            // habría que deshacer los que arrancó, y eso no se hace a ciegas.
+            ...(!carril && !sanearHilos(insc.hilos) && !nuevosAccion.length && estadoLeido(insc) === 'activa'
+              ? {
+                fallosPrevios: async () => {
+                  const { count, error } = await supabase.from('nutricion_envios').select('id', { count: 'exact', head: true })
+                    .eq('inscripcion_id', insc.id).eq('paso', n).eq('estado', 'fallo').eq('asunto', String(paso.accion?.operacion ?? ''));
+                  if (error) throw new Error(error.message);
+                  // Corre ANTES de `registrar`: el 'fallo' de este intento todavía no está.
+                  return count ?? 0;
+                },
+                devolver: (enMs: number) => moverConCas(
+                  { id: insc.id, paso_actual: siguientePaso ? sigIdx : n, nodo_actual: siguientePaso ? idDe(siguientePaso, sigIdx) : null, estado: siguientePaso ? 'activa' : 'completada' },
+                  { paso_actual: insc.paso_actual, nodo_actual: insc.nodo_actual ?? null, estado: 'activa', proximo_envio_at: new Date(Date.now() + enMs).toISOString() },
+                ),
+              }
+              : {}),
           },
         );
-        if (r.estado !== 'saltado') await anotarReunionDelPaso(insc.id, sec, lead);
+        if (r.estado !== 'saltado' && !(r.estado === 'fallo' && r.reintento)) await anotarReunionDelPaso(insc.id, sec, lead);
         // ⚠️ SI LO QUE SIGUE YA TOCA, SE MIRA EN ESTA MISMA CORRIDA. El lienzo dice «Enseguida»
         // sobre un paso a 0 h, y la fila ya está en `vistos`: sin esto, «mover de etapa» +
         // «crear la tarea» + el mensaje de después saldrían de a uno por hora de cron. Se
@@ -4933,7 +4954,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // ⚠️ Y LOS HILOS QUE LA ACCIÓN ARRANCÓ TAMBIÉN (`vuelveALaCola`): sin siguiente, o con un
         // siguiente «en 2 h», un destino «Enseguida» de una flecha en paralelo esperaba al cron de
         // la hora siguiente (revisión del 09/10/2026).
-        if (r.estado !== 'saltado' && vuelveALaCola(proximo, nuevosAccion, Date.now())) {
+        if (r.estado !== 'saltado' && !(r.estado === 'fallo' && r.reintento) && vuelveALaCola(proximo, nuevosAccion, Date.now())) {
           vistos.delete(insc.id);
           otraVuelta = true;
         }
@@ -5134,8 +5155,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // la secuencia (`null` = la de por default), y si puede mandar ahora. Una línea pedida que no es
         // del negocio no está en `lineasEvo`: `canalDeLinea` la frena con su motivo, sin caer a otra.
         const lineaSec = lineaDelPaso(paso) ?? sec.instance_name;
-        // Sus links sin la tarjeta de vista previa (#869): en lo que sale y en el borrador que lo espera.
-        const sinTarjeta = sinVistaPrevia(paso);
+        // Sus links sin la tarjeta de vista previa (#869): en lo que sale y en el borrador que lo espera. Lo del mensaje o lo de
+        // la automatización (Configuraciones › WhatsApp, 23/10/2026).
+        const sinTarjeta = sinVistaPreviaDe(sinVistaPrevia(paso), configsCorrida.get(insc.secuencia_id));
         if (partesMulti) {
           // ⚠️ «NO PUDE LEER» NO ES «NO SALIÓ NINGUNA». Sin saber cuántas salieron no se manda nada ni
           // se escribe nada: un `fallo` sin la marca borraría la del intento anterior. Vuelve en la
@@ -6501,6 +6523,9 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
  */
 async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: number, inscId: number | null): Promise<{ texto: string; contesto: boolean }> {
   const { leadId, secuencia, supabase, lead, linea } = c;
+  // Sus links sin la tarjeta de vista previa: lo del mensaje o lo de la automatización (Configuraciones › WhatsApp). Sin
+  // poder leer la configuración, lo del mensaje: es una cuestión de forma, no un freno.
+  const sinTarjeta = sinVistaPreviaDe(sinVistaPrevia(p), await leerConfigAutomatizacion(secuencia.id).catch(() => null));
   const no = (texto: string) => ({ texto, contesto: false });
   const si = (texto: string) => ({ texto, contesto: true });
   // El reclamo de esta tarjeta para esta inscripción, JUSTO antes de mandar o dejar el borrador
@@ -6574,12 +6599,12 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
     if (!audio || !b64) { await registrar('fallo', audio ? 'no pude bajar el audio del paso' : 'el audio del paso ya no existe', null); return no('No salió la nota de voz: el audio no está.'); }
     if (!(await reclamar())) return yaSalio;
     if (!sale) {
-      await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, audioId: audio.id, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinVistaPrevia(p) });
+      await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, audioId: audio.id, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinTarjeta });
       await registrar('borrador', null, pie || null);
       return si(`Te dejé la nota de voz «${audio.titulo}» para aprobar.`);
     }
     const r = await enviarAudioYEspejar({ telefono: lead.telefono, base64: b64, mimetype: audio.media_mime, leadId, linea });
-    if (r.ok && pie.trim()) await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinVistaPrevia(p) }).catch(() => { /* el audio ya salió */ });
+    if (r.ok && pie.trim()) await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinTarjeta }).catch(() => { /* el audio ya salió */ });
     await registrar(r.ok ? 'enviado' : 'fallo', r.ok ? null : (r.error ?? 'no salió'), pie.trim() || null);
     return r.ok ? si(`Le mandé la nota de voz «${audio.titulo}».`) : no(`No salió la nota de voz (${(r.error ?? '').slice(0, 120)}).`);
   }
@@ -6602,11 +6627,11 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
   if (!pie.trim()) return no('Un mensaje de la rama estaba vacío: no salió.');
   if (!(await reclamar())) return yaSalio;
   if (!sale) {
-    await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinVistaPrevia(p) });
+    await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinTarjeta });
     await registrar('borrador', null, pie);
     return si(`Te dejé para aprobar: «${pie.slice(0, 120)}».`);
   }
-  const r = await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinVistaPrevia(p) });
+  const r = await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinTarjeta });
   await registrar(r.ok ? 'enviado' : 'fallo', r.ok ? null : (r.error ?? 'no salió'), pie);
   return r.ok ? si(`Le contesté: «${pie.slice(0, 120)}».`) : no(`No salió la respuesta (${(r.error ?? '').slice(0, 120)}).`);
 }

@@ -765,8 +765,11 @@ export function contextoDeComentario(c: {
 // la base para lo relativo, `no-referrer` y el script que ubica las citas.
 //
 // EL PROTOCOLO (todos los mensajes llevan `gmDg: 1`):
-//   iframe → padre  { tipo: 'listo', texto }                  al arrancar (el padre manda las citas)
-//   iframe → padre  { tipo: 'pinto', texto }                  al cargar y dos veces mas: cuanto texto hay
+//   iframe → padre  { tipo: 'listo', texto, marco }           al arrancar (el padre manda las citas)
+//   iframe → padre  { tipo: 'pinto', texto, marco }           al cargar y dos veces mas: cuanto texto hay
+//                                                              (`marco`: true / false / null, si la página
+//                                                              REAL se deja mostrar adentro de MaKo: lo
+//                                                              decide el server con sus cabeceras)
 //   padre → iframe  { tipo: 'citas', citas: string[] }
 //   padre → iframe  { tipo: 'ir', i }                          trae la cita i a la vista (sin animar);
 //                                                              antes abre el desplegable que la tapa
@@ -833,6 +836,11 @@ export const SCRIPT_DIAGNOSTICO = String.raw`(function () {
   var buscar = ` + JS_BUSCAR + String.raw`;
   var abrirParaVer = ` + JS_ABRIR_PARA_VER + String.raw`;
   var padre = window.parent, citas = [], hallados = [], cuadro = 0, espera = 0;
+  // ¿La página REAL se deja mostrar en un iframe de MaKo? Lo decidió el server con las cabeceras de la
+  // respuesta (dejaEmbeberse, lib/landing-marco.ts) y viaja en el atributo de ESTE script: se lee al
+  // arrancar, antes de que corra un solo script de la página.
+  var MARCO = null;
+  try { var yo = document.currentScript, mv = yo && yo.getAttribute('data-marco'); MARCO = mv === 'si' ? true : mv === 'no' ? false : null; } catch (e) {}
   var SALTEAR = { SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEMPLATE: 1, TEXTAREA: 1, OPTION: 1 };
   function enviar(m) { m.gmDg = 1; try { padre.postMessage(m, '*'); } catch (e) {} }
   function textos() {
@@ -933,8 +941,8 @@ export const SCRIPT_DIAGNOSTICO = String.raw`(function () {
       return String(t).replace(/[\s\u00a0]+/g, ' ').trim().length;
     } catch (e) { return -1; }
   }
-  function contarTexto() { enviar({ tipo: 'pinto', texto: cuantoTextoPinto() }); }
-  enviar({ tipo: 'listo', texto: cuantoTextoPinto() });
+  function contarTexto() { enviar({ tipo: 'pinto', texto: cuantoTextoPinto(), marco: MARCO }); }
+  enviar({ tipo: 'listo', texto: cuantoTextoPinto(), marco: MARCO });
   window.addEventListener('load', contarTexto);
   setTimeout(contarTexto, 1200);
   setTimeout(contarTexto, 3000);
@@ -952,14 +960,18 @@ export function sinPixelDeMako(html: string): string {
     .replace(/<script\b[^>]*\/>/gi, (b) => (RE_PIXEL_MAKO.test(b) ? '' : b));
 }
 
-/** El documento que se sirve en el iframe: el HTML de afuera, limpio, con la base y el script adelante. */
-export function documentoDiagnostico(html: string, urlPedida: string): string {
+/**
+ * El documento que se sirve en el iframe: el HTML de afuera, limpio, con la base y el script adelante.
+ * `embebible`: si la página REAL se deja mostrar adentro de MaKo (`dejaEmbeberse`); viaja en `data-marco`.
+ */
+export function documentoDiagnostico(html: string, urlPedida: string, opts: { embebible?: boolean | null } = {}): string {
   const crudo = String(html ?? '');
   const base = baseDeDocumento(crudo, urlPedida);
   const doc = sinPixelDeMako(sinRastreadores(crudo))
     .replace(/<base\b[^>]*>/gi, '')
     .replace(/<meta\b[^>]*http-equiv\s*=\s*["']?(?:content-security-policy|refresh|x-frame-options)["']?[^>]*>/gi, '');
-  const cabeza = `<meta charset="utf-8"><base href="${escAttr(base)}"><meta name="referrer" content="no-referrer"><script>${SCRIPT_DIAGNOSTICO}</script>`;
+  const marco = opts.embebible === true ? ' data-marco="si"' : opts.embebible === false ? ' data-marco="no"' : '';
+  const cabeza = `<meta charset="utf-8"><base href="${escAttr(base)}"><meta name="referrer" content="no-referrer"><script${marco}>${SCRIPT_DIAGNOSTICO}</script>`;
   // Con funciones y no con un string de reemplazo: un `$&` o un `$1` en el HTML no se expande.
   if (/<head\b[^>]*>/i.test(doc)) return doc.replace(/<head\b[^>]*>/i, (m) => m + cabeza);
   if (/<html\b[^>]*>/i.test(doc)) return doc.replace(/<html\b[^>]*>/i, (m) => `${m}<head>${cabeza}</head>`);
@@ -996,7 +1008,8 @@ export const CABECERAS_PAGINA_DIAGNOSTICO: Readonly<Record<string, string>> = {
 export async function responderPaginaDiagnostico(
   req: Request,
   urlRaw: string | null,
-  dep: { bajar: (url: string) => Promise<string> },
+  // `bajar` devuelve el HTML, o el HTML y si la página real se deja embeber (`dejaEmbeberse`).
+  dep: { bajar: (url: string) => Promise<string | { html: string; embebible: boolean | null }> },
 ): Promise<Response> {
   const sinCuerpo = req.method.toUpperCase() === 'HEAD';
   const texto = (status: number, t: string) => new Response(sinCuerpo ? null : t, {
@@ -1007,13 +1020,16 @@ export async function responderPaginaDiagnostico(
   const url = urlParaReplicar(urlRaw);
   if (!url) return texto(404, 'No existe');
   let html: string;
+  let embebible: boolean | null = null;
   try {
-    html = await dep.bajar(url);
+    const r = await dep.bajar(url);
+    if (typeof r === 'string') html = r;
+    else { html = r.html; embebible = r.embebible; }
   } catch (err) {
     const doc = documentoErrorDiagnostico(err instanceof Error ? err.message : String(err));
     return new Response(sinCuerpo ? null : doc, { status: 200, headers: { ...CABECERAS_PAGINA_DIAGNOSTICO } });
   }
-  return new Response(sinCuerpo ? null : documentoDiagnostico(html, url), { status: 200, headers: { ...CABECERAS_PAGINA_DIAGNOSTICO } });
+  return new Response(sinCuerpo ? null : documentoDiagnostico(html, url, { embebible }), { status: 200, headers: { ...CABECERAS_PAGINA_DIAGNOSTICO } });
 }
 
 /** El `src` del iframe de una landing de afuera. */

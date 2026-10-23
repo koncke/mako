@@ -83,9 +83,9 @@ test('1b. emitirAviso: el feed y el push van al workspace de quien LO LEE (alDue
 test('2. crearPendiente: el push sólo tras el insert que salió bien, nunca en la rama de la repetida', () => {
   const f = bloque(sinComentarios(leer('lib/mako-pendientes.ts')), 'export async function crearPendiente(', 'async function avisarPendiente(');
   const push = pos(f, 'avisarPendiente(', 'el push');
-  assert.ok(push > pos(f, 'return repetida;', 'la rama de la repetida'), 'el push quedó antes de la rama de la repetida');
+  assert.ok(push > pos(f, 'return { id: repetida };', 'la rama de la repetida'), 'el push quedó antes de la rama de la repetida');
   assert.ok(push > pos(f, ".from('mako_acciones_pendientes')\n      .insert(", 'el insert'), 'el push quedó antes del insert');
-  assert.ok(push > pos(f, "if (error) { console.error('[pendientes] crear:'", 'el corte del error'), 'el push quedó antes del corte del error');
+  assert.ok(push > pos(f, "console.error('[pendientes] crear:'", 'el corte del error'), 'el push quedó antes del corte del error');
   const a = bloque(sinComentarios(leer('lib/mako-pendientes.ts')), 'async function avisarPendiente(', 'async function vencerExpiradas(');
   assert.match(a, /soloAdmins: true/, '«MaKo te pide confirmar» es sólo para admin');
   assert.match(a, /Math\.min\(ttlMin, 120\)/, 'el TTL perdió el techo de 2 h');

@@ -399,7 +399,9 @@ afectados: dos chequeos de lo mismo. El primero, con 8 chats y 1-2 GB libres, ta
    tandas (`node scripts/tipos-respaldo-push.mjs`).
 3. **El tren sale cada 30 min** con todo lo que llegó, o antes si trae un cliente roto. No se espera a juntar más.
 4. Integración le pasa el sha al Cerebro y el Cerebro sube en el acto (sin minutos de Actions, con `--no-verify`: ver
-   «Sin minutos de Actions» en docs/hallazgos-infra.md).
+   «Sin minutos de Actions» en docs/hallazgos-infra.md). **Sin minutos, subir `integracion` NO avanza `main`**: después de
+   cada push, `git ls-remote origin refs/heads/main` y el Ready de Vercel. El 23/10, el arreglo de un cliente quedó en
+   `integracion` creyendo que Actions lo subía (docs/hallazgos-operaciones.md, «El cambio de cuenta del 23/10»).
 
 Lo que sigue describe `antes-de-subir`: ahora es la herramienta de Integración para el tren (y de un jefe con RAM de sobra que
 quiera adelantarse), no el peaje de cada punta. **La regla anterior** (17/10/2026; Martín: «asegúrate por todos los medios de
@@ -2317,6 +2319,14 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+⚠️ **Y un cuarto, de la misma familia: un `slice` de texto corta MEDIO emoji, y la base rechaza el pedido ENTERO.** `slice(0, N)` cuenta unidades UTF-16:
+si la N cae en un emoji deja un surrogate suelto, `JSON.stringify` lo manda como `\ud83d` y Postgres contesta «invalid
+input syntax for type json» a todo el insert. Medido el 23/10/2026: el ws13 sin un solo aviso de lead nuevo en diez días,
+porque el resumen del aviso cortaba el mensaje a 120 justo en un emoji (el payload iba entero, y por eso probar con él
+daba verde). Un texto que va a la base se corta con `cortarSinPartir` (lib/unicode-seguro.ts), y lo que escribe una puerta
+compartida pasa por `datosSinMediosEmojis` (molde: `crearPendiente`). Y una puerta que no puede escribir devuelve el
+MOTIVO, no `null`: el porqué vivía en un `console.error` que nadie lee.
+
 ## Y de un enlace `mako://` sale SÓLO el código, nunca el servidor
 
 scripts/ia-pc/mako-pc.mjs → `conectarDesdeEnlace` (22/10/2026): cualquier página puede abrir un `mako://`, y con su servidor se
@@ -3568,6 +3578,11 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   cuerpo de un aviso nunca marca nada pagado. Y el orden es CRM → Ganado → alta → Automations.
 - **El alta automática de MaKo se pregunta por el WORKSPACE, en positivo** (`ws === await wsSuperAdmin()`): un
   cliente que vende con su Stripe no crea inquilinos.
+- **Devolver el pago de una suscripción NO la corta** (23/10/2026): la pasarela devuelve ese pago y sigue cobrando cada
+  mes, y la renovación entra como plata nueva. Cortarla es `cancelarSuscripcionCobro`. Una pantalla que devuelve el pago
+  de una suscripción ofrece cortarla en el mismo paso, y la corta ANTES de devolver (molde: /admin/cobros).
+- **Lo que se ofrece al PÚBLICO excluye una pasarela en modo prueba** (`ofertaDelPlan` con `conPrueba`, 23/10/2026): el
+  alta no mira el modo del cobro, así que un checkout público con claves de prueba regalaba cuentas reales con la 4242.
 - **La moneda la decide la pasarela, y en un formulario que cobra la pasarela se pregunta ANTES del monto.** El
   valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada. Tampoco la de una IA que lee un
   documento (21/10/2026): se le pide el monto y la moneda TAL COMO FIGURAN, sin convertir, y la pantalla decide
@@ -3843,6 +3858,10 @@ creía que había funcionado.**
   llamada, la respuesta casi siempre trae N estados y el HTTP es uno solo.
 - Y **traducí ese estado a una frase**, no lo pases crudo: `403` no le dice nada a nadie
   (ver `RESULTADO_PARTICIPANTE` en `lib/mako-grupo.ts`).
+- ⚠️ **supabase-js (y su storage) NO rechaza la promesa ante un error: devuelve `{ data: null, error }`.** Un `.catch`
+  encadenado está muerto para ese caso, y quien destructura sólo `data` lee la falla como «no hay nada». Medido el
+  23/10/2026 en storage-js 2.106.1 (`createSignedUrls`): el Ops Center contestaba «esta foto no existe» con el storage
+  caído. Se lee `error` siempre, y una falla de la llamada se distingue de un ítem que no existe.
 
 # La salida de un estado trabado no puede pasar por lo que está trabado
 
@@ -6532,6 +6551,11 @@ SÍ se publica:
 concretas y excluyentes, y el contexto dice qué se rompe con cada una. Si para contestar hay
 que abrir el código, falta trabajo tuyo, no decisión suya — la prueba está en que una de las 56
 volvió contestada con **«No entiendo esta pregunta»**.
+
+⚠️ **Y antes de dejar algo como «depende de Martín», se busca si ya lo decidió** (la memoria, las bitácoras de
+`/admin/dev`, el relevo del área). Medido el 23/10/2026: «la foto enviada en otro dispositivo» figuró seis días como «es
+una decisión de Martín» en el relevo, en los hallazgos y en docs/pendientes.md, y la decisión estaba tomada desde el 18/10.
+Una pendiente que ya se contestó traba igual que una sin contestar, y le cuesta a él una pregunta repetida.
 
 **DESDE EL 17/10/2026 LA PREGUNTA DE UN CHAT VA A SU CONVERSACIÓN, NO A LA TICKETERA** (Martín: «me pide
 que responda, en lugar de darme las opciones tipo multiple select»). La Ticketera queda para los tickets de
@@ -9350,6 +9374,12 @@ es el camino que ya guarda el borrador al desmontar.
 `useState(props.…)`.** Pasar de «se abre» a «siempre visible» no toca una línea del
 componente y le cambia el ciclo de vida entero.
 
+⚠️ **Y lo mismo adentro de una LISTA dibujada por posición** (`key={i}`): cuando la lista se corre (llega algo arriba,
+sale lo más viejo), React le pasa al mismo componente las props de OTRA fila, y su estado sigue siendo el de la anterior.
+Medido el 23/10/2026 en la conversación del Ops Center: la burbuja de un mensaje mostraba las fotos del mensaje de al lado
+hasta que llegaban las suyas. Un componente con estado sembrado de un id lleva `key={ese id}`, aunque sus hermanos no
+(docs/hallazgos-operaciones.md, «La foto que se manda por la caja…»).
+
 # /automations (ex /chatbot) es un FLUJO CON RAMAS: lo que gobierna el código nuevo
 
 **MaKo no decide nada que no esté en el flujo** (Martín, 14/10/2026: «Si no es configurable el usuario,
@@ -9363,6 +9393,14 @@ Antes de una tarjeta nueva, mirá si las que hay ya la expresan: una rama sin fl
 el lead contesta" NO debería ir en el CRON, debería ser una CONDITION... Es obvio eso»). Que el lead
 conteste no corta nada: lo dice «No contestó desde que entró» (`contesto`) después de cada espera, y
 quien arma un flujo con seguimientos —plantilla, Crear con IA, API— la pone ahí.
+**Y una tarjeta NO GANA CONTROLES** (Martín, 23/10/2026: «Te había pedido que no rompas el diseño de las tarjetas, mirá
+esos 3 botones... Por qué agregar email si para eso ya tenemos una tarjeta de EMAIL»). Lo que haga falta va por CONDITION,
+DELAY, Configuraciones de la automatización o el ⓘ, o se le pide a MaKo con su operación de la API; nunca un desplegable
+suelto arriba del mensaje. Y cada canal es SU tarjeta: la de MaKo en WhatsApp no ofrece email. Lo fija
+tests/tarjeta-mako-como-las-demas.test.ts.
+Una ACTION de la API de MaKo que entra a los flujos esconde, en el paso, los parámetros que harían el trabajo de otra
+tarjeta (un email escrito a mano, «Canales»): van en `FUERA_DEL_FLUJO` (lib/api-mako/flujo-params.ts), que leen el
+editor y el motor (tests/tarjetas-revision-23-10.test.ts).
 
 Desde el 08/10/2026 una automatización de la tab Automations (ex Chatbot, renombrada el
 09/10/2026: la pantalla vive en `app/automations/`, /chatbot redirige con la query entera y las

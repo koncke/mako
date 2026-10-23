@@ -98,7 +98,7 @@ test('4. «Copiar flujo» › «Crear» en el MISMO negocio lleva la configuraci
   const neg = sinComentarios(leer('lib/flujo-copia-negocio.ts'));
   const c = cuerpo(neg, 'export async function crearDesdeCopia(');
   // Adentro del try que borra la copia si algo falla.
-  assert.match(c, /try \{\n\s+await setSecuenciaPasos\(id, pasos as unknown as PasoSecuencia\[\]\);\n\s+if \(o\.configDe\) await copiarConfigAutomatizacion\(o\.configDe, id\);\n\s+\} catch \(e\) \{\n\s+await Promise\.resolve\(db\.from\('nutricion_secuencias'\)\.delete\(\)\.eq\('id', id\)\)/);
+  assert.match(c, /try \{\n\s+await setSecuenciaPasos\(id, pasos as unknown as PasoSecuencia\[\]\);\n\s+if \(o\.configDe\) await copiarConfigAutomatizacion\(o\.configDe, id\);\n\s+else await nacerConfigAutomatizacion\(id\);\n\s+\} catch \(e\) \{\n\s+await Promise\.resolve\(db\.from\('nutricion_secuencias'\)\.delete\(\)\.eq\('id', id\)\)/);
   const o = cuerpo(neg, 'export async function origenDeCopia(');
   assert.match(o, /if \(leerCopia\(texto\)\) return null;/, 'el texto entero de una copia no dice de dónde salió');
   assert.match(o, /\.select\('workspace_origen, secuencia_origen'\)\.eq\('token', t\)\.maybeSingle\(\);/);

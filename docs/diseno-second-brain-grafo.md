@@ -42,7 +42,7 @@ El id es estable y sale de la clave de la fuente (un id inestable rearma el mapa
 | **Funnel** (nuevo: todos, no sólo el default) | `funnels` | `funnel:<id>` | sus ofertas; el default además tiene sus etapas | cliente |
 | Etapa del funnel | el funnel default | `etapa:<clave>` | la cadena de etapas; **los leads de hoy van como DATO** (cuántos hay en cada una), nunca un nodo por lead | cliente |
 | **Leads** (nuevo, agregado) | `leads`, contados con la regla del CRM (`conteoPorEtapa`) | `leads` | UN nodo: cuántos, cuántos nuevos en 7 días, de dónde vienen, cuántos sin closer ni setter; colgado del funnel principal | cliente |
-| Avatar, razón, formato | `mako.avatares`, `mako.razones`, `mako.formatos_recom` | `av:`, `raz:`, `fmt:` | como hoy | cliente |
+| Avatar, razón, formato | `mako.avatares`, `mako.razones` (los formatos salen de `anguloImagen`/`anguloVideo` de cada razón; la recomendación `mako.formatos_recom` se sacó el 23/10/2026) | `av:`, `raz:`, `fmt:` | como hoy | cliente |
 | Nutrición, landing, audio, vocabulario | como hoy | `sec:`, `land:`, `audio:`, `glosario` | como hoy | cliente |
 | **Objetivo y KPI** (nuevo: «los gráficos y los datos del negocio») | `objectives`, `kpis` (los números de /general) | `okr:<id>`, `kpi:<id>` | el KPI mide su objetivo; los dos, sus funnels | cliente |
 | **Chat con MaKo** (nuevo) | `chart_sessions` de quien mira | `chat:<id>` | el área de lo que habló (por las palabras de su título) | sólo quien mira: es SU chat |

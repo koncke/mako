@@ -490,4 +490,6 @@ export type Resultado =
   | { ok: true; tipo: 'pendiente'; pendiente: { id: number; resumen: string; venceEnMin: number; url: string }; crudo?: string }
   | { ok: true; tipo: 'propuesta'; propuesta: { id: string; url: string; nueva: boolean; extra?: Record<string, unknown> } }
   | { ok: true; tipo: 'control'; resultado: string }
-  | { ok: false; error: string; faltan?: string[]; disponibles?: unknown; status: 400 | 404 | 500; yaEstaba?: boolean };
+  /** `motivo`: lo que contestó la base cuando la pendiente no entró (va al rastro de un flujo, nunca a una persona ni por
+   *  HTTP). `noCorrio`: se sabe que NO se ejecutó nada (la pendiente no existe): un flujo lo puede reintentar sin repetir. */
+  | { ok: false; error: string; faltan?: string[]; disponibles?: unknown; status: 400 | 404 | 500; yaEstaba?: boolean; motivo?: string; noCorrio?: true };

@@ -532,4 +532,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain',
   },
+  {
+    fecha: '23 oct', hora: '10:30', chat: 'Chats de las tabs', sesion: 'local_60dde796-c69c-4cab-a626-b7770594e354', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las charlas con MaKo de cada tab, en el grafo',
+    pedido: 'Martín, 17/10: «todo siempre guardarse en chats en el Ops Center e ir guardándose en el grafo del Second Brain». El Ops Center ya las listaba; el grafo sólo sumaba las de Offer y las de la estrella.',
+    puntos: [
+      'Cada tab donde la persona habló con MaKo es un nodo del grafo («MaKo en CRM», «MaKo en Automations»), con cuántas charlas tiene y las últimas.',
+      'Se cuelga de lo que esas charlas tocan: el funnel de las del CRM, el cliente o los leads de una ficha.',
+      'Muestra exactamente lo que esa persona ve en su Ops Center: un closer no ve en el grafo charlas que su Ops Center le esconde.',
+      'Falta mirarlo en pantalla.',
+    ],
+    archivos: [
+      'lib/cerebro-chats-tabs.ts — de qué tab y de qué entidad es cada charla',
+      'lib/cerebro-chats.ts — las mismas lecturas que la lista del Ops Center',
+      'lib/cerebro-vivo.ts — un nodo por tab, colgado de su entidad',
+      'tests/cerebro-chats-tabs.test.ts',
+    ],
+    revisar: '/second-brain',
+  },
 ];

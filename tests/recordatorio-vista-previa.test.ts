@@ -33,7 +33,8 @@ test('el toque lleva el interruptor de SU tarjeta, y el emisor se lo pasa al env
   assert.equal(toques.find((t) => t.min === 60)?.sinVistaPrevia, true, 'el toque de 1 h perdió su interruptor');
   assert.equal(toques.find((t) => t.min === 15)?.sinVistaPrevia, undefined, 'los otros salen con la tarjeta, como siempre');
   const emisor = leer('lib/reunion-recordatorio.ts');
-  assert.match(emisor, /porMin\.set\(t\.min, \{ min: t\.min, texto: t\.texto, linea: t\.linea, sinVistaPrevia: t\.sinVistaPrevia === true \}\)/);
+  // Desde el 23/10/2026, lo de la tarjeta O lo de la automatización (Configuraciones › WhatsApp, `sinVistaPreviaDe`).
+  assert.match(emisor, /porMin\.set\(t\.min, \{ min: t\.min, texto: t\.texto, linea: t\.linea, sinVistaPrevia: sinVistaPreviaDe\(t\.sinVistaPrevia === true, configs\.get\(Number\(f\.id\)\)\) \}\)/);
   assert.match(emisor, /enviarYEspejar\(\{ telefono, texto, leadId: lead\.id, linea: toque\.linea, sinVistaPrevia: toque\.sinVistaPrevia === true \}\)/);
 });
 
@@ -48,8 +49,7 @@ test('el lienzo lo ofrece en el recordatorio con la tarjeta vacía o con {{link}
   assert.equal(ofreceVistaPrevia({ ...con('sin link'), sin_vista_previa: true } as PasoGrafo, false), true, 'apagado, que se pueda volver a prender');
 });
 
-test('la tarjeta del lienzo pregunta lo mismo (`ofreceVistaPrevia`), sin dejar afuera al recordatorio', () => {
+test('la tarjeta del lienzo ya no tiene el interruptor (23/10/2026, revisión de las tarjetas, punto 7); lo guardado sigue valiendo', () => {
   const lienzo = leer('app/automations/FlujoLienzo.tsx');
-  assert.match(lienzo, /\{noOficial && ofreceVistaPrevia\(paso, recordatorio\) && \(/);
-  assert.doesNotMatch(lienzo, /noOficial && !recordatorio && \(tieneLink\(paso\)/, 'volvió a quedar afuera el recordatorio');
+  assert.doesNotMatch(lienzo, /data-vista-previa|label="Vista previa del link"/, 'volvió el interruptor suelto a la tarjeta');
 });

@@ -57,7 +57,8 @@ import { KEY_HORARIO_ENVIO, horarioVigente, type DiaSemana } from '@/lib/horario
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } from '@/lib/limites-envio';
 import { horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, textoDeHorario, configParaGuardar, PERSONA_SIN_ESPERA } from '@/lib/config-automatizacion';
 import { textoDeGoteo } from '@/lib/goteo';
-import { leerConfigAutomatizacion, guardarConfigAutomatizacion, copiarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
+import { cortarSinPartir } from '@/lib/unicode-seguro';
+import { leerConfigAutomatizacion, guardarConfigAutomatizacion, copiarConfigAutomatizacion, nacerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { preguntaAntes, preguntaParaWhatsApp, respuestaDeTexto, sanearRespuestas } from '@/lib/flujo-ia-preguntas';
 import { TOPE_RONDAS, type RespuestaMako } from '@/lib/automatizacion-chat';
 import { falloDeIA } from '@/lib/flujo-ia';
@@ -709,6 +710,7 @@ export const RUNNERS: Runners = {
           db: (await getTenantDb()) as unknown as DbPlantilla,
           setPasos: setSecuenciaPasos,
           setDisparadores: guardarDisparadores,
+          nacer: nacerConfigAutomatizacion,
           motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
           plataforma: await esWsPlataforma(ctx.ws),
         }, { disparador: payload.disparador ?? undefined });
@@ -1072,7 +1074,9 @@ export const RUNNERS: Runners = {
           // Sin grupo de MaKo, también por email (17/10/2026). Sin elegir, queda en la app.
           ...(!porEmail && sinGrupoDeMako(input) === 'email' ? { sinGrupo: 'email' } : {}),
         },
-        resumen: `${porEmail ? 'Escribirle por email al equipo' : 'Avisar al equipo'}${quien ? ` sobre ${quien}` : ''}: «${mensaje.slice(0, 120)}»${partes.length > 1 ? ` (${partes.length} mensajes)` : ''}`,
+        // Sin partir un emoji (`cortarSinPartir`, 23/10/2026): con `slice(0, 120)` el texto de #241 y #264 del ws13 dejaba
+        // medio emoji al final, la base rechazaba la pendiente y ningún aviso de lead nuevo salió del 13 al 22/10.
+        resumen: `${porEmail ? 'Escribirle por email al equipo' : 'Avisar al equipo'}${quien ? ` sobre ${quien}` : ''}: «${cortarSinPartir(mensaje, 120)}»${partes.length > 1 ? ` (${partes.length} mensajes)` : ''}`,
       };
     },
     ejecutar: async (payload, ctx) => {

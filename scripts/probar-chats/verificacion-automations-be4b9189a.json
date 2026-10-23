@@ -1,0 +1,1041 @@
+{
+  "que": "Verificación de las 18 fallas del chat de MaKo en Automations (22/10/2026). Cada caso corrió 3 veces: la corrida que las encontró (43b0c2625) y dos de verificación contra producción (origin/main be4b9189a; los archivos del chat no cambian entre los dos). Veredicto A MANO; «juezDijo» es el del juez automático de esa corrida (antes de los arreglos de este commit).",
+  "produccion": "be4b9189a5bb6e371bab6b11a32e385b832d7553",
+  "creadoEnElWs3": {
+    "secuencias": "#327 a #366 (pausadas, con el prefijo «🧪 Prueba chats 22/10»)",
+    "crm": "funnel #46 (producto #55), etapas Prospección activa (st0, recreada) y Respondió (st2)"
+  },
+  "casos": [
+    {
+      "id": "mau-pega-con-disparador",
+      "gravedad": "P1",
+      "frecuencia": "3 de 3",
+      "causa": "lib/flujo-ia.ts:1525-1557 (entregaNombrada; el match en 1533) pisa la etapa de venta que eligió el modelo: el verbo «arranque» = la etapa de entrega «Arranque» del ws3. Entra por disparadorDelPedido (1487), en crear (1598) y en editar (2170).",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            321
+          ],
+          "segundos": [
+            29.3
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Creé «Prospección activa - Secuencia inicial»: arranca cuando llega a «Arranque». Manda «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?». Quedó pausada. — avisos: Elegí la etapa de entrega «Arranque»"
+          ],
+          "lienzo": "WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            327
+          ],
+          "segundos": [
+            64.4
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Creé «Prospección activa dueños de empresa»: arranca cuando llega a «Arranque». Manda «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?». Quedó pausada. — avisos: Elegí la etapa de entrega «Arranque»"
+          ],
+          "lienzo": "WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → CONDITION: No contestó desde que ent… → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → CONDITION: No contestó desde que ent… → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 …"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            346
+          ],
+          "segundos": [
+            48.9
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Creé «Prospección activa - Secuencia inicial»: arranca cuando llega a «Arranque». Manda «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?». Quedó pausada. — avisos: Elegí la etapa de entrega «Arranque»"
+          ],
+          "lienzo": "WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        }
+      ]
+    },
+    {
+      "id": "agrega-estos-textos",
+      "gravedad": "P1",
+      "frecuencia": "3 de 3",
+      "causa": "Dos cosas. (a) Los dos textos en UNA tarjeta: 2 de 3, siempre que contestó Gemini flash; con Groq (gpt-oss) salen separados (pasada 1 y 3 de 3 llamadas directas al modelo de editar). Es del modelo: ningún código une mensajes ni frena «pidió 2 y quedó 1» (sospecha: la regla 3 del prompt, lib/flujo-ia.ts:3117). (b) «Cambié «Hola {{nombre}}, soy Maur…»» de una tarjeta que no cambió, 3 de 3: medido, lib/flujo-ia.ts:2002 (`delete q.preheader`) contra contenido() (1920) y 2157; lo guardado trae preheader: null (lib/nutricion.ts:1090).",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            291
+          ],
+          "segundos": [
+            41.7
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «WHATSAPP: Hola {{nombre}}, soy Maur…» Agregué «WHATSAPP: Me quedan 3 lugares para…» Está en el borrador: toca Publicar."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola estimado {{nombre}}, espero que estés muy bien.» → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → WHATSAPP: «Me quedan 3 lugares para este Sprint de tres días, del 18 al 20/11. ¿Quieres que te registre? Son 3 sesiones en vivo de 2 horas, de 19 a 21 h (CDMX), para dueño»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            328
+          ],
+          "segundos": [
+            18.1
+          ],
+          "juezDijo": "pasa",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «WHATSAPP: Hola {{nombre}}, soy Maur…» Agregué «WHATSAPP: Me quedan 3 lugares para…» Agregué «WHATSAPP: Son 3 sesiones en vivo de…» Está en el borrador: toca Publicar."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola estimado {{nombre}}, espero que estés muy bien.» → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → WHATSAPP: «Me quedan 3 lugares para este Sprint de tres días, del 18 al 20/11. ¿Quieres que te registre?» → WHATSAPP: «Son 3 sesiones en vivo de 2 horas, de 19 a 21 h (CDMX), para dueños de empresa.»"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            347
+          ],
+          "segundos": [
+            22.1
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «WHATSAPP: Hola {{nombre}}, soy Maur…» Agregué «WHATSAPP: Me quedan 3 lugares para…» Está en el borrador: toca Publicar."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola estimado {{nombre}}, espero que estés muy bien.» → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → WHATSAPP: «Me quedan 3 lugares para este Sprint de tres días, del 18 al 20/11. ¿Quieres que te registre? Son 3 sesiones en vivo de 2 horas, de 19 a 21 h (CDMX), para dueño»"
+        }
+      ]
+    },
+    {
+      "id": "quiero-que-estos-sean",
+      "gravedad": "P0",
+      "frecuencia": "3 de 3",
+      "causa": "lib/flujo-ia-consulta.ts:84-88: esConsulta da true por el «?» de los textos pegados (87) y porque «quiero que estos sean» no tiene infinitivo (RX_PEDIDO, 68-70). La ruta lo manda al prompt de explicar (app/api/chat-agent/secuencias/ia/route.ts:274), que no puede editar y dice «pídemelo en el chat» (lib/flujo-ia-consulta.ts:124) estando en el chat.",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            292
+          ],
+          "segundos": [
+            28.4
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Actualmente tu automatización solo tiene dos mensajes y no incluye esos textos nuevos. Yo no puedo modificar el flujo directamente desde aquí, pero si quieres que los actualice y agregue el tercer mensaje, pídemelo en el chat y con gusto hago los cambios."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola estimado {{nombre}}, espero que estés muy bien.» → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            329
+          ],
+          "segundos": [
+            42.8
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Actualmente tu flujo solo tiene dos mensajes: uno de saludo inicial y el que pregunta si sigue al frente de su empresa; no incluye las preguntas sobre su equipo ni la invitación a la capacitación. Yo no puedo modificar la automatización directamente desde aquí…"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola estimado {{nombre}}, espero que estés muy bien.» → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?»"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            348
+          ],
+          "segundos": [
+            24.8
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Ahora el flujo solo envía dos mensajes y no tiene disparador. Para que se envíen los tres textos que indicas, deberías reemplazar el primer mensaje por el que incluye tu nombre y la pregunta, y añadir dos tarjetas más en orden: una con la pregunta sobre el equ…"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola estimado {{nombre}}, espero que estés muy bien.» → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?»"
+        }
+      ]
+    },
+    {
+      "id": "hazlo-como-te-indique",
+      "gravedad": "P0",
+      "frecuencia": "3 de 3",
+      "causa": "El modelo de editar no ve el hilo: app/api/chat-agent/secuencias/ia/route.ts:291 llama userDeEditar(ctx, {perfil, voz, pedido}, base) y userDeEditar (lib/flujo-ia.ts:3045-3056) no tiene historial; el historial sólo se usa para rótulos (lib/flujo-ia-preguntas.ts:384-420). Turno 1, 3 de 3: pisa los dos mensajes de antes y reescribe los pegados («Hola {{nombre}}, me quedan…»), 2 de 3 en orden invertido.",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            293
+          ],
+          "segundos": [
+            16,
+            23.8
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «WHATSAPP: Hola estimado {{nombre}},…»: ahora «WHATSAPP: Hola {{nombre}}, es una c…» Cambié «WHATSAPP: Hola {{nombre}}, soy Maur…»: ahora «WHATSAPP: Me quedan 3 lugares para…» Está en el borrador: toca Publicar.",
+            "Por favor indícame con más detalle qué cambios te gustaría hacer en el flujo para poder ayudarte a configurarlo."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, es una capacitación en vivo para empresarios, del 18 al 20/11, de 19 a 21 h (CDMX).» → WHATSAPP: «Me quedan 3 lugares para este Sprint de tres días. ¿Quieres que te registre?»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            330
+          ],
+          "segundos": [
+            22.7,
+            21.5
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «WHATSAPP: Hola estimado {{nombre}},…»: ahora «WHATSAPP: Hola {{nombre}}, me queda…» Cambié «WHATSAPP: Hola {{nombre}}, soy Maur…»: ahora «WHATSAPP: Es una capacitación en vi…» Está en el borrador: toca Publicar.",
+            "¿Podrías detallarme qué cambios específicos te gustaría realizar en los mensajes o en la automatización?"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, me quedan 3 lugares para este Sprint de tres días. ¿Quieres que te registre?» → WHATSAPP: «Es una capacitación en vivo para empresarios, del 18 al 20/11, de 19 a 21 h (CDMX).»"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            349
+          ],
+          "segundos": [
+            23.2,
+            20
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla (turno 2: error de IA)",
+          "mako": [
+            "Cambié «WHATSAPP: Hola estimado {{nombre}},…»: ahora «WHATSAPP: Hola {{nombre}}, es una c…» Cambié «WHATSAPP: Hola {{nombre}}, soy Maur…»: ahora «WHATSAPP: Me quedan 3 lugares para…» Está en el borrador: toca Publicar.",
+            "No tienes ninguna IA gratis conectada."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, es una capacitación en vivo para empresarios, del 18 al 20/11, de 19 a 21 h (CDMX).» → WHATSAPP: «Me quedan 3 lugares para este Sprint de tres días. ¿Quieres que te registre?»"
+        }
+      ]
+    },
+    {
+      "id": "deshacer",
+      "gravedad": "P2",
+      "frecuencia": "3 de 3",
+      "causa": "La misma de hazlo-como-te-indique (sin hilo no sabe qué había) y el prompt no conoce el ↶ del lienzo. Además, al borrar el WA2 quedan «1 día» y «2 días» seguidos (3 de 3).",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            296
+          ],
+          "segundos": [
+            42.2,
+            22.6
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Saqué «WHATSAPP: Hola {{nombre}}, ¿te pued…» Está en el borrador: toca Publicar.",
+            "No tengo el registro del texto anterior exacto de ese mensaje. Por favor, indícame cómo quieres que diga o qué tema trataba y lo cambio enseguida."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            331
+          ],
+          "segundos": [
+            35.6,
+            24.1
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Saqué «WHATSAPP: Hola {{nombre}}, ¿te pued…» Está en el borrador: toca Publicar.",
+            "No tengo guardado el texto exacto que tenía antes ese mensaje. Por favor indícame cómo quieres que diga o qué tema trataba y lo cambio enseguida."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            350
+          ],
+          "segundos": [
+            18.2,
+            32.9
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Saqué «WHATSAPP: Hola {{nombre}}, ¿te pued…» Está en el borrador: toca Publicar.",
+            "No tengo guardada la versión anterior de ese mensaje para restaurarla automáticamente. ¿Podrías indicarme qué texto o propuesta quieres que lleve?"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        }
+      ]
+    },
+    {
+      "id": "disparador-etapa-recien-creada",
+      "gravedad": "P1",
+      "frecuencia": "3 de 3",
+      "causa": "La misma de mau-pega-con-disparador (lib/flujo-ia.ts:1525-1557), por editar (cronPedido, 2170). La etapa recién creada SÍ estaba en el contexto (st0).",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            322
+          ],
+          "segundos": [
+            22.8
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié qué la dispara — avisos: Elegí la etapa de entrega «Arranque»"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            332
+          ],
+          "segundos": [
+            27.1
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié qué la dispara — avisos: Elegí la etapa de entrega «Arranque»"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            351
+          ],
+          "segundos": [
+            22.9
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié qué la dispara — avisos: Elegí la etapa de entrega «Arranque»"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        }
+      ]
+    },
+    {
+      "id": "esperar-2-dias",
+      "gravedad": "P1",
+      "frecuencia": "3 de 3",
+      "causa": "(a) Editar no puede INSERTAR entre dos tarjetas: «agregar» sólo cuelga de una salida vacía (lib/flujo-ia.ts:2377, «Esa salida ya tiene tarjetas: no la pisé»; el prompt lo pide en 3163). (b) Igual dice «Cambié «Hola estimado…»» sin cambio visible: el mismo preheader de agrega-estos-textos (2002 / 1920 / 2157).",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            298
+          ],
+          "segundos": [
+            61.7
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «WHATSAPP: Hola estimado {{nombre}},…» Está en el borrador: toca Publicar. — avisos: Esa salida ya tiene tarjetas: no la pisé"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola estimado {{nombre}}, espero que estés muy bien.» → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            333
+          ],
+          "segundos": [
+            16.9
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «WHATSAPP: Hola estimado {{nombre}},…» Está en el borrador: toca Publicar. — avisos: Esa salida ya tiene tarjetas: no la pisé"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola estimado {{nombre}}, espero que estés muy bien.» → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?»"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            352
+          ],
+          "segundos": [
+            16.4
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «WHATSAPP: Hola estimado {{nombre}},…» Está en el borrador: toca Publicar. — avisos: Esa salida ya tiene tarjetas: no la pisé"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola estimado {{nombre}}, espero que estés muy bien.» → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?»"
+        }
+      ]
+    },
+    {
+      "id": "cinco-min-entre-mensajes",
+      "gravedad": "P2",
+      "frecuencia": "3 de 3",
+      "causa": "REENCUADRADA: 5 min entre dos WhatsApp a la misma persona NO sale nunca: el motor la frena las horas de «Misma persona» (lib/limites-envio.ts:43, 61 y 68: 3 a 72 h, 20 por defecto; freno «msg <20h» en lib/nutricion.ts:4837-4842). 2 de 3 MaKo se negó culpando a Meta («las políticas de Meta exigen 20 horas»: inventado); 1 de 3 puso 5 min sin avisar que la línea los va a frenar. La regla 3 del prompt (lib/flujo-ia.ts:3117) dice «20 horas» sin decir que es Configuraciones › Límites › Misma persona. El esperado de la corrida 1 («las esperas pasan a 5 min») estaba mal: corregido en casos-automations.json.",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            299
+          ],
+          "segundos": [
+            18
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Por WhatsApp no es recomendable enviar mensajes seguidos con solo 5 minutos de diferencia, ya que Meta exige al menos 20 horas entre mensajes de seguimiento para evitar bloqueos por spam. ¿Quieres que ajustemos las esperas a 24 horas o prefieres enfocarlo de o…"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            334
+          ],
+          "segundos": [
+            17
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Por WhatsApp no es recomendable ni seguro enviar mensajes automáticos con solo 5 minutos de diferencia (salvo que sea para preparar una reunión ya agendada), ya que las políticas de Meta exigen al menos 20 horas entre mensajes de seguimiento para evitar bloque…"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            353
+          ],
+          "segundos": [
+            15.8
+          ],
+          "juezDijo": "pasa",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «DELAY: 1 día»: ahora «DELAY: 5 min» Cambié «DELAY: 2 días»: ahora «DELAY: 5 min» Está en el borrador: toca Publicar."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 5 min [5 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 5 min [5 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        }
+      ]
+    },
+    {
+      "id": "goteo-entre-leads",
+      "gravedad": "P1",
+      "frecuencia": "3 de 3",
+      "causa": "Los prompts de editar y de explicar no saben de Configuraciones › Límites (Por día, Por hora, Misma persona: lib/limites-envio.ts:221-223): EDITAR_IA_SYSTEM_TEMPLATE y TARJETAS_Y_REGLAS (lib/flujo-ia.ts:3102-3179) y EXPLICAR (lib/flujo-ia-consulta.ts:120-129). 2 de 3 inventa el lugar («la configuración del envío de la campaña»), 1 de 3 mete esperas de 5 min EN el flujo y dice «Cambié».",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            300
+          ],
+          "segundos": [
+            25.1
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "El espaciado entre contactos para envíos masivos se configura directamente desde la campaña o difusión al momento de programarla, no dentro del flujo individual de la automatización."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            335
+          ],
+          "segundos": [
+            39.3
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "El ritmo y la cola de envíos masivos entre diferentes contactos se gestionan automáticamente desde la configuración del envío de la campaña para cuidar la línea, no dentro del flujo individual de la automatización."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            354
+          ],
+          "segundos": [
+            16.5
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «DELAY: 1 día»: ahora «DELAY: 5 min» Cambié «DELAY: 2 días»: ahora «DELAY: 5 min» Está en el borrador: toca Publicar."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 5 min [5 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 5 min [5 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        }
+      ]
+    },
+    {
+      "id": "no-sabado-domingo",
+      "gravedad": "P2",
+      "frecuencia": "3 de 3",
+      "causa": "La misma de goteo: el prompt no sabe del Horario de la automatización (la tuerca › Configuraciones › Horario, con días: app/automations/ConfiguracionesBoton.tsx:66). 2 de 3 dice «No es posible evitar el envío los sábados y domingos» (falso; el juez viejo lo daba por bueno por el «sábado» de la regex, corregido); 1 de 3 metió dos esperas y una condición «dia_semana» que no existe.",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            301
+          ],
+          "segundos": [
+            20.3
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Agregué «DELAY: 2 días» Agregué «DELAY: 2 días» Está en el borrador: toca Publicar. — avisos: Saqué una condición «dia_semana»: no existe · Saqué una rama sin ninguna condición que exista · Saqué una condición que no tenía ninguna rama válida · Una tarjeta seg…"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?» → DELAY: 2 días [2880 min] → DELAY: 2 d…"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            336
+          ],
+          "segundos": [
+            32.6
+          ],
+          "juezDijo": "pasa",
+          "aMano": "falla",
+          "mako": [
+            "No es posible evitar el envío los sábados y domingos con las condiciones y campos disponibles en la automatización actual."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            355
+          ],
+          "segundos": [
+            17.6
+          ],
+          "juezDijo": "pasa",
+          "aMano": "falla",
+          "mako": [
+            "No es posible evitar el envío los sábados y domingos con las condiciones y acciones disponibles en el flujo actual."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        }
+      ]
+    },
+    {
+      "id": "cincuenta-por-dia",
+      "gravedad": "P1",
+      "frecuencia": "2 de 2",
+      "causa": "La misma de goteo (Límites › Por día, 1 a 150, 40 por defecto). Inventa lugares («ajustes de envío de la campaña») o dice que no se puede y que «el flujo ya envía máximo un mensaje por día por lead».",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            302
+          ],
+          "segundos": [
+            34
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "El límite diario de envíos no se configura dentro de los pasos de la automatización, sino en la configuración general del disparador o en los ajustes de envío de la campaña/funnel para limitar cuántos contactos entran por día."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            337
+          ],
+          "segundos": [
+            21.8
+          ],
+          "juezDijo": "falla",
+          "aMano": "no corrió (error de IA)",
+          "mako": [
+            "No tienes ninguna IA gratis conectada."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            356
+          ],
+          "segundos": [
+            18.9
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "No puedo limitar a 50 envíos diarios con las condiciones disponibles; el flujo ya envía máximo un mensaje por día por lead."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        }
+      ]
+    },
+    {
+      "id": "variable-inventada",
+      "gravedad": "P1",
+      "frecuencia": "3 de 3",
+      "causa": "lib/flujo-ia.ts:426-430 (limpiarTexto) saca {{empresa_del_lead}} y deja la frase rota: «¿Sigues al frente de?», «soy Mauricio Bustos de.» (3 de 4 contando la del arreglo del arnés): así le llega al lead. Y la regla 2 del prompt (lib/flujo-ia.ts:3116) le ofrece al lead sólo {{nombre}} y los de reunión, así que nunca ofrece {{empresa}} (que existe: lib/template-vars.ts:18); 1 de 3 contestó «sólo puedes usar {{nombre}}», falso.",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            304
+          ],
+          "segundos": [
+            40.7
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «WHATSAPP: Hola {{nombre}}, soy Maur…» Está en el borrador: toca Publicar. — avisos: Borré una variable que no existe"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            338
+          ],
+          "segundos": [
+            34.2
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "La variable {{empresa_del_lead}} no existe en la plataforma. Para los leads solo puedes usar {{nombre}} y los datos de su reunión si está agendada."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            357
+          ],
+          "segundos": [
+            22.5
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «WHATSAPP: Hola {{nombre}}, soy Maur…» Está en el borrador: toca Publicar. — avisos: Borré una variable que no existe"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos de. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        }
+      ]
+    },
+    {
+      "id": "si-responde-mover-avisar",
+      "gravedad": "P0",
+      "frecuencia": "3 de 3",
+      "causa": "lib/flujo-ia.ts:836-841: la etapa de «Mover de etapa» se busca en resolverProducto(null) (837 → 592-594) = el CRM PRINCIPAL, porque proponer_cambio_etapa no tiene embudoId (lib/api-mako/areas/crm.def.ts:559-567); el CRM del CRON nunca se mira. «Saqué «Mover de etapa»: esa etapa no existe» 3 de 3. Y dice «Cambié «{{nombre}}, abrí 3 lugare…»» sin cambio visible (el preheader).",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            324
+          ],
+          "segundos": [
+            24.9
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «WHATSAPP: {{nombre}}, abrí 3 lugare…» Está en el borrador: toca Publicar. — avisos: No agregué otra «Si responde»: ya hay una, sumé un caso · Un tramo nuevo quedó vacío: no lo agregué · Saqué «Mover de etapa»: esa etapa no existe · Saqué una tarjeta qu…"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            339
+          ],
+          "segundos": [
+            76.6
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «WHATSAPP: {{nombre}}, abrí 3 lugare…» Agregué «MAKO EN WHATSAPP: Lead {{nombre}} respondió…» Está en el borrador: toca Publicar. — avisos: No agregué otra «Si responde»: ya hay una, sumé un caso · Saqué «Mover de etapa»: esa etapa no existe"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?» → MAKO EN WHATSAPP: Lead {{nombre}} res…"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            358
+          ],
+          "segundos": [
+            27.8
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Cambié «WHATSAPP: {{nombre}}, abrí 3 lugare…» Agregué «MAKO EN WHATSAPP: Lead {{nombre}} respondió…» Está en el borrador: toca Publicar. — avisos: No agregué otra «Si responde»: ya hay una, sumé un caso · Saqué «Mover de etapa»: esa etapa no existe"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?» → MAKO EN WHATSAPP: Lead {{nombre}} res…"
+        }
+      ]
+    },
+    {
+      "id": "condicion-etiqueta",
+      "gravedad": "P1",
+      "frecuencia": "3 de 3",
+      "causa": "lib/flujo-ia-consulta.ts:52 (RX_NADA) lee «que no le mande nada» (lo que se pide) como «no cambies nada» y esConsulta (87) lo manda a explicar: le dice al dueño que inserte él la condición.",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            305
+          ],
+          "segundos": [
+            17
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "En el flujo actual no hay ninguna verificación de etiquetas antes del primer mensaje. Por lo tanto, el mensaje se enviará a todos los leads sin importar si tienen la etiqueta «Sprint · audio». Tendrías que insertar una condición previa que solo continúe el flu…"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            340
+          ],
+          "segundos": [
+            16.3
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "En el flujo actual no hay ninguna condición que verifique la etiqueta «Sprint · audio» antes del mensaje m1, por lo que no se puede hacer lo que pides sin modificarlo. Necesitarías añadir una regla de filtro previo al inicio para que solo siga el flujo cuando …"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            359
+          ],
+          "segundos": [
+            16.5
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "El flujo actual no tiene ninguna verificación de etiqueta antes del primer mensaje; siempre empieza con m1. Por lo tanto, no se está aplicando la condición de la etiqueta «Sprint · audio». Si deseas ese comportamiento, tendrías que añadir una tarjeta de condic…"
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        }
+      ]
+    },
+    {
+      "id": "imposible",
+      "gravedad": "P2",
+      "frecuencia": "2 de 3",
+      "causa": "2 de 3: cambia la espera de 1 día por un aviso al equipo «Llamar a…» sin decir que llamar no se puede ni que sacó la espera. Del modelo (sospecha): editar no puede insertar (lib/flujo-ia.ts:2377) y «cambiar» con otro tipo reemplaza en el mismo lugar (2133-2144), así que pisa la espera para hacer lugar.",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            312
+          ],
+          "segundos": [
+            17.3
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Saqué «DELAY: 1 día» Agregué «MAKO EN WHATSAPP: Llamar a {{lead_telefono}…» Está en el borrador: toca Publicar."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → MAKO EN WHATSAPP: Llamar a {{lead_telefono}… [op=avisar_al_equipo] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalle…"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            341
+          ],
+          "segundos": [
+            34.9
+          ],
+          "juezDijo": "falla",
+          "aMano": "pasa",
+          "mako": [
+            "Por ahora la automatización solo permite enviar mensajes por WhatsApp, email, Instagram o Messenger, y avisar a tu equipo; no realiza llamadas telefónicas automáticas ni deja mensajes en el buzón de voz."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → DELAY: 1 día [1440 min] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalles?»"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            360
+          ],
+          "segundos": [
+            16.9
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Saqué «DELAY: 1 día» Agregué «MAKO EN WHATSAPP: Llamar a {{nombre}} al {{…» Está en el borrador: toca Publicar."
+          ],
+          "lienzo": "CRON → WHATSAPP: «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» → MAKO EN WHATSAPP: Llamar a {{nombre}} al {{… [op=avisar_al_equipo] → WHATSAPP: «Hola {{nombre}}, ¿te puedo hacer una pregunta rápida sobre cómo diriges a tu equipo?» → DELAY: 2 días [2880 min] → WHATSAPP: «{{nombre}}, abrí 3 lugares más para una capacitación en vivo para dueños de empresa, del 18 al 20/11. ¿Te paso los detalle…"
+        }
+      ]
+    },
+    {
+      "id": "pedido-largo",
+      "gravedad": "P1",
+      "frecuencia": "3 de 3",
+      "causa": "Corte en silencio a 2.000 caracteres: app/api/chat-agent/secuencias/ia/route.ts:122 (pedido.slice(0, 2000)), y otra vez en userDeCrear (lib/flujo-ia.ts:2935) y userDeEditar (3053). /api/mako/pedidos contesta 400 arriba de 4.000 (app/api/mako/pedidos/route.ts:54) y el chat sigue. La barra del chat no tiene tope ni aviso. MaKo arma otra cosa (mensajes, condiciones y AI Step inventados, otro CRON).",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            325
+          ],
+          "segundos": [
+            22.7
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Creé «Primer contacto Sprint Diseño»: arranca cuando llega a «Lead entrante». Manda «Hola {{nombre}}, soy Mauricio de Sprint Diseño. ¿Le gustaría conversar brevemente sobre…». Quedó pausada."
+          ],
+          "lienzo": "WHATSAPP: «Hola {{nombre}}, soy Mauricio de Sprint Diseño. ¿Le gustaría conversar brevemente sobre cómo impulsar su negocio?» → AI STEP"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            342
+          ],
+          "segundos": [
+            34.7
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Creé «Apertura Sprint Base Fría»: arranca cuando llega a «Por contactar». Manda «Hola {{nombre}}, un gusto saludarte. Te escribo breve porque hace un tiempo mostraste…». Quedó pausada. — avisos: Una tarjeta seguía en dos lugares: la dejé en el primero"
+          ],
+          "lienzo": "CONDITION: Tiene WhatsApp → WHATSAPP: «Hola {{nombre}}, un gusto saludarte. Te escribo breve porque hace un tiempo mostraste interés en optimizar la gestión y el día a día de tu negocio. ¿Sigues al f» → AI STEP"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            361
+          ],
+          "segundos": [
+            24.1
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Creé «Primer contacto Sprint Diseño»: arranca cuando llega a «Lead entrante». Manda «Hola {{nombre}}, soy Mauricio de Sprint Diseño. ¿Te parece bien que conversemos sobre…». Quedó pausada."
+          ],
+          "lienzo": "WHATSAPP: «Hola {{nombre}}, soy Mauricio de Sprint Diseño. ¿Te parece bien que conversemos sobre cómo conseguir tu primer cliente de diseño?» → DELAY: 1 día [1440 min] → CONDITION: Nunca te escribió → WHATSAPP: «Hola {{nombre}}, solo quería saber si recibiste mi mensaje anterior y si te gustaría conocer más sobre nuestro Sprint de Diseño.» → DELAY: 2 días [2880 min] → CONDITION: Nunca te escribió → AI STEP"
+        }
+      ]
+    },
+    {
+      "id": "emojis-saltos",
+      "gravedad": "P2",
+      "frecuencia": "2 de 3",
+      "causa": "La regla 3 del prompt (lib/flujo-ia.ts:3117) mete un «esperar» de 20 h que nadie pidió (2 de 3). Ojo: con «Misma persona» en 20 h el motor los separa igual; la tarjeta es de más, no cambia cuándo sale.",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            313
+          ],
+          "segundos": [
+            30.6
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Creé «Lead entrante Prueba chats 22/10»: arranca cuando llega a «Lead entrante». Manda «👋 Hola {{nombre}}! ¿Sigues al frente de tu empresa? 🏢». Quedó pausada."
+          ],
+          "lienzo": "WHATSAPP: «👋 Hola {{nombre}}! ¿Sigues al frente de tu empresa? 🏢» → DELAY: 20 h [1200 min] → WHATSAPP: «🔥 Me quedan 3 lugares 🔥 ✅ Del 18 al 20/11 ✅ En vivo ¿Te paso la info? 🙌»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            343
+          ],
+          "segundos": [
+            44.7
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "Creé «Lead entrante Automations - Mensajes ini»: arranca cuando llega a «Lead entrante». Manda «👋 Hola {{nombre}}! ¿Sigues al frente de tu empresa? 🏢». Quedó pausada."
+          ],
+          "lienzo": "WHATSAPP: «👋 Hola {{nombre}}! ¿Sigues al frente de tu empresa? 🏢» → DELAY: 20 h [1200 min] → WHATSAPP: «🔥 Me quedan 3 lugares 🔥 ✅ Del 18 al 20/11 ✅ En vivo ¿Te paso la info? 🙌»"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            362
+          ],
+          "segundos": [
+            29.1
+          ],
+          "juezDijo": "pasa",
+          "aMano": "pasa",
+          "mako": [
+            "Creé «Lead entrante prueba chats»: arranca cuando llega a «Lead entrante». Manda «👋 Hola {{nombre}}! ¿Sigues al frente de tu empresa? 🏢». Quedó pausada."
+          ],
+          "lienzo": "WHATSAPP: «👋 Hola {{nombre}}! ¿Sigues al frente de tu empresa? 🏢» → WHATSAPP: «🔥 Me quedan 3 lugares 🔥 ✅ Del 18 al 20/11 ✅ En vivo ¿Te paso la info? 🙌»"
+        }
+      ]
+    },
+    {
+      "id": "creame-otra",
+      "gravedad": "P1",
+      "frecuencia": "3 de 3",
+      "causa": "El link que ESCRIBIÓ el dueño se borra: limpiarTexto saca toda URL (lib/flujo-ia.ts:423-424) y un \"link\" sólo sale del catálogo (claveDeLink, 907-916; aviso en 1015), que es agenda, video y entregables (lib/flujo-ia-crear.ts:141-148). El mensaje promete el link y no lo lleva; una vez sumó un email y un «no tengo forma de enviarte el link». La burbuja y la abierta intacta andan bien.",
+      "corridas": [
+        {
+          "fuente": "corrida 1 (el que encontró las fallas)",
+          "sha": "43b0c2625",
+          "secuencias": [
+            315,
+            316
+          ],
+          "segundos": [
+            1.1,
+            22.2
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "(MaKo no trabaja: sólo burbujas)",
+            "Creé «Envio link Sprint a respondidos»: arranca cuando llega a «Respondió». Manda «¡Genial {{nombre}}! Aquí tienes el link del Sprint para que lo revises y empieces a…». Quedó pausada. — avisos: No tengo guardado el link «sprint»: el mensaje va sin link"
+          ],
+          "lienzo": "WHATSAPP: «¡Genial {{nombre}}! Aquí tienes el link del Sprint para que lo revises y empieces a conseguir tu primer cliente.»"
+        },
+        {
+          "fuente": "verificación, pasada 1",
+          "sha": "be4b9189a",
+          "secuencias": [
+            344,
+            345
+          ],
+          "segundos": [
+            1.1,
+            36.4,
+            50.2
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "(MaKo no trabaja: sólo burbujas)",
+            "¿Qué disparador usar?",
+            "Creé «Envío de Sprint a quienes respondieron»: arranca cuando llega a «Respondió». Manda «Hola {{nombre}}, genial que me hayas respondido. Te comparto todos los detalles del…». Quedó pausada."
+          ],
+          "lienzo": "WHATSAPP: «Hola {{nombre}}, genial que me hayas respondido. Te comparto todos los detalles del Sprint Diseñador Rentable para que puedas ver el paso a paso. ¿Tienes alguna» → AI STEP"
+        },
+        {
+          "fuente": "verificación, pasada 2",
+          "sha": "be4b9189a",
+          "secuencias": [
+            363,
+            364
+          ],
+          "segundos": [
+            1.1,
+            34.5
+          ],
+          "juezDijo": "falla",
+          "aMano": "falla",
+          "mako": [
+            "(MaKo no trabaja: sólo burbujas)",
+            "Creé «Envío link Sprint a respondientes»: arranca cuando llega a «Respondió». Manda «Hola {{nombre}}, aquí tienes el link del Sprint.». Quedó pausada. — avisos: No tengo guardado el link «sprint»: el mensaje va sin link"
+          ],
+          "lienzo": "CONDITION: Tiene WhatsApp → WHATSAPP: «Hola {{nombre}}, aquí tienes el link del Sprint.» → EMAIL: «Hola {{nombre}}, Te comparto el link del Sprint para que lo revises. Saludos.» [canal=email] → WHATSAPP: «Hola {{nombre}}, no tengo forma de enviarte el link.»"
+        }
+      ]
+    }
+  ]
+}

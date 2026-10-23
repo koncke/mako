@@ -31,6 +31,7 @@ import { estadoInicial, setEstadoOnboarding } from './onboarding-state';
 import { hoyEnTijuana } from './date-utils';
 import { CAPAS_VENDIBLES, capaDef, type CapaId } from './capas';
 import { invitarPorEmail, type ResultadoInvitacion } from './invitaciones';
+import { APP_BASE_URL } from './app-url';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -97,11 +98,20 @@ export async function darDeAltaCliente(a: {
 
   // 5. El mail, después del alta y sin poder deshacerla. Quien dio de alta se entera por `invitacion`
   //    (enviado / error / enlace para pasarlo a mano).
-  const invitacion = await invitarPorEmail({
-    email: adminEmail,
-    nombre: a.adminNombre ?? undefined,
-    workspace: ws.nombre,
-    rolWs: 'admin',
-  });
+  //    ⚠️ `invitarPorEmail` «nunca tira», pero lo que hace antes de mandar (leer el workspace de la plataforma, maquetar) sí
+  //    puede. Si tirara acá, el alta —ya firme— subiría como excepción hasta el aviso del pago, que reintenta; y quien pagó
+  //    quedaría con su cuenta creada y el cobro diciendo «pendiente». Un mail que no salió se dice; nunca tumba un alta buena.
+  let invitacion: ResultadoInvitacion;
+  try {
+    invitacion = await invitarPorEmail({
+      email: adminEmail,
+      nombre: a.adminNombre ?? undefined,
+      workspace: ws.nombre,
+      rolWs: 'admin',
+    });
+  } catch (e) {
+    console.error('[alta-cliente] el mail de acceso tiró (el alta quedó firme):', e instanceof Error ? e.message : e);
+    invitacion = { enviado: false, error: e instanceof Error ? e.message : String(e), enlace: `${APP_BASE_URL}/inicio` };
+  }
   return { ok: true, workspace: ws, invitacion };
 }
