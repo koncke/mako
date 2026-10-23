@@ -90,28 +90,6 @@ export default function Landing({ diseno }: { diseno?: DisenoLanding | null }) {
     const root = rootRef.current;
     if (!root || !diseno) return;
     volverALaCard(root);
-    // El ORIGEN (lib/origen-cuenta.ts): el Pixel de MaKo deja el visitante y la URL con sus UTM; el script del
-    // diseño le pasa ese visitante a Calendly (utm_term) y el Píxel de Meta lo lleva como external_id (el UID, el
-    // mismo que manda el server por CAPI al agendar). Primero el Pixel de MaKo (crea el visitante), después Meta.
-    if (debeMedir(window.location.hostname) && !root.getAttribute('data-pixel-init')) {
-      root.setAttribute('data-pixel-init', '1');
-      const meta = () => {
-        const fbq = cargarPixelMeta();
-        const uid = visitanteMako();
-        if (uid) fbq('init', PIXEL_META_MAKO, { external_id: uid });
-        else fbq('init', PIXEL_META_MAKO);
-        fbq('track', 'PageView');
-      };
-      if (diseno.pixelToken && !document.getElementById('mako-pixel')) {
-        let listo = false;
-        const una = () => { if (!listo) { listo = true; meta(); } };
-        const sc = document.createElement('script');
-        sc.id = 'mako-pixel'; sc.defer = true; sc.onload = una; sc.onerror = una;
-        sc.src = `${RUTA_CARGADOR}?${PARAM_CARGADOR}=${encodeURIComponent(diseno.pixelToken)}`;
-        document.body.appendChild(sc);
-        window.setTimeout(una, 2500);
-      } else meta();
-    }
     if (!document.getElementById('gm-diseno-js')) {
       const sc = document.createElement('script');
       sc.id = 'gm-diseno-js';
@@ -297,32 +275,50 @@ export default function Landing({ diseno }: { diseno?: DisenoLanding | null }) {
       initCal();
     }
 
-    // ── Píxel de Meta de MaKo: la visita y la agenda ─────────────────────────
-    // Para que los anuncios que venden MaKo midan y optimicen hacia la reunión
-    // agendada, que es la conversión de esta página. Sólo en el dominio de
-    // producción (ver debeMedir): un preview o localhost ensuciaría las audiencias.
-    // La agenda llega por postMessage desde el iframe de Calendly; el origen se
-    // valida exacto en esAgendaDeCalendly. Un solo Schedule por carga: Calendly
-    // puede repetir el mensaje y Meta lo contaría dos veces.
-    if (debeMedir(window.location.hostname)) {
-      const fbq = cargarPixelMeta();
-      if (!root.getAttribute('data-pixel-init')) {
-        root.setAttribute('data-pixel-init', '1');
-        fbq('init', PIXEL_META_MAKO);
-        fbq('track', 'PageView');
-      }
-      let agendo = false;
-      const onMensaje = (e: MessageEvent) => {
-        if (agendo || !esAgendaDeCalendly(e.origin, e.data)) return;
-        agendo = true;
-        fbq('track', 'Schedule');
-      };
-      window.addEventListener('message', onMensaje);
-      cleanup.push(() => window.removeEventListener('message', onMensaje));
-    }
-
     return () => cleanup.forEach((fn) => fn());
   }, []);
+
+  // ── Píxel de Meta de MaKo: la visita y la agenda ─────────────────────────
+  // UN solo punto de carga para las dos landings (tests/meta-pixel-mako.test.ts): un doble init duplicaría
+  // eventos. Sólo en el dominio de producción (debeMedir): un preview o localhost ensuciaría las audiencias.
+  // Con la landing de Web Generator, primero el Pixel de MaKo (crea el visitante, el ORIGEN de la cuenta:
+  // lib/origen-cuenta.ts) y después Meta, con ese visitante como external_id (el mismo UID que manda el server
+  // por CAPI al agendar). El Schedule de esa landing lo manda el script del diseño (SCRIPT_DISENO); el de
+  // siempre, acá: un solo Schedule por carga (Calendly puede repetir el mensaje y Meta lo contaría dos veces).
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const cleanup: Array<() => void> = [];
+    if (debeMedir(window.location.hostname)) {
+      const iniciar = () => {
+        if (root.getAttribute('data-pixel-init')) return;
+        root.setAttribute('data-pixel-init', '1');
+        const fbq = cargarPixelMeta();
+        const uid = visitanteMako();
+        if (uid) fbq('init', PIXEL_META_MAKO, { external_id: uid }); else fbq('init', PIXEL_META_MAKO);
+        fbq('track', 'PageView');
+      };
+      if (diseno?.pixelToken && !document.getElementById('mako-pixel')) {
+        const sc = document.createElement('script');
+        sc.id = 'mako-pixel'; sc.defer = true; sc.onload = iniciar; sc.onerror = iniciar;
+        sc.src = `${RUTA_CARGADOR}?${PARAM_CARGADOR}=${encodeURIComponent(diseno.pixelToken)}`;
+        document.body.appendChild(sc);
+        const t = window.setTimeout(iniciar, 2500);
+        cleanup.push(() => window.clearTimeout(t));
+      } else iniciar();
+      if (!diseno) {
+        let agendo = false;
+        const onMensaje = (e: MessageEvent) => {
+          if (agendo || !esAgendaDeCalendly(e.origin, e.data)) return;
+          agendo = true;
+          window.fbq?.('track', 'Schedule');
+        };
+        window.addEventListener('message', onMensaje);
+        cleanup.push(() => window.removeEventListener('message', onMensaje));
+      }
+    }
+    return () => cleanup.forEach((fn) => fn());
+  }, [diseno]);
 
   // El markup del diseño se inyecta UNA vez y su identidad se memoiza: así los
   // re-renders (abrir/cerrar el modal) NO re-aplican el innerHTML y no pisan las
