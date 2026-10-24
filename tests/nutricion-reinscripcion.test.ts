@@ -388,7 +388,7 @@ test('la familia: una fila reusable no bloquea; cualquier otra sí', () => {
 test('enrolarPorEvento: la exclusión de familia, el reuso con compare-and-set y ningún insert por lote', () => {
   const c = cuerpo(MOTOR, 'export async function enrolarPorEvento(');
   assert.match(c, /\(await leadsEnFamiliaPostAgenda\(\[leadId\]\)\)\.has\(leadId\)/);
-  assert.match(c, /if \(previa\) \{\s*const r = reusables\.get\(previa\.id\);\s*if \(!r\) continue;\s*const reclamada = await reactivarInscripcion\(/);
+  assert.match(c, /if \(previa\) \{\s*const r = reusables\.get\(previa\.id\);\s*if \(!r\) \{\s*if \(ctx\?\.persona\) noVolvio\.push\([^\n]*\n\s*continue;\s*\}\s*const reclamada = await reactivarInscripcion\(/);
   assert.doesNotMatch(c, /\.insert\(nuevas\)/, 'el insert por lote dejaba al lead sin NINGUNA secuencia apenas una fila existía');
 });
 

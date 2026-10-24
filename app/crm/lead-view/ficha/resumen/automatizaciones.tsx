@@ -111,9 +111,12 @@ export function AutomatizacionesDelLead({ ctx, titulo, diseno, epico }: PropsBlo
 
   const acciones = (a: InscripcionVista) => (
     <span className="fr-aut-acciones">
-      {a.puede.empezarDeNuevo && (
+      {a.puede.empezarDeNuevo ? (
         <Button variant="tertiary" size="sm" onClick={() => { setResultado(null); setAccion({ tipo: 'empezar', aut: a }); }}>Empezar de nuevo</Button>
-      )}
+      ) : a.puede.porQueNo && estaViva(a) ? (
+        // Por qué no (frenada, en pausa, con una persona): apagado y dicho, no escondido.
+        <Button variant="tertiary" size="sm" disabled title={a.puede.porQueNo}>Empezar de nuevo</Button>
+      ) : null}
       {estaViva(a) && a.puede.frenar && (
         <Button variant="tertiary" size="sm" onClick={() => { setResultado(null); setAccion({ tipo: 'frenar', aut: a }); }}>Frenar</Button>
       )}
@@ -151,6 +154,7 @@ export function AutomatizacionesDelLead({ ctx, titulo, diseno, epico }: PropsBlo
       {lineaDelPaso(a) && <span className="fr-sub">{lineaDelPaso(a)}</span>}
       <span className={`fr-aut-proximo${a.frenado || !a.automatizacionActiva ? ' fr-aut-proximo--frenado' : ''}`}>{lineaDelProximo(a, fecha)}</span>
       {a.reentrada === 'una_vez' && estaViva(a) && <span className="fr-sub">Entra una sola vez: moverlo otra vez a su etapa no lo hace empezar de nuevo.</span>}
+      {!estaViva(a) && a.termino?.at && <span className="fr-sub">{fecha(a.termino.at)}</span>}
       {enviados(a, epico)}
       {acciones(a)}
     </div>

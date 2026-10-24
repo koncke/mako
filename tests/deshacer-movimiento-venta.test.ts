@@ -208,7 +208,8 @@ test('CABLEADO mover: la foto se saca ANTES de la primera escritura y vuelve fir
   assert.match(wiz, /\.\.\.\(deshacer \? \{ deshacer \} : \{\}\)/);
   const tab = cuerpo(acc, 'export async function setLeadStageAction(');
   assert.ok(tab.indexOf('empezarDeshacer(id, before, false)') < tab.indexOf('await setPipelineStage('));
-  assert.match(tab, /return \{ ok: true, pendientes, \.\.\.\(deshacer \? \{ deshacer \} : \{\}\) \};/);
+  // 23/10/2026: más el informe de las automatizaciones de la etapa (tests/no-volvio-a-entrar.test.ts).
+  assert.match(tab, /return \{ ok: true, pendientes, \.\.\.\(deshacer \? \{ deshacer \} : \{\}\), \.\.\.conInforme\(automatizaciones\) \};/);
   const reu = cuerpo(acc, 'export async function markMeetingManualAction(');
   assert.ok(reu.indexOf('empezarDeshacer(id, before, false)') < reu.indexOf('await setMeetingManual('));
   assert.match(leer('app/m/crm/acciones.ts'), /cambio: true, \.\.\.\(r\.deshacer \? \{ deshacer: r\.deshacer \} : \{\}\)/);

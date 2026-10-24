@@ -33,9 +33,11 @@ bloque los lee por UNA puerta, app/crm/lead-view/ficha/resumen/automatizaciones-
 - `StageMoveResultado.automatizaciones = { entro, noEntro }` desde `setLeadStageAction`, `completeStageMoveAction` y
   `resolverQueHacerAction`. El toast ya lo lee (`noEntroDelMovimiento`).
 
-**Cuando llegue su sha:** en automatizaciones-datos.ts, `leerAutomatizacionesDelBloque` pasa a la acción del detalle (un
-mapeo a `AutomatizacionesVista`) y `empezarDeNuevoDelBloque` a su acción. El bloque y sus tests no cambian. Hasta
-entonces, «Empezar de nuevo» no se ofrece (`puede.empezarDeNuevo: false`).
+**Entregado el 23/10 (aut2-aviso-vacio, af7bd0ec4, mergeado en esta rama)**, con tres diferencias que el bloque ya
+respeta (`vistaDeDetalle`, app/crm/automatizacion-lead.ts): `estado` es texto (suma `handoff` y `pendiente`), lo
+enviado trae el estado de `nutricion_envios` (no hay «entregado» ni «leído»: no se inventa), y el `NoEntro` trae el motivo
+SIN el nombre y sin el paso (se cruza con la inscripción). La acción es `empezarDeNuevoEnAutomatizacionAction`, y
+`puede.porQueNo` dice por qué no (el botón sale apagado, con el porqué).
 
 **Sin ver en pantalla.** No se levantó la app (escribe en producción). Se mira después del deploy en el ws3 o con la
 sesión del ws10, nunca en el ws1. El contacto con «Datos ▾»: sacar la empresa, el aviso se va. La R1 con «Obligatorio ▾».

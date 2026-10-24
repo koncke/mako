@@ -13,7 +13,7 @@
 // tests/crm-automatizacion-lead.test.ts.
 // =============================================================================
 
-import type { EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
+import type { AutomatizacionesDelLead, EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
 
 /** Hasta cuántos leads por pedido (el tope de `enAutomatizacionesAction`): un tablero más grande se pide en tandas. */
 export const TANDA_AUTOMATIZACIONES = 500;
@@ -96,13 +96,19 @@ export function preguntaDeFrenar(o: { leads: number; nombre?: string | null; aut
 // lo que HubSpot no tiene y Martín necesitaba: POR QUÉ no entró cuando se lo movió.
 //
 // Lo de abajo es puro (lo ejecuta tests/ficha-automatizaciones.test.ts). Los datos y las acciones son de Automations
-// (app/automations/automatizaciones-del-lead-actions.ts); la vista sale de lo que haya: la lista de siempre
-// (`EnAutomatizacion[]`) o el detalle, cuando llega.
+// (app/automations/automatizaciones-del-lead-actions.ts): el detalle (`AutomatizacionesDelLead`, `vistaDeDetalle`) y, de
+// respaldo, la lista de siempre (`EnAutomatizacion[]`, `vistaDeEnAutomatizacion`).
 
-/** El estado de una inscripción, como lo guarda el motor (`nutricion_inscripciones.estado`). */
-export type EstadoInscripcion = 'activa' | 'respondio' | 'pausada' | 'completada' | 'no_responde' | 'cancelada';
-/** Cómo quedó un envío: lo que dice la línea (WhatsApp) o el proveedor (email). */
-export type EstadoEnvio = 'pendiente' | 'enviado' | 'entregado' | 'leido' | 'fallo';
+/**
+ * El estado de una inscripción, como lo guarda el motor (`nutricion_inscripciones.estado`). `handoff`: MaKo le pasó la
+ * charla a una persona; `pendiente`: está por arrancar. Uno que no se conoce se trata como en curso.
+ */
+export type EstadoInscripcion = 'activa' | 'respondio' | 'handoff' | 'pendiente' | 'pausada' | 'completada' | 'no_responde' | 'cancelada' | (string & {});
+/**
+ * Cómo quedó un envío, el de `nutricion_envios.estado` ('enviado', 'fallo', 'saltado', 'omitido', 'borrador', 'accion').
+ * ⚠️ NO hay «entregado» ni «leído» por envío (Automations, 23/10/2026): no se inventa.
+ */
+export type EstadoEnvio = string;
 export type EnvioVista = { at: string; paso: string | null; canal: string | null; estado: EstadoEnvio; error: string | null };
 export type InscripcionVista = {
   secuenciaId: number; nombre: string; link: string;
@@ -114,16 +120,52 @@ export type InscripcionVista = {
   termino: { at: string | null; texto: string } | null;
   /** Lo que ya le salió en ESTA inscripción, del más nuevo al más viejo. */
   enviados: EnvioVista[];
-  puede: { frenar: boolean; empezarDeNuevo: boolean };
-  /** «Una sola vez» o «Cada vez que vuelve a entrar» (null = no se sabe). */
-  reentrada: 'una_vez' | 'siempre' | null;
+  /** `porQueNo`: por qué no se puede empezar de nuevo (frenada, en pausa, con una persona). */
+  puede: { frenar: boolean; empezarDeNuevo: boolean; porQueNo?: string };
+  /** «Una sola vez», «Otra reunión» o «Cada vez que vuelve a entrar» (null = no se sabe), y su rótulo. */
+  reentrada: 'una_vez' | 'otra_reunion' | 'siempre' | null;
+  reentradaTexto?: string | null;
 };
 /** Una vez que se lo movió a una etapa con una automatización y NO entró, con el porqué ya dicho en palabras. */
 export type NoEntroVista = { secuenciaId: number; nombre: string; at: string | null; texto: string };
 export type AutomatizacionesVista = { vivas: InscripcionVista[]; terminadas: InscripcionVista[]; noEntro: NoEntroVista[] };
 
-const VIVOS: readonly EstadoInscripcion[] = ['activa', 'respondio', 'pausada'];
-export const estaViva = (i: Pick<InscripcionVista, 'estado'>): boolean => VIVOS.includes(i.estado);
+const TERMINADOS: readonly string[] = ['completada', 'no_responde', 'cancelada'];
+/** Viva = no terminó (corriendo, por arrancar, en pausa, con una persona o frenada porque contestó). */
+export const estaViva = (i: Pick<InscripcionVista, 'estado'>): boolean => !TERMINADOS.includes(i.estado);
+
+/** Lo que no entró, en una frase: «No volvió a entrar a «X»: ya entró una vez y su reentrada es «Una sola vez» (va en el paso 2).» */
+function fraseNoEntro(n: { nombre: string; texto?: string | null; porque?: string | null }, paso?: { numero: number } | null): string {
+  if (!n.texto?.trim()) return textoDeNoEntro({ nombre: n.nombre, porque: n.porque ?? '', paso });
+  return `No volvió a entrar a «${n.nombre}»: ${n.texto.trim()}${paso ? ` (va en el paso ${paso.numero})` : ''}.`;
+}
+
+/** Cuántas veces que no entró se dicen: la última de cada automatización, las más nuevas. */
+const TOPE_NO_ENTRO = 3;
+
+/**
+ * EL DETALLE DE AUTOMATIONS → LA VISTA DEL BLOQUE. Las vivas arriba y las terminadas (30 días) abajo; lo enviado con el paso
+ * en palabras; y lo que no entró, la última vez por automatización, con el paso en el que está (lo cruza acá: el `NoEntro`
+ * no lo trae, y siempre hay una inscripción, porque sólo no entra quien ya tiene una).
+ */
+export function vistaDeDetalle(d: AutomatizacionesDelLead): AutomatizacionesVista {
+  const inscripciones: InscripcionVista[] = d.inscripciones.map((i) => ({
+    secuenciaId: i.secuenciaId, nombre: i.nombre, link: i.link, estado: i.estado, automatizacionActiva: i.automatizacionActiva,
+    paso: i.paso, proximo: i.proximo ? { at: i.proximo.at, titulo: i.proximo.titulo || null } : null,
+    frenado: i.frenado ? { texto: i.frenado.texto, corto: i.frenado.corto } : null,
+    termino: i.termino, puede: i.puede, reentrada: i.reentrada, reentradaTexto: i.reentradaTexto,
+    enviados: i.enviados.map((e) => ({ at: e.at, paso: e.paso ? `Paso ${e.paso.numero}: ${e.paso.titulo}` : null, canal: e.canal, estado: e.estado, error: e.error })),
+  }));
+  const vistas = new Set<number>();
+  const noEntro: NoEntroVista[] = [];
+  for (const n of [...d.noEntro].sort((a, b) => (b.at ?? '').localeCompare(a.at ?? ''))) {
+    if (vistas.has(n.secuenciaId) || noEntro.length >= TOPE_NO_ENTRO) continue;
+    vistas.add(n.secuenciaId);
+    const paso = inscripciones.find((i) => i.secuenciaId === n.secuenciaId && estaViva(i))?.paso ?? null;
+    noEntro.push({ secuenciaId: n.secuenciaId, nombre: n.nombre, at: n.at, texto: fraseNoEntro(n, paso) });
+  }
+  return { vivas: inscripciones.filter(estaViva), terminadas: inscripciones.filter((i) => !estaViva(i)), noEntro };
+}
 
 /** La lista de siempre (sólo las vivas, sin lo enviado) pasada a la vista del bloque. */
 export function vistaDeEnAutomatizacion(auts: readonly EnAutomatizacion[]): AutomatizacionesVista {
@@ -147,6 +189,8 @@ export type TonoChip = 'mako' | 'gris' | 'ok' | 'mal';
 export function chipDeInscripcion(i: InscripcionVista): { texto: string; tono: TonoChip } {
   switch (i.estado) {
     case 'respondio': return { texto: 'Respondió', tono: 'ok' };
+    case 'handoff': return { texto: 'Con una persona', tono: 'gris' };
+    case 'pendiente': return { texto: 'Por arrancar', tono: 'mako' };
     case 'completada': return { texto: 'Terminó', tono: 'gris' };
     case 'no_responde': return { texto: 'Terminó sin respuesta', tono: 'gris' };
     case 'cancelada': return { texto: 'La frenaron', tono: 'gris' };
@@ -170,6 +214,7 @@ export function lineaDelPaso(i: Pick<InscripcionVista, 'paso'>): string | null {
 export function lineaDelProximo(i: InscripcionVista, fecha: (iso: string) => string): string {
   if (!estaViva(i)) return i.termino?.texto ?? 'Terminó.';
   if (i.estado === 'respondio') return 'Se frenó porque respondió: no le sale nada más de esta automatización.';
+  if (i.estado === 'handoff') return 'MaKo le pasó la charla a una persona: la automatización no le escribe más.';
   if (i.estado === 'pausada') return 'En pausa: no le sale nada hasta que se reanude.';
   if (!i.automatizacionActiva) return 'La automatización está en pausa: el lead quedó en su paso y no le sale nada hasta que se active.';
   if (i.frenado) return i.frenado.texto;
@@ -177,14 +222,18 @@ export function lineaDelProximo(i: InscripcionVista, fecha: (iso: string) => str
   return `Lo próximo${i.proximo.titulo ? `: ${i.proximo.titulo}` : ''} · ${fecha(i.proximo.at)}`;
 }
 
-const NOMBRE_ESTADO_ENVIO: Record<EstadoEnvio, string> = { pendiente: 'Por salir', enviado: 'Enviado', entregado: 'Entregado', leido: 'Leído', fallo: 'Falló' };
+const NOMBRE_ESTADO_ENVIO: Readonly<Record<string, string>> = {
+  enviado: 'Enviado', fallo: 'Falló', saltado: 'Se saltó', omitido: 'No salió', borrador: 'Quedó en borrador, sin mandar', accion: 'Hecho', pendiente: 'Por salir',
+};
+const TONO_ENVIO: Readonly<Record<string, TonoChip>> = { enviado: 'ok', accion: 'ok', fallo: 'mal' };
 const NOMBRE_CANAL: Record<string, string> = { whatsapp: 'WhatsApp', email: 'Email', instagram: 'Instagram', sms: 'SMS' };
 
 /** Un envío: «Entregado · WhatsApp · 23 oct, 09:00» o «Falló: el número no tiene WhatsApp · …». */
 export function lineaDelEnvio(e: EnvioVista, fecha: (iso: string) => string): { texto: string; tono: TonoChip } {
   const canal = e.canal ? ` · ${NOMBRE_CANAL[e.canal] ?? e.canal}` : '';
-  const estado = e.estado === 'fallo' && e.error ? `Falló: ${e.error}` : NOMBRE_ESTADO_ENVIO[e.estado];
-  return { texto: `${estado}${canal} · ${fecha(e.at)}`, tono: e.estado === 'fallo' ? 'mal' : e.estado === 'pendiente' ? 'gris' : 'ok' };
+  const nombre = NOMBRE_ESTADO_ENVIO[e.estado] ?? (e.estado ? e.estado[0].toUpperCase() + e.estado.slice(1) : 'Sin estado');
+  const estado = e.error && e.estado !== 'enviado' && e.estado !== 'accion' ? `${nombre}: ${e.error}` : nombre;
+  return { texto: `${estado}${canal} · ${fecha(e.at)}`, tono: TONO_ENVIO[e.estado] ?? 'gris' };
 }
 
 /** La pregunta antes de «Empezar de nuevo»: nombra a quién y dónde, y que le vuelve a escribir desde el paso 1. */
@@ -229,9 +278,10 @@ export function noEntroDelMovimiento(r: unknown): string[] {
   return lista.flatMap((x) => {
     if (!x || typeof x !== 'object') return [];
     const o = x as { texto?: unknown; nombre?: unknown; porque?: unknown; paso?: { numero?: unknown } | null };
-    if (typeof o.texto === 'string' && o.texto.trim()) return [o.texto.trim()];
-    if (typeof o.nombre !== 'string') return [];
+    const texto = typeof o.texto === 'string' ? o.texto : null;
     const n = o.paso && typeof o.paso.numero === 'number' ? { numero: o.paso.numero } : null;
-    return [textoDeNoEntro({ nombre: o.nombre, porque: typeof o.porque === 'string' ? o.porque : '', paso: n })];
+    // El `texto` de Automations es el motivo SIN el nombre: con el nombre, la frase entera.
+    if (typeof o.nombre === 'string') return [fraseNoEntro({ nombre: o.nombre, texto, porque: typeof o.porque === 'string' ? o.porque : null }, n)];
+    return texto?.trim() ? [texto.trim()] : [];
   });
 }

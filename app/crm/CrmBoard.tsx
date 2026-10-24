@@ -998,7 +998,9 @@ export function CrmBoard({
       // embudo; si era una huérfana (la tarjeta se dibujaba en la entrada), la columna de
       // donde salió — la acción rechaza una etapa que el producto no tiene.
       const volverA = stageKeys.has(r.antes) ? r.antes : from;
-      mostrarAviso(`Movido a ${destino}`, () => {
+      // Por qué no entró a una automatización de la etapa (23/10/2026), también para un agregado.
+      const noEntro = noEntroDelMovimiento(r);
+      mostrarAviso(`Movido a ${destino}${noEntro.length ? `. ${noEntro.join(' ')}` : ''}`, () => {
         setLocalStage((m) => ({ ...m, [id]: volverA }));
         startTransition(async () => {
           const d = await moverEtapaEnProductoAction(id, producto, volverA)

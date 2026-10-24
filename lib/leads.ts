@@ -52,6 +52,7 @@ import { juntaACancelar } from './recordatorio-lead';
 // inscribe al instante y cuándo una reserva limpia la etapa puesta a mano.
 import { entraAEtapaDeReunion } from './nutricion-familias';
 import { limpiaEtapaAlReservar } from './nutricion-etapa';
+import type { InformeMovimiento } from './reentrada';
 import type { Stage, StageDerivable } from './pipeline';
 import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey, pipelineStageOf, MAKO_SETTER } from './pipeline';
 // El funnel vive en lib/funnels.ts desde la mig 0170. Acá se usa el lector DEL
@@ -3016,8 +3017,14 @@ export async function setPipelineStage(
      *     para tapar un requisito: si se saltea, se saltea DICIÉNDOLO.
      */
     requisitos?: 'validar' | { omitir: string };
+    /**
+     * Lo movió una PERSONA (el CRM, `setLeadStageAction`), no el motor, MaKo ni un lote. Sólo así, si no vuelve a entrar a
+     * una automatización de la etapa, se dice por qué: en el historial y en `automatizaciones` (el informe del movimiento,
+     * que la pantalla muestra). Sin esto, `automatizaciones` vuelve null.
+     */
+    porPersona?: boolean;
   },
-): Promise<void> {
+): Promise<{ automatizaciones: InformeMovimiento | null }> {
   const supabase = (await getTenantDb());
   const estado = terminalEstadoFor(stageKey);
   const antes = await getLead(id);
@@ -3093,6 +3100,8 @@ export async function setPipelineStage(
   //    con su propio `before`, logLeadChanges descarta lo repetido.
   const autor = await autorDelMovimiento(opts?.autor);
   await logLeadChanges(id, antes, await getLead(id), autor);
+  /** En qué automatizaciones de la etapa entró y en cuáles no (sólo con `porPersona`). */
+  const informe: InformeMovimiento | null = opts?.porPersona ? { entro: [], noEntro: [] } : null;
 
   // 4) Si el movimiento se salteó los requisitos, el POR QUÉ va al historial junto
   //    al movimiento. Sin esta línea el salteo es indistinguible de un movimiento
@@ -3113,8 +3122,10 @@ export async function setPipelineStage(
     // Automations): el kanban, el ⚡ y las confirmaciones mueven por ACÁ, y su CRON esperaba al barrido de la hora.
     // Contra la etapa que SE VEÍA (moverlo a la misma no vuelve a inscribir), y `enrolarPorEvento` no duplica una
     // inscripción viva. Nunca tira: el movimiento ya se escribió.
-    await enrolarPorEtapaDerivada(id, stageKey, antes.funnel_id ?? null);
+    // Movido por una persona: en cuáles entró y en cuáles no, con su porqué, vuelven en el informe (23/10/2026).
+    await enrolarPorEtapaDerivada(id, stageKey, antes.funnel_id ?? null, informe ? { persona: autor, informe } : undefined);
   }
+  return { automatizaciones: informe };
 }
 
 /**
@@ -3244,10 +3255,14 @@ async function auditarEtapaDeLaReserva(leadId: number, antes: string, despues: L
  * dinámico (lib/nutricion.ts importa este módulo) y nunca tira: el guardado del lead no puede fallar por la
  * nutrición; lo que no entre, lo levanta el barrido de la hora.
  */
-async function enrolarPorEtapaDerivada(leadId: number, etapa: string, funnelId: number | null): Promise<void> {
+async function enrolarPorEtapaDerivada(
+  leadId: number, etapa: string, funnelId: number | null,
+  // La persona que lo movió (`setPipelineStage` con `porPersona`): ver `CtxEvento.persona`, lib/nutricion.ts.
+  quien?: { persona: string; informe: InformeMovimiento },
+): Promise<void> {
   try {
     const { enrolarPorEvento } = await import('./nutricion');
-    await enrolarPorEvento(leadId, 'etapa', { etapa, funnelId });
+    await enrolarPorEvento(leadId, 'etapa', { etapa, funnelId, ...(quien ?? {}) });
   } catch (e) {
     console.error(`[leads] no pude enrolar al lead ${leadId} por llegar a «${etapa}»:`, e instanceof Error ? e.message : String(e));
   }
