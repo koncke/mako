@@ -6527,6 +6527,31 @@ error de un tercero (o de la base) se propaga ENTERO hasta la fila que alguien v
 
 ---
 
+## Archivar no es cerrar: los borradores de una automatización archivada seguían vivos (24/10/2026, ws13)
+
+**Síntoma.** El 24/10 la #264 del ws13 tenía 4 inscripciones en 'respondio' que llevaban 4 días frenadas, y cada 6 horas
+el motor les corría el próximo envío. Las frenaba un borrador pendiente de cada lead (`tieneBorradorNutriPendiente`).
+Esos borradores eran del paso 5 de la #241, que se había archivado el 20/10. Si alguien del cliente aprobaba uno, al lead
+le salía un mensaje escrito para un flujo que ya no corre. Además, en el mismo instante, la #264 disparaba un «Nuevo
+agendado» tardío sobre un lead ya trabajado, y Monica Fantoni estaba en la lista de los leads sin aviso.
+**Causa.** `archivarSecuencias` (lib/secuencias-huecos.ts) cancelaba las inscripciones 'activa' y 'pendiente' y no tocaba
+nada más. El mismo día pasó dos veces: acá y con las 7 confirmaciones del CRM.
+**Regla.** Archivar una automatización decide en el mismo movimiento lo que dejó esperando. Ahora sus borradores pendientes
+pasan a 'descartado' (nunca se borran) con una línea en el historial de cada lead, y la API lo dice al confirmar y al
+terminar. **El motivo vive en el historial del lead porque `wa_borradores` no tiene dónde guardarlo:** quien lea esa tabla
+sola ve un descartado y no sabe por qué. Para auditarlo hay que cruzar con `lead_audit` (campo 'Automatización').
+Los 4 de la #241 se descartaron a mano el 24/10, con el mismo texto y el antes y el después medidos (`descartarBorrador`
+de la app). Las 4 inscripciones salieron con `sacarDeSecuencia`, que hace CAS sobre el estado leído. No se pasaron a
+'completada' porque eso dispara el desenlace.
+**Sin hacer.** Las pendientes de `mako_acciones_pendientes` con origen `flujo:secuencia:<id>` de una automatización
+archivada siguen vivas (lib/mako-pendientes.ts): aprobar una ejecuta la acción de un flujo muerto. Su forma de archivarlas
+('archivado', el motivo en `resolved_by`) es la que usa el CRM. Las inscripciones en 'respondio' tampoco se cancelan al
+archivar. No mandan nada porque una archivada queda pausada, pero quedan colgando.
+**Vive en:** `lib/secuencias-huecos.ts` (`archivarSecuencias`) · `lib/api-mako/areas/chatbot.run.ts` (`archivar_secuencia`)
+· `tests/archivar-descarta-borradores.test.ts`
+
+---
+
 ## Una inscripción ACTIVA con el envío vencido hace horas puede ser lo CORRECTO: es el horario del negocio (23/10/2026)
 
 El 23/10 a las 10:00 ART, las únicas tres inscripciones vencidas de toda la app eran del ws1 (Mauricio): la

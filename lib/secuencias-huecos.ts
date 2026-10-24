@@ -95,16 +95,24 @@ export async function huecosDeSecuencias(): Promise<HuecoSecuencia[]> {
  *
  * `ids` vacío = todas las vigentes del workspace ("empezar de cero").
  * Devuelve cuántas archivó.
+ *
+ * ⚠️ ARCHIVAR NO ES CERRAR (24/10/2026, ws13): también descarta sus BORRADORES pendientes. La #241 se archivó el 20/10
+ * y dejó cuatro borradores del paso 5 esperando aprobación. Aprobar uno días después le mandaba al lead un mensaje de un
+ * flujo que ya no corre, y mientras tanto frenaban la acción de OTRA automatización del mismo lead
+ * (`tieneBorradorNutriPendiente`): la #264 los tuvo cuatro días en 'respondio' esperando. Se descartan en el mismo
+ * movimiento, nunca se borran, y cada lead lo tiene en su historial: `wa_borradores` no tiene dónde guardar el motivo, y
+ * quien lea esa tabla sola no sabe por qué hay un descartado.
  */
-export async function archivarSecuencias(ids?: number[]): Promise<{ archivadas: number; inscripcionesCanceladas: number }> {
+export async function archivarSecuencias(ids?: number[]): Promise<{ archivadas: number; inscripcionesCanceladas: number; borradoresDescartados: number }> {
   const supabase = await getTenantDb();
   const ahora = new Date().toISOString();
 
-  let q = supabase.from('nutricion_secuencias').select('id').is('archivada_at', null);
+  let q = supabase.from('nutricion_secuencias').select('id, nombre').is('archivada_at', null);
   if (ids?.length) q = q.in('id', ids);
   const { data } = await q;
-  const objetivo = ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
-  if (!objetivo.length) return { archivadas: 0, inscripcionesCanceladas: 0 };
+  const filas = (data ?? []) as Array<{ id: number; nombre: string | null }>;
+  const objetivo = filas.map((r) => r.id);
+  if (!objetivo.length) return { archivadas: 0, inscripcionesCanceladas: 0, borradoresDescartados: 0 };
 
   const { error } = await supabase
     .from('nutricion_secuencias')
@@ -123,7 +131,23 @@ export async function archivarSecuencias(ids?: number[]): Promise<{ archivadas: 
     .in('estado', ['activa', 'pendiente'])
     .select('id');
 
-  return { archivadas: objetivo.length, inscripcionesCanceladas: (canc ?? []).length };
+  // Sus borradores pendientes (ver el ⚠️ de arriba), con una línea en el historial de cada lead. Un fallo acá no
+  // deshace el archivo: la secuencia ya no envía, y lo que quede pendiente se puede descartar después.
+  const { data: borr, error: eBorr } = await supabase.from('wa_borradores').update({ estado: 'descartado' })
+    .in('secuencia_id', objetivo).eq('estado', 'pendiente').select('lead_id, secuencia_id');
+  if (eBorr) console.error(`[secuencias] archivar ${objetivo.join(',')}: no pude descartar sus borradores: ${eBorr.message}`);
+  const descartados = (borr ?? []) as Array<{ lead_id: number | null; secuencia_id: number | null }>;
+  const nombreDe = new Map(filas.map((f) => [f.id, f.nombre?.trim() || `#${f.id}`]));
+  const historial = descartados.filter((b) => b.lead_id != null).map((b) => ({
+    lead_id: b.lead_id, campo: 'Automatización', valor_anterior: null, autor: 'MaKo',
+    valor_nuevo: `Borrador descartado al archivar «${nombreDe.get(Number(b.secuencia_id)) ?? 'la automatización'}»: su mensaje ya no corresponde. No se le mandó nada.`,
+  }));
+  if (historial.length) {
+    const { error: eAud } = await supabase.from('lead_audit').insert(historial);
+    if (eAud) console.error(`[secuencias] archivar: no pude anotar los borradores descartados: ${eAud.message}`);
+  }
+
+  return { archivadas: objetivo.length, inscripcionesCanceladas: (canc ?? []).length, borradoresDescartados: descartados.length };
 }
 
 /** Devuelve una secuencia archivada al listado, PAUSADA: prenderla es una decisión aparte. Sin el

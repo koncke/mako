@@ -1478,14 +1478,14 @@ export const RUNNERS: Runners = {
       if (!s) return { error: `No existe la secuencia #${id} en este negocio.` };
       if (s.archivada_at) return { error: `La secuencia «${s.nombre}» ya está archivada.` };
       const vivas = await inscripcionesVivas(id);
-      return { payload: { secuenciaId: id }, resumen: `Archivar «${s.nombre}» y cancelar ${vivas ?? 'sus'} inscripciones vivas (esos leads no pueden volver a entrar)` };
+      return { payload: { secuenciaId: id }, resumen: `Archivar «${s.nombre}» y cancelar ${vivas ?? 'sus'} inscripciones vivas (esos leads no pueden volver a entrar), y descartar sus borradores sin mandar` };
     },
     ejecutar: async (payload) => {
       const id = Number(payload.secuenciaId);
       // archivarSecuencias([]) o sin ids archiva TODAS las del negocio: el id se exige acá.
       if (!Number.isInteger(id) || id < 1) return { ok: false, resumen: 'Falta el id de la secuencia.' };
       const r = await archivarSecuencias([id]);
-      return r.archivadas ? { ok: true, resumen: `Secuencia #${id} archivada; ${r.inscripcionesCanceladas} inscripciones canceladas.` } : { ok: false, resumen: 'La secuencia ya estaba archivada o no existe.' };
+      return r.archivadas ? { ok: true, resumen: `Secuencia #${id} archivada; ${r.inscripcionesCanceladas} inscripciones canceladas${r.borradoresDescartados ? ` y ${r.borradoresDescartados} borradores sin mandar descartados` : ''}.` } : { ok: false, resumen: 'La secuencia ya estaba archivada o no existe.' };
     },
   },
 

@@ -2534,4 +2534,20 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "24 oct", hora: "02:30", chat: "Automations", cuenta: "claude1",
+    sesion: "local_298a7983-21a5-4fcb-a5c5-bf80bc9e0944",
+    actor: "claude", tipo: "correccion",
+    titulo: "Archivar una automatización ya no deja sus borradores esperando aprobación",
+    puntos: [
+      "Al archivar, los mensajes que esperaban aprobación se descartan (no se borran), y cada lead lo tiene en su historial.",
+      "Antes quedaban en la bandeja: aprobar uno días después le mandaba al lead el mensaje de un flujo que ya no corre.",
+      "Y frenaban otra automatización del mismo lead: en el ws13, la #264 tuvo cuatro leads cuatro días esperando.",
+    ],
+    archivos: [
+      "lib/secuencias-huecos.ts — archivar descarta los borradores pendientes y lo anota",
+      "lib/api-mako/areas/chatbot.run.ts — archivar_secuencia lo dice al confirmar y al terminar",
+    ],
+    revisar: "/automations",
+  },
 ];
