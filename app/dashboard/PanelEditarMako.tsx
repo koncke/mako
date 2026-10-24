@@ -176,7 +176,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
       // 1 · ENTENDER EL PEDIDO (docs/diseno-mako-pedidos.md, «El punto de enganche»): lo de esta hoja sigue a la
       //     edición de siempre; lo demás —otra hoja, otra tab, crear otra— son burbujas (./pedidos-hoja.ts). Si la ruta
       //     falla o tarda más de `PLAZO_PEDIDOS_MS`, el mensaje entero es de esta hoja: lo de antes, sin regresión.
-      const r = await pedirPedidos({ texto: mensaje, tab: TAB_DEL_INFORME[informe], actualId: enviada.id, actualNombre: enviada.nombre }, { ms: PLAZO_PEDIDOS_MS, signal: c.signal });
+      const r = await pedirPedidos({ texto: mensaje, tab: informe === 'general' ? TAB_DEL_INFORME.general : TAB_DEL_INFORME.dashboard, actualId: enviada.id, actualNombre: enviada.nombre }, { ms: PLAZO_PEDIDOS_MS, signal: c.signal });
       if (ctrl.current !== c) return;
       const interpretacion = interpretacionDe(r, mensaje);
       const deEstaHoja = textoActual(interpretacion);
