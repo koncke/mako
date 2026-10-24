@@ -39,7 +39,7 @@ medilo contra `main` (puede haber cambiado).
 | El remitente de Resend dice «falta»; la ayuda de un campo es «Cómo configurarlo» (puntos 13 y 15 de Customer Success) | `e0692c54` | `docs/hallazgos-integraciones.md` |
 | 13/10: el Pixel pegado dos veces ya no cuenta doble (sin subir la versión, a propósito) | rama `cierre-integraciones` | `docs/hallazgos-landing.md` |
 | 13/10: el «opcional» de un tutorial se comprueba en los 19 servicios; el recuadro amarillo y las slides caben en 120 | rama `cierre-integraciones` | `docs/hallazgos-integraciones.md` |
-| 23/10: el puente de leads de Meta por Zapier o Make (receptor, tarjeta, guía), probado en el ws3 | rama `integ-zapier-2310`, sin pushear | `docs/hallazgos-integraciones.md`, `docs/guia-leads-por-zapier.md` |
+| 23/10: el puente de leads de Meta por Make o Zapier (receptor, tarjeta, guía; Make es el principal y los dos son de pago, decisión de Martín), probado en el ws3 | rama `integ-zapier-2310`, sin pushear | `docs/hallazgos-integraciones.md`, `docs/guia-leads-por-zapier.md` |
 
 ⚠️ **No se vuelve a un deploy anterior a `dc25a921`**: los tokens ya están en hash y el código viejo
 no los sabe leer (las tres skills instaladas dejarían de autenticar).
@@ -96,7 +96,8 @@ no los sabe leer (las tres skills instaladas dejarían de autenticar).
 - **Verlo con clics**: el formulario de integraciones nuevo (ws3).
 - **El puente de leads por Zapier (23/10/2026):** falta (1) el aviso por WhatsApp de «hace X horas sin leads» (el molde es
   `tracking-apagado`; hoy la señal es la tarjeta ámbar a las 72 h) y (2) probarlo con un Zap real de un negocio: los nombres
-  de los campos del trigger de Zapier y la salida de Make no están medidos, y MaKo devuelve en `sin_usar` lo que no leyó.
+  de los campos de «Watch Leads» de Make y del trigger de Zapier no están medidos (cuál módulo conviene, «New Lead» por webhook o «Watch Leads» por
+  intervalo —éste gasta 1 crédito por corrida aunque venga vacía, confirmado—, y si el de webhook llega al instante), y MaKo devuelve en `sin_usar` lo que no leyó.
 - ~~Un uso real de una skill después de convertir los tokens~~: medido el 13/10 en sólo lectura
   (`app_settings.api_tokens_uso`). La skill del ws11 autenticó el 11/10 a las 23:25 UTC, dos días después de la
   conversión (09/10, ~17:40 UTC): el token clásico por hash anda. La del ws1 no se usa desde el 09/10 a las 03:02

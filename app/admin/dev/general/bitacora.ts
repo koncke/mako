@@ -648,4 +648,17 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/dashboard-focus.ts', 'app/dashboard/page.tsx', 'app/dashboard/FocusDeGeneral.tsx', 'app/dashboard/PestanasDashboard.tsx', 'app/general/page.tsx', 'app/m/hoy/page.tsx', 'tests/dashboard-focus.test.ts — probado rompiéndolo'],
     revisar: '/dashboard',
   },
+  {
+    fecha: '23 oct', hora: '20:20', chat: 'Rendimiento y loaders', sesion: "local_1c58f6ef-9076-48da-a3ae-1c9915dbe834", cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: abrir General ya no rompe la pantalla',
+    pedido: 'Ticket #7: al abrir General la pantalla se rompió («Minified React error #310»)',
+    puntos: [
+      'Abrir General lleva directo al Dashboard, como antes del 23/10.',
+      'La causa: el loader que se le puso a General esa tarde; General sólo redirige al Dashboard, y con el loader el salto quedaba a medio camino.',
+      'El Dashboard sigue mostrando su loader.',
+    ],
+    archivos: ['app/general/loading.tsx (borrado)', 'tests/cargando-mako.test.ts', 'tests/layout-sin-suspense.test.ts'],
+    revisar: '/general',
+    tickets: [7],
+  },
 ];

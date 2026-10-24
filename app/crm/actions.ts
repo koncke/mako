@@ -127,9 +127,9 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual, rutaConWs } from '@/lib/workspace';
 import { TopeDelPlanError, frenarAltaPorTope } from '@/lib/topes-crm';
 import { ofrecePartners } from './partners-crm';
-import type { EstadoDatos } from '@/lib/datos-aviso';
+import { avisanDelLead, type EstadoDatos } from '@/lib/datos-aviso';
 // La ficha del funnel del lead y «N sin marcar»: las MISMAS lecturas que la ficha del teléfono (app/m/crm/datos.ts).
-import { fichaDelFunnelDelLead, type FichaDelFunnel } from '@/lib/ficha/config-server';
+import { apagadosDeFunnel, fichaDelFunnelDelLead, type FichaDelFunnel } from '@/lib/ficha/config-server';
 import { datosSinMarcarDeLead, leerInsumosDatosLead } from '@/lib/datos-del-lead';
 import { rolDeFicha, vePrivado, type RolFicha } from '@/lib/ficha/registro';
 import { tabEnCapa } from '@/lib/capas';
@@ -181,6 +181,7 @@ import { urlGravatar } from '@/lib/gravatar';
 import { type VisitasMap } from './crm-map';
 import { TOPE_NOTA, BUCKET_NOTAS_LEAD, pathEsNotaDelLead } from './notas-reglas';
 import { esMimeNota, TOPE_NOTA_BYTES, nombreDeAdjunto } from '@/app/customer-success/curso/reglas';
+import type { InformeMovimiento } from '@/lib/reentrada';
 
 /** Análisis de llamadas (Closing Analyst) matcheados a este lead. */
 export type LeadInsightRow = {
@@ -564,8 +565,13 @@ export async function requisitosDeEtapaAction(id: number, to: string, d: StageMo
  */
 export type StageMoveResultado =
   /** `sinTocar`: las cuotas que el plan no pudo cambiar (link sin pagar o recordatorio corriendo), dichas. */
-  | { ok: true; pendientes?: Step[]; sinTocar?: string; deshacer?: TokenDeshacer }
+  /** `automatizaciones`: en cuáles de la etapa entró y en cuáles NO, con su porqué (23/10/2026; sólo si hay algo que decir). */
+  | { ok: true; pendientes?: Step[]; sinTocar?: string; deshacer?: TokenDeshacer; automatizaciones?: InformeMovimiento }
   | { ok: false; faltan: Step[]; mensaje: string };
+
+/** El informe de las automatizaciones del movimiento, sólo si hay algo que decir (entró o no entró a alguna). */
+const conInforme = (i: InformeMovimiento | null | undefined): { automatizaciones?: InformeMovimiento } =>
+  i && (i.entro.length || i.noEntro.length) ? { automatizaciones: i } : {};
 
 /**
  * GUARDAR NUNCA SE BLOQUEA POR DATOS QUE FALTAN (decisión del 17/09, 08-T22).
@@ -585,6 +591,18 @@ export type StageMoveResultado =
  * Deja una línea en el historial para que se sepa que se guardó incompleto a
  * propósito y quién lo hizo — no es lo mismo que un dato que nadie vio.
  */
+/**
+ * LO PENDIENTE QUE AVISA (23/10/2026): de lo que la etapa pide y falta, lo que es obligatorio en el funnel del lead y no
+ * se ignoró en él (`avisanDelLead`, la regla de «N sin marcar»). Martín: «me obligas a hacer obligatorio un dato que no
+ * quería que lo fuera»: el toast del movimiento decía «Queda pendiente: Empresa» con la empresa apagada, y quedaba en el
+ * historial. Sin poder leer los avisos del funnel, lo de siempre (mejor de más que callar).
+ */
+async function pendientesQueAvisan(lead: Lead | null, faltan: Step[]): Promise<Step[]> {
+  if (!lead || !faltan.length) return faltan;
+  const apagados = await apagadosDeFunnel(lead.funnel_id ?? null).catch(() => null);
+  return apagados ? avisanDelLead(faltan, lead, apagados) : faltan;
+}
+
 async function registrarPendientes(id: number, faltan: Step[], autor: string): Promise<void> {
   if (!faltan.length) return;
   const valor = faltan.map((f) => f.label).join(' · ');
@@ -803,12 +821,14 @@ export async function completeStageMoveAction(
   // único que el movimiento sincronizaba y no se guarda por otro lado es el monto de un Ganado.
   const etapaReal = (l: Lead | null): string =>
     (l?.pipeline_stage && stagesMove.some((s) => s.key === l.pipeline_stage) ? l.pipeline_stage : l ? deriveStageKey(l as unknown as StageDerivable) : to);
+  // Lo mueve una persona: en cuáles automatizaciones de la etapa entró y en cuáles no, con su porqué (23/10/2026).
+  let informe: InformeMovimiento | null = null;
   if (d.soloCompletar && before) {
     if (before.estado_lead === 'ganado' && d.monto != null && d.monto !== before.monto_cierre_usd) {
       await updateLead(id, { monto_cierre_usd: d.monto });
     }
   } else {
-    await setPipelineStage(id, to, { monto: d.monto ?? null, motivo: d.motivo ?? null });
+    await setPipelineStage(id, to, { monto: d.monto ?? null, motivo: d.motivo ?? null, porPersona: true }).then((m) => { informe = m.automatizaciones; });
   }
 
   const after = await getLead(id).catch(() => null);
@@ -816,7 +836,7 @@ export async function completeStageMoveAction(
   // Lo que todavía falta, medido sobre el lead guardado — en la etapa donde QUEDÓ.
   const etapaFinal = d.soloCompletar && after ? etapaReal(after) : to;
   const pagosDespues = etapaFinal === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
-  const pendientes = after ? stepsForStage(etapaFinal, valoresDeRequisitos(etapaFinal, after, pagosDespues, stagesMove, {}, grabable)) : [];
+  const pendientes = await pendientesQueAvisan(after, after ? stepsForStage(etapaFinal, valoresDeRequisitos(etapaFinal, after, pagosDespues, stagesMove, {}, grabable)) : []);
   await registrarPendientes(id, pendientes, autor);
   // ⚠️ ANTES de firmar (revisión del 17/10/2026): escrita después por `resolverQueHacerAction`, la línea quedaba
   // afuera de las que borra el Deshacer y el historial contaba un movimiento que ya no existía.
@@ -826,7 +846,7 @@ export async function completeStageMoveAction(
   revalidatePath('/crm');
   revalidatePath(`/crm/${id}`);
   revalidatePath('/general');
-  return { ok: true, pendientes, ...(sinTocar ? { sinTocar } : {}), ...(deshacer ? { deshacer } : {}) };
+  return { ok: true, pendientes, ...(sinTocar ? { sinTocar } : {}), ...(deshacer ? { deshacer } : {}), ...conInforme(informe) };
 }
 
 /**
@@ -1340,17 +1360,18 @@ export async function setLeadStageAction(
   ]);
   const autor = await autorActual();
   const foto = await empezarDeshacer(id, before, false);
-  await setPipelineStage(id, stageKey, { ...opts, autor });
+  // Lo mueve una persona (con sesión): si no vuelve a entrar a una automatización de la etapa, se le dice por qué.
+  const { automatizaciones } = await setPipelineStage(id, stageKey, { ...opts, autor, porPersona: true });
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, autor);
   const pagosDespues = stageKey === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
-  const pendientes = after ? stepsForStage(stageKey, valoresDeRequisitos(stageKey, after, pagosDespues, stagesMove, {}, grabable)) : [];
+  const pendientes = await pendientesQueAvisan(after, after ? stepsForStage(stageKey, valoresDeRequisitos(stageKey, after, pagosDespues, stagesMove, {}, grabable)) : []);
   await registrarPendientes(id, pendientes, autor);
   const deshacer = await cerrarDeshacer(id, foto, after, autor);
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/crm');
   revalidatePath('/general');
-  return { ok: true, pendientes, ...(deshacer ? { deshacer } : {}) };
+  return { ok: true, pendientes, ...(deshacer ? { deshacer } : {}), ...conInforme(automatizaciones) };
 }
 
 /**

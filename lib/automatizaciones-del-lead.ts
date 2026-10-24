@@ -13,9 +13,14 @@
 //     que también descarta sus borradores pendientes): no le sale nada más, y no se vuelve a abrir sola.
 // =============================================================================
 import 'server-only';
-import { getTenantDb } from '@/lib/workspace';
+import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { sacarDeSecuencia } from '@/lib/nutricion-salida-manual';
-import { enAutomatizacionesDe, textoDeFrenar, ESTADOS_VIVOS, type EnAutomatizacion, type FilaInscripcion, type FilaAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
+import {
+  enAutomatizacionesDe, textoDeFrenar, detalleDe, ESTADOS_VIVOS, DIAS_TERMINADAS, TOPE_NO_ENTRO,
+  type EnAutomatizacion, type FilaInscripcion, type FilaAutomatizacion, type AutomatizacionesDelLead,
+  type FilaInscripcionDetalle, type FilaEnvioDetalle, type FilaAuditDetalle,
+} from '@/lib/automatizaciones-del-lead-reglas';
+import { zonaDelNegocio } from '@/lib/timezone';
 import { frenosDelNegocio } from '@/lib/por-que-no-sale-db';
 
 export type { EnAutomatizacion };
@@ -43,9 +48,73 @@ export async function enAutomatizaciones(leadIds: readonly number[]): Promise<Ma
   return enAutomatizacionesDe(filas, automatizaciones, await frenosDelNegocio(filas, automatizaciones));
 }
 
+/**
+ * EL DETALLE DE UN LEAD, para el bloque «Automatizaciones» de la ficha (23/10/2026): sus inscripciones (las vivas y las
+ * terminadas de los últimos `DIAS_TERMINADAS` días) con el paso, lo próximo y su hora, por qué no le sale, sus envíos con
+ * su estado y su error, la reentrada y qué se puede hacer; y las veces que una persona lo movió a una etapa con
+ * automatización y no entró (del historial). Lo arma `detalleDe` (puro). Tira si no puede leer.
+ */
+export async function detalleDelLead(leadId: number): Promise<AutomatizacionesDelLead> {
+  const db = await getTenantDb();
+  const ws = await getWorkspaceActual();
+  const desde = new Date(Date.now() - DIAS_TERMINADAS * 86400_000).toISOString();
+  const [ins, aud, zona] = await Promise.all([
+    db.from('nutricion_inscripciones')
+      .select('id, lead_id, secuencia_id, estado, paso_actual, nodo_actual, proximo_envio_at, inscripto_at, updated_at, desenlace, desenlace_at')
+      .eq('lead_id', leadId).order('id', { ascending: false }).limit(100),
+    db.from('lead_audit').select('valor_nuevo, autor, created_at')
+      .eq('lead_id', leadId).eq('campo', 'Automatización').like('valor_nuevo', 'No volvió a entrar a «%')
+      .order('created_at', { ascending: false }).limit(TOPE_NO_ENTRO * 3),
+    ws == null ? Promise.resolve('UTC') : zonaDelNegocio(ws).catch(() => 'UTC'),
+  ]);
+  if (ins.error) throw new Error(`el detalle del lead (inscripciones): ${ins.error.message}`);
+  if (aud.error) throw new Error(`el detalle del lead (historial): ${aud.error.message}`);
+  const filas = (ins.data ?? []) as FilaInscripcionDetalle[];
+  const secIds = [...new Set(filas.map((f) => Number(f.secuencia_id)))];
+  if (!secIds.length) return { zona, inscripciones: [], noEntro: [] };
+  const [secs, envs] = await Promise.all([
+    db.from('nutricion_secuencias')
+      .select('id, nombre, activa, archivada_at, pasos, instance_name, trigger_tipo, etapa, etapas, disparadores, reentrada').in('id', secIds),
+    db.from('nutricion_envios').select('inscripcion_id, nodo_id, canal, estado, error, created_at')
+      .in('inscripcion_id', filas.map((f) => f.id)).gte('created_at', desde).order('created_at', { ascending: false }).limit(400),
+  ]);
+  if (secs.error) throw new Error(`el detalle del lead (automatizaciones): ${secs.error.message}`);
+  if (envs.error) throw new Error(`el detalle del lead (envíos): ${envs.error.message}`);
+  const automatizaciones = (secs.data ?? []) as Array<FilaAutomatizacion & Record<string, unknown>>;
+  // La reentrada la decide el motor (`reentradaDeSecuencia`: la guardada o, sin guardar, la regla de hoy).
+  const { reentradaDeSecuencia } = await import('@/lib/nutricion');
+  const reentradas = new Map(automatizaciones.map((s) => [Number(s.id), reentradaDeSecuencia({
+    ...(s as unknown as Parameters<typeof reentradaDeSecuencia>[0]), pasos: Array.isArray(s.pasos) ? s.pasos : [],
+  } as Parameters<typeof reentradaDeSecuencia>[0])] as const));
+  return detalleDe({
+    zona, filas, secs: automatizaciones, reentradaDe: (id) => reentradas.get(id) ?? 'una_vez',
+    envios: (envs.data ?? []) as FilaEnvioDetalle[], audit: (aud.data ?? []) as FilaAuditDetalle[],
+    frenoDe: await frenosDelNegocio(filas, automatizaciones), ahoraMs: Date.now(),
+  });
+}
+
 /** Saca al lead de UNA automatización: no le sale nada más. El texto es para la persona. */
 export async function frenarEnAutomatizacion(leadId: number, secuenciaId: number): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
   return textoDeFrenar(await sacarDeSecuencia(leadId, secuenciaId));
+}
+
+/**
+ * «EMPEZAR DE NUEVO» (23/10/2026, #289 del ws1): vuelve al primer paso una automatización en la que el lead está (o en la
+ * que contestó). La MISMA inscripción manual de siempre (`inscribirEnSecuencia` con `empezarDeNuevo`: sus puertas, el
+ * reclamo con compare-and-set y la vía rápida), y una línea en el historial firmada por quien lo pidió. Si no se puede, el
+ * porqué en palabras (`motivoNoInscribe`).
+ */
+export async function empezarDeNuevoEnAutomatizacion(leadId: number, secuenciaId: number, autor: string): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
+  const [{ inscribirEnSecuencia }, { motivoNoInscribe }, { logLeadEvent }] = await Promise.all([
+    import('@/lib/nutricion'), import('@/lib/nutricion-inscripcion-manual'), import('@/lib/leads'),
+  ]);
+  const r = await inscribirEnSecuencia(leadId, secuenciaId, { empezarDeNuevo: true });
+  if (!r.inscribe) return { ok: false, error: motivoNoInscribe(r.porque, { secuenciaId, secuencia: r.secuencia?.nombre, leadId, lead: r.lead?.nombre }) };
+  const linea = `${r.lead.nombre} empezó de nuevo «${r.secuencia.nombre}», desde el primer paso.`;
+  await logLeadEvent(leadId, 'Automatización', linea, autor).catch((e) => console.error(`[automatizaciones-del-lead] el historial de empezar de nuevo (lead ${leadId}):`, e instanceof Error ? e.message : e));
+  // Y si algo frena lo primero (el horario, el envío apagado), lo dice: «empezó» no es «le salió» (lib/por-que-no-sale.ts).
+  const ahora = await enAutomatizaciones([leadId]).then((m) => (m.get(leadId) ?? []).find((a) => a.secuenciaId === secuenciaId) ?? null).catch(() => null);
+  return { ok: true, resumen: ahora?.frenado ? `${linea} ${ahora.frenado.texto}` : linea };
 }
 
 /**

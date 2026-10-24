@@ -127,7 +127,7 @@ test('M1-b: una reunión cargada a mano inscribe al instante, sólo hacia una et
   assert.match(manual, /await updateLead\(leadId, input, \{ disparoDeEtapa: false \}\);/);
   assert.ok(manual.indexOf('enrolarPorEtapaDerivada(') > manual.indexOf("update({ pipeline_stage: null })"), 'dispara DESPUÉS de limpiar el override');
   assert.match(cuerpo(LEADS, 'export async function saveLeadMeta('), /if \(entraAEtapaDeReunion\(pipelineStageOf\(antes\), despues\)\) await enrolarPorEtapaDerivada\(/);
-  assert.match(cuerpo(LEADS, 'async function enrolarPorEtapaDerivada('), /await enrolarPorEvento\(leadId, 'etapa', \{ etapa, funnelId \}\);/);
+  assert.match(cuerpo(LEADS, 'async function enrolarPorEtapaDerivada('), /await enrolarPorEvento\(leadId, 'etapa', \{ etapa, funnelId, \.\.\.\(quien \?\? \{\}\) \}\);/);
 });
 
 test('M2: «prepara una reunión» por el TRIGGER de antes, por el TIPO de la etapa o por un DELAY «antes de la reunión»', () => {

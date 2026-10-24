@@ -223,10 +223,17 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     tutorial: {
       url: 'https://business.facebook.com/settings',
       urlLabel: 'Configuración del negocio en Meta',
+      // El camino que YA ANDA hoy, mientras la app de MaKo espera la revisión de Meta (23/10/2026): cada negocio
+      // conecta con SU app. Medido ese día en los 10 negocios conectados así (docs/hallazgos-ads.md, «Conectar con
+      // tu propia app»): métricas y leads andan en todos; publicar anuncios con creativo NUEVO anduvo sólo con una
+      // app activa (ws1), y la de ws13, en desarrollo, rebotó 14 de 14 con el 1885183.
+      // ⚠️ Y AUN ASÍ EL TUTORIAL NO PIDE PUBLICAR LA APP: es la regla de Martín del 16/09 («no me menciones más que el
+      // cliente tenga que publicar su app, esa no es opción», lib/meta-publicar-errores.ts). Un paso así entró y salió
+      // el mismo 23/10. Publicar con creativo nuevo va a ir por la Zernio del negocio (en construcción, 23/10).
+      // Estructura copiada de la guía de n8n para Facebook Lead Ads («Create the app»).
       pasos: [
-        'En business.facebook.com/settings → "Cuentas" → "Apps" anota tu app (si no hay: "Agregar" → "Crear un ID de app nueva").',
-        'En "Usuarios" → "Usuarios del sistema" crea uno de tipo "Administrador".',
-        'En "Agregar activos" dale "Control total" a tu cuenta publicitaria, página y píxel, y "Administrar app" a la app.',
+        'En developers.facebook.com/apps toca "Crear app", tipo "Negocio", con los casos de uso de anuncios y de leads.',
+        'En business.facebook.com/settings → "Usuarios del sistema" crea un "Administrador" con "Control total" de tus activos.',
         'Toca "Generar nuevo token": tu app, vencimiento "Nunca" y los 8 permisos: ads_read, ads_management, business_management, pages_show_list, pages_read_engagement, pages_manage_ads, leads_retrieval, pages_manage_metadata.',
         'Copia el token (empieza con EAA, se ve UNA vez) y pégalo en "Access token". MaKo completa el resto.',
       ],
@@ -749,39 +756,48 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
-  // EL PUENTE DE LEADS DE META POR ZAPIER O MAKE (23/10/2026, lib/zapier-lead.ts). La app de MaKo todavía no tiene
-  // `leads_retrieval` aprobado, así que el negocio manda sus leads desde un Zap: «Facebook Lead Ads → New Lead» y
-  // «Webhooks by Zapier → POST» a esta dirección. La clave la INVENTA el negocio (como la de Skool) y viaja en un header.
-  // Medido en la ayuda de Zapier el 23/10/2026 (NO con un Zap real): con «Data» en blanco manda todos los campos del paso
-  // anterior; el CRM se asigna en business.facebook.com/settings/leads-accesses (la app «Zapier», no «Zapier Inc.»); y
-  // si se edita el formulario, Facebook crea uno nuevo con otro id y el Zap sigue en el viejo.
+  // EL PUENTE DE LEADS DE META POR MAKE O ZAPIER (23/10/2026, lib/zapier-lead.ts). La app de MaKo todavía no tiene
+  // `leads_retrieval` aprobado, así que el negocio manda sus leads desde SU PROPIA cuenta de Make (o de Zapier): MaKo no paga
+  // ni comparte ninguna, como con las claves de IA. MAKE ES EL CAMINO PRINCIPAL (decisión de Martín, 23/10/2026) y Zapier la
+  // alternativa en una línea, y LOS DOS SON DE PAGO: Martín corrigió el mismo día que el plan Free de Make «NO trae la integración
+  // API… no nos sirve», así que NINGUNA pantalla dice «gratis» (tests/zapier-leads.test.ts). Make desde Core (US$9 al mes) y Zapier
+  // desde Professional (US$19,99 anual), leídos el 23/10/2026; la guía lleva la fecha y los links. La clave la INVENTA el negocio
+  // (como la de Skool) y viaja en un header. La key del servicio sigue siendo 'zapier': está guardada en la base, en el ruteo
+  // y en la ruta, y no se renombra con el nombre de la tarjeta.
+  //   · Make: «Facebook Lead Ads → Watch Leads» y «HTTP → Make a request» (POST, JSON) a esta dirección; en Leads Access se
+  //     asigna la app «Make». ⚠️ NO MEDIDO con una cuenta de Make: si «Watch Leads» es instantáneo (en la página del módulo
+  //     aparece sin esa etiqueta) o corre por el intervalo del plan (15 minutos en Free), y si una corrida vacía gasta crédito.
+  //     Por eso NADA de acá promete «al instante» ni cuántos leads aguanta un plan (tests/zapier-leads.test.ts).
+  //   · Zapier (medido en su ayuda, no con un Zap real): premium, plan Professional; con «Data» en blanco manda todos los
+  //     campos; se asigna la app «Zapier» (no «Zapier Inc.»).
+  //   · En los dos, si se edita el formulario Facebook crea uno nuevo con otro id y la automatización sigue en el viejo.
   {
     key: 'zapier',
-    nombre: 'Leads de Meta por Zapier',
+    nombre: 'Leads de Meta por Make o Zapier',
     categoria: 'Publicidad',
-    paraQue: 'Cada lead de tus formularios de Meta entra solo a tu CRM, con sus respuestas, por Zapier o Make.',
+    paraQue: 'Cada lead de tus formularios de Meta entra solo a tu CRM. Usas tu propia cuenta de Make o de Zapier, de pago.',
     campos: [
-      { env: 'ZAPIER_LEADS_CLAVE', label: 'Clave del aviso', secreto: true, placeholder: 'Una clave larga que inventes', nota: 'La inventas tú. Va igual aquí y en el header X-MaKo-Clave del Zap. Sin esto no entra ningún lead.' },
+      { env: 'ZAPIER_LEADS_CLAVE', label: 'Clave del aviso', secreto: true, placeholder: 'Una clave larga que inventes', nota: 'La inventas tú. Va igual aquí y en el header X-MaKo-Clave de Make o Zapier. Sin esto no entra ningún lead.' },
     ],
     pasoExterno: {
-      titulo: 'Pega esta dirección en tu Zap de Facebook Lead Ads',
-      porque: 'Es por donde Zapier te manda cada lead de Meta. Sin este paso, tus leads no llegan a tu CRM.',
+      titulo: 'Pega esta dirección en tu escenario de Make (o en tu Zap)',
+      porque: 'Es por donde Make te manda cada lead de Meta. Sin este paso, tus leads no llegan a tu CRM.',
       valor: '{{APP_URL}}/api/webhooks/zapier',
-      donde: 'En zapier.com: tu Zap → paso «Webhooks by Zapier» → «POST» → campo «URL».',
+      donde: 'En make.com: tu escenario → módulo «HTTP» → «Make a request» → campo «URL», método POST.',
       ojo: [
-        'En «Headers» agrega X-MaKo-Clave con tu clave y deja «Data» vacío: sin la clave, MaKo rechaza el lead.',
-        'Si editas el formulario en Meta, Facebook crea uno nuevo: elígelo otra vez en el trigger del Zap.',
+        'En «Headers» agrega X-MaKo-Clave con tu clave y manda el cuerpo en JSON: sin la clave, MaKo rechaza el lead.',
+        'Si editas el formulario en Meta, Facebook crea uno nuevo: elígelo otra vez en «Watch Leads» (o en el trigger del Zap).',
       ],
     },
     tutorial: {
       url: 'https://business.facebook.com/settings/leads-accesses/',
       urlLabel: 'Meta → Acceso a leads',
       pasos: [
-        'Zapier pide plan de pago (Professional); Make tiene plan gratis, con un módulo HTTP en vez de «Webhooks».',
         'En «Clave del aviso» escribe una clave larga que inventes (por ejemplo micuenta2026clave).',
-        'En business.facebook.com/settings/leads-accesses asigna como CRM la app «Zapier» (no «Zapier Inc.»); en Make, «Make».',
-        'En zapier.com crea un Zap: «Facebook Lead Ads» → «New Lead», y como acción «Webhooks by Zapier» → «POST».',
-        'Pega la dirección del recuadro amarillo, agrega el header X-MaKo-Clave con tu clave, y publica el Zap.',
+        'En business.facebook.com/settings/leads-accesses asigna como CRM la app «Make» (en Zapier, «Zapier», no «Zapier Inc.»).',
+        'En make.com (plan Core, US$9 al mes) crea un escenario: «Facebook Lead Ads» → «Watch Leads» y «HTTP» → «Make a request».',
+        'Pega la dirección del recuadro amarillo (POST, JSON), agrega el header X-MaKo-Clave con tu clave y activa el escenario.',
+        'Con Zapier (plan Professional, desde US$20 al mes): «Facebook Lead Ads» → «New Lead» y «Webhooks by Zapier» → «POST».',
       ],
     },
   },

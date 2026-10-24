@@ -88,7 +88,8 @@ test('MEDIA: a OpenAI nunca se le pide más salida de la que acepta el modelo; a
   assert.equal(conTechoDeSalida({ nombre: 'openai' }, 'un-modelo-nuevo', 32_000), 16_384, 'uno que no está en la tabla, con el más chico');
   assert.equal(conTechoDeSalida({ nombre: 'gemini' }, 'gemini-flash-latest', 32_000), 32_000);
   assert.ok(TECHO_SALIDA_OPENAI['gpt-4o-mini'] === 16_384);
-  // Los tres pedidos de la capa barata (texto, herramientas, visión) pasan por el techo.
+  // Los tres pedidos de la capa barata (texto, herramientas y el cierre sin herramientas) pasan por el techo: `paramsDeSalida`
+  // lo aplica, con el nombre de campo que acepta cada modelo (tests/openai-razonador.test.ts).
   const ai = readFileSync(new URL('../lib/ai-cheap.ts', import.meta.url), 'utf8');
-  assert.equal((ai.match(/max_tokens: conTechoDeSalida\(p, model, /g) ?? []).length, 3);
+  assert.equal((ai.match(/\.\.\.paramsDeSalida\(p, model, /g) ?? []).length, 3);
 });

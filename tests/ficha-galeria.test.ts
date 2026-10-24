@@ -111,7 +111,8 @@ test('«¿Qué vas a crear hoy?»: MaKo elige SÓLO del catálogo de la tab que 
   const bien = deIATab({ epica: true, bloques: [{ bloque: 'proxima-reunion', ancho: '1/2', diseno: 'numero' }, { bloque: 'notas', ancho: '1/4' }, { bloque: 'notas' }] }, 'resumen', ofrecidos);
   assert.deepEqual(bien.errores, []);
   assert.equal(bien.epica, true);
-  assert.deepEqual(bien.bloques.map((b) => b.id), ['contacto', 'proxima-reunion', 'notas'], 'el contacto lo pone el saneo; un repetido se tira');
+  // ⚠️ REESCRITO EL 23/10/2026: el saneo ya no pone el contacto (se puede quitar: lo que MaKo no pide, no va).
+  assert.deepEqual(bien.bloques.map((b) => b.id), ['proxima-reunion', 'notas'], 'lo que no pidió no entra; un repetido se tira');
   assert.equal(bien.bloques.find((b) => b.id === 'proxima-reunion')!.diseno, 'numero');
   assert.ok(bien.avisos.some((a) => /Notas no va de 1\/4/.test(a)), 'lo que se corrige se dice');
   const inventado = deIATab({ bloques: [{ bloque: 'grafico-loco' }, { bloque: 'otro' }, { bloque: 'notas' }] }, 'resumen', ofrecidos);

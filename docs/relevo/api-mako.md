@@ -4,6 +4,15 @@
 `app/api-mako/**` (la tab que la muestra y acuña los tokens).
 **Ventana:** 05/10/2026 → 10/10/2026. **Escrito el 10/10/2026 sobre `origin/main` = `9862c146`.**
 
+> **23/10/2026 — `wip/api-acciones-1410` ES CANTERA: NUNCA SE MERGEA** (lo decidió el Cerebro ese día). De ahí se sacan
+> piezas copiando el archivo y sus tests, como se hizo con comunidad el 17/10; un merge traería el trabajo a medias de
+> quince áreas. La guarda de cobertura de server actions (`scripts/api-cobertura.mjs`, `lib/api-mako/cobertura.ts` y su
+> test) vive SÓLO ahí, y se rehace como pieza propia después de los P0 de la auditoría del 23/10
+> (`C:/dev/cerebro-herramientas/auditoria-api-mako-23-10.md`: 174 acciones sin declarar). Por qué se acumularon, en
+> docs/hallazgos-api-mako.md → «la guarda de cobertura del 13/10 nunca llegó a main».
+> Las puntas de ese día, cada una en su worktree `C:/dev/wt-api-…`: `api-crm-2310` (curso, leads con @, entrega y alumno),
+> `api-cobros-2310` (`vender_plan_mako`) y `api-negocio-2310` (onboarding y ofertas).
+
 > **17/10/2026 — PENDIENTES B1 de la API (ayudante «B1-API» del Cerebro, cuenta claude4, rama `pend-b1-api-1710`, sin pushear).**
 > Pedido de Martín: «Implemente todos los pendientes al 100%». Todo en `docs/hallazgos-api-mako.md`, secciones «Pendientes B1 de
 > la API» y «La comunidad por la API de MaKo». Lo que cambió en el estado de esta área:

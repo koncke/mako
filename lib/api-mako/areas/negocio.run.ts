@@ -54,6 +54,16 @@ import { construirVault } from '@/lib/vault';
 import { indiceDelCerebro, recuperar } from '@/lib/cerebro-recuperar';
 import { matchNodo, type CampoCerebro } from '@/lib/buscar-cerebro';
 import { AREAS as AREAS_CEREBRO, type AreaId } from '@/lib/cerebro-modelo';
+import { esPasoOnboarding, tabEnCapa } from '@/lib/capas';
+import { cerrarPasosOnboarding, getEstadoOnboardingEstricto } from '@/lib/onboarding-state';
+import { CIERRES_PASO, PASOS_TAB_POR_API, ROTULO_PASO_ONBOARDING, revisarCierreDePaso, revisarMarcaDePasoTab, type CierrePaso, type ResultadoCierre } from '@/lib/onboarding-pasos-api';
+import { hechoDePasoOnboarding, hechoDePasoTab } from '@/lib/onboarding-hechos';
+import { desmarcarPasoEnTodasLasTabs, getEstadoTab, marcarPasoTab } from '@/lib/tab-onboarding-state';
+import { puentearPasosCopyGen } from '@/lib/copygen-puente';
+import { borrarOferta, guardarOferta, listarOfertas, ofertasDeFunnels, productosDeOfertas, usoDeOferta } from '@/lib/ofertas';
+import { planDeOferta, precioTexto, resolverOfertaPrincipal, urgenciaTexto, urgenciaVigente } from '@/lib/oferta-modelo';
+import { getSettingEstricto } from '@/lib/settings';
+import { ANSWERS_KEY } from '@/lib/onboarding';
 import {
   capaDelWs, camposPerfil, estadoArchivero, faltantesYConocido, campoOcupado, completarHuecoPerfil,
   borrarDocumentoArchivero, regenerarAvatares, editarAvatar, borrarAvatar, regenerarLeadMagnets, editarLeadMagnet,
@@ -97,6 +107,67 @@ const avisoQuitados = async (ids: string[]): Promise<string> => {
 const TOPE_RESULTADOS_CEREBRO = 30;
 const TOPE_VAULT_CHARS = 60_000;
 const recorte = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}…` : s);
+
+// ── El onboarding desde afuera (cerrar_paso_onboarding, marcar_paso_onboarding_tab) ──────────────────────────
+
+/** La capa del negocio, ESTRICTA: `capaDelWs` cae a la capa por defecto si no puede leer, y con eso cerraría pasos de
+ *  otro plan. Sin `getCapaActual`, que va memoizado por request. */
+async function capaEstricta(ws: number) {
+  const w = await getWorkspace(ws); // tira si la base no contesta
+  if (!w) throw new Error('no encontré este negocio');
+  return capaDef(w.capa);
+}
+
+/** La MISMA revisión al proponer y al confirmar: entre el «sí» y la propuesta pudo cambiar el dato o el estado. */
+async function revisarCierre(input: Record<string, unknown>, ws: number) {
+  const paso = str(input, 'paso');
+  const cierre = str(input, 'cierre') as CierrePaso;
+  const rechazo = (r: ResultadoCierre) => ({ r, paso: null, cierre: null, capa: null });
+  if (!esPasoOnboarding(paso)) return rechazo({ error: `«${paso}» no es un paso del arranque.` });
+  if (!CIERRES_PASO.includes(cierre)) return rechazo({ error: 'cierre va como «hecho» o «postergado».', disponibles: CIERRES_PASO });
+  const [capa, estado] = await Promise.all([capaEstricta(ws), getEstadoOnboardingEstricto()]);
+  // El dato vivo sólo de un paso de su plan: los otros se rechazan sin leer nada.
+  const hecho = capa.onboarding.includes(paso) ? await hechoDePasoOnboarding(paso, ws, capa) : { sinDato: 'no es de su plan.' };
+  return { r: revisarCierreDePaso({ estado, pasosCapa: capa.onboarding, paso, cierre, hecho }), paso, cierre, capa };
+}
+
+async function revisarMarcaTab(input: Record<string, unknown>, ws: number) {
+  const tab = str(input, 'tab');
+  const paso = str(input, 'paso');
+  const hecho = input.hecho !== false;
+  const capa = await capaEstricta(ws);
+  const permitido = !!PASOS_TAB_POR_API[tab]?.includes(paso);
+  // `getEstadoTab` ya cruza el registro compartido de pasos (un paso hecho en otra tab cuenta).
+  const steps = permitido ? (await getEstadoTab(tab)).steps : {};
+  const dato = permitido && hecho ? await hechoDePasoTab(paso) : { sinDato: 'no se marca desde aquí.' };
+  return { r: revisarMarcaDePasoTab({ tab, paso, hecho, steps, tabEnCapa: tabEnCapa(tab, capa.id), dato }), tab, paso, hecho };
+}
+
+/** Un `{ error }` de las reglas puras, como lo espera el choke point (con `yaEstaba` y `disponibles` si vienen). */
+const comoError = (r: { error: string; yaEstaba?: true; disponibles?: readonly string[] }): Preparado =>
+  ({ error: r.error, ...(r.yaEstaba ? { yaEstaba: true } : {}), ...(r.disponibles ? { disponibles: r.disponibles } : {}) });
+
+// ── El catálogo de ofertas (listar_ofertas, guardar_oferta, borrar_oferta) ───────────────────────────────────
+
+/** Los que, en la oferta que sale del perfil del negocio, MaKo lee del perfil y no de la fila (`resolverOfertaPrincipal`). */
+const CAMPOS_DEL_PERFIL = ['promesa', 'incluye', 'garantia', 'precio_usd', 'precio_nota'];
+
+/** El perfil del negocio, ESTRICTO: la oferta que sale de él muestra sus campos, y un perfil sin leer no es uno vacío. */
+async function respuestasDelPerfil(): Promise<Record<string, string>> {
+  const raw = await getSettingEstricto(ANSWERS_KEY);
+  if (!raw) return {};
+  try { return JSON.parse(raw) as Record<string, string>; } catch { throw new Error('el perfil del negocio no es legible'); }
+}
+
+/**
+ * Qué oferta toca y cómo queda: la regla es pura y vive con su test (`planDeOferta`, lib/oferta-modelo.ts): con id,
+ * ésa; sin id, siempre una nueva. Corre al proponer Y al confirmar, con la lista leída en el momento.
+ */
+async function revisarOferta(input: Record<string, unknown>) {
+  const ofertas = await listarOfertas(); // tira si la base no contesta
+  const p = planDeOferta(ofertas, input);
+  return 'error' in p ? p : { ...p, ofertas };
+}
 
 // ── los runners ──────────────────────────────────────────────────────────────
 
@@ -764,6 +835,145 @@ export const RUNNERS: Runners = {
     ejecutar: sinLanzar(async () => {
       await setPersonalidad({ respuestas: {}, muletillas: '' });
       return { ok: true, resumen: 'Quiz de voz reiniciado.' };
+    }),
+  },
+
+  // ── El onboarding desde afuera (P0-12 y P0-13, 23/10/2026) ──────────────────────────────────────────────────
+  // ⚠️ El arranque se cierra por SU puerta (`cerrarPasosOnboarding`, la misma del wizard y del chat de arranque), con los
+  // pasos de la capa leídos acá: nunca escribe `onboarding.state` a mano ni toca `onboarding.arranque`.
+  cerrar_paso_onboarding: {
+    preparar: seguro(async (input, ctx) => {
+      const { r } = await revisarCierre(input, ctx.ws);
+      return 'error' in r ? comoError(r) : { payload: { paso: input.paso, cierre: input.cierre }, resumen: r.resumen };
+    }),
+    ejecutar: sinLanzar(async (payload, ctx) => {
+      const x = await revisarCierre(payload, ctx.ws);
+      if ('error' in x.r) return x.r.yaEstaba ? { ok: true, resumen: `Ya estaba así: ${x.r.error}` } : { ok: false, resumen: `No se cerró: ${x.r.error}` };
+      const estado = await cerrarPasosOnboarding([x.r.cambio], ctx.actor?.trim() || 'MaKo (API)', undefined, x.capa!.onboarding);
+      const rot = `«${ROTULO_PASO_ONBOARDING[x.paso!]}»`;
+      const hecho = x.cierre === 'hecho' ? `${rot} quedó cerrado.` : `${rot} quedó para después.`;
+      return { ok: true, resumen: `${hecho}${estado.status === 'done' && x.r.terminaElArranque ? ' El arranque terminó: la persona entra directo a la app.' : ''}`, datos: { estado: estado.status } };
+    }),
+  },
+
+  // ⚠️ Desmarcar va por `desmarcarPasoEnTodasLasTabs`: el paso vive en el estado de la tab Y en el registro compartido
+  // (onboarding.tab.pasos), y `marcarPasoTab(…, false)` en una sola tab deja vivo el de las otras (AGENTS.md, «el
+  // BORRADO va por una función»). Y en el Copy Generator corre antes el puente de una sola vez (`puentearPasosCopyGen`):
+  // si todavía no corrió, la próxima carga de la tab volvería a marcar lo que se acaba de desmarcar. Al PROPONER no
+  // corre (proponer no escribe), así que en un negocio donde nunca corrió el resumen se arma con los pasos de antes del
+  // puente: el «sí» vuelve a revisar todo con el puente ya corrido. Es un caso estrecho (revisión del 23/10/2026).
+  marcar_paso_onboarding_tab: {
+    preparar: seguro(async (input, ctx) => {
+      const { r } = await revisarMarcaTab(input, ctx.ws);
+      return 'error' in r ? comoError(r) : { payload: { tab: input.tab, paso: input.paso, hecho: input.hecho !== false }, resumen: r.resumen };
+    }),
+    ejecutar: sinLanzar(async (payload, ctx) => {
+      const x = await revisarMarcaTab(payload, ctx.ws);
+      if ('error' in x.r) return x.r.yaEstaba ? { ok: true, resumen: `Ya estaba así: ${x.r.error}` } : { ok: false, resumen: `No se cambió: ${x.r.error}` };
+      if (x.hecho) {
+        const s = await marcarPasoTab(x.tab, x.paso, true);
+        return { ok: true, resumen: x.r.resumen.replace(/^Marcar (.+?) como hecho/, '$1 quedó hecho'), datos: { tab: x.tab, estado: s.status } };
+      }
+      if (x.tab === 'ads-writer') await puentearPasosCopyGen();
+      await desmarcarPasoEnTodasLasTabs(x.paso);
+      const s = await getEstadoTab(x.tab);
+      return { ok: true, resumen: x.r.resumen.replace(/^Desmarcar (.+?)\.(?= |$)/, '$1 quedó sin hacer.'), datos: { tab: x.tab, estado: s.status } };
+    }),
+  },
+
+  // ── El catálogo de ofertas (P0-14, 23/10/2026) ──────────────────────────────────────────────────────────────
+  // ⚠️ listar_ofertas NO siembra la oferta principal desde el perfil, como sí hace el GET de la pantalla
+  // (`seedOfertaDesdeBrief`): una lectura no escribe. Sin ofertas, dice cuál es la del perfil.
+  listar_ofertas: {
+    leer: async () => {
+      const [ofertas, ligasFunnel, ligasProducto, funnels, productos, answers] = await Promise.all([
+        listarOfertas(), ofertasDeFunnels(), productosDeOfertas(), leerFunnels().catch(() => null), listProductos(), respuestasDelPerfil(),
+      ]);
+      const nombreFunnel = new Map((funnels ?? []).map((f) => [f.id, (f.producto ?? '').trim() || f.nombre]));
+      const nombreProducto = new Map(productos.map((p) => [p.id, p.nombre]));
+      const hoy = new Date();
+      if (!ofertas.length) {
+        const delPerfil = resolverOfertaPrincipal(null, answers).campos;
+        return json({
+          ofertas: [],
+          oferta_del_perfil: delPerfil.nombre ? delPerfil : null,
+          nota: delPerfil.nombre
+            ? 'Todavía no hay ofertas guardadas: MaKo usa la oferta del perfil del negocio (oferta_del_perfil). Se guarda como oferta con guardar_oferta.'
+            : 'El negocio todavía no tiene ofertas.',
+        });
+      }
+      return json({
+        ofertas: ofertas.map((o) => {
+          // En la que sale del perfil, los cinco campos del perfil se leen de ahí (la misma regla que usan los prompts).
+          const c = o.desde_brief ? resolverOfertaPrincipal(o, answers).campos : null;
+          return {
+            id: o.id, nombre: o.nombre, principal: o.es_principal, activa: o.activa,
+            sale_del_perfil: o.desde_brief,
+            precio: c ? (c.precio || null) : (precioTexto(o) || null), precio_usd: o.precio_usd, modelo: o.modelo ?? null,
+            promesa: c ? (c.promesa || null) : o.promesa, incluye: c ? (c.incluye || null) : o.incluye, garantia: c ? (c.garantia || null) : o.garantia,
+            para_quien: o.para_quien, objeciones: o.objeciones, prueba: o.prueba, bonos: o.bonos,
+            urgencia: urgenciaTexto(o, hoy) || null,
+            urgencia_vigente: urgenciaVigente(o, hoy),
+            funnels: ligasFunnel.filter((l) => l.oferta_id === o.id).map((l) => ({ id: l.funnel_id, nombre: nombreFunnel.get(l.funnel_id) ?? null, principal_del_funnel: l.es_principal })),
+            productos: ligasProducto.filter((l) => l.oferta_id === o.id).map((l) => ({ id: l.producto_id, nombre: nombreProducto.get(l.producto_id) ?? null, rol: l.rol })),
+          };
+        }),
+        nota: '`sale_del_perfil`: promesa, precio, incluye y garantía vienen del perfil del negocio y se corrigen ahí. `urgencia_vigente: null` = no se puede comprobar (sólo una fecha se puede). `nombre: null` en un funnel = no se pudo leer su nombre.',
+      });
+    },
+  },
+
+  guardar_oferta: {
+    preparar: seguro(async (input) => {
+      const x = await revisarOferta(input);
+      if ('error' in x) return x;
+      const { actual, resultado, cambios, ofertas } = x;
+      const rot: Record<string, string> = { nombre: 'nombre', modelo: 'cómo se cobra', precio_usd: 'precio', precio_nota: 'precio como se presenta', promesa: 'promesa', incluye: 'qué incluye', garantia: 'garantía', para_quien: 'para quién', objeciones: 'objeciones', prueba: 'prueba', bonos: 'bonos', urgencia_tipo: 'urgencia', urgencia_dato: 'urgencia', urgencia_razon: 'urgencia', urgencia_hasta: 'urgencia', activa: 'si está activa' };
+      const campos = [...new Set(Object.keys(cambios).map((k) => rot[k] ?? k))];
+      const precio = resultado.precio_nota || (resultado.precio_usd != null ? `USD ${resultado.precio_usd}` : '');
+      let resumen = actual
+        ? `Editar la oferta «${actual.nombre}»: ${campos.join(', ')}.${typeof cambios.nombre === 'string' ? ` Pasa a llamarse «${resultado.nombre}».` : ''}`
+        : `Crear la oferta «${resultado.nombre}»${precio ? ` (${precio})` : ''}.${ofertas.some((o) => o.es_principal) ? '' : ' Es la primera del negocio: queda como la principal.'}`;
+      if (actual && (cambios.precio_usd !== undefined || cambios.precio_nota !== undefined)) resumen += ` Precio: ${precio || 'sin precio'}.`;
+      // ⚠️ La oferta que sale del perfil: escribir esos campos en la fila NO cambia lo que MaKo usa para escribir
+      // (`resolverOfertaPrincipal` los lee del perfil). Decirlo antes del «sí» es lo único honesto.
+      if (actual?.desde_brief && Object.keys(cambios).some((k) => CAMPOS_DEL_PERFIL.includes(k))) {
+        resumen += ` Ojo: esta oferta sale del perfil del negocio, y lo que MaKo usa para escribir (promesa, precio, incluye y garantía) sigue saliendo del perfil, que se corrige en ${lugarSeccion('archivero')}.`;
+      }
+      return { payload: { id: actual?.id ?? null, nombre: actual ? undefined : resultado.nombre, ...cambios }, resumen };
+    }),
+    ejecutar: sinLanzar(async (payload) => {
+      const entrada: Record<string, unknown> = { ...payload };
+      if (entrada.id == null) delete entrada.id;
+      const x = await revisarOferta(entrada);
+      if ('error' in x) return x.yaEstaba ? { ok: true, resumen: `Ya estaba así: ${x.error}` } : { ok: false, resumen: `No se guardó: ${x.error}` };
+      const g = await guardarOferta(x.resultado, x.actual?.id);
+      return {
+        ok: true,
+        resumen: `${x.actual ? 'Oferta actualizada' : 'Oferta creada'}: «${x.resultado.nombre}» (#${g.id}).${g.principal ? ' Quedó como la principal.' : ''}`,
+        datos: { ofertaId: g.id, principal: g.principal },
+      };
+    }),
+  },
+
+  borrar_oferta: {
+    preparar: seguro(async (input) => {
+      const id = Number(input.id);
+      const o = (await listarOfertas()).find((x) => x.id === id);
+      if (!o) return { error: `No existe la oferta #${id} en este negocio. Pide la lista con listar_ofertas.` };
+      const uso = await usoDeOferta(id);
+      const n = (v: number | null, uno: string, varios: string) => (v == null ? null : `${v} ${v === 1 ? uno : varios}`);
+      const leads = uso.leads == null ? ' No pude contar los leads que entraron por ella.' : uso.leads ? ` ${n(uso.leads, 'lead que entró por ella queda', 'leads que entraron por ella quedan')} sin oferta.` : '';
+      const ligas = [n(uso.funnels, 'funnel', 'funnels'), n(uso.productos, 'producto', 'productos')].filter((v) => v && !v.startsWith('0 '));
+      const principal = o.es_principal ? ' Es la principal: hasta que otra lo sea, MaKo vuelve a usar la oferta del perfil del negocio.' : '';
+      return { payload: { id }, resumen: `Borrar la oferta «${o.nombre}».${leads}${ligas.length ? ` Se desliga de ${ligas.join(' y ')}.` : ''}${principal} No se puede deshacer.` };
+    }),
+    ejecutar: sinLanzar(async (payload) => {
+      const id = Number(payload.id);
+      const o = (await listarOfertas()).find((x) => x.id === id);
+      if (!o) return { ok: false, resumen: 'La oferta ya no existe.' };
+      await borrarOferta(id);
+      return { ok: true, resumen: `Oferta «${o.nombre}» borrada.` };
     }),
   },
 };

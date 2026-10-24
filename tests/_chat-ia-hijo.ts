@@ -24,7 +24,7 @@ const CREDITO1 = `sk-ant-api03-credito-cuenta1-${'c'.repeat(40)}`;
 const PROPIA = `sk-ant-api03-propia-de-ana-${'a'.repeat(40)}`;
 const OPENAI_PROPIA = `sk-proj-propia-de-ana-${'A'.repeat(40)}`;
 
-let llamadas: Array<{ a: string; clave: string; modelo: string }> = [];
+let llamadas: Array<{ a: string; clave: string; modelo: string; campos?: string[] }> = [];
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
   if (u.host === 'supa.test') return pg.responder(u, init);
@@ -40,7 +40,10 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   }
   if (u.host === 'api.openai.com') {
     const clave = (h.get('authorization') ?? '').replace(/^Bearer /, '');
-    llamadas.push({ a: 'openai', clave: clave.slice(0, 22), modelo });
+    // Los campos de salida que viajan: un modelo con razonamiento rechaza `max_tokens` y `temperature` (lib/ai-cheap-techo.ts).
+    let campos: string[] = [];
+    try { campos = Object.keys(JSON.parse(String(init.body ?? '{}'))).filter((k) => /^(max_tokens|max_completion_tokens|temperature)$/.test(k)).sort(); } catch { /* sin cuerpo */ }
+    llamadas.push({ a: 'openai', clave: clave.slice(0, 22), modelo, campos });
     if (clave !== OPENAI_PROPIA) return r(401, { error: { message: 'Incorrect API key provided' } });
     return r(200, { id: 'c1', object: 'chat.completion', model: modelo, choices: [{ index: 0, message: { role: 'assistant', content: 'hola desde OpenAI' }, finish_reason: 'stop' }], usage: { prompt_tokens: 100, completion_tokens: 20 } });
   }
@@ -70,6 +73,7 @@ async function main() {
   out.cuentasAna = await cuentasDeIA(ana);
   out.cuentasOtraPersona = (await cuentasDeIA(beto)).map((c) => c.cuenta);
   out.modelosDelMiembro = (await cuentasDeIA(beto)).find((c) => c.cuenta === 'anthropic')?.modelos;
+  out.openaiDelMiembro = (await cuentasDeIA(beto)).find((c) => c.cuenta === 'openai');
   out.cuentasMauricio = await cuentasDeIA({ ws: 1, actor: 'mauricio@negocio.com', rol: 'admin' });
   out.cuentasSinNada = await cuentasDeIA({ ws: 21, actor: 'x@y.com' });
   out.cuentasSuperAdmin = await cuentasDeIA({ ws: PLATAFORMA, actor: 'martin@mako.com' });
@@ -77,7 +81,9 @@ async function main() {
   out.eleccion = {
     sonnet: await eleccionDelPedido(ana, { cuenta: 'anthropic', modelo: 'sonnet' }),
     pcOpus: await eleccionDelPedido(ana, JSON.stringify({ cuenta: 'pc', modelo: 'opus' })),
-    openaiConModelo: await eleccionDelPedido(ana, { cuenta: 'openai', modelo: 'gpt-5' }),
+    openaiConModelo: await eleccionDelPedido(ana, { cuenta: 'openai', modelo: 'gpt-6.1-sol' }),
+    openaiModeloViejo: await eleccionDelPedido(ana, { cuenta: 'openai', modelo: 'gpt-4o-mini' }),
+    openaiModeloDelMiembro: await eleccionDelPedido(beto, { cuenta: 'openai', modelo: 'gpt-6.1-sol' }),
     pcDeOtro: await eleccionDelPedido(beto, { cuenta: 'pc' }),
     sonnetDelMiembro: await eleccionDelPedido(beto, { cuenta: 'anthropic', modelo: 'sonnet' }),
     sonnetConElCredito: await eleccionDelPedido({ ws: 1, actor: 'mauricio@negocio.com', rol: 'admin' }, { cuenta: 'anthropic', modelo: 'sonnet' }),
@@ -96,6 +102,7 @@ async function main() {
   out.suClaudeSinElegir = await correr(20, { soloSuClaude: true });
   out.creditoConSonnet = await correr(1, { soloSuClaude: true, modeloSuClaude: 'sonnet' });
   out.suOpenAI = await correr(20, { soloSuOpenAI: true });
+  out.suOpenAIConModelo = await correr(20, { soloSuOpenAI: true, modeloSuOpenAI: 'gpt-6.1-sol' });
   out.suOpenAISinClave = await correr(1, { soloSuOpenAI: true });
   process.stdout.write(`@@CHATIA@@${JSON.stringify(out)}\n`);
 }
