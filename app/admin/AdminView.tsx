@@ -266,7 +266,7 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
             barra; los super admins son una sección más de esta misma pantalla,
             que es lo que siempre fueron — un puñado de personas, no un área. */}
         <PanelClientes workspaces={workspaces} usuarios={usuarios} sesion={sesion} recargar={cargar}
-          trabajo={trabajo ?? null} clientes={clientes} user={user} />
+          trabajo={trabajo ?? null} clientes={clientes} user={user} verComputadoras={verComputadoras} />
       </div>
     </main>
   );
@@ -422,7 +422,7 @@ const CSS_TABLA = `
 `;
 
 // =============================================================================
-function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, clientes = [], user }: {
+function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, clientes = [], user, verComputadoras = false }: {
   workspaces: Workspace[]; usuarios: Usuario[]; sesion: Sesion; recargar: () => Promise<void>;
   /**
    * El trabajo del SUPER ADMIN agrupado por cliente, y su CRM. Bajan desde el server
@@ -432,6 +432,11 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
   trabajo?: { dueno: boolean; porCliente: Record<number, TrabajoDeCliente> } | null;
   clientes?: ClienteRef[];
   user?: BoardUser;
+  /**
+   * Si esta pantalla puede mostrar las computadoras del equipo de un cliente. Baja desde `AdminView`:
+   * se usa en la ficha abierta, que vive acá. Sin esto, `verComputadoras` no existe en este alcance.
+   */
+  verComputadoras?: boolean;
 }) {
   const [nombre, setNombre] = useState('');
   const [capa, setCapa] = useState<CapaId>(CAPA_DEFAULT);
