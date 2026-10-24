@@ -576,6 +576,17 @@ Lo que el script NO puede resolver, y conviene saber antes de creerle a un rojo:
   solo. Los comandos de cada extensión de TipTap sobre `ChainedCommands` son el caso: ese mismo
   `insertar.ts` daba 5 rojos así. La cura es importar por tipos lo que se usa
   (`import type {} from '@tiptap/extension-task-list'`) o sumar ese archivo a la lista.
+- ⚠️ **Y GENERALIZANDO: antes de creerle a un rojo, preguntate si el tipo que falta es
+  DEL ARCHIVO o de un PAQUETE.** Si es del archivo (un `type` local, el control de flujo de
+  una función), el acotado y el completo dicen lo mismo y el rojo es real. Si viene de afuera
+  (los overloads de `createElement` de `@types/react` son el caso), el acotado lo puede
+  **inventar**: compila con `files`, `types: ["node"]` y sin `next-env.d.ts`. Medido el
+  24/10/2026: un TS2769 así casi frena un tren de 24 puntas, y el tsc COMPLETO lo dejó pasar
+  (`main` avanzó conteniéndolo). ⚠️ Y «aparece en la rama sola» NO es el discriminante: eso
+  sólo prueba que no lo causó el merge. **La pista en diez segundos: dos líneas gemelas donde
+  una falla y la otra no es la firma de un artefacto de overloads, no de un bug** (con `null`
+  en los props, `createElement` toma otro overload y no chequea los obligatorios). El detalle,
+  en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El tsc acotado puede INVENTAR un rojo».
 - **El acotado no sube a los que importan lo tuyo.** Si cambiaste un TIPO compartido, sumá a
   sus consumidores.
 - **Salida 99 no es un verde**: el `tsc` no terminó (el vigía de RAM lo mató, o sin heap) y no se

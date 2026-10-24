@@ -1574,3 +1574,58 @@ Hotmart y Apify siguen donde estaban, para que un retiro torpe no se lleve lo qu
 commits `4e661df70` a `93a7baf00` (el código).
 
 _23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2), que trajo la decisión de Martín. Retiro probado rompiéndolo._
+
+## «Conectada ✓» con el webhook SIN registrar: el tipo se olvidó un campo y la pantalla se olvidó un valor (24/10/2026, Cerebro › Integración)
+
+La pieza nueva de Zernio (`app/_components/ConectarViaZernio.tsx`, commit `8dda570be`)
+llegó al tren con tres errores de tipos **en su propia punta**, medidos antes de
+mergearla: no los causó el merge, la rama se commiteó roja. Dos eran el mismo renglón y
+el tercero destapó un agujero de producto.
+
+**1. El tipo del cliente se olvidó un campo que el servidor SÍ manda.** `RespuestaApi`
+(un `type` LOCAL al archivo, línea 52) declaraba `ruteo` y no `webhook`, y la 158 hace
+`c.webhook === 'error'`. No era código muerto: `recibirConexion`
+(`lib/zernio-conectar.ts:204`) declara
+`Promise<{ ruteo: 'ok'|'ocupado'|'error'; webhook: 'creado'|'actualizado'|'sin_secreto'|'error' }>`
+y el handler contesta `Response.json({ ok: true, ...(await recibirConexion(ws)) })`
+(`app/api/zernio/route.ts:77`, con el contrato escrito en el `:11`). El campo va
+**opcional**, como `ruteo`: la rama `{ ok: false }` del `:81` no lo trae y el tipo lo
+comparten los 6 call-sites de `api()`. El tipo se copia del retorno declarado del
+servidor, nunca se inventa.
+
+**2. Un `let` asignado sólo dentro de un closure se narrowea a `null`.**
+`let errorDeVentana: MensajeVentana | null = null` (223) con su única asignación adentro
+de `recibir` (229): en la 271 el `if` por truthiness daba `never`. Pasa a ser una
+propiedad de un objeto, que sí se narrowea en el `if`. Sin `as any`, sin `@ts-ignore` y
+sin un `?` que esconda el bug; el runtime no cambia.
+
+⚠️ **3. Y EL AGUJERO QUE EL COMPILADOR TAPABA: `'sin_secreto'` no se avisa.**
+`asegurarWebhook` devuelve `'sin_secreto'` cuando falta el secreto maestro
+(`lib/zernio.ts:261`: `const maestro = await envCred('ZERNIO_WEBHOOK_SECRET'); if (!maestro) return 'sin_secreto';`)
+y **sale antes de registrar nada**, o sea que en la cuenta de Zernio del negocio NO queda
+webhook — y sin webhook no llega ni un mensaje ni un `lead.received`, sin dar error. La
+pantalla sólo reacciona a `=== 'error'`, así que con `'sin_secreto'` la persona ve
+«conectado ✓» y se queda callada, que es justo lo que el comentario de la 149-151 promete
+no hacer. Los dos defectos son la misma línea: **mientras el campo no estuvo en el tipo,
+el compilador no podía ayudar a enumerar sus valores.**
+
+⚠️ **El arreglo obvio es el equivocado, y por eso esto queda como DEUDA y no se aplicó.**
+La salida que aparece primero es tratar `'sin_secreto'` como `'error'` y mostrar «no
+pudimos armar la recepción, vuelve a conectarla». Eso manda al negocio a arreglar una
+variable **de la plataforma**, que él no puede tocar — `lib/disparadores-canales.ts:183`
+ya lo dice con todas las letras: *«`ZERNIO_WEBHOOK_SECRET` en la plataforma queda sólo el
+log: el negocio no lo puede arreglar»*, y su `:190` lo trata como falla **nuestra**
+(`console.error`). Es «una guarda bloquea sólo lo que se arregla haciendo lo que ella
+pide» y «el error dice DE QUIÉN fue»: un cartel que lo manda a reconectar para siempre es
+peor que el silencio de hoy.
+
+**Lo que queda SIN hacer, y cómo:** `'sin_secreto'` tiene que ser ruidoso **para
+nosotros** (el log que ya existe en `disparadores-canales`, o un aviso de plataforma) y
+en la pantalla del negocio decir que la recepción no quedó armada **sin pedirle que la
+arregle**. Y el estado «armó la recepción» conviene definirlo en POSITIVO
+(`webhook === 'creado' || webhook === 'actualizado'`) en vez de por una lista de fallas
+que se olvida una. Medido: `ZERNIO_WEBHOOK_SECRET` está en `.env.local` (49 car); **no se
+pudo verificar en Vercel producción**, y eso hay que medirlo antes de tocar el cartel,
+porque si falta allá el aviso aparece de golpe en todos los clientes.
+
+**Vive en:** `app/_components/ConectarViaZernio.tsx:52,158,223,271` · `lib/zernio.ts:261` · `lib/zernio-conectar.ts:204` · `lib/disparadores-canales.ts:183`

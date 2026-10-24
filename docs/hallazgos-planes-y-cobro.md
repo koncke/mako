@@ -1287,3 +1287,35 @@ el domingo se arregló en la rama `cobros-lanzamiento-2310`. La prueba de humo p
 | El aviso de la venta nombra el plan por la capa (un Pro dice «plan Agencia») | `lib/cobros.ts` (`lineaDelAlta`, `asentarAlta`) |
 | (Corte) `cobrosDeLugares` sin paginar | `lib/plan-acceso.ts:59` |
 **Vive en:** `lib/cobros.ts` · `lib/compra-plan.ts` · `lib/cobros-conexion.ts` · `app/admin/cobros/` · `app/api/integraciones/credencial/route.ts` · `tests/cobro-lanzamiento.test.ts`.
+
+## El área y la bitácora de Cobros apuntan a donde ya NO vive «vender un plan» (24/10/2026, Cerebro › Integración)
+
+Lo encontró la revisión del tren de 24 puntas, y es la trampa de «una ruta que apunta a
+la nada no rompe nada, y por eso es cara». El cuerpo de vender un plan se mudó a
+`lib/vender-plan.ts` (`venderPlan`) y `app/admin/cobros/actions.ts:34-40` quedó
+delegando, pero:
+
+- la bitácora (`app/admin/dev/payment-gateway/bitacora.ts:57`) sigue diciendo
+  «`app/admin/cobros/actions.ts` — vender un plan: el lead del comprador + `crearCobro`
+  en `wsSuperAdmin()`»;
+- el encabezado de la propia action (`app/admin/cobros/actions.ts:9`) sigue diciendo que
+  «busca o crea el lead del comprador y llama a `crearCobro`»;
+- y el `vive[]` del área `payment-gateway` (`app/admin/dev/areas.ts:952-960`) **no nombra**
+  `lib/vender-plan.ts` ni `lib/vender-plan-reglas.ts`.
+
+O sea que el próximo agente que abra Cobros no ve dónde vive el camino que crea el cobro
+con `altaCapa`. La nota de esa misma área lo pide: «quien escribe la ruta actualiza el
+área, o el área miente sola» — y la rama de Zernio sí actualizó la suya
+(`areas.ts:1084`), así que la disciplina existe y se saltea de a una.
+
+⚠️ **Y no lo caza ningún test, a propósito y sin que esté escrito:**
+`tests/dev-areas.test.ts` chequea **declarado → existe** (que cada ruta del `vive[]` esté
+en el disco) y NO chequea **existe → declarado**. Es la misma asimetría que AGENTS.md ya
+nombra para el barrido de áreas: «una ruta que falta no da error, da un punto ciego». La
+pregunta que lo encuentra no es «¿el área miente?» sino **«¿qué archivo caliente no lo
+declara ninguna área?»**, cruzando `git log --name-only` contra la unión de los `vive[]`.
+
+**Lo que queda SIN hacer:** sumar los dos módulos al `vive[]` del área, corregir la
+bitácora y el encabezado de la action.
+
+**Vive en:** `app/admin/dev/areas.ts:952-960` · `app/admin/dev/payment-gateway/bitacora.ts:57` · `app/admin/cobros/actions.ts:9,34-40` · `lib/vender-plan.ts`
