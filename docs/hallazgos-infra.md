@@ -230,12 +230,16 @@ entregado, se avisa ANTES de entregar.
 `--onto` cortando en el sha NUEVO del último commit entregado:
 
 ```bash
-git rebase --onto origin/main <sha-nuevo-de-la-última-tanda-entregada> HEAD
+git rebase --onto origin/main <sha-nuevo-de-la-última-tanda-entregada> <nombre-de-la-rama>
 ```
 
 Ojo: si se corta en el sha VIEJO, git recalcula por parches y tira lo que ya está aplicado. En el mejor caso eso
 anda; en el peor, aparecen los conflictos falsos. Cortando en el sha nuevo se replican exactamente las tandas
 nuevas y nada más.
+
+Y el último argumento es el NOMBRE de la rama, no `HEAD`. Con `HEAD`, el rebase termina en un HEAD suelto
+(«updated detached HEAD») y la rama se queda en la punta vieja. Si después se commitea o se pasa «la punta de la
+rama», sale la versión vieja sin ningún error. Pasó el mismo 24/10 y se arregló con `git branch -f <rama> HEAD`.
 
 ## Transferir el repositorio de GitHub DESCONECTA el proyecto de Vercel, y el rol Developer no lo puede reconectar (15/10/2026)
 
