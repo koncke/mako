@@ -17,8 +17,8 @@ import { LogoClaude } from '@/app/admin/operaciones/Uso';
 import { Skeleton } from '@/app/_ui/Feedback';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
-import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, CONSENTIMIENTO_DE, PROGRAMA_IA_PC, cuentasDeLaIA, lineaDeInstalacion, type CuentaPc, type CuentasIA, type SistemaPc } from '@/lib/ia-pc-reglas';
-import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, dondeSacarLaClave, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
+import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, CONSENTIMIENTO_DE, PROGRAMA_IA_PC, cuentasDeLaIA, lineaDeInstalacion, type CuentaPc, type CuentasIA, type SistemaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
+import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, dondeSacarLaClave, iaDeLaPcPara, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
 import { CuentasYDispositivos, NuevoDispositivo } from './CuentasYDispositivos';
 import './tus-cuentas-ia.css';
 
@@ -64,7 +64,7 @@ function Copiar({ texto }: { texto: string }) {
  * qué IA va a contestar esa computadora; cambia el nombre, el programa (Claude Code o Codex) y el texto que se acepta. Los
  * respaldos con la terminal son sólo de Claude: el cliente no tiene Node para instalar Codex a mano.
  */
-function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1, ia = 'claude' }: { onCerrar: () => void; pcsAntes: number[]; recargar: () => Promise<Estado | null>; pasoInicial?: number; ia?: IaDelCliente }) {
+function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1, ia = 'claude' }: { onCerrar: () => void; pcsAntes: number[]; recargar: () => Promise<Estado | null>; pasoInicial?: number; ia?: ProveedorPc }) {
   const nombre = NOMBRE_IA[ia];
   const programa = PROGRAMA_IA_PC[ia];
   const conClaude = ia === 'claude';
@@ -410,7 +410,7 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
   const [eligiendo, setEligiendo] = useState<IaDelCliente | null>(null);
   const [tutorial, setTutorial] = useState(false);
   const [pasoInicial, setPasoInicial] = useState(1);
-  const [iaTutorial, setIaTutorial] = useState<IaDelCliente>('claude');
+  const [iaTutorial, setIaTutorial] = useState<ProveedorPc>('claude');
   const [ahora, setAhora] = useState(() => Date.now());
   const antes = useRef<number[]>([]);
   /** Ya se intentó leer una vez: sin estado después de eso (no se pudo), lo de siempre, no el esqueleto para siempre. */
@@ -430,7 +430,12 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
     await fetch('/api/ia-pc/desconectar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) }).catch(() => null);
     await recargar();
   };
-  const abrirTutorialEn = (paso: number, ia: IaDelCliente = 'claude') => { antes.current = (estado?.pcs ?? []).map((p) => p.id); setPasoInicial(paso); setIaTutorial(ia); setEligiendo(null); setTutorial(true); };
+  // Sólo una IA que tiene computadora (`iaDeLaPcPara`): Gemini no tiene, y el paso 2 ni lo ofrece.
+  const abrirTutorialEn = (paso: number, ia: IaDelCliente = 'claude') => {
+    const deLaPc = iaDeLaPcPara(ia);
+    if (!deLaPc) return;
+    antes.current = (estado?.pcs ?? []).map((p) => p.id); setPasoInicial(paso); setIaTutorial(deLaPc); setEligiendo(null); setTutorial(true);
+  };
   // Desde el instalador: con las PC de antes YA leídas (si no, una que ya estaba en línea se tomaba por la nueva).
   const abiertoDesdeElInstalador = useRef(false);
   useEffect(() => {

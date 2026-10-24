@@ -39,9 +39,9 @@ import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
 import { avisoClaveTapada, taparClaves } from '@/lib/claves-en-el-chat';
 import { encolarTurno, esperarALaPc, pcDe, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
-import { armarPrompt, AVISO_PC_ILEGIBLE, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, laPersonaEstaAdentro, modeloPc, pcUsable, type FalloDeLaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
+import { armarPrompt, AVISO_PC_ILEGIBLE, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, laPersonaEstaAdentro, modeloPc, pcUsable, probarSuClaveTrasLaPc, PROVEEDORES_PC, RESERVA_RESPALDO_MS, type FalloDeLaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
 import { IA_DE_LA_PC, MODELO_SU_OPENAI_DEFAULT, NOMBRE_MODELO_IA, type EleccionIA } from '@/lib/chat-ia-reglas';
-import { negocioConSuIA } from '@/lib/ia-del-negocio';
+import { claveDeIAPropia, negocioConSuIA } from '@/lib/ia-del-negocio';
 import { PROVS_SU_IA, entrarSoloSuIA } from '@/lib/solo-su-ia';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
@@ -759,12 +759,14 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // lo vuelve a mirar: esto evita leer la PC, aquello es lo que frena.
     const adentro = laPersonaEstaAdentro(await getUsuarioActual().catch(() => null), persona, entrada.pruebaSinSesion === true);
     let leidaPc = adentro ? await leerPc(iaDeLaPc) : { d: null, error: null };
-    // En Automático, la PC que no puede con su Claude pero sí con su ChatGPT contesta con su ChatGPT: a quien conectó sólo
-    // su ChatGPT, el aviso le decía «tu Claude no tiene la sesión iniciada». Sólo con alguna PC: un negocio sin ninguna no
-    // paga una segunda lectura en cada turno.
+    // En Automático, la PC que no puede con su Claude pero sí con su ChatGPT (o su Gemini, 24/10/2026) contesta con ésa: a quien
+    // conectó sólo su ChatGPT, el aviso le decía «tu Claude no tiene la sesión iniciada». Sólo con alguna PC: un negocio sin
+    // ninguna no paga una lectura más en cada turno. El orden es `PROVEEDORES_PC`.
     if (!ia && leidaPc.d && !pcUsable(leidaPc.d, 'claude')) {
-      const conChatGpt = await leerPc('chatgpt');
-      if (pcUsable(conChatGpt.d, 'chatgpt')) { leidaPc = conChatGpt; iaDeLaPc = 'chatgpt'; }
+      for (const otra of PROVEEDORES_PC.filter((p) => p !== 'claude')) {
+        const conOtra = await leerPc(otra);
+        if (pcUsable(conOtra.d, otra)) { leidaPc = conOtra; iaDeLaPc = otra; break; }
+      }
     }
     const pc = leidaPc.d;
     const pcIlegible = leidaPc.error;
@@ -778,16 +780,19 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // Eligió su computadora y no hay ninguna conectada (si no se pudo LEER, lo dice su propio aviso): eso es lo que pasa.
     if (eligioLaPc && !pc && !pcIlegible) falloDeLaPc = 'apagada';
     let reponeDeLaPc: string | null = null;
+    // En Automático con una clave propia, la espera de la PC le deja tiempo a su clave (`RESERVA_RESPALDO_MS`): si la PC no
+    // contesta, contesta su clave. Elegida la computadora, no: eligió ésa. Sólo se lee si va a la PC.
+    const reservado = conLaPc && !!pc && pcPuede && !eligioLaPc && await claveDeIAPropia(ws).catch(() => false);
     if (conLaPc && pc && pcPuede) {
       try {
-        // El modelo que eligió para este chat; si no, el del negocio. Con su ChatGPT, ninguno: Codex usa el suyo.
-        const modelo = iaDeLaPc === 'chatgpt' ? undefined
+        // El modelo que eligió para este chat; si no, el del negocio. Con su ChatGPT o su Gemini, ninguno: su programa usa el suyo.
+        const modelo = iaDeLaPc !== 'claude' ? undefined
           : ia?.cuenta === 'pc' && ia.modelo ? modeloPc(ia.modelo) : modeloPc(await getSetting(CLAVE_MODELO_PC).catch(() => null));
         // Lo que le queda a la ruta, no 240 s fijos (el Analyst del lead tiene 300 s: Vercel cortaba sin aviso). El turno vence
         // cuando el chat deja de esperarlo: si la ruta muere, una PC que se prende después no piensa un pedido que nadie lee.
-        const espera = esperaDelTurno(entrada.plazoMs ?? PLAZO_RUTA_MS, Date.now() - inicio);
+        const espera = esperaDelTurno(entrada.plazoMs ?? PLAZO_RUTA_MS, Date.now() - inicio, reservado ? RESERVA_RESPALDO_MS : 0);
         const turnoPc = await encolarTurno(pc, s.id, {
-          system, prompt: armarPrompt(historial, textoModelo), tools, modelo, ...(iaDeLaPc === 'chatgpt' ? { proveedor: 'chatgpt' as const } : {}),
+          system, prompt: armarPrompt(historial, textoModelo), tools, modelo, ...(iaDeLaPc !== 'claude' ? { proveedor: iaDeLaPc } : {}),
         }, espera, { pruebaSinSesion: entrada.pruebaSinSesion === true });
         const r = await esperarALaPc(turnoPc, ws, pc.id, nuevoIntento() as Ejecutor, espera);
         if (!r) { falloDeLaPc = 'tarde'; fallo = 'la computadora del cliente no contestó a tiempo'; }
@@ -801,9 +806,9 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       }
     }
     // Sin su PC (no tiene, está apagada o sin sesión, o no pudo): con su clave, si la tiene (docs/ia-del-cliente.md §5).
-    // Con «sólo su IA» (D6b) la cascada barata no participa: chatClaudeTools usa su OpenAI o su Claude, o nada. Si la PC
-    // tardó (ya no queda tiempo) o el negocio pasó su tope, no se prueba otra cosa.
-    if (!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos' && !eligioLaPc) {
+    // Con «sólo su IA» (D6b) la cascada barata no participa: chatClaudeTools usa su OpenAI, su Gemini o su Claude, o nada. Si
+    // la PC tardó, sólo si se le reservó tiempo a su clave (`probarSuClaveTrasLaPc`); si el negocio pasó su tope, no.
+    if (!texto && probarSuClaveTrasLaPc(falloDeLaPc, { eligioLaPc, reservado })) {
       try {
         const r = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
           feature: FEATURE, maxSteps: 8, sinFallbackClaude: true, soloSuIA: negocio.suIA,

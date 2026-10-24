@@ -78,12 +78,12 @@ test('5. el servidor: el turno lleva la IA, la ruta no le cambia nada a un turno
   assert.match(turno, /pcDe\(ws, persona\.actor, cual\)/);
   // Con la persona adentro (la guarda del 23/10, tests/ia-pc-nunca-a-leads.test.ts → 4).
   assert.match(turno, /let leidaPc = adentro \? await leerPc\(iaDeLaPc\) : \{ d: null, error: null \};/);
-  // En Automático, la PC que no puede con su Claude y sí con su ChatGPT contesta con su ChatGPT; sin PC, ni la busca.
-  assert.match(turno, /if \(!ia && leidaPc\.d && !pcUsable\(leidaPc\.d, 'claude'\)\) \{\s*const conChatGpt = await leerPc\('chatgpt'\);\s*if \(pcUsable\(conChatGpt\.d, 'chatgpt'\)\) \{ leidaPc = conChatGpt; iaDeLaPc = 'chatgpt'; \}/,
+  // En Automático, la PC que no puede con su Claude y sí con su ChatGPT (o su Gemini) contesta con ésa; sin PC, ni la busca.
+  assert.match(turno, /if \(!ia && leidaPc\.d && !pcUsable\(leidaPc\.d, 'claude'\)\) \{\s*for \(const otra of PROVEEDORES_PC\.filter\(\(p\) => p !== 'claude'\)\) \{\s*const conOtra = await leerPc\(otra\);\s*if \(pcUsable\(conOtra\.d, otra\)\) \{ leidaPc = conOtra; iaDeLaPc = otra; break; \}/,
     'a quien conectó sólo su ChatGPT, Automático le decía «tu Claude no tiene la sesión iniciada»');
   assert.match(turno, /const pcPuede = pcUsable\(pc, iaDeLaPc\);/);
-  assert.match(turno, /\.\.\.\(iaDeLaPc === 'chatgpt' \? \{ proveedor: 'chatgpt' as const \} : \{\}\)/);
-  assert.match(turno, /falloDeLaPc !== 'muchos' && !eligioLaPc\) \{/, 'con su computadora elegida, cae a las claves');
+  assert.match(turno, /\.\.\.\(iaDeLaPc !== 'claude' \? \{ proveedor: iaDeLaPc \} : \{\}\)/);
+  assert.match(turno, /probarSuClaveTrasLaPc\(falloDeLaPc, \{ eligioLaPc, reservado \}\)\) \{/, 'con su computadora elegida, no cae a las claves');
   assert.match(turno, /avisoDeLaPc\(falloDeLaPc, false, \{ repone: reponeDeLaPc, tz: tzAviso, ia: iaDeLaPc \}\)/);
 });
 
@@ -126,7 +126,8 @@ test('7. el tutorial de su ChatGPT: su nombre, su programa y lo que se acepta; l
   assert.doesNotMatch(sinLoDeClaude, /LOGIN_CLAUDE|COMANDO_CLAUDE/, 'un respaldo de Claude en el tutorial de ChatGPT');
   // Se abre con la IA que eligió, y «Nuevo dispositivo» con la de esa cuenta.
   assert.match(ui, /pasoInicial=\{pasoInicial\} ia=\{iaTutorial\} \/>/);
-  assert.match(ui, /setIaTutorial\(ia\);/);
+  // Desde IA16 «Conectar tu IA» trae Gemini, que no tiene computadora: el tutorial abre con la IA de la PC (tests/ia-pc-respaldo.test.ts → 2).
+  assert.match(ui, /setIaTutorial\(deLaPc\);/);
 });
 
 // PROBADO ROMPIÉNDOLO (23/10/2026) con este archivo, tests/ia-pc-varias.test.ts y tests/chat-ia.test.ts (base 14/0):
