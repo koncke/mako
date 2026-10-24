@@ -23,6 +23,8 @@
 // superficies con dos preguntas distintas, y podar una no es borrar la otra.
 
 import { requireCapa } from '@/lib/tab-access';
+// Las computadoras de un cliente en su ficha (app/admin/ComputadorasDelNegocio.tsx): el mismo dibujo que «Tus cuentas de IA».
+import '@/app/integraciones/tus-cuentas-ia.css';
 import { ClientesApp } from './ClientesApp';
 import { getPerfil, getTarjetaClientes } from '@/lib/perfil';
 import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';

@@ -331,22 +331,26 @@ export async function listarDispositivos(ws: number, persona: string, esAdmin: b
 }
 
 /**
- * TODAS las PC conectadas de TODOS los negocios, para el super admin (SuperAdmin › Uso, 22/10/2026: «Lo mismo en SuperAdmin. Y
- * poder "Desconectar" dispositivos»). Sin ningún secreto: el negocio, la persona, el nombre, el sistema, si está en línea,
- * cuándo se conectó y cuándo latió. Quien llama mira que sea el super admin. Tira si falla.
+ * Las PC conectadas de UN negocio, para el super admin: la ficha de ese cliente (Clientes → su ficha → Equipo). Sin ningún
+ * secreto: la persona, el nombre, el sistema, si está en línea, cuándo se conectó y cuándo latió. Quien llama mira que sea el
+ * super admin. Tira si falla.
+ * ⚠️ DE UN NEGOCIO, NUNCA DE TODOS (23/10/2026). El 22/10 Martín pidió las de todos en SuperAdmin › Uso («Lo mismo en
+ *    SuperAdmin»), y al verlas en producción: «en mi SuperAdmin me aparece conectada la computadora de Mauricio, eso esta muy
+ *    mal, no tiene nada que ver, estas cruzando workspace». La pantalla se llama «Tus cuentas de IA»: la máquina de un cliente
+ *    ahí se lee como suya. Lo de un cliente va en la ficha de ese cliente, y no queda una lectura de todos que otra pantalla
+ *    pueda volver a dibujar (docs/hallazgos-operaciones.md, «Las computadoras de los clientes…»).
  */
-export async function listarTodasLasPc(): Promise<PcDeNegocio[]> {
+export async function listarPcDelNegocio(ws: number): Promise<PcDeNegocio[]> {
   const leer = (columnas: string) => db().from('ia_pc_dispositivos')
     .select(columnas)
-    .is('revocado_at', null).not('confirmado_at', 'is', null).order('workspace_id').order('creado_at', { ascending: false }).limit(200);
+    .eq('workspace_id', ws).is('revocado_at', null).not('confirmado_at', 'is', null).order('creado_at', { ascending: false }).limit(50);
   // Con la ubicación (mig 0327); sin la migración, sin ella.
   let r = await leer('id, workspace_id, persona, nombre, ultimo_latido, cuentas, version, creado_at, ubicacion');
   if (esErrorDeEsquema(r.error)) r = await leer('id, workspace_id, persona, nombre, ultimo_latido, cuentas, version, creado_at');
-  const data = sinError(r as { data: Array<Record<string, unknown>> | null; error: { message: string } | null }, 'las PC de los negocios') ?? [];
-  const wss = [...new Set(data.map((f) => Number(f.workspace_id)))];
+  const data = sinError(r as { data: Array<Record<string, unknown>> | null; error: { message: string } | null }, 'las PC del negocio') ?? [];
   const nombres = new Map<number, string>();
-  if (wss.length) {
-    const w = sinError(await db().from('workspaces').select('id, nombre').in('id', wss), 'los negocios') ?? [];
+  if (data.length) {
+    const w = sinError(await db().from('workspaces').select('id, nombre').eq('id', ws), 'el negocio') ?? [];
     for (const f of w) nombres.set(Number(f.id), String(f.nombre ?? '').trim() || `Negocio ${f.id}`);
   }
   return data.map((f) => ({

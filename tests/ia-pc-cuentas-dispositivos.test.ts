@@ -131,7 +131,7 @@ test('4. la tarjeta: «Nueva cuenta» arriba, los bloques, «Nuevo dispositivo»
   assert.equal((html.match(/aria-label="Nuevo dispositivo"/g) ?? []).length, 2, '«Nuevo dispositivo» en cada cuenta');
   assert.match(html, /<a class="tci-boton" href="\/api\/ia-pc\/descargar\?os=windows">Descargar MaKo para Windows<\/a>/, 'la descarga no está a la vista');
   assert.equal((html.match(/>Desconectar</g) ?? []).length, 2);
-  // Lo mismo en SuperAdmin (UsoComputadoras.tsx) y en el teléfono (/m/cuenta/ia).
-  assert.match(sinComentarios(leer('app/admin/operaciones/UsoComputadoras.tsx')), /<CuentasYDispositivos grupos=\{grupos\} ahora=\{ahora\}/);
+  // Lo mismo en la ficha de un cliente del super admin (ComputadorasDelNegocio.tsx) y en el teléfono (/m/cuenta/ia).
+  assert.match(sinComentarios(leer('app/admin/ComputadorasDelNegocio.tsx')), /<CuentasYDispositivos grupos=\{grupos\} ahora=\{ahora\}/);
   assert.match(sinComentarios(leer('app/m/cuenta/ia/IaM.tsx')), /<SeccionM titulo=\{`Cuenta \$\{cuenta\.numero\}`\}>/);
 });

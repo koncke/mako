@@ -51,6 +51,20 @@ import { TodoBoard } from '../plan/TodoBoard';
 import type { BoardUser } from '../plan/board/types';
 import type { ClienteRef } from '@/lib/plan-clientes';
 import type { TrabajoDeCliente } from '../customer-success/trabajo';
+import { ComputadorasDelNegocio } from './ComputadorasDelNegocio';
+import { desconectarComputadoraAction } from './operaciones/acciones';
+import { leerCentro } from './operaciones/lectura-centro';
+import type { LecturaComputadoras } from '@/lib/ia-pc-reglas';
+
+/**
+ * Las computadoras de UN cliente, para su ficha (23/10/2026: salieron de «Tus cuentas de IA» del super admin, donde se
+ * listaban las de todos: ComputadorasDelNegocio.tsx). La lectura va por GET (no hace cola detrás de otras acciones) y el
+ * «Desconectar» es la acción del Centro; las dos piden puedeOperar.
+ */
+const leerComputadorasDe = async (ws: number): Promise<LecturaComputadoras> =>
+  (await leerCentro<LecturaComputadoras>('computadoras', { ws: String(ws) }).catch(() => null)) ?? { ok: false, error: 'No pude leer las computadoras: vuelve a intentarlo.' };
+const desconectarComputadoraDe = async (ws: number, id: number): Promise<LecturaComputadoras> =>
+  (await desconectarComputadoraAction(ws, id).catch(() => null)) ?? { ok: false, error: 'No pude desconectarla: vuelve a intentarlo.' };
 
 /** Lo que contestan /api/admin/workspaces y /api/admin/usuarios. */
 type Respuesta = { ok: boolean; error?: string; invitacion?: ResultadoInvitacion | null };
@@ -1149,6 +1163,10 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
                     equipo={usuarios.filter((u) => u.workspace_id === wAbierto.id)}
                     accionando={accionando} accionUser={accionUser} reenviar={reenviar}
                     onEliminar={setAEliminar} avisoReenvio={avisoReenvio} onRecargar={recargar} />
+                  {/* Las computadoras de SU equipo, con «Desconectar» (23/10/2026): vinieron de «Tus cuentas de IA» del super
+                      admin, donde la de un cliente se leía como propia («estas cruzando workspace»). */}
+                  <ComputadorasDelNegocio key={wAbierto.id} ws={wAbierto.id} negocio={wAbierto.nombre}
+                    leer={leerComputadorasDe} desconectar={desconectarComputadoraDe} />
                 </div>
               }
             />

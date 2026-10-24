@@ -8,10 +8,11 @@
 // sesión de 5 horas y de la semana; abajo, dentro de esa cuenta, sus DISPOSITIVOS —cada uno con su nombre, en línea o no, dónde
 // está como lo muestra Google en «Tus dispositivos» («Windows · Grandbourg, Buenos Aires, Argentina») y «Desconectar»—, y ahí
 // «Nuevo dispositivo», que se distingue bien de «Nueva cuenta». Lo usan «Tus cuentas de IA» (app/integraciones/TusCuentasIA.tsx,
-// en la computadora, en el teléfono del Ops Center y en /perfil/ia) y SuperAdmin › Uso → Computadoras (UsoComputadoras.tsx).
+// en la computadora, en el teléfono del Ops Center y en /perfil/ia) y la ficha de un cliente en Clientes (las computadoras
+// de SU negocio: app/admin/ComputadorasDelNegocio.tsx; desde el 23/10/2026 ya no las de todos en el Uso del super admin).
 // Los datos llegan agrupados del servidor (lib/ia-pc-reglas.ts → agruparPorCuenta): acá sólo se dibuja.
-// ⚠️ SIN IMPORTAR SU CSS: los tests lo dibujan en node (UsoComputadoras.tsx), que no carga un .css. Lo importa quien lo monta:
-// TusCuentasIA.tsx y las páginas del super admin (app/admin/operaciones/page.tsx, app/m/operaciones/page.tsx).
+// ⚠️ SIN IMPORTAR SU CSS: los tests lo dibujan en node (ComputadorasDelNegocio.tsx), que no carga un .css. Lo importa quien lo
+// monta: TusCuentasIA.tsx y las páginas (app/admin/operaciones/page.tsx, app/m/operaciones/page.tsx, app/customer-success/pantalla.tsx).
 // =============================================================================
 
 import { useState, type ReactNode } from 'react';

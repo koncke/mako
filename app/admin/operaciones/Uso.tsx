@@ -41,7 +41,6 @@ import {
   type Cuota, type EstadoRunnerUso, type UsoVentana,
 } from '@/lib/centro-uso';
 import { SeccionCredito, type CambiarCredito, type LeerCredito } from './UsoCredito';
-import { SeccionComputadoras, type DesconectarComputadora, type LeerComputadoras } from './UsoComputadoras';
 import { TOPE_NOMBRE_CUENTA, nombreDeLaCuenta, type DatosDeCuenta } from '@/lib/centro-titulares';
 
 export type CuentaUso = { cuenta: string; vistoAt: string | null; cuota: Cuota | null; titular?: DatosDeCuenta | null };
@@ -218,18 +217,16 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
  * IGUAL QUE EL DEL CLIENTE (23/10/2026, Martín, la segunda vez: «En SuperAdmin te había pedido que "USO de IA" sea IGUAL que en
  * los clientes, sólo que SuperAdmin tiene más configuraciones... Pero aún me sigue saltando el desplegable»). Tocarlo abre el
  * MISMO modal del cliente, «Tus cuentas de IA» (`tusCuentas`: las del negocio, conectar y desconectar), y debajo lo que es sólo
- * del super admin: las cuatro cuentas de Claude Code con sus Runners, la API y las computadoras. Ya no hay un panel que salta
+ * del super admin: las cuatro cuentas de Claude Code con sus Runners y la API. Las computadoras de los CLIENTES ya no (23/10/2026, Martín:
+ * «estas cruzando workspace»): van en la ficha de cada cliente (app/admin/ComputadorasDelNegocio.tsx). Ya no hay un panel que salta
  * sobre la barra (`.co-uso__panel`, absoluto encima del botón): ése era el desplegable.
  */
-export function BotonUso({ cuentas, ahora, onRenombrar, onLeerCredito, onCambiarCredito, onLeerComputadoras, onDesconectarComputadora, tusCuentas }: {
+export function BotonUso({ cuentas, ahora, onRenombrar, onLeerCredito, onCambiarCredito, tusCuentas }: {
   cuentas: readonly CuentaUso[]; ahora: number; onRenombrar?: RenombrarCuenta;
   /** El crédito de API de los planes (UsoCredito.tsx): se pide recién al abrir. Sin esto, la sección no sale. */
   onLeerCredito?: LeerCredito;
   /** El interruptor del crédito asignado a un negocio (el ws1). Sin esto, se ve y no se toca. */
   onCambiarCredito?: CambiarCredito;
-  /** Las computadoras de los negocios, con su «Desconectar» (UsoComputadoras.tsx). Sin esto, la sección no sale. */
-  onLeerComputadoras?: LeerComputadoras;
-  onDesconectarComputadora?: DesconectarComputadora;
   /** Lo mismo que ve el cliente: «Tus cuentas de IA» (app/integraciones/TusCuentasIA.tsx). Llega de afuera porque trae CSS, y
    *  esta pieza la renderizan los tests en node. */
   tusCuentas?: ReactNode;
@@ -247,7 +244,6 @@ export function BotonUso({ cuentas, ahora, onRenombrar, onLeerCredito, onCambiar
             <p className="co-uso__cab">Cuentas de Claude Code</p>
             <ListaUso cuentas={cuentas} ahora={ahora} onRenombrar={onRenombrar} />
             {onLeerCredito && <SeccionCredito leer={onLeerCredito} cambiar={onCambiarCredito} cuentas={cuentas} />}
-            {onLeerComputadoras && <SeccionComputadoras leer={onLeerComputadoras} desconectar={onDesconectarComputadora} ahora={ahora} />}
           </div>
         </Modal>
       )}
