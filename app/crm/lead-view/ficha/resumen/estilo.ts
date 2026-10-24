@@ -183,6 +183,8 @@ button.fr-chip { font: inherit; font-size: 13.5px; font-weight: 600; cursor: poi
 .fr-aut-plegar { border: none; background: none; padding: 4px; border-radius: 8px; cursor: pointer; color: var(--dim); display: grid; place-items: center; }
 .fr-aut-plegar:hover { background: var(--velo-hover); }
 .fr-aut-plegar:focus-visible, .fr-aut-fila:focus-visible, .fr-aut-frenar:focus-visible, .fr-aut-antes:focus-visible, .fr-aut-mas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* El foco con teclado en el nombre, como en las tabs y el resto de la ficha (chat «CRM», 24/10/2026). */
+.fr-aut-nombre:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
 
 /* El riel: una línea vertical que une las marcas; el tramo que llega a lo próximo, punteado. La línea pasa por x = 11,25 px
    del riel (el centro del sello de arriba); cada marca la corta con un aro del fondo, en los dos temas. */
