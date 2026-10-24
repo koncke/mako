@@ -177,7 +177,8 @@ producción (`scripts/apply-migration.mjs` no deja registro: docs/hallazgos-infr
 **Queda la más VIEJA, salvo que la otra tenga la venta o ya sea cliente.** Todos los que buscan a quién es un mensaje
 por el teléfono se quedan con el id más bajo: `matchLeadPorTelefono` (lib/evolution-mensajes.ts:100-109),
 `primerLeadPorTelefono` y `elegirPorTelefono`. Por eso las respuestas de Martín caían en el 249 y no en el 3099
-(docs/hallazgos-chatbot.md). **Sin hacer (es de Comunicación):** `resolverLeadIdsPorTelefono`
+(docs/hallazgos-chatbot.md). Desde el 24/10, `matchLeadPorTelefono` elige la ficha a la que le escribimos último, y sólo
+sin esa prueba la de id más bajo (docs/hallazgos-comunicacion.md, «Dos fichas con el mismo teléfono»). **Sin hacer (es de Comunicación):** `resolverLeadIdsPorTelefono`
 (lib/evolution-mensajes.ts:224-239) no ordena, así que con dos fichas con el mismo teléfono puede elegir una distinta en
 cada pedido.
 

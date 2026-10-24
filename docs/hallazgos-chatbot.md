@@ -6895,7 +6895,7 @@ lead_id). Un lead duplicado por teléfono contesta en el otro y la automatizaci�
 (anotado, el ws1 tiene un solo par: 249/3099). Para probar, un lead que sea el único con ese teléfono.
 **Vive en:** lib/variables-del-lead.ts · lib/api-mako/areas/chatbot.run.ts (`textoDelAviso`) ·
 tests/aviso-equipo-no-vacio.test.ts. **Sin hacer:** el lienzo no avisa al escribir un renglón con varios datos
-opcionales; el duplicado por teléfono (`matchLeadPorTelefono`).
+opcionales. (El duplicado por teléfono se arregló el 24/10: la respuesta va a la ficha a la que le escribimos último, ver «Dos fichas con el mismo teléfono» en docs/hallazgos-comunicacion.md.)
 *23/10/2026, chat «Automations» (claude2).*
 
 ### Mover un lead a la etapa del CRON no lo hace empezar de nuevo, y no lo decía (23/10/2026)
