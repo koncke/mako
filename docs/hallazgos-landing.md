@@ -4431,11 +4431,16 @@ la base, las grabaciones y GETs a Stripe. Lo pidió el Cerebro después de la au
   suena a la que abre la venta y es la de bienvenida al que compró. Antes de decir que una automatización manda
   tráfico a una URL, se leen sus `pasos` y se busca la URL adentro. Deducirlo del nombre estuvo a punto de hacernos
   ofrecerle a Mauricio pausar justo lo que lo dejaba sin onboarding.
-- **Estado al 24/10 ~20:30 UTC: sigue pisada.** Abierta con un navegador real (el `curl` con UA propio da 403 en ese
-  host): la raíz muestra «Tu inscripción al Sprint», con el grupo de WhatsApp, sin precio, sin VSL y sin botón de
-  compra. **Avisado a Mauricio en su grupo de MaKo** ese mismo día, con los pasos para restaurar `index.html` desde la
-  copia de seguridad del hosting (ahí no entramos nosotros) y el recordatorio de que el Sprint es el 24, 25 y 26 de
-  noviembre: todavía está vendiendo.
+- **RESUELTA el 24/10 ~21:10 UTC: Mauricio la restauró.** A las ~20:30 seguía pisada (abierta con un navegador
+  real: la raíz mostraba «Tu inscripción al Sprint», sin precio ni botón de compra). **Avisado a Mauricio en su grupo
+  de MaKo** con los pasos para restaurar `index.html` desde la copia de seguridad del hosting (ahí no entramos
+  nosotros) y el recordatorio de que el Sprint es el 24, 25 y 26 de noviembre: todavía está vendiendo. Lo hizo en menos
+  de una hora. Medido después: 200 con el UA de bot, título «Sprint de Diseño para la Ejecución Empresarial», 34.223
+  bytes, UN link de `buy.stripe.com`, el precio de US$270 y CERO `chat.whatsapp.com`.
+- **Regla que queda: cuando el arreglo está del lado del cliente, el camino no es esperar — es decirle QUÉ hacer, con
+  los pasos.** No alcanzaba con dejarlo escrito en un documento nuestro: lo que lo destrabó fue un mensaje a su grupo
+  con el panel, el archivo y cómo verificarlo. **Le queda a él** el redirect del Payment Link con
+  `{CHECKOUT_SESSION_ID}` y decidir si `/gracias/` sigue mostrando el grupo de WhatsApp.
 - **Regla que queda:** después de ayudar a pegar el Pixel en un sitio de varias páginas, se compara cada página contra la
   anterior (título y md5 con `curl`), no sólo que llegue el pageview: el probador dio verde sobre una página que ya no
   era la de venta.
