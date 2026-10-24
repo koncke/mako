@@ -9207,6 +9207,9 @@ dimos. El dueño lo reportó como «es aún más raro».
   sí (el `catch` del modelo, la guarda de «ningún proveedor contestó» y el bloqueo por
   respuesta inválida). El guard busca cualquier línea que use el texto de aviso, así caza
   también la cuarta.
+- **Un cartel no tapa lo que el turno dejó hecho** (24/10/2026, ws15: la pendiente «Mover a ELi…» quedó viva dos horas
+  detrás de un «no pude»). Lo que el turno propuso antes de caerse se nombra en el cartel (`conLoQueQuedoPropuesto`,
+  lib/respuesta-doer.ts), en UN lugar: al mandar, si `avisoDeSistema`. Un cartel nuevo prende `avisoDeSistema` y lo hereda.
 - ⚠️ **El olor: el modelo dice algo sobre SÍ MISMO que nadie le contó.** Lo primero que hay
   que mirar no es el prompt: es qué hay guardado en el historial con su nombre.
 

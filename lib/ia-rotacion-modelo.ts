@@ -35,9 +35,23 @@
 //     PROVEEDOR («Please retry in 17s») y nunca una inventada. Uno del día trae una espera
 //     de horas y no entra en el tope, así que no se espera. Y es una sola vez por turno:
 //     del otro lado hay alguien mirando el chat.
+//
+// EL SEGUNDO CASO (23/10/2026 14:05 UTC, otra vez Brigitte, ws15, una sola key de Gemini). «Si contacte Eli»: dos pasos
+// bien con `flash-lite` y el tercero no volvió — «The operation was aborted due to timeout» — y MaKo le contestó con el
+// cartel «Tu proveedor de IA se cayó justo ahora… carga una segunda (son gratis)». Lo que faltaba:
+//
+//  4. UN TIMEOUT NO ES UNA SATURACIÓN MÁS. Compartía con el 503 el ÚNICO reintento del paso, y un 503 rápido antes de
+//     él lo dejaba sin nada: el timeout que venía después tiraba el turno. (Los logs de Vercel ya no existían; sale de
+//     los relojes: el cartel llegó a +83 s = el 200 de +34 s + 45 s de timeout + ~4 s. Un timeout sin reintento sólo
+//     es posible con el del paso ya gastado.) Un timeout cuesta el plazo entero del pedido (45 s), así que tiene su
+//     regla: otro modelo de la misma key si queda, y si no, el MISMO modelo UNA vez por turno.
+//  5. LOS REINTENTOS TIENEN PLAZO (`hastaMs`). Sin él, un paso podía quemar 45 + 45 + 45 s y el turno no tenía techo
+//     (medido: 170 s el más largo desde el 17/10). Con plazo, un reintento que no tiene 15 s por delante no arranca, y
+//     el que arranca va cortado a lo que queda. El PRIMER pedido de cada paso no se corta nunca: después de una
+//     herramienta, cortar el cierre es dejar una acción hecha sin decirla (la regla de «nada por detrás»).
 // =============================================================================
 
-export type TipoFallo = 'cuota' | 'saturacion' | 'modelo' | 'otro';
+export type TipoFallo = 'cuota' | 'saturacion' | 'timeout' | 'modelo' | 'otro';
 
 export interface ErrorProveedor {
   /** El texto del proveedor, o `HTTP <n>` si no mandó ninguno. */
@@ -104,9 +118,41 @@ export function tipoDeFallo(status: number, mensaje: string): TipoFallo {
   if (status === 413 || /request too large|reduce your message size/i.test(mensaje)) return 'otro';
   if (status === 429 || /RESOURCE_EXHAUSTED|exceeded your current quota|quota exceeded/i.test(mensaje)) return 'cuota';
   if (status === 404 || /no longer available|does not exist|unavailable for free|model not found/i.test(mensaje)) return 'modelo';
-  if ((status >= 500 && status <= 599) || /timeout|timed out|aborted|ETIMEDOUT|fetch failed|ECONNRESET|overloaded|high demand|\bUNAVAILABLE\b/i.test(mensaje)) return 'saturacion';
+  // ⚠️ Sin status es que NO HUBO RESPUESTA: lo cortó nuestro `AbortSignal.timeout` (la regla 4 de arriba). Un 408 o un
+  // 504 sí volvieron, rápido o no, y siguen siendo saturación.
+  if (!status && ES_TIMEOUT.test(mensaje)) return 'timeout';
+  if ((status >= 500 && status <= 599) || ES_TIMEOUT.test(mensaje) || /aborted|fetch failed|ECONNRESET|overloaded|high demand|\bUNAVAILABLE\b/i.test(mensaje)) return 'saturacion';
   return 'otro';
 }
+
+/** El texto de un pedido que no volvió a tiempo («The operation was aborted due to timeout», el de `AbortSignal.timeout`). */
+const ES_TIMEOUT = /timeout|timed out|ETIMEDOUT/i;
+
+/**
+ * ⏱ Lo mínimo que tiene que quedar del plazo para ARRANCAR un reintento. El mismo número y el mismo criterio que
+ * `MIN_INTENTO_MS` de la cascada de texto (lib/ai-cheap.ts): menos es un pedido que nace muerto. Medido en el doer
+ * desde el 10/10: un paso de `flash-lite` tarda 2,3 s la mitad de las veces y uno de `flash-latest`, 6,7 s.
+ */
+export const MIN_REINTENTO_MS = 15_000;
+
+/**
+ * ⏱ El plazo de los reintentos de UN proveedor en un turno de MaKo por WhatsApp (lib/mako-doer-in.ts), desde que se
+ * le pide por primera vez. Por qué 100 s, con lo medido (turnos del doer con Gemini, 17 al 24/10/2026, contados desde
+ * el mensaje de la persona):
+ *   · No toca el camino que anda: el primer pedido de cada paso no se corta. Los turnos que contestan tardan 15,6 s la
+ *     mitad y 60 s el p90.
+ *   · Pone techo al que falla: hoy un paso podía ir a 136 s (tres timeouts de 45 y la pausa) y el turno más largo fue
+ *     de 170 s.
+ *   · Y le deja su reintento al caso del ws15: el timeout volvió a +81 s del mensaje, y el plazo arranca después (con
+ *     el primer pedido), así que a los 100 le quedan 19 s o más (≥ 15).
+ * ⚠️ Es POR PROVEEDOR, no por turno: una IA de otra marca es el respaldo de verdad de un proveedor lento, y no se le
+ * niega su intento porque el primero se comió el plazo.
+ */
+export const PLAZO_REINTENTOS_TURNO_MS = 100_000;
+
+/** ¿Entra otro intento (después de esperar `esperaMs`) antes de `hastaMs`? */
+export const hayTiempoParaOtroIntento = (hastaMs: number, ahora: number = Date.now(), esperaMs = 0): boolean =>
+  ahora + esperaMs + MIN_REINTENTO_MS <= hastaMs;
 
 export type PasoRotacion = {
   accion: 'rotar' | 'reintentar' | 'esperar';
@@ -119,10 +165,17 @@ export type PasoRotacion = {
 export interface RotacionModelo {
   /** El modelo con el que se pide ahora. */
   readonly modelo: string | undefined;
+  /** `true` si el último `null` de `trasFallo` fue por el plazo y no porque no quedara qué probar. */
+  readonly cortadoPorPlazo: boolean;
   /** Arranca un paso nuevo del loop: el reintento por saturación es UNO por paso. */
   nuevoPaso(): void;
   /** Qué hacer con este fallo, o `null` si no queda nada que probar (se tira). */
   trasFallo(f: { tipo: TipoFallo; esperaMs: number | null; porDia: boolean }): PasoRotacion | null;
+  /**
+   * El techo de espera del pedido que sale ahora. El primero de cada paso va con `baseMs` siempre (ver la regla 5);
+   * un reintento, con lo que quede del plazo, si es menos.
+   */
+  plazoDelIntentoMs(baseMs: number): number;
 }
 
 /** La pausa del reintento de una saturación, cuando no hay otro modelo al que ir. */
@@ -137,15 +190,26 @@ export const PAUSA_SATURACION_MS = 1200;
  *
  * Una vez que se rotó, no se vuelve al modelo anterior en ese turno salvo por la espera:
  * pegarle de nuevo a un modelo que acaba de decir que no es pagar otro rebote.
+ *
+ * `hastaMs` (epoch ms) es el plazo de los REINTENTOS (la regla 5 de arriba); sin él, como antes. `ahora` es para el test.
  */
-export function crearRotacion(modelos: Array<string | undefined>, opts: { esperaMaxMs?: number } = {}): RotacionModelo {
+export function crearRotacion(
+  modelos: Array<string | undefined>,
+  opts: { esperaMaxMs?: number; hastaMs?: number; ahora?: () => number } = {},
+): RotacionModelo {
   const lista = modelos.length ? modelos : [undefined];
   const esperaMax = Math.max(0, opts.esperaMaxMs ?? 0);
+  const ahora = opts.ahora ?? Date.now;
   let i = 0;
   let reintentoDelPaso = false;
   /** El primer modelo que dio una cuota del MINUTO con una espera que entra en el tope. */
   let cuotaMinuto: { indice: number; esperaMs: number } | null = null;
   let esperado = false;
+  /** El reintento del MISMO modelo tras un timeout: uno por turno (la regla 4), aparte del de la saturación. */
+  let timeoutReintentado = false;
+  /** ¿El pedido que sale ahora es un reintento? Lo que decide si el plazo lo corta. */
+  let enReintento = false;
+  let cortadoPorPlazo = false;
 
   const esperar = (): PasoRotacion | null => {
     if (!cuotaMinuto || esperado) return null;
@@ -162,27 +226,54 @@ export function crearRotacion(modelos: Array<string | undefined>, opts: { espera
     return { accion: 'rotar', modelo: lista[i], esperaMs: 0 };
   };
 
+  const decidir = ({ tipo, esperaMs, porDia }: { tipo: TipoFallo; esperaMs: number | null; porDia: boolean }): PasoRotacion | null => {
+    // ⚠️ EL TIMEOUT VA PRIMERO Y CON SU PROPIA CUENTA (la regla 4). El modelo que se colgó es la peor apuesta para el
+    // reintento inmediato: si hay otro en la lista, va ése; si no, el mismo, UNA vez por turno. No mira
+    // `reintentoDelPaso`: un 503 rápido antes no le quita su intento, que es justo lo que tiró el turno del ws15.
+    if (tipo === 'timeout') {
+      const r = rotar();
+      if (r) return r;
+      if (timeoutReintentado) return null;
+      timeoutReintentado = true;
+      return { accion: 'reintentar', modelo: lista[i], esperaMs: 0 };
+    }
+    // Después de la espera no se sigue probando: el turno ya se tomó su tiempo.
+    if (esperado && (tipo === 'cuota' || tipo === 'saturacion' || tipo === 'modelo')) return null;
+    if (tipo === 'cuota') {
+      if (!porDia && esperaMs != null && esperaMs <= esperaMax && !cuotaMinuto) cuotaMinuto = { indice: i, esperaMs };
+      return rotar() ?? esperar();
+    }
+    if (tipo === 'saturacion') {
+      const r = rotar();
+      if (r) return r;
+      if (!reintentoDelPaso) {
+        reintentoDelPaso = true;
+        return { accion: 'reintentar', modelo: lista[i], esperaMs: PAUSA_SATURACION_MS };
+      }
+      return esperar();
+    }
+    if (tipo === 'modelo') return rotar() ?? esperar();
+    return null;
+  };
+
   return {
     get modelo() { return lista[i]; },
-    nuevoPaso() { reintentoDelPaso = false; },
-    trasFallo({ tipo, esperaMs, porDia }) {
-      // Después de la espera no se sigue probando: el turno ya se tomó su tiempo.
-      if (esperado && (tipo === 'cuota' || tipo === 'saturacion' || tipo === 'modelo')) return null;
-      if (tipo === 'cuota') {
-        if (!porDia && esperaMs != null && esperaMs <= esperaMax && !cuotaMinuto) cuotaMinuto = { indice: i, esperaMs };
-        return rotar() ?? esperar();
+    get cortadoPorPlazo() { return cortadoPorPlazo; },
+    nuevoPaso() { reintentoDelPaso = false; enReintento = false; },
+    trasFallo(f) {
+      const paso = decidir(f);
+      if (!paso) return null;
+      // El plazo se mira DESPUÉS de decidir: lo que se corta es un intento que existía, y se dice (`cortadoPorPlazo`).
+      if (opts.hastaMs != null && !hayTiempoParaOtroIntento(opts.hastaMs, ahora(), paso.esperaMs)) {
+        cortadoPorPlazo = true;
+        return null;
       }
-      if (tipo === 'saturacion') {
-        const r = rotar();
-        if (r) return r;
-        if (!reintentoDelPaso) {
-          reintentoDelPaso = true;
-          return { accion: 'reintentar', modelo: lista[i], esperaMs: PAUSA_SATURACION_MS };
-        }
-        return esperar();
-      }
-      if (tipo === 'modelo') return rotar() ?? esperar();
-      return null;
+      enReintento = true;
+      return paso;
+    },
+    plazoDelIntentoMs(baseMs) {
+      if (!enReintento || opts.hastaMs == null) return baseMs;
+      return Math.min(baseMs, Math.max(MIN_REINTENTO_MS, opts.hastaMs - ahora()));
     },
   };
 }

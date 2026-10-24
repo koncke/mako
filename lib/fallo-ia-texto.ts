@@ -34,6 +34,11 @@ export type CausaFalloIA =
   /** Falló todo teniendo con qué: es de los proveedores, no del cliente. */
   | 'proveedor_caido'
   /**
+   * Su IA no contestó A TIEMPO (un timeout nuestro, quizá con algún 503 al lado). No es del cliente ni de su cuota, y
+   * otra key del MISMO proveedor no la cubre: lo que la cubre es una IA de otra marca (24/10/2026, el ws15).
+   */
+  | 'ia_lenta'
+  /**
    * El mensaje no le ENTRA al proveedor. No es cuota y no es del cliente: es
    * nuestro tope de entrada, y es la única de las cinco donde «reintenta» es
    * mentira — el mismo texto va a volver a rebotar.
@@ -83,6 +88,26 @@ const ES_TOPE_DE_TAMANO = /\b413\b|request too large|too large for model|reduce 
 const SATURADO = /\b503\b|high demand|overloaded|\bUNAVAILABLE\b|temporarily unavailable/i;
 export const esSaturacion = (error: string): boolean => SATURADO.test(error);
 
+/**
+ * ⚠️ UN TIMEOUT NO ES «SE CAYÓ» NI SE ARREGLA CON UNA SEGUNDA KEY DEL MISMO. Medido el 23/10/2026 14:05 UTC en el ws15:
+ * «chatCheapTools(gemini): The operation was aborted due to timeout», una key, y el texto de `sin_respaldo` —«Tu proveedor
+ * de IA se cayó justo ahora… Carga una segunda (son gratis)»—. Gemini no se cayó (los dos pasos anteriores de ese mismo
+ * turno contestaron 200), y Brigitte hizo lo que le dijeron: a los 33 minutos cargó una segunda key de GEMINI, que le
+ * pega al mismo Google. Lo que sí la cubre es una IA de otra marca.
+ */
+const TIMEOUT = /timeout|timed out|ETIMEDOUT/i;
+export const esTimeout = (error: string): boolean => TIMEOUT.test(error);
+
+/** Los proveedores que nombran los errores (`chatCheapTools(gemini · cuenta 2): …`, `gemini: …`, `anthropic/…`). */
+export function proveedoresDeLosErrores(errores: readonly string[]): string[] {
+  const out = new Set<string>();
+  for (const e of errores) {
+    const m = /\b(gemini|openai|anthropic|groq)\b/i.exec(e);
+    if (m) out.add(m[1].toLowerCase());
+  }
+  return [...out];
+}
+
 /** true si ESE error es «no me entra», no «no me queda cuota». Exportada para que el
  *  call site pueda contar cuántas cuentas rebotaron de verdad por límite. */
 export const esTopeDeTamano = (error: string): boolean => ES_TOPE_DE_TAMANO.test(error);
@@ -129,6 +154,9 @@ export function causaDelFallo(errores: string[], keysDelCliente: number, ctx: Co
   // Saturado de su lado: no es del cliente, y otra key del mismo proveedor no lo cubre (ver
   // SATURADO). Va antes de «una sola key» porque esa rama le pide justo eso.
   if (resto.length && resto.every(esSaturacion)) return 'proveedor_caido';
+  // No contestó a tiempo (ver TIMEOUT). Va antes de «una sola key» por lo mismo que la saturación: esa rama le pide
+  // una segunda key del mismo proveedor, y eso no lo cubre.
+  if (resto.some(esTimeout) && resto.every((e) => esTimeout(e) || esSaturacion(e))) return 'ia_lenta';
   // Con una sola key no hay cascada: cualquier bache de ese proveedor lo deja sin
   // MaKo. Es el caso del ws13 el 25/8 y la razón de que esto exista.
   if (keysDelCliente <= 1) return 'sin_respaldo';
@@ -146,6 +174,7 @@ export function fraseDelFallo(causa: CausaFalloIA): string {
     case 'sin_cuota': return 'las keys de IA del negocio no tienen cuota ahora';
     case 'sin_respaldo': return 'la única key de IA del negocio no contestó';
     case 'proveedor_caido': return 'los proveedores de IA no contestaron';
+    case 'ia_lenta': return 'la IA del negocio tardó demasiado en contestar';
     case 'mensaje_muy_largo': return 'es demasiado largo para la IA';
     case 'fallo_nuestro': return 'falló de nuestro lado';
   }
@@ -180,6 +209,22 @@ export const CON_SU_IA_SIN_VISION = 'Con tu propio Claude, las fotos y los PDF e
 /** Qué era lo que MaKo estaba por hacer, para que la frase no quede genérica. */
 export type QueIntentaba = 'contestar' | 'escuchar tu audio' | 'armar el borrador';
 
+const NOMBRE_IA: Record<string, string> = { gemini: 'Gemini', openai: 'GPT', anthropic: 'Claude', groq: 'Groq' };
+
+/**
+ * Qué IA de OTRA marca cubre a ésta, en la frase de `ia_lenta`: las que corren el turno de MaKo con herramientas, su
+ * OpenAI y su Gemini (`PROVS_SU_IA`, lib/solo-su-ia.ts; se repite acá para que esto siga sin `server-only`).
+ * ⚠️ CLAUDE NO VA, Y NO ES OLVIDO (24/10/2026). En WhatsApp su Claude entra sólo si el turno no corrió NINGUNA
+ * herramienta (WA1, lib/mako-doer-in.ts: otro modelo después de una escritura la duplicaría), y el turno del ws15 se
+ * colgó después de dos: «conecta tu Claude» le prometía un respaldo que justo en ese caso no está. Para escuchar un
+ * audio tampoco: Claude no escucha (`CASCADA_STT`, lib/ai-cheap.ts).
+ */
+const CUBREN_EL_TURNO = ['openai', 'gemini'] as const;
+const respaldosDe = (prov: string): string[] => CUBREN_EL_TURNO.filter((p) => p !== prov);
+const otrasMarcas = (prov: string): string => respaldosDe(prov).map((p) => `tu ${NOMBRE_IA[p]}`).join(' o ');
+/** El link a Integraciones con el modal del respaldo que se le sugiere (`?abrir=openai`), no el de Claude de `linkKeysIA`. */
+const conAbrir = (link: string, servicio: string): string => link.replace(/([?&]abrir=)[^&#\s]*/, `$1${servicio}`);
+
 /**
  * El doer de WhatsApp sin keys propias y con un turno que lleva datos de clientes (17/10/2026): la red gratis no corre
  * (`turnoParaLaRed`, lib/doer-herramientas.ts). ⚠️ NO dice «Conecta tu Claude» como `CONECTA_TU_CLAUDE`: el
@@ -207,8 +252,28 @@ export function textoFalloIA(
   link: string,
   que: QueIntentaba = 'contestar',
   keysDelCliente = 1,
+  /** Los errores DEL NEGOCIO con que se eligió la causa: `ia_lenta` saca de ahí qué IA fue (`proveedoresDeLosErrores`). */
+  errores: readonly string[] = [],
 ): string {
   switch (causa) {
+    case 'ia_lenta': {
+      // ⚠️ NI «SE CAYÓ» NI «CARGA UNA SEGUNDA»: ver TIMEOUT. Dice qué pasó (y que lo cortamos nosotros: nada por
+      // detrás), que lo mande de nuevo —casi siempre anda al rato— y, si TODA su IA es de una marca, qué le da respaldo.
+      const provs = proveedoresDeLosErrores(errores).filter((p) => NOMBRE_IA[p]);
+      if (provs.length !== 1) {
+        return [
+          `⚠️ No pude ${que}: tu IA tardó demasiado en responder y corté para no dejarte esperando.`,
+          '',
+          'No es nada tuyo ni de tus keys. Mándamelo de nuevo en un rato.',
+        ].join('\n');
+      }
+      return [
+        `⚠️ No pude ${que}: ${NOMBRE_IA[provs[0]]}, tu IA, tardó demasiado en responder y corté para no dejarte esperando.`,
+        '',
+        `Mándamelo de nuevo. Si conectas otra IA tuya (${otrasMarcas(provs[0])}), la uso de respaldo cuando una se pone lenta 👇`,
+        conAbrir(link, respaldosDe(provs[0])[0]),
+      ].join('\n');
+    }
     case 'sin_keys':
       return [
         `⚠️ No puedo ${que}: todavía no cargaste ninguna API key de IA.`,
