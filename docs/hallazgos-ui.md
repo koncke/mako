@@ -4503,6 +4503,18 @@ ventana.
 - **Trampa 2: con la misma especificidad gana la regla de más abajo, aunque sea más general.** `.co-uso__credito { display: flex }`
   está más abajo en el archivo que `.co-uso__credito--barra { display: grid }`, y pisaba la grilla. Con la clase doble
   (`.co-uso__credito.co-uso__credito--barra`) gana siempre, esté donde esté.
+- **Con interacción (24/10/2026, Chats):** una pantalla que lee todo con `fetch` (ChatsApp) no se ve con `renderToStaticMarkup`.
+  Se armó con esbuild (el del repo) un bundle de la pantalla real con un `fetch` falso (datos de ejemplo por ruta) y los mismos
+  stubs, y se abrió en el Edge sin ventana con `--virtual-time-budget`; los clics, por selector desde la página. Cuatro trampas:
+  - **`process is not defined`**: lib/app-url.ts (que trae un modal compartido) lee `process.env` en el cliente; Next lo
+    rellena y esbuild no. Un `banner` con `var process = { env: {} }`;
+  - **un menú abierto sale cerrado en la foto**: la captura redimensiona la ventana y el Dropdown de la casa se cierra con el
+    `resize`. En el arnés, un `resize` que no llega (`stopImmediatePropagation` en captura, registrado antes de montar);
+  - **un modal sale transparente, como si estuviera DEBAJO de la pantalla**: no era un problema de apilamiento (eso parecía);
+    las animaciones de CSS (`mkFade`, 0,12 s) no avanzan con el tiempo virtual y la foto las agarra en el primer cuadro. En el
+    arnés, `animation: none`;
+  - **esbuild colgado**: parecía un ciclo de imports, y era la máquina sin memoria (875 MB libres con cuatro `tsc` enteros de
+    otros chats). Mirar la RAM antes de diagnosticar un cuelgue.
 - **Trampa 3: reordenar el marcado de una tarjeta rompe tests que no hablan de diseño.** Los tests del Uso leen el texto de cada
   tarjeta en orden. Con `display: contents` en la fila de adentro y una grilla con áreas, el marcado queda igual y se ve en otro
   orden. Un lector de pantalla sigue leyendo el orden lógico.

@@ -1,19 +1,21 @@
 'use client';
 
 // =============================================================================
-// Composer — la caja de escribir de la ventana del chat, copiada de respond.io
+// Composer — la caja de escribir de la ventana del chat
 // =============================================================================
-// docs/diseno-chats.md §3; relevamiento respondio.md §1.5 (capturas a-composer, 29, 36, 37):
-//   · Una TARJETA con borde de radio 8. Fila 1: el selector de canal («<ícono> WhatsApp (Ventas) ·
-//     +52 55… ⌄», abre HACIA ARRIBA las identidades del contacto; las que no pueden escribir, grises con
-//     su motivo) y a la derecha «MaKo» (el «AI Assist» de respond.io). Después el campo que crece con el
-//     texto («Escribe un mensaje») y la barra de íconos de 20: emoji, voz, adjuntar. Enviar a la derecha,
-//     28×28, azul #1a6eff (gris apagado).
-//   · Abajo, «Agregar comentario»: el MODO COMENTARIO pliega la tarjeta del mensaje a su fila de canal y
-//     abre la tarjeta durazno (#ffebd1, borde #fa8900) con «Solo lo ve tu equipo» y el enviar naranja. El
-//     comentario es la NOTA DEL LEAD (la misma del CRM): sin lead, primero «Agregar al CRM».
-//   · Arriba de la tarjeta, el BORRADOR DE MAKO pendiente (la cola de borradores de WhatsApp), con
-//     «Enviar», «Editar» y «Descartar».
+// docs/diseno-chats.md §3 y §8.3. DESDE EL 24/10/2026 ES LA CAJA ÚNICA DE LA APP (`CajaChat`, app/_chat/CajaChat.tsx; Martín:
+// «hay funcionalidades que tenemos en el chat con MaKo que faltan, me gustaría que se parezca más al chat de MaKo»): una
+// fila con el «+» (Documento, Fotos, Cámara, Pegar), los emojis, el campo con viñetas, listas y links azules, «MaKo» al
+// final y UN botón (la nota de voz en WhatsApp, el dictado en los demás, la flecha con algo escrito). Lo de Chats va en
+// las ranuras de la caja:
+//   · `arriba`: por dónde sale («WhatsApp (Ventas) · +52 55… ⌄», que abre las identidades del contacto; las que no pueden
+//     escribir, grises con su motivo), el asunto del email y el interruptor «Comentario»;
+//   · el MODO COMENTARIO tiñe la caja de durazno (#ffebd1, borde #fa8900) con «Sólo lo ve tu equipo»: el comentario es la
+//     NOTA DEL LEAD (la misma del CRM); sin lead, la caja lo dice y el alta está en la cabecera (§8.2, un solo lugar);
+//   · arriba de la caja, el BORRADOR DE MAKO pendiente (la cola de borradores de WhatsApp), con «Enviar», «Editar» y
+//     «Descartar».
+// Los adjuntos siguen abriendo la vista de WhatsApp Web (la de la casa, pedido de Martín del 11/10) por encima del hilo:
+// el «+», pegar y SOLTAR sobre la conversación (VentanaChat, `onSoltar`) entran ahí.
 //
 // Lo que NO se copia de respond.io, y por qué: snippets con «/» y variables con «$» (v2), AI Prompts
 // (tonos, traducir) y «Summarize» (v2), la cita al responder (Evolution y Zernio no la tienen) y las
@@ -35,20 +37,21 @@
 // ⚠️ INSTAGRAM Y MESSENGER: SÓLO TEXTO en v1 (docs/diseno-chats.md §6.4), y sólo dentro de la ventana
 //    de 24 h: el servidor lo decide (`puedeEscribir`) y la pantalla sólo lo dice.
 
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { BorradorChat, ChatResumen, IdentidadCanal, MensajeChat } from '@/lib/chats-tipos';
-import { EmojiPicker } from '@/app/whatsapp/EmojiPicker';
-import { accionDeTecla, insertarEnCursor } from '@/app/whatsapp/_shared/ComposerWhatsApp';
-import { useGrabacionVoz, BarraGrabacion } from '@/app/whatsapp/_shared/VoiceRecorder';
+import { CajaChat } from '@/app/_chat/CajaChat';
+import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { VistaAdjuntos, useListaAdjuntos } from '@/app/whatsapp/_shared/VistaAdjuntos';
 import { enviarEnOrden, MAX_ADJUNTOS } from '@/app/whatsapp/_shared/adjuntos-vista';
 import { IconoCanal } from './iconos-canal';
 import { AvatarRio, Ico, ItemMenu, postJson, useAfuera } from './ventana-piezas';
 import {
-  TOPE_ARCHIVO, claveIdentidad, cuerpoTextoWhatsApp, formArchivoWhatsApp, guardarBorradorLocal, identidadInicial,
-  leerBorradorLocal, mensajesParaMaKo, motivoNoEnvio, ponerSugerencia, rotuloIdentidad,
+  TOPE_ARCHIVO, claveIdentidad, cuerpoTextoWhatsApp, esCanalMaKo, formArchivoWhatsApp, guardarBorradorLocal, identidadInicial,
+  leerBorradorLocal, mensajesParaMaKo, motivoNoEnvio, ponerSugerencia, rotuloIdentidad, rutaArchivoWhatsApp,
 } from './ventana-reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+// La caja única vive con las hojas del Ops Center (`.co-caja`): la traen todas las pantallas que la usan.
+import '@/app/admin/operaciones/centro.css';
 
 /** Lo que el clip deja elegir (el mismo `accept` del hilo de la casa). */
 const ACCEPT = 'image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx';
@@ -72,9 +75,10 @@ export type ComposerProps = {
   onFallido: (tmpId: string) => void;
   /** Algo salió (mensaje, archivo, audio, comentario, borrador): la ventana relee el hilo y la lista. */
   onEnviado: () => void;
-  /** Lo que va en lugar del comentario cuando el contacto no está en el CRM (el «+ Agregar al CRM»). */
-  agregarAlCrm: ReactNode;
   onAviso: (texto: string, error?: boolean, detalle?: string | null) => void;
+  /** Lo que la ventana necesita para que SOLTAR un archivo sobre la conversación entre como adjunto (CajaChat: «arrastrar
+   *  y soltar es de la pantalla»). Se avisa en cada cambio; `undefined` = este canal no adjunta. */
+  onAdjuntos?: (a: AdjuntosDeCaja | undefined) => void;
 };
 
 /** `localStorage`, o null si el navegador no lo deja (modo privado, bloqueado). */
@@ -86,7 +90,7 @@ let secuenciaTmp = 0;
 const idTmp = () => `tmp:${Date.now().toString(36)}-${(secuenciaTmp++).toString(36)}`;
 
 export default function Composer({
-  ws, chat, yo, equipo, mensajes, borradores, onPendiente, onConfirmado, onFallido, onEnviado, agregarAlCrm, onAviso,
+  ws, chat, yo, equipo, mensajes, borradores, onPendiente, onConfirmado, onFallido, onEnviado, onAviso, onAdjuntos,
 }: ComposerProps) {
   const clave = chat.clave;
   const canales = chat.canales;
@@ -125,51 +129,17 @@ export default function Composer({
   const [enviando, setEnviando] = useState(false);
   const [fase, setFase] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [abierto, setAbierto] = useState<'canal' | 'emoji' | 'emojiNota' | null>(null);
+  const [abierto, setAbierto] = useState<'canal' | null>(null);
   const cerrar = () => setAbierto(null);
   const cajaCanal = useAfuera<HTMLDivElement>(abierto === 'canal', cerrar);
-  const cajaEmoji = useAfuera<HTMLDivElement>(abierto === 'emoji', cerrar);
-  const cajaEmojiNota = useAfuera<HTMLDivElement>(abierto === 'emojiNota', cerrar);
+  // El campo de la caja (CajaChat lo crece, le pone viñetas y los emojis en el cursor): se enfoca desde acá.
   const campo = useRef<HTMLTextAreaElement | null>(null);
-  const campoNota = useRef<HTMLTextAreaElement | null>(null);
-  const archivo = useRef<HTMLInputElement | null>(null);
-  const cursor = useRef<number | null>(null);
-
-  // El campo crece con el texto hasta 160 px; después scrollea. Y el cursor vuelve donde se insertó.
-  useLayoutEffect(() => {
-    for (const el of [campo.current, campoNota.current]) {
-      if (!el) continue;
-      el.style.height = 'auto';
-      const alto = el.scrollHeight;
-      el.style.height = `${Math.min(alto, 160)}px`;
-      el.style.overflowY = alto > 160 ? 'auto' : 'hidden';
-    }
-    if (cursor.current != null) {
-      const el = modo === 'comentario' ? campoNota.current : campo.current;
-      const c = cursor.current;
-      cursor.current = null;
-      try { el?.setSelectionRange(c, c); } catch { /* el campo ya no está */ }
-    }
-  }, [texto, nota, modo]);
-
-  const insertarEmoji = (em: string) => {
-    if (modo === 'comentario') {
-      const el = campoNota.current;
-      const r = insertarEnCursor(nota, el?.selectionStart, el?.selectionEnd, em);
-      cursor.current = r.cursor;
-      setNota(r.valor);
-    } else {
-      const el = campo.current;
-      const r = insertarEnCursor(textoVivo.current, el?.selectionStart, el?.selectionEnd, em);
-      cursor.current = r.cursor;
-      setTexto(r.valor);
-    }
-  };
 
   // ── Mandar un archivo o una nota de voz por WhatsApp (multipart, con la línea) ──
   async function mandarArchivo(i: IdentidadCanal, blob: Blob, nombre: string, tipo: '' | 'audio', caption?: string): Promise<boolean> {
     const fd = formArchivoWhatsApp(i, blob, nombre, { leadId: chat.leadId, caption, tipo });
-    const r = await fetch('/api/whatsapp/evolution/mensajes', { method: 'POST', body: fd, signal: AbortSignal.timeout(90_000) });
+    // Un grupo de MaKo sale por el canal de MaKo (el mismo multipart): `rutaArchivoWhatsApp`.
+    const r = await fetch(rutaArchivoWhatsApp(i), { method: 'POST', body: fd, signal: AbortSignal.timeout(90_000) });
     const j = (await r.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
     if (r.ok && j?.ok) return true;
     // `enviarEnOrden` toma el mensaje de lo que se tira y lo pone en su frase.
@@ -204,7 +174,13 @@ export default function Composer({
     // 9 s): con el texto ahí, se leía duplicado. Si falla, vuelve, salvo que ya se haya escrito otra cosa.
     setTexto('');
     try {
-      if (i.canal === 'whatsapp') {
+      if (esCanalMaKo(i)) {
+        // Un grupo de MaKo (el super admin en su barra): por el canal de MaKo, como en /agencia.
+        const j = await postJson<{ ok: boolean; error?: string }>('/api/admin/mako-chats', { jid: i.ref, texto: t }, { timeoutMs: 45_000 });
+        if (j.incierto) { incierto(tmp); return; }
+        if (!j.ok) throw new Error(j.error || 'No se pudo enviar.');
+        onConfirmado(tmp, null);
+      } else if (i.canal === 'whatsapp') {
         // 45 s: por encima de lo que el servidor espera a Evolution (30 s) más la base. Cortar antes era decir
         // «no salió» de algo que el servidor igual mandó.
         const j = await postJson<{ ok: boolean; error?: string; chatJid?: string | null }>('/api/whatsapp/evolution/mensajes', cuerpoTextoWhatsApp(i, t, chat.leadId), { timeoutMs: 45_000 });
@@ -250,6 +226,19 @@ export default function Composer({
     const errores = lista.agregar(fs);
     setError(errores.length ? errores.join(' ') : null);
   }
+  /**
+   * El «+» de la caja (Documento, Fotos, Cámara, Pegar), pegar en el campo y soltar sobre la conversación: todo entra a la
+   * vista de WhatsApp Web (`lista`), que se abre por encima. `items` va VACÍO a propósito: la caja no dibuja miniaturas
+   * propias, porque lo adjuntado se ve (y se le escribe el pie) en esa vista.
+   */
+  const adjuntosCaja: AdjuntosDeCaja | undefined = modo === 'mensaje' && puedeAdjuntar ? {
+    items: [], puede: !enviando, accept: ACCEPT, onSumar: agregarArchivos, onQuitar: () => {},
+    onNoPuede: () => setError('Espera a que salga lo anterior.'),
+    onSinImagen: (puedeLeer) => setError(puedeLeer ? 'No hay una imagen copiada.' : 'Este navegador no deja pegar.'),
+  } : undefined;
+  const avisarAdjuntos = useRef(onAdjuntos);
+  avisarAdjuntos.current = onAdjuntos;
+  useEffect(() => { avisarAdjuntos.current?.(adjuntosCaja); });
   /**
    * Manda los archivos EN ORDEN, el texto como pie del primero (como WhatsApp). La vista se cierra ya:
    * lo que sale se ve salir en el hilo. Si uno falla, los que faltan vuelven a la vista con el error.
@@ -305,9 +294,9 @@ export default function Composer({
   }
 
   // ── La nota de voz (sólo WhatsApp) ──
-  // La sesión es la de la casa: ✓ termina, se escucha, y recién la ➤ la manda. `onSend` es el de ESTE
-  // render (la identidad de cuando se apretó el 🎤): por eso el composer va con key por conversación.
-  const voz = useGrabacionVoz(async (blob) => {
+  // La sesión es la de la caja (`voz`): ✓ termina, se escucha, y recién la ➤ la entrega acá. Lo que manda es la identidad
+  // de ESTE render: por eso el composer va con key por conversación.
+  async function enviarAudio(blob: Blob) {
     if (!ident || ident.canal !== 'whatsapp' || motivo) { setError(motivo ?? 'La voz sale sólo por WhatsApp.'); return; }
     const i = ident;
     setEnviando(true); setError(null); setFase('Procesando audio…');
@@ -326,13 +315,13 @@ export default function Composer({
     } catch (e) {
       setError(`No se pudo enviar el audio${e instanceof Error && e.message ? ` (${e.message})` : ''}.`);
     } finally { setEnviando(false); setFase(null); }
-  }, (m) => setError(m));
-  const grabando = voz.fase !== 'quieta';
+  }
 
   // ── MaKo sugiere (nunca envía) ──
   const [mako, setMako] = useState<{ cargando: boolean; sugs: string[]; i: number }>({ cargando: false, sugs: [], i: -1 });
   const ultimaSugerencia = useRef<string | null>(null);
-  const makoDisponible = esWa && !motivo;
+  // En un grupo de MaKo no: el asesor sugiere qué contestarle a UN contacto.
+  const makoDisponible = esWa && !motivo && !esCanalMaKo(ident);
   /**
    * El botón «MaKo»: la primera vez le pide a MaKo 2-3 mensajes para este contacto
    * (`/api/whatsapp/advisor`, action 'recommend', el mismo asesor de /whatsapp) y pone el primero EN EL
@@ -391,7 +380,7 @@ export default function Composer({
     if (j.ok) { onConfirmado(tmp, j.mensaje ?? null); onEnviado(); }
     else { onFallido(tmp); setNota((d) => d || t); setError(j.error || 'No se pudo comentar.'); }
     setEnviando(false);
-    campoNota.current?.focus();
+    campo.current?.focus();
   }
 
   // ── El borrador de MaKo pendiente ──
@@ -427,16 +416,13 @@ export default function Composer({
     campo.current?.focus();
   }
 
-  const alternarModo = () => { setModo((m) => (m === 'mensaje' ? 'comentario' : 'mensaje')); setAbierto(null); setError(null); };
-  const teclaCampo = (e: KeyboardEvent<HTMLTextAreaElement>, enviar: () => void) => {
-    // Ctrl/⌘ + \ alterna mensaje y comentario (el atajo de respond.io).
-    if ((e.ctrlKey || e.metaKey) && e.key === '\\') { e.preventDefault(); alternarModo(); return; }
-    if (accionDeTecla('enviar', { key: e.key, shiftKey: e.shiftKey, isComposing: e.nativeEvent.isComposing }) !== 'enviar') return;
-    e.preventDefault();
-    enviar();
+  const alternarModo = () => { setModo((m) => (m === 'mensaje' ? 'comentario' : 'mensaje')); setAbierto(null); setError(null); campo.current?.focus(); };
+  // Ctrl/⌘ + \ alterna mensaje y comentario (el atajo de respond.io): la caja no expone su teclado, así que se escucha en
+  // la envoltura (la tecla sube desde el campo).
+  const teclaEnvoltura = (e: KeyboardEvent<HTMLDivElement>) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === '\\') { e.preventDefault(); alternarModo(); }
   };
 
-  const hayTexto = !!texto.trim();
   const fotoYo = equipo.find((m) => m.nombre === yo.nombre)?.foto_url ?? null;
 
   const selectorCanal = (
@@ -445,9 +431,9 @@ export default function Composer({
         aria-expanded={abierto === 'canal'} aria-haspopup="menu" title={ident ? rotuloIdentidad(ident) : undefined}>
         {ident && <IconoCanal canal={ident.canal} size={16} />}
         <span className="rio-canal-txt">{ident ? rotuloIdentidad(ident) : 'Sin canal'}</span>
-        <Ico n={abierto === 'canal' ? 'chevArriba' : 'chevAbajo'} s={16} />
+        {canales.length > 1 && <Ico n={abierto === 'canal' ? 'chevArriba' : 'chevAbajo'} s={16} />}
       </button>
-      {abierto === 'canal' && (
+      {abierto === 'canal' && canales.length > 1 && (
         <div className="rio-menu rio-menu-arriba rio-menu-canal" role="menu">
           {canales.map((c) => {
             const k = claveIdentidad(c);
@@ -465,11 +451,31 @@ export default function Composer({
     </div>
   );
 
+  const enComentario = modo === 'comentario';
+  // El comentario sin lead no se puede guardar (es la nota del lead): la caja se apaga y lo dice. El alta está arriba.
+  const sinLeadParaComentar = enComentario && !chat.leadId;
+  const arriba = (
+    <>
+      <div className="rio-caja-arriba">
+        {enComentario
+          ? <span className="rio-caja-nota-tit"><AvatarRio ws={ws} nombre={yo.nombre} foto={fotoYo} size={20} />Comentario · sólo lo ve tu equipo</span>
+          : selectorCanal}
+        <button type="button" className="rio-btn-comentario" onClick={alternarModo} title="Ctrl + barra invertida" aria-pressed={enComentario}>
+          {enComentario ? <><Ico n="x" s={14} />Volver al mensaje</> : <><Ico n="comentario" s={14} />Comentario</>}
+        </button>
+      </div>
+      {esEmail && !enComentario && (
+        <input className="rio-comp-asunto" value={asunto} disabled={!!motivo} maxLength={300}
+          placeholder="Asunto (vacío: responde al último)" aria-label="Asunto" onChange={(e) => setAsunto(e.target.value)} />
+      )}
+    </>
+  );
+
   return (
     // `data-esquina-ocupada`: el Enviar vive en el rincón de abajo a la derecha de la ventana, y la
     // esquina de los avisos (EsquinaAvisos) sube para no taparlo (AGENTS.md).
-    <div className="rio-comp" data-esquina-ocupada="">
-      {borrador && modo === 'mensaje' && (
+    <div className="rio-comp" data-esquina-ocupada="" onKeyDown={teclaEnvoltura}>
+      {borrador && !enComentario && (
         <div className="rio-borrador">
           <div className="rio-borrador-cab">
             <span className="rio-borrador-tit"><span className="rio-borrador-ico"><Ico n="destello" s={16} /></span>Borrador de MaKo{borradores.length > 1 ? ` · ${borradores.length}` : ''}</span>
@@ -491,100 +497,35 @@ export default function Composer({
         </div>
       )}
 
-      <div className={`rio-comp-card${modo === 'comentario' ? ' rio-comp-plegada' : ''}`}>
-        <div className="rio-comp-f1">
-          {selectorCanal}
-          {modo === 'mensaje' ? (
+      {/* LA CAJA ÚNICA (app/_chat/CajaChat.tsx) con el motor de Chats. La clase `co-caja` es la de la caja en toda la app;
+          `rio-caja` la acomoda a la ventana y la tiñe en modo comentario. */}
+      <div className={`co-caja rio-caja${enComentario ? ' rio-caja-nota' : ''}`}>
+        <CajaChat
+          texto={enComentario ? nota : texto}
+          onTexto={enComentario ? setNota : setTexto}
+          onMandar={() => { if (enComentario) void enviarNota(); else void enviarTexto(); }}
+          enviando={enviando}
+          apagado={enComentario ? sinLeadParaComentar : !!motivo}
+          placeholder={enComentario
+            ? (sinLeadParaComentar ? 'Para comentar, primero agrégalo al CRM' : 'Solo lo ve tu equipo')
+            : (motivo ?? (esEmail ? 'Escribe un email' : 'Escribe un mensaje'))}
+          tituloMandar={enComentario ? 'Comentar' : 'Enviar'}
+          enterManda
+          campo={campo}
+          altoMax={160}
+          adjuntos={adjuntosCaja}
+          arriba={arriba}
+          alFinal={!enComentario ? (
             <button type="button" className="rio-mako" disabled={!makoDisponible || mako.cargando} onClick={() => void sugerirConMaKo()}
               title={!esWa ? 'Por ahora, sólo en WhatsApp' : motivo ?? 'MaKo sugiere un mensaje; tú decides si lo envías'}>
               {mako.cargando ? <span className="rio-giro rio-giro-chico" /> : <Ico n="varita" s={16} />}MaKo
             </button>
-          ) : (
-            <button type="button" className="rio-ico-btn" onClick={alternarModo} title="Volver al mensaje" aria-label="Volver al mensaje"><Ico n="chevDer" s={20} /></button>
-          )}
-        </div>
-        {modo === 'mensaje' && (grabando ? (
-          <div className="rio-comp-voz"><BarraGrabacion voz={voz} ocupado={enviando} /></div>
-        ) : (
-          <>
-            {esEmail && (
-              <input className="rio-comp-asunto" value={asunto} disabled={!!motivo} maxLength={300}
-                placeholder="Asunto (vacío: responde al último)" aria-label="Asunto" onChange={(e) => setAsunto(e.target.value)} />
-            )}
-            <textarea ref={campo} className="rio-comp-campo" rows={1} value={texto} disabled={!!motivo}
-              placeholder={motivo ?? (esEmail ? 'Escribe un email' : 'Escribe un mensaje')} aria-label="Mensaje"
-              onChange={(e) => setTexto(e.target.value)}
-              onKeyDown={(e) => teclaCampo(e, () => void enviarTexto())}
-              onPaste={(e) => {
-                const fs = Array.from(e.clipboardData?.files ?? []);
-                if (fs.length && puedeAdjuntar) { e.preventDefault(); agregarArchivos(fs); }
-              }} />
-            <div className="rio-comp-barra">
-              <div className="rio-ancla" ref={cajaEmoji}>
-                <button type="button" className="rio-ico-btn" disabled={!!motivo} title="Emojis" aria-label="Emojis"
-                  aria-expanded={abierto === 'emoji'} onClick={() => setAbierto((a) => (a === 'emoji' ? null : 'emoji'))}><Ico n="emoji" s={20} /></button>
-                {abierto === 'emoji' && <div className="rio-pop-arriba"><EmojiPicker onPick={insertarEmoji} onClose={cerrar} /></div>}
-              </div>
-              {esWa && (
-                <button type="button" className="rio-ico-btn" disabled={!!motivo || enviando} title="Nota de voz" aria-label="Grabar nota de voz"
-                  onClick={() => void voz.start()}><Ico n="micro" s={20} /></button>
-              )}
-              {esWa && (
-                <>
-                  <button type="button" className="rio-ico-btn" disabled={!puedeAdjuntar || enviando} title="Adjuntar archivos" aria-label="Adjuntar archivos"
-                    onClick={() => archivo.current?.click()}><Ico n="clip" s={20} /></button>
-                  <input ref={archivo} type="file" multiple accept={ACCEPT} hidden
-                    onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; agregarArchivos(fs); }} />
-                </>
-              )}
-              <span className="rio-comp-esp" />
-              <button type="button" className="rio-enviar" disabled={!hayTexto || enviando || !!motivo} onClick={() => void enviarTexto()}
-                title="Enviar" aria-label="Enviar"><Ico n="enviar" s={16} /></button>
-            </div>
-          </>
-        ))}
+          ) : null}
+          // La nota de voz es de WhatsApp; en los demás canales (y en el comentario) el micrófono dicta.
+          voz={!enComentario && esWa && !motivo ? { onAudio: (blob) => enviarAudio(blob), onError: (m) => setError(m), rotuloEnviar: 'Enviar audio' } : undefined}
+          onErrorMic={(m) => setError(m)}
+        />
       </div>
-
-      {modo === 'comentario' && (
-        <div className="rio-nota-card">
-          {chat.leadId ? (
-            <>
-              <div className="rio-nota-f1">
-                <AvatarRio ws={ws} nombre={yo.nombre} foto={fotoYo} size={24} />
-                <textarea ref={campoNota} className="rio-comp-campo rio-nota-campo" rows={1} value={nota} autoFocus
-                  placeholder="Solo lo ve tu equipo" aria-label="Comentario"
-                  onChange={(e) => setNota(e.target.value)}
-                  onKeyDown={(e) => teclaCampo(e, () => void enviarNota())} />
-                <button type="button" className="rio-ico-btn" onClick={alternarModo} title="Cerrar comentario" aria-label="Cerrar comentario"><Ico n="x" s={18} /></button>
-              </div>
-              <div className="rio-comp-barra">
-                <div className="rio-ancla" ref={cajaEmojiNota}>
-                  <button type="button" className="rio-ico-btn" title="Emojis" aria-label="Emojis" aria-expanded={abierto === 'emojiNota'}
-                    onClick={() => setAbierto((a) => (a === 'emojiNota' ? null : 'emojiNota'))}><Ico n="emoji" s={20} /></button>
-                  {abierto === 'emojiNota' && <div className="rio-pop-arriba"><EmojiPicker onPick={insertarEmoji} onClose={cerrar} /></div>}
-                </div>
-                <span className="rio-comp-esp" />
-                <button type="button" className="rio-enviar rio-enviar-nota" disabled={!nota.trim() || enviando} onClick={() => void enviarNota()}
-                  title="Comentar" aria-label="Comentar"><Ico n="enviar" s={16} /></button>
-              </div>
-            </>
-          ) : (
-            <div className="rio-nota-sinlead">
-              <span>Agrega el contacto al CRM para comentar</span>
-              <span className="rio-alta-crm">{agregarAlCrm}</span>
-              <button type="button" className="rio-ico-btn" onClick={alternarModo} title="Cerrar comentario" aria-label="Cerrar comentario"><Ico n="x" s={18} /></button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {modo === 'mensaje' && (
-        <div className="rio-comp-pie">
-          <button type="button" className="rio-btn-comentario" onClick={alternarModo} title="Ctrl + barra invertida">
-            <Ico n="comentario" s={16} />Agregar comentario
-          </button>
-        </div>
-      )}
 
       {/* La vista previa de los adjuntos tapa el hilo y la caja (la de WhatsApp Web), anclada a la
           ventana (`.rio-cuerpo` es el contenedor posicionado): esta caja no lo es a propósito. */}

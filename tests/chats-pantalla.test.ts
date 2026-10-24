@@ -69,7 +69,9 @@ const DIR = join(RAIZ, 'app', 'chats');
 const leer = (archivo: string) => readFileSync(join(DIR, archivo), 'utf8');
 
 /** Los archivos de la CARCASA (este equipo). La ventana (VentanaChat, Hilo, Composer) tiene su test. */
-const CARCASA_TSX = ['ChatsApp.tsx', 'PanelBandejas.tsx', 'ListaChats.tsx', 'PanelContacto.tsx', 'iconos-canal.tsx'];
+// 24/10/2026: la Bandeja (PanelBandejas.tsx) son los chips de FiltrosChats.tsx, y conectar y administrar un canal viven acá
+// (ConectarCanal, AdministrarWhatsApp, ListaOcultos): docs/diseno-chats.md §8.
+const CARCASA_TSX = ['ChatsApp.tsx', 'FiltrosChats.tsx', 'ListaChats.tsx', 'ListaOcultos.tsx', 'PanelContacto.tsx', 'ConectarCanal.tsx', 'AdministrarWhatsApp.tsx', 'iconos-canal.tsx'];
 
 /** El código sin comentarios: un `<select>` o un `[0]` NOMBRADO en un comentario no es código. */
 const sinComentarios = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '').replace(/[ \t]\/\/ .*$/gm, '');

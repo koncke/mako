@@ -34,6 +34,9 @@ const EXTRA: Record<string, string> = {
   '/anuncio': 'Anuncio',
   '/equipo': 'Equipo',
   '/inicio': 'Inicio',
+  // El canal de MaKo dejó de ser sección de Chats el 24/10/2026 (es una línea del chip «Canales»), pero /agencia sigue
+  // respondiendo para sus links (`?canal=1`): conserva su nombre, que ya trae la marca.
+  '/agencia': 'MaKo WhatsApp',
   // El wizard del primer ingreso: desde el 15/10/2026 no tiene ítem en el menú (el hub se fue a Second Brain).
   '/onboarding': 'Configuración inicial',
   // La Ticketera del super admin vive bajo /tickets, que en el menú es «Reportar problema».

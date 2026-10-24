@@ -79,10 +79,11 @@ test('el botón compartido pregunta el producto sólo con 2+, y con la lista ca�
   assert.doesNotMatch(src, /localStorage|sessionStorage/, 'el botón preselecciona un producto guardado');
 });
 
-test('los DOS montajes de la bandeja le pasan los productos (page.tsx y el cierre del wizard)', () => {
-  // ⚠️ OnboardingCanalWhatsApp.tsx monta <WhatsAppApp /> al cerrar el wizard, sin volver al
-  // server: con `productos` opcional ese camino lo dejaba caer y volvía el clic único. La prop
-  // es obligatoria (el compilador ya lo exige); esto cubre además a quien la pase en `undefined`.
+test('la bandeja vieja no se monta: /whatsapp y su wizard llevan a Chats, que lee los productos del alta', () => {
+  // ⚠️ Hasta el 24/10/2026 OnboardingCanalWhatsApp.tsx montaba <WhatsAppApp /> al cerrar el wizard, sin volver al server, y
+  // con `productos` opcional ese camino dejaba caer los productos y volvía el clic único. Desde ese día /whatsapp ya no
+  // dibuja la bandeja vieja (docs/diseno-chats.md §8.4, «salta el diseño de la tab vieja de WhatsApp»): la página lleva a
+  // /chats y el wizard termina ahí. Quien lee los productos es la página de Chats, y con la misma regla.
   const archivos = (readdirSync(RAIZ + 'app', { recursive: true }) as string[])
     .map((f) => 'app/' + f.replace(/\\/g, '/'))
     .filter((f) => f.endsWith('.tsx'));
@@ -90,21 +91,22 @@ test('los DOS montajes de la bandeja le pasan los productos (page.tsx y el cierr
   for (const f of archivos) {
     const crudo = leer(f);
     // Filtro barato antes de sacar comentarios: barrer todo app/ con el regex tarda segundos.
-    if (!/<(WhatsAppApp|OnboardingCanalWhatsApp|EmpresaInbox)\b/.test(crudo)) continue;
+    if (!/<(WhatsAppApp|EmpresaInbox)\b/.test(crudo)) continue;
     const src = sinComentarios(crudo);
-    for (const m of src.matchAll(/<(WhatsAppApp|OnboardingCanalWhatsApp|EmpresaInbox)\b[^>]*>/g)) {
+    for (const m of src.matchAll(/<(WhatsAppApp|EmpresaInbox)\b[^>]*>/g)) {
       montajes++;
       assert.match(m[0], /\bproductos=\{productos\}/, `${f}: <${m[1]}> se monta sin los productos del alta`);
     }
   }
-  // page.tsx: 1 del wizard + 1 de la bandeja · el wizard: 1 · WhatsAppApp: 1 de EmpresaInbox.
-  // (Eran 5: page.tsx tenía un segundo montaje del wizard para cuando no había canal vivo —
-  // c09e16ad lo pasó a la bandeja con su QR— y el canal oficial se fue con Chatwoot el 09/10/2026.)
-  assert.equal(montajes, 4, `encontré ${montajes} montajes: el barrido no está mirando lo que debe`);
-  // Y page.tsx los lee con `leerFunnels` (null = falló), no con `listarFunnels` ([] = falló).
-  const page = sinComentarios(leer('app/whatsapp/page.tsx'));
-  assert.match(page, /leerFunnels\(\)/, 'page.tsx no lee los productos con leerFunnels: una lectura caída se lee como «hay uno»');
-  assert.match(page, /productosParaAlta\(funnels\)/, 'page.tsx arma la lista sin la regla del nombre');
+  // Queda UNO: el de EmpresaInbox adentro de WhatsAppApp, que ya no monta nadie. Si la página o el wizard la vuelven a
+  // montar, son dos o tres y esto falla.
+  assert.equal(montajes, 1, `encontré ${montajes} montajes de la bandeja vieja`);
+  const wizard = sinComentarios(leer('app/whatsapp/OnboardingCanalWhatsApp.tsx'));
+  assert.match(wizard, /router\.push\('\/chats'\)/, 'el wizard termina en Chats');
+  // Y Chats los lee con `leerFunnels` (null = falló), no con `listarFunnels` ([] = falló).
+  const chats = sinComentarios(leer('app/chats/page.tsx'));
+  assert.match(chats, /leerFunnels\(\)/, 'Chats no lee los productos con leerFunnels: una lectura caída se lee como «hay uno»');
+  assert.match(chats, /productosParaAlta\(funnels\)/, 'Chats arma la lista sin la regla del nombre');
 });
 
 test('el alta desde una conversación DEVUELVE el choque, no lo tira', () => {

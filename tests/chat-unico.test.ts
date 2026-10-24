@@ -62,6 +62,9 @@ const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
   // La encontró la guarda el 20/10 (no estaba en el inventario de docs/feedback-20-10.md): «Pregúntale a MaKo…» en el chat de WhatsApp.
   // 22/10/2026 (TB3): con su motor y su «Usar →» en el hueco de cada respuesta (no va a la estrella: el borrador es de ESTE lead).
   'app/whatsapp/WhatsAppAdvisor.tsx': 'caja única',
+  // La caja de Chats (24/10/2026, Martín: «me gustaría que se parezca más al chat de MaKo»): no le habla a MaKo, le habla
+  // al contacto, pero es la misma caja, con el motor de Chats (docs/diseno-chats.md §8.3).
+  'app/chats/Composer.tsx': 'caja única',
 };
 
 /** Arma su PROPIA caja: un campo de texto, la barra de WhatsApp (sola o adentro de su hilo) o el botón de mandar del chat. */

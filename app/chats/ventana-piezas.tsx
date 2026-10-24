@@ -32,6 +32,7 @@ const TRAZOS = {
   chevAbajo: <path d="M6.5 9.5l5.5 5.5 5.5-5.5" />,
   chevArriba: <path d="M6.5 14.5L12 9l5.5 5.5" />,
   chevDer: <path d="M9.5 6.5L15 12l-5.5 5.5" />,
+  chevIzq: <path d="M14.5 6.5L9 12l5.5 5.5" />,
   reloj: <><circle cx="12" cy="13.5" r="7.5" /><path d="M12 9.8v3.9l2.4 1.6M9.5 3h5M12 3v2.5M18.4 6.8l1.4-1.4" /></>,
   mas: <><circle cx="5.5" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="18.5" cy="12" r="1.3" fill="currentColor" stroke="none" /></>,
   panel: <><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><path d="M14.5 4.5v15" /></>,

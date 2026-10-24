@@ -1,57 +1,56 @@
 // =============================================================================
-// /whatsapp — server wrapper: guard de onboarding + monta el inbox (client)
+// /whatsapp — ya no es una pantalla: lleva a Chats (24/10/2026)
 // =============================================================================
-// El inbox completo vive en WhatsAppApp.tsx ('use client'). Este wrapper solo
-// aplica el gate server-side del onboarding bloqueante (guardOnboarding), igual
-// que el patrón de /email (EmailApp).
+// Martín (por el Cerebro, 24/10): «Cuando quiero conectar un WhatsApp, mira que salta el diseño de la tab vieja de WhatsApp,
+// eso está muy mal, solo debería saltar el QR» y «Mira como se ve toda la tab vieja de WhatsApp por detrás eso está muy mal».
+// Las conversaciones están en Chats desde el 17/10 (docs/diseno-sidebar.md §5), y lo que esta tab tenía y Chats no (conectar
+// un número, administrarlo, el «Chatbot: ON/OFF», los ocultos, borrar un chat, la alarma del número caído) vive en Chats
+// desde el 24/10 (docs/diseno-chats.md §8.4). Los links a /whatsapp siguen llegando (avisos, mails, la API de MaKo, botones
+// de otras tabs), así que la ruta queda y los traduce:
+//   · `?stab=plantillas` → /automations, como antes (las plantillas se mudaron el 05/10);
+//   · `?linea=&chat=`, `?lead=`, `?c=` → los mismos en /chats (lib/chats-links.ts los resuelve);
+//   · sin número conectado, a un admin → `/chats?conectar=whatsapp`: el QR, en un modal sobre Chats;
+//   · con el onboarding de WhatsApp pendiente y sin número, el wizard (que al terminar va a Chats).
 //
-// ⛔ Hasta el 09/10/2026 la tab tenía dos canales: el OFICIAL (Chatwoot, con su formulario
-// de credenciales como PanelActivacion) y el número de empresa (Evolution, por QR). Chatwoot
-// se borró (decisión de Martín: «que no exista más»), así que queda uno solo y no pide
-// ninguna credencial: el número se engancha escaneando un QR desde esta misma tab.
+// ⚠️ EL `?ws=` VA EN CADA REDIRECCIÓN (`rutaConWs`): el super admin mira clientes por pestaña, y perderlo es terminar en el
+//    Chats de otra cuenta.
 
+import { redirect } from 'next/navigation';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
-import { getRolWsEfectivo } from '@/lib/workspace';
+import { getRolWsEfectivo, rutaConWs } from '@/lib/workspace';
 import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
-import { OnboardingCanalWhatsApp } from './OnboardingCanalWhatsApp';
 import { listarLineas } from '@/lib/evolution';
-import { leerFunnels } from '@/lib/funnels';
-import { productosParaAlta } from '@/lib/lead-funnel-reglas';
-import { WhatsAppApp } from './WhatsAppApp';
+import { OnboardingCanalWhatsApp } from './OnboardingCanalWhatsApp';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function WhatsAppPage() {
+/** Lo que /chats entiende de un link (lib/chats-links.ts `PARAM_CHATS`, más la `n` de un aviso repetido). */
+const PASAN = ['c', 'lead', 'linea', 'chat', 'n'] as const;
+
+type Busqueda = Promise<Record<string, string | string[] | undefined>>;
+
+export default async function WhatsAppPage({ searchParams }: { searchParams: Busqueda }) {
   await requireCapa('whatsapp');
+  const sp = await searchParams;
+  const uno = (k: string): string | null => { const v = sp[k]; return typeof v === 'string' && v ? v : null; };
 
-  // Y los PRODUCTOS del «+ Agregar al CRM» (pedido de Leila, 08/10/2026: todo nacía en el
-  // principal y lo movía a mano). Van en el mismo `Promise.all` para no sumar un viaje en
-  // serie, y con `leerFunnels`: `null` = no se pudieron leer, que la bandeja NO confunde con
-  // «hay uno» (ahí el botón queda de un clic y decide el server).
-  const [noOficial, funnels] = await Promise.all([
-    listarLineas().then((ls) => ls.some((l) => l.estado === 'conectado')).catch(() => false),
-    leerFunnels(),
-  ]);
-  const productos = productosParaAlta(funnels);
+  const tpl = uno('tpl');
+  if (uno('stab') === 'plantillas') redirect(await rutaConWs(`/automations?stab=plantillas${tpl ? `&tpl=${encodeURIComponent(tpl)}` : ''}`));
+
+  // ¿Hay un número vivo? «No pude leer» cuenta como «no»: sólo decide si se abre el QR, y con el QR abierto se ve el estado real.
+  const conNumero = await listarLineas().then((ls) => ls.some((l) => l.estado === 'conectado')).catch(() => false);
   await guardOnboarding();
+  // El onboarding de WhatsApp (conectar y probar el número) es el wizard compartido con el Chatbot: si falta y no hay número,
+  // gana él, como antes. Con el número vivo se va a Chats aunque el onboarding se haya reabierto.
+  if (!conNumero && await onboardingTabPendiente('whatsapp')) return <OnboardingCanalWhatsApp />;
 
-  // WhatsApp tiene onboarding PROPIO (conectar y probar el número), y se renderiza acá
-  // mismo: los pasos se comparten con el Chatbot, así que lo que se haga acá no se vuelve
-  // a pedir allá.
-  const faltaOnboarding = await onboardingTabPendiente('whatsapp');
-
-  // Sin el número vivo y con el onboarding pendiente, gana el onboarding: es donde vive el
-  // QR para vincular. Con el número vivo, la tab se sirve igual aunque el onboarding se haya
-  // reabierto: reemplazarla entera dejaría al cliente sin su bandeja.
-  if (faltaOnboarding && !noOficial) return <OnboardingCanalWhatsApp productos={productos} />;
-  // ¿Este usuario puede ABRIR /automations? Ahí viven las secuencias, y /automations es setter+admin
-  // (app/automations/page.tsx). Un closer entra a /whatsapp pero rebota de /automations a /crm:
-  // ofrecerle un link allá sería un botón que lo expulsa de la pantalla donde estaba, con el
-  // chat abierto perdido.
+  const q = new URLSearchParams();
+  for (const k of PASAN) { const v = uno(k); if (v) q.set(k, v); }
+  // Sin número y sin un chat que abrir, lo que se venía a hacer acá era conectarlo. Vincular un número es del admin (lo
+  // mismo que exige /api/whatsapp/evolution): al resto se le abre Chats y nada más.
   const rolWs = await getRolWsEfectivo();
-  const puedeChatbot = rolWs == null || rolWs === 'admin' || rolWs === 'setter';
-  // Vincular un número es config sensible: lo mismo que pide /api/whatsapp/evolution.
-  const puedeAgregarLinea = rolWs == null || rolWs === 'admin';
-  return <WhatsAppApp puedeChatbot={puedeChatbot} puedeAgregarLinea={puedeAgregarLinea} productos={productos} />;
+  if (!q.toString() && !conNumero && (rolWs == null || rolWs === 'admin')) q.set('conectar', 'whatsapp');
+  const query = q.toString();
+  redirect(await rutaConWs(query ? `/chats?${query}` : '/chats'));
 }

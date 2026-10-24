@@ -10803,3 +10803,42 @@ Medido al buscar las listas de Martín (formación de Jan, Mastery House, evento
 - Del store sólo salen los que ESCRIBIERON en el grupo (0 a 6 por grupo): no sirve como lista de miembros.
 - Para «Traer de un grupo» hace falta una línea CONECTADA que esté en ese grupo. La de MaKo (…2605) no está en los
   grupos de Martín: tiene que ser su número personal, vinculado de nuevo.
+
+## Chats más simple: dos columnas, la caja de MaKo y conectar sin salir (24/10/2026)
+
+Martín, por el Cerebro, cinco pedidos sobre Chats (el diseño y las decisiones, en docs/diseno-chats.md §8; lo que lo fija,
+tests/chats-mas-simple.test.ts, probado rompiéndolo con 7 roturas). Lo que no se ve en el código:
+
+- **Redirigir /whatsapp perdía cosas que no estaban en ningún otro lado.** El «Chatbot: ON/OFF» (el envío real de las
+  automatizaciones, `/api/whatsapp/envio`) sólo tenía botón en la cabecera de la tab vieja; los chats ocultos (y
+  desocultarlos), borrar el historial de UN chat y la alarma del número caído, también. docs/diseno-sidebar.md §5 ya los
+  listaba como «lo que queda». Ahora: el interruptor en «Administrar» del número, los ocultos como vista del chip «Todos»
+  (`ListaOcultos`), «Borrar este chat» en el «⋯» (sólo admin: la ruta lo exige) y la franja «… está desconectado».
+  **Regla:** antes de dejar de dibujar una pantalla, listar cada control que tiene y buscarle su casa nueva.
+- **La alarma del número caído puede mentir en un negocio viejo.** `listarChats` inventa una línea `estado: 'desconectado'`
+  para «la línea de siempre sin fila» (un workspace sin fila en `evolution_instancias` que igual trae conversaciones). Con la
+  franja nueva, ese negocio vería «desconectado» sin estarlo. No se tocó (es un default de lib/chats.ts que usan otros); si
+  aparece, la franja tiene que mirar el estado medido (`GET /api/whatsapp/evolution`), no el de la lista.
+- **El número de MaKo en Chats va con una clave FIJA** (`wa:canal_mako:<jid>`, `LINEA_CANAL_MAKO`), no con el nombre de la
+  instancia: la voz de MaKo se muda de número (`instanciaVoz`), y el estado y los leídos de un grupo se guardan por clave. Lo
+  ve sólo el super admin en su barra (`getSesionAdmin` y no `estaImpersonando`): mirando a un cliente, Chats es el de él.
+- **Un grupo del negocio se lee y no se contesta; uno de MaKo sí.** El envío de una línea del negocio saca «el número» del jid,
+  y el de un grupo no es un teléfono. El de MaKo sale por /api/admin/mako-chats (el camino de /agencia), con el MISMO multipart
+  para archivos y notas de voz (`rutaArchivoWhatsApp`). **Verificado antes de dejar al teléfono mandar:** una línea pedida que
+  no es del negocio la rechaza `elegirLinea` («Esa línea de WhatsApp no es de este negocio»); no cae a la de por defecto.
+- **La caja única adentro de una columna flex se encoge al contenido.** `.co-caja` trae `margin-inline: auto` (centrada en el
+  Ops Center), y en un contenedor flex en columna un margen automático le saca el estirarse: quedó una caja de 400 px en el
+  medio. En Chats va con `margin-inline: 0; max-width: none` (`.rio-caja`).
+- **Lo adjuntado sigue en la vista de WhatsApp Web, no en miniaturas de la caja.** Martín pidió esa vista el 11/10; la caja
+  única recibe `adjuntos` con `items: []` y todo lo que entra (el «+», pegar, soltar sobre la conversación) va a esa vista.
+
+**Sin hacer:**
+- WhatsAppApp.tsx, EmpresaInbox.tsx y el modal «WhatsApp de empresa» de EvolutionConnect.tsx quedan sin montar (los fijan
+  tests: inbox-agregar-al-crm, lineas-whatsapp, sin-chatwoot y otros). Borrarlos es una tanda propia, mudando lo que esos
+  tests cuidan.
+- El teléfono (/m/chats) muestra los grupos de MaKo mezclados en la lista del super admin, pero su filtro es por canal: no
+  tiene el selector «mi número / MaKo» (app/m/chats/ListaChats.tsx).
+- El menú de cada mensaje (reacciones, responder citando) no se sumó: Evolution y Zernio no tienen la cita (§3). El asesor
+  «MaKo — qué escribir» (app/whatsapp/WhatsAppAdvisor.tsx) no está en Chats; el botón «MaKo» de la caja sugiere.
+- /agencia sigue con su página entera (el panel del canal y el chat de grupos, ChatGruposPanel): ya no está en la barra y sus
+  grupos están en Chats; queda para sus links.
