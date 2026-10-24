@@ -2001,11 +2001,16 @@ del aviso está apagado y el email prendido. **Otras dos trampas de la misma med
 producción (0a5f6c9b6 es de las 10:58, entró a main a las 12:18 y quedó Ready a las 12:20:34 ART). Y un lead fusionado
 conserva su `created_at` viejo, así que también hay que buscarlo por la fecha de inscripción. **Hoy (24/10):** 7 de los
 19 siguen abiertos, 4 están ganados, 7 descalificados y 1 perdido. La lista con los 19 no entra en un aviso: 744
-caracteres contra un tope de 500, y el negocio ya usó 1 de sus 3 avisos del día. Qué lista va lo decide el Cerebro. La
-arma `lista-ws13.mts` (sin versionar, en `C:/dev/wt-aut-sab24/scripts/_sab24/`) leyendo la base: nunca una lista copiada. **Sin hacer:** los dos mensajes esperan
-a que un lead nuevo avise bien (`scripts/_sab24/aviso-vivo-ws13.mts` → VERDE). Y 4 inscripciones de la #264 (insc
-240-243, en 'respondio') están frenadas por borradores viejos de la #241 (`wa_borradores` 14, 15, 17, 18). Si alguien
-los manda o los descarta, sale un «Nuevo agendado» tardío, duplicado con la lista.
+caracteres contra un tope de 500, y el negocio ya usó 1 de sus 3 avisos del día. El Cerebro decidió los 7 abiertos en
+UN mensaje: los 12 cerrados ya los trabajó el cliente, y mandárselos era hacerle revisar trabajo hecho. La arma
+`lista-ws13.mts` (sin versionar, en `C:/dev/wt-aut-sab24/scripts/_sab24/`) leyendo la base, con relectura antes de
+escribir: nunca una lista copiada. **Hecho el 24/10:** el arreglo se vio andar con un lead real (Fabiana Mendez, 07:45
+ART: envío en 'accion' → pendiente ejecutada → turno en el grupo con id de WhatsApp; `aviso-vivo-ws13.mts` → VERDE).
+Salieron el aviso de arreglo (`commit:0a5f6c9b6`, id 3EB0AF61C11F1765025F34) y la lista de los 7 abiertos
+(`leads-sin-aviso:0a5f6c9b6`, id 3EB0441020C727AF7607FC), por `scripts/avisar-arreglo-al-grupo.mts` con su vista
+previa antes. Las 4 inscripciones de la #264 frenadas por borradores viejos de la #241 se sacaron
+(`sacarDeSecuencia`) y sus 4 borradores se descartaron con el motivo en el historial de cada lead (ver «Archivar no
+es cerrar», docs/hallazgos-chatbot.md): no queda nada que dispare un «Nuevo agendado» tardío.
 *24/10/2026, chat «Automations» (claude1): corrige la entrada del 23/10, que daba 11 y la regla del feed.*
 
 ## Dar y quitar el acceso a un curso por HTTP: invitar existía, pero en un área que no sale por HTTP (23/10/2026)
