@@ -8238,3 +8238,30 @@ como la forma de mirarlo a mano desde un worktree; el `CronCreate` que lo dispar
 vuelve a crear.
 
 **Vive en:** `app/api/cron/vigia-grupos/route.ts` · `lib/vigia-grupos-estado.ts` · `lib/vigia-mako-grupos.ts` · `vercel.json` · `scripts/vigia-mako-grupos.mts`
+
+## El resolvedor de tablas rompía las negritas del índice, y cada tren rompía más (24/10/2026)
+
+**El síntoma:** al traer main a la rama de Chats, el índice de hallazgos tenía 281 títulos con la negrita sin cerrar
+(`**Un vigía atado a una sesión de Claude se apaga SOLO (24/10) **:`). Una vuelta después eran 374. En markdown, un `**`
+con un espacio adelante no cierra: la negrita se come el resto de la fila.
+
+**La causa:** el resolvedor de tablas del tren unía los dos lados de un choque partiendo cada celda en CADA `**`, no en cada
+entrada. Así el título y su cierre quedaban en pedazos distintos (`**Título` y `**: lo que pasó`), que se volvían a pegar
+con un espacio. Corre en cada «docs unidos sin duplicar», así que el daño crecía con cada tren.
+
+**El diagnóstico obvio era el equivocado:** entre 3b1276eb9 y 4a41f096c el índice se achicó unas 18.000 letras (un 4 %)
+mientras sumaba entradas, y parecía cosecha perdida. Medido entrada por entrada, no se perdió nada: lo que se fue eran
+entradas REPETIDAS, algunas hasta cinco veces, de merges anteriores que habían pegado los dos lados enteros. El
+resolvedor sí acertaba en sacar repetidos. Lo que rompía era la forma.
+
+**La regla:**
+- Una entrada del índice arranca en `**Título**:`, y es por ahí que se parte una celda. Nunca en cada `**`.
+- Se compara SIN espacios ni asteriscos: para saber si una fila cambió, y para verificar al final que ninguna entrada de
+  ningún lado se perdió.
+- El resolvedor está en `scripts/unir-indice-hallazgos.py`. Se usa con el merge a medias (`python -I
+  scripts/unir-indice-hallazgos.py .`), une fila por fila contra la base y repara las negritas rotas. Dice cuántas
+  entradas se perdieron (tiene que ser 0). Sobre un índice sano no cambia nada.
+- La reparación tiene una sola regla: sacar el espacio antes de un `**` que sigue con `:`, `,`, `;`, `—` o un espacio.
+  En las cuatro puntas sanas que se midieron eso no aparece ni una vez. Así que no toca nada que no esté roto.
+
+**Vive en:** `scripts/unir-indice-hallazgos.py` · docs/hallazgos.md
