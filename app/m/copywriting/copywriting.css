@@ -102,13 +102,11 @@
 }
 .m-copywriting-mic:disabled { opacity: .45; cursor: default; }
 .m-copywriting-mic:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--primary); }
-/* Escuchando: rojo, como la grabación del chat de MaKo (app/m/mako/mako.css). */
+/* Escuchando: rojo y quieto (24/10/2026). Sin el anillo que latía siempre igual: lo dictado entrando al campo es la señal. */
 .m-copywriting-mic[data-estado="escucha"] {
   background: var(--bad); border-color: var(--bad); color: var(--on-primary);
-  animation: m-copywriting-escucha 1.2s ease-in-out infinite;
 }
 .m-copywriting-mic__segs { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
-@keyframes m-copywriting-escucha { 0%, 100% { box-shadow: 0 0 0 0 var(--bad-bg); } 70% { box-shadow: 0 0 0 8px transparent; } }
 .m-copywriting-valorar { margin-top: 12px; }
 
 /* ── La valoración (la tarjeta de Grammarly): el veredicto arriba, lo que se hace con él abajo ── */
@@ -127,6 +125,5 @@
 .m-copywriting-probar span { font-size: var(--fs-md); color: var(--dim); line-height: 1.5; }
 
 @media (prefers-reduced-motion: reduce) {
-  .m-copywriting-mic[data-estado="escucha"] { animation: none; }
   .m-copywriting-campo { transition: none; }
 }

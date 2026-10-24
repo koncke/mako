@@ -18,7 +18,11 @@
 // La NOTA DE VOZ (20/10/2026, para el onboarding): con `voz`, sin nada escrito el botón GRABA en vez de dictar (el dictado
 // no aguanta un monólogo, y su respaldo usa las keys del negocio, que un cliente nuevo no tiene). Mientras graba, o con lo
 // grabado para escuchar, la fila es la barra de la grabación (`BarraGrabacion`): se termina, se escucha y recién ahí se
-// manda (la regla de Martín del 09/10). Sin `voz`, el micrófono dicta, como siempre.
+// manda (la regla de Martín del 09/10).
+// SIN `voz` TAMBIÉN GRABA (24/10/2026, Martín: «en chats o en los chats de MaKo que se grabe el audio y se envíe
+// directamente»): la pantalla cuyo motor no recibe audios usa la nota que se transcribe y se MANDA como texto
+// (./nota-que-se-manda.ts). El dictado ya no está en ninguna caja de chat: quedó sólo donde se escribe un texto (el alta
+// de una tarea del Plan, el guion de Copywriting, la nota de un lead). docs/diseno-chats-de-mako.md.
 // ⚠️ tests/chat-unico.test.ts hace cumplir la regla: una pantalla de MaKo que arma su propia caja falla.
 
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
@@ -30,6 +34,7 @@ import { capturaParaOfrecer, firmaDeCaptura } from '@/app/admin/operaciones/pega
 import { BotonMandar } from '@/app/admin/operaciones/Microfono';
 import { BotonEmojis } from '@/app/admin/operaciones/Emojis';
 import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from '@/app/admin/operaciones/ConLinks';
+import { useNotaQueSeManda, type NotaQueSeManda } from './nota-que-se-manda';
 
 export type PropsCajaChat = {
   texto: string;
@@ -92,8 +97,13 @@ const MS_MISMO_GESTO = 600;
 const CAPTURAS_VISTAS = new Set<string>();
 
 export function CajaChat(p: PropsCajaChat) {
-  // La grabación es un hook: va en su propio componente, así una pantalla sin nota de voz no la monta.
-  return p.voz ? <CajaConVoz {...p} voz={p.voz} /> : <Caja p={p} grabacion={null} />;
+  // La grabación es un hook: va en su propio componente. Con `voz`, la manda la pantalla; sin `voz`, se transcribe y sale.
+  return p.voz ? <CajaConVoz {...p} voz={p.voz} /> : <CajaConNota {...p} />;
+}
+
+function CajaConNota(p: PropsCajaChat) {
+  const nota = useNotaQueSeManda({ texto: p.texto, onTexto: p.onTexto, onMandar: p.onMandar, onError: p.onErrorMic });
+  return <Caja p={p} grabacion={nota.grabacion} nota={nota} />;
 }
 
 function CajaConVoz(p: PropsCajaChat & { voz: NonNullable<PropsCajaChat['voz']> }) {
@@ -101,8 +111,12 @@ function CajaConVoz(p: PropsCajaChat & { voz: NonNullable<PropsCajaChat['voz']> 
   return <Caja p={p} grabacion={grabacion} />;
 }
 
-function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | null }) {
-  const { texto, onTexto, enviando = false, apagado = false, ocupado = false, altoMax = 220 } = p;
+function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: GrabacionVoz | null; nota?: NotaQueSeManda | null }) {
+  const { texto, onTexto, ocupado = false, altoMax = 220 } = p;
+  // Pasando a texto una nota de voz: la caja está saliendo (el botón gira y no se escribe encima de lo que va a llegar).
+  const transcribiendo = !!nota?.transcribiendo;
+  const enviando = !!p.enviando || transcribiendo;
+  const apagado = !!p.apagado;
   /** El botón: gira saliendo un mensaje o mientras MaKo trabaja. El campo sólo se apaga con `enviando` o `apagado`. */
   const girando = enviando || ocupado;
   const propio = useRef<HTMLTextAreaElement | null>(null);
@@ -233,7 +247,7 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
             onKeyDown={tecla}
             onFocus={ofrecerCaptura}
             onPaste={(e) => { p.onPegar?.(e); if (!e.defaultPrevented) alPegar(e, p.adjuntos); }}
-            placeholder={p.placeholder}
+            placeholder={transcribiendo ? 'Pasando tu nota a texto…' : p.placeholder}
             aria-label={p.placeholder}
             disabled={quieto}
           />
@@ -253,6 +267,8 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
       </div>
       <LinksDeLaCaja texto={texto} />
       {p.estado !== undefined && <p className="co-caja__estado" aria-live="polite">{p.estado ?? ''}</p>}
+      {/* Por qué no salió la nota, si la pantalla no tiene dónde decirlo (`onErrorMic`). */}
+      {nota?.error && !p.onErrorMic && <p className="co-caja__estado" role="alert">{nota.error}</p>}
     </>
   );
 }

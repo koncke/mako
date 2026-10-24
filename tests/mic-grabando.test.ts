@@ -52,8 +52,11 @@ test('2. la barra: mientras abre el micrófono LO DICE; grabando, el punto rojo 
   // Con el micrófono a mano, las barras las mueve la voz (no la animación que se movía sola).
   assert.match(grabando, /data-barra="true" style="[^"]*transform:scaleY\(0\.12\)/);
   assert.doesNotMatch(grabando, /animation:mako-wave/, 'con micrófono, la onda no se mueve sola');
-  // Sin micrófono que escuchar (una barra armada a mano), la de siempre.
-  assert.match(renderToStaticMarkup(createElement(BarraGrabacion, { voz: voz({ fase: 'grabando' }) })), /animation:mako-wave/);
+  // Sin micrófono que escuchar (una barra armada a mano), QUIETA (24/10/2026, Martín: «la animación de ondas de grabando
+  // audios no sigue lo que está escuchando»): antes se movía sola. tests/chat-nota-de-voz.test.ts, 4.
+  const sinOido = renderToStaticMarkup(createElement(BarraGrabacion, { voz: voz({ fase: 'grabando' }) }));
+  assert.doesNotMatch(sinOido, /animation:mako-wave/, 'sin micrófono, la onda NO se mueve sola');
+  assert.match(sinOido, /data-barra="true" style="[^"]*transform:scaleY\(0\.12\)/, 'una línea, en el piso');
 
   const pausa = renderToStaticMarkup(createElement(BarraGrabacion, { voz: voz({ fase: 'grabando', paused: true }, () => null) }));
   assert.match(pausa, /<span data-punto-rec="true" style="[^"]*animation:none/, 'en pausa el punto no late');

@@ -2668,3 +2668,30 @@ sistema, y un chat hace sólo lo que sólo un chat puede hacer. El silencio de a
 **Sin hacer (se construye el lunes 26/10):** todo el diseño de docs/diseno-cartero-servicio.md (el servicio que mide y
 sube, los dos carteles, la entrega por cualquier chat que arranque) y la decisión del arranque con el chat de IA del cliente
 (§2.4).
+
+## La onda «que se movía sola» ya seguía la voz: lo que mentía era el respaldo, y un anillo de CSS (24/10/2026)
+
+**El síntoma:** Martín: «la animación de ondas de grabando audios no sigue lo que está escuchando, es decir, es sólo una
+animación predefinida».
+
+**El diagnóstico obvio era el equivocado:** «la onda no está conectada al micrófono». Sí lo estaba: desde el 22/10 la barra de
+grabar (`BarraGrabacion` → `OndaGrabando`) escucha el MISMO stream que graba con un `AnalyserNode`. Lo que se movía solo
+eran otras dos cosas:
+- **el respaldo de esa onda.** Sin el micrófono a mano (sin `flujo`, o sin Web Audio), las barras se animaban con
+  `mako-wave`, y dibujaban «entra voz» sin saberlo;
+- **el anillo del dictado.** En la caja del Ops Center, mientras se DICTA (no se graba), el botón rojo latía con un
+  `box-shadow` (`co-escucha`), siempre igual hablara o no. Era lo que Martín más veía, porque dictaba ahí.
+
+**La regla:** una pantalla no dibuja movimiento que no mide. Sin señal, la onda es una línea quieta. Y donde se dicta, la
+señal de verdad es el texto entrando al campo, no un anillo.
+
+**Y lo de fondo:** el dictado salió de toda caja de chat (el pedido del mismo día). El micrófono de un chat graba una nota
+de voz, y si la pantalla no recibe audios, la caja la transcribe y la manda (`app/_chat/nota-que-se-manda.ts`). El dictado
+quedó en tres lugares, donde se arma un texto: el alta de una tarea del Plan, el guion de Copywriting y la nota de un lead.
+El detalle está en docs/diseno-chats-de-mako.md.
+
+**Sin hacer:** que las pantallas que hoy reciben la nota como texto la reciban como AUDIO, con la transcripción abajo (la
+regla del 21/10). Son el Ops Center del super admin, Automations, el Dashboard, los editores, el Web Generator, la Ticketera
+del cliente y «Pregúntale a MaKo». Cada una necesita que su motor guarde un audio: es del chat de cada área.
+
+**Vive en:** `app/_chat/nota-que-se-manda.ts` · `app/_chat/CajaChat.tsx` · `app/whatsapp/_shared/VoiceRecorder.tsx` (`OndaGrabando`) · `tests/chat-nota-de-voz.test.ts`

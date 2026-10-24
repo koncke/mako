@@ -1498,4 +1498,32 @@ export const BITACORA: Hito[] = [
       'tests/dictado-vivo.test.ts (5 roturas) y tests/caja-captura.test.ts (4 roturas)',
     ],
   },
+  {
+    fecha: '24 oct', hora: '17:20', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'En los chats se mandan audios, y la onda tiene que seguir lo que escucha',
+    pedido: '«Es mejor que esa funcionalidad la saquemos de todos lados, que sólo se quede en lugares muy específicos, pero en chats o en los chats de MaKo que se grabe el audio y se envíe directamente... Porque justamente en chats se deberían poder mandar audios.» Y: «la animación de ondas de grabando audios no sigue lo que está escuchando, es decir, es sólo una animación predefinida, pero debería seguir lo que escucha, subir o bajar las ondas».',
+    puntos: [
+      'Llegó por el Cerebro el 24/10. «Esa funcionalidad» es el dictado: el texto que entra al campo mientras se habla.',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '17:50', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El micrófono de todo chat graba una nota de voz, y la onda no se mueve si no escucha',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**Toda caja de chat graba:** el Ops Center (computadora y teléfono), el «Nuevo chat», y los chats de MaKo de cada tab y de cada editor. Sin nada escrito, el micrófono graba con la barra de siempre: se termina, se escucha si quiere y ➤.',
+      '**Donde la pantalla ya recibía un audio** (el chat del cliente, la ficha del lead, Offer, Chats), sale como audio. **Donde no**, la caja lo pasa a MP3, lo transcribe y manda el TEXTO, sin que espere en el campo. En el Ops Center se sigue firmando en el dispositivo, y el audio no viaja a la PC.',
+      '**El dictado quedó en tres lugares**, donde lo que se arma es un texto: el alta de una tarea del Plan, el guion de Copywriting y la nota de un lead.',
+      '⚠️ **La onda:** la de grabar ya seguía el volumen del micrófono desde el 22/10, y si no podía escucharlo «se movía sola». Lo que Martín veía era eso, y el anillo que latía siempre igual alrededor del micrófono mientras dictaba. Ahora, sin micrófono que escuchar, la onda es una línea quieta. Y donde queda el dictado, el botón es rojo y quieto: la señal es lo dictado entrando al campo.',
+    ],
+    archivos: [
+      'app/_chat/nota-que-se-manda.ts — la nota que se transcribe y se manda (listaParaMandar, textoDeLaNota)',
+      'app/_chat/CajaChat.tsx — sin `voz`, CajaConNota; app/admin/operaciones/ChatNuevoPiezas.tsx — el «Nuevo chat» graba',
+      'app/whatsapp/_shared/VoiceRecorder.tsx — la onda sin oído, quieta; centro.css y copywriting.css — sin el anillo',
+      'app/api/plan-dictado/route.ts — la nota de un chat con su motivo · docs/diseno-chats-de-mako.md — dónde queda el dictado',
+      'tests/chat-nota-de-voz.test.ts (6 roturas), tests/mic-grabando.test.ts y tests/chat-unico.test.ts al día',
+    ],
+  },
 ];

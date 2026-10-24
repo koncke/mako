@@ -25,12 +25,14 @@ export type ResultadoTranscripcion = { ok: true; texto: string } | { ok: false; 
 
 /**
  * Sube una nota de voz a /api/plan-dictado y devuelve el texto. No tira: todo fallo vuelve
- * como `{ ok:false, error }` con una frase para la persona.
+ * como `{ ok:false, error }` con una frase para la persona. `para`: 'chat' es la nota de voz de una caja de chat
+ * (app/_chat/nota-que-se-manda.ts), que el gasto de IA anota aparte del dictado de una tarea.
  */
-export async function transcribirNota(blob: Blob, timeoutMs = 90_000): Promise<ResultadoTranscripcion> {
+export async function transcribirNota(blob: Blob, timeoutMs = 90_000, para?: 'chat'): Promise<ResultadoTranscripcion> {
   try {
     const fd = new FormData();
-    fd.append('audio', blob, blob.type.includes('mp4') ? 'nota.mp4' : 'nota.webm');
+    fd.append('audio', blob, blob.type.includes('mpeg') ? 'nota.mp3' : blob.type.includes('mp4') ? 'nota.mp4' : 'nota.webm');
+    if (para) fd.append('para', para);
     // ⚠️ CON SEÑAL DE CORTE (AGENTS.md): un `fetch` sin `signal` con la conexión caída no
     // resuelve NUNCA, y el botón quedaba deshabilitado para siempre.
     const j = await fetch('/api/plan-dictado', { method: 'POST', body: fd, signal: AbortSignal.timeout(timeoutMs) })
