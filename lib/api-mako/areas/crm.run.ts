@@ -1171,7 +1171,7 @@ export const RUNNERS: Runners = {
   traer_contactos_de_grupo: {
     preparar: async (input) => {
       const pg = await grupoPedido(input);
-      if ('error' in pg) return { error: pg.error };
+      if ('error' in pg) return { error: pg.error ?? 'No pude leer los grupos de esa línea.' };
       const { g, grupo } = pg;
       // Por defecto, como la pantalla: el CRM «Prospección» si lo hay, y ahí «Tibio» (el Cerebro, 23/10/2026).
       const funnels = await listarFunnels();
@@ -1184,10 +1184,10 @@ export const RUNNERS: Runners = {
       if (!etapa) return { error: e ? `Ese funnel no tiene la etapa «${String(input.etapa)}».` : 'Ninguna etapa de ese funnel se puede usar al traer (todas tienen una automatización o cierran el trato).' };
       if (etapa.manda) return { error: `«${etapa.label}» no se puede usar al traer (tiene una automatización o cierra el trato): elige otra etapa.` };
       const p = await participantesDelGrupo(g.linea, grupo.jid);
-      if (!p.ok) return { error: p.error };
+      if (!p.ok) return { error: p.error ?? 'No pude leer los participantes del grupo.' };
       if (!p.participantes.length) return { error: p.sinNumero ? 'WhatsApp no deja ver los números de ese grupo.' : 'Ese grupo no tiene a nadie para traer.' };
       const origen = await etiquetaDeOrigen(typeof input.etiqueta === 'string' && input.etiqueta.trim() ? input.etiqueta : grupo.nombre);
-      if (!origen.ok) return { error: origen.error };
+      if (!origen.ok) return { error: origen.error ?? 'No pude preparar el origen de esos contactos.' };
       const ya = (await marcarEnElCrm(p.participantes)).filter((x) => x.enElCrm).length;
       return {
         payload: { linea: g.linea, jid: grupo.jid, nombreGrupo: grupo.nombre, funnelId, etapa: etapa.key, etiqueta: origen.nombre },
@@ -1217,10 +1217,10 @@ export const RUNNERS: Runners = {
   completar_nombres_de_grupo: {
     preparar: async (input) => {
       const pg = await grupoPedido(input);
-      if ('error' in pg) return { error: pg.error };
+      if ('error' in pg) return { error: pg.error ?? 'No pude leer los grupos de esa línea.' };
       const { g, grupo } = pg;
       const c = await completarNombresDelGrupo({ linea: g.linea, jid: grupo.jid, autor: '', soloContar: true });
-      if (!c.ok) return { error: c.error };
+      if (!c.ok) return { error: c.error ?? 'No pude completar los nombres de ese grupo.' };
       const sin = c.sinNombre ? ` (${c.sinNombre} siguen sin nombre en WhatsApp: se completan cuando escriban)` : '';
       if (!c.completados) return { error: `En «${grupo.nombre}» no hay nombres nuevos para completar${sin}.`, yaEstaba: true };
       return {
@@ -1395,7 +1395,7 @@ export const RUNNERS: Runners = {
   vincular_evento_etapa: {
     preparar: async (input) => {
       const p = await prepararVinculo({ proveedor: input.proveedor, evento: input.evento, funnelId: input.embudoId, etapa: input.etapa });
-      if (!p.ok) return { error: p.error };
+      if (!p.ok) return { error: p.error ?? 'No pude leer los participantes del grupo.' };
       if (p.yaEstaba) return { error: `«${p.evento.nombre}» ya está vinculado a «${p.etapaNombre}» de «${p.funnel}».`, yaEstaba: true };
       return {
         payload: { proveedor: p.evento.proveedor, evento: p.evento.identificador, embudoId: p.funnelId, etapa: p.etapa },
