@@ -3500,6 +3500,13 @@ reservas, sin un error. La forma sale del ejemplo de la doc del webhook o de un 
 test se escribe sobre ese cuerpo (`tests/link-de-reunion.test.ts`). Al revés vale igual: el listado
 de Calendly sí trae el mismo `location` que su webhook, y eso se comprobó, no se supuso.
 
+⚠️ **UN LEAD DE UN FORMULARIO DE META ENTRA POR `upsertLeadFromMeta`, VENGA POR DONDE VENGA** (el webhook de Meta, el poll, el `lead.received` de
+Zernio en `lib/zernio-leads.ts`): la deduplicación es por `meta_lead_id` = el leadgen_id, y el índice de esa columna es GLOBAL (mig 0007), así que no se le
+pone un prefijo propio ni se usa el id de otro sistema (el `lead.id` de Zernio no es el leadgen_id: el lead que ya entró por Meta se duplicaba). El
+`event_id` de la conversión `Lead` es `eventIdLeadCrudo(leadgen_id)` en TODAS las puertas, para que Meta junte los eventos; y lo inmediato
+(`alNacerLeadDeMeta`) va sólo con un lead CREADO por esa entrega y de menos de 24 h (`esNuevoParaElNegocio`): una reentrega no es un lead nuevo. Un webhook
+que trae leads descarta antes de cargar nada las muestras de prueba del proveedor (`test: true`). `tests/zernio-leads.test.ts`.
+
 Y hay un CUARTO registro que no es obligatorio y cambia lo que la gente lee: `AYUDA_CAMPO`
 (en `metodo-catalogo.ts`). El componente hace `ayuda={c.ayuda ?? servicio.tutorial}`, asi
 que **si un campo tiene ayuda propia, el tutorial del servicio no se ve nunca para ese
@@ -3549,6 +3556,14 @@ tenemos en integraciones» (12/10/2026).
   Claude (su modal necesita datos que sólo arma la página: `SIN_MODAL_SUELTO`) y lo que viaja afuera (un WhatsApp, un
   mail: ahí no hay tab). `tests/integracion-sin-salir.test.ts` barre `app/` y falla con un link nuevo a /integraciones
   que no esté en su lista, con su porqué.
+- **El login de una RED (Facebook, Instagram, anuncios de Meta) es UNA pieza** (23/10/2026; Martín: «que en MaKo esté el botón de
+  logearse con Facebook, Instagram o lo que haga falta»): `<ConectarViaZernio red volver onConectado>` o `useConectarViaZernio`
+  (`app/_components/ConectarViaZernio.tsx`), con la key de Zernio DEL NEGOCIO. Ninguna pantalla arma su propio popup, su sondeo ni un
+  redirect de página entera a Zernio: la ventana se abre EN el clic (sin `await` antes y sin `noopener`), «conectada» la dice
+  `GET /v1/accounts` (`medirConexion`, lib/zernio-redes.ts: una cuenta sana que ANTES no estaba) y un popup que se ve «cerrado» NO
+  es «canceló» (con `Cross-Origin-Opener-Policy` se ve cerrado con la persona todavía adentro). En un teléfono o en el navegador
+  interno de Instagram/Facebook no hay popup: la pestaña navega y vuelve a la MISMA pantalla con `?zernio=<red>`. Copiada de Nango
+  (el modal es de la app y la verdad la dice el servidor) y de las trampas de Ayrshare. `tests/zernio-conectar-redes.test.ts`.
 
 # Una creación publicada es la DEFINICIÓN, y cada tipo se enchufa en UN lugar
 
@@ -6379,8 +6394,12 @@ tab. Lo que gobierna código nuevo:
   nuevo que mande lo que dice un paso pregunta `esCanalSocial(p.canal)` ANTES de decidir que es
   WhatsApp: el proveedor de un paso de Instagram «es» no oficial (no tiene plantilla).
 - **Zernio se habla sólo desde el canal** (lib/zernio.ts, lib/canal-zernio.ts, lib/zernio-entrante.ts,
-  el webhook y app/api/zernio): `tests/sin-instagram.test.ts` lo fija en positivo, archivo por
+  lib/zernio-conectar.ts, el webhook y app/api/zernio): `tests/sin-instagram.test.ts` lo fija en positivo, archivo por
   archivo, y sigue fallando si vuelve algo de la tab.
+- **Zernio, SIN respaldo de la plataforma (23/10/2026; Martín: «que cada usuario traiga su API de Zernio»):** la key es SIEMPRE la del
+  negocio, leída con `credDelClienteEstricta` (sólo su fila, nunca `process.env`, y «no pude leer» tira). `credWs` y `credWsEstricta`
+  caen al entorno para el ws1, que es un cliente y a la vez «la plataforma» para las claves de entorno. El link de pago del 402 de
+  Zernio es `dashboard_url` (no `billingUrl`). `tests/zernio-sin-respaldo.test.ts`.
 
 **Y Chatwoot (el WhatsApp OFICIAL) se BORRÓ el 09/10/2026** (Martín: «que no exista más. Guardalo
 en privado»): el código entero está en la etiqueta de git `archivo/chatwoot-2026-10-09`, y

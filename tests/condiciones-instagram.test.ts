@@ -313,7 +313,7 @@ test('zernio: GET follow-status con refresh=false, tiempo propio, de a 4, y lo p
   assert.match(consultar, /`\/accounts\/\$\{encodeURIComponent\(accountId\)\}\/follow-status\/\$\{encodeURIComponent\(igsid\)\}\?refresh=false`/);
   assert.match(consultar, /TIMEOUT_SEGUIMIENTO_MS\)/);
   assert.match(consultar, /return seguimientoDe\(r\);/);
-  assert.match(src, /async function keyDeSeguimiento\(ws: number\)[^{]*\{\n\s+return \(await credWsEstricta\('ZERNIO_API_KEY', ws\)\)/, '«no pude leer la key» no es «no tiene Zernio»');
+  assert.match(src, /async function keyDeSeguimiento\(ws: number\)[^{]*\{\n\s+return credDelClienteEstricta\('ZERNIO_API_KEY', ws\);/, '«no pude leer la key» no es «no tiene Zernio», ni cae a la cuenta de la plataforma');
   const lote = bloque(src, 'export async function estadosDeSeguimiento(', '\n}\n', 1_500);
   assert.match(lote, /await conTope\(pedidos, CONCURRENCIA_SEGUIMIENTO,/);
   assert.match(lote, /if \(!\(e instanceof ZernioError\) \|\| !seguimientoNoSe\(e\.status\)\) throw e;/);

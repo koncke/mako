@@ -33,6 +33,11 @@
 //      Va en el mismo `after`, ANTES del disparo. Redactar con IA tarda: por eso `maxDuration` es el del
 //      webhook de WhatsApp (300 s), que hace lo mismo.
 //
+//   6. UN FORMULARIO DE META (`lead.received`, 23/10/2026): el lead entra por `upsertLeadFromMeta`, la misma puerta que el
+//      webhook y el poll de Meta (lib/zernio-leads.ts), así que si también entra por la app propia del negocio es el MISMO lead
+//      (dedup por el leadgen_id). El alta va adentro del pedido; la conversión CAPI y lo inmediato (aviso, flujos, automatizaciones)
+//      en el `after`. Una muestra de `POST /v1/webhooks/test` (`test: true`) NO es un lead.
+//
 // Lo que NO hace, a propósito: guardar lo que manda el negocio (`message.sent`): lo que le llegó a
 // cada lead ya está en `nutricion_envios.texto_enviado`.
 
@@ -45,7 +50,9 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace } from '@/lib/workspace';
 import { eventoSocialDe } from '@/lib/canal-social';
 import { procesarEventoSocial, dispararEventoSocial, pausarRespuestaSocial } from '@/lib/zernio-entrante';
-import { RUTEO_CUENTA, RUTEO_PERFIL, EVENTOS_WEBHOOK, usaCuentaPropia, cuentasConectadas } from '@/lib/zernio';
+import { RUTEO_CUENTA, RUTEO_PERFIL, EVENTO_LEADS, EVENTOS_ESCUCHADOS, usaCuentaPropia, cuentasConectadas } from '@/lib/zernio';
+import { leerLeadDeZernio } from '@/lib/zernio-lead';
+import { cargarLeadDeZernio, alNacerLeadDeZernio } from '@/lib/zernio-leads';
 
 export const dynamic = 'force-dynamic';
 // El primer mensaje de la automatización y la respuesta del AI Step salen en `after`, después de contestar.
@@ -53,11 +60,23 @@ export const maxDuration = 300;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-/** Lo que este webhook procesa: lo MISMO que se suscribe (`EVENTOS_WEBHOOK`). El resto, 200 y al log. */
-const EVENTOS: ReadonlySet<string> = new Set(EVENTOS_WEBHOOK);
+/** Lo que este webhook procesa: lo MISMO que se suscribe (`EVENTOS_ESCUCHADOS`). El resto, 200 y al log. */
+const EVENTOS: ReadonlySet<string> = new Set(EVENTOS_ESCUCHADOS);
 
 type Cuerpo = { id?: unknown; event?: unknown; account?: { profileId?: unknown; accountId?: unknown; id?: unknown } | null };
 const texto = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 200) : null);
+/**
+ * La FORMA de un `lead.received` que no se pudo leer, para el log: las claves de la raíz y del `lead`, el tipo de `lead.fields` y el tipo, el largo y los tres
+ * primeros caracteres del `leadgenId` (un id, no un dato personal). NUNCA los valores de las respuestas: son el email y el teléfono de la persona.
+ */
+const formaDeLead = (b: unknown): string => {
+  const claves = (o: unknown) => (o && typeof o === 'object' ? Object.keys(o).slice(0, 30).join(',') : `(${typeof o})`);
+  const raiz = b && typeof b === 'object' ? (b as { lead?: unknown }) : null;
+  const lead = raiz?.lead && typeof raiz.lead === 'object' ? (raiz.lead as { leadgenId?: unknown; fields?: unknown }) : null;
+  const id = lead?.leadgenId;
+  const idForma = typeof id === 'string' ? `string/${id.length}/${id.slice(0, 3)}` : typeof id;
+  return `raiz={${claves(b)}} lead={${claves(raiz?.lead)}} leadgenId=${idForma} fields=${Array.isArray(lead?.fields) ? 'lista' : typeof lead?.fields}`;
+};
 
 /**
  * Después de un `account.connected`: el ruteo de las cuentas que lista la cuenta de Zernio de ESE
@@ -132,15 +151,32 @@ export async function POST(req: NextRequest) {
 
   // ── 3. Una vez por evento ──
   const db = getSupabaseServer();
-  const { data: reclamo, error: errReclamo } = await db.from('zernio_eventos')
-    .upsert({ evento_id: eventoId, evento }, { onConflict: 'evento_id', ignoreDuplicates: true })
-    .select('evento_id');
-  if (errReclamo) {
-    console.error(`[webhook:zernio] no pude reclamar el evento ${eventoId}: ${errReclamo.message}`);
-    return Response.json({ ok: false, error: 'dedup', message: errReclamo.message }, { status: 500 });
+  // ⚠️ UN LEAD NO RECLAMA EL EVENTO (revisión del 23/10/2026). Su deduplicación es más fuerte que el id del evento: `upsertLeadFromMeta` busca por
+  // `meta_lead_id` (el mismo lead por otro evento, por el webhook de Meta o por el poll) y lo inmediato exige que ESTA entrega lo haya creado. Y el
+  // reclamo es peor que inútil para un lead: si la base falla después de reclamar, el DELETE que lo suelta falla por lo mismo, el reintento de Zernio
+  // encuentra el reclamo, contesta 200 «dedup» y Zernio da el evento por entregado: un lead pagado que no entra nunca.
+  const reclama = evento !== EVENTO_LEADS;
+  if (reclama) {
+    const { data: reclamo, error: errReclamo } = await db.from('zernio_eventos')
+      .upsert({ evento_id: eventoId, evento }, { onConflict: 'evento_id', ignoreDuplicates: true })
+      .select('evento_id');
+    if (errReclamo) {
+      console.error(`[webhook:zernio] no pude reclamar el evento ${eventoId}: ${errReclamo.message}`);
+      return Response.json({ ok: false, error: 'dedup', message: errReclamo.message }, { status: 500 });
+    }
+    if (!(reclamo ?? []).length) return Response.json({ ok: true, event: evento, dedup: true });
   }
-  if (!(reclamo ?? []).length) return Response.json({ ok: true, event: evento, dedup: true });
-  const soltar = async () => { await db.from('zernio_eventos').delete().eq('evento_id', eventoId).then(() => undefined, () => undefined); };
+  // ⚠️ supabase-js NO rechaza ante un fallo de red o un 5xx: resuelve `{ error }`. Un `.then(() => undefined, () => undefined)` se tragaba los dos y el
+  // reclamo quedaba puesto sin una línea de log.
+  const soltar = async () => {
+    if (!reclama) return;
+    try {
+      const { error } = await db.from('zernio_eventos').delete().eq('evento_id', eventoId);
+      if (error) console.error(`[webhook:zernio] no pude soltar el reclamo del evento ${eventoId}: ${error.message}`);
+    } catch (e) {
+      console.error(`[webhook:zernio] no pude soltar el reclamo del evento ${eventoId}: ${msg(e)}`);
+    }
+  };
 
   // Llegó un evento ruteado: el webhook de este workspace anda (lo lee /integraciones).
   await db.from('zernio_workspace').update({ webhook_ok: true }).eq('workspace_id', wsFinal).then(() => undefined, () => undefined);
@@ -155,6 +191,28 @@ export async function POST(req: NextRequest) {
         // ESTE negocio lista (`cuentasConectadas`), después de contestar: Zernio corta a los 5 s.
         after(() => reclamarCuentasConectadas(wsFinal));
         return Response.json({ ok: true, event: evento, accion: 'cuenta_conectada' });
+      }
+      if (evento === EVENTO_LEADS) {
+        // Un formulario de Meta: entra por `upsertLeadFromMeta`, la MISMA puerta que el webhook y el poll de Meta (lib/zernio-leads.ts).
+        const l = leerLeadDeZernio(body);
+        if ('ignorado' in l) {
+          // Sólo la muestra de prueba se ignora callada. `cuerpo` y `sin_id` son un lead real que no se pudo leer: la FORMA que llegó (claves y tipos, nunca
+          // los valores) es lo único que permite arreglar el lector con el primer cuerpo real.
+          if (l.porque !== 'prueba') console.error(`[webhook:zernio] lead.received ws=${wsFinal} ignorado (${l.porque}): ${l.ignorado}; ${formaDeLead(body)}`);
+          return Response.json({ ok: true, event: evento, ignored: l.porque });
+        }
+        // Lo rápido (el alta) adentro del pedido: si falla, `catch` suelta el reclamo y Zernio reintenta el evento entero.
+        const c = await cargarLeadDeZernio(l);
+        // Lo lento (la conversión y lo inmediato: el aviso, los flujos, las automatizaciones) después de contestar: Zernio corta a los 5 s.
+        // La conversión también va con un lead que ya existía (como en el webhook de Meta); lo inmediato, sólo con uno nuevo (`alNacerLeadDeZernio`).
+        if (c.conversion || c.nuevo) {
+          after(async () => {
+            try { await runWithWorkspace(wsFinal, () => alNacerLeadDeZernio(wsFinal, c, l)); }
+            catch (e) { console.error(`[webhook:zernio] lo inmediato del lead ${c.leadId} ws=${wsFinal}: ${msg(e)}`); }
+          });
+        }
+        console.log(`[webhook:zernio] ${evento} ws=${wsFinal} ${c.creado ? 'INSERT' : 'UPDATE'} lead id=${c.leadId} leadgen=${l.leadgenId} nuevo=${c.nuevo} ms=${Date.now() - t0}`);
+        return Response.json({ ok: true, event: evento, accion: c.creado ? 'lead_creado' : 'lead_existente', anunciado: c.nuevo });
       }
       const ev = eventoSocialDe(body);
       if ('ignorar' in ev) return Response.json({ ok: true, event: evento, ignored: ev.ignorar });
@@ -191,6 +249,7 @@ export async function POST(req: NextRequest) {
     // Lo rápido falló (la base): se suelta el reclamo y Zernio reintenta el evento entero.
     await soltar();
     console.error(`[webhook:zernio] procesando ${evento} (${eventoId}): ${msg(e)}`);
-    return Response.json({ ok: false, error: 'processing', message: msg(e), event: evento }, { status: 500 });
+    // El mensaje, sólo al log: con el índice único de `meta_lead_id` GLOBAL, «duplicate key» le confirma a quien firma con su propio secreto que ese lead existe en OTRO negocio.
+    return Response.json({ ok: false, error: 'processing', event: evento }, { status: 500 });
   }
 }

@@ -22,7 +22,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { BarraPideselo, accionesMas, MAS_ARCHIVO, MAS_PEGAR } from '../app/automations/ChatMako';
 import { EJEMPLOS } from '../app/automations/CrearConIA';
 import { opcionesDeCuenta, valorDeCuenta, rotuloSinCuenta, CONECTAR_OTRA, PAGAR_ZERNIO } from '../app/automations/EditorMensajeSocial';
-import { cuentaNueva, type EstadoZernio } from '../app/automations/ConectarMedio';
+import type { EstadoZernio } from '../app/automations/ConectarMedio';
+import { medirConexion, type ConexionZernio } from '../lib/zernio-redes';
 import { cuentaDelPaso, cuentaAlGuardar, conversacionDelPaso } from '../lib/canal-social';
 import { marcasDeVoseo } from '../lib/puestas-data';
 
@@ -100,13 +101,21 @@ test('punto 5: el desplegable lista las cuentas de Zernio, con «Conectar otra»
 });
 
 test('punto 5: «Conectar otra» reconoce la cuenta NUEVA (con una ya conectada, «hay alguna» daba listo al instante)', () => {
-  assert.deepEqual(cuentaNueva([A.id], [A, B]), B);
-  assert.equal(cuentaNueva([A.id], [A]), null, 'con la de antes sola todavía no se conectó nada');
-  assert.deepEqual(cuentaNueva([], [A]), A);
-  assert.deepEqual(cuentaNueva(null, [A]), A, 'sin saber qué había, cualquiera vale (lo de antes)');
+  // 23/10/2026: lo hace `medirConexion` (lib/zernio-redes.ts), la pieza común, que además contempla el re-login de una cuenta que ya estaba.
+  const c = (id: string): ConexionZernio => ({ accountId: id, plataforma: 'instagram', usuario: id, nombre: id, activa: true, vencida: false });
+  const a = c('cuenta_a_aaaa'); const b = c('cuenta_b_bbbb');
+  assert.deepEqual(medirConexion({ red: 'instagram', antes: [a], ahora: [a, b] }), b);
+  assert.equal(medirConexion({ red: 'instagram', antes: [a], ahora: [a] }), null, 'con la de antes sola todavía no se conectó nada');
+  assert.deepEqual(medirConexion({ red: 'instagram', antes: [], ahora: [a] }), a);
+  // ⚠️ Cambió: antes, sin saber qué había, «cualquiera vale». Ahora NO: sería dar por hecho un login que nadie hizo (con la base de Zernio
+  // sin leer y una cuenta vieja, el botón decía «conectado» a los 4 s). Sólo la pista del navegador (el accountId de la vuelta) o la
+  // reconexión pueden confirmar sin la lista de antes, y siempre contra la lista de AHORA.
+  assert.equal(medirConexion({ red: 'instagram', antes: null, ahora: [a] }), null, 'sin saber qué había, no se da por hecho');
+  assert.deepEqual(medirConexion({ red: 'instagram', antes: null, ahora: [a], pista: a.accountId }), a);
   const cm = fuente('app/automations/ConectarMedio.tsx');
-  assert.match(cm, /const nueva = e\?\.ok && Array\.isArray\(e\.cuentas\) \? cuentaNueva\(antes, e\.cuentas\) : null;/);
-  assert.match(cm, /onCuenta\?\.\(nueva\);/);
+  assert.match(cm, /onCuenta\?\.\(\{ id: nueva\.accountId, usuario: nueva\.usuario, nombre: nueva\.nombre \|\| nueva\.usuario \}\);/);
+  const hook = fuente('app/_components/ConectarViaZernio.tsx');
+  assert.match(hook, /const nueva = medirConexion\(\{ red: redElegida, antes, ahora: j\.conexiones, pista, reconectarId: extra\.reconectarId \?\? null \}\);/);
 });
 
 test('punto 5: el paso guarda SU cuenta y el motor manda sólo por ella (sin conversación con esa, no cae a otra)', () => {

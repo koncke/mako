@@ -34,6 +34,8 @@ import { esProveedorAgendaConCuentas } from '@/lib/cuentas-integracion';
 // ⚠️ `next/dynamic` con ssr:false, NO un import normal: es lo que saca su código
 // del bundle de los demás servicios. Un import estático lo volvería a meter.
 const GithubRepoPicker = dynamic(() => import('./GithubRepoPicker').then((m) => m.GithubRepoPicker), { ssr: false });
+// Zernio (23/10/2026): conectar Facebook, Instagram y los anuncios de Meta desde acá. Mismo motivo: sólo se baja con ESE servicio.
+const ConectarRedes = dynamic(() => import('./ConectarRedes'), { ssr: false });
 
 /** Lo que Meta devolvió y el cliente todavía tiene que elegir (si hay varias). */
 type OpcionesMeta = {
@@ -1097,6 +1099,10 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
           onCambio={() => { cargar(); onGuardado?.(); }}
         />
       )}
+
+      {/* Zernio: con la key guardada, las redes que se conectan con ella (Facebook, Instagram, anuncios de Meta), una fila por red.
+          Es la MISMA pieza que usan Ads Manager, Automations y Chats (`useConectarViaZernio`). Sin la key no se dibuja: no hay con qué. */}
+      {servicio.key === 'zernio' && servicio.campos.some((c) => c.configurado) && <ConectarRedes />}
 
       {/* zIndex 310: el modal de /integraciones va en 300 y el confirm tiene que
           quedar ARRIBA (el default de 120 lo dejaría invisible por debajo). */}

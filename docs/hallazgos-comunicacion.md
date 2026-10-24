@@ -437,8 +437,8 @@ envíos y permisos. Lo que le rompía a un cliente quedó arreglado y fijado en 
   verificar si una tabla existe.
 
 **Lo que quedó sin hacer** (segunda tanda, no rompe):
-- «Conectar Instagram/Messenger» desde Chats vuelve a /automations, no a Chats: la vuelta del OAuth está fija en
-  app/api/zernio/route.ts.
+- ~~«Conectar Instagram/Messenger» desde Chats vuelve a /automations, no a Chats~~: **resuelto el 23/10/2026**. Chats usa la pieza común
+  (`useConectarViaZernio`, app/_components/ConectarViaZernio.tsx): el login en una ventana abierta en el clic, sin salir de Chats.
 - Asignarse un chat no se lo saca a MaKo: la nutrición sigue escribiendo. Es decisión de producto, publicada en la
   Ticketera.
 - El estado y el leído aceptan claves bien formadas de leads que no existen. Quedan en el negocio propio y no cruzan

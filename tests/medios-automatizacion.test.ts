@@ -167,9 +167,11 @@ test('las cuatro pantallas abren EL MISMO modal (ConectarMedio), y el de Probar 
   // Instagram/Messenger: la ventana emergente y el sondeo, no una pestaña con `noopener` de la que no se sabe la vuelta.
   assert.doesNotMatch(fuente('app/automations/EditorMensajeSocial.tsx'), /window\.open\(j\.url, '_blank', 'noopener'\)/);
   const cm = fuente('app/automations/ConectarMedio.tsx');
-  assert.match(cm, /const ventana = window\.open\('', 'mako-conectar', /, 'la ventana no se abre en el clic (el navegador la bloquea)');
-  // Decimocuarta tanda: conectado = una cuenta que ANTES no estaba (con una ya conectada, «hay alguna» cerraba al instante).
-  assert.match(cm, /const nueva = e\?\.ok && Array\.isArray\(e\.cuentas\) \? cuentaNueva\(antes, e\.cuentas\) : null;\n\s+if \(nueva\) \{/);
+  // 23/10/2026: el login de Instagram/Messenger es la pieza común (app/_components/ConectarViaZernio.tsx), no un popup propio del modal.
+  const hook = fuente('app/_components/ConectarViaZernio.tsx');
+  assert.match(hook, /const ventana = sinPopup \? null : window\.open\('', 'mako-zernio', /, 'la ventana no se abre en el clic (el navegador la bloquea)');
+  // Conectado = una cuenta que ANTES no estaba (con una ya conectada, «hay alguna» cerraba al instante).
+  assert.match(hook, /const nueva = medirConexion\(\{ red: redElegida, antes, ahora: j\.conexiones, pista, reconectarId: extra\.reconectarId \?\? null \}\);\n\s+if \(nueva\) \{/);
   // WhatsApp RECONECTA la línea de la automatización; sólo «Vincular nuevo» crea otra.
   assert.match(cm, /\{nueva\s*\? <EvolutionConnect key="nueva-linea" nueva /);
   assert.match(cm, /: <EvolutionConnect key=\{`linea-\$\{linea \?\? ''\}`\} linea=\{linea\} /);
