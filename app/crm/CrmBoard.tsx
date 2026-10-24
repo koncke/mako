@@ -3622,6 +3622,8 @@ export function CrmBoard({
             funnelId: funnelActivo,
             onTraer: () => setNuevoLead({ ...nuevoLead, traer: true }),
             ...(puedeCrearCrm ? { onTraerGrupo: () => setNuevoLead({ ...nuevoLead, traer: 'grupo' }) } : {}),
+            // «Importar», el tercero de arriba (24/10/2026): cierra el alta y abre la importación de siempre.
+            onImportar: () => { setNuevoLead(null); setImportar(true); },
             onCreado: (id) => {
               const etapa = nuevoLead.etapa;
               setNuevoLead(null);
