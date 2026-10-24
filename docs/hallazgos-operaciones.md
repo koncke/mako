@@ -2600,3 +2600,25 @@ tabs, `256f46e07`), el «P1 de Stripe» que ya estaba en main desde antes y la p
 (`60bd69812`, no `886cb3545`). Las herramientas están en `C:/dev/cerebro-herramientas/`: `listar.cjs` (chats por cuenta),
 `cola.cjs` (la cronología de un transcript desde una hora), `digest.cjs` (sólo los mensajes del usuario) y
 `workflow-relevo-chats-cuenta.js`. El método quedó en `docs/relevo/cerebro.md`, «LEER PRIMERO».
+
+## «Pegar la captura» arriba de la caja, y por qué no al tocar el campo sin permiso (24/10/2026)
+
+Martín, el 17/10 (un pedido que se perdió con el cartero caído hasta el 24/10): «Debo poder pegar la imagen que tengo
+copiada; en el celular, en algunas apps me aparece la opción de pegarla directamente luego de una captura».
+
+- **Lo que ofrece el teclado de Android sólo aparece en un campo que acepta imágenes** (un contenteditable con
+  `commitContent`), y el `<textarea>` de la caja no es uno. Rehacer la caja como contenteditable rompería las viñetas, los
+  links pintados y el crecimiento. «Pegar» del «+» existía desde el 20/10 (`imagenesDelPortapapeles`), pero había que saber
+  que estaba.
+- **Ahora la caja la ofrece sola** (app/_chat/CajaChat.tsx, `capturaParaOfrecer` en pegar.ts): al enfocar el campo, si hay
+  una imagen copiada que todavía no se ofreció, aparece arriba «Pegar la captura» con su miniatura; un toque la adjunta,
+  la × la descarta, y ninguna de las dos vuelve a ofrecerse en esa pestaña.
+- **La trampa: leer el portapapeles al enfocar PIDE PERMISO.** Sin el permiso ya dado, el navegador mostraría el cartel cada
+  vez que se toca el campo. Se mira `permissions.query({ name: 'clipboard-read' })` y sólo con `granted` se lee; el permiso
+  lo pide «Pegar» del «+», con un toque de quien quiere pegar. tests/caja-captura.test.ts, con 4 roturas.
+- **Lo que se verificó sin cambiar** del mismo pedido del 17/10 (los otros cuatro puntos):
+  - el formato SÍ sale: `useCentro.mandar` pasa todo por `textoParaMandar` (las viñetas de la pantalla, como Markdown),
+    en la computadora y en el teléfono (tests/centro-caja.test.ts);
+  - la tab «Second Brain» ya no existe: desde el 17/10 el super admin ve sólo el Ops Center, y desde el 18/10 los clientes
+    la ven como «Ops Center» (nav.ts → `arribaDe`; el teléfono, lib/movil-rutas.ts);
+  - el chat del teléfono quedó en UNA fila desde el 20/10 (la caja única: «+», emojis, campo y un botón).

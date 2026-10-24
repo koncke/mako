@@ -1451,4 +1451,30 @@ export const BITACORA: Hito[] = [
       'tests/ia-pc-varias.test.ts',
     ],
   },
+  {
+    fecha: '24 oct', hora: '05:06', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El audio se duplica (otra vez) y los seis puntos del 17/10 que nunca llegaron',
+    pedido: '17/10 13:35: «1. Debo poder pegar la imagen que tengo copiada; en el celular, en algunas apps me aparece la opción de pegarla directamente luego de una captura. 2. El audio falla: cuando lo probé, se dicta y se duplica lo que dije. Revisalo. 3. El chat en mobile se ve muy chico por los botones; fijate cómo lo hacen otras apps en mobile. 4. Si mando un mensaje con formato, tipo bullet o numeración, se formatea en el chat pero no se envía. 5. No debería haber una tab de «Second Brain», sólo Ops Center. 6. El Second Brain debe verse bien y funcional en mobile; fijate cómo lo hacen otras apps.» · 24/10 05:06: «Me grabé 1 sola vez el audio y salió así, un bug...» (el «así», el pedido de 05:05: «continúa continúa con continúa con todo continúa con todo porque…»).',
+    puntos: [
+      'Llegaron por el Cerebro el 24/10: el cartero del Ops Center estaba caído desde las 23:47 del 23/10 y el pedido del 17/10 no le había llegado a nadie en una semana.',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '05:50', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: el dictado ya no duplica en Android, y la caja ofrece «Pegar la captura»',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '⚠️ **El dictado:** el patrón era el PREFIJO creciendo, no una palabra repetida. El Chrome de Android entrega cada resultado con la frase acumulada y el dictado los pegaba uno atrás del otro. Ahora se suman comparando palabras (`sumarDictado`, app/plan/board/dictado-vivo.ts): lo arregla en TODOS los micrófonos que dictan (Ops Center, MaKo, Plan, la ficha del lead, Chats).',
+      '**Pegar una imagen copiada:** al tocar el campo, si hay una captura copiada, aparece arriba «Pegar la captura» con su miniatura (como el teclado de Android). Sólo con el permiso de leer el portapapeles ya dado: la primera vez se da desde «Pegar» del «+».',
+      '**Ya estaba (verificado):** el formato sale como Markdown (`textoParaMandar`); la tab «Second Brain» no existe desde el 17/10 (el cliente la ve como «Ops Center»); el chat del teléfono es una fila desde el 20/10.',
+    ],
+    archivos: [
+      'app/plan/board/dictado-vivo.ts — sumarDictado y textoDelEvento (puras), que usa el reconocedor',
+      'app/admin/operaciones/pegar.ts — capturaParaOfrecer y firmaDeCaptura',
+      'app/_chat/CajaChat.tsx — «Pegar la captura» arriba de la caja, al enfocar el campo',
+      'tests/dictado-vivo.test.ts (5 roturas) y tests/caja-captura.test.ts (4 roturas)',
+    ],
+  },
 ];

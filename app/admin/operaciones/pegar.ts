@@ -60,6 +60,34 @@ export function alSoltar(e: DragEvent<HTMLElement>, a: AdjuntosDeCaja | undefine
  * imágenes del portapapeles con `navigator.clipboard.read()` (el navegador pide permiso la primera vez). null = este
  * navegador no deja leerlo; [] = no hay una imagen copiada.
  */
+/** Una captura ya ofrecida (pegada o descartada) no se vuelve a ofrecer. El portapapeles no da fecha: la firma es el tipo y
+ *  el tamaño, que cambian con cada captura nueva. */
+export const firmaDeCaptura = (f: Pick<File, 'type' | 'size'>): string => `${f.type}:${f.size}`;
+
+/**
+ * «PEGAR LA CAPTURA» ARRIBA DE LA CAJA (24/10/2026; Martín, el 17/10: «Debo poder pegar la imagen que tengo copiada; en el
+ * celular, en algunas apps me aparece la opción de pegarla directamente luego de una captura»). Es lo que ofrece el teclado
+ * de Android en los campos que aceptan imágenes, y el `<textarea>` de la caja no es uno (ver «Pegar» abajo). Al ENFOCAR el
+ * campo, si hay una imagen copiada que todavía no se ofreció, la caja la ofrece con un toque.
+ * ⚠️ SÓLO SI EL PERMISO YA ESTÁ: enfocar no puede pedir permiso (el navegador mostraría el cartel cada vez que se toca el
+ *    campo). El permiso lo pide «Pegar» del «+», con un toque de quien quiere pegar; desde ahí, la captura aparece sola.
+ * null = nada que ofrecer (sin permiso, sin imagen, ya ofrecida, o un navegador que no deja leer).
+ */
+export async function capturaParaOfrecer(
+  vistas: ReadonlySet<string>,
+  nav: { permissions?: Pick<Permissions, 'query'>; clipboard?: Pick<Clipboard, 'read'> } | undefined = globalThis.navigator,
+): Promise<File | null> {
+  try {
+    const permiso = await nav?.permissions?.query({ name: 'clipboard-read' as PermissionName });
+    if (permiso?.state !== 'granted') return null;
+    const f = (await imagenesDelPortapapeles(nav?.clipboard))?.[0];
+    if (!f || vistas.has(firmaDeCaptura(f))) return null;
+    return f;
+  } catch {
+    return null;
+  }
+}
+
 export async function imagenesDelPortapapeles(cb: Pick<Clipboard, 'read'> | undefined = globalThis.navigator?.clipboard): Promise<File[] | null> {
   if (!cb || typeof cb.read !== 'function') return null;
   const out: File[] = [];

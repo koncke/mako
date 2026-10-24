@@ -26,6 +26,7 @@ import { Icon } from '@/app/_components/icons';
 import { BarraGrabacion, useGrabacionVoz, type GrabacionVoz } from '@/app/whatsapp/_shared/VoiceRecorder';
 import { altoDelCampo, conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
 import { ListaAdjuntos, MasCaja, alPegar, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
+import { capturaParaOfrecer, firmaDeCaptura } from '@/app/admin/operaciones/pegar';
 import { BotonMandar } from '@/app/admin/operaciones/Microfono';
 import { BotonEmojis } from '@/app/admin/operaciones/Emojis';
 import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from '@/app/admin/operaciones/ConLinks';
@@ -87,6 +88,8 @@ export type PropsCajaChat = {
 
 /** Cuánto queda apagado el micrófono justo después de mandar: lo que dura un doble toque. */
 const MS_MISMO_GESTO = 600;
+/** Las capturas que ya se ofrecieron en esta pestaña (pegadas o descartadas): no se vuelven a ofrecer en otra caja. */
+const CAPTURAS_VISTAS = new Set<string>();
 
 export function CajaChat(p: PropsCajaChat) {
   // La grabación es un hook: va en su propio componente, así una pantalla sin nota de voz no la monta.
@@ -110,6 +113,20 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
   const resalte = useRef<HTMLDivElement | null>(null);
   const conLinks = hayLinks(texto);
   const quieto = enviando || apagado;
+  // «Pegar la captura» (24/10/2026, pegar.ts → capturaParaOfrecer): al enfocar el campo, la imagen copiada que todavía no se
+  // ofreció aparece arriba de la caja, como en el teclado de Android. Sólo donde la caja adjunta.
+  const [captura, setCaptura] = useState<{ file: File; url: string } | null>(null);
+  useEffect(() => () => { if (captura) URL.revokeObjectURL(captura.url); }, [captura]);
+  const ofrecerCaptura = () => {
+    if (!p.adjuntos?.puede || quieto || captura) return;
+    void capturaParaOfrecer(CAPTURAS_VISTAS).then((f) => { if (f) setCaptura({ file: f, url: URL.createObjectURL(f) }); });
+  };
+  const resolverCaptura = (pegar: boolean) => {
+    if (!captura) return;
+    CAPTURAS_VISTAS.add(firmaDeCaptura(captura.file));
+    if (pegar) p.adjuntos?.onSumar([captura.file]);
+    setCaptura(null);
+  };
 
   // El campo crece con lo que se escribe, y el scroll lo acompaña (18/10/2026, Martín: «la caja crece y el chat no lo
   // acompaña»): la conversación, que se achica cuando la caja crece, sigue abajo si estaba abajo (se mide ANTES de crecer);
@@ -178,6 +195,16 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
   return (
     <>
       {p.arriba}
+      {captura && (
+        <div className="co-caja__captura">
+          {/* eslint-disable-next-line @next/next/no-img-element -- una URL `blob:` local, recién copiada */}
+          <img className="co-caja__captura-img" src={captura.url} alt="" />
+          <button type="button" className="co-caja__captura-pegar" onClick={() => resolverCaptura(true)}>Pegar la captura</button>
+          <button type="button" className="co-caja__captura-no" onClick={() => resolverCaptura(false)} aria-label="No pegarla" title="No pegarla">
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+      )}
       <ListaAdjuntos a={p.adjuntos} />
       <div className={p.fila ?? 'co-caja__fila'}>
         {conBarra && grabacion ? (
@@ -204,6 +231,7 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
               onTexto(v.texto);
             }}
             onKeyDown={tecla}
+            onFocus={ofrecerCaptura}
             onPaste={(e) => { p.onPegar?.(e); if (!e.defaultPrevented) alPegar(e, p.adjuntos); }}
             placeholder={p.placeholder}
             aria-label={p.placeholder}

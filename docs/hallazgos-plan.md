@@ -7359,3 +7359,28 @@ Sin hacer: el teléfono no lee la elección (app/m/plan/ListaPlan.tsx).
 **Vive en:** lib/tarjeta-plan.ts · app/plan/board/BoardShell.tsx (`CardTile`, `ColHeader`), useBoard.ts, tarjeta-actions.ts
 · tests/plan-tarjeta-plantillas.test.ts
 *21/10/2026, chat «CRM» (claude3), con un agente.*
+
+## El dictado duplicaba en Android: cada resultado trae la frase ACUMULADA (24/10/2026)
+
+**El síntoma:** Martín lo reportó el 17/10 («cuando lo probé, se dicta y se duplica lo que dije») y el pedido no le llegó a
+nadie (el cartero del Ops Center estaba caído). El 24/10 le volvió a pasar con un dictado de UNA sola vez, y el texto salió
+«continúa continúa con continúa con todo continúa con todo porque…».
+
+**La causa:** el patrón no era una palabra repetida sino el PREFIJO creciendo. El Chrome de Android, con `continuous` e
+`interimResults`, entrega cada resultado final con todo lo dicho hasta ahí («continúa», «continúa con», «continúa con
+todo»); el de escritorio entrega pedazos sueltos. `useDictadoVivo` (app/plan/board/dictado-vivo.ts) pegaba cada final atrás,
+que está bien en escritorio y duplica en Android. Hay una variante más: un Android que en cada evento reenvía los finales
+viejos desde el primero (`resultIndex` 0).
+
+**Dónde vive:** app/plan/board/dictado-vivo.ts, que usan TODOS los micrófonos que dictan (useDictar → la caja única del Ops
+Center y de MaKo, el alta del Plan, la ficha del lead en el teléfono, Chats en los canales sin nota de voz).
+
+**La regla:** un resultado del reconocedor se SUMA con `sumarDictado`, comparando por palabras normalizadas (sin mayúsculas,
+tildes ni puntuación, que cambian entre un resultado y el siguiente): si el nuevo empieza con lo acumulado, lo reemplaza; si
+lo acumulado ya empieza o termina con el nuevo, no suma nada; si no, va atrás. El costo, a sabiendas: dictar dos veces
+seguidas exactamente lo mismo («no», «no») queda una vez. tests/dictado-vivo.test.ts lo fija con la frase del 24/10 (el
+código de antes reproduce el síntoma exacto) y 5 roturas.
+
+**Para diagnosticar el próximo:** el texto crudo de un dictado dice qué hizo el reconocedor. Un prefijo que crece es
+acumulado-tratado-como-pedazo; una frase entera repetida es el `onend` final pegado otra vez; palabras sueltas repetidas
+serían interinos sumados.

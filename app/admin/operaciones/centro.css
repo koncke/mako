@@ -1222,6 +1222,12 @@ a.co-link:hover { color: var(--primary-strong); }
 /* En la caja: el <textarea> se vuelve transparente sólo mientras hay un link, y la capa de abajo pinta el mismo texto con
    los links en azul. Las dos con la MISMA letra, el mismo renglón y el mismo corte: si no, el cursor no cae en su letra. */
 .co-caja__campo { position: relative; min-width: 0; }
+/* «Pegar la captura» (24/10/2026, CajaChat): lo que ofrece el teclado de Android, arriba de la caja. Un toque la adjunta. */
+.co-caja__captura { display: flex; align-items: center; gap: 10px; margin: 4px 8px 6px; padding: 6px 6px 6px 8px; border-radius: 14px; background: var(--surface-2); }
+.co-caja__captura-img { width: 40px; height: 40px; flex: none; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+.co-caja__captura-pegar { flex: 1; min-width: 0; min-height: 40px; padding: 0; border: 0; background: none; text-align: left; font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); cursor: pointer; }
+.co-caja__captura-no { flex: none; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; background: none; color: var(--dim); cursor: pointer; }
+.co-caja__captura-no:hover { background: var(--velo-hover); color: var(--ink); }
 .co-caja__resalte {
   position: absolute; inset: 0; overflow: hidden; pointer-events: none;
   white-space: pre-wrap; overflow-wrap: break-word; word-break: normal;
