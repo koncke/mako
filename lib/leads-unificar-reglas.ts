@@ -260,7 +260,7 @@ export function planDeUnificar(l: LecturaUnificar, quedaElegida: number | null):
   const q = l.de[queda.id], s = l.de[seVa.id];
   const bloqueo = TABLAS_DE_CLIENTE.filter((t) => (s.deCliente[t.tabla] ?? 0) > 0).map((t) => t.que);
   if (bloqueo.length) {
-    return { ok: false, error: `«${nombreDe(seVa)}» ya es cliente (${[...new Set(bloqueo)].join(', ')}): eso todavía no se une desde acá. Quédate con ésa, o escríbele a soporte.` };
+    return { ok: false, error: `«${nombreDe(seVa)}» ya es cliente (${[...new Set(bloqueo)].join(', ')}): eso todavía no se une desde aquí. Quédate con ésa, o escríbele a soporte.` };
   }
 
   const ops: OpUnificar[] = [];

@@ -15,6 +15,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/app/_ui';
 import { Modal } from '@/app/_ui/Modal';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { previaDeUnificarAction, unificarFichasAction } from '@/app/crm/unificar-actions';
 import type { PreviaUnificar } from '@/lib/leads-unificar-reglas';
 import { textoDeLaPrevia } from '@/lib/leads-unificar-reglas';
@@ -66,7 +67,7 @@ export function UnificarFichas({ esta, otra, onCerrar, onUnificado }: {
   return (
     <Modal titulo="Unificar las dos fichas" onCerrar={haciendo ? () => {} : onCerrar} ancho={620}>
       {previa === 'cargando' && <p className="fr-sub">Armando lo que queda de cada una…</p>}
-      {error && <p className="fr-sub fr-aut-mal" role="alert">{error}</p>}
+      {error && <p className="fr-sub fr-aut-mal" role="alert">{error}<ReportarASoporte /></p>}
       {t && previa && previa !== 'cargando' && (
         <div className="fr-unif">
           <p className="fr-unif-tit">{t.titulo}</p>
