@@ -93,9 +93,20 @@ exista en ese commit** y se mira si viene. Así verifiqué este tren: `hola-mako
 «Todavía no se descuenta solo de tu plan», una frase que nació en `fc8064ee7`. Eso es una prueba; «Ready hace
 16 minutos» es una correlación.
 
-**SIN hacer:** cambiar `pruebaDeProduccion` para que verifique sirviendo (una marca por commit en una ruta
-pública, o el `BUILD_ID` de Next) en vez de por `--meta`. Mientras tanto, todo aviso de «ya quedó arreglado»
-pasa por una verificación a mano contra el sitio vivo.
+**La receta, probada dos veces la misma noche (trenes `43c343ebd` y `59d228ea1`).** Next 16 no publica el
+`buildId` en el HTML, así que la huella sale de los nombres con hash de sus bundles, que cambian en cada build:
+
+```bash
+curl -sS https://hola-mako.com/mako-partners | grep -oE '/_next/static/chunks/[a-zA-Z0-9._-]+\.js' | sort -u | md5sum
+```
+
+Se saca la huella ANTES de pushear y se espera a que cambie. El segundo tren tardó **3 minutos**; el filtro de
+Vercel llevaba 14 sin encontrarlo. Y cuando se puede, mejor todavía: pedirle a la página pública una frase que
+nació en ese commit — así se verificó el primer tren («Todavía no se descuenta solo de tu plan», de `fc8064ee7`).
+La huella prueba que hay un build nuevo; la frase prueba que es ESE.
+
+**SIN hacer:** cambiar `pruebaDeProduccion` de `avisar-arreglo-al-grupo.mts` para que verifique así en vez de por
+`--meta`. Mientras tanto, todo aviso de «ya quedó arreglado» pasa por una verificación a mano contra el sitio vivo.
 
 ## Un `redirect()` adentro de una página con `loading.tsx` rompió la app: React #310 (23/10/2026, ticket #7)
 
