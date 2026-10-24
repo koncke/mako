@@ -18,7 +18,7 @@ import { wsSuperAdmin } from '@/lib/workspace';
 import { puedeOperar } from '@/lib/operaciones-reglas';
 import { leerCarteros, listarPedidos } from '@/lib/operaciones';
 import { areasDeProgreso } from '@/lib/progreso';
-import { DIAS_HISTORIAL, pedidosDelCentro } from '@/lib/progreso-reglas';
+import { DIAS_HISTORIAL, pedidosDeLaCarga, pedidosDelCentro } from '@/lib/progreso-reglas';
 import { chatsDeBitacoras } from '@/lib/centro-chats';
 import { leerDecisiones } from '@/lib/admin-decisiones';
 import { leerMunecos } from '@/lib/centro-munecos-db';
@@ -58,7 +58,9 @@ export async function datosDelCentroSiOpera(): Promise<DatosCentro | null> {
     cuentasIniciales: cuentas,
     ultimosIniciales: ultimos,
     yaVistosIniciales: yaVistos,
-    pedidos,
+    // La lista se arma con TODOS (arriba); a la pantalla viaja lo sin terminar y lo terminado reciente: lo viejo de un chat se
+    // pide al abrirlo (lib/progreso-reglas.ts → pedidosDeLaCarga; eran 733 KB en cada carga).
+    pedidos: pedidosDeLaCarga(pedidos, ahora),
     ahora,
     sub: admin.sub,
     tabs: nombresDeTabs(),

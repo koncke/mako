@@ -7,7 +7,8 @@
 // =============================================================================
 
 // `turnos` (lo que se dijo en el chat abierto) se suma el 23/10/2026: corre en CADA refresco, y como acción también hacía cola.
-export const LECTURAS_CENTRO = ['pushes', 'foto', 'credito', 'computadoras', 'bandeja', 'turnos'] as const;
+// `pedidos` (los terminados viejos de un chat, al abrirlo) se suma el mismo día: la carga ya no los trae (pedidosDeLaCarga).
+export const LECTURAS_CENTRO = ['pushes', 'foto', 'credito', 'computadoras', 'bandeja', 'turnos', 'pedidos'] as const;
 export type LecturaCentro = (typeof LECTURAS_CENTRO)[number];
 
 /** `extra`: los parámetros de la lectura; una lista va repetida (`l=a&l=b`). */
