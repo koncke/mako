@@ -2406,6 +2406,8 @@ export function diasDesdeJ1(fechaJ1: string | null, hoy: Date = new Date()): num
  */
 export function cohorteDeLead(lead: Lead, hoy: Date = new Date()): { label: string; color: string; texto: string | null } | null {
   if (!lead.fecha_junta_1) return null;
+  // «Ocultar Cohorte si no hubo R1» (Martín, 03/07; 24/10/2026): un no-show (asistió = false) tiene la fecha pero no hubo R1.
+  if (lead.asistio_j1 === false) return null;
   const { label, color } = labelMadurez(estadoMadurezLead(lead));
   return { label, color, texto: textoCohorteJ1(lead.fecha_junta_1, hoy) };
 }
