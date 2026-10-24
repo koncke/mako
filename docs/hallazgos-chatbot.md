@@ -6064,6 +6064,15 @@ en 4 h 5 min, y con 60, 50 en 24 h. **Vive en:** lib/goteo.ts · lib/nutricion.t
 lib/borrador-camino.ts · test: tests/goteo-con-aprobacion.test.ts. **Sin hacer:** aprobar no PROGRAMA el envío para su
 turno (`wa_borradores` no tiene dónde guardarlo; haría falta una columna): dice cuándo, y hay que volver a tocar.
 
+**Y salía a la MITAD del ritmo (24/10/2026, medido en la primera hora de la campaña de Mauricio).** Con goteo de 11 min, los
+M1 salieron a las 13:00, 13:23 y 13:45: cada 22. El freno de la línea y del goteo se miraba sobre CUALQUIER nodo leído
+(`sinLugar` en la puerta de `procesarEnvios`) y sólo pasaban las acciones y los emails (`sigueSinCupoWa`). La condición
+«Contestó» que sigue a cada M1 quedaba frenada y TOMABA un turno de 11 min sin mandar nada, así que el M1 siguiente salía
+en el turno de después: unos 33 por día en vez de los 55 decididos. **La regla:** el goteo espacia MENSAJES; lo que no
+manda nada (una condición, una espera, un «Ir a») corre en el acto, y el mensaje al que lleva pasa por el freno en la
+segunda mirada, sobre el destino (`noGastaTurnoDeWhatsapp`, lib/goteo.ts). **La trampa para medirlo:** los intervalos
+salen bien «más largos que el goteo» (0 por debajo de 11 min), y eso parece cumplir; lo que lo delata es la MEDIANA, de 22.
+
 ## Lo de la llamada que seguía a medias, con el arnés contra producción (22/10/2026, AU2 del plan del Cerebro)
 
 Medido por el Cerebro contra 87365c830 (el arnés `probar-chats-automations` @ eee20b3ab) y arreglado con tests que usan la

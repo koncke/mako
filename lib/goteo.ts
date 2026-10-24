@@ -56,6 +56,18 @@ export function conEnvio(uso: UsoGoteo, ahoraMs: number): UsoGoteo {
   return { enviados: uso.enviados + 1, ultimoMs: ahoraMs, primeroMs: uso.primeroMs ?? ahoraMs };
 }
 
+/**
+ * ¿ESTE NODO GASTA UN TURNO DE WHATSAPP? (24/10/2026, medido en la primera hora de la campaña de Mauricio, la #289): con
+ * goteo de 11 min salían cada 22. El freno de la línea y del goteo se miraba sobre CUALQUIER nodo leído, y sólo pasaban
+ * las acciones y los emails: la condición «Contestó» que sigue a cada M1 (y una espera, un «Ir a») quedaba frenada y tomaba
+ * su turno de 11 min sin mandar nada, así que el mensaje siguiente salía en el turno de después. Lo que no es un MENSAJE no
+ * manda nada: corre en el acto, y el mensaje al que lleva pasa por el freno ahí (la segunda mirada de `procesarEnvios`,
+ * sobre el destino). Un email, mientras quede su tope.
+ */
+export function noGastaTurnoDeWhatsapp(clase: string, canal: string | null | undefined, emailLleno: boolean): boolean {
+  return clase !== 'mensaje' || (canal === 'email' && !emailLleno);
+}
+
 /** Los estados de `nutricion_envios` que cuentan para el goteo: lo que salió y lo que quedó para aprobar. */
 export const ESTADOS_DEL_GOTEO = ['enviado', 'borrador'] as const;
 export function cuentaParaElGoteo(estado: string): boolean {
