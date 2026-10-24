@@ -8019,6 +8019,37 @@ el historial se muda con las líneas.
 `app/crm/grupo-wa-server.ts` · `app/vsl/costos/Costos.tsx` (la frase del QR, falsa) ·
 `docs/rotacion-credenciales.md` · *2026-10-23*
 
+## Poner commits a salvo: ETIQUETA, no rama — cada rama empujada dispara un build de Vercel (24/10/2026, Cerebro)
+
+**Síntoma:** la noche antes del lanzamiento del 25/10, con la máquina al límite de RAM y el tren frenado, el
+Cerebro le pidió a cuatro chats «subí la rama al remoto» para que su trabajo no se perdiera si la app se
+volvía a caer. Parecía gratis: una rama no es main, no despliega producción.
+
+**No era gratis.** En este proyecto Vercel arma una **vista previa por cada rama empujada** (`vercel.json`
+sólo apaga `integracion`). `vigia-cron-2410` armó una a las 05:11. Esas vistas previas **compiten por la
+máquina de build con el deploy de producción del tren**, que era justo lo que estábamos tratando de hacer
+entrar. Se pagaron tres builds que no hacían falta —el vigía, la IA del cliente y los planes— y se le puso
+cola al deploy que sí importaba.
+
+**Lo vio el chat de Landings y no obedeció la instrucción: subió sus dos commits como etiqueta.**
+
+**La regla:**
+- Para **proteger** commits que existen sólo en el disco de una máquina: `git push origin
+  <sha>:refs/tags/respaldo/<nombre>`. No dispara build, y los commits quedan igual de a salvo. Precedente en
+  la casa: `archivo/chatwoot-2026-10-09`.
+- Para **ver** el cambio desplegado antes de main: ahí sí, rama — porque la vista previa es lo que se busca.
+- El Cerebro, al pedir «ponelo a salvo», tiene que decir **cuál de las dos** quiere. «Subilo al remoto» es
+  ambiguo y la respuesta por defecto cuesta un build.
+
+**Por qué importa más de lo que parece:** el costo no es el build suelto, es **cuándo** se paga. Cuatro
+builds un martes a la tarde no se notan; cuatro builds compitiendo con el deploy de producción la noche
+antes de un lanzamiento, sí. Lo mismo que la RAM: lo que en una máquina descansada es gratis, en una
+cargada es el cuello de botella.
+
+**Relacionado:** la guardia de RAM mira la cantidad de workflows pero no la memoria libre del sistema (ver
+la entrada del cuelgue de las 02:11 de esta misma noche) · `vercel-costo-builds` en la memoria del Cerebro.
+
+
 ## El disco C: se llena con los worktrees y las copias del código en Temp (23/10/2026, Cerebro)
 
 **El síntoma:** C: llegó a tener 3,2 GB libres y la PC dejó de poder usarse. El 14/10 tenía 86 GB.
