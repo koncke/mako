@@ -61,9 +61,11 @@ async function escuchar(buf: Buffer, mime: string, o: { hint?: string; feature: 
   try {
     const texto = await ai.transcribirAudio(buf.toString('base64'), mime, {
       prompt: o.hint, feature: o.feature, motivo: o.motivo,
-      // Los anuncios y los creativos del negocio: sólo SUS keys, sin la red gratis de la plataforma (IA7, hasta que Martín
-      // decida si el Groq de MaKo los escucha).
+      // Los anuncios y los creativos del negocio llevan sus datos (`pii`): sus keys, y de la red sólo el Gemini de la
+      // plataforma en el plan pago. Groq no: no es una nota de voz (IA16, Martín 22/10/2026: «Groq sólo para las notas de
+      // voz», y «la transcripción de anuncios pasa a Gemini»).
       pii: true,
+      sinGroq: true,
       alEscuchar: (q) => { quien = q; },
     });
     const bucle = salidaDegenerada(texto);

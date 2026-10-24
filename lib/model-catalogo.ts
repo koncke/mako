@@ -94,7 +94,6 @@ export const PROVEEDORES_PAGOS: Proveedor[] = ['anthropic', 'openai'];
 
 const CLAUDE = (model = 'claude-opus-4-8'): ModeloRef => ({ provider: 'anthropic', model });
 const SONNET: ModeloRef = { provider: 'anthropic', model: 'claude-sonnet-5' };
-const GROQ = (model = 'openai/gpt-oss-20b'): ModeloRef => ({ provider: 'groq', model });
 const GROQ_WHISPER: ModeloRef = { provider: 'groq', model: 'whisper-large-v3-turbo' };
 // Gemini Flash: 1M de contexto + function-calling. BYOK por cliente (su propia key).
 // El free entrena; para datos de clientes va key paga (ver metodo-catalogo).
@@ -103,7 +102,7 @@ const GEMINI = (model = 'gemini-flash-latest'): ModeloRef => ({ provider: 'gemin
 // Catálogo de TODOS los procesos de IA de la app (del audit). Cada `feature` es el
 // tag REAL que el call-site le pasa a chatClaude/chatCheap: si no coincide, el
 // override no aplica. Regla de tiers: PII + razonamiento fino → Claude (Opus o
-// Sonnet); voz de marca → Claude (probar Sonnet); simple sin PII → Groq.
+// Sonnet); voz de marca → Claude (probar Sonnet); simple sin PII → la IA gratis (Gemini desde el 22/10/2026: Groq sólo escucha audio).
 export const CATALOGO_MODELOS: FeatureModelo[] = [
   // ── MaKo conversacional / agentes con herramientas ──────────────────────────
   // El doer usa el ROUTER (lib/mako-router): elige por turno barato/Sonnet/Opus.
@@ -130,7 +129,7 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // gratis (uno pago se ignora), y la red de plataforma es la de las keys gratis, sin el crédito de Claude. Degradarse
   // es aceptable: lo que contesta se VALIDA (lib/mako-pedidos.ts) y, si no sirve, quedan las reglas. `pii` se decide
   // por MENSAJE (un email, un teléfono, una tab de leads), no acá.
-  { feature: 'mako-pedidos', label: 'Separar los pedidos de un mensaje (chats de MaKo)', grupo: 'MaKo', def: GROQ('openai/gpt-oss-120b'), recomendado: GROQ('openai/gpt-oss-120b'), pii: false, nota: 'Cuando un mensaje a un chat de MaKo mezcla cosas («esto, y también créame otra landing»), separa los pedidos y dice el verbo, la sección y la frase que nombra el objeto. El objeto, la acción y el link los decide el código. Sólo IA gratis, Groq primero (1,4 s medido; Gemini 6-11 s), con un plazo de 7 s: si no llega, siguen las reglas.' },
+  { feature: 'mako-pedidos', label: 'Separar los pedidos de un mensaje (chats de MaKo)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), pii: false, nota: 'Cuando un mensaje a un chat de MaKo mezcla cosas («esto, y también créame otra landing»), separa los pedidos y dice el verbo, la sección y la frase que nombra el objeto. El objeto, la acción y el link los decide el código. Sólo IA gratis: Gemini (Groq era más rápido —1,4 s contra 6-11 s— pero desde el 22/10/2026 sólo escucha audio), con un plazo de 7 s: si no llega, siguen las reglas.' },
 
   // ── Análisis pesado sobre datos reales → OPUS (los únicos que se quedan) ─────
   // Decisión del dueño (2026-08-13): baja de Opus a Sonnet. Sigue siendo PAGO a
@@ -262,14 +261,14 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'nutri-generar', label: 'MaKo escribe la secuencia de nutrición', grupo: 'Copywriting', def: GEMINI() },
   { feature: 'email-generar', label: 'Escribir email de nutrición', grupo: 'Copywriting', def: GEMINI() },
 
-  // ── Simples / sin PII → Groq por default (barato, no entrena) ───────────────
-  { feature: 'ads-rename', label: 'Ordenar nombres de campañas de Meta', grupo: 'Simples', def: GROQ(), recomendado: GROQ(), nota: 'Extracción sin datos de clientes → Groq.' },
-  { feature: 'validador', label: 'Validar plantilla de WhatsApp vs reglas de Meta', grupo: 'Simples', def: GROQ(), recomendado: GROQ(), nota: 'Clasificación contra rúbrica fija → Groq.' },
-  { feature: 'nutri-plantilla', label: 'Copy → plantilla de WhatsApp (nutrición)', grupo: 'Simples', def: GEMINI(), recomendado: GROQ() },
+  // ── Simples / sin PII → Gemini por default (Groq, hasta el 22/10/2026) ───────────────
+  { feature: 'ads-rename', label: 'Ordenar nombres de campañas de Meta', grupo: 'Simples', def: GEMINI(), recomendado: GEMINI(), nota: 'Extracción sin datos de clientes → la IA gratis (Gemini; Groq sólo escucha audio desde el 22/10/2026).' },
+  { feature: 'validador', label: 'Validar plantilla de WhatsApp vs reglas de Meta', grupo: 'Simples', def: GEMINI(), recomendado: GEMINI(), nota: 'Clasificación contra rúbrica fija → la IA gratis (Gemini).' },
+  { feature: 'nutri-plantilla', label: 'Copy → plantilla de WhatsApp (nutrición)', grupo: 'Simples', def: GEMINI(), recomendado: GEMINI() },
   { feature: 'avisos', label: 'Redactar aviso al dueño (semáforo)', grupo: 'Simples', def: GEMINI(), pii: true, recomendado: SONNET, nota: 'Rellena una plantilla con datos del evento (incluye nombres) → Claude Sonnet, más barato que Opus.' },
-  { feature: 'Título de chat', label: 'Título de una sesión de chat', grupo: 'Simples', def: GROQ(), recomendado: GROQ(), nota: 'Titulación pura. Ya en barato.' },
-  { feature: 'onboarding-extract', label: 'Extraer campos del onboarding', grupo: 'Simples', def: GROQ(), recomendado: GROQ(), nota: 'Saca campos sueltos de un documento. El default era gpt-4o-mini y cobraba; el propio audit ya recomendaba Groq.' },
-  { feature: 'ia-barata', label: 'IA barata genérica', grupo: 'Simples', def: GROQ(), recomendado: GROQ() },
+  { feature: 'Título de chat', label: 'Título de una sesión de chat', grupo: 'Simples', def: GEMINI(), recomendado: GEMINI(), nota: 'Titulación pura. Ya en barato.' },
+  { feature: 'onboarding-extract', label: 'Extraer campos del onboarding', grupo: 'Simples', def: GEMINI(), recomendado: GEMINI(), nota: 'Saca campos sueltos de un documento. El default era gpt-4o-mini y cobraba; el propio audit ya recomendaba Groq.' },
+  { feature: 'ia-barata', label: 'IA barata genérica', grupo: 'Simples', def: GEMINI(), recomendado: GEMINI() },
 
   // ── STT (voz → texto) ────────────────────────────────────────────────────────
   { feature: 'MaKo · nota de voz', label: 'Transcribir nota de voz (Hola MaKo)', grupo: 'STT', def: GROQ_WHISPER, recomendado: GROQ_WHISPER },

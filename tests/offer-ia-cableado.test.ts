@@ -75,7 +75,8 @@ test('offer-ia va por la cascada GRATIS de las keys del cliente y la red de plat
   const lista = IA.match(/export const PROVS_OFFER: readonly ProvName\[\] = \[([^\]]*)\];/);
   assert.ok(lista, 'no encuentro PROVS_OFFER');
   // IA8 (22/10/2026): sin OpenRouter.
-  assert.deepEqual(lista[1].split(',').map((s) => s.trim().replace(/'/g, '')), ['gemini', 'groq']);
+  // IA16: sin Groq (sólo escucha audio).
+  assert.deepEqual(lista[1].split(',').map((s) => s.trim().replace(/'/g, '')), ['gemini']);
   assert.doesNotMatch(lista[1], /openai|mistral|anthropic|cerebras/);
   assert.doesNotMatch(IA, /CASCADA_DOCS|CASCADA_GRATIS/);
   // El modelo gratis de OpenRouter, copiado de lib/flujo-ia.ts (MODELOS_CREAR_IA) con su comentario.

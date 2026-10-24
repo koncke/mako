@@ -8,8 +8,9 @@
 //   1. EL CORTE ES ABAJO DE TODO: cada entrada de la cascada barata (texto, herramientas, documentos, visión, audio y las
 //      preguntas de «¿hay IA?»), corrida DE VERDAD dentro de `conSoloSuIA`, no sale a ningún proveedor gratis ni lee
 //      sus keys; fuera, sí (el control: si no, la prueba no vería nada) — tests/_solo-su-ia-hijo.ts;
-//   2. LA DECISIÓN ES POR NEGOCIO Y FALLA CERRADA: la PC de otra persona del negocio cuenta, su Claude y su OpenAI
-//      cuentan, Gemini no; una base que no contesta es «sí»; la plataforma misma, no;
+//   2. LA DECISIÓN ES POR NEGOCIO Y FALLA CERRADA: la PC de otra persona del negocio cuenta, su Claude, su OpenAI y su
+//      Gemini cuentan (IA16, 22/10/2026: «Cada usuario debe poder pagar su token, su propia IA de gemini»), una copia de
+//      la de la plataforma y Groq no; una base que no contesta es «sí»; la plataforma misma, no;
 //   3. LO PRENDEN LOS CAMINOS DEL OPS CENTER: el turno (con El Archivero y la lectura de los archivos adentro), los
 //      pedidos del Second Brain y la nota de voz.
 //
@@ -43,18 +44,20 @@ const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
   control: Corrida; conSuIA: Corrida; negocio: Record<string, { suIA: boolean; conPc: boolean }>; error?: string;
 };
 
-const GRATIS = /generativelanguage\.googleapis\.com|api\.groq\.com|api\.mistral\.ai|openrouter\.ai|api\.cerebras\.ai/;
-const KEY_GRATIS = /(GEMINI|GROQ|MISTRAL|OPENROUTER|CEREBRAS)_API_KEY/;
+// Lo que no es su IA (IA16: su Gemini sí lo es).
+const GRATIS = /api\.groq\.com|api\.mistral\.ai|openrouter\.ai|api\.cerebras\.ai/;
+const KEY_GRATIS = /(GROQ|MISTRAL|OPENROUTER|CEREBRAS)_API_KEY/;
 
 test('el control: fuera de «sólo su IA», la cascada sí sale a Gemini y a Groq (si no, la prueba no ve nada)', () => {
   assert.equal(R.error, undefined, R.error);
   const todo = Object.values(R.control).flatMap((c) => c.red);
   assert.ok(todo.includes('generativelanguage.googleapis.com'), 'el control no llegó a Gemini');
   assert.ok(todo.includes('api.groq.com'), 'el control no llegó a Groq');
-  assert.ok(Object.values(R.control).some((c) => c.keys.some((k) => /eq\.9 /.test(k))), 'el control no miró la red de la plataforma');
+  // IA16: la red de la plataforma no corre para ningún negocio, ni fuera de «sólo su IA».
+  assert.equal(R.control.provsGratisDePlataforma.valor, 0, 'la red de la plataforma corrió para un negocio');
 });
 
-test('con su IA, NINGUNA entrada de la cascada barata sale a un proveedor gratis ni lee sus keys', () => {
+test('con su IA, NINGUNA entrada sale a lo que no es su IA (Groq, Mistral, OpenRouter, Cerebras, la plataforma) ni lee sus keys', () => {
   assert.ok(Object.keys(R.conSuIA).length >= 12, 'se recorren todas las entradas');
   for (const [entrada, c] of Object.entries(R.conSuIA)) {
     // Rota: sacar el corte de `provDe` o de `ordenarPorCuota` → este test falla.
@@ -62,17 +65,22 @@ test('con su IA, NINGUNA entrada de la cascada barata sale a un proveedor gratis
     assert.deepEqual(c.keys.filter((k) => KEY_GRATIS.test(k)), [], `${entrada} leyó una key gratis`);
     // Rota: sacar el corte de `provsGratisDePlataforma` → este test falla (las de la plataforma son del ws9).
     assert.deepEqual(c.keys.filter((k) => /eq\.9 /.test(k)), [], `${entrada} miró la red de la plataforma`);
-    assert.deepEqual(c.red.filter((h) => h !== 'api.openai.com' && h !== 'api.anthropic.com'), [], `${entrada}: sólo su OpenAI o su Claude`);
+    assert.deepEqual(c.red.filter((h) => h !== 'api.openai.com' && h !== 'api.anthropic.com' && h !== 'generativelanguage.googleapis.com'), [], `${entrada}: sólo su OpenAI, su Gemini o su Claude`);
   }
-  // Su GPT sí: con su OpenAI cargada, la cascada la usa.
+  // Su GPT y su Gemini sí: con sus claves cargadas, la cascada las usa.
   assert.ok(R.conSuIA.chatCheapCascade.red.includes('api.openai.com'), 'su OpenAI sí');
-  assert.equal(R.conSuIA.provsDe.valor, 0);
+  assert.ok(R.conSuIA.chatCheapCascade.red.includes('generativelanguage.googleapis.com'), 'su Gemini sí (IA16)');
+  // De [gemini, groq, mistral, openrouter, cerebras], sólo su Gemini.
+  assert.equal(R.conSuIA.provsDe.valor, 1);
   assert.equal(R.conSuIA.provsGratisDePlataforma.valor, 0);
 });
 
 test('la decisión es por NEGOCIO, falla CERRADA, y la plataforma queda afuera', () => {
   const n = R.negocio;
-  assert.deepEqual(n.soloGratis, { suIA: false, conPc: false }, 'una key de Gemini no es «su IA»');
+  assert.deepEqual(n.soloGroq, { suIA: false, conPc: false }, 'una key de Groq no es «su IA» (sólo escucha)');
+  // IA16: su Gemini sí; una copia de la de la plataforma, no.
+  assert.deepEqual(n.conSuGemini, { suIA: true, conPc: false }, 'su Gemini es su IA');
+  assert.deepEqual(n.conCopiaDeGemini, { suIA: false, conPc: false }, 'una copia de la Gemini de la plataforma no es su IA');
   // Rota: decidir por persona (sin `negocioConPc`) → este test falla.
   // Rota: contar una PC sin `activa_at` → este test falla (una instalación abandonada en «¿es tu negocio?» pasaba todo el
   // negocio a «sólo su IA», y nadie tenía con qué contestar: segunda revisión del Cerebro, 21/10/2026).
@@ -88,12 +96,13 @@ test('la decisión es por NEGOCIO, falla CERRADA, y la plataforma queda afuera',
   assert.deepEqual(n.plataforma, { suIA: false, conPc: false }, 'la plataforma no es un cliente con su IA');
 });
 
-test('el contexto: prendido sólo adentro, y con su OpenAI y nada más', async () => {
+test('el contexto: prendido sólo adentro, y con su OpenAI y su Gemini y nada más', async () => {
   assert.equal(soloSuIA(), false);
   assert.equal(proveedorPermitido('gemini', false), true, 'fuera, como siempre');
   await conSoloSuIA(true, async () => {
     assert.equal(soloSuIA(), true);
-    assert.equal(proveedorPermitido('gemini', false), false);
+    assert.equal(proveedorPermitido('gemini', false), true, 'su Gemini (IA16)');
+    assert.equal(proveedorPermitido('gemini', true), false, 'nunca la Gemini de la plataforma');
     assert.equal(proveedorPermitido('groq', false), false);
     assert.equal(proveedorPermitido('openai', false), true);
     assert.equal(proveedorPermitido('openai', true), false, 'nunca con la key de la plataforma');
@@ -141,5 +150,6 @@ test('lo prenden los caminos del Ops Center: el turno (con El Archivero y los ar
   assert.match(ai, /async function provDe\([^)]*\): Promise<Prov \| null> \{\s*if \(PROVS_SACADOS\.includes\(nombre\)\) return null;\s*if \(!proveedorPermitido\(nombre, wsKey != null\)\) return null;/);
   const red = ai.slice(ai.indexOf('export async function provsGratisDePlataforma('));
   assert.ok(red.indexOf('if (soloSuIA()) return [];') > 0 && red.indexOf('if (soloSuIA()) return [];') < red.indexOf('wsSuperAdmin'), 'la red de la plataforma corta antes de leer nada');
-  assert.match(sinComentarios(leer('lib/ia-cuotas.ts')), /export async function ordenarPorCuota\(orden: string\[\]\): Promise<string\[\]> \{\s*if \(soloSuIA\(\)\) return orden\.filter/);
+  // IA16: en el orden de su IA (su GPT antes que su Gemini), no en el de la lista.
+  assert.match(sinComentarios(leer('lib/ia-cuotas.ts')), /export async function ordenarPorCuota\(orden: string\[\]\): Promise<string\[\]> \{\s*if \(soloSuIA\(\)\) return PROVS_SU_IA\.filter\(\(p\) => orden\.includes\(p\)\);/);
 });

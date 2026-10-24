@@ -18,7 +18,7 @@ import { Skeleton } from '@/app/_ui/Feedback';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, TEXTO_CONSENTIMIENTO, VERSION_CONSENTIMIENTO, lineaDeInstalacion, type CuentaPc, type CuentasIA, type SistemaPc } from '@/lib/ia-pc-reglas';
-import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
+import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, dondeSacarLaClave, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
 import { CuentasYDispositivos, NuevoDispositivo } from './CuentasYDispositivos';
 import './tus-cuentas-ia.css';
 
@@ -263,10 +263,10 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
 }
 
 /** El logo de cada IA, para los botones grandes del paso 1. */
-const LogoIA = ({ ia }: { ia: IaDelCliente }) => (ia === 'claude' ? <LogoClaude size={28} /> : <SvcIcon k="openai" size={18} box={28} radius={7} />);
+const LogoIA = ({ ia }: { ia: IaDelCliente }) => (ia === 'claude' ? <LogoClaude size={28} /> : <SvcIcon k={SERVICIO_DE_CLAVE[ia]} size={18} box={28} radius={7} />);
 
 /**
- * «Conectar tu IA» (IA4, 22/10/2026), un paso por pantalla: ¿qué IA? (Claude o ChatGPT) → ¿cómo? (mi computadora, o una
+ * «Conectar tu IA» (IA4, 22/10/2026), un paso por pantalla: ¿qué IA? (Claude, ChatGPT o Gemini) → ¿cómo? (mi computadora, o una
  * clave de API que carga el admin; a los demás, «Pídele a <admin>»). Las opciones y sus textos: lib/conectar-ia-reglas.ts.
  * La computadora abre el tutorial de siempre; la clave, el modal de la integración (el mismo de /integraciones).
  */
@@ -278,6 +278,7 @@ function ConectarTuIA({ esAdmin, admin, listo: puedeComputadora, onComputadora, 
 }) {
   const [ia, setIa] = useState<IaDelCliente | null>(iaInicial ?? null);
   const [conectada, setConectada] = useState(false);
+  const donde = ia ? dondeSacarLaClave(ia) : null;
   return (
     <div className="tci-tutorial" role="dialog" aria-label="Conectar tu IA">
       <BrandDefs />
@@ -300,6 +301,12 @@ function ConectarTuIA({ esAdmin, admin, listo: puedeComputadora, onComputadora, 
       {ia && !conectada && (
         <>
           <h3>¿Cómo la conectas?</h3>
+          {donde && (
+            <p className="tci-nota">
+              <a href={donde.url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>{donde.url.replace(/^https:\/\//, '')}</a>
+              {' · '}{donde.texto}
+            </p>
+          )}
           <div className="tci-grandes">
             {comoConectar(ia, { esAdmin, admin }).map((o) => {
               const contenido = <><span className="tci-grande__titulo">{o.titulo}</span><span className="tci-grande__detalle">{o.detalle}</span></>;
@@ -426,7 +433,7 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
         <div className="tci-cab">
           <div>
             <h2 id="tci-titulo" className="tci-titulo">Tus cuentas de IA</h2>
-            <p className="tci-bajada">Tu Ops Center contesta con tu Claude o tu GPT.</p>
+            <p className="tci-bajada">Tu Ops Center contesta con tu Claude, tu GPT o tu Gemini.</p>
           </div>
         </div>
       )}

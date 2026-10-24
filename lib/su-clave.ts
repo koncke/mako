@@ -23,7 +23,7 @@ import {
   type EstadoSuClave, type FilaUsoClave, type ProvSuClave,
 } from './su-clave-reglas';
 
-const CLAVE_DE: Record<ProvSuClave, 'ANTHROPIC_API_KEY' | 'OPENAI_API_KEY'> = { anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY' };
+const CLAVE_DE: Record<ProvSuClave, 'ANTHROPIC_API_KEY' | 'OPENAI_API_KEY' | 'GEMINI_API_KEY'> = { anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', gemini: 'GEMINI_API_KEY' };
 
 /**
  * Un fallo repetido no llena la tabla: la cascada le vuelve a pegar a la misma clave (hasta 4 intentos si es la última)
@@ -122,9 +122,9 @@ export async function estadoDeSusClaves(ws: number): Promise<SuClaveEnTarjeta[] 
 }
 
 /**
- * «Probar mi clave»: un pedido que no cobra. Claude: `count_tokens` (gratis). OpenAI: la lista de modelos. Los dos dicen si
- * la clave es válida; ninguno dice si tiene crédito (eso lo dice la próxima respuesta, y queda en la tarjeta). Si falla,
- * queda la fila como cualquier otro fallo.
+ * «Probar mi clave»: un pedido que no cobra. Claude: `count_tokens` (gratis). OpenAI y Gemini: la lista de modelos. Dicen si
+ * la clave es válida; ninguno dice si tiene crédito (eso lo dice la próxima respuesta, y queda en la tarjeta), y el de
+ * Gemini tampoco dice si es la gratis (medido el 22/10/2026: contesta igual). Si falla, queda la fila como cualquier fallo.
  */
 export async function probarSuClave(ws: number, proveedor: ProvSuClave): Promise<{ ok: boolean; texto: string }> {
   const nombre = nombreDeSuClave(proveedor);
@@ -146,9 +146,13 @@ export async function probarSuClave(ws: number, proveedor: ProvSuClave): Promise
         body: JSON.stringify({ model: 'claude-haiku-4-5', messages: [{ role: 'user', content: 'hola' }] }),
         cache: 'no-store', signal: AbortSignal.timeout(15_000),
       })
-      : await fetch('https://api.openai.com/v1/models', {
-        headers: { authorization: `Bearer ${clave}` }, cache: 'no-store', signal: AbortSignal.timeout(15_000),
-      });
+      : proveedor === 'gemini'
+        ? await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', {
+          headers: { 'x-goog-api-key': clave }, cache: 'no-store', signal: AbortSignal.timeout(15_000),
+        })
+        : await fetch('https://api.openai.com/v1/models', {
+          headers: { authorization: `Bearer ${clave}` }, cache: 'no-store', signal: AbortSignal.timeout(15_000),
+        });
     if (!res.ok) {
       const body = await res.json().catch(() => ({})) as { error?: { message?: string; type?: string; code?: string } };
       error = `HTTP ${res.status} ${body.error?.type ?? ''} ${body.error?.code ?? ''} ${body.error?.message ?? ''}`;

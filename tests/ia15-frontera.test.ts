@@ -11,6 +11,12 @@
 // Corre la capa real en tests/_ia15-frontera-hijo.ts.
 //
 // Probado rompiéndolo (22/10/2026, una rotura por vez, restaurada): ver la cosecha en docs/hallazgos-ia.md.
+//
+// AL DÍA CON IA16 (23/10/2026): este test se escribió antes de «su propia IA de Gemini» y daba por hecho que un negocio
+// nunca va a Gemini, así que en IA16 fallaban 3 (el ws10 y el ws16 tienen su PROPIA Gemini, que ahora es su IA). Lo que
+// cuida no cambió: ni el crédito de Martín ni la clave de MaKo, nada a la IA de la PLATAFORMA (`DE_LA_PLATAFORMA`), y el
+// crédito o una copia SOLOS no son «su clave» (el ws21 y el ws22). Roto otra vez: el crédito como su clave → 5/2; una copia
+// como su clave → 6/1.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -31,7 +37,11 @@ function correr(): Record<string, any> {
   assert.equal(cache!.error, undefined, String(cache!.error));
   return cache!;
 }
-const GRATIS = /generativelanguage\.googleapis\.com|api\.groq\.com/;
+/**
+ * La IA de la PLATAFORMA: la Gemini de MaKo o Groq. Desde IA16 (22/10, Martín: «Cada usuario debe poder pagar su token, su
+ * propia IA de gemini») la Gemini PROPIA de un negocio es su IA, y mandarle algo no es una fuga; mandárselo a la de MaKo sí.
+ */
+const DE_LA_PLATAFORMA = (p: Pedido) => /api\.groq\.com/.test(p.host) || (/generativelanguage\.googleapis\.com/.test(p.host) && /plataforma/.test(p.clave));
 
 test('ALTA: con las filas de la plataforma ilegibles, nadie paga con el crédito de Martín ni con la clave de MaKo', () => {
   const r = correr();
@@ -40,8 +50,8 @@ test('ALTA: con las filas de la plataforma ilegibles, nadie paga con el crédito
     const conAnthropic = pedidos.filter((p) => p.host === 'api.anthropic.com');
     assert.ok(!conAnthropic.some((p) => CREDITO.startsWith(p.clave.slice(0, 22))), `${caso}: pagó con el crédito de Martín`);
     assert.ok(!conAnthropic.some((p) => DE_MAKO.startsWith(p.clave.slice(0, 22))), `${caso}: pagó con la clave de MaKo`);
-    // Y falla CERRADA también para la privacidad: «no pude saber» no manda a Gemini.
-    assert.deepEqual(pedidos.filter((p) => GRATIS.test(p.host)), [], `${caso}: salió a una IA gratis`);
+    // Y falla CERRADA también para la privacidad: «no pude saber» no manda nada a la IA de la plataforma.
+    assert.deepEqual(pedidos.filter(DE_LA_PLATAFORMA), [], `${caso}: salió a la IA de la plataforma`);
   }
 });
 
@@ -49,11 +59,13 @@ test('planConSuClave, caso por caso: su OpenAI y su Claude sí; el crédito, la 
   const r = correr();
   assert.deepEqual(r.plan, {
     ws3: { suClave: true }, // su OpenAI
-    ws10: { suClave: false }, // su «Claude» es el crédito de Martín
+    ws10: { suClave: true }, // su Gemini (IA16); su «Claude» es el crédito de Martín, y eso solo no contaría (ws21)
     ws14: { suClave: false }, // sólo su PC: el Plan corre de fondo, y la suscripción no se puede usar de fondo (D6a)
-    ws16: { suClave: false }, // una copia de la clave de MaKo
+    ws16: { suClave: true }, // su Gemini (IA16); su Claude es una copia de la de MaKo, y eso solo no contaría (ws22)
     ws17: { suClave: true }, // su clave guardada e ilegible: la fila existe, es suya
     ws18: { suClave: true }, // su Claude
+    ws21: { suClave: false }, // sólo el crédito de Martín
+    ws22: { suClave: false }, // sólo una copia de la clave de MaKo
   });
   assert.deepEqual(r.planConLaBaseCaida, { suClave: true, incierto: true }, 'sin poder leer: falla cerrada, y dicha como incierta');
 });
@@ -78,8 +90,9 @@ test('la puerta 2 pide la decisión del Plan, CIERTA: aunque su frontera no vea 
 test('lo que NO es del Plan, desde adentro de una función del Plan, usa SU decisión (no la del Plan)', () => {
   const r = correr();
   const pedidos = r.noPlanAdentroDelPlan as Pedido[];
-  assert.deepEqual(pedidos.filter((p) => GRATIS.test(p.host)), [], 'heredó la decisión del Plan y salió a una IA gratis');
-  assert.ok(pedidos.some((p) => p.host === 'api.anthropic.com'), 'no usó la IA del negocio');
+  assert.deepEqual(pedidos.filter(DE_LA_PLATAFORMA), [], 'heredó la decisión del Plan y salió a la IA de la plataforma');
+  // Su IA: su Gemini (IA16, va antes que su Claude) o su Claude.
+  assert.ok(pedidos.some((p) => p.host === 'api.anthropic.com' || /AIza-ws10/.test(p.clave)), 'no usó la IA del negocio');
 });
 
 test('MEDIA: a OpenAI nunca se le pide más salida de la que acepta el modelo; a los demás, lo pedido', () => {

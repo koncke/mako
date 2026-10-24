@@ -42,7 +42,7 @@ import { encolarTurno, esperarALaPc, pcDe, TopeDeTurnos, type Ejecutor } from '@
 import { armarPrompt, AVISO_PC_ILEGIBLE, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, modeloPc, pcUsable, type FalloDeLaPc } from '@/lib/ia-pc-reglas';
 import { MODELO_SU_OPENAI_DEFAULT, NOMBRE_MODELO_IA, type EleccionIA } from '@/lib/chat-ia-reglas';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
-import { entrarSoloSuIA } from '@/lib/solo-su-ia';
+import { PROVS_SU_IA, entrarSoloSuIA } from '@/lib/solo-su-ia';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
 import { esAccion, type Ctx } from '@/lib/api-mako/tipos';
@@ -430,8 +430,9 @@ async function iaPropiaDelTurno(): Promise<number | null> {
 }
 
 /**
- * ¿Hay con qué pasar un archivo a El Archivero sin la cascada barata? Su clave de Claude (la puerta 2 del veto) o su
- * OpenAI. Sólo se pregunta con «sólo su IA» (D6b): ahí, sin ninguna de las dos, El Archivero no corre y se dice.
+ * ¿Hay con qué pasar un archivo a El Archivero sin la cascada barata? Su clave de Claude (la puerta 2 del veto), su OpenAI
+ * o su Gemini (`PROVS_SU_IA`, IA16). Sólo se pregunta con «sólo su IA» (D6b): ahí, sin ninguna, El Archivero no corre y se
+ * dice.
  * `pausa`: tiene su clave de Claude pero la plataforma la pausó y no hay OpenAI: se dice eso, no que falta la clave.
  */
 async function puedeArchivarConSuIA(): Promise<'si' | 'no' | 'pausa'> {
@@ -439,7 +440,7 @@ async function puedeArchivarConSuIA(): Promise<'si' | 'no' | 'pausa'> {
     const claude = await permisoDeLaClaveDelNegocio('El Archivero');
     if (claude && 'permiso' in claude) return 'si';
     const { provsDe } = await import('@/lib/ai-cheap');
-    if ((await provsDe('openai')).length > 0) return 'si';
+    for (const p of PROVS_SU_IA) if ((await provsDe(p as never)).length > 0) return 'si';
     return claude && 'pausa' in claude ? 'pausa' : 'no';
   } catch {
     return 'no';

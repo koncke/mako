@@ -201,12 +201,13 @@ export function resumirErrores(errores: string[], max = 3): string {
  * arregla pegar otra key del mismo proveedor si ya tenés varias.
  */
 /**
- * Lo que se le pide conectar a un negocio sin IA (IA9, 22/10/2026): SU Claude o SU GPT, la vía principal de todo lo que
- * hace MaKo. Gemini y Groq dejan de ser lo recomendado. Lo importan las pantallas que dicen qué falta (TB3: PanelAnalista).
+ * Lo que se le pide conectar a un negocio sin IA (IA9, 22/10/2026): SU IA, la vía de todo lo que hace MaKo. IA16 (22/10):
+ * también su Gemini, por clave de AI Studio (Martín: «Cada usuario debe poder pagar su token, su propia IA de gemini»), y
+ * con la gratis empieza sin pagar. Groq no: sólo escucha. Lo importan las pantallas que dicen qué falta (TB3: PanelAnalista).
  */
-export const CONECTA_TU_IA = 'Conecta tu Claude o tu GPT';
+export const CONECTA_TU_IA = 'Conecta tu Claude, tu GPT o tu Gemini';
 /** El «Qué falta» de una tarjeta, corto. */
-export const FALTA_TU_IA = 'Tu Claude o tu GPT';
+export const FALTA_TU_IA = 'Tu Claude, tu GPT o tu Gemini';
 
 export function mensajeIAFallo({ hayIA, motivo, errores = [], tema = 'esto' }: MotivoIA): string {
   const detalle = errores.length ? ` (${resumirErrores(errores)})` : '';
@@ -217,7 +218,7 @@ export function mensajeIAFallo({ hayIA, motivo, errores = [], tema = 'esto' }: M
     return `No hay ninguna IA conectada, así que MaKo no puede ${tema}. ${CONECTA_TU_IA} en Integraciones.`;
   }
   if (motivo?.startsWith('Se quedó sin cuota')) {
-    return `${motivo} Vuelve a andar cuando se reinicie (el free de Gemini reinicia cada día). Si no quieres esperar: conecta tu Claude o tu GPT.${detalle}`;
+    return `${motivo} Vuelve a andar cuando se reinicie (el free de Gemini reinicia cada día). Si no quieres esperar: conecta tu Claude o tu GPT, o activa la facturación de tu Gemini.${detalle}`;
   }
   if (motivo?.startsWith('La API key')) {
     return `${motivo} Pega una nueva.${detalle}`;

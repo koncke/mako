@@ -96,6 +96,8 @@ test('Análisis del lead: con red, pero NUNCA por las keys gratis (son datos de 
   const src = sinComentarios(leer('lib/ai-cheap.ts'));
   const red = src.indexOf('if (opts.redDePlataforma) {');
   const credito = src.indexOf('conCreditoDeLaPlataforma(', red);
+  // IA16 (22/10/2026): el corte vuelve a ser sólo `conPII` (sin la marca del Gemini pago, que se sacó), y además la red ya
+  // no corre para ningún negocio (`provsGratisDePlataforma`).
   const corte = src.indexOf('if (conPII) {', red);
   const gratis = src.indexOf('provsGratisDePlataforma()', red);
   assert.ok(red > 0 && credito > red && corte > credito && gratis > corte,

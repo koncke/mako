@@ -363,11 +363,11 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     key: 'gemini',
     nombre: 'Google Gemini',
     categoria: 'Inteligencia',
-    paraQue: 'IA de Google con 1M de contexto y function-calling. El plan gratis no cobra, pero Google usa tus datos para mejorar sus productos (con revisión humana). Para datos de clientes usa una key PAGA (activa facturación en el proyecto): esa NO entrena.',
+    paraQue: 'Tu Gemini: con tu clave, MaKo trabaja solo con tu cuenta. El plan gratis no cobra, pero Google puede usar tus datos para mejorar sus modelos (con revisión humana). Activa la facturación en AI Studio y no los usa.',
     campos: [
-      { env: 'GEMINI_API_KEY', label: 'API key', secreto: true, placeholder: 'AIza…', nota: 'Empieza con AIza. En el plan gratis, Google usa tus textos y su gente puede leerlos; la key del plan pago no entrena.' },
+      { env: 'GEMINI_API_KEY', label: 'API key', secreto: true, placeholder: 'AQ.…', nota: 'Empieza con AQ. (o AIza, las viejas). En el plan gratis, Google usa tus textos y su gente puede leerlos.' },
       cuentaDe('GEMINI_API_KEY'),
-      ...keysExtra('gemini', 'AIza…'),
+      ...keysExtra('gemini', 'AQ.…'),
     ],
     tutorial: {
       url: 'https://aistudio.google.com/apikey',
@@ -375,7 +375,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       pasos: [
         'Entra a aistudio.google.com/apikey con tu cuenta de Google.',
         'Ojo: en el plan gratis Google entrena con tus textos. Para evitarlo: "Billing Tier" → "Set up billing" (10 dólares).',
-        'Toca "Create API key" con cualquier proyecto de Google Cloud y copia la key (empieza con AIza).',
+        'Toca "Create API key" con cualquier proyecto de Google Cloud y copia la key (empieza con AQ.).',
         'Pégala en "API key" y guarda.',
         '"API key 2" es opcional: la key de otra cuenta de Google, para cuando la primera llega a su tope.',
       ],
@@ -1018,10 +1018,10 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   },
   GEMINI_API_KEY: {
     pasos: [
-        'Para qué sirve: con esta key MaKo lee de una vez documentos y conversaciones muy largas.',
+        'Para qué sirve: es tu IA. Con esta key MaKo contesta, lee documentos largos y busca en tu conocimiento con tu cuenta.',
         'Entra a aistudio.google.com/apikey con tu cuenta de Google (para "API key 2", con OTRA cuenta).',
         'Ojo: en el plan gratis Google entrena con tus textos. Para evitarlo: "Billing Tier" → "Set up billing" (10 dólares).',
-        'Toca "Create API key" con cualquier proyecto de Google Cloud y copia la key (empieza con AIza).',
+        'Toca "Create API key" con cualquier proyecto de Google Cloud y copia la key (empieza con AQ.).',
         'Pégala en este campo y guarda.',
       ],
     url: 'https://aistudio.google.com/apikey',

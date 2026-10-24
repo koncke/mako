@@ -329,9 +329,11 @@ test('su clave de Claude que falla (sin crédito, revocada) o en pausa se le dic
   assert.match(AVISO_SU_CLAVE, /Tu clave de Claude no funcionó/);
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
   assert.match(t, /const deSuClave = fallo\?\.includes\(CLAUDE_EN_PAUSA\) \? \{ aviso: CLAUDE_EN_PAUSA, conectar: null \}\s*: falloDeSuClave\(fallo\) \? \{ aviso: AVISO_SU_CLAVE, conectar: 'anthropic' \} : null;/);
-  // Con su propio Claude (D6b), «Conectar tu IA» abre su Claude o su OpenAI, nunca Gemini.
-  assert.equal(iaParaConectar(['gemini'], true), 'anthropic');
+  // Con su IA (D6b), «Conectar tu IA» abre la suya: su Claude, su OpenAI o su Gemini (IA16, 22/10/2026: su Gemini es su IA).
+  assert.equal(iaParaConectar(['gemini'], true), 'gemini');
   assert.equal(iaParaConectar(['gemini', 'openai'], true), 'openai');
+  assert.equal(iaParaConectar(['gemini', 'anthropic'], true), 'anthropic');
+  assert.equal(iaParaConectar([], true), 'anthropic', 'sin ninguna en la fila, su Claude');
   assert.equal(iaParaConectar(['gemini'], false), 'gemini', 'sin su IA, como siempre');
 });
 

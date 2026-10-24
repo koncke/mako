@@ -4904,6 +4904,17 @@ nuevo:
   de Martín (una fila de la plataforma ilegible, o el crédito con otro nombre) dejaba pagar al Plan con él.
 - **Una fila que existe y no se descifra también es «no pude leer»** en la frontera de la IA: `credWsEstricta(…, {
   ilegibleTira: true })`. Sin la opción devuelve `null`, y una copia de la plataforma o el crédito pasaban por del negocio.
+- **Quién paga la IA de un cliente: el cliente** (Martín, 22/10/2026: «Cada usuario debe poder pagar su token, su propia IA
+  de gemini»). Su IA es su Claude, su GPT o su Gemini, con SU clave. La red de la plataforma (`provsGratisDePlataforma`)
+  devuelve `[]` fuera del ws9: las claves de la plataforma son para lo interno de MaKo, nunca para un negocio, con o sin
+  datos de clientes. Lo único que la plataforma pone es el crédito de Claude del onboarding. Código nuevo que necesite IA
+  para un negocio usa `provsDe` (sus filas), y sin su IA dice «Conecta tu Claude, tu GPT o tu Gemini» (`CONECTA_TU_IA`).
+- **Lo que es «su IA» se nombra con `PROVS_SU_IA`, nunca con una lista fija** (`['openai']` dejó a cuatro caminos sin su
+  Gemini, IA16). Su orden es a propósito: su GPT antes que su Gemini (una Gemini gratis del onboarding no pasa adelante).
+- **El método de MaKo (la `fuente` que se presta, lib/rag-prestamo.ts) se embebe con la de la plataforma** (`deMako`): vive en
+  el ws1, que no tiene su Gemini. Lo del negocio, con el suyo, siempre.
+- **Groq sólo escucha audio** (`PROVS_SOLO_AUDIO`, Martín 22/10/2026: «Groq sólo para las notas de voz»). Una función de
+  texto nueva no lo nombra; el corte de `proveedor` y `deTexto` lo saltean igual.
 
 - **La clave del negocio se lee con `credDelCliente`, nunca con `credWs`**: `credWs` cae al env de la plataforma
   cuando el workspace es el del dueño, y esa clave pasaría como del negocio.

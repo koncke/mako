@@ -53,23 +53,13 @@ export const MARCA_REBOTE = 'rebote429:';
  * la base. Es la misma regla que `lib/ia-keys.ts` exige para tocar la lista de
  * proveedores — «está en la documentación» no es evidencia de nada.
  */
+// IA16 (23/10/2026): sin Mistral ni OpenRouter, que IA8 sacó el 22/10 de las cascadas. Seguían acá, y por eso
+// Integraciones › «Costo de MaKo» les dibujaba una caja «gratis» a todos los negocios (y con ellas el `OPENROUTER_PAGO`,
+// que ya no lo leía nadie). Groq queda sólo para las notas de voz.
 export const LIMITES_PROVEEDOR: Record<string, LimiteProv> = {
   gemini: { label: 'Gemini', rpd: 250, nota: '2.5 Flash free' },
-  groq: { label: 'Groq', tokensDia: 500_000, nota: 'plan gratis' },
-  mistral: { label: 'Mistral', rpd: 500, nota: 'free (Experiment)' },
-  openrouter: { label: 'OpenRouter', rpd: 50, nota: 'modelos :free sin créditos' },
+  groq: { label: 'Groq', tokensDia: 500_000, nota: 'notas de voz · plan gratis' },
 };
-
-/**
- * OpenRouter cuando el usuario YA cargó créditos. Mismo caso que `GEMINI_PAGO` y por la
- * misma razón: el tier gratis topea en 50 pedidos por día, y seguir aplicándole ese techo
- * a una cuenta con saldo la manda al fondo de la cascada TENIENDO PLATA. Pagar para que
- * te sigan racionando es la peor cara del bug.
- *
- * Sin `rpd`: con créditos el límite lo pone el saldo, no un contador diario, y ese saldo
- * se lee de la API (lib/openrouter-saldo.ts) en vez de cargarse a mano.
- */
-export const OPENROUTER_PAGO: LimiteProv = { label: 'OpenRouter', nota: 'créditos cargados' };
 
 /**
  * Gemini con billing activo: el free tier topea en 250 pedidos/día y con créditos sube

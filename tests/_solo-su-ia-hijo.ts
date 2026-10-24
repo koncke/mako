@@ -8,7 +8,8 @@
 // Todo lo que sale a la red y no es la base se ANOTA por host y contesta 500.
 //
 // Dos corridas de lo mismo: fuera de `conSoloSuIA` (el control: tiene que salir a Gemini y a Groq, si no la prueba no ve
-// nada) y adentro (D6b: ni un pedido a un proveedor gratis, ni una lectura de sus keys en la base).
+// nada) y adentro (D6b: sólo su IA —su Gemini y su OpenAI, IA16—, ni un pedido a Groq, Mistral, OpenRouter o Cerebras, ni
+// una lectura de sus keys en la base).
 // =============================================================================
 
 import { crearPostgrest } from './_postgrest-de-mentira';
@@ -85,8 +86,9 @@ async function main() {
     pg.db.credenciales = pg.db.credenciales.filter((f) => f.workspace_id !== ws || claves.includes(String(f.clave)));
   };
   const negocio: Record<string, unknown> = {};
-  dejar(WS, ['GEMINI_API_KEY', 'GROQ_API_KEY']);
-  negocio.soloGratis = await negocioConSuIA(WS);
+  // IA16 (22/10/2026): su Gemini ES su IA. Lo que no es su IA: sólo Groq (escucha, no contesta).
+  dejar(WS, ['GROQ_API_KEY']);
+  negocio.soloGroq = await negocioConSuIA(WS);
   // Una PC PENDIENTE (emparejada, sin el «sí» o sin su primer latido con sesión) no cuenta (mig 0322, segunda revisión).
   pg.db.ia_pc_dispositivos.push({ id: 1, workspace_id: WS, persona: 'admin@negocio.com', revocado_at: null, confirmado_at: null, activa_at: null });
   negocio.conPcPendiente = await negocioConSuIA(WS);
@@ -97,6 +99,13 @@ async function main() {
   negocio.conPcDeOtra = await negocioConSuIA(WS);
   pg.db.ia_pc_dispositivos[0].revocado_at = new Date().toISOString();
   negocio.pcDesconectada = await negocioConSuIA(WS);
+  // Su Gemini (de AI Studio) cuenta; una COPIA de la de la plataforma, no.
+  pg.db.credenciales.push({ workspace_id: WS, clave: 'GEMINI_API_KEY', valor_enc: cifrarSecreto(`negocio-gemini-propia-${'g'.repeat(30)}`, WS, 'GEMINI_API_KEY'), servicio: 'gemini' });
+  negocio.conSuGemini = await negocioConSuIA(WS);
+  dejar(WS, ['GROQ_API_KEY']);
+  pg.db.credenciales.push({ workspace_id: WS, clave: 'GEMINI_API_KEY', valor_enc: cifrarSecreto(`plataforma-GEMINI_API_KEY-${'x'.repeat(30)}`, WS, 'GEMINI_API_KEY'), servicio: 'gemini' });
+  negocio.conCopiaDeGemini = await negocioConSuIA(WS);
+  dejar(WS, ['GROQ_API_KEY']);
   pg.db.credenciales.push(...credsDe(PLATAFORMA).filter((f) => f.clave === 'OPENAI_API_KEY').map((f) => ({ ...f, workspace_id: WS, valor_enc: cifrarSecreto(`negocio-openai-${'y'.repeat(30)}`, WS, 'OPENAI_API_KEY') })));
   negocio.conSuOpenAI = await negocioConSuIA(WS);
   dejar(WS, ['GEMINI_API_KEY']);
