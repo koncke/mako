@@ -12,6 +12,8 @@ import { requireSesion, guardOnboarding } from '@/lib/tab-access';
 import { adminDeWorkspaceActual, getWorkspaceActual, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { esAgencia } from '@/lib/agencia';
 import { tableroDe } from '@/lib/partners-programa';
+import { ofertasDeLosPlanes } from '@/lib/compra-plan';
+import { EMAIL_MAKO } from '@/lib/app-url';
 import { Referidos } from './Referidos';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +26,12 @@ export default async function ReferidosPage() {
   if (ws == null || ws === (await wsSuperAdmin())) redirect(await rutaConWs('/partners'));
   if ((await adminDeWorkspaceActual()) == null) redirect(await rutaConWs('/clients'));
   await guardOnboarding();
-  const [tablero, agencia] = await Promise.all([tableroDe(ws).catch(() => null), esAgencia(ws).catch(() => false)]);
-  return <Referidos tablero={tablero} agencia={agencia} />;
+  // ¿MaKo cobra en línea? (24/10/2026). Un referido se registra con la COMPRA en línea (el cobro con su código, el único
+  // que lee `acreditarReferidos`); sin pasarela no nace ninguno, y el tablero en cero tiene que decir por qué.
+  const [tablero, agencia, cobraEnLinea] = await Promise.all([
+    tableroDe(ws).catch(() => null),
+    esAgencia(ws).catch(() => false),
+    ofertasDeLosPlanes().then((o) => o.some((x) => x.cobrable)).catch(() => true),
+  ]);
+  return <Referidos tablero={tablero} agencia={agencia} cobraEnLinea={cobraEnLinea} emailMako={EMAIL_MAKO} />;
 }

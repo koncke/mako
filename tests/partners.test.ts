@@ -156,7 +156,7 @@ test('el teléfono: la MISMA puerta, los MISMOS datos y la MISMA alta que la com
   const pagina = leer('app/m/partners/page.tsx');
   // Desde el 24/10/2026 la fila la ve el admin de cualquier negocio: quien no es agencia ve SU tablero de referidos
   // (ReferidosM, los datos de `tableroDe` como /partners/referidos), no la cartera.
-  assert.match(pagina, /if \(!\(await esAgencia\(ws\)\)\) \{\s*const tablero = await tableroDe\(ws\)/, 'quien no es agencia ve sus referidos');
+  assert.match(pagina, /if \(!\(await esAgencia\(ws\)\)\) \{\s*const \[tablero, cobraEnLinea\] = await Promise\.all\(\[\s*tableroDe\(ws\)/, 'quien no es agencia ve sus referidos');
   assert.ok(pagina.indexOf('tableroDe(ws)') < pagina.indexOf('cuentasDePartner(ws)'), 'la cartera es sólo de la agencia');
   assert.match(pagina, /if \(\(await adminDeWorkspaceActual\(\)\) == null && \(await getSesionAdmin\(\)\) == null\) redirect\([\s\S]*?tableroDe/,
     'sólo el admin, antes de leer los referidos o la cartera');

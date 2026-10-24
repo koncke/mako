@@ -10,13 +10,13 @@
 
 import { CabeceraM, FilaDatoM, ListaM, PildoraM, SeccionM, VacioM, useToastM } from '@/app/m/_ui';
 import { Button } from '@/app/_ui/Button';
-import { TEXTO_ESTADO_REFERIDO, PAGOS_PARA_ACREDITAR } from '@/lib/partners-reglas';
+import { TEXTO_ESTADO_REFERIDO, PAGOS_PARA_ACREDITAR, textoSinReferidos } from '@/lib/partners-reglas';
 import type { Tablero } from '@/lib/partners-programa';
 import { RUTA_MAS } from '@/lib/movil-rutas';
 
 const usd = (n: number) => `US$ ${n.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
 
-export function ReferidosM({ tablero }: { tablero: Tablero }) {
+export function ReferidosM({ tablero, cobraEnLinea = true, emailMako }: { tablero: Tablero; cobraEnLinea?: boolean; emailMako: string }) {
   const toast = useToastM();
   const r = tablero.resumen;
   const copiar = async () => {
@@ -52,7 +52,7 @@ export function ReferidosM({ tablero }: { tablero: Tablero }) {
       </SeccionM>
       <SeccionM titulo="Tus referidos">
         {tablero.referidos.length === 0
-          ? <VacioM frase="Todavía no tienes referidos: comparte tu link." />
+          ? <VacioM frase={textoSinReferidos({ cobraEnLinea, emailMako })} />
           : (
             <ListaM>
               {tablero.referidos.map((x) => (

@@ -20,6 +20,8 @@ import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { PartnersM } from './PartnersM';
 import { ReferidosM } from './ReferidosM';
 import { tableroDe } from '@/lib/partners-programa';
+import { ofertasDeLosPlanes } from '@/lib/compra-plan';
+import { EMAIL_MAKO } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,10 +35,13 @@ export default async function PartnersPagina() {
   // El negocio que NO es agencia (24/10/2026: la fila la ve el admin de cualquier negocio): su tablero de referidos,
   // como /partners/referidos en la computadora. La agencia sigue con su cartera.
   if (!(await esAgencia(ws))) {
-    const tablero = await tableroDe(ws).catch(() => null);
+    const [tablero, cobraEnLinea] = await Promise.all([
+      tableroDe(ws).catch(() => null),
+      ofertasDeLosPlanes().then((o) => o.some((x) => x.cobrable)).catch(() => true),
+    ]);
     return (
       <PantallaM>
-        {tablero ? <ReferidosM tablero={tablero} /> : <ErrorM frase="No pudimos leer tu tablero. No es nada tuyo." />}
+        {tablero ? <ReferidosM tablero={tablero} cobraEnLinea={cobraEnLinea} emailMako={EMAIL_MAKO} /> : <ErrorM frase="No pudimos leer tu tablero. No es nada tuyo." />}
       </PantallaM>
     );
   }

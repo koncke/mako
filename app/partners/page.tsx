@@ -20,6 +20,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { esAgencia } from '@/lib/agencia';
 import { cuentasDePartner, partnersDeLaPlataforma } from '@/lib/partners';
 import { resumenDelPrograma } from '@/lib/partners-programa';
+import { ofertasDeLosPlanes } from '@/lib/compra-plan';
 import { PartnersApp, PartnersPlataforma } from './PartnersApp';
 
 export const dynamic = 'force-dynamic';
@@ -37,11 +38,13 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
 
   // El super admin sin cliente: lo que ven los clientes, el programa de referidos entero y las agencias (24/10/2026).
   if (esSuper && !(await estaImpersonando())) {
-    const [partners, programa] = await Promise.all([
+    const [partners, programa, cobraEnLinea] = await Promise.all([
       partnersDeLaPlataforma().catch(() => null),
       resumenDelPrograma().catch((e) => { console.warn('[partners] no pude leer el programa:', e instanceof Error ? e.message : e); return null; }),
+      // Sin pasarela no se registra ningún referido: el panel en cero dice por qué (no pude leer = no se afirma).
+      ofertasDeLosPlanes().then((o) => o.some((x) => x.cobrable)).catch(() => true),
     ]);
-    return <PartnersPlataforma partners={partners} programa={programa} />;
+    return <PartnersPlataforma partners={partners} programa={programa} cobraEnLinea={cobraEnLinea} />;
   }
   // Cualquier negocio puede recomendar MaKo (23/10/2026): el admin que no es agencia va a su tablero de referidos.
   if (ws != null && !(await esAgencia(ws)) && (await adminDeWorkspaceActual()) != null) redirect(await rutaConWs('/partners/referidos'));

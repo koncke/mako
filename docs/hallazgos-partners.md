@@ -142,3 +142,20 @@ referidos (app/m/partners/ReferidosM.tsx) en vez de rebotar a Clients. /planes l
 meses» y el 20% del grupal, que no se aplican (decisión de Martín, pendiente). **Vive en:** app/_components/nav.ts ·
 app/partners/ · app/m/partners/ · lib/partners-programa.ts (`resumenDelPrograma`) · lib/partners-reglas.ts (`contarPrograma`) ·
 tests/partners-para-clientes.test.ts · tests/sidebar-nueva.test.ts.
+
+## Sin pasarela, el programa no puede registrar a nadie, y el panel lo dice (24/10/2026)
+
+**Medido por el Cerebro contra producción:** la bienvenida al referido, el atado y el crédito salen SÓLO de un cobro de la
+plataforma con `ref_codigo` y el alta hecha, o sea, de una compra pasada por el checkout. El negocio de MaKo no tiene ninguna
+pasarela conectada: el checkout corta antes de crear el cobro, y ningún referido se registra nunca. El panel quedaba en cero
+sin decir por qué, que se lee como «nadie usó tu link». **Ahora lo dice** (`textoSinReferidos` y
+`textoProgramaSinReferidos`, lib/partners-reglas.ts), con la MISMA cuenta que /planes (`ofertasDeLosPlanes`): al cliente,
+que hoy se da de alta por llamada y que avise si alguien entró con su link; al super admin, que sin pasarela no entra ninguno
+solo. «No pude leer si cobra» no afirma nada: queda el texto de siempre.
+
+**El camino del crédito, ejercitado sin cobro real** (tests/partners-credito-simulado.test.ts): `acreditarReferidos` corre de
+verdad contra una base en memoria y con los mails anotados. Primer mes, se atan y salen las dos bienvenidas (a los admins, no
+al closer). Segundo mes, el crédito a precio de lista y el aviso. Otra corrida, nada se repite. El código de la plataforma,
+nunca. Y el tablero y el panel del super admin cuentan lo mismo. Así, cuando Martín conecte la pasarela, no se descubre ahí que
+no acredita. **Lo que NO prueba:** la pasarela misma (que el webhook deje `alta_estado = 'hecha'` y las cuotas en `pagos`), que
+se prueba con la compra de humo.

@@ -34,6 +34,7 @@ import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-avis
 import { ModalLlevarAPartners } from './LlevarAPartners';
 import { PresentacionPartners } from './PresentacionPartners';
 import type { ResumenPrograma } from '@/lib/partners-programa';
+import { textoProgramaSinReferidos } from '@/lib/partners-reglas';
 
 type Vista = 'clients' | 'program';
 
@@ -282,10 +283,12 @@ function Programa({ cartera }: { cartera: CarteraPartner }) {
 }
 
 /** Para el super admin sin cliente: las agencias del programa. Entra a cada una con su `?ws=` (un ancla: ctrl+clic). */
-export function PartnersPlataforma({ partners, programa }: {
+export function PartnersPlataforma({ partners, programa, cobraEnLinea = true }: {
   partners: Array<{ ws: number; nombre: string; cuentas: Record<EstadoCartera, number> }> | null;
   /** El programa de referidos entero (lib/partners-programa.ts, `resumenDelPrograma`). null = no se pudo leer. */
   programa: ResumenPrograma | null;
+  /** ¿MaKo cobra en línea? Sin eso no se registra ningún referido, y el programa en cero lo dice. */
+  cobraEnLinea?: boolean;
 }) {
   const usd = (n: number) => `US$ ${n.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
   const alMenos = programa?.truncado ? 'al menos ' : '';
@@ -306,7 +309,7 @@ export function PartnersPlataforma({ partners, programa }: {
             <div className="pt-kpi"><b>{alMenos}{usd(programa.acreditadoUsd)}</b><span>Crédito acumulado</span></div>
           </div>
           {programa.partners.length === 0
-            ? <EmptyState titulo="Todavía nadie trajo un referido" detalle="Cada negocio tiene su link en MaKo Partners: el primero que traiga uno aparece aquí." />
+            ? <EmptyState titulo="Todavía nadie trajo un referido" detalle={textoProgramaSinReferidos(cobraEnLinea)} />
             : (
               <ul className="pt-lista">
                 {programa.partners.map((p) => (

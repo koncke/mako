@@ -122,5 +122,23 @@ export function contarPrograma(p: {
     const ws = Number(c.referidor_ws);
     porPartner.set(ws, { ...de(ws), acreditadoUsd: r2(de(ws).acreditadoUsd + monto) });
   }
-  return { conLink: p.codigos.length, referidos: contados.length, acreditadoUsd: r2(acreditado), porPartner };
+  return { conLink: p.codigos.filter((c) => Number(c.workspace_id) !== p.plataforma).length, referidos: contados.length, acreditadoUsd: r2(acreditado), porPartner };
+}
+
+/**
+ * Lo que dice el tablero (o el teléfono) de un partner SIN referidos (24/10/2026). Un referido se registra con la COMPRA
+ * EN LÍNEA (el cobro con su código, lo único que lee `acreditarReferidos`): sin pasarela no nace ninguno, y un tablero en
+ * cero que no dice por qué hace creer que nadie usó el link. Si no se pudo saber si MaKo cobra en línea, el texto de siempre.
+ */
+export function textoSinReferidos(p: { cobraEnLinea: boolean; emailMako: string }): string {
+  return p.cobraEnLinea
+    ? `Comparte tu link: cada negocio que entra con él y paga su ${PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`} mes te suma su primer mes como crédito.`
+    : `Comparte tu link. Por ahora MaKo da de alta por llamada, así que un referido no aparece aquí solo: si alguien entró con tu link, escríbenos a ${p.emailMako} y lo sumamos.`;
+}
+
+/** Lo mismo, para el panel del super admin: por qué el programa está en cero. */
+export function textoProgramaSinReferidos(cobraEnLinea: boolean): string {
+  return cobraEnLinea
+    ? 'Cada negocio tiene su link en MaKo Partners: el primero que traiga uno aparece aquí.'
+    : 'Un referido se registra con la compra en línea, y MaKo todavía no cobra en línea: hasta conectar la pasarela no entra ninguno solo. Una venta por llamada se suma a mano.';
 }

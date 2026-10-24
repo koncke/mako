@@ -16,7 +16,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { contarPrograma } from '../lib/partners-reglas';
+import { contarPrograma, textoProgramaSinReferidos, textoSinReferidos } from '../lib/partners-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
@@ -37,7 +37,7 @@ test('el panel del super admin cuenta como la acreditación: el primer código, 
     ],
     creditos: [{ referidor_ws: 10, monto_usd: 47 }, { referidor_ws: 10, monto_usd: 97 }, { referidor_ws: 30, monto_usd: 47.5 }],
   });
-  assert.equal(r.conLink, 4);
+  assert.equal(r.conLink, 3, 'la plataforma no es un negocio con su link');
   assert.equal(r.referidos, 2);
   assert.equal(r.porPartner.get(9), undefined, 'la plataforma no aparece como partner');
   assert.equal(r.acreditadoUsd, 191.5);
@@ -57,7 +57,8 @@ test('lo que vende la idea va PRIMERO, en el tablero del cliente y en el panel d
   assert.ok(pitchP > 0, 'el panel del super admin sin la presentación');
   assert.ok(pitchP < plataforma.indexOf('El programa') && pitchP < plataforma.indexOf('Agencias del programa'), 'antes del programa y de las agencias');
   assert.match(fuente('app/partners/page.tsx'), /resumenDelPrograma\(\)\.catch\(/, 'el super admin ve el programa entero');
-  assert.match(plataforma, /<PartnersPlataforma|export function PartnersPlataforma\(\{ partners, programa \}/);
+  assert.match(plataforma, /export function PartnersPlataforma\(\{ partners, programa, cobraEnLinea = true \}/);
+  assert.match(fuente('app/partners/page.tsx'), /<PartnersPlataforma partners=\{partners\} programa=\{programa\} cobraEnLinea=\{cobraEnLinea\} \/>/);
 });
 
 test('la presentación dice SÓLO lo que existe y lleva a la página pública', () => {
@@ -66,6 +67,23 @@ test('la presentación dice SÓLO lo que existe y lleva a la página pública', 
   assert.doesNotMatch(p, /20 ?%|grupal|en plata/i, 'la comisión del grupal no se aplica todavía');
   assert.match(p, /primer mes como crédito/);
   assert.match(p, /<Link href="\/mako-partners">/);
+});
+
+test('en cero, dice POR QUÉ: sin pasarela no se registra ningún referido (24/10, el Cerebro: «no lo maquilles»)', () => {
+  const sin = textoSinReferidos({ cobraEnLinea: false, emailMako: 'equipo@hola-mako.com' });
+  assert.match(sin, /da de alta por llamada/);
+  assert.match(sin, /escríbenos a equipo@hola-mako\.com/);
+  assert.doesNotMatch(textoSinReferidos({ cobraEnLinea: true, emailMako: 'x@y.z' }), /llamada|escríbenos/, 'con pasarela, el texto de siempre');
+  assert.match(textoProgramaSinReferidos(false), /todavía no cobra en línea/);
+  assert.doesNotMatch(textoProgramaSinReferidos(true), /no cobra/);
+  // El cableado: las tres pantallas lo leen de la MISMA cuenta que /planes (`ofertasDeLosPlanes`), y «no pude leer» no
+  // afirma que no cobra (cae al texto de siempre).
+  for (const rel of ['app/partners/referidos/page.tsx', 'app/partners/page.tsx', 'app/m/partners/page.tsx']) {
+    assert.match(fuente(rel), /ofertasDeLosPlanes\(\)\.then\(\(o\) => o\.some\(\(x\) => x\.cobrable\)\)\.catch\(\(\) => true\)/, rel);
+  }
+  assert.match(fuente('app/partners/referidos/Referidos.tsx'), /detalle=\{textoSinReferidos\(\{ cobraEnLinea, emailMako \}\)\}/);
+  assert.match(fuente('app/partners/PartnersApp.tsx'), /detalle=\{textoProgramaSinReferidos\(cobraEnLinea\)\}/);
+  assert.match(fuente('app/m/partners/ReferidosM.tsx'), /<VacioM frase=\{textoSinReferidos\(\{ cobraEnLinea, emailMako \}\)\} \/>/);
 });
 
 test('el teléfono: quien no es agencia ve sus referidos con los mismos datos que la computadora', () => {
@@ -84,3 +102,7 @@ test('el teléfono: quien no es agencia ve sus referidos con los mismos datos qu
 //   · la presentación promete que el crédito «se descuenta»                                   -> 7 / 1
 //   · `contarPrograma` cuenta a la plataforma como partner (revisión del 24/10)                -> 7 / 1
 //   · `contarPrograma` deja que un código sin dueño no ocupe el primer lugar                    -> 7 / 1
+//   · `textoSinReferidos` nunca dice que se da de alta por llamada (24/10, base 5 / 0)          -> 4 / 1
+//   · el tablero del cliente afirma «no cobra» cuando no pudo leer                             -> 4 / 1
+//   · el panel del super admin sin el porqué                                                   -> 4 / 1
+//   · el teléfono sin el porqué                                                                -> 4 / 1

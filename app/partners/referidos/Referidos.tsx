@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { Pagina, PageHeader, EmptyState, ErrorState, Tabs } from '@/app/_ui';
-import { TEXTO_ESTADO_REFERIDO, PAGOS_PARA_ACREDITAR } from '@/lib/partners-reglas';
+import { TEXTO_ESTADO_REFERIDO, PAGOS_PARA_ACREDITAR, textoSinReferidos } from '@/lib/partners-reglas';
 import type { Tablero } from '@/lib/partners-programa';
 import { PresentacionPartners } from '../PresentacionPartners';
 
@@ -28,7 +28,11 @@ const CSS = `
 const usd = (n: number) => `US$ ${n.toLocaleString('es', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 const fecha = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
 
-export function Referidos({ tablero, agencia }: { tablero: Tablero | null; agencia: boolean }) {
+export function Referidos({ tablero, agencia, cobraEnLinea = true, emailMako }: {
+  tablero: Tablero | null; agencia: boolean;
+  /** ¿MaKo cobra en línea? Sin eso no se registra ningún referido, y el tablero en cero lo dice (`textoSinReferidos`). */
+  cobraEnLinea?: boolean; emailMako: string;
+}) {
   const [copiado, setCopiado] = useState(false);
   const tabs = agencia
     ? <Tabs tabs={[{ id: 'clients', label: 'Clients' }, { id: 'program', label: 'Program' }, { id: 'referidos', label: 'Referidos' }]} activa="referidos"
@@ -67,7 +71,7 @@ export function Referidos({ tablero, agencia }: { tablero: Tablero | null; agenc
         <div className="pr-kpi"><b>{tablero.referidos.length}</b><span>{tablero.referidos.length === 1 ? 'Referido' : 'Referidos'}</span></div>
       </div>
       {tablero.referidos.length === 0
-        ? <EmptyState titulo="Todavía no tienes referidos" detalle="Comparte tu link: cada negocio que entra con él y paga su segundo mes te suma su primer mes como crédito." />
+        ? <EmptyState titulo="Todavía no tienes referidos" detalle={textoSinReferidos({ cobraEnLinea, emailMako })} />
         : (
           <ul className="pr-lista">
             {tablero.referidos.map((x) => (
