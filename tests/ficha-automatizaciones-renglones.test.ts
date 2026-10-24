@@ -15,7 +15,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  citaDelMensaje, pasoEnPalabras, leerContesto, primerNombre, detalleDe, LARGO_CITA,
+  citaDelMensaje, pasoEnPalabras, leerContesto, primerNombre, detalleDe, respuestaDelLead, LARGO_CITA,
   type FilaInscripcionDetalle, type FilaAutomatizacion,
 } from '../lib/automatizaciones-del-lead-reglas';
 import { fechaCorta, lineaDelEnvio, lineaDelProximo, renglonesDeTarjeta, vistaDeDetalle, type InscripcionVista } from '../app/crm/automatizacion-lead';
@@ -112,10 +112,11 @@ test('la tarjeta en tres renglones: qué le salió, si contestó, qué sigue (o 
     { tipo: 'salio', texto: 'Le salió F(01:09): «Hola Honorio, ya me llegó tu pago»', tono: 'ok' },
     { tipo: 'sigue', texto: 'Le sale F(01:33): «Hola Honorio, si no me das tu email…»', tono: 'mako' },
   ]);
-  // Contestó: cuándo, y que no le sale nada más.
-  assert.deepEqual(renglonesDeTarjeta({ ...base, estado: 'respondio', contesto: '2026-10-24T03:49:57Z' }, fecha).map((r) => r.texto), [
-    'Le salió F(01:09): «Hola Honorio, ya me llegó tu pago»', 'Contestó F(03:49)', 'No le sale nada más de esta automatización.',
+  // Contestó: cuándo y QUÉ (citado), y que no le sale nada más.
+  assert.deepEqual(renglonesDeTarjeta({ ...base, estado: 'respondio', contesto: '2026-10-24T03:49:57Z', respuesta: '«No hemos mandado pagos»' }, fecha).map((r) => r.texto), [
+    'Le salió F(01:09): «Hola Honorio, ya me llegó tu pago»', 'Contestó F(03:49): «No hemos mandado pagos»', 'No le sale nada más de esta automatización.',
   ]);
+  assert.equal(renglonesDeTarjeta({ ...base, estado: 'respondio', contesto: '2026-10-24T03:49:57Z' }, fecha)[1].texto, 'Contestó F(03:49)', 'sin el mensaje, sólo cuándo');
   // Contestó sin la hora: lo dice igual, sin inventar una.
   assert.equal(renglonesDeTarjeta({ ...base, estado: 'respondio' }, fecha)[1].texto, 'Contestó.');
   // Sin envíos todavía: lo dice (no un cero ni un hueco).
@@ -128,6 +129,23 @@ test('la tarjeta en tres renglones: qué le salió, si contestó, qué sigue (o 
   assert.deepEqual(t[t.length - 1], { tipo: 'termino', texto: 'Terminó el recorrido · F(10:00)', tono: 'gris' });
   // Ningún renglón dice el nombre del lienzo ni una variable.
   for (const r of [...renglonesDeTarjeta(base, fecha), ...fr, ...t]) assert.doesNotMatch(r.texto, /CRON|CONDITION|WHATSAPP|\{\{|Paso \d/);
+});
+
+test('qué contestó: el último mensaje suyo hasta que el motor lo anotó, desde que entró; uno sin texto, por lo que es', () => {
+  const E = [
+    { texto: 'Perdón de k trata ese pago', tipo: 'text', wa_timestamp: '2026-10-24T14:07:50Z' },
+    { texto: 'un mensaje de antes de entrar', tipo: 'text', wa_timestamp: '2026-10-20T10:00:00Z' },
+    { texto: 'algo que mandó DESPUÉS', tipo: 'text', wa_timestamp: '2026-10-24T18:00:00Z' },
+  ];
+  assert.equal(respuestaDelLead(E, '2026-10-24T14:08:00Z', '2026-10-23T23:00:00Z'), '«Perdón de k trata ese pago»');
+  assert.equal(respuestaDelLead(E, '2026-10-21T00:00:00Z', '2026-10-23T23:00:00Z'), null, 'tomó un mensaje de antes de entrar');
+  assert.equal(respuestaDelLead([{ texto: null, tipo: 'audio', wa_timestamp: '2026-10-24T14:07:50Z' }], '2026-10-24T14:08:00Z', null), 'un audio');
+  // La lectura de producción trae lo que mandó él (sin reacciones ni avisos del sistema) y se lo pasa.
+  const lect = leer('lib/automatizaciones-del-lead.ts');
+  assert.match(lect, /db\.from\('wa_mensajes'\)\.select\('texto, tipo, wa_timestamp'\)\.eq\('lead_id', leadId\)\.eq\('from_me', false\)\n\s+\.not\('tipo', 'in', '\(evento,otro\)'\)/);
+  assert.match(lect, /entrantes: \(entrantes\.data \?\? \[\]\) as FilaEntranteDetalle\[\],/);
+  // Y nada del lienzo en el tablero ni en «no entró».
+  assert.doesNotMatch(leer('app/crm/automatizacion-lead.ts').replace(/^\s*(\*|\/\/).*$/gm, ''), /\(va en el paso|adentro \(paso|paso sin ubicar|`paso \$\{a\.paso\.numero\}/);
 });
 
 test('cada envío y lo que sigue, en palabras; sin el dato de antes, como antes', () => {
@@ -169,16 +187,20 @@ test('la pantalla: los renglones, el historial plegado sólo con más de un env�
 
 // ── ROTURAS (24/10/2026) ────────────────────────────────────────────────────────────────────────────────
 // Una por vez (reemplazar el texto, correr este archivo, devolverlo de memoria con un script con `finally`).
-// Base 7 pasan / 0 fallan (pasan / fallan con cada una):
-//   F1.  `citaDelMensaje` no reemplaza `{{nombre}}`                                         → 4 / 3
-//   F2.  las otras variables quedan crudas («{{link_agenda}}»)                               → 6 / 1
-//   F3.  el aviso al equipo cae en «Una acción»                                              → 6 / 1
-//   F4.  «Contestó» toma una respuesta de antes de que entrara                               → 6 / 1
-//   F5.  «Contestó» toma la primera línea y no la más nueva                                  → 6 / 1
-//   F6.  el renglón 1 toma la última acción (el aviso al equipo) y no el último mensaje       → 6 / 1
-//   F7.  sin envíos todavía, el renglón 1 no dice nada                                       → 6 / 1
-//   F8.  contestó sin la hora: no lo dice                                                    → 6 / 1
-//   F9.  la fecha corta sin «hoy»                                                            → 6 / 1
-//   F10. la lectura de producción sin las líneas «Contestó en»                               → 6 / 1
-//   F11. la pantalla vuelve a mostrar el paso con el nombre del lienzo                       → 6 / 1
-//   F12. el historial plegado aparece con un solo envío (repite el renglón 1)                → 6 / 1
+// Base 8 pasan / 0 fallan (pasan / fallan con cada una):
+//   F1.  `citaDelMensaje` no reemplaza `{{nombre}}`                                         → 5 / 3
+//   F2.  las otras variables quedan crudas («{{link_agenda}}»)                               → 7 / 1
+//   F3.  el aviso al equipo cae en «Una acción»                                              → 7 / 1
+//   F4.  «Contestó» toma una respuesta de antes de que entrara                               → 7 / 1
+//   F5.  «Contestó» toma la primera línea y no la más nueva                                  → 7 / 1
+//   F6.  el renglón 1 toma la última acción (el aviso al equipo) y no el último mensaje       → 7 / 1
+//   F7.  sin envíos todavía, el renglón 1 no dice nada                                       → 7 / 1
+//   F8.  contestó sin la hora: no lo dice                                                    → 7 / 1
+//   F9.  la fecha corta sin «hoy»                                                            → 7 / 1
+//   F10. la lectura de producción sin las líneas «Contestó en»                               → 7 / 1
+//   F11. la pantalla vuelve a mostrar el paso con el nombre del lienzo                       → 7 / 1
+//   F12. el historial plegado aparece con un solo envío (repite el renglón 1)                → 7 / 1
+//   F13. el renglón de «Contestó» no dice QUÉ contestó                                       → 7 / 1
+//   F14. qué contestó sin mirar desde cuándo (toma un mensaje de antes de entrar)            → 7 / 1
+//   F15. la lectura de producción sin lo que mandó él                                        → 7 / 1
+//   F16. «no entró» vuelve a decir «(va en el paso 2)»                                       → 7 / 1

@@ -42,7 +42,9 @@ test('en qué automatizaciones vivas está cada lead, en qué tarjeta, y si la a
   const [sprint, entro] = m.get(7)!;
   assert.equal(sprint.automatizacionActiva, false, 'la pausada lo dice');
   assert.equal(sprint.estado, 'activa');
-  assert.deepEqual(sprint.paso, { numero: 2, titulo: 'WHATSAPP: Hola {{nombre}}, soy Maur…' }, 'como la nombra el lienzo (`nombreDeTarjeta`)');
+  // En palabras de persona desde el 24/10/2026 (`pasoEnPalabras`), no como la nombra el lienzo («WHATSAPP: Hola {{nombre}}…»):
+  // lo leen el tablero, el teléfono y la ficha. Sin el nombre del lead (la lista es de muchos), el saludo queda «Hola,».
+  assert.deepEqual(sprint.paso, { numero: 2, titulo: '«Hola, soy Mauricio Ejemplo. ¿Sigues al frente de tu empresa?»' }, 'el paso no está en palabras de persona');
   assert.equal(sprint.link, '/automations?sec=289');
   assert.equal(entro.estado, 'respondio');
   assert.equal(entro.paso, null, 'sin pasos, no se inventa un paso');
