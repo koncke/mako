@@ -165,7 +165,11 @@ test('cableado: la entrada queda en el historial, el agregado dispara el evento,
   const lienzo = leer('app/automations/FlujoLienzo.tsx');
   assert.match(lienzo, /fetch\(`\/api\/flujos\/en-cola\?sec=\$\{secuenciaId\}`/);
   assert.match(lienzo, /\{enCola\[n\.id\] && <ChipEnCola nodo=\{n\} chip=\{enCola\[n\.id\]\.chip\} texto=\{enCola\[n\.id\]\.texto\} \/>\}/, 'la tarjeta no dice quién espera');
-  assert.match(leer('app/crm/lead-view/ficha/resumen/charla.tsx'), /const estado = \(a: EnAutomatizacion\) => estadoDeAutomatizacion\(a,/);
+  // ⚠️ REESCRITO EL 23/10/2026 (chat «CRM»): el bloque de la ficha se mudó de charla.tsx a automatizaciones.tsx (Martín: «un
+  //    bloque... relacionado a las automatizaciones... para tener más claridad de lo que pasa»). Lo que dice cuando algo lo
+  //    frena sale de `lineaDelProximo`, que devuelve el `frenado.texto` (tests/ficha-automatizaciones.test.ts).
+  assert.match(leer('app/crm/lead-view/ficha/resumen/automatizaciones.tsx'), /\{lineaDelProximo\(a, fecha\)\}/);
+  assert.match(leer('app/crm/automatizacion-lead.ts'), /if \(i\.frenado\) return i\.frenado\.texto;/);
 });
 
 // ── ROTURAS (23/10/2026) ───────────────────────────────────────────────────────────────────────────

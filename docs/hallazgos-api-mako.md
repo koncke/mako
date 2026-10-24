@@ -2248,3 +2248,109 @@ Los route handlers de `/api` que despachan por `action:` van en una segunda fase
 
 *23/10/2026 · chat «API de MaKo» (claude2) · medido con `git cat-file` sobre origin/main y `git log --all` de los tres
 archivos.*
+
+## El onboarding y las ofertas por la API: cinco trampas que no avisaban (23/10/2026, auditoría P0-12, P0-13 y P0-14)
+
+Cinco operaciones nuevas en `negocio`: `cerrar_paso_onboarding`, `marcar_paso_onboarding_tab`, `listar_ofertas`,
+`guardar_oferta` y `borrar_oferta`. La decisión de abrir el onboarding a la API, con su porqué, está en
+docs/hallazgos-onboarding.md (misma fecha). Lo que costó, y vale para cualquier operación que escriba:
+
+**1. `getCapaActual` va memoizado con el `cache` de React por request.** `cerrarPasosOnboarding` leía los pasos de la capa
+por ahí. Una página atiende un workspace por request y no se nota; un flujo o un cron que corre acciones de VARIOS
+workspaces en el mismo request recibiría la capa del primero y cerraría el arranque de otro con los pasos equivocados.
+No se midió en producción: se leyó en el código. La puerta acepta ahora los pasos como 4.º argumento y la API los pasa
+siempre. **Regla: un runner no llama nada que resuelva el workspace o la capa por `getCapaActual`; los lee del `ctx.ws`.**
+
+**2. `capaDelWs` (negocio.helpers) cae a la capa por defecto si no puede leer.** Para listar está bien; para decidir qué
+pasos se pueden cerrar, no: con la base caída, un Project Manager pasaba a tener los pasos de la capa completa. Las dos
+operaciones del onboarding leen la capa con `getWorkspace` (que tira) y, si no hay respuesta, no proponen nada.
+
+**3. En la oferta que sale del perfil (`desde_brief`), escribir promesa, precio, incluye o garantía no cambia lo que MaKo
+escribe.** `resolverOfertaPrincipal` lee esos cinco campos del perfil cuando la fila es `desde_brief`, y es lo que llega a
+los prompts (`perfilNegocioTexto`). La pantalla de ofertas promete lo contrario («escríbelos aquí para que manden estos»),
+y eso es falso hoy. `guardar_oferta` lo dice en el resumen antes de confirmar, y no lo esconde. ⚠️ **El arreglo obvio es el
+equivocado**: hacer que la columna le gane al perfil haría mandar a lo que escribió `sugerir` (el «Que MaKo complete lo que
+falta» de la pantalla llena esas columnas vacías con lo que propone la IA), o sea, una sugerencia le ganaría a lo que el
+dueño declaró. Queda sin hacer: que la pantalla diga la verdad o que guardar esos campos pase la oferta a «declarada».
+
+**4. El GET de la pantalla de ofertas ESCRIBE** (`seedOfertaDesdeBrief` siembra la oferta principal). Una lectura de la API
+no puede reusarlo: `listar_ofertas` no siembra y, sin ofertas, devuelve la del perfil como `oferta_del_perfil`.
+
+**5. Por WhatsApp, un pedido en imperativo no trae acciones.** Medido con `herramientasDelTurno` y el clasificador real:
+«cierra el paso de la fase del onboarding», «cambia el precio de mi oferta Mentoría», «borra la oferta Prueba vieja»
+salen `capturar` con cero herramientas, igual que «borra el producto Mentoría», que ya existía. La pregunta («¿puedes
+cerrar el paso…?») sale `consultar` y trae sólo lecturas. No es de estas operaciones: es del clasificador, y no se tocó.
+Por la app y por HTTP las cinco llegan.
+
+**Lo demás que queda como regla:**
+- **El saneo de una oferta es UNO** (`sanearOfertaInput`, lib/oferta-modelo.ts): lo usan la pantalla y la API, y devuelve lo
+  que DESCARTÓ. La pantalla lo ignora (como antes); la API lo rechaza, porque una fecha mal escrita que desaparece es un
+  dato perdido sin aviso. Una edición parcial parte de la oferta actual (`ofertaConCambios`) al proponer Y al confirmar.
+- **Un paso de onboarding se cierra con el dato vivo**, con la comprobación de su pantalla o una más estricta
+  (`lib/onboarding-hechos.ts`; abajo, por qué «la misma» no era cierto).
+- **`navEnCapa` no es «la capa ve esta tab»** en la capa de la plataforma (mira sólo el sidebar): para eso está
+  `tabEnCapa`. `listar_tabs_por_configurar` sigue usando `navEnCapa`; no se tocó.
+
+**Vive en:** `lib/api-mako/areas/negocio.def.ts` y `negocio.run.ts` · `lib/onboarding-pasos-api.ts` · `lib/onboarding-hechos.ts` ·
+`lib/onboarding-state.ts` · `lib/oferta-modelo.ts` (`sanearOfertaInput`, `ofertaConCambios`) · `lib/ofertas.ts` (`guardarOferta`,
+`usoDeOferta`) · `app/api/onboarding/ofertas/route.ts` · `lib/api-mako/rest.ts` · `tests/api-negocio-onboarding.test.ts`
+
+*23/10/2026 · chat «API de MaKo» (claude2), agente de la revisión de la API · tests y lectura del código; no se corrió
+contra la base.*
+
+### Lo que encontró la revisión adversarial de esas cinco (mismo día, tres lentes)
+
+Las cinco salieron con sus 12 tests en verde y la revisión encontró siete cosas reales. Las tres que importan para código
+nuevo:
+
+**6. En una operación de PANTALLA, lo que decide QUÉ fila se toca tiene que estar fijo al revisar.** `guardar_oferta` sin
+id usaba el nombre como llave (lo que hace el índice único), y en /mako/revisar el nombre se edita: corregirlo cambiaba el
+destino. Una propuesta que decía «Crear la oferta «Mentoría»» pisaba «Programa VIP» si alguien escribía ese nombre al
+revisar, y una que decía «Editar» creaba una nueva. Lo mismo entre proponer y confirmar: si alguien creaba en pantalla una
+oferta con ese nombre, el «sí» la sobrescribía. `aplicarPropuestaGenerica` sólo frena los parámetros `fijoAlRevisar`, y el
+único fijo era `id`. **Arreglo: sin id, siempre se crea, y un nombre que ya existe contesta su id**
+(`planDeOferta`, lib/oferta-modelo.ts, pura y con test). La otra salida, «nombre fijo al revisar», deja sin poder corregir
+una errata del nombre de una oferta nueva.
+
+**7. Un saneo que descarta en silencio + una respuesta que dice «actualizada» = una escritura que miente.** Un
+`urgencia_dato` sin `urgencia_tipo` lo tiraba el saneo sin anotarlo, y la operación contestaba «Oferta actualizada» sin
+haber escrito nada. Y mandar los mismos valores reescribía la fila igual. Ahora: un dato de la urgencia sin su tipo se
+rechaza, lo igual a lo que hay es `yaEstaba` (por HTTP sería un 200 sin cambios), y **se rechaza sólo lo que descarta el
+CAMBIO**: antes, una fila vieja con una urgencia incompleta frenaba cualquier edición por la API, con un error sobre un
+campo que el agente no mandó. ⚠️ Y «ya está así» no vale sobre una fila que el saneo ARREGLA: ahí escribir sí cambia algo
+(lo cazó el test nuevo antes del commit).
+
+**8. Mudar un saneo de lugar cambió lo que guarda la pantalla, y el comentario decía lo contrario.** La ruta de ofertas
+nunca escribía `modelo`. Al mudar el saneo a `sanearOfertaInput` (que lo escribe si viene uno válido, para la API), la
+pantalla empezó a escribirlo: `guardarCampo` (app/onboarding/OfertasView.tsx) manda la oferta ENTERA con el modelo de
+cuando cargó, así que cada campo que se guardaba ahí pisaba el que la ficha del lead o la API habían cambiado. El
+comentario del saneo afirmaba «la pantalla no manda `modelo`», y el test cubría el caso que el comentario describía, no el
+de la pantalla real. Arreglo: la ruta se lo saca antes (`ofertaDeLaPantalla`), con test.
+
+Las otras cuatro, más chicas:
+- **El enum publicaba catorce pasos del arranque y sólo seis se pueden cerrar** (los otros ocho salieron del arranque y
+  contestan siempre «no se puede»). Ahora el enum es `PASOS_ARRANQUE_POR_API`, en positivo, y un test cruza cada paso con
+  su comprobación.
+- **`vg_muletillas` daba siempre cumplido**: «ninguna marcada también es una respuesta», así que no hay dato que comprobar
+  y un token detallado lo cerraba en el acto. Salió de `PASOS_TAB_POR_API`.
+- **«La misma comprobación que su pantalla» no era cierto en cuatro pasos**: `contexto`, `carousels_contexto`,
+  `stories_contexto` y `cg_angulos` exigen el dato aunque la pantalla no. Es el lado seguro y queda así, escrito como
+  «más estricto a propósito».
+- **Las tres de ofertas salían por HTTP sin que nadie lo decidiera.** Pasaron a `SIN_HTTP`, como las tres de Offer: una
+  oferta es lo que el dueño le contó a MaKo, y `prueba` (casos, testimonios) puede traer nombres de personas.
+
+**Quedó SIN hacer, y dónde:**
+- **`crear_oferta_lead` y `oferta_del_lead` (CRM) tocan el mismo catálogo con otra vara**: crean una oferta con precio por
+  chat y salen por HTTP, mientras `guardar_oferta` exige pantalla y no sale por HTTP. `guardar_oferta` ya nombra a
+  `crear_oferta_lead`; falta la otra dirección (lib/api-mako/areas/crm.def.ts) y decidir las dos juntas.
+- **El puente del Copy Generator** corre sólo al confirmar un desmarcado: en un negocio donde nunca corrió, el resumen se
+  arma con los pasos de antes. El «sí» vuelve a revisar con el puente corrido (negocio.run.ts, el comentario del runner).
+- **`productos` cuenta los inactivos**: un catálogo con todo archivado da el paso por hecho. Es el mismo criterio que el
+  chat de arranque (`listProductos()` en lib/onboarding-arranque-server.ts), así que se cambia en los dos o en ninguno.
+
+**Vive en:** `lib/oferta-modelo.ts` (`planDeOferta`, `ofertaDeLaPantalla`, `CAMPOS_OFERTA_EDITABLES`) ·
+`lib/onboarding-pasos-api.ts` (`PASOS_ARRANQUE_POR_API`) · `lib/onboarding-hechos.ts` · `app/api/onboarding/ofertas/route.ts` ·
+`tests/api-negocio-onboarding.test.ts` (15 tests, cada arreglo probado rompiéndolo)
+
+*23/10/2026 · chat «API de MaKo» (claude2) · revisión con tres lentes (seguridad, corrección, contrato), cada hallazgo
+medido con un script; arreglos probados rompiéndolos.*

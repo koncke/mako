@@ -119,8 +119,11 @@ test('los avisos que nacen apagados: los del documento MÁS los de bloques que l
     for (const id of NO_IGNORABLES) assert.ok(!ap.has(id), `${p.id}: una asistencia nunca se apaga`);
   }
   // El respaldo y la de dos reuniones: «los avisos quedan como hoy» / «todos los avisos del deal prendidos».
-  assert.deepEqual(apagadosDePlantilla(PLANTILLA_RESPALDO), []);
-  assert.deepEqual(apagadosDePlantilla(plantillaFicha('dos-reuniones')), []);
+  // ⚠️ REESCRITO EL 23/10/2026: salvo la empresa, que nace apagada en TODAS (`NACEN_APAGADOS`). Martín: «en todos me dice
+  //    "empresa obligatorio" porque está dentro de un bloque que tiene 3 datos». Avisaba sólo por venir en el contacto.
+  assert.deepEqual(apagadosDePlantilla(PLANTILLA_RESPALDO), ['empresa']);
+  assert.deepEqual(apagadosDePlantilla(plantillaFicha('dos-reuniones')), ['empresa']);
+  for (const p of PLANTILLAS_FICHA) assert.ok(apagadosDePlantilla(p).includes('empresa'), `${p.id}: la empresa avisa sin que nadie la eligiera`);
   // Derivados: Landing no pone setter-y-closer, Te escriben no pone datos fiscales. El comprobante de Te escriben es
   // explícito desde el 16/10/2026 (Pagos ya trae `cuotas`), y sigue apagado.
   assert.ok(apagadosDePlantilla(plantillaFicha('landing')).includes('setter'));
