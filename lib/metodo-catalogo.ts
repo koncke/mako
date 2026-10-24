@@ -257,7 +257,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Entra a zernio.com con tu cuenta, o crea una.',
         'En "Settings" → "API Keys" toca "Create API Key" y copia la key: se ve UNA sola vez.',
         'Pégala en "API key de Zernio" y guarda.',
-        'En una tarjeta de Instagram o Messenger toca "Conectar" (cuenta de empresa o de creador).',
+        'Con la key guardada, conecta Facebook, Instagram o tus anuncios desde esta misma tarjeta en Integraciones.',
       ],
     },
   },

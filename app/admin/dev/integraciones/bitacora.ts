@@ -1082,4 +1082,44 @@ export const BITACORA: Hito[] = [
       'docs/guia-leads-por-zapier.md · docs/hallazgos-integraciones.md — lo confirmado, con su fuente',
     ],
   },
+  {
+    fecha: '23 oct', hora: '19:55', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Conectar Facebook, Instagram o anuncios desde la app, con la API de Zernio de cada negocio',
+    pedido: 'Esta bueno que todo eso salga directo en la app... Que ellos conecten su API de Zernio y luego cuando quieran hacer X cosa que requiera un login, que en MaKo esté el botón de logearse con Facebook, Instagram o lo que haga falta',
+    puntos: [
+      'Lo trajo el Cerebro. Hasta ese día se pegaba la key de Zernio pero el login de cada red se hacía afuera: con el ws1 la key se pegó a las 22:43 y la conexión de anuncios nunca se creó; Ads Manager sacó el link a mano.',
+      'Pidió UNA pieza común (con la key de Zernio del negocio, sin salir de la tab y en el mismo modal de /integraciones), que la usen Ads Manager y los canales de Instagram y Messenger de Automations, que se copie cómo lo resolvió otra app (y se nombre en el commit) y que la tarjeta avise en una línea que cada red cuenta aparte en el cobro de Zernio.',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '20:10', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que cada usuario traiga su API de Zernio: se saca el respaldo de la clave de la plataforma',
+    pedido: 'que cada usuario traiga su API de Zernio',
+    puntos: [
+      'Lo trajo el Cerebro con la lista medida en producción: el único workspace que dependía del respaldo era el ws3 (Cliente de Prueba), y no hay ni una conversación ni un envío de Instagram o Messenger. Lo decidió él: el respaldo se saca también en Automations, y si el ws3 hace falta se le pega una key a mano.',
+      'La key del ws1 (la de la plataforma, pegada para la prueba de anuncios) la saca el Cerebro cuando Ads Manager termine: Mauricio es un cliente y conecta la suya.',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '21:33', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Conectar Facebook, Instagram o anuncios de Meta vía Zernio: una pieza con la key del negocio, y Zernio sin respaldo de la plataforma',
+    puntos: [
+      'Una sola pieza (ConectarViaZernio, copiada de Nango y de las trampas de Ayrshare) para el modal de Zernio de /integraciones (bloque «Redes»: una fila por Facebook, Instagram y anuncios), Ads Manager, Chats y Automations. El login se abre en una ventana EN el clic, y «conectada» la dice lo que Zernio lista ahora y no estaba antes. En un teléfono o en el navegador interno de Instagram, la pestaña navega y vuelve a la misma pantalla.',
+      'Sin respaldo de la plataforma: la key es siempre la del negocio (credDelClienteEstricta). Ads Manager recibe el accountId de cada conexión para publicar.',
+      '⚠️ **El link de pago del 402 de Zernio nunca se había mostrado:** el código leía billingUrl y el campo de su doc es dashboard_url. Y un popup que se ve «cerrado» NO es «canceló» (con Cross-Origin-Opener-Policy se ve cerrado con la persona adentro).',
+      '⚠️ **Falta la primera conexión real** (los clics de Facebook son de una persona): ningún JSON de Zernio se vio, el lector es tolerante y falla cerrado. También falta traer los formularios de Meta con lead.received.',
+      '**Tres revisores independientes leyeron el código ya escrito y cazaron cinco defectos importantes antes de commitear:** dos negocios con la MISMA key compartían el profile Default (el segundo veía las cuentas del primero), «Volver a conectar» los anuncios daba la cuenta por hecha a los 0,5 s y cerraba la ventana, la vuelta de página entera valía aunque nadie hubiera salido a hacer el login (un link armado a mano bastaba), un segundo clic cerraba la ventana del primero con la nueva ya adentro de Meta, y el ruteo que no quedaba se informaba «ok». Todos arreglados y fijados por test.',
+      'Probado rompiendo cada regla (46 roturas del test de la pieza y 10 del de «sin respaldo»: las 56 cazadas). Salió sin tipos (política del tren): los chequea Integración.',
+    ],
+    archivos: [
+      'lib/zernio-redes.ts · lib/zernio-conectar.ts — lo puro (catálogo de redes, medir, leer) y el servidor (link, conexiones, armar la recepción)',
+      'app/_components/ConectarViaZernio.tsx · app/integraciones/ConectarRedes.tsx · app/integraciones/zernio-vuelta/ — la pantalla, el bloque «Redes» y la landing de la ventana',
+      'app/api/zernio/route.ts · lib/zernio.ts · lib/credenciales.ts — las acciones de la ruta y la key propia estricta',
+      'app/automations/ConectarMedio.tsx · app/chats/ChatsApp.tsx — Automations y Chats usan la misma pieza',
+      'tests/zernio-conectar-redes.test.ts · tests/zernio-sin-respaldo.test.ts · docs/hallazgos-integraciones.md',
+    ],
+  },
 ];

@@ -66,18 +66,34 @@ test('cfg y la key de «¿te sigue?» leen la key PROPIA: sin credWs, sin envCre
   assert.doesNotMatch(ZERNIO, /import \{[^}]*\bcredWs\b[^}]*\} from '\.\/credenciales'/, 'lib/zernio.ts importa credWs (cae al entorno para el ws1)');
 });
 
+test('zernioConfigurado: «no pude leer» NO es «no tienes Zernio»', () => {
+  const f = funcion(ZERNIO, 'export async function zernioConfigurado(ws: number): Promise<boolean> {');
+  // `false` sólo para «Zernio no está configurado»; todo lo demás (la base caída, una fila que no se descifra) TIRA.
+  assert.match(f, /if \(e instanceof ZernioError && e\.status === 0 && e\.message === 'Zernio no está configurado'\) return false;\n\s+throw e;/);
+  assert.doesNotMatch(f, /catch \{ return false; \}/, 'volvió a tragar todo');
+});
+
 test('ningún código de app ni lib lee la key de Zernio de la plataforma para un negocio', () => {
-  const archivos = execFileSync('git', ['ls-files', 'app', 'lib', 'scripts'], { cwd: RAIZ, encoding: 'utf8' })
-    .split(/\r?\n/).map((f) => f.trim()).filter((f) => /\.(tsx?|mjs|cjs|js)$/.test(f));
-  assert.ok(archivos.length > 500, `git ls-files devolvió ${archivos.length} archivos: esto no corrió en el repo`);
+  const EXT = /\.(tsx?|mjs|cjs|js)$/;
+  // «No encontré nada que revisar» y «revisé y está todo bien» son respuestas DISTINTAS: el piso va con `git ls-files`.
+  const cuantos = execFileSync('git', ['ls-files', 'app', 'lib', 'scripts'], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 50_000_000 })
+    .split(/\r?\n/).filter((f) => EXT.test(f.trim())).length;
+  assert.ok(cuantos > 500, `git ls-files devolvió ${cuantos} archivos: esto no corrió en el repo`);
+  // Los archivos que nombran la key, buscados con `git grep` (en C y en paralelo): leer miles de archivos desde JS tardaba de uno a cuatro
+  // minutos en una máquina cargada. `git grep` sale con 1 cuando no encuentra nada.
+  let salida = '';
+  try {
+    salida = execFileSync('git', ['grep', '-l', 'ZERNIO_API_KEY', '--', 'app', 'lib', 'scripts'], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 50_000_000 });
+  } catch (e) {
+    if ((e as { status?: number }).status !== 1) throw e;
+  }
+  const archivos = salida.split(/\r?\n/).map((f) => f.trim()).filter((f) => EXT.test(f));
+  assert.ok(archivos.length >= 3, `git grep devolvió ${archivos.length} archivos que nombren la key: el barrido no está mirando`);
   const SALVO = [/^app\/admin\/dev\//];
   const culpables: string[] = [];
   for (const f of archivos) {
     if (SALVO.some((r) => r.test(f))) continue;
-    // Crudo y filtrado ANTES de normalizar: el barrido pasa por miles de archivos y casi ninguno nombra la key.
-    const crudo = readFileSync(join(RAIZ, f), 'utf8');
-    if (!crudo.includes('ZERNIO_API_KEY')) continue;
-    const src = sinComentarios(crudo.replace(/\r\n/g, '\n'));
+    const src = sinComentarios(leer(f));
     if (/(envCred|credWs)\(\s*['"`]ZERNIO_API_KEY['"`]|process\.env(\.ZERNIO_API_KEY|\[\s*['"`]ZERNIO_API_KEY)/.test(src)) culpables.push(f);
   }
   assert.deepEqual(culpables, [], `leen la key de la plataforma: ${culpables.join(', ')}`);
@@ -103,15 +119,16 @@ test('la key de Zernio es OBLIGATORIA: la tarjeta, el ping y la nota lo dicen', 
 });
 
 // ── ROTURAS (23/10/2026) ───────────────────────────────────────────────────────
-// Una por vez, con un arnés que guarda el original en memoria, rompe, corre ESTE archivo y restaura comprobando el contenido.
-// Base: 4 pasan / 0 fallan. Las 9 cazadas (`pasan / fallan` y el test que la cazó):
-//   B1. `credDelClienteEstricta` cae a `process.env` al final                          → 1 / 3 · «credDelClienteEstricta: sólo la fila…»
-//   B2. `credDelClienteEstricta` traga el error de la base (`if (error && false)`)      → 1 / 3 · «credDelClienteEstricta: sólo la fila…»
-//   B3. `cfg` vuelve a `credWs`                                                       → 2 / 2 · «cfg y la key…» y el barrido
-//   B4. `keyDeSeguimiento` vuelve a `credWsEstricta` + `envCred`                        → 2 / 2 · «cfg y la key…» y el barrido
-//   B5. otro archivo de lib/ lee `process.env.ZERNIO_API_KEY`                          → 1 / 3 · el barrido
-//   B6. la key vuelve a ser `opcional: true`                                           → 1 / 3 · «la key de Zernio es OBLIGATORIA…»
-//   B7. el ping contesta `ok: true` sin key                                            → 1 / 3 · «la key de Zernio es OBLIGATORIA…»
-//   B8. la nota pierde la línea del cobro                                               → 1 / 3 · «la key de Zernio es OBLIGATORIA…»
-//   B9. lib/zernio.ts vuelve a importar `credWs`                                        → 1 / 3 · «cfg y la key…»
-// Restaurado: 4 / 0.
+// Una por vez, con un arnés que guarda el original en memoria, rompe, corre ESTE archivo y restaura comprobando el contenido. Las 10 cazadas
+// (B1 a B9 contra una base de 4 pasan / 0 fallan; B10, agregada tras la revisión adversarial, contra 5 / 0):
+//   B1   credDelClienteEstricta cae al entorno                                                        → 3/1 · credDelClienteEstricta: sólo la fila del negocio, y «no pude leer» tir…
+//   B2   credDelClienteEstricta traga el error de la base                                             → 3/1 · credDelClienteEstricta: sólo la fila del negocio, y «no pude leer» tir…
+//   B3   cfg vuelve a credWs                                                                          → 2/2 · cfg y la key de «¿te sigue?» leen la key PROPIA: sin credWs, sin envCr…
+//   B4   keyDeSeguimiento vuelve al respaldo                                                          → 2/2 · cfg y la key de «¿te sigue?» leen la key PROPIA: sin credWs, sin envCr…
+//   B5   otro archivo lee la key de la plataforma                                                     → 3/1 · ningún código de app ni lib lee la key de Zernio de la plataforma para…
+//   B6   la key vuelve a ser opcional                                                                 → 3/1 · la key de Zernio es OBLIGATORIA: la tarjeta, el ping y la nota lo dice…
+//   B7   el ping contesta anda sin key                                                                → 3/1 · la key de Zernio es OBLIGATORIA: la tarjeta, el ping y la nota lo dice…
+//   B8   la nota pierde la línea del cobro                                                            → 3/1 · la key de Zernio es OBLIGATORIA: la tarjeta, el ping y la nota lo dice…
+//   B9   lib/zernio.ts vuelve a importar credWs                                                       → 3/1 · cfg y la key de «¿te sigue?» leen la key PROPIA: sin credWs, sin envCr…
+//   B10  zernioConfigurado traga «no pude leer» como «no tiene»                                       → 4/1 · zernioConfigurado: «no pude leer» NO es «no tienes Zernio»…
+// Restaurado: 5 / 0.

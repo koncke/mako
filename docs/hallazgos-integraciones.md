@@ -1241,6 +1241,118 @@ no se aplica a nadie.
 app/api/integraciones/credencial/route.ts (`descubrir-pago`) · app/integraciones/CuentasDePago.tsx ·
 tests/tope-cuentas.test.ts.
 
+## «Conectar con Facebook, Instagram o anuncios»: UNA pieza vía Zernio, con la key del negocio y sin respaldo de la plataforma (23/10/2026)
+
+**El pedido** (Martín, vía el Cerebro, 23/10/2026): «Esta bueno que todo eso salga directo en la app... Que ellos conecten su API de Zernio y
+luego cuando quieran hacer X cosa que requiera un login, que en MaKo esté el botón de logearse con Facebook, Instagram o lo que haga falta».
+Hasta ese día se pegaba la key de Zernio pero **el login de cada red se hacía afuera**: con el ws1 la key se pegó a las 22:43 y la conexión
+de anuncios nunca se creó (Ads Manager sacó el link a mano con `GET /v1/connect/facebook/ads`).
+
+**Cómo quedó.** Una pieza para todas las pantallas que necesitan una red: `<ConectarViaZernio red volver onConectado>` / `useConectarViaZernio`
+(`app/_components/ConectarViaZernio.tsx`), con lo del servidor en `lib/zernio-conectar.ts` y lo puro en `lib/zernio-redes.ts`. La usan el bloque
+«Redes» del modal de Zernio de /integraciones (`ConectarRedes`, una fila por Facebook / Instagram / Anuncios de Meta), Instagram y Messenger
+de Automations (`ConectarSocial`) y **Chats** (que antes mandaba la pestaña entera a Zernio y volvía a /automations). **Ads Manager la consumirá**
+(`red="metaads"` y `conexionesViaZernio`, con el `accountId` de cada conexión: lo que pide la API de anuncios de Zernio para publicar), pero lo cablea
+SU chat: al 23/10 no hay ningún llamador suyo en el repo, y la firma quedó acordada con él. **Copiada de Nango**
+(Connect UI + SDK frontend: el modal es de la app y no navega, la ventana del login se abre en el MISMO clic con `window.open('')` y la URL se
+asigna después, y la verdad la dice el servidor) y de las trampas de Ayrshare (origen y fuente de cada mensaje, gracia antes de dar un popup por
+cancelado, nunca un WebView).
+
+**Y sin respaldo de la plataforma** (Martín: «que cada usuario traiga su API de Zernio»; el Cerebro lo extendió a Automations): la key es SIEMPRE
+la del negocio (`credDelClienteEstricta`: su fila, nunca `process.env`, y «no pude leer» tira). **Medido en producción antes (sólo lectura):** el
+único workspace que dependía del respaldo era el ws3 (Cliente de Prueba) y no hay ni una conversación ni un envío de Instagram o Messenger en toda
+la historia. El ws1 (Mauricio, un cliente) tiene pegada la key de la PLATAFORMA desde las 22:43, para la prueba de anuncios: el Cerebro se la saca
+cuando Ads Manager termine; hasta entonces `cfg` lo deja en su modo de siempre (`byok: ws !== OWNER_WS`).
+
+### Lo que se leyó de la API de Zernio (docs.zernio.com, 23/10/2026, por un LECTOR que resume cada página: los nombres de campos pueden venir parafraseados)
+
+- `GET /v1/connect/{plataforma}?profileId&redirect_url` → `{ authUrl, state }`. Al volver agrega `connected=<plataforma>&profileId&accountId&username`, o
+  `error=<código>&platform&request_id&stage` (`oauth_denied`, `no_facebook_pages`, `no_pages_granted`, `payment_required`, `meta_ads_authorization_denied`).
+  Los parámetros propios se conservan. `redirect_url` tiene que ser absoluta (relativa: 400).
+- **Anuncios:** `GET /v1/connect/facebook/ads`. Modo `classic` reutiliza el token de la cuenta de Facebook (`alreadyConnected: true` si ya tiene
+  `ads_management`); `loginMode=business` crea una conexión `metaads` independiente (token de un usuario del sistema), pide una página y que quien entre
+  sea admin del Business. Ads Manager mide que `business` sirve para publicar.
+- **Página, Instagram y cuenta publicitaria se conectan POR SEPARADO** (2 o 3 conexiones) y **cada una cuenta aparte para el cobro**: un login de Facebook NO es una
+  cuenta. Precio (leído el 23/10): 1-2 gratis (un crédito de US$12 al mes), 3.ª a 10.ª US$6, 11.ª a 100.ª US$3, desde la 101.ª US$1; desconectar deja de cobrar. La
+  tarjeta de Zernio avisa en UNA línea («Zernio te cobra a ti. Cada red cuenta aparte (página, Instagram, anuncios): 2 gratis, desde la 3.ª se paga.»), y el bloque
+  «Redes» dice cuántas hay conectadas.
+- `GET /v1/accounts?profileId&platform&excludeHidden=true` → cuentas con `_id`, `platform`, `profileId`, `isActive`, `enabled`, `username`, `displayName`,
+  `needsReconnection` (en `/accounts/health` se llama `needsReconnect`). Zernio sólo se entera de que un token venció cuando una operación real falla.
+- El **402** de conectar por pasarse de 2 cuentas trae `reason: free_tier_exceeded` y el link en `dashboard_url`. Un plan legacy da `403 platform_account_limit`.
+- **Lo que Ads Manager SÍ vio de verdad (23/10, con las claves que tienen; el resto del body no se imprimió):** `GET /v1/connect/facebook/ads?profileId&loginMode=business&redirect_url`
+  → 200 con `authUrl` (`https://www.facebook.com/v24.0/dialog/oauth?client_id=712341431446535&config_id=1788931715593499&redirect_uri=https://zernio.com/api/v1/connect/meta-ads/callback&response_type=code&…&state=<JWE>`;
+  el `state` vence a los 30 min); `GET /v1/accounts` → `{ accounts: [...] }` con `_id`, `platform` y `username`; `GET /v1/profiles` → `{ profiles: [{ _id, name, isDefault }] }`. Con eso el
+  envoltorio de `/accounts` y el nombre `authUrl` dejan de ser deducciones. **Los dos links de anuncios que Martín aceptó a mano (el segundo, generado 23:19 UTC y aceptado antes de las 23:49) NO dejaron
+  ninguna conexión `metaads` en las 4 claves (medido 23:29):** la causa no se sabe (¿el link vencido?, ¿falta una página?, ¿el callback de Zernio?) y es lo primero que mira la primera conexión real:
+  a qué dirección terminó el navegador (`error=…`) lo dice la landing de la ventana.
+- La ventana de Meta nombra a Zernio («co-branded, not white-label»): la app de Meta de Zernio es «Social Media Connector» (712341431446535, dato de Ads Manager;
+  no figura en su doc).
+
+### El diagnóstico obvio era el equivocado, y las trampas
+
+- **«El link de pago del 402 ya se muestra»: nunca se mostró.** `app/api/zernio/route.ts` leía `billingUrl`, que NO existe en la doc de Zernio (es `dashboard_url`): el
+  negocio de la cuenta pausada (ws11, 10/10) veía «pausada» sin su link. `urlDePagoDeZernio` acepta los dos y sólo https (va a un `href`).
+- **`credWs` y `credWsEstricta` caen al entorno para el ws1**, que es Mauricio, un cliente, y además «la plataforma» para las claves de entorno (`wsDelEntorno`). «Leer la key
+  propia» con cualquiera de las dos le da la cuenta de la casa. La lectura propia es `credDelClienteEstricta`; `credDelCliente` no sirve porque no mira el error de la base
+  («no pude leer» se lee «no tiene» y el negocio ve «falta» con la base caída).
+- **«Sin claves de la plataforma» no puede ser literal:** `ZERNIO_WEBHOOK_SECRET` (el secreto maestro del que se derivan los de cada negocio) sigue siendo de la casa, y no es una
+  cuenta de Zernio.
+- **Un popup que se ve «cerrado» NO es «canceló».** Si la red pone `Cross-Origin-Opener-Policy`, el navegador corta el vínculo con la ventana: desde la pantalla se ve cerrada
+  (y `window.opener` queda en null en la landing) aunque la persona siga adentro. Dar por cancelada la conexión al ver `closed` la cortaba en el segundo en que se abría el login de Meta.
+  Hoy `closed` sólo adelanta una medición y avisa; el aviso de la landing va por `window.opener.postMessage` **y** por un `BroadcastChannel` del mismo origen; y se corta a los ~4 min.
+  **Es una deducción de la lectura, no se midió con un login real.**
+- **`window.open` en el clic y antes de cualquier `await`, y sin `noopener`** (con él devuelve null y no se puede asignar la URL): lo fija el test con el orden de las líneas.
+- **En un teléfono y en el navegador interno de Instagram/Facebook/TikTok no hay popup confiable** (Meta lo dice en su doc): la pestaña navega y VUELVE a la misma pantalla con `?zernio=<red>`;
+  el hook lo lee al montar, mide con `/accounts`, y saca esos parámetros de la barra (se procesa una vez aunque haya varios botones). La lista de agentes es una deducción: se mide en un teléfono.
+- **«Conectada» sale de lo que lista Zernio AHORA y no estaba ANTES** (`medirConexion`). Tres casos que rompen una versión ingenua: una cuenta ya conectada (con «hay alguna» daba conectado
+  en el primer sondeo), volver a entrar con una cuenta que YA estaba (el id no cambia: sólo el `accountId` de la vuelta lo confirma, y siempre contra la lista de ahora) y no poder leer la lista
+  de antes (ANTES valía «cualquiera»; ahora NADA de lo que ya estaba cuenta como nuevo: falla cerrado).
+- **`volver` es del navegador y termina como `redirect_url` de un tercero:** sólo una RUTA de la app (`validarVolver`: `//evil.com`, `/\evil.com`, `https://…`, `javascript:` y `/api/…` no pasan).
+- **El `?ws=` de la vuelta, sólo si hace falta** (`wsDeVuelta`): pegarlo siempre pone a un admin de plataforma en «vista de cliente» de sí mismo (21/10).
+- **El sondeo cuenta contra los 60 pedidos por minuto** de un equipo con 0 a 2 cuentas: cada medición es un `GET /accounts` (a 4 s, 15 por minuto); el profile se cachea 2 minutos por negocio y por
+  huella de la key (sin eso cada medición hacía un `GET /profiles` y una escritura de ruteo).
+- **`conexionesViaZernio` es SOLO LECTURA** y `recibirConexion` (reclamar el ruteo de las cuentas y asegurar el webhook) se llama UNA vez, al quedar conectada una cuenta de Facebook o Instagram: sin eso
+  conectar «anda» y no llega ningún mensaje, y no da error. Antes lo hacía el «estado» de la tarjeta, que ahora sigue haciéndolo para la cabecera de Automations.
+- **La MISMA key en DOS negocios comparte el profile Default de esa cuenta de Zernio** (con key propia no hay un profile por negocio): el segundo vería las cuentas del primero como suyas, y el
+  ruteo de sus mensajes sigue siendo del primero («el primero que reclama gana»; `profileIdEfectivo` descarta el resultado de `upsertRouting`). Lo encontró la revisión adversarial: **el
+  filtro por profile de `leerCuentasDeZernio` sólo protege cuando UNA key tiene VARIOS perfiles**, no con una key repetida. Hoy la pieza se NIEGA (`clave-en-uso`) si el profile ya es de otro negocio,
+  y `recibirConexion` dice `ocupado` si una cuenta quedó con otro. **SIN HACER:** que `guardarCredencial` rechace una key de Zernio ya guardada por otro negocio, y lo mismo en
+  `cuentasConectadas`/«estado» de Automations (el camino viejo sigue sin mirarlo).
+- **Un «Volver a conectar» de los anuncios (`force` sobre una conexión que ya anda) no tiene cambio visible:** la cuenta ya estaba sana, así que «una que antes no estaba» no existe, y darla por hecha
+  con `reconectarId` cerraba la ventana a los 0,5 s, recién abierta, con «conectado ✓». `reconectarId` sólo confirma una cuenta que ANTES no estaba sana; la sana la confirma la pista (el `accountId` con que vuelve la ventana).
+- **La vuelta de página entera sólo vale si ESTA pestaña la inició** (`guardarVuelta` en `sessionStorage`: red, cuentas de antes y hora; 30 minutos): un link armado a mano con `?zernio=…&connected=…` hacía que la pantalla dijera
+  «conectado», armara la recepción y le entregara a quien llama (Ads Manager publica con `nueva.accountId`) una cuenta equivocada. Y `connected` de la URL ya no decide: se mide como en la ventana.
+- **Un segundo clic NO cierra la ventana del primero:** las corridas comparten la ventana por su nombre y la vieja, al despertar, la cerraba con la nueva ya adentro de Meta. `cerrar()` sólo cierra al desmontar o si la corrida
+  sigue siendo la vigente. El aviso de la ventana lleva el id de SU flujo: el canal es del origen entero y un error de una pestaña cortaba el login de otra.
+- **`replaceState(null, …)`, no con el `state` de la página** (me equivoqué la primera vez): el parche de Next (`app-router.js`) deja pasar sin sincronizar la URL un `replaceState` cuyo state trae `__NA`; con `null` copia su estado interno y
+  sincroniza `usePathname` y `useSearchParams`. Lo cazó un revisor leyendo `node_modules`, no un test.
+- **«No pude leer tus credenciales» ya no es «no tienes Zernio»** (`zernioConfigurado` tragaba todo): con la base caída `estadoMedios` frenaba Publicar con «Conecta Instagram» y el modal abría «pega tu key» a un negocio que sí la tiene.
+
+### Lo que NO se midió (se mide con la primera conexión REAL, que hace una persona: los clics de Facebook son suyos)
+
+1. Los nombres de `alreadyConnected`, `isActive`, `enabled`, `needsReconnection` y el `profileId` de una cuenta (¿texto u objeto?): el lector es tolerante y falla cerrado (`respuesta`). `authUrl` y el envoltorio `{ accounts }` SÍ se vieron.
+   **Y por qué los links a mano de anuncios no dejaron conexión** (ver arriba): si la causa es de Zernio o de la cuenta de Meta, esta pieza no la arregla, sólo la dice (`error=` en la vuelta).
+2. Si el vínculo con la ventana sobrevive a la cadena Zernio → Meta → `redirect_url` (si no, el `BroadcastChannel` y el sondeo lo cubren), y cómo se ven la ventana y el login dentro del navegador de Instagram.
+3. Que Zernio conserve el `?red=` de la landing de la ventana junto a sus parámetros (la doc dice que conserva los propios).
+4. Si `GET /accounts` lista las conexiones `metaads` sin `platform` (Ads Manager midió que hoy no hay ninguna, así que no se sabe) y si una cuenta `metaads` con el token vencido sale con `needsReconnection`.
+5. El cuerpo del 402 al conectar ANUNCIOS (¿trae `dashboard_url`?), y qué pasa al intentar una segunda conexión de anuncios por profile («una por profile»).
+6. Si el modo `classic` de anuncios crea una cuenta de Facebook oculta (`enabled: false`) además de la `metaads`: la lista pide `excludeHidden=true`.
+
+### Lo que quedó SIN hacer
+
+- **El estado de la tarjeta de Zernio en la grilla sigue siendo «hay key».** Un «falta conectar Facebook» es un estado nuevo y toca cuatro lugares que dibujan el estado (`sevOf`, el chip de `ServicioSuelto`, «Requiere tu atención» y el teléfono); el bloque «Redes» dice el estado de cada red al abrir la tarjeta.
+- **Traer los formularios de Meta con `lead.received`** (el reemplazo del puente de Make): el webhook de Zernio no lo escucha.
+- Sacar la key de la plataforma del ws1 (la coordina el Cerebro con Ads Manager) y, después, la rama `byok: false` de `ensureProfile` (queda sólo para el ws1).
+- Una operación en la API de MaKo para conectar una red (`conectar_redes`: el id no puede llevar «zernio» ni «instagram», `tests/sin-instagram.test.ts`).
+- El teléfono (MaKo Mobile) no tiene el bloque «Redes»: abre la computadora con `?abrir=zernio`.
+- Tipos: salió «sin tipos» (política del tren): los chequea el `tsc` acotado de Integración.
+
+**Vive en:** `lib/zernio-redes.ts` · `lib/zernio-conectar.ts` · `lib/zernio.ts` (`cfg`, `zFetch` y `profileIdEfectivo` exportados) · `lib/credenciales.ts` (`credDelClienteEstricta`) · `app/api/zernio/route.ts` ·
+`app/_components/ConectarViaZernio.tsx` · `app/integraciones/ConectarRedes.tsx` · `app/integraciones/zernio-vuelta/` · `app/automations/ConectarMedio.tsx` · `app/chats/ChatsApp.tsx` ·
+`tests/zernio-conectar-redes.test.ts` · `tests/zernio-sin-respaldo.test.ts`.
+
+_23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2), con el contrato cerrado con Ads Manager. Investigación: cuatro lectores en paralelo (API de conexión, cuentas y cobro, apps de referencia, mapa del código)._
+
 ## La agenda de MaKo NO entra al CRM de MaKo (medido en la base el 23/10/2026)
 
 **Síntoma:** a dos días del lanzamiento, toda venta de MaKo pasa por la agenda `calendly.com/koncke/asesoria` (/planes sin

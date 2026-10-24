@@ -72,6 +72,10 @@ const CANAL: Record<string, string> = {
   'lib/zernio-entrante.ts': 'la persona, su mensaje y el disparador de un evento',
   'app/api/webhooks/zernio/route.ts': 'el webhook (firma, ruteo, dedup)',
   'app/api/zernio/route.ts': 'la cuenta de salida del editor y «Conectar»',
+  // 23/10/2026: «Conectar con Facebook, Instagram o anuncios de Meta» vía Zernio y con la key DEL NEGOCIO. Habla con la API de Zernio con el
+  // cliente de lib/zernio.ts (`zFetch`, `cfg`): el link del login, las conexiones y armar la recepción de una cuenta nueva. La usan Ads Manager,
+  // Chats, Automations y el modal de Zernio de /integraciones.
+  'lib/zernio-conectar.ts': 'conectar redes vía Zernio: el link del login, las conexiones y armar la recepción',
   // Décima tanda (11/10/2026, GENERAL 6): «una automatización que usa un medio que aún no conectó, en la tarjeta
   // lo debe decir... y no dejar publicarlo». Es la MISMA pregunta que la ruta de arriba (¿hay una cuenta?), hecha
   // por el server para el chip, Publicar y Activar (`estadoMedios`). Desde la duodécima (12/10/2026) Publicar y Activar

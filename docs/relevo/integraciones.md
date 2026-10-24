@@ -37,6 +37,7 @@ medilo contra `main` (puede haber cambiado).
 | Los dos casos de agenda por WhatsApp | `5561c1db`, `c3572358` | `docs/hallazgos-api-mako.md` |
 | La key de Resend de la plataforma con `envCred` | `3677e675` | `docs/hallazgos-comunicacion.md` |
 | El remitente de Resend dice «falta»; la ayuda de un campo es «Cómo configurarlo» (puntos 13 y 15 de Customer Success) | `e0692c54` | `docs/hallazgos-integraciones.md` |
+| 23/10: «Conectar con Facebook, Instagram o anuncios» vía Zernio, UNA pieza con la key del negocio y sin respaldo de la plataforma (Ads Manager, Chats, Automations, modal de Zernio) | rama `integ-zernio-2310`, sin pushear | `docs/hallazgos-integraciones.md` |
 | 13/10: el Pixel pegado dos veces ya no cuenta doble (sin subir la versión, a propósito) | rama `cierre-integraciones` | `docs/hallazgos-landing.md` |
 | 13/10: el «opcional» de un tutorial se comprueba en los 19 servicios; el recuadro amarillo y las slides caben en 120 | rama `cierre-integraciones` | `docs/hallazgos-integraciones.md` |
 | 23/10: el puente de leads de Meta por Make o Zapier (receptor, tarjeta, guía; Make es el principal y los dos son de pago, decisión de Martín), probado en el ws3 | rama `integ-zapier-2310`, sin pushear | `docs/hallazgos-integraciones.md`, `docs/guia-leads-por-zapier.md` |
@@ -93,6 +94,7 @@ no los sabe leer (las tres skills instaladas dejarían de autenticar).
   (`docs/hallazgos-comunicacion.md`): se pierden a propósito. **No se corrió contra producción.** Aplicarla:
   `node scripts/apply-migration.mjs supabase/migrations/0314_quitar_crm_etiquetas_chatwoot_label.sql`; después sacar
   `'chatwoot_label'` del `omitir` de `lib/datos-mau.ts` y de la lista de `tests/sin-chatwoot.test.ts`.
+- **«Conectar redes vía Zernio» (23/10/2026): falta la PRIMERA CONEXIÓN REAL**, que hace una persona (los clics de Facebook son suyos): ver «Lo que NO se midió» en `docs/hallazgos-integraciones.md` (nombres de la respuesta de Zernio, si el vínculo con la ventana sobrevive a Meta, el navegador interno de Instagram, el listado de `metaads`). Y el `lead.received` de Zernio, que reemplaza al puente de Make, no se escucha.
 - **Verlo con clics**: el formulario de integraciones nuevo (ws3).
 - **El puente de leads por Zapier (23/10/2026):** falta (1) el aviso por WhatsApp de «hace X horas sin leads» (el molde es
   `tracking-apagado`; hoy la señal es la tarjeta ámbar a las 72 h) y (2) probarlo con un Zap real de un negocio: los nombres

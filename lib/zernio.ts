@@ -94,9 +94,16 @@ export async function cfg(ws: number): Promise<ZernioCfg> {
   throw new ZernioError('Zernio no está configurado', 0, null);
 }
 
-/** ¿Este workspace puede hablar con Zernio? Sin tirar. */
+/**
+ * ¿Este workspace puede hablar con Zernio? `false` SÓLO cuando no pegó su key. «No pude leer» (la base caída, una fila que no se descifra) NO es
+ * «no tiene»: TIRA, y quien llama decide (`estadoMedios` lo deja en «no sé» y no frena Publicar; la ruta contesta un error y no abre «pega tu key»
+ * a un negocio que sí la tiene, que podía pisar una key buena). Hasta el 23/10/2026 esto tragaba todo y daba `false`.
+ */
 export async function zernioConfigurado(ws: number): Promise<boolean> {
-  try { await cfg(ws); return true; } catch { return false; }
+  try { await cfg(ws); return true; } catch (e) {
+    if (e instanceof ZernioError && e.status === 0 && e.message === 'Zernio no está configurado') return false;
+    throw e;
+  }
 }
 
 /**
@@ -110,7 +117,7 @@ export async function usaCuentaPropia(ws: number): Promise<boolean> {
   return (await credWsEstricta('ZERNIO_API_KEY', ws)) != null;
 }
 
-async function zFetch<T>(apiKey: string, path: string, init?: RequestInit & { headers?: Record<string, string> }, timeoutMs = 20_000): Promise<T> {
+export async function zFetch<T>(apiKey: string, path: string, init?: RequestInit & { headers?: Record<string, string> }, timeoutMs = 20_000): Promise<T> {
   const res = await fetch(`${ZERNIO_BASE}${path}`, {
     ...init,
     headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json', ...(init?.headers ?? {}) },
@@ -184,7 +191,7 @@ export async function ensureProfile(ws: number): Promise<string | null> {
  * El profile CONCRETO con el que se habla, y reclama su ruteo. Con la key de la plataforma, el
  * `mako_ws_<ws>`; con key propia, el guardado SI es de esa cuenta, y si no el Default de SU cuenta.
  */
-async function profileIdEfectivo(ws: number, c: ZernioCfg): Promise<string | null> {
+export async function profileIdEfectivo(ws: number, c: ZernioCfg): Promise<string | null> {
   const guardado = await ensureProfile(ws);
   if (!c.byok) return guardado;
   // ⚠️ CON KEY PROPIA SE LE PREGUNTA A SU CUENTA SIEMPRE, aunque haya un guardado: el de ws11 era de la
@@ -230,16 +237,6 @@ export async function cuentasConectadas(ws: number, plataforma?: 'instagram' | '
   const cuentas = (r.accounts ?? []).filter((a) => a.platform === 'instagram' || a.platform === 'facebook');
   for (const a of cuentas) await upsertRouting(RUTEO_CUENTA, a._id, ws);
   return cuentas;
-}
-
-/** La URL de OAuth para conectar una cuenta. Al volver, Zernio redirige a `redirect_url`. */
-export async function urlParaConectar(ws: number, plataforma: 'instagram' | 'facebook', redirectUrl: string): Promise<string> {
-  const c = await cfg(ws);
-  const profileId = await profileIdEfectivo(ws, c);
-  if (!profileId) throw new ZernioError('Zernio: la cuenta no tiene ningún profile para conectar', 0, null);
-  const q = new URLSearchParams({ profileId, redirect_url: redirectUrl });
-  const r = await zFetch<{ authUrl: string }>(c.apiKey, `/connect/${plataforma}?${q.toString()}`);
-  return r.authUrl;
 }
 
 // ── El webhook ───────────────────────────────────────────────────────────────
