@@ -270,6 +270,9 @@ export function NewLeadForm({ enModal }: {
       <Field label="Instagram" grupo>
         <InstagramBuscador key={igKey} textoInicial={igInicial} valor={perfil} onElegir={setPerfil} onTexto={setIgEscrito} />
         <input type="hidden" name="instagram" value={instagramDelAlta(perfil?.usuario, igEscrito)} />
+        {/* Su foto de perfil (24/10/2026): el server la copia a nuestro bucket para la tarjeta (lib/foto-instagram.ts). Sólo la
+            del perfil ELEGIDO: lo tipeado a mano no trae foto. */}
+        <input type="hidden" name="instagram_foto" value={perfil?.foto ?? ''} />
       </Field>
 
       {err && !choque && (
