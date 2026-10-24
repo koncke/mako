@@ -500,6 +500,11 @@ exacta, el sufijo trae las dos fichas y gana la #1776. Lo encontró una verifica
 con el número del JID (`wa_mensajes.telefono` de sus salientes, o 521/549 + 10 si todavía no hay chat), nunca con
 `telefono_normalizado`.
 
+**La lección, que no es sobre teléfonos:** una simulación que usa el dato GUARDADO en vez del dato que LLEGA del mundo
+confirma lo que uno esperaba. El código no falla con el dato que uno eligió para probar; falla con el que llega de
+verdad. Y el detalle fino: el respaldo de «los 10 últimos dígitos» más «la ficha de id más bajo» convierte una
+coincidencia parcial en una elección silenciosa y siempre equivocada; nada avisa que hubo dos candidatas.
+
 **El arreglo (24/10):** con más de una ficha para ese teléfono, la respuesta va a la ficha a la que LE ESCRIBIMOS ÚLTIMO
 (`fichaDelEntrante`, lib/ficha-del-entrante.ts). La prueba de «le escribimos» es lo más nuevo entre TRES cosas, porque
 cada una sola falla:
@@ -522,7 +527,9 @@ respuestas a la misma persona. Se elige UNA ficha y todo sigue por ella.
 - 16 grupos con el mismo teléfono: 13 en el negocio de prueba (el arnés).
 - Los otros tres: el #3099/#249 de Martín, German en Leila, y Juanfran Marquez en el negocio de Martín, que no tiene
   automatizaciones.
-- Incidentes que ya pasaron en negocios reales: ninguno.
+- Incidentes que ya pasaron en negocios reales: ninguno. **Llegamos antes:** German no escribió desde el 20/10, su
+  bienvenida es un borrador sin aprobar, y ninguna de las 27 inscripciones activas de Leila tiene un WhatsApp enviado. Por
+  eso no hubo nada que reparar en los datos.
 
 **Sin hacer:**
 - `resolverLeadIdsPorTelefono` (lib/evolution-mensajes.ts) no ordena: con dos fichas puede mostrar una distinta en cada
@@ -532,7 +539,11 @@ respuestas a la misma persona. Se elige UNA ficha y todo sigue por ella.
   la próxima respuesta no importa (las otras dos pruebas lo corrigen), pero el chat de la ficha lo muestra en la otra.
 - Dos PERSONAS distintas con los mismos 10 dígitos y distinto país: una prueba de automatización de una le gana a la
   exacta de la otra. Es muy raro, y lib/numero-whatsapp.ts ya acepta ese choque.
-- Las dos fichas de German siguen separadas: «Unificar» es una escritura en el negocio de Leila, y la decide el Cerebro.
+- **Las dos fichas de German NO se tocan** (decisión del Cerebro, 24/10). Unificarlas sería escribir en el CRM de una
+  clienta para arreglar un problema nuestro, sin que ella lo pida ni lo sepa, y si se pierde una etiqueta, una nota o un
+  historial, el daño es irreversible y en datos ajenos. El arreglo del código hace que el problema deje de existir sin
+  tocar una fila. Si después hace falta, MaKo se lo muestra a Leila con el aviso de fichas parecidas y «Unificar» (entró
+  el 23/10), y lo decide ella.
 
 ### ⚠️ Un teléfono sin código de país no existe en WhatsApp, y el envío no lo completaba (ws11, 20/10/2026)
 
