@@ -6426,6 +6426,11 @@ diseño y un crítico) encontró que el diagnóstico obvio —«falta el corredo
 
 1. Martín: `codex login` («Sign in with ChatGPT»). Después, `node scripts/ia-pc/medir-codex-mcp.mjs`
    (tres turnos de su cuenta). Sin el ✓ de 1 y el ✓ de 3b no hay corredor.
+   ⚠️ **FRENADO el 24/10/2026, y no por falta de tiempo: Martín no tiene cuenta de ChatGPT** («por ahora no
+   tengo cuenta de GPT»). O sea que el ✓ de 1 no se puede dar, y **todo lo que cuelga de él queda frenado**: la
+   medición IA11, el «falta Codex» del punto 3 y el Codex del instalador del punto 4. No es un pendiente de
+   Martín: es una rama cerrada hasta que haya cuenta. **No volver a ponérselo como tarea.** Lo que SÍ sigue vivo
+   es el corredor con Claude Code, que no depende de esto.
 2. Decisión de Martín: lo legal de OpenAI (arriba).
 3. Este chat: lo que falta del servidor («falta Codex» por dispositivo, la versión mínima). Ya están la
    elección de la PC por IA, el consentimiento de ChatGPT, y la IA elegida, que viaja en su versión sin

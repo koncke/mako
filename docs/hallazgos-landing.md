@@ -4419,8 +4419,23 @@ la base, las grabaciones y GETs a Stripe. Lo pidió el Cerebro después de la au
 - ⚠️ **El 24/10 a las 01:54:48 UTC `index.html` se reemplazó por una copia exacta de `gracias.html`** (mismo md5). Fue
   mientras se pegaba el Pixel: en el chat de soporte, Mauricio escribe «estoy haciendo la otra de gracias» a las 01:52 y
   «listo ya quedaron los 2» a las 02:35; la prueba del probador de las 01:46 vio el VSL y la de las 02:16 ya vio gracias.
-  Desde entonces el link no cobra y muestra el grupo de WhatsApp de los que pagaron; la automatización 289 «Sprint ·
-  apertura» siguió mandando gente ahí. Avisado al Cerebro el mismo día. Hay una tercera copia, `/gracias/`, sin Pixel.
+  Desde entonces el link no cobra y muestra el grupo de WhatsApp de los que pagaron; nadie la
+  despublicó: sigue siendo la única dirección de venta que se reparte. Avisado al Cerebro el mismo día. Hay una tercera copia, `/gracias/`, sin Pixel.
+- ⚠️ **CORRECCIÓN del 24/10 a la tarde (Cerebro): la 289 «Sprint · apertura» NO manda a nadie a esa página.**
+  Esta entrada decía que «siguió mandando gente ahí». Medido contra `nutricion_secuencias` id 289 del ws1: sus pasos
+  no tienen NI UN link (`sprint.mauriciobustos` no aparece, y no hay ningún `http`), y lo que manda es «*ya me llegó
+  tu pago, muchas gracias! ¿Me mandas tu email para registrarte?*». Es la automatización de DESPUÉS de pagar
+  (dispara en la etapa `st0` del funnel 44), activa, 25 envíos en 7 días. **Pausarla no habría frenado nada y habría
+  roto el alta de los que sí pagaron.**
+- **Regla que queda, y es la que más tiempo ahorra: el NOMBRE de una automatización no es su función.** «apertura»
+  suena a la que abre la venta y es la de bienvenida al que compró. Antes de decir que una automatización manda
+  tráfico a una URL, se leen sus `pasos` y se busca la URL adentro. Deducirlo del nombre estuvo a punto de hacernos
+  ofrecerle a Mauricio pausar justo lo que lo dejaba sin onboarding.
+- **Estado al 24/10 ~20:30 UTC: sigue pisada.** Abierta con un navegador real (el `curl` con UA propio da 403 en ese
+  host): la raíz muestra «Tu inscripción al Sprint», con el grupo de WhatsApp, sin precio, sin VSL y sin botón de
+  compra. **Avisado a Mauricio en su grupo de MaKo** ese mismo día, con los pasos para restaurar `index.html` desde la
+  copia de seguridad del hosting (ahí no entramos nosotros) y el recordatorio de que el Sprint es el 24, 25 y 26 de
+  noviembre: todavía está vendiendo.
 - **Regla que queda:** después de ayudar a pegar el Pixel en un sitio de varias páginas, se compara cada página contra la
   anterior (título y md5 con `curl`), no sólo que llegue el pageview: el probador dio verde sobre una página que ya no
   era la de venta.
