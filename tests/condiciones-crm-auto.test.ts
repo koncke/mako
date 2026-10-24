@@ -163,5 +163,6 @@ test('6. el lector del motor trae la columna y el día del NEGOCIO cuando la con
   assert.ok(cols.split(',').map((c) => c.trim()).includes('nutricion_manual_deadline'), 'la lectura del catálogo no trae el plazo');
   assert.match(src, /const pideHoy = pide\('pagos'\) \|\| filas\.some\(\(f\) => f\.campo === 'nutricion_vencida'\);/);
   assert.match(src, /const leerHoy = async \(\): Promise<string> => \(pideHoy \? hoyEnTz\(await tzActual\(\)\) : ''\);/);
-  assert.match(src, /lead: catalogoDeLead\(f, ahoraMs, hoy \|\| null\)/);
+  // 24/10/2026: y la zona del negocio, la del ancla de la espera (tests/reunion-termino-una-regla.test.ts).
+  assert.match(src, /lead: catalogoDeLead\(f, ahoraMs, hoy \|\| null, zona\)/);
 });
