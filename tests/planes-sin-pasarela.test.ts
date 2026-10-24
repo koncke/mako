@@ -95,7 +95,7 @@ test('«Tu plan» ofrece Pro por pedido, y /mako-partners no nombra un plan que 
   assert.match(pagina, /href: `\/planes\/\$\{pro\.id\}`/);
   assert.match(pagina, /porLlamada=\{porLlamada\}/);
   assert.match(fuente('app/configuraciones/plan/PlanPanel.tsx'), /porLlamada && <FilaAjustes[^>]*href=\{porLlamada\.href\}/);
-  assert.doesNotMatch(fuente('app/mako-partners/page.tsx'), /Growth/);
+  for (const rel of ['app/mako-partners/page.tsx', 'app/mako-partners/LandingPartners.tsx']) assert.doesNotMatch(fuente(rel), /Growth/, rel);
 });
 
 test('la LANDING de venta: las columnas de precios donde estaba la agenda, con el origen y el partner de la URL', () => {

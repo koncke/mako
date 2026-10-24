@@ -72,7 +72,7 @@ export function PresentacionPartners({ vista }: { vista: 'cliente' | 'plataforma
       <div className="pp-grilla">
         <div>
           <span className="pp-ceja">Programa de partners</span>
-          <h2 id="pp-titulo">Gana el primer mes de <em>cada negocio</em> que traigas a MaKo</h2>
+          <h2 id="pp-titulo">Suma el primer mes de <em>cada negocio</em> que traigas a MaKo</h2>
           <p className="pp-bajada">
             Compartes tu link. Cuando ese negocio paga su {mes} mes, su primer mes queda como crédito a tu favor. Sin tope: el que
             trae muchos, junta muchos.
