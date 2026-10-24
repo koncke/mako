@@ -167,19 +167,20 @@ test('el MCP es un relevo: sólo las herramientas del turno, y las corre el turn
 
 test('el turno: la PC de QUIEN escribe, sólo en línea Y con sesión, con su runTool; y con su IA, sin la cascada barata', () => {
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(t, /const leidaPc = await pcDe\(ws, persona\.actor\)/, 'la cuenta es de una persona: sólo sus turnos');
+  assert.match(t, /const leerPc = \(cual: ProveedorPc\) => pcDe\(ws, persona\.actor, cual\)/, 'la cuenta es de una persona: sólo sus turnos');
   // Rota: mandar a la PC aunque esté apagada o sin sesión → este test falla.
-  assert.match(t, /const pcPuede = pcUsable\(pc\);/);
-  assert.match(t, /if \(conLaPc && pc && pcPuede\) \{\s*try \{\s*const modelo = ia\?\.cuenta === 'pc' && ia\.modelo \? modeloPc\(ia\.modelo\) : modeloPc\(await getSetting\(CLAVE_MODELO_PC\)\.catch\(\(\) => null\)\);\s*const turnoPc = await encolarTurno\(pc, s\.id, \{ system, prompt: armarPrompt\(historial, textoModelo\), tools, modelo \}\);/);
+  assert.match(t, /const pcPuede = pcUsable\(pc, iaDeLaPc\);/);
+  assert.match(t, /if \(conLaPc && pc && pcPuede\) \{\s*try \{\s*const modelo = iaDeLaPc !== 'claude' \? undefined\s*: ia\?\.cuenta === 'pc' && ia\.modelo \? modeloPc\(ia\.modelo\) : modeloPc\(await getSetting\(CLAVE_MODELO_PC\)\.catch\(\(\) => null\)\);\s*const espera = esperaDelTurno\(entrada\.plazoMs \?\? PLAZO_RUTA_MS, Date\.now\(\) - inicio, reservado \? RESERVA_RESPALDO_MS : 0\);\s*const turnoPc = await encolarTurno\(pc, s\.id, \{\s*system, prompt: armarPrompt\(historial, textoModelo\), tools, modelo, \.\.\.\(iaDeLaPc !== 'claude' \? \{ proveedor: iaDeLaPc \} : \{\}\),\s*\}, espera, \{ pruebaSinSesion: entrada\.pruebaSinSesion === true \}\);/);
   // Lo que le queda a la ruta, no 240 s fijos; y la PC que se apaga a mitad del turno se ve (no 4 minutos).
-  assert.match(t, /const espera = esperaDelTurno\(entrada\.plazoMs \?\? PLAZO_RUTA_MS, Date\.now\(\) - inicio\);\s*const r = await esperarALaPc\(turnoPc, ws, pc\.id, nuevoIntento\(\) as Ejecutor, espera\);/);
+  // El turno vence con esa misma espera (tests/ia-pc-nunca-a-leads.test.ts → 5), y se espera eso.
+  assert.match(t, /\}, espera, \{ pruebaSinSesion: entrada\.pruebaSinSesion === true \}\);\s*const r = await esperarALaPc\(turnoPc, ws, pc\.id, nuevoIntento\(\) as Ejecutor, espera\);/);
   assert.match(t, /else if \('apagada' in r\) \{ falloDeLaPc = 'apagada';/);
   // Sin su PC (o si no pudo), su clave: con «sólo su IA» del NEGOCIO (D6b, tests/solo-su-ia.test.ts).
-  assert.match(t, /if \(!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos' && ia\?\.cuenta !== 'pc'\) \{/);
+  assert.match(t, /if \(!texto && probarSuClaveTrasLaPc\(falloDeLaPc, \{ eligioLaPc, reservado \}\)\) \{/);
   assert.match(t, /soloSuIA: negocio\.suIA/, 'D6b: por negocio, sin la cascada barata');
   // Lo que falla en la PC del cliente, o en SU cuenta, no abre un ticket de bug.
   assert.match(t, /\.\.\.\(fallo && !sinIA && !falloDeLaPc && \(!deSuCuenta \|\| suOpenAI === 'no-existe'\) \? \[\{ nombre: 'responder'/);
-  assert.match(t, /const delaPc = avisoDeLaPc\(falloDeLaPc, false, \{ repone: reponeDeLaPc, tz: tzAviso \}\);/);
+  assert.match(t, /const delaPc = avisoDeLaPc\(falloDeLaPc, false, \{ repone: reponeDeLaPc, tz: tzAviso, ia: iaDeLaPc \}\);/);
   const a = sinComentarios(leer('lib/anthropic.ts'));
   // Desde IA6 (22/10/2026) también cuando lo decidió la puerta de la capa de IA (`soloSuIA()`), no sólo el turno.
   assert.match(a, /const provs: ProvName\[\] = opts\.soloSuIA \|\| soloSuIA\(\) \? \[\.\.\.PROVS_SU_IA\] as ProvName\[\] : /, 'sólo su IA (su Gemini y su GPT, IA16), después su Claude');

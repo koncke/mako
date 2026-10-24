@@ -12,7 +12,7 @@
 // porque Anthropic no deja que otra app use los tokens de la suscripción. Claude Max trae crédito de API.
 //
 // GEMINI (IA16, 22/10/2026). Martín, textual: «Cada usuario debe poder pagar su token, su propia IA de gemini». Va sólo por
-// clave (la de AI Studio: no hay suscripción que corra en la PC) y la pantalla dice dónde sacarla en una línea. Y SIEMPRE el
+// clave (la de AI Studio: no hay suscripción que corra en la PC, medido el 24/10/2026 — ver `iaDeLaPcPara`) y la pantalla dice dónde sacarla en una línea. Y SIEMPRE el
 // aviso del plan gratis: Google no dice el plan de una clave sin gastarla (medido el 22/10: la lista de modelos, el modelo y
 // countTokens contestan igual en el gratis y en el pago), así que no se puede avisar sólo a quien está en el gratis.
 //
@@ -32,6 +32,14 @@ export const NOMBRE_IA: Record<IaDelCliente, string> = { claude: 'Claude', chatg
  * opción se ve y dice «Pronto»: así el cliente sabe que existe y que hoy su GPT entra por la clave.
  */
 export const CHATGPT_EN_LA_PC = false;
+/**
+ * La IA de la PC que corresponde a una IA del cliente, o null si esa IA no tiene computadora. Gemini no tiene, y no por falta
+ * de código (24/10/2026): Google cerró el login personal de Gemini CLI el 18/06/2026 y Antigravity prohíbe el uso desde otro
+ * producto (lib/ia-pc-reglas.ts → `PROVEEDORES_PC`).
+ */
+export const iaDeLaPcPara = (ia: IaDelCliente): 'claude' | 'chatgpt' | null => (ia === 'gemini' ? null : ia);
+/** Si la computadora ya se ofrece para esa IA (Claude, siempre; ChatGPT, con `CHATGPT_EN_LA_PC`; Gemini, nunca). */
+export const pcListaPara = (ia: IaDelCliente): boolean => ia === 'claude' || (ia === 'chatgpt' && CHATGPT_EN_LA_PC);
 
 export type OpcionConectar = {
   que: 'pc' | 'clave' | 'pedir';
@@ -46,9 +54,9 @@ export const pedirleAlAdmin = (admin?: string | null): string =>
 
 /** Las opciones del paso 2, en orden: la computadora y la clave (o «pídele», a quien no es admin). Gemini, sólo la clave. */
 export function comoConectar(ia: IaDelCliente, quien: { esAdmin: boolean; admin?: string | null }): OpcionConectar[] {
-  const pcLista = ia === 'claude' || CHATGPT_EN_LA_PC;
+  const pcLista = pcListaPara(ia);
   return [
-    ...(ia === 'gemini' ? [] : [{
+    ...(iaDeLaPcPara(ia) == null ? [] : [{
       que: 'pc', titulo: 'Mi computadora',
       detalle: pcLista ? 'Con tu suscripción. Contesta este chat mientras esté prendida.' : 'Pronto',
       habilitada: pcLista,

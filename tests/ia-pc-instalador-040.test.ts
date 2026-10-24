@@ -45,7 +45,7 @@ test('1. Windows y Mac: tres pasos sin terminal; la línea de comandos sólo ple
   const sinRespaldos = tut.replace(/<details className="tci-respaldo">[\s\S]*?<\/details>/g, '');
   assert.doesNotMatch(sinRespaldos, /COMANDO_CLAUDE|LOGIN_CLAUDE|lineaDeInstalacion|DONDE_PEGAR/, 'el tutorial pide abrir una terminal fuera de un respaldo');
   // Sin la sesión de Claude: en Windows, el enlace que la inicia sin terminal.
-  assert.match(tut, /<a className="tci-boton" href="mako:\/\/iniciar-sesion">Iniciar sesión en Claude<\/a>/);
+  assert.match(tut, /<a className="tci-boton" href=\{conClaude \? 'mako:\/\/iniciar-sesion' : 'mako:\/\/iniciar-sesion\?ia=chatgpt'\}>\{`Iniciar sesión en \$\{nombre\}`\}<\/a>/);
   // El aviso del chat sin la sesión de Claude no manda a un paso: en Windows el «paso 3» ya no existe (revisión de la 0.4.0).
   assert.doesNotMatch(AVISO_PC_SIN_SESION, /paso \d/, 'el aviso manda a un paso que no existe');
   // Una PC de la 0.3.2 (instalada con la línea de comandos, como la del ws1) no abre mako://: plegada, la línea de siempre.

@@ -206,6 +206,9 @@ const VIEJO = `mkopc_${'V'.repeat(43)}`;
 const NUEVO = `mkopc_${'N'.repeat(43)}`;
 const CON_PENDIENTE = { servidor: 'SERVIDOR', token: VIEJO, negocio: 'El de antes', pendiente: { servidor: 'SERVIDOR', token: NUEVO, nombre: 'PC', negocio: 'Prueba', persona: 'ana' } };
 
+// ⚠️ CON LA MÁQUINA CARGADA ESTE TEST DA ROJO SIN UN BUG (24/10/2026): el programa no termina en los 8 s de `correr`, la
+// salida llega `null` y el assert dice «sale con 1». Solo, verde. Antes de buscar el bug, correlo solo (docs/hallazgos-ia.md
+// → «Tests que mienten con la máquina cargada»).
 test('el programa: «confirmar» guarda la conexión nueva y suelta la vieja SÓLO si MaKo la confirmó', async () => {
   const bien = await correr(['confirmar'], CON_PENDIENTE, () => ({ status: 200, cuerpo: { ok: true } }), 8_000);
   assert.equal(bien.salida, 0);
@@ -295,7 +298,8 @@ test('el tutorial: el código gastado sin conectar ofrece otro, cuenta con SU re
   assert.match(sinComentarios(leer('app/api/ia-pc/codigo/route.ts')), /duraMs: CODIGO_MS/);
   assert.match(ui, /listo=\{!!estado\}/, 'hasta saber qué PC ya estaban');
   assert.match(ui, /const anda = o\.habilitada && \(o\.que !== 'pc' \|\| puedeComputadora\);/, '«Mi computadora» espera al estado (IA4)');
-  assert.match(ui, /setSinSesion\(nueva\.sinClaude \? 'claude' : 'sesion'\)/);
+  // «Falta Claude Code» es sólo del tutorial de Claude (la ola 3).
+  assert.match(ui, /setSinSesion\(conClaude && nueva\.sinClaude \? 'claude' : 'sesion'\)/);
   assert.match(ui, /onClick=\{\(\) => setPaso\(2\)\}>\{sistema === 'windows' \? 'Volver a instalar \(paso 2\)' : 'Volver al paso 2'\}</);
   assert.match(ui, /no la app de escritorio/);
   // /perfil/ia ya tiene su título: el componente va sin cabecera.
@@ -313,7 +317,8 @@ test('el turno: la PC que no se pudo leer, la desconectada a mitad y la sin Clau
   assert.match(t, /\? pcIlegible && negocio\.suIA\s*\? \{ aviso: AVISO_PC_ILEGIBLE, conectar: null \}/);
   assert.match(t, /\.\.\.\(pcIlegible && !texto \? \[\{ nombre: 'leer-la-pc'/, 'y va a la Ticketera');
   assert.match(t, /else if \('desconectada' in r\) \{ falloDeLaPc = 'desconectada';/);
-  assert.match(t, /pc\.enLinea \? \(pc\.claudeFalta \? 'sin-claude' : 'sesion'\) : 'apagada'/);
+  // «Falta Claude Code» es sólo de un turno de Claude (la ola 3): a su ChatGPT no le falta Claude Code.
+  assert.match(t, /pc\.enLinea \? \(pc\.claudeFalta && iaDeLaPc === 'claude' \? 'sin-claude' : 'sesion'\) : 'apagada'/);
   assert.equal(avisoDeLaPc('sin-claude', false), AVISO_PC_SIN_CLAUDE);
   assert.equal(avisoDeLaPc('desconectada', false), AVISO_PC_DESCONECTADA);
   assert.match(AVISO_PC_ILEGIBLE, /No pude ver tu computadora/);

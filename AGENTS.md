@@ -2384,11 +2384,15 @@ Su página va con `Referrer-Policy: same-origin`, NUNCA `no-referrer`: con ésa 
 `Origin: null` y la página se rechaza a sí misma (la 0.4.0 publicada no servía por eso).
 
 **Y la computadora del cliente NUNCA atiende leads sola (Martín, 22/10/2026, sobre los términos de Anthropic: «No por
-ahora»).** Su Claude en su PC (D6a) es SÓLO para que el dueño trabaje con SU Claude desde la app: el chat de la app, el del
-teléfono, el de MaKo en el CRM y el de la ficha del lead, siempre con la sesión de una persona. Nada que corra solo hacia un
-lead —respuestas automáticas de WhatsApp, AI Steps de Automations, crons, webhooks, secuencias— va a la PC: va por clave de
-API, o por el crédito donde está asignado (lib/credito-negocio.ts). A la PC llega sólo `turnoApp` (lib/mako-turno-app.ts);
-una entrada nueva que lo llame se suma en tests/ia-pc-nunca-a-leads.test.ts con la sesión de su persona, y si corre sola, no.
+ahora»; y el 23/10/2026, para ChatGPT: «igual que Claude, sólo para que el dueño use su propio ChatGPT en su PC, nunca para
+atender leads solo»).** Su Claude o su ChatGPT en su PC (D6a) es SÓLO para que el dueño trabaje con SU IA desde la app: el
+chat de la app, el del teléfono, el de MaKo en el CRM y el de la ficha del lead, siempre con la sesión de una persona. Nada que
+corra solo hacia un lead —respuestas automáticas de WhatsApp, AI Steps de Automations, nutrición, avisos, crons, webhooks,
+secuencias— va a la PC: va por clave de API, o por el crédito donde está asignado (lib/credito-negocio.ts). A la PC llega sólo
+`turnoApp` (lib/mako-turno-app.ts), y **la sesión se mira ADENTRO del turno, no sólo en quien lo llama**
+(`laPersonaEstaAdentro`): armar la persona del dueño no alcanza. Una entrada nueva que lo llame se suma en
+tests/ia-pc-nunca-a-leads.test.ts con la sesión de su persona, y si corre sola, no. Una PC contesta sólo con la IA del texto
+que aceptó quien la conectó (`iaDeLaPcConectada`).
 
 **Y todo .exe que publicar-binarios sube se firma con `firmar` (scripts/ia-pc/firmar-windows.mjs) DESPUÉS del último cambio
 a sus bytes y antes de subirlo.** «Firmado» es `peFirmado` y `peConMarcaDeTiempo` sobre lo que vuelve, nunca el código de

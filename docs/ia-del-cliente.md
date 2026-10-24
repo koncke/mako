@@ -204,7 +204,8 @@ programa no lleva la marca de «descargado de internet», así que **SmartScreen
   (JSONL: `thread.started`, `turn.completed`, `item.*`, `error`) y `--ephemeral`. OpenAI **recomienda una API key para
   automatizar** (learn.chatgpt.com/docs/non-interactive-mode).
 - **El token:** `~/.codex/auth.json` o el almacén del sistema (`cli_auth_credentials_store`). «Treat auth.json like a
-  password», y no compartirlo entre trabajos concurrentes: los turnos van de a uno (learn.chatgpt.com/docs/auth).
+  password» (learn.chatgpt.com/docs/auth), y no compartirlo entre trabajos concurrentes ni entre máquinas: los turnos van
+  de a uno (learn.chatgpt.com/docs/auth/ci-cd-auth; la doc de auth no lo dice, corregido el 23/10/2026).
 - **Herramientas:** MCP por stdio y HTTP streamable, en `config.toml` (`[mcp_servers.<nombre>]`, `url`,
   `bearer_token_env_var`) (learn.chatgpt.com/docs/extend/mcp). Que `codex exec` los cargue no está documentado: se mide
   en la ola 3.
@@ -221,6 +222,21 @@ programa no lleva la marca de «descargado de internet», así que **SmartScreen
   npm es un `.cmd`: con `shell: true` el prompt y las comillas TOML de `-c` llegaban partidos; el script entrecomilla a mano.
   Si da ✓, sigue el turno (el programa de la PC), el % usado (`account/rateLimits/read`) y la tarjeta; si da ✗, GPT queda
   sólo por su clave de API.
+
+**Corregido el 23/10/2026 (noche), con Codex 0.164.0 instalado en la PC de Martín** (detalle en docs/hallazgos-ia.md → «La
+ola 3 por dentro»):
+
+- La medición de arriba iba a dar ✗ por la APROBACIÓN, no por el MCP: con «never» y `--sandbox read-only` Codex rechaza una
+  herramienta sin `readOnlyHint` antes de llamarla. Ahora lleva `mcp_servers.mako.default_tools_approval_mode="approve"`, el
+  prompt por stdin (`codex exec -`), y mide además `-c developer_instructions` y si Codex tiene «manos» (3a como viene, 3b
+  con sus herramientas propias apagadas por `--disable`). Gasta tres turnos de la cuenta de ChatGPT.
+- `--sandbox read-only` NO es el `--tools ""` de Claude: puede leer el disco. La receta candidata es `--disable` de
+  `shell_tool`, `unified_exec`, `browser_use`, `computer_use`, `apps`, `plugins`, `view_image` y compañía (0.164.0).
+- `codex login` no necesita la página local de Claude: levanta su callback en 127.0.0.1:1455 (o 1457) y termina solo.
+- El % usado sale de `codex app-server` por **stdio**, que no es experimental (lo experimental es el WebSocket).
+- Planes: la tabla de precios no confirma el CLI para Free ni para Go.
+- Lo legal (§10): los Terms of Use de OpenAI prohíben «make your account available to anyone else» y la extracción
+  programática del Output. Sin autorización escrita, lo decide Martín.
 
 ---
 
@@ -242,7 +258,11 @@ programa no lleva la marca de «descargado de internet», así que **SmartScreen
    (compartirla sería «make your Account available to anyone else»).
 3. **Sólo turnos que pidió una persona**, en el momento. Nada de fondo ni 24/7 (D6a).
 4. El tutorial le dice al cliente, en sus palabras, que es su cuenta y su uso, y que la puede desconectar.
-5. Para GPT, lo mismo, y queda la API key como el camino recomendado por OpenAI para automatizar.
+5. Para GPT, lo mismo, y queda la API key como el camino recomendado por OpenAI para automatizar. **Decidido por Martín el
+   23/10/2026:** «Sí: ChatGPT en la computadora del cliente igual que Claude, sólo para que el dueño use su propio ChatGPT en
+   su PC, nunca para atender leads solo». El porqué, las fuentes de OpenAI y la guarda en código (la sesión se mira adentro
+   del turno; una PC contesta sólo con la IA del texto que aceptó): docs/hallazgos-ia.md, «ChatGPT en la PC: la misma regla
+   que D6a».
 6. **La persona instala y corre el programa ELLA MISMA, y acepta con un toque** (el Cerebro, 21/10): «Tu Claude corre
    en tu computadora, con tu cuenta, y contesta sólo lo que tú le pides en MaKo. MaKo nunca ve tu clave ni tu sesión.»
    Sin ese toque no hay código, y la versión del texto que aceptó queda en el código y en la PC (mig 0321).

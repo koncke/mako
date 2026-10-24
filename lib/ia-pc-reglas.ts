@@ -30,8 +30,25 @@ export const ESPERA_RESPUESTA_MS = 240_000;
 /** Lo que se deja libre al final de la ruta para cerrar el turno y contestar. */
 export const MARGEN_RUTA_MS = 25_000;
 /** Lo que el chat espera a la PC en ESTE turno: lo que le queda a la ruta, menos el margen, con el tope de siempre. */
-export function esperaDelTurno(plazoRutaMs: number, gastadoMs: number): number {
-  return Math.max(0, Math.min(ESPERA_RESPUESTA_MS, plazoRutaMs - gastadoMs - MARGEN_RUTA_MS));
+export function esperaDelTurno(plazoRutaMs: number, gastadoMs: number, reservaMs = 0): number {
+  return Math.max(0, Math.min(ESPERA_RESPUESTA_MS, plazoRutaMs - gastadoMs - MARGEN_RUTA_MS - Math.max(0, reservaMs)));
+}
+/**
+ * EL RESPALDO DE UNA PC QUE NO CONTESTA ES SU CLAVE, Y NECESITA TIEMPO (24/10/2026). El vigía levantó que a Brigitte Eberlin
+ * su Gemini le dio timeout y no había nada detrás (eso era en la nube, y lo arregla Automations). En la PC pasa lo mismo de
+ * otra forma: la PC se come toda la espera y, si no contesta, ya no queda tiempo para probar con su clave — el turno decía
+ * «no contestó a tiempo» teniendo el negocio una clave propia que sí podía. Por eso, en Automático y con una clave propia, la
+ * espera de la PC deja esto libre para su clave. El respaldo es SIEMPRE una IA del negocio, nunca la de MaKo (IA16).
+ */
+export const RESERVA_RESPALDO_MS = 90_000;
+/**
+ * Si después de la PC se prueba con su clave. No: si eligió su computadora (eligió ésa), si pasó su tope de turnos, o si la
+ * PC tardó SIN que se le haya reservado tiempo a su clave (ya no queda).
+ */
+export function probarSuClaveTrasLaPc(fallo: FalloDeLaPc | null, o: { eligioLaPc: boolean; reservado: boolean }): boolean {
+  if (o.eligioLaPc || fallo === 'muchos') return false;
+  if (fallo === 'tarde') return o.reservado;
+  return true;
 }
 /**
  * Un turno que la PC no tomó en este tiempo es de una PC que se apagó (el long-poll es de 25 s): no se esperan los 4
@@ -51,6 +68,54 @@ export const TOPE_RESPUESTA = 20_000;
  */
 export const TEXTO_CONSENTIMIENTO = 'Tu Claude corre en tu computadora, con tu cuenta, y contesta sólo lo que tú le pides en MaKo. MaKo nunca ve tu clave ni tu sesión.';
 export const VERSION_CONSENTIMIENTO = '2026-10-21';
+/**
+ * Lo que acepta quien conecta su ChatGPT (la ola 3), con SU versión: como la versión queda en el código y en la PC (mig
+ * 0321), dice también qué IA eligió la persona (`iaDelConsentimiento`), sin otra columna.
+ */
+export const CONSENTIMIENTO_DE: Readonly<Record<ProveedorPc, { texto: string; version: string }>> = {
+  claude: { texto: TEXTO_CONSENTIMIENTO, version: VERSION_CONSENTIMIENTO },
+  chatgpt: {
+    texto: 'Tu ChatGPT corre en tu computadora, con tu cuenta, y contesta sólo lo que tú le pides en MaKo. MaKo nunca ve tu clave ni tu sesión.',
+    version: '2026-10-23-chatgpt',
+  },
+};
+/** De qué IA es la versión aceptada; null si no es una que se acepte hoy. */
+export const iaDelConsentimiento = (v: unknown): ProveedorPc | null =>
+  (Object.keys(CONSENTIMIENTO_DE) as ProveedorPc[]).find((ia) => CONSENTIMIENTO_DE[ia].version === v) ?? null;
+/**
+ * Con qué IA se conectó una PC: la del texto que aceptó quien la conectó (la columna `consentimiento`, mig 0321). La versión
+ * de ChatGPT termina en «-chatgpt», también cuando el texto cambie; cualquier otra —o ninguna, las PC de antes del 21/10—
+ * es Claude. A diferencia de `iaDelConsentimiento`, vale para una versión vieja: la PC sigue siendo de esa IA.
+ */
+export const iaDeLaPcConectada = (consentimiento: unknown): ProveedorPc =>
+  typeof consentimiento === 'string' && /-chatgpt$/.test(consentimiento) ? 'chatgpt' : 'claude';
+
+/**
+ * LA PC SÓLO CON LA PERSONA ADENTRO (D6a; con ChatGPT, igual: Martín, 23/10/2026, «Sí: ChatGPT en la computadora del cliente
+ * igual que Claude, sólo para que el dueño use su propio ChatGPT en su PC, nunca para atender leads solo»). El turno no le
+ * cree a la persona que le pasan: mira la sesión de ESTE pedido, y tiene que ser la misma. Un cron o un webhook no tienen
+ * sesión, así que no llegan a la PC aunque armen la persona del dueño. Un `after()` dentro de la ruta de la persona SÍ la tiene
+ * (Next conserva las cookies ahí): es la continuación de lo que ella pidió, y por eso nada que corra solo hacia un lead se
+ * cuelga de un `after()` que termine en la PC. La miran el turno (`turnoApp`) y la puerta (`encolarTurno`). La única
+ * excepción es la prueba de punta a punta que se corre A MANO (scripts/ia-pc/probar-punta-a-punta.mts), y sólo con la persona
+ * de prueba del ws3.
+ */
+export const ACTOR_PRUEBA_PC = 'prueba-ia-pc@hola-mako.com';
+export const WS_PRUEBA_PC = 3;
+/** Quién es una sesión, como lo arman las entradas del turno (`personaDelRequest`, `chatDelRequest`, `analystDelRequest`). */
+export const actorDeSesion = (s: { email?: string | null; nombre?: string | null; sub?: unknown } | null | undefined): string | null => {
+  const actor = s ? s.email || s.nombre || (s.sub == null ? '' : String(s.sub)) : '';
+  return actor || null;
+};
+export function laPersonaEstaAdentro(
+  sesion: { email?: string | null; nombre?: string | null; sub?: unknown } | null | undefined,
+  persona: { ws: number; actor: string },
+  prueba = false,
+): boolean {
+  if (prueba) return persona.ws === WS_PRUEBA_PC && persona.actor === ACTOR_PRUEBA_PC;
+  const actor = actorDeSesion(sesion);
+  return !!actor && actor === persona.actor;
+}
 
 /** Sin 0/O ni 1/I: se lee y se copia de una pantalla a otra. */
 export const ALFABETO_CODIGO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -105,9 +170,30 @@ export function sanearNombrePc(x: unknown): string {
   return n || 'Mi computadora';
 }
 
+/**
+ * Con qué IA corre la PC un turno (la ola 3, 23/10/2026): su Claude (Claude Code) o su ChatGPT (Codex). Todo lo que elige
+ * una PC o le arma un turno lo recibe con 'claude' por defecto: el programa hasta la 0.4.2 sólo reporta cuentas de Claude,
+ * y así lo de hoy no cambia.
+ */
+export type ProveedorPc = 'claude' | 'chatgpt';
+/**
+ * Las IA de la PC, en el orden en que Automático las prueba (`turnoApp`). GEMINI NO ESTÁ, Y NO ES UN OLVIDO (24/10/2026,
+ * Martín: «podríamos hacer eso también en PC»): desde el 18/06/2026 Gemini CLI no atiende el «Login with Google» de cuentas
+ * personales (gratis, Google AI Pro y Ultra), y su reemplazo, Antigravity CLI, prohíbe en sus términos usarlo «in connection
+ * with products not provided by us», con suspensiones reportadas. Sin una suscripción que corra en la PC, su Gemini va por
+ * clave (IA16). El detalle, con las fuentes: docs/hallazgos-ia.md → «Gemini en la PC: no».
+ */
+export const PROVEEDORES_PC: readonly ProveedorPc[] = ['claude', 'chatgpt'];
+/** Si un valor que llega de afuera (lo que reporta una PC) es una IA de la PC. */
+export const esProveedorPc = (x: unknown): x is ProveedorPc => (PROVEEDORES_PC as readonly unknown[]).includes(x);
+/** Cómo se nombra cada IA en lo que lee la persona. */
+export const NOMBRE_IA_PC: Readonly<Record<ProveedorPc, string>> = { claude: 'Claude', chatgpt: 'ChatGPT' };
+/** El programa de cada IA, para el aviso de que falta instalarlo. */
+export const PROGRAMA_IA_PC: Readonly<Record<ProveedorPc, string>> = { claude: 'Claude Code', chatgpt: 'Codex' };
+
 /** Una cuenta de IA que reporta la PC. Nunca un secreto: lo que no se reconoce, no entra. */
 export type CuentaPc = {
-  proveedor: 'claude' | 'chatgpt';
+  proveedor: ProveedorPc;
   email?: string;
   plan?: string;
   /** % usado de la ventana corta (las 5 horas) y de la semana, 0 a 100. */
@@ -131,7 +217,7 @@ export function sanearCuentas(x: unknown): CuentaPc[] {
   for (const c of x.slice(0, 8)) {
     if (!c || typeof c !== 'object') continue;
     const o = c as Record<string, unknown>;
-    if (o.proveedor !== 'claude' && o.proveedor !== 'chatgpt') continue;
+    if (!esProveedorPc(o.proveedor)) continue;
     const email = corta(o.email, 200);
     const iso = (v: unknown) => (typeof v === 'string' && Number.isFinite(Date.parse(v)) ? new Date(v).toISOString() : undefined);
     const repone = iso(o.repone);
@@ -219,6 +305,12 @@ export const MODELO_PC_DEFAULT: ModeloPc = 'sonnet';
 /** La configuración del negocio que elige el modelo (app_settings, por workspace). */
 export const CLAVE_MODELO_PC = 'ia_pc.modelo';
 export const modeloPc = (x: unknown): ModeloPc => ((MODELOS_PC as readonly unknown[]).includes(x) ? (x as ModeloPc) : MODELO_PC_DEFAULT);
+/**
+ * El modelo de un turno, según la IA de la PC. Con ChatGPT, ninguno: Codex usa el suyo por defecto. Sus modelos con la sesión
+ * de ChatGPT cambian rápido y no están medidos (docs/ia-del-cliente.md §9), así que no se inventa ningún id.
+ */
+export const modeloDelTurno = (proveedor: ProveedorPc | undefined, x: unknown): ModeloPc | undefined =>
+  (proveedor ?? 'claude') === 'claude' ? modeloPc(x) : undefined;
 
 /**
  * El % usado que trae el `rate_limit_event` del stream (utilización de 0 a 1, `resetsAt` en segundos), con cuándo se
@@ -542,8 +634,17 @@ export function estadoDeLaPc(pc: { enLinea: boolean; ultimoLatido: string | null
   return pc.ultimoLatido ? `Sin conexión · ${hace(Date.parse(pc.ultimoLatido), ahora)}` : 'Esperando que se conecte';
 }
 
-/** ¿Le sirve el turno a esta PC? En línea Y con una cuenta con sesión: «en línea» sin Claude no contesta nada. */
-export const pcUsable = (pc: { enLinea: boolean; cuentas: readonly unknown[] } | null | undefined): boolean => !!pc && pc.enLinea && pc.cuentas.length > 0;
+/** Las cuentas de una IA (las de antes de la ola 3 no traían el proveedor: eran de Claude). */
+export const cuentasDeLaIA = <T>(cuentas: readonly T[], proveedor: ProveedorPc = 'claude'): T[] =>
+  cuentas.filter((c) => ((c as { proveedor?: unknown } | null)?.proveedor ?? 'claude') === proveedor);
+
+/**
+ * ¿Le sirve el turno a esta PC? En línea Y con una cuenta con sesión DE ESA IA: «en línea» sin Claude no contesta nada, y
+ * una PC con sólo su ChatGPT no contesta un turno de Claude (ni al revés). ⚠️ Con un segundo parámetro, NO se pasa suelta a
+ * `.filter`: le llegaría el índice como proveedor.
+ */
+export const pcUsable = (pc: { enLinea: boolean; cuentas: readonly unknown[] } | null | undefined, proveedor: ProveedorPc = 'claude'): boolean =>
+  !!pc && pc.enLinea && cuentasDeLaIA(pc.cuentas, proveedor).length > 0;
 
 /**
  * A QUÉ COMPUTADORA VA EL TURNO, con varias (22/10/2026, Martín: «el usuario debería poder abrir y ejecutar su Claude en varios
@@ -558,12 +659,13 @@ export const pcUsable = (pc: { enLinea: boolean; cuentas: readonly unknown[] } |
  * al final; entre las que fallaron, primero la que falló hace más (así, con las dos fallando, se turnan).
  */
 export function elegirPc<T extends { id: number; enLinea: boolean; cuentas: readonly unknown[]; ultimoLatido: string | null; conectadaAt?: string | null }>(
-  pcs: readonly T[], ultimoTurno: ReadonlyMap<number, { at: string; ok: boolean }>,
+  pcs: readonly T[], ultimoTurno: ReadonlyMap<number, { at: string; ok: boolean }>, proveedor: ProveedorPc = 'claude',
 ): T | null {
   const ms = (s: string | null | undefined) => (s ? Date.parse(s) || 0 : 0);
-  const usables = pcs.filter(pcUsable);
+  // Por IA (la ola 3): una PC que sólo tiene ChatGPT no es candidata para un turno de Claude, y al revés.
+  const usables = pcs.filter((p) => pcUsable(p, proveedor));
   if (usables.length) {
-    const sana = (p: T) => !cuentasAgotadas(p.cuentas) && ultimoTurno.get(p.id)?.ok !== false;
+    const sana = (p: T) => !cuentasAgotadas(cuentasDeLaIA(p.cuentas, proveedor)) && ultimoTurno.get(p.id)?.ok !== false;
     return [...usables].sort((a, b) => {
       if (sana(a) !== sana(b)) return sana(a) ? -1 : 1;
       const t = ms(ultimoTurno.get(b.id)?.at) - ms(ultimoTurno.get(a.id)?.at);
@@ -751,7 +853,13 @@ export function avisoTope(repone: string | null | undefined, tz: string, ahora =
   const cuando = dias <= 0 ? '' : dias === 1 ? 'mañana ' : `el ${new Intl.DateTimeFormat('es', { weekday: 'long', timeZone: tz }).format(t)} `;
   return `Tu Claude llegó a su límite de uso: se repone ${cuando}a las ${hora}.`;
 }
-export function avisoDeLaPc(fallo: FalloDeLaPc | null, apagada: boolean, extra: { repone?: string | null; tz?: string } = {}): string | null {
+export function avisoDeLaPc(fallo: FalloDeLaPc | null, apagada: boolean, extra: { repone?: string | null; tz?: string; ia?: ProveedorPc } = {}): string | null {
+  const texto = avisoDeClaude(fallo, apagada, extra);
+  // Con su ChatGPT en la computadora (la ola 3), el mismo aviso con el nombre de SU IA y de su programa. Los de Claude, iguales.
+  if (!texto || (extra.ia ?? 'claude') === 'claude') return texto;
+  return texto.replace(/\bTu Claude\b/g, `Tu ${NOMBRE_IA_PC[extra.ia!]}`).replace(/\bClaude Code\b/g, PROGRAMA_IA_PC[extra.ia!]);
+}
+function avisoDeClaude(fallo: FalloDeLaPc | null, apagada: boolean, extra: { repone?: string | null; tz?: string }): string | null {
   if (fallo === 'tarde') return AVISO_PC_TARDE;
   if (fallo === 'error') return AVISO_PC_ERROR;
   if (fallo === 'muchos') return AVISO_PC_MUCHOS;

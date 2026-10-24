@@ -85,8 +85,8 @@ test('el botón del Ops Center abre «¿Qué IA usas?» ahí mismo, y cada vía 
   assert.match(ui, /<BotonIntegracion key=\{o\.que\} servicio=\{SERVICIO_DE_CLAVE\[ia\]\} className="tci-grande"/);
   assert.doesNotMatch(ui, /<BotonIntegracion servicio="anthropic"/, 'nada fijo en Claude');
   // La computadora: el tutorial de siempre.
-  assert.match(ui, /onComputadora=\{abrirTutorial\}/);
-  assert.match(ui, /onClick=\{o\.que === 'pc' \? onComputadora : undefined\}/);
+  assert.match(ui, /onComputadora=\{\(ia\) => abrirTutorialEn\(1, ia\)\}/, 'el tutorial de la IA que eligió (la ola 3)');
+  assert.match(ui, /onClick=\{o\.que === 'pc' \? \(\) => onComputadora\(ia\) : undefined\}/);
   // Gemini: el link de dónde sacar la clave, arriba de la opción; y su logo, el de su integración.
   assert.match(ui, /const donde = ia \? dondeSacarLaClave\(ia\) : null;/);
   assert.match(ui, /<a href=\{donde\.url\} target="_blank" rel="noreferrer"/);
