@@ -2622,3 +2622,26 @@ copiada; en el celular, en algunas apps me aparece la opción de pegarla directa
   - la tab «Second Brain» ya no existe: desde el 17/10 el super admin ve sólo el Ops Center, y desde el 18/10 los clientes
     la ven como «Ops Center» (nav.ts → `arribaDe`; el teléfono, lib/movil-rutas.ts);
   - el chat del teléfono quedó en UNA fila desde el 20/10 (la caja única: «+», emojis, campo y un botón).
+
+## El cartero estuvo 15 horas muerto y nadie lo vio: lo disparaba un chat (24/10/2026)
+
+**El síntoma:** del 23/10 23:47 al 24/10 14:10 el Ops Center no se actualizó, y cuatro pedidos de Martín no llegaron. Uno
+era del 17/10 (el audio que se duplicaba) y estuvo una semana en «escrito»: el bug le volvió a pasar el 24/10, y el pedido
+en que lo contaba TAMBIÉN se perdió.
+
+**La causa:** Martín forzó el apagado de la PC (se trabó entera), y el cartero sólo corre si el chat «Runner» está abierto y
+su cron de sesión anda. Nadie lo volvió a abrir.
+
+**El diagnóstico obvio era el equivocado:** «hagamos un servicio que entregue». No se puede: un script no puede escribirle a
+una sesión de Claude (`SendMessage` sólo sale de un chat, y sólo llega a las sesiones de su misma carpeta de config). Lo
+que falló entero, igual, era lo que NO necesita un chat: medir los registros y subirlos a MaKo. Y lo que hizo caro el
+apagón no fue no entregar: fue que **la ausencia era invisible.** Ya había un renglón «Sin noticias del Runner desde las
+HH:MM», pero era gris, sólo de la computadora, y no decía que había pedidos esperando.
+
+**La regla (AGENTS.md, junto a la del vigía de grupos):** lo que vive en la PC y tiene que correr siempre arranca con el
+sistema, y un chat hace sólo lo que sólo un chat puede hacer. El silencio de algo se mide desde otro lado: el servidor dice
+«la PC no da noticias desde…» y «nadie entrega: N pedidos esperan», en rojo y en el teléfono también.
+
+**Sin hacer (se construye el lunes 26/10):** todo el diseño de docs/diseno-cartero-servicio.md (el servicio que mide y
+sube, los dos carteles, la entrega por cualquier chat que arranque) y la decisión del arranque con el chat de IA del cliente
+(§2.4).

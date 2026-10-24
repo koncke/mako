@@ -63,6 +63,15 @@ era cambiar el nombre».
   ia-pc-reglas, de la parte c; el de conectar-ia-reglas, con `dondeSacarLaClave` de IA16) y tests/conectar-ia.test.ts (los
   dos pines de `onComputadora` de la parte c, y los tres de Gemini de IA16).
 
+## Para decidir con el chat Ops Center (24/10/2026)
+
+- **El cartero como servicio de la PC** (docs/diseno-cartero-servicio.md §2.4). El pedido de Martín: «¿Podemos hacer que el
+  cartero sea un "servicio" con la app de MaKo en desktop?». El Ops Center propone el MISMO mecanismo de arranque que
+  `mako-pc` (la clave Run, un ejecutable de ventana armado con Bun, el bucle que nunca se cae solo) y un PROGRAMA aparte,
+  `mako-cartero.exe`: `mako-pc` promete no tocar `~/.claude` y se distribuye a los clientes, y el cartero lee `~/.claude`
+  entero y es sólo de Martín. Tres preguntas para este chat, en §2.4: si se reusa `publicar-binarios.mts`, si se comparte
+  el bucle como módulo, y qué pasa en la Mac. Se construye el lunes 26/10.
+
 ## Para retomar
 
 `C:/dev/wt-ia-gpt` (rama `ia-gpt-2310`) está al día con main y tiene `node_modules` como junction: antes de borrar el
