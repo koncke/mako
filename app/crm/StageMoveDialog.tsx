@@ -18,7 +18,10 @@ import { stageMeta, type Stage } from '@/lib/pipeline';
 import { stepsForStage, funnelReqInfo, unirPasos, type Step, type StepId } from '@/lib/stage-requirements';
 import { ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
 import type { FathomLink } from '@/lib/leads';
+import { etiquetaEsR2 } from '@/lib/insights-llamada-reparto';
+import { ponerLinkFathom } from './campo-inline';
 import { completeStageMoveAction, requisitosDeEtapaAction, type StageMoveCuota, type StageMoveResultado } from './actions';
+import { productosParaCierreAction, type ProductoCierre } from './producto-cierre-actions';
 import { hoyEnTz } from '@/lib/date-utils';
 import { sumarMeses, siguienteFechaDeCuota } from '@/lib/cobrado-lead';
 import { formatoMonto } from '@/lib/pasarela-moneda';
@@ -138,7 +141,7 @@ type PasoId =
   | 'auto'
   | 'huboR1' | 'motivoNoR1' | 'fechaJ1' | 'asistenciaR1' | 'calificado' | 'fathomR1'
   | 'huboR2' | 'motivoNoR2' | 'fechaJ2' | 'asistenciaR2' | 'fathomR2'
-  | 'ventaTipo' | 'monto' | 'susPlazo' | 'plan' | 'motivo'
+  | 'producto' | 'ventaTipo' | 'monto' | 'susPlazo' | 'plan' | 'motivo'
   | 'setter' | 'closer' | 'empresa' | 'telefono'
   // Deal Details + documentos + Calendly R2 (pasada única del "Solucionar").
   | 'dealAuto' | 'dealServicio' | 'dealPromesa' | 'dealFiscal' | 'dealObligaciones'
@@ -229,7 +232,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [asistioJ1, setAsistioJ1] = useState<boolean | null>(move.asistioJ1 ?? lead.asistioJ1);
   const [asistioJ2, setAsistioJ2] = useState<boolean | null>(move.asistioJ2 ?? lead.asistioJ2);
   const [calificado, setCalificado] = useState<boolean | null>(move.yaRespondido?.calificado ?? lead.calificado);
-  const [fathom, setFathom] = useState<FathomLink[]>(() => (lead.fathom.length ? lead.fathom : [{ label: 'Llamada', url: '' }]));
+  const [fathom, setFathom] = useState<FathomLink[]>(() => lead.fathom);
+  /** El link de UNA reunión en `fathom` (el mismo reparto que la ficha: `etiquetaEsR2`). */
+  const linkDe = (r2: boolean) => fathom.find((f) => f.url.trim() && etiquetaEsR2(f.label) === r2)?.url ?? '';
   const [fathomOmitido, setFathomOmitido] = useState(false);
   // Reprogramar: la tercera salida del paso de asistencia. Vacío = no se reprograma.
   const [reprogR1, setReprogR1] = useState('');
@@ -247,6 +252,13 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   // Venta recurrente (#363): tipo + plazo. El monto mensual reusa el campo `monto`.
   // + «Sin cobro» (#747): un becado. Saltea el monto y el plan, y viaja como venta_tipo.
   const [ventaTipo, setVentaTipo] = useState<VentaTipo>(ventaTipoDe(lead.ventaTipo));
+  /**
+   * «¿QUÉ COMPRÓ?» (24/10/2026; decisión de agosto: obligatorio al cerrar, con «Otro / personalizado»). El catálogo llega al
+   * abrir un cierre (no en «Completar datos»); sin productos activos el paso no se ofrece. Elegir uno completa el tipo de venta,
+   * el monto y el plazo con lo del producto (los pasos de después siguen, para corregirlos).
+   */
+  const [productos, setProductos] = useState<ProductoCierre[] | null>(null);
+  const [productoElegido, setProductoElegido] = useState<number | 'otro' | null>(null);
   const [susMeses, setSusMeses] = useState(lead.suscripcionMeses ? String(lead.suscripcionMeses) : '');
   // Motivo: categoría (chips) + detalle específico (texto libre), en UNA pantalla.
   // Son dos estados y un solo paso — eran dos pasos hasta el 27/09/2026.
@@ -360,6 +372,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       asistioJ1: move.asistioJ1 ?? lead.asistioJ1, asistioJ2: move.asistioJ2 ?? lead.asistioJ2,
       calificado: move.yaRespondido?.calificado ?? lead.calificado,
       hasFathomUrl: lead.fathom.some((f) => f.url?.trim()),
+      // El link de CADA reunión (24/10/2026): con «hay alguno», cargada la R1 nunca se pedía la de la R2 (03/07).
+      hasFathomR1: lead.fathom.some((f) => f.url?.trim() && !etiquetaEsR2(f.label)),
+      hasFathomR2: lead.fathom.some((f) => f.url?.trim() && etiquetaEsR2(f.label)),
       monto: lead.monto,
       // ⚠️ La mensualidad, IGUAL QUE EL SERVER (`valoresDeRequisitos`, app/crm/actions.ts):
       // sólo cuando lo guardado es una suscripción. Faltaba (08/10/2026), y este placeholder
@@ -458,6 +473,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     // cierre por reserva sin contrato firmado todavía).
     const necesitaDeal = requeridos.has('dealServicio') || requeridos.has('dealPromesa') || requeridos.has('dealFiscal') || requeridos.has('dealObligaciones');
     const dealCompleto = !!(lead.dealServicioOk && lead.dealPromesaOk && lead.dealFiscalOk && lead.dealObligacionesOk);
+    // Lo PRIMERO de un cierre: qué compró (el producto define el tipo de venta y el monto que siguen).
+    if (esCierre && !completarDatos && productos && productos.length > 0) p.push('producto');
     if ((esCierre && !dealCompleto) || necesitaDeal) p.push('dealAuto');
     if (requeridos.has('dealServicio')) p.push('dealServicio');
     if (requeridos.has('dealPromesa')) p.push('dealPromesa');
@@ -520,7 +537,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       if (preguntas.length === 1) return preguntas;
     }
     return filtrados;
-  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, lead.dealServicioOk, lead.dealPromesaOk, lead.dealFiscalOk, lead.dealObligacionesOk, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte, ventaTipo, completarDatos]);
+  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, lead.dealServicioOk, lead.dealPromesaOk, lead.dealFiscalOk, lead.dealObligacionesOk, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte, ventaTipo, completarDatos, productos]);
 
   // Índice actual + historial REAL de pasos visitados (para que Atrás vuelva
   // al paso anterior visitado, no al índice-1 cuando hubo saltos).
@@ -540,6 +557,20 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   }, [pasos]);
 
   const totalMonto = parseFloat(monto) || 0;
+  // El catálogo, sólo para un cierre que se está MOVIENDO (no en «Completar datos»). Sin respuesta, sin paso.
+  useEffect(() => {
+    if (!esCierre || completarDatos) return;
+    let vivo = true;
+    void productosParaCierreAction().then((ps) => { if (vivo) setProductos(ps); }).catch(() => { if (vivo) setProductos([]); });
+    return () => { vivo = false; };
+  }, [esCierre, completarDatos]);
+  /** Elegir un producto completa lo que el cierre hereda de él; lo que ya se escribió a mano en el monto no se pisa. */
+  const elegirProducto = (p: ProductoCierre) => {
+    setProductoElegido(p.id);
+    setVentaTipo(p.tipo === 'suscripcion' ? 'suscripcion' : 'unico');
+    if (!(parseFloat(monto) > 0) && p.montoUsd) setMonto(String(p.montoUsd));
+    if (p.tipo === 'suscripcion' && p.meses && !susMeses) setSusMeses(String(p.meses));
+  };
   const esSuscripcion = ventaTipo === 'suscripcion';
   const sinCobro = ventaTipo === 'sin_cobro';
   const sumaCuotas = cuotas.reduce((s, c) => s + (parseFloat(c.monto) || 0), 0);
@@ -565,7 +596,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       case 'asistenciaR1': return asistioJ1 != null || !!reprogR1;
       case 'asistenciaR2': return asistioJ2 != null || !!reprogR2;
       case 'calificado': return calificado != null;
-      case 'fathomR1': case 'fathomR2': return fathomOmitido || fathom.some((f) => f.url.trim());
+      case 'fathomR1': case 'fathomR2': return fathomOmitido || !!linkDe(paso === 'fathomR2').trim();
+      case 'producto': return productoElegido != null; // obligatorio: un producto u «Otro / personalizado»
       case 'ventaTipo': return true; // hay un default (pago único); se elige y se sigue
       case 'monto': return totalMonto > 0;
       case 'susPlazo': return true;  // vacío = indefinida, es válido
@@ -661,6 +693,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           // va como suscripcion_monto_usd (MRR) + el tipo y el plazo.
           // Sin cobro (#747): no hay paso de monto, así que el tipo viaja por su propio
           // paso, y el monto va null — el server lo limpia si quedaba uno viejo.
+          ...(pide('producto') ? { productoId: productoElegido === 'otro' ? null : productoElegido } : {}),
           ...(pide('monto') || pide('ventaTipo') ? {
             monto: esSuscripcion || sinCobro ? null : (totalMonto || null),
             ventaTipo,
@@ -993,18 +1026,35 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     case 'fathomR2':
       pregunta = `Link de Fathom de la ${paso === 'fathomR1' ? 'Reunión 1' : 'Reunión 2'}`;
       sub = 'Si la reunión no se grabó, puedes omitirlo.';
+      {
+        // ⚠️ UN LINK POR REUNIÓN (24/10/2026). Los dos pasos mostraban la MISMA lista, y un link cualquiera daba por
+        // contestados a los dos: cargada la R1, la R2 no se pedía nunca (Martín, 03/07: «Fathom se pide siempre»). Cada
+        // paso edita el link de SU reunión con `ponerLinkFathom`, el de la ficha, y los demás links quedan como estaban.
+        const r2 = paso === 'fathomR2';
+        cuerpo = (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input aria-label={`Link de Fathom de la ${r2 ? 'Reunión 2' : 'Reunión 1'}`} value={linkDe(r2)} onChange={(e) => { const url = e.target.value; setFathomOmitido(false); setFathom((arr) => ponerLinkFathom(arr, r2 ? 'fathom_r2' : 'fathom_r1', url || null, etiquetaEsR2)); }} placeholder="https://fathom.video/…" autoFocus style={{ ...compInput, textAlign: 'left' }} />
+            <button type="button" onClick={() => setFathomOmitido(true)} style={{ alignSelf: 'flex-start', padding: 8, borderRadius: 9, border: '1px solid ' + (fathomOmitido ? 'var(--warn-fill)' : 'var(--border-strong)'), background: fathomOmitido ? 'var(--warn-bg)' : 'transparent', color: fathomOmitido ? 'var(--warn)' : 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{fathomOmitido ? 'Sin grabación ✓' : 'No se grabó (omitir)'}</button>
+          </div>
+        );
+      }
+      break;
+    case 'producto':
+      pregunta = '¿Qué compró?';
+      sub = 'Completa el tipo de venta y el monto con lo del producto.';
       cuerpo = (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {fathom.map((f, i) => (
-            <div key={i} style={{ display: 'flex', gap: 8 }}>
-              <input aria-label="Etiqueta" value={f.label} onChange={(e) => setFathom((arr) => arr.map((x, xi) => (xi === i ? { ...x, label: e.target.value } : x)))} placeholder="Llamada" style={{ ...compInput, flex: 'none', width: 110, textAlign: 'left' }} />
-              <input aria-label="URL" value={f.url} onChange={(e) => { setFathomOmitido(false); setFathom((arr) => arr.map((x, xi) => (xi === i ? { ...x, url: e.target.value } : x))); }} placeholder="https://fathom.video/…" autoFocus={i === 0} style={{ ...compInput, flex: 1, textAlign: 'left' }} />
-            </div>
+          {(productos ?? []).map((p) => (
+            <button key={p.id} type="button" data-producto={p.id} onClick={() => elegirProducto(p)} style={{ ...btnOpcion(productoElegido === p.id), textAlign: 'left' }}>
+              <div style={{ fontSize: 15 }}>{p.nombre}</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: productoElegido === p.id ? 'rgba(255,255,255,.7)' : 'var(--dim)', marginTop: 2 }}>
+                {p.tipo === 'suscripcion' ? 'Suscripción' : 'Pago único'}{p.montoUsd ? ` · US$${p.montoUsd.toLocaleString('en-US')}${p.tipo === 'suscripcion' ? '/mes' : ''}` : ''}
+              </div>
+            </button>
           ))}
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
-            <button type="button" onClick={() => setFathom((arr) => [...arr, { label: '', url: '' }])} style={{ padding: 8, borderRadius: 9, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SANS, flex: 1 }}>+ Agregar otro link</button>
-            <button type="button" onClick={() => setFathomOmitido(true)} style={{ padding: 8, borderRadius: 9, border: '1px solid ' + (fathomOmitido ? 'var(--warn-fill)' : 'var(--border-strong)'), background: fathomOmitido ? 'var(--warn-bg)' : 'transparent', color: fathomOmitido ? 'var(--warn)' : 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{fathomOmitido ? 'Sin grabación ✓' : 'No se grabó (omitir)'}</button>
-          </div>
+          <button type="button" onClick={() => setProductoElegido('otro')} style={{ ...btnOpcion(productoElegido === 'otro'), textAlign: 'left' }}>
+            <div style={{ fontSize: 15 }}>Otro / personalizado</div>
+          </button>
         </div>
       );
       break;
@@ -1276,6 +1326,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         }
       }
       if (pide('fathomR1') || pide('fathomR2')) filas.push(['Fathom', fathomOmitido ? 'Sin grabación' : `${fathom.filter((f) => f.url.trim()).length} link(s)`]);
+      if (pide('producto')) filas.push(['Producto', productoElegido === 'otro' ? 'Otro / personalizado' : (productos ?? []).find((p) => p.id === productoElegido)?.nombre ?? '—']);
       if (pide('ventaTipo') && sinCobro) filas.push(['Venta', 'Sin cobro']);
       if (pide('monto') && esSuscripcion) filas.push(['Suscripción', totalMonto ? `$${totalMonto.toLocaleString('en-US')}/mes · ${susMeses ? `${susMeses} meses` : 'indefinida'}` : '—']);
       if (pide('monto') && !esSuscripcion && !sinCobro) filas.push(['Monto de cierre', totalMonto ? `$${totalMonto.toLocaleString('en-US')}` : '—']);

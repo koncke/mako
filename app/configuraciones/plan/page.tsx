@@ -20,7 +20,6 @@ import { PlanPanel, type SuscripcionVisible } from './PlanPanel';
 import { planesMako } from '@/lib/compra-plan';
 import { precioEn } from '@/lib/planes-mako';
 import { PLAN_PRO, proPorLlamada } from '@/lib/subir-plan-reglas';
-import { AGENDA_MAKO } from '@/lib/compra-plan-reglas';
 import { estadoDeRetencion, ofertaDeRetencion } from '@/lib/retencion-plan';
 
 export const dynamic = 'force-dynamic';
@@ -46,10 +45,10 @@ export default async function PlanPage() {
   const pro = capa === 'completo' ? (await planesMako().catch(() => [])).find((p) => p.id === PLAN_PRO && p.activo) ?? null : null;
   const precioPro = pro && sus ? precioEn(pro, sus.moneda) : null;
   const subir = pro && sus && precioPro != null ? { nombre: pro.nombre, monto: formatoMonto(precioPro, sus.moneda) } : null;
-  // Sin esa subida en línea (hoy, todos: la pasarela de MaKo no está conectada), la agenda. Es a donde llevan los carteles
-  // de tope, y antes no ofrecía ninguna forma de pasar a Pro (lib/subir-plan-reglas.ts, `proPorLlamada`).
+  // Sin esa subida en línea (hoy, todos: la pasarela de MaKo no está conectada), se PIDE en la página de Pro (desde el
+  // 24/10, sin agenda: Martín no usa Calendly). Es a donde llevan los carteles de tope (lib/subir-plan-reglas.ts).
   const porLlamada = pro && proPorLlamada({ capa, subidaEnLinea: subir != null })
-    ? { titulo: `Pasar a ${pro.nombre}`, detalle: `US$ ${pro.precioUsd} por mes. Agenda una llamada y te lo activamos.`, href: AGENDA_MAKO }
+    ? { titulo: `Pasar a ${pro.nombre}`, detalle: `US$ ${pro.precioUsd} por mes. Pídelo y te lo activamos.`, href: `/planes/${pro.id}` }
     : null;
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'plan')} activa="plan">

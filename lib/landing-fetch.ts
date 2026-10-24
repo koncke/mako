@@ -62,6 +62,14 @@ const TIMEOUT_MS = 15_000;
 const MAX_REDIRECTS = 5;
 
 const UA = 'Mozilla/5.0 (compatible; MaKoLandingAnalyst/1.0; +https://hola-mako.com)';
+/**
+ * El reintento ante un 403 (24/10/2026). El WAF del hosting de un cliente bloquea el «Mozilla/5.0 (compatible; …)» —parece
+ * un navegador falso— y deja pasar al bot que dice lo que es: medido en el Sprint de Mauricio, 403 con `UA` y 200 con éste.
+ * Martín lo vio en Offer y en el Diagnóstico («eso es un error nuestro, no veo por qué no podríamos ver una web para
+ * analizarla»). Los dos se presentan como MaKo; ninguno se hace pasar por otro. El analizador del Pixel hace lo mismo
+ * (lib/landing-analisis.ts).
+ */
+const UA_BOT = 'MaKoLandingAnalyst/1.0 (+https://hola-mako.com)';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Normalización de la URL (la ENTIDAD de landing_analyses)
@@ -191,7 +199,7 @@ const cabecera = (v: string | string[] | undefined): string | null => (v == null
  * donde un servidor lento podía colgar la función hasta el corte de la
  * plataforma.
  */
-function pedirPagina(url: URL, ips: string[]): Promise<RespuestaCruda> {
+function pedirPagina(url: URL, ips: string[], ua: string = UA): Promise<RespuestaCruda> {
   return new Promise((resolve, reject) => {
     const esHttps = url.protocol === 'https:';
     const pedir = esHttps ? pedidoHttps : pedidoHttp;
@@ -200,7 +208,7 @@ function pedirPagina(url: URL, ips: string[]): Promise<RespuestaCruda> {
 
     const req = pedir(url, {
       method: 'GET',
-      headers: { 'user-agent': UA, accept: 'text/html,application/xhtml+xml' },
+      headers: { 'user-agent': ua, accept: 'text/html,application/xhtml+xml' },
       lookup: lookupClavado(ips),
       maxHeaderSize: MAX_CABECERAS,
       ...(esHttps ? { servername: url.hostname } : {}),
@@ -249,7 +257,8 @@ async function bajarHtml(url: string): Promise<{ html: string; final: string; by
     const check = await validarDestino(actual);
     if (!check.ok) throw new Error(check.error);
 
-    const res = await pedirPagina(check.url, check.ips);
+    let res = await pedirPagina(check.url, check.ips);
+    if (res.status === 403) res = await pedirPagina(check.url, check.ips, UA_BOT);
 
     if (res.status >= 300 && res.status < 400) {
       if (!res.location) throw new Error(`La página respondió ${res.status} sin decir a dónde redirige.`);

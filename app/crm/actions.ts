@@ -15,6 +15,9 @@ import { revalidatePath, updateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { TAG } from '@/lib/cache';
 import { exigirSesion } from '@/lib/sesion-accion';
+import { listProductos } from '@/lib/productos';
+import { guardarFotoDeInstagram } from '@/lib/foto-instagram';
+import { esFotoDeInstagram } from '@/lib/foto-instagram-reglas';
 
 // Invalida la caché de lectura por dominio. Toda mutación de lead toca 'leads'
 // (y cohortes/objetivo que derivan de leads); las de cobranza tocan 'pagos'.
@@ -398,6 +401,11 @@ export type StageMoveCuota = { monto: number; fecha: string | null };
 
 /** Datos que el wizard de movimiento puede aportar. */
 export type StageMoveData = {
+  /**
+   * El producto que compró (el paso «¿Qué compró?» de Ganado, 24/10/2026). `null` = «Otro / personalizado». Se valida contra
+   * el catálogo de ESTE negocio: un id ajeno o inventado se guarda como null.
+   */
+  productoId?: number | null;
   fechaJ1?: string | null;
   fechaJ2?: string | null;
   /** La hora de la reunión ('HH:MM', opcional), en la zona del negocio (14/10/2026). */
@@ -805,6 +813,16 @@ export async function completeStageMoveAction(
     }
   }
 
+  // El PRODUCTO VENDIDO (24/10/2026; decisión de agosto: obligatorio, con «Otro / personalizado»). `leads.producto_id` (mig
+  // 0117) era una columna que nadie escribía. Sólo un producto del catálogo de este negocio; cualquier otra cosa, null.
+  if (d.productoId !== undefined) {
+    const catalogo = await listProductos().catch(() => [] as Awaited<ReturnType<typeof listProductos>>);
+    const prod = d.productoId == null ? null : catalogo.find((p) => Number(p.id) === d.productoId) ?? null;
+    const { error: prodErr } = await (await getTenantDb()).from('leads').update({ producto_id: prod ? Number(prod.id) : null }).eq('id', id);
+    if (prodErr) console.error(`[leads] guardar el producto vendido: ${prodErr.message}`);
+    else await logLeadEvent(id, 'Producto vendido', prod ? prod.nombre : 'Otro / personalizado', autor);
+  }
+
   // 5) Mover (updateLead sincroniza estado primero; override solo si OK).
   //
   // ⚠️ «COMPLETAR DATOS» NO MUEVE (08/10/2026). El `to` lo manda el navegador, y la ficha del
@@ -946,6 +964,10 @@ async function altaDeLead(formData: FormData, funnelId?: number | null, permitir
     origen_lead: ORIGEN_LEAD.carga_manual.id,
   });
   // (setter/closer se auto-asignan dentro de createLead si hay un único vendedor.)
+  // LA FOTO DE INSTAGRAM (pedido del 17/10; 24/10/2026): la del perfil elegido en el buscador, copiada a nuestro bucket para
+  // que la tarjeta no quede con iniciales. Sólo de un CDN de Meta, nunca pisa otra foto y nunca frena el alta.
+  const fotoIg = formData.get('instagram_foto');
+  if (igDelAlta && esFotoDeInstagram(fotoIg)) await guardarFotoDeInstagram(created.id, fotoIg);
   bust(TAG.leads);
   revalidatePath('/crm');
   return { id: created.id };

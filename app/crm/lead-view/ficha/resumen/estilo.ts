@@ -60,6 +60,15 @@ export const CSS_RESUMEN = `
 a.fr-chip:hover, button.fr-chip:hover { border-color: var(--primary); color: var(--primary); }
 button.fr-chip { font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
 .fr-chip--falta { background: transparent; border-style: dashed; color: var(--dim); font-weight: 500; }
+/* Un dato de un bloque de chips, con su lápiz (24/10/2026, contacto.tsx, «DatoEnChip»): el lápiz aparece al pasar el cursor
+   (siempre en una pantalla táctil) y no corre a los demás chips. Editando, el chip es la caja del editor. */
+.fr-chip-dato { position: relative; display: inline-flex; align-items: center; max-width: 100%; min-width: 0; }
+.fr-lapiz { position: absolute; top: -6px; right: -6px; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--dim); cursor: pointer; opacity: 0; transition: opacity .12s; }
+.fr-chip-dato:hover .fr-lapiz, .fr-lapiz:focus-visible { opacity: 1; }
+.fr-lapiz:hover { color: var(--primary); border-color: var(--primary); }
+.fr-lapiz:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.fr-chip--editando { overflow: visible; background: var(--surface); border-color: var(--primary); min-width: 180px; }
+@media (hover: none) { .fr-lapiz { opacity: 1; } }
 
 /* Tres botones (la calificación): segmentado, el elegido con su color. */
 .fr-seg { display: inline-flex; flex-wrap: wrap; gap: 3px; padding: 3px; border-radius: 12px; background: var(--surface-2); max-width: 100%; box-sizing: border-box; }

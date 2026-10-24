@@ -199,7 +199,9 @@ export function Inicio(props: PropsInicio) {
 
   // La derecha viaja en la URL (sin recargar: history.replaceState conserva el ?ws=).
   useEffect(() => {
-    const s = queryDeDerecha(window.location.search, derecha);
+    // Sin nada que escribir queda `?panel=1`: `/web-generator` pelado ya no es el Panel sino la última landing (page.tsx,
+    // 24/10/2026), y un F5 sobre el Panel tiene que seguir en el Panel.
+    const s = queryDeDerecha(window.location.search, derecha) || '?panel=1';
     if (s !== window.location.search) window.history.replaceState(null, '', window.location.pathname + s + window.location.hash);
   }, [derecha]);
 

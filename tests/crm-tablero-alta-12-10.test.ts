@@ -140,7 +140,9 @@ test('el título de la pestaña sale como lo devuelve document.title: si no, el 
 test('el alta son CUATRO campos: nombre, email, teléfono con banderas e Instagram', () => {
   const nf = codigo('app/crm/new/NewLeadForm.tsx');
   const nombres = [...nf.matchAll(/name="([a-z_0-9]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(nombres, ['nombre', 'email', 'telefono', 'instagram']);
+  // `instagram_foto` (24/10/2026) no es un campo que se llena: es un oculto que acompaña al Instagram elegido, con su foto
+  // para la tarjeta (lib/foto-instagram.ts).
+  assert.deepEqual(nombres, ['nombre', 'email', 'telefono', 'instagram', 'instagram_foto']);
   // Se fueron la empresa y las dos fechas («el resto se puede configurar dentro»).
   assert.doesNotMatch(nf, /fecha_agenda|fecha_junta_1|name="empresa"/);
   // El teléfono con el país primero, y lo que viaja es la lada unida al número.
@@ -177,14 +179,20 @@ test('el alta guarda el @ escrito en el buscador aunque no se haya elegido de la
   assert.match(ib, /onElegir\(p\);\n\s*setTexto\(''\);\n\s*onTexto\?\.\(''\);/);
 });
 
-test('sin «Cancelar», y «Crear lead» en la fila de abajo, con «Traer de otro funnel»', () => {
+// ⚠️ 24/10/2026: los tres «traer» van ARRIBA, en su bloque (Martín: «3 botones mejores diseñados arriba del formulario,
+//    como en un bloque aparte»). El pie queda con «Crear lead» solo; «Cancelar» sigue sin volver.
+test('sin «Cancelar»; arriba el bloque de traer (otro funnel, un grupo, un archivo) y abajo «Crear lead» solo', () => {
   const nf = codigo('app/crm/new/NewLeadForm.tsx');
   assert.doesNotMatch(nf, />\s*Cancelar\s*</, 'volvió «Cancelar»: la ✕ del modal ya cierra');
   assert.doesNotMatch(nf, /onCerrar/, 'una prop sin uso: el form ya no cierra nada');
-  const i = nf.indexOf('Traer de otro funnel');
-  const j = nf.indexOf("'Crear lead'");
-  assert.ok(i > 0 && j > i, '«Crear lead» va en la misma fila, después de «Traer de otro funnel»');
-  assert.ok(!nf.slice(i, j).includes('</div>'), '«Traer» y «Crear lead» quedaron en filas distintas');
+  const iBloque = nf.indexOf('className="nl-traer"');
+  const iNombre = nf.indexOf('<Field label="Nombre" required>');
+  const iCrear = nf.indexOf("'Crear lead'");
+  assert.ok(iBloque > 0 && iNombre > iBloque && iCrear > iNombre, 'el bloque de traer va arriba del formulario, y «Crear lead» al final');
+  const pie = nf.slice(nf.lastIndexOf('<div', iCrear), iCrear);
+  assert.doesNotMatch(pie, /onTraer|onTraerGrupo|onImportar|vaciar/, 'el pie volvió a juntar cosas de distinto rango');
+  // «Importar» abre la importación de siempre (cierra el alta antes).
+  assert.match(codigo('app/crm/CrmBoard.tsx'), /onImportar: \(\) => \{ setNuevoLead\(null\); setImportar\(true\); \},/, 'el tablero no conecta «Importar»');
 });
 
 test('el server guarda el Instagram del alta con la regla de la ficha, y sin la mig 0258 un alta sin él entra igual', () => {

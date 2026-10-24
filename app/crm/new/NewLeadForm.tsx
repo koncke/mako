@@ -73,6 +73,8 @@ export function NewLeadForm({ enModal }: {
     onTraer?: () => void;
     /** Cambiar a «Traer de un grupo de WhatsApp» (23/10/2026). Sólo para el admin del negocio: ausente = no se ofrece. */
     onTraerGrupo?: () => void;
+    /** Abrir la importación de un archivo (24/10/2026). Ausente = no se ofrece. */
+    onImportar?: () => void;
   };
 } = {}) {
   const [err, setErr] = useState<string | null>(null);
@@ -169,12 +171,6 @@ export function NewLeadForm({ enModal }: {
   }, [nombre, email, lada, numero, igEscrito, perfil, clave]);
   /** El alta terminó (creado o agregado al que ya estaba): el borrador ya no es de nadie. */
   const olvidarBorrador = () => { try { window.localStorage.removeItem(clave); } catch { /* nada */ } };
-  const vaciar = () => {
-    setNombre(''); setEmail(''); setNumero(''); setLada(ladaPorDefecto()); setPerfil(null);
-    setIgEscrito(''); setIgInicial(''); setIgKey((k) => k + 1);
-    setErr(null); setChoque(null); setPendiente(null);
-    olvidarBorrador();
-  };
 
   /** La validación de acá es la MISMA que la del server, y corre antes para no
    *  perder lo tipeado en un viaje. El server la repite: este chequeo es
@@ -222,6 +218,37 @@ export function NewLeadForm({ enModal }: {
         ? { display: 'flex', flexDirection: 'column', gap: 16 }
         : { ...card, display: 'flex', flexDirection: 'column', gap: 16 }}
     >
+      {/* TRAER VARIOS A LA VEZ, ARRIBA Y EN UN BLOQUE APARTE (24/10/2026). Martín, con la captura del pie: «me imagino 3 botones
+          mejores diseñados arriba del formulario, como en un bloque aparte», sin «Vaciar» y con un nombre más corto para
+          «Traer de otro funnel». El pie tenía tres cosas de tres estilos (un botón con ícono, un link azul y un texto gris):
+          ahora son tres botones iguales (ícono, nombre y una línea que dice de dónde), y el pie queda con «Crear lead» solo.
+          «Scraper» es traer de un grupo de WhatsApp (sólo el admin); «Importar» abre la importación de un archivo. */}
+      {enModal && (enModal.onTraer || enModal.onTraerGrupo || enModal.onImportar) && (
+        <div className="nl-traer">
+          <div className="nl-traer-botones">
+            {enModal.onTraer && (
+              <button type="button" className="nl-traer-btn" onClick={enModal.onTraer}>
+                <IconoMenu nombre="producto" size={18} />
+                <span><strong>De otro funnel</strong><small>Leads que ya tienes</small></span>
+              </button>
+            )}
+            {enModal.onTraerGrupo && (
+              <button type="button" className="nl-traer-btn" onClick={enModal.onTraerGrupo}>
+                <IconoMenu nombre="whatsapp" size={18} />
+                <span><strong>Scraper</strong><small>De un grupo de WhatsApp</small></span>
+              </button>
+            )}
+            {enModal.onImportar && (
+              <button type="button" className="nl-traer-btn" onClick={enModal.onImportar}>
+                <IconoMenu nombre="subir" size={18} />
+                <span><strong>Importar</strong><small>Desde un archivo</small></span>
+              </button>
+            )}
+          </div>
+          <div className="nl-o"><span>o carga uno a mano</span></div>
+          <style>{CSS_TRAER}</style>
+        </div>
+      )}
       <Field label="Nombre" required>
         <input id={ID_NOMBRE} type="text" name="nombre" required autoFocus style={field}
           value={nombre} onChange={(e) => setNombre(e.target.value)} />
@@ -243,6 +270,9 @@ export function NewLeadForm({ enModal }: {
       <Field label="Instagram" grupo>
         <InstagramBuscador key={igKey} textoInicial={igInicial} valor={perfil} onElegir={setPerfil} onTexto={setIgEscrito} />
         <input type="hidden" name="instagram" value={instagramDelAlta(perfil?.usuario, igEscrito)} />
+        {/* Su foto de perfil (24/10/2026): el server la copia a nuestro bucket para la tarjeta (lib/foto-instagram.ts). Sólo la
+            del perfil ELEGIDO: lo tipeado a mano no trae foto. */}
+        <input type="hidden" name="instagram_foto" value={perfil?.foto ?? ''} />
       </Field>
 
       {err && !choque && (
@@ -320,35 +350,11 @@ export function NewLeadForm({ enModal }: {
         </div>
       )}
 
-      {/* LA FILA DE ABAJO DE TODO: «Traer de otro funnel» a la izquierda y «Crear lead» a la
-          derecha, en la misma línea (punto 20). Sin «Cancelar»: la ✕ del modal ya cierra.
-
-          ⚠️ «TRAER» NO ABRE NADA ACÁ: avisa al padre, que cambia la VISTA ENTERA del
-          modal. «Cuando le doy, debe reemplazar al formulario de arriba, con un botón de
-          atrás claro» (Martín, 30/09/2026). Antes desplegaba un buscador debajo del
-          formulario, y con eso el modal pedía dos cosas a la vez —cargar a alguien nuevo y
-          buscar a alguien que ya está—, que son dos tareas y ninguna es un paso de la otra. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', borderTop: enModal?.onTraer ? '1px solid var(--border)' : undefined, paddingTop: enModal?.onTraer ? 14 : 4 }}>
-        {/* Un BOTÓN, no un link chico al pie (Martín, 23/10/2026: «tiene que ser más visible... que sea un botón claro»). */}
-        {enModal?.onTraer && (
-          <button type="button" onClick={enModal.onTraer} style={BTN_TRAER}>
-            <IconoMenu nombre="descargar" size={16} /> Traer de otro funnel
-          </button>
-        )}
-        {enModal?.onTraerGrupo && (
-          <button type="button" onClick={enModal.onTraerGrupo}
-            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
-            Traer de un grupo de WhatsApp
-          </button>
-        )}
-        {/* Con un borrador guardado, la salida para empezar de cero (si no, sólo se borra
-            vaciando los campos de a uno). */}
-        {enModal && hayBorrador(borrador) && (
-          <button type="button" onClick={vaciar}
-            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>
-            Vaciar
-          </button>
-        )}
+      {/* EL PIE: «Crear lead» solo, a la derecha. Sin «Cancelar»: la ✕ del modal ya cierra. Traer varios (otro funnel, un
+          grupo, un archivo) va ARRIBA, en su bloque (24/10/2026).
+          ⚠️ «TRAER» NO ABRE NADA ACÁ: avisa al padre, que cambia la VISTA ENTERA del modal. «Cuando le doy, debe reemplazar al
+          formulario de arriba, con un botón de atrás claro» (Martín, 30/09/2026). */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', paddingTop: 4 }}>
         <span style={{ flex: 1 }} />
         <button type="submit" disabled={guardando} style={{ flex: 'none', padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS, opacity: guardando ? 0.7 : 1 }}>{guardando ? 'Creando…' : 'Crear lead'}</button>
       </div>
@@ -356,12 +362,23 @@ export function NewLeadForm({ enModal }: {
   );
 }
 
-/** «Traer de otro funnel»: un botón secundario, a la altura de «Crear lead». */
-const BTN_TRAER: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none', padding: '10px 16px', borderRadius: 10,
-  border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)',
-  fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer',
-};
+/**
+ * Los tres botones de «traer varios», del mismo rango: ícono, nombre y una línea de dónde. En una fila que se reparte (y se
+ * apila en el teléfono). Sólo tokens de la app. Es un template literal: ninguna comilla invertida adentro.
+ */
+const CSS_TRAER = `
+.nl-traer { display: flex; flex-direction: column; gap: 14px; }
+.nl-traer-botones { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.nl-traer-btn { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 10px 14px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-family: 'Geist', sans-serif; text-align: left; cursor: pointer; }
+.nl-traer-btn:hover { border-color: var(--primary); background: var(--primary-bg); }
+.nl-traer-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.nl-traer-btn > svg { flex: none; color: var(--primary); }
+.nl-traer-btn > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nl-traer-btn strong { font-size: 14px; font-weight: 650; }
+.nl-traer-btn small { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nl-o { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--faint); }
+.nl-o::before, .nl-o::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+`;
 
 /**
  * Un campo con su rótulo, su asterisco de obligatorio y su ayuda.

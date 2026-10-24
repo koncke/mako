@@ -71,9 +71,9 @@ test('la presentación dice SÓLO lo que existe y lleva a la página pública', 
 
 test('en cero, dice POR QUÉ: sin pasarela no se registra ningún referido (24/10, el Cerebro: «no lo maquilles»)', () => {
   const sin = textoSinReferidos({ cobraEnLinea: false, emailMako: 'equipo@hola-mako.com' });
-  assert.match(sin, /da de alta por llamada/);
+  assert.match(sin, /da de alta a mano/);
   assert.match(sin, /escríbenos a equipo@hola-mako\.com/);
-  assert.doesNotMatch(textoSinReferidos({ cobraEnLinea: true, emailMako: 'x@y.z' }), /llamada|escríbenos/, 'con pasarela, el texto de siempre');
+  assert.doesNotMatch(textoSinReferidos({ cobraEnLinea: true, emailMako: 'x@y.z' }), /a mano|escríbenos/, 'con pasarela, el texto de siempre');
   assert.match(textoProgramaSinReferidos(false), /todavía no cobra en línea/);
   assert.doesNotMatch(textoProgramaSinReferidos(true), /no cobra/);
   // El cableado: las tres pantallas lo leen de la MISMA cuenta que /planes (`ofertasDeLosPlanes`), y «no pude leer» no

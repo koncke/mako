@@ -365,6 +365,14 @@
   border-right: 0.8px solid var(--gma-borde-suave);
 }
 .gma-izq[data-panel="paginas"] { width: 280px; }
+/* La tarjeta izquierda FLOTA, como la de Automations (24/10/2026, Martín: «el mismo sistema de "Automations" con el chat
+   flotando»): con aire alrededor, el borde redondeado y la sombra de la barra de herramientas. */
+.gma-izq { margin: 8px 0 8px 8px; border-right: 0; border-radius: var(--gma-radio-xl); overflow: hidden;
+  box-shadow: var(--gma-sombra-sm), 0 0 0 0.8px var(--gma-borde-suave); }
+.gma-ag-estado { font-size: 12px; color: var(--gma-tenue); white-space: nowrap; }
+.gma-ag-volver { font-size: 16px; line-height: 1; }
+/* La barra ÚNICA lleva el título: más angosto que en la barra de arriba para que entre todo. */
+.gma-herramientas .gma-titulo { max-width: 240px; min-width: 64px; }
 .gma-izq-cabeza {
   flex: none;
   height: 48px;
@@ -463,7 +471,8 @@
 .gma-herr-ctx { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 2px; }
 .gma-herr-der { flex: none; display: flex; align-items: center; gap: 4px; margin-left: auto; }
 /* «Agregar bloque» se colapsa a un ícono solo cuando no entra (como en Gamma). */
-@media (max-width: 1180px) {
+/* Con la barra única (24/10/2026) entran el título, el guardado, Compartir y Publicar: los textos se pliegan antes. */
+@media (max-width: 1440px) {
   .gma-herr-texto { display: none; }
 }
 

@@ -61,6 +61,14 @@ export function correspondeAcreditar(p: { referidorWs: number; referidoWs: numbe
   return !p.yaAcreditado && p.referidorWs !== p.referidoWs && p.mesesPagados >= PAGOS_PARA_ACREDITAR;
 }
 
+/**
+ * Lo que pasa HOY con el crédito, dicho igual en la landing (/mako-partners), el panel y el teléfono (24/10/2026, el
+ * Cerebro: «la página de Partners no promete nada que no vayamos a cumplir»). El crédito es un renglón del libro y NADA lo
+ * consume todavía: ni la cuota, ni un pago en plata. El día que se aplique (docs/relevo/suscripcion.md, punto 5), cambia
+ * esta frase junto con la regla, no antes.
+ */
+export const CREDITO_HOY = 'El crédito queda registrado en tu panel. Todavía no se descuenta solo de tu plan.';
+
 /** Lo que vale un referido: el PRIMER MES de su plan, a precio de lista (docs/referidos.md: «un dólar, un peso»). */
 export const creditoDelReferido = (precioListaUsd: number): number => Math.round(Math.max(0, precioListaUsd) * 100) / 100;
 
@@ -133,12 +141,12 @@ export function contarPrograma(p: {
 export function textoSinReferidos(p: { cobraEnLinea: boolean; emailMako: string }): string {
   return p.cobraEnLinea
     ? `Comparte tu link: cada negocio que entra con él y paga su ${PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`} mes te suma su primer mes como crédito.`
-    : `Comparte tu link. Por ahora MaKo da de alta por llamada, así que un referido no aparece aquí solo: si alguien entró con tu link, escríbenos a ${p.emailMako} y lo sumamos.`;
+    : `Comparte tu link. Por ahora MaKo da de alta a mano, así que un referido no aparece aquí solo: si alguien entró con tu link, escríbenos a ${p.emailMako} y lo sumamos.`;
 }
 
 /** Lo mismo, para el panel del super admin: por qué el programa está en cero. */
 export function textoProgramaSinReferidos(cobraEnLinea: boolean): string {
   return cobraEnLinea
     ? 'Cada negocio tiene su link en MaKo Partners: el primero que traiga uno aparece aquí.'
-    : 'Un referido se registra con la compra en línea, y MaKo todavía no cobra en línea: hasta conectar la pasarela no entra ninguno solo. Una venta por llamada se suma a mano.';
+    : 'Un referido se registra con la compra en línea, y MaKo todavía no cobra en línea: hasta conectar la pasarela no entra ninguno solo. Un pedido de la página de planes trae su código de partner y se suma a mano.';
 }

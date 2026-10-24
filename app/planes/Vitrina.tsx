@@ -7,23 +7,19 @@
 // =============================================================================
 
 import Link from 'next/link';
-import { agendaConOrigen, bajadaDePlanes, botonDelPlan, type OrigenCompra } from '@/lib/compra-plan-reglas';
+import { bajadaDePlanes, botonDelPlan } from '@/lib/compra-plan-reglas';
 import { PROGRAMA_ACELERADOR, type PlanMako } from '@/lib/planes-mako';
 import { filasDeComparacion, type Celda, type FilaComparacion } from '@/lib/planes-comparacion';
 import { CSS_PLANES } from './estilo';
 
-export function VitrinaPlanes({ ofertas, sufijo, origen, refCodigo }: {
+export function VitrinaPlanes({ ofertas, sufijo }: {
   ofertas: ReadonlyArray<{ plan: PlanMako; cobrable: boolean }>;
   /** Lo que la URL trae y pasa tal cual al plan elegido (el origen y el código de partner). */
   sufijo: string;
-  origen: OrigenCompra | null;
-  /** El código de MaKo Partners de la URL (`ref` es un nombre reservado de React). */
-  refCodigo: string | null;
 }) {
-  const ref = refCodigo;
   // LOS TRES BLOQUES (24/10/2026, Martín: «quiero ver los 3 bloques de pricing típicos que tiene toda app»): los dos planes
-  // de software y, a la derecha, el programa con Martín, que se vende por llamada como el «hablar con ventas» de cualquier
-  // SaaS (lib/planes-mako.ts, `PROGRAMA_ACELERADOR`). El ANUAL no se muestra: el checkout cobra por mes, y la vitrina no
+  // de software y, a la derecha, el programa con Martín, que nunca pasa por la pasarela: se pide, como el «hablar con
+  // ventas» de cualquier SaaS (lib/planes-mako.ts, `PROGRAMA_ACELERADOR`). El ANUAL no se muestra: el checkout cobra por mes, y la vitrina no
   // dice un precio que no se puede comprar (lo que se ve, se compra así).
   const programa = PROGRAMA_ACELERADOR;
   const cuota = Math.round(programa.precioUsd / programa.cuotas);
@@ -38,7 +34,7 @@ export function VitrinaPlanes({ ofertas, sufijo, origen, refCodigo }: {
         <p className="planes-sub">{bajadaDePlanes(ofertas.some((o) => o.cobrable))}</p>
         <div className="planes-grilla planes-tres">
           {ofertas.map(({ plan: p, cobrable }) => {
-            const boton = botonDelPlan({ id: p.id, nombre: p.nombre, cobrable, sufijo, origen, ref });
+            const boton = botonDelPlan({ id: p.id, nombre: p.nombre, cobrable, sufijo });
             return (
               <section key={p.id} className={`planes-card${p.destacado ? ' destacado' : ''}`}>
                 {p.destacado && <span className="planes-insignia">Recomendado</span>}
@@ -46,9 +42,7 @@ export function VitrinaPlanes({ ofertas, sufijo, origen, refCodigo }: {
                 <div className="planes-precio">US$ {precio(p.precioUsd)} <small>/ mes</small></div>
                 {p.resumen && <p>{p.resumen}</p>}
                 {p.incluye.length > 0 && <ul>{p.incluye.map((x) => <li key={x}>{x}</li>)}</ul>}
-                {boton.afuera
-                  ? <a className="planes-btn" href={boton.href}>{boton.texto}</a>
-                  : <Link className="planes-btn" href={boton.href}>{boton.texto}</Link>}
+                <Link className="planes-btn" href={boton.href}>{boton.texto}</Link>
               </section>
             );
           })}
@@ -59,7 +53,7 @@ export function VitrinaPlanes({ ofertas, sufijo, origen, refCodigo }: {
             <p>{programa.resumen}</p>
             <ul>{programa.incluye.map((x) => <li key={x}>{x}</li>)}</ul>
             <p className="planes-despues">Después, si quieres seguir: {programa.despues.nombre}, US$ {precio(programa.despues.precioUsd)} por mes.</p>
-            <a className="planes-btn planes-btn-borde" href={agendaConOrigen(origen, ref)}>Agendar una llamada</a>
+            <Link className="planes-btn planes-btn-borde" href={`/planes/${programa.id}${sufijo}`}>Quiero el Acelerador</Link>
           </section>
         </div>
 
@@ -87,7 +81,7 @@ export function VitrinaPlanes({ ofertas, sufijo, origen, refCodigo }: {
           </div>
         </section>
 
-        <p className="planes-pie">¿Ya tienes MaKo? Recomiéndalo y gana meses gratis: <Link href="/mako-partners">MaKo Partners</Link></p>
+        <p className="planes-pie">¿Ya tienes MaKo? Recomiéndalo y suma crédito por cada negocio que traigas: <Link href="/mako-partners">MaKo Partners</Link></p>
       </div>
     </main>
   );

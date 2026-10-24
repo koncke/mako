@@ -8,6 +8,12 @@
 > contra el código, la base, la Graph API y la API de Calendly (workflow `wf_d253310f-574`). Lo refutado ya está corregido.
 > Líneas de `d674d633f`. El Purchase de una venta externa tiene su propio diseño: docs/diseno-venta-externa-stripe.md.
 
+> **Hecho el 24/10/2026 (5b77a50d4), por pedido de Martín («Es error de mako»):** el id compartido del Schedule (§6 paso 1,
+> con la URI del EVENTO y no la del invitado: es la que el webhook ya usaba y la que el Cerebro eligió; en un evento
+> grupal, dos invitados del mismo evento compartirían id), las páginas de MaKo con `eventID` o sin evento (paso 7), el
+> detector del analizador para el Schedule y el píxel (paso 4, sin `trackSingle` con alias ni el Lead) y la opción A del
+> §3 para Calendly (paso 6, sin la lectura de `/stats` del paso 5). Lo demás sigue sin construir.
+
 **Vive en:** `lib/meta-capi.ts` · `lib/meta-capi-payload.ts` · `app/api/webhooks/calendly/route.ts` ·
 `app/api/webhooks/calcom/route.ts` · `lib/landing-analisis.ts` · `lib/landing-conversion.ts` · `lib/landing-config.ts` ·
 `lib/editor-landing/html-editable.ts` · `lib/editor-landing/pagina-publica.ts` · `app/vsl/Landing.tsx`

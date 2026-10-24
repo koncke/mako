@@ -183,6 +183,55 @@ export function avisaCalificadoAMeta(p: { sigueCalificado: boolean | null; yaSeM
 export const eventIdLeadCrudo = (leadgenId: string) => `lead:${leadgenId}`;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// EL SCHEDULE: UN SOLO ID PARA EL NAVEGADOR Y PARA EL SERVIDOR (24/10/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// Martín, 24/10: «soluciona esto... Es error de mako». Meta junta el Schedule del navegador (`fbq`) con el de CAPI sólo
+// si traen el MISMO `event_id`; el servidor mandaba `schedule:<email>:<inicio>` y el navegador ninguno, así que cada
+// reserva podía contarse dos veces (AGENTS.md, «SI LA PÁGINA YA MANDA UN EVENTO DESDE EL NAVEGADOR…»). El id sale ahora
+// de lo que las DOS puntas tienen: la URI del evento agendado de Calendly (el `postMessage` `calendly.event_scheduled`
+// la trae en `payload.event.uri`; el webhook, en `payload.scheduled_event.uri`). Diseño completo:
+// docs/diseno-eventos-meta-por-funnel.md.
+
+/**
+ * El id de una reserva de Calendly: el último tramo de su URI (`…/scheduled_events/<uuid>`), sin las barras finales y
+ * hasta 80 caracteres. ⚠️ ES LA MISMA CUENTA QUE HACE EL NAVEGADOR en `SCRIPT_DISENO` (lib/editor-landing/html-editable.ts)
+ * y que `uuidDeUri` (lib/calendly-error.ts): si una de las tres cambia sola, los ids dejan de coincidir y Meta vuelve a
+ * contar dos. Lo cuida tests/meta-schedule-id.test.ts.
+ */
+export function idDeReservaCalendly(uri: unknown): string | null {
+  if (typeof uri !== 'string') return null;
+  const t = uri.trim().replace(/\/+$/, '').split('/').pop() ?? '';
+  return t ? t.slice(0, 80) : null;
+}
+
+/**
+ * El `event_id` del Schedule de Calendly. Con la URI del evento, `schedule:<uuid>` (el que también arma el navegador). Sin
+ * ella, el formato de antes (email + hora de inicio): sólo deduplica los reintentos del propio webhook, porque el navegador
+ * nunca lo puede armar, y por eso el navegador sin URI NO manda nada (ver `SCRIPT_DISENO`).
+ */
+export function eventIdSchedule(p: { eventoUri?: unknown; email: string; inicioIso: string }): string {
+  const id = idDeReservaCalendly(p.eventoUri);
+  return id ? `schedule:${id}` : `schedule:${p.email.toLowerCase()}:${p.inicioIso}`;
+}
+
+/**
+ * ¿La página donde se reservó YA le manda el Schedule a Meta, sin un id compartido, al mismo píxel al que MaKo lo
+ * mandaría? Entonces MaKo NO lo repite por CAPI: con dos ids distintos (o uno solo) Meta cuenta dos. Es el caso medido
+ * en la landing de un cliente (24/10/2026): su propio código dispara `fbq('track','Schedule')` sin `eventID`.
+ *
+ * Lo dice el analizador (`scheduleDelNavegador`, lib/landing-analisis.ts): `meta-schedule` = lo manda SIN id;
+ * `meta-schedule-id` = lo manda con id (entonces MaKo sí, con el mismo); `meta-px:<id>` = los píxeles que la página
+ * inicia. Sin análisis (`null`) o sin la pieza, MaKo manda como siempre: «no sé» no apaga un evento que ya existía. Con la
+ * pieza y sin saber a qué píxel va, se asume el mismo: un evento bien contado vale más que dos.
+ */
+export function repiteScheduleDeLaPagina(piezas: readonly string[] | null, pixelDestino: string | null): boolean {
+  if (!piezas || !piezas.includes('meta-schedule')) return false;
+  const pixeles = piezas.filter((p) => p.startsWith('meta-px:')).map((p) => p.slice('meta-px:'.length));
+  if (!pixeles.length || !pixelDestino) return true;
+  return pixeles.includes(pixelDestino);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // A DÓNDE SE MANDA EL EVENTO
 // ─────────────────────────────────────────────────────────────────────────────
 // Hasta el 05/10/2026 el único destino era `META_PIXEL_ID`, el píxel del SITIO, y

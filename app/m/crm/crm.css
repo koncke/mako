@@ -35,6 +35,8 @@
 /* La acción de la barra (filtrar) cuando hay un filtro puesto. */
 .m-crm-filtro[aria-pressed="true"] { background: var(--primary-bg); }
 .m-crm-check { display: grid; place-items: center; color: var(--primary-strong); }
+/* El funnel en el que se está parado, en el selector: sin tilde, en azul y negrita (29/09/2026). */
+.m-crm-funnel-actual { color: var(--primary-strong); font-weight: 700; }
 .m-crm-azul { color: var(--primary-strong); }
 
 /* ── Ficha (17/10/2026): el encabezado a la izquierda, compacto, como el registro de HubSpot y el deal de

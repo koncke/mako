@@ -7,17 +7,19 @@
 // Acá: se inyecta dentro de una capa fija a pantalla completa (para no heredar el
 // sidebar del layout raíz, sin tocar layout.tsx ni Sidebar) y se cablea la
 // interactividad del diseño: carruseles con autoplay, animación de red en canvas,
-// Calendly embebido, reveal on-scroll y autoplay de videos.
+// las columnas de precios (donde estaba la agenda de Calendly, 24/10/2026), reveal on-scroll y autoplay de videos.
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
-import { debeMedir, esAgendaDeCalendly, PIXEL_META_MAKO } from '@/lib/meta-pixel-mako';
+import { debeMedir, esAgendaDeCalendly, eventIdScheduleDelAviso, PIXEL_META_MAKO } from '@/lib/meta-pixel-mako';
 
 import { SCRIPT_DISENO } from '@/lib/editor-landing/html-editable';
 import { PARAM_CARGADOR, RUTA_CARGADOR } from '@/lib/pixel-cargador';
 import { LANDING_HTML } from './landing-html';
 import { CSS_CAPA, CSS_LANDING, aplicarContenidoLanding } from './landing-contenido';
+import { PreciosLanding, sufijoDesdeUrl, type PlanEnLanding } from './PreciosLanding';
 
 /**
  * La landing hecha en Web Generator (23/10/2026, lib/editor-landing/landing-mako.ts): el HTML de la página
@@ -40,7 +42,6 @@ function visitanteMako(): string | null {
 declare global {
   interface Window {
     MakoAnim?: { draw: (ctx: CanvasRenderingContext2D, t: number, w: number, h: number) => void; DURATION: number };
-    Calendly?: { initInlineWidget: (opts: { url: string; parentElement: Element }) => void };
     fbq?: Fbq;
     _fbq?: Fbq;
   }
@@ -75,12 +76,64 @@ function cargarPixelMeta(): Fbq {
   return n;
 }
 
-const CALENDLY_CSS = 'https://assets.calendly.com/assets/external/widget.css';
-const CALENDLY_JS = 'https://assets.calendly.com/assets/external/widget.js';
-const CALENDLY_URL = 'https://calendly.com/koncke/asesoria';
+/**
+ * SIN AGENDA: LAS COLUMNAS DE PRECIOS (24/10/2026, Martín: «No voy a usar Calendly, te dije que pongas las columnas de
+ * pricing de las ofertas»). Donde estaba la agenda —#cal-embed en la landing de siempre, `[data-calendly]` en la del Web
+ * Generator— van los precios (./PreciosLanding.tsx); sin agenda en el diseño, antes del pie. Al de Web Generator se le
+ * saca `data-calendly` ANTES de que corra su script (SCRIPT_DISENO), así no carga Calendly. Idempotente.
+ */
+function montarPrecios(root: HTMLElement): HTMLElement {
+  const previo = root.querySelector<HTMLElement>('.mk-precios-anfitrion');
+  if (previo) return previo;
+  const agendas = Array.from(root.querySelectorAll<HTMLElement>('#cal-embed, [data-calendly]'));
+  const anfitrion = agendas[0] ?? null;
+  for (const el of agendas) {
+    el.removeAttribute('data-calendly');
+    if (el !== anfitrion) el.remove();
+  }
+  if (anfitrion) {
+    // El rótulo de la agenda («Agenda tu diagnóstico»): el título lo pone la sección de precios.
+    const rotulo = anfitrion.previousElementSibling;
+    if (rotulo && /agend/i.test(rotulo.textContent ?? '')) rotulo.remove();
+    anfitrion.replaceChildren();
+    anfitrion.removeAttribute('style');
+    anfitrion.classList.add('mk-precios-anfitrion');
+    return anfitrion;
+  }
+  const nuevo = document.createElement('section');
+  nuevo.className = 'mk-precios-anfitrion mk-precios-seccion';
+  const pie = root.querySelector('footer');
+  if (pie?.parentElement) pie.parentElement.insertBefore(nuevo, pie);
+  else root.appendChild(nuevo);
+  return nuevo;
+}
 
-export default function Landing({ diseno }: { diseno?: DisenoLanding | null }) {
+/** La caja de la agenda vieja tenía alto fijo con !important (landing-contenido.ts): los precios crecen lo que necesiten. */
+const CSS_ANFITRION = `
+.vsl-root .mk-precios-anfitrion, .vsl-root .mk-precios-anfitrion#cal-embed { height: auto !important; min-width: 0 !important;
+  width: 100% !important; overflow: visible !important; border: 0 !important; background: transparent !important; border-radius: 0 !important; }
+.vsl-root .mk-precios-seccion { max-width: 1100px; margin: 0 auto; padding: 72px 20px; box-sizing: border-box; }
+`;
+
+export default function Landing({ diseno, planes = [], landing = null }: {
+  diseno?: DisenoLanding | null;
+  /** Los planes, con si se cobran en línea (app/page.tsx, `ofertasDeLosPlanes`). Vacío = sin columnas de planes. */
+  planes?: readonly PlanEnLanding[];
+  /** El slug de la landing de un funnel (/vsl/<slug>), para que el pedido sepa de dónde vino. */
+  landing?: string | null;
+}) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const [destinoPrecios, setDestinoPrecios] = useState<HTMLElement | null>(null);
+  const [sufijo, setSufijo] = useState('');
+
+  // ⚠️ ANTES que el efecto del diseño (los efectos corren en el orden en que se declaran): le saca `data-calendly` a la
+  // agenda del Web Generator antes de que su script la cargue.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    setDestinoPrecios(montarPrecios(root));
+    setSufijo(sufijoDesdeUrl(window.location.search, landing));
+  }, [landing]);
 
   // ── La landing de Web Generator: el contenido ya viene armado en el documento, y lo que se mueve
   // (reveal, carruseles, videos, la red de MaKo, Calendly y el Schedule) lo pone el script del diseño,
@@ -103,14 +156,6 @@ export default function Landing({ diseno }: { diseno?: DisenoLanding | null }) {
     if (!root || diseno) return;
     const cleanup: Array<() => void> = [];
 
-    // ── CSS externo (Calendly). Los íconos van como SVG inline en el HTML. ───
-    const ensureCss = (id: string, href: string) => {
-      if (document.getElementById(id)) return;
-      const l = document.createElement('link');
-      l.id = id; l.rel = 'stylesheet'; l.href = href;
-      document.head.appendChild(l);
-    };
-    ensureCss('vsl-calendly-css', CALENDLY_CSS);
 
     // ── Showcase: la card lleva DIRECTO a la landing de la feature ───────────
     // Antes cada feature tenía una sección `.mk-deep` DEBAJO de la grilla (scroll).
@@ -254,27 +299,6 @@ export default function Landing({ diseno }: { diseno?: DisenoLanding | null }) {
     }
     cleanup.push(() => { if (netRaf) cancelAnimationFrame(netRaf); });
 
-    // ── Calendly inline ──────────────────────────────────────────────────────
-    const initCal = () => {
-      const el = root.querySelector('#cal-embed');
-      if (!el) return;
-      if (window.Calendly && !el.getAttribute('data-cal-init')) {
-        el.setAttribute('data-cal-init', '1');
-        window.Calendly.initInlineWidget({ url: CALENDLY_URL, parentElement: el });
-      } else if (!el.getAttribute('data-cal-init')) {
-        window.setTimeout(initCal, 300);
-      }
-    };
-    if (window.Calendly) {
-      initCal();
-    } else if (!document.getElementById('vsl-calendly-js')) {
-      const sc = document.createElement('script');
-      sc.id = 'vsl-calendly-js'; sc.src = CALENDLY_JS; sc.async = true; sc.onload = initCal;
-      document.body.appendChild(sc);
-    } else {
-      initCal();
-    }
-
     return () => cleanup.forEach((fn) => fn());
   }, []);
 
@@ -310,8 +334,12 @@ export default function Landing({ diseno }: { diseno?: DisenoLanding | null }) {
         let agendo = false;
         const onMensaje = (e: MessageEvent) => {
           if (agendo || !esAgendaDeCalendly(e.origin, e.data)) return;
+          // Con el MISMO id que el servidor (lib/meta-capi-payload.ts, `eventIdSchedule`), o nada: sin la URI del evento
+          // no hay con qué emparejarlo, y un Schedule sin id se contaría aparte del de CAPI.
+          const eventID = eventIdScheduleDelAviso(e.data);
+          if (!eventID) return;
           agendo = true;
-          window.fbq?.('track', 'Schedule');
+          window.fbq?.('track', 'Schedule', {}, { eventID });
         };
         window.addEventListener('message', onMensaje);
         cleanup.push(() => window.removeEventListener('message', onMensaje));
@@ -335,6 +363,8 @@ export default function Landing({ diseno }: { diseno?: DisenoLanding | null }) {
       {diseno && <style dangerouslySetInnerHTML={{ __html: sinCierreDeStyle(diseno.css) }} />}
       {diseno?.cssContenido && <style dangerouslySetInnerHTML={{ __html: sinCierreDeStyle(diseno.cssContenido) }} />}
       {injectedHtml}
+      <style dangerouslySetInnerHTML={{ __html: CSS_ANFITRION }} />
+      {destinoPrecios && createPortal(<PreciosLanding planes={planes} sufijo={sufijo} />, destinoPrecios)}
       <PieLegal />
     </div>
   );

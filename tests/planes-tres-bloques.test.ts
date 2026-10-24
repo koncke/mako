@@ -66,11 +66,11 @@ test('el tercer bloque es el Acelerador: 1.500 en 3 cuotas de 500, y no es un pl
   assert.equal(PLANES_MAKO_DEFAULT.find((p) => p.id === 'continuidad')?.activo, false, 'la Continuidad no va en la vitrina');
 });
 
-test('/planes: tres bloques, el programa va a la agenda, la comparación, sin anual, y el link a MaKo Partners', () => {
+test('/planes: tres bloques, el programa se pide, la comparación, sin anual, y el link a MaKo Partners', () => {
   const p = fuente('app/planes/Vitrina.tsx');
-  assert.match(fuente('app/planes/page.tsx'), /return <VitrinaPlanes ofertas=\{ofertas\} sufijo=\{sufijo\} origen=\{origen\} refCodigo=\{ref\} \/>;/, 'la página lee y la vitrina dibuja');
+  assert.match(fuente('app/planes/page.tsx'), /return <VitrinaPlanes ofertas=\{ofertas\} sufijo=\{sufijo\} \/>;/, 'la página lee y la vitrina dibuja');
   assert.match(p, /^\s*const programa = PROGRAMA_ACELERADOR;/m);
-  assert.match(p, /<a className="planes-btn planes-btn-borde" href=\{agendaConOrigen\(origen, ref\)\}>Agendar una llamada<\/a>/, 'el programa se vende por llamada, con el origen y el partner');
+  assert.match(p, /<Link className="planes-btn planes-btn-borde" href=\{`\/planes\/\$\{programa\.id\}\$\{sufijo\}`\}>Quiero el Acelerador<\/Link>/, 'el programa se pide en su página, con el origen y el partner');
   assert.match(p, /\{p\.destacado && <span className="planes-insignia">Recomendado<\/span>\}/);
   assert.match(p, /^\s*const filas = filasDeComparacion\(\);/m);
   assert.match(p, /<h2 id="planes-compara-titulo">Compara los planes<\/h2>/);
@@ -80,7 +80,7 @@ test('/planes: tres bloques, el programa va a la agenda, la comparación, sin an
   assert.match(p, /return capa === 'completo' \? f\.esencial : capa === 'agencia' \? f\.pro : null;/);
   assert.match(p, /<Link href="\/mako-partners">MaKo Partners<\/Link>/, 'desde /planes se llega a MaKo Partners');
   // Los planes cobrables siguen saliendo de la regla de siempre (tests/planes-sin-pasarela.test.ts).
-  assert.match(p, /botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable, sufijo, origen, ref \}\)/);
+  assert.match(p, /botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable, sufijo \}\)/);
 });
 
 test('quien da de alta a mano lee que ese negocio NO tiene los topes de la tabla (se cumplen sólo por la pasarela)', () => {

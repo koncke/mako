@@ -34,7 +34,9 @@ import { crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
 import { leerCuentaMp } from './mercadopago-api';
 import { modoDeClaveStripe } from './stripe-api';
 import { COLS_COBRO, cobroDeFila, type Pasarela } from './cobros-tipos';
-import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, precioEn, type PlanMako } from './planes-mako';
+import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, type PlanMako } from './planes-mako';
+import { avisarDePlataforma } from './invitaciones';
+import { EMAIL_MAKO, linkApp } from './app-url';
 import { pasarelaDeLaCompra, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -172,7 +174,7 @@ async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuev
   const o = p.origen ?? {};
   try {
     const lead = await createLead({
-      nombre: p.nombre, email: p.email, origen_lead: 'landing',
+      nombre: p.nombre, email: p.email, telefono: p.whatsapp ? `+${p.whatsapp}` : null, origen_lead: 'landing',
       utm_source: o.utm_source, utm_medium: o.utm_medium, utm_campaign: o.utm_campaign, utm_content: o.utm_content, fbclid: o.fbclid,
     });
     return { leadId: Number(lead.id), nuevo: true };
@@ -182,6 +184,41 @@ async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuev
     if (otro) return { leadId: otro.id, nuevo: false };
     throw e;
   }
+}
+
+/**
+ * «LO QUIERO» SIN PASARELA (24/10/2026, Martín: «No voy a usar Calendly, te dije que pongas las columnas de pricing»). Quien
+ * elige un plan que todavía no se cobra en línea (o el Acelerador, que nunca pasa por la pasarela: docs/ofertas-mako.md,
+ * docs/estrategia-financiera-mako.md §1.7) deja su nombre, email y WhatsApp, y queda como lead en el CRM de MaKo con el
+ * plan, de dónde vino y el código de MaKo Partners en su historial. El equipo recibe el aviso en el momento. Se le da de
+ * alta a mano (el alta del super admin), y un referido se reconstruye con el renglón «referido por».
+ */
+export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const nombrePlan = p.plan === PROGRAMA_ACELERADOR.id
+    ? PROGRAMA_ACELERADOR.nombre
+    : (await planesMako()).find((x) => x.id === p.plan && x.activo)?.nombre ?? null;
+  if (!nombrePlan) return { ok: false, status: 404, error: 'Ese plan no existe.' };
+  const ws = await wsSuperAdmin();
+  return runWithWorkspace(ws, async () => {
+    let lead: { leadId: number; nuevo: boolean };
+    try {
+      lead = await leadDelComprador(p);
+    } catch (e) {
+      console.error('[compra-plan] no pude registrar el pedido de plan:', msg(e));
+      return { ok: false, status: 503, error: 'No pudimos registrar tu pedido. Prueba otra vez en un minuto.' };
+    }
+    const de = p.origen?.landing ? ` desde la landing «${p.origen.landing}»` : '';
+    const ref = p.ref ? ` (referido por ${p.ref})` : '';
+    const wa = p.whatsapp ? ` WhatsApp: +${p.whatsapp}.` : '';
+    await logLeadEvent(lead.leadId, 'Pedido de plan', `Quiere ${nombrePlan}${de}${ref}.${wa}`, 'Planes de MaKo').catch(() => {});
+    // El aviso al equipo, en el momento: el domingo nadie tiene que estar mirando el CRM para enterarse. Best effort.
+    await avisarDePlataforma({
+      to: EMAIL_MAKO, tag: 'planes-pedido', asunto: `${p.nombre} quiere ${nombrePlan}`, preheader: 'Pedido desde la página de planes.',
+      cuerpo: [`${p.nombre} (${p.email}) quiere ${nombrePlan}${de}${ref}.`, '', `WhatsApp: +${p.whatsapp ?? '—'}`, '',
+        'Su ficha en el CRM de MaKo:', linkApp(`/crm/${lead.leadId}`, ws)].join('\n'),
+    }).catch((e) => console.warn('[compra-plan] no pude avisar del pedido:', msg(e)));
+    return { ok: true };
+  });
 }
 
 export type ResultadoCompra =
@@ -287,4 +324,16 @@ export async function reactivarPlan(ws: number, p: { email: string; nombre: stri
     await logLeadEvent(base.lead_id!, 'Compra de plan', 'Abrió el pago para reactivar su plan.', 'Checkout de MaKo').catch(() => {});
     return { ok: true, link: r.link };
   });
+}
+
+/**
+ * Los planes como los dibujan las columnas de precios de la landing de venta (24/10/2026, app/vsl/PreciosLanding.tsx), con
+ * si se cobran en línea (la misma cuenta que /planes). Si no se pudo leer, los de hoy y sin cobro en línea: el botón dice
+ * «Quiero …» y se pide (nunca «Empezar» sin un cobro detrás), y la landing no se queda sin precios.
+ */
+export async function planesParaLanding(): Promise<Array<Pick<PlanMako, 'id' | 'nombre' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado'> & { cobrable: boolean }>> {
+  const ofertas = await ofertasDeLosPlanes().catch(() => PLANES_MAKO_DEFAULT.filter((p) => p.activo).map((plan) => ({ plan, cobrable: false })));
+  return ofertas.map(({ plan, cobrable }) => ({
+    id: plan.id, nombre: plan.nombre, precioUsd: plan.precioUsd, resumen: plan.resumen, incluye: plan.incluye, destacado: !!plan.destacado, cobrable,
+  }));
 }

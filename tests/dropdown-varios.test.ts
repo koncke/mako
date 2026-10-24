@@ -68,7 +68,8 @@ test('CABLEADO: el desplegable usa las MISMAS funciones, y sólo con `varios`', 
   // Y los CUATRO lugares donde se dibuja un renglón pasan la elección múltiple: con uno
   // que no la pase, la búsqueda o las secciones dibujarían renglones que cierran el menú.
   const llamadas = src.match(/renderOption\(o, value, resetAfterSelect, onChange, \(\) => setOpen\(false\),[^\n]*\)\)/g) ?? [];
-  assert.equal(llamadas.length, 4, 'son cuatro lugares que dibujan renglones');
+  // El quinto, desde el 24/10/2026: la sección en dos columnas (`dosColumnas`, el desplegable de etapa de la ficha).
+  assert.equal(llamadas.length, 5, 'son cinco lugares que dibujan renglones');
   for (const l of llamadas) assert.ok(/varios \? \{ valores: varios, minimo \} : undefined/.test(l), `un renglón sin la elección múltiple: ${l}`);
 });
 

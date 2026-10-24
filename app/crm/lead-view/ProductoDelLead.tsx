@@ -331,6 +331,11 @@ export function FunnelYEtapa({ ficha, etapasCasa, etapaCasa, onElegirCasa, ariaL
           </>
         )}
         buttonStyle={{ fontSize: 13, fontWeight: 600 }}
+        // ⚠️ LAS ETAPAS EN DOS COLUMNAS «PARA EVITAR SCROLL» (03/07/2026): con el tope de siempre (340 de alto, 360 de ancho)
+        // ocho etapas del recorrido más el buscador ya scrolleaban. Medido en Chrome el 24/10: con 460 no hay barra, y el ancho
+        // nunca pasa la pantalla (en el teléfono, 390 − 24). El alto lo recorta igual el espacio que queda (`altoMaximoDelMenu`).
+        menuAlto={460}
+        menuAncho={typeof window === 'undefined' ? 420 : Math.min(420, window.innerWidth - 24)}
       />
       {/* «TAMBIÉN EN» SE FUE (24/10/2026, Martín, con la captura de un lead de Mauricio: «Elimina "También en Negocio que
           ESCALA"»). Lo había pedido la llamada con Mauricio del 22/10 (C8: que la R1 del CRM principal diga que el lead vino del

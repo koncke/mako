@@ -125,7 +125,29 @@ export type ContextoControl = {
    * fecha—, esa espera cierra SU hilo (`sin_hora`), no la inscripción (M3 g). Ausente = `reunionMs`, lo de antes.
    */
   reunionConHoraMs?: number | null;
+  /**
+   * DESDE CUÁNDO CUENTA UNA ESPERA «de tiempo» (24/10/2026, Martín: «el goteo debe comenzar a contar desde que se envía
+   * el primer mensaje»): desde que la inscripción quedó LISTA para seguir —salió el mensaje de antes, o venció la espera
+   * de antes— y no desde que el motor llegó a procesarla. Ausente = `ahoraMs`, lo de antes. Ver `relojDeLasEsperas`.
+   */
+  relojMs?: number;
 };
+
+/**
+ * EL RELOJ DE LAS ESPERAS de una inscripción: su `proximo_envio_at` si ya venció (el momento en que quedó lista: al salir
+ * un mensaje, el motor deja lo que sigue con `proximo_envio_at` = ahora; al programar una espera, su vencimiento), y si no,
+ * ahora. Nunca en el futuro.
+ * ⚠️ EL CASO QUE LO MOTIVÓ (la #289 de Mauricio, medido el 24/10/2026 en `nutricion_inscripciones`): después del primer
+ * mensaje van la condición «Contestó» y «Esperar 1 día». El goteo frenaba la condición como si fuera un mensaje (le daba
+ * un turno de 11 min, 629500245) y el horario de la automatización la congelaba de noche; la espera contaba desde que la
+ * condición por fin pasaba. A «186» le salió el primer mensaje el 23/10 a las 23:14 (ART), la condición pasó el 24/10 a
+ * las 13:57 (al abrir el horario, en su turno) y el segundo quedó para el 25/10 a las 13:57: 14 h 43 min tarde. Siete de las
+ * veinte activas, entre 12 y 15 horas tarde; el resto, 12 a 24 minutos.
+ */
+export function relojDeLasEsperas(proximoEnvioAt: string | null | undefined, ahoraMs: number): number {
+  const p = proximoEnvioAt ? Date.parse(proximoEnvioAt) : NaN;
+  return Number.isFinite(p) && p <= ahoraMs ? p : ahoraMs;
+}
 
 /**
  * Una flecha en paralelo que arranca un hilo NUEVO (segunda tanda, 08/10/2026): `destino` es su
@@ -192,6 +214,9 @@ export function resolverControl(pasos: readonly PasoGrafo[], desde: number, ctx:
   };
   let idx = desde;
   let saltos = 0;
+  // El reloj de las esperas «de tiempo»: desde que quedó lista (`relojMs`), y una espera ya vencida lo corre a SU
+  // vencimiento, para que la siguiente cuente desde ahí y no desde ahora. Nunca en el futuro.
+  let reloj = Math.min(ctx.relojMs ?? ctx.ahoraMs, ctx.ahoraMs);
   /**
    * «SI AGENDA MÁS CERCA» (16/10/2026, `llegaTarde`, lib/flujo-grafo.ts): se llegó tarde a una espera «antes de la
    * reunión» y lo que sigue —mensajes y acciones— no sale, hasta la próxima espera. Las condiciones se deciden igual.
@@ -260,11 +285,11 @@ export function resolverControl(pasos: readonly PasoGrafo[], desde: number, ctx:
           continue;
         }
       } else {
-        objetivo = ctx.ahoraMs + minutos * 60_000;
+        objetivo = reloj + minutos * 60_000;
       }
       repartir(idx, Math.max(objetivo, ctx.ahoraMs));
       if (j < 0) return { tipo: 'fin', motivo: 'no hay nada después de la espera', via, repartos };
-      if (objetivo <= ctx.ahoraMs) { idx = j; continue; }
+      if (objetivo <= ctx.ahoraMs) { if (p.espera?.modo !== 'antes_reunion') reloj = objetivo; idx = j; continue; }
       return { tipo: 'esperar', idx: j, proximoMs: objetivo, via, repartos };
     }
     // ir_a

@@ -34,12 +34,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
-import { IconoMenu } from '@/app/_ui/iconos-menu';
 import {
   CabeceraM, ErrorM, FilaM, KanbanM, ListaM, SheetM, SkeletonFilas, VacioM, useConexion,
   type ColumnaKanban, type ResultadoMover, type TarjetaKanban,
 } from '@/app/m/_ui';
 import { buscarLeadsAction, deshacerMoverAction, moverEtapaAction } from './acciones';
+import { BotonFlotanteM, HuecoFlotanteM } from '@/app/m/_ui/BotonFlotanteM';
+import { NewLeadForm } from '@/app/crm/new/NewLeadForm';
 import { MIN_BUSQUEDA, type FilaLeadM } from './reglas';
 import { linkInstagram } from '@/app/crm/campo-inline';
 import { CaraTarjeta, CuerpoFichaRapida, EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
@@ -58,6 +59,12 @@ const urlFunnel = (id: number | null) => (id == null ? '/m/crm' : `/m/crm?funnel
 
 export function TableroCrm({ datos }: { datos: TableroCrmM }) {
   const [buscar, setBuscar] = useState(false);
+  /**
+   * «＋ NUEVO LEAD» EN EL TELÉFONO (pedido del 17/10, «rediseña el CRM copiando apps que lo hacen bien»; 24/10/2026). Pipedrive y
+   * HubSpot lo tienen como botón flotante. Abre una hoja con el MISMO alta del escritorio (el teléfono destila el escritorio,
+   * no lo reescribe), en el funnel que se mira, y al crear abre la ficha del teléfono.
+   */
+  const [alta, setAlta] = useState(false);
   const [elegirFunnel, setElegirFunnel] = useState(false);
   // La ficha rápida (17/10/2026, la familia del prototipo): tocar una tarjeta la abre; «Abrir ficha» lleva a la completa.
   const [rapida, setRapida] = useState<TableroCrmM['tarjetas'][number] | null>(null);
@@ -156,7 +163,20 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
           }}
           onMover={mover}
         />
+        {/* El aire para que el botón flotante no tape la última tarjeta. */}
+        <HuecoFlotanteM />
       </div>
+      <BotonFlotanteM etiqueta="Nuevo lead" onClick={() => setAlta(true)} />
+      <SheetM id="nuevo-lead" abierto={alta} onCerrar={() => setAlta(false)} titulo="Nuevo lead" snap="alto">
+        {alta && (
+          <NewLeadForm enModal={{
+            funnelId: datos.funnelId,
+            onCreado: (id) => { setAlta(false); router.push(ficha(id)); },
+            // Ya estaba en otro funnel y se lo sumó a éste: también se abre su ficha (el «Deshacer» es del escritorio).
+            onAgregado: (id) => { setAlta(false); router.push(ficha(id)); },
+          }} />
+        )}
+      </SheetM>
 
       <SheetM id="info" abierto={!!r} onCerrar={() => setRapida(null)} titulo="Ver info" snap="medio">
         {r && (
@@ -183,17 +203,19 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
 
       <SheetM id="funnel" abierto={elegirFunnel} onCerrar={() => setElegirFunnel(false)} titulo="Funnel" snap="medio">
         <ListaM etiqueta="Funnels">
-          {datos.funnels.map((f) => {
+          {/* ⚠️ SIN TILDE Y EL ACTUAL PRIMERO (29/09/2026, el mismo pedido que el desplegable del escritorio en
+              app/crm/CrmToolbar.tsx): «No pongas un check. Solo haz que sea más notorio que estamos parados en ese
+              producto», y «el producto que estoy parado debería estar primero». El actual se nota en el título. */}
+          {[...datos.funnels.filter((f) => f.id === datos.funnelId), ...datos.funnels.filter((f) => f.id !== datos.funnelId)].map((f) => {
             const es = f.id === datos.funnelId;
             return (
               <FilaM
                 key={f.id ?? 'negocio'}
-                titulo={f.nombre}
+                titulo={es ? <span className="m-crm-funnel-actual">{f.nombre}</span> : f.nombre}
                 navegacion
                 // Cerrarla por código (replaceState) y navegar en el mismo tick es seguro: ver SheetM.
                 onClick={() => { setElegirFunnel(false); if (!es) router.push(urlFunnel(f.id)); }}
                 chevron={false}
-                riel={es ? <span className="m-crm-check"><IconoMenu nombre="check" size={20} /></span> : undefined}
                 etiqueta={es ? `${f.nombre}, elegido` : f.nombre}
               />
             );

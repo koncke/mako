@@ -46,6 +46,9 @@ import { enqueueJ2SinMatch } from '@/lib/review-queue';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { sendMetaCAPIEvent } from '@/lib/meta-capi';
+import { eventIdSchedule, repiteScheduleDeLaPagina } from '@/lib/meta-capi-payload';
+import { paginaDeAgenda } from '@/lib/meta-schedule-pagina';
+import { loQueSabemos } from '@/lib/landing-vigilancia';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { datosCancelada, claveCancelada, DEDUP_CANCELADA_MIN } from '@/lib/reunion-cancelada';
 import { linkResumenLead } from '@/lib/lead-resumen';
@@ -603,10 +606,23 @@ export async function POST(request: NextRequest) {
         );
 
         // CAPI: evento "Schedule" server-side (la verdad del agendamiento) para
-        // que Meta optimice sobre reservas reales. event_id determinístico por
-        // reserva (email + hora de inicio) → deduplica reintentos y permite
-        // deduplicar con el pixel del navegador si éste envía el mismo id.
-        const capiSchedule = await sendMetaCAPIEvent({
+        // que Meta optimice sobre reservas reales.
+        // ⚠️⚠️ CON EL MISMO ID QUE EL NAVEGADOR, Y NO SI LA PÁGINA YA LO MANDA SIN ÉL (24/10/2026, Martín: «Es error de
+        // mako»). El id era `schedule:<email>:<inicio>`, que el navegador no puede armar: el comentario de acá decía
+        // «permite deduplicar con el pixel del navegador si éste envía el mismo id» y ninguno lo enviaba. Ahora es
+        // `schedule:<uuid del evento>`, el que también arman las páginas de MaKo (`eventIdSchedule`). Y la página de un
+        // cliente que dispara su propio `fbq('track','Schedule')` sin id (medido en la de Mauricio) ya le cuenta la reserva
+        // a Meta: MaKo repitiéndola por CAPI era la segunda (`repiteScheduleDeLaPagina`, lib/meta-capi-payload.ts).
+        const paginaDeLaReserva = visitor_id ? await paginaDeAgenda(visitor_id).catch(() => null) : null;
+        const piezasDeLaPagina = paginaDeLaReserva ? ((await loQueSabemos(paginaDeLaReserva).catch(() => null))?.piezas ?? null) : null;
+        // Estricta, como todo lo de esta ruta: si no se pudo leer, el píxel es «no sé» y se asume el mismo (con la página
+        // mandándolo sin id, un evento de menos es mejor que uno contado dos veces).
+        const pixelDestino = await credWsEstricta('META_PIXEL_ID', ws).catch(() => null);
+        const yaLoMandaLaPagina = repiteScheduleDeLaPagina(piezasDeLaPagina, pixelDestino);
+        if (yaLoMandaLaPagina) {
+          await logLeadEvent(lead.id, 'Meta', 'La agenda ya le llega a Meta desde tu página (sin un id compartido): MaKo no la repite, así no se cuenta dos veces.', 'MaKo');
+        }
+        const capiSchedule = yaLoMandaLaPagina ? null : await sendMetaCAPIEvent({
           eventName: 'Schedule',
           email,
           phone: telefono,
@@ -616,7 +632,7 @@ export async function POST(request: NextRequest) {
           // campo vacío es peor que no mandarlo (Meta rechaza el evento entero).
           metaLeadId: lead.meta_lead_id,
           actionSource: 'website',
-          eventId: `schedule:${email.toLowerCase()}:${startTimeIso}`,
+          eventId: eventIdSchedule({ eventoUri: payload.scheduled_event?.uri, email, inicioIso: startTimeIso }),
           // El UID de la visita (la landing de MaKo lo manda en utm_term y al Píxel como external_id).
           externalId: visitor_id,
           customData: {
@@ -626,7 +642,7 @@ export async function POST(request: NextRequest) {
         });
         // Lo que Meta rechaza va al historial de la ficha, no sólo al log: un 200
         // con el error adentro no deja ningún rastro que alguien vaya a abrir.
-        if (!capiSchedule.ok && (capiSchedule.motivo === 'rechazado' || capiSchedule.motivo === 'http' || capiSchedule.motivo === 'red')) {
+        if (capiSchedule && !capiSchedule.ok && (capiSchedule.motivo === 'rechazado' || capiSchedule.motivo === 'http' || capiSchedule.motivo === 'red')) {
           await logLeadEvent(lead.id, 'Meta', `No entró la conversión Schedule: ${capiSchedule.detalle}`.slice(0, 300), 'MaKo');
         }
 

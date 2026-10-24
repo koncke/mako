@@ -276,7 +276,7 @@ async function avisarCredito(referidor: number, referido: number, monto: number)
     await avisarDePlataforma({
       to: a.email, asunto: `Sumaste ${formatoMonto(monto, 'USD')} en MaKo Partners`, preheader: 'Tu referido pagó su segundo mes.', tag: 'partners-credito',
       cuerpo: [`Hola${a.nombre ? ` ${a.nombre.split(' ')[0]}` : ''},`, '', `${nuevo} pagó su segundo mes: se te suman ${formatoMonto(monto, 'USD')} de crédito.`, '',
-        'Mira cuánto llevas acumulado y tus meses gratis:', linkApp('/partners/referidos', referidor)].join('\n'),
+        'Mira cuánto llevas acumulado:', linkApp('/partners/referidos', referidor)].join('\n'),
     });
   }
 }

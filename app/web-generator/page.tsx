@@ -44,7 +44,9 @@ import { listarAnalizadas } from '@/lib/landing-analyst';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
 import { TEMAS, temaPorId, urlFuentes } from '@/lib/editor-landing/temas';
 import type { LandingResumen, TemaPropio } from '@/lib/editor-landing/api-tipos';
-import { consultaDerecha, derechaDeQuery, type Analizada } from './panel-reglas';
+import { consultaDerecha, derechaDeQuery, landingMasReciente, type Analizada } from './panel-reglas';
+import { redirect } from 'next/navigation';
+import { rutaConWs } from '@/lib/workspace';
 import { Inicio } from './Inicio';
 
 export const dynamic = 'force-dynamic';
@@ -74,6 +76,16 @@ export default async function LandingGeneratorPage({ searchParams }: { searchPar
   let errorAnalizadas: string | null = null;
   if (rAnalizadas.ok) analizadas = rAnalizadas.analizadas;
   else { errorAnalizadas = rAnalizadas.error; console.error('[web-generator] analizadas:', rAnalizadas.error); }
+
+  // ⚠️ EL PANEL YA NO ES LA ENTRADA (24/10/2026, Martín: «Ese "panel" principal, solo sale si un usuario no ha creado nunca
+  // ninguna landing»). Sin nada en la URL (o sólo el ?ws= de la pestaña) se abre la última landing tocada, como Automations
+  // abre la última automatización; las otras están a un clic en la lista de la tarjeta (editor/paneles/PanelLandings.tsx).
+  // El Panel sale sin landings, con `?panel=1` («Nueva landing», «Ver todo en el Panel») o con un pedido en la URL
+  // (crear, analizar, diagnóstico). Una lista que no se pudo leer tampoco salta: el Panel dice el error.
+  if (!errorLista && Object.keys(sp).every((k) => k === 'ws')) {
+    const ultima = landingMasReciente(docs);
+    if (ultima) redirect(await rutaConWs(`/web-generator/${ultima.id}`));
+  }
 
   let propios: TemaPropio[] = [];
   let errorTemas: string | null = null;

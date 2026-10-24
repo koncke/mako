@@ -38,6 +38,65 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## El `&&` después de un pipe mide el `tail`, no el chequeo: el tren se subió con 5 errores de tipos (24/10/2026)
+
+**Vive en:** cualquier comando del Cerebro con la forma `chequeo | tail && push`.
+
+Armé el segundo tren de la noche con `node scripts/tipos-respaldo-push.mjs 2>&1 | tail -6 && echo "TIPOS OK" && git push`.
+**La tanda 3 dio 5 errores de tipos y el comando imprimió «TIPOS OK» igual**, y empujó. En un pipe, `$?` es el código
+del ÚLTIMO comando: `tail` siempre sale 0. El `&&` nunca miró el chequeo.
+
+**Lo que lo salvó no fue mi guarda: fue el hook de pre-push**, que corre el mismo chequeo por su cuenta y rechazó el
+push. `main` quedó intacta. Si alguna vez alguien «acelera» pasando `--no-verify`, esta misma línea sube tipos rotos
+a producción sin una sola señal.
+
+**La regla que queda:** un chequeo que decide si se sube **no se pipea**. Se guarda la salida, se lee `$?` del chequeo,
+y recién ahí se decide: `cmd > salida 2>&1; rc=$?; tail -6 salida; [ "$rc" -eq 0 ] && git push`. Si hace falta el pipe,
+`set -o pipefail` primero.
+
+**Y la regla de arriba de ésa:** esto ya estaba escrito en el repo para `head` antes de `git commit`, y lo repetí con
+`tail` antes de `git push` la misma noche. Un hallazgo escrito no se aplica solo. Cuando una trampa es de la forma del
+comando y no del código, el lugar donde evita el error no es un documento: es el comando mismo — por eso la receta de
+arriba va textual, para copiarla.
+
+## La guarda que avisa al cliente «ya quedó arreglado» NO PUEDE dar verde: Vercel no guarda el commit (24/10/2026)
+
+**Vive en:** `scripts/avisar-arreglo-al-grupo.mts` (`pruebaDeProduccion`) · cualquier chequeo que use
+`vercel ls --meta githubCommitSha=<sha>`.
+
+**El síntoma.** Después de subir el tren de la noche (43c343ebd), esperé 14 minutos a que apareciera su
+despliegue y nunca apareció. El tren **ya estaba vivo** desde el minuto 3.
+
+**Lo que devuelve cada forma de preguntar, medido en la misma corrida:**
+
+| Comando | Respuesta |
+|---|---|
+| `vercel ls --environment production --meta githubCommitSha=43c343ebd` | `No deployments found` |
+| lo mismo sin `--environment` | `No deployments found` |
+| `vercel ls --environment production` (sin `--meta`) | los de hace **18 horas** |
+| `vercel ls` **pelado** | el de producción en Ready de hace **16 minutos** |
+
+**La causa real, y el diagnóstico obvio era el equivocado.** No es el stdout/stderr (eso fue el incidente del
+18/10 y ya está arreglado), ni que el despliegue tarde. Es que **el despliegue no trae metadatos de git**:
+`vercel inspect` del despliegue vivo no muestra ni rama ni commit ni origen, sólo id, target, status y tiempos.
+Sin `githubCommitSha` guardado, el filtro `--meta` **no puede** coincidir — ni con ese sha ni con ninguno.
+
+**Por qué importa más de lo que parece.** `avisar-arreglo-al-grupo.mts` **no manda** el aviso al grupo del
+cliente si no encuentra un despliegue Ready que contenga el arreglo. Con el filtro inservible, esa guarda
+contesta siempre «no pude verificar», así que **dejamos de avisarle a los clientes que su arreglo salió, y la
+falla se ve igual que la prudencia**. Una guarda que siempre dice que no es peor que no tener guarda: no hace
+ruido, no deja rojo, y nadie la mira.
+
+**La regla que queda: la prueba de que algo está en producción es que producción lo sirva.** No la hora del
+deploy, no el estado en un panel, no un metadato del proveedor. Se le pide a la URL pública algo que **sólo
+exista en ese commit** y se mira si viene. Así verifiqué este tren: `hola-mako.com/mako-partners` sirve
+«Todavía no se descuenta solo de tu plan», una frase que nació en `fc8064ee7`. Eso es una prueba; «Ready hace
+16 minutos» es una correlación.
+
+**SIN hacer:** cambiar `pruebaDeProduccion` para que verifique sirviendo (una marca por commit en una ruta
+pública, o el `BUILD_ID` de Next) en vez de por `--meta`. Mientras tanto, todo aviso de «ya quedó arreglado»
+pasa por una verificación a mano contra el sitio vivo.
+
 ## Un `redirect()` adentro de una página con `loading.tsx` rompió la app: React #310 (23/10/2026, ticket #7)
 
 **Síntoma:** «La pantalla General se rompió», con «Minified React error #310» (más hooks que en el render anterior) en el
@@ -213,6 +272,33 @@ agregados al índice. `git log origin/main..HEAD` daba vacío y se leyó como «
 Chats y la respuesta casi fue «nunca se hizo». Para saber si un worktree tiene trabajo va `git status --short`, no
 el log. Y un trabajo grande sólo en el árbol se pierde con un `worktree remove`, un `checkout -f` o una limpieza:
 se commitea en su rama aunque no se pushee.
+
+## Una rama que ya entregaste al tren NO se rebasa (24/10/2026)
+
+**Qué pasó.** El chat del CRM entregó al tren la punta `5a7e9eba6` (cinco tandas). El tren la mergeó, la tipó y la
+estaba subiendo. Mientras tanto el chat sumó cuatro tandas más. Antes de pasar la punta nueva hizo `git rebase
+origin/main` («traé main antes de cada push»). El rebase reescribió también las cinco tandas YA entregadas: mismos
+parches, sha nuevos. Mergear la punta nueva encima del tren habría metido los mismos cambios por dos caminos. Eso da
+conflictos en cada archivo tocado dos veces, aunque no haya ningún desacuerdo.
+
+**La regla.** Mientras el tren tiene unos commits, esos commits son inmutables. Lo nuevo va ENCIMA, con commits nuevos.
+«Traer main antes de cada push» vale para lo que todavía no se entregó. Si hace falta reordenar o limpiar lo
+entregado, se avisa ANTES de entregar.
+
+**Cómo se arregla si ya pasó.** Cuando main ya tiene lo que mergeó el tren, se rebasa SÓLO lo nuevo, con el
+`--onto` cortando en el sha NUEVO del último commit entregado:
+
+```bash
+git rebase --onto origin/main <sha-nuevo-de-la-última-tanda-entregada> <nombre-de-la-rama>
+```
+
+Ojo: si se corta en el sha VIEJO, git recalcula por parches y tira lo que ya está aplicado. En el mejor caso eso
+anda; en el peor, aparecen los conflictos falsos. Cortando en el sha nuevo se replican exactamente las tandas
+nuevas y nada más.
+
+Y el último argumento es el NOMBRE de la rama, no `HEAD`. Con `HEAD`, el rebase termina en un HEAD suelto
+(«updated detached HEAD») y la rama se queda en la punta vieja. Si después se commitea o se pasa «la punta de la
+rama», sale la versión vieja sin ningún error. Pasó el mismo 24/10 y se arregló con `git branch -f <rama> HEAD`.
 
 ## Transferir el repositorio de GitHub DESCONECTA el proyecto de Vercel, y el rol Developer no lo puede reconectar (15/10/2026)
 

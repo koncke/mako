@@ -138,10 +138,51 @@ referidos (app/m/partners/ReferidosM.tsx) en vez de rebotar a Clients. /planes l
   (pagado o reembolsado). Con otra cuenta, el panel y los créditos dirían números distintos del mismo programa.
 - **La presentación dice SÓLO lo que existe:** el crédito por referido. No «se descuenta» ni la comisión del grupal.
 
-**Sin hacer:** «Cómo funciona» del tablero y /mako-partners siguen prometiendo que el crédito «se descuenta de tus próximos
-meses» y el 20% del grupal, que no se aplican (decisión de Martín, pendiente). **Vive en:** app/_components/nav.ts ·
+**Resuelto el 24/10:** «Cómo funciona» del tablero prometía que el crédito «se descuenta de tus próximos meses» y el 20% del
+grupal; ya no (ver «La página de partners, como una landing»). **Vive en:** app/_components/nav.ts ·
 app/partners/ · app/m/partners/ · lib/partners-programa.ts (`resumenDelPrograma`) · lib/partners-reglas.ts (`contarPrograma`) ·
 tests/partners-para-clientes.test.ts · tests/sidebar-nueva.test.ts.
+
+## La página de partners, como una landing de ventas, y el panel de la misma familia (24/10/2026)
+
+**Síntoma (Martín):** «mejora completamente el diseño de "Partners", eso debe verse de ventas, como una landing, está horrible
+hoy». /mako-partners era dos tarjetas con viñetas sobre el estilo de /planes, y el panel de adentro, otra app.
+**Lo que se tomó de los programas que venden** (Notion, Framer, Webflow, ConvertKit, Beehiiv): el NÚMERO GRANDE arriba (lo que
+suma un referido de Pro), tres pasos, la CUENTA HECHA para el que mira (1, 5 y 10 negocios), las reglas sin letra chica y UNA
+acción («Quiero mi link» → /partners/referidos). **Lo que NO:** la prueba social con casos de otros partners — hoy no hay
+ninguno, y un testimonio inventado no se publica. Cuando haya partners con créditos de verdad, esa sección es la que falta.
+- **La trampa del color: en esta app `--accent` NO es el azul, es el DORADO** (`--accent: var(--mako-ink)`, app/globals.css).
+  El panel usaba `var(--accent)` y por eso se veía «de otra app» al lado de la landing azul. El azul de MaKo es `--primary`
+  (#2F6FED en claro; cambia solo en oscuro y en Nord). Un panel de adentro que tiene que parecerse a una página pública: con
+  `--primary`/`--primary-bg`/`--on-primary`, nunca con el hex fijo de la landing (en oscuro queda un bloque blanco).
+- **Los números salen de los planes y las reglas** (`PLANES_MAKO_DEFAULT`, `PROGRAMA_ACELERADOR`, `COMISION_GRUPAL`,
+  `DIAS_COOKIE_REF`, `PAGOS_PARA_ACREDITAR`): la página tenía «60 días» a mano. Si cambia el precio de Pro, cambia la página.
+- **Un guard de texto sobre la FUENTE también lee el CSS:** el «sin 20%» de la presentación saltó por un `-20%` de un degradado.
+  No es un falso positivo que haya que aflojar: se mueve el CSS.
+
+- **Una promesa escrita que el código no cumple no es «un pendiente de producto»: es la app contando algo que no hace**
+  (el Cerebro, 24/10, al ver la primera versión: «se cobra con el primer partner que la reclame»). La primera versión
+  mantuvo «un referido de Pro vale un mes de Pro» y «US$ 300 en plata» por cada Acelerador, porque «ya estaban» y la decisión
+  era de Martín. **Medido:** el crédito es un renglón de `partner_creditos` y NADA lo consume (no hay renglones de «uso»), y la
+  comisión del Acelerador no se registra en ningún lado (sólo existe la constante `COMISION_GRUPAL`). Elegir entre
+  implementar la regla o cambiar el texto: aplicar el crédito pide la pasarela (no la hay), así que se cambió el texto.
+- **Lo que dice ahora, en TODAS las pantallas** (landing, panel, teléfono, «Tu plan», el pie de /planes y el mail del
+  crédito): cada referido suma su primer mes como crédito, y una sola frase dice lo que pasa hoy (`CREDITO_HOY`,
+  lib/partners-reglas.ts: «queda registrado en tu panel. Todavía no se descuenta solo de tu plan»), también en las reglas de
+  la landing. El panel ya no muestra «Disponible», «Meses gratis» ni «A cobrar en plata» (`resumenDelLibro` los sigue
+  contando, para el día que se apliquen). Sin cobro en línea, la landing avisa como el panel que un referido no aparece solo.
+  El test (tests/mako-partners-landing.test.ts) frena «meses gratis», «se descuenta» (salvo «no se descuenta»), «en plata»,
+  «a cobrar», «comisión» y «20%» en cada una de esas pantallas y en los mails.
+- **Dónde se escondía la promesa:** no sólo en la página. «Cada referido te suma un mes» en «Tu plan»
+  (app/configuraciones/plan/PlanPanel.tsx), «gana meses gratis» en el pie de /planes (app/planes/Vitrina.tsx) y «tus meses
+  gratis» en el mail del crédito (lib/partners-programa.ts, `avisarCredito`). Las páginas internas del super admin
+  (app/admin/estrategia, app/admin/dev) describen el programa decidido el 10/10 con descuento y pago en plata: son planes,
+  no promesas al cliente, y no se tocaron.
+
+**Sin hacer:** aplicar el crédito (descontarlo de la cuota del partner) y registrar la comisión del Acelerador; el día que
+se haga, cambia `CREDITO_HOY` junto con la regla y el test lo pide (docs/relevo/suscripcion.md, punto 5). **Vive en:**
+app/mako-partners/LandingPartners.tsx · app/partners/PresentacionPartners.tsx · app/partners/referidos/Referidos.tsx ·
+app/m/partners/ReferidosM.tsx · lib/partners-reglas.ts (`CREDITO_HOY`) · tests/mako-partners-landing.test.ts.
 
 ## Sin pasarela, el programa no puede registrar a nadie, y el panel lo dice (24/10/2026)
 

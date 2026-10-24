@@ -101,6 +101,7 @@ import PanelAnimacion from './paneles/PanelAnimacion';
 import DialogoCompartir from './dialogos/DialogoCompartir';
 import DialogoPublicar from './dialogos/DialogoPublicar';
 import DialogoExportar from './dialogos/DialogoExportar';
+import { PanelLandings, RUTA_NUEVA_LANDING } from './paneles/PanelLandings';
 import DialogoConfiguracion from './dialogos/DialogoConfiguracion';
 import DialogoAnalitica from './dialogos/DialogoAnalitica';
 import DialogoAtajos from './dialogos/DialogoAtajos';
@@ -161,12 +162,8 @@ function baseDelLienzo(dispositivo: Dispositivo, zoom: number, diapo: { ancho: n
   return { '--gm-base': `calc(${tope ? `min(${normal}, ${tope})` : normal} * ${z})` };
 }
 
-/** Iniciales para el avatar. */
-function iniciales(nombre: string | null): string {
-  const partes = (nombre || '').trim().split(/\s+/).filter(Boolean);
-  if (!partes.length) return '·';
-  return (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : '')).toUpperCase();
-}
+// (Acá estaban las iniciales del avatar de la barra de arriba: el avatar se fue con esa barra el 24/10/2026; la app ya
+// muestra el suyo en la barra lateral.)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La entrada: el documento o el error de carga
@@ -195,7 +192,7 @@ function ErrorDeCarga({ error }: { error: string | null }) {
     <div className="gma gma-app">
       <link rel="stylesheet" href={URL_FUENTE_CHROME} precedence="default" />
       <div className="gma-barra">
-        <Link href="/web-generator" className="gma-boton gma-boton--icono gma-tip" data-tip="Panel" aria-label="Panel">
+        <Link href={RUTA_NUEVA_LANDING} className="gma-boton gma-boton--icono gma-tip" data-tip="Panel" aria-label="Panel">
           <Ico n="casa" t={18} />
         </Link>
       </div>
@@ -204,7 +201,7 @@ function ErrorDeCarga({ error }: { error: string | null }) {
         {error ? <p className="gma-vacio-texto">{error}</p> : null}
         <div className="gma-vacio-acciones">
           <button type="button" className="gma-boton gma-boton--primario" onClick={() => window.location.reload()}>Reintentar</button>
-          <Link href="/web-generator" className="gma-boton gma-boton--contorno">Volver al Panel</Link>
+          <Link href={RUTA_NUEVA_LANDING} className="gma-boton gma-boton--contorno">Volver al Panel</Link>
         </div>
       </div>
     </div>
@@ -215,7 +212,7 @@ function ErrorDeCarga({ error }: { error: string | null }) {
 // El armazón
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & { doc: LandingCompleta }) {
+function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: LandingCompleta }) {
   const docId = doc.id;
   const mod = useTeclaMod();
 
@@ -982,60 +979,10 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
             Con `dangerouslySetInnerHTML` acá y la de los paneles, la página llevaba 94 KB dos veces. */}
         <EstilosContenido tema={tema} />
 
-        {/* ── Barra superior ── */}
-        <header className="gma-barra">
-          <div className="gma-barra-izq">
-            <Link href="/web-generator" className="gma-boton gma-boton--icono gma-tip" data-tip="Panel" aria-label="Panel"
-              onClick={() => { void guardarAhora(); }}>
-              <Ico n="casa" t={18} />
-            </Link>
-            <button type="button" className="gma-boton gma-boton--icono gma-tip" data-tip="Abrir panel de páginas" aria-label="Abrir panel de páginas"
-              aria-pressed={panelIzq === 'paginas'} onClick={() => (panelIzq === 'paginas' ? cerrarPaginas() : setPanelIzqEstado('paginas'))}>
-              <Ico n="paginas" t={18} />
-            </button>
-            <input
-              className="gma-titulo"
-              value={titulo}
-              placeholder="Sin título"
-              aria-label="Editar título"
-              maxLength={TOPES.titulo}
-              size={Math.min(48, Math.max(8, (titulo || 'Sin título').length + 1))}
-              onChange={(e) => setTitulo(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
-            />
-            <IndicadorGuardado estado={estado} onReintentar={() => { void guardarAhora(); }} />
-          </div>
-          <div className="gma-barra-der">
-            <button type="button" className="gma-boton gma-boton--secundario" onClick={() => setDialogo('compartir')}>
-              <Ico n="candado" t={14} /> Compartir
-            </button>
-            <div className="gma-partido">
-              {/* T3: en una presentación la acción principal es Presentar (Publicar queda en el ▾). */}
-              {presentacion ? (
-                <button type="button" className="gma-boton gma-boton--primario gma-tip" data-tip="Presentar" data-atajo={`${mod}↵`}
-                  onClick={() => setDialogo('presentar')}>
-                  <Ico n="presentar" t={15} /> Presentar
-                </button>
-              ) : (
-                <button type="button" className="gma-boton gma-boton--primario gma-tip"
-                  data-tip={cambiosSinPublicar ? 'Tienes cambios que publicar' : 'Publicar'}
-                  onClick={() => setDialogo('publicar')}>
-                  <Ico n="subir" t={15} /> Publicar
-                </button>
-              )}
-              <button type="button" className="gma-boton gma-boton--primario" aria-label={presentacion ? 'Más opciones' : 'Más opciones de publicación'}
-                aria-expanded={!!menuPublicar} onClick={(e) => setMenuPublicar(menuPublicar ? null : e.currentTarget)}>
-                <Ico n="chevron-abajo" t={14} />
-              </button>
-              {cambiosSinPublicar ? <span className="gma-punto-cambios" aria-hidden /> : null}
-            </div>
-            <button type="button" className="gma-boton gma-boton--icono gma-tip" data-tip="Más" aria-label="Menú del documento"
-              aria-expanded={!!menuDoc} onClick={(e) => setMenuDoc(menuDoc ? null : e.currentTarget)}>
-              <Ico n="puntos" t={18} />
-            </button>
-            <span className="gma-avatar" title={autor ?? undefined} aria-label={autor ?? 'Tú'}>{iniciales(autor)}</span>
-          </div>
-        </header>
+        {/* ⚠️ ACÁ HABÍA UNA SEGUNDA BARRA arriba de la de herramientas (casa, páginas, título, guardado, Compartir, Publicar,
+            ⋯ y el avatar). Martín, 24/10/2026: «Hay 2 topbar de edición, debería haber solo 1... fijate como en diseño que
+            entre todo bien». Todo pasó a la de herramientas (abajo); la casa la reemplaza la «←» del chat (la lista de la
+            tarjeta) y el avatar ya está en la barra lateral de la app. */}
 
         {estado === 'conflicto' ? (
           <div className="gma-aviso" role="alert">
@@ -1050,7 +997,11 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
           {/* Columnas en <section> y no en <aside> (22/10/2026): con la barra de la agencia, `[data-barra-agencia] aside`
               (app/globals.css) le fuerza a todo <aside> el alto de la ventana, y la columna se pasaba 48 px del cuerpo: la caja
               del agente quedaba fuera de la vista. Medido en producción, ws3 (761 px en un cuerpo de 713). */}
-          {panelIzq === 'agente' ? (
+          {panelIzq === 'landings' ? (
+            <section role="complementary" className="gma-izq" data-panel="landings" aria-label="Tus landings">
+              <div className="gma-izq-cuerpo"><PanelLandings /></div>
+            </section>
+          ) : panelIzq === 'agente' ? (
             <section role="complementary" className="gma-izq" data-panel="agente" aria-label="Edición con IA">
               {/* Sin cabecera propia: la del agente (casa, título y plegar) es la única. Había dos. */}
               <div className="gma-izq-cuerpo"><PanelAgente /></div>
@@ -1066,15 +1017,29 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
             <div className="gma-herramientas" role="toolbar" aria-label="Herramientas">
               {/* Sin «Edición manual / Edición con IA»: con el agente abierto se edita a mano igual. Lo
                   único que queda es volver a abrirlo si se plegó. */}
+              {/* El título y el guardado, al principio de la barra única (los traía la barra de arriba). */}
+              <input
+                className="gma-titulo"
+                value={titulo}
+                placeholder="Sin título"
+                aria-label="Editar título"
+                maxLength={TOPES.titulo}
+                size={Math.min(28, Math.max(8, (titulo || 'Sin título').length + 1))}
+                onChange={(e) => setTitulo(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
+              />
+              <IndicadorGuardado estado={estado} onReintentar={() => { void guardarAhora(); }} />
+              <span className="gma-sep" />
               {!modoIA && (
-                <>
-                  <button type="button" className="gma-herr-boton gma-tip" data-tip="Abrir MaKo" data-atajo={`${mod}E`} aria-label="Abrir MaKo"
-                    onClick={() => setModoIA(true)}>
-                    <Ico n="destellos" t={16} />
-                  </button>
-                  <span className="gma-sep" />
-                </>
+                <button type="button" className="gma-herr-boton gma-tip" data-tip="Abrir MaKo" data-atajo={`${mod}E`} aria-label="Abrir MaKo"
+                  onClick={() => setModoIA(true)}>
+                  <Ico n="destellos" t={16} />
+                </button>
               )}
+              <button type="button" className="gma-herr-boton gma-tip" data-tip="Páginas" aria-label="Abrir panel de páginas"
+                aria-pressed={panelIzq === 'paginas'} onClick={() => (panelIzq === 'paginas' ? cerrarPaginas() : setPanelIzqEstado('paginas'))}>
+                <Ico n="paginas" t={16} />
+              </button>
               <DeshacerRehacer editor={editor} mod={mod} />
               <span className="gma-sep" />
               <button type="button" className="gma-herr-boton gma-tip" data-tip="Agregar bloque" aria-label="Agregar bloque"
@@ -1104,6 +1069,35 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
                     </button>
                   ))}
                 </div>
+                <span className="gma-sep" />
+                {/* «Compartir» lleva también Exportar adentro (Gamma: Share → Export; Canva: Compartir → Descargar). */}
+                <button type="button" className="gma-boton gma-boton--secundario gma-tip" data-tip="Compartir o exportar" aria-label="Compartir o exportar" onClick={() => setDialogo('compartir')}>
+                  <Ico n="candado" t={14} /> <span className="gma-herr-texto">Compartir</span>
+                </button>
+                <div className="gma-partido">
+                  {/* T3: en una presentación la acción principal es Presentar (Publicar queda en el ▾). */}
+                  {presentacion ? (
+                    <button type="button" className="gma-boton gma-boton--primario gma-tip" data-tip="Presentar" data-atajo={`${mod}↵`}
+                      onClick={() => setDialogo('presentar')}>
+                      <Ico n="presentar" t={15} /> Presentar
+                    </button>
+                  ) : (
+                    <button type="button" className="gma-boton gma-boton--primario gma-tip"
+                      data-tip={cambiosSinPublicar ? 'Tienes cambios que publicar' : 'Publicar'}
+                      onClick={() => setDialogo('publicar')}>
+                      <Ico n="subir" t={15} /> Publicar
+                    </button>
+                  )}
+                  <button type="button" className="gma-boton gma-boton--primario" aria-label={presentacion ? 'Más opciones' : 'Más opciones de publicación'}
+                    aria-expanded={!!menuPublicar} onClick={(e) => setMenuPublicar(menuPublicar ? null : e.currentTarget)}>
+                    <Ico n="chevron-abajo" t={14} />
+                  </button>
+                  {cambiosSinPublicar ? <span className="gma-punto-cambios" aria-hidden /> : null}
+                </div>
+                <button type="button" className="gma-herr-boton gma-tip" data-tip="Más" aria-label="Menú del documento"
+                  aria-expanded={!!menuDoc} onClick={(e) => setMenuDoc(menuDoc ? null : e.currentTarget)}>
+                  <Ico n="puntos" t={18} />
+                </button>
               </div>
             </div>
 

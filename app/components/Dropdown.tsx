@@ -13,7 +13,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSPropert
 import { createPortal } from 'react-dom';
 import { puedeApagar, rotuloDeVarios } from './dropdown-varios';
 import { altoMaximoDelMenu, lugarDelMenu, CAJA_MENU, SEPARACION_MENU } from './dropdown-lugar';
-import { conBuscador, estiloDeVariante, anchoPorDefecto, type VarianteDropdown } from './dropdown-reglas';
+import { conBuscador, estiloDeVariante, anchoPorDefecto, columnasDeSeccion, type VarianteDropdown } from './dropdown-reglas';
 import { IconoMenu, esIconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
 const SANS = "'Geist', sans-serif";
@@ -312,7 +312,9 @@ export type DropdownOption = { value: string; label: string; /** Un ícono antes
    * leían como cuatro canales. Es una línea suelta y no un borde del renglón: el renglón sigue
    * con su fondo redondeado al pasar el cursor.
    */
-  lineaArriba?: boolean };
+  lineaArriba?: boolean;
+  /** Con `dosColumnas` en su sección: va DEBAJO de las dos columnas, a todo el ancho (una acción como «Quitar»). */
+  alPie?: boolean };
 /** Grupo con título para menús en columnas (ver prop `columns`) o por secciones (`secciones`). */
 export type DropdownGroup = { title: string; options: DropdownOption[];
   /** Sólo con `secciones`: el ícono de la fila que ABRE la sección (CRM, WhatsApp…), como el de un renglón. */
@@ -343,7 +345,14 @@ export type DropdownGroup = { title: string; options: DropdownOption[];
    */
   resumen?: string;
   /** Con `resumen`: la sección tiene algo marcado, y el resumen se pinta en el color de lo elegido. */
-  activo?: boolean };
+  activo?: boolean;
+  /**
+   * Sólo con `secciones`: abierta, sus opciones van en DOS COLUMNAS lado a lado, partidas por sus `lineaArriba`
+   * (`columnasDeSeccion`, app/components/dropdown-reglas.ts). Existe por el desplegable de etapa de la ficha (03/07/2026:
+   * «pipeline | nutrición… para evitar scroll»). Nunca se apilan: si no entran, las dos se achican y un nombre largo se
+   * corta con «…». Opcional: sin esto, nada cambia.
+   */
+  dosColumnas?: boolean };
 
 /** Las opciones de un grupo y de todos los de adentro. */
 function opcionesDe(g: DropdownGroup): DropdownOption[] {
@@ -865,7 +874,25 @@ export function Dropdown({
                   ‹ {abierta.title}
                 </button>
                 {(abierta.grupos ?? []).map((g) => botonSeccion(g))}
-                {abierta.options.map((o) => conLinea(o, renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false, false, varios ? { valores: varios, minimo } : undefined)))}
+                {abierta.dosColumnas ? (() => {
+                  const { izquierda, derecha, pie } = columnasDeSeccion(abierta.options);
+                  const fila = (o: DropdownOption) => conLinea(o, renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false, false, varios ? { valores: varios, minimo } : undefined));
+                  return (
+                    <>
+                      {/* ⚠️ SIN `flexWrap`, Y CADA COLUMNA CON SU ANCHO (`1 1 auto`). Medido en Chrome el 24/10/2026, con nombres de
+                          etapa normales, en escritorio y en el teléfono:
+                          · con `wrap` y una base de 160 px, la barra de scroll de Windows (15 px) dejaba 335 px útiles y la columna
+                            de la derecha BAJABA;
+                          · con base `0` el menú no mide el texto (queda en 337 px) y «Agendó Reunión 1» salía cortado sobrando lugar.
+                          Con `auto` el menú crece hasta su tope y, si no entra, las dos se achican y el nombre largo se corta con «…». */}
+                      <div data-dos-columnas style={{ display: 'flex', gap: 4 }}>
+                        <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>{izquierda.map(fila)}</div>
+                        {derecha.length > 0 && <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>{derecha.map(fila)}</div>}
+                      </div>
+                      {pie.map((o) => fila({ ...o, lineaArriba: true }))}
+                    </>
+                  );
+                })() : abierta.options.map((o) => conLinea(o, renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false, false, varios ? { valores: varios, minimo } : undefined)))}
               </>
             ) : (
               (seccVisibles ?? []).map((g) => botonSeccion(g))

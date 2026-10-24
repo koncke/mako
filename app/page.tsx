@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Portada } from './vsl/Portada';
 import { metadataPortada } from './vsl/portada-metadata';
 import { disenoDeLanding, landingMako } from '@/lib/editor-landing/landing-mako';
+import { planesParaLanding } from '@/lib/compra-plan';
 
 // La raíz es la landing de venta (antes vivía en /vsl). La ve CUALQUIERA, con
 // sesión o sin ella: es la cara pública del dominio y tener que desloguearse
@@ -16,6 +17,6 @@ export const metadata: Metadata = metadataPortada;
 export const revalidate = 300;
 
 export default async function Home() {
-  const diseno = disenoDeLanding(await landingMako(null));
-  return <Portada diseno={diseno} />;
+  const [diseno, planes] = await Promise.all([landingMako(null).then(disenoDeLanding), planesParaLanding()]);
+  return <Portada diseno={diseno} planes={planes} />;
 }

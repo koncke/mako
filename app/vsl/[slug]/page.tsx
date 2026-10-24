@@ -15,6 +15,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Portada } from '../Portada';
 import { disenoDeLanding, landingMako } from '@/lib/editor-landing/landing-mako';
+import { planesParaLanding } from '@/lib/compra-plan';
 
 export const revalidate = 300;
 
@@ -39,7 +40,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function LandingDeMako({ params }: Props) {
   const { slug } = await params;
-  const diseno = disenoDeLanding(await landingMako(slug));
+  const [diseno, planes] = await Promise.all([landingMako(slug).then(disenoDeLanding), planesParaLanding()]);
   if (!diseno) notFound();
-  return <Portada diseno={diseno} conSuspense={false} />;
+  return <Portada diseno={diseno} conSuspense={false} planes={planes} landing={slug} />;
 }

@@ -212,7 +212,7 @@ function Cargando() {
  */
 const RESPIRO_NOMBRE_MS = 1200;
 
-export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado }: {
+export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado, onAviso }: {
   /** El embudo que se edita. `null`/`undefined` = el del negocio. */
   funnelId?: number | null;
   /** Cómo se llama, para pintar el título sin esperar la lectura. */
@@ -239,6 +239,12 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
   semilla?: { etapas: EtapaDelFunnel[]; fijas: EtapaDelFunnel[]; nutricionEtapas?: EtapaDelFunnel[] } | null;
   onCerrar: () => void;
   /**
+   * EL AVISO QUE TIENE QUE SOBREVIVIR AL POP-UP (24/10/2026). Eliminar un funnel sin leads lo cierra y deja un «Deshacer»
+   * (Martín, 29/09: «no debería haber nada de fricción. Solo que me salte el pop-up de deshacer»), pero el aviso vivía
+   * ADENTRO del pop-up y se desmontaba con él: nunca se veía. Quien monta el pop-up (el tablero) lo dibuja con el suyo.
+   */
+  onAviso?: (texto: string, deshacer?: () => void) => void;
+  /**
    * El nombre nuevo, AL MANDARLO (y el anterior si el server lo rechaza): el desplegable del tablero lo dibuja ya,
    * sin esperar al `router.refresh()` («Si se cambió pero luego de unos segundos y debería ser automático»,
    * Martín, 16/10/2026).
@@ -261,9 +267,11 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
    * LA ETAPA QUE SE ESTÁ CREANDO, dibujada en su lugar con un «Creando…» mientras el server la guarda y la lista se
    * relee (llamada con Mauricio del 22/10/2026, min 19:30: «tarda mucho en crearse y tal vez necesita un loader»). Crear
    * es guardar el funnel, releerlo y refrescar el tablero de atrás: segundos en los que el «+» sólo quedaba apagado.
-   * `despuesDe` es la etapa tras la que va a caer (la misma que viaja en la op); `null` = al final de la banda Nutrición.
+   * `despuesDe` es la etapa del recorrido tras la que va a caer (la misma que viaja en la op); `nutricionEn`, el lugar en
+   * la banda Nutrición (también el de la op: 0 = debajo de Ganado). Son TODOS los «+», también el de arriba de Ganado y los
+   * de la banda: hasta el 24/10 sólo los del recorrido lo dibujaban, y los otros dejaban el «+» apagado y nada más.
    */
-  const [creando, setCreando] = useState<{ label: string; despuesDe: string | null } | null>(null);
+  const [creando, setCreando] = useState<{ label: string; despuesDe: string | null; nutricionEn?: number } | null>(null);
 
   const cargar = useCallback(async () => {
     const r = await embudoEnDetalleAction(funnelId ?? undefined);
@@ -694,10 +702,10 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
     <div key={e.key} style={{ position: 'relative' }}>
       {e.key === 'ganado' ? (
         <HuecoAgregar disabled={trabajando} oculto={arrastrando != null}
-          onCrear={(label) => aplicar({ op: 'agregar', label, ...(etapas.length ? { despuesDe: etapas[etapas.length - 1].key } : null) })} />
+          onCrear={(label) => { setCreando({ label, despuesDe: etapas[etapas.length - 1]?.key ?? null }); aplicar({ op: 'agregar', label, ...(etapas.length ? { despuesDe: etapas[etapas.length - 1].key } : null) }); }} />
       ) : e.key === primerDescarte ? (
         <HuecoAgregar disabled={trabajando} oculto={arrastrando != null}
-          onCrear={(label) => aplicar({ op: 'agregar', label, nutricionEn: nutricionEtapas.length })} />
+          onCrear={(label) => { setCreando({ label, despuesDe: null, nutricionEn: nutricionEtapas.length }); aplicar({ op: 'agregar', label, nutricionEn: nutricionEtapas.length }); }} />
       ) : null}
       <div data-limite={e.key === 'ganado' ? '' : undefined}
         style={{ ...caja, background: 'transparent', boxShadow: 'none', border: '1px dashed var(--border-strong)' }}>
@@ -707,6 +715,8 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
           {nombreEditable(e)}
         </div>
       </div>
+      {/* La nutrición que se crea en el primer lugar de la banda cae acá, debajo de Ganado. */}
+      {e.key === 'ganado' && creando?.nutricionEn === 0 && <FilaCreando label={creando.label} caja={caja} />}
     </div>
   );
   /** El primer descarte: encima de él va el «+» que agrega una nutrición al final de la banda. */
@@ -722,7 +732,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
   const filaNutricion = (e: EtapaDelFunnel, i: number) => (
     <div key={e.key} style={{ position: 'relative' }}>
       <HuecoAgregar disabled={trabajando} oculto={arrastrando != null}
-        onCrear={(label) => aplicar({ op: 'agregar', label, nutricionEn: i })} />
+        onCrear={(label) => { setCreando({ label, despuesDe: null, nutricionEn: i }); aplicar({ op: 'agregar', label, nutricionEn: i }); }} />
       <div style={{
         ...caja,
         outline: arrastrando === e.key ? '1px solid var(--border-strong)' : 'none',
@@ -740,6 +750,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
           {tacho(e, () => (e.marcadaComo === 'nutricion' ? quitarEtapa(e) : quitarNutricion(e)))}
         </div>
       </div>
+      {creando?.nutricionEn === i + 1 && <FilaCreando label={creando.label} caja={caja} />}
     </div>
   );
 
@@ -750,10 +761,12 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
       const r = await archivarEmbudoAction(funnelId);
       if (!r.ok) { setError(r.error); return; }
       if (conAviso) {
-        onCerrar();
-        show(`Eliminado «${emb.nombre}»`, () => {
+        const deshacer = () => {
           void restaurarEmbudoAction(funnelId).then(() => { window.location.href = conWs(`/crm?funnel=${funnelId}`, ws); });
-        });
+        };
+        // El aviso, en el tablero: el del pop-up se iría con él en la línea de abajo (`onCerrar`).
+        (onAviso ?? show)(`Eliminado «${emb.nombre}»`, deshacer);
+        onCerrar();
         router.refresh();
         return;
       }

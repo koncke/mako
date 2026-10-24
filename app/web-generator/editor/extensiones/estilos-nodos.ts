@@ -39,6 +39,12 @@ export const CSS_NODOS = [
   '.gmc-btn:focus-visible { outline: 2px solid var(--gmc-azul); outline-offset: 1px; }',
   '.gmc-btn svg { width: 16px; height: 16px; display: block; }',
   '.gmc-btn[data-asa] { cursor: grab; }',
+  // El tooltip de la columna, a la DERECHA del botón (24/10/2026, Martín: «los botones se superponen»): era el `title`
+  // nativo, que sale abajo del cursor y tapaba los dos botones de abajo de la columna. Con ::before porque el ::after del
+  // botón de notas es su punto azul.
+  '.gmc-tip::before { content: attr(data-tip); position: absolute; left: calc(100% + 6px); top: 50%; transform: translateY(-50%); z-index: 90; padding: 2px 6px; border-radius: 2px; background: var(--gma-tooltip, #1f2328); color: var(--gma-sobre-tooltip, #fff); font: 600 12px/18px var(--gma-fuente, system-ui, sans-serif); white-space: nowrap; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity 0.1s ease 0s, visibility 0s linear 0.1s; }',
+  '.gmc-tip:hover::before, .gmc-tip:focus-visible::before { opacity: 1; visibility: visible; transition: opacity 0.12s ease 0.35s, visibility 0s linear 0.35s; }',
+  '.gmc-tip[aria-expanded="true"]::before { opacity: 0; visibility: hidden; }',
   '.gmc-btn[data-con-notas]::after { content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--gmc-azul); }',
 
   // La columna de la sección, por FUERA del módulo a la izquierda. Arranca en el borde de la
