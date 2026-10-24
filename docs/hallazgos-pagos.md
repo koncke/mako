@@ -1255,3 +1255,14 @@ del `checkout.session.expired` :151-153) · `lib/stripe-api.ts` (`leerCheckoutSt
   visita a gracias.html llega con `session_id=cs_…` adentro de `landing_url` y el server puede releer la sesión.
 - **Quién:** toca lib/cobros* (dueño, Integraciones) y el webhook que usa la suscripción de MaKo. Se lo pasé al Cerebro el
   24/10 para que decida chat y fecha; no lo hice yo.
+- **Decidido (el Cerebro, 24/10): no se toca antes del lanzamiento; el diseño quedó escrito y verificado contra el código**
+  en docs/diseno-venta-externa-stripe.md. Lo que el verificador encontró y cualquiera que lo construya tiene que saber:
+  ⚠️ cambiar la FORMA de retorno de `cobroStripe` rompe el respaldo por factura con el que se encuentran el reembolso y la
+  disputa de una cuota de suscripción, también la de MaKo (se le SUMA `noEsDeMako`, no se reemplaza `ignorar`); ⚠️ escribir
+  `cuenta = 'principal'` viola `cobros_cuenta_check` (0328:25) y la venta se pierde con un 200; ⚠️ `montoUsdDelCobro` no usa
+  el precio del producto a propósito, así que una venta en otra moneda queda sin cuota ni aviso; el Purchase atado a «ganó el
+  INSERT» se pierde ante cualquier error posterior (va con una marca durable en el historial); y la venta se reclama ANTES de
+  crear el lead.
+- **Medido para el diseño:** la `post_pago` del ws1 está ARCHIVADA (a quien paga no le llega bienvenida); el ws10 también
+  tiene Stripe conectado; los 12 checkouts del Sprint no traen ninguna atribución (`client_reference_id`, metadata y
+  `marketing_attributions` en null) y son anteriores al Pixel en la página.

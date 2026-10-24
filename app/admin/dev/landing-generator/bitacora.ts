@@ -996,4 +996,20 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/integraciones?abrir=landing',
   },
+  {
+    fecha: '24 oct', hora: '17:30', chat: 'Landings de MaKo en Web Generator', sesion: 'local_90fdc31c-60c8-4fdb-b396-bd9807bb5067', cuenta: 'claude1',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Medido: la página de venta del Sprint de Mauricio se pisó con la de gracias, y su cuenta de anuncios está frenada por falta de pago',
+    puntos: [
+      'La página de venta del Sprint sí estaba publicada. El 24/10 a las 01:54 UTC, mientras se pegaba el Pixel, quedó reemplazada por la de gracias: desde entonces el link no cobra y muestra el grupo de los que pagaron. Se lo avisé al Cerebro con lo que hay que hacer.',
+      'Lo de «MaKo no ve el gasto de Mauricio desde el 15/10» no era ceguera: Meta frenó su cuenta por un saldo impago de 8.743,59 MXN y la campaña no entrega. Los números de MaKo están bien; lo que confunde es que dice «sin sincronizar» en vez de «sin inversión».',
+      'MaKo detectó la cuenta frenada en dos minutos pero dejó de avisarle a Mauricio el 16/10: el techo de tres avisos ya estaba pasado. Si debe volver a avisar es una decisión de Martín.',
+      'Quedaron escritos dos diseños para después del lanzamiento: que una venta con el Stripe propio entre como cobro pagado, y qué eventos manda MaKo a Meta por página (con el arreglo del Schedule doble).',
+    ],
+    archivos: [
+      'docs/diseno-venta-externa-stripe.md — la venta externa por Stripe (diseño)',
+      'docs/diseno-eventos-meta-por-funnel.md — qué manda MaKo a Meta (diseño)',
+      'docs/hallazgos-ads.md · docs/hallazgos-landing.md · docs/hallazgos-comunicacion.md — lo medido',
+    ],
+  },
 ];

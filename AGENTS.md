@@ -3534,6 +3534,17 @@ pone un prefijo propio ni se usa el id de otro sistema (el `lead.id` de Zernio n
 (`alNacerLeadDeMeta`) va sólo con un lead CREADO por esa entrega y de menos de 24 h (`esNuevoParaElNegocio`): una reentrega no es un lead nuevo. Un webhook
 que trae leads descarta antes de cargar nada las muestras de prueba del proveedor (`test: true`). `tests/zernio-leads.test.ts`.
 
+⚠️ **SI LA PÁGINA YA MANDA UN EVENTO DESDE EL NAVEGADOR, MAKO NO LO MANDA POR CAPI AL MISMO PÍXEL SIN UN `eventID` COMPARTIDO.**
+Meta junta el evento del navegador (`fbq`) con el del servidor (CAPI) sólo si traen el MISMO nombre y el mismo id (`eventID` en
+`fbq`, `event_id` en CAPI); con dos ids distintos, o con uno solo de los dos, cuenta DOBLE. Medido el 24/10/2026: la landing de
+un cliente dispara `fbq('track','Schedule')` sin `eventID` al reservar en Calendly y MaKo manda Schedule por CAPI al mismo
+`META_PIXEL_ID` (app/api/webhooks/calendly/route.ts): de 8 reservas en 30 días, 3 llegaron dos veces y la campaña optimiza
+sobre eso. Un evento nuevo por CAPI (Purchase, Lead del opt-in, CompleteRegistration) se pregunta antes: ¿esta página ya lo
+dispara? Si sí, o se comparte el id o MaKo no lo manda; con «no sé», un evento NUEVO no se manda. El id compartido sale de un
+dato que las dos puntas ya tienen (el invitado de Calendly, el `uid` de Cal.com) y, si falta, el navegador va sin `eventID`:
+un id constante hace que Meta junte todos en uno. Y el `event_id` no lleva datos personales en claro (el de Schedule lleva el
+email). El diseño, docs/diseno-eventos-meta-por-funnel.md; el porqué, docs/hallazgos-ads.md.
+
 Y hay un CUARTO registro que no es obligatorio y cambia lo que la gente lee: `AYUDA_CAMPO`
 (en `metodo-catalogo.ts`). El componente hace `ayuda={c.ayuda ?? servicio.tutorial}`, asi
 que **si un campo tiene ayuda propia, el tutorial del servicio no se ve nunca para ese
