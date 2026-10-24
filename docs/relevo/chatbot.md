@@ -886,10 +886,10 @@ viejo: **una automatización dejó de ser una lista de mensajes y pasó a ser un
   `--desde=2026-10-24T16:00:00Z --hasta=2026-10-24T17:00:00Z`). La última tarjeta (ni7w00g) propone la etapa 'noresp', que
   no está en el pipeline del CRM #44: llega recién el lunes 26. El lead de prueba #3099 comparte teléfono con el #249: sus
   entrantes se guardan en el #249, y con ese número «Contestó» no corta nunca.
-- **ws13, los dos mensajes al grupo:** son 19 los leads sin aviso (docs/hallazgos-api-mako.md, «La cuenta de los perdidos»).
-  Esperan dos cosas: la decisión del Cerebro sobre qué lista va (los 7 abiertos en uno, o los 19 en dos) y un lead nuevo
-  que avise bien (`aviso-vivo-ws13.mts` → VERDE). Los textos los arma `lista-ws13.mts` desde la base. Salen con
-  `scripts/avisar-arreglo-al-grupo.mts` y las claves `commit:0a5f6c9b6` y `leads-sin-aviso:0a5f6c9b6`.
+- **Código Inmobiliario, los dos mensajes al grupo: SALIERON el 24/10 a las 07:50 ART.** El arreglo se vio andar con un
+  lead real (Fabiana Mendez, 07:45). Salieron el aviso de arreglo y la lista de los 7 abiertos de los 19 sin aviso,
+  con las claves `commit:0a5f6c9b6` y `leads-sin-aviso:0a5f6c9b6` (docs/hallazgos-api-mako.md, «La cuenta de los
+  perdidos»). No queda nada pendiente de eso.
 - **P2, después del 25/10: «MaKo contesta sola» no se edita desde ninguna pantalla** (23/10/2026). Eran «Por persona»
   (veces que MaKo contesta sola a una persona en 24 h) y «Charla abierta» (días), los límites de la LÍNEA que se fueron de
   Configuraciones de una automatización con «nada para todas» (`aut-au2-antiban`). Hoy viven en `app_settings`
