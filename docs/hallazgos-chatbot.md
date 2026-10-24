@@ -48,6 +48,9 @@ lado del CRM, en [hallazgos-crm.md](hallazgos-crm.md) → «El CRM automático p
   webhook, o la fecha se carga a mano. El barrido inscribe por la ETAPA, no por la fecha. Con una inscripción por lead y
   automatización, cerrar ahí era perder la espera para siempre. Va con gracia acotada: `reintentoSinAncla`, 24 h desde
   `inscripto_at`, una mirada por hora, y después cierra con su motivo. La tabla no tiene `created_at`: tiene `inscripto_at`.
+  ⚠️ Sumar `inscripto_at` al select de la cola (`procesarEnvios`) dejó en rojo M4 de tests/motor-carril-recordatorio.test.ts,
+  que fijaba ese select con una regex EXACTA, y nadie lo vio porque no es un vecino obvio (desde el 24/10 tolera columnas
+  después de `desenlace`). Quien toque ese select corre también ese test.
 - **Un aviso al grupo no es una pregunta con respuesta.** MaKo en el grupo lee el texto de un mensaje, no el mensaje
   citado (`textoDe`, lib/mako-doer-in.ts), así que un «fue» contestado a un aviso no le dice de qué lead se habla. Un
   aviso que pregunta algo lleva el link a donde se contesta (la ficha), y si la respuesta importa, vuelve a preguntar UNA
@@ -55,6 +58,36 @@ lado del CRM, en [hallazgos-crm.md](hallazgos-crm.md) → «El CRM automático p
 - **El barrido del CRON de etapa sólo inscribe abiertos.** Una automatización cuyo CRON es una etapa de No responde o
   Perdido queda vacía (ver hallazgos-crm.md). Es la entrada `cohorte-etapa-abiertos-90d` del inventario de «nada por
   detrás».
+- **«Cuándo terminó la reunión» tenía DOS reglas, y la espera y la condición de abajo usaban una cada una** (M3 y M6 de la
+  revisión del b5, arreglado el 24/10/2026). La espera contaba desde `anclaDeReunion` (una fecha sin hora: el final de SU
+  día en la zona del NEGOCIO; una fecha editada a mano: manda la fecha) y `lugarDeFicha` desde `finDeLaReunionMs(at ??
+  fecha)` (el final del día de MÉXICO, y la hora vieja). Al este de México, con «N después» menor que la diferencia, y con
+  la fecha ADELANTADA a mano, la espera vencía y «Asistencia sin marcar» decía «no sé»: el hilo salía por «si no» y la
+  pregunta no salía nunca. Ahora `finMs` ES `anclaDeReunion`, con la zona que lee `hechosDelCatalogo`
+  (`zonaDeLaReunion`, la misma del ancla). **Trampas:** (1) `finMs` lo leen DOS condiciones: el arreglo también mueve
+  «Su reunión sigue en pie» (una fecha sin hora sigue en pie hasta el final del día del negocio; una editada a mano,
+  hasta el final del día NUEVO). (2) Al OESTE de México —Tijuana, la zona por defecto de quien no tiene zona— la regla
+  vieja daba «sí» ANTES de que venciera la espera, así que ahí no fallaba: el bug es sólo al este. (3) Los tests vecinos
+  corren SIN zona o en México, donde las dos reglas coinciden: ninguno podía verlo; un test de esto lleva una zona al este
+  (tests/reunion-termino-una-regla.test.ts). (4) SIN zona NO es «como antes»: `fechaCoincide` mira la fecha sólo en
+  Tijuana, así que una reunión con hora cuya fecha se escribió al este (el «reagendar» de Buenos Aires el 15 a las 00:30,
+  el 14 en Tijuana) cuenta como editada a mano y cierra al final del 15 de México. El motor siempre manda la zona; sólo
+  llamaba sin ella scripts/migrar-cron-de-antes.mts, retirado. **Medido en producción el 24/10 (solo lectura):** ninguna
+  automatización usa «Asistencia sin marcar» ni la espera «después de» (ni en `pasos` ni en `pasos_borrador`, 522
+  secuencias). «Sigue en pie» la usa una activa, #213 del ws1 («Un Lead Agendó Llamada», Tijuana, horario 9 a 21),
+  delante de TRES tarjetas, no de una: el aviso al equipo «🎯 Nuevo agendado» de la entrada (`u11aviso`), el audio «Te
+  dejo el video» (`o0` / `n136j5s`) y la IA «¿alcanzaste a ver el video?» (`o1`, 2 h después). Con la fecha ATRASADA a
+  mano (la hora vieja ya pasó) las tres pasan de «nada» a salir —bien: el lead sí tiene reunión— y el aviso sale SIN su
+  renglón principal: `valoresDeLaProximaReunion` es estricta, descarta la fecha que no coincide con la hora, y
+  `sinRenglonesVacios` se lleva «… reservó su … para … a las …» (la deuda que ya tiene hoy una fecha sin hora, no la trae
+  esto). Con la ADELANTADA, pasado su día las tres dejan de salir. Sólo en la PRIMERA entrada: al volver,
+  `reunionQuePreparaMs` mira `at ?? fecha`, ve la hora vieja pasada y dice «sin reunión futura». Hoy, 0 casos: de 190
+  filas con hora y fecha, 2 no coinciden, adelantadas y de septiembre (#2360 del ws1, #2889 del ws3), y las 10
+  inscripciones de #213 están cerradas. Una fecha sin hora sigue en pie de más de 23:00 a 23:59 de Tijuana (de 22:00 a
+  23:59 desde el 1/11, con el horario de invierno): fuera de 9 a 21, nada sale antes de las 9 y a las 9 la condición ya da
+  «no». **Sin hacer:** `fechaMs` sigue siendo `at ?? fecha` (la regla laxa de
+  `reunionFuturaMs`: «Próxima reunión» con etapas mira la hora vieja de una fecha editada), y `reunionQuePreparaMs` /
+  `reunionEnPie` (lib/nutricion-reinscripcion.ts) siguen con el final del día de México para las familias de antes.
 
 **Hecho después (23/10/2026, chat Automations, rama `aut-b5-ia` encima de ésta):** Editar con IA lee y escribe la espera
 «después de» (`aIA` la saca como `desde`; `nodoDe` y `parcheEspera` la leen), y editar el número ya no le borra de qué fecha

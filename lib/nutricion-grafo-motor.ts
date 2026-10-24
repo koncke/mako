@@ -671,7 +671,8 @@ export function finDelDiaEnZonaMs(fecha: string, tz: string | null | undefined):
 /**
  * Una reunión de la ficha como ancla: su HORA; una CANCELADA (la hora quedó y la fecha no, la regla de `lugarDeFicha`),
  * nada; una FECHA SOLA —o editada a mano sin cambiar la hora (`fechaCoincide`)—, el final de ese día en el negocio, que
- * es la regla de T1 para los leads sin hora («cuando el día de la reunión ya pasó»).
+ * es la regla de T1 para los leads sin hora («cuando el día de la reunión ya pasó»). Es UNA regla con el `finMs` de
+ * `lugarDeFicha` (24/10/2026): la espera vence y la condición de abajo pregunta por el mismo instante.
  */
 function anclaDeReunion(at: string | null | undefined, fecha: string | null | undefined, tz: string | null | undefined): number | null {
   if (at && fecha === null) return null;
@@ -918,20 +919,33 @@ const msJunta = (x: string | null | undefined): number | null => {
  * cuenta como que no hay reunión — Martín, 14/10/2026: «Cancelada = no agendó». Hasta el 14/10 se leía la hora de una
  * cancelada y la condición «Tiene reunión agendada» (y «Agendó») seguía diciendo que sí. `=== null`, no «falsy»: un
  * objeto sin la fecha (`undefined`) no afirma que se canceló.
+ *
+ * `finMs` (CUÁNDO TERMINÓ, lo que miran «Asistencia sin marcar» y «Su reunión sigue en pie») es `anclaDeReunion`, la
+ * MISMA regla del ancla de la espera «después de la reunión», en la zona del NEGOCIO (`tz`). ⚠️ HASTA EL 24/10/2026
+ * ERAN DOS (M3 y M6 de la revisión del b5): acá `finDeLaReunionMs(at ?? fecha)`, que cierra una fecha sin hora en el
+ * final del día de MÉXICO y lee la hora vieja de una fecha editada a mano. Con «1 h después de la reunión» →
+ * «Asistencia sin marcar», la espera vencía por una regla y la condición miraba la otra: en Buenos Aires vencía a las
+ * 03:59:59Z y la reunión recién «pasaba» a las 05:59:59Z (y con la fecha adelantada a mano, el día de la hora vieja):
+ * «no sé», el hilo salía por «si no» y no avisaba nunca. `fechaMs` sigue siendo `at ?? fecha` (la regla laxa de
+ * `reunionFuturaMs`, la de «Próxima reunión» sin etapas): sólo cambia cuándo TERMINÓ.
  */
-function lugarDeFicha(at: string | null | undefined, fecha: string | null | undefined, asistio: boolean | null | undefined): { fechaMs: number | null; asistio: boolean | null; finMs: number | null } {
+function lugarDeFicha(at: string | null | undefined, fecha: string | null | undefined, asistio: boolean | null | undefined, tz: string | null | undefined): { fechaMs: number | null; asistio: boolean | null; finMs: number | null } {
   const cancelada = !!at && fecha === null;
   const x = cancelada ? null : (at ?? fecha);
-  const fin = x ? finDeLaReunionMs(x) : NaN;
-  return { fechaMs: msJunta(x), asistio: asistio ?? null, finMs: Number.isFinite(fin) ? fin : null };
+  return { fechaMs: msJunta(x), asistio: asistio ?? null, finMs: x ? anclaDeReunion(at, fecha, tz) : null };
 }
 
 /**
  * El bloque `lead` del catálogo. Las reuniones se leen con la MISMA regla que el motor
  * (`parseFechaJunta`: una fecha sin hora es el mediodía de México) y la próxima con
- * `reunionFuturaMs`, la que usa el ancla «antes de la reunión».
+ * `reunionFuturaMs`, la que usa el ancla «antes de la reunión». `tz` es la zona del NEGOCIO, la del ancla de la espera
+ * «después de» (`zonaDeLaReunion`, lib/nutricion.ts). ⚠️ SIN ELLA NO ES «COMO ANTES» (revisión, 24/10/2026): una fecha
+ * sin hora sí cierra en el final del día de México, pero `fechaCoincide` compara la fecha con la hora sólo en Tijuana, así
+ * que una reunión con hora cuya fecha se escribió al este (el «reagendar» de Buenos Aires el 15 a las 00:30, que en
+ * Tijuana es el 14) cuenta como editada a mano y cierra al final del 15 de México; antes, a su hora. El motor siempre la
+ * manda (`hechosDelCatalogo`); el único que llamaba sin ella es scripts/migrar-cron-de-antes.mts, retirado.
  */
-export function catalogoDeLead(f: FilaLeadCatalogo, ahoraMs: number, hoy?: string | null): NonNullable<HechosCatalogo['lead']> {
+export function catalogoDeLead(f: FilaLeadCatalogo, ahoraMs: number, hoy?: string | null, tz?: string | null): NonNullable<HechosCatalogo['lead']> {
   return {
     origen: f.origen_lead ?? null,
     estado: f.estado_lead ?? null,
@@ -942,8 +956,8 @@ export function catalogoDeLead(f: FilaLeadCatalogo, ahoraMs: number, hoy?: strin
     emailBaja: f.email_opt_out === true,
     ventaTipo: f.venta_tipo ?? null,
     tieneFechaAgenda: !!f.fecha_agenda,
-    r1: lugarDeFicha(f.junta_1_at, f.fecha_junta_1, f.asistio_j1),
-    r2: lugarDeFicha(f.junta_2_at, f.fecha_junta_2, f.asistio_j2),
+    r1: lugarDeFicha(f.junta_1_at, f.fecha_junta_1, f.asistio_j1, tz),
+    r2: lugarDeFicha(f.junta_2_at, f.fecha_junta_2, f.asistio_j2, tz),
     cerro: f.cerro ?? null,
     tieneFechaCierre: !!f.fecha_cierre,
     confirmoCompra: !!f.fecha_confirmacion,

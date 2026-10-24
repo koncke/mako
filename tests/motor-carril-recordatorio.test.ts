@@ -30,6 +30,9 @@
 //   (10) fuera de horario corre todo                                          → (f)
 //   (11) `estadoAlEscribir` sin mantener 'respondio'                          → M4
 //   (12) `aplazaParaNoTapar` sin aplazar (el hilo frenado tapa al carril)     → «no tapa»
+//   (13) [24/10/2026] la cola sin `desenlace` en el select de procesarEnvios  → M4 (y la 5 de espera-despues-de)
+//        Con la regex exacta de antes, 7 / 1 (M4) en la base: es el rojo que trajo `inscripto_at`. Sacarle
+//        `inscripto_at` al select ya no rompe M4 (8 / 0): lo cuida tests/espera-despues-de.test.ts (8 / 1, la 5).
 // =============================================================================
 
 import { test } from 'node:test';
@@ -263,7 +266,9 @@ test('M4 (desde el 14/10/2026): una RESPUESTA no corta nada; se anota y el motor
   // vuelve a mirar, y en 'respondio' no se reusaría nunca más.
   assert.equal(estadoAlEscribir('respondio', 'completada', 'fallo'), 'completada');
   assert.equal(estadoAlEscribir('respondio', 'activa', 'fallo'), 'respondio');
-  assert.match(PROC, /proximo_envio_at, hilos, hilos_rev, estado, desenlace'\)/);
+  // La cola lee `desenlace`. ⚠️ Con lo que venga DESPUÉS (24/10/2026): la regex exacta se rompió cuando la espera
+  // «después de» sumó `inscripto_at` (dd7d583f0, b5), que cuida tests/espera-despues-de.test.ts.
+  assert.match(PROC, /proximo_envio_at, hilos, hilos_rev, estado, desenlace(, [a-z_]+)*'\)/);
   assert.equal(desenlaceEsperaAlCarril({ estado: 'respondio', proximo_envio_at: '2026-10-13T16:00:00Z' }), true);
   assert.equal(desenlaceEsperaAlCarril({ estado: 'respondio', proximo_envio_at: null }), false);
   // El cableado: `pausarPorRespuesta` sólo ANOTA ('respondio', con su posición y su próximo envío intactos); la cola y

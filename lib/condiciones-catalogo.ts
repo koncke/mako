@@ -214,7 +214,8 @@ export type HechosCatalogo = {
     tieneFechaAgenda: boolean;
     /**
      * Las dos reuniones de la ficha. `fechaMs` null también si se CANCELÓ (Martín, 14/10/2026: «Cancelada = no agendó»).
-     * `finMs`: hasta cuándo «todavía no pasó» (la hora; una fecha sola, el final de su día: `finDeLaReunionMs`).
+     * `finMs`: hasta cuándo «todavía no pasó» (la hora; una fecha sola o editada a mano, el final de su día EN EL NEGOCIO:
+     * la misma regla del ancla de la espera «después de», `anclaDeReunion` en lib/nutricion-grafo-motor.ts, 24/10/2026).
      */
     r1: { fechaMs: number | null; asistio: boolean | null; finMs?: number | null };
     r2: { fechaMs: number | null; asistio: boolean | null; finMs?: number | null };

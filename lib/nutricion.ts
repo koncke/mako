@@ -3424,13 +3424,17 @@ async function hechosDelCatalogo(
     return siguenEnInstagram(ws, s);
   };
 
-  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy, reuniones, [social, sigue]] = await Promise.all([
+  // La zona del NEGOCIO para CUÁNDO TERMINÓ una reunión (`finMs`: «Asistencia sin marcar», «Su reunión sigue en pie»):
+  // la MISMA que ancla la espera «después de la reunión» (`zonaCarril` → `zonaDeLaReunion`). ⚠️ Sin ella (hasta el
+  // 24/10/2026) la condición cerraba una fecha sin hora en el final del día de México y la espera en el del negocio:
+  // en Buenos Aires, 3 h de «no sé» después de que la espera vencía (M3 de la revisión del b5). Memo, nunca tira.
+  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy, zona, reuniones, [social, sigue]] = await Promise.all([
     leerVsl(), leerClics(), leerRespuestas(), leerPagos(), leerCurso(), leerAcceso(), leerComunidad(), leerEntrega(), leerCs(), leerHoy(),
-    leerReuniones(), leerSocial().then(async (s) => [s, await leerSigue(s)] as const),
+    zonaDeLaReunion(), leerReuniones(), leerSocial().then(async (s) => [s, await leerSigue(s)] as const),
   ]);
 
   return (f, ahoraMs) => {
-    const c: HechosCatalogo = { lead: catalogoDeLead(f, ahoraMs, hoy || null) };
+    const c: HechosCatalogo = { lead: catalogoDeLead(f, ahoraMs, hoy || null, zona) };
     if (reuniones) c.reuniones = reuniones;
     const vid = typeof f.visitor_id === 'string' && f.visitor_id ? f.visitor_id : null;
     if (vsl) {
