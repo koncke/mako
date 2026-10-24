@@ -35,6 +35,7 @@ import {
 import { haptico } from '@/lib/haptico';
 import { avisoCorto, type AutomatizacionM, type BorradorM, type PasoM } from './reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { MetricasM } from './MetricasM';
 
 const RUTA_PASOS = '/api/whatsapp/secuencias';
 const RUTA_SECUENCIAS = '/api/chat-agent/secuencias';
@@ -270,13 +271,14 @@ export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[];
         {error && <p className="m-auto-error" role="alert">{error}<ReportarASoporte /></p>}
         {a && v && (
           <>
-            {a.numeros && (
+            {/* LAS MÉTRICAS (23/10/2026): la misma hoja que «Métricas» en la computadora, destilada. Sin ella, los números de siempre. */}
+            <MetricasM key={a.id} id={a.id} respaldo={a.numeros ? (
               <ListaM etiqueta="Números">
                 <FilaDatoM k="Enviados en 30 días" v={String(a.numeros.enviados)} />
                 <FilaDatoM k="Respuestas" v={String(a.numeros.respuestas)} />
                 <FilaDatoM k="Leads en curso" v={String(a.numeros.enCurso)} />
               </ListaM>
-            )}
+            ) : null} />
             <h3 className="m-auto-subt">Pasos</h3>
             {v.pasos.length ? (
               <ListaM etiqueta="Pasos">

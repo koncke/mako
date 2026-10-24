@@ -45,6 +45,7 @@ import { getWorkspaceActual } from './workspace';
 import { sanearTablero, type Tablero } from './graficos-catalogo';
 import { tableroInicial } from './graficos-plantillas';
 import { informeGeneralInicial } from './general-plantillas';
+import { claveInformeAutomatizacion, idDeInformeAutomatizacion, informeDeAutomatizacion, type InformeAutomatizacion } from './informe-automatizacion';
 
 const clave = (sub: string) => `graficos.tablero.${sub}`;
 /** El prefijo de `clave`: para listar los informes guardados de un workspace. */
@@ -56,9 +57,21 @@ const PREFIJO_CLAVE = 'graficos.tablero.';
  * General vive en `general.informe.<sub>`, que NO empieza con `graficos.tablero.`: `listarTablerosGuardados` (la API de
  * MaKo del Dashboard) no lo lista como si fuera otro Dashboard.
  */
-export type Informe = 'dashboard' | 'general';
-const claveDe = (sub: string, informe: Informe) => (informe === 'general' ? `general.informe.${sub}` : clave(sub));
-const inicialDe = (informe: Informe) => (informe === 'general' ? informeGeneralInicial() : tableroInicial());
+//
+// Y desde el 23/10/2026, uno POR AUTOMATIZACIÓN (`automatizacion:<id>`, la pestaña «Métricas» de /automations,
+// lib/automatizacion-metricas.ts): `automatizacion.informe.<id>.<sub>`, que tampoco lo lista la API del Dashboard. Su
+// inicial NO sale de acá (pide el flujo y el nombre): acá es un informe sin hojas, y quien lo muestra pone la plantilla
+// de MaKo (`informeInicialDeMetricas`).
+export type Informe = 'dashboard' | 'general' | InformeAutomatizacion;
+function claveDe(sub: string, informe: Informe): string {
+  if (informe === 'general') return `general.informe.${sub}`;
+  const id = idDeInformeAutomatizacion(informe);
+  return id != null ? claveInformeAutomatizacion(id, sub) : clave(sub);
+}
+function inicialDe(informe: Informe): Tablero {
+  if (informe === 'general') return informeGeneralInicial();
+  return idDeInformeAutomatizacion(informe) != null ? { v: 3, nombre: 'Métricas', hojas: [] } : tableroInicial();
+}
 
 /**
  * Lo que lee la pantalla. `version` es la huella de lo GUARDADO (`versionDe`; null = no guardó nada): el
@@ -240,6 +253,32 @@ export async function guardarInformeGeneralVersion(raw: unknown, version: string
   const s = await getUsuarioActual();
   if (!s) throw new Error('Sin sesión');
   return guardarTableroSi(s.sub, raw, version, 'general');
+}
+
+// ── El informe de UNA automatización (23/10/2026, la pestaña «Métricas»): las mismas dos puertas, con su clave ──────
+
+/**
+ * Las Métricas de la automatización `id` de la persona con sesión. `estado: 'inicial'` (nunca las tocó) viene SIN
+ * hojas: quien lo muestra pone la plantilla de MaKo, que pide el flujo (`informeInicialDeMetricas`).
+ */
+export async function leerInformeAutomatizacion(id: number): Promise<LecturaTablero> {
+  const vacio: Tablero = { v: 3, nombre: 'Métricas', hojas: [] };
+  const s = await getUsuarioActual();
+  if (!s) return { estado: 'error', tablero: vacio, version: null };
+  try {
+    const v = await leerTableroVersionado(s.sub, informeDeAutomatizacion(id));
+    return { estado: v.estado, tablero: v.tablero, version: v.version };
+  } catch (e) {
+    console.error(`[metricas] no pude leer las de la automatización ${id}: ${e instanceof Error ? e.message : String(e)}`);
+    return { estado: 'error', tablero: vacio, version: null };
+  }
+}
+
+/** El autoguardado del editor en las Métricas de una automatización: el MISMO compare-and-set, sobre su informe. */
+export async function guardarInformeAutomatizacionVersion(id: number, raw: unknown, version: string | null): Promise<ResultadoGuardar> {
+  const s = await getUsuarioActual();
+  if (!s) throw new Error('Sin sesión');
+  return guardarTableroSi(s.sub, raw, version, informeDeAutomatizacion(id));
 }
 
 export type InformeGuardadoCrudo = { sub: string; raw: string | null; actualizado: string | null };

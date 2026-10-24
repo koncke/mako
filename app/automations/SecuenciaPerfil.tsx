@@ -68,6 +68,7 @@ import { abrirGuiaVoz } from '@/lib/chatbot-puerta';
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
 import { medioDelError, medioQueFrena, mediosQueUsa, type Medio } from '@/lib/medios-automatizacion';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { MetricasAutomatizacion } from './MetricasAutomatizacion';
 
 // El wizard son ~1.800 líneas y sólo se abre UNA vez por workspace (la primera vez que
 // se tilda la IA): no tiene por qué viajar en el bundle de cada apertura del lienzo.
@@ -153,6 +154,29 @@ export const TITULO_TUERCA = 'Configuraciones de esta automatización';
  * LA TUERCA DEL TÍTULO (20/10/2026), en el lugar del logo de MaKo y con su MISMA cara (`tarjetaChrome`, el lado del título):
  * abre Configuraciones de ESTA automatización.
  */
+
+export const TITULO_METRICAS = 'Métricas de esta automatización';
+export const TITULO_VOLVER_AL_LIENZO = 'Volver al flujo';
+
+/**
+ * «MÉTRICAS» (23/10/2026), al lado de la tuerca y con su MISMA cara: el lienzo se reemplaza por el dashboard de esta
+ * automatización (`MetricasAutomatizacion`), y el mismo botón, marcado, vuelve al flujo.
+ */
+export function BotonMetricas({ onClick, lado, abierto }: { onClick: () => void; lado: number; abierto: boolean }) {
+  const titulo = abierto ? TITULO_VOLVER_AL_LIENZO : TITULO_METRICAS;
+  return (
+    <button type="button" data-no-pan data-boton-metricas aria-pressed={abierto} onClick={onClick} title={titulo} aria-label={titulo}
+      style={{
+        ...tarjetaChrome, flex: 'none', height: lado, padding: '0 12px', cursor: 'pointer', boxSizing: 'border-box',
+        color: abierto ? 'var(--primary-strong)' : 'var(--dim)', background: abierto ? 'var(--primary-bg)' : tarjetaChrome.background,
+        border: abierto ? '1px solid var(--primary)' : tarjetaChrome.border,
+        display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit',
+      }}>
+      <Icon name="analytics" size={17} />
+      <span>{abierto ? 'Flujo' : 'Métricas'}</span>
+    </button>
+  );
+}
 
 export function BotonTuerca({ onClick, lado }: { onClick: () => void; lado: number }) {
   return (
@@ -744,6 +768,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   // siempre abierto»). En su lugar del título va la tuerca de Configuraciones de ESTA automatización.
   /** Configuraciones de ESTA automatización abierta (la tuerca del título). */
   const [configAbierta, setConfigAbierta] = useState(false);
+  // «Métricas» (23/10/2026): el lienzo se reemplaza por el dashboard de ESTA automatización. El perfil se remonta al
+  // cambiar de automatización, así que cada una abre en su lienzo.
+  const [verMetricas, setVerMetricas] = useState(false);
   /** Lo que MaKo dice en el chat al activarla (`ChatMako.nota`): por qué sus mensajes quedan para que los apruebes. */
   const [notaChat, setNotaChat] = useState<{ id: string; texto: string } | null>(null);
   /** El aviso de Prospección pendiente, con lo que se iba a hacer (Publicar o Probar). */
@@ -1133,6 +1160,110 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * interruptor, «Probar», el deshacer y «Publicar» FLOTAN encima, que es exactamente
    * cómo quedó el editor de /mensajes.
    */
+  // LA CABECERA DEL LIENZO (el título, la tuerca, «Métricas» y «Probar»), aparte desde el 23/10/2026: la dibuja el lienzo
+  // (`chrome`) y, con «Métricas» abierta, la vista de las métricas, que reemplaza al lienzo entero.
+  const cabecera = (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+            {/* El ancho es FIJO por lo mismo que en /mensajes: en modo edición el
+                contenido es un `<input>`, que NO mide su texto —mide `size` por el
+                avance del «0» de la fuente— así que con `maxWidth` la tarjeta encoge al
+                hacer click. Con el ancho puesto, los dos estados miden lo mismo. */}
+            {/* ⚠️ DE ALTO FIJO (`ALTO_ACCION`), el mismo que el botón de MaKo de al lado y que «Probar»
+                (décima tanda, general 1: «El botón de IA que está al lado del título debe ser del mismo tamaño
+                del recuadro del título y estar alineado»). Medía lo que su contenido (el emoji de 34 + el
+                relleno: 50) y el botón, 38: dos alturas en la misma fila. */}
+            <div data-titulo-lienzo style={{ ...tarjetaChrome, minWidth: 0, width: 400, height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 12px 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              {/* EL EMOJI SE TOCA Y SE CAMBIA (tercera tanda, decisión 8; pedido literal: «No puedo
+                  editar el emoji del título, y si debería... Dejame poner cualquier emoji, ya tenemos
+                  un desplegable al respecto»). El selector es el de la casa (el de los proyectos del
+                  Plan). Sin emoji guardado, el de su objetivo, como siempre. */}
+              {rolAdmin
+                ? <EmojiPickerMini value={emojiVisto} onPick={(e) => void guardarEmoji(e)} />
+                : <span style={{ flex: 'none', fontSize: 18, lineHeight: 1 }}>{emojiVisto}</span>}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                {/* El nombre se cambia HACIENDO CLICK EN ÉL, como en el resto de la
+                    casa: un lápiz al lado es un segundo control para la misma acción. */}
+                {editandoNombre ? (
+                  <input
+                    autoFocus value={nombre} maxLength={NOMBRE_MAX} onChange={(e) => setNombre(e.target.value)}
+                    onBlur={() => void guardarNombre()}
+                    onKeyDown={(e) => { if (e.key === 'Enter') void guardarNombre(); if (e.key === 'Escape') { setNombre(secuencia.nombre); setEditandoNombre(false); } }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: 0, border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit' }}
+                  />
+                ) : (
+                  <button onClick={() => rolAdmin && setEditandoNombre(true)} title={rolAdmin ? 'Cambiar el nombre' : undefined}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: 0, border: 'none', background: 'none', cursor: rolAdmin ? 'text' : 'default', color: 'var(--ink)', fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {nombre || secuencia.nombre}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* LA TUERCA DE ESTA AUTOMATIZACIÓN, AL LADO DEL TÍTULO (Martín, 16/10/2026 punto 6: «El ícono de
+                configuraciones pasa a estar en donde hoy vive "Pedirle un cambio a MaKo"»; y el 20/10: «que se elimine el
+                icono de MaKo ya que quedará siempre abierto, y en su lugar que allí vaya el ícono de configuraciones»).
+                Abre el horario y los límites de ESTA automatización (`ConfiguracionesModal` con `secuenciaId`). Ahí
+                vivía el logo de MaKo (`BotonLogoMako`) desde la sexta tanda: el chat está ahora siempre, en la sidebar.
+                ⚠️ TAMBIÉN PARA QUIEN NO ES ADMIN (revisión del 20/10/2026): el modal entra en sólo lectura (`puedeEditar` lo
+                dice el server). Con `rolAdmin` acá, el setter perdió la vista del horario y los límites. */}
+            {Configuraciones && (
+              <BotonTuerca lado={ALTO_ACCION} onClick={() => setConfigAbierta(true)} />
+            )}
+            {/* «MÉTRICAS», AL LADO DE LA TUERCA (Martín, 23/10/2026: «un botón al lado del botón de configuraciones. Cuando
+                se apreta, todo el lienzo se reemplaza por el dashboard de esas métricas»). Sólo el admin: el editor del
+                Dashboard y sus datos son del admin (app/api/automations/metricas). Volver al lienzo es el MISMO botón. */}
+            {rolAdmin && (
+              <BotonMetricas lado={ALTO_ACCION} abierto={verMetricas} onClick={() => setVerMetricas((v) => !v)} />
+            )}
+            {/* SIN CHIP DE ESTADO (22/10/2026, Martín: «elimina el texto "Pausada, no sale nada", eso es completamente innecesario... Para
+                eso ya tenemos el "ACTIVAR" de abajo»): el estado lo dice sólo el interruptor «Activar» del pie. */}
+
+            {configAbierta && Configuraciones && <Configuraciones secuenciaId={secuencia.id} nombre={nombre || secuencia.nombre} onCerrar={cerrarConfig} />}
+            {avisoProspeccion && (
+              <Confirm message={AVISO_PROSPECCION} confirmLabel="Configurar" cancelLabel="Seguir igual" tone="primary"
+                onConfirm={() => { avisadaProspeccion.add(secuencia.id); setAvisoProspeccion(null); setConfigAbierta(true); }}
+                onCancel={() => { const s = avisoProspeccion.seguir; avisadaProspeccion.add(secuencia.id); setAvisoProspeccion(null); s(); }} />
+            )}
+            {avisoDup && (
+              <Confirm message={avisoDup.texto} confirmLabel={avisoDup.boton} cancelLabel="Cancelar" tone="primary"
+                onConfirm={() => { const s = avisoDup.seguir; setAvisoDup(null); respondioIgual.current = true; s(); }}
+                onCancel={() => setAvisoDup(null)} />
+            )}
+
+            {/* ⚠️ «PROBAR» A LA DERECHA DEL TODO, separado de Activar (punto 10: «el botón de
+                probar debería estar a la derecha del todo, no pegado a "Activar"»). El
+                `marginLeft: auto` lo empuja contra el borde derecho del chrome, que ya
+                descuenta el panel de «Probar» abierto (`insetDer`). */}
+            {onProbar && (
+              <div style={{ marginLeft: 'auto', flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                {!probarAbierto && sinProbar && (
+                  <button type="button" data-sin-probar onClick={() => { if (frenoAhora) frenar(frenoAhora.error, frenoAhora.tarjeta); }}
+                    style={{ border: 'none', background: 'none', padding: 0, font: 'inherit', fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', cursor: frenoAhora ? 'pointer' : 'default' }}>
+                    {sinProbar}
+                  </button>
+                )}
+                {probarAbierto ? (
+                  <button onClick={() => onCerrarProbar?.()} title="Cerrar la prueba" style={estiloProbar}>✕ Cerrar</button>
+                ) : sinProbar ? (
+                  <button disabled aria-disabled title={sinProbar} style={{ ...estiloProbar, opacity: 0.45, cursor: 'not-allowed' }}>▶ Probar</button>
+                ) : canales.length > 1 ? (
+                  // Los canales que el flujo usa, con su logo (`CANALES_PROBAR`, el mismo lugar del que
+                  // lee el panel): WhatsApp, Email, Instagram y Messenger. Hasta la segunda pasada lo
+                  // que no era email se rotulaba y se probaba como WhatsApp.
+                  // Sin la flecha de desplegable (10/10/2026: «Quita la flecha de la derecha… en el botón
+                  // de probar»), y el menú ancla a la DERECHA del botón: pegado al borde, abriendo hacia
+                  // la derecha se salía de la pantalla.
+                  <Dropdown value="" resetAfterSelect sinFlecha align="right" botonLabel="▶ Probar" ariaLabel="Probar esta automatización"
+                    options={canales.map((c) => ({ value: c, label: CANALES_PROBAR[c].nombre, icono: CANALES_PROBAR[c].logo }))}
+                    buttonStyle={estiloProbar} onChange={(v) => { if (v && v in CANALES_PROBAR) probar(v as CanalProbar); }} />
+                ) : (
+                  <button onClick={() => probar(canales[0])} title="Probar esta automatización" style={estiloProbar}>▶ Probar</button>
+                )}
+              </div>
+            )}
+          </div>
+  );
+
   return (
     // `flex: 1` + `minHeight: 0`, NO `height: 100%`: el padre saca su alto de un flex y
     // para el motor eso es un alto INDEFINIDO — Chrome lo resuelve igual y Safari
@@ -1193,6 +1324,14 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         </div>,
         ranuraChat,
       )}
+      {/* «MÉTRICAS» ABIERTA: el lienzo entero se reemplaza por el dashboard de esta automatización, con la MISMA cabecera
+          arriba (para volver con el mismo botón) y en el mismo lugar que el lienzo deja libre (los muelles de los costados). */}
+      {verMetricas ? (
+        <div data-vista-metricas style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column', paddingLeft: muelles ? muelles.insets.izq : insetIzq ?? 0, paddingRight: muelles ? muelles.insets.der : insetDer ?? 0 }}>
+          <div data-no-pan style={{ flex: 'none', padding: 14 }}>{cabecera}</div>
+          <div style={{ position: 'relative', flex: 1, minHeight: 0 }}><MetricasAutomatizacion secuenciaId={secuencia.id} /></div>
+        </div>
+      ) : (
       <FlujoLienzo
         pasos={pasos} secuenciaId={secuencia.id}
         disparador={textoDisparo}
@@ -1212,101 +1351,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         onTarjetaAbierta={setTarjetaAbierta}
         posiciones={lugares.posiciones} onPosiciones={rolAdmin ? lugares.mover : undefined}
         linea={rolAdmin ? { actual: lineaSec, onElegir: elegirLineaDesdeEditor } : undefined}
-        chrome={(
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
-            {/* El ancho es FIJO por lo mismo que en /mensajes: en modo edición el
-                contenido es un `<input>`, que NO mide su texto —mide `size` por el
-                avance del «0» de la fuente— así que con `maxWidth` la tarjeta encoge al
-                hacer click. Con el ancho puesto, los dos estados miden lo mismo. */}
-            {/* ⚠️ DE ALTO FIJO (`ALTO_ACCION`), el mismo que el botón de MaKo de al lado y que «Probar»
-                (décima tanda, general 1: «El botón de IA que está al lado del título debe ser del mismo tamaño
-                del recuadro del título y estar alineado»). Medía lo que su contenido (el emoji de 34 + el
-                relleno: 50) y el botón, 38: dos alturas en la misma fila. */}
-            <div data-titulo-lienzo style={{ ...tarjetaChrome, minWidth: 0, width: 400, height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 12px 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              {/* EL EMOJI SE TOCA Y SE CAMBIA (tercera tanda, decisión 8; pedido literal: «No puedo
-                  editar el emoji del título, y si debería... Dejame poner cualquier emoji, ya tenemos
-                  un desplegable al respecto»). El selector es el de la casa (el de los proyectos del
-                  Plan). Sin emoji guardado, el de su objetivo, como siempre. */}
-              {rolAdmin
-                ? <EmojiPickerMini value={emojiVisto} onPick={(e) => void guardarEmoji(e)} />
-                : <span style={{ flex: 'none', fontSize: 18, lineHeight: 1 }}>{emojiVisto}</span>}
-              <div style={{ minWidth: 0, flex: 1 }}>
-                {/* El nombre se cambia HACIENDO CLICK EN ÉL, como en el resto de la
-                    casa: un lápiz al lado es un segundo control para la misma acción. */}
-                {editandoNombre ? (
-                  <input
-                    autoFocus value={nombre} maxLength={NOMBRE_MAX} onChange={(e) => setNombre(e.target.value)}
-                    onBlur={() => void guardarNombre()}
-                    onKeyDown={(e) => { if (e.key === 'Enter') void guardarNombre(); if (e.key === 'Escape') { setNombre(secuencia.nombre); setEditandoNombre(false); } }}
-                    style={{ width: '100%', boxSizing: 'border-box', padding: 0, border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit' }}
-                  />
-                ) : (
-                  <button onClick={() => rolAdmin && setEditandoNombre(true)} title={rolAdmin ? 'Cambiar el nombre' : undefined}
-                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: 0, border: 'none', background: 'none', cursor: rolAdmin ? 'text' : 'default', color: 'var(--ink)', fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {nombre || secuencia.nombre}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* LA TUERCA DE ESTA AUTOMATIZACIÓN, AL LADO DEL TÍTULO (Martín, 16/10/2026 punto 6: «El ícono de
-                configuraciones pasa a estar en donde hoy vive "Pedirle un cambio a MaKo"»; y el 20/10: «que se elimine el
-                icono de MaKo ya que quedará siempre abierto, y en su lugar que allí vaya el ícono de configuraciones»).
-                Abre el horario y los límites de ESTA automatización (`ConfiguracionesModal` con `secuenciaId`). Ahí
-                vivía el logo de MaKo (`BotonLogoMako`) desde la sexta tanda: el chat está ahora siempre, en la sidebar.
-                ⚠️ TAMBIÉN PARA QUIEN NO ES ADMIN (revisión del 20/10/2026): el modal entra en sólo lectura (`puedeEditar` lo
-                dice el server). Con `rolAdmin` acá, el setter perdió la vista del horario y los límites. */}
-            {Configuraciones && (
-              <BotonTuerca lado={ALTO_ACCION} onClick={() => setConfigAbierta(true)} />
-            )}
-            {/* SIN CHIP DE ESTADO (22/10/2026, Martín: «elimina el texto "Pausada, no sale nada", eso es completamente innecesario... Para
-                eso ya tenemos el "ACTIVAR" de abajo»): el estado lo dice sólo el interruptor «Activar» del pie. */}
-
-            {configAbierta && Configuraciones && <Configuraciones secuenciaId={secuencia.id} nombre={nombre || secuencia.nombre} onCerrar={cerrarConfig} />}
-            {avisoProspeccion && (
-              <Confirm message={AVISO_PROSPECCION} confirmLabel="Configurar" cancelLabel="Seguir igual" tone="primary"
-                onConfirm={() => { avisadaProspeccion.add(secuencia.id); setAvisoProspeccion(null); setConfigAbierta(true); }}
-                onCancel={() => { const s = avisoProspeccion.seguir; avisadaProspeccion.add(secuencia.id); setAvisoProspeccion(null); s(); }} />
-            )}
-            {avisoDup && (
-              <Confirm message={avisoDup.texto} confirmLabel={avisoDup.boton} cancelLabel="Cancelar" tone="primary"
-                onConfirm={() => { const s = avisoDup.seguir; setAvisoDup(null); respondioIgual.current = true; s(); }}
-                onCancel={() => setAvisoDup(null)} />
-            )}
-
-            {/* ⚠️ «PROBAR» A LA DERECHA DEL TODO, separado de Activar (punto 10: «el botón de
-                probar debería estar a la derecha del todo, no pegado a "Activar"»). El
-                `marginLeft: auto` lo empuja contra el borde derecho del chrome, que ya
-                descuenta el panel de «Probar» abierto (`insetDer`). */}
-            {onProbar && (
-              <div style={{ marginLeft: 'auto', flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                {!probarAbierto && sinProbar && (
-                  <button type="button" data-sin-probar onClick={() => { if (frenoAhora) frenar(frenoAhora.error, frenoAhora.tarjeta); }}
-                    style={{ border: 'none', background: 'none', padding: 0, font: 'inherit', fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', cursor: frenoAhora ? 'pointer' : 'default' }}>
-                    {sinProbar}
-                  </button>
-                )}
-                {probarAbierto ? (
-                  <button onClick={() => onCerrarProbar?.()} title="Cerrar la prueba" style={estiloProbar}>✕ Cerrar</button>
-                ) : sinProbar ? (
-                  <button disabled aria-disabled title={sinProbar} style={{ ...estiloProbar, opacity: 0.45, cursor: 'not-allowed' }}>▶ Probar</button>
-                ) : canales.length > 1 ? (
-                  // Los canales que el flujo usa, con su logo (`CANALES_PROBAR`, el mismo lugar del que
-                  // lee el panel): WhatsApp, Email, Instagram y Messenger. Hasta la segunda pasada lo
-                  // que no era email se rotulaba y se probaba como WhatsApp.
-                  // Sin la flecha de desplegable (10/10/2026: «Quita la flecha de la derecha… en el botón
-                  // de probar»), y el menú ancla a la DERECHA del botón: pegado al borde, abriendo hacia
-                  // la derecha se salía de la pantalla.
-                  <Dropdown value="" resetAfterSelect sinFlecha align="right" botonLabel="▶ Probar" ariaLabel="Probar esta automatización"
-                    options={canales.map((c) => ({ value: c, label: CANALES_PROBAR[c].nombre, icono: CANALES_PROBAR[c].logo }))}
-                    buttonStyle={estiloProbar} onChange={(v) => { if (v && v in CANALES_PROBAR) probar(v as CanalProbar); }} />
-                ) : (
-                  <button onClick={() => probar(canales[0])} title="Probar esta automatización" style={estiloProbar}>▶ Probar</button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        chrome={cabecera}
         herramientas={rolAdmin ? (
           // Pegado a esto, el lienzo pone «Acomodar» (FlujoLienzo): donde estaba el ✦ de MaKo, que
           // subió al lado del título (sexta tanda, puntos 8 y 14).
@@ -1390,6 +1435,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           />
         )}
       />
+      )}
       {/* «Tu forma de escribir», encima de todo. Al `body` porque el lienzo vive adentro
           de contenedores con `transform` y `overflow`, y un `position: fixed` nacido ahí
           adentro se dibuja recortado o debajo (AGENTS.md: un sticky con z-index le
