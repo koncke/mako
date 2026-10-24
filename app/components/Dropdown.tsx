@@ -879,9 +879,15 @@ export function Dropdown({
                   const fila = (o: DropdownOption) => conLinea(o, renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false, false, varios ? { valores: varios, minimo } : undefined));
                   return (
                     <>
-                      <div data-dos-columnas style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                        <div style={{ flex: '1 1 160px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>{izquierda.map(fila)}</div>
-                        {derecha.length > 0 && <div style={{ flex: '1 1 160px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>{derecha.map(fila)}</div>}
+                      {/* ⚠️ SIN `flexWrap`, Y CADA COLUMNA CON SU ANCHO (`1 1 auto`). Medido en Chrome el 24/10/2026, con nombres de
+                          etapa normales, en escritorio y en el teléfono:
+                          · con `wrap` y una base de 160 px, la barra de scroll de Windows (15 px) dejaba 335 px útiles y la columna
+                            de la derecha BAJABA;
+                          · con base `0` el menú no mide el texto (queda en 337 px) y «Agendó Reunión 1» salía cortado sobrando lugar.
+                          Con `auto` el menú crece hasta su tope y, si no entra, las dos se achican y el nombre largo se corta con «…». */}
+                      <div data-dos-columnas style={{ display: 'flex', gap: 4 }}>
+                        <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>{izquierda.map(fila)}</div>
+                        {derecha.length > 0 && <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>{derecha.map(fila)}</div>}
                       </div>
                       {pie.map((o) => fila({ ...o, lineaArriba: true }))}
                     </>

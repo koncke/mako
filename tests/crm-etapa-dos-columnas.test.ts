@@ -60,6 +60,16 @@ test('el árbol de la ficha pide las dos columnas, con «Quitar» al pie', () =>
   assert.equal(quitar?.alPie, true);
 });
 
+test('las dos columnas no se envuelven, y la ficha les da lugar para no scrollear (medido en Chrome)', () => {
+  // Con `wrap` + base 160, la barra de scroll de Windows bajaba la columna derecha; con base 0, el menú no medía el texto.
+  const src = readFileSync(join(__dirname, '..', 'app/components/Dropdown.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /<div data-dos-columnas style=\{\{ display: 'flex', gap: 4 \}\}>/);
+  assert.equal((src.match(/<div style=\{\{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' \}\}>\{(izquierda|derecha)\.map\(fila\)\}<\/div>/g) ?? []).length, 2);
+  const ficha = readFileSync(join(__dirname, '..', 'app/crm/lead-view/ProductoDelLead.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(ficha, /menuAlto=\{460\}/, 'con el alto de siempre (340) ocho etapas y el buscador ya scrollean');
+  assert.match(ficha, /menuAncho=\{typeof window === 'undefined' \? 420 : Math\.min\(420, window\.innerWidth - 24\)\}/, 'el ancho nunca pasa la pantalla');
+});
+
 test('el Dropdown dibuja en columnas SÓLO la sección que lo pide', () => {
   const src = readFileSync(join(__dirname, '..', 'app/components/Dropdown.tsx'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(src, /\{abierta\.dosColumnas \? \(\(\) => \{\n\s+const \{ izquierda, derecha, pie \} = columnasDeSeccion\(abierta\.options\);/);
