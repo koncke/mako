@@ -26,7 +26,7 @@ import { SEXOS } from '@/lib/resumen-ficha';
 import { COMO_ENTRO, entradaSocialGuardada } from '@/lib/canal-social';
 import { usuarioInstagram } from '@/app/crm/campo-inline';
 import { diasEntre, ingresoNoAplica, paginaLegible, textoDias, tiempoEnEtapa, usd, ETAPAS_SIN_RELOJ } from '@/app/crm/lead-view/ficha/resumen/logica';
-import { chipDeInscripcion, lineaDelProximo, type AutomatizacionesVista } from '@/app/crm/automatizacion-lead';
+import { estadoDeTarjeta, ordenarTarjetas, type AutomatizacionesVista, type TonoTarjeta } from '@/app/crm/automatizacion-lead';
 
 /**
  * Las piezas que el teléfono sabe dibujar. Cada una es la versión de teléfono de UN bloque de escritorio.
@@ -165,14 +165,23 @@ export function resumenDelTelefono(l: LeadParaResumen, o: {
 }
 
 /**
- * LA FILA DE «AUTOMATIZACIONES» DEL TELÉFONO (23/10/2026): lo mismo que dice el bloque de escritorio, destilado. La primera
- * viva con su estado y lo próximo (o por qué no sale), y «+N» si hay más. Sin ninguna, no hay fila.
+ * LA FILA DE «AUTOMATIZACIONES» DEL TELÉFONO (23/10/2026): lo mismo que dice el bloque de escritorio, destilado. Desde el
+ * 24/10/2026 con la tarjeta rediseñada: la viva que hay que mirar primero (`ordenarTarjetas`), y cuándo le sale lo próximo si
+ * está en curso, o su estado en dos palabras («Fuera de horario», «Respondió»); «+N» si hay más. El color va en un punto
+ * (`tonoDeAutomatizaciones`). Sin ninguna, no hay fila. Ejemplo: «Sprint · apertura · mañana 09:00 · +1».
  */
 export function filaDeAutomatizaciones(v: AutomatizacionesVista, fecha: (iso: string) => string): string | null {
-  const [a, ...resto] = v.vivas;
+  const [a, ...resto] = ordenarTarjetas(v.vivas);
   if (!a) return null;
+  const e = estadoDeTarjeta(a);
   const mas = resto.length ? ` · +${resto.length}` : '';
-  return `${a.nombre} (${chipDeInscripcion(a).texto}) · ${lineaDelProximo(a, fecha)}${mas}`;
+  return `${a.nombre} · ${e.forma === 'disco' && a.proximo?.at ? fecha(a.proximo.at) : e.texto}${mas}`;
+}
+
+/** El tono del punto de esa fila: el de la misma automatización que nombra. */
+export function tonoDeAutomatizaciones(v: AutomatizacionesVista): TonoTarjeta | null {
+  const [a] = ordenarTarjetas(v.vivas);
+  return a ? estadoDeTarjeta(a).tono : null;
 }
 
 /** Las piezas del Resumen nativo: se callan cuando no aplican, aunque en escritorio su bloque sea de los de «—». */

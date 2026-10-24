@@ -153,53 +153,115 @@ button.fr-chip { font: inherit; font-size: 13.5px; font-weight: 600; cursor: poi
 .fr--epico .fr-chip { min-height: 40px; font-size: 15px; padding: 0 16px; }
 .fr--epico .fr-tarjeta dd { font-size: clamp(18px, .8vw + 13px, 26px); }
 
-/* El bloque «Automatizaciones» (23/10/2026, ./automatizaciones.tsx): una tarjeta por automatización, el chip de su
-   estado, lo próximo, lo que ya salió con un punto de color y, arriba, lo que no entró (ámbar). */
+/* El bloque «Automatizaciones» (./automatizaciones.tsx), REDISEÑADO el 24/10/2026: cada automatización es una tarjeta con
+   un SELLO de forma y color adelante del nombre (su estado se ve antes de leer), una franja del mismo color a la izquierda
+   (varias se distinguen de un vistazo), un RIEL vertical con lo que le salió y lo que viene, y un PIE con las acciones. Un
+   color, un significado (app/_ui/tokens.ts): dorado MaKo, naranja traba, rojo falló, verde contestó o terminó, gris quieto.
+   ⚠️ Nada de transform, filter ni container-type en lo que tenga un campo o un modal adentro: el único transform es el
+   giro del chevron, que es una hoja. */
 .fr-aut-lista { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.fr-aut { display: flex; flex-direction: column; gap: 6px; }
-.fr-aut-nombre { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fr-aut-chip { flex: none; margin-left: auto; display: inline-flex; align-items: center; min-height: 22px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-.fr-aut-chip--mako { background: color-mix(in srgb, var(--mako) 16%, transparent); color: var(--mako); }
-.fr-aut-chip--ok { background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good); }
-.fr-aut-chip--gris { background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--dim); }
-.fr-aut-chip--mal { background: color-mix(in srgb, var(--bad) 12%, transparent); color: var(--bad); }
-.fr-aut-proximo { font-size: 13.5px; color: var(--ink); line-height: 1.45; }
-.fr-aut-proximo--frenado { color: var(--warn); }
-.fr-aut-acciones { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-.fr-aut-envios { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.fr-aut-envio { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--dim); line-height: 1.45; min-width: 0; overflow-wrap: anywhere; }
-.fr-aut-envio strong { color: var(--ink); font-weight: 600; }
-.fr-aut-punto { flex: none; width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: var(--faint); }
-.fr-aut-envio--ok .fr-aut-punto { background: var(--good); }
-.fr-aut-envio--mal { color: var(--bad); }
-.fr-aut-envio--mal .fr-aut-punto { background: var(--bad); }
-.fr-aut-envio--proximo { color: var(--ink); }
-.fr-aut-envio--proximo .fr-aut-punto { background: transparent; border: 2px solid var(--mako); width: 6px; height: 6px; }
-/* La tarjeta en renglones (24/10/2026): qué le salió, si contestó, qué sigue. El punto dice el tono: verde lo que salió,
-   aro de MaKo lo que viene, ámbar lo frenado, gris lo terminado. */
-.fr-aut-renglones { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.fr-aut-renglon { display: flex; align-items: flex-start; gap: 8px; font-size: 13.5px; line-height: 1.45; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
-.fr-aut-renglon--ok .fr-aut-punto { background: var(--good); }
-.fr-aut-renglon--mal { color: var(--bad); }
-.fr-aut-renglon--mal .fr-aut-punto { background: var(--bad); }
-.fr-aut-renglon--sigue .fr-aut-punto { background: transparent; border: 2px solid var(--mako); width: 6px; height: 6px; }
-.fr-aut-renglon--termino, .fr-aut-renglon--gris { color: var(--dim); }
-/* Después del gris: lo frenado es gris de tono pero se lee en ámbar (gana por orden, misma especificidad). */
-.fr-aut-renglon--frenado { color: var(--warn); }
-.fr-aut-renglon--frenado .fr-aut-punto { background: var(--warn); }
-.fr--epico .fr-aut-renglon { font-size: 15px; }
-.fr-aut-tiempo { display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
-.fr-aut-tiempo:last-of-type { border-bottom: none; }
+.fr-aut, .fr-aut-fila { --aut-fill: var(--mako); --aut-ink: var(--mako-ink); --aut-bg: var(--mako-bg); }
+.fr-aut[data-tono="good"], .fr-aut-fila[data-tono="good"] { --aut-fill: var(--good); --aut-ink: var(--good); --aut-bg: var(--good-bg); }
+.fr-aut[data-tono="warn"], .fr-aut-fila[data-tono="warn"] { --aut-fill: var(--warn-fill); --aut-ink: var(--warn); --aut-bg: var(--warn-bg); }
+.fr-aut[data-tono="bad"], .fr-aut-fila[data-tono="bad"] { --aut-fill: var(--bad); --aut-ink: var(--bad); --aut-bg: var(--bad-bg); }
+.fr-aut[data-tono="neutral"], .fr-aut-fila[data-tono="neutral"] { --aut-fill: var(--border-strong); --aut-ink: var(--dim); --aut-bg: var(--surface-2); }
+.fr-aut { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 12px 14px 12px 16px; border: 1px solid var(--border); border-radius: 12px; box-shadow: inset 3px 0 0 var(--aut-fill); }
+
+/* La cabecera: el sello, el nombre y debajo el estado con su cuándo. */
+.fr-aut-cab { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; column-gap: 10px; align-items: center; min-width: 0; }
+.fr-aut-sello { width: 24px; height: 24px; box-sizing: border-box; border-radius: 50%; display: grid; place-items: center; background: var(--aut-bg); color: var(--aut-ink); }
+.fr-aut-sello[data-forma="disco"]::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--aut-ink); }
+.fr-aut-sello[data-forma="cuadro"]::after { content: ''; width: 8px; height: 8px; border-radius: 2px; background: var(--aut-ink); }
+.fr-aut-sello[data-forma="aro"] { background: transparent; border: 1.5px dashed var(--aut-ink); }
+.fr-aut-sello[data-forma="tilde"], .fr-aut-sello[data-forma="alerta-llena"] { background: var(--aut-fill); color: var(--surface); }
+.fr-aut-glifo { font-size: 13px; font-weight: 800; line-height: 1; }
+.fr-aut-titulos { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.fr-aut-nombre { font-size: var(--fs-card); font-weight: 650; color: var(--ink); text-decoration: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fr-aut-nombre:hover { color: var(--primary); text-decoration: underline; }
+.fr-aut-estado { font-size: 13px; font-weight: 600; color: var(--aut-ink); min-width: 0; overflow-wrap: anywhere; }
+.fr-aut-estado-cuando { color: var(--dim); font-weight: 500; }
+.fr-aut-plegar { border: none; background: none; padding: 4px; border-radius: 8px; cursor: pointer; color: var(--dim); display: grid; place-items: center; }
+.fr-aut-plegar:hover { background: var(--velo-hover); }
+.fr-aut-plegar:focus-visible, .fr-aut-fila:focus-visible, .fr-aut-frenar:focus-visible, .fr-aut-antes:focus-visible, .fr-aut-mas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* El foco con teclado en el nombre, como en las tabs y el resto de la ficha (chat «CRM», 24/10/2026). */
+.fr-aut-nombre:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
+
+/* El riel: una línea vertical que une las marcas; el tramo que llega a lo próximo, punteado. La línea pasa por x = 11,25 px
+   del riel (el centro del sello de arriba); cada marca la corta con un aro del fondo, en los dos temas. */
+.fr-aut-riel { list-style: none; margin: 0; padding: 0 0 0 32px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fr-aut-nodo { position: relative; min-width: 0; }
+.fr-aut-nodo::before { content: ''; position: absolute; left: -21px; top: 9px; bottom: -19px; border-left: 1.5px solid var(--border); }
+.fr-aut-nodo:last-child::before { display: none; }
+.fr-aut-nodo:has(+ .fr-aut-nodo[data-tipo="proximo"])::before { border-left-style: dashed; border-left-color: var(--border-strong); }
+.fr-aut-marca { position: absolute; left: -24.25px; top: 5px; width: 8px; height: 8px; box-sizing: border-box; border-radius: 50%; background: var(--dim); box-shadow: 0 0 0 3px var(--surface); }
+.fr-aut-nodo[data-tipo="contesto"] .fr-aut-marca { left: -25.25px; top: 4px; width: 10px; height: 10px; background: var(--good); }
+.fr-aut-nodo[data-tipo="fallo"] .fr-aut-marca { left: -25.25px; top: 4px; width: 10px; height: 10px; background: var(--bad); }
+.fr-aut-nodo[data-tipo="borrador"] .fr-aut-marca { left: -25.25px; top: 4px; width: 10px; height: 10px; background: var(--surface); border: 1.5px dashed var(--faint); }
+.fr-aut-nodo[data-tipo="quieto"] .fr-aut-marca, .fr-aut-nodo[data-tipo="antes"] .fr-aut-marca { left: -23.25px; top: 6px; width: 6px; height: 6px; background: var(--surface); border: 1.5px solid var(--faint); }
+.fr-aut-nodo[data-tipo="antes"] .fr-aut-marca { border-style: dashed; }
+.fr-aut-nodo[data-tipo="noentro"] .fr-aut-marca { left: -23.25px; top: 6px; width: 6px; height: 6px; background: var(--warn-fill); }
+.fr-aut-nodo[data-tipo="proximo"] .fr-aut-marca { left: -25.25px; top: 4px; width: 10px; height: 10px; background: var(--surface); border: 2px solid var(--mako-ink); }
+.fr-aut-nodo[data-apagado] .fr-aut-marca { border-color: var(--faint); }
+.fr-aut-nodo-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; font-size: 13px; line-height: 1.4; }
+.fr-aut-nodo-tit { min-width: 0; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.fr-aut-nodo[data-tipo="contesto"] .fr-aut-nodo-tit { color: var(--good); }
+.fr-aut-nodo[data-tipo="fallo"] .fr-aut-nodo-tit { color: var(--bad); }
+.fr-aut-nodo[data-tipo="noentro"] .fr-aut-nodo-tit { color: var(--warn); }
+.fr-aut-nodo[data-tipo="borrador"] .fr-aut-nodo-tit, .fr-aut-nodo[data-apagado] .fr-aut-nodo-tit { color: var(--dim); }
+.fr-aut-nodo[data-tipo="quieto"] .fr-aut-nodo-tit { color: var(--dim); font-weight: 500; font-size: 12.5px; }
+.fr-aut-cuando { flex: none; font-size: 12.5px; color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fr-aut-nodo[data-tipo="proximo"] .fr-aut-cuando { color: var(--ink); font-weight: 600; }
+.fr-aut-zona { color: var(--faint); font-weight: 500; }
+/* La cita: el mensaje como le llegó, en una burbuja. La respuesta del lead, en verde; lo que no salió o no salió todavía,
+   con el borde punteado. */
+.fr-aut-cita { margin: 4px 0 0; padding: 7px 10px; border: 1px solid var(--border); border-radius: 4px 12px 12px 12px; background: var(--surface-2); color: var(--ink); font-size: 13.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.fr-aut-nodo[data-tipo="contesto"] .fr-aut-cita { background: var(--good-bg); border-color: transparent; }
+.fr-aut-nodo[data-tipo="fallo"] .fr-aut-cita { background: transparent; border-style: dashed; border-color: var(--bad); }
+.fr-aut-nodo[data-tipo="borrador"] .fr-aut-cita, .fr-aut-nodo[data-tipo="proximo"] .fr-aut-cita { background: transparent; border-style: dashed; border-color: var(--border-strong); color: var(--dim); }
+.fr-aut-detalle { margin: 3px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--dim); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fr-aut-nodo[data-tipo="fallo"] .fr-aut-detalle { color: var(--bad); }
+.fr-aut-antes, .fr-aut-mas { border: none; background: none; padding: 0; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--primary); cursor: pointer; text-align: left; }
+.fr-aut-antes:hover, .fr-aut-mas:hover { text-decoration: underline; }
+.fr-aut-vacio { margin: 0; font-size: 13px; color: var(--dim); }
+
+/* El pie: «Frenar» a la izquierda, en rojo y como texto (el modal de WhatsApp del Ops Center); «Empezar de nuevo» a la
+   derecha, como botón. */
+.fr-aut-pie { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.fr-aut-pie-fin { margin-left: auto; }
+.fr-aut-frenar { border: none; background: none; padding: 4px 0; border-radius: 6px; font: inherit; font-size: 13px; font-weight: 600; color: var(--bad); cursor: pointer; }
+.fr-aut-frenar:hover { text-decoration: underline; }
+.fr-aut-error { flex-basis: 100%; margin: 0; font-size: 12.5px; color: var(--bad); }
+
+/* Las terminadas: filas finas con su sello; un toque la abre como tarjeta en el lugar. */
+.fr-aut-filas { display: flex; flex-direction: column; min-width: 0; }
+.fr-aut-filas > .fr-aut { margin: 8px 0; }
+.fr-aut-fila { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto 16px; align-items: center; column-gap: 10px; width: 100%; box-sizing: border-box; padding: 9px 4px; border: none; border-top: 1px solid var(--border); border-radius: 0; background: none; font: inherit; text-align: left; color: var(--ink); cursor: pointer; }
+.fr-aut-fila:hover { background: var(--velo-hover); }
+.fr-aut-fila .fr-aut-sello { width: 20px; height: 20px; }
+.fr-aut-fila-nombre { min-width: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fr-aut-fila-estado { font-size: 12.5px; color: var(--dim); white-space: nowrap; }
+.fr-aut-chev { display: grid; place-items: center; color: var(--dim); }
+/* El único transform del bloque: el chevron de la tarjeta abierta, que es una hoja (sin campos ni modales adentro). */
+.fr-aut-chev[data-abierto] { transform: rotate(180deg); }
+.fr-aut-mas { padding: 8px 4px; align-self: flex-start; }
 .fr-aut-noentro { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 28%, transparent); font-size: 13.5px; color: var(--ink); }
 .fr-aut-noentro-fila { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; justify-content: space-between; }
-.fr-aut-mal { color: var(--bad); }
-.fr--epico .fr-aut-proximo { font-size: 16px; }
 .fr--epico .fr-aut-nombre { font-size: 17px; }
+.fr--epico .fr-aut-nodo-cab { font-size: 14.5px; }
+.fr--epico .fr-aut-cita { font-size: 15px; }
+/* En el celular (y en la vista «Celular» de «Personalizar»): la tarjeta respira menos y, en una fila terminada, el estado
+   baja debajo del nombre. El pie sigue en una fila: Frenar a la izquierda, Empezar de nuevo a la derecha. */
 @media (max-width: 720px) {
-  .fr-aut-acciones { justify-content: stretch; }
-  .fr-aut-acciones > * { flex: 1 1 auto; }
+  .fr-aut { padding: 12px 12px 12px 15px; }
+  .fr-aut-fila { grid-template-columns: 20px minmax(0, 1fr) 16px; row-gap: 2px; }
+  .fr-aut-fila-estado { grid-column: 2; grid-row: 2; }
 }
-.fb-pagina[data-dispositivo="movil"] .fr-aut-acciones > * { flex: 1 1 auto; }
+.fb-pagina[data-dispositivo="movil"] .fr-aut { padding: 12px 12px 12px 15px; }
+.fb-pagina[data-dispositivo="movil"] .fr-aut-fila { grid-template-columns: 20px minmax(0, 1fr) 16px; row-gap: 2px; }
+.fb-pagina[data-dispositivo="movil"] .fr-aut-fila-estado { grid-column: 2; grid-row: 2; }
+@media (pointer: coarse) {
+  .fr-aut-frenar, .fr-aut-antes, .fr-aut-mas, .fr-aut-fila, .fr-aut-plegar { min-height: var(--touch); }
+}
 
 /* «Posibles duplicados» (23/10/2026, ./duplicados.tsx): por ficha parecida, el nombre con «Abrir» y «Unificar», por qué
    se parece, en qué CRM está y desde cuándo. */
