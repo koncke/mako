@@ -1344,3 +1344,24 @@ Martín: «quiero ver los 3 bloques de pricing típicos que tiene toda app». /p
 
 **Vive en:** app/planes/page.tsx · app/planes/Vitrina.tsx · app/planes/estilo.ts · lib/planes-comparacion.ts ·
 lib/planes-mako.ts (`PROGRAMA_ACELERADOR`) · tests/planes-tres-bloques.test.ts.
+
+## Sin Calendly: las columnas de precios en la landing, y el pedido sin pago en el CRM (24/10/2026)
+
+Martín: «No voy a usar Calendly, te dije que pongas las columnas de pricing de las ofertas». **El diagnóstico obvio era el
+equivocado:** el Cerebro y este chat venían pidiendo «conectá Calendly» (la agenda era la salida sin pasarela); lo que
+faltaba era DÓNDE hacer clic: los tres precios en la página de venta, con un botón cada uno
+(docs/estrategia-financiera-mako.md, «Qué hacer el lunes», punto 1).
+- **La landing de venta** (la raíz y /vsl/<slug>) monta las columnas donde estaba la agenda: `#cal-embed` en la de siempre,
+  `[data-calendly]` en la del Web Generator, a la que se le saca el atributo ANTES de que corra su script (si no, igual carga
+  Calendly); sin agenda en el diseño, antes del pie (app/vsl/Landing.tsx, `montarPrecios`). Los planes llegan del servidor
+  con si se cobran en línea (`planesParaLanding`): el botón es el MISMO que /planes («Empezar» sólo con cobro detrás).
+- **Sin pasarela, el botón lleva a /planes/<plan>**, y ahí un formulario de nombre, email y WhatsApp deja el pedido como lead
+  en el CRM de MaKo con el plan, la landing, las UTM y el código de partner en su historial, más un aviso a equipo@
+  (`pedirPlanSinPasarela`). Es MEJOR atribución que la agenda: el partner viaja en el mismo pedido (la cookie de /r gana).
+- **El Acelerador nunca pasa por la pasarela** (un merchant of record no toma un servicio con llamadas: estrategia
+  financiera §1.7): /planes/acelerador es siempre el pedido.
+- **Quedó obsoleto:** conectar Calendly al CRM de MaKo para vender (docs/relevo/suscripcion.md, punto 3) y las UTM del partner
+  en la agenda (cfcf01abd): se sacaron `AGENDA_MAKO` y `agendaConOrigen`.
+
+**Vive en:** app/vsl/PreciosLanding.tsx · app/vsl/Landing.tsx · app/planes/[plan]/QuieroPlan.tsx · lib/compra-plan.ts
+(`pedirPlanSinPasarela`, `planesParaLanding`) · lib/compra-plan-reglas.ts · tests/planes-sin-pasarela.test.ts.

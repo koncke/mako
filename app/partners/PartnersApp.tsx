@@ -355,10 +355,10 @@ export function PartnersPlataforma({ partners, programa, cobraEnLinea = true }: 
 
 // ⚠️ NINGÚN BACKTICK ACÁ ADENTRO, ni en un comentario: cierra la cadena a la mitad.
 const CSS = `
-.pt-titulo{ margin:0 0 12px; font-size:var(--fs-md); color:var(--ink); display:flex; align-items:center; gap:8px; }
+.pt-titulo{ margin:0 0 12px; font-size:20px; font-weight:800; letter-spacing:-.02em; color:var(--ink); display:flex; align-items:center; gap:8px; }
 .pt-kpis{ display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); margin:0 0 16px; }
-.pt-kpi{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px 16px; }
-.pt-kpi b{ display:block; font-size:24px; color:var(--ink); }
+.pt-kpi{ background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px 18px; }
+.pt-kpi b{ display:block; font-size:30px; line-height:1.1; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
 .pt-kpi span{ font-size:var(--fs-sm); color:var(--dim); }
 .pt-nuevo{ border:1px solid var(--primary); background:var(--primary); color:var(--on-primary, #fff); border-radius:10px;
   padding:9px 16px; font:inherit; font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap; }

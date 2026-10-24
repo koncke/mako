@@ -8,6 +8,7 @@
 
 import { Suspense } from 'react';
 import Landing, { type DisenoLanding } from './Landing';
+import type { PlanEnLanding } from './PreciosLanding';
 import { PortadaSinJs } from './PortadaSinJs';
 import { EMAIL_MAKO, APP_BASE_URL } from '@/lib/app-url';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
@@ -32,12 +33,18 @@ const NEGOCIO = {
 };
 
 /** `diseno` null = la landing de siempre (landing-html.ts). `conSuspense` false: sin el fallback (las de cada funnel). */
-export function Portada({ diseno, conSuspense = true }: { diseno: DisenoLanding | null; conSuspense?: boolean }) {
+export function Portada({ diseno, conSuspense = true, planes = [], landing = null }: {
+  diseno: DisenoLanding | null; conSuspense?: boolean;
+  /** Las columnas de precios (24/10/2026): los planes con si se cobran en línea. */
+  planes?: readonly PlanEnLanding[];
+  /** El slug de la landing de un funnel, para el pedido. */
+  landing?: string | null;
+}) {
   if (!conSuspense) {
     return (
       <>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(NEGOCIO) }} />
-        <Landing diseno={diseno} />
+        <Landing diseno={diseno} planes={planes} landing={landing} />
       </>
     );
   }
@@ -57,7 +64,7 @@ export function Portada({ diseno, conSuspense = true }: { diseno: DisenoLanding 
           verificación de Meta todavía abierta es un riesgo que no compra nada. Sacarlo
           es una línea, y obliga a ajustar tests/razon-social-sitio.test.ts. */}
       <Suspense fallback={<PortadaSinJs />}>
-        <Landing diseno={diseno} />
+        <Landing diseno={diseno} planes={planes} landing={landing} />
       </Suspense>
     </>
   );

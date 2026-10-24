@@ -9,14 +9,17 @@
 // =============================================================================
 
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ofertaDelPlan } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
-import { origenLimpio, codigoRefLimpio, agendaConOrigen, TEXTO_SIN_PASARELA } from '@/lib/compra-plan-reglas';
+import { origenLimpio, codigoRefLimpio, TEXTO_SIN_PASARELA } from '@/lib/compra-plan-reglas';
+import { PROGRAMA_ACELERADOR } from '@/lib/planes-mako';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { CSS_PLANES } from '../estilo';
 import { CompraPlan } from './CompraPlan';
+import { QuieroPlan } from './QuieroPlan';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -29,14 +32,44 @@ export default async function PlanPage({ params, searchParams }: {
 }) {
   const { plan: id } = await params;
   if (!/^[a-z0-9-]{1,32}$/.test(id)) notFound();
-  // Una pasarela en modo prueba sólo la ve el super admin (la prueba de humo): lib/compra-plan.ts, `ofertaDelPlan`.
-  const oferta = await ofertaDelPlan(id, { conPrueba: (await getSesionAdmin().catch(() => null)) != null });
-  if (!oferta) notFound();
   const sp = await searchParams;
   const uno = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const origen = origenLimpio(Object.fromEntries(['landing', 'avatar', 'funcionalidad', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'fbclid'].map((k) => [k, uno(k)])));
   const ref = codigoRefLimpio(uno('ref'));
+  // El Acelerador NUNCA pasa por la pasarela (docs/estrategia-financiera-mako.md §1.7: con llamadas, un merchant of record
+  // no lo toma): siempre se pide, y se cobra aparte.
+  if (id === PROGRAMA_ACELERADOR.id) {
+    const pr = PROGRAMA_ACELERADOR;
+    return (
+      <Ficha titulo={pr.nombre} precio={`US$ ${pr.precioUsd.toLocaleString('es-AR')} en ${pr.cuotas} cuotas de US$ ${Math.round(pr.precioUsd / pr.cuotas).toLocaleString('es-AR')}`}>
+        <p className="planes-sub">Déjanos tus datos y te escribimos por WhatsApp para contarte cómo arranca tu cohorte.</p>
+        <QuieroPlan plan={pr.id} nombrePlan={pr.nombre} origen={origen} refCodigo={ref} />
+      </Ficha>
+    );
+  }
+  // Una pasarela en modo prueba sólo la ve el super admin (la prueba de humo): lib/compra-plan.ts, `ofertaDelPlan`.
+  const oferta = await ofertaDelPlan(id, { conPrueba: (await getSesionAdmin().catch(() => null)) != null });
+  if (!oferta) notFound();
   const { plan, pasarelas } = oferta;
+  const precio = pasarelas.map((x) => `${formatoMonto(x.monto, x.moneda)} por mes`).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || `US$ ${plan.precioUsd} por mes`;
+  return (
+    <Ficha titulo={plan.nombre} precio={precio}>
+      {/* Sin pasarela que lo cobre: no hay formulario que lleve a un pago imposible. Desde el 24/10/2026 la salida NO es la
+          agenda (Martín no usa Calendly): el pedido queda en el CRM con su origen y su partner, y se da de alta a mano. */}
+      {pasarelas.length
+        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} />
+        : (
+          <>
+            <p className="planes-sub">{TEXTO_SIN_PASARELA}</p>
+            <QuieroPlan plan={plan.id} nombrePlan={plan.nombre} origen={origen} refCodigo={ref} />
+          </>
+        )}
+    </Ficha>
+  );
+}
+
+/** El marco de la página de un plan (o del programa): la marca, el nombre y el precio arriba. */
+function Ficha({ titulo, precio, children }: { titulo: string; precio: string; children: ReactNode }) {
   return (
     <main className="planes-root">
       <style dangerouslySetInnerHTML={{ __html: CSS_PLANES }} />
@@ -44,22 +77,12 @@ export default async function PlanPage({ params, searchParams }: {
         <Link className="planes-volver" href="/planes">← Todos los planes</Link>
         <div className="planes-form">
           <div className="planes-marca">MaKo</div>
-          <h1 style={{ fontSize: 24 }}>{plan.nombre}</h1>
-          <p className="planes-sub" style={{ marginBottom: 6 }}>
-            {pasarelas.map((x) => `${formatoMonto(x.monto, x.moneda)} por mes`).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || `US$ ${plan.precioUsd} por mes`}
-          </p>
-          {/* Sin pasarela que lo cobre (23/10/2026): no hay formulario que lleve a un pago imposible, y «Escríbenos» sin
-              a dónde era un callejón. La salida es la agenda, con las UTM de la campaña. */}
-          {pasarelas.length
-            ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} />
-            : (
-              <>
-                <p className="planes-sub">{TEXTO_SIN_PASARELA}</p>
-                <a className="planes-btn" href={agendaConOrigen(origen, ref)}>Agendar una llamada</a>
-              </>
-            )}
+          <h1 style={{ fontSize: 24 }}>{titulo}</h1>
+          <p className="planes-sub" style={{ marginBottom: 6 }}>{precio}</p>
+          {children}
         </div>
       </div>
     </main>
   );
 }
+

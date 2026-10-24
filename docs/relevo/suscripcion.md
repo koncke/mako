@@ -30,7 +30,14 @@
 1. **Migración 0330** (aditiva): la aplica el Cerebro en producción ANTES del deploy, con su OK.
 2. **Prender el corte** (`CORTE_DE_ACCESO_PRENDIDO` en `lib/plan-acceso-reglas.ts`): después de la revisión adversarial y con la
    0330 aplicada. Con el corte apagado la deuda se VE (aviso y /cuenta-pausada) pero nadie se pausa.
-3. **Martín**: en `hola-mako.com/integraciones?ws=9` → Calendly, pegar un «Personal access token» de la cuenta koncke
+> **24/10, Martín: «No voy a usar Calendly».** El punto 3 de abajo (conectar Calendly) QUEDÓ SIN EFECTO para la venta: la
+> landing y /planes ya no llevan a ninguna agenda. Sin pasarela, el botón de cada plan lleva a /planes/<plan>, donde la
+> persona deja nombre, email y WhatsApp y queda como lead en el CRM de MaKo con el plan, el origen y el código de partner
+> (`pedirPlanSinPasarela`, lib/compra-plan.ts), con aviso a equipo@. Se le da de alta a mano. Lo que sigue para cobrar en
+> línea es lo de docs/estrategia-financiera-mako.md: Paddle o Creem para el mundo, Mercado Pago en pesos para Argentina, y
+> el Acelerador nunca por un merchant of record.
+
+3. (Sin efecto desde el 24/10, ver arriba.) **Martín**: en `hola-mako.com/integraciones?ws=9` → Calendly, pegar un «Personal access token» de la cuenta koncke
    (calendly.com → Integrations & apps → API and webhooks → Generate new token) y en «Tipo de evento de R1» el NOMBRE del
    evento de koncke/asesoria tal cual figura en Calendly (no el slug `asesoria`: el ruteo compara el nombre o la URI).
    Medido el 23/10: el ws 9 no tiene credenciales ni ruteo de Calendly, así que ninguna reserva de la agenda de MaKo crea
@@ -61,8 +68,10 @@
    `lib/origen-negocio.ts`. **Cuando /planes esté en producción, avisarle a ese chat**: hoy el CTA de sus landings es la agenda
    (Calendly), y pasa a `/planes/<plan>?landing=<slug>&avatar=<x>&funcionalidad=<y>`.
 5. MaKo Partners: APLICAR el crédito en la suscripción del partner y el beneficio del que llega (hallazgos-partners).
-   **El copy de /mako-partners y /partners/referidos ya promete «se descuenta de tus próximos meses»:** cumplirlo o no
-   prometerlo es decisión de Martín (la subió el Cerebro el 23/10); no tocar el copy hasta que conteste.
+   **El copy ya promete que el crédito se usa:** /partners/referidos («se descuenta de tus próximos meses») y /mako-partners
+   (rediseñada como landing el 24/10, sin agregar promesas: «un referido de Pro vale un mes de Pro» y la comisión del
+   Acelerador). Cumplirlo o no prometerlo es decisión de Martín (la subió el Cerebro el 23/10); no agregar promesas hasta
+   que conteste.
 6. **El código de partner en una venta POR LLAMADA (medido el 23/10, con todas las letras):** fuera del checkout en línea,
    el código SE PIERDE DEL TODO en la base. Desde el 23/10, quien llega por /r/<código> y agenda lleva el código a Calendly
    como `utm_source=mako-partners&utm_campaign=<código>` (queda en la reserva; en el lead, cuando la agenda entre al ws 9,

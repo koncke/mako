@@ -51,7 +51,13 @@ export function codigoRefLimpio(v: unknown): string | null {
   return CODIGO_REF_RE.test(s) ? s : null;
 }
 
-export type PedidoCompra = { plan: string; nombre: string; email: string; pasarela: Pasarela | null; origen: OrigenCompra | null; ref: string | null };
+export type PedidoCompra = {
+  plan: string; nombre: string; email: string; pasarela: Pasarela | null; origen: OrigenCompra | null; ref: string | null;
+  /** El WhatsApp (sólo dígitos), para el pedido sin pasarela: por ahí se le da de alta. */
+  whatsapp: string | null;
+  /** true = «lo quiero» sin pasarela: deja el pedido en el CRM, no abre un pago (`pedirPlanSinPasarela`). */
+  quiero: boolean;
+};
 
 /**
  * El pedido del formulario, validado. Lo que NUNCA sale de acá: el precio, la moneda y la capa (los pone el plan). El
@@ -67,7 +73,10 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
   const email = (typeof b.email === 'string' ? b.email : '').trim().toLowerCase();
   if (!EMAIL_RE.test(email) || email.length > 200) return { ok: false, error: 'Escribe un email válido: por ahí te llega el acceso.' };
   const pasarela = b.pasarela === 'stripe' || b.pasarela === 'mercadopago' ? b.pasarela : null;
-  return { ok: true, pedido: { plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref) } };
+  const quiero = b.quiero === true;
+  const whatsapp = whatsappLimpio(b.whatsapp);
+  if (quiero && !whatsapp) return { ok: false, error: 'Escribe tu WhatsApp con el código de país: por ahí te damos de alta.' };
+  return { ok: true, pedido: { plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero } };
 }
 
 /**
@@ -88,55 +97,34 @@ export function pasarelaDeLaCompra(p: {
 // =============================================================================
 // Hasta que Martín conecte la pasarela de MaKo (/integraciones?ws=9), ningún plan se puede pagar en línea. /planes
 // prometía «entras en el acto» con un botón «Empezar», y el paso siguiente decía «Escríbenos» sin dar a dónde: un
-// callejón. La salida es la de las landings de MaKo, la agenda (app/vsl/Landing.tsx la usa también): una llamada y
-// el alta a mano. Se decide POR PLAN y con la misma cuenta que el checkout (lib/compra-plan.ts, `ofertasDeLosPlanes`):
-// un plan sin precio en la moneda de la pasarela tampoco se cobra.
+// callejón. Se decide POR PLAN y con la misma cuenta que el checkout (lib/compra-plan.ts, `ofertasDeLosPlanes`): un plan
+// sin precio en la moneda de la pasarela tampoco se cobra.
+//
+// LA SALIDA YA NO ES LA AGENDA (24/10/2026, Martín: «No voy a usar Calendly, te dije que pongas las columnas de pricing
+// de las ofertas»). El botón lleva a la página del plan, y ahí, sin pasarela, la persona deja su nombre, su email y su
+// WhatsApp: queda como lead en el CRM de MaKo con el plan, el origen de la campaña y el código de partner
+// (lib/compra-plan.ts, `pedirPlanSinPasarela`), y se le da de alta a mano. Es mejor atribución que la agenda: el código de
+// partner viaja en el mismo pedido.
 
-/** La agenda de MaKo: una llamada con Martín. La misma de las landings. */
-export const AGENDA_MAKO = 'https://calendly.com/koncke/asesoria';
+export const TEXTO_SIN_PASARELA = 'Todavía no cobramos en línea. Déjanos tus datos y te escribimos por WhatsApp para darte de alta.';
 
-export const TEXTO_SIN_PASARELA = 'Todavía no cobramos en línea. Agenda una llamada y te damos de alta.';
-
-/** Las UTM que la agenda le pasa al CRM (el webhook de Calendly las lee de `payload.tracking`). `utm_term` no: lleva el
- *  id anónimo de la landing, y desde /planes no se tiene. */
-const UTM_DE_LA_AGENDA = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'] as const;
-
-/** Las UTM con las que viaja el código de MaKo Partners a la agenda: `utm_campaign` lleva el código. */
-export const UTM_PARTNER = { utm_source: 'mako-partners', utm_medium: 'referido' } as const;
-
-/**
- * La agenda con el origen de la campaña, para que la venta a mano no pierda de qué anuncio vino.
- *
- * EL CÓDIGO DE PARTNER (23/10/2026): la cookie `mako_ref` es httpOnly de MaKo y Calendly no la ve, así que una venta por
- * llamada perdía al partner del todo (docs/hallazgos-partners.md). Sin campaña (el link /r/<código> llega SIEMPRE sin
- * UTM: arma /planes de cero), el código viaja como UTM y queda en la reserva de Calendly y, con la agenda atada al ws 9,
- * en el lead. Con campaña, gana la campaña: no se pisa de qué anuncio vino.
- */
-export function agendaConOrigen(origen: OrigenCompra | null, ref: string | null = null): string {
-  const qs = new URLSearchParams();
-  for (const k of UTM_DE_LA_AGENDA) {
-    const v = origen?.[k];
-    if (v) qs.set(k, v);
-  }
-  if (ref && !qs.has('utm_source')) {
-    qs.set('utm_source', UTM_PARTNER.utm_source);
-    qs.set('utm_medium', UTM_PARTNER.utm_medium);
-    qs.set('utm_campaign', ref);
-  }
-  const s = qs.toString();
-  return s ? `${AGENDA_MAKO}?${s}` : AGENDA_MAKO;
-}
-
-/** El botón de un plan en /planes: comprar si se puede cobrar, si no la agenda. Nunca «Empezar» sin cobro detrás. */
-export function botonDelPlan(p: { id: string; nombre: string; cobrable: boolean; sufijo: string; origen: OrigenCompra | null; ref: string | null }): { href: string; texto: string; afuera: boolean } {
-  return p.cobrable
-    ? { href: `/planes/${p.id}${p.sufijo}`, texto: `Empezar con ${p.nombre}`, afuera: false }
-    : { href: agendaConOrigen(p.origen, p.ref), texto: 'Agendar una llamada', afuera: true };
+/** El botón de un plan: comprar si se puede cobrar; si no, pedirlo en su página (nunca «Empezar» sin cobro detrás). */
+export function botonDelPlan(p: { id: string; nombre: string; cobrable: boolean; sufijo: string }): { href: string; texto: string } {
+  return { href: `/planes/${p.id}${p.sufijo}`, texto: p.cobrable ? `Empezar con ${p.nombre}` : `Quiero ${p.nombre}` };
 }
 
 /** La bajada de /planes: «entras en el acto» sólo si algún plan se puede pagar en línea. */
 export function bajadaDePlanes(algunoCobrable: boolean): string {
   return algunoCobrable
     ? 'Pagas por mes y entras en el acto. Te das de baja cuando quieras.'
-    : 'Agenda una llamada y te damos de alta. Te das de baja cuando quieras.';
+    : 'Elige tu plan y déjanos tus datos: te damos de alta por WhatsApp. Te das de baja cuando quieras.';
+}
+
+/**
+ * El WhatsApp del pedido sin pasarela: sólo dígitos (con el código de país), de 8 a 15 (E.164). null = no sirve. No se
+ * inventa el país: lo que la persona no escribió no se agrega.
+ */
+export function whatsappLimpio(v: unknown): string | null {
+  const d = (typeof v === 'string' ? v : '').replace(/[^\d]/g, '');
+  return d.length >= 8 && d.length <= 15 ? d : null;
 }

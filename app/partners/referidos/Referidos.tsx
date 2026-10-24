@@ -11,18 +11,20 @@ import { PresentacionPartners } from '../PresentacionPartners';
 
 const CSS = `
 .pr-grilla { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin: 16px 0 22px; }
-.pr-kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
-.pr-kpi b { display: block; font-size: 24px; color: var(--ink); }
+.pr-kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; }
+.pr-kpi.destacado { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), 0 14px 34px color-mix(in srgb, var(--primary) 16%, transparent); }
+.pr-kpi b { display: block; font-size: 30px; line-height: 1.1; font-weight: 800; letter-spacing: -.03em; color: var(--ink); }
 .pr-kpi span { font-size: var(--fs-sm); color: var(--dim); }
-.pr-link { display: flex; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; }
-.pr-link input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; }
-.pr-link button { border: 0; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 600; padding: 8px 14px; cursor: pointer; }
+.pr-link { display: flex; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px 10px 10px 16px; scroll-margin-top: 80px; }
+.pr-link input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 600; }
+.pr-link button { border: 0; border-radius: 10px; background: var(--primary); color: var(--on-primary, #fff); font-weight: 700; padding: 10px 18px; cursor: pointer;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary) 26%, transparent); }
 .pr-lista { list-style: none; padding: 0; margin: 10px 0 0; }
 .pr-fila { display: flex; justify-content: space-between; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--border); }
 .pr-fila b { color: var(--ink); }
 .pr-fila span { color: var(--dim); font-size: var(--fs-sm); }
 .pr-reglas { color: var(--dim); font-size: var(--fs-sm); line-height: 1.6; padding-left: 18px; }
-.pr-titulo { margin: 0 0 12px; font-size: var(--fs-md); color: var(--ink); }
+.pr-titulo { margin: 0 0 12px; font-size: 20px; font-weight: 800; letter-spacing: -.02em; color: var(--ink); }
 `;
 
 const usd = (n: number) => `US$ ${n.toLocaleString('es', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
@@ -56,14 +58,14 @@ export function Referidos({ tablero, agencia, cobraEnLinea = true, emailMako }: 
       <h3 className="pr-titulo">Tu panel</h3>
       {tablero.link
         ? (
-          <div className="pr-link">
+          <div className="pr-link" id="pr-link">
             <input readOnly value={tablero.link} aria-label="Tu link de MaKo Partners" onFocus={(e) => e.currentTarget.select()} />
             <button type="button" onClick={copiar}>{copiado ? 'Copiado' : 'Copiar'}</button>
           </div>
         )
         : <ErrorState titulo="Todavía no tienes tu link" detalle="Prueba otra vez en un minuto." />}
       <div className="pr-grilla">
-        <div className="pr-kpi"><b>{usd(r.acumuladoUsd)}</b><span>Acumulado</span></div>
+        <div className="pr-kpi destacado"><b>{usd(r.acumuladoUsd)}</b><span>Acumulado</span></div>
         <div className="pr-kpi"><b>{usd(r.saldoUsd)}</b><span>Disponible</span></div>
         {tablero.revendedor
           ? <div className="pr-kpi"><b>{usd(r.aCobrarUsd)}</b><span>A cobrar en plata</span></div>
