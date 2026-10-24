@@ -540,6 +540,9 @@
   color: var(--primary-weak); font: inherit; font-weight: 600; cursor: pointer;
 }
 .m-toast__deshacer:active { opacity: .7; }
+/* La ✕ (24/10/2026): del alto de un dedo, a la derecha, y el aviso se puede deslizar de costado para descartarlo. */
+.m-toast__cerrar { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: var(--r-sm); background: none; color: var(--on-ink); opacity: .7; cursor: pointer; }
+.m-toast__cerrar:active { opacity: .45; }
 
 /* ── SheetM: radio 18 arriba, agarradera, título + ✕, cuerpo y pie fijo ── */
 :root:has(.m-sheet-capa) { overflow: hidden; }
