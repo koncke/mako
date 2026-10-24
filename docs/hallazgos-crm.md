@@ -10875,28 +10875,21 @@ docs/hallazgos-api-mako.md). Lo que cambia para quien toque el CRM:
 **Vive en:** lib/etapas-crm-server.ts · lib/etapas-crm-reglas.ts · app/crm/actions.ts
 *23/10/2026, chat «API de MaKo» (claude2).*
 
-## Completar un lead por su nombre: la web y el Instagram, sin inventar (24/10/2026)
+## Enriquecer la base de venta con Apify: se armó, y Martín lo descartó (24/10/2026)
 
-**Vive en:** `lib/enriquecer-reglas.ts` (puro) · `lib/enriquecer-por-nombre.ts` · `tests/enriquecer-por-nombre.test.ts`
+**Vive en:** nada en main. El código está en el historial: `git show 053ab4f6a` (lib/enriquecer-reglas.ts,
+lib/enriquecer-por-nombre.ts, tests/enriquecer-por-nombre.test.ts), revertido antes de subir.
 
-El escalón 2 de la base de venta de MaKo: 221 participantes de un grupo de WhatsApp entraron como teléfonos pelados
-(WhatsApp no manda el nombre). El escalón 1, el perfil de empresa de WhatsApp, es del chat del CRM; éste es para los que
-no lo tienen. Martín: «con el motor de búsqueda que tenemos, con el nombre o el de la empresa podemos extraer su web y su IG».
+Para los 221 participantes de un grupo de WhatsApp que entraron como teléfonos pelados, se armó una búsqueda en Google
+Maps por Apify con la clave del negocio. Martín, al ver el precio (unos US$2–5 los 221): «no voy a gastar 5 USD por 200
+leads cuando tengo grupos con miles, no es viable». Todo pasa a salir de la extensión de MaKo, que lee la ficha que él ya
+ve en su WhatsApp Web (lo lleva el chat del CRM). Lo que se aprendió y sirve para cualquier búsqueda afuera:
 
-- **Se reusa el actor de Google Maps de la prospección** con los contactos de la web (ahí sale el Instagram): UNA corrida
-  por tanda, 3 lugares por lead, con techo de plata. Cobra la clave de Apify del NEGOCIO; no escribe nada en la ficha.
-- **Lo que hace seguro el resultado es el TELÉFONO, no el nombre.** El lead ya tiene su número (vino de WhatsApp) y el lugar
-  de Google Maps tiene el suyo: si coinciden los últimos 10 dígitos, es él (`confianza: 'telefono'`). Sólo por nombre es
-  más flojo (`'nombre'`): igual sin acentos ni puntuación, único en SU búsqueda, y sin OTRO teléfono (otra sucursal). Dos
-  lugares que califican y dicen cosas distintas → vacío, nunca el primero.
-- **Los 221 NO tienen nombre (medido por el CRM: 0 de 221; la agenda de la línea sólo conoce a quien le escribió), así
-  que la búsqueda va por el TELÉFONO** (`telefonoParaBuscar`: «+» y los dígitos, sin el «1» de celular mexicano) y
-  sólo vale un lugar con ese mismo número. El diagnóstico obvio —«buscar por nombre»— era el equivocado para este
-  caso. Una persona sin negocio en Google Maps no tiene de dónde sacar nada, y vuelve vacía. El perfil de empresa de
-  WhatsApp (escalón 1) dio 3 de 15 en la muestra del CRM, y no se corre en masa: es tráfico en una línea no oficial.
-- **No medido:** el costo real (no hay clave de Apify en ningún negocio el 24/10; el precio es el publicado, unos US$2–5 los
-  221) y la forma real de los resultados (el lector sigue el ejemplo publicado del actor: `searchString`, `title`,
-  `phoneUnformatted`, `website`, `instagrams`). La primera corrida se compara contra esto.
-- **Sin hacer:** la pantalla y la escritura en la ficha (del chat del CRM, con su camino de completar sin pisar).
+- **Los participantes de un grupo NO traen nombre** (medido por el CRM: 0 de 221). Buscar «por nombre» era el diagnóstico
+  equivocado: la única llave que hay es el TELÉFONO.
+- **Lo que hace seguro un resultado de afuera es el mismo teléfono**, no un nombre parecido: un lugar con OTRO teléfono no
+  es el lead aunque se llame igual, y dos candidatos que dicen cosas distintas son «no sé», nunca el primero.
+- **El perfil de empresa de WhatsApp** dio 3 de 15 en la muestra, y no se corre en masa desde la línea: es tráfico en una
+  línea no oficial. Una búsqueda afuera, si vuelve, va en goteo y a ritmo humano desde su navegador, y frena ante un captcha.
 
 *24/10/2026, chat «Ventas de MaKo» (`claude1`).*

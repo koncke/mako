@@ -3258,6 +3258,7 @@ export const BITACORA: Hito[] = [
       'Una búsqueda en Google Maps por lead, con la clave de Apify del negocio. Lo seguro es el teléfono: si el lugar tiene el mismo número, es él.',
       'Sólo por nombre es más flojo, y dos lugares que dicen cosas distintas dan vacío: nunca inventa.',
       'La pantalla y la escritura en la ficha son del chat del CRM. El costo no se midió: no hay una clave de Apify en ningún negocio.',
+      'Martín lo descartó al ver el precio («no voy a gastar 5 USD por 200 leads cuando tengo grupos con miles»): se revirtió antes de subir. Sale de la extensión.',
     ],
     commits: [{ sha: '7f4332ea4', msg: 'CRM: completar un lead por su nombre con la web y el Instagram, sin inventar (escalón 2 de la base de venta)', lineas: 318, archivos: 4 }],
     archivos: [
