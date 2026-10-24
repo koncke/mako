@@ -11,7 +11,6 @@
 
 import type { Metadata } from 'next';
 import { ofertasDeLosPlanes } from '@/lib/compra-plan';
-import { codigoRefLimpio, origenLimpio } from '@/lib/compra-plan-reglas';
 import { VitrinaPlanes } from './Vitrina';
 
 export const dynamic = 'force-dynamic';
@@ -30,10 +29,9 @@ export default async function PlanesPage({ searchParams }: { searchParams: Promi
     if (typeof v === 'string' && v.trim()) qs.set(k, v.trim().slice(0, 250));
   }
   const sufijo = qs.toString() ? `?${qs.toString()}` : '';
-  // SIN PASARELA (23/10/2026): un plan que no se puede pagar en línea no dice «Empezar»: lleva a la agenda, con las UTM
-  // de la campaña (lib/compra-plan-reglas.ts). Se decide por plan, con la misma cuenta que el checkout.
+  // SIN PASARELA (23/10/2026): un plan que no se puede pagar en línea no dice «Empezar»: lleva a su página, donde se pide
+  // (desde el 24/10, sin agenda: lib/compra-plan-reglas.ts). Se decide por plan, con la misma cuenta que el checkout.
   const ofertas = await ofertasDeLosPlanes();
-  const origen = origenLimpio(Object.fromEntries(qs.entries()));
-  const ref = codigoRefLimpio(qs.get('ref'));
-  return <VitrinaPlanes ofertas={ofertas} sufijo={sufijo} origen={origen} refCodigo={ref} />;
+  // El origen de la campaña y el código de partner viajan en el sufijo al plan elegido, y de ahí al pedido o al pago.
+  return <VitrinaPlanes ofertas={ofertas} sufijo={sufijo} />;
 }

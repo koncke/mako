@@ -133,12 +133,12 @@ export function contarPrograma(p: {
 export function textoSinReferidos(p: { cobraEnLinea: boolean; emailMako: string }): string {
   return p.cobraEnLinea
     ? `Comparte tu link: cada negocio que entra con él y paga su ${PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`} mes te suma su primer mes como crédito.`
-    : `Comparte tu link. Por ahora MaKo da de alta por llamada, así que un referido no aparece aquí solo: si alguien entró con tu link, escríbenos a ${p.emailMako} y lo sumamos.`;
+    : `Comparte tu link. Por ahora MaKo da de alta a mano, así que un referido no aparece aquí solo: si alguien entró con tu link, escríbenos a ${p.emailMako} y lo sumamos.`;
 }
 
 /** Lo mismo, para el panel del super admin: por qué el programa está en cero. */
 export function textoProgramaSinReferidos(cobraEnLinea: boolean): string {
   return cobraEnLinea
     ? 'Cada negocio tiene su link en MaKo Partners: el primero que traiga uno aparece aquí.'
-    : 'Un referido se registra con la compra en línea, y MaKo todavía no cobra en línea: hasta conectar la pasarela no entra ninguno solo. Una venta por llamada se suma a mano.';
+    : 'Un referido se registra con la compra en línea, y MaKo todavía no cobra en línea: hasta conectar la pasarela no entra ninguno solo. Un pedido de la página de planes trae su código de partner y se suma a mano.';
 }
