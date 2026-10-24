@@ -1139,6 +1139,9 @@ export const BITACORA: Hito[] = [
       'lib/zernio-lead.ts · lib/zernio-leads.ts — el lector del cuerpo (puro) y la puerta (upsertLeadFromMeta, conversión, lo inmediato)',
       'app/api/webhooks/zernio/route.ts · lib/zernio.ts — la rama de lead.received y la suscripción (EVENTO_LEADS, asegurarWebhook, leadsEnElWebhook)',
       'tests/zernio-leads.test.ts · tests/zernio-sin-respaldo.test.ts · docs/hallazgos-integraciones.md · AGENTS.md',
+    ],
+  },
+  {
     fecha: '23 oct', hora: '20:15', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'El puente de leads por Make o Zapier se saca: ya se resolvió con Zernio',

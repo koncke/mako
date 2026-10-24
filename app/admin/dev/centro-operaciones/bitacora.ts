@@ -1408,6 +1408,8 @@ export const BITACORA: Hito[] = [
       'tests/app-de-escritorio-primero.test.ts',
     ],
     revisar: '/second-brain',
+  },
+  {
     fecha: '23 oct', hora: '20:56', chat: 'Cerebro', sesion: 'local_3c82c204-8262-460c-9fca-b164e2053c9a', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Los chats del Ops Center no reflejan lo último al entrar',
