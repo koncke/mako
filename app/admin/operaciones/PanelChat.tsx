@@ -39,7 +39,8 @@ export type CabeceraChat = {
   onRenombrar?: (nombre: string) => Promise<string | null>;
   /** Lo que va al lado del título, en la misma barra (la lista de tickets de Soporte, 23/10/2026). */
   acciones?: ReactNode;
-  onVolver: () => void;
+  /** «Volver a los chats», en la ventana angosta. Sin esto (un chat embebido en una pantalla: la ficha de un lead), no hay botón. */
+  onVolver?: () => void;
 };
 
 /** La cabecera: «volver» (en la ventana angosta), la criatura, el título que se renombra en el lugar. */
@@ -56,9 +57,11 @@ export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, a
   const criatura = <Muneco titulo={deCriatura} aspecto={aspecto} animo={animo} size={34} espera={espera} />;
   return (
     <header className="co-cab">
-      <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} onClick={onVolver} aria-label="Volver a los chats">
-        <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
-      </button>
+      {onVolver && (
+        <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} onClick={onVolver} aria-label="Volver a los chats">
+          <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
+        </button>
+      )}
       {onMuneco ? (
         <button type="button" className="co-cab__muneco" onClick={onMuneco} title="Cambiar su criatura" aria-label={`Cambiar la criatura de ${titulo}`}>
           {criatura}
