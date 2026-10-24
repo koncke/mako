@@ -2558,5 +2558,11 @@ anuncios, el video dominaba el primer pantallazo de las ocho por igual.
   escribir: la página publicada de verdad con el hero nuevo puesto encima en Chrome sin ventana, escritorio y teléfono,
   cortando /api/track/* para no dejar visitas; (5) se subieron de a uno por su id (v1 → v2) y se verificó que cada slug
   siga en un solo documento.
+- **Verificado en producción, las 16 direcciones** (Chrome sin ventana, /api/track/* cortado): hero sin video, el VSL debajo
+  con su rótulo, el botón, el Pixel de MaKo con su beacon y el de Meta cargando, sin desborde. ⚠️ **hola-mako.site lo
+  mostró al instante y hola-mako.com/vsl tardó ~10 minutos y dos pedidos**: el script escribe la base directo y no vence
+  `TAG_LANDING_MAKO` (lo vence «Publicar» en la app), y esa página tiene DOS cachés de 5 min encadenadas
+  (`unstable_cache` en lib/editor-landing/landing-mako.ts y `revalidate = 300` en app/vsl/[slug]/page.tsx) que sirven lo
+  viejo una vez más mientras se regeneran. Quien cambie una landing de MaKo por script, que mida .com después de ese rato.
 - **Lo que esto NO resuelve:** el video sigue siendo el de la principal para las ocho, ahora como contexto y no como la
   promesa. Para que cada ángulo tenga su VSL hay que grabarlo (los guiones están en docs/vsl/) y ponerle su `video`.
