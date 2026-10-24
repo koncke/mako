@@ -12,6 +12,48 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## El `Dropdown` en dos columnas: lo que los tests no ven, y cómo se MIDE que las otras 96 pantallas no cambiaron (24/10/2026)
+
+**Vive en:** `dosColumnas` / `alPie` (app/components/Dropdown.tsx), `columnasDeSeccion` (app/components/dropdown-reglas.ts),
+la ficha (`FunnelYEtapa`, app/crm/lead-view/ProductoDelLead.tsx) · tests/crm-etapa-dos-columnas.test.ts.
+
+- **Dos columnas adentro de un menú `max-content`: el diagnóstico obvio fue el equivocado, dos veces.** Todos los tests estaban
+  en verde, y en Windows las columnas salían una abajo de la otra. Medido en Chrome:
+  - con `flexWrap` y una base de 160 px, la barra de scroll vertical de Windows (15 px) deja 335 px útiles y la derecha baja.
+    En Mac la barra no ocupa lugar, así que ahí no se ve;
+  - con base `0`, el menú no mide el texto: queda en 337 px y corta «Agendó Reunión 1» con lugar de sobra;
+  - lo que anduvo: `nowrap` y `1 1 auto`. El menú crece hasta su tope y, si no entra, las dos se achican y el nombre se
+    corta con «…».
+- **Partir «lo primero | todo lo demás» desequilibra.** El funnel por defecto (`generateFunnel(DEFAULT_PIPELINE)`) tiene 5
+  etapas de recorrido, 9 de nutrición y 3 de salida: quedaba 5 | 13 y seguía scrolleando, que era justo lo que se quería
+  evitar. **Regla:** la primera banda a la izquierda, la segunda a la derecha, y las siguientes a la columna más corta.
+  Queda 8 | 9. Para medir, se usa el funnel por defecto, no una lista inventada: la mía tenía la banda escrita
+  `descarte` y se llama `salidas`, y medí 11 | 3 por mi error, no por el código.
+- **«Ninguna de las otras pantallas cambia» se mide, no se razona.** El jsdom de node_modules no arranca (ver
+  hallazgos-infra). La receta que anduvo:
+  1. `git show <commit>^:app/components/Dropdown.tsx > app/components/__DropdownAntes.tsx`, en la MISMA carpeta para que
+     resuelva sus imports, y se borra al terminar.
+  2. Una página que monta las dos versiones con las mismas props, abre el menú, entra a secciones, escribe en el buscador y
+     compara `document.body.innerHTML`.
+  3. Empaquetarla con esbuild (`alias: { '@': repo }`, `nodePaths: [repo/node_modules]`, `jsx: 'automatic'`) y correrla en
+     Chrome `--headless=new --mute-audio --virtual-time-budget=… --dump-dom`.
+  4. Para probar el comparador, romper a propósito un margen FUERA del `if`: 9 casos se pusieron rojos.
+  - Resultado: 16 casos sin `dosColumnas`, HTML idéntico; 2 controles con `dosColumnas`, distintos.
+  - Las fotos van adentro de un iframe, también la de escritorio: con la ventana sola, headless sacó la foto antes de que
+    el menú abriera.
+- **Las pantallas con secciones largas** (inventario con agentes, ninguna arma las opciones esparciendo filas de la base):
+  - el «valor» de una condición de /automations (`SelectorValor`): todas las etapas de un funnel, 10 a 20 o más;
+  - el «A quién» de un CRON (todas las etiquetas del negocio, sin tope);
+  - «Elige la etapa» de un disparador de producto y la galería de plantillas (etapas de un kanban);
+  - el selector de acciones (unas 190, curadas por área);
+  - /offer (una conversación por renglón, sin tope).
+  - El `Select` de la casa le pasa `secciones` al Dropdown, pero hoy ningún `Select` lo usa.
+- **Quedó SIN hacer:** con el campo nuevo, el tipo acepta `alPie` y `dosColumnas` en cualquier Dropdown y los ignora sin
+  avisar fuera de una sección (antes era un error de exceso de propiedades). Es el mismo diseño que `icono`, `atajo`,
+  `grupos` y `resumen`, y hoy nadie lo usa mal, así que se dejó. Si molesta, se parte el tipo en dos.
+
+*24/10/2026, chat «CRM» (claude1), con una corrida de 13 agentes (inventario y refutación adversarial).*
+
 ## Un aviso largo duraba 3,2 s: el `Toast` ahora le da tiempo según el largo (24/10/2026)
 
 **Vive en:** `useToast` (app/_ui/Toast.tsx) · test 10 de tests/enriquecer-lote.test.ts.
