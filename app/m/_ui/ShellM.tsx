@@ -44,6 +44,7 @@ import { ShellCtx, type CabeceraPisada, type ConexionM, type OpcionesToast } fro
 import { horaCorta } from './formato';
 import { MARCA_TEMA_M } from './tema';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { esperarPausa, useDeslizarParaCerrar } from '@/app/_ui/descartar';
 import { esTextoDeError } from '@/lib/soporte-reporte';
 
 /** Un lugar de la barra (lib/movil-rutas.ts → `barraMovil`). */
@@ -169,9 +170,10 @@ export function ShellM({
     // Con «Deshacer» manda la ventana para revertir; sin él, es sólo un acuse. Un error se queda más: da tiempo a leerlo y a
     // tocar «Reportar a Soporte».
     const espera = toast.saliendo ? 200 : toast.error ? 8000 : toast.deshacer ? 5000 : 3200;
-    const t = setTimeout(() => {
+    // Mientras el dedo lo sostiene (o se lo arrastra), no se va (24/10/2026, app/_ui/descartar.tsx).
+    const t = setTimeout(esperarPausa(() => {
       setToast((x) => (x && x.id === id ? (x.saliendo ? null : { ...x, saliendo: true }) : x));
-    }, espera);
+    }), espera);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -418,10 +420,7 @@ export function ShellM({
 
         <div className="m-toast-capa" aria-live="polite">
           {toast && (
-            <div key={toast.id} className="m-toast" role={toast.error ? 'alert' : 'status'} data-saliendo={toast.saliendo ? '' : undefined}>
-              <span className="m-toast__msg">{toast.mensaje}</span>
-              {/* Un error lleva «Reportar a Soporte» (23/10/2026); con `role="status"` el botón no se dibuja. */}
-              <ReportarASoporte />
+            <AvisoM key={toast.id} toast={toast} onCerrar={() => setToast(null)}>
               {toast.deshacer && (
                 <button
                   type="button"
@@ -431,10 +430,28 @@ export function ShellM({
                   Deshacer
                 </button>
               )}
-            </div>
+            </AvisoM>
           )}
         </div>
       </div>
     </ShellCtx.Provider>
+  );
+}
+
+/**
+ * El aviso del teléfono (24/10/2026, Martín: «deberían tener un botón X para cerrarlas o si las desplazo se van, porque estoy editando
+ * algo y aparecen y tengo que esperar a que se vayan para apretar el botón de atrás»): la ✕ a la derecha, deslizarlo de costado lo
+ * descarta, y mientras el dedo lo sostiene no se va solo (app/_ui/descartar.tsx).
+ */
+function AvisoM({ toast, onCerrar, children }: { toast: Toast; onCerrar: () => void; children?: ReactNode }) {
+  const desliza = useDeslizarParaCerrar(onCerrar);
+  return (
+    <div className="m-toast" role={toast.error ? 'alert' : 'status'} data-saliendo={toast.saliendo ? '' : undefined} {...desliza.props} style={desliza.estilo}>
+      <span className="m-toast__msg">{toast.mensaje}</span>
+      {/* Un error lleva «Reportar a Soporte» (23/10/2026); con `role="status"` el botón no se dibuja. */}
+      <ReportarASoporte />
+      {children}
+      <button type="button" className="m-toast__cerrar" onClick={onCerrar} aria-label="Cerrar aviso"><Icon name="x" size={16} /></button>
+    </div>
   );
 }

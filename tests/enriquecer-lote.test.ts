@@ -286,5 +286,6 @@ test('10. un aviso largo se puede leer: el Toast le da tiempo según el largo, y
   const toast = leer('app/_ui/Toast.tsx');
   assert.match(toast, /const largo = typeof toast\.msg === 'string' \? Math\.min\(12_000, toast\.msg\.length \* 60\) : 0;/);
   assert.match(toast, /: toast\.tono === 'warn' \? Math\.max\(ms, 8000\) :/, 'un aviso a medias dura lo que un «listo»');
-  assert.match(toast, /setTimeout\(\(\) => setToast\(null\), Math\.max\(base, largo\)\);/, 'un resumen de 200 letras se va a los 3,2 s');
+  // Desde el 24/10/2026 pasa por `esperarPausa` (no se va mientras se lo mira, tests/avisos-se-cierran.test.ts).
+  assert.match(toast, /setTimeout\(esperarPausa\(\(\) => setToast\(null\)\), Math\.max\(base, largo\)\);/, 'un resumen de 200 letras se va a los 3,2 s');
 });

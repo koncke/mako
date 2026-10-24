@@ -34,6 +34,7 @@ import { capturaParaOfrecer, firmaDeCaptura } from '@/app/admin/operaciones/pega
 import { BotonMandar } from '@/app/admin/operaciones/Microfono';
 import { BotonEmojis } from '@/app/admin/operaciones/Emojis';
 import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from '@/app/admin/operaciones/ConLinks';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useNotaQueSeManda, type NotaQueSeManda } from './nota-que-se-manda';
 
 export type PropsCajaChat = {
@@ -272,7 +273,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
       <LinksDeLaCaja texto={texto} />
       {p.estado !== undefined && <p className="co-caja__estado" aria-live="polite">{p.estado ?? ''}</p>}
       {/* Por qué no salió la nota, si la pantalla no tiene dónde decirlo (`onErrorMic`). */}
-      {nota?.error && !p.onErrorMic && <p className="co-caja__estado" role="alert">{nota.error}</p>}
+      {nota?.error && !p.onErrorMic && <p className="co-caja__estado" role="alert">{nota.error}<ReportarASoporte /></p>}
     </>
   );
 }

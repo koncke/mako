@@ -271,7 +271,8 @@ test('la barra: grabando con el ✓ (nunca una ➤), revisando con ▶, 🎤 y l
   assert.ok(grabando.includes('aria-label="Terminar grabación"'));
   assert.ok(!grabando.includes('aria-label="Enviar audio"'), 'mientras graba la flecha es un ✓');
   assert.ok(grabando.includes('data-onda'), 'sin la onda');
-  assert.match(/data-onda="true" style="([^"]*)"/.exec(grabando)?.[1] ?? '', /flex:1/, 'la onda no llena el ancho');
+  // Entre `data-onda` y su estilo pueden ir `data-sigue-voz` / `data-sin-oido` (24/10/2026: la onda sigue al micrófono de verdad).
+  assert.match(/data-onda="true"[^>]*? style="([^"]*)"/.exec(grabando)?.[1] ?? '', /flex:1/, 'la onda no llena el ancho');
   const pausa = renderToStaticMarkup(createElement(BarraGrabacion, { voz: voz({ fase: 'grabando', paused: true }) }));
   assert.ok(pausa.includes('aria-label="Seguir grabando"'), 'en pausa, reanudar es un 🎤 (no otro ▶)');
   const rev = renderToStaticMarkup(createElement(BarraGrabacion, { voz: voz({ fase: 'revisando', revision: { url: 'blob:1', secs: 4 } }) }));

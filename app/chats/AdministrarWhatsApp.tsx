@@ -25,6 +25,7 @@ import { EvolutionConnect } from '@/app/whatsapp/EvolutionConnect';
 import { avisarMedioConectado } from '@/app/automations/ConectarMedio';
 import { IconoCanal } from './iconos-canal';
 import './administrar-whatsapp.css';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Estado = 'desconectado' | 'conectando' | 'conectado' | 'error';
 type Espejo = 'ok' | 'sin_secret' | 'secret_prod' | 'no_registrado' | 'url_distinta' | 'error';
@@ -228,6 +229,7 @@ export function AdministrarWhatsApp({ linea, rotulo, recien = false, onCerrar, o
           {REPARABLE.includes(espejo)
             ? <Button variant="secondary" size="sm" onClick={() => void reparar()} loading={ocupado === 'reparar'}>Reparar</Button>
             : <span className="rio-adm-dim">Avísale a soporte.</span>}
+          <ReportarASoporte />
         </div>
       )}
 

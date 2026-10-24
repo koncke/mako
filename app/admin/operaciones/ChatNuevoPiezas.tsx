@@ -158,7 +158,7 @@ export function CajaChatNuevo({ n, movil = false }: { n: ChatNuevo; movil?: bool
       )}
     </div>
   );
-  const error = nota.error && <p className="co-caja__estado" role="alert">{nota.error}</p>;
+  const error = nota.error && <p className="co-caja__estado" role="alert">{nota.error}<ReportarASoporte /></p>;
   return movil
     ? <div className="m-operaciones-caja">{fila}{error}</div>
     : <div className="co-caja-wrap"><div className="co-caja">{fila}{error}</div></div>;

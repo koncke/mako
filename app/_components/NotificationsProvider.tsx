@@ -12,7 +12,7 @@
 // =============================================================================
 
 import {
-  createContext, useContext, useEffect, useRef, useState, type ReactNode,
+  createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode,
 } from 'react';
 import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
@@ -21,6 +21,7 @@ import { esRutaMovil } from '@/lib/movil-rutas';
 import { useTelefono } from './VistaMovil';
 import { inAppActivo, type NotifInApp } from '@/lib/notif-catalogo';
 import { rutaChatsDeWhatsapp } from '@/lib/chats-links';
+import { esperarPausa, useDeslizarParaCerrar } from '@/app/_ui/descartar';
 
 /**
  * Aviso de que alguien acaba de guardar sus preferencias en Configuraciones ›
@@ -266,7 +267,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         setTplToast({ tipo, name, motivo });
         if (tplToastTimerRef.current) clearTimeout(tplToastTimerRef.current);
         // el rechazo se queda 9s (hay que leer el motivo); la aprobación 6s.
-        tplToastTimerRef.current = setTimeout(() => setTplToast(null), tipo === 'rej' ? 9000 : 6000);
+        tplToastTimerRef.current = setTimeout(esperarPausa(() => setTplToast(null)), tipo === 'rej' ? 9000 : 6000);
       };
       const suena = dejaSonar('wa-plantilla');
       const seVe = dejaVer('wa-plantilla');
@@ -350,7 +351,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           if (dejaVer('wa-mensaje')) {
             setToast({ gid: entrante.chatJid, nombre: entrante.nombre });
             if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-            toastTimerRef.current = setTimeout(() => setToast(null), 5000);
+            toastTimerRef.current = setTimeout(esperarPausa(() => setToast(null)), 5000);
           }
         }
         recomputeNoOf();
@@ -365,9 +366,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={{ unreadTotal, noOficialUnread, marcarLeidoNoOficial, setOpenChatNoOficial, inApp }}>
       {children}
       {!isPublicLandingPath(pathname) && !enMovil(pathname) && toast && (
-        <button
-          onClick={() => goToChatNoOficial(toast.gid)}
-          style={{
+        <AvisoArriba onAbrir={() => goToChatNoOficial(toast.gid)} onCerrar={() => setToast(null)}
+          estilo={{
             position: 'fixed', top: 18, right: 18, zIndex: 2000, maxWidth: 340,
             display: 'flex', alignItems: 'center', gap: 11, padding: '12px 14px',
             borderRadius: 14, border: '1px solid var(--border-strong)', background: 'var(--surface)',
@@ -383,12 +383,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
             <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{toast.nombre}</span>
             <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)' }}>Te envió un mensaje · abrir chat →</span>
           </span>
-        </button>
+        </AvisoArriba>
       )}
       {!isPublicLandingPath(pathname) && !enMovil(pathname) && tplToast && (
-        <button
-          onClick={() => goToPlantilla(tplToast.name)}
-          style={{
+        <AvisoArriba onAbrir={() => goToPlantilla(tplToast.name)} onCerrar={() => setTplToast(null)}
+          estilo={{
             position: 'fixed', top: toast ? 92 : 18, right: 18, zIndex: 2000, maxWidth: 340,
             display: 'flex', alignItems: 'center', gap: 11, padding: '12px 14px', borderRadius: 14,
             border: `1px solid ${tplToast.tipo === 'ok' ? 'var(--good)' : 'var(--bad)'}`, background: 'var(--surface)',
@@ -405,8 +404,27 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
             <span style={{ display: 'block', fontSize: 12, color: 'var(--ink)', fontFamily: "'Geist Mono', monospace", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 270 }}>{tplToast.name}</span>
             <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 2, lineHeight: 1.35, maxWidth: 270 }}>{tplToast.tipo === 'rej' && tplToast.motivo ? tplToast.motivo : 'ver →'}</span>
           </span>
-        </button>
+        </AvisoArriba>
       )}
     </Ctx.Provider>
+  );
+}
+
+/**
+ * Un aviso de arriba a la derecha (un mensaje de WhatsApp, una plantilla), 24/10/2026: tocarlo abre lo suyo; la ✕ lo cierra;
+ * deslizarlo de costado lo descarta; con el mouse encima no se va solo (app/_ui/descartar.tsx). Martín: «tengo que esperar a que se
+ * vayan para apretar el botón de atrás». Es un `div` con rol de botón: adentro va la ✕, y un botón no puede tener otro adentro.
+ */
+function AvisoArriba({ onAbrir, onCerrar, estilo, children }: { onAbrir: () => void; onCerrar: () => void; estilo: CSSProperties; children: ReactNode }) {
+  const desliza = useDeslizarParaCerrar(onCerrar);
+  return (
+    <div role="button" tabIndex={0} onClick={onAbrir} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(); } }}
+      {...desliza.props} style={{ ...estilo, ...desliza.estilo }}>
+      {children}
+      <button type="button" aria-label="Cerrar aviso" onClick={(e) => { e.stopPropagation(); onCerrar(); }}
+        style={{ flex: 'none', alignSelf: 'flex-start', width: 26, height: 26, marginLeft: 2, display: 'grid', placeItems: 'center', border: 'none', borderRadius: 8, background: 'transparent', color: 'var(--dim)', fontSize: 14, lineHeight: 1, cursor: 'pointer' }}>
+        ✕
+      </button>
+    </div>
   );
 }

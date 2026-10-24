@@ -52,7 +52,8 @@ test('2. toda caja de chat graba: con `voz` la manda la pantalla; sin `voz`, se 
   assert.match(c, /const nota = useNotaQueSeManda\(\{ texto: p\.texto, onTexto: p\.onTexto, onMandar: p\.onMandar, onError: p\.onErrorMic \}\);/,
     'manda con el `onMandar` de la pantalla (el Ops Center lo firma en el dispositivo)');
   assert.match(c, /const enviando = !!p\.enviando \|\| transcribiendo;/, 'mientras se pasa a texto, la caja está saliendo');
-  assert.match(c, /\{nota\?\.error && !p\.onErrorMic && <p className="co-caja__estado" role="alert">\{nota\.error\}<\/p>\}/, 'si no salió, se dice');
+  // Con «Reportar a Soporte» desde el 24/10/2026: un error es un aviso (tests/reportar-a-soporte.test.ts).
+  assert.match(c, /\{nota\?\.error && !p\.onErrorMic && <p className="co-caja__estado" role="alert">\{nota\.error\}<ReportarASoporte \/><\/p>\}/, 'si no salió, se dice');
 
   const n = sinComentarios(leer('app/_chat/nota-que-se-manda.ts'));
   assert.match(n, /mp3 = await notaEnMp3\(blob\);[\s\S]{0,200}?transcribirNota\(mp3, 90_000, 'chat'\)/, 'MP3 antes de transcribir: el webm de Chrome no lo toma');
