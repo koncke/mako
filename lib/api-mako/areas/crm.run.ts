@@ -1189,9 +1189,12 @@ export const RUNNERS: Runners = {
       const origen = await etiquetaDeOrigen(typeof input.etiqueta === 'string' && input.etiqueta.trim() ? input.etiqueta : grupo.nombre);
       if (!origen.ok) return { error: origen.error ?? 'No pude preparar el origen de esos contactos.' };
       const ya = (await marcarEnElCrm(p.participantes)).filter((x) => x.enElCrm).length;
+      // Si ya están todos, no hay nada que proponer: un «Traer 0» pendiente de un «sí» no hace nada.
+      if (ya >= p.participantes.length) return { error: `Los de «${grupo.nombre}» ya están todos en tu CRM: no hay nadie nuevo para traer.`, yaEstaba: true };
       return {
         payload: { linea: g.linea, jid: grupo.jid, nombreGrupo: grupo.nombre, funnelId, etapa: etapa.key, etiqueta: origen.nombre },
-        resumen: `Traer ${p.participantes.length} contactos del grupo «${grupo.nombre}» a «${etapa.label}», con la etiqueta «${origen.nombre}»${ya ? ` (${ya} ya son leads: se suman a este funnel)` : ''}${p.sinNumero ? `; ${p.sinNumero} sin número visible no se traen` : ''}. No se le escribe a nadie.`,
+        // Los que ya son leads no se vuelven a cargar (Martín, 24/10/2026): la cuenta es la de los NUEVOS, y los otros se dicen.
+        resumen: `Traer ${p.participantes.length - ya} contactos nuevos del grupo «${grupo.nombre}» a «${etapa.label}», con la etiqueta «${origen.nombre}»${ya ? ` (${ya} ya son leads: no se vuelven a cargar)` : ''}${p.sinNumero ? `; ${p.sinNumero} sin número visible no se traen` : ''}. No se le escribe a nadie.`,
       };
     },
     ejecutar: (payload, ctx) => seguro('traer los contactos del grupo', async () => {

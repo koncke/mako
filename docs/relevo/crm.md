@@ -19,6 +19,11 @@ Rama `crm-grupo-completar-2410` en C:/dev/wt-crm-grupo, sobre origin/main ebcfd9
 - `respaldo/crm-grupo-2410-cupo` = 0553eda9e: «Datos de empresa» con tope (40 por corrida, 120 por día y por línea,
   reservado en el server), recordando a quién ya consultó, con la cuenta y los minutos antes de arrancar.
 
+**Después (24/10, tarde):** `respaldo/crm-lote-completar-2410` es el «Completar» en lote desde el tablero, más «los que ya están, en
+gris abajo» en traer de un grupo, con los arreglos de una revisión adversarial que confirmó 25 problemas (el peor: el «Parar» no
+aparecía). Los pedidos de diseño del CRM que siguen sin cerrar (61, medidos contra el código) están en
+docs/feedback-diseno-pendiente.md, sección «El CRM, medido aparte».
+
 **Lo que queda, en orden:**
 0. Que Martín corra la 0.70 (pasos en el mensaje al Cerebro del 24/10): la pantalla da la cobertura real sobre los 221, y la
    consola, `[wa-fichas]`, qué tablas tiene su WhatsApp Web. Con eso se decide si el panel del contacto (categoría, web,

@@ -141,7 +141,11 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   assert.match(server, /const leidos = await participantesDelGrupo\(p\.linea, p\.jid\);[\s\S]{0,400}leidos\.participantes\.filter\(\(x\) => pedidos\.has\(x\.telefono\)\)/, 'lo del navegador sólo ELIGE entre los participantes leídos de nuevo');
   assert.match(server, /if \(destino\.manda\) return \{ ok: false, error:/, 'el server acepta una etapa que manda');
   assert.match(server, /if \(existente === null\) \{ salteados\+\+; continue; \}/, 'un número compartido por dos leads se saltea');
-  assert.match(server, /await agregarAProducto\(existente, p\.funnelId, \{ autor: p\.autor, etapa: p\.etapa \}\);[\s\S]{0,400}traidos\.push\(existente\);/, 'el que ya es lead se SUMA (y se etiqueta: dos grupos, dos etiquetas)');
+  // Desde el 24/10 (Martín: «si ... detecta que esos números ya están, no me debe cargar nuevamente»), el que ya es lead NO SE
+  // TOCA: ni se suma a este funnel ni se etiqueta. Reemplaza la regla del 23/10 («dos grupos, dos etiquetas»).
+  assert.match(server, /if \(existente !== undefined\) \{ yaEstaban\+\+; continue; \}/, 'el que ya es lead se vuelve a cargar');
+  const traerSrv = server.slice(server.indexOf('export async function traerDelGrupo('), server.indexOf('export async function etiquetaDeOrigen(')).replace(/^\s*\/\/.*$/gm, ''); // el código, sin los comentarios
+  assert.doesNotMatch(traerSrv, /agregarAProducto|traidos\.push\(existente\)/, 'el que ya estaba se suma al funnel o se etiqueta');
   assert.match(server, /origen_lead: ORIGEN_LEAD\.grupo_whatsapp\.id/, 'nace con su origen: es lo que lo deja quieto (test 7)');
   assert.match(server, /const r = await ponerEtiquetaLote\(ids, id, \{ autor \}\);/, 'la etiqueta en LOTE (no dispara)');
   assert.match(server, /const origen = await etiquetaDeOrigen\([^\n]*\);\n {2}if \(!origen\.ok\) return origen;[\s\S]{0,1200}for \(const \[i, x\] of quienes\.entries\(\)\)/, 'la etiqueta se mira ANTES de traer a nadie');
@@ -151,7 +155,7 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   assert.match(pantalla, /const tanda = cola\.splice\(0, TANDA_GRUPO\);/, 'de a tandas');
   assert.match(pantalla, /if \(r\.pendientes\.length >= tanda\.length\) \{[^}]*break; \}\n {6}cola\.unshift\(\.\.\.r\.pendientes\);/, 'lo que cortó por tiempo vuelve a la cola (y sin avance, para)');
   assert.match(pantalla, /const usables = etapas\.filter\(\(e\) => !e\.manda\);/, 'las etapas que mandan no se ofrecen');
-  assert.match(pantalla, /\{!!gente\?\.length && \(\n\s*<span[^\n]*>\n\s*\{\[\n\s*'No les manda nada\.',/, 'la pantalla lo dice, siempre');
+  assert.match(pantalla, /\{!!gente\?\.length && \(\n\s*<span[^\n]*>\n\s*\{\[[\s\S]{0,400}?'No les manda nada\.',/, 'la pantalla lo dice, siempre');
   assert.match(leer('app/crm/CrmBoard.tsx'), /\.\.\.\(puedeCrearCrm \? \{ onTraerGrupo: \(\) => setNuevoLead\(\{ \.\.\.nuevoLead, traer: 'grupo' \}\) \} : \{\}\),/, 'sólo el admin ve la opción');
   // La API de MaKo: admin, SÓLO en la app (por WhatsApp el rol es siempre 'admin'), por chat, y corta a tiempo.
   const def = leer('lib/api-mako/areas/crm.def.ts');
@@ -339,12 +343,15 @@ test('12. «Datos de empresa»: a los que ya están, de a uno y despacio, compar
   const { join } = await import('node:path');
   const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
   const server = leer('app/crm/grupo-wa-server.ts');
-  const f = server.slice(server.indexOf('export async function completarPerfilesDelGrupo('));
+  // El grupo arma los candidatos (UN lead por teléfono) y delega en el NÚCLEO, el mismo del lote del tablero.
+  const g = server.slice(server.indexOf('export async function completarPerfilesDelGrupo('));
+  assert.match(g.slice(0, g.indexOf('\n}\n')), /return completarPerfiles\(\{ linea: leidos\.linea, candidatos: conLead, autor: p\.autor, hechas: p\.hechas, saltear: p\.saltear, hasta: p\.hasta, soloContar: p\.soloContar \}\);/, 'el grupo no le pasa al núcleo el tope de la corrida, los salteados o el techo de tiempo');
+  assert.match(g.slice(0, g.indexOf('\n}\n')), /typeof id === 'number' \? \[\{ telefono: x\.telefono, id \}\] : \[\]/, 'un número de dos leads: no se adivina');
+  const f = server.slice(server.indexOf('export async function completarPerfiles('));
   const cuerpo = f.slice(0, f.indexOf('\n}\n'));
   assert.doesNotMatch(cuerpo, /createLead|agregarAProducto|ponerEtiquetaLote|setPipelineStage|updateLead|\/message\//, 'crea, mueve o manda algo');
   assert.match(cuerpo, /if \(i > 0\) await new Promise\(\(r\) => setTimeout\(r, ESPERA_PERFIL_MS\)\);/, 'sin espera entre consultas: tráfico seguido en la red de la línea');
-  assert.match(cuerpo, /if \(p\.hasta != null && Date\.now\(\) > p\.hasta\) \{ sigue = true; break; \}/, 'sin corte por tiempo');
-  assert.match(cuerpo, /typeof id === 'number' \? \[\{ telefono: x\.telefono, id \}\] : \[\]/, 'un número de dos leads: no se adivina');
+  assert.match(cuerpo, /if \(p\.hasta != null && Date\.now\(\) \+ ESPERA_PERFIL_MS \+ TOPE_PERFIL_MS > p\.hasta\) \{ sigue = true; break; \}/, 'sin corte por tiempo (con lugar para la peor vuelta)');
   assert.match(cuerpo, /await completarCamposVacios\(id, parcheDePerfil\(/);
   assert.match(cuerpo, /if \(escritos\.length\) \{[\s\S]*?logLeadEvent\(id, 'Perfil de WhatsApp', linea, p\.autor\)/, 'la línea del historial se repite al volver a correr');
   const leads = leer('lib/leads.ts');
@@ -354,7 +361,7 @@ test('12. «Datos de empresa»: a los que ya están, de a uno y despacio, compar
   // antes de consultar; el que ya contestó no se repite y el que no contestó no queda como consultado.
   assert.match(cuerpo, /if \(p\.soloContar\) return \{ ok: true, \.\.\.cuenta,/, 'la cuenta de la pregunta consulta perfiles');
   assert.ok(cuerpo.indexOf('if (p.soloContar) return') < cuerpo.indexOf('fetchBusinessProfile'), 'la cuenta tiene que salir antes de cualquier consulta');
-  assert.match(cuerpo, /if \(!\(await reservarPerfil\(leidos\.linea, hoy\)\)\) \{ corte = 'dia'; break; \}\n\s+const \{ telefono, id \} = ahora\[i\];\n\s+revisados\+\+;\n\s+const r = await ev\(`\/chat\/fetchBusinessProfile/, 'consulta sin reservar el cupo del día antes');
+  assert.match(cuerpo, /if \(!\(await reservarPerfil\(p\.linea, hoy\)\)\) \{ corte = 'dia'; break; \}\n\s+const \{ telefono, id \} = ahora\[i\];\n\s+revisados\+\+;\n\s+const r = await ev\(`\/chat\/fetchBusinessProfile/, 'consulta sin reservar el cupo del día antes');
   assert.match(cuerpo, /const estaCorrida = cuantosEstaCorrida\(\{ pendientes: ahora\.length, quedanHoy: quedan, hechas \}\);/);
   assert.match(cuerpo, /for \(let i = 0; i < estaCorrida; i\+\+\)/, 'el bucle no respeta el tope de la corrida');
   assert.match(cuerpo, /const faltan = conLead\.filter\(\(x\) => !vistos\.has\(x\.telefono\.slice\(-10\)\)\);/, 'vuelve a consultar a los que ya contestaron');
@@ -367,9 +374,12 @@ test('12. «Datos de empresa»: a los que ya están, de a uno y despacio, compar
   assert.match(pantalla, /onClick=\{\(\) => void contarPerfiles\(\)\}/);
   assert.match(pantalla, /completarPerfilesDeGrupoAction\(\{ linea, jid, soloContar: true \}\)/);
   assert.match(pantalla, /<Confirm tone="primary" title="¿Traer los datos de empresa\?"/);
-  assert.match(pantalla, /Ahora se consultan \$\{miles\(cuentaPerfiles\.estaCorrida\)\}, de a uno: unos \$\{minutosDePerfiles\(cuentaPerfiles\.estaCorrida\)\} min\./, 'la pregunta no dice cuántos ni cuánto tarda');
-  assert.match(pantalla, /Hoy quedan \$\{miles\(cuentaPerfiles\.quedanHoy\)\} de \$\{miles\(TOPE_PERFILES_DIA\)\}/);
-  assert.match(pantalla, /completarPerfilesDeGrupoAction\(\{ linea, jid, hechas, saltear \}\)/);
+  assert.match(pantalla, /message=\{preguntaDePerfiles\(cuentaPerfiles, `los \$\{miles\(cuentaPerfiles\.total\)\} que ya están`, minutosDePerfiles\(cuentaPerfiles\.estaCorrida\), TOPE_PERFILES_DIA\)\}/, 'la pregunta no dice cuántos ni cuánto tarda');
+  const cliente = leer('app/crm/enriquecer-cliente.ts');
+  assert.match(cliente, /Ahora se consultan \$\{miles\(c\.estaCorrida\)\}, de a uno: unos \$\{minutos\} min\./);
+  assert.match(cliente, /Hoy quedan \$\{miles\(c\.quedanHoy\)\} de \$\{miles\(topeDia\)\} consultas \$\{cual\}\./);
+  assert.match(cliente, /const cual = linea \? `en la línea «\$\{linea\}»` : 'en esta línea';/);
+  assert.match(pantalla, /await correrPerfiles\(cuenta, \(hechas, saltear\) => completarPerfilesDeGrupoAction\(\{ linea, jid, hechas, saltear \}\), \{/);
   assert.match(pantalla, /\{perfilando \? 'Parar' : 'Datos de empresa'\}/);
 });
 

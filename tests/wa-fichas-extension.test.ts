@@ -237,11 +237,14 @@ test('7. el puente: página → mako-puente → worker → pestaña de WhatsApp 
 
 test('8. el server: sólo leads que ya existen, por los caminos de completar, sin la red de la línea y cortando por tiempo', () => {
   const server = leer('app/crm/grupo-wa-server.ts');
-  const ini = server.indexOf('export async function completarFichasDelGrupo');
+  // El grupo verifica su línea y delega en el NÚCLEO, que es el mismo del lote del tablero (tests/enriquecer-lote.test.ts).
+  const grupo = server.slice(server.indexOf('export async function completarFichasDelGrupo'));
+  assert.match(grupo.slice(0, grupo.indexOf('\n}\n')), /if \(!\(await lineaDelNegocio\(p\.linea\)\)\) return \{ ok: false,[^\n]*\n {2}return completarFichas\(\{ fichas: p\.fichas, autor: p\.autor, hasta: p\.hasta \}\);/);
+  const ini = server.indexOf('export async function completarFichas(');
   assert.ok(ini > 0);
   const cuerpo = server.slice(ini, server.indexOf('\n}\n', ini));
   assert.match(cuerpo, /fichaLimpia/, 'lo que llega del navegador se limpia');
-  assert.match(cuerpo, /typeof id === 'number'/, 'sólo un teléfono que es UN lead (ni ninguno, ni dos)');
+  assert.match(cuerpo, /typeof id === 'number' && \(!p\.soloIds \|\| p\.soloIds\.has\(id\)\)/, 'sólo un teléfono que es UN lead (ni ninguno, ni dos), y del lote, sólo los tildados');
   assert.match(cuerpo, /esNombreDeRelleno\(lead\.nombre\) && await completarNombreDeRelleno\(/, 'el nombre, sólo donde es de relleno y comparando');
   assert.match(cuerpo, /completarCamposVacios\(id, \{ empresa: f\.empresa \}/, 'la empresa, sólo si está vacía');
   assert.match(cuerpo, /Date\.now\(\) > p\.hasta\) \{ pendientes\.push/, 'sin corte por tiempo, una tanda lenta muere a los 60 s a la mitad');
@@ -257,11 +260,13 @@ test('9. la pantalla: la dispara la persona, con avance y «Parar», y lo que el
   const ini = ui.indexOf('const leerDeWhatsappWeb');
   const cuerpo = ui.slice(ini, ui.indexOf('\n  };\n', ini));
   assert.match(cuerpo, /if \(leyendoWa\) \{ pararWa\.current = true; return; \}/, 'el mismo botón para');
-  assert.match(cuerpo, /while \(cola\.length && !pararWa\.current\)/);
+  // La cola, los pendientes al frente y el corte sin avance viven en la máquina compartida (sus pruebas, con dobles, en
+  // tests/enriquecer-lote.test.ts); acá, que la pantalla la use con su «Parar» y su avance.
+  assert.match(cuerpo, /await guardarFichasEnTandas\(fichas, \(tanda\) => completarFichasDeGrupoAction\(\{ linea, jid, fichas: tanda \}\), \{\n\s+parar: \(\) => pararWa\.current,/);
   assert.match(cuerpo, /setAvance\(`Guardando /, 'sin avance visible');
   assert.match(cuerpo, /filter\(\(p\) => p\.enElCrm\)/, 'pide fichas de gente que no está en el CRM');
-  assert.match(cuerpo, /cola = \[\.\.\.vuelven, \.\.\.cola\.slice\(tanda\.length\)\]/, 'los pendientes no vuelven a la cola');
-  assert.match(cuerpo, /vuelven\.length === tanda\.length\) \{ setErr\(/, 'sin avance, un bucle que no termina');
+  // El corte va ADENTRO del resumen: releer el grupo (`setVuelta`) limpia `err`, y ahí se perdía (la revisión del 24/10).
+  assert.match(cuerpo, /setHecho\(`«\$\{grupo\.nombre\}»: \$\{resumenDeFichas\(tels\.length, fichas, a\)\}`\);/, 'un corte callado');
   assert.match(ui, /\{leyendoWa \? 'Parar'/);
   assert.doesNotMatch(cuerpo, /useEffect|setInterval/, 'corre solo');
 });
