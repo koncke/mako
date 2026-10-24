@@ -89,7 +89,7 @@ test('el detalle de Automations en la vista: vivas y terminadas, lo enviado con 
   assert.deepEqual(v.vivas.map((i) => i.secuenciaId), [289, 301], 'con una persona sigue viva');
   assert.deepEqual(v.terminadas.map((i) => i.secuenciaId), [300]);
   assert.equal(v.vivas[0].enviados[0].paso, 'Paso 1: Hola');
-  assert.deepEqual(v.vivas[0].proximo, { at: '2026-10-24T16:12:00Z', titulo: 'W2' });
+  assert.deepEqual(v.vivas[0].proximo, { at: '2026-10-24T16:12:00Z', titulo: 'W2', clase: null });
   assert.equal(chipDeInscripcion(v.vivas[1]).texto, 'Con una persona');
   assert.equal(v.vivas[1].puede.porQueNo, 'Está con una persona.');
   assert.deepEqual(v.noEntro.map((n) => n.texto), ['No volvió a entrar a «Sprint · apertura»: ya entró una vez y su reentrada es «Una sola vez» (va en el paso 2).'], 'la última por automatización');
@@ -114,7 +114,8 @@ test('la lista de siempre (`EnAutomatizacion[]`) se ve en el bloque; «Empezar d
   assert.equal(v.vivas.length, 1);
   assert.deepEqual(v.vivas[0].puede, { frenar: true, empezarDeNuevo: false });
   assert.deepEqual(v.vivas[0].proximo, { at: '2026-10-24T16:12:00Z', titulo: null });
-  assert.equal(lineaDelBloque(v), 'Sprint · apertura (Activa, paso 2)');
+  // Sin «paso N» desde el 24/10/2026: es el número de la tarjeta en el lienzo, no lo que le pasó al lead.
+  assert.equal(lineaDelBloque(v), 'Sprint · apertura (Activa)');
   assert.ok(vistaVacia(vistaDeEnAutomatizacion([])), 'sin ninguna, se calla');
   assert.ok(!vistaVacia({ vivas: [], terminadas: [], noEntro: [{ secuenciaId: 289, nombre: 'S', at: null, texto: 't' }] }), 'lo que no entró se dice aunque no esté adentro');
 });

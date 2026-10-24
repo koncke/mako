@@ -225,9 +225,25 @@ del movimiento lee `automatizaciones.noEntro` de la respuesta, sin suponer que e
 nuevo obligaba a tocar el registro de la API y su snapshot en paralelo con otro chat. Por `opciones` la API ya lo hace
 («titulo=…»).
 
-**Vive en:** app/crm/automatizacion-lead.ts (la vista, pura) · app/crm/lead-view/ficha/resumen/automatizaciones.tsx ·
-automatizaciones-datos.ts · lib/ficha/plantillas-resumen.ts · app/m/crm/ficha-bloques.ts (`filaDeAutomatizaciones`) ·
-tests/ficha-automatizaciones.test.ts. *23/10/2026, chat «CRM» (claude2).*
+**Y al día siguiente: «está bastante fea... No es funcional» (24/10/2026, Martín mirando el negocio de Mauricio).** Con los
+datos reales, la tarjeta decía el nombre del LIENZO: «Paso 5 de 9: CRON», «Paso 2 de 4: CONDITION: Llegó hace menos de 3
+día…», «WHATSAPP: Hola {{nombre}}, si no me…» con la variable cruda, y «Hecho · WhatsApp» para un aviso al equipo. El
+número del paso cuenta la entrada, las esperas y las condiciones: «paso 5 de 9» era un lead al que le habían salido 2
+mensajes. **La trampa:** copiar la FORMA de la tarjeta de HubSpot (paso, estado, historial) sin la sustancia; allá el paso
+es un mensaje, acá es un nodo del grafo. **La regla:** lo que se le muestra a quien mira un lead son hechos del lead, no
+nombres del lienzo. Ahora la tarjeta dice, en tres renglones, qué le salió (el mensaje citado como le llegó, con SU
+nombre: `pasoEnPalabras` / `citaDelMensaje`), si contestó y cuándo (la línea «Contestó en «X»» que escribe el motor,
+`leerContesto`, sólo la de esta pasada), y qué sigue: qué le sale y cuándo, por qué no, o cómo terminó
+(`renglonesDeTarjeta`). Las fechas, cortas: «hoy 18:33», «ayer 16:33» (`fechaCorta`). El historial, plegado, sólo con
+más de un envío. **Sin hacer:** el teléfono (/m) arma su fila con la lista liviana (`vistaDeEnAutomatizacion`), sin el
+texto de lo que sigue: dice «Lo próximo · sáb 24 oct, 18:33». Las capturas del antes y el después quedaron para cuando haya
+una sesión en el navegador (no había: la PC se reinició y no se ingresan credenciales).
+
+**Vive en:** app/crm/automatizacion-lead.ts (la vista, pura; `renglonesDeTarjeta`, `fechaCorta`) ·
+app/crm/lead-view/ficha/resumen/automatizaciones.tsx · automatizaciones-datos.ts · lib/automatizaciones-del-lead-reglas.ts
+(`pasoEnPalabras`, `leerContesto`) · lib/automatizaciones-del-lead.ts (el nombre y el «Contestó en») ·
+lib/ficha/plantillas-resumen.ts · app/m/crm/ficha-bloques.ts (`filaDeAutomatizaciones`) · tests/ficha-automatizaciones.test.ts ·
+tests/ficha-automatizaciones-renglones.test.ts. *23/10/2026, chat «CRM» (claude2); 24/10/2026, chat «Automations» (claude1).*
 
 ## «Esa etapa no existe en el CRM»: `noresp` no está en `data.pipeline` y existe igual (23/10/2026)
 
