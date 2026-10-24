@@ -163,7 +163,7 @@ const PANEL: Record<string, 'panel único' | `pieza de ${string}` | `pendiente, 
   'app/web-generator/editor/paneles/ChatAgente.tsx': 'pendiente, de Web Generator',
   'app/video-editor/_opencut/chat/PanelChat.tsx': 'pendiente, de Video Editor',
   'app/image-editor/mako/chat/PanelMakoIA.tsx': 'pendiente, de Image Editor',
-  'app/_components/MakoChat.tsx': 'pendiente, de Ops Center',
+  'app/_components/MakoChat.tsx': 'panel único',
   'app/whatsapp/WhatsAppAdvisor.tsx': 'pendiente, de Chats',
 };
 const DIBUJA_PANEL = /<PanelDeChat\b/;

@@ -18,6 +18,7 @@ import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako } from '@/app/_chat/HiloMako';
+import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { ChatItemMenu } from './ChatItemMenu';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -187,32 +188,30 @@ export function MakoChat({
     <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', flex: 'none', maxHeight: '40vh', overflowY: 'auto' }}>{chart}</div>
   ) : null;
 
-  // El hilo del Ops Center (`.co-hilo` scrollea; la columna centra lo leído).
-  const mensajesPane = (
-    <div ref={scrollRef} className="co-hilo" style={{ padding: '16px 20px' }}>
-      <div className="co-hilo__col">
-        <HiloMako items={items} quien={MAKO} ahora={ahora} escribiendo={pensando ? { segs: desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0 } : null}
-          tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} />
-        {err && <p className="co-nota co-nota--mal" role="alert">{err}<ReportarASoporte /></p>}
-      </div>
-    </div>
-  );
-
-  // La caja única (app/_chat/CajaChat.tsx), con las sugerencias del gráfico arriba en una línea.
-  const inputPane = (
-    <div style={{ borderTop: '1px solid var(--border)', background: 'var(--surface-2)', flex: 'none' }}>
-      {sugs.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', overflowX: 'auto', padding: '12px 20px 0' }}>
-          {sugs.map((s) => <button key={s} type="button" onClick={() => enviar(s)} disabled={pensando} style={{ flex: 'none', whiteSpace: 'nowrap', padding: '6px 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.55 : 1 }}>{s}</button>)}
-        </div>
-      )}
-      <div style={{ padding: '12px 20px 14px' }}>
+  // EL CHAT DEL OPS CENTER (23/10/2026, Martín: «Tienes que UNIFICAR los chats con MaKo en toda la app»): el panel único
+  // (PanelChat.tsx) con su cabecera y la estrella, el gráfico arriba de la conversación, el hilo y la caja únicos. Lo propio de
+  // este chat (las sesiones, el gráfico, las sugerencias) va en la cabecera, arriba y arriba de la caja.
+  const panel = (acciones: ReactNode) => (
+    <PanelDeChat hilo={scrollRef}
+      cabecera={{ clave: `chart:${sessionId ?? 'nuevo'}`, titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: pensando ? 'trabajando' : 'despierto', acciones }}
+      arriba={chartPane}
+      caja={<>
+        {/* Las sugerencias del gráfico, arriba de la caja, en una línea. */}
+        {sugs.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', overflowX: 'auto', padding: '0 4px 8px' }}>
+            {sugs.map((s) => <button key={s} type="button" onClick={() => enviar(s)} disabled={pensando} style={{ flex: 'none', whiteSpace: 'nowrap', padding: '6px 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.55 : 1 }}>{s}</button>)}
+          </div>
+        )}
         <div className="co-caja">
           <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviar(); }} ocupado={pensando} apagado={!sessionId}
             placeholder="Pregúntale a MaKo…" tituloMandar="Enviar" enterManda />
         </div>
-      </div>
-    </div>
+      </>}
+      estado="">
+      <HiloMako items={items} quien={MAKO} ahora={ahora} escribiendo={pensando ? { segs: desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0 } : null}
+        tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} />
+      {err && <p className="co-nota co-nota--mal" role="alert">{err}<ReportarASoporte /></p>}
+    </PanelDeChat>
   );
 
   // Modal (ChartIA): sidebar negro a la izquierda con los chats — sin dropdown encimado.
@@ -228,34 +227,30 @@ export function MakoChat({
           </div>
         </aside>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          {chart && <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 16px', borderBottom: '1px solid var(--border)', flex: 'none' }}>{chartToggleBtn}</div>}
-          {chartPane}
-          {mensajesPane}
-          {inputPane}
+          {panel(chartToggleBtn ? <span style={{ marginLeft: 'auto' }}>{chartToggleBtn}</span> : null)}
         </div>
       </div>
     );
   }
 
-  // Tab "Preguntale a MaKo": barra arriba con el dropdown de chats (la lista grande la pone la tab).
+  // Tab "Preguntale a MaKo": los chats en un desplegable y «+ Nuevo chat», en la cabecera única (la lista grande la pone la tab).
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, fontFamily: SANS }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: '1px solid var(--border)', flex: 'none', position: 'relative' }}>
-        <button type="button" onClick={() => setVerChats((v) => !v)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' }}>Chats <span style={{ color: 'var(--faint)' }}>({sessions.length})</span> <span style={{ fontSize: 10 }}>▾</span></button>
-        <button type="button" onClick={nuevoChat} disabled={pensando} style={{ padding: '6px 11px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.6 : 1 }}>+ Nuevo chat</button>
-        {chartToggleBtn && <div style={{ marginLeft: 'auto' }}>{chartToggleBtn}</div>}
-        {verChats && (
-          <>
-            <div onClick={() => setVerChats(false)} style={{ position: 'fixed', inset: 0, zIndex: 1 }} aria-hidden />
-            <div style={{ position: 'absolute', top: 46, left: 16, zIndex: 2, width: 330, maxWidth: '88vw', maxHeight: '54vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 18px 44px rgba(18,21,27,.2)' }}>
-              {sessions.length === 0 ? <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--faint)' }}>Sin chats previos.</div> : sessions.map((s) => sessionItem(s, false))}
-            </div>
-          </>
-        )}
-      </div>
-      {chartPane}
-      {mensajesPane}
-      {inputPane}
+      {panel(
+        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, position: 'relative' }}>
+          {chartToggleBtn}
+          <button type="button" onClick={() => setVerChats((v) => !v)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' }}>Chats <span style={{ color: 'var(--faint)' }}>({sessions.length})</span> <span style={{ fontSize: 10 }}>▾</span></button>
+          <button type="button" onClick={nuevoChat} disabled={pensando} style={{ padding: '6px 11px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.6 : 1 }}>+ Nuevo chat</button>
+          {verChats && (
+            <>
+              <div onClick={() => setVerChats(false)} style={{ position: 'fixed', inset: 0, zIndex: 1 }} aria-hidden />
+              <div style={{ position: 'absolute', top: 40, right: 0, zIndex: 2, width: 330, maxWidth: '88vw', maxHeight: '54vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 18px 44px rgba(18,21,27,.2)' }}>
+                {sessions.length === 0 ? <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--faint)' }}>Sin chats previos.</div> : sessions.map((s) => sessionItem(s, false))}
+              </div>
+            </>
+          )}
+        </span>,
+      )}
     </div>
   );
 }
