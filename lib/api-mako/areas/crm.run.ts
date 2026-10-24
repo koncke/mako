@@ -1171,7 +1171,7 @@ export const RUNNERS: Runners = {
   traer_contactos_de_grupo: {
     preparar: async (input) => {
       const pg = await grupoPedido(input);
-      if ('error' in pg) return pg;
+      if ('error' in pg) return { error: pg.error };
       const { g, grupo } = pg;
       // Por defecto, como la pantalla: el CRM «Prospección» si lo hay, y ahí «Tibio» (el Cerebro, 23/10/2026).
       const funnels = await listarFunnels();
@@ -1217,7 +1217,7 @@ export const RUNNERS: Runners = {
   completar_nombres_de_grupo: {
     preparar: async (input) => {
       const pg = await grupoPedido(input);
-      if ('error' in pg) return pg;
+      if ('error' in pg) return { error: pg.error };
       const { g, grupo } = pg;
       const c = await completarNombresDelGrupo({ linea: g.linea, jid: grupo.jid, autor: '', soloContar: true });
       if (!c.ok) return { error: c.error };
