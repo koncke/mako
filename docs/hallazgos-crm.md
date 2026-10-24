@@ -20,6 +20,35 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Mover en lote los 221 movió 121: lo cortó el TIEMPO de una sola llamada, no la selección (24/10/2026)
+
+**Vive en:** `app/crm/AccionesLoteLeads.tsx` (la barra) · `moverLeadsDeEtapaAction` y `eliminarLeadsAction` en
+`app/crm/actions.ts` · `app/crm/lote-tandas.ts` (la cola, pura) · `tests/crm-lote-tandas.test.ts`.
+
+- **Síntoma:** Martín tildó con la casilla de la columna los 221 que trajo de un grupo y los movió a «Lead entrante». Quedó
+  «Lead entrante 121 · Círculo TIBIO 100», y tuvo que repetirlo. Creyó que se le había partido la base la noche antes del
+  lanzamiento.
+- **El diagnóstico obvio era el equivocado: «la casilla tilda sólo lo dibujado».** Tilda la columna entera (`cards`, no
+  `dibujadas`; la página trae todos los leads con `leerTodo`). Tampoco era un dibujo viejo: «121 y 100» era el estado real.
+- **La causa, medida en su historial (`lead_audit`, «Etapa»):** 121 movidos entre 05:38:39 y 05:39:46 (67 s) y se cortó;
+  los 100 restantes, en 50 s (~0,5 s por lead). `moverLeadsDeEtapaAction` mueve de a uno y en serie (~6 consultas y un
+  revalidate por lead) dentro de UNA acción del server de 60 s, y la pantalla le mandaba los 221 juntos. Vercel la mató:
+  lo movido quedó movido, el resto no, y la pantalla dijo un error genérico. Además había un `slice(0, 200)` callado: con
+  más de 200, el resto nunca se movía.
+- **La regla, que vale para toda la app:** un lote que se escribe de a uno va de a TANDAS chicas desde la pantalla, en serie,
+  con su avance. El server corta por tiempo (`PRESUPUESTO_LOTE_MS`) y devuelve lo que no llegó (`pendientes`, incluido lo que
+  pasa del tope), y eso vuelve a la cola. Si algo se corta, el aviso dice cuántos sí, cuántos no y cuántos quedaron en duda.
+  **Nunca un corte callado:** una acción en lote que corta a mitad sin decirlo miente sobre su alcance.
+- **Barrido de la barra de lote:** «Eliminar» tenía lo mismo (de a uno, el mismo tope y el mismo corte); va igual.
+  «Agregar a un funnel» va en lotes por dentro, pero el server corta en 2.000 sin decirlo y la pantalla contaba los
+  cortados como «ya estaban»: ahora va de a tandas. Etiquetar, asignar y frenar son una sola escritura de lote.
+- **Al terminar, el tablero se relee** (`router.refresh()` en el `onListo` del tablero): las dos columnas quedan bien sin F5.
+
+**Sin hacer:** verlo en pantalla con un lote de 200+ cuando esté desplegado. Y barrer el resto de la app (fuera del CRM) en
+busca de lotes de a uno en una sola llamada: no se barrió.
+
+*24/10/2026, chat «CRM» (claude1).*
+
 ## «Unificar» dos fichas parecidas: no existía, y una ficha tiene ~45 columnas colgando (23/10/2026)
 
 **Pedido.** Martín, 23/10 ~23:20 UTC: «En el CRM si me dice "Hay otra ficha parecida", que me de la opción ahí mismo de

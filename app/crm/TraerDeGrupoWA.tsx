@@ -75,7 +75,9 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
         if (!r.ok) { setErr(r.error); setLineas([]); return; }
         setLineas(r.lineas);
         ponerEtapas(r);
-        setLinea(r.lineas[0]?.linea ?? null);
+        // La principal, salvo que esté sin conectar y haya otra conectada (24/10/2026: una segunda línea a medio conectar
+        // quedaba en la base «conectando» y es una opción muerta).
+        setLinea((r.lineas.find((l) => l.conectada) ?? r.lineas[0])?.linea ?? null);
       }).catch(() => { if (vivo) { setErr('No pude abrir esto. Prueba de nuevo.'); setLineas([]); } });
     } else {
       void etapasDeFunnelAction(funnel).then((r) => { if (vivo) { if (r.ok) ponerEtapas(r); else setErr(r.error); } }).catch(() => {});
@@ -187,7 +189,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     if (completados) { onTraidos(cuantos); setVuelta((n) => n + 1); }
   };
 
-  const opcionesLinea: DropdownOption[] = (lineas ?? []).map((l) => ({ value: l.linea, label: l.etiqueta }));
+  const opcionesLinea: DropdownOption[] = (lineas ?? []).map((l) => ({ value: l.linea, label: l.conectada ? l.etiqueta : `${l.etiqueta} · sin conectar` }));
   const opcionesGrupo: DropdownOption[] = [
     { value: '', label: grupos === null ? 'Cargando grupos…' : grupos.length ? 'Elige un grupo' : 'Sin grupos' },
     ...(grupos ?? []).map((g) => ({ value: g.jid, label: g.tamano != null ? `${g.nombre} · ${miles(g.tamano)}` : g.nombre })),

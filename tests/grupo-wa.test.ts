@@ -297,6 +297,9 @@ test('10. «Completar nombres»: a los que YA están, sólo el nombre de relleno
   assert.match(pantalla, /const r = await completarNombresDeGrupoAction\(\{ linea, jid \}\)/);
   assert.match(pantalla, /<VistaConPie\n\s+lista=/);
   assert.doesNotMatch(pantalla, /position: 'sticky', bottom: 0/, 'el pie volvió a armarse a mano: flota (ver app/_ui/VistaConPie.tsx)');
+  // Una línea sin conectar (una segunda a medio conectar queda «conectando» en la base) se dice, y no se elige si hay otra.
+  assert.match(pantalla, /setLinea\(\(r\.lineas\.find\(\(l\) => l\.conectada\) \?\? r\.lineas\[0\]\)\?\.linea \?\? null\);/);
+  assert.match(pantalla, /label: l\.conectada \? l\.etiqueta : `\$\{l\.etiqueta\} · sin conectar`/);
   // La API de MaKo, la misma regla: propone con números y no repite lo que ya está.
   const run = leer('lib/api-mako/areas/crm.run.ts');
   assert.match(run, /const c = await completarNombresDelGrupo\(\{ linea: g\.linea, jid: grupo\.jid, autor: '', soloContar: true \}\);/);

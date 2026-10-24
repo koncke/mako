@@ -453,7 +453,8 @@ test('⚠️ ningún camino del CRM MUEVE un lead de producto: todos AGREGAN (06
 
   // La barra de lote AGREGA, al toque, con UN deshacer.
   const lote = limpio(leer('app/crm/AccionesLoteLeads.tsx'));
-  assert.match(lote, /agregarLoteAProductoAction\(ids, funnelId\)/, 'la acción de lote «Producto» dejó de agregar');
+  // De a tandas desde el 24/10/2026 (el server corta en 2.000 callado: tests/crm-lote-tandas.test.ts).
+  assert.match(lote, /agregarLoteAProductoAction\(tanda, funnelId\)/, 'la acción de lote «Producto» dejó de agregar');
   assert.match(lote, /quitarLoteDeProductoAction\(agregados, funnelId\)/, 'la acción de lote «Producto» perdió su deshacer');
   assert.match(lote, /deshacer\?: \(\) => Promise<void>/, 'el resultado de lote dejó de poder llevar UN deshacer al padre');
   assert.ok(!/tipo: 'producto'/.test(lote),

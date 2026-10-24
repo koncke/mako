@@ -5948,6 +5948,10 @@ Se arregló de raíz y lo fija `tests/modal-foco.test.ts`. Lo que gobierna códi
   `alto` fijo en el Modal: la lista es la única que scrollea y el pie es el último renglón. Un pie `sticky` armado a mano
   dentro del cuerpo deja pasar las filas por el padding de abajo («los botones a la mitad y abajo se siguen viendo leads»,
   24/10/2026). Pasó dos veces porque la segunda pantalla se copió de la primera antes de su arreglo: por eso es UNA pieza.
+- **Una acción en lote que escribe DE A UNO en el server (mover de etapa, eliminar) va de a tandas desde la pantalla**
+  (`correrEnTandas`, app/crm/lote-tandas.ts), con su avance; el server corta por tiempo (`PRESUPUESTO_LOTE_MS`) y devuelve
+  `pendientes` (también lo que pasa de su tope), y el aviso dice cuántos sí y cuántos no. Nunca un corte callado: 221 en una
+  sola llamada movieron 121 a los 60 s y el dueño creyó que se le partió la base (24/10/2026).
 - `useCerrarEstable(onCerrar, ocupado)` sigue sirviendo para no cerrar mientras algo se manda; ya no
   hace falta para el foco.
 
