@@ -501,11 +501,18 @@ con el número del JID (`wa_mensajes.telefono` de sus salientes, o 521/549 + 10 
 `telefono_normalizado`.
 
 **El arreglo (24/10):** con más de una ficha para ese teléfono, la respuesta va a la ficha a la que LE ESCRIBIMOS ÚLTIMO
-(`fichaDelEntrante`, lib/ficha-del-entrante.ts). La prueba de «le escribimos» es lo más nuevo entre dos cosas: su saliente
-en ESE chat y su último WhatsApp de una automatización (`nutricion_envios`). Hacen falta las dos porque la fila del espejo
-puede quedar con la ficha del eco del webhook: `enviarYEspejar` hace `ignoreDuplicates`, y el eco elige la ficha por
-teléfono. El envío del motor, en cambio, lo escribe quien mandó. Sin ninguna prueba, queda lo de antes: la exacta, y si no,
-la de id más bajo. Con una sola candidata no se consulta nada más. Test: tests/entrante-ficha-gemela.test.ts.
+(`fichaDelEntrante`, lib/ficha-del-entrante.ts). La prueba de «le escribimos» es lo más nuevo entre TRES cosas, porque
+cada una sola falla:
+- su saliente en ESE chat (`wa_mensajes`): si el eco del webhook le gana a `enviarYEspejar`, que hace `ignoreDuplicates`,
+  la fila queda con la ficha que eligió el eco;
+- su WhatsApp de una automatización (`nutricion_envios`): lo escribe quien mandó, pero un BORRADOR APROBADO conserva el
+  `created_at` de cuando se armó, no de cuando salió;
+- la salida del borrador aprobado (`wa_borradores.enviado_at`). Sin ésta, el arreglo no cubría a German: Leila aprueba
+  borradores, y si el eco ganaba, la respuesta volvía a la #1776. Lo encontró la revisión adversarial.
+
+Sin ninguna prueba, queda lo de antes: la exacta, y si no, la de id más bajo. Con una sola candidata no se consulta nada
+más. Las candidatas van de la más NUEVA a la más vieja (tope de 20), y con el tope lleno se suma la exacta. Así el tope
+deja afuera las fichas viejas, no la que se acaba de inscribir. Test: tests/entrante-ficha-gemela.test.ts.
 
 **Por qué NO se pausan las dos fichas** (que era lo primero que se ocurría): `pausarPorRespuesta` no sólo marca
 'respondio', también CONTESTA (el AI Step, el modo asistido, la charla). Correrlo en cada ficha gemela le podía mandar dos
@@ -521,7 +528,10 @@ respuestas a la misma persona. Se elige UNA ficha y todo sigue por ella.
 - `resolverLeadIdsPorTelefono` (lib/evolution-mensajes.ts) no ordena: con dos fichas puede mostrar una distinta en cada
   pedido.
 - `primerLeadPorTelefono` y `elegirPorTelefono` (lib/leads-duplicados.ts) siguen con su propia regla.
-- El eco que gana en `enviarYEspejar` deja el saliente con la ficha de id más bajo.
+- El eco que gana en `enviarYEspejar` deja el saliente con la ficha que elige esta misma regla, no con la del envío. Para
+  la próxima respuesta no importa (las otras dos pruebas lo corrigen), pero el chat de la ficha lo muestra en la otra.
+- Dos PERSONAS distintas con los mismos 10 dígitos y distinto país: una prueba de automatización de una le gana a la
+  exacta de la otra. Es muy raro, y lib/numero-whatsapp.ts ya acepta ese choque.
 - Las dos fichas de German siguen separadas: «Unificar» es una escritura en el negocio de Leila, y la decide el Cerebro.
 
 ### ⚠️ Un teléfono sin código de país no existe en WhatsApp, y el envío no lo completaba (ws11, 20/10/2026)

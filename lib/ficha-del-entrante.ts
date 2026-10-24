@@ -8,10 +8,11 @@
 // escribiendo a alguien que ya había contestado. Lo mismo el lead de prueba de Martín (#3099, que contestaba en el #249).
 //
 // LA REGLA: la respuesta va a la ficha a la que LE ESCRIBIMOS ÚLTIMO. La prueba de «le escribimos» es lo más nuevo entre
-// sus WhatsApp salientes EN ESE CHAT (`wa_mensajes`) y los WhatsApp que le salieron por una automatización
-// (`nutricion_envios`): la fila del espejo puede quedar con la ficha del eco del webhook, que la elige por teléfono, y el
-// envío del motor no (lo escribe quien mandó). Sin ninguna prueba, lo de siempre: la que coincide EXACTO, y entre ellas o
-// sin ninguna, la de id más bajo.
+// sus WhatsApp salientes EN ESE CHAT (`wa_mensajes`), los que le salieron por una automatización (`nutricion_envios`) y
+// la salida de un borrador aprobado (`wa_borradores.enviado_at`). Hacen falta las tres: la fila del espejo puede quedar con
+// la ficha del eco del webhook, que la elige por teléfono, y el envío de un borrador aprobado conserva la hora en que se
+// ARMÓ el borrador (el modo de Leila). Las lee `matchLeadPorTelefono` (lib/evolution-mensajes.ts). Sin ninguna prueba, lo
+// de siempre: la que coincide EXACTO, y entre ellas o sin ninguna, la de id más bajo.
 //
 // ⚠️ POR QUÉ NO SE PAUSA A LAS DOS FICHAS: `pausarPorRespuesta` no sólo marca 'respondio', también contesta (el AI Step,
 // el modo asistido, la charla). Correrlo en cada ficha gemela le podía mandar DOS respuestas a la misma persona. Se elige

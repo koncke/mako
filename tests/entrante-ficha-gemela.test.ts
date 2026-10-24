@@ -30,6 +30,18 @@ test('German: antes de que le salga la automatización, la charla de siempre; de
   assert.equal(fichaDelEntrante(despues), 1797, 'la respuesta va a la ficha a la que le escribimos último');
 });
 
+test('German en modo borrador, con el eco ganando: el saliente quedó en la #1776, pero el borrador aprobado dice cuándo salió', () => {
+  // La bienvenida de la #1797 se armó el 24/10 a las 18:00 y Leila la aprobó el 25/10 a las 10:00. El eco del webhook ganó
+  // la carrera y el espejo la anotó en la #1776 a las 10:00; el envío del motor conserva las 18:00 del día anterior. Lo que
+  // desempata es `wa_borradores.enviado_at` (10:00:02, al volver el envío).
+  const m = ultimoPorFicha([
+    { lead_id: 1776, at: '2026-10-25T13:00:00Z' },   // el eco, con la ficha equivocada
+    { lead_id: 1797, at: '2026-10-24T21:00:00Z' },   // nutricion_envios: la hora del borrador
+    { lead_id: 1797, at: '2026-10-25T13:00:02Z' },   // wa_borradores.enviado_at
+  ]);
+  assert.equal(fichaDelEntrante([c(1776, false, null), c(1797, false, null)].map((x) => ({ ...x, ultimoEscritoMs: m.get(x.id) ?? null }))), 1797);
+});
+
 test('el lead de prueba de Martín: la #289 le escribe al #3099, y su respuesta ya no cae en el #249', () => {
   assert.equal(fichaDelEntrante([c(249, false, '2026-07-02T15:00:00Z'), c(3099, false, '2026-10-24T13:45:00Z')]), 3099);
 });
@@ -68,11 +80,16 @@ const ini = fuente.indexOf('async function matchLeadPorTelefono(');
 const match = fuente.slice(ini, fuente.indexOf('\n}\n', ini));
 
 test('matchLeadPorTelefono trae TODAS las fichas del sufijo, y con más de una mira lo que le escribimos a cada una', () => {
-  assert.match(match, /\.like\('telefono_normalizado', `%\$\{last\}`\)\.order\('id'\)\.limit\(TOPE_CANDIDATAS\)/);
+  // De la más NUEVA a la más vieja: el tope deja afuera las viejas, nunca la que se acaba de inscribir. Y con el tope
+  // lleno, la exacta se suma aunque sea vieja.
+  assert.match(match, /\.like\('telefono_normalizado', `%\$\{last\}`\)\s*\.order\('id', \{ ascending: false \}\)\.limit\(TOPE_CANDIDATAS\)/);
+  assert.match(match, /if \(fichas\.length >= TOPE_CANDIDATAS\) \{[\s\S]{0,300}\.eq\('telefono_normalizado', telNorm\)/);
   assert.match(match, /if \(fichas\.length <= 1\) return fichas\[0\]\?\.id \?\? null;/, 'con una sola, nada más');
   // Sus salientes en ESTE chat y sus WhatsApp de una automatización (la fila del espejo puede tener la ficha del eco).
   assert.match(match, /from\('wa_mensajes'\)\.select\('lead_id, wa_timestamp'\)\.eq\('chat_jid', chatJid\)\.eq\('from_me', true\)\.in\('lead_id', ids\)/);
   assert.match(match, /from\('nutricion_envios'\)\.select\('lead_id, created_at'\)\.in\('lead_id', ids\)\.eq\('canal', 'whatsapp'\)\.in\('estado', \['enviado', 'simulado'\]\)/);
+  assert.match(match, /from\('wa_borradores'\)\.select\('lead_id, enviado_at'\)\.in\('lead_id', ids\)\.eq\('estado', 'enviado'\)/, 'sin la salida del borrador aprobado (el modo de Leila)');
+  assert.match(match, /\.\.\.\(\(borradores\.data \?\? \[\]\)[\s\S]{0,120}at: r\.enviado_at/);
   assert.match(match, /return fichaDelEntrante\(fichas\.map\(\(f\) => \(\{ id: f\.id, exacta: f\.telefono_normalizado === telNorm, ultimoEscritoMs: ultimo\.get\(f\.id\) \?\? null \}\)\)\);/);
 });
 
@@ -81,11 +98,14 @@ test('el entrante guarda con el chat: así la regla ve lo que le escribimos AHÍ
   assert.equal((fuente.match(/matchLeadPorTelefono\(telefono\)/g) ?? []).length, 0, 'ninguna llamada sin el chat');
 });
 
-// ── Las roturas (8 tests; sin romper nada: 8 pases, 0 fallos) ─────────────────────────────────────────────────────
-// 1. `fichaDelEntrante` sin mirar lo escrito (la exacta o la de id más bajo, lo de antes): 4 fallos / 4 pases.
-// 2. Gana lo escrito MÁS VIEJO en vez de lo más nuevo: 3 fallos / 5 pases.
-// 3. Sin nada escrito, sin preferir la exacta: 1 fallo / 7 pases.
-// 4. El empate se lo queda la de id más ALTO: 1 fallo / 7 pases.
-// 5. `ultimoPorFicha` se queda con la PRIMERA fila de cada ficha y no con la más nueva: 1 fallo / 7 pases.
-// 6. El webhook vuelve a llamar sin el chat: 1 fallo / 7 pases.
-// 7. Sin la lectura de `nutricion_envios`: 1 fallo / 7 pases.
+// ── Las roturas (9 tests; sin romper nada: 9 pases, 0 fallos) ─────────────────────────────────────────────────────
+// 1. `fichaDelEntrante` sin mirar lo escrito (la exacta o la de id más bajo, lo de antes): 5 fallos / 4 pases.
+// 2. Gana lo escrito MÁS VIEJO en vez de lo más nuevo: 4 fallos / 5 pases.
+// 3. Sin nada escrito, sin preferir la exacta: 1 fallo / 8 pases.
+// 4. El empate se lo queda la de id más ALTO: 1 fallo / 8 pases.
+// 5. `ultimoPorFicha` se queda con la PRIMERA fila de cada ficha y no con la más nueva: 2 fallos / 7 pases.
+// 6. El webhook vuelve a llamar sin el chat: 1 fallo / 8 pases.
+// 7. Sin la lectura de `nutricion_envios`: 1 fallo / 8 pases.
+// 8. Sin la salida de los borradores aprobados (`wa_borradores`): 1 fallo / 8 pases.
+// 9. Las candidatas de la más VIEJA a la más nueva (el tope deja afuera la recién inscripta): 1 fallo / 8 pases.
+// 10. Con el tope lleno, sin sumar la exacta: 1 fallo / 8 pases.

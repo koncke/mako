@@ -105,32 +105,51 @@ function tsToISO(ts: number | string | undefined): string {
 // Chatwoot; incluye las que coinciden exacto). Scopeado al workspace por getTenantDb.
 // ⚠️ CON DOS FICHAS PARA EL MISMO TELÉFONO (24/10/2026, German en Leila y el #3099 de Martín): hasta ese día ganaba la de
 // id más bajo y la respuesta cortaba a la ficha equivocada. Ahora decide `fichaDelEntrante` (lib/ficha-del-entrante.ts):
-// la ficha a la que le escribimos último —su saliente en ESTE chat o su último WhatsApp de una automatización—, y sin
-// nada de eso, la exacta y la de id más bajo. Con una sola candidata no se consulta nada más.
+// la ficha a la que le escribimos último, y sin ninguna prueba, la exacta y la de id más bajo. Las pruebas de «le
+// escribimos» son tres, porque cada una falla sola:
+//   · su saliente en ESTE chat (`wa_mensajes`): si el eco del webhook le gana a `enviarYEspejar` (que hace
+//     `ignoreDuplicates`), la fila queda con la ficha que eligió el eco;
+//   · su WhatsApp de una automatización (`nutricion_envios`, 'enviado'): lo escribe quien mandó, pero si salió como
+//     BORRADOR APROBADO su `created_at` es el de cuando se armó el borrador, no el de cuando salió (revisión del 24/10/2026:
+//     es el modo de Leila, así que sin la tercera el arreglo no cubría a German);
+//   · la salida de un borrador aprobado (`wa_borradores.enviado_at`), la de la automatización y la del setter.
+// Con una sola candidata no se consulta nada más. Las candidatas van de la más NUEVA a la más vieja (el tope deja afuera
+// las viejas, no la que se acaba de inscribir) y, con el tope lleno, se suma la exacta aunque sea vieja.
 const TOPE_CANDIDATAS = 20;
+type FichaCandidata = { id: number; telefono_normalizado: string | null };
 async function matchLeadPorTelefono(telNorm: string, chatJid: string | null = null): Promise<number | null> {
   if (telNorm.length < 8) return null;
   const supabase = await getTenantDb();
   const last = telNorm.slice(-10);
-  const suf = await supabase.from('leads').select('id, telefono_normalizado').like('telefono_normalizado', `%${last}`).order('id').limit(TOPE_CANDIDATAS);
+  const suf = await supabase.from('leads').select('id, telefono_normalizado').like('telefono_normalizado', `%${last}`)
+    .order('id', { ascending: false }).limit(TOPE_CANDIDATAS);
   if (suf.error) console.error(`[evolution] ¿de quién es el ${telNorm.slice(-4)}?: ${suf.error.message}`);
-  const fichas = (suf.data ?? []) as Array<{ id: number; telefono_normalizado: string | null }>;
+  const fichas = (suf.data ?? []) as FichaCandidata[];
   if (fichas.length <= 1) return fichas[0]?.id ?? null;
+  if (fichas.length >= TOPE_CANDIDATAS) {
+    console.error(`[evolution] ${fichas.length}+ fichas terminan en el ${telNorm.slice(-4)}: se miran las ${TOPE_CANDIDATAS} más nuevas y la exacta`);
+    const ex = await supabase.from('leads').select('id, telefono_normalizado').eq('telefono_normalizado', telNorm).order('id').limit(5);
+    for (const f of (ex.data ?? []) as FichaCandidata[]) if (!fichas.some((x) => x.id === f.id)) fichas.push(f);
+  }
   const ids = fichas.map((f) => f.id);
   // Lo que le escribimos a cada una. Si una lectura falla, se decide con lo que haya (en el peor caso, lo de antes).
-  const [enElChat, porAutomatizacion] = await Promise.all([
+  const [enElChat, porAutomatizacion, borradores] = await Promise.all([
     chatJid
       ? supabase.from('wa_mensajes').select('lead_id, wa_timestamp').eq('chat_jid', chatJid).eq('from_me', true).in('lead_id', ids)
         .order('wa_timestamp', { ascending: false }).limit(50)
       : Promise.resolve({ data: [], error: null }),
     supabase.from('nutricion_envios').select('lead_id, created_at').in('lead_id', ids).eq('canal', 'whatsapp').in('estado', ['enviado', 'simulado'])
       .order('created_at', { ascending: false }).limit(50),
+    supabase.from('wa_borradores').select('lead_id, enviado_at').in('lead_id', ids).eq('estado', 'enviado')
+      .order('enviado_at', { ascending: false }).limit(50),
   ]);
   if (enElChat.error) console.error(`[evolution] salientes de las fichas ${ids.join(', ')}: ${enElChat.error.message}`);
   if (porAutomatizacion.error) console.error(`[evolution] envíos de las fichas ${ids.join(', ')}: ${porAutomatizacion.error.message}`);
+  if (borradores.error) console.error(`[evolution] borradores de las fichas ${ids.join(', ')}: ${borradores.error.message}`);
   const ultimo = ultimoPorFicha([
     ...((enElChat.data ?? []) as Array<{ lead_id: number | null; wa_timestamp: string | null }>).map((r) => ({ lead_id: r.lead_id, at: r.wa_timestamp })),
     ...((porAutomatizacion.data ?? []) as Array<{ lead_id: number | null; created_at: string | null }>).map((r) => ({ lead_id: r.lead_id, at: r.created_at })),
+    ...((borradores.data ?? []) as Array<{ lead_id: number | null; enviado_at: string | null }>).map((r) => ({ lead_id: r.lead_id, at: r.enviado_at })),
   ]);
   return fichaDelEntrante(fichas.map((f) => ({ id: f.id, exacta: f.telefono_normalizado === telNorm, ultimoEscritoMs: ultimo.get(f.id) ?? null })));
 }
