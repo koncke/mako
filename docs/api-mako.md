@@ -7735,10 +7735,11 @@ curl -L \
   "https://hola-mako.com/api/v1/metricas/dashboard/datos?conjunto=leads&metricas=%5B%22leads%22%2C%22cierres%22%5D&dimension=mes&periodo=ult30&desde=2026-09-01&hasta=2026-09-30"
 ```
 
-### `GET /api/v1/metricas/metricas_automatizacion` — Métricas de una automatización
+### `GET /api/v1/metricas/automatizaciones/{secuenciaId}` — Métricas de una automatización
 
 Las métricas de UNA automatización, las mismas que su pestaña «Métricas» en Automations: cuántas personas entraron, cuántas siguen en el flujo, cuántas respondieron y su tasa, las horas hasta responder, los avisos al equipo y la tasa de apertura (estos tres, si el flujo los tiene), cuántas personas llegaron a cada tarjeta del flujo (en el orden del flujo) y los mensajes enviados y fallados por día. Úsala para «¿cómo va la automatización X?» o «¿en qué tarjeta se caen?». Pide el secuenciaId (de listar_secuencias_nutricion). Por HTTP acepta ?formato=md|json.
 
+- **Ruta por operación:** `GET /api/v1/metricas/metricas_automatizacion`
 - **Token detallado:** permiso `metricas=read` (Solo lectura en «Dashboard y análisis»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** markdown (también `?formato=` md | json)
@@ -7752,7 +7753,11 @@ Las métricas de UNA automatización, las mismas que su pestaña «Métricas» e
 | `periodo` | string (ult7 \\| ult30 \\| ult90) | no | Últimos 7, 30 o 90 días. Default ult30. |
 
 ```bash
-
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/metricas/automatizaciones/SECUENCIA_ID"
 ```
 
 ### `GET /api/v1/metricas/dashboard/hojas/{hoja}` — Leer una hoja del Dashboard

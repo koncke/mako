@@ -18,6 +18,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { Button } from '@/app/_ui/Button';
 import { CargandoMako } from '@/app/_ui/CargandoMako';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import type { Tablero } from '@/lib/graficos-catalogo';
 import type { DatosGrafico } from '@/lib/graficos-datos';
 import { informeDeAutomatizacion } from '@/lib/informe-automatizacion';
@@ -73,7 +74,7 @@ export function MetricasAutomatizacion({ secuenciaId }: { secuenciaId: number })
     } catch { setErrLlevar('Sin conexión — prueba de nuevo.'); } finally { setLlevando(false); }
   };
 
-  if (error) return <div role="alert" style={{ padding: 32, color: 'var(--bad)', fontSize: 13.5 }}>{error}</div>;
+  if (error) return <div role="alert" style={{ padding: 32, color: 'var(--bad)', fontSize: 13.5 }}>{error}<ReportarASoporte /></div>;
   if (!l) return <Cargando />;
   const hoja = l.tablero.hojas[0];
   if (!hoja) return <div style={{ padding: 32, color: 'var(--dim)', fontSize: 13.5 }}>Esta automatización todavía no tiene métricas.</div>;
@@ -81,7 +82,7 @@ export function MetricasAutomatizacion({ secuenciaId }: { secuenciaId: number })
   return (
     <div data-metricas-automatizacion={secuenciaId} style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden', background: 'var(--bg)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8, padding: '10px 16px 0' }}>
-        {errLlevar && <span role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{errLlevar}</span>}
+        {errLlevar && <span role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{errLlevar}<ReportarASoporte /></span>}
         {llevada
           ? <a href={`/dashboard?hoja=${encodeURIComponent(llevada.hojaId)}`} data-metricas-llevada style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>Abrir «{llevada.nombre}» en el Dashboard →</a>
           : <Button variant="secondary" size="sm" disabled={llevando} onClick={() => void llevar()} data-metricas-llevar>{llevando ? 'Llevando…' : 'Llevar al Dashboard'}</Button>}

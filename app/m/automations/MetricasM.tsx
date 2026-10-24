@@ -11,6 +11,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { FilaDatoM, ListaM } from '@/app/m/_ui';
 import { GraficoBarrasM } from '@/app/m/dashboard/GraficoBarrasM';
 import type { HojaM } from '@/app/m/dashboard/modelo';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 export function MetricasM({ id, respaldo }: { id: number; respaldo: ReactNode }) {
   const [hoja, setHoja] = useState<HojaM | null>(null);
@@ -36,7 +37,7 @@ export function MetricasM({ id, respaldo }: { id: number; respaldo: ReactNode })
       <h3 className="m-auto-subt">Métricas · últimos 30 días</h3>
       {hoja.grafico && !hoja.graficoError && <GraficoBarrasM g={hoja.grafico} />}
       {hoja.numerosError
-        ? <p className="m-auto-error" role="alert">{hoja.numerosError}</p>
+        ? <p className="m-auto-error" role="alert">{hoja.numerosError}<ReportarASoporte /></p>
         : (
           <ListaM etiqueta="Métricas">
             {hoja.numeros.map((n) => <FilaDatoM key={n.id} k={n.k} v={n.v} />)}

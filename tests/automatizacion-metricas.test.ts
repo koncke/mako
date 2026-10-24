@@ -36,7 +36,8 @@ import { esGrafico, fuenteDe } from '../lib/graficos-catalogo';
 import type { PasoGrafo } from '../lib/flujo-grafo';
 
 const RAIZ = resolve(import.meta.dirname, '..');
-const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8');
+// Sin `\r`: en un checkout con CRLF (core.autocrlf) las regex que cruzan renglones dejan de calzar (tren del 23/10).
+const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 
 const P = (x: Record<string, unknown>) => x as unknown as PasoGrafo;
 const FLUJO: PasoGrafo[] = [
