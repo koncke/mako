@@ -115,8 +115,8 @@ test('1. cuándo se firma: con el certificado de Apple en su carpeta, fuera de O
     // Del archivo de la firma (el mismo de Windows), que gana al entorno.
     const archivo = path.join(d, '.mako-firma.env');
     writeFileSync(archivo, `RCODESIGN=${rc}\nFIRMA_MAC=${carpeta}\n`);
-    assert.equal(M.firmaMacDeEstaPc({ rutaFirma: archivo, proceso: { RCODESIGN: 'C:\\otra.exe' } as NodeJS.ProcessEnv, parse })!.herramienta, rc);
-    assert.equal(M.firmaMacDeEstaPc({ rutaFirma: path.join(d, 'no.env'), proceso: { FIRMA_MAC: path.join(d, 'vacia') } as NodeJS.ProcessEnv, parse }), null);
+    assert.equal(M.firmaMacDeEstaPc({ rutaFirma: archivo, proceso: { RCODESIGN: 'C:\\otra.exe' } as unknown as NodeJS.ProcessEnv, parse })!.herramienta, rc);
+    assert.equal(M.firmaMacDeEstaPc({ rutaFirma: path.join(d, 'no.env'), proceso: { FIRMA_MAC: path.join(d, 'vacia') } as unknown as NodeJS.ProcessEnv, parse }), null);
     // Nunca en OneDrive: la clave de Martín no va a la nube.
     for (const od of ['C:\\Users\\marti\\OneDrive\\Escritorio\\firma', 'C:\\Users\\marti\\OneDrive - Elevate\\firma', '/Users/x/OneDrive/f']) {
       assert.throws(() => M.configDeFirmaMac({ FIRMA_MAC: od }), /no va en OneDrive/, od);

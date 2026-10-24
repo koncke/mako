@@ -19,7 +19,7 @@
 
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { documentoDeLaLanding, seccionesDeLaLanding, subir } from './landing-mako-a-web-generator.mts';
+import { documentoDeLaLanding, seccionesDeLaLanding, subir } from './landing-mako-a-web-generator';
 import { LANDINGS_MAKO } from '../lib/origen-cuenta';
 
 type Copy = {

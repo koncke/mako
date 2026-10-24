@@ -73,7 +73,7 @@ await runWithWorkspace(WS, async () => {
   console.log(`«${etiquetaNombre}» → ${filas.length} filas · ${nuevas.length} nuevas (a ${circulo.toUpperCase()}) · ${existentes.size} ya están (sólo la etiqueta) · ${repetidasEnArchivo} repetidas en el archivo · ${sinContacto} sin nombre o sin contacto`);
   if (!escribir) { console.log('EN SECO: no escribí nada. Con --escribir, las carga.'); return; }
 
-  const ya = (await listarEtiquetas()).find((e) => e.nombre.trim().toLowerCase() === etiquetaNombre.toLowerCase());
+  const ya = (await listarEtiquetas()).find((e: { nombre: string }) => e.nombre.trim().toLowerCase() === etiquetaNombre.toLowerCase());
   const etiqueta = ya ?? (await crearEtiqueta({ nombre: etiquetaNombre })).etiqueta;
 
   const creados: number[] = [];

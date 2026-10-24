@@ -48,13 +48,13 @@ globalThis.fetch = (async (u: RequestInfo | URL, i?: RequestInit) => {
 }) as typeof fetch;
 
 // ── La sesión: las mismas lecturas que la real, contadas ────────────────────────────────────────────────────────────
-const { buscarUsuarioPorEmail } = await import('../lib/usuarios.ts');
-const { obligatorioDesdeDe } = await import('../lib/mfa-obligatorio.ts');
+const { buscarUsuarioPorEmail } = await import('../lib/usuarios');
+const { obligatorioDesdeDe } = await import('../lib/mfa-obligatorio');
 import { readFileSync, existsSync } from 'node:fs';
-const authReal = await import('../lib/auth.ts').catch(() => null) as Record<string, unknown> | null;
+const authReal = await import('../lib/auth').catch(() => null) as Record<string, unknown> | null;
 // ¿lib/auth.ts memoiza la sesión por pedido? Entonces la imitación pasa por el MISMO `enElPedido`.
 const memoiza = existsSync(join(RAIZ, 'lib/sesion-por-pedido.ts')) && /enElPedido\(store, token \?\? '', /.test(readFileSync(join(RAIZ, 'lib/auth.ts'), 'utf8'));
-const enElPedido = memoiza ? (await import('../lib/sesion-por-pedido.ts')).enElPedido as <T>(p: object, t: string, f: () => Promise<T>) => Promise<T> : null;
+const enElPedido = memoiza ? (await import('../lib/sesion-por-pedido')).enElPedido as <T>(p: object, t: string, f: () => Promise<T>) => Promise<T> : null;
 let lecturasSesion = 0;
 async function sesionImitada() {
   lecturasSesion++;
@@ -77,10 +77,10 @@ async function sesionImitada() {
 }
 
 const RUTAS: Record<string, () => Promise<Response>> = {
-  'auth-me': async () => (await import('../app/api/auth/me/route.ts')).GET(),
+  'auth-me': async () => (await import('../app/api/auth/me/route')).GET(),
   secuencias: async () => {
     const { NextRequest } = await import('next/server');
-    return (await import('../app/api/chat-agent/secuencias/route.ts')).GET(new NextRequest('https://app.local/api/chat-agent/secuencias'));
+    return (await import('../app/api/chat-agent/secuencias/route')).GET(new NextRequest('https://app.local/api/chat-agent/secuencias'));
   },
 };
 
