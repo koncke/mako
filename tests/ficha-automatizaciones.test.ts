@@ -92,14 +92,14 @@ test('el detalle de Automations en la vista: vivas y terminadas, lo enviado con 
   assert.deepEqual(v.vivas[0].proximo, { at: '2026-10-24T16:12:00Z', titulo: 'W2', clase: null });
   assert.equal(chipDeInscripcion(v.vivas[1]).texto, 'Con una persona');
   assert.equal(v.vivas[1].puede.porQueNo, 'Está con una persona.');
-  assert.deepEqual(v.noEntro.map((n) => n.texto), ['No volvió a entrar a «Sprint · apertura»: ya entró una vez y su reentrada es «Una sola vez» (va en el paso 2).'], 'la última por automatización');
+  assert.deepEqual(v.noEntro.map((n) => n.texto), ['No volvió a entrar a «Sprint · apertura»: ya entró una vez y su reentrada es «Una sola vez».'], 'la última por automatización');
   const comp = sinComentarios('app/crm/lead-view/ficha/resumen/automatizaciones-datos.ts');
   assert.match(comp, /const r = await automatizacionesDelLeadDetalleAction\(leadId\);\s*return r \? vistaDeDetalle\(r\) : null;/);
   assert.match(comp, /return empezarDeNuevoEnAutomatizacionAction\(leadId, secuenciaId\);/);
 });
 
 test('por qué no entró al moverlo, y la pregunta antes de «Empezar de nuevo»', () => {
-  assert.equal(textoDeNoEntro({ nombre: 'Sprint · apertura', porque: 'en_curso', paso: { numero: 2 } }), 'No volvió a empezar «Sprint · apertura»: ya está adentro (paso 2).');
+  assert.equal(textoDeNoEntro({ nombre: 'Sprint · apertura', porque: 'en_curso', paso: { numero: 2 } }), 'No volvió a empezar «Sprint · apertura»: ya está adentro.');
   assert.equal(textoDeNoEntro({ nombre: 'Sprint · apertura', porque: 'una_sola_vez' }), 'No volvió a entrar a «Sprint · apertura»: entra una sola vez.');
   assert.match(textoDeNoEntro({ nombre: 'X', porque: 'cancelada' }), /la frenaron/);
   assert.equal(textoDeNoEntro({ nombre: 'X', porque: 'otro' }), 'No entró a «X».');
@@ -157,7 +157,7 @@ test('el toast del movimiento dice POR QUÉ no entró (y no inventa nada si la r
   assert.deepEqual(noEntroDelMovimiento({ ok: true }), []);
   assert.deepEqual(noEntroDelMovimiento(undefined), []);
   assert.deepEqual(noEntroDelMovimiento({ ok: true, automatizaciones: { entro: [], noEntro: [{ secuenciaId: 289, nombre: 'Sprint · apertura', porque: 'en_curso', paso: { numero: 2 } }] } }),
-    ['No volvió a empezar «Sprint · apertura»: ya está adentro (paso 2).']);
+    ['No volvió a empezar «Sprint · apertura»: ya está adentro.']);
   assert.deepEqual(noEntroDelMovimiento({ automatizaciones: { noEntro: [{ texto: 'Ya estaba en «X»: no vuelve a empezar.' }, null, 3] } }), ['Ya estaba en «X»: no vuelve a empezar.']);
   // La forma de Automations: el motivo SIN el nombre, y el nombre aparte.
   assert.deepEqual(noEntroDelMovimiento({ ok: true, automatizaciones: { entro: [], noEntro: [{ secuenciaId: 289, nombre: 'Sprint · apertura', at: 'x', porque: 'una_sola_vez', texto: 'ya entró una vez y su reentrada es «Una sola vez»', quien: null }] } }),
