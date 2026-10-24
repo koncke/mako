@@ -172,7 +172,8 @@ test('«en línea» es una PC con un Claude CON sesión, y el tutorial no dice �
   assert.match(ui, /<Copiar texto=\{LOGIN_CLAUDE\.mac\} \/>/);
   assert.match(ui, /<Copiar texto=\{LOGIN_CLAUDE\.windows\} \/>/);
   assert.doesNotMatch(ui, /escribe <code>claude<\/code>/);
-  assert.match(ui, /if \(nueva && nueva\.cuentas\.length\) \{ setLista\(true\); setSinSesion\(null\); setPaso\(5\); return; \}\s*if \(nueva\) \{ setSinSesion\(/);
+  // Con una cuenta de ESA IA (la ola 3: el tutorial de su ChatGPT no dice «¡Listo!» con su Claude).
+  assert.match(ui, /if \(nueva && cuentasDeLaIA\(nueva\.cuentas, ia\)\.length\) \{ setLista\(true\); setSinSesion\(null\); setPaso\(5\); return; \}\s*if \(nueva\) \{ setSinSesion\(/);
   assert.match(sinComentarios(leer('app/integraciones/CuentasYDispositivos.tsx')), /yaPaso\(repone, ahora\)/);
   // El programa la vuelve a mirar: en cada latido (las que no tienen sesión) y antes de rechazar un turno.
   const p = sinComentarios(leer('scripts/ia-pc/mako-pc.mjs'));

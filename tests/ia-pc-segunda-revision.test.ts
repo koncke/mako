@@ -295,7 +295,8 @@ test('el tutorial: el código gastado sin conectar ofrece otro, cuenta con SU re
   assert.match(sinComentarios(leer('app/api/ia-pc/codigo/route.ts')), /duraMs: CODIGO_MS/);
   assert.match(ui, /listo=\{!!estado\}/, 'hasta saber qué PC ya estaban');
   assert.match(ui, /const anda = o\.habilitada && \(o\.que !== 'pc' \|\| puedeComputadora\);/, '«Mi computadora» espera al estado (IA4)');
-  assert.match(ui, /setSinSesion\(nueva\.sinClaude \? 'claude' : 'sesion'\)/);
+  // «Falta Claude Code» es sólo del tutorial de Claude (la ola 3).
+  assert.match(ui, /setSinSesion\(conClaude && nueva\.sinClaude \? 'claude' : 'sesion'\)/);
   assert.match(ui, /onClick=\{\(\) => setPaso\(2\)\}>\{sistema === 'windows' \? 'Volver a instalar \(paso 2\)' : 'Volver al paso 2'\}</);
   assert.match(ui, /no la app de escritorio/);
   // /perfil/ia ya tiene su título: el componente va sin cabecera.
