@@ -7,7 +7,7 @@
 
 import { requireRolWs } from '@/lib/tab-access';
 import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
-import { seccionesNegocioActuales } from '@/lib/ajustes-negocio';
+import { gruposDeAjustes } from '@/lib/ajustes-negocio';
 import { AjustesPagina, FilaAjustes, GrupoAjustes, TituloAjustes } from '../../_ui/Ajustes';
 import { NotificacionesPanel } from '../../perfil/NotificacionesPanel';
 
@@ -17,7 +17,7 @@ export const revalidate = 0;
 export default async function NotificacionesNegocioPage() {
   await requireRolWs([], { nav: 'configuraciones' });
   return (
-    <AjustesPagina lugar={TITULO_NEGOCIO} secciones={await seccionesNegocioActuales()} activa="notificaciones">
+    <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'notificaciones')} activa="notificaciones">
       <TituloAjustes titulo="Notificaciones" bajada="A quién le avisa MaKo lo del negocio. Qué dice cada aviso se arma en Automations." />
       <div style={{ marginBottom: 20 }}>
         <NotificacionesPanel parte="negocio" />

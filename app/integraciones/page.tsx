@@ -27,7 +27,7 @@ import { IntegracionesBoard } from './IntegracionesBoard';
 import { requireRolWs } from '@/lib/tab-access';
 import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
 import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
-import { seccionesNegocioActuales } from '@/lib/ajustes-negocio';
+import { gruposDeAjustes } from '@/lib/ajustes-negocio';
 import { AjustesPagina, TituloAjustes } from '../_ui/Ajustes';
 import { TarjetaTusCuentasIA } from './TusCuentasIA';
 
@@ -138,7 +138,7 @@ export default async function IntegracionesPage() {
   ]);
 
   return (
-    <AjustesPagina lugar={TITULO_NEGOCIO} secciones={await seccionesNegocioActuales()} activa="integraciones" amplio>
+    <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'integraciones')} activa="integraciones" amplio>
     {/* Sin «WhatsApp» (24/10/2026): salió del catálogo el 09/10 y la bajada lo seguía nombrando. */}
     <TituloAjustes titulo="Integraciones" bajada="Tu IA, Meta, tu web y todo lo que se conecta a tu negocio." />
     {/* Su Claude, en su computadora (docs/ia-del-cliente.md §6): arriba, porque sin IA el Ops Center no contesta. Desde el

@@ -7,7 +7,8 @@
 
 import { requireRolWs } from '@/lib/tab-access';
 import { leerPerfil } from '@/lib/perfil';
-import { TITULO_CUENTA, seccionesCuenta } from '@/lib/ajustes-secciones';
+import { TITULO_CUENTA } from '@/lib/ajustes-secciones';
+import { gruposDeAjustes } from '@/lib/ajustes-negocio';
 import { AjustesPagina } from '../_ui/Ajustes';
 import { InformacionPersonal } from './InformacionPersonal';
 import { nombreDelNegocioAction } from '@/app/configuraciones/negocio-actions';
@@ -22,7 +23,7 @@ export default async function PerfilPage() {
   // El nombre del negocio, con la MISMA lectura que «Tu negocio»: lo ve en su perfil quien lo puede cambiar (21/10/2026).
   const [{ perfil, vista }, negocio] = await Promise.all([leerPerfil(), nombreDelNegocioAction().catch(() => null)]);
   return (
-    <AjustesPagina lugar={TITULO_CUENTA} secciones={seccionesCuenta(vista.deOtro, 'info')} activa="info">
+    <AjustesPagina lugar={TITULO_CUENTA} grupos={await gruposDeAjustes(vista.deOtro, 'info')} activa="info">
       <InformacionPersonal inicial={perfil} vista={vista} negocio={negocio} />
     </AjustesPagina>
   );

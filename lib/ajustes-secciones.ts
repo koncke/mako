@@ -25,19 +25,34 @@ export type SeccionAjustes = {
 };
 
 // En inglés desde el 17/10/2026 noche (prototipo de coherencia: el menú de la foto y sus páginas con los nombres de las tabs).
-export const TITULO_CUENTA = 'My Profile';
-export const TITULO_NEGOCIO = 'Business settings';
+// UN SOLO LUGAR desde el 24/10/2026 (Martín: «juntes todo en "Settings", que ya no sea "Business Setting", sólo "Settings", que
+// esté primero en las opciones y que contenga todo junto»): «Settings», con un índice de DOS GRUPOS, «Tu cuenta» y «Tu negocio»,
+// como los ajustes de Linear, Notion y Slack (cuenta y espacio de trabajo en la misma barra). Las rutas no cambian.
+export const TITULO_AJUSTES = 'Settings';
+export const TITULO_CUENTA = TITULO_AJUSTES;
+export const TITULO_NEGOCIO = TITULO_AJUSTES;
+export const GRUPO_CUENTA = 'Tu cuenta';
+export const GRUPO_NEGOCIO = 'Tu negocio';
 
 export const SECCIONES_CUENTA: SeccionAjustes[] = [
-  { key: 'info', label: 'Información personal', href: '/perfil', icono: 'persona', descripcion: 'Tu nombre, tu foto y cómo te contactan.' },
+  // «Perfil» primero (24/10/2026, Martín: «"Perfil" primero en lugar de "Información personal"»).
+  { key: 'info', label: 'Perfil', href: '/perfil', icono: 'persona', descripcion: 'Tu nombre, tu foto y cómo te contactan.' },
   { key: 'seguridad', label: 'Seguridad', href: '/perfil/seguridad', icono: 'escudo', descripcion: 'Cómo entras a MaKo y desde dónde.' },
   { key: 'notificaciones', label: 'Notificaciones', href: '/perfil/notificaciones', icono: 'avisar', descripcion: 'Los avisos que te llegan a ti.' },
-  { key: 'instalar', label: 'Instalar la app', href: '/perfil/instalar', icono: 'celular', descripcion: 'MaKo en tu celular.' },
-  // Su Claude, en SU computadora (docs/ia-del-cliente.md §6): es de la PERSONA (la PC atiende sólo a quien la conectó), así
-  // que vive acá y la ve todo el equipo. Antes estaba sólo en Integraciones, que es del admin: un closer no tenía dónde
-  // conectar la suya (revisión del Cerebro, 21/10/2026).
-  { key: 'ia', label: 'Tus cuentas de IA', href: '/perfil/ia', icono: 'computadora', descripcion: 'Tu Claude, en tu computadora, para tu Ops Center.' },
+  // Las TRES instalaciones (24/10/2026, Martín: «"Instalar la App" tiene que tener las 3 instalaciones: la app Mobile, Desktop y la
+  // extensión»).
+  { key: 'instalar', label: 'Instalar la app', href: '/perfil/instalar', icono: 'celular', descripcion: 'MaKo en tu teléfono, en tu computadora y en tu navegador.' },
+  // «Tus cuentas de IA» SALIÓ DEL ÍNDICE el 24/10/2026 (Martín: «Elimina la tab de "Tus cuentas de IA", para eso ya tenemos
+  // "Integraciones"»), pero /perfil/ia SIGUE: el instalador de Windows vuelve ahí al terminar (RUTA_TRAS_INSTALAR, en las PC
+  // de los clientes) y el teléfono la abre. El admin la tiene en Integraciones (la tarjeta destacada); un closer o un setter
+  // conecta su Claude desde la caja de cualquier chat con MaKo («Conectar tu IA», el mismo modal).
 ];
+
+/** El índice de Settings: los dos grupos, y el del negocio sólo si quien mira lo administra (y ve alguna sección). */
+export type GrupoSecciones = { titulo: string; secciones: SeccionAjustes[] };
+export function gruposAjustes(cuenta: SeccionAjustes[], negocio: SeccionAjustes[] | null): GrupoSecciones[] {
+  return [{ titulo: GRUPO_CUENTA, secciones: cuenta }, ...(negocio?.length ? [{ titulo: GRUPO_NEGOCIO, secciones: negocio }] : [])];
+}
 
 /**
  * En una «vista de otro» (la agencia o el super admin parados en un cliente) el perfil que se ve es el

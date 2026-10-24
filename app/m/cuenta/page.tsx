@@ -27,7 +27,7 @@ import './cuenta.css';
 import { requireMovil, salidaDeVista } from '@/lib/movil-guard';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { getNotifPush, leerPerfil, usuarioPropio } from '@/lib/perfil';
-import { TITULO_NEGOCIO, seccionesCuenta } from '@/lib/ajustes-secciones';
+import { GRUPO_NEGOCIO, seccionesCuenta } from '@/lib/ajustes-secciones';
 import { PantallaM } from '../_ui/PantallaM';
 import { CuentaM, type DatosCuenta } from './CuentaM';
 import { nombreDelNegocioAction } from '@/app/configuraciones/negocio-actions';
@@ -57,7 +57,8 @@ export default async function CuentaPagina() {
     secciones: seccionesCuenta(deOtro).map((s) => s.key),
     // «Configuración del negocio» es la key `configuraciones` del menú de la foto (nav.ts, sin
     // `rolesWs`: sólo quien administra). La misma regla que el menú y que el guard de sus páginas.
-    negocio: puedeVerKey('configuraciones', ctx.rol, ctx.capa) ? TITULO_NEGOCIO : null,
+    // Desde el 24/10/2026 es un grupo de Settings, como en la computadora: «Tu negocio».
+    negocio: puedeVerKey('configuraciones', ctx.rol, ctx.capa) ? GRUPO_NEGOCIO : null,
     push,
     guardable: propio != null,
     esAdmin: (propio?.rol ?? ctx.rol) === 'admin',

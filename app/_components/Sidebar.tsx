@@ -992,7 +992,8 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
               );
             })()}
             <div style={{ height: 1, background: 'var(--border)', margin: '5px 0' }} />
-            {USER_NAV.filter((it) => it.key !== 'perfil' && !it.soloSeccion && (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map(filaMenu)}
+            {/* «Settings» PRIMERO (24/10/2026): es la key `perfil`, que va primera en USER_NAV. La cara de arriba también lleva ahí. */}
+            {USER_NAV.filter((it) => !it.soloSeccion && (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map(filaMenu)}
             {/* PLATFORM (17/10/2026): lo que era la familia Admin y es de la plataforma, y las «pronto» (prototipo: «lo
                 poco usado detrás de More»). Sólo el super admin sin mirar un cliente. «Coming soon» se abre ACÁ, en el
                 mismo menú: nada de modales. */}

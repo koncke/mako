@@ -8,7 +8,8 @@
 
 import { requireRolWs } from '@/lib/tab-access';
 import { leerPerfil } from '@/lib/perfil';
-import { TITULO_CUENTA, seccionesCuenta } from '@/lib/ajustes-secciones';
+import { TITULO_CUENTA } from '@/lib/ajustes-secciones';
+import { gruposDeAjustes } from '@/lib/ajustes-negocio';
 import { AjustesPagina, TituloAjustes } from '../../_ui/Ajustes';
 import { TusCuentasIA } from '../../integraciones/TusCuentasIA';
 
@@ -19,7 +20,7 @@ export default async function TusCuentasIAPage({ searchParams }: { searchParams:
   await requireRolWs(['closer', 'setter']);
   const deOtro = await leerPerfil().then((p) => p.vista.deOtro, () => false);
   return (
-    <AjustesPagina lugar={TITULO_CUENTA} secciones={seccionesCuenta(deOtro, 'ia')} activa="ia">
+    <AjustesPagina lugar={TITULO_CUENTA} grupos={await gruposDeAjustes(deOtro, 'ia')} activa="ia">
       <TituloAjustes titulo="Tus cuentas de IA" bajada="Tu Ops Center contesta con tu Claude, tu GPT o tu Gemini." />
       {/* `?computadora=1`: adonde vuelve el instalador de Windows al terminar (RUTA_TRAS_INSTALAR), directo en «Conecta MaKo». */}
       <TusCuentasIA sinCabecera computadora={(await searchParams).computadora === '1'} />

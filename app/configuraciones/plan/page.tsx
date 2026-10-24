@@ -8,7 +8,7 @@
 import { redirect } from 'next/navigation';
 import { requireRolWs } from '@/lib/tab-access';
 import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
-import { seccionesNegocioActuales } from '@/lib/ajustes-negocio';
+import { gruposDeAjustes } from '@/lib/ajustes-negocio';
 import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { suscripcionDeMakoDe } from '@/lib/cobros';
@@ -52,7 +52,7 @@ export default async function PlanPage() {
     ? { titulo: `Pasar a ${pro.nombre}`, detalle: `US$ ${pro.precioUsd} por mes. Agenda una llamada y te lo activamos.`, href: AGENDA_MAKO }
     : null;
   return (
-    <AjustesPagina lugar={TITULO_NEGOCIO} secciones={await seccionesNegocioActuales()} activa="plan">
+    <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'plan')} activa="plan">
       <TituloAjustes titulo="Tu plan" bajada="Tu plan de MaKo y cómo darte de baja." />
       <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} oferta={oferta} retencion={retencion} subir={subir} porLlamada={porLlamada} />
     </AjustesPagina>
