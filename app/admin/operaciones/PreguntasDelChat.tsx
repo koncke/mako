@@ -436,7 +436,7 @@ function CuerpoDeLaApp({ p }: { p: PreguntaChat }) {
   return (<>
     <p className="co-preg__aviso-app" role="note">
       <Icon name="computadora" size={15} />
-      <span>Se contesta en la app de Claude, en la computadora: desde acá no se puede. Hasta entonces, el chat no lee lo que le escribas.</span>
+      <span>Se contesta en la app de Claude, en la computadora: desde aquí no se puede. Hasta entonces, el chat no lee lo que le escribas.</span>
     </p>
     <p className="co-preg__texto">{conLinks(p.pregunta, 'pq')}</p>
     {p.contexto && <p className="co-preg__contexto">{conLinks(p.contexto, 'pc')}</p>}

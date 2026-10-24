@@ -110,7 +110,7 @@ test('4. el bloque: de a una con «1 de 2», la recomendada marcada y «otra cos
   assert.doesNotMatch(una, /1 de 1/, 'con una sola no hay contador: tocar una opción la manda');
   const app = renderToStaticMarkup(createElement(BloqueDePreguntas, { chat: 'x', deLaApp: [pq(ID(5), '2026-10-22T12:03:00Z', { origen: 'ask' })] }));
   // 24/10/2026: arriba, y también en el teléfono (tests/ops-pregunta-app-movil.test.ts).
-  assert.match(app, /Se contesta en la app de Claude, en la computadora: desde acá no se puede/);
+  assert.match(app, /Se contesta en la app de Claude, en la computadora: desde aquí no se puede/);
   assert.doesNotMatch(app, /<button[^>]*class="co-preg__op"|<input/, 'no se contesta desde acá');
   const comp = sinComentarios(leer('app/admin/operaciones/PreguntasDelChat.tsx'));
   assert.match(comp, /if \(delChatAbiertas\.every\(\(q\) => todo\[q\.id\]\)\) \{ void enviar\(todo\); return; \}/, 'con una sola pregunta, sale al elegir; con varias, al contestar todas');
