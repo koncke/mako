@@ -1021,9 +1021,13 @@ export const esPrioritario = (c: ChatCentro, avisos?: AvisosDe) => prioridadEnLi
  * ⚠️ Un chat que no se llama como una tab ya no va aparte: está en la lista, y renombrándolo pasa a su jefe.
  */
 export function seccionesDeChats(chats: readonly ChatCentro[], avisos?: AvisosDe): SeccionChats[] {
-  const cerebro = chats.filter((c) => esCerebro(c.titulo));
+  // ⚠️ LOS SUB-CHATS DEL CEREBRO VAN CON ÉL (23/10/2026, Martín: «a veces cambian los chats»). «Cerebro › Integración» no se llama
+  // «Cerebro»: quedaba en la otra lista, donde `porJefe` le armaba un grupo SIN su fila jefe y el teléfono lo dibujaba suelto
+  // («↳ Integración») debajo de lo que tocara arriba, que esa vez era «Integraciones». El Cerebro primero, sus sub-chats debajo.
+  const delCerebro = (c: ChatCentro) => esCerebro(partesDelNombre(c.titulo).jefe);
+  const cerebro = chats.filter((c) => esCerebro(c.titulo)).concat(chats.filter((c) => delCerebro(c) && !esCerebro(c.titulo)));
   const resto = chats
-    .filter((c) => !esCerebro(c.titulo))
+    .filter((c) => !delCerebro(c))
     .map((c, i) => ({ c, i, p: prioridadEnLista(c, avisos) }))
     .sort((a, b) => a.p - b.p || (a.p === 2 ? (b.c.actividad ?? 0) - (a.c.actividad ?? 0) : 0) || a.i - b.i)
     .map((x) => x.c);

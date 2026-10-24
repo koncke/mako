@@ -29,7 +29,7 @@ import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { preguntasDeLaApp, preguntasParaElBloque } from '@/lib/centro-chats';
 import {
-  SECCION_CHATS, TEXTO_SEGUNDO_RENGLON, avisosDe, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, partesDelNombre, porJefe, seccionesDeChats, segundoRenglon, trabajaSinEscribir,
+  TEXTO_SEGUNDO_RENGLON, avisosDe, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, partesDelNombre, porJefe, seccionesDeChats, segundoRenglon, trabajaSinEscribir,
   textoDeEnvio, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP,
 } from '@/lib/centro-chats';
 import type { PedidoP, PushP } from '@/lib/progreso-reglas';
@@ -390,10 +390,11 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     const todas = enteras.has(k);
     // Lo que trabaja o espera a Martín nunca queda detrás de «Ver todos».
     const corte = todas ? lista : lista.filter((c, i) => i < VISIBLES || esPrioritario(c, avisos));
-    const deLaSeccion = (k === SECCION_CHATS
-      ? porJefe(corte).flatMap((g) => [...(g.chat ? [{ c: g.chat, sub: false }] : []), ...g.subs.map((c) => ({ c, sub: true }))])
-      : corte.map((c) => ({ c, sub: false }))
-    ).map(({ c, sub }) => ({ tipo: 'chat' as const, c, sub }));
+    // Cada sub-chat con su jefe, en las dos secciones (los del Cerebro, debajo de él: lib/centro-chats.ts → seccionesDeChats). Uno
+    // cuyo jefe no está en la lista va con su nombre entero, sin «↳»: corrido, parecía colgado del de arriba (23/10/2026).
+    const deLaSeccion = porJefe(corte)
+      .flatMap((g) => (g.chat ? [{ c: g.chat, sub: false }, ...g.subs.map((c) => ({ c, sub: true }))] : g.subs.map((c) => ({ c, sub: false }))))
+      .map(({ c, sub }) => ({ tipo: 'chat' as const, c, sub }));
     return lista.length > corte.length ? [...deLaSeccion, { tipo: 'mas' as const, k, n: lista.length }] : deLaSeccion;
   });
   return (

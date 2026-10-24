@@ -7,6 +7,25 @@ del código.
 
 ---
 
+## La lista que cambiaba sola al entrar, y el sub-chat del Cerebro colgado de otro jefe (23/10/2026)
+
+- **«Me decía que Cerebro estaba apagado y luego de unos segundos se prendió»** (Martín, desde su Android). No era el Runner ni
+  una foto vieja del caché: el ✓ de cada «Completado» (`yaVistos`, guardado en MaKo) NO venía con la carga, llegaba con el primer
+  refresco. Hasta entonces `esperaCheck` daba «no hay aviso» y el Cerebro salía dormido; al llegar, «Completado» con su 1. Lo
+  mismo, más chico, con lo visto en este navegador (localStorage, leído en un efecto: el primer cuadro contaba sin eso).
+  **Regla:** todo lo que decide qué dice una fila viaja con la carga (`DatosCentro`), o se lee antes de pintar; nunca un estado
+  inicial vacío que el refresco contradice.
+- **«↳ Integración» colgado de «Integraciones»: el diagnóstico obvio (una unión por parecido del nombre) era el equivocado.**
+  `porJefe` une por el nombre EXACTO. Lo que pasaba: `seccionesDeChats` saca al Cerebro a su sección por su nombre exacto, y
+  «Cerebro › Integración» quedaba en la otra lista, donde su grupo no tenía fila jefe: el teléfono lo dibujaba corrido, suelto,
+  debajo de lo que tocara arriba. Ahora los sub-chats del Cerebro van en su sección, debajo de él; y en el teléfono, un sub-chat
+  cuyo jefe no está en la lista va con su nombre entero, sin «↳».
+
+**Vive en:** `app/admin/operaciones/datos.ts` · `app/m/operaciones/page.tsx` · `useCentro.ts` · `lib/centro-chats.ts`
+(`seccionesDeChats`) · `PiezasCentro.tsx` · `app/m/operaciones/ChatsMovil.tsx` · `tests/ops-center-lista-viva.test.ts`
+
+---
+
 ## La Ticketera del cliente, la barra que «no hace nada», el Uso que salta y la caja con el texto bajo (23/10/2026)
 
 Cuatro pedidos de Martín mirando la vista de un cliente (`/second-brain?chat=40`), medidos en producción con la sesión del ws10.
