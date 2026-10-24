@@ -139,3 +139,60 @@ test('5. la nota de voz y la línea de estado (lo que pidió el onboarding)', ()
   assert.match(c, /<BarraGrabacion voz=\{grabacion\} ocupado=\{girando\} existente=\{p\.voz\?\.pendiente \?\? null\}/, 'la barra: se termina, se escucha y recién ahí se manda');
   assert.match(c, /\{p\.estado !== undefined && <p className="co-caja__estado" aria-live="polite">\{p\.estado \?\? ''\}<\/p>\}/, 'la línea de estado, si la pantalla la da');
 });
+
+// ── EL CHAT ENTERO, NO SÓLO LA CAJA (23/10/2026) ───────────────────────────────────────────────────────────────────────────
+// Martín: «revisa que el chat con MaKo en el editor del CRM en el detail de un lead, no es el mismo que debería ser, con la criatura
+// y otras cosas del chat que están mal... Tienes que UNIFICAR los chats con MaKo en toda la app». La caja ya era una (arriba); el
+// MaKo Analyst del lead tenía la caja y el hilo únicos, pero su propio marco: sin la cabecera con la criatura, su loader («Abriendo
+// el chat…») y su arrastrar y soltar. El chat de MaKo es TRES piezas juntas: el panel (app/admin/operaciones/PanelChat.tsx →
+// PanelDeChat: la cabecera con la criatura, arrastrar y soltar, la columna del hilo y el lugar de la caja), el hilo (HiloMako) y
+// la caja (CajaChat). Lo propio de cada lugar (el contexto del lead, del flujo…) va por props y por el motor de cada uno.
+//   · 'panel único': la pantalla dibuja `<PanelDeChat` ella misma;
+//   · 'pieza de <archivo>': dibuja el hilo y la caja que monta OTRA pantalla, y ésa dibuja el panel;
+//   · 'pendiente, de <chat>': todavía con su marco propio; la migra el chat de esa área (cada migración achica la lista).
+// ⚠️ El teléfono (/m) dibuja el chat en su hoja (SheetM, con la criatura en el título): es la versión destilada, no entra acá.
+
+/** Toda pantalla de la computadora que dibuja el hilo de MaKo (`<HiloMako`), y cómo llega al panel. */
+const PANEL: Record<string, 'panel único' | `pieza de ${string}` | `pendiente, ${string}`> = {
+  'app/crm/lead-view/MakoAnalystLead.tsx': 'panel único',
+  'app/second-brain/PiezasCliente.tsx': 'pieza de app/second-brain/ChatSecondBrain.tsx',
+  'app/tickets/soporte/PiezasSoporte.tsx': 'pieza de app/tickets/soporte/ChatSoporte.tsx',
+  'app/automations/ChatMakoVista.tsx': 'pendiente, de Automations',
+  'app/dashboard/PanelEditarMako.tsx': 'pendiente, de Dashboard',
+  'app/offer/ChatOffer.tsx': 'pendiente, de Offer',
+  'app/web-generator/editor/paneles/ChatAgente.tsx': 'pendiente, de Web Generator',
+  'app/video-editor/_opencut/chat/PanelChat.tsx': 'pendiente, de Video Editor',
+  'app/image-editor/mako/chat/PanelMakoIA.tsx': 'pendiente, de Image Editor',
+  'app/_components/MakoChat.tsx': 'pendiente, de Ops Center',
+  'app/whatsapp/WhatsAppAdvisor.tsx': 'pendiente, de Chats',
+};
+const DIBUJA_PANEL = /<PanelDeChat\b/;
+
+test('6. el chat entero: las pantallas con el panel único lo dibujan, y las piezas van adentro de una que lo dibuja', () => {
+  for (const [f, estado] of Object.entries(PANEL)) {
+    assert.ok(existsSync(join(RAIZ, f)), `${f} no existe: si se movió, actualizá la lista`);
+    const s = leer(f);
+    if (estado === 'panel único') {
+      assert.match(s, DIBUJA_PANEL, `${f}: dibuja el panel único (la cabecera con la criatura)`);
+      assert.match(s, /<HiloMako\b/, `${f}: con el hilo único`);
+      assert.match(s, /<CajaChat\b|<Caja(DelCliente|Soporte)\b/, `${f}: con la caja única`);
+    } else if (estado.startsWith('pieza de ')) {
+      const montador = estado.slice('pieza de '.length);
+      assert.match(leer(montador), DIBUJA_PANEL, `${f} es una pieza de ${montador}, y ésa dibuja el panel único`);
+    } else {
+      assert.doesNotMatch(s, DIBUJA_PANEL, `${f} ya dibuja el panel único: pasala a 'panel único' en esta lista`);
+    }
+  }
+});
+
+test('7. un chat de MaKo nuevo en la computadora no arma su propio marco: dibuja el panel único', () => {
+  const nuevos = tsxDe(join(RAIZ, 'app'))
+    .filter((f) => !f.startsWith('app/m/') && f !== 'app/_chat/HiloMako.tsx' && !(f in PANEL))
+    .filter((f) => { const s = leer(f); return /<HiloMako\b/.test(s) && !DIBUJA_PANEL.test(s); });
+  assert.deepEqual(nuevos, [], `Estos chats de MaKo dibujan el hilo sin el panel único (la cabecera con la criatura): montá app/admin/operaciones/PanelChat.tsx → PanelDeChat (o, si es una pieza, sumala al PANEL con quien la monta): ${nuevos.join(', ')}`);
+});
+
+// PROBADO ROMPIÉNDOLO (23/10/2026, tests 6 y 7, base 7/0):
+//   · MakoAnalystLead.tsx sin `<PanelDeChat` (su marco de antes)          → 6/1 (6)
+//   · una pantalla nueva con `<HiloMako` y sin el panel                   → 6/1 (7)
+//   · ChatSoporte.tsx sin el panel (su pieza queda colgando)              → 6/1 (6)
