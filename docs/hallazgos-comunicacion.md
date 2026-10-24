@@ -2653,6 +2653,10 @@ depende de si lo nombran y de si hay una charla pendiente.
 importan después de un acuse (`audio sin base64`, `adjunto sin base64`) ahora avisan y piden el reenvío
 en vez de irse con un `console.error`. Acusar y desaparecer es peor que no acusar.
 
+**SUPERADO el 24/10/2026:** esos acuses de texto ya no existen; la señal es el 👍, y el texto vuelve sólo si el 👍
+falla o si el pedido lleva tiempo (ver «El acuse es el 👍 y nada más», en la entrada de las reacciones). La
+regla de «una vez que acusaste, cerrás siempre» vale igual para el 👍.
+
 **Vive en:** lib/mako-doer-in.ts (`bufferearYResponder` tras `reclamar`; las salidas de `sin base64`) · lib/mako-doer-buffer.ts:36-42 (VENTANA_AUDIO_MS) · *2026-08-05 ~fathom-preguntas-lote-whatsapp-forense · ampliado y resuelto 2026-08-08*
 
 ### El anti-eco del doer sigue con el read-modify-write que ya explotó una vez en el dedup
@@ -5019,12 +5023,70 @@ que una ruta existe sin disparar su efecto es más barato que deshacer el efecto
 
 ### Lo que quedó SIN hacer
 
-- **El acuse ahora está DUPLICADO**: MaKo ya mandaba «Recibido 👍 dame un momento y te
-  contesto» como TEXTO. Con la reacción, ese renglón sobra — una reacción dice lo mismo sin
-  ocupar el chat. No se sacó porque el dueño no lo pidió y es un cambio visible; es borrar
-  una línea cuando lo decida.
+- ~~**El acuse ahora está DUPLICADO**~~: el texto «Recibido 👍 dame un momento y te contesto» se sacó el
+  24/10/2026, cuando Martín lo pidió (abajo).
 
 *Corrida del 25/08/2026. Typecheck 0 errores, build OK, 1279/1279 tests.*
+
+### El acuse es el 👍 y nada más; con palabras, sólo lo que lleva tiempo (24/10/2026)
+
+Martín: «no quiero que MaKo en WhatsApp diga nada más como "En breves te contesto", basta con la reacción… A
+excepción de un proceso que lleve tiempo… ahí le puede decir "Lo analizo y en breves te digo" o variaciones».
+
+⚠️ **El diagnóstico con que vino el pedido era falso**: «`reaccionarMensaje` existe y en el doer nadie la llama».
+La llamaba `bufferearYResponder` desde el 25/8, y llegaba: **119 de 119** mensajes de personas en 30 días tienen
+el 👍 de MaKo (leído en el store de Evolution con `findMessages`, 11 grupos). Lo que sobraba eran los **84 textos**
+de acuse de esos mismos 30 días («Recibido 👍 dame un momento…», «Claro, anoto eso 👇 dame un segundo.», «Te
+escucho 🎧…», «Me llegó 📎…»). Antes de cablear algo «que nadie llama», grepeá quién lo llama.
+
+Lo que el 👍 hacía mal y nadie veía: salía **antes** del anti-eco (1 de 120 reacciones fue a un mensaje de la
+propia MaKo) y a **todo** mensaje, también con MaKo apagado o en un grupo en modo «ventana» donde nadie le
+hablaba: un «lo vi» al que no le sigue nada («nada por detrás»). Ahora va después del eco y de la re-entrega, y
+sólo si el mensaje engancha con la misma regla que `procesarDoer` (`enganchaElTexto`).
+
+⚠️ **«Lleva tiempo» no se puede decidir con un reloj**: el turno MÁS RÁPIDO de 139 (45 días, `mako_doer_buffer`
+→ `mako_doer_conv`) tardó 20 s; texto p50 44 s, audio p50 81 s, y hasta la charla barata p50 33 s. Un umbral de
+segundos mandaría el texto siempre. Se decide por **lo pedido** (`esperaDelPedido`, lib/doer-acuse.ts): un
+análisis, una reescritura, un texto nuevo, un PDF para leer, o un «sí» a una pendiente `lenta` del registro que
+se confirma por chat. La frase nombra QUÉ («Analizo las campañas y en breves te digo», «Escribo el mensaje y en
+breves te lo paso»), y sale en `procesarDoer`, cuando ya está el pedido entero (el lote junto, el audio
+transcripto) y antes de armar el system. Tres trampas de esa función:
+
+- **La raíz no alcanza**: con `analiz\w*`, «¿analizaste la llamada?» y «el análisis de ayer» esperaban. Cuentan
+  las formas que PIDEN (el imperativo con pronombre, el infinitivo, el subjuntivo); la suelta («analiza»,
+  «cambia») sólo al arranque de una oración, porque también es la tercera persona.
+- **Lo que el clasificador deja DUDOSO no espera**: «reescríbeme el copy» llega `capturar` dudosa y el turno lo
+  ANOTA; prometer el análisis ahí es prometer lo que no va a pasar.
+- **Un «sí» con dos pendientes contesta la última**: sólo cuenta la más reciente, y sólo si es `confirmacion:
+  'chat'` (la de pantalla la cierra el doer sin ejecutar, y su «Lo hago…» no se cumpliría nunca).
+
+**Si Evolution rechaza la reacción** (o no contesta en `TOPE_REACCION_MS` = 4 s, menos que la ventana del
+lote): sale UN texto corto («Recibido 👍», «Me llegó tu audio 👍», o la frase de espera si el pedido ya se sabe
+largo). La alternativa «la respuesta misma es la señal» no vale para ningún turno medido (20 s el mínimo), y sin
+ninguna señal es lo de agosto: el dueño reenvió un audio a los 2 min 43 s y salieron dos borradores. El
+«escribiendo…» no cuenta: sale por la misma Evolution.
+
+**El modelo tampoco la escribe**: las esperas («en breves te digo», «dame un rato», «lo analizo y te digo»)
+entraron a `PROMESAS` (lib/doer-salida.ts) —⚠️ al FINAL: `promesasFirmesDe` elige las suyas por índice—. Hasta
+hoy, con UNA herramienta corrida no se sacaba ninguna promesa; ahora, con `finDeTurno` (sólo el doer), la última
+oración que promete un después se saca y va «Lo demás no lo llegué a hacer…» (con «Eso no lo llegué a hacer»
+se leería sobre lo que sí hizo). El aviso de un ticket cerrado no pasa `finDeTurno`: ese «en breve» es de Martín.
+
+Y de Evolution: la reacción a un mensaje de un grupo sale sin `participant` en la key (120 de 120 así, todas
+llegaron).
+
+**Lo que quedó SIN hacer:**
+
+- La espera se decide por el texto del pedido, no por lo que el turno termina corriendo: una consulta que acaba
+  en una lectura `lenta` no avisa, y un «analízame» que el modelo contesta en una línea avisó de más.
+- Cuando el 👍 falla, el texto de reemplazo clasifica el mensaje SIN contexto (sin pendientes): puede decir
+  «Recibido 👍» y que `procesarDoer` diga después la espera. Dos renglones, sólo en ese caso.
+- La frase de espera no entra a `mako_doer_conv`: el vigía (lib/vigia-mako-grupos.ts) no la ve; queda en el
+  log (`[doer] ws=… espera (analisis)`).
+
+**Vive en:** `lib/doer-acuse.ts` · `lib/mako-doer-in.ts` (`bufferearYResponder`, `acusarSiNoReacciono`, la
+espera en `procesarDoer`) · `lib/doer-salida.ts` (`ESPERAS`, `esperasAlFinal`) · `tests/doer-acuse.test.ts`
+(25 roturas al pie)
 
 ---
 

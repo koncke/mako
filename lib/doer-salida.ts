@@ -49,6 +49,35 @@ const PROMESAS: RegExp[] = [
 ];
 
 /**
+ * ANUNCIAR UNA ESPERA (24/10/2026): «dame un rato», «en breves te digo», «te contesto en un rato», «lo analizo y te digo».
+ * Desde el pedido de Martín de ese día la espera la dice el CÓDIGO, antes de la respuesta y sólo si el turno lleva tiempo
+ * (lib/doer-acuse.ts). En la respuesta del modelo es siempre una promesa sin cumplir: la respuesta ES el final del turno,
+ * corrieran o no herramientas. ⚠️ Van AL FINAL de `PROMESAS` (no en el medio): `promesasFirmesDe` elige las suyas por
+ * índice. Sin tildes, como todo acá.
+ */
+const VERBOS_DECIR = 'digo|contesto|respondo|cuento|paso|aviso|escribo|mando|confirmo|comparto|envio';
+const ESPERAS: RegExp[] = [
+  // «dame un rato», «dame unos minutos» (el «dame un segundo» de arriba, con el rato)
+  /\bdame\s+(?:un|unos)\s+(?:segundo|segundito|momento|momentito|minuto|minutito|rato|ratito)s?\b/,
+  // «en breves te digo», «en breve, te lo paso»
+  new RegExp(`\\ben\\s+breves?\\b(?:[\\s,]+\\S+){0,3}?[\\s,]+(?:te|les?)\\s+(?:(?:lo|la|los|las)\\s+)?(?:${VERBOS_DECIR})\\b`),
+  // «te contesto en un rato», «te lo paso enseguida»
+  new RegExp(`\\b(?:te|les?)\\s+(?:(?:lo|la|los|las)\\s+)?(?:${VERBOS_DECIR})\\s+(?:en\\s+breves?|en\\s+un\\s+(?:rato|ratito|momento|momentito|segundo|minuto|toque)|en\\s+unos\\s+minutos|enseguida|al\\s+toque)\\b`),
+  // «lo analizo y en breves te digo», «lo veo y te cuento»
+  new RegExp(`\\b(?:lo|la|los|las|eso)\\s+(?:analizo|estudio|pienso|proceso|reviso|miro|veo|chequeo|armo|preparo)\\s+y\\s+(?:en\\s+breves?\\s+|enseguida\\s+|ahora\\s+|despues\\s+|luego\\s+)?(?:te|les?)\\s+(?:(?:lo|la|los|las)\\s+)?(?:${VERBOS_DECIR})\\b`),
+  // «ya te contesto», «ahora te respondo»
+  /\b(?:ya|ahora|enseguida)\s+(?:te\s+)?(?:contesto|respondo)\b/,
+];
+PROMESAS.push(...ESPERAS);
+/**
+ * Lo que NO puede cerrar la respuesta de un turno que SÍ corrió herramientas (24/10/2026, `esperasAlFinal`): una espera, o
+ * la promesa de algo que se está haciendo «ahora» («déjame ver el detalle», «estoy revisando lo demás»). ⚠️ Ni «te cargo
+ * las tareas» ni «voy a crear la reunión»: con herramientas corridas pueden ser el paso siguiente honesto, el que deja una
+ * pendiente que el «sí» ejecuta (la regla del 17/10/2026, ver `sanearSalida`).
+ */
+const NO_CIERRA: RegExp[] = [PROMESAS[0], PROMESAS[6], ...ESPERAS];
+
+/**
  * Lo que dice HECHO (20/10/2026, ola 1, pieza 1.5): «Listo, ya lo armé», «te creé la automatización», «quedó programado».
  * Sólo con la primera persona o con «quedó»: «tu landing está publicada» puede ser un dato del contexto, y se deja. Sin
  * tildes. Si es mentira lo decide quien llama (`RespaldoDeHecho`): la frase sola no lo dice.
@@ -178,6 +207,29 @@ export function promesasFirmesDe(texto: string, { bloquesDebajo = false }: { blo
   return [PROMESAS[0], PROMESAS[1], PROMESAS[4], PROMESAS[6]].some((re) => re.test(dicho)) ? [tal] : [];
 }
 
+/**
+ * La ESPERA que anuncia la última oración («…Dame un rato y te digo el resto.», «Lo analizo y en breves te digo.», «Déjame
+ * ver el detalle y te cuento.»), para el turno del doer que SÍ corrió herramientas (24/10/2026, `NO_CIERRA`): lo de antes
+ * trae lo que hizo y se queda; esa última promete un después que no hay. Las excepciones de `promesasFirmesDe`: una
+ * pregunta, una condición, un pedido de dato, una cita, y lo que va después de un «:» que presenta («Dame un segundo:
+ * tienes 3 reuniones» ya trae la respuesta).
+ */
+export function esperasAlFinal(texto: string): string[] {
+  const todas = oracionesPropias(texto).filter((o) => /\p{L}/u.test(o.tal));
+  const o = todas[todas.length - 1];
+  if (!o || !/\p{L}/u.test(o.propia)) return [];
+  const tal = o.tal.trim();
+  if (/[¿?]/.test(tal) || CONDICION.test(tal.toLowerCase()) || PIDE_DATO.test(norm(tal))) return [];
+  const dicho = norm(o.propia.slice(finDeLoQuePresenta(texto, o, false)));
+  return NO_CIERRA.some((re) => re.test(dicho)) ? [tal] : [];
+}
+
+/** El texto sin su última aparición de `tal` (la última oración), sin dejar un hueco. */
+function sinLaUltima(texto: string, tal: string): string {
+  const i = texto.lastIndexOf(tal);
+  return i < 0 ? texto : `${texto.slice(0, i)}${texto.slice(i + tal.length)}`.replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /** La oración pide un dato a la persona («dime», «pásame», «confirmame»). Sin tildes. */
 const PIDE_DATO = /\b(?:pasame|dime|decime|mandame|enviame|confirmame|indicame|contame|cuentame|avisame)\b/;
 
@@ -251,6 +303,11 @@ export function sinOraciones(texto: string, fuera: (oracion: string) => boolean)
  */
 export const SIN_HACER = 'Eso no lo llegué a hacer en este mensaje: pídemelo otra vez y lo hago.';
 /**
+ * La de un turno que SÍ hizo algo y prometía, al final, un después (24/10/2026, `esperasAlFinal`): lo de arriba es lo
+ * hecho, y «Eso no lo llegué a hacer» se leería sobre eso. «Lo demás» es lo que prometía la oración que se sacó.
+ */
+export const SIN_HACER_LO_DEMAS = 'Lo demás no lo llegué a hacer en este mensaje: pídemelo otra vez y lo hago.';
+/**
  * La nota que va cuando MaKo dice que HIZO algo y el código no ve nada que lo respalde (1.5; la tercera revisión,
  * 21/10/2026). ⚠️ LA ORACIÓN NO SE BORRA: borrar una verdad («sí, ya te la agendé» después de confirmar la tarjeta) es peor
  * que dejar pasar una mentira, porque le dice al cliente «no hice nada» sobre algo que sí se hizo. Las dos versiones que
@@ -281,8 +338,8 @@ export type RespaldoDeHecho = {
  * La respuesta del doer lista para salir, con lo que se le sacó.
  *
  * `corrioHerramientas`: si el turno corrió al menos UNA herramienta. Con una corrida, una
- * promesa puede ser el ofrecimiento honesto del paso siguiente, y se deja; sin ninguna, es
- * seguro que no la cumplió.
+ * promesa puede ser el ofrecimiento honesto del paso siguiente, y se deja —salvo, con `finDeTurno`,
+ * una espera en la última oración (`esperasAlFinal`)—; sin ninguna, es seguro que no la cumplió.
  *
  * Sin la promesa, la respuesta dice lo que hizo y nada de lo que no: se le suma `SIN_HACER`,
  * porque una charla que termina en «Jajaja, acepto el reto.» deja a la persona esperando lo que
@@ -293,13 +350,17 @@ export type RespaldoDeHecho = {
  * UNA nota como máximo: primero `NOTA_SIN_RESPALDO` (dice hecho algo que el código no respalda), si no `NOTA_SIN_HACER`
  * (promete algo inmediato sin haber corrido nada). Las groserías sí se sacan: no dicen nada de lo hecho.
  */
-export function sanearSalida(texto: string, { corrioHerramientas, hecho, bloquesDebajo = false }: {
+export function sanearSalida(texto: string, { corrioHerramientas, hecho, bloquesDebajo = false, finDeTurno = false }: {
   corrioHerramientas: boolean;
   /** También lo que dice HECHO sin respaldo («Listo, ya lo armé»): el chat de la app (1.5). */
   hecho?: RespaldoDeHecho;
   /** El mensaje lleva algo dibujado DEBAJO del texto (una tabla, una pregunta, una tarjeta): «Te armé la tabla de tus
    *  ventas:» la presenta (la sexta revisión: la nota quedaba entre el «:» y la tabla). */
   bloquesDebajo?: boolean;
+  /** La respuesta CIERRA un turno del modelo en el doer (24/10/2026): con herramientas corridas, lo último no puede
+   *  prometer un después (`esperasAlFinal`). ⚠️ El aviso de un ticket cerrado (lib/tickets-cierre.ts) no lo pasa: lo
+   *  libre ahí lo escribe Martín, y su «en breve te confirmo» lo cumple él. */
+  finDeTurno?: boolean;
 }): Saneo {
   const groserias = groseriasDe(texto);
   if (hecho) {
@@ -317,8 +378,18 @@ export function sanearSalida(texto: string, { corrioHerramientas, hecho, bloques
     return { texto: salida, promesas: prometidas, groserias, ...(sinRespaldo.length ? { sinRespaldo } : {}) };
   }
   // El doer de WhatsApp: una respuesta suya es el FINAL del turno, y la promesa sin herramientas se saca (lo de siempre).
-  const prometidas = corrioHerramientas ? [] : promesasDe(texto);
+  // Con herramientas corridas, «te cargo las tareas» puede ser el paso siguiente honesto y se deja (17/10/2026); una ESPERA
+  // al final («dame un rato y te digo el resto», «déjame ver el detalle y te cuento») no (24/10/2026): se saca ESA oración,
+  // lo de antes queda —trae lo que sí se hizo— y se dice que LO DEMÁS no se hizo (`SIN_HACER_LO_DEMAS`): sin esa línea, «Tus
+  // campañas: A 3 leads, B 5» deja esperando el «qué cambiar» que prometía la oración sacada. Si no queda nada, `SIN_HACER`.
+  const prometidas = corrioHerramientas ? (finDeTurno ? esperasAlFinal(texto) : []) : promesasDe(texto);
   if (!prometidas.length && !groserias.length) return { texto, promesas: prometidas, groserias };
+  if (corrioHerramientas) {
+    const sinEspera = prometidas.length ? sinLaUltima(texto, prometidas[0]) : texto;
+    const queda = sinOraciones(sinEspera, (o) => groseriasDe(o).length > 0);
+    if (!prometidas.length) return { texto: queda ?? SIN_GROSERIA, promesas: prometidas, groserias };
+    return { texto: queda ? `${queda}\n\n${SIN_HACER_LO_DEMAS}` : SIN_HACER, promesas: prometidas, groserias };
+  }
   const sacada = sinOraciones(texto, (o) => (prometidas.length > 0 && promesasDe(o).length > 0) || groseriasDe(o).length > 0);
   if (prometidas.length) return { texto: sacada ? `${sacada}\n\n${SIN_HACER}` : SIN_HACER, promesas: prometidas, groserias };
   return { texto: sacada ?? SIN_GROSERIA, promesas: prometidas, groserias };

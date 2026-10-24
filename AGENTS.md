@@ -2188,6 +2188,10 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
 - La segunda capa ya existe y se usa: `sanearSalida` (`lib/doer-salida.ts`) saca la oración que
   promete sin haber hecho nada, y la grosería. Detalle en
   [docs/hallazgos-comunicacion.md](docs/hallazgos-comunicacion.md) → «No puedo», «déjame ver».
+- **El acuse del grupo es el 👍, y ningún código manda un «dame un momento»** (Martín, 24/10/2026). Un texto de
+  espera sale sólo por `esperaDelPedido` (`lib/doer-acuse.ts`): para lo que lleva tiempo DE VERDAD, nombrando qué
+  («Analizo las campañas y en breves te digo»), o si el 👍 no salió. Un caso nuevo que lleva tiempo se suma ahí
+  con su test, no como un `enviarAGrupoJid` suelto. `tests/doer-acuse.test.ts` frena el acuse de texto que vuelva.
 
 ## Un jefe que arregla algo que le falló a un CLIENTE, cuando llega a producción, se lo avisa en su grupo
 
@@ -9230,6 +9234,9 @@ dimos. El dueño lo reportó como «es aún más raro».
   sí (el `catch` del modelo, la guarda de «ningún proveedor contestó» y el bloqueo por
   respuesta inválida). El guard busca cualquier línea que use el texto de aviso, así caza
   también la cuarta.
+- **Un cartel no tapa lo que el turno dejó hecho** (24/10/2026, ws15: la pendiente «Mover a ELi…» quedó viva dos horas
+  detrás de un «no pude»). Lo que el turno propuso antes de caerse se nombra en el cartel (`conLoQueQuedoPropuesto`,
+  lib/respuesta-doer.ts), en UN lugar: al mandar, si `avisoDeSistema`. Un cartel nuevo prende `avisoDeSistema` y lo hereda.
 - ⚠️ **El olor: el modelo dice algo sobre SÍ MISMO que nadie le contó.** Lo primero que hay
   que mirar no es el prompt: es qué hay guardado en el historial con su nombre.
 

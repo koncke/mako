@@ -27,7 +27,11 @@ test('soloElTurno deja sólo el último mensaje', () => {
 
 test('la red del doer de WhatsApp recibe sólo el turno, nunca el historial', () => {
   const src = leer('lib/mako-doer-in.ts');
-  const red = src.slice(src.indexOf('const red = await provsGratisDePlataforma()'));
+  // 24/10/2026: la lista de la red se pide antes de `turnoParaLaRed` (lib/mako-doer-in.ts, el cartel del ws21), y ya no es
+  // `const red = await …` a secas: el ancla es la llamada, no la declaración.
+  const i = src.indexOf('await provsGratisDePlataforma()');
+  assert.ok(i > 0, 'el doer ya no pide la red');
+  const red = src.slice(i);
   const llamada = /await chatCheapTools\(systemRed, ([^,]+), toolsRed/.exec(red);
   assert.ok(llamada, 'no encontré la llamada a la red');
   assert.equal(llamada[1], 'soloElTurno(msgs)');
