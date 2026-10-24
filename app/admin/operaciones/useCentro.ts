@@ -17,7 +17,7 @@
 // ⚠️ LA GUARDA NO VIVE ACÁ: los datos de entrada los lee el servidor DESPUÉS de `puedeOperar` (las dos páginas del
 //    Centro y la del Second Brain, tests/operaciones.test.ts), y cada acción la vuelve a pedir (acciones.ts).
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   DESTINO_NUEVO, DESTINO_RE, MAX_TEXTO, MAX_TEXTO_LARGO, aceptaAbrir, aceptaAdjuntos, aceptaAdjuntosGrandes, aceptaTextoLargo, problemaDeAdjuntosCaja, problemaDeNombreNuevo, tipoDeElegidoCentro, type AdjuntoPedido, type TurnoChat,
 } from '@/lib/operaciones-reglas';
@@ -79,6 +79,10 @@ export type DatosCentro = {
   cuentasIniciales?: CuentasConNombre;
   /** Lo último de cada chat, por sesión, para la lista (lib/centro-turnos-db.ts → leerUltimosTurnos). */
   ultimosIniciales?: Record<string, TurnoChat[]>;
+  /** El ✓ de cada «Completado» (lib/centro-ya-vistos-db.ts), leído con la carga: sin él, el primer cuadro no tenía los avisos
+   *  y el refresco los prendía segundos después (23/10/2026, Martín: «me decía que Cerebro estaba apagado y luego de unos segundos
+   *  se prendió»). null = no se pudo leer. */
+  yaVistosIniciales?: YaVistos | null;
   pedidos: PedidoP[];
   ahora: number;
   sub: string;
@@ -218,9 +222,11 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // los chats saldrían con aviso el primer día).
   const [vistos, setVistos] = useState<VistosDeChats | null>(null);
   /** El ✓ de cada «Completado», guardado en MaKo (18/10/2026): llega con cada refresco, así cruza al teléfono. */
-  const [yaVistos, setYaVistos] = useState<YaVistos | null>(null);
+  const [yaVistos, setYaVistos] = useState<YaVistos | null>(d.yaVistosIniciales ?? null);
   const [mirando, setMirando] = useState<string | null>(null);
-  useEffect(() => { setVistos(leerVistos(Date.now())); }, []);
+  // Antes de pintar (useLayoutEffect): leído en un efecto, el primer cuadro contaba los avisos sin lo visto en este navegador y
+  // el siguiente los cambiaba (23/10/2026).
+  useLayoutEffect(() => { setVistos(leerVistos(Date.now())); }, []);
   const verChat = useCallback((clave: string) => {
     setVistos((v) => { const n = { desde: v?.desde ?? Date.now(), chats: { ...v?.chats, [clave]: Date.now() } }; guardarVistos(n); return n; });
   }, []);

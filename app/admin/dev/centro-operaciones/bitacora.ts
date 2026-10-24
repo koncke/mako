@@ -1408,5 +1408,27 @@ export const BITACORA: Hito[] = [
       'tests/app-de-escritorio-primero.test.ts',
     ],
     revisar: '/second-brain',
+    fecha: '23 oct', hora: '20:56', chat: 'Cerebro', sesion: 'local_3c82c204-8262-460c-9fca-b164e2053c9a', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los chats del Ops Center no reflejan lo último al entrar',
+    pedido: 'Muchas veces cuando entro al Ops Center, los chats no reflejan lo ultimo... Por ejemplo en las capturas me decia que Cerebro estaba apagado y luego de unos segundos se prendió... O incluso a veces cambian los chats, etc... Eso está mal solucionalo.',
+    puntos: ['Desde su Android, con dos capturas de las 20:52 en /m: el Cerebro «Completado» con un 1 en una, gris y dormido en la otra; y «↳ Integración» colgado de «Integraciones».'],
+  },
+  {
+    fecha: '23 oct', hora: '21:30', chat: 'Ops Center', sesion: 'local_090698fe-36a3-4aab-ab7c-9c08a3639065', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La lista dice lo último desde el primer cuadro, y cada sub-chat va con su jefe',
+    puntos: [
+      'El ✓ de cada «Completado» ahora viaja con la carga: antes llegaba con el primer refresco y la lista cambiaba sola.',
+      'Los sub-chats del Cerebro van debajo de él; en el teléfono, uno sin su jefe a la vista va con su nombre entero.',
+      'Falta mirarlo en el teléfono de Martín.',
+    ],
+    archivos: [
+      'app/admin/operaciones/datos.ts, app/m/operaciones/page.tsx, useCentro.ts — yaVistosIniciales',
+      'lib/centro-chats.ts — seccionesDeChats',
+      'app/m/operaciones/ChatsMovil.tsx, PiezasCentro.tsx',
+      'tests/ops-center-lista-viva.test.ts',
+    ],
+    revisar: '/admin/operaciones',
   },
 ];
