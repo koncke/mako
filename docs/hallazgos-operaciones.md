@@ -47,6 +47,49 @@ del cliente no abre su Ticketera (la suya es /m/tickets; lib/movil-rutas.ts no t
 
 ---
 
+## Las computadoras de los clientes no van en «Tus cuentas de IA»: un pedido del 22/10 que cambió al verlo (23/10/2026)
+
+- **Síntoma:** Martín, en producción: «en mi SuperAdmin me aparece conectada la computadora de Mauricio, eso esta muy mal,
+  no tiene nada que ver, estas cruzando workspace».
+- **El diagnóstico obvio era el equivocado: no era una fuga.** Lo había pedido él el 22/10 («Lo mismo en SuperAdmin. Y poder
+  "Desconectar" dispositivos»), estaba escrito con su cita en `computadorasAction`, y cada máquina iba agrupada y rotulada
+  por negocio («Mauricio Bustos (ws1)»). Sólo la veía el super admin con su segundo factor. Lo que estaba mal era DÓNDE: el
+  modal se llama «Tus cuentas de IA», todo lo de alrededor habla de lo suyo (sus cuentas de Claude Code, su saldo, su uso),
+  y en el medio aparecía la MacBook de un cliente con su correo, su ciudad y un «Desconectar». **Regla:** el título de una
+  pantalla es un contrato sobre de QUIÉN es lo que muestra; lo de otro inquilino va donde ese inquilino ya es el tema (su
+  ficha), aunque quien mira tenga derecho a verlo. Y cuando Martín cambia de opinión al ver lo que pidió, gana lo nuevo: la
+  cita vieja queda en el comentario para que nadie lo revierta creyendo que es un bug.
+- **Medido antes de cortar** (el 22/10 también salió de un malentendido):
+  - el panel del propio cliente (`TusCuentasIA`, por `/api/ia-pc/estado`) YA muestra las computadoras de su negocio, y el
+    modal del super admin lo monta arriba: sus propias computadoras ya estaban ahí, sin duplicar nada;
+  - la lectura de TODOS la heredaban tres caminos: el modal de la computadora (Uso.tsx), la hoja del teléfono
+    (RunnerMovil.tsx) y la lectura por GET del Centro. Por eso el corte va en la LECTURA y no en la vista: `listarTodasLasPc`
+    ya no existe, y lo que queda es `listarPcDelNegocio(ws)`. La ruta exige el negocio (`?ws=`).
+- **Adónde fue:** Clientes → la ficha del cliente → Equipo, debajo de su equipo, que es de quien son las computadoras
+  (app/admin/ComputadorasDelNegocio.tsx). «Desconectar» se fue con el dato: en la ficha sí sirve para el soporte, y pide
+  confirmar diciendo de quién es el chat que deja de usarla.
+- **En el teléfono no hay una ficha:** /m/cs no tiene la ficha con Equipo. Se llega con «Versión de computadora» (en Más).
+- **Lo que encontró la revisión adversarial (10 agentes sobre el commit, cada hallazgo verificado aparte):**
+  - **la misma mezcla por OTRA puerta:** el Ops Center abierto con el `?ws=` de un cliente (un link viejo de
+    /tickets/decisiones o /admin/runway, o un marcador) dibujaba el Centro de la plataforma, y su «Tus cuentas de IA» lee el
+    negocio de la PESTAÑA (`/api/ia-pc/estado` → `getWorkspaceActual`): salían las computadoras de ese cliente debajo de las
+    cuentas de Martín, con «Desconectar» y «Nuevo dispositivo». No era de este cambio (la puerta sólo pedía `puedeOperar`,
+    que mira el ws de la SESIÓN), pero es justo lo que él reclamó. Ahora la puerta, mirando a otro negocio, lleva al Ops
+    Center de ESE cliente (/second-brain, el criterio de `quienOpera`), en la computadora y en el teléfono. **Regla:** una
+    pantalla que dice «tus» se pregunta por el negocio de la pestaña en la PUERTA, no en cada pieza que lee;
+  - otro super admin sin la guarda del Centro habría visto en cada ficha el error de la acción: la sección se dibuja sólo con
+    `puedeOperar` (`verComputadoras`, app/customer-success/pantalla.tsx);
+  - «Crédito de Claude para Mauricio» en el mismo modal NO se movió: es una decisión escrita de Martín
+    (app/admin/operaciones/UsoCredito.tsx). Si algún día la objeta como objetó la computadora, va al lado de la sección nueva.
+
+**Vive en:** lib/ia-pc.ts (`listarPcDelNegocio`) · app/admin/operaciones/acciones.ts (`computadorasDelNegocioAction`,
+`desconectarComputadoraAction`) · app/api/operaciones/lectura/route.ts · app/admin/ComputadorasDelNegocio.tsx ·
+app/admin/AdminView.tsx · tests/ia-pc-varias.test.ts (el 4).
+
+**Sin hacer:**
+- que Martín lo mire: «Tus cuentas de IA» sin la computadora de Mauricio, y la de Mauricio en Clientes → su ficha → Equipo;
+- la ficha en el teléfono, si algún día la hay.
+
 ## La foto que se manda por la caja, vista en otro dispositivo: la «decisión pendiente» ya estaba tomada (23/10/2026)
 
 - **Síntoma:** una foto mandada desde la computadora se veía en el teléfono como un renglón con su nombre (y al revés).

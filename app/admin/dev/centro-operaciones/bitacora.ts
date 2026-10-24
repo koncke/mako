@@ -1375,4 +1375,22 @@ export const BITACORA: Hito[] = [
       'tests/centro-fotos-enviadas.test.ts',
     ],
   },
+  {
+    fecha: '24 oct', hora: '00:01', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: «Tus cuentas de IA» ya no muestra las computadoras de tus clientes; están en la ficha de cada uno',
+    pedido: 'Martín, al verlo en producción (por el Cerebro, 23/10): «en mi SuperAdmin me aparece conectada la computadora de Mauricio, eso esta muy mal, no tiene nada que ver, estas cruzando workspace»',
+    revisar: '/clients',
+    puntos: [
+      'En «Tus cuentas de IA» (Ops Center → Uso), en la computadora y en el teléfono, queda sólo lo tuyo: tus cuentas de Claude Code, su uso y la API, y tus propias computadoras.',
+      'Las computadoras de un cliente están en su ficha: Clientes → el cliente → Equipo, debajo de su equipo, con «Desconectar» (pide confirmar).',
+      'El 22/10 habías pedido ver las de todos ahí; esto lo reemplaza.',
+      '**Cómo se prueba:** abre Uso en el Ops Center: no está la computadora de Mauricio. Después, en Clientes abre Mauricio Bustos → Equipo: está ahí.',
+    ],
+    archivos: [
+      'lib/ia-pc.ts (listarPcDelNegocio, en lugar de la lectura de todos)',
+      'app/admin/ComputadorasDelNegocio.tsx, app/admin/AdminView.tsx (la ficha), app/admin/operaciones/Uso.tsx y app/m/operaciones/RunnerMovil.tsx (sin la sección)',
+      'tests/ia-pc-varias.test.ts',
+    ],
+  },
 ];

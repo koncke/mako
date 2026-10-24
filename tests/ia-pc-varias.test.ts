@@ -15,7 +15,8 @@
 //      pantalla del super admin vuelve a listar las de todos.
 //   Lo del 23/10, probado rompiéndolo (con la base en 0 fallos): la lectura sin `.eq('workspace_id', ws)`, la vista sin filtrar
 //   por negocio, las computadoras de vuelta en el Uso del teléfono, la ruta sin el negocio y la ficha sin la sección → 1 fallo
-//   cada una (el 4); la acción sin su puerta → 2 (el 4 y tests/operaciones.test.ts).
+//   cada una (el 4); la acción sin su puerta → 2 (el 4 y tests/operaciones.test.ts). Y lo de la revisión: la puerta del Ops
+//   Center sin mirar el negocio de la pestaña (computadora y teléfono) y la ficha sin la guarda → 1 fallo cada una (el 4).
 // =============================================================================
 
 import { test } from 'node:test';
@@ -127,4 +128,15 @@ test('4. el super admin: las de UN negocio, en su ficha, sin secretos, con «Des
   assert.match(sinComentarios(leer('app/api/operaciones/lectura/route.ts')), /computadoras: \(req\) => computadorasDelNegocioAction\(Number\(req\.nextUrl\.searchParams\.get\('ws'\)\)\)/, 'la lectura pide el negocio');
   assert.match(sinComentarios(leer('lib/ia-pc.ts')), /export async function listarPcDelNegocio\(ws: number\)[\s\S]{0,200}\.eq\('workspace_id', ws\)/, 'la lectura es de UN negocio');
   assert.doesNotMatch(sinComentarios(leer('lib/ia-pc.ts')), /listarTodasLasPc/, 'volvió una lectura de las de todos los negocios');
+  // La revisión del 23/10: la ficha las dibuja sólo para quien pasa la guarda del Centro, y el Ops Center de la plataforma
+  // no se dibuja mirando a un cliente (su «Tus cuentas de IA» lee el negocio de la pestaña).
+  assert.match(sinComentarios(leer('app/admin/AdminView.tsx')), /\{verComputadoras && \(\s*<ComputadorasDelNegocio/, 'la ficha muestra la sección a quien no puede leerla');
+  assert.match(sinComentarios(leer('app/customer-success/pantalla.tsx')), /verComputadoras=\{puedeOperar\(sesionAdmin, await wsSuperAdmin\(\)\)\}/);
+  const puerta = sinComentarios(leer('app/admin/operaciones/page.tsx'));
+  const iGuarda = puerta.indexOf('puedeOperar(admin'), iMirando = puerta.indexOf('if (ws != null && ws !== (await wsSuperAdmin())) redirect(await rutaConWs(RUTA_OPS_CENTER_NEGOCIO));');
+  const iLee = puerta.indexOf('datosDelCentroSiOpera()');
+  assert.ok(iGuarda > 0 && iMirando > iGuarda && iLee > iMirando, 'mirando a un cliente, el Ops Center de la plataforma se dibuja igual');
+  const puertaM = sinComentarios(leer('app/m/operaciones/page.tsx'));
+  const iMirandoM = puertaM.indexOf("if (ctx?.impersonando) redirect(await rutaConWs('/m/second-brain'));");
+  assert.ok(iMirandoM > 0 && iMirandoM < puertaM.indexOf('listarPedidos()'), 'en el teléfono, mirando a un cliente, el Centro se dibuja igual');
 });

@@ -22,6 +22,18 @@ antes: la causa del 7 y el arreglo de la caja (sacándole el `0px` al campo: 40 
    de datos.ts y, cuando esto esté en main, el loader del grafo en ChatSecondBrain.tsx.
 4. Un link `/second-brain?ticketera=tickets` en el teléfono del cliente no abre su Ticketera (lib/movil-rutas.ts).
 
+## 23/10 noche (claude1, chat «Ops Center», `local_5cc6190d…`): las computadoras de los clientes, fuera de «Tus cuentas de IA»
+
+Encargo del Cerebro por lo que Martín vio en producción («estas cruzando workspace»). Rama `ops-pcs-2310` (worktree
+`C:/dev/wt-ops-fotos`), sobre `7d69d0f25`. Lo que costó: docs/hallazgos-operaciones.md → «Las computadoras de los clientes…».
+
+- **HECHO:** «Tus cuentas de IA» del super admin (computadora y teléfono) muestra sólo lo suyo; las de un cliente, con
+  «Desconectar», van en Clientes → su ficha → Equipo. La lectura de todos los negocios ya no existe (`listarPcDelNegocio`).
+- **No es un bug que revertir:** el 22/10 él pidió las de todos ahí; al verlo cambió de opinión. Si alguien encuentra la cita
+  vieja, gana la de hoy.
+- **Lo que sigue:** que Martín lo mire en producción; la ficha del cliente en el teléfono no existe (/m/cs), así que ahí no
+  se ven.
+
 ## 23/10 mañana (claude1, chat «Centro de Operaciones», `local_5cc6190d…`): las fotos en cualquier dispositivo
 
 Lo tomé por el pedido del Cerebro («si quedó algo abierto de las últimas vueltas, el WhatsApp de verdad, las fotos, el Uso, eso

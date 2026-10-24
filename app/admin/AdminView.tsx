@@ -166,7 +166,7 @@ function ChipEstadoUsuario({ u }: { u: Usuario }) {
  * sus leads ganados. Adentro de un cliente, el super admin ve los de ESE cliente,
  * que es lo correcto.
  */
-export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes = [], user }: {
+export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes = [], user, verComputadoras = false }: {
   titulo?: string;
   icono?: string;
   /**
@@ -179,6 +179,9 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
   /** Los clientes del CRM del super admin. De acá sale qué lead es cada workspace. */
   clientes?: ClienteRef[];
   user?: BoardUser;
+  /** Si quien mira pasa la guarda del Centro (`puedeOperar`): sólo así la ficha dibuja las computadoras del cliente. Sin
+   *  esto, otro super admin vería en cada ficha el error de la acción (revisión del 23/10/2026). */
+  verComputadoras?: boolean;
 } = {}) {
   const [workspaces, setWorkspaces] = useState<Workspace[] | null>(null);
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null);
@@ -1165,8 +1168,10 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
                     onEliminar={setAEliminar} avisoReenvio={avisoReenvio} onRecargar={recargar} />
                   {/* Las computadoras de SU equipo, con «Desconectar» (23/10/2026): vinieron de «Tus cuentas de IA» del super
                       admin, donde la de un cliente se leía como propia («estas cruzando workspace»). */}
-                  <ComputadorasDelNegocio key={wAbierto.id} ws={wAbierto.id} negocio={wAbierto.nombre}
-                    leer={leerComputadorasDe} desconectar={desconectarComputadoraDe} />
+                  {verComputadoras && (
+                    <ComputadorasDelNegocio key={wAbierto.id} ws={wAbierto.id} negocio={wAbierto.nombre}
+                      leer={leerComputadorasDe} desconectar={desconectarComputadoraDe} />
+                  )}
                 </div>
               }
             />

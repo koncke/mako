@@ -59,6 +59,9 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
   // Como la Ticketera: el super admin entra en el workspace de la plataforma, no «sin workspace».
   const ctx = await contextoMovil();
   if (ctx && ctx.ws == null) redirect(conWs(RUTA, plataforma));
+  // Mirando a un CLIENTE, el Centro de la plataforma no se dibuja (23/10/2026, «estas cruzando workspace»): su «Tus cuentas de
+  // IA» leería el negocio de la pestaña. Va al Ops Center de ese cliente, como en la computadora (app/admin/operaciones/page.tsx).
+  if (ctx?.impersonando) redirect(await rutaConWs('/m/second-brain'));
   await requireMovil({ onboarding: false });
   // Sin «volver» desde el 21/10/2026: el Centro es el lugar del medio de la barra del super admin (una raíz, no una fila de More).
   const cabecera = <CabeceraM titulo="Ops Center" padre={null} />;

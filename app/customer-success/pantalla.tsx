@@ -31,7 +31,8 @@ import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';
 import { carteraEnEntrega } from './entrega';
 import { lecturaDeFichas } from './ficha-lectura';
 import type { ClienteCruce } from './cruce';
-import { adminDeWorkspaceActual, estaImpersonando } from '@/lib/workspace';
+import { adminDeWorkspaceActual, estaImpersonando, wsSuperAdmin } from '@/lib/workspace';
+import { puedeOperar } from '@/lib/operaciones-reglas';
 import { AdminView } from '@/app/admin/AdminView';
 import { urlGravatar } from '@/lib/gravatar';
 import { getSesionAdmin } from '@/lib/auth';
@@ -62,7 +63,8 @@ export async function PantallaClientes({ searchParams }: { searchParams: Promise
   // tiene que ver la cartera de ESE cliente, no la de la plataforma. Lo decide
   // `estaImpersonando()`, que es la misma funcion de la que cuelga el chrome — si
   // mirara otra cosa, la barra diria un cliente y la lista seria de otro.
-  if ((await getSesionAdmin()) && !(await estaImpersonando())) {
+  const sesionAdmin = await getSesionAdmin();
+  if (sesionAdmin && !(await estaImpersonando())) {
     /**
      * ⚠️ EL TRABAJO VIENE CON EL HTML, igual que en la ficha de un cliente. «Cuando
      * entro al detail de un cliente tarda un montón en cargar sus tareas, cuando ya
@@ -91,6 +93,8 @@ export async function PantallaClientes({ searchParams }: { searchParams: Promise
         trabajo={trabajoSA}
         clientes={clientesSA}
         user={{ nombre: perfilSA.nombre, avatarUrl: perfilSA.avatarUrl }}
+        // Las computadoras de un cliente, en su ficha: sólo para quien pasa la guarda del Centro (la de sus acciones).
+        verComputadoras={puedeOperar(sesionAdmin, await wsSuperAdmin())}
       />
     );
   }
