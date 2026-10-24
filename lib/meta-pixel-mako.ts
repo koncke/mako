@@ -12,6 +12,8 @@
 // La identidad de la plataforma va en el código (AGENTS.md → «OWNER_WS NO es la
 // plataforma»): el ID de un píxel no es un secreto, viaja igual en el HTML.
 
+import { idDeReservaCalendly as idDeReservaCalendlyLocal } from './meta-capi-payload';
+
 /** El conjunto de datos «MaKo» del portafolio de Meta de MaKo. */
 export const PIXEL_META_MAKO = '1869323014511830';
 
@@ -34,6 +36,16 @@ export function debeMedir(hostname: string): boolean {
  * agendó. Calendly manda `{ event: 'calendly.event_scheduled', payload }` desde
  * https://calendly.com (su documentación de eventos del widget embebido).
  */
+/**
+ * El `eventID` del Schedule del navegador para ese aviso de Calendly, o `null` si no trae la URI del evento. Con null NO
+ * se manda el Schedule: el servidor lo manda con `schedule:<uuid>` y un evento del navegador sin ese id se contaría aparte.
+ */
+export function eventIdScheduleDelAviso(data: unknown): string | null {
+  const uri = (data as { payload?: { event?: { uri?: unknown } } } | null)?.payload?.event?.uri;
+  const id = idDeReservaCalendlyLocal(uri);
+  return id ? `schedule:${id}` : null;
+}
+
 export function esAgendaDeCalendly(origin: string, data: unknown): boolean {
   if (origin !== 'https://calendly.com') return false;
   if (!data || typeof data !== 'object') return false;

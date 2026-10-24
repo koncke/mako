@@ -13,7 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
-import { debeMedir, esAgendaDeCalendly, PIXEL_META_MAKO } from '@/lib/meta-pixel-mako';
+import { debeMedir, esAgendaDeCalendly, eventIdScheduleDelAviso, PIXEL_META_MAKO } from '@/lib/meta-pixel-mako';
 
 import { SCRIPT_DISENO } from '@/lib/editor-landing/html-editable';
 import { PARAM_CARGADOR, RUTA_CARGADOR } from '@/lib/pixel-cargador';
@@ -334,8 +334,12 @@ export default function Landing({ diseno, planes = [], landing = null }: {
         let agendo = false;
         const onMensaje = (e: MessageEvent) => {
           if (agendo || !esAgendaDeCalendly(e.origin, e.data)) return;
+          // Con el MISMO id que el servidor (lib/meta-capi-payload.ts, `eventIdSchedule`), o nada: sin la URI del evento
+          // no hay con qué emparejarlo, y un Schedule sin id se contaría aparte del de CAPI.
+          const eventID = eventIdScheduleDelAviso(e.data);
+          if (!eventID) return;
           agendo = true;
-          window.fbq?.('track', 'Schedule');
+          window.fbq?.('track', 'Schedule', {}, { eventID });
         };
         window.addEventListener('message', onMensaje);
         cleanup.push(() => window.removeEventListener('message', onMensaje));

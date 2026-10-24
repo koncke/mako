@@ -19,7 +19,10 @@
 
 export type PiezaLanding =
   | 'video-nativo' | 'video-panda' | 'video-wistia' | 'video-youtube' | 'video-vimeo' | 'video-drive'
-  | 'formulario' | 'embed-agenda' | 'link-whatsapp' | 'botones' | 'pixel';
+  | 'formulario' | 'embed-agenda' | 'link-whatsapp' | 'botones' | 'pixel'
+  // Lo que la PÁGINA le manda a Meta desde el navegador (24/10/2026): el Schedule sin id / con id, y los píxeles que
+  // inicia. No se anuncian (no tienen nombre en lib/landing-snapshot.ts): los lee el webhook de la agenda.
+  | 'meta-schedule' | 'meta-schedule-id' | `meta-px:${string}`;
 
 /**
  * LOS HOSTS DE VIDEO, EN UN SOLO LUGAR.
@@ -339,6 +342,31 @@ export const DEL_BUNDLE: Array<[PiezaLanding, RegExp]> = [
 ];
 
 /**
+ * ¿La página dispara el Schedule de Meta desde el navegador, y con `eventID` o sin él? Lee el HTML CRUDO y los bundles (el
+ * `init` va inline en un <script>, que `sinRuido` borra; la llamada vive en el bundle del sitio).
+ *
+ * Se ancla en el LITERAL del evento y no en `fbq(`: así ve `window.fbq("track","Schedule")` minificado, `fbq?.(`, un
+ * alias (`e("track","Schedule")`) y `trackSingle` con el id del píxel en el medio. El `eventID` se busca en lo que sigue
+ * hasta el próximo `track` (o 300 caracteres): un objeto de parámetros largo no lo esconde, y el id de OTRO evento no
+ * cuenta. Si hay una llamada sin id, gana el «sin id»: es la que cuenta dos.
+ */
+export function scheduleDelNavegador(texto: string): { sinId: boolean; conId: boolean } {
+  const out = { sinId: false, conId: false };
+  const re = /["']track(?:Single)?["']\s*,\s*(?:["'][^"']{0,40}["']\s*,\s*)?["']Schedule["']/g;
+  for (const m of texto.matchAll(re)) {
+    const resto = texto.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 300);
+    const corte = resto.search(/["']track(?:Single)?["']/);
+    if (/eventID/.test(corte >= 0 ? resto.slice(0, corte) : resto)) out.conId = true; else out.sinId = true;
+  }
+  return out;
+}
+
+/** Los píxeles de Meta que la página inicia (`fbq('init','<id>')`), del HTML crudo y los bundles. */
+export function pixelesMetaDe(texto: string): string[] {
+  return [...new Set([...texto.matchAll(/fbq\(\s*["']init["']\s*,\s*["'](\d{6,20})["']/g)].map((m) => m[1]))].slice(0, 4);
+}
+
+/**
  * El HTML sin lo que NO es la página del cliente.
  *
  * ⚠️ EL ANALIZADOR SE ESTABA LEYENDO A SÍ MISMO. Medido el 2026-08-16 sobre una
@@ -429,6 +457,15 @@ export function analizarHtml(url: string, html: string, bundle = ''): AnalisisLa
   // puede quitar una pieza que el HTML sí tenía.
   for (const [pieza, re] of DEL_BUNDLE) if (bundle && re.test(bundle)) add(pieza);
 
+  // ── Lo que la página le manda a Meta (24/10/2026) ─────────────────────────────
+  // Sobre el HTML CRUDO + los bundles, no sobre el limpio: el `init` va inline. El snippet de MaKo no tiene `fbq`, así
+  // que no se puede leer a sí mismo acá.
+  const crudo = bundle ? `${h}\n${bundle}` : h;
+  const sched = scheduleDelNavegador(crudo);
+  if (sched.sinId) add('meta-schedule');
+  else if (sched.conId) add('meta-schedule-id');
+  for (const px of pixelesMetaDe(crudo)) add(`meta-px:${px}`);
+
   return a;
 }
 
@@ -469,7 +506,9 @@ async function bundlesDe(url: string, html: string, fetchImpl: Buscador): Promis
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 8000);
     try {
-      const r = await fetchImpl(u, { signal: ctrl.signal, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MaKoPixel/1.0)' } });
+      let r = await fetchImpl(u, { signal: ctrl.signal, headers: { 'User-Agent': UA_COMO_NAVEGADOR } });
+      // El mismo reintento que la página (ver `analizarLanding`): un WAF que bloquea la página bloquea sus scripts.
+      if (r.status === 403) r = await fetchImpl(u, { signal: ctrl.signal, headers: { 'User-Agent': UA_BOT } });
       return r.ok ? (await r.text()).slice(0, 3_000_000) : '';
     } catch { return ''; } finally { clearTimeout(t); }
   }));
@@ -485,18 +524,24 @@ async function bundlesDe(url: string, html: string, fetchImpl: Buscador): Promis
  */
 export type Buscador = (url: string, init?: RequestInit) => Promise<Response>;
 
+/** Cómo se presenta el analizador. El segundo es el reintento ante un 403 (ver `analizarLanding`). */
+const UA_COMO_NAVEGADOR = 'Mozilla/5.0 (compatible; MaKoPixel/1.0; +https://hola-mako.com)';
+const UA_BOT = 'MaKoPixel/1.0 (+https://hola-mako.com)';
+
 export async function analizarLanding(url: string, fetchImpl: Buscador): Promise<AnalisisLanding> {
   if (!url) return VACIO(url, 'Sin dirección');
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 8000);
-    const r = await fetchImpl(url, {
-      signal: ctrl.signal,
-      // Se pide como un navegador: varios hosts devuelven un HTML distinto (o un
-      // 403) a un user-agent que no reconocen, y ahí el análisis diría que la
-      // página no tiene nada.
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MaKoPixel/1.0; +https://hola-mako.com)' },
-    });
+    // Se pide como un navegador: varios hosts devuelven un HTML distinto (o un
+    // 403) a un user-agent que no reconocen, y ahí el análisis diría que la
+    // página no tiene nada.
+    // ⚠️ Y SI ESO DA 403, UNA VEZ MÁS CON EL UA DE BOT PELADO (24/10/2026). El WAF del hosting de un cliente bloquea el
+    // «Mozilla/5.0 (compatible; …)» —parece un navegador falso— y deja pasar al bot que dice lo que es: sus tres análisis
+    // terminaron en «Esta página no deja que MaKo la lea sola». Los dos dicen que es MaKo; ninguno se hace pasar por otro.
+    const pedir = (ua: string) => fetchImpl(url, { signal: ctrl.signal, headers: { 'User-Agent': ua } });
+    let r = await pedir(UA_COMO_NAVEGADOR);
+    if (r.status === 403) r = await pedir(UA_BOT);
     clearTimeout(t);
     if (!r.ok) return VACIO(url, `La página respondió ${r.status}.`);
     const html = (await r.text()).slice(0, 2_000_000);
