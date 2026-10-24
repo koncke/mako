@@ -8,6 +8,8 @@
 //   node --env-file=<clon>/.env.local --conditions=react-server --import tsx scripts/unificar-en-seco.mts --ws 1 --a 249 --b 3099 [--queda 3099]
 // =============================================================================
 
+export {}; // módulo, no script global (la guarda del push: un .ts sin import ni export choca con los demás)
+
 const base = process.cwd().split(String.fromCharCode(92)).join('/');
 const arg = (k: string) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : undefined; };
 const WS = Number(arg('ws')), A = Number(arg('a')), B = Number(arg('b'));
