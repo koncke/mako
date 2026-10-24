@@ -18,7 +18,10 @@ import { leerTodo } from './supabase-paginado';
 import { linkApp } from './app-url';
 import { firmarAccesoCurso, leerAccesoCurso, firmarAccesoLider, leerAccesoLider, type AccesoCurso } from './curso-acceso';
 import { saneaAlcance, type AlcanceCurso } from './curso-alcance';
-import { saneaProductos, productosVisibles, productosTrasInvitar, productosTrasQuitar } from './curso-invitar-reglas';
+import {
+  saneaProductos, productosTrasInvitar, productosTrasQuitar, saneaAMano, abrePorPermiso, aManoTrasDar, productosQueVe,
+  faltaColumnaAMano, type ProductosDelAcceso,
+} from './curso-invitar-reglas';
 import { saneaBloqueo, type Desbloqueo } from './curso-bloqueo';
 import {
   pctVisto, sanearValores, respuestaCompleta, progresoEfectivo, areasDelCliente, nombreDeArea, leerCalificacion, tieneTarea,
@@ -723,7 +726,10 @@ export async function quitarCursoDelAcceso(leadId: number, productoId: number): 
  * en el mismo instante podrían pisarse; la sin sesión no llega porque reclama la fila antes
  * (`reclamarInvitacion`), y la de una persona no la aprieta dos veces a la vez.
  */
-export async function marcarInvitacion(leadId: number, email: string, porQuien: string | null, area: string | null = null, productoId: number | null = null): Promise<void> {
+export async function marcarInvitacion(
+  leadId: number, email: string, porQuien: string | null, area: string | null = null, productoId: number | null = null,
+  opts: { aMano?: boolean } = {},
+): Promise<void> {
   const db = await getTenantDb();
   let productos: { productos: number[] | null } | Record<string, never> = {};
   if (area == null && productoId != null) {
@@ -732,11 +738,18 @@ export async function marcarInvitacion(leadId: number, email: string, porQuien: 
     // igual devuelve sólo ése, por si una carrera la creó en el medio.
     productos = { productos: productosTrasInvitar(previo, productoId) };
   }
+  // El permiso a mano (mig 0331): SÓLO lo pide el buscador (`invitarAlCurso` con `cualquierEtapa`, y sólo si hizo
+  // falta). Es la ÚNICA escritura de `productos_a_mano` del repo (lo fija tests/curso-acceso-a-mano.test.ts): sin ella,
+  // el link del mail de un lead que no está en Ganado no abre (`resolverAcceso`).
+  let aMano: { productos_a_mano: number[] } | Record<string, never> = {};
+  if (area == null && productoId != null && opts.aMano === true) {
+    aMano = { productos_a_mano: aManoTrasDar((await permisoAManoDe(leadId))?.aMano ?? [], productoId) };
+  }
   // `invitando_at: null`: el reclamo de la invitación sin sesión (`reclamarInvitacion`) se suelta
   // en la misma escritura que dice que salió — con dos escrituras, un fallo entre las dos dejaría
   // la fila reclamada (y otro disparo esperando 5 minutos) sobre una invitación ya anotada.
   const { error } = await conArea(db.from('curso_accesos')
-    .update({ email: email.trim().toLowerCase(), invitacion_enviada_at: new Date().toISOString(), invitado_por: porQuien, invitando_at: null, ...productos })
+    .update({ email: email.trim().toLowerCase(), invitacion_enviada_at: new Date().toISOString(), invitado_por: porQuien, invitando_at: null, ...productos, ...aMano })
     .eq('lead_id', leadId), area);
   if (error) throw new Error(error.message);
 }
@@ -760,19 +773,31 @@ const RECLAMO_MS = 5 * 60_000;
  * de `invitadoAlProducto` (lib/curso-invitar-reglas.ts) escrita en el WHERE, en UN `or` en forma
  * normal disyuntiva — (sin invitar O sin ese producto) Y (sin reclamo O reclamo vencido) — porque dos
  * `.or()` encadenados no se sabe cómo los junta PostgREST.
+ *
+ * `opts.aMano` (mig 0331, el buscador cuando hace falta el permiso): «nadie lo invitó a ESTE producto» pasa a ser
+ * «nadie le dio ESTE producto a mano», aunque ya lo hayan invitado (el invitado del 13 al 23/10, cuyo link no abría).
+ * Sin la columna, tira diciendo que falta la migración: ANTES de mandar el mail.
  */
-export async function reclamarInvitacion(leadId: number, ahora: Date = new Date(), productoId: number | null = null): Promise<boolean> {
+export async function reclamarInvitacion(
+  leadId: number, ahora: Date = new Date(), productoId: number | null = null, opts: { aMano?: boolean } = {},
+): Promise<boolean> {
   const db = await getTenantDb();
   const vencido = new Date(ahora.getTime() - RECLAMO_MS).toISOString();
   const base = db.from('curso_accesos')
     .update({ invitando_at: ahora.toISOString() })
     .eq('lead_id', leadId).is('area', null).is('revocado_at', null);
   const libre = ['invitando_at.is.null', `invitando_at.lt.${vencido}`];
-  const q = productoId != null && Number.isInteger(productoId) && productoId > 0
-    ? base.or(['invitacion_enviada_at.is.null', `productos.not.cs.{${productoId}}`].flatMap((a) => libre.map((b) => `and(${a},${b})`)).join(','))
-    : base.is('invitacion_enviada_at', null).or(libre.join(','));
+  const conProducto = productoId != null && Number.isInteger(productoId) && productoId > 0;
+  const q = conProducto && opts.aMano === true
+    ? base.or(libre.map((b) => `and(productos_a_mano.not.cs.{${productoId}},${b})`).join(','))
+    : conProducto
+      ? base.or(['invitacion_enviada_at.is.null', `productos.not.cs.{${productoId}}`].flatMap((a) => libre.map((b) => `and(${a},${b})`)).join(','))
+      : base.is('invitacion_enviada_at', null).or(libre.join(','));
   const { data, error } = await q.select('id');
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (faltaColumnaAMano(error)) throw new Error('Falta aplicar la migración 0331 para dar este acceso.');
+    throw new Error(error.message);
+  }
   return (data ?? []).length > 0;
 }
 
@@ -882,6 +907,53 @@ export async function reactivarAcceso(leadId: number, area: string | null = null
   if (error) throw new Error(error.message);
 }
 
+// ── El permiso a mano (mig 0331) ──────────────────────────────────────────────
+
+export type PermisoAMano = { abre: ProductosDelAcceso; aMano: number[] };
+
+/**
+ * El permiso a mano del CLIENTE (`area` null). Con `version`: sólo si esa versión sigue vigente y no está revocado,
+ * EN EL WHERE (un corte entre esta lectura y la de `resolverAcceso` cierra). Sin la columna de la 0331: `null` (nada
+ * abre por permiso, lo de antes) y un aviso. Cualquier otro error tira.
+ */
+export async function permisoAManoDe(leadId: number, opts: { version?: number } = {}): Promise<PermisoAMano | null> {
+  const db = await getTenantDb();
+  const base = db.from('curso_accesos').select('productos, productos_a_mano').eq('lead_id', leadId).is('area', null);
+  const q = opts.version != null ? base.eq('version', opts.version).is('revocado_at', null) : base;
+  const { data, error } = await q.maybeSingle();
+  if (error) {
+    if (faltaColumnaAMano(error)) { console.warn('[curso] falta productos_a_mano (mig 0331): nada dado a mano abre'); return null; }
+    throw new Error(error.message);
+  }
+  if (!data) return null;
+  const f = data as { productos?: unknown; productos_a_mano?: unknown };
+  return { abre: saneaProductos(f.productos), aMano: saneaAMano(f.productos_a_mano) };
+}
+
+/** Lo dado a mano de varios clientes (el buscador, ~20): lead → lista. Sin la columna: vacío y un aviso. */
+export async function aManoDeVarios(leadIds: readonly number[]): Promise<Map<number, number[]>> {
+  const out = new Map<number, number[]>();
+  const ids = [...new Set(leadIds.filter((n) => Number.isInteger(n) && n > 0))];
+  const db = await getTenantDb();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await db.from('curso_accesos').select('lead_id, productos_a_mano').in('lead_id', ids.slice(i, i + 200)).is('area', null);
+    if (error) {
+      if (faltaColumnaAMano(error)) { console.warn('[curso] falta productos_a_mano (mig 0331): el buscador no ve permisos'); return new Map(); }
+      throw new Error(error.message);
+    }
+    for (const f of (data ?? []) as Array<{ lead_id: number | string; productos_a_mano?: unknown }>) out.set(Number(f.lead_id), saneaAMano(f.productos_a_mano));
+  }
+  return out;
+}
+
+/** ¿El lead está en Ganado hoy? Tira si la base no contesta. */
+async function leadEnGanado(leadId: number): Promise<boolean> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('leads').select('id').eq('id', leadId).eq('estado_lead', 'ganado').maybeSingle();
+  if (error) throw new Error(error.message);
+  return data != null;
+}
+
 /**
  * Lo que abre un token del cliente, con sus PERMISOS (mig 0219): `alcance` = qué módulos ve
  * (`null` = todo). Lo aplica el portal en la misma puerta que los bloqueos (lib/curso-alcance.ts).
@@ -890,7 +962,8 @@ export type AccesoResuelto = AccesoCurso & { alcance: AlcanceCurso };
 
 /**
  * ¿Este token abre? Verifica la firma y, ADENTRO del workspace que dice la firma, que la versión
- * siga vigente, que no esté revocado y que el lead siga siendo un cliente ganado.
+ * siga vigente, que no esté revocado y que el lead siga siendo un cliente ganado, o que tenga un permiso a mano
+ * vigente (mig 0331: lo dio una persona desde el buscador).
  *
  * ⚠️ SÓLO EL ACCESO DEL CLIENTE (`c1.`, la fila con `area` null). Lo usan la entrada del mail —que
  * deja la cookie del alumno— y la cookie misma: un líder que pasara por acá quedaría con la cookie
@@ -912,7 +985,10 @@ export async function resolverAcceso(token: string): Promise<AccesoResuelto | nu
   // ⚠️ Un error de base no es «este link ya no está activo»: tira, y la página muestra su fallo.
   if (e1 || e2) throw new Error((e1 ?? e2)!.message);
   const f = acc as { version: number; revocado_at: string | null; alcance?: unknown } | null;
-  if (!f || f.revocado_at || f.version !== a.version || !lead) return null;
+  if (!f || f.revocado_at || f.version !== a.version) return null;
+  // ⚠️ GANADO ABRE COMO SIEMPRE, sin una lectura más. SIN Ganado abre SÓLO un permiso dado a mano desde el
+  // buscador (mig 0331), leído con la versión y «no revocado» EN EL WHERE: un corte entre las dos lecturas cierra.
+  if (!lead && !abrePorPermiso(await permisoAManoDe(a.leadId, { version: a.version }))) return null;
   return { ...a, alcance: saneaAlcance(f.alcance) };
 }
 
@@ -1052,13 +1128,18 @@ export async function productosDelAlumno(leadId: number): Promise<number[]> {
  * desde cuándo cuenta depende de si el producto es su casa o una fila aparte (`abiertoDesdeDe`). La
  * casa es un hecho del CRM: no se acota por lo que abre su acceso.
  *
- * ⚠️ UNA lectura más por pedido: la lista de su acceso (`productosQueAbre`). Si falla, TIRA — «no pude
- * leer qué abre» no es «abre todo» (el portal contesta su error y se reintenta).
+ * ⚠️ DOS lecturas más por pedido: la lista de su acceso (`productosQueAbre`) y lo dado a mano (`permisoAManoDe`, mig
+ * 0331); la etapa del lead, sólo si tiene algo a mano. Si falla, TIRA — «no pude leer qué abre» no es «abre todo» (el
+ * portal contesta su error y se reintenta).
  */
 export async function productosConCasaDelAlumno(leadId: number): Promise<{ productos: number[]; casa: number | null }> {
   const { productosDelCliente } = await import('@/app/customer-success/entrega');
-  const [suyos, abre] = await Promise.all([productosDelCliente(leadId), productosQueAbre(leadId)]);
-  return { productos: productosVisibles(suyos.productos, abre), casa: suyos.casa };
+  const [suyos, abre, permiso] = await Promise.all([productosDelCliente(leadId), productosQueAbre(leadId), permisoAManoDe(leadId)]);
+  const aMano = permiso?.aMano ?? [];
+  // Sin nada a mano, la venta decide como siempre y no se lee la etapa (resolverAcceso ya la miró). Con algo a mano,
+  // un lead que ya no está en Ganado ve SÓLO lo dado a mano (`productosQueVe`).
+  const porVenta = aMano.length ? await leadEnGanado(leadId) : true;
+  return { productos: productosQueVe({ porVenta, deCliente: suyos.productos, ofrecidos: suyos.ofrecidos, abre, aMano }), casa: suyos.casa };
 }
 
 /**

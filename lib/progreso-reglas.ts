@@ -249,6 +249,28 @@ export const DIAS_ENTERO = 14;
  * 75 de los 81 chats de las bitácoras se conocen sólo por un nombre que ningún chat vivo tiene (lib/centro-chats.ts →
  * `completarChats`, el paso 3, los manda al jefe de su tab).
  */
+/** Lo terminado hace menos de esto viaja con la carga del Ops Center; lo de antes, al abrir su chat (`pedidosDeLaCarga`). */
+export const DIAS_EN_LA_CARGA = 2;
+
+/**
+ * LO QUE VIAJA AL CARGAR (23/10/2026, medido por Rendimiento y acá): de los 455 pedidos de todas las fechas (733 KB en CADA
+ * carga de /admin/operaciones), lo sin terminar eran 21 (16 KB) y lo terminado, 434 (716 KB). Lo terminado sólo se dibuja en la
+ * conversación de SU chat (`historialDelChat`); la lista, el segundo renglón y los «Completado» salen de los turnos y de lo que
+ * está en curso. Así que viaja lo sin terminar y lo terminado en los últimos `DIAS_EN_LA_CARGA` días, y el resto se pide al
+ * abrir el chat (`pedidosQueFaltan`, useCentro.ts). La historia NO se recorta (Martín, 16/10: «Deberías traer mayor
+ * historial»): `chatsDeBitacoras` sigue armando la lista con TODOS, del lado del servidor.
+ */
+export function pedidosDeLaCarga(pedidos: readonly PedidoP[], ahora: number): PedidoP[] {
+  const desde = ahora - DIAS_EN_LA_CARGA * 86_400_000;
+  return pedidos.filter((p) => p.estado !== 'hecho' || p.ultimo >= desde);
+}
+
+/** Los pedidos de un chat que la pantalla todavía no tiene (los terminados viejos): los que se piden al abrirlo. */
+export const pedidosQueFaltan = (ids: readonly string[], tengo: { has: (id: string) => boolean }): string[] => ids.filter((id) => !tengo.has(id));
+
+/** Un pedido de un chat se pide por su id: hasta este tope por vez (un chat viejo tiene decenas). */
+export const TOPE_PEDIDOS_POR_LECTURA = 200;
+
 export function pedidosDelCentro(areas: readonly AreaP[], ahora: number): PedidoP[] {
   const desde = ahora - DIAS_ENTERO * 86_400_000;
   return pedidosRecientes(areas, ahora, DIAS_HISTORIAL).map((p) => recortarPedido(p, p.estado === 'hecho' && p.ultimo < desde));

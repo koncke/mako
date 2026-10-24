@@ -57,6 +57,9 @@ export function esVistaSinChrome(pathname: string | null | undefined): boolean {
     // ancho para navegar a lugares a los que nadie va a ir desde acá — lo único
     // que se hace en esta ventana es mirar entrar eventos y cerrarla.
     || /^\/integraciones\/escuchando\/?$/.test(p)
+    // La ventana donde termina el login de Zernio (Facebook, Instagram, anuncios de Meta): vive unos segundos, se cierra sola y no
+    // tiene a dónde navegar (app/integraciones/zernio-vuelta).
+    || /^\/integraciones\/zernio-vuelta\/?$/.test(p)
     // La ventana de «Presentar con notas» del Image Editor: la segunda ventana que se
     // mira mientras se presenta (notas, reloj, la siguiente). Por la misma razón.
     || /^\/image-editor\/presentador\/?$/.test(p)

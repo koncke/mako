@@ -13,10 +13,11 @@
 // 30 tablas). Las puertas de las rutas (`soloAdminDeTab`, `resolverWsAdmin`), el onboarding en curso, la IA, la decisión
 // de D6b y el contexto son los reales. El workspace va con `runWithWorkspace`, como lo resuelve la cookie.
 //
-// El negocio (ws3) tiene una Gemini vieja del onboarding. Tres estados:
-//   · sinSuIA  (el control): sin su PC ni su clave → la cascada sale a Gemini. Si no, la prueba no vería nada (y el
-//     análisis programado tiene que LLEGAR a la IA: la hoja es la del informe inicial, con los gráficos de verdad).
-//   · conSuPc  : su PC conectada (su Claude, D6b) → ni un pedido a un proveedor gratis, y la pantalla dice lo cierto.
+// Tres estados del negocio (ws3):
+//   · sinSuIA  (el control): su Gemini, sin su PC → la cascada sale a SU Gemini (IA16, 22/10/2026: su Gemini es su IA). Si
+//     no, la prueba no vería nada (y el análisis programado tiene que LLEGAR a la IA: la hoja es la del informe inicial, con
+//     los gráficos de verdad). El nombre quedó de antes, cuando una Gemini del negocio no era «su IA».
+//   · conSuPc  : sin su Gemini y con su PC conectada (su Claude, D6b) → ni un pedido a una IA, y la pantalla dice lo cierto.
 //   · enOnboarding: su PC y el onboarding en curso → el crédito de Claude de la plataforma SIGUE (api.anthropic.com):
 //     El Archivero del onboarding no se rompe por correr adentro del contexto.
 //
@@ -100,7 +101,7 @@ async function main() {
   pg.db.workspaces.push({ id: PLATAFORMA, capa: 'superadmin', nombre: 'MaKo' }, { id: WS, capa: 'cliente', nombre: 'Prueba' });
   // El onboarding del negocio, terminado: el crédito de Claude de la plataforma no corre (lib/veto-claude.ts).
   pg.db.app_settings.push({ ...ONBOARDING_HECHO });
-  // La Gemini vieja del negocio, y la red de la plataforma (ws9): lo que D6b no tiene que tocar.
+  // Su Gemini (el control), y la red de la plataforma (ws9): lo que no se le presta a un negocio.
   pg.db.credenciales.push({ workspace_id: WS, clave: 'GEMINI_API_KEY', valor_enc: cifrarSecreto(`negocio-gemini-${'x'.repeat(30)}`, WS, 'GEMINI_API_KEY'), servicio: 'gemini' });
   for (const k of ['GEMINI_API_KEY', 'GROQ_API_KEY']) {
     pg.db.credenciales.push({ workspace_id: PLATAFORMA, clave: k, valor_enc: cifrarSecreto(`plataforma-${k}-${'y'.repeat(30)}`, PLATAFORMA, k), servicio: k.split('_')[0].toLowerCase() });
@@ -150,7 +151,8 @@ async function main() {
   // ── El control: sin su IA (una Gemini vieja no es «su IA») ──────────────────────────────────────────────────────
   const sinSuIA = await correr(todos);
 
-  // ── Con su PC conectada: su Claude (D6b) ─────────────────────────────────────────────────────────────────────────
+  // ── Sin su Gemini y con su PC conectada: su Claude (D6b) ─────────────────────────────────────────────────────────
+  pg.db.credenciales = pg.db.credenciales.filter((f) => f.workspace_id !== WS);
   const ahora = new Date().toISOString();
   pg.db.ia_pc_dispositivos.push({ id: 1, workspace_id: WS, persona: PERSONA, revocado_at: null, confirmado_at: ahora, activa_at: ahora, creado_at: ahora });
   const conSuPc = await correr(todos);

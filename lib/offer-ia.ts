@@ -62,7 +62,8 @@ export const FEATURE_OFFER = 'offer';
  * (`PROVS_CREAR_IA`, lib/flujo-ia.ts) es la misma idea, pero ese archivo tenía cambios sin commitear de
  * otra sesión el 11/10/2026 y una dependencia de ahí ataría esta feature a sus cambios.
  */
-export const PROVS_OFFER: readonly ProvName[] = ['gemini', 'groq'];
+// IA16 (22/10/2026): sin Groq, que sólo escucha audio (Martín: «Groq sólo para las notas de voz»).
+export const PROVS_OFFER: readonly ProvName[] = ['gemini'];
 
 /**
  * El modelo gratis de OpenRouter. Copiado de `MODELOS_CREAR_IA` (lib/flujo-ia.ts, 11/10/2026), donde está

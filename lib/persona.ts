@@ -216,7 +216,7 @@ export async function generarDescripcionPersona(): Promise<{ ok: true; descripci
       await setPersona({ ...(await getPersona()), descripcion });
       return { ok: true, descripcion };
     }
-    return { ok: false, error: 'No pude analizar las fotos. Reintenta, o conecta tu Claude o tu GPT en Integraciones para el análisis con IA.' };
+    return { ok: false, error: 'No pude analizar las fotos. Reintenta, o conecta tu Claude, tu GPT o tu Gemini en Integraciones para el análisis con IA.' };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

@@ -87,3 +87,7 @@ a.tci-boton { display: inline-flex; align-items: center; justify-content: center
 .tci-grande__titulo { font-size: var(--fs-md); font-weight: 600; }
 .tci-grande__detalle { font-size: var(--fs-sm); color: var(--dim); line-height: 1.4; }
 @media (pointer: coarse) { .tci-grande { min-height: calc(var(--touch) * 2); } }
+
+/* El esqueleto del bloque mientras llega el estado (23/10/2026): la forma de una cuenta, en gris (Skeleton de app/_ui). */
+.tci-esqueleto { display: flex; flex-direction: column; gap: 12px; padding: 16px 20px 18px; border-radius: var(--r-lg, 14px); background: var(--surface-2); }
+.tci-esqueleto__ventana { display: flex; flex-direction: column; gap: 8px; }

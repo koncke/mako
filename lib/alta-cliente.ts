@@ -29,7 +29,7 @@ import { getSupabaseServer } from './supabase';
 import { setSetting } from './settings';
 import { estadoInicial, setEstadoOnboarding } from './onboarding-state';
 import { hoyEnTijuana } from './date-utils';
-import { CAPAS_VENDIBLES, capaDef, type CapaId } from './capas';
+import { capaDef, esCapaVendible, type CapaId } from './capas';
 import { invitarPorEmail, type ResultadoInvitacion } from './invitaciones';
 import { APP_BASE_URL } from './app-url';
 
@@ -39,7 +39,8 @@ export type ResultadoAlta =
   | { ok: true; workspace: Workspace; invitacion: ResultadoInvitacion }
   | { ok: false; error: string; status: number; yaExiste?: boolean };
 
-export const esCapaVendible = (capa: string): capa is CapaId => CAPAS_VENDIBLES.some((c) => c.id === capa);
+// Vive en lib/capas.ts desde el 23/10/2026 (la usa la regla pura de vender un plan); se re-exporta para los de siempre.
+export { esCapaVendible };
 
 export async function darDeAltaCliente(a: {
   nombre: string;

@@ -127,3 +127,10 @@ test('lo que no es obligatorio no se pide en ningún lado: ni «Completar datos�
   assert.equal((acc.match(/const pendientes = await pendientesQueAvisan\(after, /g) ?? []).length, 2, 'setLeadStageAction y completeStageMoveAction');
   assert.match(acc, /return apagados \? avisanDelLead\(faltan, lead, apagados\) : faltan;/);
 });
+
+test('el contacto y el setter no llevan «Opciones ▾» (abría vacío): sus datos van en «Datos ▾» (visto en producción, 24/10/2026)', () => {
+  const armador = readFileSync('app/crm/lead-view/ficha/Armador.tsx', 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
+  assert.match(armador, /const conOpciones = op\.some\(\(x\) => x === 'redes' \|\| x === 'fuentes' \|\| x === 'pregunta'\);/);
+  assert.match(armador, /\{conOpciones && \(/);
+  assert.doesNotMatch(armador, /\{op\.length > 0 && \(/);
+});

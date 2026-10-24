@@ -3851,7 +3851,7 @@ otra sesión:**
   FIRMADO —reescribir la cookie no la estira—, compara en tiempo constante y nunca firma con un
   secreto vacío.
 - **La firma no alcanza y no se cree**: `resolverAcceso` (versión vigente, no revocado, lead
-  `ganado`) corre en CADA pedido, adentro de `runWithWorkspace(ws de la firma)`. Y aísla porque
+  `ganado` o con un permiso a mano vigente desde la mig 0331) corre en CADA pedido, adentro de `runWithWorkspace(ws de la firma)`. Y aísla porque
   `curso_accesos` ya estaba en las tablas de inquilino: si no, `getTenantDb()` sería passthrough.
 - **La rama del proxy devuelve temprano, y eso era lo que había que mirar**: una salida antes del
   resto del middleware podría saltearse el borrado del header interno de workspace. No lo saltea
@@ -5762,3 +5762,58 @@ app/_ui/PersonalizarTarjetas.tsx), pero con una diferencia que no se ve leyendo 
 **Vive en:** lib/tarjeta-clientes.ts · app/customer-success/ClienteCard.tsx, KanbanEntrega.tsx, ClientesApp.tsx,
 tarjeta-actions.ts · tests/clientes-tarjeta-plantillas.test.ts
 *21/10/2026, chat «CRM» (claude3), con un agente.*
+
+## El link de una invitación del buscador no abría: el permiso levantaba la guarda al ESCRIBIR y no al LEER (23/10/2026)
+
+**Síntoma.** La pestaña «Del embudo» del modal de invitar (13/10/2026, «invitar en cualquier etapa») le mandaba el mail
+a un lead que no está en Ganado, el mail salía, y el link no abría: el portal contestaba que el acceso no estaba activo.
+
+**Causa.** `invitarAlCurso` con `cualquierEtapa` levantaba las dos guardas AL ESCRIBIR (estar en Ganado y ser cliente de
+ese producto): creaba el acceso, lo anotaba y mandaba el mail. Pero no dejaba NADA que la puerta de LECTURA
+reconociera: `resolverAcceso` (lib/curso-datos.ts) exige `estado_lead = 'ganado'` en cada pedido. Con un ganado de OTRO
+producto pasaba lo mismo un paso más adelante: abría el portal y `productosConCasaDelAlumno` no le mostraba el curso.
+
+⚠️ **El diagnóstico obvio era el equivocado**: cambiar el texto del mail para que no prometiera nada. El mail estaba bien;
+lo que faltaba era la marca.
+
+**Arreglo.** `curso_accesos.productos_a_mano` (mig 0331): los productos cuyo curso le abrió una PERSONA desde el
+buscador. La escribe sólo `marcarInvitacion({ aMano: true })`, y sólo cuando hizo falta (sin Ganado, o ganado de otro
+producto: `necesitaPermiso`). `resolverAcceso` la acepta SÓLO sin Ganado y leída con la versión y «no revocado» en el
+WHERE; un ganado no paga una lectura más. Lo que ve el alumno pasa por `productosQueVe`: sin permiso, idéntico a antes;
+sin Ganado y con permiso, SÓLO lo dado a mano, nunca lo que tuvo de cliente. La comunidad lo cuenta como miembro y el
+paso de etapa lo ubica en el producto de la clase. Desde el buscador se corta y se vuelve a habilitar.
+
+**La regla que queda:** un permiso que levanta una guarda al escribir deja una marca que la guarda de lectura reconoce.
+Si la guarda de lectura no puede verla, el permiso no existe: la acción «sale bien» y no sirve.
+
+**Las dos decisiones del Cerebro (23/10/2026), con su porqué:**
+1. **El acceso dado a mano sobrevive a que el lead pase a Perdido o se reembolse, y se corta a mano desde el
+   buscador.** Fue una decisión de una persona, y no lo deshace otro evento. «Quitar de este producto» tampoco lo corta.
+2. **Esos alumnos NO reciben los WhatsApp del curso** (aviso de etapa, recordatorio, llamadas), como hoy. La copia a
+   Mauricio sigue diciendo «no es cliente ganado».
+
+**Cómo se arreglan los invitados del 13 al 23/10:** volviendo a apretar «Invitar» en el buscador. Sale un segundo mail
+con el mismo link, que ahora abre, y queda la marca. Sin backfill: esas filas se mezclan con ganados que después
+perdieron. La consulta para contarlos está en el plan del arreglo (`C:/dev/plan-portal-a-mano.md`, paso 11).
+
+**Quedó SIN hacer, y dónde:**
+- El equipo no ve a estos alumnos en Avance ni en la ficha: sólo en el buscador (app/customer-success/curso/).
+- `abiertoDesdeDe` (lib/curso-datos.ts) cuenta el goteo desde que se creó la fila del acceso: un ex cliente con una fila
+  vieja ve de golpe las clases «a los N días». Y después del primer avance nace su fila de `cliente_entrega` para ese
+  producto (`alEnviarTarea`), con lo que pasa a contar como cliente de ese producto si después gana.
+- La API de MaKo no ve ni corta estos accesos, y `quitarCursoDelAcceso` no sabe del permiso (con `productos` NULL
+  contesta «Ese curso no se le abrió»).
+- `marcarInvitacion` lee y después escribe `productos_a_mano` (no es atómico); lo mitiga el reclamo con
+  compare-and-set del camino del buscador.
+- Un ganado que no es cliente del producto, invitado antes del arreglo, figura «Ya invitado» y no lo ve
+  (`estadoEnBuscador` no consulta `productosDelCliente`). Se vuelve a invitar desde su ficha.
+- Si la 0331 no está aplicada, todo lee «sin permiso» con un aviso en el log, y el buscador falla ANTES del mail.
+
+**Vive en:** `supabase/migrations/0331_curso_accesos_a_mano.sql` · `lib/curso-invitar-reglas.ts` (`productosQueVe`,
+`abrePorPermiso`, `estadoEnBuscador`…) · `lib/curso-datos.ts` (`resolverAcceso`, `permisoAManoDe`, `marcarInvitacion`,
+`reclamarInvitacion`) · `lib/curso-invitar.ts` · `lib/comunidad-datos.ts` · `lib/curso-avance.ts` ·
+`app/customer-success/entrega.ts` · `app/customer-success/curso/invitar-actions.ts` y `InvitarAlumnos.tsx` ·
+`tests/curso-acceso-a-mano.test.ts` (14 roturas, cada una cae)
+
+*23/10/2026 · chat «API de MaKo» (claude2), por encargo del Cerebro · el plan salió de un panel de tres propuestas;
+tests y roturas medidos, sin probar contra la base todavía.*

@@ -2535,6 +2535,34 @@ FEEDBACK PROBAR:
     revisar: "/automations",
   },
   {
+    fecha: "23 oct", hora: "20:56", chat: "Automations › Métricas", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Una pestaña de métricas en cada automatización, armada por MaKo y que se lleva al Dashboard",
+    pedido: "Algo muy importante que falta, es en cada Automatización ver una pestaña de métricas... Me imagino como un botón al lado del botón de configuraciones. Cuando se apreta, todo el lienzo se reemplaza por el dashboard de esas métricas... Por defecto MaKo lo debe armar solo, con los bloques que considere. Pero se debe poder personalizar al igual que en Dashboard y un botón para llevar esas métricas como nueva hoja a la tab de dashboard.",
+    puntos: [
+      "Llegó por el Cerebro, firmado por Martín.",
+      "No es otra pantalla de números: es el editor del Dashboard con un informe por automatización, como General.",
+      "«Lo arma MaKo»: la hoja de entrada mira el flujo y pone sólo lo que tiene sentido para esa automatización.",
+      "«Llevar al Dashboard» crea una hoja nueva en la tab Dashboard, filtrada a esa automatización.",
+    ],
+  },
+  {
+    fecha: "24 oct", hora: "02:30", chat: "Automations", cuenta: "claude1",
+    sesion: "local_298a7983-21a5-4fcb-a5c5-bf80bc9e0944",
+    actor: "claude", tipo: "correccion",
+    titulo: "Archivar una automatización ya no deja sus borradores esperando aprobación",
+    puntos: [
+      "Al archivar, los mensajes que esperaban aprobación se descartan (no se borran), y cada lead lo tiene en su historial.",
+      "Antes quedaban en la bandeja: aprobar uno días después le mandaba al lead el mensaje de un flujo que ya no corre.",
+      "Y frenaban otra automatización del mismo lead: en Código Inmobiliario, una automatización tuvo cuatro leads cuatro días esperando.",
+    ],
+    archivos: [
+      "lib/secuencias-huecos.ts — archivar descarta los borradores pendientes y lo anota",
+      "lib/api-mako/areas/chatbot.run.ts — archivar_secuencia lo dice al confirmar y al terminar",
+    ],
+    revisar: "/automations",
+  },
+  {
     fecha: "24 oct", hora: "06:40", chat: "Automations", cuenta: "claude1",
     sesion: "local_298a7983-21a5-4fcb-a5c5-bf80bc9e0944",
     actor: "claude", tipo: "correccion",

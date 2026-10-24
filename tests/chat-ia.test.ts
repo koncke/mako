@@ -81,7 +81,8 @@ test('3. lo elegido llega a la llamada: su clave y su modelo; con el crédito, H
 
 test('4. la ruta lo lee en las dos ramas y manda las cuentas; el turno lo respeta y con la computadora no cae a las claves', () => {
   const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
-  assert.match(ruta, /if \(sp\.get\('suIA'\)\) return json\(\{ ok: true, conectada: await conSuIA\(persona\), cuentas: await cuentasDeIA\(persona\)\.catch\(\(\) => \[\]\) \}\);/);
+  // Desde el 23/10/2026 con `app` (si instaló la app de escritorio): tests/app-de-escritorio-primero.test.ts.
+  assert.match(ruta, /const \[conectada, cuentas, app\] = await Promise\.all\(\[conSuIA\(persona\), cuentasDeIA\(persona\)\.catch\(\(\) => \[\]\), laApp\(persona, req\)\]\);/);
   assert.match(ruta, /const ia = await eleccionDelPedido\(quien, form\.get\('ia'\)\);\n\s*const r = await turnoApp\(quien, sessionId, \{[^}]*voz[^}]*desde, ia \}\);/, 'el multipart (la nota de voz) no lee la elección');
   assert.match(ruta, /const ia = await eleccionDelPedido\(quien, body\.ia\);\n\s*const r = await turnoApp\(quien, sessionId, \{[^}]*sanearDesde\(body\.desde\), ia \}\);/, 'el JSON no lee la elección');
   // Nunca tal cual: la elección cruda no llega al turno.

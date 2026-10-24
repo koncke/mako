@@ -26,6 +26,12 @@ export const CORTE_POR_PLAN_PRENDIDO: boolean = false;
 
 /** El header por el que el proxy le dice al server qué ruta se pidió. Lo pone SÓLO el proxy (borra el que mande el cliente). */
 export const HEADER_RUTA = 'x-mako-ruta';
+/**
+ * La query del pedido (`?a=1&b=2`, o vacío), por el mismo camino y con la misma regla: la pone SÓLO el proxy. La lee un
+ * LAYOUT que redirige (un layout no recibe `searchParams`): app/plan/layout.tsx y app/second-brain/layout.tsx (23/10/2026,
+ * ticket #7, lib/pedido-actual.ts).
+ */
+export const HEADER_QUERY = 'x-mako-query';
 
 /** Prefijo de app/api → key de nav (la que pasa la página de esa tab a `requireRolWs`/`requireCapa`). */
 export const TAB_DE_API: ReadonlyArray<readonly [string, string]> = [

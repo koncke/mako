@@ -2099,6 +2099,47 @@ conflicto en cualquier orden. Si el archivo cambia en la otra rama antes del mer
 
 *23/10/2026 · chat «API de MaKo» (claude2) · tests y rotura en el worktree, sin tipos, sin navegador.*
 
+## Editar las etapas de un CRM por la API: el cuerpo de la action se mudó a lib (23/10/2026, auditoría P0-6)
+
+Seis operaciones nuevas en `crm`: `renombrar_etapa`, `agregar_etapa`, `eliminar_etapa`, `ordenar_etapas`, `plazo_etapa` y
+`columna_nutricion_crm`. Hasta hoy la API sólo sabía cambiar el tipo de una etapa (`cambiar_tipo_etapa`, 21/10) y crear un
+CRM entero: lo demás del «⋯» de la columna y del pop-up de etapas era sólo de la pantalla.
+
+**El cuerpo de `editarEtapaAction` vive en `lib/etapas-crm-server.ts` (`editarEtapa`)**, el mismo molde que
+`lib/etapa-tipo-server.ts`. La action quedó con la puerta (admin) y los cachés; la lib no limpia cachés, porque corre
+también desde la API y un flujo (la API usa `invalidar`). Con dos copias de cómo se guarda una etapa, la que se queda vieja
+es la que decide qué se puede borrar.
+
+Lo que queda para código nuevo:
+- **Lo que no se borra lo decide UNA función pura, `porQueNoSeElimina` (`lib/etapas-crm-reglas.ts`)**: las terminales, lo
+  que no está en el pipeline, la última etapa y la de entrada. La op `eliminar` la llama al escribir y `eliminar_etapa` la
+  pregunta en `preparar()`: una pendiente reclamada no vuelve a «pendiente», así que lo que se puede saber sin escribir
+  falla antes del «sí». Lo mismo con el orden: `pipelineReordenado` arma lo que se guarda Y lo que muestra el resumen.
+- **Los leads de la etapa que se quita se cuentan con el conteo del pop-up** (`conteosDelEmbudo`, que se mudó de
+  `extrasDelEmbudoAction` con `etapaComoTablero`): todas las etapas arrancan en 0 y cuenta con la regla que dibuja la
+  tarjeta. `contar_leads_por_etapa` mira sólo el CRM principal y con otra regla: con ése, una etapa propia con gente daba 0.
+  El resumen dice lo que pasa con esos leads con la frase de la pantalla (`avisoAlQuitarEtapa`).
+- **Una etapa se busca por key o por nombre, sin tildes** (`columnaDe`), como `cambiar_tipo_etapa`. `agregar_etapa` rechaza
+  un nombre que ya tiene otra etapa del mismo CRM (un modelo que reintenta crearía dos iguales) y devuelve la key nueva
+  (`editarEtapa` ahora la devuelve en `creada`).
+- **Una columna de nutrición del catálogo no es una etapa**: se quita con `columna_nutricion_crm` (la op `quitarNutricion`,
+  que apaga las transiciones que llegan a ella), no con `eliminar_etapa`. Una vez quitada ya no está en las etapas, así
+  que se devuelve por su key: la respuesta al quitarla la dice.
+
+**Quedó SIN hacer, y dónde:**
+- Apagar UNA transición de nutrición (la op `nutricion`, por id `desde>hacia`) y el orden de la banda Nutrición
+  (`ordenNutricion`): la pantalla los tiene, la API no. Van como P1.
+- Devolver una etapa quitada TAL CUAL (la op `insertar`, que es el «Deshacer» de la pantalla): por la API, quitar una
+  etapa no tiene vuelta (`reversible: false`); se puede volver a crear con `agregar_etapa`, con otra key.
+- Los tests viejos que leían el cuerpo en `app/crm/actions.ts` (`etapa-reunion`, `funnel-estructura`,
+  `leads-por-producto`) ahora leen también la lib y las reglas.
+
+**Vive en:** `lib/etapas-crm-server.ts` · `lib/etapas-crm-reglas.ts` (puro) · `app/crm/actions.ts` (`editarEtapaAction`,
+`extrasDelEmbudoAction`) · `lib/api-mako/areas/crm.def.ts` y `crm.run.ts` · `lib/api-mako/rest.ts` ·
+`tests/api-mako-etapas-crm.test.ts`
+
+*23/10/2026 · chat «API de MaKo» (claude2) · tests y roturas medidos; sin probar contra la base todavía.*
+
 ## La entrega de un cliente y el alumno nuevo, por la API (23/10/2026, auditoría P0-5 y P0-3)
 
 **El síntoma.** Por la API se movía el CRM (`proponer_cambio_etapa`, `mover_lead_en_producto`, que escriben
@@ -2158,6 +2199,77 @@ corren todos los que aparecen.** Acá fueron unos 300 archivos con `--test-concu
 `tests/api-mako-cs-entrega.test.ts` · `tests/api-mako-curso-alumno.test.ts`
 
 *23/10/2026 · chat «API de MaKo» (claude2) · tests y rotura en el worktree, tsc acotado sin errores propios, sin navegador.*
+
+## Vender un plan de MaKo por el chat: lo que mueve plata se confirma en pantalla (23/10/2026, auditoría P0-8)
+
+`vender_plan_mako` es «Vender un plan» de /admin/cobros por el chat del super admin. `crear_link_pago` no servía: exige un
+producto del catálogo y no pone `altaCapa`, así que al pagarse no se creaba la cuenta. Lo que queda para código nuevo:
+
+- **Lo que mueve plata va con `confirmacion: 'pantalla'`, `rolMinimo: 'admin'` y, si es de la plataforma,
+  `gating.soloPlataforma`; sin `'http'` si cobra.** Lo decidió el Cerebro ese día, corrigiendo la primera versión, que
+  se confirmaba por chat con la marca `plata`. El porqué: el precio lo tipea una persona y el link cobra eso, y en la
+  pantalla se puede corregir antes del «sí».
+- **En pantalla, lo que el resumen nombra como SUJETO va `fijoAlRevisar`**: acá el email y el plan. Corregirlos al
+  revisar le vendería otro plan a otra persona con el resumen que se confirmó. El monto sí se edita: es lo que se revisa.
+- **Un runner no llama server actions**: «Vender un plan» vivía adentro de `venderPlanAction` y se mudó a
+  `lib/vender-plan.ts` (`venderPlan`; la validación, a `lib/vender-plan-reglas.ts`). La action quedó con el super admin
+  primero y el `revalidatePath`, y delega. Cobros pidió no armar un segundo camino para crear un cobro con alta de cuenta.
+- **Lo que el camino de la pantalla rechazaría al confirmar, se rechaza en `preparar()`**: el workspace de la plataforma
+  (también en `ejecutar()`), dos leads con el mismo email (no elige uno a ciegas) y la pasarela (ninguna conectada, la
+  pedida no conectada, o dos sin decir cuál). Una pendiente reclamada no vuelve a «pendiente».
+- **El link lo escribe el código**: va a la persona (`paraLaPersona`) y en `datos.url`, que /mako/revisar dibuja como
+  botón. Nunca al resumen que lee el modelo.
+
+### ⚠️ La revisión propia dijo «nada que frene»; la adversarial encontró 16
+
+La primera versión se revisó a mano con tres lentes (el Workflow no corría por la RAM) y salió «no encontró nada que
+frene». Cobros pidió la revisión adversarial antes de soltarla, y con cuatro frentes (alguien sin admin que vende, un plan
+que no existe, el doble clic, un workspace que no es la plataforma) aparecieron 16 confirmados, dos de severidad media. Lo
+que generaliza:
+
+- **`rolMinimo: 'admin'` + `soloPlataforma` es el admin DEL WORKSPACE de la plataforma, no el super admin global.**
+  /admin/cobros exige `getSesionAdmin`; por la API alcanzaba con ser admin del ws de la plataforma. Una acción que la
+  pantalla reserva al super admin lleva `faltaParaConfirmar` y el mismo chequeo en `ejecutar()` (`esSuperAdmin`, con
+  `try`: fuera de un request no hay cookies y eso es un «no»). Al PROPONER no se exige: por WhatsApp no hay sesión.
+- **Un paso «⚡ Acción» de un flujo se confirma solo (`aplicarEnElActo`).** Lo que tiene que confirmar una persona
+  concreta va en `NO_EN_FLUJOS` (lib/api-mako/flujo.ts) Y el runner lo rechaza por `PREFIJO_FLUJO`: el lienzo no lo
+  ofrece, pero un paso viejo o importado lo correría igual.
+- **Lo que va a cobrar se decide ANTES del «sí» y el resumen lo dice.** El resumen nombraba el monto con la moneda que
+  vino (o USD), Mercado Pago cobra en la de su cuenta, y una venta sin el valor en dólares fallaba DESPUÉS del «sí», con
+  el lead ya creado. `previaDeLaVenta` corre `decidirCobro` + `montoUsdDelCobro` sin escribir, y `venderPlan` la llama
+  antes de crear el lead (la pantalla también se benefició).
+- **La lista «en positivo» que excluía.** `CAPAS_VENDIBLES` tenía el comentario «en POSITIVO» y el código
+  `c.id !== 'superadmin'`: una capa nueva entraba sola a la venta, al enum de la operación y al alta al cobrar. Ahora son
+  dos listas (`IDS_VENDIBLES` y `CAPAS_NO_VENDIBLES` con su porqué) y tests/capas-vendibles.test.ts exige cada capa en
+  una. Es el «el nombre decía la intención y el código otra cosa» de `wsDePrueba()`, otra vez.
+- **Una regla dentro de un módulo `server-only` no se ejecuta en ningún test.** `ventaValida` se mudó a
+  `lib/vender-plan-reglas.ts` (puro) y el test la CORRE: capa, email en minúsculas (el alta crea al admin con él), moneda.
+- **Dos pedidos dejaban dos links vivos, y pagar los dos creaba dos cuentas.** `cobroAbiertoDelPlan`: un link pendiente
+  del mismo plan con el mismo precio vuelve como `yaEstaba` con su link; con otro precio, se anula primero.
+- **El comprador por email EXACTO no veía un lead guardado con mayúsculas**, y la venta creaba otro. Va un patrón
+  escapado (`\`, `%`, `_`) por `ilike` y decide `leadPorEmail`, la vara de lib/compra-plan.ts.
+- **En /mako/revisar `paraLaPersona` no se muestra**: el resumen de lo hecho dice dónde quedó el link (Cobros, con el
+  número de cobro).
+
+### Lo que quedó sin hacer
+
+- **`crearCobro` puede quedar a medias** (el cobro escrito y el link de la pasarela fallado, o al revés): vive en
+  `lib/cobros.ts`, es del área Cobros y se les reportó.
+- **`confirmar()` de `app/mako/revisar/[id]/RevisarAccion.tsx` no tiene `try/catch`**: si la action tira, el botón queda
+  girando. Es UI compartida de todas las acciones de pantalla.
+- **`CAPAS_DE_PLAN` de `lib/planes-mako.ts` repite `IDS_VENDIBLES` a mano**: dos listas de lo mismo (chat Planes).
+- **La pantalla no rechaza una cuenta que ya existe** (del equipo de MaKo o de otro negocio): la API sí, porque el email
+  lo transporta un modelo. En la pantalla lo ve Martín, y cambiarla es una decisión de Cobros.
+- **Residual: dos propuestas para un comprador NUEVO confirmadas a la vez** pueden crear dos leads. Un `ref` determinista
+  lo cerraría y bloquearía revender para siempre (una propuesta aplicada bloquea su `ref`).
+
+**Vive en:** `lib/vender-plan.ts` · `lib/vender-plan-reglas.ts` · `lib/capas.ts` (`IDS_VENDIBLES`, `CAPAS_NO_VENDIBLES`) ·
+`app/admin/cobros/actions.ts` (`venderPlanAction`) · `lib/api-mako/areas/cobros.def.ts` y `cobros.run.ts`
+(`vender_plan_mako`) · `lib/api-mako/flujo.ts` (`NO_EN_FLUJOS`) · `tests/api-mako-vender-plan.test.ts` (18 roturas con
+capas-vendibles, cada una al menos 1 fallo) · `tests/capas-vendibles.test.ts` · `tests/admin-cobros.test.ts`
+
+*23/10/2026 · chat «API de MaKo» (claude2) · primera versión con revisión propia; revisión adversarial con agentes
+(wf_fbeb8485-d3c) el mismo día, a pedido de Cobros.*
 
 ## «Toda capacidad nace en la API» es regla desde el 13/10, y la guarda que la hacía cumplir nunca llegó a main (23/10/2026)
 

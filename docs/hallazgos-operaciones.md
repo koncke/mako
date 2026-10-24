@@ -7,6 +7,75 @@ del código.
 
 ---
 
+## La app de escritorio antes que cualquier chat, y el Uso que parecía vacío mientras cargaba (23/10/2026)
+
+- **«Al principio me aparecen solo los botones de Conectar»** (Martín, en el Uso). No faltaba un loader en la ruta: el modal
+  (`TusCuentasIA`) dibujaba «Nueva cuenta» y la lista vacía ANTES de tener el estado, y eso se lee como «no tienes nada». **Regla:**
+  un bloque que todavía no sabe si hay datos dibuja su esqueleto (`EsqueletoDeCuentas`), y lo vacío recién con el estado. Y el
+  esqueleto se ata a «ya se intentó leer», no a «no hay estado»: si la lectura falla, no queda gris para siempre.
+- **«Bloqueá igual»** (la decisión de Martín, con su porqué, en la bitácora del Ops Center y en `appDeEscritorio`): sin
+  computadora conectada, el chat con MaKo muestra la descarga en lugar de la conversación, aunque el negocio tenga su clave. Lo
+  decide el servidor en el mismo `?suIA=1` que ya pedía el chat. El teléfono sale del pedido con la MISMA función del proxy
+  (`tipoDeDispositivo`): ahí no se instala, así que avisa sin bloquear. Bloqueado, relee cada 8 s y se destraba solo.
+- **La descarga ya existía, con otro texto:** `NuevoDispositivo` (IA del cliente) decía «Instala MaKo en OTRA computadora». En
+  vez de copiar el link y la detección de Windows o Mac, la pieza suma `titulo` y `nota` opcionales, y el chat la monta.
+- **Sólo los chats:** el bloqueo vive en el chat común (PiezasCliente.tsx + `enviar` del motor), no en el servidor del turno: lo
+  automático sigue igual. La Ticketera (Soporte) no se bloquea: tiene su propia caja.
+
+**Vive en:** `lib/chat-mako-reglas.ts` (`appDeEscritorio`) · `app/api/mako/chat/route.ts` (`laApp`) · `app/_chat/AppPrimero.tsx` ·
+`app/second-brain/PiezasCliente.tsx` · `useChatCliente.ts` · `app/integraciones/TusCuentasIA.tsx` · `tests/app-de-escritorio-primero.test.ts`
+
+**Sin mirar en pantalla** (sin build local por la RAM): recorrerlo en producción con una cuenta sin computadora.
+## «Unificar los chats con MaKo»: la caja ya era una, el marco no (23/10/2026)
+
+- **Síntoma** (Martín, en la ficha de un lead): «el chat con MaKo... no es el mismo que debería ser, con la criatura y otras
+  cosas». El diagnóstico obvio era que ese chat no usaba las piezas únicas, y estaba mal: ya usaba el hilo (`HiloMako`) y la
+  caja (`CajaChat`). La guarda de entonces (tests/chat-unico.test.ts) sólo miraba la CAJA. Lo distinto era el MARCO: sin
+  cabecera ni criatura, su propio «Abriendo el chat…», su arrastrar y soltar, un borde azul arriba. Diez pantallas estaban así.
+- **Regla** (en AGENTS.md): el chat de MaKo son tres piezas juntas, el panel (`PanelDeChat`, con la cabecera y la criatura), el
+  hilo y la caja. La guarda ahora mira el chat entero: toda pantalla de la computadora que dibuja `HiloMako` dibuja el panel, o
+  es una pieza de una que lo dibuja. Un chat embebido (la ficha del lead) no tiene adónde volver: `onVolver` es opcional.
+- **La criatura del Dashboard era la de la tab**, no la estrella: contra la regla del 21/10 («los iconos de las criaturas siempre
+  debe ser el icono de MaKo»). Ahora es la estrella.
+- **Lo que NO se migró a ciegas:** Offer (`ChatOffer.tsx`, la tab y el onboarding) es el embudo del lanzamiento del 25/10, y
+  nueve de sus tests cuidan el soltar con sólo texto y la nota de voz: queda para su chat, con el molde de MakoAnalystLead.tsx.
+
+**Sin hacer (el inventario de tests/chat-unico.test.ts → PANEL):** Automations (`ChatMakoVista.tsx`, la cabecera vive en
+`ChatMako.tsx`), Offer, Web Generator (`ChatAgente.tsx`), Video Editor (`PanelChat.tsx`), Image Editor (`PanelMakoIA.tsx`),
+Chats (`WhatsAppAdvisor.tsx`) y `app/_components/MakoChat.tsx` (Ads Manager y el Diagnóstico).
+## La lista que cambiaba sola al entrar, y el sub-chat del Cerebro colgado de otro jefe (23/10/2026)
+
+- **«Me decía que Cerebro estaba apagado y luego de unos segundos se prendió»** (Martín, desde su Android). No era el Runner ni
+  una foto vieja del caché: el ✓ de cada «Completado» (`yaVistos`, guardado en MaKo) NO venía con la carga, llegaba con el primer
+  refresco. Hasta entonces `esperaCheck` daba «no hay aviso» y el Cerebro salía dormido; al llegar, «Completado» con su 1. Lo
+  mismo, más chico, con lo visto en este navegador (localStorage, leído en un efecto: el primer cuadro contaba sin eso).
+  **Regla:** todo lo que decide qué dice una fila viaja con la carga (`DatosCentro`), o se lee antes de pintar; nunca un estado
+  inicial vacío que el refresco contradice.
+- **«↳ Integración» colgado de «Integraciones»: el diagnóstico obvio (una unión por parecido del nombre) era el equivocado.**
+  `porJefe` une por el nombre EXACTO. Lo que pasaba: `seccionesDeChats` saca al Cerebro a su sección por su nombre exacto, y
+  «Cerebro › Integración» quedaba en la otra lista, donde su grupo no tenía fila jefe: el teléfono lo dibujaba corrido, suelto,
+  debajo de lo que tocara arriba. Ahora los sub-chats del Cerebro van en su sección, debajo de él; y en el teléfono, un sub-chat
+  cuyo jefe no está en la lista va con su nombre entero, sin «↳».
+
+**Vive en:** `app/admin/operaciones/datos.ts` · `app/m/operaciones/page.tsx` · `useCentro.ts` · `lib/centro-chats.ts`
+(`seccionesDeChats`) · `PiezasCentro.tsx` · `app/m/operaciones/ChatsMovil.tsx` · `tests/ops-center-lista-viva.test.ts`
+## 733 KB de pedidos en cada carga: la historia no se recorta, se trae al abrir su chat (23/10/2026)
+
+- **Síntoma** (medido por Rendimiento): /admin/operaciones mandaba en cada carga los 455 pedidos de todas las fechas, 733 KB.
+  La lista de chats, que es lo que parecía pesado, son 49 KB.
+- **La salida obvia era la equivocada:** bajar `DIAS_HISTORIAL` (3.650 días). Esa ventana la pidió Martín el 16/10 («traer
+  mayor historial»), y la lista la necesita entera para saber qué chats hubo. Lo pesado era otra cosa: mandarle al
+  navegador lo TERMINADO, que sólo se dibuja en la conversación de su chat (`historialDelChat`). El segundo renglón, los
+  «Completado» y «en qué trabaja» salen de los turnos y de lo que está en curso.
+- **Regla:** la lista se arma con todos en el servidor; a la pantalla viaja lo sin terminar y lo terminado de los últimos 2
+  días (`pedidosDeLaCarga`: 47 pedidos, 96 KB), y lo viejo de un chat se pide por GET al abrirlo (`pedidosDelChatAction`,
+  `?que=pedidos`, con la guarda de `puedeOperar`).
+
+**Vive en:** `lib/progreso-reglas.ts` · `app/admin/operaciones/datos.ts` · `app/m/operaciones/page.tsx` · `useCentro.ts` (`mirar`) ·
+`acciones.ts` · `app/api/operaciones/lectura/route.ts` · `tests/centro-pedidos-carga.test.ts`
+
+---
+
 ## La Ticketera del cliente, la barra que «no hace nada», el Uso que salta y la caja con el texto bajo (23/10/2026)
 
 Cuatro pedidos de Martín mirando la vista de un cliente (`/second-brain?chat=40`), medidos en producción con la sesión del ws10.

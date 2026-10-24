@@ -230,7 +230,8 @@ test('General 1: el botón de MaKo del título es el LOGO (la chispa sola) y mid
   assert.match(html, /width:44px;height:44px/);
   assert.match(html, /viewBox="0 0 48 48"/, 'no es el logo');
   assert.doesNotMatch(html, /<circle/, 'volvió la estrella chiquita de arriba');
-  const chrome = tramo(PERFIL, '<div data-titulo-lienzo', '{onProbar && (', 3_000);
+  // (3 600 desde el 23/10/2026: entre el título y «Probar» entró «Métricas», al lado de la tuerca.)
+  const chrome = tramo(PERFIL, '<div data-titulo-lienzo', '{onProbar && (', 3_600);
   assert.match(chrome, /height: ALTO_ACCION/, 'el título no tiene el alto del botón');
   // 20/10/2026: el logo ya no va en el título (el chat de MaKo está siempre, en la sidebar). En su lugar, la tuerca de
   // Configuraciones de ESTA automatización, con la misma cara y el mismo lado (tests/automations-chat-siempre.test.ts).

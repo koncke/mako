@@ -13,6 +13,8 @@ test('tapa las claves de los proveedores que usa este producto', () => {
     ['mi key es sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFFGGGG', 'sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFFGGGG'],
     ['usá sk-proj-abcdefghijklmnopqrstuvwxyz123456', 'sk-proj-abcdefghijklmnopqrstuvwxyz123456'],
     ['GEMINI: AIzaSyA1234567890123456789012345678901234', 'AIzaSyA1234567890123456789012345678901234'],
+    // La de AI Studio de hoy (auth): `AQ.` + 50 de base64url. Rota: volver a sólo `AIza` en la regla → falla.
+    ['mi gemini AQ.Ab8RN6Zy9Xw8Vu7Ts6Rq5Po4Nm3Lk2Ji1Hg0Fe_-abcdEFGH12 listo', 'AQ.Ab8RN6Zy9Xw8Vu7Ts6Rq5Po4Nm3Lk2Ji1Hg0Fe_-abcdEFGH12'],
     ['groq gsk_abcdefghijklmnopqrstuvwxyz0123', 'gsk_abcdefghijklmnopqrstuvwxyz0123'],
     ['token EAAGm0PX4ZCpsBA1234567890abcdefghijklmnopqrstuvwxyz0123456789', 'EAAGm0PX4ZCpsBA1234567890abcdefghijklmnopqrstuvwxyz0123456789'],
     ['ghp_abcdefghijklmnopqrstuvwxyz0123456789', 'ghp_abcdefghijklmnopqrstuvwxyz0123456789'],

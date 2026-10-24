@@ -40,6 +40,7 @@ test('la vista dibujada: el hilo con la estrella de MaKo, y la caja única con e
     ],
     enMensaje: (x) => (x.id === 'm1' ? { arriba: createElement('span', { 'data-prueba-arriba': '' }, '✓') } : null),
     escribiendo: null, vacio: null, onReintentar: () => {}, encima: null,
+    cabecera: { clave: 'prueba', titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: 'despierto' },
     caja: {
       texto: '', onTexto: () => {}, onMandar: () => {}, placeholder: 'Pídele un cambio',
       adjuntos: { items: [{ id: 'a1', file: new File(['x'], 'foto.png', { type: 'image/png' }), tipo: 'image', url: 'blob:x' }], puede: true, onSumar: () => {}, onQuitar: () => {} },

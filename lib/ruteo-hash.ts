@@ -22,7 +22,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
  * fila de ruteo guarda el hash. Las demás de `ROUTING_CREDS` son identificadores públicos (un id
  * de página, un tipo de evento) y van tal cual.
  */
-export const RUTEO_POR_HASH: ReadonlySet<string> = new Set(['HOTMART_HOTTOK', 'SKOOL_WEBHOOK_CLAVE', 'ZAPIER_LEADS_CLAVE']);
+export const RUTEO_POR_HASH: ReadonlySet<string> = new Set(['HOTMART_HOTTOK', 'SKOOL_WEBHOOK_CLAVE']);
 
 /** sha256 en hex del valor SIN espacios a los lados (como lo guarda y lo manda cada lado). */
 export function hashDeRuteo(valor: string): string {

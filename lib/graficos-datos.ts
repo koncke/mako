@@ -43,6 +43,8 @@ import { esCuotaDeBaja, noEsDeuda } from './cobrado-lead';
 import { ubicarLeads } from './funnels-elegidos-server';
 import { faltaColumnaFunnel, funnelDelMomento } from './funnels-elegidos';
 import { diasEntre, ESTADOS_RESPONDIO, enviosRespondidos, gano, rotuloMadurez, tramosDelCiclo } from './graficos-datos-puro';
+import { horasHastaResponder, rotuloDeTarjeta, tipoDeEnvio } from './automatizacion-metricas';
+import type { PasoGrafo } from './flujo-grafo';
 import { carteraEnEntrega } from '@/app/customer-success/entrega';
 import { repartirEnEtapas } from './servicio-etapas';
 
@@ -412,7 +414,7 @@ async function filasMakoChat(rg: Rango): Promise<Fila[]> {
 // ── Automations ──────────────────────────────────────────────────────────────────────────
 
 const ESTADO_INSC: Record<string, string> = { activa: 'Activa', completada: 'Completada', cancelada: 'Cancelada', no_responde: 'No responde', respondio: 'Respondió', handoff: 'Pasó a una persona' };
-type FInsc = { id: number; lead_id: number | null; secuencia_id: number | null; estado: string | null; desenlace: string | null; inscripto_at: string | null; desenlace_at: string | null };
+type FInsc = { id: number; lead_id: number | null; secuencia_id: number | null; estado: string | null; desenlace: string | null; inscripto_at: string | null; desenlace_at: string | null; updated_at: string | null };
 /**
  * Quién entró a cada automatización. `respondieron` = las que terminaron en «respondió» o «pasó a una
  * persona» (`ESTADOS_RESPONDIO`), la tasa sobre las personas. Con la fecha «Hoy» (si el catálogo la
@@ -420,16 +422,22 @@ type FInsc = { id: number; lead_id: number | null; secuencia_id: number | null; 
  */
 async function filasInscripciones(fecha: string, rg: Rango): Promise<Fila[]> {
   const col = fecha === 'desenlace' ? 'desenlace_at' : 'inscripto_at';
-  const rows = await leer<FInsc>('nutricion_inscripciones', 'id, lead_id, secuencia_id, estado, desenlace, inscripto_at, desenlace_at', rg, { col, ts: true });
+  const rows = await leer<FInsc>('nutricion_inscripciones', 'id, lead_id, secuencia_id, estado, desenlace, inscripto_at, desenlace_at, updated_at', rg, { col, ts: true });
   const sec = await nombres('nutricion_secuencias', rows.map((x) => x.secuencia_id).filter((x): x is number => x != null));
   return rows.map((x) => ({
     f: fechaTj(fecha === 'desenlace' ? x.desenlace_at : x.inscripto_at),
     d: { automatizacion: x.secuencia_id != null ? sec.get(String(x.secuencia_id)) ?? null : null, estado: ESTADO_INSC[x.estado ?? ''] ?? lindo(txt(x.estado)), desenlace: lindo(txt(x.desenlace)) },
-    v: { personas: 1, respondieron: ESTADOS_RESPONDIO.has(String(x.estado ?? '')) ? 1 : 0 }, u: { leads: x.lead_id != null ? String(x.lead_id) : null },
+    v: {
+      personas: 1, respondieron: ESTADOS_RESPONDIO.has(String(x.estado ?? '')) ? 1 : 0,
+      // Las Métricas de una automatización (lib/automatizacion-metricas.ts): sigue en el flujo, y cuánto tardó en contestar.
+      en_curso: x.estado === 'activa' || x.estado === 'pausada' ? 1 : 0,
+      horas_sumadas: horasHastaResponder(x) ?? 0,
+    },
+    u: { leads: x.lead_id != null ? String(x.lead_id) : null },
   })).filter((x) => enRango(x.f, rg));
 }
 
-type FEnvio = { id: number; created_at: string; secuencia_id: number | null; inscripcion_id: number | null; canal: string | null; estado: string | null; abierto_at: string | null; clic_at: string | null; respondio_at: string | null };
+type FEnvio = { id: number; created_at: string; secuencia_id: number | null; inscripcion_id: number | null; canal: string | null; estado: string | null; abierto_at: string | null; clic_at: string | null; respondio_at: string | null; lead_id: number | null; nodo_id: string | null; asunto: string | null };
 /**
  * Lo que mandó cada automatización. ⚠️ «Respuestas» daba SIEMPRE 0: `respondio_at` no lo escribe nadie
  * (medido el 11/10/2026, 0 de 23). Desde el v5 se DEDUCE de la inscripción (`enviosRespondidos`): si terminó
@@ -437,23 +445,38 @@ type FEnvio = { id: number; created_at: string; secuencia_id: number | null; ins
  * los envíos de esas inscripciones fuera del período: el último puede caer después.
  */
 async function filasEnvios(rg: Rango): Promise<Fila[]> {
-  const rows = await leer<FEnvio>('nutricion_envios', 'id, created_at, secuencia_id, inscripcion_id, canal, estado, abierto_at, clic_at, respondio_at', rg, { col: 'created_at', ts: true });
+  const rows = await leer<FEnvio>('nutricion_envios', 'id, created_at, secuencia_id, inscripcion_id, canal, estado, abierto_at, clic_at, respondio_at, lead_id, nodo_id, asunto', rg, { col: 'created_at', ts: true });
   const inscIds = [...new Set(rows.map((x) => x.inscripcion_id).filter((x): x is number => x != null))];
-  const [sec, inscripciones, hermanos] = await Promise.all([
-    nombres('nutricion_secuencias', rows.map((x) => x.secuencia_id).filter((x): x is number => x != null)),
+  const [secs, inscripciones, hermanos] = await Promise.all([
+    // El nombre y el FLUJO de cada automatización: de los pasos sale el nombre de la tarjeta (`rotuloDeTarjeta`).
+    leerPorIds<{ id: number; nombre: string | null; pasos: unknown }>('nutricion_secuencias', 'id, nombre, pasos', 'id', rows.map((x) => x.secuencia_id).filter((x): x is number => x != null)),
     leerPorIds<{ id: number; estado: string | null }>('nutricion_inscripciones', 'id, estado', 'id', inscIds),
     leerPorIds<{ id: number; inscripcion_id: number | null; created_at: string; respondio_at: string | null }>('nutricion_envios', 'id, inscripcion_id, created_at, respondio_at', 'inscripcion_id', inscIds),
   ]);
   const estado = new Map(inscripciones.map((x) => [Number(x.id), x.estado] as const));
+  const sec = new Map(secs.map((s) => [String(s.id), { nombre: s.nombre, pasos: Array.isArray(s.pasos) ? (s.pasos as PasoGrafo[]) : [] }] as const));
   const respondidos = enviosRespondidos(
     [...rows, ...hermanos].map((x) => ({ id: Number(x.id), inscripcionId: x.inscripcion_id, t: x.created_at, respondioAt: x.respondio_at })),
     (id) => estado.get(id),
   );
-  return rows.map((x) => ({
-    f: fechaTj(x.created_at),
-    d: { automatizacion: x.secuencia_id != null ? sec.get(String(x.secuencia_id)) ?? null : null, canal: lindo(txt(x.canal)), estado: x.estado === 'fallo' ? 'Falló' : lindo(txt(x.estado)) },
-    v: { envios: 1, abiertos: x.abierto_at ? 1 : 0, clics: x.clic_at ? 1 : 0, respuestas: respondidos.has(Number(x.id)) ? 1 : 0 },
-  })).filter((x) => enRango(x.f, rg));
+  return rows.map((x) => {
+    const s = x.secuencia_id != null ? sec.get(String(x.secuencia_id)) : undefined;
+    const tipo = tipoDeEnvio(x.estado, x.asunto);
+    return {
+      f: fechaTj(x.created_at),
+      d: {
+        automatizacion: s?.nombre ?? null, canal: lindo(txt(x.canal)), estado: x.estado === 'fallo' ? 'Falló' : lindo(txt(x.estado)),
+        tarjeta: s ? rotuloDeTarjeta(s.pasos, x.nodo_id) : null, tipo,
+      },
+      v: {
+        envios: 1, abiertos: x.abierto_at ? 1 : 0, clics: x.clic_at ? 1 : 0, respuestas: respondidos.has(Number(x.id)) ? 1 : 0,
+        // «Enviados» es lo que SALIÓ (no un borrador, ni un simulado, ni una acción); «Fallaron», lo que no pudo salir.
+        enviados: x.estado === 'enviado' ? 1 : 0, fallaron: x.estado === 'fallo' ? 1 : 0,
+        avisos: tipo === 'Aviso al equipo' && x.estado === 'accion' ? 1 : 0,
+      },
+      u: { leads: x.lead_id != null ? String(x.lead_id) : null },
+    };
+  }).filter((x) => enRango(x.f, rg));
 }
 
 // ── Plan ─────────────────────────────────────────────────────────────────────────────────

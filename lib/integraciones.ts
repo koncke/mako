@@ -17,8 +17,6 @@ import { googleCalendarConectado, googleCalendarDueno } from './google-calendar'
 import { capaDef } from './capas';
 import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { tokenAgenteVisible } from './agente-token';
-import { getSetting } from './settings';
-import { KEY_ESTADO_ZAPIER, parsearEstadoZapier, tarjetaDelPuente } from './zapier-estado';
 
 export type EstadoIntegracion = 'conectada' | 'falta';
 
@@ -45,12 +43,6 @@ export type Integracion = {
    */
   soloServidor?: boolean;
   paraQue?: string;
-  /**
-   * La clave está guardada y el puente de leads dejó de traer gente (`estadoDelPuente`). Una integración de las OPCIONALES
-   * (`esIntegracionDeLeads`) no es un pendiente mientras no se configura; una que ya traía leads y se calló sí lo es, y
-   * por eso la grilla no la esconde de «Requiere tu atención».
-   */
-  callada?: boolean;
 };
 
 // El catálogo y la regla de visibilidad viven aparte, sin `server-only`, para poder
@@ -79,20 +71,6 @@ async function estadoLanding(): Promise<Pick<Integracion, 'estado' | 'detalle'>>
         // dominio — se copia congelado y no se entera de nada).
         detalle: `Sin eventos en los últimos ${LANDING_VENTANA_DIAS} días. Si ya pegaste el código, revisa que el snippet siga apuntando aquí.`,
       };
-}
-
-// Leads de Meta por Make o Zapier (23/10/2026): tener la clave guardada no prueba que el Zap ande —vive en la cuenta de un
-// tercero y se corta sin avisar si deja de pagarlo—, así que la señal honesta es la misma que la del Pixel: que lleguen
-// leads. Lo que se anotó en cada aviso (`app/api/webhooks/zapier`) se resume en `tarjetaDelPuente`. Nunca lanza: es una
-// tarjeta, no puede tumbar la página.
-async function estadoPuenteZapier(): Promise<Pick<Integracion, 'estado' | 'detalle' | 'callada'>> {
-  try {
-    const t = tarjetaDelPuente(parsearEstadoZapier(await getSetting(KEY_ESTADO_ZAPIER)), Date.now());
-    return { estado: t.estado, detalle: t.detalle, ...(t.estado === 'falta' ? { callada: true } : {}) };
-  } catch (e) {
-    console.error(`[integraciones] chequeo del puente de Zapier falló: ${e instanceof Error ? e.message : String(e)}`);
-    return { estado: 'conectada', detalle: 'Clave guardada.' };
-  }
 }
 
 // Google Calendar: tampoco hay env que chequear (la app OAuth es de la agencia y
@@ -226,10 +204,6 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
     const ok = d.global ? envGlobalReal(k) : Boolean(await credWs(k));
     if (!ok) faltan.push(k);
   }
-  // ⚠️ El puente de leads: con la clave puesta, el estado lo dice lo que LLEGÓ (`estadoPuenteZapier`), no la clave.
-  if (d.key === 'zapier' && !faltan.length) {
-    return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoPuenteZapier()), ...delMetodo(d.key) };
-  }
   // ⚠️ EMAIL CON LA KEY Y SIN REMITENTE PROPIO NO ESTÁ CONECTADO, aunque la key sea lo único que pide
   // para abrir /email (por eso el remitente sigue `opcional` en el catálogo, ver `sinEsto`). La tarjeta
   // decía «Conectada» al lado de un campo vacío (Customer Success, audio del 08/10/2026, punto 15: el ws4
@@ -304,5 +278,8 @@ async function iaDelNegocio(key: string, envBase: string | undefined): Promise<{
     return { fila: true, propia: !plataforma.some((x) => typeof x === 'string' && x.trim() === fila) };
   }
   const { provsDe } = await import('./ai-cheap');
-  return { fila: !!fila, propia: (await provsDe(key as ProvName)).length > 0 };
+  // Fuera de D6b: «¿es suya?» no es «¿la usa con su IA?». Con su Gemini y su Groq, D6b no le da Groq a `provsDe`, y la
+  // tarjeta decía «Esa key es la de MaKo» (la revisión de IA16). Lee sus filas; no sale a ningún proveedor.
+  const { conSoloSuIA } = await import('./solo-su-ia');
+  return { fila: !!fila, propia: (await conSoloSuIA(false, () => provsDe(key as ProvName))).length > 0 };
 }

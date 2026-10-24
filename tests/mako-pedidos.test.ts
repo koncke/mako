@@ -299,7 +299,8 @@ test('NUNCA Claude: ni la red de la cascada (que arranca por el crédito de Clau
   // Groq primero (medido el 16/10 en ws9: 1,4 s contra 6,6-10,9 s de Gemini), y sin la cascada, cuyo preámbulo
   // se comía el plazo (ver el test de `probarEnOrden`).
   // IA8 (22/10/2026): sin OpenRouter ni Mistral.
-  assert.match(ia, /PROVS_PEDIDOS: readonly ProvName\[\] = \['groq', 'gemini'\]/);
+  // IA16: sin Groq (sólo escucha audio).
+  assert.match(ia, /PROVS_PEDIDOS: readonly ProvName\[\] = \['gemini'\]/);
   assert.doesNotMatch(ia, /chatCheapCascade\(/);
   assert.equal((ia.match(/probarEnOrden\(/g) ?? []).length, 2, 'las keys del negocio y la red: las dos por probarEnOrden');
   assert.match(ia, /^import 'server-only';/m);

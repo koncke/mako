@@ -234,7 +234,8 @@ test('la API: un flujo no la corre (preparar lo rechaza y el lienzo no la ofrece
   assert.ok(flujo > 0 && flujo < preparar.indexOf('hayIAParaCrear()'), 'desde un flujo no se rechaza antes de mirar la IA');
   assert.match(preparar, /if \(!\(await hayIAParaCrear\(\)\)\) \{/, 'no mira si hay IA ANTES de proponer');
   const flujoTs = sinComentarios(leer('lib/api-mako/flujo.ts'));
-  assert.match(flujoTs, /export const NO_EN_FLUJOS: ReadonlySet<string> = new Set\(\['crear_automatizacion_con_ia'\]\);/);
+  // La lista crece (vender_plan_mako entró el 23/10/2026): lo que se fija es que ésta esté adentro.
+  assert.match(flujoTs, /export const NO_EN_FLUJOS: ReadonlySet<string> = new Set\(\[[^\]]*'crear_automatizacion_con_ia'[^\]]*\]\);/);
   assert.match(flujoTs, /visible\(d, vista\) && !NO_EN_FLUJOS\.has\(d\.id\)/);
   // El link: `linkApp` con `?sec=` y `&mako=1` (abre el chat de MaKo; lleva el `?ws=`), por `paraLaPersona` — nunca por
   // el modelo (el `resumen`).

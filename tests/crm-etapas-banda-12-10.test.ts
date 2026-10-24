@@ -124,7 +124,7 @@ test('la pantalla: el arrastre cambia de lista y de tipo, el «+» entre etapas,
   assert.match(md, /<CabeceraSeccion icono=\{<LogoMeta size=\{16\} \/>\} titulo="Asignar campañas"/);
   assert.match(md, /<div role="radiogroup" aria-label="Tipo de funnel" style=\{\{ display: 'flex', flexDirection: 'column', gap: 8 \}\}>/);
   // El server: el alta de una nutrición en un lugar de la banda.
-  const ac = sinComentarios(leer('app/crm/actions.ts'));
+  const ac = sinComentarios((leer('app/crm/actions.ts') + leer('lib/etapas-crm-server.ts')));
   assert.match(ac, /if \(typeof op\.nutricionEn === 'number' && Number\.isFinite\(op\.nutricionEn\)\) \{/);
   assert.match(ac, /const orden = ordenConClave\(\{ pipeline: plN, suppressed: actual\.suppressed, labels, ordenNutricion: ordenAhoraN \}, key, op\.nutricionEn\);/);
 });

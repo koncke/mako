@@ -301,12 +301,55 @@ export function origenDeClave(clave: string | null | undefined): string | null {
   if (/^mako-(general|doer)(:u\d+)?$/.test(k)) return ORIGEN_PREGUNTALE;
   if (/^mako-movil:[^:]+:crm:\d+$/.test(k)) return 'CRM';
   if (/^mako-movil:[^:]+:lead:\d+$/.test(k)) return 'Ficha';
+  if (k.endsWith(`:${TAB_SECOND_BRAIN}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_SECOND_BRAIN;
   if (/^(dashboard:|comercial-|marketing-(?!ad-))/.test(k)) return 'Dashboard';
   if (/^(ad-detail-|mkt-campaign-|marketing-ad-)/.test(k)) return 'Ads';
   if (/^whatsapp-/.test(k)) return 'Automations';
   return null;
 }
 export const ORIGEN_PREGUNTALE = 'Pregúntale a MaKo';
+
+// ── La app de escritorio, primero (23/10/2026) ─────────────────────────────────────────────────────────────────────
+// Martín: «si detecta MaKo que no tienes instalado la app de escritorio, antes de mostrarte nada, o dejarte usar cualquier chat,
+// en cualquier tab, te debe aparecer el botón para que puedas descargar la app». Y ante la duda de bloquear a quien ya trabaja
+// con su clave, DECIDIÓ (23/10/2026): «Bloqueá igual: aunque tenga su clave de IA, primero tiene que descargar la app de escritorio
+// antes de usar cualquier chat». Por qué: el producto es MaKo en SU computadora con SU Claude (lib/ia-pc-reglas.ts); una clave
+// sola no le da a MaKo lo que hace en la PC. Los cuidados (del Cerebro, para no romper lo que no es chat):
+//   · sólo los CHATS con MaKo: las automatizaciones y lo que corre solo siguen igual (la PC del cliente nunca atiende leads);
+//   · en el teléfono no se puede instalar: ahí NO se bloquea, se avisa «Descarga MaKo en tu computadora» (`en-la-computadora`);
+//   · en cuanto la computadora se conecta, el chat se destraba solo (useChatCliente.ts relee mientras está bloqueado).
+// El negocio de la plataforma no la necesita (contesta su IA).
+
+/** Qué hace el chat con la app de escritorio: nada (`tiene`), la descarga en lugar del chat (`bloquea`), o en el teléfono, el
+ *  aviso de descargarla en la computadora sin tapar nada (`en-la-computadora`). */
+export type AppDeEscritorio = 'tiene' | 'bloquea' | 'en-la-computadora';
+export function appDeEscritorio(p: { plataforma: boolean; conComputadora: boolean; telefono: boolean }): AppDeEscritorio {
+  if (p.plataforma || p.conComputadora) return 'tiene';
+  return p.telefono ? 'en-la-computadora' : 'bloquea';
+}
+
+// ── El chat del Second Brain (23/10/2026) ───────────────────────────────────────────────────────────────────────────
+// Martín: «quiero que Second Brain, la sidebar que tiene a la derecha sea reemplazada por un chat con MaKo, que tenga la criatura
+// de MaKo... Que se guarde el historial claro, pero que si no hay nada que MaKo mande el mensaje "Hola NOMBRE. Este es tu Second
+// Brain, aquí está toda la información de tu negocio. ¿Qué quieres saber hoy?"». UNA conversación por persona y por negocio,
+// guardada como las de las otras tabs (`mako-movil:<persona>:second-brain`, en chart_sessions del workspace): el Ops Center la
+// lista y la sigue como a las del CRM (lib/chat-mako-indice.ts → chatsDeLasTabs, claveDeTab).
+
+/** El sufijo de la clave de la conversación del Second Brain de una persona. */
+export const TAB_SECOND_BRAIN = 'second-brain';
+/** Su origen en la lista del Ops Center: el grupo «Second Brain». */
+export const ORIGEN_SECOND_BRAIN = 'Second Brain';
+/** Las tabs con una conversación propia por persona: lo único que acepta la ruta para crearla. */
+export const TABS_CON_CHAT_PROPIO: readonly string[] = [TAB_SECOND_BRAIN];
+
+/** El saludo del Second Brain con la conversación vacía, con el nombre de pila de quien mira (sin nombre, sin el «NOMBRE»). */
+export function saludoDelSecondBrain(nombre: string | null | undefined): string {
+  const pila = String(nombre ?? '').trim().split(/\s+/)[0] ?? '';
+  return `Hola${pila ? ` ${pila}` : ''}. Este es tu Second Brain, aquí está toda la información de tu negocio. ¿Qué quieres saber hoy?`;
+}
+
+/** Lo que el panel ofrece debajo del saludo: lo que antes se leía en la barra del grafo, ahora se le pregunta a MaKo. */
+export const ARRANQUES_DEL_SECOND_BRAIN = ['¿Qué es lo último que sabes?', '¿Cuál es mi Norte?', '¿Qué te falta saber de mi negocio?'] as const;
 
 // ── Las charlas del lienzo de Automations (22/10/2026, OC5) ─────────────────────────────────────────────────────────
 export const ORIGEN_AUTOMATIONS = 'Automations';

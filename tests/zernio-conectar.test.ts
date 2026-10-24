@@ -28,6 +28,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import {
   ConectarSocial, leerZernio, pideKeyZernio, ZERNIO_KEY_MALA, ZERNIO_PAUSADA, type EstadoZernio,
 } from '../app/automations/ConectarMedio';
+import { urlDePagoDeZernio } from '../lib/zernio-redes';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -87,7 +88,7 @@ test('sin Zernio o con la key mala: EL modal de Zernio de /integraciones, no un 
   }
   const cm = fuente('app/automations/ConectarMedio.tsx');
   assert.match(cm, /const ServicioSuelto = dynamic\(\(\) => import\('@\/app\/integraciones\/ServicioSuelto'\), \{ ssr: false/);
-  assert.match(cm, /useState<'zernio' \| 'listo' \| 'abriendo' \| 'esperando' \| 'conectado'>\(\(\) => \(pideKeyZernio\(inicial\) \? 'zernio' : 'listo'\)\)/);
+  assert.match(cm, /useState<'zernio' \| 'listo'>\(\(\) => \(pideKeyZernio\(inicial\) \? 'zernio' : 'listo'\)\)/);
   assert.match(cm, /if \(fase === 'zernio'\) \{\n {4}return <ServicioSuelto servicio="zernio" /);
   assert.doesNotMatch(cm, /\/api\/integraciones\/credencial|TextField|guardarKeyZernio/, 'la key se vuelve a guardar por un formulario propio');
   // Y ES el de la grilla: el mismo `ServicioModal`, con la `Integracion` armada por la MISMA cuenta.
@@ -110,19 +111,30 @@ test('sin Zernio o con la key mala: EL modal de Zernio de /integraciones, no un 
 
 test('la key se guarda por la puerta de /integraciones (su modal), y al cerrarlo sigue el OAuth', () => {
   const cm = fuente('app/automations/ConectarMedio.tsx');
-  const conectar = bloque(cm, 'const conectar = async () => {', "setFase('esperando');");
-  const iVentana = conectar.indexOf("window.open('', 'mako-conectar'");
-  // Decimocuarta: el pedido de la URL sale junto con el de las cuentas de ANTES (para reconocer la nueva, `cuentaNueva`).
-  const iPedir = conectar.indexOf("await Promise.all([pedir('conectar'), pedir('estado')])");
+  // 23/10/2026: el login ya no es de este modal: lo hace la pieza común (app/_components/ConectarViaZernio.tsx), la de Ads Manager y Chats.
+  assert.match(cm, /const z = useConectarViaZernio\(\{/);
+  assert.match(cm, /<Button onClick=\{\(\) => z\.conectar\(redDeCanal\(medio\)\)\} disabled=\{z\.fase === 'abriendo'\}>/);
+  assert.doesNotMatch(cm, /window\.open\(|mako-conectar|SONDEO_MS|cuentaNueva/, 'volvió el popup o el sondeo propios del modal');
+  const hook = fuente('app/_components/ConectarViaZernio.tsx');
+  const conectar = bloque(hook, 'const conectarAsync = useCallback(async (redElegida: RedZernio, extra: ExtraZernio = {}) => {', "setFase('esperando');", 9000);
+  const iVentana = conectar.indexOf("window.open('', 'mako-zernio'");
+  // El pedido de la URL sale junto con el de las cuentas de ANTES (para reconocer la nueva, `medirConexion`).
+  const iPedir = conectar.indexOf("await Promise.all([");
   assert.ok(iVentana >= 0 && iVentana < iPedir, 'la ventana se abre en el clic, antes de cualquier espera (si no, el navegador la bloquea)');
-  // Una key mala que vuelve (401), o Zernio que no está: el modal de Integraciones, ahí mismo.
-  assert.match(conectar, /if \(pideKeyZernio\(res\)\) \{ setFase\('zernio'\); return; \}/);
-  // Al cerrarlo se vuelve a mirar Zernio: si sirve, sigue el OAuth acá; si no y no se guardó nada, se cierra todo; si
-  // se guardó y sigue sin servir, se dice y queda el botón para volver.
-  const alCerrar = bloque(cm, 'const alCerrarZernio = async () => {', 'const conectar = async () => {');
+  assert.match(conectar, /api\('conexiones', \{ plataforma: redElegida \}\),\n\s+api\('conectar', \{ plataforma: redElegida, volver: optsRef\.current\.volver, modo, flujo, \.\.\.extra \}\),/);
+  // Una key que falta o que vuelve mala (401): el modal de Integraciones, ahí mismo; y la ventana que se abrió, se cierra.
+  // (Si el modal de Zernio ya está abierto —el bloque «Redes» vive adentro—, `keyAca` lo dice ahí mismo en vez de abrir OTRO modal encima.)
+  assert.match(conectar, /setFase\('listo'\); ponerNota\(MENSAJES_DE_MOTIVO\[motivo\]\); abrirIntegracion\('zernio'\); return;/);
+  assert.match(conectar, /if \(optsRef\.current\.keyAca\) \{ fallar\(/);
+  assert.match(conectar, /if \(!res\.ok\) \{\n\s+cerrar\(\);/);
+  // Al cerrarlo se vuelve a mirar Zernio: si sirve, queda el botón (la ventana sólo se abre en un clic); si no y no se guardó nada, se
+  // cierra todo; si se guardó y sigue sin servir, se dice y queda el botón para volver.
+  const alCerrar = bloque(cm, 'const alCerrarZernio = async () => {', "if (fase === 'zernio') {");
   assert.match(alCerrar, /const e = leerZernio\(await pedir\('estado'\)\);/);
   assert.match(alCerrar, /if \(!guardoKey\.current\) \{ onCerrar\(\); return; \}/);
   assert.match(alCerrar, /setRevisar\(true\);/);
+  // Y el modal se monta en el árbol (si no, `abrirIntegracion` abre un modal que nadie dibuja).
+  assert.match(cm, /\{z\.modal\}/);
   // El modal de Integraciones guarda por `ServicioConfigForm`: la ruta de credenciales, con su whitelist por campo.
   assert.match(fuente('app/integraciones/ServicioConfigForm.tsx'), /body: JSON\.stringify\(\{ action: 'guardar', servicio: servicio\.key, valores: \{ \[env\]: v \} \}\)/);
   // El contrato de la ruta de credenciales: `guardar` con servicio, valores y la whitelist por campo.
@@ -155,10 +167,17 @@ test('el 402 viaja como 402 con su link (sólo con key PROPIA), y la pantalla lo
   const cat = bloque(ruta, '} catch (e) {', "return Response.json({ ok: false, error: 'Zernio no contestó' }, { status });");
   assert.match(cat, /if \(e instanceof ZernioError && \(e\.status === 401 \|\| e\.status === 402\) && \(await usaCuentaPropia\(ws\)\.catch\(\(\) => false\)\)\) \{/,
     'con la key de la plataforma el 402 es de MaKo: su link de pago no es del cliente');
-  assert.match(cat, /return Response\.json\(\{ ok: false, motivo: 'pausada', error: ZERNIO_PAUSADA, billingUrl: linkDePago\(e\.body\) \}, \{ status: 402 \}\);/);
+  assert.match(cat, /return Response\.json\(\{ ok: false, motivo: 'pausada', error: ZERNIO_PAUSADA, billingUrl: urlDePagoDeZernio\(e\.body\) \}, \{ status: 402 \}\);/);
   assert.match(cat, /return Response\.json\(\{ ok: false, motivo: 'key', error: ZERNIO_KEY_MALA \}\);/);
-  // El link sale del cuerpo del error de Zernio y sólo si es https (va a un href).
-  assert.match(bloque(ruta, 'function linkDePago(', '\n}'), /return url && \/\^https:\\\/\\\/\[\^\\s"'<>\]\+\$\/\.test\(url\) \? url : null;/);
+  // El link sale del cuerpo del error de Zernio y sólo si es https (va a un href). ⚠️ El campo es `dashboard_url` (lo dice la doc de Zernio, leída el
+  // 23/10/2026); hasta ese día la ruta leía `billingUrl`, que no existe, y el negocio veía «pausada» sin su link. Se aceptan los dos.
+  assert.equal(urlDePagoDeZernio({ error: 'x', reason: 'free_tier_exceeded', dashboard_url: 'https://zernio.com/dashboard/billing' }), 'https://zernio.com/dashboard/billing');
+  assert.equal(urlDePagoDeZernio({ billingUrl: 'https://zernio.com/billing' }), 'https://zernio.com/billing');
+  assert.equal(urlDePagoDeZernio({ details: { dashboard_url: 'https://zernio.com/d' } }), 'https://zernio.com/d');
+  assert.equal(urlDePagoDeZernio({ dashboard_url: 'javascript:alert(1)' }), null, 'un javascript: en un href es un XSS');
+  assert.equal(urlDePagoDeZernio({ dashboard_url: 'http://zernio.com/d' }), null, 'sólo https');
+  assert.equal(urlDePagoDeZernio(null), null);
+  assert.match(ruta, /import \{ esRedZernio, urlDePagoDeZernio \} from '@\/lib\/zernio-redes';/);
   // Los textos de la ruta son los de la pantalla.
   assert.ok(ruta.includes(`const ZERNIO_KEY_MALA = '${ZERNIO_KEY_MALA}';`), 'la ruta y la pantalla dicen distinto la key mala');
   assert.ok(ruta.includes(`const ZERNIO_PAUSADA = '${ZERNIO_PAUSADA}';`), 'la ruta y la pantalla dicen distinto la cuenta pausada');

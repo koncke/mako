@@ -111,7 +111,7 @@ test('falloDeIA: cada causa en una línea, con la acción que corresponde', () =
   assert.equal(falloDeIA(['sin tiempo: el plazo del pedido vence en 3 s'], true).error, 'Las IA tardaron demasiado. Prueba de nuevo.');
   // Sin ninguna IA (y sin red que probar): conectar su Claude, con el link (AU3, 22/10/2026: antes «conecta una gratis»,
   // con el link a Gemini; lo de la red, en tests/ia-aviso-sin-ia-propia.test.ts).
-  assert.deepEqual(falloDeIA([], false), { error: 'No tienes una IA conectada: conecta tu Claude o tu GPT.', link: '/integraciones?abrir=anthropic' });
+  assert.deepEqual(falloDeIA([], false), { error: 'No tienes una IA conectada: conecta tu Claude, tu GPT o tu Gemini.', link: '/integraciones?abrir=anthropic' });
   // Todo corto: es una línea que se dibuja.
   for (const e of [BOLSA_WS1, ['gemini: chatCheap(gemini): HTTP 429']]) assert.ok(falloDeIA(e, true).error.length <= 90);
 });
@@ -122,7 +122,8 @@ test('la lista de proveedores no cobra nunca, y el pin pago no entra', () => {
   for (const p of ['openai', 'anthropic', 'mistral']) assert.ok(!(PROVS_CREAR_IA as readonly string[]).includes(p), p);
   for (const p of ['openai', 'anthropic']) assert.ok(!(PROVS_GRATIS_PIN as readonly string[]).includes(p), p);
   // IA8 (22/10/2026): OpenRouter, Mistral y Cerebras se sacaron (su modelo gratis caducaba, 429 siempre, 402).
-  assert.deepEqual([...PROVS_CREAR_IA], ['gemini', 'groq']);
+  // IA16: sin Groq, que sólo escucha audio.
+  assert.deepEqual([...PROVS_CREAR_IA], ['gemini']);
   for (const p of ['openrouter', 'mistral', 'cerebras']) assert.ok(!(PROVS_GRATIS_PIN as readonly string[]).includes(p), `${p} volvió al pin`);
   assert.deepEqual(MODELOS_CREAR_IA, {}, 'ningún modelo propio de un proveedor que se sacó');
 });

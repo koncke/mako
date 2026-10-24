@@ -70,12 +70,10 @@ type ProvSaldo = { provider: string; costMesUsd: number; tokens: number; tokensH
 // para todos: Groq topea por TOKENS/día; Gemini Flash NO tiene tope diario de tokens
 // sino 250 SOLICITUDES/día + 250k tokens/MINUTO + 1M de contexto. Por eso Gemini se
 // muestra sin denominador de tokens inventado (antes copiaba el 500k de Groq → mal).
+// IA16 (23/10/2026): sin Cerebras, Mistral ni OpenRouter (IA8 los sacó el 22/10), y Groq sólo pasa a texto las notas de voz.
 const LIMITE_FREE: Record<string, { tokensDia?: number; cap: string }> = {
-  groq: { tokensDia: 500_000, cap: 'tokens · el plan gratis reinicia cada día' },
+  groq: { tokensDia: 500_000, cap: 'tokens · sólo notas de voz · reinicia cada día' },
   gemini: { cap: 'Gemini free: 250 solicitudes/día · 1M de contexto (no hay tope de tokens/día)' },
-  cerebras: { cap: 'Cerebras free: gratis, limitado por rate (pedidos/min), no por dinero' },
-  mistral: { cap: 'Mistral free tier (plan Experiment): limitado por rate, sin cargo' },
-  openrouter: { cap: 'OpenRouter: los modelos ":free" no cobran (rate diario)' },
 };
 type Resumen = {
   saldo: { usd: number; setAt: string } | null;
@@ -355,8 +353,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // los negocios no vende por Hotmart, no tiene un Skool ni sale a buscar prospectos.
   // Y las IA que configura el equipo de MaKo (el workspace del entorno, lib/ia-keys.ts → `veredictoDeIA`): no son un
   // pendiente de la persona, y pedírselas en «Requiere tu atención» la empujaría a pegar una key que no debe.
-  // El puente de leads que YA traía gente y se calló (`callada`) no es opcional: es un pendiente, y el aviso está ahí.
-  const opcionalSinConectar = (i: Integracion) => ((esPasarela(i.key) || esIntegracionDeLeads(i.key)) && sevOf(i) !== 'good' && !i.callada)
+  const opcionalSinConectar = (i: Integracion) => ((esPasarela(i.key) || esIntegracionDeLeads(i.key)) && sevOf(i) !== 'good')
     || i.detalle === POR_QUE_LA_CONFIGURA_MAKO;
   const medidas = integraciones.filter((i) => !opcionalSinConectar(i));
   const total = medidas.length;
@@ -568,9 +565,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
 
 // ── Costo de MaKo ─────────────────────────────────────────────────────────────
 function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen | null; cuotas: CuotaProv[]; onVerOps: () => void; onOpenService: (key: string) => void }) {
-  // Un tile por proveedor que consumió algo + uno por CADA IA gratis registrada aunque
-  // todavía no se haya usado (item "cargalos como otro contenedor"): esos salen del
-  // catálogo de cuotas con uso 0, así Cerebras/Mistral/OpenRouter siempre tienen su caja.
+  // Un tile por proveedor que consumió algo + uno por cada IA gratis que el negocio CARGÓ aunque todavía no la haya
+  // usado (item "cargalos como otro contenedor"). Una que no cargó ya no tiene caja (IA16, 23/10/2026): la plataforma
+  // no presta IA, y una caja «gratis» sin su clave se leía como que MaKo se la da (`soloCargadas`, page.tsx).
   // ── El filtro de período ────────────────────────────────────────────────────
   // `meses` vacío = el selector no se dibuja. Pasa en dos casos y los dos son
   // correctos: la sesión no es de la agencia (el endpoint contesta 403) o no hay

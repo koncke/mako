@@ -20,7 +20,7 @@ export default async function TusCuentasIAPage({ searchParams }: { searchParams:
   const deOtro = await leerPerfil().then((p) => p.vista.deOtro, () => false);
   return (
     <AjustesPagina lugar={TITULO_CUENTA} secciones={seccionesCuenta(deOtro, 'ia')} activa="ia">
-      <TituloAjustes titulo="Tus cuentas de IA" bajada="Tu Ops Center contesta con tu Claude o tu GPT." />
+      <TituloAjustes titulo="Tus cuentas de IA" bajada="Tu Ops Center contesta con tu Claude, tu GPT o tu Gemini." />
       {/* `?computadora=1`: adonde vuelve el instalador de Windows al terminar (RUTA_TRAS_INSTALAR), directo en «Conecta MaKo». */}
       <TusCuentasIA sinCabecera computadora={(await searchParams).computadora === '1'} />
     </AjustesPagina>

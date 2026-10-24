@@ -12,11 +12,15 @@
 // Meta. Un error se tira TIPADO (`ZernioError`, con el envelope del body); Zernio ya reintenta
 // contra Meta, así que acá no se reintenta nada.
 //
-// CREDENCIALES — BYOK con respaldo de plataforma:
-//   · La key PROPIA del workspace manda: `credWs('ZERNIO_API_KEY', ws)`. Medido el 09/10/2026 en
-//     producción: los dos workspaces con Zernio (ws11 y ws13) tienen key propia.
-//   · Sin key propia, la de la PLATAFORMA (`envCred`), y el aislamiento lo da el PROFILE de Zernio:
-//     uno por workspace (`ensureProfile`), y todo listado se filtra por él.
+// CREDENCIALES — BYOK, SIN respaldo de la plataforma (23/10/2026):
+//   · Cada negocio con SU key de Zernio: `credDelClienteEstricta('ZERNIO_API_KEY', ws)` (lib/credenciales.ts),
+//     la fila del negocio y nunca el entorno, y «no pude leer» tira. Martín: «que cada usuario traiga su API de
+//     Zernio». Medido ese día en producción (sólo lectura): el único workspace que dependía del respaldo era el
+//     ws3 (Cliente de Prueba), y no hay ni una conversación ni un envío de Instagram o Messenger en toda la
+//     historia. Si el ws3 hace falta para pruebas, se le pega una key a mano.
+//   · Hasta el 23/10 la key de la PLATAFORMA (`envCred`) era el respaldo, y el aislamiento lo daba un PROFILE por
+//     workspace (`ensureProfile`, `mako_ws_<ws>`). Esa rama sigue SÓLO para el `OWNER_WS` (el ws1, que es un
+//     cliente y tiene su fila, pegada el 23/10 con la misma key que la de la plataforma): se va con su key.
 //   · ⚠️ La key puede CAMBIAR después de guardar el profile (ws11: profile acuñado con la de la
 //     plataforma el 15/08, key propia el 28/08), así que el profile guardado se valida contra la
 //     cuenta de la key de HOY (`profileIdEfectivo`, lib/zernio-profile.ts), en las dos direcciones.
@@ -26,7 +30,7 @@
 // lib/webhook-routing.ts.
 
 import 'server-only';
-import { credWs, credWsEstricta, envCred } from './credenciales';
+import { credDelClienteEstricta, credWsEstricta, envCred } from './credenciales';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './workspace';
 import { upsertRouting } from './webhook-routing';
@@ -47,6 +51,17 @@ export const RUTEO_CUENTA = 'zernio_cuenta';
  * cada lead ya está en `nutricion_envios.texto_enviado`. La tabla, en docs/hallazgos-chatbot.md.
  */
 export const EVENTOS_WEBHOOK = ['message.received', 'referral.received', 'comment.received', 'account.connected'] as const;
+
+/**
+ * Los leads de los formularios de Meta (23/10/2026). APARTE de la lista de arriba a propósito: es un evento del complemento de
+ * ANUNCIOS de Zernio («leads require ads enabled on the team»), y un negocio sin el complemento no puede suscribirse a los eventos
+ * de anuncios (403 `ads_addon_required`). Si fueran una sola lista, ese 403 dejaría al negocio SIN mensajes ni comentarios.
+ * `asegurarWebhook` los pide juntos y, si Zernio los rechaza, registra los de siempre solos.
+ */
+export const EVENTO_LEADS = 'lead.received';
+
+/** Todo lo que el webhook PROCESA (app/api/webhooks/zernio/route.ts): lo suscripto de siempre y los leads. */
+export const EVENTOS_ESCUCHADOS: readonly string[] = [...EVENTOS_WEBHOOK, EVENTO_LEADS];
 
 // ── Error tipado (envelope de Zernio: «Branch on type and code, never on error text») ──
 
@@ -79,20 +94,27 @@ export class ZernioError extends Error {
 
 // ── Config por workspace ─────────────────────────────────────────────────────
 
-type ZernioCfg = { apiKey: string; byok: boolean };
+export type ZernioCfg = { apiKey: string; byok: boolean };
 
-async function cfg(ws: number): Promise<ZernioCfg> {
-  const propia = await credWs('ZERNIO_API_KEY', ws);
-  // Para el dueño, credWs ya cae a su env: eso es la cuenta de plataforma, no BYOK.
+export async function cfg(ws: number): Promise<ZernioCfg> {
+  // ⚠️ SÓLO la fila del negocio, y estricta: ni `credWs` (cae al entorno para el OWNER_WS) ni `envCred` (la cuenta de la
+  // casa). Con la base caída TIRA: «no pude leer» no es «no tiene Zernio».
+  const propia = await credDelClienteEstricta('ZERNIO_API_KEY', ws, { ilegibleTira: true });
+  // El OWNER_WS (el ws1) sigue en el modo de la cuenta de la plataforma hasta que se le saque la key (ver la cabecera).
   if (propia) return { apiKey: propia, byok: ws !== OWNER_WS };
-  const plataforma = await envCred('ZERNIO_API_KEY');
-  if (plataforma) return { apiKey: plataforma, byok: false };
   throw new ZernioError('Zernio no está configurado', 0, null);
 }
 
-/** ¿Este workspace puede hablar con Zernio? Sin tirar. */
+/**
+ * ¿Este workspace puede hablar con Zernio? `false` SÓLO cuando no pegó su key. «No pude leer» (la base caída, una fila que no se descifra) NO es
+ * «no tiene»: TIRA, y quien llama decide (`estadoMedios` lo deja en «no sé» y no frena Publicar; la ruta contesta un error y no abre «pega tu key»
+ * a un negocio que sí la tiene, que podía pisar una key buena). Hasta el 23/10/2026 esto tragaba todo y daba `false`.
+ */
 export async function zernioConfigurado(ws: number): Promise<boolean> {
-  try { await cfg(ws); return true; } catch { return false; }
+  try { await cfg(ws); return true; } catch (e) {
+    if (e instanceof ZernioError && e.status === 0 && e.message === 'Zernio no está configurado') return false;
+    throw e;
+  }
 }
 
 /**
@@ -106,7 +128,7 @@ export async function usaCuentaPropia(ws: number): Promise<boolean> {
   return (await credWsEstricta('ZERNIO_API_KEY', ws)) != null;
 }
 
-async function zFetch<T>(apiKey: string, path: string, init?: RequestInit & { headers?: Record<string, string> }, timeoutMs = 20_000): Promise<T> {
+export async function zFetch<T>(apiKey: string, path: string, init?: RequestInit & { headers?: Record<string, string> }, timeoutMs = 20_000): Promise<T> {
   const res = await fetch(`${ZERNIO_BASE}${path}`, {
     ...init,
     headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json', ...(init?.headers ?? {}) },
@@ -180,7 +202,7 @@ export async function ensureProfile(ws: number): Promise<string | null> {
  * El profile CONCRETO con el que se habla, y reclama su ruteo. Con la key de la plataforma, el
  * `mako_ws_<ws>`; con key propia, el guardado SI es de esa cuenta, y si no el Default de SU cuenta.
  */
-async function profileIdEfectivo(ws: number, c: ZernioCfg): Promise<string | null> {
+export async function profileIdEfectivo(ws: number, c: ZernioCfg): Promise<string | null> {
   const guardado = await ensureProfile(ws);
   if (!c.byok) return guardado;
   // ⚠️ CON KEY PROPIA SE LE PREGUNTA A SU CUENTA SIEMPRE, aunque haya un guardado: el de ws11 era de la
@@ -228,16 +250,6 @@ export async function cuentasConectadas(ws: number, plataforma?: 'instagram' | '
   return cuentas;
 }
 
-/** La URL de OAuth para conectar una cuenta. Al volver, Zernio redirige a `redirect_url`. */
-export async function urlParaConectar(ws: number, plataforma: 'instagram' | 'facebook', redirectUrl: string): Promise<string> {
-  const c = await cfg(ws);
-  const profileId = await profileIdEfectivo(ws, c);
-  if (!profileId) throw new ZernioError('Zernio: la cuenta no tiene ningún profile para conectar', 0, null);
-  const q = new URLSearchParams({ profileId, redirect_url: redirectUrl });
-  const r = await zFetch<{ authUrl: string }>(c.apiKey, `/connect/${plataforma}?${q.toString()}`);
-  return r.authUrl;
-}
-
 // ── El webhook ───────────────────────────────────────────────────────────────
 
 type ZernioWebhook = { _id: string; url?: string; events?: string[]; isActive?: boolean };
@@ -267,13 +279,40 @@ export async function asegurarWebhook(ws: number): Promise<'creado' | 'actualiza
   // Sólo la URL EXACTA. No se re-apunta uno a la URL pelada: si la key «propia» de un negocio fuera la
   // de la plataforma, ése es el webhook que comparten todos los negocios sin cuenta propia.
   const nuestro = (r.webhooks ?? []).find((w) => (w.url ?? '').trim() === url);
-  const events = [...EVENTOS_WEBHOOK];
-  if (nuestro) {
-    await zFetch(c.apiKey, '/webhooks/settings', { method: 'PUT', body: JSON.stringify({ webhookId: nuestro._id, secret, events, isActive: true }) });
-    return 'actualizado';
+  const guardar = (events: string[]) => nuestro
+    ? zFetch(c.apiKey, '/webhooks/settings', { method: 'PUT', body: JSON.stringify({ webhookId: nuestro._id, secret, events, isActive: true }) })
+    : zFetch(c.apiKey, '/webhooks/settings', { method: 'POST', body: JSON.stringify({ name: 'MaKo', url, secret, events }) });
+  // ⚠️ LOS LEADS VAN PRIMERO, Y SI ZERNIO LOS RECHAZA VAN LOS DE SIEMPRE SOLOS. Un negocio sin el complemento de anuncios no puede
+  // suscribirse al evento: sin este reintento, ese rechazo le sacaría los mensajes y los comentarios, que hoy andan. Sólo un 4xx de
+  // los que dicen «este pedido no» (400, 403, 422) reintenta; una key mala (401), un pago (402) o una caída suben tal cual. Si el
+  // reintento también falla, sube SU error: el de los eventos de siempre es el que importa.
+  try {
+    await guardar([...EVENTOS_ESCUCHADOS]);
+  } catch (e) {
+    if (!(e instanceof ZernioError) || ![400, 403, 422].includes(e.status)) throw e;
+    console.warn(`[zernio] ws${ws}: Zernio no acepta suscribir ${EVENTO_LEADS} (${e.status} ${e.code ?? '—'}): el webhook queda sin leads`);
+    await guardar([...EVENTOS_WEBHOOK]);
   }
-  await zFetch(c.apiKey, '/webhooks/settings', { method: 'POST', body: JSON.stringify({ name: 'MaKo', url, secret, events }) });
-  return 'creado';
+  return nuestro ? 'actualizado' : 'creado';
+}
+
+/**
+ * ¿El webhook de ESTE negocio escucha los leads? `null` = no hay webhook registrado (o falta el secreto maestro para armar su URL).
+ *
+ * Mide lo REGISTRADO en Zernio, no si llega alguno: sin el complemento de anuncios, o con una página conectada antes de pedir
+ * `leads_retrieval`, el evento puede estar suscripto y no llegar nunca. Existe porque `asegurarWebhook` deja los leads afuera SIN
+ * error cuando Zernio los rechaza, y alguien tiene que poder decirle al negocio por qué no le entran.
+ */
+export async function leadsEnElWebhook(ws: number): Promise<boolean | null> {
+  const maestro = await envCred('ZERNIO_WEBHOOK_SECRET');
+  if (!maestro) return null;
+  const c = await cfg(ws);
+  const { ruta } = webhookDeLaCuenta(maestro, ws, c.byok);
+  const url = linkApp(ruta, null);
+  const r = await zFetch<{ webhooks?: ZernioWebhook[] }>(c.apiKey, '/webhooks/settings');
+  const nuestro = (r.webhooks ?? []).find((w) => (w.url ?? '').trim() === url);
+  if (!nuestro) return null;
+  return nuestro.isActive !== false && (nuestro.events ?? []).includes(EVENTO_LEADS);
 }
 
 // ── Mandar ───────────────────────────────────────────────────────────────────
@@ -338,12 +377,12 @@ export async function responderComentario(ws: number, input: { accountId: string
 const TIMEOUT_SEGUIMIENTO_MS = 8_000;
 
 /**
- * La key para LEER el seguimiento: la propia del negocio (lectura ESTRICTA: «no pude leer las
- * credenciales» tira, nunca se contesta «no tiene Zernio»), si no la de la plataforma, como `cfg`.
+ * La key para LEER el seguimiento: la propia del negocio, como `cfg` (lectura ESTRICTA: «no pude leer las
+ * credenciales» tira, nunca se contesta «no tiene Zernio»), y sin respaldo de la plataforma.
  * null = el negocio no tiene Zernio, y nadie se sabe.
  */
 async function keyDeSeguimiento(ws: number): Promise<string | null> {
-  return (await credWsEstricta('ZERNIO_API_KEY', ws)) ?? (await envCred('ZERNIO_API_KEY'));
+  return credDelClienteEstricta('ZERNIO_API_KEY', ws);
 }
 
 /** Un GET /accounts/{id}/follow-status/{igsid}, sin pasar por alto la caché de Zernio (`refresh=false`). */

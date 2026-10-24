@@ -12,6 +12,47 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Al terminar de cargar, la criatura vuela a SU lugar: un movimiento y un vigía para todas las tabs (23/10/2026)
+
+**Pedido (Martín):** «Todos los loaders que tengan la figura de MaKo, luego de terminar de cargar, la figura de MaKo se debe ir
+a su lugar, como lo hace en ops center... En Automations se puede ir a su chat, lo mismo que en CRM a su botón de abajo».
+
+**Lo que hay:** el movimiento estaba escrito DOS veces (la entrada del teléfono, `EntradaApp`, y la del Ops Center,
+`EntradaOps`) y ahora es uno, `app/_ui/vuelo-mako.ts` (`trayecto` + `volar`). Las tabs vuelan con `VueloDeCarga.tsx`.
+`CargandoMako` monta un vigía que se instala la primera vez y queda vivo. El vigía hace falta porque el loader se desmonta justo
+cuando llega la página. Mientras hay un loader anota dónde está la criatura; cuando se va, busca su lugar en la pantalla
+nueva y hace volar una COPIA que no toma clics. El lugar de cada pantalla, en este orden (`DESTINOS_CASA`):
+1. `[data-mako-casa]`, para que una pantalla marque su lugar a mano. Lo nuevo entra por acá, sin tocar la lista. Automations
+   lo pone en la figura de MaKo de la cabecera de su lista, que abre el chat.
+1. La cabecera de un chat del Ops Center (`.co-cab__muneco`), que es también la del chat de MaKo del grafo del Second Brain.
+   Con menos de 1100 px esa columna está plegada, y entonces se funde.
+2. La criatura del chat de Automations (`[data-chat-sidebar] [role="img"][aria-label="MaKo"]`).
+3. La estrella de abajo, «Escríbele a MaKo» (`.ch-tab-mako`): CRM, Plan, General/Dashboard, Clients.
+4. En el teléfono, la criatura del Ops Center en la barra (`[data-mako-foto-barra]`).
+
+Sin lugar visible se va como siempre, de golpe. Son: Chats, Calendario, Web Generator, Ads Manager, Video, Image y
+Copywriting, y Offer, donde la criatura sólo está de avatar en un mensaje. **En Automations el chat está ESCONDIDO al
+terminar de cargar** (la lista va arriba). Por eso su chat suma, en la cabecera de la lista, la figura de MaKo que abre el
+chat, con `data-mako-casa` (rama `aut2-mako-casa` del chat de Automations). Hasta que llegue, en Automations no vuela.
+
+**Trampas que muerden:**
+- **El loader se desmonta en el mismo instante en que llega la página**: no puede volar él. Por eso hace falta un vigía que
+  sobreviva, y una copia de la criatura.
+- **Dos loaders seguidos son UNA carga**: Automations muestra el del `loading.tsx` y después el de la página mientras lee. Un
+  loader que se va y otro que llega antes de 120 ms no vuelan entre sí.
+- **Con la pestaña de fondo `requestAnimationFrame` no corre**: la posición se anota también en cada cambio del documento,
+  no sólo por cuadro.
+- **Para verificar en el Chrome conectado**: con la ventana tapada, las animaciones web quedan en `currentTime 0` aunque
+  `visibilityState` diga `visible` (y una pestaña 0×0 es un grupo minimizado: se cierra y se crea de nuevo). Lo que se mide
+  es el trayecto, adelantando la animación a mano (`a.pause(); a.currentTime = 357`). En /crm aterriza en el centro de la
+  estrella con su ancho, y `elementFromPoint` debajo de la copia da la página.
+- **La curva hace que llegue antes de la mitad**: el `easing` va sobre toda la animación, así que a 210 ms ya está en su lugar
+  y fundiéndose. Es el movimiento del Ops Center tal cual; no es un error.
+
+Lo fija `tests/vuelo-mako.test.ts`, con 5 roturas cazadas.
+
+*23/10/2026, chat «Rendimiento y loaders» (claude2).*
+
 ## EL loader de las tabs grandes es UNO: `CargandoMako`, la criatura y una barra que corre (23/10/2026)
 
 **Síntoma (Martín):** «cuando entro a Second Brain tarda muchísimo, y lo peor es que ni siquiera hay un loader aunque sea,
@@ -38,8 +79,15 @@ el `loading.tsx` de cada tab grande de escritorio y de /m; el CRM conserva su es
 El «Abriendo Automations…» de `ChatAgentApp.tsx` también pasó a `CargandoMako`: el mismo del `loading.tsx`, así del
 server al cliente no hay salto.
 
-**Lo que quedó SIN hacer:** el cambio de panel del Ops Center al grafo, 2,7 s sin nada: va en la rama `mapa ? …` de
-`app/second-brain/ChatSecondBrain.tsx`, después de la punta 2df8aa56b del chat del Ops Center.
+El loader al ir al grafo del Second Brain (2,7 s sin nada) queda con la implementación del chat del Ops Center (`yendo` /
+`verMapa` en `ChatSecondBrain.tsx`, rama `ops-sb-chat-2310`), que además muestra el chat en el acto al salir. Mi versión
+(ea9092f40) entró por las dos ramas y su merge se queda con la de ellos.
+
+⛔ **Una página que redirige SIEMPRE no lleva `loading.tsx`** (ticket #7, 23/10/2026). Con él, su `redirect()` va adentro
+del stream: llega un 200 con meta refresh en lugar del 307, y la carrera con la hidratación tiró «Minified React error #310»
+en el AppRouter de Next. Pasó en /general, que sólo redirige a /dashboard. El centinela lo reportó y recargó la página.
+/plan y /second-brain, que redirigen al super admin y conservan el loader, redirigen ahora en su layout, que queda
+afuera del loader (docs/hallazgos-infra.md).
 
 *23/10/2026, chat «Rendimiento y loaders» (claude2).*
 

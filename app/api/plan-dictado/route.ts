@@ -19,11 +19,11 @@ import { getUsuarioActual } from '@/lib/auth';
 import { provsDe, transcribirAudio } from '@/lib/ai-cheap';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
-import { conSoloSuIA } from '@/lib/solo-su-ia';
+import { PROVS_SU_IA, conSoloSuIA } from '@/lib/solo-su-ia';
 import { errorDeDictado } from '@/lib/dictado-error';
 
 /** Con su propio Claude y sin su OpenAI no hay con qué escuchar la nota sin la cascada gratis. */
-const SIN_OIDO_SU_IA = 'Con tu propio Claude, las notas de voz las escucho con tu clave de OpenAI, y no la tienes conectada. Escríbemelo.';
+const SIN_OIDO_SU_IA = 'Con tu propio Claude, las notas de voz las escucho con tu clave de OpenAI o de Gemini, y no tienes ninguna conectada. Escríbemelo.';
 
 
 export const dynamic = 'force-dynamic';
@@ -48,7 +48,8 @@ export async function POST(req: Request) {
     // Sin saber de qué negocio es, como si tuviera su IA (falla cerrada).
     const negocio = ws == null ? { suIA: true } : await negocioConSuIA(ws);
     const texto = await conSoloSuIA(negocio.suIA, async () => {
-      if (negocio.suIA && !(await provsDe('openai')).length) return null;
+      // IA16: su OpenAI o su Gemini (`PROVS_SU_IA`); con sólo su Claude, no hay con qué escuchar.
+      if (negocio.suIA && !(await Promise.all(PROVS_SU_IA.map((p) => provsDe(p as never)))).some((l) => l.length)) return null;
       return transcribirAudio(base64, file.type || 'audio/webm', { motivo: 'Dictar una tarea del plan', pii: true });
     });
     if (texto == null) return Response.json({ ok: false, error: SIN_OIDO_SU_IA }, { status: 200 });

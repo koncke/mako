@@ -90,7 +90,7 @@ test('colorParaNueva: el primero que nadie usa; si están todos, distinto de las
 });
 
 test('la action: una etapa nueva nace con color, y una operación desconocida no agrega nada', () => {
-  const src = sinComentarios(leer('app/crm/actions.ts'));
+  const src = sinComentarios((leer('app/crm/actions.ts') + leer('lib/etapas-crm-server.ts')));
   const ini = src.indexOf("} else if (op.op === 'agregar') {");
   assert.ok(ini > 0, 'el agregar dejó de ser una rama explícita');
   const rama = src.slice(ini, src.indexOf('} else {', ini));

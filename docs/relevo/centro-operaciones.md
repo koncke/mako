@@ -1,5 +1,14 @@
 # Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~20:00; cuenta 4, `claude4`)
 
+## 23/10 noche (claude2, chat «Ops Center»): «Second Brain» en el acto y un chat con MaKo en el grafo
+
+Dos pedidos de Martín por el Cerebro (bitácora del Second Brain, el hito «prompt» de las 19:40). Rama `ops-sb-chat-2310`
+(worktree `C:/dev/wt-ops-sb`): `a5deec115` (la vista cambia en el acto, con el loader del grafo) y `c733a2be6` (la columna del
+grafo es un chat con MaKo, con su conversación propia y el saludo). Lo que costó: docs/hallazgos-second-brain.md.
+**Sin mirar en pantalla:** recorrerlo en producción con el ws10 (`/second-brain`, tocar «Second Brain», escribirle a MaKo en la
+columna, tocar un punto y volver con ✕, y la ventana angosta con «MaKo»). Rendimiento hace volar la criatura del loader a su
+lugar: ahora es la cabecera del chat de la columna (`.co-cab__muneco`).
+
 ## 23/10 tarde (claude2, chat «Ops Center»): la Ticketera del cliente, la barra, el Uso y la caja
 
 Pedidos 6, 7 y 8 de Martín mirando `/second-brain?chat=40`, y uno que dejó Automations. Rama `ops-ticketera-2310` (worktree
@@ -22,6 +31,14 @@ antes: la causa del 7 y el arreglo de la caja (sacándole el `0px` al campo: 40 
    de datos.ts y, cuando esto esté en main, el loader del grafo en ChatSecondBrain.tsx.
 4. Un link `/second-brain?ticketera=tickets` en el teléfono del cliente no abre su Ticketera (lib/movil-rutas.ts).
 
+**Ya en producción (c0b47d416), recorrido con el ws10 en la computadora: todo bien.** La Ticketera directo por el link, con la
+estrella y el botón de lista; «Second Brain» desde la Ticketera abre el grafo; Automations con «Pídele un cambio» centrado. Sin
+ver: el teléfono (`/m` sale del user-agent y Chrome no lo cambia) y el Uso del super admin; los mira Martín. Dos detalles chicos:
+cerrar la Ticketera con el ícono de la barra de la app deja el panel en el último chat aunque la URL diga /second-brain.
+
+**Después (punta de los pedidos):** /admin/operaciones ya no manda los 455 pedidos (733 KB) en cada carga, sino 47 (96 KB); lo
+terminado viejo de un chat se trae al abrirlo (docs/hallazgos-operaciones.md, «733 KB de pedidos en cada carga»). Sin mirar en
+pantalla: lo ve Martín abriendo un chat viejo del Centro (su historial tiene que salir entero, como antes).
 ## 23/10 noche (claude1, chat «Ops Center», `local_5cc6190d…`): las computadoras de los clientes, fuera de «Tus cuentas de IA»
 
 Encargo del Cerebro por lo que Martín vio en producción («estas cruzando workspace»). Rama `ops-pcs-2310` (worktree

@@ -367,6 +367,25 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '23 oct', hora: '21:47', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Editar las etapas de un CRM, por la API',
+    puntos: [
+      'P0-6: renombrar, agregar, quitar y ordenar las etapas de un CRM, ponerle plazo a una etapa, y quitar o devolver una columna de nutrición. Antes, por la API sólo se cambiaba el tipo de una etapa.',
+      'Usa el mismo camino que el «⋯» de la columna y el pop-up de etapas, que se mudó a lib/etapas-crm-server.ts.',
+      'Antes de quitar una etapa dice cuántos leads tiene. Las terminales y la etapa de entrada no se quitan, igual que en la pantalla.',
+    ],
+    commits: [
+      { sha: 'e2cd3dc4', msg: 'API de MaKo: editar las etapas de un CRM (P0-6 de la auditoría), con el cuerpo de la action en lib', lineas: 1720, archivos: 20 },
+    ],
+    archivos: [
+      'lib/etapas-crm-server.ts — editarEtapa y conteosDelEmbudo',
+      'lib/etapas-crm-reglas.ts — porQueNoSeElimina y pipelineReordenado, puros',
+      'lib/api-mako/areas/crm.def.ts + crm.run.ts — las seis operaciones',
+      'tests/api-mako-etapas-crm.test.ts — probado rompiéndolo',
+    ],
+  },
+  {
     fecha: '23 oct', hora: '17:18', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'La entrega de un cliente y el alumno nuevo, por la API',
@@ -384,6 +403,25 @@ export const BITACORA: Hito[] = [
       'lib/cs-quitar-producto.ts, lib/cs-crear-cliente.ts y lib/curso-alta-alumno.ts — el núcleo que comparten la pantalla y la API',
       'lib/api-mako/areas/cs.def.ts + cs.run.ts — mover_cliente_entrega, quitar_cliente_de_servicio, devolver_cliente_a_servicio',
       'lib/api-mako/areas/curso.def.ts + curso.run.ts — crear_alumno_curso',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '18:34', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Vender un plan de MaKo por el chat',
+    puntos: [
+      'P0-8: el super admin puede crear desde el chat el link de pago de un plan. Al pagarlo, se crea la cuenta, igual que con «Vender un plan» de Cobros.',
+      'Usa el mismo camino que la pantalla, que se mudó a lib/vender-plan.ts.',
+      'Se confirma en pantalla, con el email y el plan fijos: lo que mueve plata va así, como decidió el Cerebro.',
+    ],
+    commits: [
+      { sha: '91390750', msg: 'API de MaKo: vender un plan de MaKo por el chat del super admin (P0-8 de la auditoría)', lineas: 429, archivos: 8 },
+      { sha: '7fa410a5', msg: 'API de MaKo: vender_plan_mako se confirma en PANTALLA, con el email y el plan fijos al revisar', lineas: 30, archivos: 3 },
+    ],
+    archivos: [
+      'lib/vender-plan.ts — ventaValida, venderPlan y leadsDelComprador',
+      'lib/api-mako/areas/cobros.def.ts + cobros.run.ts — vender_plan_mako',
+      'tests/api-mako-vender-plan.test.ts — probado rompiéndolo',
     ],
   },
   {
@@ -415,6 +453,25 @@ export const BITACORA: Hito[] = [
       'lib/oferta-modelo.ts — planDeOferta, sanearOfertaInput y ofertaDeLaPantalla',
       'lib/api-mako/areas/negocio.def.ts + negocio.run.ts — las cinco operaciones',
       'tests/api-negocio-onboarding.test.ts — 15 tests, cada arreglo probado rompiéndolo',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '22:40', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Vender un plan por el chat: la revisión adversarial encontró 16',
+    puntos: [
+      'Cobros pidió revisarla con agentes antes de soltarla. La revisión propia había dicho que no había nada que frenara.',
+      'Ahora confirma y ejecuta solo el super admin, y una automatización no la puede correr.',
+      'Antes del «sí» se sabe y se dice qué se cobra: la pasarela, la moneda y el valor en dólares.',
+      'Un segundo pedido igual no crea otro link, y el comprador se busca sin importar las mayúsculas.',
+    ],
+    commits: [
+      { sha: '0aa6afae', msg: 'API de MaKo: vender_plan_mako con los 16 hallazgos de la revisión adversarial (super admin, flujos, previa, doble link)', lineas: 578, archivos: 13 },
+    ],
+    archivos: [
+      'lib/vender-plan.ts y lib/vender-plan-reglas.ts — la previa, el link abierto y la validación pura',
+      'lib/capas.ts — lo que se vende, en positivo',
+      'tests/api-mako-vender-plan.test.ts y tests/capas-vendibles.test.ts — 18 roturas',
     ],
   },
 ];

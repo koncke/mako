@@ -43,12 +43,15 @@
 // conversación vieja o encima de un turno en curso.
 // =============================================================================
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { Button } from '@/app/_ui';
 import { useWs } from '@/app/_ui/Link';
 import { transcribirNota } from '@/app/_components/useDictar';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type Quien } from '@/app/_chat/HiloMako';
+import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
+import { CargandoMako } from '@/app/_ui/CargandoMako';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { CSS_OFFER } from '@/app/offer/estilos';
 import {
@@ -69,8 +72,8 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 const RUTA = '/api/crm/analyst';
 /** El maxDuration de la ruta es 300 s: el corte del navegador va 5 s después. */
 const TOPE_MS = 305_000;
-/** El muñeco de MaKo al lado de lo que dice (el del Ops Center). */
-const QUIEN: Quien = { nombre: 'MaKo' };
+/** El muñeco de MaKo al lado de lo que dice: la estrella, como en la cabecera. */
+const QUIEN: Quien = { nombre: 'MaKo', aspecto: ASPECTO_MAKO };
 /** El ➤ y el ✓ de la barra de grabar van en el negro del Ops Center, como en Offer (app/offer/ChatOffer.tsx). */
 const SIN_VERDE = { '--good': 'var(--ink)', '--sobre-good': 'var(--surface)' } as CSSProperties;
 
@@ -114,7 +117,6 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
   const [segs, setSegs] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [tarjeta, setTarjeta] = useState<{ id: number; accion: 'confirmar' | 'cancelar' } | null>(null);
-  const [encima, setEncima] = useState(false);
   /** Para la píldora del día («Hoy», «Ayer») del hilo. */
   const [ahora] = useState(() => Date.now());
   const hiloRef = useRef<HTMLDivElement>(null);
@@ -318,17 +320,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
     onNoPuede: () => setError('Espera a que cargue el chat para sumar archivos.'),
     onSinImagen: (puedeLeer) => setError(puedeLeer ? 'No hay una imagen copiada.' : 'Este navegador no deja pegar.'),
   };
-  const alArrastrar = (e: DragEvent<HTMLDivElement>) => {
-    if (trabajo || !Array.from(e.dataTransfer?.types ?? []).includes('Files')) return;
-    e.preventDefault();
-    if (!encima) setEncima(true);
-  };
-  const alSoltar = (e: DragEvent<HTMLDivElement>) => {
-    if (!e.dataTransfer?.files?.length) return;
-    e.preventDefault();
-    setEncima(false);
-    if (!trabajo) void juntar(Array.from(e.dataTransfer.files));
-  };
+  // Arrastrar y soltar es del panel (PanelDeChat → `adjuntos`): lo soltado va a `juntar`, lo mismo que el «+».
 
   // ── Las tarjetas: confirmar o no ejecutar lo que MaKo propuso ──
   /** `r`: lo que contestó la tarjeta (su «Abrir», los avisos y lo que dibuja el resultado: `conTarjeta`). */
@@ -369,6 +361,14 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
 
   const hayTrabajo = trabajo != null;
 
+  // ¿Se está mirando lo último? Se escucha el scroll del hilo del panel (PanelDeChat no recibe `onScroll`).
+  useEffect(() => {
+    const h = hiloRef.current;
+    if (!h) return;
+    const alMover = () => { abajo.current = estaAbajo(h); };
+    h.addEventListener('scroll', alMover, { passive: true });
+    return () => h.removeEventListener('scroll', alMover);
+  }, []);
   // Lo nuevo se ve sin buscarlo: el hilo sigue abajo si se estaba mirando lo último, y al abrir la ficha de otro lead.
   const deLead = useRef(leadId);
   useLayoutEffect(() => {
@@ -406,40 +406,37 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
   const estado = trabajo?.fase === 'subiendo' ? `Subiendo ${trabajo.fuente} · ${Math.round(trabajo.pct * 100)}%` : null;
 
   return (
-    <div className="of-hilo" data-esquina-ocupada
-      onDragOver={alArrastrar} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setEncima(false); }} onDrop={alSoltar}
-      style={{
-        flex: 1, minHeight: 420, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative',
-        background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid var(--primary)', borderRadius: 16, overflow: 'hidden',
-      }}>
+    // EL CHAT DEL OPS CENTER (23/10/2026, Martín: «el chat con MaKo en el editor del CRM en el detail de un lead, no es el mismo que
+    // debería ser, con la criatura y otras cosas... Tienes que UNIFICAR los chats con MaKo en toda la app»): el panel único
+    // (PanelChat.tsx) con su cabecera y la estrella de MaKo, su arrastrar y soltar (`adjuntos`), el hilo y la caja únicos, y el
+    // loader de la casa mientras abre. Lo propio de la ficha (su motor, la sesión por lead, la edición de la hoja) queda acá.
+    <div className="ml-chat" data-esquina-ocupada style={{ flex: 1, minHeight: 420, height: '100%', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
       <style>{CSS_OFFER}</style>
-      <div className="co-hilo" ref={hiloRef} onScroll={(e) => { abajo.current = estaAbajo(e.currentTarget); }}>
-        <div className="co-hilo__col">
-          {!listo ? (
-            <p role="status" style={{ margin: 'auto', color: 'var(--dim)', fontSize: 13.5 }}>Abriendo el chat…</p>
-          ) : errorCarga || vacio ? vacioHilo : (
-            // `key` por lead: el hilo de otro lead no hereda nada del anterior.
-            <HiloMako key={leadId} items={items} quien={QUIEN} ahora={ahora} escribiendo={hayTrabajo ? { segs } : null}
-              tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
-              onResponder={(t) => { if (ocupadoRef.current) return false; enviar({ texto: t, adjuntos: [] }); return true; }}
-              onTrabajo={(de, ok) => { setItems((xs) => trasTrabajo(xs, de, ok)); refrescarFicha(); }} />
-          )}
-        </div>
-      </div>
-      {/* El cartel de soltar del Ops Center (centro.css → .co-soltar). */}
-      {encima && <div className="co-soltar" aria-hidden>Suelta para adjuntar</div>}
-      {preguntas}
-      {error && <div role="alert" className="of-error">{error}<ReportarASoporte /></div>}
-      {/* La caja va POR LEAD (`key`): una grabación a medias no viaja a la ficha de otro. */}
-      <div key={leadId} className="co-caja-wrap" style={SIN_VERDE}>
-        <div className="co-caja">
-          <CajaChat texto={texto} onTexto={(v) => { setError(null); setTexto(v); }} onMandar={enviarComposer}
-            ocupado={hayTrabajo || procesando > 0} apagado={!listo || !!errorCarga}
-            placeholder={edicion ? `Qué cambiar de ${edicion.nombre || 'esta hoja'}` : `Pregúntale a MaKo por ${quien}`}
-            tituloMandar="Mandar (Enter)" enterManda seguir={() => hiloRef.current} onErrorMic={setError}
-            adjuntos={adjuntosCaja} voz={{ onAudio: enviarAudio, onError: setError, rotuloEnviar: 'Enviar audio' }} estado={estado} />
-        </div>
-      </div>
+      <PanelDeChat hilo={hiloRef} adjuntos={adjuntosCaja}
+        cabecera={{ clave: `lead:${leadId}`, titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: hayTrabajo ? 'trabajando' : 'despierto' }}
+        caja={<>
+          {preguntas}
+          {error && <div role="alert" className="of-error">{error}<ReportarASoporte /></div>}
+          {/* La caja va POR LEAD (`key`): una grabación a medias no viaja a la ficha de otro. */}
+          <div key={leadId} className="co-caja" style={SIN_VERDE}>
+            <CajaChat texto={texto} onTexto={(v) => { setError(null); setTexto(v); }} onMandar={enviarComposer}
+              ocupado={hayTrabajo || procesando > 0} apagado={!listo || !!errorCarga}
+              placeholder={edicion ? `Qué cambiar de ${edicion.nombre || 'esta hoja'}` : `Pregúntale a MaKo por ${quien}`}
+              tituloMandar="Mandar (Enter)" enterManda seguir={() => hiloRef.current} onErrorMic={setError}
+              adjuntos={adjuntosCaja} voz={{ onAudio: enviarAudio, onError: setError, rotuloEnviar: 'Enviar audio' }} estado={estado} />
+          </div>
+        </>}
+        estado="">
+        {!listo ? (
+          <CargandoMako que="el chat con MaKo" alto="100%" size={48} />
+        ) : errorCarga || vacio ? vacioHilo : (
+          // `key` por lead: el hilo de otro lead no hereda nada del anterior.
+          <HiloMako key={leadId} items={items} quien={QUIEN} ahora={ahora} escribiendo={hayTrabajo ? { segs } : null}
+            tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
+            onResponder={(t) => { if (ocupadoRef.current) return false; enviar({ texto: t, adjuntos: [] }); return true; }}
+            onTrabajo={(de, ok) => { setItems((xs) => trasTrabajo(xs, de, ok)); refrescarFicha(); }} />
+        )}
+      </PanelDeChat>
     </div>
   );
 }

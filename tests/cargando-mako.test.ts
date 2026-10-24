@@ -82,6 +82,19 @@ test('cada tab grande tiene su loading.tsx con CargandoMako (escritorio y /m)', 
   assert.match(leer('app/second-brain/loading.tsx'), /^export \{ default \} from '@\/app\/admin\/operaciones\/loading';$/m);
 });
 
+test('ir al grafo del Second Brain muestra el loader desde el toque hasta que llega el grafo (eran 2,7 s sin nada)', () => {
+  // Desde el 23/10 lo lleva `yendo` (ChatSecondBrain.tsx, del chat Ops Center): cubre también la vuelta (el chat se ve ya).
+  const src = leer('app/second-brain/ChatSecondBrain.tsx');
+  // Se prende al tocar «Second Brain» (el paso de la barra va al grafo)…
+  assert.match(src, /if \(paso\.ir\) \{ setYendo\(paso\.ir === 'mapa' \? 'mapa' : 'fuera'\); router\.push\(/);
+  // …se suelta cuando llega el grafo (o se va)…
+  assert.match(src, /useEffect\(\(\) => \{ setYendo\(null\); \}, \[mapa\]\);/);
+  assert.match(src, /const verMapa = yendo \? yendo === 'mapa' : hayMapa;/);
+  // …y mientras, el panel del grafo es el loader de todas las tabs (si el grafo está, gana el grafo).
+  assert.match(src, /\) : verMapa \? \([\s\S]*?\{mapa\n\s*\? <VolverDelGrafo\.Provider[\s\S]*?: <CargandoMako que="tu Second Brain" alto="100%" \/>\}/);
+  assert.match(src, /import \{ CargandoMako \} from '@\/app\/_ui\/CargandoMako';/);
+});
+
 test('la criatura del Ops Center también lleva la barra, y la barra no vuela con ella', () => {
   const html = renderToStaticMarkup(createElement(EntradaOps, { espera: true }));
   assert.match(html, /<div class="eo-vuelo">[\s\S]*<\/div><div class="cm-carga__pista eo-pista"><span class="cm-carga__tramo"><\/span><\/div><\/div>$/, 'la barra va afuera de .eo-vuelo, al final de la capa');

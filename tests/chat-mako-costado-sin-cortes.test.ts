@@ -22,9 +22,10 @@ test('el panel flotante de Automations no se llama como la barra de la app (si n
 });
 
 test('la cabecera del chat de MaKo tiene su relleno: sin margen negativo que la saque del panel ni la meta debajo del hilo', () => {
-  const chat = leer('app/automations/ChatMako.tsx');
-  const cab = /\n {2}cabecera: \{([^}]*)\},/.exec(chat)?.[1] ?? '';
-  assert.ok(cab, 'no encontré el estilo de la cabecera');
-  assert.doesNotMatch(cab, /margin: '-/, 'volvió el margen negativo: la cabecera sale por encima del panel');
-  assert.match(cab, /padding: '10px 12px 8px', flex: 'none'/);
+  // Desde el 23/10/2026 la cabecera es la del panel único: su relleno es el de la columna (ChatMakoVista.tsx), sin margen negativo.
+  const vista = leer('app/automations/ChatMakoVista.tsx');
+  const css = /const CSS_COLUMNA = '([^']*)';/.exec(vista)?.[1] ?? '';
+  assert.ok(css, 'no encontré el estilo de la columna');
+  assert.doesNotMatch(css, /margin: -/, 'volvió el margen negativo: la cabecera sale por encima del panel');
+  assert.match(css, /\[data-chat-mako-panel\] \.co-cab \{ padding: 0 12px; min-height: 52px; \}/);
 });

@@ -66,6 +66,7 @@ import { ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
 import { recordUsage } from '@/lib/anthropic-usage';
 import { rutearDoer } from '@/lib/mako-router';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
+import { PROVS_SU_IA } from '@/lib/solo-su-ia';
 import { avisoClaveTapadaEnElGrupo, escribioUnaClave, soloLaClave, taparClavesDelMensaje } from '@/lib/doer-claves';
 import { taparClaves } from '@/lib/claves-en-el-chat';
 import { overrideDeFeature } from '@/lib/model-registry';
@@ -350,7 +351,8 @@ Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes 
  */
 async function contarKeysIA(): Promise<number> {
   let n = 0;
-  for (const prov of ['gemini', 'groq']) {
+  // IA16: Groq ya no contesta texto (sólo escucha las notas de voz): no cuenta como IA del chat.
+  for (const prov of ['gemini']) {
     n += (await clavesCargadas(prov).catch(() => [])).length;
   }
   return n;
@@ -1380,7 +1382,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
              * el que estaba pensado para exactamente este turno. Estuvo inalcanzable
              * desde el 13/08 por el bug de `provsDe`.
              */
-            const cands = suIA ? ['openai'] : [pinL.provider, 'groq', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
+            // IA16: sin Groq (sólo escucha audio); un pin a Groq de /modelos-ia lo saltea `chatCheapTools`. Con su IA, su Gemini
+            // y su OpenAI (`PROVS_SU_IA`): desde el 22/10/2026 su Gemini es su IA, y con sólo `['openai']` no se probaba.
+            const cands = suIA ? [...PROVS_SU_IA] : [pinL.provider, 'openai'].filter((p, i, a) => p !== 'groq' && a.indexOf(p) === i);
             const orden = await ordenarPorCuota(cands).catch(() => cands);
             let ultErr: unknown = null;
             // ⚠️ TODOS los errores, no solo el último. `ultErr` alcanza para tirar,

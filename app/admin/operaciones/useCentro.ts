@@ -17,7 +17,7 @@
 // ⚠️ LA GUARDA NO VIVE ACÁ: los datos de entrada los lee el servidor DESPUÉS de `puedeOperar` (las dos páginas del
 //    Centro y la del Second Brain, tests/operaciones.test.ts), y cada acción la vuelve a pedir (acciones.ts).
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   DESTINO_NUEVO, DESTINO_RE, MAX_TEXTO, MAX_TEXTO_LARGO, aceptaAbrir, aceptaAdjuntos, aceptaAdjuntosGrandes, aceptaTextoLargo, problemaDeAdjuntosCaja, problemaDeNombreNuevo, tipoDeElegidoCentro, type AdjuntoPedido, type TurnoChat,
 } from '@/lib/operaciones-reglas';
@@ -30,14 +30,14 @@ import {
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
   avisosDe, esperaCheck, esperaDe, incidenteSinVer, sinElRunner, turnosParaLaLista, ultimoYaEsta, vigiaCallado, type VistosDeChats, type YaVistos,
 } from '@/lib/centro-chats';
-import type { PedidoP } from '@/lib/progreso-reglas';
+import { pedidosQueFaltan, type PedidoP } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
 import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
 import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { contestarPreguntaAction, creditoDelNegocioAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, type turnosCentroAction, type FotoCentro } from './acciones';
+import { desconectarComputadoraAction, contestarPreguntaAction, creditoDelNegocioAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, type pedidosDelChatAction, type turnosCentroAction, type FotoCentro } from './acciones';
 // Las LECTURAS van por GET y no por acción (23/10/2026): ver ./lectura-centro.ts.
 import { leerCentro } from './lectura-centro';
 import type { CuentasConNombre } from '@/lib/centro-titulares';
@@ -78,6 +78,10 @@ export type DatosCentro = {
   cuentasIniciales?: CuentasConNombre;
   /** Lo último de cada chat, por sesión, para la lista (lib/centro-turnos-db.ts → leerUltimosTurnos). */
   ultimosIniciales?: Record<string, TurnoChat[]>;
+  /** El ✓ de cada «Completado» (lib/centro-ya-vistos-db.ts), leído con la carga: sin él, el primer cuadro no tenía los avisos
+   *  y el refresco los prendía segundos después (23/10/2026, Martín: «me decía que Cerebro estaba apagado y luego de unos segundos
+   *  se prendió»). null = no se pudo leer. */
+  yaVistosIniciales?: YaVistos | null;
   pedidos: PedidoP[];
   ahora: number;
   sub: string;
@@ -107,7 +111,14 @@ const trabajoDe = (p: Pedido): TrabajoP => ({
 });
 
 export function useCentro(d: DatosCentro, avisar: Avisar) {
-  const { base, pedidos, sub, tabs, responder, deshacer } = d;
+  const { base, sub, tabs, responder, deshacer } = d;
+  // Los pedidos: los de la carga (lo sin terminar y lo terminado reciente) más los terminados viejos de cada chat que se abrió,
+  // que se piden al abrirlo (23/10/2026, lib/progreso-reglas.ts → pedidosDeLaCarga). Se suman una vez: un pedido terminado no cambia.
+  const [viejos, setViejos] = useState<PedidoP[]>([]);
+  const pedidos = useMemo(() => (viejos.length ? [...d.pedidos, ...viejos] : d.pedidos), [d.pedidos, viejos]);
+  const pedidosRef = useRef<ReadonlySet<string>>(new Set());
+  pedidosRef.current = new Set(pedidos.map((p) => p.id));
+  const pidiendo = useRef(new Set<string>());
   const [cola, setCola] = useState<Pedido[]>(d.colaInicial ?? []);
   // Las miniaturas que este navegador guardaba antes del 23/10 y ya no tienen burbuja (fotos-enviadas.ts): una vez por carga.
   useEffect(() => { void barrerEnviadasViejas(cola.map((p) => p.id)); }, [cola]);
@@ -212,9 +223,11 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // los chats saldrían con aviso el primer día).
   const [vistos, setVistos] = useState<VistosDeChats | null>(null);
   /** El ✓ de cada «Completado», guardado en MaKo (18/10/2026): llega con cada refresco, así cruza al teléfono. */
-  const [yaVistos, setYaVistos] = useState<YaVistos | null>(null);
+  const [yaVistos, setYaVistos] = useState<YaVistos | null>(d.yaVistosIniciales ?? null);
   const [mirando, setMirando] = useState<string | null>(null);
-  useEffect(() => { setVistos(leerVistos(Date.now())); }, []);
+  // Antes de pintar (useLayoutEffect): leído en un efecto, el primer cuadro contaba los avisos sin lo visto en este navegador y
+  // el siguiente los cambiaba (23/10/2026).
+  useLayoutEffect(() => { setVistos(leerVistos(Date.now())); }, []);
   const verChat = useCallback((clave: string) => {
     setVistos((v) => { const n = { desde: v?.desde ?? Date.now(), chats: { ...v?.chats, [clave]: Date.now() } }; guardarVistos(n); return n; });
   }, []);
@@ -228,6 +241,14 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     // Lo que quedó escrito en este navegador vuelve en el acto; lo de MaKo llega con los turnos.
     cargarBorrador(c, null);
     void pedirTurnos(c);
+    // Sus pedidos terminados viejos, si faltan (los dibuja su conversación): una vez por pedido.
+    const faltan = pedidosQueFaltan(c.pedidos, { has: (id) => pedidosRef.current.has(id) || pidiendo.current.has(id) });
+    if (faltan.length) {
+      faltan.forEach((id) => pidiendo.current.add(id));
+      void leerCentro<Awaited<ReturnType<typeof pedidosDelChatAction>>>('pedidos', { id: faltan })
+        .then((r) => { if (r.ok && r.pedidos.length) setViejos((v) => [...v, ...r.pedidos.filter((p) => !pedidosRef.current.has(p.id))]); })
+        .catch(() => { faltan.forEach((id) => pidiendo.current.delete(id)); });
+    }
     // Y los archivos que quedaron sin mandar (IndexedDB), si la caja está vacía.
     if (!(adjuntosRef.current[c.clave]?.length)) {
       void leerAdjuntosGuardados(claveParaUrl(c)).then((fs) => {

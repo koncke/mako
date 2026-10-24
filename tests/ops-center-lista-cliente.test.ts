@@ -93,7 +93,7 @@ test('2. agrupados por su origen con el agrupado del super admin: el grupo sube 
   // En la pantalla: el MISMO componente que el super admin (nunca una copia), en la computadora; el mismo `porJefe` en el teléfono.
   const piezas = sinComentarios(leer('app/admin/operaciones/PiezasCentro.tsx'));
   assert.match(piezas, /export function GruposPorJefe</);
-  assert.match(piezas, /\? <GruposPorJefe chats=\{corte\} fila=\{fila\} \/>/, 'la lista del super admin');
+  assert.match(piezas, /<GruposPorJefe chats=\{corte\} fila=\{fila\} \/>/, 'la lista del super admin');
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
   // Con su fila JEFE cuando el grupo no tiene chat propio (22/10/2026: tests/ops-center-cliente-jefes.test.ts).
   assert.match(sb, /<GruposPorJefe chats=\{corte\} fila=\{fila\} jefe=\{/, 'la del cliente');

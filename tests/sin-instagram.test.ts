@@ -72,12 +72,23 @@ const CANAL: Record<string, string> = {
   'lib/zernio-entrante.ts': 'la persona, su mensaje y el disparador de un evento',
   'app/api/webhooks/zernio/route.ts': 'el webhook (firma, ruteo, dedup)',
   'app/api/zernio/route.ts': 'la cuenta de salida del editor y «Conectar»',
+  // 23/10/2026: «Conectar con Facebook, Instagram o anuncios de Meta» vía Zernio y con la key DEL NEGOCIO. Habla con la API de Zernio con el
+  // cliente de lib/zernio.ts (`zFetch`, `cfg`): el link del login, las conexiones y armar la recepción de una cuenta nueva. La usan Ads Manager,
+  // Chats, Automations y el modal de Zernio de /integraciones.
+  'lib/zernio-conectar.ts': 'conectar redes vía Zernio: el link del login, las conexiones y armar la recepción',
   // Décima tanda (11/10/2026, GENERAL 6): «una automatización que usa un medio que aún no conectó, en la tarjeta
   // lo debe decir... y no dejar publicarlo». Es la MISMA pregunta que la ruta de arriba (¿hay una cuenta?), hecha
   // por el server para el chip, Publicar y Activar (`estadoMedios`). Desde la duodécima (12/10/2026) Publicar y Activar
   // además aseguran el webhook de Zernio (`asegurarAvisosSociales`): no le manda nada a un lead.
   'lib/disparadores-canales.ts': '¿está conectada la cuenta de Instagram o Messenger? (`estadoMedios`), y el webhook al publicar',
   'lib/metodo-verificar.ts': 'el ping de la integración (GET /profiles)',
+  // 23/10/2026 (chat «CRM»): «Unificar» dos fichas muda la charla de Instagram de la que se va a la que queda
+  // (`ig_conversaciones.lead_id`). No habla con Zernio ni manda nada: sólo cambia de quién es la charla.
+  'lib/leads-unificar-reglas.ts': 'al unir dos fichas, la charla de Instagram pasa a la que queda (`TABLAS_QUE_SE_MUDAN`)',
+  // 23/10/2026, decisión de Martín: «vamos por Zernio directo… que cada usuario traiga su API de Zernio» para
+  // publicar y editar anuncios (lo único que la app en desarrollo del cliente no deja: el 1885183). NO es el canal
+  // de Instagram: usa la clave del NEGOCIO (nunca la de la plataforma para un cliente) y la API de anuncios.
+  'lib/zernio-ads.ts': 'publicar y editar anuncios de Meta por la Zernio del negocio (docs/hallazgos-ads.md, «Publicar por Zernio»)',
   'lib/workspace.ts': 'TENANT_TABLES',
   'lib/tablas-de-inquilino.ts': 'las tablas de un inquilino',
 };

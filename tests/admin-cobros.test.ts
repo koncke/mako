@@ -36,6 +36,9 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g,
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 const ACTIONS = sinComentarios(leer('app/admin/cobros/actions.ts'));
+// «Vender un plan» vive en lib/vender-plan.ts desde el 23/10/2026 (lo usa también la API de MaKo, vender_plan_mako):
+// sus cerrojos se fijan ahí, con las mismas reglas.
+const LIB = sinComentarios(leer('lib/vender-plan.ts'));
 
 /**
  * Cada `export async function` del archivo: su nombre, sus parámetros y su cuerpo. El cuerpo arranca
@@ -83,16 +86,20 @@ test('cada action pregunta por el super admin ANTES de hacer cualquier otra cosa
 });
 
 test('el workspace es el de la plataforma, se resuelve adentro y nunca viaja desde la pantalla', () => {
-  assert.doesNotMatch(ACTIONS, /\bOWNER_WS\b/, 'OWNER_WS es Mauricio, un cliente: lo de MaKo va en wsSuperAdmin()');
-  assert.doesNotMatch(ACTIONS, /\b(getWorkspaceActual|adminDeWorkspaceActual|resolverWsAdmin|WS_PRUEBA)\b/,
-    'el ws de la cookie puede ser el de cualquier cliente que el super admin esté mirando');
-  const definidos = new Set([...ACTIONS.matchAll(/const (\w+) = await wsSuperAdmin\(\);/g)].map((m) => m[1]));
-  const llamadas = [...ACTIONS.matchAll(/\b(crearCobro|listarCobros|pasarelasConectadas|anularCobro|reembolsarCobro|runWithWorkspace)\((await wsSuperAdmin\(\)|[^,)]+)/g)];
-  assert.ok(llamadas.length >= 6, `esperaba al menos 6 llamadas que reciben el ws, encontré ${llamadas.length}`);
-  for (const [, fn, arg] of llamadas) {
-    const a = arg.trim();
-    assert.ok(a === 'await wsSuperAdmin()' || definidos.has(a), `${fn}(${a}, …): el ws tiene que salir de wsSuperAdmin()`);
+  let total = 0;
+  for (const src of [ACTIONS, LIB]) {
+    assert.doesNotMatch(src, /\bOWNER_WS\b/, 'OWNER_WS es Mauricio, un cliente: lo de MaKo va en wsSuperAdmin()');
+    assert.doesNotMatch(src, /\b(getWorkspaceActual|adminDeWorkspaceActual|resolverWsAdmin|WS_PRUEBA)\b/,
+      'el ws de la cookie puede ser el de cualquier cliente que el super admin esté mirando');
+    const definidos = new Set([...src.matchAll(/const (\w+) = await wsSuperAdmin\(\);/g)].map((m) => m[1]));
+    const llamadas = [...src.matchAll(/\b(crearCobro|listarCobros|pasarelasConectadas|anularCobro|reembolsarCobro|runWithWorkspace)\((await wsSuperAdmin\(\)|[^,)]+)/g)];
+    total += llamadas.length;
+    for (const [, fn, arg] of llamadas) {
+      const a = arg.trim();
+      assert.ok(a === 'await wsSuperAdmin()' || definidos.has(a), `${fn}(${a}, …): el ws tiene que salir de wsSuperAdmin()`);
+    }
   }
+  assert.ok(total >= 6, `esperaba al menos 6 llamadas que reciben el ws, encontré ${total}`);
   for (const a of acciones(ACTIONS)) {
     assert.doesNotMatch(a.params, /\bws\b|workspace/i, `${a.nombre} recibe el workspace como parámetro: lo podría elegir cualquiera`);
   }
@@ -110,12 +117,19 @@ test('la capa de la plataforma no se ofrece como plan, ni en la pantalla ni en l
   const vp = sinComentarios(leer('app/admin/cobros/VenderPlan.tsx'));
   assert.match(vp, /CAPAS_VENDIBLES\.map\(/, 'los planes se listan desde CAPAS_VENDIBLES');
   assert.doesNotMatch(vp, /\bCAPAS\b|\bCAPAS_LISTA\b/, 'el catálogo entero incluye la capa superadmin');
-  // Y la action lo vuelve a preguntar ANTES de crear un lead o un cobro: la pantalla no protege nada.
+  // Y el server lo vuelve a preguntar ANTES de crear un lead o un cobro: la pantalla no protege nada. La action delega en
+  // lib/vender-plan.ts, donde ventaValida valida la capa y venderPlan la llama antes del lead y del cobro.
   const v = acciones(ACTIONS).find((a) => a.nombre === 'venderPlanAction')!;
-  const chequeo = v.cuerpo.search(/if \(!esCapaVendible\(capa\)\) return /);
-  assert.ok(chequeo > 0, 'venderPlanAction no valida la capa con esCapaVendible');
-  assert.ok(chequeo < v.cuerpo.indexOf('crearCobro('), 'la capa se valida ANTES de crear el cobro');
-  assert.ok(chequeo < v.cuerpo.indexOf('leadDelComprador('), 'y antes de crear un lead para nada');
+  assert.match(v.cuerpo, /await venderPlan\(v, autorDe\(admin\)\)/, 'venderPlanAction no delega en el camino de lib/vender-plan.ts');
+  // ventaValida vive en lib/vender-plan-reglas.ts (puro, sin server-only) desde la revisión adversarial del 23/10/2026.
+  const REGLAS = sinComentarios(leer('lib/vender-plan-reglas.ts'));
+  const valida = REGLAS.slice(REGLAS.indexOf('export function ventaValida('));
+  assert.match(valida, /if \(!esCapaVendible\(capa\)\) return /, 'ventaValida no valida la capa con esCapaVendible');
+  const vende = LIB.slice(LIB.indexOf('export async function venderPlan('), LIB.indexOf('async function leadDelComprador('));
+  const chequeo = vende.indexOf('ventaValida(v)');
+  assert.ok(chequeo > 0, 'venderPlan no valida la venta');
+  assert.ok(chequeo < vende.indexOf('crearCobro('), 'la capa se valida ANTES de crear el cobro');
+  assert.ok(chequeo < vende.indexOf('leadDelComprador('), 'y antes de crear un lead para nada');
 });
 
 test('la página es sólo del super admin, y el guard va antes de leer nada', () => {

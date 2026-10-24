@@ -105,7 +105,10 @@ test('el mail va DESPUÉS, no deshace el alta, y dice de qué negocio le hablan'
 });
 
 test('sólo CAPAS_VENDIBLES: la superadmin no se da de alta, y se rechaza sin tocar la base', async () => {
-  assert.match(SRC, /export const esCapaVendible = \(capa: string\): capa is CapaId => CAPAS_VENDIBLES\.some\(\(c\) => c\.id === capa\);/);
+  // Desde el 23/10/2026 vive en lib/capas.ts (la usa la regla pura de vender un plan) y acá se re-exporta.
+  const CAPAS_SRC = fuente('lib/capas.ts');
+  assert.match(CAPAS_SRC, /export const esCapaVendible = \(capa: string\): capa is CapaId => CAPAS_VENDIBLES\.some\(\(c\) => c\.id === capa\);/);
+  assert.match(SRC, /export \{ esCapaVendible \};/);
   assert.doesNotMatch(SRC, /\besCapaValida\b|\bCAPAS_LISTA\b/, 'esCapaValida deja pasar `superadmin`');
 
   // Ejecutado: el módulo es server-only (se neutraliza el marcador) y la red está prohibida.

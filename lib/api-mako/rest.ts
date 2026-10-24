@@ -137,6 +137,13 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/etapas/{etapa}/transiciones', 'transiciones_desde_etapa'],
   // «Tipo de etapa» (21/10/2026): Etapa / Reunión / Nutrición. PUT porque FIJA el tipo.
   ['PUT', '/crm/etapas/{etapa}/tipo', 'cambiar_tipo_etapa'],
+  // Editar las etapas (23/10/2026, P0-6 de la auditoría): el orden es de TODAS juntas; el resto, de una.
+  ['POST', '/crm/etapas', 'agregar_etapa'],
+  ['PUT', '/crm/etapas/orden', 'ordenar_etapas'],
+  ['PATCH', '/crm/etapas/{etapa}', 'renombrar_etapa'],
+  ['DELETE', '/crm/etapas/{etapa}', 'eliminar_etapa'],
+  ['PUT', '/crm/etapas/{etapa}/plazo', 'plazo_etapa'],
+  ['PUT', '/crm/etapas/{etapa}/nutricion', 'columna_nutricion_crm'],
   ['GET', '/crm/etiquetas', 'listar_etiquetas'],
   ['POST', '/crm/etiquetas', 'crear_etiqueta'],
   ['PATCH', '/crm/etiquetas/{etiquetaId}', 'editar_etiqueta'],
@@ -354,6 +361,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/metricas/dashboard/informe', 'restablecer_informe_dashboard'],
   ['POST', '/metricas/dashboard/hojas', 'crear_hoja_dashboard'],
   ['GET', '/metricas/dashboard/hojas/{hoja}', 'leer_hoja_dashboard'],
+  // 23/10/2026: las «Métricas» de UNA automatización (su pestaña en Automations), como recurso propio.
+  ['GET', '/metricas/automatizaciones/{secuenciaId}', 'metricas_automatizacion'],
   ['PATCH', '/metricas/dashboard/hojas/{hoja}', 'editar_hoja_dashboard'],
   // 16/10/2026: «Editar con MaKo» crea una EDICIÓN de la hoja (MaKo la arma y se propone), como una copia crea una copia.
   ['POST', '/metricas/dashboard/hojas/{hoja}/ediciones', 'editar_hoja_con_ia_dashboard'],

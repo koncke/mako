@@ -246,17 +246,16 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   // las automatizaciones, con Messenger (tests/sin-instagram.test.ts cuenta la historia).
   {
     key: 'zernio',
-    nombre: 'Instagram y Messenger (Zernio)',
+    nombre: 'Facebook, Instagram y anuncios (Zernio)',
     categoria: 'Mensajería',
-    paraQue: 'Mensajes de Instagram y Messenger en tus automatizaciones: comentarios, historias, mensajes y anuncios.',
+    paraQue: 'Conecta tu Facebook, tu Instagram y tus anuncios de Meta con tu cuenta de Zernio, sin salir de MaKo.',
     campos: [
-      // BYOK con respaldo de plataforma: `opcional` a propósito — sin key propia, lib/zernio.ts usa la
-      // cuenta de Zernio de la agencia y el aislamiento lo da el PROFILE por workspace. El ruteo del
-      // webhook NO sale de este campo (una key es secreta y jamás se espeja a `webhook_routing`): lo
-      // acuña el server (`ensureProfile`, `cuentasConectadas`). Por eso no está en ROUTING_CREDS.
-      { env: 'ZERNIO_API_KEY', label: 'API key de Zernio', secreto: true, opcional: true,
-        sinEsto: 'Sin key propia, MaKo usa la cuenta de la plataforma.',
-        nota: 'Opcional: con tu key, Zernio te factura a ti. Incluye 2 cuentas conectadas; desde la 3.ª cobra por cada una.' },
+      // BYOK SIN respaldo de plataforma (23/10/2026, Martín: «que cada usuario traiga su API de Zernio»): la key es
+      // OBLIGATORIA y es siempre la del negocio. El ruteo del webhook NO sale de este campo (una key es secreta y jamás
+      // se espeja a `webhook_routing`): lo acuña el server (`ensureProfile`, `cuentasConectadas`). Por eso no está en
+      // ROUTING_CREDS. La nota es la línea del cobro: cada red cuenta aparte en Zernio, y lo paga el negocio.
+      { env: 'ZERNIO_API_KEY', label: 'API key de Zernio', secreto: true,
+        nota: 'Zernio te cobra a ti. Cada red cuenta aparte (página, Instagram, anuncios): 2 gratis, desde la 3.ª se paga.' },
     ],
     tutorial: {
       url: 'https://zernio.com',
@@ -265,7 +264,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Entra a zernio.com con tu cuenta, o crea una.',
         'En "Settings" → "API Keys" toca "Create API Key" y copia la key: se ve UNA sola vez.',
         'Pégala en "API key de Zernio" y guarda.',
-        'En una tarjeta de Instagram o Messenger toca "Conectar" (cuenta de empresa o de creador).',
+        'Con la key guardada, conecta Facebook, Instagram o tus anuncios desde esta misma tarjeta en Integraciones.',
       ],
     },
   },
@@ -364,11 +363,11 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     key: 'gemini',
     nombre: 'Google Gemini',
     categoria: 'Inteligencia',
-    paraQue: 'IA de Google con 1M de contexto y function-calling. El plan gratis no cobra, pero Google usa tus datos para mejorar sus productos (con revisión humana). Para datos de clientes usa una key PAGA (activa facturación en el proyecto): esa NO entrena.',
+    paraQue: 'Tu Gemini: con tu clave, MaKo trabaja solo con tu cuenta. El plan gratis no cobra, pero Google puede usar tus datos para mejorar sus modelos (con revisión humana). Activa la facturación en AI Studio y no los usa.',
     campos: [
-      { env: 'GEMINI_API_KEY', label: 'API key', secreto: true, placeholder: 'AIza…', nota: 'Empieza con AIza. En el plan gratis, Google usa tus textos y su gente puede leerlos; la key del plan pago no entrena.' },
+      { env: 'GEMINI_API_KEY', label: 'API key', secreto: true, placeholder: 'AQ.…', nota: 'Empieza con AQ. (o AIza, las viejas). En el plan gratis, Google usa tus textos y su gente puede leerlos.' },
       cuentaDe('GEMINI_API_KEY'),
-      ...keysExtra('gemini', 'AIza…'),
+      ...keysExtra('gemini', 'AQ.…'),
     ],
     tutorial: {
       url: 'https://aistudio.google.com/apikey',
@@ -376,7 +375,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       pasos: [
         'Entra a aistudio.google.com/apikey con tu cuenta de Google.',
         'Ojo: en el plan gratis Google entrena con tus textos. Para evitarlo: "Billing Tier" → "Set up billing" (10 dólares).',
-        'Toca "Create API key" con cualquier proyecto de Google Cloud y copia la key (empieza con AIza).',
+        'Toca "Create API key" con cualquier proyecto de Google Cloud y copia la key (empieza con AQ.).',
         'Pégala en "API key" y guarda.',
         '"API key 2" es opcional: la key de otra cuenta de Google, para cuando la primera llega a su tope.',
       ],
@@ -756,51 +755,6 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
-  // EL PUENTE DE LEADS DE META POR MAKE O ZAPIER (23/10/2026, lib/zapier-lead.ts). La app de MaKo todavía no tiene
-  // `leads_retrieval` aprobado, así que el negocio manda sus leads desde SU PROPIA cuenta de Make (o de Zapier): MaKo no paga
-  // ni comparte ninguna, como con las claves de IA. MAKE ES EL CAMINO PRINCIPAL (decisión de Martín, 23/10/2026) y Zapier la
-  // alternativa en una línea, y LOS DOS SON DE PAGO: Martín corrigió el mismo día que el plan Free de Make «NO trae la integración
-  // API… no nos sirve», así que NINGUNA pantalla dice «gratis» (tests/zapier-leads.test.ts). Make desde Core (US$9 al mes) y Zapier
-  // desde Professional (US$19,99 anual), leídos el 23/10/2026; la guía lleva la fecha y los links. La clave la INVENTA el negocio
-  // (como la de Skool) y viaja en un header. La key del servicio sigue siendo 'zapier': está guardada en la base, en el ruteo
-  // y en la ruta, y no se renombra con el nombre de la tarjeta.
-  //   · Make: «Facebook Lead Ads → Watch Leads» y «HTTP → Make a request» (POST, JSON) a esta dirección; en Leads Access se
-  //     asigna la app «Make». ⚠️ NO MEDIDO con una cuenta de Make: si «Watch Leads» es instantáneo (en la página del módulo
-  //     aparece sin esa etiqueta) o corre por el intervalo del plan (15 minutos en Free), y si una corrida vacía gasta crédito.
-  //     Por eso NADA de acá promete «al instante» ni cuántos leads aguanta un plan (tests/zapier-leads.test.ts).
-  //   · Zapier (medido en su ayuda, no con un Zap real): premium, plan Professional; con «Data» en blanco manda todos los
-  //     campos; se asigna la app «Zapier» (no «Zapier Inc.»).
-  //   · En los dos, si se edita el formulario Facebook crea uno nuevo con otro id y la automatización sigue en el viejo.
-  {
-    key: 'zapier',
-    nombre: 'Leads de Meta por Make o Zapier',
-    categoria: 'Publicidad',
-    paraQue: 'Cada lead de tus formularios de Meta entra solo a tu CRM. Usas tu propia cuenta de Make o de Zapier, de pago.',
-    campos: [
-      { env: 'ZAPIER_LEADS_CLAVE', label: 'Clave del aviso', secreto: true, placeholder: 'Una clave larga que inventes', nota: 'La inventas tú. Va igual aquí y en el header X-MaKo-Clave de Make o Zapier. Sin esto no entra ningún lead.' },
-    ],
-    pasoExterno: {
-      titulo: 'Pega esta dirección en tu escenario de Make (o en tu Zap)',
-      porque: 'Es por donde Make te manda cada lead de Meta. Sin este paso, tus leads no llegan a tu CRM.',
-      valor: '{{APP_URL}}/api/webhooks/zapier',
-      donde: 'En make.com: tu escenario → módulo «HTTP» → «Make a request» → campo «URL», método POST.',
-      ojo: [
-        'En «Headers» agrega X-MaKo-Clave con tu clave y manda el cuerpo en JSON: sin la clave, MaKo rechaza el lead.',
-        'Si editas el formulario en Meta, Facebook crea uno nuevo: elígelo otra vez en «Watch Leads» (o en el trigger del Zap).',
-      ],
-    },
-    tutorial: {
-      url: 'https://business.facebook.com/settings/leads-accesses/',
-      urlLabel: 'Meta → Acceso a leads',
-      pasos: [
-        'En «Clave del aviso» escribe una clave larga que inventes (por ejemplo micuenta2026clave).',
-        'En business.facebook.com/settings/leads-accesses asigna como CRM la app «Make» (en Zapier, «Zapier», no «Zapier Inc.»).',
-        'En make.com (plan Core, US$9 al mes) crea un escenario: «Facebook Lead Ads» → «Watch Leads» y «HTTP» → «Make a request».',
-        'Pega la dirección del recuadro amarillo (POST, JSON), agrega el header X-MaKo-Clave con tu clave y activa el escenario.',
-        'Con Zapier (plan Professional, desde US$20 al mes): «Facebook Lead Ads» → «New Lead» y «Webhooks by Zapier» → «POST».',
-      ],
-    },
-  },
   // APIFY (15/10/2026, docs/diseno-leads-scraper.md §5): donde corren las búsquedas de prospectos.
   // BYOK: cada búsqueda se cobra en la cuenta de Apify del negocio, con un techo que MaKo le pasa a
   // la corrida (`maxTotalChargeUsd`, lib/apify.ts). No recibe webhooks por credencial: el aviso de
@@ -1019,10 +973,10 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   },
   GEMINI_API_KEY: {
     pasos: [
-        'Para qué sirve: con esta key MaKo lee de una vez documentos y conversaciones muy largas.',
+        'Para qué sirve: es tu IA. Con esta key MaKo contesta, lee documentos largos y busca en tu conocimiento con tu cuenta.',
         'Entra a aistudio.google.com/apikey con tu cuenta de Google (para "API key 2", con OTRA cuenta).',
         'Ojo: en el plan gratis Google entrena con tus textos. Para evitarlo: "Billing Tier" → "Set up billing" (10 dólares).',
-        'Toca "Create API key" con cualquier proyecto de Google Cloud y copia la key (empieza con AIza).',
+        'Toca "Create API key" con cualquier proyecto de Google Cloud y copia la key (empieza con AQ.).',
         'Pégala en este campo y guarda.',
       ],
     url: 'https://aistudio.google.com/apikey',

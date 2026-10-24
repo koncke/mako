@@ -3179,6 +3179,34 @@ export const BITACORA: Hito[] = [
     revisar: '/crm',
   },
   {
+    fecha: '23 oct', hora: '20:20', chat: 'CRM', sesion: 'local_726a73ed-e110-45e4-a32a-038b6e37e962', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Unificar las fichas parecidas ahí mismo, y más información en el bloque',
+    pedido: '«En el CRM si me dice "Hay otra ficha parecida", que me de la opción ahí mismo de unificarlas, y ese bloque en el detail requiere más info... ¿En que CRM aparece duplicada? etc...»',
+    puntos: [
+      'Llegó por el Cerebro. El caso real: sus dos fichas del ws1, la 249 y la 3099, con el mismo teléfono. Las respuestas caían en la vieja y la automatización corría en la nueva.',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '21:40', chat: 'CRM', sesion: 'local_726a73ed-e110-45e4-a32a-038b6e37e962', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Unificar» dos fichas, con lo que queda de cada una antes de confirmar',
+    puntos: [
+      'No había cómo unir dos fichas que ya existen. Se hizo una sola vez, para todo el CRM.',
+      'El aviso de la ficha parecida dice en qué CRM está, en qué etapa, por qué se parece y desde cuándo existe.',
+      'Antes de unir se ve cuál queda (la más vieja, salvo que la otra tenga la venta), de cuál sale cada dato y qué se trae.',
+      'Con sus dos fichas se probó sin escribir nada: queda la vieja, con su automatización, sus mensajes y su historial. No se unieron.',
+      'Lo que ya es cliente (cuotas, curso, Customer Success) todavía no se une: el pop-up lo dice.',
+    ],
+    archivos: [
+      'lib/leads-unificar-reglas.ts — qué queda y qué se mueve (puro)',
+      'lib/leads-unificar.ts — leer las dos y aplicar',
+      'app/crm/lead-view/ficha/resumen/UnificarFichas.tsx — el pop-up',
+      'app/crm/lead-view/ficha/resumen/duplicados.tsx — el bloque',
+    ],
+    revisar: '/crm',
+  },
+  {
     fecha: '23 oct', hora: '03:30', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Los topes de MaKo Esencial en el CRM: 1 CRM y 2.000 leads',

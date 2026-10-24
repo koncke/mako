@@ -1,16 +1,19 @@
 // =============================================================================
-// «Editar con MaKo» (Dashboard y General) tiene la cara del Ops Center: el muñeco de la tab, el hilo y la caja únicos
+// «Editar con MaKo» (Dashboard y General) es el chat del Ops Center: el panel único con la estrella, el hilo y la caja únicos
 // =============================================================================
 // 17/10/2026: el muñeco de la tab donde iba el logo, y el micrófono del Second Brain (como el chat del CRM, 8db1e3cbc).
 // 22/10/2026 (TB3; Martín: «quiero que todos los chats de MaKo en las tabs sean el del Ops Center»): el hilo es `HiloMako`
 // con el muñeco de la tab como quien contesta, y la caja es `CajaChat` (que trae el micrófono que dicta, el «+» y los
 // emojis). Lo propio de este chat —lo que cambió con su Deshacer, los pedidos de otra hoja— va en el hueco `enMensaje`
 // (app/dashboard/items-edicion.ts). Y el panel va a la IZQUIERDA (el marco `.an`, app/dashboard/PanelAnalista.tsx).
+// 23/10/2026 (Martín: «Tienes que UNIFICAR los chats con MaKo en toda la app»): adentro del panel único (PanelDeChat), con la
+// estrella de MaKo en la cabecera, la portada y el hilo, en lugar del muñeco de la tab.
 //
 // Correr: node --import tsx --test tests/dashboard-editar-mako-muneco.test.ts
 //
 // ⚠️ PROBADO ROMPIENDOLO (22/10/2026, base 4/0): el hilo sin `quien={{ nombre: tab }}` → 3/1; volver al <textarea> propio
 // → 3/1; el marco `.an` otra vez a la derecha → 3/1; `itemsDeEdicion` con ids que no son la posición → 3/1.
+// Y el 23/10/2026: el hilo con el muñeco de la tab (`quien={{ nombre: 'Dashboard' }}`) → 4/1.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -22,14 +25,14 @@ import type { MensajeEdicion } from '../app/dashboard/PanelEditarMako';
 const sinComentarios = (s: string) => s.replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
 const panel = sinComentarios(readFileSync('app/dashboard/PanelEditarMako.tsx', 'utf8'));
 
-test('el muñeco de la tab en la cabecera, la portada y en el hilo (lo que contesta y mientras piensa)', () => {
-  assert.match(panel, /const tab = informe === 'general' \? 'General' : 'Dashboard';/);
-  assert.match(panel, /<Muneco titulo=\{tab\} animo=\{animo\} size=\{26\} \/>/, 'la cabecera');
-  assert.match(panel, /<Muneco titulo=\{tab\} animo=\{animo\} size=\{64\} \/>/, 'la portada vacía');
-  assert.match(panel, /<HiloMako items=\{items\} quien=\{\{ nombre: tab \}\} ahora=\{ahora\} escribiendo=\{pensando \? \{ segs: segundos \} : null\}/,
-    'el hilo del Ops Center, con el muñeco de la tab y su «Trabajando…»');
+test('el panel único con la estrella de MaKo en la cabecera, la portada y el hilo (lo que contesta y mientras piensa)', () => {
+  assert.match(panel, /<PanelDeChat hilo=\{hiloPanel\}/, 'el panel del Ops Center');
+  assert.match(panel, /cabecera=\{\{ clave: 'editar-con-mako', titulo: onModo \? 'MaKo' : 'Editar con MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo,/, 'la cabecera, con la estrella');
+  assert.match(panel, /<Muneco titulo="MaKo" aspecto=\{ASPECTO_MAKO\} animo=\{animo\} size=\{64\} \/>/, 'la portada vacía');
+  assert.match(panel, /<HiloMako items=\{items\} quien=\{\{ nombre: 'MaKo', aspecto: ASPECTO_MAKO \}\} ahora=\{ahora\} escribiendo=\{pensando \? \{ segs: segundos \} : null\}/,
+    'el hilo del Ops Center, con la estrella y su «Trabajando…»');
   assert.match(panel, /enMensaje=\{enMensaje\}/, 'lo que cambió y los pedidos, en el hueco del hilo');
-  assert.doesNotMatch(panel, /<LogoMako\b/, 'volvió el logo');
+  assert.doesNotMatch(panel, /<LogoMako\b|<Muneco titulo=\{tab\}/, 'volvió el logo o el muñeco de la tab');
 });
 
 test('la caja es la única, con la hoja del Centro cargada', () => {

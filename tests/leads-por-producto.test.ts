@@ -472,13 +472,16 @@ test('⚠️ el traer MARCA a los que ya están en el destino, y el conteo del p
   // Probado rompiéndolo (números en el comentario del archivo):
   //   · `extrasDelEmbudoAction` vuelve a `deriveStageKey(l …)` -> cae
   //   · `yaEstanEnProducto` deja de leer las filas del destino  -> cae
-  const ac = limpio(leer('app/crm/actions.ts'));
+  // etapaComoTablero y el conteo del pop-up viven en lib/etapas-crm-server.ts desde el 23/10/2026 (P0-6).
+  const ac = limpio(leer('app/crm/actions.ts') + leer('lib/etapas-crm-server.ts'));
 
   const regla = bloque(ac, 'function etapaComoTablero(');
   assert.match(regla, /l\.pipeline_stage && validas\.has\(l\.pipeline_stage\)/,
     'la etapa del tablero dejó de preferir el override válido (para un agregado, la etapa de su fila)');
 
-  const extras = bloque(ac, 'export async function extrasDelEmbudoAction(');
+  // Desde el 23/10/2026 el pop-up cuenta con `conteosDelEmbudo` (lib/etapas-crm-server.ts), el mismo conteo que la API.
+  assert.match(bloque(ac, 'export async function extrasDelEmbudoAction('), /conteosDelEmbudo\(funnelId \?\? null\)/);
+  const extras = bloque(ac, 'export async function conteosDelEmbudo(');
   assert.match(extras, /const k = etapaComoTablero\(l, validas\);/,
     'el conteo por etapa dejó de usar la regla que dibuja la tarjeta: los agregados y las etapas propias vuelven a contar 0');
   assert.ok(!/deriveStageKey\(/.test(extras), 'el conteo volvió a `deriveStageKey` solo');

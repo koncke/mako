@@ -38,6 +38,39 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un `redirect()` adentro de una página con `loading.tsx` rompió la app: React #310 (23/10/2026, ticket #7)
+
+**Síntoma:** «La pantalla General se rompió», con «Minified React error #310» (más hooks que en el render anterior) en el
+AppRouter de Next (`L`, el `useMemo` del canonicalUrl). Quedó en errores_app id 5 (ws13 a las 22:35 y ws10 a las 23:03 UTC),
+con ruta /general. El centinela (`CentinelaArranque`) lo reporta y recarga la página sola: la pantalla de error de Next dura
+un instante y casi no se ve.
+
+**El diagnóstico obvio era otro:** el tren de ese deploy (las lecturas por GET, /api/auth/me, el Sidebar) o un cambio de
+versión con la pestaña abierta. No era nada de eso. Era el `app/general/loading.tsx` de ese mismo día. /general sólo
+redirige a /dashboard. **Un loading.tsx es un Suspense**, y con él el `redirect()` de la página deja de ser un 307: llega un
+**200 con el loader, el `NEXT_REDIRECT` adentro del stream y un `<meta http-equiv="refresh">`**. La redirección queda en
+carrera con la hidratación y, a veces, el router se cae. Medido: 1 de cada ~10 cargas directas; nunca navegando adentro.
+Antes del loader, /general respondía 307 (`fetch('/general', { redirect: 'manual' })` da `opaqueredirect`; con el loader,
+`200 basic`).
+
+**El arreglo:**
+- /general sin `loading.tsx` (137b91f76; verificado en producción: vuelve a dar `opaqueredirect`).
+- /plan y /second-brain, que redirigen al super admin y conservan el loader porque Martín lo pidió: la redirección va
+  **en su `layout.tsx`**. El layout de un segmento queda AFUERA de su loading.tsx, así que devuelve el 307. Un layout no
+  recibe `searchParams` ni sabe qué ruta se pidió (envuelve también a sus hijas): el proxy le pasa la ruta y la query en
+  `x-mako-ruta` y `x-mako-query`, que pisa los que mande el cliente. La decisión es la misma de la página, que la conserva:
+  navegando de /plan/agencia a /plan el layout no se vuelve a dibujar.
+- **Por qué no en el proxy:** /second-brain decide con `puedeOperar` contra el workspace del super admin, que se lee de
+  la base. El proxy no lee la base, y fijar ese 9 a mano en la puerta de seguridad era peor.
+
+**La regla:** una página que redirige SIEMPRE no lleva loading.tsx. Una que redirige a ALGUNOS y tiene loader, redirige
+en su layout. Lo fijan `tests/cargando-mako.test.ts` y `tests/redirige-antes-del-loader.test.ts`.
+
+**Para medir:** el centinela de arranque recarga la página una vez por minuto (`mako_reintento_arranque` en
+sessionStorage). Para VER la pantalla de error al reproducir, se pone esa clave en el futuro antes de cargar.
+
+*23/10/2026, chat «Rendimiento y loaders» (claude2).*
+
 ## Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO: el `cache()` de React no memoiza fuera de un render (23/10/2026)
 
 **Síntoma (Martín):** «Al abrir Automations tarda mucho… Debería ser más rápido todo». Medido en producción
@@ -8007,3 +8040,104 @@ Después de borrar, `git worktree prune`. El 23/10 se quitaron 62 de 189, y el d
 - Con el disco casi lleno, `du`, robocopy y Get-ChildItem tardan minutos por carpeta. Sirve un recorrido en node con tope de tiempo.
 
 **Lo que quedó SIN hacer:** la red. Una limpieza programada con esas tres condiciones, y que la guardia avise cuando C: baje de 15 GB. Iría en `~/.claude/guardia/`, versionado en `scripts/claude-hooks/guardia/`. Sin eso, se vuelve a llenar en una semana.
+
+## El tsc acotado puede INVENTAR un rojo, y el discriminante es de dónde salen los tipos (24/10/2026, Cerebro › Integración, tren de 24 puntas)
+
+Por poco freno un tren de 24 puntas por un error que no existe. El acotado
+(`scripts/tsc-acotado.mjs`) reportó en `tests/automations-antiban.test.ts:101` un
+**TS2769** sobre `createElement(Unidad, { apagada: true }, 'min')`: `Unidad`
+(`app/automations/FilasOpciones.tsx:125`) declara `children: ReactNode` sin `?`, y el
+tercer argumento variádico de `createElement` no satisface un `children` requerido en
+los props. Razoné que el tsc completo lo frenaría igual y lo arreglé antes de pasar el sha.
+
+**El tsc completo lo deja pasar.** La prueba no es un argumento: `main` avanzó a
+`48e75f43d`, que CONTIENE ese error, y el push a `main` corre el tsc local **completo**
+por el lock. Antes de culpar al gate se verificó que hubiera corrido: el hook existe
+(`.git/hooks/pre-push`, ejecutable) y desde un worktree el `git-common-dir` apunta al
+clon principal, así que el hook se comparte. El gate funcionó; el rojo era del acotado.
+
+⚠️ **El discriminante NO es «aparece en la rama sola».** Eso fue lo primero que medí y
+sólo contesta otra pregunta: que no lo causó el merge. El TS2769 aparecía idéntico en
+`aut2-huso` sola **y** era falso. El discriminante es **de dónde salen los tipos**:
+
+| El tipo que falta es… | El acotado y el completo | Ejemplo de este tren |
+|---|---|---|
+| **del propio archivo** (un `type` local, el control de flujo de una función) | dicen LO MISMO: el rojo es real | `RespuestaApi` es un `type` local a `ConectarViaZernio.tsx:52` y no declaraba `webhook`; nadie de afuera le puede agregar una propiedad a un alias local. Y el narrowing a `never` de la 271 es control de flujo dentro de una función |
+| **de un paquete** (`@types/react` y sus overloads) | el acotado lo puede INVENTAR: compila con `files`, `types: ["node"]` y sin `next-env.d.ts` | el TS2769 de `createElement` |
+
+Es la advertencia que el propio script imprime («si el que falta lo agrega OTRO archivo
+con `declare module`») y la leí como si fuera sólo sobre TipTap. Vale para cualquier tipo
+que no viva en el archivo, no sólo para una augmentación.
+
+⚠️ **Y la pista que tenía delante y no usé: dos líneas gemelas donde una falla y la otra
+no es la firma de un artefacto de overloads, no de un bug.** En ese mismo test la 102
+llama al MISMO componente con `null` de props y no da error, y la 101 con un objeto sí —
+porque con `null` TS toma otro overload y no chequea los obligatorios. Se reconoce en
+diez segundos y ahorra una hora.
+
+**El arreglo quedó igual** (`children` entra a los props, los 7 tests del archivo pasan y
+el render es idéntico), y no porque hiciera falta para compilar: deja el acotado de ese
+archivo en **0**, así la próxima sesión no sale a cazar el mismo fantasma. Sacar una
+trampa del camino no es cosmético.
+
+**Vive en:** `scripts/tsc-acotado.mjs` · `tests/automations-antiban.test.ts` · `app/automations/FilasOpciones.tsx`
+
+## La unión de un `.md` conserva los dos lados; en una bitácora PEGA dos hitos en un objeto (24/10/2026, Cerebro › Integración)
+
+Armando el tren de 24 puntas, 7 ramas quedaban afuera por chocar **sólo en
+documentación** — y tirar la cosecha de 7 sesiones por un conflicto de docs es lo que la
+casa prohíbe. La salida fue `git merge-file -p --union` sobre las tres etapas
+(`git show :1: :2: :3:`), que conserva los dos textos y no elige a ojo. Para
+`docs/hallazgos.md` (el índice) va un resolvedor **por fila de área**: cada rama le
+prepende su hallazgo al contenido de su fila, así que comparten la cola y la unión es
+`prefijo + A + B + cola`; aborta si perdería contenido en vez de quedarse con un lado.
+
+⚠️ **Pero la unión en un `.ts` rompe la sintaxis, y pasó TRES veces en el mismo tren**:
+`app/admin/dev/integraciones/bitacora.ts` (TS1005: un `archivos: [` sin cerrar),
+`app/admin/dev/centro-operaciones/bitacora.ts` (TS1117: dos juegos de campos en un
+objeto, y de nuevo al traer `main`) y `app/admin/dev/chatbot/bitacora.ts` (TS1005). La
+unión mete los hitos de los dos lados **adentro del mismo objeto literal**: el anterior
+nunca cierra su array ni su `},` y el siguiente arranca con su `fecha:`.
+
+**Las tres las cazó `scripts/tsc-bitacoras.mjs`**, que es la PRIMERA guarda del push y
+existe exactamente para esto (AGENTS.md ya lo documentaba: «dos hitos al final de una
+bitácora se pegan en un objeto»). Ninguna llegó al sha. La regla que queda: **la unión
+automática vale para `.md`; en un `.ts` es una resolución a VERIFICAR, y el verificador
+es esa guarda** — se corre después de cada unión, no al final de la tanda. Lo que se
+inserta es el cierre (`],` si quedó un array abierto, `},` y `{`), nunca se descarta un hito.
+
+**Vive en:** `scripts/tsc-bitacoras.mjs` · `app/admin/dev/*/bitacora.ts` · `docs/hallazgos.md`
+
+## Un relevo puede enumerar 1 punta de 26, y el sha que anota envejece (24/10/2026, Cerebro › Integración)
+
+El relevo del Cerebro enumeraba lo pendiente y registraba **UNA** punta sin entrar.
+Medidas con git —el trailer `Claude-Cuenta`, no el nombre de la rama— eran **26**, todas
+con contenido real (ninguna con el diff vacío) y todas de esa misma noche. Las que el
+relevo daba por cerradas estaban abiertas, y el que entra las da por cerradas con él.
+
+Es el modo de falla que el propio documento advierte («el relevo es material de SEGUNDA
+MANO»), cumplido sobre sí mismo: **un relevo que enumera mal lo pendiente es peor que uno
+que no enumera nada**, porque apaga la búsqueda. Lo que lo evita es medir antes de
+creerle, y son dos comandos por worktree (`rev-list --count origin/main..HEAD` y
+`diff --name-only origin/main...HEAD` para descartar los diffs vacíos).
+
+⚠️ **Y dos trampas del relevo que costaron, las dos medidas:**
+
+- **Los worktrees NO están todos en `C:/dev/`.** La instrucción decía «mirá los worktrees
+  de `C:/dev/`» y dejaba afuera **siete** puntas, una de ellas (`cobros-p1-vincular`, en
+  `C:/Users/marti/wtp-vinc`) del camino de venta de ese fin de semana. Se recorre
+  **`git worktree list`**, sin ruta. Y ojo con los nombres parecidos: había tres
+  worktrees «vinc» y sólo uno estaba pendiente.
+- **Un sha anotado en un relevo envejece solo.** El relevo registraba IA16 en
+  `9cd361a5e`; estaba en `7ff4633e6`, +12 commits y 67 archivos. **«Conocida» no es
+  «quieta»:** una punta que el relevo nombra puede haber seguido avanzando, y si se la
+  trata como fija y se la pone al principio de un tren, cuando se mueve hay que rehacer
+  todos los merges de arriba.
+
+Y lo mismo para el otro lado: **`main` se movió TRES veces mientras se armaba el tren**
+(`7d69d0f25` → `2d4165d74` → `ab17c296e` → `837f1c959`). Una instrucción que nombra un
+sha de `main` llega vieja; el tren se arma sobre `origin/main` recién fetcheado y se le
+trae `main` con **merge, nunca rebase** — un rebase le cambiaría el sha a las 24 puntas y
+las dejaría sin poder verificarse con `merge-base --is-ancestor`.
+
+**Vive en:** `docs/relevo.md` · `docs/relevo/cerebro.md` · `git worktree list`
