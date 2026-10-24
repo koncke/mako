@@ -415,4 +415,23 @@ export const BITACORA: Hito[] = [
       'La propuesta para rescatarla está en docs/hallazgos-api-mako.md.',
     ],
   },
+  {
+    fecha: '23 oct', hora: '22:40', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Vender un plan por el chat: la revisión adversarial encontró 16',
+    puntos: [
+      'Cobros pidió revisarla con agentes antes de soltarla. La revisión propia había dicho que no había nada que frenara.',
+      'Ahora confirma y ejecuta solo el super admin, y una automatización no la puede correr.',
+      'Antes del «sí» se sabe y se dice qué se cobra: la pasarela, la moneda y el valor en dólares.',
+      'Un segundo pedido igual no crea otro link, y el comprador se busca sin importar las mayúsculas.',
+    ],
+    commits: [
+      { sha: '0aa6afae', msg: 'API de MaKo: vender_plan_mako con los 16 hallazgos de la revisión adversarial (super admin, flujos, previa, doble link)', lineas: 578, archivos: 13 },
+    ],
+    archivos: [
+      'lib/vender-plan.ts y lib/vender-plan-reglas.ts — la previa, el link abierto y la validación pura',
+      'lib/capas.ts — lo que se vende, en positivo',
+      'tests/api-mako-vender-plan.test.ts y tests/capas-vendibles.test.ts — 18 roturas',
+    ],
+  },
 ];
