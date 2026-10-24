@@ -91,7 +91,8 @@ test('cableado: la respuesta corta EN EL ACTO y, después, ningún mensaje más'
   assert.doesNotMatch(al, /estado: 'completada'/, 'alContestar cierra con completada: el desenlace la da por fallida');
   assert.match(al, /if \(idx < 0 \|\| esHiloDelCarril\(sec\.pasos, idx\)\) continue;/);
   assert.match(al, /\.eq\('id', f\.id\)\.eq\('estado', 'respondio'\)\.eq\('paso_actual', f\.paso_actual\)/);
-  assert.match(al, /if \(movidas\) await viaRapidaConTurno\(leadId\)/);
+  // (Salvo cuando lo llama el motor, que ya es la corrida: `sinViaRapida`, 24/10/2026.)
+  assert.match(al, /if \(movidas && !o\?\.sinViaRapida\) await viaRapidaConTurno\(leadId\)/);
   // La guarda: a quien contestó no le sale ningún MENSAJE más de una automatización que usa «Contestó».
   assert.match(motor, /const nodoAhora = sec\.pasos\[insc\.paso_actual\];\n\s+if \(enRespuesta && nodoAhora && claseDe\(nodoAhora\) === 'mensaje' && usaContesto\(sec\.pasos\) && raizRespuesta\(sec\.pasos\) == null\n\s+&& !esHiloDelCarril\(sec\.pasos, insc\.paso_actual\) && !ramaDeQuienContesto\(sec\.pasos\)\.has\(idDe\(nodoAhora, insc\.paso_actual\)\)\n\s+&& await yaLeSalioAlgo\(supabase, insc\.id\)\) \{\n\s+if \(await escribir\(insc, \{ estado: 'completada', proximo_envio_at: null \}, \{ modo: 'cas', alcance: 'hilo' \}\)\) \{/);
   // Y va ANTES de la condición de arriba y de las guardas del mensaje.

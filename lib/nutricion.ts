@@ -96,6 +96,8 @@ import {
   // El CARRIL DEL RECORDATORIO (undécima tanda, M3 y M4), puro y con test (tests/motor-carril-recordatorio.test.ts).
   tieneCarril, esTarjetaMako, esHiloDelCarril, seMueveEnLaCorrida, pasaPorAntiBan, cuentaParaElCupo, decidirToqueDelCarril,
   estadoAlEscribir, aplazaParaNoTapar, APLAZO_SIN_TAPAR_MS,
+  // El avance después de mandar contra lo que pasó mientras salía (24/10/2026, el #2502).
+  reconciliarAvance, contestoMientrasSalia,
   type FilaHechos, type RecientesPorCanal, type EnviadoEnCorrida, type FilaLeadCatalogo,
 } from '@/lib/nutricion-grafo-motor';
 import {
@@ -3463,10 +3465,15 @@ function leidoDePosicion(insc: FilaCola, pasos: readonly PasoSecuencia[]): Leido
  * el cambio es de ella y esto devuelve false (el «otra corrida ya movió esta inscripción» de siempre).
  * La primera conversión de un cursor exige además `hilos` NULL (y, en modo 'cas', el paso y el nodo
  * leídos, como `moverConCas`).
+ *
+ * `trasMandar` (24/10/2026, el #2502): el avance después de mandar. Si la relectura encuentra que la fila pasó de 'activa'
+ * a 'respondio' (el lead contestó mientras salía, `contestoMientrasSalia`), se vuelve a aplicar contra 'respondio' y lo
+ * CONSERVA (`conEstadoDeLaFila`). Antes la relectura devolvía false y el avance se perdía: el hilo quedaba parado en el
+ * mensaje que ya salió, y en un flujo sin «Contestó» la corrida siguiente se lo volvía a mandar.
  */
 async function escribirHilos(
   db: Awaited<ReturnType<typeof getTenantDb>>, insc: FilaCola, pasos: readonly PasoSecuencia[],
-  campos: Record<string, unknown>, o: { modo: 'cas' | 'activa' | 'fila'; alcance?: 'hilo' | 'inscripcion'; nuevos?: readonly Hilo[] },
+  campos: Record<string, unknown>, o: { modo: 'cas' | 'activa' | 'fila'; alcance?: 'hilo' | 'inscripcion'; nuevos?: readonly Hilo[]; trasMandar?: boolean },
 ): Promise<boolean> {
   for (let intento = 0; intento < 3; intento++) {
     const leido = leidoDePosicion(insc, pasos);
@@ -3504,12 +3511,21 @@ async function escribirHilos(
     const { data: f } = await db.from('nutricion_inscripciones')
       .select('estado, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev').eq('id', insc.id).maybeSingle();
     const fila = f as { estado: string; paso_actual: number; nodo_actual: string | null; proximo_envio_at: string | null; hilos: unknown; hilos_rev: number | null } | null;
-    if (!fila || fila.estado !== estadoLeido(insc)) return false;
+    if (!fila) return false;
+    // Contestó mientras salía (sólo el avance después de mandar): la vuelta que sigue escribe contra 'respondio'.
+    const contesto = fila.estado !== estadoLeido(insc) && !!o.trasMandar && contestoMientrasSalia(estadoLeido(insc), fila.estado);
+    if (fila.estado !== estadoLeido(insc) && !contesto) return false;
     const hs = sanearHilos(fila.hilos);
+    // ⚠️ LA PRIMERA CONVERSIÓN A HILOS DESPUÉS DE MANDAR, CON LA REGLA DEL CURSOR (revisión del 24/10/2026): la fila no
+    // tenía hilos y sigue sin tenerlos, así que lo que pasó es lo mismo que en `reconciliarAvance`. Sin esto, si
+    // `alContestar` ya la había sacado (misma posición, 'respondio' y sin próximo envío: un flujo con «Contestó» y sin
+    // rama «Contestó»), el reintento contra 'respondio' escribía los hilos nuevos con su próximo envío y la revivía.
+    if (contesto && !leido.hilos && !hs && reconciliarAvance(insc, fila).tipo === 'no-pisar') return false;
     const sigue = leido.hilos
       ? hiloSigueEn(hs, leido.h ?? HILO_PRINCIPAL, leido.nodo)
       : hs ? hiloSigueEn(hs, HILO_PRINCIPAL, leido.nodo) : !(o.modo === 'cas' && (fila.paso_actual !== insc.paso_actual || fila.nodo_actual !== insc.nodo_actual));
     if (!sigue) return false;
+    if (contesto) insc.estado = 'respondio';
     insc.hilos = fila.hilos; insc.hilos_rev = fila.hilos_rev;
     if (hs && !leido.hilos) insc.h = HILO_PRINCIPAL;
   }
@@ -3548,7 +3564,8 @@ async function repartirAlEntrar(
  * (tests/motor-tick.test.ts lo cuenta).
  *
  * ⚠️ SIN EL TURNO, EL MISMO WHATSAPP SALÍA DOS VECES. Un mensaje no se reclama antes de salir (el
- * avance es `modo: 'fila'` y el anti-ban se lee por lote), y el no oficial tiene el HTTP abierto de 1
+ * avance va DESPUÉS de mandar —con compare-and-set desde el 24/10/2026, `avanzarTrasMandar`, pero el mensaje ya salió— y
+ * el anti-ban se lee por lote), y el no oficial tiene el HTTP abierto de 1
  * a 11 s por el tipeo antes de que se escriba `nutricion_envios`. El tick de cada minuto mira justo lo
  * que acaba de vencer: si leía la cola en esa ventana, veía la fila en el mismo paso, tomaba el turno
  * (nadie lo tenía) y la mandaba otra vez. Con 9 corridas por día casi no pasaba; con 1.440, una vía
@@ -3810,7 +3827,12 @@ async function entradasFrescas(db: Awaited<ReturnType<typeof getTenantDb>>, solo
   }
 }
 
-export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularApagados?: boolean; soloLeadId?: number; esperarHastaMs?: number; cupoPorHora?: boolean; vencidasDesde?: string }): Promise<ResultadoProceso> {
+// `durante` (24/10/2026): SÓLO para el arnés del ws3 (scripts/arnes-contesto-corta.mts). Corre antes del reclamo
+// ('antes': contestó entre la lectura del lote y el mensaje), con el mensaje ya mandado y antes de su fila ('partes') o
+// antes del avance ('fila'): es «el lead contesta mientras le sale el mensaje», que en una corrida simulada no dura nada.
+// El cron, el tick y la vía rápida no lo pasan.
+type DuranteDelArnes = (momento: 'antes' | 'partes' | 'fila', insc: { id: number; lead_id: number; secuencia_id: number }) => Promise<void>;
+export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorarVentana?: boolean; simularApagados?: boolean; soloLeadId?: number; esperarHastaMs?: number; cupoPorHora?: boolean; vencidasDesde?: string }): Promise<ResultadoProceso> {
   const res: ResultadoProceso = { enviados: 0, simulados: 0, omitidos: 0, esperando: 0, borradores: 0, fallos: 0, acciones: 0, detalle: [] };
   // `sandbox` = el negocio no tiene un remitente PROPIO (undécima tanda, decisión 3 de la décima: la regla es POSITIVA,
   // `remitenteDelNegocio`): `getEmailFrom` devuelve el sandbox también cuando el que tenía era el de MaKo (el ws1).
@@ -4149,7 +4171,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
    *                `paso_actual` y el mismo `nodo_actual`. Las que DECIDEN algo (resolver una
    *                condición, reclamar una acción): dos corridas no pueden decidir lo mismo.
    *   · 'activa' — sólo si sigue activa.
-   *   · 'fila'   — por id, como siempre (reprogramar un reintento, el avance después de mandar).
+   *   · 'fila'   — por id, como siempre (reprogramar un reintento, cerrar sin mandar).
+   * El avance DESPUÉS DE MANDAR era 'fila' y desde el 24/10/2026 es 'cas' con `trasMandar` (`avanzarTrasMandar`): un
+   * 'fila' no compara nada y le borraba el 'respondio' a quien contestó mientras salía el mensaje (el #2502).
    * `alcance` dice qué cierra un `estado: 'completada' | 'cancelada'`: el hilo (lo de siempre:
    * con un solo cursor, hilo e inscripción son lo mismo) o la inscripción entera (la reunión ya
    * pasó, el residuo ya no aplica, el tope de saltos). `nuevos`: los hilos que arrancan (las
@@ -4160,7 +4184,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   const escribir = async (
     insc: FilaCola,
     campos: Record<string, unknown>,
-    o: { modo: ModoEscritura; alcance?: 'hilo' | 'inscripcion'; nuevos?: readonly Hilo[] },
+    o: { modo: ModoEscritura; alcance?: 'hilo' | 'inscripcion'; nuevos?: readonly Hilo[]; trasMandar?: boolean },
   ): Promise<boolean> => {
     const pasosInsc = porId.get(insc.secuencia_id)?.pasos ?? [];
     if (planDePosicion(pasosInsc, leidoDePosicion(insc, pasosInsc), campos, o).modo === 'hilos') return escribirHilos(supabase, insc, pasosInsc, campos, o);
@@ -4173,6 +4197,74 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     // Como antes, no tira: un reintento que no se reprogramó vuelve en la corrida que viene.
     if (error) { console.error(`[nutricion] posición de la inscripción ${insc.id}: ${error.message}`); return false; }
     return true;
+  };
+
+  /**
+   * EL AVANCE DESPUÉS DE MANDAR (24/10/2026, la #289 del ws1: el #2502). Quien contestaba MIENTRAS le salía el mensaje
+   * perdía el corte: M1 de 3 partes con pausas de 5 s son ~20 s desde la primera parte hasta la fila del envío (y con el
+   * lote recorrido en serie, la ventana arranca cuando se leyó el lote). El avance era 'fila' —por id, sin comparar, con
+   * el estado LEÍDO— y volvía a 'activa' la fila que `pausarPorRespuesta` acababa de poner en 'respondio'; o pisaba la
+   * rama «Contestó» a la que la había llevado `alContestar` si la respuesta llegaba después de la fila del envío.
+   *
+   * Ahora es compare-and-set contra lo leído (estado, paso y nodo). Si no entra, se relee y decide `reconciliarAvance`
+   * (lib/nutricion-grafo-motor.ts, puro y con test): contestó mientras salía → el avance va igual CONSERVANDO 'respondio'
+   * ('contesto': quien llama corre `alContestar`, ahora que ya le salió algo); otra escritura la movió o la cerró → no se
+   * pisa ('no'). Con hilos lo decide `escribirHilos` (`trasMandar`). Nunca tira: el mensaje ya salió, y una corrida que se
+   * cae a la mitad deja sin lo suyo al resto del lote.
+   */
+  /**
+   * EL RECLAMO ANTES DE MANDAR (24/10/2026, revisión del #2502). Un compare-and-set de `updated_at` contra lo LEÍDO: el
+   * estado, y la posición (sin hilos: `paso_actual`, `nodo_actual` y `hilos` NULL; con hilos: `hilos_rev`, que sube con
+   * cada escritura de un hilo). No mueve nada; dice dos cosas:
+   *  · 'cambio': la fila ya no es la que se leyó con el lote (contestó y `pausarPorRespuesta` la puso en 'respondio',
+   *    `alContestar` la llevó a la rama «Contestó», otra corrida la movió o la cerró). Este mensaje NO sale: vuelve a la
+   *    cola y lo de arriba se decide otra vez con lo de ahora. ⚠️ Hasta hoy a quien contestaba mientras el motor recorría
+   *    el lote (minutos, en la apertura de las 9) le salía el mensaje que seguía igual: la guarda «Contestó corta» y la
+   *    condición de arriba miraban el estado del lote.
+   *  · 'reclamada': su `updated_at` es la marca de «el motor la está mandando AHORA», la que lee
+   *    `esRespuestaAutomaticaDelEntrante` (lib/evolution-mensajes.ts) mientras salen las partes y la fila del envío todavía
+   *    no existe. Lo que no se reclamó no se está mandando (una pausada, una cerrada por su horario, la frenada por el
+   *    anti-ban de la corrida). Y como `updated_at` lo escribe cualquier escritura, la marca sola no alcanza: el lector
+   *    espera la fila del envío de ESA inscripción para atribuirle la ráfaga.
+   * 'error' (no se pudo escribir): no sale, y vuelve en la corrida que viene (la fila sigue vencida).
+   */
+  const reclamarAntesDeMandar = async (insc: FilaCola): Promise<'reclamada' | 'cambio' | 'error'> => {
+    let q = supabase.from('nutricion_inscripciones').update({ updated_at: ahoraISO() }).eq('id', insc.id).eq('estado', estadoLeido(insc));
+    if (sanearHilos(insc.hilos)) q = q.not('hilos', 'is', null).eq('hilos_rev', Number(insc.hilos_rev) || 0);
+    else {
+      q = q.is('hilos', null).eq('paso_actual', insc.paso_actual);
+      q = insc.nodo_actual == null ? q.is('nodo_actual', null) : q.eq('nodo_actual', insc.nodo_actual);
+    }
+    const { data, error } = await q.select('id');
+    if (error) { console.error(`[nutricion] reclamar la inscripción ${insc.id} antes de mandar: ${error.message}`); return 'error'; }
+    if (((data ?? []) as unknown[]).length > 0) return 'reclamada';
+    console.log(`[nutricion] inscripción ${insc.id}: cambió desde que se leyó el lote (no sale; se vuelve a mirar)`);
+    return 'cambio';
+  };
+
+  const avanzarTrasMandar = async (insc: FilaCola, campos: Record<string, unknown>, nuevos: readonly Hilo[]): Promise<'escrito' | 'contesto' | 'no'> => {
+    const antes = estadoLeido(insc);
+    try {
+      for (let intento = 0; intento < 3; intento++) {
+        if (await escribir(insc, campos, { modo: 'cas', nuevos, trasMandar: true })) {
+          return contestoMientrasSalia(antes, estadoLeido(insc)) ? 'contesto' : 'escrito';
+        }
+        // Con hilos (o arrancándolos) la relectura ya la hizo `escribirHilos`: si no escribió, no se pisa.
+        if (sanearHilos(insc.hilos) || nuevos.length) return 'no';
+        const { data, error } = await supabase.from('nutricion_inscripciones')
+          .select('estado, paso_actual, nodo_actual, proximo_envio_at').eq('id', insc.id).maybeSingle();
+        if (error) throw new Error(error.message);
+        const r = reconciliarAvance(insc, data as { estado: string; paso_actual: number; nodo_actual: string | null; proximo_envio_at: string | null } | null);
+        if (r.tipo === 'no-pisar') {
+          console.log(`[nutricion] inscripción ${insc.id}: el avance después de mandar no pisa la fila (${r.motivo})`);
+          return 'no';
+        }
+        if (r.tipo === 'conservar-respuesta') insc.estado = 'respondio';
+      }
+    } catch (e) {
+      console.error(`[nutricion] avance de la inscripción ${insc.id} después de mandar: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    return 'no';
   };
 
   /**
@@ -4961,6 +5053,20 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         continue;
       }
 
+      // ── EL RECLAMO ANTES DE MANDAR (24/10/2026, revisión del #2502: `reclamarAntesDeMandar`) ──────────────────────
+      // Todo lo de arriba decidió con la fila LEÍDA en el lote, y el lote se recorre en serie mandando: a quien contestó
+      // en el medio (`pausarPorRespuesta`, y `alContestar` a la rama «Contestó») le salía este mensaje igual. Si cambió, no
+      // sale: la fila vuelve a la cola y se decide con lo de ahora. Va después de las guardas que no mandan y antes del
+      // turno del residuo (una que cambió no lo gasta). (Sólo el arnés del ws3: el lead contesta ANTES.)
+      if (opts?.durante) await opts.durante('antes', insc);
+      const reclamo = await reclamarAntesDeMandar(insc);
+      if (reclamo !== 'reclamada') {
+        await soltarToque(carril);
+        res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: reclamo === 'cambio' ? 'cambió mientras esperaba su turno: se vuelve a mirar' : 'no pude reclamarla antes de mandar' });
+        if (reclamo === 'cambio') { vistos.delete(insc.id); otraVuelta = true; }
+        continue;
+      }
+
       // ⚠️ EL RESIDUO SALE DE A UNO POR CORRIDA (#790), y es el techo que no depende de
       // la agenda: el escalonado se deshace con cualquier reprogramación (una línea caída
       // corre todas las filas vencidas al mismo minuto), y al volver saldrían juntas,
@@ -5366,6 +5472,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // La marca del toque del carril, DESPUÉS del intento (M3 c): `enviado:`, o `fallo:`/`incierto:`.
       if (carril) await marcarToque(carril, estado, nota);
 
+      // (Sólo el arnés del ws3: el lead contesta MIENTRAS salen las partes, antes de la fila del envío.)
+      if (opts?.durante) await opts.durante('partes', insc);
       await supabase.from('nutricion_envios').insert({
         inscripcion_id: insc.id,
         lead_id: insc.lead_id,
@@ -5418,19 +5526,27 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // Lo que sigue, POR EL GRAFO (`siguiente`), y no el índice + 1: con ramas, el elemento de
       // abajo del array puede ser otra rama.
       const { campos: avance, yaToca, nuevos: nuevosAlSalir } = avanceDesde(sec, insc.paso_actual, lead);
-      await escribir(insc, {
+      // (Sólo el arnés del ws3: el lead contesta con la fila del envío ya escrita, antes del avance.)
+      if (opts?.durante) await opts.durante('fila', insc);
+      // Con compare-and-set y sin pisar lo que pasó mientras salía (`avanzarTrasMandar`, el #2502).
+      const avanzo = await avanzarTrasMandar(insc, {
         ...avance,
         // El reloj del fallo por silencio se cuenta desde el ÚLTIMO mensaje,
         // no desde que el lead se inscribió: una secuencia con pasos a los 30
         // días se daría por fallida antes de terminar de mandarlos.
         ultimo_paso_at: ahoraISO(),
-      }, { modo: 'fila', nuevos: nuevosAlSalir });
+      }, nuevosAlSalir);
+      // CONTESTÓ MIENTRAS SALÍA: el avance quedó en 'respondio' y ahora sí le salió algo, así que «Contestó» corta EN EL
+      // ACTO (`alContestar`: la rama «Contestó», con su línea en la ficha). Sin la vía rápida: ESTA corrida es el motor
+      // (y tiene el turno), así que la fila vuelve a la cola y la rama corre en la vuelta que sigue.
+      if (avanzo === 'contesto') await alContestar(insc.lead_id, [{ id: insc.id, secuencia_id: insc.secuencia_id }], [sec], { sinViaRapida: true });
       // La reunión que preparó este paso, en un update APARTE del avance (ver la función).
       await anotarReunionDelPaso(insc.id, sec, lead);
       // ⚠️ SI LO QUE SIGUE YA TOCA, SE MIRA EN ESTA MISMA CORRIDA, como después de una acción:
       // una condición, una espera o una acción detrás de un mensaje se resuelven ya, no a la hora
-      // siguiente. Otro mensaje, no (`avanceDesde`).
-      if (yaToca) { vistos.delete(insc.id); otraVuelta = true; }
+      // siguiente. Otro mensaje, no (`avanceDesde`). Y si contestó mientras salía (o la movió otro: la rama «Contestó» de
+      // `alContestar` queda vencida en ahora), también: se relee de la base, con su compare-and-set.
+      if (yaToca || avanzo !== 'escrito') { vistos.delete(insc.id); otraVuelta = true; }
 
       if (estado === 'enviado') res.enviados += 1;
       else if (estado === 'omitido') res.omitidos += 1;
@@ -5529,6 +5645,10 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
   // la condición «No contestó desde que entró» (`contesto`) que la persona pone en el lienzo, y que el motor vuelve a
   // pasar antes de mandar (`condicionDeArriba`). Sin tocar la posición no hace falta compare-and-set: si el motor la
   // mueve a la vez, su escritura (contra 'activa') no pasa y la mueve la corrida que viene, ya en 'respondio'.
+  // ⚠️ HASTA EL 24/10/2026 ESO ERA FALSO PARA EL AVANCE DESPUÉS DE MANDAR: iba en modo 'fila' (sin comparar) y le volvía
+  // a poner 'activa' a quien contestó mientras le salía el mensaje (el #2502). Ahora es `avanzarTrasMandar`: conserva el
+  // 'respondio' y corre `alContestar`. Y una respuesta automática de su WhatsApp no llega hasta acá
+  // (`esRespuestaAutomaticaDelEntrante`, lib/evolution-mensajes.ts).
   const { data, error } = await supabase
     .from('nutricion_inscripciones')
     .update({ estado: 'respondio', updated_at: ahoraISO() })
@@ -5635,7 +5755,10 @@ async function yaLeSalioAlgo(db: Awaited<ReturnType<typeof getTenantDb>>, inscId
   return (data ?? []).length > 0;
 }
 
-export async function alContestar(leadId: number, inscripciones: ReadonlyArray<{ id: number; secuencia_id: number }>, secs?: Secuencia[] | null): Promise<number> {
+// `o.sinViaRapida` (24/10/2026): lo llama el MOTOR, con el avance de quien contestó mientras le salía el mensaje
+// (`avanzarTrasMandar`). Esa corrida ya es el motor y tiene el turno: la vía rápida no correría ('ocupado'), así que la
+// fila vuelve a la cola de esa misma corrida.
+export async function alContestar(leadId: number, inscripciones: ReadonlyArray<{ id: number; secuencia_id: number }>, secs?: Secuencia[] | null, o?: { sinViaRapida?: boolean }): Promise<number> {
   let movidas = 0;
   try {
     const db = await getTenantDb();
@@ -5676,7 +5799,7 @@ export async function alContestar(leadId: number, inscripciones: ReadonlyArray<{
       } catch { /* el historial no puede romper el corte */ }
     }
     // La rama «Contestó» corre YA (su aviso al equipo), con el turno del negocio.
-    if (movidas) await viaRapidaConTurno(leadId).catch((e: unknown) => console.error(`[nutricion] «Contestó» lead ${leadId}: la rama queda para el tick (${e instanceof Error ? e.message : String(e)})`));
+    if (movidas && !o?.sinViaRapida) await viaRapidaConTurno(leadId).catch((e: unknown) => console.error(`[nutricion] «Contestó» lead ${leadId}: la rama queda para el tick (${e instanceof Error ? e.message : String(e)})`));
   } catch (e) {
     console.error(`[nutricion] «Contestó» lead ${leadId}: no pude cortar (la guarda de procesarEnvios corta los mensajes igual):`, e instanceof Error ? e.message : String(e));
   }

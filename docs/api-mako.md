@@ -9322,7 +9322,7 @@ Tab **Web Generator** (`/web-generator`). 35 lecturas · 42 acciones.
 
 ### `GET /api/v1/landing/landings` — Landings declaradas del negocio
 
-Las páginas que el negocio declaró como suyas en Integraciones → Landing (máximo 12), cada una con su URL normalizada y los productos a los que entran sus leads (sus embudoId), más los productos que se pueden asignar (productosDisponibles, con su embudoId y su nombre). Úsala antes de cualquier operación que pida la URL de una landing y antes de asignarle productos con guardar_landing. Es lo que el cliente dice tener, no lo que el Pixel observó: para eso está listar_landings_detectadas. No requiere parámetros.
+Las páginas que el negocio declaró como suyas en Integraciones → Landing (máximo 12), cada una con su URL normalizada, los productos a los que entran sus leads (sus embudoId), si es la página de gracias y qué hace la gente ahí (conversion; null = lo decide MaKo), más los productos que se pueden asignar (productosDisponibles, con su embudoId y su nombre). Úsala antes de cualquier operación que pida la URL de una landing y antes de asignarle productos con guardar_landing. Es lo que el cliente dice tener, no lo que el Pixel observó: para eso está listar_landings_detectadas. No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/landing/listar_landings`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
@@ -10300,14 +10300,14 @@ curl -L \
 
 ### `POST /api/v1/landing/landings` — Agregar o corregir una landing
 
-Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Web Generator → Diagnóstico). Con `productos` se eligen a qué productos del CRM entran los leads que llegan por esa página (el primero es la casa del lead y en los demás se suma): reemplaza lo que tenía, [] se los saca todos y, si no lo pasas, quedan como están. Los embudoId salen de listar_landings (productosDisponibles). Tope: 12 landings.
+Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Web Generator → Diagnóstico). Con `productos` se eligen a qué productos del CRM entran los leads que llegan por esa página (el primero es la casa del lead y en los demás se suma): reemplaza lo que tenía, [] se los saca todos y, si no lo pasas, quedan como están. Con `conversion` se dice qué hace la gente en esa página (de eso sale el último paso de ver_diagnostico_pixel); mako vuelve a dejarlo a MaKo. Los embudoId salen de listar_landings (productosDisponibles). Tope: 12 landings.
 
 - **Ruta por operación:** `POST /api/v1/landing/guardar_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** la lista de landings declaradas (app_settings landing.config, con los productos de cada una) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio
+- **Escribe:** la lista de landings declaradas (app_settings landing.config, con los productos y la conversión de cada una) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -10318,6 +10318,7 @@ Declara una página como del negocio o corrige su URL (con `anterior`). Solo ace
 | `url` | string | sí | La dirección de la página, con o sin https. |
 | `anterior` | string | no | La URL vieja cuando es una corrección: la reemplaza en su lugar y conserva sus productos. |
 | `productos` | string[] | no | Los productos del CRM a los que entran los leads de esta página, por su embudoId (de listar_landings → productosDisponibles). Reemplaza los que tenía; [] se los saca todos; sin este parámetro quedan como están. |
+| `conversion` | string (agenda \\| compra \\| datos \\| registro \\| whatsapp \\| ninguna \\| mako) | no | Qué hace la gente en esta página para convertir: agenda (agenda una llamada), compra (va a pagar a un checkout), datos (deja sus datos en un formulario), registro (se registra), whatsapp (te escribe por WhatsApp), ninguna (solo mira). mako = lo decide MaKo por el funnel y la página. Sin este parámetro queda como está. |
 
 ```bash
 curl -L \

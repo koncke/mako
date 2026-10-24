@@ -16,13 +16,15 @@
 import 'server-only';
 import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
-import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD, conLinksDeAccion } from '@/lib/respuesta-doer';
+import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD, conLinksDeAccion, propuestaDeLaSalida, conLoQueQuedoPropuesto, type PropuestaDelTurno } from '@/lib/respuesta-doer';
 import { recetasDelTurno } from '@/lib/doer-recetas';
 import { evaluarPermiso } from '@/lib/veto-claude';
-import { causaDelFallo, textoFalloIA, linkKeysIA, sinRedPorDatos, textoSinRedPorDatos } from '@/lib/fallo-ia-texto';
+import { causaDelFallo, cartelDelFallo, textoFalloIA, linkKeysIA, rutaKeysIA, textoSinRedPorDatos } from '@/lib/fallo-ia-texto';
+import { PLAZO_REINTENTOS_TURNO_MS, hayTiempoParaOtroIntento } from '@/lib/ia-rotacion-modelo';
 import { LARGO_WHATSAPP } from '@/lib/hechos-mako';
 import { reaccionPara, esSoloEmoji, EMOJI_RECIBIDO } from '@/lib/reaccion-emoji';
-import { clavesCargadas } from '@/lib/ia-keys-ws';
+import { esperaDelPedido, acuseSinReaccion, conTope, trabajoLargoDe, TOPE_REACCION_MS, type Medio } from '@/lib/doer-acuse';
+import { cuantasClavesDeIA } from '@/lib/ia-keys-ws';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { porId, aToolDef } from '@/lib/api-mako/registro';
@@ -50,7 +52,7 @@ import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL, linkApp } from '@/lib/app-url';
 import { RUTA_CHATS, PARAM_CHATS } from '@/lib/chats-links';
-import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
+import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheap, chatCheapTools, cheapDisponible, CASCADA_STT } from '@/lib/ai-cheap';
 import { paraWhatsApp, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, bloqueAgendaGoogle, herramientasQueSiguen, ACCIONES_AGENDA } from '@/lib/agenda-sin-ia';
 import { crearMemoDeAcciones } from '@/lib/turno-sin-duplicar';
 // El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
@@ -294,7 +296,7 @@ const DOER_WA_VOZ = `CONTEXTO: estás en un grupo de WhatsApp con el dueño del 
 
 SI NO ENTENDISTE SI TE ESTÁN PIDIENDO ALGO O SOLO CONTÁNDOTE ALGO: contesta como en una charla y, si te parece que hay algo para anotar en el plan, PREGUNTA ("¿te lo anoto como tarea?"). ⛔ No crees un borrador que no te pidieron: al cliente le llega un link a revisar un plan que no pidió y no entiende de dónde salió.
 
-⛔ NO PROMETAS LO QUE NO HACES EN ESTE MISMO MENSAJE: nada de "déjame ver", "ya te lo cargo", "dame un segundo". Tu respuesta es el FINAL del turno: no hay un después en el que vuelvas con el dato. Si hay que mirar o hacer algo, hazlo AHORA y contesta con lo que pasó; si no puedes, dilo en una línea y di cómo se hace. Para ofrecer, PREGUNTA ("¿te lo cargo al plan?").
+⛔ NO PROMETAS LO QUE NO HACES EN ESTE MISMO MENSAJE: nada de "déjame ver", "ya te lo cargo", "dame un segundo", "en breves te digo". Si algo lleva tiempo, el aviso de espera ya salió antes de tu respuesta: no lo repitas. Tu respuesta es el FINAL del turno: no hay un después en el que vuelvas con el dato. Si hay que mirar o hacer algo, hazlo AHORA y contesta con lo que pasó; si no puedes, dilo en una línea y di cómo se hace. Para ofrecer, PREGUNTA ("¿te lo cargo al plan?").
 
 ⛔ NO AFIRMES EL ESTADO DE UNA INTEGRACIÓN (Google Calendar, Calendly, Meta…) que no leíste en este turno: decir "no está conectado" sobre una cuenta conectada es mentirle al cliente.
 
@@ -348,14 +350,16 @@ Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes 
  * Es el dato que separa «se cayó el proveedor» de «se cayó el proveedor Y no
  * tenías respaldo»: el hecho técnico es el mismo, y lo que el cliente puede hacer
  * al respecto no. Con 0 no hay IA; con 1 no hay cascada.
+ *
+ * ⚠️ SU IA ENTERA, NO SÓLO SU GEMINI (24/10/2026). Contaba `clavesCargadas('gemini')`: desde WA1 (22/10) el doer contesta
+ * con su Claude o su GPT por clave, y un negocio que conectaba su Claude —lo que le pide el cartel— contaba CERO; si su
+ * Claude fallaba, el cartel le decía «todavía no cargaste ninguna API key de IA». Y `clavesCargadas` no sirve para eso aunque se le
+ * pasen 'anthropic' y 'openai': devuelve `[]` para los de una sola clave (lib/ia-keys.ts → `contarClavesCargadas`).
+ *   · 'texto': lo que contesta (`'anthropic'` + `PROVS_SU_IA`). Groq no: desde IA16 sólo escucha.
+ *   · 'audio': lo que escucha una nota de voz (`CASCADA_STT`: su Gemini, su Groq y su GPT). Su Claude no escucha.
  */
-async function contarKeysIA(): Promise<number> {
-  let n = 0;
-  // IA16: Groq ya no contesta texto (sólo escucha las notas de voz): no cuenta como IA del chat.
-  for (const prov of ['gemini']) {
-    n += (await clavesCargadas(prov).catch(() => [])).length;
-  }
-  return n;
+async function contarKeysIA(uso: 'texto' | 'audio'): Promise<number> {
+  return cuantasClavesDeIA(uso === 'audio' ? CASCADA_STT : ['anthropic', ...PROVS_SU_IA]);
 }
 
 export type ResultadoDoer = { engaged: boolean; reply?: string; skip?: string };
@@ -426,6 +430,37 @@ export async function manejarEntranteDoer(instance: string, data: MsgIn): Promis
   return runWithWorkspace(wsData, () => bufferearYResponder(wsData, instance, tapado.mensaje, tapado));
 }
 
+/** ¿Un texto engancha a MaKo en este grupo? La regla de `procesarDoer` (`enganchaTexto`), en orden de costo: el modo y el
+ *  nombre no leen nada más, la ventana es un setting y las pendientes son una consulta. */
+async function enganchaElTexto(wsData: number, jid: string, texto: string): Promise<boolean> {
+  if ((await modoDoer(OWNER_WS, jid)) === 'libre' || nombraAMaKo(texto)) return true;
+  if (await ventanaVigente(OWNER_WS, jid)) return true;
+  return (await pendientesVigentes(wsData, jid)).length > 0;
+}
+
+/** Lo que dejó el acuse del que ganó el candado: si ya dijo la frase de espera (el 👍 falló y el pedido se sabía largo). */
+type Acuse = Promise<{ dijoEspera: boolean }>;
+
+/**
+ * Si el 👍 no salió (Evolution lo rechazó o no contestó en `TOPE_REACCION_MS`), UN texto corto: la frase de espera si el
+ * pedido de ESTE mensaje ya se sabe largo, o que llegó (lib/doer-acuse.ts, `acuseSinReaccion`). Sin reacción no hay nada
+ * que mirar: el mensaje no enganchó. Nunca rechaza: corre suelto, en paralelo con el turno.
+ */
+function acusarSiNoReacciono(jid: string, reaccion: Promise<boolean> | null, texto: string, medio: Medio): Acuse {
+  if (!reaccion) return Promise.resolve({ dijoEspera: false });
+  return (async () => {
+    if (await conTope(reaccion, TOPE_REACCION_MS)) return { dijoEspera: false };
+    // El texto de una nota de voz todavía no se sabe: su espera, si la lleva, la dice `procesarDoer` ya transcripta.
+    const espera = texto ? esperaDelPedido(texto, clasificarIntencion(texto)) : null;
+    const aviso = acuseSinReaccion(medio, espera);
+    const env = await enviarAGrupoJid(jid, aviso, 0);   // delay 0: sin el retardo anti-ban
+    // El anti-eco: todo lo que manda MaKo vuelve por el webhook como `fromMe`, y sin el id se encola como si fuera de él.
+    if (env.ok && env.id) await registrarEnviado(OWNER_WS, jid, env.id);
+    console.warn(`[mako-doer-in] el 👍 no salió en ${jid}: acuse de texto «${aviso}»${env.ok ? '' : ' (y tampoco salió)'}`);
+    return { dijoEspera: !!espera && env.ok };
+  })().catch(() => ({ dijoEspera: false }));
+}
+
 /**
  * EL CANDADO DEL LOTE. Antes, cada mensaje entrante corría el agente por su cuenta y
  * en paralelo: el 5/8 entraron 16 mensajes en 4 segundos y salieron 16 borradores, 133
@@ -470,11 +505,8 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
 
   if (!texto && !audio && !adjunto) return { engaged: false, skip: 'sin texto ni audio ni adjunto' };
 
-  // El 👍 del acuse: MaKo va a procesar esto, y que se sepa YA. Best-effort y sin
-  // await bloqueante en el camino feliz — si la reacción falla, el turno sigue.
-  void reaccionarMensaje(jid, data.key, EMOJI_RECIBIDO).catch(() => false);
-
-  // El eco de nuestra propia respuesta no entra a la cola (si no, MaKo se contesta sola).
+  // El eco de nuestra propia respuesta no entra a la cola (si no, MaKo se contesta sola). Va ANTES del 👍: MaKo no se
+  // reacciona a sí misma (medido el 24/10/2026 en el store de Evolution: 1 de 120 reacciones fue a un mensaje suyo).
   if (data.key?.fromMe && msgId && (await idsEnviados(OWNER_WS, jid)).includes(msgId)) {
     return { engaged: false, skip: 'eco de mi propia respuesta' };
   }
@@ -488,12 +520,26 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     if (!nuevo && msgId) return { engaged: false, skip: 'ya estaba en la cola (re-entrega)' };
   }
 
+  // ── EL ACUSE ES EL 👍, Y NADA MÁS (Martín, 24/10/2026) ─────────────────────────────────────────────────────────────
+  // «basta con la reacción al mensaje y los clientes entienden que ya lo vio». El 👍 ya salía desde el 25/8 y llegaba
+  // (119 de 119 mensajes de personas en 30 días, medido el 24/10); lo que sobraba era el «Recibido 👍 dame un momento y te
+  // contesto» que salía ADEMÁS como texto (84 en esos 30 días). Ese texto ya no existe: la espera con palabras queda para
+  // lo que lleva tiempo de verdad, y la decide `procesarDoer` (lib/doer-acuse.ts, `esperaDelPedido`).
+  //
+  // Sólo a lo que MaKo va a contestar: con MaKo apagado, o en un grupo en modo «ventana» donde nadie le habla, un 👍 dice
+  // «lo vi y te contesto» y no viene nada («nada por detrás»). La regla es la de `procesarDoer` (la media engancha
+  // siempre; el texto, por el modo, el nombre, la ventana o una pendiente), en orden de costo. Sale sin esperar: lo que
+  // pase con él lo mira abajo, en paralelo, el que gana el candado (`acusarSiNoReacciono`).
+  const activo = await doerActivo(OWNER_WS);
+  const engancha = activo && !soloClave && (!!audio || !!adjunto || (await enganchaElTexto(wsData, jid, texto)));
+  const reaccion = engancha ? reaccionarMensaje(jid, data.key, EMOJI_RECIBIDO).catch(() => false) : null;
+
   // La clave tapada se le dice YA, con el link a su conexión (WA2). El mensaje con la clave sigue en el grupo (MaKo no borra
   // lo que manda otro): el aviso le pide que lo borre. DESPUÉS de la deduplicación de la cola y sólo con MaKo prendido
   // (revisión del lote 1): antes, una re-entrega repetía el aviso, y MaKo hablaba en un grupo donde está apagado. El que
   // era sólo la clave no pasa por la cola: lo deduplica `avisoYaDado` (por proceso; una re-entrega a otra instancia lo
   // repite, y es un aviso, no una escritura).
-  if (suyaTapada && (await doerActivo(OWNER_WS)) && (!soloClave || !avisoYaDado(msgId))) {
+  if (suyaTapada && activo && (!soloClave || !avisoYaDado(msgId))) {
     const aviso = avisoClaveTapadaEnElGrupo(linkApp(`/integraciones${tapado.servicio ? `?abrir=${tapado.servicio}` : ''}`, wsData));
     const env = await enviarAGrupoJid(jid, aviso, 0);
     if (env.ok && env.id) await registrarEnviado(OWNER_WS, jid, env.id);
@@ -510,58 +556,18 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   // el "escribiendo…" se apagaba a mitad de camino y el chat quedaba muerto.
   void enviarPresencia(instance, jid, 'composing', 55000);
 
-  // ── ACUSE DE RECIBO DE UNA NOTA DE VOZ / UN ADJUNTO ───────────────────────
-  // Medido en prod sobre los tres audios del 8/8: 38,6 · 50,6 · 51,7 segundos SIN
-  // que MaKo dijera una sola palabra. Y no es una molestia estética: el dueño
-  // reenvió el mismo audio 2 min 43 s después creyendo que no había llegado, y
-  // salieron dos borradores duplicados de la misma cosa.
-  //
-  // El acuse de TEXTO ya existía (en `procesarDoer`), pero su condición arranca con
-  // `!audio`, o sea que excluía por definición al caso más lento. Y sobre todo:
-  // vive DESPUÉS de `esperarSilencio`, así que el buffer del lote —que se agregó
-  // más tarde— lo empujó detrás de 21 segundos de espera. El comentario de allá que
-  // dice «lo mandamos ACÁ, lo primero» quedó viejo el día que se sumó el buffer.
-  //
-  // ACÁ es el único punto del pipeline por el que pasa EXACTAMENTE UNA invocación
-  // por lote (el que pierde el candado ya volvió en la línea de arriba), y está
-  // delante de la espera. Mandar tres audios seguidos deja un solo «te escucho».
-  //
-  // Solo para media, a propósito: una nota de voz o un adjunto SIEMPRE enganchan
-  // (más abajo, `esMedia` saltea el chequeo de modo/ventana), así que acá no hace
-  // falta repetir esa guarda. Para texto el acuse sigue donde estaba, porque ahí sí
-  // depende de si lo nombran y de si hay una charla pendiente.
-  //
-  // Y EL DE TEXTO TAMBIÉN, por la misma razón. Vivía en `procesarDoer`, o sea DETRÁS de
-  // `esperarSilencio`: el «Dale, anoto eso» llegaba 8 segundos después de mandar el
-  // mensaje (20 si el lote traía audio). El dueño: «tarda mucho en enviarse, eso tiene
-  // que ser casi de inmediato». El comentario de allá decía «lo mandamos ACÁ, lo
-  // primero» y era verdad el día que se escribió — el buffer llegó después y lo empujó
-  // atrás sin que nadie tocara esa línea. Ahora hay UN solo acuse, y está acá.
-  //
-  // Para texto SÍ hay que preguntar si engancha (en media no: siempre engancha), y son
-  // tres lecturas baratas de settings. Se cortocircuitan en orden de costo.
-  if (audio || adjunto) {
-    if (!(await doerActivo(OWNER_WS))) return { engaged: false, skip: 'doer desactivado' };
-    const ackTxt = audio ? 'Te escucho 🎧 dame un momento y te contesto.' : 'Me llegó 📎 lo miro y te contesto.';
-    const ack = await enviarAGrupoJid(jid, ackTxt, 0);   // delay 0: sin el retardo anti-ban
-    // El anti-eco ANTES de seguir: la línea de voz es el número del propio dueño, así
-    // que todo lo que manda MaKo vuelve por el webhook como `fromMe`. Sin registrar el
-    // id, el acuse se encola como si lo hubiera dicho él.
-    if (ack.ok && ack.id) await registrarEnviado(OWNER_WS, jid, ack.id);
-  } else if (texto.length > 10 && (await doerActivo(OWNER_WS))) {
-    const modo = await modoDoer(OWNER_WS, jid);
-    const engancha = modo === 'libre' || nombraAMaKo(texto)
-      || (await ventanaVigente(OWNER_WS, jid))
-      || (await pendientesVigentes(wsData, jid)).length > 0;
-    // Con una charla pendiente NO se acusa: ahí MaKo está en medio de un ida y vuelta
-    // y un «dame un segundo» corta la conversación en vez de acompañarla.
-    const hayCharla = (await pendientesVigentes(wsData, jid)).length > 0;
-    if (engancha && !hayCharla && (esCargaDePlan(texto) || rutearDoer(texto, { hayMedia: false, hayPendientes: false }).tier !== 'cheap')) {
-      const ackTxt = esCargaDePlan(texto) ? 'Claro, anoto eso 👇 dame un segundo.' : 'Recibido 👍 dame un momento y te contesto.';
-      const ack = await enviarAGrupoJid(jid, ackTxt, 0);
-      if (ack.ok && ack.id) await registrarEnviado(OWNER_WS, jid, ack.id);
-    }
-  }
+  // Con MaKo apagado, una nota de voz o un adjunto no siguen (un texto sí: `procesarDoer` lo cierra en «doer desactivado»).
+  if ((audio || adjunto) && !activo) return { engaged: false, skip: 'doer desactivado' };
+
+  // ── EL TEXTO DE ACUSE, SÓLO SI EL 👍 NO SALIÓ (lib/doer-acuse.ts, «SI LA REACCIÓN FALLA») ─────────────────────────
+  // ⚠️ Acá vivían los dos acuses de texto («Te escucho 🎧 dame un momento y te contesto.», «Me llegó 📎 lo miro y te
+  // contesto.», «Claro, anoto eso 👇 dame un segundo.», «Recibido 👍 dame un momento y te contesto.»), puestos el 8/8
+  // porque sin NINGUNA señal el dueño reenvió un audio a los 2 min 43 s y salieron dos borradores. Esa señal hoy es el
+  // 👍, y llega; el texto vuelve sólo si el 👍 falló: sin los dos, el cliente no ve nada durante lo que tarda el turno
+  // (44 s la mitad de las veces). Es el único punto por el que pasa UNA invocación por lote (el que pierde el candado ya
+  // volvió arriba), así que tres audios seguidos sin reacción dejan un solo texto. Corre en paralelo con la ventana de
+  // silencio, y `procesarDoer` lo lee antes de su propia frase de espera para no decir dos veces «lo analizo».
+  const acuse = acusarSiNoReacciono(jid, reaccion, texto, audio ? 'audio' : adjunto ? (adjunto.tipo === 'image' ? 'imagen' : 'archivo') : 'texto');
 
   try {
     // Un adjunto no espera: es un acto deliberado y se responde solo.
@@ -571,7 +577,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     // UNO SOLO → el camino de siempre, sin tocar nada. Es el caso mayoritario y no
     // tiene sentido meterle un rodeo: se procesa su payload tal cual llegó.
     if (cola.length === 1) {
-      const r = await procesarDoer(wsData, instance, (cola[0].payload as MsgIn) ?? data);
+      const r = await procesarDoer(wsData, instance, (cola[0].payload as MsgIn) ?? data, { acuse });
       await marcarProcesados(cola.map((m) => m.id));
       return r;
     }
@@ -608,7 +614,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       message: { conversation: unirMensajes(textos.map((t) => ({ texto: t }))) },
     };
     console.log(`[mako-doer-in] lote de ${cola.length} mensajes en ${jid} → una sola respuesta`);
-    const r = await procesarDoer(wsData, instance, sintetico);
+    const r = await procesarDoer(wsData, instance, sintetico, { acuse });
     await marcarProcesados(cola.map((m) => m.id));
     return r;
   } finally {
@@ -701,7 +707,8 @@ async function grupoOficialDe(ws: number): Promise<string> {
   return runWithWorkspace(ws, async () => (await getSetting(KEY_GRUPO_JID).catch(() => '')) ?? '');
 }
 
-async function procesarDoer(wsData: number, instance: string, data: MsgIn): Promise<ResultadoDoer> {
+/** `acuse`: lo que hizo `bufferearYResponder` si el 👍 no salió (el cron de huérfanos no lo trae: ahí no hubo nadie). */
+async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts: { acuse?: Acuse } = {}): Promise<ResultadoDoer> {
   const OPS = OWNER_WS; // settings operativos del doer (agencia), keyeados por jid
   try {
     const key = data.key;
@@ -742,13 +749,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // Feedback inmediato: "escribiendo…" mientras razona (best-effort).
     void enviarPresencia(instance, jid, 'composing', 12000);
 
-    // ACUSE INSTANTÁNEO (feedback jul-19): la primera respuesta tiene que ser CASI
-    // inmediata. Antes salía DESPUÉS de armar el system/contexto (buildSystemPrompt
-    // tarda) y CON el "escribiendo…" (delay anti-ban de ~3s) → se sentía colgado.
-    // Ahora lo mandamos ACÁ, lo primero, y con delay 0 (sin simular tipeo). Solo para
-    // texto (audio/adjunto se resuelven aparte) y si NO hay una charla pendiente.
-    // (El acuse de texto ya salió en `bufferearYResponder`, ANTES de la ventana de
-    // silencio. Acá llegaba 8 segundos tarde, que es justo lo que el dueño reportó.)
+    // ACUSE INSTANTÁNEO (feedback jul-19): la primera señal tiene que ser CASI inmediata. Desde el 24/10/2026 es el 👍
+    // de `bufferearYResponder`, al llegar el mensaje (antes, además, un texto que acá llegaba 8 segundos tarde); con
+    // palabras sólo va la espera de lo que lleva tiempo, más abajo (`esperaDelPedido`), cuando ya se sabe el pedido.
 
     // Resolver el texto: si vino como NOTA DE VOZ, transcribir (pidiendo el base64 a
     // la instancia si el webhook no lo adjuntó inline).
@@ -780,16 +783,18 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         // estaba a dos clics. Ver lib/fallo-ia-texto.ts.
         // Las cuentas se cuentan UNA vez: el texto también las necesita, y con dos
         // llamadas el mensaje podía contradecir a la causa que lo eligió.
-        const nKeysAudio = await contarKeysIA().catch(() => 1);
+        const nKeysAudio = await contarKeysIA('audio').catch(() => 1);
         // ⚠️ El texto se elige con los errores de SUS keys (07/10/2026). Desde que el audio tiene
         // red de plataforma, el error trae también los de la agencia, y con esos la causa la
         // fabricarían nuestras keys (la regla de lib/fallo-ia-texto.ts).
         const delNegocio = e instanceof SttSinEscucha ? e.errores : [detalle];
+        // El link con su `?ws=`: este aviso sale directo, sin el `linksConWs` de la respuesta de texto (24/10/2026).
         const aviso = `Me llegó tu audio pero no lo pude escuchar.\n\n${textoFalloIA(
           causaDelFallo(delNegocio, nKeysAudio),
-          linkKeysIA(APP_URL),
+          linkApp(rutaKeysIA('audio'), wsData),
           'escuchar tu audio',
           nKeysAudio,
+          delNegocio,
         )}`;
         const env = await enviarAGrupoJid(jid, aviso);
         if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
@@ -901,6 +906,19 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // eso, un turno mal clasificado es invisible hasta que el dueño lo reclama.
     const ruta = { ...rutaBase, motivo: `${rutaBase.motivo} → ${intencion.intencion}` };
     console.log(`[doer] ws=${wsData} intencion=${intencion.intencion}${intencion.dudosa ? ' (dudosa)' : ''} — ${intencion.porque}`);
+    // ── LA ESPERA CON PALABRAS, SÓLO SI LLEVA TIEMPO (Martín, 24/10/2026; lib/doer-acuse.ts) ───────────────────────────
+    // El 👍 ya salió al llegar el mensaje. Un texto va sólo si el turno lleva tiempo de verdad —un análisis, una
+    // reescritura, un «sí» que pone a correr un trabajo `lenta` del registro— y nombrando QUÉ («Analizo las campañas y en
+    // breves te digo»). Va ACÁ y no al llegar: recién acá está el pedido entero (el lote junto, el audio transcripto) con su
+    // intención, que es lo que dice qué va a hacer el turno. Antes de armar el system, que es lo que tarda. No entra al
+    // historial, como los acuses de siempre: es un aviso, y lo cumple la respuesta de este mismo turno.
+    const trabajoLargo = intencion.intencion === 'confirmar' ? trabajoLargoDe(vigentes.map((p) => porId(p.tipo))) : null;
+    const espera = esperaDelPedido(texto, intencion, { media: !audio && adjunto ? adjunto.tipo : null, trabajoLargo });
+    if (espera && !(await opts.acuse)?.dijoEspera) {
+      const env = await enviarAGrupoJid(jid, espera.frase, 0);
+      if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
+      console.log(`[doer] ws=${wsData} espera (${espera.tipo}): «${espera.frase}»${env.ok ? '' : ' — no salió'}`);
+    }
     // OJO (jul-19): probamos LEAN para el tier sonnet pero Sonnet perdía fiabilidad en el
     // flujo proponer→confirmar (describía "confirmá con sí" SIN llamar la tool → el "sí"
     // no creaba nada). Volvemos al contexto completo: la baja de costo real la dan el
@@ -1149,6 +1167,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
      * un intento anterior: eso SÍ se hizo. Lo de UN intento se mide como la diferencia antes y después de la llamada.
      */
     let corridasDelTurno = 0;
+    /**
+     * LO QUE EL TURNO DEJÓ ESPERANDO UN «SÍ», por id (24/10/2026, el ws15): si el turno muere después, el cartel lo
+     * nombra (`conLoQueQuedoPropuesto`, al mandar). Por id: el memo le devuelve la MISMA pendiente al intento siguiente.
+     */
+    const propuestasDelTurno = new Map<number, PropuestaDelTurno>();
     const runTool = async (name: string, input: Record<string, unknown>) => {
       corridasDelTurno++;
       const previo = memo.previo(name);
@@ -1161,6 +1184,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         : NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input)
         : runRegistro(name, input));
       memo.anotar(name, out);
+      const propuesta = propuestaDeLaSalida(out);
+      if (propuesta) propuestasDelTurno.set(propuesta.id, propuesta);
       // El ticket mismo no cuenta como falla a reportar: si el modelo lo llamó, ya se intentó (y si falló, proponerlo
       // otra vez falla igual).
       if (name === LEVANTAR_TICKET) ticketPropuesto = true;
@@ -1436,7 +1461,21 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 async (prov) => (await provsDe(prov)).map((inst) => ({ prov, inst })),
               ),
             )).flat();
+            /**
+             * ⏱ EL PLAZO DE LOS REINTENTOS, POR PROVEEDOR (24/10/2026, el timeout del ws15). Arranca la primera vez que
+             * se le pide a ese proveedor y lo comparten sus cuentas: una segunda cuenta de Gemini no cubre a un Gemini
+             * lento, así que con el plazo comido no se prueba. Una IA de OTRA marca sí arranca con el suyo: es el
+             * respaldo de verdad, y el que el cartel le pide al cliente. Ver PLAZO_REINTENTOS_TURNO_MS.
+             */
+            const plazoDe = new Map<string, number>();
             for (const [nInst, { prov, inst }] of instancias.entries()) {
+              const plazoCorriendo = plazoDe.get(prov);
+              if (plazoCorriendo != null && !hayTiempoParaOtroIntento(plazoCorriendo)) {
+                console.warn(`[mako-doer-in] ws=${wsData} ${rotulo(inst)} sin probar: ${prov} ya se tomó su plazo en este turno`);
+                continue;
+              }
+              const hastaMs = plazoCorriendo ?? Date.now() + PLAZO_REINTENTOS_TURNO_MS;
+              plazoDe.set(prov, hastaMs);
               probadasCliente++;
               try {
                 // ⚠️ LA ÚLTIMA CUENTA DEL CLIENTE ESPERA LA CUOTA DEL MINUTO (hasta 30 s, lo que
@@ -1446,7 +1485,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 // ver lib/ia-rotacion-modelo.ts.
                 const esperaCuotaMaxMs = nInst === instancias.length - 1 ? 30_000 : 0;
                 const corridasAntes = corridasDelTurno;
-                const r = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined, esperaCuotaMaxMs });
+                const r = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined, esperaCuotaMaxMs, hastaMs });
                 /**
                  * ⚠️ ESTA SALIDA ERA MUDA, Y POR ESO EL CLIENTE LEYÓ «TE QUEDASTE SIN CUOTA».
                  *
@@ -1504,7 +1543,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 if (!vv.ok && vv.razon === 'link-inventado' && !linkBorrador && permitidasDelTurno.has('proponer_tareas_plan')) {
                   quisoBorrador = true;
                   console.warn(`[mako-doer-in] ${prov} inventó el link → reintento con la tool obligatoria`);
-                  const r2 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}» · tool forzada`, toolChoicePrimerPaso: 'required' });
+                  // Con la MISMA cuenta del turno (`clave`, 24/10/2026): sin ella iba siempre a la cuenta 1 del proveedor,
+                  // aunque el turno viniera de la 2 porque la 1 no tenía cuota.
+                  const r2 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}» · tool forzada`, toolChoicePrimerPaso: 'required', hastaMs });
                   if (r2.text && !r2.text.startsWith('(')) {
                     texto2 = r2.text;
                     vv = validarRespuestaDoer(r2.text, { motivoRuta: ruta.motivo, linkBorrador });
@@ -1523,7 +1564,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                  */
                 if (!linkBorrador && corridasDelTurno === corridasAntes && tools.length && promesasDe(texto2).length) {
                   console.warn(`[mako-doer-in] ${prov} prometió sin hacer («${promesasDe(texto2).join('», «')}») → reintento con la herramienta obligatoria`);
-                  const r3 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}» · prometió sin hacer`, toolChoicePrimerPaso: 'required' });
+                  const r3 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}» · prometió sin hacer`, toolChoicePrimerPaso: 'required', hastaMs });
                   if (r3.text && !r3.text.startsWith('(')) {
                     const v3 = validarRespuestaDoer(r3.text, { motivoRuta: ruta.motivo, linkBorrador });
                     if (v3.ok || v3.razon === 'sin-borrador' || linkBorrador) { texto2 = r3.text; vv = v3; }
@@ -1603,17 +1644,23 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 console.warn(`[mako-doer-in] ws=${wsData} su Claude no pudo: ${m}`);
               }
             }
-            const turnoRed = respuesta || suIA ? null : turnoParaLaRed({
+            // ⚠️ PRIMERO SE PREGUNTA SI HAY RED, DESPUÉS QUÉ SE LE SACA (24/10/2026, el cartel del ws21). La marca «red gratis
+            // salteada» se dejaba con sólo mirar el turno, y con IA16 (en main desde el 24/10) no hay red para ningún negocio
+            // (`provsGratisDePlataforma` → `[]` fuera del ws9): a un negocio sin su IA que preguntaba por sus reuniones le
+            // salía «no los mando a la IA gratis de MaKo», un porqué falso (sin datos de clientes tampoco le contestaba),
+            // y el vigía lo anotaba `sin_red_por_datos`. Sin red no hay nada que saltear: la causa es la suya, `sin_keys`.
+            let red: Awaited<ReturnType<typeof provsGratisDePlataforma>> = [];
+            if (!respuesta && !suIA) red = await provsGratisDePlataforma().catch(() => []);
+            const turnoRed = red.length ? turnoParaLaRed({
               tools, delRegistro: turno.delRegistro,
               tiposPendientes: await listarPendientes(ctxApi).then((ps) => ps.map((p) => p.operacion)).catch(() => ['(no se pudieron leer las pendientes)']),
               texto, conAdjuntos: !!mediaBlocks,
-            });
+            }) : null;
             if (turnoRed?.cortar) {
               erroresPlataforma.push(`red gratis salteada: el turno lleva datos de clientes (${turnoRed.cortar.slice(0, 5).join(', ')}) y el plan gratis entrena con lo que recibe`);
               console.warn(`[mako-doer-in] ws=${wsData} red de plataforma salteada: el turno lleva datos de clientes (${turnoRed.cortar.join(', ').slice(0, 300)})`);
             }
             if (!respuesta && turnoRed && !turnoRed.cortar) {
-              const red = await provsGratisDePlataforma().catch(() => []);
               const toolsRed = turnoRed.tools;
               // ⛔ El system de la red va LEAN (la voz de MaKo y su núcleo, `buildSystemPrompt({ lean })`): el completo
               // trae «TU METODOLOGÍA», que sale de `searchKnowledge` sobre el conocimiento propio, y el glosario (fuente
@@ -1750,19 +1797,21 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           const ee = e as Error & { erroresIA?: string[]; erroresPlataforma?: string[]; probadas?: number; contestaron?: number };
           const errsIA = ee?.erroresIA ?? [msg];
           const errsPlat = ee?.erroresPlataforma ?? [];
-          const nKeys = await contarKeysIA().catch(() => 1);
+          const nKeys = await contarKeysIA('texto').catch(() => 1);
           // El veredicto se decide SÓLO con lo del cliente (ver `erroresPlataforma`). Lo
           // nuestro va al log, que es donde se diagnostica.
           const causa = causaDelFallo(errsIA, nKeys, { probadas: ee?.probadas, contestaron: ee?.contestaron });
           const eraDePlan = esCargaDePlan(texto) || (esRutaPlan(ruta.motivo) && !intencion.dudosa);
-          // Sin keys propias y con la red cortada por datos de clientes, «carga una key, son gratis» no dice por qué
-          // nuestra IA no lo cubrió: lo dice `textoSinRedPorDatos`. Con keys que fallaron, su causa sigue siendo la verdad.
-          const sinRedPorSusDatos = sinRedPorDatos(errsPlat) && causa === 'sin_keys';
-          respuesta = sinRedPorSusDatos
-            ? textoSinRedPorDatos(linkApp('/integraciones?abrir=anthropic', wsData), eraDePlan ? 'armar el borrador' : 'contestar')
-            : causa === 'proveedor_caido'
+          // Sin keys propias y con la red cortada por datos de clientes, «carga una key» no dice por qué nuestra IA no lo
+          // cubrió: lo dice `textoSinRedPorDatos`. Con keys que fallaron, su causa sigue siendo la verdad. La marca existe
+          // sólo donde había una red que saltear (arriba, 24/10/2026): para un negocio, desde IA16, el cartel es su causa.
+          // La misma `cartel` elige el texto y la fila que lee el vigía.
+          const cartel = cartelDelFallo(causa, errsPlat);
+          respuesta = cartel === 'sin_red_por_datos'
+            ? textoSinRedPorDatos(linkApp(rutaKeysIA(), wsData), eraDePlan ? 'armar el borrador' : 'contestar')
+            : cartel === 'proveedor_caido'
             ? avisoNoPude(eraDePlan)
-            : textoFalloIA(causa, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys);
+            : textoFalloIA(cartel, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys, errsIA);
           avisoDeSistema = true; // no es un turno de MaKo: ver `avisoDeSistema`
           console.error(`[mako-doer-in] ws=${wsData} fallo de IA (${causa}, ${nKeys} keys, ${ee?.probadas ?? '?'} probadas, ${ee?.contestaron ?? 0} contestaron): ${errsIA.join(' · ').slice(0, 400)}`);
           if (errsPlat.length) console.error(`[mako-doer-in] ws=${wsData} y NUESTRA red de plataforma: ${errsPlat.join(' · ').slice(0, 400)}`);
@@ -1771,7 +1820,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           // de contarlo: «¿cuántas veces salió?» dejó de tener respuesta. Va por el mismo
           // molde que `anotarRebote429`: una fila de US$0 en el mismo gráfico que el dueño
           // mira, con el motivo escrito.
-          void recordUsage('cartel-ia', `cartel:${sinRedPorSusDatos ? 'sin_red_por_datos' : causa}`, {}, `ws${wsData} · ${intencion.intencion} · ${nKeys} keys · ${ee?.probadas ?? 0} probadas · ${ee?.contestaron ?? 0} contestaron · ${errsIA.join(' · ').slice(0, 200)}`, 'mako', 1).catch(() => {});
+          void recordUsage('cartel-ia', `cartel:${cartel}`, {}, `ws${wsData} · ${intencion.intencion} · ${nKeys} keys · ${ee?.probadas ?? 0} probadas · ${ee?.contestaron ?? 0} contestaron · ${errsIA.join(' · ').slice(0, 200)}`, 'mako', 1).catch(() => {});
 
           // ⚠️ Y EL MENSAJE SE SALVA IGUAL. El aviso de arriba explica POR QUÉ falló —y
           // con una cuota agotada eso es lo accionable—, pero por sí solo manda al dueño
@@ -1860,7 +1909,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
      * (scripts/vigia-mako-grupos.mts), porque al historial va la respuesta ya saneada.
      */
     if (respuesta && !avisoDeSistema && !linkBorrador && !linkLead) {
-      const saneo = sanearSalida(respuesta, { corrioHerramientas: corridasDelTurno > 0 });
+      // `finDeTurno`: con herramientas corridas, lo ÚLTIMO de la respuesta tampoco promete un después («Lo analizo y en
+      // breves te digo qué cambiar»): la espera la dice el código, antes y sólo si lleva tiempo (24/10/2026).
+      const saneo = sanearSalida(respuesta, { corrioHerramientas: corridasDelTurno > 0, finDeTurno: true });
       if (saneo.promesas.length || saneo.groserias.length) {
         const que = [saneo.promesas.length ? `promesa sin hacer: «${saneo.promesas.join('», «')}»` : '', saneo.groserias.length ? `grosería: ${saneo.groserias.join(', ')}` : ''].filter(Boolean).join(' · ');
         console.error(`[mako-doer-in] ws=${wsData} SANEADA (${que}) · ${intencion.intencion} · ${tools.length} herramientas, ${corridasDelTurno} corridas · ruta «${ruta.motivo}»`);
@@ -1956,6 +2007,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         // que no logueaba: por eso del 9/8 no quedó una sola línea en Vercel.
         console.error(`[mako-doer-in] ${v.detalle} · ruta «${ruta.motivo}» · ${respuesta.length} chars`);
       }
+    }
+    // ⚠️ UN CARTEL NO TAPA LO QUE EL TURNO DEJÓ PROPUESTO (24/10/2026, el ws15: la #381 «Mover a ELi…» quedó viva dos
+    // horas detrás de un «no pude»). Acá y no en cada cartel: `avisoDeSistema` lo prenden los tres (el `catch` de la IA,
+    // el de sin respuesta y el de la bloqueada). Ver `conLoQueQuedoPropuesto`.
+    if (avisoDeSistema && respuesta && propuestasDelTurno.size) {
+      respuesta = conLoQueQuedoPropuesto(respuesta, [...propuestasDelTurno.values()]);
+      console.warn(`[mako-doer-in] ws=${wsData} el cartel dice ${propuestasDelTurno.size} pendiente(s) que el turno dejó antes de caerse: #${[...propuestasDelTurno.keys()].join(', #')}`);
     }
     if (respuesta || paraLaPersona.length) {
       // Mensajes SEPARADOS (punto 10): MaKo separa con una línea de "---"; mandamos

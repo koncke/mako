@@ -219,9 +219,11 @@ test('el motor: reparte al entrar, toma UN hilo por vuelta y vuelve a la cola si
   // Toda escritura de la posición pasa por la puerta, y la puerta decide si hay hilos.
   assert.match(PROC, /if \(planDePosicion\(pasosInsc, leidoDePosicion\(insc, pasosInsc\), campos, o\)\.modo === 'hilos'\) return escribirHilos\(/);
   // Los únicos `update` de la fila en el motor: los dos de la puerta (`moverConCas` y el de
-  // `escribir`, los dos con `...campos`) y la reunión del paso, que no es la posición.
+  // `escribir`, los dos con `...campos`), la reunión del paso, que no es la posición, y el reclamo antes de mandar
+  // (24/10/2026, `reclamarAntesDeMandar`: sólo `updated_at`, con compare-and-set contra lo leído; no mueve nada).
   const updates = [...PROC.matchAll(/from\('nutricion_inscripciones'\)\s*\.update\(\{\s*([\w.]+)/g)].map((m) => m[1]);
-  assert.deepEqual(updates.sort(), ['...campos', '...campos', 'reunion_at'], `una escritura de la posición por fuera de la puerta: ${updates.join(', ')}`);
+  assert.deepEqual(updates.sort(), ['...campos', '...campos', 'reunion_at', 'updated_at'], `una escritura de la posición por fuera de la puerta: ${updates.join(', ')}`);
+  assert.match(PROC, /from\('nutricion_inscripciones'\)\.update\(\{ updated_at: ahoraISO\(\) \}\)\.eq\('id', insc\.id\)\.eq\('estado', estadoLeido\(insc\)\);/, 'el reclamo escribe algo más que la marca');
   // El compare-and-set por la revisión, con la relectura que no confunde «otro hilo» con «este hilo».
   const eh = NUTRI.slice(NUTRI.indexOf('async function escribirHilos('), NUTRI.indexOf('async function repartirAlEntrar('));
   // (Undécima tanda, M4: contra el estado LEÍDO —'activa', o 'respondio' con el carril vivo—, que no cambia.)

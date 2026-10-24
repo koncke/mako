@@ -35,6 +35,8 @@
 // =============================================================================
 
 import type { OperacionDef, Gating } from '../tipos';
+// Qué hace la gente en una página (24/10/2026): la MISMA lista que la pregunta del paso 2 del Pixel (puro).
+import { CONVERSIONES } from '@/lib/landing-conversion';
 // Datos PUROS (sin server-only, ni transitivo): los ids que acepta crear_landing_desde_diseno
 // salen de la misma lista que la pantalla. Copiarlos a mano es un enum que se desincroniza.
 import { DISENOS_LANDING, OBJETIVOS_LANDING } from '@/lib/editor-landing/disenos-landing';
@@ -72,7 +74,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_landings', area: 'landing', tipo: 'lectura',
     titulo: 'Landings declaradas del negocio',
-    descripcion: 'Las páginas que el negocio declaró como suyas en Integraciones → Landing (máximo 12), cada una con su URL normalizada y los productos a los que entran sus leads (sus embudoId), más los productos que se pueden asignar (productosDisponibles, con su embudoId y su nombre). Úsala antes de cualquier operación que pida la URL de una landing y antes de asignarle productos con guardar_landing. Es lo que el cliente dice tener, no lo que el Pixel observó: para eso está listar_landings_detectadas. No requiere parámetros.',
+    descripcion: 'Las páginas que el negocio declaró como suyas en Integraciones → Landing (máximo 12), cada una con su URL normalizada, los productos a los que entran sus leads (sus embudoId), si es la página de gracias y qué hace la gente ahí (conversion; null = lo decide MaKo), más los productos que se pueden asignar (productosDisponibles, con su embudoId y su nombre). Úsala antes de cualquier operación que pida la URL de una landing y antes de asignarle productos con guardar_landing. Es lo que el cliente dice tener, no lo que el Pixel observó: para eso está listar_landings_detectadas. No requiere parámetros.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_INTEG,
   },
@@ -104,7 +106,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_diagnostico_pixel', area: 'landing', tipo: 'lectura',
     titulo: 'Chequeos del Pixel en vivo',
-    descripcion: 'Los chequeos del probador del Pixel sobre las últimas 24 horas (o sobre una prueba puntual): ¿llegan las visitas?, ¿se reproduce el video?, ¿se mide el avance?, ¿se registran los clics y los formularios?, ¿el código está al día? Cada chequeo viene con estado ok, falta, viejo o na (no aplica) y un veredicto de una línea. Úsala para contestar «¿por qué no se mide X en mi página?». No contesta preguntas de semanas: la ventana es de 24 horas.',
+    descripcion: 'Los chequeos del probador del Pixel sobre las últimas 24 horas (o sobre una prueba puntual): ¿llegan las visitas?, ¿se reproduce el video?, ¿se mide el avance?, ¿se registran los clics?, ¿el código está al día? y el paso FINAL de esa página, que cambia según lo que hace la gente ahí (agenda, va a pagar, deja sus datos, se registra, escribe por WhatsApp; en la de gracias no aplica): viene en conversion, con de dónde salió (elegida en el paso 2, su funnel, lo medido, lo que tiene la página o el funnel del negocio). Cada chequeo viene con estado ok, falta, viejo o na (no aplica), lo que hay que hacer en la prueba para que llegue (pedir) y un veredicto de una línea. Si el paso final no acierta, se corrige con guardar_landing → conversion. Úsala para contestar «¿por qué no se mide X en mi página?». No contesta preguntas de semanas: la ventana es de 24 horas.',
     parametros: [
       { nombre: 'url', tipo: 'string', max: 500, descripcion: 'La landing a revisar. Sin ella habla del negocio entero, y con dos páginas puede ser cierto para una y falso para la otra.' },
       { nombre: 'prueba', tipo: 'string', max: 80, descripcion: 'El marcador de una prueba (el valor de ?mko_test= con el que se abrió la página). Acota los eventos a esa prueba.' },
@@ -512,14 +514,16 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'guardar_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Agregar o corregir una landing',
-    descripcion: 'Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Web Generator → Diagnóstico). Con `productos` se eligen a qué productos del CRM entran los leads que llegan por esa página (el primero es la casa del lead y en los demás se suma): reemplaza lo que tenía, [] se los saca todos y, si no lo pasas, quedan como están. Los embudoId salen de listar_landings (productosDisponibles). Tope: 12 landings.',
+    descripcion: 'Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Web Generator → Diagnóstico). Con `productos` se eligen a qué productos del CRM entran los leads que llegan por esa página (el primero es la casa del lead y en los demás se suma): reemplaza lo que tenía, [] se los saca todos y, si no lo pasas, quedan como están. Con `conversion` se dice qué hace la gente en esa página (de eso sale el último paso de ver_diagnostico_pixel); mako vuelve a dejarlo a MaKo. Los embudoId salen de listar_landings (productosDisponibles). Tope: 12 landings.',
     parametros: [
       { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'La dirección de la página, con o sin https.' },
       { nombre: 'anterior', tipo: 'string', max: 500, descripcion: 'La URL vieja cuando es una corrección: la reemplaza en su lugar y conserva sus productos.' },
       { nombre: 'productos', rotulo: 'Productos', tipo: 'string[]', max: 11, vaciaEsValor: true, descripcion: 'Los productos del CRM a los que entran los leads de esta página, por su embudoId (de listar_landings → productosDisponibles). Reemplaza los que tenía; [] se los saca todos; sin este parámetro quedan como están.' },
+      // Los valores salen de la misma lista que la pantalla (lib/landing-conversion.ts), más «mako» para no elegir.
+      { nombre: 'conversion', rotulo: 'Qué hace la gente', tipo: 'string', enum: [...CONVERSIONES, 'mako'], descripcion: 'Qué hace la gente en esta página para convertir: agenda (agenda una llamada), compra (va a pagar a un checkout), datos (deja sus datos en un formulario), registro (se registra), whatsapp (te escribe por WhatsApp), ninguna (solo mira). mako = lo decide MaKo por el funnel y la página. Sin este parámetro queda como está.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_INTEG,
-    escribe: 'la lista de landings declaradas (app_settings landing.config, con los productos de cada una) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio',
+    escribe: 'la lista de landings declaradas (app_settings landing.config, con los productos y la conversión de cada una) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio',
   },
   {
     id: 'borrar_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,

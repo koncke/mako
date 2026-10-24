@@ -1242,6 +1242,12 @@ export async function chatCheapTools(
      * esperando, esperar es perder el tiempo. Ver lib/ia-rotacion-modelo.ts.
      */
     esperaCuotaMaxMs?: number;
+    /**
+     * ⏱ Plazo de los REINTENTOS (epoch ms, 24/10/2026, el timeout del ws15). Pasado esto, un pedido que falló no se
+     * vuelve a pedir, y el reintento que sale va cortado a lo que quede. El primer pedido de cada paso NO se corta:
+     * después de una herramienta, el cierre es lo que dice qué se hizo. Ver lib/ia-rotacion-modelo.ts (reglas 4 y 5).
+     */
+    hastaMs?: number;
   } = {},
 ): Promise<CheapToolsResult> {
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
@@ -1252,7 +1258,7 @@ export async function chatCheapTools(
   // turno se cubre con OTRO MODELO de la misma key, sin perder los pasos hechos. Antes este
   // camino usaba UN modelo para todo el turno, y el respaldo sólo lo veían los documentos y
   // el audio. Ver lib/ia-rotacion-modelo.ts (el caso de Brigitte, 07/10/2026).
-  const rotacion = crearRotacion(modelosAProbar(p.nombre, (opts.provider && opts.provider !== p.nombre ? '' : opts.model) || p.chatModel), { esperaMaxMs: opts.esperaCuotaMaxMs });
+  const rotacion = crearRotacion(modelosAProbar(p.nombre, (opts.provider && opts.provider !== p.nombre ? '' : opts.model) || p.chatModel), { esperaMaxMs: opts.esperaCuotaMaxMs, hastaMs: opts.hastaMs });
   let model = rotacion.modelo || p.chatModel;
   const esGemini = p.nombre === 'gemini';
   const oaiTools = tools.map((t) => {
@@ -1335,7 +1341,10 @@ export async function chatCheapTools(
             ...paramsDeSalida(p, model, opts.maxTokens ?? 1400, 0.2),
           }),
           cache: 'no-store',
-          signal: AbortSignal.timeout(opts.timeoutMs ?? 45000),
+          // ⏱ 45 s NO es corto para Gemini con herramientas: medido en el doer del 10 al 24/10, el paso de `flash-latest`
+          // que más tardó en contestar fue de 32 s, herramienta incluida (p90 25 s). Lo que faltaba era el plazo de los
+          // reintentos (`hastaMs`): un pedido colgado se comía 45 s, y el turno no tenía techo.
+          signal: AbortSignal.timeout(rotacion.plazoDelIntentoMs(opts.timeoutMs ?? 45000)),
         });
         data = await res.json().catch(() => ({}));
       } catch (e) {
@@ -1360,7 +1369,8 @@ export async function chatCheapTools(
       }
       const tipo = tipoDeFallo(status, leido.mensaje);
       const paso = rotacion.trasFallo({ tipo, esperaMs: leido.esperaMs, porDia: leido.porDia });
-      if (!paso) { falloFinal = detalle; break; }
+      // Cortado por el plazo se DICE en el error: el veredicto (lib/fallo-ia-texto.ts) y el log lo leen.
+      if (!paso) { falloFinal = rotacion.cortadoPorPlazo ? `${detalle} · sin tiempo para otro intento` : detalle; break; }
       // Un 429 que se cubrió con otro modelo no llega al que llama, así que se anota acá:
       // es lo que lee `ordenarPorCuota` para no volver a empezar por esa cuenta.
       if (tipo === 'cuota') void anotarRebote429(p.nombre, nroCuenta(p), model, detalle);

@@ -2805,6 +2805,12 @@ primer `];` que sí estaba en LF, y se llevó todo lo del medio.
 - **Para archivos grandes, `Edit` antes que un script.** `Edit` falla si el `old_string`
   no matchea exacto o no es único; un script hace lo que le salga y avisa después.
 
+⚠️ **Y desde Git Bash el `\r` no se ve** (24/10/2026, rompiendo tests/doer-acuse.test.ts): sobre
+`lib/mako-doer-in.ts`, con 2.048 CRLF según node, `grep -c $'\r'` dio 0 y `cat -A` mostró `$` y no `^M$`.
+Dos roturas de un script de node «no se aplicaron» (marcador con `\n`) y por poco se leyeron como verdes. El
+que dice la verdad es `readFileSync`. Y en un mismo worktree conviven los dos: lo que vino del checkout es
+CRLF, lo que se creó con `Write` es LF. El script de roturas convierte el marcador al fin de línea del archivo.
+
 La versión sana quedó escrita: busca con `/\r?\n\];\r?\n/` y tira
 `throw new Error('el bloque a reemplazar mide N caracteres: demasiado, algo se corrió')`
 si el tramo supera los 12.000 caracteres.

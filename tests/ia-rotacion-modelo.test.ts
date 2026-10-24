@@ -91,7 +91,10 @@ test('Qué clase de fallo es: el 413 de Groq NO es cuota aunque nombre «rate-li
   assert.equal(tipoDeFallo(429, 'HTTP 429'), 'cuota');
   assert.equal(tipoDeFallo(400, 'RESOURCE_EXHAUSTED'), 'cuota');
   assert.equal(tipoDeFallo(503, 'HTTP 503'), 'saturacion');
-  assert.equal(tipoDeFallo(0, 'The operation was aborted due to timeout'), 'saturacion', 'un timeout es saturación');
+  // ⚠️ Hasta el 24/10/2026 esto fijaba «un timeout es saturación», y por eso compartía con el 503 el único reintento del
+  // paso: el turno del ws15 del 23/10 murió así. Tiene su regla (tests/doer-timeout-gemini.test.ts).
+  assert.equal(tipoDeFallo(0, 'The operation was aborted due to timeout'), 'timeout', 'un timeout sin respuesta tiene su propia regla');
+  assert.equal(tipoDeFallo(504, 'HTTP 504 · Deadline exceeded'), 'saturacion', 'un 504 sí volvió: es saturación');
   assert.equal(tipoDeFallo(0, 'fetch failed'), 'saturacion');
   assert.equal(tipoDeFallo(404, 'models/x is not found'), 'modelo');
   assert.equal(tipoDeFallo(400, 'This model is unavailable for free'), 'modelo');

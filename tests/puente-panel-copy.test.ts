@@ -509,6 +509,10 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
     porque: 'detecta en la respuesta del modelo los pedidos de un dato («pasame la hora») y las groserías («boludo») para SACARLOS: sin las formas no ve nada',
   },
   {
+    ruta: 'lib/doer-acuse.ts',
+    porque: 'detecta en lo que la persona PIDE por el grupo («armame», «haceme un análisis», «cancelala») si el turno lleva tiempo (24/10/2026): sin las formas no reconoce el pedido; las frases que salen al grupo las prueba en «tú» tests/doer-acuse.test.ts',
+  },
+  {
     ruta: 'lib/confirmacion-pura.ts',
     porque: 'detecta lo que la persona ESCRIBE en el grupo para confirmar («mandalo», «hacelo», «agendala», «confirmalo») y decidir si es sólo una confirmación: sin las formas del voseo un «sí, mandalo» no se reconoce; no le habla a nadie',
   },

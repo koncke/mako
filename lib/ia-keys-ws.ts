@@ -24,7 +24,7 @@ import 'server-only';
 
 import { cache } from 'react';
 import { getSupabaseServer } from './supabase';
-import { clavesDe } from './ia-keys';
+import { clavesDe, contarClavesCargadas } from './ia-keys';
 import { getWorkspaceActual, WS_NINGUNO } from './workspace';
 
 /**
@@ -88,4 +88,16 @@ export async function clavesCargadas(prov: string, ws?: number): Promise<string[
   // correcta de un workspace que no cargó ninguna credencial, y ahí la lista es [].
   if (enBase === null) return delCatalogo;
   return delCatalogo.filter((c) => enBase.has(c));
+}
+
+/**
+ * Cuántas claves de `provs` tiene cargadas este workspace, contando también a los de una sola clave (su Claude, su GPT):
+ * `clavesCargadas` no los cuenta, a propósito (ver `contarClavesCargadas`, lib/ia-keys.ts). Una lectura por workspace.
+ * ⚠️ «No pude leer» TIRA: acá no hay catálogo al que caer, y un cero inventado le dice a un negocio «no tienes IA».
+ */
+export async function cuantasClavesDeIA(provs: readonly string[], ws?: number): Promise<number> {
+  const w = ws ?? (await getWorkspaceActual()) ?? WS_NINGUNO;
+  const enBase = await clavesEnBase(w);
+  if (enBase === null) throw new Error(`no pude listar las claves del ws ${w}`);
+  return contarClavesCargadas(enBase, provs);
 }

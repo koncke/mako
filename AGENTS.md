@@ -2188,6 +2188,10 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
 - La segunda capa ya existe y se usa: `sanearSalida` (`lib/doer-salida.ts`) saca la oración que
   promete sin haber hecho nada, y la grosería. Detalle en
   [docs/hallazgos-comunicacion.md](docs/hallazgos-comunicacion.md) → «No puedo», «déjame ver».
+- **El acuse del grupo es el 👍, y ningún código manda un «dame un momento»** (Martín, 24/10/2026). Un texto de
+  espera sale sólo por `esperaDelPedido` (`lib/doer-acuse.ts`): para lo que lleva tiempo DE VERDAD, nombrando qué
+  («Analizo las campañas y en breves te digo»), o si el 👍 no salió. Un caso nuevo que lleva tiempo se suma ahí
+  con su test, no como un `enviarAGrupoJid` suelto. `tests/doer-acuse.test.ts` frena el acuse de texto que vuelva.
 
 ## Un jefe que arregla algo que le falló a un CLIENTE, cuando llega a producción, se lo avisa en su grupo
 
@@ -3529,6 +3533,17 @@ pone un prefijo propio ni se usa el id de otro sistema (el `lead.id` de Zernio n
 `event_id` de la conversión `Lead` es `eventIdLeadCrudo(leadgen_id)` en TODAS las puertas, para que Meta junte los eventos; y lo inmediato
 (`alNacerLeadDeMeta`) va sólo con un lead CREADO por esa entrega y de menos de 24 h (`esNuevoParaElNegocio`): una reentrega no es un lead nuevo. Un webhook
 que trae leads descarta antes de cargar nada las muestras de prueba del proveedor (`test: true`). `tests/zernio-leads.test.ts`.
+
+⚠️ **SI LA PÁGINA YA MANDA UN EVENTO DESDE EL NAVEGADOR, MAKO NO LO MANDA POR CAPI AL MISMO PÍXEL SIN UN `eventID` COMPARTIDO.**
+Meta junta el evento del navegador (`fbq`) con el del servidor (CAPI) sólo si traen el MISMO nombre y el mismo id (`eventID` en
+`fbq`, `event_id` en CAPI); con dos ids distintos, o con uno solo de los dos, cuenta DOBLE. Medido el 24/10/2026: la landing de
+un cliente dispara `fbq('track','Schedule')` sin `eventID` al reservar en Calendly y MaKo manda Schedule por CAPI al mismo
+`META_PIXEL_ID` (app/api/webhooks/calendly/route.ts): de 8 reservas en 30 días, 3 llegaron dos veces y la campaña optimiza
+sobre eso. Un evento nuevo por CAPI (Purchase, Lead del opt-in, CompleteRegistration) se pregunta antes: ¿esta página ya lo
+dispara? Si sí, o se comparte el id o MaKo no lo manda; con «no sé», un evento NUEVO no se manda. El id compartido sale de un
+dato que las dos puntas ya tienen (el invitado de Calendly, el `uid` de Cal.com) y, si falta, el navegador va sin `eventID`:
+un id constante hace que Meta junte todos en uno. Y el `event_id` no lleva datos personales en claro (el de Schedule lleva el
+email). El diseño, docs/diseno-eventos-meta-por-funnel.md; el porqué, docs/hallazgos-ads.md.
 
 Y hay un CUARTO registro que no es obligatorio y cambia lo que la gente lee: `AYUDA_CAMPO`
 (en `metodo-catalogo.ts`). El componente hace `ayuda={c.ayuda ?? servicio.tutorial}`, asi
@@ -5626,6 +5641,13 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
   guardia.** Y al mudar algo de una sesión a un cron, la pregunta que falta casi siempre es a dónde
   va la SALIDA: el informe que leía una persona en su terminal no lo lee nadie. El caso, en
   [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «Un vigía atado a una sesión de Claude».
+  **Lo mismo en la PC (24/10/2026, el segundo caso en 24 horas):** el cartero del Ops Center estuvo 15 horas muerto porque
+  lo disparaba el chat «Runner» y la PC se apagó; el pedido de Martín del 17/10 esperó una semana en «escrito». Lo que vive
+  en la PC y tiene que correr siempre arranca con el SISTEMA (la clave Run, como `mako-pc`), y un chat hace sólo lo que
+  únicamente un chat puede hacer (escribirle a otra sesión). **Y el silencio de algo se mide desde OTRO lado:** una PC
+  trabada no avisa que se trabó, así que la ausencia la dice el servidor con «la última vez que llegó algo» (`visto_at`),
+  en rojo y con lo que espera, nunca en un renglón gris. El diseño, en
+  [docs/diseno-cartero-servicio.md](docs/diseno-cartero-servicio.md).
 - **Un GET no escribe** (el de `chat-agent/onboarding/resumen` desarchivaba automatizaciones con un link).
 - **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated` Y su `grant execute … to service_role`** (el de una
   función de trigger no hace falta), en su migración: **no es redundante.** La 0280 creía dejar las nuevas cerradas y NO lo hacía: el
@@ -9223,6 +9245,9 @@ dimos. El dueño lo reportó como «es aún más raro».
   sí (el `catch` del modelo, la guarda de «ningún proveedor contestó» y el bloqueo por
   respuesta inválida). El guard busca cualquier línea que use el texto de aviso, así caza
   también la cuarta.
+- **Un cartel no tapa lo que el turno dejó hecho** (24/10/2026, ws15: la pendiente «Mover a ELi…» quedó viva dos horas
+  detrás de un «no pude»). Lo que el turno propuso antes de caerse se nombra en el cartel (`conLoQueQuedoPropuesto`,
+  lib/respuesta-doer.ts), en UN lugar: al mandar, si `avisoDeSistema`. Un cartel nuevo prende `avisoDeSistema` y lo hereda.
 - ⚠️ **El olor: el modelo dice algo sobre SÍ MISMO que nadie le contó.** Lo primero que hay
   que mirar no es el prompt: es qué hay guardado en el historial con su nombre.
 

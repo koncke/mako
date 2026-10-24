@@ -976,4 +976,40 @@ export const BITACORA: Hito[] = [
       'app/web-generator/diagnostico/VistaAfuera.tsx — no cae a la página real si no se deja',
     ],
   },
+  {
+    fecha: '24 oct', hora: '12:30', chat: 'Landings de MaKo en Web Generator', sesion: 'local_90fdc31c-60c8-4fdb-b396-bd9807bb5067', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La prueba del Pixel pide el final de CADA página: Agenda, Va a pagar, Deja sus datos, Se registra o WhatsApp',
+    puntos: [
+      'Pedido de Martín (23/10): el Pixel no era personalizable por funnel y pedía «Deja sus datos» en páginas que no piden datos. Ahora el último paso sale de lo que hace la gente en esa página.',
+      'Lo deduce MaKo del funnel de la página, de lo que ya llegó y de lo que tiene la página. Si no acierta, en el paso 2 del Pixel hay una pregunta nueva: «¿Qué hace la gente en esta página?». En la página de gracias no pide nada.',
+      'Una página de venta pide «Va a pagar»: tocar el botón de compra, sin pagar. La venta en sí pasa en la pasarela, donde ningún Pixel corre.',
+      'También: el sello «Edit with Lovable» ya no cuenta como clic, y dos eventos de video que llegaban como «no reconocido» ahora tienen nombre.',
+      'Medido sin escribir nada contra tres negocios: la agenda de Código Inmobiliario sigue siendo «Agenda una llamada»; la página de gracias del Sprint de Mauricio ya no pide nada; su página de venta pide elegir en el paso 2 en vez de un formulario que no tiene.',
+      'No se vio con clics: está probado con tests. Falta mirarlo en Integraciones → Landing cuando esté desplegado.',
+    ],
+    archivos: [
+      'lib/landing-conversion.ts — qué hace la gente en una página (la regla y su orden)',
+      'lib/landing-token.ts — landingDiagnostico: el paso final por página y `pedir`',
+      'app/integraciones/AsignarProducto.tsx — la pregunta del paso 2',
+      'app/api/track/vsl/route.ts — CONOCIDOS con los dos eventos del video que no se mide',
+    ],
+    revisar: '/integraciones?abrir=landing',
+  },
+  {
+    fecha: '24 oct', hora: '17:30', chat: 'Landings de MaKo en Web Generator', sesion: 'local_90fdc31c-60c8-4fdb-b396-bd9807bb5067', cuenta: 'claude1',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Medido: la página de venta del Sprint de Mauricio se pisó con la de gracias, y su cuenta de anuncios está frenada por falta de pago',
+    puntos: [
+      'La página de venta del Sprint sí estaba publicada. El 24/10 a las 01:54 UTC, mientras se pegaba el Pixel, quedó reemplazada por la de gracias: desde entonces el link no cobra y muestra el grupo de los que pagaron. Se lo avisé al Cerebro con lo que hay que hacer.',
+      'Lo de «MaKo no ve el gasto de Mauricio desde el 15/10» no era ceguera: Meta frenó su cuenta por un saldo impago de 8.743,59 MXN y la campaña no entrega. Los números de MaKo están bien; lo que confunde es que dice «sin sincronizar» en vez de «sin inversión».',
+      'MaKo detectó la cuenta frenada en dos minutos pero dejó de avisarle a Mauricio el 16/10: el techo de tres avisos ya estaba pasado. Si debe volver a avisar es una decisión de Martín.',
+      'Quedaron escritos dos diseños para después del lanzamiento: que una venta con el Stripe propio entre como cobro pagado, y qué eventos manda MaKo a Meta por página (con el arreglo del Schedule doble).',
+    ],
+    archivos: [
+      'docs/diseno-venta-externa-stripe.md — la venta externa por Stripe (diseño)',
+      'docs/diseno-eventos-meta-por-funnel.md — qué manda MaKo a Meta (diseño)',
+      'docs/hallazgos-ads.md · docs/hallazgos-landing.md · docs/hallazgos-comunicacion.md — lo medido',
+    ],
+  },
 ];
