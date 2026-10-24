@@ -1526,4 +1526,30 @@ export const BITACORA: Hito[] = [
       'tests/chat-nota-de-voz.test.ts (6 roturas), tests/mic-grabando.test.ts y tests/chat-unico.test.ts al día',
     ],
   },
+  {
+    fecha: '24 oct', hora: '18:30', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'En el teléfono no pudo tocar las opciones de una pregunta, y su respuesta escrita «no se envió»',
+    pedido: '«Intenté responder esa pregunta en mobile y no funcionó, en Ops Center... Y respondí a mano, y no se envió el mensaje. Está fallando.» Y adentro de su respuesta escrita: «Y en mobile no pude clickear en las opciones».',
+    puntos: [
+      'Llegó por el Cerebro el 24/10, con lo medido: el mensaje SÍ estaba en MaKo, en «escrito».',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '19:10', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Una pregunta de la app de Claude dice en el teléfono que se contesta en la computadora, y el mensaje que espera dice por qué',
+    revisar: '/m/operaciones',
+    puntos: [
+      '⚠️ **No era el toque.** Se probó con un teléfono emulado de verdad (CDP, 390 × 844, toques reales): las preguntas de `cartero preguntar` se tocan bien, con el hilo corto o largo y aunque el dedo tiemble. La que Martín no pudo tocar era un AskUserQuestion del Cerebro. El Ops Center la muestra y a propósito no la contesta, porque mientras espera al chat no le entra nada.',
+      '**En el teléfono se veía igual que una que se contesta**, y el renglón que lo explicaba lo escondía la regla de centro.css para pantallas táctiles (la que saca la ayuda del teclado). Ahora lo dice ARRIBA, también en el teléfono: «Se contesta en la app de Claude, en la computadora: desde acá no se puede. Hasta entonces, el chat no lee lo que le escribas». Las opciones quedan de lectura.',
+      '**El mensaje que espera dice la verdad:** con el chat trabado en una pregunta de la app, lo dice en el acto, sin esperar 30 segundos. Y sin nada que lo frene ya no promete «El Runner lo toma en segundos»: dice que la PC lo toma en su próxima vuelta, y cuándo fue la última.',
+      'Se le avisó al Cerebro que la causa fue su AskUserQuestion: que vuelva a preguntar con `cartero preguntar`. La regla de AGENTS.md suma el caso.',
+    ],
+    archivos: [
+      'app/admin/operaciones/PreguntasDelChat.tsx — CuerpoDeLaApp con el aviso arriba · centro.css — el aviso y las opciones de lectura',
+      'lib/centro-chats.ts — estadoDelEnvio(…, trabado) y POR_QUE_TRABADO · Hilo.tsx, ChatsMovil.tsx y Conversacion.tsx — `trabado` en `vivo`',
+      'tests/ops-pregunta-app-movil.test.ts (4 roturas); centro-envio y ops-center-decisiones al día',
+    ],
+  },
 ];

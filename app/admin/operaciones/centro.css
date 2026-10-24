@@ -907,6 +907,13 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-chip--primario:disabled { opacity: .5; cursor: default; }
 /* La ayuda es del teclado: en una pantalla táctil sobra (Claude Code en el teléfono tampoco la muestra). */
 @media (hover: none) and (pointer: coarse) { .co-preg__ayuda { display: none; } .co-preg__pie:not(.co-preg__pie--chat):not(:has(.co-preg__error)) { display: none; } }
+/* La pregunta de la app de Claude (24/10/2026): arriba, por qué no se contesta desde acá y lo que cuesta; NUNCA se esconde
+   (el renglón de abajo se iba con la regla de arriba en el teléfono, y sus opciones parecían tocables). Las opciones, de
+   lectura: el número sin la caja de un botón. */
+.co-preg__aviso-app { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 10px; padding: 8px 10px; border-radius: var(--r-md); background: var(--warn-bg, var(--velo-hover)); color: var(--ink); font-size: var(--fs-sm); line-height: 1.4; }
+.co-preg__aviso-app svg { flex: none; margin-top: 2px; color: var(--warn, var(--dim)); }
+.co-preg--app .co-preg__op--leer { color: var(--dim); }
+.co-preg--app .co-preg__op--leer .co-preg__num { border-color: transparent; background: none; }
 
 /* La conversación vacía: el empleado grande, como la portada de un Bot. */
 .co-portada { margin: 14vh auto 0; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }

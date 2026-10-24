@@ -298,7 +298,9 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const animoAbierto = elegido ? animoDe(elegido, centro.avisos(elegido)) : 'despierto';
   const datoAbierto = elegido ? trabajaSinEscribir(elegido, lineas) ?? metaDe(elegido) : '';
   const quien = useMemo(() => ({ titulo: elegido?.titulo ?? '', aspecto: aspectoAbierto, animo: animoAbierto, dato: datoAbierto }), [elegido?.titulo, aspectoAbierto, animoAbierto, datoAbierto]);
-  const vivo = useMemo(() => (elegido ? { chat: elegido, carteros } : undefined), [elegido, carteros]);
+  // `trabado`: con una pregunta de la app de Claude abierta, lo que se le escribe espera, y la línea del envío lo dice ya.
+  const trabado = deLaApp.length > 0;
+  const vivo = useMemo(() => (elegido ? { chat: elegido, carteros, trabado } : undefined), [elegido, carteros, trabado]);
 
   if (!chats.length) return parte === 'hoja' ? null : <VacioM frase="Conecta un Runner desde la computadora para ver tus chats aquí." />;
 
