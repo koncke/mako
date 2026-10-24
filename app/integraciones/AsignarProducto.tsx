@@ -37,7 +37,11 @@ import type { LandingConfig } from '@/lib/landing-config';
 import type { ProductoAsignable } from '@/lib/landing-funnel';
 import { alternarValor } from '@/app/components/dropdown-varios';
 import type { RechazoGracias } from '@/lib/landing-gracias-reglas';
+import { CONVERSIONES, NOMBRE_CONVERSION, esConversion } from '@/lib/landing-conversion';
 import { guardarLandingAction } from './landing-config-actions';
+
+/** La opción de no elegir: el paso final lo deduce MaKo (lib/landing-conversion.ts). */
+const LO_DECIDE_MAKO = '__mako__';
 
 export function AsignarProducto({ elegida, productos, landings, onLandings, rechazos = [] }: {
   elegida: string | null;
@@ -111,6 +115,27 @@ export function AsignarProducto({ elegida, productos, landings, onLandings, rech
     if (!r.ok) { setErr(r.error); return; }
     onLandings(r.landings);
   };
+  // ── ¿Qué hace la gente en esta página? (pedido de Martín, 23/10/2026) ───────
+  // «No es personalizable según qué funnel... Debería serlo. [...] Hay eventos que sobran... como «Deja sus datos»».
+  // De ESTO sale el último paso de la prueba del Pixel: sin elegir, lo deduce MaKo del funnel y de la página, y acá se
+  // corrige cuando no acierta. Copiado del desplegable «Ubicación de la conversión» del conjunto de anuncios de Meta Ads
+  // Manager: una sola elección, una opción por lugar donde convierte la gente. En la de gracias no se pregunta: ahí ya
+  // se convirtió. Manda `conversion` sola (lo demás ausente = «no lo toques»).
+  const conversion = cfg?.conversion ?? null;
+  const cambiarConversion = async (v: string) => {
+    const nueva = esConversion(v) ? v : null;
+    if (!elegida || ocupado || nueva === conversion) return;
+    setOcupado(true); setErr(null);
+    const r = await guardarLandingAction(elegida, { conversion: nueva });
+    setOcupado(false);
+    if (!r.ok) { setErr(r.error); return; }
+    onLandings(r.landings);
+  };
+  const opcionesConversion = [
+    { value: LO_DECIDE_MAKO, label: 'Lo decide MaKo', sub: 'Por tu funnel y lo que hace tu página' },
+    ...CONVERSIONES.map((c) => ({ value: c, label: NOMBRE_CONVERSION[c] })),
+  ];
+
   // Las visitas que no se pudieron unir a un lead, de ESTA página. Sin esto, una página de gracias
   // que no mueve a nadie se ve igual que una a la que no llegó nadie.
   const sinFicha = esGracias ? rechazos.filter((r) => mismaPagina(r.url, elegida)).length : 0;
@@ -133,6 +158,17 @@ export function AsignarProducto({ elegida, productos, landings, onLandings, rech
             ? `Quien llega pasa a Ganado · ${sinFicha} ${sinFicha === 1 ? 'visita' : 'visitas'} sin ficha`
             : 'Quien llega pasa a Ganado'} />
       </div>
+      {!esGracias && (
+        <div style={{ marginTop: 10 }}>
+          <Select
+            label="¿Qué hace la gente en esta página?"
+            options={opcionesConversion}
+            value={conversion ?? LO_DECIDE_MAKO}
+            onChange={(v) => { void cambiarConversion(v); }}
+            disabled={ocupado}
+          />
+        </div>
+      )}
       {err && <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--bad)' }}>{err}</div>}
     </div>
   );

@@ -4346,3 +4346,59 @@ Los guiones (principal, 6 por funcionalidad, 3 por avatar) están en `docs/vsl/`
 - **Lo que hay que medir antes de grabar**, anotado en cada guion: el «nueve de cada diez» del CRM (lo medido era 7 de
   10), el «ocho de cada diez ventas después del quinto mensaje» (dato de mercado sin fuente firme), y si una landing
   del Web Generator trae el seguimiento del video por lead.
+
+## El Pixel no es por funnel: lo que mide y lo que no (auditoría del 24/10/2026)
+
+Pedido de Martín (23/10, 22:52, textual): «Tienes que auditar el Pixel de MaKo punta a punta... Porque no es
+personalizable según qué funnel... Debería serlo. En este caso, Mauricio VENDE, con compra carrito en Stripe... Y ese
+evento no se está midiendo... Piensa en todos los casos de uso, y que se pueda personalizar fácil. Hay eventos que
+sobran... como «Deja sus datos». La landing de Mauricio no recopila datos...». Llegó un día tarde: el cartero del Ops
+Center murió esa noche. Chat «Landings de MaKo en Web Generator», workflow `wf_3f17ed7e-123` (5 lectores, síntesis y
+un crítico que midió en la base y en la cuenta de Stripe del cliente).
+
+**Vive en:** `lib/landing-conversion.ts` (qué hace la gente en una página: la regla y su orden) · `lib/landing-token.ts`
+(el snippet; `landingDiagnostico` arma el paso 5 con esa regla) · `app/integraciones/ProbarTracking.tsx` ·
+`app/integraciones/AsignarProducto.tsx` (la pregunta del paso 2) · `app/api/track/vsl/route.ts` (`CONOCIDOS`) ·
+`lib/landing-config.ts` (`conversion` por página)
+
+- **El Pixel es el MISMO código para todos y no sabe de funnels.** Manda 17 tipos de evento a /api/track/vsl y un opt-in a
+  /api/track/optin; ninguno es de checkout ni de compra, ninguno lleva monto, y no lee `_fbp` ni `_fbc`. Entre la v22
+  y la v25 no cambió ningún tipo de evento. Ninguna ruta /api/track/* le manda nada a Meta.
+- **Una compra en buy.stripe.com o checkout.stripe.com el Pixel NO la puede ver**: no corre ahí. Ve el CLIC al link (como
+  un `click` con el href, sólo si el botón es un `<a>`) y, si Stripe redirige a una página del negocio con el Pixel, la
+  visita a la de gracias. La compra la ve sólo el WEBHOOK de la pasarela (docs/hallazgos-pagos.md, misma fecha).
+- **«Deja sus datos» sale donde no aplica y queda en «falta» para siempre:** el paso 5 es «Agenda una llamada» si hay
+  agenda y no formulario, y en cualquier otro caso «Deja sus datos»; con una sola visita (`entraAlCrm`) ya se pide, y su
+  «no aplica» sólo existe sin visitas. Con el análisis de la página caído, `piezas` null vale «tiene formulario». O sea
+  que una página de venta con checkout (la del «Sprint 3 días» de Mauricio, que es casi seguro la que miraba Martín: la
+  editó un minuto antes del pedido) le pide un formulario que no tiene.
+- **El diagnóstico obvio («la landing de Mauricio vende con Stripe y no se mide») era el equivocado en las dos mitades:**
+  multiplicatusresultados.com vende por Calendly (0 links a Stripe; 4.093 visitas, 2.219 plays, 8 reservas y 0 opt-ins
+  en 30 días), y lo que se vende con Stripe es el Sprint, cuya página de venta no está publicada en ningún lado visible.
+  Y por Stripe NUNCA hubo una venta (docs/hallazgos-pagos.md).
+- **`video_ajeno` y `toque_video` no están en `CONOCIDOS`**: son eventos del Pixel vigente desde la v16 y el probador
+  los rotula «Evento no reconocido (Pixel desactualizado o modificado)»; 1.731 filas en el ws13 en 30 días.
+- **«Hace clic en tus botones» cuenta el sello del editor:** en el ws1, el 43 % de los 176 clics de 30 días es «Edit with
+  Lovable» y el 57 % sale como «boton:» sin texto.
+- **El modelo para que sea por funnel YA existe a medias:** el tipo de funnel es la entrada guardada (`TIPOS_FUNNEL`,
+  `tipoDeFunnel`, lib/pipeline.ts:855-870: carrito, agenda, chat, formulario del anuncio, landing), y la página se ata a
+  su funnel en landing.config (`funnelPrincipalDeLanding`). Lo que faltaba es que los PASOS del probador salgan de ahí, por
+  página (un funnel tiene la página del VSL, la de venta y la de gracias), con una corrección a mano.
+- **Sin medir:** qué botón son los 101 «boton:» sin texto del ws1 (se ve en el mapa de calor); si un `<stripe-buy-button>`
+  respeta un `client-reference-id` puesto después de montarse.
+- **Lo que quedó (mismo día):** el paso 5 sale de `conversionDeLaPagina` — la de gracias, lo elegido en el paso 2 («¿Qué
+  hace la gente en esta página?», también `guardar_landing → conversion` por la API), el funnel de ESA página, lo medido,
+  lo que vio el analizador y, al final, el funnel del negocio. Sin nada, pide elegir: no inventa «Deja sus datos». Una
+  página de venta pide «Va a pagar» (el clic al checkout: la venta no se ve desde la página). La instrucción de la prueba
+  la dice el server en `pedir`; el sello del editor no cuenta como clic; `video_ajeno` y `toque_video` entraron a
+  `CONOCIDOS`.
+- ⚠️ **Trampa medida al construirlo: fuera de una prueba, «llegó un opt-in» es del NEGOCIO, no de la página.** Los leads
+  de landing de 24 h se buscan sin URL (un lead no la guarda), así que contarlo como hecho de una página convirtió la
+  agenda de Código Inmobiliario en «Deja sus datos». Y en una página que es sólo una agenda, el opt-in es el de la
+  reserva (desde la v15 la reserva manda el contacto). Regla: un dato que no se filtró por la página no decide nada de
+  la página; en una prueba sí, porque se cruza por el visitante.
+- **SIN hacer, a propósito:** (1) que el analizador reconozca un link de checkout como pieza (`lib/landing-analisis.ts`):
+  hoy una página de venta sin funnel «carrito» y sin clics medidos pide elegir en el paso 2, que es honesto; (2) un
+  `<stripe-buy-button>` embebido no deja ver el clic (vive en su iframe); (3) la venta por el Stripe propio y su Purchase
+  a Meta, y el Schedule doble (docs/hallazgos-pagos.md y docs/hallazgos-ads.md): de otros chats; (4) elegir «Compra» en
+  la página de venta del Sprint de Mauricio (`sprint.mauriciobustos.com`, ws1) una vez desplegado: hoy pide elegir.

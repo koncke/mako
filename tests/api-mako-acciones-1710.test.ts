@@ -159,7 +159,8 @@ test('⚠️ guardar_landing asigna productos, listar_landings dice cuáles se p
   assert.match(c.prep.resumen, /«Mentoría»/, 'el resumen nombra el producto');
   // La trampa del mapper campo por campo: corregir/actualizar la página sin decir productos no los borra.
   assert.deepEqual(H.landingSinProductos.config, [{ url: 'https://mi-sitio.com/oferta', funnelIds: [2] }]);
-  assert.deepEqual(H.listarDespues.landings, [{ url: 'https://mi-sitio.com/oferta', productos: [2] }]);
+  // (Desde el 24/10/2026 cada una dice también si es la de gracias y qué hace la gente ahí: null = lo decide MaKo.)
+  assert.deepEqual(H.listarDespues.landings, [{ url: 'https://mi-sitio.com/oferta', productos: [2], gracias: false, conversion: null }]);
   // Lo que los SACA es la lista vacía.
   assert.deepEqual(H.landingVaciaProductos.prep.payload.productos, []);
   assert.deepEqual(H.landingVaciaProductos.config, [{ url: 'https://mi-sitio.com/oferta' }]);

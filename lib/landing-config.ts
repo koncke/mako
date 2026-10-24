@@ -23,6 +23,7 @@
 
 import { normalizarUrl } from './landing-paginas';
 import { urlLandingVigente } from './editor-landing/dominios-reglas';
+import { esConversion, type Conversion } from './landing-conversion';
 
 /** Una landing del cliente, con lo que le pertenece solo a ella. */
 export type LandingConfig = {
@@ -71,6 +72,12 @@ export type LandingConfig = {
    * que las configs de hoy no cambian ni un byte.
    */
   gracias?: boolean;
+  /**
+   * Qué hace la gente en ESTA página para convertir (lib/landing-conversion.ts): la elige la persona en el paso 2 del
+   * Pixel cuando lo que MaKo deduce del funnel no alcanza. Pedido de Martín (23/10/2026): «no es personalizable según qué
+   * funnel... Debería serlo». Ausente = lo decide MaKo. Se guarda SÓLO cuando se eligió: las configs de hoy no cambian.
+   */
+  conversion?: Conversion;
 };
 
 export const CONFIG_KEY = 'landing.config';
@@ -144,7 +151,8 @@ export function parsearConfig(crudo: string | null): LandingConfig[] {
     // Sólo un `true` literal: un «"true"» o un 1 de un setting editado a mano no prende algo que
     // mueve leads a Ganado.
     const gracias = typeof x === 'object' && x != null && (x as Record<string, unknown>).gracias === true;
-    out.push({ url, ...(fids.length ? { funnelIds: fids } : {}), ...(gracias ? { gracias: true } : {}) });
+    const conv = typeof x === 'object' && x != null ? (x as Record<string, unknown>).conversion : undefined;
+    out.push({ url, ...(fids.length ? { funnelIds: fids } : {}), ...(gracias ? { gracias: true } : {}), ...(esConversion(conv) ? { conversion: conv } : {}) });
   }
   return out.slice(0, MAX_LANDINGS);
 }
@@ -189,7 +197,8 @@ export function landingDe(configs: LandingConfig[], url: string | null | undefin
 export function conLanding(
   actuales: LandingConfig[],
   url: string,
-  parcial: Partial<Omit<LandingConfig, 'url'>> = {},
+  // `conversion: null` la BORRA (vuelve a decidir MaKo); `undefined`, como el resto, es «no la toques».
+  parcial: Partial<Omit<LandingConfig, 'url' | 'conversion'>> & { conversion?: Conversion | null } = {},
   anterior?: string | null,
 ): LandingConfig[] | null {
   const nueva = normalizarUrl(url);
@@ -206,10 +215,16 @@ export function conLanding(
   // productos de la página de gracias la dejaría de ser — la trampa del mapper que reconstruye la
   // fila campo por campo.
   const gracias = parcial.gracias !== undefined ? parcial.gracias === true : base?.gracias === true;
+  // La MISMA regla otra vez: sin esto, cambiar los productos de una página le borraría lo que eligió en «¿Qué hace la
+  // gente en esta página?».
+  const conversion = parcial.conversion !== undefined
+    ? (esConversion(parcial.conversion) ? parcial.conversion : null)
+    : base?.conversion ?? null;
   const fila: LandingConfig = {
     url: nueva,
     ...(fids.length ? { funnelIds: fids } : {}),
     ...(gracias ? { gracias: true } : {}),
+    ...(conversion ? { conversion } : {}),
   };
   // Se conserva la POSICIÓN al editar: en un desplegable, que un renglón salte al
   // final porque le corregiste una letra es desconcertante.

@@ -22,6 +22,7 @@ import type { Runners, Ctx, Preparado, Ejecutado, SalidaLectura } from '../tipos
 import { conLanding, sinLanding, landingDe, MAX_LANDINGS } from '@/lib/landing-config';
 // Los productos que una página puede recibir: LOS MISMOS que ofrece el paso 2 del Pixel (lib/landing-funnel.ts).
 import { productosAsignables } from '@/lib/landing-funnel';
+import { NOMBRE_CONVERSION, esConversion, type Conversion } from '@/lib/landing-conversion';
 import { normalizarUrl as normalizarPagina } from '@/lib/landing-paginas';
 import { isIP } from 'node:net';
 import { claveDeLanding as normalizarAnalisis, validarDestino } from '@/lib/landing-fetch';
@@ -192,7 +193,7 @@ export const RUNNERS: Runners = {
       // Los que se pueden asignar (guardar_landing → productos). null = no se pudo leer: se calla, no se afirma «ninguno».
       const disponibles = await productosAsignables().catch(() => []);
       return json({
-        landings: landings.map((l) => ({ url: l.url, productos: l.funnelIds ?? [] })),
+        landings: landings.map((l) => ({ url: l.url, productos: l.funnelIds ?? [], gracias: l.gracias === true, conversion: l.conversion ?? null })),
         ...(disponibles.length ? { productosDisponibles: disponibles.map((p) => ({ embudoId: p.id, nombre: p.nombre, principal: p.esDefault })) } : {}),
         total: landings.length, tope: MAX_LANDINGS,
         ...(formato === 'viejo' && landings.length ? { nota: 'Lista leída del formato anterior: se migra sola la primera vez que se guarde una landing.' } : {}),
@@ -253,7 +254,9 @@ export const RUNNERS: Runners = {
       const ULTIMOS = 15;
       return json({
         veredicto: d.veredicto,
-        chequeos: d.chequeos.map((c) => ({ id: c.id, que: c.label, estado: c.estado, detalle: c.detalle })),
+        chequeos: d.chequeos.map((c) => ({ id: c.id, que: c.label, estado: c.estado, detalle: c.detalle, ...(c.pedir ? { pedir: c.pedir } : {}) })),
+        // El paso final de ESTA página y de dónde salió. null = no se sabe: se pide elegirlo (guardar_landing → conversion).
+        conversion: { valor: d.conversion.valor, porque: d.conversion.porque },
         codigo_viejo: d.codigoViejo, ultimo_evento: d.ultima,
         // Sin query: el normalizador de landing-paginas lo conserva, y un /gracias
         // puede traer ?name=…&email=… del lead (caso del 24/08).
@@ -264,7 +267,7 @@ export const RUNNERS: Runners = {
           afuera: Math.max(0, d.eventos.length - ULTIMOS),
         },
         ventana: prueba ? `los eventos de la prueba ${prueba}` : 'últimas 24 horas',
-        nota: 'estado «na» = no aplica a esta página. Los eventos van sin el detalle y las páginas sin sus parámetros (pueden traer nombres de quien dejó sus datos). Los detalles hablan de la pantalla de Integraciones («el código de arriba», «el paso 1»): si hace falta el código, usa ver_codigo_pixel o manda el link a Integraciones → Landing.',
+        nota: 'estado «na» = no aplica a esta página. conversion.porque: elegida (paso 2), gracias (es la página de gracias), funnel (el de esta página), medido (lo que ya llegó), pagina (lo que tiene la página), negocio (el funnel del negocio), nada (no se sabe). Una compra pasa en la página de la pasarela, donde el Pixel no corre: el paso final de una página de venta es «Va a pagar» (el clic al checkout), no la venta. Los eventos van sin el detalle y las páginas sin sus parámetros (pueden traer nombres de quien dejó sus datos). Los detalles hablan de la pantalla de Integraciones («el código de arriba», «el paso 1»): si hace falta el código, usa ver_codigo_pixel o manda el link a Integraciones → Landing.',
       });
     },
   },
@@ -1236,8 +1239,16 @@ export const RUNNERS: Runners = {
         const nombres = productos.map((id) => `«${asignables.find((p) => p.id === id)!.nombre}»`);
         partes.push(nombres.length ? `— sus leads entran a ${nombres[0]}${nombres.length > 1 ? ` y se suman a ${nombres.slice(1).join(', ')}` : ''}` : '— sin productos asignados');
       }
+      // Qué hace la gente ahí (24/10/2026): la pregunta del paso 2. «mako» la borra (vuelve a deducirse); ausente, no se toca.
+      let conversion: Conversion | 'mako' | undefined;
+      if (input.conversion !== undefined) {
+        const c = String(input.conversion ?? '').trim();
+        if (c !== 'mako' && !esConversion(c)) return { error: 'conversion va como agenda, compra, datos, registro, whatsapp, ninguna o mako.' };
+        conversion = c === 'mako' ? 'mako' : c as Conversion;
+        partes.push(conversion === 'mako' ? '— lo que hace la gente ahí lo decide MaKo' : `— la gente ahí: «${NOMBRE_CONVERSION[conversion]}»`);
+      }
       return {
-        payload: { url, ...(anterior ? { anterior } : {}), ...(productos ? { productos } : {}) },
+        payload: { url, ...(anterior ? { anterior } : {}), ...(productos ? { productos } : {}), ...(conversion ? { conversion } : {}) },
         resumen: partes.join(' ') + '.',
       };
     },
@@ -1248,7 +1259,9 @@ export const RUNNERS: Runners = {
         const { landings } = await leerLandings();
         // `funnelIds` sólo si vinieron: ausente es «no los toques», [] los saca (lib/landing-config.ts, conLanding).
         const productos = Array.isArray(payload.productos) ? payload.productos.map(Number).filter((n) => Number.isSafeInteger(n) && n > 0) : undefined;
-        const nuevas = conLanding(landings, url, productos ? { funnelIds: productos } : {}, anterior);
+        // `conversion`: «mako» la borra (null), ausente no la toca (undefined).
+        const conversion = payload.conversion === 'mako' ? null : esConversion(payload.conversion) ? payload.conversion : undefined;
+        const nuevas = conLanding(landings, url, { ...(productos ? { funnelIds: productos } : {}), ...(conversion !== undefined ? { conversion } : {}) }, anterior);
         if (!nuevas) return { ok: false, resumen: 'Esa dirección no parece una página web.' };
         if (!landingDe(nuevas, url)) return { ok: false, resumen: `No se pudo: ya hay ${MAX_LANDINGS} landings declaradas.` };
         await escribirLandings(nuevas);

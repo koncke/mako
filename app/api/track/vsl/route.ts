@@ -443,7 +443,11 @@ async function procesar(payload: Payload, visitorId: string, ip: string, ubicaci
   // marca adentro del 'click', ese chequeo se pondria verde porque alguien toco una
   // imagen. Lo que SI lo lee es el mapa de calor, que es donde ese toque es el dato
   // mas util que hay.
-  const CONOCIDOS = ['play', 'exit', 'click', 'clic_vacio', 'scroll', 'pausa', 'retoma', 'fin', 'agendo', 'salio', 'volvio', 'cierre'];
+  // 'video_ajeno' y 'toque_video' (snippet v16) son del video que NO se puede medir (Drive, YouTube sin API): «la página
+  // tiene uno» y «alguien lo tocó». Faltaban acá desde la v16 y se guardaban como 'desconocido' —1.731 filas en un
+  // workspace en 30 días, medido el 24/10/2026—, que el probador lee como «Pixel desactualizado o modificado» sobre el
+  // Pixel del día. Son de la PÁGINA: `esEventoDeVideo` es lista blanca y no los cuenta en la retención.
+  const CONOCIDOS = ['play', 'exit', 'click', 'clic_vacio', 'scroll', 'pausa', 'retoma', 'fin', 'agendo', 'salio', 'volvio', 'cierre', 'video_ajeno', 'toque_video'];
   if (!CONOCIDOS.includes(tipoEvento) && !milestoneMatch && !segundoMatch) {
     // Antes esto caía a 'play' en silencio, y así un tipo desconocido inflaba
     // los plays sin dejar rastro. Se guarda como lo que es y se avisa: un
