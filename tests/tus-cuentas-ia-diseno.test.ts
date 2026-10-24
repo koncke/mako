@@ -97,7 +97,7 @@ test('3. «Nuevo dispositivo», una fila que abre el tutorial; la descarga, sól
   // botón del final del modal se va»): la fila punteada, sin botones ni avisos; la descarga vive en AppPrimero.tsx.
   const html = renderToStaticMarkup(createElement(NuevoDispositivo, { onAbrir: () => {} }));
   assert.equal(html, '<button type="button" class="tci-nuevo-fila"><span class="tci-nuevo-fila__mas" aria-hidden="true">+</span><span class="tci-nuevo-fila__titulo">Nuevo dispositivo</span><span class="tci-nota">Otra computadora con esta misma cuenta</span></button>');
-  assert.match(sinComentarios(leer('app/integraciones/TusCuentasIA.tsx')), /nuevoDispositivo=\{\(\) => <NuevoDispositivo onAbrir=\{\(\) => abrirTutorialEn\(2\)\} \/>\}/, 'abre el tutorial en la descarga');
+  assert.match(sinComentarios(leer('app/integraciones/TusCuentasIA.tsx')), /nuevoDispositivo=\{\(c\) => <NuevoDispositivo onAbrir=\{\(\) => abrirTutorialEn\(2, c\.proveedor\)\} \/>\}/, 'abre el tutorial en la descarga, con la IA de esa cuenta');
   const css = leer('app/integraciones/tus-cuentas-ia.css');
   assert.match(css, /\.tci-nuevo-fila \{ display: flex;[^}]*border: 1px dashed var\(--border-strong\);/, 'punteada: no se confunde con «Nueva cuenta»');
   assert.doesNotMatch(css, /\.tci-nuevo-disp|\.tci-pie/, 'sin el recuadro viejo');
@@ -141,7 +141,7 @@ test('5. la API plegada con su total a la vista; el interruptor y el aviso de la
     total: { gastadoUsd: 0.35, vinculadas: 2, rindeUsd: 400, totalUsd: 800 },
     negociosSinLeer: true,
     asignados: [{ ws: 1, quien: 'Mauricio (ws1)', cuenta: 'claude1', prendido: true, gastadoUsd: 1.5, llamadas: 30 }],
-  } as unknown as LecturaCredito;
+  } as unknown as Extract<LecturaCredito, { ok: true }>;
   const html = renderToStaticMarkup(createElement(VistaCredito, { lectura, cuentas: [], onCambiar: () => {} }));
   assert.match(html, /<details class="co-uso__pliegue"><summary class="co-uso__api-cab"><span class="co-uso__api-caja"><span class="co-uso__fila"><span class="co-uso__titulo">API<\/span><span class="co-uso__pct">US\$0,35 de US\$800 este mes<\/span><\/span><span class="co-uso__reinicio">2 de 4 vinculadas: hoy rinden US\$400<\/span><span class="co-uso__flecha" aria-hidden="true"><\/span><\/span><\/summary>/, 'a la vista, el total y cuántas faltan');
   const [adentro, afuera] = html.split('</details>');

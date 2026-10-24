@@ -12,6 +12,27 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## El pie que flota a la mitad: una lista larga con acciones abajo es UNA pieza, `VistaConPie` (24/10/2026)
+
+- **Síntoma:** en «Traer de un grupo de WhatsApp», Martín: «los botones de abajo no pueden estar a la mitad y que abajo se
+  sigan viendo leads, se ve horrible». Y «hay varias que se parecen y están mal».
+- **Causa:** el pie era `position: sticky; bottom: 0` DENTRO del cuerpo del `<Modal>`, que es el que scrollea y tiene padding
+  abajo. El pie se pega al borde del scroll menos ese padding, y las filas pasan por la franja de abajo.
+- **Por qué pasó dos veces:** «Traer de otro funnel» ya se había arreglado el 23/10 (la vista mide el alto del cuerpo con
+  `height: 100%` y la que scrollea es la tabla). La vista del grupo se copió de ella ANTES de ese arreglo, y el arreglo
+  vivía sólo en la primera. **La regla en una pieza o se pierde en la copia.**
+- **Cómo quedó:** `app/_ui/VistaConPie.tsx` (cabecera, la lista como único scroll, el pie como último renglón con fondo
+  sólido). La usan las dos vistas de «traer»; el Modal tiene que tener `alto` fijo. El `sticky` queda de respaldo para un
+  padre sin alto (el importador). La regla para código nuevo, en AGENTS.md («`<Modal>` guarda su `onCerrar`…»).
+- **Barrido por `position: 'sticky', bottom: 0` en `app/`:** sólo esas dos.
+
+**Sin hacer:**
+- Barrer el otro molde del mismo error: listas largas cuyas acciones van al final del cuerpo, sin `sticky`, y se
+  desplazan con la lista («que el botón no se tenga que desplazar», 22/10). No se barrió todavía.
+- Verlo en pantalla, también en el teléfono: el cambio no está desplegado.
+
+*24/10/2026, chat «CRM» (claude1).*
+
 ## Al terminar de cargar, la criatura vuela a SU lugar: un movimiento y un vigía para todas las tabs (23/10/2026)
 
 **Pedido (Martín):** «Todos los loaders que tengan la figura de MaKo, luego de terminar de cargar, la figura de MaKo se debe ir
@@ -4518,3 +4539,19 @@ ventana.
 - **Trampa 3: reordenar el marcado de una tarjeta rompe tests que no hablan de diseño.** Los tests del Uso leen el texto de cada
   tarjeta en orden. Con `display: contents` en la fila de adentro y una grilla con áreas, el marcado queda igual y se ve en otro
   orden. Un lector de pantalla sigue leyendo el orden lógico.
+
+## Una captura «de teléfono» con `--window-size=390` miente: el Edge sin ventana tiene un ancho mínimo (24/10/2026)
+
+**El síntoma:** las fotos del arnés de Chats a 390 × 844 salían con las burbujas cortadas a la derecha y el botón del
+micrófono afuera de la pantalla. Parecía que la caja del teléfono no entraba (justo lo que Martín había reportado el 17/10:
+«el chat en mobile se ve muy chico por los botones»).
+
+**La causa:** el Edge (y el Chrome) sin ventana tiene un ancho MÍNIMO de ventana, cerca de 500 px. Con `--window-size=390`
+dibuja una página de ~500 px y la foto recorta 390: ni las media queries ni el `pointer: coarse` son los de un teléfono. El
+diagnóstico obvio (la caja se desborda) era el equivocado.
+
+**La regla:** una foto de teléfono va por CDP con la emulación de dispositivo, como DevTools:
+`Emulation.setDeviceMetricsOverride { width: 390, height: 844, deviceScaleFactor: 2, mobile: true }`, el táctil
+(`setTouchEmulationEnabled`) y un user agent de Android. El paquete `ws` del repo alcanza para hablar CDP; no hace falta
+Puppeteer. Y `Emulation.setFocusEmulationEnabled`: sin foco en la página, un `focus()` no dispara el evento (lo que la caja
+mira para ofrecer «Pegar la captura»). Medida así, la caja del teléfono entra entera en una fila.

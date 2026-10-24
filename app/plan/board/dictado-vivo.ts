@@ -21,6 +21,15 @@
 // ⚠️ Y NO SE PUEDE SABER SI HAY PERMISO SIN PEDIRLO. `start()` tira `not-allowed` cuando el
 // micrófono está bloqueado, así que el fallback también cubre ese caso: se degrada al
 // camino de grabar, que pide el permiso por el otro lado y da un error claro.
+//
+// ⚠️ EN ANDROID CADA RESULTADO TRAE TODO LO DICHO HASTA AHÍ (24/10/2026). Martín lo reportó el 17/10 («cuando lo probé, se
+// dicta y se duplica lo que dije») y le volvió a pasar el 24/10, con un dictado de UNA vez que salió «continúa continúa con
+// continúa con todo continúa con todo porque…». No repite palabras sueltas: repite el PREFIJO creciendo. El Chrome de
+// Android, con `continuous` e `interimResults`, entrega cada resultado final con la frase ACUMULADA («continúa», después
+// «continúa con», después «continúa con todo»), y el código los pegaba uno atrás del otro, como hace bien Chrome de
+// escritorio (que entrega pedazos sueltos). Ahora cada resultado se SUMA con `sumarDictado`: si el nuevo ya empieza con lo
+// acumulado, lo reemplaza; si es lo mismo, no suma nada; si es otro pedazo, va atrás. Lo fija tests/dictado-vivo.test.ts
+// con la frase textual del 24/10.
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -116,14 +125,9 @@ export function useDictadoVivo(onTexto: (textoDeLaSesion: string, final: boolean
     r.interimResults = true;
     r.maxAlternatives = 1;
     r.onresult = (e) => {
-      let interino = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const res = e.results[i];
-        const txt = res[0]?.transcript ?? '';
-        if (res.isFinal) finalRef.current = `${finalRef.current} ${txt}`.trim();
-        else interino += txt;
-      }
-      cbTexto.current(`${finalRef.current} ${interino}`.trim(), false);
+      const t = textoDelEvento(finalRef.current, e);
+      finalRef.current = t.final;
+      cbTexto.current(t.mostrar, false);
     };
     r.onerror = (e) => {
       // `no-speech` y `aborted` son parte del uso normal (te callaste, o cortaste vos): no
@@ -141,6 +145,56 @@ export function useDictadoVivo(onTexto: (textoDeLaSesion: string, final: boolean
   }, []);
 
   return { soportado, escuchando, arrancar, parar };
+}
+
+/** Una palabra para comparar: sin mayúsculas, sin tildes y sin la puntuación que el reconocedor agrega o saca. */
+const normal = (s: string): string[] => s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+  .replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
+
+/**
+ * Suma un resultado del reconocedor a lo que ya se dictó en esta sesión.
+ *   · Chrome de escritorio entrega PEDAZOS («hola» y después «cómo estás»): van uno atrás del otro.
+ *   · Chrome de Android entrega la frase ACUMULADA («continúa», «continúa con», «continúa con todo»): el nuevo ya trae lo
+ *     anterior, y gana el nuevo. Se compara por palabras normalizadas: entre un resultado y el siguiente cambian la
+ *     mayúscula, una tilde o una coma.
+ *   · El mismo resultado dos veces (un final que repite al interino, o un final viejo reenviado) no suma nada.
+ * ⚠️ El costo, a sabiendas: quien dicte dos veces seguidas exactamente lo mismo («no» y «no») queda con una sola. Es raro, y el
+ *    Android que duplicaba cada frase le pasa a cualquiera que dicte desde el teléfono.
+ */
+export function sumarDictado(acumulado: string, nuevo: string): string {
+  const a = acumulado.trim();
+  const n = nuevo.trim();
+  if (!n) return a;
+  if (!a) return n;
+  const pa = normal(a);
+  const pn = normal(n);
+  if (!pn.length) return a;
+  // El nuevo empieza con TODO lo acumulado (Android): es la frase entera, corregida y más larga.
+  if (pn.length >= pa.length && pa.every((w, i) => pn[i] === w)) return n;
+  // Lo acumulado ya termina con el nuevo (un final que repite lo último que se vio), o ya EMPIEZA con él (un Android que
+  // reenvía en cada evento los finales viejos, desde el primero): nada que sumar.
+  if (pn.length <= pa.length && pn.every((w, i) => pa[pa.length - pn.length + i] === w)) return a;
+  if (pn.length <= pa.length && pn.every((w, i) => pa[i] === w)) return a;
+  return `${a} ${n}`;
+}
+
+/** Lo mínimo de un evento del reconocedor que se lee (el `onresult`). */
+type EventoDictado = Pick<EventoReconocimiento, 'resultIndex' | 'results'>;
+
+/**
+ * Lo que deja un evento del reconocedor: `final` es lo dictado y ya firme (para el próximo evento), `mostrar` es eso más lo
+ * que todavía se está oyendo. Pura: la usan el hook y su test.
+ */
+export function textoDelEvento(final: string, e: EventoDictado): { final: string; mostrar: string } {
+  let firme = final;
+  let interino = '';
+  for (let i = e.resultIndex; i < e.results.length; i++) {
+    const res = e.results[i];
+    const txt = res[0]?.transcript ?? '';
+    if (res.isFinal) firme = sumarDictado(firme, txt);
+    else interino = sumarDictado(interino, txt);
+  }
+  return { final: firme, mostrar: sumarDictado(firme, interino) };
 }
 
 /** Pega lo dictado a lo que ya estaba escrito, sin comerse el espacio ni duplicarlo. */

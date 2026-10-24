@@ -1298,6 +1298,19 @@ export const DEFS: readonly OperacionDef[] = [
     canales: ['app'], costo: 'gratis', gating: TAB_ADMIN,
     reversible: false, escribe: 'crea un lead por cada número nuevo del grupo (o suma al funnel al que ya es lead), con su etiqueta de origen y su historial',
   },
+  // 24/10/2026 (el Cerebro: «traer ahora no puede impedir completar los nombres después»): el listado del grupo no trae
+  // nombres, y volver a traer no toca a los que ya están. Lo mismo que «Completar nombres» de la pantalla.
+  {
+    id: 'completar_nombres_de_grupo', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Completar nombres de un grupo',
+    descripcion: 'PROPONE ponerle el nombre que WhatsApp ya conoce a los participantes de un grupo de WhatsApp que ya son leads y tienen su número por nombre (el listado del grupo no trae nombres: los traídos nacen así). No crea ni mueve a nadie y no manda ningún mensaje; un nombre que escribió una persona no se toca. Se puede repetir más adelante: quien escriba deja su nombre. El grupo sale de grupos_whatsapp. Solo el administrador.',
+    parametros: [
+      { nombre: 'grupo', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el grupo: su id (de grupos_whatsapp) o su nombre.' },
+      { nombre: 'linea', tipo: 'string', max: 80, descripcion: 'la línea de WhatsApp del negocio; sin esto, la de por defecto.' },
+    ],
+    canales: ['app'], costo: 'gratis', gating: TAB_ADMIN,
+    reversible: false, escribe: 'el nombre de los leads del grupo que tenían su número por nombre (cada cambio queda en su historial)',
+  },
   // ── «Invitar al curso al ganar» (23/10/2026, P0-4 de la auditoría de la API) ─────────────────────────
   // El interruptor del «⋯» de la columna Ganado (app/crm/curso-al-ganar-actions.ts): prendido, quien pasa a Ganado en
   // ese CRM recibe sola la invitación al curso de su producto. Cierra el par venta → acceso sin que nadie invite a mano

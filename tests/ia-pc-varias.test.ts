@@ -55,6 +55,24 @@ test('2. el turno: a una que conteste; con varias, la del último turno; sin tur
   // Revisión adversarial: la que falló su último turno, o tiene la cuenta agotada, va al final (no queda pegado a ella).
   assert.equal(r.fallo, 'PC de Mauricio', 'el turno quedó pegado a la que falló el último');
   assert.equal(r.agotada, 'PC de Martín', 'el turno fue a la que tiene la cuenta agotada');
+  // Por IA (la ola 3): la que tiene sólo su ChatGPT no recibe un turno de Claude, y al revés.
+  assert.deepEqual(r.porIA, { chatgptConTextoDeClaude: false, claude: 'PC de Martín', chatgpt: 'PC de Mauricio', anaParaChatgpt: false }, 'el turno fue a una PC sin esa IA');
+  // La guarda del 23/10: una PC contesta sólo con la IA del texto que aceptó quien la conectó. Lo que la activa para D6b
+  // (su latido) tampoco guarda otra: la de Leo, conectada con el texto de Claude, no queda activa por reportar ChatGPT.
+  assert.deepEqual(r.porTexto, {
+    leo: { cuentas: [], activa: false, negocio: false },
+    lia: { cuentas: ['chatgpt'], activa: true, negocio: true },
+    liaParaClaude: false, liaParaChatgpt: true,
+  }, 'una PC contestó (o se activó) con una IA cuyo texto nadie aceptó');
+  // El turno vence cuando el chat deja de esperarlo, nunca después de TURNO_MS; y uno vencido no se toma.
+  assert.ok(Math.abs(r.vence.conEspera - 30) <= 2, `venció a los ${r.vence.conEspera} s y no a los 30`);
+  assert.ok(Math.abs(r.vence.sinEspera - r.vence.tope) <= 2);
+  assert.ok(Math.abs(r.vence.larga - r.vence.tope) <= 2, 'un turno quedó tomable más de TURNO_MS');
+  assert.equal(r.huerfanoTomado, false, 'la PC tomó un turno que ya nadie esperaba');
+  // La puerta mira la sesión del pedido (la segunda ronda de la refutación, 23/10): llamada directo, sin la de quien conectó
+  // la PC, no encola. La prueba sin sesión, sólo en el ws3.
+  assert.deepEqual(r.puerta, { sinSesion: 'frenado', otraPersona: 'frenado', suSesion: 'encolado', pruebaFueraDelWs3: 'frenado' },
+    'la puerta de la PC encoló sin la persona adentro');
   // Puro: sin ninguna que conteste, la que latió último (el turno dice apagada o sin sesión).
   const pc = (id: number, enLinea: boolean, cuentas: number, latido: string | null, conectadaAt: string | null = null) => ({ id, enLinea, cuentas: Array(cuentas).fill({}), ultimoLatido: latido, conectadaAt });
   assert.equal(elegirPc([pc(1, false, 1, '2026-10-22T10:00:00Z'), pc(2, false, 1, '2026-10-22T11:00:00Z')], new Map())?.id, 2);
@@ -74,8 +92,9 @@ test('3. cada una dice su sistema y cuándo se conectó; la tarjeta ofrece «Con
   assert.equal(detalleDeLaPc({ sistema: null, conectadaAt: null }, () => 'x'), null, 'sin dato, no se muestra');
   const ui = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
   // 23/10/2026: «Nuevo dispositivo», dentro de cada cuenta. Desde el 24/10 (Martín: «no el botón feo que está al final del modal
-  // que no lo ve nadie»), una fila que abre el tutorial en la descarga (paso 2), no un recuadro con la descarga a la vista.
-  assert.match(ui, /nuevoDispositivo=\{\(\) => <NuevoDispositivo onAbrir=\{\(\) => abrirTutorialEn\(2\)\} \/>\}/);
+  // que no lo ve nadie»), una fila que abre el tutorial en la descarga (paso 2), no un recuadro con la descarga a la vista; y
+  // con la IA de ESA cuenta (la ola 3: Claude o ChatGPT), para que el tutorial nombre el programa que corresponde.
+  assert.match(ui, /nuevoDispositivo=\{\(c\) => <NuevoDispositivo onAbrir=\{\(\) => abrirTutorialEn\(2, c\.proveedor\)\} \/>\}/, 'otra computadora para ESA cuenta, con su IA');
   const dibujo = sinComentarios(leer('app/integraciones/CuentasYDispositivos.tsx'));
   assert.match(dibujo, /\{d\.conectadaAt && <p className="tci-nota">\{`Conectada el \$\{fechaCorta\(d\.conectadaAt\)\}`\}<\/p>\}/);
   assert.match(sinComentarios(leer('app/api/ia-pc/estado/route.ts')), /conectadaAt: d\.conectadaAt, sistema: d\.sistema,/);

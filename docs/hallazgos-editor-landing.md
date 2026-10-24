@@ -2530,3 +2530,39 @@ panel de Framer abierto antes de copiar sus controles (relevo de Web Generator, 
   que cargue `/m.js?id=<token del negocio>` y que intente el beacon. Así se midieron avatares-ia y las otras.
 - **Regla:** una ausencia en el mapa de versiones no es «no mide»; para afirmar que una landing mide, se mira lo que
   carga y manda la página, nunca el mapa.
+
+## Las ocho landings por funnel sin el video de la principal en el hero (24/10/2026)
+
+Chat «Landings de MaKo en Web Generator», cuenta claude1. Lo encontró Cerebro midiendo antes del lanzamiento del 25/10:
+las ocho embebían en el hero el MISMO VSL de la principal (Panda `25c0684d…`), que habla de MaKo en general y arranca
+solo, en silencio, con «Si vendés High Ticket con VSL Funnel», al lado de un titular que promete el dolor de cada ángulo
+(«Más cierres para tu inmobiliaria…»). Para el visitante, la promesa se rompía en el primer pantallazo; para el test de
+anuncios, el video dominaba el primer pantallazo de las ocho por igual.
+
+**Vive en:** `scripts/landings-mako-funnels.mts` (`heroSinVideo`, `VSL_PRINCIPAL`, el campo `video` de cada funnel, `--id`)
+· los documentos #33 a #40 del workspace de la plataforma (MaKo)
+
+- **Decidido (el diseño es del chat): hasta que cada funnel tenga su VSL, el hero queda con la promesa y su botón,
+  centrado, y el VSL de la principal baja justo debajo con el rótulo «Así funciona MaKo».** El plan de registro
+  (docs/vsl/README.md) ya era que las ocho compartan el lugar del VSL en el hero y se cambie el `src` cuando el video de
+  cada una exista: eso es `video` en `COPY` (con él, el hero vuelve a tener video y no se aplica `heroSinVideo`).
+- **El texto de cada landing no se tocó** (avatares-ia sale tal cual, decisión de Martín): lo único nuevo es el rótulo
+  de tres palabras arriba del video.
+- ⚠️ **Trampa del script, cerrada:** `--subir` llamaba a `subir(doc, undefined, …)`, o sea que volver a correrlo
+  INSERTABA un documento nuevo con el mismo slug en vez de actualizar el que está arriba. Ahora pide `--id <documento>`
+  (con `--solo`), o `--nueva` a propósito.
+- **Cómo se hizo sin romper nada:** (1) los ocho documentos que generaba el código de hoy eran IDÉNTICOS a los publicados
+  (comparados con las claves ordenadas: jsonb las reordena y un `JSON.stringify` directo dice «distinto» sobre lo mismo),
+  así que lo único que cambia es el hero; (2) los ocho no tenían ediciones a mano (`updated_at` = creación, sin
+  versiones); (3) respaldo de los ocho antes de subir (en el scratchpad de la sesión); (4) vista previa FIEL antes de
+  escribir: la página publicada de verdad con el hero nuevo puesto encima en Chrome sin ventana, escritorio y teléfono,
+  cortando /api/track/* para no dejar visitas; (5) se subieron de a uno por su id (v1 → v2) y se verificó que cada slug
+  siga en un solo documento.
+- **Verificado en producción, las 16 direcciones** (Chrome sin ventana, /api/track/* cortado): hero sin video, el VSL debajo
+  con su rótulo, el botón, el Pixel de MaKo con su beacon y el de Meta cargando, sin desborde. ⚠️ **hola-mako.site lo
+  mostró al instante y hola-mako.com/vsl tardó ~10 minutos y dos pedidos**: el script escribe la base directo y no vence
+  `TAG_LANDING_MAKO` (lo vence «Publicar» en la app), y esa página tiene DOS cachés de 5 min encadenadas
+  (`unstable_cache` en lib/editor-landing/landing-mako.ts y `revalidate = 300` en app/vsl/[slug]/page.tsx) que sirven lo
+  viejo una vez más mientras se regeneran. Quien cambie una landing de MaKo por script, que mida .com después de ese rato.
+- **Lo que esto NO resuelve:** el video sigue siendo el de la principal para las ocho, ahora como contexto y no como la
+  promesa. Para que cada ángulo tenga su VSL hay que grabarlo (los guiones están en docs/vsl/) y ponerle su `video`.

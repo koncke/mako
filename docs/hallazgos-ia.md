@@ -3657,6 +3657,66 @@ hace tool calling; un pedido del doer pesa 13-16 mil. O sea que la red de plataf
   anterior).
 
 *07/10/2026, cuenta 2, commit `af3530c2`.*
+
+### El segundo caso: un TIMEOUT a mitad del turno, y un cartel que la mandó a cargar lo que no la cubre (23/10/2026)
+
+**Vive en:** `lib/ia-rotacion-modelo.ts` (reglas 4 y 5, `PLAZO_REINTENTOS_TURNO_MS`) · `lib/ai-cheap.ts`
+(`chatCheapTools`, `hastaMs`) · `lib/mako-doer-in.ts` (`plazoDe`, `propuestasDelTurno`) · `lib/fallo-ia-texto.ts`
+(`ia_lenta`) · `lib/respuesta-doer.ts` (`conLoQueQuedoPropuesto`) · `tests/doer-timeout-gemini.test.ts`
+
+**La regla es UNA, en dos mitades:** el respaldo es SIEMPRE una IA del negocio, nunca la de MaKo. Si queda otro modelo
+de SU key, va ése; si queda otra IA suya de otra marca, va ésa; si no queda nada, se le dice qué pasó. Esta es la mitad
+de las keys. La mitad de la computadora del dueño (la PC que no contesta deja 90 s para su clave: `RESERVA_RESPALDO_MS`,
+`claveDeIAPropia`, lib/ia-pc-reglas.ts) la escribió el chat «IA del cliente» en «Gemini en la PC: no».
+
+Lo levantó el vigía: Brigitte (ws15, otra vez UNA key de Gemini) contestó «Si contacte Eli» al recordatorio de las
+13:51. Dos pasos de `flash-lite` con 200 (+23 s y +34 s del mensaje; `flash-latest`, el fijado, falló antes sin dejar
+marca de 429), el tercero no volvió, y a los +83 s salió `cartel:sin_respaldo` con «chatCheapTools(gemini): The
+operation was aborted due to timeout»: «Tu proveedor de IA se cayó justo ahora… Carga una segunda (son gratis)».
+
+⚠️ **El diagnóstico del cartel era el equivocado, y ella le hizo caso.** Gemini no se cayó (los dos pasos de antes
+contestaron), y a los 33 minutos cargó `GEMINI_API_KEY_2`, que le pega al mismo Google: una segunda key del mismo
+proveedor no cubre a un modelo lento, igual que no cubre a uno saturado (la entrada del audio, arriba). El 13/10 el ws13
+había recibido el mismo cartel por la misma causa.
+
+⚠️ **Por qué murió, sin logs (Vercel ya no los tenía): sale de los relojes.** +83 s = el 200 de +34 s + 45 s de
+timeout + ~4 s, o sea que el timeout NO tuvo reintento. Con la rotación de entonces eso sólo pasa si el reintento del
+paso ya estaba gastado: un fallo rápido de saturación (un 503 o un «fetch failed»), 1,2 s de pausa, y el reintento
+colgado. El timeout era una saturación más y compartía con el 503 el ÚNICO reintento del paso. Y no había techo: un paso
+podía quemar 136 s (tres timeouts de 45 y la pausa).
+
+⚠️ **45 s NO es corto para Gemini con herramientas**, que era la otra sospecha. Medido en el doer del 10 al 24/10, de
+paso a paso (herramienta incluida): `flash-latest` p50 6,7 s, p90 24,8 s, máximo 32 s; `flash-lite` p50 2,3 s, p90 25 s.
+Bajar el timeout cortaría pasos sanos; subirlo sólo alarga la espera del que se colgó.
+
+Lo que quedó: un timeout tiene su regla (otro modelo de la misma key si queda; si no, el MISMO una vez por TURNO, aparte
+del reintento del 503), y los reintentos tienen plazo: 100 s por proveedor desde su primer pedido, ninguno arranca sin
+15 s por delante y el que arranca va cortado a lo que queda. El primer pedido de cada paso no se corta nunca: después de
+una herramienta, el cierre es lo que dice qué se hizo. Nunca un respaldo de la plataforma: todo sale de las keys del
+negocio. El cartel nuevo (`ia_lenta`) dice qué IA tardó, que cortamos nosotros, que lo mande de nuevo y, si toda su IA es
+de una marca, cuál le da respaldo, con el link al modal de ESA (`?abrir=openai`).
+
+⚠️ **El cartel ofrece su GPT y no su Claude, a propósito.** En WhatsApp su Claude entra sólo si el turno no corrió
+ninguna herramienta (WA1, `corridasDelTurno === 0`): justo en este caso, que se colgó después de dos, no estaba. Un test
+avisa si WA1 cambia.
+
+⚠️ **Y el turno muerto había dejado algo hecho.** El segundo paso creó la pendiente #381 «Mover a ELi → etapa
+"Seguimiento 1"» (`mako_acciones_pendientes`), y el cartel no la nombró: quedó viva dos horas sin que nadie la viera —a
+las 15:14 su «Bien» al aviso de un lead nuevo se ruteó como `(confirmación)` por ella— y venció sola. Ahora cualquier
+cartel (`avisoDeSistema`) termina con lo que el turno dejó esperando un «sí» y le pide el «sí» en vez de que lo mande de
+nuevo (eso dejaba una segunda pendiente igual).
+
+**SIN HACER:**
+- **`flash-latest` falla de entrada en 10 de 14 turnos del ws15** (17 al 24/10: la primera fila es de `flash-lite`), y
+  sin marca de 429. Cada turno paga ese pedido fallido antes de empezar. Qué devuelve no se midió (hace falta un log en
+  vivo); vive en el pin global de /modelos-ia (`mako.modelos`: `gemini-flash-latest`) y en `MODELOS_RESPALDO`.
+- **El reintento con la herramienta forzada va sin `clave: inst.clave`** (`lib/mako-doer-in.ts`, `r2`): usa la cuenta
+  base del proveedor aunque el turno venga de la cuenta 2.
+- **Las transcripciones de anuncios usan la MISMA key a la vez** (`anuncios-transcribir` a las 14:04:39 y 14:05:15, en
+  medio del turno). No se midió si compiten; con una key gratis es la primera sospecha si vuelven los timeouts.
+
+*24/10/2026 — sin subagentes. 16 roturas en `tests/doer-timeout-gemini.test.ts`, todas con su fallo.*
+
 ## Re-arrancar el turno repetía las ACCIONES, no sólo las lecturas (07/10/2026)
 
 **Vive en:** `lib/turno-sin-duplicar.ts` · `lib/mako-doer-in.ts` (`memo`, `nuevoIntento`,
@@ -4527,6 +4587,9 @@ llamada, chat, cobro…) tiene que declarar la marca; si no, el test cae. Lo que
 **El aviso no dice «Conecta tu Claude».** El turno con herramientas corre sólo con las keys baratas del negocio
 (`chatCheapTools`); la clave de Anthropic del negocio mueve sólo la cascada de texto. Mandarlo a conectar su Claude
 sería mandarlo a algo que no lo arregla: dice «Conecta tu propia API key de IA», con el link a /integraciones.
+⚠️ **Con IA16 (en main desde el 24/10) este aviso sale sólo en el ws9**, el único con red: la marca la deja el doer sólo si había red que
+saltear, y un negocio sin su IA recibe `sin_keys` («Conecta tu Claude, tu GPT o tu Gemini»; desde WA1 su Claude sí
+contesta el turno con herramientas). Ver la entrada de IA16, «el cartel de WhatsApp… un porqué falso» (24/10).
 
 ### Lo que quedó SIN hacer
 
@@ -6209,11 +6272,44 @@ pidiendo todas, porque su contrato dice también las que tienen 0 cuentas. ⚠�
 las listas que lo nombran, no sólo en la que se ve primero (test 8 de tests/ia16-cada-uno-su-ia.test.ts, cuatro roturas,
 las cuatro caen).
 
+**Y el cartel de WhatsApp le daba a un negocio sin su IA un porqué falso** (lo levantó el vigía: ws21 Florencia, 22/10
+09:36 UTC, «Estas analizando mis fathom?», 0 claves, `cartel:sin_red_por_datos`; medido el 24/10, sólo lectura):
+- **El diagnóstico obvio —«el cartel la dejó sin salida»— era falso.** Le llegó (el anillo de enviados del grupo se
+  escribió 11 s después) con el link a /integraciones (`?abrir=gemini&ws=21`, el de antes de IA9). Y ese día el porqué era
+  cierto: la red existía (IA16 v2 se commiteó esa noche y entró a main el 24/10 00:29 ART). Florencia nunca conectó nada (0
+  filas en `credenciales` hoy, ninguna llamada con una clave suya) y no volvió a escribir.
+- ⚠️ **«IA16 está en main» no es «la red ya no corre».** El último deploy medido (la «prueba» de los avisos de arreglo:
+  137b91f76, 23/10 23:09 ART) no la trae: hasta que se despliegue, la red sigue contestando a los negocios sin su IA, y
+  este arreglo tiene que ir en el mismo deploy (sin él, el ws21 pasa a leer el porqué falso).
+- **Lo que se volvió falso con IA16: la marca «red gratis salteada» se dejaba sin preguntar si había red.** El doer la
+  ponía con sólo mirar el turno (`turnoParaLaRed`); con la red en `[]`, todo negocio sin su IA que preguntaba por sus
+  reuniones o sus leads leía «no los mando a la IA gratis de MaKo» (como si sin datos le hubiera contestado), el log decía
+  «red de plataforma salteada» y el vigía anotaba `sin_red_por_datos`; el mismo negocio, sin datos, recibía `sin_keys`. Ahora
+  el doer pide la red ANTES de decidir qué saltear y sin red no marca; el cartel lo elige `cartelDelFallo` (lib/fallo-ia-texto.ts).
+- **`sin_keys` seguía vendiendo «Las de Google y Groq son *gratis*»** con el link al modal de Claude. Ahora pide
+  `CONECTA_TU_IA`; el de una nota de voz, su Gemini o su GPT (su Claude no escucha), con el link a Gemini. ⚠️ Ese aviso
+  sale directo (`enviarAGrupoJid`), sin el `linksConWs` que le pone el `?ws=` a la respuesta de texto: salía sin su
+  negocio. Ahora `linkApp(rutaKeysIA('audio'), wsData)`.
+- **`clavesCargadas` devuelve `[]` para los de UNA clave (anthropic, openai), aunque se los pidan.** `contarKeysIA`
+  contaba sólo su Gemini: un negocio con sólo su Claude —lo que el cartel le pide— contaba cero, y si su Claude fallaba
+  leía «todavía no tienes tu IA». Hoy ningún negocio tiene sólo Claude o sólo GPT: estaba latente. Contar filas de IA va
+  por `contarClavesCargadas` / `cuantasClavesDeIA` (lib/ia-keys.ts, lib/ia-keys-ws.ts).
+- **El crédito de Claude no era la respuesta:** Florencia lo tuvo (su onboarding del 18/10: 16 turnos y 2 documentos, 19 filas con la marca); es sólo para
+  el onboarding en curso (`CREDITO_HABILITADO_PARA`) y el doer de WhatsApp no está.
+- **El texto de un cartel no queda en ningún lado** (`avisoDeSistema` va fuera del historial y la fila del vigía trae la
+  causa): para saber qué leyó hubo que reconstruirlo del código de main a esa hora.
+- Lo fija tests/doer-cartel-sin-ia.test.ts (doce roturas, las doce caen).
+
 **SIN hacer:**
+- **El onboarding no pide su IA.** El paso «Tu IA» (`gemini`) salió del arranque y ninguna capa lo pide
+  (lib/onboarding-hechos.ts → `SALIO_DEL_ARRANQUE`, lib/capas.ts); no hay aviso en la app antes del primer cartel. El ws21
+  y el ws22 terminaron sin ninguna, y desde IA16 MaKo no les contesta nada. Es del chat Onboarding: sumar «Tu IA» a la
+  capa, o un recordatorio en /general (lib/onboarding-pendientes.ts).
 - **Subir.** Apaga la IA de los negocios de la tabla hasta que conecten la suya. **Retenida** (el Cerebro, 22/10): no entra
   a main hasta que el ws1 conecte su IA o hasta el lunes 26/10, lo que llegue primero (el sábado 24 arranca la campaña de
   Mauricio y no puede quedarse sin el chat de MaKo). El paso de Mauricio (ws1): «conectá tu
-  Claude, tu GPT o tu Gemini»; con Gemini empieza gratis.
+  Claude, tu GPT o tu Gemini»; con Gemini empieza gratis. **Actualizado el 24/10:** entró a main el 24/10 00:29 ART
+  (2c456a7bf, «integra ia16-2210 en el tren»); desplegada, sin medir (el último deploy medido, 137b91f76, no la trae).
 - **Re-embeber el conocimiento** (`scripts/reembeber-conocimiento.mts --aplicar`): toca los negocios con su Gemini, el
   ws9 y el método de MaKo del ws1. Las filas de los demás se embeben solas cuando conecten el suyo.
 - **Automations:** `SU_IA` y `SU_CLAVE` (lib/flujo-ia.ts) los cambió IA16, de acuerdo con ese chat. Cuando IA16 esté en main,
@@ -6270,23 +6366,247 @@ Queda escrito para que el día que alguien lo setee sepa que pisa a los dos.
 
 **Por la computadora (ola 3), apagado y con un portón que no es de código.** `CHATGPT_EN_LA_PC`
 sigue en `false` (`lib/conectar-ia-reglas.ts`). El §9 de `docs/ia-del-cliente.md` pone la
-medición IA11 como portón —¿`codex exec` carga el MCP de MaKo?— y el 23/10 **Codex no está
-instalado en la PC de Martín ni hay `~/.codex`**. Lo que destraba, y en este orden:
-
-1. Instalar Codex y que **Martín** haga `codex login` con su cuenta de ChatGPT: es su sesión y no
-   la puede iniciar un chat. Después, `node scripts/ia-pc/medir-codex-mcp.mjs`.
-2. Con ✓, el corredor de Codex va en el programa de la PC, que **es del chat del Instalador
-   (cuenta 3)**: lo modificó cuatro veces el 23/10 (0.4.0 a 0.4.2 y la firma de Windows y Mac).
-   Meterle cambios en paralelo choca con su trabajo.
-3. Prender `CHATGPT_EN_LA_PC` toca `lib/conectar-ia-reglas.ts`, **que IA16 también modifica** y
-   está retenida hasta el 26/10: va después de que IA16 entre.
+medición IA11 como portón —¿`codex exec` carga el MCP de MaKo?—. Codex 0.164.0 quedó instalado
+en la PC de Martín el 23/10 a las 20:38 (por npm, con su OK en el chat del Cerebro); falta su
+`codex login`. El resto, en «La ola 3 por dentro», abajo.
 
 «Sign in with ChatGPT» para apps de terceros (SIWC) sigue en prueba limitada con socios, sólo
 Plus y Pro: el camino es el login del propio Codex CLI en la PC del cliente, no un botón de MaKo.
 
+### La ola 3 por dentro: lo que encontró la investigación (23/10/2026, noche)
+
+Martín, mirando «Tus cuentas de IA» → ChatGPT: *«Y el tema de GPT sigue diciendo "Pronto" en mi
+computadora...»*. Una investigación de cinco agentes (el programa de la PC, el servidor, Codex CLI, el
+diseño y un crítico) encontró que el diagnóstico obvio —«falta el corredor de Codex»— es un tercio:
+
+- **La medición IA11 iba a dar ✗ por la razón equivocada.** En `codex exec` la aprobación es «never» y,
+  con `--sandbox read-only`, una herramienta MCP sin `readOnlyHint` (las de MaKo no lo llevan) se
+  rechaza ANTES de llamarla: «MCP tool call requires approval, but approval policy is never». Se habría
+  concluido «GPT sólo por clave» con el MCP cargado perfecto. Arreglado en
+  scripts/ia-pc/medir-codex-mcp.mjs: `default_tools_approval_mode="approve"` para el servidor de MaKo
+  (sale del código de Codex, no de una corrida), el prompt por stdin, y dos preguntas nuevas.
+- **«Sin manos» no existe en Codex como en Claude** (`--tools ""`). Con `--sandbox read-only` Codex
+  puede LEER el disco, y el turno lleva mensajes de leads: una inyección podría hacerle leer archivos
+  del cliente. `codex features list` (0.164.0) da prendidas `shell_tool`, `unified_exec`,
+  `browser_use`, `computer_use`, `apps`, `plugins`, `view_image`: la receta candidata es apagarlas con
+  `--disable`, y la medición lo prueba (3a como viene, 3b sin manos).
+- **El login de Codex es más fácil que el de Claude**: `codex login` levanta su propio callback en
+  127.0.0.1:1455 (o 1457), abre el navegador y termina solo, sin código que pegar. No hace falta la
+  página local de Claude. Sin probar corrido sin consola.
+- **Codex no tiene `--system-prompt-file`**: `-c developer_instructions` deja el system de MaKo en la
+  línea de comandos (rompe «nada de la persona en la línea de comandos» y Windows corta en 32.767
+  caracteres). La medición prueba que lo respete; el camino real está por decidir.
+- **Lo legal es más duro que «OpenAI recomienda una API key»**: los Terms of Use de OpenAI (EE. UU.,
+  1/1/2026) prohíben «make your account available to anyone else» y la extracción programática del
+  Output; la doc de Codex acepta la sesión de ChatGPT en automatización sólo para runners privados de
+  confianza. No hay autorización escrita. Es decisión de Martín, como lo fue el «No por ahora» de
+  Anthropic para los leads.
+- **El programa y el servidor dan por hecho que la PC es Claude**: `paraElLatido` manda
+  `proveedor: 'claude'` fijo, `pcUsable`/`elegirPc` no miran el proveedor, los modelos son los de
+  Claude, `claude_falta` es sólo de Claude, y el consentimiento dice «Tu Claude…». Los DATOS ya admiten
+  ChatGPT (`CuentaPc.proveedor`, la tarjeta).
+- **Cómo le llega al programa la IA que eligió la persona**: no por `mako://iniciar-sesion?ia=…` (la
+  0.4.2 lee sólo el hostname y abriría el login de Claude, y en la Mac un `mako://` no llega): por el
+  código de emparejar (una columna en `ia_pc_codigos`).
+- **Nada actualiza el programa**: el servidor guarda la `version` del latido y no la compara. Una PC con
+  la 0.4.2 a la que se le ofrezca ChatGPT nunca recibe la 0.5.0: hace falta una versión mínima.
+- **El orden de subida importa**: la base del servidor por proveedor tiene que llegar a producción ANTES
+  que un programa que reporte cuentas `chatgpt`. Si no, una PC con sólo ChatGPT recibe turnos de Claude.
+- **`CHATGPT_EN_LA_PC` es global**: prenderla abre ChatGPT por la computadora a todos los negocios a la
+  vez. Hace falta una prueba acotada antes (el ws de prueba o sólo el super admin).
+- **IA16 casi no toca la puerta de la PC**: no toca lib/ia-pc*.ts, app/api/ia-pc/*, lib/chat-ia*.ts,
+  CuentasYDispositivos.tsx, scripts/ia-pc ni installer. Choca sólo en la línea de «Pronto» de
+  lib/conectar-ia-reglas.ts (la 48, entre las que cambia IA16) y en `AVISO_CONECTA_TU_PC`
+  (lib/mako-turno-app-reglas.ts:613). Lo que frena prender la opción no es IA16: es el corredor.
+- **La descarga para el Ops Center**: `GET /api/ia-pc/descargar?os=windows|mac` y el componente
+  `NuevoDispositivo` (CuentasYDispositivos.tsx). La detección del sistema es una regex sobre `navigator`
+  copiada en dos archivos, y da «windows» en Android y en iPhone.
+
+**SIN hacer**, con su dueño:
+
+1. Martín: `codex login` («Sign in with ChatGPT»). Después, `node scripts/ia-pc/medir-codex-mcp.mjs`
+   (tres turnos de su cuenta). Sin el ✓ de 1 y el ✓ de 3b no hay corredor.
+2. Decisión de Martín: lo legal de OpenAI (arriba).
+3. Este chat: lo que falta del servidor («falta Codex» por dispositivo, la versión mínima). Ya están la
+   elección de la PC por IA, el consentimiento de ChatGPT, y la IA elegida, que viaja en su versión sin
+   columna nueva (abajo).
+4. El chat del Instalador (cuenta 3): el programa 0.5.0 (instalar Codex sin terminal —el paquete de
+   OpenAI de ~159 MB o su install.ps1, nunca npm: el cliente no tiene Node—, `codex login` oculto, el
+   turno con `codex exec --json`, el latido con `proveedor: 'chatgpt'`, el % usado por
+   `codex app-server` por stdio), y el Inno y MaKo.app sin instalar Claude Code a quien eligió ChatGPT.
+5. Sin medir: el sandbox de Codex en un Windows sin administrador (¿pide UAC?), el login corrido sin
+   consola, la firma de codex.exe, y cuánto rinde cada plan de ChatGPT en turnos.
+
+**Vive en:** scripts/ia-pc/medir-codex-mcp.mjs · scripts/ia-pc/mako-pc.mjs · lib/ia-pc-reglas.ts ·
+lib/ia-pc.ts · app/api/ia-pc/* · lib/conectar-ia-reglas.ts · app/integraciones/TusCuentasIA.tsx ·
+installer/windows/mako.iss · *2026-10-23, chat «IA del cliente»*
+
+### La PC se elige POR IA (la ola 3, parte a: el servidor, 23/10/2026)
+
+Lo que hace seguro subir el servidor antes que el programa: un turno de ChatGPT sólo va a una PC que
+REPORTA una cuenta `chatgpt` (`pcUsable(pc, 'chatgpt')`), y ningún programa hasta la 0.4.2 la reporta.
+Con eso, una 0.4.2 nunca recibe un turno de ChatGPT, que correría con Claude. Y a un turno de Claude
+la ruta lo manda sin el campo `proveedor`: la 0.4.2 lo recibe idéntico.
+
+- **`pcDe` devuelve una PC aunque no sirva**, la última que latió, para que el aviso diga qué le pasa.
+  Con sólo su ChatGPT conectado, Automático buscaba la de Claude, encontraba ésa y avisaba «Tu Claude
+  no tiene la sesión iniciada». Ahora, en Automático, la PC que no puede con su Claude y sí con su
+  ChatGPT contesta con su ChatGPT. Un negocio sin ninguna PC no hace esa segunda lectura.
+- **`pcUsable` tiene un segundo parámetro**: `.filter(pcUsable)` le pasa el ÍNDICE como proveedor, y
+  ninguna PC sirve. Siempre `(p) => pcUsable(p, proveedor)`.
+- **«Agotada» es por IA**: una PC con su Claude al 100% y su ChatGPT con lugar no es «sana» para un turno
+  de Claude, y al revés (`cuentasAgotadas(cuentasDeLaIA(…))`).
+- **`sanearCuentas` tira las cuentas sin `proveedor`**: lo guardado siempre lo trae. Que `cuentasDeLaIA`
+  tome una cuenta sin proveedor como de Claude es sólo por si acaso.
+- **Los avisos de ChatGPT** son los de Claude con «Tu ChatGPT» y «Codex» (`avisoDeLaPc(…, { ia })`).
+  Probados todos los fallos: ninguno dice «Claude».
+
+Probado rompiéndolo: tests/ia-pc-proveedor.test.ts, tests/ia-pc-varias.test.ts (`porIA`) y
+tests/chat-ia.test.ts (2b).
+
+**Vive en:** lib/ia-pc-reglas.ts (`pcUsable`, `elegirPc`, `cuentasDeLaIA`, `modeloDelTurno`,
+`avisoDeLaPc`) · lib/ia-pc.ts (`pcDe`) · app/api/ia-pc/turno/route.ts · lib/chat-ia.ts («Tu computadora ·
+ChatGPT») · lib/mako-turno-app.ts (`iaDeLaPc`) · *2026-10-23, chat «IA del cliente»*
+
+### Qué IA eligió la persona viaja en la VERSIÓN del consentimiento, sin columna nueva (la ola 3, parte c)
+
+El plan decía «una columna en `ia_pc_codigos`» para que el servidor y el programa sepan si la PC se
+conectó para Claude o para ChatGPT. No hace falta: el texto que se acepta ya es distinto por IA, así que
+su versión también (`CONSENTIMIENTO_DE`). Esa versión ya queda en el código y pasa a la PC al emparejar
+(mig 0321, columna `consentimiento`, ≤ 40 caracteres). `iaDelConsentimiento(v)` la lee. Ojo: si cambia el
+texto, cambia la versión, y la vieja deja de sacar códigos (como siempre).
+
+- POST /api/ia-pc/codigo frena la versión de ChatGPT mientras `CHATGPT_EN_LA_PC` esté apagada. Sin eso,
+  la pantalla podía sacar un código para un programa que no corre Codex.
+- El tutorial (`Tutorial`, TusCuentasIA.tsx) va por IA: el nombre, el programa (Claude Code o Codex), lo
+  que se acepta, y «¡Listo!» sólo con una cuenta de ESA IA. Los respaldos con la terminal son sólo de
+  Claude: el cliente no tiene Node para instalar Codex a mano. «Iniciar sesión» de ChatGPT abre
+  `mako://iniciar-sesion?ia=chatgpt`. La 0.4.2 lee sólo el host y abriría el login de Claude: la 0.5.0
+  tiene que leer `ia`, y hace falta la versión mínima antes de prender la opción.
+
+**SIN hacer:**
+
+- Que cada PC diga su IA (`iaDelConsentimiento(d.consentimiento)` en /api/ia-pc/estado). Con eso,
+  `estadoDeLaPc` («Sin sesión de Claude», «Falta instalar Claude») y la nota de las PC sin cuenta
+  (CuentasYDispositivos.tsx:119) dirían «ChatGPT»/«Codex». Va con la parte b, cuando haya PC de ChatGPT.
+- «Nuevo dispositivo» dice «esta misma cuenta de Claude» también dentro de una cuenta de ChatGPT. Lo
+  arregla la prop `nota` que trae el Ops Center (c23140ed3, rama ops-app-primero-2310, todavía no en
+  main). Con eso en main: pasarle la nota por IA desde TusCuentasIA.tsx.
+- Volver del instalador (`?computadora=1`) abre el tutorial de Claude: el instalador de la 0.5.0 tiene
+  que volver con la IA.
+
+**Vive en:** lib/ia-pc-reglas.ts (`CONSENTIMIENTO_DE`, `iaDelConsentimiento`) · lib/ia-pc.ts
+(`crearCodigo`) · app/api/ia-pc/codigo/route.ts · app/integraciones/TusCuentasIA.tsx (`Tutorial`) ·
+*2026-10-23, chat «IA del cliente»*
+
 **Vive en:** lib/chat-ia.ts (`cuentasDeIA`) · lib/mako-turno-app.ts (`soloSuOpenAI`) ·
 lib/ai-cheap.ts (`cfgDe`, `CHEAP_MODEL`) · lib/conectar-ia-reglas.ts (`CHATGPT_EN_LA_PC`) ·
 scripts/ia-pc/medir-codex-mcp.mjs · *2026-10-23, chat «IA del cliente»*
+
+### ChatGPT en la PC: la misma regla que D6a, y la guarda ya no es sólo un test de nombres (23/10/2026, noche)
+
+**La decisión de Martín**, por el Cerebro, el 23/10/2026: *«Sí: ChatGPT en la computadora del cliente igual que Claude,
+sólo para que el dueño use su propio ChatGPT en su PC, nunca para atender leads solo.»* Es la regla D6a de Claude
+(docs/ia-del-cliente.md §10; AGENTS.md, «la computadora del cliente NUNCA atiende leads sola»), ahora para las dos IA.
+
+**Por qué así, con lo que dice OpenAI** (leído el 23/10/2026; openai.com da 403 a un fetch, así que los Terms salen del
+snapshot de Wayback de ese día, «Effective: January 1, 2026»):
+- La cuenta es de una persona. Los Terms of Use (openai.com/policies/terms-of-use, «Registration and access») prohíben
+  «make your account available to anyone else». Por eso sólo los turnos de quien conectó la PC van a su ChatGPT.
+- Lo automático va por API key. Los mismos Terms («What you cannot do») prohíben sacar datos u Output de forma
+  automática o programática. Y la doc de Codex manda a usar API key en los flujos programáticos
+  (learn.chatgpt.com/docs/auth). La sesión de ChatGPT en automatización la acepta sólo como camino avanzado, para
+  automatización privada y de confianza (learn.chatgpt.com/docs/non-interactive-mode y docs/auth/ci-cd-auth).
+- El uso del dueño en el momento entra. `codex exec` usa la sesión guardada por `codex login`, y el Output es del
+  usuario («Ownership of content»). No hay una línea de OpenAI a favor o en contra de usar Plus o Pro en el trabajo del
+  propio negocio. Para compartir en un equipo, OpenAI ofrece el plan Business.
+- La vía oficial para que un tercero use el plan de ChatGPT de un usuario («Sign in with ChatGPT») sigue en prueba
+  limitada con socios (developers.openai.com/siwc/quickstart). MaKo no la usa: corre el binario oficial en la PC del
+  dueño, como con Claude.
+- **Sigue siendo zona gris**, igual que D6a: no hay una autorización escrita de OpenAI. Martín decidió sabiéndolo.
+
+**El diagnóstico obvio era el equivocado.** tests/ia-pc-nunca-a-leads.test.ts decía «a la PC llega sólo `turnoApp`, y lo
+llaman sólo entradas con sesión», y parecía completo. Un mapa de cinco agentes (un barrido por entradas, otro por lo
+automático, otro por el programa de la PC, otro legal, y un crítico) encontró que era un test de NOMBRES:
+- `turnoApp` le creía a la persona que le pasaban. Un cron que armara la persona del dueño llegaba a SU PC, con Claude
+  o, en Automático, con su ChatGPT. El script del ws3 ya lo hacía sin cookie.
+- No veía alias (`{ turnoApp: t }`), ni `turnoDelLead`/`turnoDelCrm` (que lo envuelven con una persona armada), ni una
+  segunda llamada a `encolarTurno` en el mismo archivo, ni updates, ni triggers.
+- La versión del texto aceptado se guardaba en la PC y **nunca se leía**. Una PC conectada con el texto de Claude, con un
+  programa que reportara ChatGPT, recibía turnos de ChatGPT, y se activaba para D6b con esa cuenta.
+- Un turno huérfano, de una ruta que murió antes de vencerlo, quedaba tomable 5 minutos. La PC lo pensaba sin que nadie
+  lo leyera. Las herramientas no corrían.
+
+**Cómo quedó** (la guarda en código, con su test):
+1. **La sesión se mira EN LA PUERTA** (`encolarTurno`, lib/ia-pc.ts, con `laPersonaEstaAdentro` de lib/ia-pc-reglas.ts).
+   Antes de tocar la base, lee la cookie de ESTE pedido, y tiene que ser la de quien conectó esa PC (`d.persona`). Si no,
+   tira `SinLaPersona`. `turnoApp` la mira antes, para ni leer la PC. La única excepción es la prueba a mano del ws3
+   (`pruebaSinSesion`), y sólo con la persona de prueba.
+   - **La primera versión la miraba sólo en `turnoApp`, y no alcanzaba.** Una refutación de tres lentes mostró que
+     varios saltos pasaban todos los tests: un `?? pcDe(...)`, un alias de `encolarTurno`, un envoltorio dentro de
+     lib/ia-pc.ts, un insert con comillas invertidas, un `/*` dentro de un texto (el quitacomentarios del test se comía el
+     código que venía después) y una migración larga. Con la sesión en la puerta, cualquier llamador queda frenado al
+     correr, no por una regex.
+   - **Un `after()` SÍ tiene la sesión.** En Next 16, las cookies se leen dentro de un `after()` de una ruta (la doc de
+     `after` lo dice). Es la continuación de lo que pidió la persona. Por eso el test prohíbe `after(` en las entradas
+     del turno: nada que corra solo hacia un lead se cuelga de ahí.
+   - **Trampa del arnés:** un `import()` diferido en lib/ia-pc.ts NO pasa por el `Module._load` con el que el arnés
+     reemplaza lib/auth. Va por el cargador de ESM, carga el lib/auth real y la sesión de mentira no llega. Por eso el
+     import es normal.
+2. **Una PC contesta sólo con la IA que aceptó quien la conectó** (`iaDeLaPcConectada`). Al guardar el latido (lo que la
+   activa para D6b) y al leerla, sólo cuentan las cuentas de esa IA. Como la opción apagada no da el código con el texto
+   de ChatGPT, ninguna PC puede ser de ChatGPT hasta que se prenda.
+3. **El turno vence cuando el chat deja de esperarlo**, nunca más tarde que TURNO_MS.
+4. tests/ia-pc-nunca-a-leads.test.ts reescrito:
+   - toda mención de `turnoApp`, de sus envoltorios, de `encolarTurno` y `pcDe`, con alias incluidos;
+   - la tabla de turnos por su NOMBRE, con cualquier comilla, con una lista blanca de los que sólo leen;
+   - ninguna migración nueva la nombra;
+   - todas las carpetas y extensiones de código (.cjs, .cts, .jsx, supabase/);
+   - comentarios quitados sólo al principio de línea;
+   - sin `after(` en las entradas;
+   - `const pc = leidaPc.d;`;
+   - la puerta antes de la base;
+   - el texto aceptado;
+   - el vencimiento.
+
+   El arnés de varias PC lo prueba con lib/ia-pc.ts real:
+   - Leo, conectada con el texto de Claude, reporta ChatGPT y no queda activa; Lía, conectada con el de ChatGPT, sí.
+   - Un turno vencido no se toma.
+   - La puerta frena sin sesión, con otra persona y con la prueba fuera del ws3, y encola con la sesión de la dueña.
+
+   Probado rompiéndolo: 13 roturas de la primera ronda y 10 saltos de la refutación (el pie del test).
+
+**SIN hacer**, con su archivo (lo encontró el mapa; nada de esto manda lo automático a la PC):
+- **Codex en la 0.5.0 (bloqueante antes de prenderla).** Una carpeta propia por cuenta (`CODEX_HOME`, como
+  `CLAUDE_CONFIG_DIR` en scripts/ia-pc/mako-pc.mjs) más `--ignore-user-config`. Sin eso, los MCP, hooks y conectores del
+  dueño entran en cada turno de MaKo, al alcance de un mensaje de un lead.
+  Además:
+  - apagar `hooks`, `remote_plugin`, `multi_agent`, `goals`, `memories` y la búsqueda web;
+  - un `ARGS_CODEX` fijo con su test, que prohíba `--dangerously-bypass-approvals-and-sandbox`, `--yolo`,
+    `codex features enable|disable` y `codex mcp add` (escriben en el config.toml del dueño);
+  - la medición (scripts/ia-pc/medir-codex-mcp.mjs) ya usa la receta de un cliente: `--ignore-user-config` (no carga
+    `$CODEX_HOME/config.toml`, el login sí) e `--ignore-rules`, más el «sin manos» completo validado contra la 0.164.0
+    (un nombre que no existe hace fallar a Codex, y `-c web_search="disabled"` pasa; un valor inventado, no).
+  - **Trampa medida (23/10, Windows, 0.164.0): `--disable unified_exec` NO apaga `unified_exec`**, ni
+    `-c features.unified_exec=false`; `codex features list` lo sigue dando `true`. `shell_tool` sí se apaga. Por eso la
+    medición tiene un paso 0 que lista, sin llamar al modelo, lo que sigue prendido. El 3b dice si igual lee archivos: si
+    lee, no hay corredor de ChatGPT.
+- **La primera cuenta de Claude de una PC usa ~/.claude** (mako-pc.mjs:202 y :249). Los hooks y el CLAUDE.md del dueño
+  corren en cada turno. Falta medir `--setting-sources` sin «user» con la suscripción.
+- **El RAG embebe el texto del negocio con el OpenAI de la PLATAFORMA**, aunque esté en «sólo su IA» (lib/embeddings.ts:24,
+  lib/mako-knowledge.ts:253). Es de D6b, no de la PC.
+- **La lista blanca del Closing no mira «sólo su IA»** (lib/anthropic.ts:493, lib/closing.ts:316). Los avisos y la
+  post-llamada dejan una fila `vetado:` por intento (lib/plantillas.ts:755, lib/post-llamada.ts:199).
+- **Con una PC (de cualquier IA), las automatizaciones del negocio se frenan en silencio.** D6b falla cerrado, y es lo
+  correcto, pero nadie lo dice. «Tus cuentas de IA» y Automations tendrían que avisar que con una PC los leads necesitan
+  una clave. Es decisión de producto.
+- **El token «ejecutar» de la API de MaKo.** Si el dueño programa su propio Codex o Claude Code con ese token, puede
+  mover leads fuera de MaKo. No es MaKo usando la PC, pero lo decide Martín.
+- Los comentarios de supabase/migrations/0322 dicen «Claude». No se tocan: la migración ya corrió.
+
+**Vive en:** lib/ia-pc-reglas.ts (`laPersonaEstaAdentro`, `iaDeLaPcConectada`) · lib/mako-turno-app.ts (`adentro`) ·
+lib/ia-pc.ts (`aDispositivo`, `latir`, `encolarTurno`) · tests/ia-pc-nunca-a-leads.test.ts · AGENTS.md («la
+computadora del cliente NUNCA atiende leads sola») · *2026-10-23, chat «IA del cliente»*
 
 ### Darle un modelo capaz NO era cambiar el nombre: la capa barata le mandaba campos que rechaza (23/10/2026, tarde)
 
@@ -6354,3 +6674,80 @@ ejercitado. Arreglado en el mismo cambio:
 lib/chat-ia-reglas.ts (`MODELOS_SU_OPENAI`, `MODELO_SU_OPENAI_DEFAULT`) · lib/chat-ia.ts · lib/anthropic.ts
 (`modeloSuOpenAI`) · lib/mako-turno-app.ts + lib/mako-turno-app-reglas.ts (`falloDeSuOpenAI`) · lib/anthropic-usage.ts ·
 lib/ia-labels.ts · scripts/medir-openai-herramientas.mts · *2026-10-23, chat «IA del cliente»*
+
+## Gemini en la PC: no, y la PC que no contesta ahora deja tiempo para su clave (24/10/2026)
+
+**El pedido** (Martín, por el Cerebro): *«qué pasó con habilitar la opción de GPT en la PC? Y veo que agregaste Gemini,
+podríamos hacer eso también en PC...»*.
+
+**ChatGPT en la PC: la traba NO es «OpenAI sin crédito».** Esa es la cuenta de OpenAI de MaKo, y en la PC corre la suscripción
+del dueño. Medido el 24/10: Codex 0.164.0 está instalado en la PC de Martín, pero `~/.codex` sólo tiene `tmp` (no hay
+`auth.json`): **falta su `codex login` con «Sign in with ChatGPT»**, que es su sesión y no la inicia un chat. Después, en este
+orden: `node scripts/ia-pc/medir-codex-mcp.mjs` (tres turnos de su cuenta), el corredor de Codex en el programa 0.5.0 con su
+carpeta propia (`CODEX_HOME` + `--ignore-user-config`, bloqueante: ver «ChatGPT en la PC: la misma regla que D6a») y recién ahí
+`CHATGPT_EN_LA_PC = true`. El servidor ya está (partes a, c y d de la ola 3, invisibles con la opción apagada).
+
+**Gemini en la PC: no se puede con la suscripción del dueño, y no es un problema de código.**
+- Desde el **18/06/2026** Gemini CLI no atiende el «Login with Google» de cuentas personales (Code Assist for individuals,
+  Google AI Pro y Ultra). Fuente: developers.google.com/gemini-code-assist/docs/deprecations/code-assist-individuals,
+  «Last updated 2026-10-09», leída el 24/10. Lo que sigue andando es la clave de API paga, Vertex o una licencia Standard o
+  Enterprise (con su propio cronograma de baja). Con una clave, su Gemini ya trabaja en la nube y las 24 horas (IA16): en la
+  PC no agrega nada.
+- Su reemplazo, Antigravity CLI, sí acepta cuentas personales, pero su cláusula 6 prohíbe usarlo «in connection with products
+  not provided by us», y hay suspensiones reportadas (antigravity.google/terms, sin fecha, leída el 24/10). Sería exponer la
+  cuenta de Google del cliente.
+- La clave GRATIS de Gemini entrena con lo que se le manda y tiene revisión humana (ai.google.dev/gemini-api/terms): un chat
+  del dueño con datos de sus leads no va ahí. Es el aviso que ya muestra «Conectar tu IA» (`AVISO_GEMINI_GRATIS`).
+- **El diagnóstico obvio era el equivocado:** «agregaste Gemini» se leía como «ya hay una pieza que poner en la PC». La pieza
+  de IA16 es la clave; la PC necesita una suscripción que se pueda correr, y Google la cerró.
+
+**Lo técnico, por si algún día vuelve** (Gemini CLI v0.65.0, docs de main al 24/10; investigado, no probado):
+- Sin `--input-format`: un proceso por turno (`-p` + `--output-format stream-json`), como `codex exec`; `--resume` sí anda
+  en headless.
+- El MCP sale SÓLO de settings: `GEMINI_CLI_HOME` (mueve también `oauth_creds.json`) o `GEMINI_CLI_SYSTEM_SETTINGS_PATH`, más
+  `--allowed-mcp-server-names`.
+- **Trampa:** `tools.core: []` apaga también el MCP de MaKo (genera un DENY `*` que le gana a `trust`). Lo que sirve es una
+  policy con `--policy`: deny `*` y allow `mcpName="mako"`.
+- En headless toda aprobación es DENY: el MCP necesita un allow explícito, nunca `--approval-mode=yolo` (aprueba también las
+  propias, y los términos piden no saltear confirmaciones humanas).
+- `privacy.usageStatisticsEnabled` viene en true. No hay binario de Windows (npm, Node ≥ 20).
+
+**El choque de TIPOS que el merge no marcó.** Con IA16 en main, `IaDelCliente` trae `gemini`, y el tutorial de la computadora
+(`TusCuentasIA.tsx`) indexaba `PROGRAMA_IA_PC` y `CONSENTIMIENTO_DE` (que son de Claude y ChatGPT) con esa IA. El merge salió
+limpio en texto y roto en tipos. Ahora el tutorial abre sólo con una IA de la PC (`iaDeLaPcPara`, lib/conectar-ia-reglas.ts):
+Gemini ni se ofrece. La regla: **cuando una unión crece en main, se buscan los `Record` de la rama indexados con ella.**
+
+**El respaldo de una PC que no contesta (el caso de Brigitte, del lado de la PC).** El vigía levantó el 23/10 que a Brigitte
+Eberlin su Gemini le dio timeout y no había nada detrás; eso es la nube, y lo arregla Automations. En la PC pasaba lo mismo de
+otra forma: la espera se comía todo el plazo de la ruta (240 s de 300) y, si la PC no contestaba, `'tarde'` cortaba sin
+probar su clave porque ya no quedaba tiempo. Ahora, en Automático y con una clave propia (`claveDeIAPropia`), la PC deja
+`RESERVA_RESPALDO_MS` (90 s) libres y `probarSuClaveTrasLaPc` decide. El respaldo es siempre su IA: `chatClaudeTools` con
+«sólo su IA» y sin el Claude de MaKo. Elegida la computadora, no hay respaldo (eligió ésa).
+
+**SIN hacer:**
+- El `codex login` de Martín y la medición (arriba). El corredor de Codex en el programa 0.5.0.
+- Si un negocio sin clave propia y sólo con su PC se queda sin respuesta porque la PC tardó, no hay respaldo posible: no tiene
+  otra IA. Se le dice («tu computadora no contestó a tiempo»); no se le presta la de MaKo.
+- El selector «+» sigue sin ofrecer «Tu Gemini» por clave (lo de IA16: lib/chat-ia.ts, el Cerebro lo repartió).
+
+**Vive en:** lib/ia-pc-reglas.ts (`PROVEEDORES_PC`, `esProveedorPc`, `esperaDelTurno`, `RESERVA_RESPALDO_MS`, `probarSuClaveTrasLaPc`) ·
+lib/conectar-ia-reglas.ts (`iaDeLaPcPara`, `pcListaPara`) · lib/mako-turno-app.ts (`reservado`) · lib/ia-del-negocio.ts
+(`claveDeIAPropia`) · app/integraciones/TusCuentasIA.tsx (`abrirTutorialEn`) · tests/ia-pc-respaldo.test.ts ·
+*2026-10-24, chat «IA del cliente» (claude1)*
+
+## Tests que mienten con la máquina cargada: los dos del instalador de la PC (24/10/2026)
+
+**Síntoma.** Con 28 archivos de test a la vez y ~4 GB libres, dos tests de «MaKo en tu computadora» dieron rojo:
+- tests/ia-pc-binarios.test.ts, «el instalador: sin el ejecutable…»: `spawnSync … ETIMEDOUT` (el hijo pasa los 90 s);
+- tests/ia-pc-segunda-revision.test.ts, «el programa: "confirmar"…»: la salida del programa llega `null` (no terminó en los
+  8 s) y el assert dice «sale con 1: el instalador deja corriendo lo de antes», que se lee como un bug del instalador.
+
+**Causa.** Ninguna del código: los dos levantan un proceso hijo con un plazo fijo, y con la máquina cargada el hijo no llega.
+Corridos solos, 21/21. La misma noche la app se colgó con 1,9 GB libres.
+
+**La regla.** Un rojo de un test que lanza un proceso con plazo (`execFileSync … timeout`, un `correr(…, ms)`) se corre SOLO
+antes de buscar el bug; si solo pasa, es la máquina. El aviso quedó escrito arriba de cada test, que es donde lo ve quien lo
+corre. Lo que queda sin hacer: que la etapa de tests de `antes-de-subir` reintente sola, una vez y de a uno, los que fallan
+por plazo (scripts/antes-de-subir.mjs).
+
+**Vive en:** tests/ia-pc-binarios.test.ts · tests/ia-pc-segunda-revision.test.ts · *2026-10-24, chat «IA del cliente» (claude1)*

@@ -22,6 +22,22 @@ export type FilaConv = { id: number; workspace_id: number; grupo_jid: string; ro
 export type FilaUso = { id: number; workspace_id: number; created_at: string; feature: string; model: string | null; provider: string | null; motivo: string | null };
 
 export type TipoIncidente = 'no-puede' | 'promesa' | 'queja' | 'voz' | 'sin-respuesta' | 'cartel' | 'saneo' | 'error-app';
+/**
+ * Cómo se llama cada tipo cuando lo lee una PERSONA. Vive pegado a `TipoIncidente` y no en quien lo
+ * dibuja: un rótulo copiado en la ruta y otro en la pantalla se desincronizan (una cosa, un lugar), y
+ * un ticket que dijera «no-puede + queja» pondría el slug interno delante de quien lo tiene que leer.
+ */
+export const ROTULO_INCIDENTE: Record<TipoIncidente, string> = {
+  'no-puede': 'MaKo dijo que no puede',
+  promesa: 'prometió algo y no lo hizo',
+  queja: 'el cliente se queja',
+  voz: 'falló un audio',
+  'sin-respuesta': 'MaKo no contestó',
+  cartel: 'salió el cartel de «no pude»',
+  saneo: 'se atajó lo que iba a mandar',
+  'error-app': 'error de la app',
+};
+
 export type Incidente = {
   /** Estable entre vueltas: el vigía no repite lo que ya contó. */
   clave: string;

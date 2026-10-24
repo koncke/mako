@@ -18,8 +18,8 @@ import { Modal } from '@/app/_ui/Modal';
 import { Skeleton } from '@/app/_ui/Feedback';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
-import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, TEXTO_CONSENTIMIENTO, VERSION_CONSENTIMIENTO, lineaDeInstalacion, resumenDeCuentas, type CuentaPc, type CuentasIA, type SistemaPc } from '@/lib/ia-pc-reglas';
-import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, dondeSacarLaClave, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
+import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, CONSENTIMIENTO_DE, PROGRAMA_IA_PC, cuentasDeLaIA, lineaDeInstalacion, resumenDeCuentas, type CuentaPc, type CuentasIA, type SistemaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
+import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, dondeSacarLaClave, iaDeLaPcPara, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
 import { CuentasYDispositivos, NuevoDispositivo } from './CuentasYDispositivos';
 import './tus-cuentas-ia.css';
 
@@ -60,8 +60,15 @@ function Copiar({ texto }: { texto: string }) {
   );
 }
 
-/** El tutorial: un paso por pantalla. El último pide el código y espera a que la computadora aparezca. */
-function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar: () => void; pcsAntes: number[]; recargar: () => Promise<Estado | null>; pasoInicial?: number }) {
+/**
+ * El tutorial: un paso por pantalla. El último pide el código y espera a que la computadora aparezca. `ia` (la ola 3): con
+ * qué IA va a contestar esa computadora; cambia el nombre, el programa (Claude Code o Codex) y el texto que se acepta. Los
+ * respaldos con la terminal son sólo de Claude: el cliente no tiene Node para instalar Codex a mano.
+ */
+function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1, ia = 'claude' }: { onCerrar: () => void; pcsAntes: number[]; recargar: () => Promise<Estado | null>; pasoInicial?: number; ia?: ProveedorPc }) {
+  const nombre = NOMBRE_IA[ia];
+  const programa = PROGRAMA_IA_PC[ia];
+  const conClaude = ia === 'claude';
   const detectado: SistemaPc = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent) ? 'mac' : 'windows';
   const [sistema, setSistema] = useState<SistemaPc>(detectado);
   const [paso, setPaso] = useState(pasoInicial);
@@ -85,12 +92,12 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
   const pedirCodigo = useCallback(async () => {
     setError(null);
     const r = await fetch('/api/ia-pc/codigo', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ acepto: VERSION_CONSENTIMIENTO }),
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ acepto: CONSENTIMIENTO_DE[ia].version }),
     }).then((x) => x.json()).catch(() => null);
     // Con SU reloj: la hora del servidor contra una PC adelantada hacía nacer «vencido» cada código (segunda revisión).
     if (r?.ok && r.codigo) { setCodigo(r.codigo); setDelCodigo(null); setVenceAt(Date.now() + (Number(r.duraMs) || 10 * 60_000)); setAhora(Date.now()); }
     else setError(r?.error ?? 'No pude crear el código. Intenta de nuevo.');
-  }, []);
+  }, [ia]);
   useEffect(() => { if (paso === 4 && acepto && !codigo) void pedirCodigo(); }, [paso, acepto, codigo, pedirCodigo]);
   // Con el código ya usado (esperando su «sí» en la ventana), la cuenta de 10 minutos no corre: el código no vence ahí.
   const vencido = !!codigo && venceAt != null && ahora >= venceAt && delCodigo !== 'eligiendo';
@@ -102,13 +109,13 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
       setAhora(Date.now());
       const e = await recargar();
       const nueva = e?.pcs.find((p) => p.enLinea && p.esMia && !pcsAntes.includes(p.id));
-      if (nueva && nueva.cuentas.length) { setLista(true); setSinSesion(null); setPaso(5); return; }
-      if (nueva) { setSinSesion(nueva.sinClaude ? 'claude' : 'sesion'); return; }
+      if (nueva && cuentasDeLaIA(nueva.cuentas, ia).length) { setLista(true); setSinSesion(null); setPaso(5); return; }
+      if (nueva) { setSinSesion(conClaude && nueva.sinClaude ? 'claude' : 'sesion'); return; }
       const c = await fetch(`/api/ia-pc/codigo?codigo=${encodeURIComponent(codigo)}`, { cache: 'no-store' }).then((x) => x.json()).catch(() => null);
       if (c?.ok) setDelCodigo(c.estado === 'cancelado' ? 'gastado' : c.estado === 'eligiendo' ? 'eligiendo' : null);
     }, 3000);
     return () => clearInterval(t);
-  }, [paso, codigo, lista, pcsAntes, recargar]);
+  }, [paso, codigo, lista, pcsAntes, recargar, ia, conClaude]);
   // Otro código sin volver a aceptar: la persona ya aceptó en esta misma pantalla.
   // Con un código en pantalla, alcanza con soltarlo: el efecto de arriba pide el nuevo. Pedirlo acá TAMBIÉN creaba dos, y
   // el segundo anula al primero (lib/ia-pc.ts → crearCodigo), que podía quedar en pantalla.
@@ -123,7 +130,7 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
       {paso === 1 && (
         <>
           <h3>¿Qué computadora usas?</h3>
-          <p>Tu Ops Center va a contestar con tu Claude, en esa computadora. Tiene que quedar prendida.</p>
+          <p>{`Tu Ops Center va a contestar con tu ${nombre}, en esa computadora. Tiene que quedar prendida.`}</p>
           <div className="tci-opciones">
             {(['windows', 'mac'] as const).map((s) => (
               <button key={s} type="button" className={`tci-opcion${sistema === s ? ' is-on' : ''}`} onClick={() => setSistema(s)}>{s === 'windows' ? 'Windows' : 'Mac'}</button>
@@ -134,7 +141,7 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
       {paso === 2 && sistema === 'windows' && (
         <>
           <h3>Descarga MaKo</h3>
-          <p>Ábrelo y sigue el asistente: Siguiente › Instalar › Finalizar. Instala MaKo y, si no lo tienes, Claude Code.</p>
+          <p>{`Ábrelo y sigue el asistente: Siguiente › Instalar › Finalizar. Instala MaKo y, si no lo tienes, ${programa}.`}</p>
           <a className="tci-boton" href="/api/ia-pc/descargar?os=windows">Descargar MaKo para Windows</a>
           <p className="tci-nota">{AVISO_SMARTSCREEN}</p>
           <p className="tci-nota">Si ya lo instalaste, sigue al próximo paso.</p>
@@ -143,16 +150,18 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
       {paso === 2 && sistema === 'mac' && (
         <>
           <h3>Descarga MaKo</h3>
-          <p>Abre el archivo y después MaKo: instala Claude Code si no lo tienes, sin Terminal.</p>
+          <p>{`Abre el archivo y después MaKo: instala ${programa} si no lo tienes, sin Terminal.`}</p>
           <a className="tci-boton" href="/api/ia-pc/descargar?os=mac">Descargar MaKo para Mac</a>
           <p className="tci-nota">{AVISO_GATEKEEPER}</p>
           <p className="tci-nota">Si ya la abriste, sigue al próximo paso.</p>
-          <details className="tci-respaldo">
-            <summary>¿No funciona? Con la Terminal</summary>
-            <p>{DONDE_PEGAR.mac} Es Claude Code, no la app de escritorio de Claude.</p>
-            <Copiar texto={COMANDO_CLAUDE.mac} />
-            <Copiar texto={LOGIN_CLAUDE.mac} />
-          </details>
+          {conClaude && (
+            <details className="tci-respaldo">
+              <summary>¿No funciona? Con la Terminal</summary>
+              <p>{DONDE_PEGAR.mac} Es Claude Code, no la app de escritorio de Claude.</p>
+              <Copiar texto={COMANDO_CLAUDE.mac} />
+              <Copiar texto={LOGIN_CLAUDE.mac} />
+            </details>
+          )}
         </>
       )}
       {paso === 4 && (
@@ -160,7 +169,7 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
           <h3>Conecta MaKo</h3>
           {!acepto ? (
             <>
-              <p className="tci-acepto">{TEXTO_CONSENTIMIENTO}</p>
+              <p className="tci-acepto">{CONSENTIMIENTO_DE[ia].texto}</p>
               <button type="button" className="tci-boton" onClick={() => setAcepto(true)}>Acepto, conectar</button>
             </>
           ) : (
@@ -216,32 +225,37 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
           )}
           {sinSesion === 'claude' && (
             <>
-              <p className="tci-nota">{sistema === 'windows' ? 'Tu computadora se conectó, pero no tiene Claude Code: vuelve a abrir el instalador de MaKo, que lo instala.' : 'Tu Mac se conectó, pero no tiene Claude Code: vuelve a abrir MaKo, que lo instala.'}</p>
+              <p className="tci-nota">{sistema === 'windows' ? `Tu computadora se conectó, pero no tiene ${programa}: vuelve a abrir el instalador de MaKo, que lo instala.` : `Tu Mac se conectó, pero no tiene ${programa}: vuelve a abrir MaKo, que lo instala.`}</p>
               <button type="button" className="tci-boton tci-boton--suave" onClick={() => setPaso(2)}>{sistema === 'windows' ? 'Volver a instalar (paso 2)' : 'Volver al paso 2'}</button>
             </>
           )}
           {sinSesion === 'sesion' && (
             <>
-              <p className="tci-nota">Tu computadora se conectó, pero tu Claude no tiene la sesión iniciada.</p>
+              <p className="tci-nota">{`Tu computadora se conectó, pero tu ${nombre} no tiene la sesión iniciada.`}</p>
               {sistema === 'windows' ? (
                 <>
-                  <a className="tci-boton" href="mako://iniciar-sesion">Iniciar sesión en Claude</a>
-                  <p className="tci-nota">Se abre el navegador: entra con tu cuenta de Claude y pega el código que te muestra.</p>
+                  <a className="tci-boton" href={conClaude ? 'mako://iniciar-sesion' : 'mako://iniciar-sesion?ia=chatgpt'}>{`Iniciar sesión en ${nombre}`}</a>
+                  {/* El login de Codex termina solo en el navegador: no hay código que pegar (docs/hallazgos-ia.md, la ola 3). */}
+                  <p className="tci-nota">{conClaude ? 'Se abre el navegador: entra con tu cuenta de Claude y pega el código que te muestra.' : 'Se abre el navegador: entra con tu cuenta de ChatGPT.'}</p>
                   {/* Una PC instalada con la línea de comandos (la 0.3.2, como la del ws1) no abre mako://: ahí, la de siempre. */}
-                  <details className="tci-respaldo">
-                    <summary>¿No funciona? Con la línea de comandos</summary>
-                    <p>{DONDE_PEGAR.windows}</p>
-                    <Copiar texto={LOGIN_CLAUDE.windows} />
-                  </details>
+                  {conClaude && (
+                    <details className="tci-respaldo">
+                      <summary>¿No funciona? Con la línea de comandos</summary>
+                      <p>{DONDE_PEGAR.windows}</p>
+                      <Copiar texto={LOGIN_CLAUDE.windows} />
+                    </details>
+                  )}
                 </>
               ) : (
                 <>
-                  <p className="tci-nota">Vuelve a abrir MaKo: te ofrece iniciar la sesión de Claude en el navegador.</p>
-                  <details className="tci-respaldo">
-                    <summary>¿No funciona? Con la Terminal</summary>
-                    <p>{DONDE_PEGAR.mac}</p>
-                    <Copiar texto={LOGIN_CLAUDE.mac} />
-                  </details>
+                  <p className="tci-nota">{`Vuelve a abrir MaKo: te ofrece iniciar la sesión de ${nombre} en el navegador.`}</p>
+                  {conClaude && (
+                    <details className="tci-respaldo">
+                      <summary>¿No funciona? Con la Terminal</summary>
+                      <p>{DONDE_PEGAR.mac}</p>
+                      <Copiar texto={LOGIN_CLAUDE.mac} />
+                    </details>
+                  )}
                 </>
               )}
             </>
@@ -251,7 +265,7 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
       {paso === 5 && (
         <>
           <h3>Tu computadora está en línea</h3>
-          <p>Desde ahora tu Ops Center contesta con tu Claude. Si la apagas, el chat te avisa hasta que la prendas.</p>
+          <p>{`Desde ahora tu Ops Center contesta con tu ${nombre}. Si la apagas, el chat te avisa hasta que la prendas.`}</p>
         </>
       )}
       <div className="tci-tutorial__pie">
@@ -275,7 +289,7 @@ const LogoIA = ({ ia, chico = false }: { ia: IaDelCliente; chico?: boolean }) =>
  */
 function ConectarTuIA({ esAdmin, admin, listo: puedeComputadora, onComputadora, onCerrar, onConectada, iaInicial }: {
   esAdmin: boolean; admin?: string; listo: boolean;
-  onComputadora: () => void; onCerrar: () => void; onConectada: () => void;
+  onComputadora: (ia: IaDelCliente) => void; onCerrar: () => void; onConectada: () => void;
   /** La que se eligió en «Nueva cuenta» (23/10/2026): arranca en «¿Cómo la conectas?». */
   iaInicial?: IaDelCliente;
 }) {
@@ -325,7 +339,7 @@ function ConectarTuIA({ esAdmin, admin, listo: puedeComputadora, onComputadora, 
               if (o.que === 'pedir') return <div key={o.que} className="tci-grande tci-grande--pedir" role="note">{contenido}</div>;
               const anda = o.habilitada && (o.que !== 'pc' || puedeComputadora);
               return (
-                <button key={o.que} type="button" className="tci-grande" disabled={!anda} onClick={o.que === 'pc' ? onComputadora : undefined}>
+                <button key={o.que} type="button" className="tci-grande" disabled={!anda} onClick={o.que === 'pc' ? () => onComputadora(ia) : undefined}>
                   {contenido}
                 </button>
               );
@@ -404,6 +418,7 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
   const [eligiendo, setEligiendo] = useState<IaDelCliente | null>(null);
   const [tutorial, setTutorial] = useState(false);
   const [pasoInicial, setPasoInicial] = useState(1);
+  const [iaTutorial, setIaTutorial] = useState<ProveedorPc>('claude');
   const [ahora, setAhora] = useState(() => Date.now());
   const antes = useRef<number[]>([]);
   /** Ya se intentó leer una vez: sin estado después de eso (no se pudo), lo de siempre, no el esqueleto para siempre. */
@@ -423,8 +438,12 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
     await fetch('/api/ia-pc/desconectar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) }).catch(() => null);
     await recargar();
   };
-  const abrirTutorialEn = (paso: number) => { antes.current = (estado?.pcs ?? []).map((p) => p.id); setPasoInicial(paso); setEligiendo(null); setTutorial(true); };
-  const abrirTutorial = () => abrirTutorialEn(1);
+  // Sólo una IA que tiene computadora (`iaDeLaPcPara`): Gemini no tiene, y el paso 2 ni lo ofrece.
+  const abrirTutorialEn = (paso: number, ia: IaDelCliente = 'claude') => {
+    const deLaPc = iaDeLaPcPara(ia);
+    if (!deLaPc) return;
+    antes.current = (estado?.pcs ?? []).map((p) => p.id); setPasoInicial(paso); setIaTutorial(deLaPc); setEligiendo(null); setTutorial(true);
+  };
   // Desde el instalador: con las PC de antes YA leídas (si no, una que ya estaba en línea se tomaba por la nueva).
   const abiertoDesdeElInstalador = useRef(false);
   useEffect(() => {
@@ -455,9 +474,9 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
           espera al estado (`listo`). */}
       {eligiendo && (
         <ConectarTuIA esAdmin={!!estado?.esAdmin} admin={estado?.admin} listo={!!estado} iaInicial={eligiendo}
-          onComputadora={abrirTutorial} onCerrar={() => { setEligiendo(null); void recargar(); }} onConectada={() => void recargar()} />
+          onComputadora={(ia) => abrirTutorialEn(1, ia)} onCerrar={() => { setEligiendo(null); void recargar(); }} onConectada={() => void recargar()} />
       )}
-      {tutorial && <Tutorial onCerrar={() => { setTutorial(false); void recargar(); }} pcsAntes={antes.current} recargar={recargar} pasoInicial={pasoInicial} />}
+      {tutorial && <Tutorial onCerrar={() => { setTutorial(false); void recargar(); }} pcsAntes={antes.current} recargar={recargar} pasoInicial={pasoInicial} ia={iaTutorial} />}
 
       {/* MIENTRAS CARGA, EL ESQUELETO DEL BLOQUE (23/10/2026, Martín: «al principio me aparecen solo los botones de "Conectar GPT o
           Claude"... Si hay cuentas conectadas debería aparecer el loader para que se sepa que falta info que cargar»). Antes del
@@ -467,7 +486,7 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
         <>
           <NuevaCuenta onElegir={setEligiendo} vacia={vacia} />
           <CuentasYDispositivos grupos={grupos} ahora={ahora} onDesconectar={(d) => desconectar(d.id)}
-            nuevoDispositivo={() => <NuevoDispositivo onAbrir={() => abrirTutorialEn(2)} />}
+            nuevoDispositivo={(c) => <NuevoDispositivo onAbrir={() => abrirTutorialEn(2, c.proveedor)} />}
             extraSinCuenta={(d) => (d.esMia && d.enLinea && !d.sinClaude
               ? (
                 <>

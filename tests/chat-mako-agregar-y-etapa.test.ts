@@ -147,6 +147,8 @@ const tres = deIA({ disparador: 'd1', inicio: 't1', tarjetas: [
   { id: 't1', tipo: 'mensaje', texto: ANTES[0], sigue: 't2' }, { id: 't2', tipo: 'mensaje', texto: ANTES[1], sigue: 't3' }, { id: 't3', tipo: 'mensaje', texto: NUEVOS[0] },
 ] }, ctxEtiqueta, rndDe()).pasos as PasoIA[];
 const primero = tres.filter((p) => claseDe(p) === 'mensaje')[0];
+assert.ok(primero?.id, 'el guion no trae un primer paso de mensaje con id: el resto de las comprobaciones no tendría sentido');
+const primeroId: string = primero.id;
 const PEDIDO_COND = 'Antes del primer mensaje, si tiene la etiqueta «Sprint · audio» que siga el flujo; si no la tiene, que no le mande nada';
 const condicionDe = (obj: unknown) => revisarEdicion({ obj, base: tres, ctx: ctxEtiqueta, pedido: PEDIDO_COND, historial: [], intencion: 'editar' });
 
@@ -168,6 +170,6 @@ test('una condición ANTES del primer mensaje: la rama sigue en él, el «si no�
     assert.deepEqual(textos(pasos), [ANTES[0], ANTES[1], NUEVOS[0]], `${nombre}: los tres mensajes, una vez cada uno`);
     assert.ok(!pasos.some((p) => (p.paralelos ?? []).length), `${nombre}: nada en paralelo`);
     assert.ok(!r.avisos.some((a) => a.includes('dos lugares')), `${nombre}: sin «seguía en dos lugares»`);
-    assert.ok(!pasos.some((p) => p.id !== cond!.id && sigueAl(p, primero.id)), `${nombre}: sólo la condición lleva al primero`);
+    assert.ok(!pasos.some((p) => p.id !== cond!.id && sigueAl(p, primeroId)), `${nombre}: sólo la condición lleva al primero`);
   }
 });

@@ -33,7 +33,7 @@ export type Registrado =
   | { ok: false; motivo: 'no-es-un-reporte' | 'ruido' | 'configuracion' | 'tope' | 'falla' };
 
 /** Quien firma un error sin persona (uno del servidor sin sesión): la plataforma. */
-async function identidadDelSistema(): Promise<Identidad> {
+export async function identidadDelSistema(): Promise<Identidad> {
   return { ws: await wsSuperAdmin(), email: 'sistema@hola-mako.com', nombre: 'MaKo (lo detectó solo)', usuarioId: null, rol: 'sistema', plan: null };
 }
 

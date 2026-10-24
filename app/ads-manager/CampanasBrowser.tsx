@@ -14,6 +14,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
+// Lo que la calculadora toma de los anuncios del negocio: la MISMA lectura que el wizard (OnboardingAdsManager).
+import { deTusAnuncios, rangoCorto } from '@/lib/calculadora-presupuesto-ads';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar } from '../_components/MakoBrand';
 import { cifra, cuentaAUsd, editaPresupuestoAca, esConvertible, horaDeEscritura, inicialTipeado, MONEDA_META_POR_DEFECTO, montoCuenta, presupuestosVigentes, saltoPresupuesto, tipeadoACuenta, type EscritoPresupuesto } from '@/lib/presupuesto-cambio';
@@ -161,7 +163,7 @@ const adIdDeLaUrl = (): string | null => {
   return m ? decodeURIComponent(m[1]) : null;
 };
 
-export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyReal, abrirNueva = false }: { senales: SenalRecon[]; desde: string; hasta: string; adInicial?: string | null; hoyReal: string; abrirNueva?: boolean }) {
+export function CampanasBrowser({ ws = null, senales, desde, hasta, adInicial = null, hoyReal, abrirNueva = false }: { ws?: number | null; senales: SenalRecon[]; desde: string; hasta: string; adInicial?: string | null; hoyReal: string; abrirNueva?: boolean }) {
   const [health, setHealth] = useState<MetaHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -917,7 +919,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
           versionGeo={versionGeo} />
       )}
       {recosOpen && <RecosModal onClose={() => setRecosOpen(false)} />}
-      {calcOpen && <CalculadoraPresupuesto onCerrar={() => setCalcOpen(false)} onPreguntarMako={(texto) => setPedidoMako((x) => ({ texto, vez: (x?.vez ?? 0) + 1 }))} />}
+      {calcOpen && <CalculadoraPresupuesto ws={ws} deTusAnuncios={deTusAnuncios(senales)} rango={rangoCorto(desde, hasta)} onCerrar={() => setCalcOpen(false)} onPreguntarMako={(texto) => setPedidoMako((x) => ({ texto, vez: (x?.vez ?? 0) + 1 }))} />}
       {/* La estrella de la tab (el chat de MaKo de toda la app): mirando campañas, sólo analiza. Encima de los modales, para
           que la calculadora siga a la vista mientras MaKo contesta. */}
       <MakoEnLaTab tab="Ads Manager" modo="analizar" pedido={pedidoMako} encimaDeModales />
@@ -926,7 +928,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
           tres es cambiar lo que nadie pidió. */}
       {renameOpen && <RenameModal level={level} entities={renameEntities.filter((e) => selSet.has(e.id))} onClose={() => setRenameOpen(false)} onApply={bulkRename} />}
       {/* key: si cambia el modo con el modal abierto, se remonta limpio (el estado inicial depende del modo) */}
-      {nuevaOpen && <NuevaCampanaModal key={nuevaModo} modo={nuevaModo} health={health} healthError={error} senales={senales} campaignCount={health?.campaigns.length ?? 0} onClose={() => setNuevaOpen(false)} onPublished={cargar} />}
+      {nuevaOpen && <NuevaCampanaModal ws={ws} key={nuevaModo} modo={nuevaModo} health={health} healthError={error} senales={senales} campaignCount={health?.campaigns.length ?? 0} onClose={() => setNuevaOpen(false)} onPublished={cargar} />}
       {editCopyAd && <EditarTextosModal adId={editCopyAd.id} adName={editCopyAd.name} onClose={() => setEditCopyAd(null)} onSaved={() => { setEditCopyAd(null); setToast('Textos actualizados. Meta va a revisar el anuncio de nuevo.'); cargar(true); }} />}
       {problemaSel && <ProblemaModal ads={problemaSel.ads} accountId={health?.account.accountId ?? null} onClose={() => setProblemaSel(null)} onEditAd={(id, name) => { setProblemaSel(null); setEditCopyAd({ id, name }); }} />}
       {editPublicoAdset && <EditarPublicoModal adsetId={editPublicoAdset.id} adsetName={editPublicoAdset.name} onClose={() => setEditPublicoAdset(null)} onSaved={() => { setEditPublicoAdset(null); setVersionGeo((v) => v + 1); setToast('Público actualizado. Meta va a revisar el conjunto.'); cargar(true); }} />}

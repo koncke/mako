@@ -41,6 +41,7 @@ import { IdentidadPicker } from '../_components/IdentidadPicker';
 import { FichaWorkspace } from './FichaWorkspace';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { CAPA_DEFAULT, CAPAS_LISTA, CAPAS_VENDIBLES, capaDef, type CapaId } from '@/lib/capas';
+import { avisoAltaAMano } from '@/lib/plan-esencial-reglas';
 import type { UsuarioConCara as Usuario } from './tipos';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
@@ -265,7 +266,7 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
             barra; los super admins son una sección más de esta misma pantalla,
             que es lo que siempre fueron — un puñado de personas, no un área. */}
         <PanelClientes workspaces={workspaces} usuarios={usuarios} sesion={sesion} recargar={cargar}
-          trabajo={trabajo ?? null} clientes={clientes} user={user} />
+          trabajo={trabajo ?? null} clientes={clientes} user={user} verComputadoras={verComputadoras} />
       </div>
     </main>
   );
@@ -421,7 +422,7 @@ const CSS_TABLA = `
 `;
 
 // =============================================================================
-function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, clientes = [], user }: {
+function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, clientes = [], user, verComputadoras = false }: {
   workspaces: Workspace[]; usuarios: Usuario[]; sesion: Sesion; recargar: () => Promise<void>;
   /**
    * El trabajo del SUPER ADMIN agrupado por cliente, y su CRM. Bajan desde el server
@@ -431,6 +432,11 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
   trabajo?: { dueno: boolean; porCliente: Record<number, TrabajoDeCliente> } | null;
   clientes?: ClienteRef[];
   user?: BoardUser;
+  /**
+   * Si esta pantalla puede mostrar las computadoras del equipo de un cliente. Baja desde `AdminView`:
+   * se usa en la ficha abierta, que vive acá. Sin esto, `verComputadoras` no existe en este alcance.
+   */
+  verComputadoras?: boolean;
 }) {
   const [nombre, setNombre] = useState('');
   const [capa, setCapa] = useState<CapaId>(CAPA_DEFAULT);
@@ -1088,6 +1094,8 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
             </div>
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 10, lineHeight: 1.5 }}>{capaDef(capa).descripcion}</div>
+          {/* Los topes y el candado se cumplen sólo por la pasarela: un alta a mano recibe más (lib/plan-esencial-reglas.ts). */}
+          {avisoAltaAMano(capa) && <div style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 600, marginTop: 6, lineHeight: 1.5 }}>{avisoAltaAMano(capa)}</div>}
           {errCrear && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{errCrear}</div>}
           {hintCrear && <Aviso aviso={hintCrear} />}
         </Modal>

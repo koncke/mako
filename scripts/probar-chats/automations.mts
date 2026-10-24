@@ -40,7 +40,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { RAIZ, usarSesion, sesionSuperAdmin, llamar, leerRespuesta, enWs, type EventoConHora } from './entorno.mts';
+import { RAIZ, usarSesion, sesionSuperAdmin, llamar, leerRespuesta, enWs, type EventoConHora } from './entorno.mjs';
 
 // ── Argumentos ───────────────────────────────────────────────────────────────────────
 const arg = (n: string): string | null => {
@@ -100,21 +100,21 @@ if (process.argv.includes('--listar')) {
 
 // ── La app (después de `entorno`: la sesión ya está puesta) ─────────────────────────────
 usarSesion(await sesionSuperAdmin(EMAIL));
-const ia = await import('../../app/api/chat-agent/secuencias/ia/route.ts');
-const rutaPedidos = await import('../../app/api/mako/pedidos/route.ts');
-const rutaSec = await import('../../app/api/chat-agent/secuencias/route.ts');
-const pc = await import('../../app/automations/pedidos-chat.ts');
-const fic = await import('../../lib/flujo-ia-cliente.ts');
-const { cuerpoIA } = await import('../../app/automations/stream-ia.ts');
-const { setSecuenciaPasos } = await import('../../lib/nutricion.ts');
-const { firmaPublicado } = await import('../../lib/secuencia-borrador.ts');
-const { nombreDeTarjeta } = await import('../../lib/flujo-conversacion.ts');
-const { claseDe } = await import('../../lib/flujo-grafo.ts');
-const { problemasDeTokens } = await import('../../lib/tokens-del-flujo.ts');
-const { leerChat } = await import('../../lib/automatizacion-chat-db.ts');
-const { disparadorDeValorIA } = await import('../../lib/disparadores.ts');
-const { productosConEtapas } = await import('../../lib/setting-secuencias.ts');
-const { getSupabaseServer } = await import('../../lib/supabase.ts');
+const ia = await import('../../app/api/chat-agent/secuencias/ia/route');
+const rutaPedidos = await import('../../app/api/mako/pedidos/route');
+const rutaSec = await import('../../app/api/chat-agent/secuencias/route');
+const pc = await import('../../app/automations/pedidos-chat');
+const fic = await import('../../lib/flujo-ia-cliente');
+const { cuerpoIA } = await import('../../app/automations/stream-ia');
+const { setSecuenciaPasos } = await import('../../lib/nutricion');
+const { firmaPublicado } = await import('../../lib/secuencia-borrador');
+const { nombreDeTarjeta } = await import('../../lib/flujo-conversacion');
+const { claseDe } = await import('../../lib/flujo-grafo');
+const { problemasDeTokens } = await import('../../lib/tokens-del-flujo');
+const { leerChat } = await import('../../lib/automatizacion-chat-db');
+const { disparadorDeValorIA } = await import('../../lib/disparadores');
+const { productosConEtapas } = await import('../../lib/setting-secuencias');
+const { getSupabaseServer } = await import('../../lib/supabase');
 const db = getSupabaseServer();
 
 type PasoGrafo = Record<string, unknown> & { id?: string; siguiente?: string | null; nodo?: string };
@@ -356,8 +356,8 @@ async function crmDePrueba(): Promise<CrmPrueba> {
     const buscar = async () => (await productosConEtapas()).find((p: { nombre: string }) => p.nombre === CRM_NOMBRE) as { funnelId: number; productoId: number | null; etapas: Array<{ value: string; label: string }> } | undefined;
     let p = await buscar();
     if (!p) {
-      const { siembraDeCrm } = await import('../../lib/pipeline.ts');
-      const { crearCrm } = await import('../../lib/nuevo-crm.ts');
+      const { siembraDeCrm } = await import('../../lib/pipeline');
+      const { crearCrm } = await import('../../lib/nuevo-crm');
       const s = siembraDeCrm({ tipo: 'linkedin' });
       if ('error' in s) throw new Error(s.error);
       const r = await crearCrm(CRM_NOMBRE, s);
@@ -376,8 +376,8 @@ async function crmDePrueba(): Promise<CrmPrueba> {
  */
 async function crearEtapa(crm: CrmPrueba, label: string, recrear: boolean): Promise<string> {
   return enWs(WS, async () => {
-    const { getFunnelDe, saveFunnelDe } = await import('../../lib/funnels.ts');
-    const { colorParaNueva, conTerminales } = await import('../../lib/pipeline.ts');
+    const { getFunnelDe, saveFunnelDe } = await import('../../lib/funnels');
+    const { colorParaNueva, conTerminales } = await import('../../lib/pipeline');
     const ya = crm.etapas.get(norm(label));
     if (ya && !recrear) return ya;
     const actual = await getFunnelDe(crm.funnelId);
@@ -446,7 +446,7 @@ async function turnoMako(a: Abierta, dicho: string, respuesta: unknown | null, p
   reg.ms = Date.now() - t0;
   const fases = r.eventos.filter((e: EventoConHora) => e.ev.t === 'fase');
   reg.primeraFaseMs = fases[0]?.ms ?? null;
-  reg.fases = fases.map((e) => `${String(e.ev.fase)}@${(e.ms / 1000).toFixed(1)}s${e.ev.intento ? `#${String(e.ev.intento)}` : ''}`);
+  reg.fases = fases.map((e: EventoConHora) => `${String(e.ev.fase)}@${(e.ms / 1000).toFixed(1)}s${e.ev.intento ? `#${String(e.ev.intento)}` : ''}`);
   if (!r.eventos.length) {
     const j = (r.json ?? {}) as { error?: string };
     reg.final = `error ${r.status}`; reg.texto = j.error ?? '(sin cuerpo)'; x.errores.push(reg.texto);
@@ -509,7 +509,7 @@ async function enviarTexto(a: Abierta, t: string, reg: RegistroTurno, x: Ctx): P
   const crea = a.pasos.length === 0 && !a.publicadas;
   const tP = Date.now();
   const crudo = await Promise.race([
-    leerRespuesta(await llamar(WS, rutaPedidos.POST as never, { url: '/api/mako/pedidos', body: pc.cuerpoPedidos(t, a.secId, a.nombre ?? '') }), tP).then((r) => r.json),
+    leerRespuesta(await llamar(WS, rutaPedidos.POST as never, { url: '/api/mako/pedidos', body: pc.cuerpoPedidos(t, a.secId, a.nombre ?? '') }), tP).then((r: { json: unknown }) => r.json),
     new Promise<null>((res) => setTimeout(() => res(null), 12_000)),
   ]);
   const msPedidos = Date.now() - tP;

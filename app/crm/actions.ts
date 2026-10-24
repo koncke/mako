@@ -106,6 +106,7 @@ import { PEDIR_CONTACTO, tieneContacto } from '@/lib/contacto-minimo';
 // análisis en el otro.
 import { etiquetaEsR2 } from '@/lib/insights-llamada-reparto';
 import { marcarExistentes } from './importar-server';
+import { PRESUPUESTO_LOTE_MS } from './lote-tandas';
 import { stepsForStage, funnelReqInfo, type StageReqValues } from '@/lib/stage-requirements';
 import { esSinCobro, type VentaTipo } from '@/lib/venta-tipo';
 import { encuentroGrabable } from '@/lib/encuentro-ws';
@@ -1498,9 +1499,15 @@ export async function moverLeadsDeEtapaAction(
   leadIds: number[],
   stageKey: string,
   funnelId?: number | null,
-): Promise<{ movidos: number; conPendientes: number; fallaron: number; sinSincronizar: number }> {
+): Promise<{ movidos: number; conPendientes: number; fallaron: number; sinSincronizar: number; pendientes: number[] }> {
   await exigirSesion();
-  const ids = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0).slice(0, TOPE_LOTE);
+  // ⚠️ NUNCA UN CORTE CALLADO (24/10/2026): con 221 tildados, una sola llamada movió 121 y Vercel la mató a los 60 s, y lo de más
+  // de 200 se perdía sin decirlo. Lo que pasa del tope o no llega en el presupuesto vuelve en `pendientes`, y la pantalla lo
+  // manda de nuevo (app/crm/lote-tandas.ts, de a tandas).
+  const todos = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0);
+  const ids = todos.slice(0, TOPE_LOTE);
+  const pendientes: number[] = [];
+  const hasta = Date.now() + PRESUPUESTO_LOTE_MS;
   let movidos = 0, conPendientes = 0, fallaron = 0;
   const agregados = await agregadosDelCrm(ids, funnelId ?? null);
   // ⚠️ LAS ETIQUETAS ESPEJADAS SE SINCRONIZAN AL FINAL, NO LEAD POR LEAD (revision del
@@ -1513,6 +1520,7 @@ export async function moverLeadsDeEtapaAction(
     // SECUENCIAL: cada vuelta son ~6 consultas y un `revalidatePath`. En paralelo no se gana
     // nada util y se multiplica la chance de que un lote quede a medias sin poder decir donde.
     for (const id of ids) {
+      if (Date.now() > hasta) { pendientes.push(id); continue; }
       try {
         const real = agregados.get(id);
         if (real != null) {
@@ -1534,7 +1542,7 @@ export async function moverLeadsDeEtapaAction(
     }
   });
   if (agregados.size) { bust(TAG.leads); revalidatePath('/crm'); }
-  return { movidos, conPendientes, fallaron, sinSincronizar };
+  return { movidos, conPendientes, fallaron, sinSincronizar, pendientes: [...pendientes, ...todos.slice(TOPE_LOTE)] };
 }
 
 /**
@@ -1544,18 +1552,23 @@ export async function moverLeadsDeEtapaAction(
  * lo que cuelga del lead (pagos, historial, pendientes). Un `delete ... in (...)` dejaria
  * huerfano todo eso.
  */
-export async function eliminarLeadsAction(leadIds: number[]): Promise<{ borrados: number; fallaron: number }> {
+export async function eliminarLeadsAction(leadIds: number[]): Promise<{ borrados: number; fallaron: number; pendientes: number[] }> {
   await exigirSesion();
-  const ids = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0).slice(0, TOPE_LOTE);
+  // De a uno y con el MISMO corte por tiempo que mover (ver arriba): lo que no llega vuelve en `pendientes`.
+  const todos = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0);
+  const ids = todos.slice(0, TOPE_LOTE);
+  const pendientes: number[] = [];
+  const hasta = Date.now() + PRESUPUESTO_LOTE_MS;
   let borrados = 0, fallaron = 0;
   for (const id of ids) {
+    if (Date.now() > hasta) { pendientes.push(id); continue; }
     try { await deleteLead(id); borrados += 1; }
     catch (e) { fallaron += 1; console.error(`[lote] no se pudo borrar el lead ${id}:`, e instanceof Error ? e.message : e); }
   }
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/crm');
   revalidatePath('/general');
-  return { borrados, fallaron };
+  return { borrados, fallaron, pendientes: [...pendientes, ...todos.slice(TOPE_LOTE)] };
 }
 
 /**

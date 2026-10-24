@@ -12,8 +12,16 @@
 //
 // «Lo configuro después», la ✕ y «Salir» llevan a la tab con estado de CLIENTE:
 // un router.refresh() re-corre el guard del server y devuelve el mismo wizard.
+//
+// ⚠️ «CALCULAR PRESUPUESTO» VA ACÁ, EN LOS TRES PASOS (24/10/2026). El que todavía no pauta es el que más necesita saber
+// cuánto invertir, y es el único que ve este wizard en vez de la tabla: antes la calculadora vivía sólo en el ⋯ de la
+// tabla, a la vuelta de «Lo configuro después». Sigue siendo del Ads Manager —calcula el presupuesto de las campañas de
+// Meta, que se crean acá—, y no necesita la cuenta: pide números y devuelve números. Si el negocio ya tiene anuncios
+// medidos, usa sus números (`deTusAnuncios`); si no, arranca vacía.
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
+import { deTusAnuncios, rangoCorto } from '@/lib/calculadora-presupuesto-ads';
 import { WizardShell } from '../_components/WizardShell';
 import { Button } from '@/app/_ui';
 import { useRouter } from '@/app/_ui/Link';
@@ -23,6 +31,8 @@ import type { SenalRecon } from '@/lib/queries';
 import { AVISO_FALTAN_PERMISOS_META } from '@/lib/meta-permisos';
 import type { OnboardingAds } from './onboarding-datos';
 import { CampanasBrowser } from './CampanasBrowser';
+
+const CalculadoraPresupuesto = dynamic(() => import('./CalculadoraPresupuesto').then((m) => m.CalculadoraPresupuesto), { ssr: false });
 
 const MONO = "'Geist Mono', monospace";
 const PASOS = ['cuenta', 'pagina', 'campana'] as const;
@@ -63,19 +73,22 @@ function IrAConectar({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function OnboardingAdsManager({ datos, senales, desde, hasta, adInicial, hoyReal }: {
+export function OnboardingAdsManager({ ws, datos, senales, desde, hasta, adInicial, hoyReal }: {
+  /** El negocio, del server: nombra lo que la calculadora guarda en el navegador. */
+  ws: number | null;
   datos: OnboardingAds;
   senales: SenalRecon[]; desde: string; hasta: string; adInicial: string | null; hoyReal: string;
 }) {
   const [salir, setSalir] = useState(false);
   const [abrirNueva, setAbrirNueva] = useState(false);
+  const [calcOpen, setCalcOpen] = useState(false);
   const [paso, setPaso] = useState<Paso>(datos.pasoInicial);
 
   if (salir) {
     // El mismo <main> que dibuja AdsManagerView: el wizard embebido ocupa su lugar.
     return (
       <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-        <CampanasBrowser senales={senales} desde={desde} hasta={hasta} adInicial={adInicial} hoyReal={hoyReal} abrirNueva={abrirNueva} />
+        <CampanasBrowser ws={ws} senales={senales} desde={desde} hasta={hasta} adInicial={adInicial} hoyReal={hoyReal} abrirNueva={abrirNueva} />
       </main>
     );
   }
@@ -86,6 +99,7 @@ export function OnboardingAdsManager({ datos, senales, desde, hasta, adInicial, 
   const pregunta = paso === 'cuenta' ? 'Tu cuenta publicitaria' : paso === 'pagina' ? 'La página que firma tus anuncios' : 'Tu primera campaña en pausa';
 
   return (
+    <>
     <WizardShell
       titulo="Ads Manager · Configuración"
       pasos={PASOS}
@@ -102,12 +116,20 @@ export function OnboardingAdsManager({ datos, senales, desde, hasta, adInicial, 
       fullscreen
       embebido
       extraFooter={
-        <button
-          onClick={() => setSalir(true)}
-          style={{ border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}
-        >
-          Lo configuro después
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button
+            onClick={() => setCalcOpen(true)}
+            style={{ border: 'none', background: 'transparent', color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            Calcular presupuesto
+          </button>
+          <button
+            onClick={() => setSalir(true)}
+            style={{ border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}
+          >
+            Lo configuro después
+          </button>
+        </div>
       }
     >
       {paso === 'cuenta' && (cuenta.ok ? (
@@ -162,5 +184,8 @@ export function OnboardingAdsManager({ datos, senales, desde, hasta, adInicial, 
         </Contexto>
       )}
     </WizardShell>
+    {/* Hermana del wizard y no adentro de su pie: el Modal de la casa no va por portal. */}
+    {calcOpen && <CalculadoraPresupuesto ws={ws} deTusAnuncios={deTusAnuncios(senales)} rango={rangoCorto(desde, hasta)} onCerrar={() => setCalcOpen(false)} />}
+    </>
   );
 }

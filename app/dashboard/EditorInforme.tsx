@@ -111,7 +111,7 @@ import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, piezaGeneral, type Piez
 import { useGeneral } from './ElementoGeneral';
 import { RedDeBloque } from './RedDeBloque';
 import { PestanasDashboard } from './PestanasDashboard';
-import { PARAM_PLANTILLAS, pestanasDelDashboard, type HojaCorta } from '@/lib/dashboard-focus';
+import { PARAM_PLANTILLAS, pestanasDelDashboard, type HojaCorta, type InformeDashboard } from '@/lib/dashboard-focus';
 import { aGuardado, aVista, fondosDe, gruposDe, ocultosPorPlegado, plegadasDe, type GrupoSeccion } from '@/lib/graficos-secciones';
 import { conectorNuevo, puedeConectar, sinConectoresDe } from '@/lib/graficos-conectores';
 import type { Resultado } from '@/lib/graficos-agregar';
@@ -445,6 +445,13 @@ export function EditorInforme({
   // Las Métricas de UNA automatización (23/10/2026, lib/automatizacion-metricas.ts): el editor del Dashboard con su propio
   // informe, montado en /automations. Sin la guía del Dashboard (habla de otra pantalla).
   const esAutomatizacion = idDeInformeAutomatizacion(informe) != null;
+  // Las piezas que sólo conocen los DOS informes del Dashboard —la tira de pestañas (./PestanasDashboard.tsx) y la
+  // galería de «Nueva hoja» (./NuevaHoja.tsx)— ven las Métricas de una automatización como lo que son: el editor del
+  // Dashboard. No cambia nada de lo que ya pasaba con `automatizacion:<id>`, y por eso va acá y no en sus tipos:
+  //   · la galería sólo pregunta si es `general` (y el server de «Pídeselo», app/api/graficos/ia/route.ts, también):
+  //     con un informe de automatización ya tomaba este mismo camino;
+  //   · la tira no se dibuja en las Métricas, que se montan sin `unido` (app/automations/MetricasAutomatizacion.tsx).
+  const informeGeneralODashboard: InformeDashboard = esGeneral ? 'general' : 'dashboard';
   // Lo que General le presta al editor (app/dashboard/ElementoGeneral.tsx): la vista previa de cada bloque del menú.
   const general = useGeneral();
   const informeRef = useRef(informe);
@@ -1343,7 +1350,7 @@ export function EditorInforme({
 
       {/* ── Arriba de todo, el Dashboard unido: «Focus», las hojas y «Templates» (./PestanasDashboard.tsx) ── */}
       {pestanas && (
-        <PestanasDashboard pestanas={pestanas} actual={hoja.id} informe={informe} onIr={irAHoja}
+        <PestanasDashboard pestanas={pestanas} actual={hoja.id} informe={informeGeneralODashboard} onIr={irAHoja}
           onTemplates={esGeneral || !guardable ? null : () => { setMenu(null); setNuevaHoja(true); }} />
       )}
 
@@ -1483,7 +1490,7 @@ export function EditorInforme({
               // pongas ahí el "¿Qué vas a crear hoy?"». La caja y, abajo, las plantillas como páginas: la portada del Landing
               // Generator. Es la MISMA pieza que el modal «Nueva hoja» (`CrearHoja`, ./NuevaHoja.tsx), sin foco al abrir.
               <div className="lk-en-blanco lk-en-blanco-crear" onClick={(e) => e.stopPropagation()}>
-                {guardable && <CrearHoja onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco="Página 1" informe={informe} senales={senales} />}
+                {guardable && <CrearHoja onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco="Página 1" informe={informeGeneralODashboard} senales={senales} />}
               </div>
             ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">

@@ -20,10 +20,19 @@ export async function frenoDeTope(ws: number, cual: 'publicar' | 'dominio', yaCu
   try {
     const [w, plataforma, sus] = await Promise.all([getWorkspace(ws), wsSuperAdmin(), suscripcionDeMakoDe(ws)]);
     if (!w || sus == null) return null;
-    let q = getSupabaseServer().from('landing_docs').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).is('papelera_at', null);
-    q = cual === 'publicar' ? q.not('publicado', 'is', null) : q.not('dominio', 'is', null);
-    const { count, error } = await q;
-    if (error) return null;
+    // ⚠️ Nada de `cual === 'publicar' ? q.not(…) : q.not(…)`: lo que explota (TS2589, «excessively deep»)
+    // es UNIFICAR los dos tipos de builder del ternario. Cada rama arma y espera el suyo, y no hay unión.
+    const cuantas = () => getSupabaseServer().from('landing_docs').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).is('papelera_at', null);
+    let count: number | null = null;
+    if (cual === 'publicar') {
+      const r = await cuantas().not('publicado', 'is', null);
+      if (r.error) return null;
+      count = r.count;
+    } else {
+      const r = await cuantas().not('dominio', 'is', null);
+      if (r.error) return null;
+      count = r.count;
+    }
     const pedido = { ws, wsPlataforma: plataforma, capa: String(w.capa ?? ''), cobradoPorPasarela: true, usadas: count ?? 0, yaCuenta };
     const r = cual === 'publicar' ? topeParaPublicar(pedido) : topeParaDominio(pedido);
     return r.ok ? null : falla(r.texto, 402);

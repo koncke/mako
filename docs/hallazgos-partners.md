@@ -118,3 +118,44 @@ trata un error de Supabase como «código inexistente» (sin cookie ni ?ref, sin
 **Sin hacer:** un campo de partner en el alta a mano («Nuevo cliente» y «Vender un plan») que escriba el cobro de la opción A;
 leer la cookie en /pagar/<token>. **Vive en:** app/r/[codigo]/route.ts · lib/compra-plan-reglas.ts (`agendaConOrigen`) ·
 lib/partners-programa.ts · app/admin/cobros/actions.ts · lib/alta-cliente.ts · tests/planes-sin-pasarela.test.ts.
+
+## MaKo Partners estaba construido y ningún cliente podía llegar (24/10/2026)
+
+**Síntoma:** Martín pidió «la tab de MaKo Partners para clientes» como si no existiera. Existían la página pública
+(/mako-partners), el tablero (/partners/referidos), el panel del super admin y la versión de teléfono. **Causa:** el ítem del
+menú de la foto (app/_components/nav.ts, `USER_NAV`) tenía `soloCapas: ['agencia']` desde el 17/10, de cuando Partners era
+sólo la cartera de las agencias; el 23/10 el programa de referidos se abrió a todo negocio y nadie cambió la puerta. Un
+cliente común llegaba sólo tipeando la URL. **El diagnóstico obvio era el equivocado:** «no está en la barra» (se buscó en
+lib/navegador.ts, que no es la barra): estaba, con una visibilidad vieja. Antes de construir una tab «que falta», buscar su
+key en nav.ts y mirar su `soloCapas`/`rolesWs`.
+
+**Lo que quedó:** la ve el ADMIN de cualquier negocio (sin `rolesWs`: el closer y el setter no). Arriba del tablero del
+cliente y del panel del super admin, primero lo que vende la idea (app/partners/PresentacionPartners.tsx) y después el panel;
+el super admin ve el programa entero (`resumenDelPrograma`) y las agencias. En el teléfono, quien no es agencia ve sus
+referidos (app/m/partners/ReferidosM.tsx) en vez de rebotar a Clients. /planes lleva a /mako-partners.
+- **La cuenta del super admin es la de `acreditarReferidos`** (`contarPrograma`, lib/partners-reglas.ts): la compra MÁS VIEJA de
+  cada negocio decide aunque su código no cuente (sin dueño, el propio, el de la plataforma); el mismo filtro de estado
+  (pagado o reembolsado). Con otra cuenta, el panel y los créditos dirían números distintos del mismo programa.
+- **La presentación dice SÓLO lo que existe:** el crédito por referido. No «se descuenta» ni la comisión del grupal.
+
+**Sin hacer:** «Cómo funciona» del tablero y /mako-partners siguen prometiendo que el crédito «se descuenta de tus próximos
+meses» y el 20% del grupal, que no se aplican (decisión de Martín, pendiente). **Vive en:** app/_components/nav.ts ·
+app/partners/ · app/m/partners/ · lib/partners-programa.ts (`resumenDelPrograma`) · lib/partners-reglas.ts (`contarPrograma`) ·
+tests/partners-para-clientes.test.ts · tests/sidebar-nueva.test.ts.
+
+## Sin pasarela, el programa no puede registrar a nadie, y el panel lo dice (24/10/2026)
+
+**Medido por el Cerebro contra producción:** la bienvenida al referido, el atado y el crédito salen SÓLO de un cobro de la
+plataforma con `ref_codigo` y el alta hecha, o sea, de una compra pasada por el checkout. El negocio de MaKo no tiene ninguna
+pasarela conectada: el checkout corta antes de crear el cobro, y ningún referido se registra nunca. El panel quedaba en cero
+sin decir por qué, que se lee como «nadie usó tu link». **Ahora lo dice** (`textoSinReferidos` y
+`textoProgramaSinReferidos`, lib/partners-reglas.ts), con la MISMA cuenta que /planes (`ofertasDeLosPlanes`): al cliente,
+que hoy se da de alta por llamada y que avise si alguien entró con su link; al super admin, que sin pasarela no entra ninguno
+solo. «No pude leer si cobra» no afirma nada: queda el texto de siempre.
+
+**El camino del crédito, ejercitado sin cobro real** (tests/partners-credito-simulado.test.ts): `acreditarReferidos` corre de
+verdad contra una base en memoria y con los mails anotados. Primer mes, se atan y salen las dos bienvenidas (a los admins, no
+al closer). Segundo mes, el crédito a precio de lista y el aviso. Otra corrida, nada se repite. El código de la plataforma,
+nunca. Y el tablero y el panel del super admin cuentan lo mismo. Así, cuando Martín conecte la pasarela, no se descubre ahí que
+no acredita. **Lo que NO prueba:** la pasarela misma (que el webhook deje `alta_estado = 'hecha'` y las cuotas en `pagos`), que
+se prueba con la compra de humo.

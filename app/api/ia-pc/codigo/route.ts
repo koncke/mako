@@ -16,7 +16,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { personaDelRequest } from '@/lib/mako-turno-app';
 import { crearCodigo, estadoDelCodigo } from '@/lib/ia-pc';
-import { CODIGO_MS, VERSION_CONSENTIMIENTO } from '@/lib/ia-pc-reglas';
+import { CODIGO_MS, iaDelConsentimiento } from '@/lib/ia-pc-reglas';
+import { CHATGPT_EN_LA_PC } from '@/lib/conectar-ia-reglas';
 import { limitePorClave } from '@/lib/limite-publico';
 
 export const dynamic = 'force-dynamic';
@@ -29,8 +30,11 @@ export async function POST(req: NextRequest) {
   if (frenado) return frenado;
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch { /* abajo: sin aceptar no hay código */ }
-  if (body?.acepto !== VERSION_CONSENTIMIENTO) return NextResponse.json({ ok: false, error: 'Primero acepta cómo funciona.' }, { status: 400 });
-  const r = await crearCodigo(persona.ws, persona.actor, VERSION_CONSENTIMIENTO).catch((e) => {
+  // La versión que aceptó dice también con qué IA (la ola 3: `CONSENTIMIENTO_DE`). Su ChatGPT, recién con el programa que lo corre.
+  const ia = iaDelConsentimiento(body?.acepto);
+  if (!ia) return NextResponse.json({ ok: false, error: 'Primero acepta cómo funciona.' }, { status: 400 });
+  if (ia === 'chatgpt' && !CHATGPT_EN_LA_PC) return NextResponse.json({ ok: false, error: 'Tu ChatGPT en tu computadora todavía no está: por ahora, con su clave.' }, { status: 400 });
+  const r = await crearCodigo(persona.ws, persona.actor, String(body.acepto)).catch((e) => {
     console.error('[ia-pc/codigo]', e instanceof Error ? e.message : String(e));
     return null;
   });

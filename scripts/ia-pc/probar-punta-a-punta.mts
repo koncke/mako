@@ -181,7 +181,8 @@ if (REINSTALAR && dispositivo) {
 const resumen = async (titulo: string, mensaje: string) => {
   const sesion = await nuevaSesion(persona);
   const t0 = Date.now();
-  const r = await turnoApp(persona, sesion.id, { mensaje });
+  // Sin cookie: es la única entrada que llega a la PC sin sesión, y sólo con la persona de prueba del ws3 (`laPersonaEstaAdentro`).
+  const r = await turnoApp(persona, sesion.id, { mensaje, pruebaSinSesion: true });
   const { data: turnos } = await getSupabaseServer().from('ia_pc_turnos').select('id, estado, cuenta').eq('sesion_id', sesion.id);
   const ids = (turnos ?? []).map((x: { id: number }) => x.id);
   const { data: llamadas } = ids.length ? await getSupabaseServer().from('ia_pc_llamadas').select('nombre, es_error').in('turno_id', ids) : { data: [] };

@@ -109,7 +109,9 @@ test('las seis: por chat, sólo el admin del CRM, y cada una con su ruta REST', 
     assert.equal(d.gating?.rolMinimo, 'admin', `${id}: un closer editaría el embudo`);
     assert.equal(d.gating?.tab, 'crm');
   }
-  assert.equal(porId('eliminar_etapa')?.reversible, false, 'quitar una etapa no tiene vuelta por la API');
+  // `reversible` vive sólo en la variante acción de OperacionDef: sin el guardia, el registro podría devolver una lectura.
+  const elimDef = porId('eliminar_etapa');
+  assert.ok(elimDef && esAccion(elimDef) && elimDef.reversible === false, 'quitar una etapa no tiene vuelta por la API');
   for (const [metodo, ruta, id] of [
     ['POST', '/crm/etapas', 'agregar_etapa'],
     ['PUT', '/crm/etapas/orden', 'ordenar_etapas'],

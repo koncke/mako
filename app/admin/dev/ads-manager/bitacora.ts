@@ -346,4 +346,22 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-ads.md — «El Autopilot»: lo que se creía y no era',
     ],
   },
+  {
+    fecha: '24 oct', hora: '02:57', chat: 'Ventas de MaKo: VSL, leads, prospección y calculadora', cuenta: 'claude1',
+    sesion: 'local_e9e320c0-e063-4bff-9904-53de53c3aa7f',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La calculadora de presupuesto se abre sin cuenta de Meta',
+    puntos: [
+      'Lo midió el Cerebro para el lanzamiento: vivía en el ⋯ de la tabla, y sin cuenta, página o primera campaña la tab abre en su wizard. Martín tampoco la veía.',
+      'Ahora el pie del wizard la abre en sus tres pasos. Se queda en el Ads Manager: calcula el presupuesto de las campañas, que se crean ahí.',
+      'Si el negocio ya tiene anuncios, propone su costo por lead y cuántos compran de cada 100, sólo con datos suficientes y diciendo de qué fechas salen. Sin anuncios arranca vacía.',
+      'Lo tipeado se guarda por negocio. Falta verla en producción.',
+    ],
+    commits: [{ sha: '2af3e0881', msg: 'Ads Manager: la calculadora de presupuesto se abre SIN cuenta de Meta, y usa los números medidos del negocio', lineas: 298, archivos: 7 }],
+    archivos: [
+      'app/ads-manager/OnboardingAdsManager.tsx — el botón en el pie del wizard',
+      'app/ads-manager/CalculadoraPresupuesto.tsx · lib/calculadora-presupuesto-ads.ts — lo medido',
+      'tests/calculadora-sin-cuenta.test.ts',
+    ],
+  },
 ];

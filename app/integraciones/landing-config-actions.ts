@@ -11,6 +11,7 @@ import { revalidatePath } from 'next/cache';
 import { setSetting } from '@/lib/settings';
 import { requireRolWs } from '@/lib/tab-access';
 import { CONFIG_KEY, conLanding, landingDe, sinLanding, type LandingConfig } from '@/lib/landing-config';
+import type { Conversion } from '@/lib/landing-conversion';
 import { mirarLanding } from '@/lib/landing-vigilancia';
 import { urlsDe } from '@/lib/landing-config';
 import { type Cambios } from '@/lib/landing-snapshot';
@@ -45,7 +46,8 @@ async function leer(): Promise<LandingConfig[]> {
  */
 export async function guardarLandingAction(
   url: string,
-  parcial: { funnelIds?: number[]; gracias?: boolean } = {},
+  // `conversion: null` vuelve a «Lo decide MaKo» (ver `conLanding`).
+  parcial: { funnelIds?: number[]; gracias?: boolean; conversion?: Conversion | null } = {},
   anterior?: string | null,
 ): Promise<LandingsResult> {
   try {

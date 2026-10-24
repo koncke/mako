@@ -104,6 +104,16 @@ async function main() {
   out.suOpenAI = await correr(20, { soloSuOpenAI: true });
   out.suOpenAIConModelo = await correr(20, { soloSuOpenAI: true, modeloSuOpenAI: 'gpt-6.1-sol' });
   out.suOpenAISinClave = await correr(1, { soloSuOpenAI: true });
+  // La ola 3 (23/10): una SEGUNDA computadora de Ana que reporta su ChatGPT. Recién ahí se ofrece «Tu computadora · ChatGPT»;
+  // la de Claude sigue siendo «Oficina» (la de ChatGPT no tiene cuenta de Claude).
+  // La guarda del 23/10: una PC conectada con el texto de CLAUDE cuyo programa reporta ChatGPT no se ofrece como su ChatGPT.
+  const { CONSENTIMIENTO_DE } = await import('../lib/ia-pc-reglas');
+  pg.db.ia_pc_dispositivos.push({ id: 8, workspace_id: 20, persona: 'ana@negocio.com', nombre: 'Vieja', ultimo_latido: new Date().toISOString(), cuentas: [{ proveedor: 'chatgpt', email: 'ana@gmail.com' }], confirmado_at: new Date().toISOString(), activa_at: new Date().toISOString(), revocado_at: null, claude_falta: false, creado_at: new Date().toISOString(), consentimiento: CONSENTIMIENTO_DE.claude.version });
+  out.cuentasAnaSinGpt = (await cuentasDeIA(ana)).map((c) => c.cuenta);
+  pg.db.ia_pc_dispositivos.push({ id: 7, workspace_id: 20, persona: 'ana@negocio.com', nombre: 'Casa', ultimo_latido: new Date().toISOString(), cuentas: [{ proveedor: 'chatgpt', email: 'ana@gmail.com' }], confirmado_at: new Date().toISOString(), activa_at: new Date().toISOString(), revocado_at: null, claude_falta: false, creado_at: new Date().toISOString(), consentimiento: CONSENTIMIENTO_DE.chatgpt.version });
+  out.cuentasAnaConGpt = await cuentasDeIA(ana);
+  out.eleccionPcGpt = await eleccionDelPedido(ana, { cuenta: 'pc-chatgpt', modelo: 'gpt-6.1-sol' });
+  out.eleccionPcGptDeBeto = await eleccionDelPedido(beto, { cuenta: 'pc-chatgpt' });
   process.stdout.write(`@@CHATIA@@${JSON.stringify(out)}\n`);
 }
 

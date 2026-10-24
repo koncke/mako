@@ -76,7 +76,7 @@ export async function susClaves(ws: number): Promise<SuClaveGuardada[]> {
 }
 
 /** ¿El negocio tiene una clave de IA PROPIA? Copia de la plataforma: no. Guardada e ilegible: sí. Tira si no pudo leer. */
-async function claveDeIAPropia(ws: number): Promise<boolean> {
+export async function claveDeIAPropia(ws: number): Promise<boolean> {
   for (const c of await susClaves(ws)) {
     if (c.es === 'ilegible') {
       console.error(`[ia-del-negocio] ws=${ws}: ${c.clave} está guardada pero no se puede leer: cuenta como suya`);

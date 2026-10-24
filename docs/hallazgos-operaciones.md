@@ -2623,3 +2623,48 @@ tabs, `256f46e07`), el «P1 de Stripe» que ya estaba en main desde antes y la p
 (`60bd69812`, no `886cb3545`). Las herramientas están en `C:/dev/cerebro-herramientas/`: `listar.cjs` (chats por cuenta),
 `cola.cjs` (la cronología de un transcript desde una hora), `digest.cjs` (sólo los mensajes del usuario) y
 `workflow-relevo-chats-cuenta.js`. El método quedó en `docs/relevo/cerebro.md`, «LEER PRIMERO».
+
+## «Pegar la captura» arriba de la caja, y por qué no al tocar el campo sin permiso (24/10/2026)
+
+Martín, el 17/10 (un pedido que se perdió con el cartero caído hasta el 24/10): «Debo poder pegar la imagen que tengo
+copiada; en el celular, en algunas apps me aparece la opción de pegarla directamente luego de una captura».
+
+- **Lo que ofrece el teclado de Android sólo aparece en un campo que acepta imágenes** (un contenteditable con
+  `commitContent`), y el `<textarea>` de la caja no es uno. Rehacer la caja como contenteditable rompería las viñetas, los
+  links pintados y el crecimiento. «Pegar» del «+» existía desde el 20/10 (`imagenesDelPortapapeles`), pero había que saber
+  que estaba.
+- **Ahora la caja la ofrece sola** (app/_chat/CajaChat.tsx, `capturaParaOfrecer` en pegar.ts): al enfocar el campo, si hay
+  una imagen copiada que todavía no se ofreció, aparece arriba «Pegar la captura» con su miniatura; un toque la adjunta,
+  la × la descarta, y ninguna de las dos vuelve a ofrecerse en esa pestaña.
+- **La trampa: leer el portapapeles al enfocar PIDE PERMISO.** Sin el permiso ya dado, el navegador mostraría el cartel cada
+  vez que se toca el campo. Se mira `permissions.query({ name: 'clipboard-read' })` y sólo con `granted` se lee; el permiso
+  lo pide «Pegar» del «+», con un toque de quien quiere pegar. tests/caja-captura.test.ts, con 4 roturas.
+- **Lo que se verificó sin cambiar** del mismo pedido del 17/10 (los otros cuatro puntos):
+  - el formato SÍ sale: `useCentro.mandar` pasa todo por `textoParaMandar` (las viñetas de la pantalla, como Markdown),
+    en la computadora y en el teléfono (tests/centro-caja.test.ts);
+  - la tab «Second Brain» ya no existe: desde el 17/10 el super admin ve sólo el Ops Center, y desde el 18/10 los clientes
+    la ven como «Ops Center» (nav.ts → `arribaDe`; el teléfono, lib/movil-rutas.ts);
+  - el chat del teléfono quedó en UNA fila desde el 20/10 (la caja única: «+», emojis, campo y un botón).
+
+## El cartero estuvo 15 horas muerto y nadie lo vio: lo disparaba un chat (24/10/2026)
+
+**El síntoma:** del 23/10 23:47 al 24/10 14:10 el Ops Center no se actualizó, y cuatro pedidos de Martín no llegaron. Uno
+era del 17/10 (el audio que se duplicaba) y estuvo una semana en «escrito»: el bug le volvió a pasar el 24/10, y el pedido
+en que lo contaba TAMBIÉN se perdió.
+
+**La causa:** Martín forzó el apagado de la PC (se trabó entera), y el cartero sólo corre si el chat «Runner» está abierto y
+su cron de sesión anda. Nadie lo volvió a abrir.
+
+**El diagnóstico obvio era el equivocado:** «hagamos un servicio que entregue». No se puede: un script no puede escribirle a
+una sesión de Claude (`SendMessage` sólo sale de un chat, y sólo llega a las sesiones de su misma carpeta de config). Lo
+que falló entero, igual, era lo que NO necesita un chat: medir los registros y subirlos a MaKo. Y lo que hizo caro el
+apagón no fue no entregar: fue que **la ausencia era invisible.** Ya había un renglón «Sin noticias del Runner desde las
+HH:MM», pero era gris, sólo de la computadora, y no decía que había pedidos esperando.
+
+**La regla (AGENTS.md, junto a la del vigía de grupos):** lo que vive en la PC y tiene que correr siempre arranca con el
+sistema, y un chat hace sólo lo que sólo un chat puede hacer. El silencio de algo se mide desde otro lado: el servidor dice
+«la PC no da noticias desde…» y «nadie entrega: N pedidos esperan», en rojo y en el teléfono también.
+
+**Sin hacer (se construye el lunes 26/10):** todo el diseño de docs/diseno-cartero-servicio.md (el servicio que mide y
+sube, los dos carteles, la entrega por cualquier chat que arranque) y la decisión del arranque con el chat de IA del cliente
+(§2.4).

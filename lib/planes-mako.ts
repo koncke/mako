@@ -87,6 +87,40 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
   },
 ];
 
+/**
+ * El TERCER escalón de /planes (24/10/2026, Martín: «quiero ver los 3 bloques de pricing típicos que tiene toda app»): el
+ * programa con Martín, docs/ofertas-mako.md §3. No es un `PlanMako`: no tiene capa propia ni se cobra por la pasarela; se
+ * vende por llamada, como el «hablar con ventas» del tercer bloque de cualquier SaaS. La Continuidad (US$297) NO va en la
+ * vitrina: se ofrece al terminar el programa, y al lado de Esencial y Pro un desconocido no sabría qué es.
+ */
+export type ProgramaMako = {
+  id: string;
+  nombre: string;
+  precioUsd: number;
+  /** En cuántas cuotas iguales se paga. */
+  cuotas: number;
+  resumen: string;
+  incluye: string[];
+  /** Lo que sigue al terminar, si quiere. */
+  despues: { nombre: string; precioUsd: number };
+};
+
+export const PROGRAMA_ACELERADOR: ProgramaMako = {
+  id: 'acelerador',
+  nombre: 'MaKo Acelerador',
+  precioUsd: 1500,
+  cuotas: 3,
+  resumen: 'Para el que quiere que lo acompañen a armar y vender, no sólo la herramienta.',
+  incluye: [
+    'MaKo Pro por 3 meses',
+    'La asesoría grupal de Martín, una por semana',
+    'Tu funnel armado en la primera semana',
+    'Plantillas probadas: landings, prospección y guiones',
+    'El grupo de WhatsApp de tu cohorte',
+  ],
+  despues: { nombre: 'Continuidad', precioUsd: 297 },
+};
+
 const CAPAS_DE_PLAN: ReadonlySet<string> = new Set(['pm', 'completo', 'agencia']);
 const ID_RE = /^[a-z0-9-]{1,32}$/;
 const MONEDA_RE = /^[A-Z]{3}$/;

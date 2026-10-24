@@ -160,7 +160,8 @@ test('cableado: la entrada queda en el historial, el agregado dispara el evento,
   const lote = tramo(crm, 'export async function moverLeadsDeEtapaAction(', '\n}\n');
   assert.match(lote, /const agregados = await agregadosDelCrm\(ids, funnelId \?\? null\);/);
   assert.match(lote, /const real = agregados\.get\(id\);\n\s+if \(real != null\) \{\n\s+await moverEtapaEnProducto\(id, real, stageKey, \{ enLote: true \}\);/, 'el lote le pisa la casa al agregado, o corre la vía rápida');
-  assert.match(leer('app/crm/AccionesLoteLeads.tsx'), /moverLeadsDeEtapaAction\(ids, pide\.stage\.key, funnelActivo\)/);
+  // De a tandas desde el 24/10/2026 (tests/crm-lote-tandas.test.ts), siempre con el CRM que se mira.
+  assert.match(leer('app/crm/AccionesLoteLeads.tsx'), /moverLeadsDeEtapaAction\(tanda, pide\.stage\.key, funnelActivo\)/);
   assert.match(leer('lib/automatizaciones-del-lead.ts'), /return enAutomatizacionesDe\(filas, automatizaciones, await frenosDelNegocio\(filas, automatizaciones\)\);/);
   const lienzo = leer('app/automations/FlujoLienzo.tsx');
   assert.match(lienzo, /fetch\(`\/api\/flujos\/en-cola\?sec=\$\{secuenciaId\}`/);

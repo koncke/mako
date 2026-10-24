@@ -2805,6 +2805,12 @@ primer `];` que sí estaba en LF, y se llevó todo lo del medio.
 - **Para archivos grandes, `Edit` antes que un script.** `Edit` falla si el `old_string`
   no matchea exacto o no es único; un script hace lo que le salga y avisa después.
 
+⚠️ **Y desde Git Bash el `\r` no se ve** (24/10/2026, rompiendo tests/doer-acuse.test.ts): sobre
+`lib/mako-doer-in.ts`, con 2.048 CRLF según node, `grep -c $'\r'` dio 0 y `cat -A` mostró `$` y no `^M$`.
+Dos roturas de un script de node «no se aplicaron» (marcador con `\n`) y por poco se leyeron como verdes. El
+que dice la verdad es `readFileSync`. Y en un mismo worktree conviven los dos: lo que vino del checkout es
+CRLF, lo que se creó con `Write` es LF. El script de roturas convierte el marcador al fin de línea del archivo.
+
 La versión sana quedó escrita: busca con `/\r?\n\];\r?\n/` y tira
 `throw new Error('el bloque a reemplazar mide N caracteres: demasiado, algo se corrió')`
 si el tramo supera los 12.000 caracteres.
@@ -8019,6 +8025,37 @@ el historial se muda con las líneas.
 `app/crm/grupo-wa-server.ts` · `app/vsl/costos/Costos.tsx` (la frase del QR, falsa) ·
 `docs/rotacion-credenciales.md` · *2026-10-23*
 
+## Poner commits a salvo: ETIQUETA, no rama — cada rama empujada dispara un build de Vercel (24/10/2026, Cerebro)
+
+**Síntoma:** la noche antes del lanzamiento del 25/10, con la máquina al límite de RAM y el tren frenado, el
+Cerebro le pidió a cuatro chats «subí la rama al remoto» para que su trabajo no se perdiera si la app se
+volvía a caer. Parecía gratis: una rama no es main, no despliega producción.
+
+**No era gratis.** En este proyecto Vercel arma una **vista previa por cada rama empujada** (`vercel.json`
+sólo apaga `integracion`). `vigia-cron-2410` armó una a las 05:11. Esas vistas previas **compiten por la
+máquina de build con el deploy de producción del tren**, que era justo lo que estábamos tratando de hacer
+entrar. Se pagaron tres builds que no hacían falta —el vigía, la IA del cliente y los planes— y se le puso
+cola al deploy que sí importaba.
+
+**Lo vio el chat de Landings y no obedeció la instrucción: subió sus dos commits como etiqueta.**
+
+**La regla:**
+- Para **proteger** commits que existen sólo en el disco de una máquina: `git push origin
+  <sha>:refs/tags/respaldo/<nombre>`. No dispara build, y los commits quedan igual de a salvo. Precedente en
+  la casa: `archivo/chatwoot-2026-10-09`.
+- Para **ver** el cambio desplegado antes de main: ahí sí, rama — porque la vista previa es lo que se busca.
+- El Cerebro, al pedir «ponelo a salvo», tiene que decir **cuál de las dos** quiere. «Subilo al remoto» es
+  ambiguo y la respuesta por defecto cuesta un build.
+
+**Por qué importa más de lo que parece:** el costo no es el build suelto, es **cuándo** se paga. Cuatro
+builds un martes a la tarde no se notan; cuatro builds compitiendo con el deploy de producción la noche
+antes de un lanzamiento, sí. Lo mismo que la RAM: lo que en una máquina descansada es gratis, en una
+cargada es el cuello de botella.
+
+**Relacionado:** la guardia de RAM mira la cantidad de workflows pero no la memoria libre del sistema (ver
+la entrada del cuelgue de las 02:11 de esta misma noche) · `vercel-costo-builds` en la memoria del Cerebro.
+
+
 ## El disco C: se llena con los worktrees y las copias del código en Temp (23/10/2026, Cerebro)
 
 **El síntoma:** C: llegó a tener 3,2 GB libres y la PC dejó de poder usarse. El 14/10 tenía 86 GB.
@@ -8141,3 +8178,63 @@ trae `main` con **merge, nunca rebase** — un rebase le cambiaría el sha a las
 las dejaría sin poder verificarse con `merge-base --is-ancestor`.
 
 **Vive en:** `docs/relevo.md` · `docs/relevo/cerebro.md` · `git worktree list`
+## Un vigía atado a una sesión de Claude se apaga SOLO, y no lo avisa nadie (24/10/2026, Cerebro › Integración)
+
+El vigía de los grupos de MaKo en WhatsApp —el que lee todas las charlas con clientes
+buscando «no puedo», promesas sin hacer y quejas— estuvo **TRES DÍAS apagado**. La marca
+había quedado en `2026-10-21T23:40Z` y se corrió a mano el 24: levantó 3 incidentes
+acumulados, dos de ellos vivos. **No lo avisó ningún sistema: lo notó Martín a ojo**
+(«veo que hay muchos errores»).
+
+**La causa no fue un olvido, fue de arquitectura.** Lo disparaba un `CronCreate`, que es
+**session-only y vence a los 7 días**, y el job vivía en la sesión de un chat de OTRA
+cuenta de Claude (creado el 20/10). Cerrada esa sesión, el vigía deja de correr — y como
+lo único que producía era un informe en la terminal de ese chat, al no correr no hay
+ausencia que se note. **El modo de falla es el de siempre y el más caro: no se rompe
+nada, y tampoco llega nada.**
+
+⚠️ **La regla que queda, y es más grande que este caso: un cron de SESIÓN no es
+infraestructura.** Sirve para lo que dura lo que dura esa sesión (un sondeo mientras
+alguien espera, un recordatorio de un turno). Todo lo que tiene que correr **siempre** va
+a un cron de Vercel (`vercel.json` + su ruta bajo `app/api/cron`), que corre sin que nadie
+tenga nada abierto. La prueba para distinguirlos, antes de escribirlo: **si la respuesta a
+«¿quién lo dispara?» es «un chat», no es un guardia — es una casualidad.** Y vale para
+cualquier otro `CronCreate` que estemos usando como si fuera una pieza del producto.
+
+**Lo que costó mudarlo, y lo que no se puede copiar del script:**
+
+- **En Vercel no hay disco.** Donde el script guardaba `~/.claude/vigia-mako-grupos.json`
+  va un setting, y va en el workspace de la **PLATAFORMA** (`runWithWorkspace(await
+  wsSuperAdmin(), …)`). Sin cookies `getWorkspaceActual()` cae a `OWNER_WS`, que es el ws1
+  y es un CLIENTE: la marca de la plataforma habría quedado guardada adentro de su
+  workspace.
+- **«No pude leer» NO es «no hubo nada», y ahora son TRES respuestas, no dos.** El setting
+  que FALTA es la primera vuelta (se mira la última hora) y un JSON roto también; lo que
+  no entra por esa puerta es un error de la base, que corta con 503 y **deja la marca donde
+  estaba**. Avanzarla pierde los incidentes de esa ventana para siempre — es el código 2
+  del script, y es justamente lo que evitó perder los 3 de estos días.
+- ⚠️ **Y lo que cambió de verdad al mudarlo no fue el disparador: fue QUIÉN LEE.** El
+  informe lo leía una persona en la terminal de un chat. Con un cron no hay nadie leyendo,
+  así que un vigía que sólo imprime es un vigía que corre y no sirve. Cada incidente entra
+  ahora por la MISMA puerta que los errores de la app: un ticket de bug del sistema en la
+  Ticketera, idempotente por `ref`. **Al mover algo de una sesión a la infraestructura, la
+  pregunta que falta casi siempre es a dónde va la SALIDA.**
+- **Los de `error-app` no llevan ticket acá: ya lo tienen.** `lib/errores-app.ts` lo abre
+  cuando la huella es nueva y el vigía sólo los relee para el informe; crearles otro
+  duplicaría el mismo bug en la Ticketera.
+- **El orden importa: los tickets ANTES de mover la marca.** `crearTicket` es idempotente
+  por `ref`, así que un corte a mitad se retoma sin duplicar; con la marca movida primero,
+  lo que no alcanzó a abrir ticket se pierde. Y sólo se recuerda como «visto» lo que de
+  verdad quedó asentado: un incidente cuyo ticket falló NO entra, para que la próxima
+  vuelta lo reintente.
+
+**Queda APAGADO detrás de `VIGIA_GRUPOS`** (`off` por default · `seco` lee y cuenta lo que
+haría sin escribir nada · `on`). Una ruta nueva que escribe en la Ticketera se prende
+después de verla en seco, no en el deploy que la estrena.
+
+**Lo que queda SIN hacer:** correrla en `seco` contra producción, mirar el conteo, y
+recién ahí ponerla en `on`. Y el script `scripts/vigia-mako-grupos.mts` sigue existiendo
+como la forma de mirarlo a mano desde un worktree; el `CronCreate` que lo disparaba no se
+vuelve a crear.
+
+**Vive en:** `app/api/cron/vigia-grupos/route.ts` · `lib/vigia-grupos-estado.ts` · `lib/vigia-mako-grupos.ts` · `vercel.json` · `scripts/vigia-mako-grupos.mts`

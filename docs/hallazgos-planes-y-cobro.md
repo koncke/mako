@@ -1319,3 +1319,28 @@ declara ninguna área?»**, cruzando `git log --name-only` contra la unión de l
 bitácora y el encabezado de la action.
 
 **Vive en:** `app/admin/dev/areas.ts:952-960` · `app/admin/dev/payment-gateway/bitacora.ts:57` · `app/admin/cobros/actions.ts:9,34-40` · `lib/vender-plan.ts`
+
+## Los tres bloques de /planes: lo que se ve tiene que poder comprarse así (24/10/2026)
+
+Martín: «quiero ver los 3 bloques de pricing típicos que tiene toda app». /planes muestra MaKo Esencial (US$47), MaKo Pro
+(US$97, destacado) y el **MaKo Acelerador** (US$1.500 en 3 cuotas, docs/ofertas-mako.md §3), con «Compara los planes» abajo.
+- **El tercer bloque es el Acelerador, no la Continuidad.** La Continuidad (US$297) se ofrece al terminar el programa; al
+  lado de Esencial y Pro un desconocido no sabría qué es. El Acelerador no es un `PlanMako`: no tiene capa ni pasa por la
+  pasarela, se vende por llamada (`PROGRAMA_ACELERADOR`, lib/planes-mako.ts), como el «hablar con ventas» de cualquier SaaS.
+- **El anual NO se muestra**: `precioAnualUsd` existe, pero el checkout cobra por mes; la vitrina no dice un precio que no se
+  puede comprar. Cuando el checkout cobre anual, se suma el selector.
+- **Los números de la tabla salen de `TOPES` y `TABS_SOLO_PRO`** (lib/topes-plan.ts, vía lib/planes-comparacion.ts), nunca a
+  mano; y cada columna se elige por la CAPA del plan, no por su id (un plan del setting `planes.mako` con otro id no queda
+  vacío). **La trampa:** el candado de Pro y los topes se hacen cumplir SÓLO a quien paga Esencial POR LA PASARELA
+  (`esEsencialPorPasarela`, lib/plan-esencial-reglas.ts). Un Esencial vendido por llamada hoy recibe MÁS de lo que dice la
+  tabla, nunca menos; si hay que cerrarlo, es ahí.
+- **En el teléfono la comparación muestra las cuatro columnas a la vez** (encabezados sin «MaKo», tabla compacta): con el
+  nombre entero sólo entraba Esencial y Pro y el Acelerador quedaban detrás de un deslizar que nadie sabía que existía.
+- **Mirar la vitrina sin levantar la app** (que en local escribe en la base de producción): el dibujo vive en
+  app/planes/Vitrina.tsx, sin datos ni red. Un `renderToStaticMarkup` con `PLANES_MAKO_DEFAULT` desde un archivo temporal
+  DENTRO del worktree (desde el scratchpad no encuentra node_modules; tsx compila el JSX clásico: `globalThis.React = React`
+  antes de importar) y una captura con la Playwright de Python sobre el Chrome instalado (`channel='chrome'`: el Chromium de
+  ms-playwright no arranca, «spawn UNKNOWN»).
+
+**Vive en:** app/planes/page.tsx · app/planes/Vitrina.tsx · app/planes/estilo.ts · lib/planes-comparacion.ts ·
+lib/planes-mako.ts (`PROGRAMA_ACELERADOR`) · tests/planes-tres-bloques.test.ts.

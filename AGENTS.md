@@ -2188,6 +2188,10 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
 - La segunda capa ya existe y se usa: `sanearSalida` (`lib/doer-salida.ts`) saca la oración que
   promete sin haber hecho nada, y la grosería. Detalle en
   [docs/hallazgos-comunicacion.md](docs/hallazgos-comunicacion.md) → «No puedo», «déjame ver».
+- **El acuse del grupo es el 👍, y ningún código manda un «dame un momento»** (Martín, 24/10/2026). Un texto de
+  espera sale sólo por `esperaDelPedido` (`lib/doer-acuse.ts`): para lo que lleva tiempo DE VERDAD, nombrando qué
+  («Analizo las campañas y en breves te digo»), o si el 👍 no salió. Un caso nuevo que lleva tiempo se suma ahí
+  con su test, no como un `enviarAGrupoJid` suelto. `tests/doer-acuse.test.ts` frena el acuse de texto que vuelva.
 
 ## Un jefe que arregla algo que le falló a un CLIENTE, cuando llega a producción, se lo avisa en su grupo
 
@@ -2384,11 +2388,15 @@ Su página va con `Referrer-Policy: same-origin`, NUNCA `no-referrer`: con ésa 
 `Origin: null` y la página se rechaza a sí misma (la 0.4.0 publicada no servía por eso).
 
 **Y la computadora del cliente NUNCA atiende leads sola (Martín, 22/10/2026, sobre los términos de Anthropic: «No por
-ahora»).** Su Claude en su PC (D6a) es SÓLO para que el dueño trabaje con SU Claude desde la app: el chat de la app, el del
-teléfono, el de MaKo en el CRM y el de la ficha del lead, siempre con la sesión de una persona. Nada que corra solo hacia un
-lead —respuestas automáticas de WhatsApp, AI Steps de Automations, crons, webhooks, secuencias— va a la PC: va por clave de
-API, o por el crédito donde está asignado (lib/credito-negocio.ts). A la PC llega sólo `turnoApp` (lib/mako-turno-app.ts);
-una entrada nueva que lo llame se suma en tests/ia-pc-nunca-a-leads.test.ts con la sesión de su persona, y si corre sola, no.
+ahora»; y el 23/10/2026, para ChatGPT: «igual que Claude, sólo para que el dueño use su propio ChatGPT en su PC, nunca para
+atender leads solo»).** Su Claude o su ChatGPT en su PC (D6a) es SÓLO para que el dueño trabaje con SU IA desde la app: el
+chat de la app, el del teléfono, el de MaKo en el CRM y el de la ficha del lead, siempre con la sesión de una persona. Nada que
+corra solo hacia un lead —respuestas automáticas de WhatsApp, AI Steps de Automations, nutrición, avisos, crons, webhooks,
+secuencias— va a la PC: va por clave de API, o por el crédito donde está asignado (lib/credito-negocio.ts). A la PC llega sólo
+`turnoApp` (lib/mako-turno-app.ts), y **la sesión se mira ADENTRO del turno, no sólo en quien lo llama**
+(`laPersonaEstaAdentro`): armar la persona del dueño no alcanza. Una entrada nueva que lo llame se suma en
+tests/ia-pc-nunca-a-leads.test.ts con la sesión de su persona, y si corre sola, no. Una PC contesta sólo con la IA del texto
+que aceptó quien la conectó (`iaDeLaPcConectada`).
 
 **Y todo .exe que publicar-binarios sube se firma con `firmar` (scripts/ia-pc/firmar-windows.mjs) DESPUÉS del último cambio
 a sus bytes y antes de subirlo.** «Firmado» es `peFirmado` y `peConMarcaDeTiempo` sobre lo que vuelve, nunca el código de
@@ -5629,6 +5637,21 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
 - **Un proxy de archivos no repite el Content-Type de quien los mandó**: lista de tipos, `attachment` y `nosniff`.
 - **Todo handler de `app/api/cron` empieza con `checkCronAuth(req)`** (tiempo constante, fail-closed), y ninguna ruta
   lee `CRON_SECRET` por su cuenta.
+- ⚠️ **Y un cron de SESIÓN no es infraestructura: lo que tiene que correr SIEMPRE va acá, nunca
+  en un `CronCreate`.** Ése es session-only y vence a los 7 días, así que depende de que un chat de
+  Claude siga abierto. Medido el 24/10/2026: el vigía de los grupos de MaKo estuvo TRES DÍAS parado
+  porque su job vivía en la sesión de otra cuenta, y no lo avisó ningún sistema — lo notó Martín a
+  ojo. La prueba antes de escribirlo: **si «¿quién lo dispara?» se contesta «un chat», no es un
+  guardia.** Y al mudar algo de una sesión a un cron, la pregunta que falta casi siempre es a dónde
+  va la SALIDA: el informe que leía una persona en su terminal no lo lee nadie. El caso, en
+  [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «Un vigía atado a una sesión de Claude».
+  **Lo mismo en la PC (24/10/2026, el segundo caso en 24 horas):** el cartero del Ops Center estuvo 15 horas muerto porque
+  lo disparaba el chat «Runner» y la PC se apagó; el pedido de Martín del 17/10 esperó una semana en «escrito». Lo que vive
+  en la PC y tiene que correr siempre arranca con el SISTEMA (la clave Run, como `mako-pc`), y un chat hace sólo lo que
+  únicamente un chat puede hacer (escribirle a otra sesión). **Y el silencio de algo se mide desde OTRO lado:** una PC
+  trabada no avisa que se trabó, así que la ausencia la dice el servidor con «la última vez que llegó algo» (`visto_at`),
+  en rojo y con lo que espera, nunca en un renglón gris. El diseño, en
+  [docs/diseno-cartero-servicio.md](docs/diseno-cartero-servicio.md).
 - **Un GET no escribe** (el de `chat-agent/onboarding/resumen` desarchivaba automatizaciones con un link).
 - **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated` Y su `grant execute … to service_role`** (el de una
   función de trigger no hace falta), en su migración: **no es redundante.** La 0280 creía dejar las nuevas cerradas y NO lo hacía: el
@@ -5959,6 +5982,14 @@ Se arregló de raíz y lo fija `tests/modal-foco.test.ts`. Lo que gobierna códi
 - **Y una MEDIDA tampoco llega al montar**: un campo que se mide solo en su primer efecto (`height = scrollHeight`) mide 0
   y queda colapsado, con la barra de scroll y el placeholder fuera de la vista (la barra «Pídeselo a MaKo», 12/10/2026).
   Va con `minHeight` y la medida con el borde (`ComposerWhatsApp`), o vuelve a medir cuando se ve (`ResizeObserver`).
+- **Una LISTA LARGA con sus ACCIONES ABAJO adentro de un `<Modal>` va en `VistaConPie`** (app/_ui/VistaConPie.tsx), con
+  `alto` fijo en el Modal: la lista es la única que scrollea y el pie es el último renglón. Un pie `sticky` armado a mano
+  dentro del cuerpo deja pasar las filas por el padding de abajo («los botones a la mitad y abajo se siguen viendo leads»,
+  24/10/2026). Pasó dos veces porque la segunda pantalla se copió de la primera antes de su arreglo: por eso es UNA pieza.
+- **Una acción en lote que escribe DE A UNO en el server (mover de etapa, eliminar) va de a tandas desde la pantalla**
+  (`correrEnTandas`, app/crm/lote-tandas.ts), con su avance; el server corta por tiempo (`PRESUPUESTO_LOTE_MS`) y devuelve
+  `pendientes` (también lo que pasa de su tope), y el aviso dice cuántos sí y cuántos no. Nunca un corte callado: 221 en una
+  sola llamada movieron 121 a los 60 s y el dueño creyó que se le partió la base (24/10/2026).
 - `useCerrarEstable(onCerrar, ocupado)` sigue sirviendo para no cerrar mientras algo se manda; ya no
   hace falta para el foco.
 
@@ -9218,6 +9249,9 @@ dimos. El dueño lo reportó como «es aún más raro».
   sí (el `catch` del modelo, la guarda de «ningún proveedor contestó» y el bloqueo por
   respuesta inválida). El guard busca cualquier línea que use el texto de aviso, así caza
   también la cuarta.
+- **Un cartel no tapa lo que el turno dejó hecho** (24/10/2026, ws15: la pendiente «Mover a ELi…» quedó viva dos horas
+  detrás de un «no pude»). Lo que el turno propuso antes de caerse se nombra en el cartel (`conLoQueQuedoPropuesto`,
+  lib/respuesta-doer.ts), en UN lugar: al mandar, si `avisoDeSistema`. Un cartel nuevo prende `avisoDeSistema` y lo hereda.
 - ⚠️ **El olor: el modelo dice algo sobre SÍ MISMO que nadie le contó.** Lo primero que hay
   que mirar no es el prompt: es qué hay guardado en el historial con su nombre.
 
@@ -9784,6 +9818,12 @@ proyectos en `video-editor-projects` y un cliente le «heredaba» proyectos a ot
 - Se lee en CADA apertura, no al importar el módulo: los singletons de almacenamiento se
   crean una vez y la pestaña puede cambiar de cliente sin recargar.
 - Un guardado en un cleanup/unmount compara el ws del montaje con el actual antes de escribir.
+- ⚠️ **Y no es sólo una base de proyectos: es CUALQUIER pantalla que recuerde lo que se escribió para un negocio** (un
+  borrador, los números de una calculadora, lo último tipeado). El 24/10/2026 la regla ya estaba escrita y aparecieron
+  dos más sin el negocio: la calculadora de presupuesto y el borrador de «Nueva campaña» del Ads Manager, que traía la
+  página, las audiencias y el destino de OTRO cliente. Un estado de pantalla guardado sin el negocio adentro se filtra
+  entre clientes, y no da error: se ve como un borrador cualquiera. Una clave vieja sin negocio no se migra: se borra.
+  Los que quedan sin negocio, en docs/hallazgos-ads.md → «Un estado de pantalla guardado sin el negocio».
 
 # Un tema limitado a una clase no llega a los PORTALES
 
@@ -10318,3 +10358,25 @@ Y NACE DONDE VA: un lead que no debe recibir nada nace en su etapa final (`creat
 entrada y movido después. Entre el alta y el movimiento, el barrido de la hora lo inscribe en lo que cuelga de la entrada
 («Un Lead Entró»), y si el movimiento falla queda ahí. Tampoco a una etapa terminal (`terminalEstadoFor ≠ abierto`): «Ganado»
 lo vuelve venta y cliente de Customer Success, con el onboarding de la entrega.
+
+## La extensión en el sitio de un tercero (WhatsApp Web): LEE, y sólo lo pedido (24/10/2026)
+
+Un content script de `extension/` que corre en el sitio de un tercero (hoy `wa-fichas.js` en WhatsApp Web) no escribe nada
+ahí: ni la base del sitio (sólo `readonly`, nunca pedir versión, y no abrir una base que no existe porque abrirla la CREA), ni
+la pantalla (un clic puede abrir un chat y dar el «visto»), ni la red. Contesta un pedido que la persona disparó desde MaKo,
+nunca vigila, y devuelve SÓLO lo que se le pidió (la agenda de la persona no sale de su navegador). Corre en el mundo
+aislado, no en MAIN. Lo que lee tiene que estar dicho en `app/privacidad/extension/page.tsx`, con la fecha actualizada. Lo
+hace cumplir tests/wa-fichas-extension.test.ts; el porqué, docs/hallazgos-extension.md.
+
+Y en `extension/*.js`, **ninguna barra-asterisco dentro de un texto** (un patrón de URL de Chrome la tiene al final): los
+tests de la extensión quitan comentarios con una regex que no distingue textos, y esa secuencia se come el código que sigue
+hasta el próximo cierre de comentario. Rompe tests que no tienen nada que ver, que es lo más caro de diagnosticar.
+
+## Consultar a WhatsApp de a muchos por una línea no oficial: tope por día en el server, y recordar a quién ya (24/10/2026)
+
+Cada consulta por número (perfil, foto, «¿tiene WhatsApp?») es tráfico en la red de la línea y la acerca a un baneo. Un camino que
+consulta en lote va de a uno y espaciado, con un tope por corrida y otro por DÍA y por línea, y el del día lo reserva el SERVER
+antes de cada consulta, con compare-and-set (la pantalla no es una garantía). Recuerda a quién ya consultó: sin eso, un tope
+repite siempre a los primeros. Lo que no contestó es «no sé»: no queda consultado, pero cuenta en el cupo. Y antes de arrancar,
+la cuenta y el tiempo se le dicen a la persona. El molde es `completarPerfilesDelGrupo` (app/crm/grupo-wa-server.ts); lo hace
+cumplir tests/grupo-wa.test.ts (12 y 12b); el porqué, docs/hallazgos-crm.md.

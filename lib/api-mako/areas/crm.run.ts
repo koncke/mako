@@ -39,7 +39,7 @@ import {
   contarVisitasLanding, esRequisitosFaltantes, type Lead, type FathomLink,
 } from '@/lib/leads';
 import { getFunnelDefault, getFunnelDe, listarFunnels, idDelFunnelDefault } from '@/lib/funnels';
-import { etapasParaTraer, etiquetaDeOrigen, gruposDeLinea, marcarEnElCrm, participantesDelGrupo, traerDelGrupo } from '@/app/crm/grupo-wa-server';
+import { completarNombresDelGrupo, etapasParaTraer, etiquetaDeOrigen, gruposDeLinea, marcarEnElCrm, participantesDelGrupo, traerDelGrupo } from '@/app/crm/grupo-wa-server';
 import { etapaPorDefecto, funnelPorDefecto } from '@/lib/grupo-wa-reglas';
 import { salidasDeEtapa, stageMetaOpt, ENTRADAS, MAKO_SETTER, type EntradaId, type Stage } from '@/lib/pipeline';
 // «Nuevo CRM» por su tipo (14/10/2026): el catálogo puro y el alta que comparte con el modal.
@@ -174,6 +174,18 @@ const YA_ESTABA_COBRADA = 'Esa cuota ya estaba cobrada: no cambié nada (ni la f
 async function conLead(input: Record<string, unknown>, fn: (lead: Lead) => Promise<SalidaLectura>) {
   const lead = await leadDe(input.leadId);
   return lead ? fn(lead) : fallo(noExiste(input.leadId));
+}
+
+/** El grupo de WhatsApp que se pidió (su id o su nombre) en la línea del negocio: lo usan traer y completar nombres. */
+async function grupoPedido(input: Record<string, unknown>) {
+  const g = await gruposDeLinea(typeof input.linea === 'string' ? input.linea : null);
+  if (!g.ok) return { error: g.error };
+  const pedido = String(input.grupo ?? '').trim();
+  const k = pedido.toLowerCase();
+  const parecidos = g.grupos.filter((x) => x.nombre.toLowerCase().includes(k));
+  const grupo = g.grupos.find((x) => x.jid === pedido) ?? g.grupos.find((x) => x.nombre.toLowerCase() === k) ?? (parecidos.length === 1 ? parecidos[0] : null);
+  if (!grupo) return { error: `No encontré el grupo «${pedido}» en esa línea (${parecidos.length > 1 ? 'hay varios con ese nombre' : 'mira grupos_whatsapp'}).` };
+  return { g, grupo };
 }
 
 // ── agenda de Google ──────────────────────────────────────────────────────────
@@ -1158,13 +1170,9 @@ export const RUNNERS: Runners = {
   },
   traer_contactos_de_grupo: {
     preparar: async (input) => {
-      const g = await gruposDeLinea(typeof input.linea === 'string' ? input.linea : null);
-      if (!g.ok) return { error: g.error };
-      const pedido = String(input.grupo ?? '').trim();
-      const k = pedido.toLowerCase();
-      const parecidos = g.grupos.filter((x) => x.nombre.toLowerCase().includes(k));
-      const grupo = g.grupos.find((x) => x.jid === pedido) ?? g.grupos.find((x) => x.nombre.toLowerCase() === k) ?? (parecidos.length === 1 ? parecidos[0] : null);
-      if (!grupo) return { error: `No encontré el grupo «${pedido}» en esa línea (${parecidos.length > 1 ? 'hay varios con ese nombre' : 'mira grupos_whatsapp'}).` };
+      const pg = await grupoPedido(input);
+      if ('error' in pg) return { error: pg.error ?? 'No pude leer los grupos de esa línea.' };
+      const { g, grupo } = pg;
       // Por defecto, como la pantalla: el CRM «Prospección» si lo hay, y ahí «Tibio» (el Cerebro, 23/10/2026).
       const funnels = await listarFunnels();
       const funnelId = n(input.embudoId) ?? funnelPorDefecto(funnels, await idDelFunnelDefault());
@@ -1176,10 +1184,10 @@ export const RUNNERS: Runners = {
       if (!etapa) return { error: e ? `Ese funnel no tiene la etapa «${String(input.etapa)}».` : 'Ninguna etapa de ese funnel se puede usar al traer (todas tienen una automatización o cierran el trato).' };
       if (etapa.manda) return { error: `«${etapa.label}» no se puede usar al traer (tiene una automatización o cierra el trato): elige otra etapa.` };
       const p = await participantesDelGrupo(g.linea, grupo.jid);
-      if (!p.ok) return { error: p.error };
+      if (!p.ok) return { error: p.error ?? 'No pude leer los participantes del grupo.' };
       if (!p.participantes.length) return { error: p.sinNumero ? 'WhatsApp no deja ver los números de ese grupo.' : 'Ese grupo no tiene a nadie para traer.' };
       const origen = await etiquetaDeOrigen(typeof input.etiqueta === 'string' && input.etiqueta.trim() ? input.etiqueta : grupo.nombre);
-      if (!origen.ok) return { error: origen.error };
+      if (!origen.ok) return { error: origen.error ?? 'No pude preparar el origen de esos contactos.' };
       const ya = (await marcarEnElCrm(p.participantes)).filter((x) => x.enElCrm).length;
       return {
         payload: { linea: g.linea, jid: grupo.jid, nombreGrupo: grupo.nombre, funnelId, etapa: etapa.key, etiqueta: origen.nombre },
@@ -1202,6 +1210,29 @@ export const RUNNERS: Runners = {
         ok: true,
         resumen: `Listo: ${partes.join(', ') || 'nadie nuevo'}${r.etiqueta ? `, con «${r.etiqueta}»` : ''}.${r.quedan ? ` Quedan ${r.quedan}: pídemelo de nuevo y sigo.` : ''}`,
       };
+    }),
+  },
+
+  // «Completar nombres» (24/10/2026): lo mismo que la pantalla. Cuenta antes (`soloContar`) para proponer con números.
+  completar_nombres_de_grupo: {
+    preparar: async (input) => {
+      const pg = await grupoPedido(input);
+      if ('error' in pg) return { error: pg.error ?? 'No pude leer los grupos de esa línea.' };
+      const { g, grupo } = pg;
+      const c = await completarNombresDelGrupo({ linea: g.linea, jid: grupo.jid, autor: '', soloContar: true });
+      if (!c.ok) return { error: c.error ?? 'No pude completar los nombres de ese grupo.' };
+      const sin = c.sinNombre ? ` (${c.sinNombre} siguen sin nombre en WhatsApp: se completan cuando escriban)` : '';
+      if (!c.completados) return { error: `En «${grupo.nombre}» no hay nombres nuevos para completar${sin}.`, yaEstaba: true };
+      return {
+        payload: { linea: g.linea, jid: grupo.jid, nombreGrupo: grupo.nombre },
+        resumen: `Completar ${c.completados} nombres de los que ya trajiste de «${grupo.nombre}»${sin}. No se le escribe a nadie.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('completar los nombres del grupo', async () => {
+      const r = await completarNombresDelGrupo({ linea: String(payload.linea), jid: String(payload.jid), autor: autorDe(ctx), hasta: Date.now() + 45_000 });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (r.completados) invalidar('leads');
+      return { ok: true, resumen: `Listo: ${r.completados} nombres completados en «${String(payload.nombreGrupo)}».${r.quedan ? ` Quedan ${r.quedan}: pídemelo de nuevo y sigo.` : ''}` };
     }),
   },
 
@@ -1273,7 +1304,7 @@ export const RUNNERS: Runners = {
     },
     ejecutar: (payload, ctx) => seguro('vincular el producto', async () => {
       if (payload.precioStripe) return ejecutarPrecioDeStripe(payload, ctx.ws, autorDe(ctx));
-      const r = await vincularCobro({ funnelId: payload.embudoId, etapa: ETAPA_COBRO, productoId: payload.productoId, cuentas: payload.cuentas }, await cuentasDelNegocio(ctx.ws), autorDe(ctx));
+      const r = await vincularCobro({ funnelId: Number(payload.embudoId), etapa: ETAPA_COBRO, productoId: Number(payload.productoId), cuentas: (Array.isArray(payload.cuentas) ? payload.cuentas : []) }, await cuentasDelNegocio(ctx.ws), autorDe(ctx));
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: 'Listo: el producto cobra en Ganado.', datos: { vinculoId: r.vinculo.id } };
     }),
@@ -1289,7 +1320,7 @@ export const RUNNERS: Runners = {
       return { payload: { vinculoId: v.id, cuentas: pedidas }, resumen: `«${v.producto}» cobra en Ganado de «${v.crm}» desde ahora por ${por}.` };
     },
     ejecutar: (payload, ctx) => seguro('cambiar las cuentas', async () => {
-      const r = await cambiarCuentasCobro(payload.vinculoId, payload.cuentas, await cuentasDelNegocio(ctx.ws));
+      const r = await cambiarCuentasCobro(Number(payload.vinculoId), (Array.isArray(payload.cuentas) ? payload.cuentas : []), await cuentasDelNegocio(ctx.ws));
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: 'Listo: cambié por qué cuentas cobra.', datos: { vinculoId: r.vinculo.id, cuentas: r.vinculo.cuentas } };
     }),
@@ -1304,7 +1335,7 @@ export const RUNNERS: Runners = {
       };
     },
     ejecutar: (payload) => seguro('quitar el producto', async () => {
-      const r = await desvincularCobro(payload.vinculoId);
+      const r = await desvincularCobro(Number(payload.vinculoId));
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: 'Listo: ese producto ya no cobra en Ganado.', datos: { deshacer: r.deshacer } };
     }),
@@ -1364,7 +1395,7 @@ export const RUNNERS: Runners = {
   vincular_evento_etapa: {
     preparar: async (input) => {
       const p = await prepararVinculo({ proveedor: input.proveedor, evento: input.evento, funnelId: input.embudoId, etapa: input.etapa });
-      if (!p.ok) return { error: p.error };
+      if (!p.ok) return { error: p.error ?? 'No pude leer los participantes del grupo.' };
       if (p.yaEstaba) return { error: `«${p.evento.nombre}» ya está vinculado a «${p.etapaNombre}» de «${p.funnel}».`, yaEstaba: true };
       return {
         payload: { proveedor: p.evento.proveedor, evento: p.evento.identificador, embudoId: p.funnelId, etapa: p.etapa },

@@ -62,7 +62,9 @@ test('el código de partner viaja a la agenda como UTM cuando no hay campaña (l
   assert.equal(new URL(boton.href).searchParams.get('utm_campaign'), 'ana');
   assert.equal(agendaConOrigen(null, null), AGENDA_MAKO);
   // Las dos páginas le pasan el código: /planes desde su URL (no lee cookies), /planes/<plan> el que ya limpia.
-  assert.match(fuente('app/planes/page.tsx'), /const ref = codigoRefLimpio\(qs\.get\('ref'\)\)[\s\S]*botonDelPlan\(\{[^}]*, ref \}\)/);
+  // Desde el 24/10 la página lee y la vitrina (app/planes/Vitrina.tsx) dibuja: el código pasa de una a la otra.
+  assert.match(fuente('app/planes/page.tsx'), /const ref = codigoRefLimpio\(qs\.get\('ref'\)\);[\s\S]*<VitrinaPlanes [^>]*refCodigo=\{ref\}/);
+  assert.match(fuente('app/planes/Vitrina.tsx'), /const ref = refCodigo;[\s\S]*botonDelPlan\(\{[^}]*, ref \}\)/);
   assert.match(fuente('app/planes/[plan]/page.tsx'), /href=\{agendaConOrigen\(origen, ref\)\}/);
 });
 
@@ -81,9 +83,10 @@ test('«Pasar a Pro» por llamada: sólo desde Esencial y sólo sin la subida en
 
 test('/planes arma el botón con la regla y decide por plan con la misma cuenta que el checkout', () => {
   const pagina = fuente('app/planes/page.tsx');
-  assert.match(pagina, /botonDelPlan\(/);
+  const vitrina = fuente('app/planes/Vitrina.tsx');
+  assert.match(vitrina, /botonDelPlan\(/);
   assert.match(pagina, /ofertasDeLosPlanes\(\)/);
-  assert.doesNotMatch(pagina, /`\/planes\/\$\{p\.id\}/, 'el href del plan sale de botonDelPlan, no a mano');
+  assert.doesNotMatch(pagina + vitrina, /`\/planes\/\$\{p\.id\}/, 'el href del plan sale de botonDelPlan, no a mano');
   const lib = fuente('lib/compra-plan.ts');
   const ofertas = lib.slice(lib.indexOf('export async function ofertasDeLosPlanes'), lib.indexOf('export async function ofertasDeLosPlanes') + 700);
   assert.match(ofertas, /precioEn\(plan, m\.moneda\) != null/);

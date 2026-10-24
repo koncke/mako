@@ -1,5 +1,13 @@
 # Relevo · Web Generator, ex Landing Generator (el editor copiado de Gamma)
 
+## Estado al 24/10/2026 madrugada (cuenta claude1) — leer primero
+
+**Las ocho landings por funnel ya no muestran el VSL de la principal en el hero** (documentos #33 a #40, v2, subidos a las
+02:33-02:35): el hero queda con la promesa del ángulo y su botón, centrado, y el VSL baja debajo con «Así funciona MaKo».
+El texto de cada una no se tocó. Cuando un funnel tenga su propio VSL, se pone en su `video` (scripts/landings-mako-funnels.mts)
+y vuelve al hero. ⚠️ El script ahora pide `--id <documento>` con `--solo`: antes, volver a correrlo insertaba documentos
+nuevos con el mismo slug. Detalle: docs/hallazgos-editor-landing.md → «Las ocho landings por funnel sin el video…».
+
 ## Estado al 23/10/2026 tarde (mismo chat, cuenta claude2, retoma a claude1 cortado por cuota) — leer primero
 
 **Las ocho landings del lanzamiento (domingo 25/10) están arriba**, documentos #33–#40 del ws9, y se dibujan en las dos

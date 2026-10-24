@@ -62,9 +62,12 @@ test('El 👍 acusa recibo de toda petición', () => {
   assert.match(src, /reaccionarMensaje\(jid, data\.key, EMOJI_RECIBIDO\)/,
     'se perdió el acuse de recibo');
   assert.equal(EMOJI_RECIBIDO, '👍');
-  // Best-effort: fallar en el acuse no puede costar la respuesta.
-  assert.match(src, /void reaccionarMensaje\(jid, data\.key, EMOJI_RECIBIDO\)\.catch/,
+  // Best-effort: fallar en el acuse no puede costar la respuesta. Desde el 24/10/2026 la promesa se guarda (sin `void`)
+  // para mandar un texto si el 👍 no salió (tests/doer-acuse.test.ts), pero sigue sin `await` y con su `.catch`.
+  assert.match(src, /reaccionarMensaje\(jid, data\.key, EMOJI_RECIBIDO\)\.catch/,
     'el acuse dejó de ser best-effort: una reacción caída frenaría el turno');
+  assert.doesNotMatch(src, /await reaccionarMensaje\(jid, data\.key, EMOJI_RECIBIDO\)/,
+    'el 👍 se espera con await: una Evolution lenta frena el turno entero');
 });
 
 test('Detecta sticker, gif y emoji suelto', () => {

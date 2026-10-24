@@ -58,6 +58,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Ads Manager | `Leé docs/relevo/ads-manager.md y seguimos desde ahí.` |
 | Ciberseguridad | `Leé docs/relevo/ciberseguridad.md y docs/relevo/seguridad-aislamiento.md y seguimos desde ahí.` |
 | Chats (la bandeja única de todos los canales) | `Leé docs/diseno-chats.md y seguimos desde ahí.` |
+| IA del cliente («Tu ChatGPT», su Claude en su PC, la ola 3 con Codex) | `Leé docs/relevo/ia-del-cliente.md y seguimos desde ahí.` |
 | Leads Scraper | `Leé docs/diseno-leads-scraper.md y seguimos desde ahí.` |
 | Lector de reuniones | `Leé docs/relevo/lector-reuniones.md y seguimos desde ahí.` |
 | Tareas de llamada con Mauricio | `Leé docs/relevo/tareas-llamada-mauricio.md y seguimos desde ahí.` |

@@ -20,6 +20,77 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Datos de empresa» con tope por día: sin recordar a quién ya se consultó, el tope repite siempre a los mismos (24/10/2026)
+
+**Vive en:** `completarPerfilesDelGrupo` y `reservarPerfil` (app/crm/grupo-wa-server.ts) · las reglas del cupo en
+lib/grupo-wa-reglas.ts (`TOPE_PERFILES_CORRIDA` 40, `TOPE_PERFILES_DIA` 120 por línea) · `contarPerfiles` y `traerPerfiles`
+(app/crm/TraerDeGrupoWA.tsx) · tests 12 y 12b de tests/grupo-wa.test.ts (17 de 17 roturas cazadas).
+
+- **Un tope por día solo no alcanza.** Cada corrida empezaba por el primer participante, así que con 40 por corrida se
+  consultaban siempre los mismos 40 y los otros 181 nunca. Por eso el tope va junto con los ya consultados, guardados por
+  línea en `app_settings` (`perfiles_wa.vistos.<línea>`): la corrida de mañana sigue con los que faltan.
+- **El que no contestó es «no sé», no «no».** No queda como consultado (otro día se vuelve a preguntar), pero gastó cupo:
+  fue tráfico igual. Dentro de una misma corrida, la llamada siguiente empezaría por ellos. Por eso vuelven en
+  `sinRespuesta` y la pantalla los manda en `saltear`.
+- **El cupo del día lo cuenta el SERVER y se reserva ANTES de cada consulta**, con compare-and-set sobre
+  `perfiles_wa.cupo.<línea>` (`cambiarSettingSi`). Dos pestañas o dos personas del equipo a la vez no se pasan del tope. El de
+  la corrida lo cuenta la pantalla (`hechas`); si una pantalla mintiera, igual la frena el del día. El día es el del negocio
+  (`hoyEnWorkspace`).
+- **La cuenta, antes de consultar nada** (`soloContar`): la pregunta dice cuántos faltan, cuántos se consultan ahora y en
+  cuántos minutos (redondeado para arriba), y cuántas consultas quedan hoy. Mientras corre, el botón pasa a «Parar», que
+  frena entre una llamada y la siguiente (y lo dice).
+
+*24/10/2026, chat «CRM» (claude1).*
+
+## «Completar desde mi WhatsApp»: el límite es «un lead que ya existe», no «está en el grupo» (24/10/2026)
+
+**Vive en:** `completarFichasDelGrupo` (app/crm/grupo-wa-server.ts) · `leerDeWhatsappWeb` (app/crm/TraerDeGrupoWA.tsx) ·
+la extensión, en [hallazgos-extension.md](hallazgos-extension.md).
+
+- **Releer el grupo en cada tanda era una consulta a la red de la línea por tanda.** La primera versión re-leía los
+  participantes en Evolution (`/group/participants`) para quedarse sólo con los del grupo. Eso es tráfico en la red de una
+  línea no oficial, y el Cerebro lo había prohibido («nada de consultas a la red de su línea»). Esa pertenencia no protegía
+  nada: un admin ya puede editar cualquier lead de su negocio. Lo que sí importa es «sólo un teléfono que es UN lead»
+  (`buscarTelefono` da un número; ni ninguno ni dos), y de ahí no se crea, no se mueve y no se manda nada.
+- **Cada ficha son varias escrituras** (nombre con CAS, empresa con CAS, leer la última línea de grupos, escribirla). Por eso
+  el server corta por tiempo (`hasta`) y devuelve `pendientes`, y la pantalla los vuelve a poner al frente de la cola. Si una
+  tanda vuelve entera sin guardar, se corta y se dice: nunca un bucle que no termina (la regla de «lote de a tandas» de
+  AGENTS.md).
+- **El nombre que se escribe:** primero el de la agenda de Martín, después el de la empresa verificada, después el que la
+  persona se puso. Se escribe sólo sobre un nombre de relleno (su número), comparando antes de escribir. Los grupos en común
+  quedan como una línea del historial, y sólo si cambió.
+
+*24/10/2026, chat «CRM» (claude1).*
+
+## Mover en lote los 221 movió 121: lo cortó el TIEMPO de una sola llamada, no la selección (24/10/2026)
+
+**Vive en:** `app/crm/AccionesLoteLeads.tsx` (la barra) · `moverLeadsDeEtapaAction` y `eliminarLeadsAction` en
+`app/crm/actions.ts` · `app/crm/lote-tandas.ts` (la cola, pura) · `tests/crm-lote-tandas.test.ts`.
+
+- **Síntoma:** Martín tildó con la casilla de la columna los 221 que trajo de un grupo y los movió a «Lead entrante». Quedó
+  «Lead entrante 121 · Círculo TIBIO 100», y tuvo que repetirlo. Creyó que se le había partido la base la noche antes del
+  lanzamiento.
+- **El diagnóstico obvio era el equivocado: «la casilla tilda sólo lo dibujado».** Tilda la columna entera (`cards`, no
+  `dibujadas`; la página trae todos los leads con `leerTodo`). Tampoco era un dibujo viejo: «121 y 100» era el estado real.
+- **La causa, medida en su historial (`lead_audit`, «Etapa»):** 121 movidos entre 05:38:39 y 05:39:46 (67 s) y se cortó;
+  los 100 restantes, en 50 s (~0,5 s por lead). `moverLeadsDeEtapaAction` mueve de a uno y en serie (~6 consultas y un
+  revalidate por lead) dentro de UNA acción del server de 60 s, y la pantalla le mandaba los 221 juntos. Vercel la mató:
+  lo movido quedó movido, el resto no, y la pantalla dijo un error genérico. Además había un `slice(0, 200)` callado: con
+  más de 200, el resto nunca se movía.
+- **La regla, que vale para toda la app:** un lote que se escribe de a uno va de a TANDAS chicas desde la pantalla, en serie,
+  con su avance. El server corta por tiempo (`PRESUPUESTO_LOTE_MS`) y devuelve lo que no llegó (`pendientes`, incluido lo que
+  pasa del tope), y eso vuelve a la cola. Si algo se corta, el aviso dice cuántos sí, cuántos no y cuántos quedaron en duda.
+  **Nunca un corte callado:** una acción en lote que corta a mitad sin decirlo miente sobre su alcance.
+- **Barrido de la barra de lote:** «Eliminar» tenía lo mismo (de a uno, el mismo tope y el mismo corte); va igual.
+  «Agregar a un funnel» va en lotes por dentro, pero el server corta en 2.000 sin decirlo y la pantalla contaba los
+  cortados como «ya estaban»: ahora va de a tandas. Etiquetar, asignar y frenar son una sola escritura de lote.
+- **Al terminar, el tablero se relee** (`router.refresh()` en el `onListo` del tablero): las dos columnas quedan bien sin F5.
+
+**Sin hacer:** verlo en pantalla con un lote de 200+ cuando esté desplegado. Y barrer el resto de la app (fuera del CRM) en
+busca de lotes de a uno en una sola llamada: no se barrió.
+
+*24/10/2026, chat «CRM» (claude1).*
+
 ## «Unificar» dos fichas parecidas: no existía, y una ficha tiene ~45 columnas colgando (23/10/2026)
 
 **Pedido.** Martín, 23/10 ~23:20 UTC: «En el CRM si me dice "Hay otra ficha parecida", que me de la opción ahí mismo de
@@ -246,6 +317,42 @@ No se probó con una línea de un cliente (las del ws3 y ws9 están cerradas): l
 lib/nutricion.ts) · `tests/grupo-wa.test.ts` (21 + 10 + 8 roturas). Lo de Evolution, en hallazgos-comunicacion.md.
 
 *23/10/2026, chat «Offer» (claude3).*
+
+### Los 221 llegaron sin nombre: completar se diseña junto con traer (24/10/2026)
+
+- **Síntoma:** Martín trajo «16, 17 y 18 de JUNIO | RETO del Anuncio Ganador» y no vino «el nombre de nadie»: 221 leads con
+  su número por nombre (`+<teléfono>`, lo que pone `traerDelGrupo` cuando no hay nombre).
+- **El diagnóstico obvio era el equivocado: «estamos tirando el `pushName`».** La pieza ya leía `name`, `notify` y
+  `pushName`. Medido en su línea: el listado de participantes NO trae nombres (ver hallazgos-comunicacion.md). Esperar para
+  «traer con nombres» no habría dado nada.
+- **La lección, más grande que el caso:** una importación masiva que no puede enriquecerse después obliga a elegir entre
+  traer rápido o traer completo. Y acá, re-traer no sirve: la pieza nunca duplica, y los que ya están quedan «Ya está». **El
+  camino de completar se diseña junto con el de traer, no después.**
+- **Cómo quedó:**
+  - Los nombres que WhatsApp ya conoce entran en el mismo lugar que lee todo el camino (`participantesDelGrupo` →
+    `nombresConocidos`). Salen de la agenda de la línea en Evolution (por teléfono o por `@lid`) y de `evolution_contactos`,
+    sin tráfico a la red.
+  - «Completar nombres» (la pantalla y `completar_nombres_de_grupo` en la API) recorre los participantes que ya son leads.
+    Les pone ese nombre sólo si el que tienen es de relleno (`esNombreDeRelleno`: vacío o sin letras). Compara antes de
+    escribir (`completarNombreDeRelleno`, lib/leads.ts) y deja la línea «Nombre» en el historial. No crea, no mueve, no
+    manda nada, y se puede repetir: quien escriba más adelante deja su nombre en la agenda.
+- **Medido el 24/10/2026, en seco (`soloContar`), sobre los 221 ya traídos:** 221 con el número por nombre, y **0 nombres
+  conocidos hoy**: nadie de ese grupo le escribió a la línea. La herramienta queda, y el número va a subir solo a medida
+  que escriban.
+
+- **«Datos de empresa» (el mismo día):** el perfil de empresa de WhatsApp de cada uno que ya está (6 de 15 en la muestra
+  tienen cuenta de empresa), en sus columnas `web`, `instagram`, `email` y `direccion`, SÓLO si están vacías
+  (`parcheDePerfil`; `completarCamposVacios` compara que sigan vacías). El rubro y la descripción van al historial. Es un botón
+  con pregunta, porque tarda (~2,6 s por persona: de a uno y espaciado) y consulta la red de la línea. No trae el nombre.
+
+**Sin hacer:**
+- «Datos de empresa» por la API de MaKo: no tiene operación todavía. Es largo y de a tandas, y volver a correrlo vuelve a
+  consultar a todos: antes hay que poder saltear a quien ya se consultó.
+- Un tope por día de consultas de perfil en la línea: hoy sólo la frena la espera entre una y otra.
+- Buscar la web y el Instagram de los que NO tienen cuenta de empresa: el chat de Ventas lo hizo por TELÉFONO (Apify,
+  053ab4f6a). Se engancha cuando esté en main, y necesita la clave de Apify del negocio, que hoy nadie tiene.
+
+*24/10/2026, chat «CRM» (claude1).*
 
 ## El «Mover de etapa» en lote les pisaba la CASA a los agregados (23/10/2026, P0 de #289)
 
@@ -10874,3 +10981,22 @@ docs/hallazgos-api-mako.md). Lo que cambia para quien toque el CRM:
 
 **Vive en:** lib/etapas-crm-server.ts · lib/etapas-crm-reglas.ts · app/crm/actions.ts
 *23/10/2026, chat «API de MaKo» (claude2).*
+
+## Enriquecer la base de venta con Apify: se armó, y Martín lo descartó (24/10/2026)
+
+**Vive en:** nada en main. El código está en el historial: `git show 053ab4f6a` (lib/enriquecer-reglas.ts,
+lib/enriquecer-por-nombre.ts, tests/enriquecer-por-nombre.test.ts), revertido antes de subir.
+
+Para los 221 participantes de un grupo de WhatsApp que entraron como teléfonos pelados, se armó una búsqueda en Google
+Maps por Apify con la clave del negocio. Martín, al ver el precio (unos US$2–5 los 221): «no voy a gastar 5 USD por 200
+leads cuando tengo grupos con miles, no es viable». Todo pasa a salir de la extensión de MaKo, que lee la ficha que él ya
+ve en su WhatsApp Web (lo lleva el chat del CRM). Lo que se aprendió y sirve para cualquier búsqueda afuera:
+
+- **Los participantes de un grupo NO traen nombre** (medido por el CRM: 0 de 221). Buscar «por nombre» era el diagnóstico
+  equivocado: la única llave que hay es el TELÉFONO.
+- **Lo que hace seguro un resultado de afuera es el mismo teléfono**, no un nombre parecido: un lugar con OTRO teléfono no
+  es el lead aunque se llame igual, y dos candidatos que dicen cosas distintas son «no sé», nunca el primero.
+- **El perfil de empresa de WhatsApp** dio 3 de 15 en la muestra, y no se corre en masa desde la línea: es tráfico en una
+  línea no oficial. Una búsqueda afuera, si vuelve, va en goteo y a ritmo humano desde su navegador, y frena ante un captcha.
+
+*24/10/2026, chat «Ventas de MaKo» (`claude1`).*

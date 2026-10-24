@@ -19,7 +19,7 @@
 
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { documentoDeLaLanding, seccionesDeLaLanding, subir } from './landing-mako-a-web-generator.mts';
+import { documentoDeLaLanding, seccionesDeLaLanding, subir } from './landing-mako-a-web-generator.mjs';
 import { LANDINGS_MAKO } from '../lib/origen-cuenta';
 
 type Copy = {
@@ -35,6 +35,11 @@ type Copy = {
   seoDescripcion: string;
   /** No se sube con `--subir` (sí con `--incluir-pausadas`): lo que promete no está confirmado para clientes. */
   pausada?: boolean;
+  /**
+   * El VSL PROPIO de este funnel, cuando exista (el `src` del iframe de Panda). Mientras no esté, el hero va sin video
+   * y el de la principal baja debajo con su rótulo (`heroSinVideo`).
+   */
+  video?: string;
 };
 
 export const COPY: Record<string, Copy> = {
@@ -111,11 +116,45 @@ export const COPY: Record<string, Copy> = {
 
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+/** El `src` del VSL de la principal en el HTML (el de Panda): lo reemplaza el `video` propio de un funnel cuando exista. */
+const VSL_PRINCIPAL = 'https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=25c0684d-528e-4382-9796-d1ec74b79634&amp;color=%232F6FED';
+
 /** Reemplaza `de` por `a` en el HTML; si no aparece exactamente `veces` veces, falla (la principal cambió). */
 function cambiar(html: string, de: string, a: string, veces = 1): string {
   const n = html.split(de).length - 1;
   if (n !== veces) throw new Error(`«${de.slice(0, 60)}» aparece ${n} veces (se esperaban ${veces})`);
   return html.split(de).join(a);
+}
+
+/**
+ * El hero de un funnel SIN el video de la principal (24/10/2026, Landings, antes del lanzamiento del 25/10). Las ocho
+ * embebían el VSL de la principal, que habla de MaKo en general, al lado de un titular que promete el dolor de cada
+ * ángulo: quien entraba por «inmobiliarias» veía al lado un video que hablaba de otra cosa, y para el test de anuncios
+ * el video dominaba el primer pantallazo de las ocho por igual. Hasta que cada una tenga su VSL (docs/vsl/, `video`),
+ * el hero queda con la promesa y su botón, centrado, y el VSL de la principal baja justo debajo, con un rótulo que dice
+ * lo que es: «Así funciona MaKo». Cada reemplazo tiene que encontrar su texto: si la principal cambió, falla y no sube.
+ */
+export function heroSinVideo(h: string): string {
+  const inicio = '\n      <div style="flex:1 1 auto;min-width:320px">\n        ';
+  const i = h.indexOf(inicio);
+  const cierre = '</iframe>\n        </div>\n      </div>';
+  const j = i < 0 ? -1 : h.indexOf(cierre, i);
+  if (i < 0 || j < 0 || h.indexOf(inicio, i + 1) >= 0) throw new Error('el hero de la principal cambió: no encuentro la columna del video');
+  const reproductor = h.slice(i + inicio.length, j + '</iframe>\n        </div>'.length);
+  if (!/<iframe [^>]*title="VSL MaKo"/.test(reproductor)) throw new Error('la columna del hero no trae el VSL');
+  let out = h.slice(0, i) + h.slice(j + cierre.length);
+  out = cambiar(out, '<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:center">',
+    '<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:center;justify-content:center">');
+  out = cambiar(out, '<div class="mk-hero-text" style="flex:0 1 452px;min-width:280px">',
+    '<div class="mk-hero-text" style="flex:0 1 760px;min-width:280px;text-align:center">');
+  // El botón (el de la columna y su copia del teléfono) se centra: con `display:flex` y un ancho tope no lo centra el texto.
+  out = cambiar(out, 'width:100%;max-width:420px;padding:17px 30px;', 'width:100%;max-width:420px;margin:0 auto;padding:17px 30px;', 2);
+  const fin = '\n  </section>';
+  if (!out.endsWith(fin)) throw new Error('el hero de la principal cambió: no termina en </section>');
+  return out + '\n  <section id="vsl-mako" style="max-width:880px;margin:0 auto;padding:48px 20px 0">'
+    + '\n    <p style="margin:0 0 16px;text-align:center;font-size:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#5B6472">Así funciona MaKo</p>'
+    + '\n    ' + reproductor
+    + '\n  </section>';
 }
 
 /** Las secciones de la principal con el hero y el «¿Qué es MaKo?» de este funnel. */
@@ -130,6 +169,7 @@ export function seccionesDeFunnel(base: { id: string; html: string }[], c: Copy)
       h = cambiar(h, 'Del primer clic en tu anuncio al cliente que paga. ', esc(c.sub[1]) + ' ');
       h = cambiar(h, 'Menos herramientas, menos adivinanza, más cierres.', esc(c.sub[2]));
       h = cambiar(h, 'Diagnóstico gratuito de tu VSL Funnel', esc(c.bajoCta), 2);
+      h = c.video ? cambiar(h, VSL_PRINCIPAL, c.video) : heroSinVideo(h);
     }
     if (s.id === 'que-es') h = cambiar(h, '¿Qué es MaKo... y por qué tu VSL Funnel lo necesita?', esc(c.queEs));
     return { ...s, html: h };
@@ -151,5 +191,12 @@ for (const [slug, c] of Object.entries(COPY)) {
   doc.config.sitio = { ...doc.config.sitio, seoTitulo: c.seoTitulo.slice(0, 60), seoDescripcion: c.seoDescripcion.slice(0, 160) };
   const dir = arg('--salida');
   if (dir) { writeFileSync(join(dir, `${slug}.json`), JSON.stringify(doc)); console.log(`${slug}: listo (${JSON.stringify(doc).length} bytes)`); }
-  if (args.includes('--subir')) await subir(doc, undefined, slug, false);
+  // ⚠️ Sin `--id`, `subir` INSERTA un documento nuevo (y la landing queda dos veces con el mismo slug): para cambiar una
+  // que ya está arriba se pasa su documento, con `--solo` (24/10/2026: las ocho son los #33 a #40 del ws de la plataforma).
+  if (args.includes('--subir')) {
+    const id = arg('--id');
+    if (!id && !args.includes('--nueva')) throw new Error(`${slug}: pasá --id <documento> (o --nueva si de verdad es una landing nueva)`);
+    if (id && !solo) throw new Error('--id va con --solo: es el documento de UNA landing');
+    await subir(doc, id, slug, false);
+  }
 }

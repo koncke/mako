@@ -161,7 +161,8 @@ type PropsCrearHoja = {
   /** El nombre de la «Hoja en blanco» (el editor le pasa «Página N»). */
   enBlanco?: string;
   /** En General (14/10/2026) la galería es la de General (lib/general-plantillas.ts), nunca la del Dashboard. */
-  informe?: 'dashboard' | 'general';
+  /** El tercer tipo (`automatizacion:N`) entró con las «Métricas» por automatización y ya llega acá. */
+  informe?: 'dashboard' | 'general' | `automatizacion:${number}`;
   /**
    * Lo que se sabe del negocio para poner primero las plantillas que le sirven, con un «Sugerido» (Martín, 16/10/2026;
    * lib/plantillas-sugeridas.ts). Lo lee la página en el server. null o ausente = el orden de siempre.
