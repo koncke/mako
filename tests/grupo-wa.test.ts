@@ -19,6 +19,8 @@ import assert from 'node:assert/strict';
 import {
   conNombresConocidos, esJidDeGrupo, esNombreDeRelleno, etapaPorDefecto, etiquetaDeGrupo, funnelPorDefecto, gruposDeChats, gruposDeFetchAll,
   lineaDePerfil, nombreUtil, parcheDePerfil, participantesDe, perfilDeEmpresa, telefonoDeJid,
+  SEGUNDOS_POR_PERFIL, TOPE_PERFILES_CORRIDA, TOPE_PERFILES_DIA, TOPE_VISTOS, cuantosEstaCorrida, cupoDeHoy, minutosDePerfiles, quedanHoy,
+  vistosConNuevos, vistosDe,
 } from '../lib/grupo-wa-reglas';
 
 test('1. los grupos de fetchAllGroups: nombre, tamaño, sin comunidades, ordenados', () => {
@@ -332,7 +334,7 @@ test('11. el perfil de empresa: web, Instagram, correo y dirección, sólo si es
   assert.equal(lineaDePerfil({ rubro: null, descripcion: null, web: null, instagram: null, email: null, direccion: null }), null);
 });
 
-test('12. «Datos de empresa»: a los que ya están, de a uno y despacio, comparando antes de escribir; con la pregunta antes', async () => {
+test('12. «Datos de empresa»: a los que ya están, de a uno y despacio, comparando antes de escribir; con la cuenta y la pregunta antes', async () => {
   const { readFileSync } = await import('node:fs');
   const { join } = await import('node:path');
   const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
@@ -340,17 +342,66 @@ test('12. «Datos de empresa»: a los que ya están, de a uno y despacio, compar
   const f = server.slice(server.indexOf('export async function completarPerfilesDelGrupo('));
   const cuerpo = f.slice(0, f.indexOf('\n}\n'));
   assert.doesNotMatch(cuerpo, /createLead|agregarAProducto|ponerEtiquetaLote|setPipelineStage|updateLead|\/message\//, 'crea, mueve o manda algo');
-  assert.match(cuerpo, /if \(i > desde\) await new Promise\(\(r\) => setTimeout\(r, ESPERA_PERFIL_MS\)\);/, 'sin espera entre consultas: tráfico seguido en la red de la línea');
-  assert.match(cuerpo, /if \(p\.hasta != null && Date\.now\(\) > p\.hasta\) return \{[^}]*siguiente: i \};/, 'sin corte por tiempo con «sigue desde»');
+  assert.match(cuerpo, /if \(i > 0\) await new Promise\(\(r\) => setTimeout\(r, ESPERA_PERFIL_MS\)\);/, 'sin espera entre consultas: tráfico seguido en la red de la línea');
+  assert.match(cuerpo, /if \(p\.hasta != null && Date\.now\(\) > p\.hasta\) \{ sigue = true; break; \}/, 'sin corte por tiempo');
   assert.match(cuerpo, /typeof id === 'number' \? \[\{ telefono: x\.telefono, id \}\] : \[\]/, 'un número de dos leads: no se adivina');
   assert.match(cuerpo, /await completarCamposVacios\(id, parcheDePerfil\(/);
   assert.match(cuerpo, /if \(escritos\.length\) \{[\s\S]*?logLeadEvent\(id, 'Perfil de WhatsApp', linea, p\.autor\)/, 'la línea del historial se repite al volver a correr');
   const leads = leer('lib/leads.ts');
   const esc = leads.slice(leads.indexOf('export async function completarCamposVacios('), leads.indexOf('/** Historial de cambios de un lead'));
   assert.match(esc, /\.update\(\{ \[campo\]: valor \}\)\.eq\('id', id\)\.or\(`\$\{campo\}\.is\.null,\$\{campo\}\.eq\.`\)/, 'escribe sin comparar que siga vacío');
-  // La pantalla pregunta antes (tarda y consulta WhatsApp) y sigue desde donde quedó.
+  // EL TOPE (el Cerebro, 24/10): por corrida y por DÍA, el del día reservado en el server ANTES de cada consulta; la cuenta sale
+  // antes de consultar; el que ya contestó no se repite y el que no contestó no queda como consultado.
+  assert.match(cuerpo, /if \(p\.soloContar\) return \{ ok: true, \.\.\.cuenta,/, 'la cuenta de la pregunta consulta perfiles');
+  assert.ok(cuerpo.indexOf('if (p.soloContar) return') < cuerpo.indexOf('fetchBusinessProfile'), 'la cuenta tiene que salir antes de cualquier consulta');
+  assert.match(cuerpo, /if \(!\(await reservarPerfil\(leidos\.linea, hoy\)\)\) \{ corte = 'dia'; break; \}\n\s+const \{ telefono, id \} = ahora\[i\];\n\s+revisados\+\+;\n\s+const r = await ev\(`\/chat\/fetchBusinessProfile/, 'consulta sin reservar el cupo del día antes');
+  assert.match(cuerpo, /const estaCorrida = cuantosEstaCorrida\(\{ pendientes: ahora\.length, quedanHoy: quedan, hechas \}\);/);
+  assert.match(cuerpo, /for \(let i = 0; i < estaCorrida; i\+\+\)/, 'el bucle no respeta el tope de la corrida');
+  assert.match(cuerpo, /const faltan = conLead\.filter\(\(x\) => !vistos\.has\(x\.telefono\.slice\(-10\)\)\);/, 'vuelve a consultar a los que ya contestaron');
+  assert.match(cuerpo, /if \(r == null\) \{ sinRespuesta\.push\(telefono\.slice\(-10\)\); continue; \}\n\s+nuevos\.push\(/, 'lo que no contestó quedó como consultado');
+  const reservar = server.slice(server.indexOf('async function reservarPerfil('), server.indexOf('export async function completarPerfilesDelGrupo('));
+  assert.match(reservar, /await cambiarSettingSi\(claveCupo\(linea\), raw, JSON\.stringify\(\{ dia: hoy, usadas: c\.usadas \+ 1 \}\)\)/, 'el cupo sin compare-and-set: dos corridas a la vez se pasan del tope');
+  assert.match(reservar, /if \(quedanHoy\(c\) <= 0\) return false;/);
+  // La pantalla: primero la cuenta, la pregunta con la cuenta y el tiempo, «Parar», y sigue sumando `hechas`.
   const pantalla = leer('app/crm/TraerDeGrupoWA.tsx');
-  assert.match(pantalla, /onClick=\{\(\) => setPreguntaPerfiles\(true\)\}/);
+  assert.match(pantalla, /onClick=\{\(\) => void contarPerfiles\(\)\}/);
+  assert.match(pantalla, /completarPerfilesDeGrupoAction\(\{ linea, jid, soloContar: true \}\)/);
   assert.match(pantalla, /<Confirm tone="primary" title="¿Traer los datos de empresa\?"/);
-  assert.match(pantalla, /if \(r\.siguiente == null \|\| r\.siguiente <= desde\) break;\n\s+desde = r\.siguiente;/);
+  assert.match(pantalla, /Ahora se consultan \$\{miles\(cuentaPerfiles\.estaCorrida\)\}, de a uno: unos \$\{minutosDePerfiles\(cuentaPerfiles\.estaCorrida\)\} min\./, 'la pregunta no dice cuántos ni cuánto tarda');
+  assert.match(pantalla, /Hoy quedan \$\{miles\(cuentaPerfiles\.quedanHoy\)\} de \$\{miles\(TOPE_PERFILES_DIA\)\}/);
+  assert.match(pantalla, /completarPerfilesDeGrupoAction\(\{ linea, jid, hechas, saltear \}\)/);
+  assert.match(pantalla, /\{perfilando \? 'Parar' : 'Datos de empresa'\}/);
+});
+
+test('12b. el cupo de los perfiles: por día, por corrida, y los ya consultados no se repiten', () => {
+  const hoy = '2026-10-24';
+  assert.deepEqual(cupoDeHoy(null, hoy), { dia: hoy, usadas: 0 });
+  assert.deepEqual(cupoDeHoy('{"dia":"2026-10-24","usadas":37}', hoy), { dia: hoy, usadas: 37 });
+  assert.deepEqual(cupoDeHoy('{"dia":"2026-10-23","usadas":120}', hoy), { dia: hoy, usadas: 0 }, 'el de ayer no cuenta hoy');
+  assert.deepEqual(cupoDeHoy('no es json', hoy), { dia: hoy, usadas: 0 });
+  assert.deepEqual(cupoDeHoy('{"dia":"2026-10-24","usadas":-3}', hoy), { dia: hoy, usadas: 0 });
+  assert.equal(quedanHoy({ dia: hoy, usadas: 100 }), TOPE_PERFILES_DIA - 100);
+  assert.equal(quedanHoy({ dia: hoy, usadas: TOPE_PERFILES_DIA + 5 }), 0);
+  // Esta corrida: lo menor entre lo que falta, lo que queda hoy y lo que le queda a la corrida.
+  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120, hechas: 0 }), TOPE_PERFILES_CORRIDA);
+  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 7, hechas: 0 }), 7);
+  assert.equal(cuantosEstaCorrida({ pendientes: 3, quedanHoy: 120, hechas: 0 }), 3);
+  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120, hechas: TOPE_PERFILES_CORRIDA - 5 }), 5);
+  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120, hechas: TOPE_PERFILES_CORRIDA + 9 }), 0);
+  assert.ok(TOPE_PERFILES_CORRIDA <= TOPE_PERFILES_DIA);
+  // Los ya consultados: sin repetir, los nuevos al final, recortado a los más recientes.
+  assert.deepEqual([...vistosDe('["1155550001","x",7,"1155550002"]')], ['1155550001', '1155550002']);
+  assert.deepEqual([...vistosDe('roto')], []);
+  assert.deepEqual(JSON.parse(vistosConNuevos('["1155550001","1155550002"]', ['1155550001', '1155550003'])), ['1155550002', '1155550001', '1155550003']);
+  const muchos = JSON.stringify(Array.from({ length: TOPE_VISTOS }, (_, i) => String(1100000000 + i)));
+  const recortado = JSON.parse(vistosConNuevos(muchos, ['1199999999'])) as string[];
+  assert.equal(recortado.length, TOPE_VISTOS);
+  assert.equal(recortado.at(-1), '1199999999');
+  assert.ok(!recortado.includes('1100000000'), 'se olvida el más viejo, no el nuevo');
+  // El tiempo que se dice, para arriba: 40 consultas a 2,6 s son 104 s → 2 min.
+  assert.equal(minutosDePerfiles(40), 2);
+  assert.equal(minutosDePerfiles(30), 2, '78 s se dicen 2 min, no 1: mejor que sobre a que falte');
+  assert.equal(minutosDePerfiles(1), 1);
+  assert.equal(minutosDePerfiles(0), 1);
+  assert.equal(SEGUNDOS_POR_PERFIL, 2.6);
 });

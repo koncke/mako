@@ -298,3 +298,57 @@ export function lineaDeGrupos(grupos: readonly string[]): string | null {
 
 /** De a cuántas fichas manda la pantalla: cada una son unas pocas escrituras (~0,3 s), lejos de los 60 s de una acción. */
 export const TANDA_FICHAS = 40;
+
+// ── «Datos de empresa» con TOPE (24/10/2026, el Cerebro: «tope duro por corrida y por día; la cuenta real y el tiempo antes
+// de arrancar») ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// Cada consulta de perfil es tráfico en la RED de una línea no oficial (riesgo de baneo, docs/hallazgos-comunicacion.md).
+// El cupo del día y los teléfonos ya consultados viven en `app_settings`, por línea (app/crm/grupo-wa-server.ts).
+
+/** Cuántos perfiles consulta UNA corrida (un toque del botón). */
+export const TOPE_PERFILES_CORRIDA = 40;
+/** Cuántos por DÍA y por línea, sumando todas las corridas de todas las pantallas. */
+export const TOPE_PERFILES_DIA = 120;
+/** Lo que tarda cada consulta, medido: ~0,6 s de respuesta más la espera de 2 s entre una y otra. */
+export const SEGUNDOS_POR_PERFIL = 2.6;
+/** Cuántos teléfonos ya consultados se recuerdan por línea (los más viejos se olvidan y se pueden volver a consultar). */
+export const TOPE_VISTOS = 5000;
+
+export type CupoPerfiles = { dia: string; usadas: number };
+
+/** El cupo de HOY, del valor guardado. De otro día, o ilegible, arranca en cero (nunca tira). */
+export function cupoDeHoy(raw: string | null, hoy: string): CupoPerfiles {
+  try {
+    const o = JSON.parse(raw ?? 'null') as { dia?: unknown; usadas?: unknown } | null;
+    if (o && o.dia === hoy && Number.isInteger(o.usadas) && (o.usadas as number) >= 0) return { dia: hoy, usadas: o.usadas as number };
+  } catch { /* ilegible: cero */ }
+  return { dia: hoy, usadas: 0 };
+}
+
+/** Las consultas que quedan hoy. */
+export function quedanHoy(c: CupoPerfiles): number {
+  return Math.max(0, TOPE_PERFILES_DIA - c.usadas);
+}
+
+/** Los últimos 10 dígitos de los teléfonos ya consultados en esta línea (los que contestaron: el que no, es «no sé»). */
+export function vistosDe(raw: string | null): Set<string> {
+  try {
+    const a = JSON.parse(raw ?? '[]') as unknown;
+    return new Set(Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string' && /^\d{8,10}$/.test(x)) : []);
+  } catch { return new Set(); }
+}
+
+/** Lo guardado más los nuevos, sin repetir, recortado a los `TOPE_VISTOS` más recientes (los nuevos, al final). */
+export function vistosConNuevos(raw: string | null, nuevos: readonly string[]): string {
+  const todos = [...vistosDe(raw)].filter((x) => !nuevos.includes(x)).concat([...new Set(nuevos)]);
+  return JSON.stringify(todos.slice(-TOPE_VISTOS));
+}
+
+/** Cuántos consulta ESTA corrida: lo que falta, lo que queda hoy y lo que le queda a la corrida (`hechas` ya consultados). */
+export function cuantosEstaCorrida(p: { pendientes: number; quedanHoy: number; hechas: number }): number {
+  return Math.max(0, Math.min(p.pendientes, p.quedanHoy, TOPE_PERFILES_CORRIDA - Math.max(0, p.hechas)));
+}
+
+/** Los minutos que se le dicen a la persona antes de arrancar (redondeado para arriba: mejor que sobre a que falte). */
+export function minutosDePerfiles(n: number): number {
+  return Math.max(1, Math.ceil((n * SEGUNDOS_POR_PERFIL) / 60));
+}

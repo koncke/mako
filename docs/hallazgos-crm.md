@@ -20,6 +20,28 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Datos de empresa» con tope por día: sin recordar a quién ya se consultó, el tope repite siempre a los mismos (24/10/2026)
+
+**Vive en:** `completarPerfilesDelGrupo` y `reservarPerfil` (app/crm/grupo-wa-server.ts) · las reglas del cupo en
+lib/grupo-wa-reglas.ts (`TOPE_PERFILES_CORRIDA` 40, `TOPE_PERFILES_DIA` 120 por línea) · `contarPerfiles` y `traerPerfiles`
+(app/crm/TraerDeGrupoWA.tsx) · tests 12 y 12b de tests/grupo-wa.test.ts (17 de 17 roturas cazadas).
+
+- **Un tope por día solo no alcanza.** Cada corrida empezaba por el primer participante, así que con 40 por corrida se
+  consultaban siempre los mismos 40 y los otros 181 nunca. Por eso el tope va junto con los ya consultados, guardados por
+  línea en `app_settings` (`perfiles_wa.vistos.<línea>`): la corrida de mañana sigue con los que faltan.
+- **El que no contestó es «no sé», no «no».** No queda como consultado (otro día se vuelve a preguntar), pero gastó cupo:
+  fue tráfico igual. Dentro de una misma corrida, la llamada siguiente empezaría por ellos. Por eso vuelven en
+  `sinRespuesta` y la pantalla los manda en `saltear`.
+- **El cupo del día lo cuenta el SERVER y se reserva ANTES de cada consulta**, con compare-and-set sobre
+  `perfiles_wa.cupo.<línea>` (`cambiarSettingSi`). Dos pestañas o dos personas del equipo a la vez no se pasan del tope. El de
+  la corrida lo cuenta la pantalla (`hechas`); si una pantalla mintiera, igual la frena el del día. El día es el del negocio
+  (`hoyEnWorkspace`).
+- **La cuenta, antes de consultar nada** (`soloContar`): la pregunta dice cuántos faltan, cuántos se consultan ahora y en
+  cuántos minutos (redondeado para arriba), y cuántas consultas quedan hoy. Mientras corre, el botón pasa a «Parar», que
+  frena entre una llamada y la siguiente (y lo dice).
+
+*24/10/2026, chat «CRM» (claude1).*
+
 ## «Completar desde mi WhatsApp»: el límite es «un lead que ya existe», no «está en el grupo» (24/10/2026)
 
 **Vive en:** `completarFichasDelGrupo` (app/crm/grupo-wa-server.ts) · `leerDeWhatsappWeb` (app/crm/TraerDeGrupoWA.tsx) ·

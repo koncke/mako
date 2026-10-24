@@ -16,6 +16,8 @@
 
 import 'server-only';
 import { getWorkspaceActual, getTenantDb } from '@/lib/workspace';
+import { cambiarSettingSi, getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
+import { hoyEnWorkspace } from '@/lib/timezone';
 import { fetchContactosEvolution, listarLineas } from '@/lib/evolution';
 import { getNombresContacto } from '@/lib/evolution-contactos';
 import { completarCamposVacios, completarNombreDeRelleno, createLead, logLeadEvent } from '@/lib/leads';
@@ -32,9 +34,10 @@ import { claveNombre } from '@/lib/etiquetas-reglas';
 import { etapaDeEntrada } from '@/lib/lead-funnel-reglas';
 import { terminalEstadoFor } from '@/lib/pipeline';
 import {
-  CAMPOS_DEL_PERFIL, TANDA_FICHAS, TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, conNombresConocidos, esJidDeGrupo, esNombreDeRelleno, etapasQueDisparan,
-  etiquetaDeGrupo, fichaLimpia, gruposDeChats, gruposDeFetchAll, lineaDeGrupos, lineaDePerfil, nombreDeFicha, parcheDePerfil, participantesDe, perfilDeEmpresa,
-  type CampoDelPerfil, type FichaWa, type GrupoWA, type ParticipanteWA,
+  CAMPOS_DEL_PERFIL, TANDA_FICHAS, TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, TOPE_PERFILES_CORRIDA, conNombresConocidos,
+  cuantosEstaCorrida, cupoDeHoy, esJidDeGrupo, esNombreDeRelleno, etapasQueDisparan, etiquetaDeGrupo, fichaLimpia,
+  gruposDeChats, gruposDeFetchAll, lineaDeGrupos, lineaDePerfil, nombreDeFicha, parcheDePerfil, participantesDe,
+  perfilDeEmpresa, quedanHoy, vistosConNuevos, vistosDe, type CampoDelPerfil, type FichaWa, type GrupoWA, type ParticipanteWA,
 } from '@/lib/grupo-wa-reglas';
 import { ORIGEN_LEAD } from './origen-lead';
 import { indiceContactos } from './importar-server';
@@ -174,53 +177,118 @@ export const ESPERA_PERFIL_MS = 2_000;
 const TOPE_PERFIL_MS = 15_000;
 
 export type ResultadoPerfiles = {
-  ok: true; total: number; revisados: number; empresas: number; completados: number; campos: number; errores: number;
-  /** Desde qué participante sigue la próxima llamada; null = terminó. */
-  siguiente: number | null;
+  ok: true;
+  /** Los participantes que ya son UN lead, y de ésos cuántos falta consultar (los ya consultados en esta línea no se repiten). */
+  total: number; pendientes: number;
+  /** Las consultas que quedan HOY en esta línea, y cuántas hace esta corrida: lo que se le dice a la persona ANTES de arrancar. */
+  quedanHoy: number; estaCorrida: number;
+  revisados: number; empresas: number; completados: number; campos: number; errores: number;
+  /** Los que no contestaron en esta llamada: la pantalla los manda en `saltear` (si no, la llamada siguiente empieza por ellos). */
+  sinRespuesta: string[];
+  /** true = cortó por TIEMPO y a esta corrida le quedan: la pantalla vuelve a llamar sumando `hechas`. */
+  sigue: boolean;
+  /** Por qué no siguió con los que faltan: el tope del día o el de la corrida (se dice). null = terminó, o sigue. */
+  corte: 'dia' | 'corrida' | null;
 } | { ok: false; error: string };
+
+const claveCupo = (linea: string) => `perfiles_wa.cupo.${linea}`;
+const claveVistos = (linea: string) => `perfiles_wa.vistos.${linea}`;
+
+/**
+ * Reserva UNA consulta del cupo de hoy de esta línea ANTES de hacerla. Compare-and-set: dos corridas a la vez (dos pestañas,
+ * dos personas del equipo) no se pasan del tope. false = no queda, o perdió la carrera cinco veces (mejor no consultar).
+ */
+async function reservarPerfil(linea: string, hoy: string): Promise<boolean> {
+  for (let intento = 0; intento < 5; intento++) {
+    const raw = await getSettingEstricto(claveCupo(linea));
+    const c = cupoDeHoy(raw, hoy);
+    if (quedanHoy(c) <= 0) return false;
+    if (await cambiarSettingSi(claveCupo(linea), raw, JSON.stringify({ dia: hoy, usadas: c.usadas + 1 }))) return true;
+  }
+  return false;
+}
 
 /**
  * «DATOS DE EMPRESA» (24/10/2026, Martín: «muchos no sólo tienen nombre, sino que incluso links»). A los participantes del grupo
  * que YA son leads, lo que dice su perfil de empresa de WhatsApp (web, Instagram, correo, dirección), SÓLO en los campos vacíos
  * (`parcheDePerfil`); el rubro y la descripción van al historial. No crea, no mueve, no le manda nada a nadie: consultar un
- * perfil no le avisa a la persona. De a UNO y despacio (`ESPERA_PERFIL_MS`), y con corte por tiempo: sigue desde `siguiente`.
- * No trae el nombre: la respuesta no lo tiene (lib/grupo-wa-reglas.ts).
+ * perfil no le avisa a la persona. No trae el nombre: la respuesta no lo tiene (lib/grupo-wa-reglas.ts).
+ * ⚠️ CADA CONSULTA ES TRÁFICO EN LA RED DE LA LÍNEA (el Cerebro, 24/10: «tope duro por corrida y por día; la cuenta real y el
+ * tiempo antes de arrancar»):
+ *   · de a UNO y despacio (`ESPERA_PERFIL_MS`);
+ *   · a lo sumo `TOPE_PERFILES_CORRIDA` por corrida (la pantalla suma `hechas` entre llamadas) y `TOPE_PERFILES_DIA` por día y
+ *     por línea, reservado ANTES de cada consulta (`reservarPerfil`): el del día lo hace cumplir el server, no la pantalla;
+ *   · el que ya contestó no se vuelve a consultar (`perfiles_wa.vistos.<línea>`): la corrida de mañana sigue con los que faltan.
+ *     El que no contestó es «no sé», no «no»: no queda como consultado (pero gastó cupo: fue tráfico igual).
+ *   · `soloContar`: la cuenta de la pregunta (cuántos faltan, cuántos hace esta corrida, cuántos quedan hoy), sin consultar.
  */
-export async function completarPerfilesDelGrupo(p: { linea: string | null; jid: string; autor: string; desde?: number; hasta?: number }): Promise<ResultadoPerfiles> {
+export async function completarPerfilesDelGrupo(p: {
+  linea: string | null; jid: string; autor: string; hechas?: number; saltear?: readonly string[]; hasta?: number; soloContar?: boolean;
+}): Promise<ResultadoPerfiles> {
   const leidos = await participantesDelGrupo(p.linea, p.jid);
   if (!leidos.ok) return leidos;
   const idx = await indiceContactos();
   const telIdx = { exactos: idx.tels, sufijos: idx.telsSufijo };
-  // Sólo los que ya son UN lead (con dos, no se adivina), en el orden del grupo: `desde` es estable entre llamadas.
+  // Sólo los que ya son UN lead (con dos, no se adivina).
   const conLead = leidos.participantes.flatMap((x) => { const id = buscarTelefono(telIdx, x.telefono); return typeof id === 'number' ? [{ telefono: x.telefono, id }] : []; });
-  const desde = Math.max(0, Math.min(p.desde ?? 0, conLead.length));
+  const hoy = await hoyEnWorkspace();
+  const [rawVistos, rawCupo] = await Promise.all([getSettingEstricto(claveVistos(leidos.linea)), getSettingEstricto(claveCupo(leidos.linea))]);
+  const vistos = vistosDe(rawVistos);
+  const faltan = conLead.filter((x) => !vistos.has(x.telefono.slice(-10)));
+  const saltear = new Set((p.saltear ?? []).slice(0, TOPE_PERFILES_CORRIDA).map((t) => String(t).replace(/\D/g, '').slice(-10)));
+  const ahora = faltan.filter((x) => !saltear.has(x.telefono.slice(-10)));
+  const hechas = Math.max(0, Math.floor(Number(p.hechas) || 0));
+  const quedan = quedanHoy(cupoDeHoy(rawCupo, hoy));
+  const estaCorrida = cuantosEstaCorrida({ pendientes: ahora.length, quedanHoy: quedan, hechas });
+  const cuenta = { total: conLead.length, pendientes: faltan.length, quedanHoy: quedan, estaCorrida };
+  if (p.soloContar) return { ok: true, ...cuenta, revisados: 0, empresas: 0, completados: 0, campos: 0, errores: 0, sinRespuesta: [], sigue: false, corte: null };
+
   const db = await getTenantDb();
   let revisados = 0, empresas = 0, completados = 0, campos = 0, errores = 0;
-  for (let i = desde; i < conLead.length; i++) {
-    if (p.hasta != null && Date.now() > p.hasta) return { ok: true, total: conLead.length, revisados, empresas, completados, campos, errores, siguiente: i };
-    if (i > desde) await new Promise((r) => setTimeout(r, ESPERA_PERFIL_MS));
-    const { telefono, id } = conLead[i];
-    revisados++;
-    const perfil = perfilDeEmpresa(await ev(`/chat/fetchBusinessProfile/${encodeURIComponent(leidos.linea)}`, TOPE_PERFIL_MS, { method: 'POST', body: JSON.stringify({ number: telefono }) }));
-    if (!perfil) continue;
-    empresas++;
-    try {
-      const { data, error } = await db.from('leads').select(`id, ${CAMPOS_DEL_PERFIL.join(', ')}`).eq('id', id).maybeSingle();
-      if (error || !data) { errores++; continue; }
-      const escritos = await completarCamposVacios(id, parcheDePerfil(data as Partial<Record<CampoDelPerfil, string | null>>, perfil), p.autor);
-      if (escritos.length) {
-        completados++;
-        campos += escritos.length;
-        // El rubro y la descripción, una vez: sólo cuando el perfil sumó algo (volver a correr no repite la línea).
-        const linea = lineaDePerfil(perfil);
-        if (linea) await logLeadEvent(id, 'Perfil de WhatsApp', linea, p.autor);
+  let sigue = false, corte: 'dia' | 'corrida' | null = null;
+  const nuevos: string[] = [];
+  const sinRespuesta: string[] = [];
+  try {
+    for (let i = 0; i < estaCorrida; i++) {
+      if (p.hasta != null && Date.now() > p.hasta) { sigue = true; break; }
+      if (i > 0) await new Promise((r) => setTimeout(r, ESPERA_PERFIL_MS));
+      if (!(await reservarPerfil(leidos.linea, hoy))) { corte = 'dia'; break; }
+      const { telefono, id } = ahora[i];
+      revisados++;
+      const r = await ev(`/chat/fetchBusinessProfile/${encodeURIComponent(leidos.linea)}`, TOPE_PERFIL_MS, { method: 'POST', body: JSON.stringify({ number: telefono }) });
+      if (r == null) { sinRespuesta.push(telefono.slice(-10)); continue; }
+      nuevos.push(telefono.slice(-10));
+      const perfil = perfilDeEmpresa(r);
+      if (!perfil) continue;
+      empresas++;
+      try {
+        const { data, error } = await db.from('leads').select(`id, ${CAMPOS_DEL_PERFIL.join(', ')}`).eq('id', id).maybeSingle();
+        if (error || !data) { errores++; continue; }
+        const escritos = await completarCamposVacios(id, parcheDePerfil(data as Partial<Record<CampoDelPerfil, string | null>>, perfil), p.autor);
+        if (escritos.length) {
+          completados++;
+          campos += escritos.length;
+          // El rubro y la descripción, una vez: sólo cuando el perfil sumó algo (volver a correr no repite la línea).
+          const linea = lineaDePerfil(perfil);
+          if (linea) await logLeadEvent(id, 'Perfil de WhatsApp', linea, p.autor);
+        }
+      } catch (e) {
+        console.error('[grupo-wa] no pude completar el perfil de un participante:', msg(e));
+        errores++;
       }
-    } catch (e) {
-      console.error('[grupo-wa] no pude completar el perfil de un participante:', msg(e));
-      errores++;
+    }
+  } finally {
+    // Se relee antes de escribir: otra corrida pudo sumar los suyos mientras tanto.
+    if (nuevos.length) {
+      await setSetting(claveVistos(leidos.linea), vistosConNuevos(await getSetting(claveVistos(leidos.linea)), nuevos))
+        .catch((e) => console.error('[grupo-wa] no pude guardar los perfiles ya consultados:', msg(e)));
     }
   }
-  return { ok: true, total: conLead.length, revisados, empresas, completados, campos, errores, siguiente: null };
+  // Terminó lo de esta llamada sin cortar por tiempo, y quedan: ¿por qué no siguió? Se dice.
+  if (!sigue && !corte && revisados === estaCorrida && ahora.length > estaCorrida) {
+    corte = hechas + revisados >= TOPE_PERFILES_CORRIDA ? 'corrida' : 'dia';
+  }
+  return { ok: true, ...cuenta, revisados, empresas, completados, campos, errores, sinRespuesta, sigue, corte };
 }
 
 export type ResultadoFichas = {

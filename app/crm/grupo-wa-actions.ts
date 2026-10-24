@@ -99,14 +99,18 @@ export async function completarNombresDeGrupoAction(p: { linea: string | null; j
 
 /**
  * «Datos de empresa» (24/10/2026): a los participantes del grupo que YA son leads, lo que dice su perfil de empresa de WhatsApp,
- * sólo en los campos vacíos. De a uno y despacio: corta por tiempo y la pantalla sigue desde `siguiente`.
+ * sólo en los campos vacíos. De a uno y despacio, con tope por corrida y por día (el del día lo cuenta el server). `soloContar`:
+ * la cuenta que se muestra antes de arrancar. Corta por tiempo: la pantalla vuelve a llamar con `hechas` y `saltear`.
  */
-export async function completarPerfilesDeGrupoAction(p: { linea: string | null; jid: string; desde?: number }): Promise<ResultadoPerfiles> {
+export async function completarPerfilesDeGrupoAction(p: { linea: string | null; jid: string; hechas?: number; saltear?: string[]; soloContar?: boolean }): Promise<ResultadoPerfiles> {
   await exigirSesion();
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
   try {
-    const desde = Number.isInteger(p.desde) && (p.desde as number) >= 0 ? (p.desde as number) : 0;
-    const r = await completarPerfilesDelGrupo({ linea: p.linea, jid: String(p.jid ?? ''), autor: await autorDelMovimiento(), desde, hasta: Date.now() + 40_000 });
+    const hechas = Number.isInteger(p.hechas) && (p.hechas as number) >= 0 ? (p.hechas as number) : 0;
+    const saltear = (Array.isArray(p.saltear) ? p.saltear : []).filter((t) => typeof t === 'string');
+    const r = await completarPerfilesDelGrupo({
+      linea: p.linea, jid: String(p.jid ?? ''), autor: await autorDelMovimiento(), hechas, saltear, soloContar: p.soloContar === true, hasta: Date.now() + 40_000,
+    });
     if (r.ok && r.completados) revalidatePath('/crm');
     return r;
   } catch (e) { return { ok: false, error: msg(e) }; }

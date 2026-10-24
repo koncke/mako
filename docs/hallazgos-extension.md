@@ -72,6 +72,10 @@ es [hallazgos.md](hallazgos.md).
 - Hoy `EXTENSION_EN_TIENDA = false`: se sirve el ZIP (`public/mako-puente-<v>.zip`, lo arma `node scripts/zip-extension.mjs`
   junto con la huella y `lib/extension-version.ts`; `guardas-push` frena un ZIP viejo). Martín usa la carpeta desempaquetada
   `C:\Users\marti\OneDrive\Escritorio\mako-puente`: se reemplazan los archivos y se toca «Recargar» en `chrome://extensions`.
+- **⚠️ El ZIP se arma con los archivos del DISCO y `--check` lo compara contra HEAD.** Con `core.autocrlf=true`, la copia del
+  disco puede tener CRLF mientras git publica LF, y entonces la huella no coincide: «quedó viejo» con la extensión al día
+  (pasó con la 0.70.0; el commit 8a70f492 de la 0.69.0 ya lo había sufrido). Antes de armarlo, pasar a LF los archivos de
+  texto de `extension/`. Git no los ve cambiados, porque normaliza igual. Después, `--check` tiene que decir «al día».
 - **Un permiso de sitio nuevo (0.70.0: `web.whatsapp.com`)**: en una extensión desempaquetada entra al recargar. Desde la
   tienda, Chrome **desactiva** la extensión hasta que la persona acepta el permiso nuevo. Cuando se publique en la tienda, el
   aviso a los clientes tiene que decirlo, o «la extensión dejó de andar» va a ser el ticket.

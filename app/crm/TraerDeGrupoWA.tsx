@@ -16,7 +16,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
-import { TANDA_FICHAS, TANDA_GRUPO, etapaPorDefecto, fichaLimpia, funnelPorDefecto, nombreDeFicha, type FichaWa, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
+import { TANDA_FICHAS, TANDA_GRUPO, TOPE_PERFILES_DIA, etapaPorDefecto, minutosDePerfiles, fichaLimpia, funnelPorDefecto, nombreDeFicha, type FichaWa, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
 import { extensionLeeFichas, motivoDeFichas, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
 import { miles } from './traer-seleccion';
 import { VistaConPie } from '@/app/_ui/VistaConPie';
@@ -65,8 +65,10 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   /** Cada vuelta relee el grupo (después de traerlo, los traídos pasan a «Ya está»). */
   const [vuelta, setVuelta] = useState(0);
   const [completando, setCompletando] = useState(false);
-  /** «Datos de empresa»: la pregunta antes (tarda y consulta WhatsApp de a uno), y el avance mientras corre. */
-  const [preguntaPerfiles, setPreguntaPerfiles] = useState(false);
+  /** «Datos de empresa»: la cuenta que se muestra en la pregunta antes de consultar (null = sin pregunta abierta), y si corre. */
+  const [cuentaPerfiles, setCuentaPerfiles] = useState<{ pendientes: number; total: number; quedanHoy: number; estaCorrida: number } | null>(null);
+  const [perfilando, setPerfilando] = useState(false);
+  const pararPerfiles = useRef(false);
   /** «Completar desde mi WhatsApp» corriendo, y el pedido de parar (lo mira el bucle entre tandas). */
   const [leyendoWa, setLeyendoWa] = useState(false);
   const pararWa = useRef(false);
@@ -138,8 +140,6 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   const trayendo = avance != null || completando;
   /** ¿La extensión de este navegador lee las fichas de WhatsApp Web? (el atributo lo pone extension/mako-puente.js). */
   const extWa = extensionLeeFichas();
-  /** Lo que tarda «Datos de empresa» con los que ya están: ~2,6 s por persona (la espera entre consultas más la consulta). */
-  const minutosPerfiles = (k: number) => Math.max(1, Math.round((k * 2.6) / 60));
   const yaEstan = (gente ?? []).filter((p) => p.enElCrm).length;
   const listo = !!grupo && !!etapa && sel.size > 0 && !!etiqueta.trim() && funnel != null;
 
@@ -247,26 +247,51 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   };
 
   // «DATOS DE EMPRESA» (24/10/2026, Martín: «muchos no sólo tienen nombre, sino que incluso links»). Lo que dice el perfil de
-  // empresa de WhatsApp de cada uno que ya está (web, Instagram, correo, dirección), sólo en lo vacío. De a uno y despacio:
-  // el server corta por tiempo y esto sigue desde donde quedó. No le llega nada a nadie.
-  const traerPerfiles = async () => {
-    setPreguntaPerfiles(false);
+  // empresa de WhatsApp de cada uno que ya está (web, Instagram, correo, dirección), sólo en lo vacío. No le llega nada a nadie.
+  // Cada consulta es tráfico en la red de su línea: primero la CUENTA (cuántos faltan, cuántos hace esta vez y en cuánto, cuántos
+  // quedan hoy), después la pregunta, y recién ahí consulta. Con tope por corrida y por día (lib/grupo-wa-reglas.ts).
+  const contarPerfiles = async () => {
+    // Para entre una llamada y la siguiente (cada una, hasta ~40 s): se dice, para que no parezca que no oyó.
+    if (perfilando) { pararPerfiles.current = true; setAvance('Parando al terminar esta tanda…'); return; }
     if (!grupo || trayendo) return;
-    setErr(null); setHecho(null); setCompletando(true);
-    let desde = 0, revisados = 0, empresas = 0, completados = 0, campos = 0, total = 0;
+    setErr(null); setHecho(null); setCompletando(true); setAvance('Contando…');
     try {
-      for (let vuelta = 0; vuelta < 200; vuelta++) {
-        setAvance(`Revisando perfiles: ${miles(revisados)}${total ? ` de ${miles(total)}` : ''}…`);
-        const r = await completarPerfilesDeGrupoAction({ linea, jid, desde })
+      const c = await completarPerfilesDeGrupoAction({ linea, jid, soloContar: true })
+        .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
+      if (!c.ok) { setErr(c.error); return; }
+      if (!c.pendientes) { setHecho(`«${grupo.nombre}»: ya se consultaron los ${miles(c.total)} que están.`); return; }
+      if (!c.estaCorrida) { setErr(`Por hoy ya se hicieron las ${miles(TOPE_PERFILES_DIA)} consultas de esta línea. Mañana sigue con los ${miles(c.pendientes)} que faltan.`); return; }
+      setCuentaPerfiles({ pendientes: c.pendientes, total: c.total, quedanHoy: c.quedanHoy, estaCorrida: c.estaCorrida });
+    } finally { setCompletando(false); setAvance(null); }
+  };
+
+  const traerPerfiles = async () => {
+    const cuenta = cuentaPerfiles;
+    setCuentaPerfiles(null);
+    if (!grupo || trayendo || !cuenta) return;
+    setErr(null); setHecho(null); setCompletando(true); setPerfilando(true); pararPerfiles.current = false;
+    let hechas = 0, empresas = 0, completados = 0, campos = 0, pendientes = cuenta.pendientes;
+    let corte: 'dia' | 'corrida' | null = null;
+    const saltear: string[] = [];
+    try {
+      // Cada vuelta es una llamada de ~40 s; el tope de la corrida lo pone `hechas`, así que esto termina solo.
+      for (let vuelta = 0; vuelta < 20 && !pararPerfiles.current; vuelta++) {
+        setAvance(`Revisando perfiles: ${miles(hechas)} de ${miles(cuenta.estaCorrida)}…`);
+        const r = await completarPerfilesDeGrupoAction({ linea, jid, hechas, saltear })
           .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
         if (!r.ok) { setErr(r.error); break; }
-        total = r.total; revisados += r.revisados; empresas += r.empresas; completados += r.completados; campos += r.campos;
-        if (r.siguiente == null || r.siguiente <= desde) break;
-        desde = r.siguiente;
+        hechas += r.revisados; empresas += r.empresas; completados += r.completados; campos += r.campos;
+        saltear.push(...r.sinRespuesta);
+        pendientes = r.pendientes - (r.revisados - r.sinRespuesta.length);
+        corte = r.corte;
+        if (!r.sigue || r.revisados === 0) break;
       }
-    } finally { setCompletando(false); setAvance(null); }
+    } finally { setCompletando(false); setPerfilando(false); setAvance(null); }
     const datos = completados ? ` · ${miles(completados)} con datos nuevos (${miles(campos)} entre web, Instagram, correo y dirección)` : ' · ningún dato nuevo';
-    setHecho(`«${grupo.nombre}»: ${miles(empresas)} de ${miles(revisados)} tienen cuenta de empresa${datos}.`);
+    const resto = pendientes <= 0 ? '' : corte === 'dia' ? ` Por hoy se terminaron las consultas de esta línea: mañana sigue con los ${miles(pendientes)} que faltan.`
+      : ` Faltan ${miles(pendientes)}: vuelve a tocar «Datos de empresa» para seguir.`;
+    const parado = pararPerfiles.current ? ' Paraste antes de terminar.' : '';
+    setHecho(`«${grupo.nombre}»: ${miles(empresas)} de ${miles(hechas)} tienen cuenta de empresa${datos}.${resto}${parado}`);
     if (completados) { onTraidos(`${miles(completados)} con datos de empresa`); setVuelta((n) => n + 1); }
   };
 
@@ -329,8 +354,8 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
             </button>
           )}
           {yaEstan > 0 && (
-            <button type="button" onClick={() => setPreguntaPerfiles(true)} disabled={trayendo} style={{ ...btnAtras, opacity: trayendo ? 0.55 : 1 }}>
-              Datos de empresa
+            <button type="button" onClick={() => void contarPerfiles()} disabled={trayendo && !perfilando} style={{ ...btnAtras, opacity: trayendo && !perfilando ? 0.55 : 1 }}>
+              {perfilando ? 'Parar' : 'Datos de empresa'}
             </button>
           )}
           <span style={{ flex: 1 }} />
@@ -396,10 +421,10 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
         {!jid && grupos !== null && <p style={nota}>{grupos.length ? 'Elige el grupo de arriba.' : 'Esta línea no está en ningún grupo.'}</p>}
         {(grupos === null || (jid && gente === null)) && <p style={{ ...nota, color: 'var(--faint)' }}>Cargando…</p>}
         {jid && gente?.length === 0 && <p style={nota}>{sinNumero ? 'WhatsApp no deja ver los números de este grupo.' : 'Nadie para traer.'}</p>}
-      {preguntaPerfiles && (
-        <Confirm tone="primary" title="¿Traer los datos de empresa?" confirmLabel="Traer"
-          message={`Consulta el perfil de WhatsApp de los ${miles(yaEstan)} que ya están, de a uno y despacio: unos ${minutosPerfiles(yaEstan)} min. Sólo los que tienen cuenta de empresa traen algo (web, Instagram, correo, dirección), y sólo se completa lo vacío. No les llega nada.`}
-          onConfirm={() => void traerPerfiles()} onCancel={() => setPreguntaPerfiles(false)} />
+      {cuentaPerfiles && (
+        <Confirm tone="primary" title="¿Traer los datos de empresa?" confirmLabel={`Consultar ${miles(cuentaPerfiles.estaCorrida)}`}
+          message={`Faltan ${miles(cuentaPerfiles.pendientes)} de los ${miles(cuentaPerfiles.total)} que ya están. Ahora se consultan ${miles(cuentaPerfiles.estaCorrida)}, de a uno: unos ${minutosDePerfiles(cuentaPerfiles.estaCorrida)} min.${cuentaPerfiles.estaCorrida < cuentaPerfiles.pendientes ? ` Los otros ${miles(cuentaPerfiles.pendientes - cuentaPerfiles.estaCorrida)}, en otra vuelta.` : ''} Hoy quedan ${miles(cuentaPerfiles.quedanHoy)} de ${miles(TOPE_PERFILES_DIA)} consultas en esta línea. Sólo se completa lo vacío, y no les llega nada.`}
+          onConfirm={() => void traerPerfiles()} onCancel={() => setCuentaPerfiles(null)} />
       )}
     </VistaConPie>
   );

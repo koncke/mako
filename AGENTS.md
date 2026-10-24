@@ -10324,3 +10324,12 @@ hace cumplir tests/wa-fichas-extension.test.ts; el porqué, docs/hallazgos-exten
 Y en `extension/*.js`, **ninguna barra-asterisco dentro de un texto** (un patrón de URL de Chrome la tiene al final): los
 tests de la extensión quitan comentarios con una regex que no distingue textos, y esa secuencia se come el código que sigue
 hasta el próximo cierre de comentario. Rompe tests que no tienen nada que ver, que es lo más caro de diagnosticar.
+
+## Consultar a WhatsApp de a muchos por una línea no oficial: tope por día en el server, y recordar a quién ya (24/10/2026)
+
+Cada consulta por número (perfil, foto, «¿tiene WhatsApp?») es tráfico en la red de la línea y la acerca a un baneo. Un camino que
+consulta en lote va de a uno y espaciado, con un tope por corrida y otro por DÍA y por línea, y el del día lo reserva el SERVER
+antes de cada consulta, con compare-and-set (la pantalla no es una garantía). Recuerda a quién ya consultó: sin eso, un tope
+repite siempre a los primeros. Lo que no contestó es «no sé»: no queda consultado, pero cuenta en el cupo. Y antes de arrancar,
+la cuenta y el tiempo se le dicen a la persona. El molde es `completarPerfilesDelGrupo` (app/crm/grupo-wa-server.ts); lo hace
+cumplir tests/grupo-wa.test.ts (12 y 12b); el porqué, docs/hallazgos-crm.md.
