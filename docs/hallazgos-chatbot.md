@@ -6818,4 +6818,16 @@ no respeta el horario de oficina:** su configuración trae `horario.activo:false
 'perdido'); la trampa es otra: sus inscripciones siguen 'activa' y el motor las reintenta cada 24 h (o 4 h) para
 siempre, sumando fallos en el registro de la línea. **Sin hacer:** cerrar la inscripción de un lead sin teléfono válido
 después de N reintentos (lib/nutricion.ts, «lead sin teléfono» ~5177), y no inscribir los «test lead» de Meta.
+### Un teléfono que falta no se arregla reintentando, y a un lead de prueba de Meta no se le escribe (23/10/2026)
+
+**El síntoma:** la #198 «Un Lead Entró» del ws1 sumaba ~7 fallos por día a leads de la Lead Ads Testing Tool de Meta («<test
+lead: dummy data for PHONE>»): el 2767 con «teléfono inválido» cada 4 h (no tiene un solo dígito) y los 2769-2773 con
+«lead sin teléfono» cada 24 h, para siempre. **La causa:** el reintento diario era a propósito («por si le cargan el
+teléfono»), pero contradice la regla de AGENTS.md (un fallo que va a fallar igual no se reintenta), y el «teléfono
+inválido» caía en el backoff de 4 h de un error del proveedor. **Arreglo:** `telefonoSinArreglo` (vacío o sin dígitos) y
+`esLeadDePruebaDeMeta` (lib/lead-sin-arreglo.ts): el motor cierra la inscripción con su motivo (`terminal`, el mismo
+camino del opt-out), en los dos WhatsApp; el lead de prueba se corta antes de cualquier canal (su email es
+`test+…@meta.com` y saldría de verdad). El número de 10 dígitos sin código de país NO se cierra: se arregla configurando la
+línea. **Vive en:** lib/lead-sin-arreglo.ts · lib/nutricion.ts (`procesarEnvios`) · tests/lead-sin-arreglo.test.ts.
+**Sin hacer:** el lead de prueba igual ENTRA a la automatización (se cierra en su primer envío); no se filtra al inscribir.
 *23/10/2026, chat «Automations» (claude2).*
