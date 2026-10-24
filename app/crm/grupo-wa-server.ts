@@ -18,7 +18,7 @@ import 'server-only';
 import { getWorkspaceActual, getTenantDb } from '@/lib/workspace';
 import { fetchContactosEvolution, listarLineas } from '@/lib/evolution';
 import { getNombresContacto } from '@/lib/evolution-contactos';
-import { completarNombreDeRelleno, createLead, logLeadEvent } from '@/lib/leads';
+import { completarCamposVacios, completarNombreDeRelleno, createLead, logLeadEvent } from '@/lib/leads';
 // LeadDuplicadoError vive en leads-duplicados: lib/leads la importa pero NO la reexporta (importada de ahí llegaba undefined y el
 // `instanceof` tiraba TypeError con cada participante que ya era lead).
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
@@ -32,8 +32,8 @@ import { claveNombre } from '@/lib/etiquetas-reglas';
 import { etapaDeEntrada } from '@/lib/lead-funnel-reglas';
 import { terminalEstadoFor } from '@/lib/pipeline';
 import {
-  TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, conNombresConocidos, esJidDeGrupo, esNombreDeRelleno, etapasQueDisparan, etiquetaDeGrupo,
-  gruposDeChats, gruposDeFetchAll, participantesDe, type GrupoWA, type ParticipanteWA,
+  CAMPOS_DEL_PERFIL, TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, conNombresConocidos, esJidDeGrupo, esNombreDeRelleno, etapasQueDisparan, etiquetaDeGrupo,
+  gruposDeChats, gruposDeFetchAll, lineaDePerfil, parcheDePerfil, participantesDe, perfilDeEmpresa, type CampoDelPerfil, type GrupoWA, type ParticipanteWA,
 } from '@/lib/grupo-wa-reglas';
 import { ORIGEN_LEAD } from './origen-lead';
 import { indiceContactos } from './importar-server';
@@ -165,6 +165,61 @@ export async function completarNombresDelGrupo(p: { linea: string | null; jid: s
     }
   }
   return { ok: true, completados, yaTenian, sinNombre, fuera, quedan, errores };
+}
+
+/** Entre una consulta de perfil y la siguiente: cada una es tráfico en la red de una línea no oficial (lib/fotos-contacto.ts). */
+export const ESPERA_PERFIL_MS = 2_000;
+/** El tope para el perfil de UN número (medido: ~0,6 s). */
+const TOPE_PERFIL_MS = 15_000;
+
+export type ResultadoPerfiles = {
+  ok: true; total: number; revisados: number; empresas: number; completados: number; campos: number; errores: number;
+  /** Desde qué participante sigue la próxima llamada; null = terminó. */
+  siguiente: number | null;
+} | { ok: false; error: string };
+
+/**
+ * «DATOS DE EMPRESA» (24/10/2026, Martín: «muchos no sólo tienen nombre, sino que incluso links»). A los participantes del grupo
+ * que YA son leads, lo que dice su perfil de empresa de WhatsApp (web, Instagram, correo, dirección), SÓLO en los campos vacíos
+ * (`parcheDePerfil`); el rubro y la descripción van al historial. No crea, no mueve, no le manda nada a nadie: consultar un
+ * perfil no le avisa a la persona. De a UNO y despacio (`ESPERA_PERFIL_MS`), y con corte por tiempo: sigue desde `siguiente`.
+ * No trae el nombre: la respuesta no lo tiene (lib/grupo-wa-reglas.ts).
+ */
+export async function completarPerfilesDelGrupo(p: { linea: string | null; jid: string; autor: string; desde?: number; hasta?: number }): Promise<ResultadoPerfiles> {
+  const leidos = await participantesDelGrupo(p.linea, p.jid);
+  if (!leidos.ok) return leidos;
+  const idx = await indiceContactos();
+  const telIdx = { exactos: idx.tels, sufijos: idx.telsSufijo };
+  // Sólo los que ya son UN lead (con dos, no se adivina), en el orden del grupo: `desde` es estable entre llamadas.
+  const conLead = leidos.participantes.flatMap((x) => { const id = buscarTelefono(telIdx, x.telefono); return typeof id === 'number' ? [{ telefono: x.telefono, id }] : []; });
+  const desde = Math.max(0, Math.min(p.desde ?? 0, conLead.length));
+  const db = await getTenantDb();
+  let revisados = 0, empresas = 0, completados = 0, campos = 0, errores = 0;
+  for (let i = desde; i < conLead.length; i++) {
+    if (p.hasta != null && Date.now() > p.hasta) return { ok: true, total: conLead.length, revisados, empresas, completados, campos, errores, siguiente: i };
+    if (i > desde) await new Promise((r) => setTimeout(r, ESPERA_PERFIL_MS));
+    const { telefono, id } = conLead[i];
+    revisados++;
+    const perfil = perfilDeEmpresa(await ev(`/chat/fetchBusinessProfile/${encodeURIComponent(leidos.linea)}`, TOPE_PERFIL_MS, { method: 'POST', body: JSON.stringify({ number: telefono }) }));
+    if (!perfil) continue;
+    empresas++;
+    try {
+      const { data, error } = await db.from('leads').select(`id, ${CAMPOS_DEL_PERFIL.join(', ')}`).eq('id', id).maybeSingle();
+      if (error || !data) { errores++; continue; }
+      const escritos = await completarCamposVacios(id, parcheDePerfil(data as Partial<Record<CampoDelPerfil, string | null>>, perfil), p.autor);
+      if (escritos.length) {
+        completados++;
+        campos += escritos.length;
+        // El rubro y la descripción, una vez: sólo cuando el perfil sumó algo (volver a correr no repite la línea).
+        const linea = lineaDePerfil(perfil);
+        if (linea) await logLeadEvent(id, 'Perfil de WhatsApp', linea, p.autor);
+      }
+    } catch (e) {
+      console.error('[grupo-wa] no pude completar el perfil de un participante:', msg(e));
+      errores++;
+    }
+  }
+  return { ok: true, total: conLead.length, revisados, empresas, completados, campos, errores, siguiente: null };
 }
 
 /** Cuáles ya son un lead del CRM (de cualquier funnel): la pantalla lo marca, y al traerlos se SUMAN, no se crean de nuevo. */

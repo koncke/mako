@@ -19,8 +19,10 @@ import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { TANDA_GRUPO, etapaPorDefecto, funnelPorDefecto, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
 import { miles } from './traer-seleccion';
 import { VistaConPie } from '@/app/_ui/VistaConPie';
+import { Confirm } from '@/app/_ui';
 import {
-  abrirTraerDeGrupoAction, completarNombresDeGrupoAction, etapasDeFunnelAction, gruposDeLineaAction, participantesDeGrupoAction, traerDeGrupoAction,
+  abrirTraerDeGrupoAction, completarNombresDeGrupoAction, completarPerfilesDeGrupoAction, etapasDeFunnelAction, gruposDeLineaAction,
+  participantesDeGrupoAction, traerDeGrupoAction,
 } from './grupo-wa-actions';
 import type { LineaGrupos } from './grupo-wa-server';
 
@@ -62,6 +64,8 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   /** Cada vuelta relee el grupo (después de traerlo, los traídos pasan a «Ya está»). */
   const [vuelta, setVuelta] = useState(0);
   const [completando, setCompletando] = useState(false);
+  /** «Datos de empresa»: la pregunta antes (tarda y consulta WhatsApp de a uno), y el avance mientras corre. */
+  const [preguntaPerfiles, setPreguntaPerfiles] = useState(false);
   const abierto = useRef(false);
 
   // Al abrir: las líneas del negocio y las etapas del funnel. Al cambiar de funnel, sólo sus etapas.
@@ -128,6 +132,8 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   const sinOfrecer = etapas.filter((e) => e.manda).length;
   const usables = etapas.filter((e) => !e.manda);
   const trayendo = avance != null || completando;
+  /** Lo que tarda «Datos de empresa» con los que ya están: ~2,6 s por persona (la espera entre consultas más la consulta). */
+  const minutosPerfiles = (k: number) => Math.max(1, Math.round((k * 2.6) / 60));
   const yaEstan = (gente ?? []).filter((p) => p.enElCrm).length;
   const listo = !!grupo && !!etapa && sel.size > 0 && !!etiqueta.trim() && funnel != null;
 
@@ -189,6 +195,30 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     if (completados) { onTraidos(cuantos); setVuelta((n) => n + 1); }
   };
 
+  // «DATOS DE EMPRESA» (24/10/2026, Martín: «muchos no sólo tienen nombre, sino que incluso links»). Lo que dice el perfil de
+  // empresa de WhatsApp de cada uno que ya está (web, Instagram, correo, dirección), sólo en lo vacío. De a uno y despacio:
+  // el server corta por tiempo y esto sigue desde donde quedó. No le llega nada a nadie.
+  const traerPerfiles = async () => {
+    setPreguntaPerfiles(false);
+    if (!grupo || trayendo) return;
+    setErr(null); setHecho(null); setCompletando(true);
+    let desde = 0, revisados = 0, empresas = 0, completados = 0, campos = 0, total = 0;
+    try {
+      for (let vuelta = 0; vuelta < 200; vuelta++) {
+        setAvance(`Revisando perfiles: ${miles(revisados)}${total ? ` de ${miles(total)}` : ''}…`);
+        const r = await completarPerfilesDeGrupoAction({ linea, jid, desde })
+          .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
+        if (!r.ok) { setErr(r.error); break; }
+        total = r.total; revisados += r.revisados; empresas += r.empresas; completados += r.completados; campos += r.campos;
+        if (r.siguiente == null || r.siguiente <= desde) break;
+        desde = r.siguiente;
+      }
+    } finally { setCompletando(false); setAvance(null); }
+    const datos = completados ? ` · ${miles(completados)} con datos nuevos (${miles(campos)} entre web, Instagram, correo y dirección)` : ' · ningún dato nuevo';
+    setHecho(`«${grupo.nombre}»: ${miles(empresas)} de ${miles(revisados)} tienen cuenta de empresa${datos}.`);
+    if (completados) { onTraidos(`${miles(completados)} con datos de empresa`); setVuelta((n) => n + 1); }
+  };
+
   const opcionesLinea: DropdownOption[] = (lineas ?? []).map((l) => ({ value: l.linea, label: l.conectada ? l.etiqueta : `${l.etiqueta} · sin conectar` }));
   const opcionesGrupo: DropdownOption[] = [
     { value: '', label: grupos === null ? 'Cargando grupos…' : grupos.length ? 'Elige un grupo' : 'Sin grupos' },
@@ -237,6 +267,11 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
           {yaEstan > 0 && (
             <button type="button" onClick={() => void completar()} disabled={trayendo} style={{ ...btnAtras, opacity: trayendo ? 0.55 : 1 }}>
               {completando ? 'Completando…' : 'Completar nombres'}
+            </button>
+          )}
+          {yaEstan > 0 && (
+            <button type="button" onClick={() => setPreguntaPerfiles(true)} disabled={trayendo} style={{ ...btnAtras, opacity: trayendo ? 0.55 : 1 }}>
+              Datos de empresa
             </button>
           )}
           <span style={{ flex: 1 }} />
@@ -302,6 +337,11 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
         {!jid && grupos !== null && <p style={nota}>{grupos.length ? 'Elige el grupo de arriba.' : 'Esta línea no está en ningún grupo.'}</p>}
         {(grupos === null || (jid && gente === null)) && <p style={{ ...nota, color: 'var(--faint)' }}>Cargando…</p>}
         {jid && gente?.length === 0 && <p style={nota}>{sinNumero ? 'WhatsApp no deja ver los números de este grupo.' : 'Nadie para traer.'}</p>}
+      {preguntaPerfiles && (
+        <Confirm tone="primary" title="¿Traer los datos de empresa?" confirmLabel="Traer"
+          message={`Consulta el perfil de WhatsApp de los ${miles(yaEstan)} que ya están, de a uno y despacio: unos ${minutosPerfiles(yaEstan)} min. Sólo los que tienen cuenta de empresa traen algo (web, Instagram, correo, dirección), y sólo se completa lo vacío. No les llega nada.`}
+          onConfirm={() => void traerPerfiles()} onCancel={() => setPreguntaPerfiles(false)} />
+      )}
     </VistaConPie>
   );
 }

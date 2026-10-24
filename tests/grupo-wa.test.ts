@@ -18,7 +18,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   conNombresConocidos, esJidDeGrupo, esNombreDeRelleno, etapaPorDefecto, etiquetaDeGrupo, funnelPorDefecto, gruposDeChats, gruposDeFetchAll,
-  nombreUtil, participantesDe, telefonoDeJid,
+  lineaDePerfil, nombreUtil, parcheDePerfil, participantesDe, perfilDeEmpresa, telefonoDeJid,
 } from '../lib/grupo-wa-reglas';
 
 test('1. los grupos de fetchAllGroups: nombre, tamaño, sin comunidades, ordenados', () => {
@@ -124,7 +124,7 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
   const acciones = leer('app/crm/grupo-wa-actions.ts');
   const exportadas = [...acciones.matchAll(/export async function (\w+)/g)].map((m) => m[1]);
-  assert.equal(exportadas.length, 6, 'una acción nueva: que tenga la puerta del admin (y sumala acá)');
+  assert.equal(exportadas.length, 7, 'una acción nueva: que tenga la puerta del admin (y sumala acá)');
   for (const f of exportadas) {
     const cuerpo = acciones.slice(acciones.indexOf(`export async function ${f}`));
     assert.match(cuerpo.slice(0, 600), /await exigirSesion\(\);\n {2}if \(\(await getRolWsEfectivo\(\)\) !== 'admin'\) return \{ ok: false, error: SOLO_ADMIN \};/, `${f}: sin la puerta del admin`);
@@ -304,4 +304,51 @@ test('10. «Completar nombres»: a los que YA están, sólo el nombre de relleno
   const run = leer('lib/api-mako/areas/crm.run.ts');
   assert.match(run, /const c = await completarNombresDelGrupo\(\{ linea: g\.linea, jid: grupo\.jid, autor: '', soloContar: true \}\);/);
   assert.match(run, /if \(!c\.completados\) return \{ error: [^\n]*, yaEstaba: true \};/);
+});
+
+// ── 24/10/2026: los datos de EMPRESA. Martín mostró la ficha de un participante: cuenta de empresa con rubro, correo, web y
+// dirección. MEDIDO: el perfil (`/chat/fetchBusinessProfile`) trae eso a veces, y nunca el nombre del negocio.
+// Roturas (base 12/0): la web que toma el link de Instagram → cae el 11; el parche que pisa un campo lleno → cae el 11; el
+// server sin la espera entre consultas → cae el 12; la escritura sin comparar que siga vacío → cae el 12.
+
+test('11. el perfil de empresa: web, Instagram, correo y dirección, sólo si es empresa, y sólo en lo vacío', () => {
+  assert.equal(perfilDeEmpresa({ isBusiness: false, website: ['https://x.com'] }), null, 'una cuenta personal no trae nada');
+  assert.equal(perfilDeEmpresa(null), null);
+  const p = perfilDeEmpresa({
+    isBusiness: true, wid: '1@s.whatsapp.net', category: 'Agencia de publicidad', description: 'Diseño y marketing',
+    website: ['https://www.instagram.com/booompr', 'https://facebook.com/booom', 'https://www.booompr.com'],
+    email: 'roberto@booompr.com', address: 'Calle Isabel #44', business_hours: {},
+  })!;
+  assert.deepEqual(p, { rubro: 'Agencia de publicidad', descripcion: 'Diseño y marketing', web: 'https://www.booompr.com', instagram: 'booompr', email: 'roberto@booompr.com', direccion: 'Calle Isabel #44' });
+  // Sin web propia: ni Instagram ni Facebook pasan por web. El Instagram también sale de la descripción.
+  const q = perfilDeEmpresa({ isBusiness: true, category: 'Coach', website: [], description: 'Sígueme en instagram.com/ana.coach', email: 'no es un correo' })!;
+  assert.deepEqual([q.web, q.instagram, q.email], [null, 'ana.coach', null]);
+  assert.equal(perfilDeEmpresa({ isBusiness: true, website: ['https://instagram.com/p/abc'] })!.instagram, null, 'un posteo no es una cuenta');
+  // Sólo lo vacío: un campo que escribió una persona no se pisa.
+  assert.deepEqual(parcheDePerfil({ web: 'https://mia.com', instagram: '', email: null }, p), { instagram: 'booompr', email: 'roberto@booompr.com', direccion: 'Calle Isabel #44' });
+  assert.equal(lineaDePerfil(p), 'Perfil de empresa en WhatsApp: Agencia de publicidad · Diseño y marketing');
+  assert.equal(lineaDePerfil({ rubro: null, descripcion: null, web: null, instagram: null, email: null, direccion: null }), null);
+});
+
+test('12. «Datos de empresa»: a los que ya están, de a uno y despacio, comparando antes de escribir; con la pregunta antes', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
+  const server = leer('app/crm/grupo-wa-server.ts');
+  const f = server.slice(server.indexOf('export async function completarPerfilesDelGrupo('));
+  const cuerpo = f.slice(0, f.indexOf('\n}\n'));
+  assert.doesNotMatch(cuerpo, /createLead|agregarAProducto|ponerEtiquetaLote|setPipelineStage|updateLead|\/message\//, 'crea, mueve o manda algo');
+  assert.match(cuerpo, /if \(i > desde\) await new Promise\(\(r\) => setTimeout\(r, ESPERA_PERFIL_MS\)\);/, 'sin espera entre consultas: tráfico seguido en la red de la línea');
+  assert.match(cuerpo, /if \(p\.hasta != null && Date\.now\(\) > p\.hasta\) return \{[^}]*siguiente: i \};/, 'sin corte por tiempo con «sigue desde»');
+  assert.match(cuerpo, /typeof id === 'number' \? \[\{ telefono: x\.telefono, id \}\] : \[\]/, 'un número de dos leads: no se adivina');
+  assert.match(cuerpo, /await completarCamposVacios\(id, parcheDePerfil\(/);
+  assert.match(cuerpo, /if \(escritos\.length\) \{[\s\S]*?logLeadEvent\(id, 'Perfil de WhatsApp', linea, p\.autor\)/, 'la línea del historial se repite al volver a correr');
+  const leads = leer('lib/leads.ts');
+  const esc = leads.slice(leads.indexOf('export async function completarCamposVacios('), leads.indexOf('/** Historial de cambios de un lead'));
+  assert.match(esc, /\.update\(\{ \[campo\]: valor \}\)\.eq\('id', id\)\.or\(`\$\{campo\}\.is\.null,\$\{campo\}\.eq\.`\)/, 'escribe sin comparar que siga vacío');
+  // La pantalla pregunta antes (tarda y consulta WhatsApp) y sigue desde donde quedó.
+  const pantalla = leer('app/crm/TraerDeGrupoWA.tsx');
+  assert.match(pantalla, /onClick=\{\(\) => setPreguntaPerfiles\(true\)\}/);
+  assert.match(pantalla, /<Confirm tone="primary" title="¿Traer los datos de empresa\?"/);
+  assert.match(pantalla, /if \(r\.siguiente == null \|\| r\.siguiente <= desde\) break;\n\s+desde = r\.siguiente;/);
 });

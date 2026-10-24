@@ -207,3 +207,57 @@ export function etapasQueDisparan(
   }
   return out;
 }
+
+// ── El PERFIL DE EMPRESA de WhatsApp (24/10/2026) ───────────────────────────────────────────────────────────────────────
+// Martín, con la ficha de un participante abierta en WhatsApp: «muchos no sólo tienen nombre, sino que incluso links». MEDIDO
+// el 24/10/2026 en su línea (`POST /chat/fetchBusinessProfile/{inst}` { number }, ~0,6 s, 15 participantes del grupo de 221):
+// 6 con cuenta de empresa. Siempre trae `category` (el rubro) y `business_hours`; a veces `website` (una LISTA), `email`,
+// `address` y `description`. ⚠️ NUNCA el nombre del negocio (el que se ve en WhatsApp no viaja en esta respuesta). Y cada
+// consulta es tráfico en la RED de una línea no oficial (lib/fotos-contacto.ts): se hace de a una y despacio.
+
+/** Lo que sirve del perfil de empresa de un número. null = no es una cuenta de empresa (o no contestó). */
+export type PerfilEmpresa = { rubro: string | null; descripcion: string | null; web: string | null; instagram: string | null; email: string | null; direccion: string | null };
+
+/** La cuenta de Instagram de un link (`instagram.com/<usuario>`), sin las rutas que no son una cuenta. */
+function instagramDe(s: string | null | undefined): string | null {
+  const m = /instagram\.com\/([A-Za-z0-9._]{1,30})/i.exec(s ?? '');
+  return m && !['p', 'reel', 'reels', 'stories', 'explore', 'tv'].includes(m[1].toLowerCase()) ? m[1] : null;
+}
+
+/** El perfil que contesta Evolution, leído. La web es la primera que no es Instagram, Facebook ni un link de WhatsApp. */
+export function perfilDeEmpresa(json: unknown): PerfilEmpresa | null {
+  if (!json || typeof json !== 'object') return null;
+  const o = json as Record<string, unknown>;
+  if (o.isBusiness !== true) return null;
+  const sitios = (Array.isArray(o.website) ? o.website : [o.website]).map(texto).filter((s): s is string => !!s);
+  const descripcion = texto(o.description);
+  const email = texto(o.email);
+  return {
+    rubro: texto(o.category),
+    descripcion: descripcion ? descripcion.slice(0, 300) : null,
+    web: sitios.find((s) => !instagramDe(s) && !/facebook\.com|wa\.me|whatsapp\.com/i.test(s)) ?? null,
+    instagram: sitios.map(instagramDe).find((x) => !!x) ?? instagramDe(descripcion),
+    email: email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null,
+    direccion: texto(o.address),
+  };
+}
+
+/** Los campos de contacto que el perfil puede completar (los del lead: lib/leads.ts). */
+export const CAMPOS_DEL_PERFIL = ['web', 'instagram', 'email', 'direccion'] as const;
+export type CampoDelPerfil = typeof CAMPOS_DEL_PERFIL[number];
+
+/** Lo que se le escribe a un lead: SÓLO los campos vacíos que el perfil trae. Nunca pisa lo que escribió una persona. */
+export function parcheDePerfil(lead: Partial<Record<CampoDelPerfil, string | null>>, p: PerfilEmpresa): Partial<Record<CampoDelPerfil, string>> {
+  const out: Partial<Record<CampoDelPerfil, string>> = {};
+  for (const k of CAMPOS_DEL_PERFIL) {
+    const v = p[k];
+    if (v && !(lead[k] ?? '').trim()) out[k] = v;
+  }
+  return out;
+}
+
+/** El renglón del historial con lo que no tiene columna: el rubro y la descripción. null si no trae ninguno. */
+export function lineaDePerfil(p: PerfilEmpresa): string | null {
+  const partes = [p.rubro, p.descripcion].filter((x): x is string => !!x);
+  return partes.length ? `Perfil de empresa en WhatsApp: ${partes.join(' · ')}` : null;
+}

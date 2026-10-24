@@ -2006,6 +2006,32 @@ export async function completarNombreDeRelleno(id: number, antes: string | null,
   return true;
 }
 
+/** Los campos de contacto que se completan solos (el perfil de empresa de WhatsApp) y su rótulo en el historial. */
+const CAMPOS_COMPLETABLES = { web: 'Web', instagram: 'Instagram', email: 'Email', direccion: 'Dirección' } as const;
+
+/**
+ * COMPLETA CAMPOS DE CONTACTO VACÍOS de un lead (24/10/2026: el perfil de empresa de WhatsApp, app/crm/grupo-wa-server.ts),
+ * uno por uno y comparando que SIGA vacío (null o ''): si alguien lo llenó en el medio, no se pisa. Cada uno queda en el
+ * historial con su rótulo de siempre (`AUDIT_FIELDS`), y se deshace desde ahí. No toca la etapa ni inscribe a nadie.
+ * Devuelve los campos que escribió.
+ */
+export async function completarCamposVacios(id: number, parche: Partial<Record<keyof typeof CAMPOS_COMPLETABLES, string>>, autor: string): Promise<string[]> {
+  const db = await getTenantDb();
+  const escritos: string[] = [];
+  for (const [campo, valor] of Object.entries(parche) as Array<[keyof typeof CAMPOS_COMPLETABLES, string]>) {
+    if (!(campo in CAMPOS_COMPLETABLES) || !valor) continue;
+    const { data, error } = await db.from('leads').update({ [campo]: valor }).eq('id', id).or(`${campo}.is.null,${campo}.eq.`).select('id');
+    if (error) throw new Error(`completarCamposVacios (${campo}): ${error.message}`);
+    if (data?.length) escritos.push(campo);
+  }
+  if (escritos.length) {
+    const filas = escritos.map((c) => ({ lead_id: id, campo: CAMPOS_COMPLETABLES[c as keyof typeof CAMPOS_COMPLETABLES], valor_anterior: null, valor_nuevo: parche[c as keyof typeof CAMPOS_COMPLETABLES]!, autor }));
+    const { error: ea } = await db.from('lead_audit').insert(filas);
+    if (ea) console.error(`[audit] los datos completados del lead ${id} no quedaron en el historial: ${ea.message}`);
+  }
+  return escritos;
+}
+
 /** Historial de cambios de un lead (más reciente primero). Vacío si la tabla no existe. */
 export async function getLeadAudit(leadId: number): Promise<LeadAuditRow[]> {
   try {

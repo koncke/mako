@@ -298,10 +298,17 @@ lib/nutricion.ts) · `tests/grupo-wa.test.ts` (21 + 10 + 8 roturas). Lo de Evolu
   conocidos hoy**: nadie de ese grupo le escribió a la línea. La herramienta queda, y el número va a subir solo a medida
   que escriban.
 
+- **«Datos de empresa» (el mismo día):** el perfil de empresa de WhatsApp de cada uno que ya está (6 de 15 en la muestra
+  tienen cuenta de empresa), en sus columnas `web`, `instagram`, `email` y `direccion`, SÓLO si están vacías
+  (`parcheDePerfil`; `completarCamposVacios` compara que sigan vacías). El rubro y la descripción van al historial. Es un botón
+  con pregunta, porque tarda (~2,6 s por persona: de a uno y espaciado) y consulta la red de la línea. No trae el nombre.
+
 **Sin hacer:**
-- El perfil de empresa (descripción, web, correo, categoría): sólo existe en cuentas de WhatsApp Business (3 de 15 en la
-  muestra) y cuesta una consulta a la red por número, que expone la línea a un baneo. Si se hace, que sea opcional, lento y
-  con tope. Buscar la web y el Instagram por nombre (Apify, el chat de Ventas) necesita un nombre, y estos no lo tienen.
+- «Datos de empresa» por la API de MaKo: no tiene operación todavía. Es largo y de a tandas, y volver a correrlo vuelve a
+  consultar a todos: antes hay que poder saltear a quien ya se consultó.
+- Un tope por día de consultas de perfil en la línea: hoy sólo la frena la espera entre una y otra.
+- Buscar la web y el Instagram de los que NO tienen cuenta de empresa: el chat de Ventas lo hizo por TELÉFONO (Apify,
+  053ab4f6a). Se engancha cuando esté en main, y necesita la clave de Apify del negocio, que hoy nadie tiene.
 
 *24/10/2026, chat «CRM» (claude1).*
 

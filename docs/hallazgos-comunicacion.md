@@ -90,10 +90,13 @@ plataforma (las del ws3 y el ws9 estaban cerradas: `fetchAllGroups` contesta 500
   (la propia línea). `evolution_contactos` (la nuestra, 1.463 filas en ese negocio): también 1.
 - **Los mensajes guardados del grupo** traen `pushName`, pero la `key` no dice quién escribió, y en un grupo de avisos escriben
   dos administradores (67 mensajes, 2 nombres).
-- **El perfil, por número (`/chat/fetchProfile`, `/chat/fetchBusinessProfile`)** no trae el nombre de un desconocido. El de
-  empresa trae descripción, web, correo y categoría sólo si la cuenta es de WhatsApp Business: 3 de 15 en la muestra, 1 con
-  todo eso. ~0,6 s por número. ⚠️ **Es tráfico en la RED de una línea no oficial**, lo que la expone a un baneo
-  (lib/fotos-contacto.ts ya lo evitaba a propósito). Cientos seguidos es justo ese patrón.
+- **El perfil, por número (`/chat/fetchProfile`, `/chat/fetchBusinessProfile`)** no trae el nombre de un desconocido, ni
+  siquiera el del negocio en una cuenta de empresa (el que se ve en WhatsApp no viaja en la respuesta). El de empresa trae
+  siempre `category` y `business_hours`, y a veces `website` (una lista), `email`, `address` y `description`: 6 de 15 en la
+  muestra eran de empresa, 2 con web y dirección, 1 con correo. ~0,6 s por número. ⚠️ **Una primera medición dio 3 de 15**
+  porque consultaba sin espera y varias vencieron sin respuesta, y lo vencido se contó como «no es empresa»: lo que no
+  contestó es «no sé», no «no». ⚠️ **Es tráfico en la RED de una línea no oficial**, lo que la expone a un baneo
+  (lib/fotos-contacto.ts ya lo evitaba a propósito): de a uno y espaciado (`ESPERA_PERFIL_MS`, app/crm/grupo-wa-server.ts).
 - **`fetchAllGroups` en una línea con 61 grupos no contestó en 90 s**; `findChats` dio los grupos en 1,2 s.
 
 ### «Leímos una fila vieja» no era: la línea se conectó después (24/10/2026)

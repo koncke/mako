@@ -13,8 +13,8 @@ import { idDelFunnelDefault } from '@/lib/funnels';
 import { autorDelMovimiento } from '@/lib/leads';
 import type { GrupoWA, ParticipanteWA } from '@/lib/grupo-wa-reglas';
 import {
-  completarNombresDelGrupo, etapasParaTraer, gruposDeLinea, lineasDelNegocio, marcarEnElCrm, participantesDelGrupo, traerDelGrupo,
-  type LineaGrupos, type ResultadoCompletar, type ResultadoTraer,
+  completarNombresDelGrupo, completarPerfilesDelGrupo, etapasParaTraer, gruposDeLinea, lineasDelNegocio, marcarEnElCrm, participantesDelGrupo,
+  traerDelGrupo, type LineaGrupos, type ResultadoCompletar, type ResultadoPerfiles, type ResultadoTraer,
 } from './grupo-wa-server';
 
 type Res<T> = ({ ok: true } & T) | { ok: false; error: string };
@@ -92,6 +92,21 @@ export async function completarNombresDeGrupoAction(p: { linea: string | null; j
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
   try {
     const r = await completarNombresDelGrupo({ linea: p.linea, jid: String(p.jid ?? ''), autor: await autorDelMovimiento(), hasta: Date.now() + 45_000 });
+    if (r.ok && r.completados) revalidatePath('/crm');
+    return r;
+  } catch (e) { return { ok: false, error: msg(e) }; }
+}
+
+/**
+ * «Datos de empresa» (24/10/2026): a los participantes del grupo que YA son leads, lo que dice su perfil de empresa de WhatsApp,
+ * sólo en los campos vacíos. De a uno y despacio: corta por tiempo y la pantalla sigue desde `siguiente`.
+ */
+export async function completarPerfilesDeGrupoAction(p: { linea: string | null; jid: string; desde?: number }): Promise<ResultadoPerfiles> {
+  await exigirSesion();
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
+  try {
+    const desde = Number.isInteger(p.desde) && (p.desde as number) >= 0 ? (p.desde as number) : 0;
+    const r = await completarPerfilesDelGrupo({ linea: p.linea, jid: String(p.jid ?? ''), autor: await autorDelMovimiento(), desde, hasta: Date.now() + 40_000 });
     if (r.ok && r.completados) revalidatePath('/crm');
     return r;
   } catch (e) { return { ok: false, error: msg(e) }; }
