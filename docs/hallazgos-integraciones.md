@@ -1511,179 +1511,66 @@ vinculados a una etapa (scripts/backfill-calendly.ts, el salto con `rutaDeReserv
 `ubicarReservaVinculada` de lib/agenda-evento-etapa-server.ts, como el webhook. **Vive en:** app/api/webhooks/calendly/route.ts ·
 lib/webhook-routing.ts · lib/compra-plan-reglas.ts (`AGENDA_MAKO`) · app/vsl/Landing.tsx (`CALENDLY_URL`).
 
-## El puente de leads de Meta por Zapier o Make (23/10/2026)
+## El puente de leads de Meta por Make o Zapier: se armó y se RETIRÓ el mismo día (23/10/2026)
 
-**El pedido** (Martín, desde el Ops Center, vía el Cerebro): «armame el puente de leads por Zapier». La app de MaKo todavía no
-tiene `leads_retrieval` aprobado (en revisión, estimado ~10/11), así que un negocio que no conectó Meta con una app propia no
-recibe los leads de sus formularios instantáneos. La investigación del Cerebro (`C:/dev/cerebro-herramientas/meta-mientras-tanto-23-10.md`,
-opción A) concluyó que el puente que anda en días es un Zap que le manda cada lead a MaKo. Lo paga el negocio. La guía para
-el negocio: [guia-leads-por-zapier.md](guia-leads-por-zapier.md).
+**Estado: RETIRADO.** Martín, 23/10/2026, textual: «Y no entiendo porque seguimos teniendo "zapier" o "Make" si ya resolvimos
+todo con Zernio...». Los leads de formularios de Meta entran con la app propia de cada negocio (según el Cerebro, como hoy les
+pasa a Brigitte y Natalia) y Zernio trae los formularios con su aviso `lead.received`. Quien ya paga Make o Zapier no tiene nada
+que conectar acá.
 
-**Lo que ya existía, y por eso el trabajo fue unir y no construir:** el patrón de «fuente que avisa» (Hotmart y Skool-por-Zapier:
-un secreto en un header, ruteo por su hash, lectura estricta) y la puerta de los leads de formulario de Meta
-(`upsertLeadFromMeta` + `alNacerLeadDeMeta`). El receptor nuevo es el de Skool con la puerta de Meta detrás.
+**Qué fue.** Mientras la app de MaKo no tenía `leads_retrieval` (en revisión, ~10/11), un receptor `POST /api/webhooks/zapier`
+(header `X-MaKo-Clave`, servicio de ruteo `zapier`, credencial `ZAPIER_LEADS_CLAVE`) recibía el lead desde un escenario de Make o
+un Zap del negocio y lo creaba por la MISMA puerta que un lead de Meta, con su tarjeta en /integraciones («Último lead hace X»,
+ámbar a las 72 h sin uno). Se probó de punta a punta en el ws3 y rompiendo cada guarda. Está en los commits `4e661df70`,
+`ea41ac4e4`, `6c520ad67`, `946a451e0` y `93a7baf00`: se recupera con `git show`. Su guía quedó en
+`docs/archivo/guia-leads-por-zapier.md`, con los precios leídos el 23/10/2026.
 
-### Las decisiones, y la que casi sale mal
+**Qué se sacó:** la tarjeta y su servicio del catálogo (los tres registros y el logo), sus slides, el endpoint, el ruteo (el
+servicio `zapier`, `ZAPIER_LEADS_CLAVE` en `ROUTING_CREDS` y en `RUTEO_POR_HASH`), el lector, la puerta y el estado
+(`lib/zapier-lead.ts`, `lib/zapier-leads.ts`, `lib/zapier-estado.ts`), el estado «callada» de la grilla, el renglón de la API de
+MaKo y su test. **No se tocó** lo de Skool y Hotmart, que también avisan «por Zapier» pero son otra fuente.
 
-- **⚠️ La puerta equivocada era la que estaba a mano.** El molde (Skool) entra por `ingresarDeFuente`, que a propósito NO decide
-  nada por detrás: ni etapa, ni automatizaciones, ni mensajes (`tests/fuentes-leads-webhooks.test.ts`). Un lead de formulario de
-  Meta SÍ dispara el aviso, los flujos y las automatizaciones, y el negocio lo espera igual venga por donde venga: por esa puerta
-  el lead entraba al CRM como una fila muda y nadie le escribía. Entra por **`upsertLeadFromMeta`** (origen `instant_form`,
-  dedup, producto según la campaña, respuestas crudas) y, si es nuevo y reciente, por la conversión `Lead` de CAPI y
-  `alNacerLeadDeMeta`: lo mismo que hace el webhook de Meta. `ingresarLeadDeZapier` (lib/zapier-leads.ts).
-- **El id.** `upsertLeadFromMeta` es idempotente por `meta_lead_id`. Con el `leadgen_id` real (15 a 17 dígitos) un lead que
-  entra después por Meta NO se duplica, y el `event_id` de CAPI es el mismo que usaría el webhook. Sin él, el id propio es
-  `zap:<ws>:<huella>`: determinista (un reintento de Zapier cae en la misma fila) y con el workspace adentro, porque
-  `idx_leads_meta_lead_id` es único GLOBAL, sin `workspace_id`. Ese id NO viaja a Meta como `lead_id` (Meta rechaza el evento
-  entero ante uno inválido).
-- **La clave va en un header, no en la URL** (la regla de Skool: una URL con la clave queda en los logs de cada salto).
-  Servicio de ruteo PROPIO (`zapier`): con el de `skool`, la misma clave entraría a los dos.
-- **Un aviso sin email ni teléfono contesta 422, no 200** (a diferencia de Skool). Un Zap mal mapeado que manda leads sin
-  contacto tiene que verse en el historial de tareas de Zapier, que es lo que le llega por mail a quien lo armó. Con 200 el puente
-  «andaría» y no entraría nadie.
-- **Un lead VIEJO se carga callado** (`esNuevoParaElNegocio`, 24 h): el «Probar» de Zapier manda leads ya existentes, y anunciar
-  uno de hace una semana como nuevo es mentir. **Sin fecha del formulario se trata como recién llegado**: un Zap vivo dispara
-  en segundos, y callarlo dejaría a un lead real sin que nadie le escriba (la falla más cara de las dos).
-- **El estado de la tarjeta sale de lo que LLEGÓ, no de la clave** (como el Pixel): `zapier.estado` en `app_settings`, una fila por
-  negocio. Ámbar a las 72 h sin un lead — pero sólo si ya entró alguno: un puente que nunca recibió nada «espera», no «cayó».
-  La grilla no lo esconde de «Requiere tu atención» (`callada`), a diferencia de Hotmart/Skool/Apify sin configurar.
-  ⚠️ **72 h es un proxy**: Meta no dice cuántos leads se generaron (para eso hace falta el permiso que este puente reemplaza),
-  así que un negocio con tres leads por semana lo cruza sin que pase nada.
+**Medido antes de sacar el endpoint** (producción, 23/10/2026, sólo lectura; de `credenciales` sólo la clave, nunca el valor):
+0 credenciales `ZAPIER_LEADS_CLAVE`, 0 filas de ruteo `zapier`, 0 filas `zapier.estado` y 0 leads con id `zap:%`. Nadie lo había
+conectado, así que el endpoint se sacó sin avisar a nadie y, ya desplegado, contesta 404.
 
-### Trampas, todas medidas
+**El guard:** `tests/puente-leads-retirado.test.ts` barre `git ls-files app lib tests` y falla si vuelve un archivo del puente, una
+cadena de su ruta o de su credencial en el código (sin comentarios), la tarjeta en el catálogo o el ruteo; y comprueba que Skool,
+Hotmart y Apify siguen donde estaban, para que un retiro torpe no se lleve lo que no era.
 
-- **`ad_name`, `campaign_name` y `adset_name` contienen «name»**: pasados al parser de Meta (`extractField` busca por palabra
-  clave dentro del nombre), el primero ganaba como el NOMBRE DE LA PERSONA. Las claves técnicas se sacan antes del parser.
-- **`first_name` suele venir antes que `full_name`** y el parser se queda con el primer campo que diga «name»: salía «Ana» en
-  vez de «Ana Pérez». Lo cazó el test, no la lectura. El nombre completo va adelante; sin él, nombre y apellido se juntan.
-- **Un id de 17 dígitos que viaja como NÚMERO JSON ya se redondeó al parsear** (más de 2^53): no es el id, y se descarta.
-- **`upsertLeadFromMeta` escribe `meta_lead_id` también en el UPDATE** de un lead que ya existía. Una persona que vuelve a llenar
-  el formulario con otro leadgen_id le reemplaza el id al lead (igual que por Meta, medido). El caso malo es el id propio sobre
-  un id real, que sólo pasa si el Zap deja de mandar el id y la persona ya había entrado por Meta de frente.
-- **Borrar un lead no borra su `lead_audit` ni sus `notificaciones`**: quedaron 2 y 3 filas colgando del ws3 tras la prueba y se
-  limpiaron a mano. Un lead de prueba se limpia con las tres.
-- **Los nombres de los campos del trigger de Zapier NO están medidos** (ni la salida de Make): el lector es tolerante y devuelve
-  `sin_usar`. Lo que Zapier dice en su ayuda (23/10/2026) y NO se probó con un Zap real: con «Data» vacío manda todos los campos
-  del paso anterior; el CRM se asigna en `business.facebook.com/settings/leads-accesses` (la app «Zapier», no «Zapier Inc.»); si
-  se edita el formulario, Facebook crea uno nuevo con otro id; un Zap por formulario.
+### Lo que sigue valiendo, si se vuelve a armar un receptor de leads
 
-### Cuánto cuesta para el negocio (leído en las páginas oficiales el 23/10/2026)
+- **La puerta de un lead de formulario de Meta es `upsertLeadFromMeta` + `alNacerLeadDeMeta`, no `ingresarDeFuente`.** La de Skool
+  y Hotmart a propósito no decide nada por detrás (ni etapa, ni automatizaciones, ni mensajes): por ahí el lead entra al CRM como
+  una fila muda y nadie le escribe.
+- **`idx_leads_meta_lead_id` es único GLOBAL**, sin `workspace_id`: un id propio lleva el workspace adentro (`zap:<ws>:<huella>`,
+  determinista para que un reintento caiga en la misma fila) y NUNCA viaja a Meta como `lead_id`, que rechaza el evento entero
+  ante uno inválido.
+- **`parseLeadFields` busca por palabra clave dentro del nombre del campo.** `ad_name`, `campaign_name` y `adset_name` contienen
+  «name» y ganaban como el nombre de la persona; `first_name` llega antes que `full_name` y salía «Ana» en vez de «Ana Pérez».
+  Las claves técnicas se sacan antes del parser y el nombre completo va adelante. Y un id de 17 dígitos que viaja como número
+  JSON ya se redondeó al parsear (pasa de 2^53): no es el id.
+- **Un aviso sin email ni teléfono contesta 422, no 200**: con 200 el puente «anda» y no entra nadie, y el error no se ve donde
+  mira quien lo armó. Un lead viejo se carga callado (24 h), pero sin fecha se trata como recién llegado.
+- **Borrar un lead no borra su `lead_audit` ni sus `notificaciones`**: una prueba se limpia con las tres.
+- **Un plan «gratis» se mide contra la función que se va a usar, no contra el nombre del plan** (Martín: «El plan gratis de Make
+  NO trae la integración API»; lo oficial no lo confirmó ni lo descartó, y no se ofreció). **Y un precio sin país es la cifra de una
+  región**: Make Core, US$9 al mes pagando el año en Argentina y México, US$12 en EE. UU.
+- **Lo que cuesta un puente de terceros, medido en sus fuentes:** un disparador por intervalo de Make cobra 1 crédito por corrida
+  aunque venga vacío (`help.make.com/how-features-use-credits`: a 15 minutos son ~2.900 créditos al mes por escenario); el
+  contrato de Make (MSA, cláusula 4.1, «internal purposes») no deja operar los leads de varios clientes con una sola cuenta de
+  MaKo, y su plan Core no trae equipos ni roles; Zapier necesita el plan Professional (Facebook Lead Ads es una app premium y
+  «Webhooks by Zapier» no está en Free).
+- **La key de un servicio no se renombra con su tarjeta**: la tarjeta pasó a «Make o Zapier» y el servicio siguió llamándose
+  `zapier` porque la clave ya estaba escrita en la base y en el ruteo.
 
-El Cerebro pidió medirlo antes del domingo: decide si se puede PROMETER el puente. **Zapier: el plan gratis no alcanza.**
-La ayuda oficial de Facebook Lead Ads (actualizada el 01/10/2026, `help.zapier.com/hc/en-us/articles/8496061306253`) dice «Facebook
-Lead Ads is a premium app on Zapier»: está en Professional, Team y Enterprise, y pide «A paid Zapier account». Y «Webhooks by
-Zapier» (el POST a MaKo) tampoco está en Free (`zapier.com/pricing`, actualizada el 23/10/2026). **El mínimo es Professional:
-US$19,99 al mes con facturación anual, US$29,99 mes a mes, 750 tareas.** **Make: el mínimo que se ofrece es Core** (corregido el mismo día: ver abajo).
-Mi lectura de su página de precios no sirvió (la dibuja JavaScript), pero el Cerebro la leyó con un navegador
-(`make.com/pricing`): Core US$9 al mes (con el descuento anual) con escenarios ilimitados y programación al minuto; Pro US$16;
-Teams US$29; Free US$0, con 1.000 créditos y 15 minutos de intervalo mínimo. Facebook Lead Ads no es una de las «Enterprise apps».
-En Leads Access se asigna la app «Make» (no «Zapier») y hace falta una cuenta de Facebook Business Manager. **Lo oficial sobre
-el plan Free:** Make dice que «most Make API endpoints are reserved for our paid subscription plans» (`developers.make.com`; es su
-API de gestión, no el módulo HTTP) y la página del módulo HTTP (`apps.make.com/http`) no nombra ningún plan: si «Make a request»
-manda el POST en Free no se confirmó ni a favor ni en contra, y no se ofrece. **Confirmado después (ayuda oficial de Make, `help.make.com/how-features-use-credits`):** «Trigger modules use 1 credit per run,
-regardless of whether they return data» —un chequeo vacío cobra—, así que un disparador por intervalo son ~2.900 créditos al mes
-por escenario a 15 minutos y ~43.000 al minuto. **Sin medir (1):** cuál de los dos módulos de Lead Ads conviene: «New Lead»
-(`NewLeadMultiple`, por webhook, con «Get Lead Details»: ~3 créditos por lead, según el workflow) o «Watch Leads» (de intervalo,
-según la comunidad de Make); la página oficial los lista sin etiquetar. **Sin medir (2):** si un disparador por webhook gasta algo
-sin leads (la ayuda no menciona los webhooks). La tarjeta dice «Watch Leads»; si se usa, no programarlo cada menos de 15 minutos.
+### Lo que queda SIN hacer
 
-⚠️ **Lo que se había escrito antes era una suposición.** El relevo del Cerebro decía «Zapier Professional ronda US$20–30, pero ese
-precio sale de un blog»; ahora es la página oficial. Y OJO con cómo se lee: una búsqueda resumió esa misma ayuda como si Free
-estuviera incluido, y la lectura directa de la página dice lo contrario (Free «no incluido» y «A paid Zapier account» como
-requisito). Se anotó la directa; si Zapier lo cambia, la guía lleva la fecha. La tarjeta lo dice en su primer paso y la guía lo anota con la fecha y los links (`tests/zapier-leads.test.ts`).
+- **Que Zernio traiga los formularios de Meta con `lead.received`.** El webhook `/api/webhooks/zernio` escucha hoy
+  `message.received`, `referral.received`, `comment.received` y `account.connected` (`EVENTOS_WEBHOOK`, lib/zernio.ts), no
+  `lead.received`. Es lo que reemplaza al puente y no está hecho: el lead pasaría por `upsertLeadFromMeta`, como acá.
 
-### Probado de punta a punta (ws3, Cliente de Prueba, 23/10/2026)
+**Vive en:** `tests/puente-leads-retirado.test.ts` (el guard) · `docs/archivo/guia-leads-por-zapier.md` (la guía vieja) · los
+commits `4e661df70` a `93a7baf00` (el código).
 
-La credencial por el camino del producto (`guardarCredencial`), un POST por la ruta con `NextRequest`, y limpieza completa. La
-fila de ruteo guarda 64 caracteres (el sha256, no la clave). Sin header 401 · clave equivocada 401 · lead de hace 3 días
-`creado`, `anunciado: false`, origen `instant_form`, campaña y anuncio, respuestas en `meta_field_data` · el mismo POST de nuevo
-`actualizado`, 1 lead · la misma persona con otro leadgen_id `actualizado`, 1 lead, campaña nueva · sin id: `zap:3:…`, reintento
-`actualizado` · formulario en vez de JSON `creado` · sin contacto 422 · no es JSON 400 · tarjeta «Último lead hace menos de 1 h» y,
-con el estado a 80 h, «Sin leads hace 3 días. Revisa tu Zap.» con `callada` · lead reciente `creado`, `anunciado: true` y la
-notificación «Lead entrante por formulario de Meta» en el feed (`canal_wa: no`: el ws3 no tiene WhatsApp conectado ni
-automatizaciones activas). Al terminar: 0 leads, 0 filas de ruteo, 0 credenciales, 0 estados, 0 filas colgando.
-
-**Probado rompiéndolo** (`tests/zapier-leads.test.ts`, 21 tests; roturas restauradas de memoria): las 28 cazadas, cada una por
-el test que corresponde (los números, al pie del archivo del test). Y las de los precios y las promesas: 13 contra la versión «Make principal» y 10 contra la final («de pago, sin gratis»), todas cazadas
-(los números, al pie del archivo del test).
-
-### Make pasa a ser el camino PRINCIPAL, y los dos son de pago (decisión y corrección de Martín, 23/10/2026, más tarde ese día)
-
-Textual: «Con respecto a Zapier… Obvio que es mejor Make si tiene plan gratis… Y que los usuarios traigan su propia API como
-siempre…». Qué cambió, con el porqué:
-
-- **La tarjeta se llama «Leads de Meta por Make o Zapier»** y sus pasos son los de Make: «Facebook Lead Ads → Watch Leads» y
-  «HTTP → Make a request» (POST, JSON) con el header `X-MaKo-Clave`; en Leads Access se asigna la app «Make». Zapier queda como
-  el último paso, de pago, en una línea. **La key del servicio sigue siendo `zapier`** (credencial `ZAPIER_LEADS_CLAVE`, servicio de
-  ruteo `zapier`, ruta `/api/webhooks/zapier`): está escrita en la base y en las filas de ruteo, y cambiarla por el nombre de una
-  tarjeta rompería a quien ya conectó (la regla de «las claves no se renombran con la ruta»). Lo que cambia es lo que se lee.
-- **Cada negocio usa SU PROPIA cuenta** de Make o de Zapier, como con sus claves de IA: la tarjeta y la guía lo dicen en una frase.
-  MaKo no paga ni comparte ninguna.
-- **La pantalla no promete «al instante», ni cuántos leads aguanta un plan, ni dice «gratis»**, y un test lo fija leyendo la tarjeta, las
-  slides, el estado y el aviso de la API (los textos que lee el negocio) y la guía. Los dos «Sin medir» siguen escritos en la guía.
-- ⚠️ **CORRECCIÓN, minutos después, también de Martín:** «El plan gratis de Make NO trae la integración API… No nos sirve en ese
-  caso». Entonces **los DOS caminos son de pago**: Make desde Core (US$9 al mes, anual) y Zapier desde Professional (US$19,99 anual,
-  US$29,99 mensual), cada uno con su plan y su precio en el paso de la tarjeta y en la guía con la fecha. Lo que el Cerebro había
-  leído («Make tiene plan Free, así que se puede arrancar sin pagar») era cierto de la página de precios; Martín dice que el Free
-  no trae lo que el puente necesita. La lección es que **un plan «gratis» se mide contra la función que se va a usar** (acá, el
-  POST desde un módulo HTTP), no contra el nombre del plan. Lo oficial no lo confirma ni lo descarta (ver «Cuánto cuesta»), así
-  que no se ofrece.
-- ⚠️ **Make no manda «todos los campos» por defecto, Zapier sí** (con «Data» vacío). En el módulo HTTP de Make hay que armar el
-  JSON a mano con lo que se mapea, así que la guía trae la lista de lo que MaKo entiende (`email`, `phone_number`, `full_name`,
-  `lead_id`, `created_time`, campaña, anuncio y conjunto; cualquier otra clave es una pregunta del formulario). Lo único obligatorio
-  es un email o un teléfono válido. También acepta `field_data` tal cual lo entrega Meta. NO medido con una cuenta de Make.
-
-### ¿Una sola cuenta de Make Core de MaKo para todos los clientes? (pregunta de Martín, 23/10/2026; sin decidir)
-
-Un workflow de 4 investigadores, con un refutador cada uno, leyó las fuentes oficiales. Yo verifiqué tres cosas en la fuente: los
-créditos de un disparador, Make Managed Services y la lista de módulos de Lead Ads; el resto es del workflow (marcado). **No cambia
-la tarjeta:** aunque MaKo lo cubriera, se sigue mostrando como de pago y de cada negocio.
-
-- **Precios (workflow, `make.com/en/pricing`):** Core US$9 al mes pagando el año (~US$108 por adelantado), US$10,59 mes a mes, con
-  10.000 créditos; son los precios para Argentina y México (en EE. UU., US$12 y US$16). ⚠️ **El precio depende del país** de quien
-  mire la página: lo que se anota sin decir el país es una cifra de una región.
-- **Lo que el Free NO trae es «Access to the Make API»** (workflow): la API para administrar Make. No es el módulo HTTP, y
-  `apps.make.com/http` no nombra ningún plan (verificado). El límite real del Free son 2 escenarios activos, 1.000 créditos y
-  15 minutos de intervalo. O sea que «el Free no trae la API» (Martín) y «el Free sirve para el POST» pueden ser las dos ciertas:
-  no se ofrece por esos límites, no por el módulo.
-- **Cada chequeo vacío de un disparador cobra 1 crédito** (verificado, cita arriba). **El módulo por webhook** es «New Lead»
-  (`NewLeadMultiple`) seguido de «Get Lead Details»: ~3 créditos por lead (workflow). Que sin leads gaste 0 no figura textual.
-- **Volumen medido (workflow):** ~120-133 leads de formularios de Meta por mes (ws19 ~60-73, ws15 ~28-45, ws1 ~13-32). ⚠️ El ws1
-  cayó de 361 en julio a 16 en octubre, y eso puede ser la CONEXIÓN y no la demanda real. **Los créditos alcanzan con webhook**
-  (~400 al mes de 10.000) **y no con intervalo** (cuatro escenarios a 15 minutos son 11.520).
-- **El contrato no lo permite.** MSA de Make (marzo 2026), cláusula 4.1: «solely for Your internal purposes… not for the benefit
-  of any third parties» (workflow y una búsqueda sobre el PDF; el PDF no se abrió para citar literal). El camino oficial para operar
-  por clientes es Make Managed Services: organizaciones hijas con los beneficios Enterprise (`help.make.com/make-managed-services-mms`,
-  verificado); la página no nombra el plan del distribuidor.
-- **Core no trae equipos ni roles** (workflow): un cliente invitado a la organización vería las conexiones de los demás.
-- **La conexión de Lead Ads admite las credenciales de una app de Meta propia** («Show advanced settings» → client credentials;
-  verificado en `apps.make.com/facebook-lead-ads`, que no usa la frase «app de Meta»).
-
-### La API de MaKo
-
-Se declara sola: `ver_integraciones`, `ver_integracion('zapier')` (con el recuadro amarillo y la URL) y
-`link_configurar_integracion('zapier')` salen del catálogo, y `ver_integraciones` devuelve el `detalle` de la tarjeta («Último
-lead hace 5 h»). Se sumó un renglón a sus `avisos` en tiempo de ejecución (no toca ninguna def, así que `docs/api-mako.md`, el
-snapshot y `plugin/` no cambian).
-
-### Lo que quedó SIN hacer
-
-- **El aviso por WhatsApp de «hace X horas que no entra un lead».** Hoy la señal es la tarjeta (ámbar) y el «Requiere tu
-  atención» de /integraciones. El push es un aviso del catálogo con su evento de MaKo, su CONDITION y su plantilla de SuperAdmin
-  (el molde es `tracking-apagado`: `lib/avisos-catalogo.ts`, `lib/disparadores.ts`, `lib/notif-catalogo.ts`,
-  `lib/plantillas-automatizaciones.ts`, `lib/variables-aviso.ts` y su función de datos como `lib/tracking-aviso.ts`) y un
-  cron que lo emita (`tracking-vigilante` ya itera los workspaces). Son ~6 archivos y sus guardas; no entró en esta tanda.
-- **Un escenario real de Make (y un Zap).** Nada de acá se probó contra «Watch Leads» de Make ni contra el trigger de Zapier. El
-  primer negocio que lo arme confirma (o corrige) los nombres de los campos y las opciones del módulo HTTP (la guía las nombra de
-  memoria): lo que MaKo no use vuelve en `sin_usar`.
-- **El umbral de 72 h contra el ritmo propio de cada negocio.**
-- **Medir Make con una cuenta de Core**: cuál módulo conviene («New Lead» por webhook o «Watch Leads» por intervalo; la tarjeta dice
-  el segundo), si el de webhook llega al instante y si gasta sin leads, y —aunque no se ofrezca— si «Make a request» manda el POST
-  en Free. Si conviene «New Lead», cambiar el paso 3 de la tarjeta (`lib/metodo-catalogo.ts`) y su guarda en el test.
-- **Tipos:** este trabajo salió «sin tipos» (política del tren): los chequea el `tsc` acotado de Integración.
-
-**Vive en:** `lib/zapier-lead.ts` (el lector) · `lib/zapier-leads.ts` (la puerta) · `lib/zapier-estado.ts` (la tarjeta) ·
-`app/api/webhooks/zapier/route.ts` · `lib/integraciones.ts` (`estadoPuenteZapier`) · `lib/metodo-catalogo.ts` ·
-`lib/ruteo-hash.ts` · `lib/webhook-routing.ts` · `tests/zapier-leads.test.ts` · `docs/guia-leads-por-zapier.md`.
-
-_23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2). Probado de punta a punta contra el ws3 y rompiendo cada guarda. Make como camino principal y de pago: 13 + 10 roturas, todas cazadas._
+_23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2), que trajo la decisión de Martín. Retiro probado rompiéndolo._

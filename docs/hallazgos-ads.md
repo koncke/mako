@@ -4468,7 +4468,7 @@ La pregunta: cómo operan los clientes con Meta (anuncios, leads, páginas, mens
 - **Dudoso: que Joan pase su app a Live destrabe el 1885183.** Meta dice que para la cuenta propia alcanza el acceso
   básico, pero otra página suya dice que en Live sólo se piden permisos aprobados por revisión. Es gratis y se sabe
   probándolo con el OK de Joan. Sirve para él, no para todos.
-- **Para leads hay un puente que anda en días: Zapier o Make** mandándole el lead a MaKo. Le exige al cliente una cuenta
+- **(RETIRADO el mismo 23/10: ver `hallazgos-integraciones.md`, «El puente de leads… se RETIRÓ»)** **Para leads hay un puente que anda en días: Zapier o Make** mandándole el lead a MaKo. Le exige al cliente una cuenta
   paga (Zapier Professional ronda US$20–30 por mes, sin verificar; Make sin verificar) y asignar Zapier como CRM en
   Leads Access, que es el paso que más falla. A MaKo le pide un receptor por cliente, una guía y una alerta de «hace X
   horas que no entra un lead»: si el cliente deja de pagar, los leads dejan de llegar sin que nadie se entere. Que la

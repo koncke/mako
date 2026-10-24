@@ -1139,6 +1139,29 @@ export const BITACORA: Hito[] = [
       'lib/zernio-lead.ts · lib/zernio-leads.ts — el lector del cuerpo (puro) y la puerta (upsertLeadFromMeta, conversión, lo inmediato)',
       'app/api/webhooks/zernio/route.ts · lib/zernio.ts — la rama de lead.received y la suscripción (EVENTO_LEADS, asegurarWebhook, leadsEnElWebhook)',
       'tests/zernio-leads.test.ts · tests/zernio-sin-respaldo.test.ts · docs/hallazgos-integraciones.md · AGENTS.md',
+    fecha: '23 oct', hora: '20:15', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El puente de leads por Make o Zapier se saca: ya se resolvió con Zernio',
+    pedido: 'Y no entiendo porque seguimos teniendo "zapier" o "Make" si ya resolvimos todo con Zernio...',
+    puntos: [
+      'Lo trajo el Cerebro. Los leads de Meta entran con la app propia de cada negocio y Zernio trae los formularios con su aviso lead.received. Pidió sacar la tarjeta, el servicio y su ayuda, el endpoint, el ruteo y el aviso de la API, medir antes si alguien lo usaba, y dejar un guard para que no vuelva.',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '20:38', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Se retiró el puente de leads por Make o Zapier: tarjeta, servicio, endpoint y ruteo, con un guard que impide que vuelva',
+    puntos: [
+      'Medido antes en producción (sólo lectura): ninguna clave guardada, ninguna fila de ruteo, ninguna entrega y ningún lead por ese camino. El endpoint se sacó sin avisar a nadie.',
+      'Se sacó lo que lo nombraba, en los tres registros más el logo, las slides, el ruteo (el servicio, la credencial y el hash) y el renglón de la API. La guía quedó archivada con su aviso, y el porqué y las lecciones, en docs/hallazgos-integraciones.md. No se tocó Skool, Hotmart ni Apify.',
+      '⚠️ **Quedó SIN hacer lo que lo reemplaza:** el webhook de Zernio no escucha lead.received (sólo mensajes, referidos, comentarios y cuentas conectadas), así que los formularios de Meta por Zernio todavía no entran.',
+      'Probado rompiendo el guard de 14 maneras: las 14 cazadas. La primera versión de uno de sus patrones se había roto sola (una barra comida por el shell) y pasaba sin mirar nada: lo cazó la lectura, no el test.',
+    ],
+    archivos: [
+      'tests/puente-leads-retirado.test.ts — el guard: archivos, nombres del puente en el código, registros ejecutados y lo que NO se tocó',
+      'docs/hallazgos-integraciones.md · docs/archivo/guia-leads-por-zapier.md — la historia y la guía archivada',
+      'lib/integraciones-catalogo.ts · lib/metodo-catalogo.ts · lib/metodo-verificar.ts · app/_components/ServicioVisual.tsx · lib/servicio-slides.ts — los registros de la tarjeta, sin el servicio',
+      'lib/webhook-routing.ts · lib/ruteo-hash.ts · lib/webhook-ruteo-huella.ts — el ruteo, sin el servicio',
     ],
   },
 ];
