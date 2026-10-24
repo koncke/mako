@@ -88,21 +88,26 @@ export async function onboardingPendiente(): Promise<boolean> {
 
 /**
  * Cierra (o posterga) pasos del onboarding del workspace actual y, si con eso están todos, lo da por
- * TERMINADO. La única puerta que escribe el cierre: la llaman la acción 'paso' de /api/onboarding y el chat
- * de arranque (/api/onboarding/arranque). La regla es `aplicarCambiosDePaso` (onboarding-contrato.ts, con
- * test); acá sólo se lee la capa y se persiste. Tira `PasoNoPostergable` si se pide postergar lo que no se
- * puede.
+ * TERMINADO. La única puerta que escribe el cierre: la llaman la acción 'paso' de /api/onboarding, el chat
+ * de arranque (/api/onboarding/arranque) y la operación `cerrar_paso_onboarding` de la API de MaKo. La regla
+ * es `aplicarCambiosDePaso` (onboarding-contrato.ts, con test); acá sólo se lee la capa y se persiste. Tira
+ * `PasoNoPostergable` si se pide postergar lo que no se puede.
  *
  * Lee ESTRICTO (`getEstadoOnboardingEstricto`), no con `patchEstadoOnboarding`: con la base caída, la lectura
  * tolerante devuelve el estado inicial y cerrar un paso encima guardaba un onboarding a medio hacer sobre uno
  * terminado. Caída, tira, y la pantalla reintenta.
+ *
+ * ⚠️ `pasosCapa`: los pasos de la capa ya leídos por quien llama. La API de MaKo los pasa SIEMPRE (los lee de
+ * `workspaces.capa` del ws del contexto): `getCapaActual` va memoizado con el `cache` de React por request, y un
+ * flujo o un cron que corre varios workspaces en el mismo request recibiría la capa del primero.
  */
 export async function cerrarPasosOnboarding(
   cambios: CambioDePaso[],
   quien: string,
   extra?: (s: OnboardingState) => void,
+  pasosCapa?: readonly PasoOnboarding[],
 ): Promise<OnboardingState> {
-  const pasos = await pasosDeCapaActual();
+  const pasos = pasosCapa ? [...pasosCapa] : await pasosDeCapaActual();
   const s = await getEstadoOnboardingEstricto();
   extra?.(s);
   aplicarCambiosDePaso(s, cambios, pasos, quien, new Date().toISOString());

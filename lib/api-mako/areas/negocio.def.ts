@@ -38,6 +38,10 @@ import { AREAS as AREAS_MODELO_CEREBRO } from '@/lib/cerebro-modelo';
 import { PERSONALIDAD_PREGUNTAS } from '@/lib/personalidad';
 // Dónde se corrige cada sección hoy (el hub de /onboarding se retiró el 15/10/2026): datos puros.
 import { lugarSeccion } from '@/lib/secciones-negocio';
+// Los pasos del arranque y de las tabs que se cierran desde afuera, y las urgencias de una oferta: datos puros
+// (sin server-only), para que la def pueda importar sus valores.
+import { CIERRES_PASO, PASOS_ARRANQUE_POR_API, TABS_POR_API, PASOS_DE_TAB_POR_API } from '@/lib/onboarding-pasos-api';
+import { URGENCIAS } from '@/lib/oferta-modelo';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 /** Sin http: links firmados a documentos, fotos de una persona, y los generadores de
@@ -55,6 +59,35 @@ const KEYS_PERSONALIDAD: readonly string[] = PERSONALIDAD_PREGUNTAS.map((q) => q
 const RESPUESTAS_CAMPOS = [
   { nombre: 'pregunta', tipo: 'string', descripcion: 'La pregunta que hizo MaKo, tal cual.', obligatorio: true, max: 500 },
   { nombre: 'respuesta', tipo: 'string', descripcion: 'Lo que contestó la persona, en sus palabras.', obligatorio: true, max: 1000 },
+] as const;
+
+/** Los campos de una oferta que se cargan desde afuera: los MISMOS de la pantalla (app/onboarding/OfertasView.tsx) más
+ *  cómo se cobra. Los nombres son los de las columnas: es lo que lee `sanearOfertaInput` (lib/oferta-modelo.ts). */
+const CAMPOS_OFERTA = [
+  { nombre: 'nombre', rotulo: 'Nombre', tipo: 'string', max: 120, descripcion: 'Nombre de la oferta. Sin id es la llave: si ya hay una con ese nombre se edita esa. Con id, la renombra.' },
+  { nombre: 'modelo', rotulo: 'Cómo se cobra', tipo: 'string', enum: ['unico', 'suscripcion'], descripcion: 'unico = pago único, suscripcion = por mes.' },
+  { nombre: 'precio_usd', rotulo: 'Precio (USD)', tipo: 'number', minimo: 0, descripcion: 'Precio en USD (en una suscripción, el de cada mes). Es el ticket que se usa con el lead.' },
+  { nombre: 'precio_nota', rotulo: 'Precio como se presenta', tipo: 'string', max: 300, descripcion: 'El precio como se presenta («2 pagos de 2.500 USD»).' },
+  { nombre: 'promesa', rotulo: 'Promesa', tipo: 'string', max: 2000, descripcion: 'La transformación que compra el cliente.' },
+  { nombre: 'incluye', rotulo: 'Incluye', tipo: 'string', max: 2000, descripcion: 'Los entregables.' },
+  { nombre: 'garantia', rotulo: 'Garantía', tipo: 'string', max: 1000, descripcion: 'La garantía, si tiene.' },
+  { nombre: 'para_quien', rotulo: 'Para quién', tipo: 'string', max: 1500, descripcion: 'Para quién es, y para quién no.' },
+  { nombre: 'objeciones', rotulo: 'Objeciones', tipo: 'string', max: 2000, descripcion: 'Las objeciones que aparecen y cómo se responden.' },
+  { nombre: 'prueba', rotulo: 'Prueba', tipo: 'string', max: 2000, descripcion: 'Casos, testimonios o números que la respaldan.' },
+  {
+    nombre: 'bonos', rotulo: 'Bonos', tipo: 'object[]', max: 8, vaciaEsValor: true,
+    descripcion: 'Los bonos: REEMPLAZAN la lista entera (vacía = sin bonos).',
+    campos: [
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'Nombre del bono.' },
+      { nombre: 'valor_usd', tipo: 'number', minimo: 0, descripcion: 'Lo que el bono VALE en USD (no lo que cuesta).' },
+      { nombre: 'porque', tipo: 'string', max: 500, descripcion: 'Por qué suma a la oferta.' },
+    ],
+  },
+  { nombre: 'urgencia_tipo', rotulo: 'Tipo de urgencia', tipo: 'string', enum: [...URGENCIAS.map((u) => u.id), 'ninguna'], descripcion: 'fecha = cierra en una fecha, cupos = cupos limitados, capacidad = no da la capacidad, inicio = arranca en una fecha; ninguna = quitar la urgencia.' },
+  { nombre: 'urgencia_dato', rotulo: 'Dato de la urgencia', tipo: 'string', max: 300, descripcion: 'El dato concreto («6 lugares», «cierra el 12 de noviembre»). Sin él no hay urgencia.' },
+  { nombre: 'urgencia_razon', rotulo: 'Razón de la urgencia', tipo: 'string', max: 500, descripcion: 'Por qué es real.' },
+  { nombre: 'urgencia_hasta', rotulo: 'Vence', tipo: 'string', max: 10, descripcion: 'Hasta cuándo, como AAAA-MM-DD (la única urgencia que MaKo puede comprobar que venció).' },
+  { nombre: 'activa', rotulo: 'Activa', tipo: 'boolean', descripcion: 'false = deja de ofrecerse sin borrarla.' },
 ] as const;
 
 export const DEFS: readonly OperacionDef[] = [
@@ -477,5 +510,73 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [],
     canales: TODOS, costo: 'gratis', gating: { tab: 'ads-writer', rolMinimo: 'admin' },
     escribe: 'vacía la personalidad de voz (mako.personalidad)',
+  },
+
+  // ── El onboarding desde afuera (23/10/2026, P0-12 y P0-13 de la auditoría de la API) ──────────────────────
+  // Martín: «todo lo que se hace en pantalla tiene que estar en la API». Las dos cierran un paso SÓLO con el dato vivo
+  // (lib/onboarding-hechos.ts) y deciden con una regla pura con test (lib/onboarding-pasos-api.ts). Ninguna toca la
+  // conversación de arranque: la decisión del Cerebro, con su porqué, está en docs/hallazgos-onboarding.md.
+  // Con http: el caso que las trajo es un chat de AFUERA que carga el negocio y deja el arranque o una tab trabados.
+  // No llevan datos de personas, y un token detallado con escritura en `negocio` las escribe en el acto, siempre con la
+  // misma comprobación.
+  {
+    id: 'cerrar_paso_onboarding', area: 'negocio', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Cerrar un paso del arranque',
+    descripcion: 'PROPONE cerrar UN paso del arranque del negocio (queda pendiente hasta el «sí»). Como hecho, sólo si lo que pide ya está cargado: el perfil dice a qué se dedica, hay productos, el diagnóstico de fase está guardado, el teléfono está verificado o las cuentas están conectadas. Para después, sólo el teléfono y las cuentas. Si con eso quedan todos, el arranque termina y la persona entra directo a la app. No reemplaza la conversación de arranque: sirve cuando lo que el paso pide ya se cargó por otro lado. Los pasos y su estado salen de ver_estado_onboarding.',
+    parametros: [
+      { nombre: 'paso', rotulo: 'Paso', tipo: 'string', obligatorio: true, enum: PASOS_ARRANQUE_POR_API, descripcion: 'El paso del arranque (de ver_estado_onboarding: sólo los de su plan). plan = tu plan de arranque, tabs = verificar el teléfono, integraciones = conectar las cuentas.' },
+      { nombre: 'cierre', rotulo: 'Cómo se cierra', tipo: 'string', obligatorio: true, enum: CIERRES_PASO, descripcion: 'hecho = lo que pide ya está cargado; postergado = queda para después con su recordatorio (sólo tabs e integraciones).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+    escribe: 'marca el paso hecho o postergado en el estado del onboarding (onboarding.state) y, si era el último, lo da por terminado',
+  },
+  {
+    id: 'marcar_paso_onboarding_tab', area: 'negocio', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Marcar un paso de una tab',
+    descripcion: 'PROPONE marcar como hecho, o desmarcar con hecho=false, UN paso de contexto del onboarding de una tab (queda pendiente hasta el «sí»): el Copy Generator (lead magnet, avatares, cara de marca, personalidad, matriz), el Video Generator (fotos, acento), Automations (tu forma de escribir), Carousels y Stories (contexto del negocio). Se marca sólo si lo que pide ya está cargado y en el orden de la tab. Los ensayos, las conexiones y las muletillas no: los cierra la tab. Desmarcar un paso obligatorio vuelve a abrir la tab en su recorrido. El estado de los pasos se lee con estado_onboarding_contenido (Copy Generator, Carousels, Stories), estado_onboarding_video y estado_onboarding_chatbot.',
+    parametros: [
+      { nombre: 'tab', rotulo: 'Tab', tipo: 'string', obligatorio: true, enum: TABS_POR_API, descripcion: 'ads-writer = Copy Generator, video-generator = Video Generator, setting = Automations, carousels, stories.' },
+      { nombre: 'paso', rotulo: 'Paso', tipo: 'string', obligatorio: true, enum: PASOS_DE_TAB_POR_API, descripcion: 'El paso de esa tab: cg_* del Copy Generator, vg_* del Video Generator, contexto de Automations, carousels_contexto, stories_contexto.' },
+      { nombre: 'hecho', rotulo: 'Hecho', tipo: 'boolean', descripcion: 'true (por defecto) lo marca hecho; false lo desmarca.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+    escribe: 'el paso en el onboarding de la tab (onboarding.tab.<tab>) y en el registro compartido de pasos (onboarding.tab.pasos)',
+  },
+
+  // ── El catálogo de ofertas (23/10/2026, P0-14) ────────────────────────────────────────────────────────────
+  // La misma lib que la pantalla (lib/ofertas.ts) y el mismo saneo (`sanearOfertaInput`, lib/oferta-modelo.ts). Con la
+  // tab y el rol de Offer, como las otras operaciones de ofertas. Guardar y borrar se confirman en pantalla: el precio es
+  // el ticket que se usa con el lead, y borrar deja a los leads que entraron por ella sin oferta.
+  // SIN http, como las tres de Offer de arriba (revisión del 23/10/2026): una oferta es lo que el dueño le contó a MaKo
+  // de su negocio, y `prueba` (casos, testimonios) puede traer nombres de personas. Exponerlas a un token es una decisión
+  // que nadie tomó. ⚠️ `oferta_del_lead` y `crear_oferta_lead` (CRM) sí salen por HTTP y tocan el mismo catálogo:
+  // está anotado en docs/hallazgos-api-mako.md para decidirlo junto.
+  {
+    id: 'listar_ofertas', area: 'negocio', tipo: 'lectura',
+    titulo: 'Ofertas del negocio',
+    descripcion: 'Las ofertas del negocio (cómo se presenta lo que vende para que se compre), la principal primero: id, nombre, precio, cómo se cobra, promesa, qué incluye, garantía, para quién, objeciones, prueba, bonos, urgencia (y si sigue vigente), si está activa, en qué funnels se vende y con qué productos del catálogo. En la que sale del perfil del negocio, promesa, precio, incluye y garantía vienen del perfil. Úsala antes de guardar_oferta o borrar_oferta. Es distinta de listar_analisis_oferta (las conversaciones de la tab Offer).',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'offer', rolMinimo: 'admin' },
+  },
+  {
+    id: 'guardar_oferta', area: 'negocio', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
+    titulo: 'Guardar una oferta',
+    descripcion: 'PROPONE crear o editar UNA oferta del negocio y devuelve un link para revisarla y confirmarla en una pantalla (el precio es el ticket que se usa con el lead). Con id, edita esa (también el nombre); sin id, crea una nueva, y si ya hay una con ese nombre (sin importar mayúsculas) contesta su id para editarla. Lo que no venga conserva su valor. La primera oferta del negocio queda como la principal. Para quitar la urgencia, urgencia_tipo «ninguna». Para la oferta que se le hizo a UN lead está crear_oferta_lead (CRM).',
+    parametros: [
+      { nombre: 'id', rotulo: 'Oferta', tipo: 'number', entero: true, minimo: 1, fijoAlRevisar: true, descripcion: 'id de la oferta (de listar_ofertas). Sin id, se crea una nueva.' },
+      ...CAMPOS_OFERTA,
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'offer', rolMinimo: 'admin' },
+    escribe: 'una fila en ofertas (alta o edición); la primera del negocio queda como principal',
+  },
+  {
+    id: 'borrar_oferta', area: 'negocio', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
+    titulo: 'Borrar una oferta',
+    descripcion: 'PROPONE borrar UNA oferta del negocio por id (de listar_ofertas) y devuelve un link para confirmarlo en una pantalla. Los leads que entraron por ella quedan sin oferta y se desliga de sus funnels y productos; si era la principal, MaKo vuelve a usar la oferta del perfil del negocio. No se puede deshacer.',
+    parametros: [
+      { nombre: 'id', rotulo: 'Oferta', tipo: 'number', obligatorio: true, entero: true, minimo: 1, fijoAlRevisar: true, descripcion: 'id de la oferta (de listar_ofertas).' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'offer', rolMinimo: 'admin' },
+    escribe: 'borra la fila de ofertas: sus ligas a funnels y productos se borran y los leads que entraron por ella quedan sin oferta',
   },
 ];

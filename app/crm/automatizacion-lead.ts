@@ -72,11 +72,166 @@ export function chipDeAutomatizacion(auts: readonly EnAutomatizacion[] | undefin
 }
 
 /** La pregunta de «Frenar» antes de hacerlo: NOMBRA a quién y de dónde, y dice que no se deshace. */
-export function preguntaDeFrenar(o: { leads: number; nombre?: string | null; auts?: readonly EnAutomatizacion[] }): { titulo: string; mensaje: string } {
+export function preguntaDeFrenar(o: { leads: number; nombre?: string | null; auts?: readonly Pick<EnAutomatizacion, 'nombre'>[] }): { titulo: string; mensaje: string } {
   const quien = o.leads === 1 ? (o.nombre?.trim() || 'este lead') : `${o.leads} leads`;
   const donde = o.auts?.length === 1 ? ` en «${o.auts[0].nombre}»` : o.auts && o.auts.length > 1 ? ` en sus ${o.auts.length} automatizaciones` : '';
   return {
     titulo: `¿Frenar a ${quien}${donde}?`,
     mensaje: `No ${o.leads === 1 ? 'le' : 'les'} sale nada más. Para que ${o.leads === 1 ? 'vuelva' : 'vuelvan'}, se ${o.leads === 1 ? 'lo inscribe' : 'los inscribe'} a mano.`,
   };
+}
+
+// =============================================================================
+// EL BLOQUE «AUTOMATIZACIONES» DE LA FICHA (23/10/2026)
+// =============================================================================
+// Martín (23/10/2026): «Tal vez sería bueno crear un bloque dentro del detail de cada lead que esté relacionado a las
+// automatizaciones, no? Para tener más claridad de lo que pasa... Y que claro, sea editable como el resto de bloques».
+// Lo que lo motivó: sacó a su lead de prueba de «Prospección activa», lo volvió a meter para que «Sprint · apertura» le
+// escribiera otra vez, y no pasó nada: la automatización entra UNA sola vez y el lead seguía adentro. La ficha mostraba
+// la inscripción vieja como si nada.
+//
+// LA REFERENCIA: la tarjeta «Sequences» del registro de un contacto en HubSpot (y la de «Workflows»): cada secuencia
+// con su estado (Activa, En pausa, Terminó, Desinscripto), «Paso 2 de 5», el próximo paso con su fecha, lo enviado con
+// su estado (enviado, abierto, rebotó) y las acciones Pausar / Desinscribir. Acá: Frenar y Empezar de nuevo. Encima,
+// lo que HubSpot no tiene y Martín necesitaba: POR QUÉ no entró cuando se lo movió.
+//
+// Lo de abajo es puro (lo ejecuta tests/ficha-automatizaciones.test.ts). Los datos y las acciones son de Automations
+// (app/automations/automatizaciones-del-lead-actions.ts); la vista sale de lo que haya: la lista de siempre
+// (`EnAutomatizacion[]`) o el detalle, cuando llega.
+
+/** El estado de una inscripción, como lo guarda el motor (`nutricion_inscripciones.estado`). */
+export type EstadoInscripcion = 'activa' | 'respondio' | 'pausada' | 'completada' | 'no_responde' | 'cancelada';
+/** Cómo quedó un envío: lo que dice la línea (WhatsApp) o el proveedor (email). */
+export type EstadoEnvio = 'pendiente' | 'enviado' | 'entregado' | 'leido' | 'fallo';
+export type EnvioVista = { at: string; paso: string | null; canal: string | null; estado: EstadoEnvio; error: string | null };
+export type InscripcionVista = {
+  secuenciaId: number; nombre: string; link: string;
+  estado: EstadoInscripcion; automatizacionActiva: boolean;
+  paso: { numero: number; titulo: string; total: number | null } | null;
+  /** Lo que sale después y cuándo (ISO). `titulo` null = no se sabe qué tarjeta es (sólo la hora). */
+  proximo: { at: string | null; titulo: string | null } | null;
+  frenado: { texto: string; corto: string } | null;
+  termino: { at: string | null; texto: string } | null;
+  /** Lo que ya le salió en ESTA inscripción, del más nuevo al más viejo. */
+  enviados: EnvioVista[];
+  puede: { frenar: boolean; empezarDeNuevo: boolean };
+  /** «Una sola vez» o «Cada vez que vuelve a entrar» (null = no se sabe). */
+  reentrada: 'una_vez' | 'siempre' | null;
+};
+/** Una vez que se lo movió a una etapa con una automatización y NO entró, con el porqué ya dicho en palabras. */
+export type NoEntroVista = { secuenciaId: number; nombre: string; at: string | null; texto: string };
+export type AutomatizacionesVista = { vivas: InscripcionVista[]; terminadas: InscripcionVista[]; noEntro: NoEntroVista[] };
+
+const VIVOS: readonly EstadoInscripcion[] = ['activa', 'respondio', 'pausada'];
+export const estaViva = (i: Pick<InscripcionVista, 'estado'>): boolean => VIVOS.includes(i.estado);
+
+/** La lista de siempre (sólo las vivas, sin lo enviado) pasada a la vista del bloque. */
+export function vistaDeEnAutomatizacion(auts: readonly EnAutomatizacion[]): AutomatizacionesVista {
+  return {
+    vivas: auts.map((a) => ({
+      secuenciaId: a.secuenciaId, nombre: a.nombre, link: a.link, estado: a.estado, automatizacionActiva: a.automatizacionActiva,
+      paso: a.paso ? { ...a.paso, total: null } : null,
+      proximo: a.proximoEnvioAt ? { at: a.proximoEnvioAt, titulo: null } : null,
+      frenado: a.frenado ? { texto: a.frenado.texto, corto: a.frenado.corto } : null,
+      termino: null, enviados: [],
+      // Frenar ya existía; «Empezar de nuevo» espera la acción de Automations (`empezarDeNuevoAction`).
+      puede: { frenar: true, empezarDeNuevo: false }, reentrada: null,
+    })),
+    terminadas: [], noEntro: [],
+  };
+}
+
+export type TonoChip = 'mako' | 'gris' | 'ok' | 'mal';
+
+/** El chip de estado de una inscripción (el «Active / Paused / Finished» de HubSpot), corto. */
+export function chipDeInscripcion(i: InscripcionVista): { texto: string; tono: TonoChip } {
+  switch (i.estado) {
+    case 'respondio': return { texto: 'Respondió', tono: 'ok' };
+    case 'completada': return { texto: 'Terminó', tono: 'gris' };
+    case 'no_responde': return { texto: 'Terminó sin respuesta', tono: 'gris' };
+    case 'cancelada': return { texto: 'La frenaron', tono: 'gris' };
+    case 'pausada': return { texto: 'En pausa', tono: 'gris' };
+  }
+  if (!i.automatizacionActiva) return { texto: 'Automatización en pausa', tono: 'gris' };
+  if (i.frenado) return { texto: i.frenado.corto, tono: 'gris' };
+  return { texto: 'Activa', tono: 'mako' };
+}
+
+/** «Paso 2 de 5: WHATSAPP: Hola…», o sin el total si no se sabe. */
+export function lineaDelPaso(i: Pick<InscripcionVista, 'paso'>): string | null {
+  if (!i.paso) return null;
+  return `Paso ${i.paso.numero}${i.paso.total ? ` de ${i.paso.total}` : ''}: ${i.paso.titulo}`;
+}
+
+/**
+ * QUÉ SALE DESPUÉS Y CUÁNDO, o por qué no sale. Nunca silencio: si algo lo frena (el horario, la línea, un fallo) lo dice
+ * con su porqué; en una que terminó, cómo terminó. `fecha` formatea en la zona del negocio.
+ */
+export function lineaDelProximo(i: InscripcionVista, fecha: (iso: string) => string): string {
+  if (!estaViva(i)) return i.termino?.texto ?? 'Terminó.';
+  if (i.estado === 'respondio') return 'Se frenó porque respondió: no le sale nada más de esta automatización.';
+  if (i.estado === 'pausada') return 'En pausa: no le sale nada hasta que se reanude.';
+  if (!i.automatizacionActiva) return 'La automatización está en pausa: el lead quedó en su paso y no le sale nada hasta que se active.';
+  if (i.frenado) return i.frenado.texto;
+  if (!i.proximo?.at) return 'Esperando: no hay nada agendado.';
+  return `Lo próximo${i.proximo.titulo ? `: ${i.proximo.titulo}` : ''} · ${fecha(i.proximo.at)}`;
+}
+
+const NOMBRE_ESTADO_ENVIO: Record<EstadoEnvio, string> = { pendiente: 'Por salir', enviado: 'Enviado', entregado: 'Entregado', leido: 'Leído', fallo: 'Falló' };
+const NOMBRE_CANAL: Record<string, string> = { whatsapp: 'WhatsApp', email: 'Email', instagram: 'Instagram', sms: 'SMS' };
+
+/** Un envío: «Entregado · WhatsApp · 23 oct, 09:00» o «Falló: el número no tiene WhatsApp · …». */
+export function lineaDelEnvio(e: EnvioVista, fecha: (iso: string) => string): { texto: string; tono: TonoChip } {
+  const canal = e.canal ? ` · ${NOMBRE_CANAL[e.canal] ?? e.canal}` : '';
+  const estado = e.estado === 'fallo' && e.error ? `Falló: ${e.error}` : NOMBRE_ESTADO_ENVIO[e.estado];
+  return { texto: `${estado}${canal} · ${fecha(e.at)}`, tono: e.estado === 'fallo' ? 'mal' : e.estado === 'pendiente' ? 'gris' : 'ok' };
+}
+
+/** La pregunta antes de «Empezar de nuevo»: nombra a quién y dónde, y que le vuelve a escribir desde el paso 1. */
+export function preguntaDeEmpezarDeNuevo(o: { nombre?: string | null; aut: Pick<InscripcionVista, 'nombre' | 'estado'> }): { titulo: string; mensaje: string } {
+  const quien = o.nombre?.trim() || 'este lead';
+  const desde = estaViva(o.aut) ? 'Lo saca del paso en el que está y ' : '';
+  return {
+    titulo: `¿Empezar de nuevo «${o.aut.nombre}» para ${quien}?`,
+    mensaje: `${desde}${desde ? 'le' : 'Le'} vuelve a salir todo desde el primer paso, como si recién entrara. Lo que ya le salió queda en el historial.`,
+  };
+}
+
+/** El texto de una vez que no entró, si viene sin decir (el respaldo: nunca una línea vacía). */
+export function textoDeNoEntro(o: { nombre: string; porque: string; paso?: { numero: number } | null }): string {
+  switch (o.porque) {
+    case 'en_curso': return `No volvió a empezar «${o.nombre}»: ya está adentro${o.paso ? ` (paso ${o.paso.numero})` : ''}.`;
+    case 'una_sola_vez': return `No volvió a entrar a «${o.nombre}»: entra una sola vez.`;
+    case 'cancelada': return `No volvió a entrar a «${o.nombre}»: la frenaron y no vuelve sola.`;
+    default: return `No entró a «${o.nombre}».`;
+  }
+}
+
+/** Lo que dice el bloque en una línea (el diseño «Una línea»): las vivas con su estado; sin vivas, la última terminada. */
+export function lineaDelBloque(v: AutomatizacionesVista): string {
+  if (v.vivas.length) return v.vivas.map((i) => `${i.nombre} (${chipDeInscripcion(i).texto}${i.paso ? `, paso ${i.paso.numero}` : ''})`).join(' · ');
+  const t = v.terminadas[0];
+  return t ? `${t.nombre} (${chipDeInscripcion(t).texto})` : '';
+}
+
+/** ¿Hay algo que mostrar? Sin vivas, terminadas ni «no entró», el bloque se calla. */
+export const vistaVacia = (v: AutomatizacionesVista): boolean => !v.vivas.length && !v.terminadas.length && !v.noEntro.length;
+
+/**
+ * LO QUE NO ENTRÓ AL MOVERLO, de la respuesta del movimiento (23/10/2026): `setLeadStageAction`, `completeStageMoveAction`
+ * y «¿Qué hacer ahora?» suman `automatizaciones.noEntro` (lo arma Automations: `enrolarPorEvento` ya no hace `continue` en
+ * silencio). El toast del tablero lo dice al lado de «Martin Koncke → Prospección activa»: «No volvió a empezar «Sprint ·
+ * apertura»: ya está adentro (paso 2).». Lee la respuesta sin suponer la forma: una respuesta sin el campo es «nada».
+ */
+export function noEntroDelMovimiento(r: unknown): string[] {
+  const lista = (r as { automatizaciones?: { noEntro?: unknown } } | null | undefined)?.automatizaciones?.noEntro;
+  if (!Array.isArray(lista)) return [];
+  return lista.flatMap((x) => {
+    if (!x || typeof x !== 'object') return [];
+    const o = x as { texto?: unknown; nombre?: unknown; porque?: unknown; paso?: { numero?: unknown } | null };
+    if (typeof o.texto === 'string' && o.texto.trim()) return [o.texto.trim()];
+    if (typeof o.nombre !== 'string') return [];
+    const n = o.paso && typeof o.paso.numero === 'number' ? { numero: o.paso.numero } : null;
+    return [textoDeNoEntro({ nombre: o.nombre, porque: typeof o.porque === 'string' ? o.porque : '', paso: n })];
+  });
 }

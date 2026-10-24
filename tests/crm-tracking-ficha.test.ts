@@ -311,7 +311,8 @@ test('«Solucionar» abre el wizard en la ficha, no una navegación', () => {
   assert.ok(/onNoEsta=\{onNoEsta\}/.test(ficha), 'también cuando el campo no se dibujó');
   assert.ok(/const completandoDatos = moveTo === stageKey/.test(sheet), 'la condición de «completar» es una sola');
   assert.ok(/completarDatos=\{completandoDatos\}/.test(sheet), 'el diálogo tiene que saberlo');
-  assert.ok(/faltantes=\{completandoDatos \? faltantes : undefined\}/.test(sheet), 'con la lista autoritativa del server');
+  // ⚠️ 23/10/2026: la lista del server, menos lo que no es obligatorio en el funnel del lead (`loQueSePide`).
+  assert.ok(/faltantes=\{completandoDatos \? loQueSePide\(faltantes, datos\?\.avisar\) : undefined\}/.test(sheet), 'con la lista autoritativa del server');
 
   // Y al terminar, la ficha SE QUEDA: cerrarla sería la redirección que esto vino a
   // sacar. Mover de etapa sí la cierra — la tarjeta ya no vive en esa columna.

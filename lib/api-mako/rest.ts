@@ -517,6 +517,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/negocio/lead-magnets/generaciones', 'generar_lead_magnets'],
   ['PATCH', '/negocio/lead-magnets/{id}', 'editar_lead_magnet'],
   ['GET', '/negocio/onboarding', 'ver_estado_onboarding'],
+  // El onboarding desde afuera (23/10/2026, P0-12 y P0-13 de la auditoría): PUT porque fijan el estado de un paso. Las
+  // ofertas del negocio (P0-14) no salen por HTTP: lo dice su def.
+  ['PUT', '/negocio/onboarding/pasos/{paso}', 'cerrar_paso_onboarding'],
+  ['PUT', '/negocio/onboarding/tabs/{tab}/pasos/{paso}', 'marcar_paso_onboarding_tab'],
   // El plan de MaKo del negocio («Tu plan», 15/10/2026): lo que le cobra la plataforma.
   ['GET', '/negocio/plan', 'ver_mi_plan'],
   ['POST', '/negocio/plan/bajas', 'dar_de_baja_mi_plan'],
