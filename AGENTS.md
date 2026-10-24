@@ -9772,6 +9772,12 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
   una se decide si lo puede dibujar; si no, se excluye con un error que diga dónde va.
 - **Tocar `EditorInforme` es tocar sus guards de fuente**: `tests/graficos*` y `tests/dashboard-*` leen el editor por
   regex, y una variante nueva los pone rojos. Se corren antes de dar el editor por terminado.
+- **Hay un TERCER informe: las «Métricas» de cada automatización** (23/10/2026, `automatizacion:<id>`, clave
+  `automatizacion.informe.<id>.<sub>`, lib/automatizacion-metricas.ts). No hay un «tipo de informe» genérico: cada lugar
+  compara el informe a mano. Un camino nuevo que lee o escribe informes decide qué hace con éste. Hoy lo saben la clave
+  (`claveDe`), el autoguardado (`?informe=`) y la ruta `/api/graficos`; NO lo leen el cron del AI Analyst
+  (`leerInformeGuardado`) ni los pop-ups guardados (`popupDe`). Y el editor importa el NOMBRE del informe de
+  `lib/informe-automatizacion.ts`, nunca la plantilla, que trae el flujo al bundle del Dashboard.
 - **Toda plantilla (del Dashboard o de General) abre con su PORTADA y tiene su COLOR** (15/10/2026, Martín: «A simple
   vista se tienen que diferenciar MUY bien de qué es cada template»): una pieza a lo ancho con la forma de lo que esa hoja
   contesta (`lib/graficos-portadas.ts`, `PORTADAS_GENERAL`) y su color en LA tabla compartida (`lib/graficos-identidad.ts`:

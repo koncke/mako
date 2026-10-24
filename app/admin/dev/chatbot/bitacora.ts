@@ -2534,4 +2534,17 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "23 oct", hora: "20:56", chat: "Automations › Métricas", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Una pestaña de métricas en cada automatización, armada por MaKo y que se lleva al Dashboard",
+    pedido: "Algo muy importante que falta, es en cada Automatización ver una pestaña de métricas... Me imagino como un botón al lado del botón de configuraciones. Cuando se apreta, todo el lienzo se reemplaza por el dashboard de esas métricas... Por defecto MaKo lo debe armar solo, con los bloques que considere. Pero se debe poder personalizar al igual que en Dashboard y un botón para llevar esas métricas como nueva hoja a la tab de dashboard.",
+    puntos: [
+      "Llegó por el Cerebro, firmado por Martín.",
+      "No es otra pantalla de números: es el editor del Dashboard con un informe por automatización, como General.",
+      "«Lo arma MaKo»: la hoja de entrada mira el flujo y pone sólo lo que tiene sentido para esa automatización.",
+      "«Llevar al Dashboard» crea una hoja nueva en la tab Dashboard, filtrada a esa automatización.",
+    ],
+    revisar: "/automations",
+  },
 ];
