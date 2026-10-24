@@ -52,6 +52,17 @@ export const RUTEO_CUENTA = 'zernio_cuenta';
  */
 export const EVENTOS_WEBHOOK = ['message.received', 'referral.received', 'comment.received', 'account.connected'] as const;
 
+/**
+ * Los leads de los formularios de Meta (23/10/2026). APARTE de la lista de arriba a propósito: es un evento del complemento de
+ * ANUNCIOS de Zernio («leads require ads enabled on the team»), y un negocio sin el complemento no puede suscribirse a los eventos
+ * de anuncios (403 `ads_addon_required`). Si fueran una sola lista, ese 403 dejaría al negocio SIN mensajes ni comentarios.
+ * `asegurarWebhook` los pide juntos y, si Zernio los rechaza, registra los de siempre solos.
+ */
+export const EVENTO_LEADS = 'lead.received';
+
+/** Todo lo que el webhook PROCESA (app/api/webhooks/zernio/route.ts): lo suscripto de siempre y los leads. */
+export const EVENTOS_ESCUCHADOS: readonly string[] = [...EVENTOS_WEBHOOK, EVENTO_LEADS];
+
 // ── Error tipado (envelope de Zernio: «Branch on type and code, never on error text») ──
 
 export type ZernioErrorBody = {
@@ -268,13 +279,40 @@ export async function asegurarWebhook(ws: number): Promise<'creado' | 'actualiza
   // Sólo la URL EXACTA. No se re-apunta uno a la URL pelada: si la key «propia» de un negocio fuera la
   // de la plataforma, ése es el webhook que comparten todos los negocios sin cuenta propia.
   const nuestro = (r.webhooks ?? []).find((w) => (w.url ?? '').trim() === url);
-  const events = [...EVENTOS_WEBHOOK];
-  if (nuestro) {
-    await zFetch(c.apiKey, '/webhooks/settings', { method: 'PUT', body: JSON.stringify({ webhookId: nuestro._id, secret, events, isActive: true }) });
-    return 'actualizado';
+  const guardar = (events: string[]) => nuestro
+    ? zFetch(c.apiKey, '/webhooks/settings', { method: 'PUT', body: JSON.stringify({ webhookId: nuestro._id, secret, events, isActive: true }) })
+    : zFetch(c.apiKey, '/webhooks/settings', { method: 'POST', body: JSON.stringify({ name: 'MaKo', url, secret, events }) });
+  // ⚠️ LOS LEADS VAN PRIMERO, Y SI ZERNIO LOS RECHAZA VAN LOS DE SIEMPRE SOLOS. Un negocio sin el complemento de anuncios no puede
+  // suscribirse al evento: sin este reintento, ese rechazo le sacaría los mensajes y los comentarios, que hoy andan. Sólo un 4xx de
+  // los que dicen «este pedido no» (400, 403, 422) reintenta; una key mala (401), un pago (402) o una caída suben tal cual. Si el
+  // reintento también falla, sube SU error: el de los eventos de siempre es el que importa.
+  try {
+    await guardar([...EVENTOS_ESCUCHADOS]);
+  } catch (e) {
+    if (!(e instanceof ZernioError) || ![400, 403, 422].includes(e.status)) throw e;
+    console.warn(`[zernio] ws${ws}: Zernio no acepta suscribir ${EVENTO_LEADS} (${e.status} ${e.code ?? '—'}): el webhook queda sin leads`);
+    await guardar([...EVENTOS_WEBHOOK]);
   }
-  await zFetch(c.apiKey, '/webhooks/settings', { method: 'POST', body: JSON.stringify({ name: 'MaKo', url, secret, events }) });
-  return 'creado';
+  return nuestro ? 'actualizado' : 'creado';
+}
+
+/**
+ * ¿El webhook de ESTE negocio escucha los leads? `null` = no hay webhook registrado (o falta el secreto maestro para armar su URL).
+ *
+ * Mide lo REGISTRADO en Zernio, no si llega alguno: sin el complemento de anuncios, o con una página conectada antes de pedir
+ * `leads_retrieval`, el evento puede estar suscripto y no llegar nunca. Existe porque `asegurarWebhook` deja los leads afuera SIN
+ * error cuando Zernio los rechaza, y alguien tiene que poder decirle al negocio por qué no le entran.
+ */
+export async function leadsEnElWebhook(ws: number): Promise<boolean | null> {
+  const maestro = await envCred('ZERNIO_WEBHOOK_SECRET');
+  if (!maestro) return null;
+  const c = await cfg(ws);
+  const { ruta } = webhookDeLaCuenta(maestro, ws, c.byok);
+  const url = linkApp(ruta, null);
+  const r = await zFetch<{ webhooks?: ZernioWebhook[] }>(c.apiKey, '/webhooks/settings');
+  const nuestro = (r.webhooks ?? []).find((w) => (w.url ?? '').trim() === url);
+  if (!nuestro) return null;
+  return nuestro.isActive !== false && (nuestro.events ?? []).includes(EVENTO_LEADS);
 }
 
 // ── Mandar ───────────────────────────────────────────────────────────────────

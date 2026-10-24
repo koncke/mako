@@ -1122,4 +1122,23 @@ export const BITACORA: Hito[] = [
       'tests/zernio-conectar-redes.test.ts · tests/zernio-sin-respaldo.test.ts · docs/hallazgos-integraciones.md',
     ],
   },
+  {
+    fecha: '23 oct', hora: '23:10', chat: 'Integraciones', sesion: 'local_04a168e6-73bb-4562-9afd-1b0f8540e84c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los leads de los formularios de Meta llegan por Zernio (lead.received) y entran por la misma puerta que los de Meta',
+    puntos: [
+      'Lo pidió el Cerebro, como pieza aparte de la conexión: «Va por upsertLeadFromMeta, igual que el webhook de Meta: mismo origen, sin duplicar si el lead también entra por la app propia del negocio (dedup por el leadgen_id), y con la conversión, el aviso y las automatizaciones que dispara un lead de Meta. Ruteo estricto por la cuenta de Zernio del negocio y la deduplicación de reentregas. Antes de escribir el parser, medí la forma del cuerpo». Es lo que reemplaza al puente de Make o Zapier que Martín mandó sacar.',
+      'El webhook de Zernio tiene una rama para lead.received DESPUÉS de la firma, el ruteo estricto y el reclamo del evento. El alta (upsertLeadFromMeta, con el leadgenId como meta_lead_id) va adentro del pedido; la conversión Lead (con el mismo event_id que el webhook de Meta) y lo inmediato (el aviso, los flujos, las automatizaciones) van después de contestar, porque Zernio corta a los 5 s. Sólo con un lead creado por esa entrega y de menos de 24 h.',
+      '⚠️ **La doc del webhook de Zernio no trae un JSON de ejemplo, sólo una tabla de campos, y nadie recibió todavía un lead.received real.** El lector es estricto con lo que decide una identidad (el leadgenId, sólo dígitos; el id de Zernio NO sirve) y no lee el fieldData del REST, que el webhook no lista. Una muestra de prueba (test: true) no se carga como lead.',
+      '⚠️ **Los nombres de campaña, conjunto y anuncio no viajan en este evento, sólo los ids** (que son los que deciden el producto): el renglón con el nombre queda vacío en la ficha.',
+      '⚠️ **Los leads se suscriben aparte** de los eventos de siempre: sin el complemento de anuncios de Zernio no se pueden suscribir los eventos de anuncios, y un rechazo le sacaría los mensajes y comentarios al negocio. Si Zernio los rechaza (400, 403 o 422) el webhook se registra igual con los de siempre. Un webhook ya registrado no escucha leads hasta que pase por una conexión: asegurarWebhook no corre solo.',
+      '**Falta:** que alguna pantalla le diga al negocio por qué no le llegan leads (leadsEnElWebhook mide lo registrado), una red de seguridad por si un evento se pierde (GET /v1/ads/leads), los nombres por id y una prueba con un evento real.',
+      'Probado rompiendo cada regla (38 roturas del test de los leads: las 38 cazadas). Salió sin tipos (política del tren): los chequea Integración.',
+    ],
+    archivos: [
+      'lib/zernio-lead.ts · lib/zernio-leads.ts — el lector del cuerpo (puro) y la puerta (upsertLeadFromMeta, conversión, lo inmediato)',
+      'app/api/webhooks/zernio/route.ts · lib/zernio.ts — la rama de lead.received y la suscripción (EVENTO_LEADS, asegurarWebhook, leadsEnElWebhook)',
+      'tests/zernio-leads.test.ts · tests/zernio-sin-respaldo.test.ts · docs/hallazgos-integraciones.md · AGENTS.md',
+    ],
+  },
 ];

@@ -1341,7 +1341,7 @@ cuando Ads Manager termine; hasta entonces `cfg` lo deja en su modo de siempre (
 ### Lo que quedó SIN hacer
 
 - **El estado de la tarjeta de Zernio en la grilla sigue siendo «hay key».** Un «falta conectar Facebook» es un estado nuevo y toca cuatro lugares que dibujan el estado (`sevOf`, el chip de `ServicioSuelto`, «Requiere tu atención» y el teléfono); el bloque «Redes» dice el estado de cada red al abrir la tarjeta.
-- **Traer los formularios de Meta con `lead.received`** (el reemplazo del puente de Make): el webhook de Zernio no lo escucha.
+- ~~Traer los formularios de Meta con `lead.received`~~ **HECHO el 23/10/2026** (el reemplazo del puente de Make): ver «Los leads de los formularios de Meta por Zernio», más abajo.
 - Sacar la key de la plataforma del ws1 (la coordina el Cerebro con Ads Manager) y, después, la rama `byok: false` de `ensureProfile` (queda sólo para el ws1).
 - Una operación en la API de MaKo para conectar una red (`conectar_redes`: el id no puede llevar «zernio» ni «instagram», `tests/sin-instagram.test.ts`).
 - El teléfono (MaKo Mobile) no tiene el bloque «Redes»: abre la computadora con `?abrir=zernio`.
@@ -1352,6 +1352,83 @@ cuando Ads Manager termine; hasta entonces `cfg` lo deja en su modo de siempre (
 `tests/zernio-conectar-redes.test.ts` · `tests/zernio-sin-respaldo.test.ts`.
 
 _23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2), con el contrato cerrado con Ads Manager. Investigación: cuatro lectores en paralelo (API de conexión, cuentas y cobro, apps de referencia, mapa del código)._
+
+## Los leads de los formularios de Meta por Zernio (`lead.received`): la misma puerta que Meta, y lo que la doc NO dice (23/10/2026)
+
+**El pedido** (Martín, vía el Cerebro, 23/10/2026): el puente de Make o Zapier se retiró («ya resolvimos todo con Zernio») y los leads de los formularios
+instantáneos de un negocio sin app propia de Meta tienen que entrar por el webhook de SU cuenta de Zernio: «Va por `upsertLeadFromMeta`, igual que el
+webhook de Meta: mismo origen, sin duplicar si el lead también entra por la app propia del negocio (dedup por el leadgen_id), y con la conversión, el aviso
+y las automatizaciones que dispara un lead de Meta. Ruteo estricto por la cuenta de Zernio del negocio y la deduplicación de reentregas».
+
+**Cómo quedó.** El webhook de Zernio (`app/api/webhooks/zernio/route.ts`) tiene una rama para `lead.received`, DESPUÉS de lo que ya tenía (firma sobre el
+cuerpo crudo → ruteo estricto por profile o por cuenta → la firma tiene que ser de ESE negocio → el evento se reclama una sola vez en `zernio_eventos`).
+`lib/zernio-lead.ts` (puro) lee el cuerpo; `lib/zernio-leads.ts` lo entrega a `upsertLeadFromMeta` con el `leadgenId` como `meta_lead_id`, y manda la
+conversión `Lead` (CAPI, con el MISMO `event_id` que el webhook de Meta: si el lead entra por los dos caminos, Meta junta los eventos) y lo inmediato
+(`alNacerLeadDeMeta`: el aviso, los flujos, las automatizaciones). **El alta va adentro del pedido y lo demás en `after`**, porque Zernio corta a los 5 s;
+si el alta falla se suelta el reclamo del evento y Zernio reintenta.
+
+### Lo que se leyó de la doc del webhook (docs.zernio.com/webhooks/ads, 23/10/2026, por un lector que resume: los nombres pueden venir parafraseados)
+
+**La doc NO trae un JSON de ejemplo: sólo la tabla de campos.** `id` (estable, igual en cada reintento y en `X-Zernio-Event-Id`), `event`, `timestamp`, `test`
+(sólo en las muestras de `POST /v1/webhooks/test`), `lead` { `id`, `leadgenId`, `formId`, `formName`, `adId`, `adsetId`, `campaignId`, `fields`, `isOrganic`,
+`createdAt` } y `account` { `id`, `accountId`, `platform: "facebook"`, `profileId` (nulo si no hay profile) }. `fields` es «pregunta → respuesta»
+y **las opciones de una pregunta de selección vienen como CLAVE** (`k1`), no como rótulo. Los eventos de anuncios exigen el complemento de anuncios (Ads
+add-on) de Zernio, y la página tiene que estar conectada con el permiso `leads_retrieval`: una cuenta conectada antes de tener anuncios se tiene que
+reconectar.
+
+### El diagnóstico obvio era el equivocado, y las trampas
+
+1. **«Armar el parser con la API REST que ya se lee» NO sirve.** `GET /v1/ads/leads` devuelve el lead con `fieldData` crudo (la forma de Meta) y otros
+   nombres; **la tabla del webhook no lista `fieldData`**. Es la misma trampa de Cal.com (06/10/2026, AGENTS.md): el lector toma `fields` y NO lee `fieldData`
+   (un test lo fija con un cuerpo que sólo trae `fieldData`).
+2. **Una muestra de prueba NO es un lead.** `POST /v1/webhooks/test` manda un cuerpo con `test: true`; sin mirarlo, apretar «probar» en el panel de Zernio
+   creaba un lead falso, con el aviso y las automatizaciones que dispara uno real. Se ignora con su motivo (`ignored: "prueba"`).
+3. **El `leadgenId` decide la identidad y no se inventa ni se rellena.** Sólo dígitos (8 a 32), como string o como número seguro (un id de 17 dígitos que
+   viaja como número JSON ya se redondeó al parsear). Sin eso el evento NO se carga —un lead que se carga dos veces avisa dos veces— y se registra con las
+   CLAVES que sí vinieron (nunca los valores: es un dato personal). **El `id` de Zernio (`lead.id`) no es el leadgenId**: usarlo duplicaba el lead que ya
+   entró por Meta.
+4. **Los NOMBRES de anuncio, conjunto y campaña no viajan en este evento, sólo los ids.** Quedan vacíos (no se rellenan con el id): los ids son los que
+   deciden el producto (`lib/campana-funnel.ts`) y la atribución (`lib/campana-atribucion.ts`: «los nombres sólo para MOSTRAR»), así que lo único que se
+   pierde es el renglón con el nombre en la ficha. ⚠️ `upsertLeadFromMeta` escribe esas columnas con `?? null` también en el UPDATE de un lead que ya
+   existía (la persona que vuelve a anotarse, unida por teléfono o email): ese lead pierde el nombre de la campaña anterior y queda con los ids nuevos.
+5. **Hay UN solo índice único de `meta_lead_id` y es GLOBAL** (mig 0007). Si el webhook de Meta y el de Zernio traen el MISMO lead a la vez, el segundo insert
+   falla por clave duplicada; el webhook de Zernio contesta 500, suelta el reclamo, Zernio reintenta y el reintento lo encuentra (`created: false`) sin
+   avisar de nuevo. No se necesita código de carrera: se necesita NO tragar ese error.
+6. **Lo inmediato y la conversión, sólo con un lead creado por ESTA entrega y de menos de 24 h** (`esNuevoParaElNegocio`, la regla del poll). Zernio
+   reintenta hasta 7 veces y se puede reentregar a mano desde su panel: un evento de hace días no es «un lead nuevo» y no puede mandar un primer
+   mensaje. Sin fecha legible se trata como recién llegado (callarlo dejaría a un lead real sin que nadie le escriba).
+7. **Los leads se suscriben APARTE de los otros eventos.** `lead.received` es del complemento de anuncios y la doc dice que sin él los eventos de anuncios
+   dan 403 `ads_addon_required` al registrar el webhook; **no dice si `lead.received` está entre ellos**. Si fuera una sola lista y Zernio la rechazara,
+   el negocio perdería sus mensajes y comentarios de Instagram y Messenger, que hoy andan. `asegurarWebhook` pide todo junto y, si Zernio contesta 400,
+   403 o 422, registra los de siempre solos (y lo deja en el log); una key mala (401), un pago (402) o una caída suben tal cual.
+8. **`asegurarWebhook` no corre solo.** Corre al conectar una red, al ver el estado de Instagram o Messenger y al publicar una automatización con esos
+   medios: un negocio que ya tenía su webhook registrado NO escucha `lead.received` hasta que pase una de esas tres.
+
+### Lo que NO se midió (se mide con un `lead.received` REAL)
+
+1. El cuerpo: **ningún negocio recibió todavía un `lead.received`**; todo lo de arriba sale de la tabla. Falta ver `fields` con un formulario real (¿las claves
+   son las de Meta —`full_name`, `phone_number`— o los rótulos?) y si un campo de varias opciones llega como lista.
+2. Que `lead.leadgenId` sea EXACTAMENTE el id que Graph devuelve para ese lead (si no, la deduplicación con Meta no funciona y el lead entra dos veces).
+3. Si Zernio rechaza suscribir `lead.received` sin el complemento de anuncios (y con qué código), y si `account.accountId` de este evento es el `_id` que lista
+   `GET /v1/accounts` (de ahí depende el ruteo cuando `profileId` viene nulo).
+
+### Lo que quedó SIN hacer
+
+- **Nadie le dice al negocio que sus leads no llegan por falta del complemento de anuncios o del permiso.** `leadsEnElWebhook(ws)` (lib/zernio.ts) mide si el
+  webhook registrado escucha el evento; falta que alguna pantalla lo use (Ads Manager o el modal de Zernio). Mide lo REGISTRADO, no que llegue alguno.
+- **Sin red de seguridad si un evento se pierde.** Zernio reintenta 7 veces y lo descarta; el poll de Meta (`/api/cron/meta-leads-poll`) usa el token de página
+  propio del negocio y un negocio que sólo conectó por Zernio no lo tiene. Existe `GET /v1/ads/leads?accountId&since=<segundos>` (más nuevo primero, cursor por
+  `pagination.cursor`) para un barrido, que además traería `fieldData`, y la regla de lo inmediato (24 h) ya está en `cargarLeadDeZernio`.
+- **Los nombres de campaña, conjunto y anuncio** (punto 4): se pueden resolver por id contra `marketing_metrics_daily`, o desde la API de anuncios de Zernio.
+- **Un fallo DESPUÉS del insert deja el lead sin anunciar:** si `upsertLeadFromMeta` tira al dejar el rastro o al sumarlo a otro funnel, el reintento de Zernio
+  encuentra el lead (`created: false`) y nadie dispara el aviso ni las automatizaciones. Es de la puerta compartida (el webhook de Meta tiene el mismo hueco).
+- **Sin prueba de punta a punta** (un evento firmado contra un negocio de prueba): ws3 no tiene key de Zernio y no se la pone con código.
+- Tipos: salió «sin tipos» (política del tren): los chequea el `tsc` acotado de Integración.
+
+**Vive en:** `lib/zernio-lead.ts` · `lib/zernio-leads.ts` · `app/api/webhooks/zernio/route.ts` · `lib/zernio.ts` (`EVENTO_LEADS`, `EVENTOS_ESCUCHADOS`, `asegurarWebhook`,
+`leadsEnElWebhook`) · `tests/zernio-leads.test.ts`.
+
+_23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2), después de «Conectar con Facebook, Instagram o anuncios»._
 
 ## La agenda de MaKo NO entra al CRM de MaKo (medido en la base el 23/10/2026)
 

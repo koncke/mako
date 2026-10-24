@@ -3500,6 +3500,13 @@ reservas, sin un error. La forma sale del ejemplo de la doc del webhook o de un 
 test se escribe sobre ese cuerpo (`tests/link-de-reunion.test.ts`). Al revés vale igual: el listado
 de Calendly sí trae el mismo `location` que su webhook, y eso se comprobó, no se supuso.
 
+⚠️ **UN LEAD DE UN FORMULARIO DE META ENTRA POR `upsertLeadFromMeta`, VENGA POR DONDE VENGA** (el webhook de Meta, el poll, el `lead.received` de
+Zernio en `lib/zernio-leads.ts`): la deduplicación es por `meta_lead_id` = el leadgen_id, y el índice de esa columna es GLOBAL (mig 0007), así que no se le
+pone un prefijo propio ni se usa el id de otro sistema (el `lead.id` de Zernio no es el leadgen_id: el lead que ya entró por Meta se duplicaba). El
+`event_id` de la conversión `Lead` es `eventIdLeadCrudo(leadgen_id)` en TODAS las puertas, para que Meta junte los eventos; y lo inmediato
+(`alNacerLeadDeMeta`) va sólo con un lead CREADO por esa entrega y de menos de 24 h (`esNuevoParaElNegocio`): una reentrega no es un lead nuevo. Un webhook
+que trae leads descarta antes de cargar nada las muestras de prueba del proveedor (`test: true`). `tests/zernio-leads.test.ts`.
+
 Y hay un CUARTO registro que no es obligatorio y cambia lo que la gente lee: `AYUDA_CAMPO`
 (en `metodo-catalogo.ts`). El componente hace `ayuda={c.ayuda ?? servicio.tutorial}`, asi
 que **si un campo tiene ayuda propia, el tutorial del servicio no se ve nunca para ese

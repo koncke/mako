@@ -61,7 +61,8 @@ test('cfg y la key de «¿te sigue?» leen la key PROPIA: sin credWs, sin envCre
   assert.match(seg, /return credDelClienteEstricta\('ZERNIO_API_KEY', ws\);/);
   assert.doesNotMatch(seg, /envCred|credWs\(/, 'el «¿te sigue?» volvió a la cuenta de la plataforma');
   // El único `envCred` que queda en el archivo es el del secreto maestro del webhook (no es una cuenta de Zernio).
-  const usos = [...ZERNIO.matchAll(/envCred\('([A-Z_]+)'\)/g)].map((m) => m[1]);
+  // Qué claves se leen del entorno, no cuántas veces: `asegurarWebhook` y `leadsEnElWebhook` leen la misma.
+  const usos = [...new Set([...ZERNIO.matchAll(/envCred\('([A-Z_]+)'\)/g)].map((m) => m[1]))];
   assert.deepEqual(usos, ['ZERNIO_WEBHOOK_SECRET'], `lib/zernio.ts lee del entorno: ${usos.join(', ')}`);
   assert.doesNotMatch(ZERNIO, /import \{[^}]*\bcredWs\b[^}]*\} from '\.\/credenciales'/, 'lib/zernio.ts importa credWs (cae al entorno para el ws1)');
 });
