@@ -10874,3 +10874,24 @@ docs/hallazgos-api-mako.md). Lo que cambia para quien toque el CRM:
 
 **Vive en:** lib/etapas-crm-server.ts · lib/etapas-crm-reglas.ts · app/crm/actions.ts
 *23/10/2026, chat «API de MaKo» (claude2).*
+
+## Completar un lead por su nombre: la web y el Instagram, sin inventar (24/10/2026)
+
+**Vive en:** `lib/enriquecer-reglas.ts` (puro) · `lib/enriquecer-por-nombre.ts` · `tests/enriquecer-por-nombre.test.ts`
+
+El escalón 2 de la base de venta de MaKo: 221 participantes de un grupo de WhatsApp entraron como teléfonos pelados
+(WhatsApp no manda el nombre). El escalón 1, el perfil de empresa de WhatsApp, es del chat del CRM; éste es para los que
+no lo tienen. Martín: «con el motor de búsqueda que tenemos, con el nombre o el de la empresa podemos extraer su web y su IG».
+
+- **Se reusa el actor de Google Maps de la prospección** con los contactos de la web (ahí sale el Instagram): UNA corrida
+  por tanda, 3 lugares por lead, con techo de plata. Cobra la clave de Apify del NEGOCIO; no escribe nada en la ficha.
+- **Lo que hace seguro el resultado es el TELÉFONO, no el nombre.** El lead ya tiene su número (vino de WhatsApp) y el lugar
+  de Google Maps tiene el suyo: si coinciden los últimos 10 dígitos, es él (`confianza: 'telefono'`). Sólo por nombre es
+  más flojo (`'nombre'`): igual sin acentos ni puntuación, único en SU búsqueda, y sin OTRO teléfono (otra sucursal). Dos
+  lugares que califican y dicen cosas distintas → vacío, nunca el primero.
+- **No medido:** el costo real (no hay clave de Apify en ningún negocio el 24/10; el precio es el publicado, unos US$2–5 los
+  221) y la forma real de los resultados (el lector sigue el ejemplo publicado del actor: `searchString`, `title`,
+  `phoneUnformatted`, `website`, `instagrams`). La primera corrida se compara contra esto.
+- **Sin hacer:** la pantalla y la escritura en la ficha (del chat del CRM, con su camino de completar sin pisar).
+
+*24/10/2026, chat «Ventas de MaKo» (`claude1`).*
