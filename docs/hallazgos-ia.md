@@ -3664,6 +3664,11 @@ hace tool calling; un pedido del doer pesa 13-16 mil. O sea que la red de plataf
 (`chatCheapTools`, `hastaMs`) · `lib/mako-doer-in.ts` (`plazoDe`, `propuestasDelTurno`) · `lib/fallo-ia-texto.ts`
 (`ia_lenta`) · `lib/respuesta-doer.ts` (`conLoQueQuedoPropuesto`) · `tests/doer-timeout-gemini.test.ts`
 
+**La regla es UNA, en dos mitades:** el respaldo es SIEMPRE una IA del negocio, nunca la de MaKo. Si queda otro modelo
+de SU key, va ése; si queda otra IA suya de otra marca, va ésa; si no queda nada, se le dice qué pasó. Esta es la mitad
+de las keys. La mitad de la computadora del dueño (la PC que no contesta deja 90 s para su clave: `RESERVA_RESPALDO_MS`,
+`claveDeIAPropia`, lib/ia-pc-reglas.ts) la escribió el chat «IA del cliente» en «Gemini en la PC: no».
+
 Lo levantó el vigía: Brigitte (ws15, otra vez UNA key de Gemini) contestó «Si contacte Eli» al recordatorio de las
 13:51. Dos pasos de `flash-lite` con 200 (+23 s y +34 s del mensaje; `flash-latest`, el fijado, falló antes sin dejar
 marca de 429), el tercero no volvió, y a los +83 s salió `cartel:sin_respaldo` con «chatCheapTools(gemini): The
