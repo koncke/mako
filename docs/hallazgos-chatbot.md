@@ -6409,6 +6409,22 @@ fila que junta «Contestó» con otra cosa («Contestó y sigue en la etapa») n
 (lib/simulador-grafo.ts) todavía no imita el corte. Un DM de Instagram también cuenta como respuesta para los flujos de
 WhatsApp que usan «Contestó». Un «N antes de la reunión» que va en el MISMO camino se corta con él.
 
+**Y un agujero que vio la campaña real (24/10/2026, la #289 en el ws1, medido con `medir-289.mts`, sin versionar, en `C:/dev/wt-aut-sab24/scripts/_sab24/`).** Quien
+contesta MIENTRAS le está saliendo el mensaje se pierde el corte. M1 son 3 partes con pausas de 5 s: ~20 s desde la
+primera parte hasta la fila del envío. El #2502 contestó a los 5 s de la primera parte. `pausarPorRespuesta` lo puso en
+'respondio', y `alContestar` no lo tocó porque todavía no le había salido nada (`yaLeSalioAlgo` busca la fila del envío,
+que no existía). Al terminar, el avance escribió con `escribir` en modo 'fila': ese modo no compara el estado y pone el
+LEÍDO al empezar la corrida (`conEstadoDeLaFila`), así que volvió a 'activa' (lib/nutricion.ts, `escribir` y el avance
+después de mandar). Quedó 'activa', sin aviso al equipo y con M2 programado. **Lo que esconde:** lo que contestó era la
+bienvenida automática de su WhatsApp Business. Esas llegan a los segundos, dentro de esa ventana, así que HOY el agujero
+hace que casi ninguna cuente como «Contestó». Una que llega a los 30 s sí cuenta: incoherente. Arreglar sólo la carrera
+haría que todas cuenten (aviso al equipo y sin M2). Por eso el arreglo va junto con la decisión de qué es una respuesta
+automática. **Medido de paso:** con un goteo de 11 min salen cada ~12. El turno se cuenta desde el `created_at` de la
+fila, que se escribe después de las partes, y el tick corre una vez por minuto. La condición «Contestó» también espera su
+turno de goteo (es un nodo con canal WhatsApp: `sinLugar`), así que M2 sale 24 h después de evaluarla, no de M1.
+**Sin hacer:** el arreglo de la carrera (CAS en el avance; si la fila pasó a 'respondio' durante el envío, que siga en
+'respondio' y corra `alContestar`) y la regla de la respuesta automática: los dos esperan la decisión del Cerebro.
+
 ## «Sale sola» y la reentrada se fueron de la tarjeta de WhatsApp (23/10/2026)
 
 **Medido antes de sacarlo.** El primer mensaje de #289 salía solo (`revisar: false`): no fue el P0. Pero el SEGUNDO no
@@ -6496,12 +6512,13 @@ en la fila que ya está escribiendo**. `nutricion_envios.error` recibió la fras
 vez del `error.message` de Postgres, que es el único dato que distingue las cinco causas posibles. Un
 error de un tercero (o de la base) se propaga ENTERO hasta la fila que alguien va a poder leer después.
 
-**Lo que queda SIN hacer**, y le toca al chat de Automations:
-1. Hacer que `crearPendiente` devuelva el motivo (no `null`) y que `proponerChat` lo escriba en el envío.
-   Hoy «no pude registrarla» y «la base dijo X» son el mismo texto.
-2. Que un fallo del paso de aviso **no cierre la inscripción**: hoy queda `completada` y el lead se pierde
-   sin reintento. Es la contracara de «un 200 es un ACK» del lado del motor.
-3. Reparar el ws13: ese cliente no tiene aviso de ningún lead desde el 13/10. Y revisar la secuencia #264,
+**Lo que quedaba SIN hacer**, y le tocaba al chat de Automations:
+1. ~~Hacer que `crearPendiente` devuelva el motivo (no `null`) y que `proponerChat` lo escriba en el envío.~~
+   HECHO en 0a5f6c9b6 (en producción desde el 23/10 12:20:34 ART). La causa era medio emoji: docs/hallazgos-api-mako.md.
+2. ~~Que un fallo del paso de aviso **no cierre la inscripción**.~~ HECHO en 0a5f6c9b6: vuelve a su paso y reintenta a 1 h,
+   6 h y 24 h.
+3. Reparar el ws13. El arreglo está; los dos mensajes al grupo (el aviso y la lista de los 19 sin aviso, no 6 ni 10)
+   esperan a que un lead nuevo avise bien. La cuenta, en docs/hallazgos-api-mako.md. Y revisar la secuencia #264,
    que quedó con un único paso `nodo: 'mensaje'` con una `accion` adentro, **sin nodo `inicio`**, y con el
    token `{{mensaje_mako}}` en su hermana #240 — justo el que `problemasDeTokens` prohíbe publicar.
 
