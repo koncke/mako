@@ -179,6 +179,38 @@ export async function borrarOferta(id: number): Promise<void> {
 }
 
 /**
+ * Guardar desde afuera de una siembra: la pantalla (POST 'guardar' de /api/onboarding/ofertas) y la API de MaKo
+ * (`guardar_oferta`). Alta o edición, y la PRIMERA oferta de un workspace queda como principal: sin eso,
+ * `ofertaPrincipal()` devolvería 'sin-fila' con una oferta cargada. Vivía adentro de la ruta.
+ */
+export async function guardarOferta(input: OfertaInput, id?: number): Promise<{ id: number; principal: boolean }> {
+  const nuevo = await upsertOferta(input, id);
+  if (!id && (await listarOfertas()).filter((x) => x.es_principal).length === 0) {
+    await marcarPrincipal(nuevo);
+    return { id: nuevo, principal: true };
+  }
+  return { id: nuevo, principal: false };
+}
+
+/**
+ * Lo que se lleva puesto borrar una oferta, para decirlo ANTES: los leads que entraron por ella (`leads.oferta_id`
+ * queda en null: on delete set null, mig 0169) y sus ligas a funnels y productos (se borran: on delete cascade).
+ * `null` en un conteo = no se pudo contar: se dice así, no como un cero.
+ */
+export async function usoDeOferta(id: number): Promise<{ leads: number | null; funnels: number | null; productos: number | null }> {
+  const db = await getTenantDb();
+  const contar = async (tabla: string, col: string): Promise<number | null> => {
+    const { count, error } = await db.from(tabla).select('id', { count: 'exact', head: true }).eq(col, id);
+    if (error) { console.error(`[ofertas] no pude contar ${tabla} de la oferta #${id}: ${error.message}`); return null; }
+    return count ?? 0;
+  };
+  const [leads, funnels, productos] = await Promise.all([
+    contar('leads', 'oferta_id'), contar('funnel_ofertas', 'oferta_id'), contar('oferta_productos', 'oferta_id'),
+  ]);
+  return { leads, funnels, productos };
+}
+
+/**
  * Mueve la marca de principal a esta oferta.
  *
  * Dos escrituras y en este orden: primero se apaga la que estaba, después se

@@ -5,8 +5,8 @@
 // template que está muy grande, entonces los templates tienen que ser como más simples». Las del Resumen traían de 12
 // a 18 bloques; la regla que las inflaba exigía la lista ENTERA de su tipo cuando su motivo eran sólo los avisos.
 // Lo que se fija, EJECUTANDO las plantillas de entrada de los nueve tipos:
-//   1. ningún Resumen de entrada trae los bloques que ya tienen su tab o se agregan: el video visto (Tracking), los
-//      cambios de MaKo y las automatizaciones en curso;
+//   1. ningún Resumen de entrada trae los bloques que ya tienen su tab o se agregan: el video visto (Tracking) y los
+//      cambios de MaKo (las automatizaciones VUELVEN el 23/10/2026: ver abajo);
 //   2. la charla de WhatsApp (ancho completo y con su raya aunque no haya charla) sólo entra donde ES la pregunta;
 //   3. un techo: 15 bloques, y 8 que se dibujan aunque no haya datos;
 //   4. «Antes de la llamada» (la de los funnels con reunión, casi todos) sin lo cobrado ni el origen.
@@ -15,6 +15,11 @@
 //   · la charla de WhatsApp de vuelta en «Antes de la llamada»                   → 2 / 2
 //   · el video visto de vuelta en «Lo que contestó»                              → 3 / 1
 //   · lo cobrado de vuelta en «Antes de la llamada»                              → 3 / 1
+// ⚠️ 23/10/2026: «Automatizaciones» vuelve a las de entrada. Martín: «crear un bloque dentro del detail de cada lead que
+//    esté relacionado a las automatizaciones... para tener más claridad de lo que pasa». No agranda la ficha: se calla si
+//    el lead no está ni estuvo en ninguna, así que no cuenta para el techo (que mide lo que se ve). Lo que sí se fija:
+//    va en todas las sugeridas, arriba (después de los duplicados), y no en la épica ni en «Para llamarlo».
+//    Probado rompiéndolo: sacarlo de «La charla» → 4 / 1; contarlo en el techo → 4 / 1.
 // Correr: node --import tsx --test tests/ficha-plantillas-simples.test.ts
 // =============================================================================
 
@@ -29,7 +34,7 @@ const ids = (p: { bloques: ReadonlyArray<{ id: string }> }) => p.bloques.map((b)
 
 test('ningún Resumen de entrada trae lo que ya tiene su tab o se agrega', () => {
   for (const { tipo, p } of entradas) {
-    for (const pesado of ['video-visto', 'cambios-de-mako', 'automatizaciones-en-curso']) {
+    for (const pesado of ['video-visto', 'cambios-de-mako']) {
       assert.ok(!ids(p).includes(pesado), `«${tipo}» (${p.id}) volvió a traer «${pesado}»`);
     }
   }
@@ -42,9 +47,20 @@ test('la charla de WhatsApp sólo entra donde ES la pregunta', () => {
   }
 });
 
+test('«Automatizaciones» en todas las de entrada, arriba: dice lo que pasa y se calla si no hay nada (23/10/2026)', () => {
+  for (const { tipo, p } of entradas) {
+    const i = ids(p).indexOf('automatizaciones-en-curso');
+    assert.ok(i >= 0, `«${tipo}» (${p.id}) sin «Automatizaciones»`);
+    assert.ok(i <= 3, `«${tipo}» (${p.id}): «Automatizaciones» quedó abajo (lugar ${i + 1})`);
+  }
+  assert.equal(BLOQUES.find((d) => d.id === 'automatizaciones-en-curso')!.sinDatos, 'se-calla', 'si no se calla, agranda la ficha de todos');
+});
+
 test('un techo: 15 bloques, y 8 que se dibujan sin datos', () => {
   for (const { tipo, p } of entradas) {
-    assert.ok(p.bloques.length <= 15, `«${tipo}» (${p.id}) trae ${p.bloques.length} bloques`);
+    // «Automatizaciones» no cuenta: se calla sin automatizaciones (arriba).
+    const visibles = p.bloques.filter((b) => b.id !== 'automatizaciones-en-curso');
+    assert.ok(visibles.length <= 15, `«${tipo}» (${p.id}) trae ${visibles.length} bloques`);
     const conRaya = p.bloques.filter((b) => BLOQUES.find((d) => d.id === b.id)!.sinDatos === 'raya');
     assert.ok(conRaya.length <= 8, `«${tipo}» (${p.id}) dibuja ${conRaya.length} bloques sin datos`);
   }

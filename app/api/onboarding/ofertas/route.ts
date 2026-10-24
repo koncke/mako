@@ -17,13 +17,13 @@ import { listProductos } from '@/lib/productos';
 import { listarFunnels, crearFunnel, FUNNEL_DEFAULT_NOMBRE } from '@/lib/funnels';
 import { templateDeCanal } from '@/lib/pipeline';
 import {
-  listarOfertas, filaOfertaPrincipal, upsertOferta, borrarOferta, marcarPrincipal,
+  listarOfertas, filaOfertaPrincipal, upsertOferta, borrarOferta, marcarPrincipal, guardarOferta,
   ligarProducto, desligarProducto, productosDeOfertas,
   ligarOfertaAFunnel, desligarOfertaDeFunnel, ofertasDeFunnels,
   seedOfertaDesdeBrief,
 } from '@/lib/ofertas';
 import { sugerirOferta } from '@/lib/ofertas-ia';
-import { resolverOfertaPrincipal, esUrgenciaTipo, parseBonos, type Oferta, type OfertaInput } from '@/lib/oferta-modelo';
+import { ofertaDeLaPantalla, resolverOfertaPrincipal, sanearOfertaInput, type Oferta, type OfertaInput } from '@/lib/oferta-modelo';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -31,20 +31,12 @@ export const maxDuration = 120;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const s = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
-const num = (v: unknown): number | null => {
-  if (typeof v === 'number' && Number.isFinite(v)) return v;
-  if (typeof v === 'string' && v.trim()) { const n = Number(v.replace(/[^\d.]/g, '')); return Number.isFinite(n) ? n : null; }
-  return null;
-};
 const id = (v: unknown): number | null => {
   const n = typeof v === 'number' ? v : Number(v);
   return Number.isFinite(n) && n > 0 ? n : null;
 };
-/** `YYYY-MM-DD` o nada. Una fecha mal formada es un dato que después nadie puede comparar. */
-const fecha = (v: unknown): string | null => {
-  const t = s(v);
-  return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : null;
-};
+// El saneo de 'guardar' (el número, la fecha AAAA-MM-DD, los bonos, la urgencia) vive en lib/oferta-modelo.ts
+// (`sanearOfertaInput`): lo comparte con la API de MaKo.
 
 /**
  * La IA COMPLETA, nunca pisa. Es la MISMA capa determinista que ya tiene el paso
@@ -141,38 +133,14 @@ export async function POST(req: NextRequest) {
       }
 
       if (action === 'guardar') {
+        // El saneo y «la primera oferta es la principal» viven en lib/ (`sanearOfertaInput`, `guardarOferta`): los
+        // comparte la API de MaKo (`guardar_oferta`). Lo que el saneo descarta, la pantalla lo ignora, como antes. Y sin
+        // `modelo`: la pantalla manda la oferta entera, y su modelo es el de cuando cargó (`ofertaDeLaPantalla`).
         const o = (body.oferta ?? {}) as Record<string, unknown>;
-        const nombre = s(o.nombre);
-        if (!nombre) return Response.json({ ok: false, error: 'La oferta necesita un nombre.' }, { status: 400 });
-        const ut = esUrgenciaTipo(o.urgencia_tipo) ? o.urgencia_tipo : null;
-        const udato = ut ? s(o.urgencia_dato) : '';
-        const input: OfertaInput = {
-          nombre,
-          precio_usd: num(o.precio_usd),
-          precio_nota: s(o.precio_nota) || null,
-          promesa: s(o.promesa) || null,
-          incluye: s(o.incluye) || null,
-          garantia: s(o.garantia) || null,
-          para_quien: s(o.para_quien) || null,
-          objeciones: s(o.objeciones) || null,
-          prueba: s(o.prueba) || null,
-          bonos: parseBonos(o.bonos),
-          // Sin dato concreto no hay urgencia: un tipo suelto pinta una restricción
-          // que no dice nada y que nadie puede verificar.
-          urgencia_tipo: udato ? ut : null,
-          urgencia_dato: udato || null,
-          urgencia_razon: udato ? (s(o.urgencia_razon) || null) : null,
-          urgencia_hasta: udato ? fecha(o.urgencia_hasta) : null,
-          activa: o.activa === false ? false : true,
-        };
-        const existente = id(o.id);
-        const nuevo = await upsertOferta(input, existente ?? undefined);
-        // La primera oferta de un workspace es la principal: sin esto,
-        // `ofertaPrincipal()` devolvería 'sin-fila' con una oferta cargada.
-        if (!existente && (await listarOfertas()).filter((x) => x.es_principal).length === 0) {
-          await marcarPrincipal(nuevo);
-        }
-        return Response.json({ ok: true, ofertaId: nuevo, ...(await estado()) });
+        const r = sanearOfertaInput(ofertaDeLaPantalla(o));
+        if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 400 });
+        const g = await guardarOferta(r.input, id(o.id) ?? undefined);
+        return Response.json({ ok: true, ofertaId: g.id, ...(await estado()) });
       }
 
       if (action === 'borrar') {

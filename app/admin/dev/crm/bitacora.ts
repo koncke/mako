@@ -3144,6 +3144,41 @@ export const BITACORA: Hito[] = [
     revisar: '/crm',
   },
   {
+    fecha: '23 oct', hora: '17:40', chat: 'CRM', sesion: 'local_726a73ed-e110-45e4-a32a-038b6e37e962', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Un bloque de automatizaciones en la ficha, y los bloques editables a medias',
+    pedido: '«Tal vez sería bueno crear un bloque dentro del detail de cada lead que esté relacionado a las automatizaciones, no? Para tener más claridad de lo que pasa... Y que claro, sea editable como el resto de bloques... De paso hay bloques que son editables a medias... Por ejemplo, en todos me dice "empresa obligatorio" porque está dentro de un bloque que tiene 3 datos, y no se puede personalizar, no puedo decidir sacar a empresa o agregar otra cosa... Eso está mal, porque me obligas a hacer obligatorio un dato que no quería que lo fuera... Así estoy seguro que hay más casos.»',
+    puntos: [
+      'Llegó por el Cerebro. Lo motivó su lead de prueba 3099: lo volvió a meter en «Prospección activa» para que «Sprint · apertura» le escribiera otra vez, y no pasó nada (entra una sola vez y seguía adentro).',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '18:40', chat: 'CRM', sesion: 'local_726a73ed-e110-45e4-a32a-038b6e37e962', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo obligatorio, dato por dato; y el bloque «Automatizaciones» dice lo que pasa',
+    puntos: [
+      'La empresa no era obligatoria por el contacto en sí: dos reglas tomaban el BLOQUE como unidad (el default y el botón «Obligatorio»). Ahora todo es por dato.',
+      'Se revisaron los 50 bloques: 14 obligaban datos en grupo o no dejaban elegir. En todos, «Obligatorio» es de a un dato.',
+      'El contacto y el setter y el closer dejan elegir qué datos van. La empresa nace sin ser obligatoria, y el contacto se puede quitar.',
+      '«Completar datos» y el aviso al mover ya no piden lo que no es obligatorio.',
+      'El bloque «Automatizaciones» ya existía y nadie lo veía. Ahora va arriba del Resumen: estado, paso, qué sale y a qué hora, y por qué no entró. También en el teléfono.',
+      'El título de cualquier bloque se cambia. Falta lo que arma Automations: lo enviado, las terminadas y «Empezar de nuevo».',
+    ],
+    commits: [
+      { sha: '7484a5720', msg: 'CRM: dentro de un bloque la persona elige qué datos van y cuáles son obligatorios, uno por uno', lineas: 655, archivos: 26 },
+      { sha: 'e4b324516', msg: 'CRM: el bloque «Automatizaciones» de la ficha dice lo que pasa (como la tarjeta Sequences de HubSpot)', lineas: 884, archivos: 17 },
+    ],
+    archivos: [
+      'lib/ficha/catalogo.ts · lib/ficha/config.ts — los datos de cada bloque y su aviso',
+      'lib/ficha/plantillas.ts — la empresa nace apagada',
+      'app/crm/lead-view/ficha/Armador.tsx — «Datos», «Obligatorio» y «Título» en la barra',
+      'app/crm/lead-view/ficha/resumen/automatizaciones.tsx — el bloque',
+      'app/crm/automatizacion-lead.ts — lo que dice (puro)',
+      'app/crm/CrmBoard.tsx — por qué no entró, en el aviso al mover',
+    ],
+    revisar: '/crm',
+  },
+  {
     fecha: '23 oct', hora: '03:30', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Los topes de MaKo Esencial en el CRM: 1 CRM y 2.000 leads',
