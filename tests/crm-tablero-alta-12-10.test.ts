@@ -140,7 +140,9 @@ test('el título de la pestaña sale como lo devuelve document.title: si no, el 
 test('el alta son CUATRO campos: nombre, email, teléfono con banderas e Instagram', () => {
   const nf = codigo('app/crm/new/NewLeadForm.tsx');
   const nombres = [...nf.matchAll(/name="([a-z_0-9]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(nombres, ['nombre', 'email', 'telefono', 'instagram']);
+  // `instagram_foto` (24/10/2026) no es un campo que se llena: es un oculto que acompaña al Instagram elegido, con su foto
+  // para la tarjeta (lib/foto-instagram.ts).
+  assert.deepEqual(nombres, ['nombre', 'email', 'telefono', 'instagram', 'instagram_foto']);
   // Se fueron la empresa y las dos fechas («el resto se puede configurar dentro»).
   assert.doesNotMatch(nf, /fecha_agenda|fecha_junta_1|name="empresa"/);
   // El teléfono con el país primero, y lo que viaja es la lada unida al número.

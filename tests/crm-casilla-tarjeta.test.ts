@@ -38,6 +38,11 @@ test('la regla arranca en ancho cero y resetea el margen del navegador', () => {
   const bloque = css.slice(ini, css.indexOf('}', ini)).replace(/\/\*[\s\S]*?\*\//g, '');
   assert.match(bloque, /width:\s*0;/);
   assert.match(bloque, /margin-left:\s*0;/, 'sin esto el margen del checkbox corre el nombre 2-4 px');
-  // Y el -8 que cancela el `gap: 8` de la fila: sin él quedan 8 px de sangría fantasma.
-  assert.match(bloque, /margin-right:\s*-8px;/);
+  // Y el margen que cancela el gap de la fila: sin él queda una sangría fantasma. Desde el 24/10/2026 sigue la separación
+  // REAL de la fila (--tk-gap: 12 en la tarjeta del CRM, 9 en la compacta): el -8 fijo dejaba 4 px (o 1) corridos en reposo
+  // (Martín, 05/10: «Los nombres no deben estar desplazados por default»). Sin la variable (el Plan), 8.
+  assert.match(bloque, /margin-right:\s*calc\(-1 \* var\(--tk-gap, 8px\)\);/);
+  const tk = readFileSync('app/_ui/TarjetaKanban.tsx', 'utf8');
+  assert.match(tk, /\.tk-fila \{ display: flex; align-items: center; --tk-gap: 12px; gap: var\(--tk-gap\);/, 'la fila no declara su separación');
+  assert.match(tk, /\.tk--compacta \.tk-fila \{ --tk-gap: 9px; \}/);
 });

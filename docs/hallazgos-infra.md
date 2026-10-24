@@ -252,6 +252,33 @@ Chats y la respuesta casi fue «nunca se hizo». Para saber si un worktree tiene
 el log. Y un trabajo grande sólo en el árbol se pierde con un `worktree remove`, un `checkout -f` o una limpieza:
 se commitea en su rama aunque no se pushee.
 
+## Una rama que ya entregaste al tren NO se rebasa (24/10/2026)
+
+**Qué pasó.** El chat del CRM entregó al tren la punta `5a7e9eba6` (cinco tandas). El tren la mergeó, la tipó y la
+estaba subiendo. Mientras tanto el chat sumó cuatro tandas más. Antes de pasar la punta nueva hizo `git rebase
+origin/main` («traé main antes de cada push»). El rebase reescribió también las cinco tandas YA entregadas: mismos
+parches, sha nuevos. Mergear la punta nueva encima del tren habría metido los mismos cambios por dos caminos. Eso da
+conflictos en cada archivo tocado dos veces, aunque no haya ningún desacuerdo.
+
+**La regla.** Mientras el tren tiene unos commits, esos commits son inmutables. Lo nuevo va ENCIMA, con commits nuevos.
+«Traer main antes de cada push» vale para lo que todavía no se entregó. Si hace falta reordenar o limpiar lo
+entregado, se avisa ANTES de entregar.
+
+**Cómo se arregla si ya pasó.** Cuando main ya tiene lo que mergeó el tren, se rebasa SÓLO lo nuevo, con el
+`--onto` cortando en el sha NUEVO del último commit entregado:
+
+```bash
+git rebase --onto origin/main <sha-nuevo-de-la-última-tanda-entregada> <nombre-de-la-rama>
+```
+
+Ojo: si se corta en el sha VIEJO, git recalcula por parches y tira lo que ya está aplicado. En el mejor caso eso
+anda; en el peor, aparecen los conflictos falsos. Cortando en el sha nuevo se replican exactamente las tandas
+nuevas y nada más.
+
+Y el último argumento es el NOMBRE de la rama, no `HEAD`. Con `HEAD`, el rebase termina en un HEAD suelto
+(«updated detached HEAD») y la rama se queda en la punta vieja. Si después se commitea o se pasa «la punta de la
+rama», sale la versión vieja sin ningún error. Pasó el mismo 24/10 y se arregló con `git branch -f <rama> HEAD`.
+
 ## Transferir el repositorio de GitHub DESCONECTA el proyecto de Vercel, y el rol Developer no lo puede reconectar (15/10/2026)
 
 Al pasar `dashboard-marketing` de la cuenta del cliente a la de Martín (`hola-mako`), **`git push` siguió

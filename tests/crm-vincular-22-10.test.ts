@@ -174,7 +174,9 @@ test('lo que se confirma dice QUÉ se toca, y no se propone lo que va a fallar',
   const run = sinComentarios(leer('lib/api-mako/areas/crm.run.ts'));
   const vincular = cuerpo(run, '  vincular_cobro_etapa: {', '  cuentas_cobro_etapa: {');
   assert.match(vincular, /if \(p\.montoUsd == null\) return \{ error:/, 'un producto sin precio llega hasta el «sí»');
-  assert.match(vincular, /vincularCobro\(\{ funnelId: payload\.embudoId, etapa: ETAPA_COBRO,/, 'las mismas funciones del pop-up');
+  // Desde 5782ff0d0 (24/10/2026, la limpieza de tipos) los números del payload van con `Number()`, como en todo el archivo:
+  // el payload entra de afuera. La regex fijaba la línea vieja y quedó roja sin que nada cambiara de comportamiento.
+  assert.match(vincular, /vincularCobro\(\{ funnelId: Number\(payload\.embudoId\), etapa: ETAPA_COBRO,/, 'las mismas funciones del pop-up');
   const cuentas = cuerpo(run, '  cuentas_cobro_etapa: {', '  desvincular_cobro_etapa: {');
   const quitar = cuerpo(run, '  desvincular_cobro_etapa: {', '  armar_tab_ficha: {');
   for (const [nombre, c] of [['cuentas', cuentas], ['quitar', quitar]] as const) {

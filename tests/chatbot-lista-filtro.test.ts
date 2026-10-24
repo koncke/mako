@@ -276,7 +276,8 @@ test('el Dropdown aprendió lo que le faltaba del filtro del Plan: el resumen de
   assert.match(dd, /color: g\.activo \? 'var\(--primary\)' : 'var\(--faint\)', fontWeight: g\.activo \? 600 : 500/);
   assert.match(dd, /\{g\.grupos\?\.length \? '›' : `\$\{g\.options\.length\} ›`\}/);
   // La línea de `lineaArriba`, adentro de una sección y en la lista plana.
-  assert.match(dd, /\{abierta\.options\.map\(\(o\) => conLinea\(o, renderOption\(/);
+  // Desde el 24/10/2026 la lista va detrás de `abierta.dosColumnas ?` (el desplegable de etapa de la ficha): sin el campo, la de siempre.
+  assert.match(dd, /abierta\.options\.map\(\(o\) => conLinea\(o, renderOption\(/);
   assert.match(dd, /\{optsVisibles\.map\(\(o\) => conLinea\(o, renderOption\(/);
   // El pie: abajo del todo, con la cara del renglón sutil, y sin cerrar el menú.
   const pie = dd.slice(dd.indexOf('{pie && !buscando && ('), dd.indexOf('</button>', dd.indexOf('{pie && !buscando && (')));

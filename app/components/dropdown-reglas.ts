@@ -44,6 +44,23 @@ export function conBuscador(totalOpciones: number, search?: boolean): boolean {
  *     transparente, texto centrado y apagado, sin flecha, y se enciende al pasar el cursor. Es el molde
  *     de «+ Nuevo disparador» de ManyChat y de «＋ Nueva tarea» del Plan.
  */
+/**
+ * Las DOS COLUMNAS de una sección (`dosColumnas` en DropdownGroup). Pedido de Martín del 03/07/2026 para el desplegable de
+ * etapa de la ficha: «dividido en 2 secciones lado a lado (pipeline | nutrición agrupada) para evitar scroll». A la izquierda
+ * va todo hasta la PRIMERA `lineaArriba` (el recorrido); a la derecha, lo demás, con sus líneas (nutrición y descarte). Lo que
+ * trae `alPie` (una acción, «Quitar de este funnel») va debajo de las dos, a todo el ancho. Sin ninguna línea no hay qué
+ * partir: todo queda a la izquierda y la derecha vacía (el menú se ve como siempre).
+ */
+export function columnasDeSeccion<T extends { lineaArriba?: boolean; alPie?: boolean }>(options: readonly T[]): { izquierda: T[]; derecha: T[]; pie: T[] } {
+  const pie = options.filter((o) => o.alPie);
+  const resto = options.filter((o) => !o.alPie);
+  const corte = resto.findIndex((o, i) => i > 0 && o.lineaArriba);
+  if (corte < 0) return { izquierda: resto, derecha: [], pie };
+  // La primera de la derecha encabeza su columna: sin línea arriba (la separación ya la da la columna).
+  const derecha = resto.slice(corte).map((o, i) => (i === 0 ? { ...o, lineaArriba: false } : o));
+  return { izquierda: resto.slice(0, corte), derecha, pie };
+}
+
 export type VarianteDropdown = 'principal' | 'placeholder';
 
 /** El alto del principal: más que el campo grande de la casa (48, app/_components/Lienzo.tsx). */

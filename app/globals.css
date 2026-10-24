@@ -873,7 +873,9 @@ button.int-buscar__tecla { cursor: pointer; }
      2 px en WebKit — el mismo defecto que esto saca, chico y desparejo entre navegadores.
      Es la hoja por defecto de la ETIQUETA, que no esta escrita en ningun lado del repo. */
   margin-left: 0;
-  margin-right: -8px;
+  /* La separación REAL de la fila (24/10/2026): la tarjeta del CRM la declara en --tk-gap (12, o 9 la compacta); con el -8
+     fijo quedaban 4 px (o 1) de sangría fantasma en reposo. Sin la variable (el Plan), 8 como siempre. */
+  margin-right: calc(-1 * var(--tk-gap, 8px));
   opacity: 0;
   overflow: hidden;
   transition: width .13s ease, margin-right .13s ease, opacity .13s ease;
