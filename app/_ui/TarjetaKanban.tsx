@@ -65,11 +65,11 @@ export const CSS_TARJETAS = `
 .tk.tk--clic:hover { box-shadow: 0 2px 4px rgba(46, 52, 64, .08), 0 10px 26px rgba(46, 52, 64, .10); }
 .tk.tk--marcada { box-shadow: 0 0 0 2px var(--primary), var(--tk-sombra); }
 .tk.tk--compacta { padding: 8px 10px; gap: 6px; border-radius: 16px; }
-.tk--compacta .tk-fila { gap: 9px; }
+.tk--compacta .tk-fila { --tk-gap: 9px; }
 .tk--compacta .tk-nom { font-size: 14px; }
 .tk--compacta .tk-pill { height: 26px; padding: 0 10px; font-size: 12px; }
 .tk.tk--alerta { box-shadow: inset 3px 0 0 var(--bad), var(--tk-sombra); }
-.tk-fila { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.tk-fila { display: flex; align-items: center; --tk-gap: 12px; gap: var(--tk-gap); min-width: 0; }
 .tk-tx { flex: 1; min-width: 0; }
 .tk-nom { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); line-height: 1.25; min-width: 0; }
 .tk-nom > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
