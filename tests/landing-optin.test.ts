@@ -287,11 +287,12 @@ test('la prueba del código chequea el formulario, y la versión NO se adivina',
   // falla sobre código correcto — ya pasó dos veces en este archivo. Un límite
   // arbitrario en un test que lee fuente es una falla programada.
   //
-  // Y ARRANCA EN `paso5`, no en el array: el chequeo 5 se arma arriba porque
-  // tiene dos identidades (formulario / agenda) según cómo venda el negocio.
+  // Y ARRANCA EN EL PRIMER PASO FINAL, no en el array: el chequeo 5 se arma arriba
+  // porque cambia de identidad según lo que hace la gente en esa página (agenda,
+  // datos, compra, WhatsApp: lib/landing-conversion.ts, desde el 24/10/2026).
   // Empezar la ventana en el array lo dejaba afuera y el test fallaba sobre
   // código correcto — la misma falla programada, por el otro extremo.
-  const i = lib.indexOf('const paso5: Omit<ChequeoDiag');
+  const i = lib.indexOf('const pasoAgenda: Omit<ChequeoDiag');
   const fin = lib.indexOf('\n  ];', i);
   assert.ok(i > 0 && fin > i, 'no se encontró el array de chequeos');
   const bloque = lib.slice(i, fin);
@@ -306,7 +307,8 @@ test('la prueba del código chequea el formulario, y la versión NO se adivina',
   // pegando el código, «todavía no probaste» llenando tu formulario— pero ya no lo
   // decide la casilla del funnel, que dejó de gobernar la ingesta.
   assert.ok(/!entraAlCrm/.test(bloque), 'tiene que distinguir «no llega nada de esta página» de «todavía no probaste»: se arreglan en lugares distintos');
-  assert.ok(/completa tu propio formulario/.test(bloque), 'una prueba tiene que decir QUÉ hacer para probarla');
+  // El QUÉ se nombra por página («tu formulario», «tu registro»): el texto lleva el hueco y la llamada lo llena.
+  assert.ok(/completa \$\{queEs\}/.test(bloque) && /pasoDatos\('Deja sus datos', 'tu formulario'\)/.test(bloque), 'una prueba tiene que decir QUÉ hacer para probarla');
 
   // La versión se PREGUNTA, no se infiere. La heurística vieja (ausencia de
   // `segundos` en los eventos del VSL) mentía en el caso más común: una landing

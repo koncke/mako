@@ -20,6 +20,7 @@ import { IconBtn } from './ServicioConfigForm';
 import { Icon } from '@/app/_components/icons';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { mismaPagina, urlParaAbrir } from '@/lib/landing-paginas';
+import { esClicDelEditor } from '@/lib/landing-conversion';
 import type { VideoLanding } from '@/lib/landing-videos';
 import { NombrarVideos, type VideoDetectado } from './NombrarVideos';
 import { borrarPaginaAction, getPaginasAction, guardarPaginaAction } from './landing-actions';
@@ -34,7 +35,7 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 type Evento = { ts: string; tipo: string; porcentaje: number | null; segundos: number | null; detalle: string | null; auto?: boolean };
-type Chequeo = { id: string; label: string; estado: 'ok' | 'falta' | 'viejo' | 'na'; detalle: string; paso?: boolean; accion?: { texto: string; href: string } };
+type Chequeo = { id: string; label: string; estado: 'ok' | 'falta' | 'viejo' | 'na'; detalle: string; paso?: boolean; accion?: { texto: string; href: string }; pedir?: string };
 type Diag = {
   eventos: Evento[]; chequeos: Chequeo[]; veredicto: string; urls: string[]; codigoViejo: boolean; ultima: string | null;
   /** Los videos que el sistema VIO en los eventos, y los que el negocio nombró. */
@@ -91,6 +92,9 @@ function legible(e: Evento): { texto: string; color: string } {
   };
   // El click trae su destino en `detalle`, y eso es lo que hay que mostrar: «hizo
   // click» sin decir en qué no distingue el botón de WhatsApp del de arriba.
+  // El sello del editor con el que se armó la página no es un botón del negocio: se muestra apagado y no cuenta para el
+  // chequeo de los botones (lib/landing-conversion.ts, `esClicDelEditor`).
+  if (e.tipo === 'click' && esClicDelEditor(e.detalle)) return { texto: 'Tocó el sello del editor de la página (no cuenta)', color: 'var(--dim)' };
   if (e.tipo === 'click') return { texto: e.detalle ? `Hizo clic en: ${e.detalle}` : 'Hizo clic', color: 'var(--primary)' };
   // ⚠️ SIN EL `detalle`, y no es por ahorrar: en un clic al vacío ese campo trae la
   // etiqueta cruda del elemento («vacio: DIV»), que no le dice nada a nadie. Y lleva
@@ -102,6 +106,11 @@ function legible(e: Evento): { texto: string; color: string } {
   // hacía aparecer la palabra «desconocido» en la lista, que se lee como que algo
   // se rompió — cuando lo que dice es que ese evento no se pudo interpretar.
   if (e.tipo === 'desconocido') return { texto: 'Evento no reconocido (Pixel desactualizado o modificado)', color: 'var(--warn)' };
+  // Los dos del video que NO se puede medir (Drive, YouTube sin API) y el scroll: los manda el Pixel vigente y hasta el
+  // 24/10/2026 caían al texto crudo del tipo (o, peor, a «desconocido»: no estaban en CONOCIDOS de /api/track/vsl).
+  if (e.tipo === 'video_ajeno') return { texto: 'Tu página tiene un video que no se puede medir', color: 'var(--dim)' };
+  if (e.tipo === 'toque_video') return { texto: 'Tocó un video que no se puede medir', color: 'var(--primary)' };
+  if (e.tipo === 'scroll') return { texto: e.porcentaje != null ? `Bajó hasta el ${e.porcentaje}% de la página` : 'Bajó por la página', color: 'var(--dim)' };
   return { texto: e.tipo, color: 'var(--dim)' };
 }
 
@@ -112,20 +121,10 @@ function legible(e: Evento): { texto: string; color: string } {
 const ICONO: Record<string, string> = { ok: '✓', falta: '○', viejo: '!', na: '–' };
 const COLOR: Record<string, string> = { ok: 'var(--good)', falta: 'var(--faint)', viejo: 'var(--warn)', na: 'var(--border-strong)' };
 
-/**
- * Qué le pedimos a la persona por cada chequeo que todavía no está en verde.
- *
- * Es lo que convierte la lista de chequeos en una instrucción. `pageview` no está
- * a propósito: la visita se registra sola al abrir la pestaña, así que pedirla
- * sería pedir algo que ya pasó. `profundidad` tampoco: se cumple sola dejando el
- * video corriendo, y nombrarla al lado de «reproduce el video» son dos frases
- * para una sola acción. `optin` cambia de texto según cómo capte ese negocio, y
- * por eso se resuelve aparte.
- */
-const QUE_HACER: Record<string, string> = {
-  play: 'reproduce el video unos segundos',
-  click: 'haz clic en tus botones',
-};
+// ⚠️ ACÁ VIVÍA `QUE_HACER`, qué pedirle a la persona por cada chequeo, y el último paso se deducía del `label` con un
+// regex («agenda» → reserva; cualquier otro → «completa tu formulario»). Desde el 24/10/2026 el último paso cambia por
+// página (Compra, WhatsApp, Se registra…), así que lo dice el server en `pedir` (lib/landing-token.ts). Lo que sigue
+// valiendo: `pageview` y `profundidad` no piden nada (la visita llega sola y el avance sale de dejar el video).
 
 /** La landing elegida para probar. Se recuerda para no volver a tipearla. */
 const URL_KEY = 'mako.landing.url_prueba';
@@ -861,11 +860,12 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
         Abrimos tu página en otra pestaña. {(() => {
           const pedir = (diag?.chequeos ?? [])
             .filter((c) => c.estado !== 'ok' && c.estado !== 'na')
-            .map((c) => QUE_HACER[c.id] ?? (c.id === 'optin' ? (/agenda/i.test(c.label) ? 'reserva un horario en tu calendario' : 'completa tu formulario') : null))
+            .map((c) => c.pedir ?? null)
             .filter((x): x is string => !!x);
           // Sin diagnóstico todavía, o con todo en verde, va la lista completa: es
           // mejor pedir de más que dejar la instrucción muda mientras carga.
-          const lista = pedir.length ? pedir : ['reproduce el video unos segundos', 'haz clic en tus botones', 'completa tu formulario'];
+          // (Sin «completa tu formulario»: no todas las páginas tienen uno, y el final de cada una lo dice su paso.)
+          const lista = pedir.length ? pedir : ['reproduce el video unos segundos', 'haz clic en tus botones'];
           return (
             <>Prueba allí {lista.length > 1 ? 'lo que uses' : 'esto'}: {lista.map((t, i) => (
               <span key={t}>{i > 0 && (i === lista.length - 1 ? ' y ' : ', ')}<b>{t}</b></span>

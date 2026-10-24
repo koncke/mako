@@ -43,6 +43,9 @@ import { distintosPorExclusion, listaPostgrest } from './ids-con-filas';
 // nadie se entera (ver lib/replay-contrato.ts).
 import { REPLAY_LOTE_MAX_BYTES } from './replay-sellado';
 import { versionServida } from './pixel-servido';
+import { landingsDelWorkspace } from './landing-config-leer';
+import { landingDe } from './landing-config';
+import { RE_CHECKOUT, RE_WHATSAPP, conversionDeLaPagina, esClicDelEditor, type Conversion, type PorqueConversion } from './landing-conversion';
 import { PIXEL_MINIMO_AVISO } from './pixel-aviso';
 import { RUTA_CARGADOR } from './pixel-cargador';
 import { PARAM_LEER } from './editor-landing/lector';
@@ -716,6 +719,12 @@ export type ChequeoDiag = {
   /** Adónde ir a resolverlo. El href lo arma el server con el id real: un
    *  chequeo que dice «tenés 8 sin revisar» sin decir dónde no es accionable. */
   accion?: { texto: string; href: string };
+  /**
+   * Qué hacer en la pestaña de la prueba para que este paso llegue («toca tu botón de compra»). Lo dice el server
+   * porque el paso final cambia por página (lib/landing-conversion.ts): la pantalla lo deducía del `label` con un
+   * regex, y una página de venta leía «completa tu formulario» sobre un formulario que no tiene.
+   */
+  pedir?: string;
 };
 
 export type LandingDiagnostico = {
@@ -728,6 +737,8 @@ export type LandingDiagnostico = {
   /** El código pegado es de una versión anterior: la prueba no puede empezar. */
   codigoViejo: boolean;
   ultima: string | null;
+  /** Qué hace la gente en ESTA página para convertir, y de dónde salió (lib/landing-conversion.ts). */
+  conversion: { valor: Conversion | null; porque: PorqueConversion };
 };
 
 /**
@@ -877,7 +888,12 @@ export async function landingDiagnostico(
   const hayPlayManual = eventos.some((e) => e.tipo === 'play' && !e.auto);
   const hayPlayAuto = eventos.some((e) => e.tipo === 'play' && e.auto);
   const hayPlay = hayPlayManual || hayPlayAuto;
-  const hayClick = eventos.some((e) => e.tipo === 'click');
+  // ⚠️ EL SELLO DEL EDITOR NO ES UN BOTÓN DEL NEGOCIO: «Edit with Lovable» era el 43 % de los clics de 30 días de un
+  // cliente (auditoría del 24/10/2026) y bastaba tocarlo para que «hace clic en tus botones» diera verde.
+  const clics = eventos.filter((e) => e.tipo === 'click' && !esClicDelEditor(e.detalle));
+  const hayClick = clics.length > 0;
+  const hayClicCheckout = clics.some((e) => RE_CHECKOUT.test(e.detalle ?? ''));
+  const hayClicWhatsapp = clics.some((e) => RE_WHATSAPP.test(e.detalle ?? ''));
   // ⚠️ LOS CHEQUEOS SE ADAPTAN A LA LANDING. No todas tienen video, ni botones
   // propios, ni formulario: la de un cliente es un Calendly embebido y nada más.
   // Un chequeo que en ESA página no puede pasar nunca se pinta rojo para siempre
@@ -891,14 +907,13 @@ export async function landingDiagnostico(
   // propios: sin esta línea, a una landing cuyo CTA es un Calendly embebido se le
   // pedía «hace clic en tus botones» para siempre.
   const tieneBotones = !piezas || piezas.includes('botones') || piezas.includes('link-whatsapp');
-  const tieneFormPropio = !piezas || piezas.includes('formulario');
   // ⚠️ La agenda también se deriva del EVENTO, no solo del analizador. El embed
   // se inyecta por JavaScript en runtime (Cal.com se monta desde un chunk), así
   // que el HTML servido puede no tener una sola mención de él. Si llegó un
   // `agendo`, esa página tiene agenda: es un hecho medido, y un hecho medido
-  // gana contra una lectura de HTML que puede estar vieja o incompleta.
+  // gana contra una lectura de HTML que puede estar vieja o incompleta (lo
+  // aplica `conversionDeLaPagina`, que decide el paso final).
   const hayAgendo = eventos.some((e) => e.tipo === 'agendo');
-  const tieneAgenda = !!piezas?.includes('embed-agenda') || hayAgendo;
   // (Ya no se cuentan los eventos «con segundos»: la versión del código se
   // pregunta, no se infiere. Ver el chequeo 'version'.)
   //
@@ -928,7 +943,7 @@ export async function landingDiagnostico(
 
   // ⚠️ ¿ESTA PÁGINA TIENE VIDEO? La pregunta que los chequeos 2 y 3 nunca hacían.
   //
-  // `tieneBotones`, `tieneFormPropio` y `tieneAgenda` ya se leían del analizador;
+  // `tieneBotones`, el formulario y la agenda ya se leían del analizador;
   // el video era el único que no, así que a un negocio sin video se le pedían dos
   // pasos que su página no puede cumplir nunca. Y el helper para contestarlo
   // —`tieneVideoMedible()` en lib/landing-analisis.ts— existía desde hacía
@@ -1141,58 +1156,131 @@ export async function landingDiagnostico(
   const hayOptinBloqueado = !entraAlCrm && eventos.some((e) => e.tipo === 'optin_bloqueado');
   const puedeCaptar = hayOptinBloqueado
     || (!!piezas && (piezas.includes('formulario') || piezas.includes('embed-agenda')));
-  const paso5: Omit<ChequeoDiag, 'id'> = tieneAgenda && !tieneFormPropio
-    ? {
-        label: 'Agenda una llamada',
-        paso: true,
-        // ⚠️ MEDIR LA RESERVA NO ES QUEDARSE CON EL CONTACTO, y en verde eso no se
-        // distinguía. Desde la v15 una reserva manda las dos cosas: el evento
-        // (que llega siempre) y el opt-in con quién reservó (que el gate del
-        // funnel puede tirar). Con `hayAgendo ? 'ok'` a secas, el renglón daba
-        // verde —«se registra cuando alguien reserva»— mientras cada persona que
-        // agendaba se perdía. Un verde que cierra la pregunta sobre algo que se
-        // está perdiendo es peor que un rojo.
-        estado: hayOptinBloqueado ? 'falta' : hayAgendo ? 'ok' : 'falta',
-        detalle: hayOptinBloqueado
-          ? 'Se registra la reserva, pero el contacto de quien reserva no entra al CRM. Pega el código en esta página y vuelve a probar.'
-          : hayAgendo
-          ? 'Se registra cuando alguien reserva en tu calendario: es el final de tu embudo.'
-          : enPrueba ? 'Aún no llega. Reserva un horario en tu propio calendario para probarlo.'
-          : 'Aún no llega ninguna reserva. Se registra sola cuando alguien agenda.',
-        // Ya NO se ofrece «Activar la landing como entrada de leads»: desde el
-        // 04/10/2026 esa casilla no decide si el contacto entra, así que el botón
-        // mandaría a hacer un trámite que no arregla nada. Lo que lo arregla es
-        // pegar el código, y eso es el paso 3 de esta misma pantalla.
-        accion: undefined,
-      }
-    : {
-        label: 'Deja sus datos',
-        paso: true,
-        // ⚠️ 'na' SOLO cuando de verdad no aplica. Que este negocio no reciba
-        // leads por formulario NO es un problema por resolver: es cómo vende. El
-        // ámbar queda para lo que SÍ hay que hacer; un aviso permanente entrena
-        // a ignorar la lista entera. Pero si su página TIENE formulario o agenda,
-        // el problema existe y es de una sola casilla.
-        estado: !entraAlCrm ? (puedeCaptar ? 'falta' : 'na') : hayOptin ? 'ok' : 'falta',
-        detalle: !entraAlCrm
-          ? (hayOptinBloqueado
-            ? 'Alguien dejó sus datos y NO entró al CRM. Pega el código en esta página y vuelve a probar.'
-            : puedeCaptar
-            ? `Tu página tiene ${piezas!.includes('formulario') ? 'un formulario' : 'una agenda'} y sus leads no están entrando. Pega el código en esta página.`
-            : 'Este paso aún no aplica: no llega ninguna visita de esta página.')
-          : hayOptin
-            ? `El formulario llega y la persona ingresa sola al CRM.${pendientes > 0 ? ` Hay ${pendientes} pendiente${pendientes === 1 ? '' : 's'}: ${pendientes === 1 ? 'coincide' : 'coinciden'} con un contacto que ya tienes, así que esa decisión es tuya.` : ''}`
-            : enPrueba ? 'Aún no llega. Completa tu formulario en la pestaña que abrimos: ingresará solo al CRM.'
-            : 'Aún no llega ninguno. Para probarlo, completa tu propio formulario: ingresa solo al CRM.',
-        // El link solo si hay algo que decidir. Un botón permanente al lado de algo
-        // que funciona lo convierte en una tarea que nunca se termina.
-        // ⚠️ Y si la puerta está abierta sin conectar, el link ES la solución
-        // entera: el texto mandaba a «Funnel → De dónde entran tus leads» en
-        // prosa, o sea a buscarlo a mano desde una ventana de 440 px.
-        accion: pendientes > 0
-          ? { texto: pendientes === 1 ? 'Ver el pendiente' : `Ver los ${pendientes} pendientes`, href: '/crm/revisar' }
-          : undefined,
-      };
+
+  // ⚠️⚠️ Y QUÉ ES «EL FINAL» LO DICE LA PÁGINA, NO UNA REGLA PARA TODAS (24/10/2026). Hasta acá el paso 5 era «Agenda
+  // una llamada» si había agenda sin formulario y «Deja sus datos» en CUALQUIER otro caso, así que una página de venta
+  // con checkout le pedía un formulario que no tiene y quedaba en «falta» para siempre. Pedido de Martín (23/10, 22:52):
+  // «no es personalizable según qué funnel... Debería serlo. [...] Hay eventos que sobran... como «Deja sus datos»».
+  // Sale ahora de lo elegido en el paso 2, la página de gracias, el funnel de ESTA página, lo medido, lo que vio el
+  // analizador y el funnel del negocio, en ese orden (la regla y su porqué, en lib/landing-conversion.ts).
+  // Un error al leer la config o el funnel cae a «vacío»: acá no saber no apaga ningún paso, lo deja para elegir.
+  const pagina = urlLanding ? landingDe(await landingsDelWorkspace().catch(() => []), urlLanding) : null;
+  const funnelPropio = pagina?.funnelIds?.[0];
+  const entradasPropias: string[] = funnelPropio
+    ? await import('./funnels')
+      .then(({ getFunnelDe }) => getFunnelDe(funnelPropio))
+      .then((f) => (f.origen === 'declarado' ? (f.entradas as string[]) : []), () => [])
+    : [];
+  const { conversion, porque } = conversionDeLaPagina({
+    elegida: pagina?.conversion ?? null,
+    gracias: pagina?.gracias === true,
+    entradas: entradasPropias,
+    // El del negocio sólo cuando la página no tiene uno propio: si lo tiene, ESE dice cómo vende esta página.
+    entradasDelNegocio: funnelPropio ? [] : (entradas as string[]),
+    piezas: piezas ?? null,
+    hayAgendo,
+    // ⚠️ FUERA DE UNA PRUEBA, `hayOptin` ES DEL NEGOCIO, NO DE ESTA PÁGINA: los leads de landing de las últimas 24 h
+    // se buscan sin URL (un lead no la guarda). Contado como hecho de esta página, cualquier opt-in de otra convertía
+    // la agenda de Código Inmobiliario en «Deja sus datos» (medido el 24/10/2026 contra su base). En una prueba sí es de
+    // la página (se cruza por el visitante de la prueba), y el opt-in BLOQUEADO es un evento de esta URL.
+    hayOptin: (enPrueba && hayOptin) || hayOptinBloqueado,
+    hayClicCheckout,
+    hayClicWhatsapp,
+  });
+
+  const pasoAgenda: Omit<ChequeoDiag, 'id'> = {
+    label: 'Agenda una llamada',
+    paso: true,
+    // ⚠️ MEDIR LA RESERVA NO ES QUEDARSE CON EL CONTACTO, y en verde eso no se
+    // distinguía. Desde la v15 una reserva manda las dos cosas: el evento
+    // (que llega siempre) y el opt-in con quién reservó (que el gate del
+    // funnel puede tirar). Con `hayAgendo ? 'ok'` a secas, el renglón daba
+    // verde —«se registra cuando alguien reserva»— mientras cada persona que
+    // agendaba se perdía. Un verde que cierra la pregunta sobre algo que se
+    // está perdiendo es peor que un rojo.
+    estado: hayOptinBloqueado ? 'falta' : hayAgendo ? 'ok' : 'falta',
+    detalle: hayOptinBloqueado
+      ? 'Se registra la reserva, pero el contacto de quien reserva no entra al CRM. Pega el código en esta página y vuelve a probar.'
+      : hayAgendo
+      ? 'Se registra cuando alguien reserva en tu calendario: es el final de tu embudo.'
+      : enPrueba ? 'Aún no llega. Reserva un horario en tu propio calendario para probarlo.'
+      : 'Aún no llega ninguna reserva. Se registra sola cuando alguien agenda.',
+    // Ya NO se ofrece «Activar la landing como entrada de leads»: desde el
+    // 04/10/2026 esa casilla no decide si el contacto entra, así que el botón
+    // mandaría a hacer un trámite que no arregla nada. Lo que lo arregla es
+    // pegar el código, y eso es el paso 3 de esta misma pantalla.
+    accion: undefined,
+    pedir: 'reserva un horario en tu calendario',
+  };
+
+  // «Deja sus datos» y «Se registra» miden lo mismo (el opt-in entra al CRM); cambia cómo se nombra.
+  const pasoDatos = (label: string, queEs: string): Omit<ChequeoDiag, 'id'> => ({
+    label,
+    paso: true,
+    // ⚠️ 'na' SOLO cuando de verdad no aplica. Que este negocio no reciba
+    // leads por formulario NO es un problema por resolver: es cómo vende. El
+    // ámbar queda para lo que SÍ hay que hacer; un aviso permanente entrena
+    // a ignorar la lista entera. Pero si su página TIENE formulario o agenda,
+    // el problema existe y es de una sola casilla.
+    estado: !entraAlCrm ? (puedeCaptar ? 'falta' : 'na') : hayOptin ? 'ok' : 'falta',
+    detalle: !entraAlCrm
+      ? (hayOptinBloqueado
+        ? 'Alguien dejó sus datos y NO entró al CRM. Pega el código en esta página y vuelve a probar.'
+        : puedeCaptar
+        ? `Tu página tiene ${piezas!.includes('formulario') ? 'un formulario' : 'una agenda'} y sus leads no están entrando. Pega el código en esta página.`
+        : 'Este paso aún no aplica: no llega ninguna visita de esta página.')
+      : hayOptin
+        ? `El formulario llega y la persona ingresa sola al CRM.${pendientes > 0 ? ` Hay ${pendientes} pendiente${pendientes === 1 ? '' : 's'}: ${pendientes === 1 ? 'coincide' : 'coinciden'} con un contacto que ya tienes, así que esa decisión es tuya.` : ''}`
+        : enPrueba ? `Aún no llega. Completa ${queEs} en la pestaña que abrimos: ingresará solo al CRM.`
+        : `Aún no llega ninguno. Para probarlo, completa ${queEs}: ingresa solo al CRM.`,
+    // El link solo si hay algo que decidir. Un botón permanente al lado de algo
+    // que funciona lo convierte en una tarea que nunca se termina.
+    // ⚠️ Y si la puerta está abierta sin conectar, el link ES la solución
+    // entera: el texto mandaba a «Funnel → De dónde entran tus leads» en
+    // prosa, o sea a buscarlo a mano desde una ventana de 440 px.
+    accion: pendientes > 0
+      ? { texto: pendientes === 1 ? 'Ver el pendiente' : `Ver los ${pendientes} pendientes`, href: '/crm/revisar' }
+      : undefined,
+    pedir: `completa ${queEs}`,
+  });
+
+  // La COMPRA pasa en el dominio de la pasarela, donde ningún Pixel corre: lo que se ve desde la página es el clic a su
+  // checkout (un `click` con el href en `detalle`). Por eso el renglón dice «Va a pagar» y no «Compra»: afirmar la venta
+  // sería afirmar algo que esta página no puede ver (la venta la ve el aviso de la pasarela: docs/hallazgos-pagos.md).
+  const pasoCompra: Omit<ChequeoDiag, 'id'> = {
+    label: 'Va a pagar',
+    paso: true,
+    estado: hayClicCheckout ? 'ok' : 'falta',
+    detalle: hayClicCheckout
+      ? 'Se registra cuando alguien toca tu botón de compra. El pago pasa en la página de la pasarela, donde el Pixel no corre: para ver quién terminó, marca tu página de gracias en el paso 2.'
+      : enPrueba ? 'Aún no llega. Toca tu botón de compra en la pestaña que abrimos: no hace falta pagar. Si tu botón no es un enlace (un botón de pago embebido), el clic no se puede ver.'
+      : 'Aún no llega ningún clic a tu página de pago en las últimas 24 h.',
+    pedir: 'toca tu botón de compra (no hace falta pagar)',
+  };
+  const pasoWhatsapp: Omit<ChequeoDiag, 'id'> = {
+    label: 'Te escribe por WhatsApp',
+    paso: true,
+    estado: hayClicWhatsapp ? 'ok' : 'falta',
+    detalle: hayClicWhatsapp
+      ? 'Se registra cuando alguien toca tu botón de WhatsApp: es el final de tu embudo en esta página.'
+      : enPrueba ? 'Aún no llega. Toca tu botón de WhatsApp en la pestaña que abrimos.'
+      : 'Aún no llega ningún clic a WhatsApp en las últimas 24 h.',
+    pedir: 'toca tu botón de WhatsApp',
+  };
+  // Sin conversión (no se eligió, y ni el funnel ni la página ni lo medido la dicen) NO se inventa un paso: se pide
+  // elegirla. Es 'falta' y no 'na' porque tiene arreglo, y de un toque; un 'na' daría «Todo funcionando» sin el final.
+  const paso5: Omit<ChequeoDiag, 'id'> =
+    conversion === 'agenda' ? pasoAgenda
+    : conversion === 'compra' ? pasoCompra
+    : conversion === 'whatsapp' ? pasoWhatsapp
+    : conversion === 'datos' ? pasoDatos('Deja sus datos', 'tu formulario')
+    : conversion === 'registro' ? pasoDatos('Se registra', 'tu registro')
+    : conversion === 'ninguna'
+      ? { label: porque === 'gracias' ? 'Página de gracias' : 'Solo mira', paso: true, estado: 'na',
+          detalle: porque === 'gracias' ? 'Aquí se llega después de convertir: en esta página no hay un paso final que probar.'
+            : 'Elegiste que en esta página la gente solo mira: no hay un paso final que probar.' }
+    : { label: 'Qué hace la gente aquí', paso: true, estado: 'falta',
+        detalle: 'No sé qué hace la gente en esta página para convertir. Elígelo en el paso 2 y te digo qué probar.' };
 
   const chequeos: ChequeoDiag[] = [
     { id: 'version', label: 'Pixel actualizado',
@@ -1214,7 +1302,7 @@ export async function landingDiagnostico(
     // siempre: justo en la pantalla que el cliente MIRA, los dos pasos que su
     // página no puede cumplir aparecían como pendientes. La prueba es cuando
     // más importa no pedir lo imposible, no cuando menos.
-    { id: 'play', label: 'Reproduce tu video', paso: true,
+    { id: 'play', label: 'Reproduce tu video', paso: true, pedir: 'reproduce el video unos segundos',
       // Con SOLO plays automáticos el chequeo no está ni bien ni mal: el player
       // se detectó (que es la mitad técnica) pero nadie eligió ver el video, que
       // es lo que este punto pregunta. Va como 'falta' con el motivo escrito, no
@@ -1244,7 +1332,7 @@ export async function landingDiagnostico(
     // El click FALTABA, y para una landing cuyo CTA es un ancla (#registro) es el
     // único punto entre «vio» y «dejó sus datos». Sin él no se puede distinguir
     // una página que no convence de una que nadie mira.
-    { id: 'click', label: 'Hace clic en tus botones', paso: true,
+    { id: 'click', label: 'Hace clic en tus botones', paso: true, pedir: 'haz clic en tus botones',
       estado: hayClick ? 'ok' : !tieneBotones ? 'na' : 'falta',
       detalle: hayClick ? 'Se registran los clics: sabes qué botones y enlaces usa cada visitante.'
         // ⚠️ Se avisa del caso que NO podemos medir, en vez de dejarlo en rojo sin
@@ -1257,7 +1345,7 @@ export async function landingDiagnostico(
         // verdad describe el caso, y cubre a todas.
         : enPrueba ? 'Aún no llega ninguno. Haz clic en un botón o enlace de tu página. Si tu llamado a la acción es una agenda o un formulario embebido, lo que pase dentro de él no se puede medir: es de otro dominio.'
         : 'Aún no llega ningún clic. Si tu página no tiene botones propios —por ejemplo, si su llamado a la acción es una agenda embebida— es normal.' },
-    // El paso 5 se arma arriba: es UNO solo con dos identidades.
+    // El paso 5 se arma arriba: es UNO solo, con la identidad de lo que hace la gente en esta página.
     { id: 'optin', ...paso5 },
     // ⚠️ ACÁ HABÍA UN CHEQUEO DE CLARITY («Grabaciones y mapas de calor») y se fue
     // el 06/10/2026 con Clarity entero. Ya mentía antes de irse: mandaba a
@@ -1303,7 +1391,7 @@ export async function landingDiagnostico(
   // Lo que viaja a la pantalla es la ventana corta; los chequeos ya se calcularon
   // sobre TODO. `ultima` sale de la lista completa: es «cuándo fue lo último que
   // llegó», y con la lista cortada contestaría «lo último que entra en pantalla».
-  return { eventos: eventosVisibles, chequeos, veredicto, urls, codigoViejo, ultima: eventos[0]?.ts ?? null };
+  return { eventos: eventosVisibles, chequeos, veredicto, urls, codigoViejo, ultima: eventos[0]?.ts ?? null, conversion: { valor: conversion, porque } };
 }
 
 /**
