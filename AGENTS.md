@@ -1118,6 +1118,9 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
 - **`gating.soloPlataforma`** en lo que la PLATAFORMA decide sobre los negocios y un negocio no puede deshacer en el
   suyo (exigir el 2FA): se resuelve por la capa en `vistaDe`, y el runner lo vuelve a preguntar. Un `gating.tab` no
   sirve para esto: las capas `completo` y `agencia` ven todas las tabs.
+- **`soloPlataforma` + `rolMinimo: 'admin'` es el admin DEL WORKSPACE de la plataforma, no el super admin global.** Si
+  la pantalla exige `getSesionAdmin` (vender un plan de MaKo), la acción lleva `faltaParaConfirmar` y el mismo chequeo en
+  `ejecutar()`, y va en `NO_EN_FLUJOS`: un paso de un flujo se confirma solo (23/10/2026, docs/hallazgos-api-mako.md).
 - **`gating.rolMinimo: 'admin'`** en cada operación de un área cuya página hace
   `requireRolWs([])`. `gating.tab` mira la CAPA del workspace, no a la persona: sin
   `rolMinimo`, un closer lee o hace por MaKo lo que su pantalla le esconde.

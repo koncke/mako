@@ -339,8 +339,23 @@ export const CAPAS_LISTA: CapaDef[] = Object.values(CAPAS);
  *
  * En POSITIVO: se enumera lo que SI se vende. Una capa nueva no entra sola a la
  * pantalla; entra cuando alguien la agrega aca, que es una decision.
+ *
+ * ⚠️ HASTA EL 23/10/2026 ESTE COMENTARIO DECIA «en positivo» Y EL CODIGO EXCLUIA (`c.id !== 'superadmin'`): una capa
+ * nueva entraba sola a la venta de la pantalla, al enum de `vender_plan_mako` y al alta al cobrar. Lo encontro la
+ * revision adversarial de esa operacion. Ahora son dos listas, y tests/capas-vendibles.test.ts exige que cada capa del
+ * catalogo este en una de las dos.
  */
-export const CAPAS_VENDIBLES: CapaDef[] = CAPAS_LISTA.filter((c) => c.id !== 'superadmin');
+const IDS_VENDIBLES: readonly CapaId[] = ['pm', 'completo', 'agencia'];
+export const CAPAS_VENDIBLES: CapaDef[] = CAPAS_LISTA.filter((c) => IDS_VENDIBLES.includes(c.id));
+/** Las que NO se venden, con su porque. Una capa nueva no pasa los tests hasta que alguien la ponga en una de las dos. */
+export const CAPAS_NO_VENDIBLES: Readonly<Record<string, string>> = {
+  superadmin: 'es la identidad de la plataforma, no un plan',
+};
+/**
+ * ¿Esta capa se vende? Guard en positivo. Vivia en lib/alta-cliente.ts (server-only), que la re-exporta: aca la pueden
+ * importar la regla pura de la venta (lib/vender-plan-reglas.ts) y sus tests.
+ */
+export const esCapaVendible = (capa: string): capa is CapaId => CAPAS_VENDIBLES.some((c) => c.id === capa);
 
 /**
  * ⚠️ ESTO ES FAIL-**OPEN**, Y EL COMENTARIO QUE HABIA ACA DECIA LO CONTRARIO.

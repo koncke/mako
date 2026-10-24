@@ -121,9 +121,11 @@ test('la capa de la plataforma no se ofrece como plan, ni en la pantalla ni en l
   // lib/vender-plan.ts, donde ventaValida valida la capa y venderPlan la llama antes del lead y del cobro.
   const v = acciones(ACTIONS).find((a) => a.nombre === 'venderPlanAction')!;
   assert.match(v.cuerpo, /await venderPlan\(v, autorDe\(admin\)\)/, 'venderPlanAction no delega en el camino de lib/vender-plan.ts');
-  const valida = LIB.slice(LIB.indexOf('export function ventaValida('), LIB.indexOf('export async function venderPlan('));
+  // ventaValida vive en lib/vender-plan-reglas.ts (puro, sin server-only) desde la revisión adversarial del 23/10/2026.
+  const REGLAS = sinComentarios(leer('lib/vender-plan-reglas.ts'));
+  const valida = REGLAS.slice(REGLAS.indexOf('export function ventaValida('));
   assert.match(valida, /if \(!esCapaVendible\(capa\)\) return /, 'ventaValida no valida la capa con esCapaVendible');
-  const vende = LIB.slice(LIB.indexOf('export async function venderPlan('), LIB.indexOf('export async function leadsDelComprador('));
+  const vende = LIB.slice(LIB.indexOf('export async function venderPlan('), LIB.indexOf('async function leadDelComprador('));
   const chequeo = vende.indexOf('ventaValida(v)');
   assert.ok(chequeo > 0, 'venderPlan no valida la venta');
   assert.ok(chequeo < vende.indexOf('crearCobro('), 'la capa se valida ANTES de crear el cobro');
