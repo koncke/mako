@@ -19,9 +19,24 @@ import { CajaChat } from '@/app/_chat/CajaChat';
 import type { PropsCajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
+import type { ReactNode, RefObject } from 'react';
+import { PanelDeChat, type CabeceraChat } from '@/app/admin/operaciones/PanelChat';
+import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 
-/** Quien contesta en el hilo: la criatura de la tab (la misma que lo nombra en el Ops Center). */
-const QUIEN = { nombre: 'Web Generator' };
+/** Quien contesta en el hilo: la estrella de MaKo (23/10/2026; antes, la criatura de la tab). */
+const QUIEN = { nombre: 'MaKo', aspecto: ASPECTO_MAKO };
+
+/**
+ * EL PANEL DEL OPS CENTER (23/10/2026, Martín: «Tienes que UNIFICAR los chats con MaKo en toda la app»): la cabecera única con
+ * la estrella, el arrastrar y soltar (lo adjuntado de la caja), la columna del hilo y el lugar de la caja. Vive acá, junto al
+ * hilo y la caja, porque trae CSS y el panel del agente lo carga con next/dynamic.
+ */
+export function PanelAgenteChat({ cabecera, hilo, adjuntos, caja, children }: {
+  cabecera: CabeceraChat; hilo: RefObject<HTMLDivElement | null>; adjuntos?: AdjuntosDeCaja; caja: ReactNode; children: ReactNode;
+}) {
+  return <PanelDeChat hilo={hilo} adjuntos={adjuntos} cabecera={cabecera} caja={caja} estado="">{children}</PanelDeChat>;
+}
 const nada = () => {};
 
 export function HiloAgente({ items, corriendo, enMensaje }: {
