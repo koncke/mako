@@ -16,10 +16,11 @@
 import 'server-only';
 import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
-import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD, conLinksDeAccion } from '@/lib/respuesta-doer';
+import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD, conLinksDeAccion, propuestaDeLaSalida, conLoQueQuedoPropuesto, type PropuestaDelTurno } from '@/lib/respuesta-doer';
 import { recetasDelTurno } from '@/lib/doer-recetas';
 import { evaluarPermiso } from '@/lib/veto-claude';
 import { causaDelFallo, textoFalloIA, linkKeysIA, sinRedPorDatos, textoSinRedPorDatos } from '@/lib/fallo-ia-texto';
+import { PLAZO_REINTENTOS_TURNO_MS, hayTiempoParaOtroIntento } from '@/lib/ia-rotacion-modelo';
 import { LARGO_WHATSAPP } from '@/lib/hechos-mako';
 import { reaccionPara, esSoloEmoji, EMOJI_RECIBIDO } from '@/lib/reaccion-emoji';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
@@ -790,6 +791,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           linkKeysIA(APP_URL),
           'escuchar tu audio',
           nKeysAudio,
+          delNegocio,
         )}`;
         const env = await enviarAGrupoJid(jid, aviso);
         if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
@@ -1149,6 +1151,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
      * un intento anterior: eso SÍ se hizo. Lo de UN intento se mide como la diferencia antes y después de la llamada.
      */
     let corridasDelTurno = 0;
+    /**
+     * LO QUE EL TURNO DEJÓ ESPERANDO UN «SÍ», por id (24/10/2026, el ws15): si el turno muere después, el cartel lo
+     * nombra (`conLoQueQuedoPropuesto`, al mandar). Por id: el memo le devuelve la MISMA pendiente al intento siguiente.
+     */
+    const propuestasDelTurno = new Map<number, PropuestaDelTurno>();
     const runTool = async (name: string, input: Record<string, unknown>) => {
       corridasDelTurno++;
       const previo = memo.previo(name);
@@ -1161,6 +1168,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         : NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input)
         : runRegistro(name, input));
       memo.anotar(name, out);
+      const propuesta = propuestaDeLaSalida(out);
+      if (propuesta) propuestasDelTurno.set(propuesta.id, propuesta);
       // El ticket mismo no cuenta como falla a reportar: si el modelo lo llamó, ya se intentó (y si falló, proponerlo
       // otra vez falla igual).
       if (name === LEVANTAR_TICKET) ticketPropuesto = true;
@@ -1436,7 +1445,21 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 async (prov) => (await provsDe(prov)).map((inst) => ({ prov, inst })),
               ),
             )).flat();
+            /**
+             * ⏱ EL PLAZO DE LOS REINTENTOS, POR PROVEEDOR (24/10/2026, el timeout del ws15). Arranca la primera vez que
+             * se le pide a ese proveedor y lo comparten sus cuentas: una segunda cuenta de Gemini no cubre a un Gemini
+             * lento, así que con el plazo comido no se prueba. Una IA de OTRA marca sí arranca con el suyo: es el
+             * respaldo de verdad, y el que el cartel le pide al cliente. Ver PLAZO_REINTENTOS_TURNO_MS.
+             */
+            const plazoDe = new Map<string, number>();
             for (const [nInst, { prov, inst }] of instancias.entries()) {
+              const plazoCorriendo = plazoDe.get(prov);
+              if (plazoCorriendo != null && !hayTiempoParaOtroIntento(plazoCorriendo)) {
+                console.warn(`[mako-doer-in] ws=${wsData} ${rotulo(inst)} sin probar: ${prov} ya se tomó su plazo en este turno`);
+                continue;
+              }
+              const hastaMs = plazoCorriendo ?? Date.now() + PLAZO_REINTENTOS_TURNO_MS;
+              plazoDe.set(prov, hastaMs);
               probadasCliente++;
               try {
                 // ⚠️ LA ÚLTIMA CUENTA DEL CLIENTE ESPERA LA CUOTA DEL MINUTO (hasta 30 s, lo que
@@ -1446,7 +1469,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 // ver lib/ia-rotacion-modelo.ts.
                 const esperaCuotaMaxMs = nInst === instancias.length - 1 ? 30_000 : 0;
                 const corridasAntes = corridasDelTurno;
-                const r = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined, esperaCuotaMaxMs });
+                const r = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined, esperaCuotaMaxMs, hastaMs });
                 /**
                  * ⚠️ ESTA SALIDA ERA MUDA, Y POR ESO EL CLIENTE LEYÓ «TE QUEDASTE SIN CUOTA».
                  *
@@ -1504,7 +1527,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 if (!vv.ok && vv.razon === 'link-inventado' && !linkBorrador && permitidasDelTurno.has('proponer_tareas_plan')) {
                   quisoBorrador = true;
                   console.warn(`[mako-doer-in] ${prov} inventó el link → reintento con la tool obligatoria`);
-                  const r2 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}» · tool forzada`, toolChoicePrimerPaso: 'required' });
+                  // Con la MISMA cuenta del turno (`clave`, 24/10/2026): sin ella iba siempre a la cuenta 1 del proveedor,
+                  // aunque el turno viniera de la 2 porque la 1 no tenía cuota.
+                  const r2 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}» · tool forzada`, toolChoicePrimerPaso: 'required', hastaMs });
                   if (r2.text && !r2.text.startsWith('(')) {
                     texto2 = r2.text;
                     vv = validarRespuestaDoer(r2.text, { motivoRuta: ruta.motivo, linkBorrador });
@@ -1523,7 +1548,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                  */
                 if (!linkBorrador && corridasDelTurno === corridasAntes && tools.length && promesasDe(texto2).length) {
                   console.warn(`[mako-doer-in] ${prov} prometió sin hacer («${promesasDe(texto2).join('», «')}») → reintento con la herramienta obligatoria`);
-                  const r3 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}» · prometió sin hacer`, toolChoicePrimerPaso: 'required' });
+                  const r3 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}» · prometió sin hacer`, toolChoicePrimerPaso: 'required', hastaMs });
                   if (r3.text && !r3.text.startsWith('(')) {
                     const v3 = validarRespuestaDoer(r3.text, { motivoRuta: ruta.motivo, linkBorrador });
                     if (v3.ok || v3.razon === 'sin-borrador' || linkBorrador) { texto2 = r3.text; vv = v3; }
@@ -1762,7 +1787,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             ? textoSinRedPorDatos(linkApp('/integraciones?abrir=anthropic', wsData), eraDePlan ? 'armar el borrador' : 'contestar')
             : causa === 'proveedor_caido'
             ? avisoNoPude(eraDePlan)
-            : textoFalloIA(causa, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys);
+            : textoFalloIA(causa, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys, errsIA);
           avisoDeSistema = true; // no es un turno de MaKo: ver `avisoDeSistema`
           console.error(`[mako-doer-in] ws=${wsData} fallo de IA (${causa}, ${nKeys} keys, ${ee?.probadas ?? '?'} probadas, ${ee?.contestaron ?? 0} contestaron): ${errsIA.join(' · ').slice(0, 400)}`);
           if (errsPlat.length) console.error(`[mako-doer-in] ws=${wsData} y NUESTRA red de plataforma: ${errsPlat.join(' · ').slice(0, 400)}`);
@@ -1956,6 +1981,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         // que no logueaba: por eso del 9/8 no quedó una sola línea en Vercel.
         console.error(`[mako-doer-in] ${v.detalle} · ruta «${ruta.motivo}» · ${respuesta.length} chars`);
       }
+    }
+    // ⚠️ UN CARTEL NO TAPA LO QUE EL TURNO DEJÓ PROPUESTO (24/10/2026, el ws15: la #381 «Mover a ELi…» quedó viva dos
+    // horas detrás de un «no pude»). Acá y no en cada cartel: `avisoDeSistema` lo prenden los tres (el `catch` de la IA,
+    // el de sin respuesta y el de la bloqueada). Ver `conLoQueQuedoPropuesto`.
+    if (avisoDeSistema && respuesta && propuestasDelTurno.size) {
+      respuesta = conLoQueQuedoPropuesto(respuesta, [...propuestasDelTurno.values()]);
+      console.warn(`[mako-doer-in] ws=${wsData} el cartel dice ${propuestasDelTurno.size} pendiente(s) que el turno dejó antes de caerse: #${[...propuestasDelTurno.keys()].join(', #')}`);
     }
     if (respuesta || paraLaPersona.length) {
       // Mensajes SEPARADOS (punto 10): MaKo separa con una línea de "---"; mandamos

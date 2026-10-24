@@ -231,3 +231,51 @@ export function conLinksDeAccion(respuesta: string, links: readonly string[]): s
   const limpio = suyo.replace(LINK_ACCION, '').replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
   return [limpio, ...links.map((l) => `Revísalo y confírmalo aquí: ${l}`)].filter(Boolean).join('\n\n');
 }
+
+// ── Lo que el turno dejó esperando un «sí», cuando el turno murió ─────────────
+
+/**
+ * Una pendiente que dejó una herramienta en el turno: la que se confirma con un «sí» por el chat. Las de PANTALLA van
+ * por `conLinksDeAccion`, con su link.
+ */
+export type PropuestaDelTurno = { id: number; resumen: string; venceEnMin: number | null };
+
+/**
+ * La pendiente que devolvió una herramienta, o null. Es el JSON de las dos que proponen por chat —`{ ok: true,
+ * pendiente_id, resumen, vence_en_min }`, `proponer` de lib/mako-doer-acciones.ts y las heredadas de
+ * lib/api-mako/ejecutar.ts—; cualquier otra salida, null.
+ */
+export function propuestaDeLaSalida(out: unknown): PropuestaDelTurno | null {
+  // Un runner del registro puede devolver `{ content, isError }` en vez del texto (`ToolRunner`).
+  const txt = typeof out === 'string' ? out : (out as { content?: unknown; isError?: unknown } | null)?.isError ? null : (out as { content?: unknown } | null)?.content;
+  if (typeof txt !== 'string' || !txt.includes('"pendiente_id"')) return null;
+  try {
+    const j = JSON.parse(txt) as { ok?: unknown; pendiente_id?: unknown; resumen?: unknown; vence_en_min?: unknown };
+    if (j?.ok !== true || typeof j.pendiente_id !== 'number' || typeof j.resumen !== 'string' || !j.resumen.trim()) return null;
+    return { id: j.pendiente_id, resumen: j.resumen.trim(), venceEnMin: typeof j.vence_en_min === 'number' ? j.vence_en_min : null };
+  } catch { return null; }
+}
+
+const cuantoVale = (min: number): string =>
+  min % 60 === 0 ? `${min / 60} ${min === 60 ? 'hora' : 'horas'}` : `${min} minutos`;
+
+/**
+ * ⚠️ NADA POR DETRÁS TAMBIÉN CUANDO EL TURNO SE MUERE (24/10/2026, el ws15). «Si contacte Eli»: el segundo paso de
+ * Gemini dejó la pendiente #381 «Mover a ELi → etapa "Seguimiento 1"», el tercero no volvió (timeout), y a Brigitte le
+ * llegó sólo el cartel de «no pude». La propuesta quedó viva dos horas sin que nadie la viera —con un «sí» o un «bien»
+ * a OTRA cosa podía ejecutarse: a las 15:14 su «Bien» al aviso de un lead nuevo ya se ruteó como confirmación— y venció
+ * sola. Lo que MaKo decidió se dice: el cartel la nombra y le dice cómo seguir, sin que lo vuelva a mandar (eso dejaba
+ * una segunda pendiente igual). Va sobre CUALQUIER cartel, no sólo el del timeout: lo que pasó con la IA no cambia lo
+ * que quedó hecho.
+ */
+export function conLoQueQuedoPropuesto(cartel: string, propuestas: readonly PropuestaDelTurno[]): string {
+  if (!propuestas.length) return cartel;
+  const vence = propuestas.map((p) => p.venceEnMin).filter((m): m is number => m != null && m > 0);
+  const vale = vence.length ? ` (vale por ${cuantoVale(Math.min(...vence))})` : '';
+  const bloque = [
+    'Lo que sí alcancé a dejarte, esperando tu «sí»:',
+    ...propuestas.map((p) => `• ${p.resumen}`),
+    `Si era eso, respóndeme «sí» en vez de mandármelo de nuevo${vale}.`,
+  ].join('\n');
+  return [(cartel ?? '').trim(), bloque].filter(Boolean).join('\n\n');
+}

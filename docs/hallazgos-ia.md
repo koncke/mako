@@ -3657,6 +3657,61 @@ hace tool calling; un pedido del doer pesa 13-16 mil. O sea que la red de plataf
   anterior).
 
 *07/10/2026, cuenta 2, commit `af3530c2`.*
+
+### El segundo caso: un TIMEOUT a mitad del turno, y un cartel que la mandó a cargar lo que no la cubre (23/10/2026)
+
+**Vive en:** `lib/ia-rotacion-modelo.ts` (reglas 4 y 5, `PLAZO_REINTENTOS_TURNO_MS`) · `lib/ai-cheap.ts`
+(`chatCheapTools`, `hastaMs`) · `lib/mako-doer-in.ts` (`plazoDe`, `propuestasDelTurno`) · `lib/fallo-ia-texto.ts`
+(`ia_lenta`) · `lib/respuesta-doer.ts` (`conLoQueQuedoPropuesto`) · `tests/doer-timeout-gemini.test.ts`
+
+Lo levantó el vigía: Brigitte (ws15, otra vez UNA key de Gemini) contestó «Si contacte Eli» al recordatorio de las
+13:51. Dos pasos de `flash-lite` con 200 (+23 s y +34 s del mensaje; `flash-latest`, el fijado, falló antes sin dejar
+marca de 429), el tercero no volvió, y a los +83 s salió `cartel:sin_respaldo` con «chatCheapTools(gemini): The
+operation was aborted due to timeout»: «Tu proveedor de IA se cayó justo ahora… Carga una segunda (son gratis)».
+
+⚠️ **El diagnóstico del cartel era el equivocado, y ella le hizo caso.** Gemini no se cayó (los dos pasos de antes
+contestaron), y a los 33 minutos cargó `GEMINI_API_KEY_2`, que le pega al mismo Google: una segunda key del mismo
+proveedor no cubre a un modelo lento, igual que no cubre a uno saturado (la entrada del audio, arriba). El 13/10 el ws13
+había recibido el mismo cartel por la misma causa.
+
+⚠️ **Por qué murió, sin logs (Vercel ya no los tenía): sale de los relojes.** +83 s = el 200 de +34 s + 45 s de
+timeout + ~4 s, o sea que el timeout NO tuvo reintento. Con la rotación de entonces eso sólo pasa si el reintento del
+paso ya estaba gastado: un fallo rápido de saturación (un 503 o un «fetch failed»), 1,2 s de pausa, y el reintento
+colgado. El timeout era una saturación más y compartía con el 503 el ÚNICO reintento del paso. Y no había techo: un paso
+podía quemar 136 s (tres timeouts de 45 y la pausa).
+
+⚠️ **45 s NO es corto para Gemini con herramientas**, que era la otra sospecha. Medido en el doer del 10 al 24/10, de
+paso a paso (herramienta incluida): `flash-latest` p50 6,7 s, p90 24,8 s, máximo 32 s; `flash-lite` p50 2,3 s, p90 25 s.
+Bajar el timeout cortaría pasos sanos; subirlo sólo alarga la espera del que se colgó.
+
+Lo que quedó: un timeout tiene su regla (otro modelo de la misma key si queda; si no, el MISMO una vez por TURNO, aparte
+del reintento del 503), y los reintentos tienen plazo: 100 s por proveedor desde su primer pedido, ninguno arranca sin
+15 s por delante y el que arranca va cortado a lo que queda. El primer pedido de cada paso no se corta nunca: después de
+una herramienta, el cierre es lo que dice qué se hizo. Nunca un respaldo de la plataforma: todo sale de las keys del
+negocio. El cartel nuevo (`ia_lenta`) dice qué IA tardó, que cortamos nosotros, que lo mande de nuevo y, si toda su IA es
+de una marca, cuál le da respaldo, con el link al modal de ESA (`?abrir=openai`).
+
+⚠️ **El cartel ofrece su GPT y no su Claude, a propósito.** En WhatsApp su Claude entra sólo si el turno no corrió
+ninguna herramienta (WA1, `corridasDelTurno === 0`): justo en este caso, que se colgó después de dos, no estaba. Un test
+avisa si WA1 cambia.
+
+⚠️ **Y el turno muerto había dejado algo hecho.** El segundo paso creó la pendiente #381 «Mover a ELi → etapa
+"Seguimiento 1"» (`mako_acciones_pendientes`), y el cartel no la nombró: quedó viva dos horas sin que nadie la viera —a
+las 15:14 su «Bien» al aviso de un lead nuevo se ruteó como `(confirmación)` por ella— y venció sola. Ahora cualquier
+cartel (`avisoDeSistema`) termina con lo que el turno dejó esperando un «sí» y le pide el «sí» en vez de que lo mande de
+nuevo (eso dejaba una segunda pendiente igual).
+
+**SIN HACER:**
+- **`flash-latest` falla de entrada en 10 de 14 turnos del ws15** (17 al 24/10: la primera fila es de `flash-lite`), y
+  sin marca de 429. Cada turno paga ese pedido fallido antes de empezar. Qué devuelve no se midió (hace falta un log en
+  vivo); vive en el pin global de /modelos-ia (`mako.modelos`: `gemini-flash-latest`) y en `MODELOS_RESPALDO`.
+- **El reintento con la herramienta forzada va sin `clave: inst.clave`** (`lib/mako-doer-in.ts`, `r2`): usa la cuenta
+  base del proveedor aunque el turno venga de la cuenta 2.
+- **Las transcripciones de anuncios usan la MISMA key a la vez** (`anuncios-transcribir` a las 14:04:39 y 14:05:15, en
+  medio del turno). No se midió si compiten; con una key gratis es la primera sospecha si vuelven los timeouts.
+
+*24/10/2026 — sin subagentes. 16 roturas en `tests/doer-timeout-gemini.test.ts`, todas con su fallo.*
+
 ## Re-arrancar el turno repetía las ACCIONES, no sólo las lecturas (07/10/2026)
 
 **Vive en:** `lib/turno-sin-duplicar.ts` · `lib/mako-doer-in.ts` (`memo`, `nuevoIntento`,
