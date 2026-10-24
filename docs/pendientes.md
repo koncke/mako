@@ -36,6 +36,15 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 
 ## Plata, seguridad y envíos (42)
 
+- **CRM** — Las cuotas de la ficha (Pagos › Cuotas) de a una, sin «Armar el plan» (el plan uniforme), con el aviso cuando no
+  suman la venta: **HECHO, esperando la revisión adversarial. NO está en main.**
+  - Está en `c7ff7d7fc` (tag `respaldo/crm-diseno-t17-2410`, rama local `crm-cuotas-espera-revision` en `C:/dev/wt-crm-grupo`),
+    encima de main 59d228ea1. **No se reimplementa: se revisa y se sube.** El commit trae el código, el test (5 roturas probadas)
+    y la regla en docs/hallazgos-pagos.md.
+  - El Cerebro lo dejó para después del lanzamiento del 25/10: toca plata, y la revisión la hizo el mismo chat que lo escribió.
+  - _un plan mal armado cobra de más o de menos_ · chico · espera una revisión con agentes (otra cuenta, con RAM) ·
+    `docs/feedback-diseno-pendiente.md → «Modelo de cuotas simple en todos lados»`
+
 - **Automations** — Si la base falla, «No reprodujo el VSL» se cumple para todos y la automatización inscribe a todos los leads. _salen mensajes a quien no corresponde_ · chico · se puede hacer ya · `docs/hallazgos-crm.md → _listLeads; docs/hallazgos-chatbot.md (tercera tanda)`
 - **Automations** — Los mensajes de una secuencia no tienen candado: el cron y la vía rápida pueden mandar dos veces. _el lead recibe el mismo WhatsApp dos veces_ · medio · se puede hacer ya · `docs/hallazgos-comunicacion.md → El paso ⚡ Acción, SIN HACER`
 - **Automations** — Un cambio pedido al chat del lienzo puede reescribir otra tarjeta que nadie nombró y llevarse un link. _sale un mensaje roto a los leads_ · medio · se puede hacer ya · `docs/hallazgos-chatbot.md → «El chat del lienzo editaba cuando le preguntabas» (15/10)`
