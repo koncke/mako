@@ -3565,6 +3565,8 @@ export function CrmBoard({
             const id = etapasDe.id ?? funnels.find((f) => f.esDefault)?.id;
             if (id != null) setNombresLocales((m) => ({ ...m, [id]: nuevo }));
           }}
+          // El «Deshacer» de eliminar un funnel sin leads lo dibuja el tablero: el pop-up se cierra en el mismo gesto.
+          onAviso={(texto, deshacer) => mostrarAviso(texto, deshacer)}
           onCerrar={() => setEtapasDe(null)} />
       )}
 
