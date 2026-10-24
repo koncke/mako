@@ -102,6 +102,19 @@ export function clavesAProbar(prov: string): string[] {
   return c.length ? c : [`${prov.toUpperCase()}_API_KEY`];
 }
 
+/**
+ * Cuántas claves de `provs` tienen fila en `enBase` (los nombres cargados en `credenciales` de un workspace). Cuenta
+ * también a los de UNA sola clave (su Claude, su GPT), por `clavesAProbar`.
+ *
+ * ⚠️ LA MISMA TRAMPA DE ARRIBA, UNA CAPA MÁS ARRIBA (24/10/2026, el cartel del ws21). `contarKeysIA` del doer de WhatsApp
+ * sumaba `clavesCargadas(prov)`, que deriva de `clavesDe` y devuelve `[]` para anthropic y openai: un negocio con su
+ * Claude o su GPT contaba CERO claves, y si su IA fallaba el cartel le decía «todavía no cargaste ninguna API key». Son
+ * filas, no instancias que contesten: quien las usa igual resuelve con `credWs`.
+ */
+export function contarClavesCargadas(enBase: ReadonlySet<string>, provs: readonly string[]): number {
+  return [...new Set(provs)].reduce((n, p) => n + clavesAProbar(p).filter((c) => enBase.has(c)).length, 0);
+}
+
 /** Todas las claves extra del catálogo (las que hay que sumar a la whitelist). */
 export const CLAVES_EXTRA: string[] = PROVS_MULTIKEY.flatMap((p) => clavesDe(p).slice(1));
 

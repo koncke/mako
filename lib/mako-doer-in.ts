@@ -19,12 +19,12 @@ import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD, conLinksDeAccion, propuestaDeLaSalida, conLoQueQuedoPropuesto, type PropuestaDelTurno } from '@/lib/respuesta-doer';
 import { recetasDelTurno } from '@/lib/doer-recetas';
 import { evaluarPermiso } from '@/lib/veto-claude';
-import { causaDelFallo, textoFalloIA, linkKeysIA, sinRedPorDatos, textoSinRedPorDatos } from '@/lib/fallo-ia-texto';
+import { causaDelFallo, cartelDelFallo, textoFalloIA, linkKeysIA, rutaKeysIA, textoSinRedPorDatos } from '@/lib/fallo-ia-texto';
 import { PLAZO_REINTENTOS_TURNO_MS, hayTiempoParaOtroIntento } from '@/lib/ia-rotacion-modelo';
 import { LARGO_WHATSAPP } from '@/lib/hechos-mako';
 import { reaccionPara, esSoloEmoji, EMOJI_RECIBIDO } from '@/lib/reaccion-emoji';
 import { esperaDelPedido, acuseSinReaccion, conTope, trabajoLargoDe, TOPE_REACCION_MS, type Medio } from '@/lib/doer-acuse';
-import { clavesCargadas } from '@/lib/ia-keys-ws';
+import { cuantasClavesDeIA } from '@/lib/ia-keys-ws';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { porId, aToolDef } from '@/lib/api-mako/registro';
@@ -52,7 +52,7 @@ import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL, linkApp } from '@/lib/app-url';
 import { RUTA_CHATS, PARAM_CHATS } from '@/lib/chats-links';
-import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
+import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheap, chatCheapTools, cheapDisponible, CASCADA_STT } from '@/lib/ai-cheap';
 import { paraWhatsApp, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, bloqueAgendaGoogle, herramientasQueSiguen, ACCIONES_AGENDA } from '@/lib/agenda-sin-ia';
 import { crearMemoDeAcciones } from '@/lib/turno-sin-duplicar';
 // El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
@@ -350,14 +350,16 @@ Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes 
  * Es el dato que separa «se cayó el proveedor» de «se cayó el proveedor Y no
  * tenías respaldo»: el hecho técnico es el mismo, y lo que el cliente puede hacer
  * al respecto no. Con 0 no hay IA; con 1 no hay cascada.
+ *
+ * ⚠️ SU IA ENTERA, NO SÓLO SU GEMINI (24/10/2026). Contaba `clavesCargadas('gemini')`: desde WA1 (22/10) el doer contesta
+ * con su Claude o su GPT por clave, y un negocio que conectaba su Claude —lo que le pide el cartel— contaba CERO; si su
+ * Claude fallaba, el cartel le decía «todavía no cargaste ninguna API key de IA». Y `clavesCargadas` no sirve para eso aunque se le
+ * pasen 'anthropic' y 'openai': devuelve `[]` para los de una sola clave (lib/ia-keys.ts → `contarClavesCargadas`).
+ *   · 'texto': lo que contesta (`'anthropic'` + `PROVS_SU_IA`). Groq no: desde IA16 sólo escucha.
+ *   · 'audio': lo que escucha una nota de voz (`CASCADA_STT`: su Gemini, su Groq y su GPT). Su Claude no escucha.
  */
-async function contarKeysIA(): Promise<number> {
-  let n = 0;
-  // IA16: Groq ya no contesta texto (sólo escucha las notas de voz): no cuenta como IA del chat.
-  for (const prov of ['gemini']) {
-    n += (await clavesCargadas(prov).catch(() => [])).length;
-  }
-  return n;
+async function contarKeysIA(uso: 'texto' | 'audio'): Promise<number> {
+  return cuantasClavesDeIA(uso === 'audio' ? CASCADA_STT : ['anthropic', ...PROVS_SU_IA]);
 }
 
 export type ResultadoDoer = { engaged: boolean; reply?: string; skip?: string };
@@ -781,14 +783,15 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         // estaba a dos clics. Ver lib/fallo-ia-texto.ts.
         // Las cuentas se cuentan UNA vez: el texto también las necesita, y con dos
         // llamadas el mensaje podía contradecir a la causa que lo eligió.
-        const nKeysAudio = await contarKeysIA().catch(() => 1);
+        const nKeysAudio = await contarKeysIA('audio').catch(() => 1);
         // ⚠️ El texto se elige con los errores de SUS keys (07/10/2026). Desde que el audio tiene
         // red de plataforma, el error trae también los de la agencia, y con esos la causa la
         // fabricarían nuestras keys (la regla de lib/fallo-ia-texto.ts).
         const delNegocio = e instanceof SttSinEscucha ? e.errores : [detalle];
+        // El link con su `?ws=`: este aviso sale directo, sin el `linksConWs` de la respuesta de texto (24/10/2026).
         const aviso = `Me llegó tu audio pero no lo pude escuchar.\n\n${textoFalloIA(
           causaDelFallo(delNegocio, nKeysAudio),
-          linkKeysIA(APP_URL),
+          linkApp(rutaKeysIA('audio'), wsData),
           'escuchar tu audio',
           nKeysAudio,
           delNegocio,
@@ -1641,17 +1644,23 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
                 console.warn(`[mako-doer-in] ws=${wsData} su Claude no pudo: ${m}`);
               }
             }
-            const turnoRed = respuesta || suIA ? null : turnoParaLaRed({
+            // ⚠️ PRIMERO SE PREGUNTA SI HAY RED, DESPUÉS QUÉ SE LE SACA (24/10/2026, el cartel del ws21). La marca «red gratis
+            // salteada» se dejaba con sólo mirar el turno, y con IA16 (en main desde el 24/10) no hay red para ningún negocio
+            // (`provsGratisDePlataforma` → `[]` fuera del ws9): a un negocio sin su IA que preguntaba por sus reuniones le
+            // salía «no los mando a la IA gratis de MaKo», un porqué falso (sin datos de clientes tampoco le contestaba),
+            // y el vigía lo anotaba `sin_red_por_datos`. Sin red no hay nada que saltear: la causa es la suya, `sin_keys`.
+            let red: Awaited<ReturnType<typeof provsGratisDePlataforma>> = [];
+            if (!respuesta && !suIA) red = await provsGratisDePlataforma().catch(() => []);
+            const turnoRed = red.length ? turnoParaLaRed({
               tools, delRegistro: turno.delRegistro,
               tiposPendientes: await listarPendientes(ctxApi).then((ps) => ps.map((p) => p.operacion)).catch(() => ['(no se pudieron leer las pendientes)']),
               texto, conAdjuntos: !!mediaBlocks,
-            });
+            }) : null;
             if (turnoRed?.cortar) {
               erroresPlataforma.push(`red gratis salteada: el turno lleva datos de clientes (${turnoRed.cortar.slice(0, 5).join(', ')}) y el plan gratis entrena con lo que recibe`);
               console.warn(`[mako-doer-in] ws=${wsData} red de plataforma salteada: el turno lleva datos de clientes (${turnoRed.cortar.join(', ').slice(0, 300)})`);
             }
             if (!respuesta && turnoRed && !turnoRed.cortar) {
-              const red = await provsGratisDePlataforma().catch(() => []);
               const toolsRed = turnoRed.tools;
               // ⛔ El system de la red va LEAN (la voz de MaKo y su núcleo, `buildSystemPrompt({ lean })`): el completo
               // trae «TU METODOLOGÍA», que sale de `searchKnowledge` sobre el conocimiento propio, y el glosario (fuente
@@ -1788,19 +1797,21 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
           const ee = e as Error & { erroresIA?: string[]; erroresPlataforma?: string[]; probadas?: number; contestaron?: number };
           const errsIA = ee?.erroresIA ?? [msg];
           const errsPlat = ee?.erroresPlataforma ?? [];
-          const nKeys = await contarKeysIA().catch(() => 1);
+          const nKeys = await contarKeysIA('texto').catch(() => 1);
           // El veredicto se decide SÓLO con lo del cliente (ver `erroresPlataforma`). Lo
           // nuestro va al log, que es donde se diagnostica.
           const causa = causaDelFallo(errsIA, nKeys, { probadas: ee?.probadas, contestaron: ee?.contestaron });
           const eraDePlan = esCargaDePlan(texto) || (esRutaPlan(ruta.motivo) && !intencion.dudosa);
-          // Sin keys propias y con la red cortada por datos de clientes, «carga una key, son gratis» no dice por qué
-          // nuestra IA no lo cubrió: lo dice `textoSinRedPorDatos`. Con keys que fallaron, su causa sigue siendo la verdad.
-          const sinRedPorSusDatos = sinRedPorDatos(errsPlat) && causa === 'sin_keys';
-          respuesta = sinRedPorSusDatos
-            ? textoSinRedPorDatos(linkApp('/integraciones?abrir=anthropic', wsData), eraDePlan ? 'armar el borrador' : 'contestar')
-            : causa === 'proveedor_caido'
+          // Sin keys propias y con la red cortada por datos de clientes, «carga una key» no dice por qué nuestra IA no lo
+          // cubrió: lo dice `textoSinRedPorDatos`. Con keys que fallaron, su causa sigue siendo la verdad. La marca existe
+          // sólo donde había una red que saltear (arriba, 24/10/2026): para un negocio, desde IA16, el cartel es su causa.
+          // La misma `cartel` elige el texto y la fila que lee el vigía.
+          const cartel = cartelDelFallo(causa, errsPlat);
+          respuesta = cartel === 'sin_red_por_datos'
+            ? textoSinRedPorDatos(linkApp(rutaKeysIA(), wsData), eraDePlan ? 'armar el borrador' : 'contestar')
+            : cartel === 'proveedor_caido'
             ? avisoNoPude(eraDePlan)
-            : textoFalloIA(causa, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys, errsIA);
+            : textoFalloIA(cartel, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys, errsIA);
           avisoDeSistema = true; // no es un turno de MaKo: ver `avisoDeSistema`
           console.error(`[mako-doer-in] ws=${wsData} fallo de IA (${causa}, ${nKeys} keys, ${ee?.probadas ?? '?'} probadas, ${ee?.contestaron ?? 0} contestaron): ${errsIA.join(' · ').slice(0, 400)}`);
           if (errsPlat.length) console.error(`[mako-doer-in] ws=${wsData} y NUESTRA red de plataforma: ${errsPlat.join(' · ').slice(0, 400)}`);
@@ -1809,7 +1820,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
           // de contarlo: «¿cuántas veces salió?» dejó de tener respuesta. Va por el mismo
           // molde que `anotarRebote429`: una fila de US$0 en el mismo gráfico que el dueño
           // mira, con el motivo escrito.
-          void recordUsage('cartel-ia', `cartel:${sinRedPorSusDatos ? 'sin_red_por_datos' : causa}`, {}, `ws${wsData} · ${intencion.intencion} · ${nKeys} keys · ${ee?.probadas ?? 0} probadas · ${ee?.contestaron ?? 0} contestaron · ${errsIA.join(' · ').slice(0, 200)}`, 'mako', 1).catch(() => {});
+          void recordUsage('cartel-ia', `cartel:${cartel}`, {}, `ws${wsData} · ${intencion.intencion} · ${nKeys} keys · ${ee?.probadas ?? 0} probadas · ${ee?.contestaron ?? 0} contestaron · ${errsIA.join(' · ').slice(0, 200)}`, 'mako', 1).catch(() => {});
 
           // ⚠️ Y EL MENSAJE SE SALVA IGUAL. El aviso de arriba explica POR QUÉ falló —y
           // con una cuota agotada eso es lo accionable—, pero por sí solo manda al dueño

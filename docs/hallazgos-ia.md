@@ -4587,6 +4587,9 @@ llamada, chat, cobro…) tiene que declarar la marca; si no, el test cae. Lo que
 **El aviso no dice «Conecta tu Claude».** El turno con herramientas corre sólo con las keys baratas del negocio
 (`chatCheapTools`); la clave de Anthropic del negocio mueve sólo la cascada de texto. Mandarlo a conectar su Claude
 sería mandarlo a algo que no lo arregla: dice «Conecta tu propia API key de IA», con el link a /integraciones.
+⚠️ **Con IA16 (en main desde el 24/10) este aviso sale sólo en el ws9**, el único con red: la marca la deja el doer sólo si había red que
+saltear, y un negocio sin su IA recibe `sin_keys` («Conecta tu Claude, tu GPT o tu Gemini»; desde WA1 su Claude sí
+contesta el turno con herramientas). Ver la entrada de IA16, «el cartel de WhatsApp… un porqué falso» (24/10).
 
 ### Lo que quedó SIN hacer
 
@@ -6227,11 +6230,44 @@ pidiendo todas, porque su contrato dice también las que tienen 0 cuentas. ⚠�
 las listas que lo nombran, no sólo en la que se ve primero (test 8 de tests/ia16-cada-uno-su-ia.test.ts, cuatro roturas,
 las cuatro caen).
 
+**Y el cartel de WhatsApp le daba a un negocio sin su IA un porqué falso** (lo levantó el vigía: ws21 Florencia, 22/10
+09:36 UTC, «Estas analizando mis fathom?», 0 claves, `cartel:sin_red_por_datos`; medido el 24/10, sólo lectura):
+- **El diagnóstico obvio —«el cartel la dejó sin salida»— era falso.** Le llegó (el anillo de enviados del grupo se
+  escribió 11 s después) con el link a /integraciones (`?abrir=gemini&ws=21`, el de antes de IA9). Y ese día el porqué era
+  cierto: la red existía (IA16 v2 se commiteó esa noche y entró a main el 24/10 00:29 ART). Florencia nunca conectó nada (0
+  filas en `credenciales` hoy, ninguna llamada con una clave suya) y no volvió a escribir.
+- ⚠️ **«IA16 está en main» no es «la red ya no corre».** El último deploy medido (la «prueba» de los avisos de arreglo:
+  137b91f76, 23/10 23:09 ART) no la trae: hasta que se despliegue, la red sigue contestando a los negocios sin su IA, y
+  este arreglo tiene que ir en el mismo deploy (sin él, el ws21 pasa a leer el porqué falso).
+- **Lo que se volvió falso con IA16: la marca «red gratis salteada» se dejaba sin preguntar si había red.** El doer la
+  ponía con sólo mirar el turno (`turnoParaLaRed`); con la red en `[]`, todo negocio sin su IA que preguntaba por sus
+  reuniones o sus leads leía «no los mando a la IA gratis de MaKo» (como si sin datos le hubiera contestado), el log decía
+  «red de plataforma salteada» y el vigía anotaba `sin_red_por_datos`; el mismo negocio, sin datos, recibía `sin_keys`. Ahora
+  el doer pide la red ANTES de decidir qué saltear y sin red no marca; el cartel lo elige `cartelDelFallo` (lib/fallo-ia-texto.ts).
+- **`sin_keys` seguía vendiendo «Las de Google y Groq son *gratis*»** con el link al modal de Claude. Ahora pide
+  `CONECTA_TU_IA`; el de una nota de voz, su Gemini o su GPT (su Claude no escucha), con el link a Gemini. ⚠️ Ese aviso
+  sale directo (`enviarAGrupoJid`), sin el `linksConWs` que le pone el `?ws=` a la respuesta de texto: salía sin su
+  negocio. Ahora `linkApp(rutaKeysIA('audio'), wsData)`.
+- **`clavesCargadas` devuelve `[]` para los de UNA clave (anthropic, openai), aunque se los pidan.** `contarKeysIA`
+  contaba sólo su Gemini: un negocio con sólo su Claude —lo que el cartel le pide— contaba cero, y si su Claude fallaba
+  leía «todavía no tienes tu IA». Hoy ningún negocio tiene sólo Claude o sólo GPT: estaba latente. Contar filas de IA va
+  por `contarClavesCargadas` / `cuantasClavesDeIA` (lib/ia-keys.ts, lib/ia-keys-ws.ts).
+- **El crédito de Claude no era la respuesta:** Florencia lo tuvo (su onboarding del 18/10: 16 turnos y 2 documentos, 19 filas con la marca); es sólo para
+  el onboarding en curso (`CREDITO_HABILITADO_PARA`) y el doer de WhatsApp no está.
+- **El texto de un cartel no queda en ningún lado** (`avisoDeSistema` va fuera del historial y la fila del vigía trae la
+  causa): para saber qué leyó hubo que reconstruirlo del código de main a esa hora.
+- Lo fija tests/doer-cartel-sin-ia.test.ts (doce roturas, las doce caen).
+
 **SIN hacer:**
+- **El onboarding no pide su IA.** El paso «Tu IA» (`gemini`) salió del arranque y ninguna capa lo pide
+  (lib/onboarding-hechos.ts → `SALIO_DEL_ARRANQUE`, lib/capas.ts); no hay aviso en la app antes del primer cartel. El ws21
+  y el ws22 terminaron sin ninguna, y desde IA16 MaKo no les contesta nada. Es del chat Onboarding: sumar «Tu IA» a la
+  capa, o un recordatorio en /general (lib/onboarding-pendientes.ts).
 - **Subir.** Apaga la IA de los negocios de la tabla hasta que conecten la suya. **Retenida** (el Cerebro, 22/10): no entra
   a main hasta que el ws1 conecte su IA o hasta el lunes 26/10, lo que llegue primero (el sábado 24 arranca la campaña de
   Mauricio y no puede quedarse sin el chat de MaKo). El paso de Mauricio (ws1): «conectá tu
-  Claude, tu GPT o tu Gemini»; con Gemini empieza gratis.
+  Claude, tu GPT o tu Gemini»; con Gemini empieza gratis. **Actualizado el 24/10:** entró a main el 24/10 00:29 ART
+  (2c456a7bf, «integra ia16-2210 en el tren»); desplegada, sin medir (el último deploy medido, 137b91f76, no la trae).
 - **Re-embeber el conocimiento** (`scripts/reembeber-conocimiento.mts --aplicar`): toca los negocios con su Gemini, el
   ws9 y el método de MaKo del ws1. Las filas de los demás se embeben solas cuando conecten el suyo.
 - **Automations:** `SU_IA` y `SU_CLAVE` (lib/flujo-ia.ts) los cambió IA16, de acuerdo con ese chat. Cuando IA16 esté en main,
