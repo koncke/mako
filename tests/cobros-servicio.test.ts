@@ -87,8 +87,9 @@ test('crearCobro: la fila se escribe ANTES de llamar al proveedor, y la idempote
   assert.ok(iCheckout > iInsert, 'el checkout se crea antes de que exista la fila del cobro');
   // Lo que CREA algo en el proveedor pasa sólo por crearCheckout (después del insert).
   assert.doesNotMatch(b, /crearCheckoutStripe\(|crearPreferenciaMp\(|crearSuscripcionMp\(/);
-  // Si el proveedor rechaza, la fila queda anulada con el motivo: no se borra el rastro.
-  assert.match(b, /estado: 'anulado', motivo: checkout\.error/);
+  // Si el proveedor rechaza, la fila queda anulada con el motivo: no se borra el rastro. Esa escritura vive en
+  // `cerrarCheckoutDelCobro` (lib/cobros-reglas.ts, ejecutada en tests/cobro-checkout-cierre.test.ts): acá se fija que crearCobro la use.
+  assert.match(b, /anular: \(a\) => actualizar\(ws, cobro\.id, \{ estado: 'anulado', motivo: a\.motivo/);
   assert.doesNotMatch(b, /\.delete\(/);
   // Y las tres creaciones llevan la clave del cobro (`mako-cobro-<id>`), no una al azar.
   const c = bloque('async function crearCheckout(');
