@@ -39,6 +39,17 @@ cerrar la Ticketera con el ícono de la barra de la app deja el panel en el últ
 **Después (punta de los pedidos):** /admin/operaciones ya no manda los 455 pedidos (733 KB) en cada carga, sino 47 (96 KB); lo
 terminado viejo de un chat se trae al abrirlo (docs/hallazgos-operaciones.md, «733 KB de pedidos en cada carga»). Sin mirar en
 pantalla: lo ve Martín abriendo un chat viejo del Centro (su historial tiene que salir entero, como antes).
+## 23/10 noche (claude1, chat «Ops Center», `local_5cc6190d…`): las computadoras de los clientes, fuera de «Tus cuentas de IA»
+
+Encargo del Cerebro por lo que Martín vio en producción («estas cruzando workspace»). Rama `ops-pcs-2310` (worktree
+`C:/dev/wt-ops-fotos`), sobre `7d69d0f25`. Lo que costó: docs/hallazgos-operaciones.md → «Las computadoras de los clientes…».
+
+- **HECHO:** «Tus cuentas de IA» del super admin (computadora y teléfono) muestra sólo lo suyo; las de un cliente, con
+  «Desconectar», van en Clientes → su ficha → Equipo. La lectura de todos los negocios ya no existe (`listarPcDelNegocio`).
+- **No es un bug que revertir:** el 22/10 él pidió las de todos ahí; al verlo cambió de opinión. Si alguien encuentra la cita
+  vieja, gana la de hoy.
+- **Lo que sigue:** que Martín lo mire en producción; la ficha del cliente en el teléfono no existe (/m/cs), así que ahí no
+  se ven.
 
 ## 23/10 mañana (claude1, chat «Centro de Operaciones», `local_5cc6190d…`): las fotos en cualquier dispositivo
 

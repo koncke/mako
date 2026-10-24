@@ -5361,7 +5361,7 @@ Buenos Aires, Argentina»); fuera el «Modelo» (se elige en cada chat), «Tu cl
 mismo dibujo en SuperAdmin; en la computadora y en el teléfono.
 
 **Vive en:** `agruparPorCuenta`, `textoDeUbicacion`, `dondeEsta` (lib/ia-pc-reglas.ts) · app/integraciones/CuentasYDispositivos.tsx
-(el dibujo compartido) · TusCuentasIA.tsx · app/m/cuenta/ia/IaM.tsx · app/admin/operaciones/UsoComputadoras.tsx · el latido
+(el dibujo compartido) · TusCuentasIA.tsx · app/m/cuenta/ia/IaM.tsx · app/admin/ComputadorasDelNegocio.tsx (desde el 23/10) · el latido
 (app/api/ia-pc/latido/route.ts) · supabase/migrations/0327_ia_pc_ubicacion.sql · tests/ia-pc-cuentas-dispositivos.test.ts.
 
 - **Agrupar por cuenta se hace en el SERVIDOR, no en la pantalla.** Quien mira recibe el email ajeno enmascarado, y dos
@@ -5637,8 +5637,12 @@ API, o por el crédito donde está asignado.
 ahora abrí la cuenta de Mauricio e instalé MaKo desktop para conectarme a su claude, pero luego él va a querer hacerlo en su
 PC, se debería poder ver eso... Lo mismo en SuperAdmin. Y poder "Desconectar" dispositivos».
 
-**Vive en:** `elegirPc`, `sistemaDeLaVersion`, `detalleDeLaPc` (lib/ia-pc-reglas.ts) · `pcDe`, `listarTodasLasPc` (lib/ia-pc.ts)
-· app/admin/operaciones/UsoComputadoras.tsx (SuperAdmin › Uso, computadora y teléfono) · «Conectar otra computadora» en
+⚠️ **Lo de «Lo mismo en SuperAdmin» CAMBIÓ el 23/10/2026:** al ver las de todos en «Tus cuentas de IA», Martín: «estas cruzando
+workspace». Las de un cliente van ahora en su ficha (Clientes → Equipo) y no queda una lectura de todos los negocios:
+docs/hallazgos-operaciones.md, «Las computadoras de los clientes…».
+
+**Vive en:** `elegirPc`, `sistemaDeLaVersion`, `detalleDeLaPc` (lib/ia-pc-reglas.ts) · `pcDe`, `listarPcDelNegocio` (lib/ia-pc.ts)
+· app/admin/ComputadorasDelNegocio.tsx (la ficha del cliente en Clientes; hasta el 23/10, SuperAdmin › Uso) · «Conectar otra computadora» en
 app/integraciones/TusCuentasIA.tsx · tests/ia-pc-varias.test.ts.
 
 - **Medir antes de construir: casi todo ya estaba.** Una persona ya podía tener varias computadoras (nada lo impedía), la

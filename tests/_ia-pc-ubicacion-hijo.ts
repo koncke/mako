@@ -50,7 +50,7 @@ async function main() {
   await pc.latir(d, { version: '0.4.0+windows', cuentas: [{ proveedor: 'claude', email: 'ana@gmail.com' }] }, { ubicacion: 'Grandbourg, Buenos Aires, Argentina' });
   out.fila = (({ ubicacion, ...resto }) => ({ ubicacion, columnas: Object.keys(resto).sort() }))(pg.db.ia_pc_dispositivos.find((f) => f.id === d.id) as Record<string, unknown>);
   out.lista = (await pc.listarDispositivos(3, 'ana@prueba.com', false)).map((x) => x.ubicacion);
-  out.todas = (await pc.listarTodasLasPc()).map((x) => ({ ubicacion: x.ubicacion, cuentas: x.cuentas.map((y) => y.email) }));
+  out.todas = (await pc.listarPcDelNegocio(3)).map((x) => ({ ubicacion: x.ubicacion, cuentas: x.cuentas.map((y) => y.email) }));
   // Sin ubicación en un latido (sin los headers): queda la última.
   await pc.latir(d, { version: '0.4.0+windows', cuentas: [{ proveedor: 'claude', email: 'ana@gmail.com' }] }, { ubicacion: null });
   out.queda = pg.db.ia_pc_dispositivos.find((f) => f.id === d.id)?.ubicacion;
@@ -68,7 +68,7 @@ async function main() {
   try { listaSinColumna = (await pc.listarDispositivos(3, 'ana@prueba.com', false)).map((x) => [x.nombre, x.ubicacion]); } catch (x) { listaSinColumna = x instanceof Error ? x.message : String(x); }
   out.listaSinColumna = listaSinColumna;
   let todasSinColumna: unknown;
-  try { todasSinColumna = (await pc.listarTodasLasPc()).map((x) => [x.nombre, x.ubicacion]); } catch (x) { todasSinColumna = x instanceof Error ? x.message : String(x); }
+  try { todasSinColumna = (await pc.listarPcDelNegocio(3)).map((x) => [x.nombre, x.ubicacion]); } catch (x) { todasSinColumna = x instanceof Error ? x.message : String(x); }
   out.todasSinColumna = todasSinColumna;
   // Un texto que la base no acepta (no por esquema): el latido igual se anota, sin la ubicación.
   sinLaColumna = false;

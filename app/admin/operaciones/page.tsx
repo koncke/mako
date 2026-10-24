@@ -3,7 +3,8 @@ import type { ReactNode } from 'react';
 import '@/app/integraciones/tus-cuentas-ia.css';
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
-import { wsSuperAdmin } from '@/lib/workspace';
+import { getWorkspaceActual, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
+import { RUTA_OPS_CENTER_NEGOCIO } from '@/lib/ops-center-ruta';
 import { Pagina, PermissionState } from '@/app/_ui';
 import { puedeOperar } from '@/lib/operaciones-reglas';
 import { esAdminDeTab } from '@/lib/puerta-admin-tab';
@@ -31,6 +32,12 @@ export default async function OperacionesPage({ searchParams }: { searchParams: 
   if (!puedeOperar(admin, await wsSuperAdmin())) {
     return <Pagina><PermissionState motivo="rol" que="Ops Center" /></Pagina>;
   }
+  // Mirando a un CLIENTE (la pestaña con el ?ws= de otro negocio), el Ops Center de la plataforma no se dibuja: su «Tus cuentas
+  // de IA» lee el negocio de la pestaña, y salían las computadoras de ese cliente debajo de las cuentas de Martín (23/10/2026,
+  // «estas cruzando workspace»). Va al Ops Center de ese cliente, el mismo criterio que `quienOpera`. Con el ?ws= de la
+  // plataforma (el teléfono lo lleva siempre) no es mirar a otro, y se queda.
+  const ws = await getWorkspaceActual();
+  if (ws != null && ws !== (await wsSuperAdmin())) redirect(await rutaConWs(RUTA_OPS_CENTER_NEGOCIO));
   const q = await searchParams;
   const [centro, veMapa] = await Promise.all([datosDelCentroSiOpera(), esAdminDeTab('second-brain')]);
 

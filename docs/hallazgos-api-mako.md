@@ -1986,16 +1986,27 @@ en `preparar` y en `ejecutar` (que relee la celda).
 
 *23/10/2026 · chat «Offer» (cuenta claude1) · medido en prod con un SELECT; no se miró en el navegador.*
 
-**La cuenta de los perdidos no era 6 (23/10, después del deploy).** Los envíos en `fallo` del ws13 son 21 desde el 12/10, no
-6. Pero hasta el 17/10 a la mañana igual salía el aviso del SISTEMA «Nuevo agendado» (en `notificaciones` sin
-`salida`); desde el 17/10 13:58 UTC esas filas dicen `salida: 'sin_automatizacion'`: el aviso pasó a depender de la
-automatización, y la automatización fallaba. Los que de verdad nadie avisó son 11 (Monica Fantoni, Giselle Bellanti,
-Agustina Campo montilla, Mirta G Loiacono, Matías Molina y los 6), y a Mirta el cliente ya la tenía. Martín (por el Cerebro):
-van los 10 en UN mensaje, en orden de llegada REAL (la lista dictada estaba al revés), y sólo después de ver un lead nuevo
-avisar en producción. **Regla:** para contar «a quién no le llegó», cruzar el envío fallido con la fila del feed de ese
-mismo evento: un envío en `fallo` no prueba que el dueño no se enteró. **Sin hacer:** el envío de los dos mensajes
-(scripts/avisar-arreglo-al-grupo.mts y la lista que arma el código) espera ese lead.
-*23/10/2026, chat «Automations» (claude2).*
+**La cuenta de los perdidos: son 19, no 6 ni 10 (24/10, tres conteos independientes que dan los mismos ids).** Se contó
+por los envíos en `fallo`, por los leads que entraron y por lo que llegó de verdad al grupo, y un cuarto releyó contra
+la base cada nombre y cada teléfono. Hay 21 envíos en `fallo`, todos de leads distintos. 19 son de leads que llegaron
+entre el último aviso bueno (lead 2647, 12/10 10:19 ART) y el último fallo (lead 3098, 22/10 23:09 ART). Los otros 2
+(2624 y 2640) son leads viejos que la #264 barrió al prenderse, el 20/10. El 6 eran sólo los fallos de la #264 desde el
+21/10. El 10 (antes 11) salió de una premisa **falsa**: «hasta el 17/10 igual salía el aviso del SISTEMA, porque su fila
+en `notificaciones` no tiene `salida`». La marca `salida` recién existe desde e94f798a3 (17/10). Desde 4e2ebc7d2
+(11/10), «Nuevo agendado» sale SÓLO por una automatización de aviso, y la única (#240) estaba archivada desde el 12/10.
+Ninguno de los 19 tiene un turno en `mako_doer_conv` del grupo. **Regla:** lo que prueba que un aviso LLEGÓ al grupo es
+la fila de `mako_doer_conv` del grupo (`role='assistant'`, `wa_message_id` no nulo), o el store de Evolution. No lo
+prueban la fila del feed sin `salida` ni el «Le avisé al equipo.» de la pendiente: esa frase sale igual si el WhatsApp
+del aviso está apagado y el email prendido. **Otras dos trampas de la misma medición:** la hora del commit no es la de
+producción (0a5f6c9b6 es de las 10:58, entró a main a las 12:18 y quedó Ready a las 12:20:34 ART). Y un lead fusionado
+conserva su `created_at` viejo, así que también hay que buscarlo por la fecha de inscripción. **Hoy (24/10):** 7 de los
+19 siguen abiertos, 4 están ganados, 7 descalificados y 1 perdido. La lista con los 19 no entra en un aviso: 744
+caracteres contra un tope de 500, y el negocio ya usó 1 de sus 3 avisos del día. Qué lista va lo decide el Cerebro. La
+arma `lista-ws13.mts` (sin versionar, en `C:/dev/wt-aut-sab24/scripts/_sab24/`) leyendo la base: nunca una lista copiada. **Sin hacer:** los dos mensajes esperan
+a que un lead nuevo avise bien (`scripts/_sab24/aviso-vivo-ws13.mts` → VERDE). Y 4 inscripciones de la #264 (insc
+240-243, en 'respondio') están frenadas por borradores viejos de la #241 (`wa_borradores` 14, 15, 17, 18). Si alguien
+los manda o los descarta, sale un «Nuevo agendado» tardío, duplicado con la lista.
+*24/10/2026, chat «Automations» (claude1): corrige la entrada del 23/10, que daba 11 y la regla del feed.*
 
 ## Dar y quitar el acceso a un curso por HTTP: invitar existía, pero en un área que no sale por HTTP (23/10/2026)
 

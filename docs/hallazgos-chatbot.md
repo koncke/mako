@@ -6409,6 +6409,22 @@ fila que junta «Contestó» con otra cosa («Contestó y sigue en la etapa») n
 (lib/simulador-grafo.ts) todavía no imita el corte. Un DM de Instagram también cuenta como respuesta para los flujos de
 WhatsApp que usan «Contestó». Un «N antes de la reunión» que va en el MISMO camino se corta con él.
 
+**Y un agujero que vio la campaña real (24/10/2026, la #289 en el ws1, medido con `medir-289.mts`, sin versionar, en `C:/dev/wt-aut-sab24/scripts/_sab24/`).** Quien
+contesta MIENTRAS le está saliendo el mensaje se pierde el corte. M1 son 3 partes con pausas de 5 s: ~20 s desde la
+primera parte hasta la fila del envío. El #2502 contestó a los 5 s de la primera parte. `pausarPorRespuesta` lo puso en
+'respondio', y `alContestar` no lo tocó porque todavía no le había salido nada (`yaLeSalioAlgo` busca la fila del envío,
+que no existía). Al terminar, el avance escribió con `escribir` en modo 'fila': ese modo no compara el estado y pone el
+LEÍDO al empezar la corrida (`conEstadoDeLaFila`), así que volvió a 'activa' (lib/nutricion.ts, `escribir` y el avance
+después de mandar). Quedó 'activa', sin aviso al equipo y con M2 programado. **Lo que esconde:** lo que contestó era la
+bienvenida automática de su WhatsApp Business. Esas llegan a los segundos, dentro de esa ventana, así que HOY el agujero
+hace que casi ninguna cuente como «Contestó». Una que llega a los 30 s sí cuenta: incoherente. Arreglar sólo la carrera
+haría que todas cuenten (aviso al equipo y sin M2). Por eso el arreglo va junto con la decisión de qué es una respuesta
+automática. **Medido de paso:** con un goteo de 11 min salen cada ~12. El turno se cuenta desde el `created_at` de la
+fila, que se escribe después de las partes, y el tick corre una vez por minuto. La condición «Contestó» también espera su
+turno de goteo (es un nodo con canal WhatsApp: `sinLugar`), así que M2 sale 24 h después de evaluarla, no de M1.
+**Sin hacer:** el arreglo de la carrera (CAS en el avance; si la fila pasó a 'respondio' durante el envío, que siga en
+'respondio' y corra `alContestar`) y la regla de la respuesta automática: los dos esperan la decisión del Cerebro.
+
 ## «Sale sola» y la reentrada se fueron de la tarjeta de WhatsApp (23/10/2026)
 
 **Medido antes de sacarlo.** El primer mensaje de #289 salía solo (`revisar: false`): no fue el P0. Pero el SEGUNDO no
@@ -6496,17 +6512,43 @@ en la fila que ya está escribiendo**. `nutricion_envios.error` recibió la fras
 vez del `error.message` de Postgres, que es el único dato que distingue las cinco causas posibles. Un
 error de un tercero (o de la base) se propaga ENTERO hasta la fila que alguien va a poder leer después.
 
-**Lo que queda SIN hacer**, y le toca al chat de Automations:
-1. Hacer que `crearPendiente` devuelva el motivo (no `null`) y que `proponerChat` lo escriba en el envío.
-   Hoy «no pude registrarla» y «la base dijo X» son el mismo texto.
-2. Que un fallo del paso de aviso **no cierre la inscripción**: hoy queda `completada` y el lead se pierde
-   sin reintento. Es la contracara de «un 200 es un ACK» del lado del motor.
-3. Reparar el ws13: ese cliente no tiene aviso de ningún lead desde el 13/10. Y revisar la secuencia #264,
+**Lo que quedaba SIN hacer**, y le tocaba al chat de Automations:
+1. ~~Hacer que `crearPendiente` devuelva el motivo (no `null`) y que `proponerChat` lo escriba en el envío.~~
+   HECHO en 0a5f6c9b6 (en producción desde el 23/10 12:20:34 ART). La causa era medio emoji: docs/hallazgos-api-mako.md.
+2. ~~Que un fallo del paso de aviso **no cierre la inscripción**.~~ HECHO en 0a5f6c9b6: vuelve a su paso y reintenta a 1 h,
+   6 h y 24 h.
+3. Reparar el ws13. El arreglo está; los dos mensajes al grupo (el aviso y la lista de los 19 sin aviso, no 6 ni 10)
+   esperan a que un lead nuevo avise bien. La cuenta, en docs/hallazgos-api-mako.md. Y revisar la secuencia #264,
    que quedó con un único paso `nodo: 'mensaje'` con una `accion` adentro, **sin nodo `inicio`**, y con el
    token `{{mensaje_mako}}` en su hermana #240 — justo el que `problemasDeTokens` prohíbe publicar.
 
 **Vive en:** `lib/mako-pendientes.ts` (`crearPendiente`) · `lib/api-mako/acciones.ts:95` (`proponerChat`) ·
 `lib/api-mako/areas/chatbot.run.ts` (`avisar_al_equipo`) · `nutricion_envios.error`
+
+---
+
+## Archivar no es cerrar: los borradores de una automatización archivada seguían vivos (24/10/2026, ws13)
+
+**Síntoma.** El 24/10 la #264 del ws13 tenía 4 inscripciones en 'respondio' que llevaban 4 días frenadas, y cada 6 horas
+el motor les corría el próximo envío. Las frenaba un borrador pendiente de cada lead (`tieneBorradorNutriPendiente`).
+Esos borradores eran del paso 5 de la #241, que se había archivado el 20/10. Si alguien del cliente aprobaba uno, al lead
+le salía un mensaje escrito para un flujo que ya no corre. Además, en el mismo instante, la #264 disparaba un «Nuevo
+agendado» tardío sobre un lead ya trabajado, y Monica Fantoni estaba en la lista de los leads sin aviso.
+**Causa.** `archivarSecuencias` (lib/secuencias-huecos.ts) cancelaba las inscripciones 'activa' y 'pendiente' y no tocaba
+nada más. El mismo día pasó dos veces: acá y con las 7 confirmaciones del CRM.
+**Regla.** Archivar una automatización decide en el mismo movimiento lo que dejó esperando. Ahora sus borradores pendientes
+pasan a 'descartado' (nunca se borran) con una línea en el historial de cada lead, y la API lo dice al confirmar y al
+terminar. **El motivo vive en el historial del lead porque `wa_borradores` no tiene dónde guardarlo:** quien lea esa tabla
+sola ve un descartado y no sabe por qué. Para auditarlo hay que cruzar con `lead_audit` (campo 'Automatización').
+Los 4 de la #241 se descartaron a mano el 24/10, con el mismo texto y el antes y el después medidos (`descartarBorrador`
+de la app). Las 4 inscripciones salieron con `sacarDeSecuencia`, que hace CAS sobre el estado leído. No se pasaron a
+'completada' porque eso dispara el desenlace.
+**Sin hacer.** Las pendientes de `mako_acciones_pendientes` con origen `flujo:secuencia:<id>` de una automatización
+archivada siguen vivas (lib/mako-pendientes.ts): aprobar una ejecuta la acción de un flujo muerto. Su forma de archivarlas
+('archivado', el motivo en `resolved_by`) es la que usa el CRM. Las inscripciones en 'respondio' tampoco se cancelan al
+archivar. No mandan nada porque una archivada queda pausada, pero quedan colgando.
+**Vive en:** `lib/secuencias-huecos.ts` (`archivarSecuencias`) · `lib/api-mako/areas/chatbot.run.ts` (`archivar_secuencia`)
+· `tests/archivar-descarta-borradores.test.ts`
 
 ---
 

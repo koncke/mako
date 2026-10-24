@@ -61,7 +61,7 @@ export function CentroAppMovil(datos: DatosCentro) {
       <SheetM abierto={runners} onCerrar={() => setRunners(false)} titulo="Tus cuentas de IA" snap="alto">
         <TusCuentasIA sinCabecera />
         <RunnerMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
-          cuentas={cuentasConTitular(k)} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} onCambiarCredito={k.cambiarCreditoDelNegocio} onLeerComputadoras={k.leerComputadoras} onDesconectarComputadora={k.desconectarComputadora} />
+          cuentas={cuentasConTitular(k)} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} onCambiarCredito={k.cambiarCreditoDelNegocio} />
       </SheetM>
     </>
   );
