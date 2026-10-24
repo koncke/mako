@@ -47,6 +47,9 @@ export const CSS = `
 .lk--editando .lk-top { background: var(--surface); }
 .lk--editando .lk-barra { background: var(--surface); margin: 0; border-radius: 0; padding: 2px 16px 6px; border-bottom: 1px solid var(--border); box-shadow: 0 2px 6px rgba(18, 21, 27, .06); position: relative; z-index: 2; }
 .lk-top-izq { flex: 1 1 280px; min-width: 0; display: flex; align-items: center; gap: 10px; }
+/* Un informe sin hojas (las Métricas de una automatización, 24/10/2026): la izquierda es la de la pantalla (su título y
+   «Flujo»), en el mismo lugar que sobre el lienzo, que deja 14 px. */
+.lk-top--propia { padding: 14px; }
 .lk-top-emoji { flex: none; display: grid; place-items: center; width: 42px; height: 42px; font-size: 28px; line-height: 1; }
 .lk-top-emoji--btn { border: none; border-radius: 10px; background: transparent; cursor: pointer; padding: 0; color: var(--faint); }
 .lk-top-emoji--btn:hover, .lk-top-emoji--btn[aria-expanded="true"] { background: var(--velo-hover); }

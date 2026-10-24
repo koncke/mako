@@ -117,7 +117,8 @@ test('7 · «Métricas» va al lado de la tuerca y reemplaza al lienzo; el edito
   const tuerca = sp.indexOf('<BotonTuerca lado={ALTO_ACCION}');
   const metricas = sp.indexOf('<BotonMetricas lado={ALTO_ACCION}');
   assert.ok(tuerca > 0 && metricas > tuerca && metricas - tuerca < 1200, 'el botón va pegado a la tuerca');
-  assert.match(sp, /\{verMetricas \? \([\s\S]{0,900}<MetricasAutomatizacion secuenciaId=\{secuencia\.id\} \/>[\s\S]{0,200}\) : \(\s*<FlujoLienzo/);
+  // 24/10/2026: la cabecera es la mitad izquierda de la barra del informe (una sola barra; tests/metricas-una-barra.test.ts).
+  assert.match(sp, /\{verMetricas \? \([\s\S]{0,900}<MetricasAutomatizacion secuenciaId=\{secuencia\.id\} izquierda=\{cabecera\} titulo=\{nombre \|\| secuencia\.nombre\} \/>[\s\S]{0,200}\) : \(\s*<FlujoLienzo/);
   assert.match(sp, /chrome=\{cabecera\}/, 'la misma cabecera en el lienzo y en las métricas: se vuelve con el mismo botón');
   const m = leer('app/automations/MetricasAutomatizacion.tsx');
   assert.match(m, /dynamic\(\(\) => import\('@\/app\/dashboard\/EditorInforme'\)[\s\S]{0,120}ssr: false/);

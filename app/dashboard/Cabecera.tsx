@@ -43,8 +43,13 @@ type CambioCabecera = Partial<Pick<Hoja, 'nombre' | 'emoji' | 'subtitulo'>>;
  * La topbar. `periodo` es la línea que sólo sale en el PDF (los filtros no se imprimen). El desplegable y
  * el selector de emoji los abre la pantalla (son `Flotante`s de ./Galeria.tsx): acá sólo los botones.
  */
-export function BarraSuperior({ hoja, editable, conHojas, hojasAbierto, emojiAbierto, periodo, onHojas, onEmoji, onCambiar, derecha }: {
+export function BarraSuperior({ hoja, propia = null, editable, conHojas, hojasAbierto, emojiAbierto, periodo, onHojas, onEmoji, onCambiar, derecha }: {
   hoja: Hoja;
+  /**
+   * Un informe SIN HOJAS (24/10/2026, las Métricas de una automatización): la mitad izquierda la pone la pantalla (su
+   * título, que es el único) y acá no va el de la hoja, ni su ▾, ni su subtítulo. `titulo` sale sólo en el PDF.
+   */
+  propia?: { izquierda: ReactNode; titulo: string } | null;
   /** Se puede guardar: el emoji, el título y el subtítulo se editan con un clic, mirando o editando. */
   editable: boolean;
   /** Hay a dónde ir: más de una hoja, o «Nueva hoja». Sin eso no hay desplegable. */
@@ -58,6 +63,20 @@ export function BarraSuperior({ hoja, editable, conHojas, hojasAbierto, emojiAbi
   /** Lo de la derecha: los filtros de la hoja, Compartir, Editar/Ver y el ⋮. */
   derecha: ReactNode;
 }) {
+  if (propia) {
+    return (
+      <header className="lk-top lk-top--propia">
+        <div className="lk-top-izq lk-sin-imprimir">{propia.izquierda}</div>
+        <div className="lk-top-izq lk-solo-imprimir">
+          <div className="lk-top-textos">
+            <h1 className="lk-top-tit">{propia.titulo}</h1>
+            <p className="lk-cab-periodo">{periodo}</p>
+          </div>
+        </div>
+        <div className="lk-top-der">{derecha}</div>
+      </header>
+    );
+  }
   return (
     <header className="lk-top">
       <div className="lk-top-izq" data-recorrido="dash-titulo">

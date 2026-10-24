@@ -6868,6 +6868,42 @@ Todo coincide con la base contada a mano.
   que en las Métricas usan la que manda la pantalla.
 - «Llevar al Dashboard» lleva la PRIMERA hoja de las Métricas, no la que se está mirando, porque el editor no expone
   la hoja abierta.
+
+### Una sola barra arriba: la del informe (24/10/2026)
+
+**El pedido** (Martín, cuatro puntos). «Llevar al Dashboard» va dentro de los 3 puntitos. El título no se duplica y no
+lleva desplegable. «Analizar con MaKo» se va. Y mirando las métricas no van «Probar» ni «Configuraciones»: en su lugar
+van la búsqueda, el filtro y los 3 puntitos. **El problema de fondo:** las Métricas heredaron la barra entera del editor
+del Dashboard, con su selector de hojas, debajo de la barra de la automatización. Un informe de automatización no tiene
+varias hojas, no se prueba y no se configura desde ahí.
+
+**Cómo quedó:**
+- La cabecera de la automatización (título y «Flujo») es la MITAD IZQUIERDA de la barra del informe:
+  `cabeceraPropia` de `EditorInforme` y `propia` de `BarraSuperior` (app/dashboard/Cabecera.tsx).
+- La derecha es la del informe: buscar, filtrar, Editar y el ⋮.
+- La tuerca y «Probar» no se dibujan mientras `verMetricas`.
+- «Llevar al Dashboard» es el primer renglón del ⋮ (`enMas`). Como el `Flotante` no se cierra con un clic adentro,
+  después de llevarla queda ahí mismo «Abrir … en el Dashboard».
+- El título del PDF y el nombre del CSV son los de la automatización, no «Métricas».
+
+**Por qué se bajó la cabecera al editor y no se subieron los controles con un portal** (los dos caminos parecían
+iguales):
+- `BuscarEnHoja` busca su hoja con `closest('.lk-app')`. Fuera de esa caja la búsqueda deja de andar sin dar error.
+- Los eventos de React suben por los portales: un clic derecho en un botón portaleado abría el menú contextual del
+  Dashboard.
+- Al imprimir sólo queda `.lk-app`, así que el PDF habría salido titulado «Métricas».
+
+**Dos trampas que no se ven:**
+- El «✕ Cerrar» de la prueba vive en la misma barra que «Probar». Abrir las métricas con la prueba abierta la dejaba sin
+  forma de cerrarse, así que `BotonMetricas` la cierra antes.
+- El editor entra con `next/dynamic`: mientras baja su código, su `loading` no recibe props y «Flujo» desaparecía. La
+  izquierda le llega por contexto (`IzquierdaDeCarga`).
+
+Test: tests/metricas-una-barra.test.ts (10 roturas). **Sin hacer:**
+- «Compartir» sigue en el ⋮ de una automatización. Comparte el informe de quien mira con el id de la hoja de la
+  automatización, y probablemente da un link roto (sin medir).
+- El análisis programado de una hoja de Métricas se borra solo en la primera corrida: el cron no la encuentra
+  (`leerInformeGuardado`, lib/graficos-analisis-server.ts).
 - No se vio en pantalla antes de subir (no había RAM para un build local): se mira en producción después del deploy.
 
 **Vive en:** `lib/automatizacion-metricas.ts` (la plantilla, el filtro, lo que cuentan las fuentes) ·

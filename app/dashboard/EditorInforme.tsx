@@ -304,7 +304,7 @@ function nuevoElementoEn(t: TipoElemento, componentes: Componente[], dueno: Graf
 export function EditorInforme({
   inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
   hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard', probarInicial = null,
-  senales = null, unido = null, plantillasInicial = false, avisoClosing = null,
+  senales = null, unido = null, plantillasInicial = false, avisoClosing = null, cabeceraPropia = null,
 }: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
@@ -351,6 +351,13 @@ export function EditorInforme({
   unido?: { otras: HojaCorta[] } | null;
   /** `?plantillas=1`: «Templates» desde Focus. Abre la galería al entrar. */
   plantillasInicial?: boolean;
+  /**
+   * UN INFORME SIN HOJAS (24/10/2026, las Métricas de una automatización): la pantalla pone la mitad izquierda de la topbar
+   * (su título y su botón para volver), y el editor no dibuja el suyo ni el ▾ de las hojas. Martín: «El título no debería
+   * duplicarse, debe ser el mismo, y sin desplegable, acá no hay muchas páginas como en Dashboard». `titulo` es el del
+   * PDF y el del CSV; `enMas`, lo propio de esa pantalla, primero en el ⋮ («Llevar al Dashboard»).
+   */
+  cabeceraPropia?: { izquierda: ReactNode; titulo: string; enMas?: ReactNode } | null;
 }) {
   // El informe del primer render: el que vino, más la hoja que pidió el link si no estaba.
   const [arranque] = useState<Tablero>(() => conHojaAgregada(inicial, hojaAgregada));
@@ -994,7 +1001,7 @@ export function EditorInforme({
   const exportarCsv = () => {
     setMenu(null);
     const { csv, salteados } = csvDeHoja({ hoja, resultados, efectivos: efectivosHoja, hoy });
-    descargar(csv, nombreArchivo(hoja.nombre, hoy, 'csv'), 'text/csv;charset=utf-8');
+    descargar(csv, nombreArchivo(cabeceraPropia?.titulo ?? hoja.nombre, hoy, 'csv'), 'text/csv;charset=utf-8');
     const n = salteados.bloques + salteados.elementos + salteados.sinDatos;
     show(n ? `CSV sin ${n} piezas` : 'CSV descargado');
   };
@@ -1130,7 +1137,7 @@ export function EditorInforme({
   };
   const contextoDe = (c: Componente | null) => ({
     sobre: !c ? 'lienzo' as const : esGrafico(c) ? 'grafico' as const : 'elemento' as const,
-    editando, guardable, soloMirar, compartido: !!compartido, enPopup: !!dueno, puedeNuevaHoja, enGeneral: esGeneral,
+    editando, guardable, soloMirar, compartido: !!compartido, enPopup: !!dueno, puedeNuevaHoja: puedeNuevaHoja && !cabeceraPropia, enGeneral: esGeneral,
     conMako: !!c && esGrafico(c) && conMako(c), conDatos: !!c && !!datos[c.id]?.resultado,
   });
   const alClicDerecho = (e: ReactMouseEvent<HTMLElement>) => {
@@ -1357,7 +1364,7 @@ export function EditorInforme({
       {/* ── La topbar, como la de Looker: el título de la hoja (con su desplegable) y a la derecha los
              filtros, Compartir, Editar y el ⋮ ── */}
       <BarraSuperior
-        hoja={hojaTop} editable={guardable && !enBlanco} conHojas={enBlanco ? guardable && !!tablero.archivadas?.length : puedeNuevaHoja || tablero.hojas.length > 1 || (guardable && !!tablero.archivadas?.length)}
+        hoja={hojaTop} propia={cabeceraPropia ? { izquierda: cabeceraPropia.izquierda, titulo: cabeceraPropia.titulo } : null} editable={guardable && !enBlanco} conHojas={enBlanco ? guardable && !!tablero.archivadas?.length : puedeNuevaHoja || tablero.hojas.length > 1 || (guardable && !!tablero.archivadas?.length)}
         hojasAbierto={menu?.tipo === 'hojas'} emojiAbierto={menu?.tipo === 'emoji'} periodo={periodoDeHoja(hojaTop, vista, hoy)}
         onHojas={(ancla) => alternarMenu('hojas', ancla)} onEmoji={(ancla) => alternarMenu('emoji', ancla)} onCambiar={cambiarCabecera}
         derecha={(
@@ -1382,11 +1389,15 @@ export function EditorInforme({
             </div>
             )}
             {/* «Editar con MaKo» (16/10/2026): el logo solo sobre negro, chico (punto 3 de la tanda de la topbar: «solo el
-                logo con el fondo negro, nada más»). Sólo quien puede guardar, y con una hoja. MIRANDO abre el AI Analyst
-                (17/10/2026, Martín: «al estar en VISTA del dashboard debería asesorar, no modificar»); editando, el que cambia. */}
-            {guardable && !enBlanco && !compartido && (editando
-              ? <BotonMako lado={30} title="Editar con MaKo" encendido={makoEditar} onClick={alternarMakoEditar} />
-              : <BotonMako lado={30} title="Analizar con MaKo" encendido={analista} onClick={alternarAnalista} />
+                logo con el fondo negro, nada más»). Sólo quien puede guardar, con una hoja, y EDITANDO: es el que cambia. Hasta
+                el 24/10/2026, mirando abría el AI Analyst (17/10, «al estar en VISTA del dashboard debería asesorar»); ver abajo. */}
+            {/* ⛔ «ANALIZAR CON MaKo» YA NO ESTÁ EN LA BARRA (24/10/2026, Martín: «debería eliminarse completamente y también
+                en el dashboard, porque para eso ya tenemos el chat de la criatura de MaKo»). Mirando, al lado de la estrella,
+                era un segundo MaKo. El AI Analyst sigue en el ⋮ porque hace lo que la criatura todavía no hace: analiza la
+                hoja entera con la vista puesta, cita las cifras de los datos y se programa. Sacarlo también del ⋮ lo decide
+                Martín (docs/hallazgos-graficos.md, «"Analizar con MaKo" sale de la barra»). */}
+            {guardable && !enBlanco && !compartido && editando && (
+              <BotonMako lado={30} title="Editar con MaKo" encendido={makoEditar} onClick={alternarMakoEditar} />
             )}
             {/* «Editar» en azul (punto 3 de v5). Compartir se fue al ⋮. */}
             {!soloMirar && !enBlanco && (
@@ -1629,6 +1640,12 @@ export function EditorInforme({
       {menu?.tipo === 'mas' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={240}>
           <div className="lk-lista" role="menu">
+            {cabeceraPropia?.enMas && (
+              <>
+                {cabeceraPropia.enMas}
+                <div className="lk-sep-h" />
+              </>
+            )}
             {/* Compartir (punto 9; desde v5 un renglón del ⋮): sólo quien puede guardar comparte (el closer no, y
                 desde un link no se re-comparte). El modal va AFUERA del menú: adentro, cerrar el menú lo desmontaría. */}
             {guardable && !esGeneral && (
