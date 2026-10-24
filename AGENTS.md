@@ -5614,6 +5614,14 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
 - **Un proxy de archivos no repite el Content-Type de quien los mandó**: lista de tipos, `attachment` y `nosniff`.
 - **Todo handler de `app/api/cron` empieza con `checkCronAuth(req)`** (tiempo constante, fail-closed), y ninguna ruta
   lee `CRON_SECRET` por su cuenta.
+- ⚠️ **Y un cron de SESIÓN no es infraestructura: lo que tiene que correr SIEMPRE va acá, nunca
+  en un `CronCreate`.** Ése es session-only y vence a los 7 días, así que depende de que un chat de
+  Claude siga abierto. Medido el 24/10/2026: el vigía de los grupos de MaKo estuvo TRES DÍAS parado
+  porque su job vivía en la sesión de otra cuenta, y no lo avisó ningún sistema — lo notó Martín a
+  ojo. La prueba antes de escribirlo: **si «¿quién lo dispara?» se contesta «un chat», no es un
+  guardia.** Y al mudar algo de una sesión a un cron, la pregunta que falta casi siempre es a dónde
+  va la SALIDA: el informe que leía una persona en su terminal no lo lee nadie. El caso, en
+  [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «Un vigía atado a una sesión de Claude».
 - **Un GET no escribe** (el de `chat-agent/onboarding/resumen` desarchivaba automatizaciones con un link).
 - **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated` Y su `grant execute … to service_role`** (el de una
   función de trigger no hace falta), en su migración: **no es redundante.** La 0280 creía dejar las nuevas cerradas y NO lo hacía: el

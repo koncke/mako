@@ -8141,3 +8141,63 @@ trae `main` con **merge, nunca rebase** — un rebase le cambiaría el sha a las
 las dejaría sin poder verificarse con `merge-base --is-ancestor`.
 
 **Vive en:** `docs/relevo.md` · `docs/relevo/cerebro.md` · `git worktree list`
+## Un vigía atado a una sesión de Claude se apaga SOLO, y no lo avisa nadie (24/10/2026, Cerebro › Integración)
+
+El vigía de los grupos de MaKo en WhatsApp —el que lee todas las charlas con clientes
+buscando «no puedo», promesas sin hacer y quejas— estuvo **TRES DÍAS apagado**. La marca
+había quedado en `2026-10-21T23:40Z` y se corrió a mano el 24: levantó 3 incidentes
+acumulados, dos de ellos vivos. **No lo avisó ningún sistema: lo notó Martín a ojo**
+(«veo que hay muchos errores»).
+
+**La causa no fue un olvido, fue de arquitectura.** Lo disparaba un `CronCreate`, que es
+**session-only y vence a los 7 días**, y el job vivía en la sesión de un chat de OTRA
+cuenta de Claude (creado el 20/10). Cerrada esa sesión, el vigía deja de correr — y como
+lo único que producía era un informe en la terminal de ese chat, al no correr no hay
+ausencia que se note. **El modo de falla es el de siempre y el más caro: no se rompe
+nada, y tampoco llega nada.**
+
+⚠️ **La regla que queda, y es más grande que este caso: un cron de SESIÓN no es
+infraestructura.** Sirve para lo que dura lo que dura esa sesión (un sondeo mientras
+alguien espera, un recordatorio de un turno). Todo lo que tiene que correr **siempre** va
+a un cron de Vercel (`vercel.json` + su ruta bajo `app/api/cron`), que corre sin que nadie
+tenga nada abierto. La prueba para distinguirlos, antes de escribirlo: **si la respuesta a
+«¿quién lo dispara?» es «un chat», no es un guardia — es una casualidad.** Y vale para
+cualquier otro `CronCreate` que estemos usando como si fuera una pieza del producto.
+
+**Lo que costó mudarlo, y lo que no se puede copiar del script:**
+
+- **En Vercel no hay disco.** Donde el script guardaba `~/.claude/vigia-mako-grupos.json`
+  va un setting, y va en el workspace de la **PLATAFORMA** (`runWithWorkspace(await
+  wsSuperAdmin(), …)`). Sin cookies `getWorkspaceActual()` cae a `OWNER_WS`, que es el ws1
+  y es un CLIENTE: la marca de la plataforma habría quedado guardada adentro de su
+  workspace.
+- **«No pude leer» NO es «no hubo nada», y ahora son TRES respuestas, no dos.** El setting
+  que FALTA es la primera vuelta (se mira la última hora) y un JSON roto también; lo que
+  no entra por esa puerta es un error de la base, que corta con 503 y **deja la marca donde
+  estaba**. Avanzarla pierde los incidentes de esa ventana para siempre — es el código 2
+  del script, y es justamente lo que evitó perder los 3 de estos días.
+- ⚠️ **Y lo que cambió de verdad al mudarlo no fue el disparador: fue QUIÉN LEE.** El
+  informe lo leía una persona en la terminal de un chat. Con un cron no hay nadie leyendo,
+  así que un vigía que sólo imprime es un vigía que corre y no sirve. Cada incidente entra
+  ahora por la MISMA puerta que los errores de la app: un ticket de bug del sistema en la
+  Ticketera, idempotente por `ref`. **Al mover algo de una sesión a la infraestructura, la
+  pregunta que falta casi siempre es a dónde va la SALIDA.**
+- **Los de `error-app` no llevan ticket acá: ya lo tienen.** `lib/errores-app.ts` lo abre
+  cuando la huella es nueva y el vigía sólo los relee para el informe; crearles otro
+  duplicaría el mismo bug en la Ticketera.
+- **El orden importa: los tickets ANTES de mover la marca.** `crearTicket` es idempotente
+  por `ref`, así que un corte a mitad se retoma sin duplicar; con la marca movida primero,
+  lo que no alcanzó a abrir ticket se pierde. Y sólo se recuerda como «visto» lo que de
+  verdad quedó asentado: un incidente cuyo ticket falló NO entra, para que la próxima
+  vuelta lo reintente.
+
+**Queda APAGADO detrás de `VIGIA_GRUPOS`** (`off` por default · `seco` lee y cuenta lo que
+haría sin escribir nada · `on`). Una ruta nueva que escribe en la Ticketera se prende
+después de verla en seco, no en el deploy que la estrena.
+
+**Lo que queda SIN hacer:** correrla en `seco` contra producción, mirar el conteo, y
+recién ahí ponerla en `on`. Y el script `scripts/vigia-mako-grupos.mts` sigue existiendo
+como la forma de mirarlo a mano desde un worktree; el `CronCreate` que lo disparaba no se
+vuelve a crear.
+
+**Vive en:** `app/api/cron/vigia-grupos/route.ts` · `lib/vigia-grupos-estado.ts` · `lib/vigia-mako-grupos.ts` · `vercel.json` · `scripts/vigia-mako-grupos.mts`
