@@ -481,6 +481,49 @@ envíos y permisos. Lo que le rompía a un cliente quedó arreglado y fijado en 
 
 ## WhatsApp no oficial (Evolution)
 
+### ⚠️ Dos fichas con el mismo teléfono: la respuesta cortaba a la equivocada, y la medición obvia decía «a salvo» (24/10/2026)
+
+**Síntoma:** German, en Leila, tiene dos fichas: #1776 (agosto, con el número sin país) y #1797 (52 + 10 dígitos), que
+está activa en «Recordatorio clase reactivación». Si contestaba, su respuesta iba a cortar a la #1776, que no tiene
+ninguna automatización. Para la #1797 iba a seguir siendo «No contestó», y le íbamos a seguir escribiendo a alguien que
+ya había contestado. Es el mismo bug que el lead de prueba de Martín: el #3099 contestaba en el #249
+(docs/hallazgos-chatbot.md).
+
+**Causa real:** `matchLeadPorTelefono` (lib/evolution-mensajes.ts) buscaba primero la coincidencia exacta y después el
+sufijo de 10 dígitos, y se quedaba con el id MÁS BAJO. `pausarPorRespuesta` sólo corta las inscripciones de esa ficha.
+
+**⚠️ El diagnóstico obvio era el equivocado.** La primera medición simuló el matcher con el número GUARDADO de cada ficha.
+Con 529981478439, la #1797 coincide exacto consigo misma, y la medición dio «German, a salvo». Pero WhatsApp le escribe a
+**521** + 10 dígitos, que es el JID de un celular de México (y 549 en Argentina). Con ese número no coincide ninguna
+exacta, el sufijo trae las dos fichas y gana la #1776. Lo encontró una verificación independiente que miró los CHATS
+(salientes contra entrantes de cada `chat_jid`), no las fichas. **Regla de medición:** a quién se pega un entrante se mide
+con el número del JID (`wa_mensajes.telefono` de sus salientes, o 521/549 + 10 si todavía no hay chat), nunca con
+`telefono_normalizado`.
+
+**El arreglo (24/10):** con más de una ficha para ese teléfono, la respuesta va a la ficha a la que LE ESCRIBIMOS ÚLTIMO
+(`fichaDelEntrante`, lib/ficha-del-entrante.ts). La prueba de «le escribimos» es lo más nuevo entre dos cosas: su saliente
+en ESE chat y su último WhatsApp de una automatización (`nutricion_envios`). Hacen falta las dos porque la fila del espejo
+puede quedar con la ficha del eco del webhook: `enviarYEspejar` hace `ignoreDuplicates`, y el eco elige la ficha por
+teléfono. El envío del motor, en cambio, lo escribe quien mandó. Sin ninguna prueba, queda lo de antes: la exacta, y si no,
+la de id más bajo. Con una sola candidata no se consulta nada más. Test: tests/entrante-ficha-gemela.test.ts.
+
+**Por qué NO se pausan las dos fichas** (que era lo primero que se ocurría): `pausarPorRespuesta` no sólo marca
+'respondio', también CONTESTA (el AI Step, el modo asistido, la charla). Correrlo en cada ficha gemela le podía mandar dos
+respuestas a la misma persona. Se elige UNA ficha y todo sigue por ella.
+
+**Medido el 24/10, sólo lectura (2393 fichas, 63 inscripciones activas):**
+- 16 grupos con el mismo teléfono: 13 en el negocio de prueba (el arnés).
+- Los otros tres: el #3099/#249 de Martín, German en Leila, y Juanfran Marquez en el negocio de Martín, que no tiene
+  automatizaciones.
+- Incidentes que ya pasaron en negocios reales: ninguno.
+
+**Sin hacer:**
+- `resolverLeadIdsPorTelefono` (lib/evolution-mensajes.ts) no ordena: con dos fichas puede mostrar una distinta en cada
+  pedido.
+- `primerLeadPorTelefono` y `elegirPorTelefono` (lib/leads-duplicados.ts) siguen con su propia regla.
+- El eco que gana en `enviarYEspejar` deja el saliente con la ficha de id más bajo.
+- Las dos fichas de German siguen separadas: «Unificar» es una escritura en el negocio de Leila, y la decide el Cerebro.
+
 ### ⚠️ Un teléfono sin código de país no existe en WhatsApp, y el envío no lo completaba (ws11, 20/10/2026)
 
 **Síntoma:** Leila (ws11) le mandó a Martín una captura: en la ficha del lead #2313, «WhatsApp no oficial» → «Ese número

@@ -15,6 +15,7 @@ import { jidToNumero, lineaParaLeer, fetchMensajesEvolution,
   fetchConversacionEvolution, fetchChatsEvolution, fetchLidDeNumero, statusDeRecord, type EvRecord } from '@/lib/evolution';
 import { normalizarTelefono, logLeadEvent } from '@/lib/leads';
 import { pausarPorRespuesta } from '@/lib/nutricion';
+import { fichaDelEntrante, ultimoPorFicha } from '@/lib/ficha-del-entrante';
 import {
   esRespuestaAutomatica, inicioDeLaRafaga, horasDeSalida, textoRespuestaAutomatica,
   VENTANA_LECTURA_MS, TOLERANCIA_RELOJ_MS, UMBRAL_RESPUESTA_AUTOMATICA_MS, SIN_ACTIVIDAD_PARA_LA_BIENVENIDA_MS,
@@ -100,18 +101,38 @@ function tsToISO(ts: number | string | undefined): string {
   return new Date().toISOString();
 }
 
-// Match del lead por teléfono. Preferimos igualdad exacta del normalizado; si no,
-// caemos al sufijo de 10 dígitos (como el webhook de Chatwoot) con orden estable
-// para que sea determinista. Scopeado al workspace por getTenantDb.
-async function matchLeadPorTelefono(telNorm: string): Promise<number | null> {
+// Match del lead por teléfono: las fichas cuyo normalizado TERMINA en los 10 últimos dígitos (como el webhook de
+// Chatwoot; incluye las que coinciden exacto). Scopeado al workspace por getTenantDb.
+// ⚠️ CON DOS FICHAS PARA EL MISMO TELÉFONO (24/10/2026, German en Leila y el #3099 de Martín): hasta ese día ganaba la de
+// id más bajo y la respuesta cortaba a la ficha equivocada. Ahora decide `fichaDelEntrante` (lib/ficha-del-entrante.ts):
+// la ficha a la que le escribimos último —su saliente en ESTE chat o su último WhatsApp de una automatización—, y sin
+// nada de eso, la exacta y la de id más bajo. Con una sola candidata no se consulta nada más.
+const TOPE_CANDIDATAS = 20;
+async function matchLeadPorTelefono(telNorm: string, chatJid: string | null = null): Promise<number | null> {
   if (telNorm.length < 8) return null;
   const supabase = await getTenantDb();
-  const exacto = await supabase.from('leads').select('id').eq('telefono_normalizado', telNorm).order('id').limit(1);
-  const eId = ((exacto.data ?? []) as Array<{ id: number }>)[0]?.id;
-  if (eId) return eId;
   const last = telNorm.slice(-10);
-  const suf = await supabase.from('leads').select('id').like('telefono_normalizado', `%${last}`).order('id').limit(1);
-  return ((suf.data ?? []) as Array<{ id: number }>)[0]?.id ?? null;
+  const suf = await supabase.from('leads').select('id, telefono_normalizado').like('telefono_normalizado', `%${last}`).order('id').limit(TOPE_CANDIDATAS);
+  if (suf.error) console.error(`[evolution] ¿de quién es el ${telNorm.slice(-4)}?: ${suf.error.message}`);
+  const fichas = (suf.data ?? []) as Array<{ id: number; telefono_normalizado: string | null }>;
+  if (fichas.length <= 1) return fichas[0]?.id ?? null;
+  const ids = fichas.map((f) => f.id);
+  // Lo que le escribimos a cada una. Si una lectura falla, se decide con lo que haya (en el peor caso, lo de antes).
+  const [enElChat, porAutomatizacion] = await Promise.all([
+    chatJid
+      ? supabase.from('wa_mensajes').select('lead_id, wa_timestamp').eq('chat_jid', chatJid).eq('from_me', true).in('lead_id', ids)
+        .order('wa_timestamp', { ascending: false }).limit(50)
+      : Promise.resolve({ data: [], error: null }),
+    supabase.from('nutricion_envios').select('lead_id, created_at').in('lead_id', ids).eq('canal', 'whatsapp').in('estado', ['enviado', 'simulado'])
+      .order('created_at', { ascending: false }).limit(50),
+  ]);
+  if (enElChat.error) console.error(`[evolution] salientes de las fichas ${ids.join(', ')}: ${enElChat.error.message}`);
+  if (porAutomatizacion.error) console.error(`[evolution] envíos de las fichas ${ids.join(', ')}: ${porAutomatizacion.error.message}`);
+  const ultimo = ultimoPorFicha([
+    ...((enElChat.data ?? []) as Array<{ lead_id: number | null; wa_timestamp: string | null }>).map((r) => ({ lead_id: r.lead_id, at: r.wa_timestamp })),
+    ...((porAutomatizacion.data ?? []) as Array<{ lead_id: number | null; created_at: string | null }>).map((r) => ({ lead_id: r.lead_id, at: r.created_at })),
+  ]);
+  return fichaDelEntrante(fichas.map((f) => ({ id: f.id, exacta: f.telefono_normalizado === telNorm, ultimoEscritoMs: ultimo.get(f.id) ?? null })));
 }
 
 // Guarda un messages.upsert. IDEMPOTENTE y no destructivo: Evolution reenvía el
@@ -154,7 +175,7 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
   const prev = existente as { id: number; media_path: string | null; texto: string | null; lead_id: number | null; status: string | null } | null;
 
   // Match de lead solo si hace falta (no lo teníamos aún).
-  const leadId = prev?.lead_id ?? (telefono ? await matchLeadPorTelefono(telefono) : null);
+  const leadId = prev?.lead_id ?? (telefono ? await matchLeadPorTelefono(telefono, chatJid) : null);
 
   // Subimos media SOLO si es fila nueva o todavía no tenía media guardada.
   let mediaPath: string | null = prev?.media_path ?? null;
@@ -837,7 +858,7 @@ export async function sincronizarDesdeEvolution(linea?: string | null): Promise<
     // Mismo cuidado que en guardarMensajeUpsert: un chatJid que sigue en @lid no
     // tiene número real conocido — guardar su ID como teléfono es peor que nada.
     const telefono = chatJid.endsWith('@lid') ? null : normalizarTelefono(jidToNumero(chatJid));
-    const leadId = telefono ? await matchLeadPorTelefono(telefono) : null;
+    const leadId = telefono ? await matchLeadPorTelefono(telefono, chatJid) : null;
     const filas: Record<string, unknown>[] = [];
     for (const rec of recs) {
       const key = rec.key;
@@ -889,7 +910,7 @@ export async function sincronizarChat(chatJid: string, linea?: string | null): P
   if (!recs.length) return { mensajes: 0 };
   let canon = chatJid;
   for (const rec of recs) { const cj = jidCanonico(rec.key); if (cj && !cj.endsWith('@lid')) { canon = cj; break; } }
-  const leadId = telefono ? await matchLeadPorTelefono(telefono) : null;
+  const leadId = telefono ? await matchLeadPorTelefono(telefono, canon) : null;
   const filas: Record<string, unknown>[] = [];
   const vistos = new Set<string>();
   for (const rec of recs) {
