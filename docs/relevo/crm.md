@@ -48,14 +48,34 @@ verde. Juntos: 73 de 73. La próxima sesión de CRM sigue desde ahí (merge o ff
 (`5badeda1a`) y la espera estacionada (M2/E4). La revisión adversarial confirmó 24 hallazgos (`wf_14b879ca-b3c`; detalle
 en el journal de la corrida y en el scratchpad de la sesión, `crm-b5-revision.md`). Faltan:
 - ~~Plantillas: E2 y E3~~ (hechos el 24/10, ver arriba).
-- Script: sacar T6 del plan (su CRON son etapas de salida: guardarDisparadores lo rechaza, S1/S4). Validar cada CRON y
-  destino contra productosConEtapas antes de insertar; si `r.aviso`, borrar la fila. T1 una por etapa de reunión, anclada en
-  reunion_1 / reunion_2 (M1/E1/M4). T2 con CRON `lead,nutri` (S5). Deduplicar por plantilla + CRON (S3). getFunnelDefault,
-  abortando con origen 'error' (S9). Rechazar --aplicar con --activar. --activar: verificar que existan, apagar el motor con
-  cambiarSettingSi, prender, y si algo falla volver todo atrás (S2/S6). DuplicadaError + `--aunque-duplique`, y sumar el
-  script a PRENDEN en tests/automations-activar-todos-los-caminos.test.ts (hoy ROJO). Archivar las 7 confirmaciones
-  (estado 'archivado', motivo en resolved_by, una línea en lead_audit): la #75 sin tocar el lead; la #76 sólo si se prende
-  T3. El simulacro, con yaConf, los ids de las pendientes, los leads en tránsito y los de T3 sin plazo (S7/S8).
+- ~~Script: S1–S9, M1/E1/M4, PRENDEN, las 7 confirmaciones~~ (hecho el 24/10 sobre un plan puro, lib/crm-auto-migracion.ts;
+  ver docs/hallazgos-crm.md «El script de migración, reescrito»). La #75 y las T1 se archivan sin tocar al lead; la #76,
+  sólo si «Venció la Nutrición Manual» la vuelve a preguntar. SIN COMMITEAR todavía en el worktree (script + módulo +
+  tests/crm-auto-migracion.test.ts 10/10 + PRENDEN/SISTEMA): falta arreglar lo de abajo.
+- **La 2ª revisión del script (24/10, `wf_933af347-1e1`) confirmó 17 de 19**, ~13 distintos. Detalle con escenario y
+  arreglo en el journal de la corrida. Lo que hay que hacer, en orden:
+  1. `--activar`, el deshacer: marcar «intenté el setting» ANTES del CAS y, en el deshacer, correr siempre el CAS inverso.
+     Anotar cada id en activadas/archivadas ANTES de escribir. Si el setting no volvió, NO pausar el reemplazo. Imprimir
+     lo deshecho antes de guardar el respaldo, y ese guardar en try/catch.
+  2. Orden nuevo: prender → releer → apagar el motor (CAS) → leer de NUEVO las pendientes (una corrida del motor en curso
+     crea más después de la foto) → archivar → la línea del historial con su error mirado (no `logLeadEvent`, que se lo
+     traga), y en el deshacer borrar las líneas de esta corrida.
+  3. Evidencia de «motor prendido» sin fila del setting: sólo para el dueño (`OWNER_WS`, como `flag()`), y contando sólo
+     las líneas del motor (`logRegla`, `T1:`…), no las resoluciones humanas («MaKo (Tn): confirmado por…»). Igual el
+     conteo de 30 días.
+  4. Las confirmaciones, por CLAVE y no por regla: T1:j1 la cubre el plan anclado a reunion_1, T1:j2 el de reunion_2.
+     Toda pendiente con aplicado=false es un pedido de decisión: sólo se archiva si su lead vuelve a ser preguntado (su
+     conjunto en `vuelveAPreguntar`), y sin conjunto, queda viva (cerrar en falla). Hoy las 6 T1 son aplicado=true.
+  5. `diferenciaConElPlan`: comparar el GRAFO entero con el que escribiría el script (pasosConDestinos → ancla →
+     normalizar), por una firma estable por id. Hoy una T3 se adopta mirando sólo el CRON, y en T2 no mira `enEtapa`.
+  6. M4 con la etapa DERIVADA: con la R2 cargada, el lead pasa a la etapa de la R2 y la pregunta por la R1 espera a la R2.
+     La de la R1 tiene que mirar la 1ª reunión aunque el lead ya no esté en su etapa (SIN_MARCAR acotada a la 1ª con
+     `reuniones`; la de la R2, a la 2ª). El test 3b fuerza la etapa: que salga de `pipelineStageOf`.
+  7. Una T3 adoptada que ya estaba prendida no vuelve a inscribir a quien ya pasó por ella: sacarlos de `preguntaT3` y de
+     la «toma» (leer `nutricion_inscripciones`), o exigir que las adoptadas no hayan corrido.
+  8. `avisaEnseguida` también para T1 (la reunión + 3 h ya pasada y sin marcar).
+  9. Fuera del script: un toque viejo sobre una confirmación archivada contesta OK sin hacer nada (lib/mako-confirmaciones.ts):
+     que diga «ya estaba archivada».
 - Galería y API: sin «Elegir después» en las que tienen destinos, y el server exige el CRON y destinos de un solo CRM (G1).
   `alCrearDePlantilla` con cron:true (G2). tests/crear-al-instante.test.ts está ROJO desde b5. yaEstaba en
   cambiar_desde_espera_paso (G3). Los textos de la API sobre la gracia (G4). La descripción de cambiar_espera_paso (G5).

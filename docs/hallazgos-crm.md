@@ -62,8 +62,43 @@ en [corridas-multiagente.md](corridas-multiagente.md).
   superó. Con varios chats sobre el mismo clon, **el relevo se lee de `git show origin/main:docs/relevo/crm.md`**, no
   del árbol de trabajo.
 
+### El script de migración, reescrito sobre un plan puro (24/10/2026)
+
+**Vive en:** `lib/crm-auto-migracion.ts` (puro, `tests/crm-auto-migracion.test.ts`) y `scripts/crm-auto-a-automatizaciones.mts`.
+
+- **«Equivalente» no era «la misma regla en otra caja».** La revisión encontró que la primera versión copiaba cada regla y
+  perdía lo que el motor hacía por el costado:
+  - T2 del motor mira Lead entrante **y** No Agenda. Con el CRON sólo en Lead entrante, los que el motor ya había pasado a
+    No Agenda no llegaban nunca a Reactivación. Ahora el CRON es `lead,nutri`; moverlos «a No Agenda» desde No Agenda no
+    hace nada (`setPipelineStage` no reinscribe en la misma etapa).
+  - Una sola «Una Reunión Sin Marcar» para las dos reuniones nunca revisaba la 2ª: hay una inscripción por lead y
+    automatización. Ahora va una por etapa de reunión, con la espera anclada a SU reunión (`reunion_1` / `reunion_2`).
+    Con «la reunión» (la última), la 1ª sin marcar esperaba a que pasara la 2ª, y la de la 2ª, cargada tarde, se anclaba
+    en la 1ª ya pasada y el hilo terminaba.
+- **Trampas del entorno que el script tiene que esquivar:**
+  - `crearDesdePlantilla` con `motivoDeCron` deja la fila VIVA y sin CRON cuando el CRON no se puede guardar. Una corrida
+    siguiente la tomaba por hecha. Sin ese parámetro, la borra y tira.
+  - `setCrmAuto` es un upsert ciego. El compare-and-set es `cambiarSettingSi`, con el valor CRUDO leído; sin fila, con `null`.
+  - `getFunnelDefault` con la lectura caída devuelve las etapas de FÁBRICA (`origen: 'error'`). `listarFunnels` devuelve `[]`
+    ante un error; para distinguir, `leerFunnels` devuelve `null`.
+  - Las etapas de salida (No responde, Perdido) no se pueden elegir en el CRON: `productosConEtapas` las saca y
+    `guardarDisparadores` las rechaza DESPUÉS del insert. Por eso T6 no se migra, y el plan se valida antes de escribir.
+  - «Ya existe» por el prefijo de la clave adoptaba filas rotas. Ahora es la fila que ES el plan (mismo CRON, destinos y
+    ancla), y una con la clave pero distinta frena al negocio.
+- **`--activar` es todo o nada:** prende, relee, archiva las confirmaciones (comparando antes de escribir) y apaga el motor
+  con compare-and-set. Si algo falla, deshace al revés. La línea del historial de cada lead va DESPUÉS, para que nunca
+  cuente algo que se deshizo. La de T3 se archiva sólo si «Venció la Nutrición Manual» la vuelve a preguntar (su lead entra
+  en la toma, con plazo).
+- **Medido con el simulacro, 24/10/2026 ~02:30 (solo lectura):**
+  - Mauricio: el motor «haría hoy» nada. T2 toma 3, cada «Reunión Sin Marcar» toma 0, y T3 toma 7, todos sin plazo: se
+    cierran a las 24 h. El 116 queda fuera de los 90 días. Avisa enseguida: 0. Confirmaciones: 72 en total, 6 pendientes.
+  - Leila: T2 toma 1 (el 2760, el que el motor ya pasó a No Agenda), T1 toma 1 sin fecha y T3 toma 6. **Avisa enseguida:
+    1** (el 1779, el de la #76). Confirmaciones: 4 en total, 1 pendiente.
+
 **Sin hacer:**
 - `--aplicar` y `--activar` en el ws1 y el ws11: esperan el OK de Martín (cambia qué pasa con los leads de dos clientes).
+- Los 7 de T3 sin plazo en el negocio de Mauricio: o alguien les pone plazo antes de prender, o Martín acepta que T3 no los
+  mire (S8).
 - T6, hasta que el barrido inscriba a los que no están abiertos.
 - Borrar el motor (`lib/crm-auto*.ts`, el cron, `CrmAutoToggle.tsx`, `mako_confirmaciones`): después de activar, y con
   las confirmaciones pendientes resueltas o archivadas.
