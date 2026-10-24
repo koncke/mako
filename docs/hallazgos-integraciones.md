@@ -1288,9 +1288,15 @@ lib/calendly-aviso-reglas.ts con test:
 - **No puede colgar la página.** Eran dos viajes en serie a una API ajena con tope por llamada (hasta 8 s de render). Ahora UN
   tope de 3 s para toda la cadena, el veredicto claro se recuerda 60 s por negocio, y la página lo lanza al principio y lo espera
   al final. «No pude leer» (null) no se recuerda y no pinta a nadie.
-- **Verde NO prueba que las reservas lleguen.** Dice: token + R1 + aviso sano. No dice que el ruteo (`webhook_routing`)
-  resuelva el tipo de evento de la asesoría, ni que la firma valide, ni que la entrega funcione. La prueba de punta a punta es
-  UNA reserva de prueba que aparezca como lead en el ws 9 (y se cancela). El relevo lo pide así.
+- **Verde NO prueba que las reservas lleguen.** Dice: token vigente, alguna fila de ruteo y aviso sano. No dice que el ruteo
+  resuelva el tipo de evento de la ASESORÍA (puede ser otro), ni que la firma valide, ni que la entrega funcione. La prueba de
+  punta a punta es UNA reserva de prueba que aparezca como lead en el ws 9 (y se cancela). El relevo lo pide así.
+- **«Conectada» es SÓLO el token, no token + R1 (24/10).** La grilla mira `envs: ['CALENDLY_API_TOKEN']`
+  (lib/integraciones-catalogo.ts). Un negocio con el token y sin el R1 no tiene ruteo, y con un aviso sano la pantalla quedaba
+  verde mientras el webhook descartaba cada reserva con un 200 (el 04/10 se midió 1 de 2 así). Ahora lee `webhook_routing`
+  del negocio y dice «Falta el R1»; y un 401 de /users/me dice «Token vencido» (`estadoAntesDelAviso`: los dos ganan sobre el
+  aviso). El ruteo se lee SIEMPRE, fuera del recuerdo de 60 s: recién guardado el R1 no puede seguir diciendo que falta. Y el
+  recuerdo es por negocio Y por token: pegar uno nuevo no hereda «Token vencido».
 
 **Los scripts, por negocio:** `--ws=N` en scripts/backfill-calendly.ts y scripts/arreglar-webhook-calendly.ts toma el token
 de las credenciales de N y NUNCA el de `.env.local` (con el de otra cuenta, el backfill metería una agenda ajena en el CRM
@@ -1308,6 +1314,9 @@ de N); `--simulacro` mide sin escribir. Lo que NO era obvio y la revisión adver
   fantasma por cada una, con el No Show corriendo desde esa fecha. Hoy las salta y las cuenta, para cargarlas a mano.
 - **La R1/R2 se leen con `credWsEstricta`**, como el webhook: con la no estricta una base que tose daba null y una R2 entraba
   como R1. Y la medición del arreglo ya no lee «0 avisos» cuando la lista falla (403): corta, y mira también los de alcance usuario.
+- **`--ws=1` se rechaza (24/10).** El ws del entorno lee `.env.local` de respaldo cuando su fila falta o no se descifra
+  (`credWs`/`credWsEstricta`, `wsDelEntorno`), así que `--ws=1` era «lo de siempre» con la promesa de «sólo la base de N».
+  Para el ws 1, sin `--ws`.
 Los pasos exactos, en docs/relevo/suscripcion.md (punto 3). **Quedó SIN hacer:** el backfill no ubica las reservas de eventos
 vinculados a una etapa (scripts/backfill-calendly.ts, el salto con `rutaDeReserva`); si hace falta, se arma con
 `ubicarReservaVinculada` de lib/agenda-evento-etapa-server.ts, como el webhook. **Vive en:** app/api/webhooks/calendly/route.ts ·

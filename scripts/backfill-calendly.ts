@@ -42,7 +42,7 @@ import { upsertLeadFromCalendly, saveLeadRespuestas, normalizarTelefono, findLea
 import { isoToFechaTijuana, extractAnswer, extractRespuestaPorFrase, clasificarJunta } from '../lib/calendly';
 import { linkDeReunion } from '../lib/recordatorio-lead';
 import { runWithWorkspace, OWNER_WS, getTenantDb } from '../lib/workspace';
-import { credWsEstricta } from '../lib/credenciales';
+import { credWsEstricta, wsDelEntorno } from '../lib/credenciales';
 import { wsPorIdentificadorEstricto } from '../lib/webhook-routing';
 import { argsDeScriptCalendly } from '../lib/calendly-scripts-reglas';
 import { rutaDeReserva } from '../lib/agenda-evento-etapa-server';
@@ -156,7 +156,11 @@ type Invitee = {
 
 async function main() {
   console.log(`▶ Backfill Calendly${DRY ? ' (DRY RUN — no escribe)' : ''} · ws ${WS}${ARGS.ws == null ? ' (el dueño, sin --ws)' : ''}`);
-  if (ARGS.ws != null) TOKEN_DEL_WS = await credWsEstricta('CALENDLY_API_TOKEN', ARGS.ws, { ilegibleTira: true });
+  if (ARGS.ws != null) {
+    // El ws del entorno (el 1) lee el token de .env.local como respaldo: --ws=1 no se distinguiría de no pasar --ws.
+    if (ARGS.ws === (await wsDelEntorno('CALENDLY_API_TOKEN'))) throw new Error(`--ws=${ARGS.ws} es el negocio del entorno: córrelo sin --ws (es lo de siempre)`);
+    TOKEN_DEL_WS = await credWsEstricta('CALENDLY_API_TOKEN', ARGS.ws, { ilegibleTira: true });
+  }
   console.log(`  Eventos desde: ${MIN_START_TIME}\n`);
 
   // a) Organización

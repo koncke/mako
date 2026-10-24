@@ -16,9 +16,23 @@ import { DOMINIOS_DE_MAKO } from './editor-landing/dominios-reglas';
 /**
  * activo = hay un aviso a MaKo que Calendly entrega · fallando = Calendly lo tiene activo pero ya no logra entregar
  * (reintenta) · incompleto = activo pero no avisa de reservas nuevas · apagado = lo hay y Calendly lo deshabilitó ·
- * sin-aviso = no lo hay.
+ * sin-aviso = no lo hay. Y dos que van ANTES del aviso (24/10/2026, de la misma revisión): sin-ruteo = el negocio no
+ * tiene ningún tipo de evento de Calendly cargado, así que aunque el aviso entregue, la reserva se descarta (el webhook es
+ * fail-closed: sin ruteo no toca un dato); token-vencido = Calendly ya no acepta el token (401), y MaKo tampoco lee la agenda.
  */
-export type EstadoAvisoCalendly = 'activo' | 'fallando' | 'incompleto' | 'apagado' | 'sin-aviso';
+export type EstadoAvisoCalendly = 'activo' | 'fallando' | 'incompleto' | 'apagado' | 'sin-aviso' | 'sin-ruteo' | 'token-vencido';
+
+/**
+ * Lo que se sabe sin mirar el aviso, y gana sobre él (24/10/2026). «Conectada» en la grilla es SÓLO el token
+ * (lib/integraciones-catalogo.ts): un negocio con el token y sin el «Tipo de evento de R1» no tiene fila de ruteo, y con un
+ * aviso sano a MaKo la pantalla quedaba verde mientras el webhook descartaba cada reserva con un 200 (medido el 04/10: 1 de
+ * 2 negocios con Calendly estaba así). `ruteo: null` = no se pudo leer la tabla: no se afirma.
+ */
+export function estadoAntesDelAviso(l: { tokenVencido: boolean; ruteo: boolean | null }): 'token-vencido' | 'sin-ruteo' | null {
+  if (l.tokenVencido) return 'token-vencido';
+  if (l.ruteo === false) return 'sin-ruteo';
+  return null;
+}
 
 /** Una suscripción de webhook como la devuelve `GET /webhook_subscriptions` (sólo lo que se mira). */
 export type SuscripcionCalendly = {
@@ -87,5 +101,7 @@ export function motivoDelAviso(e: EstadoAvisoCalendly | null): { chip: string; m
   if (e === 'apagado') return { chip: 'Aviso apagado', motivo: 'Calendly apagó el aviso: las reservas nuevas no entran' };
   if (e === 'fallando') return { chip: 'Aviso con fallas', motivo: 'Calendly no logra entregar las reservas nuevas a MaKo: el aviso está reintentando' };
   if (e === 'incompleto') return { chip: 'Aviso incompleto', motivo: 'El aviso no incluye las reservas nuevas (invitee.created): no entran' };
+  if (e === 'sin-ruteo') return { chip: 'Falta el R1', motivo: 'Falta el tipo de evento de R1: ninguna reserva entra a tu CRM' };
+  if (e === 'token-vencido') return { chip: 'Token vencido', motivo: 'Calendly ya no acepta tu token: pega uno nuevo' };
   return null;
 }

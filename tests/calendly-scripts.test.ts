@@ -92,6 +92,10 @@ test('backfill: sin --ws el dueño y .env.local; con --ws el token de ese negoci
   assert.match(s, /if \(ARGS\.ws != null\) \{\s*if \(!TOKEN_DEL_WS\) throw[^\n]*\n\s*return TOKEN_DEL_WS;\s*\}\s*const t = process\.env\.CALENDLY_API_TOKEN;/,
     'con --ws nunca cae al token de .env.local');
   assert.match(s, /TOKEN_DEL_WS = await credWsEstricta\('CALENDLY_API_TOKEN', ARGS\.ws, \{ ilegibleTira: true \}\)/, 'una fila ilegible no cae a .env.local');
+  // El ws del entorno lee .env.local como respaldo cuando su fila falta: --ws=1 sería «lo de siempre» disfrazado (24/10).
+  assert.ok(s.search(/if \(ARGS\.ws === \(await wsDelEntorno\('CALENDLY_API_TOKEN'\)\)\) throw/) > 0
+    && s.search(/if \(ARGS\.ws === \(await wsDelEntorno\('CALENDLY_API_TOKEN'\)\)\) throw/) < s.indexOf('TOKEN_DEL_WS = await credWsEstricta'),
+  '--ws del entorno se rechaza ANTES de leer el token');
   // La R1 y la R2 salen del NEGOCIO (si no, con --ws=9 se clasifica con la R2 de Mauricio) y de la lectura ESTRICTA del webhook.
   assert.match(s, /credWsEstricta\('CALENDLY_EVENT_TYPE_J1', WS\)/);
   assert.match(s, /credWsEstricta\('CALENDLY_EVENT_TYPE_J2', WS\)/);
@@ -107,6 +111,8 @@ test('arreglo del aviso: sin --ws el ws 1 y .env.local; con --ws su token; frena
   assert.match(s, /const WS = ARGS\.ws \?\? 1;/);
   assert.match(s, /ARGS\.ws != null \? await credWsEstricta\('CALENDLY_API_TOKEN', ARGS\.ws, \{ ilegibleTira: true \}\) : process\.env\.CALENDLY_API_TOKEN/);
   assert.doesNotMatch(s, /credWs\('CALENDLY_API_TOKEN'/);
+  const entorno = s.search(/if \(ARGS\.ws != null && ARGS\.ws === \(await wsDelEntorno\('CALENDLY_API_TOKEN'\)\)\) \{\s*throw/);
+  assert.ok(entorno > 0 && entorno < s.indexOf("credWsEstricta('CALENDLY_API_TOKEN'"), '--ws del entorno se rechaza ANTES de leer el token (24/10)');
   // Si la lista de avisos falla, ni se mide ni se sigue: «0 avisos» por un 403 se leía como «no hay aviso».
   const lista = s.indexOf('if (!antes.ok)');
   assert.ok(lista > 0 && lista < s.indexOf('const nuestras'), 'la lectura fallida corta antes de contar');
@@ -138,3 +144,5 @@ test('arreglo del aviso: sin --ws el ws 1 y .env.local; con --ws su token; frena
 //   · arreglo: sin cortar cuando la lista de avisos falla                                          -> falla «arreglo»
 //   · arreglo: `porWs: false` en la llamada a `puedeBorrarAvisos`                                  -> falla «arreglo»
 //   · una nota «antes: …» con el código viejo deja pasar una guardia                               -> falla «SIN comentarios»
+//   · backfill sin el rechazo del --ws del entorno (24/10; base 15 / 0 con calendly-aviso)       -> 14 / 1
+//   · arreglo sin el rechazo del --ws del entorno (24/10)                                       -> 14 / 1
