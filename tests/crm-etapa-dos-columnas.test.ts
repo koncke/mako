@@ -38,6 +38,20 @@ test('el corte va en la PRIMERA línea: el recorrido a la izquierda, lo demás a
   assert.deepEqual(columnasDeSeccion([{ value: 'a' }, { value: 'b' }]).derecha, []);
 });
 
+test('las salidas van a la columna MÁS CORTA: el funnel por defecto queda parejo (5+3 | 9), no 5 | 13', () => {
+  // generateFunnel(DEFAULT_PIPELINE): 5 del recorrido, 9 de nutrición, 3 de salida. Medido en Chrome el 24/10: 8 | 9, sin scroll.
+  const opts: O[] = [
+    ...['lead', 'agenda', 'agendaj2', 'facturando', 'ganado'].map((value) => ({ value })),
+    ...['manual', 'nutri', 'ns1', 'ns2', 'nocompro', 'nopaga', 'excep', 'ns3', 'react'].map((value, i) => ({ value, lineaArriba: i === 0 })),
+    ...['perdido', 'descal', 'noresp'].map((value, i) => ({ value, lineaArriba: i === 0 })),
+  ];
+  const c = columnasDeSeccion(opts);
+  assert.deepEqual(v(c.izquierda), ['lead', 'agenda', 'agendaj2', 'facturando', 'ganado', 'perdido', 'descal', 'noresp']);
+  assert.equal(c.izquierda[5].lineaArriba, true, 'las salidas, debajo del recorrido, con su línea');
+  assert.equal(v(c.derecha).length, 9);
+  assert.equal(c.derecha[0].lineaArriba, false);
+});
+
 test('lo que va al pie no entra a ninguna columna', () => {
   const c = columnasDeSeccion([{ value: 'a' }, { value: 'n', lineaArriba: true }, { value: 'quitar', lineaArriba: true, alPie: true }]);
   assert.deepEqual(v(c.izquierda), ['a']);

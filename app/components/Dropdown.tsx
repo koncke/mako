@@ -347,10 +347,10 @@ export type DropdownGroup = { title: string; options: DropdownOption[];
   /** Con `resumen`: la sección tiene algo marcado, y el resumen se pinta en el color de lo elegido. */
   activo?: boolean;
   /**
-   * Sólo con `secciones`: abierta, sus opciones van en DOS COLUMNAS lado a lado, cortadas en la primera `lineaArriba`
+   * Sólo con `secciones`: abierta, sus opciones van en DOS COLUMNAS lado a lado, partidas por sus `lineaArriba`
    * (`columnasDeSeccion`, app/components/dropdown-reglas.ts). Existe por el desplegable de etapa de la ficha (03/07/2026:
-   * «pipeline | nutrición… para evitar scroll»). En un menú angosto la de la derecha baja debajo. Opcional: sin esto,
-   * nada cambia.
+   * «pipeline | nutrición… para evitar scroll»). Nunca se apilan: si no entran, las dos se achican y un nombre largo se
+   * corta con «…». Opcional: sin esto, nada cambia.
    */
   dosColumnas?: boolean };
 

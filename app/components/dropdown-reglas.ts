@@ -36,6 +36,30 @@ export function conBuscador(totalOpciones: number, search?: boolean): boolean {
 }
 
 /**
+ * Las DOS COLUMNAS de una sección (`dosColumnas` en DropdownGroup). Pedido de Martín del 03/07/2026 para el desplegable de
+ * etapa de la ficha: «dividido en 2 secciones lado a lado (pipeline | nutrición agrupada) para evitar scroll».
+ *
+ * Las opciones se parten en TRAMOS donde una trae `lineaArriba` (las bandas del tablero). El primero va a la izquierda (el
+ * recorrido), el segundo a la derecha (nutrición), y los que siguen (las salidas) a la columna MÁS CORTA, con su línea. Con
+ * todo lo que no es el recorrido a la derecha, el funnel por defecto quedaba 5 | 13 y scrolleaba; así queda 8 | 9 (medido
+ * el 24/10/2026). Lo que trae `alPie` (una acción, «Quitar de este funnel») va debajo de las dos, a todo el ancho. Sin ninguna
+ * línea no hay qué partir: todo queda a la izquierda y la derecha vacía (el menú se ve como siempre).
+ */
+export function columnasDeSeccion<T extends { lineaArriba?: boolean; alPie?: boolean }>(options: readonly T[]): { izquierda: T[]; derecha: T[]; pie: T[] } {
+  const pie = options.filter((o) => o.alPie);
+  const tramos: T[][] = [];
+  for (const [i, o] of options.filter((x) => !x.alPie).entries()) {
+    if (i === 0 || o.lineaArriba) tramos.push([o]);
+    else tramos[tramos.length - 1].push(o);
+  }
+  const izquierda: T[] = tramos[0] ?? [];
+  // La primera de la derecha encabeza su columna: sin línea arriba (la separación ya la da la columna).
+  const derecha: T[] = (tramos[1] ?? []).map((o, i) => (i === 0 ? { ...o, lineaArriba: false } : o));
+  for (const t of tramos.slice(2)) (izquierda.length <= derecha.length ? izquierda : derecha).push(...t);
+  return { izquierda, derecha, pie };
+}
+
+/**
  * Las dos caras que un desplegable puede tener además de la de siempre:
  *   · `principal`: el que MANDA en un editor (qué acción, qué condición, qué operación). Más alto, más
  *     ancho (llena el renglón si no se le da un ancho), con la letra más grande y en negrita, y el borde
@@ -44,23 +68,6 @@ export function conBuscador(totalOpciones: number, search?: boolean): boolean {
  *     transparente, texto centrado y apagado, sin flecha, y se enciende al pasar el cursor. Es el molde
  *     de «+ Nuevo disparador» de ManyChat y de «＋ Nueva tarea» del Plan.
  */
-/**
- * Las DOS COLUMNAS de una sección (`dosColumnas` en DropdownGroup). Pedido de Martín del 03/07/2026 para el desplegable de
- * etapa de la ficha: «dividido en 2 secciones lado a lado (pipeline | nutrición agrupada) para evitar scroll». A la izquierda
- * va todo hasta la PRIMERA `lineaArriba` (el recorrido); a la derecha, lo demás, con sus líneas (nutrición y descarte). Lo que
- * trae `alPie` (una acción, «Quitar de este funnel») va debajo de las dos, a todo el ancho. Sin ninguna línea no hay qué
- * partir: todo queda a la izquierda y la derecha vacía (el menú se ve como siempre).
- */
-export function columnasDeSeccion<T extends { lineaArriba?: boolean; alPie?: boolean }>(options: readonly T[]): { izquierda: T[]; derecha: T[]; pie: T[] } {
-  const pie = options.filter((o) => o.alPie);
-  const resto = options.filter((o) => !o.alPie);
-  const corte = resto.findIndex((o, i) => i > 0 && o.lineaArriba);
-  if (corte < 0) return { izquierda: resto, derecha: [], pie };
-  // La primera de la derecha encabeza su columna: sin línea arriba (la separación ya la da la columna).
-  const derecha = resto.slice(corte).map((o, i) => (i === 0 ? { ...o, lineaArriba: false } : o));
-  return { izquierda: resto.slice(0, corte), derecha, pie };
-}
-
 export type VarianteDropdown = 'principal' | 'placeholder';
 
 /** El alto del principal: más que el campo grande de la casa (48, app/_components/Lienzo.tsx). */
