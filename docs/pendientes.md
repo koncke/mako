@@ -19,6 +19,13 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 
 ## Le falla a un cliente (14)
 
+- **Automations** — **MEDIR en producción el goteo y el reloj de las esperas** que subieron el 24/10/2026 a la tarde (629500245 + cdadbc30f, tren 43c343ebd, deploy Ready ~18:06 ART). Al subirlos no había nada que medir: las 24 inscriptas de «Sprint · apertura» (#289, Mauricio) ya tenían su M1, y lo próximo era lo agendado ANTES del deploy, que no se recalcula (los M2 desde las 21:33 ART del 24/10, cada 12 min: su ritmo no prueba nada). **Cómo:** `node --env-file=<clon>/dashboard-marketing/.env.local --conditions=react-server --import tsx scripts/medir-goteo-tras-deploy.mts` (sólo lectura, todas las automatizaciones con goteo). **Qué tiene que dar:**
+  1. la espera que queda después de cada M2 de la #289, agendada a **último mensaje + 48,00 h** exactas, sin minutos de más. Se ve desde la noche del 24/10;
+  2. la **mediana** del intervalo entre M1 nuevos, ~11 min y no 22. Antes, el mínimo «cumplía» y lo que delataba el defecto era la mediana;
+  3. que tras cada M1 nuevo la espera quede agendada en 1-2 min, no en 11 o 22: «Contestó» ya no toma turno.
+
+  Los puntos 2 y 3 necesitan M1 NUEVOS, es decir, que Mauricio mueva más leads a «Prospección activa». Si algo no da, se revierte sólo esto: la tag es `respaldo/tren-2410-noche`. Al medirlo, borrar este punto y cosechar en docs/hallazgos-chatbot.md. _si el arreglo no hace lo que dice, el segundo mensaje le llega a la gente un día tarde y la campaña sale a la mitad del ritmo_ · chico · se puede hacer ya · `docs/hallazgos-chatbot.md → «Y la espera contaba desde que el motor procesaba la condición…» (24/10); scripts/medir-goteo-tras-deploy.mts`
+
 - **Automations** — El aviso «en 30 min tenés la reunión» al dueño sólo sale con Calendly: con Cal.com (Código Inmobiliario) no llega. _el cliente que agenda por Cal.com se pierde el recordatorio_ · chico · se puede hacer ya · `docs/hallazgos-chatbot.md → Séptima tanda; app/api/cron/reunion-recordatorio/route.ts (recorre sólo 'calendly')`
 - **Automations** — Una automatización sin disparador se puede prender y queda callada (le pasó a Brigitte). _el cliente la ve activa y no le escribe a nadie_ · chico · se puede hacer ya · `docs/hallazgos-chatbot.md → «Las automatizaciones de Brigitte (ws15)…» (17/10)`
 - **Automations** — El disparador «Un lead escribe por WhatsApp» murió con Chatwoot, y el CRM automático no lee el número de empresa. _la automatización que espera respuesta no arranca y el CRM puede mover a «No responde» a quien sí escribió_ · medio · se puede hacer ya · `docs/relevo/avisos-y-whatsapp.md → 3.8 y decisión 5.5; docs/relevo/seguridad-aislamiento.md §2.5`
