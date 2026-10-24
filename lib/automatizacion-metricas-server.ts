@@ -13,10 +13,16 @@
 import 'server-only';
 import { getUsuarioActual } from './auth';
 import { getTenantDb } from './workspace';
+import { getSettingEstricto } from './settings';
+import { sanearTablero, type Hoja, type Tablero } from './graficos-catalogo';
+import { claveInformeAutomatizacion } from './informe-automatizacion';
 import { guardarTableroSi, leerInformeAutomatizacion, leerTableroVisible, type LecturaTablero } from './graficos-tablero';
 import { aplicarCambio } from './api-mako/areas/dashboard.helpers';
 import { hojaConIdsNuevos } from './graficos-copia';
-import { conLaAutomatizacion, hojaConLaAutomatizacion, hojaInicialDeMetricas, informeInicialDeMetricas, nombreDeHojaLlevada } from './automatizacion-metricas';
+import {
+  conLaAutomatizacion, hojaConLaAutomatizacion, hojaDeMetricas, hojaInicialDeMetricas, HOJA_DE_METRICAS_VIEJA, idDeHojaDeMetricas,
+  informeInicialDeMetricas, nombreDeHojaLlevada,
+} from './automatizacion-metricas';
 import { datosDeGraficos } from './graficos-datos';
 import { fmtValor } from './graficos-agregar';
 import { hoyEnTijuana } from './date-utils';
@@ -48,8 +54,31 @@ export async function metricasParaMostrar(id: number): Promise<MetricasParaMostr
   if (!a) return null;
   const l = await leerInformeAutomatizacion(id);
   const deMaKo = l.estado !== 'propio' || !l.tablero.hojas.length;
-  const tablero = deMaKo ? informeInicialDeMetricas(a.pasos, a.nombre) : conLaAutomatizacion(l.tablero, a.nombre);
+  const tablero = deMaKo ? informeInicialDeMetricas(a.pasos, a.nombre, a.id) : conLaAutomatizacion(conHojaRenombrada(l.tablero, a.id), a.nombre);
   return { ...l, tablero, deMaKo, automatizacion: { id: a.id, nombre: a.nombre } };
+}
+
+/** Un informe guardado antes del 24/10/2026 tiene la hoja 'am-hoja' (la misma en todas): se lee con la de SU automatización. */
+function conHojaRenombrada(t: Tablero, secuenciaId: number): Tablero {
+  if (!t.hojas.some((h) => h.id === HOJA_DE_METRICAS_VIEJA)) return t;
+  return { ...t, hojas: t.hojas.map((h) => (h.id === HOJA_DE_METRICAS_VIEJA ? { ...h, id: hojaDeMetricas(secuenciaId) } : h)) };
+}
+
+/**
+ * LA HOJA DE MÉTRICAS QUE PROGRAMÓ UNA PERSONA, PARA EL CRON DEL AI ANALYST (24/10/2026). En el cron no hay sesión: se lee
+ * el informe guardado de ESA persona para ESA automatización (`claveInformeAutomatizacion`), y si nunca lo tocó, la hoja
+ * que arma MaKo (la misma que vio al programar). `undefined` = la hoja no es de Métricas (que la busque el Dashboard o
+ * General); `null` = la automatización ya no está o la hoja se borró. «No pude leer» TIRA, como `leerInformeGuardado`.
+ */
+export async function hojaDeMetricasGuardada(usuario: string, hojaId: string): Promise<Hoja | null | undefined> {
+  const id = idDeHojaDeMetricas(hojaId);
+  if (id == null) return undefined;
+  const a = await automatizacionDelNegocio(id);
+  if (!a) return null;
+  const raw = await getSettingEstricto(claveInformeAutomatizacion(id, usuario));
+  const guardado = raw == null ? null : sanearTablero(JSON.parse(raw));
+  const tablero = guardado?.hojas.length ? conLaAutomatizacion(conHojaRenombrada(guardado, id), a.nombre) : informeInicialDeMetricas(a.pasos, a.nombre, a.id);
+  return tablero.hojas.find((h) => h.id === hojaId) ?? null;
 }
 
 export type MetricasEnNumeros = {
@@ -72,7 +101,7 @@ export async function metricasEnNumeros(id: number, periodo: 'ult7' | 'ult30' | 
   const a = await automatizacionDelNegocio(id);
   if (!a) return null;
   const hoy = hoyEnTijuana();
-  const base = hojaInicialDeMetricas(a.pasos, a.nombre);
+  const base = hojaInicialDeMetricas(a.pasos, a.nombre, a.id);
   const ctrl = base.controles.find((c) => c.tipo === 'periodo');
   const { graficos } = pedidosDeHoja(base, ctrl ? { [ctrl.id]: { preset: periodo } } : {}, hoy, 0);
   const datos = await datosDeGraficos(graficos.map(({ pedido }) => pedido));

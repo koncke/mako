@@ -1287,7 +1287,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'traer_contactos_de_grupo', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Traer contactos de un grupo de WhatsApp',
-    descripcion: 'PROPONE traer al CRM a los participantes de un grupo de WhatsApp de la línea (queda pendiente hasta el «sí»). Crea un lead por número nuevo y SUMA a este funnel a los que ya son leads (nunca duplica); a todos les pone la etiqueta de origen (por defecto, el nombre del grupo). No manda ningún mensaje: sólo deja elegir etapas sin automatización activa. Los que WhatsApp no deja ver su número no se traen. El grupo sale de grupos_whatsapp. Solo el administrador.',
+    descripcion: 'PROPONE traer al CRM a los participantes de un grupo de WhatsApp de la línea (queda pendiente hasta el «sí»). Crea un lead por cada número nuevo, con la etiqueta de origen (por defecto, el nombre del grupo). A los que ya son leads del CRM no los toca: ni los suma a este funnel ni los etiqueta (nunca duplica). No manda ningún mensaje: sólo deja elegir etapas sin automatización activa. Los que WhatsApp no deja ver su número no se traen. El grupo sale de grupos_whatsapp. Solo el administrador.',
     parametros: [
       { nombre: 'grupo', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el grupo: su id (de grupos_whatsapp) o su nombre.' },
       { nombre: 'etapa', tipo: 'string', max: 80, descripcion: 'la etapa del funnel (su clave o su nombre); sin esto, «Tibio» si la hay, si no la primera sin automatización.' },
@@ -1296,7 +1296,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'linea', tipo: 'string', max: 80, descripcion: 'la línea de WhatsApp del negocio; sin esto, la de por defecto.' },
     ],
     canales: ['app'], costo: 'gratis', gating: TAB_ADMIN,
-    reversible: false, escribe: 'crea un lead por cada número nuevo del grupo (o suma al funnel al que ya es lead), con su etiqueta de origen y su historial',
+    reversible: false, escribe: 'crea un lead por cada número nuevo del grupo, con su etiqueta de origen y su historial (a los que ya son leads no los toca)',
   },
   // 24/10/2026 (el Cerebro: «traer ahora no puede impedir completar los nombres después»): el listado del grupo no trae
   // nombres, y volver a traer no toca a los que ya están. Lo mismo que «Completar nombres» de la pantalla.

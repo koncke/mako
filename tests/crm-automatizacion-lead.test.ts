@@ -32,26 +32,28 @@ const sinComentarios = (src: string) => src
 
 const SPRINT: EnAutomatizacion = {
   secuenciaId: 289, nombre: 'Sprint · apertura', automatizacionActiva: true, estado: 'activa',
-  paso: { numero: 2, titulo: 'WHATSAPP: Hola {{nombre}}, soy Maur…' }, proximoEnvioAt: '2026-10-23T13:00:00Z', link: '/automations?sec=289',
+  paso: { numero: 2, titulo: '«Hola, soy Mauricio…»' }, proximoEnvioAt: '2026-10-23T13:00:00Z', link: '/automations?sec=289',
 };
 
 test('el chip: «En automatización» si le corre alguna; gris si está en pausa o frenada porque respondió; nada sin ninguna', () => {
   assert.equal(chipDeAutomatizacion(undefined), null);
   assert.equal(chipDeAutomatizacion([]), null);
-  assert.deepEqual(chipDeAutomatizacion([SPRINT]), { texto: 'En automatización', tono: 'mako', detalle: '«Sprint · apertura» · paso 2: WHATSAPP: Hola {{nombre}}, soy Maur…' });
+  assert.deepEqual(chipDeAutomatizacion([SPRINT]), { texto: 'En automatización', tono: 'mako', detalle: '«Sprint · apertura» · «Hola, soy Mauricio…»' });
   assert.equal(chipDeAutomatizacion([SPRINT, { ...SPRINT, secuenciaId: 30, nombre: 'Reactivación' }])?.texto, 'En 2 automatizaciones');
   const pausada = { ...SPRINT, automatizacionActiva: false };
   assert.equal(corre(pausada), false, 'una pausada no le corre');
-  assert.deepEqual(chipDeAutomatizacion([pausada]), { texto: 'Automatización en pausa', tono: 'gris', detalle: '«Sprint · apertura» · paso 2: WHATSAPP: Hola {{nombre}}, soy Maur… · la automatización está en pausa' });
+  assert.deepEqual(chipDeAutomatizacion([pausada]), { texto: 'Automatización en pausa', tono: 'gris', detalle: '«Sprint · apertura» · «Hola, soy Mauricio…» · la automatización está en pausa' });
   assert.equal(chipDeAutomatizacion([{ ...SPRINT, estado: 'respondio' }])?.texto, 'Respondió: frenada');
-  assert.equal(lineaDeAutomatizacion({ ...SPRINT, paso: null }), '«Sprint · apertura» · paso sin ubicar');
+  // Sin dato, no se dice nada (24/10/2026; antes, «paso sin ubicar»: un «falta» que no ayuda a nadie).
+  assert.equal(lineaDeAutomatizacion({ ...SPRINT, paso: null }), '«Sprint · apertura»');
 });
 
 test('«Frenar» pregunta antes, nombrando a quién y de dónde, y dice que no se deshace', () => {
   assert.deepEqual(preguntaDeFrenar({ leads: 1, nombre: 'Ana', auts: [SPRINT] }), {
-    titulo: '¿Frenar a Ana en «Sprint · apertura»?', mensaje: 'No le sale nada más. Para que vuelva, se lo inscribe a mano.',
+    // 24/10/2026: decía «Para que vuelva, se lo inscribe a mano», y una frenada no se reabre ni a mano.
+    titulo: '¿Frenar a Ana en «Sprint · apertura»?', mensaje: 'No le sale nada más, y no se puede volver a empezar.',
   });
-  assert.deepEqual(preguntaDeFrenar({ leads: 12 }), { titulo: '¿Frenar a 12 leads?', mensaje: 'No les sale nada más. Para que vuelvan, se los inscribe a mano.' });
+  assert.deepEqual(preguntaDeFrenar({ leads: 12 }), { titulo: '¿Frenar a 12 leads?', mensaje: 'No les sale nada más, y no se puede volver a empezar.' });
   assert.equal(preguntaDeFrenar({ leads: 1, nombre: 'Ana', auts: [SPRINT, SPRINT] }).titulo, '¿Frenar a Ana en sus 2 automatizaciones?');
   // El clic derecho: «Frenar automatización» sólo si está en una; en el lote, si alguno de los tildados lo está.
   const uno: ContextoCrm = { sobre: 'tarjeta', conWhatsapp: false, conTelefono: false, conEmail: false, seleccionado: false, seleccionados: 0, hayEquipo: false, hayOtroFunnel: false };
@@ -87,12 +89,15 @@ test('la barra de lote frena a los tildados que están en una automatización; l
   assert.match(lote, /frenar: \(\) => \{ if \(idsEnAut\.length\) setPide\(\{ tipo: 'frenar' \}\); \},/);
   // ⚠️ REESCRITO EL 23/10/2026: el bloque se mudó de ./charla.tsx a ./automatizaciones.tsx (Martín: «un bloque... relacionado a
   //    las automatizaciones... para tener más claridad de lo que pasa»), y lee y frena por ./automatizaciones-datos.ts.
-  const ficha = sinComentarios(leer('app/crm/lead-view/ficha/resumen/automatizaciones.tsx'));
-  assert.match(ficha, /<Button variant="tertiary" size="sm" onClick=\{\(\) => \{ setResultado\(null\); setAccion\(\{ tipo: 'frenar', aut: a \}\); \}\}>Frenar<\/Button>/);
-  assert.match(ficha, /\? await frenarDelBloque\(ctx\.lead\.id, accion\.aut\.secuenciaId\)/);
+  // (24/10/2026: la tarjeta, pura, en ./tarjeta-automatizacion.tsx; el bloque la arma y frena.)
+  const ficha = sinComentarios(leer('app/crm/lead-view/ficha/resumen/automatizaciones.tsx') + '\n' + leer('app/crm/lead-view/ficha/resumen/tarjeta-automatizacion.tsx'));
+  // 24/10/2026, el rediseño: «Frenar» es un texto rojo a la izquierda del pie (tests/ficha-automatizaciones-tarjeta.test.ts).
+  assert.match(ficha, /<button type="button" className="fr-aut-frenar" onClick=\{onFrenar\}>Frenar<\/button>/);
+  assert.match(ficha, /onFrenar=\{\(\) => \{ setError\(null\); setAccion\(\{ tipo: 'frenar', aut: a \}\); \}\}/);
+  assert.match(ficha, /\? await frenarDelBloque\(ctx\.lead\.id, aut\.secuenciaId\)/);
   assert.match(sinComentarios(leer('app/crm/lead-view/ficha/resumen/automatizaciones-datos.ts')), /return frenarEnAutomatizacionAction\(leadId, secuenciaId\);/);
-  // 24/10/2026 (Martín: «No es funcional»): la tarjeta dice qué le salió, si contestó y qué sigue (`renglonesDeTarjeta`), no
-  // el «Paso 5 de 9: CRON» del lienzo. Ver tests/ficha-automatizaciones-renglones.test.ts.
-  assert.match(ficha, /\{renglonesDeTarjeta\(a, fecha\)\.map\(/, 'la ficha no dice qué le pasó al lead');
+  // 24/10/2026 (Martín: «No es funcional», y después «rediseñala, no sólo el texto»): la tarjeta cuenta lo que le pasó en
+  // un riel (`rielDeTarjeta`), no el «Paso 5 de 9: CRON» del lienzo. Ver tests/ficha-automatizaciones-tarjeta.test.ts.
+  assert.match(ficha, /const riel = rielDeTarjeta\(a, en\.noEntro, \{ todo, ahoraMs: en\.ahora \}\);/, 'la ficha no dice qué le pasó al lead');
   assert.doesNotMatch(ficha, /lineaDelPaso\(a\)/, 'la ficha vuelve a mostrar el paso con el nombre del lienzo');
 });

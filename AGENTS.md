@@ -10395,3 +10395,22 @@ antes de cada consulta, con compare-and-set (la pantalla no es una garantía). R
 repite siempre a los primeros. Lo que no contestó es «no sé»: no queda consultado, pero cuenta en el cupo. Y antes de arrancar,
 la cuenta y el tiempo se le dicen a la persona. El molde es `completarPerfilesDelGrupo` (app/crm/grupo-wa-server.ts); lo hace
 cumplir tests/grupo-wa.test.ts (12 y 12b); el porqué, docs/hallazgos-crm.md.
+
+## Una acción que corre MINUTOS desde una barra o un modal: la pregunta se cierra antes, y el «Parar» queda a la vista (24/10/2026)
+
+Completar, consultar o escribir sobre muchos leads tarda minutos, no segundos. La pregunta (`Confirm`) se cierra ANTES de
+arrancar, porque si queda abierta con `loading` tapa el avance y el «Parar». El avance («Completando 75 de 221…») y el «Parar»
+van en la barra o en el pie, que siguen montados mientras corre. Nada que la desmonte a mitad: en la barra de lote, la casilla
+que limpia la selección no limpia mientras corre. Y el bucle no se escribe dos veces: el del tablero y el del modal son las
+mismas funciones puras (app/crm/enriquecer-cliente.ts), que reciben la acción del server por parámetro y se prueban con dobles
+(tests/enriquecer-lote.test.ts). El porqué, en docs/hallazgos-crm.md («Completar» en lote…).
+
+## Lo que tiene que VERSE ya, nunca adentro de `startTransition(async …)` (24/10/2026)
+
+En el React de Next 16, un `setState` hecho en la parte síncrona de una transición ASYNC queda atado a la acción, y el render
+se suspende hasta que la acción ENTERA termina: el «Parar», el «Contando…» o el primer avance de una corrida de minutos no
+aparecen nunca. Se midió en react-dom-client (`entangleAsyncAction`, `currentEntangledActionThenable`) y lo encontró la
+revisión de «Completar» en lote. Para una corrida larga con avance y «Parar», se usa un async plano con su propio estado,
+puesto ANTES del primer `await`, como `correrWhatsapp` y `correrEmpresa` en app/crm/AccionesLoteLeads.tsx (el test lo
+vigila: ninguna de esas funciones llama a `start(`). `useTransition` sigue sirviendo para lo corto, donde da igual que el
+estado intermedio no se vea.

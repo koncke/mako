@@ -12,6 +12,20 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Un aviso largo duraba 3,2 s: el `Toast` ahora le da tiempo según el largo (24/10/2026)
+
+**Vive en:** `useToast` (app/_ui/Toast.tsx) · test 10 de tests/enriquecer-lote.test.ts.
+
+- El resumen de un lote del CRM («De 221, tu WhatsApp tiene el nombre de… · Faltan 160: vuelve a tocar…») tiene 150 a 250
+  letras, y lo importante va al final. Sin `Deshacer` ni tono, el aviso se iba a los 3,2 s: el «se cortó» o el «faltan» no se
+  llegaba a leer.
+- Ahora la espera es la mayor entre la de siempre y ~60 ms por letra (con techo de 12 s), y un aviso `warn` (algo quedó a
+  medias) dura por lo menos 8 s, como uno `bad`. La fórmula de `bad` no cambió: tests/reportar-a-soporte.test.ts la fija,
+  porque tiene que dar tiempo a tocar «Reportar a Soporte».
+- Para quien llama: un resultado a medias se canta con `tono: 'warn'`, no como un «listo».
+
+*24/10/2026, chat «CRM» (claude1).*
+
 ## El pie que flota a la mitad: una lista larga con acciones abajo es UNA pieza, `VistaConPie` (24/10/2026)
 
 - **Síntoma:** en «Traer de un grupo de WhatsApp», Martín: «los botones de abajo no pueden estar a la mitad y que abajo se

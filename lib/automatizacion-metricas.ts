@@ -141,16 +141,34 @@ export function hojaConLaAutomatizacion(h: Hoja, nombre: string): Hoja {
   return { ...h, controles };
 }
 
-/** La hoja inicial con ids FIJOS (no se guarda hasta que la persona cambie algo: mirar nunca guarda). */
-export function hojaInicialDeMetricas(pasos: readonly PasoGrafo[], nombre: string): Hoja {
+/**
+ * La hoja inicial con ids FIJOS (no se guarda hasta que la persona cambie algo: mirar nunca guarda). ⚠️ EL ID LLEVA EL DE
+ * LA AUTOMATIZACIÓN (`am-<id>`, 24/10/2026): hasta ese día era 'am-hoja' en TODAS, y el AI Analyst guarda lo suyo por
+ * persona y hoja (`dashboard_analisis.hoja_id`). El análisis de una automatización salía en las Métricas de otra, y el
+ * cron no podía saber de cuál era la hoja programada: no la encontraba y le sacaba el horario en silencio. Con el id, el
+ * cron la busca en el informe de ESA automatización (`hojaDeMetricasGuardada`, lib/automatizacion-metricas-server.ts).
+ */
+export function hojaInicialDeMetricas(pasos: readonly PasoGrafo[], nombre: string, secuenciaId: number): Hoja {
   const p = plantilla(definicionDeMetricas(pasos));
-  const h = sanearHoja({ ...p.armar((local) => `am-${local}`), id: 'am-hoja', plantilla: 'automatizacion' }, 0)!;
+  const base = hojaDeMetricas(secuenciaId);
+  const h = sanearHoja({ ...p.armar((local) => `${base}-${local}`), id: base, plantilla: 'automatizacion' }, 0)!;
   return hojaConLaAutomatizacion(h, nombre);
 }
 
+/** El id de la hoja de Métricas de una automatización. */
+export const hojaDeMetricas = (secuenciaId: number): string => `am-${secuenciaId}`;
+/** La hoja vieja, de antes del 24/10/2026: la misma en todas las automatizaciones (se renombra al leer). */
+export const HOJA_DE_METRICAS_VIEJA = 'am-hoja';
+/** La automatización de una hoja de Métricas, o null si la hoja no es de Métricas. */
+export function idDeHojaDeMetricas(hojaId: string): number | null {
+  const m = /^am-(\d{1,12})$/.exec(hojaId);
+  const n = m ? Number(m[1]) : NaN;
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
 /** El informe de quien nunca tocó las métricas de esta automatización. */
-export function informeInicialDeMetricas(pasos: readonly PasoGrafo[], nombre: string): Tablero {
-  return { v: 3, nombre: 'Métricas', hojas: [hojaInicialDeMetricas(pasos, nombre)] };
+export function informeInicialDeMetricas(pasos: readonly PasoGrafo[], nombre: string, secuenciaId: number): Tablero {
+  return { v: 3, nombre: 'Métricas', hojas: [hojaInicialDeMetricas(pasos, nombre, secuenciaId)] };
 }
 
 /** La hoja para «Llevar al Dashboard»: la que se está mirando, con el nombre de la automatización. */

@@ -32,10 +32,12 @@ export const corre = (a: EnAutomatizacion): boolean => a.estado === 'activa' && 
  * «No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale mañana 9:00.», lib/por-que-no-sale.ts).
  */
 export function lineaDeAutomatizacion(a: EnAutomatizacion): string {
-  const paso = a.paso ? `paso ${a.paso.numero}: ${a.paso.titulo}` : 'paso sin ubicar';
+  // Sin «paso N» (24/10/2026): el número es el de la tarjeta en el lienzo. Lo que espera, en palabras (`pasoEnPalabras`).
+  // Sólo en curso: a quien contestó no le espera nada (y su posición queda en la entrada: «La entrada» no dice nada).
+  const paso = a.estado === 'activa' && a.paso?.titulo ? ` · ${a.paso.titulo}` : '';
   const nota = a.estado === 'respondio' ? ' · frenada: respondió' : !a.automatizacionActiva ? ' · la automatización está en pausa'
     : a.frenado ? ` · ${a.frenado.texto}` : '';
-  return `«${a.nombre}» · ${paso}${nota}`;
+  return `«${a.nombre}»${paso}${nota}`;
 }
 
 /**
@@ -71,13 +73,17 @@ export function chipDeAutomatizacion(auts: readonly EnAutomatizacion[] | undefin
   return { texto, tono: corriendo.length ? 'mako' : 'gris', detalle: auts.map(lineaDeAutomatizacion).join('\n') };
 }
 
-/** La pregunta de «Frenar» antes de hacerlo: NOMBRA a quién y de dónde, y dice que no se deshace. */
+/**
+ * La pregunta de «Frenar» antes de hacerlo: NOMBRA a quién y de dónde, y dice que no se deshace. ⚠️ Hasta el 24/10/2026
+ * decía «Para que vuelva, se lo inscribe a mano», y era falso: una inscripción frenada queda 'cancelada' y no se reabre, ni
+ * a mano (puede ser una baja: lib/nutricion-inscripcion-manual.ts).
+ */
 export function preguntaDeFrenar(o: { leads: number; nombre?: string | null; auts?: readonly Pick<EnAutomatizacion, 'nombre'>[] }): { titulo: string; mensaje: string } {
   const quien = o.leads === 1 ? (o.nombre?.trim() || 'este lead') : `${o.leads} leads`;
   const donde = o.auts?.length === 1 ? ` en «${o.auts[0].nombre}»` : o.auts && o.auts.length > 1 ? ` en sus ${o.auts.length} automatizaciones` : '';
   return {
     titulo: `¿Frenar a ${quien}${donde}?`,
-    mensaje: `No ${o.leads === 1 ? 'le' : 'les'} sale nada más. Para que ${o.leads === 1 ? 'vuelva' : 'vuelvan'}, se ${o.leads === 1 ? 'lo inscribe' : 'los inscribe'} a mano.`,
+    mensaje: `No ${o.leads === 1 ? 'le' : 'les'} sale nada más, y no se puede volver a empezar.`,
   };
 }
 
@@ -129,7 +135,10 @@ export type InscripcionVista = {
   proximo: { at: string | null; titulo: string | null; clase?: 'mensaje' | 'accion' | 'otro' | null } | null;
   /** Cuándo contestó en esta pasada (ISO). null o ausente = no se sabe. */
   contesto?: string | null;
-  frenado: { texto: string; corto: string } | null;
+  /** Qué contestó, citado («No hemos mandado pagos…», «un audio»). null o ausente = no se sabe. */
+  respuesta?: string | null;
+  /** Por qué no le sale (`porQueNoSale`): la frase entera, la corta, y cuándo sale sola si es el horario. */
+  frenado: { texto: string; corto: string; saleAt?: string | null } | null;
   termino: { at: string | null; texto: string } | null;
   /** Lo que ya le salió en ESTA inscripción, del más nuevo al más viejo. */
   enviados: EnvioVista[];
@@ -140,17 +149,32 @@ export type InscripcionVista = {
   reentradaTexto?: string | null;
 };
 /** Una vez que se lo movió a una etapa con una automatización y NO entró, con el porqué ya dicho en palabras. */
-export type NoEntroVista = { secuenciaId: number; nombre: string; at: string | null; texto: string };
+export type NoEntroVista = { secuenciaId: number; nombre: string; at: string | null; texto: string; motivo?: string | null };
+
+/** El porqué de una vez que no entró, en dos o tres palabras: el renglón del riel («No volvió a entrar · Entra una sola vez»). */
+const MOTIVO_NO_ENTRO: Readonly<Record<string, string>> = {
+  en_curso: 'Ya está adentro', una_sola_vez: 'Entra una sola vez', cancelada: 'La frenaron', no_termino: 'Todavía no terminó',
+  sin_reunion_futura: 'No tiene una reunión por delante', misma_reunion: 'Es la misma reunión',
+};
+function motivoDeNoEntro(n: { porque?: string | null; texto?: string | null }): string | null {
+  const m = n.porque ? MOTIVO_NO_ENTRO[n.porque] : undefined;
+  if (m) return m;
+  const t = n.texto?.trim();
+  return t ? t[0].toUpperCase() + t.slice(1) : null;
+}
 export type AutomatizacionesVista = { vivas: InscripcionVista[]; terminadas: InscripcionVista[]; noEntro: NoEntroVista[] };
 
 const TERMINADOS: readonly string[] = ['completada', 'no_responde', 'cancelada'];
 /** Viva = no terminó (corriendo, por arrancar, en pausa, con una persona o frenada porque contestó). */
 export const estaViva = (i: Pick<InscripcionVista, 'estado'>): boolean => !TERMINADOS.includes(i.estado);
 
-/** Lo que no entró, en una frase: «No volvió a entrar a «X»: ya entró una vez y su reentrada es «Una sola vez» (va en el paso 2).» */
-function fraseNoEntro(n: { nombre: string; texto?: string | null; porque?: string | null }, paso?: { numero: number } | null): string {
-  if (!n.texto?.trim()) return textoDeNoEntro({ nombre: n.nombre, porque: n.porque ?? '', paso });
-  return `No volvió a entrar a «${n.nombre}»: ${n.texto.trim()}${paso ? ` (va en el paso ${paso.numero})` : ''}.`;
+/**
+ * Lo que no entró, en una frase: «No volvió a entrar a «X»: ya entró una vez y su reentrada es «Una sola vez».». Sin
+ * «(va en el paso N)» desde el 24/10/2026: el número es el de la tarjeta en el lienzo, no le dice nada a quien mira el lead.
+ */
+function fraseNoEntro(n: { nombre: string; texto?: string | null; porque?: string | null }): string {
+  if (!n.texto?.trim()) return textoDeNoEntro({ nombre: n.nombre, porque: n.porque ?? '' });
+  return `No volvió a entrar a «${n.nombre}»: ${n.texto.trim()}.`;
 }
 
 /** Cuántas veces que no entró se dicen: la última de cada automatización, las más nuevas. */
@@ -167,9 +191,9 @@ export function vistaDeDetalle(d: AutomatizacionesDelLead): AutomatizacionesVist
     paso: i.paso,
     // Lo que sale, en palabras (`que`, 24/10/2026); sin eso, el nombre del lienzo de siempre.
     proximo: i.proximo ? { at: i.proximo.at, titulo: i.proximo.que?.que || i.proximo.titulo || null, clase: i.proximo.que?.clase ?? null } : null,
-    frenado: i.frenado ? { texto: i.frenado.texto, corto: i.frenado.corto } : null,
+    frenado: i.frenado ? { texto: i.frenado.texto, corto: i.frenado.corto, saleAt: i.frenado.saleAt ?? null } : null,
     termino: i.termino, puede: i.puede, reentrada: i.reentrada, reentradaTexto: i.reentradaTexto,
-    contesto: i.contesto ?? null,
+    contesto: i.contesto ?? null, respuesta: i.respuesta ?? null,
     enviados: i.enviados.map((e) => ({
       at: e.at, paso: e.paso ? `Paso ${e.paso.numero}: ${e.paso.titulo}` : null, canal: e.canal, estado: e.estado, error: e.error,
       que: e.que?.que ?? null, clase: e.que?.clase ?? null,
@@ -180,8 +204,7 @@ export function vistaDeDetalle(d: AutomatizacionesDelLead): AutomatizacionesVist
   for (const n of [...d.noEntro].sort((a, b) => (b.at ?? '').localeCompare(a.at ?? ''))) {
     if (vistas.has(n.secuenciaId) || noEntro.length >= TOPE_NO_ENTRO) continue;
     vistas.add(n.secuenciaId);
-    const paso = inscripciones.find((i) => i.secuenciaId === n.secuenciaId && estaViva(i))?.paso ?? null;
-    noEntro.push({ secuenciaId: n.secuenciaId, nombre: n.nombre, at: n.at, texto: fraseNoEntro(n, paso) });
+    noEntro.push({ secuenciaId: n.secuenciaId, nombre: n.nombre, at: n.at, texto: fraseNoEntro(n), motivo: motivoDeNoEntro(n) });
   }
   return { vivas: inscripciones.filter(estaViva), terminadas: inscripciones.filter((i) => !estaViva(i)), noEntro };
 }
@@ -193,7 +216,7 @@ export function vistaDeEnAutomatizacion(auts: readonly EnAutomatizacion[]): Auto
       secuenciaId: a.secuenciaId, nombre: a.nombre, link: a.link, estado: a.estado, automatizacionActiva: a.automatizacionActiva,
       paso: a.paso ? { ...a.paso, total: null } : null,
       proximo: a.proximoEnvioAt ? { at: a.proximoEnvioAt, titulo: null } : null,
-      frenado: a.frenado ? { texto: a.frenado.texto, corto: a.frenado.corto } : null,
+      frenado: a.frenado ? { texto: a.frenado.texto, corto: a.frenado.corto, saleAt: a.frenado.saleAt ?? null } : null,
       termino: null, enviados: [],
       // Frenar ya existía; «Empezar de nuevo» espera la acción de Automations (`empezarDeNuevoAction`).
       puede: { frenar: true, empezarDeNuevo: false }, reentrada: null,
@@ -220,56 +243,6 @@ export function chipDeInscripcion(i: InscripcionVista): { texto: string; tono: T
   return { texto: 'Activa', tono: 'mako' };
 }
 
-/** «Paso 2 de 5: WHATSAPP: Hola…», o sin el total si no se sabe. */
-export function lineaDelPaso(i: Pick<InscripcionVista, 'paso'>): string | null {
-  if (!i.paso) return null;
-  return `Paso ${i.paso.numero}${i.paso.total ? ` de ${i.paso.total}` : ''}: ${i.paso.titulo}`;
-}
-
-/**
- * QUÉ SALE DESPUÉS Y CUÁNDO, o por qué no sale. Nunca silencio: si algo lo frena (el horario, la línea, un fallo) lo dice
- * con su porqué; en una que terminó, cómo terminó. `fecha` formatea en la zona del negocio.
- */
-export function lineaDelProximo(i: InscripcionVista, fecha: (iso: string) => string): string {
-  if (!estaViva(i)) return i.termino?.texto ?? 'Terminó.';
-  if (i.estado === 'respondio') return 'Se frenó porque respondió: no le sale nada más de esta automatización.';
-  if (i.estado === 'handoff') return 'MaKo le pasó la charla a una persona: la automatización no le escribe más.';
-  if (i.estado === 'pausada') return 'En pausa: no le sale nada hasta que se reanude.';
-  if (!i.automatizacionActiva) return 'La automatización está en pausa: el lead quedó en su paso y no le sale nada hasta que se active.';
-  if (i.frenado) return i.frenado.texto;
-  if (!i.proximo?.at) return 'Esperando: no hay nada agendado.';
-  // Un mensaje, por lo que dice y cuándo le llega (24/10/2026); lo demás (una espera, una condición) no se le dice al
-  // dueño por su nombre de lienzo: sólo cuándo sigue.
-  if (i.proximo.clase === 'mensaje' && i.proximo.titulo) return `Le sale ${fecha(i.proximo.at)}: ${i.proximo.titulo}`;
-  if (i.proximo.clase === 'accion' && i.proximo.titulo) return `${i.proximo.titulo} · ${fecha(i.proximo.at)}`;
-  if (i.proximo.clase === 'otro') return `Sigue ${fecha(i.proximo.at)}`;
-  return `Lo próximo${i.proximo.titulo ? `: ${i.proximo.titulo}` : ''} · ${fecha(i.proximo.at)}`;
-}
-
-const NOMBRE_ESTADO_ENVIO: Readonly<Record<string, string>> = {
-  enviado: 'Enviado', fallo: 'Falló', saltado: 'Se saltó', omitido: 'No salió', borrador: 'Quedó en borrador, sin mandar', accion: 'Hecho', pendiente: 'Por salir',
-};
-const TONO_ENVIO: Readonly<Record<string, TonoChip>> = { enviado: 'ok', accion: 'ok', fallo: 'mal' };
-const NOMBRE_CANAL: Record<string, string> = { whatsapp: 'WhatsApp', email: 'Email', instagram: 'Instagram', sms: 'SMS' };
-
-/**
- * Un envío: «Le salió vie 23 oct, 16:33: «Hola Victor, ya me llegó…»», «Aviso al equipo · …» o «No le salió …: el número
- * no tiene WhatsApp». Con lo que DICE (`que`, 24/10/2026); sin eso, como antes («Enviado · WhatsApp · …»).
- */
-export function lineaDelEnvio(e: EnvioVista, fecha: (iso: string) => string): { texto: string; tono: TonoChip } {
-  if (e.que) {
-    const tono = TONO_ENVIO[e.estado] ?? 'gris';
-    if (e.estado === 'fallo') return { texto: `No le salió ${e.que} (${fecha(e.at)})${e.error ? `: ${e.error}` : ''}`, tono };
-    if (e.clase === 'accion') return { texto: `${e.que} · ${fecha(e.at)}`, tono };
-    if (e.estado === 'enviado') return { texto: `Le salió ${fecha(e.at)}: ${e.que}`, tono };
-    if (e.estado === 'borrador') return { texto: `Quedó en borrador, sin mandar (${fecha(e.at)}): ${e.que}`, tono };
-  }
-  const canal = e.canal ? ` · ${NOMBRE_CANAL[e.canal] ?? e.canal}` : '';
-  const nombre = NOMBRE_ESTADO_ENVIO[e.estado] ?? (e.estado ? e.estado[0].toUpperCase() + e.estado.slice(1) : 'Sin estado');
-  const estado = e.error && e.estado !== 'enviado' && e.estado !== 'accion' ? `${nombre}: ${e.error}` : nombre;
-  return { texto: `${estado}${canal} · ${fecha(e.at)}`, tono: TONO_ENVIO[e.estado] ?? 'gris' };
-}
-
 /**
  * UNA FECHA CORTA EN LA ZONA DEL NEGOCIO (24/10/2026): «hoy 18:33», «ayer 16:33», «mañana 09:00»; si no, «vie 24 oct,
  * 09:12». Las tarjetas del bloque hablan de lo de las últimas horas y las que vienen: el día de la semana con «de» y el
@@ -278,63 +251,205 @@ export function lineaDelEnvio(e: EnvioVista, fecha: (iso: string) => string): { 
 export function fechaCorta(iso: string, tz: string, ahoraMs: number): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  const dia = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
   const hora = new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }).format(d);
+  const dia = diaCorto(iso, tz, ahoraMs);
+  return /^(hoy|ayer|mañana)$/.test(dia) ? `${dia} ${hora}` : `${dia}, ${hora}`;
+}
+
+/** El día solo, en la zona del negocio: «hoy», «ayer», «mañana» o «vie 24 oct». Para lo que terminó: la hora sobra. */
+export function diaCorto(iso: string, tz: string, ahoraMs: number): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const dia = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
   const delDia = dia(d.getTime());
-  if (delDia === dia(ahoraMs)) return `hoy ${hora}`;
-  if (delDia === dia(ahoraMs - 86400_000)) return `ayer ${hora}`;
-  if (delDia === dia(ahoraMs + 86400_000)) return `mañana ${hora}`;
-  const resto = new Intl.DateTimeFormat('es-MX', { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz }).format(d)
+  if (delDia === dia(ahoraMs)) return 'hoy';
+  if (delDia === dia(ahoraMs - 86400_000)) return 'ayer';
+  if (delDia === dia(ahoraMs + 86400_000)) return 'mañana';
+  return new Intl.DateTimeFormat('es-MX', { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz }).format(d)
     .replace(/\./g, '').replace(/ de /g, ' ');
-  return `${resto}, ${hora}`;
+}
+
+// =============================================================================
+// LA TARJETA, REDISEÑADA (24/10/2026, segunda vuelta)
+// =============================================================================
+// Martín: «Te pedí que rediseñes la tarjeta, no sólo que cambies el texto, se sigue viendo muy fea». La primera vuelta (la
+// mañana del 24) arregló QUÉ dice; ésta, CÓMO se ve. El norte (del Cerebro, con su captura): lo que importa se ve antes de
+// leer; una línea de tiempo, no un párrafo; las acciones son acciones y la que destruye va aparte y pregunta; la tarjeta
+// se cierra sobre sí misma («Hora de Tijuana» se fue); y varias se distinguen de un vistazo.
+// Las referencias (investigadas el 24/10, docs/hallazgos-crm.md): el estado con forma y color adelante del nombre (las
+// series de Intercom y los workflows de la ficha de HubSpot), el riel vertical con la hora a la derecha (la actividad de
+// Customer.io y Braze), y lo destructivo abajo a la izquierda y en rojo (el modal de WhatsApp del Ops Center).
+// Un color, un significado (app/_ui/tokens.ts): dorado = MaKo lo está haciendo; naranja = algo lo traba y hay que mirarlo;
+// rojo = falló; verde = contestó o terminó; gris = quieto (en pausa, frenada, con una persona).
+
+/** El tono de una tarjeta, del vocabulario de la casa (`TONO`, app/_ui/tokens.ts). */
+export type TonoTarjeta = 'mako' | 'good' | 'warn' | 'bad' | 'neutral';
+/** La forma del sello, para que el estado se distinga aunque no se vean los colores. */
+export type FormaSello = 'disco' | 'tilde' | 'tilde-suave' | 'cuadro' | 'pausa' | 'persona' | 'aro' | 'reloj' | 'alerta' | 'alerta-llena';
+/**
+ * Qué clase de freno es, leído de lo que ya dice `porQueNoSale` (lib/por-que-no-sale.ts) sin tocar el motor: `espera` =
+ * fuera de horario (sale sola cuando abre), `fila` = un tope de la línea (sale cuando se libere), `traba` = algo del negocio
+ * que hay que arreglar (el WhatsApp apagado, sin línea), `fallo` = el último envío falló, `pausa` = la automatización.
+ */
+export type TipoFreno = 'espera' | 'fila' | 'traba' | 'fallo' | 'pausa';
+
+export function tipoDeFreno(f: { corto: string; saleAt?: string | null }): TipoFreno {
+  const c = f.corto.trim();
+  if (c === 'Falló al mandar') return 'fallo';
+  if (c === 'Tope del día' || c === 'Tope de la hora') return 'fila';
+  if (c === 'En pausa') return 'pausa';
+  if (c.startsWith('Abre ') || c === 'Fuera de horario' || f.saleAt) return 'espera';
+  return 'traba';
+}
+
+/** El estado de la tarjeta: la forma y el tono del sello, la línea corta y su cuándo, y el porqué entero (al pasar). */
+export type EstadoTarjeta = { forma: FormaSello; tono: TonoTarjeta; texto: string; at: string | null; soloDia: boolean; porque: string | null };
+
+export function estadoDeTarjeta(i: InscripcionVista): EstadoTarjeta {
+  const e = (forma: FormaSello, tono: TonoTarjeta, texto: string, at: string | null = null, soloDia = false): EstadoTarjeta =>
+    ({ forma, tono, texto, at, soloDia, porque: i.frenado?.texto ?? null });
+  switch (i.estado) {
+    case 'respondio': return e('tilde', 'good', 'Respondió', i.contesto ?? null);
+    case 'handoff': return e('persona', 'neutral', 'Con una persona');
+    case 'completada': return e('tilde-suave', 'good', 'Terminó', i.termino?.at ?? null, true);
+    case 'no_responde': return e('tilde-suave', 'good', 'Terminó sin respuesta', i.termino?.at ?? null, true);
+    case 'cancelada': return e('cuadro', 'neutral', 'Frenada', i.termino?.at ?? null, true);
+    case 'pausada': return e('pausa', 'neutral', 'En pausa');
+  }
+  if (!i.automatizacionActiva) return e('pausa', 'neutral', 'Automatización en pausa');
+  if (i.estado === 'pendiente') return e('aro', 'mako', 'Por arrancar');
+  if (i.frenado) {
+    switch (tipoDeFreno(i.frenado)) {
+      case 'espera': return e('reloj', 'mako', 'Fuera de horario');
+      case 'fila': return e('reloj', 'mako', i.frenado.corto);
+      case 'fallo': return e('alerta-llena', 'bad', 'Falló al mandar');
+      case 'pausa': return e('pausa', 'neutral', 'Automatización en pausa');
+      default: return e('alerta', 'warn', i.frenado.corto);
+    }
+  }
+  return e('disco', 'mako', 'En curso');
 }
 
 /**
- * LO QUE DICE UNA TARJETA DEL BLOQUE, EN TRES RENGLONES (24/10/2026, Martín: «está bastante fea... No es funcional,
- * rediseñala bien»). Antes decía el paso con el nombre del lienzo («Paso 5 de 9: CRON») y abajo el historial; para saber
- * qué le había pasado a ese lead había que leerlo entero. Ahora, lo que se pregunta quien abre la ficha, en orden:
- *   1. qué le salió por última vez y cuándo (el MENSAJE que le llegó, citado; si falló, por qué). Sin envíos, lo dice;
- *   2. si contestó, cuándo;
- *   3. qué sigue: qué le sale y cuándo, por qué no le sale (el horario, la pausa), o cómo terminó.
- * El historial entero queda plegado debajo. Ningún renglón queda vacío ni dice «falta»: si no se sabe, no se dice.
+ * Un renglón del riel. `titulo` es corto y de persona («Le salió», «Contestó», «Aviso al equipo»); `cita`, lo que dice el
+ * mensaje o la respuesta tal como llegó (ya viene cortada a 70: `LARGO_CITA`); `detalle`, el porqué de un fallo o de lo que
+ * no entró. `apagado`: lo próximo que hoy NO sale (en pausa, trabado, en fila), en gris.
  */
-export type RenglonTarjeta = { tipo: 'salio' | 'contesto' | 'sigue' | 'frenado' | 'termino'; texto: string; tono: TonoChip };
+export type NodoRiel = {
+  tipo: 'mensaje' | 'contesto' | 'fallo' | 'borrador' | 'quieto' | 'noentro' | 'proximo';
+  titulo: string; at: string | null; cita: string | null; detalle: string | null; apagado?: boolean;
+};
+/** El riel de una tarjeta: los renglones a la vista, cuántos quedaron plegados antes, y si no hay nada que contar. */
+export type RielTarjeta = { antes: number; nodos: NodoRiel[]; vacio: boolean };
 
-export function renglonesDeTarjeta(i: InscripcionVista, fecha: (iso: string) => string): RenglonTarjeta[] {
-  const out: RenglonTarjeta[] = [];
-  // 1. Lo último que le llegó: el último MENSAJE (o el último fallo); una acción sola (el aviso al equipo) no le llega.
-  const ultimo = i.enviados.find((e) => e.clase === 'mensaje' || e.estado === 'fallo') ?? i.enviados[0];
-  if (ultimo) out.push({ tipo: 'salio', ...lineaDelEnvio(ultimo, fecha) });
-  else if (estaViva(i) && i.estado !== 'respondio') out.push({ tipo: 'salio', texto: 'Todavía no le salió nada.', tono: 'gris' });
-  // 2. Si contestó.
-  if (i.contesto) out.push({ tipo: 'contesto', texto: `Contestó ${fecha(i.contesto)}`, tono: 'ok' });
-  else if (i.estado === 'respondio') out.push({ tipo: 'contesto', texto: 'Contestó.', tono: 'ok' });
-  // 3. Qué sigue.
-  if (!estaViva(i)) {
-    out.push({ tipo: 'termino', texto: `${i.termino?.texto ?? 'Terminó'}${i.termino?.at ? ` · ${fecha(i.termino.at)}` : ''}`, tono: 'gris' });
-  } else if (i.estado === 'respondio') {
-    out.push({ tipo: 'sigue', texto: 'No le sale nada más de esta automatización.', tono: 'gris' });
-  } else {
-    const frenada = !!i.frenado || !i.automatizacionActiva || i.estado === 'pausada';
-    out.push({ tipo: frenada ? 'frenado' : 'sigue', texto: lineaDelProximo(i, fecha), tono: frenada ? 'gris' : 'mako' });
+const NOMBRE_ESTADO_ENVIO: Readonly<Record<string, string>> = {
+  enviado: 'Enviado', fallo: 'Falló', saltado: 'Se saltó', omitido: 'No salió', borrador: 'Borrador sin mandar', accion: 'Hecho', pendiente: 'Por salir',
+};
+const nombreDeEstado = (e: string): string => NOMBRE_ESTADO_ENVIO[e] ?? (e ? e[0].toUpperCase() + e.slice(1) : 'Sin estado');
+
+/** Un envío como renglón: el mensaje que le llegó, el que falló (con su error), el borrador, o una acción de MaKo. */
+function nodoDeEnvio(e: EnvioVista): NodoRiel {
+  const mensaje = e.clase === 'mensaje' ? e.que ?? null : null;
+  if (e.estado === 'fallo') {
+    return { tipo: 'fallo', titulo: e.clase === 'accion' && e.que ? `${e.que}: no salió` : 'No le salió', at: e.at, cita: mensaje, detalle: e.error };
   }
-  return out;
+  if (e.estado === 'borrador') return { tipo: 'borrador', titulo: 'Borrador sin mandar', at: e.at, cita: e.que ?? null, detalle: null };
+  if (e.clase === 'mensaje' && (e.estado === 'enviado' || e.estado === 'simulado')) return { tipo: 'mensaje', titulo: 'Le salió', at: e.at, cita: mensaje, detalle: null };
+  if (e.clase === 'accion' && e.que) return { tipo: 'quieto', titulo: e.que, at: e.at, cita: null, detalle: null };
+  return { tipo: 'quieto', titulo: nombreDeEstado(e.estado), at: e.at, cita: mensaje, detalle: e.error && e.estado !== 'enviado' ? e.error : null };
 }
 
-/** La pregunta antes de «Empezar de nuevo»: nombra a quién y dónde, y que le vuelve a escribir desde el paso 1. */
-export function preguntaDeEmpezarDeNuevo(o: { nombre?: string | null; aut: Pick<InscripcionVista, 'nombre' | 'estado'> }): { titulo: string; mensaje: string } {
-  const quien = o.nombre?.trim() || 'este lead';
-  const desde = estaViva(o.aut) ? 'Lo saca del paso en el que está y ' : '';
+/** Lo que viene, o lo que hoy no sale y por qué en una palabra. null = no hay nada por delante (respondió, terminó…). */
+function nodoProximo(i: InscripcionVista, ahoraMs: number): NodoRiel | null {
+  if (!estaViva(i) || i.estado === 'respondio' || i.estado === 'handoff' || i.estado === 'pausada') return null;
+  const p = i.proximo;
+  const cita = p?.clase === 'mensaje' ? p.titulo : null;
+  const nodo = (titulo: string, at: string | null, apagado = false): NodoRiel => ({ tipo: 'proximo', titulo, at, cita, detalle: null, ...(apagado ? { apagado } : {}) });
+  if (!i.automatizacionActiva) return nodo('En pausa', null, true);
+  if (i.frenado) {
+    switch (tipoDeFreno(i.frenado)) {
+      case 'espera': return nodo('Abre', i.frenado.saleAt ?? null);
+      case 'fila': return nodo('En fila', null, true);
+      case 'pausa': return nodo('En pausa', null, true);
+      case 'fallo': return p?.at && Date.parse(p.at) > ahoraMs ? nodo('Reintenta', p.at) : nodo('No sale', null, true);
+      default: return nodo('No sale', null, true);
+    }
+  }
+  if (!p?.at) return null;
+  if (i.estado === 'pendiente') return nodo('Arranca', p.at);
+  if (p.clase === 'mensaje') return nodo('Le sale', p.at);
+  if (p.clase === 'accion' && p.titulo) return nodo(p.titulo, p.at);
+  if (p.clase === 'otro') return nodo('Sigue', p.at);
+  return nodo(p.titulo || 'Lo próximo', p.at);
+}
+
+/** Los renglones que cuentan algo que le LLEGÓ (o tenía que llegarle): desde el penúltimo de éstos se ve sin abrir. */
+const FUERTES: ReadonlySet<NodoRiel['tipo']> = new Set(['mensaje', 'fallo', 'borrador']);
+
+/**
+ * EL RIEL: lo que pasó del más viejo al más nuevo —lo que le salió (con su cita), lo que contestó (con lo que dijo), lo que
+ * falló, las veces que no volvió a entrar— y al final lo que viene. Sin `todo`, lo viejo se pliega: se ve desde el PENÚLTIMO
+ * mensaje (el último y el anterior, para leer la conversación), y lo de antes es «Ver N antes». `noEntro` va adentro del
+ * riel: es parte de lo que le pasó con ESA automatización.
+ */
+export function rielDeTarjeta(i: InscripcionVista, noEntro: readonly NoEntroVista[], o: { todo?: boolean; ahoraMs?: number } = {}): RielTarjeta {
+  const hechos: NodoRiel[] = [...i.enviados].reverse().map(nodoDeEnvio);
+  for (const n of noEntro) {
+    if (n.secuenciaId === i.secuenciaId) hechos.push({ tipo: 'noentro', titulo: 'No volvió a entrar', at: n.at, cita: null, detalle: n.motivo ?? null });
+  }
+  if (i.contesto || i.estado === 'respondio') hechos.push({ tipo: 'contesto', titulo: 'Contestó', at: i.contesto ?? null, cita: i.respuesta ?? null, detalle: null });
+  // Del más viejo al más nuevo; lo que no tiene hora, al final (en el orden en que entró).
+  const t = (n: NodoRiel) => (n.at ? Date.parse(n.at) : Number.POSITIVE_INFINITY);
+  const ordenados = hechos.map((n, k) => ({ n, k })).sort((a, b) => (t(a.n) - t(b.n)) || (a.k - b.k)).map((x) => x.n);
+  const fuertes = ordenados.flatMap((n, k) => (FUERTES.has(n.tipo) ? [k] : []));
+  const desde = o.todo || fuertes.length < 2 ? (o.todo || !fuertes.length ? 0 : fuertes[0]) : fuertes[fuertes.length - 2];
+  const proximo = nodoProximo(i, o.ahoraMs ?? Date.now());
+  const nodos = [...ordenados.slice(desde), ...(proximo ? [proximo] : [])];
+  return { antes: desde, nodos, vacio: !nodos.length && estaViva(i) && i.estado !== 'respondio' };
+}
+
+const RANGO_TONO: Readonly<Record<TonoTarjeta, number>> = { bad: 0, warn: 1, good: 2, mako: 3, neutral: 4 };
+
+/**
+ * EL ORDEN DE LAS VIVAS: lo que hay que mirar primero arriba (lo que falló, lo trabado, quien contestó), después lo que MaKo
+ * está haciendo por lo que sale antes, y lo quieto al final. Estable: dentro de lo mismo, el orden del server.
+ */
+export function ordenarTarjetas(vivas: readonly InscripcionVista[]): InscripcionVista[] {
+  const sale = (i: InscripcionVista) => (i.proximo?.at ? Date.parse(i.proximo.at) : Number.POSITIVE_INFINITY);
+  return vivas.map((i, k) => ({ i, k, tono: estadoDeTarjeta(i).tono }))
+    .sort((a, b) => (RANGO_TONO[a.tono] - RANGO_TONO[b.tono]) || (a.tono === 'mako' ? sale(a.i) - sale(b.i) : 0) || (a.k - b.k))
+    .map((x) => x.i);
+}
+
+/** El primer nombre, para las preguntas. Local a propósito: `primerNombre` vive en lib/automatizaciones-del-lead-reglas.ts, que
+ * importa el grafo del motor, y esta vista corre en el navegador. */
+const primerNombreDe = (n: string | null | undefined): string | null => (n ?? '').trim().split(/\s+/)[0] || null;
+
+/**
+ * La pregunta antes de «Frenar» EN LA FICHA: nombra la automatización y dice la verdad. Una inscripción frenada queda
+ * 'cancelada' y no se vuelve a abrir, ni a mano ni sola (puede ser una baja: lib/nutricion-inscripcion-manual.ts).
+ */
+export function preguntaDeFrenarEnFicha(o: { nombre?: string | null; aut: Pick<InscripcionVista, 'nombre'> }): { titulo: string; mensaje: string } {
+  const quien = primerNombreDe(o.nombre);
   return {
-    titulo: `¿Empezar de nuevo «${o.aut.nombre}» para ${quien}?`,
-    mensaje: `${desde}${desde ? 'le' : 'Le'} vuelve a salir todo desde el primer paso, como si recién entrara. Lo que ya le salió queda en el historial.`,
+    titulo: `Frenar «${o.aut.nombre}»`,
+    mensaje: `${quien ? `A ${quien} no` : 'No'} le sale nada más, y no se puede volver a empezar.`,
+  };
+}
+
+/** La pregunta antes de «Empezar de nuevo»: que le vuelve a salir todo desde el principio. */
+export function preguntaDeEmpezarDeNuevo(o: { nombre?: string | null; aut: Pick<InscripcionVista, 'nombre' | 'estado'> }): { titulo: string; mensaje: string } {
+  const quien = primerNombreDe(o.nombre);
+  return {
+    titulo: `Empezar de nuevo «${o.aut.nombre}»`,
+    mensaje: `${quien ? `A ${quien} le` : 'Le'} vuelve a salir todo desde el principio.`,
   };
 }
 
 /** El texto de una vez que no entró, si viene sin decir (el respaldo: nunca una línea vacía). */
 export function textoDeNoEntro(o: { nombre: string; porque: string; paso?: { numero: number } | null }): string {
   switch (o.porque) {
-    case 'en_curso': return `No volvió a empezar «${o.nombre}»: ya está adentro${o.paso ? ` (paso ${o.paso.numero})` : ''}.`;
+    case 'en_curso': return `No volvió a empezar «${o.nombre}»: ya está adentro.`;
     case 'una_sola_vez': return `No volvió a entrar a «${o.nombre}»: entra una sola vez.`;
     case 'cancelada': return `No volvió a entrar a «${o.nombre}»: la frenaron y no vuelve sola.`;
     default: return `No entró a «${o.nombre}».`;
@@ -364,11 +479,10 @@ export function noEntroDelMovimiento(r: unknown): string[] {
   if (!Array.isArray(lista)) return [];
   return lista.flatMap((x) => {
     if (!x || typeof x !== 'object') return [];
-    const o = x as { texto?: unknown; nombre?: unknown; porque?: unknown; paso?: { numero?: unknown } | null };
+    const o = x as { texto?: unknown; nombre?: unknown; porque?: unknown };
     const texto = typeof o.texto === 'string' ? o.texto : null;
-    const n = o.paso && typeof o.paso.numero === 'number' ? { numero: o.paso.numero } : null;
     // El `texto` de Automations es el motivo SIN el nombre: con el nombre, la frase entera.
-    if (typeof o.nombre === 'string') return [fraseNoEntro({ nombre: o.nombre, texto, porque: typeof o.porque === 'string' ? o.porque : null }, n)];
+    if (typeof o.nombre === 'string') return [fraseNoEntro({ nombre: o.nombre, texto, porque: typeof o.porque === 'string' ? o.porque : null })];
     return texto?.trim() ? [texto.trim()] : [];
   });
 }

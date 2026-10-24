@@ -56,7 +56,9 @@ export function enAutomatizacionesDe(filas: readonly FilaInscripcion[], secs: re
     const lista = out.get(Number(f.lead_id)) ?? [];
     lista.push({
       secuenciaId: Number(s.id), nombre: s.nombre?.trim() || `Automatización #${s.id}`, automatizacionActiva: s.activa === true,
-      estado: f.estado as EnAutomatizacion['estado'], paso: i >= 0 ? { numero: i + 1, titulo: nombreDeTarjeta(pasos, idDe(pasos[i], i)) } : null,
+      // En palabras de persona (24/10/2026: «ninguna palabra del motor sale a la pantalla»): lo leen el tablero del CRM, el
+      // teléfono y el bloque de la ficha. Sin el nombre del lead (la lista es de muchos): «Hola, si no me das…».
+      estado: f.estado as EnAutomatizacion['estado'], paso: i >= 0 ? { numero: i + 1, titulo: pasoEnPalabras(pasos[i], null).que } : null,
       proximoEnvioAt: f.proximo_envio_at, link: `/automations?sec=${s.id}`,
       ...(frenoDe ? { frenado: frenoDe(f, s, canalDelPaso(i >= 0 ? pasos[i] : undefined)) } : {}),
     });
@@ -158,6 +160,29 @@ export function leerContesto(valor: string | null | undefined): string | null {
   return m ? m[1].trim() : null;
 }
 
+/** Un mensaje que mandó el lead (`wa_mensajes`, entrante). */
+export type FilaEntranteDetalle = { texto: string | null; tipo: string | null; wa_timestamp: string | null };
+/** Cuánto después de la respuesta puede quedar escrita la línea «Contestó en»: el motor la escribe al toque. */
+const HOLGURA_CONTESTO_MS = 2 * 60_000;
+
+/**
+ * QUÉ CONTESTÓ (24/10/2026, el Cerebro: «¿Qué le mandamos ya, y qué contestó?»): el último mensaje del lead hasta que el
+ * motor anotó «Contestó» (con una holgura chica) y desde que entró. Citado como el texto de un mensaje; uno sin texto, por
+ * lo que es («un audio», «una foto»). null = no se encontró: el renglón dice sólo cuándo.
+ */
+export function respuestaDelLead(entrantes: readonly FilaEntranteDetalle[], contestoAt: string, desdeAt: string | null): string | null {
+  const hasta = Date.parse(contestoAt) + HOLGURA_CONTESTO_MS;
+  const desde = desdeAt ? Date.parse(desdeAt) : -Infinity;
+  const e = [...entrantes]
+    .filter((x) => { const t = Date.parse(x.wa_timestamp ?? ''); return Number.isFinite(t) && t <= hasta && t >= desde; })
+    .sort((a, b) => Date.parse(b.wa_timestamp ?? '') - Date.parse(a.wa_timestamp ?? ''))[0];
+  if (!e) return null;
+  const texto = citaDelMensaje(e.texto, null);
+  if (texto) return `«${texto}»`;
+  const POR_TIPO: Record<string, string> = { audio: 'un audio', image: 'una foto', imagen: 'una foto', video: 'un video', document: 'un archivo', documento: 'un archivo', sticker: 'un sticker' };
+  return POR_TIPO[String(e.tipo ?? '')] ?? 'un mensaje';
+}
+
 /** Hasta cuántos días atrás se muestran las que ya terminaron. */
 export const DIAS_TERMINADAS = 30;
 /** Cuántos envíos por inscripción, del más nuevo al más viejo. */
@@ -189,6 +214,8 @@ export type InscripcionDelLead = {
   puede: { frenar: boolean; empezarDeNuevo: boolean; porQueNo?: string };
   /** Cuándo contestó en ESTA pasada (la línea del motor, `leerContesto`). null = no se sabe. */
   contesto?: string | null;
+  /** Qué contestó, citado (`respuestaDelLead`). null = no se encontró el mensaje. */
+  respuesta?: string | null;
 };
 
 export type AutomatizacionesDelLead = { zona: string; inscripciones: InscripcionDelLead[]; noEntro: NoEntro[] };
@@ -213,6 +240,8 @@ export function detalleDe(o: {
   ahoraMs: number;
   /** El nombre del lead, para citar sus mensajes como le llegaron (`pasoEnPalabras`). */
   nombreDelLead?: string | null;
+  /** Lo que mandó el lead, para decir QUÉ contestó (`respuestaDelLead`). */
+  entrantes?: readonly FilaEntranteDetalle[];
 }): AutomatizacionesDelLead {
   const porId = new Map(o.secs.map((s) => [Number(s.id), s]));
   // Cuándo contestó, por automatización: la línea MÁS NUEVA de cada una (el historial viene sin orden garantizado).
@@ -271,6 +300,8 @@ export function detalleDe(o: {
         return at && (!f.inscripto_at || Date.parse(at) >= Date.parse(f.inscripto_at)) ? at : null;
       })(),
     });
+    const ultima = inscripciones[inscripciones.length - 1];
+    ultima.respuesta = ultima.contesto ? respuestaDelLead(o.entrantes ?? [], ultima.contesto, f.inscripto_at) : null;
   }
   // Las vivas primero; dentro de cada grupo, la más nueva arriba.
   const orden = (x: InscripcionDelLead) => (x.termino ? 1 : 0);
