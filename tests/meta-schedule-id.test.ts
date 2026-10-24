@@ -136,3 +136,12 @@ test('un host que da 403 al UA «compatible» se lee con el de bot honesto, y su
   assert.ok(a.piezas.has('meta-schedule'), 'el bundle también se baja con el reintento');
   assert.deepEqual(pedidos, ['html:compatible', 'html:bot', 'js:compatible', 'js:bot']);
 });
+
+test('CABLEADO: el lector común (Offer, Diagnóstico, Replicar) reintenta un 403 con el UA de bot honesto', () => {
+  // Martín lo vio en Offer y en el Diagnóstico (24/10/2026): «La página respondió 403: está bloqueando la lectura
+  // automática». Es el mismo WAF que bloqueaba al analizador del Pixel.
+  const src = sinComentarios(leer('lib/landing-fetch.ts'));
+  assert.match(src, /const UA_BOT = 'MaKoLandingAnalyst\/1\.0 \(\+https:\/\/hola-mako\.com\)';/);
+  assert.match(src, /let res = await pedirPagina\(check\.url, check\.ips\);\s*if \(res\.status === 403\) res = await pedirPagina\(check\.url, check\.ips, UA_BOT\);/);
+  assert.match(src, /headers: \{ 'user-agent': ua,/, 'el pedido usa el UA que le pasan, no el fijo');
+});
