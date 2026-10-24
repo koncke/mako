@@ -86,3 +86,49 @@ Corrige la tabla de pendientes que le habían dado. **Los números son los suyos
 - **La tarjeta de Automations:** «Te pedi que rediseñes la tarjeta, no solo que cambies el texto, se sigue viendo muy fea».
 - **La PC:** «Literalmente tuve que forzar el apagado de la PC porque se trabo todo... Continua con todo, pero cuida que no se creashee». Y «Ya cerré Chrome, pushea, y cierra el resto de cosas que te interrumpan... No tengas miedo de cerrarlos» — **nunca `svchost`**.
 - **El Ops Center en el teléfono:** «Intente responder esa pregunta en mobile y no funciono... Y respondi a mano, y no se envio el mensaje. Esta fallando». Causa: `AskUserQuestion` bloquea el turno. **Prohibido usarlo: se pregunta con `cartero preguntar <archivo.json>` y se termina el turno.**
+
+---
+
+# ⚠️ FEEDBACK DE LA NOCHE (24/10, lo último) — 24 puntos, TEXTUAL
+
+> **Esto es lo más nuevo y lo que hay que atacar primero.** Martín mandó capturas con cada punto; las capturas están
+> en el transcript del chat «Cerebro» de claude1 (`~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/e680c815-4e8a-...jsonl`, último turno del 24/10). Lo que está entre paréntesis es lo que se ve en ellas.
+
+## Partners y Planes → chat «Planes»
+
+1. «La pagina de MaKo Partners DEBE ser siempre la landing al menos que el usuario ya se haya registrado como partner, solo cuando se registre ahi aparece el dashboard... Pero mejora ampliamente la pagina de partner, hazla mas marketinera, busca referencias de como lo hacen otras apps... No me da claridad en lo que ganan, esta todo muy amontonado, no se sabe si se ganan meses o dinero... Falta algo como "Calculadora" para que calculen cuanto podrían ganar si refieren a X personas, en fin, que este muy buena esa pagina, revisa como lo hacen otros...»
+2. «La sección de planes no se entiende para nada... Lo hiciste con lenguaje interno, las personas no saben que es "Ops Center" y muchas otras cosas... Tienes que VENDER, Revisa como lo hacen otras paginas... Y sobre todo el acompañamiento debe tener mas beneficios y verse diferencial, porque sino no tiene sentido. El personalizado tiene que tener un factor de PROMESA de resultados, ya no solo software.»
+
+## Editor web → chat «Landings»
+
+3. «Cuando le doy a "Nueva landing" NO me debe redireccionar a otra ruta... Y la sidebar no debe cambiar... Solamente debe aparecer el "¿Qué vas a crear hoy?" con los templates en lugar de la topbar de edición y el lienzo...» (captura: `/web-generator?panel=1`, con la sidebar cambiada y otra ruta. **Lo que se entregó el 24/10 no cumple esto.**)
+4. «Todas las paginas de MaKo no son editables, clickeo y no se pueden editar las secciones... Eso esta mal. Deben serlo. Y eso no implica romper el diseño, en todo caso agregar funcionalidades al editor web.»
+5. «Los botones se siguen superponiendo, fijate la esquina superior izquierda en el linezo... Los botones de los 3 puntos con "abrir tira de imagenes", con el botón de + y el botón para desplazar la sección, se superponen todos... Ya de por si "Abrir tira de imagenes" debería ser un botón en la topbar, y se debería abrir donde está el chat de mako. Hay un botón que dice "Editar con IA" eso eliminalo... Por defecto siempre esta el editor de IA.» (captura `/web-generator/32`: ⋮, ✨ y 📋 amontonados sobre el logo «MaKo» del lienzo.)
+6. «Muchos placeholder como el de la captura se ponen por detras de otras secciones y no se llegan a leer...»
+7. «Te pedí que "Compartir" y "publicar" sean un solo botón, azul y que diga "compartir"... Con el desplegable de la vista previa y las otras opciones, claro... Y mejora el diseño del pop-up de "Compartir y exportar" fijate como lo hacen otras apps, porque hay mucho texto y botones juntos, no se entiende...» (captura: siguen siendo DOS botones, «Compartir» y «Publicar ▾».)
+8. «El editor de texto quedó en un scroll muy chiquito, lo que te propongo es que sea un botón el editor de texto y se abra otra topbar tipo edición de texto con todas las opciones.»
+9. «Elimina "Guardado", ya que no deja ver bien el título de la pagina... Y extiende mas la sección del titulo para que se lea, ahora que ya no esta guardado...» (captura: el título se ve «Landin…» cortado.)
+10. «La sidebar del chat de MaKo NO se debe poder cerrar nunca. Elimina el boton de plegar. Y mira como se bugea el placeholder del chat con un salto de linea... Tampoco pongas los botones de "toda la landing, sin titulo" pon los botones de "Discutir, editar".» (captura: «Envía un mensaje al / agente…» partido en dos renglones, y los chips «Toda la landing» / «Sin título».)
+
+## Settings → chat «Ops Center»
+
+11. «En settings no me gusta el diseño de "Perfil, Notificaciones, Instalar App, Equipo, Notificaciones, Identidades fiscales, Tu plan", basicamente no me gusta nada de lo que hiciste... Fijate pagina por pagina como lo hacen otras apps y esfuerzate en el diseño de cada una. En mobile tampoco se ven bien... Y en desktop es como que esta cortado a la mitad, no llega al final del ancho...» (captura `/perfil`: el contenido termina a ~2/3 del ancho. **Y «Notificaciones» aparece DOS veces en el índice.**)
+
+## CRM → chat «CRM»
+
+12. «En el editor del CRM no me gusta que MaKo sea un cuadrado, cuando ya lo venimos haciendo tipo bloque flotante con cuadros un poco redondeados... Unifica ese diseño. Y aún no hiciste que se pueda editar cada cosa, por ejemplo en el bloque de "Contacto" no puedo sacar EMPRESA, y en general debes revisas que todo sea editable...» (captura: «Editar con MaKo» como panel cuadrado pegado a la izquierda; el bloque Contacto con Teléfono/Email/Empresa sin poder quitar campos.)
+13. «En los 3 puntos de cada columna, lo primero debe ser nuevo lead. Y el editor de columnas abajo del todo, claro que eliminar siempre por ultimo. Y que no diga "Cambiar EL nombre", solo "Cambiar nombre". Y ahí pon la opción de "ordenar", y la sacas de filtros, que no este ordenamientos en el botón de filtros, sino que se pueda ordenar dentro de esos 3 puntos, y en este caso si pusiste un chip de "Respondió" se debe poder ordenar por eso... Aunque revisa porque estoy seguro que existen muchos otros posibles ordenamientos... Y en general tambien revisa el orden y los botones de los desplegables, tal vez sobran botones o estan desordenados y causan confusion.» (menú actual: Columnas / ← → / Agregar etapa · Leads / Nuevo lead · Etapa / Cambiar el nombre / Tipo de etapa / Eliminar etapa.)
+14. «En el detail del lead, que las paginas comiencen a la izquierda del todo, no alineado al nombre. Y no pongas la flechita con esas opciones, para eso ya tenemos los 3 puntos al lado de "editar", que ese desplegable de los 3 puntos tambien esta desordenado... Y llegará un punto donde "nueva hoja" ya no se vea bien, ahí si deberías poner la ultima hoja con un desplegable, algo como "Ver más" o algo así y que ahí salte el desplegable con el resto de hojas y que el botón de "nueva hoja" se meta allí.» (⋯ actual: AI Analyst / Copiar el link / Exportar CSV / Exportar PDF / Historial de la ficha / Guía de edición.)
+15. «En el editor de CRM, elimina lo de "Asignar campañas", para eso ya tenemos los 3 puntos en cada columna...»
+16. «El botón de "A revisar" no esta funcionando por CRM, cuando si debería... No debo estar en un CRM y que me traigan las notificaciones de otro.»
+17. «En "traer de otro funnel" te habia pedido que si ya lo trajo, no aparezca. Mejor que sea como en los grupos de whatsapp, que aparezca todo, pero en gris.»
+18. «La extracción en grupos de WhatsApp tarda bastante, no solo la extracción, sino también el cargar los grupos, tarda muchísimo. Hazlo más rapido, optimizalo.»
+19. «Si le doy a "Scraper" o algun boton asi, se me abre el modal nuevo, si me salgo haciendo click afuera debería tener abierto el modal anterior. Siempre todos los modales deben tener esa "navegación" interna.»
+20. «Rediseña los modales de "scraper" y "de otro funnel", se ven muy feos, mira la captura la cantidad de botones que tienen, no se entiende nada... Y también rediseña el de "importar", que tiene una estetica MUY diferente, todos tienen que compartir estetica...» (captura de «Traer de un grupo de WhatsApp»: PROSPECCIÓN / Círculo TIBIO / nombre del grupo / ← Atrás / Completar desde mi WhatsApp / Datos de empresa / Traer 131.)
+21. «Aún no funciona el buscador de Instagram... Mira que puse el usuario exacto y no me da la vista previa con la foto de perfil... Me dice "conectar meta" cuando en la cuenta de mauricio ya lo tengo conectado, no tiene sentido...» (captura «Nuevo lead» con `@leilafittipaldiok`: «Su cuenta se busca con tu Meta · Conectar Meta» aparece DOS veces.)
+
+## Plataforma → chat «Ops Center»
+
+22. «Ni en la cuenta de Mauricio ni en la mia tengo instalado aun la app de escritorio de MaKo y aún así me sigue dejando enviar mensajes... No debería. En ningun chat, no solo en Ops Center...» ⚠️ **El arreglo del 24/10 sólo cubrió el Ops Center: hay que llevarlo a TODOS los chats.**
+23. «La sidebar principal en muchas tabs no funciona el botón de "desplegar" para mantenerla desplegada, eso debería funcionar siempre...» ⚠️ **Regresión de lo que entró el 24/10.**
+24. «La investigación financiera ponme en una ruta de MaKo para leerla.» (Hoy sólo vive en `docs/estrategia-financiera-mako.md`.)
