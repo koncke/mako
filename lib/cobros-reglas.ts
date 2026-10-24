@@ -328,3 +328,45 @@ export function emailEnmascarado(email: string | null | undefined): string | nul
   if (at < 1) return null;
   return `${e.slice(0, Math.min(2, at))}***${e.slice(at)}`;
 }
+
+/** Lo que devuelve la pasarela al crear un checkout (el mismo de `crearCheckout`, lib/cobros.ts). */
+export type CheckoutCreado = { ok: true; ref: string; url: string; venceAt: string | null } | { ok: false; error: string };
+
+/**
+ * Lo que pasa DESPUÉS de escribir la fila del cobro y llamar a la pasarela (lib/cobros.ts `crearCobro`), con las escrituras
+ * que pueden fallar por inyección para ejecutarlo en un test. `crearCobro` devuelve siempre un resultado; nunca tira.
+ *
+ * ⚠️ Lo que hacía antes (23/10/2026): `actualizar` TIRA ante un error de la base. Si la pasarela rechazaba y la base fallaba
+ * al anular, `crearCobro` tiraba en vez de decir el motivo, y la fila quedaba `pendiente` sin link: en una cuota, ese
+ * pendiente es «el link vivo» y se devolvía como si anduviera (en Mercado Pago, un link muerto). Peor, con el checkout ya
+ * creado en la pasarela, un `actualizar` que fallaba perdía su `ref` y su url: si alguien lo pagaba, nada lo reconocía.
+ *
+ *   · checkout rechazado → se anula la fila con el motivo (si la base falla, se loguea) y se devuelve el error de la pasarela;
+ *   · checkout creado → se guarda su ref y su url; si falla se reintenta UNA vez (un corte de red no es un error de fondo);
+ *   · sigue sin poder guardarse → la fila se anula CON el ref y la url (así la reconciliación, que mira los anulados que tienen
+ *     `proveedor_ref`, reconoce un pago por ese link) y se dice «reintenta»: no se entrega un link que la fila no conoce.
+ */
+export async function cerrarCheckoutDelCobro<T>(p: {
+  checkout: CheckoutCreado;
+  guardar: (r: { ref: string; url: string; venceAt: string | null }) => Promise<T | null>;
+  anular: (patch: { motivo: string; ref?: string; url?: string }) => Promise<unknown>;
+  aviso?: (m: string) => void;
+}): Promise<{ ok: true; guardado: T | null } | { ok: false; error: string; deLaPasarela: boolean }> {
+  const avisar = p.aviso ?? ((m: string) => console.error(m));
+  const c = p.checkout;
+  if (!c.ok) {
+    try { await p.anular({ motivo: c.error.slice(0, 300) }); } catch (e) {
+      avisar(`[cobros] el checkout falló y no pude anular la fila: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    return { ok: false, error: c.error, deLaPasarela: true };
+  }
+  let ultimo: unknown = null;
+  for (let intento = 0; intento < 2; intento++) {
+    try { return { ok: true, guardado: await p.guardar({ ref: c.ref, url: c.url, venceAt: c.venceAt }) }; } catch (e) { ultimo = e; }
+  }
+  avisar(`[cobros] el link se creó en la pasarela (${c.ref}) y no pude guardarlo: ${ultimo instanceof Error ? ultimo.message : String(ultimo)}`);
+  try { await p.anular({ motivo: 'El link se creó en la pasarela pero no se pudo guardar: no lo uses.', ref: c.ref, url: c.url }); } catch (e) {
+    avisar(`[cobros] tampoco pude anular la fila del link ${c.ref}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return { ok: false, error: 'No pude guardar el link de pago. Intenta de nuevo en un momento.', deLaPasarela: false };
+}
