@@ -4346,3 +4346,41 @@ Los guiones (principal, 6 por funcionalidad, 3 por avatar) están en `docs/vsl/`
 - **Lo que hay que medir antes de grabar**, anotado en cada guion: el «nueve de cada diez» del CRM (lo medido era 7 de
   10), el «ocho de cada diez ventas después del quinto mensaje» (dato de mercado sin fuente firme), y si una landing
   del Web Generator trae el seguimiento del video por lead.
+
+## El Pixel no es por funnel: lo que mide y lo que no (auditoría del 24/10/2026)
+
+Pedido de Martín (23/10, 22:52, textual): «Tienes que auditar el Pixel de MaKo punta a punta... Porque no es
+personalizable según qué funnel... Debería serlo. En este caso, Mauricio VENDE, con compra carrito en Stripe... Y ese
+evento no se está midiendo... Piensa en todos los casos de uso, y que se pueda personalizar fácil. Hay eventos que
+sobran... como «Deja sus datos». La landing de Mauricio no recopila datos...». Llegó un día tarde: el cartero del Ops
+Center murió esa noche. Chat «Landings de MaKo en Web Generator», workflow `wf_3f17ed7e-123` (5 lectores, síntesis y
+un crítico que midió en la base y en la cuenta de Stripe del cliente).
+
+**Vive en:** `lib/landing-token.ts` (el snippet; los chequeos de `landingDiagnostico`, paso 5 en ~:1144-1195) ·
+`app/integraciones/ProbarTracking.tsx` · `app/api/track/vsl/route.ts` (`CONOCIDOS`, :446) · `lib/landing-config.ts`
+
+- **El Pixel es el MISMO código para todos y no sabe de funnels.** Manda 17 tipos de evento a /api/track/vsl y un opt-in a
+  /api/track/optin; ninguno es de checkout ni de compra, ninguno lleva monto, y no lee `_fbp` ni `_fbc`. Entre la v22
+  y la v25 no cambió ningún tipo de evento. Ninguna ruta /api/track/* le manda nada a Meta.
+- **Una compra en buy.stripe.com o checkout.stripe.com el Pixel NO la puede ver**: no corre ahí. Ve el CLIC al link (como
+  un `click` con el href, sólo si el botón es un `<a>`) y, si Stripe redirige a una página del negocio con el Pixel, la
+  visita a la de gracias. La compra la ve sólo el WEBHOOK de la pasarela (docs/hallazgos-pagos.md, misma fecha).
+- **«Deja sus datos» sale donde no aplica y queda en «falta» para siempre:** el paso 5 es «Agenda una llamada» si hay
+  agenda y no formulario, y en cualquier otro caso «Deja sus datos»; con una sola visita (`entraAlCrm`) ya se pide, y su
+  «no aplica» sólo existe sin visitas. Con el análisis de la página caído, `piezas` null vale «tiene formulario». O sea
+  que una página de venta con checkout (la del «Sprint 3 días» de Mauricio, que es casi seguro la que miraba Martín: la
+  editó un minuto antes del pedido) le pide un formulario que no tiene.
+- **El diagnóstico obvio («la landing de Mauricio vende con Stripe y no se mide») era el equivocado en las dos mitades:**
+  multiplicatusresultados.com vende por Calendly (0 links a Stripe; 4.093 visitas, 2.219 plays, 8 reservas y 0 opt-ins
+  en 30 días), y lo que se vende con Stripe es el Sprint, cuya página de venta no está publicada en ningún lado visible.
+  Y por Stripe NUNCA hubo una venta (docs/hallazgos-pagos.md).
+- **`video_ajeno` y `toque_video` no están en `CONOCIDOS`**: son eventos del Pixel vigente desde la v16 y el probador
+  los rotula «Evento no reconocido (Pixel desactualizado o modificado)»; 1.731 filas en el ws13 en 30 días.
+- **«Hace clic en tus botones» cuenta el sello del editor:** en el ws1, el 43 % de los 176 clics de 30 días es «Edit with
+  Lovable» y el 57 % sale como «boton:» sin texto.
+- **El modelo para que sea por funnel YA existe a medias:** el tipo de funnel es la entrada guardada (`TIPOS_FUNNEL`,
+  `tipoDeFunnel`, lib/pipeline.ts:855-870: carrito, agenda, chat, formulario del anuncio, landing), y la página se ata a
+  su funnel en landing.config (`funnelPrincipalDeLanding`). Lo que faltaba es que los PASOS del probador salgan de ahí, por
+  página (un funnel tiene la página del VSL, la de venta y la de gracias), con una corrección a mano.
+- **Sin medir:** qué botón son los 101 «boton:» sin texto del ws1 (se ve en el mapa de calor); si un `<stripe-buy-button>`
+  respeta un `client-reference-id` puesto después de montarse.

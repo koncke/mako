@@ -1224,3 +1224,34 @@ pesos valdría lo de ese día. Es una decisión de producto, no de este arreglo.
 
 **Vive en:** lib/cobros-reglas.ts (`montoUsdDeLaCuota`) · lib/cobros.ts (`aplicarPagoAprobado`) ·
 tests/cobros-reglas.test.ts.
+
+
+## Una venta con el Stripe PROPIO del negocio no entra a MaKo (auditoría del 24/10/2026)
+
+Medido por la auditoría del Pixel (docs/hallazgos-landing.md, misma fecha), con GETs de sólo lectura a la cuenta de Stripe
+de Mauricio Bustos (quedan en los Logs de su panel) y la base.
+
+**Vive en:** `lib/cobros-webhook.ts` (:88-90 y :121-123, :141-143) · `lib/cobros-eventos.ts` (`avisoStripe`, el motivo
+del `checkout.session.expired` :151-153) · `lib/stripe-api.ts` (`leerCheckoutStripe`) · `lib/fuentes-leads.ts`
+
+- **Hoy no se pierde ninguna venta, porque no hubo ninguna:** la cuenta del ws1 tiene 0 cargos, 0 payment intents, 0
+  facturas y 0 suscripciones. Tiene UN Payment Link del «Sprint 3 días» (USD, pide teléfono, redirige a
+  sprint.mauriciobustos.com/gracias.html SIN `{CHECKOUT_SESSION_ID}`) y 12 checkouts empezados entre el 18 y el 23/10,
+  todos vencidos y sin email. Las credenciales están todas: sk_live, el aviso de MaKo en modo real con 13 eventos.
+- **Cuando llegue la primera, se pierde entera:** el webhook tira todo pago que no creó MaKo («no es un cobro de MaKo»):
+  ni lead, ni venta en Pagos, ni Purchase a Meta (ningún camino lo manda: docs/hallazgos-ads.md).
+- ⚠️ **La salida barata es la equivocada:** meter al comprador con `ingresarDeFuente` lo deja en la etapa de ENTRADA del
+  funnel del negocio (ningún funnel del ws1 declara «carrito»), donde la secuencia de WhatsApp activa le escribe y el CRM
+  automático (T2) lo pasa a «No agenda» a los 2 días: el «no agendaste» a quien pagó que esta casa ya prohíbe. Una venta
+  externa entra como un COBRO ya pagado por `aplicarPagoAprobado` (gana al lead, deja la cuota, dispara «Entró un pago» y
+  cubre reembolsos), con su Purchase por CAPI con el email del checkout, monto y moneda reales, `event_id`
+  `purchase:<pi_|in_>`, sólo con livemode y dentro de `runWithWorkspace`. No hace falta migración por las restricciones
+  de cobros (0255), pero no hay columna que marque un cobro como externo.
+- **Trampas medidas para quien lo construya:** `after()` sin `runWithWorkspace` no manda el Purchase con otro píxel: lo
+  descarta como `sin_pixel` SIN rastro (lib/meta-capi.ts:186-193; Calendly sólo anota rechazado/http/red). Una suscripción
+  manda `checkout.session.completed` E `invoice.paid`: el `event_id` sale de la misma llave que la cuota. Un pago
+  diferido (OXXO) llega `unpaid`. No hay modo prueba: la clave y el aviso son reales, y probar es una compra de verdad.
+- **Para unir la compra con la visita sin tocar el Pixel:** que el Payment Link redirija con `{CHECKOUT_SESSION_ID}`; la
+  visita a gracias.html llega con `session_id=cs_…` adentro de `landing_url` y el server puede releer la sesión.
+- **Quién:** toca lib/cobros* (dueño, Integraciones) y el webhook que usa la suscripción de MaKo. Se lo pasé al Cerebro el
+  24/10 para que decida chat y fecha; no lo hice yo.

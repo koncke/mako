@@ -4577,3 +4577,24 @@ medir editar (pausa, presupuesto, nombre) en una cuenta de cliente con app en de
 **Vive en:** lib/zernio-ads.ts · lib/zernio-ads-cuerpo.ts · lib/meta-ads-create.ts (`crearAnuncioEnConjunto`,
 `updateAdCopy`) · app/api/ads-manager/campaign-create/route.ts · scripts/prueba-zernio-anuncio.mts ·
 tests/zernio-anuncios.test.ts
+
+
+## Lo que MaKo le manda a Meta, y dos agujeros (auditoría del Pixel, 24/10/2026)
+
+**Vive en:** `lib/meta-capi.ts` (`sendMetaCAPIEvent`) · `lib/meta-capi-payload.ts` · `app/api/webhooks/calendly/route.ts`
+(:609-628) · `app/api/webhooks/meta-leads/route.ts` (:285) · `lib/zernio-leads.ts` (:92) · `lib/leads.ts` (:1249)
+
+- **Por CAPI salen sólo cuatro cosas, de cuatro lugares:** Lead (formularios de Meta y de Zernio), SubmitApplication +
+  QualifiedLead (marcar «calificado» en el CRM) y Schedule (una reserva de Calendly). **Purchase no sale por ningún
+  camino**, Cal.com no manda Schedule, y el opt-in de una landing no manda Lead. MaKo no carga `fbq`: el píxel del
+  navegador lo pega el negocio.
+- ⚠️ **VIVO: el Schedule se cuenta DOS veces en el píxel de Mauricio.** Su landing dispara `fbq('track','Schedule')` sin
+  `eventID` al reservar en Calendly, y MaKo manda Schedule por CAPI al MISMO píxel (el `META_PIXEL_ID` del ws1 coincide
+  con el `fbq('init')` de la página) con `event_id` `schedule:<email>:<inicio>`. Sin un `event_id` común (ni `fbp`, que
+  MaKo no guarda) Meta no deduplica: 7 reservas en 30 días, cada una contada dos veces. **El diagnóstico obvio («ya
+  existe, está bien») era el equivocado:** que MaKo mande un evento es correcto sólo si la página no lo manda ya. La salida
+  es por página o por funnel: MaKo no manda por CAPI lo que el píxel de la página ya manda (o la página deja de mandarlo),
+  y eso es parte de «qué mide este funnel» (docs/hallazgos-landing.md, misma fecha). Además, ese `event_id` lleva el email
+  en claro.
+- **MaKo no ve gasto de anuncios del ws1 desde el 15/10** (la sincronización corre). La caída de visitas de su landing
+  viene de ahí, no del Pixel. Sin medir: en qué cuenta corre su pauta.
