@@ -142,7 +142,8 @@ test('⚠️ EL DOER: plazo POR PROVEEDOR, la segunda cuenta del mismo no arranc
 });
 
 test('El cartel del doer se elige y se escribe con los errores DEL NEGOCIO', () => {
-  assert.match(DOER, /textoFalloIA\(causa, linkKeysIA\(APP_URL\), eraDePlan \? 'armar el borrador' : 'contestar', nKeys, errsIA\)/,
+  // `cartel` desde el arreglo del cartel sin IA (24/10/2026, `cartelDelFallo`): la misma causa, y la fila del vigía.
+  assert.match(DOER, /textoFalloIA\(cartel, linkKeysIA\(APP_URL\), eraDePlan \? 'armar el borrador' : 'contestar', nKeys, errsIA\)/,
     'el cartel no recibe los errores: `ia_lenta` no puede decir qué IA tardó');
 });
 
