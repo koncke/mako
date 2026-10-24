@@ -72,3 +72,33 @@ con las LECTURAS del registro de la API de MaKo, sin las acciones.
 - Si el teléfono (`/m/dashboard`) necesita el modo «editar», porque hoy no tiene el panel.
 
 *17/10/2026, claude4 (agente del Cerebro, rama `dash-mako-vista-1710`).*
+
+## El micrófono de un chat graba una nota de voz; el dictado queda sólo para escribir un texto (24/10/2026)
+
+Martín, por el Cerebro: **«es mejor que esa funcionalidad [el dictado] la saquemos de todos lados, que sólo se quede en
+lugares muy específicos, pero en chats o en los chats de MaKo que se grabe el audio y se envíe directamente... Porque
+justamente en chats se deberían poder mandar audios»**. Y: **«la animación de ondas de grabando audios no sigue lo que está
+escuchando... debería seguir lo que escucha, subir o bajar las ondas»**.
+
+**Lo decidido (lo decide este chat, el dueño de la caja):**
+
+| Dónde | Qué hace el micrófono | Por qué |
+|---|---|---|
+| **Toda caja de chat** (`app/_chat/CajaChat.tsx`): el Ops Center (computadora y teléfono), el chat de MaKo de cada tab, Offer y el onboarding, Automations, el Dashboard, los editores, la Ticketera del cliente, «Pregúntale a MaKo» de Chats | **Graba una nota de voz**, y se manda con la barra de la grabación (se termina, se escucha si quiere y ➤) | Es una conversación: lo que se dice se manda, como en WhatsApp. Ya no hay texto dictado que corregir ni frases repetidas |
+| **Chats** (WhatsApp de cada línea) | Graba y manda el AUDIO al contacto (ya era así) | El contacto recibe una nota de voz |
+| **El alta de una tarea del Plan**, **el guion de Copywriting** (teléfono) y **la nota de un lead** (ficha del teléfono) | **Dicta** al campo | Lo que se arma es un TEXTO que se lee y se corrige antes de guardarlo; ahí escribir con la voz sí sirve |
+
+**Cómo llega la nota a cada motor:**
+- La pantalla que ya sabe recibir un audio (el chat del cliente y las tabs con la estrella, `useChatCliente`; la ficha del
+  lead, `MakoAnalystLead`; Offer en el teléfono; Chats) lo sigue haciendo con el suyo: en el hilo se ve la nota que se
+  escucha, con la transcripción como texto secundario (la regla del 21/10).
+- La que no (el Ops Center del super admin, Automations, el Dashboard, los editores, el Web Generator, la Ticketera del
+  cliente, «Pregúntale a MaKo»): la caja la pasa a MP3, la transcribe (`/api/plan-dictado`, con las mismas reglas de la IA
+  del negocio) y MANDA el texto, sin pasar por el campo. **En el Ops Center se sigue firmando en el dispositivo**: lo que se
+  firma es el texto transcrito, y el audio no viaja a la PC (la regla del 16/10 que sigue en pie). Lo que cambió el 24/10 es
+  que el texto ya no espera en la caja a que Martín lo lea: sale.
+
+**La onda:** mientras se graba, la onda la mueve el volumen del micrófono (un `AnalyserNode` sobre el mismo stream que se
+graba). Si el navegador no deja escucharlo, la onda queda QUIETA, una línea: nunca una animación que se mueve sola. Donde
+queda el dictado, el botón se pone rojo y lo dictado va entrando al campo, que es la señal de verdad: sin un anillo que late
+siempre igual.

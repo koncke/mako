@@ -6738,6 +6738,10 @@ aparecer en la app de Ops Center»). AskUserQuestion TRABA tu turno hasta que la
 la puede contestar: medido en 27 de los transcripts, mientras espera no te entra ningún mensaje (los de otras sesiones quedan
 retenidos hasta que el turno termina). El cartero 1.18.0 la sube para que la VEA en el Ops Center, pero ahí no se contesta.
 Preguntá con `cartero preguntar` y terminá el turno: se contesta desde el Ops Center, una por vez, en la compu y en el teléfono.
+**Lo que cuesta, medido el 24/10/2026:** el Cerebro preguntó 8 veces con AskUserQuestion en dos días. Martín, desde el teléfono,
+tocó las opciones y no pasó nada, escribió la respuesta a mano y ese mensaje quedó en «escrito» porque el turno estaba trabado:
+«Intenté responder esa pregunta en mobile y no funcionó... Está fallando». Desde el teléfono una pregunta así NO tiene respuesta
+posible: la app de Claude está en la computadora.
 Con varias decisiones, un archivo por decisión (uno tras otro): Martín las ve juntas y las contesta de a una, con «1 de 3».
 Un ejemplo, con su recomendada (el índice desde 0) y el detalle de lo que pasa con cada una:
 

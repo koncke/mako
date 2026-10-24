@@ -2668,3 +2668,56 @@ sistema, y un chat hace sólo lo que sólo un chat puede hacer. El silencio de a
 **Sin hacer (se construye el lunes 26/10):** todo el diseño de docs/diseno-cartero-servicio.md (el servicio que mide y
 sube, los dos carteles, la entrega por cualquier chat que arranque) y la decisión del arranque con el chat de IA del cliente
 (§2.4).
+
+## La onda «que se movía sola» ya seguía la voz: lo que mentía era el respaldo, y un anillo de CSS (24/10/2026)
+
+**El síntoma:** Martín: «la animación de ondas de grabando audios no sigue lo que está escuchando, es decir, es sólo una
+animación predefinida».
+
+**El diagnóstico obvio era el equivocado:** «la onda no está conectada al micrófono». Sí lo estaba: desde el 22/10 la barra de
+grabar (`BarraGrabacion` → `OndaGrabando`) escucha el MISMO stream que graba con un `AnalyserNode`. Lo que se movía solo
+eran otras dos cosas:
+- **el respaldo de esa onda.** Sin el micrófono a mano (sin `flujo`, o sin Web Audio), las barras se animaban con
+  `mako-wave`, y dibujaban «entra voz» sin saberlo;
+- **el anillo del dictado.** En la caja del Ops Center, mientras se DICTA (no se graba), el botón rojo latía con un
+  `box-shadow` (`co-escucha`), siempre igual hablara o no. Era lo que Martín más veía, porque dictaba ahí.
+
+**La regla:** una pantalla no dibuja movimiento que no mide. Sin señal, la onda es una línea quieta. Y donde se dicta, la
+señal de verdad es el texto entrando al campo, no un anillo.
+
+**Y lo de fondo:** el dictado salió de toda caja de chat (el pedido del mismo día). El micrófono de un chat graba una nota
+de voz, y si la pantalla no recibe audios, la caja la transcribe y la manda (`app/_chat/nota-que-se-manda.ts`). El dictado
+quedó en tres lugares, donde se arma un texto: el alta de una tarea del Plan, el guion de Copywriting y la nota de un lead.
+El detalle está en docs/diseno-chats-de-mako.md.
+
+**Sin hacer:** que las pantallas que hoy reciben la nota como texto la reciban como AUDIO, con la transcripción abajo (la
+regla del 21/10). Son el Ops Center del super admin, Automations, el Dashboard, los editores, el Web Generator, la Ticketera
+del cliente y «Pregúntale a MaKo». Cada una necesita que su motor guarde un audio: es del chat de cada área.
+
+**Vive en:** `app/_chat/nota-que-se-manda.ts` · `app/_chat/CajaChat.tsx` · `app/whatsapp/_shared/VoiceRecorder.tsx` (`OndaGrabando`) · `tests/chat-nota-de-voz.test.ts`
+
+## «No puedo tocar las opciones en el teléfono» era un AskUserQuestion, y la regla táctil escondía la explicación (24/10/2026)
+
+**El síntoma:** Martín, desde el teléfono: «Intenté responder esa pregunta en mobile y no funcionó, en Ops Center... Y respondí a
+mano, y no se envió el mensaje».
+
+**El diagnóstico obvio era el equivocado:** «el toque no llega» (el área chica, algo encima, un `click` que el dedo no dispara, el
+`touchmove` que la hoja frena). Se probó con un teléfono emulado de verdad (CDP: `Emulation.setDeviceMetricsOverride` con
+`mobile: true`, el táctil y toques con `Input.dispatchTouchEvent`, nunca un `click()` de JS que saltea los gestos). Las
+preguntas de `cartero preguntar` se tocan bien con el hilo corto o largo y con el dedo que tiembla 3 px. El arnés quedó en el
+scratchpad de esa sesión, y se rearma en minutos con las piezas reales (SheetM, el hilo, BloqueDePreguntas).
+
+**La causa:** la pregunta era un **AskUserQuestion** del Cerebro. El Ops Center la muestra y a propósito no la contesta: mientras
+espera, al chat no le entra ningún mensaje (medido el 22/10). En el teléfono se veía IGUAL que una que se contesta (los números en
+su caja). Y el renglón «contéstala en la app de Claude» lo escondía una regla de centro.css para pantallas táctiles,
+`.co-preg__pie:not(…) { display: none }`, que estaba para sacar la ayuda del teclado («Elige con 1 a 4»). Su mensaje escrito
+quedó en «escrito» porque el turno del Cerebro estaba trabado, y la línea de abajo decía «El Runner lo toma en segundos».
+
+**La regla:**
+- Lo que explica por qué algo NO se puede hacer no va en un renglón que otra regla esconde: va arriba, como aviso.
+- Lo que no se toca no se dibuja como un botón.
+- Un mensaje que espera dice por qué espera, en el acto si ya se sabe. Y nunca promete un tiempo que no se mide: la PC lo toma
+  en su vuelta, y se dice cuándo fue la última.
+- Y la de AGENTS.md, con el caso: a Martín no se le pregunta con AskUserQuestion. Desde el teléfono, no tiene respuesta posible.
+
+**Vive en:** `app/admin/operaciones/PreguntasDelChat.tsx` (`CuerpoDeLaApp`) · `app/admin/operaciones/centro.css` · `lib/centro-chats.ts` (`estadoDelEnvio`, `POR_QUE_TRABADO`) · `tests/ops-pregunta-app-movil.test.ts`

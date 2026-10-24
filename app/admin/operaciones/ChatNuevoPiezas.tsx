@@ -14,6 +14,8 @@ import { frasePorDonde, type DecisionChatNuevo } from '@/lib/centro-chat-nuevo';
 import { CirculoNuevo } from './NuevoChat';
 import { Muneco } from './Muneco';
 import { BotonMandar } from './Microfono';
+import { BarraGrabacion } from '@/app/whatsapp/_shared/VoiceRecorder';
+import { useNotaQueSeManda } from '@/app/_chat/nota-que-se-manda';
 import { BotonEmojis } from './Emojis';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
@@ -116,15 +118,24 @@ export function CuerpoChatNuevo({ n }: { n: ChatNuevo }) {
 /**
  * La caja de escribir del chat nuevo: un campo y UN botón (WhatsApp), alineados como la del resto (`--caja-toque`). Sólo para el
  * primer mensaje: después de mandarlo, el chat de verdad toma su lugar. `movil` usa las clases de la hoja del teléfono.
+ * El micrófono GRABA una nota de voz, como en toda caja de chat (24/10/2026): se transcribe y sale como el primer mensaje
+ * (app/_chat/nota-que-se-manda.ts). Ya no dicta.
  */
 export function CajaChatNuevo({ n, movil = false }: { n: ChatNuevo; movil?: boolean }) {
   const ocupado = n.fase !== 'escribiendo';
-  const fila = (
+  const nota = useNotaQueSeManda({ texto: n.texto, onTexto: n.setTexto, onMandar: () => void n.mandar() });
+  const conBarra = nota.grabacion.fase === 'grabando' || !!nota.grabacion.revision;
+  const hayQueMandar = !!n.texto.trim();
+  const fila = conBarra ? (
     <div className={movil ? 'm-operaciones-caja__fila' : 'co-caja__fila'}>
-      <BotonEmojis campo={n.caja} valor={n.texto} onValor={n.setTexto} apagado={ocupado} />
+      <BarraGrabacion voz={nota.grabacion} ocupado={ocupado} rotuloEnviar="Enviar la nota" colorPlay="var(--primary)" />
+    </div>
+  ) : (
+    <div className={movil ? 'm-operaciones-caja__fila' : 'co-caja__fila'}>
+      <BotonEmojis campo={n.caja} valor={n.texto} onValor={n.setTexto} apagado={ocupado || nota.transcribiendo} />
       <div className="co-caja__campo">
         <textarea
-          ref={n.caja} rows={1} value={n.texto} disabled={ocupado}
+          ref={n.caja} rows={1} value={n.texto} disabled={ocupado || nota.transcribiendo}
           onChange={(e) => n.setTexto(e.target.value)}
           onKeyDown={(e) => {
             // En el teléfono Enter baja de renglón; en la computadora Enter manda y Mayús+Enter baja.
@@ -132,12 +143,23 @@ export function CajaChatNuevo({ n, movil = false }: { n: ChatNuevo; movil?: bool
             e.preventDefault();
             void n.mandar();
           }}
-          placeholder="Escribe lo que necesitas" aria-label="Escribe lo que necesitas"
+          placeholder={nota.transcribiendo ? 'Pasando tu nota a texto…' : 'Escribe lo que necesitas'} aria-label="Escribe lo que necesitas"
         />
       </div>
-      <BotonMandar valor={n.texto} onValor={n.setTexto} onError={() => {}} enviando={n.fase === 'decidiendo'} apagado={ocupado}
-        hayQueMandar={!!n.texto.trim()} onMandar={() => void n.mandar()} titulo="Mandar (Enter)" />
+      {/* Sin nada escrito, el botón GRABA (como en toda caja de chat); con algo, la flecha. */}
+      {!hayQueMandar && !nota.transcribiendo && n.fase !== 'decidiendo' ? (
+        <button type="button" className="co-enviar co-enviar--mic" onClick={() => void nota.grabacion.start()} disabled={ocupado}
+          aria-label="Grabar una nota de voz" title="Grabar una nota de voz">
+          <Icon name="mic" size={18} />
+        </button>
+      ) : (
+        <BotonMandar valor={n.texto} onValor={n.setTexto} onError={() => {}} enviando={n.fase === 'decidiendo' || nota.transcribiendo} apagado={ocupado}
+          hayQueMandar={hayQueMandar} onMandar={() => void n.mandar()} titulo="Mandar (Enter)" />
+      )}
     </div>
   );
-  return movil ? <div className="m-operaciones-caja">{fila}</div> : <div className="co-caja-wrap"><div className="co-caja">{fila}</div></div>;
+  const error = nota.error && <p className="co-caja__estado" role="alert">{nota.error}</p>;
+  return movil
+    ? <div className="m-operaciones-caja">{fila}{error}</div>
+    : <div className="co-caja-wrap"><div className="co-caja">{fila}{error}</div></div>;
 }

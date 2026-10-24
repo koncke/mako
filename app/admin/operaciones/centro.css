@@ -643,10 +643,10 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-mic:hover:not(:disabled) { color: var(--ink); background: var(--velo-hover); }
 .co-mic:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-mic:disabled { cursor: wait; opacity: .6; }
-.co-mic[data-escuchando] { background: var(--bad); border-color: var(--bad); color: #fff; animation: co-escucha 1.2s ease-in-out infinite; }
+/* Escuchando: rojo y QUIETO (24/10/2026). El anillo que latía siempre igual decía «te escucho» sin medir nada; la señal de
+   verdad es lo dictado entrando al campo. */
+.co-mic[data-escuchando] { background: var(--bad); border-color: var(--bad); color: #fff; }
 .co-mic__txt { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
-@keyframes co-escucha { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--bad) 45%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } }
-@media (prefers-reduced-motion: reduce) { .co-mic[data-escuchando] { animation: none; } }
 .co-enviar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-enviar__giro {
   width: 14px;
@@ -907,6 +907,13 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-chip--primario:disabled { opacity: .5; cursor: default; }
 /* La ayuda es del teclado: en una pantalla táctil sobra (Claude Code en el teléfono tampoco la muestra). */
 @media (hover: none) and (pointer: coarse) { .co-preg__ayuda { display: none; } .co-preg__pie:not(.co-preg__pie--chat):not(:has(.co-preg__error)) { display: none; } }
+/* La pregunta de la app de Claude (24/10/2026): arriba, por qué no se contesta desde acá y lo que cuesta; NUNCA se esconde
+   (el renglón de abajo se iba con la regla de arriba en el teléfono, y sus opciones parecían tocables). Las opciones, de
+   lectura: el número sin la caja de un botón. */
+.co-preg__aviso-app { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 10px; padding: 8px 10px; border-radius: var(--r-md); background: var(--warn-bg, var(--velo-hover)); color: var(--ink); font-size: var(--fs-sm); line-height: 1.4; }
+.co-preg__aviso-app svg { flex: none; margin-top: 2px; color: var(--warn, var(--dim)); }
+.co-preg--app .co-preg__op--leer { color: var(--dim); }
+.co-preg--app .co-preg__op--leer .co-preg__num { border-color: transparent; background: none; }
 
 /* La conversación vacía: el empleado grande, como la portada de un Bot. */
 .co-portada { margin: 14vh auto 0; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
@@ -1501,8 +1508,7 @@ a.co-link:hover { color: var(--primary-strong); }
 /* El micrófono es el mismo botón que el de mandar (Microfono.tsx → BotonMandar): redondo, y rojo latiendo mientras escucha. */
 .co-enviar--mic { background: var(--surface-2); color: var(--ink); }
 .co-enviar--mic:hover:not(:disabled) { background: var(--velo-hover); }
-.co-enviar--mic[data-escuchando] { background: var(--bad); color: #fff; animation: co-escucha 1.2s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .co-enviar--mic[data-escuchando] { animation: none; } }
+.co-enviar--mic[data-escuchando] { background: var(--bad); color: #fff; }
 [data-m] .m-operaciones-caja .co-enviar--mic { background: var(--surface-2); }
 [data-m] .m-operaciones-caja .co-enviar--mic[data-escuchando] { background: var(--bad); }
 @media (max-width: 720px) { .co-yo { max-width: 88%; } .co-el__cuerpo, .co-el__cuerpo--ancho { max-width: none; } }

@@ -63,8 +63,9 @@ test('si tarda, dice POR QUÉ con lo que Martín puede hacer', () => {
   assert.equal(motivo(trabajo('escrito', tarde), [vivo('claude1', [chatPC(S1, 'claude1', false)])], { estado: 'cerrado', viejo: false }), 'Abre este chat en la cuenta 1 para que lo reciba.');
   // Abierto, pero sin Runner en su carpeta (SendMessage no cruza carpetas).
   assert.equal(motivo(trabajo('escrito', tarde), [vivo('claude1', [{ ...chatPC(S1, 'claude1'), runner: false }])]), 'Abre el Runner de la cuenta 1 para que salga.');
-  // Todo en orden y todavía escrito: no hay nada que arreglar, y lo dice igual.
-  assert.equal(motivo(trabajo('escrito', tarde), [vivo('claude1', [chatPC(S1, 'claude1')])]), 'El Runner lo toma en segundos.');
+  // Todo en orden y todavía escrito: no hay nada que arreglar, y lo dice igual. Sin prometer segundos (24/10/2026: la PC lo
+  // toma en su vuelta, que puede ser de minutos): cuándo fue la última. tests/ops-pregunta-app-movil.test.ts.
+  assert.equal(motivo(trabajo('escrito', tarde), [vivo('claude1', [chatPC(S1, 'claude1')])]), 'La PC lo toma en su próxima vuelta (la última, a las 09:59).');
   assert.equal(motivo(trabajo('tomado', 120_000), [vivo('claude1', [chatPC(S1, 'claude1')])]), 'El Runner se lo está pasando al chat.');
 });
 

@@ -494,7 +494,7 @@ const entornoVozDelNavegador: EntornoVoz = {
 };
 
 export type GrabacionVoz = EstadoVoz & Omit<SesionVoz, 'start' | 'revisarExistente' | 'soltar' | 'flujo'> & {
-  /** El micrófono que se graba: la onda sigue su nivel. Sin él, la onda se mueve sola (como antes del 22/10). */
+  /** El micrófono que se graba: la onda sigue su nivel. Sin él, la onda queda quieta (24/10/2026: nunca se mueve sola). */
   flujo?: () => MediaStream | null;
   start: () => Promise<void>;
   revisarExistente: (base: { blob: Blob; secs: number }) => Promise<void>;
@@ -545,12 +545,16 @@ const PISO_ONDA = 0.12;
  *
  * Y SIGUE LA VOZ (22/10/2026): con `flujo`, escucha el micrófono (un AnalyserNode, sin sonar por el parlante) y cada
  * `PASO_ONDA_MS` entra por la derecha una barra con lo que sonó. Las alturas se escriben en el DOM, sin pasar por React:
- * un estado por cuadro re-dibujaría la caja entera 60 veces por segundo. Sin `flujo` o sin Web Audio, se mueve sola.
+ * un estado por cuadro re-dibujaría la caja entera 60 veces por segundo.
+ * SIN NADA QUE ESCUCHAR, QUIETA (24/10/2026, Martín: «la animación de ondas de grabando audios no sigue lo que está
+ * escuchando, es decir, es sólo una animación predefinida»): sin `flujo`, sin Web Audio o con el navegador que no deja
+ * escuchar el micrófono, la onda es una línea. Antes se movía sola, y una onda que se mueve sin sonido dice que entra voz
+ * cuando no se sabe.
  */
 function OndaGrabando({ paused, flujo }: { paused: boolean; flujo?: (() => MediaStream | null) | null }) {
   const [caja, setCaja] = useState<HTMLDivElement | null>(null);
   const [n, setN] = useState(48);
-  /** null = todavía no se sabe; true = la onda sigue la voz; false = sin micrófono que escuchar (se mueve sola). */
+  /** null = todavía no se sabe; true = la onda sigue la voz; false = sin micrófono que escuchar (queda quieta). */
   const [sigueVoz, setSigueVoz] = useState<boolean | null>(flujo ? null : false);
   const pausada = useRef(paused);
   useEffect(() => { pausada.current = paused; }, [paused]);
@@ -608,13 +612,11 @@ function OndaGrabando({ paused, flujo }: { paused: boolean; flujo?: (() => Media
       void ctx.close().catch(() => {});
     };
   }, [caja, flujo]);
-  const sola = sigueVoz === false;
   return (
-    <div ref={setCaja} data-onda data-sigue-voz={sigueVoz ? '' : undefined} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, height: 26, overflow: 'hidden' }}>
+    <div ref={setCaja} data-onda data-sigue-voz={sigueVoz ? '' : undefined} data-sin-oido={sigueVoz === false ? '' : undefined} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, height: 26, overflow: 'hidden' }}>
       {Array.from({ length: n }).map((_, i) => (
-        <span key={i} data-barra style={sola
-          ? { flex: 'none', width: 3, height: 22, borderRadius: 2, background: 'var(--good)', transformOrigin: 'center', animation: 'mako-wave .7s ease-in-out infinite alternate', animationDelay: `${(i % 11) * 0.06}s`, animationPlayState: paused ? 'paused' : 'running', opacity: paused ? 0.5 : 1 }
-          : { flex: 'none', width: 3, height: 22, borderRadius: 2, background: 'var(--good)', transformOrigin: 'center', transform: `scaleY(${PISO_ONDA})`, transition: 'transform 60ms linear', opacity: paused ? 0.5 : 1 }}></span>
+        // Las alturas las escribe el micrófono (arriba, en el DOM); sin él, todas en el piso: una línea.
+        <span key={i} data-barra style={{ flex: 'none', width: 3, height: 22, borderRadius: 2, background: 'var(--good)', transformOrigin: 'center', transform: `scaleY(${PISO_ONDA})`, transition: 'transform 60ms linear', opacity: paused ? 0.5 : 1 }}></span>
       ))}
     </div>
   );

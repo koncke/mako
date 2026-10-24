@@ -50,7 +50,9 @@ export async function POST(req: Request) {
     const texto = await conSoloSuIA(negocio.suIA, async () => {
       // IA16: su OpenAI o su Gemini (`PROVS_SU_IA`); con sólo su Claude, no hay con qué escuchar.
       if (negocio.suIA && !(await Promise.all(PROVS_SU_IA.map((p) => provsDe(p as never)))).some((l) => l.length)) return null;
-      return transcribirAudio(base64, file.type || 'audio/webm', { motivo: 'Dictar una tarea del plan', pii: true });
+      // La nota de voz de una caja de chat (24/10/2026, app/_chat/nota-que-se-manda.ts) se anota con su motivo.
+      const motivo = form.get('para') === 'chat' ? 'Nota de voz de un chat' : 'Dictar una tarea del plan';
+      return transcribirAudio(base64, file.type || 'audio/webm', { motivo, pii: true });
     });
     if (texto == null) return Response.json({ ok: false, error: SIN_OIDO_SU_IA }, { status: 200 });
     return Response.json({ ok: true, texto: texto.trim() });

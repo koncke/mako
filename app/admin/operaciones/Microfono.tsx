@@ -8,9 +8,12 @@
 // transcribe con /api/plan-dictado), la misma del alta del Plan y del chat de MaKo del teléfono. El botón es de acá,
 // con la forma del de mandar.
 //
-// ⚠️ EL TEXTO SE PEGA EN LA CAJA, NO SE MANDA. Martín lo lee, lo corrige si hace falta, y al mandar se FIRMA en su
-// dispositivo como cualquier otro trabajo: el audio nunca viaja a la PC, y nada transcrito por una máquina sale sin que
-// él lo haya visto.
+// ⚠️ DESDE EL 24/10/2026 LA CAJA YA NO DICTA (Martín: «en chats o en los chats de MaKo que se grabe el audio y se envíe
+// directamente»): sin nada escrito, el botón de toda caja de chat GRABA una nota de voz (app/_chat/CajaChat.tsx y
+// app/_chat/nota-que-se-manda.ts), y este botón queda como la flecha. Lo transcrito SALE sin esperar en el campo (antes se
+// pegaba para que Martín lo leyera); en el Ops Center se sigue FIRMANDO en su dispositivo, y el audio sigue sin viajar a la
+// PC: lo que se manda es el texto. El dictado de acá (`Microfono`, y la rama del micrófono de `BotonMandar`) queda para una
+// caja que no grabe; docs/diseno-chats-de-mako.md dice dónde queda el dictado.
 
 import { useDictar } from '@/app/_components/useDictar';
 import { Icon } from '@/app/_components/icons';
