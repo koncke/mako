@@ -19,6 +19,7 @@ import { join } from 'node:path';
 import { TOPES, TABS_SOLO_PRO } from '../lib/topes-plan';
 import { NOMBRE_TAB_PRO, filasDeComparacion } from '../lib/planes-comparacion';
 import { PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR } from '../lib/planes-mako';
+import { avisoAltaAMano } from '../lib/plan-esencial-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
@@ -82,6 +83,14 @@ test('/planes: tres bloques, el programa va a la agenda, la comparación, sin an
   assert.match(p, /botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable, sufijo, origen, ref \}\)/);
 });
 
+test('quien da de alta a mano lee que ese negocio NO tiene los topes de la tabla (se cumplen sólo por la pasarela)', () => {
+  assert.match(avisoAltaAMano('completo')!, /no tiene los topes de su plan[\s\S]*sólo a quien paga en línea/);
+  assert.equal(avisoAltaAMano('agencia'), avisoAltaAMano('completo'), 'Pro también tiene topes (3 WhatsApp, 5 usuarios)');
+  assert.equal(avisoAltaAMano('pm'), null, 'una capa sin topes no lleva el aviso');
+  const alta = fuente('app/admin/AdminView.tsx');
+  assert.match(alta, /\{avisoAltaAMano\(capa\) && <div [^>]*>\{avisoAltaAMano\(capa\)\}<\/div>\}/, 'el alta del super admin no lo muestra');
+});
+
 // Roturas (24/10/2026; base 8 / 0 con planes-tres-bloques y partners-para-clientes juntos), cada una restaurada (pasan / fallan):
 //   · la fila de automatizaciones escrita a mano con 5                                        -> 7 / 1
 //   · Ads Manager también en Esencial                                                         -> 7 / 1
@@ -90,3 +99,5 @@ test('/planes: tres bloques, el programa va a la agenda, la comparación, sin an
 //   · /planes muestra `precioAnualUsd`                                                        -> 7 / 1
 //   · /planes sin el link a MaKo Partners                                                     -> 7 / 1
 //   · la columna de cada plan elegida por su id y no por su capa (revisión del 24/10)              -> 7 / 1
+//   · el alta del super admin sin el aviso de los topes (24/10, base 10 / 0 con los dos)      -> 9 / 1
+//   · `avisoAltaAMano` sólo para Esencial (Pro también tiene topes)                            -> 9 / 1

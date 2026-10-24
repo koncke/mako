@@ -22,6 +22,11 @@
 
 ## Lo que falta, en orden
 
+> ⚠️ **ALTAS A MANO (las primeras ventas del 25/10 son por llamada):** los topes de cada plan y el candado de las tabs de Pro
+> se hacen cumplir SÓLO a quien paga por la pasarela (`esEsencialPorPasarela`, lib/plan-esencial-reglas.ts). Un Esencial
+> dado de alta a mano recibe MÁS de lo que dice la tabla de /planes: sin topes y con Ads Manager, Image, Video y AI Avatar.
+> El alta del super admin («Nuevo cliente») lo avisa. Si hay que cerrarlo para las altas a mano, es esa regla.
+
 1. **Migración 0330** (aditiva): la aplica el Cerebro en producción ANTES del deploy, con su OK.
 2. **Prender el corte** (`CORTE_DE_ACCESO_PRENDIDO` en `lib/plan-acceso-reglas.ts`): después de la revisión adversarial y con la
    0330 aplicada. Con el corte apagado la deuda se VE (aviso y /cuenta-pausada) pero nadie se pausa.
