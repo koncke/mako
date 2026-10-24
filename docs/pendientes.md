@@ -19,6 +19,9 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 
 ## Le falla a un cliente (14)
 
+- **Ads (Mauricio, ws1)** — La cuenta de anuncios «Cuenta 2» está frenada por Meta desde el 15/10 por un saldo impago de 8.743,59 MXN: la campaña 030 está activa y no entrega. _Mauricio no tiene pauta desde hace 9 días; es el 6.º episodio desde agosto_ · chico · **depende de Martín** (que Mauricio pague o cambie el medio de pago) · `docs/hallazgos-ads.md → «Un día sin filas de Meta no es "sin sincronizar"» (24/10)`
+- **Avisos** — MaKo dejó de avisarle a Mauricio de su cuenta frenada el 16/10: el techo de 3 avisos por estado se compara con la marca heredada (26). Decidir si un incidente abierto varios días vuelve a avisar (por ejemplo, una vez por día) y separar la cuenta que comparten el ws1 y el ws4. _el cliente no se entera de que no tiene pauta_ · chico · **depende de Martín** · `docs/hallazgos-comunicacion.md → «Una alerta con el techo agotado se calla…» (24/10)`
+
 - **Automations** — El aviso «en 30 min tenés la reunión» al dueño sólo sale con Calendly: con Cal.com (Código Inmobiliario) no llega. _el cliente que agenda por Cal.com se pierde el recordatorio_ · chico · se puede hacer ya · `docs/hallazgos-chatbot.md → Séptima tanda; app/api/cron/reunion-recordatorio/route.ts (recorre sólo 'calendly')`
 - **Automations** — Una automatización sin disparador se puede prender y queda callada (le pasó a Brigitte). _el cliente la ve activa y no le escribe a nadie_ · chico · se puede hacer ya · `docs/hallazgos-chatbot.md → «Las automatizaciones de Brigitte (ws15)…» (17/10)`
 - **Automations** — El disparador «Un lead escribe por WhatsApp» murió con Chatwoot, y el CRM automático no lee el número de empresa. _la automatización que espera respuesta no arranca y el CRM puede mover a «No responde» a quien sí escribió_ · medio · se puede hacer ya · `docs/relevo/avisos-y-whatsapp.md → 3.8 y decisión 5.5; docs/relevo/seguridad-aislamiento.md §2.5`
@@ -103,6 +106,11 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 - **Ops Center** — Abrir los Runners de las cuentas 2 y 3 y darle al token de GitHub acceso al repo nuevo (da 404). _lo que se les manda queda esperando_ · chico · **depende de Martín** · `docs/hallazgos-operaciones.md → Lo que quedó sin hacer (17/10); docs/relevo/centro-operaciones.md`
 
 ## Falta construir (89)
+
+- **Chats de MaKo (los 11 embebidos)** — El clic derecho de un mensaje no hace nada fuera del Ops Center. Es UNA pieza: el menú vive en `MensajeWA` y sólo se prende con `ContextoWA`; los 11 chats dibujan con `HiloMako`, que no lo conecta. El arreglo es un menú mínimo (Copiar y Responder) en `HiloMako`, y llega a los 11 de una vez. Más el clic derecho en el lienzo del editor web con `MenuContextual`. Automations no lo toca (acordado). _Martín: «si le doy click derecho, no hace nada»_ · medio · se puede hacer ya · `docs/diseno-editor-web-como-automations.md §5; docs/hallazgos-operaciones.md (24/10); punta 4e1e6dbb2`
+- **Pagos** — Una venta con el Stripe propio del negocio entra como cobro externo ya pagado, con su Purchase a Meta. Diseñado y verificado contra el código; el Cerebro decidió hacerlo después del lanzamiento (toca el webhook que cobra la suscripción de MaKo). _la primera venta del Sprint de Mauricio se perdería entera_ · grande · se puede hacer ya · `docs/diseno-venta-externa-stripe.md`
+- **Ads** — El resto de «qué eventos manda MaKo a Meta»: la lectura de /stats (paso 5), el Lead del opt-in, el Schedule de Cal.com y que todo envío nuevo pase por la política. El Schedule doble ya está arreglado (5b77a50d4). · medio · se puede hacer ya · `docs/diseno-eventos-meta-por-funnel.md`
+- **Pixel (Mauricio)** — Elegir «Compra» en la página de venta del Sprint (`sprint.mauriciobustos.com`, ws1; sólo el campo `conversion`, sin aviso al grupo: decisión del Cerebro). La página ya está restaurada. · chico · se puede hacer ya · `docs/hallazgos-landing.md → «La página de venta del Sprint se pisó…» (24/10)`
 
 - **Ads Manager** — Subir un anuncio de imagen desde MaKo (hoy sólo videos). _los anuncios de imagen van por Meta a mano_ · medio · se puede hacer ya · `docs/relevo/ads-manager.md → Lo que quedó SIN hacer (falta «Usar en un anuncio» en el Image Editor: exportar el PNG y subirlo a adimages)`
 - **Ads Manager** — El Autopilot de anuncios: faltan el motor, el cron, la pantalla y la API (la base quedó a medias fuera de main). _pediste «implementalo completo»; hay que renumerar la migración_ · grande · se puede hacer ya · `docs/relevo/ads-manager.md → El Autopilot (punto 18)`
@@ -195,6 +203,8 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 - **Web Generator** — Generar imágenes con IA por Google Flow dentro del editor. _dijiste «más tarde»; para medirlo hay que pasar tu extensión al ws3_ · grande · **depende de Martín** · `docs/relevo/landing-generator.md → Tanda 4 y 6`
 
 ## Pulido (57)
+
+- **Web Generator** — Mirar desplegado el editor como Automations: sobre todo que la barra única entre en una pantalla de 1280 con el chat abierto, y el 403 desde Vercel en el Diagnóstico y Offer. La lista entera, paso por paso. _nadie lo vio con clics_ · chico · se puede hacer ya · `docs/diseno-editor-web-como-automations.md → «Cómo se verifica en pantalla»; 7ae16876e`
 
 - **Ads Manager** — Mirar en pantalla el onboarding nuevo del Ads Manager · chico · se puede hacer ya · `docs/relevo/ads-manager.md (#801)`
 - **Agente** — Nada reporta desde una instalación real del plugin del agente (la purga de 90 días ya corre: cron diario, sólo lo vencido, con modo seco) — a medias: falta una instalación real que reporte · chico · se puede hacer ya · `docs/hallazgos-agente.md; commit a9b66a3f8`
