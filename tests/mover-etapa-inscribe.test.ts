@@ -16,5 +16,5 @@ const cuerpo = (firma: string) => { const i = LEADS.indexOf(firma); assert.ok(i 
 
 test('setPipelineStage inscribe en la automatización de la etapa a la que llega, contra la que se veía', () => {
   const fn = cuerpo('export async function setPipelineStage(');
-  assert.match(fn, /if \(antes && pipelineStageOf\(antes\) !== stageKey\) \{[\s\S]*?await enrolarPorEtapaDerivada\(id, stageKey, antes\.funnel_id \?\? null\);\s*\}/);
+  assert.match(fn, /if \(antes && pipelineStageOf\(antes\) !== stageKey\) \{[\s\S]*?await enrolarPorEtapaDerivada\(id, stageKey, antes\.funnel_id \?\? null, informe \? \{ persona: autor, informe \} : undefined\);\s*\}/);
 });

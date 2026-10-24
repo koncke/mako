@@ -30,8 +30,9 @@ import { LoQueContesto, RespuestaDestacada } from './resumen/respuestas';
 import { Origen, PaginaDeRegistro, PublicacionDeEntrada } from './resumen/origen';
 import { Notas, PosiblesDuplicados } from './resumen/duplicados';
 import {
-  AutomatizacionesEnCurso, CambiosDeMako, CharlaDm, CharlaWhatsApp, LoQueLeMandamosBloque, MensajeListoBloque, PaseAHumanoBloque,
+  CambiosDeMako, CharlaDm, CharlaWhatsApp, LoQueLeMandamosBloque, MensajeListoBloque, PaseAHumanoBloque,
 } from './resumen/charla';
+import { AutomatizacionesDelLead } from './resumen/automatizaciones';
 
 export const REGISTRO_RESUMEN: { [K in keyof typeof REGLAS_RESUMEN]: EntradaRegistro } = {
   'siguiente-accion': { Componente: SiguienteAccion, ...REGLAS_RESUMEN['siguiente-accion'] },
@@ -58,6 +59,6 @@ export const REGISTRO_RESUMEN: { [K in keyof typeof REGLAS_RESUMEN]: EntradaRegi
   'pase-a-humano': { Componente: PaseAHumanoBloque, ...REGLAS_RESUMEN['pase-a-humano'] },
   'cambios-de-mako': { Componente: CambiosDeMako, ...REGLAS_RESUMEN['cambios-de-mako'] },
   'mensaje-listo': { Componente: MensajeListoBloque, ...REGLAS_RESUMEN['mensaje-listo'] },
-  'automatizaciones-en-curso': { Componente: AutomatizacionesEnCurso, ...REGLAS_RESUMEN['automatizaciones-en-curso'] },
+  'automatizaciones-en-curso': { Componente: AutomatizacionesDelLead, ...REGLAS_RESUMEN['automatizaciones-en-curso'] },
   'lo-que-le-mandamos': { Componente: LoQueLeMandamosBloque, ...REGLAS_RESUMEN['lo-que-le-mandamos'] },
 };

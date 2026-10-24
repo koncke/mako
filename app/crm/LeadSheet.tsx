@@ -30,6 +30,7 @@ import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 // lo que es del pop-up: el modal, la cabecera, mover de etapa y borrar.
 import { FichaPorBloques } from './lead-view/ficha/FichaPorBloques';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { loQueSePide } from '@/lib/datos-aviso';
 
 import { profundidadModales } from '@/app/_components/pila-modales';
 import { FichaCambioProvider } from './lead-view/ficha-cambio';
@@ -284,7 +285,7 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
             // props van juntos y con la misma condición que en `LeadDetailBody`.
             titulo={completandoDatos ? 'Completar datos' : undefined}
             completarDatos={completandoDatos}
-            faltantes={completandoDatos ? faltantes : undefined}
+            faltantes={completandoDatos ? loQueSePide(faltantes, datos?.avisar) : undefined}
             equipo={equipo}
             onClose={() => setMoveTo(null)}
             // Al completar datos la ficha SE QUEDA: la persona no pidió irse de acá, y

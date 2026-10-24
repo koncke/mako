@@ -151,8 +151,16 @@ export const CSS_FICHA = `
 .fb-opcion { display: flex; align-items: center; gap: 10px; width: 100%; border: none; background: transparent; padding: 8px 14px; font: inherit; font-size: 14px; color: var(--ink); text-align: left; cursor: pointer; }
 .fb-opcion:hover:not(:disabled) { background: var(--velo-hover); }
 .fb-opcion[aria-checked="true"] { background: var(--primary-bg); color: var(--primary); }
+.fb-opcion:disabled { cursor: default; opacity: .6; }
 .fb-opcion-linea { margin-left: auto; font-size: 12px; color: var(--dim); }
 .fb-vacio-menu { padding: 10px 14px; font-size: 13px; color: var(--faint); }
+.fb-dato { display: flex; align-items: center; gap: 6px; padding-right: 8px; }
+.fb-titulo { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; }
+.fb-titulo-input { width: 100%; box-sizing: border-box; height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; }
+.fb-titulo-input:focus { outline: none; box-shadow: var(--focus-ring); }
+.fb-titulo-acciones { display: flex; justify-content: flex-end; gap: 6px; }
+.fb-dato .fb-opcion { flex: 1; min-width: 0; }
+.fb-dato-ob { flex: none; font-size: 12.5px; }
 .fb-iconos { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; padding: 4px 8px 8px; }
 .fb-iconos .fb-herr { height: 32px; }
 

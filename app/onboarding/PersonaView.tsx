@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
 import ErrorIA from '../_components/ErrorIA';
+import { MIN_FOTOS_PERSONA } from '@/lib/persona-reglas';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -21,7 +22,8 @@ type Estado = { descripcion: string; fotos: Foto[] };
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' };
 const btnPrimary: CSSProperties = { padding: '11px 20px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' };
 
-const MIN_FOTOS = 5;
+// El mínimo vive en lib/persona-reglas.ts: la API de MaKo cierra este paso con el MISMO número (cg_persona).
+const MIN_FOTOS = MIN_FOTOS_PERSONA;
 const btnPrimaryStyle: CSSProperties = { padding: '12px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 };
 const btnGhostStyle: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer' };
 

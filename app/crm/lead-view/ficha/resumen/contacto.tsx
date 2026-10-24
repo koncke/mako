@@ -28,6 +28,7 @@ import { hrefDeWeb } from '@/lib/contacto-lead';
 import { marcaDato } from '@/lib/datos-aviso';
 import { SEXOS, seVe } from '@/lib/resumen-ficha';
 import { REDES, type Red } from '@/lib/ficha/catalogo';
+import { datosDelPuesto } from '@/lib/ficha/config';
 import { telHref } from '@/app/m/crm/reglas';
 import { linkInstagram, usuarioInstagram } from '@/app/crm/campo-inline';
 import { InstagramEditable, TelefonoEditable } from '../../CampoEditable';
@@ -42,9 +43,13 @@ const gmail = (email: string) => `https://mail.google.com/mail/?view=cm&to=${enc
 // Contacto
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function Contacto({ ctx, titulo, diseno, epico }: PropsBloque) {
+export function Contacto({ ctx, puesto, def, titulo, diseno, epico }: PropsBloque) {
   const { lead, data } = ctx;
   const { guardar, aviso } = useGuardarMeta(lead.id);
+  // LOS DATOS QUE VAN (23/10/2026, «Datos ▾» de la barra): de entrada teléfono, email y empresa; la persona saca los que
+  // no usa y suma redes o la dirección. Martín: «no puedo decidir sacar a empresa o agregar otra cosa».
+  const va = new Set(datosDelPuesto(def, puesto.opciones));
+  const extras = datosDelPuesto(def, puesto.opciones).filter((x): x is Red | 'direccion' => (REDES as readonly string[]).includes(x) || x === 'direccion');
   const { copiado, copiar } = useCopiar();
   const [editar, setEditar] = useState(false);
   const tel = lead.telefono && lead.telefono !== '—' ? lead.telefono : null;
@@ -53,27 +58,43 @@ export function Contacto({ ctx, titulo, diseno, epico }: PropsBloque) {
   // La cohorte, como la mostraba la tarjeta: sólo si el negocio no la apagó (`crm.resumen.campos`).
   const cohorte = data.cohorte && seVe(data.resumen ?? {}, 'cohorte') ? data.cohorte : null;
 
+  const ig = usuarioInstagram(lead.instagram);
+  const verExtra = (x: Red | 'direccion'): string | null => {
+    if (x === 'instagram') return ig ? `@${ig}` : null;
+    const v = (lead[x] as string | null | undefined)?.trim() || null;
+    return v && x !== 'direccion' ? paginaLegible(v) : v;
+  };
+  const hrefExtra = (x: Red | 'direccion'): string | null => (x === 'instagram' ? linkInstagram(ig) : x === 'direccion'
+    ? (lead.direccion?.trim() ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lead.direccion.trim())}` : null)
+    : hrefDeWeb((lead[x] as string | null | undefined)?.trim() || null));
   const filas = (
     <div className="fr-props">
-      <Prop k="Teléfono" editable marca={marcaDato('telefono')} acciones={tel ? (
+      {va.has('telefono') && <Prop k="Teléfono" editable marca={marcaDato('telefono')} acciones={tel ? (
         <>
           <BotonIco titulo={copiado === 'tel' ? 'Copiado' : 'Copiar'} onClick={() => copiar(tel, 'tel')}><IcoCopiar /></BotonIco>
           <EnviarNoOficial leadId={lead.id} nombre={nombre} telefono={tel} />
         </>
       ) : null}>
         <TelefonoEditable valor={tel} onGuardar={guardar('telefono', lead.telefono)} />
-      </Prop>
-      <Prop k="Email" editable acciones={email ? (
+      </Prop>}
+      {va.has('email') && <Prop k="Email" editable acciones={email ? (
         <>
           <BotonIco titulo={copiado === 'email' ? 'Copiado' : 'Copiar'} onClick={() => copiar(email, 'email')}><IcoCopiar /></BotonIco>
           <BotonIco titulo="Escribir por Gmail" href={gmail(email)}><IcoEmail /></BotonIco>
         </>
       ) : null}>
         <EditableInline valor={email ?? ''} onGuardar={guardar('email', lead.email)} placeholder="—" titulo="Edita el email" maxLargo={200} />
-      </Prop>
-      <Prop k="Empresa" editable marca={marcaDato('empresa')}>
+      </Prop>}
+      {va.has('empresa') && <Prop k="Empresa" editable marca={marcaDato('empresa')}>
         <EditableInline valor={lead.empresa ?? ''} onGuardar={guardar('empresa', lead.empresa)} placeholder="—" titulo="Edita la empresa" maxLargo={120} />
-      </Prop>
+      </Prop>}
+      {extras.map((x) => (
+        <Prop key={x} k={NOMBRE_EXTRA[x]} editable acciones={hrefExtra(x) ? <BotonIco titulo={`Abrir ${NOMBRE_EXTRA[x]}`} href={hrefExtra(x)}><IcoAbrir /></BotonIco> : null}>
+          {x === 'instagram'
+            ? <InstagramEditable leadId={lead.id} valor={lead.instagram ?? null} />
+            : <EditableInline valor={(lead[x] as string | null | undefined) ?? ''} onGuardar={guardar(x, (lead[x] as string | null | undefined) ?? null)} placeholder="—" titulo={`Edita ${NOMBRE_EXTRA[x]}`} maxLargo={300} />}
+        </Prop>
+      ))}
       {cohorte && (
         <Prop k="Cohorte">
           <span style={{ color: cohorte.color }}>{cohorte.label}</span>
@@ -88,15 +109,15 @@ export function Contacto({ ctx, titulo, diseno, epico }: PropsBloque) {
     return (
       <Bloque titulo={titulo} epico={epico}>
         <div className="fr-botonera">
-          {llamar
+          {!va.has('telefono') ? null : llamar
             ? <a className="fr-boton" href={llamar}><IconoMenu nombre="telefono" size={epico ? 26 : 20} />Llamar</a>
             : <span className="fr-boton" aria-disabled="true" title="Sin teléfono"><IconoMenu nombre="telefono" size={epico ? 26 : 20} />Llamar</span>}
-          {tel
+          {!va.has('telefono') ? null : tel
             ? <EnviarNoOficial leadId={lead.id} nombre={nombre} telefono={tel} boton={(abrir) => (
                 <button type="button" className="fr-boton" onClick={abrir}><IconoMenu nombre="whatsapp" size={epico ? 26 : 20} />WhatsApp</button>
               )} />
             : <span className="fr-boton" aria-disabled="true" title="Sin teléfono"><IconoMenu nombre="whatsapp" size={epico ? 26 : 20} />WhatsApp</span>}
-          {email
+          {!va.has('email') ? null : email
             ? <a className="fr-boton" href={gmail(email)} target="_blank" rel="noopener noreferrer"><IconoMenu nombre="email" size={epico ? 26 : 20} />Email</a>
             : <span className="fr-boton" aria-disabled="true" title="Sin email"><IconoMenu nombre="email" size={epico ? 26 : 20} />Email</span>}
         </div>
@@ -111,12 +132,18 @@ export function Contacto({ ctx, titulo, diseno, epico }: PropsBloque) {
       <Bloque titulo={titulo} epico={epico} derecha={<button type="button" className="fr-link" onClick={() => setEditar((v) => !v)}>{editar ? 'Listo' : 'Editar'}</button>}>
         {editar ? filas : (
           <div className="fr-chips">
-            {tel ? <a className="fr-chip" href={telHref(tel) ?? undefined}><IconoMenu nombre="telefono" size={14} />{tel}</a>
+            {!va.has('telefono') ? null : tel ? <a className="fr-chip" href={telHref(tel) ?? undefined}><IconoMenu nombre="telefono" size={14} />{tel}</a>
               : <button type="button" className="fr-chip fr-chip--falta" onClick={() => setEditar(true)} data-recorrido={marcaDato('telefono')}>+ Teléfono</button>}
-            {email ? <a className="fr-chip" href={gmail(email)} target="_blank" rel="noopener noreferrer"><IconoMenu nombre="email" size={14} />{email}</a>
+            {!va.has('email') ? null : email ? <a className="fr-chip" href={gmail(email)} target="_blank" rel="noopener noreferrer"><IconoMenu nombre="email" size={14} />{email}</a>
               : <button type="button" className="fr-chip fr-chip--falta" onClick={() => setEditar(true)}>+ Email</button>}
-            {lead.empresa?.trim() ? <span className="fr-chip"><IconoMenu nombre="cliente" size={14} />{lead.empresa}</span>
+            {!va.has('empresa') ? null : lead.empresa?.trim() ? <span className="fr-chip"><IconoMenu nombre="cliente" size={14} />{lead.empresa}</span>
               : <button type="button" className="fr-chip fr-chip--falta" onClick={() => setEditar(true)} data-recorrido={marcaDato('empresa')}>+ Empresa</button>}
+            {extras.map((x) => {
+              const v = verExtra(x);
+              const h = hrefExtra(x);
+              if (v && h) return <a key={x} className="fr-chip" href={h} target="_blank" rel="noopener noreferrer" title={`Abrir ${NOMBRE_EXTRA[x]}`}>{x === 'direccion' ? <IconoMenu nombre="fijar" size={14} /> : <IcoRed red={x} />}{v}</a>;
+              return <button key={x} type="button" className="fr-chip fr-chip--falta" onClick={() => setEditar(true)}>+ {NOMBRE_EXTRA[x]}</button>;
+            })}
           </div>
         )}
         {aviso}
@@ -132,6 +159,8 @@ export function Contacto({ ctx, titulo, diseno, epico }: PropsBloque) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const NOMBRE_RED: Readonly<Record<Red, string>> = { web: 'Web', instagram: 'Instagram', youtube: 'YouTube', linkedin: 'LinkedIn' };
+/** Lo que el contacto suma si se elige: las redes y la dirección (también tienen su bloque aparte). */
+const NOMBRE_EXTRA: Readonly<Record<Red | 'direccion', string>> = { ...NOMBRE_RED, direccion: 'Dirección' };
 
 /** Las redes del bloque, en su orden (sin elegir: las cuatro). Las elige el admin en «Personalizar» (Opciones). */
 export const redesDelBloque = (p: PropsBloque['puesto']): readonly Red[] => p.opciones?.redes ?? REDES;

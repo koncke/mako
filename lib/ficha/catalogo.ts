@@ -79,10 +79,21 @@ export type FuenteRespuesta = 'meta' | 'landing' | 'agenda';
 export const FUENTES_RESPUESTA: readonly FuenteRespuesta[] = ['meta', 'landing', 'agenda'];
 
 /**
- * Lo que un bloque ofrece configurar además del ancho y el diseño. Sólo tres bloques lo tienen hoy; un
- * campo que el bloque no declara se tira en el saneo.
+ * Lo que un bloque ofrece configurar además del ancho y el diseño; un campo que el bloque no declara se tira en el
+ * saneo. `datos`: qué datos van ADENTRO del bloque (los de `BloqueDef.datos`).
  */
-export type OpcionBloque = 'redes' | 'fuentes' | 'pregunta';
+export type OpcionBloque = 'redes' | 'fuentes' | 'pregunta' | 'datos';
+
+/**
+ * UN DATO QUE VA ADENTRO DE UN BLOQUE (23/10/2026). Martín: «en todos me dice "empresa obligatorio" porque está dentro de
+ * un bloque que tiene 3 datos, y no se puede personalizar, no puedo decidir sacar a empresa o agregar otra cosa... me
+ * obligas a hacer obligatorio un dato que no quería que lo fuera». Dentro de un bloque la persona decide QUÉ datos van
+ * (sacar y agregar) y CUÁLES son obligatorios, cada uno por su cuenta: nada es obligatorio porque viene con otro.
+ * `aviso` es el «dato sin marcar» que se completa ahí (uno de `avisa`); sin él, el dato no puede ser obligatorio.
+ */
+export type DatoBloque = { id: string; nombre: string; aviso?: StepId };
+/** Los datos que un bloque PUEDE llevar (en el orden de su menú) y los que trae de entrada. */
+export type DatosDelBloque = { todos: readonly DatoBloque[]; deEntrada: readonly string[] };
 
 export type BloqueId =
   // Resumen
@@ -117,10 +128,19 @@ export type BloqueDef = {
   ancho: Ancho;
   /** Sus diseños, en el orden del documento. El primero es el de entrada. */
   disenos: readonly DisenoBloque[];
-  /** Los «datos sin marcar» que se completan en este bloque (§3, «Avisa si falta»), contra lib/stage-requirements.ts. */
+  /**
+   * Los «datos sin marcar» que se PUEDEN completar en este bloque (§3, «Avisa si falta»), contra lib/stage-requirements.ts.
+   * No dice cuáles avisan: eso es por dato y por funnel (`FichaGuardada.avisos`), y en un bloque con `datos`, sólo los
+   * que la persona dejó adentro (`avisaDelPuesto`, ./config.ts).
+   */
   avisa: readonly StepId[];
-  /** `contacto` no se puede quitar: sin él no hay ficha. */
+  /**
+   * Si se puede quitar. Desde el 23/10/2026 todos (Martín: la persona decide qué va); el campo queda para el bloque que
+   * de verdad no pueda faltar, y `tests/ficha-catalogo.test.ts` lo fija en ninguno.
+   */
   quitable: boolean;
+  /** Los datos que van adentro, si se eligen (`opciones: ['datos']`). Sin esto, el bloque dibuja lo suyo entero. */
+  datos?: DatosDelBloque;
   /** Qué hace sin datos. */
   sinDatos: SinDatos;
   /** El ícono del set de la casa. Se puede cambiar por bloque (el «ícono de cada bloque» del §1). */
@@ -134,6 +154,27 @@ export type BloqueDef = {
 };
 
 const d = (id: string, nombre: string): DisenoBloque => ({ id, nombre });
+
+/**
+ * LOS DATOS DEL CONTACTO (23/10/2026): de entrada teléfono, email y empresa (lo que mostraba siempre), y se pueden sumar
+ * las redes y la dirección, que también tienen su bloque aparte. Sólo el teléfono y la empresa son «datos sin marcar», y
+ * cada uno es obligatorio por su cuenta.
+ */
+export const DATOS_CONTACTO: DatosDelBloque = {
+  todos: [
+    { id: 'telefono', nombre: 'Teléfono', aviso: 'telefono' }, { id: 'email', nombre: 'Email' },
+    { id: 'empresa', nombre: 'Empresa', aviso: 'empresa' }, { id: 'instagram', nombre: 'Instagram' },
+    { id: 'web', nombre: 'Web' }, { id: 'linkedin', nombre: 'LinkedIn' }, { id: 'youtube', nombre: 'YouTube' },
+    { id: 'direccion', nombre: 'Dirección' },
+  ],
+  deEntrada: ['telefono', 'email', 'empresa'],
+};
+
+/** El setter y el closer: dos datos, cada uno con su aviso. Se puede dejar uno solo (un negocio sin setter). */
+export const DATOS_SETTER_Y_CLOSER: DatosDelBloque = {
+  todos: [{ id: 'setter', nombre: 'Setter', aviso: 'setter' }, { id: 'closer', nombre: 'Closer', aviso: 'closer' }],
+  deEntrada: ['setter', 'closer'],
+};
 
 /**
  * EL CATÁLOGO ENTERO de la §3, en su orden. Los anchos de entrada: ⅓ para lo que es un número o un
@@ -150,7 +191,8 @@ export const BLOQUES: readonly BloqueDef[] = [
   { id: 'cambios-de-mako', tab: 'resumen', tambienEn: [], titulo: 'Cambios de MaKo', anchos: [6, 12], ancho: 12,
     disenos: [d('tarjeta', 'Tarjeta por cambio'), d('renglon', 'Renglón')], avisa: [], quitable: true, sinDatos: 'se-calla', icono: 'mako' },
   { id: 'contacto', tab: 'resumen', tambienEn: ['cs-resumen'], titulo: 'Contacto', anchos: [6, 12], ancho: 12,
-    disenos: [d('grilla', 'Grilla'), d('renglon', 'Renglón'), d('botonera', 'Botonera grande')], avisa: ['telefono', 'empresa'], quitable: false, sinDatos: 'raya', icono: 'telefono' },
+    disenos: [d('grilla', 'Grilla'), d('renglon', 'Renglón'), d('botonera', 'Botonera grande')], avisa: ['telefono', 'empresa'], quitable: true, sinDatos: 'raya', icono: 'telefono',
+    opciones: ['datos'], datos: DATOS_CONTACTO },
   { id: 'redes-y-web', tab: 'resumen', tambienEn: [], titulo: 'Redes y web', anchos: [3, 4, 6], ancho: 6,
     disenos: [d('chips', 'Chips con ícono'), d('filas', 'Filas con el link'), d('destacada', 'Red destacada')], avisa: [], quitable: true, sinDatos: 'raya', icono: 'web', opciones: ['redes'] },
   { id: 'direccion', tab: 'resumen', tambienEn: [], titulo: 'Dirección', anchos: [4, 6], ancho: 6,
@@ -158,7 +200,8 @@ export const BLOQUES: readonly BloqueDef[] = [
   { id: 'sexo', tab: 'resumen', tambienEn: [], titulo: 'Sexo', anchos: [3, 4], ancho: 4,
     disenos: [d('chip', 'Chip'), d('fila', 'Fila')], avisa: [], quitable: true, sinDatos: 'raya', icono: 'persona' },
   { id: 'setter-y-closer', tab: 'resumen', tambienEn: [], titulo: 'Setter y closer', anchos: [3, 4, 6], ancho: 6,
-    disenos: [d('cajas', 'Dos cajas'), d('chips', 'Chips con foto'), d('renglon', 'Renglón')], avisa: ['setter', 'closer'], quitable: true, sinDatos: 'raya', icono: 'equipo' },
+    disenos: [d('cajas', 'Dos cajas'), d('chips', 'Chips con foto'), d('renglon', 'Renglón')], avisa: ['setter', 'closer'], quitable: true, sinDatos: 'raya', icono: 'equipo',
+    opciones: ['datos'], datos: DATOS_SETTER_Y_CLOSER },
   // Fechas y asistencias: «las asistencias nunca se apagan» (NO_IGNORABLES, lib/datos-aviso.ts). Sin reunión
   // próxima se calla: en un formulario de Meta sólo aparece si reserva por Cal.com (§4).
   { id: 'proxima-reunion', tab: 'resumen', tambienEn: [], titulo: 'Próxima reunión', anchos: [4, 6, 12], ancho: 12,
