@@ -446,7 +446,7 @@ async function turnoMako(a: Abierta, dicho: string, respuesta: unknown | null, p
   reg.ms = Date.now() - t0;
   const fases = r.eventos.filter((e: EventoConHora) => e.ev.t === 'fase');
   reg.primeraFaseMs = fases[0]?.ms ?? null;
-  reg.fases = fases.map((e: { ev: { fase: unknown; intento?: unknown }; ms: number }) => `${String(e.ev.fase)}@${(e.ms / 1000).toFixed(1)}s${e.ev.intento ? `#${String(e.ev.intento)}` : ''}`);
+  reg.fases = fases.map((e: EventoConHora) => `${String(e.ev.fase)}@${(e.ms / 1000).toFixed(1)}s${e.ev.intento ? `#${String(e.ev.intento)}` : ''}`);
   if (!r.eventos.length) {
     const j = (r.json ?? {}) as { error?: string };
     reg.final = `error ${r.status}`; reg.texto = j.error ?? '(sin cuerpo)'; x.errores.push(reg.texto);

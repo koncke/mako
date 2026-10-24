@@ -24,7 +24,8 @@ export async function frenoDeTope(ws: number, cual: 'publicar' | 'dominio', yaCu
     // instancie en espiral (TS2589, «excessively deep»). Armada de una sola vez, no pasa.
     const base = getSupabaseServer().from('landing_docs').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).is('papelera_at', null);
     const q = cual === 'publicar' ? base.not('publicado', 'is', null) : base.not('dominio', 'is', null);
-    const { count, error } = await q;
+    // ⚠️ El tipo del resultado, explícito: sin esto la inferencia de Supabase se instancia en espiral (TS2589).
+    const { count, error }: { count: number | null; error: unknown } = await q;
     if (error) return null;
     const pedido = { ws, wsPlataforma: plataforma, capa: String(w.capa ?? ''), cobradoPorPasarela: true, usadas: count ?? 0, yaCuenta };
     const r = cual === 'publicar' ? topeParaPublicar(pedido) : topeParaDominio(pedido);

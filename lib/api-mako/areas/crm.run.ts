@@ -1273,7 +1273,7 @@ export const RUNNERS: Runners = {
     },
     ejecutar: (payload, ctx) => seguro('vincular el producto', async () => {
       if (payload.precioStripe) return ejecutarPrecioDeStripe(payload, ctx.ws, autorDe(ctx));
-      const r = await vincularCobro({ funnelId: payload.embudoId, etapa: ETAPA_COBRO, productoId: payload.productoId, cuentas: payload.cuentas }, await cuentasDelNegocio(ctx.ws), autorDe(ctx));
+      const r = await vincularCobro({ funnelId: Number(payload.embudoId), etapa: ETAPA_COBRO, productoId: Number(payload.productoId), cuentas: (Array.isArray(payload.cuentas) ? payload.cuentas : []) }, await cuentasDelNegocio(ctx.ws), autorDe(ctx));
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: 'Listo: el producto cobra en Ganado.', datos: { vinculoId: r.vinculo.id } };
     }),
@@ -1289,7 +1289,7 @@ export const RUNNERS: Runners = {
       return { payload: { vinculoId: v.id, cuentas: pedidas }, resumen: `«${v.producto}» cobra en Ganado de «${v.crm}» desde ahora por ${por}.` };
     },
     ejecutar: (payload, ctx) => seguro('cambiar las cuentas', async () => {
-      const r = await cambiarCuentasCobro(Number(payload.vinculoId), payload.cuentas, await cuentasDelNegocio(ctx.ws));
+      const r = await cambiarCuentasCobro(Number(payload.vinculoId), (Array.isArray(payload.cuentas) ? payload.cuentas : []), await cuentasDelNegocio(ctx.ws));
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: 'Listo: cambié por qué cuentas cobra.', datos: { vinculoId: r.vinculo.id, cuentas: r.vinculo.cuentas } };
     }),

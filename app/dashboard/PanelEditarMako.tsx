@@ -91,7 +91,8 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
    * sin esto (`permisoEdicionMako`): en vista, MaKo asesora.
    */
   editando: boolean;
-  informe: 'dashboard' | 'general';
+  /** El tercer tipo (`automatizacion:N`) entró con las «Métricas» por automatización y ya llega acá. */
+  informe: 'dashboard' | 'general' | `automatizacion:${number}`;
   /** El hilo de ESTA hoja (lo guarda el editor, así cerrar y abrir el panel no lo pierde). */
   hilo: readonly MensajeEdicion[];
   onHilo: (fn: (h: MensajeEdicion[]) => MensajeEdicion[]) => void;
