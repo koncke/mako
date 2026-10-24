@@ -19,7 +19,25 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CAPAS_LISTA, CAPAS_VENDIBLES, CAPA_DEFAULT, capaDef, esCapaValida } from '../lib/capas';
+import { CAPAS_LISTA, CAPAS_NO_VENDIBLES, CAPAS_VENDIBLES, CAPA_DEFAULT, capaDef, esCapaValida, esCapaVendible } from '../lib/capas';
+
+test('cada capa del catálogo está en UNA de las dos listas: lo que se vende, o lo que no y por qué', () => {
+  // Hasta el 23/10/2026 CAPAS_VENDIBLES era «todas menos superadmin»: una capa nueva entraba sola a la venta de la
+  // pantalla, al enum de vender_plan_mako y al alta al cobrar (revisión adversarial de vender_plan_mako). Ahora una capa
+  // nueva no pasa este test hasta que alguien decide de qué lado va.
+  // Probado rompiéndolo: con una capa más en el catálogo y en ninguna lista, 1 fallo; con 'pm' en las dos, 1 fallo.
+  for (const c of CAPAS_LISTA) {
+    const vende = CAPAS_VENDIBLES.some((v) => v.id === c.id);
+    const noVende = Object.prototype.hasOwnProperty.call(CAPAS_NO_VENDIBLES, c.id);
+    assert.ok(vende !== noVende, `${c.id}: ${vende ? 'está en las dos listas' : 'no está en ninguna: decidí si se vende'}`);
+    assert.equal(esCapaVendible(c.id), vende);
+  }
+  for (const [id, porque] of Object.entries(CAPAS_NO_VENDIBLES)) {
+    assert.ok(esCapaValida(id), `${id} no existe en el catálogo`);
+    assert.ok(porque.trim().length > 10, `${id}: falta el porqué`);
+  }
+  assert.equal(esCapaVendible('una-capa-que-no-existe'), false, 'lo desconocido no se vende');
+});
 
 test('la capa de la plataforma NO se vende', () => {
   assert.ok(CAPAS_LISTA.some((c) => c.id === 'superadmin'), 'sigue existiendo en el catálogo');

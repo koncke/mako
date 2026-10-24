@@ -71,7 +71,8 @@ const accion = (id: string): AccionDef => {
 test('el área `cobros` existe, va antes de `mako` y tiene exactamente sus operaciones (las seis de la pasarela y las diez de Pagos)', () => {
   assert.ok(AREAS.indexOf('cobros') >= 0 && AREAS.indexOf('cobros') === AREAS.indexOf('mako') - 1, 'el orden de AREAS es el del catálogo');
   assert.deepEqual(AREA_INFO.cobros, { titulo: 'Cobros (Stripe y Mercado Pago)', tab: 'CRM', ruta: '/crm' });
-  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO].sort());
+  // ⚠️ Cambiado A PROPÓSITO el 23/10/2026: suma vender_plan_mako (P0-8 de la auditoría), sólo de la plataforma.
+  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO, 'vender_plan_mako'].sort());
   for (const id of [...IDS, ...IDS_PAGOS_CAMPO]) assert.ok(!/^proponer_/.test(id), `«${id}»: con proponer_ viaja la receta que pide un «sí»`);
 });
 
