@@ -191,9 +191,14 @@ const NOMBRE_SISTEMA = { windows: 'Windows', mac: 'Mac' } as const;
  * Es de IA del cliente y no se copia: la usa el cartel del chat sin la app (app/_chat/AppPrimero.tsx); el tutorial de «Tus cuentas
  * de IA» tiene la suya por sistema elegido (TusCuentasIA.tsx, paso 2).
  */
-export function DescargarMaKo({ className, onClick }: { className?: string; onClick?: () => void }) {
+export function DescargarMaKo({ className, onClick, texto, children }: { className?: string; onClick?: () => void; texto?: string; children?: ReactNode }) {
   const sistemas = sistemasDeEstaPc();
-  return <a className={className} href={`/api/ia-pc/descargar?os=${sistemas[0]}`} onClick={onClick}>{`Descargar MaKo para ${NOMBRE_SISTEMA[sistemas[0]]}`}</a>;
+  // `texto`: lo que dice el botón donde el lugar es chico (la caja del chat: «Instalar MaKo»); `children`, un ícono adelante.
+  return (
+    <a className={className} href={`/api/ia-pc/descargar?os=${sistemas[0]}`} onClick={onClick} title={`Descargar MaKo para ${NOMBRE_SISTEMA[sistemas[0]]}`}>
+      {children}{texto ?? `Descargar MaKo para ${NOMBRE_SISTEMA[sistemas[0]]}`}
+    </a>
+  );
 }
 
 /** Lo que dice el sistema al abrir el instalador sin firma, y cómo seguir (el de la computadora desde la que se mira). */

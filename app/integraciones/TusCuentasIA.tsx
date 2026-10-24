@@ -20,7 +20,8 @@ import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, CONSENTIMIENTO_DE, PROGRAMA_IA_PC, cuentasDeLaIA, lineaDeInstalacion, resumenDeCuentas, type CuentaPc, type CuentasIA, type SistemaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
 import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, dondeSacarLaClave, iaDeLaPcPara, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
-import { CuentasYDispositivos, NuevoDispositivo } from './CuentasYDispositivos';
+import { CuentasYDispositivos, DescargarElOtro, DescargarMaKo, NuevoDispositivo, avisoAlAbrir } from './CuentasYDispositivos';
+import { Icon } from '@/app/_components/icons';
 import './tus-cuentas-ia.css';
 
 type Pc = { id: number; nombre: string; esMia: boolean; de?: string; enLinea: boolean; ultimoLatido: string | null; version: string | null; cuentas: CuentaPc[]; sinClaude?: boolean; conectadaAt?: string | null; sistema?: string | null; ubicacion?: string | null };
@@ -482,7 +483,10 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
           Claude"... Si hay cuentas conectadas debería aparecer el loader para que se sepa que falta info que cargar»). Antes del
           estado no se sabe si hay cuentas: «Nueva cuenta» sola se leía como «no tienes nada». */}
       {!estado && !leido && !eligiendo && !tutorial && <EsqueletoDeCuentas />}
-      {(estado || leido) && !eligiendo && !tutorial && (
+      {/* SIN LA APP, SÓLO EL BOTÓN (24/10/2026, Martín: «si no tengo instalada no tengo que ver el modal de siempre, solo el botón
+          bien diseñado de "Instalar MaKo desktop"»): sin ninguna computadora, ni cuentas ni «Nueva cuenta». */}
+      {vacia && !eligiendo && !tutorial && <InstalarDesktop onConectar={() => abrirTutorialEn(4)} />}
+      {(estado || leido) && !vacia && !eligiendo && !tutorial && (
         <>
           <NuevaCuenta onElegir={setEligiendo} vacia={vacia} />
           <CuentasYDispositivos grupos={grupos} ahora={ahora} onDesconectar={(d) => desconectar(d.id)}
@@ -503,6 +507,27 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * Sin ninguna computadora conectada, el modal es ESTO (24/10/2026, Martín: «solo el botón bien diseñado de "Instalar MaKo
+ * desktop"»): la computadora, una línea y el botón, que descarga el de esta computadora (la descarga de IA del cliente, no una
+ * copia). Tocado, el mismo lugar dice qué hacer con el instalador y ofrece «Ya lo instalé: conectar» (el tutorial en «Conecta
+ * MaKo»). Abajo, chico, el instalador del otro sistema.
+ */
+function InstalarDesktop({ onConectar }: { onConectar: () => void }) {
+  const [descargado, setDescargado] = useState(false);
+  return (
+    <div className="tci-instalar" data-instalar-desktop="">
+      <span className="tci-instalar__icono" aria-hidden><Icon name="computadora" size={28} /></span>
+      <h3 className="tci-instalar__titulo">{descargado ? 'Ábrelo y sigue los pasos' : 'MaKo, en tu computadora'}</h3>
+      <p className="tci-instalar__texto">{descargado ? avisoAlAbrir() : 'Desde ahí tu Ops Center contesta con tu Claude.'}</p>
+      {descargado
+        ? <button type="button" className="tci-instalar__boton" onClick={onConectar}><Icon name="check" size={18} />Ya lo instalé: conectar</button>
+        : <DescargarMaKo className="tci-instalar__boton" texto="Instalar MaKo desktop" onClick={() => setDescargado(true)}><Icon name="descargar" size={18} /></DescargarMaKo>}
+      <DescargarElOtro className="tci-instalar__otro" />
+    </div>
   );
 }
 

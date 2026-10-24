@@ -103,7 +103,8 @@ test('3. «Nuevo dispositivo», una fila que abre el tutorial; la descarga, sól
   assert.doesNotMatch(css, /\.tci-nuevo-disp|\.tci-pie/, 'sin el recuadro viejo');
   // La descarga (con la detección del sistema) es una pieza que el cartel monta: el instalador del sistema de esta computadora.
   const descarga = renderToStaticMarkup(createElement(DescargarMaKo, { className: 'x' }));
-  assert.equal(descarga, '<a class="x" href="/api/ia-pc/descargar?os=windows">Descargar MaKo para Windows</a>', 'sin navegador, Windows');
+  // Desde el 24/10/2026 con su `title` (el botón «Instalar MaKo» de la caja dice corto y el `title`, el sistema).
+  assert.equal(descarga, '<a class="x" href="/api/ia-pc/descargar?os=windows" title="Descargar MaKo para Windows">Descargar MaKo para Windows</a>', 'sin navegador, Windows');
   assert.match(avisoAlAbrir(), /^Si Windows dice «protegió su PC»/);
 });
 

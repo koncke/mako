@@ -15,46 +15,45 @@
 // descarga, y nada más; un paso por pantalla). Antes iba en lugar de la conversación, con el recuadro de «Nuevo dispositivo» (dos
 // botones, un aviso y un link). Ahora: la criatura, la frase y «Descargar MaKo para Windows» (o Mac); tocado, el paso siguiente —qué
 // hacer con el instalador, lo que dice el sistema al abrirlo y «Ya lo instalé: conectar», que abre «Tus cuentas de IA» ahí mismo—.
+// LA CAJA MISMA (24/10/2026, Martín: «Si no tengo instalada la app de desktop NO debe dejarme escribir nada, directamente en el chat
+// donde está el botón de audio se debería reemplazar por "Instalar MaKo"»): ya no un cartel en lugar de la caja. La caja se ve, el
+// campo apagado dice qué falta, y EN EL LUGAR DEL MICRÓFONO va «Instalar MaKo» (`useBloqueoApp` → `bloqueo` de CajaChat). Tocado,
+// descarga, y el mismo lugar pasa a «Ya lo instalé: conectar» con el paso siguiente en el campo.
 // LA DESCARGA Y LA DETECCIÓN DEL SISTEMA son de IA del cliente (app/integraciones/CuentasYDispositivos.tsx → DescargarMaKo): acá se
 // montan, no se reescriben.
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import './chat.css';
-import { DescargarElOtro, DescargarMaKo, avisoAlAbrir } from '@/app/integraciones/CuentasYDispositivos';
-import { Muneco } from '@/app/admin/operaciones/Muneco';
-import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { DescargarMaKo, avisoAlAbrir } from '@/app/integraciones/CuentasYDispositivos';
+import { Icon } from '@/app/_components/icons';
 
-/** Lo que falta y lo que gana, en una frase: va en el lugar de la caja. */
-export const FRASE_APP = 'Instala MaKo en tu computadora para escribirle: desde ahí trabaja con tu Claude.';
-/** El paso siguiente, ya descargado. */
-export const FRASE_INSTALAR = 'Abre lo que descargaste y sigue los pasos. Después, conecta tu computadora.';
+/** Lo que falta, en el campo apagado de la caja. */
+export const FRASE_APP = 'Instala MaKo para escribir';
+/** El paso siguiente, ya descargado (con lo que dice el sistema al abrirlo, en el `title` del botón). */
+export const FRASE_INSTALAR = 'Abre lo que descargaste';
 export const FRANJA_APP = 'Descarga MaKo en tu computadora: desde ahí trabaja con tu Claude.';
 
-/** En el lugar de la caja: la criatura de MaKo, qué falta y qué gana, y UN botón que descarga. Tocado, el paso siguiente. */
-export function AppPrimero({ onConectar }: { onConectar: () => void }) {
+/**
+ * El bloqueo de la caja sin la app: la frase del campo apagado y el botón que va EN EL LUGAR DEL MICRÓFONO. Antes de descargar,
+ * «Instalar MaKo» (descarga el de esta computadora); después, «Ya lo instalé: conectar», que abre «Tus cuentas de IA» ahí mismo.
+ */
+export function useBloqueoApp(onConectar: () => void): { frase: string; boton: ReactNode } {
   const [descargado, setDescargado] = useState(false);
-  return (
-    <div className="ch-app-cartel" role="note" data-app-primero="">
-      <Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo="despierto" size={44} />
-      <div className="ch-app-cartel__cuerpo">
-        {!descargado ? (
-          <>
-            <p className="ch-app-cartel__frase">{FRASE_APP}</p>
-            <DescargarMaKo className="ch-app-cartel__boton" onClick={() => setDescargado(true)} />
-          </>
-        ) : (
-          <>
-            <p className="ch-app-cartel__frase">{FRASE_INSTALAR}</p>
-            <p className="ch-app-cartel__aviso">{avisoAlAbrir()}</p>
-            <div className="ch-app-cartel__acciones">
-              <button type="button" className="ch-app-cartel__boton" onClick={onConectar}>Ya lo instalé: conectar</button>
-              <DescargarElOtro className="ch-app-cartel__otro" />
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
+  return descargado ? {
+    frase: FRASE_INSTALAR,
+    boton: (
+      <button type="button" className="co-instalar" onClick={onConectar} title={avisoAlAbrir()} data-app-primero="conectar">
+        <Icon name="check" size={16} />Ya lo instalé: conectar
+      </button>
+    ),
+  } : {
+    frase: FRASE_APP,
+    boton: (
+      <DescargarMaKo className="co-instalar" texto="Instalar MaKo" onClick={() => setDescargado(true)}>
+        <Icon name="descargar" size={16} />
+      </DescargarMaKo>
+    ),
+  };
 }
 
 /** En el teléfono, arriba de la caja: la app se instala en la computadora, y acá el chat sigue. */

@@ -33,8 +33,9 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 test('1. en la caja angosta (la estrella y el teléfono) el chip va arriba del campo, nunca en la fila', () => {
   const piezas = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
   assert.match(piezas, /export function CajaDelCliente\(\{ k, campo, seguir, movil = false, angosta = movil \}/, 'el teléfono es angosto');
-  assert.match(piezas, /alFinal=\{angosta \? null : conectar\}/, 'en la angosta, nada al final de la fila');
-  assert.match(piezas, /arriba=\{<>\n\s*\{angosta && conectar && <div className="co-conectar-ia-arriba">\{conectar\}<\/div>\}/, 'arriba del campo');
+  // 24/10/2026: sin la app (`bloqueada`), ni al final ni arriba: no destraba nada (tests/app-de-escritorio-primero.test.ts, 3).
+  assert.match(piezas, /alFinal=\{angosta \|\| bloqueada \? null : conectar\}/, 'en la angosta, nada al final de la fila');
+  assert.match(piezas, /arriba=\{<>\n\s*\{angosta && conectar && !bloqueada && <div className="co-conectar-ia-arriba">\{conectar\}<\/div>\}/, 'arriba del campo');
   assert.match(sinComentarios(leer('app/_chat/MakoEnLaTab.tsx')), /<CajaDelCliente k=\{k\} campo=\{caja\} seguir=\{seguirHilo\} angosta \/>/, 'el panel de la estrella, de 440 px');
   assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /<CajaDelCliente k=\{k\} campo=\{caja\} seguir=\{seguirHoja\} movil \/>/, 'el teléfono');
   assert.match(leer('app/_chat/chat.css'), /\.co-conectar-ia-arriba \{ display: flex;/);
