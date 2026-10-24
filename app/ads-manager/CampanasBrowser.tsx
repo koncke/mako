@@ -14,6 +14,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
+// Lo que la calculadora toma de los anuncios del negocio: la MISMA lectura que el wizard (OnboardingAdsManager).
+import { deTusAnuncios, rangoCorto } from '@/lib/calculadora-presupuesto-ads';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar } from '../_components/MakoBrand';
 import { cifra, cuentaAUsd, editaPresupuestoAca, esConvertible, horaDeEscritura, inicialTipeado, MONEDA_META_POR_DEFECTO, montoCuenta, presupuestosVigentes, saltoPresupuesto, tipeadoACuenta, type EscritoPresupuesto } from '@/lib/presupuesto-cambio';
@@ -917,7 +919,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
           versionGeo={versionGeo} />
       )}
       {recosOpen && <RecosModal onClose={() => setRecosOpen(false)} />}
-      {calcOpen && <CalculadoraPresupuesto onCerrar={() => setCalcOpen(false)} onPreguntarMako={(texto) => setPedidoMako((x) => ({ texto, vez: (x?.vez ?? 0) + 1 }))} />}
+      {calcOpen && <CalculadoraPresupuesto deTusAnuncios={deTusAnuncios(senales)} rango={rangoCorto(desde, hasta)} onCerrar={() => setCalcOpen(false)} onPreguntarMako={(texto) => setPedidoMako((x) => ({ texto, vez: (x?.vez ?? 0) + 1 }))} />}
       {/* La estrella de la tab (el chat de MaKo de toda la app): mirando campañas, sólo analiza. Encima de los modales, para
           que la calculadora siga a la vista mientras MaKo contesta. */}
       <MakoEnLaTab tab="Ads Manager" modo="analizar" pedido={pedidoMako} encimaDeModales />
