@@ -137,6 +137,13 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/etapas/{etapa}/transiciones', 'transiciones_desde_etapa'],
   // «Tipo de etapa» (21/10/2026): Etapa / Reunión / Nutrición. PUT porque FIJA el tipo.
   ['PUT', '/crm/etapas/{etapa}/tipo', 'cambiar_tipo_etapa'],
+  // Editar las etapas (23/10/2026, P0-6 de la auditoría): el orden es de TODAS juntas; el resto, de una.
+  ['POST', '/crm/etapas', 'agregar_etapa'],
+  ['PUT', '/crm/etapas/orden', 'ordenar_etapas'],
+  ['PATCH', '/crm/etapas/{etapa}', 'renombrar_etapa'],
+  ['DELETE', '/crm/etapas/{etapa}', 'eliminar_etapa'],
+  ['PUT', '/crm/etapas/{etapa}/plazo', 'plazo_etapa'],
+  ['PUT', '/crm/etapas/{etapa}/nutricion', 'columna_nutricion_crm'],
   ['GET', '/crm/etiquetas', 'listar_etiquetas'],
   ['POST', '/crm/etiquetas', 'crear_etiqueta'],
   ['PATCH', '/crm/etiquetas/{etiquetaId}', 'editar_etiqueta'],

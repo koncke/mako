@@ -367,6 +367,25 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '23 oct', hora: '21:47', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Editar las etapas de un CRM, por la API',
+    puntos: [
+      'P0-6: renombrar, agregar, quitar y ordenar las etapas de un CRM, ponerle plazo a una etapa, y quitar o devolver una columna de nutrición. Antes, por la API sólo se cambiaba el tipo de una etapa.',
+      'Usa el mismo camino que el «⋯» de la columna y el pop-up de etapas, que se mudó a lib/etapas-crm-server.ts.',
+      'Antes de quitar una etapa dice cuántos leads tiene. Las terminales y la etapa de entrada no se quitan, igual que en la pantalla.',
+    ],
+    commits: [
+      { sha: 'e2cd3dc4', msg: 'API de MaKo: editar las etapas de un CRM (P0-6 de la auditoría), con el cuerpo de la action en lib', lineas: 1720, archivos: 20 },
+    ],
+    archivos: [
+      'lib/etapas-crm-server.ts — editarEtapa y conteosDelEmbudo',
+      'lib/etapas-crm-reglas.ts — porQueNoSeElimina y pipelineReordenado, puros',
+      'lib/api-mako/areas/crm.def.ts + crm.run.ts — las seis operaciones',
+      'tests/api-mako-etapas-crm.test.ts — probado rompiéndolo',
+    ],
+  },
+  {
     fecha: '23 oct', hora: '17:18', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'La entrega de un cliente y el alumno nuevo, por la API',

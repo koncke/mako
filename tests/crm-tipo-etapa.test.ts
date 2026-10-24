@@ -121,5 +121,5 @@ test('la API de MaKo: `cambiar_tipo_etapa`, sólo el admin, con «sí», por la 
   assert.match(cuerpo, /const r = await cambiarTipoDeEtapa\(/, 'una segunda forma de guardar un tipo');
   assert.doesNotMatch(cuerpo, /cambiarTipo\(\{/);
   assert.match(cuerpo, /invalidar\('pipeline', 'leads'\);/);
-  assert.match(sinComentarios(leer('app/crm/actions.ts')), /const r = await cambiarTipoDeEtapa\(funnelId \?\? null, op\.key, op\.tipo, op\.at\);/, 'la pantalla por la misma');
+  assert.match(sinComentarios((leer('app/crm/actions.ts') + leer('lib/etapas-crm-server.ts'))), /const r = await cambiarTipoDeEtapa\(funnelId \?\? null, op\.key, op\.tipo, op\.at\);/, 'la pantalla por la misma');
 });

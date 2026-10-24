@@ -13,6 +13,7 @@ agregar_bloque_landing
 agregar_capa_efecto_video
 agregar_dependencia_plan
 agregar_escenario_secuencia
+agregar_etapa
 agregar_filtro_dashboard
 agregar_grafico_dashboard
 agregar_link_fathom
@@ -101,6 +102,7 @@ cobertura_datos_retro
 cobertura_guiones_anuncio
 cobranza_lead
 cobrar_producto_landing
+columna_nutricion_crm
 comentar_clase_comunidad
 comentar_post_comunidad
 comparar_agendas_meta_crm
@@ -204,6 +206,7 @@ editar_texto_guion_anuncio
 editar_venta_lead
 elegir_formato_creativo_anuncio
 eliminar_broadcast
+eliminar_etapa
 eliminar_muletillas_video
 embudo_closing
 enviar_broadcast
@@ -410,12 +413,14 @@ oferta_del_lead
 olvidar_nombre_video
 opciones_siguiente_paso_guion
 ordenar_categorias_comunidad
+ordenar_etapas
 ordenar_modulos_curso
 panorama_closing
 pasar_comentarios_a_copia_landing
 pausar_landing
 plan_retro
 plantillas_meta_de_secuencia
+plazo_etapa
 poner_animacion_video
 poner_efecto_video
 poner_enlace_landing
@@ -485,6 +490,7 @@ registrar_pago_suelto
 registrar_valor_kpi
 reiniciar_personalidad
 remitente_email
+renombrar_etapa
 renombrar_landing
 renombrar_modulo_curso
 requisitos_para_mover
