@@ -15,6 +15,7 @@ import { revalidatePath, updateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { TAG } from '@/lib/cache';
 import { exigirSesion } from '@/lib/sesion-accion';
+import { listProductos } from '@/lib/productos';
 
 // Invalida la caché de lectura por dominio. Toda mutación de lead toca 'leads'
 // (y cohortes/objetivo que derivan de leads); las de cobranza tocan 'pagos'.
@@ -398,6 +399,11 @@ export type StageMoveCuota = { monto: number; fecha: string | null };
 
 /** Datos que el wizard de movimiento puede aportar. */
 export type StageMoveData = {
+  /**
+   * El producto que compró (el paso «¿Qué compró?» de Ganado, 24/10/2026). `null` = «Otro / personalizado». Se valida contra
+   * el catálogo de ESTE negocio: un id ajeno o inventado se guarda como null.
+   */
+  productoId?: number | null;
   fechaJ1?: string | null;
   fechaJ2?: string | null;
   /** La hora de la reunión ('HH:MM', opcional), en la zona del negocio (14/10/2026). */
@@ -803,6 +809,16 @@ export async function completeStageMoveAction(
     if (!subErr && esSinCobro(d.ventaTipo) !== esSinCobro(before?.venta_tipo)) {
       await logLeadEvent(id, 'Tipo de venta', esSinCobro(d.ventaTipo) ? 'Sin cobro' : 'Con cobro', autor);
     }
+  }
+
+  // El PRODUCTO VENDIDO (24/10/2026; decisión de agosto: obligatorio, con «Otro / personalizado»). `leads.producto_id` (mig
+  // 0117) era una columna que nadie escribía. Sólo un producto del catálogo de este negocio; cualquier otra cosa, null.
+  if (d.productoId !== undefined) {
+    const catalogo = await listProductos().catch(() => [] as Awaited<ReturnType<typeof listProductos>>);
+    const prod = d.productoId == null ? null : catalogo.find((p) => Number(p.id) === d.productoId) ?? null;
+    const { error: prodErr } = await (await getTenantDb()).from('leads').update({ producto_id: prod ? Number(prod.id) : null }).eq('id', id);
+    if (prodErr) console.error(`[leads] guardar el producto vendido: ${prodErr.message}`);
+    else await logLeadEvent(id, 'Producto vendido', prod ? prod.nombre : 'Otro / personalizado', autor);
   }
 
   // 5) Mover (updateLead sincroniza estado primero; override solo si OK).

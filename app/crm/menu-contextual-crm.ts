@@ -36,6 +36,8 @@ import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, type TipoEtapa } from '@/lib/etapa-reun
 export type IdOpcionCrm =
   // un lead
   | 'abrir' | 'mover_etapa' | 'whatsapp' | 'copiar_telefono' | 'copiar_email' | 'seleccionar' | 'quitar_seleccion' | 'eliminar'
+  // el asistente «¿Qué hacer ahora?» (24/10/2026): una nutrición manual vencida o una reunión que pasó sin desenlace
+  | 'que_hacer'
   // la TARJETA del Kanban (21/10/2026): el pop-up de «Personalizar tarjetas» del «⋯» de la barra
   | 'personalizar_tarjeta'
   // el lead en una automatización (22/10/2026): sacarlo de todas las que le corren (app/crm/automatizacion-lead.ts)
@@ -75,6 +77,8 @@ export type ContextoCrm =
     partners?: 'llevar' | 'ver' | null;
     /** Este lead está en una automatización (22/10/2026): se ofrece «Frenar automatización». */
     enAutomatizacion?: boolean;
+    /** Tiene algo que decidir (24/10/2026): nutrición manual vencida o reunión pasada sin desenlace. Se ofrece «¿Qué hacer ahora?». */
+    queHacer?: boolean;
     /** Cuántos de los tildados están en una automatización: con alguno, el lote ofrece «Frenar automatización». */
     loteEnAutomatizacion?: number;
   }
@@ -154,7 +158,7 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
     ]);
   }
   return compactar([
-    'abrir', 'mover_etapa',
+    'abrir', ...(c.queHacer ? ['que_hacer' as const] : []), 'mover_etapa',
     null,
     ...(c.conWhatsapp ? ['whatsapp' as const] : []),
     ...(c.conTelefono ? ['copiar_telefono' as const] : []),
@@ -197,6 +201,7 @@ export const EN_LINEA: ReadonlyArray<readonly [IdOpcionCrm, IdOpcionCrm]> = [['c
  */
 export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: NombreIconoMenu; peligro?: true }>> = {
   abrir: { texto: 'Abrir ficha', icono: 'ver' },
+  que_hacer: { texto: '¿Qué hacer ahora?', icono: 'pregunta' },
   mover_etapa: { texto: 'Mover a etapa', icono: 'etapa' },
   whatsapp: { texto: 'Escribir por WhatsApp', icono: 'whatsapp' },
   copiar_telefono: { texto: 'Copiar teléfono', icono: 'telefono' },

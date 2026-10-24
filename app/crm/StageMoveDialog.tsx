@@ -19,6 +19,7 @@ import { stepsForStage, funnelReqInfo, unirPasos, type Step, type StepId } from 
 import { ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
 import type { FathomLink } from '@/lib/leads';
 import { completeStageMoveAction, requisitosDeEtapaAction, type StageMoveCuota, type StageMoveResultado } from './actions';
+import { productosParaCierreAction, type ProductoCierre } from './producto-cierre-actions';
 import { hoyEnTz } from '@/lib/date-utils';
 import { sumarMeses, siguienteFechaDeCuota } from '@/lib/cobrado-lead';
 import { formatoMonto } from '@/lib/pasarela-moneda';
@@ -138,7 +139,7 @@ type PasoId =
   | 'auto'
   | 'huboR1' | 'motivoNoR1' | 'fechaJ1' | 'asistenciaR1' | 'calificado' | 'fathomR1'
   | 'huboR2' | 'motivoNoR2' | 'fechaJ2' | 'asistenciaR2' | 'fathomR2'
-  | 'ventaTipo' | 'monto' | 'susPlazo' | 'plan' | 'motivo'
+  | 'producto' | 'ventaTipo' | 'monto' | 'susPlazo' | 'plan' | 'motivo'
   | 'setter' | 'closer' | 'empresa' | 'telefono'
   // Deal Details + documentos + Calendly R2 (pasada única del "Solucionar").
   | 'dealAuto' | 'dealServicio' | 'dealPromesa' | 'dealFiscal' | 'dealObligaciones'
@@ -247,6 +248,13 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   // Venta recurrente (#363): tipo + plazo. El monto mensual reusa el campo `monto`.
   // + «Sin cobro» (#747): un becado. Saltea el monto y el plan, y viaja como venta_tipo.
   const [ventaTipo, setVentaTipo] = useState<VentaTipo>(ventaTipoDe(lead.ventaTipo));
+  /**
+   * «¿QUÉ COMPRÓ?» (24/10/2026; decisión de agosto: obligatorio al cerrar, con «Otro / personalizado»). El catálogo llega al
+   * abrir un cierre (no en «Completar datos»); sin productos activos el paso no se ofrece. Elegir uno completa el tipo de venta,
+   * el monto y el plazo con lo del producto (los pasos de después siguen, para corregirlos).
+   */
+  const [productos, setProductos] = useState<ProductoCierre[] | null>(null);
+  const [productoElegido, setProductoElegido] = useState<number | 'otro' | null>(null);
   const [susMeses, setSusMeses] = useState(lead.suscripcionMeses ? String(lead.suscripcionMeses) : '');
   // Motivo: categoría (chips) + detalle específico (texto libre), en UNA pantalla.
   // Son dos estados y un solo paso — eran dos pasos hasta el 27/09/2026.
@@ -458,6 +466,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     // cierre por reserva sin contrato firmado todavía).
     const necesitaDeal = requeridos.has('dealServicio') || requeridos.has('dealPromesa') || requeridos.has('dealFiscal') || requeridos.has('dealObligaciones');
     const dealCompleto = !!(lead.dealServicioOk && lead.dealPromesaOk && lead.dealFiscalOk && lead.dealObligacionesOk);
+    // Lo PRIMERO de un cierre: qué compró (el producto define el tipo de venta y el monto que siguen).
+    if (esCierre && !completarDatos && productos && productos.length > 0) p.push('producto');
     if ((esCierre && !dealCompleto) || necesitaDeal) p.push('dealAuto');
     if (requeridos.has('dealServicio')) p.push('dealServicio');
     if (requeridos.has('dealPromesa')) p.push('dealPromesa');
@@ -520,7 +530,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       if (preguntas.length === 1) return preguntas;
     }
     return filtrados;
-  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, lead.dealServicioOk, lead.dealPromesaOk, lead.dealFiscalOk, lead.dealObligacionesOk, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte, ventaTipo, completarDatos]);
+  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, lead.dealServicioOk, lead.dealPromesaOk, lead.dealFiscalOk, lead.dealObligacionesOk, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte, ventaTipo, completarDatos, productos]);
 
   // Índice actual + historial REAL de pasos visitados (para que Atrás vuelva
   // al paso anterior visitado, no al índice-1 cuando hubo saltos).
@@ -540,6 +550,20 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   }, [pasos]);
 
   const totalMonto = parseFloat(monto) || 0;
+  // El catálogo, sólo para un cierre que se está MOVIENDO (no en «Completar datos»). Sin respuesta, sin paso.
+  useEffect(() => {
+    if (!esCierre || completarDatos) return;
+    let vivo = true;
+    void productosParaCierreAction().then((ps) => { if (vivo) setProductos(ps); }).catch(() => { if (vivo) setProductos([]); });
+    return () => { vivo = false; };
+  }, [esCierre, completarDatos]);
+  /** Elegir un producto completa lo que el cierre hereda de él; lo que ya se escribió a mano en el monto no se pisa. */
+  const elegirProducto = (p: ProductoCierre) => {
+    setProductoElegido(p.id);
+    setVentaTipo(p.tipo === 'suscripcion' ? 'suscripcion' : 'unico');
+    if (!(parseFloat(monto) > 0) && p.montoUsd) setMonto(String(p.montoUsd));
+    if (p.tipo === 'suscripcion' && p.meses && !susMeses) setSusMeses(String(p.meses));
+  };
   const esSuscripcion = ventaTipo === 'suscripcion';
   const sinCobro = ventaTipo === 'sin_cobro';
   const sumaCuotas = cuotas.reduce((s, c) => s + (parseFloat(c.monto) || 0), 0);
@@ -566,6 +590,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       case 'asistenciaR2': return asistioJ2 != null || !!reprogR2;
       case 'calificado': return calificado != null;
       case 'fathomR1': case 'fathomR2': return fathomOmitido || fathom.some((f) => f.url.trim());
+      case 'producto': return productoElegido != null; // obligatorio: un producto u «Otro / personalizado»
       case 'ventaTipo': return true; // hay un default (pago único); se elige y se sigue
       case 'monto': return totalMonto > 0;
       case 'susPlazo': return true;  // vacío = indefinida, es válido
@@ -661,6 +686,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           // va como suscripcion_monto_usd (MRR) + el tipo y el plazo.
           // Sin cobro (#747): no hay paso de monto, así que el tipo viaja por su propio
           // paso, y el monto va null — el server lo limpia si quedaba uno viejo.
+          ...(pide('producto') ? { productoId: productoElegido === 'otro' ? null : productoElegido } : {}),
           ...(pide('monto') || pide('ventaTipo') ? {
             monto: esSuscripcion || sinCobro ? null : (totalMonto || null),
             ventaTipo,
@@ -1008,6 +1034,25 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         </div>
       );
       break;
+    case 'producto':
+      pregunta = '¿Qué compró?';
+      sub = 'Completa el tipo de venta y el monto con lo del producto.';
+      cuerpo = (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {(productos ?? []).map((p) => (
+            <button key={p.id} type="button" data-producto={p.id} onClick={() => elegirProducto(p)} style={{ ...btnOpcion(productoElegido === p.id), textAlign: 'left' }}>
+              <div style={{ fontSize: 15 }}>{p.nombre}</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: productoElegido === p.id ? 'rgba(255,255,255,.7)' : 'var(--dim)', marginTop: 2 }}>
+                {p.tipo === 'suscripcion' ? 'Suscripción' : 'Pago único'}{p.montoUsd ? ` · US$${p.montoUsd.toLocaleString('en-US')}${p.tipo === 'suscripcion' ? '/mes' : ''}` : ''}
+              </div>
+            </button>
+          ))}
+          <button type="button" onClick={() => setProductoElegido('otro')} style={{ ...btnOpcion(productoElegido === 'otro'), textAlign: 'left' }}>
+            <div style={{ fontSize: 15 }}>Otro / personalizado</div>
+          </button>
+        </div>
+      );
+      break;
     case 'ventaTipo':
       // ⚠️ El contrato se lee ANTES de este paso, con el tipo todavía en «Pago único», y lo
       // que trae es el TOTAL. Elegir «Suscripción» con ese total intacto en el campo era
@@ -1276,6 +1321,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         }
       }
       if (pide('fathomR1') || pide('fathomR2')) filas.push(['Fathom', fathomOmitido ? 'Sin grabación' : `${fathom.filter((f) => f.url.trim()).length} link(s)`]);
+      if (pide('producto')) filas.push(['Producto', productoElegido === 'otro' ? 'Otro / personalizado' : (productos ?? []).find((p) => p.id === productoElegido)?.nombre ?? '—']);
       if (pide('ventaTipo') && sinCobro) filas.push(['Venta', 'Sin cobro']);
       if (pide('monto') && esSuscripcion) filas.push(['Suscripción', totalMonto ? `$${totalMonto.toLocaleString('en-US')}/mes · ${susMeses ? `${susMeses} meses` : 'indefinida'}` : '—']);
       if (pide('monto') && !esSuscripcion && !sinCobro) filas.push(['Monto de cierre', totalMonto ? `$${totalMonto.toLocaleString('en-US')}` : '—']);
