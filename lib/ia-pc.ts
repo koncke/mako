@@ -22,9 +22,9 @@ import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import {
-  CODIGO_MS, ESPERA_TURNO_MS, LARGO_CODIGO, PREFIJO_TOKEN_PC, PREFIJO_TOKEN_TURNO, SIN_LATIDO_MS, SIN_TOMAR_MS, TURNO_MS, VERSION_CONSENTIMIENTO,
+  CODIGO_MS, ESPERA_TURNO_MS, LARGO_CODIGO, PREFIJO_TOKEN_PC, PREFIJO_TOKEN_TURNO, SIN_LATIDO_MS, SIN_TOMAR_MS, TURNO_MS,
   codigoDe, elegirPc, enLinea, type PcDeNegocio, normalizarCodigo, sanearCuentas, sanearNombrePc, sanearRespuesta, sistemaDeLaVersion, tieneFormaDeToken, type CuentaPc, type TipoFalloPc,
-  pcUsable, type ProveedorPc,
+  iaDelConsentimiento, pcUsable, type ProveedorPc,
 } from './ia-pc-reglas';
 import type { ToolDef } from './anthropic';
 
@@ -67,7 +67,7 @@ export type Dispositivo = {
  * anulan: uno solo a la vez.
  */
 export async function crearCodigo(ws: number, persona: string, consentimiento: string): Promise<{ codigo: string; venceAt: string }> {
-  if (consentimiento !== VERSION_CONSENTIMIENTO) throw new Error('ia-pc: sin aceptar el texto de hoy no hay código');
+  if (!iaDelConsentimiento(consentimiento)) throw new Error('ia-pc: sin aceptar el texto de hoy no hay código');
   const ahora = new Date().toISOString();
   await db().from('ia_pc_codigos').update({ vence_at: ahora })
     .eq('workspace_id', ws).eq('persona', persona).is('usado_at', null).gt('vence_at', ahora);

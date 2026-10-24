@@ -37,8 +37,13 @@ era cambiar el nombre».
   correr `node scripts/ia-pc/medir-codex-mcp.mjs`, ya corregido: antes iba a dar ✗ por la aprobación de las herramientas
   MCP, y ahora mide también las instrucciones y las «manos» de Codex (tres turnos de su cuenta). Lo que encontró la
   investigación, lo que falta y de quién es cada pieza: `../hallazgos-ia.md` → «La ola 3 por dentro». Lo legal de
-  OpenAI espera una decisión de Martín. El servidor por proveedor es de este chat y no choca con IA16; el programa 0.5.0
-  es del chat del Instalador (cuenta 3).
+  OpenAI espera una decisión de Martín.
+- **Ola 3, partes a y c (este chat, 23/10 noche):** el servidor elige la PC por IA (a), y el tutorial y lo que se acepta
+  van por IA (c). La IA elegida viaja en la versión del consentimiento, sin columna. Las dos son invisibles con
+  `CHATGPT_EN_LA_PC` apagada y van por el tren normal. El Cerebro le dio a este chat también el programa 0.5.0 (b), pero
+  DESPUÉS de la medición: si «sin manos» no se puede, no sale. Prender la opción espera IA16, el programa y la decisión
+  legal de Martín. Lo que quedó sin hacer, con su archivo: `../hallazgos-ia.md` → «La PC se elige POR IA» y «Qué IA
+  eligió la persona viaja en la VERSIÓN del consentimiento».
 - **IA16** (rama `ia16-2210`, worktree `C:/dev/wt-ia16`, punta `7ff4633e6`): retenida hasta el lunes 26/10, con «Costo de
   MaKo» arreglado, main mezclado y tests/ia15-frontera al día (fallaba 3 desde antes).
 

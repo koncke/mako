@@ -167,15 +167,16 @@ test('al conectar, la persona acepta con un toque que es SU Claude y SU cuenta, 
   assert.doesNotMatch(TEXTO_CONSENTIMIENTO, /\b(vos|pedís|tenés)\b/, 'de tú');
   // Rota: crear el código sin la versión aceptada → este test falla.
   const ruta = sinComentarios(leer('app/api/ia-pc/codigo/route.ts'));
-  assert.ok(ruta.indexOf('if (body?.acepto !== VERSION_CONSENTIMIENTO)') > 0 && ruta.indexOf('if (body?.acepto !== VERSION_CONSENTIMIENTO)') < ruta.indexOf('await crearCodigo('));
+  // La versión dice también con qué IA (la ola 3, tests/ia-pc-proveedor.test.ts → 6).
+  assert.ok(ruta.indexOf('if (!ia) return') > 0 && ruta.indexOf('if (!ia) return') < ruta.indexOf('await crearCodigo('));
   const lib = sinComentarios(leer('lib/ia-pc.ts'));
-  assert.match(lib, /if \(consentimiento !== VERSION_CONSENTIMIENTO\) throw/, 'la puerta también lo exige, no sólo la ruta');
+  assert.match(lib, /if \(!iaDelConsentimiento\(consentimiento\)\) throw/, 'la puerta también lo exige, no sólo la ruta');
   assert.match(lib, /consentimiento: \(data\.consentimiento as string \| null\) \?\? null, consentimiento_at: ahora,/, 'queda en la PC');
   // La pantalla: el código se pide recién después del toque.
   const p = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
   assert.match(p, /if \(paso === 4 && acepto && !codigo\) void pedirCodigo\(\);/);
-  assert.match(p, /body: JSON\.stringify\(\{ acepto: VERSION_CONSENTIMIENTO \}\)/);
-  assert.match(p, /\{TEXTO_CONSENTIMIENTO\}/);
+  assert.match(p, /body: JSON\.stringify\(\{ acepto: CONSENTIMIENTO_DE\[ia\]\.version \}\)/);
+  assert.match(p, /\{CONSENTIMIENTO_DE\[ia\]\.texto\}/);
   const mig = leer('supabase/migrations/0321_ia_pc_consentimiento.sql');
   assert.match(mig, /alter table ia_pc_dispositivos add column if not exists consentimiento_at timestamptz;/);
 });

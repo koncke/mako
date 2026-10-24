@@ -70,7 +70,7 @@ test('3. cada una dice su sistema y cuándo se conectó; la tarjeta ofrece «Con
   assert.equal(detalleDeLaPc({ sistema: null, conectadaAt: null }, () => 'x'), null, 'sin dato, no se muestra');
   const ui = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
   // 23/10/2026: «Nuevo dispositivo», dentro de cada cuenta, con la descarga a la vista (CuentasYDispositivos.tsx).
-  assert.match(ui, /nuevoDispositivo=\{\(\) => <NuevoDispositivo onConectar=\{\(\) => abrirTutorialEn\(4\)\} onPasosMac=\{abrirTutorial\} \/>\}/);
+  assert.match(ui, /nuevoDispositivo=\{\(c\) => <NuevoDispositivo onConectar=\{\(\) => abrirTutorialEn\(4, c\.proveedor\)\} onPasosMac=\{\(\) => abrirTutorialEn\(1, c\.proveedor\)\} \/>\}/, 'otra computadora para ESA cuenta, con su IA');
   const dibujo = sinComentarios(leer('app/integraciones/CuentasYDispositivos.tsx'));
   assert.match(dibujo, /\{d\.conectadaAt && <p className="tci-nota">\{`Conectada el \$\{fechaCorta\(d\.conectadaAt\)\}`\}<\/p>\}/);
   assert.match(sinComentarios(leer('app/api/ia-pc/estado/route.ts')), /conectadaAt: d\.conectadaAt, sistema: d\.sistema,/);

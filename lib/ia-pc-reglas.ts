@@ -51,6 +51,20 @@ export const TOPE_RESPUESTA = 20_000;
  */
 export const TEXTO_CONSENTIMIENTO = 'Tu Claude corre en tu computadora, con tu cuenta, y contesta sólo lo que tú le pides en MaKo. MaKo nunca ve tu clave ni tu sesión.';
 export const VERSION_CONSENTIMIENTO = '2026-10-21';
+/**
+ * Lo que acepta quien conecta su ChatGPT (la ola 3), con SU versión: como la versión queda en el código y en la PC (mig
+ * 0321), dice también qué IA eligió la persona (`iaDelConsentimiento`), sin otra columna.
+ */
+export const CONSENTIMIENTO_DE: Readonly<Record<ProveedorPc, { texto: string; version: string }>> = {
+  claude: { texto: TEXTO_CONSENTIMIENTO, version: VERSION_CONSENTIMIENTO },
+  chatgpt: {
+    texto: 'Tu ChatGPT corre en tu computadora, con tu cuenta, y contesta sólo lo que tú le pides en MaKo. MaKo nunca ve tu clave ni tu sesión.',
+    version: '2026-10-23-chatgpt',
+  },
+};
+/** De qué IA es la versión aceptada; null si no es una que se acepte hoy. */
+export const iaDelConsentimiento = (v: unknown): ProveedorPc | null =>
+  (Object.keys(CONSENTIMIENTO_DE) as ProveedorPc[]).find((ia) => CONSENTIMIENTO_DE[ia].version === v) ?? null;
 
 /** Sin 0/O ni 1/I: se lee y se copia de una pantalla a otra. */
 export const ALFABETO_CODIGO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

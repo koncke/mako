@@ -6153,9 +6153,9 @@ diseño y un crítico) encontró que el diagnóstico obvio —«falta el corredo
 1. Martín: `codex login` («Sign in with ChatGPT»). Después, `node scripts/ia-pc/medir-codex-mcp.mjs`
    (tres turnos de su cuenta). Sin el ✓ de 1 y el ✓ de 3b no hay corredor.
 2. Decisión de Martín: lo legal de OpenAI (arriba).
-3. Este chat: lo que falta del servidor (la columna de la IA elegida en `ia_pc_codigos`, «falta Codex»
-   por dispositivo, la versión mínima, el consentimiento de ChatGPT). La elección de la PC por IA ya está
-   (abajo).
+3. Este chat: lo que falta del servidor («falta Codex» por dispositivo, la versión mínima). Ya están la
+   elección de la PC por IA, el consentimiento de ChatGPT, y la IA elegida, que viaja en su versión sin
+   columna nueva (abajo).
 4. El chat del Instalador (cuenta 3): el programa 0.5.0 (instalar Codex sin terminal —el paquete de
    OpenAI de ~159 MB o su install.ps1, nunca npm: el cliente no tiene Node—, `codex login` oculto, el
    turno con `codex exec --json`, el latido con `proveedor: 'chatgpt'`, el % usado por
@@ -6193,6 +6193,37 @@ tests/chat-ia.test.ts (2b).
 **Vive en:** lib/ia-pc-reglas.ts (`pcUsable`, `elegirPc`, `cuentasDeLaIA`, `modeloDelTurno`,
 `avisoDeLaPc`) · lib/ia-pc.ts (`pcDe`) · app/api/ia-pc/turno/route.ts · lib/chat-ia.ts («Tu computadora ·
 ChatGPT») · lib/mako-turno-app.ts (`iaDeLaPc`) · *2026-10-23, chat «IA del cliente»*
+
+### Qué IA eligió la persona viaja en la VERSIÓN del consentimiento, sin columna nueva (la ola 3, parte c)
+
+El plan decía «una columna en `ia_pc_codigos`» para que el servidor y el programa sepan si la PC se
+conectó para Claude o para ChatGPT. No hace falta: el texto que se acepta ya es distinto por IA, así que
+su versión también (`CONSENTIMIENTO_DE`). Esa versión ya queda en el código y pasa a la PC al emparejar
+(mig 0321, columna `consentimiento`, ≤ 40 caracteres). `iaDelConsentimiento(v)` la lee. Ojo: si cambia el
+texto, cambia la versión, y la vieja deja de sacar códigos (como siempre).
+
+- POST /api/ia-pc/codigo frena la versión de ChatGPT mientras `CHATGPT_EN_LA_PC` esté apagada. Sin eso,
+  la pantalla podía sacar un código para un programa que no corre Codex.
+- El tutorial (`Tutorial`, TusCuentasIA.tsx) va por IA: el nombre, el programa (Claude Code o Codex), lo
+  que se acepta, y «¡Listo!» sólo con una cuenta de ESA IA. Los respaldos con la terminal son sólo de
+  Claude: el cliente no tiene Node para instalar Codex a mano. «Iniciar sesión» de ChatGPT abre
+  `mako://iniciar-sesion?ia=chatgpt`. La 0.4.2 lee sólo el host y abriría el login de Claude: la 0.5.0
+  tiene que leer `ia`, y hace falta la versión mínima antes de prender la opción.
+
+**SIN hacer:**
+
+- Que cada PC diga su IA (`iaDelConsentimiento(d.consentimiento)` en /api/ia-pc/estado). Con eso,
+  `estadoDeLaPc` («Sin sesión de Claude», «Falta instalar Claude») y la nota de las PC sin cuenta
+  (CuentasYDispositivos.tsx:119) dirían «ChatGPT»/«Codex». Va con la parte b, cuando haya PC de ChatGPT.
+- «Nuevo dispositivo» dice «esta misma cuenta de Claude» también dentro de una cuenta de ChatGPT. Lo
+  arregla la prop `nota` que trae el Ops Center (c23140ed3, rama ops-app-primero-2310, todavía no en
+  main). Con eso en main: pasarle la nota por IA desde TusCuentasIA.tsx.
+- Volver del instalador (`?computadora=1`) abre el tutorial de Claude: el instalador de la 0.5.0 tiene
+  que volver con la IA.
+
+**Vive en:** lib/ia-pc-reglas.ts (`CONSENTIMIENTO_DE`, `iaDelConsentimiento`) · lib/ia-pc.ts
+(`crearCodigo`) · app/api/ia-pc/codigo/route.ts · app/integraciones/TusCuentasIA.tsx (`Tutorial`) ·
+*2026-10-23, chat «IA del cliente»*
 
 **Vive en:** lib/chat-ia.ts (`cuentasDeIA`) · lib/mako-turno-app.ts (`soloSuOpenAI`) ·
 lib/ai-cheap.ts (`cfgDe`, `CHEAP_MODEL`) · lib/conectar-ia-reglas.ts (`CHATGPT_EN_LA_PC`) ·
