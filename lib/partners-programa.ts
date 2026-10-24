@@ -30,7 +30,7 @@ import { APP_BASE_URL, linkApp } from './app-url';
 import { avisarDePlataforma } from './invitaciones';
 import { formatoMonto } from './pasarela-moneda';
 import {
-  codigoDesdeNombre, correspondeAcreditar, creditoDelReferido, estadoDelReferido, linkDePartner, resumenDelLibro,
+  codigoDesdeNombre, contarPrograma, correspondeAcreditar, creditoDelReferido, estadoDelReferido, linkDePartner, resumenDelLibro,
   type EstadoReferido, type Resumen,
 } from './partners-reglas';
 import { cuotasDeLugares, cobrosDeLugares, vigenciaDe } from './plan-acceso';
@@ -152,6 +152,58 @@ async function adminsDe(ws: number): Promise<Array<{ email: string; nombre: stri
  *      vez, las dos bienvenidas (la marca es haber escrito `referido_por_ws`: compare-and-set sobre null).
  *   2. Con el 2º mes pagado: el crédito al partner (el índice único lo hace una sola vez) y su aviso.
  */
+/** El programa entero, para el super admin (24/10/2026, Martín: «…y luego el dashboard, tanto de SuperAdmin como clientes»). */
+export type ResumenPrograma = {
+  /** Negocios que ya tienen su link (el código nace al abrir su tablero). */
+  conLink: number;
+  /** Negocios nuevos que entraron con un link (la compra que CREÓ la cuenta, como cuenta `acreditarReferidos`). */
+  referidos: number;
+  /** Lo acreditado a partners por sus referidos, en dólares (el libro, renglones `referido`). */
+  acreditadoUsd: number;
+  /** Los partners con algún referido o crédito, el que más trajo primero. */
+  partners: Array<{ ws: number; nombre: string; referidos: number; acreditadoUsd: number }>;
+  /** Alguna lectura llegó al tope: los números son «al menos». */
+  truncado: boolean;
+};
+
+/** El resumen del programa entero. Sólo para el super admin: lee los libros de todos los negocios. */
+export async function resumenDelPrograma(): Promise<ResumenPrograma> {
+  const TOPE = 5000;
+  const plataforma = await wsSuperAdmin();
+  const db = getSupabaseServer();
+  const [codigos, compras, libro] = await Promise.all([
+    db.from('partner_codigos').select('workspace_id, codigo').limit(TOPE),
+    // El MISMO filtro que `acreditarReferidos`: la compra que creó la cuenta, pagada (o devuelta después).
+    db.from('cobros').select('ref_codigo, alta_ws, created_at').eq('workspace_id', plataforma).not('ref_codigo', 'is', null)
+      .eq('alta_estado', 'hecha').not('alta_ws', 'is', null).in('estado', ['pagado', 'reembolsado'])
+      .order('created_at', { ascending: true }).limit(TOPE),
+    db.from('partner_creditos').select('referidor_ws, tipo, monto_usd').eq('tipo', 'referido').limit(TOPE),
+  ]);
+  const error = codigos.error ?? compras.error ?? libro.error;
+  if (error) throw new Error(`No pude leer el programa: ${error.message}`);
+  // La cuenta es pura (lib/partners-reglas.ts, `contarPrograma`): un negocio nuevo cuenta UNA vez, para el primer código
+  // que lo trajo, como `acreditarReferidos`, y nunca para sí mismo.
+  const { conLink, referidos, acreditadoUsd, porPartner } = contarPrograma({
+    plataforma,
+    codigos: (codigos.data ?? []) as Array<{ workspace_id: number; codigo: string }>,
+    compras: (compras.data ?? []) as Array<{ ref_codigo: string; alta_ws: number }>,
+    creditos: (libro.data ?? []) as Array<{ referidor_ws: number; monto_usd: number }>,
+  });
+  const wss = [...porPartner.keys()];
+  const { data: nombres } = wss.length ? await db.from('workspaces').select('id, nombre').in('id', wss) : { data: [] };
+  const nombreDe = new Map(((nombres ?? []) as Array<{ id: number; nombre: string }>).map((w) => [Number(w.id), w.nombre]));
+  const partners = wss
+    .map((ws) => ({ ws, nombre: nombreDe.get(ws) ?? 'Un negocio', ...porPartner.get(ws)! }))
+    .sort((a, b) => b.referidos - a.referidos || b.acreditadoUsd - a.acreditadoUsd);
+  return {
+    conLink,
+    referidos,
+    acreditadoUsd,
+    partners,
+    truncado: [codigos.data, compras.data, libro.data].some((d) => (d?.length ?? 0) >= TOPE),
+  };
+}
+
 export async function acreditarReferidos(): Promise<{ vistos: number; atados: number; acreditados: number }> {
   const out = { vistos: 0, atados: 0, acreditados: 0 };
   const plataforma = await wsSuperAdmin();

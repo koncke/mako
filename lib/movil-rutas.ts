@@ -207,7 +207,8 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // `customer-success` (requireCapa) y las keys `cs-curso`/`cs-comunidad` dan lo mismo en las cuatro capas
   // (tests/curso-admin.test.ts y tests/comunidad-nav.test.ts); el rol, como en la sidebar, sólo admin.
   { id: 'cs', label: 'Clients', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'sales' },
-  // MaKo Partners (17/10/2026): sólo el admin de una agencia (`soloCapas` del ítem de nav.ts, que `puedeVerKey` mira).
+  // MaKo Partners: el admin de cualquier negocio desde el 24/10/2026 (antes, `soloCapas` agencia en nav.ts); la página
+  // reparte entre la cartera de la agencia y los referidos del resto (app/m/partners/page.tsx).
   // MaKo Partners: del menú de la foto desde el 20/10/2026 (nav.ts → USER_NAV), así que su fila de More la arma el menú
   // (`masCompleto`) y acá va OCULTA, como Report a problem y Business settings.
   { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: null, oculta: true },

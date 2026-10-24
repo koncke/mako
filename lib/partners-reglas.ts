@@ -86,3 +86,41 @@ export function resumenDelLibro(renglones: ReadonlyArray<{ tipo: 'referido' | 'u
   const aCobrar = p.revendedor && precio ? r2(Math.max(0, saldo - precio)) : 0;
   return { acumuladoUsd: r2(acumulado), usadoUsd: r2(usado), saldoUsd: saldo, mesesGratis: p.revendedor ? Math.min(mesesGratis, 1) : mesesGratis, aCobrarUsd: aCobrar };
 }
+
+/**
+ * El programa entero contado (24/10/2026, el panel del super admin en /partners). Puro: lo arma `resumenDelPrograma`
+ * (lib/partners-programa.ts) con las filas de la base. Cuenta como `acreditarReferidos`: un negocio nuevo, UNA vez, para el
+ * PRIMER código que lo trajo (`compras` en orden de creación), nunca para sí mismo ni para la plataforma; un código que no es
+ * de nadie no cuenta.
+ */
+export function contarPrograma(p: {
+  /** El negocio de la plataforma: nunca es partner (`acreditarReferidos` lo saltea). */
+  plataforma: number | null;
+  codigos: ReadonlyArray<{ workspace_id: number; codigo: string }>;
+  compras: ReadonlyArray<{ ref_codigo: string; alta_ws: number }>;
+  creditos: ReadonlyArray<{ referidor_ws: number; monto_usd: number }>;
+}): { conLink: number; referidos: number; acreditadoUsd: number; porPartner: Map<number, { referidos: number; acreditadoUsd: number }> } {
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const dueno = new Map(p.codigos.map((c) => [c.codigo, Number(c.workspace_id)]));
+  const traidoPor = new Map<number, number>();
+  for (const c of p.compras) {
+    const partner = dueno.get(c.ref_codigo);
+    const rws = Number(c.alta_ws);
+    // El PRIMERO vale aunque no cuente (un código sin dueño, el propio, el de la plataforma): como `acreditarReferidos`,
+    // que decide con la compra más vieja de cada negocio y recién después mira de quién es el código. -1 = no es de nadie.
+    if (traidoPor.has(rws)) continue;
+    traidoPor.set(rws, partner == null || partner === rws || partner === p.plataforma ? -1 : partner);
+  }
+  const porPartner = new Map<number, { referidos: number; acreditadoUsd: number }>();
+  const de = (ws: number) => porPartner.get(ws) ?? { referidos: 0, acreditadoUsd: 0 };
+  const contados = [...traidoPor.values()].filter((x) => x !== -1);
+  for (const partner of contados) porPartner.set(partner, { ...de(partner), referidos: de(partner).referidos + 1 });
+  let acreditado = 0;
+  for (const c of p.creditos) {
+    const monto = Number(c.monto_usd) || 0;
+    acreditado += monto;
+    const ws = Number(c.referidor_ws);
+    porPartner.set(ws, { ...de(ws), acreditadoUsd: r2(de(ws).acreditadoUsd + monto) });
+  }
+  return { conLink: p.codigos.length, referidos: contados.length, acreditadoUsd: r2(acreditado), porPartner };
+}

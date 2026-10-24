@@ -118,3 +118,27 @@ trata un error de Supabase como «código inexistente» (sin cookie ni ?ref, sin
 **Sin hacer:** un campo de partner en el alta a mano («Nuevo cliente» y «Vender un plan») que escriba el cobro de la opción A;
 leer la cookie en /pagar/<token>. **Vive en:** app/r/[codigo]/route.ts · lib/compra-plan-reglas.ts (`agendaConOrigen`) ·
 lib/partners-programa.ts · app/admin/cobros/actions.ts · lib/alta-cliente.ts · tests/planes-sin-pasarela.test.ts.
+
+## MaKo Partners estaba construido y ningún cliente podía llegar (24/10/2026)
+
+**Síntoma:** Martín pidió «la tab de MaKo Partners para clientes» como si no existiera. Existían la página pública
+(/mako-partners), el tablero (/partners/referidos), el panel del super admin y la versión de teléfono. **Causa:** el ítem del
+menú de la foto (app/_components/nav.ts, `USER_NAV`) tenía `soloCapas: ['agencia']` desde el 17/10, de cuando Partners era
+sólo la cartera de las agencias; el 23/10 el programa de referidos se abrió a todo negocio y nadie cambió la puerta. Un
+cliente común llegaba sólo tipeando la URL. **El diagnóstico obvio era el equivocado:** «no está en la barra» (se buscó en
+lib/navegador.ts, que no es la barra): estaba, con una visibilidad vieja. Antes de construir una tab «que falta», buscar su
+key en nav.ts y mirar su `soloCapas`/`rolesWs`.
+
+**Lo que quedó:** la ve el ADMIN de cualquier negocio (sin `rolesWs`: el closer y el setter no). Arriba del tablero del
+cliente y del panel del super admin, primero lo que vende la idea (app/partners/PresentacionPartners.tsx) y después el panel;
+el super admin ve el programa entero (`resumenDelPrograma`) y las agencias. En el teléfono, quien no es agencia ve sus
+referidos (app/m/partners/ReferidosM.tsx) en vez de rebotar a Clients. /planes lleva a /mako-partners.
+- **La cuenta del super admin es la de `acreditarReferidos`** (`contarPrograma`, lib/partners-reglas.ts): la compra MÁS VIEJA de
+  cada negocio decide aunque su código no cuente (sin dueño, el propio, el de la plataforma); el mismo filtro de estado
+  (pagado o reembolsado). Con otra cuenta, el panel y los créditos dirían números distintos del mismo programa.
+- **La presentación dice SÓLO lo que existe:** el crédito por referido. No «se descuenta» ni la comisión del grupal.
+
+**Sin hacer:** «Cómo funciona» del tablero y /mako-partners siguen prometiendo que el crédito «se descuenta de tus próximos
+meses» y el 20% del grupal, que no se aplican (decisión de Martín, pendiente). **Vive en:** app/_components/nav.ts ·
+app/partners/ · app/m/partners/ · lib/partners-programa.ts (`resumenDelPrograma`) · lib/partners-reglas.ts (`contarPrograma`) ·
+tests/partners-para-clientes.test.ts · tests/sidebar-nueva.test.ts.

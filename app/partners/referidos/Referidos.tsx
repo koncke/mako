@@ -5,9 +5,9 @@
 
 import { useState } from 'react';
 import { Pagina, PageHeader, EmptyState, ErrorState, Tabs } from '@/app/_ui';
-import Link from '@/app/_ui/Link';
 import { TEXTO_ESTADO_REFERIDO, PAGOS_PARA_ACREDITAR } from '@/lib/partners-reglas';
 import type { Tablero } from '@/lib/partners-programa';
+import { PresentacionPartners } from '../PresentacionPartners';
 
 const CSS = `
 .pr-grilla { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin: 16px 0 22px; }
@@ -22,6 +22,7 @@ const CSS = `
 .pr-fila b { color: var(--ink); }
 .pr-fila span { color: var(--dim); font-size: var(--fs-sm); }
 .pr-reglas { color: var(--dim); font-size: var(--fs-sm); line-height: 1.6; padding-left: 18px; }
+.pr-titulo { margin: 0 0 12px; font-size: var(--fs-md); color: var(--ink); }
 `;
 
 const usd = (n: number) => `US$ ${n.toLocaleString('es', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
@@ -44,8 +45,11 @@ export function Referidos({ tablero, agencia }: { tablero: Tablero | null; agenc
   return (
     <Pagina>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <PageHeader titulo="MaKo Partners" proposito="Recomienda MaKo y gana meses gratis." />
+      <PageHeader titulo="MaKo Partners" />
       {tabs}
+      {/* Primero lo que vende la idea, después el tablero (Martín, 24/10/2026). */}
+      <PresentacionPartners vista="cliente" />
+      <h3 className="pr-titulo">Tu panel</h3>
       {tablero.link
         ? (
           <div className="pr-link">
@@ -80,7 +84,6 @@ export function Referidos({ tablero, agencia }: { tablero: Tablero | null; agenc
         <li>{tablero.revendedor ? 'Primero se descuenta tu suscripción; lo que sobra se te paga en plata por transferencia.' : 'El crédito se acumula y se descuenta de tus próximos meses.'}</li>
         <li>Por cada programa grupal que traigas, el 20% de cada cuota cobrada, en plata.</li>
       </ol>
-      <p style={{ color: 'var(--dim)', fontSize: 'var(--fs-sm)' }}>Las reglas completas, en <Link href="/mako-partners">MaKo Partners</Link>.</p>
     </Pagina>
   );
 }

@@ -16,6 +16,8 @@
 | Pagar y volver: /cuenta-pausada y la esquina → `/api/plan/pagar` (factura abierta de Stripe, tarjeta en MP, cobro único por los meses, o reactivar) | `app/api/plan/pagar` · `app/cuenta-pausada/PagarPlan.tsx` · `lib/compra-plan.ts` (`reactivarPlan`) |
 | La baja con retención (50% x 2 meses, una vez) | `lib/retencion-plan.ts` · `app/configuraciones/plan` |
 | MaKo Partners: /r/<código>, el tablero /partners/referidos, la página pública /mako-partners, la acreditación en el cron | `lib/partners-programa.ts` · `lib/partners-reglas.ts` |
+| (24/10) MaKo Partners en el menú de la foto para el admin de CUALQUIER negocio: arriba lo que vende la idea, después el panel; el super admin, el programa entero y las agencias; el teléfono, los referidos | `app/_components/nav.ts` · `app/partners/PresentacionPartners.tsx` · `resumenDelPrograma` · `app/m/partners/ReferidosM.tsx` |
+| (24/10) /planes con los tres bloques (Esencial, Pro destacado, el Acelerador por llamada) y «Compara los planes» desde los topes del código; sin el anual | `app/planes/Vitrina.tsx` · `lib/planes-comparacion.ts` · `PROGRAMA_ACELERADOR` |
 | El onboarding según la landing | `lib/origen-negocio.ts` · `app/onboarding/page.tsx` |
 
 ## Lo que falta, en orden

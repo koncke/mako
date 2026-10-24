@@ -10,10 +10,9 @@
 // =============================================================================
 
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { ofertasDeLosPlanes } from '@/lib/compra-plan';
-import { bajadaDePlanes, botonDelPlan, codigoRefLimpio, origenLimpio } from '@/lib/compra-plan-reglas';
-import { CSS_PLANES } from './estilo';
+import { codigoRefLimpio, origenLimpio } from '@/lib/compra-plan-reglas';
+import { VitrinaPlanes } from './Vitrina';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -36,30 +35,5 @@ export default async function PlanesPage({ searchParams }: { searchParams: Promi
   const ofertas = await ofertasDeLosPlanes();
   const origen = origenLimpio(Object.fromEntries(qs.entries()));
   const ref = codigoRefLimpio(qs.get('ref'));
-  return (
-    <main className="planes-root">
-      <style dangerouslySetInnerHTML={{ __html: CSS_PLANES }} />
-      <div className="planes-wrap">
-        <div className="planes-marca">MaKo</div>
-        <h1>Elige tu plan</h1>
-        <p className="planes-sub">{bajadaDePlanes(ofertas.some((o) => o.cobrable))}</p>
-        <div className="planes-grilla">
-          {ofertas.map(({ plan: p, cobrable }) => {
-            const boton = botonDelPlan({ id: p.id, nombre: p.nombre, cobrable, sufijo, origen, ref });
-            return (
-              <section key={p.id} className={`planes-card${p.destacado ? ' destacado' : ''}`}>
-                <h2>{p.nombre}</h2>
-                <div className="planes-precio">US$ {p.precioUsd} <small>/ mes</small></div>
-                {p.resumen && <p>{p.resumen}</p>}
-                {p.incluye.length > 0 && <ul>{p.incluye.map((x) => <li key={x}>{x}</li>)}</ul>}
-                {boton.afuera
-                  ? <a className="planes-btn" href={boton.href}>{boton.texto}</a>
-                  : <Link className="planes-btn" href={boton.href}>{boton.texto}</Link>}
-              </section>
-            );
-          })}
-        </div>
-      </div>
-    </main>
-  );
+  return <VitrinaPlanes ofertas={ofertas} sufijo={sufijo} origen={origen} refCodigo={ref} />;
 }

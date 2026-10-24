@@ -19,6 +19,7 @@ import { getWorkspaceActual, adminDeWorkspaceActual, estaImpersonando, rutaConWs
 import { getSesionAdmin } from '@/lib/auth';
 import { esAgencia } from '@/lib/agencia';
 import { cuentasDePartner, partnersDeLaPlataforma } from '@/lib/partners';
+import { resumenDelPrograma } from '@/lib/partners-programa';
 import { PartnersApp, PartnersPlataforma } from './PartnersApp';
 
 export const dynamic = 'force-dynamic';
@@ -34,10 +35,13 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
   const esSuper = (await getSesionAdmin()) != null;
   const ws = await getWorkspaceActual();
 
-  // El super admin sin cliente: la lista de agencias del programa.
+  // El super admin sin cliente: lo que ven los clientes, el programa de referidos entero y las agencias (24/10/2026).
   if (esSuper && !(await estaImpersonando())) {
-    const partners = await partnersDeLaPlataforma().catch(() => null);
-    return <PartnersPlataforma partners={partners} />;
+    const [partners, programa] = await Promise.all([
+      partnersDeLaPlataforma().catch(() => null),
+      resumenDelPrograma().catch((e) => { console.warn('[partners] no pude leer el programa:', e instanceof Error ? e.message : e); return null; }),
+    ]);
+    return <PartnersPlataforma partners={partners} programa={programa} />;
   }
   // Cualquier negocio puede recomendar MaKo (23/10/2026): el admin que no es agencia va a su tablero de referidos.
   if (ws != null && !(await esAgencia(ws)) && (await adminDeWorkspaceActual()) != null) redirect(await rutaConWs('/partners/referidos'));

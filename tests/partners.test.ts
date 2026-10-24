@@ -154,9 +154,12 @@ test('el CRM y la tab abren el MISMO modal, por portal, y un lead con cuenta no 
 // ── 6. El teléfono ───────────────────────────────────────────────────────────────
 test('el teléfono: la MISMA puerta, los MISMOS datos y la MISMA alta que la computadora', () => {
   const pagina = leer('app/m/partners/page.tsx');
-  assert.match(pagina, /if \(ws == null \|\| !\(await esAgencia\(ws\)\)\) redirect\(/, 'quien no es agencia vuelve a Clients');
-  assert.match(pagina, /if \(\(await adminDeWorkspaceActual\(\)\) == null && \(await getSesionAdmin\(\)\) == null\) redirect\([\s\S]*?cuentasDePartner/,
-    'sólo el admin de la agencia, antes de leer la cartera');
+  // Desde el 24/10/2026 la fila la ve el admin de cualquier negocio: quien no es agencia ve SU tablero de referidos
+  // (ReferidosM, los datos de `tableroDe` como /partners/referidos), no la cartera.
+  assert.match(pagina, /if \(!\(await esAgencia\(ws\)\)\) \{\s*const tablero = await tableroDe\(ws\)/, 'quien no es agencia ve sus referidos');
+  assert.ok(pagina.indexOf('tableroDe(ws)') < pagina.indexOf('cuentasDePartner(ws)'), 'la cartera es sólo de la agencia');
+  assert.match(pagina, /if \(\(await adminDeWorkspaceActual\(\)\) == null && \(await getSesionAdmin\(\)\) == null\) redirect\([\s\S]*?tableroDe/,
+    'sólo el admin, antes de leer los referidos o la cartera');
   assert.match(pagina, /cuentasDePartner\(ws\)/, 'la lista sale de lib/partners.ts, como en la computadora');
   assert.match(pagina, /!cartera\.ok/, '«no pude leer» se dice: no es «todavía no tienes clientes»');
   const app = leer('app/m/partners/PartnersM.tsx');
