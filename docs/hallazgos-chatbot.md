@@ -6073,6 +6073,26 @@ manda nada (una condición, una espera, un «Ir a») corre en el acto, y el mens
 segunda mirada, sobre el destino (`noGastaTurnoDeWhatsapp`, lib/goteo.ts). **La trampa para medirlo:** los intervalos
 salen bien «más largos que el goteo» (0 por debajo de 11 min), y eso parece cumplir; lo que lo delata es la MEDIANA, de 22.
 
+**Y la espera contaba desde que el motor procesaba la condición, no desde que salió el mensaje (24/10/2026, la tarde).**
+Martín, cuando se le dijo que los 33 por día eran «que Mauricio no movió suficientes leads»: «eso sí es un bug, el goteo
+debe comenzar a contar desde que se envía el primer mensaje». Medido en `nutricion_inscripciones` de la #289, la otra
+cara del mismo defecto: después de M1 vienen «Contestó» y «Esperar 1 día», y la espera calculaba su vencimiento como
+`ahora + 1 día` (`resolverControl`, lib/nutricion-grafo-motor.ts), con «ahora» = cuando la condición por fin pasaba. El
+goteo le daba turno a la condición, y el horario de la automatización la congelaba de noche. A «186» le salió M1 el 23/10
+a las 23:14 (ART); la condición pasó el 24/10 a las 13:57, al abrir el horario y en su turno; M2 quedó para el 25/10 a las
+13:57, 14 h 43 min tarde. De las 20 activas, siete tienen M2 entre 12 y 15 horas tarde, y el resto entre 12 y 24 minutos.
+**La regla:** una espera «de tiempo» cuenta desde que la inscripción quedó LISTA para seguir —salió el mensaje de antes
+(el motor deja lo que sigue con `proximo_envio_at` = la hora del envío) o venció la espera de antes—, no desde que se la
+procesa (`relojDeLasEsperas`). El horario cerrado no toca la fila, así que ese reloj sobrevive a la noche. Va junto con
+629500245, porque sin él el freno del goteo le reescribe el `proximo_envio_at` a la condición.
+**El diagnóstico obvio era otro:** que los BORRADORES consumían el reloj del goteo (`ESTADOS_DEL_GOTEO` cuenta
+'borrador'). Medido: la #289 no tiene ni un borrador (25 enviados, 0 borradores), así que no era eso. El reloj que estaba
+mal no era el del goteo de los MENSAJES (cuenta bien desde el último enviado), sino el de las ESPERAS. Se encontró
+mirando, inscripción por inscripción, cuándo salió M1 contra cuándo quedó agendado M2 (`scripts` de sólo lectura
+contra producción), no leyendo el código.
+**Lo que ya quedó agendado** (las 20 activas) no se recalcula: el arreglo vale para las esperas que se resuelvan después
+del deploy. Test: tests/espera-desde-el-mensaje.test.ts.
+
 ## Lo de la llamada que seguía a medias, con el arnés contra producción (22/10/2026, AU2 del plan del Cerebro)
 
 Medido por el Cerebro contra 87365c830 (el arnés `probar-chats-automations` @ eee20b3ab) y arreglado con tests que usan la

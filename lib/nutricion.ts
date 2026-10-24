@@ -87,7 +87,7 @@ import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
 import { esperaQueAbra } from '@/lib/mako-tarjeta';
 import { usaEquipoContesto, contestoElEquipo, type TurnoDelGrupo } from '@/lib/equipo-contesto';
 import {
-  indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
+  indiceActual, siguienteIndice, relojDeLasEsperas, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
   condicionDeArriba, condicionSigueLlevando, usaContesto, destinoAlContestar, ramaDeQuienContesto,
   esNodoDeControl, RELLENO_CONTROL, TOPE_SALTOS, esColumnaInexistente, etiquetasQueCuentan, barridoInscribe, irAEstaMisma,
@@ -4564,7 +4564,10 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
         // Un flujo con carril ancla su DELAY «antes de la reunión» en la reunión CON HORA (M3 a; sin ella y con
         // fecha, `sin_hora` cierra ese hilo, M3 g). Uno sin carril no tiene esa espera: lo de siempre.
         const reunionConHoraMs = tieneCarril(sec.pasos) ? await reunionConHoraDe(lead) : undefined;
-        const r = resolverControl(sec.pasos, idxLeido, { hechos, ahoraMs: Date.now(), reunionMs: reunionFuturaMs(lead), reunionConHoraMs });
+        // Las esperas cuentan desde que quedó LISTA (salió el mensaje de antes o venció la espera de antes), no desde que se
+        // la procesa: el horario o un tick tarde no le corren el reloj (`relojDeLasEsperas`, 24/10/2026).
+        const ahoraCtl = Date.now();
+        const r = resolverControl(sec.pasos, idxLeido, { hechos, ahoraMs: ahoraCtl, reunionMs: reunionFuturaMs(lead), reunionConHoraMs, relojMs: relojDeLasEsperas(insc.proximo_envio_at, ahoraCtl) });
         const canalCtl = pasoLeido.canal;
         // Las flechas en paralelo que la resolución encontró (de una espera, del inicio o —cuarta
         // tanda, punto 8— del RESULTADO elegido de una condición) arrancan con cualquier desenlace
