@@ -25,27 +25,28 @@ const GEMINI_SATURADO = 'gemini/GEMINI_API_KEY: chatCheap(gemini): HTTP 503: Thi
 test('el caso del ws1: sin keys propias y la red al tope de hoy → «llegó a su tope de hoy», con el link a Claude', () => {
   for (const red of [[GEMINI_DIA], [GROQ_TPD], [GEMINI_DIA, GROQ_TPD]]) {
     const f = falloDeIA([], false, red);
-    assert.deepEqual(f, { error: 'La IA gratis de MaKo llegó a su tope de hoy. Conecta tu Claude o tu GPT para seguir.', link: '/integraciones?abrir=anthropic' });
+    assert.deepEqual(f, { error: 'La IA gratis de MaKo llegó a su tope de hoy. Conecta tu Claude, tu GPT o tu Gemini para seguir.', link: '/integraciones?abrir=anthropic' });
   }
   assert.equal(LINK_CONECTA_CLAUDE, '/integraciones?abrir=anthropic');
 });
 
 test('sin keys propias: cada cosa que le pasó a la red se dice distinto, y siempre con la salida (su Claude)', () => {
-  assert.equal(sinIAPropia([GEMINI_MINUTO]).error, 'La IA gratis de MaKo está al tope. Prueba en un rato o conecta tu Claude o tu GPT.');
-  assert.equal(sinIAPropia([GEMINI_SATURADO]).error, 'La IA gratis de MaKo está saturada. Prueba en un rato o conecta tu Claude o tu GPT.');
-  assert.equal(sinIAPropia(['groq/CHEAP_API_KEY: chatCheap(groq): socket hang up']).error, 'La IA gratis de MaKo no contestó. Prueba de nuevo o conecta tu Claude o tu GPT.');
+  assert.equal(sinIAPropia([GEMINI_MINUTO]).error, 'La IA gratis de MaKo está al tope. Prueba en un rato o conecta tu Claude, tu GPT o tu Gemini.');
+  assert.equal(sinIAPropia([GEMINI_SATURADO]).error, 'La IA gratis de MaKo está saturada. Prueba en un rato o conecta tu Claude, tu GPT o tu Gemini.');
+  assert.equal(sinIAPropia(['groq/CHEAP_API_KEY: chatCheap(groq): socket hang up']).error, 'La IA gratis de MaKo no contestó. Prueba de nuevo o conecta tu Claude, tu GPT o tu Gemini.');
   // Sin red que probar (ninguna key de la agencia, o el ws del super admin): no tiene IA, y se dice así.
-  assert.deepEqual(sinIAPropia([]), { error: 'No tienes una IA conectada: conecta tu Claude o tu GPT.', link: LINK_CONECTA_CLAUDE });
+  assert.deepEqual(sinIAPropia([]), { error: 'No tienes una IA conectada: conecta tu Claude, tu GPT o tu Gemini.', link: LINK_CONECTA_CLAUDE });
   // La red salteada a propósito: con su propio Claude (D6b), o porque el pedido lleva datos de clientes.
   assert.equal(sinIAPropia(['red gratis salteada: el negocio usa su propia IA (su Claude o su GPT)']).error,
     // Desde IA6 la IA propia también puede ser su GPT: «tu propia IA», y el link ya lleva a Integraciones.
-    'Con tu propia IA, para armar el flujo necesito tu clave de Claude o de OpenAI.');
+    'Con tu propia IA, para armar el flujo necesito tu clave de Claude, de OpenAI o de Gemini.');
   assert.match(sinIAPropia(['red gratis salteada: el pedido lleva datos de clientes y el plan gratis entrena con lo que recibe']).error, /^Conecta tu Claude en Integraciones: lleva datos de tus clientes/);
   // Todos llevan el link a Claude, y ninguno vuelve a «IA gratis conectada» ni al link de Gemini.
   for (const red of [[GEMINI_DIA], [GEMINI_MINUTO], [GEMINI_SATURADO], [], ['red gratis salteada: x']]) {
     const f = sinIAPropia(red);
     assert.equal(f.link, LINK_CONECTA_CLAUDE);
-    assert.doesNotMatch(f.error, /ninguna IA gratis conectada|gemini/i);
+    // IA16: «tu Gemini» sí (su Gemini es su IA); ofrecer la Gemini gratis, no.
+    assert.doesNotMatch(f.error, /ninguna IA gratis conectada|Gemini \(gratis\)|Gemini gratis|con Gemini alcanza/i);
   }
 });
 
@@ -72,7 +73,12 @@ test('el camino real: `generar` le pasa los errores de la red, y el aviso nombra
   // Hoy, una clave de OpenAI no arma flujos: no está en `PROVS_CREAR_IA` (cobra) y la cascada no usa `PROVS_SU_IA` por su
   // cuenta. Con el IA6 (lote 2 de IA, el chat «IA del cliente») la cascada corre con SU OpenAI: entonces el aviso dice GPT.
   const gptArmaFlujos = PROVS_CREAR_IA.includes('openai') || /PROVS_SU_IA/.test(leer('lib/ai-cheap.ts'));
-  if (gptArmaFlujos) {
+  // IA16 (22/10/2026): su Gemini también es su IA (`PROVS_SU_IA` la nombra), así que el aviso nombra las tres.
+  const geminiEsSuIA = /export const PROVS_SU_IA: readonly string\[\] = \[[^\]]*'gemini'/.test(leer('lib/solo-su-ia.ts'));
+  if (gptArmaFlujos && geminiEsSuIA) {
+    assert.equal(SU_IA, 'tu Claude, tu GPT o tu Gemini', 'su Gemini ya es su IA (IA16): cambia SU_IA y SU_CLAVE en lib/flujo-ia.ts');
+    assert.equal(SU_CLAVE, 'tu clave de Claude, de OpenAI o de Gemini');
+  } else if (gptArmaFlujos) {
     assert.equal(SU_IA, 'tu Claude o tu GPT', 'una clave de OpenAI ya arma flujos (IA6): cambia SU_IA y SU_CLAVE en lib/flujo-ia.ts');
     assert.equal(SU_CLAVE, 'tu clave de Claude o de OpenAI');
   } else {

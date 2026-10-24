@@ -1241,6 +1241,195 @@ no se aplica a nadie.
 app/api/integraciones/credencial/route.ts (`descubrir-pago`) · app/integraciones/CuentasDePago.tsx ·
 tests/tope-cuentas.test.ts.
 
+## «Conectar con Facebook, Instagram o anuncios»: UNA pieza vía Zernio, con la key del negocio y sin respaldo de la plataforma (23/10/2026)
+
+**El pedido** (Martín, vía el Cerebro, 23/10/2026): «Esta bueno que todo eso salga directo en la app... Que ellos conecten su API de Zernio y
+luego cuando quieran hacer X cosa que requiera un login, que en MaKo esté el botón de logearse con Facebook, Instagram o lo que haga falta».
+Hasta ese día se pegaba la key de Zernio pero **el login de cada red se hacía afuera**: con el ws1 la key se pegó a las 22:43 y la conexión
+de anuncios nunca se creó (Ads Manager sacó el link a mano con `GET /v1/connect/facebook/ads`).
+
+**Cómo quedó.** Una pieza para todas las pantallas que necesitan una red: `<ConectarViaZernio red volver onConectado>` / `useConectarViaZernio`
+(`app/_components/ConectarViaZernio.tsx`), con lo del servidor en `lib/zernio-conectar.ts` y lo puro en `lib/zernio-redes.ts`. La usan el bloque
+«Redes» del modal de Zernio de /integraciones (`ConectarRedes`, una fila por Facebook / Instagram / Anuncios de Meta), Instagram y Messenger
+de Automations (`ConectarSocial`) y **Chats** (que antes mandaba la pestaña entera a Zernio y volvía a /automations). **Ads Manager la consumirá**
+(`red="metaads"` y `conexionesViaZernio`, con el `accountId` de cada conexión: lo que pide la API de anuncios de Zernio para publicar), pero lo cablea
+SU chat: al 23/10 no hay ningún llamador suyo en el repo, y la firma quedó acordada con él. **Copiada de Nango**
+(Connect UI + SDK frontend: el modal es de la app y no navega, la ventana del login se abre en el MISMO clic con `window.open('')` y la URL se
+asigna después, y la verdad la dice el servidor) y de las trampas de Ayrshare (origen y fuente de cada mensaje, gracia antes de dar un popup por
+cancelado, nunca un WebView).
+
+**Y sin respaldo de la plataforma** (Martín: «que cada usuario traiga su API de Zernio»; el Cerebro lo extendió a Automations): la key es SIEMPRE
+la del negocio (`credDelClienteEstricta`: su fila, nunca `process.env`, y «no pude leer» tira). **Medido en producción antes (sólo lectura):** el
+único workspace que dependía del respaldo era el ws3 (Cliente de Prueba) y no hay ni una conversación ni un envío de Instagram o Messenger en toda
+la historia. El ws1 (Mauricio, un cliente) tiene pegada la key de la PLATAFORMA desde las 22:43, para la prueba de anuncios: el Cerebro se la saca
+cuando Ads Manager termine; hasta entonces `cfg` lo deja en su modo de siempre (`byok: ws !== OWNER_WS`).
+
+### Lo que se leyó de la API de Zernio (docs.zernio.com, 23/10/2026, por un LECTOR que resume cada página: los nombres de campos pueden venir parafraseados)
+
+- `GET /v1/connect/{plataforma}?profileId&redirect_url` → `{ authUrl, state }`. Al volver agrega `connected=<plataforma>&profileId&accountId&username`, o
+  `error=<código>&platform&request_id&stage` (`oauth_denied`, `no_facebook_pages`, `no_pages_granted`, `payment_required`, `meta_ads_authorization_denied`).
+  Los parámetros propios se conservan. `redirect_url` tiene que ser absoluta (relativa: 400).
+- **Anuncios:** `GET /v1/connect/facebook/ads`. Modo `classic` reutiliza el token de la cuenta de Facebook (`alreadyConnected: true` si ya tiene
+  `ads_management`); `loginMode=business` crea una conexión `metaads` independiente (token de un usuario del sistema), pide una página y que quien entre
+  sea admin del Business. Ads Manager mide que `business` sirve para publicar.
+- **Página, Instagram y cuenta publicitaria se conectan POR SEPARADO** (2 o 3 conexiones) y **cada una cuenta aparte para el cobro**: un login de Facebook NO es una
+  cuenta. Precio (leído el 23/10): 1-2 gratis (un crédito de US$12 al mes), 3.ª a 10.ª US$6, 11.ª a 100.ª US$3, desde la 101.ª US$1; desconectar deja de cobrar. La
+  tarjeta de Zernio avisa en UNA línea («Zernio te cobra a ti. Cada red cuenta aparte (página, Instagram, anuncios): 2 gratis, desde la 3.ª se paga.»), y el bloque
+  «Redes» dice cuántas hay conectadas.
+- `GET /v1/accounts?profileId&platform&excludeHidden=true` → cuentas con `_id`, `platform`, `profileId`, `isActive`, `enabled`, `username`, `displayName`,
+  `needsReconnection` (en `/accounts/health` se llama `needsReconnect`). Zernio sólo se entera de que un token venció cuando una operación real falla.
+- El **402** de conectar por pasarse de 2 cuentas trae `reason: free_tier_exceeded` y el link en `dashboard_url`. Un plan legacy da `403 platform_account_limit`.
+- **Lo que Ads Manager SÍ vio de verdad (23/10, con las claves que tienen; el resto del body no se imprimió):** `GET /v1/connect/facebook/ads?profileId&loginMode=business&redirect_url`
+  → 200 con `authUrl` (`https://www.facebook.com/v24.0/dialog/oauth?client_id=712341431446535&config_id=1788931715593499&redirect_uri=https://zernio.com/api/v1/connect/meta-ads/callback&response_type=code&…&state=<JWE>`;
+  el `state` vence a los 30 min); `GET /v1/accounts` → `{ accounts: [...] }` con `_id`, `platform` y `username`; `GET /v1/profiles` → `{ profiles: [{ _id, name, isDefault }] }`. Con eso el
+  envoltorio de `/accounts` y el nombre `authUrl` dejan de ser deducciones. **Los dos links de anuncios que Martín aceptó a mano (el segundo, generado 23:19 UTC y aceptado antes de las 23:49) NO dejaron
+  ninguna conexión `metaads` en las 4 claves (medido 23:29):** la causa no se sabe (¿el link vencido?, ¿falta una página?, ¿el callback de Zernio?) y es lo primero que mira la primera conexión real:
+  a qué dirección terminó el navegador (`error=…`) lo dice la landing de la ventana.
+- La ventana de Meta nombra a Zernio («co-branded, not white-label»): la app de Meta de Zernio es «Social Media Connector» (712341431446535, dato de Ads Manager;
+  no figura en su doc).
+
+### El diagnóstico obvio era el equivocado, y las trampas
+
+- **«El link de pago del 402 ya se muestra»: nunca se mostró.** `app/api/zernio/route.ts` leía `billingUrl`, que NO existe en la doc de Zernio (es `dashboard_url`): el
+  negocio de la cuenta pausada (ws11, 10/10) veía «pausada» sin su link. `urlDePagoDeZernio` acepta los dos y sólo https (va a un `href`).
+- **`credWs` y `credWsEstricta` caen al entorno para el ws1**, que es Mauricio, un cliente, y además «la plataforma» para las claves de entorno (`wsDelEntorno`). «Leer la key
+  propia» con cualquiera de las dos le da la cuenta de la casa. La lectura propia es `credDelClienteEstricta`; `credDelCliente` no sirve porque no mira el error de la base
+  («no pude leer» se lee «no tiene» y el negocio ve «falta» con la base caída).
+- **«Sin claves de la plataforma» no puede ser literal:** `ZERNIO_WEBHOOK_SECRET` (el secreto maestro del que se derivan los de cada negocio) sigue siendo de la casa, y no es una
+  cuenta de Zernio.
+- **Un popup que se ve «cerrado» NO es «canceló».** Si la red pone `Cross-Origin-Opener-Policy`, el navegador corta el vínculo con la ventana: desde la pantalla se ve cerrada
+  (y `window.opener` queda en null en la landing) aunque la persona siga adentro. Dar por cancelada la conexión al ver `closed` la cortaba en el segundo en que se abría el login de Meta.
+  Hoy `closed` sólo adelanta una medición y avisa; el aviso de la landing va por `window.opener.postMessage` **y** por un `BroadcastChannel` del mismo origen; y se corta a los ~4 min.
+  **Es una deducción de la lectura, no se midió con un login real.**
+- **`window.open` en el clic y antes de cualquier `await`, y sin `noopener`** (con él devuelve null y no se puede asignar la URL): lo fija el test con el orden de las líneas.
+- **En un teléfono y en el navegador interno de Instagram/Facebook/TikTok no hay popup confiable** (Meta lo dice en su doc): la pestaña navega y VUELVE a la misma pantalla con `?zernio=<red>`;
+  el hook lo lee al montar, mide con `/accounts`, y saca esos parámetros de la barra (se procesa una vez aunque haya varios botones). La lista de agentes es una deducción: se mide en un teléfono.
+- **«Conectada» sale de lo que lista Zernio AHORA y no estaba ANTES** (`medirConexion`). Tres casos que rompen una versión ingenua: una cuenta ya conectada (con «hay alguna» daba conectado
+  en el primer sondeo), volver a entrar con una cuenta que YA estaba (el id no cambia: sólo el `accountId` de la vuelta lo confirma, y siempre contra la lista de ahora) y no poder leer la lista
+  de antes (ANTES valía «cualquiera»; ahora NADA de lo que ya estaba cuenta como nuevo: falla cerrado).
+- **`volver` es del navegador y termina como `redirect_url` de un tercero:** sólo una RUTA de la app (`validarVolver`: `//evil.com`, `/\evil.com`, `https://…`, `javascript:` y `/api/…` no pasan).
+- **El `?ws=` de la vuelta, sólo si hace falta** (`wsDeVuelta`): pegarlo siempre pone a un admin de plataforma en «vista de cliente» de sí mismo (21/10).
+- **El sondeo cuenta contra los 60 pedidos por minuto** de un equipo con 0 a 2 cuentas: cada medición es un `GET /accounts` (a 4 s, 15 por minuto); el profile se cachea 2 minutos por negocio y por
+  huella de la key (sin eso cada medición hacía un `GET /profiles` y una escritura de ruteo).
+- **`conexionesViaZernio` es SOLO LECTURA** y `recibirConexion` (reclamar el ruteo de las cuentas y asegurar el webhook) se llama UNA vez, al quedar conectada una cuenta de Facebook o Instagram: sin eso
+  conectar «anda» y no llega ningún mensaje, y no da error. Antes lo hacía el «estado» de la tarjeta, que ahora sigue haciéndolo para la cabecera de Automations.
+- **La MISMA key en DOS negocios comparte el profile Default de esa cuenta de Zernio** (con key propia no hay un profile por negocio): el segundo vería las cuentas del primero como suyas, y el
+  ruteo de sus mensajes sigue siendo del primero («el primero que reclama gana»; `profileIdEfectivo` descarta el resultado de `upsertRouting`). Lo encontró la revisión adversarial: **el
+  filtro por profile de `leerCuentasDeZernio` sólo protege cuando UNA key tiene VARIOS perfiles**, no con una key repetida. Hoy la pieza se NIEGA (`clave-en-uso`) si el profile ya es de otro negocio,
+  y `recibirConexion` dice `ocupado` si una cuenta quedó con otro. **SIN HACER:** que `guardarCredencial` rechace una key de Zernio ya guardada por otro negocio, y lo mismo en
+  `cuentasConectadas`/«estado» de Automations (el camino viejo sigue sin mirarlo).
+- **Un «Volver a conectar» de los anuncios (`force` sobre una conexión que ya anda) no tiene cambio visible:** la cuenta ya estaba sana, así que «una que antes no estaba» no existe, y darla por hecha
+  con `reconectarId` cerraba la ventana a los 0,5 s, recién abierta, con «conectado ✓». `reconectarId` sólo confirma una cuenta que ANTES no estaba sana; la sana la confirma la pista (el `accountId` con que vuelve la ventana).
+- **La vuelta de página entera sólo vale si ESTA pestaña la inició** (`guardarVuelta` en `sessionStorage`: red, cuentas de antes y hora; 30 minutos): un link armado a mano con `?zernio=…&connected=…` hacía que la pantalla dijera
+  «conectado», armara la recepción y le entregara a quien llama (Ads Manager publica con `nueva.accountId`) una cuenta equivocada. Y `connected` de la URL ya no decide: se mide como en la ventana.
+- **Un segundo clic NO cierra la ventana del primero:** las corridas comparten la ventana por su nombre y la vieja, al despertar, la cerraba con la nueva ya adentro de Meta. `cerrar()` sólo cierra al desmontar o si la corrida
+  sigue siendo la vigente. El aviso de la ventana lleva el id de SU flujo: el canal es del origen entero y un error de una pestaña cortaba el login de otra.
+- **`replaceState(null, …)`, no con el `state` de la página** (me equivoqué la primera vez): el parche de Next (`app-router.js`) deja pasar sin sincronizar la URL un `replaceState` cuyo state trae `__NA`; con `null` copia su estado interno y
+  sincroniza `usePathname` y `useSearchParams`. Lo cazó un revisor leyendo `node_modules`, no un test.
+- **«No pude leer tus credenciales» ya no es «no tienes Zernio»** (`zernioConfigurado` tragaba todo): con la base caída `estadoMedios` frenaba Publicar con «Conecta Instagram» y el modal abría «pega tu key» a un negocio que sí la tiene.
+
+### Lo que NO se midió (se mide con la primera conexión REAL, que hace una persona: los clics de Facebook son suyos)
+
+1. Los nombres de `alreadyConnected`, `isActive`, `enabled`, `needsReconnection` y el `profileId` de una cuenta (¿texto u objeto?): el lector es tolerante y falla cerrado (`respuesta`). `authUrl` y el envoltorio `{ accounts }` SÍ se vieron.
+   **Y por qué los links a mano de anuncios no dejaron conexión** (ver arriba): si la causa es de Zernio o de la cuenta de Meta, esta pieza no la arregla, sólo la dice (`error=` en la vuelta).
+2. Si el vínculo con la ventana sobrevive a la cadena Zernio → Meta → `redirect_url` (si no, el `BroadcastChannel` y el sondeo lo cubren), y cómo se ven la ventana y el login dentro del navegador de Instagram.
+3. Que Zernio conserve el `?red=` de la landing de la ventana junto a sus parámetros (la doc dice que conserva los propios).
+4. Si `GET /accounts` lista las conexiones `metaads` sin `platform` (Ads Manager midió que hoy no hay ninguna, así que no se sabe) y si una cuenta `metaads` con el token vencido sale con `needsReconnection`.
+5. El cuerpo del 402 al conectar ANUNCIOS (¿trae `dashboard_url`?), y qué pasa al intentar una segunda conexión de anuncios por profile («una por profile»).
+6. Si el modo `classic` de anuncios crea una cuenta de Facebook oculta (`enabled: false`) además de la `metaads`: la lista pide `excludeHidden=true`.
+
+### Lo que quedó SIN hacer
+
+- **El estado de la tarjeta de Zernio en la grilla sigue siendo «hay key».** Un «falta conectar Facebook» es un estado nuevo y toca cuatro lugares que dibujan el estado (`sevOf`, el chip de `ServicioSuelto`, «Requiere tu atención» y el teléfono); el bloque «Redes» dice el estado de cada red al abrir la tarjeta.
+- ~~Traer los formularios de Meta con `lead.received`~~ **HECHO el 23/10/2026** (el reemplazo del puente de Make): ver «Los leads de los formularios de Meta por Zernio», más abajo.
+- Sacar la key de la plataforma del ws1 (la coordina el Cerebro con Ads Manager) y, después, la rama `byok: false` de `ensureProfile` (queda sólo para el ws1).
+- Una operación en la API de MaKo para conectar una red (`conectar_redes`: el id no puede llevar «zernio» ni «instagram», `tests/sin-instagram.test.ts`).
+- El teléfono (MaKo Mobile) no tiene el bloque «Redes»: abre la computadora con `?abrir=zernio`.
+- Tipos: salió «sin tipos» (política del tren): los chequea el `tsc` acotado de Integración.
+
+**Vive en:** `lib/zernio-redes.ts` · `lib/zernio-conectar.ts` · `lib/zernio.ts` (`cfg`, `zFetch` y `profileIdEfectivo` exportados) · `lib/credenciales.ts` (`credDelClienteEstricta`) · `app/api/zernio/route.ts` ·
+`app/_components/ConectarViaZernio.tsx` · `app/integraciones/ConectarRedes.tsx` · `app/integraciones/zernio-vuelta/` · `app/automations/ConectarMedio.tsx` · `app/chats/ChatsApp.tsx` ·
+`tests/zernio-conectar-redes.test.ts` · `tests/zernio-sin-respaldo.test.ts`.
+
+_23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2), con el contrato cerrado con Ads Manager. Investigación: cuatro lectores en paralelo (API de conexión, cuentas y cobro, apps de referencia, mapa del código)._
+
+## Los leads de los formularios de Meta por Zernio (`lead.received`): la misma puerta que Meta, y lo que la doc NO dice (23/10/2026)
+
+**El pedido** (Martín, vía el Cerebro, 23/10/2026): el puente de Make o Zapier se retiró («ya resolvimos todo con Zernio») y los leads de los formularios
+instantáneos de un negocio sin app propia de Meta tienen que entrar por el webhook de SU cuenta de Zernio: «Va por `upsertLeadFromMeta`, igual que el
+webhook de Meta: mismo origen, sin duplicar si el lead también entra por la app propia del negocio (dedup por el leadgen_id), y con la conversión, el aviso
+y las automatizaciones que dispara un lead de Meta. Ruteo estricto por la cuenta de Zernio del negocio y la deduplicación de reentregas».
+
+**Cómo quedó.** El webhook de Zernio (`app/api/webhooks/zernio/route.ts`) tiene una rama para `lead.received`, DESPUÉS de lo que ya tenía (firma sobre el
+cuerpo crudo → ruteo estricto por profile o por cuenta → la firma tiene que ser de ESE negocio → el evento se reclama una sola vez en `zernio_eventos`).
+`lib/zernio-lead.ts` (puro) lee el cuerpo; `lib/zernio-leads.ts` lo entrega a `upsertLeadFromMeta` con el `leadgenId` como `meta_lead_id`, y manda la
+conversión `Lead` (CAPI, con el MISMO `event_id` que el webhook de Meta: si el lead entra por los dos caminos, Meta junta los eventos) y lo inmediato
+(`alNacerLeadDeMeta`: el aviso, los flujos, las automatizaciones). **El alta va adentro del pedido y lo demás en `after`**, porque Zernio corta a los 5 s;
+si el alta falla se suelta el reclamo del evento y Zernio reintenta.
+
+### Lo que se leyó de la doc del webhook (docs.zernio.com/webhooks/ads, 23/10/2026, por un lector que resume: los nombres pueden venir parafraseados)
+
+**La doc NO trae un JSON de ejemplo: sólo la tabla de campos.** `id` (estable, igual en cada reintento y en `X-Zernio-Event-Id`), `event`, `timestamp`, `test`
+(sólo en las muestras de `POST /v1/webhooks/test`), `lead` { `id`, `leadgenId`, `formId`, `formName`, `adId`, `adsetId`, `campaignId`, `fields`, `isOrganic`,
+`createdAt` } y `account` { `id`, `accountId`, `platform: "facebook"`, `profileId` (nulo si no hay profile) }. `fields` es «pregunta → respuesta»
+y **las opciones de una pregunta de selección vienen como CLAVE** (`k1`), no como rótulo. Los eventos de anuncios exigen el complemento de anuncios (Ads
+add-on) de Zernio, y la página tiene que estar conectada con el permiso `leads_retrieval`: una cuenta conectada antes de tener anuncios se tiene que
+reconectar.
+
+### El diagnóstico obvio era el equivocado, y las trampas
+
+1. **«Armar el parser con la API REST que ya se lee» NO sirve.** `GET /v1/ads/leads` devuelve el lead con `fieldData` crudo (la forma de Meta) y otros
+   nombres; **la tabla del webhook no lista `fieldData`**. Es la misma trampa de Cal.com (06/10/2026, AGENTS.md): el lector toma `fields` y NO lee `fieldData`
+   (un test lo fija con un cuerpo que sólo trae `fieldData`).
+2. **Una muestra de prueba NO es un lead.** `POST /v1/webhooks/test` manda un cuerpo con `test: true`; sin mirarlo, apretar «probar» en el panel de Zernio
+   creaba un lead falso, con el aviso y las automatizaciones que dispara uno real. Se ignora con su motivo (`ignored: "prueba"`).
+3. **El `leadgenId` decide la identidad y no se inventa ni se rellena.** Sólo dígitos (8 a 32), como string o como número seguro (un id de 17 dígitos que
+   viaja como número JSON ya se redondeó al parsear). Sin eso el evento NO se carga —un lead que se carga dos veces avisa dos veces— y se registra con las
+   CLAVES que sí vinieron (nunca los valores: es un dato personal). **El `id` de Zernio (`lead.id`) no es el leadgenId**: usarlo duplicaba el lead que ya
+   entró por Meta.
+4. **Los NOMBRES de anuncio, conjunto y campaña no viajan en este evento, sólo los ids.** Quedan vacíos (no se rellenan con el id): los ids son los que
+   deciden el producto (`lib/campana-funnel.ts`) y la atribución (`lib/campana-atribucion.ts`: «los nombres sólo para MOSTRAR»), así que lo único que se
+   pierde es el renglón con el nombre en la ficha. ⚠️ `upsertLeadFromMeta` escribe esas columnas con `?? null` también en el UPDATE de un lead que ya
+   existía (la persona que vuelve a anotarse, unida por teléfono o email): ese lead pierde el nombre de la campaña anterior y queda con los ids nuevos.
+5. **Hay UN solo índice único de `meta_lead_id` y es GLOBAL** (mig 0007). Si el webhook de Meta y el de Zernio traen el MISMO lead a la vez, el segundo insert
+   falla por clave duplicada; el webhook de Zernio contesta 500, suelta el reclamo, Zernio reintenta y el reintento lo encuentra (`created: false`) sin
+   avisar de nuevo. No se necesita código de carrera: se necesita NO tragar ese error.
+6. **Lo inmediato y la conversión, sólo con un lead creado por ESTA entrega y de menos de 24 h** (`esNuevoParaElNegocio`, la regla del poll). Zernio
+   reintenta hasta 7 veces y se puede reentregar a mano desde su panel: un evento de hace días no es «un lead nuevo» y no puede mandar un primer
+   mensaje. Sin fecha legible se trata como recién llegado (callarlo dejaría a un lead real sin que nadie le escriba).
+7. **Los leads se suscriben APARTE de los otros eventos.** `lead.received` es del complemento de anuncios y la doc dice que sin él los eventos de anuncios
+   dan 403 `ads_addon_required` al registrar el webhook; **no dice si `lead.received` está entre ellos**. Si fuera una sola lista y Zernio la rechazara,
+   el negocio perdería sus mensajes y comentarios de Instagram y Messenger, que hoy andan. `asegurarWebhook` pide todo junto y, si Zernio contesta 400,
+   403 o 422, registra los de siempre solos (y lo deja en el log); una key mala (401), un pago (402) o una caída suben tal cual.
+8. **`asegurarWebhook` no corre solo.** Corre al conectar una red, al ver el estado de Instagram o Messenger y al publicar una automatización con esos
+   medios: un negocio que ya tenía su webhook registrado NO escucha `lead.received` hasta que pase una de esas tres.
+
+### Lo que NO se midió (se mide con un `lead.received` REAL)
+
+1. El cuerpo: **ningún negocio recibió todavía un `lead.received`**; todo lo de arriba sale de la tabla. Falta ver `fields` con un formulario real (¿las claves
+   son las de Meta —`full_name`, `phone_number`— o los rótulos?) y si un campo de varias opciones llega como lista.
+2. Que `lead.leadgenId` sea EXACTAMENTE el id que Graph devuelve para ese lead (si no, la deduplicación con Meta no funciona y el lead entra dos veces).
+3. Si Zernio rechaza suscribir `lead.received` sin el complemento de anuncios (y con qué código), y si `account.accountId` de este evento es el `_id` que lista
+   `GET /v1/accounts` (de ahí depende el ruteo cuando `profileId` viene nulo).
+
+### Lo que quedó SIN hacer
+
+- **Nadie le dice al negocio que sus leads no llegan por falta del complemento de anuncios o del permiso.** `leadsEnElWebhook(ws)` (lib/zernio.ts) mide si el
+  webhook registrado escucha el evento; falta que alguna pantalla lo use (Ads Manager o el modal de Zernio). Mide lo REGISTRADO, no que llegue alguno.
+- **Sin red de seguridad si un evento se pierde.** Zernio reintenta 7 veces y lo descarta; el poll de Meta (`/api/cron/meta-leads-poll`) usa el token de página
+  propio del negocio y un negocio que sólo conectó por Zernio no lo tiene. Existe `GET /v1/ads/leads?accountId&since=<segundos>` (más nuevo primero, cursor por
+  `pagination.cursor`) para un barrido, que además traería `fieldData`, y la regla de lo inmediato (24 h) ya está en `cargarLeadDeZernio`.
+- **Los nombres de campaña, conjunto y anuncio** (punto 4): se pueden resolver por id contra `marketing_metrics_daily`, o desde la API de anuncios de Zernio.
+- **Un fallo DESPUÉS del insert deja el lead sin anunciar:** si `upsertLeadFromMeta` tira al dejar el rastro o al sumarlo a otro funnel, el reintento de Zernio
+  encuentra el lead (`created: false`) y nadie dispara el aviso ni las automatizaciones. Es de la puerta compartida (el webhook de Meta tiene el mismo hueco).
+- **Sin prueba de punta a punta** (un evento firmado contra un negocio de prueba): ws3 no tiene key de Zernio y no se la pone con código.
+- Tipos: salió «sin tipos» (política del tren): los chequea el `tsc` acotado de Integración.
+
+**Vive en:** `lib/zernio-lead.ts` · `lib/zernio-leads.ts` · `app/api/webhooks/zernio/route.ts` · `lib/zernio.ts` (`EVENTO_LEADS`, `EVENTOS_ESCUCHADOS`, `asegurarWebhook`,
+`leadsEnElWebhook`) · `tests/zernio-leads.test.ts`.
+
+_23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2), después de «Conectar con Facebook, Instagram o anuncios»._
+
 ## La agenda de MaKo NO entra al CRM de MaKo (medido en la base el 23/10/2026)
 
 **Síntoma:** a dos días del lanzamiento, toda venta de MaKo pasa por la agenda `calendly.com/koncke/asesoria` (/planes sin
@@ -1288,9 +1477,15 @@ lib/calendly-aviso-reglas.ts con test:
 - **No puede colgar la página.** Eran dos viajes en serie a una API ajena con tope por llamada (hasta 8 s de render). Ahora UN
   tope de 3 s para toda la cadena, el veredicto claro se recuerda 60 s por negocio, y la página lo lanza al principio y lo espera
   al final. «No pude leer» (null) no se recuerda y no pinta a nadie.
-- **Verde NO prueba que las reservas lleguen.** Dice: token + R1 + aviso sano. No dice que el ruteo (`webhook_routing`)
-  resuelva el tipo de evento de la asesoría, ni que la firma valide, ni que la entrega funcione. La prueba de punta a punta es
-  UNA reserva de prueba que aparezca como lead en el ws 9 (y se cancela). El relevo lo pide así.
+- **Verde NO prueba que las reservas lleguen.** Dice: token vigente, alguna fila de ruteo y aviso sano. No dice que el ruteo
+  resuelva el tipo de evento de la ASESORÍA (puede ser otro), ni que la firma valide, ni que la entrega funcione. La prueba de
+  punta a punta es UNA reserva de prueba que aparezca como lead en el ws 9 (y se cancela). El relevo lo pide así.
+- **«Conectada» es SÓLO el token, no token + R1 (24/10).** La grilla mira `envs: ['CALENDLY_API_TOKEN']`
+  (lib/integraciones-catalogo.ts). Un negocio con el token y sin el R1 no tiene ruteo, y con un aviso sano la pantalla quedaba
+  verde mientras el webhook descartaba cada reserva con un 200 (el 04/10 se midió 1 de 2 así). Ahora lee `webhook_routing`
+  del negocio y dice «Falta el R1»; y un 401 de /users/me dice «Token vencido» (`estadoAntesDelAviso`: los dos ganan sobre el
+  aviso). El ruteo se lee SIEMPRE, fuera del recuerdo de 60 s: recién guardado el R1 no puede seguir diciendo que falta. Y el
+  recuerdo es por negocio Y por token: pegar uno nuevo no hereda «Token vencido».
 
 **Los scripts, por negocio:** `--ws=N` en scripts/backfill-calendly.ts y scripts/arreglar-webhook-calendly.ts toma el token
 de las credenciales de N y NUNCA el de `.env.local` (con el de otra cuenta, el backfill metería una agenda ajena en el CRM
@@ -1308,184 +1503,129 @@ de N); `--simulacro` mide sin escribir. Lo que NO era obvio y la revisión adver
   fantasma por cada una, con el No Show corriendo desde esa fecha. Hoy las salta y las cuenta, para cargarlas a mano.
 - **La R1/R2 se leen con `credWsEstricta`**, como el webhook: con la no estricta una base que tose daba null y una R2 entraba
   como R1. Y la medición del arreglo ya no lee «0 avisos» cuando la lista falla (403): corta, y mira también los de alcance usuario.
+- **`--ws=1` se rechaza (24/10).** El ws del entorno lee `.env.local` de respaldo cuando su fila falta o no se descifra
+  (`credWs`/`credWsEstricta`, `wsDelEntorno`), así que `--ws=1` era «lo de siempre» con la promesa de «sólo la base de N».
+  Para el ws 1, sin `--ws`.
 Los pasos exactos, en docs/relevo/suscripcion.md (punto 3). **Quedó SIN hacer:** el backfill no ubica las reservas de eventos
 vinculados a una etapa (scripts/backfill-calendly.ts, el salto con `rutaDeReserva`); si hace falta, se arma con
 `ubicarReservaVinculada` de lib/agenda-evento-etapa-server.ts, como el webhook. **Vive en:** app/api/webhooks/calendly/route.ts ·
 lib/webhook-routing.ts · lib/compra-plan-reglas.ts (`AGENDA_MAKO`) · app/vsl/Landing.tsx (`CALENDLY_URL`).
 
-## El puente de leads de Meta por Zapier o Make (23/10/2026)
+## El puente de leads de Meta por Make o Zapier: se armó y se RETIRÓ el mismo día (23/10/2026)
 
-**El pedido** (Martín, desde el Ops Center, vía el Cerebro): «armame el puente de leads por Zapier». La app de MaKo todavía no
-tiene `leads_retrieval` aprobado (en revisión, estimado ~10/11), así que un negocio que no conectó Meta con una app propia no
-recibe los leads de sus formularios instantáneos. La investigación del Cerebro (`C:/dev/cerebro-herramientas/meta-mientras-tanto-23-10.md`,
-opción A) concluyó que el puente que anda en días es un Zap que le manda cada lead a MaKo. Lo paga el negocio. La guía para
-el negocio: [guia-leads-por-zapier.md](guia-leads-por-zapier.md).
+**Estado: RETIRADO.** Martín, 23/10/2026, textual: «Y no entiendo porque seguimos teniendo "zapier" o "Make" si ya resolvimos
+todo con Zernio...». Los leads de formularios de Meta entran con la app propia de cada negocio (según el Cerebro, como hoy les
+pasa a Brigitte y Natalia) y Zernio trae los formularios con su aviso `lead.received`. Quien ya paga Make o Zapier no tiene nada
+que conectar acá.
 
-**Lo que ya existía, y por eso el trabajo fue unir y no construir:** el patrón de «fuente que avisa» (Hotmart y Skool-por-Zapier:
-un secreto en un header, ruteo por su hash, lectura estricta) y la puerta de los leads de formulario de Meta
-(`upsertLeadFromMeta` + `alNacerLeadDeMeta`). El receptor nuevo es el de Skool con la puerta de Meta detrás.
+**Qué fue.** Mientras la app de MaKo no tenía `leads_retrieval` (en revisión, ~10/11), un receptor `POST /api/webhooks/zapier`
+(header `X-MaKo-Clave`, servicio de ruteo `zapier`, credencial `ZAPIER_LEADS_CLAVE`) recibía el lead desde un escenario de Make o
+un Zap del negocio y lo creaba por la MISMA puerta que un lead de Meta, con su tarjeta en /integraciones («Último lead hace X»,
+ámbar a las 72 h sin uno). Se probó de punta a punta en el ws3 y rompiendo cada guarda. Está en los commits `4e661df70`,
+`ea41ac4e4`, `6c520ad67`, `946a451e0` y `93a7baf00`: se recupera con `git show`. Su guía quedó en
+`docs/archivo/guia-leads-por-zapier.md`, con los precios leídos el 23/10/2026.
 
-### Las decisiones, y la que casi sale mal
+**Qué se sacó:** la tarjeta y su servicio del catálogo (los tres registros y el logo), sus slides, el endpoint, el ruteo (el
+servicio `zapier`, `ZAPIER_LEADS_CLAVE` en `ROUTING_CREDS` y en `RUTEO_POR_HASH`), el lector, la puerta y el estado
+(`lib/zapier-lead.ts`, `lib/zapier-leads.ts`, `lib/zapier-estado.ts`), el estado «callada» de la grilla, el renglón de la API de
+MaKo y su test. **No se tocó** lo de Skool y Hotmart, que también avisan «por Zapier» pero son otra fuente.
 
-- **⚠️ La puerta equivocada era la que estaba a mano.** El molde (Skool) entra por `ingresarDeFuente`, que a propósito NO decide
-  nada por detrás: ni etapa, ni automatizaciones, ni mensajes (`tests/fuentes-leads-webhooks.test.ts`). Un lead de formulario de
-  Meta SÍ dispara el aviso, los flujos y las automatizaciones, y el negocio lo espera igual venga por donde venga: por esa puerta
-  el lead entraba al CRM como una fila muda y nadie le escribía. Entra por **`upsertLeadFromMeta`** (origen `instant_form`,
-  dedup, producto según la campaña, respuestas crudas) y, si es nuevo y reciente, por la conversión `Lead` de CAPI y
-  `alNacerLeadDeMeta`: lo mismo que hace el webhook de Meta. `ingresarLeadDeZapier` (lib/zapier-leads.ts).
-- **El id.** `upsertLeadFromMeta` es idempotente por `meta_lead_id`. Con el `leadgen_id` real (15 a 17 dígitos) un lead que
-  entra después por Meta NO se duplica, y el `event_id` de CAPI es el mismo que usaría el webhook. Sin él, el id propio es
-  `zap:<ws>:<huella>`: determinista (un reintento de Zapier cae en la misma fila) y con el workspace adentro, porque
-  `idx_leads_meta_lead_id` es único GLOBAL, sin `workspace_id`. Ese id NO viaja a Meta como `lead_id` (Meta rechaza el evento
-  entero ante uno inválido).
-- **La clave va en un header, no en la URL** (la regla de Skool: una URL con la clave queda en los logs de cada salto).
-  Servicio de ruteo PROPIO (`zapier`): con el de `skool`, la misma clave entraría a los dos.
-- **Un aviso sin email ni teléfono contesta 422, no 200** (a diferencia de Skool). Un Zap mal mapeado que manda leads sin
-  contacto tiene que verse en el historial de tareas de Zapier, que es lo que le llega por mail a quien lo armó. Con 200 el puente
-  «andaría» y no entraría nadie.
-- **Un lead VIEJO se carga callado** (`esNuevoParaElNegocio`, 24 h): el «Probar» de Zapier manda leads ya existentes, y anunciar
-  uno de hace una semana como nuevo es mentir. **Sin fecha del formulario se trata como recién llegado**: un Zap vivo dispara
-  en segundos, y callarlo dejaría a un lead real sin que nadie le escriba (la falla más cara de las dos).
-- **El estado de la tarjeta sale de lo que LLEGÓ, no de la clave** (como el Pixel): `zapier.estado` en `app_settings`, una fila por
-  negocio. Ámbar a las 72 h sin un lead — pero sólo si ya entró alguno: un puente que nunca recibió nada «espera», no «cayó».
-  La grilla no lo esconde de «Requiere tu atención» (`callada`), a diferencia de Hotmart/Skool/Apify sin configurar.
-  ⚠️ **72 h es un proxy**: Meta no dice cuántos leads se generaron (para eso hace falta el permiso que este puente reemplaza),
-  así que un negocio con tres leads por semana lo cruza sin que pase nada.
+**Medido antes de sacar el endpoint** (producción, 23/10/2026, sólo lectura; de `credenciales` sólo la clave, nunca el valor):
+0 credenciales `ZAPIER_LEADS_CLAVE`, 0 filas de ruteo `zapier`, 0 filas `zapier.estado` y 0 leads con id `zap:%`. Nadie lo había
+conectado, así que el endpoint se sacó sin avisar a nadie y, ya desplegado, contesta 404.
 
-### Trampas, todas medidas
+**El guard:** `tests/puente-leads-retirado.test.ts` barre `git ls-files app lib tests` y falla si vuelve un archivo del puente, una
+cadena de su ruta o de su credencial en el código (sin comentarios), la tarjeta en el catálogo o el ruteo; y comprueba que Skool,
+Hotmart y Apify siguen donde estaban, para que un retiro torpe no se lleve lo que no era.
 
-- **`ad_name`, `campaign_name` y `adset_name` contienen «name»**: pasados al parser de Meta (`extractField` busca por palabra
-  clave dentro del nombre), el primero ganaba como el NOMBRE DE LA PERSONA. Las claves técnicas se sacan antes del parser.
-- **`first_name` suele venir antes que `full_name`** y el parser se queda con el primer campo que diga «name»: salía «Ana» en
-  vez de «Ana Pérez». Lo cazó el test, no la lectura. El nombre completo va adelante; sin él, nombre y apellido se juntan.
-- **Un id de 17 dígitos que viaja como NÚMERO JSON ya se redondeó al parsear** (más de 2^53): no es el id, y se descarta.
-- **`upsertLeadFromMeta` escribe `meta_lead_id` también en el UPDATE** de un lead que ya existía. Una persona que vuelve a llenar
-  el formulario con otro leadgen_id le reemplaza el id al lead (igual que por Meta, medido). El caso malo es el id propio sobre
-  un id real, que sólo pasa si el Zap deja de mandar el id y la persona ya había entrado por Meta de frente.
-- **Borrar un lead no borra su `lead_audit` ni sus `notificaciones`**: quedaron 2 y 3 filas colgando del ws3 tras la prueba y se
-  limpiaron a mano. Un lead de prueba se limpia con las tres.
-- **Los nombres de los campos del trigger de Zapier NO están medidos** (ni la salida de Make): el lector es tolerante y devuelve
-  `sin_usar`. Lo que Zapier dice en su ayuda (23/10/2026) y NO se probó con un Zap real: con «Data» vacío manda todos los campos
-  del paso anterior; el CRM se asigna en `business.facebook.com/settings/leads-accesses` (la app «Zapier», no «Zapier Inc.»); si
-  se edita el formulario, Facebook crea uno nuevo con otro id; un Zap por formulario.
+### Lo que sigue valiendo, si se vuelve a armar un receptor de leads
 
-### Cuánto cuesta para el negocio (leído en las páginas oficiales el 23/10/2026)
+- **La puerta de un lead de formulario de Meta es `upsertLeadFromMeta` + `alNacerLeadDeMeta`, no `ingresarDeFuente`.** La de Skool
+  y Hotmart a propósito no decide nada por detrás (ni etapa, ni automatizaciones, ni mensajes): por ahí el lead entra al CRM como
+  una fila muda y nadie le escribe.
+- **`idx_leads_meta_lead_id` es único GLOBAL**, sin `workspace_id`: un id propio lleva el workspace adentro (`zap:<ws>:<huella>`,
+  determinista para que un reintento caiga en la misma fila) y NUNCA viaja a Meta como `lead_id`, que rechaza el evento entero
+  ante uno inválido.
+- **`parseLeadFields` busca por palabra clave dentro del nombre del campo.** `ad_name`, `campaign_name` y `adset_name` contienen
+  «name» y ganaban como el nombre de la persona; `first_name` llega antes que `full_name` y salía «Ana» en vez de «Ana Pérez».
+  Las claves técnicas se sacan antes del parser y el nombre completo va adelante. Y un id de 17 dígitos que viaja como número
+  JSON ya se redondeó al parsear (pasa de 2^53): no es el id.
+- **Un aviso sin email ni teléfono contesta 422, no 200**: con 200 el puente «anda» y no entra nadie, y el error no se ve donde
+  mira quien lo armó. Un lead viejo se carga callado (24 h), pero sin fecha se trata como recién llegado.
+- **Borrar un lead no borra su `lead_audit` ni sus `notificaciones`**: una prueba se limpia con las tres.
+- **Un plan «gratis» se mide contra la función que se va a usar, no contra el nombre del plan** (Martín: «El plan gratis de Make
+  NO trae la integración API»; lo oficial no lo confirmó ni lo descartó, y no se ofreció). **Y un precio sin país es la cifra de una
+  región**: Make Core, US$9 al mes pagando el año en Argentina y México, US$12 en EE. UU.
+- **Lo que cuesta un puente de terceros, medido en sus fuentes:** un disparador por intervalo de Make cobra 1 crédito por corrida
+  aunque venga vacío (`help.make.com/how-features-use-credits`: a 15 minutos son ~2.900 créditos al mes por escenario); el
+  contrato de Make (MSA, cláusula 4.1, «internal purposes») no deja operar los leads de varios clientes con una sola cuenta de
+  MaKo, y su plan Core no trae equipos ni roles; Zapier necesita el plan Professional (Facebook Lead Ads es una app premium y
+  «Webhooks by Zapier» no está en Free).
+- **La key de un servicio no se renombra con su tarjeta**: la tarjeta pasó a «Make o Zapier» y el servicio siguió llamándose
+  `zapier` porque la clave ya estaba escrita en la base y en el ruteo.
 
-El Cerebro pidió medirlo antes del domingo: decide si se puede PROMETER el puente. **Zapier: el plan gratis no alcanza.**
-La ayuda oficial de Facebook Lead Ads (actualizada el 01/10/2026, `help.zapier.com/hc/en-us/articles/8496061306253`) dice «Facebook
-Lead Ads is a premium app on Zapier»: está en Professional, Team y Enterprise, y pide «A paid Zapier account». Y «Webhooks by
-Zapier» (el POST a MaKo) tampoco está en Free (`zapier.com/pricing`, actualizada el 23/10/2026). **El mínimo es Professional:
-US$19,99 al mes con facturación anual, US$29,99 mes a mes, 750 tareas.** **Make: el mínimo que se ofrece es Core** (corregido el mismo día: ver abajo).
-Mi lectura de su página de precios no sirvió (la dibuja JavaScript), pero el Cerebro la leyó con un navegador
-(`make.com/pricing`): Core US$9 al mes (con el descuento anual) con escenarios ilimitados y programación al minuto; Pro US$16;
-Teams US$29; Free US$0, con 1.000 créditos y 15 minutos de intervalo mínimo. Facebook Lead Ads no es una de las «Enterprise apps».
-En Leads Access se asigna la app «Make» (no «Zapier») y hace falta una cuenta de Facebook Business Manager. **Lo oficial sobre
-el plan Free:** Make dice que «most Make API endpoints are reserved for our paid subscription plans» (`developers.make.com`; es su
-API de gestión, no el módulo HTTP) y la página del módulo HTTP (`apps.make.com/http`) no nombra ningún plan: si «Make a request»
-manda el POST en Free no se confirmó ni a favor ni en contra, y no se ofrece. **Confirmado después (ayuda oficial de Make, `help.make.com/how-features-use-credits`):** «Trigger modules use 1 credit per run,
-regardless of whether they return data» —un chequeo vacío cobra—, así que un disparador por intervalo son ~2.900 créditos al mes
-por escenario a 15 minutos y ~43.000 al minuto. **Sin medir (1):** cuál de los dos módulos de Lead Ads conviene: «New Lead»
-(`NewLeadMultiple`, por webhook, con «Get Lead Details»: ~3 créditos por lead, según el workflow) o «Watch Leads» (de intervalo,
-según la comunidad de Make); la página oficial los lista sin etiquetar. **Sin medir (2):** si un disparador por webhook gasta algo
-sin leads (la ayuda no menciona los webhooks). La tarjeta dice «Watch Leads»; si se usa, no programarlo cada menos de 15 minutos.
+### Lo que queda SIN hacer
 
-⚠️ **Lo que se había escrito antes era una suposición.** El relevo del Cerebro decía «Zapier Professional ronda US$20–30, pero ese
-precio sale de un blog»; ahora es la página oficial. Y OJO con cómo se lee: una búsqueda resumió esa misma ayuda como si Free
-estuviera incluido, y la lectura directa de la página dice lo contrario (Free «no incluido» y «A paid Zapier account» como
-requisito). Se anotó la directa; si Zapier lo cambia, la guía lleva la fecha. La tarjeta lo dice en su primer paso y la guía lo anota con la fecha y los links (`tests/zapier-leads.test.ts`).
+- **Que Zernio traiga los formularios de Meta con `lead.received`.** El webhook `/api/webhooks/zernio` escucha hoy
+  `message.received`, `referral.received`, `comment.received` y `account.connected` (`EVENTOS_WEBHOOK`, lib/zernio.ts), no
+  `lead.received`. Es lo que reemplaza al puente y no está hecho: el lead pasaría por `upsertLeadFromMeta`, como acá.
 
-### Probado de punta a punta (ws3, Cliente de Prueba, 23/10/2026)
+**Vive en:** `tests/puente-leads-retirado.test.ts` (el guard) · `docs/archivo/guia-leads-por-zapier.md` (la guía vieja) · los
+commits `4e661df70` a `93a7baf00` (el código).
 
-La credencial por el camino del producto (`guardarCredencial`), un POST por la ruta con `NextRequest`, y limpieza completa. La
-fila de ruteo guarda 64 caracteres (el sha256, no la clave). Sin header 401 · clave equivocada 401 · lead de hace 3 días
-`creado`, `anunciado: false`, origen `instant_form`, campaña y anuncio, respuestas en `meta_field_data` · el mismo POST de nuevo
-`actualizado`, 1 lead · la misma persona con otro leadgen_id `actualizado`, 1 lead, campaña nueva · sin id: `zap:3:…`, reintento
-`actualizado` · formulario en vez de JSON `creado` · sin contacto 422 · no es JSON 400 · tarjeta «Último lead hace menos de 1 h» y,
-con el estado a 80 h, «Sin leads hace 3 días. Revisa tu Zap.» con `callada` · lead reciente `creado`, `anunciado: true` y la
-notificación «Lead entrante por formulario de Meta» en el feed (`canal_wa: no`: el ws3 no tiene WhatsApp conectado ni
-automatizaciones activas). Al terminar: 0 leads, 0 filas de ruteo, 0 credenciales, 0 estados, 0 filas colgando.
+_23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2), que trajo la decisión de Martín. Retiro probado rompiéndolo._
 
-**Probado rompiéndolo** (`tests/zapier-leads.test.ts`, 21 tests; roturas restauradas de memoria): las 28 cazadas, cada una por
-el test que corresponde (los números, al pie del archivo del test). Y las de los precios y las promesas: 13 contra la versión «Make principal» y 10 contra la final («de pago, sin gratis»), todas cazadas
-(los números, al pie del archivo del test).
+## «Conectada ✓» con el webhook SIN registrar: el tipo se olvidó un campo y la pantalla se olvidó un valor (24/10/2026, Cerebro › Integración)
 
-### Make pasa a ser el camino PRINCIPAL, y los dos son de pago (decisión y corrección de Martín, 23/10/2026, más tarde ese día)
+La pieza nueva de Zernio (`app/_components/ConectarViaZernio.tsx`, commit `8dda570be`)
+llegó al tren con tres errores de tipos **en su propia punta**, medidos antes de
+mergearla: no los causó el merge, la rama se commiteó roja. Dos eran el mismo renglón y
+el tercero destapó un agujero de producto.
 
-Textual: «Con respecto a Zapier… Obvio que es mejor Make si tiene plan gratis… Y que los usuarios traigan su propia API como
-siempre…». Qué cambió, con el porqué:
+**1. El tipo del cliente se olvidó un campo que el servidor SÍ manda.** `RespuestaApi`
+(un `type` LOCAL al archivo, línea 52) declaraba `ruteo` y no `webhook`, y la 158 hace
+`c.webhook === 'error'`. No era código muerto: `recibirConexion`
+(`lib/zernio-conectar.ts:204`) declara
+`Promise<{ ruteo: 'ok'|'ocupado'|'error'; webhook: 'creado'|'actualizado'|'sin_secreto'|'error' }>`
+y el handler contesta `Response.json({ ok: true, ...(await recibirConexion(ws)) })`
+(`app/api/zernio/route.ts:77`, con el contrato escrito en el `:11`). El campo va
+**opcional**, como `ruteo`: la rama `{ ok: false }` del `:81` no lo trae y el tipo lo
+comparten los 6 call-sites de `api()`. El tipo se copia del retorno declarado del
+servidor, nunca se inventa.
 
-- **La tarjeta se llama «Leads de Meta por Make o Zapier»** y sus pasos son los de Make: «Facebook Lead Ads → Watch Leads» y
-  «HTTP → Make a request» (POST, JSON) con el header `X-MaKo-Clave`; en Leads Access se asigna la app «Make». Zapier queda como
-  el último paso, de pago, en una línea. **La key del servicio sigue siendo `zapier`** (credencial `ZAPIER_LEADS_CLAVE`, servicio de
-  ruteo `zapier`, ruta `/api/webhooks/zapier`): está escrita en la base y en las filas de ruteo, y cambiarla por el nombre de una
-  tarjeta rompería a quien ya conectó (la regla de «las claves no se renombran con la ruta»). Lo que cambia es lo que se lee.
-- **Cada negocio usa SU PROPIA cuenta** de Make o de Zapier, como con sus claves de IA: la tarjeta y la guía lo dicen en una frase.
-  MaKo no paga ni comparte ninguna.
-- **La pantalla no promete «al instante», ni cuántos leads aguanta un plan, ni dice «gratis»**, y un test lo fija leyendo la tarjeta, las
-  slides, el estado y el aviso de la API (los textos que lee el negocio) y la guía. Los dos «Sin medir» siguen escritos en la guía.
-- ⚠️ **CORRECCIÓN, minutos después, también de Martín:** «El plan gratis de Make NO trae la integración API… No nos sirve en ese
-  caso». Entonces **los DOS caminos son de pago**: Make desde Core (US$9 al mes, anual) y Zapier desde Professional (US$19,99 anual,
-  US$29,99 mensual), cada uno con su plan y su precio en el paso de la tarjeta y en la guía con la fecha. Lo que el Cerebro había
-  leído («Make tiene plan Free, así que se puede arrancar sin pagar») era cierto de la página de precios; Martín dice que el Free
-  no trae lo que el puente necesita. La lección es que **un plan «gratis» se mide contra la función que se va a usar** (acá, el
-  POST desde un módulo HTTP), no contra el nombre del plan. Lo oficial no lo confirma ni lo descarta (ver «Cuánto cuesta»), así
-  que no se ofrece.
-- ⚠️ **Make no manda «todos los campos» por defecto, Zapier sí** (con «Data» vacío). En el módulo HTTP de Make hay que armar el
-  JSON a mano con lo que se mapea, así que la guía trae la lista de lo que MaKo entiende (`email`, `phone_number`, `full_name`,
-  `lead_id`, `created_time`, campaña, anuncio y conjunto; cualquier otra clave es una pregunta del formulario). Lo único obligatorio
-  es un email o un teléfono válido. También acepta `field_data` tal cual lo entrega Meta. NO medido con una cuenta de Make.
+**2. Un `let` asignado sólo dentro de un closure se narrowea a `null`.**
+`let errorDeVentana: MensajeVentana | null = null` (223) con su única asignación adentro
+de `recibir` (229): en la 271 el `if` por truthiness daba `never`. Pasa a ser una
+propiedad de un objeto, que sí se narrowea en el `if`. Sin `as any`, sin `@ts-ignore` y
+sin un `?` que esconda el bug; el runtime no cambia.
 
-### ¿Una sola cuenta de Make Core de MaKo para todos los clientes? (pregunta de Martín, 23/10/2026; sin decidir)
+⚠️ **3. Y EL AGUJERO QUE EL COMPILADOR TAPABA: `'sin_secreto'` no se avisa.**
+`asegurarWebhook` devuelve `'sin_secreto'` cuando falta el secreto maestro
+(`lib/zernio.ts:261`: `const maestro = await envCred('ZERNIO_WEBHOOK_SECRET'); if (!maestro) return 'sin_secreto';`)
+y **sale antes de registrar nada**, o sea que en la cuenta de Zernio del negocio NO queda
+webhook — y sin webhook no llega ni un mensaje ni un `lead.received`, sin dar error. La
+pantalla sólo reacciona a `=== 'error'`, así que con `'sin_secreto'` la persona ve
+«conectado ✓» y se queda callada, que es justo lo que el comentario de la 149-151 promete
+no hacer. Los dos defectos son la misma línea: **mientras el campo no estuvo en el tipo,
+el compilador no podía ayudar a enumerar sus valores.**
 
-Un workflow de 4 investigadores, con un refutador cada uno, leyó las fuentes oficiales. Yo verifiqué tres cosas en la fuente: los
-créditos de un disparador, Make Managed Services y la lista de módulos de Lead Ads; el resto es del workflow (marcado). **No cambia
-la tarjeta:** aunque MaKo lo cubriera, se sigue mostrando como de pago y de cada negocio.
+⚠️ **El arreglo obvio es el equivocado, y por eso esto queda como DEUDA y no se aplicó.**
+La salida que aparece primero es tratar `'sin_secreto'` como `'error'` y mostrar «no
+pudimos armar la recepción, vuelve a conectarla». Eso manda al negocio a arreglar una
+variable **de la plataforma**, que él no puede tocar — `lib/disparadores-canales.ts:183`
+ya lo dice con todas las letras: *«`ZERNIO_WEBHOOK_SECRET` en la plataforma queda sólo el
+log: el negocio no lo puede arreglar»*, y su `:190` lo trata como falla **nuestra**
+(`console.error`). Es «una guarda bloquea sólo lo que se arregla haciendo lo que ella
+pide» y «el error dice DE QUIÉN fue»: un cartel que lo manda a reconectar para siempre es
+peor que el silencio de hoy.
 
-- **Precios (workflow, `make.com/en/pricing`):** Core US$9 al mes pagando el año (~US$108 por adelantado), US$10,59 mes a mes, con
-  10.000 créditos; son los precios para Argentina y México (en EE. UU., US$12 y US$16). ⚠️ **El precio depende del país** de quien
-  mire la página: lo que se anota sin decir el país es una cifra de una región.
-- **Lo que el Free NO trae es «Access to the Make API»** (workflow): la API para administrar Make. No es el módulo HTTP, y
-  `apps.make.com/http` no nombra ningún plan (verificado). El límite real del Free son 2 escenarios activos, 1.000 créditos y
-  15 minutos de intervalo. O sea que «el Free no trae la API» (Martín) y «el Free sirve para el POST» pueden ser las dos ciertas:
-  no se ofrece por esos límites, no por el módulo.
-- **Cada chequeo vacío de un disparador cobra 1 crédito** (verificado, cita arriba). **El módulo por webhook** es «New Lead»
-  (`NewLeadMultiple`) seguido de «Get Lead Details»: ~3 créditos por lead (workflow). Que sin leads gaste 0 no figura textual.
-- **Volumen medido (workflow):** ~120-133 leads de formularios de Meta por mes (ws19 ~60-73, ws15 ~28-45, ws1 ~13-32). ⚠️ El ws1
-  cayó de 361 en julio a 16 en octubre, y eso puede ser la CONEXIÓN y no la demanda real. **Los créditos alcanzan con webhook**
-  (~400 al mes de 10.000) **y no con intervalo** (cuatro escenarios a 15 minutos son 11.520).
-- **El contrato no lo permite.** MSA de Make (marzo 2026), cláusula 4.1: «solely for Your internal purposes… not for the benefit
-  of any third parties» (workflow y una búsqueda sobre el PDF; el PDF no se abrió para citar literal). El camino oficial para operar
-  por clientes es Make Managed Services: organizaciones hijas con los beneficios Enterprise (`help.make.com/make-managed-services-mms`,
-  verificado); la página no nombra el plan del distribuidor.
-- **Core no trae equipos ni roles** (workflow): un cliente invitado a la organización vería las conexiones de los demás.
-- **La conexión de Lead Ads admite las credenciales de una app de Meta propia** («Show advanced settings» → client credentials;
-  verificado en `apps.make.com/facebook-lead-ads`, que no usa la frase «app de Meta»).
+**Lo que queda SIN hacer, y cómo:** `'sin_secreto'` tiene que ser ruidoso **para
+nosotros** (el log que ya existe en `disparadores-canales`, o un aviso de plataforma) y
+en la pantalla del negocio decir que la recepción no quedó armada **sin pedirle que la
+arregle**. Y el estado «armó la recepción» conviene definirlo en POSITIVO
+(`webhook === 'creado' || webhook === 'actualizado'`) en vez de por una lista de fallas
+que se olvida una. Medido: `ZERNIO_WEBHOOK_SECRET` está en `.env.local` (49 car); **no se
+pudo verificar en Vercel producción**, y eso hay que medirlo antes de tocar el cartel,
+porque si falta allá el aviso aparece de golpe en todos los clientes.
 
-### La API de MaKo
-
-Se declara sola: `ver_integraciones`, `ver_integracion('zapier')` (con el recuadro amarillo y la URL) y
-`link_configurar_integracion('zapier')` salen del catálogo, y `ver_integraciones` devuelve el `detalle` de la tarjeta («Último
-lead hace 5 h»). Se sumó un renglón a sus `avisos` en tiempo de ejecución (no toca ninguna def, así que `docs/api-mako.md`, el
-snapshot y `plugin/` no cambian).
-
-### Lo que quedó SIN hacer
-
-- **El aviso por WhatsApp de «hace X horas que no entra un lead».** Hoy la señal es la tarjeta (ámbar) y el «Requiere tu
-  atención» de /integraciones. El push es un aviso del catálogo con su evento de MaKo, su CONDITION y su plantilla de SuperAdmin
-  (el molde es `tracking-apagado`: `lib/avisos-catalogo.ts`, `lib/disparadores.ts`, `lib/notif-catalogo.ts`,
-  `lib/plantillas-automatizaciones.ts`, `lib/variables-aviso.ts` y su función de datos como `lib/tracking-aviso.ts`) y un
-  cron que lo emita (`tracking-vigilante` ya itera los workspaces). Son ~6 archivos y sus guardas; no entró en esta tanda.
-- **Un escenario real de Make (y un Zap).** Nada de acá se probó contra «Watch Leads» de Make ni contra el trigger de Zapier. El
-  primer negocio que lo arme confirma (o corrige) los nombres de los campos y las opciones del módulo HTTP (la guía las nombra de
-  memoria): lo que MaKo no use vuelve en `sin_usar`.
-- **El umbral de 72 h contra el ritmo propio de cada negocio.**
-- **Medir Make con una cuenta de Core**: cuál módulo conviene («New Lead» por webhook o «Watch Leads» por intervalo; la tarjeta dice
-  el segundo), si el de webhook llega al instante y si gasta sin leads, y —aunque no se ofrezca— si «Make a request» manda el POST
-  en Free. Si conviene «New Lead», cambiar el paso 3 de la tarjeta (`lib/metodo-catalogo.ts`) y su guarda en el test.
-- **Tipos:** este trabajo salió «sin tipos» (política del tren): los chequea el `tsc` acotado de Integración.
-
-**Vive en:** `lib/zapier-lead.ts` (el lector) · `lib/zapier-leads.ts` (la puerta) · `lib/zapier-estado.ts` (la tarjeta) ·
-`app/api/webhooks/zapier/route.ts` · `lib/integraciones.ts` (`estadoPuenteZapier`) · `lib/metodo-catalogo.ts` ·
-`lib/ruteo-hash.ts` · `lib/webhook-routing.ts` · `tests/zapier-leads.test.ts` · `docs/guia-leads-por-zapier.md`.
-
-_23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2). Probado de punta a punta contra el ws3 y rompiendo cada guarda. Make como camino principal y de pago: 13 + 10 roturas, todas cazadas._
+**Vive en:** `app/_components/ConectarViaZernio.tsx:52,158,223,271` · `lib/zernio.ts:261` · `lib/zernio-conectar.ts:204` · `lib/disparadores-canales.ts:183`

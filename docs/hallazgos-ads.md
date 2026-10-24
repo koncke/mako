@@ -4468,7 +4468,7 @@ La pregunta: cómo operan los clientes con Meta (anuncios, leads, páginas, mens
 - **Dudoso: que Joan pase su app a Live destrabe el 1885183.** Meta dice que para la cuenta propia alcanza el acceso
   básico, pero otra página suya dice que en Live sólo se piden permisos aprobados por revisión. Es gratis y se sabe
   probándolo con el OK de Joan. Sirve para él, no para todos.
-- **Para leads hay un puente que anda en días: Zapier o Make** mandándole el lead a MaKo. Le exige al cliente una cuenta
+- **(RETIRADO el mismo 23/10: ver `hallazgos-integraciones.md`, «El puente de leads… se RETIRÓ»)** **Para leads hay un puente que anda en días: Zapier o Make** mandándole el lead a MaKo. Le exige al cliente una cuenta
   paga (Zapier Professional ronda US$20–30 por mes, sin verificar; Make sin verificar) y asignar Zapier como CRM en
   Leads Access, que es el paso que más falla. A MaKo le pide un receptor por cliente, una guía y una alerta de «hace X
   horas que no entra un lead»: si el cliente deja de pagar, los leads dejan de llegar sin que nadie se entere. Que la
@@ -4481,7 +4481,7 @@ La pregunta: cómo operan los clientes con Meta (anuncios, leads, páginas, mens
   - Nango, Paragon, Pipedream, Composio: usan NUESTRA app, el mismo cuello de botella.
   - n8n: exige que cada cliente tenga su propia app activa y verificada.
   - La conexión de CRM nativa de Meta: MaKo no aparece hasta que se apruebe `leads_retrieval`.
-  - Unified.to: sin precio público ni dueño de la app conocido.
+  - Unified.to: pide la app propia para producción y cuesta US$750 o más por mes (corregido el 23/10: decía «sin precio público»).
 - **Lo que falta del lado de MaKo:** la SEGUNDA tanda de App Review (`ads_management`, `ads_read`,
   `business_management`), que no se envió. Pedir el acceso completo abre la verificación de MaKo como proveedor de
   tecnología (unos 5 días), y subir de nivel exige 500 llamadas en 15 días con menos de 15% de error, que se pueden ir
@@ -4492,3 +4492,88 @@ Zapier, el mail a Zernio y la prueba de Joan en Live esperan la decisión de Mar
 
 **Vive en:** fuera del código: el panel de la app MaKo en Meta, `vigia-revisiones/` (si el botón ya trae permisos de
 anuncios) · memoria `meta-oauth-app-review` · lib/meta-publicar-errores.ts (cómo se muestra el 1885183).
+
+## Conectar con tu propia app de Meta: qué le anda HOY a cada negocio (23/10/2026)
+
+Pregunta de Martín: «¿Cómo es posible que Código y otros ya han podido conectar sus cuentas de Meta? ¿No hay una forma
+más fácil?». Medido en sólo lectura sobre los 11 negocios con token de Meta: todos son tokens de usuario del sistema,
+válidos y sin vencimiento.
+
+| Negocio | App que firmó el token | Métricas | Leads de Meta (30 días) | Anuncios desde MaKo |
+|---|---|---|---|---|
+| ws1 Mauricio (y ws4, mismo token) | «Leads - Dashboard MKT (Martin)», ACTIVA | ok | 34, último 21/10 | 5 de 5 |
+| ws11 Leila | «Lidermente_Agent» | ok | 0 | nunca |
+| ws13 Código (y ws14, mismo token) | «Joan P2P app», en desarrollo | ok | 0 | 0 de 14 (1885183) |
+| ws15 Brigitte | «Bri App» | ok | 28, último 23/10 | nunca |
+| ws18 Pablo, ws20 Sergio, ws22 Patricia | apps propias | ok | 0 | nunca |
+| ws19 Natalia | «Natalia app» | ok | 73, último 23/10 | nunca |
+| ws9 MaKo | app MaKo (el botón) | sin permisos de anuncios | 0 | — |
+
+- **El diagnóstico obvio era el equivocado: «para leads hace falta Zapier o Make».** Con la app propia los leads ya
+  entran solos (Brigitte, Natalia) por la consulta periódica de MaKo (lib/meta-leads.ts), aunque NINGUNA de esas páginas
+  esté suscripta a su app (`subscribed_apps` vacío): no hace falta el webhook. Los que tienen 0 puede ser que no corran
+  formularios; no se distingue desde acá.
+- **Publicar anuncios anduvo sólo con una app ACTIVA que opera la cuenta de su propio portafolio** (ws1). La de ws13, en
+  desarrollo, rebotó todo creativo nuevo. Así que pasar la app del cliente a activa es casi seguro lo que destraba el
+  1885183 (la entrada de Meta mientras tanto lo dejaba «dudoso»; esta medición lo vuelve muy probable).
+- **Trampa: si una app está en desarrollo o activa NO se lee por la API** con el token del cliente: se sabe recién al
+  publicar (el rechazo 1885183 nombra la app).
+- **Lo que se hizo:** el tutorial de Meta del modal de /integraciones (`lib/metodo-catalogo.ts`) ahora dice crear la
+  app tipo «Negocio» con los casos de uso de anuncios y de leads. **NO dice que la pasen a activa, a propósito:** es la
+  regla de Martín del 16/09 («no me menciones más que el cliente tenga que publicar su app, esa no es opción»,
+  lib/meta-publicar-errores.ts). Un paso así entró en 942492a83 y salió antes de llegar a main: se cruzó la evidencia
+  («sólo anduvo con la app activa») con la decisión de producto. Publicar con creativo nuevo va por la Zernio del
+  negocio. Lo fija `tests/meta-tutorial-app-propia.test.ts` (ningún paso pide publicar ni activar la app).
+
+**Vive en:** lib/metodo-catalogo.ts (`SERVICIOS_METODO` → meta → `tutorial`) · lib/meta-leads.ts (la consulta
+periódica) · lib/meta-publicar-errores.ts · tests/meta-tutorial-app-propia.test.ts
+
+## Publicar y editar por Zernio, con la Zernio de cada negocio (23/10/2026)
+
+Decisión de Martín (23/10): «Vamos por Zernio directo… que cada usuario traiga su API de Zernio», para lo único que no
+anda: «publicar o editar campañas». Investigación del Cerebro (6 agentes, contra fuentes oficiales) + lo medido acá.
+
+- **La causa, precisa (y el diagnóstico obvio era el equivocado: «no podemos publicar NI editar»).** Con el token de la
+  app propia del cliente (casi siempre en desarrollo) Meta deja crear campañas y conjuntos y deja borrarlos. Lo único que
+  rechaza es un anuncio con creativo NUEVO (`object_story_spec`, lib/meta-ads-create.ts): el post nace de ESA app → 1885183.
+  Cambiar textos o creativo de un anuncio vivo crea otro creativo (`updateAdCopy`) y choca igual. Pausar, presupuesto,
+  renombrar y borrar van por lib/meta-write.ts con el token del cliente y no crean posts: **probablemente andan, NO está
+  medido** (hace falta una edición inocua y reversible en la cuenta de un cliente con app en desarrollo que lo autorice;
+  la de MaKo no sirve, su token del botón no tiene permisos de anuncios). «Usar un ganador» (`object_story_id`) pasa hoy.
+- **El «(revertido)» anterior a c5a5c9331 (07/10) no probaba nada** (la respuesta del DELETE no se leía). Medido hoy en
+  Meta con el token de ws13: las 14 campañas de los intentos del 11-17/09 existen como **DELETED** y sus conjuntos
+  también. El rollback sí había borrado: no hay huérfanos en `act_1357728489423123`.
+- **Zernio, según su doc** (docs.zernio.com/platforms/meta-ads, /ad-campaigns/create-standalone-ad, /ad-campaigns/update-ad,
+  /ad-accounts/list-ad-accounts, leídas el 23/10): `POST /v1/ads/create` crea campaña + conjunto + anuncio con creativo
+  nuevo, o UN anuncio dentro de un conjunto que ya existe (`adSetId`, hereda presupuesto y público; `bidStrategy` ahí da
+  400); `PUT /v1/ads/{adId}` con `creative` cambia textos o media de un anuncio vivo (crea un creativo nuevo, como Meta;
+  acepta el id de Meta o el de Zernio); formularios por `POST /v1/ads/lead-forms`. Scopes: `ads_management`, `ads_read`,
+  `leads_retrieval`, `pages_manage_ads`, `instagram_basic`. El cliente conecta una vez con el OAuth de Zernio
+  (`GET /v1/connect/facebook/ads?loginMode=business`, crea una conexión `metaads`): **la ventana dice «Zernio» y no usa
+  el token que el cliente pegó**. Una imagen va por URL (`imageUrl`): no documenta recibir el `image_hash` de Meta. El
+  error trae el de Meta en `platformError` (con `error_subcode`).
+- **Precio:** por cuenta conectada, y **la cuenta publicitaria cuenta aparte** de la página y de Instagram (2 gratis,
+  US$6 de la 3 a la 10, US$3 de la 11 a la 100); anuncios gratis hasta 500 activos, sin porcentaje del gasto.
+- **Sin verificar:** que la app de Meta de Zernio esté activa con `ads_management` AVANZADO lo dice sólo Zernio («No Meta
+  App Review»); la cita «approved Meta Marketing Partner» que trajo una búsqueda NO está en su página. **Lo decide una
+  prueba real, en pausa** (el `validate_only` de Meta no ve el 1885183): scripts/prueba-zernio-anuncio.mts, sobre la
+  cuenta de MaKo, con el OAuth que hace Martín botón por botón. Hasta entonces `ZERNIO_ANUNCIOS_PROBADO = false`.
+- **Lo construido:** Zernio SÓLO para lo que falla. `crearAnuncioEnConjunto` (lib/meta-ads-create.ts) manda a Zernio el
+  anuncio con creativo nuevo si el negocio tiene su conexión de anuncios de Zernio (forma `adSetId`, en pausa); la
+  campaña y el conjunto siguen por Meta. `updateAdCopy` cambia textos por Zernio con esa conexión. Si Zernio no contesta,
+  se publica por Meta como antes (lo que se cae es sólo publicar). **La clave es la del negocio** (`credDelCliente`;
+  la de la plataforma sólo en el negocio de la plataforma): lib/zernio-ads.ts, lib/zernio-ads-cuerpo.ts. Un rechazo que
+  vuelve por Zernio nombra a Zernio y conserva el subcode de Meta.
+- **Descartes:** Pipeboard (US$99-199 por mes, modelo agencia, «for the Customer's exclusive use»), AdManage (£999,99 por
+  10 cuentas; la API sólo en planes caros), Adspirer (sin precio ni app conocida), Composio y Nango (usan la app propia),
+  **Unified.to (SÍ publica precio: US$750 o más por mes; la entrada «Meta mientras se aprueba» decía que no), y también
+  pide la app propia**, Ayrshare (sólo impulsa posts), Metricool y Madgicx (no crean anuncios desde afuera).
+
+**Sin hacer:** la prueba (espera el OK y el clic de Martín); con la prueba pasada, prender `ZERNIO_ANUNCIOS_PROBADO` y
+que el modal ofrezca «Conectar Zernio para publicar» sin salir de la tab, con el link de `urlConectarAnunciosZernio`;
+medir editar (pausa, presupuesto, nombre) en una cuenta de cliente con app en desarrollo; mandar el mail a Zernio
+(C:/dev/cerebro-herramientas/mail-zernio-borrador.md, lo decide Martín).
+
+**Vive en:** lib/zernio-ads.ts · lib/zernio-ads-cuerpo.ts · lib/meta-ads-create.ts (`crearAnuncioEnConjunto`,
+`updateAdCopy`) · app/api/ads-manager/campaign-create/route.ts · scripts/prueba-zernio-anuncio.mts ·
+tests/zernio-anuncios.test.ts

@@ -28,6 +28,27 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## «Second Brain» tardaba en entrar, y la columna del grafo pasó a ser un chat con MaKo (23/10/2026)
+
+- **«Primero se va al chat de "Cerebro" y luego de unos segundos recién entra»** (Martín). El diagnóstico obvio era la velocidad
+  del servidor, y no alcanzaba: aunque el grafo llegara en 1 s, el panel decidía con la prop `mapa`, que sólo existe cuando el
+  servidor terminó, y mientras tanto dibujaba lo de antes. **Regla:** lo que se ve sale de lo que se TOCÓ (`yendo`, en
+  ChatSecondBrain.tsx) hasta que el servidor manda lo nuevo; hacia el grafo, su loader (CargandoMako, en oscuro). Y la vista sale
+  de la URL: un link a la página pelada vuelve a la entrada, no al último chat.
+- **La trampa del chat propio: el «Cerebro» es la conversación MÁS VIEJA de la persona** (`arbolDelJefe`). Una conversación
+  más con la clave de la persona, creada por el Second Brain antes que cualquier otra, se volvía el Cerebro de esa persona. Por
+  eso la del Second Brain lleva sufijo (`mako-movil:<persona>:second-brain`), como las del CRM y de la ficha: no entra en
+  `listarSesiones`, el Ops Center la lista por `chatsDeLasTabs` (grupo «Second Brain») y se sigue con `antes` (`claveDeTab`,
+  que exige un origen reconocido en `origenDeClave`). Se crea con el primer mensaje (`action: 'new', tab`): leerla no la crea.
+- **Sacar la barra del grafo sin perder nada:** antes de reemplazarla se enumeró lo que mostraba y adónde va
+  (ChatDelSecondBrain.tsx, cabecera). El detalle de un punto se abre ENCIMA del chat, no en su lugar: así la conversación no
+  se desmonta al tocar un punto.
+- **Sin mirar en pantalla con el código nuevo** (el build local no entró en la RAM de la PC): lo mira el chat en producción.
+
+**Vive en:** `app/second-brain/ChatSecondBrain.tsx` · `ChatDelSecondBrain.tsx` · `Grafo.tsx` (`lateral`) · `VistaCerebro.tsx` ·
+`lib/chat-mako-reglas.ts` (TAB_SECOND_BRAIN) · `lib/mako-turno-app.ts` (`sesionDeTab`) · `app/api/mako/chat/route.ts` ·
+`tests/second-brain-chat-mako.test.ts` · `tests/ops-center-navegacion.test.ts`
+
 ## Las charlas de las tabs en el grafo: un nodo por chat jefe, de la misma fuente que el Ops Center (23/10/2026)
 
 Martín, 17/10/2026: «todo siempre guardarse en chats en el Ops Center e ir guardándose en el grafo del Second Brain». Al 23/10

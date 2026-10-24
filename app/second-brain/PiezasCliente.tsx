@@ -16,6 +16,7 @@ import { HiloMako } from '@/app/_chat/HiloMako';
 import { CitaCaja, ContextoWA } from '@/app/admin/operaciones/MensajeWA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { IconoChat } from '@/app/m/mako/iconos';
+import { AppPrimero, FranjaApp } from '@/app/_chat/AppPrimero';
 import { caracteres, nombrePegado } from '@/lib/chat-pegado';
 import { ARRANQUES_SECOND_BRAIN, AVISO_EDITOR, AVISO_EDITOR_AJENO, AVISO_GRUPO, AVISO_LIENZO } from '@/lib/chat-mako-reglas';
 import { NOMBRE_MODELO_IA, type CuentaIA } from '@/lib/chat-ia-reglas';
@@ -76,9 +77,13 @@ export function SelectoresDelCliente({ k }: { k: ChatCliente }) {
   );
 }
 const AUTOMATICO_IA = '';
+/** La caja quieta mientras falta la app de escritorio (y no hay otra IA). */
+export const AVISO_SIN_APP = 'Instala MaKo en tu computadora para escribirle.';
 
 export function HiloDelCliente({ k }: { k: ChatCliente }) {
   // El grupo de WhatsApp se lee: sin el menú de un mensaje (no se responde, no se reacciona; se contesta en el grupo).
+  // La app de escritorio, primero (23/10/2026): sin computadora y sin otra IA, la descarga en lugar de la conversación.
+  if (k.app === 'bloquea') return <AppPrimero onConectar={() => k.setConectando(true)} />;
   return (
     <ContextoWA.Provider value={k.esGrupo || k.esAutomatizacion || k.esEditor ? null : k.accionesWA}>
       {k.esGrupo && k.hayMasDelGrupo && k.cargado && (
@@ -120,6 +125,8 @@ export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movi
 }) {
   // El grupo de WhatsApp de MaKo no se sigue desde acá: en lugar de la caja, dónde se contesta.
   if (k.esGrupo) return <p className="co-solo-lectura" role="note">{AVISO_GRUPO}</p>;
+  // Sin la app de escritorio y sin otra IA, no hay con qué contestar: la caja quieta, y la descarga arriba (AppPrimero).
+  if (k.app === 'bloquea') return <p className="co-solo-lectura" role="note">{AVISO_SIN_APP}</p>;
   // Una charla del lienzo de Automations (OC5): se lee acá y se sigue en el lienzo, que es el que sabe editar la automatización.
   // Un chat de un editor (OC8): se lee acá y se sigue en el editor, que es el que aplica lo que propone.
   if (k.esEditor) {
@@ -148,6 +155,8 @@ export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movi
       alFinal={angosta ? null : conectar}
       arriba={<>
         {angosta && conectar && <div className="co-conectar-ia-arriba">{conectar}</div>}
+        {/* En el teléfono, sin la app: el aviso de descargarla en la computadora, y el chat sigue (ahí no se instala). */}
+        {k.app === 'en-la-computadora' && <FranjaApp />}
         {k.cita && <CitaCaja cita={k.cita} onQuitar={() => k.setCita(null)} />}
         {k.pegados.length > 0 && (
           <ul className="ch-elegidos" aria-label="Textos pegados">

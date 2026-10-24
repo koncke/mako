@@ -376,10 +376,14 @@ test('⚠️ y el guardado las respeta, no sólo la función', () => {
   // cuerpo de una server action lo escribe quien quiera.
   //
   // Probado rompiéndolo: se saca el `esTerminal` de `editarEtapaAction` -> 16 / 1.
-  const ac = readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8');
+  // El cuerpo de editarEtapaAction vive en lib/etapas-crm-server.ts desde el 23/10/2026 (P0-6, lo usa la API de MaKo).
+  const ac = readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8') + readFileSync(join(RAIZ, 'lib/etapas-crm-server.ts'), 'utf8') + readFileSync(join(RAIZ, 'lib/etapas-crm-reglas.ts'), 'utf8');
   const elim = ac.slice(ac.indexOf("} else if (op.op === 'eliminar')"), ac.indexOf("} else if (op.op === 'nutricion')"));
   assert.ok(elim.length > 100, 'no se encontró la rama que elimina una etapa');
-  assert.match(elim, /esTerminal\(op\.key\)/, 'el server dejó de frenar el borrado de una terminal');
+  // Desde el 23/10/2026 las guardas viven en `porQueNoSeElimina` (lib/etapas-crm-server.ts), que la rama llama y la API
+  // de MaKo pregunta antes del «sí».
+  assert.match(elim, /const no = porQueNoSeElimina\(pipeline, op\.key\);\s*if \(no\) return \{ ok: false, error: no \};/, 'la rama dejó de preguntar qué no se borra');
+  assert.match(ac, /if \(esTerminal\(key\)\) return 'Esa etapa está en todos los funnels/, 'el server dejó de frenar el borrado de una terminal');
   // Y el guardado las garantiza aunque el cuerpo llegue sin ellas.
   assert.match(ac, /conTerminales\(pipeline\)/, 'saveFunnelAction dejó de garantizar las terminales');
 
@@ -606,7 +610,8 @@ test('⚠️ el pop-up de etapas: una operación por cambio, y el pipeline nunca
   //    en el server, así que sin esto se renombra una etapa y detrás sigue el nombre viejo.
   assert.match(md, /router\.refresh\(\)/, 'el pop-up no refresca el tablero que está tapando');
 
-  const ac = readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8');
+  // El cuerpo de editarEtapaAction vive en lib/etapas-crm-server.ts desde el 23/10/2026 (P0-6, lo usa la API de MaKo).
+  const ac = readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8') + readFileSync(join(RAIZ, 'lib/etapas-crm-server.ts'), 'utf8') + readFileSync(join(RAIZ, 'lib/etapas-crm-reglas.ts'), 'utf8');
 
   // 4) Mover: sólo dentro del pipeline, y el cierre se queda último.
   //    ⚠️ Las tres terminales derivadas NO están en el pipeline: las agrega `generateFunnel`
@@ -720,7 +725,8 @@ test('⚠️ sin leads NO hay fricción, y el deshacer devuelve la MISMA etapa',
   //   · el conteo deja de inicializar las etapas en 0  -> 18 / 1
   //   · el deshacer vuelve a usar `agregar`            -> 18 / 1
   //   · quitar una columna vacía vuelve a preguntar    -> 18 / 1
-  const ac = readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8');
+  // El cuerpo de editarEtapaAction vive en lib/etapas-crm-server.ts desde el 23/10/2026 (P0-6, lo usa la API de MaKo).
+  const ac = readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8') + readFileSync(join(RAIZ, 'lib/etapas-crm-server.ts'), 'utf8') + readFileSync(join(RAIZ, 'lib/etapas-crm-reglas.ts'), 'utf8');
   assert.match(ac, /for \(const st of cfg\.stages\) out\[st\.key\] = 0;/,
     'el conteo por etapa no arranca en 0: una etapa vacía se leería como «no sé» y pediría confirmación');
   assert.match(ac, /op\.op === 'insertar'/, 'no hay forma de devolver una etapa quitada');
@@ -940,7 +946,8 @@ test('⚠️ la etapa de ENTRADA: lápiz, y ni se mueve ni la pisan — también
   //   · el server deja mover una etapa `entrada`         -> 24 / 1
   //   · el rótulo por defecto vuelve a «Lead (Instant form)» -> 24 / 1
   const md = limpio(readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8'));
-  const ac = limpio(readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8'));
+  // El cuerpo de editarEtapaAction vive en lib/etapas-crm-server.ts desde el 23/10/2026 (P0-6, lo usa la API de MaKo).
+  const ac = limpio(readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8') + readFileSync(join(RAIZ, 'lib/etapas-crm-server.ts'), 'utf8') + readFileSync(join(RAIZ, 'lib/etapas-crm-reglas.ts'), 'utf8'));
 
   // El rótulo por defecto nombra la ETAPA, no una de las cinco formas de entrar.
   const lead = DEFAULT_STAGES.find((s) => s.key === 'lead');
@@ -957,11 +964,12 @@ test('⚠️ la etapa de ENTRADA: lápiz, y ni se mueve ni la pisan — también
 
   // ⚠️ Y EL SERVER LO HACE CUMPLIR, que es lo único que no se puede saltear con una
   // pestaña vieja o un pedido armado a mano. Son las CUATRO puertas al orden.
-  assert.match(ac, /kind === 'entrada'\) \{\s*return \{ ok: false, error: 'Por esa etapa entra tu gente: no se puede eliminar/,
+  assert.match(ac, /kind === 'entrada'\) \{\s*return 'Por esa etapa entra tu gente: no se puede eliminar/,
     'el server volvió a dejar eliminar la etapa de entrada');
   assert.match(ac, /pipeline\[i\]\.kind === 'entrada' \|\| pipeline\[j\]\.kind === 'entrada'/,
     'el server volvió a dejar mover la entrada, o pasarle algo por encima');
-  assert.match(ac, /if \(iEnt > 0\) pipeline = \[ordenadas\[iEnt\]/,
+  assert.match(ac, /pipeline = pipelineReordenado\(pipeline, op\.keys\);/, 'la op reordenar dejó de pasar por la función que pone la entrada primera');
+  assert.match(ac, /if \(iEnt > 0\) return \[ordenadas\[iEnt\]/,
     'un arrastre puede dejar el embudo empezando por otra etapa');
   assert.match(ac, /const piso = pipeline\.findIndex\(\(st\) => st\.kind === 'entrada'\) \+ 1;/,
     'el deshacer de un borrado puede insertar por delante de la entrada');

@@ -62,7 +62,7 @@ test('el reintento de Whisper espera antes de volver a pedir', () => {
 test('si las keys del negocio no pudieron, escucha la RED DE PLATAFORMA, Groq primero', () => {
   const t = bloque('export async function transcribirAudio(');
   const iNegocio = t.indexOf('await provsDe(nombre)');
-  const iRed = t.indexOf('provsGratisDePlataforma()');
+  const iRed = t.indexOf("provsGratisDePlataforma('audio')");
   assert.ok(iNegocio > 0 && iRed > iNegocio, 'la red de la agencia tiene que ser el ÚLTIMO recurso, después de las keys del negocio');
   assert.match(t, /\[\.\.\.red\.filter\(\(r\) => r\.provider !== 'gemini'\), \.\.\.red\.filter\(\(r\) => r\.provider === 'gemini'\)\]/,
     'si la Gemini del cliente está saturada, la de la agencia también: Groq va primero');

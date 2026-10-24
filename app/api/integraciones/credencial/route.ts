@@ -30,6 +30,7 @@ import { verificarServicio } from '@/lib/metodo-verificar';
 import { descubrirMeta, pixelesDeCuenta } from '@/lib/meta-descubrir';
 import { conectarMetaDisponible, guardarConexionMeta } from '@/lib/meta-conexion';
 import { arrancarHistoricoEnSegundoPlano } from '@/lib/onboarding-extract';
+import { reembeberAlConectarGemini } from '@/lib/reembeber-al-conectar';
 import { leerResultadoMeta } from '@/lib/meta-login';
 import { descubrirGithub } from '@/lib/github-descubrir';
 import { ayudaDeCampo, ENVS_METODO, servicioDeEnv, servicioMetodo } from '@/lib/metodo-catalogo';
@@ -332,6 +333,8 @@ export async function POST(req: NextRequest) {
       // Guardar Meta, Fathom, YouTube o Panda a mano también los conecta: arranca SU parte del histórico (una vez,
       // en segundo plano; lo que no tiene histórico no hace nada).
       if (guardadas > 0) await arrancarHistoricoEnSegundoPlano(ctx.ws, servicio.key);
+      // IA16: con su Gemini, el buscador de su conocimiento vuelve: lo que quedó sin vector se embebe con su cuenta.
+      if (guardadas > 0 && servicio.key === 'gemini') await reembeberAlConectarGemini(ctx.ws);
       const estado = await estadoServicio(servicio.key, ctx);
       return NextResponse.json({ ok: true, guardadas, servicio: estado });
     }

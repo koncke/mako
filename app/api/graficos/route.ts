@@ -49,7 +49,9 @@ import { esFechaValida } from '@/lib/date-utils';
 import { esGrafico, MAX_COMPONENTES, type Componente, type Tablero } from '@/lib/graficos-catalogo';
 import { datosDeGraficos, valoresDeCampo, type PedidoDatos } from '@/lib/graficos-datos';
 import { detalleDeGrafico } from '@/lib/graficos-detalle';
-import { guardarInformeGeneralVersion, guardarTableroVersion, leerTablero } from '@/lib/graficos-tablero';
+import { guardarInformeAutomatizacionVersion, guardarInformeGeneralVersion, guardarTableroVersion, leerTablero } from '@/lib/graficos-tablero';
+import { idDeInformeAutomatizacion } from '@/lib/informe-automatizacion';
+import { automatizacionDelNegocio } from '@/lib/automatizacion-metricas-server';
 import { fuentesDeCampoDeRol, hojaDeRol, informeDeRol, puedePedir } from '@/lib/graficos-plantillas';
 
 /** Los componentes del pop-up del gráfico `id` (en cualquier hoja del informe), o null si no está o no tiene. */
@@ -86,6 +88,22 @@ export async function POST(req: Request) {
     try {
       const r = await guardarInformeGeneralVersion(body.tablero, typeof body.version === 'string' ? body.version : null);
       if (!r.ok) return NextResponse.json({ error: 'El informe cambió en otra pestaña', conflicto: true }, { status: 409 });
+      return NextResponse.json({ tablero: r.tablero, version: r.version });
+    } catch (e) {
+      return err(400, e instanceof Error ? e.message : 'No se pudo guardar');
+    }
+  }
+
+  // Las Métricas de UNA automatización (23/10/2026, lib/automatizacion-metricas.ts): `?informe=automatizacion:<id>`. Sólo
+  // si la automatización es de este negocio: con otro id se escribiría un informe huérfano.
+  const idAutomatizacion = idDeInformeAutomatizacion(new URL(req.url).searchParams.get('informe'));
+  if (body.accion === 'guardar' && idAutomatizacion != null) {
+    if (rol !== 'admin') return err(403, 'Sólo el admin de la cuenta');
+    if (!('version' in body)) return err(409, 'Recarga la página para seguir editando');
+    try {
+      if (!(await automatizacionDelNegocio(idAutomatizacion))) return err(404, 'No existe esa automatización');
+      const r = await guardarInformeAutomatizacionVersion(idAutomatizacion, body.tablero, typeof body.version === 'string' ? body.version : null);
+      if (!r.ok) return NextResponse.json({ error: 'Las métricas cambiaron en otra pestaña', conflicto: true }, { status: 409 });
       return NextResponse.json({ tablero: r.tablero, version: r.version });
     } catch (e) {
       return err(400, e instanceof Error ? e.message : 'No se pudo guardar');

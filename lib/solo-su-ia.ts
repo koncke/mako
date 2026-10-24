@@ -1,5 +1,5 @@
 // =============================================================================
-// solo-su-ia — D6b: con su Claude o su GPT, ningún dato del negocio va a Gemini ni a una IA o red gratis
+// solo-su-ia — D6b: con su IA (su Claude, su GPT o su Gemini), ningún dato del negocio va a una IA que no sea la suya
 // =============================================================================
 // Martín (D6b, 21/10/2026): «un negocio con su Claude o su GPT corre su Ops Center con su cuenta, y Gemini no participa».
 // La primera versión lo cortó sólo en la respuesta del modelo (`chatClaudeTools`), y la revisión del Cerebro encontró el
@@ -8,7 +8,8 @@
 //
 // Por eso el corte va ABAJO DE TODO, no en cada llamador: lib/ai-cheap.ts no le da ninguna key barata (`provDe`) ni la
 // red de la plataforma (`provsGratisDePlataforma`) a nada que corra adentro. Sólo quedan las IA del NEGOCIO que no son la
-// cascada: su clave de Claude (la puerta 2 del veto, lib/anthropic.ts) y su OpenAI (PROVS_SU_IA). El contexto viaja con
+// cascada: su clave de Claude (la puerta 2 del veto, lib/anthropic.ts), su Gemini y su OpenAI (PROVS_SU_IA, IA16: desde el
+// 22/10/2026 su Gemini es su IA, y «Gemini no participa» quiere decir el de la PLATAFORMA). El contexto viaja con
 // AsyncLocalStorage, también a lo que corre después de responder: `after()` de Next lo ata con `AsyncLocalStorage.bind`.
 //
 // ⚠️ IA6 (22/10/2026): «con su IA conectada, TODO el negocio usa la suya». Hasta acá el contexto lo prendía QUIEN ATENDÍA el
@@ -27,8 +28,17 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { FEATURES_DEL_PLAN } from './veto-claude';
 
-/** Las únicas de la cascada que son «su IA» (su GPT, con su key). Lo demás (Gemini, Groq, Mistral, OpenRouter, Cerebras) no. */
-export const PROVS_SU_IA: readonly string[] = ['openai'];
+/**
+ * Las de la cascada que son «su IA», con SU key: su GPT y su Gemini. Martín, 22/10/2026, textual: «Cada usuario debe poder
+ * pagar su token, su propia IA de gemini» — Gemini por clave de AI Studio es su IA igual que Claude o GPT (antes no: era
+ * «la gratis» y la plataforma ponía la suya). Groq, Mistral, OpenRouter y Cerebras no.
+ *
+ * ⚠️ EL ORDEN ES A PROPÓSITO: SU GPT PRIMERO. Muchos negocios cargaron una Gemini GRATIS en el onboarding, cuando MaKo se la
+ * pedía para darles IA gratis (el ws11 tiene Claude, GPT y Gemini). Con D6b sus datos iban sólo a su GPT; con Gemini primero
+ * empezarían a ir, sin aviso, a un plan que entrena. Con su GPT primero, a quien ya lo tenía no le cambia nada, y su Gemini
+ * es el respaldo. `ordenarPorCuota` respeta este orden (lib/ia-cuotas.ts).
+ */
+export const PROVS_SU_IA: readonly string[] = ['openai', 'gemini'];
 
 /** La decisión de ESTE pedido: con su IA (`true`) o como siempre (`false`). Sin store = nadie decidió todavía. */
 const almacen = new AsyncLocalStorage<{

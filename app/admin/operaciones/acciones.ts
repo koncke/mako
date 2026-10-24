@@ -19,7 +19,8 @@ import {
   cancelarPedido, crearTokenCartero, encolarPedido, leerCarteros, listarPedidos, trabajoDeLaCola,
   type EstadoCarteros, type Pedido,
 } from '@/lib/operaciones';
-import { leerPushes, type LecturaPushes } from '@/lib/progreso';
+import { areasDeProgreso, leerPushes, type LecturaPushes } from '@/lib/progreso';
+import { TOPE_PEDIDOS_POR_LECTURA, pedidosDelCentro, type PedidoP } from '@/lib/progreso-reglas';
 import { leerDecisiones } from '@/lib/admin-decisiones';
 import type { DecisionEspera, YaVistos } from '@/lib/centro-chats';
 import { leerYaVistosDe, marcarYaVistoDe } from '@/lib/centro-ya-vistos-db';
@@ -37,7 +38,7 @@ import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { leerMarcasDe, marcarDe } from '@/lib/centro-mensajes-db';
 import { guardarAlias, leerCuentasConNombre } from '@/lib/centro-titulares-db';
 import { leerCreditoApi } from '@/lib/credito-api-db';
-import { desconectar, listarTodasLasPc } from '@/lib/ia-pc';
+import { desconectar, listarPcDelNegocio } from '@/lib/ia-pc';
 import type { LecturaComputadoras } from '@/lib/ia-pc-reglas';
 import { guardarInterruptorDeCredito } from '@/lib/credito-negocio';
 import type { LecturaCredito } from '@/lib/credito-api';
@@ -75,6 +76,20 @@ export async function fotoCentroAction(): Promise<FotoCentro> {
   try {
     const [pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos, yaVistos] = await Promise.all([listarPedidos(), leerCarteros(), decisionesQueEsperan(), leerAbiertas(), leerCuentasConNombre(), leerPasos(), leerUltimosTurnos(), leerYaVistosDe()]);
     return { ok: true, pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos, yaVistos };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** Los pedidos terminados viejos de UN chat, al abrirlo (23/10/2026): la carga ya no los trae (lib/progreso-reglas.ts →
+ *  pedidosDeLaCarga). Por id, recortados como todos (`pedidosDelCentro`). */
+export async function pedidosDelChatAction(ids: string[]): Promise<{ ok: true; pedidos: PedidoP[] } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (!Array.isArray(ids)) return { ok: false, error: 'Faltan los pedidos.' };
+  const pedir = new Set(ids.filter((x): x is string => typeof x === 'string').slice(0, TOPE_PEDIDOS_POR_LECTURA));
+  try {
+    return { ok: true, pedidos: pedidosDelCentro(areasDeProgreso(), Date.now()).filter((p) => pedir.has(p.id)) };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
@@ -146,19 +161,24 @@ export async function creditoDelNegocioAction(ws: unknown, prendido: unknown): P
   }
 }
 
-/** Las computadoras conectadas de TODOS los negocios (SuperAdmin › Uso, 22/10/2026: «Lo mismo en SuperAdmin»). Sin secretos. */
-export async function computadorasAction(): Promise<LecturaComputadoras> {
+/**
+ * Las computadoras conectadas de UN negocio, para su ficha en Clientes (23/10/2026). Ya no las de todos: Martín, al verlas en
+ * «Tus cuentas de IA»: «eso esta muy mal, no tiene nada que ver, estas cruzando workspace» (lib/ia-pc.ts → listarPcDelNegocio).
+ * Sin secretos.
+ */
+export async function computadorasDelNegocioAction(ws: unknown): Promise<LecturaComputadoras> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof ws !== 'number' || !Number.isInteger(ws) || ws <= 0) return { ok: false, error: 'Abre la ficha del negocio otra vez.' };
   try {
-    return { ok: true, pcs: await listarTodasLasPc() };
+    return { ok: true, pcs: await listarPcDelNegocio(ws) };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
 }
 
-/** Desconecta la computadora de un negocio (Martín: «Y poder "Desconectar" dispositivos»): la revoca al instante, y su turno
- *  en curso vence. Devuelve la lista nueva. */
+/** Desconecta la computadora de un negocio (Martín: «Y poder "Desconectar" dispositivos»), desde su ficha: la revoca al
+ *  instante, y su turno en curso vence. Devuelve la lista nueva de ESE negocio. */
 export async function desconectarComputadoraAction(ws: unknown, id: unknown): Promise<LecturaComputadoras> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
@@ -166,7 +186,7 @@ export async function desconectarComputadoraAction(ws: unknown, id: unknown): Pr
   try {
     await desconectar(ws, id);
     console.warn(`[operaciones] el super admin desconectó la PC ${id} del ws ${ws}`);
-    return { ok: true, pcs: await listarTodasLasPc() };
+    return { ok: true, pcs: await listarPcDelNegocio(ws) };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

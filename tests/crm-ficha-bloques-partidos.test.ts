@@ -13,6 +13,7 @@
 //   · `partesDeReunion1` sin mirar los hermanos (la R2 salía dos veces)   → 3 / 1
 //   · Armador sin pasar `hermanos`                                         → 3 / 1
 //   · el registro sin el componente de `reunion-2`                         → 3 / 1
+//   · (23/10/2026) `partesDeReunion1` con el setter y el closer siempre     → 3 / 1
 // Correr: node --import tsx --test tests/crm-ficha-bloques-partidos.test.ts
 // =============================================================================
 
@@ -26,9 +27,11 @@ import { REGLAS_TRACKING, partesDeVisitas } from '../app/crm/lead-view/ficha/reg
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 
 test('el bloque que envolvía dibuja todo en una ficha vieja, y no repite lo que la hoja puso aparte', () => {
-  assert.deepEqual(partesDeReunion1(undefined), { r1: true, cajas: true, r2: true, agendar: true, llamada: true }, 'una ficha vieja (sólo reunion-1): como siempre');
-  assert.deepEqual(partesDeReunion1(['reunion-1', 'reunion-2', 'cohorte']), { r1: true, cajas: true, r2: false, agendar: true, llamada: true });
-  assert.deepEqual(partesDeReunion1(['reunion-1', 'reunion-2', 'agendar-reunion', 'lo-que-salio-de-la-llamada']), { r1: true, cajas: true, r2: false, agendar: false, llamada: false });
+  // ⚠️ `equipo` desde el 23/10/2026: el setter y el closer de las cajas también se van si «Setter y closer» está en la hoja.
+  assert.deepEqual(partesDeReunion1(undefined), { r1: true, cajas: true, equipo: true, r2: true, agendar: true, llamada: true }, 'una ficha vieja (sólo reunion-1): como siempre');
+  assert.deepEqual(partesDeReunion1(['reunion-1', 'reunion-2', 'cohorte']), { r1: true, cajas: true, equipo: true, r2: false, agendar: true, llamada: true });
+  assert.deepEqual(partesDeReunion1(['reunion-1', 'reunion-2', 'agendar-reunion', 'lo-que-salio-de-la-llamada']), { r1: true, cajas: true, equipo: true, r2: false, agendar: false, llamada: false });
+  assert.equal(partesDeReunion1(['reunion-1', 'setter-y-closer']).equipo, false, 'el setter y el closer no se repiten en la R1');
   assert.deepEqual(partesDeVisitas(['visitas']), { visitas: true, video: true, actividad: true, grabacion: true });
   assert.deepEqual(partesDeVisitas(['visitas', 'video-visto', 'grabacion-de-visita']), { visitas: true, video: false, actividad: true, grabacion: false });
 });

@@ -56,7 +56,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
-import { Muneco } from '@/app/admin/operaciones/Muneco';
+import type { CabeceraChat } from '@/app/admin/operaciones/PanelChat';
 import { avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { transcribirNota } from '@/app/_components/useDictar';
 import type { HiloMsg } from '@/app/whatsapp/_shared/ChatHilo';
@@ -680,21 +680,26 @@ export function ChatMako(p: ChatMakoProps) {
   const segundos = estado.t === 'trabajando' ? Math.max(0, Math.round((ahora - estado.desde) / 1000)) : 0;
   const placeholder = ronda ? PLACEHOLDER_OTRA : crea ? PLACEHOLDER_QUIETO : PLACEHOLDER_EDITAR;
 
-  const cabecera = (
-    <div data-cabecera-mako="" style={S.cabecera}>
+  // LA CABECERA ÚNICA (23/10/2026, «Tienes que UNIFICAR los chats con MaKo»): la del panel del Ops Center (PanelChat.tsx), con
+  // la estrella de MaKo (adentro de `[data-chat-sidebar]`, como `role="img"` «MaKo»: la busca el vuelo del loader), «en línea» o
+  // escribiendo al lado, la «←» a la lista antes de la criatura y el ✕. Antes era una cabecera propia.
+  const volverALista = (
+    <>
       {p.onVolver && (
         <button type="button" className="chm-x" data-volver-lista="" onClick={p.onVolver} aria-label={ROTULO_VOLVER} title={ROTULO_VOLVER}>←</button>
       )}
-      <span role="img" aria-label="MaKo" style={{ display: 'inline-flex', flex: 'none' }}><Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo={trabajando ? 'trabajando' : 'despierto'} size={30} /></span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={S.nombre}>MaKo</div>
-        <div style={{ ...S.estado, color: trabajando ? 'var(--mako-ink)' : 'var(--faint)' }}>{trabajando ? ESTADO_ESCRIBIENDO : ESTADO_EN_LINEA}</div>
-      </div>
-      {p.onCerrar && (
-        <button type="button" className="chm-x" onClick={p.onCerrar} aria-label="Cerrar el chat" title="Cerrar">✕</button>
-      )}
-    </div>
+    </>
   );
+  const cabecera: CabeceraChat = {
+    clave: `automations:${p.secuenciaId}`, titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO,
+    animo: trabajando ? 'trabajando' : 'despierto', antes: volverALista,
+    acciones: <>
+      <span data-estado-mako="" style={{ ...S.estado, color: trabajando ? 'var(--mako-ink)' : 'var(--faint)' }}>{trabajando ? ESTADO_ESCRIBIENDO : ESTADO_EN_LINEA}</span>
+      {p.onCerrar && (
+        <button type="button" className="chm-x" onClick={p.onCerrar} aria-label="Cerrar el chat" title="Cerrar" style={{ marginLeft: 'auto' }}>✕</button>
+      )}
+    </>,
+  };
 
   const errorMako = error ? <p data-error-mako="" style={S.error} role="alert"><TextoConLink texto={error.texto} link={error.link} /><ReportarASoporte /></p> : null;
   const encima = estado.t === 'trabajando'
@@ -710,8 +715,8 @@ export function ChatMako(p: ChatMakoProps) {
   return (
     <div ref={raizRef} data-chat-mako="editar" style={S.raiz}>
       <style>{CSS}</style>
-      {cabecera}
       <ChatMakoVista
+        cabecera={cabecera}
         items={items}
         enMensaje={(m) => enGlobo.get(m.id) ?? null}
         escribiendo={trabajando || interpretando ? { segs: segundos } : null}
@@ -1121,8 +1126,6 @@ const S: Record<string, CSSProperties> = {
   // CON SU RELLENO (23/10/2026, Martín: «se corta el diseño del chat de MaKo al costado, con la criatura de MaKo y la topbar
   // de ese chat cortado»): el margen negativo era del `ChatHilo` de antes, que tenía relleno. Sin él, la cabecera salía 4 px
   // por encima del panel (que recorta) y el hilo le pisaba 4 px abajo.
-  cabecera: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px 8px', flex: 'none' },
-  nombre: { fontSize: 14.5, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 },
   estado: { fontSize: 12, lineHeight: 1.3 },
   filaMako: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, minWidth: 0 },
   // Lo que MaKo acomodó solo y el detalle de un «Listo»: plegado y en GRIS (22/10/2026: en rojo, sólo lo pedido que no se hizo).

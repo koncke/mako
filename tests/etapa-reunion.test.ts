@@ -76,7 +76,8 @@ test('la tercera reunión no tiene dónde guardar fecha ni asistencia', () => {
 });
 
 test('la action lo decide del lado del server, con la misma regla', () => {
-  const src = sinComentarios(leer('app/crm/actions.ts'));
+  // El cuerpo de editarEtapaAction vive en lib/etapas-crm-server.ts desde el 23/10/2026 (P0-6, lo usa la API de MaKo).
+  const src = sinComentarios(leer('app/crm/actions.ts') + leer('lib/etapas-crm-server.ts'));
   // La op `reunion` queda por una pestaña con el bundle de antes; la que manda el pop-up desde el
   // 12/10/2026 es `tipo`. Las dos con la MISMA guarda y por la MISMA función (`conTipo`).
   const i = src.indexOf("} else if (op.op === 'reunion') {");
@@ -254,13 +255,13 @@ test('renombrar NO vuelve a marcar Reunión una etapa cuyo nombre YA lo decía: 
   assert.equal(reunionPorNombre(st1, 'st1', 'Propuesta'), true);
   // Al crear no hay nombre de antes.
   assert.equal(reunionPorNombre(st1, 'st1'), true);
-  const src = sinComentarios(leer('app/crm/actions.ts'));
+  const src = sinComentarios(leer('app/crm/actions.ts') + leer('lib/etapas-crm-server.ts'));
   assert.match(src, /if \(enPipeline\) pipeline = marcarSiPareceReunion\(pipeline\.map\(\(st\) => \(st\.key === op\.key \? \{ \.\.\.st, label \} : st\)\), op\.key, pipeline\.find\(\(st\) => st\.key === op\.key\)\?\.label\);/,
     'renombrar dejó de pasar el nombre de antes');
 });
 
 test('la action marca sola al crear y al renombrar, y la pantalla lo dice con su deshacer', () => {
-  const src = sinComentarios(leer('app/crm/actions.ts'));
+  const src = sinComentarios(leer('app/crm/actions.ts') + leer('lib/etapas-crm-server.ts'));
   assert.match(src, /if \(enPipeline\) pipeline = marcarSiPareceReunion\(/, 'renombrar dejó de mirar el nombre');
   assert.match(src, /pipeline = marcarSiPareceReunion\(\[\.\.\.pipeline\.slice\(0, at\), nueva, \.\.\.pipeline\.slice\(at\)\], key\)/, 'crear dejó de mirar el nombre');
   assert.match(src, /if \(!reunionPorNombre\(pl, key, labelAnterior\)\) return pl;/);

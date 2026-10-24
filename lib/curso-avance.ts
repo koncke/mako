@@ -74,7 +74,10 @@ export async function alEnviarTarea(p: { leadId: number; claseId: number }): Pro
     // Las cuatro lecturas son independientes. `progresoDelCliente` ya trae la tarea que la ruta
     // acaba de guardar: quien llama lo hace DESPUÉS de `guardarTarea`.
     const [etapaActual, clases, progreso, entrega] = await Promise.all([
-      etapaActualDe(p.leadId, clase.productoId),
+      // [clase.productoId]: la única que llama es la ruta tarea, DESPUÉS de que claseDelAlumno aceptó la clase, así
+      // que el producto es uno que VE. Sin esto, un curso dado a mano que no es su casa (mig 0331) lo dejaba para
+      // siempre en la primera etapa: productosDelCliente no lo trae. Para un cliente de ese producto es lo mismo.
+      etapaActualDe(p.leadId, clase.productoId, [clase.productoId]),
       clasesDelProducto(clase.productoId),
       progresoDelCliente(p.leadId),
       entregaDeProductoEstricta(clase.productoId),

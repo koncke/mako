@@ -78,7 +78,9 @@ export function ctxDeFlujo(ws: number, origen: string, nombre: string): Ctx {
  *     automatizaciones con IA cada vez que entra un lead es un lazo que gasta la IA del negocio. Su `preparar` también la
  *     rechaza desde un flujo (la clave de scope con `PREFIJO_FLUJO`): esto la saca de la lista, aquello frena un paso viejo.
  */
-export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_con_ia']);
+// `vender_plan_mako` (23/10/2026, revisión adversarial): un paso de un flujo se confirma solo, y vender un plan de MaKo lo
+// confirma el super admin. Su runner además lo rechaza desde un flujo (un paso viejo o importado).
+export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_con_ia', 'vender_plan_mako']);
 
 /**
  * Y lo que se acepta EN EL EDITOR DE VIDEO (pantalla `/video-editor`: las operaciones de su chat, lib/editor-video/chat-api.ts,

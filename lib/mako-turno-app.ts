@@ -42,7 +42,7 @@ import { encolarTurno, esperarALaPc, pcDe, TopeDeTurnos, type Ejecutor } from '@
 import { armarPrompt, AVISO_PC_ILEGIBLE, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, laPersonaEstaAdentro, modeloPc, pcUsable, type FalloDeLaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
 import { IA_DE_LA_PC, MODELO_SU_OPENAI_DEFAULT, NOMBRE_MODELO_IA, type EleccionIA } from '@/lib/chat-ia-reglas';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
-import { entrarSoloSuIA } from '@/lib/solo-su-ia';
+import { PROVS_SU_IA, entrarSoloSuIA } from '@/lib/solo-su-ia';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
 import { esAccion, type Ctx } from '@/lib/api-mako/tipos';
@@ -61,6 +61,7 @@ import { getSetting, setSetting } from '@/lib/settings';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
+import { TABS_CON_CHAT_PROPIO } from '@/lib/chat-mako-reglas';
 import {
   createSession, getSession, listSessions, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
   renameSession, tituloDesde, type ChartSession, type ChartMsgConBloques,
@@ -157,6 +158,21 @@ export async function listarSesiones(persona: PersonaChat): Promise<SesionChat[]
  *  saludo y el título) en el chat de escritorio. */
 export async function nuevaSesion(persona: PersonaChat): Promise<SesionChat> {
   return runWithWorkspace(persona.ws, async () => aSesion(await createSession(persona.chartKey, null, '')));
+}
+
+/**
+ * LA conversación de una tab con chat propio (el Second Brain, 23/10/2026: lib/chat-mako-reglas.ts → TAB_SECOND_BRAIN), con la
+ * clave de la persona y el sufijo de la tab: UNA por persona y por negocio (`runWithWorkspace`). `crear`: si no hay, la crea
+ * (vacía, sin título: el primer turno se lo pone). Sin `crear`, null si todavía no habló. La tab es de una lista cerrada.
+ */
+export async function sesionDeTab(persona: PersonaChat, tab: string, crear: boolean): Promise<SesionChat | null> {
+  if (!TABS_CON_CHAT_PROPIO.includes(tab)) return null;
+  const clave = `${persona.chartKey}:${tab}`;
+  return runWithWorkspace(persona.ws, async () => {
+    const ya = (await listSessions(clave)).sort((a, b) => a.id - b.id)[0];
+    if (ya) return aSesion(ya);
+    return crear ? aSesion(await createSession(clave, null, '')) : null;
+  });
 }
 
 /** Las tarjetas de las pendientes vigentes de UN chat (las de este turno, con `desde`).
@@ -420,8 +436,9 @@ async function iaPropiaDelTurno(): Promise<number | null> {
 }
 
 /**
- * ¿Hay con qué pasar un archivo a El Archivero sin la cascada barata? Su clave de Claude (la puerta 2 del veto) o su
- * OpenAI. Sólo se pregunta con «sólo su IA» (D6b): ahí, sin ninguna de las dos, El Archivero no corre y se dice.
+ * ¿Hay con qué pasar un archivo a El Archivero sin la cascada barata? Su clave de Claude (la puerta 2 del veto), su OpenAI
+ * o su Gemini (`PROVS_SU_IA`, IA16). Sólo se pregunta con «sólo su IA» (D6b): ahí, sin ninguna, El Archivero no corre y se
+ * dice.
  * `pausa`: tiene su clave de Claude pero la plataforma la pausó y no hay OpenAI: se dice eso, no que falta la clave.
  */
 async function puedeArchivarConSuIA(): Promise<'si' | 'no' | 'pausa'> {
@@ -429,7 +446,7 @@ async function puedeArchivarConSuIA(): Promise<'si' | 'no' | 'pausa'> {
     const claude = await permisoDeLaClaveDelNegocio('El Archivero');
     if (claude && 'permiso' in claude) return 'si';
     const { provsDe } = await import('@/lib/ai-cheap');
-    if ((await provsDe('openai')).length > 0) return 'si';
+    for (const p of PROVS_SU_IA) if ((await provsDe(p as never)).length > 0) return 'si';
     return claude && 'pausa' in claude ? 'pausa' : 'no';
   } catch {
     return 'no';

@@ -27,7 +27,7 @@ test('la ruta tiene una entrada por cada lectura de la lista, y cada una es la a
   const bloque = ruta.slice(ruta.indexOf('const LEER'), ruta.indexOf('};', ruta.indexOf('const LEER')));
   const claves = [...bloque.matchAll(/^\s+(\w+): \(/gm)].map((m) => m[1]);
   assert.deepEqual(claves.sort(), [...LECTURAS_CENTRO].sort());
-  for (const a of ['pushesCentroAction()', 'fotoCentroAction()', 'creditoApiAction()', 'computadorasAction()', "leerBandejaAction(req.nextUrl.searchParams.get('vista') === '1')",
+  for (const a of ['pushesCentroAction()', 'fotoCentroAction()', 'creditoApiAction()', "computadorasDelNegocioAction(Number(req.nextUrl.searchParams.get('ws')))", "leerBandejaAction(req.nextUrl.searchParams.get('vista') === '1')",
     "turnosCentroAction(req.nextUrl.searchParams.getAll('l'), req.nextUrl.searchParams.get('dir') ?? undefined)"]) {
     assert.ok(bloque.includes(a), `la lectura ya no pasa por ${a}: la acción es la que chequea al super admin`);
   }
@@ -36,10 +36,14 @@ test('la ruta tiene una entrada por cada lectura de la lista, y cada una es la a
 
 test('quien lee ya no llama a la acción (volvería a la cola)', () => {
   const centro = sinComentarios(leer('app/admin/operaciones/useCentro.ts'));
-  for (const a of ['pushesCentroAction', 'fotoCentroAction', 'creditoApiAction', 'computadorasAction', 'turnosCentroAction']) {
+  for (const a of ['pushesCentroAction', 'fotoCentroAction', 'creditoApiAction', 'computadorasDelNegocioAction', 'turnosCentroAction']) {
     assert.doesNotMatch(centro, new RegExp(`\\b${a}\\(`), `useCentro volvió a leer con ${a}`);
   }
-  for (const q of ['foto', 'pushes', 'credito', 'computadoras']) assert.ok(centro.includes(`leerCentro<`) && centro.includes(`('${q}')`), `falta leerCentro('${q}')`);
+  for (const q of ['foto', 'pushes', 'credito']) assert.ok(centro.includes(`leerCentro<`) && centro.includes(`('${q}')`), `falta leerCentro('${q}')`);
+  // Las computadoras ya no son del Centro (23/10/2026): las lee la ficha de UN cliente, por GET y con su negocio.
+  const ficha = sinComentarios(leer('app/admin/AdminView.tsx'));
+  assert.match(ficha, /leerCentro<LecturaComputadoras>\('computadoras', \{ ws: String\(ws\) \}\)/);
+  assert.doesNotMatch(ficha, /\bcomputadorasDelNegocioAction\(/, 'la ficha volvió a leer con la acción (haría cola)');
   assert.match(centro, />\('turnos', \{ l: locales, dir: claveParaUrl\(c\) \}\)\.catch\(\(\) => null\);/);
   const bandeja = sinComentarios(leer('app/tickets/bandeja/BandejaTickets.tsx'));
   assert.doesNotMatch(bandeja, /leerBandejaAction/);

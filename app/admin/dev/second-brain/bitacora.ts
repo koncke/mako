@@ -551,4 +551,49 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain',
   },
+  {
+    fecha: '23 oct', hora: '19:40', chat: 'Cerebro', sesion: 'local_3c82c204-8262-460c-9fca-b164e2053c9a', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El Second Brain: entrar en el acto y un chat con MaKo a la derecha',
+    pedido: '1. Cuando apreto "Second Brain" primero se va al chat de "Cerebro" y luego de unos segundos ahí recién entra al second brain, eso está muy mal... 3. Y quiero que Second Brain, la sidebar que tiene a la derecha sea reemplazada por un chat con MaKo, que tenga la criatura de MaKo... Que se guarde el historial claro, pero que si no hay nada que MaKo mande el mensaje "Hola NOMBRE. Este es tu Second Brain, aquí está toda la información de tu negocio. ¿Qué quieres saber hoy?"',
+    puntos: [
+      'Llegó por el Cerebro con una captura de /second-brain?chat=40&ticketera=tickets, y lo tomó el chat «Ops Center».',
+    ],
+  },
+  {
+    fecha: '23 oct', hora: '19:39', chat: 'Ops Center', sesion: 'local_090698fe-36a3-4aab-ab7c-9c08a3639065', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tocar «Second Brain» cambia la vista en el acto',
+    puntos: [
+      'Hacia el grafo se ve el loader de MaKo hasta que llega; hacia un chat se ve el chat ya. Antes se veía el Cerebro unos 3 s.',
+      'Un link a la página pelada (el ícono del Ops Center en la barra de la app) vuelve a la entrada, no al último chat.',
+      'Falta mirarlo en pantalla, en producción.',
+    ],
+    commits: [{ sha: 'a5deec11', msg: 'Second Brain: el clic cambia la vista en el acto, con el loader del grafo, y la vista sale de la URL', lineas: 75, archivos: 4 }],
+    archivos: [
+      'app/second-brain/ChatSecondBrain.tsx — `yendo` y `verMapa`; la URL pelada vuelve a la entrada',
+      'tests/ops-center-navegacion.test.ts — test 4',
+    ],
+    revisar: '/second-brain',
+  },
+  {
+    fecha: '23 oct', hora: '19:52', chat: 'Ops Center', sesion: 'local_090698fe-36a3-4aab-ab7c-9c08a3639065', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La columna derecha del grafo es un chat con MaKo',
+    puntos: [
+      'El mismo chat del Ops Center, con la estrella; su propia conversación por persona y negocio, que el Ops Center lista como «Second Brain».',
+      'Vacío, MaKo saluda con el nombre de quien mira y ofrece tres preguntas: lo último, el Norte y lo que le falta saber.',
+      'Lo de la barra de antes: el conteo en la cabecera; el detalle de un punto, encima del chat; las áreas, en «Filtrar».',
+      'Falta mirarlo en pantalla, en producción (computadora y teléfono).',
+    ],
+    commits: [{ sha: 'c733a2be', msg: 'Second Brain: la columna derecha del grafo es un chat con MaKo, con su propio hilo y el saludo de MaKo', lineas: 535, archivos: 13 }],
+    archivos: [
+      'app/second-brain/ChatDelSecondBrain.tsx — el chat de la columna',
+      'app/second-brain/Grafo.tsx — `lateral` y el detalle encima',
+      'lib/chat-mako-reglas.ts — TAB_SECOND_BRAIN, el saludo y el origen',
+      'lib/mako-turno-app.ts — sesionDeTab',
+      'tests/second-brain-chat-mako.test.ts',
+    ],
+    revisar: '/second-brain?panel=mapa',
+  },
 ];

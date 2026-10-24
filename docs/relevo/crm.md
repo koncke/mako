@@ -6,6 +6,71 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω23. 23-24/10/2026, noche (chat «CRM», cuenta `claude2`): «Unificar» dos fichas parecidas
+
+Pedido de Martín (23/10 ~23:20 UTC, por el Cerebro; literal en la bitácora). Rama `crm-unificar-2310` en
+C:/dev/wt-crm-unificar, ENCIMA de `crm-ficha-aut-2310` (9f5936f22): sale con ella o después. El bloque «Posibles
+duplicados» dice en qué CRM está la otra (con su etapa), por qué se parece y desde cuándo existe, con «Abrir» y
+«Unificar». «Unificar» abre la previa (qué queda de cada una, dónde queda, lo que se trae, lo que chocaba) y sólo el admin
+lo confirma. Lo que no se deduce del código está en docs/hallazgos-crm.md («Unificar» dos fichas…).
+
+**Probado en seco con el caso real** (scripts/unificar-en-seco.mts --ws 1 --a 249 --b 3099, sólo lectura): queda el 249 y
+se trae la inscripción 291, 6 mensajes, 4 líneas del historial y 2 envíos, en 13 operaciones. **NO se unificaron en
+producción**: el ws1 es de un cliente y es la prueba de Martín.
+
+**Sin hacer, con el archivo:**
+- Unir fichas que ya son clientes (cuotas, Customer Success, curso, comunidad): lib/leads-unificar-reglas.ts
+  (`TABLAS_DE_CLIENTE`). Hoy no se arma el plan y se dice.
+- `resolverLeadIdsPorTelefono` (lib/evolution-mensajes.ts:224) no ordena: es de Comunicación.
+- La operación en la API de MaKo (`unificar_leads`): no se hizo. Es del chat API de MaKo, sobre `planParaUnificar` y
+  `aplicarUnificar`.
+- Sin ver en pantalla: el bloque y el pop-up, en el ws3 con dos fichas de prueba, después del deploy.
+
+## 0-Ω22. 23/10/2026, noche (chat «CRM», cuenta `claude2`): los datos de cada bloque y el bloque «Automatizaciones»
+
+Pedido de Martín (23/10 ~20:40 UTC, por el Cerebro; literal en la bitácora del CRM). Rama `crm-ficha-aut-2310` en
+C:/dev/wt-crm-fichaut, sobre main 8b3333a19. Lo que no se deduce del código está en docs/hallazgos-crm.md (las dos
+entradas del 23/10 de arriba).
+
+**Pedido 1, los bloques editables a medias** (`7484a5720`): «Obligatorio» por dato en todos los bloques, «Datos ▾» en el
+contacto (sacar teléfono, email o empresa, y sumar Instagram, web, LinkedIn, YouTube o la dirección) y en el setter y el
+closer. La empresa nace apagada en las nueve plantillas, el contacto se quita, la R1 no repite el setter y el closer, y
+«Completar datos» y el toast al mover sólo piden lo obligatorio. tests/ficha-datos-del-bloque.test.ts y
+ficha-obligatorio.test.ts.
+
+**Pedido 2, el bloque «Automatizaciones»** (`e4b324516`, el teléfono en el commit siguiente): sale de la charla a
+app/crm/lead-view/ficha/resumen/automatizaciones.tsx, vuelve arriba en las plantillas del Resumen (se calla sin
+automatizaciones), tiene tres diseños, y su título y el de cualquier bloque se cambian («Título» en la barra). El toast
+del movimiento dice por qué no entró. tests/ficha-automatizaciones.test.ts.
+
+**El contrato con Automations** (sesión `local_a66389ee`, mensaje del 23/10 ~21:00). Ellos hacen lib y las actions; el
+bloque los lee por UNA puerta, app/crm/lead-view/ficha/resumen/automatizaciones-datos.ts:
+- `automatizacionesDelLeadDetalleAction(leadId) → { zona, inscripciones: InscripcionDelLead[], noEntro: NoEntro[] }`.
+  Las vivas y las terminadas de ~30 días, cada una con estado, paso (con el total), lo próximo (título y hora), el freno,
+  cómo terminó, lo enviado (estado y error en palabras), la reentrada y `puede`.
+- `empezarDeNuevoAction(leadId, secuenciaId) → { ok, resumen } | { ok: false, error }`, sólo admin, con la regla de
+  `reactivarInscripcion`.
+- `StageMoveResultado.automatizaciones = { entro, noEntro }` desde `setLeadStageAction`, `completeStageMoveAction` y
+  `resolverQueHacerAction`. El toast ya lo lee (`noEntroDelMovimiento`).
+
+**Entregado el 23/10 (aut2-aviso-vacio, af7bd0ec4, mergeado en esta rama)**, con tres diferencias que el bloque ya
+respeta (`vistaDeDetalle`, app/crm/automatizacion-lead.ts): `estado` es texto (suma `handoff` y `pendiente`), lo
+enviado trae el estado de `nutricion_envios` (no hay «entregado» ni «leído»: no se inventa), y el `NoEntro` trae el motivo
+SIN el nombre y sin el paso (se cruza con la inscripción). La acción es `empezarDeNuevoEnAutomatizacionAction`, y
+`puede.porQueNo` dice por qué no (el botón sale apagado, con el porqué).
+
+**Sin ver en pantalla.** No se levantó la app (escribe en producción). Se mira después del deploy en el ws3 o con la
+sesión del ws10, nunca en el ws1. El contacto con «Datos ▾»: sacar la empresa, el aviso se va. La R1 con «Obligatorio ▾».
+Un lead en una automatización, con el bloque en «Lista», «Una línea» y «Línea de tiempo», a 1440 y a 390. El teléfono:
+/m/crm/<id>.
+
+**Sin hacer, con el archivo:**
+- Elegir los campos de los bloques de Pagos (venta, suscripción, datos fiscales, servicio vendido, promesa y garantía,
+  obligaciones). Son de Cobros: app/crm/lead-view/ficha/pagos/bloques-cobro.tsx y bloques-deal.tsx. Sus avisos ya son
+  por dato.
+- La descripción de `opcion` en cambiar_ficha_funnel (lib/api-mako/areas/crm.def.ts:471) no nombra «datos» ni
+  «titulo=». Es del chat API de MaKo: se le pidió. MaKo igual lo ve en la salida de ver_ficha (`datos`, `datos_posibles`).
+
 ## 0-Ω21. 22-23/10/2026, madrugada (chat «CRM», cuenta `claude3`): «Vincular evento / cobro» e Instagram
 
 **«Vincular evento» y «Vincular cobro»** (feedback de Martín con capturas del ws1, vía el Cerebro): rama `crm-vinc-2210` en

@@ -22,6 +22,12 @@ import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, DETALLE_DISENO_TARJETA, DI
 import { guardarPlantillaPropia, idPlantillaNueva, plantillaPuesta } from '@/lib/plantillas-tarjeta';
 import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, avisoCambioDeTipo, columnaConTipo, tipoDeColumna, type TipoEtapa } from '@/lib/etapa-reunion';
 import { cambiarTipoDeEtapa } from '@/lib/etapa-tipo-server';
+import { editarEtapa, conteosDelEmbudo } from '@/lib/etapas-crm-server';
+import { porQueNoSeElimina, pipelineReordenado } from '@/lib/etapas-crm-reglas';
+import { avisoAlQuitarEtapa } from '@/app/crm/aviso-quitar-etapa';
+import { puedeTenerPlazo, sanearPlazo, PLAZO_MAX_DIAS } from '@/lib/lead-quieto';
+import { umbralesDe } from '@/lib/funnels';
+import { idsParaQuitarNutricion, esTerminal, MAX_LABEL_ETAPA } from '@/lib/pipeline';
 import { cambiarCursoAlGanar, estadoCursoAlGanarEstricto } from '@/lib/crm-curso-al-ganar';
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
@@ -410,6 +416,44 @@ async function etapasDelCrm(input: Record<string, unknown>): Promise<SalidaLectu
   const cfg = await getFunnelDe(crm.embudoId);
   if (cfg.origen === 'error') return fallo('No pude leer ese CRM. Intenta de nuevo.');
   return json({ crm: quien, ...bandasDeEtapas(cfg.stages) });
+}
+
+// ── Editar las etapas de un CRM (23/10/2026, P0-6) ──────────────────────────────────────────────────────────────
+type FunnelLeido = Awaited<ReturnType<typeof getFunnelDefault>>;
+
+/**
+ * El CRM del pedido para editar sus etapas: sin embudoId, el principal (sin leer los productos, como cambiar_tipo_etapa).
+ * El de otro CRM se busca entre los DEL NEGOCIO (`productosCrm`, que scopea). Con la lectura del funnel en `error` no se
+ * propone nada: lo que se lee ahí es el pipeline genérico.
+ */
+async function crmDeEtapas(input: Record<string, unknown>): Promise<{ funnelId: number | null; donde: string; cfg: FunnelLeido } | { error: string; disponibles?: unknown }> {
+  const pedido = n(input.embudoId);
+  let funnelId: number | null = null;
+  let donde = '';
+  if (pedido != null) {
+    const crms = await productosCrm().catch(() => null);
+    if (!crms) return { error: NO_LEI_PRODUCTOS };
+    const crm = crms.find((p) => p.embudoId === pedido);
+    if (!crm) return { error: `El CRM #${pedido} no es de este negocio.`, disponibles: crms.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })) };
+    funnelId = crm.esDefault ? null : crm.embudoId;
+    donde = crm.esDefault ? '' : ` en el CRM «${crm.nombre}»`;
+  }
+  const cfg = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
+  if (cfg.origen === 'error') return { error: 'No pude leer el funnel. Intenta de nuevo.' };
+  return { funnelId, donde, cfg };
+}
+const sinTildes = (x: string) => x.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+/** Una etapa por su key o por su nombre (sin mayúsculas ni tildes), como la busca cambiar_tipo_etapa. */
+const columnaDe = (stages: readonly Stage[], buscada: string): Stage | undefined =>
+  stages.find((st) => st.key === buscada) ?? stages.find((st) => sinTildes(st.label ?? '') === sinTildes(buscada));
+const sinEsaEtapa = (cfg: FunnelLeido, buscada: string) =>
+  ({ error: `Ese funnel no tiene la etapa «${buscada}».`, disponibles: cfg.stages.map((st) => ({ key: st.key, nombre: st.label })) });
+const funnelDelPayload = (p: Record<string, unknown>): number | null => (typeof p.funnelId === 'number' ? p.funnelId : null);
+const nombreDeEtapa = (v: string | undefined): string => (v ?? '').trim().replace(/\s+/g, ' ').slice(0, MAX_LABEL_ETAPA);
+const comoReunion = ' Por su nombre quedó marcada como Reunión: se cambia con cambiar_tipo_etapa.';
+/** Cuántos leads tiene la etapa, con el conteo del pop-up. `null` = no se pudo contar (el aviso lo dice). */
+async function leadsEnEtapa(funnelId: number | null, key: string): Promise<number | null> {
+  try { return (await conteosDelEmbudo(funnelId)).conteos[key] ?? null; } catch { return null; }
 }
 
 // ── los runners ───────────────────────────────────────────────────────────────
@@ -1535,6 +1579,201 @@ export const RUNNERS: Runners = {
       if (!r.ok) return { ok: false, resumen: r.error };
       invalidar('pipeline', 'leads');
       return { ok: true, resumen: `Listo: «${String(payload.nombre)}» es ${NOMBRE_TIPO_ETAPA[tipo]}. Para volver, el mismo pedido con el tipo ${String(payload.previo)}.` };
+    }),
+  },
+  // Editar las etapas (23/10/2026, P0-6): ver crm.def.ts. La MISMA función que el «⋯» y el pop-up (`editarEtapa`,
+  // lib/etapas-crm-server.ts). Al proponer se rechaza lo que se puede saber sin escribir (una pendiente reclamada no
+  // vuelve a «pendiente»); al confirmar, `editarEtapa` vuelve a leer el funnel y con la lectura caída no guarda.
+  renombrar_etapa: {
+    preparar: async (input) => {
+      const c = await crmDeEtapas(input);
+      if ('error' in c) return c;
+      const buscada = s(input.etapa) ?? '';
+      const col = columnaDe(c.cfg.stages, buscada);
+      if (!col) return sinEsaEtapa(c.cfg, buscada);
+      const nombre = nombreDeEtapa(s(input.nombre));
+      if (!nombre) return { error: 'El nombre no puede quedar vacío.', faltan: ['nombre'] };
+      if (nombre === col.label) return { error: `«${col.label}» ya se llama así.`, yaEstaba: true };
+      return {
+        payload: { funnelId: c.funnelId, key: col.key, nombre, antes: col.label },
+        resumen: `Renombrar la etapa «${col.label}» a «${nombre}»${c.donde}. Los leads no se mueven.`,
+      };
+    },
+    ejecutar: (payload) => seguro('renombrar la etapa', async () => {
+      const r = await editarEtapa({ op: 'renombrar', key: String(payload.key), label: String(payload.nombre) }, funnelDelPayload(payload));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidar('pipeline', 'leads');
+      return { ok: true, resumen: `Listo: «${String(payload.antes)}» ahora se llama «${String(payload.nombre)}».${r.reunionSola ? comoReunion : ''}` };
+    }),
+  },
+  agregar_etapa: {
+    preparar: async (input) => {
+      const c = await crmDeEtapas(input);
+      if ('error' in c) return c;
+      const nombre = nombreDeEtapa(s(input.nombre));
+      if (!nombre) return { error: 'Falta el nombre de la etapa.', faltan: ['nombre'] };
+      const igual = c.cfg.stages.find((st) => sinTildes(st.label ?? '') === sinTildes(nombre));
+      if (igual) return { error: `Ya hay una etapa que se llama «${igual.label}» (key ${igual.key}). Si es otra, ponle otro nombre.` };
+      const ref = s(input.despuesDe);
+      let despues: Stage | undefined;
+      if (ref) {
+        despues = columnaDe(c.cfg.stages, ref);
+        if (!despues) return sinEsaEtapa(c.cfg, ref);
+        // Una terminal no está en el pipeline: `editarEtapa` la ignoraría y la pondría antes del cierre, y el resumen
+        // diría otra cosa.
+        if (!c.cfg.pipeline.some((st) => st.key === despues!.key)) return { error: `Después de «${despues.label}» no va una etapa: las terminales van siempre al final.` };
+      }
+      return {
+        payload: { funnelId: c.funnelId, nombre, despuesDe: despues?.key ?? null },
+        resumen: `Agregar la etapa «${nombre}» ${despues ? `después de «${despues.label}»` : 'antes de la etapa donde se cierra la venta'}${c.donde}.`,
+      };
+    },
+    ejecutar: (payload) => seguro('agregar la etapa', async () => {
+      const despuesDe = typeof payload.despuesDe === 'string' ? payload.despuesDe : undefined;
+      const r = await editarEtapa({ op: 'agregar', label: String(payload.nombre), ...(despuesDe ? { despuesDe } : {}) }, funnelDelPayload(payload));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidar('pipeline', 'leads');
+      return {
+        ok: true,
+        resumen: `Listo: la etapa «${String(payload.nombre)}» está en el CRM${r.creada ? ` (key ${r.creada})` : ''}.${r.reunionSola ? comoReunion : ''}`,
+        datos: { key: r.creada ?? null },
+      };
+    }),
+  },
+  eliminar_etapa: {
+    preparar: async (input) => {
+      const c = await crmDeEtapas(input);
+      if ('error' in c) return c;
+      const buscada = s(input.etapa) ?? '';
+      const col = columnaDe(c.cfg.stages, buscada);
+      if (!col) return sinEsaEtapa(c.cfg, buscada);
+      const enPipeline = c.cfg.pipeline.some((st) => st.key === col.key);
+      if (!enPipeline && (col.band ?? 'pipeline') === 'nutricion') return { error: `«${col.label}» es una columna de nutrición: se quita con columna_nutricion_crm.` };
+      // Lo que no se borra lo decide la MISMA función que frena la pantalla al escribir.
+      const no = porQueNoSeElimina(c.cfg.pipeline, col.key);
+      if (no) return { error: no };
+      const leads = await leadsEnEtapa(c.funnelId, col.key);
+      return {
+        payload: { funnelId: c.funnelId, key: col.key, nombre: col.label },
+        resumen: `Quitar la etapa «${col.label}»${c.donde}. ${leads === 0 ? 'No tiene leads.' : avisoAlQuitarEtapa(leads)}`,
+      };
+    },
+    ejecutar: (payload) => seguro('quitar la etapa', async () => {
+      const r = await editarEtapa({ op: 'eliminar', key: String(payload.key) }, funnelDelPayload(payload));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidar('pipeline', 'leads');
+      return { ok: true, resumen: `Listo: «${String(payload.nombre)}» ya no está en el CRM.` };
+    }),
+  },
+  ordenar_etapas: {
+    preparar: async (input) => {
+      const c = await crmDeEtapas(input);
+      if ('error' in c) return c;
+      const pedidas = Array.isArray(input.orden) ? (input.orden as unknown[]).map((x) => String(x)) : [];
+      if (!pedidas.length) return { error: 'Falta el orden de las etapas.', faltan: ['orden'] };
+      const keys: string[] = [];
+      const sinEsa: string[] = [];
+      const alFinal: string[] = [];
+      for (const p of pedidas) {
+        const col = columnaDe(c.cfg.stages, p);
+        if (!col) { sinEsa.push(p); continue; }
+        if (esTerminal(col.key) || !c.cfg.pipeline.some((st) => st.key === col.key)) { alFinal.push(col.label); continue; }
+        if (!keys.includes(col.key)) keys.push(col.key);
+      }
+      if (sinEsa.length) return { error: `Ese funnel no tiene: ${sinEsa.map((x) => `«${x}»`).join(', ')}.`, disponibles: c.cfg.stages.map((st) => ({ key: st.key, nombre: st.label })) };
+      if (alFinal.length) return { error: `${alFinal.map((x) => `«${x}»`).join(', ')} no se ${alFinal.length === 1 ? 'ordena' : 'ordenan'}: las terminales y las nutriciones del catálogo van siempre al final.` };
+      const antes = c.cfg.pipeline.map((st) => st.key);
+      const despues = pipelineReordenado(c.cfg.pipeline, keys).map((st) => st.key);
+      if (despues.join('|') === antes.join('|')) return { error: 'Las etapas ya están en ese orden.', yaEstaba: true };
+      const nombre = (k: string) => c.cfg.stages.find((st) => st.key === k)?.label ?? k;
+      return {
+        payload: { funnelId: c.funnelId, keys },
+        resumen: `Ordenar las etapas${c.donde}: ${despues.filter((k) => !esTerminal(k)).map(nombre).join(' → ')}. Las terminales siguen al final.`,
+      };
+    },
+    ejecutar: (payload) => seguro('ordenar las etapas', async () => {
+      const keys = Array.isArray(payload.keys) ? (payload.keys as unknown[]).map((x) => String(x)) : [];
+      const r = await editarEtapa({ op: 'reordenar', keys }, funnelDelPayload(payload));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidar('pipeline', 'leads');
+      return { ok: true, resumen: 'Listo: las etapas quedaron en ese orden.' };
+    }),
+  },
+  plazo_etapa: {
+    preparar: async (input) => {
+      const c = await crmDeEtapas(input);
+      if ('error' in c) return c;
+      const buscada = s(input.etapa) ?? '';
+      const col = columnaDe(c.cfg.stages, buscada);
+      if (!col) return sinEsaEtapa(c.cfg, buscada);
+      if (!puedeTenerPlazo(col)) return { error: `«${col.label}» no lleva plazo: las terminales y la etapa donde se cierra la venta no se miden.` };
+      const pedido = n(input.dias);
+      if (pedido == null) return { error: 'Faltan los días.', faltan: ['dias'] };
+      const dias = pedido === 0 ? null : sanearPlazo(pedido);
+      if (pedido !== 0 && dias == null) return { error: `El plazo va de 1 a ${PLAZO_MAX_DIAS} días.` };
+      const u = await umbralesDe(c.funnelId);
+      if (u == null) return { error: 'No pude leer el funnel. Intenta de nuevo.' };
+      const previos = u.porEtapa && typeof u.porEtapa === 'object' && !Array.isArray(u.porEtapa) ? (u.porEtapa as Record<string, unknown>) : {};
+      const antes = typeof previos[col.key] === 'number' ? (previos[col.key] as number) : null;
+      if (antes === dias) return { error: dias == null ? `«${col.label}» no tiene plazo.` : `«${col.label}» ya tiene ${dias} días de plazo.`, yaEstaba: true };
+      return {
+        payload: { funnelId: c.funnelId, key: col.key, nombre: col.label, dias },
+        resumen: dias == null
+          ? `Sacarle el plazo a «${col.label}»${c.donde}.`
+          : `Ponerle ${dias} ${dias === 1 ? 'día' : 'días'} de plazo a «${col.label}»${c.donde}: si un lead pasa más que eso ahí sin moverse, MaKo te avisa.`,
+      };
+    },
+    ejecutar: (payload) => seguro('cambiar el plazo de la etapa', async () => {
+      const dias = typeof payload.dias === 'number' ? payload.dias : null;
+      const r = await editarEtapa({ op: 'plazo', key: String(payload.key), dias }, funnelDelPayload(payload));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidar('pipeline', 'leads');
+      return { ok: true, resumen: dias == null ? `Listo: «${String(payload.nombre)}» no tiene plazo.` : `Listo: «${String(payload.nombre)}» tiene ${dias} ${dias === 1 ? 'día' : 'días'} de plazo.` };
+    }),
+  },
+  columna_nutricion_crm: {
+    preparar: async (input) => {
+      const c = await crmDeEtapas(input);
+      if ('error' in c) return c;
+      const activa = b(input.activa);
+      if (activa == null) return { error: 'Falta si se quita (activa false) o se devuelve (activa true).', faltan: ['activa'] };
+      const buscada = s(input.etapa) ?? '';
+      const col = columnaDe(c.cfg.stages, buscada);
+      if (col && c.cfg.pipeline.some((st) => st.key === col.key)) return { error: `«${col.label}» es una etapa del recorrido o una nutrición creada a mano: se quita con eliminar_etapa.` };
+      // Una columna ya quitada no está en las etapas: se devuelve por su key. Los ids salen del PIPELINE, nunca del pedido.
+      const key = col?.key ?? buscada;
+      const ids = idsParaQuitarNutricion(c.cfg.pipeline, c.cfg.labels, key);
+      if (!ids.length) {
+        return { error: `«${col?.label ?? buscada}» no es una columna de nutrición de este CRM.`, disponibles: c.cfg.stages.filter((st) => st.band === 'nutricion').map((st) => ({ key: st.key, nombre: st.label })) };
+      }
+      const apagadas = new Set(c.cfg.suppressed);
+      const nombre = col?.label ?? c.cfg.labels[key] ?? key;
+      if (activa && ids.every((k) => !apagadas.has(k))) return { error: `«${nombre}» ya está en el CRM.`, yaEstaba: true };
+      if (!activa && ids.every((k) => apagadas.has(k))) return { error: `«${nombre}» ya no está en el CRM.`, yaEstaba: true };
+      let aviso = '';
+      if (!activa) {
+        const leads = await leadsEnEtapa(c.funnelId, key);
+        aviso = leads === 0 ? ' No tiene leads.' : ` ${avisoAlQuitarEtapa(leads, { nutricion: true })}`;
+      }
+      return {
+        payload: { funnelId: c.funnelId, key, nombre, activa },
+        resumen: activa
+          ? `Devolver la columna de nutrición «${nombre}»${c.donde}.`
+          : `Quitar la columna de nutrición «${nombre}»${c.donde}: se apagan las nutriciones que llegan a ella.${aviso}`,
+      };
+    },
+    ejecutar: (payload) => seguro('cambiar la columna de nutrición', async () => {
+      const activa = payload.activa === true;
+      const key = String(payload.key);
+      const r = await editarEtapa({ op: activa ? 'ponerNutricion' : 'quitarNutricion', key }, funnelDelPayload(payload));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidar('pipeline', 'leads');
+      return {
+        ok: true,
+        resumen: activa
+          ? `Listo: «${String(payload.nombre)}» volvió al CRM.`
+          : `Listo: «${String(payload.nombre)}» ya no está en el CRM. Para devolverla, columna_nutricion_crm con etapa «${key}» y activa true.`,
+      };
     }),
   },
   // «Invitar al curso al ganar» (23/10/2026, P0-4 de la auditoría): las MISMAS funciones que el «⋯» de la columna

@@ -22,15 +22,15 @@ export const DEFS: Def[] = [
   // WhatsApp (Chatwoot) salió el 09/10/2026: ver tests/sin-chatwoot.test.ts.
   { key: 'email', nombre: 'Email (Resend)', categoria: 'Mensajería', descripcion: 'Envío de emails de nutrición y reportes.', envs: ['RESEND_API_KEY'] },
   // Instagram y Messenger como canales de las automatizaciones (09/10/2026, sexta tanda): salió el
-  // 06/10 con la tab y vuelve como canal. BYOK con respaldo de plataforma (lib/zernio.ts): sin key
-  // propia, la de la agencia, aislada por el profile de Zernio de cada workspace.
-  { key: 'zernio', nombre: 'Instagram y Messenger (Zernio)', categoria: 'Mensajería', descripcion: 'Mensajes de Instagram y Messenger en tus automatizaciones.', envs: ['ZERNIO_API_KEY'] },
+  // 06/10 con la tab y vuelve como canal. BYOK SIN respaldo de plataforma desde el 23/10/2026 (lib/zernio.ts): cada
+  // negocio con SU key de Zernio. Desde esa fecha también conecta Facebook y los anuncios de Meta (lib/zernio-conectar.ts).
+  { key: 'zernio', nombre: 'Facebook, Instagram y anuncios (Zernio)', categoria: 'Mensajería', descripcion: 'Conecta tu Facebook, Instagram y anuncios de Meta con tu cuenta de Zernio.', envs: ['ZERNIO_API_KEY'] },
   // IA = BYOK por cliente (ya NO global): cada workspace usa su propia key y su
   // gasto corre contra su cuenta. Para el dueño, credWs cae al env de respaldo.
   { key: 'anthropic', nombre: 'MaKo IA (Anthropic)', categoria: 'Inteligencia', descripcion: 'Tu Claude: con tu clave, MaKo trabaja solo con tu cuenta (contesta, escribe y analiza). Sirve el crédito de API de Claude Max.', envs: ['ANTHROPIC_API_KEY'] },
   { key: 'openai', nombre: 'OpenAI', categoria: 'Inteligencia', descripcion: 'Tu GPT: con tu clave, MaKo trabaja solo con tu cuenta, escucha audios y mira fotos.', envs: ['OPENAI_API_KEY'] },
-  { key: 'groq', nombre: 'Groq', categoria: 'Inteligencia', descripcion: 'IA rápida para tareas simples y transcripción. Con tu Claude o tu GPT conectado, no se usa.', envs: ['GROQ_API_KEY'] },
-  { key: 'gemini', nombre: 'Google Gemini', categoria: 'Inteligencia', descripcion: 'IA de Google con 1M de contexto. Con tu Claude o tu GPT conectado, no recibe datos de tus clientes.', envs: ['GEMINI_API_KEY'] },
+  { key: 'groq', nombre: 'Groq', categoria: 'Inteligencia', descripcion: 'Pasa a texto tus notas de voz. Con tu Claude, tu GPT o tu Gemini conectado, no se usa.', envs: ['GROQ_API_KEY'] },
+  { key: 'gemini', nombre: 'Google Gemini', categoria: 'Inteligencia', descripcion: 'Tu Gemini: con tu clave de AI Studio, MaKo trabaja solo con tu cuenta, lee documentos largos y busca en tu conocimiento.', envs: ['GEMINI_API_KEY'] },
   // IA8 (22/10/2026): Cerebras, Mistral y OpenRouter se sacaron (0, 0 y 12 llamadas útiles en 30 días). Sus filas
   // guardadas en `credenciales` quedan huérfanas e inertes: borrarlas es SQL, y la Cerebras del ws1 la decide Martín.  // ⚠️ ES BYOK DESDE EL 02/09/2026: la key la trae el CLIENTE.
   //
@@ -77,10 +77,6 @@ export const DEFS: Def[] = [
   // lib/fuentes-leads-catalogo.ts): sin configurar no bajan el medidor de nadie.
   { key: 'hotmart', nombre: 'Hotmart', categoria: 'Pagos', descripcion: 'Cada compra y cada carrito abandonado de Hotmart entran solos a tu CRM.', envs: ['HOTMART_HOTTOK'] },
   { key: 'skool', nombre: 'Skool', categoria: 'Contenido', descripcion: 'Quien pide entrar a tu comunidad de Skool entra solo a tu CRM, con sus respuestas.', envs: ['SKOOL_WEBHOOK_CLAVE'] },
-  // El puente de leads de Meta por Make o Zapier (23/10/2026, lib/zapier-lead.ts; Make es el principal): mientras la app de MaKo no tiene
-  // `leads_retrieval`, el negocio manda sus leads de formularios instantáneos desde su propio Zap. Opcional como las de
-  // arriba (`esIntegracionDeLeads`): la mayoría de los negocios conecta Meta de frente.
-  { key: 'zapier', nombre: 'Leads de Meta por Make o Zapier', categoria: 'Publicidad', descripcion: 'Los leads de tus formularios de Meta entran solos a tu CRM, por Make o Zapier (cuenta de pago, la tuya).', envs: ['ZAPIER_LEADS_CLAVE'] },
   // Donde corren las búsquedas de prospectos del Leads Scraper (15/10/2026, decisión 5): la cuenta de
   // Apify de cada negocio, que paga lo que encuentra. Opcional como las de arriba.
   { key: 'apify', nombre: 'Apify', categoria: 'Datos', descripcion: 'Busca prospectos en Google Maps e Instagram con tu cuenta de Apify.', envs: ['APIFY_TOKEN'] },

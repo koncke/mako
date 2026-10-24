@@ -45,7 +45,7 @@ import { randomBytes, createHmac } from 'node:crypto';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
-import { guardarCredencial, credWs, credWsEstricta } from '../lib/credenciales';
+import { guardarCredencial, credWs, credWsEstricta, wsDelEntorno } from '../lib/credenciales';
 import { argsDeScriptCalendly, puedeBorrarAvisos } from '../lib/calendly-scripts-reglas';
 import { esWebhookDeMako } from '../lib/calendly-aviso-reglas';
 import { wsPorIdentificadorEstricto } from '../lib/webhook-routing';
@@ -96,6 +96,11 @@ async function negociosDeLosTiposDeEvento(org: string): Promise<number[] | null>
 }
 
 async function main() {
+  // El ws del entorno (el 1) lee el token de .env.local como respaldo cuando su fila falta: --ws=1 no se distinguiría de
+  // no pasar --ws, y prometería «sólo la base de N». Se rechaza (24/10/2026, de la revisión adversarial).
+  if (ARGS.ws != null && ARGS.ws === (await wsDelEntorno('CALENDLY_API_TOKEN'))) {
+    throw new Error(`--ws=${ARGS.ws} es el negocio del entorno: córrelo sin --ws (es lo de siempre)`);
+  }
   const token = ARGS.ws != null ? await credWsEstricta('CALENDLY_API_TOKEN', ARGS.ws, { ilegibleTira: true }) : process.env.CALENDLY_API_TOKEN;
   if (!token) throw new Error(ARGS.ws != null ? `El ws ${ARGS.ws} no tiene CALENDLY_API_TOKEN: pégalo en /integraciones?ws=${ARGS.ws}` : 'Falta CALENDLY_API_TOKEN en .env.local');
   H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };

@@ -292,12 +292,14 @@ function correrNucleo(): Corrida {
           return o.cursos || ['Negocio que Escala'];
         },
         linkDeEntrada: async () => { log.push('link'); return 'link' in o ? o.link : 'https://x/api/compartido/curso/entrar?t=c1.9.21.1.f'; },
-        reclamar: async (l, p) => { log.push('reclamar'); if (p != null) log.push('reclamarDe:' + p); return o.reclamar !== false; },
+        reclamar: async (l, p, aMano) => { log.push('reclamar'); if (p != null) log.push('reclamarDe:' + p); if (aMano === true) log.push('reclamarAMano:' + p); return o.reclamar !== false; },
+        // El permiso a mano (mig 0331): ¿es cliente de ese producto? Sólo se pregunta por un ganado.
+        esCliente: async (l, p) => { log.push('esCliente:' + p); return o.esCliente === true; },
         soltar: async () => { log.push('soltar'); },
         negocio: async () => 'Mauricio Ejemplo',
         entrarConGoogle: () => 'https://x/login',
         mandar: async (m) => { log.push('mandar:' + m.email + ':' + m.enlace + ':' + (d.dentro ? 'dentro' : 'fuera')); log.push('programa:' + m.programa); return o.mandar || { enviado: true, enlace: m.enlace }; },
-        marcar: async (id, e, a, p) => { log.push('marcar:' + e); if (p != null) log.push('marcarDe:' + p); },
+        marcar: async (id, e, a, p, aMano) => { log.push('marcar:' + e); if (p != null) log.push('marcarDe:' + p); if (aMano === true) log.push('marcarAMano:' + p); },
         guardarEmailDelLead: async (id, e) => { log.push('guardarEmail:' + e); },
       });
       return { d, log };
@@ -334,6 +336,16 @@ function correrNucleo(): Corrida {
     await caso('noEsSuyo', { productoId: 77 }, { cursosDelProducto: null });
     await caso('productoMalo', { productoId: -1 }, {});
     await caso('caidoPorMako', { productoId: 39 }, { cursosDelProducto: ['Fiesta Music'], mandar: { enviado: false, error: 'RESEND_API_KEY no configurada', enlace: 'e', remitente: 'mako' } });
+    // El permiso a mano (mig 0331): el buscador invita en cualquier etapa, y deja la marca SÓLO si hizo falta.
+    const noGan = { nombre: 'X', email: 'x@x.mx', ganado: false };
+    await caso('manoNoGanado', { productoId: 39, cualquierEtapa: true }, { cursosDelProducto: ['Fiesta Music'], lead: noGan });
+    await caso('manoGanadoCliente', { productoId: 39, cualquierEtapa: true }, { cursosDelProducto: ['Fiesta Music'], esCliente: true });
+    await caso('manoGanadoNoCliente', { productoId: 39, cualquierEtapa: true }, { cursosDelProducto: ['Fiesta Music'], esCliente: false });
+    await caso('manoInvitadoSinPermiso', { productoId: 39, cualquierEtapa: true }, { cursosDelProducto: ['Fiesta Music'], lead: noGan, acceso: { revocado: false, invitacionEnviadaAt: '2026-10-14T00:00:00Z', productos: [39], ingresos: 2 } });
+    await caso('manoYaConPermiso', { productoId: 39, cualquierEtapa: true }, { cursosDelProducto: ['Fiesta Music'], lead: noGan, acceso: { revocado: false, invitacionEnviadaAt: '2026-10-14T00:00:00Z', productos: [39], aMano: [39] } });
+    await caso('manoPermisoSacado', { productoId: 39, cualquierEtapa: true }, { cursosDelProducto: ['Fiesta Music'], lead: noGan, acceso: { revocado: false, invitacionEnviadaAt: '2026-10-14T00:00:00Z', productos: [10], aMano: [39] } });
+    await caso('manoMailCaido', { productoId: 39, cualquierEtapa: true }, { cursosDelProducto: ['Fiesta Music'], lead: noGan, mandar: { enviado: false, error: 'remitente de prueba', enlace: 'e' } });
+    await caso('manoCortado', { productoId: 39, cualquierEtapa: true }, { cursosDelProducto: ['Fiesta Music'], lead: noGan, acceso: { revocado: true, invitacionEnviadaAt: null } });
     console.log(JSON.stringify({ casos: salida, textos: TEXTO_NO_INVITA }));
   `;
   const out = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', '--input-type=module', '-e', codigo], {
@@ -444,6 +456,38 @@ test('a UN curso: el mail nombra sólo ése, «ya invitado» es por producto, y 
   // Un correo que no salió dice POR DÓNDE iba: la pantalla dice de quién fue (lib/curso-invitar-reglas.ts).
   assert.equal(s.caidoPorMako.r.via, 'mako');
   assert.ok(!s.caidoPorMako.log.some((x) => x.startsWith('marcar')), 'un intento que no salió le abrió el curso');
+});
+
+test('el permiso a mano (mig 0331): el buscador lo deja SÓLO cuando hizo falta, y lo de siempre no cambia', { timeout: 180_000 }, () => {
+  const s = nuc();
+  const tiene = (c: string, x: string) => s[c].log.includes(x);
+  // Sin Ganado: sale, y el reclamo y la marca llevan el permiso. A un no ganado no se le pregunta si es cliente.
+  assert.equal(s.manoNoGanado.r.tipo, 'mandado');
+  assert.ok(tiene('manoNoGanado', 'reclamarAMano:39') && tiene('manoNoGanado', 'marcarAMano:39'), 'invitó sin dejar el permiso: el link no abre');
+  assert.ok(!s.manoNoGanado.log.some((x) => x.startsWith('esCliente:')));
+  // Ganado y cliente de ese producto: entra por la venta, sin marca.
+  assert.equal(s.manoGanadoCliente.r.tipo, 'mandado');
+  assert.ok(tiene('manoGanadoCliente', 'esCliente:39'));
+  assert.ok(!s.manoGanadoCliente.log.some((x) => x.includes('AMano')), 'dejó un permiso a quien ya entra por la venta');
+  // Ganado de OTRO producto: hace falta.
+  assert.ok(tiene('manoGanadoNoCliente', 'marcarAMano:39'));
+  // Invitado del 13 al 23/10 sin marca: se vuelve a invitar (no «ya invitado») y queda marcado.
+  assert.equal(s.manoInvitadoSinPermiso.r.tipo, 'mandado', 'el invitado sin permiso quedó trabado en «ya invitado»');
+  assert.ok(tiene('manoInvitadoSinPermiso', 'marcarAMano:39'));
+  // Con el permiso vigente: «ya invitado», sin otro mail.
+  assert.deepEqual(s.manoYaConPermiso.contrato, { ok: true, enviado: false, motivo: 'ya-invitado' });
+  assert.ok(!s.manoYaConPermiso.log.some((x) => x.startsWith('mandar')));
+  // El permiso que su acceso ya no abre (le sacaron el curso): se vuelve a dar.
+  assert.ok(tiene('manoPermisoSacado', 'marcarAMano:39'));
+  // El mail no salió: no se marca nada y se suelta el reclamo.
+  assert.ok(!s.manoMailCaido.log.some((x) => x.startsWith('marcar')) && tiene('manoMailCaido', 'soltar'));
+  // Cortado gana: ni link.
+  assert.deepEqual(s.manoCortado.contrato, { ok: true, enviado: false, motivo: 'cortado' });
+  assert.ok(!tiene('manoCortado', 'link'));
+  // Lo de siempre (sin el buscador) no ve el permiso ni pregunta si es cliente.
+  for (const c of ['feliz', 'aFiesta', 'noGanado']) {
+    assert.ok(!s[c].log.some((x) => x.includes('AMano') || x.startsWith('esCliente:')), `${c} tocó el permiso a mano`);
+  }
 });
 
 test('el mail del curso NO anota nada: correría en el workspace de la plataforma', () => {

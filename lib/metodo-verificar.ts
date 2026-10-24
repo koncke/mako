@@ -382,10 +382,9 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
   // la tarjeta (POST /api/zernio, «estado»), que es donde se elige la cuenta.
   async zernio(v) {
     const key = (v.ZERNIO_API_KEY ?? '').trim();
-    // La key es OPCIONAL: sin key propia lib/zernio.ts usa la de la plataforma. «Sin key» no es un error.
-    if (!key) {
-      return { ok: true, detalle: 'Sin key propia: usa la cuenta de la plataforma.', facts: [{ k: 'Cuenta', v: 'La de la plataforma' }] };
-    }
+    // La key es OBLIGATORIA desde el 23/10/2026 (sin respaldo de la plataforma): sin ella no hay Zernio, y el ping no puede
+    // contestar «anda» (la API de MaKo reusa este ping para decir si la integración responde).
+    if (!key) return { ok: false, error: 'Falta la API key de Zernio.' };
     const { status, body } = await fetchJson('https://zernio.com/api/v1/profiles', {
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
     });
@@ -507,20 +506,6 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
       ok: true,
       detalle: 'Tu clave está guardada. Las solicitudes entran en cuanto publiques el Zap con la misma clave.',
       facts: [{ k: 'Solicitudes en vivo', v: 'Listas, cuando publiques el Zap', c: 'var(--good)' }],
-    };
-  },
-
-  // El puente de leads por Zapier (23/10/2026): la clave la inventa el negocio y no abre ninguna API, igual que la de Skool.
-  async zapier(v) {
-    const t = (v.ZAPIER_LEADS_CLAVE ?? '').trim();
-    if (!t) return { ok: false, error: 'Falta la clave del aviso: sin eso no entra ningún lead de tus formularios.' };
-    // Es lo ÚNICO que separa tu CRM de cualquiera que conozca la dirección: corta, se adivina.
-    if (t.length < 12) return { ok: false, error: 'Usa una clave de 12 caracteres o más: es lo que protege tu CRM.' };
-    if (t.length > 200) return { ok: false, error: 'Esa clave es demasiado larga: usa una de menos de 200 caracteres.' };
-    return {
-      ok: true,
-      detalle: 'Tu clave está guardada. Los leads entran en cuanto publiques el Zap con la misma clave.',
-      facts: [{ k: 'Leads en vivo', v: 'Listos, cuando publiques el Zap', c: 'var(--good)' }],
     };
   },
 

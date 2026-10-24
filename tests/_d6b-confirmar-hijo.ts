@@ -8,8 +8,9 @@
 // por una que hace lo que hace una tarjeta con costo de IA —pedirle a la cascada barata— y anota si corría adentro de
 // «sólo su IA». Toda la red que no es la base se anota por host y contesta 500.
 //
-// El negocio (ws3) tiene su OpenAI (su IA, D6b) y además una Gemini vieja del onboarding: fuera del contexto, la cascada
-// sale a Gemini; adentro, sólo a su OpenAI.
+// El negocio (ws3) tiene su OpenAI y su Gemini: desde IA16 (22/10/2026) las dos son SU IA, así que adentro y afuera su Gemini
+// es legítimo. Lo que no puede salir nunca es la clave de la PLATAFORMA (IA16: MaKo no le presta IA a un negocio): por eso
+// cada pedido se anota con el host y con DE QUIÉN es la clave que lleva («#negocio» o «#plataforma»).
 // =============================================================================
 
 import { crearPostgrest } from './_postgrest-de-mentira';
@@ -25,10 +26,16 @@ const SESION = 77;
 
 const pg = crearPostgrest({ tablas: ['credenciales', 'workspaces', 'app_settings', 'anthropic_usage', 'ia_cuotas', 'ia_rebotes', 'ia_pc_dispositivos', 'chart_sessions', 'chart_chats', 'mako_acciones_pendientes'] });
 let red: string[] = [];
+/** De quién es la clave del pedido: las de mentira empiezan con «negocio-» o «plataforma-» (abajo), viajen en el header o en ?key=. */
+function deQuienEsLaClave(u: URL, init: RequestInit): string {
+  const h = new Headers(init.headers ?? {});
+  const todo = [u.searchParams.get('key'), h.get('authorization'), h.get('x-goog-api-key'), h.get('x-api-key')].join(' ');
+  return /plataforma-/.test(todo) ? '#plataforma' : /negocio-/.test(todo) ? '#negocio' : '';
+}
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
   if (u.host === 'supa.test') return pg.responder(u, init);
-  red.push(u.host);
+  red.push(u.host + deQuienEsLaClave(u, init));
   return new Response(JSON.stringify({ error: { message: 'red de mentira' } }), { status: 500, headers: { 'content-type': 'application/json' } });
 }) as typeof fetch;
 
@@ -78,6 +85,8 @@ async function main() {
   // prueba no vería nada. Desde IA6 «a pelo» ya no sirve de control: la puerta de la capa de IA la pone adentro sola.
   const { conSoloSuIA } = await import('../lib/solo-su-ia');
   await medir('control', () => runWithWorkspace(WS, () => conSoloSuIA(false, ejecutarTarjeta)));
+  // Y que el anotador VE una clave de la plataforma cuando sale una: la misma tarjeta en la plataforma (ws9), que sí usa la suya.
+  await medir('controlPlataforma', () => runWithWorkspace(PLATAFORMA, () => conSoloSuIA(false, ejecutarTarjeta)));
   // A pelo dentro del negocio, sin que nadie decida (IA6): la puerta decide por el negocio, que tiene su OpenAI.
   await medir('aPelo', () => runWithWorkspace(WS, ejecutarTarjeta));
   await medir('tarjetaDelChat', () => confirmarDesdeTarjeta(PERSONA, SESION, 123));

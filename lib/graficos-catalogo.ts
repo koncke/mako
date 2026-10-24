@@ -265,15 +265,23 @@ const FUENTES_BASE: readonly Fuente[] = [
     dimensiones: [...TIEMPO, cat('automatizacion', 'Automatización'), cat('estado', 'Estado'), cat('desenlace', 'Desenlace')],
     metricas: [m('personas', 'Personas'), dist('leads', 'Leads'),
       // v5: las que terminaron en «respondió» o «pasó a una persona» (envios.respondio_at no lo escribe nadie).
-      m('respondieron', 'Respondieron'), r('tasa_respuesta', 'Tasa de respuesta', 'pct', 'respondieron', 'personas', 100)],
+      m('respondieron', 'Respondieron'), r('tasa_respuesta', 'Tasa de respuesta', 'pct', 'respondieron', 'personas', 100),
+      // 23/10/2026, las Métricas de una automatización (lib/automatizacion-metricas.ts): las que siguen en el flujo y
+      // cuánto tardaron en contestar (aproximado: `horasHastaResponder`), como el «tiempo hasta responder» de HubSpot.
+      m('en_curso', 'Siguen en el flujo'), m('horas_sumadas', 'Horas hasta responder (suma)'),
+      r('horas_respuesta', 'Horas hasta responder', 'numero', 'horas_sumadas', 'respondieron')],
   },
   {
     id: 'envios', nombre: 'Mensajes de automatizaciones', area: 'Automations',
     descripcion: 'Lo que mandó cada automatización: por qué canal, si se abrió y si respondieron.',
     fechas: [{ id: 'fecha', nombre: 'Envío' }],
-    dimensiones: [...TIEMPO, cat('automatizacion', 'Automatización'), cat('canal', 'Canal'), cat('estado', 'Estado')],
+    // 23/10/2026 (las Métricas de una automatización): la TARJETA del flujo de la que salió, en el orden del flujo (el
+    // embudo por paso de Klaviyo), y QUÉ fue (un mensaje, un aviso al equipo, otra acción).
+    dimensiones: [...TIEMPO, cat('automatizacion', 'Automatización'), cat('canal', 'Canal'), cat('estado', 'Estado'),
+      { ...cat('tarjeta', 'Tarjeta del flujo'), ordenEtiqueta: true }, cat('tipo', 'Qué fue')],
     metricas: [
       m('envios', 'Envíos'), m('abiertos', 'Abiertos'), m('clics', 'Clics'), m('respuestas', 'Respuestas'),
+      m('enviados', 'Enviados'), m('fallaron', 'Fallaron'), m('avisos', 'Avisos al equipo'), dist('leads', 'Leads'),
       r('tasa_apertura', 'Tasa de apertura', 'pct', 'abiertos', 'envios', 100), r('tasa_respuesta', 'Tasa de respuesta', 'pct', 'respuestas', 'envios', 100),
     ],
   },

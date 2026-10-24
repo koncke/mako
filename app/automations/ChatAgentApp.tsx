@@ -70,6 +70,8 @@ import type { PasoGrafo } from '@/lib/flujo-grafo';
 import type { ParteMensaje } from '@/lib/mensaje-partes';
 import type { CanalSocial } from '@/lib/canal-social';
 import type { MetricasSecuencia } from '@/lib/setting-metricas';
+import { VueltaZernio } from '@/app/_components/VueltaZernio';
+import { avisarMedioConectado } from './ConectarMedio';
 
 export type PasoSecuenciaDto = {
   /**
@@ -240,6 +242,9 @@ export function ChatAgentApp() {
   return (
     <Suspense fallback={null}>
       <ChatAgentInner />
+      {/* La vuelta de un login de Zernio en un teléfono (la pestaña navegó y volvió con `?zernio=`): el botón vive adentro de un modal que ya no existe,
+          y sin esto nadie leía los parámetros. Al conectar se vacían las lecturas cacheadas de los medios (el chip «Sin conectar»). */}
+      <VueltaZernio volver="/automations" onConectado={avisarMedioConectado} />
     </Suspense>
   );
 }

@@ -1986,16 +1986,27 @@ en `preparar` y en `ejecutar` (que relee la celda).
 
 *23/10/2026 · chat «Offer» (cuenta claude1) · medido en prod con un SELECT; no se miró en el navegador.*
 
-**La cuenta de los perdidos no era 6 (23/10, después del deploy).** Los envíos en `fallo` del ws13 son 21 desde el 12/10, no
-6. Pero hasta el 17/10 a la mañana igual salía el aviso del SISTEMA «Nuevo agendado» (en `notificaciones` sin
-`salida`); desde el 17/10 13:58 UTC esas filas dicen `salida: 'sin_automatizacion'`: el aviso pasó a depender de la
-automatización, y la automatización fallaba. Los que de verdad nadie avisó son 11 (Monica Fantoni, Giselle Bellanti,
-Agustina Campo montilla, Mirta G Loiacono, Matías Molina y los 6), y a Mirta el cliente ya la tenía. Martín (por el Cerebro):
-van los 10 en UN mensaje, en orden de llegada REAL (la lista dictada estaba al revés), y sólo después de ver un lead nuevo
-avisar en producción. **Regla:** para contar «a quién no le llegó», cruzar el envío fallido con la fila del feed de ese
-mismo evento: un envío en `fallo` no prueba que el dueño no se enteró. **Sin hacer:** el envío de los dos mensajes
-(scripts/avisar-arreglo-al-grupo.mts y la lista que arma el código) espera ese lead.
-*23/10/2026, chat «Automations» (claude2).*
+**La cuenta de los perdidos: son 19, no 6 ni 10 (24/10, tres conteos independientes que dan los mismos ids).** Se contó
+por los envíos en `fallo`, por los leads que entraron y por lo que llegó de verdad al grupo, y un cuarto releyó contra
+la base cada nombre y cada teléfono. Hay 21 envíos en `fallo`, todos de leads distintos. 19 son de leads que llegaron
+entre el último aviso bueno (lead 2647, 12/10 10:19 ART) y el último fallo (lead 3098, 22/10 23:09 ART). Los otros 2
+(2624 y 2640) son leads viejos que la #264 barrió al prenderse, el 20/10. El 6 eran sólo los fallos de la #264 desde el
+21/10. El 10 (antes 11) salió de una premisa **falsa**: «hasta el 17/10 igual salía el aviso del SISTEMA, porque su fila
+en `notificaciones` no tiene `salida`». La marca `salida` recién existe desde e94f798a3 (17/10). Desde 4e2ebc7d2
+(11/10), «Nuevo agendado» sale SÓLO por una automatización de aviso, y la única (#240) estaba archivada desde el 12/10.
+Ninguno de los 19 tiene un turno en `mako_doer_conv` del grupo. **Regla:** lo que prueba que un aviso LLEGÓ al grupo es
+la fila de `mako_doer_conv` del grupo (`role='assistant'`, `wa_message_id` no nulo), o el store de Evolution. No lo
+prueban la fila del feed sin `salida` ni el «Le avisé al equipo.» de la pendiente: esa frase sale igual si el WhatsApp
+del aviso está apagado y el email prendido. **Otras dos trampas de la misma medición:** la hora del commit no es la de
+producción (0a5f6c9b6 es de las 10:58, entró a main a las 12:18 y quedó Ready a las 12:20:34 ART). Y un lead fusionado
+conserva su `created_at` viejo, así que también hay que buscarlo por la fecha de inscripción. **Hoy (24/10):** 7 de los
+19 siguen abiertos, 4 están ganados, 7 descalificados y 1 perdido. La lista con los 19 no entra en un aviso: 744
+caracteres contra un tope de 500, y el negocio ya usó 1 de sus 3 avisos del día. Qué lista va lo decide el Cerebro. La
+arma `lista-ws13.mts` (sin versionar, en `C:/dev/wt-aut-sab24/scripts/_sab24/`) leyendo la base: nunca una lista copiada. **Sin hacer:** los dos mensajes esperan
+a que un lead nuevo avise bien (`scripts/_sab24/aviso-vivo-ws13.mts` → VERDE). Y 4 inscripciones de la #264 (insc
+240-243, en 'respondio') están frenadas por borradores viejos de la #241 (`wa_borradores` 14, 15, 17, 18). Si alguien
+los manda o los descarta, sale un «Nuevo agendado» tardío, duplicado con la lista.
+*24/10/2026, chat «Automations» (claude1): corrige la entrada del 23/10, que daba 11 y la regla del feed.*
 
 ## Dar y quitar el acceso a un curso por HTTP: invitar existía, pero en un área que no sale por HTTP (23/10/2026)
 
@@ -2088,6 +2099,47 @@ conflicto en cualquier orden. Si el archivo cambia en la otra rama antes del mer
 
 *23/10/2026 · chat «API de MaKo» (claude2) · tests y rotura en el worktree, sin tipos, sin navegador.*
 
+## Editar las etapas de un CRM por la API: el cuerpo de la action se mudó a lib (23/10/2026, auditoría P0-6)
+
+Seis operaciones nuevas en `crm`: `renombrar_etapa`, `agregar_etapa`, `eliminar_etapa`, `ordenar_etapas`, `plazo_etapa` y
+`columna_nutricion_crm`. Hasta hoy la API sólo sabía cambiar el tipo de una etapa (`cambiar_tipo_etapa`, 21/10) y crear un
+CRM entero: lo demás del «⋯» de la columna y del pop-up de etapas era sólo de la pantalla.
+
+**El cuerpo de `editarEtapaAction` vive en `lib/etapas-crm-server.ts` (`editarEtapa`)**, el mismo molde que
+`lib/etapa-tipo-server.ts`. La action quedó con la puerta (admin) y los cachés; la lib no limpia cachés, porque corre
+también desde la API y un flujo (la API usa `invalidar`). Con dos copias de cómo se guarda una etapa, la que se queda vieja
+es la que decide qué se puede borrar.
+
+Lo que queda para código nuevo:
+- **Lo que no se borra lo decide UNA función pura, `porQueNoSeElimina` (`lib/etapas-crm-reglas.ts`)**: las terminales, lo
+  que no está en el pipeline, la última etapa y la de entrada. La op `eliminar` la llama al escribir y `eliminar_etapa` la
+  pregunta en `preparar()`: una pendiente reclamada no vuelve a «pendiente», así que lo que se puede saber sin escribir
+  falla antes del «sí». Lo mismo con el orden: `pipelineReordenado` arma lo que se guarda Y lo que muestra el resumen.
+- **Los leads de la etapa que se quita se cuentan con el conteo del pop-up** (`conteosDelEmbudo`, que se mudó de
+  `extrasDelEmbudoAction` con `etapaComoTablero`): todas las etapas arrancan en 0 y cuenta con la regla que dibuja la
+  tarjeta. `contar_leads_por_etapa` mira sólo el CRM principal y con otra regla: con ése, una etapa propia con gente daba 0.
+  El resumen dice lo que pasa con esos leads con la frase de la pantalla (`avisoAlQuitarEtapa`).
+- **Una etapa se busca por key o por nombre, sin tildes** (`columnaDe`), como `cambiar_tipo_etapa`. `agregar_etapa` rechaza
+  un nombre que ya tiene otra etapa del mismo CRM (un modelo que reintenta crearía dos iguales) y devuelve la key nueva
+  (`editarEtapa` ahora la devuelve en `creada`).
+- **Una columna de nutrición del catálogo no es una etapa**: se quita con `columna_nutricion_crm` (la op `quitarNutricion`,
+  que apaga las transiciones que llegan a ella), no con `eliminar_etapa`. Una vez quitada ya no está en las etapas, así
+  que se devuelve por su key: la respuesta al quitarla la dice.
+
+**Quedó SIN hacer, y dónde:**
+- Apagar UNA transición de nutrición (la op `nutricion`, por id `desde>hacia`) y el orden de la banda Nutrición
+  (`ordenNutricion`): la pantalla los tiene, la API no. Van como P1.
+- Devolver una etapa quitada TAL CUAL (la op `insertar`, que es el «Deshacer» de la pantalla): por la API, quitar una
+  etapa no tiene vuelta (`reversible: false`); se puede volver a crear con `agregar_etapa`, con otra key.
+- Los tests viejos que leían el cuerpo en `app/crm/actions.ts` (`etapa-reunion`, `funnel-estructura`,
+  `leads-por-producto`) ahora leen también la lib y las reglas.
+
+**Vive en:** `lib/etapas-crm-server.ts` · `lib/etapas-crm-reglas.ts` (puro) · `app/crm/actions.ts` (`editarEtapaAction`,
+`extrasDelEmbudoAction`) · `lib/api-mako/areas/crm.def.ts` y `crm.run.ts` · `lib/api-mako/rest.ts` ·
+`tests/api-mako-etapas-crm.test.ts`
+
+*23/10/2026 · chat «API de MaKo» (claude2) · tests y roturas medidos; sin probar contra la base todavía.*
+
 ## La entrega de un cliente y el alumno nuevo, por la API (23/10/2026, auditoría P0-5 y P0-3)
 
 **El síntoma.** Por la API se movía el CRM (`proponer_cambio_etapa`, `mover_lead_en_producto`, que escriben
@@ -2148,6 +2200,77 @@ corren todos los que aparecen.** Acá fueron unos 300 archivos con `--test-concu
 
 *23/10/2026 · chat «API de MaKo» (claude2) · tests y rotura en el worktree, tsc acotado sin errores propios, sin navegador.*
 
+## Vender un plan de MaKo por el chat: lo que mueve plata se confirma en pantalla (23/10/2026, auditoría P0-8)
+
+`vender_plan_mako` es «Vender un plan» de /admin/cobros por el chat del super admin. `crear_link_pago` no servía: exige un
+producto del catálogo y no pone `altaCapa`, así que al pagarse no se creaba la cuenta. Lo que queda para código nuevo:
+
+- **Lo que mueve plata va con `confirmacion: 'pantalla'`, `rolMinimo: 'admin'` y, si es de la plataforma,
+  `gating.soloPlataforma`; sin `'http'` si cobra.** Lo decidió el Cerebro ese día, corrigiendo la primera versión, que
+  se confirmaba por chat con la marca `plata`. El porqué: el precio lo tipea una persona y el link cobra eso, y en la
+  pantalla se puede corregir antes del «sí».
+- **En pantalla, lo que el resumen nombra como SUJETO va `fijoAlRevisar`**: acá el email y el plan. Corregirlos al
+  revisar le vendería otro plan a otra persona con el resumen que se confirmó. El monto sí se edita: es lo que se revisa.
+- **Un runner no llama server actions**: «Vender un plan» vivía adentro de `venderPlanAction` y se mudó a
+  `lib/vender-plan.ts` (`venderPlan`; la validación, a `lib/vender-plan-reglas.ts`). La action quedó con el super admin
+  primero y el `revalidatePath`, y delega. Cobros pidió no armar un segundo camino para crear un cobro con alta de cuenta.
+- **Lo que el camino de la pantalla rechazaría al confirmar, se rechaza en `preparar()`**: el workspace de la plataforma
+  (también en `ejecutar()`), dos leads con el mismo email (no elige uno a ciegas) y la pasarela (ninguna conectada, la
+  pedida no conectada, o dos sin decir cuál). Una pendiente reclamada no vuelve a «pendiente».
+- **El link lo escribe el código**: va a la persona (`paraLaPersona`) y en `datos.url`, que /mako/revisar dibuja como
+  botón. Nunca al resumen que lee el modelo.
+
+### ⚠️ La revisión propia dijo «nada que frene»; la adversarial encontró 16
+
+La primera versión se revisó a mano con tres lentes (el Workflow no corría por la RAM) y salió «no encontró nada que
+frene». Cobros pidió la revisión adversarial antes de soltarla, y con cuatro frentes (alguien sin admin que vende, un plan
+que no existe, el doble clic, un workspace que no es la plataforma) aparecieron 16 confirmados, dos de severidad media. Lo
+que generaliza:
+
+- **`rolMinimo: 'admin'` + `soloPlataforma` es el admin DEL WORKSPACE de la plataforma, no el super admin global.**
+  /admin/cobros exige `getSesionAdmin`; por la API alcanzaba con ser admin del ws de la plataforma. Una acción que la
+  pantalla reserva al super admin lleva `faltaParaConfirmar` y el mismo chequeo en `ejecutar()` (`esSuperAdmin`, con
+  `try`: fuera de un request no hay cookies y eso es un «no»). Al PROPONER no se exige: por WhatsApp no hay sesión.
+- **Un paso «⚡ Acción» de un flujo se confirma solo (`aplicarEnElActo`).** Lo que tiene que confirmar una persona
+  concreta va en `NO_EN_FLUJOS` (lib/api-mako/flujo.ts) Y el runner lo rechaza por `PREFIJO_FLUJO`: el lienzo no lo
+  ofrece, pero un paso viejo o importado lo correría igual.
+- **Lo que va a cobrar se decide ANTES del «sí» y el resumen lo dice.** El resumen nombraba el monto con la moneda que
+  vino (o USD), Mercado Pago cobra en la de su cuenta, y una venta sin el valor en dólares fallaba DESPUÉS del «sí», con
+  el lead ya creado. `previaDeLaVenta` corre `decidirCobro` + `montoUsdDelCobro` sin escribir, y `venderPlan` la llama
+  antes de crear el lead (la pantalla también se benefició).
+- **La lista «en positivo» que excluía.** `CAPAS_VENDIBLES` tenía el comentario «en POSITIVO» y el código
+  `c.id !== 'superadmin'`: una capa nueva entraba sola a la venta, al enum de la operación y al alta al cobrar. Ahora son
+  dos listas (`IDS_VENDIBLES` y `CAPAS_NO_VENDIBLES` con su porqué) y tests/capas-vendibles.test.ts exige cada capa en
+  una. Es el «el nombre decía la intención y el código otra cosa» de `wsDePrueba()`, otra vez.
+- **Una regla dentro de un módulo `server-only` no se ejecuta en ningún test.** `ventaValida` se mudó a
+  `lib/vender-plan-reglas.ts` (puro) y el test la CORRE: capa, email en minúsculas (el alta crea al admin con él), moneda.
+- **Dos pedidos dejaban dos links vivos, y pagar los dos creaba dos cuentas.** `cobroAbiertoDelPlan`: un link pendiente
+  del mismo plan con el mismo precio vuelve como `yaEstaba` con su link; con otro precio, se anula primero.
+- **El comprador por email EXACTO no veía un lead guardado con mayúsculas**, y la venta creaba otro. Va un patrón
+  escapado (`\`, `%`, `_`) por `ilike` y decide `leadPorEmail`, la vara de lib/compra-plan.ts.
+- **En /mako/revisar `paraLaPersona` no se muestra**: el resumen de lo hecho dice dónde quedó el link (Cobros, con el
+  número de cobro).
+
+### Lo que quedó sin hacer
+
+- **`crearCobro` puede quedar a medias** (el cobro escrito y el link de la pasarela fallado, o al revés): vive en
+  `lib/cobros.ts`, es del área Cobros y se les reportó.
+- **`confirmar()` de `app/mako/revisar/[id]/RevisarAccion.tsx` no tiene `try/catch`**: si la action tira, el botón queda
+  girando. Es UI compartida de todas las acciones de pantalla.
+- **`CAPAS_DE_PLAN` de `lib/planes-mako.ts` repite `IDS_VENDIBLES` a mano**: dos listas de lo mismo (chat Planes).
+- **La pantalla no rechaza una cuenta que ya existe** (del equipo de MaKo o de otro negocio): la API sí, porque el email
+  lo transporta un modelo. En la pantalla lo ve Martín, y cambiarla es una decisión de Cobros.
+- **Residual: dos propuestas para un comprador NUEVO confirmadas a la vez** pueden crear dos leads. Un `ref` determinista
+  lo cerraría y bloquearía revender para siempre (una propuesta aplicada bloquea su `ref`).
+
+**Vive en:** `lib/vender-plan.ts` · `lib/vender-plan-reglas.ts` · `lib/capas.ts` (`IDS_VENDIBLES`, `CAPAS_NO_VENDIBLES`) ·
+`app/admin/cobros/actions.ts` (`venderPlanAction`) · `lib/api-mako/areas/cobros.def.ts` y `cobros.run.ts`
+(`vender_plan_mako`) · `lib/api-mako/flujo.ts` (`NO_EN_FLUJOS`) · `tests/api-mako-vender-plan.test.ts` (18 roturas con
+capas-vendibles, cada una al menos 1 fallo) · `tests/capas-vendibles.test.ts` · `tests/admin-cobros.test.ts`
+
+*23/10/2026 · chat «API de MaKo» (claude2) · primera versión con revisión propia; revisión adversarial con agentes
+(wf_fbeb8485-d3c) el mismo día, a pedido de Cobros.*
+
 ## «Toda capacidad nace en la API» es regla desde el 13/10, y la guarda que la hacía cumplir nunca llegó a main (23/10/2026)
 
 **El síntoma.** La auditoría del 23/10 contó 788 operaciones y **174 acciones de pantalla sin declarar** (14 P0, 85 P1, 75
@@ -2207,3 +2330,109 @@ Los route handlers de `/api` que despachan por `action:` van en una segunda fase
 
 *23/10/2026 · chat «API de MaKo» (claude2) · medido con `git cat-file` sobre origin/main y `git log --all` de los tres
 archivos.*
+
+## El onboarding y las ofertas por la API: cinco trampas que no avisaban (23/10/2026, auditoría P0-12, P0-13 y P0-14)
+
+Cinco operaciones nuevas en `negocio`: `cerrar_paso_onboarding`, `marcar_paso_onboarding_tab`, `listar_ofertas`,
+`guardar_oferta` y `borrar_oferta`. La decisión de abrir el onboarding a la API, con su porqué, está en
+docs/hallazgos-onboarding.md (misma fecha). Lo que costó, y vale para cualquier operación que escriba:
+
+**1. `getCapaActual` va memoizado con el `cache` de React por request.** `cerrarPasosOnboarding` leía los pasos de la capa
+por ahí. Una página atiende un workspace por request y no se nota; un flujo o un cron que corre acciones de VARIOS
+workspaces en el mismo request recibiría la capa del primero y cerraría el arranque de otro con los pasos equivocados.
+No se midió en producción: se leyó en el código. La puerta acepta ahora los pasos como 4.º argumento y la API los pasa
+siempre. **Regla: un runner no llama nada que resuelva el workspace o la capa por `getCapaActual`; los lee del `ctx.ws`.**
+
+**2. `capaDelWs` (negocio.helpers) cae a la capa por defecto si no puede leer.** Para listar está bien; para decidir qué
+pasos se pueden cerrar, no: con la base caída, un Project Manager pasaba a tener los pasos de la capa completa. Las dos
+operaciones del onboarding leen la capa con `getWorkspace` (que tira) y, si no hay respuesta, no proponen nada.
+
+**3. En la oferta que sale del perfil (`desde_brief`), escribir promesa, precio, incluye o garantía no cambia lo que MaKo
+escribe.** `resolverOfertaPrincipal` lee esos cinco campos del perfil cuando la fila es `desde_brief`, y es lo que llega a
+los prompts (`perfilNegocioTexto`). La pantalla de ofertas promete lo contrario («escríbelos aquí para que manden estos»),
+y eso es falso hoy. `guardar_oferta` lo dice en el resumen antes de confirmar, y no lo esconde. ⚠️ **El arreglo obvio es el
+equivocado**: hacer que la columna le gane al perfil haría mandar a lo que escribió `sugerir` (el «Que MaKo complete lo que
+falta» de la pantalla llena esas columnas vacías con lo que propone la IA), o sea, una sugerencia le ganaría a lo que el
+dueño declaró. Queda sin hacer: que la pantalla diga la verdad o que guardar esos campos pase la oferta a «declarada».
+
+**4. El GET de la pantalla de ofertas ESCRIBE** (`seedOfertaDesdeBrief` siembra la oferta principal). Una lectura de la API
+no puede reusarlo: `listar_ofertas` no siembra y, sin ofertas, devuelve la del perfil como `oferta_del_perfil`.
+
+**5. Por WhatsApp, un pedido en imperativo no trae acciones.** Medido con `herramientasDelTurno` y el clasificador real:
+«cierra el paso de la fase del onboarding», «cambia el precio de mi oferta Mentoría», «borra la oferta Prueba vieja»
+salen `capturar` con cero herramientas, igual que «borra el producto Mentoría», que ya existía. La pregunta («¿puedes
+cerrar el paso…?») sale `consultar` y trae sólo lecturas. No es de estas operaciones: es del clasificador, y no se tocó.
+Por la app y por HTTP las cinco llegan.
+
+**Lo demás que queda como regla:**
+- **El saneo de una oferta es UNO** (`sanearOfertaInput`, lib/oferta-modelo.ts): lo usan la pantalla y la API, y devuelve lo
+  que DESCARTÓ. La pantalla lo ignora (como antes); la API lo rechaza, porque una fecha mal escrita que desaparece es un
+  dato perdido sin aviso. Una edición parcial parte de la oferta actual (`ofertaConCambios`) al proponer Y al confirmar.
+- **Un paso de onboarding se cierra con el dato vivo**, con la comprobación de su pantalla o una más estricta
+  (`lib/onboarding-hechos.ts`; abajo, por qué «la misma» no era cierto).
+- **`navEnCapa` no es «la capa ve esta tab»** en la capa de la plataforma (mira sólo el sidebar): para eso está
+  `tabEnCapa`. `listar_tabs_por_configurar` sigue usando `navEnCapa`; no se tocó.
+
+**Vive en:** `lib/api-mako/areas/negocio.def.ts` y `negocio.run.ts` · `lib/onboarding-pasos-api.ts` · `lib/onboarding-hechos.ts` ·
+`lib/onboarding-state.ts` · `lib/oferta-modelo.ts` (`sanearOfertaInput`, `ofertaConCambios`) · `lib/ofertas.ts` (`guardarOferta`,
+`usoDeOferta`) · `app/api/onboarding/ofertas/route.ts` · `lib/api-mako/rest.ts` · `tests/api-negocio-onboarding.test.ts`
+
+*23/10/2026 · chat «API de MaKo» (claude2), agente de la revisión de la API · tests y lectura del código; no se corrió
+contra la base.*
+
+### Lo que encontró la revisión adversarial de esas cinco (mismo día, tres lentes)
+
+Las cinco salieron con sus 12 tests en verde y la revisión encontró siete cosas reales. Las tres que importan para código
+nuevo:
+
+**6. En una operación de PANTALLA, lo que decide QUÉ fila se toca tiene que estar fijo al revisar.** `guardar_oferta` sin
+id usaba el nombre como llave (lo que hace el índice único), y en /mako/revisar el nombre se edita: corregirlo cambiaba el
+destino. Una propuesta que decía «Crear la oferta «Mentoría»» pisaba «Programa VIP» si alguien escribía ese nombre al
+revisar, y una que decía «Editar» creaba una nueva. Lo mismo entre proponer y confirmar: si alguien creaba en pantalla una
+oferta con ese nombre, el «sí» la sobrescribía. `aplicarPropuestaGenerica` sólo frena los parámetros `fijoAlRevisar`, y el
+único fijo era `id`. **Arreglo: sin id, siempre se crea, y un nombre que ya existe contesta su id**
+(`planDeOferta`, lib/oferta-modelo.ts, pura y con test). La otra salida, «nombre fijo al revisar», deja sin poder corregir
+una errata del nombre de una oferta nueva.
+
+**7. Un saneo que descarta en silencio + una respuesta que dice «actualizada» = una escritura que miente.** Un
+`urgencia_dato` sin `urgencia_tipo` lo tiraba el saneo sin anotarlo, y la operación contestaba «Oferta actualizada» sin
+haber escrito nada. Y mandar los mismos valores reescribía la fila igual. Ahora: un dato de la urgencia sin su tipo se
+rechaza, lo igual a lo que hay es `yaEstaba` (por HTTP sería un 200 sin cambios), y **se rechaza sólo lo que descarta el
+CAMBIO**: antes, una fila vieja con una urgencia incompleta frenaba cualquier edición por la API, con un error sobre un
+campo que el agente no mandó. ⚠️ Y «ya está así» no vale sobre una fila que el saneo ARREGLA: ahí escribir sí cambia algo
+(lo cazó el test nuevo antes del commit).
+
+**8. Mudar un saneo de lugar cambió lo que guarda la pantalla, y el comentario decía lo contrario.** La ruta de ofertas
+nunca escribía `modelo`. Al mudar el saneo a `sanearOfertaInput` (que lo escribe si viene uno válido, para la API), la
+pantalla empezó a escribirlo: `guardarCampo` (app/onboarding/OfertasView.tsx) manda la oferta ENTERA con el modelo de
+cuando cargó, así que cada campo que se guardaba ahí pisaba el que la ficha del lead o la API habían cambiado. El
+comentario del saneo afirmaba «la pantalla no manda `modelo`», y el test cubría el caso que el comentario describía, no el
+de la pantalla real. Arreglo: la ruta se lo saca antes (`ofertaDeLaPantalla`), con test.
+
+Las otras cuatro, más chicas:
+- **El enum publicaba catorce pasos del arranque y sólo seis se pueden cerrar** (los otros ocho salieron del arranque y
+  contestan siempre «no se puede»). Ahora el enum es `PASOS_ARRANQUE_POR_API`, en positivo, y un test cruza cada paso con
+  su comprobación.
+- **`vg_muletillas` daba siempre cumplido**: «ninguna marcada también es una respuesta», así que no hay dato que comprobar
+  y un token detallado lo cerraba en el acto. Salió de `PASOS_TAB_POR_API`.
+- **«La misma comprobación que su pantalla» no era cierto en cuatro pasos**: `contexto`, `carousels_contexto`,
+  `stories_contexto` y `cg_angulos` exigen el dato aunque la pantalla no. Es el lado seguro y queda así, escrito como
+  «más estricto a propósito».
+- **Las tres de ofertas salían por HTTP sin que nadie lo decidiera.** Pasaron a `SIN_HTTP`, como las tres de Offer: una
+  oferta es lo que el dueño le contó a MaKo, y `prueba` (casos, testimonios) puede traer nombres de personas.
+
+**Quedó SIN hacer, y dónde:**
+- **`crear_oferta_lead` y `oferta_del_lead` (CRM) tocan el mismo catálogo con otra vara**: crean una oferta con precio por
+  chat y salen por HTTP, mientras `guardar_oferta` exige pantalla y no sale por HTTP. `guardar_oferta` ya nombra a
+  `crear_oferta_lead`; falta la otra dirección (lib/api-mako/areas/crm.def.ts) y decidir las dos juntas.
+- **El puente del Copy Generator** corre sólo al confirmar un desmarcado: en un negocio donde nunca corrió, el resumen se
+  arma con los pasos de antes. El «sí» vuelve a revisar con el puente corrido (negocio.run.ts, el comentario del runner).
+- **`productos` cuenta los inactivos**: un catálogo con todo archivado da el paso por hecho. Es el mismo criterio que el
+  chat de arranque (`listProductos()` en lib/onboarding-arranque-server.ts), así que se cambia en los dos o en ninguno.
+
+**Vive en:** `lib/oferta-modelo.ts` (`planDeOferta`, `ofertaDeLaPantalla`, `CAMPOS_OFERTA_EDITABLES`) ·
+`lib/onboarding-pasos-api.ts` (`PASOS_ARRANQUE_POR_API`) · `lib/onboarding-hechos.ts` · `app/api/onboarding/ofertas/route.ts` ·
+`tests/api-negocio-onboarding.test.ts` (15 tests, cada arreglo probado rompiéndolo)
+
+*23/10/2026 · chat «API de MaKo» (claude2) · revisión con tres lentes (seguridad, corrección, contrato), cada hallazgo
+medido con un script; arreglos probados rompiéndolos.*

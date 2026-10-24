@@ -129,8 +129,8 @@ test('elegir una plantilla para una tab reemplaza SÓLO esa tab, no toca los avi
   assert.deepEqual(sugerida.ficha, { plantillasTab: { pagos: plantillaTabDeEntrada('pagos', 'carrito').id } });
   assert.deepEqual(fichaEfectiva('carrito', sugerida.ficha, R).configuradas, ['pagos']);
   assert.equal(ok(aplicarCambio(sugerida.ficha, { op: 'plantilla', tab: 'pagos', plantilla: plantillaTabDeEntrada('pagos', 'carrito').id }, 'carrito', R)).cambio, false, 'elegirla otra vez no escribe nada');
-  // «En blanco»: el contacto del Resumen no se va (no se puede quitar).
-  assert.deepEqual(ids(fichaEfectiva('landing', ok(aplicarCambio({}, { op: 'plantilla', tab: 'resumen', plantilla: 'resumen-en-blanco' }, 'landing', R)).ficha, R).tabs.resumen), ['contacto']);
+  // «En blanco»: en blanco de verdad. ⚠️ REESCRITO EL 23/10/2026: hasta ahí traía el contacto, que no se podía quitar.
+  assert.deepEqual(ids(fichaEfectiva('landing', ok(aplicarCambio({}, { op: 'plantilla', tab: 'resumen', plantilla: 'resumen-en-blanco' }, 'landing', R)).ficha, R).tabs.resumen), []);
   // El respaldo del negocio vale también con una plantilla de tab elegida (Instagram apagado).
   const sinIg = fichaEfectiva('dos-reuniones', { plantillasTab: { resumen: 'resumen-respaldo' } }, { resumen: { instagram: false }, apagados: [] });
   assert.deepEqual(sinIg.tabs.resumen.find((b) => b.id === 'redes-y-web')?.opciones?.redes, ['web']);
@@ -191,7 +191,8 @@ test('lo que armó MaKo: la lista y la épica en UN cambio, y la tab queda confi
   assert.ok(fichaEfectiva('carrito', r.ficha, R).configuradas.includes('tracking'), 'armada por MaKo, la galería no vuelve a abrirse');
   const epica = ok(aplicarCambio({}, { op: 'armar', tab: 'resumen', bloques: [{ id: 'notas', ancho: 12, diseno: 'ultima' }], epica: true }, 'carrito', R));
   const f = fichaEfectiva('carrito', epica.ficha, R);
-  assert.deepEqual(ids(f.tabs.resumen), ['contacto', 'notas']);
+  // ⚠️ REESCRITO EL 23/10/2026: lo armado va tal cual; el contacto ya no se agrega solo (se puede quitar).
+  assert.deepEqual(ids(f.tabs.resumen), ['notas']);
   assert.equal(f.epica.resumen, true);
   assert.deepEqual(sanearCambio({ op: 'armar', tab: 'tracking', bloques: [{ id: 'cuotas' }, { id: 'visitas' }], epica: 'si' }),
     { op: 'armar', tab: 'tracking', bloques: [{ id: 'visitas', ancho: 4, diseno: 'numeros' }], epica: false }, 'lo que llega de afuera se sanea');

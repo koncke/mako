@@ -98,7 +98,7 @@ test('las filas: nombre (con su ⓘ), número, unidad e interruptor; nada más',
   const html = renderToStaticMarkup(createElement('div', null,
     createElement(GrupoOpciones, { titulo: 'WhatsApp', info: '24 h: 6 de 40', primero: true }),
     createElement(FilaOpcion, { nombre: 'Goteo', info: 'Sus WhatsApp salen de a uno.', interruptor: createElement('button', { role: 'switch' }) },
-      createElement('input', { value: '5', readOnly: true }), createElement(Unidad, { apagada: true }, 'min')),
+      createElement('input', { value: '5', readOnly: true }), createElement(Unidad, { apagada: true, children: 'min' })),
     createElement(FilaOpcion, { nombre: 'Por día', sinInterruptor: true }, createElement('input', { value: '40', readOnly: true }), createElement(Unidad, null, 'mensajes')),
   ));
   // El ⓘ es un botón (el teléfono lo toca y le da el foco, que abre el Tooltip) y dice su texto al lector de pantalla.
@@ -130,7 +130,8 @@ test('sin descripciones: ni el goteo, ni la misma persona, ni el horario, ni la 
   // El huso de la tuerca: en el ⓘ de «Horario de oficina», no como línea.
   const hor = fuente('app/configuraciones/HorarioEnvioPanel.tsx');
   assert.doesNotMatch(hor, /data-zona-del-negocio/);
-  assert.match(hor, /\{fuente\.zonaSoloLectura && <Info texto=/);
+  // 23/10/2026: el huso va en la fila de las horas, editable, con la línea de que es del negocio (tests/automations-config-revision.test.ts).
+  assert.match(hor, /\{fuente\.zonaDelNegocio && h\.activo && \(/);
 });
 
 // ── El modal: UNA pantalla, sin pestañas (23/10/2026) ─────────────────────────────────────────────

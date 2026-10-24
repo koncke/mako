@@ -20,6 +20,144 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Unificar» dos fichas parecidas: no existía, y una ficha tiene ~45 columnas colgando (23/10/2026)
+
+**Pedido.** Martín, 23/10 ~23:20 UTC: «En el CRM si me dice "Hay otra ficha parecida", que me de la opción ahí mismo de
+unificarlas, y ese bloque en el detail requiere más info... ¿En que CRM aparece duplicada?».
+
+⚠️ **El diagnóstico obvio era el equivocado: «ya hay una fusión, se usa ésa».** `lead-fusionado` y `avisarFusion`
+(lib/leads.ts) suman un contacto que ENTRA a una ficha que ya está. Dos fichas que ya existen no se podían unir: el
+diseño lo decía («unirlas no existe») y el único parecido, `quitarHuerfano` (lib/zernio-entrante.ts), copia dos campos y
+borra sin mudar nada. Se escribió UNA vez, en lib/leads-unificar.ts.
+
+**Lo que cuelga de una ficha** (inventario contra las migraciones, el 23/10): ~45 columnas, 20 con un índice único que
+choca al mudar.
+- Con FK y CASCADE: borrar la ficha se las lleva.
+- Con SET NULL: pierden el vínculo sin avisar.
+- Sin FK: quedan apuntando a un id muerto. Son lead_audit, lead_respuestas, lead_insights, closing_*, mako_confirmaciones,
+  flujo_corridas (`ctx->>leadId`), chat_* (`clave = lead:<id>`) y notificaciones (`entity_id` texto).
+- Hay arreglos de ids (`lead_orden.lead_ids`, `cliente_entrega_orden.lead_ids`).
+- La comunidad guarda el id adentro de textos con un check (`miembro = 'l:'||lead_id`).
+
+La lista de lo que se muda está en `TABLAS_QUE_SE_MUDAN`. Lo que choca se resuelve uno por uno en `planDeUnificar`
+(lib/leads-unificar-reglas.ts):
+- automatizaciones: una por automatización, y la viva le gana a la terminada;
+- CRM: la casa de la otra pasa a agregada, y en uno compartido queda la etapa más adelantada;
+- etiquetas: la unión;
+- análisis en cola, confirmaciones pendientes, el borrador del setter y el estado de la charla: queda uno de cada cosa.
+
+**No es una transacción, y por eso el orden.** Primero lo que choca, después lo que se muda, después los datos, y la ficha
+que se va se borra AL FINAL. Se borra sólo si ya no le cuelga nada en las tablas que la borrarían en cascada
+(`quedaColgando`). Si algo falla a la mitad, las dos siguen existiendo y no se perdió nada; volver a unificar termina,
+porque cada operación vale dos veces. Una función de SQL lo haría atómico, pero sería una migración a aplicar a mano en
+producción (`scripts/apply-migration.mjs` no deja registro: docs/hallazgos-infra.md).
+
+**Queda la más VIEJA, salvo que la otra tenga la venta o ya sea cliente.** Todos los que buscan a quién es un mensaje
+por el teléfono se quedan con el id más bajo: `matchLeadPorTelefono` (lib/evolution-mensajes.ts:100-109),
+`primerLeadPorTelefono` y `elegirPorTelefono`. Por eso las respuestas de Martín caían en el 249 y no en el 3099
+(docs/hallazgos-chatbot.md). **Sin hacer (es de Comunicación):** `resolverLeadIdsPorTelefono`
+(lib/evolution-mensajes.ts:224-239) no ordena, así que con dos fichas con el mismo teléfono puede elegir una distinta en
+cada pedido.
+
+**Lo de cliente todavía no se une.** Si la que se va tiene cuotas, Customer Success, curso o comunidad, el plan no se
+arma y lo dice. Quedarse con ésa sí se puede, porque lo de cliente no se muda. Mudar las cuotas choca con
+`(lead_id, funnel_id, numero)`, y la comunidad tiene checks sobre textos con el id. **Sin hacer**, con el archivo:
+lib/leads-unificar-reglas.ts (`TABLAS_DE_CLIENTE`).
+
+**Lo que se pierde a propósito, y la previa lo dice:**
+- Las visitas a la página de la que se va: cada ficha guarda un solo `visitor_id`.
+- Los emails entrantes con `workspace_id` NULL, que no se mudan porque no se puede saber de qué negocio son.
+
+**La etapa que se toma en un CRM compartido se escribe directo, sin mover al lead.** No dispara automatizaciones:
+unificar no es mover a nadie.
+
+**El caso real, en seco.** Corrido con scripts/unificar-en-seco.mts el 23/10, sin escribir nada:
+- queda el 249 (la más vieja) y se va el 3099;
+- se traen la inscripción 291 a «Sprint · apertura», 6 mensajes de WhatsApp, 4 líneas del historial y 2 envíos;
+- en Sprint 3 días queda en «Prospección activa», porque el 249 estaba agregado en «Lead entrante»;
+- son 13 operaciones.
+
+**Vive en:** lib/leads-unificar-reglas.ts · lib/leads-unificar.ts · app/crm/unificar-actions.ts ·
+app/crm/lead-view/ficha/resumen/UnificarFichas.tsx · duplicados.tsx · bloques-actions.ts (`dondeEstaLaFicha`) ·
+scripts/unificar-en-seco.mts · tests/ficha-unificar.test.ts. *23/10/2026, chat «CRM» (claude2).*
+
+## «Empresa obligatorio» en todos: no era el `avisa` del catálogo, era el aviso POR BLOQUE (23/10/2026)
+
+**Síntoma.** Martín, 23/10 ~20:40 UTC: «en todos me dice "empresa obligatorio" porque está dentro de un bloque que tiene 3
+datos, y no se puede personalizar». En el lead 3099 del ws1 quedó «Datos sin marcar → ignorado: Empresa».
+
+⚠️ **El diagnóstico obvio era incompleto**: «el contacto trae `avisa: ['telefono', 'empresa']` y `quitable: false`». El
+`avisa` sólo dice qué datos se PUEDEN completar en el bloque. Lo que hacía obligatoria a la empresa eran dos reglas que
+tomaban el BLOQUE como unidad:
+- **El default.** `apagadosDePlantilla` (lib/ficha/plantillas.ts) apaga los datos que ningún bloque de la plantilla
+  completa, y deja avisando todo lo demás. La empresa avisaba en seis de las nueve plantillas sólo por venir en el
+  contacto, al lado del teléfono.
+- **El «Obligatorio» de la barra.** `cubre.every(...)` en Armador.tsx: un toque prendía o apagaba TODOS los datos del
+  bloque juntos. En la R1 eran seis (fechas, Fathom, setter y closer de sus cajas), en la próxima reunión las dos fechas,
+  en las cuotas el plan y el comprobante, en los datos fiscales los dos.
+
+**Regla.** Lo obligatorio es POR DATO, nunca por bloque: el default se decide dato por dato (`NACEN_APAGADOS`), la barra
+lo cambia de a uno («Obligatorio ▾»), y un bloque que junta datos los deja elegir («Datos ▾»: `BloqueDef.datos`,
+`OpcionesBloque.datos`, `avisaDelPuesto`). Sacar un dato del bloque lo deja de pedir en el MISMO cambio si ningún otro
+bloque de la ficha lo completa (un aviso sin dónde completarse en la ficha es el que Martín no quería). Sacar un bloque
+ENTERO sigue sin apagar su aviso (§4 del diseño: lo pide el asistente).
+
+**Los catorce bloques que lo tenían** (enumerados contra el código, no contra el documento): AVISO EN GRUPO en contacto,
+setter-y-closer, proxima-reunion, reunion-1, reunion-2, cuotas y datos-fiscales (todos con «Obligatorio» por dato desde
+hoy); DATOS FIJOS en contacto y setter-y-closer («Datos ▾»), reunion-1 (deja el setter y el closer si la hoja tiene
+«Setter y closer»: `partesDeReunion1().equipo`), y en origen, visitas, venta, suscripcion, datos-fiscales,
+servicio-vendido, promesa-y-garantia y obligaciones. Los dos primeros son de sólo lectura y no obligan nada. **Sin hacer:**
+elegir los campos de los seis de Pagos. Son componentes de Cobros (app/crm/lead-view/ficha/pagos/bloques-cobro.tsx y
+bloques-deal.tsx), y lo que piden lo deciden los `deal*Ok` de lib/stage-requirements.ts.
+
+**Los que leían el aviso por su cuenta.** El «N sin marcar», «A revisar», la API y el teléfono ya respetaban los avisos del
+funnel (`avisanDelLead`). Dos lugares no:
+- «Completar datos» recibía la lista entera (`faltantesDeLead`). El «N sin marcar» decía 1 y el asistente preguntaba 2.
+  Ahora pasa por `loQueSePide` (lib/datos-aviso.ts), en LeadSheet.tsx y LeadDetailBody.tsx.
+- El «Queda pendiente: …» del toast al mover, y su línea «Datos pendientes» del historial, salían de `stepsForStage`
+  pelado. Ahora pasan por `pendientesQueAvisan` (app/crm/actions.ts).
+
+**Regla:** todo lo que se MUESTRA como pendiente pasa por los avisos del funnel. Lo que la etapa EXIGE para moverse no
+pasa por acá: lo suma el server (`requisitosDeEtapaAction`).
+
+⚠️ **La empresa apagada por default no distingue a quien la había prendido a mano.** `normalizar` borra lo que es igual a
+la plantilla, así que un `empresa: true` guardado con la plantilla en `true` no quedó en la base. Esos funnels pasan a no
+avisar. Medido en código, no en la base.
+
+**Vive en:** lib/ficha/catalogo.ts (`DATOS_CONTACTO`, `DATOS_SETTER_Y_CLOSER`) · lib/ficha/config.ts (`avisaDelPuesto`,
+`limpiarOpciones`, el `opciones` de `aplicarCambio`) · lib/ficha/plantillas.ts (`NACEN_APAGADOS`) ·
+app/crm/lead-view/ficha/Armador.tsx · armar.ts (`cubreDe` con el puesto y los hermanos) · lib/datos-aviso.ts
+(`loQueSePide`) · tests/ficha-datos-del-bloque.test.ts. *23/10/2026, chat «CRM» (claude2).*
+
+## El bloque «Automatizaciones» existía desde el 17/10 y nadie lo veía (23/10/2026)
+
+**Síntoma.** Martín pidió «crear un bloque... relacionado a las automatizaciones», y el catálogo ya tenía
+`automatizaciones-en-curso`, con componente desde el 17/10 (./resumen/charla.tsx) y «Frenar» desde el 22/10.
+
+⚠️ **La trampa.** Lo que dibuja el Resumen de un funnel que nadie tocó ya no son las listas de `PLANTILLAS_FICHA`
+(lib/ficha/plantillas.ts): son las plantillas de TAB (lib/ficha/plantillas-resumen.ts, `sugeridaPara`). Las primeras
+siguen decidiendo los AVISOS. El bloque estaba en cuatro listas de funnel y en ninguna plantilla de tab, porque la #880
+(17/10, «templates más simples») lo sacó de las de entrada. Leyendo el catálogo y las plantillas de funnel parecía que
+se veía.
+
+**Regla.** Para saber qué ve un funnel sin tocar, se mira `plantillaTabDeEntrada(tab, tipo)`, no `listaDePlantilla`. Un
+bloque que se calla sin datos puede volver a las de entrada sin agrandar nada: el techo de #880 no lo cuenta
+(tests/ficha-plantillas-simples.test.ts).
+
+**Lo que quedó:** el bloque se mudó a ./resumen/automatizaciones.tsx (la tarjeta «Sequences» de HubSpot) y lee y actúa
+por UNA puerta (./resumen/automatizaciones-datos.ts). Hoy lee la lista de siempre. El detalle (lo enviado, las
+terminadas, lo que no entró, «Empezar de nuevo») lo arma Automations con el contrato de docs/relevo/crm.md §0-Ω22. El toast
+del movimiento lee `automatizaciones.noEntro` de la respuesta, sin suponer que existe (`noEntroDelMovimiento`).
+
+**El título de un bloque va por `opciones.titulo`, no por un `op` nuevo.** `tests/ficha-api.test.ts` exige que el enum
+`cambio` de cambiar_ficha_funnel (lib/api-mako/areas/crm.def.ts, del chat API de MaKo) sea igual a `CAMBIOS_API`. Un `op`
+nuevo obligaba a tocar el registro de la API y su snapshot en paralelo con otro chat. Por `opciones` la API ya lo hace
+(«titulo=…»).
+
+**Vive en:** app/crm/automatizacion-lead.ts (la vista, pura) · app/crm/lead-view/ficha/resumen/automatizaciones.tsx ·
+automatizaciones-datos.ts · lib/ficha/plantillas-resumen.ts · app/m/crm/ficha-bloques.ts (`filaDeAutomatizaciones`) ·
+tests/ficha-automatizaciones.test.ts. *23/10/2026, chat «CRM» (claude2).*
+
 ## «Esa etapa no existe en el CRM»: `noresp` no está en `data.pipeline` y existe igual (23/10/2026)
 
 **Síntoma:** leyendo `funnels.data.pipeline` del CRM #44 del ws1 («Sprint 3 días») se concluyó que el último paso de la
@@ -10721,3 +10859,18 @@ notificación.
 **Vive en:** lib/topes-crm.ts · lib/topes-crm-reglas.ts (puro) · app/crm/PasarAPro.tsx · app/crm/actions.ts (`altaDeLead`,
 la de WhatsApp, `importarLeadsRevisadosAction`) · app/crm/nuevo-crm-actions.ts · tests/crm-topes-plan-23-10.test.ts
 *23/10/2026, chat «CRM» (claude3).*
+
+## Editar etapas: el cuerpo de `editarEtapaAction` vive en `lib/etapas-crm-server.ts` (23/10/2026)
+
+Se mudó para que la API de MaKo pueda renombrar, agregar, quitar, ordenar, ponerle plazo a una etapa y quitar o devolver
+una columna de nutrición por la MISMA función (P0-6 de la auditoría de la API; el detalle, en
+docs/hallazgos-api-mako.md). Lo que cambia para quien toque el CRM:
+- **Una op nueva de `OpEtapa` se escribe en `editarEtapa`** (lib/etapas-crm-server.ts), no en la action. La action sólo
+  tiene la puerta (admin) y los cachés (`bust` y `revalidatePath`).
+- **Lo que no se borra y el orden** son funciones puras de `lib/etapas-crm-reglas.ts` (`porQueNoSeElimina`,
+  `pipelineReordenado`).
+- **El conteo por etapa del pop-up** es `conteosDelEmbudo` (con `etapaComoTablero`), en la misma lib: lo usa también la API
+  antes de quitar una etapa.
+
+**Vive en:** lib/etapas-crm-server.ts · lib/etapas-crm-reglas.ts · app/crm/actions.ts
+*23/10/2026, chat «API de MaKo» (claude2).*

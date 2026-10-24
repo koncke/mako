@@ -282,11 +282,14 @@ async function ordenDe(productos: readonly number[]): Promise<Record<number, Rec
  * Los productos de UN cliente, calculados en el server con la MISMA regla que la pantalla.
  * Lo usa «Quitar de este producto» antes de escribir: el botón sólo se ofrece con dos o más
  * productos, pero esconder un botón no protege nada.
+ *
+ * `ofrecidos`: los productos que el negocio ofrece, en el orden del catálogo. Lo usa la puerta del alumno
+ * (`productosQueVe`, mig 0331) para ordenar y acotar lo que se le dio a mano.
  */
-export async function productosDelCliente(leadId: number): Promise<{ productos: number[]; casa: number | null }> {
+export async function productosDelCliente(leadId: number): Promise<{ productos: number[]; casa: number | null; ofrecidos: number[] }> {
   const { productos, productoDeFunnel, funnelDefault } = await productosOfrecibles();
   const ofrecidos = productos.map((p) => p.id);
-  if (!ofrecidos.length) return { productos: [], casa: null };
+  if (!ofrecidos.length) return { productos: [], casa: null, ofrecidos: [] };
   const db = await getTenantDb();
   const [{ data: lead, error: e1 }, { data: filas, error: e2 }, fuera] = await Promise.all([
     db.from('leads').select('funnel_id').eq('id', leadId).maybeSingle(),
@@ -302,7 +305,7 @@ export async function productosDelCliente(leadId: number): Promise<{ productos: 
     tieneFilas: ofrecidos.some((p) => conFila.has(p)),
     fuera: fuera.get(leadId),
   });
-  return { productos: ofrecidos.filter((p) => p === casa || conFila.has(p)), casa };
+  return { productos: ofrecidos.filter((p) => p === casa || conFila.has(p)), casa, ofrecidos };
 }
 
 /**

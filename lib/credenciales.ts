@@ -195,6 +195,30 @@ export async function credDelCliente(clave: string, ws?: number): Promise<string
   const v = await credDeBase(w, clave);
   return esValorReal(v) ? v : null;
 }
+
+/**
+ * La credencial PROPIA de un workspace, con «NO PUDE LEER» = TIRA (23/10/2026). Es la suma de las dos de arriba:
+ *   · como `credDelCliente`, NUNCA cae a `process.env`. `credWsEstricta` sí: para el `OWNER_WS` (el ws1, que es un
+ *     cliente y a la vez «la plataforma» para las claves de entorno) devuelve el entorno cuando no hay fila, y eso es
+ *     entregarle la cuenta de la casa a un negocio sin que nada falle;
+ *   · como `credWsEstricta`, un error de la base TIRA. `credDelCliente` (por `credDeBase`) no mira el `error` de
+ *     supabase-js y devuelve null: «no pude leer» se lee «no tiene», y el negocio ve «falta conectar» con la base caída.
+ * `ilegibleTira`: una fila que existe y no se descifra también es «no pude leer» (el secreto rotó, la fila se dañó).
+ * La usa Zernio (`cfg`, lib/zernio.ts): cada negocio con SU clave, sin respaldo de la plataforma (decisión de Martín, 23/10).
+ */
+export async function credDelClienteEstricta(clave: string, ws: number, opts: { ilegibleTira?: boolean } = {}): Promise<string | null> {
+  if (!supabaseConfigurado()) return null;
+  const { data, error } = await getSupabaseServer()
+    .from('credenciales').select('valor_enc').eq('workspace_id', ws).eq('clave', clave).maybeSingle();
+  if (error) {
+    throw Object.assign(new Error(`credenciales (${clave}): ${error.message}`), {
+      code: error.code, details: error.details, hint: error.hint,
+    });
+  }
+  const v = data ? descifrar(data.valor_enc as string, ws, clave) : null;
+  if (data && v == null && opts.ilegibleTira) throw new Error(`credenciales (${clave}): la fila del ws ${ws} existe y no se puede descifrar`);
+  return esValorReal(v) ? v : null;
+}
 // ── La barrera de arranque y el resolver de credenciales de PLATAFORMA ───────
 // Problema que resuelven (medido en producción el 2026-08-05):
 // `hidratarCredenciales()` corre en instrumentation.ts, pero Next 16 invoca

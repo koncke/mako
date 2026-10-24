@@ -26,7 +26,7 @@ test('el hilo: lo de la persona con su sección y sus archivos; lo del agente en
   assert.match(hueco, /if \(m\.de === 'pedido'\) return \{ arriba: <BurbujaDePedido burbuja=\{m\.burbuja\} onBoton=\{\(b\) => alBoton\(m\.id, b\)\} \/> \};/);
   assert.match(hueco, /abajo: m\.propuesta && m\.estado \? \(\s*<RevisionPropuesta[\s\S]*onAceptar=\{\(\) => void aceptar\(m\)\}/);
   assert.match(panel, /<HiloAgente items=\{items\} corriendo=\{hilo\.corriendo\} enMensaje=\{enMensaje\} \/>/);
-  assert.match(chat, /const QUIEN = \{ nombre: 'Web Generator' \};/);
+  assert.match(chat, /const QUIEN = \{ nombre: 'MaKo', aspecto: ASPECTO_MAKO \};/, 'la estrella de MaKo (23/10/2026)');
 });
 
 test('las piezas entran con next/dynamic (el panel lo cargan tests) y el panel no arma ninguna caja', () => {

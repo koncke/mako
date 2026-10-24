@@ -2909,3 +2909,63 @@ otra pantalla cuenta lo que esa pantalla dibuja**, no las filas que hay.
 `lib/angulos-formatos.ts` · `lib/cerebro-grafo.ts` · `lib/api-mako/areas/contenido.*` · `tests/angulos-sin-recomendacion.test.ts`
 
 *23/10/2026 · chat «Offer» (cuenta claude1) · medido en prod con un SELECT; no se miró en el navegador.*
+
+---
+
+## La API de MaKo ya cierra pasos del onboarding: la decisión del Cerebro, y lo que la hace segura (23/10/2026)
+
+**El pedido.** Martín, 23/10/2026: «Y si hay que hacer una revisión completa de la API, porque creo que faltan muchas
+acciones posibles». La auditoría de ese día (P0-12 y P0-13) encontró que la API sólo LEÍA el onboarding: un negocio que
+un chat de afuera dejó con perfil, productos y fase seguía con el arranque bloqueando la app, y un Copy Generator con
+avatares, lead magnet y personalidad cargados seguía pendiente (y por eso el Video Generator no abría).
+
+**Lo que estaba escrito, y por qué no lo prohibía.** La entrada del 16/10 de este documento dice: «La API de MaKo no
+cambió, a propósito: el onboarding es la primera conversación de una persona y no tiene sentido que un agente la haga
+por ella». La decisión del Cerebro (23/10/2026), textual: «va. El "a propósito" de hallazgos-onboarding cuida la PRIMERA
+conversación de la persona (el chat de arranque), y cerrar o postergar un paso no la toca. Además, el 23/10 Martín pidió
+que todo lo que se hace en pantalla esté en la API». **El porqué, en una línea:** lo que protegía aquella frase era la
+conversación, no el estado; cerrar un paso cuyo dato YA existe no reemplaza ninguna pregunta que la persona tenía que
+contestar.
+
+**Las reglas que quedan** (código en `lib/onboarding-pasos-api.ts`, puro y con test; las lecturas en `lib/onboarding-hechos.ts`):
+- **Un paso se cierra con el DATO VIVO, nunca con la palabra del modelo.** Cada paso se comprueba con el criterio que ya
+  tiene su pantalla: «Tu negocio» = el perfil dice a qué se dedica (`negocio_que_hace`, lo que el arranque escribe
+  siempre); «Lo que vendes» = al menos un producto; «El diagnóstico de fase» = guardado; «Verificar tu teléfono» = el
+  GUARDADO es el verificado; «Conectar tus cuentas» = todas las que pide su capa.
+- **«Tu plan de arranque» (capa Project Manager) no deja un dato propio**: es el cierre del modo 'plan' del chat, que lo
+  marca junto con el negocio y la fase. Por la API se exigen esos dos. No se inventó un dato que no existe.
+- **Los pasos que salieron del arranque** (archivero, entregable, avatares, persona, personalidad, angulos, gemini, retro)
+  vuelven `sinDato` y no se cierran por la API. El `satisfies Record<PasoOnboarding, …>` obliga a decidir el próximo.
+- **Postergar, sólo `PASOS_POSTERGABLES`**, y se rechaza si lo que el paso pide ya está resuelto: lo cierto es cerrarlo
+  como hecho. Un paso ya cerrado (o ya postergado) es «ya está así» (`yaEstaba`), no otra escritura.
+- **Nunca toca el chat de arranque**: no escribe `onboarding.arranque`, y el estado se escribe por la MISMA puerta que el
+  wizard y el chat (`cerrarPasosOnboarding`). Cuando con ese paso quedan todos, el resumen que confirma la persona lo dice
+  («el arranque termina y la persona entra directo a la app»). Confirmación por chat, sólo el admin.
+- **Los pasos de una tab que la API marca son los de CONTEXTO** (`PASOS_TAB_POR_API`): Copy Generator entero (la matriz
+  se comprueba con las celdas de un avatar que existe), las fotos y el acento del Video Generator, la guía de voz de
+  Automations y el contexto de Carousels y Stories. Los ensayos y las conexiones los cierra la tab al comprobarlos; las
+  muletillas tampoco («ninguna marcada también es una respuesta»: no hay dato que comprobar, y marcarlas desde afuera
+  sería contestar por la persona; revisión del mismo día); los que la página deriva sola (Reels, Clientes, Curso, Ads Manager…) no se tocan.
+- **Desmarcar va por `desmarcarPasoEnTodasLasTabs`** (el paso vive en la tab Y en el registro compartido), y en el Copy
+  Generator corre antes `puentearPasosCopyGen`: si el puente de una sola vez todavía no corrió, la próxima carga volvía a
+  marcar lo que se acaba de desmarcar.
+
+**Trampas que aparecieron:**
+- **`getVozCliente` no devuelve `acentoOrigen`.** Lo guarda `setAcentoCliente`, pero el getter lo tira: por ese camino no
+  se puede saber si el acento lo eligió la persona o se sugirió por la zona. La API marca `vg_acento` con cualquier acento
+  guardado, que es lo que hace la pantalla (también marca con 'sugerido-zona' si no se tocó el control).
+- **«Teléfono verificado» tiene dos criterios.** El arranque, el wizard y ahora la API exigen que el teléfono guardado sea
+  el verificado; `lib/onboarding-pendientes.ts` (el recordatorio de /general) mira sólo `.verificado`. No se tocó.
+- **`MIN_FOTOS = 5` vivía adentro de `PersonaView`**: se mudó a `lib/persona-reglas.ts`, que leen la pantalla y la API.
+
+**Lo que quedó SIN hacer:**
+- Que MaKo por WhatsApp las ofrezca con un pedido dicho en imperativo: el clasificador lo toma como algo para anotar
+  (ver docs/hallazgos-api-mako.md, misma fecha). Por la app y por HTTP llegan.
+- No se corrió contra la base ni en el navegador: las reglas están probadas con tests (puros y de fuente).
+
+**Vive en:** `lib/onboarding-pasos-api.ts` · `lib/onboarding-hechos.ts` · `lib/onboarding-state.ts` (`cerrarPasosOnboarding`,
+con la capa como 4.º argumento) · `lib/persona-reglas.ts` · `lib/api-mako/areas/negocio.def.ts` y `negocio.run.ts`
+(`cerrar_paso_onboarding`, `marcar_paso_onboarding_tab`) · `tests/api-negocio-onboarding.test.ts`
+
+*23/10/2026 · chat «API de MaKo» (claude2), agente de la revisión de la API · leído en el código y probado con tests; no
+se corrió contra la base.*

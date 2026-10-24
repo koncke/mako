@@ -171,11 +171,11 @@ export const CONECTA_TU_CLAUDE = 'Conecta tu Claude en Integraciones: lleva dato
  * (lib/mako-turno-app-reglas.ts). Lo dicen pantallas del admin (las áreas y la búsqueda del Second Brain): la clave es suya.
  * `tema` va adentro de la frase: 'generar las razones', 'leer tus documentos'…
  */
-export const conSuIASinClave = (tema: string): string => `Con tu propio Claude, para ${tema} necesito tu clave de Claude o de OpenAI (en Integraciones).`;
+export const conSuIASinClave = (tema: string): string => `Con tu propio Claude, para ${tema} necesito tu clave de Claude, de OpenAI o de Gemini (en Integraciones).`;
 
-/** Lo mismo para MIRAR una foto o un PDF escaneado: con su propio Claude sólo su OpenAI ve (su clave de Claude no está en
- *  la cascada de visión). El mismo criterio que `AVISO_NO_LEI_SU_IA` del chat. */
-export const CON_SU_IA_SIN_VISION = 'Con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de Claude o de OpenAI (en Integraciones).';
+/** Lo mismo para MIRAR una foto o un PDF escaneado: con su propio Claude ven su OpenAI y su Gemini (IA16). El mismo criterio
+ *  que `AVISO_NO_LEI_SU_IA` del chat. */
+export const CON_SU_IA_SIN_VISION = 'Con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de Claude, de OpenAI o de Gemini (en Integraciones).';
 
 /** Qué era lo que MaKo estaba por hacer, para que la frase no quede genérica. */
 export type QueIntentaba = 'contestar' | 'escuchar tu audio' | 'armar el borrador';

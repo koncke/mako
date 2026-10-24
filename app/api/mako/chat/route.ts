@@ -41,11 +41,12 @@
 
 import type { NextRequest } from 'next/server';
 import {
-  personaDelRequest, listarSesiones, abrirSesion, nuevaSesion, turnoApp, confirmarDesdeTarjeta, cancelarDesdeTarjeta, urlDeAdjunto,
+  personaDelRequest, listarSesiones, abrirSesion, nuevaSesion, sesionDeTab, turnoApp, confirmarDesdeTarjeta, cancelarDesdeTarjeta, urlDeAdjunto,
   urlDeVozDelChat, escucharNotaDelChat,
 } from '@/lib/mako-turno-app';
 import { validarAdjuntos, esMp3, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
-import { CONTEXTO_SECOND_BRAIN, antesValido } from '@/lib/chat-mako-reglas';
+import { CONTEXTO_SECOND_BRAIN, antesValido, appDeEscritorio, type AppDeEscritorio } from '@/lib/chat-mako-reglas';
+import { tipoDeDispositivo } from '@/lib/movil-dispositivo';
 import { sanearDesde } from '@/lib/chat-desde';
 import { estadoDeTrabajo } from '@/lib/chat-trabajos';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
@@ -80,6 +81,20 @@ const enteroDe = (v: unknown): number | null => {
  * workspace de la plataforma, sí (contesta la de la plataforma). Si no se pudo saber, sí: un bache de la base no le pide que
  * conecte algo que ya está.
  */
+async function laApp(persona: PersonaChat, req: NextRequest): Promise<AppDeEscritorio> {
+  // La app de escritorio (23/10/2026, lib/chat-mako-reglas.ts → appDeEscritorio, «Bloqueá igual»). El teléfono sale del pedido,
+  // con la misma pregunta del proxy (`tipoDeDispositivo`): ahí no se instala, así que no se bloquea. Si no se pudo saber, `tiene`:
+  // un bache de la base no le tapa el chat a nadie.
+  try {
+    const plataforma = persona.ws === (await wsSuperAdmin());
+    const conComputadora = !plataforma && (await pcDe(persona.ws, persona.actor)) != null;
+    const telefono = tipoDeDispositivo(req.headers.get('user-agent'), req.headers.get('sec-ch-ua-mobile')) !== 'escritorio';
+    return appDeEscritorio({ plataforma, conComputadora, telefono });
+  } catch {
+    return 'tiene';
+  }
+}
+
 async function conSuIA(persona: PersonaChat): Promise<boolean> {
   try {
     if (persona.ws === (await wsSuperAdmin())) return true;
@@ -107,8 +122,13 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   try {
     if (sp.get('sesiones')) return json({ ok: true, sesiones: await listarSesiones(persona) });
+    // La conversación de una tab con chat propio (el Second Brain, 23/10/2026), si ya existe: se lee, no se crea.
+    if (sp.has('deTab')) return json({ ok: true, sesion: await sesionDeTab(persona, sp.get('deTab') ?? '', false) });
     // Y las cuentas que el «+» de la caja deja elegir para ESTE chat (8b, lib/chat-ia.ts): sin ellas, el selector no se dibuja.
-    if (sp.get('suIA')) return json({ ok: true, conectada: await conSuIA(persona), cuentas: await cuentasDeIA(persona).catch(() => []) });
+    if (sp.get('suIA')) {
+      const [conectada, cuentas, app] = await Promise.all([conSuIA(persona), cuentasDeIA(persona).catch(() => []), laApp(persona, req)]);
+      return json({ ok: true, conectada, cuentas, app });
+    }
     if (sp.has('marcas')) {
       const chat = sp.get('marcas');
       if (!esChatDeMarcas(chat)) return json({ ok: false, error: 'Falta el chat.' }, 400);
@@ -257,10 +277,17 @@ export async function POST(req: NextRequest) {
       return json({ ok: false, error: 'Algo falló de nuestro lado. Intenta de nuevo.' }, 500);
     }
   }
-  let body: { action?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown; desde?: unknown; ia?: unknown };
+  let body: { action?: unknown; tab?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown; desde?: unknown; ia?: unknown };
   try { body = await req.json(); } catch { return json({ ok: false, error: 'Pedido inválido.' }, 400); }
   try {
-    if (body.action === 'new') return json({ ok: true, sesion: await nuevaSesion(persona) });
+    if (body.action === 'new') {
+      // La de una tab con chat propio (el Second Brain): la suya, o una nueva con el primer mensaje. Una tab que no la tiene, 400.
+      if (body.tab != null) {
+        const sesion = typeof body.tab === 'string' ? await sesionDeTab(persona, body.tab, true) : null;
+        return sesion ? json({ ok: true, sesion }) : json({ ok: false, error: 'Esa pantalla no tiene su chat.' }, 400);
+      }
+      return json({ ok: true, sesion: await nuevaSesion(persona) });
+    }
     // Las marcas de la persona en un mensaje (el menú del clic derecho): suyas, en su negocio (lib/chat-mako-marcas-db.ts).
     if (body.action === 'marcar') {
       const cambio = sanearCambio(body.cambio);

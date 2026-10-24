@@ -1060,6 +1060,25 @@ con lib/usuarios.ts de verdad y una base en memoria):
 - Si el mail de acceso no sale, hoy la persona se entera sólo si mira el aviso «Entró un pago» o /admin/cobros: el
   comprador ve «no pudimos mandarte el mail» en /listo, pero nadie le reenvía solo.
 
+### `crearCobro` tiraba con la pasarela a medio camino (23/10, a pedido de la revisión de `vender_plan_mako`)
+
+`crearCobro` escribe la fila y recién después llama a la pasarela. `actualizar` (lib/cobros.ts) **tira** ante un error de la base,
+y los dos `actualizar` de después de la pasarela estaban sin red: (a) la pasarela rechaza y la base falla al anular → `crearCobro`
+TIRABA en vez de decir el motivo, y la fila quedaba `pendiente` sin link; (b) la pasarela crea el checkout y la base falla al guardar
+su link → tiraba, el checkout quedaba creado con su `ref` perdido. «Un link sin su fila» no puede pasar (la fila va primero);
+lo real era la fila sin link y el checkout sin rastro.
+- *Dónde dolía:* el link de una CUOTA. Un `pendiente` sin url es «el link vivo» de esa cuota (`cuotaParaLink` lo devuelve como
+  `yaEstaba`): en Stripe `urlParaPagar` genera la sesión al abrirlo, en **Mercado Pago un pendiente sin url es un link muerto**
+  (`no_disponible`) y la cuota no admite otro hasta anularlo. En una venta de plan, cada reintento deja otro pendiente huérfano.
+- *Ahora:* `cerrarCheckoutDelCobro` (lib/cobros-reglas.ts) no tira. Rechazo → anula con el motivo (si la base falla, lo loguea) y
+  devuelve el error de la pasarela; checkout creado → guarda, reintenta UNA vez; si sigue sin poder, **anula la fila CON el `ref` y
+  la url** (la reconciliación lee los anulados con `proveedor_ref`: un pago por ese link entra por «pago por un link anulado», 4b) y
+  dice «intenta de nuevo». No se entrega un link que la fila no conoce. Además lo CIERRA en la pasarela (`cerrarLinkEnLaPasarela`, el mismo cierre de `anularCobro`): el refutador marcó que, sin eso, una suscripción de MP autorizada seguiría cobrando. Y el anulado lleva `soloSi: pendiente/fallido`, para no pisar un pago que se asentó en el medio.
+- *Sin hacer:* una función que muere ENTRE el insert y la pasarela (o entre ella y el guardado) sigue dejando un `pendiente` sin url;
+  para Mercado Pago, `urlParaPagar` no regenera el checkout como hace con Stripe (lib/cobros.ts, rama `mercadopago`). Es raro (un corte de
+  la función, no un error de la base) y queda el rastro; regenerarlo con `idemCobro(id, 0)` sería la salida.
+- *Vive en:* lib/cobros-reglas.ts (`cerrarCheckoutDelCobro`) · lib/cobros.ts (`crearCobro`) · tests/cobro-checkout-cierre.test.ts.
+
 **Vive en:** lib/alta-cliente.ts · tests/alta-cliente-conducta.test.ts · lib/stripe-catalogo.ts · app/crm/CobroDeEtapaModal.tsx.
 
 ## La suscripción de MaKo de punta a punta: pagar, quedar adentro, deber y volver (23/10/2026)
@@ -1268,3 +1287,35 @@ el domingo se arregló en la rama `cobros-lanzamiento-2310`. La prueba de humo p
 | El aviso de la venta nombra el plan por la capa (un Pro dice «plan Agencia») | `lib/cobros.ts` (`lineaDelAlta`, `asentarAlta`) |
 | (Corte) `cobrosDeLugares` sin paginar | `lib/plan-acceso.ts:59` |
 **Vive en:** `lib/cobros.ts` · `lib/compra-plan.ts` · `lib/cobros-conexion.ts` · `app/admin/cobros/` · `app/api/integraciones/credencial/route.ts` · `tests/cobro-lanzamiento.test.ts`.
+
+## El área y la bitácora de Cobros apuntan a donde ya NO vive «vender un plan» (24/10/2026, Cerebro › Integración)
+
+Lo encontró la revisión del tren de 24 puntas, y es la trampa de «una ruta que apunta a
+la nada no rompe nada, y por eso es cara». El cuerpo de vender un plan se mudó a
+`lib/vender-plan.ts` (`venderPlan`) y `app/admin/cobros/actions.ts:34-40` quedó
+delegando, pero:
+
+- la bitácora (`app/admin/dev/payment-gateway/bitacora.ts:57`) sigue diciendo
+  «`app/admin/cobros/actions.ts` — vender un plan: el lead del comprador + `crearCobro`
+  en `wsSuperAdmin()`»;
+- el encabezado de la propia action (`app/admin/cobros/actions.ts:9`) sigue diciendo que
+  «busca o crea el lead del comprador y llama a `crearCobro`»;
+- y el `vive[]` del área `payment-gateway` (`app/admin/dev/areas.ts:952-960`) **no nombra**
+  `lib/vender-plan.ts` ni `lib/vender-plan-reglas.ts`.
+
+O sea que el próximo agente que abra Cobros no ve dónde vive el camino que crea el cobro
+con `altaCapa`. La nota de esa misma área lo pide: «quien escribe la ruta actualiza el
+área, o el área miente sola» — y la rama de Zernio sí actualizó la suya
+(`areas.ts:1084`), así que la disciplina existe y se saltea de a una.
+
+⚠️ **Y no lo caza ningún test, a propósito y sin que esté escrito:**
+`tests/dev-areas.test.ts` chequea **declarado → existe** (que cada ruta del `vive[]` esté
+en el disco) y NO chequea **existe → declarado**. Es la misma asimetría que AGENTS.md ya
+nombra para el barrido de áreas: «una ruta que falta no da error, da un punto ciego». La
+pregunta que lo encuentra no es «¿el área miente?» sino **«¿qué archivo caliente no lo
+declara ninguna área?»**, cruzando `git log --name-only` contra la unión de los `vive[]`.
+
+**Lo que queda SIN hacer:** sumar los dos módulos al `vive[]` del área, corregir la
+bitácora y el encabezado de la action.
+
+**Vive en:** `app/admin/dev/areas.ts:952-960` · `app/admin/dev/payment-gateway/bitacora.ts:57` · `app/admin/cobros/actions.ts:9,34-40` · `lib/vender-plan.ts`

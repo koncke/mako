@@ -120,11 +120,12 @@ function BloqueReunion({ titulo, leadId, campoFecha, campoFathom, fecha, fallbac
  * Dashboard»). La ficha por bloques pone cada parte como su bloque (`reunion-1`, `reunion-2`, `agendar-reunion`,
  * `lo-que-salio-de-la-llamada`), y la tarjeta dibuja SÓLO las que le piden. Sin `partes`, todas: la de siempre.
  */
-export type PartesReuniones = { r1?: boolean; r2?: boolean; agendar?: boolean; llamada?: boolean; cajas?: boolean };
-const TODAS: Required<PartesReuniones> = { r1: true, r2: true, agendar: true, llamada: true, cajas: true };
+/** `equipo`: las cajas del closer y el setter, dentro de `cajas` (sin decirlo, van; false = las pone «Setter y closer» aparte). */
+export type PartesReuniones = { r1?: boolean; r2?: boolean; agendar?: boolean; llamada?: boolean; cajas?: boolean; equipo?: boolean };
+const TODAS: Required<PartesReuniones> = { r1: true, r2: true, agendar: true, llamada: true, cajas: true, equipo: true };
 
 export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado, partes, rotulo = 'Reuniones' }: { lead: Lead; respuestas?: { R1: RespuestaQA[]; R2: RespuestaQA[] }; equipo?: MiembroEquipo[]; closerDetectado?: string | null; partes?: PartesReuniones; rotulo?: string }) {
-  const ver = partes ? { r1: !!partes.r1, r2: !!partes.r2, agendar: !!partes.agendar, llamada: !!partes.llamada, cajas: !!partes.cajas } : TODAS;
+  const ver = partes ? { r1: !!partes.r1, r2: !!partes.r2, agendar: !!partes.agendar, llamada: !!partes.llamada, cajas: !!partes.cajas, equipo: partes.equipo !== false } : TODAS;
   const agendo = !!lead.fecha_junta_1 || !!lead.fecha_junta_2 || !!lead.fecha_agenda || lead.asistio_j1 != null;
   const links = ((lead.fathom_links ?? []) as FathomLink[]).filter((f) => f.url);
   // Heurística de asignación de grabaciones: por etiqueta; lo no etiquetado va a R1.
@@ -239,20 +240,20 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado, 
             />
           </div>
         </CajaCampo>
-        <CajaCampo marca={marcaDato('closer')} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+        {ver.equipo && <CajaCampo marca={marcaDato('closer')} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
           {/* Closer: si está vacío pero Fathom detectó uno, lo ofrecemos como sugerencia
               en el lugar del valor — elegirlo del desplegable es lo que lo guarda. */}
           <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Closer</span>
           <div style={{ marginTop: 3 }}>
             <PersonaEditable leadId={lead.id} campo="closer" valor={lead.closer ?? null} equipo={equipo} hint={closerDetectado && !lead.closer ? `${closerDetectado} (de Fathom)` : undefined} />
           </div>
-        </CajaCampo>
-        <CajaCampo marca={marcaDato('setter')} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+        </CajaCampo>}
+        {ver.equipo && <CajaCampo marca={marcaDato('setter')} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
           <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Setter</span>
           <div style={{ marginTop: 3 }}>
             <PersonaEditable leadId={lead.id} campo="setter" valor={lead.setter ?? null} equipo={equipo} />
           </div>
-        </CajaCampo>
+        </CajaCampo>}
         <CajaCampo style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
           <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Confirmación de pago</span>
           <div style={{ marginTop: 3 }}>

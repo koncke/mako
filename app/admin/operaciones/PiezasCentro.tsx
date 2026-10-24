@@ -23,7 +23,7 @@ import { Button, Field, Input, Modal } from '@/app/_ui';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import {
-  SECCION_CEREBRO, SECCION_CHATS, esPrioritario, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats, sinNoticiasDesde,
+  SECCION_CEREBRO, esPrioritario, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats, sinNoticiasDesde,
   type ChatCentro, type GrupoJefe,
 } from '@/lib/centro-chats';
 export { buscarChats } from '@/lib/centro-chats';
@@ -187,10 +187,9 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
                 <span className={`co-chev${plegada ? ' co-chev--cerrado' : ''}`} aria-hidden><Icon name="chevron" size={14} /></span>
               </button>
             )}
-            {!plegada && (clave === SECCION_CHATS
-              // Los sub-chats con su jefe; un grupo cuyo jefe no está en la lista lleva su nombre arriba.
-              ? <GruposPorJefe chats={corte} fila={fila} />
-              : corte.map((c) => fila(c, false)))}
+            {/* Los sub-chats con su jefe, en las dos secciones (los del Cerebro, debajo de él); un grupo cuyo jefe no está en la
+                lista lleva su nombre arriba. */}
+            {!plegada && <GruposPorJefe chats={corte} fila={fila} />}
             {!plegada && !todas && lista.length > corte.length && (
               <button type="button" className="co-mas" onClick={() => setEnteras((s) => alternar(s, clave))}>{`Mostrar ${lista.length - corte.length} más`}</button>
             )}
@@ -382,7 +381,7 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
     <div className="co-barra__abajo">
       {/* Las CUATRO cuentas siempre, tengan o no Runner (Martín: «no sale el uso de las otras 2 cuentas»). */}
       {/* El mismo «Tus cuentas de IA» del cliente, y debajo lo suyo (23/10/2026: «IGUAL que en los clientes»). */}
-      <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} onCambiarCredito={k.cambiarCreditoDelNegocio} onLeerComputadoras={k.leerComputadoras} onDesconectarComputadora={k.desconectarComputadora}
+      <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} onCambiarCredito={k.cambiarCreditoDelNegocio}
         tusCuentas={<TusCuentasIA sinCabecera />} />
     </div>
   );

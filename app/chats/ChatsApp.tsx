@@ -43,6 +43,8 @@ import { PanelContacto, type PestanaDrawer } from './PanelContacto';
 import VentanaChat from './VentanaChat';
 import { AvisoVentana, postJson, useAvisoRio } from './ventana-piezas';
 import { IconoCanal } from './iconos-canal';
+import { useConectarViaZernio } from '@/app/_components/ConectarViaZernio';
+import { redDeCanal } from '@/lib/zernio-redes';
 import './chats.css';
 
 // La ficha del lead del CRM, la misma de siempre: se baja sólo al abrirla.
@@ -365,17 +367,22 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
   }, [aviso, alCambiar]);
 
   // ── Conectar un canal (el «+» de Canales y el estado vacío) ─────────────────────────────────
+  // Instagram y Messenger por la pieza COMÚN de Zernio (23/10/2026, app/_components/ConectarViaZernio.tsx): el login en una ventana
+  // abierta en el clic, sin salir de Chats (antes la pestaña entera iba a Zernio y volvía a /automations), con la key DEL NEGOCIO.
+  // Sin key, se abre el modal de Zernio de /integraciones ahí mismo. Messenger es la página de Facebook (`redDeCanal`).
+  const viaZernio = useConectarViaZernio({
+    volver: RUTA_CHATS,
+    onConectado: () => { aviso.ok('Canal conectado', null); alCambiar(); },
+    // La causa va como el TÍTULO del aviso (a la vista): como detalle sólo se ve en un tooltip, y en un teléfono no hay. Con un 402, además, dónde arreglarlo.
+    alError: (texto, pago) => { aviso.error(pago ? `${texto} Agrega la tarjeta en tu cuenta de Zernio.` : texto, null); },
+    alNota: (texto) => { aviso.ok(texto, null); },
+  });
+  const { conectar: conectarRed } = viaZernio;
   const conectar = useCallback(async (canal: CanalConectable) => {
     if (canal === 'whatsapp') { router.push('/whatsapp'); return; }
     if (canal === 'email') { router.push('/email'); return; }
-    // Messenger es la plataforma `facebook` de Zernio (app/api/zernio/route.ts).
-    const r = await postJson<{ ok: boolean; url?: string; configurado?: boolean; error?: string }>('/api/zernio', {
-      action: 'conectar', plataforma: canal === 'messenger' ? 'facebook' : 'instagram',
-    });
-    if (r.ok && r.url) { window.location.href = r.url; return; }
-    if (r.ok && r.configurado === false) { aviso.error('Zernio sin configurar', 'La key de Zernio se carga en Automations.'); return; }
-    aviso.error('No se pudo conectar', r.error ?? null);
-  }, [router, aviso]);
+    conectarRed(redDeCanal(canal));
+  }, [router, conectarRed]);
 
   // ── Sin ningún canal conectado: una frase y la salida a cada conexión ──────────────────────
   const sinCanales = !!datos && !errorLista && datos.chats.length === 0 && datos.fallas.length === 0
@@ -398,6 +405,7 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
         </div>
         <div id={ID_PORTAL_RIO} className="rio-portal" />
         <AvisoVentana aviso={aviso.aviso} onCerrar={aviso.cerrar} />
+        {viaZernio.modal}
       </main>
     );
   }
@@ -484,6 +492,7 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
       {/* Adentro de la raíz: los menús del Dropdown de la casa heredan el scope `.rio` (./portal.ts). */}
       <div id={ID_PORTAL_RIO} className="rio-portal" />
       <AvisoVentana aviso={aviso.aviso} onCerrar={aviso.cerrar} />
+      {viaZernio.modal}
       {fichaId != null && <LeadEditModal leadId={fichaId} onClose={cerrarFicha} />}
     </main>
   );

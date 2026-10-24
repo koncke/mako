@@ -13,6 +13,10 @@
 //    «＋»: la charla de WhatsApp (de ancho completo y con su raya aunque no haya charla; queda en «La charla»), el video
 //    visto (Tracking), lo cobrado (Pagos, salvo en el evento y el carrito, donde es la pregunta), los cambios de MaKo,
 //    las automatizaciones en curso y el origen donde la bajada no lo promete.
+// ⚠️ «AUTOMATIZACIONES» VUELVE A LAS DE ENTRADA (23/10/2026), arriba, después de los duplicados. Martín: «crear un bloque
+//    dentro del detail de cada lead que esté relacionado a las automatizaciones... para tener más claridad de lo que
+//    pasa». No agranda nada: se calla si el lead no está ni estuvo en ninguna (`vistaVacia`, app/crm/automatizacion-lead.ts).
+//    La épica y «Para llamarlo» no lo traen: se eligen para ver poco.
 // ⚠️ CADA UNA TIENE LOS BLOQUES DE LA LISTA DE SU TIPO QUE AVISAN (lib/ficha/plantillas.ts): la plantilla del FUNNEL
 //    decide los avisos de «datos sin marcar», y cada aviso que queda prendido tiene que tener dónde llenarse en el
 //    Resumen de entrada. Lo fija tests/ficha-resumen.test.ts. Hasta el 17/10 exigía la lista ENTERA, que es más que su
@@ -44,6 +48,7 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
     bloques: [
       { id: 'siguiente-accion', ancho: 12, diseno: 'banner' },
       { id: 'posibles-duplicados', ancho: 12, diseno: 'banner' },
+      { id: 'automatizaciones-en-curso', ancho: 12, diseno: 'lista' },
       { id: 'calificacion', ancho: 4, diseno: 'botones' },
       { id: 'tiempo-en-etapa', ancho: 4, diseno: 'barra' },
       { id: 'ingreso-estimado', ancho: 4, diseno: 'numero' },
@@ -64,6 +69,7 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
     bloques: [
       { id: 'siguiente-accion', ancho: 12, diseno: 'banner' },
       { id: 'posibles-duplicados', ancho: 12, diseno: 'banner' },
+      { id: 'automatizaciones-en-curso', ancho: 12, diseno: 'lista' },
       { id: 'proxima-reunion', ancho: 6, diseno: 'numero' },
       { id: 'tiempo-en-etapa', ancho: 3, diseno: 'chip' },
       { id: 'cobrado', ancho: 3, diseno: 'chip' },
@@ -84,6 +90,7 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
     bloques: [
       { id: 'siguiente-accion', ancho: 12, diseno: 'banner' },
       { id: 'posibles-duplicados', ancho: 12, diseno: 'banner' },
+      { id: 'automatizaciones-en-curso', ancho: 12, diseno: 'lista' },
       { id: 'calificacion', ancho: 4, diseno: 'botones' },
       { id: 'tiempo-en-etapa', ancho: 4, diseno: 'chip' },
       { id: 'ingreso-estimado', ancho: 4, diseno: 'numero' },
@@ -105,6 +112,7 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
     bloques: [
       { id: 'siguiente-accion', ancho: 12, diseno: 'banner' },
       { id: 'posibles-duplicados', ancho: 12, diseno: 'banner' },
+      { id: 'automatizaciones-en-curso', ancho: 12, diseno: 'lista' },
       { id: 'calificacion', ancho: 4, diseno: 'botones' },
       { id: 'tiempo-en-etapa', ancho: 4, diseno: 'chip' },
       { id: 'ingreso-estimado', ancho: 4, diseno: 'numero' },
@@ -127,6 +135,7 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'siguiente-accion', ancho: 12, diseno: 'banner' },
       { id: 'pase-a-humano', ancho: 12 },
       { id: 'posibles-duplicados', ancho: 12, diseno: 'banner' },
+      { id: 'automatizaciones-en-curso', ancho: 12, diseno: 'lista' },
       { id: 'charla-dm', ancho: 12 },
       { id: 'charla-whatsapp', ancho: 12 },
       { id: 'mensaje-listo', ancho: 12 },
@@ -148,6 +157,7 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
     bloques: [
       { id: 'siguiente-accion', ancho: 12, diseno: 'banner' },
       { id: 'posibles-duplicados', ancho: 12, diseno: 'banner' },
+      { id: 'automatizaciones-en-curso', ancho: 12, diseno: 'lista' },
       { id: 'contacto', ancho: 6, diseno: 'botonera' },
       { id: 'redes-y-web', ancho: 6, diseno: 'destacada' },
       { id: 'tiempo-en-etapa', ancho: 4, diseno: 'barra' },
@@ -167,6 +177,7 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
     bloques: [
       { id: 'siguiente-accion', ancho: 12, diseno: 'banner' },
       { id: 'posibles-duplicados', ancho: 12, diseno: 'banner' },
+      { id: 'automatizaciones-en-curso', ancho: 12, diseno: 'lista' },
       { id: 'cobrado', ancho: 6, diseno: 'numero' },
       { id: 'contacto', ancho: 6, diseno: 'grilla' },
       { id: 'origen', ancho: 6, diseno: 'migas' },
@@ -214,6 +225,7 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
     bloques: [
       { id: 'siguiente-accion', ancho: 12, diseno: 'banner' },
       { id: 'posibles-duplicados', ancho: 12, diseno: 'banner' },
+      { id: 'automatizaciones-en-curso', ancho: 12, diseno: 'lista' },
       { id: 'calificacion', ancho: 4, diseno: 'botones' },
       { id: 'tiempo-en-etapa', ancho: 4, diseno: 'barra' },
       { id: 'ingreso-estimado', ancho: 4, diseno: 'numero' },

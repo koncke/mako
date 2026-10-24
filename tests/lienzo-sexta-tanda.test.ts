@@ -222,7 +222,10 @@ test('⚠️ FlujoLienzo edita por lib/flujo-edicion.ts (todo por `onPasos`), y 
 });
 
 test('⚠️ el chrome: el ✦ de MaKo al lado del título, «Activar» al lado de «Publicar» (punto 8)', () => {
-  const chrome = tramo(PERFIL, 'chrome={(', 'herramientas={rolAdmin ? (', 6_000);
+  // Desde el 23/10/2026 la cabecera vive en `const cabecera` (la dibujan el lienzo y la vista de «Métricas») y el lienzo
+  // la recibe como `chrome={cabecera}`.
+  assert.match(PERFIL, /chrome=\{cabecera\}/);
+  const chrome = tramo(PERFIL, 'const cabecera = (', '\n  );\n', 6_500);
   // Decimotercera tanda: también con el lienzo vacío (ahí se la pide armar).
   // 20/10/2026: al lado del título ya no va el ✦ de MaKo (el chat está siempre, en la sidebar) sino la tuerca de ESTA
   // automatización (Martín: «en su lugar que allí vaya el ícono de configuraciones»).

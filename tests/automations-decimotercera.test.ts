@@ -181,13 +181,12 @@ test('punto 6 → AU4: el chat de MaKo es el hilo y la caja únicos, con la estr
   assert.match(vista, /<HiloMako items=\{p\.items\} quien=\{QUIEN_MAKO\}/);
   assert.match(vista, /export const QUIEN_MAKO: Quien = \{ nombre: 'MaKo', aspecto: ASPECTO_MAKO \};/, 'la criatura no es la estrella');
   assert.match(vista, /<CajaChat \{\.\.\.p\.caja\} \/>/);
-  // La cabecera: la estrella de MaKo y «en línea».
-  const html = renderToStaticMarkup(createElement(ChatMako, {
-    secuenciaId: 7, pasos: [P({ id: 'm1' })], onListo: () => {}, inicial: [yo('y1', 'Cambia el saludo'), mako('m1', 'Cambié 1')],
-  }));
-  assert.match(html, /aria-label="MaKo"/, 'sin la estrella en la cabecera');
-  assert.ok(html.includes(`>${ESTADO_EN_LINEA}<`));
-  assert.match(CHAT, /<Muneco titulo="MaKo" aspecto=\{ASPECTO_MAKO\}/);
+  // La cabecera: la estrella de MaKo y «en línea». Desde el 23/10/2026 es la del panel único (PanelChat.tsx), que la vista
+  // dibuja (entra con next/dynamic: acá no se dibuja); se mira lo que ChatMako le pasa.
+  assert.match(CHAT, /const cabecera: CabeceraChat = \{\n\s*clave: `automations:\$\{p\.secuenciaId\}`, titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO,/, 'sin la estrella en la cabecera');
+  assert.match(CHAT, /\{trabajando \? ESTADO_ESCRIBIENDO : ESTADO_EN_LINEA\}<\/span>/);
+  assert.match(CHAT, /<ChatMakoVista\n\s*cabecera=\{cabecera\}/);
+  void renderToStaticMarkup; void createElement; void ChatMako; void P; void yo; void mako;
   // El «+» (lo adjuntado se lee a texto al sumarlo) y la nota de voz (se transcribe y viaja como texto).
   assert.match(CHAT, /adjuntos: adjuntosCaja,/);
   assert.match(CHAT, /void leerArchivoParaPedido\(a\.file\)\.then\(/);

@@ -79,7 +79,7 @@ test('⚠️ `ETAPAS_SIN_SECUENCIA` vive donde el NAVEGADOR la puede leer', () =
   assert.match(sh, /import \{ ETAPAS_SIN_SECUENCIA \} from '\.\/pipeline'/, 'volvió la segunda copia de la lista');
   assert.deepEqual([...ETAPAS_SIN_SECUENCIA].sort(), ['manual', 'reunion_excepcional']);
   // Y la pantalla la usa para NO ofrecer una nutrición que salga de otra nutrición.
-  assert.match(leer('app/crm/actions.ts'), /ETAPAS_SIN_SECUENCIA\.includes\(t\.to\)/,
+  assert.match((leer('app/crm/actions.ts') + leer('lib/etapas-crm-server.ts')), /ETAPAS_SIN_SECUENCIA\.includes\(t\.to\)/,
     'la lista del pop-up volvió a ofrecer una nutrición de una nutrición');
 });
 
@@ -87,7 +87,7 @@ test('⚠️ una nutrición es UNA fila aunque salga de dos etapas, y apagarla l
   // «Reactivación» sale de «No responde» Y de «Perdido»: eran dos casillas con el mismo
   // nombre, y destildar una dejaba la nutrición corriendo con la pantalla diciendo dos
   // veces lo mismo.
-  const ac = leer('app/crm/actions.ts');
+  const ac = (leer('app/crm/actions.ts') + leer('lib/etapas-crm-server.ts'));
   assert.match(ac, /const porDestino = new Map/, 'la lista volvió a ser una fila por ARISTA');
   assert.match(ac, /ids: ts\.map\(\(t\) => `\$\{t\.from\}>\$\{t\.to\}`\)/, 'la fila dejó de llevar todos sus ids');
   assert.match(ac, /activa: ts\.some\(\(t\) => !sup\.has/, 'con un id encendido la fila tiene que decir que corre');
@@ -102,7 +102,7 @@ test('⚠️ el nombre de la etapa sale de `cfg.stages` PRIMERO, o la lista mues
   // `cfg.labels` —que sólo tiene las terminales renombradas— y de ahí al catálogo de
   // fábrica, que no conoce las claves de un pipeline propio. El ws13 veía «st0» y «st1».
   // Es lo que hace que «si yo cambio el nombre, si pongo R1, R2…» se cumpla solo.
-  const ac = leer('app/crm/actions.ts');
+  const ac = (leer('app/crm/actions.ts') + leer('lib/etapas-crm-server.ts'));
   assert.match(ac, /const deStages = new Map\(cfg\.stages\.map\(\(st\) => \[st\.key, st\.label\]\)\)/,
     'se fue la fuente que conoce las etapas de ESTE embudo');
   assert.match(ac, /deStages\.get\(k\) \?\? cfg\.labels\[k\]/, '`cfg.stages` dejó de ir primero');

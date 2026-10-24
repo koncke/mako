@@ -8,10 +8,11 @@
 // sesión de 5 horas y de la semana; abajo, dentro de esa cuenta, sus DISPOSITIVOS —cada uno con su nombre, en línea o no, dónde
 // está como lo muestra Google en «Tus dispositivos» («Windows · Grandbourg, Buenos Aires, Argentina») y «Desconectar»—, y ahí
 // «Nuevo dispositivo», que se distingue bien de «Nueva cuenta». Lo usan «Tus cuentas de IA» (app/integraciones/TusCuentasIA.tsx,
-// en la computadora, en el teléfono del Ops Center y en /perfil/ia) y SuperAdmin › Uso → Computadoras (UsoComputadoras.tsx).
+// en la computadora, en el teléfono del Ops Center y en /perfil/ia) y la ficha de un cliente en Clientes (las computadoras
+// de SU negocio: app/admin/ComputadorasDelNegocio.tsx; desde el 23/10/2026 ya no las de todos en el Uso del super admin).
 // Los datos llegan agrupados del servidor (lib/ia-pc-reglas.ts → agruparPorCuenta): acá sólo se dibuja.
-// ⚠️ SIN IMPORTAR SU CSS: los tests lo dibujan en node (UsoComputadoras.tsx), que no carga un .css. Lo importa quien lo monta:
-// TusCuentasIA.tsx y las páginas del super admin (app/admin/operaciones/page.tsx, app/m/operaciones/page.tsx).
+// ⚠️ SIN IMPORTAR SU CSS: los tests lo dibujan en node (ComputadorasDelNegocio.tsx), que no carga un .css. Lo importa quien lo
+// monta: TusCuentasIA.tsx y las páginas (app/admin/operaciones/page.tsx, app/m/operaciones/page.tsx, app/customer-success/pantalla.tsx).
 // =============================================================================
 
 import { useState, type ReactNode } from 'react';
@@ -143,14 +144,18 @@ export function CuentasYDispositivos({ grupos, ahora, onDesconectar, nuevoDispos
  * «Nuevo dispositivo», dentro de una cuenta: la DESCARGA a la vista —el instalador de Windows (0.4.0) o MaKo.app para la Mac
  * (0.4.2), según la computadora desde la que se mira, y el otro a un toque— y, ya instalado, conectar.
  */
-export function NuevoDispositivo({ onConectar }: { onConectar: () => void; onPasosMac?: () => void }) {
+export function NuevoDispositivo({ onConectar, titulo = 'Nuevo dispositivo', nota = 'Instala MaKo en otra computadora y conéctala: puede usar esta misma cuenta de Claude.' }: {
+  onConectar: () => void; onPasosMac?: () => void;
+  /** Lo que dice arriba: el chat, cuando todavía no hay ninguna computadora, lo dice como la primera (app/_chat/AppPrimero.tsx). */
+  titulo?: string; nota?: string;
+}) {
   const esMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent);
   const sistemas = esMac ? (['mac', 'windows'] as const) : (['windows', 'mac'] as const);
   const nombre = { windows: 'Windows', mac: 'Mac' } as const;
   return (
-    <div className="tci-nuevo-disp" role="group" aria-label="Nuevo dispositivo">
-      <h4>Nuevo dispositivo</h4>
-      <p className="tci-nota">Instala MaKo en otra computadora y conéctala: puede usar esta misma cuenta de Claude.</p>
+    <div className="tci-nuevo-disp" role="group" aria-label={titulo}>
+      <h4>{titulo}</h4>
+      <p className="tci-nota">{nota}</p>
       <div className="tci-nuevo-disp__acciones">
         <a className="tci-boton" href={`/api/ia-pc/descargar?os=${sistemas[0]}`}>{`Descargar MaKo para ${nombre[sistemas[0]]}`}</a>
         <button type="button" className="tci-boton tci-boton--suave" onClick={onConectar}>Ya lo instalé: conectar</button>

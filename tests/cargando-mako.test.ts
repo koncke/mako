@@ -58,7 +58,7 @@ test('aparece a los 150 ms (MS_APARECE) y la barra dice «cargando» también co
 });
 
 /** Las tabs de la barra de escritorio y de /m que cargan del server: cada una con su loading.tsx y ESTE loader. */
-const TABS_ESCRITORIO = ['automations', 'plan', 'dashboard', 'general', 'chats', 'calendario', 'clients', 'offer', 'web-generator', 'ads-manager', 'video-editor', 'image-editor', 'ads-writer'];
+const TABS_ESCRITORIO = ['automations', 'plan', 'dashboard', 'chats', 'calendario', 'clients', 'offer', 'web-generator', 'ads-manager', 'video-editor', 'image-editor', 'ads-writer'];
 const TABS_MOVIL = ['ads', 'automations', 'calendario', 'chats', 'crm', 'cs', 'curso', 'dashboard', 'hoy', 'inbox', 'landing', 'mas', 'plan', 'second-brain', 'video'];
 
 test('cada tab grande tiene su loading.tsx con CargandoMako (escritorio y /m)', () => {
@@ -74,8 +74,25 @@ test('cada tab grande tiene su loading.tsx con CargandoMako (escritorio y /m)', 
   // El CRM conserva su esqueleto (las medidas del tablero) y el loader lo tapa.
   assert.match(leer('app/crm/loading.tsx'), /<CargandoMako cubre que="el CRM" \/>\n\s*<\/main>/);
   assert.match(leer('app/crm/loading.tsx'), /minHeight: 0, position: 'relative' \}\}>/, 'sin position relative, la capa tapa la página entera');
+  // ⛔ Una página que redirige SIEMPRE no lleva loading.tsx (ticket #7, 23/10/2026): con él, su redirect() va adentro del
+  // stream (200 + meta refresh, no 307) y la carrera con la hidratación tiró «React error #310» en el router de Next.
+  assert.ok(!existsSync(join(RAIZ, 'app/general/loading.tsx')), 'volvió el loading.tsx de /general, que sólo redirige a /dashboard');
+  assert.match(leer('app/general/page.tsx'), /^\s*redirect\(conLaQuery\('\/dashboard'/m, '/general dejó de ser sólo un redirect: revisar si ahora le toca un loader');
   // /second-brain es el Ops Center del cliente: carga como /admin/operaciones (la criatura que espera y vuela).
   assert.match(leer('app/second-brain/loading.tsx'), /^export \{ default \} from '@\/app\/admin\/operaciones\/loading';$/m);
+});
+
+test('ir al grafo del Second Brain muestra el loader desde el toque hasta que llega el grafo (eran 2,7 s sin nada)', () => {
+  // Desde el 23/10 lo lleva `yendo` (ChatSecondBrain.tsx, del chat Ops Center): cubre también la vuelta (el chat se ve ya).
+  const src = leer('app/second-brain/ChatSecondBrain.tsx');
+  // Se prende al tocar «Second Brain» (el paso de la barra va al grafo)…
+  assert.match(src, /if \(paso\.ir\) \{ setYendo\(paso\.ir === 'mapa' \? 'mapa' : 'fuera'\); router\.push\(/);
+  // …se suelta cuando llega el grafo (o se va)…
+  assert.match(src, /useEffect\(\(\) => \{ setYendo\(null\); \}, \[mapa\]\);/);
+  assert.match(src, /const verMapa = yendo \? yendo === 'mapa' : hayMapa;/);
+  // …y mientras, el panel del grafo es el loader de todas las tabs (si el grafo está, gana el grafo).
+  assert.match(src, /\) : verMapa \? \([\s\S]*?\{mapa\n\s*\? <VolverDelGrafo\.Provider[\s\S]*?: <CargandoMako que="tu Second Brain" alto="100%" \/>\}/);
+  assert.match(src, /import \{ CargandoMako \} from '@\/app\/_ui\/CargandoMako';/);
 });
 
 test('la criatura del Ops Center también lleva la barra, y la barra no vuela con ella', () => {

@@ -7,6 +7,75 @@ del código.
 
 ---
 
+## La app de escritorio antes que cualquier chat, y el Uso que parecía vacío mientras cargaba (23/10/2026)
+
+- **«Al principio me aparecen solo los botones de Conectar»** (Martín, en el Uso). No faltaba un loader en la ruta: el modal
+  (`TusCuentasIA`) dibujaba «Nueva cuenta» y la lista vacía ANTES de tener el estado, y eso se lee como «no tienes nada». **Regla:**
+  un bloque que todavía no sabe si hay datos dibuja su esqueleto (`EsqueletoDeCuentas`), y lo vacío recién con el estado. Y el
+  esqueleto se ata a «ya se intentó leer», no a «no hay estado»: si la lectura falla, no queda gris para siempre.
+- **«Bloqueá igual»** (la decisión de Martín, con su porqué, en la bitácora del Ops Center y en `appDeEscritorio`): sin
+  computadora conectada, el chat con MaKo muestra la descarga en lugar de la conversación, aunque el negocio tenga su clave. Lo
+  decide el servidor en el mismo `?suIA=1` que ya pedía el chat. El teléfono sale del pedido con la MISMA función del proxy
+  (`tipoDeDispositivo`): ahí no se instala, así que avisa sin bloquear. Bloqueado, relee cada 8 s y se destraba solo.
+- **La descarga ya existía, con otro texto:** `NuevoDispositivo` (IA del cliente) decía «Instala MaKo en OTRA computadora». En
+  vez de copiar el link y la detección de Windows o Mac, la pieza suma `titulo` y `nota` opcionales, y el chat la monta.
+- **Sólo los chats:** el bloqueo vive en el chat común (PiezasCliente.tsx + `enviar` del motor), no en el servidor del turno: lo
+  automático sigue igual. La Ticketera (Soporte) no se bloquea: tiene su propia caja.
+
+**Vive en:** `lib/chat-mako-reglas.ts` (`appDeEscritorio`) · `app/api/mako/chat/route.ts` (`laApp`) · `app/_chat/AppPrimero.tsx` ·
+`app/second-brain/PiezasCliente.tsx` · `useChatCliente.ts` · `app/integraciones/TusCuentasIA.tsx` · `tests/app-de-escritorio-primero.test.ts`
+
+**Sin mirar en pantalla** (sin build local por la RAM): recorrerlo en producción con una cuenta sin computadora.
+## «Unificar los chats con MaKo»: la caja ya era una, el marco no (23/10/2026)
+
+- **Síntoma** (Martín, en la ficha de un lead): «el chat con MaKo... no es el mismo que debería ser, con la criatura y otras
+  cosas». El diagnóstico obvio era que ese chat no usaba las piezas únicas, y estaba mal: ya usaba el hilo (`HiloMako`) y la
+  caja (`CajaChat`). La guarda de entonces (tests/chat-unico.test.ts) sólo miraba la CAJA. Lo distinto era el MARCO: sin
+  cabecera ni criatura, su propio «Abriendo el chat…», su arrastrar y soltar, un borde azul arriba. Diez pantallas estaban así.
+- **Regla** (en AGENTS.md): el chat de MaKo son tres piezas juntas, el panel (`PanelDeChat`, con la cabecera y la criatura), el
+  hilo y la caja. La guarda ahora mira el chat entero: toda pantalla de la computadora que dibuja `HiloMako` dibuja el panel, o
+  es una pieza de una que lo dibuja. Un chat embebido (la ficha del lead) no tiene adónde volver: `onVolver` es opcional.
+- **La criatura del Dashboard era la de la tab**, no la estrella: contra la regla del 21/10 («los iconos de las criaturas siempre
+  debe ser el icono de MaKo»). Ahora es la estrella.
+- **Lo que NO se migró a ciegas:** Offer (`ChatOffer.tsx`, la tab y el onboarding) es el embudo del lanzamiento del 25/10, y
+  nueve de sus tests cuidan el soltar con sólo texto y la nota de voz: queda para su chat, con el molde de MakoAnalystLead.tsx.
+
+**Sin hacer (el inventario de tests/chat-unico.test.ts → PANEL):** Automations (`ChatMakoVista.tsx`, la cabecera vive en
+`ChatMako.tsx`), Offer, Web Generator (`ChatAgente.tsx`), Video Editor (`PanelChat.tsx`), Image Editor (`PanelMakoIA.tsx`),
+Chats (`WhatsAppAdvisor.tsx`) y `app/_components/MakoChat.tsx` (Ads Manager y el Diagnóstico).
+## La lista que cambiaba sola al entrar, y el sub-chat del Cerebro colgado de otro jefe (23/10/2026)
+
+- **«Me decía que Cerebro estaba apagado y luego de unos segundos se prendió»** (Martín, desde su Android). No era el Runner ni
+  una foto vieja del caché: el ✓ de cada «Completado» (`yaVistos`, guardado en MaKo) NO venía con la carga, llegaba con el primer
+  refresco. Hasta entonces `esperaCheck` daba «no hay aviso» y el Cerebro salía dormido; al llegar, «Completado» con su 1. Lo
+  mismo, más chico, con lo visto en este navegador (localStorage, leído en un efecto: el primer cuadro contaba sin eso).
+  **Regla:** todo lo que decide qué dice una fila viaja con la carga (`DatosCentro`), o se lee antes de pintar; nunca un estado
+  inicial vacío que el refresco contradice.
+- **«↳ Integración» colgado de «Integraciones»: el diagnóstico obvio (una unión por parecido del nombre) era el equivocado.**
+  `porJefe` une por el nombre EXACTO. Lo que pasaba: `seccionesDeChats` saca al Cerebro a su sección por su nombre exacto, y
+  «Cerebro › Integración» quedaba en la otra lista, donde su grupo no tenía fila jefe: el teléfono lo dibujaba corrido, suelto,
+  debajo de lo que tocara arriba. Ahora los sub-chats del Cerebro van en su sección, debajo de él; y en el teléfono, un sub-chat
+  cuyo jefe no está en la lista va con su nombre entero, sin «↳».
+
+**Vive en:** `app/admin/operaciones/datos.ts` · `app/m/operaciones/page.tsx` · `useCentro.ts` · `lib/centro-chats.ts`
+(`seccionesDeChats`) · `PiezasCentro.tsx` · `app/m/operaciones/ChatsMovil.tsx` · `tests/ops-center-lista-viva.test.ts`
+## 733 KB de pedidos en cada carga: la historia no se recorta, se trae al abrir su chat (23/10/2026)
+
+- **Síntoma** (medido por Rendimiento): /admin/operaciones mandaba en cada carga los 455 pedidos de todas las fechas, 733 KB.
+  La lista de chats, que es lo que parecía pesado, son 49 KB.
+- **La salida obvia era la equivocada:** bajar `DIAS_HISTORIAL` (3.650 días). Esa ventana la pidió Martín el 16/10 («traer
+  mayor historial»), y la lista la necesita entera para saber qué chats hubo. Lo pesado era otra cosa: mandarle al
+  navegador lo TERMINADO, que sólo se dibuja en la conversación de su chat (`historialDelChat`). El segundo renglón, los
+  «Completado» y «en qué trabaja» salen de los turnos y de lo que está en curso.
+- **Regla:** la lista se arma con todos en el servidor; a la pantalla viaja lo sin terminar y lo terminado de los últimos 2
+  días (`pedidosDeLaCarga`: 47 pedidos, 96 KB), y lo viejo de un chat se pide por GET al abrirlo (`pedidosDelChatAction`,
+  `?que=pedidos`, con la guarda de `puedeOperar`).
+
+**Vive en:** `lib/progreso-reglas.ts` · `app/admin/operaciones/datos.ts` · `app/m/operaciones/page.tsx` · `useCentro.ts` (`mirar`) ·
+`acciones.ts` · `app/api/operaciones/lectura/route.ts` · `tests/centro-pedidos-carga.test.ts`
+
+---
+
 ## La Ticketera del cliente, la barra que «no hace nada», el Uso que salta y la caja con el texto bajo (23/10/2026)
 
 Cuatro pedidos de Martín mirando la vista de un cliente (`/second-brain?chat=40`), medidos en producción con la sesión del ws10.
@@ -46,6 +115,49 @@ admin local pide firmar el segundo factor a mano): lo mira Martín. Un link `/se
 del cliente no abre su Ticketera (la suya es /m/tickets; lib/movil-rutas.ts no traduce ese query para el cliente).
 
 ---
+
+## Las computadoras de los clientes no van en «Tus cuentas de IA»: un pedido del 22/10 que cambió al verlo (23/10/2026)
+
+- **Síntoma:** Martín, en producción: «en mi SuperAdmin me aparece conectada la computadora de Mauricio, eso esta muy mal,
+  no tiene nada que ver, estas cruzando workspace».
+- **El diagnóstico obvio era el equivocado: no era una fuga.** Lo había pedido él el 22/10 («Lo mismo en SuperAdmin. Y poder
+  "Desconectar" dispositivos»), estaba escrito con su cita en `computadorasAction`, y cada máquina iba agrupada y rotulada
+  por negocio («Mauricio Bustos (ws1)»). Sólo la veía el super admin con su segundo factor. Lo que estaba mal era DÓNDE: el
+  modal se llama «Tus cuentas de IA», todo lo de alrededor habla de lo suyo (sus cuentas de Claude Code, su saldo, su uso),
+  y en el medio aparecía la MacBook de un cliente con su correo, su ciudad y un «Desconectar». **Regla:** el título de una
+  pantalla es un contrato sobre de QUIÉN es lo que muestra; lo de otro inquilino va donde ese inquilino ya es el tema (su
+  ficha), aunque quien mira tenga derecho a verlo. Y cuando Martín cambia de opinión al ver lo que pidió, gana lo nuevo: la
+  cita vieja queda en el comentario para que nadie lo revierta creyendo que es un bug.
+- **Medido antes de cortar** (el 22/10 también salió de un malentendido):
+  - el panel del propio cliente (`TusCuentasIA`, por `/api/ia-pc/estado`) YA muestra las computadoras de su negocio, y el
+    modal del super admin lo monta arriba: sus propias computadoras ya estaban ahí, sin duplicar nada;
+  - la lectura de TODOS la heredaban tres caminos: el modal de la computadora (Uso.tsx), la hoja del teléfono
+    (RunnerMovil.tsx) y la lectura por GET del Centro. Por eso el corte va en la LECTURA y no en la vista: `listarTodasLasPc`
+    ya no existe, y lo que queda es `listarPcDelNegocio(ws)`. La ruta exige el negocio (`?ws=`).
+- **Adónde fue:** Clientes → la ficha del cliente → Equipo, debajo de su equipo, que es de quien son las computadoras
+  (app/admin/ComputadorasDelNegocio.tsx). «Desconectar» se fue con el dato: en la ficha sí sirve para el soporte, y pide
+  confirmar diciendo de quién es el chat que deja de usarla.
+- **En el teléfono no hay una ficha:** /m/cs no tiene la ficha con Equipo. Se llega con «Versión de computadora» (en Más).
+- **Lo que encontró la revisión adversarial (10 agentes sobre el commit, cada hallazgo verificado aparte):**
+  - **la misma mezcla por OTRA puerta:** el Ops Center abierto con el `?ws=` de un cliente (un link viejo de
+    /tickets/decisiones o /admin/runway, o un marcador) dibujaba el Centro de la plataforma, y su «Tus cuentas de IA» lee el
+    negocio de la PESTAÑA (`/api/ia-pc/estado` → `getWorkspaceActual`): salían las computadoras de ese cliente debajo de las
+    cuentas de Martín, con «Desconectar» y «Nuevo dispositivo». No era de este cambio (la puerta sólo pedía `puedeOperar`,
+    que mira el ws de la SESIÓN), pero es justo lo que él reclamó. Ahora la puerta, mirando a otro negocio, lleva al Ops
+    Center de ESE cliente (/second-brain, el criterio de `quienOpera`), en la computadora y en el teléfono. **Regla:** una
+    pantalla que dice «tus» se pregunta por el negocio de la pestaña en la PUERTA, no en cada pieza que lee;
+  - otro super admin sin la guarda del Centro habría visto en cada ficha el error de la acción: la sección se dibuja sólo con
+    `puedeOperar` (`verComputadoras`, app/customer-success/pantalla.tsx);
+  - «Crédito de Claude para Mauricio» en el mismo modal NO se movió: es una decisión escrita de Martín
+    (app/admin/operaciones/UsoCredito.tsx). Si algún día la objeta como objetó la computadora, va al lado de la sección nueva.
+
+**Vive en:** lib/ia-pc.ts (`listarPcDelNegocio`) · app/admin/operaciones/acciones.ts (`computadorasDelNegocioAction`,
+`desconectarComputadoraAction`) · app/api/operaciones/lectura/route.ts · app/admin/ComputadorasDelNegocio.tsx ·
+app/admin/AdminView.tsx · tests/ia-pc-varias.test.ts (el 4).
+
+**Sin hacer:**
+- que Martín lo mire: «Tus cuentas de IA» sin la computadora de Mauricio, y la de Mauricio en Clientes → su ficha → Equipo;
+- la ficha en el teléfono, si algún día la hay.
 
 ## La foto que se manda por la caja, vista en otro dispositivo: la «decisión pendiente» ya estaba tomada (23/10/2026)
 

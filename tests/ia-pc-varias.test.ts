@@ -9,8 +9,14 @@
 //   2. el turno va a una que conteste; con varias, a la que contestó el último turno (no salta cada 30 s), sin turnos a la
 //      última conectada, y si una se apaga, a la que queda;
 //   3. cada una dice su sistema (desde la 0.4.0) y cuándo se conectó; la tarjeta ofrece «Conectar otra computadora»;
-//   4. el super admin ve las de todos los negocios, sin secretos, con «Desconectar»; desconectar revoca al instante (su token
-//      ya no sirve, y sale del turno y de las listas), y con el negocio equivocado no toca nada.
+//   4. el super admin ve las de UN negocio por vez, en la ficha de ese cliente (desde el 23/10/2026: Martín, al ver las de
+//      todos en «Tus cuentas de IA»: «estas cruzando workspace»), sin secretos, con «Desconectar»; desconectar revoca al
+//      instante (su token ya no sirve, y sale del turno y de las listas), y con el negocio equivocado no toca nada. Y ninguna
+//      pantalla del super admin vuelve a listar las de todos.
+//   Lo del 23/10, probado rompiéndolo (con la base en 0 fallos): la lectura sin `.eq('workspace_id', ws)`, la vista sin filtrar
+//   por negocio, las computadoras de vuelta en el Uso del teléfono, la ruta sin el negocio y la ficha sin la sección → 1 fallo
+//   cada una (el 4); la acción sin su puerta → 2 (el 4 y tests/operaciones.test.ts). Y lo de la revisión: la puerta del Ops
+//   Center sin mirar el negocio de la pestaña (computadora y teléfono) y la ficha sin la guarda → 1 fallo cada una (el 4).
 // =============================================================================
 
 import { test } from 'node:test';
@@ -21,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { detalleDeLaPc, elegirPc, sistemaDeLaVersion, type PcDeNegocio } from '../lib/ia-pc-reglas';
-import { VistaComputadoras } from '../app/admin/operaciones/UsoComputadoras';
+import { VistaComputadoras } from '../app/admin/ComputadorasDelNegocio';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
@@ -92,15 +98,16 @@ test('3. cada una dice su sistema y cuándo se conectó; la tarjeta ofrece «Con
   assert.match(sinComentarios(leer('app/api/ia-pc/estado/route.ts')), /conectadaAt: d\.conectadaAt, sistema: d\.sistema,/);
 });
 
-test('4. el super admin: las de todos, sin secretos, con «Desconectar»; desconectar revoca al instante, y sólo en su negocio', () => {
+test('4. el super admin: las de UN negocio, en su ficha, sin secretos, con «Desconectar»; desconectar revoca al instante, y sólo en su negocio', () => {
   const r = correr();
-  assert.deepEqual(r.todas.map((p: { ws: number; nombre: string }) => [p.ws, p.nombre]), [[1, 'PC de Mauricio'], [1, 'PC de Martín'], [13, 'MacBook de Ana']]);
+  assert.deepEqual(r.todas.map((p: { ws: number; nombre: string }) => [p.ws, p.nombre]), [[1, 'PC de Mauricio'], [1, 'PC de Martín']], 'la ficha de un negocio trajo la de otro');
+  assert.deepEqual(r.delOtro, [[13, 'MacBook de Ana']], 'el otro negocio trajo las de éste');
   assert.equal(r.todas[0].negocio, 'Mauricio Bustos');
   assert.equal(r.secretos, null, 'la lista del super admin lleva un token o un hash');
   assert.deepEqual(r.despues.listadas, ['PC de Martín'], 'la desconectada sigue en la lista');
   assert.equal(r.despues.turno, 'PC de Martín', 'el turno siguió yendo a la desconectada');
   assert.equal(r.despues.tokenSirve, false, 'el token de la desconectada sigue sirviendo');
-  assert.deepEqual(r.despues.todas, ['PC de Martín', 'MacBook de Ana']);
+  assert.deepEqual(r.despues.todas, ['PC de Martín']);
   assert.equal(r.otroWs, true, 'desconectar con el negocio equivocado tocó otra');
   // Revisión adversarial: desconectada en el medio, el turno no se le da (queda vencido) y sus herramientas no se piden.
   assert.equal(r.tomadaRevocada, null, 'una PC desconectada recibió el turno');
@@ -110,27 +117,44 @@ test('4. el super admin: las de todos, sin secretos, con «Desconectar»; descon
   assert.match(sinComentarios(leer('lib/ia-pc.ts')), /if \(t\.error\) throw new Error\(`ia-pc: la desconecté, pero no pude cortar su turno/);
   // Las acciones son del super admin (tests/operaciones.test.ts mira la puerta de cada una).
   const acc = sinComentarios(leer('app/admin/operaciones/acciones.ts'));
-  for (const n of ['computadorasAction', 'desconectarComputadoraAction']) {
+  for (const n of ['computadorasDelNegocioAction', 'desconectarComputadoraAction']) {
     const i = acc.indexOf(`export async function ${n}(`);
     assert.ok(i > 0 && /if \(!puedeOperar\(admin, await wsSuperAdmin\(\)\)\) return \{ ok: false, error: NO_PUEDE \};/.test(acc.slice(i, i + 400)), `${n} sin la puerta del super admin`);
   }
   // La pantalla, por negocio y persona, con «Desconectar» que pide confirmar.
-  // 23/10/2026: el MISMO dibujo que el cliente (cuentas → dispositivos), negocio por negocio, con el email ENTERO.
+  // 23/10/2026: el MISMO dibujo que el cliente (cuentas → dispositivos), con el email ENTERO, y sólo lo de ESE negocio.
   const cuenta = { proveedor: 'claude' as const, email: 'mauricio@gmail.com', plan: 'max' };
   const pcs: PcDeNegocio[] = [
     { id: 1, ws: 1, negocio: 'Mauricio Bustos', persona: 'mauricio@negocio.com', nombre: 'PC de Mauricio', sistema: 'Windows', enLinea: true, conClaude: true, conectadaAt: '2026-10-22T12:00:00Z', ultimoLatido: new Date().toISOString(), cuentas: [cuenta], ubicacion: 'Grandbourg, Buenos Aires, Argentina', version: '0.4.0+windows' },
     { id: 2, ws: 1, negocio: 'Mauricio Bustos', persona: 'mauricio@negocio.com', nombre: 'PC de Martín', sistema: null, enLinea: false, conClaude: true, conectadaAt: '2026-10-21T12:00:00Z', ultimoLatido: '2026-10-22T10:00:00Z', cuentas: [cuenta], ubicacion: null, version: '0.3.2' },
   ];
-  const html = renderToStaticMarkup(createElement(VistaComputadoras, { lectura: { ok: true, pcs }, ahora: Date.parse('2026-10-22T12:30:00Z'), onDesconectar: () => {} }));
+  const ajena: PcDeNegocio = { ...pcs[0], id: 9, ws: 13, negocio: 'Código Inmobiliario', persona: 'ana@negocio.com', nombre: 'MacBook de Ana', cuentas: [] };
+  const html = renderToStaticMarkup(createElement(VistaComputadoras, { ws: 1, negocio: 'Mauricio Bustos', lectura: { ok: true, pcs: [...pcs, ajena] }, ahora: Date.parse('2026-10-22T12:30:00Z'), onDesconectar: () => {} }));
   assert.match(html, /Computadoras.*1 de 2 en línea/);
-  assert.match(html, /Mauricio Bustos \(ws1\)/);
+  assert.doesNotMatch(html, /MacBook de Ana/, 'en la ficha de un negocio, una computadora de otro');
   assert.equal((html.match(/>Cuenta 1</g) ?? []).length, 1, 'la misma cuenta en dos computadoras es UN bloque');
   assert.match(html, /mauricio@gmail\.com/, 'el super admin ve el email entero');
   assert.match(html, /PC de Mauricio.*En línea.*Windows · Grandbourg, Buenos Aires, Argentina/);
   assert.match(html, /PC de Martín.*Sin conexión/);
   assert.equal((html.match(/>Desconectar</g) ?? []).length, 2);
-  // En la computadora y en el teléfono.
-  assert.match(sinComentarios(leer('app/admin/operaciones/Uso.tsx')), /<SeccionComputadoras leer=\{onLeerComputadoras\} desconectar=\{onDesconectarComputadora\} ahora=\{ahora\} \/>/);
-  assert.match(sinComentarios(leer('app/m/operaciones/RunnerMovil.tsx')), /<SeccionComputadoras leer=\{onLeerComputadoras\} desconectar=\{onDesconectarComputadora\} ahora=\{ahora\} \/>/);
-  assert.match(sinComentarios(leer('app/m/operaciones/CentroAppMovil.tsx')), /onLeerComputadoras=\{k\.leerComputadoras\} onDesconectarComputadora=\{k\.desconectarComputadora\}/);
+  // En la ficha del cliente (Clientes → su ficha → Equipo), y NUNCA más en «Tus cuentas de IA» del super admin: ni en la
+  // computadora ni en el teléfono, ni por la lectura del Centro sin un negocio.
+  assert.match(sinComentarios(leer('app/admin/AdminView.tsx')), /<ComputadorasDelNegocio key=\{wAbierto\.id\} ws=\{wAbierto\.id\} negocio=\{wAbierto\.nombre\}/);
+  for (const f of ['app/admin/operaciones/Uso.tsx', 'app/m/operaciones/RunnerMovil.tsx', 'app/m/operaciones/CentroAppMovil.tsx', 'app/admin/operaciones/PiezasCentro.tsx', 'app/admin/operaciones/useCentro.ts']) {
+    assert.doesNotMatch(sinComentarios(leer(f)), /Computadoras|computadoras/, `${f}: las computadoras de los clientes volvieron a «Tus cuentas de IA»`);
+  }
+  assert.match(sinComentarios(leer('app/api/operaciones/lectura/route.ts')), /computadoras: \(req\) => computadorasDelNegocioAction\(Number\(req\.nextUrl\.searchParams\.get\('ws'\)\)\)/, 'la lectura pide el negocio');
+  assert.match(sinComentarios(leer('lib/ia-pc.ts')), /export async function listarPcDelNegocio\(ws: number\)[\s\S]{0,200}\.eq\('workspace_id', ws\)/, 'la lectura es de UN negocio');
+  assert.doesNotMatch(sinComentarios(leer('lib/ia-pc.ts')), /listarTodasLasPc/, 'volvió una lectura de las de todos los negocios');
+  // La revisión del 23/10: la ficha las dibuja sólo para quien pasa la guarda del Centro, y el Ops Center de la plataforma
+  // no se dibuja mirando a un cliente (su «Tus cuentas de IA» lee el negocio de la pestaña).
+  assert.match(sinComentarios(leer('app/admin/AdminView.tsx')), /\{verComputadoras && \(\s*<ComputadorasDelNegocio/, 'la ficha muestra la sección a quien no puede leerla');
+  assert.match(sinComentarios(leer('app/customer-success/pantalla.tsx')), /verComputadoras=\{puedeOperar\(sesionAdmin, await wsSuperAdmin\(\)\)\}/);
+  const puerta = sinComentarios(leer('app/admin/operaciones/page.tsx'));
+  const iGuarda = puerta.indexOf('puedeOperar(admin'), iMirando = puerta.indexOf('if (ws != null && ws !== (await wsSuperAdmin())) redirect(await rutaConWs(RUTA_OPS_CENTER_NEGOCIO));');
+  const iLee = puerta.indexOf('datosDelCentroSiOpera()');
+  assert.ok(iGuarda > 0 && iMirando > iGuarda && iLee > iMirando, 'mirando a un cliente, el Ops Center de la plataforma se dibuja igual');
+  const puertaM = sinComentarios(leer('app/m/operaciones/page.tsx'));
+  const iMirandoM = puertaM.indexOf("if (ctx?.impersonando) redirect(await rutaConWs('/m/second-brain'));");
+  assert.ok(iMirandoM > 0 && iMirandoM < puertaM.indexOf('listarPedidos()'), 'en el teléfono, mirando a un cliente, el Centro se dibuja igual');
 });

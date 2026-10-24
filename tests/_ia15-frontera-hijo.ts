@@ -79,8 +79,13 @@ async function main() {
   pg.db.ia_pc_dispositivos.push({ workspace_id: 14, revocado_at: null, activa_at: new Date().toISOString(), persona: 'x' }); // sólo su PC
   poner(17, 'ANTHROPIC_API_KEY', `sk-ant-api03-ws17-${'k'.repeat(40)}`, 99); // su clave, ilegible
   poner(18, 'ANTHROPIC_API_KEY', `sk-ant-api03-ws18-propia-${'k'.repeat(40)}`);
+  // IA16: el ws10 y el ws16 tienen su PROPIA Gemini, que es su IA. Para que «el crédito solo» y «una copia sola» no sean
+  // «su clave» sigan probados, van dos negocios que tienen SÓLO eso.
+  pg.db.workspaces.push({ id: 21, capa: 'cliente', nombre: 'ws21' }, { id: 22, capa: 'cliente', nombre: 'ws22' });
+  poner(21, 'ANTHROPIC_API_KEY', CREDITO);
+  poner(22, 'ANTHROPIC_API_KEY', DE_MAKO);
   const caso = async (ws: number) => planConSuClave(ws);
-  out.plan = { ws3: await caso(3), ws10: await caso(10), ws14: await caso(14), ws16: await caso(16), ws17: await caso(17), ws18: await caso(18) };
+  out.plan = { ws3: await caso(3), ws10: await caso(10), ws14: await caso(14), ws16: await caso(16), ws17: await caso(17), ws18: await caso(18), ws21: await caso(21), ws22: await caso(22) };
   tablaQueFalla = 'credenciales';
   out.planConLaBaseCaida = await caso(18);
   // «No pude saber» del Plan no se recuerda: con la base caída el Plan del ws18 no paga (incierto) y, con la base de vuelta,

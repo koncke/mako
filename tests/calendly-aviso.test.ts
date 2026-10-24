@@ -12,7 +12,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CAMINO_WEBHOOK_CALENDLY, esWebhookDeMako, estadoDelAviso, estadoDeLasLecturas, motivoDelAviso } from '../lib/calendly-aviso-reglas';
+import { CAMINO_WEBHOOK_CALENDLY, esWebhookDeMako, estadoAntesDelAviso, estadoDelAviso, estadoDeLasLecturas, motivoDelAviso } from '../lib/calendly-aviso-reglas';
 import { fuenteSinComentarios as fuente } from './_fuente-sin-comentarios';
 
 const MAKO = `https://hola-mako.com${CAMINO_WEBHOOK_CALENDLY}`;
@@ -71,6 +71,18 @@ test('la pantalla: dice qué falta cuando no entra nada, y calla cuando anda o n
   assert.equal(motivoDelAviso(null), null, '«no pude leer» no es «no está»');
 });
 
+test('antes del aviso: el token vencido y la falta de R1 ganan sobre él (con cualquiera, no entra ninguna reserva)', () => {
+  assert.equal(estadoAntesDelAviso({ tokenVencido: true, ruteo: false }), 'token-vencido');
+  assert.equal(estadoAntesDelAviso({ tokenVencido: true, ruteo: true }), 'token-vencido');
+  assert.equal(estadoAntesDelAviso({ tokenVencido: false, ruteo: false }), 'sin-ruteo', 'token sin R1: «conectada» en la grilla y nada entra');
+  assert.equal(estadoAntesDelAviso({ tokenVencido: false, ruteo: true }), null, 'con ruteo, decide el aviso');
+  assert.equal(estadoAntesDelAviso({ tokenVencido: false, ruteo: null }), null, 'una tabla que no se pudo leer no es «falta el R1»');
+  assert.equal(motivoDelAviso('sin-ruteo')!.chip, 'Falta el R1');
+  assert.match(motivoDelAviso('sin-ruteo')!.motivo, /ninguna reserva entra a tu CRM/);
+  assert.equal(motivoDelAviso('token-vencido')!.chip, 'Token vencido');
+  assert.match(motivoDelAviso('token-vencido')!.motivo, /pega uno nuevo/);
+});
+
 test('las dos lecturas: sin permiso a la organización, «no vi ninguno» no es «no hay» (y sin lectura, no se afirma nada)', () => {
   const apagada = { ...sana, state: 'disabled' };
   assert.equal(estadoDeLasLecturas({ org: 'sin-permiso', user: [] }), null, 'el aviso de la organización es el que no se puede ver');
@@ -92,7 +104,16 @@ test('/integraciones: el aviso se lee con el token DEL negocio, acotado, sin col
   assert.match(lib, /signal: senal/);
   assert.match(lib, /org: deOrg\.json \? \(deOrg\.json\.collection \?\? \[\]\) : deOrg\.status === 403 \? 'sin-permiso' : null,/);
   assert.match(lib, /user: deUser\.json \? \(deUser\.json\.collection \?\? \[\]\) : null,/);
-  assert.match(lib, /if \(estado\) recuerdo\.set\(ws, /, 'sólo se recuerda un veredicto claro: el null se vuelve a intentar');
+  assert.match(lib, /if \(delAviso && !vigente\) recuerdo\.set\(clave, /, 'sólo se recuerda un veredicto claro: el null se vuelve a intentar');
+  // Lo de antes del aviso (24/10): el ruteo se lee SIEMPRE, fuera del recuerdo (recién guardado el R1, no puede seguir
+  // diciendo «Falta el R1» un minuto); el recuerdo es por negocio Y por token (un token nuevo no hereda «Token vencido»).
+  assert.ok(lib.indexOf('const ruteoP = tieneRuteo(ws)') < lib.indexOf('recuerdo.get(clave)'), 'el ruteo, antes y fuera del recuerdo');
+  assert.match(lib, /const clave = claveDelRecuerdo\(ws, token\);/);
+  assert.match(lib, /createHash\('sha256'\)\.update\(token\)/);
+  assert.match(lib, /return estadoAntesDelAviso\(\{ tokenVencido: delAviso === 'token-vencido', ruteo: await ruteoP \}\) \?\? delAviso;/);
+  assert.match(lib, /if \(me\.status === 401\) return 'token-vencido';/);
+  assert.match(lib, /\.from\('webhook_routing'\)\.select\('identificador', \{ count: 'exact', head: true \}\)\s*\.eq\('servicio', 'calendly'\)\.eq\('workspace_id', ws\);/);
+  assert.match(lib, /return error \|\| count == null \? null : count > 0;/, 'una tabla que no se pudo leer no es «falta el R1»');
   assert.match(lib, /const RECUERDA_MS = 60_000;/);
   assert.doesNotMatch(lib, /method:/, 'sólo lee');
 
@@ -127,3 +148,12 @@ test('/integraciones: el aviso se lee con el token DEL negocio, acotado, sin col
 //   · lib/calendly-aviso.ts: cae a process.env, o recuerda también el null                         -> falla «/integraciones»
 //   · /integraciones espera el aviso en el acto (bloquea) o lo pregunta sin Calendly conectada     -> falla «/integraciones»
 //   · el tablero: motivo/ámbar sin exigir Calendly conectada, sin el chip, o sin leer el aviso      -> falla «/integraciones»
+// Y las del 24/10 («antes del aviso»), sobre la base de 15 / 0 de los dos archivos (pasan / fallan):
+//   · `estadoAntesDelAviso`: un ruteo ilegible (null) dice «Falta el R1»                          -> 14 / 1
+//   · `estadoAntesDelAviso`: ignora el token vencido                                              -> 14 / 1
+//   · `motivoDelAviso` sin el texto de «Falta el R1»                                              -> 14 / 1
+//   · el ruteo leído DESPUÉS del recuerdo (queda «Falta el R1» un minuto tras guardarlo)          -> 14 / 1
+//   · el recuerdo por negocio y no por token (un token nuevo hereda «Token vencido»)               -> 14 / 1
+//   · el 401 de /users/me sin mapear a «token-vencido»                                            -> 14 / 1
+//   · una tabla de ruteo ilegible como «sin ruteo»                                                -> 14 / 1
+//   · el veredicto del aviso sin lo de antes                                                      -> 14 / 1

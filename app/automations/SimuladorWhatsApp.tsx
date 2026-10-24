@@ -71,6 +71,8 @@ import { SecuenciaPerfil, Z_CHAT_ENCIMA, type EdicionLocal } from './SecuenciaPe
 import type { PropsConfiguraciones } from '@/lib/config-automatizacion';
 import { PanelProbar, type CanalProbar } from './PanelProbar';
 import { FiltroLista, LADO_FILTRO } from './FiltroLista';
+import { Muneco } from '@/app/admin/operaciones/Muneco';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { disparadoresDeSecuencia, type SecuenciaConDisparadores } from './EditorDisparadores';
 import { duplicadaAlActivar, avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import { copiaDeFlujo, type PasoCopiado } from '@/lib/flujo-copia';
@@ -898,6 +900,17 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar" aria-label="Buscar por nombre"
               style={{ flex: 1, minWidth: 0, height: LADO_FILTRO, boxSizing: 'border-box', padding: '0 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, outline: 'none' }} />
             <FiltroLista filas={todasLasFilas} valores={filtros} onCambio={setFiltros} />
+            {/* LA PUERTA AL CHAT DE MaKo (23/10/2026, Martín: «la figura de MaKo luego de cargar se debe ir a su lugar como en
+                Ops Center… En Automations se puede ir a su chat»). Con la lista a la vista el chat está escondido, así que su
+                lugar es esta figura, que lo abre: `data-mako-casa` es lo primero que busca el vuelo del loader (Rendimiento).
+                Sólo con una automatización elegida y para un admin (el chat es de ellos); con el chat abierto la lista se
+                esconde, y el vuelo cae en la criatura del chat (ChatMako). */}
+            {conChat && (
+              <button type="button" data-mako-casa="" onClick={() => setEnLaLista(false)} aria-label="Abrir el chat con MaKo" title="Chat con MaKo"
+                style={{ flex: 'none', width: LADO_FILTRO, height: LADO_FILTRO, padding: 0, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo="despierto" size={24} />
+              </button>
+            )}
           </div>
         </div>
         <div className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8, display: verLista ? undefined : 'none' }}>

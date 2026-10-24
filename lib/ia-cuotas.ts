@@ -178,8 +178,13 @@ export async function usoHoyProveedores(): Promise<Record<string, UsoProv>> {
  * TODAS sus cuentas lo están. Es la diferencia entre "te queda el 68%" y "la cuenta
  * que atiende todas tus llamadas está al 96%", que era exactamente lo que el panel
  * no sabía decir.
+ *
+ * `soloCargadas` (IA16, 23/10/2026): sólo las IA que el negocio TIENE (una clave cargada) o que usó hoy. Lo pide
+ * Integraciones › «Costo de MaKo»: con la lista entera le dibujaba a un negocio sin ninguna IA gratis una caja «gratis»
+ * de Gemini y de Groq, como si MaKo se las prestara (la plataforma no presta IA desde el 22/10). La API de MaKo
+ * (`ver_cuotas_ia`) sigue pidiendo todas: su contrato dice también las que tienen 0 cuentas.
  */
-export async function cuotasProveedores(uso?: Record<string, UsoProv>): Promise<CuotaProv[]> {
+export async function cuotasProveedores(uso?: Record<string, UsoProv>, opts: { soloCargadas?: boolean } = {}): Promise<CuotaProv[]> {
   const u = uso ?? (await usoHoyPorCuenta());
   const limites = await limitesEfectivos();
   const out: CuotaProv[] = [];
@@ -189,6 +194,8 @@ export async function cuotasProveedores(uso?: Record<string, UsoProv>): Promise<
     // —decirlo con un `agotado: null` propio sigue PENDIENTE (cambia el tipo que
     // leen el board y la API).
     const slots = await slotsCargados(provider).catch(() => [1]);
+    const usoHoy = u[provider];
+    if (opts.soloCargadas && !slots.length && !(usoHoy && (usoHoy.requests > 0 || usoHoy.tokens > 0))) continue;
     const n = Math.max(1, slots.length);
     const cuentas: CuotaCuenta[] = (slots.length ? slots : [1]).map((slot) => {
       const usoC = usoDeCuenta(u, provider, slot);
@@ -230,7 +237,8 @@ export async function ordenarPorCuota(orden: string[]): Promise<string[]> {
   // ⛔ D6b (lib/solo-su-ia.ts): con su Claude o su GPT, de la lista quedan sólo las suyas, sin mirar la cuota de las demás.
   // Ordenar leía las keys de cada gratis y le consultaba el saldo a OpenRouter ANTES de que `provDe` cortara (medido con
   // tests/_solo-su-ia-hijo.ts, 21/10/2026): el corte de abajo no alcanza si el orden sale a la red primero.
-  if (soloSuIA()) return orden.filter((p) => PROVS_SU_IA.includes(p));
+  // Y en el orden de `PROVS_SU_IA` (su GPT antes que su Gemini, IA16), no en el de la lista: la de audio es Gemini primero.
+  if (soloSuIA()) return PROVS_SU_IA.filter((p) => orden.includes(p));
   const [uso, limites] = await Promise.all([
     usoHoyPorCuenta().catch(() => ({} as Record<string, UsoProv>)),
     limitesEfectivos().catch(() => LIMITES_PROVEEDOR),

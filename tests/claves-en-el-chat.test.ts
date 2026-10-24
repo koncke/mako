@@ -62,6 +62,8 @@ const CASOS: Array<[string, string, string | null]> = [
   ['openrouter', `toma sk-or-v1-${X}`, null],
   ['openai', `sk-proj-${X}T3BlbkFJ${X}`, 'openai'],
   ['google', `AIzaSy${X}`, 'gemini'],
+  // La de AI Studio de hoy (auth, 53): sin esto pasaba entera al modelo (IA16, 22/10/2026).
+  ['google de hoy (AQ.)', `mi gemini es AQ.Ab8RN6${X}Zy9Xw8Vu7Ts6 listo`, 'gemini'],
   ['groq', `gsk_${X}`, 'groq'],
   ['cerebras', `csk-${X}`, null],
   ['stripe', `sk_live_${X}`, 'stripe'],

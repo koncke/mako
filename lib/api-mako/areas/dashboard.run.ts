@@ -55,6 +55,7 @@ import { firmaDeHoja } from '@/lib/graficos-ia-edicion';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { hojaConDatos } from '@/lib/graficos-con-datos-server';
 // Copiar y pegar un dashboard con su código (mig 0268): las MISMAS reglas y la misma tabla que la pantalla.
+import { metricasEnNumeros } from '@/lib/automatizacion-metricas-server';
 import { avisoDeVaciados, hojaConIdsNuevos, hojaParaCopiar, hojaParaOtroNegocio, nombreDeHoja, rotuloDashPegado } from '@/lib/graficos-copia';
 import { FaltaTablaDashError, copiaDashDeToken, guardarCopiaDash } from '@/lib/graficos-copia-server';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
@@ -435,6 +436,26 @@ export const RUNNERS: Runners = {
         };
       }
       return informesMarkdown({ informes: listados, sinPersona, recortado });
+    },
+  },
+
+  metricas_automatizacion: {
+    leer: async (input, ctx) => {
+      const id = num(input, 'secuenciaId');
+      if (id == null || !Number.isSafeInteger(id) || id <= 0) return fallo('Falta el secuenciaId de la automatización (de listar_secuencias_nutricion).');
+      const p = str(input, 'periodo');
+      const periodo = p === 'ult7' || p === 'ult90' ? p : 'ult30';
+      const m = await infra('leer las métricas', () => metricasEnNumeros(id, periodo));
+      if (!m) return fallo(`No existe la automatización ${id} en este negocio.`);
+      if (formatoDe(input, ctx, 'md') === 'json') return { content: J(m), formato: 'json' };
+      const lineas = [
+        `## Métricas de ${comillas(m.automatizacion.nombre)} (#${m.automatizacion.id}), del ${m.desde} al ${m.hasta}`,
+        '', ...m.numeros.map((n) => `- ${n.titulo}: ${n.valor ?? 'no se pudo leer'}`),
+      ];
+      if (m.porTarjeta.length) lineas.push('', '### Cuántos llegan a cada tarjeta', ...m.porTarjeta.map((t) => `- ${t.tarjeta}: ${t.personas}`));
+      const conEnvios = m.porDia.filter((d) => d.enviados || d.fallaron);
+      if (conEnvios.length) lineas.push('', '### Enviados y fallados por día', ...conEnvios.map((d) => `- ${d.dia}: ${d.enviados} enviados, ${d.fallaron} fallados`));
+      return lineas.join('\n');
     },
   },
 

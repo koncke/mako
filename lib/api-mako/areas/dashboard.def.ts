@@ -152,6 +152,20 @@ export const DEFS: readonly OperacionDef[] = [
     gating: GATING,
   },
   {
+    // 23/10/2026: la pestaña «Métricas» de /automations (lib/automatizacion-metricas.ts), por la API (regla: cada feature
+    // con su operación). Lee la hoja que arma MaKo, con el MISMO agregador que la pantalla.
+    id: 'metricas_automatizacion', area: 'metricas', tipo: 'lectura',
+    titulo: 'Métricas de una automatización',
+    descripcion: 'Las métricas de UNA automatización, las mismas que su pestaña «Métricas» en Automations: cuántas personas entraron, cuántas siguen en el flujo, cuántas respondieron y su tasa, las horas hasta responder, los avisos al equipo y la tasa de apertura (estos tres, si el flujo los tiene), cuántas personas llegaron a cada tarjeta del flujo (en el orden del flujo) y los mensajes enviados y fallados por día. Úsala para «¿cómo va la automatización X?» o «¿en qué tarjeta se caen?». Pide el secuenciaId (de listar_secuencias_nutricion). Por HTTP acepta ?formato=md|json.',
+    parametros: [
+      { nombre: 'secuenciaId', tipo: 'number', entero: true, minimo: 1, obligatorio: true, rotulo: 'Automatización', descripcion: 'El id de la automatización (de listar_secuencias_nutricion).' },
+      { nombre: 'periodo', tipo: 'string', rotulo: 'Período', enum: ['ult7', 'ult30', 'ult90'], descripcion: 'Últimos 7, 30 o 90 días. Default ult30.' },
+    ],
+    salida: 'markdown', formatos: ['md', 'json'],
+    canales: TODOS, costo: 'gratis', lenta: true,
+    gating: GATING,
+  },
+  {
     id: 'leer_hoja_dashboard', area: 'metricas', tipo: 'lectura',
     titulo: 'Leer una hoja del Dashboard',
     descripcion: 'Una hoja del informe de una persona con su configuración y sus números: la cabecera, los filtros de arriba, cada gráfico con su período, lo que lo define, sus filtros y lo que muestra (lo mismo que dibuja la pantalla al abrirla), los elementos (secciones, cajas de Conclusiones de MaKo, botones) y los conectores. Úsala para «¿qué dice mi hoja de Marketing?» o antes de cambiar un gráfico (trae los ids). El texto de una caja de Conclusiones se lee con leer_conclusiones_dashboard. En csv es el MISMO archivo que el botón Exportar. Por HTTP, las categorías con nombres de personas salen como «Cliente 1». Por HTTP acepta ?formato=md|csv|json.',

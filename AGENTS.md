@@ -576,6 +576,17 @@ Lo que el script NO puede resolver, y conviene saber antes de creerle a un rojo:
   solo. Los comandos de cada extensión de TipTap sobre `ChainedCommands` son el caso: ese mismo
   `insertar.ts` daba 5 rojos así. La cura es importar por tipos lo que se usa
   (`import type {} from '@tiptap/extension-task-list'`) o sumar ese archivo a la lista.
+- ⚠️ **Y GENERALIZANDO: antes de creerle a un rojo, preguntate si el tipo que falta es
+  DEL ARCHIVO o de un PAQUETE.** Si es del archivo (un `type` local, el control de flujo de
+  una función), el acotado y el completo dicen lo mismo y el rojo es real. Si viene de afuera
+  (los overloads de `createElement` de `@types/react` son el caso), el acotado lo puede
+  **inventar**: compila con `files`, `types: ["node"]` y sin `next-env.d.ts`. Medido el
+  24/10/2026: un TS2769 así casi frena un tren de 24 puntas, y el tsc COMPLETO lo dejó pasar
+  (`main` avanzó conteniéndolo). ⚠️ Y «aparece en la rama sola» NO es el discriminante: eso
+  sólo prueba que no lo causó el merge. **La pista en diez segundos: dos líneas gemelas donde
+  una falla y la otra no es la firma de un artefacto de overloads, no de un bug** (con `null`
+  en los props, `createElement` toma otro overload y no chequea los obligatorios). El detalle,
+  en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El tsc acotado puede INVENTAR un rojo».
 - **El acotado no sube a los que importan lo tuyo.** Si cambiaste un TIPO compartido, sumá a
   sus consumidores.
 - **Salida 99 no es un verde**: el `tsc` no terminó (el vigía de RAM lo mató, o sin heap) y no se
@@ -1118,6 +1129,9 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
 - **`gating.soloPlataforma`** en lo que la PLATAFORMA decide sobre los negocios y un negocio no puede deshacer en el
   suyo (exigir el 2FA): se resuelve por la capa en `vistaDe`, y el runner lo vuelve a preguntar. Un `gating.tab` no
   sirve para esto: las capas `completo` y `agencia` ven todas las tabs.
+- **`soloPlataforma` + `rolMinimo: 'admin'` es el admin DEL WORKSPACE de la plataforma, no el super admin global.** Si
+  la pantalla exige `getSesionAdmin` (vender un plan de MaKo), la acción lleva `faltaParaConfirmar` y el mismo chequeo en
+  `ejecutar()`, y va en `NO_EN_FLUJOS`: un paso de un flujo se confirma solo (23/10/2026, docs/hallazgos-api-mako.md).
 - **`gating.rolMinimo: 'admin'`** en cada operación de un área cuya página hace
   `requireRolWs([])`. `gating.tab` mira la CAPA del workspace, no a la persona: sin
   `rolMinimo`, un closer lee o hace por MaKo lo que su pantalla le esconde.
@@ -1717,6 +1731,11 @@ código nuevo:
       pide `indice_segundo_cerebro` (~300 tokens) y después `recuperar_del_segundo_cerebro` con su pregunta o con ids
       (lib/cerebro-recuperar.ts, sin IA). Medido en dos workspaces reales: 118-190 tokens por pregunta contra 459-678 del
       grafo entero y 1.105-1.606 del vault. `leer_segundo_cerebro_como_archivos` es para un área ENTERA, no para contestar.
+  - **EL CHAT DE MaKo SON TRES PIEZAS JUNTAS, en toda la app** (23/10/2026; Martín: «Tienes que UNIFICAR los chats con MaKo en
+    toda la app»): el PANEL (`app/admin/operaciones/PanelChat.tsx` → `PanelDeChat`: la cabecera con la criatura, arrastrar y
+    soltar, la columna del hilo y el lugar de la caja), el HILO (`app/_chat/HiloMako.tsx`) y la CAJA (abajo). Lo propio de cada
+    lugar (su motor, el contexto del lead o del flujo, sus botones) va por props y por el hueco `enMensaje`, nunca en un marco
+    propio. tests/chat-unico.test.ts (6 y 7) lleva el inventario de las que faltan y falla con un chat nuevo sin el panel.
   - **UNA SOLA CAJA PARA HABLAR CON MaKo: `app/_chat/CajaChat.tsx`** (20/10/2026; Martín: «Te pedí que unificaras el chat
     del Ops Center en todos lados, su diseño y funcionalidades»). Ninguna pantalla nueva arma su <textarea>, usa
     `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.
@@ -3504,6 +3523,13 @@ reservas, sin un error. La forma sale del ejemplo de la doc del webhook o de un 
 test se escribe sobre ese cuerpo (`tests/link-de-reunion.test.ts`). Al revés vale igual: el listado
 de Calendly sí trae el mismo `location` que su webhook, y eso se comprobó, no se supuso.
 
+⚠️ **UN LEAD DE UN FORMULARIO DE META ENTRA POR `upsertLeadFromMeta`, VENGA POR DONDE VENGA** (el webhook de Meta, el poll, el `lead.received` de
+Zernio en `lib/zernio-leads.ts`): la deduplicación es por `meta_lead_id` = el leadgen_id, y el índice de esa columna es GLOBAL (mig 0007), así que no se le
+pone un prefijo propio ni se usa el id de otro sistema (el `lead.id` de Zernio no es el leadgen_id: el lead que ya entró por Meta se duplicaba). El
+`event_id` de la conversión `Lead` es `eventIdLeadCrudo(leadgen_id)` en TODAS las puertas, para que Meta junte los eventos; y lo inmediato
+(`alNacerLeadDeMeta`) va sólo con un lead CREADO por esa entrega y de menos de 24 h (`esNuevoParaElNegocio`): una reentrega no es un lead nuevo. Un webhook
+que trae leads descarta antes de cargar nada las muestras de prueba del proveedor (`test: true`). `tests/zernio-leads.test.ts`.
+
 Y hay un CUARTO registro que no es obligatorio y cambia lo que la gente lee: `AYUDA_CAMPO`
 (en `metodo-catalogo.ts`). El componente hace `ayuda={c.ayuda ?? servicio.tutorial}`, asi
 que **si un campo tiene ayuda propia, el tutorial del servicio no se ve nunca para ese
@@ -3553,6 +3579,14 @@ tenemos en integraciones» (12/10/2026).
   Claude (su modal necesita datos que sólo arma la página: `SIN_MODAL_SUELTO`) y lo que viaja afuera (un WhatsApp, un
   mail: ahí no hay tab). `tests/integracion-sin-salir.test.ts` barre `app/` y falla con un link nuevo a /integraciones
   que no esté en su lista, con su porqué.
+- **El login de una RED (Facebook, Instagram, anuncios de Meta) es UNA pieza** (23/10/2026; Martín: «que en MaKo esté el botón de
+  logearse con Facebook, Instagram o lo que haga falta»): `<ConectarViaZernio red volver onConectado>` o `useConectarViaZernio`
+  (`app/_components/ConectarViaZernio.tsx`), con la key de Zernio DEL NEGOCIO. Ninguna pantalla arma su propio popup, su sondeo ni un
+  redirect de página entera a Zernio: la ventana se abre EN el clic (sin `await` antes y sin `noopener`), «conectada» la dice
+  `GET /v1/accounts` (`medirConexion`, lib/zernio-redes.ts: una cuenta sana que ANTES no estaba) y un popup que se ve «cerrado» NO
+  es «canceló» (con `Cross-Origin-Opener-Policy` se ve cerrado con la persona todavía adentro). En un teléfono o en el navegador
+  interno de Instagram/Facebook no hay popup: la pestaña navega y vuelve a la MISMA pantalla con `?zernio=<red>`. Copiada de Nango
+  (el modal es de la app y la verdad la dice el servidor) y de las trampas de Ayrshare. `tests/zernio-conectar-redes.test.ts`.
 
 # Una creación publicada es la DEFINICIÓN, y cada tipo se enchufa en UN lugar
 
@@ -4890,6 +4924,17 @@ nuevo:
   de Martín (una fila de la plataforma ilegible, o el crédito con otro nombre) dejaba pagar al Plan con él.
 - **Una fila que existe y no se descifra también es «no pude leer»** en la frontera de la IA: `credWsEstricta(…, {
   ilegibleTira: true })`. Sin la opción devuelve `null`, y una copia de la plataforma o el crédito pasaban por del negocio.
+- **Quién paga la IA de un cliente: el cliente** (Martín, 22/10/2026: «Cada usuario debe poder pagar su token, su propia IA
+  de gemini»). Su IA es su Claude, su GPT o su Gemini, con SU clave. La red de la plataforma (`provsGratisDePlataforma`)
+  devuelve `[]` fuera del ws9: las claves de la plataforma son para lo interno de MaKo, nunca para un negocio, con o sin
+  datos de clientes. Lo único que la plataforma pone es el crédito de Claude del onboarding. Código nuevo que necesite IA
+  para un negocio usa `provsDe` (sus filas), y sin su IA dice «Conecta tu Claude, tu GPT o tu Gemini» (`CONECTA_TU_IA`).
+- **Lo que es «su IA» se nombra con `PROVS_SU_IA`, nunca con una lista fija** (`['openai']` dejó a cuatro caminos sin su
+  Gemini, IA16). Su orden es a propósito: su GPT antes que su Gemini (una Gemini gratis del onboarding no pasa adelante).
+- **El método de MaKo (la `fuente` que se presta, lib/rag-prestamo.ts) se embebe con la de la plataforma** (`deMako`): vive en
+  el ws1, que no tiene su Gemini. Lo del negocio, con el suyo, siempre.
+- **Groq sólo escucha audio** (`PROVS_SOLO_AUDIO`, Martín 22/10/2026: «Groq sólo para las notas de voz»). Una función de
+  texto nueva no lo nombra; el corte de `proveedor` y `deTexto` lo saltean igual.
 
 - **La clave del negocio se lee con `credDelCliente`, nunca con `credWs`**: `credWs` cae al env de la plataforma
   cuando el workspace es el del dueño, y esa clave pasaría como del negocio.
@@ -5467,6 +5512,10 @@ del layout lee las cookies en cada request. Medido: build verde, 70 páginas, to
   blanca vive en el test. **Cada tab grande lleva su `loading.tsx` con `CargandoMako`** (23/10/2026,
   `app/_ui/CargandoMako.tsx`, importado directo y nunca desde el índice de `_ui`): ningún clic queda sin respuesta
   visible. Lo fija `tests/cargando-mako.test.ts`.
+  ⛔ **Pero una página que REDIRIGE no lo lleva así** (ticket #7, 23/10/2026): con loader, su `redirect()` va adentro
+  del stream (200 + meta refresh, no 307) y el router de Next se cayó con React #310. Si redirige SIEMPRE, sin loader; si
+  redirige a algunos, la redirección va en el `layout.tsx` del segmento (`pedidoActual()`, lib/pedido-actual.ts). Lo fija
+  `tests/redirige-antes-del-loader.test.ts`.
 - **En una ruta /api o una server action, el `cache()` de React NO memoiza** (23/10/2026): no hay render. La sesión ya
   se lee una vez por pedido (`enElPedido`, lib/sesion-por-pedido.ts); lo demás que se lea muchas veces por pedido va
   igual, y las lecturas que no dependen una de otra van en `Promise.all`. Medido: `/api/auth/me` hacía 41 idas a la
@@ -6383,8 +6432,12 @@ tab. Lo que gobierna código nuevo:
   nuevo que mande lo que dice un paso pregunta `esCanalSocial(p.canal)` ANTES de decidir que es
   WhatsApp: el proveedor de un paso de Instagram «es» no oficial (no tiene plantilla).
 - **Zernio se habla sólo desde el canal** (lib/zernio.ts, lib/canal-zernio.ts, lib/zernio-entrante.ts,
-  el webhook y app/api/zernio): `tests/sin-instagram.test.ts` lo fija en positivo, archivo por
+  lib/zernio-conectar.ts, el webhook y app/api/zernio): `tests/sin-instagram.test.ts` lo fija en positivo, archivo por
   archivo, y sigue fallando si vuelve algo de la tab.
+- **Zernio, SIN respaldo de la plataforma (23/10/2026; Martín: «que cada usuario traiga su API de Zernio»):** la key es SIEMPRE la del
+  negocio, leída con `credDelClienteEstricta` (sólo su fila, nunca `process.env`, y «no pude leer» tira). `credWs` y `credWsEstricta`
+  caen al entorno para el ws1, que es un cliente y a la vez «la plataforma» para las claves de entorno. El link de pago del 402 de
+  Zernio es `dashboard_url` (no `billingUrl`). `tests/zernio-sin-respaldo.test.ts`.
 
 **Y Chatwoot (el WhatsApp OFICIAL) se BORRÓ el 09/10/2026** (Martín: «que no exista más. Guardalo
 en privado»): el código entero está en la etiqueta de git `archivo/chatwoot-2026-10-09`, y
@@ -6540,6 +6593,29 @@ lo que costó: [docs/hallazgos-ticketera.md](docs/hallazgos-ticketera.md). Lo qu
     y el resto todavía del ws1 (Mauricio, un cliente). Una key de IA nueva de la plataforma se pega en la plataforma, nunca
     en el ws1; y a un negocio cuya IA fuera el entorno no se le pide que pegue la suya (`esNegocioDelEntorno`).
   Lo fijan tests/errores-app.test.ts y tests/mako-sin-ia.test.ts.
+
+# El Cerebro DECIDE: una pregunta al final de un mensaje es trabajo que se le devuelve a Martín
+
+Pedido suyo, textual, el 23/10/2026 a la noche, después de tres mensajes seguidos que terminaban en una
+pregunta o en un «decime si querés que…»: **«Estas muy pregunton, avanza ya de una vez... Para eso sos el
+Cerebro. Decide tu, abre los chats, organiza... Por favor ponlo como contexto de todas las cuentas esto.»**
+
+Las tres que lo agotaron ese día son el molde de lo que NO se pregunta: «¿despierto los chats?», «¿borro el
+grupo vacío de la barra?», «¿sigo por el lanzamiento o por otra cosa?». Ninguna necesita a Martín: la
+primera y la segunda las decide quien organiza, y la tercera la contesta la regla de prioridad que ya está
+escrita (cliente roto > plata > traba a Martín > features).
+
+- **Se decide, se hace, y se cuenta después en una línea.** Abrir chats, archivarlos, agruparlos,
+  renombrarlos, elegir qué sube al tren y qué espera, qué se mide primero: todo eso es del Cerebro.
+- **Lo que SÍ va a Martín es la lista cerrada de la Ticketera** (la sección de acá abajo): precio y alcance
+  comercial, lo que se le manda o se le cobra a un cliente real, accesos de personas, seguridad
+  irreversible, gasto de IA por unidad, fechas. Fuera de esa lista, se elige.
+- **Si una decisión suya CAMBIA, se ejecuta la nueva sin volver a preguntar** — y se reparte al chat del
+  área con la cita de la anterior, para que no la revierta sin saber que ya no vale. Pasó el mismo día con
+  las computadoras de los clientes en SuperAdmin: las pidió el 22/10 («lo mismo en SuperAdmin») y el 23/10
+  dijo «eso está muy mal, estás cruzando workspace».
+- **Y cuando una pregunta sí corresponde, es UNA**, con opciones concretas y excluyentes, nunca una lista en
+  prosa ni varias preguntas juntas.
 
 # A la Ticketera va lo que DECIDE Martín, no lo que a vos te falta decidir
 
@@ -7335,6 +7411,10 @@ una vuelta cada uno y valen para cualquier guard que busque una ruta en el fuent
 - **Y se saltean las líneas de comentario**, porque la convención de la casa es nombrar una
   ruta entre backticks — o sea que el guard se acusa a sí mismo por los comentarios que
   explican que la ruta se retiró.
+- **Los candidatos se buscan con `git grep -l` y no leyendo miles de archivos desde JS** (23/10/2026, el guard del puente de leads):
+  el barrido que leía todo `app/`, `lib/`, `tests/` y `scripts/` tardó de uno a cuatro minutos en una máquina cargada; `git grep`
+  (en C y en paralelo) lo dejó en segundos. Sale con status 1 cuando no encuentra nada, y el guard exige un piso de archivos
+  (`git ls-files`) y de candidatos: «no encontré nada» y «no miré» tienen que dar distinto.
 
 ⚠️ **Y RENOMBRAR una ruta es retirarla con un solo destino, más tres cosas** (medido el
 09/10/2026 al pasar /chatbot a /automations, `docs/hallazgos-chatbot.md` → «parte renombre»):
@@ -9776,6 +9856,12 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
   una se decide si lo puede dibujar; si no, se excluye con un error que diga dónde va.
 - **Tocar `EditorInforme` es tocar sus guards de fuente**: `tests/graficos*` y `tests/dashboard-*` leen el editor por
   regex, y una variante nueva los pone rojos. Se corren antes de dar el editor por terminado.
+- **Hay un TERCER informe: las «Métricas» de cada automatización** (23/10/2026, `automatizacion:<id>`, clave
+  `automatizacion.informe.<id>.<sub>`, lib/automatizacion-metricas.ts). No hay un «tipo de informe» genérico: cada lugar
+  compara el informe a mano. Un camino nuevo que lee o escribe informes decide qué hace con éste. Hoy lo saben la clave
+  (`claveDe`), el autoguardado (`?informe=`) y la ruta `/api/graficos`; NO lo leen el cron del AI Analyst
+  (`leerInformeGuardado`) ni los pop-ups guardados (`popupDe`). Y el editor importa el NOMBRE del informe de
+  `lib/informe-automatizacion.ts`, nunca la plantilla, que trae el flujo al bundle del Dashboard.
 - **Toda plantilla (del Dashboard o de General) abre con su PORTADA y tiene su COLOR** (15/10/2026, Martín: «A simple
   vista se tienen que diferenciar MUY bien de qué es cada template»): una pieza a lo ancho con la forma de lo que esa hoja
   contesta (`lib/graficos-portadas.ts`, `PORTADAS_GENERAL`) y su color en LA tabla compartida (`lib/graficos-identidad.ts`:

@@ -150,10 +150,10 @@ test('cableado: la entrada queda en el historial, el agregado dispara el evento,
   assert.match(evento, /\|\| agregadoEntraPorEvento\(/);
   assert.match(tramo(motor, 'async function anotarLaEntrada(', '\n}\n'), /logLeadEvent\(leadId, 'Automatización', `Entró a «\$\{a\.nombre\}»\.\$\{a\.frenado \? ` \$\{a\.frenado\.texto\}` : ''\}`, 'MaKo'\)/);
   const lf = leer('lib/lead-funnel.ts');
-  assert.match(tramo(lf, 'export async function moverEtapaEnProducto(', '\n}\n'), /await enrolarAgregado\(leadId, funnelId, etapa, \{ enLote: opts\?\.enLote \}\);\n\s+return \{ antes: fila\.etapa \};/, 'mover la tarjeta del agregado no lo inscribe');
+  assert.match(tramo(lf, 'export async function moverEtapaEnProducto(', '\n}\n'), /await enrolarAgregado\(leadId, funnelId, etapa, \{ enLote: opts\?\.enLote, \.\.\.\(informe \? \{ persona: autor, informe \} : \{\}\) \}\);\n\s+return \{ antes: fila\.etapa, automatizaciones: informe \};/, 'mover la tarjeta del agregado no lo inscribe');
   // AGREGARLO no dispara (revisión adversarial): la página de gracias y el cobro agregan y mueven a Ganado en el mismo pedido.
   assert.doesNotMatch(tramo(lf, 'export async function agregarAProducto(', '\n}\n'), /enrolarAgregado|enrolarPorEvento/, 'agregarlo le manda la prospección de la entrada a quien acaba de pagar');
-  assert.match(tramo(lf, 'async function enrolarAgregado(', '\n}\n'), /enrolarPorEvento\(leadId, 'etapa', \{ etapa, funnelId, agregado: true, \.\.\.\(o\?\.enLote \? \{ sinViaRapida: true \} : \{\}\) \}\)/);
+  assert.match(tramo(lf, 'async function enrolarAgregado(', '\n}\n'), /enrolarPorEvento\(leadId, 'etapa', \{\s*etapa, funnelId, agregado: true, \.\.\.\(o\?\.enLote \? \{ sinViaRapida: true \} : \{\}\),\s*\.\.\.\(o\?\.persona && o\.informe \? \{ persona: o\.persona, informe: o\.informe \} : \{\}\),\s*\}\)/);
   // En LOTE, sin vía rápida: el tick lo manda con el tope de la hora.
   assert.match(evento, /if \(ctx\?\.sinViaRapida\) \{[\s\S]*?return arrancadas;\n\s+\}\n[\s\S]*?try \{ await viaRapidaConTurno\(leadId\); \}/, 'el lote corre la vía rápida');
   const crm = leer('app/crm/actions.ts');
@@ -165,7 +165,11 @@ test('cableado: la entrada queda en el historial, el agregado dispara el evento,
   const lienzo = leer('app/automations/FlujoLienzo.tsx');
   assert.match(lienzo, /fetch\(`\/api\/flujos\/en-cola\?sec=\$\{secuenciaId\}`/);
   assert.match(lienzo, /\{enCola\[n\.id\] && <ChipEnCola nodo=\{n\} chip=\{enCola\[n\.id\]\.chip\} texto=\{enCola\[n\.id\]\.texto\} \/>\}/, 'la tarjeta no dice quién espera');
-  assert.match(leer('app/crm/lead-view/ficha/resumen/charla.tsx'), /const estado = \(a: EnAutomatizacion\) => estadoDeAutomatizacion\(a,/);
+  // ⚠️ REESCRITO EL 23/10/2026 (chat «CRM»): el bloque de la ficha se mudó de charla.tsx a automatizaciones.tsx (Martín: «un
+  //    bloque... relacionado a las automatizaciones... para tener más claridad de lo que pasa»). Lo que dice cuando algo lo
+  //    frena sale de `lineaDelProximo`, que devuelve el `frenado.texto` (tests/ficha-automatizaciones.test.ts).
+  assert.match(leer('app/crm/lead-view/ficha/resumen/automatizaciones.tsx'), /\{lineaDelProximo\(a, fecha\)\}/);
+  assert.match(leer('app/crm/automatizacion-lead.ts'), /if \(i\.frenado\) return i\.frenado\.texto;/);
 });
 
 // ── ROTURAS (23/10/2026) ───────────────────────────────────────────────────────────────────────────

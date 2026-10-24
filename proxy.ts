@@ -21,7 +21,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, gateConfigurado, verificarToken, sinLoginPermitido } from './lib/auth-session';
 import { WS_HEADER, WS_PARAM, parseWs } from './lib/ws-tab';
-import { HEADER_RUTA } from './lib/api-tab';
+import { HEADER_QUERY, HEADER_RUTA } from './lib/api-tab';
 import { esPublica, esPublicaSoloLeer, decidirRutaAlumno } from './lib/rutas-publicas';
 import { HEADER_DOMINIO, RUTA_DOMINIO, consultaDelDominio, decidirHost, hostDeCabecera, paginaNoExisteDominio, tipoDeHost } from './lib/editor-landing/dominios-reglas';
 import { decidirLEnApp, decidirLandings, redireccionEnElHost } from './lib/editor-landing/origen-landings';
@@ -297,6 +297,8 @@ function headersSeguros(req: NextRequest): Headers {
   // La ruta pedida, para que el server corte una API de una tab que el plan del negocio no incluye (lib/api-tab.ts).
   // La pone SÓLO el proxy: la que mande el cliente se pisa.
   headers.set(HEADER_RUTA, req.nextUrl.pathname);
+  // Y su query, igual: la que mande el cliente se pisa. La leen los layouts que redirigen antes del loader (lib/pedido-actual.ts).
+  headers.set(HEADER_QUERY, req.nextUrl.search);
   // El dominio propio de una landing lo pone SÓLO `respuestaDominioPropio`: en cualquier otra salida
   // se borra, o cualquiera podría pedirle a la ruta interna la landing de un dominio ajeno.
   headers.delete(HEADER_DOMINIO);

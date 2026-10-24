@@ -118,6 +118,11 @@ export type ReglasBloque = {
    * las fechas en el catálogo y no tiene ningún campo (`cubre: []`).
    */
   cubre?: readonly StepId[];
+  /**
+   * Los datos que el componente dibuja ADEMÁS de los suyos y los de `incluye` (23/10/2026): la R1 de ReunionesCard edita
+   * «¿Era calificado?», que es del bloque «Calificación»; sin esto su «Obligatorio» no lo ofrecía.
+   */
+  cubreTambien?: readonly StepId[];
   /** Los diseños del catálogo que el componente sabe dibujar. Con menos de dos, no se ofrece «Diseño». */
   disenos?: readonly string[];
 };

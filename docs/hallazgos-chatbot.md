@@ -6409,6 +6409,22 @@ fila que junta «Contestó» con otra cosa («Contestó y sigue en la etapa») n
 (lib/simulador-grafo.ts) todavía no imita el corte. Un DM de Instagram también cuenta como respuesta para los flujos de
 WhatsApp que usan «Contestó». Un «N antes de la reunión» que va en el MISMO camino se corta con él.
 
+**Y un agujero que vio la campaña real (24/10/2026, la #289 en el ws1, medido con `medir-289.mts`, sin versionar, en `C:/dev/wt-aut-sab24/scripts/_sab24/`).** Quien
+contesta MIENTRAS le está saliendo el mensaje se pierde el corte. M1 son 3 partes con pausas de 5 s: ~20 s desde la
+primera parte hasta la fila del envío. El #2502 contestó a los 5 s de la primera parte. `pausarPorRespuesta` lo puso en
+'respondio', y `alContestar` no lo tocó porque todavía no le había salido nada (`yaLeSalioAlgo` busca la fila del envío,
+que no existía). Al terminar, el avance escribió con `escribir` en modo 'fila': ese modo no compara el estado y pone el
+LEÍDO al empezar la corrida (`conEstadoDeLaFila`), así que volvió a 'activa' (lib/nutricion.ts, `escribir` y el avance
+después de mandar). Quedó 'activa', sin aviso al equipo y con M2 programado. **Lo que esconde:** lo que contestó era la
+bienvenida automática de su WhatsApp Business. Esas llegan a los segundos, dentro de esa ventana, así que HOY el agujero
+hace que casi ninguna cuente como «Contestó». Una que llega a los 30 s sí cuenta: incoherente. Arreglar sólo la carrera
+haría que todas cuenten (aviso al equipo y sin M2). Por eso el arreglo va junto con la decisión de qué es una respuesta
+automática. **Medido de paso:** con un goteo de 11 min salen cada ~12. El turno se cuenta desde el `created_at` de la
+fila, que se escribe después de las partes, y el tick corre una vez por minuto. La condición «Contestó» también espera su
+turno de goteo (es un nodo con canal WhatsApp: `sinLugar`), así que M2 sale 24 h después de evaluarla, no de M1.
+**Sin hacer:** el arreglo de la carrera (CAS en el avance; si la fila pasó a 'respondio' durante el envío, que siga en
+'respondio' y corra `alContestar`) y la regla de la respuesta automática: los dos esperan la decisión del Cerebro.
+
 ## «Sale sola» y la reentrada se fueron de la tarjeta de WhatsApp (23/10/2026)
 
 **Medido antes de sacarlo.** El primer mensaje de #289 salía solo (`revisar: false`): no fue el P0. Pero el SEGUNDO no
@@ -6496,17 +6512,43 @@ en la fila que ya está escribiendo**. `nutricion_envios.error` recibió la fras
 vez del `error.message` de Postgres, que es el único dato que distingue las cinco causas posibles. Un
 error de un tercero (o de la base) se propaga ENTERO hasta la fila que alguien va a poder leer después.
 
-**Lo que queda SIN hacer**, y le toca al chat de Automations:
-1. Hacer que `crearPendiente` devuelva el motivo (no `null`) y que `proponerChat` lo escriba en el envío.
-   Hoy «no pude registrarla» y «la base dijo X» son el mismo texto.
-2. Que un fallo del paso de aviso **no cierre la inscripción**: hoy queda `completada` y el lead se pierde
-   sin reintento. Es la contracara de «un 200 es un ACK» del lado del motor.
-3. Reparar el ws13: ese cliente no tiene aviso de ningún lead desde el 13/10. Y revisar la secuencia #264,
+**Lo que quedaba SIN hacer**, y le tocaba al chat de Automations:
+1. ~~Hacer que `crearPendiente` devuelva el motivo (no `null`) y que `proponerChat` lo escriba en el envío.~~
+   HECHO en 0a5f6c9b6 (en producción desde el 23/10 12:20:34 ART). La causa era medio emoji: docs/hallazgos-api-mako.md.
+2. ~~Que un fallo del paso de aviso **no cierre la inscripción**.~~ HECHO en 0a5f6c9b6: vuelve a su paso y reintenta a 1 h,
+   6 h y 24 h.
+3. Reparar el ws13. El arreglo está; los dos mensajes al grupo (el aviso y la lista de los 19 sin aviso, no 6 ni 10)
+   esperan a que un lead nuevo avise bien. La cuenta, en docs/hallazgos-api-mako.md. Y revisar la secuencia #264,
    que quedó con un único paso `nodo: 'mensaje'` con una `accion` adentro, **sin nodo `inicio`**, y con el
    token `{{mensaje_mako}}` en su hermana #240 — justo el que `problemasDeTokens` prohíbe publicar.
 
 **Vive en:** `lib/mako-pendientes.ts` (`crearPendiente`) · `lib/api-mako/acciones.ts:95` (`proponerChat`) ·
 `lib/api-mako/areas/chatbot.run.ts` (`avisar_al_equipo`) · `nutricion_envios.error`
+
+---
+
+## Archivar no es cerrar: los borradores de una automatización archivada seguían vivos (24/10/2026, ws13)
+
+**Síntoma.** El 24/10 la #264 del ws13 tenía 4 inscripciones en 'respondio' que llevaban 4 días frenadas, y cada 6 horas
+el motor les corría el próximo envío. Las frenaba un borrador pendiente de cada lead (`tieneBorradorNutriPendiente`).
+Esos borradores eran del paso 5 de la #241, que se había archivado el 20/10. Si alguien del cliente aprobaba uno, al lead
+le salía un mensaje escrito para un flujo que ya no corre. Además, en el mismo instante, la #264 disparaba un «Nuevo
+agendado» tardío sobre un lead ya trabajado, y Monica Fantoni estaba en la lista de los leads sin aviso.
+**Causa.** `archivarSecuencias` (lib/secuencias-huecos.ts) cancelaba las inscripciones 'activa' y 'pendiente' y no tocaba
+nada más. El mismo día pasó dos veces: acá y con las 7 confirmaciones del CRM.
+**Regla.** Archivar una automatización decide en el mismo movimiento lo que dejó esperando. Ahora sus borradores pendientes
+pasan a 'descartado' (nunca se borran) con una línea en el historial de cada lead, y la API lo dice al confirmar y al
+terminar. **El motivo vive en el historial del lead porque `wa_borradores` no tiene dónde guardarlo:** quien lea esa tabla
+sola ve un descartado y no sabe por qué. Para auditarlo hay que cruzar con `lead_audit` (campo 'Automatización').
+Los 4 de la #241 se descartaron a mano el 24/10, con el mismo texto y el antes y el después medidos (`descartarBorrador`
+de la app). Las 4 inscripciones salieron con `sacarDeSecuencia`, que hace CAS sobre el estado leído. No se pasaron a
+'completada' porque eso dispara el desenlace.
+**Sin hacer.** Las pendientes de `mako_acciones_pendientes` con origen `flujo:secuencia:<id>` de una automatización
+archivada siguen vivas (lib/mako-pendientes.ts): aprobar una ejecuta la acción de un flujo muerto. Su forma de archivarlas
+('archivado', el motivo en `resolved_by`) es la que usa el CRM. Las inscripciones en 'respondio' tampoco se cancelan al
+archivar. No mandan nada porque una archivada queda pausada, pero quedan colgando.
+**Vive en:** `lib/secuencias-huecos.ts` (`archivarSecuencias`) · `lib/api-mako/areas/chatbot.run.ts` (`archivar_secuencia`)
+· `tests/archivar-descarta-borradores.test.ts`
 
 ---
 
@@ -6707,3 +6749,127 @@ recién contesta la red de plataforma (Gemini flash / flash-lite o Groq gpt-oss)
 
 **Sin hacer (todo lo de arriba):** ningún arreglo se hizo en esta corrida; el arnés queda como prueba de aceptación del
 chat del área (`node … scripts/probar-chats/automations.mts --casos=…`).
+
+## «Métricas» de cada automatización: el editor del Dashboard con un tercer informe (23/10/2026)
+
+**El pedido** (Martín, 23/10 20:56): una pestaña de métricas por automatización, con un botón al lado de la tuerca. Al
+tocarlo, el lienzo se reemplaza por un dashboard que arma MaKo, que se personaliza como el Dashboard y que se puede
+llevar como hoja nueva a la tab Dashboard. Se copió la estructura de las métricas de un flujo de Klaviyo y de HubSpot:
+arriba los totales, abajo lo que pasó por día y lo que pasó en cada paso del flujo.
+
+**Lo que no era obvio:**
+- **No hay un «tipo de informe» genérico.** `'general'` está comparado a mano en cada lugar: la clave en
+  `lib/graficos-tablero.ts`, el guardado en `/api/graficos`, la URL del autoguardado en `EditorInforme` y
+  `CLAVE_HILOS`. El informe `automatizacion:<id>` (clave `automatizacion.informe.<id>.<sub>`, por persona como
+  General) se sumó en cada uno. Lo que todavía no lo conoce está en «Sin hacer».
+- **El campo compartido «Automatización» es el NOMBRE, no el id.** Las fuentes `inscripciones` y `envios` lo traen
+  así. El filtro fijo de cada hoja se reescribe al abrir con el nombre de hoy (`conLaAutomatizacion`), así que
+  renombrar no deja la hoja en cero. Una hoja llevada al Dashboard sí queda con el nombre del día en que se llevó.
+- **«Contestó» no tiene hora propia.** `nutricion_envios.respondio_at` no lo escribe nadie (0 de 184 el 23/10). Las
+  «horas hasta responder» van de `inscripto_at` a `desenlace_at` o `updated_at` de una inscripción en `respondio` o
+  `handoff`. Es una aproximación que puede dar de más, nunca de menos (`horasHastaResponder`).
+- **Un envío puede ser un mensaje, un aviso al equipo u otra acción.** El campo `asunto` guarda el asunto de un email
+  y también la operación de una acción. Por eso un aviso que falló queda `fallo` con `avisar_al_equipo` en `asunto`
+  (`tipoDeEnvio`).
+- **La cabecera del lienzo la dibuja el lienzo (`chrome`).** Para que «Métricas» lo reemplace y se pueda volver con el
+  mismo botón, la cabecera pasó a `const cabecera` en `SecuenciaPerfil.tsx`, y la usan las dos vistas.
+- **EditorInforme es del cliente.** Si importara el módulo de la plantilla, se llevaría `flujo-conversacion` al bundle
+  del Dashboard. El nombre del informe vive aparte, en `lib/informe-automatizacion.ts`, sin imports.
+
+**Medido con la #289 del ws1 (sólo lectura, 23/10):**
+- **Totales:** 12 entraron, 10 siguen y 2 respondieron (16,7%).
+- **Respuesta:** 5,8 horas hasta responder, el promedio de 11,3 h y 0,3 h.
+- **Avisos al equipo:** 1.
+- **Por tarjeta:** 7 llegaron a la tarjeta 01 y 2 a la de MaKo.
+- **Envíos de hoy:** 8 enviados y 1 fallado.
+
+Todo coincide con la base contada a mano.
+
+**Sin hacer.**
+- El cron del AI Analyst no lee estos informes (`leerInformeGuardado`, lib/graficos-analisis-server.ts, mira Dashboard
+  y General). Una caja de Conclusiones que se ponga en las Métricas no corre sola.
+- Los pop-ups de un gráfico leen la definición del informe del Dashboard (`popupDe`, app/api/graficos/route.ts), así
+  que en las Métricas usan la que manda la pantalla.
+- «Llevar al Dashboard» lleva la PRIMERA hoja de las Métricas, no la que se está mirando, porque el editor no expone
+  la hoja abierta.
+- No se vio en pantalla antes de subir (no había RAM para un build local): se mira en producción después del deploy.
+
+**Vive en:** `lib/automatizacion-metricas.ts` (la plantilla, el filtro, lo que cuentan las fuentes) ·
+`lib/informe-automatizacion.ts` · `lib/automatizacion-metricas-server.ts` · `app/api/automations/metricas/route.ts` ·
+`app/automations/MetricasAutomatizacion.tsx` · `app/automations/SecuenciaPerfil.tsx` (`BotonMetricas`, `cabecera`) ·
+`app/m/automations/MetricasM.tsx` · `metricas_automatizacion` (lib/api-mako/areas/dashboard.*) ·
+tests/automatizacion-metricas.test.ts
+*23/10/2026, chat «Automations › Métricas» (claude2).*
+
+### El aviso «Contestó» de la #289 quedó VACÍO, y «Contestó» es de la inscripción, no del teléfono (23/10/2026)
+
+**El síntoma:** la única persona real que contestó en «Sprint · apertura» (ws1, lead 3100) no le llegó a Mauricio: el
+envío 183 quedó en 'fallo' con «No salió el aviso: El aviso quedó vacío.». **La causa:** el texto del aviso era UN
+renglón («… Teléfono: {{lead_telefono}} | Email: {{lead_email}} | Chat: {{link_chat_lead}}») y `sinRenglonesVacios`
+(lib/variables-aviso.ts) borra entero el renglón con un dato del catálogo sin valor. Ella no tenía email, y el flujo
+existe justamente para pedírselo a quien no lo dio: con ese texto, NINGÚN aviso de esa rama iba a salir. **Arreglo:** el
+dato se partió en renglones (setSecuenciaPasos, mismos ids) y, en el código, `textoConDatosParaEquipo`
+(lib/variables-del-lead.ts): si la regla deja vacío un aviso AL EQUIPO que tenía palabras propias, sale entero con «—»
+en el dato que falta. **Regla:** una regla que borra contenido opcional tiene que tener piso; «opcional» es del renglón,
+no del mensaje. Al lead nunca le sale el «—».
+**Y lo que parecía el bug no lo era:** Martín probó con su lead 3099 y «no le cortó». Su respuesta cayó en el lead 249:
+`matchLeadPorTelefono` (lib/evolution-mensajes.ts) se queda con el id MÁS CHICO entre los que comparten teléfono, y
+«Contestó» lee sólo el estado de la INSCRIPCIÓN (`insc.estado === 'respondio'`, que pone `pausarPorRespuesta` por
+lead_id). Un lead duplicado por teléfono contesta en el otro y la automatización no se entera. No se cambió el matcher
+(anotado, el ws1 tiene un solo par: 249/3099). Para probar, un lead que sea el único con ese teléfono.
+**Vive en:** lib/variables-del-lead.ts · lib/api-mako/areas/chatbot.run.ts (`textoDelAviso`) ·
+tests/aviso-equipo-no-vacio.test.ts. **Sin hacer:** el lienzo no avisa al escribir un renglón con varios datos
+opcionales; el duplicado por teléfono (`matchLeadPorTelefono`).
+*23/10/2026, chat «Automations» (claude2).*
+
+### Mover un lead a la etapa del CRON no lo hace empezar de nuevo, y no lo decía (23/10/2026)
+
+**El síntoma:** Martín llevó su lead a «Prospección activa» (el CRON de la #289) y «no pasó nada». **La causa, en dos
+capas:** la reentrada de la #289 era NULL, que para un flujo que no prepara reunión se lee «Una sola vez»
+(`reentradaDe`), así que `reusaInscripciones` la dejaba afuera; y aunque fuera «Cada vez», la inscripción seguía VIVA, y
+una viva nunca se reinicia por evento (`puedeReentrar` → 'no_termino'). En `enrolarPorEvento` las dos terminan en el
+mismo `if (!r) continue;`, sin escribir nada: ni historial, ni error. Y desde la pantalla no había salida: «Frenar» deja
+'cancelada', y una cancelada no vuelve nunca. **Arreglo:** si lo mueve una PERSONA, una línea en el historial firmada por
+ella («No volvió a entrar a «…»: ya entró una vez y su reentrada es «Una sola vez».», `motivoNoVuelve`) y el informe del
+movimiento (`automatizaciones`: en cuáles entró y en cuáles no) de vuelta a la pantalla; «Empezar de nuevo» (acción y
+operación de la API `empezar_de_nuevo_lead_secuencia`) por la inscripción manual de siempre (`decidirInscripcionManual`
+con `empezarDeNuevo` → `reactivarInscripcion`); y el detalle para el bloque «Automatizaciones» de la ficha
+(`detalleDelLead`). La pantalla es del chat del CRM. El «no entró» no tiene tabla: el detalle lo lee del historial
+(`leerNoVolvio`), y el id sale de las inscripciones del lead, porque sólo deja de entrar quien ya tiene una. **La trampa del autor:** el evento de etapa
+no dice quién movió (lo usan el motor, MaKo, los lotes y las confirmaciones, todos por `setPipelineStage`), y adivinarlo
+por el valor de `autor` firmaba como persona lo que hizo un proceso. Va EXPLÍCITO: `porPersona` lo pasan sólo
+`setLeadStageAction`, `completeStageMoveAction` y `moverEtapaEnProductoAction`, que exigen sesión. **Regla:** un `continue` que decide por el usuario
+tiene que dejar una línea en algún lado; si no, «no funcionó» es lo único que queda.
+**Vive en:** lib/nutricion.ts (`enrolarPorEvento`, `decirQueNoVolvio`, `inscribirEnSecuencia`) · lib/reentrada.ts
+(`motivoNoVuelve`, `lineaNoVolvio`, `leerNoVolvio`) · lib/leads.ts y lib/lead-funnel.ts (devuelven el informe) ·
+lib/nutricion-inscripcion-manual.ts · lib/automatizaciones-del-lead*.ts (`detalleDe`, `detalleDelLead`) ·
+lib/api-mako/areas/chatbot.* · tests/no-volvio-a-entrar.test.ts · tests/empezar-de-nuevo.test.ts ·
+tests/automatizaciones-del-lead-detalle.test.ts. **Sin hacer:** los lotes (tablero y agregados) y el celular
+(app/m/crm) no pasan la persona; el reinicio de una fila 'activa' no frena un envío que el tick esté mandando en ese
+mismo instante (el compare-and-set es sobre estado y desenlace); el envío no guarda «entregado/leído» del WhatsApp.
+*23/10/2026, chat «Automations» (claude2).*
+
+### Lo que se midió de la #289 y la #198 antes del sábado (23/10/2026, sólo lectura)
+
+**Los 1050 agregados del Sprint entrarían todos** al moverlos a «Prospección activa» (`agregadoEntraPorEvento`: abiertos,
+dentro de los 90 días, ninguno nació con el lead), pero el goteo de la #289 deja salir 50 por día y la línea 65: son unas
+TRES SEMANAS, no un fin de semana. El lote (`moverLeadsDeEtapaAction`) corta en 200 y manda sin la vía rápida. **La #289
+no respeta el horario de oficina:** su configuración trae `horario.activo:false` (guardada el 23/10 a las 20:03), y
+`horarioDeLaAutomatizacion` da null; el «fuera del horario» que vio Martín a las 21:47 era de antes. **Los fallos 184 a
+186 de la #198 no son un bug:** son leads de prueba de Meta («<test lead: dummy data for …>», sin teléfono real, en
+'perdido'); la trampa es otra: sus inscripciones siguen 'activa' y el motor las reintenta cada 24 h (o 4 h) para
+siempre, sumando fallos en el registro de la línea. **Sin hacer:** cerrar la inscripción de un lead sin teléfono válido
+después de N reintentos (lib/nutricion.ts, «lead sin teléfono» ~5177), y no inscribir los «test lead» de Meta.
+### Un teléfono que falta no se arregla reintentando, y a un lead de prueba de Meta no se le escribe (23/10/2026)
+
+**El síntoma:** la #198 «Un Lead Entró» del ws1 sumaba ~7 fallos por día a leads de la Lead Ads Testing Tool de Meta («<test
+lead: dummy data for PHONE>»): el 2767 con «teléfono inválido» cada 4 h (no tiene un solo dígito) y los 2769-2773 con
+«lead sin teléfono» cada 24 h, para siempre. **La causa:** el reintento diario era a propósito («por si le cargan el
+teléfono»), pero contradice la regla de AGENTS.md (un fallo que va a fallar igual no se reintenta), y el «teléfono
+inválido» caía en el backoff de 4 h de un error del proveedor. **Arreglo:** `telefonoSinArreglo` (vacío o sin dígitos) y
+`esLeadDePruebaDeMeta` (lib/lead-sin-arreglo.ts): el motor cierra la inscripción con su motivo (`terminal`, el mismo
+camino del opt-out), en los dos WhatsApp; el lead de prueba se corta antes de cualquier canal (su email es
+`test+…@meta.com` y saldría de verdad). El número de 10 dígitos sin código de país NO se cierra: se arregla configurando la
+línea. **Vive en:** lib/lead-sin-arreglo.ts · lib/nutricion.ts (`procesarEnvios`) · tests/lead-sin-arreglo.test.ts.
+**Sin hacer:** el lead de prueba igual ENTRA a la automatización (se cierra en su primer envío); no se filtra al inscribir.
+*23/10/2026, chat «Automations» (claude2).*

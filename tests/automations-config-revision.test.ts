@@ -41,18 +41,33 @@ const cuerpo = (src: string, firma: string, fin = '\n}\n'): string => {
 
 // ── 1. El huso ───────────────────────────────────────────────────────────────────────────────
 
-test('1. en la tuerca el huso se VE («Huso del negocio: …») y no se cambia; en Configuraciones › Horario, sí', () => {
+// ⚠️ CAMBIÓ EL 23/10/2026 (Martín: «en configuraciones de Automations, no hay opción para poner el huso horario»). Hasta ese
+// día el huso iba de sólo lectura en el ⓘ (revisión del 20/10: elegir Madrid en UNA automatización dejaba a las demás de
+// madrugada sin saberlo). Ahora se cambia en la fila de las horas, con el MISMO selector, y la línea dice que es del negocio.
+test('1. en la tuerca el huso se ve y se cambia con el MISMO selector, y dice que vale para todo el negocio', () => {
   const panel = sinComentarios(leer('app/configuraciones/HorarioEnvioPanel.tsx'));
-  // El desplegable (y con él `cambiarZona` → `saveZonaHorarioAction`) sólo en la rama editable.
-  // 22/10/2026 (Martín: «Elimina todo el texto innecesario»): en la tuerca, «Huso del negocio: …» va en el ⓘ del título.
-  assert.match(panel, /\{fuente\.zonaSoloLectura && <Info texto=\{`\$\{ROTULO_ZONA_NEGOCIO\}: \$\{opcionesDeZona\(zona\)\.find\(\(o\) => o\.value === zona\)\?\.label \?\? zona\}\.`\} \/>\}/);
-  assert.match(panel, /\{!fuente\.zonaSoloLectura && \(\n\s+<div[^>]*>\n\s+<Dropdown value=\{zona\}[^\n]*onChange=\{cambiarZona\} \/>/);
+  // UN selector y UNA escritura (`cambiarZona` → `saveZonaHorarioAction` → `fijarZonaDelNegocio`), en las dos pantallas.
   assert.equal((panel.match(/onChange=\{cambiarZona\}/g) ?? []).length, 1, 'el huso se cambia por otro lado');
+  assert.match(panel, /<Dropdown value=\{zona\} options=\{opcionesDeZona\(zona, navegador\)\}[^\n]*onChange=\{cambiarZona\} \/>/);
+  assert.match(panel, /void saveZonaHorarioAction\(tz\)/);
+  // En la tuerca, con el horario prendido, la línea de que es del negocio.
+  assert.match(panel, /\{fuente\.zonaDelNegocio && h\.activo && \(\s*<span data-aviso-zona-negocio=""[^>]*>\{AVISO_ZONA_NEGOCIO\}<\/span>/);
+  assert.match(leer('app/configuraciones/HorarioEnvioPanel.tsx'), /export const AVISO_ZONA_NEGOCIO = 'El huso vale para todo el negocio\.';/);
+  assert.doesNotMatch(panel, /zonaSoloLectura/, 'volvió el huso de sólo lectura');
+  // La del navegador va primera, marcada, y canónica.
+  assert.match(panel, /zonaCanonica\(Intl\.DateTimeFormat\(\)\.resolvedOptions\(\)\.timeZone\)/);
+  assert.match(panel, /out\.unshift\(\{ \.\.\.sugerida, label: `\$\{sugerida\.label\} · \$\{ROTULO_ZONA_NAVEGADOR\}` \}\);/);
   const auto = sinComentarios(leer('app/automations/ConfigAutomatizacionPanel.tsx'));
-  assert.match(auto, /const fuente: FuenteHorario = \{\n\s+zonaSoloLectura: true,/);
-  // El del negocio (sin `fuente`) sigue editándolo.
+  assert.match(auto, /const fuente: FuenteHorario = \{\s+zonaDelNegocio: true,/);
+  // El del negocio (sin `fuente`) sigue igual.
   assert.match(panel, /const FUENTE_NEGOCIO: FuenteHorario = \{ leer: \(\) => getHorarioEnvioAction\(\), guardar: \(h\) => saveHorarioEnvioAction\(h\) \};/);
+  // Y la acción escribe la zona del NEGOCIO, con su origen, sólo un admin.
+  const acc = sinComentarios(leer('app/configuraciones/horario-actions.ts'));
+  assert.match(acc, /if \(rol !== 'admin'\) return \{ ok: false, error: 'Solo un admin puede cambiar el huso\.' \};/);
+  assert.match(acc, /await fijarZonaDelNegocio\(ws, z, 'persona', sesion\?\.email \|\| null\)/);
 });
+// Probado rompiéndolo (23/10/2026, el test 1 solo): sin la línea del negocio → 0/1; sin la zona del navegador → 0/1; la tuerca
+// sin `zonaDelNegocio` → 0/1.
 
 // ── 2. Duplicar ──────────────────────────────────────────────────────────────────────────────
 

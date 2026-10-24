@@ -3,7 +3,8 @@
 // =============================================================================
 // Varias computadoras por persona (22/10/2026, Martín: «el usuario debería poder abrir y ejecutar su Claude en varios
 // dispositivos... Y poder "Desconectar" dispositivos»). Corre lib/ia-pc.ts REAL contra un PostgREST de mentira: Mauricio (ws1)
-// conecta la PC que Martín instaló y después la suya; a cuál va el turno; la lista del super admin; desconectar una.
+// conecta la PC que Martín instaló y después la suya; a cuál va el turno; la lista del super admin (de UN negocio por vez,
+// desde el 23/10/2026); desconectar una.
 // =============================================================================
 
 import { crearPostgrest } from './_postgrest-de-mentira';
@@ -155,8 +156,9 @@ async function main() {
   let corrio = false;
   await pc.esperarALaPc(3, WS, otra.id, async () => { corrio = true; return 'hecho'; }, 50);
   out.herramientaRevocada = { corrio, salida: pg.db.ia_pc_llamadas.find((f) => f.id === 1)!.salida };
-  // 3. La lista del super admin: de todos los negocios, sin secretos.
-  const todas = await pc.listarTodasLasPc();
+  // 3. La lista del super admin: la de UN negocio (su ficha), sin secretos; la de otro negocio no trae éstas.
+  const todas = await pc.listarPcDelNegocio(WS);
+  out.delOtro = (await pc.listarPcDelNegocio(13)).map((p) => [p.ws, p.nombre]);
   out.todas = todas.map((p) => ({ ws: p.ws, negocio: p.negocio, persona: p.persona, nombre: p.nombre, sistema: p.sistema, enLinea: p.enLinea, conClaude: p.conClaude }));
   out.secretos = JSON.stringify(todas).match(/token|hash/i)?.[0] ?? null;
   // 4. Desconectar la suya: deja de estar en la lista y en el turno, y su token ya no sirve. La de Martín sigue.
@@ -165,11 +167,11 @@ async function main() {
     listadas: (await pc.listarDispositivos(WS, MAU, false)).map((d) => d.nombre),
     turno: (await pc.pcDe(WS, MAU))?.nombre ?? null,
     tokenSirve: !!(await pc.dispositivoDelToken(suya.token)),
-    todas: (await pc.listarTodasLasPc()).map((p) => p.nombre),
+    todas: (await pc.listarPcDelNegocio(WS)).map((p) => p.nombre),
   };
   // 5. Desconectar con el ws equivocado no toca nada (la del ws13 sigue).
   await pc.desconectar(WS, delCodigo.id);
-  out.otroWs = (await pc.listarTodasLasPc()).some((p) => p.id === delCodigo.id);
+  out.otroWs = (await pc.listarPcDelNegocio(13)).some((p) => p.id === delCodigo.id);
   process.stdout.write(`@@VARIAS@@${JSON.stringify(out)}\n`);
 }
 

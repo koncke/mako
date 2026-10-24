@@ -158,7 +158,8 @@ test('CrmBoard: mover un agregado escribe SÓLO la fila, optimista, con vuelta a
   assert.match(mv, /if \(!r\.ok\) \{\s*volverPantalla\(\);/, 'si la acción falla, la tarjeta vuelve');
   // El Deshacer vuelve a llamar a la MISMA acción con la etapa anterior: revertir sólo la
   // pantalla mentiría hasta el próximo F5.
-  assert.match(mv, /mostrarAviso\(`Movido a \$\{destino\}`, \(\) => \{[\s\S]*moverEtapaEnProductoAction\(id, producto, volverA\)/);
+  // ⚠️ 23/10/2026 (chat «CRM»): el aviso suma por qué no entró a una automatización de la etapa (`noEntroDelMovimiento`).
+  assert.match(mv, /mostrarAviso\(`Movido a \$\{destino\}\$\{noEntro\.length \? `\. \$\{noEntro\.join\(' '\)\}` : ''\}`, \(\) => \{[\s\S]*moverEtapaEnProductoAction\(id, producto, volverA\)/);
   assert.equal(mv.split('moverEtapaEnProductoAction(').length - 1, 2, 'dos llamadas: mover y deshacer');
   assert.match(mv, /guardarLugar\(\);/, 'el lugar en la columna se guarda igual que en la casa');
   // Y nada del recorrido de la casa.

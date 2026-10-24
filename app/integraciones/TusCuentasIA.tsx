@@ -14,10 +14,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LogoClaude } from '@/app/admin/operaciones/Uso';
+import { Skeleton } from '@/app/_ui/Feedback';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, CONSENTIMIENTO_DE, PROGRAMA_IA_PC, cuentasDeLaIA, lineaDeInstalacion, type CuentaPc, type CuentasIA, type SistemaPc } from '@/lib/ia-pc-reglas';
-import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
+import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, dondeSacarLaClave, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
 import { CuentasYDispositivos, NuevoDispositivo } from './CuentasYDispositivos';
 import './tus-cuentas-ia.css';
 
@@ -276,10 +277,10 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1, ia = 'claude'
 }
 
 /** El logo de cada IA, para los botones grandes del paso 1. */
-const LogoIA = ({ ia }: { ia: IaDelCliente }) => (ia === 'claude' ? <LogoClaude size={28} /> : <SvcIcon k="openai" size={18} box={28} radius={7} />);
+const LogoIA = ({ ia }: { ia: IaDelCliente }) => (ia === 'claude' ? <LogoClaude size={28} /> : <SvcIcon k={SERVICIO_DE_CLAVE[ia]} size={18} box={28} radius={7} />);
 
 /**
- * «Conectar tu IA» (IA4, 22/10/2026), un paso por pantalla: ¿qué IA? (Claude o ChatGPT) → ¿cómo? (mi computadora, o una
+ * «Conectar tu IA» (IA4, 22/10/2026), un paso por pantalla: ¿qué IA? (Claude, ChatGPT o Gemini) → ¿cómo? (mi computadora, o una
  * clave de API que carga el admin; a los demás, «Pídele a <admin>»). Las opciones y sus textos: lib/conectar-ia-reglas.ts.
  * La computadora abre el tutorial de siempre; la clave, el modal de la integración (el mismo de /integraciones).
  */
@@ -291,6 +292,7 @@ function ConectarTuIA({ esAdmin, admin, listo: puedeComputadora, onComputadora, 
 }) {
   const [ia, setIa] = useState<IaDelCliente | null>(iaInicial ?? null);
   const [conectada, setConectada] = useState(false);
+  const donde = ia ? dondeSacarLaClave(ia) : null;
   return (
     <div className="tci-tutorial" role="dialog" aria-label="Conectar tu IA">
       <BrandDefs />
@@ -313,6 +315,12 @@ function ConectarTuIA({ esAdmin, admin, listo: puedeComputadora, onComputadora, 
       {ia && !conectada && (
         <>
           <h3>¿Cómo la conectas?</h3>
+          {donde && (
+            <p className="tci-nota">
+              <a href={donde.url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>{donde.url.replace(/^https:\/\//, '')}</a>
+              {' · '}{donde.texto}
+            </p>
+          )}
           <div className="tci-grandes">
             {comoConectar(ia, { esAdmin, admin }).map((o) => {
               const contenido = <><span className="tci-grande__titulo">{o.titulo}</span><span className="tci-grande__detalle">{o.detalle}</span></>;
@@ -383,6 +391,20 @@ function NuevaCuenta({ onElegir }: { onElegir: (ia: IaDelCliente) => void }) {
  * (adonde vuelve el instalador de Windows al terminar: RUTA_TRAS_INSTALAR). `conectar` (el Ops Center lo pasa al abrirlo desde
  * «Conectar tu IA»): ya no hace falta, «Nueva cuenta» está siempre a la vista.
  */
+/** El bloque de una cuenta mientras llega el estado: el nombre, el email, las dos ventanas y un dispositivo, en gris. */
+export function EsqueletoDeCuentas() {
+  return (
+    <div className="tci-esqueleto" role="status" aria-label="Cargando tus cuentas de IA" data-esqueleto="">
+      <Skeleton w="38%" h={18} />
+      <Skeleton w="62%" h={14} />
+      <div className="tci-esqueleto__ventana"><Skeleton w="34%" h={12} /><Skeleton h={6} radius={999} /></div>
+      <div className="tci-esqueleto__ventana"><Skeleton w="22%" h={12} /><Skeleton h={6} radius={999} /></div>
+      <Skeleton w="28%" h={11} style={{ marginTop: 6 }} />
+      <Skeleton h={88} radius={12} />
+    </div>
+  );
+}
+
 export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sinCabecera?: boolean; conectar?: boolean; computadora?: boolean } = {}) {
   const [estado, setEstado] = useState<Estado | null>(null);
   const [eligiendo, setEligiendo] = useState<IaDelCliente | null>(null);
@@ -391,8 +413,11 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
   const [iaTutorial, setIaTutorial] = useState<IaDelCliente>('claude');
   const [ahora, setAhora] = useState(() => Date.now());
   const antes = useRef<number[]>([]);
+  /** Ya se intentó leer una vez: sin estado después de eso (no se pudo), lo de siempre, no el esqueleto para siempre. */
+  const [leido, setLeido] = useState(false);
   const recargar = useCallback(async (): Promise<Estado | null> => {
     const e = await fetch('/api/ia-pc/estado', { cache: 'no-store' }).then((x) => x.json()).catch(() => null);
+    setLeido(true);
     if (e?.ok) { setEstado(e); setAhora(Date.now()); return e; }
     return null;
   }, []);
@@ -422,7 +447,7 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
         <div className="tci-cab">
           <div>
             <h2 id="tci-titulo" className="tci-titulo">Tus cuentas de IA</h2>
-            <p className="tci-bajada">Tu Ops Center contesta con tu Claude o tu GPT.</p>
+            <p className="tci-bajada">Tu Ops Center contesta con tu Claude, tu GPT o tu Gemini.</p>
           </div>
         </div>
       )}
@@ -436,7 +461,11 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
       )}
       {tutorial && <Tutorial onCerrar={() => { setTutorial(false); void recargar(); }} pcsAntes={antes.current} recargar={recargar} pasoInicial={pasoInicial} ia={iaTutorial} />}
 
-      {!eligiendo && !tutorial && (
+      {/* MIENTRAS CARGA, EL ESQUELETO DEL BLOQUE (23/10/2026, Martín: «al principio me aparecen solo los botones de "Conectar GPT o
+          Claude"... Si hay cuentas conectadas debería aparecer el loader para que se sepa que falta info que cargar»). Antes del
+          estado no se sabe si hay cuentas: «Nueva cuenta» sola se leía como «no tienes nada». */}
+      {!estado && !leido && !eligiendo && !tutorial && <EsqueletoDeCuentas />}
+      {(estado || leido) && !eligiendo && !tutorial && (
         <>
           <NuevaCuenta onElegir={setEligiendo} />
           <CuentasYDispositivos grupos={grupos} ahora={ahora} onDesconectar={(d) => desconectar(d.id)}
