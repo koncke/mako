@@ -188,6 +188,23 @@ button.fr-chip { font: inherit; font-size: 13.5px; font-weight: 600; cursor: poi
 }
 .fb-pagina[data-dispositivo="movil"] .fr-aut-acciones > * { flex: 1 1 auto; }
 
+/* «Posibles duplicados» (23/10/2026, ./duplicados.tsx): por ficha parecida, el nombre con «Abrir» y «Unificar», por qué
+   se parece, en qué CRM está y desde cuándo. */
+.fr-dup-lista { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fr-dup { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--ink) 4.5%, transparent); min-width: 0; }
+.fr-dup-nombre { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 720px) { .fr-dup .fr-cab { flex-wrap: wrap; } .fr-dup .fr-cab-fin { margin-left: 0; } }
+.fb-pagina[data-dispositivo="movil"] .fr-dup .fr-cab { flex-wrap: wrap; }
+/* El pop-up de «Unificar» (./UnificarFichas.tsx): qué queda de cada una, por secciones, y lo que choca en ámbar. */
+.fr-unif { display: flex; flex-direction: column; gap: 10px; }
+.fr-unif-tit { margin: 0; font-size: 15.5px; font-weight: 700; color: var(--ink); }
+.fr-unif-sec h4 { margin: 4px 0 4px; font-size: 13px; font-weight: 700; color: var(--dim); text-transform: none; }
+.fr-unif-sec ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; color: var(--ink); }
+.fr-unif-otra { color: var(--primary); }
+.fr-unif-choque { color: var(--warn); }
+.fr-unif-acciones { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+@media (max-width: 720px) { .fr-unif-acciones > * { flex: 1 1 auto; } }
+
 /* El celular: lo de a dos baja a uno, y las acciones de una fila no se apilan. */
 /* En el celular (y en la vista «Celular» de «Personalizar»), el rótulo de una fila va ARRIBA del valor, como la lista
    de propiedades de Attio en el teléfono: a 390 px el rótulo a la izquierda dejaba el teléfono cortado al lado de sus

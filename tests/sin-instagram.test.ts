@@ -82,6 +82,9 @@ const CANAL: Record<string, string> = {
   // además aseguran el webhook de Zernio (`asegurarAvisosSociales`): no le manda nada a un lead.
   'lib/disparadores-canales.ts': '¿está conectada la cuenta de Instagram o Messenger? (`estadoMedios`), y el webhook al publicar',
   'lib/metodo-verificar.ts': 'el ping de la integración (GET /profiles)',
+  // 23/10/2026 (chat «CRM»): «Unificar» dos fichas muda la charla de Instagram de la que se va a la que queda
+  // (`ig_conversaciones.lead_id`). No habla con Zernio ni manda nada: sólo cambia de quién es la charla.
+  'lib/leads-unificar-reglas.ts': 'al unir dos fichas, la charla de Instagram pasa a la que queda (`TABLAS_QUE_SE_MUDAN`)',
   'lib/workspace.ts': 'TENANT_TABLES',
   'lib/tablas-de-inquilino.ts': 'las tablas de un inquilino',
 };

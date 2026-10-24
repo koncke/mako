@@ -20,6 +20,67 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Unificar» dos fichas parecidas: no existía, y una ficha tiene ~45 columnas colgando (23/10/2026)
+
+**Pedido.** Martín, 23/10 ~23:20 UTC: «En el CRM si me dice "Hay otra ficha parecida", que me de la opción ahí mismo de
+unificarlas, y ese bloque en el detail requiere más info... ¿En que CRM aparece duplicada?».
+
+⚠️ **El diagnóstico obvio era el equivocado: «ya hay una fusión, se usa ésa».** `lead-fusionado` y `avisarFusion`
+(lib/leads.ts) suman un contacto que ENTRA a una ficha que ya está. Dos fichas que ya existen no se podían unir: el
+diseño lo decía («unirlas no existe») y el único parecido, `quitarHuerfano` (lib/zernio-entrante.ts), copia dos campos y
+borra sin mudar nada. Se escribió UNA vez, en lib/leads-unificar.ts.
+
+**Lo que cuelga de una ficha** (inventario contra las migraciones, el 23/10): ~45 columnas, 20 con un índice único que
+choca al mudar.
+- Con FK y CASCADE: borrar la ficha se las lleva.
+- Con SET NULL: pierden el vínculo sin avisar.
+- Sin FK: quedan apuntando a un id muerto. Son lead_audit, lead_respuestas, lead_insights, closing_*, mako_confirmaciones,
+  flujo_corridas (`ctx->>leadId`), chat_* (`clave = lead:<id>`) y notificaciones (`entity_id` texto).
+- Hay arreglos de ids (`lead_orden.lead_ids`, `cliente_entrega_orden.lead_ids`).
+- La comunidad guarda el id adentro de textos con un check (`miembro = 'l:'||lead_id`).
+
+La lista de lo que se muda está en `TABLAS_QUE_SE_MUDAN`. Lo que choca se resuelve uno por uno en `planDeUnificar`
+(lib/leads-unificar-reglas.ts):
+- automatizaciones: una por automatización, y la viva le gana a la terminada;
+- CRM: la casa de la otra pasa a agregada, y en uno compartido queda la etapa más adelantada;
+- etiquetas: la unión;
+- análisis en cola, confirmaciones pendientes, el borrador del setter y el estado de la charla: queda uno de cada cosa.
+
+**No es una transacción, y por eso el orden.** Primero lo que choca, después lo que se muda, después los datos, y la ficha
+que se va se borra AL FINAL. Se borra sólo si ya no le cuelga nada en las tablas que la borrarían en cascada
+(`quedaColgando`). Si algo falla a la mitad, las dos siguen existiendo y no se perdió nada; volver a unificar termina,
+porque cada operación vale dos veces. Una función de SQL lo haría atómico, pero sería una migración a aplicar a mano en
+producción (`scripts/apply-migration.mjs` no deja registro: docs/hallazgos-infra.md).
+
+**Queda la más VIEJA, salvo que la otra tenga la venta o ya sea cliente.** Todos los que buscan a quién es un mensaje
+por el teléfono se quedan con el id más bajo: `matchLeadPorTelefono` (lib/evolution-mensajes.ts:100-109),
+`primerLeadPorTelefono` y `elegirPorTelefono`. Por eso las respuestas de Martín caían en el 249 y no en el 3099
+(docs/hallazgos-chatbot.md). **Sin hacer (es de Comunicación):** `resolverLeadIdsPorTelefono`
+(lib/evolution-mensajes.ts:224-239) no ordena, así que con dos fichas con el mismo teléfono puede elegir una distinta en
+cada pedido.
+
+**Lo de cliente todavía no se une.** Si la que se va tiene cuotas, Customer Success, curso o comunidad, el plan no se
+arma y lo dice. Quedarse con ésa sí se puede, porque lo de cliente no se muda. Mudar las cuotas choca con
+`(lead_id, funnel_id, numero)`, y la comunidad tiene checks sobre textos con el id. **Sin hacer**, con el archivo:
+lib/leads-unificar-reglas.ts (`TABLAS_DE_CLIENTE`).
+
+**Lo que se pierde a propósito, y la previa lo dice:**
+- Las visitas a la página de la que se va: cada ficha guarda un solo `visitor_id`.
+- Los emails entrantes con `workspace_id` NULL, que no se mudan porque no se puede saber de qué negocio son.
+
+**La etapa que se toma en un CRM compartido se escribe directo, sin mover al lead.** No dispara automatizaciones:
+unificar no es mover a nadie.
+
+**El caso real, en seco.** Corrido con scripts/unificar-en-seco.mts el 23/10, sin escribir nada:
+- queda el 249 (la más vieja) y se va el 3099;
+- se traen la inscripción 291 a «Sprint · apertura», 6 mensajes de WhatsApp, 4 líneas del historial y 2 envíos;
+- en Sprint 3 días queda en «Prospección activa», porque el 249 estaba agregado en «Lead entrante»;
+- son 13 operaciones.
+
+**Vive en:** lib/leads-unificar-reglas.ts · lib/leads-unificar.ts · app/crm/unificar-actions.ts ·
+app/crm/lead-view/ficha/resumen/UnificarFichas.tsx · duplicados.tsx · bloques-actions.ts (`dondeEstaLaFicha`) ·
+scripts/unificar-en-seco.mts · tests/ficha-unificar.test.ts. *23/10/2026, chat «CRM» (claude2).*
+
 ## «Empresa obligatorio» en todos: no era el `avisa` del catálogo, era el aviso POR BLOQUE (23/10/2026)
 
 **Síntoma.** Martín, 23/10 ~20:40 UTC: «en todos me dice "empresa obligatorio" porque está dentro de un bloque que tiene 3

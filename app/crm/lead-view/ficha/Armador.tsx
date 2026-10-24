@@ -237,6 +237,9 @@ function BarraBloque({ tab, b, icono, titulo, tituloDeSiempre, incluidos, onCamb
 }) {
   const [menu, setMenu] = useState<Menu>(null);
   const op = b.def.opciones ?? [];
+  // «Opciones ▾» es para las redes, las fuentes y la pregunta. Los DATOS tienen su menú («Datos ▾»): un bloque que sólo
+  // elige datos (el contacto, el setter y el closer) no lleva «Opciones», que abría vacío (visto en producción, 24/10/2026).
+  const conOpciones = op.some((x) => x === 'redes' || x === 'fuentes' || x === 'pregunta');
   const redes: readonly Red[] = b.puesto.opciones?.redes ?? REDES;
   const fuentes: readonly FuenteRespuesta[] = b.puesto.opciones?.fuentes ?? FUENTES_RESPUESTA;
   const pregunta = b.puesto.opciones?.pregunta ?? null;
@@ -297,7 +300,7 @@ function BarraBloque({ tab, b, icono, titulo, tituloDeSiempre, incluidos, onCamb
           </button>
         </>
       )}
-      {op.length > 0 && (
+      {conOpciones && (
         <>
           {sep}
           <button type="button" className="fb-herr" aria-haspopup="menu" aria-expanded={menu?.tipo === 'opciones'} onClick={abrir('opciones')}>

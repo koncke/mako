@@ -6,6 +6,26 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω23. 23-24/10/2026, noche (chat «CRM», cuenta `claude2`): «Unificar» dos fichas parecidas
+
+Pedido de Martín (23/10 ~23:20 UTC, por el Cerebro; literal en la bitácora). Rama `crm-unificar-2310` en
+C:/dev/wt-crm-unificar, ENCIMA de `crm-ficha-aut-2310` (9f5936f22): sale con ella o después. El bloque «Posibles
+duplicados» dice en qué CRM está la otra (con su etapa), por qué se parece y desde cuándo existe, con «Abrir» y
+«Unificar». «Unificar» abre la previa (qué queda de cada una, dónde queda, lo que se trae, lo que chocaba) y sólo el admin
+lo confirma. Lo que no se deduce del código está en docs/hallazgos-crm.md («Unificar» dos fichas…).
+
+**Probado en seco con el caso real** (scripts/unificar-en-seco.mts --ws 1 --a 249 --b 3099, sólo lectura): queda el 249 y
+se trae la inscripción 291, 6 mensajes, 4 líneas del historial y 2 envíos, en 13 operaciones. **NO se unificaron en
+producción**: el ws1 es de un cliente y es la prueba de Martín.
+
+**Sin hacer, con el archivo:**
+- Unir fichas que ya son clientes (cuotas, Customer Success, curso, comunidad): lib/leads-unificar-reglas.ts
+  (`TABLAS_DE_CLIENTE`). Hoy no se arma el plan y se dice.
+- `resolverLeadIdsPorTelefono` (lib/evolution-mensajes.ts:224) no ordena: es de Comunicación.
+- La operación en la API de MaKo (`unificar_leads`): no se hizo. Es del chat API de MaKo, sobre `planParaUnificar` y
+  `aplicarUnificar`.
+- Sin ver en pantalla: el bloque y el pop-up, en el ws3 con dos fichas de prueba, después del deploy.
+
 ## 0-Ω22. 23/10/2026, noche (chat «CRM», cuenta `claude2`): los datos de cada bloque y el bloque «Automatizaciones»
 
 Pedido de Martín (23/10 ~20:40 UTC, por el Cerebro; literal en la bitácora del CRM). Rama `crm-ficha-aut-2310` en
