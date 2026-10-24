@@ -105,14 +105,20 @@ const fmtUso = (u: Uso) => (!u ? '' : `✦ ${u.tokens >= 1000 ? `${(u.tokens / 1
 // salvo un comentario, y las dos escribían `processing: false` sin mirar a Meta (#59).
 
 // ── Borrador local ──
-const DRAFT_KEY = 'mako.nuevaCampana.draft.v2';
+// ⚠️ CON EL NEGOCIO EN LA CLAVE (24/10/2026). El borrador lleva presupuesto, lugares, página, audiencias, destino y la
+// clave de idempotencia: sin el `?ws=` en la clave, el super admin que arrancaba una campaña en un cliente y abría
+// «Nueva campaña» en otro recibía el borrador del primero, con su página y sus audiencias. El negocio llega del SERVER
+// por props (AGENTS.md), no del `?ws=`. La clave vieja (sin negocio) no se migra: no se sabe de quién era.
+const DRAFT_KEY_VIEJA = 'mako.nuevaCampana.draft.v2';
+const draftKey = (ws: number | null) => `mako.nuevaCampana.draft.v3:${ws ?? '-'}`;
 type Draft = { step: Step; tray: TrayItem[]; budgetUsd: number | null; objKey: ObjKey | null; lugares: LugarMeta[]; identidad: Identidad | null; estrategia: Estrategia | null; audiencias: AudienceRef[]; placements: string[] | null; destino: Destino; analisis: Analisis; spec: CampaignSpec | null; uso: Uso; idem: ClaveIdem | null };
 const draftVacio = (): Draft => ({ step: 'creativos', tray: [], budgetUsd: null, objKey: null, lugares: [], identidad: null, estrategia: null, audiencias: [], placements: null, destino: {}, analisis: [], spec: null, uso: null, idem: null });
-function loadDraft(): Draft {
+function loadDraft(ws: number | null): Draft {
   const vacio = draftVacio();
   if (typeof window === 'undefined') return vacio;
   try {
-    const raw = window.localStorage.getItem(DRAFT_KEY);
+    try { window.localStorage.removeItem(DRAFT_KEY_VIEJA); } catch { /* sin storage */ }
+    const raw = window.localStorage.getItem(draftKey(ws));
     if (!raw) return vacio;
     const d = JSON.parse(raw) as Partial<Draft>;
     const step = d.spec ? 'revision' : (d.step && d.step !== 'armando' && d.step !== 'publicando' && d.step !== 'listo' ? d.step : 'creativos');
@@ -183,11 +189,11 @@ const STD_EVENTS: Record<string, { enum: string; label: string }> = {
   AddToWishlist: { enum: 'ADD_TO_WISHLIST', label: 'Que agreguen a deseos' },
 };
 
-export function NuevaCampanaModal({ senales, campaignCount, health = null, healthError = null, modo = 'nueva', onClose, onPublished }: { senales: SenalRecon[]; campaignCount: number; health?: MetaHealth | null; healthError?: string | null; modo?: 'nueva' | 'existente'; onClose: () => void; onPublished: () => void }) {
+export function NuevaCampanaModal({ ws = null, senales, campaignCount, health = null, healthError = null, modo = 'nueva', onClose, onPublished }: { senales: SenalRecon[]; campaignCount: number; health?: MetaHealth | null; healthError?: string | null; modo?: 'nueva' | 'existente'; onClose: () => void; onPublished: () => void; ws?: number | null }) {
   // modo 'existente' arranca SIEMPRE limpio (sin borrador): elegir campaña/conjunto
   // es corto y mezclarlo con el borrador de "Nueva campaña" confundiría.
   const existente = modo === 'existente';
-  const [d0] = useState<Draft>(() => (modo === 'existente' ? { ...draftVacio(), step: 'campana' } : loadDraft()));
+  const [d0] = useState<Draft>(() => (modo === 'existente' ? { ...draftVacio(), step: 'campana' } : loadDraft(ws)));
   const [step, setStep] = useState<Step>(d0.step);
   const [campSel, setCampSel] = useState<NodoEstado | null>(null);
   const [adsetSel, setAdsetSel] = useState<NodoEstado | null>(null);
@@ -372,7 +378,7 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   useEffect(() => {
     try {
       if (existente || step === 'listo') return;
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, tray, budgetUsd, objKey, lugares, identidad, estrategia, audiencias, placements, destino, analisis, spec, uso, idem }));
+      window.localStorage.setItem(draftKey(ws), JSON.stringify({ step, tray, budgetUsd, objKey, lugares, identidad, estrategia, audiencias, placements, destino, analisis, spec, uso, idem }));
     } catch { /* quota */ }
   }, [step, tray, budgetUsd, objKey, lugares, identidad, estrategia, audiencias, placements, destino, analisis, spec, uso, idem]);
 
@@ -777,7 +783,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
       // éxito de lo que está en pantalla. El borrador se queda, y el próximo clic lo publica.
       if (t.deAntes) { onPublished(); throw new Error(j.ok ? ANTERIOR_PUBLICADA : ANTERIOR_A_MEDIAS); }
       if (!j.ok) throw new Error(j.error || 'No se pudo publicar');
-      try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* */ }
+      try { window.localStorage.removeItem(draftKey(ws)); } catch { /* */ }
       setResult({ campaign_id: String(j.campaign_id ?? ''), ads: (j.ad_ids ?? []).length });
       if (producto) {
         const a = await asignarCampanaAction(funnelDeValor(producto), { tipo: 'campana', id: String(j.campaign_id), nombre: spec.name }, false).catch(() => null);

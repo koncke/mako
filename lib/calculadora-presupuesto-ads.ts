@@ -261,3 +261,78 @@ export function textoParaMako(e: EntradaCalculadora, p: PlanCalculadora): string
     ...p.avisos,
   ].join('\n');
 }
+
+// ── Lo que ya dicen los anuncios del negocio (24/10/2026) ───────────────────────────────────────────────────────────
+// Pedido del Cerebro para el lanzamiento: «si tiene datos del negocio, que los use; si no, que igual funcione. Lo que no
+// puede es mostrar números inventados como si fueran del cliente». Sale de las mismas señales que pinta la tabla del Ads
+// Manager (`getSenalesRecon`: el gasto ya en dólares, los leads que reporta Meta, los leads y las ventas del CRM).
+//
+// ⚠️ UN NÚMERO SÓLO SE PROPONE SI HAY CON QUÉ MEDIRLO: el costo por lead con RESULTADOS_PARA_DECIDIR leads (la misma
+// vara que el Recon), y cuántos compran de cada 100 con esos leads en el CRM y al menos una venta. Con menos, `null`:
+// el campo queda vacío y lo escribe la persona. Un «US$40 por lead» sacado de UN lead no es un dato, es ruido.
+// El ticket NO se deduce: lo cobrado (`cash_usd`) puede ser una cuota de la venta, no la venta.
+
+/** Lo mínimo de una señal del Recon que hace falta (`SenalRecon`, lib/queries.ts, sin importarla: esto es puro). */
+export type SenalParaCalculadora = { spend_usd: number; leads: number; leads_crm: number; cierres: number };
+
+/** Lo que se puede proponer, medido. `null` = no hay con qué medirlo. */
+export type DeTusAnuncios = { costoPorLead: number | null; cierre: number | null };
+
+export function deTusAnuncios(senales: readonly SenalParaCalculadora[] | null | undefined): DeTusAnuncios {
+  let gasto = 0, leads = 0, crm = 0, ventas = 0;
+  for (const s of senales ?? []) {
+    gasto += Number.isFinite(s.spend_usd) ? s.spend_usd : 0;
+    leads += Number.isFinite(s.leads) ? s.leads : 0;
+    crm += Number.isFinite(s.leads_crm) ? s.leads_crm : 0;
+    ventas += Number.isFinite(s.cierres) ? s.cierres : 0;
+  }
+  return {
+    costoPorLead: leads >= RESULTADOS_PARA_DECIDIR && gasto > 0 ? Math.round((gasto / leads) * 100) / 100 : null,
+    cierre: crm >= RESULTADOS_PARA_DECIDIR && ventas >= 1 ? Math.round((ventas / crm) * 1000) / 10 : null,
+  };
+}
+
+/** «del 1/10 al 23/10»: de dónde salen los números propuestos. Fechas `YYYY-MM-DD`. */
+export function rangoCorto(desde: string, hasta: string): string {
+  const dm = (f: string) => { const [, m, d] = f.split('-'); return `${Number(d)}/${Number(m)}`; };
+  return `del ${dm(desde)} al ${dm(hasta)}`;
+}
+
+// ── Cómo entra lo medido a los campos de la pantalla ─────────────────────────────────────────────────────────────────
+// ⚠️ LO QUE ESCRIBIÓ LA PERSONA GANA: lo medido sólo llena un campo VACÍO, y deja de ser «medido» en cuanto la persona
+// lo toca. Y el costo medido es POR LEAD: con «Optimizas a: Venta» no vale, así que se saca (y vuelve si se vuelve a
+// lead con el campo vacío). Lo medido NO se guarda en el navegador: la próxima vez se vuelve a medir.
+
+export type CampoMedido = 'costo' | 'cierre';
+type Medibles = { costo: string; cierre: string; evento: Evento };
+export type EstadoCampos<T extends Medibles> = { campos: T; medido: CampoMedido[] };
+
+export function completarConLoMedido<T extends Medibles>(campos: T, m: DeTusAnuncios | null | undefined): EstadoCampos<T> {
+  const out = { ...campos };
+  const medido: CampoMedido[] = [];
+  if (out.evento === 'lead' && !out.costo.trim() && m?.costoPorLead != null) { out.costo = String(m.costoPorLead); medido.push('costo'); }
+  if (!out.cierre.trim() && m?.cierre != null) { out.cierre = String(m.cierre); medido.push('cierre'); }
+  return { campos: out, medido };
+}
+
+export function cambiarCampo<T extends Medibles>(e: EstadoCampos<T>, k: keyof T & string, v: string, m: DeTusAnuncios | null | undefined): EstadoCampos<T> {
+  let campos = { ...e.campos, [k]: v } as T;
+  let medido = e.medido.filter((x) => x !== k);
+  if (k === 'evento') {
+    if (v !== 'lead' && medido.includes('costo')) {
+      campos = { ...campos, costo: '' };
+      medido = medido.filter((x) => x !== 'costo');
+    } else if (v === 'lead' && !campos.costo.trim() && m?.costoPorLead != null) {
+      campos = { ...campos, costo: String(m.costoPorLead) };
+      medido = [...medido, 'costo'];
+    }
+  }
+  return { campos, medido };
+}
+
+/** Lo que se guarda en el navegador: lo que escribió la persona, sin lo medido. */
+export function paraGuardar<T extends Medibles>(e: EstadoCampos<T>): T {
+  const out = { ...e.campos };
+  for (const k of e.medido) out[k] = '' as T[typeof k];
+  return out;
+}

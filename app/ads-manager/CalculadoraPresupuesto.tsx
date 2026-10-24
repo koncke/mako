@@ -22,7 +22,8 @@ import { Button, Modal, Select, TextField, Alert, MONO } from '@/app/_ui';
 import { MakoStar } from '../_components/MakoBrand';
 import {
   calcularPresupuestoAds, titularDelPlan, textoParaMako, usd, plural, RESULTADOS_PARA_DECIDIR, RESULTADOS_APRENDIZAJE,
-  type EntradaCalculadora, type Evento, type PlanCalculadora,
+  completarConLoMedido, cambiarCampo, paraGuardar,
+  type EntradaCalculadora, type Evento, type PlanCalculadora, type DeTusAnuncios, type EstadoCampos,
 } from '@/lib/calculadora-presupuesto-ads';
 
 type Campos = {
@@ -31,6 +32,8 @@ type Campos = {
 };
 const INICIAL: Campos = { presupuesto: '', dias: '30', costo: '', evento: 'lead', ticket: '', cierre: '', avatares: '3', funcionalidades: '3' };
 // Lo último que tipeó, en ESTE navegador: una comodidad, no un dato (se pierde en una ventana privada y está bien).
+// ⚠️ CON EL NEGOCIO EN LA CLAVE (`?ws=`, 24/10/2026): el super admin abre varios clientes en el mismo navegador, y sin
+// esto el presupuesto que tipeó en uno le aparecía escrito en el otro (AGENTS.md: lo del navegador lleva el workspace).
 const CLAVE_LOCAL = 'mako.calculadora-presupuesto';
 
 const numero = (s: string) => Number(s.replace(/\s/g, '').replace(',', '.'));
@@ -43,18 +46,34 @@ export function entradaDeCampos(c: Campos): EntradaCalculadora {
   };
 }
 
-export function CalculadoraPresupuesto({ onCerrar, onPreguntarMako }: {
+export function CalculadoraPresupuesto({ ws = null, onCerrar, onPreguntarMako, deTusAnuncios, rango }: {
+  /** El negocio, del SERVER (`getWorkspaceActual`): nombra la clave del navegador. Del `?ws=` solo, una persona con
+   *  dos negocios que cambia por cookie tendría la misma clave en los dos. */
+  ws?: number | null;
   onCerrar: () => void;
   /** Abre la estrella de la tab con el plan. Sin esto, el botón no se dibuja. */
   onPreguntarMako?: (texto: string) => void;
+  /** Lo que ya miden los anuncios del negocio (`deTusAnuncios`, lib/calculadora-presupuesto-ads.ts). Sin esto, o con
+   *  todo en null —un negocio que todavía no pauta—, los campos arrancan vacíos y la cuenta funciona igual. */
+  deTusAnuncios?: DeTusAnuncios | null;
+  /** De qué fechas sale lo medido («del 1/10 al 23/10»): se dice al lado del número. */
+  rango?: string;
 }) {
-  const [c, setC] = useState<Campos>(INICIAL);
+  const clave = ws != null ? `${CLAVE_LOCAL}:${ws}` : CLAVE_LOCAL;
+  const [estado, setEstado] = useState<EstadoCampos<Campos>>({ campos: INICIAL, medido: [] });
+  const c = estado.campos;
+  // Lo medido entra por VALOR (no por identidad del objeto): el padre lo recalcula en cada render.
+  const medidos = deTusAnuncios ?? null;
+  const firmaMedidos = `${medidos?.costoPorLead ?? ''}|${medidos?.cierre ?? ''}`;
   useEffect(() => {
-    try { const g = localStorage.getItem(CLAVE_LOCAL); if (g) setC({ ...INICIAL, ...JSON.parse(g) }); } catch { /* sin storage: arranca vacío */ }
-  }, []);
-  const poner = (k: keyof Campos) => (v: string) => setC((x) => {
-    const n = { ...x, [k]: v };
-    try { localStorage.setItem(CLAVE_LOCAL, JSON.stringify(n)); } catch { /* idem */ }
+    let base = INICIAL;
+    try { const g = localStorage.getItem(clave); if (g) base = { ...INICIAL, ...JSON.parse(g) }; } catch { /* sin storage: arranca vacío */ }
+    setEstado(completarConLoMedido(base, medidos));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `medidos` entra por su firma
+  }, [clave, firmaMedidos]);
+  const poner = (k: keyof Campos) => (v: string) => setEstado((x) => {
+    const n = cambiarCampo(x, k, v, medidos);
+    try { localStorage.setItem(clave, JSON.stringify(paraGuardar(n))); } catch { /* idem */ }
     return n;
   });
 
@@ -62,8 +81,10 @@ export function CalculadoraPresupuesto({ onCerrar, onPreguntarMako }: {
   const plan = useMemo(() => calcularPresupuestoAds(entrada), [entrada]);
   const vacio = !c.presupuesto || !c.costo || !c.ticket;
 
+  // Un número que salió de los anuncios lo DICE debajo, con sus fechas: no se lee como si lo hubiera escrito la persona.
+  const deAnuncios = (k: keyof Campos) => (estado.medido as string[]).includes(k) ? `De tus anuncios${rango ? ` ${rango}` : ''}` : undefined;
   const campo = (k: keyof Campos, label: string, extra: { prefix?: string; suffix?: string; placeholder?: string } = {}) => (
-    <TextField label={label} inputMode="decimal" value={c[k]} onChange={(e) => poner(k)(e.target.value)} {...extra} />
+    <TextField label={label} inputMode="decimal" value={c[k]} onChange={(e) => poner(k)(e.target.value)} hint={deAnuncios(k)} {...extra} />
   );
 
   return (

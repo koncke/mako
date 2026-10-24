@@ -4387,10 +4387,29 @@ presupuesto») y la capacidad `calcular_presupuesto_anuncios` de la API (sin HTT
 - **El Ads Manager no tenía la estrella de MaKo.** Se montó `MakoEnLaTab` (modo analizar, encima de los modales) y el
   `<main>` deja el lugar con `--ancho-panel-mako`.
 
-**Sin hacer:** verlo en pantalla después del deploy (no se levanta `next dev` local); que la calculadora tome el costo
-por resultado real de la cuenta (`ver_rendimiento_anuncios`) en vez de pedirlo.
+- **Estaba escondida justo del que la necesita (24/10/2026, medido por el Cerebro).** Vivía en el ⋯ de la tabla, y el
+  Ads Manager abre en su wizard de onboarding mientras falte la cuenta, la página o la primera campaña
+  (`AdsManagerView` → `OnboardingAdsManager`): el que todavía no pauta sólo llegaba dando la vuelta por «Lo configuro
+  después». Martín tampoco la veía (a su negocio le falta el ID de la cuenta publicitaria). Ahora el pie del wizard la
+  abre en sus tres pasos. **Se queda en el Ads Manager, a propósito:** calcula el presupuesto de las campañas de Meta,
+  que se crean ahí, y el wizard ES la puerta de quien no pauta. No necesita la cuenta: pide números y devuelve números.
+- **Usa los anuncios del negocio, sin inventar** (`deTusAnuncios`): de las mismas señales que pinta la tabla
+  (`getSenalesRecon`, el gasto ya en dólares) propone el costo por lead si hay al menos RESULTADOS_PARA_DECIDIR leads,
+  y cuántos compran de cada 100 si hay esos leads en el CRM y al menos una venta. Debajo del campo dice «De tus anuncios
+  del 1/10 al 23/10». Lo medido llena sólo un campo VACÍO, deja de serlo cuando la persona lo toca, se saca con
+  «Optimizas a: Venta» (es por LEAD) y no se guarda en el navegador. El ticket NO se deduce: lo cobrado puede ser una cuota.
+- **La clave del navegador no llevaba el negocio** (`mako.calculadora-presupuesto`): el super admin que abre dos clientes
+  veía en uno lo que tipeó en el otro. Ahora lleva el negocio, que baja del server (ver «Un estado de pantalla guardado
+  sin el negocio», más abajo).
+- **El `Modal` de la casa no va por portal:** montado adentro del pie del WizardShell podía quedar recortado. Va como
+  hermano del wizard.
 
-**Vive en:** lib/calculadora-presupuesto-ads.ts · app/ads-manager/CalculadoraPresupuesto.tsx · app/ads-manager/CampanasBrowser.tsx · lib/api-mako/areas/ads.def.ts · tests/calculadora-presupuesto-ads.test.ts
+**Sin hacer:** verlo en pantalla con un negocio sin cuenta de Meta (el 24/10 no entraba un servidor local: 2 GB libres
+con 8 chats); el wizard del teléfono (`app/m/ads`) no la ofrece.
+
+**Vive en:** lib/calculadora-presupuesto-ads.ts (`deTusAnuncios`, `completarConLoMedido`, `cambiarCampo`) ·
+app/ads-manager/CalculadoraPresupuesto.tsx · app/ads-manager/OnboardingAdsManager.tsx · app/ads-manager/CampanasBrowser.tsx ·
+lib/api-mako/areas/ads.def.ts · tests/calculadora-presupuesto-ads.test.ts · tests/calculadora-sin-cuenta.test.ts
 
 ## «Creé la campaña en Meta y no me aparece en MaKo»: medir primero si Meta la tiene en la cuenta CONECTADA (23/10/2026)
 
@@ -4577,3 +4596,27 @@ medir editar (pausa, presupuesto, nombre) en una cuenta de cliente con app en de
 **Vive en:** lib/zernio-ads.ts · lib/zernio-ads-cuerpo.ts · lib/meta-ads-create.ts (`crearAnuncioEnConjunto`,
 `updateAdCopy`) · app/api/ads-manager/campaign-create/route.ts · scripts/prueba-zernio-anuncio.mts ·
 tests/zernio-anuncios.test.ts
+
+## Un estado de pantalla guardado sin el negocio adentro se filtra entre clientes (24/10/2026)
+
+**Vive en:** `app/ads-manager/CalculadoraPresupuesto.tsx` · `app/ads-manager/NuevaCampanaModal.tsx` ·
+`app/ads-manager/AdsManagerView.tsx` (de donde sale el negocio) · `tests/navegador-por-negocio.test.ts` ·
+`tests/calculadora-sin-cuenta.test.ts`
+
+- **Síntoma:** el super admin abre dos clientes en el mismo navegador y ve en uno lo que escribió en el otro. Sin error: se
+  lee como un borrador cualquiera. En la calculadora eran números; en el borrador de «Nueva campaña» eran el presupuesto,
+  los lugares, la PÁGINA, las audiencias, el destino y la clave de idempotencia del otro cliente.
+- **Causa:** `localStorage` es por ORIGEN, y las dos claves eran fijas (`mako.calculadora-presupuesto`,
+  `mako.nuevaCampana.draft.v2`). La regla ya estaba en AGENTS.md por el Video Editor, y no alcanzó.
+- **El diagnóstico obvio era a medias: no alcanza con el `?ws=` de la pestaña.** El primer arreglo lo leía de la URL (como
+  ya hacían las claves abiertas de `creativeUpload.ts`), y AGENTS.md pide que el negocio salga del server: una persona con
+  dos negocios que cambia por cookie no tiene `?ws=` y sus claves chocaban igual. Ahora `AdsManagerView` lee
+  `getWorkspaceActual()` y lo baja por props. El borrador viejo (sin negocio) se borra, no se migra.
+- **Sin hacer, con su archivo** (de 58 escrituras a `localStorage` en `app/`, las que guardan algo escrito para un negocio
+  con una clave fija): el borrador de proyecto y de tarea del Plan (`app/plan/board/CrearProyecto.tsx`,
+  `CrearTareaModal.tsx`), los borradores del inbox de WhatsApp (`app/whatsapp/EmpresaInbox.tsx`), el editor de
+  plantillas (`app/whatsapp/PlantillasPanel.tsx`) y la URL de prueba del Pixel (`app/integraciones/ProbarTracking.tsx`).
+  Y `app/ads-manager/creativeUpload.ts` sigue leyendo el negocio del `?ws=`. Un guard que barra las claves necesita su
+  lista de preferencias (una pestaña recordada no lleva negocio, y está bien).
+
+*24/10/2026, chat «Ventas de MaKo» (`claude1`).*
