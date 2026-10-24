@@ -2088,6 +2088,47 @@ conflicto en cualquier orden. Si el archivo cambia en la otra rama antes del mer
 
 *23/10/2026 · chat «API de MaKo» (claude2) · tests y rotura en el worktree, sin tipos, sin navegador.*
 
+## Editar las etapas de un CRM por la API: el cuerpo de la action se mudó a lib (23/10/2026, auditoría P0-6)
+
+Seis operaciones nuevas en `crm`: `renombrar_etapa`, `agregar_etapa`, `eliminar_etapa`, `ordenar_etapas`, `plazo_etapa` y
+`columna_nutricion_crm`. Hasta hoy la API sólo sabía cambiar el tipo de una etapa (`cambiar_tipo_etapa`, 21/10) y crear un
+CRM entero: lo demás del «⋯» de la columna y del pop-up de etapas era sólo de la pantalla.
+
+**El cuerpo de `editarEtapaAction` vive en `lib/etapas-crm-server.ts` (`editarEtapa`)**, el mismo molde que
+`lib/etapa-tipo-server.ts`. La action quedó con la puerta (admin) y los cachés; la lib no limpia cachés, porque corre
+también desde la API y un flujo (la API usa `invalidar`). Con dos copias de cómo se guarda una etapa, la que se queda vieja
+es la que decide qué se puede borrar.
+
+Lo que queda para código nuevo:
+- **Lo que no se borra lo decide UNA función pura, `porQueNoSeElimina` (`lib/etapas-crm-reglas.ts`)**: las terminales, lo
+  que no está en el pipeline, la última etapa y la de entrada. La op `eliminar` la llama al escribir y `eliminar_etapa` la
+  pregunta en `preparar()`: una pendiente reclamada no vuelve a «pendiente», así que lo que se puede saber sin escribir
+  falla antes del «sí». Lo mismo con el orden: `pipelineReordenado` arma lo que se guarda Y lo que muestra el resumen.
+- **Los leads de la etapa que se quita se cuentan con el conteo del pop-up** (`conteosDelEmbudo`, que se mudó de
+  `extrasDelEmbudoAction` con `etapaComoTablero`): todas las etapas arrancan en 0 y cuenta con la regla que dibuja la
+  tarjeta. `contar_leads_por_etapa` mira sólo el CRM principal y con otra regla: con ése, una etapa propia con gente daba 0.
+  El resumen dice lo que pasa con esos leads con la frase de la pantalla (`avisoAlQuitarEtapa`).
+- **Una etapa se busca por key o por nombre, sin tildes** (`columnaDe`), como `cambiar_tipo_etapa`. `agregar_etapa` rechaza
+  un nombre que ya tiene otra etapa del mismo CRM (un modelo que reintenta crearía dos iguales) y devuelve la key nueva
+  (`editarEtapa` ahora la devuelve en `creada`).
+- **Una columna de nutrición del catálogo no es una etapa**: se quita con `columna_nutricion_crm` (la op `quitarNutricion`,
+  que apaga las transiciones que llegan a ella), no con `eliminar_etapa`. Una vez quitada ya no está en las etapas, así
+  que se devuelve por su key: la respuesta al quitarla la dice.
+
+**Quedó SIN hacer, y dónde:**
+- Apagar UNA transición de nutrición (la op `nutricion`, por id `desde>hacia`) y el orden de la banda Nutrición
+  (`ordenNutricion`): la pantalla los tiene, la API no. Van como P1.
+- Devolver una etapa quitada TAL CUAL (la op `insertar`, que es el «Deshacer» de la pantalla): por la API, quitar una
+  etapa no tiene vuelta (`reversible: false`); se puede volver a crear con `agregar_etapa`, con otra key.
+- Los tests viejos que leían el cuerpo en `app/crm/actions.ts` (`etapa-reunion`, `funnel-estructura`,
+  `leads-por-producto`) ahora leen también la lib y las reglas.
+
+**Vive en:** `lib/etapas-crm-server.ts` · `lib/etapas-crm-reglas.ts` (puro) · `app/crm/actions.ts` (`editarEtapaAction`,
+`extrasDelEmbudoAction`) · `lib/api-mako/areas/crm.def.ts` y `crm.run.ts` · `lib/api-mako/rest.ts` ·
+`tests/api-mako-etapas-crm.test.ts`
+
+*23/10/2026 · chat «API de MaKo» (claude2) · tests y roturas medidos; sin probar contra la base todavía.*
+
 ## La entrega de un cliente y el alumno nuevo, por la API (23/10/2026, auditoría P0-5 y P0-3)
 
 **El síntoma.** Por la API se movía el CRM (`proponer_cambio_etapa`, `mover_lead_en_producto`, que escriben

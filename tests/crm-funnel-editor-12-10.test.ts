@@ -71,7 +71,7 @@ test('el orden de la banda Nutrición: el elegido primero, lo demás al final, l
 test('el server tiene las tres operaciones, y el lector aplica el orden guardado', async () => {
   const { readFileSync } = await import('node:fs');
   const leer = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-  const act = leer('app/crm/actions.ts');
+  const act = (leer('app/crm/actions.ts') + leer('lib/etapas-crm-server.ts'));
   assert.match(act, /op\.op === 'quitarNutricion' \|\| op\.op === 'ponerNutricion'/);
   assert.match(act, /const ids = idsParaQuitarNutricion\(actual\.pipeline, labels, op\.key\);/);
   assert.match(act, /op\.op === 'ordenNutricion'/);

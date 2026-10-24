@@ -184,7 +184,7 @@ test('el aviso existe en los cuatro registros, con su rótulo y su interruptor',
 });
 
 test('la operación «plazo» se decide en el server y conserva las otras claves de umbrales', () => {
-  const src = sinComentarios(leer('../app/crm/actions.ts'));
+  const src = sinComentarios((leer('../app/crm/actions.ts') + leer('../lib/etapas-crm-server.ts')));
   const ini = src.indexOf("} else if (op.op === 'plazo') {");
   const fin = src.indexOf("} else if (op.op === 'mover') {", ini);
   assert.ok(ini > 0 && fin > ini, 'existe la rama');
@@ -205,7 +205,7 @@ test('la operación «plazo» se decide en el server y conserva las otras claves
 test('el pop-up de etapas ya no ofrece plazo, ni lee los plazos para dibujarlo', () => {
   const src = sinComentarios(leer('../app/crm/EtapasModal.tsx'));
   assert.doesNotMatch(src, /PlazoEtapa|plazoDe\(|op: 'plazo'/, 'volvió la pastilla «Plazo»');
-  const ac = sinComentarios(leer('../app/crm/actions.ts'));
+  const ac = sinComentarios((leer('../app/crm/actions.ts') + leer('../lib/etapas-crm-server.ts')));
   const ini = ac.indexOf('export async function embudoEnDetalleAction');
   const fin = ac.indexOf('export type ExtrasDelEmbudo', ini);
   assert.ok(ini > 0 && fin > ini, 'existe el detalle del embudo');

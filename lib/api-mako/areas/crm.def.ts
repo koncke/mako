@@ -39,6 +39,8 @@ import { PLANTILLAS_TEMA, TIPOGRAFIAS } from '@/lib/graficos-temas';
 import { METODOS_PAGO } from '@/lib/pagos-campo';
 import { CAMPOS_TARJETA_LEAD, DISENOS_TARJETA } from '@/lib/tarjeta-kanban';
 import { TIPOS_ETAPA } from '@/lib/etapa-reunion';
+import { MAX_LABEL_ETAPA } from '@/lib/pipeline';
+import { PLAZO_MAX_DIAS } from '@/lib/lead-quieto';
 import { MAX_NOMBRE_EVENTO } from '@/lib/agenda-evento-etapa';
 
 const TAB = { tab: 'crm' } as const;
@@ -1197,6 +1199,78 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'el tipo de la etapa en el pipeline del funnel (y su banda: Nutrición o el recorrido)',
+  },
+  // ── Editar las etapas de un CRM (23/10/2026, P0-6 de la auditoría de la API) ─────────────────────────────────
+  // Lo mismo que el «⋯» de cada columna y el pop-up de etapas, por la MISMA función (`editarEtapa`,
+  // lib/etapas-crm-server.ts). Todas por chat y sólo el admin, como cambiar_tipo_etapa. Lo que no se borra (las terminales,
+  // la entrada) lo decide `porQueNoSeElimina`, la misma que frena la pantalla; los leads de una etapa que se quita se
+  // cuentan con `conteosDelEmbudo`, el conteo del pop-up.
+  {
+    id: 'renombrar_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Renombrar una etapa',
+    descripcion: 'PROPONE cambiarle el nombre a una etapa del CRM (queda pendiente hasta el «sí»), lo mismo que el lápiz de la columna. Vale también para las terminales (Ganado, Perdido, Descalificado, No responde) y las columnas de nutrición. Los leads no se mueven. Si el nombre nuevo dice reunión, puede quedar marcada como Reunión (se cambia con cambiar_tipo_etapa). La etapa por su key (de ver_funnel) o su nombre; con embudoId, la de otro CRM. Solo el administrador.',
+    parametros: [
+      { nombre: 'etapa', tipo: 'string', obligatorio: true, max: 80, descripcion: 'la key de la etapa (de ver_funnel) o su nombre.' },
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: MAX_LABEL_ETAPA, descripcion: 'el nombre nuevo.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    escribe: 'el nombre de la etapa en el pipeline del funnel (o en sus nombres, si es una terminal o una nutrición)',
+  },
+  {
+    id: 'agregar_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Agregar una etapa',
+    descripcion: 'PROPONE agregar una etapa al recorrido del CRM (queda pendiente hasta el «sí»), lo mismo que «Agregar etapa» del «⋯» de una columna. Con despuesDe va después de esa; sin él, antes de la etapa donde se cierra la venta. Nace como etapa (cambiar_tipo_etapa la hace Reunión o Nutrición). Devuelve su key. Un nombre que ya tiene otra etapa de ese CRM se rechaza. Se quita con eliminar_etapa. Solo el administrador.',
+    parametros: [
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: MAX_LABEL_ETAPA, descripcion: 'el nombre de la etapa nueva.' },
+      { nombre: 'despuesDe', tipo: 'string', max: 80, descripcion: 'la etapa después de la cual va (key o nombre). Sin ella, antes del cierre.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    escribe: 'una etapa nueva en el pipeline del funnel',
+  },
+  {
+    id: 'eliminar_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Quitar una etapa',
+    descripcion: 'PROPONE quitar una etapa del recorrido del CRM (queda pendiente hasta el «sí»), lo mismo que su tacho en el pop-up de etapas. El resumen dice cuántos leads tiene: no se borran, pasan a la etapa que les dan sus datos (agenda, asistencia, pago) o a la primera. Las terminales (Ganado, Perdido, Descalificado, No responde) y la etapa de entrada no se quitan, sólo se renombran; una columna de nutrición del catálogo se quita con columna_nutricion_crm. Solo el administrador.',
+    parametros: [{ nombre: 'etapa', tipo: 'string', obligatorio: true, max: 80, descripcion: 'la key de la etapa (de ver_funnel) o su nombre.' }, { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal.' }],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    escribe: 'saca la etapa del pipeline del funnel (los leads no se tocan)',
+  },
+  {
+    id: 'ordenar_etapas', area: 'crm', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Ordenar las etapas',
+    descripcion: 'PROPONE ordenar las etapas del recorrido del CRM (queda pendiente hasta el «sí»), lo mismo que arrastrarlas en el pop-up de etapas. orden: las etapas en el orden nuevo, por key o nombre; las que no se nombran quedan al final en el orden que tenían, y la de entrada sigue primera. Las terminales no se ordenan: van siempre al final. Solo el administrador.',
+    parametros: [
+      { nombre: 'orden', tipo: 'string[]', obligatorio: true, max: 60, descripcion: 'las etapas en el orden nuevo (keys de ver_funnel o nombres).' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    escribe: 'el orden de las etapas en el pipeline del funnel',
+  },
+  {
+    id: 'plazo_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Ponerle plazo a una etapa',
+    descripcion: 'PROPONE ponerle un plazo en días a una etapa del CRM (queda pendiente hasta el «sí»): si un lead pasa más que eso en la etapa sin moverse, MaKo te avisa. dias 0 saca el plazo. Las terminales y la etapa donde se cierra la venta no llevan plazo. La etapa por su key (de ver_funnel) o su nombre; con embudoId, la de otro CRM. Solo el administrador.',
+    parametros: [
+      { nombre: 'etapa', tipo: 'string', obligatorio: true, max: 80, descripcion: 'la key de la etapa (de ver_funnel) o su nombre.' },
+      { nombre: 'dias', tipo: 'number', obligatorio: true, entero: true, minimo: 0, maximo: PLAZO_MAX_DIAS, descripcion: 'cuántos días; 0 lo saca.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    escribe: 'el plazo de la etapa en el funnel (data.umbrales.porEtapa)',
+  },
+  {
+    id: 'columna_nutricion_crm', area: 'crm', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Quitar o devolver una nutrición',
+    descripcion: 'PROPONE quitar (activa false) o devolver (activa true) una columna de nutrición del catálogo del CRM (queda pendiente hasta el «sí»), lo mismo que su tacho en el pop-up de etapas. Quitarla apaga las nutriciones que llegan a ella; los leads que estén ahí no se borran. Para devolverla hace falta su key, que dice la respuesta al quitarla. Una nutrición creada como etapa se quita con eliminar_etapa. Solo el administrador.',
+    parametros: [
+      { nombre: 'etapa', tipo: 'string', obligatorio: true, max: 80, descripcion: 'la key de la etapa (de ver_funnel) o su nombre.' },
+      { nombre: 'activa', tipo: 'boolean', obligatorio: true, descripcion: 'false la quita; true la devuelve.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    escribe: 'las nutriciones apagadas del funnel (data.suppressed)',
   },
   // ── Los contactos de un grupo de WhatsApp, al CRM (23/10/2026, Martín en la llamada: «una automatización que te agrega de un
   //    grupo de WhatsApp, te pone todos los números y los contactos en tu CRM»). Lo mismo que la pantalla (app/crm/grupo-wa-server.ts).

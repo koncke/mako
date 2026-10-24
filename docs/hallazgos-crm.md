@@ -10721,3 +10721,18 @@ notificación.
 **Vive en:** lib/topes-crm.ts · lib/topes-crm-reglas.ts (puro) · app/crm/PasarAPro.tsx · app/crm/actions.ts (`altaDeLead`,
 la de WhatsApp, `importarLeadsRevisadosAction`) · app/crm/nuevo-crm-actions.ts · tests/crm-topes-plan-23-10.test.ts
 *23/10/2026, chat «CRM» (claude3).*
+
+## Editar etapas: el cuerpo de `editarEtapaAction` vive en `lib/etapas-crm-server.ts` (23/10/2026)
+
+Se mudó para que la API de MaKo pueda renombrar, agregar, quitar, ordenar, ponerle plazo a una etapa y quitar o devolver
+una columna de nutrición por la MISMA función (P0-6 de la auditoría de la API; el detalle, en
+docs/hallazgos-api-mako.md). Lo que cambia para quien toque el CRM:
+- **Una op nueva de `OpEtapa` se escribe en `editarEtapa`** (lib/etapas-crm-server.ts), no en la action. La action sólo
+  tiene la puerta (admin) y los cachés (`bust` y `revalidatePath`).
+- **Lo que no se borra y el orden** son funciones puras de `lib/etapas-crm-reglas.ts` (`porQueNoSeElimina`,
+  `pipelineReordenado`).
+- **El conteo por etapa del pop-up** es `conteosDelEmbudo` (con `etapaComoTablero`), en la misma lib: lo usa también la API
+  antes de quitar una etapa.
+
+**Vive en:** lib/etapas-crm-server.ts · lib/etapas-crm-reglas.ts · app/crm/actions.ts
+*23/10/2026, chat «API de MaKo» (claude2).*
