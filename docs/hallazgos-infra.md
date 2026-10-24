@@ -38,6 +38,27 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## El `&&` después de un pipe mide el `tail`, no el chequeo: el tren se subió con 5 errores de tipos (24/10/2026)
+
+**Vive en:** cualquier comando del Cerebro con la forma `chequeo | tail && push`.
+
+Armé el segundo tren de la noche con `node scripts/tipos-respaldo-push.mjs 2>&1 | tail -6 && echo "TIPOS OK" && git push`.
+**La tanda 3 dio 5 errores de tipos y el comando imprimió «TIPOS OK» igual**, y empujó. En un pipe, `$?` es el código
+del ÚLTIMO comando: `tail` siempre sale 0. El `&&` nunca miró el chequeo.
+
+**Lo que lo salvó no fue mi guarda: fue el hook de pre-push**, que corre el mismo chequeo por su cuenta y rechazó el
+push. `main` quedó intacta. Si alguna vez alguien «acelera» pasando `--no-verify`, esta misma línea sube tipos rotos
+a producción sin una sola señal.
+
+**La regla que queda:** un chequeo que decide si se sube **no se pipea**. Se guarda la salida, se lee `$?` del chequeo,
+y recién ahí se decide: `cmd > salida 2>&1; rc=$?; tail -6 salida; [ "$rc" -eq 0 ] && git push`. Si hace falta el pipe,
+`set -o pipefail` primero.
+
+**Y la regla de arriba de ésa:** esto ya estaba escrito en el repo para `head` antes de `git commit`, y lo repetí con
+`tail` antes de `git push` la misma noche. Un hallazgo escrito no se aplica solo. Cuando una trampa es de la forma del
+comando y no del código, el lugar donde evita el error no es un documento: es el comando mismo — por eso la receta de
+arriba va textual, para copiarla.
+
 ## La guarda que avisa al cliente «ya quedó arreglado» NO PUEDE dar verde: Vercel no guarda el commit (24/10/2026)
 
 **Vive en:** `scripts/avisar-arreglo-al-grupo.mts` (`pruebaDeProduccion`) · cualquier chequeo que use

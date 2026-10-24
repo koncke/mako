@@ -33,9 +33,11 @@ test('el corte va en la PRIMERA línea: el recorrido a la izquierda, lo demás a
   assert.equal(c.derecha[0].lineaArriba, false, 'la primera de la derecha encabeza su columna, sin línea');
   assert.equal(c.derecha[2].lineaArriba, true, 'la línea entre nutrición y descarte se queda');
   assert.deepEqual(c.pie, []);
-  // Sin líneas, no hay qué partir.
-  assert.deepEqual(v(columnasDeSeccion([{ value: 'a' }, { value: 'b' }]).izquierda), ['a', 'b']);
-  assert.deepEqual(columnasDeSeccion([{ value: 'a' }, { value: 'b' }]).derecha, []);
+  // Sin líneas, no hay qué partir. El tipo va explícito: con un literal suelto, TS no tiene de dónde inferir `T` y
+  // mide el objeto contra la restricción (`lineaArriba`/`alPie`), donde `value` sobra.
+  const ab: O[] = [{ value: 'a' }, { value: 'b' }];
+  assert.deepEqual(v(columnasDeSeccion(ab).izquierda), ['a', 'b']);
+  assert.deepEqual(columnasDeSeccion(ab).derecha, []);
 });
 
 test('las salidas van a la columna MÁS CORTA: el funnel por defecto queda parejo (5+3 | 9), no 5 | 13', () => {
@@ -70,7 +72,7 @@ test('el árbol de la ficha pide las dos columnas, con «Quitar» al pie', () =>
   } as unknown as FunnelDelArbol;
   const [s] = seccionesDelArbol([f], true);
   assert.equal(s.dosColumnas, true);
-  const quitar = s.options.find((o) => o.label === 'Quitar de este funnel');
+  const quitar = s.options.find((o: { label?: string; alPie?: boolean }) => o.label === 'Quitar de este funnel');
   assert.equal(quitar?.alPie, true);
 });
 
