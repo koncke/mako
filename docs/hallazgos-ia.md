@@ -6536,3 +6536,67 @@ ejercitado. Arreglado en el mismo cambio:
 lib/chat-ia-reglas.ts (`MODELOS_SU_OPENAI`, `MODELO_SU_OPENAI_DEFAULT`) · lib/chat-ia.ts · lib/anthropic.ts
 (`modeloSuOpenAI`) · lib/mako-turno-app.ts + lib/mako-turno-app-reglas.ts (`falloDeSuOpenAI`) · lib/anthropic-usage.ts ·
 lib/ia-labels.ts · scripts/medir-openai-herramientas.mts · *2026-10-23, chat «IA del cliente»*
+
+## Gemini en la PC: no, y la PC que no contesta ahora deja tiempo para su clave (24/10/2026)
+
+**El pedido** (Martín, por el Cerebro): *«qué pasó con habilitar la opción de GPT en la PC? Y veo que agregaste Gemini,
+podríamos hacer eso también en PC...»*.
+
+**ChatGPT en la PC: la traba NO es «OpenAI sin crédito».** Esa es la cuenta de OpenAI de MaKo, y en la PC corre la suscripción
+del dueño. Medido el 24/10: Codex 0.164.0 está instalado en la PC de Martín, pero `~/.codex` sólo tiene `tmp` (no hay
+`auth.json`): **falta su `codex login` con «Sign in with ChatGPT»**, que es su sesión y no la inicia un chat. Después, en este
+orden: `node scripts/ia-pc/medir-codex-mcp.mjs` (tres turnos de su cuenta), el corredor de Codex en el programa 0.5.0 con su
+carpeta propia (`CODEX_HOME` + `--ignore-user-config`, bloqueante: ver «ChatGPT en la PC: la misma regla que D6a») y recién ahí
+`CHATGPT_EN_LA_PC = true`. El servidor ya está (partes a, c y d de la ola 3, invisibles con la opción apagada).
+
+**Gemini en la PC: no se puede con la suscripción del dueño, y no es un problema de código.**
+- Desde el **18/06/2026** Gemini CLI no atiende el «Login with Google» de cuentas personales (Code Assist for individuals,
+  Google AI Pro y Ultra). Fuente: developers.google.com/gemini-code-assist/docs/deprecations/code-assist-individuals,
+  «Last updated 2026-10-09», leída el 24/10. Lo que sigue andando es la clave de API paga, Vertex o una licencia Standard o
+  Enterprise (con su propio cronograma de baja). Con una clave, su Gemini ya trabaja en la nube y las 24 horas (IA16): en la
+  PC no agrega nada.
+- Su reemplazo, Antigravity CLI, sí acepta cuentas personales, pero su cláusula 6 prohíbe usarlo «in connection with products
+  not provided by us», y hay suspensiones reportadas (antigravity.google/terms, sin fecha, leída el 24/10). Sería exponer la
+  cuenta de Google del cliente.
+- La clave GRATIS de Gemini entrena con lo que se le manda y tiene revisión humana (ai.google.dev/gemini-api/terms): un chat
+  del dueño con datos de sus leads no va ahí. Es el aviso que ya muestra «Conectar tu IA» (`AVISO_GEMINI_GRATIS`).
+- **El diagnóstico obvio era el equivocado:** «agregaste Gemini» se leía como «ya hay una pieza que poner en la PC». La pieza
+  de IA16 es la clave; la PC necesita una suscripción que se pueda correr, y Google la cerró.
+
+**Lo técnico, por si algún día vuelve** (Gemini CLI v0.65.0, docs de main al 24/10; investigado, no probado):
+- Sin `--input-format`: un proceso por turno (`-p` + `--output-format stream-json`), como `codex exec`; `--resume` sí anda
+  en headless.
+- El MCP sale SÓLO de settings: `GEMINI_CLI_HOME` (mueve también `oauth_creds.json`) o `GEMINI_CLI_SYSTEM_SETTINGS_PATH`, más
+  `--allowed-mcp-server-names`.
+- **Trampa:** `tools.core: []` apaga también el MCP de MaKo (genera un DENY `*` que le gana a `trust`). Lo que sirve es una
+  policy con `--policy`: deny `*` y allow `mcpName="mako"`.
+- En headless toda aprobación es DENY: el MCP necesita un allow explícito, nunca `--approval-mode=yolo` (aprueba también las
+  propias, y los términos piden no saltear confirmaciones humanas).
+- `privacy.usageStatisticsEnabled` viene en true. No hay binario de Windows (npm, Node ≥ 20).
+
+**El choque de TIPOS que el merge no marcó.** Con IA16 en main, `IaDelCliente` trae `gemini`, y el tutorial de la computadora
+(`TusCuentasIA.tsx`) indexaba `PROGRAMA_IA_PC` y `CONSENTIMIENTO_DE` (que son de Claude y ChatGPT) con esa IA. El merge salió
+limpio en texto y roto en tipos. Ahora el tutorial abre sólo con una IA de la PC (`iaDeLaPcPara`, lib/conectar-ia-reglas.ts):
+Gemini ni se ofrece. La regla: **cuando una unión crece en main, se buscan los `Record` de la rama indexados con ella.**
+
+**El respaldo de una PC que no contesta (el caso de Brigitte, del lado de la PC).** El vigía levantó el 23/10 que a Brigitte
+Eberlin su Gemini le dio timeout y no había nada detrás; eso es la nube, y lo arregla Automations. En la PC pasaba lo mismo de
+otra forma: la espera se comía todo el plazo de la ruta (240 s de 300) y, si la PC no contestaba, `'tarde'` cortaba sin
+probar su clave porque ya no quedaba tiempo. Ahora, en Automático y con una clave propia (`claveDeIAPropia`), la PC deja
+`RESERVA_RESPALDO_MS` (90 s) libres y `probarSuClaveTrasLaPc` decide. El respaldo es siempre su IA: `chatClaudeTools` con
+«sólo su IA» y sin el Claude de MaKo. Elegida la computadora, no hay respaldo (eligió ésa).
+
+**Una trampa de la tanda:** tests/ia-pc-binarios y tests/ia-pc-segunda-revision dieron rojo con 28 archivos de test a la vez
+(`spawnSync … ETIMEDOUT` y un proceso hijo con estado `null`). Solos, 21/21. Es carga de la máquina, no código: antes de
+perseguirlo, se corren solos.
+
+**SIN hacer:**
+- El `codex login` de Martín y la medición (arriba). El corredor de Codex en el programa 0.5.0.
+- Si un negocio sin clave propia y sólo con su PC se queda sin respuesta porque la PC tardó, no hay respaldo posible: no tiene
+  otra IA. Se le dice («tu computadora no contestó a tiempo»); no se le presta la de MaKo.
+- El selector «+» sigue sin ofrecer «Tu Gemini» por clave (lo de IA16: lib/chat-ia.ts, el Cerebro lo repartió).
+
+**Vive en:** lib/ia-pc-reglas.ts (`PROVEEDORES_PC`, `esperaDelTurno`, `RESERVA_RESPALDO_MS`, `probarSuClaveTrasLaPc`) ·
+lib/conectar-ia-reglas.ts (`iaDeLaPcPara`, `pcListaPara`) · lib/mako-turno-app.ts (`reservado`) · lib/ia-del-negocio.ts
+(`claveDeIAPropia`) · app/integraciones/TusCuentasIA.tsx (`abrirTutorialEn`) · tests/ia-pc-respaldo.test.ts ·
+*2026-10-24, chat «IA del cliente» (claude1)*

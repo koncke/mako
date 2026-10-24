@@ -378,4 +378,43 @@ export const BITACORA: Hito[] = [
       'scripts/medir-openai-herramientas.mts — la medición, para cuando haya crédito',
     ],
   },
+  {
+    fecha: '24 oct', hora: '01:40', chat: 'Cerebro', cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: '«¿Qué pasó con GPT en la PC? Y Gemini también en PC»',
+    pedido: 'qué pasó con habilitar la opción de GPT en la PC? Y veo que agregaste Gemini, podríamos hacer eso también en PC...',
+    puntos: [
+      'Llegó por el Ops Center al Cerebro, que se lo pasó al chat «IA del cliente» («Es tuyo, avanzá sin preguntarle»).',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '02:05', chat: 'IA del cliente', cuenta: 'claude1',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Gemini en la PC no se puede con la cuenta del dueño, y la traba de GPT es su login',
+    puntos: [
+      'Google cerró el 18/06/2026 el login con cuenta personal de Gemini CLI; su reemplazo prohíbe usarse desde otro producto.',
+      'Su Gemini sigue por clave, que ya trabaja en la nube las 24 horas.',
+      'GPT en la PC: Codex está instalado, falta que Martín inicie su sesión de ChatGPT; después, medir y el programa 0.5.0.',
+    ],
+    archivos: ['docs/hallazgos-ia.md — «Gemini en la PC: no»'],
+  },
+  {
+    fecha: '24 oct', hora: '02:00', chat: 'IA del cliente', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La PC que no contesta deja tiempo para su clave',
+    puntos: [
+      'En Automático y con una clave propia, la computadora deja 90 segundos para que conteste su clave.',
+      'El respaldo es siempre una IA del negocio, nunca la de MaKo.',
+      'Se commiteó lo que había quedado a medias: la computadora contesta sólo con la persona adentro.',
+    ],
+    commits: [
+      { sha: 'f9c0e95f', msg: 'IA del cliente, ola 3: la PC sólo con la persona adentro (D6a, también con ChatGPT)', lineas: 605, archivos: 16 },
+      { sha: 'a826969c', msg: 'IA del cliente: la PC que no contesta deja tiempo para SU clave, y Gemini no tiene computadora', lineas: 211, archivos: 10 },
+    ],
+    archivos: [
+      'lib/ia-pc-reglas.ts — la reserva y cuándo se prueba su clave',
+      'lib/mako-turno-app.ts — el turno reserva sólo en Automático y con clave propia',
+      'tests/ia-pc-respaldo.test.ts — cinco roturas, todas caen',
+    ],
+  },
 ];

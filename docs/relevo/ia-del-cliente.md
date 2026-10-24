@@ -1,5 +1,12 @@
 # Relevo: IA del cliente («Tu ChatGPT» y la ola 3), 23/10/2026 noche
 
+> **Puesto al día el 24/10/2026 ~02:10 AR (claude1, el mismo chat retomado):** lo que estaba sin commitear en
+> `C:/dev/wt-ia-gpt` (la guarda D6a de la ola 3, parte d) se commiteó como `f9c0e95fd` (89/89 en verde antes), la rama se
+> mezcló con main con IA16 adentro (`3a93065be`, los dos choques que estaban anotados) y `a826969c9` trae el respaldo con su
+> clave de una PC que no contesta y la decisión de que **Gemini no va a la PC** (Google cerró el login personal de Gemini CLI el
+> 18/06/2026). Lo que destraba ChatGPT en la PC es el `codex login` de Martín. El detalle: `../hallazgos-ia.md` → «Gemini en
+> la PC: no».
+
 Chat «IA del cliente», cuenta 2. El diseño entero vive en [`../ia-del-cliente.md`](../ia-del-cliente.md); lo que costó,
 en [`../hallazgos-ia.md`](../hallazgos-ia.md) → «"Tu ChatGPT" en el Ops Center» y su sección «Darle un modelo capaz NO
 era cambiar el nombre».
