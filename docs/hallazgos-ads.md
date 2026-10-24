@@ -4591,10 +4591,54 @@ tests/zernio-anuncios.test.ts
 - ⚠️ **VIVO: el Schedule se cuenta DOS veces en el píxel de Mauricio.** Su landing dispara `fbq('track','Schedule')` sin
   `eventID` al reservar en Calendly, y MaKo manda Schedule por CAPI al MISMO píxel (el `META_PIXEL_ID` del ws1 coincide
   con el `fbq('init')` de la página) con `event_id` `schedule:<email>:<inicio>`. Sin un `event_id` común (ni `fbp`, que
-  MaKo no guarda) Meta no deduplica: 7 reservas en 30 días, cada una contada dos veces. **El diagnóstico obvio («ya
+  MaKo no guarda) Meta no deduplica. (Corregido el mismo día, medido por hora contra Calendly: de 8 reservas en 30 días, 3 se
+  contaron dos veces; MaKo además manda DOS Schedule por reserva en 3 de 4, lo probable un reintento de Calendly, y hay un
+  tercer emisor de servidor que espeja al navegador.) **El diagnóstico obvio («ya
   existe, está bien») era el equivocado:** que MaKo mande un evento es correcto sólo si la página no lo manda ya. La salida
   es por página o por funnel: MaKo no manda por CAPI lo que el píxel de la página ya manda (o la página deja de mandarlo),
   y eso es parte de «qué mide este funnel» (docs/hallazgos-landing.md, misma fecha). Además, ese `event_id` lleva el email
   en claro.
-- **MaKo no ve gasto de anuncios del ws1 desde el 15/10** (la sincronización corre). La caída de visitas de su landing
-  viene de ahí, no del Pixel. Sin medir: en qué cuenta corre su pauta.
+- **La regla que queda (general, en AGENTS.md):** si la página ya manda un evento desde el navegador, MaKo no lo manda por
+  CAPI al mismo píxel sin un `eventID` compartido; con dos ids distintos Meta no deduplica y cuenta doble. Todo evento
+  nuevo por CAPI (Purchase de una venta externa, Lead del opt-in) se pregunta antes si la página ya lo dispara. Decidido
+  por el Cerebro el 24/10: el arreglo del Schedule doble va al CRM después del lanzamiento, dentro del diseño de «qué
+  eventos manda MaKo a Meta» por funnel.
+- **«MaKo no ve gasto del ws1 desde el 15/10»: no era ceguera.** La cuenta la frenó Meta por saldo impago (la entrada de
+  abajo).
+- ⚠️ **El ws4 «Cliente de Diseño» tiene el MISMO píxel y el mismo token que Mauricio**: un envío por CAPI desde el ws4 cae
+  en el píxel real de Mauricio. El diseño de qué manda MaKo a Meta, por funnel y por página, con el arreglo del Schedule:
+  docs/diseno-eventos-meta-por-funnel.md.
+
+## Un día sin filas de Meta no es «sin sincronizar»: la cuenta del ws1 la frenó Meta por saldo impago (24/10/2026)
+
+Medido con el workflow `wf_d253310f-574` (GETs de sólo lectura a la Graph API con la credencial del ws1, y la base), y
+re-medido por un verificador independiente. Lo pidió el Cerebro: «nueve días sin gasto significa que ningún costo por lead
+de ese cliente sirve».
+
+**Vive en:** `lib/meta-ads.ts:452` (`upsertMetrics`: `if (metrics.length === 0) return 0;`) ·
+`app/api/cron/meta-daily/route.ts:70-82` · `lib/sources.ts:84` · `lib/queries.ts:1496` ·
+`lib/api-mako/areas/metricas.run.ts:171-176` · `lib/retro-fuentes.ts:307`
+
+- **La pauta se apagó, y la apagó Meta:** la «Cuenta 2» del ws1 pasó de Active a «Payment Needed» el 15/10 a las 08:18:47
+  UTC (account_status=3, saldo impago de 8.743,59 MXN). La campaña 030 sigue ACTIVE (400 MXN/día) y no entrega: 5,52 el 15/10
+  y 0 después, según Meta. Nadie la pausó; no se mudó a otra cuenta (el token ve una sola). Es el 6.º episodio de saldo
+  impago de esa cuenta desde agosto y el más largo.
+- **El diagnóstico obvio era el equivocado en los dos sentidos.** «MaKo está ciego» es falso: el cron corrió todos los días
+  (lo prueba `adset_budget_daily`, que escribe el mismo callback DESPUÉS de los insights) y Meta devolvió 0 filas. Y «ningún
+  costo por lead sirve» también: el gasto de MaKo coincide con el de Meta al centavo, y el 0 de después es real. ⚠️ La prueba
+  que usó la auditoría («la sincronización corrió hoy a las 13:45») era una fila de PANDA, no de Meta.
+- **Lo que sí está mal es el rótulo:** un día leído sin entrega no deja ninguna fila, y entonces `sources.ts` pone Meta en
+  'off' («Último día con datos: 2026-10-15»), `queries.ts` marca `fuente_pendiente` en Impresión→Click, Click→Formulario y
+  Click→Landing, la Retro dice «sin fuente (pendiente)» y `resumir_marketing_periodo` dice «integración sin conectar o sin
+  sincronizar» con gasto y CAC null: lo contrario de lo cierto («no hubo inversión: la cuenta tiene saldo impago»).
+- **Regla que queda:** antes de concluir «sin sincronizar», mirar si hay un incidente de Meta abierto con entrega frenada
+  (`service_incidents`) y si `adset_budget_daily` siguió escribiéndose; un día leído sin entrega es un 0 confirmado, no un
+  hueco. Y la fila con el `updated_at` más nuevo de `marketing_metrics_daily` puede ser de otra plataforma: se filtra por
+  `plataforma`.
+- **Menor:** el cron nunca relee los días pasados, así que pierde los ajustes tardíos de Meta (la base queda 0,3 a 1,2 % por
+  debajo). Y «ws13 y ws14 tienen datos» es la MISMA cuenta contada dos veces (ya estaba en «Seis credenciales de Meta
+  compartidas»).
+- **SIN hacer (de Ads/Métricas, no lo arreglé):** que el cron guarde «leído sin entrega» por día cuando Meta devuelve [] sin
+  error, y que las cuatro lecturas de arriba digan «sin inversión» (con el incidente abierto) y den gasto 0 en vez de null.
+  Lo urgente no es código: que Mauricio pague o cambie el medio de pago. Que MaKo dejó de avisarle está en
+  docs/hallazgos-comunicacion.md, misma fecha.
