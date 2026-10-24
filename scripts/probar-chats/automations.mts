@@ -40,7 +40,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { RAIZ, usarSesion, sesionSuperAdmin, llamar, leerRespuesta, enWs, type EventoConHora } from './entorno';
+import { RAIZ, usarSesion, sesionSuperAdmin, llamar, leerRespuesta, enWs, type EventoConHora } from './entorno.mjs';
 
 // ── Argumentos ───────────────────────────────────────────────────────────────────────
 const arg = (n: string): string | null => {
