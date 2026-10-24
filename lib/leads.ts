@@ -2007,7 +2007,7 @@ export async function completarNombreDeRelleno(id: number, antes: string | null,
 }
 
 /** Los campos de contacto que se completan solos (el perfil de empresa de WhatsApp) y su rótulo en el historial. */
-const CAMPOS_COMPLETABLES = { web: 'Web', instagram: 'Instagram', email: 'Email', direccion: 'Dirección' } as const;
+const CAMPOS_COMPLETABLES = { web: 'Web', instagram: 'Instagram', email: 'Email', direccion: 'Dirección', empresa: 'Empresa' } as const;
 
 /**
  * COMPLETA CAMPOS DE CONTACTO VACÍOS de un lead (24/10/2026: el perfil de empresa de WhatsApp, app/crm/grupo-wa-server.ts),

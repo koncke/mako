@@ -16,12 +16,13 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
-import { TANDA_GRUPO, etapaPorDefecto, funnelPorDefecto, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
+import { TANDA_FICHAS, TANDA_GRUPO, etapaPorDefecto, fichaLimpia, funnelPorDefecto, nombreDeFicha, type FichaWa, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
+import { extensionLeeFichas, motivoDeFichas, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
 import { miles } from './traer-seleccion';
 import { VistaConPie } from '@/app/_ui/VistaConPie';
 import { Confirm } from '@/app/_ui';
 import {
-  abrirTraerDeGrupoAction, completarNombresDeGrupoAction, completarPerfilesDeGrupoAction, etapasDeFunnelAction, gruposDeLineaAction,
+  abrirTraerDeGrupoAction, completarFichasDeGrupoAction, completarNombresDeGrupoAction, completarPerfilesDeGrupoAction, etapasDeFunnelAction, gruposDeLineaAction,
   participantesDeGrupoAction, traerDeGrupoAction,
 } from './grupo-wa-actions';
 import type { LineaGrupos } from './grupo-wa-server';
@@ -66,6 +67,9 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   const [completando, setCompletando] = useState(false);
   /** «Datos de empresa»: la pregunta antes (tarda y consulta WhatsApp de a uno), y el avance mientras corre. */
   const [preguntaPerfiles, setPreguntaPerfiles] = useState(false);
+  /** «Completar desde mi WhatsApp» corriendo, y el pedido de parar (lo mira el bucle entre tandas). */
+  const [leyendoWa, setLeyendoWa] = useState(false);
+  const pararWa = useRef(false);
   const abierto = useRef(false);
 
   // Al abrir: las líneas del negocio y las etapas del funnel. Al cambiar de funnel, sólo sus etapas.
@@ -132,6 +136,8 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   const sinOfrecer = etapas.filter((e) => e.manda).length;
   const usables = etapas.filter((e) => !e.manda);
   const trayendo = avance != null || completando;
+  /** ¿La extensión de este navegador lee las fichas de WhatsApp Web? (el atributo lo pone extension/mako-puente.js). */
+  const extWa = extensionLeeFichas();
   /** Lo que tarda «Datos de empresa» con los que ya están: ~2,6 s por persona (la espera entre consultas más la consulta). */
   const minutosPerfiles = (k: number) => Math.max(1, Math.round((k * 2.6) / 60));
   const yaEstan = (gente ?? []).filter((p) => p.enElCrm).length;
@@ -193,6 +199,51 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     const sin = sinNombre ? ` · ${miles(sinNombre)} todavía sin nombre en WhatsApp` : '';
     setHecho(`«${grupo.nombre}»: ${completados ? cuantos : 'ningún nombre nuevo'}${sin}.`);
     if (completados) { onTraidos(cuantos); setVuelta((n) => n + 1); }
+  };
+
+  // «COMPLETAR DESDE MI WHATSAPP» (24/10/2026, Martín: «con la extensión de MaKo... que se extraiga los nombres y la información
+  // pública»). La extensión lee lo que SU WhatsApp Web ya guardó (sin clics, sin red, sin marcar nada como leído) sobre los que ya
+  // están, y esto lo guarda de a tandas por el camino de completar. Lo dispara él, con avance y un «Parar».
+  const leerDeWhatsappWeb = async () => {
+    if (leyendoWa) { pararWa.current = true; return; }
+    if (!grupo || trayendo) return;
+    const tels = (gente ?? []).filter((p) => p.enElCrm).map((p) => p.telefono);
+    if (!tels.length) return;
+    setErr(null); setHecho(null); setLeyendoWa(true); pararWa.current = false;
+    setAvance('Leyendo tu WhatsApp Web…');
+    try {
+      const r = await pedirFichasDeWhatsappWeb(tels);
+      if (!r.ok) { setErr(motivoDeFichas(r.motivo)); return; }
+      // Qué hay en su WhatsApp Web (nombres de tablas y cantidades, nunca datos de nadie): si WhatsApp cambia cómo guarda, esto
+      // es lo que dice por qué no volvió nada.
+      console.info('[wa-fichas]', r.diagnostico);
+      if (r.diagnostico && !r.diagnostico.contactos) { setErr('No encontré contactos guardados en tu WhatsApp Web. Recarga esa pestaña, espera a que carguen tus chats y vuelve a tocar.'); return; }
+      const fichas = r.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x);
+      let nombres = 0, empresas = 0, guardadas = 0;
+      // La cola, de a TANDA_FICHAS: lo que el server no llegó a guardar (`pendientes`, cortó por tiempo) vuelve al frente.
+      let cola = fichas;
+      while (cola.length && !pararWa.current) {
+        const tanda = cola.slice(0, TANDA_FICHAS);
+        setAvance(`Guardando ${miles(guardadas)} de ${miles(fichas.length)}…`);
+        const g = await completarFichasDeGrupoAction({ linea, jid, fichas: tanda })
+          .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
+        if (!g.ok) { setErr(g.error); break; }
+        nombres += g.nombres; empresas += g.empresas;
+        const quedan = new Set(g.pendientes);
+        const vuelven = tanda.filter((x) => quedan.has(x.telefono));
+        // Sin avance (no guardó ninguna), se corta acá y se dice: nunca un bucle que no termina.
+        if (vuelven.length === tanda.length) { setErr(`Se cortó guardando: quedaron ${miles(cola.length)} sin guardar. Vuelve a tocar para seguir.`); break; }
+        guardadas += tanda.length - vuelven.length;
+        cola = [...vuelven, ...cola.slice(tanda.length)];
+      }
+      // LA COBERTURA de lo gratis, sobre los que ya están: lo que su WhatsApp tiene de cada uno.
+      const conNombre = fichas.filter((x) => !!nombreDeFicha(x)).length;
+      const deEmpresa = fichas.filter((x) => x.esEmpresa).length;
+      const enVarios = fichas.filter((x) => x.grupos.length >= 2).length;
+      const parado = pararWa.current ? ' Paraste antes de terminar.' : '';
+      setHecho(`«${grupo.nombre}»: de ${miles(tels.length)} que ya están, tu WhatsApp tiene el nombre de ${miles(conNombre)}, ${miles(deEmpresa)} son cuenta de empresa y ${miles(enVarios)} están en 2 o más grupos tuyos · ${miles(nombres)} nombres completados${empresas ? `, ${miles(empresas)} empresas` : ''}.${parado}`);
+      if (nombres || empresas) { onTraidos(`${miles(nombres)} nombres desde tu WhatsApp`); setVuelta((n) => n + 1); }
+    } finally { setLeyendoWa(false); setAvance(null); }
   };
 
   // «DATOS DE EMPRESA» (24/10/2026, Martín: «muchos no sólo tienen nombre, sino que incluso links»). Lo que dice el perfil de
@@ -264,7 +315,15 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <button type="button" onClick={onAtras} disabled={trayendo} style={btnAtras}>← Atrás</button>
           {/* A los que YA están y nacieron con su número por nombre: el que WhatsApp conozca hoy (`completar`). */}
-          {yaEstan > 0 && (
+          {/* El camino por defecto (24/10/2026): las fichas de SU WhatsApp Web, por la extensión. Mientras corre, el mismo botón para. */}
+          {yaEstan > 0 && extWa !== 'no' && (
+            <button type="button" onClick={() => void leerDeWhatsappWeb()} disabled={(trayendo && !leyendoWa) || extWa === 'vieja'}
+              title={extWa === 'vieja' ? 'Actualiza la extensión de MaKo para leer tu WhatsApp Web' : 'Nombre, empresa y grupos en común, de lo que ya ves en tu WhatsApp Web'}
+              style={{ ...btnAtras, opacity: (trayendo && !leyendoWa) || extWa === 'vieja' ? 0.55 : 1 }}>
+              {leyendoWa ? 'Parar' : extWa === 'vieja' ? 'Actualiza la extensión' : 'Completar desde mi WhatsApp'}
+            </button>
+          )}
+          {yaEstan > 0 && extWa === 'no' && (
             <button type="button" onClick={() => void completar()} disabled={trayendo} style={{ ...btnAtras, opacity: trayendo ? 0.55 : 1 }}>
               {completando ? 'Completando…' : 'Completar nombres'}
             </button>

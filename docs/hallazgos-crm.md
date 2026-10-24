@@ -20,6 +20,26 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Completar desde mi WhatsApp»: el límite es «un lead que ya existe», no «está en el grupo» (24/10/2026)
+
+**Vive en:** `completarFichasDelGrupo` (app/crm/grupo-wa-server.ts) · `leerDeWhatsappWeb` (app/crm/TraerDeGrupoWA.tsx) ·
+la extensión, en [hallazgos-extension.md](hallazgos-extension.md).
+
+- **Releer el grupo en cada tanda era una consulta a la red de la línea por tanda.** La primera versión re-leía los
+  participantes en Evolution (`/group/participants`) para quedarse sólo con los del grupo. Eso es tráfico en la red de una
+  línea no oficial, y el Cerebro lo había prohibido («nada de consultas a la red de su línea»). Esa pertenencia no protegía
+  nada: un admin ya puede editar cualquier lead de su negocio. Lo que sí importa es «sólo un teléfono que es UN lead»
+  (`buscarTelefono` da un número; ni ninguno ni dos), y de ahí no se crea, no se mueve y no se manda nada.
+- **Cada ficha son varias escrituras** (nombre con CAS, empresa con CAS, leer la última línea de grupos, escribirla). Por eso
+  el server corta por tiempo (`hasta`) y devuelve `pendientes`, y la pantalla los vuelve a poner al frente de la cola. Si una
+  tanda vuelve entera sin guardar, se corta y se dice: nunca un bucle que no termina (la regla de «lote de a tandas» de
+  AGENTS.md).
+- **El nombre que se escribe:** primero el de la agenda de Martín, después el de la empresa verificada, después el que la
+  persona se puso. Se escribe sólo sobre un nombre de relleno (su número), comparando antes de escribir. Los grupos en común
+  quedan como una línea del historial, y sólo si cambió.
+
+*24/10/2026, chat «CRM» (claude1).*
+
 ## Mover en lote los 221 movió 121: lo cortó el TIEMPO de una sola llamada, no la selección (24/10/2026)
 
 **Vive en:** `app/crm/AccionesLoteLeads.tsx` (la barra) · `moverLeadsDeEtapaAction` y `eliminarLeadsAction` en

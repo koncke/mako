@@ -124,7 +124,7 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
   const acciones = leer('app/crm/grupo-wa-actions.ts');
   const exportadas = [...acciones.matchAll(/export async function (\w+)/g)].map((m) => m[1]);
-  assert.equal(exportadas.length, 7, 'una acción nueva: que tenga la puerta del admin (y sumala acá)');
+  assert.equal(exportadas.length, 8, 'una acción nueva: que tenga la puerta del admin (y sumala acá)');
   for (const f of exportadas) {
     const cuerpo = acciones.slice(acciones.indexOf(`export async function ${f}`));
     assert.match(cuerpo.slice(0, 600), /await exigirSesion\(\);\n {2}if \(\(await getRolWsEfectivo\(\)\) !== 'admin'\) return \{ ok: false, error: SOLO_ADMIN \};/, `${f}: sin la puerta del admin`);
@@ -293,7 +293,9 @@ test('10. «Completar nombres»: a los que YA están, sólo el nombre de relleno
   assert.match(esc, /campo: 'Nombre', valor_anterior: antes, valor_nuevo: nombre, autor/);
   // La pantalla: el botón aparece con gente que ya está, y la vista usa la pieza del pie (el que flotaba, 24/10/2026).
   const pantalla = leer('app/crm/TraerDeGrupoWA.tsx');
-  assert.match(pantalla, /\{yaEstan > 0 && \(\n\s+<button type="button" onClick=\{\(\) => void completar\(\)\}/);
+  // Desde la 0.70 de la extensión, con la extensión el camino es «Completar desde mi WhatsApp» (tests/wa-fichas-extension.test.ts);
+  // sin ella, este.
+  assert.match(pantalla, /\{yaEstan > 0 && extWa === 'no' && \(\n\s+<button type="button" onClick=\{\(\) => void completar\(\)\}/);
   assert.match(pantalla, /const r = await completarNombresDeGrupoAction\(\{ linea, jid \}\)/);
   assert.match(pantalla, /<VistaConPie\n\s+lista=/);
   assert.doesNotMatch(pantalla, /position: 'sticky', bottom: 0/, 'el pie volvió a armarse a mano: flota (ver app/_ui/VistaConPie.tsx)');

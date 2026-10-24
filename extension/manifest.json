@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "MaKo",
-  "version": "0.69.0",
-  "description": "Genera los anuncios de MaKo con tu propia cuenta de Google Flow, desde tu navegador.",
+  "version": "0.70.0",
+  "description": "Genera los anuncios de MaKo con tu cuenta de Google Flow y completa tus contactos con lo que ya ves en tu WhatsApp Web.",
   "permissions": [
     "storage",
     "alarms",
@@ -13,7 +13,8 @@
     "https://hola-mako.com/*",
     "https://labs.google/*",
     "https://flow.google.com/*",
-    "https://aisandbox-pa.googleapis.com/*"
+    "https://aisandbox-pa.googleapis.com/*",
+    "https://web.whatsapp.com/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -62,6 +63,16 @@
         "mako-puente.js"
       ],
       "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "js": [
+        "wa-fichas-reglas.js",
+        "wa-fichas.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "action": {

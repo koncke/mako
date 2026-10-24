@@ -52,7 +52,7 @@ export default function InstalarExtension() {
     <Pagina>
       <PageHeader
         titulo="Instalar la extensión"
-        proposito="Es la que produce tus videos, con tu propia cuenta de Google Flow."
+        proposito="Produce tus videos con tu cuenta de Google Flow, y completa tus contactos con lo que ya ves en tu WhatsApp Web."
       />
 
       {desdeLaTienda ? (

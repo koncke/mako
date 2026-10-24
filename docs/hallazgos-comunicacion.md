@@ -98,6 +98,11 @@ plataforma (las del ws3 y el ws9 estaban cerradas: `fetchAllGroups` contesta 500
   contestó es «no sé», no «no». ⚠️ **Es tráfico en la RED de una línea no oficial**, lo que la expone a un baneo
   (lib/fotos-contacto.ts ya lo evitaba a propósito): de a uno y espaciado (`ESPERA_PERFIL_MS`, app/crm/grupo-wa-server.ts).
 - **`fetchAllGroups` en una línea con 61 grupos no contestó en 90 s**; `findChats` dio los grupos en 1,2 s.
+- **La cuarta fuente, sin tocar la red de la línea: el WhatsApp Web de la propia persona** (desde la extensión 0.70.0, 24/10).
+  Su navegador ya guardó el nombre que cada participante se puso, el de su agenda, el de la empresa verificada y en qué grupos
+  está. Martín lo ve en pantalla y la API no lo da. Se lee de su base local, sin clics y sin consultas: cómo, y sus trampas, en
+  [hallazgos-extension.md](hallazgos-extension.md). ⚠️ **Cuánto cubre sobre los 221 NO está medido todavía**: el número sale
+  de la primera corrida de Martín con la 0.70.
 
 ### «Leímos una fila vieja» no era: la línea se conectó después (24/10/2026)
 

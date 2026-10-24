@@ -10311,3 +10311,16 @@ Y NACE DONDE VA: un lead que no debe recibir nada nace en su etapa final (`creat
 entrada y movido después. Entre el alta y el movimiento, el barrido de la hora lo inscribe en lo que cuelga de la entrada
 («Un Lead Entró»), y si el movimiento falla queda ahí. Tampoco a una etapa terminal (`terminalEstadoFor ≠ abierto`): «Ganado»
 lo vuelve venta y cliente de Customer Success, con el onboarding de la entrega.
+
+## La extensión en el sitio de un tercero (WhatsApp Web): LEE, y sólo lo pedido (24/10/2026)
+
+Un content script de `extension/` que corre en el sitio de un tercero (hoy `wa-fichas.js` en WhatsApp Web) no escribe nada
+ahí: ni la base del sitio (sólo `readonly`, nunca pedir versión, y no abrir una base que no existe porque abrirla la CREA), ni
+la pantalla (un clic puede abrir un chat y dar el «visto»), ni la red. Contesta un pedido que la persona disparó desde MaKo,
+nunca vigila, y devuelve SÓLO lo que se le pidió (la agenda de la persona no sale de su navegador). Corre en el mundo
+aislado, no en MAIN. Lo que lee tiene que estar dicho en `app/privacidad/extension/page.tsx`, con la fecha actualizada. Lo
+hace cumplir tests/wa-fichas-extension.test.ts; el porqué, docs/hallazgos-extension.md.
+
+Y en `extension/*.js`, **ninguna barra-asterisco dentro de un texto** (un patrón de URL de Chrome la tiene al final): los
+tests de la extensión quitan comentarios con una regex que no distingue textos, y esa secuencia se come el código que sigue
+hasta el próximo cierre de comentario. Rompe tests que no tienen nada que ver, que es lo más caro de diagnosticar.

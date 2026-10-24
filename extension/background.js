@@ -2769,6 +2769,28 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
     return false;
   }
 
+  // LAS FICHAS DE WHATSAPP WEB (24/10/2026, wa-fichas.js). MaKo, desde la pestaña de hola-mako.com, pide lo que el WhatsApp Web
+  // de esta persona ya guardó sobre los teléfonos de sus leads; esto busca una pestaña de WhatsApp Web abierta y se lo pasa.
+  // No abre ninguna: si no hay, se dice («abrí WhatsApp Web»). La pestaña sólo LEE su base: no toca la interfaz ni la red.
+  if (msg?.tipo === 'WA_FICHAS_PEDIDO') {
+    void (async () => {
+      try {
+        // Por prefijo y no con el patrón de URL de Chrome: ese patrón termina en barra-asterisco, y los tests del worker
+        // quitan los comentarios con una regex que, ante esa secuencia dentro de un texto, se come todo el código que sigue
+        // hasta el próximo cierre de comentario (rompió tres tests ajenos, 24/10/2026). La URL se ve: hay permiso del sitio.
+        const tabs = await chrome.tabs.query({});
+        const tab = tabs.find((t) => t.id != null && typeof t.url === 'string' && t.url.startsWith('https://web.whatsapp.com/'));
+        if (!tab) { responder({ ok: false, motivo: 'sin_whatsapp_web' }); return; }
+        const r = await chrome.tabs.sendMessage(tab.id, { tipo: 'WA_FICHAS', telefonos: Array.isArray(msg.telefonos) ? msg.telefonos : [] });
+        responder(r ?? { ok: false, motivo: 'sin_respuesta' });
+      } catch (e) {
+        // Una pestaña abierta ANTES de instalar o actualizar la extensión no tiene el script: hace falta recargarla.
+        responder({ ok: false, motivo: 'recargar_whatsapp_web', error: String(e?.message || e) });
+      }
+    })();
+    return true;
+  }
+
   // El reloj del motor por interfaz. La pestaña de Flow está de fondo y Chrome le
   // frena los timers (hasta uno por minuto); el del service worker no.
   if (msg?.tipo === 'INTERFAZ_DORMIR') {

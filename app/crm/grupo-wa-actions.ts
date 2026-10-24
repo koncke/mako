@@ -13,8 +13,8 @@ import { idDelFunnelDefault } from '@/lib/funnels';
 import { autorDelMovimiento } from '@/lib/leads';
 import type { GrupoWA, ParticipanteWA } from '@/lib/grupo-wa-reglas';
 import {
-  completarNombresDelGrupo, completarPerfilesDelGrupo, etapasParaTraer, gruposDeLinea, lineasDelNegocio, marcarEnElCrm, participantesDelGrupo,
-  traerDelGrupo, type LineaGrupos, type ResultadoCompletar, type ResultadoPerfiles, type ResultadoTraer,
+  completarFichasDelGrupo, completarNombresDelGrupo, completarPerfilesDelGrupo, etapasParaTraer, gruposDeLinea, lineasDelNegocio, marcarEnElCrm,
+  participantesDelGrupo, traerDelGrupo, type LineaGrupos, type ResultadoCompletar, type ResultadoFichas, type ResultadoPerfiles, type ResultadoTraer,
 } from './grupo-wa-server';
 
 type Res<T> = ({ ok: true } & T) | { ok: false; error: string };
@@ -108,6 +108,22 @@ export async function completarPerfilesDeGrupoAction(p: { linea: string | null; 
     const desde = Number.isInteger(p.desde) && (p.desde as number) >= 0 ? (p.desde as number) : 0;
     const r = await completarPerfilesDelGrupo({ linea: p.linea, jid: String(p.jid ?? ''), autor: await autorDelMovimiento(), desde, hasta: Date.now() + 40_000 });
     if (r.ok && r.completados) revalidatePath('/crm');
+    return r;
+  } catch (e) { return { ok: false, error: msg(e) }; }
+}
+
+/**
+ * Las fichas que leyó la extensión de MaKo en el WhatsApp Web de la persona (24/10/2026): el nombre, la empresa y sus grupos
+ * en común, de los participantes que YA son leads. De a tandas (`TANDA_FICHAS`); el server limpia y verifica cada una.
+ */
+export async function completarFichasDeGrupoAction(p: { linea: string | null; jid: string; fichas: unknown[] }): Promise<ResultadoFichas> {
+  await exigirSesion();
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
+  try {
+    const r = await completarFichasDelGrupo({
+      linea: p.linea, jid: String(p.jid ?? ''), fichas: Array.isArray(p.fichas) ? p.fichas : [], autor: await autorDelMovimiento(), hasta: Date.now() + 40_000,
+    });
+    if (r.ok && (r.nombres || r.empresas)) revalidatePath('/crm');
     return r;
   } catch (e) { return { ok: false, error: msg(e) }; }
 }

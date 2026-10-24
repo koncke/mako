@@ -32,8 +32,9 @@ import { claveNombre } from '@/lib/etiquetas-reglas';
 import { etapaDeEntrada } from '@/lib/lead-funnel-reglas';
 import { terminalEstadoFor } from '@/lib/pipeline';
 import {
-  CAMPOS_DEL_PERFIL, TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, conNombresConocidos, esJidDeGrupo, esNombreDeRelleno, etapasQueDisparan, etiquetaDeGrupo,
-  gruposDeChats, gruposDeFetchAll, lineaDePerfil, parcheDePerfil, participantesDe, perfilDeEmpresa, type CampoDelPerfil, type GrupoWA, type ParticipanteWA,
+  CAMPOS_DEL_PERFIL, TANDA_FICHAS, TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, conNombresConocidos, esJidDeGrupo, esNombreDeRelleno, etapasQueDisparan,
+  etiquetaDeGrupo, fichaLimpia, gruposDeChats, gruposDeFetchAll, lineaDeGrupos, lineaDePerfil, nombreDeFicha, parcheDePerfil, participantesDe, perfilDeEmpresa,
+  type CampoDelPerfil, type FichaWa, type GrupoWA, type ParticipanteWA,
 } from '@/lib/grupo-wa-reglas';
 import { ORIGEN_LEAD } from './origen-lead';
 import { indiceContactos } from './importar-server';
@@ -220,6 +221,65 @@ export async function completarPerfilesDelGrupo(p: { linea: string | null; jid: 
     }
   }
   return { ok: true, total: conLead.length, revisados, empresas, completados, campos, errores, siguiente: null };
+}
+
+export type ResultadoFichas = {
+  ok: true; recibidas: number; deLeads: number; nombres: number; empresas: number; grupos: number; errores: number;
+  /** Los teléfonos que no se llegaron a guardar porque se acabó el tiempo: la pantalla los vuelve a mandar. */
+  pendientes: string[];
+} | { ok: false; error: string };
+
+/**
+ * LAS FICHAS DE SU WHATSAPP WEB, por la extensión de MaKo (24/10/2026, extension/wa-fichas.js). La pantalla le pide a la
+ * extensión lo que el WhatsApp Web de la persona ya guardó sobre los participantes del grupo que YA son leads, y manda acá lo
+ * que volvió, de a tandas. Se escribe por los caminos de completar: el nombre sólo donde es de relleno, la empresa sólo si
+ * está vacía, y sus grupos en común como una línea del historial (sólo si cambió). No crea, no mueve, no manda nada.
+ * ⚠️ Las fichas vienen del NAVEGADOR: se limpian, y sólo cuentan las de un teléfono que es UN lead del CRM (las demás se
+ * ignoran: nunca se trae a nadie ni se guarda la agenda de nadie).
+ * ⚠️ NO RELEE EL GRUPO EN EVOLUTION, y es a propósito: la primera versión lo hacía en cada tanda para quedarse sólo con los
+ * participantes, y eso era una consulta a la red de la línea por tanda (el Cerebro, 24/10: «nada de consultas a la red de su
+ * línea»). El límite que importa es «sólo leads que ya existen», no la pertenencia al grupo: un admin ya puede editar cualquier
+ * lead de su negocio, y los teléfonos los arma la pantalla con los participantes que ya leyó.
+ * Corta por TIEMPO (`hasta`): lo que no entra vuelve en `pendientes` y la pantalla lo manda de nuevo (AGENTS.md, «lote de a
+ * tandas»). Una acción del server tiene 60 s y cada ficha son varias escrituras.
+ */
+export async function completarFichasDelGrupo(p: { linea: string | null; jid: string; fichas: unknown[]; autor: string; hasta: number }): Promise<ResultadoFichas> {
+  if (!esJidDeGrupo(p.jid)) return { ok: false, error: 'Ese grupo no existe.' };
+  if (!(await lineaDelNegocio(p.linea))) return { ok: false, error: 'Esa línea no es de este negocio.' };
+  const fichas = (Array.isArray(p.fichas) ? p.fichas : []).slice(0, TANDA_FICHAS).map(fichaLimpia).filter((f): f is FichaWa => !!f);
+  const idx = await indiceContactos();
+  const telIdx = { exactos: idx.tels, sufijos: idx.telsSufijo };
+  const conLead = fichas.flatMap((f) => { const id = buscarTelefono(telIdx, f.telefono); return typeof id === 'number' ? [{ f, id }] : []; });
+  const db = await getTenantDb();
+  const actuales = new Map<number, { nombre: string | null }>();
+  const ids = conLead.map((x) => x.id);
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await db.from('leads').select('id, nombre').in('id', ids.slice(i, i + 200));
+    if (error) return { ok: false, error: `No pude leer los leads: ${error.message}` };
+    for (const r of (data ?? []) as Array<{ id: number; nombre: string | null }>) actuales.set(Number(r.id), { nombre: r.nombre ?? null });
+  }
+  let nombres = 0, empresas = 0, grupos = 0, errores = 0;
+  const pendientes: string[] = [];
+  for (const { f, id } of conLead) {
+    if (Date.now() > p.hasta) { pendientes.push(f.telefono); continue; }
+    const lead = actuales.get(id);
+    if (!lead) continue;
+    try {
+      const nombre = nombreDeFicha(f);
+      if (nombre && esNombreDeRelleno(lead.nombre) && await completarNombreDeRelleno(id, lead.nombre, nombre, p.autor)) nombres++;
+      if (f.empresa && (await completarCamposVacios(id, { empresa: f.empresa }, p.autor)).length) empresas++;
+      const linea = lineaDeGrupos(f.grupos);
+      if (linea) {
+        // Una vez por cambio: si la última línea de grupos de este lead dice lo mismo, no se repite.
+        const { data: ultima } = await db.from('lead_audit').select('valor_nuevo').eq('lead_id', id).eq('campo', 'Grupos de WhatsApp').order('created_at', { ascending: false }).limit(1);
+        if ((ultima?.[0] as { valor_nuevo?: string } | undefined)?.valor_nuevo !== linea) { await logLeadEvent(id, 'Grupos de WhatsApp', linea, p.autor); grupos++; }
+      }
+    } catch (e) {
+      console.error('[grupo-wa] no pude completar la ficha de un participante:', msg(e));
+      errores++;
+    }
+  }
+  return { ok: true, recibidas: fichas.length, deLeads: conLead.length, nombres, empresas, grupos, errores, pendientes };
 }
 
 /** Cuáles ya son un lead del CRM (de cualquier funnel): la pantalla lo marca, y al traerlos se SUMAN, no se crean de nuevo. */

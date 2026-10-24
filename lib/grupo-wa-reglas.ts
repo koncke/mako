@@ -261,3 +261,40 @@ export function lineaDePerfil(p: PerfilEmpresa): string | null {
   const partes = [p.rubro, p.descripcion].filter((x): x is string => !!x);
   return partes.length ? `Perfil de empresa en WhatsApp: ${partes.join(' · ')}` : null;
 }
+
+// ── Las fichas de SU WhatsApp Web, por la extensión de MaKo (24/10/2026) ───────────────────────────────────────────────
+// Martín: «lo que yo te pido es con la extensión de MaKo... que se extraiga los nombres y la información pública». La
+// extensión (extension/wa-fichas.js) lee lo que su WhatsApp Web ya guardó en su navegador —sin clics, sin red, sin marcar nada
+// como leído— y devuelve, SÓLO de los teléfonos que MaKo le pidió, el nombre de su agenda, el que la persona se puso, el de su
+// empresa si es una cuenta de empresa, y en qué grupos suyos está.
+
+/** Una ficha como la manda la extensión. Viene del NAVEGADOR: entrada no confiable, se limpia con `fichaLimpia`. */
+export type FichaWa = { telefono: string; agenda: string | null; pushname: string | null; empresa: string | null; esEmpresa: boolean; grupos: string[] };
+
+/** La ficha limpia: teléfono en dígitos, textos útiles y cortos, a lo sumo 50 grupos. null si no sirve. */
+export function fichaLimpia(x: unknown): FichaWa | null {
+  if (!x || typeof x !== 'object') return null;
+  const o = x as Record<string, unknown>;
+  const telefono = String(o.telefono ?? '').replace(/\D/g, '');
+  if (telefono.length < 8 || telefono.length > 15) return null;
+  const grupos = (Array.isArray(o.grupos) ? o.grupos : []).map((g) => texto(g)?.slice(0, 120) ?? null).filter((g): g is string => !!g).slice(0, 50);
+  return { telefono, agenda: nombreUtil(o.agenda), pushname: nombreUtil(o.pushname), empresa: nombreUtil(o.empresa), esEmpresa: o.esEmpresa === true, grupos };
+}
+
+/**
+ * EL NOMBRE DE UNA FICHA: el de su agenda (como Martín lo llama), si no el de su empresa (el nombre grande de la ficha), si no
+ * el que la persona se puso en WhatsApp. null si no hay ninguno.
+ */
+export function nombreDeFicha(f: FichaWa): string | null {
+  return f.agenda ?? f.empresa ?? f.pushname ?? null;
+}
+
+/** El renglón del historial con sus grupos en común (señal de interés). null si no está en ninguno. */
+export function lineaDeGrupos(grupos: readonly string[]): string | null {
+  if (!grupos.length) return null;
+  const n = grupos.length;
+  return `Está en ${n} ${n === 1 ? 'grupo tuyo' : 'grupos tuyos'} de WhatsApp: ${grupos.join(' · ')}`.slice(0, 600);
+}
+
+/** De a cuántas fichas manda la pantalla: cada una son unas pocas escrituras (~0,3 s), lejos de los 60 s de una acción. */
+export const TANDA_FICHAS = 40;
