@@ -7985,3 +7985,25 @@ el historial se muda con las líneas.
 **Vive en:** `lib/evolution.ts` (`EVOLUTION_BASE_URL`, las lecturas del historial) ·
 `app/crm/grupo-wa-server.ts` · `app/vsl/costos/Costos.tsx` (la frase del QR, falsa) ·
 `docs/rotacion-credenciales.md` · *2026-10-23*
+
+## El disco C: se llena con los worktrees y las copias del código en Temp (23/10/2026, Cerebro)
+
+**El síntoma:** C: llegó a tener 3,2 GB libres y la PC dejó de poder usarse. El 14/10 tenía 86 GB.
+
+**El diagnóstico obvio era el equivocado.** La carpeta de basura que Martín ya había borrado no tenía nada que ver.
+- `C:\dev` tenía **189 worktrees**. Cada uno es un checkout de ~400 MB y 18.700 archivos (`git ls-tree -r -l HEAD`), y suman 70 GB. Cada chat y cada tarea crea el suyo y nadie lo quita.
+- En los scratchpads de `Temp\claude\<proyecto>\<sesión>` quedan **copias del código** que dejan las refutaciones y las revisiones de los workflows: `arbol-*`, `rev*`, `bk*`, y también `chrome-prof*`. Una sesión del 21/10 tenía más de 13 GB.
+
+**Cómo quitar un worktree sin perder nada:**
+1. `git status --porcelain` vacío, contando los archivos nuevos;
+2. su HEAD en origin: `merge-base --is-ancestor <h> origin/main` o `branch -r --contains <h>`;
+3. su índice (`<git-dir>/index`) sin tocar hace más de 24 h.
+
+Después de borrar, `git worktree prune`. El 23/10 se quitaron 62 de 189, y el disco pasó de 3,2 a 29,5 GB libres.
+
+**Trampas:**
+- Desde Git Bash, `cmd //c "rmdir /s /q \"C:\x\""` con comillas internas escapadas no borra nada y no da error. Va sin las comillas internas.
+- `xargs` se come las barras invertidas de las rutas de Windows: `xargs -I{} cmd //c "rmdir /s /q {}"` no borra nada y sale 0. Va un `while read` con `cygpath -w`.
+- Con el disco casi lleno, `du`, robocopy y Get-ChildItem tardan minutos por carpeta. Sirve un recorrido en node con tope de tiempo.
+
+**Lo que quedó SIN hacer:** la red. Una limpieza programada con esas tres condiciones, y que la guardia avise cuando C: baje de 15 GB. Iría en `~/.claude/guardia/`, versionado en `scripts/claude-hooks/guardia/`. Sin eso, se vuelve a llenar en una semana.
