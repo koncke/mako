@@ -89,19 +89,19 @@ test('1. de dónde salen las claves: un archivo fuera de OneDrive, nunca el .env
     // La clave o el TOTP en el .env.local (que OneDrive sube): no se arma, aunque esté el archivo bueno.
     writeFileSync(ruta, Object.entries(SECRETOS).map(([k, v]) => `${k}='${v}'`).join('\n'));
     for (const v of ['SSL_COM_CLAVE', 'SSL_COM_TOTP']) {
-      assert.throws(() => F.firmaDeEstaPc({ envLocal: `NEXT_PUBLIC_X=1\n${v}=algo\n`, rutaFirma: ruta, proceso: {}, parse }), (e: Error) =>
+      assert.throws(() => F.firmaDeEstaPc({ envLocal: `NEXT_PUBLIC_X=1\n${v}=algo\n`, rutaFirma: ruta, proceso: {} as NodeJS.ProcessEnv, parse }), (e: Error) =>
         e.message.startsWith(`${v} no van en el .env.local`) && !e.message.includes('algo'), `${v} en el .env.local pasó`);
     }
     // Del archivo de la firma; lo del archivo gana a lo del entorno.
-    const c = F.firmaDeEstaPc({ envLocal: 'CODESIGNTOOL=C:\\otra\n', rutaFirma: ruta, proceso: { CODESIGNTOOL: 'C:\\otra', SSL_COM_CLAVE: 'vieja' }, parse });
+    const c = F.firmaDeEstaPc({ envLocal: 'CODESIGNTOOL=C:\\otra\n', rutaFirma: ruta, proceso: { CODESIGNTOOL: 'C:\\otra', SSL_COM_CLAVE: 'vieja' } as NodeJS.ProcessEnv, parse });
     assert.equal(c!.clave, SECRETOS.SSL_COM_CLAVE);
     assert.equal(c!.herramienta, SECRETOS.CODESIGNTOOL);
     // Sin el archivo y sin nada en el entorno: sin firma. Pedido con --firma y no está: no se arma.
-    assert.equal(F.firmaDeEstaPc({ envLocal: '', rutaFirma: path.join(d, 'no-esta.env'), proceso: {}, parse }), null);
-    assert.throws(() => F.firmaDeEstaPc({ envLocal: '', rutaFirma: path.join(d, 'no-esta.env'), pedida: true, proceso: {}, parse }), /no está .*no-esta\.env \(--firma\)/);
+    assert.equal(F.firmaDeEstaPc({ envLocal: '', rutaFirma: path.join(d, 'no-esta.env'), proceso: {} as NodeJS.ProcessEnv, parse }), null);
+    assert.throws(() => F.firmaDeEstaPc({ envLocal: '', rutaFirma: path.join(d, 'no-esta.env'), pedida: true, proceso: {} as NodeJS.ProcessEnv, parse }), /no está .*no-esta\.env \(--firma\)/);
     // Archivo a medio cargar: qué falta y dónde, sin los valores.
     writeFileSync(ruta, `CODESIGNTOOL=C:\\x\nSSL_COM_CLAVE='${SECRETOS.SSL_COM_CLAVE}'\n`);
-    assert.throws(() => F.firmaDeEstaPc({ envLocal: '', rutaFirma: ruta, proceso: {}, parse }), (e: Error) =>
+    assert.throws(() => F.firmaDeEstaPc({ envLocal: '', rutaFirma: ruta, proceso: {} as NodeJS.ProcessEnv, parse }), (e: Error) =>
       e.message.startsWith('para firmar faltan: SSL_COM_USUARIO, SSL_COM_TOTP (en ') && !conSecretos(e.message).length);
   } finally { rmSync(d, { recursive: true, force: true }); }
 });

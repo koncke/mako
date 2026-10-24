@@ -39,6 +39,7 @@ import { ordenarEventos, ubicacionDe } from '../app/crm/vincular-etapa';
 import { AVISO_VINCULO, itemsCrm } from '../app/crm/menu-contextual-crm';
 import { ListaMenuContextual, type ItemMenuContextual } from '../app/_ui/MenuContextual';
 import { porArea, porId } from '../lib/api-mako/registro';
+import { esAccion } from '../lib/api-mako/tipos';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -157,7 +158,7 @@ test('la API de MaKo: ver, vincular, fijar las cuentas y quitar el cobro de Gana
     assert.ok(d, `la API no declara ${id}`);
     assert.equal(d.area, 'crm');
     assert.deepEqual(d.gating, porId('vincular_evento_etapa')!.gating, `${id}: sólo el admin, como vincular un evento`);
-    if (id !== 'ver_cobro_etapa') assert.equal(d.confirmacion, 'chat', `${id} sin el «sí»`);
+    if (id !== 'ver_cobro_etapa') assert.equal(esAccion(d) && d.confirmacion, 'chat', `${id} sin el «sí»`);
   }
   // Al final, antes de armar_tab_ficha: una op nueva no deja afuera a las de antes en el presupuesto del turno.
   const orden = porArea('crm').map((d) => d.id);
@@ -196,7 +197,7 @@ test('la revisión adversarial (23/10/2026): un producto cobra en UN solo CRM, l
   assert.match(ver, /catalogo: productos\.filter\(\(p\) => !todos\.some\(\(v\) => v\.productoId === p\.id\)\)/, 'el catálogo ofrece lo que cobra en otro CRM');
   assert.match(ver, /cobran_en_otro_crm:/);
   // Deciden si un pago gana el trato y arma su plan: por WhatsApp, sólo con un «sí» (tests/confirmacion-terceros.test.ts).
-  for (const id of ['vincular_cobro_etapa', 'cuentas_cobro_etapa', 'desvincular_cobro_etapa']) assert.equal(porId(id)!.plata, true, `${id} sin plata`);
+  for (const id of ['vincular_cobro_etapa', 'cuentas_cobro_etapa', 'desvincular_cobro_etapa']) assert.equal((() => { const d = porId(id)!; return esAccion(d) && d.plata; })(), true, `${id} sin plata`);
   assert.equal(porId('ver_cobro_etapa')!.tipo, 'lectura');
   // Crear un producto cierra el formulario ANTES de vincular: si vincular se cae, reintentar no crea otro igual.
   const co = sinComentarios(leer('app/crm/CobroDeEtapaModal.tsx'));

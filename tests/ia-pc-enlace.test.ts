@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ALFABETO_CODIGO, LARGO_CODIGO } from '../lib/ia-pc-reglas';
 
-type Corrida = { salida: number; arrancado: number; pedidos: string[]; config: Record<string, any> | null; ventanas: Array<{ titulo: string; texto: string; botones: string }> };
+type Corrida = { salida: number; arrancado: number; iniciadas: number; pedidos: string[]; config: Record<string, any> | null; ventanas: Array<{ titulo: string; texto: string; botones: string }> };
 let cache: Record<string, Corrida> | null = null;
 function correr(): Record<string, Corrida> {
   if (cache) return cache;

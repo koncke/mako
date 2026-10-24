@@ -90,10 +90,11 @@ test('«Volver a leer» y conectar Stripe traen los precios de nuevo (los dos ll
 
 test('MaKo: ver_cobro_etapa muestra los precios de Stripe, y vincular_cobro_etapa trae uno con las MISMAS funciones de Cobros', async () => {
   const { porId } = await import('../lib/api-mako/registro');
+  const { esAccion } = await import('../lib/api-mako/tipos');
   const v = porId('vincular_cobro_etapa')!;
   assert.ok(v.parametros?.some((p) => p.nombre === 'precioStripe'), 'sin el precio de Stripe');
   assert.equal(v.parametros?.find((p) => p.nombre === 'productoId')?.obligatorio, undefined, 'el producto ya no es obligatorio: o él, o un precio');
-  assert.equal(v.plata, true);
+  assert.equal(esAccion(v) && v.plata, true);
   const run = sinComentarios(leer('lib/api-mako/areas/crm.run.ts'));
   assert.match(run, /de_stripe: stripe\.precios\.map\(/);
   assert.match(run, /no_se_puede: p\.noSe/, 'los que no se pueden traer se dicen, con su porqué');

@@ -64,8 +64,8 @@ export function usarSesion(s: SesionPrueba | null): void { sesionActual = s; }
 }
 
 // ── 2. El workspace ─────────────────────────────────────────────────────────────────────
-const { runWithWorkspace } = await import('../../lib/workspace.ts');
-const { esClienteDePrueba } = await import('../../lib/auth-session.ts');
+const { runWithWorkspace } = await import('../../lib/workspace');
+const { esClienteDePrueba } = await import('../../lib/auth-session');
 
 /** Corre `fn` como un pedido del workspace `ws`. Tira si no es un workspace de PRUEBA. */
 export function enWs<T>(ws: number, fn: () => Promise<T>): Promise<T> {
@@ -75,7 +75,7 @@ export function enWs<T>(ws: number, fn: () => Promise<T>): Promise<T> {
 
 /** La sesión del super admin (de la tabla `usuarios`, por email), viendo el ws de prueba como en producción. */
 export async function sesionSuperAdmin(email: string): Promise<SesionPrueba> {
-  const { getSupabaseServer } = await import('../../lib/supabase.ts');
+  const { getSupabaseServer } = await import('../../lib/supabase');
   const { data, error } = await getSupabaseServer().from('usuarios').select('id, email, nombre, rol, workspace_id, rol_ws, estado').eq('email', email).maybeSingle();
   if (error || !data) throw new Error(`No encontré al usuario: ${error?.message ?? 'no está'}`);
   const u = data as { id: number; email: string; nombre: string | null; rol: string; workspace_id: number | null; rol_ws: string | null; estado: string };
