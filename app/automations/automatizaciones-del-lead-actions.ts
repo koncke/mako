@@ -11,7 +11,9 @@
 // =============================================================================
 
 import { requireSesion } from '@/lib/tab-access';
-import { enAutomatizaciones, frenarEnAutomatizacion, frenarLeadsEnAutomatizaciones, type EnAutomatizacion } from '@/lib/automatizaciones-del-lead';
+import { getUsuarioActual } from '@/lib/auth';
+import { enAutomatizaciones, frenarEnAutomatizacion, frenarLeadsEnAutomatizaciones, empezarDeNuevoEnAutomatizacion, detalleDelLead, type EnAutomatizacion } from '@/lib/automatizaciones-del-lead';
+import type { AutomatizacionesDelLead } from '@/lib/automatizaciones-del-lead-reglas';
 import { textoDeFrenarLote } from '@/lib/automatizaciones-del-lead-reglas';
 
 const idValido = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0;
@@ -34,6 +36,21 @@ export async function automatizacionesDelLeadAction(leadId: number): Promise<EnA
   return r ? r[leadId] ?? [] : null;
 }
 
+/**
+ * El bloque «Automatizaciones» de la ficha (23/10/2026): todo lo de sus automatizaciones (`detalleDelLead`). Cualquier sesión
+ * del negocio, como leer. null = sin sesión o no se pudo leer (no es «ninguna»).
+ */
+export async function automatizacionesDelLeadDetalleAction(leadId: number): Promise<AutomatizacionesDelLead | null> {
+  await requireSesion();
+  if (!idValido(leadId)) return null;
+  try {
+    return await detalleDelLead(leadId);
+  } catch (e) {
+    console.error(`[automatizaciones-del-lead] el detalle del lead ${leadId}:`, e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 /** Saca al lead de UNA automatización: no le sale nada más. Sólo el admin del negocio. */
 export async function frenarEnAutomatizacionAction(leadId: number, secuenciaId: number): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
   const rol = await requireSesion();
@@ -43,6 +60,22 @@ export async function frenarEnAutomatizacionAction(leadId: number, secuenciaId: 
     return await frenarEnAutomatizacion(leadId, secuenciaId);
   } catch (e) {
     return { ok: false, error: `No pude frenarlo: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+/**
+ * «Empezar de nuevo» UNA automatización del lead (23/10/2026): vuelve al primer paso. Sólo el admin del negocio, como frenar.
+ * Firma el historial con el email de quien lo pidió (como el CRM, `autorActual`).
+ */
+export async function empezarDeNuevoEnAutomatizacionAction(leadId: number, secuenciaId: number): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
+  const rol = await requireSesion();
+  if (rol !== 'admin') return { ok: false, error: 'Sólo el administrador puede hacerlo empezar de nuevo.' };
+  if (!idValido(leadId) || !idValido(secuenciaId)) return { ok: false, error: 'Falta el lead o la automatización.' };
+  try {
+    const autor = (await getUsuarioActual().catch(() => null))?.email?.trim() || 'CRM';
+    return await empezarDeNuevoEnAutomatizacion(leadId, secuenciaId, autor);
+  } catch (e) {
+    return { ok: false, error: `No pude hacerlo empezar de nuevo: ${e instanceof Error ? e.message : String(e)}` };
   }
 }
 

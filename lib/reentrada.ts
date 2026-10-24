@@ -79,3 +79,61 @@ export function puedeReentrar(modo: Reentrada, p: {
  * Un barrido SIN horario (una etapa) sigue sin serlo: mira quién ESTÁ, y corre cada tick.
  */
 export const barridoEsEvento = (d: { cron?: unknown }): boolean => d.cron != null;
+
+/** Por qué no volvió a entrar a una automatización en la que ya tenía su inscripción (`motivoNoVuelve`). */
+export type PorQueNoVuelve = 'una_sola_vez' | 'cancelada' | 'respondio' | 'en_curso' | 'no_le_toca';
+
+/** Una automatización de la etapa a la que el lead NO volvió a entrar, dicha a la persona que lo movió. */
+export type NoEntro = {
+  secuenciaId: number;
+  nombre: string;
+  at: string;
+  porque: PorQueNoVuelve;
+  /** El motivo SIN el nombre («ya entró una vez y su reentrada es «Una sola vez»»). */
+  texto: string;
+  /** Quién lo movió (el email de la sesión). */
+  quien: string | null;
+};
+
+/** Lo que pasó con las automatizaciones de la etapa cuando una PERSONA movió al lead (lo llena `enrolarPorEvento`). */
+export type InformeMovimiento = { entro: Array<{ secuenciaId: number; nombre: string }>; noEntro: NoEntro[] };
+
+const TEXTO_NO_VUELVE: Readonly<Record<Exclude<PorQueNoVuelve, 'no_le_toca'>, string>> = {
+  una_sola_vez: `ya entró una vez y su reentrada es «${ROTULO_REENTRADA.una_vez}»`,
+  cancelada: 'la habían frenado, y una automatización frenada no vuelve a empezar',
+  respondio: 'ya contestó en esta automatización',
+  en_curso: 'todavía la está haciendo',
+};
+const NO_LE_TOCA = 'no le toca volver a entrar';
+
+/**
+ * ⚠️ POR QUÉ NO VOLVIÓ A ENTRAR, en palabras, para la PERSONA que lo movió (23/10/2026, #289 del ws1). Martín llevó su lead
+ * a la etapa del CRON de «Sprint · apertura» y no pasó nada: ya tenía una inscripción (reentrada «Una sola vez», y
+ * además viva), `enrolarPorEvento` la salteaba con un `continue` y no lo decía en ningún lado. Con esto, una línea en el
+ * historial (`lineaNoVolvio`) y el informe del movimiento. Las razones van en el orden en que cortan en el motor: la
+ * reentrada primero (`reusaInscripciones` deja afuera «Una sola vez» antes de mirar la fila), después la fila.
+ */
+export function motivoNoVuelve(modo: Reentrada, fila: Pick<FilaPrevia, 'estado' | 'desenlace' | 'proximo_envio_at'>): { porque: PorQueNoVuelve; texto: string } {
+  const de = (porque: Exclude<PorQueNoVuelve, 'no_le_toca'>) => ({ porque, texto: TEXTO_NO_VUELVE[porque] });
+  if (modo === 'una_vez') return de('una_sola_vez');
+  if (fila.estado === 'cancelada' || fila.desenlace === 'cancelado') return de('cancelada');
+  if (fila.estado === 'respondio' && !soloQuedaElCarril(fila)) return de('respondio');
+  if (!ESTADOS_TERMINADOS.includes(fila.estado) && !soloQuedaElCarril(fila)) return de('en_curso');
+  return { porque: 'no_le_toca', texto: `${NO_LE_TOCA} (reentrada «${ROTULO_REENTRADA[modo]}»)` };
+}
+
+const PREFIJO_NO_VOLVIO = 'No volvió a entrar a «';
+
+/** La línea del historial del lead (`lead_audit`, campo 'Automatización'). La lee de vuelta `leerNoVolvio`. */
+export const lineaNoVolvio = (nombre: string, texto: string): string => `${PREFIJO_NO_VOLVIO}${nombre}»: ${texto}.`;
+
+/** Una línea del historial → el nombre de la automatización y el porqué; null si no es una de «no volvió». */
+export function leerNoVolvio(linea: string | null | undefined): { nombre: string; porque: PorQueNoVuelve; texto: string } | null {
+  if (typeof linea !== 'string' || !linea.startsWith(PREFIJO_NO_VOLVIO)) return null;
+  const m = /^No volvió a entrar a «(.+)»: (.+)\.$/.exec(linea);
+  if (!m) return null;
+  const texto = m[2];
+  const porque = (Object.keys(TEXTO_NO_VUELVE) as Array<keyof typeof TEXTO_NO_VUELVE>).find((k) => TEXTO_NO_VUELVE[k] === texto)
+    ?? (texto.startsWith(NO_LE_TOCA) ? 'no_le_toca' : null);
+  return porque ? { nombre: m[1], porque, texto } : null;
+}

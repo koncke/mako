@@ -6758,3 +6758,64 @@ Todo coincide con la base contada a mano.
 `app/m/automations/MetricasM.tsx` · `metricas_automatizacion` (lib/api-mako/areas/dashboard.*) ·
 tests/automatizacion-metricas.test.ts
 *23/10/2026, chat «Automations › Métricas» (claude2).*
+
+### El aviso «Contestó» de la #289 quedó VACÍO, y «Contestó» es de la inscripción, no del teléfono (23/10/2026)
+
+**El síntoma:** la única persona real que contestó en «Sprint · apertura» (ws1, lead 3100) no le llegó a Mauricio: el
+envío 183 quedó en 'fallo' con «No salió el aviso: El aviso quedó vacío.». **La causa:** el texto del aviso era UN
+renglón («… Teléfono: {{lead_telefono}} | Email: {{lead_email}} | Chat: {{link_chat_lead}}») y `sinRenglonesVacios`
+(lib/variables-aviso.ts) borra entero el renglón con un dato del catálogo sin valor. Ella no tenía email, y el flujo
+existe justamente para pedírselo a quien no lo dio: con ese texto, NINGÚN aviso de esa rama iba a salir. **Arreglo:** el
+dato se partió en renglones (setSecuenciaPasos, mismos ids) y, en el código, `textoConDatosParaEquipo`
+(lib/variables-del-lead.ts): si la regla deja vacío un aviso AL EQUIPO que tenía palabras propias, sale entero con «—»
+en el dato que falta. **Regla:** una regla que borra contenido opcional tiene que tener piso; «opcional» es del renglón,
+no del mensaje. Al lead nunca le sale el «—».
+**Y lo que parecía el bug no lo era:** Martín probó con su lead 3099 y «no le cortó». Su respuesta cayó en el lead 249:
+`matchLeadPorTelefono` (lib/evolution-mensajes.ts) se queda con el id MÁS CHICO entre los que comparten teléfono, y
+«Contestó» lee sólo el estado de la INSCRIPCIÓN (`insc.estado === 'respondio'`, que pone `pausarPorRespuesta` por
+lead_id). Un lead duplicado por teléfono contesta en el otro y la automatización no se entera. No se cambió el matcher
+(anotado, el ws1 tiene un solo par: 249/3099). Para probar, un lead que sea el único con ese teléfono.
+**Vive en:** lib/variables-del-lead.ts · lib/api-mako/areas/chatbot.run.ts (`textoDelAviso`) ·
+tests/aviso-equipo-no-vacio.test.ts. **Sin hacer:** el lienzo no avisa al escribir un renglón con varios datos
+opcionales; el duplicado por teléfono (`matchLeadPorTelefono`).
+*23/10/2026, chat «Automations» (claude2).*
+
+### Mover un lead a la etapa del CRON no lo hace empezar de nuevo, y no lo decía (23/10/2026)
+
+**El síntoma:** Martín llevó su lead a «Prospección activa» (el CRON de la #289) y «no pasó nada». **La causa, en dos
+capas:** la reentrada de la #289 era NULL, que para un flujo que no prepara reunión se lee «Una sola vez»
+(`reentradaDe`), así que `reusaInscripciones` la dejaba afuera; y aunque fuera «Cada vez», la inscripción seguía VIVA, y
+una viva nunca se reinicia por evento (`puedeReentrar` → 'no_termino'). En `enrolarPorEvento` las dos terminan en el
+mismo `if (!r) continue;`, sin escribir nada: ni historial, ni error. Y desde la pantalla no había salida: «Frenar» deja
+'cancelada', y una cancelada no vuelve nunca. **Arreglo:** si lo mueve una PERSONA, una línea en el historial firmada por
+ella («No volvió a entrar a «…»: ya entró una vez y su reentrada es «Una sola vez».», `motivoNoVuelve`) y el informe del
+movimiento (`automatizaciones`: en cuáles entró y en cuáles no) de vuelta a la pantalla; «Empezar de nuevo» (acción y
+operación de la API `empezar_de_nuevo_lead_secuencia`) por la inscripción manual de siempre (`decidirInscripcionManual`
+con `empezarDeNuevo` → `reactivarInscripcion`); y el detalle para el bloque «Automatizaciones» de la ficha
+(`detalleDelLead`). La pantalla es del chat del CRM. El «no entró» no tiene tabla: el detalle lo lee del historial
+(`leerNoVolvio`), y el id sale de las inscripciones del lead, porque sólo deja de entrar quien ya tiene una. **La trampa del autor:** el evento de etapa
+no dice quién movió (lo usan el motor, MaKo, los lotes y las confirmaciones, todos por `setPipelineStage`), y adivinarlo
+por el valor de `autor` firmaba como persona lo que hizo un proceso. Va EXPLÍCITO: `porPersona` lo pasan sólo
+`setLeadStageAction`, `completeStageMoveAction` y `moverEtapaEnProductoAction`, que exigen sesión. **Regla:** un `continue` que decide por el usuario
+tiene que dejar una línea en algún lado; si no, «no funcionó» es lo único que queda.
+**Vive en:** lib/nutricion.ts (`enrolarPorEvento`, `decirQueNoVolvio`, `inscribirEnSecuencia`) · lib/reentrada.ts
+(`motivoNoVuelve`, `lineaNoVolvio`, `leerNoVolvio`) · lib/leads.ts y lib/lead-funnel.ts (devuelven el informe) ·
+lib/nutricion-inscripcion-manual.ts · lib/automatizaciones-del-lead*.ts (`detalleDe`, `detalleDelLead`) ·
+lib/api-mako/areas/chatbot.* · tests/no-volvio-a-entrar.test.ts · tests/empezar-de-nuevo.test.ts ·
+tests/automatizaciones-del-lead-detalle.test.ts. **Sin hacer:** los lotes (tablero y agregados) y el celular
+(app/m/crm) no pasan la persona; el reinicio de una fila 'activa' no frena un envío que el tick esté mandando en ese
+mismo instante (el compare-and-set es sobre estado y desenlace); el envío no guarda «entregado/leído» del WhatsApp.
+*23/10/2026, chat «Automations» (claude2).*
+
+### Lo que se midió de la #289 y la #198 antes del sábado (23/10/2026, sólo lectura)
+
+**Los 1050 agregados del Sprint entrarían todos** al moverlos a «Prospección activa» (`agregadoEntraPorEvento`: abiertos,
+dentro de los 90 días, ninguno nació con el lead), pero el goteo de la #289 deja salir 50 por día y la línea 65: son unas
+TRES SEMANAS, no un fin de semana. El lote (`moverLeadsDeEtapaAction`) corta en 200 y manda sin la vía rápida. **La #289
+no respeta el horario de oficina:** su configuración trae `horario.activo:false` (guardada el 23/10 a las 20:03), y
+`horarioDeLaAutomatizacion` da null; el «fuera del horario» que vio Martín a las 21:47 era de antes. **Los fallos 184 a
+186 de la #198 no son un bug:** son leads de prueba de Meta («<test lead: dummy data for …>», sin teléfono real, en
+'perdido'); la trampa es otra: sus inscripciones siguen 'activa' y el motor las reintenta cada 24 h (o 4 h) para
+siempre, sumando fallos en el registro de la línea. **Sin hacer:** cerrar la inscripción de un lead sin teléfono válido
+después de N reintentos (lib/nutricion.ts, «lead sin teléfono» ~5177), y no inscribir los «test lead» de Meta.
+*23/10/2026, chat «Automations» (claude2).*

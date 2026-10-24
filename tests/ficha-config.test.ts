@@ -61,7 +61,8 @@ test('el saneo: ids que no existen se tiran, un ancho o un diseño que no van ca
   assert.equal(g.plantilla, undefined, 'una plantilla que no existe se tira');
   assert.deepEqual(g.tabs?.pagos, [{ id: 'cuotas', ancho: 12, diseno: 'tabla' }, { id: 'venta', ancho: 6, diseno: 'cajas' }],
     'cuotas no va de ¼; un diseño raro cae al primero; el ícono igual al del catálogo no se guarda; repetidos y bloques de otra tab, afuera');
-  assert.deepEqual(ids(g.tabs!.resumen!), ['contacto', 'notas'], 'contacto no se quita: vuelve arriba');
+  // ⚠️ REESCRITO EL 23/10/2026: el contacto se puede quitar (Martín: la persona decide qué va), así que no vuelve arriba.
+  assert.deepEqual(ids(g.tabs!.resumen!), ['notas'], 'sin el contacto: nadie lo vuelve a poner');
   assert.equal((g.tabs as Record<string, unknown>).inventada, undefined);
   assert.deepEqual(g.avisos, { empresa: false }, 'una asistencia no se apaga; un id o un valor que no son, afuera');
   assert.deepEqual(g.estilo, { tema: { plantilla: 'mako', acento: '#abcdef', fuente: null } }, 'el TemaHoja del Dashboard, saneado con sanearTema');
@@ -142,7 +143,8 @@ test('los cambios: poner, mover, ancho, diseño, y lo que no se puede', () => {
   const diseno = aplicarCambio(ancho.ficha, { op: 'diseno', tab: 'resumen', bloque: 'sexo', diseno: 'mapa' }, 'landing', R);
   assert.equal(diseno.ok, false, 'un diseño de otro bloque');
   assert.equal(aplicarCambio({}, { op: 'poner', tab: 'resumen', bloque: 'contacto' }, 'landing', R).ok, false, 'ya está');
-  assert.equal(aplicarCambio({}, { op: 'quitar', tab: 'resumen', bloque: 'contacto' }, 'landing', R).ok, false, 'contacto no se quita');
+  // ⚠️ REESCRITO EL 23/10/2026: quitar el contacto se puede (era «contacto no se quita»).
+  assert.ok(!ids(ok(aplicarCambio({}, { op: 'quitar', tab: 'resumen', bloque: 'contacto' }, 'landing', R)).ficha.tabs!.resumen!).includes('contacto'), 'el contacto se quita');
   // ⚠️ REESCRITO EL 16/10/2026: era `cuotas`, que la lista de Formulario de Meta no trae. Desde la ficha por tab, la
   //    tab Pagos de un funnel sin tocar es la plantilla de Pagos sugerida para su tipo («Cobrar una venta», que SÍ trae
   //    cuotas: lib/ficha/plantillas-pagos.ts). La regla no cambió: quitar lo que no está puesto es un error.
