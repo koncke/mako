@@ -25,7 +25,8 @@
 // («No me permite») y Martín: «es un error… no te está permitiendo juntar documentos, yo lo voy a
 // solucionar». Son las piezas del Ops Center (un solo chat en toda la app, regla del 18/10): desde el
 // 22/10/2026 (TB3) la caja ES la única (`CajaChat`, con su «+», sus miniaturas y pegar) y el hilo es
-// `HiloMako`, los dos en ./ChatAgente.tsx; soltar sigue siendo de la pantalla (`alSoltar`, pegar.ts).
+// `HiloMako`, los dos en ./ChatAgente.tsx. Desde el 23/10/2026 todo va adentro del panel único (`PanelAgenteChat`, PanelDeChat):
+// la cabecera con la estrella de MaKo, y soltar es del panel (lo adjuntado de la caja).
 // La propuesta, las burbujas de pedidos y los errores entran por el hueco `enMensaje` del hilo
 // (`enMensaje`, abajo). Cada archivo se LEE al entrar (la ruta de Importar) y su
 // texto viaja con el pedido a «editar», que lo pone en el contexto como datos
@@ -69,7 +70,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import type { Editor } from '@tiptap/react';
 import dynamic from 'next/dynamic';
 import Link, { useRouter, useWs } from '@/app/_ui/Link';
-import { alSoltar, traeArchivos } from '@/app/admin/operaciones/pegar';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import type { EnMensaje } from '@/app/_chat/HiloMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
@@ -636,6 +637,7 @@ let ultimoAdjunto = 0;
 /** El hilo y la caja únicos del Ops Center, sin cargar su CSS en el import de este módulo (ver la cabecera). */
 const HiloAgente = dynamic(() => import('./ChatAgente').then((m) => m.HiloAgente));
 const CajaAgente = dynamic(() => import('./ChatAgente').then((m) => m.CajaAgente));
+const PanelAgenteChat = dynamic(() => import('./ChatAgente').then((m) => m.PanelAgenteChat));
 
 /** Un archivo del pedido, en el hilo (no se abre desde ahí: viajó su texto, no se guardó). */
 const archivoDe = (nombre: string) => ({ nombre, tipo: /\.(png|jpe?g|webp|gif|avif)$/i.test(nombre) ? 'image' as const : 'document' as const, sinAbrir: true });
@@ -687,7 +689,6 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   }, []);
   const [doc, setDoc] = useState<DocDelArchivero | null>(null);
   const [trayendo, setTrayendo] = useState(false);
-  const [encima, setEncima] = useState(false);
   useEffect(() => {
     let vivo = true;
     void traerLoQueVendes(ws).then((d) => { if (vivo) setDoc(d); });
@@ -909,46 +910,22 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
       role="complementary"
       className="gma gma-pb gma-ag"
       aria-label="Edición con IA"
-      data-encima={encima ? '' : undefined}
-      onDragOver={(e) => { if (!traeArchivos(e.dataTransfer)) return; e.preventDefault(); if (!encima) setEncima(true); }}
-      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setEncima(false); }}
-      onDrop={(e) => { setEncima(false); alSoltar(e, adj); }}
     >
       <EstilosPanelesB />
       <style href="gma-agente" precedence="medium">{CSS_AGENTE}</style>
-      <header className="gma-ag-cab">
-        <Link href="/web-generator" className="gma-ag-casa" title="Ir al Panel" aria-label="Ir al Panel"><Ico n="casa" t={13} /></Link>
-        <span className="gma-ag-titulo" title={titulo}>{titulo || 'Sin título'}</span>
-        <button type="button" className="gma-pb-iconbtn" onClick={() => (onCerrar ? onCerrar() : setPanelIzq(null))} title="Cerrar el panel" aria-label="Cerrar el panel">
-          <Ico n="chevron-doble-izquierda" t={16} />
-        </button>
-      </header>
-
-      <div className="co-hilo gma-ag-hilo" ref={hiloRef} aria-live="polite">
-        <div className="co-hilo__col">
-          {hilo.mensajes.length === 0 && (
-            <>
-              <div className="gma-ag-burbuja" data-de="mako">Pídeme que edite, cree o diseñe lo que quieras.</div>
-              <div className="gma-ag-pildoras">
-                {sugerencias.map((s) => (
-                  <button key={s.rotulo} type="button" className="gma-ag-pildora" onClick={() => sugerir(s)} disabled={hilo.corriendo || !editor}>{s.rotulo}</button>
-                ))}
-              </div>
-            </>
-          )}
-          <HiloAgente items={items} corriendo={hilo.corriendo} enMensaje={enMensaje} />
-          {hilo.corriendo && <button type="button" className="gma-pb-boton" data-v="fantasma" data-t="s" onClick={detener}>Detener generación</button>}
-          {hilo.mensajes.length > 0 && !hilo.corriendo && (
-            <div className="gma-ag-pildoras">
-              {sugerencias.slice(0, 4).map((s) => (
-                <button key={s.rotulo} type="button" className="gma-ag-pildora" onClick={() => sugerir(s)} disabled={!editor}>{s.rotulo}</button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <footer className="gma-ag-pie">
+      {/* EL PANEL ÚNICO (./ChatAgente.tsx → PanelDeChat, 23/10/2026): la cabecera con la estrella de MaKo, la casa del Panel antes
+          y el cerrar al final; el arrastrar y soltar es del panel (lo adjuntado de la caja). */}
+      <PanelAgenteChat hilo={hiloRef} adjuntos={adj}
+        cabecera={{
+          clave: `agente:${titulo}`, titulo: titulo || 'Sin título', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: hilo.corriendo ? 'trabajando' : 'despierto',
+          antes: <Link href="/web-generator" className="gma-ag-casa" title="Ir al Panel" aria-label="Ir al Panel"><Ico n="casa" t={13} /></Link>,
+          acciones: (
+            <button type="button" className="gma-pb-iconbtn" style={{ marginLeft: 'auto' }} onClick={() => (onCerrar ? onCerrar() : setPanelIzq(null))} title="Cerrar el panel" aria-label="Cerrar el panel">
+              <Ico n="chevron-doble-izquierda" t={16} />
+            </button>
+          ),
+        }}
+        caja={<div className="gma-ag-pie">
         <div className="gma-ag-alcance" role="group" aria-label="Alcance">
           <button type="button" className="gma-ag-chip" aria-pressed={alcanceReal === 'landing'} onClick={() => setAlcance('landing')}>
             <Ico n="paginas" t={13} /> {esPresentacion(ctx.config) ? 'Toda la presentación' : 'Toda la landing'}
@@ -970,7 +947,27 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
         <CajaAgente campo={inputRef} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj} ocupado={hilo.corriendo}
           apagado={!editor} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda />
         {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}<ReportarASoporte /></p>}
-      </footer>
+        </div>}>
+          {hilo.mensajes.length === 0 && (
+            <>
+              <div className="gma-ag-burbuja" data-de="mako">Pídeme que edite, cree o diseñe lo que quieras.</div>
+              <div className="gma-ag-pildoras">
+                {sugerencias.map((s) => (
+                  <button key={s.rotulo} type="button" className="gma-ag-pildora" onClick={() => sugerir(s)} disabled={hilo.corriendo || !editor}>{s.rotulo}</button>
+                ))}
+              </div>
+            </>
+          )}
+          <HiloAgente items={items} corriendo={hilo.corriendo} enMensaje={enMensaje} />
+          {hilo.corriendo && <button type="button" className="gma-pb-boton" data-v="fantasma" data-t="s" onClick={detener}>Detener generación</button>}
+          {hilo.mensajes.length > 0 && !hilo.corriendo && (
+            <div className="gma-ag-pildoras">
+              {sugerencias.slice(0, 4).map((s) => (
+                <button key={s.rotulo} type="button" className="gma-ag-pildora" onClick={() => sugerir(s)} disabled={!editor}>{s.rotulo}</button>
+              ))}
+            </div>
+          )}
+      </PanelAgenteChat>
     </section>
   );
 }
@@ -983,12 +980,14 @@ export default PanelAgente;
 const CSS_AGENTE = `
 .gma-ag{display:flex;flex-direction:column;width:336px;max-width:100%;height:100%;min-height:0;background:var(--pb-fondo);border-right:1px solid var(--pb-borde)}
 .gma-ag{--surface:var(--pb-fondo);--surface-2:var(--pb-sup);--border:var(--pb-borde);--border-strong:var(--pb-borde);--ink:var(--pb-texto);--dim:var(--pb-tenue);--faint:var(--pb-suave);--velo-hover:var(--pb-sup);--focus-ring:0 0 0 2px var(--pb-vivo)}
-.gma-ag[data-encima]{box-shadow:inset 0 0 0 2px var(--pb-vivo)}
 .gma-ag-cab{display:flex;align-items:center;gap:8px;height:48px;flex:none;padding:0 8px 0 12px}
 .gma-ag-casa{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:none;border-radius:50%;box-shadow:inset 0 0 0 1px var(--pb-borde);color:var(--pb-tenue);text-decoration:none}
 .gma-ag-casa:hover{color:var(--pb-texto);background:var(--pb-sup)}
 .gma-ag-titulo{flex:1;min-width:0;font-size:13px;font-weight:500;color:var(--pb-texto);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gma-ag-hilo{flex:1;min-height:0;overflow-y:auto;padding:8px 12px 12px}
+.gma-ag > .co-panel{flex:1;min-height:0;background:transparent}
+.gma-ag .co-cab{min-height:48px;padding:0 8px 0 12px;gap:8px}
+.gma-ag .co-hilo{padding:8px 12px 12px}
+.gma-ag .co-caja-wrap{padding:0}
 .gma-ag .co-hilo__col{gap:10px}
 .gma-ag{--primary:var(--pb-azul);--primary-weak:var(--pb-vivo);--on-primary:var(--pb-azul-txt);--bg:var(--pb-fondo)}
 .gma-ag-mako{display:grid;gap:8px}
@@ -1002,7 +1001,7 @@ const CSS_AGENTE = `
 .gma-ag-pildora{padding:6px 12px;border:0;border-radius:999px;background:var(--pb-celeste);color:var(--pb-tinta);font:inherit;font-size:12.5px;font-weight:500;text-align:left;cursor:pointer;transition:background .15s ease}
 .gma-ag-pildora:hover:not(:disabled){background:var(--pb-celeste2)}
 .gma-ag-pildora:disabled{opacity:.5;cursor:default}
-.gma-ag-pie{flex:none;display:grid;gap:8px;padding:8px 12px 12px}
+.gma-ag-pie{display:grid;gap:8px;padding:8px 12px 12px}
 .gma-ag-alcance{display:flex;gap:6px;min-width:0}
 .gma-ag-chip{display:inline-flex;align-items:center;gap:5px;min-width:0;max-width:100%;height:26px;padding:0 10px;border:1px solid var(--pb-borde);border-radius:999px;background:var(--pb-fondo);color:var(--pb-tenue);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
 .gma-ag-chip[aria-pressed="true"]{border-color:var(--pb-celeste2);background:var(--pb-celeste);color:var(--pb-tinta)}

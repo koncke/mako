@@ -14,7 +14,8 @@
 
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
-import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { PanelDeChat, type CabeceraChat } from '@/app/admin/operaciones/PanelChat';
 import { HiloMako, type EnMensaje, type Quien } from '@/app/_chat/HiloMako';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import type { PropsCajaChat } from '@/app/_chat/CajaChat';
@@ -27,8 +28,10 @@ export const QUIEN_MAKO: Quien = { nombre: 'MaKo', aspecto: ASPECTO_MAKO };
 
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 
-/** La caja en la columna angosta, y la ➤ sin el verde de WhatsApp (como el MaKo Analyst del CRM, MakoAnalystLead.tsx). */
-const CAJA = { paddingInline: 12, '--good': 'var(--ink)', '--sobre-good': 'var(--surface)' } as CSSProperties;
+/** La ➤ sin el verde de WhatsApp (como el MaKo Analyst del CRM, MakoAnalystLead.tsx). */
+const SIN_VERDE = { '--good': 'var(--ink)', '--sobre-good': 'var(--surface)' } as CSSProperties;
+/** La columna angosta: el hilo y la caja con el margen de una barra lateral, no el de la ventana (`clamp(16px, 4vw, 56px)`). */
+const CSS_COLUMNA = '[data-chat-mako-panel] .co-hilo { padding-inline: 14px; } [data-chat-mako-panel] .co-caja-wrap { padding-inline: 12px; } [data-chat-mako-panel] > .co-panel { flex: 1; min-height: 0; background: transparent; } [data-chat-mako-panel] .co-cab { padding: 0 12px; min-height: 52px; }';
 
 export type PropsVistaChatMako = {
   items: readonly ItemHilo[];
@@ -43,6 +46,8 @@ export type PropsVistaChatMako = {
   /** Arriba de la caja: las fases con Cancelar, o Discutir / Editar y el error. */
   encima: ReactNode;
   caja: PropsCajaChat;
+  /** La cabecera única (PanelChat.tsx): la estrella, «MaKo», en línea o escribiendo, la «←» a la lista y el ✕. La arma ChatMako. */
+  cabecera: CabeceraChat;
 };
 
 export default function ChatMakoVista(p: PropsVistaChatMako) {
@@ -54,25 +59,33 @@ export default function ChatMakoVista(p: PropsVistaChatMako) {
     const h = hiloRef.current;
     if (h && abajo.current) h.scrollTop = h.scrollHeight;
   }, [n]);
+  // ¿Se está mirando lo último? Se escucha el scroll del hilo del panel (PanelDeChat no recibe `onScroll`).
+  useEffect(() => {
+    const h = hiloRef.current;
+    if (!h) return;
+    const alMover = () => { abajo.current = estaAbajo(h); };
+    h.addEventListener('scroll', alMover, { passive: true });
+    return () => h.removeEventListener('scroll', alMover);
+  }, []);
   return (
-    <>
-      {/* ⚠️ EL MARGEN DEL HILO DEL OPS CENTER SALE DEL ANCHO DE LA VENTANA (`clamp(16px, 4vw, 56px)`): en la sidebar del lienzo
-          (~380 px) le dejaba al globo ~270. Acá, el de una columna angosta. */}
-      <div className="co-hilo" data-hilo-mako="" ref={hiloRef} onScroll={(e) => { abajo.current = estaAbajo(e.currentTarget); }} style={{ flex: 1, minHeight: 0, paddingInline: 14 }}>
-        <div className="co-hilo__col">
-          {p.items.length || p.escribiendo
-            ? <HiloMako items={p.items} quien={QUIEN_MAKO} ahora={Date.now()} escribiendo={p.escribiendo} tarjeta={null}
-                onTarjeta={() => {}} onReintentar={p.onReintentar} onRecargar={() => {}} enMensaje={p.enMensaje} />
-            : p.vacio}
-        </div>
-      </div>
-      {/* LA CAJA CON AIRE (23/10/2026: «está pegada abajo de todo: tiene que tener aire»): la del Ops Center, con su margen. */}
-      <div className="co-caja-wrap" data-caja-mako="" style={CAJA}>
-        {p.encima}
-        <div className="co-caja">
-          <CajaChat {...p.caja} />
-        </div>
-      </div>
-    </>
+    // EL CHAT DEL OPS CENTER (23/10/2026, Martín: «Tienes que UNIFICAR los chats con MaKo en toda la app»): el panel único
+    // (PanelChat.tsx) con su cabecera y la estrella, su arrastrar y soltar (lo adjuntado de la caja), el hilo y la caja únicos.
+    <div data-chat-mako-panel="" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', ...SIN_VERDE }}>
+      <style>{CSS_COLUMNA}</style>
+      <PanelDeChat hilo={hiloRef} adjuntos={p.caja.adjuntos} cabecera={p.cabecera}
+        caja={<>
+          {/* LA CAJA CON AIRE (23/10/2026: «está pegada abajo de todo: tiene que tener aire»): la del Ops Center, con su margen. */}
+          {p.encima}
+          <div className="co-caja" data-caja-mako="">
+            <CajaChat {...p.caja} />
+          </div>
+        </>}
+        estado="">
+        {p.items.length || p.escribiendo
+          ? <HiloMako items={p.items} quien={QUIEN_MAKO} ahora={Date.now()} escribiendo={p.escribiendo} tarjeta={null}
+              onTarjeta={() => {}} onReintentar={p.onReintentar} onRecargar={() => {}} enMensaje={p.enMensaje} />
+          : p.vacio}
+      </PanelDeChat>
+    </div>
   );
 }

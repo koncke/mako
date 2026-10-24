@@ -39,12 +39,15 @@ export type CabeceraChat = {
   onRenombrar?: (nombre: string) => Promise<string | null>;
   /** Lo que va al lado del título, en la misma barra (la lista de tickets de Soporte, 23/10/2026). */
   acciones?: ReactNode;
+  /** Lo que va ANTES de la criatura, en cualquier ancho (la «←» a la lista de automatizaciones, 23/10/2026): el «volver» de
+   *  la ventana angosta es otra cosa y sólo se ve ahí. */
+  antes?: ReactNode;
   /** «Volver a los chats», en la ventana angosta. Sin esto (un chat embebido en una pantalla: la ficha de un lead), no hay botón. */
   onVolver?: () => void;
 };
 
 /** La cabecera: «volver» (en la ventana angosta), la criatura, el título que se renombra en el lugar. */
-export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, aspecto, animo, espera = 0, onMuneco, onRenombrar, acciones, onVolver }: CabeceraChat) {
+export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, aspecto, animo, espera = 0, onMuneco, onRenombrar, acciones, antes, onVolver }: CabeceraChat) {
   // El título se renombra en el lugar: `editando` es lo que se está escribiendo.
   const [editando, setEditando] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
   useEffect(() => { setEditando(null); }, [clave]);
@@ -62,11 +65,12 @@ export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, a
           <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
         </button>
       )}
+      {antes}
       {onMuneco ? (
         <button type="button" className="co-cab__muneco" onClick={onMuneco} title="Cambiar su criatura" aria-label={`Cambiar la criatura de ${titulo}`}>
           {criatura}
         </button>
-      ) : <span className="co-cab__muneco">{criatura}</span>}
+      ) : <span className="co-cab__muneco" role="img" aria-label={deCriatura}>{criatura}</span>}
       <div className="co-cab__texto">
         <h1 className="co-cab__titulo" title={titulo}>
           {editando ? (
