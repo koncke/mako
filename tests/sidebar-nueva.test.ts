@@ -267,8 +267,14 @@ test('los nombres de las tabs, en inglés: ningún rótulo dibujado en castellan
 });
 
 test('cada herramienta de la ex familia Admin tiene casa, la ve el super admin y no un cliente', () => {
-  const RUTAS = ['/admin/copywriting', '/agencia', '/mensajes', '/admin/dev', '/admin/agente', '/admin/estrategia',
+  // /agencia salió de la lista el 24/10/2026: ya no es una sección (Martín: «En SuperAdmin no deben haber 3 tabs allí»). Su
+  // casa es Chats, donde el número de MaKo es una línea del chip «Canales» (docs/diseno-chats.md §8.5); la ruta sigue para
+  // sus links y la barra marca Chats estando ahí (abajo).
+  const RUTAS = ['/admin/copywriting', '/mensajes', '/admin/dev', '/admin/agente', '/admin/estrategia',
     '/admin/cobros', '/admin/operaciones', '/contexto', '/modelos-ia', '/conocimientos', '/admin/offer-playbook'];
+  const chats = FAMILIAS.flatMap((f) => f.bloques.flat()).find((t) => t.key === 'bandeja');
+  assert.equal(chats?.match('/agencia'), true, '/agencia: estando ahí, la barra no marca Chats');
+  assert.ok(!(chats?.secciones ?? []).some((s) => s.href === '/agencia'), '«MaKo WhatsApp» volvió a ser una sección de Chats');
   const secciones = FAMILIAS.flatMap((f) => f.bloques.flat()).flatMap((t) => (t.secciones ?? []).map((s) => ({ tab: t, s })));
   for (const ruta of RUTAS) {
     const arriba = ARRIBA.find((i) => i.href === ruta);
@@ -297,14 +303,19 @@ test('Chats es la única tab de conversaciones; WhatsApp y Email se configuran d
   assert.ok(!filas.includes('whatsapp') && !filas.includes('email'), 'WhatsApp o Email volvieron a ser filas');
   for (const k of ['whatsapp', 'email']) assert.ok(SIN_FILA.some((i) => i.key === k), `sin el ítem ${k}, el teléfono y el título lo pierden`);
   for (const p of ['app/whatsapp/page.tsx', 'app/email/page.tsx']) assert.ok(existsSync(join(RAIZ, p)), `${p} se borró: los links de afuera se rompen`);
-  const panel = sinComentarios(leer('app/chats/PanelBandejas.tsx'));
-  assert.match(panel, /<Link href="\/email"/, 'Chats no lleva a Email');
-  assert.match(panel, /value: 'email', label: 'Email'/, 'el «+» de Canales no ofrece Email');
+  // Desde el 24/10/2026 (docs/diseno-chats.md §8.4) conectar un canal es un modal SOBRE Chats, el de cada medio que usa
+  // Automations: ni WhatsApp ni Email llevan a su página («salta el diseño de la tab vieja de WhatsApp... solo debería
+  // saltar el QR»; «Faltan los Email aquí»).
+  const conectar = sinComentarios(leer('app/chats/ConectarCanal.tsx'));
+  assert.match(conectar, /\{ canal: 'email', nombre: 'Email'/, '«Conectar un canal» no ofrece Email');
+  assert.match(conectar, /<ConectarMedio medio="whatsapp"/, 'WhatsApp no se conecta con el modal del QR');
+  assert.match(conectar, /<ConectarMedio medio="email"/, 'el email no se conecta con el remitente del negocio');
   const app = sinComentarios(leer('app/chats/ChatsApp.tsx'));
-  assert.match(app, /if \(canal === 'whatsapp'\) \{ router\.push\('\/whatsapp'\)/);
-  assert.match(app, /if \(canal === 'email'\) \{ router\.push\('\/email'\)/);
-  // Email lo veía admin y setter (el guard de su página); el closer no, tampoco desde Chats.
-  assert.match(sinComentarios(leer('app/chats/page.tsx')), /const veEmail = rolWs !== 'closer';/);
+  assert.doesNotMatch(app, /router\.push\('\/(whatsapp|email)'\)|href="\/(whatsapp|email)"/, 'Chats vuelve a llevar a otra tab para conectar');
+  // Y /whatsapp ya no dibuja la tab vieja: traduce sus links y lleva a Chats.
+  const wa = sinComentarios(leer('app/whatsapp/page.tsx'));
+  assert.match(wa, /redirect\(await rutaConWs\(query \? `\/chats\?\$\{query\}` : '\/chats'\)\)/, '/whatsapp no lleva a Chats');
+  assert.doesNotMatch(wa, /<WhatsAppApp\b/, '/whatsapp volvió a dibujar la tab vieja');
 });
 
 test('nada se rompe: cada destino de la barra y de lo que dejó de ser fila tiene su página', () => {

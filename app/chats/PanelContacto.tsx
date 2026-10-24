@@ -1,11 +1,11 @@
 'use client';
 
 // =============================================================================
-// PanelContacto — el drawer de contacto de respond.io (349 px) y su rail de pestañas (44 px)
+// PanelContacto — el panel del contacto (350 px), cerrado hasta que se toca el nombre
 // =============================================================================
-// Relevamiento respondio.md §1.6-1.7 y las capturas 06, 07 y 40:
-//   · el RAIL a la derecha: botones de 32 × 32 con borde y radio 8; el de la pestaña abierta, azul con
-//     el ícono blanco. Tocar la pestaña abierta cierra el drawer; otra, la abre;
+// Relevamiento respondio.md §1.6-1.7 y las capturas 06, 07 y 40. SIN EL RAIL desde el 24/10/2026 (docs/diseno-chats.md
+// §8.1, «simplifiques la interfaz de chats»): la columna de 44 px con dos botones estaba siempre, con el panel cerrado. Se
+// abre tocando el nombre en la cabecera del chat, y sus dos pestañas van en su propia cabecera:
 //   · «Contacto»: avatar de 40, nombre 16/600 y «ID: <leadId>»; la fila «Canales» con las insignias
 //     apiladas; «Datos» con «Abrir ficha ↗» y los campos (label 12/600, valor 14 o el placeholder gris);
 //     «Etiquetas» fija abajo. Sin lead: lo que se sabe del canal y «Agregar al CRM»;
@@ -17,21 +17,16 @@
 // contacto ES el lead y se une por `lead_id`), «All Time» (sin filtro de fechas en v1) y las pestañas
 // Calls, Attachments, HubSpot y Salesforce.
 //
-// ⚠️ EL «AGREGAR AL CRM» DE ACÁ ES EL MISMO FLUJO QUE EL DE LA VENTANA (VentanaChat.tsx): el alta de la
-//    casa para WhatsApp (`crearLeadDesdeWhatsappAction` con el producto) y POST /api/chats/lead para
-//    Instagram/Messenger. Están en dos pantallas porque el plano los pide en las dos (§3); si cambia uno,
-//    cambia el otro (ver «lo que quedó sin hacer»: extraerlo a un hook común).
+// ⚠️ «AGREGAR AL CRM» VIVE EN UN SOLO LUGAR: la cabecera del chat (VentanaChat.tsx, docs/diseno-chats.md §8.2). Acá
+//    estaba también, con su propio flujo copiado, y la pantalla lo mostraba dos veces a la vez (24/10/2026). Sin lead,
+//    el panel dice que todavía no está en el CRM y nada más.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  CircleCheck, Clock, ContactRound, ExternalLink, Flag, Info, PanelRightClose, Plus, RotateCcw, SendHorizontal, Timer,
+  CircleCheck, ExternalLink, Flag, Info, PanelRightClose, Plus, RotateCcw, SendHorizontal, Timer,
   TimerOff, UserRound, UserRoundCheck, UserRoundX, LoaderCircle,
 } from 'lucide-react';
 import type { ChatResumen, EtapaChat, MensajeChat } from '@/lib/chats-tipos';
-import { claveLead } from '@/lib/chats-reglas';
-import type { ProductoParaAlta } from '@/lib/lead-funnel-reglas';
-import { crearLeadDesdeWhatsappAction } from '@/app/crm/actions';
-import { BotonAgregarAlCrm } from '@/app/whatsapp/_shared/BotonAgregarAlCrm';
 import { claseDeEvento, type ClaseEvento } from './lista-reglas';
 import { claveDia, etiquetaDia, fechaDe, horaCorta, rotuloIdentidad } from './ventana-reglas';
 import { AvatarRio, postJson } from './ventana-piezas';
@@ -68,7 +63,7 @@ const cacheContacto = new Map<string, LeadContacto>();
 type Leida<T> = { estado: 'cargando' } | { estado: 'ok'; dato: T } | { estado: 'error'; error: string };
 
 export function PanelContacto({
-  ws, chat, abierto, pestana, onPestana, onCerrar, etapas, equipo, productos, version, onAbrirFicha, onClaveCambio, onCambio,
+  ws, chat, abierto, pestana, onPestana, onCerrar, etapas, equipo, version, onAbrirFicha, onCambio,
 }: {
   ws: number | null;
   chat: ChatResumen | null;
@@ -78,54 +73,40 @@ export function PanelContacto({
   onCerrar: () => void;
   etapas: EtapaChat[];
   equipo: { nombre: string; foto_url: string | null }[];
-  productos: ProductoParaAlta[] | null;
   /** Sube cada vez que algo cambió (un cierre, un envío, la ficha): el drawer vuelve a leer. */
   version: number;
   onAbrirFicha: (leadId: number) => void;
-  onClaveCambio: (nueva: string) => void;
   onCambio: () => void;
 }) {
-  const titulo = pestana === 'contacto' ? 'Contacto' : 'Actividad';
+  if (!abierto) return null;
   return (
-    <>
-      {abierto && (
-        <aside className="rio-drawer" aria-label={titulo}>
-          <header className="rio-cab">
-            <button type="button" className="rio-icono-btn" onClick={onCerrar} title="Cerrar panel" aria-label="Cerrar panel"><PanelRightClose size={20} strokeWidth={1.5} /></button>
-            <h2 className="rio-titulo">{titulo}</h2>
-          </header>
-          {!chat ? (
-            <div className="rio-vacio">Elige un chat.</div>
-          ) : pestana === 'contacto' ? (
-            <Contacto key={chat.clave} ws={ws} chat={chat} etapas={etapas} productos={productos} version={version}
-              onAbrirFicha={onAbrirFicha} onClaveCambio={onClaveCambio} />
-          ) : (
-            <Actividad key={chat.clave} ws={ws} chat={chat} equipo={equipo} version={version} onCambio={onCambio} />
-          )}
-        </aside>
+    <aside className="rio-drawer" aria-label={pestana === 'contacto' ? 'Contacto' : 'Actividad'}>
+      <header className="rio-cab">
+        <div className="rio-pestanas" role="tablist">
+          <button type="button" role="tab" className="rio-pestana" aria-selected={pestana === 'contacto'} onClick={() => onPestana('contacto')}>Contacto</button>
+          <button type="button" role="tab" className="rio-pestana" aria-selected={pestana === 'actividad'} onClick={() => onPestana('actividad')}>Actividad</button>
+        </div>
+        <button type="button" className="rio-icono-btn" onClick={onCerrar} title="Cerrar panel" aria-label="Cerrar panel"><PanelRightClose size={20} strokeWidth={1.5} /></button>
+      </header>
+      {!chat ? (
+        <div className="rio-vacio">Elige un chat.</div>
+      ) : pestana === 'contacto' ? (
+        <Contacto key={chat.clave} ws={ws} chat={chat} etapas={etapas} version={version} onAbrirFicha={onAbrirFicha} />
+      ) : (
+        <Actividad key={chat.clave} ws={ws} chat={chat} equipo={equipo} version={version} onCambio={onCambio} />
       )}
-      <nav className="rio-rail" aria-label="Paneles del contacto">
-        <button type="button" className="rio-rail-btn" aria-pressed={abierto && pestana === 'contacto'} onClick={() => onPestana('contacto')} title="Contacto" aria-label="Contacto">
-          <ContactRound size={18} strokeWidth={1.75} />
-        </button>
-        <button type="button" className="rio-rail-btn" aria-pressed={abierto && pestana === 'actividad'} onClick={() => onPestana('actividad')} title="Actividad" aria-label="Actividad">
-          <Clock size={18} strokeWidth={1.75} />
-        </button>
-      </nav>
-    </>
+    </aside>
   );
 }
 
 // ── Contacto ─────────────────────────────────────────────────────────────────────────────────
 
-function Contacto({ ws, chat, etapas, productos, version, onAbrirFicha, onClaveCambio }: {
+function Contacto({ ws, chat, etapas, version, onAbrirFicha }: {
   ws: number | null;
   chat: ChatResumen;
   etapas: EtapaChat[];
-  productos: ProductoParaAlta[] | null;
   version: number;
   onAbrirFicha: (leadId: number) => void;
-  onClaveCambio: (nueva: string) => void;
 }) {
   const leadId = chat.leadId;
   const claveCache = `${ws ?? 0}:${leadId ?? 0}`;
@@ -197,7 +178,7 @@ function Contacto({ ws, chat, etapas, productos, version, onAbrirFicha, onClaveC
         <div className="rio-separador" />
 
         {leadId == null ? (
-          <SinLead chat={chat} productos={productos} onAbrirFicha={onAbrirFicha} onClaveCambio={onClaveCambio} />
+          <SinLead chat={chat} />
         ) : (
           <>
             <div className="rio-bloque-cab">
@@ -262,50 +243,8 @@ function fechaLegible(iso: string | null | undefined): string | null {
   return d ? `${etiquetaDia(d, new Date())}, ${horaCorta(d)}` : null;
 }
 
-/** Un contacto que todavía no es lead: lo que se sabe del canal y la salida al CRM. */
-function SinLead({ chat, productos, onAbrirFicha, onClaveCambio }: {
-  chat: ChatResumen;
-  productos: ProductoParaAlta[] | null;
-  onAbrirFicha: (leadId: number) => void;
-  onClaveCambio: (nueva: string) => void;
-}) {
-  // ⚠️ `productosAlta` y no `productos`: si el server contesta que hay que elegir (2+ y ninguno
-  // elegido), la lista que manda reemplaza a la de la página y el mismo botón pasa a preguntar.
-  const [productosAlta, setProductosAlta] = useState(productos);
-  const [creando, setCreando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const wa = chat.canales.find((i) => i.canal === 'whatsapp' && !!i.telefono) ?? null;
-  const social = chat.canales.find((i) => i.canal !== 'whatsapp') ?? null;
-
-  async function agregarAlCrm(funnelId: number | null) {
-    if (creando) return;
-    setCreando(true); setError(null);
-    try {
-      let id: number | null = null;
-      if (wa?.telefono) {
-        const r = await crearLeadDesdeWhatsappAction(chat.nombre || wa.telefono, wa.telefono, funnelId);
-        // Con `else` y no un ternario: así la respuesta queda estrechada al choque y se le lee el motivo.
-        if ('id' in r) id = r.id;
-        else if (r.elegir) { setProductosAlta(r.elegir); setError('Elige el funnel'); return; }
-        else if (r.coincidencias.length === 1) id = r.coincidencias[0].id; // ya estaba: con UN candidato, es él
-        else { setError(r.error); return; }
-      } else if (social) {
-        // Instagram y Messenger se unen por `lead_id`, nunca por teléfono (plano §2.2).
-        const j = await postJson<{ ok: boolean; leadId?: number; error?: string; elegir?: ProductoParaAlta[] }>('/api/chats/lead', { convId: Number(social.ref), funnelId });
-        if (j.ok && j.leadId) id = j.leadId;
-        else if (j.elegir?.length) { setProductosAlta(j.elegir); setError('Elige el funnel'); return; }
-        else { setError(j.error ?? 'No se pudo agregar'); return; }
-      } else return;
-      if (!id) return;
-      onClaveCambio(claveLead(id));
-      onAbrirFicha(id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo agregar');
-    } finally {
-      setCreando(false);
-    }
-  }
-
+/** Un contacto que todavía no es lead: lo que se sabe del canal. Agregarlo es de la cabecera del chat. */
+function SinLead({ chat }: { chat: ChatResumen }) {
   return (
     <div className="rio-campos">
       <div className="rio-bloque-cab"><span className="rio-bloque-titulo">Datos</span></div>
@@ -315,8 +254,7 @@ function SinLead({ chat, productos, onAbrirFicha, onClaveCambio }: {
           <span className="rio-campo-valor" data-vacio={i.destino ? undefined : 'true'}>{i.destino ?? 'Sin dato'}</span>
         </div>
       ))}
-      {(wa || social) && <BotonAgregarAlCrm productos={productosAlta} creando={creando} onAgregar={(funnelId) => void agregarAlCrm(funnelId)} />}
-      {error && <span className="rio-campo-valor" role="status" style={{ color: 'var(--rio-danger)', fontSize: 12 }}>{error}</span>}
+      <span className="rio-campo-valor" data-vacio="true">Todavía no está en el CRM.</span>
     </div>
   );
 }

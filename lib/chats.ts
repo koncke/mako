@@ -22,8 +22,10 @@
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from './workspace';
-import { getUsuarioActual } from './auth';
+import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual, estaImpersonando } from './workspace';
+import { getSesionAdmin, getUsuarioActual } from './auth';
+import { listarGruposMaKo, mensajesGrupoMaKo, type GrupoChat } from './mako-chat';
+import { canalConfigurado } from './mako-canal';
 import { tabEnCapa } from './capas';
 import { getSupabaseServer } from './supabase';
 import { buscarUsuarioPorEmail } from './usuarios';
@@ -49,7 +51,7 @@ import {
   agruparPorContacto, claveLead, claveSocial, claveWhatsapp, claveCuenta, parsearClave, formatoDe, statusDe,
   destinoTelefono, rotuloWhatsapp, ultimos10, contactoDeFilas, type FilaContactoWa, partesDeEvento, partesDeAudit, textoDePartes, autorLegible,
   CAMPOS_AUDIT_DEL_HILO,
-  type FuenteChat, type LeadDelChat, type FilaEstadoChat, type ContextoContactos, type TipoEventoChat,
+  type FuenteChat, type LeadDelChat, type FilaEstadoChat, type ContextoContactos, type TipoEventoChat, LINEA_CANAL_MAKO,
 } from './chats-reglas';
 import type {
   BorradorChat, CanalChat, ChatResumen, CuentaSocial, EtapaChat, IdentidadCanal, LineaChat, MensajeChat,
@@ -259,6 +261,60 @@ function fuenteWhatsapp(c: WaConversacion, l: LineaLeida, variasLineas: boolean)
   };
 }
 
+// ── El número de MaKo (el super admin, en su barra) ───────────────────────────────
+
+/**
+ * ¿Ve el número de MaKo? Sólo el super admin en SU barra: mirando a un cliente, Chats es el de ese cliente y nada más (los
+ * grupos de MaKo no son de nadie que no sea la plataforma).
+ */
+async function veCanalMaKo(): Promise<boolean> {
+  if (!canalConfigurado() || !(await getSesionAdmin())) return false;
+  return !(await estaImpersonando());
+}
+
+/**
+ * Un grupo de MaKo como fuente de Chats. A diferencia del grupo de un número del negocio (que se lee y no se contesta: el
+ * envío manual saca «el número» del jid), éste SE ESCRIBE: sale por el canal de MaKo (/api/admin/mako-chats), el camino de
+ * siempre de /agencia.
+ */
+function fuenteGrupoMaKo(g: GrupoChat): FuenteChat {
+  const f = fuenteWhatsapp({
+    chatJid: g.jid, telefono: null, nombre: g.nombre, leadId: null, empresa: null, etapaKey: null, etapaLabel: null,
+    ultimoTexto: g.ultimo || null, ultimoTipo: null, ultimaFecha: g.ultimoAt ? new Date(g.ultimoAt).toISOString() : null,
+    // La lista de Evolution no dice quién mandó el último: se toma como del grupo (entra en «Sin responder»).
+    ultimoEntrante: true, total: 1, bloqueado: false,
+  }, { linea: LINEA_CANAL_MAKO, rotulo: 'MaKo' }, true);
+  return { ...f, identidad: { ...f.identidad, puedeEscribir: true, motivoNoEscribir: null } };
+}
+
+/** El hilo de un grupo de MaKo: sus mensajes (con la media por el proxy de /agencia) y su estado en Chats. */
+async function hiloDelCanalMaKo(clave: string, jid: string, yo: YoChats): Promise<HiloChat> {
+  const vacio: HiloChat = { chat: null, mensajes: [], borradores: [], fallas: [] };
+  if (!(await veCanalMaKo())) return vacio;
+  const fallas: string[] = [];
+  const falla = (fuente: string) => (e: unknown) => { console.error(`[chats] hilo ${clave} ${fuente}: ${msg(e)}`); fallas.push(fuente); return null; };
+  const [grupos, ms, estados, leidos] = await Promise.all([
+    listarGruposMaKo().catch(falla(`whatsapp:${LINEA_CANAL_MAKO}`)),
+    mensajesGrupoMaKo(jid).catch(falla(`whatsapp:${LINEA_CANAL_MAKO}`)),
+    leerEstados([clave]).catch(falla('estado')),
+    leerLeidos(yo.id, [clave]).catch(falla('leidos')),
+  ]);
+  const g = grupos?.find((x) => x.jid === jid) ?? null;
+  // Un jid que no es un grupo de MaKo no tiene hilo acá (la clave viene del navegador).
+  if (grupos && !g) return { ...vacio, fallas };
+  const ctx: ContextoContactos = {
+    leads: new Map(), estados: estados ?? new Map(), leidos: leidos ?? new Map(),
+    borradores: { leadIds: new Set(), tels: new Set() }, lineaDefault: LINEA_CANAL_MAKO, ahoraMs: Date.now(),
+  };
+  const chat = agruparPorContacto([fuenteGrupoMaKo(g ?? { jid, nombre: jid.replace('@g.us', ''), foto: null, ultimo: '', ultimoAt: 0 })], ctx)[0] ?? null;
+  const mensajes: MensajeChat[] = (ms ?? []).map((m) => ({
+    id: `mk:${m.id}`, tipo: 'mensaje', canal: 'whatsapp', cuenta: LINEA_CANAL_MAKO, saliente: m.fromMe,
+    autor: m.fromMe ? null : m.autor, texto: m.texto || null, formato: formatoDe(m.tipo), mediaUrl: m.mediaUrl, mediaMime: m.mediaMime,
+    fecha: new Date(m.at).toISOString(), status: null, error: null,
+  }));
+  return { chat, mensajes, borradores: [], fallas };
+}
+
 /** Cómo se llama cada cuenta social en el selector: 'Instagram', o 'Instagram 2' si el negocio tiene varias. */
 function rotulosSociales(convs: readonly ConversacionSocialChat[]): { cuentas: CuentaSocial[]; rotulo: (canal: CanalChat, cuenta: string | null) => string } {
   const porCanal = new Map<'instagram' | 'messenger', string[]>();
@@ -393,6 +449,14 @@ export async function listarChats(opts?: { buscar?: string; usuario?: YoChats; p
     for (const { l, convs } of porLinea) for (const c of convs) fuentes.push(fuenteWhatsapp(c, l, varias));
     // La línea de siempre sin fila: se nombra en `lineas` sólo si trajo conversaciones (es la que les contesta).
     if (!lns.leidas.length && fuentes.length) lineas = [{ linea: instanceNameDeWs(ws), rotulo: 'WhatsApp', estado: 'desconectado', esDefault: true }];
+  }
+
+  // El número de MaKo, para el super admin en su barra (docs/diseno-chats.md §8.5): sus grupos, como una línea más. «No pude
+  // leer» no es «desconectado»: la línea queda en 'error' (sin la alarma del número caído) y se nombra en `fallas`.
+  if (await veCanalMaKo()) {
+    const grupos = await listarGruposMaKo().catch(falla(`whatsapp:${LINEA_CANAL_MAKO}`));
+    lineas = [...lineas, { linea: LINEA_CANAL_MAKO, rotulo: 'MaKo', estado: grupos ? 'conectado' : 'error', esDefault: false }];
+    for (const g of grupos ?? []) fuentes.push(fuenteGrupoMaKo(g));
   }
 
   const rs = rotulosSociales(social ?? []);
@@ -625,9 +689,11 @@ export async function hiloDeChat(clave: string, opts?: { usuario?: YoChats }): P
   const p = parsearClave(clave);
   const ws = await getWorkspaceActual();
   if (!p || ws == null) return vacio;
+  const yo = opts?.usuario ?? { id: 0, nombre: '' };
+  // Un grupo de MaKo (el super admin en su barra): su propio camino, el del canal de MaKo.
+  if (p.tipo === 'whatsapp' && p.linea === LINEA_CANAL_MAKO) return hiloDelCanalMaKo(clave, p.id, yo);
   const fallas: string[] = [];
   const falla = (fuente: string) => (e: unknown) => { console.error(`[chats] hilo ${clave} ${fuente}: ${msg(e)}`); fallas.push(fuente); return null; };
-  const yo = opts?.usuario ?? { id: 0, nombre: '' };
   let ocultoWhatsapp = false;
 
   // ¿De qué lead es? Una persona social con lead pasa a ser el contacto del lead.

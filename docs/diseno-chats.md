@@ -304,3 +304,85 @@ como un canal más — el diseño y lo que falta, en docs/diseno-sidebar.md §5:
 - Datos: `email_mensajes` (mig 0312), escrita por el webhook de Resend (después del disparo, con `after()`) y por
   `POST /api/chats/email`. Lo del canal vive en `lib/chats-email.ts`; lo puro, en `lib/chats-email-reglas.ts`.
 - Contestar sale con el remitente DEL NEGOCIO (`sendEmail`) y en el hilo del cliente de correo (`In-Reply-To`).
+
+## 8. Chats más simple, con el chat de MaKo de molde (24/10/2026)
+
+Martín, por el Cerebro (24/10), cinco pedidos que son una sola pregunta: cómo se ve y se usa Chats.
+1. «En SuperAdmin no deben haber 3 tabs allí, debe ser igual que el resto. Y que simplemente pueda cambiar entre mi número
+   y el de MaKo y ver entre los chats los grupos».
+2. «Cuando quiero conectar un WhatsApp, mira que salta el diseño de la tab vieja de WhatsApp... solo debería saltar el QR».
+3. «Faltan los Email aquí, para conectarlo, no solo WhatsApp, Messenger, Instagram...».
+4. «Mira como se ve toda la tab vieja de WhatsApp por detrás... Y también el modal que salta con mucho texto y no se entiende».
+5. «simplifiques la interfaz de chats... Está increíblemente compleja, muchos botones... me gustaría que se parezca más al
+   chat de MaKo. Entiendo que debe tener más cosas, pero no tan complejo.»
+
+Lo que se midió antes de tocar (respond.io copiado al pie de la letra, §3): cuatro columnas (Bandeja 214, Lista 298, chat,
+drawer 349 + rail 44); siete controles en la cabecera del chat; «Agregar al CRM» en la cabecera, en el «⋯», en el menú de
+asignar, en el drawer y en el comentario; nueve etapas ocupando media columna de la Bandeja (un filtro no es una navegación).
+
+### 8.1 La pantalla: dos columnas
+
+```
+┌ Lista 340 ─────────────────────┐┌ Conversación (flex) ──────────────────────────┐
+│ Chats                    🔍  ＋ ││ (avatar) Ana López · Asignada a Leila   [Etapa ⌄] [Cerrar] ⋯ │
+│ [Todos ⌄] [Canales ⌄] [Etapa ⌄]││                                               │
+│ filas                          ││ hilo                                          │
+│                                ││ [+] [😊] [ Escribe un mensaje      ] [MaKo] [🎤] │
+└────────────────────────────────┘└───────────────────────────────────────────────┘
+```
+
+- **La Bandeja deja de ser columna**: sus tres secciones son tres desplegables en la cabecera de la lista.
+  - «Todos»: la vista (Todos · Míos · Sin asignar · Atiende MaKo · Borradores · Bloqueados · Ocultos) y, debajo, Mostrar
+    (Abiertas · Todas · Cerradas · Pospuestas), Orden y «Sólo sin responder». Con su número, como antes.
+  - «Canales»: cada número de WhatsApp, Instagram, Messenger y Email. Para el admin, abajo: «Conectar un canal» y
+    «Administrar <número>».
+  - «Etapa»: las etapas con su punto y su número. Elegida una, el chip dice cuál.
+- **El panel del contacto arranca cerrado** y se abre tocando el nombre. Sin rail: cerrado, no ocupa nada.
+
+### 8.2 La cabecera del chat: cuatro cosas
+
+Nombre (abre el contacto; abajo, «Asignada a X» o «Pospuesta hasta…») · la etapa (o «Agregar al CRM» si no hay lead) ·
+Cerrar (o Reabrir / Reanudar) · «⋯». El «⋯» lleva lo demás: Asignar ›, Posponer ›, Cerrar con nota, Abrir ficha,
+Sincronizar este chat, Borrar este chat, Ocultar, Bloquear. **«Agregar al CRM» está en UN lugar**: la cabecera. El drawer,
+el «⋯», el menú de asignar y el comentario dicen «agrégalo al CRM» sin otro botón.
+
+### 8.3 La caja: la del chat de MaKo (`CajaChat`)
+
+La caja de Chats pasa a ser la caja única de la app (app/_chat/CajaChat.tsx, tests/chat-unico.test.ts), con el motor de
+Chats por props. Trae lo que la de Chats no tenía: Cámara y Pegar en el «+», viñetas y listas mientras se escribe, los links
+azules con su chip, arrastrar y soltar archivos sobre la conversación, y el dictado donde no hay nota de voz (Instagram,
+Messenger, Email). Lo de Chats va en sus ranuras:
+- `arriba`: el borrador de MaKo pendiente; el canal por el que sale («WhatsApp (Ventas) · +54…», un menú sólo si hay más
+  de uno); el asunto del email; y el modo comentario («Comentario: sólo lo ve tu equipo ×»).
+- `mas` (el «+»): Documento, Fotos, Cámara, Pegar y «Agregar comentario».
+- `alFinal`: «MaKo» (sugiere en el campo, nunca envía).
+- `voz`: la nota de voz de WhatsApp (se graba, se escucha y recién ahí sale).
+El menú de cada mensaje (copiar) sigue en el hilo; responder citando no se suma: Evolution y Zernio no lo tienen (§3).
+
+### 8.4 Conectar y administrar un canal: sin salir de Chats
+
+- **Conectar** es UNA pieza para todos los lugares que conectan (`ConectarMedio`, app/automations/ConectarMedio.tsx, la
+  misma de Automations: «dos modales para lo mismo son los que dejan de decir lo mismo»). WhatsApp: sólo el QR, «En tu
+  celular: Dispositivos vinculados → Vincular dispositivo» y «Nuevo QR». Email: el remitente DEL NEGOCIO (`VincularRemitente`,
+  su dominio), nunca el de MaKo, y no se mezcla con lo de marketing de /email. Instagram y Messenger: Zernio.
+  El estado vacío ofrece los cuatro.
+- **Recién conectado un WhatsApp**, una sola pantalla: «Listo» con el número y «¿Traes tus conversaciones?» (Traerlas /
+  Ahora no). Es la única vez que se pregunta.
+- **Administrar un número** (AdministrarWhatsApp.tsx), un modal corto sobre Chats: el estado y el número; el nombre y
+  «Usar por default» sólo con más de un número; «Las automatizaciones envían» (el «Chatbot: ON/OFF» de la tab vieja);
+  «Los mensajes nuevos no llegan · Reparar» sólo si el espejo está roto; «Sincronizar conversaciones» como botón
+  secundario. Abajo, en texto y con confirmación: «Borrar el historial» y «Desconectar». Sin la instrucción de vincular:
+  ya está vinculado. Desconectado, el mismo modal muestra el QR.
+- **/whatsapp ya no dibuja la tab vieja**: redirige a /chats con sus links (`?linea=&chat=`, `?lead=`, `?c=`), y a
+  `/chats?conectar=whatsapp` cuando no hay número conectado. `?stab=plantillas` sigue yendo a /automations. El onboarding
+  pendiente sin número sigue en su wizard, que al terminar va a /chats.
+- Lo que sólo tenía la tab vieja viene a Chats: «Ocultos» (con «Mostrar de nuevo»), «Borrar este chat» y la alarma del
+  número caído (una franja arriba de la lista: «Tu WhatsApp se desconectó · Volver a conectar»).
+
+### 8.5 El super admin: una sola pantalla
+
+- Chats no lleva barra de secciones: «MaKo WhatsApp» sale de `secciones` (nav.ts). /agencia sigue respondiendo para sus
+  links (`?canal=1`, la alerta de la voz caída).
+- En el desplegable «Canales» del super admin (en su barra, sin mirar como cliente) aparece el número de MaKo al lado del
+  suyo. Elegido, la lista trae los grupos de MaKo, y se escriben desde la misma caja (por `/api/admin/mako-chats`, el
+  camino de siempre del canal de MaKo). Los grupos de un número del negocio siguen de sólo lectura.

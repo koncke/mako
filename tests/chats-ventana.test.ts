@@ -152,10 +152,11 @@ test('la sugerencia de MaKo no pisa lo que escribió la persona', () => {
 });
 
 test('el enviar del rincón lleva data-esquina-ocupada', () => {
-  assert.match(COMPOSER, /<div className="rio-comp" data-esquina-ocupada="">/, 'el composer perdió data-esquina-ocupada: la esquina de avisos tapa el Enviar');
-  // El enviar vive adentro de esa raíz (es lo que la marca protege).
+  assert.match(COMPOSER, /<div className="rio-comp" data-esquina-ocupada=""[\s>]/, 'el composer perdió data-esquina-ocupada: la esquina de avisos tapa el Enviar');
+  // El enviar vive adentro de esa raíz (es lo que la marca protege). Desde el 24/10/2026 es el botón de la caja única
+  // (`<CajaChat`, que dibuja su `co-enviar`), montada adentro de la raíz.
   const raiz = COMPOSER.indexOf('data-esquina-ocupada');
-  assert.ok(COMPOSER.indexOf('className="rio-enviar"', raiz) > raiz, 'el Enviar no está dentro de la raíz marcada');
+  assert.ok(COMPOSER.indexOf('<CajaChat', raiz) > raiz, 'el Enviar no está dentro de la raíz marcada');
 });
 
 test('lo del navegador y la caché de fotos llevan el ws en la clave', () => {

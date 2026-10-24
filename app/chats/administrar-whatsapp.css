@@ -1,0 +1,48 @@
+/* =============================================================================
+   Administrar un número de WhatsApp (AdministrarWhatsApp.tsx, 24/10/2026)
+   =============================================================================
+   Va en la caja de la casa (`Modal`), que se dibuja ADENTRO de `.rio` (todo bajo el scope de la tab, tests/chats-pantalla):
+   cada hijo del cuerpo ya trae su aire y su filete (ui.css, `.mk-modal__cuerpo > *`), así que acá sólo va lo de adentro de
+   cada bloque, con los tokens globales (la caja es de la casa, no de respond.io). */
+
+.rio .rio-adm-tipo { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs, 12px); font-weight: 600; color: var(--dim); }
+.rio .rio-adm-dim { font-size: var(--fs-sm, 13px); color: var(--dim); }
+
+.rio .rio-adm-estado { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: var(--fs-md, 14px); font-weight: 600; color: var(--ink); }
+.rio .rio-adm-punto { width: 8px; height: 8px; border-radius: 50%; background: var(--good); flex: none; }
+.rio .rio-adm-numero { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--fs-sm, 13px); font-weight: 500; color: var(--dim); }
+
+.rio .rio-adm-fila { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; }
+.rio .rio-adm-campo { display: flex; flex-direction: column; gap: 5px; flex: 1 1 180px; min-width: 0; }
+.rio .rio-adm-rotulo { font-size: var(--fs-xs, 12px); font-weight: 600; color: var(--dim); }
+.rio .rio-adm-entrada {
+  width: 100%; box-sizing: border-box; padding: 8px 11px; border-radius: 9px; border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-md, 14px);
+}
+.rio .rio-adm-entrada:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+.rio .rio-adm-aviso { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: var(--fs-sm, 13px); color: var(--warn); font-weight: 600; }
+.rio .rio-adm-nota { font-size: var(--fs-sm, 13px); color: var(--good); font-weight: 600; }
+.rio .rio-adm-nota[data-mal] { color: var(--bad); }
+
+/* El pie: lo que borra, en texto, a la izquierda (los botones de la casa van a la derecha y acá no hay ninguno). */
+.rio .rio-adm-pie { display: flex; gap: 18px; margin-right: auto; }
+.rio .rio-adm-peligro {
+  padding: 6px 0; border: 0; background: none; font: inherit; font-size: var(--fs-sm, 13px); font-weight: 600;
+  color: var(--bad); cursor: pointer;
+}
+.rio .rio-adm-peligro:hover:not(:disabled) { text-decoration: underline; }
+.rio .rio-adm-peligro:disabled { opacity: .55; cursor: default; }
+
+/* Recién conectado: una pregunta, centrada. */
+.rio .rio-adm-recien { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
+.rio .rio-adm-check {
+  width: 44px; height: 44px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--good-bg); color: var(--good); margin-bottom: 4px;
+}
+.rio .rio-adm-recien-tit { font-size: var(--fs-lg, 16px); color: var(--ink); }
+.rio .rio-adm-pregunta { margin: 14px 0 4px; font-size: var(--fs-md, 14px); color: var(--ink); }
+.rio .rio-adm-botones { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+
+/* Desconectado: el panel del QR (EvolutionConnect `inline`), con el alto del de ConectarMedio (el QR no salta al llegar). */
+.rio .rio-adm-qr { display: flex; flex-direction: column; min-height: 420px; }

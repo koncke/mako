@@ -1,15 +1,15 @@
 'use client';
 
 // =============================================================================
-// ChatsApp — la carcasa de la bandeja unificada, copiada de respond.io
+// ChatsApp — la carcasa de la bandeja unificada
 // =============================================================================
-// docs/diseno-chats.md §3. Cinco columnas, como respond.io (relevamiento respondio.md §1.0):
+// docs/diseno-chats.md §3 y §8. Era respond.io al pie de la letra: cinco columnas (Bandeja, Lista, chat, drawer y rail).
+// Desde el 24/10/2026 son DOS (Martín: «simplifiques la interfaz de chats... Está increíblemente compleja»):
 //
-//   ┌ Bandeja 214 ┐┌ Lista 298 ┐┌ Ventana del chat (flex) ┐┌ Drawer 349 ┐┌ rail 44 ┐
+//   ┌ Lista 340 (con los filtros arriba) ┐┌ Ventana del chat (flex) ┐  + el contacto, cerrado, al tocar el nombre
 //
-// (la barra de MaKo reemplaza al rail global de respond.io). Esta pieza es dueña del ESTADO: la lista
-// (con su sondeo), la selección (en la URL), los filtros, el drawer y la ficha del lead. La ventana
-// del chat es VentanaChat.tsx, de otro equipo, y se monta con las props EXACTAS del plano.
+// Esta pieza es dueña del ESTADO: la lista (con su sondeo), la selección (en la URL), los filtros, el panel del
+// contacto, la ficha del lead y conectar y administrar un canal. La ventana del chat es VentanaChat.tsx.
 //
 // ⚠️ LA SELECCIÓN VIVE EN LA URL (`?c=<clave>`), no en un estado suelto: un link del aviso de mensaje
 //    nuevo, de la ficha del lead o de MaKo abre la conversación, y «atrás» del navegador vuelve a la
@@ -26,9 +26,9 @@
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Link, { useRouter } from '@/app/_ui/Link';
+import { useRouter } from '@/app/_ui/Link';
 import type { ChatResumen, CuentaSocial, EtapaChat, LineaChat } from '@/lib/chats-tipos';
-import { FILTRO_INICIAL, coincideBusqueda, contarBandejas, filtrarChats, parsearClave, type FiltroChats } from '@/lib/chats-reglas';
+import { FILTRO_INICIAL, LINEA_CANAL_MAKO, coincideBusqueda, contarBandejas, filtrarChats, parsearClave, rotuloWhatsapp, type FiltroChats } from '@/lib/chats-reglas';
 import { RUTA_CHATS, PARAM_CHATS, rutaChatsDeClave, vistaDeLink } from '@/lib/chats-links';
 import type { ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import {
@@ -37,18 +37,21 @@ import {
 } from './lista-reglas';
 import { FuenteChats } from './fuente';
 import { ID_PORTAL_RIO } from './portal';
-import { PanelBandejas, type CanalConectable } from './PanelBandejas';
+import { FiltrosChats, type CanalConectable } from './FiltrosChats';
 import { ListaChats, type AccionFila } from './ListaChats';
+import { ListaOcultos } from './ListaOcultos';
+import { BotonesCanales, useConectarCanal } from './ConectarCanal';
+import { AdministrarWhatsApp } from './AdministrarWhatsApp';
+import { Modal } from '@/app/_ui';
 import { PanelContacto, type PestanaDrawer } from './PanelContacto';
 import VentanaChat from './VentanaChat';
 import { AvisoVentana, postJson, useAvisoRio } from './ventana-piezas';
-import { IconoCanal } from './iconos-canal';
-import { useConectarViaZernio } from '@/app/_components/ConectarViaZernio';
-import { redDeCanal } from '@/lib/zernio-redes';
 import './chats.css';
 
 // La ficha del lead del CRM, la misma de siempre: se baja sólo al abrirla.
 const LeadEditModal = dynamic(() => import('../crm/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
+// El número de MaKo (sólo el super admin): el panel de /agencia (QR, «Cambiar número», tu número), en un modal sobre Chats.
+const CanalMaKoPanel = dynamic(() => import('../agencia/CanalMaKoPanel').then((m) => m.CanalMaKoPanel), { ssr: false });
 
 /** Lo que devuelve GET /api/chats (plano §2.2). */
 type DatosLista = {
@@ -78,8 +81,8 @@ const PAGINAS_RAPIDA = 3;
 const COMPLETA_CADA = 20;
 /** La espera del buscador: no pedir una búsqueda por letra. */
 const ESPERA_BUSCAR_MS = 350;
-/** Por debajo de este ancho de ventana el drawer arranca cerrado: no entra con la lista y el chat. */
-const ANCHO_DRAWER = 1400;
+/** Los canales que se conectan desde un link (`?conectar=`): el que lleva a /whatsapp sin número, y los avisos. */
+const CONECTABLES: readonly CanalConectable[] = ['whatsapp', 'instagram', 'messenger', 'email'];
 /** Un link que no está en la lista se reintenta enseguida (no a los 15 s del sondeo). */
 const REINTENTO_LINK_MS = 2_000;
 
@@ -96,12 +99,10 @@ const TEXTO_ACCION: Record<AccionFila['tipo'], { ok: string; error: string }> = 
   asignar: { ok: 'Asignación guardada', error: 'No se pudo asignar' },
 };
 
-export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
+export function ChatsApp({ ws, esAdmin, productos }: {
   /** El workspace, del server (`getWorkspaceActual`): va en las claves del navegador. */
   ws: number | null;
   esAdmin: boolean;
-  /** ¿Entra a /email (admin y setter)? Desde el 17/10/2026 Email no es tab: se llega desde acá. */
-  veEmail?: boolean;
   /** Los productos del «+ Agregar al CRM». `null` = no se pudieron leer (decide el server). */
   productos: ProductoParaAlta[] | null;
 }) {
@@ -163,16 +164,14 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
 
   // ── Las comodidades del navegador (con el ws en la clave) ─────────────────────────────────
   const [filtro, setFiltro] = useState<FiltroChats>(FILTRO_INICIAL);
-  const [bandejaAbierta, setBandejaAbierta] = useState(true);
   const [drawerAbierto, setDrawerAbierto] = useState(false);
   const [pestana, setPestana] = useState<PestanaDrawer>('contacto');
   useEffect(() => {
     const st = almacenLocal();
     setFiltro((f) => ({ ...f, ...filtroRecordado(leerLocal(st, ws, 'filtro')) }));
-    setBandejaAbierta(leerLocal(st, ws, 'bandeja') !== '0');
-    // El drawer arranca cerrado en una pantalla angosta aunque la última vez quedó abierto: con la
-    // bandeja, la lista y el drawer, al chat le quedaban 250 px.
-    setDrawerAbierto(window.innerWidth >= ANCHO_DRAWER && leerLocal(st, ws, 'drawer') !== '0');
+    // EL CONTACTO ARRANCA CERRADO (24/10/2026, docs/diseno-chats.md §8.1): se abre tocando el nombre, y se recuerda si
+    // alguien lo deja abierto. La clave es nueva a propósito: la de antes ('drawer') lo abría solo en toda pantalla ancha.
+    setDrawerAbierto(leerLocal(st, ws, 'contacto') === '1');
   }, [ws]);
 
   const cambiarFiltro = useCallback((f: FiltroChats) => {
@@ -187,21 +186,15 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
     setFiltro((f) => ({ ...f, vista: vistaLink, canal: null, cuenta: null, etapa: null, mostrar: 'todas' }));
     router.replace(RUTA_CHATS, { scroll: false });
   }, [vistaLink, router]);
-  const ponerBandeja = useCallback((abierta: boolean) => {
-    setBandejaAbierta(abierta);
-    guardarLocal(almacenLocal(), ws, 'bandeja', abierta ? '1' : '0');
-  }, [ws]);
   const ponerDrawer = useCallback((abierto: boolean) => {
     setDrawerAbierto(abierto);
-    guardarLocal(almacenLocal(), ws, 'drawer', abierto ? '1' : '0');
+    guardarLocal(almacenLocal(), ws, 'contacto', abierto ? '1' : '0');
   }, [ws]);
+  /** Los ocultos de WhatsApp: otra lista (ListaOcultos), no una vista del filtro. */
+  const [verOcultos, setVerOcultos] = useState(false);
   const toggleDrawer = useCallback(() => ponerDrawer(!drawerAbierto), [drawerAbierto, ponerDrawer]);
-  const elegirPestana = useCallback((p: PestanaDrawer) => {
-    // El rail de respond.io: tocar la pestaña abierta cierra el drawer; otra, la cambia (y lo abre).
-    if (drawerAbierto && pestana === p) { ponerDrawer(false); return; }
-    setPestana(p);
-    if (!drawerAbierto) ponerDrawer(true);
-  }, [drawerAbierto, pestana, ponerDrawer]);
+  // Las dos pestañas van en la cabecera del panel (ya no hay rail): elegir una sólo la cambia.
+  const elegirPestana = useCallback((p: PestanaDrawer) => setPestana(p), []);
 
   // ── La búsqueda (contra el servidor, con espera) ──────────────────────────────────────────
   const [modoBusca, setModoBusca] = useState(false);
@@ -366,23 +359,44 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
     alCambiar();
   }, [aviso, alCambiar]);
 
-  // ── Conectar un canal (el «+» de Canales y el estado vacío) ─────────────────────────────────
-  // Instagram y Messenger por la pieza COMÚN de Zernio (23/10/2026, app/_components/ConectarViaZernio.tsx): el login en una ventana
-  // abierta en el clic, sin salir de Chats (antes la pestaña entera iba a Zernio y volvía a /automations), con la key DEL NEGOCIO.
-  // Sin key, se abre el modal de Zernio de /integraciones ahí mismo. Messenger es la página de Facebook (`redDeCanal`).
-  const viaZernio = useConectarViaZernio({
-    volver: RUTA_CHATS,
-    onConectado: () => { aviso.ok('Canal conectado', null); alCambiar(); },
-    // La causa va como el TÍTULO del aviso (a la vista): como detalle sólo se ve en un tooltip, y en un teléfono no hay. Con un 402, además, dónde arreglarlo.
-    alError: (texto, pago) => { aviso.error(pago ? `${texto} Agrega la tarjeta en tu cuenta de Zernio.` : texto, null); },
-    alNota: (texto) => { aviso.ok(texto, null); },
+  // ── Conectar y administrar un canal, sin salir de Chats (24/10/2026, docs/diseno-chats.md §8.4) ─────────────────
+  // Antes WhatsApp iba a /whatsapp y el email a /email: la pantalla entera de otra tab («salta el diseño de la tab vieja de
+  // WhatsApp... solo debería saltar el QR»). Ahora el modal de cada medio (ConectarCanal.tsx) y, recién conectado un
+  // WhatsApp, la única pregunta de sincronizar (AdministrarWhatsApp `recien`).
+  const [administrar, setAdministrar] = useState<{ linea: string; rotulo: string; recien: boolean } | null>(null);
+  const [canalMaKo, setCanalMaKo] = useState(false);
+  const lineas = useMemo(() => datos?.lineas ?? [], [datos]);
+  // Las del NEGOCIO: el número de MaKo (el super admin, docs/diseno-chats.md §8.5) se administra en su panel, no tiene
+  // ocultos ni alarma acá, y no cuenta para saber si el negocio ya tiene un número conectado.
+  const lineasNegocio = useMemo(() => lineas.filter((l) => l.linea !== LINEA_CANAL_MAKO), [lineas]);
+  const abrirAdministrar = useCallback((l: LineaChat, recien = false) => {
+    if (l.linea === LINEA_CANAL_MAKO) { setCanalMaKo(true); return; }
+    setAdministrar({ linea: l.linea, rotulo: rotuloWhatsapp(l.rotulo, lineas.length > 1), recien });
+  }, [lineas.length]);
+  const conectarCanal = useConectarCanal({
+    lineas: lineasNegocio,
+    onConectado: alCambiar,
+    // La línea que se acaba de vincular todavía no está en la lista: se abre por su nombre, y el rótulo llega al releer.
+    onWhatsappConectado: (linea) => {
+      const l = lineas.find((x) => x.linea === linea) ?? lineas.find((x) => x.esDefault) ?? null;
+      const nombre = linea ?? l?.linea ?? null;
+      if (nombre) setAdministrar({ linea: nombre, rotulo: l ? rotuloWhatsapp(l.rotulo, lineas.length > 1) : 'WhatsApp', recien: true });
+    },
+    alError: (texto) => aviso.error(texto, null),
+    alNota: (texto) => aviso.ok(texto, null),
   });
-  const { conectar: conectarRed } = viaZernio;
-  const conectar = useCallback(async (canal: CanalConectable) => {
-    if (canal === 'whatsapp') { router.push('/whatsapp'); return; }
-    if (canal === 'email') { router.push('/email'); return; }
-    conectarRed(redDeCanal(canal));
-  }, [router, conectarRed]);
+  const { conectar: conectarUno } = conectarCanal;
+  // `?conectar=whatsapp` (lo que hace /whatsapp sin número conectado, y los avisos que piden conectar algo): el modal de
+  // ese canal, y la URL vuelve a /chats. Conectar es del admin: al resto el link no le abre nada.
+  const conectarLink = sp.get('conectar');
+  useEffect(() => {
+    if (!conectarLink) return;
+    const c = CONECTABLES.find((x) => x === conectarLink);
+    if (c && esAdmin) conectarUno(c);
+    router.replace(RUTA_CHATS, { scroll: false });
+  }, [conectarLink, esAdmin, conectarUno, router]);
+  // La alarma del número caído (la tenía la tab vieja): un número que no está conectado no manda nada.
+  const caida = lineasNegocio.find((l) => l.estado === 'desconectado') ?? null;
 
   // ── Sin ningún canal conectado: una frase y la salida a cada conexión ──────────────────────
   const sinCanales = !!datos && !errorLista && datos.chats.length === 0 && datos.fallas.length === 0
@@ -395,17 +409,13 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
           {/* Conectar es del admin (/api/zernio y las líneas de /whatsapp lo exigen): al resto no se le
               pide algo que no puede hacer. */}
           <span className="rio-vacio-titulo">{esAdmin ? 'Conecta un canal para ver tus chats aquí.' : 'Todavía no hay canales conectados.'}</span>
-          {esAdmin && (
-            <div className="rio-vacio-botones">
-              <Link href="/whatsapp" className="rio-btn"><IconoCanal canal="whatsapp" size={18} />WhatsApp</Link>
-              <button type="button" className="rio-btn" onClick={() => void conectar('instagram')}><IconoCanal canal="instagram" size={18} />Instagram</button>
-              <button type="button" className="rio-btn" onClick={() => void conectar('messenger')}><IconoCanal canal="messenger" size={18} />Messenger</button>
-            </div>
-          )}
+          {esAdmin && <BotonesCanales onElegir={conectarUno} />}
         </div>
         <div id={ID_PORTAL_RIO} className="rio-portal" />
         <AvisoVentana aviso={aviso.aviso} onCerrar={aviso.cerrar} />
-        {viaZernio.modal}
+        {conectarCanal.modal}
+        {administrar && <AdministrarWhatsApp key={administrar.linea} linea={administrar.linea} rotulo={administrar.rotulo} recien={administrar.recien}
+          onCerrar={() => setAdministrar(null)} onCambio={alCambiar} />}
       </main>
     );
   }
@@ -413,22 +423,6 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
   return (
     <main className="rio">
       <FuenteChats />
-      {bandejaAbierta && (
-        <PanelBandejas
-          ws={ws}
-          conteos={conteos}
-          filtro={filtro}
-          onFiltro={cambiarFiltro}
-          lineas={datos?.lineas ?? []}
-          cuentasSociales={datos?.cuentasSociales ?? []}
-          etapas={datos?.etapas ?? []}
-          chats={datos?.chats ?? []}
-          esAdmin={esAdmin}
-          veEmail={veEmail}
-          onConectar={conectar}
-          onColapsar={() => ponerBandeja(false)}
-        />
-      )}
       <ListaChats
         ws={ws}
         chats={resultados ?? visibles}
@@ -437,8 +431,20 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
         fallas={modoBusca ? fallasBusca : datos?.fallas ?? []}
         lineas={datos?.lineas ?? []}
         onReintentar={() => void cargarTodo()}
-        filtro={filtro}
-        onFiltro={cambiarFiltro}
+        filtros={(
+          <FiltrosChats filtro={filtro} onFiltro={cambiarFiltro} verOcultos={verOcultos} onVerOcultos={setVerOcultos} conteos={conteos}
+            lineas={lineas} cuentasSociales={datos?.cuentasSociales ?? []} etapas={datos?.etapas ?? []} chats={datos?.chats ?? []}
+            esAdmin={esAdmin} onConectar={conectarCanal.elegir} onAdministrar={(l) => abrirAdministrar(l)} />
+        )}
+        arriba={caida && !verOcultos ? (
+          <div className="rio-aviso-falla" data-tono="error" role="status">
+            <span style={{ flex: 1 }}>{`${rotuloWhatsapp(caida.rotulo, lineas.length > 1)} está desconectado.`}</span>
+            {esAdmin && <button type="button" className="rio-link" onClick={() => abrirAdministrar(caida)}>Volver a conectar</button>}
+          </div>
+        ) : null}
+        cuerpoAlterno={verOcultos ? (
+          <ListaOcultos ws={ws} lineas={lineasNegocio} onMostrado={alCambiar} onAviso={(t, err) => (err ? aviso.error(t, null) : aviso.ok(t, null))} />
+        ) : undefined}
         modoBusca={modoBusca}
         onModoBusca={(on) => (on ? setModoBusca(true) : salirDeBusqueda())}
         buscar={buscar}
@@ -449,8 +455,6 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
         onElegir={elegir}
         etapas={datos?.etapas ?? []}
         equipo={datos?.equipo ?? []}
-        bandejaAbierta={bandejaAbierta}
-        onAbrirBandeja={() => ponerBandeja(true)}
         onAccion={(c, a) => void accionFila(c, a)}
       />
       <section className="rio-ventana" aria-label="Conversación">
@@ -483,16 +487,21 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
         onCerrar={() => ponerDrawer(false)}
         etapas={datos?.etapas ?? []}
         equipo={datos?.equipo ?? []}
-        productos={productos}
         version={version}
         onAbrirFicha={abrirFicha}
-        onClaveCambio={alCambiarClave}
         onCambio={alCambiar}
       />
       {/* Adentro de la raíz: los menús del Dropdown de la casa heredan el scope `.rio` (./portal.ts). */}
       <div id={ID_PORTAL_RIO} className="rio-portal" />
       <AvisoVentana aviso={aviso.aviso} onCerrar={aviso.cerrar} />
-      {viaZernio.modal}
+      {conectarCanal.modal}
+      {administrar && <AdministrarWhatsApp key={administrar.linea} linea={administrar.linea} rotulo={administrar.rotulo} recien={administrar.recien}
+        onCerrar={() => setAdministrar(null)} onCambio={alCambiar} />}
+      {canalMaKo && (
+        <Modal titulo="WhatsApp de MaKo" onCerrar={() => setCanalMaKo(false)} ancho={480}>
+          <CanalMaKoPanel onCambio={alCambiar} />
+        </Modal>
+      )}
       {fichaId != null && <LeadEditModal leadId={fichaId} onClose={cerrarFicha} />}
     </main>
   );

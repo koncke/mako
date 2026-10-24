@@ -4,9 +4,9 @@
 // ListaChats — la lista de conversaciones, copiada de respond.io (298 px)
 // =============================================================================
 // Relevamiento respondio.md §1.2 y las capturas 15 a 22. De arriba abajo:
-//   · el encabezado de 44: la pestaña «Chats» subrayada en azul y la lupa (en modo búsqueda, un campo
-//     con su ×);
-//   · la barra del filtro: «Abiertas, Más recientes ⌄» (Mostrar / Orden) y el interruptor «Sin responder»;
+//   · el encabezado de 44: «Chats» y la lupa (en modo búsqueda, un campo con su ×);
+//   · los filtros (FiltrosChats.tsx, 24/10/2026): la Bandeja de respond.io, que era una columna, hecha tres chips — «Todos»
+//     (con Mostrar, Orden y «Sólo sin responder» adentro), «Canales» y «Etapa» (docs/diseno-chats.md §8.1);
 //   · las filas: una tarjeta de 3 líneas — avatar de 32 con la insignia del canal del último mensaje,
 //     nombre 14/600 y la hora; la flecha (↙ naranja si escribió el contacto, ↗ azul si escribimos
 //     nosotros) y el último mensaje; el chip de la etapa, cerrada/pospuesta y el asignado. Sin leer:
@@ -18,16 +18,15 @@
 // «Longest/Shortest Open» (no se guarda desde cuándo está abierta). El número de no leídos: el contrato
 // trae SI hay (`sinLeer`), no cuántos, así que va el punto azul sin número.
 
-import { useMemo, type KeyboardEvent, type ReactElement } from 'react';
+import { useMemo, type KeyboardEvent, type ReactNode } from 'react';
 import {
-  ArrowDownLeft, ArrowUpRight, Check, CircleCheck, LoaderCircle, PanelLeftOpen, RotateCcw, Search, Timer, TimerOff,
+  ArrowDownLeft, ArrowUpRight, Check, CircleCheck, LoaderCircle, RotateCcw, Search, Timer, TimerOff,
   UserRound, UserRoundX, X,
 } from 'lucide-react';
 import { Dropdown, type DropdownGroup, type DropdownOption } from '@/app/components/Dropdown';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import type { ChatResumen, EtapaChat, LineaChat } from '@/lib/chats-tipos';
 import { MAKO_SETTER } from '@/lib/pipeline';
-import type { FiltroChats, MostrarChats, OrdenChats } from '@/lib/chats-reglas';
 import { horaDeFila, previewDe } from './lista-reglas';
 import { fechaOpcion, opcionesPosponer } from './ventana-reglas';
 import { AvatarRio } from './ventana-piezas';
@@ -42,17 +41,6 @@ export type AccionFila =
   | { tipo: 'asignar'; setter: string | null };
 
 type Miembro = { nombre: string; foto_url: string | null };
-
-const MOSTRAR: Array<{ v: MostrarChats; label: string }> = [
-  { v: 'todas', label: 'Todas' },
-  { v: 'abiertas', label: 'Abiertas' },
-  { v: 'cerradas', label: 'Cerradas' },
-  { v: 'pospuestas', label: 'Pospuestas' },
-];
-const ORDEN: Array<{ v: OrdenChats; label: string }> = [
-  { v: 'recientes', label: 'Más recientes' },
-  { v: 'antiguas', label: 'Más antiguas' },
-];
 
 /** Las fuentes que lib/chats.ts nombra en `fallas` (su `falla('…')`), en palabras. */
 const FUENTE: Record<string, string> = {
@@ -85,8 +73,12 @@ export function ListaChats(props: {
   fallas: string[];
   lineas: LineaChat[];
   onReintentar: () => void;
-  filtro: FiltroChats;
-  onFiltro: (f: FiltroChats) => void;
+  /** Los tres chips de arriba (FiltrosChats). En la búsqueda no se dibujan: los resultados no pasan por ellos. */
+  filtros: ReactNode;
+  /** Lo que va arriba de las filas: la alarma del número caído. */
+  arriba?: ReactNode;
+  /** Otra lista en lugar de la de chats (los ocultos de WhatsApp). */
+  cuerpoAlterno?: ReactNode;
   modoBusca: boolean;
   onModoBusca: (on: boolean) => void;
   buscar: string;
@@ -97,31 +89,24 @@ export function ListaChats(props: {
   onElegir: (c: ChatResumen) => void;
   etapas: EtapaChat[];
   equipo: Miembro[];
-  bandejaAbierta: boolean;
-  onAbrirBandeja: () => void;
   onAccion: (c: ChatResumen, a: AccionFila) => void;
 }) {
   const {
-    ws, chats, cargando, errorLista, fallas, lineas, onReintentar, filtro, onFiltro, modoBusca, onModoBusca, buscar,
-    onBuscar, buscandoRemoto, errorBusqueda, seleccionada, onElegir, etapas, equipo, bandejaAbierta, onAbrirBandeja, onAccion,
+    ws, chats, cargando, errorLista, fallas, lineas, onReintentar, filtros, arriba, cuerpoAlterno, modoBusca, onModoBusca, buscar,
+    onBuscar, buscandoRemoto, errorBusqueda, seleccionada, onElegir, etapas, equipo, onAccion,
   } = props;
 
   const colorEtapa = useMemo(() => new Map(etapas.map((e) => [e.key, e.color])), [etapas]);
   const fotoDe = useMemo(() => new Map(equipo.map((m) => [m.nombre, m.foto_url])), [equipo]);
   const ahora = new Date();
 
-  // «Abiertas, Más recientes»: el rótulo del filtro dice las DOS cosas, como el «All, Newest» de respond.io.
-  const rotuloFiltro = `${MOSTRAR.find((m) => m.v === filtro.mostrar)?.label ?? 'Abiertas'}, ${ORDEN.find((o) => o.v === filtro.orden)?.label ?? 'Más recientes'}`;
-  const gruposFiltro: DropdownGroup[] = [
-    { title: 'Mostrar', options: MOSTRAR.map((m) => ({ value: `m:${m.v}`, label: m.label })) },
-    { title: 'Orden', options: ORDEN.map((o) => ({ value: `o:${o.v}`, label: o.label })) },
-  ];
-
   const q = buscar.trim();
   const textoFallas = fallas.length ? `No pude leer: ${fallas.map((f) => nombreDeFalla(f, lineas)).join(', ')}.` : null;
 
-  let cuerpo: ReactElement;
-  if (cargando) {
+  let cuerpo: ReactNode;
+  if (cuerpoAlterno && !modoBusca) {
+    cuerpo = cuerpoAlterno;
+  } else if (cargando) {
     cuerpo = <div className="rio-vacio"><LoaderCircle size={20} className="rio-girando" aria-label="Cargando" /></div>;
   } else if (errorLista && !chats.length && !modoBusca) {
     cuerpo = (
@@ -164,12 +149,7 @@ export function ListaChats(props: {
           </div>
         ) : (
           <>
-            {!bandejaAbierta && (
-              <button type="button" className="rio-icono-btn" style={{ alignSelf: 'center' }} onClick={onAbrirBandeja} title="Mostrar bandeja" aria-label="Mostrar bandeja"><PanelLeftOpen size={20} strokeWidth={1.5} /></button>
-            )}
-            <div className="rio-pestanas" role="tablist">
-              <button type="button" role="tab" aria-selected="true" className="rio-pestana">Chats</button>
-            </div>
+            <h2 className="rio-titulo">Chats</h2>
             <div className="rio-cab-acciones">
               <button type="button" className="rio-icono-btn" onClick={() => onModoBusca(true)} title="Buscar" aria-label="Buscar"><Search size={20} strokeWidth={1.5} /></button>
             </div>
@@ -177,34 +157,9 @@ export function ListaChats(props: {
         )}
       </header>
 
-      {/* La barra del filtro: en la búsqueda no se dibuja, porque los resultados no pasan por él. */}
-      {!modoBusca && (
-        <div className="rio-filtros">
-          <Dropdown
-            value=""
-            varios={[`m:${filtro.mostrar}`, `o:${filtro.orden}`]}
-            // Dos marcados SIEMPRE (uno por grupo): el marcado no se apaga, como un radio. Tocar otro del
-            // mismo grupo lo reemplaza (abajo), así que cada grupo elige uno.
-            minimo={2}
-            columns={[gruposFiltro]}
-            alContenido
-            search={false}
-            portalTo={portalRio()}
-            ariaLabel="Mostrar y ordenar"
-            botonLabel={rotuloFiltro}
-            onChange={(v) => {
-              if (v.startsWith('m:')) onFiltro({ ...filtro, mostrar: v.slice(2) as MostrarChats });
-              else if (v.startsWith('o:')) onFiltro({ ...filtro, orden: v.slice(2) as OrdenChats });
-            }}
-            buttonStyle={{ padding: 0, border: 'none', background: 'transparent', borderRadius: 0, fontFamily: 'inherit', fontSize: 14, fontWeight: 400, color: 'var(--rio-text)', gap: 6 }}
-          />
-          <button type="button" role="switch" aria-checked={filtro.sinResponder} className="rio-interruptor"
-            onClick={() => onFiltro({ ...filtro, sinResponder: !filtro.sinResponder })}>
-            <span className="rio-interruptor-pista" aria-hidden="true" />
-            Sin responder
-          </button>
-        </div>
-      )}
+      {/* Los filtros: en la búsqueda no se dibujan, porque los resultados no pasan por ellos. */}
+      {!modoBusca && filtros}
+      {arriba}
 
       {errorLista && !cargando && chats.length > 0 && !modoBusca && (
         <div className="rio-aviso-falla" data-tono="error" role="status">

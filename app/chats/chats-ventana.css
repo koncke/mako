@@ -74,60 +74,31 @@
   text-overflow: ellipsis;
 }
 
-/* El split de etapa y el de Cerrar: 28 de alto, borde 1, radio 8, divisor entre los dos segmentos. */
-.rio .rio-split {
+/* La etapa: un chip de 28 con su punto, el nombre y la flecha (24/10/2026: era un split con «pasar a la siguiente», que
+   en una cabecera de siete controles nadie distinguía de Cerrar). */
+.rio .rio-etapa-btn {
   display: inline-flex;
-  align-items: stretch;
+  align-items: center;
+  gap: 6px;
   height: 28px;
+  max-width: 220px;
   box-sizing: border-box;
+  padding: 0 8px 0 10px;
   border: 1px solid var(--rio-border);
   border-radius: var(--rio-radius);
   background: var(--rio-bg);
-  overflow: hidden;
-  flex: none;
-}
-.rio .rio-split-a,
-.rio .rio-split-b {
-  border: 0;
-  background: transparent;
   color: var(--rio-text);
   font: inherit;
   font-size: 14px;
   line-height: 20px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
   cursor: pointer;
-  padding: 0 10px;
   min-width: 0;
 }
-.rio .rio-split-b { padding: 0 6px; border-left: 1px solid var(--rio-border); }
-.rio .rio-split-a:hover:not(:disabled),
-.rio .rio-split-b:hover:not(:disabled) { background: var(--rio-bg-gray); }
-.rio .rio-split-a:disabled,
-.rio .rio-split-b:disabled { cursor: default; color: var(--rio-text-3); }
-.rio .rio-split-etapa .rio-split-a { max-width: 200px; }
+.rio .rio-etapa-btn:hover:not(:disabled) { background: var(--rio-bg-gray); }
+.rio .rio-etapa-btn:disabled { cursor: default; color: var(--rio-text-3); }
 .rio .rio-etapa-txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .rio .rio-etapa-punto { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 
-/* El asignado: avatar 20 + nombre 12/600 truncado + chevron. */
-.rio .rio-asignado {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 4px;
-  border: 0;
-  border-radius: var(--rio-radius);
-  background: transparent;
-  color: var(--rio-text-2);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.rio .rio-asignado:hover { background: var(--rio-bg-gray); }
-.rio .rio-asignado-nombre { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 96px; }
 .rio .rio-sin-asignar-24 { width: 24px; height: 24px; }
 
 .rio .rio-ico-btn {
@@ -147,7 +118,6 @@
 .rio .rio-ico-btn:hover:not(:disabled) { background: var(--rio-bg-gray); }
 .rio .rio-ico-btn:disabled { color: var(--rio-text-3); cursor: default; }
 .rio .rio-ico-btn:focus-visible { outline: 2px solid var(--rio-primary); outline-offset: -2px; }
-.rio .rio-ico-on { color: var(--rio-primary); background: var(--rio-bg-sel); }
 .rio .rio-cab-v .rio-btn { height: 28px; padding: 0 10px; gap: 6px; }
 
 /* ── Menús (blancos, radio 8, borde y sombra; ítems de 36 con ícono 16 + texto 14) ── */
@@ -179,6 +149,26 @@
 .rio .rio-menu-canal { width: 360px; }
 .rio .rio-menu-tit { padding: 8px 10px 4px; font-size: 12px; line-height: 16px; font-weight: 600; color: var(--rio-text-2); }
 .rio .rio-menu-vacio { padding: 10px; font-size: 13px; color: var(--rio-text-3); }
+/* El «⋯» tiene submenús (Asignar, Posponer): su primer renglón vuelve atrás, con el nombre de donde se está. */
+.rio .rio-menu-volver {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  flex: none;
+  padding: 0 8px;
+  margin-bottom: 2px;
+  border: 0;
+  border-radius: var(--rio-radius);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rio-text-2);
+  cursor: pointer;
+}
+.rio .rio-menu-volver:hover { background: var(--rio-bg-gray); color: var(--rio-text); }
+.rio .rio-menu-sep { height: 1px; flex: none; margin: 4px 6px; background: var(--rio-border); }
 .rio .rio-menu-nota { padding: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 20px; color: var(--rio-text); }
 .rio .rio-menu-buscar {
   display: flex;
@@ -612,19 +602,16 @@
 
 /* ── El composer ───────────────────────────────────────────────────────────── */
 
-.rio .rio-comp { flex: none; padding: 0 12px; display: flex; flex-direction: column; gap: 8px; }
-.rio .rio-comp-card {
-  position: relative;
-  box-sizing: border-box;
-  border: 1px solid var(--rio-border);
-  border-radius: var(--rio-radius);
-  background: var(--rio-bg);
-  padding: 4px 8px 8px 12px;
-  display: flex;
-  flex-direction: column;
-}
-.rio .rio-comp-plegada { padding-bottom: 4px; }
-.rio .rio-comp-f1 { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
+.rio .rio-comp { flex: none; padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+/* LA CAJA ÚNICA (CajaChat, `.co-caja` de app/admin/operaciones/centro.css) adentro de la ventana (24/10/2026): de punta a
+   punta (su `margin-inline: auto` en una columna flex la achicaba al contenido) y sin el tope de 760 del Ops Center. */
+.rio .rio-caja { max-width: none; margin-inline: 0; }
+/* La fila de arriba de la caja: por dónde sale y el interruptor «Comentario». */
+.rio .rio-caja-arriba { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 30px; padding: 2px 6px 0 10px; }
+/* El comentario: la caja durazno con borde naranja (respond.io), y su título con el autor. */
+.rio .rio-caja-nota { background: var(--rio-comment-bg); box-shadow: 0 0 0 1px var(--rio-warning); }
+.rio .rio-caja-nota:focus-within { box-shadow: 0 0 0 1px var(--rio-warning), 0 2px 10px rgba(18, 21, 27, .06); }
+.rio .rio-caja-nota-tit { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; font-weight: 600; color: var(--rio-text-2); }
 
 .rio .rio-canal { position: relative; min-width: 0; display: inline-flex; }
 .rio .rio-canal-btn {
@@ -648,12 +635,14 @@
 .rio .rio-canal-btn:hover { background: var(--rio-bg-gray); }
 .rio .rio-canal-txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
-/* «MaKo»: el «AI Assist» de respond.io, con el dorado de MaKo en vez del violeta. */
+/* «MaKo»: el «AI Assist» de respond.io, con el dorado de MaKo en vez del violeta. Va al final de la fila de la caja, abajo
+   como los demás botones (`--caja-toque`). */
 .rio .rio-mako {
   display: inline-flex;
   align-items: center;
+  align-self: flex-end;
   gap: 4px;
-  height: 28px;
+  height: var(--caja-toque, 40px);
   padding: 0 6px;
   border: 0;
   border-radius: var(--rio-radius);
@@ -668,94 +657,29 @@
 .rio .rio-mako:hover:not(:disabled) { background: var(--rio-ia-bg); }
 .rio .rio-mako:disabled { color: var(--rio-text-3); cursor: default; }
 
-.rio .rio-comp-campo {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 40px;
-  max-height: 160px;
-  padding: 8px 0;
-  border: 0;
-  outline: none;
-  resize: none;
-  background: transparent;
-  color: var(--rio-text);
-  font: inherit;
-  font-size: 14px;
-  line-height: 20px;
-}
-.rio .rio-comp-campo::placeholder { color: var(--rio-text-3); }
 /* El ASUNTO de un email (17/10/2026): una línea arriba del texto, separada por un filete, como en un cliente de correo. */
 .rio .rio-comp-asunto {
-  display: block; width: 100%; box-sizing: border-box; padding: 8px 0; border: 0; border-bottom: 1px solid var(--rio-border);
+  display: block; width: calc(100% - 20px); box-sizing: border-box; margin: 0 10px; padding: 8px 0; border: 0; border-bottom: 1px solid var(--rio-border);
   outline: none; background: transparent; color: var(--rio-text); font: inherit; font-size: 14px; line-height: 20px; font-weight: 600;
 }
 .rio .rio-comp-asunto::placeholder { color: var(--rio-text-3); font-weight: 400; }
-.rio .rio-comp-campo:disabled { cursor: not-allowed; }
-.rio .rio-comp-barra { display: flex; align-items: center; gap: 4px; min-height: 32px; }
-.rio .rio-comp-esp { flex: 1; }
-.rio .rio-comp-voz { padding: 8px 0 4px; }
-
-/* Enviar: 28×28, radio 8. Activo azul con ícono blanco; apagado gris. En comentario, naranja. */
-.rio .rio-enviar {
-  width: 28px;
-  height: 28px;
-  flex: none;
-  border: 0;
-  border-radius: var(--rio-radius);
-  background: var(--rio-primary);
-  color: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-}
-.rio .rio-enviar:hover:not(:disabled) { background: var(--rio-primary-hover); }
-.rio .rio-enviar:disabled { background: var(--rio-disabled-bg); color: var(--rio-disabled-icon); cursor: default; }
-.rio .rio-enviar-nota { background: var(--rio-warning); }
-.rio .rio-enviar-nota:hover:not(:disabled) { background: var(--rio-warning); filter: brightness(0.94); }
-
-/* Los popovers que abren hacia arriba (el emoji), anclados a su botón. */
-.rio .rio-pop-arriba { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 40; }
-
-.rio .rio-comp-pie { display: flex; align-items: center; min-height: 40px; margin-top: -4px; }
 .rio .rio-btn-comentario {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 6px;
-  margin-left: -6px;
+  gap: 6px;
+  height: 28px;
+  flex: none;
+  padding: 0 8px;
   border: 0;
   border-radius: var(--rio-radius);
   background: transparent;
-  color: var(--rio-text);
+  color: var(--rio-text-2);
   font: inherit;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
 }
-.rio .rio-btn-comentario:hover { background: var(--rio-bg-gray); }
-
-/* El comentario: la tarjeta durazno con borde naranja. */
-.rio .rio-nota-card {
-  box-sizing: border-box;
-  border: 1px solid var(--rio-warning);
-  border-radius: var(--rio-radius);
-  background: var(--rio-comment-bg);
-  padding: 8px;
-  margin-bottom: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.rio .rio-nota-f1 { display: flex; align-items: flex-start; gap: 8px; }
-.rio .rio-nota-f1 > .rio-av { margin-top: 8px; }
-.rio .rio-nota-campo { flex: 1; min-width: 0; width: auto; }
-.rio .rio-nota-campo::placeholder { color: var(--rio-text-2); }
-.rio .rio-nota-sinlead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 40px; font-size: 14px; line-height: 20px; color: var(--rio-text); }
-.rio .rio-nota-sinlead > .rio-ico-btn { margin-left: auto; }
+.rio .rio-btn-comentario:hover { background: var(--rio-bg-gray); color: var(--rio-text); }
 
 /* El borrador de MaKo pendiente, arriba de la caja: el banner de IA de respond.io, en dorado. */
 .rio .rio-borrador {

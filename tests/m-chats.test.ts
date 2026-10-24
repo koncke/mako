@@ -41,11 +41,13 @@ test('lee la bandeja unificada de escritorio (WhatsApp, Instagram, Messenger y E
 });
 
 test('los rótulos son los de escritorio (bandejas, Mostrar, Orden, canales)', () => {
-  const panel = leer('app/chats/PanelBandejas.tsx');
-  for (const b of BANDEJAS_M) assert.ok(panel.includes(`'${b.label}'`), `«${b.label}» no está en las bandejas de escritorio`);
-  const lista = leer('app/chats/ListaChats.tsx');
-  for (const m of [...MOSTRAR_M, ...ORDEN_M]) assert.ok(lista.includes(`label: '${m.label}'`), `«${m.label}» no está en el filtro de escritorio`);
-  for (const c of CANALES_M) assert.ok(panel.includes(`label: '${c.label}'`), `«${c.label}» no está en los canales de escritorio`);
+  // Desde el 24/10/2026 la Bandeja de escritorio son los chips de FiltrosChats.tsx (docs/diseno-chats.md §8.1), y los
+  // nombres de los canales que se conectan viven en ConectarCanal.tsx.
+  const filtros = leer('app/chats/FiltrosChats.tsx');
+  for (const b of BANDEJAS_M) assert.ok(filtros.includes(`'${b.label}'`), `«${b.label}» no está en las bandejas de escritorio`);
+  for (const m of [...MOSTRAR_M, ...ORDEN_M]) assert.ok(filtros.includes(`label: '${m.label}'`), `«${m.label}» no está en el filtro de escritorio`);
+  const canales = filtros + leer('app/chats/ConectarCanal.tsx');
+  for (const c of CANALES_M) assert.ok(canales.includes(`'${c.label}'`), `«${c.label}» no está en los canales de escritorio`);
   assert.equal(rotuloFiltro({ mostrar: 'abiertas', orden: 'recientes', canal: null }), 'Abiertas, Más recientes');
   assert.equal(rotuloFiltro({ mostrar: 'todas', orden: 'antiguas', canal: 'instagram' }), 'Instagram · Todas, Más antiguas');
 });
