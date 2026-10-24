@@ -474,7 +474,15 @@ export async function crearCobro(ws: number, p: {
     const cerrado = await cerrarCheckoutDelCobro({
       checkout: await crearCheckout(cobro, { stripe, mp }, 0, { inicioAt }),
       guardar: (r) => actualizar(ws, cobro.id, { proveedor_ref: r.ref, url_proveedor: r.url, url_vence_at: r.venceAt }),
-      anular: (a) => actualizar(ws, cobro.id, { estado: 'anulado', motivo: a.motivo, ...(a.ref ? { proveedor_ref: a.ref, url_proveedor: a.url } : {}) }),
+      // `soloSi`: un pago que se asentó en el medio no se pisa con «anulado». Con un ref, el link que no se pudo guardar también se
+      // cierra en la pasarela (aunque la base no deje anular la fila), para que nadie lo pueda pagar.
+      anular: async (a) => {
+        try {
+          return await actualizar(ws, cobro.id, { estado: 'anulado', motivo: a.motivo, ...(a.ref ? { proveedor_ref: a.ref, url_proveedor: a.url } : {}) }, { estado: ['pendiente', 'fallido'] });
+        } finally {
+          if (a.ref) await cerrarLinkEnLaPasarela(ws, { ...cobro, proveedor_ref: a.ref });
+        }
+      },
     });
     if (!cerrado.ok) return { ok: false, error: motivoSinDatos(cerrado.deLaPasarela ? `${NOMBRE_PASARELA[d.pasarela]}: ${cerrado.error}` : cerrado.error) };
     const listo = cerrado.guardado;
@@ -1251,12 +1259,20 @@ export async function anularCobro(ws: number, id: number, autor: string): Promis
   if (c.estado !== 'pendiente' && c.estado !== 'fallido') return { ok: false, error: 'Sólo se anula un link que todavía no se pagó.' };
   const r = await actualizar(ws, id, { estado: 'anulado', motivo: `Anulado por ${autor}`.slice(0, 300) }, { estado: ['pendiente', 'fallido'] });
   if (!r) return { ok: false, error: 'El cobro cambió mientras tanto: recarga.' };
-  // El link se CIERRA también del lado de la pasarela: Stripe expira la sesión; Mercado Pago vence la preferencia
-  // (`vencerPreferenciaMp`) o cancela la suscripción que nadie autorizó todavía. Hasta el 15/10/2026 MP quedaba
-  // abierto. Si el cierre falla (o MP lo ignora), un pago que igual entre se registra CON su aviso
-  // (`avisoPagoPorLinkAnulado`, en aplicarPagoAprobado).
-  // ⚠️ NUNCA TIRA: el cobro YA está anulado. Buscar su cuenta (mig 0328) puede tirar si la base no contesta, y cortar acá
-  // decía «No pude anular» de algo anulado, y `anularLinksDeCuota` dejaba vivos los otros links de una cuota ya pagada.
+  await cerrarLinkEnLaPasarela(ws, c);
+  if (c.lead_id) await runWithWorkspace(ws, () => logLeadEvent(c.lead_id!, 'Link de pago', `Anulado: ${c.concepto}`, autor));
+  return { ok: true };
+}
+
+/**
+ * El link se CIERRA también del lado de la pasarela: Stripe expira la sesión; Mercado Pago vence la preferencia
+ * (`vencerPreferenciaMp`) o cancela la suscripción que nadie autorizó todavía. Hasta el 15/10/2026 MP quedaba
+ * abierto. Si el cierre falla (o MP lo ignora), un pago que igual entre se registra CON su aviso
+ * (`avisoPagoPorLinkAnulado`, en aplicarPagoAprobado). Lo comparten `anularCobro` y `crearCobro` (el link que se creó y no se pudo guardar).
+ * ⚠️ NUNCA TIRA: el cobro YA está anulado. Buscar su cuenta (mig 0328) puede tirar si la base no contesta, y cortar acá
+ * decía «No pude anular» de algo anulado, y `anularLinksDeCuota` dejaba vivos los otros links de una cuota ya pagada.
+ */
+async function cerrarLinkEnLaPasarela(ws: number, c: Cobro): Promise<void> {
   try {
     if (c.proveedor === 'stripe' && c.proveedor_ref) {
       const stripe = await credStripe(ws, await cuentaVivaDelCobro(ws, c));
@@ -1276,8 +1292,6 @@ export async function anularCobro(ws: number, id: number, autor: string): Promis
   } catch (e) {
     console.warn(`[cobros] el cobro ${c.id} quedó anulado, pero no pude cerrar su link en la pasarela: ${e instanceof Error ? e.message : String(e)}`);
   }
-  if (c.lead_id) await runWithWorkspace(ws, () => logLeadEvent(c.lead_id!, 'Link de pago', `Anulado: ${c.concepto}`, autor));
-  return { ok: true };
 }
 
 /**

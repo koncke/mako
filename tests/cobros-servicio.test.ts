@@ -89,7 +89,8 @@ test('crearCobro: la fila se escribe ANTES de llamar al proveedor, y la idempote
   assert.doesNotMatch(b, /crearCheckoutStripe\(|crearPreferenciaMp\(|crearSuscripcionMp\(/);
   // Si el proveedor rechaza, la fila queda anulada con el motivo: no se borra el rastro. Esa escritura vive en
   // `cerrarCheckoutDelCobro` (lib/cobros-reglas.ts, ejecutada en tests/cobro-checkout-cierre.test.ts): acá se fija que crearCobro la use.
-  assert.match(b, /anular: \(a\) => actualizar\(ws, cobro\.id, \{ estado: 'anulado', motivo: a\.motivo/);
+  assert.match(b, /anular: async \(a\) => \{[\s\S]*?estado: 'anulado', motivo: a\.motivo[\s\S]*?\{ estado: \['pendiente', 'fallido'\] \}\);/, 'el anulado pisaría un pago ya asentado');
+  assert.match(b, /if \(a\.ref\) await cerrarLinkEnLaPasarela\(ws, /, 'el link que no se pudo guardar sigue abierto en la pasarela');
   assert.doesNotMatch(b, /\.delete\(/);
   // Y las tres creaciones llevan la clave del cobro (`mako-cobro-<id>`), no una al azar.
   const c = bloque('async function crearCheckout(');

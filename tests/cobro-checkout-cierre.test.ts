@@ -112,3 +112,4 @@ test('crearCobro usa esa función y no escribe el anulado a mano después de la 
 //   · si no puede guardar devuelve ok (se entrega un link que la fila no conoce)         → 12 / 2
 //   · tira si tampoco puede anular tras no poder guardar                                 → 13 / 1
 //   · crearCobro sin usar cerrarCheckoutDelCobro                                         → 13 / 1
+//   · el anulado de crearCobro sin `soloSi` (pisaría un pago asentado) o sin cerrar el link en la pasarela → fallan en tests/cobros-servicio.test.ts (6 / 1 c/u)
