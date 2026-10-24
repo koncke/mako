@@ -38,6 +38,20 @@ test('el corte va en la PRIMERA línea: el recorrido a la izquierda, lo demás a
   assert.deepEqual(columnasDeSeccion([{ value: 'a' }, { value: 'b' }]).derecha, []);
 });
 
+test('las salidas van a la columna MÁS CORTA: el funnel por defecto queda parejo (5+3 | 9), no 5 | 13', () => {
+  // generateFunnel(DEFAULT_PIPELINE): 5 del recorrido, 9 de nutrición, 3 de salida. Medido en Chrome el 24/10: 8 | 9, sin scroll.
+  const opts: O[] = [
+    ...['lead', 'agenda', 'agendaj2', 'facturando', 'ganado'].map((value) => ({ value })),
+    ...['manual', 'nutri', 'ns1', 'ns2', 'nocompro', 'nopaga', 'excep', 'ns3', 'react'].map((value, i) => ({ value, lineaArriba: i === 0 })),
+    ...['perdido', 'descal', 'noresp'].map((value, i) => ({ value, lineaArriba: i === 0 })),
+  ];
+  const c = columnasDeSeccion(opts);
+  assert.deepEqual(v(c.izquierda), ['lead', 'agenda', 'agendaj2', 'facturando', 'ganado', 'perdido', 'descal', 'noresp']);
+  assert.equal(c.izquierda[5].lineaArriba, true, 'las salidas, debajo del recorrido, con su línea');
+  assert.equal(v(c.derecha).length, 9);
+  assert.equal(c.derecha[0].lineaArriba, false);
+});
+
 test('lo que va al pie no entra a ninguna columna', () => {
   const c = columnasDeSeccion([{ value: 'a' }, { value: 'n', lineaArriba: true }, { value: 'quitar', lineaArriba: true, alPie: true }]);
   assert.deepEqual(v(c.izquierda), ['a']);
@@ -58,6 +72,16 @@ test('el árbol de la ficha pide las dos columnas, con «Quitar» al pie', () =>
   assert.equal(s.dosColumnas, true);
   const quitar = s.options.find((o) => o.label === 'Quitar de este funnel');
   assert.equal(quitar?.alPie, true);
+});
+
+test('las dos columnas no se envuelven, y la ficha les da lugar para no scrollear (medido en Chrome)', () => {
+  // Con `wrap` + base 160, la barra de scroll de Windows bajaba la columna derecha; con base 0, el menú no medía el texto.
+  const src = readFileSync(join(__dirname, '..', 'app/components/Dropdown.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /<div data-dos-columnas style=\{\{ display: 'flex', gap: 4 \}\}>/);
+  assert.equal((src.match(/<div style=\{\{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' \}\}>\{(izquierda|derecha)\.map\(fila\)\}<\/div>/g) ?? []).length, 2);
+  const ficha = readFileSync(join(__dirname, '..', 'app/crm/lead-view/ProductoDelLead.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(ficha, /menuAlto=\{460\}/, 'con el alto de siempre (340) ocho etapas y el buscador ya scrollean');
+  assert.match(ficha, /menuAncho=\{typeof window === 'undefined' \? 420 : Math\.min\(420, window\.innerWidth - 24\)\}/, 'el ancho nunca pasa la pantalla');
 });
 
 test('el Dropdown dibuja en columnas SÓLO la sección que lo pide', () => {
