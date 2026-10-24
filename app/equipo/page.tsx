@@ -8,7 +8,7 @@
 
 import { requireRolWs } from '@/lib/tab-access';
 import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
-import { seccionesNegocioActuales } from '@/lib/ajustes-negocio';
+import { gruposDeAjustes } from '@/lib/ajustes-negocio';
 import { AjustesPagina, TituloAjustes } from '../_ui/Ajustes';
 import { EquipoView } from './EquipoView';
 
@@ -18,7 +18,7 @@ export const revalidate = 0;
 export default async function EquipoPage() {
   await requireRolWs([], { nav: 'configuraciones' });
   return (
-    <AjustesPagina lugar={TITULO_NEGOCIO} secciones={await seccionesNegocioActuales()} activa="equipo">
+    <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'equipo')} activa="equipo">
       <TituloAjustes titulo="Equipo" bajada={<>Suma a tu equipo y decide qué ve cada uno. El <b>Closer</b> ve CRM, WhatsApp y la hoja Closing del Dashboard; el <b>Setter</b> ve CRM, WhatsApp, Email, Automations y la hoja Chat Analyst del Dashboard; el <b>Admin</b> ve todo tu negocio.</>} />
       <EquipoView />
     </AjustesPagina>

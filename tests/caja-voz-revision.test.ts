@@ -104,7 +104,8 @@ test('2. la misma pregunta abierta no entra dos veces', () => {
 test('3. la caja del cliente no se apaga mientras MaKo trabaja', () => {
   // La caja no se dibuja en node (AdjuntosCaja importa su CSS): se mira el código, como tests/chat-unico.test.ts.
   const c = sinComentarios(leer('app/_chat/CajaChat.tsx'));
-  assert.match(c, /const quieto = enviando \|\| apagado;/, 'el campo, el «+» y los emojis se apagan sólo saliendo o sin cargar');
+  // 24/10/2026: también bloqueada (sin la app de escritorio, `bloqueo`): ahí no se escribe nada (tests/caja-sin-app.test.ts).
+  assert.match(c, /const quieto = enviando \|\| apagado \|\| !!p\.bloqueo;/, 'el campo, el «+» y los emojis se apagan sólo saliendo, sin cargar o bloqueada');
   assert.match(c, /const girando = enviando \|\| ocupado;/, 'la barra de la nota de voz no manda mientras MaKo trabaja');
   assert.match(c, /<BotonMandar [\s\S]{0,200}?enviando=\{enviando\} ocupado=\{ocupado\}/, 'el botón sabe que MaKo trabaja');
   const boton = sinComentarios(leer('app/admin/operaciones/Microfono.tsx'));

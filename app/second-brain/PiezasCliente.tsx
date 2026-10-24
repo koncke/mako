@@ -16,7 +16,7 @@ import { HiloMako } from '@/app/_chat/HiloMako';
 import { CitaCaja, ContextoWA } from '@/app/admin/operaciones/MensajeWA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { IconoChat } from '@/app/m/mako/iconos';
-import { AppPrimero, FranjaApp } from '@/app/_chat/AppPrimero';
+import { FranjaApp, useBloqueoApp } from '@/app/_chat/AppPrimero';
 import { caracteres, nombrePegado } from '@/lib/chat-pegado';
 import { ARRANQUES_SECOND_BRAIN, AVISO_EDITOR, AVISO_EDITOR_AJENO, AVISO_GRUPO, AVISO_LIENZO } from '@/lib/chat-mako-reglas';
 import { NOMBRE_MODELO_IA, type CuentaIA } from '@/lib/chat-ia-reglas';
@@ -121,11 +121,10 @@ export function HiloDelCliente({ k }: { k: ChatCliente }) {
 export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movil }: {
   k: ChatCliente; campo: RefObject<HTMLTextAreaElement | null>; seguir: () => HTMLElement | null; movil?: boolean; angosta?: boolean;
 }) {
+  // Antes de cualquier `return`: es un hook (su estado es «ya lo descargó»).
+  const bloqueoApp = useBloqueoApp(() => k.setConectando(true));
   // El grupo de WhatsApp de MaKo no se sigue desde acá: en lugar de la caja, dónde se contesta.
   if (k.esGrupo) return <p className="co-solo-lectura" role="note">{AVISO_GRUPO}</p>;
-  // Sin la app de escritorio y sin otra IA, no hay con qué contestar: EN EL LUGAR DE LA CAJA, el cartel que la descarga (24/10/2026,
-  // Martín: «diseña bien ese cartel»; el Cerebro: donde está intentando escribir, no enterrado en un modal). No se puede mandar.
-  if (k.app === 'bloquea') return <AppPrimero onConectar={() => k.setConectando(true)} />;
   // Una charla del lienzo de Automations (OC5): se lee acá y se sigue en el lienzo, que es el que sabe editar la automatización.
   // Un chat de un editor (OC8): se lee acá y se sigue en el editor, que es el que aplica lo que propone.
   if (k.esEditor) {
@@ -143,6 +142,10 @@ export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movi
   // adentro (el «+», los emojis).
   const conectar = k.iaConectada === false
     ? <button type="button" className="co-chip co-conectar-ia" onClick={() => k.setConectando(true)}>Conectar tu IA</button> : null;
+  // Sin la app de escritorio no hay con qué contestar: LA CAJA MISMA no deja escribir, y en el lugar del micrófono dice «Instalar
+  // MaKo» (24/10/2026, Martín: «directamente en el chat donde está el botón de audio se debería reemplazar por "Instalar MaKo"»).
+  // Es la misma caja (una sola), con `bloqueo`; sin el «Conectar tu IA», que con la app sin instalar no destraba nada.
+  const bloqueada = k.app === 'bloquea';
   return (
     <CajaChat texto={k.texto} onTexto={(v) => { k.setFaltaMic(null); k.setTexto(v); }} onMandar={k.enviarCaja}
       ocupado={k.enCurso} apagado={!k.cargado || !!k.errorCarga} placeholder={`Escribe a ${k.nombre}`} tituloMandar={movil ? undefined : 'Mandar (Enter)'}
@@ -151,9 +154,10 @@ export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movi
       hayAlgoMas={k.pegados.length > 0} onPegar={k.pegarLargo}
       // Con qué IA corre este chat (8b): adentro del «+», sólo si hay cuentas para elegir.
       mas={k.cuentasIA?.length ? <SelectoresDelCliente k={k} /> : undefined}
-      alFinal={angosta ? null : conectar}
+      alFinal={angosta || bloqueada ? null : conectar}
+      bloqueo={bloqueada ? bloqueoApp : undefined}
       arriba={<>
-        {angosta && conectar && <div className="co-conectar-ia-arriba">{conectar}</div>}
+        {angosta && conectar && !bloqueada && <div className="co-conectar-ia-arriba">{conectar}</div>}
         {/* En el teléfono, sin la app: el aviso de descargarla en la computadora, y el chat sigue (ahí no se instala). */}
         {k.app === 'en-la-computadora' && <FranjaApp />}
         {k.cita && <CitaCaja cita={k.cita} onQuitar={() => k.setCita(null)} />}

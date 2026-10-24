@@ -31,7 +31,8 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 const TODAS = { general: true, integraciones: true, metodo: true, plan: true };
 
 test('las dos listas: el orden y los rótulos que aprobó Martín', () => {
-  assert.deepEqual(SECCIONES_CUENTA.map((s) => s.label), ['Información personal', 'Seguridad', 'Notificaciones', 'Instalar la app', 'Tus cuentas de IA']);
+  // 24/10/2026 (Martín): «Perfil primero en lugar de Información personal» y «Elimina la tab de Tus cuentas de IA».
+  assert.deepEqual(SECCIONES_CUENTA.map((s) => s.label), ['Perfil', 'Seguridad', 'Notificaciones', 'Instalar la app']);
   // «Tu plan» se sumó el 15/10/2026: cancelar uno mismo el plan de MaKo, como todo SaaS (lo decidió Estrategia).
   assert.deepEqual(seccionesNegocio(TODAS).map((s) => s.label), ['General', 'Equipo', 'Integraciones', 'Notificaciones', 'Identidades fiscales', 'Tu plan', 'Método']);
   // Sin General (hoy, quien no es el super admin), sin Integraciones (no lo compró) y sin Método (no es la agencia).
@@ -80,8 +81,8 @@ test('«Tu cuenta» es de todos los roles; «Configuración del negocio», de qu
 test('el celular dice lo mismo: el título, las secciones y la ruta de Seguridad', () => {
   assert.equal(TITULO_TELEFONO, TITULO_CUENTA);
   const cuenta = sinComentarios(leer('app/m/cuenta/CuentaM.tsx'));
-  assert.match(cuenta, /import \{ SECCIONES_CUENTA \} from '@\/lib\/ajustes-secciones';/);
-  for (const k of ['info', 'seguridad', 'notificaciones', 'instalar', 'ia']) assert.ok(cuenta.includes(`ROTULO.${k}`), `el teléfono no muestra «${k}» con el rótulo de la computadora`);
+  assert.match(cuenta, /import \{ [^}]*\bSECCIONES_CUENTA\b[^}]* \} from '@\/lib\/ajustes-secciones';/);
+  for (const k of ['info', 'seguridad', 'notificaciones', 'instalar']) assert.ok(cuenta.includes(`ROTULO.${k}`), `el teléfono no muestra «${k}» con el rótulo de la computadora`);
   assert.doesNotMatch(cuenta, /titulo="(Perfil|Instalar MaKo|Seguridad|Notificaciones)"/, 'un rótulo escrito a mano en el teléfono');
   assert.equal(rutaMovil('/perfil/seguridad'), '/m/cuenta/seguridad');
   assert.equal(rutaEscritorio('/m/cuenta/seguridad'), '/perfil/seguridad');
@@ -118,9 +119,12 @@ test('las filas: el orden de Google, y dos dispositivos iguales se distinguen', 
 
 test('el menú de la foto: dos lugares, e Integraciones es una sección del negocio', () => {
   const porKey = Object.fromEntries(USER_NAV.map((i) => [i.key, i]));
-  // En inglés desde el 17/10/2026 noche (prototipo de coherencia): «My Profile» y «Business settings».
-  assert.equal(porKey.perfil.label, 'My Profile');
+  // En inglés desde el 17/10/2026 noche (prototipo de coherencia). Desde el 24/10/2026 UN lugar, «Settings», primero: la key
+  // `perfil` con ese nombre, y «Business settings» como sección (`soloSeccion`, su key sigue siendo la puerta de sus páginas).
+  assert.equal(porKey.perfil.label, 'Settings');
   assert.equal(porKey.configuraciones.label, 'Business settings');
+  assert.equal(porKey.configuraciones.soloSeccion, true);
+  assert.equal(porKey.integraciones.soloSeccion, true);
   assert.equal(porKey.integraciones.soloSeccion, true);
   assert.ok(porKey.configuraciones.match('/integraciones'), 'en Integraciones no se marca «Configuración del negocio»');
   assert.match(sinComentarios(leer('app/_components/Sidebar.tsx')), /USER_NAV\.filter\(\(it\) => (it\.key !== 'perfil' && )?!it\.soloSeccion && /, 'Integraciones vuelve al menú como un lugar más');

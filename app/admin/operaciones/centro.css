@@ -1108,6 +1108,20 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-uso__ventana--vencida .co-uso__nombre { color: var(--faint); }
 .co-uso__ventana--vencida .co-uso__barra { opacity: .5; }
 .co-uso__lleno--apagado { background: var(--border-strong); }
+/* EL MISMO MODAL (24/10/2026, Martín: «mira "USO" en Ops Center, quedó la versión vieja del diseño, no le pusiste la versión nueva
+   que diseñaste en Integraciones»). Lo del super admin va debajo de «Tus cuentas de IA» (TusCuentasIA.tsx) y se ve como ella: cada
+   cuenta de Claude Code y la API, un bloque gris aparte (`.tci-bloque` de tus-cuentas-ia.css), la barra en verde y el título de la
+   sección del mismo tamaño que el de las cuentas. El marcado no cambia (lo fijan los tests del Uso): lo cambia esto. */
+.co-uso__mas > .co-uso__cab { margin: 6px 2px 0; font-size: var(--fs-card); font-weight: 600; color: var(--ink); }
+.co-uso__mas .co-uso__lista { gap: 8px; border: 0; border-radius: 0; overflow: visible; }
+.co-uso__mas .co-uso__cuenta { padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
+.co-uso__mas .co-uso__cuenta + .co-uso__cuenta { border-top: 1px solid var(--border); }
+.co-uso__mas .co-uso__lleno { background: var(--good); }
+.co-uso__mas .co-uso__lleno--ojo { background: var(--warn); }
+.co-uso__mas .co-uso__lleno--mal { background: var(--bad); }
+.co-uso__mas .co-uso__lleno--apagado { background: transparent; }
+.co-uso__mas .co-uso__pct { color: var(--ink); font-variant-numeric: tabular-nums; }
+.co-uso__mas .co-uso__pct--sin { color: var(--dim); }
 .co-uso__reinicio { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
 .co-uso__pie { display: flex; gap: 8px; margin-top: 10px; }
 .co-runner__cuenta-cmd { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
@@ -1511,6 +1525,15 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-enviar--mic[data-escuchando] { background: var(--bad); color: #fff; }
 [data-m] .m-operaciones-caja .co-enviar--mic { background: var(--surface-2); }
 [data-m] .m-operaciones-caja .co-enviar--mic[data-escuchando] { background: var(--bad); }
+/* «Instalar MaKo» EN EL LUGAR DEL MICRÓFONO (24/10/2026, la caja sin la app: CajaChat → `bloqueo`): del alto del botón de la fila,
+   una píldora con su ícono, en el azul de la acción. El campo de al lado está apagado y dice qué falta. */
+:is(.co-caja__fila, .m-operaciones-caja__fila) .co-instalar {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; height: var(--caja-toque, 44px); padding: 0 16px 0 13px;
+  border: 0; border-radius: 999px; background: var(--primary); color: var(--on-primary, #fff); font: inherit; font-size: var(--fs-sm);
+  font-weight: 600; white-space: nowrap; text-decoration: none; cursor: pointer;
+}
+:is(.co-caja__fila, .m-operaciones-caja__fila) .co-instalar:hover { filter: brightness(1.06); }
+:is(.co-caja__fila, .m-operaciones-caja__fila) .co-instalar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 @media (max-width: 720px) { .co-yo { max-width: 88%; } .co-el__cuerpo, .co-el__cuerpo--ancho { max-width: none; } }
 
 /* ── LOS GLOBOS CON SU COLITA (17/10/2026, copiado de un grupo de WhatsApp; Hilo.tsx) ──────────────────────────────────

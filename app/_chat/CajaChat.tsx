@@ -89,6 +89,10 @@ export type PropsCajaChat = {
   /** Al final de la fila, antes del botón: lo que la pantalla necesita a mano (21/10/2026, Martín: «Si el usuario aún no
    *  conectó su Claude o GPT, debería aparecer en la barra de chat, al final... el botón de conectar»). */
   alFinal?: ReactNode;
+  /** NO SE PUEDE ESCRIBIR hasta hacer algo (24/10/2026, Martín: «Si no tengo instalada la app de desktop NO debe dejarme
+   *  escribir nada, directamente en el chat donde está el botón de audio se debería reemplazar por "Instalar MaKo"»): el
+   *  campo apagado dice `frase`, y EN EL LUGAR DEL MICRÓFONO va `boton` (app/_chat/AppPrimero.tsx → useBloqueoApp). */
+  bloqueo?: { frase: string; boton: ReactNode };
 };
 
 /** Cuánto queda apagado el micrófono justo después de mandar: lo que dura un doble toque. */
@@ -126,7 +130,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
   /** La capa que pinta los links (17/10/2026): se corre con el scroll del <textarea>. */
   const resalte = useRef<HTMLDivElement | null>(null);
   const conLinks = hayLinks(texto);
-  const quieto = enviando || apagado;
+  const quieto = enviando || apagado || !!p.bloqueo;
   // «Pegar la captura» (24/10/2026, pegar.ts → capturaParaOfrecer): al enfocar el campo, la imagen copiada que todavía no se
   // ofreció aparece arriba de la caja, como en el teclado de Android. Sólo donde la caja adjunta.
   const [captura, setCaptura] = useState<{ file: File; url: string } | null>(null);
@@ -185,7 +189,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
     if (p.enterManda) { e.preventDefault(); p.onMandar(); }
   };
 
-  const hayQueMandar = !apagado && (!!texto.trim() || !!p.adjuntos?.items.length || !!p.hayAlgoMas);
+  const hayQueMandar = !apagado && !p.bloqueo && (!!texto.trim() || !!p.adjuntos?.items.length || !!p.hayAlgoMas);
   /** Grabando, o con lo grabado para escuchar: la fila es la barra de la grabación. */
   const conBarra = !!grabacion && (grabacion.fase === 'grabando' || !!grabacion.revision || !!p.voz?.pendiente);
   // EL MISMO GESTO (21/10/2026, quinta revisión del onboarding): al mandar, el ➤ se vuelve micrófono EN EL MISMO LUGAR, y
@@ -228,7 +232,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
         {/* Sin nada que ofrecer (no se puede adjuntar ahora y no hay más), el «+» queda apagado: abría un panel vacío. */}
         {(p.adjuntos || p.mas) && <MasCaja a={p.adjuntos} apagado={quieto || (!p.adjuntos?.puede && !p.mas)} resumen={null}>{p.mas}</MasCaja>}
         {/* Los emojis, en su botón junto al campo (WhatsApp; Emojis.tsx). */}
-        <BotonEmojis campo={caja} valor={texto} onValor={onTexto} apagado={quieto} />
+        {!p.bloqueo && <BotonEmojis campo={caja} valor={texto} onValor={onTexto} apagado={quieto} />}
         {/* Un link se ve azul mientras se escribe (la capa de abajo) y se abre desde su chip (17/10/2026). */}
         <div className="co-caja__campo">
           {conLinks && <ResalteDeLinks texto={texto} capa={(el) => { resalte.current = el; }} />}
@@ -247,14 +251,14 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
             onKeyDown={tecla}
             onFocus={ofrecerCaptura}
             onPaste={(e) => { p.onPegar?.(e); if (!e.defaultPrevented) alPegar(e, p.adjuntos); }}
-            placeholder={transcribiendo ? 'Pasando tu nota a texto…' : p.placeholder}
+            placeholder={p.bloqueo ? p.bloqueo.frase : transcribiendo ? 'Pasando tu nota a texto…' : p.placeholder}
             aria-label={p.placeholder}
             disabled={quieto}
           />
         </div>
         {p.alFinal}
-        {/* Con nota de voz y nada que mandar, el botón GRABA; si no, el de siempre (dicta, o la flecha con algo escrito). */}
-        {grabacion && !hayQueMandar && !enviando ? (
+        {/* Bloqueada, lo que la destraba va en el lugar del micrófono. Si no: con nada que mandar, el botón GRABA; con algo, la flecha. */}
+        {p.bloqueo ? p.bloqueo.boton : grabacion && !hayQueMandar && !enviando ? (
           <button type="button" className="co-enviar co-enviar--mic" onClick={() => void grabacion.start()} disabled={quieto || recien || !!p.voz?.apagada}
             aria-label="Grabar una nota de voz" title="Grabar una nota de voz">
             <Icon name="mic" size={18} />

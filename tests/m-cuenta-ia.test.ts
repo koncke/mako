@@ -53,31 +53,17 @@ const AHORA = Date.parse('2026-10-21T15:00:00.000Z');
 const en = (ms: number) => new Date(AHORA + ms).toISOString();
 const MIN = 60_000;
 
-test('la fila de «Tu cuenta»: el rótulo y el ícono de la sección, la regla de seccionesCuenta y su pantalla', () => {
-  const seccion = SECCIONES_CUENTA.find((s) => s.key === 'ia');
-  assert.ok(seccion, 'la sección «ia» no está en SECCIONES_CUENTA');
-  assert.equal(seccion.label, 'Tus cuentas de IA');
-  assert.equal(seccion.href, '/perfil/ia');
-  assert.equal(seccion.icono, 'computadora');
-  // La fila se gatea con la regla de la computadora: mirando a un cliente, lo tuyo no se ofrece.
-  assert.ok(seccionesCuenta(false).some((s) => s.key === 'ia'));
-  assert.ok(!seccionesCuenta(true).some((s) => s.key === 'ia'), 'mirando a un cliente no se ofrecen TUS computadoras');
-
+test('«Tus cuentas de IA» salió del índice de Settings (24/10/2026), y sus pantallas siguen para el instalador', () => {
+  // Martín: «Elimina la tab de "Tus cuentas de IA", para eso ya tenemos "Integraciones"». Ni en la computadora ni en el teléfono.
+  assert.equal(SECCIONES_CUENTA.find((s) => s.key === 'ia'), undefined, 'fuera del índice');
+  assert.ok(!seccionesCuenta(false).some((s) => s.key === 'ia'));
   const cuenta = sinComentarios(leer('app/m/cuenta/CuentaM.tsx'));
-  assert.match(cuenta, /type ClaveCuenta = [^;]*'ia'/, 'ClaveCuenta sin «ia»: el rótulo y el ícono no salen de la sección');
-  assert.match(
-    cuenta,
-    /\{ve\('ia'\) && \(\s*<FilaM navegacion leading=\{<IconoSeccion k="ia" \/>\} titulo=\{ROTULO\.ia\} href="\/m\/cuenta\/ia" \/>\s*\)\}/,
-    'la fila de «Tus cuentas de IA»: con ve(\'ia\'), su ícono, el rótulo de la sección y href=/m/cuenta/ia',
-  );
-  assert.doesNotMatch(cuenta, /titulo="Tus cuentas de IA"/, 'el rótulo escrito a mano en el teléfono');
-  // Va después de «Instalar la app», como en la computadora.
-  assert.ok(cuenta.indexOf('titulo={ROTULO.ia}') > cuenta.indexOf('titulo={ROTULO.instalar}'), 'el orden de la computadora');
-
-  assert.ok(existsSync(path.join(RAIZ, 'app/m/cuenta/ia/page.tsx')), 'la fila lleva a una pantalla que no existe');
-  const componente = sinComentarios(leer('app/m/cuenta/ia/IaM.tsx'));
-  assert.match(componente, /SECCIONES_CUENTA\.find\(\(s\) => s\.key === 'ia'\)/, 'el título de la pantalla sale de la sección');
-  assert.doesNotMatch(componente, /<CabeceraM titulo="/, 'el título escrito a mano en la pantalla');
+  assert.doesNotMatch(cuenta, /ve\('ia'\)|href="\/m\/cuenta\/ia"/, 'el teléfono tampoco la ofrece');
+  // Pero las rutas SIGUEN: el instalador de Windows (ya en las PC de los clientes) vuelve a /perfil/ia al terminar, y el teléfono
+  // abre la suya. Borrarlas dejaría un instalador que termina en un 404.
+  assert.match(leer('lib/ia-pc-reglas.ts'), /export const RUTA_TRAS_INSTALAR = '\/perfil\/ia\?computadora=1';/);
+  assert.ok(existsSync(path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..', 'app/perfil/ia/page.tsx')), '/perfil/ia sigue');
+  assert.match(sinComentarios(leer('app/m/cuenta/ia/IaM.tsx')), /\?\? 'Tus cuentas de IA'/, 'su título, sin la sección');
 });
 
 test('la ruta mapea en los dos sentidos: /perfil/ia ↔ /m/cuenta/ia, y la cabecera vuelve a «Tu cuenta»', () => {

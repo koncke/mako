@@ -13,13 +13,18 @@
 import type { ReactNode } from 'react';
 import Link from './Link';
 import { IconoMenu, type NombreIconoMenu } from './iconos-menu';
-import type { SeccionAjustes } from '@/lib/ajustes-secciones';
+import type { GrupoSecciones, SeccionAjustes } from '@/lib/ajustes-secciones';
 
-/** La pantalla: el índice de su lugar y la sección activa. */
-export function AjustesPagina({ lugar, secciones, activa, amplio, children }: {
-  /** «Tu cuenta» o «Configuración del negocio»: el título del índice. */
+/**
+ * La pantalla: el índice de su lugar y la sección activa. Desde el 24/10/2026 el lugar es UNO, «Settings», y el índice va por
+ * `grupos` («Tu cuenta» y «Tu negocio», lib/ajustes-negocio.ts → gruposDeAjustes), como los ajustes de Linear o Notion: una barra
+ * con los dos grupos, cada uno con su nombre arriba. `secciones` sola (sin grupos) queda para un índice de un solo grupo.
+ */
+export function AjustesPagina({ lugar, secciones, grupos, activa, amplio, children }: {
+  /** «Settings»: el título del índice. */
   lugar: string;
-  secciones: SeccionAjustes[];
+  secciones?: SeccionAjustes[];
+  grupos?: GrupoSecciones[];
   activa: string;
   /** Sin el ancho de lectura: un tablero (Integraciones) necesita el ancho de la pantalla. */
   amplio?: boolean;
@@ -29,11 +34,16 @@ export function AjustesPagina({ lugar, secciones, activa, amplio, children }: {
     <main className="aj">
       <nav className="aj-indice" aria-label={lugar}>
         <div className="aj-indice-titulo">{lugar}</div>
-        {secciones.map((s) => (
-          <Link key={s.key} href={s.href} data-activa={s.key === activa} aria-current={s.key === activa ? 'page' : undefined}>
-            <IconoMenu nombre={s.icono} size={20} />
-            {s.label}
-          </Link>
+        {(grupos ?? [{ titulo: '', secciones: secciones ?? [] }]).map((g) => (
+          <div key={g.titulo || 'unico'} className="aj-indice-grupo" role="group" aria-label={g.titulo || undefined}>
+            {g.titulo && <div className="aj-indice-grupo-titulo">{g.titulo}</div>}
+            {g.secciones.map((s) => (
+              <Link key={s.key} href={s.href} data-activa={s.key === activa} aria-current={s.key === activa ? 'page' : undefined}>
+                <IconoMenu nombre={s.icono} size={18} />
+                {s.label}
+              </Link>
+            ))}
+          </div>
         ))}
       </nav>
       <div className="aj-cuerpo" data-amplio={amplio || undefined}>{children}</div>

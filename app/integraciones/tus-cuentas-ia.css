@@ -158,3 +158,15 @@ summary.tci-disp__resumen:focus-visible { outline: 2px solid var(--primary); out
 .tci-esqueleto { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
 .tci-esqueleto__ventana { display: grid; grid-template-columns: minmax(0, 9.5rem) minmax(48px, 1fr); align-items: center; gap: 12px; }
 @media (max-width: 560px) { .tci-esqueleto__ventana { display: flex; flex-direction: column; gap: 8px; } }
+
+/* Sin la app, el modal es UN botón (24/10/2026, Martín: «solo el botón bien diseñado de "Instalar MaKo desktop"»): centrado, la
+   computadora en su círculo, el título, una línea y la píldora azul; abajo, chico, el instalador del otro sistema. */
+.tci-instalar { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 20px 22px; text-align: center; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-2); }
+.tci-instalar__icono { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 4px; border-radius: 50%; background: var(--primary-bg); color: var(--primary); }
+.tci-instalar__titulo { margin: 0; font-size: var(--fs-card); font-weight: 600; color: var(--ink); }
+.tci-instalar__texto { max-width: 34ch; margin: 0 0 6px; font-size: var(--fs-sm); line-height: 1.45; color: var(--dim); }
+.tci-instalar__boton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 0 22px; border: 0; border-radius: 999px; background: var(--primary); color: var(--on-primary, #fff); font: inherit; font-size: var(--fs-md); font-weight: 600; text-decoration: none; cursor: pointer; }
+.tci-instalar__boton:hover { filter: brightness(1.06); }
+.tci-instalar__boton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.tci-instalar__otro { margin-top: 4px; font-size: var(--fs-meta); color: var(--dim); }
+.tci-instalar__otro:hover { color: var(--primary); }

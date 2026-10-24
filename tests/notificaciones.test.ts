@@ -98,8 +98,9 @@ test('el título lleva la sección donde estás parado', () => {
   assert.equal(tituloDe('/crm'), 'MaKo - CRM');
   assert.equal(tituloDe('/whatsapp'), 'MaKo - WhatsApp');
   // «Configuración del negocio» desde el 15/10/2026 (lib/ajustes-secciones.ts); Seguridad es de «Tu cuenta».
-  assert.equal(tituloDe('/configuraciones'), 'MaKo - Business settings');
-  assert.equal(tituloDe('/perfil/seguridad'), 'MaKo - My Profile');
+  // «Settings» desde el 24/10/2026: Business settings es una sección de Settings.
+  assert.equal(tituloDe('/configuraciones'), 'MaKo - Settings');
+  assert.equal(tituloDe('/perfil/seguridad'), 'MaKo - Settings');
 });
 
 test('una subruta hereda el nombre de su sección', () => {

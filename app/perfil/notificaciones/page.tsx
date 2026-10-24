@@ -8,7 +8,8 @@
 import { requireRolWs } from '@/lib/tab-access';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import { leerPerfil } from '@/lib/perfil';
-import { TITULO_CUENTA, seccionesCuenta } from '@/lib/ajustes-secciones';
+import { TITULO_CUENTA } from '@/lib/ajustes-secciones';
+import { gruposDeAjustes } from '@/lib/ajustes-negocio';
 import { AjustesPagina, FilaAjustes, GrupoAjustes, TituloAjustes } from '../../_ui/Ajustes';
 import { NotificacionesPanel } from '../NotificacionesPanel';
 
@@ -22,7 +23,7 @@ export default async function NotificacionesCuentaPage() {
     leerPerfil().then((p) => p.vista.deOtro, () => false),
   ]);
   return (
-    <AjustesPagina lugar={TITULO_CUENTA} secciones={seccionesCuenta(deOtro, 'notificaciones')} activa="notificaciones">
+    <AjustesPagina lugar={TITULO_CUENTA} grupos={await gruposDeAjustes(deOtro, 'notificaciones')} activa="notificaciones">
       <TituloAjustes titulo="Notificaciones" bajada="Los avisos que te llegan a ti." />
       <div style={{ marginBottom: 20 }}>
         <NotificacionesPanel parte="persona" />

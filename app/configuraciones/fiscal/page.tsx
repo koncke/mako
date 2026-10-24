@@ -6,7 +6,7 @@
 
 import { requireRolWs } from '@/lib/tab-access';
 import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
-import { seccionesNegocioActuales } from '@/lib/ajustes-negocio';
+import { gruposDeAjustes } from '@/lib/ajustes-negocio';
 import { AjustesPagina, TituloAjustes } from '../../_ui/Ajustes';
 import { IdentidadesFiscalesPanel } from '../IdentidadesFiscalesPanel';
 import { MonedaNegocioPanel } from '../MonedaNegocioPanel';
@@ -17,7 +17,7 @@ export const revalidate = 0;
 export default async function FiscalPage() {
   await requireRolWs([], { nav: 'configuraciones' });
   return (
-    <AjustesPagina lugar={TITULO_NEGOCIO} secciones={await seccionesNegocioActuales()} activa="fiscal">
+    <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'fiscal')} activa="fiscal">
       <TituloAjustes titulo="Identidades fiscales" bajada="Los datos con los que facturas." />
       {/* La moneda en que cobra el negocio (17/10/2026): antes sólo se cambiaba pidiéndoselo a MaKo. */}
       <MonedaNegocioPanel />

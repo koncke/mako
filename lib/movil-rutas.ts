@@ -558,9 +558,10 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
     }
     if (filas.length) out.push({ id: familia.id, titulo: familia.label, filas });
   });
-  // El menú de la foto, como lo dibuja el Sidebar (`!soloSeccion`, `adminOnly` sólo para el super admin), sin Tu cuenta.
+  // El menú de la foto, como lo dibuja el Sidebar (`!soloSeccion`, `adminOnly` sólo para el super admin): «Settings» primero
+  // (24/10/2026, la key `perfil`), igual que en la computadora.
   const menu = USER_NAV
-    .filter((it) => it.key !== 'perfil' && !it.soloSeccion && (!it.adminOnly || adminShell) && puedeVerItem(it, vista))
+    .filter((it) => !it.soloSeccion && (!it.adminOnly || adminShell) && puedeVerItem(it, vista))
     .map((it) => filaDeItem(it, [it.key]));
   if (menu.length) out.push({ id: 'menu', titulo: null, filas: menu });
   // El del super admin, como Platform en el menú de la foto (17/10/2026 noche): sus herramientas y «Coming soon» desplegable

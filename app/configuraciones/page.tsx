@@ -14,7 +14,7 @@
 import { redirect } from 'next/navigation';
 import { requireRolWs } from '@/lib/tab-access';
 import { TITULO_NEGOCIO, conLaQuery, rutaDeTabVieja, seccionesNegocio } from '@/lib/ajustes-secciones';
-import { disponiblesNegocio } from '@/lib/ajustes-negocio';
+import { disponiblesNegocio, gruposDeAjustes } from '@/lib/ajustes-negocio';
 import { AjustesPagina, SubtituloAjustes, TituloAjustes } from '../_ui/Ajustes';
 import { CriterioPanel } from './CriterioPanel';
 import { HorarioEnvioPanel } from './HorarioEnvioPanel';
@@ -36,7 +36,7 @@ export default async function ConfiguracionesPage({ searchParams }: { searchPara
   if (!disponibles.general) redirect(conLaQuery(secciones[0]?.href ?? '/equipo', sp, ['tab']));
 
   return (
-    <AjustesPagina lugar={TITULO_NEGOCIO} secciones={secciones} activa="general">
+    <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'general')} activa="general">
       <TituloAjustes titulo="General" bajada="A qué hora escribe MaKo y qué entra al tablero." />
       {/* El horario en que las automatizaciones le escriben a alguien (sexta tanda, 09/10/2026): por
           defecto, cualquier hora. Lo cambia sólo un admin (horario-actions.ts); lib/horario-envio.ts

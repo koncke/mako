@@ -1542,7 +1542,7 @@ export const BITACORA: Hito[] = [
     revisar: '/m/operaciones',
     puntos: [
       '⚠️ **No era el toque.** Se probó con un teléfono emulado de verdad (CDP, 390 × 844, toques reales): las preguntas de `cartero preguntar` se tocan bien, con el hilo corto o largo y aunque el dedo tiemble. La que Martín no pudo tocar era un AskUserQuestion del Cerebro. El Ops Center la muestra y a propósito no la contesta, porque mientras espera al chat no le entra nada.',
-      '**En el teléfono se veía igual que una que se contesta**, y el renglón que lo explicaba lo escondía la regla de centro.css para pantallas táctiles (la que saca la ayuda del teclado). Ahora lo dice ARRIBA, también en el teléfono: «Se contesta en la app de Claude, en la computadora: desde acá no se puede. Hasta entonces, el chat no lee lo que le escribas». Las opciones quedan de lectura.',
+      '**En el teléfono se veía igual que una que se contesta**, y el renglón que lo explicaba lo escondía la regla de centro.css para pantallas táctiles (la que saca la ayuda del teclado). Ahora lo dice ARRIBA, también en el teléfono: «Se contesta en la app de Claude, en la computadora: desde aquí no se puede. Hasta entonces, el chat no lee lo que le escribas». Las opciones quedan de lectura.',
       '**El mensaje que espera dice la verdad:** con el chat trabado en una pregunta de la app, lo dice en el acto, sin esperar 30 segundos. Y sin nada que lo frene ya no promete «El Runner lo toma en segundos»: dice que la PC lo toma en su próxima vuelta, y cuándo fue la última.',
       'Se le avisó al Cerebro que la causa fue su AskUserQuestion: que vuelva a preguntar con `cartero preguntar`. La regla de AGENTS.md suma el caso.',
     ],

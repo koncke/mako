@@ -10,7 +10,8 @@
 import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
 import { leerPerfil } from '@/lib/perfil';
-import { TITULO_CUENTA, seccionesCuenta } from '@/lib/ajustes-secciones';
+import { TITULO_CUENTA } from '@/lib/ajustes-secciones';
+import { gruposDeAjustes } from '@/lib/ajustes-negocio';
 import { AjustesPagina } from '@/app/_ui/Ajustes';
 import { SeguridadCuenta } from './SeguridadCuenta';
 
@@ -27,7 +28,7 @@ export default async function SeguridadPage({ searchParams }: { searchParams: Pr
   // Sólo para el índice: mirando a un cliente, «Tu cuenta» muestra su perfil y no se ofrece lo tuyo.
   const deOtro = await leerPerfil().then((p) => p.vista.deOtro, () => false);
   return (
-    <AjustesPagina lugar={TITULO_CUENTA} secciones={seccionesCuenta(deOtro, 'seguridad')} activa="seguridad">
+    <AjustesPagina lugar={TITULO_CUENTA} grupos={await gruposDeAjustes(deOtro, 'seguridad')} activa="seguridad">
       <SeguridadCuenta ver={ver} />
     </AjustesPagina>
   );

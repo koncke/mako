@@ -53,7 +53,7 @@ import {
   AvatarM, CerrarSesion, FilaM, InterruptorM, ListaM, SalirDeLaVista, SeccionM, SheetM, useConexion, useToastM,
 } from '../_ui';
 import type { Perfil, VistaPerfil } from '@/lib/perfil';
-import { SECCIONES_CUENTA } from '@/lib/ajustes-secciones';
+import { GRUPO_CUENTA, GRUPO_NEGOCIO, SECCIONES_CUENTA } from '@/lib/ajustes-secciones';
 import { InformacionPersonal, type NegocioDelPerfil } from '@/app/perfil/InformacionPersonal';
 import {
   comoDesbloquear, filaInstalar, resumenAvisos, rielNotificaciones, segundaAvisos, tiposParaRol, toastDeActivar,
@@ -82,7 +82,9 @@ export type DatosCuenta = {
   nombreNegocio: NegocioDelPerfil | null;
 };
 
-type ClaveCuenta = 'info' | 'seguridad' | 'notificaciones' | 'instalar' | 'ia';
+// Sin «ia» desde el 24/10/2026: «Tus cuentas de IA» salió de Settings (Martín: «para eso ya tenemos Integraciones»); su pantalla
+// /m/cuenta/ia sigue para el instalador y los links que ya salieron.
+type ClaveCuenta = 'info' | 'seguridad' | 'notificaciones' | 'instalar';
 
 /** Los rótulos y los íconos de «Tu cuenta», los MISMOS de la computadora (lib/ajustes-secciones.ts). */
 const ROTULO = Object.fromEntries(SECCIONES_CUENTA.map((s) => [s.key, s.label])) as Record<ClaveCuenta, string>;
@@ -122,8 +124,9 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
         </ListaM>
       )}
 
-      {/* «Tu cuenta»: las secciones de la computadora, en su orden y con sus rótulos. */}
-      <ListaM>
+      {/* «Tu cuenta»: las secciones de la computadora, en su orden y con sus rótulos, y el nombre del grupo de Settings (24/10/2026). */}
+      <SeccionM titulo={GRUPO_CUENTA}>
+      <ListaM etiqueta={GRUPO_CUENTA}>
         {ve('info') && (
           <FilaM navegacion leading={<IconoSeccion k="info" />} titulo={ROTULO.info}
             // Mirando a un cliente, el perfil es el SUYO: la fila lo dice (sin rótulo se leería como el tuyo).
@@ -149,10 +152,8 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
               : <FilaM navegacion leading={<IconoSeccion k="instalar" />} titulo={ROTULO.instalar}
                   riel={fila === 'instalada' ? 'Instalada' : undefined} />
         )}
-        {ve('ia') && (
-          <FilaM navegacion leading={<IconoSeccion k="ia" />} titulo={ROTULO.ia} href="/m/cuenta/ia" />
-        )}
       </ListaM>
+      </SeccionM>
 
       <ListaM>
         <ModoOscuro />
@@ -161,9 +162,11 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
       {/* «Configuración del negocio» tiene su pantalla en el teléfono desde el 17/10/2026 (/m/configuraciones): hasta ese
           día esta fila decía «En la computadora». */}
       {datos.negocio && (
-        <ListaM>
-          <FilaM navegacion icono="config" titulo={datos.negocio} href="/m/configuraciones" />
+        <SeccionM titulo={GRUPO_NEGOCIO}>
+        <ListaM etiqueta={GRUPO_NEGOCIO}>
+          <FilaM navegacion icono="config" titulo={datos.negocio} segunda="Equipo, integraciones, avisos y tu plan" href="/m/configuraciones" />
         </ListaM>
+        </SeccionM>
       )}
 
       <ListaM>

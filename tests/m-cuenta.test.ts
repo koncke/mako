@@ -112,9 +112,9 @@ test('mirando a un cliente, lo tuyo se esconde SÓLO junto con la salida', () =>
 // computadora».
 test('«Configuración del negocio»: la regla del menú de la foto, y su pantalla del teléfono', () => {
   const pagina = sinComentarios(leer('app/m/cuenta/page.tsx'));
-  assert.match(pagina, /negocio: puedeVerKey\('configuraciones', ctx\.rol, ctx\.capa\) \? TITULO_NEGOCIO : null/);
+  assert.match(pagina, /negocio: puedeVerKey\('configuraciones', ctx\.rol, ctx\.capa\) \? GRUPO_NEGOCIO : null/);
   const cuenta = sinComentarios(leer('app/m/cuenta/CuentaM.tsx'));
-  assert.match(cuenta, /\{datos\.negocio && \(\s*<ListaM>\s*<FilaM navegacion icono="config" titulo=\{datos\.negocio\} href="\/m\/configuraciones" \/>/);
+  assert.match(cuenta, /\{datos\.negocio && \(\s*<SeccionM titulo=\{GRUPO_NEGOCIO\}>\s*<ListaM etiqueta=\{GRUPO_NEGOCIO\}>\s*<FilaM navegacion icono="config" titulo=\{datos\.negocio\} segunda="[^"]+" href="\/m\/configuraciones" \/>/);
 });
 
 test('refrescar trae las preferencias nuevas y vuelve a leer el teléfono', () => {

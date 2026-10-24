@@ -176,7 +176,7 @@ test('el título de la pestaña en /m usa los nombres de la barra', () => {
   // «Ops Center» desde el 18/10/2026: la fila de cada negocio se llama así (nav.ts → MAKO_NAV).
   assert.equal(tituloDe('/m/second-brain'), 'MaKo - Ops Center', 'el nombre de la sidebar, con la marca adelante');
   assert.equal(tituloDe('/m/crm/12'), 'MaKo - CRM');
-  assert.equal(tituloDe('/m/cuenta'), 'MaKo - My Profile');
+  assert.equal(tituloDe('/m/cuenta'), 'MaKo - Settings');
   assert.equal(tituloDe('/m'), 'MaKo');
 });
 
@@ -215,8 +215,9 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   assert.deepEqual(cabeceraPorRuta('/m/ads/9'), t('', { href: '/m/ads', label: 'Ads Manager' }));
   // La cuenta es la primera fila de More.
   // «My Profile» desde el 17/10/2026 noche (lib/ajustes-secciones.ts, en inglés como las tabs).
-  assert.deepEqual(cabeceraPorRuta('/m/cuenta'), t('My Profile', { href: '/m/mas', label: 'More' }));
-  assert.deepEqual(cabeceraPorRuta('/m/cuenta/instalar'), t('', { href: '/m/cuenta', label: 'My Profile' }));
+  // «Settings» desde el 24/10/2026 (un solo lugar, como en la computadora).
+  assert.deepEqual(cabeceraPorRuta('/m/cuenta'), t('Settings', { href: '/m/mas', label: 'More' }));
+  assert.deepEqual(cabeceraPorRuta('/m/cuenta/instalar'), t('', { href: '/m/cuenta', label: 'Settings' }));
   assert.deepEqual(cabeceraPorRuta('/m/raro'), t('', { href: '/m/hoy', label: 'Dashboard' }));
   // Pantallas de trabajo: sin título grande y sin barra de abajo.
   // «Ops Center» desde el 18/10/2026 (la fila del negocio se llama así: nav.ts → MAKO_NAV). Desde el 20/10/2026 es el lugar
