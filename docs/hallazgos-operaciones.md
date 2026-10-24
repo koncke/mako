@@ -2600,3 +2600,20 @@ tabs, `256f46e07`), el «P1 de Stripe» que ya estaba en main desde antes y la p
 (`60bd69812`, no `886cb3545`). Las herramientas están en `C:/dev/cerebro-herramientas/`: `listar.cjs` (chats por cuenta),
 `cola.cjs` (la cronología de un transcript desde una hora), `digest.cjs` (sólo los mensajes del usuario) y
 `workflow-relevo-chats-cuenta.js`. El método quedó en `docs/relevo/cerebro.md`, «LEER PRIMERO».
+
+## El clic derecho de un mensaje sólo existe en el chat del Ops Center (24/10/2026)
+
+Medido en el código para el relevo que pidió Martín («en Automations o Web Generator, si le doy click derecho, no hace
+nada»). El plan para unificarlo: docs/diseno-editor-web-como-automations.md §5.
+
+**Vive en:** `app/admin/operaciones/MensajeWA.tsx` (`ContextoWA`, `MenuMensajeWA`) · `app/_chat/HiloMako.tsx` ·
+`lib/centro-mensajes.ts` (`opcionesDelMensaje`)
+
+- **Causa:** el menú del mensaje (reacciones, Responder, Reenviar, Copiar, Info, Destacar, Fijar, Eliminar para mí) vive en
+  `MensajeWA` y sólo se prende con `ContextoWA`, que proveen la conversación del Ops Center, la del teléfono y el Second
+  Brain en algunos casos. Los **11 chats embebidos** dibujan con `HiloMako`, que de MensajeWA importa sólo la cita y las
+  marcas: ninguno tiene el menú, y el clic derecho cae al del navegador.
+- **El diagnóstico obvio («a cada pantalla le falta su menú») era el equivocado:** es UNA pieza compartida la que no lo
+  conecta. El arreglo va en `HiloMako` (un menú mínimo —Copiar y Responder— cuando no le dan un `ContextoWA`) y llega a
+  los 11 de una vez. ⚠️ El lienzo de al lado tiene su propio menú contextual y los eventos de React suben por los portales.
+- **SIN hacer:** el menú mínimo en `HiloMako` y el clic derecho del lienzo del editor web (§5 del diseño).

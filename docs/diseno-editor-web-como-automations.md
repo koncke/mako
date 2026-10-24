@@ -81,9 +81,9 @@ el de la casa. Las opciones las arma una función pura con test, como `opcionesC
 | Punto | Estado |
 |---|---|
 | 403 en Offer, Diagnóstico y Replicar (lib/landing-fetch.ts) | **hecho**, c3af56f7b |
-| 1. Tooltips de la columna del bloque | ver el commit de esta tanda |
-| 1. El título dos veces | ver el commit de esta tanda |
-| 2. La tarjeta lista ↔ chat, el Panel sólo sin landings | ver el commit de esta tanda |
-| 3. Una sola barra, Compartir con Exportar | ver el commit de esta tanda |
-| 4. «Nueva landing» abre las plantillas | ver el commit de esta tanda |
+| 1. Tooltips de la columna del bloque | **hecho**, 7ae16876e (sin recorrer con clics: falta mirarlo desplegado) |
+| 1. El título dos veces | **hecho**, 7ae16876e (sin recorrer con clics: falta mirarlo desplegado) |
+| 2. La tarjeta lista ↔ chat, el Panel sólo sin landings | **hecho**, 7ae16876e (sin recorrer con clics: falta mirarlo desplegado) |
+| 3. Una sola barra, Compartir con Exportar | **hecho**, 7ae16876e (sin recorrer con clics: falta mirarlo desplegado) |
+| 4. «Nueva landing» abre las plantillas | **hecho**, 7ae16876e (sin recorrer con clics: falta mirarlo desplegado) |
 | 5. El menú mínimo en `HiloMako` y el clic derecho del lienzo | **sin hacer**: el plan está arriba |
