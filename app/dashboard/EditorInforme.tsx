@@ -1137,7 +1137,7 @@ export function EditorInforme({
   };
   const contextoDe = (c: Componente | null) => ({
     sobre: !c ? 'lienzo' as const : esGrafico(c) ? 'grafico' as const : 'elemento' as const,
-    editando, guardable, soloMirar, compartido: !!compartido, enPopup: !!dueno, puedeNuevaHoja: puedeNuevaHoja && !cabeceraPropia, enGeneral: esGeneral,
+    editando, guardable, soloMirar, compartido: !!compartido, enPopup: !!dueno, puedeNuevaHoja: puedeNuevaHoja && !cabeceraPropia, enGeneral: esGeneral, fueraDelDashboard: esAutomatizacion,
     conMako: !!c && esGrafico(c) && conMako(c), conDatos: !!c && !!datos[c.id]?.resultado,
   });
   const alClicDerecho = (e: ReactMouseEvent<HTMLElement>) => {
@@ -1648,7 +1648,10 @@ export function EditorInforme({
             )}
             {/* Compartir (punto 9; desde v5 un renglón del ⋮): sólo quien puede guardar comparte (el closer no, y
                 desde un link no se re-comparte). El modal va AFUERA del menú: adentro, cerrar el menú lo desmontaría. */}
-            {guardable && !esGeneral && (
+            {/* ⛔ NO EN LAS MÉTRICAS DE UNA AUTOMATIZACIÓN (24/10/2026, medido): el server comparte el informe del DASHBOARD de
+                quien mira, con todas sus hojas, y el `?hoja=` de la automatización ahí no existe. Quien creía compartir las
+                métricas de una automatización entregaba su Dashboard entero. */}
+            {guardable && !esGeneral && !esAutomatizacion && (
               <>
                 <RenglonCompartir onClick={abrirCompartir} />
                 <div className="lk-sep-h" />

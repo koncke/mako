@@ -39,6 +39,8 @@ export type ContextoMenu = {
    * del informe del Dashboard).
    */
   enGeneral?: boolean;
+  /** Un informe que no es el del Dashboard (las Métricas de una automatización): sin «Copiar dashboard» ni «Compartir», que hablan del Dashboard. */
+  fueraDelDashboard?: boolean;
 };
 
 /** Las opciones, en orden. `null` = un separador. Vacío = no hay menú propio (sale el del navegador). */
@@ -48,7 +50,7 @@ export function opcionesContextuales(c: ContextoMenu): Array<IdOpcion | null> {
   if (c.soloMirar || !c.guardable) return exportar;
   if (!c.editando) {
     if (c.sobre === 'lienzo') {
-      const delDashboard: IdOpcion[] = c.enGeneral ? [] : ['copiar_dashboard', 'compartir'];
+      const delDashboard: IdOpcion[] = c.enGeneral || c.fueraDelDashboard ? [] : ['copiar_dashboard', 'compartir'];
       return ['editar_hoja', ...(c.puedeNuevaHoja ? ['nueva_hoja' as const] : []), ...delDashboard, 'analista', null, ...exportar];
     }
     return ['editar', ...(c.sobre === 'grafico' && c.conMako && c.conDatos ? ['mako_chat' as const] : []), null, ...exportar];

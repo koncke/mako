@@ -86,14 +86,14 @@ test('4 · la plantilla de MaKo mira el flujo, y ninguna pieza se cae en el sane
   assert.ok(titulos(conIA).includes('Horas hasta responder'));
   for (const pasos of [FLUJO, conEmail, conIA]) {
     const def = definicionDeMetricas(pasos);
-    const h = hojaInicialDeMetricas(pasos, 'Prueba');
+    const h = hojaInicialDeMetricas(pasos, 'Prueba', 289);
     assert.equal(h.componentes.length, def.piezas.length, 'una pieza con una métrica o una dimensión que su conjunto no tiene se cae en el saneo');
     for (const c of h.componentes) if (esGrafico(c)) assert.ok(fuenteDe(c.fuente), c.fuente);
   }
 });
 
 test('5 · cada hoja mira SÓLO esta automatización, con el nombre de HOY', () => {
-  const t = informeInicialDeMetricas(FLUJO, 'Sprint · apertura');
+  const t = informeInicialDeMetricas(FLUJO, 'Sprint · apertura', 289);
   const fijo = (h: ReturnType<typeof hojaInicialDeMetricas>) => h.controles.filter((c) => c.fijo && c.campo === 'automatizacion');
   assert.deepEqual(fijo(t.hojas[0]).map((c) => c.valores), [['Sprint · apertura']]);
   const renombrada = conLaAutomatizacion(t, 'Sprint · apertura v2');

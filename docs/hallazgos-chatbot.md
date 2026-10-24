@@ -6899,11 +6899,9 @@ iguales):
 - El editor entra con `next/dynamic`: mientras baja su código, su `loading` no recibe props y «Flujo» desaparecía. La
   izquierda le llega por contexto (`IzquierdaDeCarga`).
 
-Test: tests/metricas-una-barra.test.ts (10 roturas). **Sin hacer:**
-- «Compartir» sigue en el ⋮ de una automatización. Comparte el informe de quien mira con el id de la hoja de la
-  automatización, y probablemente da un link roto (sin medir).
-- El análisis programado de una hoja de Métricas se borra solo en la primera corrida: el cron no la encuentra
-  (`leerInformeGuardado`, lib/graficos-analisis-server.ts).
+Test: tests/metricas-una-barra.test.ts (10 roturas). **Los dos defectos que quedaban** se arreglaron el mismo día. El
+análisis programado se borraba solo, porque la hoja era `am-hoja` en todas. «Compartir» entregaba el Dashboard entero.
+El detalle está en docs/hallazgos-graficos.md, «"Analizar con MaKo" sale de la barra».
 - No se vio en pantalla antes de subir (no había RAM para un build local): se mira en producción después del deploy.
 
 **Vive en:** `lib/automatizacion-metricas.ts` (la plantilla, el filtro, lo que cuentan las fuentes) ·
