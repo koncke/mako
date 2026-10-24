@@ -205,6 +205,15 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 
 ## Pulido (57)
 
+- **CRM** — Mirar EN PANTALLA, en producción, tres cosas que salieron el 24/10 (main 59d228ea1) y sólo se verificaron con tests y
+  en Chrome headless:
+  - el «Creando…» de los «+» del editor de etapas (el de arriba de Ganado y los de la banda Nutrición): crear y borrar la
+    etapa en el Cliente de Prueba, nunca en un cliente real;
+  - el selector de funnel del teléfono (sin tilde, el actual primero y en negrita);
+  - las etapas en dos columnas del desplegable de la ficha.
+  - Quedó sin mirar porque el navegador integrado no tenía sesión (la entrada es con Google, la hace Martín). Lo demás de la
+    lista del CRM sigue en docs/feedback-diseno-pendiente.md («El CRM, medido aparte»). · chico · espera la sesión
+
 - **Ads Manager** — Mirar en pantalla el onboarding nuevo del Ads Manager · chico · se puede hacer ya · `docs/relevo/ads-manager.md (#801)`
 - **Agente** — Nada reporta desde una instalación real del plugin del agente (la purga de 90 días ya corre: cron diario, sólo lo vencido, con modo seco) — a medias: falta una instalación real que reporte · chico · se puede hacer ya · `docs/hallazgos-agente.md; commit a9b66a3f8`
 - **Automations** — «Crear con IA»: probar Groq primero (Gemini tarda). _la espera se siente rota_ · chico · se puede hacer ya · `docs/hallazgos-chatbot.md (#847, 17/10); lib/flujo-ia.ts`
