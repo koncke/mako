@@ -15,9 +15,12 @@
 //   3. el motor: espera hasta la fecha + N; si ya pasó, sigue de largo; sin la fecha, cierra ESE hilo con el motivo;
 //   4. NO ES DEL CARRIL del recordatorio (tolerancia de 12 min, fuera del anti-ban y del horario): lo de abajo sigue las
 //      reglas de siempre;
-//   5. la pantalla, Crear con IA y la API la dicen y la conservan (el editor, `deIA`/`aIA`, `cambiar_espera_paso`).
+//   5. la pantalla, Crear con IA y la API la dicen y la conservan (el editor, `deIA`/`aIA`, `cambiar_espera_paso`);
+//   6. el parche de Editar con IA (24/10/2026): `desde: null` es «desde ahora», nombrar un ancla corta «antes de la
+//      reunión» (un nombre que no existe, no: se dice), «Si agenda más cerca» se conserva, y un `antes_de_reunion: false`
+//      de relleno no le saca la fecha a una «después de» (los tests 7 a 10).
 //
-// PROBADO ROMPIÉNDOLO (14/10/2026): ver «ROTURAS» al pie.
+// PROBADO ROMPIÉNDOLO (14/10/2026 y 24/10/2026): ver «ROTURAS» al pie.
 //
 // Correr: npx tsx --test tests/espera-despues-de.test.ts
 // =============================================================================
@@ -259,7 +262,87 @@ test('6. Crear y Editar con IA la leen, la escriben y no la pierden', () => {
   assert.deepEqual(otra.pasos.find((p) => p.id === idDe3h)?.espera, { modo: 'despues_de', minutos: 180, de: 'reunion_2' });
   // ⚠️ El system de Crear con IA NO la describe (14/10/2026): con las dos condiciones nuevas del catálogo el prompt quedó
   // en ~3.998 de 4.000 tokens (tests/crear-ia-tercera.test.ts, «techo de Groq»), y la línea de «despues_de» lo pasaba a
-  // ~4.029. Se lee y se escribe igual (lo de arriba): el modelo la ve en lo que lee de un flujo que ya la tiene.
+  // ~4.029. `deIA` la acepta si el modelo la escribe (lo de arriba), pero Crear no la ENSEÑA: no hay un flujo que leer, y
+  // las dos plantillas que la tienen («Una Reunión Sin Marcar», «Venció la Nutrición Manual») no están en
+  // PALABRAS_PLANTILLA, así que ningún ejemplo la muestra. Editar sí: el modelo la ve en lo que lee del flujo (`aIA`).
+});
+
+// EL PARCHE DE UNA ESPERA (24/10/2026, la revisión adversarial del port de IA, y la del arreglo): formas de perder lo que
+// la tarjeta decía sin un aviso, todas en `parcheEspera` (lib/flujo-ia.ts). Un flujo con las tres esperas: «3 h después
+// de la 1ª reunión», «1 día antes de la reunión» y otro recordatorio con «Si agenda más cerca: sale igual».
+const ACCIONES_IA = LISTA_BLANCA_IA.map((id) => { const d = porId(id)!; return { id: d.id, titulo: d.titulo, parametros: d.parametros }; });
+const CTX_IA: CtxIA = { etiquetas: [], productos: [], disparadores: [], audios: [], archivos: [], acciones: ACCIONES_IA, links: {} };
+function flujoConEsperas() {
+  const r = deIA({ inicio: 't1', tarjetas: [
+    { id: 't1', tipo: 'esperar', horas: 3, desde: 'reunion_1', sigue: 't2' },
+    { id: 't2', tipo: 'esperar', dias: 1, antes_de_reunion: true, sigue: 't3' },
+    { id: 't3', tipo: 'esperar', horas: 6, antes_de_reunion: true, sigue: 't4' },
+    { id: 't4', tipo: 'mensaje', texto: 'Hola {{nombre}}' },
+  ] }, CTX_IA, () => 0.5);
+  const id = (minutos: number) => r.pasos.find((p) => p.nodo === 'esperar' && p.espera?.minutos === minutos)!.id!;
+  const [despuesDe, recordatorio, cerca] = [id(180), id(1440), id(360)];
+  // «Si agenda más cerca: sale igual» se elige en el lienzo: Crear no lo arma.
+  const pasos = r.pasos.map((p) => (p.id === cerca ? { ...p, espera: { modo: 'antes_reunion' as const, minutos: 360, siAgendaCerca: 'sale' as const } } : p));
+  const editar = (x: Record<string, unknown>, pedido = 'cambia la espera') => {
+    const e = deIAEdicion({ cambiar: [x] }, pasos, { ...CTX_IA, pedido } as CtxIA, () => 0.5);
+    return { espera: e.pasos.find((p) => p.id === x.id)?.espera, avisos: e.avisos };
+  };
+  return { despuesDe, recordatorio, cerca, editar };
+}
+
+test('7. «desde»: null (o "") es contar desde ahora, como «link»: null saca el link; no le vuelve a poner la fecha', () => {
+  const { despuesDe, recordatorio, editar } = flujoConEsperas();
+  assert.deepEqual(editar({ id: despuesDe, horas: 5, desde: null }).espera, { modo: 'tiempo', minutos: 300 }, '«desde»: null le volvió a poner la fecha');
+  assert.deepEqual(editar({ id: despuesDe, desde: '' }).espera, { modo: 'tiempo', minutos: 180 });
+  assert.deepEqual(editar({ id: despuesDe, horas: 4, despues_de: null }).espera, { modo: 'tiempo', minutos: 240 }, 'la palabra del 14/10');
+  // No nombrarla sigue siendo «como estaba» (el test 6).
+  assert.deepEqual(editar({ id: despuesDe, horas: 5 }).espera, { modo: 'despues_de', minutos: 300, de: 'reunion_1' });
+  // Un recordatorio no cuenta «desde» nada: un null de relleno no lo vuelve «Esperar 2 h».
+  assert.deepEqual(editar({ id: recordatorio, horas: 2, desde: null }).espera, { modo: 'antes_reunion', minutos: 120 });
+  // ⚠️ Lo de `desde` NO vale para las claves de valor (la revisión, 24/10/2026): un `horas: null` es relleno, «no la
+  // nombra». Con `=== undefined` en `tocaTiempo` sumaba 0 minutos y el parche entero se tiraba («la dejaba incompleta»).
+  assert.deepEqual(editar({ id: despuesDe, horas: null, desde: 'reunion_2' }), { espera: { modo: 'despues_de', minutos: 180, de: 'reunion_2' }, avisos: [] });
+});
+
+test('8. nombrar un ancla en «desde» corta la herencia de «antes de la reunión»; un nombre que no existe, no', () => {
+  const { recordatorio, despuesDe, editar } = flujoConEsperas();
+  assert.deepEqual(editar({ id: recordatorio, horas: 3, desde: 'reunion' }, 'que sea 3 horas después de la reunión').espera,
+    { modo: 'despues_de', minutos: 180, de: 'reunion' }, '«3 h después de la reunión» quedó como un recordatorio');
+  assert.deepEqual(editar({ id: recordatorio, desde: 'reunion_1' }).espera, { modo: 'despues_de', minutos: 1440, de: 'reunion_1' });
+  assert.deepEqual(editar({ id: recordatorio, desde: 'Reunion 2' }).espera, { modo: 'despues_de', minutos: 1440, de: 'reunion_2' }, 'la normalización de `nodoDe`');
+  // ⚠️ Sólo un ANCLA corta (la revisión del arreglo, 24/10/2026): un nombre que no existe no vuelve el recordatorio «Esperar
+  // N» por tiempo (salía 1 día después de llegar a la tarjeta, con un aviso gris y MaKo diciendo «Listo»). Queda, y se DICE.
+  // Entre ellos, el id de otra tarjeta en `despues_de`: el cruce de palabras que dice `nodoDe`.
+  for (const x of [{ desde: 'la boda' }, { horas: 2, desde: 'reunion_en' }, { horas: 2, desde: 'la reunión' }, { horas: 2, despues_de: despuesDe }]) {
+    const r = editar({ id: recordatorio, ...x });
+    assert.equal(r.espera?.modo, 'antes_reunion', `${JSON.stringify(x)} sacó el recordatorio: ${JSON.stringify(r.espera)}`);
+    const nombre = String(x.desde ?? x.despues_de);
+    assert.ok(r.avisos.some((a) => a.includes(`«${nombre}»`) && a.includes('antes de la reunión')), `${nombre}: no avisó: ${r.avisos.join(' | ')}`);
+  }
+  // Un `false` de relleno no tiene nombre que decir: el recordatorio queda, sin un aviso con «».
+  assert.deepEqual(editar({ id: recordatorio, desde: false }), { espera: { modo: 'antes_reunion', minutos: 1440 }, avisos: [] });
+  // «ahora» no es una fecha: el recordatorio queda, callado (la API tampoco lo cambia por ahí). Y el modo dicho a mano manda.
+  assert.deepEqual(editar({ id: recordatorio, desde: 'ahora' }), { espera: { modo: 'antes_reunion', minutos: 1440 }, avisos: [] });
+  assert.deepEqual(editar({ id: recordatorio, desde: 'reunion', antes_de_reunion: true }).espera, { modo: 'antes_reunion', minutos: 1440 });
+});
+
+test('9. cambiar con IA un recordatorio conserva «Si agenda más cerca»; pasarlo a otro modo lo suelta', () => {
+  const { cerca, editar } = flujoConEsperas();
+  assert.deepEqual(editar({ id: cerca, horas: 2 }).espera, { modo: 'antes_reunion', minutos: 120, siAgendaCerca: 'sale' }, 'cambiar el número le borró «Si agenda más cerca»');
+  assert.deepEqual(editar({ id: cerca, dias: 1, antes_de_reunion: true }).espera, { modo: 'antes_reunion', minutos: 1440, siAgendaCerca: 'sale' });
+  // Como el lienzo: pasar a «Esperar» (o a «después de») lo suelta.
+  assert.deepEqual(editar({ id: cerca, antes_de_reunion: false }).espera, { modo: 'tiempo', minutos: 360 });
+  assert.deepEqual(editar({ id: cerca, desde: 'reunion_2' }).espera, { modo: 'despues_de', minutos: 360, de: 'reunion_2' });
+});
+
+test('10. un «antes_de_reunion»: false de relleno, o nombrar el MISMO modo, no le saca la fecha a una «después de»', () => {
+  const { despuesDe, editar } = flujoConEsperas();
+  // Lo que pasaba (la revisión, 24/10/2026): las dos quedaban «Esperar N» desde ahora, con avisos [].
+  assert.deepEqual(editar({ id: despuesDe, horas: 5, antes_de_reunion: false }), { espera: { modo: 'despues_de', minutos: 300, de: 'reunion_1' }, avisos: [] });
+  assert.deepEqual(editar({ id: despuesDe, modo: 'despues_de', horas: 4 }).espera, { modo: 'despues_de', minutos: 240, de: 'reunion_1' }, 'nombrar el mismo modo le borró el ancla');
+  // Nombrar OTRO modo sí la saca: «por tiempo» o «antes de la reunión».
+  assert.deepEqual(editar({ id: despuesDe, modo: 'tiempo', horas: 4 }).espera, { modo: 'tiempo', minutos: 240 });
+  assert.deepEqual(editar({ id: despuesDe, horas: 2, antes_de_reunion: true }).espera, { modo: 'antes_reunion', minutos: 120 });
 });
 
 // ROTURAS (14/10/2026), una por vez y restaurada desde memoria (scratchpad romper.py). Como está: 5 pasan / 0 fallan.
@@ -273,3 +356,16 @@ test('6. Crear y Editar con IA la leen, la escriben y no la pierden', () => {
 //   R7 el motor sin pasarle las fechas a `resolverControl`                                → 4 / 1 (la 5)
 //   R8 Crear con IA sin leer «despues_de»                                                 → 4 / 1 (la 5)
 //   R9 el editor pierde el `de` al cambiar el número                                      → 4 / 1 (la 5)
+//
+// ROTURAS de la 7 a la 10 (24/10/2026, `parcheEspera` de lib/flujo-ia.ts; re-medidas con la revisión del arreglo), una
+// por vez y restaurada desde memoria en un finally (scratchpad romper-parche-espera-2.mjs, sha1 igual antes y después).
+// Como está: 13 pasan / 0 fallan. Cada rotura (pasan / fallan):
+//   R10 `desde: null` vuelve a reponer la fecha que tenía (sin `sacaFecha`)                 → 12 / 1 (la 7)
+//   R11 nombrar un ancla en `desde` no corta la herencia de «antes de la reunión»            → 11 / 2 (la 8 y la 9)
+//   R12 el parche no conserva «Si agenda más cerca»                                         → 12 / 1 (la 9)
+//   R13 cualquier `desde` corta la herencia, «ahora» incluido                               → 12 / 1 (la 8)
+//   R14 cualquier `desde` que no sea «ahora» corta (el arreglo de antes de la revisión)      → 12 / 1 (la 8)
+//   R15 un nombre que no es un ancla deja el recordatorio, pero callado (sin el aviso)       → 12 / 1 (la 8)
+//   R16 el aviso sale también con «ahora» o sin nombre (`false`: «No sé contar desde «»»)    → 12 / 1 (la 8)
+//   R17 `sacaModo` con el `== null` de antes (un `false` de relleno o el mismo modo la sacan) → 12 / 1 (la 10)
+//   R18 `tocaTiempo` con `!== undefined` (un `horas: null` de relleno tira el parche)        → 12 / 1 (la 7)

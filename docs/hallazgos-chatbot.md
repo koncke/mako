@@ -56,17 +56,59 @@ lado del CRM, en [hallazgos-crm.md](hallazgos-crm.md) → «El CRM automático p
   Perdido queda vacía (ver hallazgos-crm.md). Es la entrada `cohorte-etapa-abiertos-90d` del inventario de «nada por
   detrás».
 
-**Hecho después (23/10/2026, chat Automations, rama `aut-b5-ia` encima de ésta):** Crear y Editar con IA leen y escriben la
-espera «después de», y editar el número ya no le borra de qué fecha cuenta (`nodoDe`, `parcheEspera`, `aIA`; el test 6 sin
-`todo`). **Trampa:** en la TARJETA el campo va como `desde` (la palabra de la API, `cambiar_desde_espera_paso`), no como
-`despues_de`: en un tramo de Editar `despues_de` ya dice de qué tarjeta cuelga, y la misma palabra con dos sentidos en lo que el
-modelo lee y escribe es cómo se cruzan (un tramo anclado a «reunion_1» se tira por no encontrar la tarjeta; razonado, no
-medido con un modelo). Se lee también `despues_de` en la tarjeta
-(el formato del 14/10). **Los dos topes:** los dos ids nuevos pasaban Crear a ~4.008 de 4.000 y Editar con el CRON a ~3.712
-de 3.700 (`entraEnGroq`; éste ya estaba rojo en la punta del CRM, y nadie lo había corrido). Se pagaron acortando sin sacar
-reglas: la glosa de «Etapa»/«Entrega», los textos del ejemplo de Crear (y con eso se fue «vi que dejaste tus datos», que no se
-le dice a un desconocido), el ejemplo de «a la vez» y la línea de "respuesta". **Editar quedó a ~2 tokens del techo**: lo
-próximo que se sume a esos prompts se paga sacando otra cosa.
+**Hecho después (23/10/2026, chat Automations, rama `aut-b5-ia` encima de ésta):** Editar con IA lee y escribe la espera
+«después de» (`aIA` la saca como `desde`; `nodoDe` y `parcheEspera` la leen), y editar el número ya no le borra de qué fecha
+cuenta (el test 6 sin `todo`). **Crear con IA NO la enseña** (corregido el 24/10/2026: esta entrada y el mensaje del commit
+`5badeda1a` decían «Crear y Editar leen y escriben»; el commit no se reescribe, manda esta entrada): `deIA` la acepta si el
+modelo escribe `desde` o `despues_de`, pero el system de Crear no los describe (el techo de Groq) y las dos plantillas que
+la tienen («Una Reunión Sin Marcar», «Venció la Nutrición Manual») no están en `PALABRAS_PLANTILLA`, así que ningún
+ejemplo la muestra. Editar sí: el modelo la ve en el flujo que lee. **Trampa:** en la TARJETA el campo va como `desde` (la
+palabra de la API, `cambiar_desde_espera_paso`), no como `despues_de`: en un tramo de Editar `despues_de` ya dice de qué
+tarjeta cuelga, y la misma palabra con dos sentidos en lo que el modelo lee y escribe es cómo se cruzan (un tramo anclado a
+«reunion_1» se tira por no encontrar la tarjeta; razonado, no medido con un modelo). Se lee también `despues_de` en la
+tarjeta (el formato del 14/10). **Los dos topes:** los dos ids nuevos pasaban Crear a ~4.008 de 4.000 y Editar con el CRON
+a ~3.712 de 3.700 (`entraEnGroq`; éste ya estaba rojo en la punta del CRM, y nadie lo había corrido). Se pagaron acortando
+sin sacar reglas: la glosa de «Etapa»/«Entrega», los textos del ejemplo de Crear (y con eso se fue «vi que dejaste tus
+datos», que no se le dice a un desconocido), el ejemplo de «a la vez» y la línea de "respuesta". **Editar quedó a ~2 tokens
+del techo**: lo próximo que se sume a esos prompts se paga sacando otra cosa.
+
+**El parche de una espera perdía lo que la tarjeta decía, sin un aviso** (24/10/2026, la revisión adversarial del port;
+`parcheEspera`, tests 7 a 10 de tests/espera-despues-de.test.ts). Cuatro formas:
+
+- **`desde: null` se leía como «no la nombra».** `x.desde ?? x.despues_de` da undefined y se le volvía a poner la fecha:
+  {"horas": 5, "desde": null} quedaba «5 h después de la reunión» en vez de «Esperar 5 h». `link: null` saca el link.
+  **Regla: en una clave cuyo null SACA algo (`link`, `desde`), nombrarla es que esté (`!== undefined`, el `toca` de
+  `parcheMensaje`). En las claves de VALOR (`horas`, `dias`, `antes_de_reunion`, `modo`), un null es relleno: «no la
+  nombra» (`!= null`, como `tocaTiempo`).** No es una regla general de los parches: la misma función usa las dos, y con
+  `=== undefined` en `tocaTiempo` un {"horas": null, "desde": "reunion_2"} suma 0 minutos y el parche entero se tira
+  («Dejé una tarjeta como estaba: el cambio la dejaba incompleta»; medido rompiéndolo). Un recordatorio no cuenta «desde»
+  nada: ahí un `desde: null` de relleno no cambia nada.
+- **Nombrar una fecha sin `antes_de_reunion` heredaba el «antes de la reunión» de la tarjeta**, y `nodoDe` le da
+  prioridad a ese modo y tira el `desde` callado: «3 h después de la reunión» se guardaba «3 h ANTES». Nombrar un ANCLA
+  (`esAnclaDespues`, con la normalización de `nodoDe`) corta la herencia, como ya la cortaba nombrar otro modo.
+  **⚠️ El primer arreglo cortaba con cualquier `desde` que no fuera «ahora», y la revisión lo agarró:** un nombre que no
+  existe («la boda», «reunion_en», «la reunión» sin normalizar a un id, o el id de una tarjeta en `despues_de`, el cruce
+  de palabras de arriba) volvía el recordatorio «Esperar N» por tiempo, con un aviso gris y MaKo diciendo «Listo»: salía
+  N después de llegar a la tarjeta, no N antes de la reunión. **Regla: lo que el parche no entiende no le cambia el modo
+  a la tarjeta**; el recordatorio queda y se dice («No sé contar desde «X»: queda antes de la reunión»; un `false` sin
+  nombre, callado).
+- **Un `antes_de_reunion: false` de relleno, o `modo: 'despues_de'` (el MISMO modo), le sacaban la fecha a una «después
+  de»**, sin aviso: reponer el `de` exigía `antes_de_reunion == null && modo == null`. Ahora la saca sólo nombrar «antes de
+  la reunión» (`true`) u otro modo (`sacaModo`). Era anterior al arreglo; la encontró la misma revisión.
+- **El parche reemplaza la espera entera por la que arma `nodoDe`, que nunca lleva `siAgendaCerca`**: cualquier cambio
+  con IA a un recordatorio borraba «Si agenda más cerca: sale igual». **Regla: un parche que reconstruye el objeto con el
+  constructor de Crear pierde lo que ese constructor no conoce**; se repone después (como el lienzo y
+  `cambiar_espera_paso`, que hacen `...p.espera`). El modelo no lo lee ni lo escribe (`aIA` no lo saca: el techo).
+
+**Sin hacer:** que Crear con IA ENSEÑE la espera «después de». ⚠️ NO en `TARJETAS_Y_REGLAS` (lib/flujo-ia.ts): ese bloque
+lo comparten los dos system, el de Crear y el de Editar, y una línea ahí se paga también en Editar, que está a ~2 tokens
+del techo. Lo que va SÓLO en Crear: las reglas 10 y 11 de `CREAR_IA_SYSTEM_TEMPLATE` (~29 tokens de aire,
+tests/crear-ia-tercera.test.ts), o sumar «Una Reunión Sin Marcar» / «Venció la Nutrición Manual» a `PALABRAS_PLANTILLA`:
+ese ejemplo va en el user de Crear (`userDeCrear`) y sólo si entra (`entraEnGroq`; si no, va el pedido sin ejemplo).
+Tampoco hecho: `nodoDe` con `antes_de_reunion: true` y un `desde` a la vez (lo escribe el modelo, en Crear o en un parche)
+sigue tirando el `desde` sin aviso: manda el recordatorio. Y sobre una espera «después de», un `desde` que no es un ancla
+(o el id de una tarjeta en `despues_de`) la sigue pasando a «Esperar N» por tiempo, con el aviso gris de `nodoDe`
+(medido: {"horas": 5, "despues_de": "<id de una tarjeta>"} da tiempo/300): el recordatorio ya no, ésta sí.
 
 ## Lo que más muerde
 

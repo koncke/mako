@@ -2141,17 +2141,42 @@ function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado): Paso
 function parcheEspera(p: PasoIA, x: Record<string, unknown>, est: Estado): PasoIA | null {
   const tocaTiempo = ['dias', 'horas', 'minutos'].some((k) => x[k] != null && x[k] !== '');
   const raw: Record<string, unknown> = tocaTiempo ? { dias: x.dias, horas: x.horas, minutos: x.minutos } : { minutos: Number(p.espera?.minutos) || 0 };
+  const desde = x.desde ?? x.despues_de;
+  const nombraFecha = desde != null && desde !== '';
+  // ⚠️ `desde: null` (o "") NO es «no la nombra» (la revisión adversarial del port, 24/10/2026): es «contar desde ahora»,
+  // como `link: null` saca el link (`toca` de `parcheMensaje`: presente aunque sea null). Con el `??` solo daba undefined y
+  // se le volvía a poner la fecha que tenía: {"horas": 5, "desde": null} quedaba «5 h después de la reunión», sin aviso.
+  const sacaFecha = !nombraFecha && (x.desde !== undefined || x.despues_de !== undefined);
+  // Nombrar un ANCLA es nombrar el modo «después de»: corta la herencia de «antes de la reunión», como nombrar otro modo. Si
+  // no, `nodoDe` le da prioridad al recordatorio y tira el `desde` callado: «3 h después de la reunión» se guardaba «3 h ANTES».
+  // ⚠️ SÓLO un ancla, con la normalización de `nodoDe` (la revisión del arreglo, 24/10/2026). Cortaba con cualquier `desde`
+  // que no fuera «ahora»: un nombre que no existe («la boda», «reunion_en», o el id de una tarjeta, el cruce de `despues_de`
+  // que dice `nodoDe`) volvía el recordatorio «Esperar N» por tiempo, con un aviso gris y MaKo diciendo «Listo». Lo que no
+  // se entiende no le cambia el modo: el recordatorio queda, y se dice.
+  const de = nombraFecha ? normNombre(desde).replace(/\s+/g, '_') : null;
+  const nombraAncla = de != null && esAnclaDespues(de);
   if (x.antes_de_reunion != null) raw.antes_de_reunion = x.antes_de_reunion;
   else if (x.modo != null) raw.modo = x.modo;
-  else raw.antes_de_reunion = p.espera?.modo === 'antes_reunion';
+  else if (p.espera?.modo === 'antes_reunion' && !nombraAncla) {
+    raw.antes_de_reunion = true;
+    if (de != null && de !== 'ahora' && str(desde).trim()) est.avisos.push(`No sé contar desde «${str(desde)}»: queda antes de la reunión`);
+  } else raw.antes_de_reunion = false;
+  // Lo que le SACA el modo «después de»: nombrar «antes de la reunión» o «por tiempo». Un `antes_de_reunion: false` de relleno,
+  // o `modo: 'despues_de'` (el MISMO modo), no (la revisión, 24/10/2026): con el `== null` de antes los dos le borraban la
+  // fecha sin aviso, y {"horas": 4, "modo": "despues_de"} quedaba «Esperar 4 h» desde ahora.
+  const sacaModo = x.antes_de_reunion != null ? x.antes_de_reunion === true : !['', 'despues_de'].includes(normNombre(x.modo).replace(/\s+/g, '_'));
   // Desde qué fecha (23/10/2026): lo que dice el parche, o lo que tenía si el parche no nombra ni eso ni otro modo. Sin esto,
   // «que sean 5 horas» sobre una espera «3 h después de la reunión» la volvía «Esperar 5 h» desde ahora, sin avisar.
-  const desde = x.desde ?? x.despues_de;
-  if (desde != null && desde !== '') raw.desde = desde;
-  else if (x.antes_de_reunion == null && x.modo == null && p.espera?.modo === 'despues_de') raw.desde = p.espera.de;
+  if (nombraFecha) raw.desde = desde;
+  else if (!sacaFecha && !sacaModo && p.espera?.modo === 'despues_de') raw.desde = p.espera.de;
   const n = nodoDe({ tmp: p.id!, tipo: 'esperar', raw }, est);
   if (n.quitar || !n.paso.espera) return null;
-  return { ...p, espera: n.paso.espera };
+  // «Si agenda más cerca» (16/10/2026) no pasa por `nodoDe`, y el modelo ni lo lee ni lo escribe (`aIA` no lo saca: el techo
+  // de Groq), así que un parche nunca lo nombra. Si sigue siendo un recordatorio se conserva, como en el lienzo y en
+  // `cambiar_espera_paso`; pasar a otro modo lo suelta. Sin esto, cualquier cambio con IA borraba «sale igual».
+  const e = n.paso.espera;
+  if (e.modo === 'antes_reunion' && p.espera?.modo === 'antes_reunion' && p.espera.siAgendaCerca) return { ...p, espera: { ...e, siAgendaCerca: p.espera.siAgendaCerca } };
+  return { ...p, espera: e };
 }
 
 /** EL PARCHE DE UNA ETIQUETA: «poner» o «sacar», una o varias, por su nombre (`resolverEtiqueta`). */
