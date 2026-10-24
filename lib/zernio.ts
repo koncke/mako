@@ -12,11 +12,15 @@
 // Meta. Un error se tira TIPADO (`ZernioError`, con el envelope del body); Zernio ya reintenta
 // contra Meta, así que acá no se reintenta nada.
 //
-// CREDENCIALES — BYOK con respaldo de plataforma:
-//   · La key PROPIA del workspace manda: `credWs('ZERNIO_API_KEY', ws)`. Medido el 09/10/2026 en
-//     producción: los dos workspaces con Zernio (ws11 y ws13) tienen key propia.
-//   · Sin key propia, la de la PLATAFORMA (`envCred`), y el aislamiento lo da el PROFILE de Zernio:
-//     uno por workspace (`ensureProfile`), y todo listado se filtra por él.
+// CREDENCIALES — BYOK, SIN respaldo de la plataforma (23/10/2026):
+//   · Cada negocio con SU key de Zernio: `credDelClienteEstricta('ZERNIO_API_KEY', ws)` (lib/credenciales.ts),
+//     la fila del negocio y nunca el entorno, y «no pude leer» tira. Martín: «que cada usuario traiga su API de
+//     Zernio». Medido ese día en producción (sólo lectura): el único workspace que dependía del respaldo era el
+//     ws3 (Cliente de Prueba), y no hay ni una conversación ni un envío de Instagram o Messenger en toda la
+//     historia. Si el ws3 hace falta para pruebas, se le pega una key a mano.
+//   · Hasta el 23/10 la key de la PLATAFORMA (`envCred`) era el respaldo, y el aislamiento lo daba un PROFILE por
+//     workspace (`ensureProfile`, `mako_ws_<ws>`). Esa rama sigue SÓLO para el `OWNER_WS` (el ws1, que es un
+//     cliente y tiene su fila, pegada el 23/10 con la misma key que la de la plataforma): se va con su key.
 //   · ⚠️ La key puede CAMBIAR después de guardar el profile (ws11: profile acuñado con la de la
 //     plataforma el 15/08, key propia el 28/08), así que el profile guardado se valida contra la
 //     cuenta de la key de HOY (`profileIdEfectivo`, lib/zernio-profile.ts), en las dos direcciones.
@@ -26,7 +30,7 @@
 // lib/webhook-routing.ts.
 
 import 'server-only';
-import { credWs, credWsEstricta, envCred } from './credenciales';
+import { credDelClienteEstricta, credWsEstricta, envCred } from './credenciales';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './workspace';
 import { upsertRouting } from './webhook-routing';
@@ -79,14 +83,14 @@ export class ZernioError extends Error {
 
 // ── Config por workspace ─────────────────────────────────────────────────────
 
-type ZernioCfg = { apiKey: string; byok: boolean };
+export type ZernioCfg = { apiKey: string; byok: boolean };
 
-async function cfg(ws: number): Promise<ZernioCfg> {
-  const propia = await credWs('ZERNIO_API_KEY', ws);
-  // Para el dueño, credWs ya cae a su env: eso es la cuenta de plataforma, no BYOK.
+export async function cfg(ws: number): Promise<ZernioCfg> {
+  // ⚠️ SÓLO la fila del negocio, y estricta: ni `credWs` (cae al entorno para el OWNER_WS) ni `envCred` (la cuenta de la
+  // casa). Con la base caída TIRA: «no pude leer» no es «no tiene Zernio».
+  const propia = await credDelClienteEstricta('ZERNIO_API_KEY', ws, { ilegibleTira: true });
+  // El OWNER_WS (el ws1) sigue en el modo de la cuenta de la plataforma hasta que se le saque la key (ver la cabecera).
   if (propia) return { apiKey: propia, byok: ws !== OWNER_WS };
-  const plataforma = await envCred('ZERNIO_API_KEY');
-  if (plataforma) return { apiKey: plataforma, byok: false };
   throw new ZernioError('Zernio no está configurado', 0, null);
 }
 
@@ -338,12 +342,12 @@ export async function responderComentario(ws: number, input: { accountId: string
 const TIMEOUT_SEGUIMIENTO_MS = 8_000;
 
 /**
- * La key para LEER el seguimiento: la propia del negocio (lectura ESTRICTA: «no pude leer las
- * credenciales» tira, nunca se contesta «no tiene Zernio»), si no la de la plataforma, como `cfg`.
+ * La key para LEER el seguimiento: la propia del negocio, como `cfg` (lectura ESTRICTA: «no pude leer las
+ * credenciales» tira, nunca se contesta «no tiene Zernio»), y sin respaldo de la plataforma.
  * null = el negocio no tiene Zernio, y nadie se sabe.
  */
 async function keyDeSeguimiento(ws: number): Promise<string | null> {
-  return (await credWsEstricta('ZERNIO_API_KEY', ws)) ?? (await envCred('ZERNIO_API_KEY'));
+  return credDelClienteEstricta('ZERNIO_API_KEY', ws);
 }
 
 /** Un GET /accounts/{id}/follow-status/{igsid}, sin pasar por alto la caché de Zernio (`refresh=false`). */

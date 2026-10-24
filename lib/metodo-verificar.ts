@@ -382,10 +382,9 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
   // la tarjeta (POST /api/zernio, «estado»), que es donde se elige la cuenta.
   async zernio(v) {
     const key = (v.ZERNIO_API_KEY ?? '').trim();
-    // La key es OPCIONAL: sin key propia lib/zernio.ts usa la de la plataforma. «Sin key» no es un error.
-    if (!key) {
-      return { ok: true, detalle: 'Sin key propia: usa la cuenta de la plataforma.', facts: [{ k: 'Cuenta', v: 'La de la plataforma' }] };
-    }
+    // La key es OBLIGATORIA desde el 23/10/2026 (sin respaldo de la plataforma): sin ella no hay Zernio, y el ping no puede
+    // contestar «anda» (la API de MaKo reusa este ping para decir si la integración responde).
+    if (!key) return { ok: false, error: 'Falta la API key de Zernio.' };
     const { status, body } = await fetchJson('https://zernio.com/api/v1/profiles', {
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
     });

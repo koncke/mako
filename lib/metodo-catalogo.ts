@@ -239,17 +239,16 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   // las automatizaciones, con Messenger (tests/sin-instagram.test.ts cuenta la historia).
   {
     key: 'zernio',
-    nombre: 'Instagram y Messenger (Zernio)',
+    nombre: 'Facebook, Instagram y anuncios (Zernio)',
     categoria: 'Mensajería',
-    paraQue: 'Mensajes de Instagram y Messenger en tus automatizaciones: comentarios, historias, mensajes y anuncios.',
+    paraQue: 'Conecta tu Facebook, tu Instagram y tus anuncios de Meta con tu cuenta de Zernio, sin salir de MaKo.',
     campos: [
-      // BYOK con respaldo de plataforma: `opcional` a propósito — sin key propia, lib/zernio.ts usa la
-      // cuenta de Zernio de la agencia y el aislamiento lo da el PROFILE por workspace. El ruteo del
-      // webhook NO sale de este campo (una key es secreta y jamás se espeja a `webhook_routing`): lo
-      // acuña el server (`ensureProfile`, `cuentasConectadas`). Por eso no está en ROUTING_CREDS.
-      { env: 'ZERNIO_API_KEY', label: 'API key de Zernio', secreto: true, opcional: true,
-        sinEsto: 'Sin key propia, MaKo usa la cuenta de la plataforma.',
-        nota: 'Opcional: con tu key, Zernio te factura a ti. Incluye 2 cuentas conectadas; desde la 3.ª cobra por cada una.' },
+      // BYOK SIN respaldo de plataforma (23/10/2026, Martín: «que cada usuario traiga su API de Zernio»): la key es
+      // OBLIGATORIA y es siempre la del negocio. El ruteo del webhook NO sale de este campo (una key es secreta y jamás
+      // se espeja a `webhook_routing`): lo acuña el server (`ensureProfile`, `cuentasConectadas`). Por eso no está en
+      // ROUTING_CREDS. La nota es la línea del cobro: cada red cuenta aparte en Zernio, y lo paga el negocio.
+      { env: 'ZERNIO_API_KEY', label: 'API key de Zernio', secreto: true,
+        nota: 'Zernio te cobra a ti. Cada red cuenta aparte (página, Instagram, anuncios): 2 gratis, desde la 3.ª se paga.' },
     ],
     tutorial: {
       url: 'https://zernio.com',
