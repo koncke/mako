@@ -416,6 +416,27 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '23 oct', hora: '19:37', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El onboarding y las ofertas, por la API',
+    puntos: [
+      'P0-12: cerrar un paso del arranque cuando su dato ya está cargado, o dejar para después el teléfono y las cuentas. Lo confirma una persona y nunca toca el chat de arranque, como decidió el Cerebro.',
+      'P0-13: marcar o desmarcar un paso de contexto del onboarding de una tab.',
+      'P0-14: listar, guardar y borrar las ofertas del negocio, con el mismo saneo que la pantalla. Guardar y borrar se confirman en pantalla y no salen por HTTP.',
+      'La revisión encontró que sin id el nombre decidía qué oferta se tocaba, y en la pantalla de revisar el nombre se edita: ahora sin id sólo se crea.',
+      'También que la pantalla de ofertas volvía a escribir el modelo con el de cuando cargó. La ruta se lo saca.',
+    ],
+    commits: [
+      { sha: '211978dc', msg: 'API de MaKo: cerrar pasos del onboarding y el catálogo de ofertas (P0-12, P0-13 y P0-14 de la auditoría)', lineas: 1539, archivos: 18 },
+    ],
+    archivos: [
+      'lib/onboarding-pasos-api.ts y lib/onboarding-hechos.ts — la regla pura y lo que dice la base de cada paso',
+      'lib/oferta-modelo.ts — planDeOferta, sanearOfertaInput y ofertaDeLaPantalla',
+      'lib/api-mako/areas/negocio.def.ts + negocio.run.ts — las cinco operaciones',
+      'tests/api-negocio-onboarding.test.ts — 15 tests, cada arreglo probado rompiéndolo',
+    ],
+  },
+  {
     fecha: '23 oct', hora: '22:40', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
     actor: 'claude', tipo: 'correccion',
     titulo: 'Vender un plan por el chat: la revisión adversarial encontró 16',

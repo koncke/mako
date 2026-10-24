@@ -23,6 +23,7 @@ habilita a darle mejores prompts al otro Claude».
 - El repo es **CRLF**: un reemplazo por bloque buscó `'\n];\n'`, no matcheó, se fue 700 líneas más abajo y **borró 76 KB con exit 0** → [Editar este repo](#editar-este-repo-archivos-grandes-saltos-de-línea-y-nombres).
 - Con **`npm run dev` (`-H 127.0.0.1`) toda pantalla del TELÉFONO da `ERR_TOO_MANY_REDIRECTS`** en local: el rewrite a `/m` sale como externo y vuelve a entrar al proxy. Con `-H localhost`, 200 → [Tests y entorno local](#️-con-npm-run-dev--h-127001-ninguna-pantalla-del-teléfono-se-puede-mirar-en-local-15102026).
 - Verificar contra **`127.0.0.1` en vez de `localhost`** deja la página entera y sin hidratar, sin un solo error en el navegador — y las dos explicaciones que uno tiene a mano («rompí yo», «lo rompió la otra sesión») parecen confirmarse → [Tests y entorno local](#️-127001-no-es-localhost-para-el-dev-server-la-página-se-ve-entera-y-no-hidrata).
+- **El VERDE murió con `ENOENT … antes-de-subir-XXXX\compartido-1.log` (23/10)**: no era el test ni el script. Su carpeta de `os.tmpdir()` desapareció a mitad de la corrida (otra sesión poda `%TEMP%`; no se buscó cuál) y el rojo de las barredoras quedó sin nombre. Se corre con `TEMP` y `TMP` apuntando a una carpeta propia (el scratchpad de la sesión): `TEMP=… TMP=… node scripts/antes-de-subir.mjs --rapido`.
 - **El disco lleno (17/10)**: lo MÁS grande no estaba en ningún worktree sino en la caché de `tsx` de `%TEMP%` (7,7 GB que nadie podaba); los `.next` quietos y las copias de `node_modules` sumaron 15 GB más. La regla: un worktree nuevo usa un junction al `node_modules` del clon (salvo `next build` con Turbopack) y su `.next` se borra al terminar → [El disco lleno](#el-disco-lleno-17102026).
 - **21 de 101 runs de Actions fallaron aunque cada jefe corría «los tests de su área»** — y el diagnóstico obvio («no corren tests») era el equivocado: el test que cae es, por definición, de otra área, y un `grep` de la ruta no ve imports a dos saltos, nombres sin extensión ni barridos. La cura es una herramienta, no una regla en prosa: `scripts/antes-de-subir.mjs` elige los tests solo, y el replay de los 17 runs rojos prueba que los habría frenado → [Tests y entorno local](#los-rojos-de-actions-16-de-90-runs-dos-clases-y-por-qué-corré-los-tests-de-tu-área-no-podía-alcanzar-17102026).
 - **El paso «Tipos» de Actions murió por MEMORIA (exit 134, 21/10) y en GitHub se ve igual que un error de tipos** — y «subí el tope» ya se había hecho cuatro veces en una semana (2.048 → 5.120): el programa pasó de >4,1 a >5,1 GB en siete días. El paso ahora dice SIN MEMORIA / ERRORES DE TIPOS, y deja la memoria viva real en cada run → [El paso «Tipos» se quedó sin memoria](#el-paso-tipos-de-actions-se-quedó-sin-memoria-exit-134-en-github-se-ve-igual-que-un-error-de-tipos-y-subí-el-tope-ya-se-hizo-cuatro-veces-en-una-semana-21102026).
@@ -64,6 +65,20 @@ cookies del pedido. En Next 16.2.6 `cookies()` devuelve el MISMO objeto durante 
 `userspaceMutableCookies`; ver `node_modules/next/dist/server/request/cookies.js`, `makeUntrackedCookies`) y uno nuevo
 en el siguiente. La segunda clave es el valor del token: un pedido que cambia la cookie de sesión (un login) vuelve a
 leer. Lo fija `tests/rendimiento-pedido.test.ts`.
+
+**Medido en producción, antes y después** (request-logs de Vercel: antes, las 3 h previas a las 19:25 UTC; después, de
+22:02 a 22:21 UTC tras el deploy c0b47d416, todavía en iad1; muestra chica y en parte tráfico de la medición):
+
+| | antes p50 / p90 | después p50 / p90 |
+|---|---|---|
+| /api/auth/me | 4,9 s / 5,8 s | 0,64 s / 0,85 s |
+| /api/chat-agent/secuencias | 12,9 s / 15,6 s | 1,3 s / 1,9 s |
+| /automations (página) | 1,5 s | 0,63 s |
+| /crm (página) | 1,7 s / 3,5 s | 0,72 s / 3,2 s |
+| /second-brain (página) | 2,1 s | 0,90 s |
+
+Con un clic en la barra (Chrome, ws10): Automations usable en 2,2-3,5 s, antes 15 s. El loader se ve a 0,12-0,5 s en
+todas las tabs, antes nada durante 2-5 s. Configuraciones muestra su contenido en 0,66-0,97 s.
 
 **La regla que queda:** en una ruta /api o una server action, **`cache()` de React no deduplica nada**. Lo que se lee
 muchas veces por pedido (sesión, workspace, settings) se memoiza por el objeto de cookies, como `enElPedido`. Sigue

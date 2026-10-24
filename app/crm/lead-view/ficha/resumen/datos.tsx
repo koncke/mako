@@ -16,6 +16,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { marcaDato } from '@/lib/datos-aviso';
+import { datosDelPuesto } from '@/lib/ficha/config';
 import { motivoFinalDe, motivosDeSalida } from '@/app/crm/motivos-salida';
 import { CajaCampo, FechaEditable, MontoEditable, PersonaEditable, TextoEditable, useGuardarCampo } from '../../CampoEditable';
 import { Toast } from '@/app/_ui/Toast';
@@ -55,8 +56,10 @@ export function IngresoEstimado({ ctx, titulo, diseno, epico }: PropsBloque) {
 // ── Setter y closer ──────────────────────────────────────────────────────────
 
 /** Quién le escribe y quién le vende. Si la grabación detectó un closer, lo sugiere (el «de Fathom» de la reunión). */
-export function SetterYCloser({ ctx, titulo, diseno, epico }: PropsBloque) {
+export function SetterYCloser({ ctx, puesto, def, titulo, diseno, epico }: PropsBloque) {
   const { lead, data } = ctx;
+  // Los que eligió la persona (23/10/2026, «Datos ▾» de la barra): un negocio sin setter deja sólo el closer.
+  const quienes = datosDelPuesto(def, puesto.opciones).filter((x): x is 'setter' | 'closer' => x === 'setter' || x === 'closer');
   const equipo = data.equipo ?? [];
   const hintCloser = data.closerDetectado && !lead.closer ? `${data.closerDetectado} (de Fathom)` : undefined;
   // La foto la pone el desplegable del equipo al lado del nombre (`opcionesEquipo`): una segunda cara sería repetirla.
@@ -67,8 +70,7 @@ export function SetterYCloser({ ctx, titulo, diseno, epico }: PropsBloque) {
     return (
       <Bloque titulo={titulo} epico={false}>
         <div className="fr-props">
-          <Prop k="Setter" editable marca={marcaDato('setter')}>{persona('setter')}</Prop>
-          <Prop k="Closer" editable marca={marcaDato('closer')}>{persona('closer')}</Prop>
+          {quienes.map((c) => <Prop key={c} k={c === 'setter' ? 'Setter' : 'Closer'} editable marca={marcaDato(c)}>{persona(c)}</Prop>)}
         </div>
       </Bloque>
     );
@@ -77,7 +79,7 @@ export function SetterYCloser({ ctx, titulo, diseno, epico }: PropsBloque) {
     return (
       <Bloque titulo={titulo} epico={false}>
         <div className="fr-chips">
-          {(['setter', 'closer'] as const).map((c) => (
+          {quienes.map((c) => (
             <CajaCampo key={c} marca={marcaDato(c)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 12px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface-2)', maxWidth: '100%' }}>
               <span className="fr-sub" style={{ flex: 'none' }}>{c === 'setter' ? 'Setter' : 'Closer'}</span>
               {persona(c)}
@@ -89,8 +91,8 @@ export function SetterYCloser({ ctx, titulo, diseno, epico }: PropsBloque) {
   }
   return (
     <Bloque titulo={titulo} epico={epico}>
-      <div className="fr-dos">
-        {(['setter', 'closer'] as const).map((c) => (
+      <div className={quienes.length > 1 ? 'fr-dos' : undefined}>
+        {quienes.map((c) => (
           <CajaCampo key={c} marca={marcaDato(c)} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, padding: epico ? '16px 18px' : '10px 12px', borderRadius: 12, background: 'color-mix(in srgb, var(--ink) 4.5%, transparent)' }}>
             <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 2 }}>
               <span className="fr-sub">{c === 'setter' ? 'Setter' : 'Closer'}</span>

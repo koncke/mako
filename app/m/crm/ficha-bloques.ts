@@ -26,6 +26,7 @@ import { SEXOS } from '@/lib/resumen-ficha';
 import { COMO_ENTRO, entradaSocialGuardada } from '@/lib/canal-social';
 import { usuarioInstagram } from '@/app/crm/campo-inline';
 import { diasEntre, ingresoNoAplica, paginaLegible, textoDias, tiempoEnEtapa, usd, ETAPAS_SIN_RELOJ } from '@/app/crm/lead-view/ficha/resumen/logica';
+import { chipDeInscripcion, lineaDelProximo, type AutomatizacionesVista } from '@/app/crm/automatizacion-lead';
 
 /**
  * Las piezas que el teléfono sabe dibujar. Cada una es la versión de teléfono de UN bloque de escritorio.
@@ -35,7 +36,7 @@ import { diasEntre, ingresoNoAplica, paginaLegible, textoDias, tiempoEnEtapa, us
 export type PiezaFicha = 'proxima' | 'contacto' | 'llego-por' | 'contesto' | 'llamada' | 'notas' | 'saldo' | PiezaResumen;
 
 /** Las filas del Resumen nativo (`resumenDelTelefono`). */
-export type PiezaResumen = 'siguiente' | 'equipo' | 'calificado' | 'ingreso' | 'en-etapa' | 'motivo' | 'plazo' | 'redes' | 'pagina' | 'entrada' | 'direccion' | 'sexo';
+export type PiezaResumen = 'siguiente' | 'equipo' | 'calificado' | 'ingreso' | 'en-etapa' | 'motivo' | 'plazo' | 'redes' | 'pagina' | 'entrada' | 'direccion' | 'sexo' | 'automatizaciones';
 
 /**
  * EL BLOQUE DE ESCRITORIO → SU VERSIÓN DE TELÉFONO. Un bloque que no está aquí no tiene versión de teléfono y
@@ -64,6 +65,9 @@ export const PIEZA_DE_BLOQUE: Readonly<Partial<Record<BloqueId, PiezaFicha>>> = 
   'publicacion-de-entrada': 'entrada',
   direccion: 'direccion',
   sexo: 'sexo',
+  // «Automatizaciones» (23/10/2026): en una fila, en cuál está, su estado y lo próximo (o por qué no sale). El teléfono no
+  // frena ni empieza de nuevo: eso es de la computadora, con la pregunta antes.
+  'automatizaciones-en-curso': 'automatizaciones',
 };
 
 /** El orden de las tabs de la ficha de escritorio (FichaPorBloques: Tracking, Reuniones y Pagos, en ese orden). */
@@ -134,6 +138,8 @@ export function resumenDelTelefono(l: LeadParaResumen, o: {
   siguiente?: { titulo: string; detalle: string | null } | null;
   /** Desde cuándo está en su etapa y el plazo (la lectura de escritorio, `tiempoEnEtapaAction`). */
   enEtapa?: { desde: string | null; plazo: number | null } | null;
+  /** La fila de «Automatizaciones», ya armada (`filaDeAutomatizaciones`); null = no está en ninguna. */
+  automatizaciones?: string | null;
 }): ResumenTelefono {
   const salio = l.estado_lead === 'perdido' || l.estado_lead === 'descalificado';
   const t = o.enEtapa && !(o.etapa && ETAPAS_SIN_RELOJ.includes(o.etapa)) ? tiempoEnEtapa(o.enEtapa.desde, o.enEtapa.plazo, o.ahoraMs) : null;
@@ -154,11 +160,23 @@ export function resumenDelTelefono(l: LeadParaResumen, o: {
     entrada: entrada ? `${COMO_ENTRO[entrada.como]}${entrada.texto ? `: «${entrada.texto}»` : ''}` : null,
     direccion: l.direccion?.trim() || 'Sin dirección',
     sexo: SEXOS.find((x) => x.id === l.sexo)?.label ?? 'Sin dato',
+    automatizaciones: o.automatizaciones ?? null,
   };
 }
 
+/**
+ * LA FILA DE «AUTOMATIZACIONES» DEL TELÉFONO (23/10/2026): lo mismo que dice el bloque de escritorio, destilado. La primera
+ * viva con su estado y lo próximo (o por qué no sale), y «+N» si hay más. Sin ninguna, no hay fila.
+ */
+export function filaDeAutomatizaciones(v: AutomatizacionesVista, fecha: (iso: string) => string): string | null {
+  const [a, ...resto] = v.vivas;
+  if (!a) return null;
+  const mas = resto.length ? ` · +${resto.length}` : '';
+  return `${a.nombre} (${chipDeInscripcion(a).texto}) · ${lineaDelProximo(a, fecha)}${mas}`;
+}
+
 /** Las piezas del Resumen nativo: se callan cuando no aplican, aunque en escritorio su bloque sea de los de «—». */
-const DEL_RESUMEN: ReadonlySet<PiezaFicha> = new Set<PiezaFicha>(['siguiente', 'equipo', 'calificado', 'ingreso', 'en-etapa', 'motivo', 'plazo', 'redes', 'pagina', 'entrada', 'direccion', 'sexo']);
+const DEL_RESUMEN: ReadonlySet<PiezaFicha> = new Set<PiezaFicha>(['siguiente', 'equipo', 'calificado', 'ingreso', 'en-etapa', 'motivo', 'plazo', 'redes', 'pagina', 'entrada', 'direccion', 'sexo', 'automatizaciones']);
 
 /** El estado de cuenta, destilado a una fila: «Debe $500 · Cuota 2 venció el 02/10». */
 export type SaldoTelefono = { texto: string; tono: 'verde' | 'ambar' | 'rojo' | 'gris' };

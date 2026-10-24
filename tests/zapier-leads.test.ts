@@ -176,13 +176,13 @@ const H = 3_600_000;
 const T0 = Date.parse('2026-10-23T12:00:00Z');
 
 test('la tarjeta: espera, último lead, y ámbar a las 72 h', () => {
-  assert.deepEqual(tarjetaDelPuente(ESTADO_VACIO, T0), { estado: 'conectada', detalle: 'Esperando tu primer lead. Prueba tu Zap.' });
+  assert.deepEqual(tarjetaDelPuente(ESTADO_VACIO, T0), { estado: 'conectada', detalle: 'Esperando tu primer lead. Prueba tu escenario de Make o tu Zap.' });
   const hace = (h: number) => ({ entrega: new Date(T0 - h * H).toISOString(), lead: new Date(T0 - h * H).toISOString(), motivo: null });
   assert.deepEqual(tarjetaDelPuente(hace(5), T0), { estado: 'conectada', detalle: 'Último lead hace 5 h.' });
   assert.equal(tarjetaDelPuente(hace(HORAS_SIN_LEADS), T0).estado, 'conectada', 'justo en el límite todavía no');
   const callado = tarjetaDelPuente(hace(HORAS_SIN_LEADS + 1), T0);
   assert.equal(callado.estado, 'falta');
-  assert.equal(callado.detalle, 'Sin leads hace 3 días. Revisa tu Zap.');
+  assert.equal(callado.detalle, 'Sin leads hace 3 días. Revisa tu escenario de Make o tu Zap.');
   // Un puente que nunca recibió un lead no se pone ámbar por el tiempo: «espera», no «cayó».
   assert.equal(tarjetaDelPuente({ entrega: new Date(T0 - 500 * H).toISOString(), lead: null, motivo: 'x' }, T0).estado, 'conectada');
 });
@@ -261,23 +261,78 @@ test('el servicio está en todos los registros que lo hacen andar', () => {
   assert.match(sinComentarios(leer('../app/integraciones/IntegracionesBoard.tsx')), /&& !i\.callada\)/);
 });
 
-test('el negocio sabe qué cuesta: Zapier de pago y Make con plan gratis, en la tarjeta, y en la guía con fecha y links', () => {
+// El bloque del servicio en el catálogo de /metodo, sin comentarios: lo que la persona lee en la tarjeta.
+const catalogoZapier = (): string => {
+  const catalogo = sinComentarios(leer('../lib/metodo-catalogo.ts'));
+  return catalogo.slice(catalogo.indexOf("key: 'zapier'"), catalogo.indexOf("key: 'apify'"));
+};
+
+test('MAKE es el camino principal; Zapier, una línea de pago; y cada negocio usa SU cuenta', () => {
+  // Decisión de Martín (23/10/2026): «Obvio que es mejor Make si tiene plan gratis… Y que los usuarios traigan su propia API
+  // como siempre». La key del servicio sigue siendo 'zapier' (está en la base, el ruteo y la ruta); lo que cambia es lo que se lee.
+  const bloque = catalogoZapier();
+  assert.match(bloque, /nombre: 'Leads de Meta por Make o Zapier'/);
+  assert.match(leer('../lib/integraciones-catalogo.ts'), /nombre: 'Leads de Meta por Make o Zapier'/, 'la grilla y el formulario tienen que llamarse igual');
+  assert.match(bloque, /Usas tu propia cuenta de Make o de Zapier, de pago/, 'la tarjeta no dice que MaKo no paga ni comparte ninguna cuenta, y que son de pago');
+  // Los pasos son los de Make; Zapier es el ÚLTIMO y de pago.
+  const tutorial = bloque.slice(bloque.indexOf('pasos: ['));
+  const pasos = [...tutorial.slice(0, tutorial.indexOf('],')).matchAll(/^\s+'((?:[^'\\]|\\.)+)',$/gm)].map((m) => m[1]);
+  assert.equal(pasos.length, 5, 'el tutorial son 5 pasos');
+  assert.match(pasos[1], /app «Make»/, 'en Leads Access se asigna la app «Make»');
+  assert.match(pasos[2], /plan Core, US\$9 al mes/, 'el paso de Make no dice su plan mínimo ni su precio');
+  assert.match(pasos[2], /«Watch Leads»[\s\S]*«Make a request»/, 'el paso 3 es el escenario de Make: Watch Leads y el módulo HTTP');
+  assert.match(pasos[3], /X-MaKo-Clave/);
+  assert.match(pasos[4], /^Con Zapier \(plan Professional, desde US\$20 al mes\)/, 'Zapier queda como alternativa de pago, con su plan mínimo, en una línea');
+  assert.ok(!pasos.slice(0, 4).some((p) => /Zapier/.test(p) && !/app «Make»/.test(p)), 'Zapier se coló en los pasos de Make');
+  // La guía arranca por Make: sus pasos van ANTES que los de Zapier y que el precio.
+  const guia = leer('../docs/guia-leads-por-zapier.md');
+  const iMake = guia.indexOf('## Los pasos con Make');
+  assert.ok(iMake > 0 && iMake < guia.indexOf('## Con Zapier (alternativa, de pago)') && iMake < guia.indexOf('## Cuánto cuesta'), 'la guía tiene que arrancar por Make');
+  assert.match(guia, /Cada negocio usa SU PROPIA cuenta/);
+});
+
+test('NADA de lo que lee el negocio promete «al instante», cuántos leads aguanta un plan, ni dice «gratis»', () => {
+  // Sin medir con una cuenta de Make: si «Watch Leads» es instantáneo (en Free corre cada 15 minutos como mínimo) y si una
+  // corrida vacía gasta crédito. Prometer lo uno o lo otro es prometer algo que nadie probó. El texto que explica que NO se
+  // promete (la guía) puede nombrarlo; la tarjeta, las slides y el aviso de la API, no.
+  // «gratis» y «sin costo»: Martín (23/10/2026) corrigió que el plan Free de Make no sirve; los dos caminos son de pago.
+  const que = /al instante|instant[áa]ne|en el momento|inmediat|en segundos|\b500\b|2\.900|ilimitad|gratis|sin costo|sin cargo/i;
+  const textos: Array<[string, string]> = [
+    ['la tarjeta', catalogoZapier()],
+    ['las slides', JSON.stringify(SLIDES.zapier)],
+    ['el estado de la tarjeta', sinComentarios(leer('../lib/zapier-estado.ts'))],
+    ['el aviso de la API', (leer('../lib/api-mako/areas/integraciones.run.ts').match(/'Leads de Meta por Make o Zapier[^\n]*/) ?? [''])[0]],
+  ];
+  for (const [donde, t] of textos) assert.ok(t.length > 20 && !que.test(t), `${donde} promete lo que no se midió: «${(que.exec(t) ?? [''])[0]}»`);
+  // Y la guía deja escrito, sin poder borrarse, que no se promete.
+  const guia = leer('../docs/guia-leads-por-zapier.md');
+  assert.match(guia, /La pantalla no promete «al instante» ni cuántos leads aguanta cada plan, y no dice «gratis»/);
+  assert.ok(!/gratis/i.test(guia.replace(/y no dice «gratis»/, '')), 'la guía dice «gratis» en algún lado');
+});
+
+test('el negocio sabe qué cuesta: Make desde Core y Zapier desde Professional, en la guía con fecha y links', () => {
   // Zapier, leído en sus páginas oficiales el 23/10/2026: Facebook Lead Ads es una app premium (Professional, Team y Enterprise)
   // y «Webhooks by Zapier» tampoco está en Free. Make, leído por el Cerebro en un navegador el mismo día: tiene plan Free y
   // Facebook Lead Ads no es una «Enterprise app». Prometer el puente sin decirlo es prometerlo gratis (Zapier) o de pago (Make).
-  const catalogo = sinComentarios(leer('../lib/metodo-catalogo.ts'));
-  const bloque = catalogo.slice(catalogo.indexOf("key: 'zapier'"), catalogo.indexOf("key: 'apify'"));
-  assert.match(bloque, /Zapier pide plan de pago \(Professional\); Make tiene plan gratis/, 'la tarjeta no dice qué cuesta cada camino');
-  assert.match(bloque, /en Make, «Make»/, 'en Make se asigna la app «Make» como CRM, no «Zapier»');
   const guia = leer('../docs/guia-leads-por-zapier.md');
   assert.match(guia, /Cuánto cuesta \(leído el 23\/10\/2026\)/, 'el precio sin fecha envejece sin que nadie lo vea');
   assert.match(guia, /Plan mínimo: Professional, desde US\$19,99/, 'la guía perdió el plan mínimo de Zapier');
   assert.ok(guia.includes('https://help.zapier.com/hc/en-us/articles/8496061306253'), 'falta el link a la ayuda oficial de Facebook Lead Ads');
   assert.ok(guia.includes('https://zapier.com/pricing'), 'falta el link a los precios oficiales de Zapier');
-  assert.ok(guia.includes('https://www.make.com/pricing'), 'falta el link a los precios de Make');
-  assert.match(guia, /Free: US\$0, 1\.000 créditos al mes/, 'la guía perdió el plan gratis de Make');
-  // Y lo que NO está medido sigue marcado como tal: «gratis» en Make es «gratis para probar» hasta medirlo con una cuenta.
-  assert.match(guia, /Sin medir \(1\)[\s\S]*Sin medir \(2\)/, 'se borró lo que falta medir del plan gratis de Make');
+  assert.ok(guia.includes('https://www.make.com/en/pricing'), 'falta el link a los precios de Make');
+  assert.match(guia, /Core: US\$9 al mes/, 'la guía perdió el plan mínimo de Make');
+  assert.match(guia, /El plan Free de Make no se ofrece/, 'la guía dejó de decir que el plan Free de Make no se ofrece');
+  assert.ok(guia.includes('https://developers.make.com/api-documentation'), 'falta el link de lo que dice Make de su API');
+  // Y lo que NO está medido sigue marcado como tal (el intervalo del disparador y si una corrida vacía gasta crédito).
+  assert.match(guia, /Sin medir \(1\)[\s\S]*Sin medir \(2\)/, 'se borró lo que falta medir de los módulos y los créditos de Make');
+  // Lo CONFIRMADO en la ayuda oficial de Make, con su cita y su link: cambia qué intervalo se puede recomendar.
+  assert.ok(guia.includes('Trigger modules use 1 credit per run, regardless of whether they return data'), 'la guía perdió la cita de que un disparador cobra aunque venga vacío');
+  assert.ok(guia.includes('https://help.make.com/how-features-use-credits'), 'falta el link de la ayuda oficial de créditos de Make');
+  // Y la pregunta de una sola cuenta: el contrato y la ausencia de equipos, que son lo que la frenan.
+  assert.match(guia, /¿Una sola cuenta de Make de MaKo para todos los clientes\?/);
+  assert.match(guia, /solely for Your internal purposes… not for the benefit of any third parties/, 'la guía perdió la cláusula 4.1 del contrato de Make');
+  assert.match(guia, /Core no trae equipos ni roles/);
+  assert.match(guia, /mismo(s)? precio|Argentina y México; en EE\. UU\. son US\$12 y US\$16/, 'el precio de Core sin decir de qué país es');
 });
 
 test('la ruta es pública por el prefijo de webhooks, y sólo acepta POST con cuerpo', () => {
@@ -301,9 +356,19 @@ test('la ruta es pública por el prefijo de webhooks, y sólo acepta POST con cu
 //     como lead_id.
 //   · LOS REGISTROS: la clave sin ir por hash · sin su fila de ruteo · sin logo · sin ping · sin la exención del medidor ·
 //     la grilla escondiendo al puente caído · la tarjeta leyendo la clave y no lo que llegó.
-//   · EL PLAN DE PAGO (mismo día, después del pedido del Cerebro): la tarjeta sin su primer paso «Zapier pide plan de pago…» · la
-//     guía sin el plan mínimo · sin la fecha · sin el link a la ayuda oficial · sin el link a los precios: 5 de 5 (base 30 / 0).
-//   · MAKE GRATIS (mismo día, después de la lectura del Cerebro): la tarjeta sin «Make tiene plan gratis» · sin la app «Make»
-//     como CRM · la guía sin la fecha · sin el plan mínimo · sin el link de Make · sin su plan Free · sin lo que falta medir:
-//     7 de 7 (base 30 / 0).
+//   · LOS PRECIOS Y LAS PROMESAS, en tres vueltas el mismo día (cada una contra la versión del momento):
+//       · «Zapier de pago» (base 30 / 0): la tarjeta sin su aviso · la guía sin el plan mínimo · sin la fecha · sin el link a la ayuda
+//         oficial · sin el link a los precios: 5 de 5.
+//       · «Make principal y sin promesas» (base 32 / 0): la tarjeta llamada sólo por Zapier · la grilla y el formulario con nombres
+//         distintos · en Leads Access «Zapier» en vez de «Make» · el paso 3 sin «Watch Leads» · Zapier sin ser la línea de pago · la
+//         guía sin arrancar por Make · sin «cada negocio usa su propia cuenta» · la tarjeta prometiendo «al instante» · una slide con
+//         «500 leads» · el estado de la tarjeta con «inmediato» · el aviso de la API con «en segundos» · la guía sin la frase de que
+//         no se promete: 13 de 13.
+//       · «De pago, sin gratis» (la versión final, base 32 / 0; Martín: el plan gratis de Make no sirve): el paso de Make sin su
+//         plan y su precio · el de Zapier sin los suyos · la tarjeta sin «de pago» · la tarjeta con «gratis» (2 fallos) · una slide
+//         con «gratis» · el aviso de la API con «sin costo» · la guía con «gratis» · la guía sin «el plan Free de Make no se
+//         ofrece» · sin el precio de Core · sin el link de lo que dice Make de su API: 10 de 10.
+//       · LO CONFIRMADO SOBRE LOS CRÉDITOS Y UNA SOLA CUENTA (pedido del Cerebro, base 24 / 0): la guía sin la cita de que un disparador cobra
+//         vacío · sin el link de créditos · sin la sección de una sola cuenta · sin la cláusula 4.1 · sin «Core no trae equipos ni roles» · el
+//         precio de Core sin decir de qué país es: 6 de 6.
 // Y de punta a punta contra el ws3 (scripts/tmp-e2e-zapier.ts, no se commitea): docs/hallazgos-integraciones.md.

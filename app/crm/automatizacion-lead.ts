@@ -13,7 +13,7 @@
 // tests/crm-automatizacion-lead.test.ts.
 // =============================================================================
 
-import type { EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
+import type { AutomatizacionesDelLead, EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
 
 /** Hasta cuántos leads por pedido (el tope de `enAutomatizacionesAction`): un tablero más grande se pide en tandas. */
 export const TANDA_AUTOMATIZACIONES = 500;
@@ -72,11 +72,216 @@ export function chipDeAutomatizacion(auts: readonly EnAutomatizacion[] | undefin
 }
 
 /** La pregunta de «Frenar» antes de hacerlo: NOMBRA a quién y de dónde, y dice que no se deshace. */
-export function preguntaDeFrenar(o: { leads: number; nombre?: string | null; auts?: readonly EnAutomatizacion[] }): { titulo: string; mensaje: string } {
+export function preguntaDeFrenar(o: { leads: number; nombre?: string | null; auts?: readonly Pick<EnAutomatizacion, 'nombre'>[] }): { titulo: string; mensaje: string } {
   const quien = o.leads === 1 ? (o.nombre?.trim() || 'este lead') : `${o.leads} leads`;
   const donde = o.auts?.length === 1 ? ` en «${o.auts[0].nombre}»` : o.auts && o.auts.length > 1 ? ` en sus ${o.auts.length} automatizaciones` : '';
   return {
     titulo: `¿Frenar a ${quien}${donde}?`,
     mensaje: `No ${o.leads === 1 ? 'le' : 'les'} sale nada más. Para que ${o.leads === 1 ? 'vuelva' : 'vuelvan'}, se ${o.leads === 1 ? 'lo inscribe' : 'los inscribe'} a mano.`,
   };
+}
+
+// =============================================================================
+// EL BLOQUE «AUTOMATIZACIONES» DE LA FICHA (23/10/2026)
+// =============================================================================
+// Martín (23/10/2026): «Tal vez sería bueno crear un bloque dentro del detail de cada lead que esté relacionado a las
+// automatizaciones, no? Para tener más claridad de lo que pasa... Y que claro, sea editable como el resto de bloques».
+// Lo que lo motivó: sacó a su lead de prueba de «Prospección activa», lo volvió a meter para que «Sprint · apertura» le
+// escribiera otra vez, y no pasó nada: la automatización entra UNA sola vez y el lead seguía adentro. La ficha mostraba
+// la inscripción vieja como si nada.
+//
+// LA REFERENCIA: la tarjeta «Sequences» del registro de un contacto en HubSpot (y la de «Workflows»): cada secuencia
+// con su estado (Activa, En pausa, Terminó, Desinscripto), «Paso 2 de 5», el próximo paso con su fecha, lo enviado con
+// su estado (enviado, abierto, rebotó) y las acciones Pausar / Desinscribir. Acá: Frenar y Empezar de nuevo. Encima,
+// lo que HubSpot no tiene y Martín necesitaba: POR QUÉ no entró cuando se lo movió.
+//
+// Lo de abajo es puro (lo ejecuta tests/ficha-automatizaciones.test.ts). Los datos y las acciones son de Automations
+// (app/automations/automatizaciones-del-lead-actions.ts): el detalle (`AutomatizacionesDelLead`, `vistaDeDetalle`) y, de
+// respaldo, la lista de siempre (`EnAutomatizacion[]`, `vistaDeEnAutomatizacion`).
+
+/**
+ * El estado de una inscripción, como lo guarda el motor (`nutricion_inscripciones.estado`). `handoff`: MaKo le pasó la
+ * charla a una persona; `pendiente`: está por arrancar. Uno que no se conoce se trata como en curso.
+ */
+export type EstadoInscripcion = 'activa' | 'respondio' | 'handoff' | 'pendiente' | 'pausada' | 'completada' | 'no_responde' | 'cancelada' | (string & {});
+/**
+ * Cómo quedó un envío, el de `nutricion_envios.estado` ('enviado', 'fallo', 'saltado', 'omitido', 'borrador', 'accion').
+ * ⚠️ NO hay «entregado» ni «leído» por envío (Automations, 23/10/2026): no se inventa.
+ */
+export type EstadoEnvio = string;
+export type EnvioVista = { at: string; paso: string | null; canal: string | null; estado: EstadoEnvio; error: string | null };
+export type InscripcionVista = {
+  secuenciaId: number; nombre: string; link: string;
+  estado: EstadoInscripcion; automatizacionActiva: boolean;
+  paso: { numero: number; titulo: string; total: number | null } | null;
+  /** Lo que sale después y cuándo (ISO). `titulo` null = no se sabe qué tarjeta es (sólo la hora). */
+  proximo: { at: string | null; titulo: string | null } | null;
+  frenado: { texto: string; corto: string } | null;
+  termino: { at: string | null; texto: string } | null;
+  /** Lo que ya le salió en ESTA inscripción, del más nuevo al más viejo. */
+  enviados: EnvioVista[];
+  /** `porQueNo`: por qué no se puede empezar de nuevo (frenada, en pausa, con una persona). */
+  puede: { frenar: boolean; empezarDeNuevo: boolean; porQueNo?: string };
+  /** «Una sola vez», «Otra reunión» o «Cada vez que vuelve a entrar» (null = no se sabe), y su rótulo. */
+  reentrada: 'una_vez' | 'otra_reunion' | 'siempre' | null;
+  reentradaTexto?: string | null;
+};
+/** Una vez que se lo movió a una etapa con una automatización y NO entró, con el porqué ya dicho en palabras. */
+export type NoEntroVista = { secuenciaId: number; nombre: string; at: string | null; texto: string };
+export type AutomatizacionesVista = { vivas: InscripcionVista[]; terminadas: InscripcionVista[]; noEntro: NoEntroVista[] };
+
+const TERMINADOS: readonly string[] = ['completada', 'no_responde', 'cancelada'];
+/** Viva = no terminó (corriendo, por arrancar, en pausa, con una persona o frenada porque contestó). */
+export const estaViva = (i: Pick<InscripcionVista, 'estado'>): boolean => !TERMINADOS.includes(i.estado);
+
+/** Lo que no entró, en una frase: «No volvió a entrar a «X»: ya entró una vez y su reentrada es «Una sola vez» (va en el paso 2).» */
+function fraseNoEntro(n: { nombre: string; texto?: string | null; porque?: string | null }, paso?: { numero: number } | null): string {
+  if (!n.texto?.trim()) return textoDeNoEntro({ nombre: n.nombre, porque: n.porque ?? '', paso });
+  return `No volvió a entrar a «${n.nombre}»: ${n.texto.trim()}${paso ? ` (va en el paso ${paso.numero})` : ''}.`;
+}
+
+/** Cuántas veces que no entró se dicen: la última de cada automatización, las más nuevas. */
+const TOPE_NO_ENTRO = 3;
+
+/**
+ * EL DETALLE DE AUTOMATIONS → LA VISTA DEL BLOQUE. Las vivas arriba y las terminadas (30 días) abajo; lo enviado con el paso
+ * en palabras; y lo que no entró, la última vez por automatización, con el paso en el que está (lo cruza acá: el `NoEntro`
+ * no lo trae, y siempre hay una inscripción, porque sólo no entra quien ya tiene una).
+ */
+export function vistaDeDetalle(d: AutomatizacionesDelLead): AutomatizacionesVista {
+  const inscripciones: InscripcionVista[] = d.inscripciones.map((i) => ({
+    secuenciaId: i.secuenciaId, nombre: i.nombre, link: i.link, estado: i.estado, automatizacionActiva: i.automatizacionActiva,
+    paso: i.paso, proximo: i.proximo ? { at: i.proximo.at, titulo: i.proximo.titulo || null } : null,
+    frenado: i.frenado ? { texto: i.frenado.texto, corto: i.frenado.corto } : null,
+    termino: i.termino, puede: i.puede, reentrada: i.reentrada, reentradaTexto: i.reentradaTexto,
+    enviados: i.enviados.map((e) => ({ at: e.at, paso: e.paso ? `Paso ${e.paso.numero}: ${e.paso.titulo}` : null, canal: e.canal, estado: e.estado, error: e.error })),
+  }));
+  const vistas = new Set<number>();
+  const noEntro: NoEntroVista[] = [];
+  for (const n of [...d.noEntro].sort((a, b) => (b.at ?? '').localeCompare(a.at ?? ''))) {
+    if (vistas.has(n.secuenciaId) || noEntro.length >= TOPE_NO_ENTRO) continue;
+    vistas.add(n.secuenciaId);
+    const paso = inscripciones.find((i) => i.secuenciaId === n.secuenciaId && estaViva(i))?.paso ?? null;
+    noEntro.push({ secuenciaId: n.secuenciaId, nombre: n.nombre, at: n.at, texto: fraseNoEntro(n, paso) });
+  }
+  return { vivas: inscripciones.filter(estaViva), terminadas: inscripciones.filter((i) => !estaViva(i)), noEntro };
+}
+
+/** La lista de siempre (sólo las vivas, sin lo enviado) pasada a la vista del bloque. */
+export function vistaDeEnAutomatizacion(auts: readonly EnAutomatizacion[]): AutomatizacionesVista {
+  return {
+    vivas: auts.map((a) => ({
+      secuenciaId: a.secuenciaId, nombre: a.nombre, link: a.link, estado: a.estado, automatizacionActiva: a.automatizacionActiva,
+      paso: a.paso ? { ...a.paso, total: null } : null,
+      proximo: a.proximoEnvioAt ? { at: a.proximoEnvioAt, titulo: null } : null,
+      frenado: a.frenado ? { texto: a.frenado.texto, corto: a.frenado.corto } : null,
+      termino: null, enviados: [],
+      // Frenar ya existía; «Empezar de nuevo» espera la acción de Automations (`empezarDeNuevoAction`).
+      puede: { frenar: true, empezarDeNuevo: false }, reentrada: null,
+    })),
+    terminadas: [], noEntro: [],
+  };
+}
+
+export type TonoChip = 'mako' | 'gris' | 'ok' | 'mal';
+
+/** El chip de estado de una inscripción (el «Active / Paused / Finished» de HubSpot), corto. */
+export function chipDeInscripcion(i: InscripcionVista): { texto: string; tono: TonoChip } {
+  switch (i.estado) {
+    case 'respondio': return { texto: 'Respondió', tono: 'ok' };
+    case 'handoff': return { texto: 'Con una persona', tono: 'gris' };
+    case 'pendiente': return { texto: 'Por arrancar', tono: 'mako' };
+    case 'completada': return { texto: 'Terminó', tono: 'gris' };
+    case 'no_responde': return { texto: 'Terminó sin respuesta', tono: 'gris' };
+    case 'cancelada': return { texto: 'La frenaron', tono: 'gris' };
+    case 'pausada': return { texto: 'En pausa', tono: 'gris' };
+  }
+  if (!i.automatizacionActiva) return { texto: 'Automatización en pausa', tono: 'gris' };
+  if (i.frenado) return { texto: i.frenado.corto, tono: 'gris' };
+  return { texto: 'Activa', tono: 'mako' };
+}
+
+/** «Paso 2 de 5: WHATSAPP: Hola…», o sin el total si no se sabe. */
+export function lineaDelPaso(i: Pick<InscripcionVista, 'paso'>): string | null {
+  if (!i.paso) return null;
+  return `Paso ${i.paso.numero}${i.paso.total ? ` de ${i.paso.total}` : ''}: ${i.paso.titulo}`;
+}
+
+/**
+ * QUÉ SALE DESPUÉS Y CUÁNDO, o por qué no sale. Nunca silencio: si algo lo frena (el horario, la línea, un fallo) lo dice
+ * con su porqué; en una que terminó, cómo terminó. `fecha` formatea en la zona del negocio.
+ */
+export function lineaDelProximo(i: InscripcionVista, fecha: (iso: string) => string): string {
+  if (!estaViva(i)) return i.termino?.texto ?? 'Terminó.';
+  if (i.estado === 'respondio') return 'Se frenó porque respondió: no le sale nada más de esta automatización.';
+  if (i.estado === 'handoff') return 'MaKo le pasó la charla a una persona: la automatización no le escribe más.';
+  if (i.estado === 'pausada') return 'En pausa: no le sale nada hasta que se reanude.';
+  if (!i.automatizacionActiva) return 'La automatización está en pausa: el lead quedó en su paso y no le sale nada hasta que se active.';
+  if (i.frenado) return i.frenado.texto;
+  if (!i.proximo?.at) return 'Esperando: no hay nada agendado.';
+  return `Lo próximo${i.proximo.titulo ? `: ${i.proximo.titulo}` : ''} · ${fecha(i.proximo.at)}`;
+}
+
+const NOMBRE_ESTADO_ENVIO: Readonly<Record<string, string>> = {
+  enviado: 'Enviado', fallo: 'Falló', saltado: 'Se saltó', omitido: 'No salió', borrador: 'Quedó en borrador, sin mandar', accion: 'Hecho', pendiente: 'Por salir',
+};
+const TONO_ENVIO: Readonly<Record<string, TonoChip>> = { enviado: 'ok', accion: 'ok', fallo: 'mal' };
+const NOMBRE_CANAL: Record<string, string> = { whatsapp: 'WhatsApp', email: 'Email', instagram: 'Instagram', sms: 'SMS' };
+
+/** Un envío: «Entregado · WhatsApp · 23 oct, 09:00» o «Falló: el número no tiene WhatsApp · …». */
+export function lineaDelEnvio(e: EnvioVista, fecha: (iso: string) => string): { texto: string; tono: TonoChip } {
+  const canal = e.canal ? ` · ${NOMBRE_CANAL[e.canal] ?? e.canal}` : '';
+  const nombre = NOMBRE_ESTADO_ENVIO[e.estado] ?? (e.estado ? e.estado[0].toUpperCase() + e.estado.slice(1) : 'Sin estado');
+  const estado = e.error && e.estado !== 'enviado' && e.estado !== 'accion' ? `${nombre}: ${e.error}` : nombre;
+  return { texto: `${estado}${canal} · ${fecha(e.at)}`, tono: TONO_ENVIO[e.estado] ?? 'gris' };
+}
+
+/** La pregunta antes de «Empezar de nuevo»: nombra a quién y dónde, y que le vuelve a escribir desde el paso 1. */
+export function preguntaDeEmpezarDeNuevo(o: { nombre?: string | null; aut: Pick<InscripcionVista, 'nombre' | 'estado'> }): { titulo: string; mensaje: string } {
+  const quien = o.nombre?.trim() || 'este lead';
+  const desde = estaViva(o.aut) ? 'Lo saca del paso en el que está y ' : '';
+  return {
+    titulo: `¿Empezar de nuevo «${o.aut.nombre}» para ${quien}?`,
+    mensaje: `${desde}${desde ? 'le' : 'Le'} vuelve a salir todo desde el primer paso, como si recién entrara. Lo que ya le salió queda en el historial.`,
+  };
+}
+
+/** El texto de una vez que no entró, si viene sin decir (el respaldo: nunca una línea vacía). */
+export function textoDeNoEntro(o: { nombre: string; porque: string; paso?: { numero: number } | null }): string {
+  switch (o.porque) {
+    case 'en_curso': return `No volvió a empezar «${o.nombre}»: ya está adentro${o.paso ? ` (paso ${o.paso.numero})` : ''}.`;
+    case 'una_sola_vez': return `No volvió a entrar a «${o.nombre}»: entra una sola vez.`;
+    case 'cancelada': return `No volvió a entrar a «${o.nombre}»: la frenaron y no vuelve sola.`;
+    default: return `No entró a «${o.nombre}».`;
+  }
+}
+
+/** Lo que dice el bloque en una línea (el diseño «Una línea»): las vivas con su estado; sin vivas, la última terminada. */
+export function lineaDelBloque(v: AutomatizacionesVista): string {
+  if (v.vivas.length) return v.vivas.map((i) => `${i.nombre} (${chipDeInscripcion(i).texto}${i.paso ? `, paso ${i.paso.numero}` : ''})`).join(' · ');
+  const t = v.terminadas[0];
+  return t ? `${t.nombre} (${chipDeInscripcion(t).texto})` : '';
+}
+
+/** ¿Hay algo que mostrar? Sin vivas, terminadas ni «no entró», el bloque se calla. */
+export const vistaVacia = (v: AutomatizacionesVista): boolean => !v.vivas.length && !v.terminadas.length && !v.noEntro.length;
+
+/**
+ * LO QUE NO ENTRÓ AL MOVERLO, de la respuesta del movimiento (23/10/2026): `setLeadStageAction`, `completeStageMoveAction`
+ * y «¿Qué hacer ahora?» suman `automatizaciones.noEntro` (lo arma Automations: `enrolarPorEvento` ya no hace `continue` en
+ * silencio). El toast del tablero lo dice al lado de «Martin Koncke → Prospección activa»: «No volvió a empezar «Sprint ·
+ * apertura»: ya está adentro (paso 2).». Lee la respuesta sin suponer la forma: una respuesta sin el campo es «nada».
+ */
+export function noEntroDelMovimiento(r: unknown): string[] {
+  const lista = (r as { automatizaciones?: { noEntro?: unknown } } | null | undefined)?.automatizaciones?.noEntro;
+  if (!Array.isArray(lista)) return [];
+  return lista.flatMap((x) => {
+    if (!x || typeof x !== 'object') return [];
+    const o = x as { texto?: unknown; nombre?: unknown; porque?: unknown; paso?: { numero?: unknown } | null };
+    const texto = typeof o.texto === 'string' ? o.texto : null;
+    const n = o.paso && typeof o.paso.numero === 'number' ? { numero: o.paso.numero } : null;
+    // El `texto` de Automations es el motivo SIN el nombre: con el nombre, la frase entera.
+    if (typeof o.nombre === 'string') return [fraseNoEntro({ nombre: o.nombre, texto, porque: typeof o.porque === 'string' ? o.porque : null }, n)];
+    return texto?.trim() ? [texto.trim()] : [];
+  });
 }

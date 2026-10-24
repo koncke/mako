@@ -29,6 +29,7 @@ import { getFunnelDe, getFunnelDefault, idDelFunnelDefault, listarFunnels } from
 import { productosDe, puedeQuitar, aQuienPromover, etapaDeEntrada, casaParaEscribir, casaReal, nombreVisible, type ProductoDelLead, type FilaLeadFunnel } from './lead-funnel-reglas';
 import { terminalEstadoFor } from './pipeline';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
+import type { InformeMovimiento } from './reentrada';
 
 /**
  * Lo cobrado de la casa (`total_cobrado_casa_usd`, mig 0325) depende de en qué CRMs está el lead: un pago con el funnel de
@@ -148,11 +149,14 @@ export async function agregarAProducto(leadId: number, funnelId: number, opts?: 
  * (lib/nutricion.ts importa lib/leads.ts, que importa éste) y nunca tira: la fila ya se escribió, y lo que no entre lo
  * levanta el barrido de la hora.
  */
-async function enrolarAgregado(leadId: number, funnelId: number, etapa: string, o?: { enLote?: boolean }): Promise<void> {
+async function enrolarAgregado(leadId: number, funnelId: number, etapa: string, o?: { enLote?: boolean; persona?: string; informe?: InformeMovimiento }): Promise<void> {
   try {
     const { enrolarPorEvento } = await import('./nutricion');
     // En LOTE, sin la vía rápida: la manda el tick con el tope de la hora (ver `moverEtapaEnProducto`).
-    await enrolarPorEvento(leadId, 'etapa', { etapa, funnelId, agregado: true, ...(o?.enLote ? { sinViaRapida: true } : {}) });
+    await enrolarPorEvento(leadId, 'etapa', {
+      etapa, funnelId, agregado: true, ...(o?.enLote ? { sinViaRapida: true } : {}),
+      ...(o?.persona && o.informe ? { persona: o.persona, informe: o.informe } : {}),
+    });
   } catch (e) {
     console.error(`[lead-funnel] lead ${leadId}: no pude inscribirlo por llegar a «${etapa}» del CRM ${funnelId}:`, e instanceof Error ? e.message : e);
   }
@@ -276,7 +280,9 @@ export async function deshacerQuitar(d: DeshacerQuitar, opts?: { autor?: string 
  * Mueve la tarjeta de un lead AGREGADO dentro de ese producto: escribe la fila y nada más. Si el
  * producto es su casa, no es esta función (el tablero usa el camino de siempre).
  */
-export async function moverEtapaEnProducto(leadId: number, funnelId: number, etapa: string, opts?: { autor?: string; enLote?: boolean }): Promise<{ antes: string }> {
+// `porPersona`: lo movió una persona (el CRM, con sesión). Sólo así vuelve el informe de las automatizaciones de la etapa
+// (en cuáles entró y en cuáles no, con su porqué) y el «no volvió a entrar» queda en el historial (23/10/2026).
+export async function moverEtapaEnProducto(leadId: number, funnelId: number, etapa: string, opts?: { autor?: string; enLote?: boolean; porPersona?: boolean }): Promise<{ antes: string; automatizaciones?: InformeMovimiento | null }> {
   const db = await getTenantDb();
   const { data, error } = await db.from('lead_funnel').select('etapa').eq('lead_id', leadId).eq('funnel_id', funnelId).limit(1);
   if (error) throw new Error('No se pudo leer la etapa: ' + error.message);
@@ -317,8 +323,9 @@ export async function moverEtapaEnProducto(leadId: number, funnelId: number, eta
   // (`enLote`, la barra del CRM) se inscribe sin la vía rápida: 200 vías rápidas en fila no entran en los 60 s de la
   // acción, y la vía rápida no mira el tope de la HORA (sólo el cron, `cupoPorHora`): serían 200 en frío de golpe por la
   // línea. Las manda el tick del minuto que viene, con sus topes.
-  await enrolarAgregado(leadId, funnelId, etapa, { enLote: opts?.enLote });
-  return { antes: fila.etapa };
+  const informe: InformeMovimiento | null = opts?.porPersona ? { entro: [], noEntro: [] } : null;
+  await enrolarAgregado(leadId, funnelId, etapa, { enLote: opts?.enLote, ...(informe ? { persona: autor, informe } : {}) });
+  return { antes: fila.etapa, automatizaciones: informe };
 }
 
 /**

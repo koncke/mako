@@ -27,7 +27,7 @@ import { renglonesDeRespuestas, cortar } from './respuestas-agenda';
 import { formatoMonto } from './pasarela-moneda';
 import { cobradoDeLaVentaSiHay, faltaDeLaVenta } from './pagos-crm';
 import { NOMBRE_PASARELA } from './cobros-tipos';
-import { sinRenglonesVacios } from './variables-aviso';
+import { sinRenglonesVacios, tokensDe, datoDe, RE_VARIABLE } from './variables-aviso';
 import { aplicarVariables } from './template-vars';
 
 /** `1500` → `US$ 1.500`. Sin decimales: un aviso no es un recibo. */
@@ -448,4 +448,33 @@ export function valoresDelPago(p: PagoDelAviso): Record<string, string> {
  */
 export function textoConDatos(texto: string, vars: Record<string, string>): string {
   return aplicarVariables(sinRenglonesVacios(texto, vars), vars);
+}
+
+/** Lo que va en lugar de un dato sin valor cuando el aviso al equipo, sin él, quedaría vacío. */
+export const SIN_DATO_EQUIPO = '—';
+
+/**
+ * EL AVISO AL EQUIPO NO SE QUEDA VACÍO POR UN DATO QUE FALTA (23/10/2026, la #289 «Sprint · apertura» del ws1). El texto
+ * de la rama «Contestó» era UN renglón («… Teléfono: {{lead_telefono}} | Email: {{lead_email}} | Chat: {{link_chat_lead}}»),
+ * `sinRenglonesVacios` lo borró entero porque la lead no tenía email, y el aviso falló con «El aviso quedó vacío.»: a
+ * Mauricio no le llegó que una persona real había contestado. El flujo existía para pedirle el email a quien no lo dio.
+ *
+ * Primero, la regla de siempre (`textoConDatos`: el renglón con un dato sin valor se va). Si eso deja VACÍO un texto que
+ * tenía palabras propias, sale entero con `SIN_DATO_EQUIPO` en cada dato DEL CATÁLOGO sin valor: al equipo le sirve
+ * más «Email: —» que no enterarse. Lo desconocido sigue crudo (lo frena Publicar). Un texto que era SÓLO datos
+ * («{{lead_email}}») queda vacío como antes: no hay nada que avisar con un guion.
+ *
+ * Sólo para el EQUIPO (el aviso de la tarjeta MaKo, `textoDelAviso` en lib/api-mako/areas/chatbot.run.ts): al LEAD
+ * nunca le sale un «—» en lugar de su nombre.
+ */
+export function textoConDatosParaEquipo(texto: string, vars: Record<string, string>): string {
+  const lleno = textoConDatos(texto, vars);
+  if (lleno.trim() || typeof texto !== 'string') return lleno;
+  const propio = texto.replace(RE_VARIABLE, '').replace(/[\s\p{P}\p{S}]/gu, '');
+  if (!propio) return lleno;
+  const faltan: Record<string, string> = {};
+  for (const t of tokensDe(texto)) {
+    if (datoDe(t.key) && !Object.prototype.hasOwnProperty.call(vars, t.key)) faltan[t.key] = SIN_DATO_EQUIPO;
+  }
+  return aplicarVariables(texto, { ...faltan, ...vars });
 }

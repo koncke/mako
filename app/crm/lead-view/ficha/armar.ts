@@ -19,7 +19,7 @@
 // =============================================================================
 
 import { bloqueDef, bloquesDelLugar, esTabFicha, TABS_FICHA, type Ancho, type BloqueDef, type BloqueId, type IdHoja, type LugarFicha, type TabFicha } from '@/lib/ficha/catalogo';
-import type { BloquePuesto, EstiloFicha } from '@/lib/ficha/config';
+import { avisaDelPuesto, type BloquePuesto, type EstiloFicha } from '@/lib/ficha/config';
 import type { StepId } from '@/lib/stage-requirements';
 import { TEMA_BASE, paletaDe, plantillaDe, temaPropio, varsDeTema } from '@/lib/graficos-temas';
 import type { LeadFullData } from '@/app/crm/actions';
@@ -166,11 +166,23 @@ export function compartiendoFila(b: Pick<BloqueEnGrilla, 'span' | 'spanTableta'>
   return span < COLS_FICHA;
 }
 
-/** Los «datos sin marcar» cuyos campos dibuja un bloque: los suyos y los de lo que incluye, o los que declara. */
-export function cubreDe(def: BloqueDef, reglas: ReglasBloque): StepId[] {
+/**
+ * Los «datos sin marcar» cuyos campos dibuja un bloque PUESTO: los suyos y los de lo que incluye, o los que declara.
+ * (23/10/2026, Martín: «nada es obligatorio porque viene en el mismo bloque que otro»):
+ *   · un bloque que elige sus datos (el contacto, el setter y el closer) cubre sólo los que dejaron adentro
+ *     (`avisaDelPuesto`): un contacto sin la empresa no la ofrece como obligatoria ni lleva a «Solucionar» ahí;
+ *   · lo que incluye y su hoja ya puso APARTE (`hermanos`) no lo cubre: la R1 con la R2 al lado no dibuja la R2
+ *     (`partesDeReunion1`), y su «Obligatorio» no puede seguir moviendo la fecha de la R2.
+ */
+export function cubreDe(def: BloqueDef, reglas: ReglasBloque, o: { puesto?: BloquePuesto; hermanos?: readonly string[] } = {}): StepId[] {
   if (reglas.cubre) return [...reglas.cubre];
-  const out = new Set<StepId>(def.avisa);
-  for (const id of reglas.incluye ?? []) for (const p of bloqueDef(id)?.avisa ?? []) out.add(p);
+  const out = new Set<StepId>(o.puesto ? avisaDelPuesto(def, o.puesto.opciones) : def.avisa);
+  const aparte = new Set(o.hermanos ?? []);
+  for (const id of reglas.incluye ?? []) {
+    if (aparte.has(id)) continue;
+    for (const p of bloqueDef(id)?.avisa ?? []) out.add(p);
+  }
+  for (const p of reglas.cubreTambien ?? []) out.add(p);
   return [...out];
 }
 
@@ -186,8 +198,10 @@ export function tabDelDato<T extends string>(paso: StepId, tabs: readonly T[], o
   verPrivado: boolean;
 }): T | null {
   for (const tab of tabs) {
-    const dibujados = bloquesDeLaGrilla(o.listaDe(tab), { reglasDe: o.reglasDe, vacio: o.vacio, editando: false, verPrivado: o.verPrivado });
-    if (dibujados.some((b) => cubreDe(b.def, b.reglas).includes(paso))) return tab;
+    const lista = o.listaDe(tab);
+    const hermanos = lista.map((p) => p.id);
+    const dibujados = bloquesDeLaGrilla(lista, { reglasDe: o.reglasDe, vacio: o.vacio, editando: false, verPrivado: o.verPrivado });
+    if (dibujados.some((b) => cubreDe(b.def, b.reglas, { puesto: b.puesto, hermanos }).includes(paso))) return tab;
   }
   return null;
 }

@@ -117,7 +117,8 @@ test('la tarjeta MAKO EN WHATSAPP resuelve el catálogo entero, para el EQUIPO y
   const t = bloque(run, 'async function textoDelAviso(', '\n}\n');
   // Undécima tanda (§5): los valores del catálogo y la MISMA función de todo envío (`textoConDatos`, el renglón opcional).
   assert.match(t, /await valoresDeVariables\(\{ ws, leadId: lead\?\.id \?\? null, leadNombre: lead\?\.nombreCrudo \?\? null, destino: 'equipo' \}, t, base\)/);
-  assert.match(t, /textoConDatos\(t, /);
+  // 23/10/2026: `textoConDatosParaEquipo` (la misma regla, y si deja el aviso vacío, sale con «—»; tests/aviso-equipo-no-vacio.test.ts).
+  assert.match(t, /textoConDatosParaEquipo\(t, /);
   assert.doesNotMatch(t, /getWorkspaceActual|wsEnContexto/, 'el workspace del aviso sale del ctx: un flujo corre en un cron');
 });
 
