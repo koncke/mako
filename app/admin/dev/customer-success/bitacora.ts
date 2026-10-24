@@ -1062,4 +1062,26 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/customer-success',
   },
+  {
+    fecha: '23 oct', hora: '20:22', chat: 'API de MaKo', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El link de una invitación del buscador abre aunque el lead no esté en Ganado',
+    puntos: [
+      'Invitar desde «Del embudo» mandaba el mail, pero el link no abría si el lead no estaba en Ganado: la puerta del portal exige Ganado y la invitación no dejaba ninguna marca.',
+      'Ahora la invitación deja un permiso a mano (migración 0331, que va antes del deploy), y el portal, la comunidad y el paso de etapa lo reconocen.',
+      'Desde el mismo buscador se corta y se vuelve a habilitar. El permiso no lo corta pasar a Perdido ni un reembolso, como decidió el Cerebro.',
+      'A los invitados del 13 al 23/10 se los vuelve a invitar desde el buscador: les llega un segundo mail, que ahora abre.',
+    ],
+    commits: [
+      { sha: 'b8e24c5c', msg: 'Curso: el link de una invitación del buscador abre aunque el lead no esté en Ganado (mig 0331)', lineas: 858, archivos: 15 },
+    ],
+    archivos: [
+      'supabase/migrations/0331_curso_accesos_a_mano.sql — la marca, antes del deploy',
+      'lib/curso-invitar-reglas.ts — productosQueVe, abrePorPermiso y estadoEnBuscador',
+      'lib/curso-datos.ts — resolverAcceso y permisoAManoDe',
+      'app/customer-success/curso/InvitarAlumnos.tsx — cortar y volver a habilitar',
+      'tests/curso-acceso-a-mano.test.ts — 14 roturas, cada una cae',
+    ],
+    revisar: '/customer-success',
+  },
 ];

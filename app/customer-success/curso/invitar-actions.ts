@@ -46,12 +46,16 @@ import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
 import { invitarAlCurso, TEXTO_NO_INVITA, type IntentoInvitar } from '@/lib/curso-invitar';
-import { accesoParaPantalla, productosDeAccesos, type AccesoParaPantalla } from '@/lib/curso-datos';
+import {
+  accesoParaPantalla, productosDeAccesos, accesoDe, revocarAcceso, reactivarAcceso, permisoAManoDe, aManoDeVarios,
+  type AccesoParaPantalla,
+} from '@/lib/curso-datos';
+import { accesosDeClientes, type AccesoFilaInvitacion } from '@/lib/curso-admin';
 import { puedeUsarCs } from '../puerta';
 import { darDeAltaAlumno } from '@/lib/curso-alta-alumno';
 import { avisoInvitacionCurso, type AvisoInvitacionCurso } from '../curso-ficha-lectura';
 import { canalesDeInvitacion, fraseWhatsapp, tieneTelefono } from '@/lib/curso-invitar-canales';
-import { correoQueFallo, type CorreoQueFallo } from '@/lib/curso-invitar-reglas';
+import { correoQueFallo, estadoEnBuscador, type CorreoQueFallo } from '@/lib/curso-invitar-reglas';
 
 /** Tope de una tanda: la lista del editor no tiene más clientes que esto, y cada uno es un mail. */
 const TOPE_TANDA = 50;
@@ -347,17 +351,22 @@ async function conEstado(dups: Array<{ leadId: number; nombre: string; texto: st
 
 /**
  * Busca leads para invitar, en CUALQUIER etapa del embudo. Devuelve lo justo para elegir uno:
- * quién es, cómo distinguirlo de un homónimo, su email del CRM, y si ya está invitado a ESE curso.
+ * quién es, cómo distinguirlo de un homónimo, su email del CRM, y en qué estado está con ESE curso.
  *
- * ⚠️ EL `yaInvitado` NO ES DECORACIÓN: sin él, el único modo de enterarse de que alguien ya estaba
+ * ⚠️ EL `estado` NO ES DECORACIÓN: sin él, el único modo de enterarse de que alguien ya estaba
  *    invitado es apretar y leer «Ya está invitado.» — y con un buscador abierto sobre la cartera
- *    entera eso pasa todo el tiempo. La fila lo dice antes.
+ *    entera eso pasa todo el tiempo. La fila lo dice antes. Desde la mig 0331 son cuatro
+ *    (`estadoEnBuscador`): invitar, invitado, dado a mano (se puede cortar) y cortado (se puede volver
+ *    a habilitar si fue a mano). Un invitado SIN Ganado ni permiso vuelve a «invitar»: su link no abría.
  *
  * ⚠️ Y NO FILTRA a los ya invitados hacia afuera: buscar a alguien y que no aparezca es
  *    indistinguible de «no existe», y manda a crearlo de nuevo.
  */
 export async function buscarLeadsParaInvitarAction(q: string, productoId: number): Promise<
-  | { ok: true; filas: Array<{ id: number; nombre: string; segunda: string | null; email: string | null; yaInvitado: boolean }>; hayMas: boolean }
+  | {
+      ok: true; hayMas: boolean;
+      filas: Array<{ id: number; nombre: string; segunda: string | null; email: string | null; estado: 'invitar' | 'invitado' | 'dado-a-mano' | 'cortado'; conPermiso: boolean }>;
+    }
   | { ok: false; error: string }
 > {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
@@ -378,7 +387,12 @@ export async function buscarLeadsParaInvitarAction(q: string, productoId: number
     // El email y el «ya invitado» SÓLO de las ~20 que vuelven: preguntar por la cartera entera sería
     // leer miles de accesos para dibujar veinte renglones.
     const porId = new Map(leads.map((l) => [Number(l.id), l]));
-    const accesos = await productosDeAccesos(filas.map((f) => f.id)).catch(() => new Map<number, number[]>());
+    // Las dos con su `.catch`: sin ellas la fila queda en «invitar», y el núcleo vuelve a decidir al apretar.
+    const ids = filas.map((f) => f.id);
+    const [accesos, manos] = await Promise.all([
+      accesosDeClientes(ids).catch(() => new Map<number, AccesoFilaInvitacion>()),
+      aManoDeVarios(ids).catch(() => new Map<number, number[]>()),
+    ]);
     return {
       ok: true,
       hayMas,
@@ -387,7 +401,11 @@ export async function buscarLeadsParaInvitarAction(q: string, productoId: number
         nombre: f.nombre,
         segunda: f.segunda,
         email: (porId.get(f.id)?.email ?? '').trim() || null,
-        yaInvitado: (accesos.get(f.id) ?? []).includes(producto),
+        estado: estadoEnBuscador({
+          acceso: (() => { const a = accesos.get(f.id); return a ? { cortado: a.estado === 'cortado', productos: a.productos, invitacionEnviadaAt: a.invitacionEnviadaAt } : null; })(),
+          aMano: manos.get(f.id) ?? [], productoId: producto, ganado: porId.get(f.id)?.estado_lead === 'ganado',
+        }),
+        conPermiso: (manos.get(f.id) ?? []).length > 0,
       })),
     };
   } catch (e) {
@@ -401,7 +419,8 @@ export async function buscarLeadsParaInvitarAction(q: string, productoId: number
  * ⚠️ NO LO HACE CLIENTE NI LO MUEVE EN EL KANBAN, a propósito. `invitarNuevoAlumnoAction` sí lo hace
  *    —porque ahí se está dando de alta a alguien que no existe—, pero mover de etapa a un lead que YA
  *    está en el embudo es cambiarle la venta a alguien por haberle dado acceso a un curso, y eso lo
- *    decide el CRM. Acá sólo se le abre el curso.
+ *    decide el CRM. Acá sólo se le abre el curso, con un permiso a mano (mig 0331) cuando hace falta:
+ *    sin él, el link del mail de alguien que no está en Ganado no abría.
  *
  * ⚠️ `reenviar: false`: es idempotente. Un doble clic, o alguien invitado en otra pestaña entre que
  *    se buscó y se apretó, contesta «Ya está invitado.» y no manda un segundo mail.
@@ -435,5 +454,53 @@ export async function invitarLeadDeCualquierEtapaAction(leadId: number, producto
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo invitar.' };
+  }
+}
+
+/**
+ * Corta el acceso de alguien a quien se le abrió el curso a mano desde el buscador (mig 0331). Decisión del Cerebro
+ * (23/10/2026): ese permiso NO lo corta pasar a Perdido ni un reembolso —lo dio una persona y no lo deshace otro
+ * evento—, así que se corta acá, a mano. Es el mismo corte de la ficha (`revocarAcceso`: versión + 1 y revocado,
+ * también sus líderes), y se relee para no decir «cortado» sobre algo que sigue abierto.
+ */
+export async function cortarAccesoDadoAManoAction(leadId: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
+  try {
+    const id = Number(leadId);
+    if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'Ese lead no existe.' };
+    const antes = await accesoDe(id);
+    if (!antes) return { ok: false, error: 'No tenía acceso para cortar.' };
+    if (!antes.revocado) await revocarAcceso(id);
+    const despues = await accesoDe(id);
+    if (!despues?.revocado) return { ok: false, error: 'Sigue abierto.' };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo cortar.' };
+  }
+}
+
+/**
+ * Vuelve a habilitar, desde el buscador, el acceso que se había dado a mano (mig 0331). Sólo si tiene algo a mano: un
+ * acceso de la venta se habilita desde su ficha, que es donde se ve todo lo demás. El link es NUEVO (la versión subió
+ * al cortar), así que vuelve para copiarlo.
+ */
+export async function habilitarAccesoDadoAManoAction(leadId: number): Promise<
+  | { ok: true; acceso: AccesoParaPantalla }
+  | { ok: false; error: string }
+> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
+  try {
+    const id = Number(leadId);
+    if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'Ese lead no existe.' };
+    const ws = await getWorkspaceActual();
+    if (!ws) return { ok: false, error: 'No sé en qué cuenta estás.' };
+    const permiso = await permisoAManoDe(id);
+    if (!permiso?.aMano.length) return { ok: false, error: 'Habilítalo desde su ficha.' };
+    await reactivarAcceso(id);
+    const acceso = await accesoParaPantalla(id, ws);
+    if (acceso.revocado) return { ok: false, error: 'Sigue cortado.' };
+    return { ok: true, acceso };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo habilitar.' };
   }
 }
