@@ -43,7 +43,7 @@ import type { TurnoSim } from '@/lib/setting-simulador';
 import { conversacionAbierta, atiendeAlResponder, charlaPasaAUnaPersona, escritoParaElAviso, type InscCharla, type AudioDelLead } from '@/lib/setter-conversacion';
 import { ambitoDeSecuencia, filtroDeAmbito, agregadosQueEntran, agregadoEntraPorEvento, conAgregados, type AmbitoFunnel, type FilaAgregado, type LeadDelAgregado } from '@/lib/nutricion-ambito';
 import { corteEntrada, esEntradaFresca, reservaParaEntradas, cupoDeCampana, HORAS_ENTRADA } from '@/lib/nutricion-prioridad';
-import { frenoDeGoteo, turnoDeGoteo, conEnvio, cuentaParaElGoteo, ESTADOS_DEL_GOTEO, SIN_USO, type Goteo, type UsoGoteo } from '@/lib/goteo';
+import { frenoDeGoteo, turnoDeGoteo, conEnvio, cuentaParaElGoteo, noGastaTurnoDeWhatsapp, ESTADOS_DEL_GOTEO, SIN_USO, type Goteo, type UsoGoteo } from '@/lib/goteo';
 import {
   secuenciasDeEntrega, secuenciasDeEtiqueta, secuenciasQueSeCierran, etapasDe, normalizarEtapas, deLaEtapaYLasDemas,
   TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA,
@@ -87,7 +87,7 @@ import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
 import { esperaQueAbra } from '@/lib/mako-tarjeta';
 import { usaEquipoContesto, contestoElEquipo, type TurnoDelGrupo } from '@/lib/equipo-contesto';
 import {
-  indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
+  indiceActual, siguienteIndice, relojDeLasEsperas, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
   condicionDeArriba, condicionSigueLlevando, usaContesto, destinoAlContestar, ramaDeQuienContesto,
   esNodoDeControl, RELLENO_CONTROL, TOPE_SALTOS, esColumnaInexistente, etiquetasQueCuentan, barridoInscribe, irAEstaMisma,
@@ -4008,8 +4008,12 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
   /** ¿Un MENSAJE de esta fila se queda sin lugar en esta corrida? La línea, o el goteo de su automatización. */
   const sinLugar = (insc: { lead_id: number; secuencia_id: number }, canal: string | null | undefined): boolean =>
     sinLugarEnLaLinea(insc.lead_id) || (esEmail(canal) ? frenoGoteoEmail(insc.secuencia_id) : frenoGoteo(insc.secuencia_id)).frena;
-  /** ¿Este nodo puede correr con el cupo de WhatsApp lleno? Una acción sí; un email, si queda su tope. */
-  const sigueSinCupoWa = (p: PasoSecuencia): boolean => esPasoAccion(p) || (claseDe(p) === 'mensaje' && p.canal === 'email' && !emailLleno());
+  /**
+   * ¿Este nodo puede correr con el cupo (o el goteo) de WhatsApp lleno? Una acción sí; todo lo que no es un MENSAJE (una
+   * condición, una espera), también (24/10/2026: la condición «Contestó» tomaba un turno del goteo sin mandar nada y la
+   * campaña salía a la mitad del ritmo, `noGastaTurnoDeWhatsapp`); un email, si queda su tope.
+   */
+  const sigueSinCupoWa = (p: PasoSecuencia): boolean => esPasoAccion(p) || noGastaTurnoDeWhatsapp(claseDe(p), p.canal, emailLleno());
   /** Y por su lugar en el flujo: lo del carril también (M3 e). */
   const sigueSinCupo = (pasos: readonly PasoSecuencia[], idx: number): boolean =>
     !!pasos[idx] && (sigueSinCupoWa(pasos[idx]) || esHiloDelCarril(pasos, idx));
@@ -4560,7 +4564,10 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
         // Un flujo con carril ancla su DELAY «antes de la reunión» en la reunión CON HORA (M3 a; sin ella y con
         // fecha, `sin_hora` cierra ese hilo, M3 g). Uno sin carril no tiene esa espera: lo de siempre.
         const reunionConHoraMs = tieneCarril(sec.pasos) ? await reunionConHoraDe(lead) : undefined;
-        const r = resolverControl(sec.pasos, idxLeido, { hechos, ahoraMs: Date.now(), reunionMs: reunionFuturaMs(lead), reunionConHoraMs });
+        // Las esperas cuentan desde que quedó LISTA (salió el mensaje de antes o venció la espera de antes), no desde que se
+        // la procesa: el horario o un tick tarde no le corren el reloj (`relojDeLasEsperas`, 24/10/2026).
+        const ahoraCtl = Date.now();
+        const r = resolverControl(sec.pasos, idxLeido, { hechos, ahoraMs: ahoraCtl, reunionMs: reunionFuturaMs(lead), reunionConHoraMs, relojMs: relojDeLasEsperas(insc.proximo_envio_at, ahoraCtl) });
         const canalCtl = pasoLeido.canal;
         // Las flechas en paralelo que la resolución encontró (de una espera, del inicio o —cuarta
         // tanda, punto 8— del RESULTADO elegido de una condición) arrancan con cualquier desenlace

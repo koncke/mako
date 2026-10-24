@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { frenoDeGoteo, turnoDeGoteo, conEnvio, textoDeGoteo, SIN_USO } from '../lib/goteo';
+import { frenoDeGoteo, turnoDeGoteo, conEnvio, textoDeGoteo, noGastaTurnoDeWhatsapp, SIN_USO } from '../lib/goteo';
 import { sanearConfigAutomatizacion, configParaGuardar, tieneConfigPropia } from '../lib/config-automatizacion';
 
 const MIN = 60_000;
@@ -84,7 +84,20 @@ test('el uso del goteo cuenta los WhatsApp ENVIADOS (y los que quedan para aprob
   assert.match(cuerpo, /\.in\('secuencia_id', \[\.\.\.ids\]\)\.eq\('canal', canal\)\.in\('estado', \[\.\.\.ESTADOS_DEL_GOTEO\]\)\.gte\('created_at', haceHorasISO\(24\)\)/);
 });
 
+test('lo que no es un mensaje no gasta un turno del goteo (24/10/2026: la campaña de Mauricio salía cada 22 min con goteo de 11)', () => {
+  // La condición «Contestó» que sigue a cada M1, una espera, un «Ir a», la entrada: corren en el acto.
+  for (const clase of ['condicion', 'esperar', 'ir_a', 'inicio', 'respuesta', 'accion']) assert.equal(noGastaTurnoDeWhatsapp(clase, null, false), true, clase);
+  // Un mensaje de WhatsApp sí; un email, mientras quede su tope.
+  assert.equal(noGastaTurnoDeWhatsapp('mensaje', 'whatsapp', false), false);
+  assert.equal(noGastaTurnoDeWhatsapp('mensaje', 'email', false), true);
+  assert.equal(noGastaTurnoDeWhatsapp('mensaje', 'email', true), false);
+  // Y el motor lo usa en la puerta del nodo leído (el destino de una condición pasa por el freno en la segunda mirada).
+  assert.match(proc, /const sigueSinCupoWa = \(p: PasoSecuencia\): boolean => esPasoAccion\(p\) \|\| noGastaTurnoDeWhatsapp\(claseDe\(p\), p\.canal, emailLleno\(\)\);/);
+});
+
 // ── Las roturas (7 tests; sin romper nada: 7 pases, 0 fallos) ──────────────────────────────────────────────────────
+// (24/10/2026, el 8.º test: base 8 / 0.) 8. `noGastaTurnoDeWhatsapp` sólo con los emails (lo de antes): 1 fallo / 7 pases.
+//    9. `sigueSinCupoWa` sin `noGastaTurnoDeWhatsapp`: 1 fallo / 7 pases.
 // 1. `frenoDeGoteo` sin el tope del día: 1 fallo / 6 pases.
 // 2. `frenoDeGoteo` sin los minutos: 1 fallo / 6 pases.
 // 3. `turnoDeGoteo` sin escalonar (todas al mismo instante): 1 fallo / 6 pases.
