@@ -24,8 +24,9 @@
 //     sobre una hoja sin hilo se trae lo guardado. Así sobrevive a recargar y se ve en el Ops Center.
 //
 // LA CARA DEL OPS CENTER (22/10/2026, TB3; Martín: «quiero que todos los chats de MaKo en las tabs sean el del Ops Center»):
-// el hilo es `HiloMako` y la caja es `CajaChat` (app/_chat/), las piezas únicas, con el MUÑECO de la tab («Dashboard» o
-// «General», lib/centro-munecos.ts). Lo que sólo tiene este chat —«lo que cambió» con su Deshacer, los avisos, un error con
+// el hilo es `HiloMako` y la caja es `CajaChat` (app/_chat/), las piezas únicas. Desde el 23/10/2026, adentro del PANEL único
+// (PanelChat.tsx → PanelDeChat) y con la estrella de MaKo, no el muñeco de la tab (Martín: «Tienes que UNIFICAR los chats con
+// MaKo en toda la app»; la regla del 21/10: las criaturas de MaKo son siempre su estrella). Lo que sólo tiene este chat —«lo que cambió» con su Deshacer, los avisos, un error con
 // su link y los pedidos de otra hoja con sus botones— va en el hueco `enMensaje` del hilo (./items-edicion.ts). El motor es
 // el de siempre (la ruta de los pedidos y /api/graficos/editar): la estrella de la tab, en «analizar», no edita la hoja.
 // Y va a la IZQUIERDA, como todo MaKo en una tab (el marco `.an`, ./PanelAnalista.tsx).
@@ -37,6 +38,8 @@ import { TURNOS_IA, type TurnoEdicion } from '@/lib/graficos-ia-edicion';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
+import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import '@/app/admin/operaciones/centro.css';
 import { PLAZO_PEDIDOS_MS, pedirPedidos } from '@/app/web-generator/cliente';
@@ -123,6 +126,8 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   const idPedido = useRef(0);
   const campo = useRef<HTMLTextAreaElement>(null);
   const fin = useRef<HTMLDivElement>(null);
+  /** La conversación del panel único (PanelDeChat): la columna que scrollea. */
+  const hiloPanel = useRef<HTMLDivElement>(null);
   const pensando = desde != null;
 
   useEffect(() => {
@@ -254,8 +259,6 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
 
   const sugerencias = informe === 'general' ? SUGERENCIAS_GENERAL : SUGERENCIAS_DASHBOARD;
   const segundos = desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0;
-  // El muñeco de la tab: el mismo que tiene en el Centro de Operaciones.
-  const tab = informe === 'general' ? 'General' : 'Dashboard';
   const animo = pensando ? 'trabajando' : 'despierto';
   const items = useMemo(() => itemsDeEdicion(hilo), [hilo]);
 
@@ -307,17 +310,26 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
     <section role="complementary" className="an em" aria-label="Editar con MaKo" onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onCerrar(); } }}>
       <style>{CSS_PANEL_LATERAL + CSS + CSS_MODOS_MAKO}</style>
-      <div className="an-cab">
-        <Muneco titulo={tab} animo={animo} size={26} />
-        {onModo ? <ModosMako modo="editar" onModo={onModo} /> : <span className="an-tit">Editar con MaKo</span>}
-        <button type="button" className="an-x" onClick={onCerrar} aria-label="Cerrar" title="Cerrar">×</button>
-      </div>
-
-      <div className="co-hilo em-hilo" aria-live="polite">
-        <div className="co-hilo__col">
+      {/* EL CHAT DEL OPS CENTER (23/10/2026, Martín: «Tienes que UNIFICAR los chats con MaKo en toda la app»): el panel único
+          (PanelChat.tsx) con su cabecera y la estrella de MaKo (antes, la criatura de la tab), los modos y el cerrar a su lado;
+          el hilo y la caja únicos adentro. Lo propio de la hoja (su motor, deshacer, analizar) sigue acá. */}
+      <PanelDeChat hilo={hiloPanel}
+        cabecera={{ clave: 'editar-con-mako', titulo: onModo ? 'MaKo' : 'Editar con MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo,
+          acciones: <>
+            {onModo && <ModosMako modo="editar" onModo={onModo} />}
+            <button type="button" className="an-x" onClick={onCerrar} aria-label="Cerrar" title="Cerrar" style={{ marginLeft: 'auto' }}>×</button>
+          </> }}
+        caja={<>
+          <div className="co-caja">
+            <CajaChat campo={campo} texto={texto} onTexto={(t) => { setTexto(t); setErrorDictado(null); }} onMandar={() => { void enviar(); }}
+              ocupado={pensando} placeholder="Pídele un cambio a MaKo" tituloMandar="Mandar" enterManda onErrorMic={setErrorDictado} />
+          </div>
+          {errorDictado && <p className="em-err">{errorDictado}</p>}
+        </>}
+        estado="">
           {!hilo.length && (
             <div className="em-vacio">
-              <Muneco titulo={tab} animo={animo} size={64} />
+              <Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo={animo} size={64} />
               <p className="em-hola">¿Qué le cambio a esta hoja?</p>
               <p className="em-sub">Pídelo con tus palabras.</p>
               <div className="em-sugs">
@@ -327,22 +339,12 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
               </div>
             </div>
           )}
-          {/* Las filas del Ops Center, con el muñeco de la tab; mientras piensa, su «Trabajando…» con los segundos. */}
-          <HiloMako items={items} quien={{ nombre: tab }} ahora={ahora} escribiendo={pensando ? { segs: segundos } : null}
+          {/* Las filas del Ops Center, con la estrella de MaKo; mientras piensa, su «Trabajando…» con los segundos. */}
+          <HiloMako items={items} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={ahora} escribiendo={pensando ? { segs: segundos } : null}
             tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
           {pensando && <button type="button" className="em-cancelar" onClick={cancelar}>Cancelar</button>}
           <div ref={fin} />
-        </div>
-      </div>
-
-      {/* La caja única (app/_chat/CajaChat.tsx): sin nada escrito, el micrófono dicta; con algo, la flecha manda. */}
-      <div className="em-caja-wrap">
-        <div className="co-caja">
-          <CajaChat campo={campo} texto={texto} onTexto={(t) => { setTexto(t); setErrorDictado(null); }} onMandar={() => { void enviar(); }}
-            ocupado={pensando} placeholder="Pídele un cambio a MaKo" tituloMandar="Mandar" enterManda onErrorMic={setErrorDictado} />
-        </div>
-        {errorDictado && <p className="em-err">{errorDictado}</p>}
-      </div>
+      </PanelDeChat>
     </section>
   );
 }
@@ -352,6 +354,9 @@ const nada = () => {};
 // Sin backticks acá adentro: es un template literal. Sólo tokens de la app (se dan vuelta en oscuro).
 const CSS = `
 .an.em { overflow: hidden; padding: 0; }
+.an.em { display: flex; flex-direction: column; }
+.em > .co-panel { flex: 1; min-height: 0; }
+.em .co-cab { padding: 0 8px 0 14px; }
 .em .co-hilo { padding: 16px; }
 .em .co-hilo__col { min-height: 100%; }
 .em-vacio { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: auto 0 0; }
