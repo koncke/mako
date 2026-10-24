@@ -7,6 +7,40 @@ viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Com
 Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
 el commit; acá va lo que hay que saber **antes** de tocarlo.
 
+## «Analizar con MaKo» sale de la barra; el AI Analyst queda en el ⋮ hasta que Martín decida (24/10/2026)
+
+**El pedido** (Martín, 24/10): «El botón de "Analizar con MaKo" debería eliminarse completamente y también en el
+dashboard, porque para eso ya tenemos el chat de la criatura de MaKo... Y justamente tenemos la opción de
+"Discutir/editar"». El pedido da por hecho que la criatura ya hace lo mismo. **Medido en el código, no lo hace:**
+- **La hoja entera, con la vista puesta.** El analista analiza la hoja entera, o los gráficos elegidos, con el período y
+  los filtros que la persona tiene puestos. La criatura del Dashboard (`MakoEnLaTab`, EditorInforme.tsx) recibe la hoja
+  sólo como un id en el system: los datos le llegan de UN gráfico cuando se toca su botón de MaKo
+  (`contextoDeGrafico`), o si el modelo decide llamar `leer_hoja_dashboard`, que lee sin la vista.
+- **Las cifras salen de los datos.** El analista toma las cifras de la entrada guardada y no del texto del modelo
+  (`sanearSalida`), y cuenta lo que descartó. El chat es texto libre.
+- **Se programa.** Cada día, semana o mes. Además tiene el punto de «análisis nuevo» (`useAnalisisNuevo`), avisa «la
+  hoja cambió desde este análisis», y dispara a mano el evento `analisis_listo`, del que vive la plantilla de Automations
+  «El AI Analyst Terminó».
+- **En el Dashboard la criatura no tiene «Discutir/Editar».** Se monta sin `onModo`. Esos modos son del chat de
+  Automations (`ChatMako`), que tampoco ve métricas.
+
+**Lo que se hizo:** sale el BOTÓN de la barra (mirando estaba al lado de la estrella: un segundo MaKo), en el Dashboard,
+en General y en las Métricas de una automatización. El AI Analyst queda en el ⋮, como ya decía su pedido del 18/10
+(docs/feedback-diseno-pendiente.md). **Sacarlo también del ⋮ lo decide Martín**, con lo que se pierde dicho en palabras:
+se le llevó por el Cerebro el 24/10. Si dice que sí, ANTES hay que darle a la criatura lo que hay en pantalla: una prop
+con `loQueSeVeDe` o `contextoDeGrafico` y la vista, que la ruta sume al contexto del turno.
+
+**Dos trampas encontradas al medir:**
+- **La hoja abierta no le llega a la criatura.** La entidad «hoja» declara el parámetro `hojaId` (lib/chat-desde.ts),
+  pero las herramientas del Dashboard lo llaman `hoja` (lib/api-mako/areas/dashboard.def.ts). Entonces
+  `conEntidadPorDefecto` no mete la hoja abierta, y todo depende de que el modelo obedezca «usa ese id».
+- **Los hilos guardados y el aplicar/deshacer son de «Editar con MaKo», no del analista.** `CLAVE_HILOS`
+  (app/dashboard/hilo-guardado.ts) y `onAplicar`/`onDeshacer` son de `PanelEditarMako`: sacar el analista no los toca.
+  `PanelAnalista.tsx` no se puede borrar entero: de ahí salen `CSS_PANEL_LATERAL`, `ChatMakoGrafico` y el tipo
+  `LoQueSeVe`.
+
+Test: tests/metricas-una-barra.test.ts y tests/dashboard-mako-vista.test.ts.
+
 ## «Pídeselo a MaKo» en General arma una hoja con tipos del Dashboard (16/10/2026, leído, no probado en el navegador)
 
 - «Pídeselo a MaKo» manda sólo `{pedido}` (`app/dashboard/NuevaHoja.tsx`), `lib/graficos-ia-generar.ts` no conoce General

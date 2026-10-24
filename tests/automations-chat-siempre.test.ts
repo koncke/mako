@@ -85,7 +85,8 @@ test('2: en el título va la tuerca (no el logo de MaKo), y el «⋯» de la fil
   const perfil = PERFIL();
   assert.doesNotMatch(perfil, /<BotonLogoMako /, 'volvió el logo de MaKo al título');
   // Revisión del 20/10/2026 (tests/automations-config-revision.test.ts): la tuerca también para quien no es admin (el modal entra en sólo lectura).
-  assert.match(perfil, /\{Configuraciones && \(\n\s+<BotonTuerca lado=\{ALTO_ACCION\} onClick=\{\(\) => setConfigAbierta\(true\)\} \/>/);
+  // (24/10/2026: mirando las métricas no va: tests/metricas-una-barra.test.ts.)
+  assert.match(perfil, /\{Configuraciones && !verMetricas && \(\n\s+<BotonTuerca lado=\{ALTO_ACCION\} onClick=\{\(\) => setConfigAbierta\(true\)\} \/>/);
   assert.match(perfil, /\{configAbierta && Configuraciones && <Configuraciones secuenciaId=\{secuencia\.id\} nombre=\{nombre \|\| secuencia\.nombre\} onCerrar=\{cerrarConfig\} \/>\}/);
   const html = renderToStaticMarkup(createElement(BotonTuerca, { lado: 44, onClick: () => {} }));
   assert.match(html, new RegExp(`aria-label="${TITULO_TUERCA}"`));
