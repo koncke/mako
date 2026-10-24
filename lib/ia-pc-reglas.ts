@@ -184,6 +184,8 @@ export type ProveedorPc = 'claude' | 'chatgpt';
  * clave (IA16). El detalle, con las fuentes: docs/hallazgos-ia.md → «Gemini en la PC: no».
  */
 export const PROVEEDORES_PC: readonly ProveedorPc[] = ['claude', 'chatgpt'];
+/** Si un valor que llega de afuera (lo que reporta una PC) es una IA de la PC. */
+export const esProveedorPc = (x: unknown): x is ProveedorPc => (PROVEEDORES_PC as readonly unknown[]).includes(x);
 /** Cómo se nombra cada IA en lo que lee la persona. */
 export const NOMBRE_IA_PC: Readonly<Record<ProveedorPc, string>> = { claude: 'Claude', chatgpt: 'ChatGPT' };
 /** El programa de cada IA, para el aviso de que falta instalarlo. */
@@ -215,7 +217,7 @@ export function sanearCuentas(x: unknown): CuentaPc[] {
   for (const c of x.slice(0, 8)) {
     if (!c || typeof c !== 'object') continue;
     const o = c as Record<string, unknown>;
-    if (!(PROVEEDORES_PC as readonly unknown[]).includes(o.proveedor)) continue;
+    if (!esProveedorPc(o.proveedor)) continue;
     const email = corta(o.email, 200);
     const iso = (v: unknown) => (typeof v === 'string' && Number.isFinite(Date.parse(v)) ? new Date(v).toISOString() : undefined);
     const repone = iso(o.repone);
