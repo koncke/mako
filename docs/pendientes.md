@@ -102,7 +102,7 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 - **Mobile** — Probar MaKo Mobile en un teléfono real (el tuyo es Android) y Chats con conversaciones de verdad; el onboarding pendiente del ws3 tapa /m. _sólo se miró en Chrome simulando un teléfono_ · chico · **depende de Martín** · `docs/relevo/mako-mobile.md → Lo que falta (Mobile 1, 2 y 3)`
 - **Ops Center** — Abrir los Runners de las cuentas 2 y 3 y darle al token de GitHub acceso al repo nuevo (da 404). _lo que se les manda queda esperando_ · chico · **depende de Martín** · `docs/hallazgos-operaciones.md → Lo que quedó sin hacer (17/10); docs/relevo/centro-operaciones.md`
 
-## Falta construir (89)
+## Falta construir (90)
 
 - **Ads Manager** — Subir un anuncio de imagen desde MaKo (hoy sólo videos). _los anuncios de imagen van por Meta a mano_ · medio · se puede hacer ya · `docs/relevo/ads-manager.md → Lo que quedó SIN hacer (falta «Usar en un anuncio» en el Image Editor: exportar el PNG y subirlo a adimages)`
 - **Ads Manager** — El Autopilot de anuncios: faltan el motor, el cron, la pantalla y la API (la base quedó a medias fuera de main). _pediste «implementalo completo»; hay que renumerar la migración_ · grande · se puede hacer ya · `docs/relevo/ads-manager.md → El Autopilot (punto 18)`
@@ -193,8 +193,9 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 - **Ventas** — Referidos: construir atribución y comisiones, y mandar el acuerdo y los mensajes (primero Jan, Juanfran y su hermana). _está decidido y no se anunció_ · grande · **depende de Martín** · `docs/relevo/super-admin.md §5 ⑤; docs/referidos.md; docs/relevo/vender-mako-estrategia.md`
 - **Video Editor** — Decidir qué es un «formato» de video o imagen para Creaciones, los B-rolls de IA, Lottie y el montador de anuncios. _sin respuesta no se construye_ · chico · **depende de Martín** · `docs/relevo/video-editor.md (14-15/10); docs/hallazgos-creaciones.md`
 - **Web Generator** — Generar imágenes con IA por Google Flow dentro del editor. _dijiste «más tarde»; para medirlo hay que pasar tu extensión al ws3_ · grande · **depende de Martín** · `docs/relevo/landing-generator.md → Tanda 4 y 6`
+- **Settings** — El contenido de cada sección (Perfil, Seguridad, Notificaciones y las del negocio), rediseñado para que se parezca al teléfono; el molde, el índice y «Instalar la app» con las tres ya salieron (d37983cc2). _lo último del punto 9 de Martín del 24/10: «rediseñes todas esas tabs… coherencia con mobile»_ · medio · se puede hacer ya · `docs/hallazgos-ajustes.md`, rama ops-nota-de-voz-2410 (C:/dev/wt-integraciones)
 
-## Pulido (57)
+## Pulido (58)
 
 - **Ads Manager** — Mirar en pantalla el onboarding nuevo del Ads Manager · chico · se puede hacer ya · `docs/relevo/ads-manager.md (#801)`
 - **Agente** — Nada reporta desde una instalación real del plugin del agente (la purga de 90 días ya corre: cron diario, sólo lo vencido, con modo seco) — a medias: falta una instalación real que reporte · chico · se puede hacer ya · `docs/hallazgos-agente.md; commit a9b66a3f8`
@@ -253,6 +254,7 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 - **Velocidad** — La app tarda: funciones y base en regiones distintas, 450 KB de más por página y arranques de 1-3 s. _el primer toque se siente lento_ · medio · **depende de Martín** · `docs/hallazgos-mobile.md (14/10)`
 - **Web Generator** — Mirar con clics las animaciones, el cuadro con modos, la ventana del lector y «otra landing para mi otro producto» · chico · **depende de Martín** · `docs/relevo/landing-generator.md → Tanda 7, 8 y Pedidos sueltos`
 - **WhatsApp** — Soltar las líneas viejas del número personal y avisar el cambio en los grupos · chico · **depende de Martín** · `memory/numero-mako-y-personal.md`
+- **Sidebar** — Mirar en pantalla, tab por tab, que la barra plegada por defecto no rompa nada (salió el 24/10, 5357515d5, sin mirarla: el navegador de la app sin sesión y el Chrome sin conectar). _el rail es el mismo de quien ya la plegaba; a 934 y 1027 px daba 0 desbordes (21/10)_ · chico · espera la sesión en el navegador de la app · `docs/hallazgos-ui.md`
 
 ## Se cerraron hoy (100): para que los revises
 

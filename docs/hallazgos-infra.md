@@ -59,43 +59,42 @@ y recién ahí se decide: `cmd > salida 2>&1; rc=$?; tail -6 salida; [ "$rc" -eq
 comando y no del código, el lugar donde evita el error no es un documento: es el comando mismo — por eso la receta de
 arriba va textual, para copiarla.
 
-## La guarda que avisa al cliente «ya quedó arreglado» NO PUEDE dar verde: Vercel no guarda el commit (24/10/2026)
+## La guarda del aviso «ya quedó arreglado» SÍ da verde: Vercel guarda el commit, pero sólo lo encuentra ENTERO (24/10/2026)
 
-**Vive en:** `scripts/avisar-arreglo-al-grupo.mts` (`pruebaDeProduccion`) · cualquier chequeo que use
-`vercel ls --meta githubCommitSha=<sha>`.
+**Vive en:** `scripts/avisar-arreglo-al-grupo.mts` (`pruebaDeProduccion`) · `lib/vercel-salida.ts` · cualquier chequeo que use
+`vercel ls --meta githubCommitSha=<sha>`. Lo fija tests/vercel-salida.test.ts.
 
-**El síntoma.** Después de subir el tren de la noche (43c343ebd), esperé 14 minutos a que apareciera su
-despliegue y nunca apareció. El tren **ya estaba vivo** desde el minuto 3.
+**El síntoma.** Después de subir el tren de la noche (43c343ebd) se esperó 14 minutos a que apareciera su despliegue y nunca
+apareció; el tren **ya estaba vivo** desde el minuto 3. `vercel ls --environment production --meta githubCommitSha=43c343ebd`
+contestaba `No deployments found`, con y sin `--environment`, y `vercel inspect` del despliegue vivo no mostraba ni rama ni
+commit. Se escribió acá que Vercel no guardaba el commit y que la guarda no podía dar verde nunca.
 
-**Lo que devuelve cada forma de preguntar, medido en la misma corrida:**
+**Ese diagnóstico era el equivocado (medido una hora después, mismo CLI 65.2.0):** el filtro compara el texto TAL CUAL, y el
+commit se pasó CORTO. Con 59d228ea1 (el que servía producción):
 
 | Comando | Respuesta |
 |---|---|
-| `vercel ls --environment production --meta githubCommitSha=43c343ebd` | `No deployments found` |
-| lo mismo sin `--environment` | `No deployments found` |
-| `vercel ls --environment production` (sin `--meta`) | los de hace **18 horas** |
-| `vercel ls` **pelado** | el de producción en Ready de hace **16 minutos** |
+| `vercel ls --environment production --yes --meta githubCommitSha=59d228ea1` | `No deployments found` |
+| lo mismo con el sha entero `59d228ea1e921a29f83f5a5b6f4a52c16b6c3c90` | `mako-mht66t1ed… ● Ready Production` |
 
-**La causa real, y el diagnóstico obvio era el equivocado.** No es el stdout/stderr (eso fue el incidente del
-18/10 y ya está arreglado), ni que el despliegue tarde. Es que **el despliegue no trae metadatos de git**:
-`vercel inspect` del despliegue vivo no muestra ni rama ni commit ni origen, sólo id, target, status y tiempos.
-Sin `githubCommitSha` guardado, el filtro `--meta` **no puede** coincidir — ni con ese sha ni con ninguno.
+El script siempre preguntó con el entero (sale de `git rev-list`), así que su guarda nunca estuvo rota. Lo que confundió fue
+la prueba a mano. Que `inspect` no muestre el commit es cómo lo imprime el CLI, no que falte.
 
-**Por qué importa más de lo que parece.** `avisar-arreglo-al-grupo.mts` **no manda** el aviso al grupo del
-cliente si no encuentra un despliegue Ready que contenga el arreglo. Con el filtro inservible, esa guarda
-contesta siempre «no pude verificar», así que **dejamos de avisarle a los clientes que su arreglo salió, y la
-falla se ve igual que la prudencia**. Una guarda que siempre dice que no es peor que no tener guarda: no hace
-ruido, no deja rojo, y nadie la mira.
+**Lo que se cambió igual, porque «hay uno Ready» no es «lo sirve»:** la guarda ahora pregunta qué despliegue SIRVE el dominio
+(`vercel inspect hola-mako.com`, su línea `url`) y de qué commit de main es, y exige que ese commit contenga el arreglo. Una
+vuelta atrás en Vercel deja un despliegue Ready más nuevo que no es el que se sirve. Probado en seco el 24/10: «hola-mako.com
+sirve mako-mht66t1ed (Ready), de main 59d228ea1, que contiene e49723ef8».
 
-**La regla que queda: la prueba de que algo está en producción es que producción lo sirva.** No la hora del
-deploy, no el estado en un panel, no un metadato del proveedor. Se le pide a la URL pública algo que **sólo
-exista en ese commit** y se mira si viene. Así verifiqué este tren: `hola-mako.com/mako-partners` sirve
-«Todavía no se descuenta solo de tu plan», una frase que nació en `fc8064ee7`. Eso es una prueba; «Ready hace
-16 minutos» es una correlación.
+**Trampas del CLI que mordieron armándolo:**
+- `vercel inspect` **rechaza `--yes`** («unknown or unexpected option») y no imprime nada más: un `--yes` puesto a todas las
+  llamadas deja la guarda en «no pude saber qué despliegue sirve». `ls` sí lo necesita.
+- La tabla de `ls` sale por **stderr** (18/10): se leen stdout y stderr juntos.
+- `--prod` está deprecado (avisa y anda); va `--environment production`.
 
-**SIN hacer:** cambiar `pruebaDeProduccion` para que verifique sirviendo (una marca por commit en una ruta
-pública, o el `BUILD_ID` de Next) en vez de por `--meta`. Mientras tanto, todo aviso de «ya quedó arreglado»
-pasa por una verificación a mano contra el sitio vivo.
+**La regla:** un sha que se le pasa a Vercel va ENTERO (`git rev-parse <corto>`), y la prueba de que algo está en producción es
+lo que SIRVE el dominio. La huella de los chunks (`curl -sS https://hola-mako.com/mako-partners | grep -oE
+'/_next/static/chunks/[a-zA-Z0-9._-]+\.js' | sort -u | md5sum`, antes y después de pushear) sigue sirviendo para saber
+CUÁNDO cambió lo servido, pero no dice de qué commit es.
 
 ## Un `redirect()` adentro de una página con `loading.tsx` rompió la app: React #310 (23/10/2026, ticket #7)
 

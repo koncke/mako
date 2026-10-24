@@ -10,20 +10,24 @@
 // Qué prueba, antes de llamar a lib/aviso-arreglo.ts (que reserva, manda, registra y no repite):
 //   1. que `--commit` esté en `origin/main` (`git merge-base --is-ancestor`, después de un fetch): main sólo avanza
 //      con el run de GitHub Actions en verde;
-//   2. que haya un despliegue de PRODUCCIÓN en «Ready» de un commit de main que lo CONTIENE. Se mira con el CLI de
-//      Vercel por commit (`vercel ls --prod --meta githubCommitSha=<sha>`), de la punta de main hacia atrás (hasta 6):
-//      «pushear no es desplegar» — un build fallado deja producción con el código viejo, sin avisar.
+//   2. que hola-mako.com SIRVA un despliegue de un commit de main que lo CONTIENE (24/10/2026: antes bastaba con que
+//      hubiera uno «Ready»). Se pregunta qué despliegue sirve el dominio (`vercel inspect hola-mako.com`) y de qué commit es
+//      (`vercel ls --environment production --meta githubCommitSha=<sha ENTERO>`), de la punta de main hacia atrás (hasta
+//      12): «pushear no es desplegar» — un build fallado o una vuelta atrás dejan producción con el código viejo, sin avisar.
 //   Sin las dos, no sale nada: «no pude verificar» no es «está en producción».
+//   ⚠️ El sha va ENTERO: con el corto, Vercel contesta «No deployments found» para un despliegue vivo (lib/vercel-salida.ts).
 // =============================================================================
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { esShaEntero, filaDeProduccion, urlQueSirve } from '../lib/vercel-salida';
 
 const arg = (n: string): string | null => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] ?? null : null; };
 const flag = (n: string): boolean => process.argv.includes(n);
 const REPO = process.cwd();
 const ENV = arg('--env') ?? 'C:/Users/marti/OneDrive/Escritorio/dashboard-marketing-main/dashboard-marketing/.env.local';
 const SCOPE = 'mbustos-4239s-projects';
+const DOMINIO = 'hola-mako.com';
 
 const ws = Number(arg('--ws'));
 const clave = arg('--clave') ?? '';
@@ -42,6 +46,18 @@ const contiene = (base: string, punta: string): boolean => {
   try { execFileSync('git', ['merge-base', '--is-ancestor', base, punta], { cwd: REPO }); return true; } catch { return false; }
 };
 
+/** Una llamada al CLI de Vercel, con stdout y stderr juntos. */
+function vercel(...a: string[]): string {
+  // ⚠️ LA TABLA SALE POR STDERR. El CLI de Vercel imprime por stdout sólo las URLs sueltas y la tabla (con «Ready» y
+  // «Production») por stderr: leyendo stdout, el primer aviso real (18/10/2026) contestó «ningún despliegue Ready
+  // contiene el arreglo» con el despliegue de producción en Ready. Se leen las dos.
+  const r = spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx',
+    ['--no-install', 'vercel', ...a, '--scope', SCOPE],
+    { cwd: REPO, encoding: 'utf8', timeout: 90_000, shell: process.platform === 'win32' });
+  const salida = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
+  return salida;
+}
+
 /** La prueba de producción, o null con el motivo impreso. */
 function pruebaDeProduccion(): string | null {
   git('fetch', '-q', 'origin', 'main');
@@ -49,24 +65,32 @@ function pruebaDeProduccion(): string | null {
     console.error(`NO: ${commit} todavía no está en origin/main.`);
     return null;
   }
-  const candidatos = git('rev-list', '--first-parent', '-n', '6', 'origin/main').split('\n').filter(Boolean);
-  for (const sha of candidatos) {
-    if (!contiene(commit, sha)) break; // de acá para atrás ya no lo contiene
-    // ⚠️ LA TABLA SALE POR STDERR. El CLI de Vercel imprime por stdout sólo las URLs sueltas y la tabla (con «Ready» y
-    // «Production») por stderr: leyendo stdout, el primer aviso real (18/10/2026) contestó «ningún despliegue Ready
-    // contiene el arreglo» con el despliegue de producción en Ready. Se leen las dos.
-    const r = spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      ['--no-install', 'vercel', 'ls', '--prod', '--yes', '--scope', SCOPE, '--meta', `githubCommitSha=${sha}`],
-      { cwd: REPO, encoding: 'utf8', timeout: 90_000, shell: process.platform === 'win32' });
-    const salida = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
-    const fila = salida.split('\n').find((l) => /https:\/\/\S+\.vercel\.app/.test(l) && /Production/.test(l));
-    if (fila && /●\s*Ready/.test(fila)) {
-      const url = /https:\/\/\S+\.vercel\.app/.exec(fila)?.[0] ?? '?';
-      return `deploy ${url} Ready en producción, main ${sha.slice(0, 9)} contiene ${commit.slice(0, 9)}`;
-    }
-    if (fila) console.error(`  ${sha.slice(0, 9)}: su despliegue no está Ready (${fila.replace(/\s+/g, ' ').trim().slice(0, 120)})`);
+  // El que SIRVE el dominio, no el último «Ready»: una vuelta atrás en Vercel deja servido uno más viejo.
+  // `inspect` no acepta `--yes` (lo rechaza y no da nada); `ls` sí lo necesita para no preguntar.
+  const sirve = urlQueSirve(vercel('inspect', DOMINIO));
+  if (!sirve) {
+    console.error(`NO: no pude saber qué despliegue sirve ${DOMINIO} (vercel inspect no dio su url).`);
+    return null;
   }
-  console.error(`NO: ningún despliegue de producción Ready contiene ${commit} (se miraron los últimos ${candidatos.length} de main).`);
+  const candidatos = git('rev-list', '--first-parent', '-n', '12', 'origin/main').split('\n').filter(Boolean);
+  for (const sha of candidatos) {
+    if (!esShaEntero(sha)) { console.error(`NO: ${sha} no es un sha entero (Vercel no lo encontraría).`); return null; }
+    const fila = filaDeProduccion(vercel('ls', '--environment', 'production', '--yes', '--meta', `githubCommitSha=${sha}`));
+    if (fila && fila.url === sirve) {
+      if (!contiene(commit, sha)) {
+        console.error(`NO: ${DOMINIO} sirve ${sirve}, de main ${sha.slice(0, 9)}, que todavía NO contiene ${commit.slice(0, 9)}.`);
+        return null;
+      }
+      if (!fila.lista) { console.error(`NO: ${DOMINIO} sirve ${sirve} pero Vercel no lo da por Ready.`); return null; }
+      return `${DOMINIO} sirve ${sirve} (Ready), de main ${sha.slice(0, 9)}, que contiene ${commit.slice(0, 9)}`;
+    }
+    if (!contiene(commit, sha)) {
+      // De acá para atrás ya no lo contiene, y el que sirve no salió entre los que sí: sirve uno anterior al arreglo.
+      console.error(`NO: ${DOMINIO} sirve ${sirve}, que no es de ningún commit de main con ${commit.slice(0, 9)} (todavía no se desplegó, o falló el build).`);
+      return null;
+    }
+  }
+  console.error(`NO: ${DOMINIO} sirve ${sirve} y no es de ninguno de los últimos ${candidatos.length} commits de main.`);
   return null;
 }
 
