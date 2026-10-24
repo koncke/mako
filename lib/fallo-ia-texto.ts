@@ -182,10 +182,14 @@ export type QueIntentaba = 'contestar' | 'escuchar tu audio' | 'armar el borrado
 
 /**
  * El doer de WhatsApp sin keys propias y con un turno que lleva datos de clientes (17/10/2026): la red gratis no corre
- * (`turnoParaLaRed`, lib/doer-herramientas.ts). ⚠️ NO dice «Conecta tu Claude» como `CONECTA_TU_CLAUDE`: el
- * turno con herramientas corre sólo con las keys baratas del negocio (`chatCheapTools`), y la clave de Anthropic del
- * negocio mueve sólo la cascada de texto (la segunda puerta del veto, docs/hallazgos-ia.md). Mandarlo a conectar su
- * Claude sería mandarlo a hacer algo que no lo arregla.
+ * (`turnoParaLaRed`, lib/doer-herramientas.ts).
+ *
+ * ⚠️ DESDE IA16 SÓLO DONDE LA RED EXISTE, y es el workspace de la plataforma (`provsGratisDePlataforma` devuelve `[]` para
+ * cualquier negocio). Para un negocio, «no los mando a la IA gratis de MaKo» da a entender que sin datos de clientes MaKo
+ * le habría contestado, y no: sin su IA no contesta nada. Al ws21 le salió el 22/10 09:36 UTC, antes de IA16 (decidida esa
+ * noche, en main desde el 24/10 00:29 ART), y ese día era cierto; con IA16 el cartel cierto para un negocio es `sin_keys`.
+ * Por eso el doer deja la marca sólo si había una red que saltear (lib/mako-doer-in.ts, 24/10/2026).
+ * No nombra a Claude: en el workspace de la plataforma la clave de Claude no la vuelve «su IA» (`negocioConSuIA`).
  */
 export function textoSinRedPorDatos(link: string, que: QueIntentaba = 'contestar'): string {
   return [
@@ -210,10 +214,22 @@ export function textoFalloIA(
 ): string {
   switch (causa) {
     case 'sin_keys':
+      // ⚠️ IA16 (22/10/2026): CADA NEGOCIO PAGA SU IA. Decía «Las de Google y Groq son *gratis*», y desde IA16 Groq sólo
+      // escucha notas de voz: el negocio que cargaba una de Groq seguía sin MaKo, y el link abría su Claude. Lo que lo
+      // arregla es SU IA, la frase de `CONECTA_TU_IA` (lib/ia-mensajes.ts; no se importa: ese módulo importa éste).
+      // Y una nota de voz no la escucha su Claude: la escuchan su Gemini y su GPT (`CASCADA_STT`).
+      if (que === 'escuchar tu audio') {
+        return [
+          '⚠️ No puedo escuchar tu audio: tu negocio no tiene conectada una IA que escuche.',
+          '',
+          'Las notas de voz las escucho con tu Gemini o tu GPT. Conecta uno y lo hago 👇',
+          link,
+        ].join('\n');
+      }
       return [
-        `⚠️ No puedo ${que}: todavía no cargaste ninguna API key de IA.`,
+        `⚠️ No puedo ${que}: tu negocio todavía no tiene su IA conectada.`,
         '',
-        'Es lo que me da la cabeza para pensar. Las de Google y Groq son *gratis* y se cargan en dos minutos 👇',
+        'Pienso con la IA de tu negocio. Conecta tu Claude, tu GPT o tu Gemini y lo hago 👇',
         link,
       ].join('\n');
     case 'sin_cuota':
@@ -296,5 +312,28 @@ export function textoFalloIA(
   }
 }
 
-/** El link a la pantalla donde se cargan las keys, con el modal ya abierto. */
-export const linkKeysIA = (base: string): string => `${base}/integraciones?abrir=anthropic`;
+/**
+ * La pantalla donde se cargan las keys, con el modal ya abierto. Su Claude (IA9); para una nota de voz, su Gemini
+ * (24/10/2026): su Claude no escucha audio, y el modal de Claude le pedía al negocio algo que no lo arregla.
+ * ⚠️ Lo que sale por WhatsApp va con su `?ws=` (`linkApp`, lib/app-url.ts): el aviso de la nota de voz se manda directo, sin
+ * pasar por `linksConWs` como la respuesta de texto, y salía sin él.
+ */
+export const rutaKeysIA = (uso: 'texto' | 'audio' = 'texto'): string =>
+  `/integraciones?abrir=${uso === 'audio' ? 'gemini' : 'anthropic'}`;
+
+/** `rutaKeysIA` con la base de la app adelante. */
+export const linkKeysIA = (base: string, uso: 'texto' | 'audio' = 'texto'): string => `${base}${rutaKeysIA(uso)}`;
+
+/**
+ * QUÉ CARTEL SALE en el doer de WhatsApp cuando ninguna IA contestó (24/10/2026, el incidente del ws21): el texto Y la fila
+ * `cartel:<esto>` que lee el vigía. Es la causa (`causaDelFallo`), salvo sin keys propias y con la marca «red gratis
+ * salteada» en los errores de la red (`erroresPlataforma`): ahí, `sin_red_por_datos` (`textoSinRedPorDatos`).
+ *
+ * ⚠️ LA MARCA TIENE QUE SIGNIFICAR «HABÍA UNA RED Y SE LA SALTEÓ». Hasta el 24/10 el doer la dejaba con sólo mirar el turno,
+ * y desde IA16 no hay red para ningún negocio: a uno sin su IA que preguntaba por sus reuniones le decía «no los mando a
+ * la IA gratis de MaKo» (un porqué falso), y a otro pedido del mismo negocio, sin datos, `sin_keys`: dos carteles para la
+ * misma causa. Esta función no puede saberlo (es pura): lo garantiza el doer preguntando por la red antes de marcar.
+ */
+export function cartelDelFallo(causa: CausaFalloIA, erroresRed: readonly string[]): CausaFalloIA | 'sin_red_por_datos' {
+  return causa === 'sin_keys' && sinRedPorDatos(erroresRed) ? 'sin_red_por_datos' : causa;
+}
