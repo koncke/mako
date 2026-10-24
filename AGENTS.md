@@ -7331,6 +7331,10 @@ una vuelta cada uno y valen para cualquier guard que busque una ruta en el fuent
 - **Y se saltean las líneas de comentario**, porque la convención de la casa es nombrar una
   ruta entre backticks — o sea que el guard se acusa a sí mismo por los comentarios que
   explican que la ruta se retiró.
+- **Los candidatos se buscan con `git grep -l` y no leyendo miles de archivos desde JS** (23/10/2026, el guard del puente de leads):
+  el barrido que leía todo `app/`, `lib/`, `tests/` y `scripts/` tardó de uno a cuatro minutos en una máquina cargada; `git grep`
+  (en C y en paralelo) lo dejó en segundos. Sale con status 1 cuando no encuentra nada, y el guard exige un piso de archivos
+  (`git ls-files`) y de candidatos: «no encontré nada» y «no miré» tienen que dar distinto.
 
 ⚠️ **Y RENOMBRAR una ruta es retirarla con un solo destino, más tres cosas** (medido el
 09/10/2026 al pasar /chatbot a /automations, `docs/hallazgos-chatbot.md` → «parte renombre»):

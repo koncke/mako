@@ -43,18 +43,34 @@ const HISTORIA = [
 ];
 const ESTE = 'tests/puente-leads-retirado.test.ts';
 
+const EXT = /\.(tsx?|mjs|cjs|js)$/;
+
 /**
- * Los .ts/.tsx de `app/`, `lib/`, `tests/` y `scripts/` que están EN GIT.
- * ⚠️ `git ls-files` lista el ÍNDICE: un archivo nuevo sin commitear no se ve. Por eso los archivos del puente se miran también
- * en el DISCO (`ARCHIVOS_DEL_PUENTE`), y lo que se despliega es el commit.
+ * Cuántos archivos de código hay EN GIT (`app/`, `lib/`, `tests/`, `scripts/`). «No encontré nada que revisar» y «revisé y está todo bien»
+ * son respuestas DISTINTAS: sin este piso, un `git` que no corre en el repo daría verde sin haber mirado nada.
+ * ⚠️ `git ls-files` y `git grep` miran lo que está en GIT: un archivo nuevo sin commitear no se ve. Por eso los archivos del puente se
+ * miran también en el DISCO (`ARCHIVOS_DEL_PUENTE`), y lo que se despliega es el commit.
  */
-function fuentes(): string[] {
-  const todos = execFileSync('git', ['ls-files', 'app', 'lib', 'tests', 'scripts'], { cwd: RAIZ, encoding: 'utf8' })
-    .split(/\r?\n/).map((f) => f.trim())
-    .filter((f) => /\.(tsx?|mjs|cjs|js)$/.test(f) && !/\.d\.ts$/.test(f));
-  // «No encontré nada que revisar» y «revisé y está todo bien» son respuestas DISTINTAS.
+function cuantosArchivos(): number {
+  const todos = execFileSync('git', ['ls-files', 'app', 'lib', 'tests', 'scripts'], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 50_000_000 })
+    .split(/\r?\n/).filter((f) => EXT.test(f.trim()) && !/\.d\.ts$/.test(f));
   assert.ok(todos.length > 500, `git ls-files devolvió ${todos.length} archivos: esto no corrió en el repo`);
-  return todos.filter((f) => f !== ESTE && !HISTORIA.some((h) => h.test(f)));
+  return todos.length;
+}
+
+/**
+ * Los archivos que dicen alguna palabra del puente, buscados con `git grep` (en C y en paralelo) y no leyendo miles de archivos desde
+ * JS: ese barrido tardaba entre uno y cuatro minutos en una máquina cargada. `git grep` sale con 1 cuando no encuentra nada.
+ */
+function candidatos(): string[] {
+  let salida = '';
+  try {
+    salida = execFileSync('git', ['grep', '-l', '-i', '-E', 'zapier|tarjetaDelPuente|idDeLeadParaElUpsert', '--', 'app', 'lib', 'tests', 'scripts'],
+      { cwd: RAIZ, encoding: 'utf8', maxBuffer: 50_000_000 });
+  } catch (e) {
+    if ((e as { status?: number }).status !== 1) throw e;
+  }
+  return salida.split(/\r?\n/).map((f) => f.trim()).filter((f) => EXT.test(f) && f !== ESTE && !HISTORIA.some((h) => h.test(f)));
 }
 
 /** Lo que sólo existía para el puente: ninguno puede estar, ni en el índice ni en el disco. */
@@ -97,11 +113,13 @@ test('los archivos del puente no están: ni en git ni en el disco, y no hay otro
 
 test('ningún código de app, lib, tests ni scripts nombra la credencial, la ruta, los módulos ni la key del puente', () => {
   const culpables: string[] = [];
-  for (const f of fuentes()) {
-    const crudo = leer(f);
-    // Barato primero: casi ningún archivo dice la palabra, y quitar los comentarios de miles de archivos tarda casi un minuto.
-    if (!/zapier|tarjetaDelPuente|idDeLeadParaElUpsert/i.test(crudo)) continue;
-    const src = sinComentarios(crudo);
+  cuantosArchivos();
+  const lista = candidatos();
+  // Los que SÍ dicen «Zapier» hoy (Skool avisa por Zapier, los tokens de la API se nombran «Zapier Prod»): el barrido tiene que verlos,
+  // y mirarlos sin comentarios para no acusarlos por prosa.
+  assert.ok(lista.length >= 3, `git grep devolvió ${lista.length} archivos que digan Zapier: el barrido no está mirando`);
+  for (const f of lista) {
+    const src = sinComentarios(leer(f));
     for (const [patron, que] of NOMBRES_DEL_PUENTE) {
       if (patron.test(src)) culpables.push(`${f}: ${que}`);
     }
@@ -151,7 +169,7 @@ test('Skool, Hotmart y Apify siguen: un retiro torpe no se lleva lo que no era',
 });
 
 test('el guard sabe leer: el barrido ve cientos de archivos y reconoce lo que busca', () => {
-  assert.ok(fuentes().length > 500);
+  assert.ok(cuantosArchivos() > 500);
   // Un fuente con el nombre del puente, escrito a propósito acá, tiene que ser reconocido por cada patrón.
   const trampa = "import { x } from './zapier-estado'; const a = 'ZAPIER_LEADS_CLAVE'; fetch('/api/webhooks/zapier'); const k = 'zapier'; const m = { zapier: [] }; getSetting('zapier.estado'); await ingresarLeadDeZapier(3, l);";
   for (const [patron, que] of NOMBRES_DEL_PUENTE) assert.match(trampa, patron, `el patrón de «${que}» no reconoce lo que busca`);
