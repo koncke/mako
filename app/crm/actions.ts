@@ -16,6 +16,8 @@ import { redirect } from 'next/navigation';
 import { TAG } from '@/lib/cache';
 import { exigirSesion } from '@/lib/sesion-accion';
 import { listProductos } from '@/lib/productos';
+import { guardarFotoDeInstagram } from '@/lib/foto-instagram';
+import { esFotoDeInstagram } from '@/lib/foto-instagram-reglas';
 
 // Invalida la caché de lectura por dominio. Toda mutación de lead toca 'leads'
 // (y cohortes/objetivo que derivan de leads); las de cobranza tocan 'pagos'.
@@ -962,6 +964,10 @@ async function altaDeLead(formData: FormData, funnelId?: number | null, permitir
     origen_lead: ORIGEN_LEAD.carga_manual.id,
   });
   // (setter/closer se auto-asignan dentro de createLead si hay un único vendedor.)
+  // LA FOTO DE INSTAGRAM (pedido del 17/10; 24/10/2026): la del perfil elegido en el buscador, copiada a nuestro bucket para
+  // que la tarjeta no quede con iniciales. Sólo de un CDN de Meta, nunca pisa otra foto y nunca frena el alta.
+  const fotoIg = formData.get('instagram_foto');
+  if (igDelAlta && esFotoDeInstagram(fotoIg)) await guardarFotoDeInstagram(created.id, fotoIg);
   bust(TAG.leads);
   revalidatePath('/crm');
   return { id: created.id };
