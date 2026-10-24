@@ -152,7 +152,8 @@ test('el link compartido no guarda, ni edita, ni comparte, ni abre el detalle de
     '«Editar» no es el azul (punto 3)');
   const mas = bloque(EDITOR, "{menu?.tipo === 'mas' && (", '</Flotante>');
   // 14/10/2026: en la tab General (el mismo editor con otro informe) no se comparte: Compartir habla del informe del Dashboard.
-  assert.match(mas, /\{guardable && !esGeneral && \(\s*<>\s*<RenglonCompartir onClick=\{abrirCompartir\} \/>/, 'Compartir no está en el ⋮ (o sin la guarda)');
+  // (24/10/2026: tampoco en las Métricas de una automatización, que comparten el Dashboard entero: tests/metricas-una-barra.test.ts.)
+  assert.match(mas, /\{guardable && !esGeneral && !esAutomatizacion && \(\s*<>\s*<RenglonCompartir onClick=\{abrirCompartir\} \/>/, 'Compartir no está en el ⋮ (o sin la guarda)');
   assert.doesNotMatch(mas, /<BotonCompartir/, 'el modal adentro del menú se desmonta al cerrarlo');
   assert.match(EDITOR, /const capaAbierta = [^;]*\bcompartir\b/, 'con el modal abierto, Suprimir borraría la tarjeta de atrás');
   assert.match(mas, /\{!soloMirar && \(\s*<>\s*<button[^>]*lk-opcion--mako/, 'el AI Analyst sin la guarda');

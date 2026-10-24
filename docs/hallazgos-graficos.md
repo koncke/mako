@@ -9,6 +9,11 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 
 ## «Analizar con MaKo» sale de la barra; el AI Analyst queda en el ⋮ hasta que Martín decida (24/10/2026)
 
+**La lección, que es más grande que el caso:** un pedido de «sacá esto, ya lo cubre aquello» se MIDE antes de borrar;
+lo que un botón hace y lo que parece que hace no son lo mismo. Borrado a secas, Martín perdía el análisis programado, el
+aviso de «nuevo» y la única forma de que MaKo mire una hoja entera con sus filtros, y aparecía una semana después como
+«¿y dónde está el análisis que me llegaba los lunes?».
+
 **El pedido** (Martín, 24/10): «El botón de "Analizar con MaKo" debería eliminarse completamente y también en el
 dashboard, porque para eso ya tenemos el chat de la criatura de MaKo... Y justamente tenemos la opción de
 "Discutir/editar"». El pedido da por hecho que la criatura ya hace lo mismo. **Medido en el código, no lo hace:**
@@ -40,6 +45,22 @@ con `loQueSeVeDe` o `contextoDeGrafico` y la vista, que la ruta sume al contexto
   `LoQueSeVe`.
 
 Test: tests/metricas-una-barra.test.ts y tests/dashboard-mako-vista.test.ts.
+
+**Dos defectos que salieron de la misma medición (arreglados el 24/10, tests/metricas-analisis-programado.test.ts):**
+- **El análisis programado de una hoja de Métricas se borraba solo.** La hoja de Métricas era `am-hoja` en TODAS las
+  automatizaciones, y el AI Analyst guarda lo suyo por persona y hoja (`dashboard_analisis.hoja_id`). El cron la buscaba
+  sólo en el Dashboard y en General (`leerInformeGuardado`): no la encontraba, cerraba con «La hoja ya no existe» y le
+  sacaba el horario. Quien programaba un informe semanal nunca lo recibía, y la programación desaparecía. Es la peor
+  clase de falla: silenciosa, y borra la evidencia. Además, el análisis de una automatización salía en las Métricas de
+  otra. **Arreglo:** la hoja es `am-<id>` (`hojaDeMetricas`). El cron la busca en el informe de ESA automatización para
+  ESA persona, o en la que arma MaKo si nunca la tocó (`hojaDeMetricasGuardada`). Lo guardado con `am-hoja` se renombra
+  al leer, y el aviso «Terminó» lleva a la automatización. Medido el 24/10: no había ningún análisis ni informe de
+  Métricas guardado, así que no hubo nada que migrar.
+- **«Compartir» en las Métricas entregaba el Dashboard ENTERO.** El server (app/api/compartir/route.ts) comparte el informe
+  del Dashboard de quien mira, con todas sus hojas, y el `?hoja=` de la automatización ahí no existe. Quien creía
+  compartir las métricas de una automatización mandaba su Dashboard. Era peor que un link roto. Se sacó de ahí, y
+  también del clic derecho («Copiar dashboard» tampoco aplica: `fueraDelDashboard`). Compartir las Métricas de verdad
+  pediría un recurso de share propio, con su vista pública: no se hizo.
 
 ## «Pídeselo a MaKo» en General arma una hoja con tipos del Dashboard (16/10/2026, leído, no probado en el navegador)
 
