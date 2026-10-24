@@ -85,10 +85,25 @@ en [corridas-multiagente.md](corridas-multiagente.md).
     `guardarDisparadores` las rechaza DESPUÉS del insert. Por eso T6 no se migra, y el plan se valida antes de escribir.
   - «Ya existe» por el prefijo de la clave adoptaba filas rotas. Ahora es la fila que ES el plan (mismo CRON, destinos y
     ancla), y una con la clave pero distinta frena al negocio.
-- **`--activar` es todo o nada:** prende, relee, archiva las confirmaciones (comparando antes de escribir) y apaga el motor
-  con compare-and-set. Si algo falla, deshace al revés. La línea del historial de cada lead va DESPUÉS, para que nunca
-  cuente algo que se deshizo. La de T3 se archiva sólo si «Venció la Nutrición Manual» la vuelve a preguntar (su lead entra
-  en la toma, con plazo).
+- **`--activar` es todo o nada,** en este orden: prende, relee, apaga el motor (compare-and-set), vuelve a leer las
+  pendientes, archiva (comparando antes de escribir) y deja la línea del historial. Si algo falla, deshace al revés. Lo que
+  enseñó la 2ª revisión (24/10, `wf_933af347-1e1`, 17 confirmados):
+  - **Deshacer un compare-and-set no es «si devolvió true».** Si la escritura llegó y la respuesta se perdió, tira sin
+    avisar que escribió. Se anota que se INTENTÓ antes, el deshacer corre siempre el inverso y RELEE cómo quedó. Si el motor
+    no volvió, el reemplazo queda PRENDIDO: motor apagado y automatizaciones pausadas es no tener a nadie.
+  - Cada id se anota ANTES de escribir, por la misma razón.
+  - **`logLeadEvent` se traga el error.** Una línea del historial que tiene que ser parte del todo o nada va con un insert
+    propio que mira el error, y el deshacer la borra.
+  - **Un motor «prendido sin setting» sólo existe para el dueño** (`flag` hereda el env sólo para él). Y la evidencia son las
+    líneas que escribe el motor (`T2: …`), no las de una persona que resolvió una confirmación (`MaKo (T1): …`). Medido: el
+    «antes» de T1 en el negocio de Mauricio bajó de 7 a 6.
+  - **La etapa DERIVADA se mueve sola:** con la fecha de la 2ª reunión cargada, `pipelineStageOf` ya dice la etapa de la 2ª.
+    Una «Reunión Sin Marcar» colgada sólo de la 1ª perdía la pregunta por la 1ª. La de la 1ª cuelga de las dos etapas y su
+    pregunta se acota a la 1ª (`reuniones`), y la de la 2ª, a la 2ª.
+  - **Adoptar una fila es comparar el grafo entero** (una firma por tarjeta, sin los textos), y la firma se prueba contra el
+    camino de guardado de `setSecuenciaPasos`. Mirando sólo el CRON se adoptaba una T3 que no avisaba.
+  - **Una confirmación que PIDE una decisión se archiva sólo si se la vuelven a pedir** a ese lead, y por CLAVE (T1:j1, T1:j2,
+    T3), no por regla. Sin el conjunto de su clave, queda viva.
 - **Medido con el simulacro, 24/10/2026 ~02:30 (solo lectura):**
   - Mauricio: el motor «haría hoy» nada. T2 toma 3, cada «Reunión Sin Marcar» toma 0, y T3 toma 7, todos sin plazo: se
     cierran a las 24 h. El 116 queda fuera de los 90 días. Avisa enseguida: 0. Confirmaciones: 72 en total, 6 pendientes.

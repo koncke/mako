@@ -29,7 +29,8 @@ export type MakoConfirmacion = {
   cambios: CambioCampo[];
   revert: Record<string, unknown> | null;
   opciones: ConfOpcion[] | null;
-  estado: 'pendiente' | 'confirmado' | 'rechazado';
+  /** 'archivado': la cerró el script que pasó el CRM automático a automatizaciones (b5), sin tocar al lead. */
+  estado: 'pendiente' | 'confirmado' | 'rechazado' | 'archivado';
   created_at: string;
 };
 
@@ -270,6 +271,10 @@ export async function resolverConfirmacion(id: number, decision: string, autor: 
   const { data, error } = await supabase.from('mako_confirmaciones').select(COLS).eq('id', id).maybeSingle();
   if (error || !data) throw new Error('Confirmación no encontrada');
   const c = data as MakoConfirmacion;
+  // ⚠️ UNA ARCHIVADA LO DICE (24/10/2026, la 2ª revisión del b5): el script que pasa el CRM automático a automatizaciones
+  // archiva las viejas, y un toque desde una pantalla vieja (el teléfono, /m/inbox) contestaba OK sin hacer nada: «Rechazar»
+  // parecía haber vuelto el No Show atrás y no lo había tocado. Las ya resueltas por otro toque siguen sin decir nada.
+  if (c.estado === 'archivado') throw new Error('Esa confirmación ya se archivó: el CRM automático pasó a una automatización. Si hay que cambiar algo, desde la ficha del lead.');
   if (c.estado !== 'pendiente') return;
 
   const op = decision.startsWith('op:') ? (c.opciones ?? []).find((o) => o.key === decision.slice(3)) : undefined;

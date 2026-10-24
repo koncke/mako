@@ -49,8 +49,12 @@ const FUENTE = new Map(ARCHIVOS.map((f) => [f, sinComentarios(leer(f))]));
 
 // ── (a) La puerta y quién la llama ──────────────────────────────────────────────────────────
 
-/** Los que pueden PRENDER (no pasan un `false` literal), cada uno con su manejo de la duplicada. */
-const PRENDEN = ['app/api/email/secuencias/route.ts', 'app/api/whatsapp/secuencias/route.ts', 'lib/mako-doer-acciones.ts'];
+/**
+ * Los que pueden PRENDER (no pasan un `false` literal), cada uno con su manejo de la duplicada. El script del b5 prende las
+ * plantillas que reemplazan al CRM automático (con el OK de Martín): ante la duplicada deshace la corrida y sólo sigue con
+ * `--aunque-duplique`, que se pasa después de que Martín vio el aviso (24/10/2026).
+ */
+const PRENDEN = ['app/api/email/secuencias/route.ts', 'app/api/whatsapp/secuencias/route.ts', 'lib/mako-doer-acciones.ts', 'scripts/crm-auto-a-automatizaciones.mts'];
 /**
  * Los scripts de mudanza que prenden lo que crean: SÓLO filas «Evento de MaKo», y sólo si el negocio no tenía NINGUNA de
  * ese evento (la saltean si ya hay, prendida o pausada). Dos del mismo evento SÍ le escriben a la misma gente (revisión del
@@ -225,6 +229,9 @@ const SISTEMA = [
   'lib/nutricion-plantillas.ts', 'lib/nutricion.ts', 'lib/secuencias-variantes.ts', 'scripts/reescribir-filas-plataforma.mts',
   // Los arneses del ws3 escriben los pasos de SU automatización de prueba, que nace pausada (ver `ARNESES_WS3`).
   ...ARNESES_WS3,
+  // El script del b5 escribe los pasos de la plantilla que acaba de crear, PAUSADA, con la espera anclada a su reunión
+  // (`conAnclaDeReunion`, 24/10/2026). Prenderla va aparte, por `setSecuenciaActiva` (ver `PRENDEN`).
+  'scripts/crm-auto-a-automatizaciones.mts',
 ];
 
 test('(d) quién escribe lo publicado: cada uno pregunta (`publicarPasos`) o está en la lista del sistema con su motivo', () => {

@@ -50,10 +50,10 @@ en el journal de la corrida y en el scratchpad de la sesión, `crm-b5-revision.m
 - ~~Plantillas: E2 y E3~~ (hechos el 24/10, ver arriba).
 - ~~Script: S1–S9, M1/E1/M4, PRENDEN, las 7 confirmaciones~~ (hecho el 24/10 sobre un plan puro, lib/crm-auto-migracion.ts;
   ver docs/hallazgos-crm.md «El script de migración, reescrito»). La #75 y las T1 se archivan sin tocar al lead; la #76,
-  sólo si «Venció la Nutrición Manual» la vuelve a preguntar. SIN COMMITEAR todavía en el worktree (script + módulo +
-  tests/crm-auto-migracion.test.ts 10/10 + PRENDEN/SISTEMA): falta arreglar lo de abajo.
-- **La 2ª revisión del script (24/10, `wf_933af347-1e1`) confirmó 17 de 19**, ~13 distintos. Detalle con escenario y
-  arreglo en el journal de la corrida. Lo que hay que hacer, en orden:
+  sólo si «Venció la Nutrición Manual» la vuelve a preguntar.
+- ~~**La 2ª revisión del script (24/10, `wf_933af347-1e1`) confirmó 17 de 19**~~: los 9 puntos de abajo, HECHOS el 24/10
+  (tests/crm-auto-migracion.test.ts 12/12, 8 roturas cazadas; lo aprendido en docs/hallazgos-crm.md). Falta una 3ª revisión
+  chica sobre ese cambio. Lo que se hizo:
   1. `--activar`, el deshacer: marcar «intenté el setting» ANTES del CAS y, en el deshacer, correr siempre el CAS inverso.
      Anotar cada id en activadas/archivadas ANTES de escribir. Si el setting no volvió, NO pausar el reemplazo. Imprimir
      lo deshecho antes de guardar el respaldo, y ese guardar en try/catch.
