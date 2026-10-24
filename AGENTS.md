@@ -1720,6 +1720,11 @@ código nuevo:
       pide `indice_segundo_cerebro` (~300 tokens) y después `recuperar_del_segundo_cerebro` con su pregunta o con ids
       (lib/cerebro-recuperar.ts, sin IA). Medido en dos workspaces reales: 118-190 tokens por pregunta contra 459-678 del
       grafo entero y 1.105-1.606 del vault. `leer_segundo_cerebro_como_archivos` es para un área ENTERA, no para contestar.
+  - **EL CHAT DE MaKo SON TRES PIEZAS JUNTAS, en toda la app** (23/10/2026; Martín: «Tienes que UNIFICAR los chats con MaKo en
+    toda la app»): el PANEL (`app/admin/operaciones/PanelChat.tsx` → `PanelDeChat`: la cabecera con la criatura, arrastrar y
+    soltar, la columna del hilo y el lugar de la caja), el HILO (`app/_chat/HiloMako.tsx`) y la CAJA (abajo). Lo propio de cada
+    lugar (su motor, el contexto del lead o del flujo, sus botones) va por props y por el hueco `enMensaje`, nunca en un marco
+    propio. tests/chat-unico.test.ts (6 y 7) lleva el inventario de las que faltan y falla con un chat nuevo sin el panel.
   - **UNA SOLA CAJA PARA HABLAR CON MaKo: `app/_chat/CajaChat.tsx`** (20/10/2026; Martín: «Te pedí que unificaras el chat
     del Ops Center en todos lados, su diseño y funcionalidades»). Ninguna pantalla nueva arma su <textarea>, usa
     `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.

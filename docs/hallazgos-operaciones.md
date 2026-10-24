@@ -26,6 +26,23 @@ del código.
 `app/second-brain/PiezasCliente.tsx` · `useChatCliente.ts` · `app/integraciones/TusCuentasIA.tsx` · `tests/app-de-escritorio-primero.test.ts`
 
 **Sin mirar en pantalla** (sin build local por la RAM): recorrerlo en producción con una cuenta sin computadora.
+## «Unificar los chats con MaKo»: la caja ya era una, el marco no (23/10/2026)
+
+- **Síntoma** (Martín, en la ficha de un lead): «el chat con MaKo... no es el mismo que debería ser, con la criatura y otras
+  cosas». El diagnóstico obvio era que ese chat no usaba las piezas únicas, y estaba mal: ya usaba el hilo (`HiloMako`) y la
+  caja (`CajaChat`). La guarda de entonces (tests/chat-unico.test.ts) sólo miraba la CAJA. Lo distinto era el MARCO: sin
+  cabecera ni criatura, su propio «Abriendo el chat…», su arrastrar y soltar, un borde azul arriba. Diez pantallas estaban así.
+- **Regla** (en AGENTS.md): el chat de MaKo son tres piezas juntas, el panel (`PanelDeChat`, con la cabecera y la criatura), el
+  hilo y la caja. La guarda ahora mira el chat entero: toda pantalla de la computadora que dibuja `HiloMako` dibuja el panel, o
+  es una pieza de una que lo dibuja. Un chat embebido (la ficha del lead) no tiene adónde volver: `onVolver` es opcional.
+- **La criatura del Dashboard era la de la tab**, no la estrella: contra la regla del 21/10 («los iconos de las criaturas siempre
+  debe ser el icono de MaKo»). Ahora es la estrella.
+- **Lo que NO se migró a ciegas:** Offer (`ChatOffer.tsx`, la tab y el onboarding) es el embudo del lanzamiento del 25/10, y
+  nueve de sus tests cuidan el soltar con sólo texto y la nota de voz: queda para su chat, con el molde de MakoAnalystLead.tsx.
+
+**Sin hacer (el inventario de tests/chat-unico.test.ts → PANEL):** Automations (`ChatMakoVista.tsx`, la cabecera vive en
+`ChatMako.tsx`), Offer, Web Generator (`ChatAgente.tsx`), Video Editor (`PanelChat.tsx`), Image Editor (`PanelMakoIA.tsx`),
+Chats (`WhatsAppAdvisor.tsx`) y `app/_components/MakoChat.tsx` (Ads Manager y el Diagnóstico).
 
 ---
 
