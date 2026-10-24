@@ -1012,4 +1012,21 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-ads.md · docs/hallazgos-landing.md · docs/hallazgos-comunicacion.md — lo medido',
     ],
   },
+  {
+    fecha: '24 oct', hora: '20:40', chat: 'Landings de MaKo en Web Generator', sesion: 'local_90fdc31c-60c8-4fdb-b396-bd9807bb5067', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Una agenda ya no le llega dos veces a Meta',
+    puntos: [
+      'Pedido de Martín: «soluciona esto... Es error de mako». Cuando alguien agendaba en la landing de Mauricio, Meta podía contar la reunión dos veces: una desde su página y otra desde MaKo.',
+      'Ahora MaKo y las páginas de MaKo marcan cada agenda con el mismo número, así Meta la cuenta una sola vez. Y si la página del cliente ya le avisa a Meta por su cuenta, MaKo no la repite y lo deja anotado en la ficha del lead.',
+      'De paso, MaKo vuelve a poder leer las páginas cuyo hosting bloqueaba al analizador (las del Sprint de Mauricio).',
+      'No se vio con clics: está probado con tests, rompiendo el código en 9 lugares. Empieza a valer para Mauricio el día después del deploy, cuando MaKo relee su página.',
+    ],
+    archivos: [
+      'lib/meta-capi-payload.ts — el número compartido de la agenda y cuándo MaKo no la repite',
+      'app/api/webhooks/calendly/route.ts — el envío a Meta de cada reserva',
+      'lib/landing-analisis.ts — ve si la página ya avisa a Meta, y el reintento ante un bloqueo',
+    ],
+    revisar: '/integraciones?abrir=landing',
+  },
 ];

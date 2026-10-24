@@ -4603,6 +4603,21 @@ tests/zernio-anuncios.test.ts
   nuevo por CAPI (Purchase de una venta externa, Lead del opt-in) se pregunta antes si la página ya lo dispara. Decidido
   por el Cerebro el 24/10: el arreglo del Schedule doble va al CRM después del lanzamiento, dentro del diseño de «qué
   eventos manda MaKo a Meta» por funnel.
+- **Arreglado el mismo día (5b77a50d4, Martín: «Es error de mako»):** un solo id para las dos puntas,
+  `schedule:<uuid del evento de Calendly>` (`eventIdSchedule`, lib/meta-capi-payload.ts), que las páginas de MaKo mandan
+  como `eventID` y, sin la URI, no mandan; y si la página donde se reservó ya dispara Schedule sin id al mismo píxel, MaKo
+  no lo repite por CAPI y lo deja dicho en el historial (`repiteScheduleDeLaPagina`; la página sale del `agendo` o la
+  visita del visitante, lib/meta-schedule-pagina.ts; el analizador lo detecta como `meta-schedule` / `meta-px:<id>`).
+  Test: tests/meta-schedule-id.test.ts (falla si un `fbq` Schedule del repo queda sin `eventID`).
+- ⚠️ **El diagnóstico obvio del pedido era el equivocado en una mitad:** se pensó que el Schedule sin id que duplicaba era
+  el de `app/vsl/Landing.tsx` y el de `SCRIPT_DISENO` («`fbq('track',…)` sin id va a TODOS los píxeles iniciados»). Es
+  cierto que va a todos los INICIADOS, pero esas dos páginas sólo inician el píxel de MaKo (`PIXEL_META_MAKO`) o el del
+  documento: nunca el de Mauricio. El que duplicaba es el del bundle de SU página. Arreglar sólo el id compartido habría
+  dejado el doble igual; hacía falta también que MaKo no repita lo que la página ya manda.
+- **Hasta que el vigilante relea la página** (cron `tracking-vigilante`, 13:50 UTC) el snapshot de multiplicatusresultados.com
+  no trae `meta-schedule` y MaKo sigue mandando: el doble para recién con la primera lectura después del deploy. Se
+  verifica con `/{pixel}/stats?aggregation=event_source&event=Schedule`: el de servidor tiene que quedar en el del espejo,
+  no en el doble.
 - **«MaKo no ve gasto del ws1 desde el 15/10»: no era ceguera.** La cuenta la frenó Meta por saldo impago (la entrada de
   abajo).
 - ⚠️ **El ws4 «Cliente de Diseño» tiene el MISMO píxel y el mismo token que Mauricio**: un envío por CAPI desde el ws4 cae

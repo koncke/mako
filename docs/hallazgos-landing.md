@@ -4427,9 +4427,11 @@ la base, las grabaciones y GETs a Stripe. Lo pidió el Cerebro después de la au
 - **Lo que MaKo mide del Sprint: sólo pruebas.** El Pixel se puso el 24/10 entre 01:40 y 01:46 UTC, DESPUÉS de los 12
   checkouts: 3 visitas en toda la historia, las 3 de prueba; 0 clics a Stripe; el id del `m.js` es el token del ws1. La
   visita a gracias da `sin_lead`: la página no tiene formulario y los links que se mandan por WhatsApp no llevan `?l=`.
-- ⚠️ **El analizador recibe 403 en ese host con su UA (`MaKoPixel/1.0`) y 200 con uno de Chrome**: los tres análisis de
-  sus páginas terminaron en «Esta página no deja que MaKo la lea sola». Una página que bloquea al analizador queda en «no
-  sé» para todo lo que se deduce de sus piezas (el paso final del probador incluido).
+- ⚠️ **El analizador recibe 403 en ese host**: los tres análisis de sus páginas terminaron en «Esta página no deja que
+  MaKo la lea sola». **Y el diagnóstico obvio se leía al revés:** el UA que el código manda no es `MaKoPixel/1.0` sino
+  `Mozilla/5.0 (compatible; MaKoPixel/1.0; +…)`, y ESE es el que el WAF bloquea (parece un navegador falso); el de bot
+  pelado `MaKoPixel/1.0 (+…)` da 200 (medido el 24/10 en 5 páginas: las otras 4 dan 200 a los dos). Arreglado en
+  5b77a50d4: ante un 403, un reintento con el de bot, en la página y en sus scripts. Los dos dicen que son MaKo.
 - **Su sitio ya está listo para atribuir:** `assets/landing-jan.js` copia `client_reference_id` y los `utm_*` del query de
   la página a cada link `[data-stripe]`.
 - **Sin medir:** quién abrió cada uno de los 12 checkouts (Stripe no guarda el origen; el del 18/10 03:45 UTC es casi
