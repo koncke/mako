@@ -2517,3 +2517,16 @@ Medido en móvil (390 px, toque): el botón (32 px, dentro de la pantalla) frena
 emulado). Y sigue pendiente (después del 25/10) todo lo que
 no es esto de la etapa 4: efectos de scroll, contador, cinta y carrusel como variantes, pasos y texto rotativo, con el
 panel de Framer abierto antes de copiar sus controles (relevo de Web Generator, «Animaciones, etapa 4»).
+
+## El mapa de versiones del Pixel no prueba que una landing nueva mida (23/10/2026)
+
+**Vive en:** `lib/pixel-aviso.ts` (`anotarVersionDePagina`, `VERSIONES_POR_PAGINA_KEY`) · `app/api/track/vsl/route.ts`
+
+- **Síntoma:** de las ocho landings del lanzamiento, el mapa `landing.snippet_versiones` del ws9 sólo nombraba la
+  portada, `/vsl/coaches` y la principal en hola-mako.site. **El diagnóstico obvio («las otras no miden») era el
+  equivocado:** el mapa lo escribe el beacon con cada pageview y sólo cuando la página es nueva o cambió de versión, así
+  que una landing recién publicada y sin tráfico (los anuncios todavía no corren) no aparece hasta su primera visita real.
+- **Lo que sí prueba que mide:** abrir la página en Chrome sin ventana CORTANDO `/api/track/*` (no deja visitas) y mirar
+  que cargue `/m.js?id=<token del negocio>` y que intente el beacon. Así se midieron avatares-ia y las otras.
+- **Regla:** una ausencia en el mapa de versiones no es «no mide»; para afirmar que una landing mide, se mira lo que
+  carga y manda la página, nunca el mapa.

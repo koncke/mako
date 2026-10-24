@@ -22,6 +22,15 @@ diseñado y medido), la etapa 4 de animaciones (con el editor de Framer abierto 
 Ticker y el Slideshow, y con una cuenta que crea él) y el video de fondo. **Sin medir:** el botón de pausa con lector de
 pantalla y el reveal sin movimiento en un iPhone real.
 
+**Re-medido el 23/10 a las 23:55 (cuenta claude1), porque Cerebro volvió a pedir las dos cosas:** producción en
+`7d69d0f25` (incluye `af67986ab`). `hola-mako.com/vsl/avatares-ia` y `hola-mako.site/avatares-ia` dan 200 con el h1
+«Anuncios en video con tu avatar de IA, sin grabarte cada vez», cargan `/m.js?id=` con el token del ws9 y mandan su
+beacon (medido cortando /api/track/*: sin visitas falsas). La portada: 3 carriles, avanzan solos, 3 botones de pausa, la
+pausa frena el carril (`aria-pressed=true`); con «reducir movimiento», 0 avances y 0 botones. **avatares-ia todavía no
+está en el mapa de versiones del ws9** (`landing.snippet_versiones`), y tampoco otras seis de funnel: el beacon anota una
+página recién con su PRIMERA visita real (`anotarVersionDePagina`, lib/pixel-aviso.ts), y no hubo ninguna. No es que no
+mida: entra sola con la primera visita.
+
 ## Estado al 23/10/2026 por la mañana (cuenta claude1; lo de arriba lo corrige)
 
 **Medido en producción** (deploy `mako-jnb7ohn00` = `594ecd41b`), porque llegaron mensajes con el estado del 15/10: el
