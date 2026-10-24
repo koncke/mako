@@ -19,7 +19,7 @@
 // parte (esa bienvenida) y ninguna persona. Y al revés: una automática que llega DESPUÉS de los 15 s (con mala señal)
 // sigue contando como respuesta.
 //
-// ⚠️ SÓLO EL WHATSAPP NO OFICIAL. El oficial no tiene entrante (el webhook de Chatwoot se borró el 09/10/2026) ni
+// ⚠️ SÓLO EL WHATSAPP NO OFICIAL. El oficial no tiene entrante (su webhook de entrada se borró el 09/10/2026) ni
 // manda (`SIN_CANAL_OFICIAL`). Instagram y Messenger, no: el motor nunca escribe primero por ahí (un DM sale dentro de las
 // 24 h del último mensaje de la PERSONA, lib/canal-zernio.ts), así que el primer mensaje de una automatización no es un
 // primer contacto que dispare una bienvenida, y sus partes no quedan espejadas con su hora para medirlas.
