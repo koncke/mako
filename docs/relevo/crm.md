@@ -30,9 +30,14 @@ sube el Cerebro:
 pantalla que lo muestre: 95 T2, 8 T1 y 1 T6 en 30 días en el ws1, y 7 T2 en el ws11. **Después:** las mismas reglas como
 automatizaciones visibles en /automations. Una reunión sin marcar deja de pasar a No Show sola: MaKo pregunta «¿fue?».
 
-**Cuándo prender (el Cerebro, 23/10):** la decisión es de Martín. Al prenderlas, las reuniones viejas sin marcar avisan
-enseguida (~14 mensajes al grupo de Mauricio) y eso no se deshace. Si dice que sí, **después del 25/10**, el lanzamiento:
-ese día no se distinguiría un problema de la venta de uno del CRM automático.
+**Cuándo prender (el Cerebro, 23/10):** la decisión es de Martín. Al prenderlas, lo viejo que ya cumple avisa enseguida y
+eso no se deshace. Medido el 23/10: T1 avisa 0, T3 avisa 1 (el lead 1779 del ws11, el de la confirmación #76). Una
+primera cuenta decía «~14 mensajes»: estaba mal. Si dice que sí, **después del 25/10**, el lanzamiento: ese día no se
+distinguiría un problema de la venta de uno del CRM automático.
+
+**24/10, CRM (claude1): E2 y E3 hechos** sobre `200e80e26` (el lugar en Editar con IA que hizo Automations). T2 y T6
+miran el estado (ABIERTO; No responde o Perdido en dos ramas), y la condición nueva «Traído de un grupo de WhatsApp»
+(`traido_de_grupo`) va negada en cada rama que mueve. Tests 4a/4d y el 7 de condiciones-crm-auto, probados rompiéndolos.
 
 **24/10, Automations (claude1): la punta ahora es `aut-b5-ia2`** (worktree C:/dev/wt-aut-b5ia2), sobre esta. Trae lo
 de Automations del b5: los 4 hallazgos del port de IA más uno (`parcheEspera`, d38ba234c), y M3/M6 de abajo
@@ -42,9 +47,7 @@ verde. Juntos: 73 de 73. La próxima sesión de CRM sigue desde ahí (merge o ff
 **CORTADO POR USO (23/10, tarde) — LO QUE SIGUE, en orden.** Punta `d84d2e73a`, que ya trae el port de IA de Automations
 (`5badeda1a`) y la espera estacionada (M2/E4). La revisión adversarial confirmó 24 hallazgos (`wf_14b879ca-b3c`; detalle
 en el journal de la corrida y en el scratchpad de la sesión, `crm-b5-revision.md`). Faltan:
-- Plantillas: ABIERTO en las dos ramas de na_c1 y en na_c2 (E2); T6 (rf_c) con dos ramas, estado no_responde / perdido;
-  una condición nueva «Traído de un grupo de WhatsApp» (evaluar = `quedaDondeLoPusieron(L(h)?.origen)`, nunca null), negada
-  en na_c1, na_c2 y rf_c (E3). Antes, medir el techo de Crear/Editar con IA: Editar quedó en ~3.698/3.700.
+- ~~Plantillas: E2 y E3~~ (hechos el 24/10, ver arriba).
 - Script: sacar T6 del plan (su CRON son etapas de salida: guardarDisparadores lo rechaza, S1/S4). Validar cada CRON y
   destino contra productosConEtapas antes de insertar; si `r.aviso`, borrar la fila. T1 una por etapa de reunión, anclada en
   reunion_1 / reunion_2 (M1/E1/M4). T2 con CRON `lead,nutri` (S5). Deduplicar por plantilla + CRON (S3). getFunnelDefault,
@@ -56,8 +59,7 @@ en el journal de la corrida y en el scratchpad de la sesión, `crm-b5-revision.m
 - Galería y API: sin «Elegir después» en las que tienen destinos, y el server exige el CRON y destinos de un solo CRM (G1).
   `alCrearDePlantilla` con cron:true (G2). tests/crear-al-instante.test.ts está ROJO desde b5. yaEstaba en
   cambiar_desde_espera_paso (G3). Los textos de la API sobre la gracia (G4). La descripción de cambiar_espera_paso (G5).
-- Corregir en hallazgos-crm.md el «72+4 pendientes»: son 76 en total y 7 pendientes. Y en este relevo, los «~14 mensajes»:
-  T1 avisa 0 al prender, T3 avisa 1 (lead 1779, el de la #76). Las confirmaciones SÍ se ven en el teléfono (/m/inbox).
+- ~~Corregir el «72+4» y los «~14 mensajes»~~ (hecho el 24/10). Las confirmaciones SÍ se ven en el teléfono (/m/inbox).
 - Para Automations, no para el CRM: M3/M6 (lugarDeFicha con la zona del negocio y fechaCoincide). Tocan flujos en producción.
 
 **Bloqueos, en orden:**

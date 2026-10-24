@@ -331,6 +331,15 @@ const VENCIO_LA_NUTRICION: FilaCondicion = { campo: 'nutricion_vencida' };
 const FRIO: FilaCondicion = { campo: 'antiguedad', valor: 7 * 24, no: true };
 /** «Está en la etapa …»: la etapa la pone `pasosConDestinos` con la del destino que la nombra (`enEtapa`). */
 const EN_LA_ETAPA_ELEGIDA: FilaCondicion = { campo: 'etapa', valor: '' };
+/**
+ * «No traído de un grupo de WhatsApp»: el traído de un grupo queda donde lo pusieron (decisión del 23/10/2026), como en el
+ * motor (`seMueveSolo`, lib/crm-auto-plan.ts). Va en cada rama que MUEVE de T2 y T6: sin ella, colgar la plantilla en la
+ * etapa donde se trajo un grupo los pasaba a nutrición y a reactivación, y las automatizaciones de esas etapas les escribían.
+ */
+const NO_DEL_GRUPO: FilaCondicion = { campo: 'traido_de_grupo', no: true };
+/** «Estado del lead: No responde» / «Perdido»: T6 mira sólo esos dos, como el motor (lib/crm-auto-plan.ts). */
+const NO_RESPONDE: FilaCondicion = { campo: 'estado_lead', valor: 'no_responde' };
+const PERDIDO: FilaCondicion = { campo: 'estado_lead', valor: 'perdido' };
 
 const HORA = 60;
 const DIA = 24 * HORA;
@@ -408,11 +417,14 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     ],
     pasos: [
       esperar('na_e1', 2 * DIA, 'na_c1'),
-      condicion('na_c1', [[[NO_AGENDO, SIGUE_EN_LA_ETAPA, FRIO], 'na_mv3'], [[NO_AGENDO, SIGUE_EN_LA_ETAPA], 'na_mv1']], null),
+      // ABIERTO en cada rama que mueve, como el motor (`estado_lead === 'abierto'` al planear y al aplicar): mover a un ganado
+      // que quedó con la etapa vieja lo reabría y le borraba el cierre (lead-desenlace.ts). EN_LA_ETAPA_ELEGIDA sigue en la
+      // fila 1 de na_c2: la nombra `enEtapa` del destino «no_agenda».
+      condicion('na_c1', [[[NO_AGENDO, SIGUE_EN_LA_ETAPA, FRIO, ABIERTO, NO_DEL_GRUPO], 'na_mv3'], [[NO_AGENDO, SIGUE_EN_LA_ETAPA, ABIERTO, NO_DEL_GRUPO], 'na_mv1']], null),
       mover('na_mv3', null),
       mover('na_mv1', 'na_e2'),
       esperar('na_e2', 5 * DIA, 'na_c2'),
-      condicion('na_c2', [[[NO_AGENDO, EN_LA_ETAPA_ELEGIDA], 'na_mv2']], null),
+      condicion('na_c2', [[[NO_AGENDO, EN_LA_ETAPA_ELEGIDA, ABIERTO, NO_DEL_GRUPO], 'na_mv2']], null),
       mover('na_mv2', null),
     ],
   },
@@ -619,7 +631,8 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     ],
     pasos: [
       esperar('rf_e', 30 * DIA, 'rf_c'),
-      condicion('rf_c', [[[SIGUE_EN_LA_ETAPA], 'rf_mv']], null),
+      // Dos ramas, como el motor (no_responde o perdido): ni un ganado con la etapa vieja ni un descalificado se reabren.
+      condicion('rf_c', [[[SIGUE_EN_LA_ETAPA, NO_RESPONDE, NO_DEL_GRUPO], 'rf_mv'], [[SIGUE_EN_LA_ETAPA, PERDIDO, NO_DEL_GRUPO], 'rf_mv']], null),
       mover('rf_mv', null),
     ],
   },

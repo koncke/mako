@@ -84,6 +84,8 @@ import { decidirSalida, type CanalSocial, type ConversacionSocial } from './cana
 // Puros los dos: la condición de un DATO DEL EVENTO se arma de su variable (16/10/2026).
 import { campoDeDato, cumpleDato, datoDeCampo } from './dato-evento';
 import { datoDe } from './variables-aviso';
+// Client-safe: de dónde vino el lead, en UN solo lugar (la del grupo de WhatsApp, `quedaDondeLoPusieron`).
+import { quedaDondeLoPusieron } from '../app/crm/origen-lead';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────────
 
@@ -553,6 +555,14 @@ export const CONDICIONES: readonly DefCondicion[] = [
       const norm = (x: string) => (x === 'carga_manual' ? 'manual' : x);
       return norm(o) === norm(String(f.valor));
     },
+  },
+  // «TRAÍDO DE UN GRUPO DE WHATSAPP» (24/10/2026, b5): el traído de un grupo queda donde lo pusieron (decisión del 23/10: no
+  // entra a los movimientos automáticos del CRM). Las plantillas que mueven solas («Un Lead No Agendó», «Un Lead Se Enfrió»)
+  // la llevan NEGADA. No es «Origen no es …»: ésa con el origen vacío dice «no sé» y no se cumple ni negada, y dejaría quietos
+  // a todos los leads sin origen. Ésta contesta siempre: sin origen, no vino de un grupo.
+  {
+    id: 'traido_de_grupo', seccion: 'Origen y tracking', ambito: 'adquisicion', rotulo: ['Traído de un grupo de WhatsApp', 'No traído de un grupo de WhatsApp'], negable: true, valor: NINGUNO, fuentes: ['lead'],
+    evaluar: (_f, h) => (L(h) ? quedaDondeLoPusieron(L(h)!.origen) : null),
   },
   {
     id: 'campana_meta', seccion: 'Origen y tracking', ambito: 'adquisicion', rotulo: ['Campaña de Meta', 'Campaña de Meta no es'], negable: true, valor: { t: 'lista', catalogo: 'campana' }, fuentes: ['lead'],

@@ -166,3 +166,20 @@ test('6. el lector del motor trae la columna y el día del NEGOCIO cuando la con
   // 24/10/2026: y la zona del negocio, la del ancla de la espera (tests/reunion-termino-una-regla.test.ts).
   assert.match(src, /lead: catalogoDeLead\(f, ahoraMs, hoy \|\| null, zona\)/);
 });
+
+// E3 de la revisión del b5 (24/10/2026): «Traído de un grupo de WhatsApp». El traído de un grupo queda donde lo pusieron
+// (decisión del 23/10), y las plantillas que mueven solas la llevan negada. Contesta SIEMPRE: con el origen vacío, «no vino de
+// un grupo» (la de «Origen no es …» dice «no sé» y dejaría quietos a todos los leads sin origen).
+// Rotura (base 7/0): `evaluar` con «no sé» sin origen → 6/1, cae éste.
+test('7. «Traído de un grupo de WhatsApp»: sí o no, nunca «no sé»; y el lector del motor trae el origen', () => {
+  const g = condicionPorId('traido_de_grupo')!;
+  assert.equal(g.seccion, 'Origen y tracking');
+  assert.deepEqual(g.rotulo, ['Traído de un grupo de WhatsApp', 'No traído de un grupo de WhatsApp']);
+  assert.equal(g.negable, true);
+  const delGrupo = (origen_lead: string | null | undefined) => veredicto({ campo: 'traido_de_grupo' }, H(catalogoDeLead({ origen_lead }, AHORA)));
+  assert.equal(delGrupo('grupo_whatsapp'), true);
+  for (const otro of ['importacion', 'chat_whatsapp', 'carga_manual', null, undefined]) assert.equal(delGrupo(otro), false, String(otro));
+  assert.equal(textoCondicion({ campo: 'traido_de_grupo', no: true }), 'No traído de un grupo de WhatsApp');
+  // El motor lee `origen_lead` cuando una condición del catálogo lo pide.
+  assert.match(leer('lib/nutricion.ts'), /const COLS_CATALOGO = 'origen_lead, /);
+});

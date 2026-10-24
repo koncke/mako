@@ -189,9 +189,10 @@ type Hecho = { dia: number; id: string; op: string; etapa?: unknown };
  * del catálogo, el CRON de la automatización) y las fechas de las esperas «después de», hasta `hastaMs`. Lo que se
  * ejecuta (un aviso o un movimiento) queda en la lista, con el día; un movimiento le cambia la etapa al lead.
  */
-function correr(pasos: readonly PasoGrafo[], cron: Disparador[], lead: LeadSim, desdeMs: number, hastaMs: number): Hecho[] {
+function correr(pasos: readonly PasoGrafo[], cron: Disparador[], lead: LeadSim, desdeMs: number, hastaMs: number, desdeId?: string): Hecho[] {
   const out: Hecho[] = [];
-  let idx = indicePorId(pasos, raizSalida(pasos));
+  // `desdeId`: retomar un hilo que ya estaba en esa tarjeta (sin él, desde la entrada, como una inscripción nueva).
+  let idx = indicePorId(pasos, desdeId ?? raizSalida(pasos));
   let ahora = desdeMs;
   for (let vuelta = 0; vuelta < 40 && idx >= 0; vuelta++) {
     const base: HechosLead = {
@@ -248,11 +249,12 @@ test('4a. «Un Lead No Agendó» = T2: a los 2 días a No Agenda, a los 7 a Reac
   // El motor, el mismo lead, día por día y aplicando lo que mueve: No Agenda el 2, Reactivación el 7.
   assert.deepEqual(historiaDelMotor('T2', autoLead({})), [[2, 'nutri'], [7, 'reactivacion']]);
   // Agendó: ni el flujo ni el motor lo mueven.
-  assert.deepEqual(correr(pasos, CRON('lead'), { etapa: 'lead', agendo: true, creadoMs: T0, fila: {} }, T0, T0 + 40 * DIA), []);
+  // (Cada lead lleva su estado: sin él, «Estado del lead: Abierto» dice «no sé» y el [] sería por la razón equivocada.)
+  assert.deepEqual(correr(pasos, CRON('lead'), { etapa: 'lead', agendo: true, creadoMs: T0, fila: { estado_lead: 'abierto' } }, T0, T0 + 40 * DIA), []);
   assert.equal(diaDelMotor('T2', () => autoLead({ fecha_agenda: '2026-10-15' })), null);
   // Una persona lo pasó a otra etapa después de No Agenda: el flujo NO lo manda a Reactivación (el motor tampoco: sólo
   // desde Lead entrante o No Agenda).
-  const lead = { etapa: 'lead', agendo: false, creadoMs: T0, fila: {} };
+  const lead = { etapa: 'lead', agendo: false, creadoMs: T0, fila: { estado_lead: 'abierto' } };
   const parcial = correr(pasos, CRON('lead'), lead, T0, T0 + 3 * DIA);
   assert.deepEqual(parcial.map((h) => h.etapa), ['nutri']);
   lead.etapa = 'conversando';
@@ -260,9 +262,34 @@ test('4a. «Un Lead No Agendó» = T2: a los 2 días a No Agenda, a los 7 a Reac
   assert.equal(diaDelMotor('T2', () => autoLead({ pipeline_stage: 'conversando' })), null);
   // ⚠️ La diferencia que queda, dicha: un lead que YA estaba frío cuando la automatización lo toma (llegó hace 10 días) va
   // directo a Reactivación, como en el motor, pero a los 2 días de activarla y no el mismo día (la primera tarjeta espera).
-  const frio = correr(pasos, CRON('lead'), { etapa: 'lead', agendo: false, creadoMs: T0 - 10 * DIA, fila: {} }, T0, T0 + 40 * DIA);
+  const frio = correr(pasos, CRON('lead'), { etapa: 'lead', agendo: false, creadoMs: T0 - 10 * DIA, fila: { estado_lead: 'abierto' } }, T0, T0 + 40 * DIA);
   assert.deepEqual(frio.map((h) => [h.dia, h.etapa]), [[2, 'reactivacion']]);
   assert.deepEqual(diaDelMotor('T2', () => autoLead({ created_at: isoDe(T0 - 10 * DIA) })), { dia: 0, to: 'reactivacion' });
+
+  // Roturas de E2/E3 (24/10/2026, base 10/0, cada una 9/1): sin ABIERTO en na_c2 o en la rama fría de na_c1; sin «No traído
+  // de un grupo» en la segunda rama de na_c1 o en na_c2; T6 con una sola rama. La condición diciendo «no sé» sin origen: 8/2.
+  // E2 (la revisión del b5, 23/10/2026): un GANADO que quedó con la etapa vieja puesta (`guardar_cuotas` escribe el estado y no
+  // toca la etapa) no se mueve: moverlo lo reabría y le borraba el cierre. El motor tampoco (sólo abiertos). Frío o no.
+  for (const estado of ['ganado', 'perdido'] as const) {
+    assert.deepEqual(correr(pasos, CRON('lead'), { etapa: 'lead', agendo: false, creadoMs: T0, fila: { estado_lead: estado } }, T0, T0 + 40 * DIA), [], `${estado}: el flujo lo mueve`);
+    assert.deepEqual(correr(pasos, CRON('lead'), { etapa: 'lead', agendo: false, creadoMs: T0 - 10 * DIA, fila: { estado_lead: estado } }, T0, T0 + 40 * DIA), [], `${estado} y frío: el flujo lo mueve`);
+    assert.equal(diaDelMotor('T2', () => autoLead({ estado_lead: estado })), null, `${estado}: el motor lo mueve`);
+  }
+  // Y uno que se gana DURANTE la espera de 5 días (ya en No Agenda, que le puso el propio flujo): na_c2 no lo pasa a
+  // Reactivación. Rotura: sin ABIERTO en na_c2, éste da [[5, 'reactivacion']].
+  const ganadoEnNoAgenda = { etapa: 'nutri', agendo: false, creadoMs: T0, fila: { estado_lead: 'ganado' } };
+  assert.deepEqual(correr(pasos, CRON('lead'), ganadoEnNoAgenda, T0 + 2 * DIA, T0 + 40 * DIA, 'na_e2'), [], 'na_c2 mueve a un ganado');
+  // Sin ganar, desde el mismo lugar, sí pasa (el caso de arriba no es [] por otra cosa).
+  assert.deepEqual(correr(pasos, CRON('lead'), { ...ganadoEnNoAgenda, fila: { estado_lead: 'abierto' } }, T0 + 2 * DIA, T0 + 40 * DIA, 'na_e2').map((h) => [h.dia, h.etapa]), [[5, 'reactivacion']]);
+
+  // E3: el traído de un grupo de WhatsApp queda donde lo pusieron (decisión del 23/10/2026), como en el motor (`seMueveSolo`).
+  // Con el origen vacío sí se mueve: «No traído de un grupo» nunca dice «no sé».
+  const delGrupo = { estado_lead: 'abierto', origen_lead: 'grupo_whatsapp' };
+  assert.deepEqual(correr(pasos, CRON('lead'), { etapa: 'lead', agendo: false, creadoMs: T0, fila: delGrupo }, T0, T0 + 40 * DIA), [], 'el flujo mueve a uno del grupo');
+  assert.deepEqual(correr(pasos, CRON('lead'), { etapa: 'lead', agendo: false, creadoMs: T0 - 10 * DIA, fila: delGrupo }, T0, T0 + 40 * DIA), [], 'el flujo mueve a uno del grupo, frío');
+  assert.deepEqual(correr(pasos, CRON('lead'), { etapa: 'nutri', agendo: false, creadoMs: T0, fila: delGrupo }, T0 + 2 * DIA, T0 + 40 * DIA, 'na_e2'), [], 'na_c2 mueve a uno del grupo');
+  assert.equal(diaDelMotor('T2', () => autoLead({ origen_lead: 'grupo_whatsapp' })), null);
+  assert.deepEqual(correr(pasos, CRON('lead'), { etapa: 'lead', agendo: false, creadoMs: T0, fila: { estado_lead: 'abierto', origen_lead: null } }, T0, T0 + 40 * DIA).map((h) => h.etapa), ['nutri', 'reactivacion']);
 });
 
 test('4b. «Una Reunión Sin Marcar» = T1: a las 3 h de la reunión avisa si nadie la marcó; marcada o cancelada, nada', () => {
@@ -321,10 +348,23 @@ test('4d. «Un Lead Se Enfrió» = T6: a los 30 días quieto en la etapa lo pasa
   // El motor, con el lead que entró a Perdido el día 0: a los 30 días.
   assert.deepEqual(diaDelMotor('T6', () => autoLead({ estado_lead: 'perdido', pipeline_stage: 'perdido', updated_at: isoDe(T0) }), 40), { dia: 30, to: 'reactivacion' });
   // Si en el medio volvió a otra etapa, no.
-  const lead = { etapa: 'perdido', agendo: false, creadoMs: T0, fila: {} };
+  const lead = { etapa: 'perdido', agendo: false, creadoMs: T0, fila: { estado_lead: 'perdido' } };
   correr(pasos, CRON('perdido'), lead, T0, T0 + 10 * DIA);
   lead.etapa = 'agenda';
   assert.deepEqual(correr(pasos, CRON('perdido'), lead, T0 + 10 * DIA, T0 + 60 * DIA), []);
+
+  // E2: sólo No responde o Perdido, como el motor. «No responde» por su rama; un ganado con la etapa vieja puesta o un
+  // descalificado, nunca (reabrirlo le borraba el cierre). Rotura: con una sola rama «Sigue en la etapa», cae el ganado.
+  const enfriado = (fila: FilaLeadCatalogo) => correr(pasos, CRON('perdido'), { etapa: 'perdido', agendo: false, creadoMs: T0 - 90 * DIA, fila }, T0, T0 + 60 * DIA);
+  assert.deepEqual(enfriado({ estado_lead: 'no_responde' }).map((h) => [h.dia, h.etapa]), [[30, 'reactivacion']]);
+  assert.deepEqual(diaDelMotor('T6', () => autoLead({ estado_lead: 'no_responde', pipeline_stage: 'perdido', updated_at: isoDe(T0) }), 40), { dia: 30, to: 'reactivacion' });
+  for (const estado of ['ganado', 'descalificado', 'abierto'] as const) {
+    assert.deepEqual(enfriado({ estado_lead: estado }), [], `${estado}: el flujo lo reactiva`);
+    assert.equal(diaDelMotor('T6', () => autoLead({ estado_lead: estado, pipeline_stage: 'perdido', updated_at: isoDe(T0) }), 40), null, `${estado}: el motor lo reactiva`);
+  }
+  // E3: uno traído de un grupo y marcado Perdido no vuelve solo a Reactivación (el motor tampoco).
+  assert.deepEqual(enfriado({ estado_lead: 'perdido', origen_lead: 'grupo_whatsapp' }), [], 'el flujo reactiva a uno del grupo');
+  assert.equal(diaDelMotor('T6', () => autoLead({ estado_lead: 'perdido', pipeline_stage: 'perdido', updated_at: isoDe(T0), origen_lead: 'grupo_whatsapp' }), 40), null);
 });
 
 // ── 5. El cableado ───────────────────────────────────────────────────────────────

@@ -29,8 +29,23 @@ en [corridas-multiagente.md](corridas-multiagente.md).
 - **Síntoma: el motor movía leads de clientes y nadie lo veía.** El botón «CRM Automático» se sacó el 14/10
   (`app/crm/CrmAutoToggle.tsx`: «HOY NADIE LO DIBUJA») pero el cron siguió prendido: en el ws1 sin setting, porque
   hereda el env `CRM_AUTO_ENABLED` de Vercel, y en el ws11 con `crm_auto_enabled = true`. Medido el 23/10: 95 T2, 8 T1 y
-  1 T6 en 30 días en el ws1, 7 T2 en el ws11, y 72+4 confirmaciones pendientes. Es la regla de «nada por detrás» rota
-  por omisión: sacar el control no apaga lo que controla.
+  1 T6 en 30 días en el ws1, 7 T2 en el ws11. En `mako_confirmaciones` hay 76 filas en total y sólo 7 pendientes (una
+  primera cuenta decía «72+4 pendientes»: contaba todas las filas). Es la regla de «nada por detrás» rota por omisión:
+  sacar el control no apaga lo que controla.
+- **Una plantilla que MUEVE tiene que mirar el estado, no sólo la etapa** (E2, 24/10). `pipeline_stage` es un override
+  que le gana al estado (`pipelineStageOf`), y hay caminos que escriben el estado sin tocar la etapa: `saveLeadPlanManual`
+  (desde `guardar_cuotas`), «Marcar como cliente e invitar», cualquier `updateLead`. Un GANADO con la etapa vieja seguía
+  «en la etapa del CRON», y el ⚡ lo movía: `setPipelineStage` lo reabre y le borra monto y fecha de cierre
+  (lib/lead-desenlace.ts). El motor filtraba abiertos al planear y al aplicar; la plantilla no. **Regla:** cada rama que
+  mueve lleva su estado (ABIERTO en T2; No responde o Perdido en T6, en dos ramas).
+- **«Origen no es …» no sirve para excluir a nadie** (E3, 24/10). Con el origen vacío dice «no sé», y eso no se cumple ni
+  negado (`cumpleCatalogo`): dejaría quietos a todos los leads sin origen (24 en el ws1, 43 en el ws11). Para que los
+  traídos de un grupo queden quietos como en el motor hay una condición propia, «Traído de un grupo de WhatsApp»
+  (`traido_de_grupo`), que contesta siempre. Va negada en cada rama que mueve de T2 y T6.
+- **Trampa de los tests de equivalencia:** un lead de prueba con `fila: {}` no tiene estado, así que «Estado: Abierto» dice
+  «no sé» y el `[]` sale por la razón equivocada. Cada lead simulado lleva su estado.
+- **Cada condición del catálogo cuesta su id en el prompt de Crear/Editar con IA** (`bloqueCondiciones`). Editar con el CRON
+  estaba en ~3.698 de 3.700; Automations hizo lugar (`200e80e26`) y quedan ~11 tokens. La próxima condición vuelve a chocar.
 - **Un script local no ve el env de Vercel.** Para saber en qué negocios corre el motor, `crmAutoHabilitado()` desde la
   notebook contesta «apagado» para el ws1 (el `.env.local` no trae `CRM_AUTO_ENABLED`). El script decide por evidencia:
   el setting, o, sin setting, movimientos del motor en 14 días (`lead_audit` «CRM automático»).
@@ -102,6 +117,9 @@ No se probó con una línea de un cliente (las del ws3 y ws9 están cerradas): l
 - **La trampa:** el CRM automático lee los leads con una lista de columnas (`AUTO_COLS`, lib/crm-auto.ts). Sin `origen_lead`
   ahí, el planificador recibe `undefined` y lo mueve igual, y el test del planificador puro no lo ve: se fija aparte.
 - Las cohortes se filtran DESPUÉS de leer, no con otro `.or()`: `conAmbito` ya pone el suyo en la misma consulta.
+- **Las plantillas que reemplazan al motor heredan la regla** (b5, 24/10): «Un Lead No Agendó» y «Un Lead Se Enfrió» llevan
+  «No traído de un grupo de WhatsApp» en cada rama que mueve. Sin eso, el script que las cuelga en la etapa de entrada pasaba
+  a nutrición a los del grupo, y las automatizaciones de esa etapa les escribían.
 
 ### Lo que encontró la revisión de Integración (23/10/2026)
 
