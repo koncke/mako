@@ -309,3 +309,164 @@ export function urgenciaTexto(o: Pick<Oferta, 'urgencia_tipo' | 'urgencia_dato' 
   const venc = urgenciaVigente(o, hoy) === false ? ' · vencida' : '';
   return `${label}${dato ? `: ${dato}` : ''}${venc}`;
 }
+
+// ── El saneo de lo que se guarda (la pantalla y la API de MaKo) ──────────────
+
+/** Un número escrito por una persona. Mismo criterio que tenía la ruta: «5000 USD» → 5000. */
+const numeroDeTexto = (v: unknown): number | null => {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string' && v.trim()) { const n = Number(v.replace(/[^\d.]/g, '')); return Number.isFinite(n) ? n : null; }
+  return null;
+};
+
+/**
+ * Una oferta escrita por una persona o por un agente, saneada. La MISMA para la pantalla (POST 'guardar' de
+ * /api/onboarding/ofertas) y para la API de MaKo (`guardar_oferta`): vivía adentro de la ruta, y con dos copias la
+ * API habría guardado una urgencia sin dato o una fecha que nadie puede comparar.
+ *
+ * Devuelve también lo que DESCARTÓ, con su motivo. La pantalla lo ignora (es lo que hacía la ruta); la API lo
+ * rechaza: un agente que manda una fecha mal escrita tiene que enterarse, no verla desaparecer.
+ *
+ * `modelo` sólo se escribe si viene uno válido. La pantalla manda la oferta entera, con el modelo que tenía al cargar:
+ * la ruta se lo saca antes (`ofertaDeLaPantalla`), así no pisa el que puso la ficha del lead o la API.
+ */
+export function sanearOfertaInput(o: Record<string, unknown>):
+  { ok: true; input: OfertaInput; descartado: string[] } | { ok: false; error: string } {
+  const nombre = txt(o.nombre);
+  if (!nombre) return { ok: false, error: 'La oferta necesita un nombre.' };
+  const descartado: string[] = [];
+  const ut = esUrgenciaTipo(o.urgencia_tipo) ? o.urgencia_tipo : null;
+  // Sin dato concreto no hay urgencia: un tipo suelto pinta una restricción que no dice nada y nadie puede verificar.
+  const udato = ut ? txt(o.urgencia_dato) : '';
+  if (ut && !udato) descartado.push('la urgencia sin su dato concreto (urgencia_dato)');
+  const hastaCrudo = txt(o.urgencia_hasta);
+  // `YYYY-MM-DD` o nada: una fecha mal formada es un dato que después nadie puede comparar.
+  const hasta = /^\d{4}-\d{2}-\d{2}$/.test(hastaCrudo) ? hastaCrudo : null;
+  if (udato && hastaCrudo && !hasta) descartado.push(`la fecha «${hastaCrudo}» (va como AAAA-MM-DD)`);
+  return {
+    ok: true,
+    descartado,
+    input: {
+      nombre,
+      precio_usd: numeroDeTexto(o.precio_usd),
+      ...(esModeloOferta(o.modelo) ? { modelo: o.modelo } : {}),
+      precio_nota: txt(o.precio_nota) || null,
+      promesa: txt(o.promesa) || null,
+      incluye: txt(o.incluye) || null,
+      garantia: txt(o.garantia) || null,
+      para_quien: txt(o.para_quien) || null,
+      objeciones: txt(o.objeciones) || null,
+      prueba: txt(o.prueba) || null,
+      bonos: parseBonos(o.bonos),
+      urgencia_tipo: udato ? ut : null,
+      urgencia_dato: udato || null,
+      urgencia_razon: udato ? (txt(o.urgencia_razon) || null) : null,
+      urgencia_hasta: udato ? hasta : null,
+      activa: o.activa === false ? false : true,
+    },
+  };
+}
+
+/** Una oferta guardada, en la forma que recibe `sanearOfertaInput` (para editar una parte sin borrar el resto). */
+export function cuerpoDeOferta(o: Oferta): Record<string, unknown> {
+  return {
+    nombre: o.nombre, precio_usd: o.precio_usd, modelo: o.modelo ?? null, precio_nota: o.precio_nota,
+    promesa: o.promesa, incluye: o.incluye, garantia: o.garantia, para_quien: o.para_quien,
+    objeciones: o.objeciones, prueba: o.prueba, bonos: o.bonos,
+    urgencia_tipo: o.urgencia_tipo, urgencia_dato: o.urgencia_dato, urgencia_razon: o.urgencia_razon,
+    urgencia_hasta: o.urgencia_hasta, activa: o.activa,
+  };
+}
+
+/**
+ * Lo que queda de una oferta después de un cambio PARCIAL: lo que no viene en `cambios` conserva su valor, y el
+ * resultado pasa por el mismo saneo. Sin oferta (`null`), es una nueva. Lo usa la API de MaKo al proponer Y al
+ * confirmar: entre los dos momentos alguien pudo editar la oferta en la pantalla, y lo suyo no se pisa con una foto.
+ */
+export function ofertaConCambios(actual: Oferta | null, cambios: Record<string, unknown>):
+  ReturnType<typeof sanearOfertaInput> {
+  return sanearOfertaInput({ ...(actual ? cuerpoDeOferta(actual) : {}), ...cambios });
+}
+
+/** El nombre como lo compara el índice único de `ofertas` (`lower(btrim(nombre))`, mig 0169). */
+export const nombreDeOfertaComparable = (v: string): string => v.trim().toLowerCase();
+
+/**
+ * Lo que guarda la PANTALLA de ofertas (POST 'guardar' de /api/onboarding/ofertas), sin `modelo`. La pantalla manda la
+ * oferta ENTERA con el modelo que tenía al cargarla (`guardarCampo` en app/onboarding/OfertasView.tsx hace
+ * `{ ...o, ...patch }`): sin esto, cada campo que se guardaba ahí volvía a escribir ese modelo y pisaba el que la ficha
+ * del lead o la API habían cambiado con la pestaña abierta. Antes de que el saneo se mudara a este módulo, la ruta no lo
+ * escribía nunca (revisión del 23/10/2026).
+ */
+export function ofertaDeLaPantalla(o: Record<string, unknown>): Record<string, unknown> {
+  const resto = { ...o };
+  delete resto.modelo;
+  return resto;
+}
+
+/** Los campos de una oferta que se cambian desde afuera (la API de MaKo, `guardar_oferta`): los de su def. */
+export const CAMPOS_OFERTA_EDITABLES = [
+  'nombre', 'modelo', 'precio_usd', 'precio_nota', 'promesa', 'incluye', 'garantia', 'para_quien', 'objeciones',
+  'prueba', 'bonos', 'urgencia_tipo', 'urgencia_dato', 'urgencia_razon', 'urgencia_hasta', 'activa',
+] as const;
+
+/** Los datos de una urgencia que no valen sin su tipo. */
+const URGENCIA_SIN_TIPO = ['urgencia_dato', 'urgencia_razon', 'urgencia_hasta'] as const;
+
+export type PlanDeOferta =
+  | { error: string; faltan?: string[]; yaEstaba?: true }
+  | { actual: Oferta | null; resultado: OfertaInput; cambios: Record<string, unknown> };
+
+/**
+ * Qué oferta toca un pedido de AFUERA (la API de MaKo) y cómo queda. Corre al proponer Y al confirmar: entre los dos
+ * momentos alguien pudo crear o editar ofertas en la pantalla. Las reglas, todas medidas en la revisión del 23/10/2026:
+ *   · con id, ésa. Se le puede cambiar el nombre si no lo usa otra.
+ *   · SIN id, SIEMPRE una nueva, y un nombre que ya existe contesta su id. Antes el nombre era la llave: en
+ *     /mako/revisar el nombre se puede editar, así que corregirlo cambiaba QUÉ oferta se tocaba (una propuesta que
+ *     decía «Crear» pisaba otra que ya existía, y una que decía «Editar» creaba una nueva).
+ *   · lo que no viene conserva su valor (`ofertaConCambios`); «ninguna» quita la urgencia entera.
+ *   · un dato de la urgencia sin su tipo se rechaza: el saneo lo descartaba sin decirlo y la respuesta era «actualizada».
+ *   · se rechaza sólo lo que descarta el CAMBIO: una fila vieja con una urgencia incompleta no frena un cambio de precio.
+ *   · igual a lo que ya hay → `yaEstaba` (por HTTP, un 200 sin cambios; por chat, «ya está así»).
+ */
+export function planDeOferta(ofertas: readonly Oferta[], input: Record<string, unknown>): PlanDeOferta {
+  const cambios: Record<string, unknown> = {};
+  for (const k of CAMPOS_OFERTA_EDITABLES) if (input[k] !== undefined) cambios[k] = input[k];
+  const mismo = (a: string, b: string) => nombreDeOfertaComparable(a) === nombreDeOfertaComparable(b);
+  const id = typeof input.id === 'number' && Number.isInteger(input.id) && input.id > 0 ? input.id : null;
+  let actual: Oferta | null = null;
+  if (id != null) {
+    actual = ofertas.find((o) => o.id === id) ?? null;
+    if (!actual) return { error: `No existe la oferta #${id} en este negocio. Pide la lista con listar_ofertas.` };
+    const nuevo = typeof cambios.nombre === 'string' ? cambios.nombre : null;
+    if (nuevo != null && mismo(nuevo, actual.nombre)) delete cambios.nombre;
+    else if (nuevo != null) {
+      const otra = ofertas.find((o) => o.id !== id && mismo(o.nombre, nuevo));
+      if (otra) return { error: `Ya hay otra oferta que se llama «${otra.nombre}» (#${otra.id}). Elige otro nombre o edita esa.` };
+    }
+    if (!Object.keys(cambios).length) return { error: `No viene ningún dato para cambiar en «${actual.nombre}».`, faltan: [...CAMPOS_OFERTA_EDITABLES] };
+  } else {
+    const nombre = typeof cambios.nombre === 'string' ? cambios.nombre.trim() : '';
+    if (!nombre) return { error: 'Sin id se crea una oferta nueva, y hace falta su nombre.', faltan: ['nombre'] };
+    const ya = ofertas.find((o) => mismo(o.nombre, nombre));
+    if (ya) return { error: `Ya existe la oferta «${ya.nombre}» (#${ya.id}). Para editarla, pasa id ${ya.id}.` };
+  }
+  if (cambios.urgencia_tipo !== undefined && !esUrgenciaTipo(cambios.urgencia_tipo)) {
+    for (const k of URGENCIA_SIN_TIPO) delete cambios[k]; // «ninguna»: lo que venga con ella no tiene a qué pegarse
+  }
+  const r = ofertaConCambios(actual, cambios);
+  if (!r.ok) return { error: r.error };
+  const sueltos = URGENCIA_SIN_TIPO.filter((k) => (typeof cambios[k] === 'string' ? (cambios[k] as string).trim() !== '' : cambios[k] != null));
+  if (sueltos.length && !r.input.urgencia_tipo) {
+    return { error: `Sin el tipo de urgencia (urgencia_tipo) no se guarda ${sueltos.join(', ')}.` };
+  }
+  const antes = actual ? ofertaConCambios(actual, {}) : null;
+  const yaDescartado = antes?.ok ? antes.descartado : [];
+  const nuevos = r.descartado.filter((d) => !yaDescartado.includes(d));
+  if (nuevos.length) return { error: `Así no se puede guardar: ${nuevos.join('; ')}.` };
+  // Sobre una fila vieja que el saneo arregla (una urgencia sin su dato), escribir SÍ cambia algo: no es «ya está así».
+  if (actual && antes?.ok && !antes.descartado.length && JSON.stringify(antes.input) === JSON.stringify(r.input)) {
+    return { error: `«${actual.nombre}» ya está así.`, yaEstaba: true };
+  }
+  return { actual, resultado: r.input, cambios };
+}

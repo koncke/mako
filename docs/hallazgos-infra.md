@@ -66,6 +66,20 @@ cookies del pedido. En Next 16.2.6 `cookies()` devuelve el MISMO objeto durante 
 en el siguiente. La segunda clave es el valor del token: un pedido que cambia la cookie de sesión (un login) vuelve a
 leer. Lo fija `tests/rendimiento-pedido.test.ts`.
 
+**Medido en producción, antes y después** (request-logs de Vercel: antes, las 3 h previas a las 19:25 UTC; después, de
+22:02 a 22:21 UTC tras el deploy c0b47d416, todavía en iad1; muestra chica y en parte tráfico de la medición):
+
+| | antes p50 / p90 | después p50 / p90 |
+|---|---|---|
+| /api/auth/me | 4,9 s / 5,8 s | 0,64 s / 0,85 s |
+| /api/chat-agent/secuencias | 12,9 s / 15,6 s | 1,3 s / 1,9 s |
+| /automations (página) | 1,5 s | 0,63 s |
+| /crm (página) | 1,7 s / 3,5 s | 0,72 s / 3,2 s |
+| /second-brain (página) | 2,1 s | 0,90 s |
+
+Con un clic en la barra (Chrome, ws10): Automations usable en 2,2-3,5 s, antes 15 s. El loader se ve a 0,12-0,5 s en
+todas las tabs, antes nada durante 2-5 s. Configuraciones muestra su contenido en 0,66-0,97 s.
+
 **La regla que queda:** en una ruta /api o una server action, **`cache()` de React no deduplica nada**. Lo que se lee
 muchas veces por pedido (sesión, workspace, settings) se memoiza por el objeto de cookies, como `enElPedido`. Sigue
 abierto lo mismo para `app_settings` y las credenciales (~90 consultas por turno de Offer, entrada del 22/10).

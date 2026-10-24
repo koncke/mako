@@ -4492,3 +4492,38 @@ Zapier, el mail a Zernio y la prueba de Joan en Live esperan la decisión de Mar
 
 **Vive en:** fuera del código: el panel de la app MaKo en Meta, `vigia-revisiones/` (si el botón ya trae permisos de
 anuncios) · memoria `meta-oauth-app-review` · lib/meta-publicar-errores.ts (cómo se muestra el 1885183).
+
+## Conectar con tu propia app de Meta: qué le anda HOY a cada negocio (23/10/2026)
+
+Pregunta de Martín: «¿Cómo es posible que Código y otros ya han podido conectar sus cuentas de Meta? ¿No hay una forma
+más fácil?». Medido en sólo lectura sobre los 11 negocios con token de Meta: todos son tokens de usuario del sistema,
+válidos y sin vencimiento.
+
+| Negocio | App que firmó el token | Métricas | Leads de Meta (30 días) | Anuncios desde MaKo |
+|---|---|---|---|---|
+| ws1 Mauricio (y ws4, mismo token) | «Leads - Dashboard MKT (Martin)», ACTIVA | ok | 34, último 21/10 | 5 de 5 |
+| ws11 Leila | «Lidermente_Agent» | ok | 0 | nunca |
+| ws13 Código (y ws14, mismo token) | «Joan P2P app», en desarrollo | ok | 0 | 0 de 14 (1885183) |
+| ws15 Brigitte | «Bri App» | ok | 28, último 23/10 | nunca |
+| ws18 Pablo, ws20 Sergio, ws22 Patricia | apps propias | ok | 0 | nunca |
+| ws19 Natalia | «Natalia app» | ok | 73, último 23/10 | nunca |
+| ws9 MaKo | app MaKo (el botón) | sin permisos de anuncios | 0 | — |
+
+- **El diagnóstico obvio era el equivocado: «para leads hace falta Zapier o Make».** Con la app propia los leads ya
+  entran solos (Brigitte, Natalia) por la consulta periódica de MaKo (lib/meta-leads.ts), aunque NINGUNA de esas páginas
+  esté suscripta a su app (`subscribed_apps` vacío): no hace falta el webhook. Los que tienen 0 puede ser que no corran
+  formularios; no se distingue desde acá.
+- **Publicar anuncios anduvo sólo con una app ACTIVA que opera la cuenta de su propio portafolio** (ws1). La de ws13, en
+  desarrollo, rebotó todo creativo nuevo. Así que pasar la app del cliente a activa es casi seguro lo que destraba el
+  1885183 (la entrada de Meta mientras tanto lo dejaba «dudoso»; esta medición lo vuelve muy probable).
+- **Trampa: si una app está en desarrollo o activa NO se lee por la API** con el token del cliente: se sabe recién al
+  publicar (el rechazo 1885183 nombra la app).
+- **Lo que se hizo:** el tutorial de Meta del modal de /integraciones (`lib/metodo-catalogo.ts`) ahora dice crear la
+  app tipo «Negocio» con los casos de uso de anuncios y de leads. **NO dice que la pasen a activa, a propósito:** es la
+  regla de Martín del 16/09 («no me menciones más que el cliente tenga que publicar su app, esa no es opción»,
+  lib/meta-publicar-errores.ts). Un paso así entró en 942492a83 y salió antes de llegar a main: se cruzó la evidencia
+  («sólo anduvo con la app activa») con la decisión de producto. Publicar con creativo nuevo va por la Zernio del
+  negocio. Lo fija `tests/meta-tutorial-app-propia.test.ts` (ningún paso pide publicar ni activar la app).
+
+**Vive en:** lib/metodo-catalogo.ts (`SERVICIOS_METODO` → meta → `tutorial`) · lib/meta-leads.ts (la consulta
+periódica) · lib/meta-publicar-errores.ts · tests/meta-tutorial-app-propia.test.ts
