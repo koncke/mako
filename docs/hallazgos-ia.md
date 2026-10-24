@@ -6229,6 +6229,111 @@ texto, cambia la versión, y la vieja deja de sacar códigos (como siempre).
 lib/ai-cheap.ts (`cfgDe`, `CHEAP_MODEL`) · lib/conectar-ia-reglas.ts (`CHATGPT_EN_LA_PC`) ·
 scripts/ia-pc/medir-codex-mcp.mjs · *2026-10-23, chat «IA del cliente»*
 
+### ChatGPT en la PC: la misma regla que D6a, y la guarda ya no es sólo un test de nombres (23/10/2026, noche)
+
+**La decisión de Martín**, por el Cerebro, el 23/10/2026: *«Sí: ChatGPT en la computadora del cliente igual que Claude,
+sólo para que el dueño use su propio ChatGPT en su PC, nunca para atender leads solo.»* Es la regla D6a de Claude
+(docs/ia-del-cliente.md §10; AGENTS.md, «la computadora del cliente NUNCA atiende leads sola»), ahora para las dos IA.
+
+**Por qué así, con lo que dice OpenAI** (leído el 23/10/2026; openai.com da 403 a un fetch, así que los Terms salen del
+snapshot de Wayback de ese día, «Effective: January 1, 2026»):
+- La cuenta es de una persona. Los Terms of Use (openai.com/policies/terms-of-use, «Registration and access») prohíben
+  «make your account available to anyone else». Por eso sólo los turnos de quien conectó la PC van a su ChatGPT.
+- Lo automático va por API key. Los mismos Terms («What you cannot do») prohíben sacar datos u Output de forma
+  automática o programática. Y la doc de Codex manda a usar API key en los flujos programáticos
+  (learn.chatgpt.com/docs/auth). La sesión de ChatGPT en automatización la acepta sólo como camino avanzado, para
+  automatización privada y de confianza (learn.chatgpt.com/docs/non-interactive-mode y docs/auth/ci-cd-auth).
+- El uso del dueño en el momento entra. `codex exec` usa la sesión guardada por `codex login`, y el Output es del
+  usuario («Ownership of content»). No hay una línea de OpenAI a favor o en contra de usar Plus o Pro en el trabajo del
+  propio negocio. Para compartir en un equipo, OpenAI ofrece el plan Business.
+- La vía oficial para que un tercero use el plan de ChatGPT de un usuario («Sign in with ChatGPT») sigue en prueba
+  limitada con socios (developers.openai.com/siwc/quickstart). MaKo no la usa: corre el binario oficial en la PC del
+  dueño, como con Claude.
+- **Sigue siendo zona gris**, igual que D6a: no hay una autorización escrita de OpenAI. Martín decidió sabiéndolo.
+
+**El diagnóstico obvio era el equivocado.** tests/ia-pc-nunca-a-leads.test.ts decía «a la PC llega sólo `turnoApp`, y lo
+llaman sólo entradas con sesión», y parecía completo. Un mapa de cinco agentes (un barrido por entradas, otro por lo
+automático, otro por el programa de la PC, otro legal, y un crítico) encontró que era un test de NOMBRES:
+- `turnoApp` le creía a la persona que le pasaban. Un cron que armara la persona del dueño llegaba a SU PC, con Claude
+  o, en Automático, con su ChatGPT. El script del ws3 ya lo hacía sin cookie.
+- No veía alias (`{ turnoApp: t }`), ni `turnoDelLead`/`turnoDelCrm` (que lo envuelven con una persona armada), ni una
+  segunda llamada a `encolarTurno` en el mismo archivo, ni updates, ni triggers.
+- La versión del texto aceptado se guardaba en la PC y **nunca se leía**. Una PC conectada con el texto de Claude, con un
+  programa que reportara ChatGPT, recibía turnos de ChatGPT, y se activaba para D6b con esa cuenta.
+- Un turno huérfano, de una ruta que murió antes de vencerlo, quedaba tomable 5 minutos. La PC lo pensaba sin que nadie
+  lo leyera. Las herramientas no corrían.
+
+**Cómo quedó** (la guarda en código, con su test):
+1. **La sesión se mira EN LA PUERTA** (`encolarTurno`, lib/ia-pc.ts, con `laPersonaEstaAdentro` de lib/ia-pc-reglas.ts).
+   Antes de tocar la base, lee la cookie de ESTE pedido, y tiene que ser la de quien conectó esa PC (`d.persona`). Si no,
+   tira `SinLaPersona`. `turnoApp` la mira antes, para ni leer la PC. La única excepción es la prueba a mano del ws3
+   (`pruebaSinSesion`), y sólo con la persona de prueba.
+   - **La primera versión la miraba sólo en `turnoApp`, y no alcanzaba.** Una refutación de tres lentes mostró que
+     varios saltos pasaban todos los tests: un `?? pcDe(...)`, un alias de `encolarTurno`, un envoltorio dentro de
+     lib/ia-pc.ts, un insert con comillas invertidas, un `/*` dentro de un texto (el quitacomentarios del test se comía el
+     código que venía después) y una migración larga. Con la sesión en la puerta, cualquier llamador queda frenado al
+     correr, no por una regex.
+   - **Un `after()` SÍ tiene la sesión.** En Next 16, las cookies se leen dentro de un `after()` de una ruta (la doc de
+     `after` lo dice). Es la continuación de lo que pidió la persona. Por eso el test prohíbe `after(` en las entradas
+     del turno: nada que corra solo hacia un lead se cuelga de ahí.
+   - **Trampa del arnés:** un `import()` diferido en lib/ia-pc.ts NO pasa por el `Module._load` con el que el arnés
+     reemplaza lib/auth. Va por el cargador de ESM, carga el lib/auth real y la sesión de mentira no llega. Por eso el
+     import es normal.
+2. **Una PC contesta sólo con la IA que aceptó quien la conectó** (`iaDeLaPcConectada`). Al guardar el latido (lo que la
+   activa para D6b) y al leerla, sólo cuentan las cuentas de esa IA. Como la opción apagada no da el código con el texto
+   de ChatGPT, ninguna PC puede ser de ChatGPT hasta que se prenda.
+3. **El turno vence cuando el chat deja de esperarlo**, nunca más tarde que TURNO_MS.
+4. tests/ia-pc-nunca-a-leads.test.ts reescrito:
+   - toda mención de `turnoApp`, de sus envoltorios, de `encolarTurno` y `pcDe`, con alias incluidos;
+   - la tabla de turnos por su NOMBRE, con cualquier comilla, con una lista blanca de los que sólo leen;
+   - ninguna migración nueva la nombra;
+   - todas las carpetas y extensiones de código (.cjs, .cts, .jsx, supabase/);
+   - comentarios quitados sólo al principio de línea;
+   - sin `after(` en las entradas;
+   - `const pc = leidaPc.d;`;
+   - la puerta antes de la base;
+   - el texto aceptado;
+   - el vencimiento.
+
+   El arnés de varias PC lo prueba con lib/ia-pc.ts real:
+   - Leo, conectada con el texto de Claude, reporta ChatGPT y no queda activa; Lía, conectada con el de ChatGPT, sí.
+   - Un turno vencido no se toma.
+   - La puerta frena sin sesión, con otra persona y con la prueba fuera del ws3, y encola con la sesión de la dueña.
+
+   Probado rompiéndolo: 13 roturas de la primera ronda y 10 saltos de la refutación (el pie del test).
+
+**SIN hacer**, con su archivo (lo encontró el mapa; nada de esto manda lo automático a la PC):
+- **Codex en la 0.5.0 (bloqueante antes de prenderla).** Una carpeta propia por cuenta (`CODEX_HOME`, como
+  `CLAUDE_CONFIG_DIR` en scripts/ia-pc/mako-pc.mjs) más `--ignore-user-config`. Sin eso, los MCP, hooks y conectores del
+  dueño entran en cada turno de MaKo, al alcance de un mensaje de un lead.
+  Además:
+  - apagar `hooks`, `remote_plugin`, `multi_agent`, `goals`, `memories` y la búsqueda web;
+  - un `ARGS_CODEX` fijo con su test, que prohíba `--dangerously-bypass-approvals-and-sandbox`, `--yolo`,
+    `codex features enable|disable` y `codex mcp add` (escriben en el config.toml del dueño);
+  - la medición (scripts/ia-pc/medir-codex-mcp.mjs) ya usa la receta de un cliente: `--ignore-user-config` (no carga
+    `$CODEX_HOME/config.toml`, el login sí) e `--ignore-rules`, más el «sin manos» completo validado contra la 0.164.0
+    (un nombre que no existe hace fallar a Codex, y `-c web_search="disabled"` pasa; un valor inventado, no).
+  - **Trampa medida (23/10, Windows, 0.164.0): `--disable unified_exec` NO apaga `unified_exec`**, ni
+    `-c features.unified_exec=false`; `codex features list` lo sigue dando `true`. `shell_tool` sí se apaga. Por eso la
+    medición tiene un paso 0 que lista, sin llamar al modelo, lo que sigue prendido. El 3b dice si igual lee archivos: si
+    lee, no hay corredor de ChatGPT.
+- **La primera cuenta de Claude de una PC usa ~/.claude** (mako-pc.mjs:202 y :249). Los hooks y el CLAUDE.md del dueño
+  corren en cada turno. Falta medir `--setting-sources` sin «user» con la suscripción.
+- **El RAG embebe el texto del negocio con el OpenAI de la PLATAFORMA**, aunque esté en «sólo su IA» (lib/embeddings.ts:24,
+  lib/mako-knowledge.ts:253). Es de D6b, no de la PC.
+- **La lista blanca del Closing no mira «sólo su IA»** (lib/anthropic.ts:493, lib/closing.ts:316). Los avisos y la
+  post-llamada dejan una fila `vetado:` por intento (lib/plantillas.ts:755, lib/post-llamada.ts:199).
+- **Con una PC (de cualquier IA), las automatizaciones del negocio se frenan en silencio.** D6b falla cerrado, y es lo
+  correcto, pero nadie lo dice. «Tus cuentas de IA» y Automations tendrían que avisar que con una PC los leads necesitan
+  una clave. Es decisión de producto.
+- **El token «ejecutar» de la API de MaKo.** Si el dueño programa su propio Codex o Claude Code con ese token, puede
+  mover leads fuera de MaKo. No es MaKo usando la PC, pero lo decide Martín.
+- Los comentarios de supabase/migrations/0322 dicen «Claude». No se tocan: la migración ya corrió.
+
+**Vive en:** lib/ia-pc-reglas.ts (`laPersonaEstaAdentro`, `iaDeLaPcConectada`) · lib/mako-turno-app.ts (`adentro`) ·
+lib/ia-pc.ts (`aDispositivo`, `latir`, `encolarTurno`) · tests/ia-pc-nunca-a-leads.test.ts · AGENTS.md («la
+computadora del cliente NUNCA atiende leads sola») · *2026-10-23, chat «IA del cliente»*
+
 ### Darle un modelo capaz NO era cambiar el nombre: la capa barata le mandaba campos que rechaza (23/10/2026, tarde)
 
 El Cerebro decidió darle modelo a elegir, «con la misma regla que Claude: el modelo lo elige el ADMIN… por defecto uno

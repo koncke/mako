@@ -65,6 +65,40 @@ export const CONSENTIMIENTO_DE: Readonly<Record<ProveedorPc, { texto: string; ve
 /** De qué IA es la versión aceptada; null si no es una que se acepte hoy. */
 export const iaDelConsentimiento = (v: unknown): ProveedorPc | null =>
   (Object.keys(CONSENTIMIENTO_DE) as ProveedorPc[]).find((ia) => CONSENTIMIENTO_DE[ia].version === v) ?? null;
+/**
+ * Con qué IA se conectó una PC: la del texto que aceptó quien la conectó (la columna `consentimiento`, mig 0321). La versión
+ * de ChatGPT termina en «-chatgpt», también cuando el texto cambie; cualquier otra —o ninguna, las PC de antes del 21/10—
+ * es Claude. A diferencia de `iaDelConsentimiento`, vale para una versión vieja: la PC sigue siendo de esa IA.
+ */
+export const iaDeLaPcConectada = (consentimiento: unknown): ProveedorPc =>
+  typeof consentimiento === 'string' && /-chatgpt$/.test(consentimiento) ? 'chatgpt' : 'claude';
+
+/**
+ * LA PC SÓLO CON LA PERSONA ADENTRO (D6a; con ChatGPT, igual: Martín, 23/10/2026, «Sí: ChatGPT en la computadora del cliente
+ * igual que Claude, sólo para que el dueño use su propio ChatGPT en su PC, nunca para atender leads solo»). El turno no le
+ * cree a la persona que le pasan: mira la sesión de ESTE pedido, y tiene que ser la misma. Un cron o un webhook no tienen
+ * sesión, así que no llegan a la PC aunque armen la persona del dueño. Un `after()` dentro de la ruta de la persona SÍ la tiene
+ * (Next conserva las cookies ahí): es la continuación de lo que ella pidió, y por eso nada que corra solo hacia un lead se
+ * cuelga de un `after()` que termine en la PC. La miran el turno (`turnoApp`) y la puerta (`encolarTurno`). La única
+ * excepción es la prueba de punta a punta que se corre A MANO (scripts/ia-pc/probar-punta-a-punta.mts), y sólo con la persona
+ * de prueba del ws3.
+ */
+export const ACTOR_PRUEBA_PC = 'prueba-ia-pc@hola-mako.com';
+export const WS_PRUEBA_PC = 3;
+/** Quién es una sesión, como lo arman las entradas del turno (`personaDelRequest`, `chatDelRequest`, `analystDelRequest`). */
+export const actorDeSesion = (s: { email?: string | null; nombre?: string | null; sub?: unknown } | null | undefined): string | null => {
+  const actor = s ? s.email || s.nombre || (s.sub == null ? '' : String(s.sub)) : '';
+  return actor || null;
+};
+export function laPersonaEstaAdentro(
+  sesion: { email?: string | null; nombre?: string | null; sub?: unknown } | null | undefined,
+  persona: { ws: number; actor: string },
+  prueba = false,
+): boolean {
+  if (prueba) return persona.ws === WS_PRUEBA_PC && persona.actor === ACTOR_PRUEBA_PC;
+  const actor = actorDeSesion(sesion);
+  return !!actor && actor === persona.actor;
+}
 
 /** Sin 0/O ni 1/I: se lee y se copia de una pantalla a otra. */
 export const ALFABETO_CODIGO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

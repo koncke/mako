@@ -39,7 +39,7 @@ import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
 import { avisoClaveTapada, taparClaves } from '@/lib/claves-en-el-chat';
 import { encolarTurno, esperarALaPc, pcDe, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
-import { armarPrompt, AVISO_PC_ILEGIBLE, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, modeloPc, pcUsable, type FalloDeLaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
+import { armarPrompt, AVISO_PC_ILEGIBLE, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, laPersonaEstaAdentro, modeloPc, pcUsable, type FalloDeLaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
 import { IA_DE_LA_PC, MODELO_SU_OPENAI_DEFAULT, NOMBRE_MODELO_IA, type EleccionIA } from '@/lib/chat-ia-reglas';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
 import { entrarSoloSuIA } from '@/lib/solo-su-ia';
@@ -356,6 +356,12 @@ export type EntradaTurnoApp = {
    * se guarda con su marca («[desde: CRM › Ana]»): el chip vuelve al recargar.
    */
   desde?: Desde | null;
+  /**
+   * SÓLO la prueba de punta a punta que se corre a mano (scripts/ia-pc/probar-punta-a-punta.mts): llega a la PC sin la sesión
+   * del pedido, y sólo con la persona de prueba del ws3 (`laPersonaEstaAdentro`). En cualquier otro negocio o persona, la PC
+   * no se usa, aunque haya sesión.
+   */
+  pruebaSinSesion?: boolean;
   /**
    * Guardar los archivos (mig 0305) y pasar los PDF del admin a El Archivero. Lo prenden SÓLO el Second Brain y el chat
    * del teléfono (las rutas /api/mako/chat y /api/m/mako). Sin esto, el turno de siempre: los lee y no los guarda.
@@ -730,7 +736,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const eligioLaPc = !!ia && !!IA_DE_LA_PC[ia.cuenta];
     let iaDeLaPc: ProveedorPc = (ia && IA_DE_LA_PC[ia.cuenta]) ?? 'claude';
     const leerPc = (cual: ProveedorPc) => pcDe(ws, persona.actor, cual).then((d) => ({ d, error: null }), (e: unknown) => ({ d: null, error: e instanceof Error ? e.message : String(e) }));
-    let leidaPc = await leerPc(iaDeLaPc);
+    // LA PC SÓLO CON LA PERSONA ADENTRO (`laPersonaEstaAdentro`, lib/ia-pc-reglas.ts): el turno no le cree a la persona que le
+    // pasan, mira la sesión de ESTE pedido. Sin ella —un cron, un webhook— ni se lee su PC, con Claude o con ChatGPT: el turno
+    // sigue con su clave, si la tiene. Lo automático nunca usa la suscripción del dueño (D6a). La puerta (`encolarTurno`)
+    // lo vuelve a mirar: esto evita leer la PC, aquello es lo que frena.
+    const adentro = laPersonaEstaAdentro(await getUsuarioActual().catch(() => null), persona, entrada.pruebaSinSesion === true);
+    let leidaPc = adentro ? await leerPc(iaDeLaPc) : { d: null, error: null };
     // En Automático, la PC que no puede con su Claude pero sí con su ChatGPT contesta con su ChatGPT: a quien conectó sólo
     // su ChatGPT, el aviso le decía «tu Claude no tiene la sesión iniciada». Sólo con alguna PC: un negocio sin ninguna no
     // paga una segunda lectura en cada turno.
@@ -755,11 +766,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
         // El modelo que eligió para este chat; si no, el del negocio. Con su ChatGPT, ninguno: Codex usa el suyo.
         const modelo = iaDeLaPc === 'chatgpt' ? undefined
           : ia?.cuenta === 'pc' && ia.modelo ? modeloPc(ia.modelo) : modeloPc(await getSetting(CLAVE_MODELO_PC).catch(() => null));
+        // Lo que le queda a la ruta, no 240 s fijos (el Analyst del lead tiene 300 s: Vercel cortaba sin aviso). El turno vence
+        // cuando el chat deja de esperarlo: si la ruta muere, una PC que se prende después no piensa un pedido que nadie lee.
+        const espera = esperaDelTurno(entrada.plazoMs ?? PLAZO_RUTA_MS, Date.now() - inicio);
         const turnoPc = await encolarTurno(pc, s.id, {
           system, prompt: armarPrompt(historial, textoModelo), tools, modelo, ...(iaDeLaPc === 'chatgpt' ? { proveedor: 'chatgpt' as const } : {}),
-        });
-        // Lo que le queda a la ruta, no 240 s fijos (el Analyst del lead tiene 300 s: Vercel cortaba sin aviso).
-        const espera = esperaDelTurno(entrada.plazoMs ?? PLAZO_RUTA_MS, Date.now() - inicio);
+        }, espera, { pruebaSinSesion: entrada.pruebaSinSesion === true });
         const r = await esperarALaPc(turnoPc, ws, pc.id, nuevoIntento() as Ejecutor, espera);
         if (!r) { falloDeLaPc = 'tarde'; fallo = 'la computadora del cliente no contestó a tiempo'; }
         else if ('desconectada' in r) { falloDeLaPc = 'desconectada'; fallo = 'la computadora del cliente se desconectó a mitad del turno'; }

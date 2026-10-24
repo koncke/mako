@@ -204,7 +204,8 @@ programa no lleva la marca de «descargado de internet», así que **SmartScreen
   (JSONL: `thread.started`, `turn.completed`, `item.*`, `error`) y `--ephemeral`. OpenAI **recomienda una API key para
   automatizar** (learn.chatgpt.com/docs/non-interactive-mode).
 - **El token:** `~/.codex/auth.json` o el almacén del sistema (`cli_auth_credentials_store`). «Treat auth.json like a
-  password», y no compartirlo entre trabajos concurrentes: los turnos van de a uno (learn.chatgpt.com/docs/auth).
+  password» (learn.chatgpt.com/docs/auth), y no compartirlo entre trabajos concurrentes ni entre máquinas: los turnos van
+  de a uno (learn.chatgpt.com/docs/auth/ci-cd-auth; la doc de auth no lo dice, corregido el 23/10/2026).
 - **Herramientas:** MCP por stdio y HTTP streamable, en `config.toml` (`[mcp_servers.<nombre>]`, `url`,
   `bearer_token_env_var`) (learn.chatgpt.com/docs/extend/mcp). Que `codex exec` los cargue no está documentado: se mide
   en la ola 3.
@@ -257,7 +258,11 @@ ola 3 por dentro»):
    (compartirla sería «make your Account available to anyone else»).
 3. **Sólo turnos que pidió una persona**, en el momento. Nada de fondo ni 24/7 (D6a).
 4. El tutorial le dice al cliente, en sus palabras, que es su cuenta y su uso, y que la puede desconectar.
-5. Para GPT, lo mismo, y queda la API key como el camino recomendado por OpenAI para automatizar.
+5. Para GPT, lo mismo, y queda la API key como el camino recomendado por OpenAI para automatizar. **Decidido por Martín el
+   23/10/2026:** «Sí: ChatGPT en la computadora del cliente igual que Claude, sólo para que el dueño use su propio ChatGPT en
+   su PC, nunca para atender leads solo». El porqué, las fuentes de OpenAI y la guarda en código (la sesión se mira adentro
+   del turno; una PC contesta sólo con la IA del texto que aceptó): docs/hallazgos-ia.md, «ChatGPT en la PC: la misma regla
+   que D6a».
 6. **La persona instala y corre el programa ELLA MISMA, y acepta con un toque** (el Cerebro, 21/10): «Tu Claude corre
    en tu computadora, con tu cuenta, y contesta sólo lo que tú le pides en MaKo. MaKo nunca ve tu clave ni tu sesión.»
    Sin ese toque no hay código, y la versión del texto que aceptó queda en el código y en la PC (mig 0321).

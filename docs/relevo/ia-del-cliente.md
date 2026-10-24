@@ -38,6 +38,12 @@ era cambiar el nombre».
   MCP, y ahora mide también las instrucciones y las «manos» de Codex (tres turnos de su cuenta). Lo que encontró la
   investigación, lo que falta y de quién es cada pieza: `../hallazgos-ia.md` → «La ola 3 por dentro». Lo legal de
   OpenAI espera una decisión de Martín.
+- **Lo legal, decidido (Martín, 23/10 noche):** «Sí: ChatGPT en la computadora del cliente igual que Claude, sólo para que
+  el dueño use su propio ChatGPT en su PC, nunca para atender leads solo». Es la regla D6a de Claude. El porqué y las
+  fuentes de OpenAI: `../hallazgos-ia.md` → «ChatGPT en la PC: la misma regla que D6a». La guarda en código: la sesión se
+  mira adentro de `turnoApp` (`laPersonaEstaAdentro`), una PC contesta sólo con la IA del texto que aceptó, y el turno vence
+  con la espera del chat (tests/ia-pc-nunca-a-leads.test.ts). Lo que quedó sin hacer para la 0.5.0 (aislar Codex) está en
+  esa misma sección: es bloqueante antes de prender la opción.
 - **Ola 3, partes a y c (este chat, 23/10 noche):** el servidor elige la PC por IA (a), y el tutorial y lo que se acepta
   van por IA (c). La IA elegida viaja en la versión del consentimiento, sin columna. Las dos son invisibles con
   `CHATGPT_EN_LA_PC` apagada y van por el tren normal. El Cerebro le dio a este chat también el programa 0.5.0 (b), pero
@@ -45,7 +51,10 @@ era cambiar el nombre».
   legal de Martín. Lo que quedó sin hacer, con su archivo: `../hallazgos-ia.md` → «La PC se elige POR IA» y «Qué IA
   eligió la persona viaja en la VERSIÓN del consentimiento».
 - **IA16** (rama `ia16-2210`, worktree `C:/dev/wt-ia16`, punta `7ff4633e6`): retenida hasta el lunes 26/10, con «Costo de
-  MaKo» arreglado, main mezclado y tests/ia15-frontera al día (fallaba 3 desde antes).
+  MaKo» arreglado, main mezclado y tests/ia15-frontera al día (fallaba 3 desde antes). Con la parte c en main, al mezclarla
+  choca en dos lugares y se resuelve **quedándose con las dos**: el import de app/integraciones/TusCuentasIA.tsx (el de
+  ia-pc-reglas, de la parte c; el de conectar-ia-reglas, con `dondeSacarLaClave` de IA16) y tests/conectar-ia.test.ts (los
+  dos pines de `onComputadora` de la parte c, y los tres de Gemini de IA16).
 
 ## Para retomar
 

@@ -50,7 +50,23 @@ test('2. el turno: a una que conteste; con varias, la del último turno; sin tur
   assert.equal(r.fallo, 'PC de Mauricio', 'el turno quedó pegado a la que falló el último');
   assert.equal(r.agotada, 'PC de Martín', 'el turno fue a la que tiene la cuenta agotada');
   // Por IA (la ola 3): la que tiene sólo su ChatGPT no recibe un turno de Claude, y al revés.
-  assert.deepEqual(r.porIA, { claude: 'PC de Martín', chatgpt: 'PC de Mauricio', anaParaChatgpt: false }, 'el turno fue a una PC sin esa IA');
+  assert.deepEqual(r.porIA, { chatgptConTextoDeClaude: false, claude: 'PC de Martín', chatgpt: 'PC de Mauricio', anaParaChatgpt: false }, 'el turno fue a una PC sin esa IA');
+  // La guarda del 23/10: una PC contesta sólo con la IA del texto que aceptó quien la conectó. Lo que la activa para D6b
+  // (su latido) tampoco guarda otra: la de Leo, conectada con el texto de Claude, no queda activa por reportar ChatGPT.
+  assert.deepEqual(r.porTexto, {
+    leo: { cuentas: [], activa: false, negocio: false },
+    lia: { cuentas: ['chatgpt'], activa: true, negocio: true },
+    liaParaClaude: false, liaParaChatgpt: true,
+  }, 'una PC contestó (o se activó) con una IA cuyo texto nadie aceptó');
+  // El turno vence cuando el chat deja de esperarlo, nunca después de TURNO_MS; y uno vencido no se toma.
+  assert.ok(Math.abs(r.vence.conEspera - 30) <= 2, `venció a los ${r.vence.conEspera} s y no a los 30`);
+  assert.ok(Math.abs(r.vence.sinEspera - r.vence.tope) <= 2);
+  assert.ok(Math.abs(r.vence.larga - r.vence.tope) <= 2, 'un turno quedó tomable más de TURNO_MS');
+  assert.equal(r.huerfanoTomado, false, 'la PC tomó un turno que ya nadie esperaba');
+  // La puerta mira la sesión del pedido (la segunda ronda de la refutación, 23/10): llamada directo, sin la de quien conectó
+  // la PC, no encola. La prueba sin sesión, sólo en el ws3.
+  assert.deepEqual(r.puerta, { sinSesion: 'frenado', otraPersona: 'frenado', suSesion: 'encolado', pruebaFueraDelWs3: 'frenado' },
+    'la puerta de la PC encoló sin la persona adentro');
   // Puro: sin ninguna que conteste, la que latió último (el turno dice apagada o sin sesión).
   const pc = (id: number, enLinea: boolean, cuentas: number, latido: string | null, conectadaAt: string | null = null) => ({ id, enLinea, cuentas: Array(cuentas).fill({}), ultimoLatido: latido, conectadaAt });
   assert.equal(elegirPc([pc(1, false, 1, '2026-10-22T10:00:00Z'), pc(2, false, 1, '2026-10-22T11:00:00Z')], new Map())?.id, 2);

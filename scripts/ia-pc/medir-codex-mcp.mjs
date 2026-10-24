@@ -22,6 +22,14 @@
 // MCP cargado perfecto. Ahora va `default_tools_approval_mode="approve"` para el servidor de MaKo, y el error de la llamada se
 // imprime. Y el prompt va por STDIN (como el turno real: nada de la persona en la línea de comandos), no como argumento.
 // La clave `default_tools_approval_mode` sale del código de Codex, no de una corrida: si no existe, el ✗ lo va a decir.
+//
+// ⚠️ Y LA NOCHE DEL 23/10/2026 (el mapa de la guarda, docs/hallazgos-ia.md → «ChatGPT en la PC: la misma regla que D6a»): la
+// medición corría con la config de quien la ejecuta (sus MCP, hooks y reglas de ~/.codex), así que un ✓ no probaba la PC de
+// un cliente. Ahora va como iría el turno de un cliente: `--ignore-user-config` (no carga $CODEX_HOME/config.toml; el login
+// sí) e `--ignore-rules`. «Sin manos» suma lo que `codex features list` (0.164.0) da prendido y puede actuar solo o fuera de
+// MaKo (hooks, conectores remotos, subagentes, metas, automatizaciones locales, instalar dependencias), más la búsqueda web.
+// El paso 0 dice, SIN llamar al modelo, qué sigue prendido igual: medido ese día en Windows, `--disable unified_exec` NO lo
+// apaga (ni `-c features.unified_exec=false`). 3b dice si con eso igual lee.
 // =============================================================================
 
 import { createServer } from 'node:http';
@@ -109,15 +117,33 @@ if (version.status !== 0) {
 }
 console.log(`codex ${version.stdout.trim()}`);
 
+// «Sin manos», el candidato: lo que de Codex podría leer la PC o actuar solo. Validado el 23/10/2026 con la 0.164.0 (un nombre
+// que no existe hace fallar a Codex: el paso 0 lo diría). Es lo que haría de `--tools ""` (Claude).
+const APAGADAS = [
+  'shell_tool', 'unified_exec', 'unified_exec_tty', 'shell_snapshot', 'browser_use', 'browser_use_external', 'browser_use_full_cdp_access',
+  'computer_use', 'in_app_browser', 'in_app_local_automation', 'apps', 'plugins', 'remote_plugin', 'plugin_sharing', 'view_image',
+  'image_generation', 'hooks', 'multi_agent', 'goals', 'memories', 'skill_search', 'skill_mcp_dependency_install', 'tool_suggest', 'sleep_tool',
+];
+const SIN_MANOS = [...APAGADAS.flatMap((x) => ['--disable', x]), '-c', 'web_search="disabled"', '-c', 'tools.view_image=false'];
+
+// ── 0: ¿qué sigue prendido con «sin manos»? `codex features list` no usa la cuenta ni llama al modelo ────────────────────
+const f0 = await new Promise((r) => { const h = lanzar(['--ignore-user-config', ...SIN_MANOS, 'features', 'list'], { stdio: ['ignore', 'pipe', 'pipe'] }); let o = ''; let e = ''; h.stdout.on('data', (c) => { o += c; }); h.stderr.on('data', (c) => { e += c; }); h.on('error', (x) => r({ status: 1, stdout: '', stderr: String(x) })); h.on('close', (st) => r({ status: st, stdout: o, stderr: e })); });
+if (f0.status !== 0) {
+  console.error(`✗ 0. Codex no aceptó la receta «sin manos» (¿cambió un nombre en esta versión?): ${f0.stderr.trim().slice(0, 400)}`);
+  process.exit(1);
+}
+const siguenPrendidas = APAGADAS.filter((x) => new RegExp(`^${x}\\s.*\\btrue\\s*$`, 'm').test(f0.stdout));
+console.log(siguenPrendidas.length
+  ? `⚠ 0. Con «sin manos» siguen prendidas: ${siguenPrendidas.join(', ')} (\`--disable\` no las apaga en esta versión). 3b dice si igual lee.`
+  : '✓ 0. «Sin manos»: todas apagadas.');
+
 servidor.listen(0, '127.0.0.1', async () => {
   const { port } = servidor.address();
   const url = `http://127.0.0.1:${port}/mcp`;
   const carpeta = mkdtempSync(join(tmpdir(), 'medir-codex-'));
-  const base = ['exec', '--json', '--skip-git-repo-check', '--ephemeral', '--sandbox', 'read-only', '-c', 'approval_policy="never"'];
-  // «Sin manos», el candidato: las herramientas propias de Codex que `codex features list` (0.164.0) da prendidas. Es lo que
-  // haría de `--tools ""` (Claude). Se mide abajo (3b) si con esto deja de leer, y en 1 que el MCP siga andando así.
-  const SIN_MANOS = ['shell_tool', 'unified_exec', 'browser_use', 'browser_use_external', 'computer_use', 'in_app_browser', 'apps', 'plugins', 'view_image', 'image_generation']
-    .flatMap((f) => ['--disable', f]);
+  // Como el turno de un CLIENTE: sin la config ni las reglas de quien corre esto (su login, sí). «Sin manos» (arriba) se mide
+  // en 3b, y en 1 que el MCP siga andando así.
+  const base = ['exec', '--json', '--skip-git-repo-check', '--ephemeral', '--ignore-user-config', '--ignore-rules', '--sandbox', 'read-only', '-c', 'approval_policy="never"'];
 
   // ── 1 y 2: el MCP de MaKo y las instrucciones, con la forma del turno real (sin manos) ───────────────────────────────
   const conMcp = [
@@ -164,5 +190,6 @@ servidor.listen(0, '127.0.0.1', async () => {
   if (!mcpOk && t1.errores.trim()) console.log(`   stderr: ${t1.errores.trim().split('\n').slice(-5).join(' | ').slice(0, 600)}`);
   console.log('Si apareció una ventana de Windows pidiendo permiso (el sandbox de Codex), anotalo: el cliente no puede ver ninguna.');
   servidor.close();
+  if (siguenPrendidas.length) console.log(`·  0. Siguieron prendidas con «sin manos»: ${siguenPrendidas.join(', ')}. Si 3b dio ✓, no alcanzaron para leer; anotalo igual.`);
   process.exitCode = mcpOk && instruccionesOk && !leyo ? 0 : 1;
 });

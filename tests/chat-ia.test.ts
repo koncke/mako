@@ -66,7 +66,8 @@ test('2. qué elección pasa: una de las que se ofrecen, con un modelo que esa c
 
 test('2b. su ChatGPT en su computadora (la ola 3): se ofrece sólo si una PC suya lo reporta, sin modelos, y sólo a esa persona', () => {
   const r = correr();
-  assert.ok(!(r.cuentasAnaSinGpt as string[]).includes('pc-chatgpt'), 'se ofreció sin ninguna PC con su ChatGPT');
+  // «Vieja» reporta su ChatGPT pero se conectó con el texto de Claude (la guarda del 23/10): no se ofrece.
+  assert.ok(!(r.cuentasAnaSinGpt as string[]).includes('pc-chatgpt'), 'se ofreció su ChatGPT en una PC conectada con el texto de Claude');
   assert.deepEqual(r.cuentasAnaConGpt[0], r.cuentasAna[0], 'la computadora de Claude pasó a ser la de ChatGPT');
   assert.deepEqual(r.cuentasAnaConGpt[1], { cuenta: 'pc-chatgpt', nombre: 'Tu computadora · ChatGPT (Casa)', modelos: [], modeloDefault: null });
   assert.deepEqual(r.eleccionPcGpt, { cuenta: 'pc-chatgpt' }, 'un modelo de OpenAI llegó a Codex');

@@ -76,7 +76,8 @@ test('5. el servidor: el turno lleva la IA, la ruta no le cambia nada a un turno
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
   assert.match(turno, /let iaDeLaPc: ProveedorPc = \(ia && IA_DE_LA_PC\[ia\.cuenta\]\) \?\? 'claude';/);
   assert.match(turno, /pcDe\(ws, persona\.actor, cual\)/);
-  assert.match(turno, /let leidaPc = await leerPc\(iaDeLaPc\);/);
+  // Con la persona adentro (la guarda del 23/10, tests/ia-pc-nunca-a-leads.test.ts → 4).
+  assert.match(turno, /let leidaPc = adentro \? await leerPc\(iaDeLaPc\) : \{ d: null, error: null \};/);
   // En Automático, la PC que no puede con su Claude y sí con su ChatGPT contesta con su ChatGPT; sin PC, ni la busca.
   assert.match(turno, /if \(!ia && leidaPc\.d && !pcUsable\(leidaPc\.d, 'claude'\)\) \{\s*const conChatGpt = await leerPc\('chatgpt'\);\s*if \(pcUsable\(conChatGpt\.d, 'chatgpt'\)\) \{ leidaPc = conChatGpt; iaDeLaPc = 'chatgpt'; \}/,
     'a quien conectó sólo su ChatGPT, Automático le decía «tu Claude no tiene la sesión iniciada»');

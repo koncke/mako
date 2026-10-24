@@ -21,10 +21,11 @@
 import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
+import { getUsuarioActual } from './auth';
 import {
   CODIGO_MS, ESPERA_TURNO_MS, LARGO_CODIGO, PREFIJO_TOKEN_PC, PREFIJO_TOKEN_TURNO, SIN_LATIDO_MS, SIN_TOMAR_MS, TURNO_MS,
   codigoDe, elegirPc, enLinea, type PcDeNegocio, normalizarCodigo, sanearCuentas, sanearNombrePc, sanearRespuesta, sistemaDeLaVersion, tieneFormaDeToken, type CuentaPc, type TipoFalloPc,
-  iaDelConsentimiento, pcUsable, type ProveedorPc,
+  cuentasDeLaIA, iaDeLaPcConectada, iaDelConsentimiento, laPersonaEstaAdentro, pcUsable, type ProveedorPc,
 } from './ia-pc-reglas';
 import type { ToolDef } from './anthropic';
 
@@ -57,6 +58,8 @@ export const GUARDA_TURNOS_MS = 24 * 60 * 60_000;
 export type Dispositivo = {
   id: number; ws: number; persona: string; nombre: string; ultimoLatido: string | null; cuentas: CuentaPc[];
   confirmado: boolean; activa: boolean; claudeFalta: boolean;
+  /** Con qué IA se conectó: la del texto que aceptó quien la conectó (`iaDeLaPcConectada`). Sus `cuentas` son sólo de ésa. */
+  ia: ProveedorPc;
 };
 
 // ── Emparejar ────────────────────────────────────────────────────────────────
@@ -122,7 +125,7 @@ export async function emparejar(codigoCrudo: unknown, nombreCrudo: unknown): Pro
 
 /**
  * La persona dijo que SÍ a «¿Es tu negocio?»: la PC pendiente pasa a confirmada (mig 0322). Con SU token, y sólo una vez.
- * Pasa a ACTIVA (cuenta para D6b) con su primer latido con una cuenta de Claude con sesión (`latir`).
+ * Pasa a ACTIVA (cuenta para D6b) con su primer latido con una cuenta con sesión de SU IA, Claude o ChatGPT (`latir`).
  */
 export async function confirmar(d: Dispositivo, anterior?: unknown): Promise<boolean> {
   const data = sinError(await db().from('ia_pc_dispositivos').update({ confirmado_at: new Date().toISOString() })
@@ -179,12 +182,19 @@ export async function codigoVivo(codigoCrudo: unknown): Promise<boolean> {
   return !!data;
 }
 
-const COLUMNAS_PC = 'id, workspace_id, persona, nombre, ultimo_latido, cuentas, confirmado_at, activa_at, claude_falta';
-const aDispositivo = (r: Record<string, unknown>): Dispositivo => ({
-  id: Number(r.id), ws: Number(r.workspace_id), persona: String(r.persona), nombre: String(r.nombre),
-  ultimoLatido: (r.ultimo_latido as string | null) ?? null, cuentas: sanearCuentas(r.cuentas),
-  confirmado: r.confirmado_at != null, activa: r.activa_at != null, claudeFalta: r.claude_falta === true,
-});
+const COLUMNAS_PC = 'id, workspace_id, persona, nombre, ultimo_latido, cuentas, confirmado_at, activa_at, claude_falta, consentimiento';
+/**
+ * Una PC conectada con el texto de Claude no contesta con ChatGPT aunque su programa lo reporte (ni al revés): sólo cuentan
+ * las cuentas de la IA que aceptó quien la conectó. Lo mismo al guardar el latido (`latir`), que es lo que la activa.
+ */
+const aDispositivo = (r: Record<string, unknown>): Dispositivo => {
+  const ia = iaDeLaPcConectada(r.consentimiento);
+  return {
+    id: Number(r.id), ws: Number(r.workspace_id), persona: String(r.persona), nombre: String(r.nombre),
+    ultimoLatido: (r.ultimo_latido as string | null) ?? null, cuentas: cuentasDeLaIA(sanearCuentas(r.cuentas), ia),
+    confirmado: r.confirmado_at != null, activa: r.activa_at != null, claudeFalta: r.claude_falta === true, ia,
+  };
+};
 
 /**
  * La PC de un token, o null si no existe, la desconectaron, o todavía no se confirmó (salvo `pendientesTambien`: lo que
@@ -207,7 +217,8 @@ export async function dispositivoDelToken(token: unknown, o: { pendientesTambien
 export async function latir(d: Dispositivo, cuerpo: unknown, extra: { ubicacion?: string | null } = {}): Promise<void> {
   const o = cuerpo && typeof cuerpo === 'object' ? (cuerpo as Record<string, unknown>) : {};
   const version = typeof o.version === 'string' ? o.version.replace(/[^\w.\-+]/g, '').slice(0, 40) : null;
-  const cuentas = sanearCuentas(o.cuentas);
+  // Sólo las de SU IA (`aDispositivo`): una cuenta de otra IA no se guarda, no se ofrece y no activa la PC para D6b.
+  const cuentas = cuentasDeLaIA(sanearCuentas(o.cuentas), d.ia);
   const ahora = new Date().toISOString();
   const fila = { ultimo_latido: ahora, version, cuentas, claude_falta: o.sinClaude === true && !cuentas.length };
   // La ubicación (sólo «ciudad, provincia, país»: textoDeUbicacion), si se supo; si no, queda la última. Sin la mig 0327, el
@@ -376,16 +387,34 @@ export type PedidoPc = { system: string; prompt: string; tools: ToolDef[]; model
 
 /** El negocio pasó su tope de turnos por minuto (§3, regla 6): el turno no se encola. */
 export class TopeDeTurnos extends Error {}
+/** No hay la sesión de quien conectó esa PC en ESTE pedido: el turno no se encola (D6a, `encolarTurno`). */
+export class SinLaPersona extends Error {}
 
-/** Encola un turno para la PC. El token de sus herramientas todavía no existe: se acuña cuando la PC lo toma. */
-export async function encolarTurno(d: Dispositivo, sesionId: number, pedido: PedidoPc): Promise<number> {
+/**
+ * Encola un turno para la PC. El token de sus herramientas todavía no existe: se acuña cuando la PC lo toma. `esperaMs`: lo que
+ * el chat lo va a esperar; después ya no se puede tomar. Lo llama SÓLO `turnoApp` (tests/ia-pc-nunca-a-leads.test.ts).
+ *
+ * ⚠️ LA PUERTA MIRA LA SESIÓN (D6a; con ChatGPT, igual: Martín, 23/10/2026). No le cree a quien la llama: lee la cookie de
+ * ESTE pedido, y tiene que ser la de quien conectó esa PC (`laPersonaEstaAdentro` contra `d.persona`). La primera versión de
+ * la guarda la miraba sólo en `turnoApp`, y la refutación mostró que un alias, un envoltorio o un `?? pcDe(...)` la salteaban
+ * sin que fallara un test: acá no hay forma de llegar sin la persona. Un cron o un webhook no tienen la cookie. Un `after()`
+ * dentro de la ruta de la persona SÍ la tiene (Next la conserva): es la continuación de lo que ella pidió, y nada que corra
+ * solo hacia un lead va ahí. `pruebaSinSesion`: sólo la PC de prueba del ws3.
+ */
+export async function encolarTurno(d: Dispositivo, sesionId: number, pedido: PedidoPc, esperaMs = TURNO_MS, o: { pruebaSinSesion?: boolean } = {}): Promise<number> {
+  // Fuera de un pedido (un cron, un script) `cookies()` tira: es null, y no encola.
+  const sesion = await getUsuarioActual().catch(() => null);
+  if (!laPersonaEstaAdentro(sesion, { ws: d.ws, actor: d.persona }, o.pruebaSinSesion === true)) {
+    throw new SinLaPersona('ia-pc: sin la sesión de quien conectó esta PC, el turno no se encola');
+  }
   const { count, error: e1 } = await db().from('ia_pc_turnos').select('id', { count: 'exact', head: true })
     .eq('workspace_id', d.ws).gt('creado_at', new Date(Date.now() - 60_000).toISOString());
   if (e1) throw new Error(`ia-pc: no pude contar los turnos: ${e1.message}`);
   if ((count ?? 0) >= TOPE_TURNOS_POR_MINUTO) throw new TopeDeTurnos(`el negocio pasó ${TOPE_TURNOS_POR_MINUTO} turnos por minuto`);
   const { data, error } = await db().from('ia_pc_turnos').insert({
     workspace_id: d.ws, dispositivo_id: d.id, sesion_id: sesionId, pedido,
-    vence_at: new Date(Date.now() + TURNO_MS).toISOString(),
+    // Vence cuando el chat deja de esperarlo (`esperaMs`), nunca más tarde que TURNO_MS: un turno huérfano no se toma.
+    vence_at: new Date(Date.now() + Math.max(0, Math.min(esperaMs, TURNO_MS))).toISOString(),
   }).select('id').single();
   if (error || !data) throw new Error(`ia-pc: no pude encolar el turno: ${error?.message ?? 'sin fila'}`);
   return Number(data.id);
