@@ -1988,6 +1988,24 @@ export async function logLeadEvent(leadId: number, campo: string, valor: string,
   }
 }
 
+/**
+ * COMPLETA EL NOMBRE DE RELLENO de un lead (vacío o su número: así nace el traído de un grupo de WhatsApp, cuyo listado no
+ * trae nombres) con el que WhatsApp ya conoce (24/10/2026, app/crm/grupo-wa-server.ts, «Completar nombres»). Compara antes de
+ * escribir: si el nombre ya no es `antes` (alguien lo cambió en el medio), no pisa nada. Sólo el nombre: no toca la etapa ni
+ * inscribe a nadie (por eso no pasa por `updateLead`, que recalcula el desenlace y dispara por la etapa derivada). Queda en
+ * el historial como un cambio de «Nombre», el mismo campo que `logLeadChanges`, y se deshace desde ahí. Devuelve si cambió.
+ */
+export async function completarNombreDeRelleno(id: number, antes: string | null, nombre: string, autor: string): Promise<boolean> {
+  const db = await getTenantDb();
+  const base = db.from('leads').update({ nombre });
+  const { data, error } = await (antes == null ? base.eq('id', id).is('nombre', null) : base.eq('id', id).eq('nombre', antes)).select('id');
+  if (error) throw new Error(`completarNombreDeRelleno: ${error.message}`);
+  if (!data?.length) return false;
+  const { error: ea } = await db.from('lead_audit').insert([{ lead_id: id, campo: 'Nombre', valor_anterior: antes, valor_nuevo: nombre, autor }]);
+  if (ea) console.error(`[audit] el nombre completado del lead ${id} no quedó en el historial: ${ea.message}`);
+  return true;
+}
+
 /** Historial de cambios de un lead (más reciente primero). Vacío si la tabla no existe. */
 export async function getLeadAudit(leadId: number): Promise<LeadAuditRow[]> {
   try {

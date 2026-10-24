@@ -16,8 +16,9 @@
 
 import 'server-only';
 import { getWorkspaceActual, getTenantDb } from '@/lib/workspace';
-import { listarLineas } from '@/lib/evolution';
-import { createLead, logLeadEvent } from '@/lib/leads';
+import { fetchContactosEvolution, listarLineas } from '@/lib/evolution';
+import { getNombresContacto } from '@/lib/evolution-contactos';
+import { completarNombreDeRelleno, createLead, logLeadEvent } from '@/lib/leads';
 // LeadDuplicadoError vive en leads-duplicados: lib/leads la importa pero NO la reexporta (importada de ahí llegaba undefined y el
 // `instanceof` tiraba TypeError con cada participante que ya era lead).
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
@@ -31,8 +32,8 @@ import { claveNombre } from '@/lib/etiquetas-reglas';
 import { etapaDeEntrada } from '@/lib/lead-funnel-reglas';
 import { terminalEstadoFor } from '@/lib/pipeline';
 import {
-  TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, esJidDeGrupo, etapasQueDisparan, etiquetaDeGrupo, gruposDeChats, gruposDeFetchAll,
-  participantesDe, type GrupoWA, type ParticipanteWA,
+  TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, conNombresConocidos, esJidDeGrupo, esNombreDeRelleno, etapasQueDisparan, etiquetaDeGrupo,
+  gruposDeChats, gruposDeFetchAll, participantesDe, type GrupoWA, type ParticipanteWA,
 } from '@/lib/grupo-wa-reglas';
 import { ORIGEN_LEAD } from './origen-lead';
 import { indiceContactos } from './importar-server';
@@ -100,7 +101,70 @@ export async function participantesDelGrupo(linea: string | null, jid: string): 
   if (!l) return { ok: false, error: 'Esa línea no es de este negocio.' };
   const r = await ev(`/group/participants/${encodeURIComponent(l.linea)}?groupJid=${encodeURIComponent(jid)}`, TOPE_PARTICIPANTES_MS);
   if (r == null) return { ok: false, error: 'No pude leer el grupo. Revisa que la línea siga en él.' };
-  return { ok: true, linea: l.linea, ...participantesDe(r, l.numero) };
+  const { participantes, sinNumero } = participantesDe(r, l.numero);
+  return { ok: true, linea: l.linea, participantes: await nombresConocidos(l.linea, participantes), sinNumero };
+}
+
+/**
+ * LOS NOMBRES QUE WHATSAPP YA CONOCE (el listado del grupo no trae ninguno: lib/grupo-wa-reglas.ts). Dos lecturas que NO le
+ * suman tráfico a la red de la línea: la agenda de la línea en la base de Evolution (`fetchContactosEvolution`, UNA request)
+ * y nuestra tabla de contactos (`getNombresContacto`). Si una falla, sin esos nombres: traer nunca se frena por esto.
+ */
+async function nombresConocidos(linea: string, participantes: ParticipanteWA[]): Promise<ParticipanteWA[]> {
+  const [agenda, guardados] = await Promise.all([
+    fetchContactosEvolution(linea).catch(() => []),
+    getNombresContacto().catch(() => new Map<string, string>()),
+  ]);
+  return conNombresConocidos(participantes, agenda, guardados);
+}
+
+export type ResultadoCompletar = { ok: true; completados: number; yaTenian: number; sinNombre: number; fuera: number; quedan: number; errores: number }
+  | { ok: false; error: string };
+
+/**
+ * «COMPLETAR NOMBRES» (24/10/2026, el Cerebro: «traer ahora no puede impedir completar los nombres después»). Los traídos
+ * nacen con su número por nombre cuando WhatsApp no lo conoce, y volver a traer el grupo no los toca (nunca duplica). Esto
+ * recorre los participantes del grupo que YA son leads y les pone el nombre que WhatsApp conozca HOY, sólo si el que tienen es
+ * de relleno (`esNombreDeRelleno`). No crea a nadie, no mueve a nadie, no le manda nada a nadie. Se puede correr de nuevo:
+ * quien escriba más adelante deja su nombre en la agenda de la línea, y la próxima pasada lo completa.
+ * `soloContar`: cuántos se completarían, sin escribir (la propuesta de la API de MaKo).
+ */
+export async function completarNombresDelGrupo(p: { linea: string | null; jid: string; autor: string; hasta?: number; soloContar?: boolean }): Promise<ResultadoCompletar> {
+  const leidos = await participantesDelGrupo(p.linea, p.jid);
+  if (!leidos.ok) return leidos;
+  const idx = await indiceContactos();
+  const telIdx = { exactos: idx.tels, sufijos: idx.telsSufijo };
+  // Sólo un lead por teléfono: con dos (`null`), no se adivina cuál es.
+  const porLead = new Map<number, string | null>();
+  let fuera = 0;
+  for (const x of leidos.participantes) {
+    const id = buscarTelefono(telIdx, x.telefono);
+    if (typeof id === 'number') porLead.set(id, x.nombre); else fuera++;
+  }
+  const db = await getTenantDb();
+  const ids = [...porLead.keys()];
+  const actuales = new Map<number, string | null>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await db.from('leads').select('id, nombre').in('id', ids.slice(i, i + 200));
+    if (error) return { ok: false, error: `No pude leer los leads: ${error.message}` };
+    for (const f of (data ?? []) as Array<{ id: number; nombre: string | null }>) actuales.set(Number(f.id), f.nombre ?? null);
+  }
+  let completados = 0, yaTenian = 0, sinNombre = 0, quedan = 0, errores = 0;
+  for (const [id, nombre] of porLead) {
+    if (!actuales.has(id)) { fuera++; continue; }
+    const antes = actuales.get(id) ?? null;
+    if (!esNombreDeRelleno(antes)) { yaTenian++; continue; }
+    if (!nombre) { sinNombre++; continue; }
+    if (p.soloContar) { completados++; continue; }
+    if (p.hasta != null && Date.now() > p.hasta) { quedan++; continue; }
+    try {
+      if (await completarNombreDeRelleno(id, antes, nombre, p.autor)) completados++; else yaTenian++;
+    } catch (e) {
+      console.error('[grupo-wa] no pude completar un nombre:', msg(e));
+      errores++;
+    }
+  }
+  return { ok: true, completados, yaTenian, sinNombre, fuera, quedan, errores };
 }
 
 /** Cuáles ya son un lead del CRM (de cualquier funnel): la pantalla lo marca, y al traerlos se SUMAN, no se crean de nuevo. */

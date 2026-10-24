@@ -5944,6 +5944,10 @@ Se arregló de raíz y lo fija `tests/modal-foco.test.ts`. Lo que gobierna códi
 - **Y una MEDIDA tampoco llega al montar**: un campo que se mide solo en su primer efecto (`height = scrollHeight`) mide 0
   y queda colapsado, con la barra de scroll y el placeholder fuera de la vista (la barra «Pídeselo a MaKo», 12/10/2026).
   Va con `minHeight` y la medida con el borde (`ComposerWhatsApp`), o vuelve a medir cuando se ve (`ResizeObserver`).
+- **Una LISTA LARGA con sus ACCIONES ABAJO adentro de un `<Modal>` va en `VistaConPie`** (app/_ui/VistaConPie.tsx), con
+  `alto` fijo en el Modal: la lista es la única que scrollea y el pie es el último renglón. Un pie `sticky` armado a mano
+  dentro del cuerpo deja pasar las filas por el padding de abajo («los botones a la mitad y abajo se siguen viendo leads»,
+  24/10/2026). Pasó dos veces porque la segunda pantalla se copió de la primera antes de su arreglo: por eso es UNA pieza.
 - `useCerrarEstable(onCerrar, ocupado)` sigue sirviendo para no cerrar mientras algo se manda; ya no
   hace falta para el foco.
 

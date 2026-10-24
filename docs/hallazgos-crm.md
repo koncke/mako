@@ -247,6 +247,35 @@ lib/nutricion.ts) · `tests/grupo-wa.test.ts` (21 + 10 + 8 roturas). Lo de Evolu
 
 *23/10/2026, chat «Offer» (claude3).*
 
+### Los 221 llegaron sin nombre: completar se diseña junto con traer (24/10/2026)
+
+- **Síntoma:** Martín trajo «16, 17 y 18 de JUNIO | RETO del Anuncio Ganador» y no vino «el nombre de nadie»: 221 leads con
+  su número por nombre (`+<teléfono>`, lo que pone `traerDelGrupo` cuando no hay nombre).
+- **El diagnóstico obvio era el equivocado: «estamos tirando el `pushName`».** La pieza ya leía `name`, `notify` y
+  `pushName`. Medido en su línea: el listado de participantes NO trae nombres (ver hallazgos-comunicacion.md). Esperar para
+  «traer con nombres» no habría dado nada.
+- **La lección, más grande que el caso:** una importación masiva que no puede enriquecerse después obliga a elegir entre
+  traer rápido o traer completo. Y acá, re-traer no sirve: la pieza nunca duplica, y los que ya están quedan «Ya está». **El
+  camino de completar se diseña junto con el de traer, no después.**
+- **Cómo quedó:**
+  - Los nombres que WhatsApp ya conoce entran en el mismo lugar que lee todo el camino (`participantesDelGrupo` →
+    `nombresConocidos`). Salen de la agenda de la línea en Evolution (por teléfono o por `@lid`) y de `evolution_contactos`,
+    sin tráfico a la red.
+  - «Completar nombres» (la pantalla y `completar_nombres_de_grupo` en la API) recorre los participantes que ya son leads.
+    Les pone ese nombre sólo si el que tienen es de relleno (`esNombreDeRelleno`: vacío o sin letras). Compara antes de
+    escribir (`completarNombreDeRelleno`, lib/leads.ts) y deja la línea «Nombre» en el historial. No crea, no mueve, no
+    manda nada, y se puede repetir: quien escriba más adelante deja su nombre en la agenda.
+- **Medido el 24/10/2026, en seco (`soloContar`), sobre los 221 ya traídos:** 221 con el número por nombre, y **0 nombres
+  conocidos hoy**: nadie de ese grupo le escribió a la línea. La herramienta queda, y el número va a subir solo a medida
+  que escriban.
+
+**Sin hacer:**
+- El perfil de empresa (descripción, web, correo, categoría): sólo existe en cuentas de WhatsApp Business (3 de 15 en la
+  muestra) y cuesta una consulta a la red por número, que expone la línea a un baneo. Si se hace, que sea opcional, lento y
+  con tope. Buscar la web y el Instagram por nombre (Apify, el chat de Ventas) necesita un nombre, y estos no lo tienen.
+
+*24/10/2026, chat «CRM» (claude1).*
+
 ## El «Mover de etapa» en lote les pisaba la CASA a los agregados (23/10/2026, P0 de #289)
 
 **Síntoma (medido leyendo el código, antes de que pasara).** Los 300 del Sprint de Mauricio están AGREGADOS al CRM 44

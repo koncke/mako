@@ -18,7 +18,10 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { TANDA_GRUPO, etapaPorDefecto, funnelPorDefecto, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
 import { miles } from './traer-seleccion';
-import { abrirTraerDeGrupoAction, etapasDeFunnelAction, gruposDeLineaAction, participantesDeGrupoAction, traerDeGrupoAction } from './grupo-wa-actions';
+import { VistaConPie } from '@/app/_ui/VistaConPie';
+import {
+  abrirTraerDeGrupoAction, completarNombresDeGrupoAction, etapasDeFunnelAction, gruposDeLineaAction, participantesDeGrupoAction, traerDeGrupoAction,
+} from './grupo-wa-actions';
 import type { LineaGrupos } from './grupo-wa-server';
 
 const SANS = "'Geist', sans-serif";
@@ -58,6 +61,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   const [hecho, setHecho] = useState<string | null>(null);
   /** Cada vuelta relee el grupo (después de traerlo, los traídos pasan a «Ya está»). */
   const [vuelta, setVuelta] = useState(0);
+  const [completando, setCompletando] = useState(false);
   const abierto = useRef(false);
 
   // Al abrir: las líneas del negocio y las etapas del funnel. Al cambiar de funnel, sólo sus etapas.
@@ -121,7 +125,8 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   const enElCrm = (gente ?? []).filter((p) => p.enElCrm && sel.has(p.telefono)).length;
   const sinOfrecer = etapas.filter((e) => e.manda).length;
   const usables = etapas.filter((e) => !e.manda);
-  const trayendo = avance != null;
+  const trayendo = avance != null || completando;
+  const yaEstan = (gente ?? []).filter((p) => p.enElCrm).length;
   const listo = !!grupo && !!etapa && sel.size > 0 && !!etiqueta.trim() && funnel != null;
 
   const alternar = (t: string) => setSel((s) => { const n = new Set(s); if (n.has(t)) n.delete(t); else n.add(t); return n; });
@@ -159,6 +164,29 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     setVuelta((n) => n + 1);
   };
 
+  // «COMPLETAR NOMBRES» (24/10/2026, el Cerebro: traer ahora no puede impedir completar después). El listado del grupo no trae
+  // nombres: los traídos nacen con su número. Esto les pone el que WhatsApp conozca hoy, sólo donde tienen el número; se puede
+  // volver a tocar más adelante (quien escriba deja su nombre). No crea, no mueve, no le manda nada a nadie.
+  const completar = async () => {
+    if (!grupo || trayendo) return;
+    setErr(null); setHecho(null); setCompletando(true);
+    let completados = 0, sinNombre = 0;
+    try {
+      for (let vuelta = 0; vuelta < 10; vuelta++) {
+        const r = await completarNombresDeGrupoAction({ linea, jid })
+          .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
+        if (!r.ok) { setErr(r.error); break; }
+        completados += r.completados;
+        sinNombre = r.sinNombre;
+        if (!r.quedan) break;
+      }
+    } finally { setCompletando(false); }
+    const cuantos = `${miles(completados)} ${completados === 1 ? 'nombre completado' : 'nombres completados'}`;
+    const sin = sinNombre ? ` · ${miles(sinNombre)} todavía sin nombre en WhatsApp` : '';
+    setHecho(`«${grupo.nombre}»: ${completados ? cuantos : 'ningún nombre nuevo'}${sin}.`);
+    if (completados) { onTraidos(cuantos); setVuelta((n) => n + 1); }
+  };
+
   const opcionesLinea: DropdownOption[] = (lineas ?? []).map((l) => ({ value: l.linea, label: l.etiqueta }));
   const opcionesGrupo: DropdownOption[] = [
     { value: '', label: grupos === null ? 'Cargando grupos…' : grupos.length ? 'Elige un grupo' : 'Sin grupos' },
@@ -176,8 +204,56 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     );
   }
 
+  // El pie (el último renglón de `VistaConPie`): a dónde van, con qué etiqueta, y los botones.
+  const pie = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {hecho && <span role="status" style={{ fontFamily: SANS, fontSize: 13, color: 'var(--good)' }}>{hecho}</span>}
+        {/* «No les manda nada» siempre (el Cerebro, 23/10/2026): ni al traerlos, ni después por su cuenta (`quedaDondeLoPusieron`). */}
+        {!!gente?.length && (
+          <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)' }}>
+            {[
+              'No les manda nada.',
+              enElCrm ? `${miles(enElCrm)} ya ${enElCrm === 1 ? 'es un lead: no se duplica' : 'son leads: no se duplican'}.` : '',
+              sinNumero ? `${miles(sinNumero)} sin número visible.` : '',
+              sinOfrecer ? 'Las etapas que mandan algo o cierran el trato no se ofrecen.' : '',
+            ].filter(Boolean).join(' ')}
+          </span>
+        )}
+        {!!gente?.length && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {productos.length > 1 && <Dropdown value={String(funnel ?? '')} options={opcionesFunnel} onChange={(v) => setFunnel(Number(v))} ariaLabel="A qué funnel" width={200} />}
+            {opcionesEtapa.length
+              ? <Dropdown value={etapa} options={opcionesEtapa} onChange={setEtapa} ariaLabel="A qué etapa" width={180} />
+              : <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--bad)' }}>Ninguna etapa de este funnel se puede usar al traer.</span>}
+            <input value={etiqueta} onChange={(e) => setEtiqueta(e.target.value.slice(0, 40))} placeholder="Etiqueta de origen"
+              aria-label="Etiqueta de origen" style={{ ...campo, flex: '1 1 180px', minWidth: 150 }} />
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <button type="button" onClick={onAtras} disabled={trayendo} style={btnAtras}>← Atrás</button>
+          {/* A los que YA están y nacieron con su número por nombre: el que WhatsApp conozca hoy (`completar`). */}
+          {yaEstan > 0 && (
+            <button type="button" onClick={() => void completar()} disabled={trayendo} style={{ ...btnAtras, opacity: trayendo ? 0.55 : 1 }}>
+              {completando ? 'Completando…' : 'Completar nombres'}
+            </button>
+          )}
+          <span style={{ flex: 1 }} />
+          {err && <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--bad)' }}>{err}</span>}
+          {avance && <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--dim)' }}>{avance}</span>}
+          <button type="button" disabled={trayendo || !listo} onClick={() => void traer()}
+            style={{ padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 700, cursor: trayendo || !listo ? 'default' : 'pointer', opacity: trayendo || !listo ? 0.45 : 1 }}>
+            {avance != null ? 'Trayendo…' : sel.size ? `Traer ${miles(sel.size)}` : 'Traer'}
+          </button>
+        </div>
+    </div>
+  );
+
+  // ⚠️ LA LISTA SCROLLEA, EL PIE NO (24/10/2026, Martín: «los botones de abajo no pueden estar a la mitad y que abajo se
+  // sigan viendo leads»): `VistaConPie`, la misma pieza que «Traer de otro funnel» (ver app/_ui/VistaConPie.tsx).
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0 }}>
+    <VistaConPie
+      lista={{ border: '1px solid var(--border)', borderRadius: 12 }}
+      cabecera={(
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         {lineas && lineas.length > 1 && (
           <Dropdown value={linea ?? ''} options={opcionesLinea} onChange={(v) => setLinea(v)} ariaLabel="De qué línea" width={200} />
@@ -187,8 +263,9 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre o teléfono" style={{ ...campo, flex: '1 1 200px', minWidth: 160 }} />
         )}
       </div>
-
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 12 }}>
+      )}
+      pie={pie}
+    >
         {!!gente?.length && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead style={{ position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
@@ -223,44 +300,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
         {!jid && grupos !== null && <p style={nota}>{grupos.length ? 'Elige el grupo de arriba.' : 'Esta línea no está en ningún grupo.'}</p>}
         {(grupos === null || (jid && gente === null)) && <p style={{ ...nota, color: 'var(--faint)' }}>Cargando…</p>}
         {jid && gente?.length === 0 && <p style={nota}>{sinNumero ? 'WhatsApp no deja ver los números de este grupo.' : 'Nadie para traer.'}</p>}
-      </div>
-
-      {/* El pie, pegado abajo (el molde de «Traer de otro funnel»): a dónde van, con qué etiqueta, y el botón. */}
-      <div style={{ position: 'sticky', bottom: 0, zIndex: 2, background: 'var(--surface)', borderTop: '1px solid var(--border)', padding: '10px 0 2px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {hecho && <span role="status" style={{ fontFamily: SANS, fontSize: 13, color: 'var(--good)' }}>{hecho}</span>}
-        {/* «No les manda nada» siempre (el Cerebro, 23/10/2026): ni al traerlos, ni después por su cuenta (`quedaDondeLoPusieron`). */}
-        {!!gente?.length && (
-          <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)' }}>
-            {[
-              'No les manda nada.',
-              enElCrm ? `${miles(enElCrm)} ya ${enElCrm === 1 ? 'es un lead: no se duplica' : 'son leads: no se duplican'}.` : '',
-              sinNumero ? `${miles(sinNumero)} sin número visible.` : '',
-              sinOfrecer ? 'Las etapas que mandan algo o cierran el trato no se ofrecen.' : '',
-            ].filter(Boolean).join(' ')}
-          </span>
-        )}
-        {!!gente?.length && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {productos.length > 1 && <Dropdown value={String(funnel ?? '')} options={opcionesFunnel} onChange={(v) => setFunnel(Number(v))} ariaLabel="A qué funnel" width={200} />}
-            {opcionesEtapa.length
-              ? <Dropdown value={etapa} options={opcionesEtapa} onChange={setEtapa} ariaLabel="A qué etapa" width={180} />
-              : <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--bad)' }}>Ninguna etapa de este funnel se puede usar al traer.</span>}
-            <input value={etiqueta} onChange={(e) => setEtiqueta(e.target.value.slice(0, 40))} placeholder="Etiqueta de origen"
-              aria-label="Etiqueta de origen" style={{ ...campo, flex: '1 1 180px', minWidth: 150 }} />
-          </div>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <button type="button" onClick={onAtras} disabled={trayendo} style={btnAtras}>← Atrás</button>
-          <span style={{ flex: 1 }} />
-          {err && <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--bad)' }}>{err}</span>}
-          {avance && <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--dim)' }}>{avance}</span>}
-          <button type="button" disabled={trayendo || !listo} onClick={() => void traer()}
-            style={{ padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 700, cursor: trayendo || !listo ? 'default' : 'pointer', opacity: trayendo || !listo ? 0.45 : 1 }}>
-            {trayendo ? 'Trayendo…' : sel.size ? `Traer ${miles(sel.size)}` : 'Traer'}
-          </button>
-        </div>
-      </div>
-    </div>
+    </VistaConPie>
   );
 }
 

@@ -14,7 +14,14 @@
 // ⚠️ EL `id` DE UN PARTICIPANTE ES UN `@lid`, NO UN TELÉFONO: un alias interno de WhatsApp (lib/evolution-contactos.ts ya lo
 //    dice). El número sale de `phoneNumber`. Uno sin `phoneNumber` (WhatsApp no lo muestra) NO se importa: se cuenta y se dice.
 // ⚠️ `fetchAllGroups` en una línea con muchos grupos llegó a no terminar (90 s en el ws11, 11/09/2026: lib/evolution.ts,
-//    `sondearSocketDetalle`). Por eso va con tope, y si no contesta, los grupos de la base (`findChats`).
+//    `sondearSocketDetalle`). Por eso va con tope, y si no contesta, los grupos de la base (`findChats`). Medido otra vez el
+//    24/10/2026 en la línea de Martín (61 grupos): no contestó en 90 s; `findChats`, en 1,2 s.
+// ⚠️ EL LISTADO NO TRAE NOMBRES (medido el 24/10/2026, línea de Martín, 247 y 41 participantes): cada uno viene sólo con `id`
+//    (su `@lid`), `phoneNumber` y `admin`. El nombre sale de lo que WhatsApp YA conoce sin preguntarle a la red
+//    (`conNombresConocidos`): la agenda de la línea en la base de Evolution (por teléfono o por `@lid`) y la nuestra
+//    (`evolution_contactos`). De quien nunca escribió no hay nombre: se trae igual y se completa después, cuando aparece
+//    («Completar nombres», app/crm/grupo-wa-server.ts). Preguntarle el perfil a WhatsApp número por número sí lo da a
+//    veces (empresas), pero es tráfico en la red de una línea no oficial, la que se expone a un baneo (lib/fotos-contacto.ts).
 
 import { limpiarNombreEtiqueta } from './etiquetas-reglas';
 import { ambitoDeSecuencia, leadEnAmbito } from './nutricion-ambito';
@@ -22,8 +29,11 @@ import { TRIGGER_ETAPA, etapasDe } from './nutricion-etapa';
 
 /** Un grupo de la línea. `tamano`: cuántos son (null si no se sabe: los de la base no lo traen). */
 export type GrupoWA = { jid: string; nombre: string; tamano: number | null };
-/** Un participante que se puede traer: su teléfono (sólo dígitos, con el código de país) y su nombre, si WhatsApp lo da. */
-export type ParticipanteWA = { telefono: string; nombre: string | null };
+/**
+ * Un participante que se puede traer: su teléfono (sólo dígitos, con el código de país), su nombre si se conoce, y su `@lid`
+ * (el alias interno de WhatsApp: con él la agenda de la línea guarda a muchos contactos, y por ahí también sale el nombre).
+ */
+export type ParticipanteWA = { telefono: string; nombre: string | null; lid?: string | null };
 
 /** El tope para listar los grupos hablando con WhatsApp; pasado, los de la base de Evolution. */
 export const TOPE_GRUPOS_MS = 15_000;
@@ -94,9 +104,49 @@ export function participantesDe(json: unknown, propio?: string | null): { partic
     if (!telefono) { sinNumero++; continue; }
     if (vistos.has(telefono) || (propioDig && telefono === propioDig)) continue;
     vistos.add(telefono);
-    participantes.push({ telefono, nombre: texto(o.name) ?? texto(o.notify) ?? texto(o.pushName) });
+    const lid = typeof o.id === 'string' && o.id.endsWith('@lid') ? o.id : typeof o.lid === 'string' && o.lid.endsWith('@lid') ? o.lid : null;
+    participantes.push({ telefono, nombre: nombreUtil(o.name) ?? nombreUtil(o.notify) ?? nombreUtil(o.pushName), lid });
   }
   return { participantes, sinNumero };
+}
+
+/**
+ * Un nombre que sirve: texto con alguna letra (no un número, ni «.», ni un emoji solo), sin el «Você» que WhatsApp pone a la
+ * línea misma (lib/evolution-contactos.ts), y con un tope de cordura.
+ */
+export function nombreUtil(v: unknown): string | null {
+  const t = texto(v);
+  if (!t || t === 'Você' || !/\p{L}/u.test(t)) return null;
+  return t.slice(0, 80);
+}
+
+/** Los últimos 10 dígitos: así cruza un teléfono el resto del CRM (con o sin el 9 de Argentina o el 1 de México). */
+const sufijo = (tel: string) => tel.replace(/\D/g, '').slice(-10);
+
+/**
+ * LOS NOMBRES QUE WHATSAPP YA CONOCE, sin preguntarle a la red: el que trae el listado, si no el de la agenda de la línea en
+ * Evolution (por su teléfono o por su `@lid`), y si no el de nuestra tabla de contactos (por los últimos 10 dígitos). Copia.
+ */
+export function conNombresConocidos(
+  participantes: readonly ParticipanteWA[],
+  agenda: ReadonlyArray<{ remoteJid: string; nombre: string | null }>,
+  guardados: ReadonlyMap<string, string>,
+): ParticipanteWA[] {
+  const porJid = new Map<string, string>();
+  for (const c of agenda) { const n = nombreUtil(c.nombre); if (n && c.remoteJid && !porJid.has(c.remoteJid)) porJid.set(c.remoteJid, n); }
+  return participantes.map((p) => ({
+    ...p,
+    nombre: p.nombre ?? porJid.get(`${p.telefono}@s.whatsapp.net`) ?? (p.lid ? porJid.get(p.lid) : undefined) ?? nombreUtil(guardados.get(sufijo(p.telefono))) ?? null,
+  }));
+}
+
+/**
+ * ¿Es un nombre DE RELLENO? Vacío, o sin ninguna letra: el número (así nace un traído de un grupo sin nombre, `+<teléfono>`),
+ * un «.», un emoji solo. Es lo único que «Completar nombres» pisa: un nombre que escribió una persona no se toca nunca.
+ */
+export function esNombreDeRelleno(nombre: string | null | undefined): boolean {
+  const n = (nombre ?? '').trim();
+  return !n || !/\p{L}/u.test(n);
 }
 
 /**

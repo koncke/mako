@@ -39,7 +39,7 @@ import {
   contarVisitasLanding, esRequisitosFaltantes, type Lead, type FathomLink,
 } from '@/lib/leads';
 import { getFunnelDefault, getFunnelDe, listarFunnels, idDelFunnelDefault } from '@/lib/funnels';
-import { etapasParaTraer, etiquetaDeOrigen, gruposDeLinea, marcarEnElCrm, participantesDelGrupo, traerDelGrupo } from '@/app/crm/grupo-wa-server';
+import { completarNombresDelGrupo, etapasParaTraer, etiquetaDeOrigen, gruposDeLinea, marcarEnElCrm, participantesDelGrupo, traerDelGrupo } from '@/app/crm/grupo-wa-server';
 import { etapaPorDefecto, funnelPorDefecto } from '@/lib/grupo-wa-reglas';
 import { salidasDeEtapa, stageMetaOpt, ENTRADAS, MAKO_SETTER, type EntradaId, type Stage } from '@/lib/pipeline';
 // «Nuevo CRM» por su tipo (14/10/2026): el catálogo puro y el alta que comparte con el modal.
@@ -174,6 +174,18 @@ const YA_ESTABA_COBRADA = 'Esa cuota ya estaba cobrada: no cambié nada (ni la f
 async function conLead(input: Record<string, unknown>, fn: (lead: Lead) => Promise<SalidaLectura>) {
   const lead = await leadDe(input.leadId);
   return lead ? fn(lead) : fallo(noExiste(input.leadId));
+}
+
+/** El grupo de WhatsApp que se pidió (su id o su nombre) en la línea del negocio: lo usan traer y completar nombres. */
+async function grupoPedido(input: Record<string, unknown>) {
+  const g = await gruposDeLinea(typeof input.linea === 'string' ? input.linea : null);
+  if (!g.ok) return { error: g.error };
+  const pedido = String(input.grupo ?? '').trim();
+  const k = pedido.toLowerCase();
+  const parecidos = g.grupos.filter((x) => x.nombre.toLowerCase().includes(k));
+  const grupo = g.grupos.find((x) => x.jid === pedido) ?? g.grupos.find((x) => x.nombre.toLowerCase() === k) ?? (parecidos.length === 1 ? parecidos[0] : null);
+  if (!grupo) return { error: `No encontré el grupo «${pedido}» en esa línea (${parecidos.length > 1 ? 'hay varios con ese nombre' : 'mira grupos_whatsapp'}).` };
+  return { g, grupo };
 }
 
 // ── agenda de Google ──────────────────────────────────────────────────────────
@@ -1158,13 +1170,9 @@ export const RUNNERS: Runners = {
   },
   traer_contactos_de_grupo: {
     preparar: async (input) => {
-      const g = await gruposDeLinea(typeof input.linea === 'string' ? input.linea : null);
-      if (!g.ok) return { error: g.error };
-      const pedido = String(input.grupo ?? '').trim();
-      const k = pedido.toLowerCase();
-      const parecidos = g.grupos.filter((x) => x.nombre.toLowerCase().includes(k));
-      const grupo = g.grupos.find((x) => x.jid === pedido) ?? g.grupos.find((x) => x.nombre.toLowerCase() === k) ?? (parecidos.length === 1 ? parecidos[0] : null);
-      if (!grupo) return { error: `No encontré el grupo «${pedido}» en esa línea (${parecidos.length > 1 ? 'hay varios con ese nombre' : 'mira grupos_whatsapp'}).` };
+      const pg = await grupoPedido(input);
+      if ('error' in pg) return pg;
+      const { g, grupo } = pg;
       // Por defecto, como la pantalla: el CRM «Prospección» si lo hay, y ahí «Tibio» (el Cerebro, 23/10/2026).
       const funnels = await listarFunnels();
       const funnelId = n(input.embudoId) ?? funnelPorDefecto(funnels, await idDelFunnelDefault());
@@ -1202,6 +1210,29 @@ export const RUNNERS: Runners = {
         ok: true,
         resumen: `Listo: ${partes.join(', ') || 'nadie nuevo'}${r.etiqueta ? `, con «${r.etiqueta}»` : ''}.${r.quedan ? ` Quedan ${r.quedan}: pídemelo de nuevo y sigo.` : ''}`,
       };
+    }),
+  },
+
+  // «Completar nombres» (24/10/2026): lo mismo que la pantalla. Cuenta antes (`soloContar`) para proponer con números.
+  completar_nombres_de_grupo: {
+    preparar: async (input) => {
+      const pg = await grupoPedido(input);
+      if ('error' in pg) return pg;
+      const { g, grupo } = pg;
+      const c = await completarNombresDelGrupo({ linea: g.linea, jid: grupo.jid, autor: '', soloContar: true });
+      if (!c.ok) return { error: c.error };
+      const sin = c.sinNombre ? ` (${c.sinNombre} siguen sin nombre en WhatsApp: se completan cuando escriban)` : '';
+      if (!c.completados) return { error: `En «${grupo.nombre}» no hay nombres nuevos para completar${sin}.`, yaEstaba: true };
+      return {
+        payload: { linea: g.linea, jid: grupo.jid, nombreGrupo: grupo.nombre },
+        resumen: `Completar ${c.completados} nombres de los que ya trajiste de «${grupo.nombre}»${sin}. No se le escribe a nadie.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('completar los nombres del grupo', async () => {
+      const r = await completarNombresDelGrupo({ linea: String(payload.linea), jid: String(payload.jid), autor: autorDe(ctx), hasta: Date.now() + 45_000 });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (r.completados) invalidar('leads');
+      return { ok: true, resumen: `Listo: ${r.completados} nombres completados en «${String(payload.nombreGrupo)}».${r.quedan ? ` Quedan ${r.quedan}: pídemelo de nuevo y sigo.` : ''}` };
     }),
   },
 

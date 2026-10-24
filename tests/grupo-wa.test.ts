@@ -17,7 +17,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  esJidDeGrupo, etapaPorDefecto, etiquetaDeGrupo, funnelPorDefecto, gruposDeChats, gruposDeFetchAll, participantesDe, telefonoDeJid,
+  conNombresConocidos, esJidDeGrupo, esNombreDeRelleno, etapaPorDefecto, etiquetaDeGrupo, funnelPorDefecto, gruposDeChats, gruposDeFetchAll,
+  nombreUtil, participantesDe, telefonoDeJid,
 } from '../lib/grupo-wa-reglas';
 
 test('1. los grupos de fetchAllGroups: nombre, tamaño, sin comunidades, ordenados', () => {
@@ -58,10 +59,11 @@ test('3. los participantes: el teléfono sale de phoneNumber (el id es un @lid),
     { id: '44444444444444@lid', phoneNumber: '5491100000001@s.whatsapp.net', name: 'Ana otra vez' },
     { id: '55555555555555@lid', phoneNumber: '5491199999999@s.whatsapp.net', name: 'La línea' },
   ] }, '+54 9 11 9999-9999');
+  // Con su @lid (24/10/2026): la agenda de la línea guarda a muchos contactos por ahí, y de ahí sale el nombre (test 9).
   assert.deepEqual(r.participantes, [
-    { telefono: '5491100000001', nombre: 'Ana' },
-    { telefono: '5491100000002', nombre: null },
-    { telefono: '5491100000003', nombre: 'Beto' },
+    { telefono: '5491100000001', nombre: 'Ana', lid: '11111111111111@lid' },
+    { telefono: '5491100000002', nombre: null, lid: '22222222222222@lid' },
+    { telefono: '5491100000003', nombre: 'Beto', lid: null },
   ]);
   assert.equal(r.sinNumero, 1, 'el que sólo trae un @lid no se trae: se cuenta');
   assert.equal(telefonoDeJid('11111111111111@lid'), null, 'un @lid no es un teléfono');
@@ -122,7 +124,7 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
   const acciones = leer('app/crm/grupo-wa-actions.ts');
   const exportadas = [...acciones.matchAll(/export async function (\w+)/g)].map((m) => m[1]);
-  assert.equal(exportadas.length, 5);
+  assert.equal(exportadas.length, 6, 'una acción nueva: que tenga la puerta del admin (y sumala acá)');
   for (const f of exportadas) {
     const cuerpo = acciones.slice(acciones.indexOf(`export async function ${f}`));
     assert.match(cuerpo.slice(0, 600), /await exigirSesion\(\);\n {2}if \(\(await getRolWsEfectivo\(\)\) !== 'admin'\) return \{ ok: false, error: SOLO_ADMIN \};/, `${f}: sin la puerta del admin`);
@@ -154,7 +156,7 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   const ops = def.slice(def.indexOf("id: 'grupos_whatsapp'"), def.indexOf("id: 'ver_cobro_etapa'"));
   assert.ok(ops.includes("id: 'traer_contactos_de_grupo'"), 'las dos, antes de los cobros');
   assert.match(ops.slice(ops.indexOf("id: 'traer_contactos_de_grupo'")), /confirmacion: 'chat'/);
-  assert.equal([...ops.matchAll(/canales: \['app'\], costo: 'gratis', gating: TAB_ADMIN,/g)].length, 2, 'las dos, sólo en la app');
+  assert.equal([...ops.matchAll(/canales: \['app'\], costo: 'gratis', gating: TAB_ADMIN,/g)].length, 3, 'las tres (con completar_nombres_de_grupo), sólo en la app');
   const run = leer('lib/api-mako/areas/crm.run.ts');
   assert.match(run, /telefonos: 'todos', autor: autorDe\(ctx\), hasta: Date\.now\(\) \+ 45_000,\n {8}etiqueta:/);
   assert.match(run, /if \(!funnels\.some\(\(f\) => f\.id === funnelId\)\) return \{ error:/, 'la API, tampoco un funnel ajeno');
@@ -234,4 +236,69 @@ test('8. la revisión de privacidad del 23/10: nace en su etapa, sin terminales,
   const fotos = leer('lib/fotos-contacto.ts');
   assert.match(fotos, /'id, telefono, foto_auto_at, foto_auto_url, origen_lead'/);
   assert.match(fotos, /leadsParaGuardarFoto\(leads\.filter\(\(l\) => !quedaDondeLoPusieron\(l\.origen_lead\)\), fotos, ahora\)/);
+});
+
+// ── 24/10/2026: los nombres. Martín trajo un grupo de 221 y no vino «el nombre de nadie». MEDIDO en su línea: el listado de
+// participantes NO trae nombres (sólo `id` @lid, `phoneNumber` y `admin`): no se tiraba nada. El nombre sale de lo que WhatsApp
+// YA conoce sin preguntarle a la red, y los que no, se completan después («Completar nombres»).
+// Roturas (base 10/0 en este archivo): el nombre de la agenda sin mirar el @lid → cae el 9; «Completar» pisando un nombre de
+// verdad (sin `esNombreDeRelleno`) → cae el 10; la escritura sin comparar → cae el 10; la vista sin `VistaConPie` → cae el 10.
+
+test('9. el nombre que WhatsApp ya conoce: el del listado, si no el de la agenda (por teléfono o por @lid), si no el nuestro', () => {
+  const ps = [
+    { telefono: '5491100000001', nombre: 'Ana', lid: '1@lid' },
+    { telefono: '5491100000002', nombre: null, lid: '2@lid' },
+    { telefono: '5491100000003', nombre: null, lid: '3@lid' },
+    { telefono: '5215500000004', nombre: null, lid: null },
+    { telefono: '5491100000005', nombre: null, lid: '5@lid' },
+  ];
+  const agenda = [
+    { remoteJid: '5491100000001@s.whatsapp.net', nombre: 'Ana de la agenda' },
+    { remoteJid: '5491100000002@s.whatsapp.net', nombre: 'Beto' },
+    { remoteJid: '3@lid', nombre: 'Caro 🌸' },
+    { remoteJid: '5@lid', nombre: '.' },
+  ];
+  const guardados = new Map([['5500000004', 'Dani'], ['1100000005', '+54 9 11 0000 0005']]);
+  const r = conNombresConocidos(ps, agenda, guardados);
+  assert.deepEqual(r.map((p) => p.nombre), ['Ana', 'Beto', 'Caro 🌸', 'Dani', null]);
+  assert.equal(ps[1].nombre, null, 'tocó los participantes que recibió');
+  // Un nombre que sirve tiene alguna letra: ni un número, ni un punto, ni el «Você» de la línea misma.
+  for (const malo of ['', '   ', '.', '+54 9 11 1234', '🙂', 'Você', null, 7]) assert.equal(nombreUtil(malo), null, String(malo));
+  assert.equal(nombreUtil('  María José  '), 'María José');
+  assert.equal(nombreUtil('x'.repeat(200))?.length, 80);
+  // Lo de relleno (lo único que «Completar nombres» pisa): vacío o sin letras.
+  for (const relleno of [null, '', '+5491100000002', '5491100000002', '.', '🙂']) assert.equal(esNombreDeRelleno(relleno), true, String(relleno));
+  for (const deVerdad of ['Ana', 'Dr. Pérez', 'Juan 2']) assert.equal(esNombreDeRelleno(deVerdad), false, deVerdad);
+});
+
+test('10. «Completar nombres»: a los que YA están, sólo el nombre de relleno, comparando antes de escribir; y el pie no flota', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
+  const server = leer('app/crm/grupo-wa-server.ts');
+  // Los nombres entran en el MISMO lugar que lee todo el camino (la pantalla, traer y la API), sin tráfico a la red.
+  assert.match(server, /return \{ ok: true, linea: l\.linea, participantes: await nombresConocidos\(l\.linea, participantes\), sinNumero \};/);
+  assert.match(server, /fetchContactosEvolution\(linea\)\.catch\(\(\) => \[\]\),\n\s+getNombresContacto\(\)\.catch\(/, 'si una lectura falla, traer no se frena');
+  const completar = server.slice(server.indexOf('export async function completarNombresDelGrupo('), server.indexOf('export async function marcarEnElCrm('));
+  assert.ok(completar.length > 200, 'no encontré completarNombresDelGrupo');
+  assert.doesNotMatch(completar, /createLead|agregarAProducto|ponerEtiquetaLote|setPipelineStage|updateLead|\/message\//, 'completar crea, mueve o manda algo');
+  assert.match(completar, /if \(!esNombreDeRelleno\(antes\)\) \{ yaTenian\+\+; continue; \}/, 'pisa un nombre que escribió una persona');
+  assert.match(completar, /if \(typeof id === 'number'\) porLead\.set\(id, x\.nombre\); else fuera\+\+;/, 'un número de dos leads: no se adivina');
+  assert.match(completar, /await completarNombreDeRelleno\(id, antes, nombre, p\.autor\)/);
+  // La escritura: sólo el nombre, comparando con el que había, y queda en el historial como «Nombre» (se deshace desde ahí).
+  const leads = leer('lib/leads.ts');
+  const esc = leads.slice(leads.indexOf('export async function completarNombreDeRelleno('), leads.indexOf('/** Historial de cambios de un lead'));
+  assert.match(esc, /db\.from\('leads'\)\.update\(\{ nombre \}\)/);
+  assert.match(esc, /antes == null \? base\.eq\('id', id\)\.is\('nombre', null\) : base\.eq\('id', id\)\.eq\('nombre', antes\)/, 'escribe sin comparar');
+  assert.match(esc, /campo: 'Nombre', valor_anterior: antes, valor_nuevo: nombre, autor/);
+  // La pantalla: el botón aparece con gente que ya está, y la vista usa la pieza del pie (el que flotaba, 24/10/2026).
+  const pantalla = leer('app/crm/TraerDeGrupoWA.tsx');
+  assert.match(pantalla, /\{yaEstan > 0 && \(\n\s+<button type="button" onClick=\{\(\) => void completar\(\)\}/);
+  assert.match(pantalla, /const r = await completarNombresDeGrupoAction\(\{ linea, jid \}\)/);
+  assert.match(pantalla, /<VistaConPie\n\s+lista=/);
+  assert.doesNotMatch(pantalla, /position: 'sticky', bottom: 0/, 'el pie volvió a armarse a mano: flota (ver app/_ui/VistaConPie.tsx)');
+  // La API de MaKo, la misma regla: propone con números y no repite lo que ya está.
+  const run = leer('lib/api-mako/areas/crm.run.ts');
+  assert.match(run, /const c = await completarNombresDelGrupo\(\{ linea: g\.linea, jid: grupo\.jid, autor: '', soloContar: true \}\);/);
+  assert.match(run, /if \(!c\.completados\) return \{ error: [^\n]*, yaEstaba: true \};/);
 });
