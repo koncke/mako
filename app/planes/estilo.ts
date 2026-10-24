@@ -34,4 +34,38 @@ body:has(.planes-root) { background: #F4F6F9; }
 .planes-nota { margin-top: 14px; color: #5B6472; font-size: 13px; text-align: center; }
 .planes-trampa { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 .planes-volver { display: inline-block; margin-bottom: 16px; color: #2F6FED; font-size: 14px; text-decoration: none; }
+/* Los tres bloques de /planes (24/10/2026): el del medio destacado, el programa con Martín a la derecha y la comparación. */
+.planes-wrap.planes-ancho { max-width: 1060px; }
+.planes-grilla.planes-tres { grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); padding-top: 12px; align-items: stretch; }
+.planes-card { position: relative; }
+.planes-card.destacado { box-shadow: 0 0 0 1px #2F6FED, 0 14px 34px rgba(47,111,237,.18); }
+.planes-insignia { position: absolute; top: -12px; left: 22px; background: #2F6FED; color: #fff; font-size: 12px; font-weight: 700;
+  letter-spacing: .03em; padding: 4px 11px; border-radius: 999px; }
+.planes-cuotas { margin: -2px 0 12px; color: #5B6472; font-size: 14px; }
+.planes-card p.planes-despues { margin: -4px 0 18px; font-size: 13px; }
+.planes-btn.planes-btn-borde { background: #fff; color: #2F6FED !important; box-shadow: inset 0 0 0 1px #2F6FED; }
+.planes-compara { margin-top: 44px; }
+.planes-compara h2 { margin: 0 0 14px; font-size: 22px; }
+.planes-tabla-wrap { overflow-x: auto; background: #fff; border: 1px solid #EAECF1; border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(18,21,27,.04), 0 8px 24px rgba(18,21,27,.06); }
+.planes-tabla { width: 100%; min-width: 600px; border-collapse: collapse; font-size: 14px; }
+.planes-tabla th, .planes-tabla td { padding: 12px 16px; text-align: center; border-bottom: 1px solid #EAECF1; }
+.planes-tabla th[scope=row] { text-align: left; font-weight: 500; color: #12151B; }
+.planes-tabla thead th { background: #F8F9FB; font-weight: 700; }
+.planes-tabla thead th.destacado { color: #2F6FED; }
+.planes-tabla tbody tr:last-child th, .planes-tabla tbody tr:last-child td { border-bottom: 0; }
+.planes-si { color: #1F9D55; font-weight: 700; }
+.planes-no { color: #A0A7B4; }
+.planes-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.planes-corto { display: none; }
+/* En el teléfono las CUATRO columnas entran a la vez: una comparación que esconde dos planes detrás de un deslizar no compara. */
+@media (max-width: 600px) {
+  .planes-largo { display: none; }
+  .planes-corto { display: inline; }
+  .planes-tabla { min-width: 0; font-size: 12.5px; table-layout: fixed; }
+  .planes-tabla th, .planes-tabla td { padding: 10px 6px; }
+  .planes-tabla th[scope=row] { width: 40%; padding-left: 12px; }
+}
+.planes-pie { margin: 30px 0 0; text-align: center; color: #5B6472; font-size: 14px; }
+.planes-pie a { color: #2F6FED; font-weight: 600; text-decoration: none; }
 `;

@@ -41,6 +41,7 @@ import { IdentidadPicker } from '../_components/IdentidadPicker';
 import { FichaWorkspace } from './FichaWorkspace';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { CAPA_DEFAULT, CAPAS_LISTA, CAPAS_VENDIBLES, capaDef, type CapaId } from '@/lib/capas';
+import { avisoAltaAMano } from '@/lib/plan-esencial-reglas';
 import type { UsuarioConCara as Usuario } from './tipos';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
@@ -1088,6 +1089,8 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
             </div>
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 10, lineHeight: 1.5 }}>{capaDef(capa).descripcion}</div>
+          {/* Los topes y el candado se cumplen sólo por la pasarela: un alta a mano recibe más (lib/plan-esencial-reglas.ts). */}
+          {avisoAltaAMano(capa) && <div style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 600, marginTop: 6, lineHeight: 1.5 }}>{avisoAltaAMano(capa)}</div>}
           {errCrear && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{errCrear}</div>}
           {hintCrear && <Aviso aviso={hintCrear} />}
         </Modal>

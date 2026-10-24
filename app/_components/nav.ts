@@ -709,9 +709,12 @@ export const USER_NAV: NavItem[] = [
   // un tercero. Solo el admin (sin `rolesWs`): acá se acuñan credenciales.
   { key: 'api-mako', label: 'API', href: '/api-mako', icon: 'api', match: starts('/api-mako') },
   // MaKo Partners (20/10/2026, feedback del 18/10 pt 10; Martín: «"MaKo Partners" debería ir dentro del desplegable del
-  // perfil, no como una tab»). Sigue siendo sólo del admin de una AGENCIA (`soloCapas`, que mira `puedeVerItem`); su
-  // página se cuida sola (app/partners/page.tsx, `esAgencia`).
-  { key: 'partners', label: 'MaKo Partners', href: '/partners', icon: 'comunidad', soloCapas: ['agencia'], match: starts('/partners') },
+  // perfil, no como una tab»). Desde el 24/10/2026 la ve el ADMIN de CUALQUIER negocio, no sólo el de una agencia
+  // (Martín: «la tab de MaKo Partners para clientes»): cualquier negocio con plan recomienda MaKo, y era la única puerta
+  // a su tablero (/partners/referidos) — con `soloCapas: ['agencia']` un cliente sólo llegaba tipeando la URL. Sin
+  // `rolesWs`, el closer y el setter no la ven (`puedeVerItem`). La página reparte: la agencia, su cartera; el resto, sus
+  // referidos (app/partners/page.tsx).
+  { key: 'partners', label: 'MaKo Partners', href: '/partners', icon: 'comunidad', match: starts('/partners') },
   // «Onboarding» salió de acá el 15/10/2026: el hub de diez pestañas que abría se retiró y sus secciones se
   // editan en Second Brain (lib/secciones-negocio.ts), que ya está en la barra. /onboarding sigue siendo el
   // wizard del primer ingreso, y a ése no se entra desde un menú: lo manda lib/tab-access.ts.

@@ -44,3 +44,16 @@ export function esEsencialPorPasarela(e: {
 
 export const ROTULO_PASAR_A_PRO = 'Pasar a Pro';
 // Adónde lleva «Pasar a Pro»: la ruta de UN lugar, `RUTA_CAMBIAR_PLAN` (lib/topes-plan.ts), no una propia.
+
+/**
+ * Lo que tiene que leer QUIEN DA DE ALTA A MANO (24/10/2026, el Cerebro: «dejalo donde lo lea quien da de alta a mano»). El
+ * candado de las tabs de Pro (arriba) y los topes del plan (lib/topes-plan.ts) se hacen cumplir SÓLO a quien MaKo le cobra
+ * por la pasarela. Sin pasarela, las primeras ventas del lanzamiento son por llamada y se dan de alta a mano: ese negocio
+ * recibe MÁS de lo que dice la tabla de /planes (sin topes y con las tabs de Pro), nunca menos. Lo muestra el alta del super
+ * admin (app/admin/AdminView.tsx, «Nuevo cliente») para Esencial y Pro, las capas con topes.
+ */
+export function avisoAltaAMano(capa: string): string | null {
+  return capa === 'completo' || capa === 'agencia'
+    ? 'Dado de alta a mano no tiene los topes de su plan (ni el candado de las tabs de Pro): se aplican sólo a quien paga en línea.'
+    : null;
+}

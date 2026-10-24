@@ -158,14 +158,20 @@ test('pt 10 y 4 (20/10): el Ops Center adentro de lo diario, todo desplegado, Pa
   // Todas desplegadas por defecto, con la clave nueva (la vieja traía Marketing y Create plegadas guardadas).
   assert.match(sb, /const PLEGADAS = 'mk-nav-plegadas-v2';/);
   assert.match(sb, /export const PLEGADAS_DE_ENTRADA: readonly string\[\] = \[\];/);
-  // MaKo Partners: en el menú de la foto, sólo para el admin de una agencia; en el teléfono, su fila sale del menú.
+  // MaKo Partners: en el menú de la foto; en el teléfono, su fila sale del menú. Desde el 24/10/2026 la ve el ADMIN de
+  // cualquier negocio (Martín: «la tab de MaKo Partners para clientes»), no sólo el de una agencia; closer y setter, no.
   const partners = USER_NAV.find((i) => i.key === 'partners');
   assert.ok(partners, 'MaKo Partners no está en el menú de la foto');
   assert.ok(!FAMILIAS.flatMap(itemsDe).some((i) => i.key === 'partners'), 'MaKo Partners volvió a ser una tab');
   assert.equal(puedeVerItem(partners!, { adminShell: false, rolWs: 'admin', capa: 'agencia' }), true);
-  assert.equal(puedeVerItem(partners!, CLIENTE), false, 'un negocio que no es agencia la vería');
-  const menuMas = masCompleto('admin', 'agencia', false).find((g) => g.id === 'menu')?.filas.map((f) => f.label) ?? [];
-  assert.ok(menuMas.includes('MaKo Partners'), 'en el teléfono no está con el menú de la foto');
+  assert.equal(puedeVerItem(partners!, CLIENTE), true, 'el admin de un negocio que no es agencia no llega a su tablero de referidos');
+  for (const rolWs of ['closer', 'setter']) {
+    assert.equal(puedeVerItem(partners!, { adminShell: false, rolWs, capa: 'completo' }), false, `el ${rolWs} la vería`);
+  }
+  for (const capa of ['agencia', 'completo']) {
+    const menuMas = masCompleto('admin', capa, false).find((g) => g.id === 'menu')?.filas.map((f) => f.label) ?? [];
+    assert.ok(menuMas.includes('MaKo Partners'), `en el teléfono (${capa}) no está con el menú de la foto`);
+  }
   // Plegada, la marca centrada como los íconos.
   assert.match(sb, /justifyContent: open \? 'space-between' : 'center', flex: 'none' \}\}>\s*<Marca open=\{open\} \/>/);
   // Al entrar al Ops Center (el de cada negocio y el del super admin) la barra se pliega; la flecha la abre ahí.
