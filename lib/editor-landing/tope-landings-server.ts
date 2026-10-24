@@ -20,8 +20,10 @@ export async function frenoDeTope(ws: number, cual: 'publicar' | 'dominio', yaCu
   try {
     const [w, plataforma, sus] = await Promise.all([getWorkspace(ws), wsSuperAdmin(), suscripcionDeMakoDe(ws)]);
     if (!w || sus == null) return null;
-    let q = getSupabaseServer().from('landing_docs').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).is('papelera_at', null);
-    q = cual === 'publicar' ? q.not('publicado', 'is', null) : q.not('dominio', 'is', null);
+    // ⚠️ Sin reasignar `q`: encadenar filtros sobre la MISMA variable hace que el tipo de Supabase se
+    // instancie en espiral (TS2589, «excessively deep»). Armada de una sola vez, no pasa.
+    const base = getSupabaseServer().from('landing_docs').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).is('papelera_at', null);
+    const q = cual === 'publicar' ? base.not('publicado', 'is', null) : base.not('dominio', 'is', null);
     const { count, error } = await q;
     if (error) return null;
     const pedido = { ws, wsPlataforma: plataforma, capa: String(w.capa ?? ''), cobradoPorPasarela: true, usadas: count ?? 0, yaCuenta };

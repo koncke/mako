@@ -64,7 +64,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { TABS_CON_CHAT_PROPIO } from '@/lib/chat-mako-reglas';
 import {
   createSession, getSession, listSessions, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
-  renameSession, tituloDesde, type ChartSession, type ChartMsgConBloques,
+  renameSession, tituloDesde, type ChartSession, type ChartMsg, type ChartMsgConBloques,
 } from '@/lib/chart-chats';
 import { adjuntosVisibles, audioDeBloques, leerRef, rutaDeVozDelChat, sanearBloques, vozDeBloques } from '@/lib/chat-mako-bloques';
 import { urlAudio } from '@/lib/offer-reglas';
@@ -543,16 +543,19 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // La nota de voz (OC7), con el mensaje: va AL FINAL, así las posiciones de los adjuntos (`<id>:<n>`) no cambian.
     // Con una clave DICTADA (tapada en el texto), el audio no se guarda: la dice (la revisión, 22/10/2026).
     const voz = entrada.voz && entrada.guardarAdjuntos && !tapado.tapadas ? await subirNotaDeVozDelChat(ws, entrada.voz) : null;
-    const aGuardar = voz ? [...bloques, voz] : bloques;
+    // ⚠️ NO LLAMAR A ESTO `aGuardar`: ese nombre es el de la función importada de lib/chat-bloques, y una const local
+    // con el mismo nombre la TAPA en todo `turnoApp` —incluido el `conElMensaje.map(aGuardar)` de la respuesta, que
+    // entonces recibe un array donde espera un callback y revienta en ejecución (pasó entre el 22 y el 24/10/2026).
+    const conElPedido = voz ? [...bloques, voz] : bloques;
     let msg: Awaited<ReturnType<typeof appendMessage>>;
     try {
       // Con su marca de desde dónde (OC6): lo que vuelve en `guardados` va sin ella, así el hilo no lo toma por un texto tapado.
-      msg = await appendMessage(s.id, 'user', conDesde(textoMemoria, desde), aGuardar);
+      msg = await appendMessage(s.id, 'user', conDesde(textoMemoria, desde), conElPedido);
     } catch (e) {
-      await borrarAdjuntos(aGuardar.map((b) => b.path)); // el mensaje no quedó: sus binarios tampoco
+      await borrarAdjuntos(conElPedido.map((b) => b.path)); // el mensaje no quedó: sus binarios tampoco
       throw e;
     }
-    if (aGuardar.length && !msg.conBloques) await borrarAdjuntos(aGuardar.map((b) => b.path));
+    if (conElPedido.length && !msg.conBloques) await borrarAdjuntos(conElPedido.map((b) => b.path));
     const conArchivos = msg.conBloques && msg.id != null ? adjuntosVisibles(msg.id, bloques) : [];
     const conVoz = voz && msg.conBloques && msg.id != null ? { audio: { url: rutaDeVozDelChat(msg.id), secs: voz.secs } } : {};
     guardados.push({ role: 'user', content: textoMemoria, ...(conArchivos.length ? { adjuntos: conArchivos } : {}), ...conVoz });
@@ -593,7 +596,10 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       : textoModelo;
 
     const turnStart = Date.now();
-    const historial = historialParaModelo(previos, 12);
+    // Al modelo va rol y texto, nada más: los `bloques` de la base vienen CRUDOS (`unknown`, los sanea quien los
+    // dibuja) y no son los `Bloque[]` ya saneados de `MensajeChat`. Por eso el hilo viaja como `ChartMsg`.
+    const hilo: readonly ChartMsg[] = previos;
+    const historial = historialParaModelo(hilo, 12);
     const vigentes = await pendientesVigentes(ws, canalKey);
     const claveAgenda = `mako.doer.agenda.${canalKey}`;
     const agendaAbierta = agendaVigente(await getSetting(claveAgenda).catch(() => null), Date.now());

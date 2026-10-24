@@ -138,7 +138,11 @@ test('el cobro entra y el mail TIRA: tampoco sube como excepción (el alta ya es
   const r = await alta();
   assert.equal(r.ok, true, 'una excepción acá deja el cobro «pendiente» con la cuenta ya creada');
   assert.equal(r.ok && r.invitacion.enviado, false);
-  assert.match(r.ok && !r.invitacion.enviado ? r.invitacion.error : '', /no pude leer el workspace/);
+  // `error` es opcional en ResultadoInvitacion, así que acá se AFIRMA que vino antes de mirarlo:
+  // si algún día el mail que tira vuelve sin motivo, el test lo dice en vez de medirse contra ''.
+  const motivo = r.ok && !r.invitacion.enviado ? r.invitacion.error : undefined;
+  assert.ok(typeof motivo === 'string', 'un mail que tiró tiene que decir POR QUÉ: sin motivo, quien da el alta no sabe qué pasó');
+  assert.match(motivo, /no pude leer el workspace/);
   assert.equal(usuarios.length, 1);
   assert.equal(workspaces.length, 1);
 });

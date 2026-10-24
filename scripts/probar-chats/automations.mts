@@ -446,7 +446,7 @@ async function turnoMako(a: Abierta, dicho: string, respuesta: unknown | null, p
   reg.ms = Date.now() - t0;
   const fases = r.eventos.filter((e: EventoConHora) => e.ev.t === 'fase');
   reg.primeraFaseMs = fases[0]?.ms ?? null;
-  reg.fases = fases.map((e) => `${String(e.ev.fase)}@${(e.ms / 1000).toFixed(1)}s${e.ev.intento ? `#${String(e.ev.intento)}` : ''}`);
+  reg.fases = fases.map((e: { ev: { fase: unknown; intento?: unknown }; ms: number }) => `${String(e.ev.fase)}@${(e.ms / 1000).toFixed(1)}s${e.ev.intento ? `#${String(e.ev.intento)}` : ''}`);
   if (!r.eventos.length) {
     const j = (r.json ?? {}) as { error?: string };
     reg.final = `error ${r.status}`; reg.texto = j.error ?? '(sin cuerpo)'; x.errores.push(reg.texto);
@@ -509,7 +509,7 @@ async function enviarTexto(a: Abierta, t: string, reg: RegistroTurno, x: Ctx): P
   const crea = a.pasos.length === 0 && !a.publicadas;
   const tP = Date.now();
   const crudo = await Promise.race([
-    leerRespuesta(await llamar(WS, rutaPedidos.POST as never, { url: '/api/mako/pedidos', body: pc.cuerpoPedidos(t, a.secId, a.nombre ?? '') }), tP).then((r) => r.json),
+    leerRespuesta(await llamar(WS, rutaPedidos.POST as never, { url: '/api/mako/pedidos', body: pc.cuerpoPedidos(t, a.secId, a.nombre ?? '') }), tP).then((r: { json: unknown }) => r.json),
     new Promise<null>((res) => setTimeout(() => res(null), 12_000)),
   ]);
   const msPedidos = Date.now() - tP;

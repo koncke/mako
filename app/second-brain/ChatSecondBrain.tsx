@@ -274,7 +274,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const estadoPanel = () => ({ ticketera: ticketera != null, mapa: verMapa, nuevo: nuevoCentro });
   const elegir = (e: Elegido) => {
     if (!k.elegir(e)) return;
-    setYendoAlGrafo(false);
+    // ⚠️ ACÁ NO SE SUELTA `yendo` (24/10/2026, limpiando el `setYendoAlGrafo` que quedó huérfano del merge c77408c36): con el
+    // grafo a la vista el paso de abajo es 'chat' y lo deja en 'fuera', que es lo que muestra el chat en el acto; si ya estaba
+    // en 'fuera' (el grafo todavía montado, saliendo), ponerlo en null lo traería de vuelta al panel.
     const paso = tocarEnLaBarra('chat', estadoPanel());
     setNuevoCentro(paso.nuevo);
     setConChat(true);

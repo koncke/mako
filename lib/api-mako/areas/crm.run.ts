@@ -1289,7 +1289,7 @@ export const RUNNERS: Runners = {
       return { payload: { vinculoId: v.id, cuentas: pedidas }, resumen: `«${v.producto}» cobra en Ganado de «${v.crm}» desde ahora por ${por}.` };
     },
     ejecutar: (payload, ctx) => seguro('cambiar las cuentas', async () => {
-      const r = await cambiarCuentasCobro(payload.vinculoId, payload.cuentas, await cuentasDelNegocio(ctx.ws));
+      const r = await cambiarCuentasCobro(Number(payload.vinculoId), payload.cuentas, await cuentasDelNegocio(ctx.ws));
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: 'Listo: cambié por qué cuentas cobra.', datos: { vinculoId: r.vinculo.id, cuentas: r.vinculo.cuentas } };
     }),
@@ -1304,7 +1304,7 @@ export const RUNNERS: Runners = {
       };
     },
     ejecutar: (payload) => seguro('quitar el producto', async () => {
-      const r = await desvincularCobro(payload.vinculoId);
+      const r = await desvincularCobro(Number(payload.vinculoId));
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: 'Listo: ese producto ya no cobra en Ganado.', datos: { deshacer: r.deshacer } };
     }),

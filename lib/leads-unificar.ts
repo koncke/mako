@@ -108,7 +108,7 @@ export async function leerParaUnificar(aId: number, bId: number): Promise<Lectur
   const { data, error } = await db.from('leads').select(RESTO_DE_LA_FICHA + ', email, telefono, telefono_normalizado, empresa, instagram, web, linkedin, youtube, direccion, sexo, setter, closer, ingreso_estimado, calificado, origen_lead, visitor_id, pagina_registro')
     .in('id', [aId, bId]);
   if (error) throw new Error(`No pude leer las fichas: ${error.message}`);
-  const porId = new Map(((data ?? []) as Array<Record<string, unknown>>).map((r) => [Number(r.id), r]));
+  const porId = new Map(((data ?? []) as unknown as Array<Record<string, unknown>>).map((r) => [Number(r.id), r]));
   const a = porId.get(aId), b = porId.get(bId);
   if (!a || !b) throw new Error('Alguna de las dos fichas no es de este negocio.');
   const [funnels, conEtapas] = await Promise.all([listarFunnels(), funnelsConUmbrales()]);

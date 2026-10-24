@@ -147,6 +147,7 @@ const tres = deIA({ disparador: 'd1', inicio: 't1', tarjetas: [
   { id: 't1', tipo: 'mensaje', texto: ANTES[0], sigue: 't2' }, { id: 't2', tipo: 'mensaje', texto: ANTES[1], sigue: 't3' }, { id: 't3', tipo: 'mensaje', texto: NUEVOS[0] },
 ] }, ctxEtiqueta, rndDe()).pasos as PasoIA[];
 const primero = tres.filter((p) => claseDe(p) === 'mensaje')[0];
+assert.ok(primero?.id, 'el guion no trae un primer paso de mensaje con id: el resto de las comprobaciones no tendría sentido');
 const PEDIDO_COND = 'Antes del primer mensaje, si tiene la etiqueta «Sprint · audio» que siga el flujo; si no la tiene, que no le mande nada';
 const condicionDe = (obj: unknown) => revisarEdicion({ obj, base: tres, ctx: ctxEtiqueta, pedido: PEDIDO_COND, historial: [], intencion: 'editar' });
 
