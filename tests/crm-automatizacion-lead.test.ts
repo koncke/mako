@@ -91,5 +91,8 @@ test('la barra de lote frena a los tildados que están en una automatización; l
   assert.match(ficha, /<Button variant="tertiary" size="sm" onClick=\{\(\) => \{ setResultado\(null\); setAccion\(\{ tipo: 'frenar', aut: a \}\); \}\}>Frenar<\/Button>/);
   assert.match(ficha, /\? await frenarDelBloque\(ctx\.lead\.id, accion\.aut\.secuenciaId\)/);
   assert.match(sinComentarios(leer('app/crm/lead-view/ficha/resumen/automatizaciones-datos.ts')), /return frenarEnAutomatizacionAction\(leadId, secuenciaId\);/);
-  assert.match(ficha, /\{lineaDelPaso\(a\) && <span className="fr-sub">\{lineaDelPaso\(a\)\}<\/span>\}/, 'la ficha no dice en qué paso está');
+  // 24/10/2026 (Martín: «No es funcional»): la tarjeta dice qué le salió, si contestó y qué sigue (`renglonesDeTarjeta`), no
+  // el «Paso 5 de 9: CRON» del lienzo. Ver tests/ficha-automatizaciones-renglones.test.ts.
+  assert.match(ficha, /\{renglonesDeTarjeta\(a, fecha\)\.map\(/, 'la ficha no dice qué le pasó al lead');
+  assert.doesNotMatch(ficha, /lineaDelPaso\(a\)/, 'la ficha vuelve a mostrar el paso con el nombre del lienzo');
 });
