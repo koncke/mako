@@ -120,9 +120,9 @@ test('el puntaje: el contacto MANDA, y cada punto dice por qué', () => {
 });
 
 test('se puede pasar al CRM sólo con email o teléfono (la regla del importador)', () => {
-  assert.equal(contactable({ email: 'a@b.co', telefono: null }), true);
-  assert.equal(contactable({ email: null, telefono: '123' }), true);
-  assert.equal(contactable({ email: null, telefono: null }), false);
+  assert.equal(contactable({ email: 'a@b.co', instagram: null, telefono: null }), true);
+  assert.equal(contactable({ email: null, instagram: null, telefono: '123' }), true);
+  assert.equal(contactable({ email: null, instagram: null, telefono: null }), false);
 });
 
 // ── El cableado ──────────────────────────────────────────────────────────────

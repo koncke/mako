@@ -480,7 +480,7 @@ export function listaDelCliente(p: {
   /** Las charlas del lienzo de Automations (OC5): se leen acá y se siguen en el lienzo. */
   automations?: readonly ConTitulo[];
   /** Los chats del Image Editor y del Video Editor (OC8): se leen acá y se siguen en el editor. */
-  editores?: ReadonlyArray<{ tipo: TipoEditor; clave: string; titulo: string | null; updatedAt: string }>;
+  editores?: ReadonlyArray<{ tipo: TipoEditor; clave: string; titulo: string | null; updatedAt: string; propio?: boolean }>;
 }): FilaDelCliente[] {
   const { jefe, subs } = arbolDelJefe(p.sesiones);
   const cerebro: FilaDelCliente = {

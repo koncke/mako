@@ -24,7 +24,7 @@ export type FuentesDeChatsDeTabs = {
   /** `chatsDeAutomations`: una por automatización. */
   automations: ReadonlyArray<{ id: number; titulo: string; updatedAt: string }>;
   /** `chatsDeLosEditores`: una por persona y por diseño o proyecto. */
-  editores: ReadonlyArray<{ tipo: TipoEditor; clave: string; titulo: string | null; updatedAt: string }>;
+  editores: ReadonlyArray<{ tipo: TipoEditor; clave: string; titulo: string | null; updatedAt: string; propio?: boolean }>;
 };
 
 /** La entidad de la que habla una charla, si su clave la nombra y es algo que el grafo dibuja. */

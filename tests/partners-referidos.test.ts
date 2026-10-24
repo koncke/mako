@@ -81,7 +81,7 @@ test('/r/<código> deja la cookie sólo si no había otra (el primero vale)', ()
 });
 
 test('la funcionalidad de la landing es lo que el onboarding pregunta primero', async () => {
-  const { interesDeFuncionalidad, origenDeLlegada } = await import('../lib/origen-negocio.ts').catch(() => ({ interesDeFuncionalidad: null, origenDeLlegada: null })) as {
+  const { interesDeFuncionalidad, origenDeLlegada } = await import('../lib/origen-negocio').catch(() => ({ interesDeFuncionalidad: null, origenDeLlegada: null })) as {
     interesDeFuncionalidad: ((f: string) => string | null) | null; origenDeLlegada: ((o: unknown, r: string | null) => string | null) | null;
   };
   // El módulo es server-only: si no carga en el test, se lee del fuente.
