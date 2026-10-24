@@ -143,6 +143,8 @@ import { datoDeCampo } from '@/lib/dato-evento';
 import { conTurnoDelMotor } from '@/lib/motor-turno';
 // Los traídos de un grupo de WhatsApp no entran a los barridos que mandan solos (ver la cohorte de reactivación).
 import { quedaDondeLoPusieron } from '@/app/crm/origen-lead';
+// Lo que no se arregla reintentando: el teléfono que falta o no tiene dígitos, y los leads de prueba de Meta (23/10/2026).
+import { esLeadDePruebaDeMeta, MOTIVO_PRUEBA_META, telefonoSinArreglo } from '@/lib/lead-sin-arreglo';
 
 export type CanalNutricion = 'email' | 'whatsapp' | CanalSocial;
 
@@ -4963,7 +4965,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // A quién le salió un paso de Instagram o Messenger (`@usuario`): el destino de la fila.
       let destinoSocial: string | null = null;
 
-      if (canalApagado) {
+      if (esLeadDePruebaDeMeta(lead?.nombre)) {
+        // UN LEAD DE PRUEBA DE META (la Lead Ads Testing Tool, 23/10/2026): no se le escribe por ningún canal (su email es
+        // `test+…@meta.com`) y su inscripción se cierra con el motivo, en vez de reintentar para siempre (#198 del ws1).
+        estado = 'fallo'; nota = MOTIVO_PRUEBA_META; terminal = true;
+      } else if (canalApagado) {
         // Queda un paso posterior enviable → este se omite y la cadencia sigue.
         estado = 'omitido';
         nota = `canal ${paso.canal} apagado`;
@@ -5079,8 +5085,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         }
         const canalEvo = await canalDeLinea(lineaSec);
         const evoConectado = canalEvo.listo;
-        if (!lead?.telefono) {
-          estado = 'fallo'; nota = 'lead sin teléfono'; backoffHoras = 24;
+        if (!lead?.telefono || telefonoSinArreglo(lead.telefono)) {
+          // Sin teléfono, o sin un solo dígito: no se arregla reintentando (23/10/2026, lib/lead-sin-arreglo.ts). Se cierra.
+          estado = 'fallo'; nota = telefonoSinArreglo(lead?.telefono) ?? 'lead sin teléfono'; terminal = true;
         } else if (!evoConectado) {
           estado = 'fallo'; nota = canalEvo.motivo ?? 'WhatsApp de empresa no conectado'; backoffHoras = 24;
         } else if (await estaBloqueado(lead.telefono)) {
@@ -5221,10 +5228,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           estado = 'borrador';
         }
       } else if (waOn && paso.canal === 'whatsapp') {
-        if (!lead?.telefono) {
+        if (!lead?.telefono || telefonoSinArreglo(lead.telefono)) {
+          // ⚠️ ANTES era «1 reintento/día por si le cargan el teléfono»: un fallo por corrida, para siempre (la #198 del ws1).
+          // Un fallo que va a fallar igual no se reintenta (AGENTS.md): se cierra con su motivo (lib/lead-sin-arreglo.ts).
           estado = 'fallo';
-          nota = 'lead sin teléfono';
-          backoffHoras = 24; // casi-permanente: 1 reintento/día por si le cargan el teléfono
+          nota = telefonoSinArreglo(lead?.telefono) ?? 'lead sin teléfono';
+          terminal = true;
         } else if (!paso.template_wa) {
           estado = 'fallo';
           nota = 'paso sin template_wa';
