@@ -854,6 +854,11 @@ export function CrmBoard({
     }
   };
   const cerrarQueHacer = () => { setQueHacer(null); limpiarQueHacer(); };
+  /** ¿Este lead tiene algo que el asistente resuelve? 'M' (nutrición manual vencida) o 'R' (reunión pasada sin desenlace). */
+  const queHacerDe = (id: number): 'M' | 'R' | null => {
+    const m = marcar.find((x) => x.leadId === id && (x.tipo === 'M' || x.tipo === 'R'));
+    return m ? (m.tipo as 'M' | 'R') : null;
+  };
 
   // Revertir el último movimiento a su etapa anterior (ventana del toast, 5s).
   // No deja huella en el historial: un movimiento deshecho al instante es un
@@ -2523,6 +2528,7 @@ export function CrmBoard({
           seleccionado: selLeads.has(id), seleccionados: elegidos.length,
           hayEquipo: equipo.length > 0, hayOtroFunnel: destinosLote.length > 0,
           partners: partners ? (l.cuentaPartners != null ? 'ver' : 'llevar') : null,
+          queHacer: queHacerDe(id) != null,
           enAutomatizacion: enAut.has(id),
           loteEnAutomatizacion: elegidos.filter((x) => enAut.has(x.id)).length,
         },
@@ -2623,6 +2629,7 @@ export function CrmBoard({
     const valor = padre ? id : '';
     switch (op) {
       case 'abrir': if (l) openDetail(l); return;
+      case 'que_hacer': if (l) abrirQueHacer(l.id); return;
       case 'mover_etapa': if (l && valor) { idASoltar.current = l.id; handleDrop(valor); } return;
       case 'whatsapp': if (l?.telefonoNorm) window.open(waDe(l.telefonoNorm), '_blank', 'noopener,noreferrer'); return;
       case 'copiar_telefono': if (l) copiarDato(l.phone, 'Teléfono copiado'); return;
@@ -3065,6 +3072,16 @@ export function CrmBoard({
       // «Personalizar tarjetas», es POR DÓNDE se le escribe a este lead (sin email ni teléfono no hay WhatsApp que abrir).
       // Se dibuja el canal que SÍ tiene, no un «falta» (Martín, 22/10: «si no tiene ese dato, que no lo muestre»).
       chips: <>{csChicos.map((c) => <Fragment key={c}>{chip(c)}</Fragment>)}{aut && <span className={`tk-chip tk-chip--${aut.tono}`} data-en-automatizacion title={aut.detalle}>{aut.texto}</span>}{soloInstagram(l) && <span className="tk-chip tk-chip--gris" data-solo-instagram title="Su único contacto es Instagram">@{soloInstagram(l)}</span>}</>,
+      // «¿QUÉ HACER AHORA?» (pedido del 04/07; 24/10/2026). El asistente estaba escrito y NADA lo abría desde el 16/10, cuando
+      // se borró la vista «Pendientes» que lo llamaba. Va en la tarjeta del lead que tiene algo por decidir: una nutrición
+      // manual vencida (M: seguir nutriendo con otro plazo, o moverlo) o una reunión que ya pasó sin desenlace (R: ¿la
+      // tuvieron?). Un botón propio del renglón de chips (`acciones`): no abre la ficha, abre el asistente.
+      acciones: queHacerDe(l.id) ? (
+        <button type="button" className="tk-pill tk-pill--suave" data-que-hacer title={queHacerDe(l.id) === 'R' ? 'La reunión ya pasó: cuéntanos qué pasó' : 'Venció el plazo de la nutrición manual'}
+          onClick={(e) => { e.stopPropagation(); abrirQueHacer(l.id); }}>
+          ¿Qué hacer ahora?
+        </button>
+      ) : undefined,
     };
   };
   // La vista previa del pop-up: un lead del tablero, con lo que se está eligiendo. Para «Monto grande» y «Próxima
