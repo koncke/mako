@@ -1698,7 +1698,9 @@ export function EditorInforme({
       })()}
       {/* MaKo en la tab: la estrella abajo a la izquierda, con la hoja abierta y en «analizar» (en vista asesora; lo que
           edita es «Editar con MaKo», el único escritor de la hoja abierta). Nunca en un link compartido (no hay sesión). */}
-      {!compartido && <MakoEnLaTab tab={esGeneral ? 'General' : 'Dashboard'} entidad={entidadDeHoja(hoja)} modo="analizar" pedido={pedidoMako} />}
+      {/* En las Métricas de una automatización NO va la estrella de MaKo de la tab (Rendimiento, 23/10/2026): /automations ya
+          tiene su chat de MaKo, y una segunda puerta adentro de la misma pantalla es otra conversación. */}
+      {!compartido && !esAutomatizacion && <MakoEnLaTab tab={esGeneral ? 'General' : 'Dashboard'} entidad={entidadDeHoja(hoja)} modo="analizar" pedido={pedidoMako} />}
 
       {/* ── Los modales ── */}
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}

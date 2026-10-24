@@ -16,7 +16,8 @@
 // =============================================================================
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import { Button } from '@/app/_ui';
+import { Button } from '@/app/_ui/Button';
+import { CargandoMako } from '@/app/_ui/CargandoMako';
 import type { Tablero } from '@/lib/graficos-catalogo';
 import type { DatosGrafico } from '@/lib/graficos-datos';
 import { informeDeAutomatizacion } from '@/lib/informe-automatizacion';
@@ -31,8 +32,10 @@ type Lectura = {
   datos: Record<string, DatosGrafico>; hoy: string; automatizacion: { id: number; nombre: string };
 };
 
+// EL LOADER DE LA CASA (Rendimiento, 23/10/2026): la criatura, importada DIRECTO de su archivo y nunca del índice
+// '@/app/_ui' (tests/cargando-mako.test.ts); `cubre` pide un contenedor con `position: relative`.
 function Cargando() {
-  return <div role="status" style={{ padding: 32, color: 'var(--dim)', fontSize: 13.5, fontFamily: "'Geist', sans-serif" }}>Armando las métricas…</div>;
+  return <div style={{ position: 'relative', height: '100%', minHeight: 320 }}><CargandoMako que="las métricas" cubre /></div>;
 }
 
 export function MetricasAutomatizacion({ secuenciaId }: { secuenciaId: number }) {

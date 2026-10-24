@@ -121,6 +121,14 @@ test('7 · «Métricas» va al lado de la tuerca y reemplaza al lienzo; el edito
   const m = leer('app/automations/MetricasAutomatizacion.tsx');
   assert.match(m, /dynamic\(\(\) => import\('@\/app\/dashboard\/EditorInforme'\)[\s\S]{0,120}ssr: false/);
   assert.match(m, /informe=\{informeDeAutomatizacion\(secuenciaId\)\}/);
+  // Las reglas de Rendimiento (23/10/2026): el loader de la casa importado DIRECTO (nunca del índice '@/app/_ui'), nada
+  // de app/automations importa el editor (ni recharts) de forma estática, y sin la segunda estrella de MaKo adentro.
+  assert.match(m, /import \{ CargandoMako \} from '@\/app\/_ui\/CargandoMako';/);
+  assert.doesNotMatch(m, /from '@\/app\/_ui';/);
+  for (const f of ['app/automations/SecuenciaPerfil.tsx', 'app/automations/MetricasAutomatizacion.tsx']) {
+    assert.doesNotMatch(leer(f), /^import (?!type )[^\n]*from '@\/app\/dashboard\/EditorInforme'/m, `${f} importa el editor estático`);
+  }
+  assert.match(leer('app/dashboard/EditorInforme.tsx'), /\{!compartido && !esAutomatizacion && <MakoEnLaTab /);
 });
 
 test('8 · «Llevar al Dashboard» es la receta de `pegar_dashboard`: lo visible, una hoja nueva y compare-and-set', () => {
