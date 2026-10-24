@@ -4,8 +4,9 @@
 // El feedback de Martín (por el Cerebro, con capturas del ws1), punto 5:
 //   · sin el botón «Conectar tu IA»: «Nueva cuenta» (Claude o ChatGPT) arriba, siempre a la vista;
 //   · cada cuenta conectada es UN bloque, «Cuenta 1», «Cuenta 2» (no el nombre de la PC), con su email (la regla del
-//     enmascarado), su plan y su uso; adentro, sus DISPOSITIVOS y «Desconectar»; y ahí «Nuevo dispositivo», con la descarga a la
-//     vista, que se distingue de «Nueva cuenta»;
+//     enmascarado), su plan y su uso; adentro, sus DISPOSITIVOS y «Desconectar»; y ahí «Nuevo dispositivo», que se distingue de
+//     «Nueva cuenta» (con la descarga a la vista hasta el 24/10; desde ahí una fila que abre el tutorial en la descarga: Martín, «no
+//     el botón feo que está al final del modal que no lo ve nadie»; la descarga vive en el cartel del chat, app/_chat/AppPrimero.tsx);
 //   · cada dispositivo dice DÓNDE está, como Google («Grandbourg, Buenos Aires, Argentina»): de los headers de Vercel, sólo
 //     ciudad, provincia y país, nunca la IP; lo ve quien ve ese dispositivo;
 //   · fuera el «Modelo», «Tu clave de Claude» y el crédito de MaKo (ése, sólo en SuperAdmin), y el mismo dibujo en SuperAdmin.
@@ -13,7 +14,7 @@
 //   1. el texto de la ubicación, como Google, y sin nada que no sea ciudad, provincia y país;
 //   2. el latido la guarda sola (de los headers de Vercel, nunca la IP), y sin la mig 0327 todo sigue andando;
 //   3. las cuentas con sus dispositivos: una cuenta en dos computadoras es UN bloque, numeradas, con el email por la regla;
-//   4. la tarjeta: «Nueva cuenta» arriba, los bloques, «Nuevo dispositivo» con la descarga, y nada de modelo, claves ni crédito.
+//   4. la tarjeta: «Nueva cuenta» arriba, los bloques, «Nuevo dispositivo» en cada cuenta, y nada de modelo, claves ni crédito.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -112,9 +113,10 @@ test('3. las cuentas con sus dispositivos: una cuenta en dos PC es UN bloque, nu
   assert.deepEqual(dos.cuentas.map((c) => c.dispositivos.map((d) => d.id)), [[5], [5]]);
 });
 
-test('4. la tarjeta: «Nueva cuenta» arriba, los bloques, «Nuevo dispositivo» con la descarga; ni modelo, ni claves, ni crédito', () => {
+test('4. la tarjeta: «Nueva cuenta» arriba, los bloques, «Nuevo dispositivo» en cada cuenta; ni modelo, ni claves, ni crédito', () => {
   const ui = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
-  assert.ok(ui.indexOf('<NuevaCuenta onElegir={setEligiendo} />') > 0 && ui.indexOf('<NuevaCuenta onElegir={setEligiendo} />') < ui.indexOf('<CuentasYDispositivos grupos={grupos}'), '«Nueva cuenta» no va arriba');
+  const nueva = ui.indexOf('<NuevaCuenta onElegir={setEligiendo} vacia={vacia} />');
+  assert.ok(nueva > 0 && nueva < ui.indexOf('<CuentasYDispositivos grupos={grupos}'), '«Nueva cuenta» no va arriba');
   assert.doesNotMatch(ui, />Conectar tu IA<\/button>|>Modelo<|MODELOS|elegirModelo|\/api\/ia-pc\/modelo|SusClaves|crédito de Claude que te dio MaKo/, 'volvió el modelo, la clave o el crédito');
   // El dibujo, con datos de verdad.
   const grupos = agruparPorCuenta([
@@ -123,13 +125,13 @@ test('4. la tarjeta: «Nueva cuenta» arriba, los bloques, «Nuevo dispositivo»
   ], (p) => p.esMia);
   const html = renderToStaticMarkup(createElement(CuentasYDispositivos, {
     grupos, ahora: Date.now(), onDesconectar: () => {},
-    nuevoDispositivo: () => createElement(NuevoDispositivo, { onConectar: () => {}, onPasosMac: () => {} }),
+    nuevoDispositivo: () => createElement(NuevoDispositivo, { onAbrir: () => {} }),
   }));
   assert.match(html, /<h3 class="tci-bloque__titulo">Cuenta 1<\/h3>.*mauricio@gmail\.com.*max.*Sesión de 5 horas.*30% usado.*Semana.*Dispositivos.*MSI.*En línea.*Windows · Grandbourg, Buenos Aires, Argentina/);
   assert.doesNotMatch(html, /<h3 class="tci-bloque__titulo">MSI<\/h3>/, 'el título de la cuenta es el nombre de la PC');
   assert.match(html, /<h3 class="tci-bloque__titulo">Cuenta 2<\/h3>.*a\*\*\*@gmail\.com.*Oficina.* · de ana@negocio\.com.*Sin conexión/);
-  assert.equal((html.match(/aria-label="Nuevo dispositivo"/g) ?? []).length, 2, '«Nuevo dispositivo» en cada cuenta');
-  assert.match(html, /<a class="tci-boton" href="\/api\/ia-pc\/descargar\?os=windows">Descargar MaKo para Windows<\/a>/, 'la descarga no está a la vista');
+  assert.equal((html.match(/<button type="button" class="tci-nuevo-fila">/g) ?? []).length, 2, '«Nuevo dispositivo» en cada cuenta');
+  assert.doesNotMatch(html, /\/api\/ia-pc\/descargar/, 'el recuadro con la descarga al final de cada cuenta se fue (24/10/2026)');
   assert.equal((html.match(/>Desconectar</g) ?? []).length, 2);
   // Lo mismo en la ficha de un cliente del super admin (ComputadorasDelNegocio.tsx) y en el teléfono (/m/cuenta/ia).
   assert.match(sinComentarios(leer('app/admin/ComputadorasDelNegocio.tsx')), /<CuentasYDispositivos grupos=\{grupos\} ahora=\{ahora\}/);

@@ -7,6 +7,29 @@ del código.
 
 ---
 
+## El cartel de la app de escritorio, en el lugar de la caja (24/10/2026)
+
+- **Síntoma** (Martín): «te había pedido que si no se tiene descargado la app desktop no te deje enviar mensajes y salga el cartel
+  para descargar la app de MaKo. Pero diseña bien ese cartel, no el botón feo que está al final del modal que no lo ve nadie».
+  - El bloqueo ya estaba (23/10, la entrada de abajo).
+  - Lo feo era el CARTEL. Iba en lugar de la conversación y era el recuadro de «Nuevo dispositivo»: título, nota, dos botones, un
+    aviso y un link. Además, el bloque de cada cuenta en «Tus cuentas de IA» terminaba con ese mismo recuadro.
+- **Regla:** el cartel va DONDE SE ESCRIBE (`CajaDelCliente` lo dibuja en lugar de la caja), con la criatura de MaKo, una frase de
+  qué le falta y qué gana, y UN botón que descarga. Un paso por pantalla: tocado, el paso siguiente, con lo que dice el sistema al
+  abrir el instalador y «Ya lo instalé: conectar».
+  - La conversación se sigue viendo.
+  - Vacía y bloqueada, no hay portada: «¿En qué te ayudo?» y sus arranques invitaban a escribir lo que no se puede mandar.
+- **«Ya lo instalé: conectar» no sobra.** En la Mac, MaKo.app toma el código del portapapeles, y el código sale del tutorial de «Tus
+  cuentas de IA». Sin ese botón, una Mac se queda sin cómo conectarse.
+- **La descarga no se copió:** `DescargarMaKo`, `avisoAlAbrir` y `DescargarElOtro` son de IA del cliente
+  (app/integraciones/CuentasYDispositivos.tsx), con la detección de Windows o Mac.
+
+**Vive en:** `app/_chat/AppPrimero.tsx` · `app/_chat/chat.css` · `app/second-brain/PiezasCliente.tsx` (`HiloDelCliente`,
+`CajaDelCliente`) · `tests/app-de-escritorio-primero.test.ts`.
+
+**Sin mirar en producción:** se dibujó con el componente real, y la conversación y la caja de alrededor armadas a mano. Falta
+recorrerlo con una cuenta sin computadora.
+
 ## La app de escritorio antes que cualquier chat, y el Uso que parecía vacío mientras cargaba (23/10/2026)
 
 - **«Al principio me aparecen solo los botones de Conectar»** (Martín, en el Uso). No faltaba un loader en la ruta: el modal

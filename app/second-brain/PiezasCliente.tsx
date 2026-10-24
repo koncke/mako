@@ -77,13 +77,11 @@ export function SelectoresDelCliente({ k }: { k: ChatCliente }) {
   );
 }
 const AUTOMATICO_IA = '';
-/** La caja quieta mientras falta la app de escritorio (y no hay otra IA). */
-export const AVISO_SIN_APP = 'Instala MaKo en tu computadora para escribirle.';
 
 export function HiloDelCliente({ k }: { k: ChatCliente }) {
   // El grupo de WhatsApp se lee: sin el menú de un mensaje (no se responde, no se reacciona; se contesta en el grupo).
-  // La app de escritorio, primero (23/10/2026): sin computadora y sin otra IA, la descarga en lugar de la conversación.
-  if (k.app === 'bloquea') return <AppPrimero onConectar={() => k.setConectando(true)} />;
+  // Sin la app de escritorio (23/10/2026) la conversación se sigue viendo: el cartel va en el lugar de la caja (CajaDelCliente,
+  // 24/10/2026). Vacía, sin la portada: «¿En qué te ayudo?» y sus arranques invitarían a escribir lo que no se puede mandar.
   return (
     <ContextoWA.Provider value={k.esGrupo || k.esAutomatizacion || k.esEditor ? null : k.accionesWA}>
       {k.esGrupo && k.hayMasDelGrupo && k.cargado && (
@@ -98,7 +96,7 @@ export function HiloDelCliente({ k }: { k: ChatCliente }) {
           <p className="co-portada__dato">{k.errorCarga}</p>
           <button type="button" className="co-chip" onClick={k.recargar}>Reintentar</button>
         </div>
-      ) : !k.items.length && !k.trabajo ? (
+      ) : !k.items.length && !k.trabajo ? (k.app === 'bloquea' ? null : (
         <div className="co-portada">
           <Muneco titulo={k.nombreMuneco} aspecto={k.aspectoMuneco} animo="despierto" size={76} />
           <p className="co-portada__nombre">{k.esGrupo ? 'Todavía no hay mensajes en el grupo.' : k.esAutomatizacion || k.esEditor ? 'Todavía no hay mensajes en esta charla.' : '¿En qué te ayudo?'}</p>
@@ -106,7 +104,7 @@ export function HiloDelCliente({ k }: { k: ChatCliente }) {
             {ARRANQUES_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => k.enviar(a)}>{a}</button>)}
           </div>}
         </div>
-      ) : (
+      )) : (
         <HiloMako items={k.items} quien={{ nombre: k.nombreMuneco, aspecto: k.aspectoMuneco }} ahora={k.ahora} escribiendo={k.enCurso ? { segs: k.segs } : null}
           tarjeta={k.tarjeta} onTarjeta={(x, a) => void k.correrTarjeta(x, a)} onReintentar={k.reintentar} onRecargar={k.recargar}
           onResponder={(t) => k.enviar(t)} onTrabajo={k.alTerminarTrabajo} marcas={k.marcas} />
@@ -125,8 +123,9 @@ export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movi
 }) {
   // El grupo de WhatsApp de MaKo no se sigue desde acá: en lugar de la caja, dónde se contesta.
   if (k.esGrupo) return <p className="co-solo-lectura" role="note">{AVISO_GRUPO}</p>;
-  // Sin la app de escritorio y sin otra IA, no hay con qué contestar: la caja quieta, y la descarga arriba (AppPrimero).
-  if (k.app === 'bloquea') return <p className="co-solo-lectura" role="note">{AVISO_SIN_APP}</p>;
+  // Sin la app de escritorio y sin otra IA, no hay con qué contestar: EN EL LUGAR DE LA CAJA, el cartel que la descarga (24/10/2026,
+  // Martín: «diseña bien ese cartel»; el Cerebro: donde está intentando escribir, no enterrado en un modal). No se puede mandar.
+  if (k.app === 'bloquea') return <AppPrimero onConectar={() => k.setConectando(true)} />;
   // Una charla del lienzo de Automations (OC5): se lee acá y se sigue en el lienzo, que es el que sabe editar la automatización.
   // Un chat de un editor (OC8): se lee acá y se sigue en el editor, que es el que aplica lo que propone.
   if (k.esEditor) {

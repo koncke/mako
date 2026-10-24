@@ -116,8 +116,9 @@ test('4. la descarga, el bucket y el tutorial: «Descargar MaKo para Mac», la l
   assert.match(mac, /<a className="tci-boton" href="\/api\/ia-pc\/descargar\?os=mac">Descargar MaKo para Mac<\/a>\s*<p className="tci-nota">\{AVISO_GATEKEEPER\}<\/p>/);
   // Conectar: copiar el código; MaKo lo toma solo.
   assert.match(ui, /<p>Copia el código y abre MaKo: lo toma solo[^<]*<\/p>\s*\{codigo && !vencido && delCodigo !== 'gastado' \? <Copiar texto=\{codigo\} \/>/);
-  // «Nuevo dispositivo»: la Mac a la vista también.
+  // La descarga de MaKo (el cartel del chat sin la app, app/_chat/AppPrimero.tsx): la Mac también, y su aviso.
   const nd = sinComentarios(leer('app/integraciones/CuentasYDispositivos.tsx'));
   assert.match(nd, /href=\{`\/api\/ia-pc\/descargar\?os=\$\{sistemas\[0\]\}`\}/);
-  assert.match(nd, /\{sistemas\[0\] === 'mac' \? AVISO_GATEKEEPER : AVISO_SMARTSCREEN\}/);
+  assert.match(nd, /return sistemas\[0\] === 'mac' \? AVISO_GATEKEEPER : AVISO_SMARTSCREEN;/);
+  assert.match(nd, /href=\{`\/api\/ia-pc\/descargar\?os=\$\{sistemas\[1\]\}`\}/, 'el otro sistema, a un toque');
 });

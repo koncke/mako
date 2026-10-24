@@ -1451,4 +1451,25 @@ export const BITACORA: Hito[] = [
       'tests/ia-pc-varias.test.ts',
     ],
   },
+  {
+    fecha: '24 oct', hora: '02:36', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: Integraciones, «Tus cuentas de IA» y el cartel de la app de escritorio, con mucha menos información a la vista',
+    pedido: 'Martín, por el Cerebro (24/10): «hay tanta pero tanta info que se complica muchísimo para el usuario... investiga como lo hacen otras apps»; «mejora el diseño del modal de "Tus cuentas de IA", esta bastante feo, mucha información, mucho scroll»; «diseña bien ese cartel, no el botón feo que está al final del modal que no lo ve nadie»',
+    revisar: '/integraciones',
+    puntos: [
+      'Integraciones copia la forma de Vercel Marketplace. Arriba, tus cuentas de IA y una fila con el estado, la categoría y el buscador. Después, «Conectadas», cada una con su estado, y «Sin conectar», con doce a la vista y «Mostrar más».',
+      'Ya no está «Requiere tu atención» repitiendo tarjetas con nombres de variables. Si una conectada tiene un problema, se lee en su tarjeta, y el filtro «Con problemas» las junta.',
+      '«Tus cuentas de IA» ocupa la mitad: cada uso en un renglón, cada computadora en una fila que se abre para «Desconectar», y «Nueva cuenta» en una fila. «Nuevo dispositivo» ya no es el recuadro del final: es una fila.',
+      'Sin la app de escritorio, el chat no deja escribir. En lugar de la caja aparece el cartel con MaKo, una frase y «Descargar MaKo». Al tocarlo, te dice qué hacer con el instalador y te ofrece «Ya lo instalé: conectar».',
+      '**Cómo se prueba:** abre Integraciones en la computadora y en el teléfono. Después abre Ops Center → Uso. Y con una cuenta sin computadora, abre cualquier chat con MaKo.',
+    ],
+    archivos: [
+      'app/integraciones/IntegracionesBoard.tsx, page.tsx, TusCuentasIA.tsx, CuentasYDispositivos.tsx, tus-cuentas-ia.css, app/globals.css',
+      'app/m/configuraciones/integraciones/ (el teléfono, con las mismas secciones)',
+      'app/_chat/AppPrimero.tsx, app/second-brain/PiezasCliente.tsx (el cartel en el lugar de la caja)',
+      'app/admin/operaciones/Uso.tsx, UsoCredito.tsx, centro.css (lo del super admin en el modal)',
+      'tests/integraciones-vercel.test.ts, tests/tus-cuentas-ia-diseno.test.ts, tests/app-de-escritorio-primero.test.ts',
+    ],
+  },
 ];

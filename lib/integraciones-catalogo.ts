@@ -150,3 +150,17 @@ export function defsVisibles(defs: Def[], o: { cats: string[] | null; ocultas: S
 /** Solo para los tests: el catálogo tal cual. */
 export const DEFS_TEST = DEFS;
 
+// ── El orden de las categorías (24/10/2026) ──────────────────────────────────────────────────────────────────────────
+// El de /integraciones (su desplegable y cada sección, app/integraciones/IntegracionesBoard.tsx) y el del teléfono
+// (app/m/configuraciones/integraciones/page.tsx): el mismo. Hasta el 24/10 vivía en el tablero como `CAT_ORDER` y además
+// hacía de LISTA BLANCA: una categoría que no estaba ahí no se pintaba, sin ningún error (GitHub y Whop quedaron invisibles
+// por eso). Ya no filtra: una categoría nueva va al final, en orden alfabético, y agregar una integración sigue siendo tres
+// registros más el logo.
+// 'Pagos' (Stripe y Mercado Pago, 11/10/2026) va después de Mensajería: es lo que cierra la venta que las dos de arriba empezaron.
+export const ORDEN_CATEGORIAS = ['Publicidad', 'Mensajería', 'Pagos', 'Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Contenido', 'Datos', 'Desarrollo'] as const;
+
+/** El lugar de una categoría: las que no están en ORDEN_CATEGORIAS, al final (y entre ellas, como las ordene quien llama). */
+export function ordenCategoria(cat: string): number {
+  const n = (ORDEN_CATEGORIAS as readonly string[]).indexOf(cat);
+  return n < 0 ? ORDEN_CATEGORIAS.length : n;
+}

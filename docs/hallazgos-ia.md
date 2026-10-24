@@ -5388,6 +5388,48 @@ mismo dibujo en SuperAdmin; en la computadora y en el teléfono.
   cuentas de los dispositivos; los nombres de los estados de EE.UU. (sin tabla, se saltean); y la captura del «después» en el
   ws3 (el permiso de esta sesión no deja abrir el ws3 en producción).
 
+## «Tus cuentas de IA» más corto: la estructura de tres apps, copiada de su ayuda pública (24/10/2026)
+
+**El pedido** (Martín, por el Cerebro): «mejora el diseño del modal de "Tus cuentas de IA", esta bastante feo, mucha información,
+mucho scroll...». El Cerebro: no diseñarlo de cero, copiar la ESTRUCTURA de una app de referencia y, si se usa la documentación,
+decir cuál y que es la documentación.
+
+**Vive en:** `app/integraciones/CuentasYDispositivos.tsx` (las filas de ventana y de dispositivo, `NuevoDispositivo`, la descarga) ·
+`TusCuentasIA.tsx` («Nueva cuenta», el esqueleto, la destacada de /integraciones) · `tus-cuentas-ia.css` · `app/admin/operaciones/Uso.tsx`
+y `UsoCredito.tsx` (lo del super admin) · `centro.css` («El Uso en filas») · `tests/tus-cuentas-ia-diseno.test.ts`.
+
+- **La estructura salió de la AYUDA PÚBLICA, no de las apps.** No había ningún navegador con sesión. La revisión obligó a nombrar el
+  artículo exacto y a separar lo que es nuestro:
+  - «Usage limit best practices» (support.claude.com) da una barra por ventana, con el tiempo que le queda a la sesión y cuándo se
+    reinicia la semana. El % y el renglón único no están en esa ayuda: son lo que el Uso ya copiaba de claude.ai el 16/10;
+  - «Ver dispositivos con acceso a la cuenta» (support.google.com) da cada dispositivo con nombre, lugar y estado, y al tocarlo
+    «Salir». Google abre otra página; acá se abre en el lugar;
+  - «Manage and optimize usage» (vercel.com/docs) da lo consumido por recurso y el detalle aparte. Que la fila de la API se abra en
+    el lugar es nuestro.
+- **«Nueva cuenta» arriba era una decisión de Martín** (23/10, más arriba en este documento), no un descuido. La sugerencia de bajarla
+  chocaba con eso: quedó arriba, en una fila con botones chicos, y las tarjetas grandes sólo sin nada conectado.
+- **«Nuevo dispositivo» con la descarga a la vista (23/10) se REEMPLAZÓ el 24/10.** Martín: «no el botón feo que está al final del
+  modal que no lo ve nadie». Ahora es una fila discreta que abre el tutorial en la descarga. La descarga para quien no tiene la
+  app vive en el cartel del chat (docs/hallazgos-operaciones.md). La pieza de la descarga (`DescargarMaKo`, `avisoAlAbrir`,
+  `DescargarElOtro`) sigue siendo de IA del cliente.
+- **Lo que avisa no se pliega.** La revisión lo encontró dos veces: «sin crédito» y un plan al 90% quedaban adentro del pliegue de
+  la API, detrás de un total que se veía sano, y el negocio que usa ese crédito (el de Mauricio) se quedaba sin contestar. Ahora
+  dejan su línea afuera, junto al interruptor y a «No pude leer las claves». **La regla está en AGENTS.md.**
+- **El foco se perdía al pedir confirmar «Desconectar».** La pregunta reemplaza al botón, y con el botón se iba el foco al `<body>`.
+  Ya pasaba antes del rediseño. Ahora el foco va a «Cancelar» y, al cancelar o si falla, vuelve a «Desconectar».
+- **El marcado no cambió de orden, lo acomoda la grilla** (`display: contents` en la fila de adentro). Seis tests leen el texto de
+  cada tarjeta del Uso en orden, y un lector de pantalla sigue diciendo «Semana, 47% usado, se reinicia…». La columna del % lleva
+  un mínimo (`minmax(6.5rem, auto)`): con `auto`, cada renglón medía la barra por su texto y la lista quedaba dentada.
+- **El esqueleto (IA16, 23/10) tiene la forma del bloque nuevo.** Si no, al llegar el estado, todo saltaba.
+- **Medido** con las piezas reales en un Edge sin ventana (4 cuentas de Claude Code, 1 dispositivo y la API cerrada): **de 2.155 px a
+  1.187 px**. No es producción.
+
+**SIN hacer:**
+- Que Martín lo abra en producción.
+- La fecha de reinicio en el bloque del cliente sale en el idioma del navegador (`cuandoSeReinicia`): en uno en inglés dice «el Oct
+  28», mientras la del super admin dice «el mié 28» (`textoReinicio`, lib/centro-uso.ts).
+- En Safari, un nombre de cuenta largo queda en tres renglones al lado del Runner.
+
 ## Firmar Windows DESDE ESTA PC con CodeSignTool (SSL.com eSigner), listo antes del certificado (23/10/2026)
 
 **El porqué:** no hay empresa registrada, y Azure Artifact Signing sólo acepta empresas de algunos países (a una persona, sólo

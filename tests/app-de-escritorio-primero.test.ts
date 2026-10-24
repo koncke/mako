@@ -46,15 +46,24 @@ test('2. el servidor lo dice con `?suIA=1`; sin poder saberlo no tapa nada; bloq
   assert.match(motor, /\|\| !cargado \|\| errorCarga \|\| app === 'bloquea'\) return false;/, 'bloqueado no manda nada, tampoco un pedido de la tab');
 });
 
-test('3. UNA pieza en el chat común, con la descarga de IA del cliente', () => {
+test('3. UNA pieza en el chat común, EN EL LUGAR DE LA CAJA, con la descarga de IA del cliente', () => {
   const p = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
-  assert.match(p, /if \(k\.app === 'bloquea'\) return <AppPrimero onConectar=\{\(\) => k\.setConectando\(true\)\} \/>;/, 'en lugar de la conversación');
-  assert.match(p, /if \(k\.app === 'bloquea'\) return <p className="co-solo-lectura" role="note">\{AVISO_SIN_APP\}<\/p>;/, 'la caja quieta');
+  // 24/10/2026 (Martín: «diseña bien ese cartel, no el botón feo que está al final del modal que no lo ve nadie»): el cartel va donde
+  // se escribe; la conversación se sigue viendo, y vacía no ofrece arranques que no se pueden mandar.
+  const caja = p.slice(p.indexOf('export function CajaDelCliente('));
+  assert.match(caja, /if \(k\.app === 'bloquea'\) return <AppPrimero onConectar=\{\(\) => k\.setConectando\(true\)\} \/>;/, 'el cartel, en el lugar de la caja');
+  const hilo = p.slice(p.indexOf('export function HiloDelCliente('), p.indexOf('export function CajaDelCliente('));
+  assert.doesNotMatch(hilo, /<AppPrimero/, 'la conversación ya no se tapa');
+  assert.match(hilo, /!k\.items\.length && !k\.trabajo \? \(k\.app === 'bloquea' \? null : \(/, 'vacía y bloqueada, sin la portada ni sus arranques');
   assert.match(p, /\{k\.app === 'en-la-computadora' && <FranjaApp \/>\}/, 'en el teléfono, el aviso arriba de la caja');
   const pieza = sinComentarios(leer('app/_chat/AppPrimero.tsx'));
-  assert.match(pieza, /import \{ NuevoDispositivo \} from '@\/app\/integraciones\/CuentasYDispositivos';/);
+  assert.match(pieza, /import \{ DescargarElOtro, DescargarMaKo, avisoAlAbrir \} from '@\/app\/integraciones\/CuentasYDispositivos';/);
   assert.doesNotMatch(pieza, /\/api\/ia-pc\/descargar|navigator\./, 'la descarga y la detección no se reescriben');
-  assert.match(sinComentarios(leer('app/integraciones/CuentasYDispositivos.tsx')), /titulo = 'Nuevo dispositivo', nota = /, 'por defecto, lo de siempre');
+  // La criatura, una frase y UN botón; tocado, el paso siguiente (lo que dice el sistema y «Ya lo instalé: conectar»).
+  assert.match(pieza, /<Muneco titulo="MaKo" aspecto=\{ASPECTO_MAKO\} animo="despierto" size=\{44\} \/>/);
+  assert.match(pieza, /<p className="ch-app-cartel__frase">\{FRASE_APP\}<\/p>\n\s*<DescargarMaKo className="ch-app-cartel__boton" onClick=\{\(\) => setDescargado\(true\)\} \/>/);
+  assert.match(pieza, /<button type="button" className="ch-app-cartel__boton" onClick=\{onConectar\}>Ya lo instalé: conectar<\/button>/);
+  assert.match(pieza, /<p className="ch-app-cartel__aviso">\{avisoAlAbrir\(\)\}<\/p>/);
 });
 
 test('4. el Uso: el esqueleto del bloque mientras llega el estado, nunca «Nueva cuenta» sola', () => {
@@ -68,4 +77,5 @@ test('4. el Uso: el esqueleto del bloque mientras llega el estado, nunca «Nueva
 //   · el teléfono también bloquea (`'bloquea'` siempre sin computadora)    → 3/1 (1)
 //   · el `catch` de `laApp` devolviendo 'bloquea'                          → 3/1 (2)
 //   · AppPrimero con su propio link a /api/ia-pc/descargar                 → 3/1 (3)
+//   (24/10/2026, el cartel en el lugar de la caja: probado rompiéndolo en tests/tus-cuentas-ia-diseno.test.ts → romper-diseno)
 //   · «Nueva cuenta» sin esperar el estado                                 → 3/1 (4)

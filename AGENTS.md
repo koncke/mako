@@ -2566,6 +2566,21 @@ que cierre la próxima.
 y `docs/hallazgos-*` siguen yendo completos y con su porqué: ahí el largo se paga solo la
 primera vez que alguien lo busca. Lo que se recorta es lo que se dibuja.
 
+# Lo que AVISA no se pliega
+
+Plegar (un `<details>`, un «Mostrar más», una sección que se abre) es la herramienta de un rediseño que achica, y tiene una
+trampa: una alerta que cae adentro del pliegue deja a la vista un resumen que se ve sano. Medido el 24/10/2026 en la API del Uso:
+plegada con su total a la vista, «Anthropic dijo «sin crédito»» y un plan al 90% quedaban adentro, y el negocio que usa ese crédito
+dejaba de contestar sin que nada lo dijera. Lo encontraron dos revisores por separado.
+
+- **Lo que avisa queda afuera del pliegue**, en su renglón: un problema, lo que no se pudo leer, lo que dice que el total está
+  incompleto, una acción que el dueño pidió tener a mano. Adentro va el detalle de lo que está bien.
+- **En un `<summary>`, la grilla y la flecha van en un `<span>` de adentro.** El `<summary>` mismo, sin `display: flex` ni `grid`:
+  Safari 16 y anteriores lo dibujan como un bloque común (WebKit 167111) y la flecha de un `::after` sale como una raya suelta.
+  Adentro del `<summary>`, sólo texto en línea.
+- **Un link que apunta a algo plegado lo despliega** (`?abrir=` en /integraciones): si no, el modal se abre y el scroll no
+  encuentra la tarjeta, sin error. Es la regla de abajo: lo desplegado se calcula.
+
 # Si el estado correcto se puede CALCULAR, calcularlo le gana a dispararlo
 
 Cuando una pantalla tiene que estar de cierta forma *mientras* pasa algo —la grilla
