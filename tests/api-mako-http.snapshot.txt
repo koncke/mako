@@ -390,6 +390,7 @@ marcar_reunion_manual
 medicion_experimento
 medir_fuente_kpi
 medir_tramo_r1_r2
+metricas_automatizacion
 metricas_chatbot
 metricas_closers
 metricas_negocio

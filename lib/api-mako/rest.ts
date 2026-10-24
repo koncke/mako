@@ -354,6 +354,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/metricas/dashboard/informe', 'restablecer_informe_dashboard'],
   ['POST', '/metricas/dashboard/hojas', 'crear_hoja_dashboard'],
   ['GET', '/metricas/dashboard/hojas/{hoja}', 'leer_hoja_dashboard'],
+  // 23/10/2026: las «Métricas» de UNA automatización (su pestaña en Automations), como recurso propio.
+  ['GET', '/metricas/automatizaciones/{secuenciaId}', 'metricas_automatizacion'],
   ['PATCH', '/metricas/dashboard/hojas/{hoja}', 'editar_hoja_dashboard'],
   // 16/10/2026: «Editar con MaKo» crea una EDICIÓN de la hoja (MaKo la arma y se propone), como una copia crea una copia.
   ['POST', '/metricas/dashboard/hojas/{hoja}/ediciones', 'editar_hoja_con_ia_dashboard'],

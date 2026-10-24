@@ -157,6 +157,7 @@ import { sigueComoSeCreo } from '@/lib/graficos-plantilla-relleno';
 import { tokenDeDashboard } from './copia-dash-cliente';
 import { copiarAlPortapapeles } from '@/app/automations/copia-flujo-cliente';
 import { conMako } from '@/lib/graficos-catalogo';
+import { idDeInformeAutomatizacion, type InformeAutomatizacion } from '@/lib/informe-automatizacion';
 import { BotonMako } from '@/app/_ui/BotonMako';
 import { EditorMako } from './EditorMako';
 import { MenuContextual, opcionesContextuales, type IdOpcion } from './MenuContextual';
@@ -339,7 +340,7 @@ export function EditorInforme({
    * informe (lib/graficos-tablero.ts, `general.informe.<sub>`), su galería (lib/general-plantillas.ts) y sus bloques
    * (lib/general-piezas.ts).
    */
-  informe?: 'dashboard' | 'general';
+  informe?: 'dashboard' | 'general' | InformeAutomatizacion;
   /** Lo que se sabe del negocio para que la galería ponga primero sus sugeridas (lib/plantillas-sugeridas.ts). */
   senales?: SenalesNegocio | null;
   /**
@@ -441,6 +442,9 @@ export function EditorInforme({
   // token ni la guía del Dashboard. El AI Analyst sí (su horario encuentra la hoja también en General:
   // `leerInformeGuardado`, lib/graficos-analisis-server.ts).
   const esGeneral = informe === 'general';
+  // Las Métricas de UNA automatización (23/10/2026, lib/automatizacion-metricas.ts): el editor del Dashboard con su propio
+  // informe, montado en /automations. Sin la guía del Dashboard (habla de otra pantalla).
+  const esAutomatizacion = idDeInformeAutomatizacion(informe) != null;
   // Lo que General le presta al editor (app/dashboard/ElementoGeneral.tsx): la vista previa de cada bloque del menú.
   const general = useGeneral();
   const informeRef = useRef(informe);
@@ -473,7 +477,7 @@ export function EditorInforme({
   const capaAbierta = !!menu || modalDatos || nuevaHoja || analista || !!detalle || llamada != null || !!popup || compartir;
   // En un link compartido no hay guía: quien entra no tiene sesión (`soloLocal`: no le pregunta nada al
   // server) y el ⋮ es sólo Exportar.
-  const conGuia = !compartido && !esGeneral;
+  const conGuia = !compartido && !esGeneral && !esAutomatizacion;
   // En blanco no se abre sola: lo que la guía señala (el título, los filtros, los gráficos) todavía no existe.
   const recorrido = useRecorrido(RECORRIDO_DASHBOARD, { autoabrir: conGuia && !enBlanco && !editando && !capaAbierta, soloLocal: !conGuia });
   const recorridoEdicion = useRecorrido(RECORRIDO_DASHBOARD_EDICION, { autoabrir: conGuia && editando && !recorrido.abierto && !capaAbierta, soloLocal: !conGuia });
@@ -608,7 +612,7 @@ export function EditorInforme({
       version: versionLeida.current,
       ultimo: ultimoGuardado.current,
       // El único fetch a mano a /api/graficos: guardar (las lecturas van por `pedidoDeLectura`).
-      enviar: async (j, v, ka) => leerRespuestaGuardado(await fetch('/api/graficos' + (informeRef.current === 'general' ? '?informe=general' : ''), {
+      enviar: async (j, v, ka) => leerRespuestaGuardado(await fetch('/api/graficos' + (informeRef.current !== 'dashboard' ? `?informe=${encodeURIComponent(informeRef.current)}` : ''), {
         method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: ka,
         body: `{"accion":"guardar","version":${JSON.stringify(v)},"tablero":${j}}`,
       })),
@@ -1694,7 +1698,9 @@ export function EditorInforme({
       })()}
       {/* MaKo en la tab: la estrella abajo a la izquierda, con la hoja abierta y en «analizar» (en vista asesora; lo que
           edita es «Editar con MaKo», el único escritor de la hoja abierta). Nunca en un link compartido (no hay sesión). */}
-      {!compartido && <MakoEnLaTab tab={esGeneral ? 'General' : 'Dashboard'} entidad={entidadDeHoja(hoja)} modo="analizar" pedido={pedidoMako} />}
+      {/* En las Métricas de una automatización NO va la estrella de MaKo de la tab (Rendimiento, 23/10/2026): /automations ya
+          tiene su chat de MaKo, y una segunda puerta adentro de la misma pantalla es otra conversación. */}
+      {!compartido && !esAutomatizacion && <MakoEnLaTab tab={esGeneral ? 'General' : 'Dashboard'} entidad={entidadDeHoja(hoja)} modo="analizar" pedido={pedidoMako} />}
 
       {/* ── Los modales ── */}
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}

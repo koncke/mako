@@ -34,7 +34,8 @@ import { resumenPasoIA } from '../lib/flujo-conversacion';
 import { ArchivoSocial } from '../app/automations/social-ui';
 
 const RAIZ = resolve(import.meta.dirname, '..');
-const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8');
+// Sin `\r`: en un checkout con CRLF (core.autocrlf) las regex que cruzan renglones dejan de calzar (tren del 23/10).
+const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 
 test('4 · «Invitar al curso» en un flujo: sólo el curso (ni email a mano, ni canales, ni reenviar)', () => {
   const def = porId('invitar_cliente_curso_cs');

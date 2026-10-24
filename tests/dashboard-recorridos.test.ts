@@ -158,7 +158,8 @@ test('el de mirar se abre mirando, el de editar al editar, nunca los dos juntos,
   assert.match(EDITOR, /const recorridoEdicion = useRecorrido\(RECORRIDO_DASHBOARD_EDICION, \{ autoabrir: conGuia && editando && !recorrido\.abierto && !capaAbierta, soloLocal: !conGuia \}\);/);
   // En un link compartido no hay sesión ni guía (`soloLocal`: no le pregunta nada a /api/recorridos).
   // 14/10/2026: en la tab General tampoco (la guía es la del Dashboard).
-  assert.match(EDITOR, /const conGuia = !compartido && !esGeneral;/);
+  // 23/10/2026: ni en las Métricas de una automatización (el editor montado en /automations: la guía habla del Dashboard).
+  assert.match(EDITOR, /const conGuia = !compartido && !esGeneral && !esAutomatizacion;/);
   // No se abre solo con un menú o un modal abierto: los flotantes del editor (z 580) quedan arriba del velo.
   // Desde v5 también son capas un pop-up abierto mirando (punto 7) y el modal de Compartir (va en el ⋮).
   assert.match(EDITOR, /const capaAbierta = !!menu \|\| modalDatos \|\| nuevaHoja \|\| analista \|\| !!detalle \|\| llamada != null \|\| !!popup \|\| compartir;/);
