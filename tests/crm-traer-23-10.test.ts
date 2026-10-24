@@ -34,13 +34,12 @@ const sinComentarios = (src: string) => src
 const T = sinComentarios(leer('app/crm/TraerDeOtroProducto.tsx'));
 const NF = sinComentarios(leer('app/crm/new/NewLeadForm.tsx'));
 
-test('1. «Traer de otro funnel» es un botón claro, con su ícono, en la fila de «Crear lead»', () => {
-  assert.match(NF, /<button type="button" onClick=\{enModal\.onTraer\} style=\{BTN_TRAER\}>\s*<IconoMenu nombre="descargar" size=\{16\} \/> Traer de otro funnel\s*<\/button>/);
-  const i = NF.indexOf('const BTN_TRAER');
-  const estilo = NF.slice(i, NF.indexOf('};', i));
-  assert.match(estilo, /border: '1px solid var\(--border-strong\)'/, 'sin borde es un link');
-  assert.match(estilo, /padding: '10px 16px'/);
-  assert.doesNotMatch(estilo, /background: 'none'|padding: 0/, 'volvió a ser un link chico');
+// ⚠️ 24/10/2026: Martín pidió los tres «traer» ARRIBA, en un bloque aparte y parejos («me imagino 3 botones mejores
+//    diseñados arriba del formulario»). Lo que este test cuidaba sigue: un BOTÓN claro con borde y su ícono, nunca un link.
+test('1. «De otro funnel» es un botón claro, con su ícono, en el bloque de arriba (con «Scraper» e «Importar», iguales)', () => {
+  assert.match(NF, /<button type="button" className="nl-traer-btn" onClick=\{enModal\.onTraer\}>\s*<IconoMenu nombre="producto" size=\{18\} \/>\s*<span><strong>De otro funnel<\/strong>/);
+  assert.match(NF, /\.nl-traer-btn \{[^}]*border: 1px solid var\(--border-strong\);/, 'sin borde es un link');
+  assert.doesNotMatch(NF, /BTN_TRAER/, 'volvió el botón suelto del pie');
 });
 
 test('2. un loader al abrir y al cambiar de funnel (la lista viene del server), y otro mientras filtra', () => {

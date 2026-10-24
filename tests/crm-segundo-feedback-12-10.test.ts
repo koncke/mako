@@ -86,8 +86,9 @@ test('el alta guarda el borrador en el modal, y el guardado se saltea la primera
   assert.match(src, /if \(primeraVez\.current\) \{ primeraVez\.current = false; return; \}/);
   assert.match(src, /window\.localStorage\.setItem\(clave, JSON\.stringify\(borrador\)\)/);
   // Se olvida al terminar el alta, en los TRES finales (crear, crear igual, agregar al que ya
-  // estaba), y en «Vaciar»: cuatro llamadas.
-  assert.equal((src.match(/olvidarBorrador\(\);/g) ?? []).length, 4);
+  // estaba). «Vaciar» se fue el 24/10/2026 (Martín: el pie con tres estilos; no hacía falta).
+  assert.equal((src.match(/olvidarBorrador\(\);/g) ?? []).length, 3);
+  assert.doesNotMatch(src, />\s*Vaciar\s*</, 'volvió «Vaciar»');
 });
 
 test('las reuniones cercanas son un botón de la barra, no una sección arriba', () => {
