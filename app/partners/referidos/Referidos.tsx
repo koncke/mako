@@ -1,11 +1,12 @@
 'use client';
 
-// El tablero de MaKo Partners (23/10/2026): tu link para compartir, lo acumulado, los meses gratis (o la plata a cobrar
-// si sos revendedor) y en qué va cada referido. Sólo dibuja lo que trae `tableroDe` (lib/partners-programa.ts).
+// El tablero de MaKo Partners (23/10/2026): tu link para compartir, lo acumulado y en qué va cada referido. Sólo dibuja
+// lo que trae `tableroDe` (lib/partners-programa.ts). Desde el 24/10 NO muestra «disponible», «meses gratis» ni «a cobrar
+// en plata» (`resumenDelLibro` los cuenta, pero nada consume el crédito todavía: `CREDITO_HOY`).
 
 import { useState } from 'react';
 import { Pagina, PageHeader, EmptyState, ErrorState, Tabs } from '@/app/_ui';
-import { TEXTO_ESTADO_REFERIDO, PAGOS_PARA_ACREDITAR, textoSinReferidos } from '@/lib/partners-reglas';
+import { CREDITO_HOY, TEXTO_ESTADO_REFERIDO, PAGOS_PARA_ACREDITAR, textoSinReferidos } from '@/lib/partners-reglas';
 import type { Tablero } from '@/lib/partners-programa';
 import { PresentacionPartners } from '../PresentacionPartners';
 
@@ -44,6 +45,9 @@ export function Referidos({ tablero, agencia, cobraEnLinea = true, emailMako }: 
     return <Pagina><PageHeader titulo="MaKo Partners" />{tabs}<ErrorState titulo="No pude leer tu tablero" detalle="Prueba otra vez en un minuto." /></Pagina>;
   }
   const r = tablero.resumen;
+  const mes = PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`;
+  const acreditados = tablero.referidos.filter((x) => x.estado === 'acreditado').length;
+  const esperando = tablero.referidos.filter((x) => x.estado === 'registrado' || x.estado === 'primer-pago').length;
   const copiar = async () => {
     if (!tablero.link) return;
     try { await navigator.clipboard.writeText(tablero.link); setCopiado(true); setTimeout(() => setCopiado(false), 2000); } catch { /* el input queda seleccionable */ }
@@ -64,13 +68,13 @@ export function Referidos({ tablero, agencia, cobraEnLinea = true, emailMako }: 
           </div>
         )
         : <ErrorState titulo="Todavía no tienes tu link" detalle="Prueba otra vez en un minuto." />}
+      {/* Sólo lo que es verdad hoy (24/10/2026): lo acumulado y en qué va cada referido. Ni «disponible», ni «meses
+          gratis», ni «a cobrar en plata»: nada consume el crédito todavía (`CREDITO_HOY`). */}
       <div className="pr-grilla">
-        <div className="pr-kpi destacado"><b>{usd(r.acumuladoUsd)}</b><span>Acumulado</span></div>
-        <div className="pr-kpi"><b>{usd(r.saldoUsd)}</b><span>Disponible</span></div>
-        {tablero.revendedor
-          ? <div className="pr-kpi"><b>{usd(r.aCobrarUsd)}</b><span>A cobrar en plata</span></div>
-          : <div className="pr-kpi"><b>{r.mesesGratis}</b><span>{r.mesesGratis === 1 ? 'Mes gratis ganado' : 'Meses gratis ganados'}</span></div>}
+        <div className="pr-kpi destacado"><b>{usd(r.acumuladoUsd)}</b><span>Crédito acumulado</span></div>
         <div className="pr-kpi"><b>{tablero.referidos.length}</b><span>{tablero.referidos.length === 1 ? 'Referido' : 'Referidos'}</span></div>
+        <div className="pr-kpi"><b>{acreditados}</b><span>Ya te sumaron crédito</span></div>
+        <div className="pr-kpi"><b>{esperando}</b><span>Todavía no suman crédito</span></div>
       </div>
       {tablero.referidos.length === 0
         ? <EmptyState titulo="Todavía no tienes referidos" detalle={textoSinReferidos({ cobraEnLinea, emailMako })} />
@@ -84,11 +88,10 @@ export function Referidos({ tablero, agencia, cobraEnLinea = true, emailMako }: 
             ))}
           </ul>
         )}
-      <h3 style={{ marginTop: 26, fontSize: 'var(--fs-md)', color: 'var(--ink)' }}>Cómo funciona</h3>
+      <h3 className="pr-titulo" style={{ marginTop: 26 }}>Lo que hay que saber</h3>
       <ol className="pr-reglas">
-        <li>Cada negocio nuevo que entra con tu link y paga su <b>segundo mes</b> te suma su <b>primer mes</b> como crédito.</li>
-        <li>{tablero.revendedor ? 'Primero se descuenta tu suscripción; lo que sobra se te paga en plata por transferencia.' : 'El crédito se acumula y se descuenta de tus próximos meses.'}</li>
-        <li>Por cada programa grupal que traigas, el 20% de cada cuota cobrada, en plata.</li>
+        <li>Cada negocio nuevo que entra con tu link y paga su <b>{mes} mes</b> te suma su <b>primer mes</b>, a precio de lista, como crédito.</li>
+        <li>{CREDITO_HOY}</li>
       </ol>
     </Pagina>
   );

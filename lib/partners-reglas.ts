@@ -61,6 +61,14 @@ export function correspondeAcreditar(p: { referidorWs: number; referidoWs: numbe
   return !p.yaAcreditado && p.referidorWs !== p.referidoWs && p.mesesPagados >= PAGOS_PARA_ACREDITAR;
 }
 
+/**
+ * Lo que pasa HOY con el crédito, dicho igual en la landing (/mako-partners), el panel y el teléfono (24/10/2026, el
+ * Cerebro: «la página de Partners no promete nada que no vayamos a cumplir»). El crédito es un renglón del libro y NADA lo
+ * consume todavía: ni la cuota, ni un pago en plata. El día que se aplique (docs/relevo/suscripcion.md, punto 5), cambia
+ * esta frase junto con la regla, no antes.
+ */
+export const CREDITO_HOY = 'El crédito queda registrado en tu panel. Todavía no se descuenta solo de tu plan.';
+
 /** Lo que vale un referido: el PRIMER MES de su plan, a precio de lista (docs/referidos.md: «un dólar, un peso»). */
 export const creditoDelReferido = (precioListaUsd: number): number => Math.round(Math.max(0, precioListaUsd) * 100) / 100;
 

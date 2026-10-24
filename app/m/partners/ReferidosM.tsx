@@ -10,7 +10,7 @@
 
 import { CabeceraM, FilaDatoM, ListaM, PildoraM, SeccionM, VacioM, useToastM } from '@/app/m/_ui';
 import { Button } from '@/app/_ui/Button';
-import { TEXTO_ESTADO_REFERIDO, PAGOS_PARA_ACREDITAR, textoSinReferidos } from '@/lib/partners-reglas';
+import { CREDITO_HOY, TEXTO_ESTADO_REFERIDO, PAGOS_PARA_ACREDITAR, textoSinReferidos } from '@/lib/partners-reglas';
 import type { Tablero } from '@/lib/partners-programa';
 import { RUTA_MAS } from '@/lib/movil-rutas';
 
@@ -28,7 +28,7 @@ export function ReferidosM({ tablero, cobraEnLinea = true, emailMako }: { tabler
       <CabeceraM titulo="MaKo Partners" padre={{ href: RUTA_MAS, label: 'More' }} />
       <p className="m-partners-nota">
         Recomienda MaKo: cada negocio que entra con tu link y paga su {PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`} mes
-        te suma su primer mes como crédito.
+        te suma su primer mes como crédito. {CREDITO_HOY}
       </p>
       <SeccionM titulo="Tu link">
         {tablero.link
@@ -42,12 +42,10 @@ export function ReferidosM({ tablero, cobraEnLinea = true, emailMako }: { tabler
       </SeccionM>
       <SeccionM titulo="Tu panel">
         <ListaM>
-          <FilaDatoM k="Acumulado" v={usd(r.acumuladoUsd)} />
-          <FilaDatoM k="Disponible" v={usd(r.saldoUsd)} />
-          {tablero.revendedor
-            ? <FilaDatoM k="A cobrar en plata" v={usd(r.aCobrarUsd)} />
-            : <FilaDatoM k="Meses gratis ganados" v={String(r.mesesGratis)} />}
+          {/* Lo mismo que la computadora (24/10/2026): sin «disponible», «meses gratis» ni «a cobrar en plata». */}
+          <FilaDatoM k="Crédito acumulado" v={usd(r.acumuladoUsd)} />
           <FilaDatoM k="Referidos" v={String(tablero.referidos.length)} />
+          <FilaDatoM k="Ya te sumaron crédito" v={String(tablero.referidos.filter((x) => x.estado === 'acreditado').length)} />
         </ListaM>
       </SeccionM>
       <SeccionM titulo="Tus referidos">
