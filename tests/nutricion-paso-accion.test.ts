@@ -177,7 +177,9 @@ const MOTOR = sinComentarios(leer('lib/nutricion.ts'));
 // 22/10/2026: 56.603 ANTES de la prospección del Sprint (ya pasado, y nadie lo vio: este archivo tira AL CARGAR, y en la
 // corrida compartida de Actions, `--test-isolation=none`, un archivo que tira al cargar informa sólo los tests de ARRIBA de
 // esta línea, en verde, y salida 0; docs/hallazgos-infra.md). 57.350 con lo que entra primero y 58.758 con el goteo.
-const PROC = bloque(MOTOR, 'export async function procesarEnvios(', '\nexport async function pausarPorRespuesta(', 65_000); // 23/10/2026: 65_000, creció con «Contestó» corta y la espera de lo retenido.
+// 23/10/2026: 65_000, creció con «Contestó» corta y la espera de lo retenido. 24/10/2026: 70_000, creció con la carrera del
+// corte (el reclamo antes de mandar y el avance que no pisa la respuesta, 731c59285): medía 65.040 en main.
+const PROC = bloque(MOTOR, 'export async function procesarEnvios(', '\nexport async function pausarPorRespuesta(', 70_000);
 // Hasta la primera guarda que es sólo del mensaje que sigue a la rama (`canalOn`). Perezoso:
 // si la rama se mueve de lugar, que caigan los tests que la miran, no el archivo entero.
 // 23/10/2026: 5_200 (medía 4.310 con el reintento de una acción que no corrió: `fallosPrevios` y `devolver`, el ws13).
