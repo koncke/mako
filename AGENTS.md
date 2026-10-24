@@ -9769,6 +9769,12 @@ proyectos en `video-editor-projects` y un cliente le «heredaba» proyectos a ot
 - Se lee en CADA apertura, no al importar el módulo: los singletons de almacenamiento se
   crean una vez y la pestaña puede cambiar de cliente sin recargar.
 - Un guardado en un cleanup/unmount compara el ws del montaje con el actual antes de escribir.
+- ⚠️ **Y no es sólo una base de proyectos: es CUALQUIER pantalla que recuerde lo que se escribió para un negocio** (un
+  borrador, los números de una calculadora, lo último tipeado). El 24/10/2026 la regla ya estaba escrita y aparecieron
+  dos más sin el negocio: la calculadora de presupuesto y el borrador de «Nueva campaña» del Ads Manager, que traía la
+  página, las audiencias y el destino de OTRO cliente. Un estado de pantalla guardado sin el negocio adentro se filtra
+  entre clientes, y no da error: se ve como un borrador cualquiera. Una clave vieja sin negocio no se migra: se borra.
+  Los que quedan sin negocio, en docs/hallazgos-ads.md → «Un estado de pantalla guardado sin el negocio».
 
 # Un tema limitado a una clase no llega a los PORTALES
 

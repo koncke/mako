@@ -73,7 +73,9 @@ function IrAConectar({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function OnboardingAdsManager({ datos, senales, desde, hasta, adInicial, hoyReal }: {
+export function OnboardingAdsManager({ ws, datos, senales, desde, hasta, adInicial, hoyReal }: {
+  /** El negocio, del server: nombra lo que la calculadora guarda en el navegador. */
+  ws: number | null;
   datos: OnboardingAds;
   senales: SenalRecon[]; desde: string; hasta: string; adInicial: string | null; hoyReal: string;
 }) {
@@ -86,7 +88,7 @@ export function OnboardingAdsManager({ datos, senales, desde, hasta, adInicial, 
     // El mismo <main> que dibuja AdsManagerView: el wizard embebido ocupa su lugar.
     return (
       <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-        <CampanasBrowser senales={senales} desde={desde} hasta={hasta} adInicial={adInicial} hoyReal={hoyReal} abrirNueva={abrirNueva} />
+        <CampanasBrowser ws={ws} senales={senales} desde={desde} hasta={hasta} adInicial={adInicial} hoyReal={hoyReal} abrirNueva={abrirNueva} />
       </main>
     );
   }
@@ -183,7 +185,7 @@ export function OnboardingAdsManager({ datos, senales, desde, hasta, adInicial, 
       )}
     </WizardShell>
     {/* Hermana del wizard y no adentro de su pie: el Modal de la casa no va por portal. */}
-    {calcOpen && <CalculadoraPresupuesto deTusAnuncios={deTusAnuncios(senales)} rango={rangoCorto(desde, hasta)} onCerrar={() => setCalcOpen(false)} />}
+    {calcOpen && <CalculadoraPresupuesto ws={ws} deTusAnuncios={deTusAnuncios(senales)} rango={rangoCorto(desde, hasta)} onCerrar={() => setCalcOpen(false)} />}
     </>
   );
 }

@@ -16,6 +16,7 @@ import { CampanasBrowser } from './CampanasBrowser';
 import { OnboardingAdsManager } from './OnboardingAdsManager';
 import { onboardingAdsPendiente } from './onboarding-datos';
 import { requireRolWs } from '@/lib/tab-access';
+import { getWorkspaceActual } from '@/lib/workspace';
 import { adsSinNegocio } from '@/lib/ads-guard';
 import { EmptyState } from '@/app/_ui/Estados';
 
@@ -32,6 +33,9 @@ export async function AdsManagerView({
   adInicial?: string | null;
 }) {
   await requireRolWs([], { nav: 'ads-manager' });
+  // El negocio de esta pantalla, del SERVER: con él se nombra lo que la calculadora y el borrador de «Nueva campaña»
+  // guardan en el navegador (AGENTS.md: lo del navegador lleva el workspace, y sale del server, no del `?ws=`).
+  const ws = await getWorkspaceActual().catch(() => null);
   // El super admin sin un negocio elegido no opera NINGUNA cuenta (17/10/2026): antes caía a la de
   // Mauricio (ws1, un cliente). Las rutas contestan 409; la pantalla lo dice antes de pedir nada.
   if (await adsSinNegocio()) {
@@ -69,7 +73,7 @@ export async function AdsManagerView({
   // opera su cuenta no lo ve nunca. Si la derivación falla, se sirve la tabla.
   const onboarding = await onboardingAdsPendiente().catch(() => null);
   if (onboarding) {
-    return <OnboardingAdsManager datos={onboarding} senales={senales} desde={rangoDesde} hasta={rangoHasta} adInicial={adInicial} hoyReal={hoyReal} />;
+    return <OnboardingAdsManager ws={ws} datos={onboarding} senales={senales} desde={rangoDesde} hasta={rangoHasta} adInicial={adInicial} hoyReal={hoyReal} />;
   }
 
   return (
@@ -84,7 +88,7 @@ export async function AdsManagerView({
       {/* El título va ADENTRO del browser: el botón de «Nueva campaña» tiene que vivir en
           la misma fila que él (pedido del 05/10) y esa fila la dibuja un componente de
           cliente, porque los botones abren modales con estado. */}
-      <CampanasBrowser senales={senales} desde={rangoDesde} hasta={rangoHasta} adInicial={adInicial} hoyReal={hoyReal} />
+      <CampanasBrowser ws={ws} senales={senales} desde={rangoDesde} hasta={rangoHasta} adInicial={adInicial} hoyReal={hoyReal} />
     </main>
   );
 }

@@ -95,23 +95,24 @@ test('el wizard del Ads Manager (lo que ve quien no tiene cuenta) abre la calcul
   assert.match(onb, /onClick=\{\(\) => setCalcOpen\(true\)\}[\s\S]{0,300}Calcular presupuesto/, 'el pie del wizard no ofrece la calculadora');
   const fin = onb.indexOf('</WizardShell>');
   assert.ok(fin > 0);
-  assert.match(onb.slice(fin), /\{calcOpen && <CalculadoraPresupuesto deTusAnuncios=\{deTusAnuncios\(senales\)\} rango=\{rangoCorto\(desde, hasta\)\}/,
-    'la calculadora va AFUERA del WizardShell, con lo medido');
+  assert.match(onb.slice(fin), /\{calcOpen && <CalculadoraPresupuesto ws=\{ws\} deTusAnuncios=\{deTusAnuncios\(senales\)\} rango=\{rangoCorto\(desde, hasta\)\}/,
+    'la calculadora va AFUERA del WizardShell, con lo medido y el negocio');
 });
 
 test('la guarda del Ads Manager devuelve ESE wizard antes que la tabla', () => {
   const v = sinComentarios(leer('../app/ads-manager/AdsManagerView.tsx'));
   const i = v.indexOf('return <OnboardingAdsManager');
-  assert.ok(i > 0 && i < v.indexOf('<CampanasBrowser senales'), 'si la guarda cambió, el wizard puede no ser lo que ve quien no pauta');
+  assert.ok(i > 0 && i < v.indexOf('<CampanasBrowser '), 'si la guarda cambió, el wizard puede no ser lo que ve quien no pauta');
 });
 
 test('la tabla también le pasa lo medido', () => {
-  assert.match(sinComentarios(leer('../app/ads-manager/CampanasBrowser.tsx')), /<CalculadoraPresupuesto deTusAnuncios=\{deTusAnuncios\(senales\)\} rango=\{rangoCorto\(desde, hasta\)\}/);
+  assert.match(sinComentarios(leer('../app/ads-manager/CampanasBrowser.tsx')), /<CalculadoraPresupuesto ws=\{ws\} deTusAnuncios=\{deTusAnuncios\(senales\)\} rango=\{rangoCorto\(desde, hasta\)\}/);
 });
 
 test('la pantalla guarda por negocio y dice de dónde sale un número medido', () => {
   const calc = sinComentarios(leer('../app/ads-manager/CalculadoraPresupuesto.tsx'));
   assert.match(calc, /const clave = ws != null \? `\$\{CLAVE_LOCAL\}:\$\{ws\}` : CLAVE_LOCAL;/);
+  assert.ok(!/useWs\(/.test(calc), 'el negocio llega del server por props, no del ?ws= de la pestaña');
   assert.match(calc, /localStorage\.setItem\(clave, JSON\.stringify\(paraGuardar\(n\)\)\)/);
   assert.match(calc, /`De tus anuncios\$\{rango \? ` \$\{rango\}` : ''\}`/);
 });

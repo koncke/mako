@@ -20,7 +20,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Button, Modal, Select, TextField, Alert, MONO } from '@/app/_ui';
 import { MakoStar } from '../_components/MakoBrand';
-import { useWs } from '@/app/_ui/Link';
 import {
   calcularPresupuestoAds, titularDelPlan, textoParaMako, usd, plural, RESULTADOS_PARA_DECIDIR, RESULTADOS_APRENDIZAJE,
   completarConLoMedido, cambiarCampo, paraGuardar,
@@ -47,7 +46,10 @@ export function entradaDeCampos(c: Campos): EntradaCalculadora {
   };
 }
 
-export function CalculadoraPresupuesto({ onCerrar, onPreguntarMako, deTusAnuncios, rango }: {
+export function CalculadoraPresupuesto({ ws = null, onCerrar, onPreguntarMako, deTusAnuncios, rango }: {
+  /** El negocio, del SERVER (`getWorkspaceActual`): nombra la clave del navegador. Del `?ws=` solo, una persona con
+   *  dos negocios que cambia por cookie tendría la misma clave en los dos. */
+  ws?: number | null;
   onCerrar: () => void;
   /** Abre la estrella de la tab con el plan. Sin esto, el botón no se dibuja. */
   onPreguntarMako?: (texto: string) => void;
@@ -57,7 +59,6 @@ export function CalculadoraPresupuesto({ onCerrar, onPreguntarMako, deTusAnuncio
   /** De qué fechas sale lo medido («del 1/10 al 23/10»): se dice al lado del número. */
   rango?: string;
 }) {
-  const ws = useWs();
   const clave = ws != null ? `${CLAVE_LOCAL}:${ws}` : CLAVE_LOCAL;
   const [estado, setEstado] = useState<EstadoCampos<Campos>>({ campos: INICIAL, medido: [] });
   const c = estado.campos;
