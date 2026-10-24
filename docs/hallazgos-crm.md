@@ -239,15 +239,56 @@ más de un envío. Y QUÉ contestó, no sólo cuándo: el último mensaje suyo h
 (`respuestaDelLead`: «Contestó ayer 16:49: «No hemos mandado pagos de nuestra parte»»). **La misma jerga vivía en otros
 dos lugares**, que también se arreglaron: la línea del tablero del CRM (`lineaDeAutomatizacion`, «paso 2: WHATSAPP: Hola
 {{nombre}}…»: el título de la lista liviana ahora sale de `pasoEnPalabras`) y el aviso de «no entró» («ya está adentro
-(paso 2)», «(va en el paso 2)»). Y «paso sin ubicar» se fue: sin el dato no se dice nada. **Sin hacer:** el teléfono (/m) arma su fila con la lista liviana (`vistaDeEnAutomatizacion`), sin el
-texto de lo que sigue: dice «Lo próximo · sáb 24 oct, 18:33». Las capturas del antes y el después quedaron para cuando haya
-una sesión en el navegador (no había: la PC se reinició y no se ingresan credenciales).
+(paso 2)», «(va en el paso 2)»). Y «paso sin ubicar» se fue: sin el dato no se dice nada. El teléfono (/m) y las capturas quedaron para la tarde (abajo).
 
-**Vive en:** app/crm/automatizacion-lead.ts (la vista, pura; `renglonesDeTarjeta`, `fechaCorta`) ·
-app/crm/lead-view/ficha/resumen/automatizaciones.tsx · automatizaciones-datos.ts · lib/automatizaciones-del-lead-reglas.ts
-(`pasoEnPalabras`, `leerContesto`) · lib/automatizaciones-del-lead.ts (el nombre y el «Contestó en») ·
-lib/ficha/plantillas-resumen.ts · app/m/crm/ficha-bloques.ts (`filaDeAutomatizaciones`) · tests/ficha-automatizaciones.test.ts ·
-tests/ficha-automatizaciones-renglones.test.ts. *23/10/2026, chat «CRM» (claude2); 24/10/2026, chat «Automations» (claude1).*
+**Y a la tarde: «Te pedí que rediseñes la tarjeta, no sólo que cambies el texto, se sigue viendo muy fea» (24/10/2026).**
+La mañana arregló QUÉ decía; la caja era la misma: gris y plana, un chip «Respondió» flotando arriba a la derecha,
+«Empezar de nuevo» y «Frenar» como texto gris suelto (y una de las dos destruye), «Lo que ya le salió (2)» con un
+triangulito, «Hora de Tijuana» suelta AFUERA de la tarjeta, y tres automatizaciones iguales. **La trampa:** el brief fue
+todo de contenido y nada de forma; un rediseño de texto pasa todos los tests y se ve igual. **Cómo se decidió:** se
+investigó cómo lo resuelven Intercom, HubSpot, Customer.io y Braze, el lenguaje del Ops Center y del Plan, y la ficha
+entera (con el chat de CRM, que rehacía las tabs). Hubo tres propuestas y un juez, y ganó la que mejor resolvía las acciones.
+- **El estado se ve antes de leer:** un SELLO con forma y color adelante del nombre, y abajo el estado en dos palabras con
+  su cuándo (`estadoDeTarjeta`). Un color, un significado: dorado = MaKo lo está haciendo, naranja = una traba que hay que
+  mirar, rojo = falló, verde = contestó o terminó, gris = quieto. El porqué entero va en el `title` y no en un párrafo.
+- **Una franja del color a la izquierda** de cada tarjeta: varias se distinguen de un vistazo. Las vivas van en el orden
+  en que hay que mirarlas (`ordenarTarjetas`); las terminadas, como filas finas que se abren en el lugar.
+- **Un RIEL en vez de renglones** (`rielDeTarjeta`): lo que le salió (la cita en burbuja), lo que contestó (en verde, con
+  lo que dijo), lo que falló, lo que no entró (ADENTRO de su riel), y al final lo que viene, con un tramo punteado. La hora
+  va a la derecha. Lo viejo se pliega desde el penúltimo mensaje («Ver N antes»).
+- **Las acciones son acciones:** «Frenar» va a la izquierda del pie, en rojo y aparte (como el modal de WhatsApp del Ops
+  Center), y «Empezar de nuevo» es un botón secundario con ícono. Lo que salió bien va en un toast; un error, en el pie
+  de SU tarjeta.
+- **La zona** va en cada hora al pasar el cursor. Lo próximo suma «· Tijuana» sólo si quien mira está en otra zona.
+
+**Lo que no se veía:**
+- **La pregunta de «Frenar» mentía.** Decía «Para que vuelva, se lo inscribe a mano», pero una inscripción frenada
+  queda 'cancelada' y no se reabre, ni a mano ni sola (`reabre = !cancelada && …`, lib/automatizaciones-del-lead-reglas.ts;
+  puede ser una baja). Ahora dice «no se puede volver a empezar», también en el tablero (`preguntaDeFrenar`).
+- **`primerNombre` no se importa en la vista.** Vive en lib/automatizaciones-del-lead-reglas.ts, que importa el grafo
+  del motor y el flujo, y la vista (app/crm/automatizacion-lead.ts) corre en el navegador: el import se llevaba el motor
+  al bundle. Va una copia local de una línea.
+- **El tipo de freno se lee del texto CORTO del motor** (`tipoDeFreno`: «Falló al mandar», «Tope del día», «Abre…»), sin
+  tocar lib/por-que-no-sale.ts un sábado. Si el motor cambia esos textos, el test lo dice (los busca en el fuente).
+  `saleAt` sí viajaba en el detalle y lo descartaba `vistaDeDetalle`: ahora llega («Abre mañana 09:00» en el riel).
+- **Las piezas viven aparte del bloque** (`tarjeta-automatizacion.tsx`: puras, sin lecturas ni acciones del servidor),
+  y por eso se dibujan solas para sacarles la foto SIN servidor. Así se miró: `renderToStaticMarkup` con datos de ejemplo,
+  la hoja real (`CSS_RESUMEN`), los tokens de `:root` y `[data-tema="oscuro"]` de app/globals.css y app/_ui/ui.css, y
+  Chrome con `--headless=new --mute-audio --screenshot`. ⚠️ Al pegar ui.css se borran sólo las LÍNEAS que empiezan con
+  `@import`: un comentario suyo dice «un solo @import», y una regex suelta se comía el principio de `.mk-btn`. El botón
+  salía sin estilo en la foto y parecía un bug de la tarjeta.
+- **El teléfono (/m)** dice la que hay que mirar primero, cuándo le sale lo próximo o su estado en dos palabras, y un
+  punto del color del sello («Sprint · apertura · mañana 09:00 · +1»).
+
+**Sin hacer:** la foto de la FICHA ENTERA en producción, en escritorio y teléfono, cuando haya una sesión en el navegador.
+
+**Vive en:** app/crm/automatizacion-lead.ts (la vista, pura: `estadoDeTarjeta`, `rielDeTarjeta`, `ordenarTarjetas`,
+`tipoDeFreno`, `fechaCorta`, `diaCorto`, las preguntas) · app/crm/lead-view/ficha/resumen/automatizaciones.tsx (el bloque) ·
+tarjeta-automatizacion.tsx (las piezas) · estilo.ts (la hoja) · automatizaciones-datos.ts ·
+lib/automatizaciones-del-lead-reglas.ts (`pasoEnPalabras`, `leerContesto`) · lib/automatizaciones-del-lead.ts (el nombre y
+el «Contestó en») · lib/ficha/plantillas-resumen.ts · app/m/crm/ficha-bloques.ts (`filaDeAutomatizaciones`,
+`tonoDeAutomatizaciones`) · tests/ficha-automatizaciones.test.ts · tests/ficha-automatizaciones-renglones.test.ts ·
+tests/ficha-automatizaciones-tarjeta.test.ts. *23/10/2026, chat «CRM» (claude2); 24/10/2026, chat «Automations» (claude1).*
 
 ## «Esa etapa no existe en el CRM»: `noresp` no está en `data.pipeline` y existe igual (23/10/2026)
 

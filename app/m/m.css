@@ -800,3 +800,11 @@
 }
 @media (prefers-reduced-motion: reduce) { .m-secciones-tab__op { transition: none; } }
 
+/* La fila «Automatización» de la ficha (24/10/2026): un punto del color del estado, el del sello de escritorio
+   (app/crm/automatizacion-lead.ts, `estadoDeTarjeta`): dorado en curso, naranja trabada, rojo falló, verde respondió. */
+.m-aut { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.m-aut__punto { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.m-aut__punto[data-tono="mako"] { background: var(--mako); }
+.m-aut__punto[data-tono="good"] { background: var(--good); }
+.m-aut__punto[data-tono="warn"] { background: var(--warn-fill); }
+.m-aut__punto[data-tono="bad"] { background: var(--bad); }

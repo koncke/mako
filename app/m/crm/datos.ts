@@ -46,9 +46,9 @@ import { datosSinMarcarDeLead, leerInsumosDatosLead } from '@/lib/datos-del-lead
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { tieneEtapaDeReunion } from '@/lib/etapa-reunion';
 import type { Lead } from '@/lib/leads';
-import { filaDeAutomatizaciones, piezasDelTelefono, resumenDelTelefono, saldoDelTelefono, tabsQueVe, type PiezaPuesta, type ResumenTelefono, type SaldoTelefono } from './ficha-bloques';
+import { filaDeAutomatizaciones, piezasDelTelefono, resumenDelTelefono, saldoDelTelefono, tabsQueVe, tonoDeAutomatizaciones, type PiezaPuesta, type ResumenTelefono, type SaldoTelefono } from './ficha-bloques';
 import { enAutomatizaciones } from '@/lib/automatizaciones-del-lead';
-import { vistaDeEnAutomatizacion } from '@/app/crm/automatizacion-lead';
+import { fechaCorta, vistaDeEnAutomatizacion, type TonoTarjeta } from '@/app/crm/automatizacion-lead';
 import { tiempoEnEtapaAction } from '@/app/crm/lead-view/ficha/resumen/bloques-actions';
 import { listarCobros } from '@/lib/cobros';
 import { cobradoDelLead } from '@/lib/cobrado-lead';
@@ -95,6 +95,8 @@ export type FichaV2 = {
    * etapa… (`resumenDelTelefono`, ./ficha-bloques.ts). null = sin el lead (no se dibuja ninguna).
    */
   resumen: ResumenTelefono | null;
+  /** El color del punto de la fila «Automatización» (24/10/2026): el estado de la que nombra. */
+  autTono: TonoTarjeta | null;
   /**
    * La barra de avance del encabezado (17/10/2026, copiada de la ficha del deal de Pipedrive): cuántas etapas tiene
    * el camino del funnel de su casa y hasta cuál llegó (`progresoEnFunnel`). null = sin funnel.
@@ -212,7 +214,7 @@ export async function fichaV2(leadId: number): Promise<FichaV2 | null> {
   const auts = delFunnel.piezas.some((x) => x.pieza === 'automatizaciones')
     ? await enAutomatizaciones([leadId]).then((m) => m.get(leadId) ?? []).catch((e) => { console.error(`[m/crm] automatizaciones ${leadId}: ${msg(e)}`); return null; })
     : null;
-  const enHora = new Intl.DateTimeFormat('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: f.tz });
+  const vistaAuts = auts ? vistaDeEnAutomatizacion(auts) : null;
   const etiqueta = (v: string) => stages.find((s) => s.key === v)?.label ?? stages.find((s) => s.label === v)?.label;
   const ahora = Date.now();
   const notasTodas = audit.filter((r) => r.campo === 'Nota' && (r.valor_nuevo ?? '').trim());
@@ -236,8 +238,9 @@ export async function fichaV2(leadId: number): Promise<FichaV2 | null> {
     resumen: lead ? resumenDelTelefono(lead, {
       etapa: casa?.etapa ?? null, hoy: f.hoy, ahoraMs: ahora,
       siguiente: f.siguiente, enEtapa,
-      automatizaciones: auts ? filaDeAutomatizaciones(vistaDeEnAutomatizacion(auts), (iso) => enHora.format(new Date(iso)).replace(/\./g, '')) : null,
+      automatizaciones: vistaAuts ? filaDeAutomatizaciones(vistaAuts, (iso) => fechaCorta(iso, f.tz, ahora)) : null,
     }) : null,
+    autTono: vistaAuts ? tonoDeAutomatizaciones(vistaAuts) : null,
     // ⚠️ Con el lead ENTERO (`getLead`, select *) y su `telefono_normalizado`, NO con `f.telefono`: ése es `numeroCanonico` y da
     // null debajo de 10 dígitos, así que un teléfono corto se leería como «sin teléfono» y el lead pasaría por «sólo Instagram»
     // (ver `soloInstagram`, ./reglas.ts).

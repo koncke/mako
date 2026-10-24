@@ -168,9 +168,10 @@ test('cableado: la entrada queda en el historial, el agregado dispara el evento,
   assert.match(lienzo, /\{enCola\[n\.id\] && <ChipEnCola nodo=\{n\} chip=\{enCola\[n\.id\]\.chip\} texto=\{enCola\[n\.id\]\.texto\} \/>\}/, 'la tarjeta no dice quién espera');
   // ⚠️ REESCRITO EL 23/10/2026 (chat «CRM»): el bloque de la ficha se mudó de charla.tsx a automatizaciones.tsx (Martín: «un
   //    bloque... relacionado a las automatizaciones... para tener más claridad de lo que pasa»). Lo que dice cuando algo lo
-  //    frena sale de `lineaDelProximo`, que devuelve el `frenado.texto` (tests/ficha-automatizaciones.test.ts).
-  assert.match(leer('app/crm/lead-view/ficha/resumen/automatizaciones.tsx'), /\{lineaDelProximo\(a, fecha\)\}/);
-  assert.match(leer('app/crm/automatizacion-lead.ts'), /if \(i\.frenado\) return i\.frenado\.texto;/);
+  //    frena: desde el rediseño del 24/10/2026, el estado en dos palabras con el porqué entero al pasar (`porque`, el
+  //    `frenado.texto`) y, en el riel, lo próximo que no sale (tests/ficha-automatizaciones-tarjeta.test.ts).
+  assert.match(leer('app/crm/lead-view/ficha/resumen/tarjeta-automatizacion.tsx'), /<span className="fr-aut-estado" title=\{e\.porque \?\? undefined\}>/);
+  assert.match(leer('app/crm/automatizacion-lead.ts'), /\(\{ forma, tono, texto, at, soloDia, porque: i\.frenado\?\.texto \?\? null \}\)/);
 });
 
 // ── ROTURAS (23/10/2026) ───────────────────────────────────────────────────────────────────────────

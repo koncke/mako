@@ -4,8 +4,9 @@
 // =============================================================================
 // Lo que decía con los datos reales del negocio de Mauricio: «Paso 5 de 9: CRON», «Paso 2 de 4: CONDITION: Llegó hace
 // menos de 3 día…», «WHATSAPP: Hola {{nombre}}, si no me…», «Hecho · WhatsApp» (un aviso al equipo), y ni cuándo contestó.
-// Ahora cada tarjeta dice, en tres renglones, qué le salió (el mensaje como le llegó, con SU nombre), si contestó y
-// cuándo, y qué sigue (qué le sale y cuándo, por qué no, o cómo terminó); el historial, plegado.
+// Ahora cada tarjeta dice qué le salió (el mensaje como le llegó, con SU nombre), si contestó, cuándo y QUÉ, y qué sigue.
+// Esto prueba los DATOS (lo que se lee y en palabras de persona). Cómo se ve (el sello, el riel, el pie), desde el rediseño
+// de la tarde del 24/10: tests/ficha-automatizaciones-tarjeta.test.ts.
 // Se prueba ejecutando lo puro (lib/automatizaciones-del-lead-reglas.ts y app/crm/automatizacion-lead.ts) y, leyendo el
 // fuente, que la lectura trae el nombre y el «Contestó en» y que la pantalla dibuja los renglones.
 //
@@ -18,11 +19,10 @@ import {
   citaDelMensaje, pasoEnPalabras, leerContesto, primerNombre, detalleDe, respuestaDelLead, LARGO_CITA,
   type FilaInscripcionDetalle, type FilaAutomatizacion,
 } from '../lib/automatizaciones-del-lead-reglas';
-import { fechaCorta, lineaDelEnvio, lineaDelProximo, renglonesDeTarjeta, vistaDeDetalle, type InscripcionVista } from '../app/crm/automatizacion-lead';
+import { fechaCorta, vistaDeDetalle } from '../app/crm/automatizacion-lead';
 import type { PasoGrafo } from '../lib/flujo-grafo';
 
 const leer = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-const fecha = (iso: string) => `F(${iso.slice(11, 16)})`;
 
 /** La forma de la #289 del negocio de Mauricio, con sus textos. */
 const PASOS = [
@@ -95,42 +95,6 @@ test('el detalle trae qué salió y qué sigue en palabras, y cuándo contestó 
   assert.match(lect, /audit: \[\.\.\.\(\(aud\.data \?\? \[\]\) as FilaAuditDetalle\[\]\), \.\.\.\(\(contesto\.data \?\? \[\]\) as FilaAuditDetalle\[\]\)\],/);
 });
 
-const base: InscripcionVista = {
-  secuenciaId: 289, nombre: 'Sprint · apertura', link: '/automations?sec=289', estado: 'activa', automatizacionActiva: true,
-  paso: { numero: 6, titulo: 'WHATSAPP: Hola {{nombre}}…', total: 6 },
-  proximo: { at: '2026-10-25T01:33:00Z', titulo: '«Hola Honorio, si no me das tu email…»', clase: 'mensaje' },
-  frenado: null, termino: null, contesto: null, puede: { frenar: true, empezarDeNuevo: true }, reentrada: 'una_vez',
-  enviados: [
-    { at: '2026-10-24T03:50:15Z', paso: 'Paso 4: MAKO', canal: 'whatsapp', estado: 'accion', error: null, que: 'Aviso al equipo', clase: 'accion' },
-    { at: '2026-10-24T01:09:37Z', paso: 'Paso 2: WHATSAPP', canal: 'whatsapp', estado: 'enviado', error: null, que: '«Hola Honorio, ya me llegó tu pago»', clase: 'mensaje' },
-  ],
-};
-
-test('la tarjeta en tres renglones: qué le salió, si contestó, qué sigue (o por qué no, o cómo terminó)', () => {
-  // En curso: lo último que le LLEGÓ (el mensaje, no el aviso al equipo de después) y qué le sale.
-  assert.deepEqual(renglonesDeTarjeta(base, fecha), [
-    { tipo: 'salio', texto: 'Le salió F(01:09): «Hola Honorio, ya me llegó tu pago»', tono: 'ok' },
-    { tipo: 'sigue', texto: 'Le sale F(01:33): «Hola Honorio, si no me das tu email…»', tono: 'mako' },
-  ]);
-  // Contestó: cuándo y QUÉ (citado), y que no le sale nada más.
-  assert.deepEqual(renglonesDeTarjeta({ ...base, estado: 'respondio', contesto: '2026-10-24T03:49:57Z', respuesta: '«No hemos mandado pagos»' }, fecha).map((r) => r.texto), [
-    'Le salió F(01:09): «Hola Honorio, ya me llegó tu pago»', 'Contestó F(03:49): «No hemos mandado pagos»', 'No le sale nada más de esta automatización.',
-  ]);
-  assert.equal(renglonesDeTarjeta({ ...base, estado: 'respondio', contesto: '2026-10-24T03:49:57Z' }, fecha)[1].texto, 'Contestó F(03:49)', 'sin el mensaje, sólo cuándo');
-  // Contestó sin la hora: lo dice igual, sin inventar una.
-  assert.equal(renglonesDeTarjeta({ ...base, estado: 'respondio' }, fecha)[1].texto, 'Contestó.');
-  // Sin envíos todavía: lo dice (no un cero ni un hueco).
-  assert.equal(renglonesDeTarjeta({ ...base, enviados: [] }, fecha)[0].texto, 'Todavía no le salió nada.');
-  // Frenada por el horario: el porqué, como renglón frenado.
-  const fr = renglonesDeTarjeta({ ...base, frenado: { texto: 'No salió: fuera del horario de oficina. Sale hoy 9:00.', corto: 'Sale 9:00' } }, fecha);
-  assert.deepEqual(fr[1], { tipo: 'frenado', texto: 'No salió: fuera del horario de oficina. Sale hoy 9:00.', tono: 'gris' });
-  // Terminada: cómo y cuándo.
-  const t = renglonesDeTarjeta({ ...base, estado: 'completada', termino: { at: '2026-10-20T10:00:00Z', texto: 'Terminó el recorrido' } }, fecha);
-  assert.deepEqual(t[t.length - 1], { tipo: 'termino', texto: 'Terminó el recorrido · F(10:00)', tono: 'gris' });
-  // Ningún renglón dice el nombre del lienzo ni una variable.
-  for (const r of [...renglonesDeTarjeta(base, fecha), ...fr, ...t]) assert.doesNotMatch(r.texto, /CRON|CONDITION|WHATSAPP|\{\{|Paso \d/);
-});
-
 test('qué contestó: el último mensaje suyo hasta que el motor lo anotó, desde que entró; uno sin texto, por lo que es', () => {
   const E = [
     { texto: 'Perdón de k trata ese pago', tipo: 'text', wa_timestamp: '2026-10-24T14:07:50Z' },
@@ -148,15 +112,6 @@ test('qué contestó: el último mensaje suyo hasta que el motor lo anotó, desd
   assert.doesNotMatch(leer('app/crm/automatizacion-lead.ts').replace(/^\s*(\*|\/\/).*$/gm, ''), /\(va en el paso|adentro \(paso|paso sin ubicar|`paso \$\{a\.paso\.numero\}/);
 });
 
-test('cada envío y lo que sigue, en palabras; sin el dato de antes, como antes', () => {
-  assert.equal(lineaDelEnvio(base.enviados[0], fecha).texto, 'Aviso al equipo · F(03:50)');
-  assert.equal(lineaDelEnvio({ ...base.enviados[1], estado: 'fallo', error: 'el número no tiene WhatsApp' }, fecha).texto,
-    'No le salió «Hola Honorio, ya me llegó tu pago» (F(01:09)): el número no tiene WhatsApp');
-  assert.equal(lineaDelEnvio({ at: '2026-10-06T13:00:00Z', paso: null, canal: 'whatsapp', estado: 'enviado', error: null }, fecha).texto, 'Enviado · WhatsApp · F(13:00)');
-  assert.equal(lineaDelProximo({ ...base, proximo: { at: '2026-10-25T01:00:00Z', titulo: 'Una espera', clase: 'otro' } }, fecha), 'Sigue F(01:00)');
-  assert.equal(lineaDelProximo({ ...base, proximo: { at: '2026-10-25T01:00:00Z', titulo: 'Aviso al equipo', clase: 'accion' } }, fecha), 'Aviso al equipo · F(01:00)');
-});
-
 test('la fecha corta: hoy, ayer, mañana; si no, el día sin «de»', () => {
   const ahora = Date.parse('2026-10-24T18:00:00Z'); // sáb 24, 11:00 en Tijuana
   assert.equal(fechaCorta('2026-10-24T20:33:00Z', 'America/Tijuana', ahora), 'hoy 13:33');
@@ -168,13 +123,7 @@ test('la fecha corta: hoy, ayer, mañana; si no, el día sin «de»', () => {
   assert.equal(fechaCorta('no es fecha', 'UTC', ahora), '');
 });
 
-test('la pantalla: los renglones, el historial plegado sólo con más de un envío, y la fecha corta', () => {
-  const p = leer('app/crm/lead-view/ficha/resumen/automatizaciones.tsx').replace(/^[ \t]*\/\/.*$/gm, '');
-  assert.match(p, /\{renglonesDeTarjeta\(a, fecha\)\.map\(\(r, k\) => \(/);
-  assert.match(p, /const enviados = \(a: InscripcionVista, abierto: boolean\) => a\.enviados\.length > 1 && \(/);
-  assert.match(p, /return \(iso\) => fechaCorta\(iso, tz, Date\.now\(\)\);/);
-  assert.doesNotMatch(p, /lineaDelPaso/);
-  // Y la vista pasa lo nuevo del detalle.
+test('la vista pasa lo nuevo del detalle: cuándo y qué contestó, y lo que salió en palabras', () => {
   const v = vistaDeDetalle({ zona: 'UTC', noEntro: [], inscripciones: [{
     secuenciaId: 1, nombre: 'S', link: '/automations?sec=1', automatizacionActiva: true, estado: 'respondio', desde: null, termino: null,
     reentrada: 'una_vez', reentradaTexto: 'Una sola vez', paso: null, frenado: null, puede: { frenar: true, empezarDeNuevo: true },
@@ -187,20 +136,15 @@ test('la pantalla: los renglones, el historial plegado sólo con más de un env�
 
 // ── ROTURAS (24/10/2026) ────────────────────────────────────────────────────────────────────────────────
 // Una por vez (reemplazar el texto, correr este archivo, devolverlo de memoria con un script con `finally`).
-// Base 8 pasan / 0 fallan (pasan / fallan con cada una):
-//   F1.  `citaDelMensaje` no reemplaza `{{nombre}}`                                         → 5 / 3
-//   F2.  las otras variables quedan crudas («{{link_agenda}}»)                               → 7 / 1
-//   F3.  el aviso al equipo cae en «Una acción»                                              → 7 / 1
-//   F4.  «Contestó» toma una respuesta de antes de que entrara                               → 7 / 1
-//   F5.  «Contestó» toma la primera línea y no la más nueva                                  → 7 / 1
-//   F6.  el renglón 1 toma la última acción (el aviso al equipo) y no el último mensaje       → 7 / 1
-//   F7.  sin envíos todavía, el renglón 1 no dice nada                                       → 7 / 1
-//   F8.  contestó sin la hora: no lo dice                                                    → 7 / 1
-//   F9.  la fecha corta sin «hoy»                                                            → 7 / 1
-//   F10. la lectura de producción sin las líneas «Contestó en»                               → 7 / 1
-//   F11. la pantalla vuelve a mostrar el paso con el nombre del lienzo                       → 7 / 1
-//   F12. el historial plegado aparece con un solo envío (repite el renglón 1)                → 7 / 1
-//   F13. el renglón de «Contestó» no dice QUÉ contestó                                       → 7 / 1
-//   F14. qué contestó sin mirar desde cuándo (toma un mensaje de antes de entrar)            → 7 / 1
-//   F15. la lectura de producción sin lo que mandó él                                        → 7 / 1
-//   F16. «no entró» vuelve a decir «(va en el paso 2)»                                       → 7 / 1
+// Desde el rediseño de la tarde del 24/10 (los tres renglones se fueron; sus roturas F6-F8, F11-F13 pasaron al riel, en
+// tests/ficha-automatizaciones-tarjeta.test.ts), base 6 pasan / 0 fallan (pasan / fallan con cada una):
+//   F1.  `citaDelMensaje` no reemplaza `{{nombre}}`                                         → 4 / 2
+//   F2.  las otras variables quedan crudas («{{link_agenda}}»)                               → 5 / 1
+//   F3.  el aviso al equipo cae en «Una acción»                                              → 5 / 1
+//   F4.  «Contestó» toma una respuesta de antes de que entrara                               → 5 / 1
+//   F5.  «Contestó» toma la primera línea y no la más nueva                                  → 5 / 1
+//   F9.  la fecha corta sin «hoy»                                                            → 5 / 1
+//   F10. la lectura de producción sin las líneas «Contestó en»                               → 5 / 1
+//   F14. qué contestó sin mirar desde cuándo (toma un mensaje de antes de entrar)            → 5 / 1
+//   F15. la lectura de producción sin lo que mandó él                                        → 5 / 1
+//   F16. «no entró» vuelve a decir «(va en el paso 2)»                                       → 5 / 1
