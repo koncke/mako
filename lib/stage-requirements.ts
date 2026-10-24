@@ -89,6 +89,14 @@ export interface StageReqValues {
   /** La reunión no se grabó: no se exige el link de Fathom. */
   fathomOmitido?: boolean;
   /**
+   * El link de CADA reunión (24/10/2026). `hasFathomUrl` dice si hay ALGUNO, y con eso, cargada la grabación de la R1,
+   * la de la R2 no se pedía nunca (Martín, 03/07: «Fathom se pide siempre pero es opcional»). Los pasa el wizard de mover
+   * etapa. Quien no los pasa (el «Completar datos», el server) sigue con `hasFathomUrl` y no cambia: un lead ganado hace
+   * meses con sólo la grabación de la R1 no se vuelve un faltante en «A revisar».
+   */
+  hasFathomR1?: boolean;
+  hasFathomR2?: boolean;
+  /**
    * ¿De este encuentro se espera una grabación? Sale de `seGraba(canal, fathomConectado)`
    * en lib/pipeline.ts: un 1:1 remoto con Fathom conectado, sí; un taller presencial o
    * un webinar, nunca; un workspace sin Fathom, tampoco.
@@ -192,7 +200,11 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
   const nivel = v.nivel ?? NIVEL[stageKey] ?? 0;
   const mTotal = v.numReuniones ?? 2;
   const esVenta = v.esVenta ?? (nivel >= 5);
-  const hayFathom = !!v.hasFathomUrl || !!v.fathomOmitido || v.grabable === false;
+  const sinGrabacion = !!v.fathomOmitido || v.grabable === false;
+  const hayFathomR1 = sinGrabacion || (v.hasFathomR1 ?? !!v.hasFathomUrl);
+  const hayFathomR2 = sinGrabacion || (v.hasFathomR2 ?? !!v.hasFathomUrl);
+  // Con el link de cada reunión se piden las DOS; con «hay alguno», una sola (el mismo link contestaba las dos).
+  const fathomPorReunion = v.hasFathomR1 !== undefined || v.hasFathomR2 !== undefined;
 
   // ── Reunión 1 (solo si el funnel tiene al menos 1 reunión) ──
   if (nivel >= 1 && mTotal >= 1 && !v.sinR1) {
@@ -205,7 +217,7 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
       // "¿Era calificado?" no se pregunta al cerrar (Ganado/venta): un cierre YA
       // implica que calificaba. Sí se pregunta en etapas previas (agendaj2/facturando).
       if (v.asistioJ1 !== false && v.calificado == null && !esVenta) steps.push({ id: 'calificado', label: '¿Era lead calificado?' });
-      if (v.asistioJ1 !== false && !hayFathom) steps.push({ id: 'fathomR1', label: 'Link de Fathom (R1)' });
+      if (v.asistioJ1 !== false && !hayFathomR1) steps.push({ id: 'fathomR1', label: 'Link de Fathom (R1)' });
       // Closer: quien corrió la R1.
       if (v.asistioJ1 !== false && v.closer !== undefined && !v.closer?.trim()) steps.push({ id: 'closer', label: 'Closer asignado' });
     }
@@ -222,7 +234,7 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
     // nula al montar) pero el server la exigía después → el movimiento fallaba.
     if (r2DebeEstarCompleta && (v.fechaJ2 || nivel >= 4)) {
       if (v.asistioJ2 == null) steps.push({ id: 'asistenciaR2', label: 'Asistencia a la Reunión 2' });
-      if (v.asistioJ2 !== false && !hayFathom && !steps.some((s) => s.id === 'fathomR1')) {
+      if (v.asistioJ2 !== false && !hayFathomR2 && (fathomPorReunion || !steps.some((s) => s.id === 'fathomR1'))) {
         steps.push({ id: 'fathomR2', label: 'Link de Fathom (R2)' });
       }
     }
@@ -326,11 +338,11 @@ const VACIAR: Partial<Record<StepId, (v: StageReqValues) => StageReqValues | nul
   fechaJ1: (v) => ({ ...v, fechaJ1: null }),
   asistenciaR1: (v) => ({ ...v, asistioJ1: null }),
   calificado: (v) => ({ ...v, calificado: null }),
-  fathomR1: (v) => ({ ...v, hasFathomUrl: false, fathomOmitido: false }),
+  fathomR1: (v) => ({ ...v, hasFathomUrl: false, fathomOmitido: false, ...(v.hasFathomR1 !== undefined ? { hasFathomR1: false } : {}) }),
   closer: (v) => (v.closer === undefined ? null : { ...v, closer: '' }),
   fechaJ2: (v) => ({ ...v, fechaJ2: null }),
   asistenciaR2: (v) => ({ ...v, asistioJ2: null }),
-  fathomR2: (v) => ({ ...v, hasFathomUrl: false, fathomOmitido: false }),
+  fathomR2: (v) => ({ ...v, hasFathomUrl: false, fathomOmitido: false, ...(v.hasFathomR2 !== undefined ? { hasFathomR2: false } : {}) }),
   monto: (v) => ({ ...v, monto: null, suscripcionMonto: null }),
   plan: (v) => (v.tienePlan === undefined ? null : { ...v, tienePlan: false }),
   dealServicio: (v) => (v.dealServicioOk === undefined ? null : { ...v, dealServicioOk: false }),

@@ -18,6 +18,8 @@ import { stageMeta, type Stage } from '@/lib/pipeline';
 import { stepsForStage, funnelReqInfo, unirPasos, type Step, type StepId } from '@/lib/stage-requirements';
 import { ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
 import type { FathomLink } from '@/lib/leads';
+import { etiquetaEsR2 } from '@/lib/insights-llamada-reparto';
+import { ponerLinkFathom } from './campo-inline';
 import { completeStageMoveAction, requisitosDeEtapaAction, type StageMoveCuota, type StageMoveResultado } from './actions';
 import { productosParaCierreAction, type ProductoCierre } from './producto-cierre-actions';
 import { hoyEnTz } from '@/lib/date-utils';
@@ -230,7 +232,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [asistioJ1, setAsistioJ1] = useState<boolean | null>(move.asistioJ1 ?? lead.asistioJ1);
   const [asistioJ2, setAsistioJ2] = useState<boolean | null>(move.asistioJ2 ?? lead.asistioJ2);
   const [calificado, setCalificado] = useState<boolean | null>(move.yaRespondido?.calificado ?? lead.calificado);
-  const [fathom, setFathom] = useState<FathomLink[]>(() => (lead.fathom.length ? lead.fathom : [{ label: 'Llamada', url: '' }]));
+  const [fathom, setFathom] = useState<FathomLink[]>(() => lead.fathom);
+  /** El link de UNA reunión en `fathom` (el mismo reparto que la ficha: `etiquetaEsR2`). */
+  const linkDe = (r2: boolean) => fathom.find((f) => f.url.trim() && etiquetaEsR2(f.label) === r2)?.url ?? '';
   const [fathomOmitido, setFathomOmitido] = useState(false);
   // Reprogramar: la tercera salida del paso de asistencia. Vacío = no se reprograma.
   const [reprogR1, setReprogR1] = useState('');
@@ -368,6 +372,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       asistioJ1: move.asistioJ1 ?? lead.asistioJ1, asistioJ2: move.asistioJ2 ?? lead.asistioJ2,
       calificado: move.yaRespondido?.calificado ?? lead.calificado,
       hasFathomUrl: lead.fathom.some((f) => f.url?.trim()),
+      // El link de CADA reunión (24/10/2026): con «hay alguno», cargada la R1 nunca se pedía la de la R2 (03/07).
+      hasFathomR1: lead.fathom.some((f) => f.url?.trim() && !etiquetaEsR2(f.label)),
+      hasFathomR2: lead.fathom.some((f) => f.url?.trim() && etiquetaEsR2(f.label)),
       monto: lead.monto,
       // ⚠️ La mensualidad, IGUAL QUE EL SERVER (`valoresDeRequisitos`, app/crm/actions.ts):
       // sólo cuando lo guardado es una suscripción. Faltaba (08/10/2026), y este placeholder
@@ -589,7 +596,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       case 'asistenciaR1': return asistioJ1 != null || !!reprogR1;
       case 'asistenciaR2': return asistioJ2 != null || !!reprogR2;
       case 'calificado': return calificado != null;
-      case 'fathomR1': case 'fathomR2': return fathomOmitido || fathom.some((f) => f.url.trim());
+      case 'fathomR1': case 'fathomR2': return fathomOmitido || !!linkDe(paso === 'fathomR2').trim();
       case 'producto': return productoElegido != null; // obligatorio: un producto u «Otro / personalizado»
       case 'ventaTipo': return true; // hay un default (pago único); se elige y se sigue
       case 'monto': return totalMonto > 0;
@@ -1019,20 +1026,18 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     case 'fathomR2':
       pregunta = `Link de Fathom de la ${paso === 'fathomR1' ? 'Reunión 1' : 'Reunión 2'}`;
       sub = 'Si la reunión no se grabó, puedes omitirlo.';
-      cuerpo = (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {fathom.map((f, i) => (
-            <div key={i} style={{ display: 'flex', gap: 8 }}>
-              <input aria-label="Etiqueta" value={f.label} onChange={(e) => setFathom((arr) => arr.map((x, xi) => (xi === i ? { ...x, label: e.target.value } : x)))} placeholder="Llamada" style={{ ...compInput, flex: 'none', width: 110, textAlign: 'left' }} />
-              <input aria-label="URL" value={f.url} onChange={(e) => { setFathomOmitido(false); setFathom((arr) => arr.map((x, xi) => (xi === i ? { ...x, url: e.target.value } : x))); }} placeholder="https://fathom.video/…" autoFocus={i === 0} style={{ ...compInput, flex: 1, textAlign: 'left' }} />
-            </div>
-          ))}
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
-            <button type="button" onClick={() => setFathom((arr) => [...arr, { label: '', url: '' }])} style={{ padding: 8, borderRadius: 9, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SANS, flex: 1 }}>+ Agregar otro link</button>
-            <button type="button" onClick={() => setFathomOmitido(true)} style={{ padding: 8, borderRadius: 9, border: '1px solid ' + (fathomOmitido ? 'var(--warn-fill)' : 'var(--border-strong)'), background: fathomOmitido ? 'var(--warn-bg)' : 'transparent', color: fathomOmitido ? 'var(--warn)' : 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{fathomOmitido ? 'Sin grabación ✓' : 'No se grabó (omitir)'}</button>
+      {
+        // ⚠️ UN LINK POR REUNIÓN (24/10/2026). Los dos pasos mostraban la MISMA lista, y un link cualquiera daba por
+        // contestados a los dos: cargada la R1, la R2 no se pedía nunca (Martín, 03/07: «Fathom se pide siempre»). Cada
+        // paso edita el link de SU reunión con `ponerLinkFathom`, el de la ficha, y los demás links quedan como estaban.
+        const r2 = paso === 'fathomR2';
+        cuerpo = (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input aria-label={`Link de Fathom de la ${r2 ? 'Reunión 2' : 'Reunión 1'}`} value={linkDe(r2)} onChange={(e) => { const url = e.target.value; setFathomOmitido(false); setFathom((arr) => ponerLinkFathom(arr, r2 ? 'fathom_r2' : 'fathom_r1', url || null, etiquetaEsR2)); }} placeholder="https://fathom.video/…" autoFocus style={{ ...compInput, textAlign: 'left' }} />
+            <button type="button" onClick={() => setFathomOmitido(true)} style={{ alignSelf: 'flex-start', padding: 8, borderRadius: 9, border: '1px solid ' + (fathomOmitido ? 'var(--warn-fill)' : 'var(--border-strong)'), background: fathomOmitido ? 'var(--warn-bg)' : 'transparent', color: fathomOmitido ? 'var(--warn)' : 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{fathomOmitido ? 'Sin grabación ✓' : 'No se grabó (omitir)'}</button>
           </div>
-        </div>
-      );
+        );
+      }
       break;
     case 'producto':
       pregunta = '¿Qué compró?';
