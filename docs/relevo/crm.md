@@ -34,6 +34,11 @@ automatizaciones visibles en /automations. Una reunión sin marcar deja de pasar
 enseguida (~14 mensajes al grupo de Mauricio) y eso no se deshace. Si dice que sí, **después del 25/10**, el lanzamiento:
 ese día no se distinguiría un problema de la venta de uno del CRM automático.
 
+**24/10, Automations (claude1): la punta ahora es `aut-b5-ia2`** (worktree C:/dev/wt-aut-b5ia2), sobre esta. Trae lo
+de Automations del b5: los 4 hallazgos del port de IA más uno (`parcheEspera`, d38ba234c), y M3/M6 de abajo
+(`lugarDeFicha` con el ancla, en la zona del negocio, eebbb6413). M4 de tests/motor-carril-recordatorio.test.ts quedó en
+verde. Juntos: 73 de 73. La próxima sesión de CRM sigue desde ahí (merge o ff); lo demás de la lista de abajo sigue igual.
+
 **CORTADO POR USO (23/10, tarde) — LO QUE SIGUE, en orden.** Punta `d84d2e73a`, que ya trae el port de IA de Automations
 (`5badeda1a`) y la espera estacionada (M2/E4). La revisión adversarial confirmó 24 hallazgos (`wf_14b879ca-b3c`; detalle
 en el journal de la corrida y en el scratchpad de la sesión, `crm-b5-revision.md`). Faltan:
