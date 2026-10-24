@@ -1666,6 +1666,11 @@ hacerlo o investiga como lo hacen otras apps». La referencia es vercel.com/mark
   se abre igual, pero el scroll no encuentra la tarjeta. Ningún test lo veía: `scrollIntoView` sobre `null` no falla.
   - Ahora el link limpia los filtros y despliega lo que haga falta (`pedida`).
   - El scroll va en su efecto, detrás del render que pone la tarjeta en el DOM.
+- **Sacar «Requiere tu atención» se llevaba un aviso que no tenía otro lugar.** Un negocio que pegó la clave de MaKo
+  («Esa key es la de MaKo, no la tuya», veredicto `copia`) está SIN conectar, y sólo esa sección lo decía. Las alertas de las
+  conectadas ya iban a sus tarjetas, pero ésta quedaba muda en el catálogo. Ahora lo dice su tarjeta, va primera en «Sin
+  conectar» y entra en «Con problemas» (en el teléfono, igual). **Al sacar una sección que junta avisos, se recorre cada aviso
+  que juntaba**, no sólo los de las tarjetas que se ven.
 - **Lo plegado conserva sus links.** «Costo de MaKo» se abre con `#saldo-ia` (el chip «Saldo de IA» del menú) y con `?ops=1`. El
   historial muestra a la vista cuántos están en curso, o «No pude leerlo».
 - **El teléfono, en el mismo trabajo** (AGENTS.md: las mismas vistas, en el mismo orden y con los mismos rótulos): «Tus cuentas de

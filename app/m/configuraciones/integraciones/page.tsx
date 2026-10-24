@@ -26,7 +26,7 @@ import { ordenCategoria } from '@/lib/integraciones-catalogo';
 import { ordenIA } from '@/lib/ia-labels';
 import { esPasarela } from '@/lib/cobros-tipos';
 import { esIntegracionDeLeads } from '@/lib/fuentes-leads-catalogo';
-import { POR_QUE_LA_CONFIGURA_MAKO } from '@/lib/ia-keys';
+import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO } from '@/lib/ia-keys';
 import { CabeceraM, PantallaM } from '@/app/m/_ui';
 import { IntegracionesM, type IntegracionM, type ProblemaM } from './IntegracionesM';
 
@@ -45,7 +45,8 @@ export default async function IntegracionesMovil({ searchParams }: { searchParam
       paraQue: i.paraQue ?? null, soloServidor: i.soloServidor === true,
       // Una IA que configura el equipo de MaKo va con las conectadas (como en la computadora).
       conectada: i.estado === 'conectada' || i.detalle === POR_QUE_LA_CONFIGURA_MAKO,
-      problema: inc ? { estado: inc.statusLabel, rojo: inc.severidad === 'rojo' } : null,
+      // La clave que pegó es la de MaKo: sin conectar, con algo que hacer (como en la tarjeta de la computadora).
+      problema: inc ? { estado: inc.statusLabel, rojo: inc.severidad === 'rojo' } : i.detalle === POR_QUE_IA_DE_MAKO ? { estado: 'Revisa tu clave', rojo: false } : null,
       opcional: esPasarela(i.key) || esIntegracionDeLeads(i.key),
       // El link de escritorio que abre SU modal (o la grilla, para las que no se abren sueltas).
       enComputadora: SIN_MODAL_SUELTO.includes(i.key) ? '/integraciones' : `/integraciones?abrir=${encodeURIComponent(i.key)}`,
@@ -55,7 +56,7 @@ export default async function IntegracionesMovil({ searchParams }: { searchParam
   const enOrden = (a: IntegracionM, b: IntegracionM) => ordenCategoria(a.categoria) - ordenCategoria(b.categoria) || ordenIA(a.key) - ordenIA(b.key);
   const rango = (i: IntegracionM) => (i.problema ? (i.problema.rojo ? 0 : 1) : 2);
   const conectadas = integraciones.filter((i) => i.conectada).sort((a, b) => rango(a) - rango(b) || enOrden(a, b));
-  const sinConectar = integraciones.filter((i) => !i.conectada).sort((a, b) => Number(a.opcional) - Number(b.opcional) || enOrden(a, b));
+  const sinConectar = integraciones.filter((i) => !i.conectada).sort((a, b) => rango(a) - rango(b) || Number(a.opcional) - Number(b.opcional) || enOrden(a, b));
   const historial: ProblemaM[] = incidentes.map((x) => ({
     id: x.id, servicio: lista.find((i) => i.key === x.service)?.nombre ?? x.service, estado: x.statusLabel, detalle: x.detalle,
     rojo: x.severidad === 'rojo', confirmado: x.confirmado, enCurso: x.resolvedAt == null,

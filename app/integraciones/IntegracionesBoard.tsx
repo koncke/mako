@@ -389,15 +389,15 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
       if (metaSev) return metaSev === 'verde' ? 'good' : metaSev === 'ambar' ? 'warn' : 'bad';
       if (metaError) return 'bad';
     }
-    // Verde SOLO con el permiso completo. Media conexión se ve igual que ninguna:
-    // así el contador "N/M conectados", el medidor y el punto del tile dicen lo
-    // mismo que el modal, en vez de dejarlo en una nota al pie que nadie abre.
+    // Verde SOLO con el permiso completo. Media conexión no es verde: así la tarjeta
+    // (su estado, y el filtro «Con problemas») dice lo mismo que el modal, en vez
+    // de dejarlo en una nota al pie que nadie abre.
     if (i.key === 'google' && (gcalIncompleta || gcalRechazada)) return 'warn';
     // Mismo criterio para la landing: el código pegado en su página es de una
     // versión vieja. El tracking anda —los eventos llegan— pero hay algo que
     // hacer, y el verde no sabe decir eso. Degradar a ámbar es el precedente de
-    // Google, y se elige por lo mismo: que el contador, el medidor, el punto y el
-    // chip digan todos lo mismo, en vez de esconderlo en una nota que nadie abre.
+    // Google, y se elige por lo mismo: que la tarjeta, su punto y el chip del
+    // modal digan todos lo mismo, en vez de esconderlo en una nota que nadie abre.
     if (i.key === 'landing' && landingVieja) return 'warn';
     // Y Calendly con el token y el R1 pero sin el aviso que trae las reservas nuevas (23/10/2026): lee la agenda y no
     // recibe nada. El mismo ámbar, por lo mismo: el verde no sabe decir «conectada, pero no entra ninguna reserva».
@@ -431,6 +431,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // el nombre de una variable, como «Falta configurar: RESEND_API_KEY»—.
   // (Sin useMemo: el React Compiler memoiza; el useMemo manual con el closure sevOf le impedía optimizar.)
   const motivoDe = (i: Integracion): string | null => {
+    // La clave que pegó es la de MaKo (`veredictoDeIA` → copia): está sin conectar, pero hay algo que hacer y se dice en SU
+    // tarjeta. Antes lo decía «Requiere tu atención»; sin eso, quedaba muda en «Sin conectar» (revisión del 24/10/2026).
+    if (i.detalle === POR_QUE_IA_DE_MAKO) return POR_QUE_IA_DE_MAKO;
     if (!estaConectada(i) || delEquipoMaKo(i) || sevOf(i) === 'good') return null;
     let motivo = 'Requiere atención';
     if (i.key === 'meta') {
@@ -474,9 +477,10 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // Las conectadas con un problema van primero: rojo, después ámbar.
   const rango = (i: Integracion) => (motivoDe(i) == null ? 2 : sevOf(i) === 'bad' ? 0 : 1);
   const conectadasVis = integraciones.filter((i) => estaConectada(i) && pasa(i)).sort((a, b) => rango(a) - rango(b) || enOrden(a, b));
-  // Las opcionales (las pasarelas y las del Leads Scraper, `opcionalSinConectar`) van al final del catálogo.
+  // Las que tienen algo que hacer (la clave de MaKo pegada) van primero; las opcionales (las pasarelas y las del Leads
+  // Scraper, `opcionalSinConectar`), al final del catálogo.
   const sinConectarVis = integraciones.filter((i) => !estaConectada(i) && pasa(i))
-    .sort((a, b) => Number(opcionalSinConectar(a)) - Number(opcionalSinConectar(b)) || enOrden(a, b));
+    .sort((a, b) => rango(a) - rango(b) || Number(opcionalSinConectar(a)) - Number(opcionalSinConectar(b)) || enOrden(a, b));
   // «Mostrar más» SE CALCULA (AGENTS.md): con un filtro o una búsqueda se ve todo lo que pasa, y lo que pidió un link también.
   const pedidaOculta = pedida != null && sinConectarVis.slice(TOPE_CATALOGO).some((i) => i.key === pedida.key);
   const catalogo = verTodas || filtrando || pedidaOculta ? sinConectarVis : sinConectarVis.slice(0, TOPE_CATALOGO);
@@ -498,7 +502,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
         {/* El nombre ENTERO, en dos renglones si hace falta (21/10/2026): con «…» se leía «Instagram y Mess…». */}
         <span style={{ fontWeight: 600, fontSize: 15, letterSpacing: '-0.01em', lineHeight: 1.25, color: 'var(--ink)', overflowWrap: 'anywhere' }}>{i.nombre}</span>
         <span className="int-tarjeta__linea">{i.descripcion}</span>
-        {conectada && (
+        {(conectada || motivo) && (
           // El motivo se lee ENTERO (21/10/2026): con «…» se cortaba también a 1280 de ventana.
           <span style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 'auto', paddingTop: 2, fontSize: 12.5, fontWeight: 600, lineHeight: 1.35, color: equipo ? 'var(--dim)' : sev === 'bad' ? 'var(--bad)' : sev === 'warn' ? 'var(--warn)' : 'var(--good)', overflowWrap: 'anywhere' }}>
             <span aria-hidden style={{ width: 8, height: 8, flex: 'none', marginTop: 4, borderRadius: '50%', background: equipo ? 'var(--faint)' : dotColor(sev) }} />

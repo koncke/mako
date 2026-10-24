@@ -56,7 +56,6 @@ test('2. dos secciones: «Conectadas» primero (los problemas adelante) y «Sin 
   // Una IA que configura el equipo de MaKo no le pide nada al negocio: va con las conectadas.
   assert.match(b, /const estaConectada = \(i: Integracion\) => i\.estado === 'conectada' \|\| delEquipoMaKo\(i\);/);
   assert.match(b, /const rango = \(i: Integracion\) => \(motivoDe\(i\) == null \? 2 : sevOf\(i\) === 'bad' \? 0 : 1\);/, 'rojo, ámbar y después las que están bien');
-  assert.match(b, /\.sort\(\(a, b\) => Number\(opcionalSinConectar\(a\)\) - Number\(opcionalSinConectar\(b\)\) \|\| enOrden\(a, b\)\)/);
   // Doce y «Mostrar más integraciones», que se dibuja sólo si deja algo afuera; con un filtro, una búsqueda o un link que pide
   // una de las plegadas, se ve todo.
   assert.match(b, /const TOPE_CATALOGO = 12;/);
@@ -71,7 +70,7 @@ test('2. dos secciones: «Conectadas» primero (los problemas adelante) y «Sin 
 test('3. la tarjeta: el logo, la categoría, el nombre, UNA línea y, en las conectadas, su estado; nunca una variable', () => {
   const b = tablero();
   const t = b.slice(b.indexOf('const tarjeta = (i: Integracion) =>'), b.indexOf('const grilla = '));
-  const orden = ['id={`svc-${i.key}`}', '<SvcIcon k={i.key}', '<span className="int-pildora">{i.categoria}</span>', '{i.nombre}</span>', '<span className="int-tarjeta__linea">{i.descripcion}</span>', '{conectada && ('];
+  const orden = ['id={`svc-${i.key}`}', '<SvcIcon k={i.key}', '<span className="int-pildora">{i.categoria}</span>', '{i.nombre}</span>', '<span className="int-tarjeta__linea">{i.descripcion}</span>', '{(conectada || motivo) && ('];
   const pos = orden.map((x) => t.indexOf(x));
   assert.ok(pos.every((p, k) => p > 0 && (k === 0 || p > pos[k - 1])), `la tarjeta, en el orden de Vercel: ${pos}`);
   assert.match(t, /onClick=\{\(\) => setModal\(\{ t: 'svc', key: i\.key \}\)\}/, 'toda la tarjeta abre su modal, el de siempre');
@@ -80,7 +79,11 @@ test('3. la tarjeta: el logo, la categoría, el nombre, UNA línea y, en las con
   // «Falta configurar: RESEND_API_KEY»).
   const m = b.slice(b.indexOf('const motivoDe = '), b.indexOf('const opcionesCategoria'));
   assert.match(m, /if \(!estaConectada\(i\) \|\| delEquipoMaKo\(i\) \|\| sevOf\(i\) === 'good'\) return null;/);
-  assert.doesNotMatch(m, /i\.detalle/);
+  assert.doesNotMatch(m, /return i\.detalle|motivo = i\.detalle/);
+  // Salvo una: la clave pegada que es la de MaKo. Sin conectar, pero con algo que hacer: lo dice su tarjeta y va primero.
+  assert.match(m, /if \(i\.detalle === POR_QUE_IA_DE_MAKO\) return POR_QUE_IA_DE_MAKO;/);
+  assert.match(t, /\{\(conectada \|\| motivo\) && \(/);
+  assert.match(b, /\.sort\(\(a, b\) => rango\(a\) - rango\(b\) \|\| Number\(opcionalSinConectar\(a\)\) - Number\(opcionalSinConectar\(b\)\) \|\| enOrden\(a, b\)\)/);
   assert.match(m, /else if \(i\.key === 'calendly' && i\.estado === 'conectada' && faltaAvisoCalendly\) \{\s*motivo = faltaAvisoCalendly\.motivo;/);
   assert.match(m, /else if \(i\.key === 'landing' && landingVieja\) \{\s*motivo = ROTULO_PIXEL_VIEJO;/);
   // La línea, en dos renglones; el nombre, entero.
@@ -143,10 +146,11 @@ test('7. el teléfono: las mismas secciones, en el mismo orden y con los mismos 
   assert.ok(pos.every((p, k) => p > 0 && (k === 0 || p > pos[k - 1])), `en el orden de la computadora: ${pos}`);
   assert.doesNotMatch(m, /Para resolver|categorias\.map/, 'ni «Para resolver» arriba ni una sección por categoría');
   assert.match(m, /href="\/perfil\/ia"/, 'su casa en el teléfono: /m/cuenta/ia (el proxy la reescribe)');
-  assert.match(m, /\{sinConectar\.map\(\(i\) => <FilaM key=\{i\.key\} titulo=\{i\.nombre\} segunda=\{i\.descripcion\}/, 'la línea, no «Falta configurar: …»');
+  assert.match(m, /<FilaM key=\{i\.key\} titulo=\{i\.nombre\} segunda=\{i\.problema \? i\.detalle : i\.descripcion\}/, 'la línea, no «Falta configurar: …» (salvo la clave de MaKo)');
   const p = sinComentarios(leer('app/m/configuraciones/integraciones/page.tsx'));
   assert.match(p, /conectada: i\.estado === 'conectada' \|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO,/);
   assert.match(p, /const enOrden = \(a: IntegracionM, b: IntegracionM\) => ordenCategoria\(a\.categoria\) - ordenCategoria\(b\.categoria\) \|\| ordenIA\(a\.key\) - ordenIA\(b\.key\);/);
-  assert.match(p, /\.sort\(\(a, b\) => Number\(a\.opcional\) - Number\(b\.opcional\) \|\| enOrden\(a, b\)\)/);
+  assert.match(p, /\.sort\(\(a, b\) => rango\(a\) - rango\(b\) \|\| Number\(a\.opcional\) - Number\(b\.opcional\) \|\| enOrden\(a, b\)\)/);
+  assert.match(p, /i\.detalle === POR_QUE_IA_DE_MAKO \? \{ estado: 'Revisa tu clave', rojo: false \} : null/);
   assert.match(p, /\.sort\(\(a, b\) => rango\(a\) - rango\(b\) \|\| enOrden\(a, b\)\)/);
 });

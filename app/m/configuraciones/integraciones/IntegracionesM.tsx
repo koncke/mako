@@ -58,7 +58,10 @@ export function IntegracionesM({ conectadas, sinConectar, historial, abrir }: {
       {sinConectar.length > 0 && (
         <SeccionM titulo="Sin conectar">
           <ListaM>
-            {sinConectar.map((i) => <FilaM key={i.key} titulo={i.nombre} segunda={i.descripcion} onClick={() => setAbierta(i)} />)}
+            {sinConectar.map((i) => (
+              <FilaM key={i.key} titulo={i.nombre} segunda={i.problema ? i.detalle : i.descripcion}
+                pill={i.problema ? <PildoraM tono="warn">{i.problema.estado}</PildoraM> : undefined} onClick={() => setAbierta(i)} />
+            ))}
           </ListaM>
         </SeccionM>
       )}
