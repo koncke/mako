@@ -13,13 +13,13 @@
 // (lib/partners-programa.ts, `acreditarReferidos`). NADA lo consume todavía: no se descuenta de la cuota, no se paga en
 // plata, y la comisión del Acelerador no se registra en ningún lado. Por eso la página no dice «meses gratis», ni «un
 // referido de Pro vale un mes de Pro», ni ofrece comisión a las agencias, y DICE que el crédito todavía no se descuenta
-// solo. Sin cobro en línea, además, un referido no se registra solo: lo dice con el mismo texto que el panel. El día que
+// solo. Sin cobro en línea, además, un referido no se registra solo: lo dice como el panel (`textoSinReferidos`). El día que
 // se aplique el crédito (docs/relevo/suscripcion.md, punto 5), se cambia el texto junto con la regla. Los números salen de
 // los planes y las reglas, no a mano.
 // =============================================================================
 
 import Link from 'next/link';
-import { CREDITO_HOY, DIAS_COOKIE_REF, PAGOS_PARA_ACREDITAR, textoSinReferidos } from '@/lib/partners-reglas';
+import { CREDITO_HOY, DIAS_COOKIE_REF, PAGOS_PARA_ACREDITAR } from '@/lib/partners-reglas';
 import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako';
 
 const usd = (n: number) => `US$ ${n.toLocaleString('es-AR')}`;
@@ -144,7 +144,12 @@ export function LandingPartners({ cobraEnLinea, emailMako }: { cobraEnLinea: boo
             <li className="mp-paso"><span className="mp-paso-n">2</span><h3>Tu referido entra a MaKo</h3><p>Con su propio plan. Cuenta un negocio nuevo, y el primero que lo trajo.</p></li>
             <li className="mp-paso"><span className="mp-paso-n">3</span><h3>Se te suma su primer mes</h3><p>Cuando paga su {mes} mes, su primer mes queda como crédito a tu favor, y lo ves en tu panel.</p></li>
           </ol>
-          {!cobraEnLinea && <p className="mp-aviso">{textoSinReferidos({ cobraEnLinea, emailMako })}</p>}
+          {!cobraEnLinea && (
+            <p className="mp-aviso">
+              Por ahora MaKo da de alta a mano, así que un referido no aparece solo en tu panel: si alguien entró con tu link,
+              escríbenos a {emailMako} y lo sumamos.
+            </p>
+          )}
         </div>
       </section>
 

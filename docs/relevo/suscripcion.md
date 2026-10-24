@@ -68,10 +68,10 @@
    `lib/origen-negocio.ts`. **Cuando /planes esté en producción, avisarle a ese chat**: hoy el CTA de sus landings es la agenda
    (Calendly), y pasa a `/planes/<plan>?landing=<slug>&avatar=<x>&funcionalidad=<y>`.
 5. MaKo Partners: APLICAR el crédito en la suscripción del partner y el beneficio del que llega (hallazgos-partners).
-   **El copy ya promete que el crédito se usa:** /partners/referidos («se descuenta de tus próximos meses») y /mako-partners
-   (rediseñada como landing el 24/10, sin agregar promesas: «un referido de Pro vale un mes de Pro» y la comisión del
-   Acelerador). Cumplirlo o no prometerlo es decisión de Martín (la subió el Cerebro el 23/10); no agregar promesas hasta
-   que conteste.
+   **Desde el 24/10 ninguna pantalla promete que el crédito se usa** (decisión del Cerebro: «no promete nada que no vayamos
+   a cumplir»): dicen que queda registrado y que todavía no se descuenta solo (`CREDITO_HOY`, lib/partners-reglas.ts), y no
+   ofrecen la comisión del Acelerador. Al aplicar el crédito o registrar la comisión, cambiar `CREDITO_HOY` y el texto de
+   /mako-partners junto con la regla.
 6. **El código de partner en una venta POR LLAMADA (medido el 23/10, con todas las letras):** fuera del checkout en línea,
    el código SE PIERDE DEL TODO en la base. Desde el 23/10, quien llega por /r/<código> y agenda lleva el código a Calendly
    como `utm_source=mako-partners&utm_campaign=<código>` (queda en la reserva; en el lead, cuando la agenda entre al ws 9,

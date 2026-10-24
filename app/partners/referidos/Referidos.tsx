@@ -74,7 +74,7 @@ export function Referidos({ tablero, agencia, cobraEnLinea = true, emailMako }: 
         <div className="pr-kpi destacado"><b>{usd(r.acumuladoUsd)}</b><span>Crédito acumulado</span></div>
         <div className="pr-kpi"><b>{tablero.referidos.length}</b><span>{tablero.referidos.length === 1 ? 'Referido' : 'Referidos'}</span></div>
         <div className="pr-kpi"><b>{acreditados}</b><span>Ya te sumaron crédito</span></div>
-        <div className="pr-kpi"><b>{esperando}</b><span>Esperando su {mes} pago</span></div>
+        <div className="pr-kpi"><b>{esperando}</b><span>Todavía no suman crédito</span></div>
       </div>
       {tablero.referidos.length === 0
         ? <EmptyState titulo="Todavía no tienes referidos" detalle={textoSinReferidos({ cobraEnLinea, emailMako })} />
