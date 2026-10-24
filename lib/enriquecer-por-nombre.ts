@@ -37,7 +37,7 @@ export async function empezarEnriquecimiento(pedidos: readonly PedidoEnriquecer[
   { ok: true; runId: string; cantidad: number; techoUsd: number } | { ok: false; error: string }
 > {
   const validos = pedidosValidos(pedidos);
-  if (!validos.length) return { ok: false, error: 'Ningún lead tiene un nombre para buscar.' };
+  if (!validos.length) return { ok: false, error: 'Ningún lead tiene un nombre ni un teléfono para buscar.' };
   const token = await tokenDelNegocio();
   if (!token) return { ok: false, error: SIN_APIFY };
   const techoUsd = techoEnriquecer(validos.length);

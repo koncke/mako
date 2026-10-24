@@ -10889,6 +10889,11 @@ no lo tienen. Martín: «con el motor de búsqueda que tenemos, con el nombre o 
   de Google Maps tiene el suyo: si coinciden los últimos 10 dígitos, es él (`confianza: 'telefono'`). Sólo por nombre es
   más flojo (`'nombre'`): igual sin acentos ni puntuación, único en SU búsqueda, y sin OTRO teléfono (otra sucursal). Dos
   lugares que califican y dicen cosas distintas → vacío, nunca el primero.
+- **Los 221 NO tienen nombre (medido por el CRM: 0 de 221; la agenda de la línea sólo conoce a quien le escribió), así
+  que la búsqueda va por el TELÉFONO** (`telefonoParaBuscar`: «+» y los dígitos, sin el «1» de celular mexicano) y
+  sólo vale un lugar con ese mismo número. El diagnóstico obvio —«buscar por nombre»— era el equivocado para este
+  caso. Una persona sin negocio en Google Maps no tiene de dónde sacar nada, y vuelve vacía. El perfil de empresa de
+  WhatsApp (escalón 1) dio 3 de 15 en la muestra del CRM, y no se corre en masa: es tráfico en una línea no oficial.
 - **No medido:** el costo real (no hay clave de Apify en ningún negocio el 24/10; el precio es el publicado, unos US$2–5 los
   221) y la forma real de los resultados (el lector sigue el ejemplo publicado del actor: `searchString`, `title`,
   `phoneUnformatted`, `website`, `instagrams`). La primera corrida se compara contra esto.

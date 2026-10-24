@@ -6,12 +6,12 @@
 // website, instagrams, placeId): NO de una corrida real, que no se pudo hacer (ningún negocio tiene clave de Apify).
 //
 // Probado rompiéndolo (24/10/2026), una rotura por vez, restaurando desde memoria:
-//   · el emparejado por teléfono quitado (sólo por nombre)                        → 7 pasan / 1 falla;
-//   · `unica` que devuelve el primero aunque los lugares digan cosas distintas    → 7 / 1;
-//   · la exclusión del lugar con OTRO teléfono quitada                            → 7 / 1;
-//   · `l.busqueda === q` quitado (un lugar de la búsqueda de otro, por nombre)   → 7 / 1;
-//   · el `credWs('APIFY_TOKEN'` cambiado por una clave del entorno                → 7 / 1.
-// Base: 8 / 0.
+//   · el emparejado por teléfono quitado (sólo por nombre)                        → 7 pasan / 2 fallan;
+//   · `unica` que devuelve el primero aunque los lugares digan cosas distintas    → 8 / 1;
+//   · la exclusión del lugar con OTRO teléfono quitada                            → 8 / 1;
+//   · `l.busqueda === q` quitado (un lugar de la búsqueda de otro, por nombre)   → 8 / 1;
+//   · el `credWs('APIFY_TOKEN'` cambiado por una clave del entorno                → 8 / 1.
+// Base: 9 / 0. (El caso SIN nombre, por teléfono, se sumó el 24/10 con lo que midió el CRM: 0 de 221 traen nombre.)
 //
 // Correr: node --import tsx --test tests/enriquecer-por-nombre.test.ts
 import { test } from 'node:test';
@@ -76,9 +76,18 @@ test('por nombre sólo entre los lugares de SU búsqueda, y sin web ni Instagram
   assert.equal(emparejar([c], [lugar({ busqueda: consultaDe(c), titulo: 'Sol', tel: '5500001111' })])[0].confianza, null);
 });
 
-test('la tanda: sin repetidos, sin leads sin nombre, con tope y techo de plata', () => {
-  const v = pedidosValidos([{ id: '1', nombre: 'A' }, { id: '1', nombre: 'A' }, { id: '2', nombre: '  ' }, { id: '3', nombre: 'B', ciudad: 'CDMX' }]);
-  assert.deepEqual(v.map((p) => p.id), ['1', '3']);
+test('SIN nombre (los 221 del grupo): se busca por el teléfono y sólo vale ese mismo teléfono', () => {
+  const p = { id: 'G1', nombre: null, telefono: '5215512345678' };
+  assert.equal(consultaDe(p), '+525512345678', 'sin el «1» de celular mexicano: la ficha guarda 52·10');
+  const [bien] = emparejar([p], [lugar({ busqueda: '+525512345678', titulo: 'Booom PR', tel: '+52 55 1234 5678', web: 'https://www.booompr.com' })]);
+  assert.equal(bien.confianza, 'telefono');
+  const [otro] = emparejar([p], [lugar({ busqueda: '+525512345678', titulo: 'Otro', tel: '+52 55 9999 0000', web: 'https://otro.example' })]);
+  assert.equal(otro.confianza, null, 'Google devolvió otro negocio: sin el mismo teléfono no es él');
+});
+
+test('la tanda: sin repetidos, sin leads sin nombre ni teléfono, con tope y techo de plata', () => {
+  const v = pedidosValidos([{ id: '1', nombre: 'A' }, { id: '1', nombre: 'A' }, { id: '2', nombre: '  ' }, { id: '3', nombre: 'B', ciudad: 'CDMX' }, { id: '4', telefono: '5512345678' }, { id: '5', telefono: '123' }]);
+  assert.deepEqual(v.map((p) => p.id), ['1', '3', '4']);
   assert.equal(pedidosValidos(Array.from({ length: TOPE_PEDIDOS + 5 }, (_, i) => ({ id: String(i), nombre: `N${i}` }))).length, TOPE_PEDIDOS);
   const inp = inputEnriquecer([{ id: '1', nombre: 'A' }, { id: '9', nombre: 'A' }]);
   assert.deepEqual(inp.searchStringsArray, ['A'], 'dos leads con la misma búsqueda son una búsqueda');

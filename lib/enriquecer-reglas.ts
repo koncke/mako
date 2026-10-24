@@ -37,7 +37,11 @@ export const USD_POR_PEDIDO = POR_CONSULTA * (4 + 2) / 1000;
 export type PedidoEnriquecer = {
   /** Lo elige quien llama (el id del lead): viaja tal cual al resultado. */
   id: string;
-  nombre: string;
+  /**
+   * Opcional: los participantes de un grupo de WhatsApp entran SIN nombre (medido por el CRM el 24/10: 0 de 221). Sin
+   * nombre se busca por el TELÉFONO, y entonces sólo vale un lugar con ese mismo teléfono (confianza 'telefono').
+   */
+  nombre?: string | null;
   telefono?: string | null;
   ciudad?: string | null;
   rubro?: string | null;
@@ -61,17 +65,28 @@ export function nombreComparable(s: string | null | undefined): string {
   return sinAcentos(String(s ?? '').toLowerCase()).replace(/[^a-z0-9ñ]+/g, ' ').trim();
 }
 
-/** Lo que se busca en Google Maps por cada lead: nombre, rubro y ciudad. */
+/**
+ * El teléfono como se busca en Google Maps: «+» y los dígitos, sin el «1» de celular mexicano (52·1·10 y 52·10 son la
+ * misma línea, y la ficha de un negocio guarda la segunda). `null` = no alcanza para buscar.
+ */
+export function telefonoParaBuscar(tel: string | null | undefined): string | null {
+  const d = String(tel ?? '').replace(/\D/g, '');
+  if (d.length < 10) return null;
+  return `+${d.length === 13 && d.startsWith('521') ? `52${d.slice(3)}` : d}`;
+}
+
+/** Lo que se busca en Google Maps por cada lead: nombre, rubro y ciudad; sin nombre, su teléfono. */
 export function consultaDe(p: PedidoEnriquecer): string {
+  if (!nombreComparable(p.nombre)) return telefonoParaBuscar(p.telefono) ?? '';
   return [p.nombre, p.rubro, p.ciudad].map((x) => String(x ?? '').trim()).filter(Boolean).join(' ').slice(0, 120);
 }
 
-/** Los pedidos que se pueden buscar: con nombre, sin repetir id, hasta el tope. */
+/** Los pedidos que se pueden buscar: con nombre o con un teléfono buscable, sin repetir id, hasta el tope. */
 export function pedidosValidos(pedidos: readonly PedidoEnriquecer[]): PedidoEnriquecer[] {
   const vistos = new Set<string>();
   const out: PedidoEnriquecer[] = [];
   for (const p of pedidos) {
-    if (!p || typeof p.id !== 'string' || !p.id || vistos.has(p.id) || !nombreComparable(p.nombre)) continue;
+    if (!p || typeof p.id !== 'string' || !p.id || vistos.has(p.id) || !consultaDe(p)) continue;
     vistos.add(p.id);
     out.push(p);
     if (out.length >= TOPE_PEDIDOS) break;
@@ -125,6 +140,8 @@ export function emparejar(pedidos: readonly PedidoEnriquecer[], items: readonly 
         //    no es el lead aunque se llame igual (otra sucursal, otro negocio con el mismo nombre).
         const q = consultaDe(p);
         const nombre = nombreComparable(p.nombre);
+        // Sin nombre (se buscó por el teléfono) no hay segundo camino: sólo vale el teléfono.
+        if (!nombre) return null;
         const suyos = lugares.filter((l) => l.busqueda === q && nombreComparable(l.nombre) === nombre && !(tel && l.telefono && l.telefono !== tel));
         return unica(suyos);
       })();
