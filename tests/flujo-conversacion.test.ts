@@ -479,7 +479,8 @@ test('el Dropdown abre un paso MÁS (`grupos`) y buscando aplana con el camino',
   assert.match(dd, /onClick=\{\(\) => setRuta\(\(r\) => \[\.\.\.r, g\.title\]\)\}/);
   assert.match(dd, /onClick=\{\(\) => setRuta\(\(r\) => r\.slice\(0, -1\)\)\}/);
   // Adentro de una sección: primero sus pasos, después sus opciones.
-  assert.match(dd, /\{\(abierta\.grupos \?\? \[\]\)\.map\(\(g\) => botonSeccion\(g\)\)\}\s*\{abierta\.options\.map\(/);
+  // Las opciones, después de los grupos; desde el 24/10/2026 pueden ir en dos columnas (`dosColumnas`).
+  assert.match(dd, /\{\(abierta\.grupos \?\? \[\]\)\.map\(\(g\) => botonSeccion\(g\)\)\}\s*\{abierta\.(?:dosColumnas \?|options\.map\()/);
   // Lo elegido se encuentra aunque viva dos pasos adentro (el botón dice qué está puesto).
   assert.match(dd, /const flat = secciones \? secciones\.flatMap\(opcionesDe\)/);
   assert.match(dd, /tramosPlanos\(seccVisibles \?\? \[\]\)\.map\(/);

@@ -166,10 +166,12 @@ export function seccionesDelArbol(funnels: readonly FunnelDelArbol[], puedeQuita
       ...(i > 0 && bandaDe(s) !== bandaDe(orden[i - 1]) ? { lineaArriba: true } : {}),
     }));
     if (accionDelRenglon(true, puedeQuitar) === 'quitar') {
-      options.push({ value: valorQuitar(f.id), label: 'Quitar de este funnel', icono: 'quitar', lineaArriba: true, buscar: f.nombre });
+      options.push({ value: valorQuitar(f.id), label: 'Quitar de este funnel', icono: 'quitar', lineaArriba: true, alPie: true, buscar: f.nombre });
     }
     const actual = f.etapas.find((s) => s.key === f.etapa)?.label ?? 'Etapa borrada';
-    return { title, resumen: actual, activo: true, options };
+    // ⚠️ EN DOS COLUMNAS (03/07/2026, la ficha v5): «dividido en 2 secciones lado a lado (pipeline | nutrición agrupada)
+    // para evitar scroll». El recorrido a la izquierda; nutrición y descarte a la derecha (`columnasDeSeccion`).
+    return { title, resumen: actual, activo: true, options, dosColumnas: true };
   });
 }
 
