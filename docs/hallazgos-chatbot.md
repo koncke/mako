@@ -6422,8 +6422,84 @@ haría que todas cuenten (aviso al equipo y sin M2). Por eso el arreglo va junto
 automática. **Medido de paso:** con un goteo de 11 min salen cada ~12. El turno se cuenta desde el `created_at` de la
 fila, que se escribe después de las partes, y el tick corre una vez por minuto. La condición «Contestó» también espera su
 turno de goteo (es un nodo con canal WhatsApp: `sinLugar`), así que M2 sale 24 h después de evaluarla, no de M1.
-**Sin hacer:** el arreglo de la carrera (CAS en el avance; si la fila pasó a 'respondio' durante el envío, que siga en
-'respondio' y corra `alContestar`) y la regla de la respuesta automática: los dos esperan la decisión del Cerebro.
+
+**Lo hecho (24/10/2026, el Cerebro: las dos cosas en el mismo cambio; y tres revisores encima).** (1) La carrera: el
+avance después de mandar es `avanzarTrasMandar` (lib/nutricion.ts), compare-and-set contra lo LEÍDO (estado, paso y nodo).
+Si no entra, relee y decide `reconciliarAvance` (lib/nutricion-grafo-motor.ts, puro): misma posición y 'activa' →
+'respondio' = contestó mientras salía, el avance va igual CONSERVANDO 'respondio' y corre `alContestar` (ahora sí le salió
+algo: la rama «Contestó» y su línea en la ficha); otra escritura la movió (`alContestar`, una retoma, otra corrida), la
+cerró, o `alContestar` ya la sacó (misma posición sin próximo envío) = no se pisa. Con hilos, `escribirHilos` con
+`trasMandar`, y en la PRIMERA conversión a hilos con la misma regla del cursor (sin eso revivía la que «Contestó» había
+sacado). (2) El reclamo antes de mandar (`reclamarAntesDeMandar`): un compare-and-set de `updated_at` contra lo leído,
+después de las guardas que no mandan y antes del turno del residuo. Si la fila cambió, el mensaje no sale y vuelve a la
+cola. Cerró uno PREEXISTENTE: a quien contestaba mientras el motor recorría el lote (minutos, en la apertura de las 9) le
+salía el mensaje que seguía, porque la guarda «Contestó corta» y la condición de arriba miraban el estado del lote. (3) La
+respuesta automática: `esRespuestaAutomatica` (lib/respuesta-automatica.ts, pura) y su lectura donde entra el mensaje
+(`esRespuestaAutomaticaDelEntrante`, lib/evolution-mensajes.ts). Un entrante a 15 s o menos (`UMBRAL_RESPUESTA_AUTOMATICA_MS`)
+de la PRIMERA parte del PRIMER WhatsApp de una inscripción (en esta pasada: desde `inscripto_at`) no llama a
+`pausarPorRespuesta` para ninguna automatización del lead (ni «Contestó», ni AI Step, ni borrador, ni avisos); el mensaje se
+guarda y la ficha dice «Su mensaje llegó a los N s del primer mensaje de «X»: tan rápido se toma como la respuesta
+automática de su WhatsApp y no cuenta como respuesta.» (una LECTURA por la hora, no un hecho). La ráfaga es de una
+inscripción sólo con SU fila del envío (o su borrador aprobado); si el motor la reclamó y la fila todavía no está, el
+lector la ESPERA (hasta `FILA_DEL_ENVIO_TRAS_LA_PRIMERA_MAX_MS`, 85 s) y vuelve a decidir. ⚠️ **Esa espera NO va en el
+camino sincrónico del webhook** (revisión a mano del 24/10): el 1-a-1 se guarda sincrónico, y esperar ahí dejaba la línea
+sin contestarle a Evolution ~20 s por cada bienvenida automática, que en una campaña a dueños de negocio pasa seguido. El
+webhook pregunta con `sinEsperar` y, si hay que esperar, decide después de contestar (`after`, re-entrando al negocio con
+`runWithWorkspace`). No es automática si el lead
+nos escribió en los 14 días de antes (sin actividad no hay bienvenida; con actividad es una charla). Se miran también las
+'completada' sin desenlace (la «Bienvenida» de un solo mensaje ya se cerró cuando llega la bienvenida). Sólo el no oficial:
+el oficial no tiene entrante ni manda desde el 09/10, y por Instagram/Messenger el motor nunca escribe primero. Probado en
+el ws3 (el arnés, casos E, E2, F, F2, G y H): con el avance de vuelta en 'fila', E da exactamente el #2502; sin el
+reclamo, G recibe M2; sin la espera, F2 cuenta; sin «ya hablaban», H se come. A #2502 no se lo tocó.
+
+**Medido (24/10/2026, sólo lectura, todos los ws, 45 días).** 30 primeros WhatsApp de una inscripción, todos en el ws1. Un
+solo entrante a menos de 60 s de la primera parte: la bienvenida del #2502 (inscripción 327), a los 4,4 s, 199 caracteres
+(«Gracias por comunicarte con…»), y ese lead no había escrito antes. Ninguna persona. La fila del envío, a los 19 s de la
+primera parte (mediana) y 24 como máximo. **El umbral sale de UN dato**: una persona que contesta en 15 s o menos al primer
+mensaje no cuenta, y una automática que llega después de los 15 s (con mala señal) sí. Re-medirlo: por cada primer
+`nutricion_envios` 'enviado' de WhatsApp de una inscripción, la primera parte en el espejo (caminando hacia atrás con
+`HUECO_ENTRE_PARTES_MS`) y los entrantes reales (sin 'evento' ni 'otro') hasta 60 s después, POR ws con `runWithWorkspace`.
+
+**Las trampas.** (a) La hora de la primera parte NO está en `nutricion_envios`: esa fila se escribe después de la ÚLTIMA
+parte. Sale del espejo (`wa_mensajes` con `from_me`, lo que escribe `enviarYEspejar` por parte), y la primera se encuentra
+caminando hacia atrás desde el entrante: medir desde la última daría por automática a una persona que contestó a los 16 s.
+El hueco entre dos partes no es sólo la pausa: el espejo se escribe cuando Evolution VUELVE, después del «escribiendo…» de
+hasta 11 s (`enviarTexto`, lib/evolution.ts), así que dos partes quedan hasta ~22 s una de otra (`HUECO_ENTRE_PARTES_MS` =
+25 s; con 15 s se partían en dos mensajes). (b) **«Vencida y sin envíos» NO es «se la está mandando»** (el diagnóstico
+obvio, y el de la primera versión). Una vencida sin mandar dura horas o días: pausada (`idsDePausadas` la saca de la cola
+y la fila sigue 'activa'), cerrada por su horario, con el cupo lleno, o frenada por el anti-ban de la corrida PORQUE otra
+automatización le acaba de escribir: es el propio freno el que hace que coincidan. Así se tragaba la respuesta de una
+persona al M3 de otra automatización o a un mensaje desde Chats. Y `updated_at` tampoco prueba nada (lo escribe cualquier
+escritura: una condición que la movió, la reactivación de una pausada): el reclamo sólo dice cuándo vale la pena esperar
+la fila. (c) **En asistido la fila del envío miente la hora**: `anotarPasoEnviado` (lib/evolution-envio.ts) le cambia el
+estado a 'enviado' y deja el `created_at` del borrador, de horas antes de que alguien lo apruebe; la de salida es
+`wa_borradores.enviado_at` (`horasDeSalida`). (d) Sólo cuentan los envíos de WhatsApp: un email de antes no impide la
+bienvenida del primer WhatsApp. (e) La ventana de la carrera no es lo que tardan las partes: el lote se lee UNA vez y se
+recorre en serie mandando, así que arranca cuando se leyó el lote. (f) Con hilos el bug era OTRO: `escribirHilos` sí
+comparaba el estado, pero al perder devolvía false y el avance se PERDÍA: el hilo quedaba parado en el mensaje que ya
+salió. (g) El 'fila' también revivía a 'activa' una inscripción cancelada desde la ficha mientras salía el mensaje: el
+compare-and-set lo cierra de paso. (h) `alContestar` llamado desde el motor va sin la vía rápida (`sinViaRapida`): esa
+corrida ya tiene el turno; la fila vuelve a la cola y la rama corre en la vuelta siguiente. (i) Tres relojes: el entrante
+trae la hora de WhatsApp en segundos truncados, el espejo y el reclamo la del servidor, la fila del envío la de la base
+(1 s de holgura; en la notebook la base va 0,3 s atrás). (j) **El arnés del ws3 corre CONTRA EL TICK DE PRODUCCIÓN**, que
+también mira el ws3 cada minuto y SIN simular: si agarraba la fila entre `vence` y la corrida del arnés la mandaba 24 h
+adelante («canal apagado»), y E salió rojo una vez de tres. Parecía un bug del reclamo; era el reclamo haciendo su trabajo
+(antes la corrida del arnés mandaba igual con la fila vieja). El arnés ahora corre con el turno del motor del ws3
+(`conTurnoDelMotor`). Y en una corrida simulada la fila del envío se escribe en milisegundos: para pasar por la espera, el
+`durante` de F2 tiene que demorar al motor. (k) Para medir en producción, `getSupabaseServer()` NO ve las filas de un ws
+con base propia (el ws1 tiene la suya: otros ids); cada ws, con `runWithWorkspace` y `getTenantDb`. (l) El arnés estaba
+roto desde el 23/10: `guardarConfigAutomatizacion` rechaza `personaHoras` («Misma persona» se fue); se sacó ese paso.
+
+**Sin hacer.** Los demás `escribir(..., { modo: 'fila' })` que ponen `estado` (los cierres sin mandar: la reunión ya pasó,
+el residuo, el tope de antigüedad, la tarjeta borrada, el email apagado, el fallo terminal; lib/nutricion.ts) siguen sin
+comparar: pueden pisar un 'respondio' que llegue entre la lectura del lote y el cierre; sin un mensaje de por medio no le
+cortan nada a nadie. Un borrador aprobado de audio con pie, o de archivo, está en 'enviando' (sin hora) mientras sale el
+pie: la bienvenida que llega en ese rato cuenta. Un paso con IA que tarda más de 60 s entre el reclamo y la primera parte
+pierde el filtro (cuenta). Con la espera en `after`, un entrante que llega mientras se decide el anterior puede
+procesarse antes que él (orden distinto, mismo resultado). Un «ausente» de quien nos escribió en los 14 días
+cuenta como respuesta; la regla de los 14 días es la que publica WhatsApp, no medida, y no mira nuestros salientes. Sin la
+fila del espejo (Evolution no devolvió el id y el eco no llegó) cuenta como respuesta. «Probar» (lib/simulador-grafo.ts)
+no imita ni la carrera, ni el reclamo, ni la automática.
 
 ## «Sale sola» y la reentrada se fueron de la tarjeta de WhatsApp (23/10/2026)
 

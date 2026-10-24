@@ -2534,4 +2534,26 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "24 oct", hora: "06:40", chat: "Automations", cuenta: "claude1",
+    sesion: "local_298a7983-21a5-4fcb-a5c5-bf80bc9e0944",
+    actor: "claude", tipo: "correccion",
+    titulo: "«Contestó» corta también si contesta mientras le sale el mensaje, y la respuesta automática de su WhatsApp no cuenta",
+    puntos: [
+      "Quien contestaba mientras le salía el primer mensaje (3 partes, unos 20 segundos) volvía a quedar como «no contestó»: no se avisaba al equipo y le salía el segundo.",
+      "Ahora esa respuesta se conserva: corre «Contestó» y no le sale nada más.",
+      "Y si contesta mientras el motor les está mandando a otros leads, ya no le sale el mensaje que seguía: antes salía igual, con lo que se había leído al empezar la tanda.",
+      "Lo que llega a 15 s o menos del primer mensaje de una automatización (la bienvenida de su WhatsApp Business) no cuenta como respuesta: la secuencia sigue y la ficha lo dice, como una lectura por la hora. Una persona que contesta tan rápido tampoco cuenta.",
+      "No se toma como automática la respuesta a otra cosa (el mensaje de otra automatización o uno escrito desde Chats), ni la de quien ya venía hablando con el negocio.",
+      "Probado en el negocio de prueba: contesta a los 20 s (corta y corre la rama «Contestó»), la bienvenida a los 4 y 5 s (no corta, sale el segundo), contesta antes de que salga el segundo (no sale) y quien ya había escrito (cuenta).",
+    ],
+    archivos: [
+      "lib/nutricion.ts — el reclamo antes de mandar y el avance que no pisa la respuesta",
+      "lib/nutricion-grafo-motor.ts — qué hace el avance que no entró",
+      "lib/respuesta-automatica.ts — qué es una respuesta automática",
+      "lib/evolution-mensajes.ts — el entrante la filtra, espera la fila del envío y la ficha lo dice",
+      "scripts/arnes-contesto-corta.mts — el arnés del ws3",
+    ],
+    revisar: "/automations",
+  },
 ];

@@ -8,12 +8,18 @@
 // funciones de lectura alimentan el inbox.
 
 import 'server-only';
-import { getTenantDb, getWorkspaceActual, wsObligatorio } from '@/lib/workspace';
+import { after } from 'next/server';
+import { getTenantDb, getWorkspaceActual, wsObligatorio, runWithWorkspace } from '@/lib/workspace';
 import { leerPorPaginas } from '@/lib/supabase-paginado';
 import { jidToNumero, lineaParaLeer, fetchMensajesEvolution,
   fetchConversacionEvolution, fetchChatsEvolution, fetchLidDeNumero, statusDeRecord, type EvRecord } from '@/lib/evolution';
-import { normalizarTelefono } from '@/lib/leads';
+import { normalizarTelefono, logLeadEvent } from '@/lib/leads';
 import { pausarPorRespuesta } from '@/lib/nutricion';
+import {
+  esRespuestaAutomatica, inicioDeLaRafaga, horasDeSalida, textoRespuestaAutomatica,
+  VENTANA_LECTURA_MS, TOLERANCIA_RELOJ_MS, UMBRAL_RESPUESTA_AUTOMATICA_MS, SIN_ACTIVIDAD_PARA_LA_BIENVENIDA_MS,
+  type VeredictoEntrante,
+} from '@/lib/respuesta-automatica';
 import { MEDIA_BUCKET, subirMedia } from '@/lib/evolution-media';
 import { grupoSeGuarda } from '@/lib/grupos-guardados';
 import { derivarEtapa, type LeadEtapaFields } from '@/lib/wa-etapas';
@@ -206,7 +212,148 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
     const audio = tipo === 'audio' ? { base64: mediaBase64 ?? null, mime: mediaMime ?? 'audio/ogg', waMessageId: key.id, chatJid, instancia: instance } : null;
     // Sólo si WhatsApp la trae: `tsToISO` sin hora devuelve «ahora», que no es la del mensaje.
     const recibidoAt = Number(data.messageTimestamp) > 0 ? tsToISO(data.messageTimestamp) : null;
-    try { await pausarPorRespuesta(leadId, { texto: texto ?? undefined, linea: instance, origen: 'no_oficial', audio, recibidoAt }); } catch { /* no fatal */ }
+    // ⚠️ LA RESPUESTA AUTOMÁTICA DE SU WHATSAPP NO ES UNA RESPUESTA (24/10/2026, el #2502): llegó a los segundos del primer
+    // mensaje de una automatización. El mensaje ya quedó guardado (arriba); lo que no corre es lo de «contestó» (ni el AI
+    // Step, ni el borrador, ni avisos), y la ficha lo dice. Sin la hora de WhatsApp, la de ahora: el webhook llega al toque.
+    const recibido = recibidoAt ?? new Date().toISOString();
+    const pausar = async () => {
+      try { await pausarPorRespuesta(leadId, { texto: texto ?? undefined, linea: instance, origen: 'no_oficial', audio, recibidoAt }); } catch { /* no fatal */ }
+    };
+    const ya = await esRespuestaAutomaticaDelEntrante(leadId, recibido, { sinEsperar: true });
+    if (ya === true) return;
+    // ⚠️ LA ESPERA DE LA FILA NO VA EN EL WEBHOOK (revisión a mano del 24/10/2026). El 1-a-1 se guarda SINCRÓNICO
+    // (app/api/webhooks/evolution/route.ts): esperar ahí la fila del envío de una inscripción reclamada (hasta
+    // `FILA_DEL_ENVIO_TRAS_LA_PRIMERA_MAX_MS`) dejaba el webhook de esa línea sin contestar ~20 s por cada bienvenida
+    // automática, y en una campaña a dueños de negocio (la #289) eso pasa seguido. Se decide después de contestar
+    // (`after`), con la misma función; fuera de un pedido (un script, el arnés) no hay `after` y se espera acá.
+    if (ya === 'esperar') {
+      const tarde = async () => { if (!(await esRespuestaAutomaticaDelEntrante(leadId, recibido))) await pausar(); };
+      // El negocio se vuelve a poner a mano: `after` corre cuando ya se contestó, fuera del `runWithWorkspace` del webhook
+      // (el mismo patrón que el doer en esa ruta).
+      const ws = await getWorkspaceActual();
+      try { after(() => runWithWorkspace(ws, tarde)); } catch { await tarde(); }
+      return;
+    }
+    await pausar();
+  }
+}
+
+/**
+ * ¿ESTE ENTRANTE ES LA RESPUESTA AUTOMÁTICA DE SU WHATSAPP? (24/10/2026, la #289 del ws1: el #2502.) Lee lo que decide
+ * `esRespuestaAutomatica` (lib/respuesta-automatica.ts, puro y con test) y, si lo es, lo DICE en la ficha («nada por
+ * detrás»). Exportada para el arnés del ws3.
+ *
+ * De dónde sale cada hora:
+ *  · la de la PRIMERA PARTE: los `wa_mensajes` salientes (`from_me`) de ese lead. Cada parte deja su fila al salir
+ *    (`enviarYEspejar`, lib/evolution-envio.ts: la hora del servidor al volver de Evolution), o la del eco del webhook si
+ *    ganó él (la de WhatsApp). `nutricion_envios` NO sirve: se escribe después de la ÚLTIMA parte (en el #2502, 19 s
+ *    después de la primera);
+ *  · la del ENTRANTE: la de WhatsApp (`recibidoAt`);
+ *  · si el lead ya venía hablando: sus entrantes REALES (sin 'evento' ni 'otro', como la puerta de arriba) de los 14 días
+ *    antes de la ráfaga;
+ *  · y si es el PRIMER WhatsApp de la inscripción ('activa', 'respondio', o 'completada' sin desenlace: la de un solo
+ *    mensaje ya se cerró cuando llega la bienvenida): la hora de SALIDA de sus WhatsApp de esta pasada (desde
+ *    `inscripto_at`) —la fila del envío, o `wa_borradores.enviado_at` si salió como borrador aprobado: la fila conserva el
+ *    `created_at` del borrador—, su `proximo_envio_at` y el RECLAMO del motor (`updated_at`, `reclamarAntesDeMandar`).
+ *
+ * ⚠️ Sin la fila de la parte (Evolution no devolvió el id y el eco todavía no llegó) no hay hora que medir: cuenta como
+ * respuesta, lo de siempre. Nunca tira: si algo no se pudo leer, cuenta como respuesta.
+ */
+export function esRespuestaAutomaticaDelEntrante(leadId: number, recibidoAt: string): Promise<boolean>;
+/** `sinEsperar`: si hay que esperar la fila del envío de una reclamada, no espera y devuelve 'esperar' (el webhook). */
+export function esRespuestaAutomaticaDelEntrante(leadId: number, recibidoAt: string, opts: { sinEsperar: true }): Promise<boolean | 'esperar'>;
+export async function esRespuestaAutomaticaDelEntrante(leadId: number, recibidoAt: string, opts?: { sinEsperar?: boolean }): Promise<boolean | 'esperar'> {
+  try {
+    const recibidoMs = Date.parse(recibidoAt);
+    if (!Number.isFinite(recibidoMs)) return false;
+    const db = await getTenantDb();
+    const { data: sal, error: eS } = await db.from('wa_mensajes').select('wa_timestamp')
+      .eq('lead_id', leadId).eq('from_me', true)
+      .gte('wa_timestamp', new Date(recibidoMs - VENTANA_LECTURA_MS).toISOString())
+      .lte('wa_timestamp', new Date(recibidoMs + TOLERANCIA_RELOJ_MS).toISOString())
+      .limit(60);
+    if (eS) throw new Error(`salientes: ${eS.message}`);
+    const salientesMs = ((sal ?? []) as Array<{ wa_timestamp: string | null }>).map((m) => Date.parse(m.wa_timestamp ?? ''));
+    // (Lo que no puede ser automático no lee nada más: sin ráfaga, o tarde.)
+    const inicio = inicioDeLaRafaga(recibidoMs, salientesMs);
+    if (inicio == null || recibidoMs - inicio > UMBRAL_RESPUESTA_AUTOMATICA_MS) return false;
+    const { data: ent, error: eA } = await db.from('wa_mensajes').select('wa_timestamp')
+      .eq('lead_id', leadId).eq('from_me', false).not('tipo', 'in', '(evento,otro)')
+      .gte('wa_timestamp', new Date(inicio - SIN_ACTIVIDAD_PARA_LA_BIENVENIDA_MS).toISOString())
+      .lt('wa_timestamp', new Date(inicio - TOLERANCIA_RELOJ_MS).toISOString())
+      .limit(1);
+    if (eA) throw new Error(`entrantes de antes: ${eA.message}`);
+    const entrantesMs = ((ent ?? []) as Array<{ wa_timestamp: string | null }>).map((m) => Date.parse(m.wa_timestamp ?? ''));
+    const aMs = (s: string | null | undefined) => (s ? Date.parse(s) : Number.NaN);
+    const finito = (n: number) => (Number.isFinite(n) ? n : null);
+    /** Lee las inscripciones y sus envíos de AHORA y decide (`sinEsperar`: ya se esperó la fila de la reclamada). */
+    const decidir = async (sinEsperar: boolean): Promise<VeredictoEntrante | null> => {
+      const { data: ins, error: eI } = await db.from('nutricion_inscripciones')
+        .select('id, secuencia_id, estado, desenlace, inscripto_at, proximo_envio_at, updated_at')
+        .eq('lead_id', leadId).in('estado', ['activa', 'respondio', 'completada']);
+      if (eI) throw new Error(`inscripciones: ${eI.message}`);
+      const filas = (ins ?? []) as Array<{ id: number; secuencia_id: number; estado: string; desenlace: string | null; inscripto_at: string | null; proximo_envio_at: string | null; updated_at: string | null }>;
+      if (!filas.length) return null;
+      const ids = filas.map((f) => f.id);
+      // Sólo WhatsApp: la bienvenida la dispara el primer WHATSAPP (un email de antes no es «ya le había salido algo»).
+      const { data: env, error: eE } = await db.from('nutricion_envios').select('inscripcion_id, paso, estado, created_at')
+        .in('inscripcion_id', ids).eq('canal', 'whatsapp').in('estado', ['enviado', 'simulado', 'borrador']);
+      if (eE) throw new Error(`envíos: ${eE.message}`);
+      const envios = (env ?? []) as Array<{ inscripcion_id: number; paso: number | null; estado: string; created_at: string }>;
+      const { data: bor, error: eB } = await db.from('wa_borradores').select('inscripcion_id, paso, enviado_at')
+        .in('inscripcion_id', ids).eq('origen', 'nutricion').eq('estado', 'enviado');
+      if (eB) throw new Error(`borradores: ${eB.message}`);
+      // La hora de SALIDA (`horasDeSalida`): la del borrador aprobado, no la de su fila.
+      const salidas = horasDeSalida(
+        envios.map((e) => ({ inscripcionId: e.inscripcion_id, paso: e.paso, estado: e.estado, creadoMs: aMs(e.created_at) })),
+        ((bor ?? []) as Array<{ inscripcion_id: number; paso: number | null; enviado_at: string | null }>)
+          .map((b) => ({ inscripcionId: b.inscripcion_id, paso: b.paso, enviadoMs: finito(aMs(b.enviado_at)) })),
+      );
+      return esRespuestaAutomatica({
+        recibidoMs, salientesMs, entrantesMs, sinEsperar,
+        inscripciones: filas.map((f) => ({
+          id: f.id, secuenciaId: f.secuencia_id, estado: f.estado, desenlace: f.desenlace,
+          inscriptoMs: finito(aMs(f.inscripto_at)),
+          proximoMs: finito(aMs(f.proximo_envio_at)),
+          reclamoMs: finito(aMs(f.updated_at)),
+          enviosMs: salidas.get(f.id) ?? [],
+        })),
+      });
+    };
+    let v = await decidir(false);
+    if (!v) return false;
+    // ⚠️ LA RECLAMADA SIN FILA TODAVÍA (revisión del 24/10/2026): el motor la reclamó justo antes de la ráfaga y la fila
+    // del envío se escribe después de la última parte (hasta `FILA_DEL_ENVIO_TRAS_LA_PRIMERA_MAX_MS`). Se ESPERA esa fila
+    // (cualquier estado y canal: un 'fallo' o un 'borrador' también la cierran) y se vuelve a decidir. Sin fila, la
+    // ráfaga no era suya y cuenta como respuesta, sólo que más tarde. El webhook del 1-a-1 es sincrónico y tiene 420 s
+    // (app/api/webhooks/evolution/route.ts); pasa sólo con un entrante a 15 s o menos de una ráfaga.
+    if (!v.automatica && v.porque === 'esperar-su-fila') {
+      if (opts?.sinEsperar) return 'esperar';
+      const { inscripcionId, hastaMs } = v;
+      let llego = false;
+      for (;;) {
+        const { data: f, error: eF } = await db.from('nutricion_envios').select('id').eq('inscripcion_id', inscripcionId)
+          .gte('created_at', new Date(inicio - TOLERANCIA_RELOJ_MS).toISOString()).limit(1);
+        if (eF) throw new Error(`la fila del envío: ${eF.message}`);
+        llego = ((f ?? []) as unknown[]).length > 0;
+        const falta = hastaMs - Date.now();
+        if (llego || falta <= 0) break;
+        await new Promise<void>((listo) => setTimeout(listo, Math.min(2000, falta)));
+      }
+      console.log(`[evolution] lead ${leadId}: la inscripción ${inscripcionId} estaba reclamada; su fila del envío ${llego ? 'llegó' : 'no llegó: cuenta como respuesta'}`);
+      v = await decidir(true);
+      if (!v) return false;
+    }
+    if (!v.automatica) return false;
+    const { data: sec } = await db.from('nutricion_secuencias').select('nombre').eq('id', v.secuenciaId).maybeSingle();
+    const nombre = (sec as { nombre?: string | null } | null)?.nombre ?? null;
+    console.log(`[evolution] lead ${leadId}: respuesta automática a los ${Math.round(v.ms / 1000)} s del primer mensaje de la inscripción ${v.inscripcionId}: no cuenta como respuesta`);
+    // (`logLeadEvent` no tira: un historial que no se escribe no vuelve respuesta lo que no lo es.)
+    await logLeadEvent(leadId, 'Automatización', textoRespuestaAutomatica(v.ms, nombre), 'MaKo');
+    return true;
+  } catch (e) {
+    console.error(`[evolution] ¿respuesta automática del lead ${leadId}? (cuenta como respuesta): ${e instanceof Error ? e.message : String(e)}`);
+    return false;
   }
 }
 

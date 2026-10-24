@@ -623,6 +623,52 @@ export function estadoAlEscribir(leido: string | null | undefined, nuevo: unknow
 }
 
 /**
+ * ¿EL LEAD CONTESTÓ MIENTRAS LE SALÍA EL MENSAJE? (24/10/2026, la #289 del ws1: el #2502.) El motor leyó la fila 'activa'
+ * y ahora está en 'respondio': `pausarPorRespuesta` la marcó en el medio (las partes, o entre la fila del envío y el
+ * avance). Lo preguntan las dos puertas del avance después de mandar: el cursor (`reconciliarAvance`) y los hilos.
+ */
+export function contestoMientrasSalia(leido: string | null | undefined, ahora: string | null | undefined): boolean {
+  return (leido ?? 'activa') === 'activa' && ahora === 'respondio';
+}
+
+/**
+ * EL AVANCE DESPUÉS DE MANDAR QUE NO ENTRÓ (24/10/2026, la #289 del ws1: el #2502). El avance se escribe con
+ * compare-and-set contra lo LEÍDO (estado, `paso_actual`, `nodo_actual`); si no entra, se relee la fila y esto decide:
+ *
+ *  · `conservar-respuesta`: la misma posición y pasó de 'activa' a 'respondio' (el lead contestó mientras salía). El
+ *    avance se escribe igual, contra 'respondio' y CONSERVÁNDOLO (`estadoAlEscribir`): así la condición «Contestó» que
+ *    sigue lo ve, y `alContestar` (que no la tocó: todavía no le había salido nada) corre ahora.
+ *  · `no-pisar`: otra escritura la movió (`alContestar` a la rama «Contestó», el destrabe de `requiere`, una retoma de
+ *    «Si responde», otra corrida), la cerró o la canceló, o `alContestar` ya la sacó de la automatización (misma posición,
+ *    'respondio' y sin próximo envío). Lo de ella es más nuevo que lo leído.
+ *  · `reintentar`: nada distinto (el compare-and-set perdió contra un cambio que ya se deshizo).
+ *
+ * ⚠️ HASTA EL 24/10 ESTE AVANCE ERA `modo: 'fila'`: por id, sin comparar nada, y con el estado LEÍDO al empezar la
+ * corrida (`conEstadoDeLaFila`). Volvía a 'activa' a quien acababa de contestar (la condición «Contestó» lo daba por «no
+ * contestó» y programaba M2) y pisaba la rama a la que `alContestar` lo había llevado. Con un lote que se recorre en serie,
+ * la ventana no es sólo lo que tardan las partes: es desde que se leyó el lote.
+ */
+export type ReconciliarAvance = { tipo: 'conservar-respuesta' } | { tipo: 'reintentar' } | { tipo: 'no-pisar'; motivo: string };
+
+export function reconciliarAvance(
+  leido: { estado?: string | null; paso_actual: number; nodo_actual?: string | null },
+  ahora: { estado: string; paso_actual: number; nodo_actual: string | null; proximo_envio_at: string | null } | null,
+): ReconciliarAvance {
+  if (!ahora) return { tipo: 'no-pisar', motivo: 'la inscripción ya no está' };
+  if (ahora.paso_actual !== leido.paso_actual || (ahora.nodo_actual ?? null) !== (leido.nodo_actual ?? null)) {
+    return { tipo: 'no-pisar', motivo: 'otra escritura la movió mientras salía el mensaje' };
+  }
+  const estadoLeido = leido.estado ?? 'activa';
+  if (ahora.estado === estadoLeido) return { tipo: 'reintentar' };
+  if (contestoMientrasSalia(estadoLeido, ahora.estado)) {
+    return ahora.proximo_envio_at == null
+      ? { tipo: 'no-pisar', motivo: '«Contestó» ya la sacó de la automatización' }
+      : { tipo: 'conservar-respuesta' };
+  }
+  return { tipo: 'no-pisar', motivo: `pasó a '${ahora.estado}' mientras salía el mensaje` };
+}
+
+/**
  * ¿El desenlace ESPERA a esta inscripción? (M4.) Una en 'respondio' con el carril vivo (próximo envío puesto):
  * cerrarla como lograda ahora le apagaba los recordatorios que quedan. Cuando el carril termina, el motor la deja
  * en 'respondio' sin próximo envío, y ahí el desenlace la cierra como siempre.
