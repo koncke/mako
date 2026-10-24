@@ -20,6 +20,57 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Completar» en lote desde el tablero, y los que ya están no se vuelven a cargar (24/10/2026, tarde)
+
+**Vive en:** `completarFichas` y `completarPerfiles` (los núcleos, app/crm/grupo-wa-server.ts) · app/crm/enriquecer-lote-server.ts
+y app/crm/enriquecer-actions.ts (el lote) · app/crm/enriquecer-cliente.ts (las máquinas de la pantalla, compartidas) · la
+barra, app/crm/AccionesLoteLeads.tsx · tests/enriquecer-lote.test.ts (33 de 33 roturas cazadas, con las de grupo-wa y
+wa-fichas-extension).
+
+- **Dos copias del mismo bucle son dos lugares donde un arreglo se olvida.** Martín pidió completar «en lote, con el multiple
+  check, no sólo cuando cargo nuevos de grupos». El modal ya tenía las dos corridas con su cola, sus pendientes al frente, su
+  «Parar» y sus cortes dichos. En vez de copiarlas a la barra, salieron a funciones puras (`guardarFichasEnTandas`,
+  `correrPerfiles`) que reciben la acción del server por parámetro. Por eso los tests las prueban por COMPORTAMIENTO, con
+  dobles, y no con regex sobre el JSX.
+- **El límite del lote es «sólo los tildados».** La extensión devuelve fichas por teléfono, y un teléfono puede ser de otro
+  lead. El núcleo filtra por `soloIds`. En «Datos de empresa», el teléfono se toma de cada tildado y sólo cuenta si ese
+  teléfono es UN lead y es ése (`buscarTelefono(...) === t.id`). El cupo es POR LÍNEA: el modal y la barra gastan los mismos
+  120 del día.
+- **Una corrida de minutos desde una barra.** La pregunta se cierra ANTES de arrancar: con `loading` abierta, el `Confirm`
+  tapaba el avance y el «Parar». La casilla que limpia la selección no limpia mientras corre: la barra se desmonta sin
+  selección, y con ella el «Parar».
+- **«En gris abajo», y el comentario que mentía.** El efecto que carga los participantes decía «tildados los que todavía no
+  son leads», y el código tildaba a TODOS: traer un grupo repetido le volvía a pasar por encima a los que ya estaban (los sumaba
+  al funnel y les ponía la etiqueta). Ahora los que ya están no se tildan, van al final, en gris y sin casilla, y el pie dice
+  «Traigo N · M ya estaban». El server tampoco los vuelve a cargar, y eso alcanza también a la API de MaKo, que trae «todos».
+  ⚠️ **Esto reemplaza la regla del 23/10** («si un teléfono está en dos grupos, se le suman las dos etiquetas»): el pedido de
+  Martín del 24/10 es «no me debe cargar nuevamente». Si algún día se quiere sólo la etiqueta del segundo grupo, va en
+  `traerDelGrupo` (`traidos.push(existente)`). `sumados` queda en 0 y el campo sigue para no romper a quien lo lee.
+- **La revisión adversarial confirmó 25 problemas y no refutó ninguno. Los que más importan:**
+  - **El «Parar» no aparecía nunca.** El diagnóstico obvio («el botón está, lo condiciona `largo`») era el equivocado.
+    `setLargo(true)` se llamaba en la parte síncrona de `start(async () => …)`. En el React de Next 16, una actualización así
+    queda en el carril de la acción, y el render se suspende hasta que la acción ENTERA termina. Se midió en react-dom-client:
+    `entangleAsyncAction` y después `updateReducerImpl` lanza `currentEntangledActionThenable`. Durante minutos no hubo
+    «Parar», ni avance, ni casilla trabada. Las corridas largas pasaron a ser async planos con su propio estado, como el modal.
+    La regla general está en AGENTS.md.
+  - **El lote consultaba el teléfono SIN código de país.** En el grupo el número sale del JID y siempre lo trae; en una ficha
+    muchas veces no. Así se consultaba un número inexistente: gastaba cupo y quedaba «ya consultado» con la misma clave (los
+    últimos 10 dígitos) que el contacto real, que después nunca se consultaba. Ahora pasa por `numeroParaWhatsApp`, como todo
+    envío, y el que no se puede completar se cuenta en `sinPais`.
+  - **Dos llamadas a la vez consultaban los mismos teléfonos.** `vistos` se lee al empezar y se escribe al terminar. Ahora hay
+    un candado por línea en `app_settings` (`perfiles_wa.corriendo.<línea>`), que vence solo a los 70 s, y uno de módulo en la
+    barra.
+  - **El corte por tiempo sólo miraba «¿ya pasó?»** antes de cada consulta, así que la última podía pasar los 60 s. Ahora deja
+    lugar para la peor vuelta (la espera más el tope de una consulta).
+  - **Un corte en el modal se borraba solo.** Iba a `err`, y releer el grupo (`setVuelta`) limpia `err` en el acto. Ahora va
+    adentro del resumen (`hecho`), en «Traer» y en «Completar desde mi WhatsApp».
+  - **La API de MaKo seguía prometiendo sumar a los que ya son leads.** La IA lee la `descripcion` para elegir la acción, y un
+    «Traer 0» pendiente de un «sí» no hacía nada. Ahora dice que no los toca y, si ya están todos, no propone nada.
+- **Sin hacer:** el clic derecho del tablero (`ManijaLote`, app/crm/menu-contextual-crm.ts) no ofrece «Completar», sólo la
+  barra. El CRM del teléfono (app/m/crm) tampoco lo tiene.
+
+*24/10/2026, chat «CRM» (claude1).*
+
 ## «Datos de empresa» con tope por día: sin recordar a quién ya se consultó, el tope repite siempre a los mismos (24/10/2026)
 
 **Vive en:** `completarPerfilesDelGrupo` y `reservarPerfil` (app/crm/grupo-wa-server.ts) · las reglas del cupo en

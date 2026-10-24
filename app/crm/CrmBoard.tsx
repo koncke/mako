@@ -1974,6 +1974,8 @@ export function CrmBoard({
   // Cerrar el aviso de error es SÓLO de esta vista: al recargar vuelve a calcularse.
   const [errorCerrado, setErrorCerrado] = useState(false);
   const { toast: avisoBoard, show: mostrarAviso, clear: limpiarAviso } = useToast();
+  /** Una corrida de «Completar» de la barra de lote, viva: la barra no se desmonta aunque se vacíe la selección. */
+  const [completandoLote, setCompletandoLote] = useState(false);
 
   // ── «Invitar al curso al ganar» (pedido de Martín, 07/10/2026) ──────────────
   // ⚠️ NO ES UN useState SEMBRADO DE LA PROP: el tablero no se desmonta al cambiar de embudo, y
@@ -3247,7 +3249,7 @@ export function CrmBoard({
           tuviera, con el `position` puesto y sin un solo error.
           ⚠️ Y DEBAJO DE LA BARRA DE AGENCIA (#850, 17/10/2026): al inspeccionar un negocio esa barra va fija
           arriba, y con `top: 8` la de lote quedaba tapada. `--barra-agencia` (app/globals.css) es 0 sin ella. */}
-      {elegidos.length > 0 && (
+      {(elegidos.length > 0 || completandoLote) && (
         <div style={{ position: 'sticky', top: 'calc(var(--barra-agencia, 0px) + 8px)', zIndex: 20, marginBottom: 10 }}>
           <AccionesLoteLeads
             // El clic derecho sobre un tildado pide sus acciones por acá (`manijaLote`, ver `elegirContextual`).
@@ -3257,6 +3259,11 @@ export function CrmBoard({
             productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
             equipo={equipo}
             funnelActivo={funnelActivo}
+            // «Completar» en lote (24/10/2026): sólo el admin, la misma pregunta que «Nuevo CRM» (`puedeCrearCrm`).
+            puedeCompletar={!!puedeCrearCrm}
+            // Mientras «Completar» corre, la barra queda montada aunque la selección se vacíe por otro camino (el clic derecho,
+            // la casilla de una columna): sin barra no hay avance ni «Parar» (la revisión del 24/10/2026).
+            onCorriendo={setCompletandoLote}
             onLimpiar={limpiarSel}
             // ⚠️ EL DESHACER DEL LOTE LO CUELGA EL TABLERO, no la barra: la barra se desmonta
             // al limpiar la selección y un aviso suyo moriría con ella. Hoy lo trae «agregar a
@@ -3266,12 +3273,13 @@ export function CrmBoard({
               // «Frenar automatización» del lote cambia en qué automatizaciones está cada uno: se vuelve a leer.
               setVersionAut((v) => v + 1);
               const deshacer = r.deshacer;
+              // `r.tono`: un «Completar» a medias (paró, se cortó o faltan) no se canta como un «listo».
               mostrarAviso(r.texto, deshacer ? () => {
                 startTransition(async () => {
                   try { await deshacer(); } catch { mostrarAviso('No se pudo deshacer', undefined, 'bad'); }
                   router.refresh();
                 });
-              } : undefined);
+              } : undefined, r.tono);
               router.refresh();
             }}
             estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />

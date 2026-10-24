@@ -11,12 +11,14 @@
 // ⚠️ LOS NÚMEROS DE UN GRUPO SON DATOS PERSONALES: la línea tiene que ser una del negocio que pregunta (`listarLineas`, que
 //    sólo lista las suyas: NUNCA la de MaKo), el funnel también (`listarFunnels`), todo se escribe con `getTenantDb` (su workspace) y los participantes
 //    se vuelven a leer de Evolution al importar: lo que manda el navegador sólo ELIGE entre ellos.
-// ⚠️ NUNCA DUPLICAR: el teléfono se busca en el índice de TODO el CRM (`indiceContactos`, como la importación de archivos). Si ya
-//    es un lead, se lo SUMA a este funnel (`agregarAProducto`) en vez de crear otro; si lo comparten dos leads, se saltea.
+// ⚠️ NUNCA DUPLICAR NI VOLVER A CARGAR: el teléfono se busca en el índice de TODO el CRM (`indiceContactos`, como la importación
+//    de archivos). Si ya es un lead, NO SE TOCA: ni se crea otro, ni se suma a este funnel, ni se etiqueta (Martín, 24/10/2026:
+//    «si ya cargué un grupo o detecta que esos números ya están, no me debe cargar nuevamente»). Se cuenta en `yaEstaban`. Si lo
+//    comparten dos leads, se saltea.
 
 import 'server-only';
 import { getWorkspaceActual, getTenantDb } from '@/lib/workspace';
-import { cambiarSettingSi, getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
+import { borrarSettingSi, cambiarSettingSi, getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { fetchContactosEvolution, listarLineas } from '@/lib/evolution';
 import { getNombresContacto } from '@/lib/evolution-contactos';
@@ -24,7 +26,7 @@ import { completarCamposVacios, completarNombreDeRelleno, createLead, logLeadEve
 // LeadDuplicadoError vive en leads-duplicados: lib/leads la importa pero NO la reexporta (importada de ahí llegaba undefined y el
 // `instanceof` tiraba TypeError con cada participante que ya era lead).
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
-import { agregarAProducto, etapasDeProducto } from '@/lib/lead-funnel';
+import { etapasDeProducto } from '@/lib/lead-funnel';
 import { idDelFunnelDefault, listarFunnels } from '@/lib/funnels';
 import { secuenciasDeEtiqueta } from '@/lib/nutricion-etapa';
 import { getSecuenciasActivas } from '@/lib/nutricion';
@@ -189,9 +191,30 @@ export type ResultadoPerfiles = {
   sigue: boolean;
   /** Por qué no siguió con los que faltan: el tope del día o el de la corrida (se dice). null = terminó, o sigue. */
   corte: 'dia' | 'corrida' | null;
+  /** Desde el tablero: el nombre de la línea que se usa (el cupo es suyo) y los que no se consultan por no tener código de país. */
+  lineaNombre?: string; sinPais?: number;
 } | { ok: false; error: string };
 
 const claveCupo = (linea: string) => `perfiles_wa.cupo.${linea}`;
+const claveCandado = (linea: string) => `perfiles_wa.corriendo.${linea}`;
+
+/**
+ * EL CANDADO DE LA LÍNEA para UNA llamada (la revisión del 24/10/2026): `vistos` se lee al empezar y se escribe al terminar,
+ * así que dos llamadas a la vez (dos pestañas, el modal y la barra, dos personas del equipo) consultaban los MISMOS teléfonos,
+ * cada una con su espera: el doble de tráfico en la red de la línea. El cupo del día ya aguantaba; esto evita lo demás.
+ * Vence solo (70 s, más que una acción del server): una llamada que muere no deja la línea trabada. null = lo tiene otra.
+ */
+async function tomarCandado(linea: string): Promise<string | null> {
+  const raw = await getSettingEstricto(claveCandado(linea));
+  let vence = 0;
+  try { vence = Number((JSON.parse(raw ?? 'null') as { hasta?: unknown } | null)?.hasta) || 0; } catch { vence = 0; }
+  if (raw && vence > Date.now()) return null;
+  const nuevo = JSON.stringify({ hasta: Date.now() + 70_000, id: Math.random().toString(36).slice(2) });
+  return (await cambiarSettingSi(claveCandado(linea), raw, nuevo)) ? nuevo : null;
+}
+async function soltarCandado(linea: string, valor: string): Promise<void> {
+  await borrarSettingSi(claveCandado(linea), valor).catch((e) => console.error('[grupo-wa] no pude soltar el candado de perfiles:', msg(e)));
+}
 const claveVistos = (linea: string) => `perfiles_wa.vistos.${linea}`;
 
 /**
@@ -231,8 +254,22 @@ export async function completarPerfilesDelGrupo(p: {
   const telIdx = { exactos: idx.tels, sufijos: idx.telsSufijo };
   // Sólo los que ya son UN lead (con dos, no se adivina).
   const conLead = leidos.participantes.flatMap((x) => { const id = buscarTelefono(telIdx, x.telefono); return typeof id === 'number' ? [{ telefono: x.telefono, id }] : []; });
+  return completarPerfiles({ linea: leidos.linea, candidatos: conLead, autor: p.autor, hechas: p.hechas, saltear: p.saltear, hasta: p.hasta, soloContar: p.soloContar });
+}
+
+/**
+ * EL NÚCLEO DE «DATOS DE EMPRESA»: consulta el perfil de los `candidatos` (un teléfono y SU lead, ya verificado que es UNO) por la
+ * `linea`, con todos los cuidados de arriba (tope por corrida y por día, los ya consultados, el «no sé»). Lo usan el grupo
+ * (`completarPerfilesDelGrupo`) y el lote del tablero (app/crm/enriquecer-lote-server.ts, Martín 24/10: «en lote, con el
+ * multiple check, no sólo cuando cargo nuevos de grupos»). El cupo es POR LÍNEA: los dos caminos gastan el mismo.
+ */
+export async function completarPerfiles(p: {
+  linea: string; candidatos: ReadonlyArray<{ telefono: string; id: number }>; autor: string; hechas?: number; saltear?: readonly string[];
+  hasta?: number; soloContar?: boolean;
+}): Promise<ResultadoPerfiles> {
+  const conLead = p.candidatos;
   const hoy = await hoyEnWorkspace();
-  const [rawVistos, rawCupo] = await Promise.all([getSettingEstricto(claveVistos(leidos.linea)), getSettingEstricto(claveCupo(leidos.linea))]);
+  const [rawVistos, rawCupo] = await Promise.all([getSettingEstricto(claveVistos(p.linea)), getSettingEstricto(claveCupo(p.linea))]);
   const vistos = vistosDe(rawVistos);
   const faltan = conLead.filter((x) => !vistos.has(x.telefono.slice(-10)));
   const saltear = new Set((p.saltear ?? []).slice(0, TOPE_PERFILES_CORRIDA).map((t) => String(t).replace(/\D/g, '').slice(-10)));
@@ -243,6 +280,8 @@ export async function completarPerfilesDelGrupo(p: {
   const cuenta = { total: conLead.length, pendientes: faltan.length, quedanHoy: quedan, estaCorrida };
   if (p.soloContar) return { ok: true, ...cuenta, revisados: 0, empresas: 0, completados: 0, campos: 0, errores: 0, sinRespuesta: [], sigue: false, corte: null };
 
+  const candado = await tomarCandado(p.linea);
+  if (!candado) return { ok: false, error: 'Ya hay una consulta de perfiles corriendo en esta línea (en otra pestaña o de otra persona del equipo): espera a que termine y vuelve a tocar.' };
   const db = await getTenantDb();
   let revisados = 0, empresas = 0, completados = 0, campos = 0, errores = 0;
   let sigue = false, corte: 'dia' | 'corrida' | null = null;
@@ -250,12 +289,14 @@ export async function completarPerfilesDelGrupo(p: {
   const sinRespuesta: string[] = [];
   try {
     for (let i = 0; i < estaCorrida; i++) {
-      if (p.hasta != null && Date.now() > p.hasta) { sigue = true; break; }
+      // Con lugar para la PEOR vuelta (la espera + el tope de una consulta): mirar sólo «¿ya pasó?» dejaba que la última
+      // consulta terminara después de los 60 s de la acción (la revisión del 24/10/2026).
+      if (p.hasta != null && Date.now() + ESPERA_PERFIL_MS + TOPE_PERFIL_MS > p.hasta) { sigue = true; break; }
       if (i > 0) await new Promise((r) => setTimeout(r, ESPERA_PERFIL_MS));
-      if (!(await reservarPerfil(leidos.linea, hoy))) { corte = 'dia'; break; }
+      if (!(await reservarPerfil(p.linea, hoy))) { corte = 'dia'; break; }
       const { telefono, id } = ahora[i];
       revisados++;
-      const r = await ev(`/chat/fetchBusinessProfile/${encodeURIComponent(leidos.linea)}`, TOPE_PERFIL_MS, { method: 'POST', body: JSON.stringify({ number: telefono }) });
+      const r = await ev(`/chat/fetchBusinessProfile/${encodeURIComponent(p.linea)}`, TOPE_PERFIL_MS, { method: 'POST', body: JSON.stringify({ number: telefono }) });
       if (r == null) { sinRespuesta.push(telefono.slice(-10)); continue; }
       nuevos.push(telefono.slice(-10));
       const perfil = perfilDeEmpresa(r);
@@ -280,9 +321,10 @@ export async function completarPerfilesDelGrupo(p: {
   } finally {
     // Se relee antes de escribir: otra corrida pudo sumar los suyos mientras tanto.
     if (nuevos.length) {
-      await setSetting(claveVistos(leidos.linea), vistosConNuevos(await getSetting(claveVistos(leidos.linea)), nuevos))
+      await setSetting(claveVistos(p.linea), vistosConNuevos(await getSetting(claveVistos(p.linea)), nuevos))
         .catch((e) => console.error('[grupo-wa] no pude guardar los perfiles ya consultados:', msg(e)));
     }
+    await soltarCandado(p.linea, candado);
   }
   // Terminó lo de esta llamada sin cortar por tiempo, y quedan: ¿por qué no siguió? Se dice.
   if (!sigue && !corte && revisados === estaCorrida && ahora.length > estaCorrida) {
@@ -314,10 +356,22 @@ export type ResultadoFichas = {
 export async function completarFichasDelGrupo(p: { linea: string | null; jid: string; fichas: unknown[]; autor: string; hasta: number }): Promise<ResultadoFichas> {
   if (!esJidDeGrupo(p.jid)) return { ok: false, error: 'Ese grupo no existe.' };
   if (!(await lineaDelNegocio(p.linea))) return { ok: false, error: 'Esa línea no es de este negocio.' };
+  return completarFichas({ fichas: p.fichas, autor: p.autor, hasta: p.hasta });
+}
+
+/**
+ * EL NÚCLEO DE LAS FICHAS: limpia lo que vino del navegador, se queda con las de un teléfono que es UN lead y escribe por los
+ * caminos de completar (ver arriba). `soloIds`: el lote del tablero (app/crm/enriquecer-lote-server.ts) escribe SÓLO en los
+ * leads tildados, aunque la extensión devuelva el teléfono de otro.
+ */
+export async function completarFichas(p: { fichas: unknown[]; autor: string; hasta: number; soloIds?: ReadonlySet<number> }): Promise<ResultadoFichas> {
   const fichas = (Array.isArray(p.fichas) ? p.fichas : []).slice(0, TANDA_FICHAS).map(fichaLimpia).filter((f): f is FichaWa => !!f);
   const idx = await indiceContactos();
   const telIdx = { exactos: idx.tels, sufijos: idx.telsSufijo };
-  const conLead = fichas.flatMap((f) => { const id = buscarTelefono(telIdx, f.telefono); return typeof id === 'number' ? [{ f, id }] : []; });
+  const conLead = fichas.flatMap((f) => {
+    const id = buscarTelefono(telIdx, f.telefono);
+    return typeof id === 'number' && (!p.soloIds || p.soloIds.has(id)) ? [{ f, id }] : [];
+  });
   const db = await getTenantDb();
   const actuales = new Map<number, { nombre: string | null }>();
   const ids = conLead.map((x) => x.id);
@@ -417,21 +471,17 @@ export async function traerDelGrupo(p: {
   const telIdx = { exactos: idx.tels, sufijos: idx.telsSufijo };
   const traidos: number[] = [];
   const errores: string[] = [];
-  let creados = 0, sumados = 0, yaEstaban = 0, salteados = 0;
+  let creados = 0, yaEstaban = 0, salteados = 0;
   let pendientes: string[] = [];
   for (const [i, x] of quienes.entries()) {
     if (p.hasta != null && Date.now() > p.hasta) { pendientes = quienes.slice(i).map((q) => q.telefono); break; }
     const existente = buscarTelefono(telIdx, x.telefono);
     if (existente === null) { salteados++; continue; }
     try {
-      if (existente !== undefined) {
-        const r = await agregarAProducto(existente, p.funnelId, { autor: p.autor, etapa: p.etapa });
-        if (r.agregado) sumados++; else yaEstaban++;
-        // El que ya estaba también se etiqueta: con dos grupos seguidos, quien está en los dos queda con las DOS etiquetas
-        // (el Cerebro, 23/10/2026: «Si un teléfono está en dos grupos, se le suman las dos etiquetas»).
-        traidos.push(existente);
-        continue;
-      }
+      // ⚠️ YA ESTÁ EN EL CRM: no se vuelve a cargar (Martín, 24/10/2026: «no me debe cargar nuevamente»). Hasta el 24/10 se lo
+      // sumaba a este funnel y se le ponía la etiqueta del grupo (el Cerebro, 23/10: «dos grupos, dos etiquetas»); su pedido de
+      // hoy lo reemplaza: ni funnel ni etiqueta. Si algún día se quiere sólo la etiqueta, es acá (`traidos.push(existente)`).
+      if (existente !== undefined) { yaEstaban++; continue; }
       // ⚠️ NACE EN LA ETAPA ELEGIDA, nunca en la de entrada y movido después (la revisión de privacidad, 23/10/2026): entre el
       // alta y el movimiento, el barrido de la hora lo inscribía en «Un Lead Entró», y si el movimiento fallaba quedaba ahí.
       // La etapa ya se verificó: no manda nada (`destino.manda`) y no es terminal (`etapasParaTraer`).
@@ -449,8 +499,15 @@ export async function traerDelGrupo(p: {
       errores.push(x.nombre ?? `+${x.telefono}`);
     }
   }
-  const etiqueta = traidos.length ? await etiquetarDelGrupo(traidos, origen, p.autor).catch((e) => { errores.push(`La etiqueta: ${msg(e)}`); return null; }) : null;
-  return { ok: true, creados, sumados, yaEstaban, salteados, quedan: pendientes.length, pendientes: p.telefonos === 'todos' ? [] : pendientes, etiqueta, errores };
+  // Si la etiqueta falla, volver a traer ya no la repara (los recién creados quedan «ya están» y no se vuelven a cargar): se dice
+  // a cuántos les faltó y cómo ponérsela; el detalle de la base, sólo al log (la revisión del 24/10/2026).
+  const etiqueta = traidos.length ? await etiquetarDelGrupo(traidos, origen, p.autor).catch((e) => {
+    console.error('[grupo-wa] no pude poner la etiqueta de origen:', msg(e));
+    errores.push(`La etiqueta «${origen.nombre}» no se pudo poner a ${traidos.length}: ponla desde la barra de lote del CRM`);
+    return null;
+  }) : null;
+  // `sumados` queda en 0 desde el 24/10 (el que ya está no se carga): el campo sigue para la pantalla y la API.
+  return { ok: true, creados, sumados: 0, yaEstaban, salteados, quedan: pendientes.length, pendientes: p.telefonos === 'todos' ? [] : pendientes, etiqueta, errores };
 }
 
 /**

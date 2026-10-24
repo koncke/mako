@@ -304,6 +304,9 @@ export const TANDA_FICHAS = 40;
 // Cada consulta de perfil es tráfico en la RED de una línea no oficial (riesgo de baneo, docs/hallazgos-comunicacion.md).
 // El cupo del día y los teléfonos ya consultados viven en `app_settings`, por línea (app/crm/grupo-wa-server.ts).
 
+/** Cuántos leads toma un lote de «Completar» del tablero: lo mismo que la extensión lee de una vez (extension/wa-fichas.js). */
+export const TOPE_LOTE_COMPLETAR = 5000;
+
 /** Cuántos perfiles consulta UNA corrida (un toque del botón). */
 export const TOPE_PERFILES_CORRIDA = 40;
 /** Cuántos por DÍA y por línea, sumando todas las corridas de todas las pantallas. */
