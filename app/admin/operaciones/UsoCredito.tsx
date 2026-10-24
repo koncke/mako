@@ -59,7 +59,7 @@ function FilaDeCredito({ f, nombre }: { f: FilaCredito; nombre: string }) {
   const lleno = gastado == null ? 0 : Math.min(100, (gastado / POR_PLAN) * 100);
   const tono = lleno >= 90 ? 'mal' : lleno >= 75 ? 'ojo' : 'bien';
   return (
-    <div className="co-uso__credito">
+    <div className="co-uso__credito co-uso__credito--barra">
       <div className="co-uso__fila">
         <span className="co-uso__nombre">{nombre}</span>
         <span className={`co-uso__pct${gastado == null ? ' co-uso__pct--sin' : ''}`}>
@@ -112,7 +112,15 @@ function FilaAsignado({ a, nombre, onCambiar, cambiando }: { a: AsignadoCredito;
   );
 }
 
-/** Lo que se dibuja con una lectura en la mano (lo usan la sección y los tests). `null` = leyendo. */
+/**
+ * Lo que se dibuja con una lectura en la mano (lo usan la sección y los tests). `null` = leyendo.
+ * PLEGADO (24/10/2026, Martín: «mucha información, mucho scroll»): a la vista, el total del mes y cuántas están vinculadas. Inspirado
+ * en la documentación pública de Vercel («Manage and optimize usage», vercel.com/docs: un resumen de lo consumido por recurso y el
+ * detalle aparte), no en la app; que la fila se abra en el lugar es nuestro. Cada plan, al abrirla. Lo que AVISA no se pliega
+ * (revisión del 24/10: «sin crédito» quedaba escondido detrás de un total que se veía sano): un plan sin crédito o al 90% deja su
+ * línea afuera; el interruptor del crédito de un negocio y «No pude leer las claves» también quedan a la vista: uno es una acción
+ * que Martín pidió tener a mano y el otro avisa que el total está incompleto.
+ */
 export function VistaCredito({ lectura, cuentas, onCambiar, cambiando = null }: {
   lectura: LecturaCredito | null; cuentas: readonly CuentaUso[];
   onCambiar?: (ws: number, prendido: boolean) => void;
@@ -120,31 +128,48 @@ export function VistaCredito({ lectura, cuentas, onCambiar, cambiando = null }: 
   cambiando?: number | null;
 }) {
   const nombre = (cuenta: string) => nombreDeLaCuenta(cuenta, cuentas.find((c) => c.cuenta === cuenta)?.titular);
-  return (
-    <div className="co-uso__api" role="group" aria-label="Crédito de la API">
-      <div className="co-uso__fila">
+  // Adentro de <summary> sólo va texto en línea: por eso <span>, no <div> ni <p>. La grilla, en un <span> de adentro (WebKit ≤ 16
+  // no deja que un <summary> sea grilla: CuentasYDispositivos.tsx → FilaDispositivo).
+  const cabecera = (
+    <>
+      <span className="co-uso__fila">
         <span className="co-uso__titulo">API</span>
         {lectura?.ok && (
           <span className="co-uso__pct">
             {lectura.total.gastadoUsd == null ? 'Sin dato de lo gastado' : `${usd(lectura.total.gastadoUsd)} de ${usd(lectura.total.totalUsd)} este mes`}
           </span>
         )}
-      </div>
+      </span>
+      {lectura?.ok && lectura.total.vinculadas < lectura.filas.length && (
+        <span className="co-uso__reinicio">
+          {`${lectura.total.vinculadas} de ${lectura.filas.length} vinculadas: hoy rinden ${usd(lectura.total.rindeUsd)}`}
+        </span>
+      )}
+    </>
+  );
+  // Lo que avisa, afuera del pliegue: un total sano no dice que un plan se quedó sin crédito (el ws1 usa el de la cuenta 1).
+  const alertas = lectura?.ok ? lectura.filas.flatMap((f) => {
+    if (f.sinCreditoAt) return [`${nombre(f.cuenta)}: Anthropic dijo «sin crédito» el ${dia(f.sinCreditoAt)}`];
+    if (f.vinculada === true && f.gastadoUsd != null && f.gastadoUsd >= POR_PLAN * 0.9) return [`${nombre(f.cuenta)}: lleva ${usd(f.gastadoUsd)} de ${usd(POR_PLAN)}`];
+    return [];
+  }) : [];
+  return (
+    <div className="co-uso__api" role="group" aria-label="Crédito de la API">
+      {!lectura?.ok && <div className="co-uso__api-cab"><span className="co-uso__api-caja">{cabecera}</span></div>}
       {!lectura && <p className="co-uso__reinicio">Leyendo el crédito…</p>}
       {lectura && !lectura.ok && <p className="co-uso__reinicio">{lectura.error}</p>}
       {lectura?.ok && (
         <>
-          {lectura.total.vinculadas < lectura.filas.length && (
-            <p className="co-uso__reinicio">
-              {`${lectura.total.vinculadas} de ${lectura.filas.length} vinculadas: hoy rinden ${usd(lectura.total.rindeUsd)}`}
+          <details className="co-uso__pliegue">
+            <summary className="co-uso__api-cab"><span className="co-uso__api-caja">{cabecera}<span className="co-uso__flecha" aria-hidden /></span></summary>
+            {lectura.filas.map((f) => <FilaDeCredito key={f.cuenta} f={f} nombre={nombre(f.cuenta)} />)}
+            <p className="co-uso__reinicio co-uso__nota">
+              Lo gastado es lo que registra MaKo. El saldo real, en platform.claude.com → Billing: Anthropic no lo deja leer con estas claves.
             </p>
-          )}
-          {lectura.filas.map((f) => <FilaDeCredito key={f.cuenta} f={f} nombre={nombre(f.cuenta)} />)}
+          </details>
+          {alertas.map((a) => <p key={a} className="co-uso__hacer" data-alerta-credito="">{a}</p>)}
           {(lectura.asignados ?? []).map((a) => <FilaAsignado key={a.ws} a={a} nombre={nombre(a.cuenta)} onCambiar={onCambiar} cambiando={cambiando === a.ws} />)}
           {lectura.negociosSinLeer && <p className="co-uso__hacer">No pude leer las claves de los negocios: lo que gasta uno con su crédito no está sumado.</p>}
-          <p className="co-uso__reinicio">
-            Lo gastado es lo que registra MaKo. El saldo real, en platform.claude.com → Billing: Anthropic no lo deja leer con estas claves.
-          </p>
         </>
       )}
     </div>

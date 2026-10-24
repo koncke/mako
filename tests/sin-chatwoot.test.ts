@@ -152,7 +152,6 @@ const PUEDEN_NOMBRARLO: Record<string, string> = {
   'app/whatsapp/_shared/PanelBorradores.tsx': SE_FUE,
   'app/whatsapp/_shared/VoiceRecorder.tsx': SE_FUE,
   'app/whatsapp/audio.ts': SE_FUE,
-  'app/whatsapp/page.tsx': SE_FUE,
   'lib/borrador-camino.ts': SE_FUE,
   'lib/crm-auto.ts': SE_FUE,
   'lib/etiquetas-motor.ts': SE_FUE,

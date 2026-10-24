@@ -102,7 +102,11 @@ function TextoConListas({ texto }: { texto: string }) {
 type Quien = { titulo: string; aspecto?: Aspecto | null };
 
 /** Con qué se cuenta en qué está lo que mandó Martín (lib/centro-chats.ts → estadoDelEnvio): el chat y los Runners. */
-export type VivoDelHilo = { chat: Pick<ChatCentro, 'estado' | 'viejo' | 'sinRunner' | 'clave' | 'sesion' | 'titulo'>; carteros: readonly CarteroP[] };
+export type VivoDelHilo = {
+  chat: Pick<ChatCentro, 'estado' | 'viejo' | 'sinRunner' | 'clave' | 'sesion' | 'titulo'>; carteros: readonly CarteroP[];
+  /** El chat tiene abierta una pregunta de la app de Claude (`preguntasDeLaApp`): no lee nada hasta que se conteste ahí. */
+  trabado?: boolean;
+};
 
 /** Lo del «Ya está» de un chat (17/10/2026, la C): sus tareas del Plan y responder sobre lo que dijo. */
 export type ExtrasDelHilo = {
@@ -118,7 +122,7 @@ function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; 
   const mal = estado === 'no_entregado' || estado === 'incierto' || estado === 'cancelado';
   const c = w.cierre;
   // «Enviado» → «La PC lo recibió», y por qué tarda si tarda (Martín, 17/10/2026: «no pasó nada por varios segundos»).
-  const va = vivo ? estadoDelEnvio(w, vivo.chat, vivo.carteros, ahora) : null;
+  const va = vivo ? estadoDelEnvio(w, vivo.chat, vivo.carteros, ahora, !!vivo.trabado) : null;
   return (
     <>
       <Deslizable m={mensajeDeLinea(l, quien.titulo)} className="co-yo">

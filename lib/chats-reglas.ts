@@ -57,6 +57,14 @@ export function idWhatsapp(telefono: string | null | undefined, jid: string): st
 }
 
 export const claveLead = (leadId: number): string => `${PREFIJO_CLAVE.lead}${leadId}`;
+/**
+ * EL NÚMERO DE MAKO EN CHATS (24/10/2026, docs/diseno-chats.md §8.5; Martín: «que simplemente pueda cambiar entre mi número y
+ * el de MaKo y ver entre los chats los grupos»). Para el super admin en su barra es una línea más del chip «Canales», con
+ * los grupos de MaKo, que se escriben por /api/admin/mako-chats. Sus chats van con la clave `wa:canal_mako:<jid>`: un nombre
+ * FIJO y no el de la instancia (la voz de MaKo se muda de número), así el estado y los leídos de un grupo no se pierden.
+ */
+export const LINEA_CANAL_MAKO = 'canal_mako';
+
 export const claveWhatsapp = (linea: string, telefono: string | null | undefined, jid: string): string =>
   `${PREFIJO_CLAVE.whatsapp}${linea}:${idWhatsapp(telefono, jid)}`;
 export const claveSocial = (canal: 'instagram' | 'messenger', convId: number): string =>

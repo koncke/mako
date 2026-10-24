@@ -874,3 +874,24 @@ function avisoDeClaude(fallo: FalloDeLaPc | null, apagada: boolean, extra: { rep
 export function mcpDelTurno(url: string, token: string): { mcpServers: Record<string, unknown> } {
   return { mcpServers: { mako: { type: 'http', url, headers: { Authorization: `Bearer ${token}` } } } };
 }
+
+/**
+ * Lo que dice en UNA línea la tarjeta destacada «Tus cuentas de IA» de /integraciones (24/10/2026, TusCuentasIA.tsx →
+ * TarjetaTusCuentasIA), y su color. `estado`: lo de GET /api/ia-pc/estado (null = todavía no, o no se pudo); `leido`: ya se
+ * intentó leer. Texto de pantalla: arranca con la acción cuando hay algo que hacer.
+ */
+export function resumenDeCuentas(
+  estado: { pcs: ReadonlyArray<{ enLinea: boolean; cuentas: readonly unknown[] }>; grupos?: CuentasIA } | null,
+  leido: boolean,
+): { linea: string; tono: 'bien' | 'ojo' | 'apagado' } {
+  if (!estado) return { linea: leido ? 'No pude leer tus cuentas: ábrelas para volver a intentar.' : 'Leyendo tus cuentas…', tono: 'apagado' };
+  const cuentas = estado.grupos?.cuentas.length ?? 0;
+  const sinCuenta = estado.grupos?.sinCuenta.length ?? 0;
+  if (!cuentas && !sinCuenta) return { linea: 'Conecta tu Claude, tu GPT o tu Gemini: con eso contesta tu Ops Center.', tono: 'ojo' };
+  if (!cuentas) return { linea: 'Tu computadora está conectada, pero su Claude no tiene la sesión iniciada.', tono: 'ojo' };
+  const enLinea = estado.pcs.filter((p) => p.enLinea && p.cuentas.length > 0).length;
+  const deCuentas = `${cuentas} ${cuentas === 1 ? 'cuenta' : 'cuentas'}`;
+  return enLinea
+    ? { linea: `${deCuentas} · ${enLinea} ${enLinea === 1 ? 'computadora en línea' : 'computadoras en línea'}`, tono: 'bien' }
+    : { linea: `${deCuentas} · ninguna computadora en línea`, tono: 'ojo' };
+}

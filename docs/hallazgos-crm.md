@@ -20,6 +20,91 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Las hojas de la ficha: tres pedidos sobre la misma fila, y el problema era de JERARQUÍA (24/10/2026, noche)
+
+**Vive en:** app/crm/lead-view/LeadTabs.tsx · el desplegable del funnel, app/crm/lead-view/ProductoDelLead.tsx (`seccionesDelArbol`
+en arbol-funnels.ts) · tests: crm-llamada-22-10-p1 (C7), ficha-hojas, ficha-galeria, ficha-pantallas, ficha-editar-con-mako,
+crm-ficha-de-donde-vino (15 de 15 roturas cazadas).
+
+- **La misma fila cambió tres veces en ocho días, por tres pedidos que tenían razón cada uno:**
+  - 16/10: Martín pidió «exactamente el mismo [sistema] que Dashboard y General», o sea un título con desplegable.
+  - 22/10: en la llamada, Mauricio no encontraba «Pagos» adentro del desplegable, y se sumaron las otras hojas como atajos.
+  - 24/10: «Resumen ▾» (19 px, en negrita, con flecha) se leía como el título de la página y las otras cuatro como links
+    sueltos. Martín: «no creo que sea el mejor diseño ese, mira como lo hacen otras apps».
+
+  La copia fiel del Dashboard trasladó una jerarquía que en el Dashboard sirve (ahí la hoja ES el título de la página) a una
+  ficha donde el título es el nombre del lead. **Regla:** las hojas de una ficha son TABS del mismo rango, como en Stripe,
+  HubSpot y Notion. Lo que hacía el desplegable va donde no deforma a la primera:
+  - «＋ Nueva hoja» al final de la fila;
+  - el menú de cada tab: clic derecho, o la flechita de la abierta al pasar el cursor;
+  - el nombre se cambia con un clic sobre la tab abierta (el «en el título mismo» del 17/10, sin doble clic).
+- **En el teléfono, antes sólo quedaba el desplegable**, y la fila arrancaba a la sangría del nombre: se veían dos tabs y
+  media. Ahora la fila arranca al borde y se desplaza de costado con un fundido. La abierta se trae a la vista a mano, con
+  `scrollLeft`: `scrollIntoView` también movería la página para arriba o abajo.
+- **Una flecha invisible igual ocupa lugar.** La primera versión dejaba un hueco entre la abierta y la siguiente: la flecha
+  estaba en `opacity: 0`, pero en el flujo. Va superpuesta (`position: absolute`) al borde de la tab.
+- **«También en» se fue sin perder nada.** Martín pidió sacarlo (venía del C8 de la llamada con Mauricio del 22/10). Lo que
+  decía (en qué otro funnel está el lead y en qué etapa) ya lo lista el desplegable del funnel: cada funnel con su etapa, y
+  «No está» donde no está. El test de C8 ahora prueba eso.
+- **Las capturas sin levantar la app:** una maqueta que monta la fila REAL (la vieja, sacada de git, y la nueva) debajo de un
+  dibujo aproximado de la cabecera, con los tokens de `globals.css`, empaquetada con esbuild y fotografiada con Chrome
+  headless y mudo. ⚠️ **Chrome headless no achica la ventana a 390 px:** la página se dibuja más ancha y sale cortada a la
+  derecha, en el antes también. Para el teléfono va adentro de un iframe de 390 px. La maqueta quedó en el scratchpad de
+  la sesión, no en el repo.
+
+*24/10/2026, chat «CRM» (claude1).*
+
+## «Completar» en lote desde el tablero, y los que ya están no se vuelven a cargar (24/10/2026, tarde)
+
+**Vive en:** `completarFichas` y `completarPerfiles` (los núcleos, app/crm/grupo-wa-server.ts) · app/crm/enriquecer-lote-server.ts
+y app/crm/enriquecer-actions.ts (el lote) · app/crm/enriquecer-cliente.ts (las máquinas de la pantalla, compartidas) · la
+barra, app/crm/AccionesLoteLeads.tsx · tests/enriquecer-lote.test.ts (33 de 33 roturas cazadas, con las de grupo-wa y
+wa-fichas-extension).
+
+- **Dos copias del mismo bucle son dos lugares donde un arreglo se olvida.** Martín pidió completar «en lote, con el multiple
+  check, no sólo cuando cargo nuevos de grupos». El modal ya tenía las dos corridas con su cola, sus pendientes al frente, su
+  «Parar» y sus cortes dichos. En vez de copiarlas a la barra, salieron a funciones puras (`guardarFichasEnTandas`,
+  `correrPerfiles`) que reciben la acción del server por parámetro. Por eso los tests las prueban por COMPORTAMIENTO, con
+  dobles, y no con regex sobre el JSX.
+- **El límite del lote es «sólo los tildados».** La extensión devuelve fichas por teléfono, y un teléfono puede ser de otro
+  lead. El núcleo filtra por `soloIds`. En «Datos de empresa», el teléfono se toma de cada tildado y sólo cuenta si ese
+  teléfono es UN lead y es ése (`buscarTelefono(...) === t.id`). El cupo es POR LÍNEA: el modal y la barra gastan los mismos
+  120 del día.
+- **Una corrida de minutos desde una barra.** La pregunta se cierra ANTES de arrancar: con `loading` abierta, el `Confirm`
+  tapaba el avance y el «Parar». La casilla que limpia la selección no limpia mientras corre: la barra se desmonta sin
+  selección, y con ella el «Parar».
+- **«En gris abajo», y el comentario que mentía.** El efecto que carga los participantes decía «tildados los que todavía no
+  son leads», y el código tildaba a TODOS: traer un grupo repetido le volvía a pasar por encima a los que ya estaban (los sumaba
+  al funnel y les ponía la etiqueta). Ahora los que ya están no se tildan, van al final, en gris y sin casilla, y el pie dice
+  «Traigo N · M ya estaban». El server tampoco los vuelve a cargar, y eso alcanza también a la API de MaKo, que trae «todos».
+  ⚠️ **Esto reemplaza la regla del 23/10** («si un teléfono está en dos grupos, se le suman las dos etiquetas»): el pedido de
+  Martín del 24/10 es «no me debe cargar nuevamente». Si algún día se quiere sólo la etiqueta del segundo grupo, va en
+  `traerDelGrupo` (`traidos.push(existente)`). `sumados` queda en 0 y el campo sigue para no romper a quien lo lee.
+- **La revisión adversarial confirmó 25 problemas y no refutó ninguno. Los que más importan:**
+  - **El «Parar» no aparecía nunca.** El diagnóstico obvio («el botón está, lo condiciona `largo`») era el equivocado.
+    `setLargo(true)` se llamaba en la parte síncrona de `start(async () => …)`. En el React de Next 16, una actualización así
+    queda en el carril de la acción, y el render se suspende hasta que la acción ENTERA termina. Se midió en react-dom-client:
+    `entangleAsyncAction` y después `updateReducerImpl` lanza `currentEntangledActionThenable`. Durante minutos no hubo
+    «Parar», ni avance, ni casilla trabada. Las corridas largas pasaron a ser async planos con su propio estado, como el modal.
+    La regla general está en AGENTS.md.
+  - **El lote consultaba el teléfono SIN código de país.** En el grupo el número sale del JID y siempre lo trae; en una ficha
+    muchas veces no. Así se consultaba un número inexistente: gastaba cupo y quedaba «ya consultado» con la misma clave (los
+    últimos 10 dígitos) que el contacto real, que después nunca se consultaba. Ahora pasa por `numeroParaWhatsApp`, como todo
+    envío, y el que no se puede completar se cuenta en `sinPais`.
+  - **Dos llamadas a la vez consultaban los mismos teléfonos.** `vistos` se lee al empezar y se escribe al terminar. Ahora hay
+    un candado por línea en `app_settings` (`perfiles_wa.corriendo.<línea>`), que vence solo a los 70 s, y uno de módulo en la
+    barra.
+  - **El corte por tiempo sólo miraba «¿ya pasó?»** antes de cada consulta, así que la última podía pasar los 60 s. Ahora deja
+    lugar para la peor vuelta (la espera más el tope de una consulta).
+  - **Un corte en el modal se borraba solo.** Iba a `err`, y releer el grupo (`setVuelta`) limpia `err` en el acto. Ahora va
+    adentro del resumen (`hecho`), en «Traer» y en «Completar desde mi WhatsApp».
+  - **La API de MaKo seguía prometiendo sumar a los que ya son leads.** La IA lee la `descripcion` para elegir la acción, y un
+    «Traer 0» pendiente de un «sí» no hacía nada. Ahora dice que no los toca y, si ya están todos, no propone nada.
+- **Sin hacer:** el clic derecho del tablero (`ManijaLote`, app/crm/menu-contextual-crm.ts) no ofrece «Completar», sólo la
+  barra. El CRM del teléfono (app/m/crm) tampoco lo tiene.
+
+*24/10/2026, chat «CRM» (claude1).*
+
 ## «Datos de empresa» con tope por día: sin recordar a quién ya se consultó, el tope repite siempre a los mismos (24/10/2026)
 
 **Vive en:** `completarPerfilesDelGrupo` y `reservarPerfil` (app/crm/grupo-wa-server.ts) · las reglas del cupo en
@@ -126,7 +211,8 @@ producción (`scripts/apply-migration.mjs` no deja registro: docs/hallazgos-infr
 **Queda la más VIEJA, salvo que la otra tenga la venta o ya sea cliente.** Todos los que buscan a quién es un mensaje
 por el teléfono se quedan con el id más bajo: `matchLeadPorTelefono` (lib/evolution-mensajes.ts:100-109),
 `primerLeadPorTelefono` y `elegirPorTelefono`. Por eso las respuestas de Martín caían en el 249 y no en el 3099
-(docs/hallazgos-chatbot.md). **Sin hacer (es de Comunicación):** `resolverLeadIdsPorTelefono`
+(docs/hallazgos-chatbot.md). Desde el 24/10, `matchLeadPorTelefono` elige la ficha a la que le escribimos último, y sólo
+sin esa prueba la de id más bajo (docs/hallazgos-comunicacion.md, «Dos fichas con el mismo teléfono»). **Sin hacer (es de Comunicación):** `resolverLeadIdsPorTelefono`
 (lib/evolution-mensajes.ts:224-239) no ordena, así que con dos fichas con el mismo teléfono puede elegir una distinta en
 cada pedido.
 
@@ -225,9 +311,70 @@ del movimiento lee `automatizaciones.noEntro` de la respuesta, sin suponer que e
 nuevo obligaba a tocar el registro de la API y su snapshot en paralelo con otro chat. Por `opciones` la API ya lo hace
 («titulo=…»).
 
-**Vive en:** app/crm/automatizacion-lead.ts (la vista, pura) · app/crm/lead-view/ficha/resumen/automatizaciones.tsx ·
-automatizaciones-datos.ts · lib/ficha/plantillas-resumen.ts · app/m/crm/ficha-bloques.ts (`filaDeAutomatizaciones`) ·
-tests/ficha-automatizaciones.test.ts. *23/10/2026, chat «CRM» (claude2).*
+**Y al día siguiente: «está bastante fea... No es funcional» (24/10/2026, Martín mirando el negocio de Mauricio).** Con los
+datos reales, la tarjeta decía el nombre del LIENZO: «Paso 5 de 9: CRON», «Paso 2 de 4: CONDITION: Llegó hace menos de 3
+día…», «WHATSAPP: Hola {{nombre}}, si no me…» con la variable cruda, y «Hecho · WhatsApp» para un aviso al equipo. El
+número del paso cuenta la entrada, las esperas y las condiciones: «paso 5 de 9» era un lead al que le habían salido 2
+mensajes. **La trampa:** copiar la FORMA de la tarjeta de HubSpot (paso, estado, historial) sin la sustancia; allá el paso
+es un mensaje, acá es un nodo del grafo. **La regla:** lo que se le muestra a quien mira un lead son hechos del lead, no
+nombres del lienzo. Ahora la tarjeta dice, en tres renglones, qué le salió (el mensaje citado como le llegó, con SU
+nombre: `pasoEnPalabras` / `citaDelMensaje`), si contestó y cuándo (la línea «Contestó en «X»» que escribe el motor,
+`leerContesto`, sólo la de esta pasada), y qué sigue: qué le sale y cuándo, por qué no, o cómo terminó
+(`renglonesDeTarjeta`). Las fechas, cortas: «hoy 18:33», «ayer 16:33» (`fechaCorta`). El historial, plegado, sólo con
+más de un envío. Y QUÉ contestó, no sólo cuándo: el último mensaje suyo hasta que el motor lo anotó y desde que entró
+(`respuestaDelLead`: «Contestó ayer 16:49: «No hemos mandado pagos de nuestra parte»»). **La misma jerga vivía en otros
+dos lugares**, que también se arreglaron: la línea del tablero del CRM (`lineaDeAutomatizacion`, «paso 2: WHATSAPP: Hola
+{{nombre}}…»: el título de la lista liviana ahora sale de `pasoEnPalabras`) y el aviso de «no entró» («ya está adentro
+(paso 2)», «(va en el paso 2)»). Y «paso sin ubicar» se fue: sin el dato no se dice nada. El teléfono (/m) y las capturas quedaron para la tarde (abajo).
+
+**Y a la tarde: «Te pedí que rediseñes la tarjeta, no sólo que cambies el texto, se sigue viendo muy fea» (24/10/2026).**
+La mañana arregló QUÉ decía; la caja era la misma: gris y plana, un chip «Respondió» flotando arriba a la derecha,
+«Empezar de nuevo» y «Frenar» como texto gris suelto (y una de las dos destruye), «Lo que ya le salió (2)» con un
+triangulito, «Hora de Tijuana» suelta AFUERA de la tarjeta, y tres automatizaciones iguales. **La trampa:** el brief fue
+todo de contenido y nada de forma; un rediseño de texto pasa todos los tests y se ve igual. **Cómo se decidió:** se
+investigó cómo lo resuelven Intercom, HubSpot, Customer.io y Braze, el lenguaje del Ops Center y del Plan, y la ficha
+entera (con el chat de CRM, que rehacía las tabs). Hubo tres propuestas y un juez, y ganó la que mejor resolvía las acciones.
+- **El estado se ve antes de leer:** un SELLO con forma y color adelante del nombre, y abajo el estado en dos palabras con
+  su cuándo (`estadoDeTarjeta`). Un color, un significado: dorado = MaKo lo está haciendo, naranja = una traba que hay que
+  mirar, rojo = falló, verde = contestó o terminó, gris = quieto. El porqué entero va en el `title` y no en un párrafo.
+- **Una franja del color a la izquierda** de cada tarjeta: varias se distinguen de un vistazo. Las vivas van en el orden
+  en que hay que mirarlas (`ordenarTarjetas`); las terminadas, como filas finas que se abren en el lugar.
+- **Un RIEL en vez de renglones** (`rielDeTarjeta`): lo que le salió (la cita en burbuja), lo que contestó (en verde, con
+  lo que dijo), lo que falló, lo que no entró (ADENTRO de su riel), y al final lo que viene, con un tramo punteado. La hora
+  va a la derecha. Lo viejo se pliega desde el penúltimo mensaje («Ver N antes»).
+- **Las acciones son acciones:** «Frenar» va a la izquierda del pie, en rojo y aparte (como el modal de WhatsApp del Ops
+  Center), y «Empezar de nuevo» es un botón secundario con ícono. Lo que salió bien va en un toast; un error, en el pie
+  de SU tarjeta.
+- **La zona** va en cada hora al pasar el cursor. Lo próximo suma «· Tijuana» sólo si quien mira está en otra zona.
+
+**Lo que no se veía:**
+- **La pregunta de «Frenar» mentía.** Decía «Para que vuelva, se lo inscribe a mano», pero una inscripción frenada
+  queda 'cancelada' y no se reabre, ni a mano ni sola (`reabre = !cancelada && …`, lib/automatizaciones-del-lead-reglas.ts;
+  puede ser una baja). Ahora dice «no se puede volver a empezar», también en el tablero (`preguntaDeFrenar`).
+- **`primerNombre` no se importa en la vista.** Vive en lib/automatizaciones-del-lead-reglas.ts, que importa el grafo
+  del motor y el flujo, y la vista (app/crm/automatizacion-lead.ts) corre en el navegador: el import se llevaba el motor
+  al bundle. Va una copia local de una línea.
+- **El tipo de freno se lee del texto CORTO del motor** (`tipoDeFreno`: «Falló al mandar», «Tope del día», «Abre…»), sin
+  tocar lib/por-que-no-sale.ts un sábado. Si el motor cambia esos textos, el test lo dice (los busca en el fuente).
+  `saleAt` sí viajaba en el detalle y lo descartaba `vistaDeDetalle`: ahora llega («Abre mañana 09:00» en el riel).
+- **Las piezas viven aparte del bloque** (`tarjeta-automatizacion.tsx`: puras, sin lecturas ni acciones del servidor),
+  y por eso se dibujan solas para sacarles la foto SIN servidor. Así se miró: `renderToStaticMarkup` con datos de ejemplo,
+  la hoja real (`CSS_RESUMEN`), los tokens de `:root` y `[data-tema="oscuro"]` de app/globals.css y app/_ui/ui.css, y
+  Chrome con `--headless=new --mute-audio --screenshot`. ⚠️ Al pegar ui.css se borran sólo las LÍNEAS que empiezan con
+  `@import`: un comentario suyo dice «un solo @import», y una regex suelta se comía el principio de `.mk-btn`. El botón
+  salía sin estilo en la foto y parecía un bug de la tarjeta.
+- **El teléfono (/m)** dice la que hay que mirar primero, cuándo le sale lo próximo o su estado en dos palabras, y un
+  punto del color del sello («Sprint · apertura · mañana 09:00 · +1»).
+
+**Sin hacer:** la foto de la FICHA ENTERA en producción, en escritorio y teléfono, cuando haya una sesión en el navegador.
+
+**Vive en:** app/crm/automatizacion-lead.ts (la vista, pura: `estadoDeTarjeta`, `rielDeTarjeta`, `ordenarTarjetas`,
+`tipoDeFreno`, `fechaCorta`, `diaCorto`, las preguntas) · app/crm/lead-view/ficha/resumen/automatizaciones.tsx (el bloque) ·
+tarjeta-automatizacion.tsx (las piezas) · estilo.ts (la hoja) · automatizaciones-datos.ts ·
+lib/automatizaciones-del-lead-reglas.ts (`pasoEnPalabras`, `leerContesto`) · lib/automatizaciones-del-lead.ts (el nombre y
+el «Contestó en») · lib/ficha/plantillas-resumen.ts · app/m/crm/ficha-bloques.ts (`filaDeAutomatizaciones`,
+`tonoDeAutomatizaciones`) · tests/ficha-automatizaciones.test.ts · tests/ficha-automatizaciones-renglones.test.ts ·
+tests/ficha-automatizaciones-tarjeta.test.ts. *23/10/2026, chat «CRM» (claude2); 24/10/2026, chat «Automations» (claude1).*
 
 ## «Esa etapa no existe en el CRM»: `noresp` no está en `data.pipeline` y existe igual (23/10/2026)
 

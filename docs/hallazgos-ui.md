@@ -12,6 +12,20 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Un aviso largo duraba 3,2 s: el `Toast` ahora le da tiempo según el largo (24/10/2026)
+
+**Vive en:** `useToast` (app/_ui/Toast.tsx) · test 10 de tests/enriquecer-lote.test.ts.
+
+- El resumen de un lote del CRM («De 221, tu WhatsApp tiene el nombre de… · Faltan 160: vuelve a tocar…») tiene 150 a 250
+  letras, y lo importante va al final. Sin `Deshacer` ni tono, el aviso se iba a los 3,2 s: el «se cortó» o el «faltan» no se
+  llegaba a leer.
+- Ahora la espera es la mayor entre la de siempre y ~60 ms por letra (con techo de 12 s), y un aviso `warn` (algo quedó a
+  medias) dura por lo menos 8 s, como uno `bad`. La fórmula de `bad` no cambió: tests/reportar-a-soporte.test.ts la fija,
+  porque tiene que dar tiempo a tocar «Reportar a Soporte».
+- Para quien llama: un resultado a medias se canta con `tono: 'warn'`, no como un «listo».
+
+*24/10/2026, chat «CRM» (claude1).*
+
 ## El pie que flota a la mitad: una lista larga con acciones abajo es UNA pieza, `VistaConPie` (24/10/2026)
 
 - **Síntoma:** en «Traer de un grupo de WhatsApp», Martín: «los botones de abajo no pueden estar a la mitad y que abajo se
@@ -3164,6 +3178,10 @@ tocando los dos bordes en una ventana angosta) y con **un filete de 1 px cruzand
 de arriba del viewport**. Se arregla con `:not(.mk-modal__fondo)` en las tres reglas: son
 bloques de CONTENIDO, y un overlay no es contenido del cuerpo — sólo vive ahí en el árbol.
 
+**Y el otro lado (24/10/2026):** un hijo que trae su propio margen y su propia raya los DUPLICA. `.co-uso__mas`
+(lo del super admin en «Tus cuentas de IA») tenía `margin-top: 18px` y `border-top` encima de los 18 px y la raya que ya pone
+el cuerpo del modal: quedaban 54 px de aire entre dos secciones. Un hijo directo del cuerpo no trae separación propia.
+
 **La regla general: toda regla `> *` de un contenedor de layout tiene que preguntarse qué
 pasa el día que uno de esos hijos sea un overlay.** Es la misma familia que «un
 `max-width` puesto al texto adentro de una caja más ancha»: una regla correcta para el
@@ -4496,6 +4514,45 @@ agencia a `aside[data-sidebar]` (es de esta área; hay que mirar antes qué otro
 
 **Vive en:** app/crm/TraerDeOtroProducto.tsx · app/_ui/Modal.tsx (`.mk-modal__cuerpo` en app/_ui/ui.css) · tests/crm-traer-23-10.test.ts
 *23/10/2026, chat «CRM» (claude3).*
+
+## Ver una pantalla de cliente sin levantar la app, y tres trampas de CSS de un rediseño (24/10/2026, Ops Center)
+
+**El porqué:** levantar la app local ESCRIBE en la base de producción. /integraciones, al abrirse, reconcilia los incidentes de
+Meta y crea el token del Pixel. Y el navegador de la app de Claude no abre `localhost` ni `file://`. Para mirar un rediseño antes de
+subirlo se dibujaron las piezas REALES en Node (`renderToStaticMarkup`) con el CSS de verdad, y se fotografiaron con un Edge sin
+ventana.
+
+- **La receta** (un ejemplo de 24/10 está en el scratchpad de esa sesión; se rearma en minutos):
+  - `module.registerHooks` (Node 24), SINCRÓNICOS. tsx carga parte de los archivos como CommonJS, y los ganchos de ESM
+    (`module.register`) no atrapan esos `require`: el `require('server-only')` de lib/settings.ts tiró todo abajo;
+  - `next/navigation` y `app/_ui/Link.tsx` se cambian por stubs (`useSearchParams` con una búsqueda de prueba, un router que no hace
+    nada);
+  - un archivo que empieza con `'use server'` se cambia por sus exportaciones como funciones vacías (los nombres salen de una regex
+    sobre su fuente);
+  - `server-only` y los `.css` se cambian por un módulo vacío;
+  - los stubs importan React con la ruta del repo: desde el scratchpad no hay `node_modules`;
+  - el estado que la pantalla lee en el navegador (un `useEffect` con `fetch`) no se dibuja: se reemplaza en el HTML y se dice.
+- **Trampa 1: un `<summary>` con `display: grid` (o flex) en Safari 16 o anterior.** WebKit lo dibuja como un bloque común (bug
+  167111, arreglado en Safari 17), y una flecha hecha con `::after` sale como una raya suelta. La grilla va en un `<span>` de
+  adentro, y la flecha es un `<span>` más. Adentro del `<summary>` sólo va texto en línea.
+- **Trampa 2: con la misma especificidad gana la regla de más abajo, aunque sea más general.** `.co-uso__credito { display: flex }`
+  está más abajo en el archivo que `.co-uso__credito--barra { display: grid }`, y pisaba la grilla. Con la clase doble
+  (`.co-uso__credito.co-uso__credito--barra`) gana siempre, esté donde esté.
+- **Con interacción (24/10/2026, Chats):** una pantalla que lee todo con `fetch` (ChatsApp) no se ve con `renderToStaticMarkup`.
+  Se armó con esbuild (el del repo) un bundle de la pantalla real con un `fetch` falso (datos de ejemplo por ruta) y los mismos
+  stubs, y se abrió en el Edge sin ventana con `--virtual-time-budget`; los clics, por selector desde la página. Cuatro trampas:
+  - **`process is not defined`**: lib/app-url.ts (que trae un modal compartido) lee `process.env` en el cliente; Next lo
+    rellena y esbuild no. Un `banner` con `var process = { env: {} }`;
+  - **un menú abierto sale cerrado en la foto**: la captura redimensiona la ventana y el Dropdown de la casa se cierra con el
+    `resize`. En el arnés, un `resize` que no llega (`stopImmediatePropagation` en captura, registrado antes de montar);
+  - **un modal sale transparente, como si estuviera DEBAJO de la pantalla**: no era un problema de apilamiento (eso parecía);
+    las animaciones de CSS (`mkFade`, 0,12 s) no avanzan con el tiempo virtual y la foto las agarra en el primer cuadro. En el
+    arnés, `animation: none`;
+  - **esbuild colgado**: parecía un ciclo de imports, y era la máquina sin memoria (875 MB libres con cuatro `tsc` enteros de
+    otros chats). Mirar la RAM antes de diagnosticar un cuelgue.
+- **Trampa 3: reordenar el marcado de una tarjeta rompe tests que no hablan de diseño.** Los tests del Uso leen el texto de cada
+  tarjeta en orden. Con `display: contents` en la fila de adentro y una grilla con áreas, el marcado queda igual y se ve en otro
+  orden. Un lector de pantalla sigue leyendo el orden lógico.
 
 ## Una captura «de teléfono» con `--window-size=390` miente: el Edge sin ventana tiene un ancho mínimo (24/10/2026)
 

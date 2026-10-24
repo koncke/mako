@@ -411,14 +411,16 @@ export async function analizarHoja(p: PedidoAnalisis): Promise<{ ok: boolean; er
  */
 async function avisarAnalisisListo(p: PedidoAnalisis, salida: SalidaAnalisis): Promise<void> {
   try {
-    const [{ emitirDelCatalogo }, { valoresDelAnalisis }, { linkApp }] = await Promise.all([
-      import('./avisos'), import('./variables-del-lead'), import('./app-url'),
+    const [{ emitirDelCatalogo }, { valoresDelAnalisis }, { linkApp }, { idDeHojaDeMetricas }] = await Promise.all([
+      import('./avisos'), import('./variables-del-lead'), import('./app-url'), import('./automatizacion-metricas'),
     ]);
+    // Una hoja de Métricas no está en el Dashboard: el link lleva a SU automatización (24/10/2026).
+    const sec = idDeHojaDeMetricas(p.hoja.id);
     const datos = valoresDelAnalisis({
       hoja: p.hoja.nombre,
       resumen: salida.resumen,
       hallazgos: salida.hallazgos.map((h) => `${h.titulo}: ${h.texto}`),
-      link: linkApp(`/dashboard?hoja=${encodeURIComponent(p.hoja.id)}`, p.ws),
+      link: linkApp(sec != null ? `/automations?sec=${sec}` : `/dashboard?hoja=${encodeURIComponent(p.hoja.id)}`, p.ws),
       origen: p.origen === 'cron' ? 'cron' : 'mano',
     });
     await emitirDelCatalogo('dashboard-analisis-listo', { ws: p.ws, datos });
@@ -500,9 +502,13 @@ export function drenarVencidos(opts: { deadline: number }): Promise<CuentaCron> 
     tabla: T, cols: COLS, deadline: opts.deadline,
     correr: async (f, token, ws) => {
       // El informe GUARDADO de esa persona. «No pude leer» no es «nunca guardó».
+      // ⚠️ Y UNA HOJA DE MÉTRICAS VIVE EN EL INFORME DE SU AUTOMATIZACIÓN (24/10/2026): buscándola sólo en el Dashboard y en
+      // General no aparecía nunca, y la primera ocurrencia le sacaba el horario en silencio («La hoja ya no existe»).
       let hoja: Hoja | null;
       try {
-        hoja = (await leerInformeGuardado(f.usuario)).hojas.find((h) => h.id === f.hoja_id) ?? null;
+        const { hojaDeMetricasGuardada } = await import('./automatizacion-metricas-server');
+        const deMetricas = await hojaDeMetricasGuardada(f.usuario, f.hoja_id);
+        hoja = deMetricas !== undefined ? deMetricas : (await leerInformeGuardado(f.usuario)).hojas.find((h) => h.id === f.hoja_id) ?? null;
       } catch (e) {
         console.error(`[analista:cron] ${f.id}: ${msg(e)}`);
         await cerrarConError(T, f.id, token, 'No pude leer tu informe guardado.');

@@ -178,14 +178,5 @@ export function funnelEnVista(funnels: readonly FunnelDelArbol[], idEnVista: num
   return funnels.find((f) => f.id === idEnVista && f.esta) ?? funnels.find((f) => f.esCasa) ?? funnels[0] ?? null;
 }
 
-/**
- * LOS OTROS FUNNELS DONDE ESTÁ, con su etapa (llamada con Mauricio del 22/10/2026, min 23:30, C8): «en la R1 de allá, de
- * alguna manera, marque que el lead vino del webinar». Un lead del Sprint que pasa a la R1 del CRM principal está en los
- * dos: su casa y una fila en el del Sprint. La ficha lo dice al lado del funnel que se mira («También en: Sprint 3 días
- * › Prospección activa»), y un toque cambia a ése. Los que no lo tienen, no salen; el que se mira, tampoco.
- */
-export function otrosFunnelsDelLead(funnels: readonly FunnelDelArbol[], enVista: FunnelDelArbol | null): Array<{ id: number; nombre: string; etapa: string | null }> {
-  return funnels
-    .filter((f) => f.esta && f.id !== enVista?.id)
-    .map((f) => ({ id: f.id, nombre: f.nombre, etapa: f.etapa ? (f.etapas.find((s) => s.key === f.etapa)?.label ?? null) : null }));
-}
+// `otrosFunnelsDelLead` (el «También en» de la ficha, 22/10/2026) se fue el 24/10: Martín pidió sacarlo, y los otros funnels
+// con su etapa ya se ven en este desplegable (`seccionesDelArbol`).

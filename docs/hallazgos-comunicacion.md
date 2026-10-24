@@ -481,6 +481,70 @@ envíos y permisos. Lo que le rompía a un cliente quedó arreglado y fijado en 
 
 ## WhatsApp no oficial (Evolution)
 
+### ⚠️ Dos fichas con el mismo teléfono: la respuesta cortaba a la equivocada, y la medición obvia decía «a salvo» (24/10/2026)
+
+**Síntoma:** German, en Leila, tiene dos fichas: #1776 (agosto, con el número sin país) y #1797 (52 + 10 dígitos), que
+está activa en «Recordatorio clase reactivación». Si contestaba, su respuesta iba a cortar a la #1776, que no tiene
+ninguna automatización. Para la #1797 iba a seguir siendo «No contestó», y le íbamos a seguir escribiendo a alguien que
+ya había contestado. Es el mismo bug que el lead de prueba de Martín: el #3099 contestaba en el #249
+(docs/hallazgos-chatbot.md).
+
+**Causa real:** `matchLeadPorTelefono` (lib/evolution-mensajes.ts) buscaba primero la coincidencia exacta y después el
+sufijo de 10 dígitos, y se quedaba con el id MÁS BAJO. `pausarPorRespuesta` sólo corta las inscripciones de esa ficha.
+
+**⚠️ El diagnóstico obvio era el equivocado.** La primera medición simuló el matcher con el número GUARDADO de cada ficha.
+Con 529981478439, la #1797 coincide exacto consigo misma, y la medición dio «German, a salvo». Pero WhatsApp le escribe a
+**521** + 10 dígitos, que es el JID de un celular de México (y 549 en Argentina). Con ese número no coincide ninguna
+exacta, el sufijo trae las dos fichas y gana la #1776. Lo encontró una verificación independiente que miró los CHATS
+(salientes contra entrantes de cada `chat_jid`), no las fichas. **Regla de medición:** a quién se pega un entrante se mide
+con el número del JID (`wa_mensajes.telefono` de sus salientes, o 521/549 + 10 si todavía no hay chat), nunca con
+`telefono_normalizado`.
+
+**La lección, que no es sobre teléfonos:** una simulación que usa el dato GUARDADO en vez del dato que LLEGA del mundo
+confirma lo que uno esperaba. El código no falla con el dato que uno eligió para probar; falla con el que llega de
+verdad. Y el detalle fino: el respaldo de «los 10 últimos dígitos» más «la ficha de id más bajo» convierte una
+coincidencia parcial en una elección silenciosa y siempre equivocada; nada avisa que hubo dos candidatas.
+
+**El arreglo (24/10):** con más de una ficha para ese teléfono, la respuesta va a la ficha a la que LE ESCRIBIMOS ÚLTIMO
+(`fichaDelEntrante`, lib/ficha-del-entrante.ts). La prueba de «le escribimos» es lo más nuevo entre TRES cosas, porque
+cada una sola falla:
+- su saliente en ESE chat (`wa_mensajes`): si el eco del webhook le gana a `enviarYEspejar`, que hace `ignoreDuplicates`,
+  la fila queda con la ficha que eligió el eco;
+- su WhatsApp de una automatización (`nutricion_envios`): lo escribe quien mandó, pero un BORRADOR APROBADO conserva el
+  `created_at` de cuando se armó, no de cuando salió;
+- la salida del borrador aprobado (`wa_borradores.enviado_at`). Sin ésta, el arreglo no cubría a German: Leila aprueba
+  borradores, y si el eco ganaba, la respuesta volvía a la #1776. Lo encontró la revisión adversarial.
+
+Sin ninguna prueba, queda lo de antes: la exacta, y si no, la de id más bajo. Con una sola candidata no se consulta nada
+más. Las candidatas van de la más NUEVA a la más vieja (tope de 20), y con el tope lleno se suma la exacta. Así el tope
+deja afuera las fichas viejas, no la que se acaba de inscribir. Test: tests/entrante-ficha-gemela.test.ts.
+
+**Por qué NO se pausan las dos fichas** (que era lo primero que se ocurría): `pausarPorRespuesta` no sólo marca
+'respondio', también CONTESTA (el AI Step, el modo asistido, la charla). Correrlo en cada ficha gemela le podía mandar dos
+respuestas a la misma persona. Se elige UNA ficha y todo sigue por ella.
+
+**Medido el 24/10, sólo lectura (2393 fichas, 63 inscripciones activas):**
+- 16 grupos con el mismo teléfono: 13 en el negocio de prueba (el arnés).
+- Los otros tres: el #3099/#249 de Martín, German en Leila, y Juanfran Marquez en el negocio de Martín, que no tiene
+  automatizaciones.
+- Incidentes que ya pasaron en negocios reales: ninguno. **Llegamos antes:** German no escribió desde el 20/10, su
+  bienvenida es un borrador sin aprobar, y ninguna de las 27 inscripciones activas de Leila tiene un WhatsApp enviado. Por
+  eso no hubo nada que reparar en los datos.
+
+**Sin hacer:**
+- `resolverLeadIdsPorTelefono` (lib/evolution-mensajes.ts) no ordena: con dos fichas puede mostrar una distinta en cada
+  pedido.
+- `primerLeadPorTelefono` y `elegirPorTelefono` (lib/leads-duplicados.ts) siguen con su propia regla.
+- El eco que gana en `enviarYEspejar` deja el saliente con la ficha que elige esta misma regla, no con la del envío. Para
+  la próxima respuesta no importa (las otras dos pruebas lo corrigen), pero el chat de la ficha lo muestra en la otra.
+- Dos PERSONAS distintas con los mismos 10 dígitos y distinto país: una prueba de automatización de una le gana a la
+  exacta de la otra. Es muy raro, y lib/numero-whatsapp.ts ya acepta ese choque.
+- **Las dos fichas de German NO se tocan** (decisión del Cerebro, 24/10). Unificarlas sería escribir en el CRM de una
+  clienta para arreglar un problema nuestro, sin que ella lo pida ni lo sepa, y si se pierde una etiqueta, una nota o un
+  historial, el daño es irreversible y en datos ajenos. El arreglo del código hace que el problema deje de existir sin
+  tocar una fila. Si después hace falta, MaKo se lo muestra a Leila con el aviso de fichas parecidas y «Unificar» (entró
+  el 23/10), y lo decide ella.
+
 ### ⚠️ Un teléfono sin código de país no existe en WhatsApp, y el envío no lo completaba (ws11, 20/10/2026)
 
 **Síntoma:** Leila (ws11) le mandó a Martín una captura: en la ficha del lead #2313, «WhatsApp no oficial» → «Ese número
@@ -10900,3 +10964,63 @@ Medido al buscar las listas de Martín (formación de Jan, Mastery House, evento
 - Del store sólo salen los que ESCRIBIERON en el grupo (0 a 6 por grupo): no sirve como lista de miembros.
 - Para «Traer de un grupo» hace falta una línea CONECTADA que esté en ese grupo. La de MaKo (…2605) no está en los
   grupos de Martín: tiene que ser su número personal, vinculado de nuevo.
+
+## Chats más simple: dos columnas, la caja de MaKo y conectar sin salir (24/10/2026)
+
+Martín, por el Cerebro, cinco pedidos sobre Chats (el diseño y las decisiones, en docs/diseno-chats.md §8; lo que lo fija,
+tests/chats-mas-simple.test.ts, probado rompiéndolo con 7 roturas). Lo que no se ve en el código:
+
+- **Redirigir /whatsapp perdía cosas que no estaban en ningún otro lado.** El «Chatbot: ON/OFF» (el envío real de las
+  automatizaciones, `/api/whatsapp/envio`) sólo tenía botón en la cabecera de la tab vieja; los chats ocultos (y
+  desocultarlos), borrar el historial de UN chat y la alarma del número caído, también. docs/diseno-sidebar.md §5 ya los
+  listaba como «lo que queda». Ahora: el interruptor en «Administrar» del número, los ocultos como vista del chip «Todos»
+  (`ListaOcultos`), «Borrar este chat» en el «⋯» (sólo admin: la ruta lo exige) y la franja «… está desconectado».
+  **Regla:** antes de dejar de dibujar una pantalla, listar cada control que tiene y buscarle su casa nueva.
+- **La alarma del número caído puede mentir en un negocio viejo.** `listarChats` inventa una línea `estado: 'desconectado'`
+  para «la línea de siempre sin fila» (un workspace sin fila en `evolution_instancias` que igual trae conversaciones). Con la
+  franja nueva, ese negocio vería «desconectado» sin estarlo. No se tocó (es un default de lib/chats.ts que usan otros); si
+  aparece, la franja tiene que mirar el estado medido (`GET /api/whatsapp/evolution`), no el de la lista.
+- **El número de MaKo en Chats va con una clave FIJA** (`wa:canal_mako:<jid>`, `LINEA_CANAL_MAKO`), no con el nombre de la
+  instancia: la voz de MaKo se muda de número (`instanciaVoz`), y el estado y los leídos de un grupo se guardan por clave. Lo
+  ve sólo el super admin en su barra (`getSesionAdmin` y no `estaImpersonando`): mirando a un cliente, Chats es el de él.
+- **Un grupo del negocio se lee y no se contesta; uno de MaKo sí.** El envío de una línea del negocio saca «el número» del jid,
+  y el de un grupo no es un teléfono. El de MaKo sale por /api/admin/mako-chats (el camino de /agencia), con el MISMO multipart
+  para archivos y notas de voz (`rutaArchivoWhatsApp`). **Verificado antes de dejar al teléfono mandar:** una línea pedida que
+  no es del negocio la rechaza `elegirLinea` («Esa línea de WhatsApp no es de este negocio»); no cae a la de por defecto.
+- **La caja única adentro de una columna flex se encoge al contenido.** `.co-caja` trae `margin-inline: auto` (centrada en el
+  Ops Center), y en un contenedor flex en columna un margen automático le saca el estirarse: quedó una caja de 400 px en el
+  medio. En Chats va con `margin-inline: 0; max-width: none` (`.rio-caja`).
+- **Lo adjuntado sigue en la vista de WhatsApp Web, no en miniaturas de la caja.** Martín pidió esa vista el 11/10; la caja
+  única recibe `adjuntos` con `items: []` y todo lo que entra (el «+», pegar, soltar sobre la conversación) va a esa vista.
+
+**Sin hacer:**
+- WhatsAppApp.tsx, EmpresaInbox.tsx y el modal «WhatsApp de empresa» de EvolutionConnect.tsx quedan sin montar (los fijan
+  tests: inbox-agregar-al-crm, lineas-whatsapp, sin-chatwoot y otros). Borrarlos es una tanda propia, mudando lo que esos
+  tests cuidan.
+- El teléfono (/m/chats) muestra los grupos de MaKo mezclados en la lista del super admin, pero su filtro es por canal: no
+  tiene el selector «mi número / MaKo» (app/m/chats/ListaChats.tsx).
+- El menú de cada mensaje (reacciones, responder citando) no se sumó: Evolution y Zernio no tienen la cita (§3). El asesor
+  «MaKo — qué escribir» (app/whatsapp/WhatsAppAdvisor.tsx) no está en Chats; el botón «MaKo» de la caja sugiere.
+- /agencia sigue con su página entera (el panel del canal y el chat de grupos, ChatGruposPanel): ya no está en la barra y sus
+  grupos están en Chats; queda para sus links.
+
+## Una alerta con el techo agotado se calla aunque el incidente siga abierto días (24/10/2026)
+
+Medido al investigar por qué MaKo no veía el gasto del ws1 (docs/hallazgos-ads.md, misma fecha), con el workflow
+`wf_d253310f-574` y re-medido a mano: `notificaciones` del ws1 de tipo `meta-cuenta-frenada` por día.
+
+**Vive en:** `lib/alerta-critica-texto.ts:47-52` (`vecesDelEstado`) y :60-66 (`marcaTrasEmitir`) · `lib/alerta-critica.ts:210-237`
+· `lib/plantillas-automatizaciones.ts:776` (el nodo `mf_tope` de «Meta Frenó la Cuenta Publicitaria», automatización 261 del ws9)
+
+- **Síntoma:** la cuenta de anuncios de Mauricio está frenada por saldo impago desde el 15/10 a las 08:18 UTC. MaKo abrió el
+  incidente 109 en 1 min 46 s y avisó 26 veces (14 el 15/10, 12 el 16/10). **Desde el 16/10 no avisó NUNCA MÁS**, con el
+  incidente abierto y reevaluándose cada hora.
+- **Causa: es el diseño, no un bug.** El techo de 3 avisos por estado (revisión del 16/10, commit 63be8e666) se compara con
+  la marca heredada: `vecesDelEstado` toma una marca vieja sin `estado` como del mismo estado («el incidente que ya pasó el
+  techo no vuelve a salir»), y esa marca valía 26. La marca se reescribe cada hora sin sumar, así que `ultimaIso` de hoy NO
+  quiere decir que hoy saliera un aviso. **El diagnóstico obvio («avisó y nadie lo leyó») era el equivocado:** dejó de avisar.
+- ⚠️ **Y el ws4 «Cliente de Diseño» comparte la cuenta y el token con el ws1:** tiene su propio incidente (110) y fue el ÚNICO
+  que recibió avisos después del 16/10 (hasta el 17/10). La dedup «una vez por cuenta» marca la cuenta como avisada DESPUÉS de
+  emitir (alerta-critica.ts:237), así que en la misma corrida avisa el otro workspace (plausible, leído en el código).
+- **SIN hacer, decisión de producto de Martín (el Cerebro lo reparte):** si un incidente abierto varios días vuelve a avisar
+  (por ejemplo, una vez por día), y separar la cuenta compartida ws1/ws4.

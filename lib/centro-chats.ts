@@ -898,23 +898,48 @@ function porQueTarda(
 }
 
 /**
+ * El chat está trabado en una pregunta de la app de Claude (un AskUserQuestion abierto, `preguntasDeLaApp`): mientras espera
+ * no le entra ningún mensaje (medido el 22/10 en 27 casos), y desde el Ops Center no se contesta. Lo dice EN EL ACTO, sin
+ * esperar `TARDA_MS`: es lo que pasó el 24/10, cuando Martín escribió desde el teléfono, no pasó nada y concluyó «no se envió».
+ */
+export const POR_QUE_TRABADO = 'El chat espera que contestes su pregunta en la app de Claude, en la computadora: hasta entonces no lee este mensaje.';
+
+/** Cuándo dio la última vuelta la PC de la cuenta de ese trabajo (`vistoAt` de su cartero). null = no se sabe. */
+function ultimaVuelta(
+  w: Pick<TrabajoP, 'destino' | 'destino_cuenta'>,
+  carteros: readonly Pick<CarteroP, 'cuenta' | 'vistoAt' | 'chats'>[],
+): number | null {
+  const subido = carteros.flatMap((k) => k.chats.map((c) => ({ ...c, cuenta: c.cuenta ?? k.cuenta }))).find((c) => c.local === w.destino);
+  const cuenta = subido?.cuenta ?? w.destino_cuenta;
+  return fecha(carteros.find((k) => k.cuenta === cuenta)?.vistoAt);
+}
+
+/**
  * La línea de estado de un trabajo del Centro, debajo de su burbuja: «Enviado» o «La PC lo recibió», y por qué tarda si
  * tarda. null = ya lo tiene el chat (los ✓✓ lo dicen, y «Trabajando…» va al pie de la conversación: `chatTrabajando`), o
- * terminó, o no salió (eso lo dice su nota roja).
+ * terminó, o no salió (eso lo dice su nota roja). `trabado`: el chat tiene abierta una pregunta de la app de Claude.
+ * ⚠️ Sin nada que lo frene, NO promete segundos (24/10/2026): la PC lo toma en su vuelta, que puede ser de minutos; se dice
+ * cuándo fue la última.
  */
 export function estadoDelEnvio(
   w: Pick<TrabajoP, 'destino' | 'destino_cuenta' | 'created_at' | 'estado'>,
   chat: Pick<ChatCentro, 'estado' | 'viejo' | 'sinRunner'> | null,
   carteros: readonly Pick<CarteroP, 'cuenta' | 'vistoAt' | 'chats' | 'cuota'>[],
   ahora: number,
+  trabado = false,
 ): EstadoDelEnvio | null {
   const estado = w.estado ?? 'escrito';
   if (estado !== 'escrito' && estado !== 'tomado') return null;
   const desde = fecha(w.created_at) ?? ahora;
+  const fase: FaseEnvio = estado === 'escrito' ? 'enviado' : 'recibido';
+  const texto = estado === 'escrito' ? 'Enviado' : 'La PC lo recibió';
+  if (trabado) return { fase, texto, porQue: POR_QUE_TRABADO };
   if (estado === 'escrito') {
-    return { fase: 'enviado', texto: 'Enviado', porQue: ahora - desde > TARDA_MS ? porQueTarda(w, chat, carteros, ahora) ?? 'El Runner lo toma en segundos.' : null };
+    if (ahora - desde <= TARDA_MS) return { fase, texto, porQue: null };
+    const vuelta = ultimaVuelta(w, carteros);
+    return { fase, texto, porQue: porQueTarda(w, chat, carteros, ahora) ?? (vuelta != null ? `La PC lo toma en su próxima vuelta (la última, a las ${horaAR(vuelta)}).` : 'La PC lo toma en su próxima vuelta.') };
   }
-  return { fase: 'recibido', texto: 'La PC lo recibió', porQue: ahora - desde > TARDA_TOMADO_MS ? porQueTarda(w, chat, carteros, ahora) ?? 'El Runner se lo está pasando al chat.' : null };
+  return { fase, texto, porQue: ahora - desde > TARDA_TOMADO_MS ? porQueTarda(w, chat, carteros, ahora) ?? 'El Runner se lo está pasando al chat.' : null };
 }
 
 /**

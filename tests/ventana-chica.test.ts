@@ -58,9 +58,12 @@ test('/integraciones: ninguna grilla desborda una columna angosta y ningún nomb
   // `minmax(Npx, 1fr)` sin `min(…, 100%)` desborda una columna más angosta que N: ninguna queda así.
   const sueltas = b.match(/minmax\(\d+px,\s*1fr\)/g) ?? [];
   assert.deepEqual(sueltas, [], 'una grilla con un mínimo fijo desborda en una ventana chica');
-  assert.ok((b.match(/minmax\(min\(\d+px,100%\),1fr\)/g) ?? []).length >= 5);
-  // El motivo de «Requiere tu atención» y el nombre de cada servicio se leen enteros.
-  assert.match(b, /textTransform: 'uppercase', color: sev === 'bad' \? 'var\(--bad\)' : 'var\(--warn\)', marginBottom: 4, overflowWrap: 'anywhere' \}\}>\{motivo\}/);
+  // Las grillas que quedan (24/10/2026: una para las dos secciones de tarjetas, más las de «Costo de MaKo» y del modal).
+  assert.ok((b.match(/minmax\(min\(\d+px,100%\),1fr\)/g) ?? []).length >= 4);
+  assert.match(b, /gridTemplateColumns: 'repeat\(auto-fill,minmax\(min\(236px,100%\),1fr\)\)'/, 'la grilla de las tarjetas, sin desbordar');
+  // El motivo de una conectada con un problema (desde el 24/10/2026 en su tarjeta, no en «Requiere tu atención») y el nombre de
+  // cada servicio se leen enteros.
+  assert.match(b, /color: equipo \? 'var\(--dim\)' : sev === 'bad' \? 'var\(--bad\)' : sev === 'warn' \? 'var\(--warn\)' : 'var\(--good\)', overflowWrap: 'anywhere' \}\}>[\s\S]{0,240}\{equipo \? POR_QUE_LA_CONFIGURA_MAKO : motivo \?\? 'Conectada'\}/);
   assert.doesNotMatch(b, /textOverflow: 'ellipsis', whiteSpace: 'nowrap' \}\}>\{i\.nombre\}/);
   assert.match(b, /overflowWrap: 'anywhere' \}\}>\{i\.nombre\}<\/span>/);
 });

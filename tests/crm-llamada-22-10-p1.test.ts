@@ -60,13 +60,18 @@ test('C5: el lápiz del selector de CRMs cierra el desplegable al abrir el pop-u
   assert.match(leer('app/components/Dropdown.tsx'), /a\.onClick\(\); if \(a\.cierra\) close\(\);/);
 });
 
-test('C7: las otras hojas de la ficha, a la vista al lado del título (el desplegable sigue)', () => {
+// ⚠️ REESCRITO EL 24/10/2026: Martín pidió TABS de verdad («rediseña el estilo de las tabs... donde está el desplegable en
+//    la primera... mira como lo hacen otras apps»). Lo que C7 cuidaba sigue, más fuerte: TODAS las hojas a la vista, también
+//    en el teléfono (antes ahí sólo quedaba el desplegable).
+test('C7: todas las hojas de la ficha a la vista, como tabs del mismo rango (también en el teléfono)', () => {
   const t = sinComentarios(leer('app/crm/lead-view/LeadTabs.tsx'));
-  assert.match(t, /<nav className="lt-atajos" aria-label="Otras hojas de la ficha">/);
-  assert.match(t, /tabs\.filter\(\(t\) => t\.key !== activeKey\)\.map\(\(t\) => \(/, 'los atajos son las OTRAS hojas');
-  assert.match(t, /onClick=\{\(\) => \{ setMenu\(null\); ir\(t\.key\); onChange\?\.\(t\.key\); \}\}/, 'el atajo va por el mismo camino que el desplegable');
-  assert.match(t, /<MenuHojasFicha /, 'el desplegable del título se fue (es donde se crea y se ordena una hoja)');
-  assert.match(t, /\.lt-nueva, \.lt-hoja-mas, \.lt-atajos \{ display: none; \}/, 'en el teléfono, sólo el desplegable');
+  assert.match(t, /<div ref=\{lista\} role="tablist" aria-label="Hojas de la ficha"/);
+  assert.match(t, /\{tabs\.map\(\(t\) => \{/, 'cada hoja es una tab, la abierta también');
+  assert.match(t, /const elegir = \(key: string\) => \{ setMenu\(null\); ir\(key\); onChange\?\.\(key\); \};/);
+  assert.match(t, /onClick=\{\(\) => elegir\(t\.key\)\}/, 'una tab va por el camino de siempre');
+  assert.doesNotMatch(t, /MenuHojasFicha|lt-atajos|lt-tit-btn/, 'volvió el título con desplegable');
+  assert.match(t, /@media \(max-width: 720px\) \{[^\n]*\.lt-accion \{ display: none; \} \}/, 'en el teléfono se esconde sólo lo de personalizar');
+  assert.doesNotMatch(t, /\.lt-tabs \{ display: none/, 'en el teléfono las tabs no se esconden');
 });
 
 

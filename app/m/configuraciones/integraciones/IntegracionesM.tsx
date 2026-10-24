@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// Integraciones en el teléfono: la lista por categoría y la hoja de cada una (Ajustes › Cuentas de iOS)
+// Integraciones en el teléfono: las secciones de la computadora y la hoja de cada una (Ajustes › Cuentas de iOS)
 // =============================================================================
 
 import { useState } from 'react';
@@ -15,43 +15,67 @@ export type IntegracionM = {
   paraQue: string | null;
   /** La configura el equipo de MaKo (una variable del servidor): el negocio no tiene nada que pegar. */
   soloServidor: boolean;
+  /** Va en «Conectadas»: conectada, o una IA que configura el equipo de MaKo. */
+  conectada: boolean;
+  /** Un incidente abierto de este servicio: se lee en su fila. */
+  problema: { estado: string; rojo: boolean } | null;
+  /** Una pasarela o una del Leads Scraper: al final de «Sin conectar». */
+  opcional: boolean;
   enComputadora: string;
 };
-export type ProblemaM = { id: number; servicio: string; estado: string; detalle: string | null; rojo: boolean; confirmado: boolean };
+export type ProblemaM = { id: number; servicio: string; estado: string; detalle: string | null; rojo: boolean; confirmado: boolean; enCurso: boolean };
 
-export function IntegracionesM({ integraciones, problemas, abrir }: { integraciones: IntegracionM[]; problemas: ProblemaM[]; abrir: string | null }) {
+export function IntegracionesM({ conectadas, sinConectar, historial, abrir }: {
+  conectadas: IntegracionM[]; sinConectar: IntegracionM[]; historial: ProblemaM[]; abrir: string | null;
+}) {
   const ws = useWs();
   // `?abrir=<key>` (el link de un aviso, «Conectar Meta») abre esa hoja de entrada, como el modal en la computadora.
-  const [abierta, setAbierta] = useState<IntegracionM | null>(() => integraciones.find((i) => i.key === abrir) ?? null);
+  const [abierta, setAbierta] = useState<IntegracionM | null>(() => [...conectadas, ...sinConectar].find((i) => i.key === abrir) ?? null);
   const [problema, setProblema] = useState<ProblemaM | null>(null);
-  const categorias = [...new Set(integraciones.map((i) => i.categoria))];
 
-  if (!integraciones.length) return <VacioM frase="Tu plan no tiene integraciones para configurar." />;
+  if (!conectadas.length && !sinConectar.length) return <VacioM frase="Tu plan no tiene integraciones para configurar." />;
 
   return (
     <>
-      {problemas.length > 0 && (
-        <SeccionM titulo="Para resolver">
+      {/* Lo mismo que la computadora, en el mismo orden (24/10/2026): «Tus cuentas de IA» arriba —su casa es /m/cuenta/ia—,
+          «Conectadas», «Sin conectar» y el «Historial de problemas». */}
+      <ListaM>
+        <FilaM titulo="Tus cuentas de IA" segunda="Tu Claude, tu GPT o tu Gemini" href="/perfil/ia" />
+      </ListaM>
+      {conectadas.length > 0 && (
+        <SeccionM titulo="Conectadas">
           <ListaM>
-            {problemas.map((p) => (
-              <FilaM key={p.id} icono="help" titulo={p.servicio} segunda={p.detalle ?? undefined}
-                pill={<PildoraM tono={p.rojo ? 'bad' : 'warn'}>{p.confirmado ? p.estado : 'No se pudo leer'}</PildoraM>}
+            {conectadas.map((i) => (
+              <FilaM key={i.key} titulo={i.nombre} segunda={i.problema ? i.categoria : i.soloServidor ? 'La configura el equipo de MaKo.' : i.categoria}
+                pill={i.problema
+                  ? <PildoraM tono={i.problema.rojo ? 'bad' : 'warn'}>{i.problema.estado}</PildoraM>
+                  : i.estado === 'conectada' ? <PildoraM tono="good">Conectada</PildoraM> : undefined}
+                onClick={() => setAbierta(i)} />
+            ))}
+          </ListaM>
+        </SeccionM>
+      )}
+      {sinConectar.length > 0 && (
+        <SeccionM titulo="Sin conectar">
+          <ListaM>
+            {sinConectar.map((i) => (
+              <FilaM key={i.key} titulo={i.nombre} segunda={i.problema ? i.detalle : i.descripcion}
+                pill={i.problema ? <PildoraM tono="warn">{i.problema.estado}</PildoraM> : undefined} onClick={() => setAbierta(i)} />
+            ))}
+          </ListaM>
+        </SeccionM>
+      )}
+      {historial.length > 0 && (
+        <SeccionM titulo="Historial de problemas">
+          <ListaM>
+            {historial.map((p) => (
+              <FilaM key={p.id} titulo={p.servicio} segunda={p.detalle ?? p.estado}
+                pill={<PildoraM tono={p.enCurso ? (p.rojo ? 'bad' : 'warn') : 'neutro'}>{p.enCurso ? (p.confirmado ? 'En curso' : 'No se pudo leer') : 'Resuelto'}</PildoraM>}
                 onClick={() => setProblema(p)} />
             ))}
           </ListaM>
         </SeccionM>
       )}
-      {categorias.map((c) => (
-        <SeccionM key={c} titulo={c}>
-          <ListaM>
-            {integraciones.filter((i) => i.categoria === c).map((i) => (
-              <FilaM key={i.key} titulo={i.nombre} segunda={i.detalle || undefined}
-                pill={<PildoraM tono={i.estado === 'conectada' ? 'good' : 'warn'}>{i.estado === 'conectada' ? 'Conectada' : 'Falta'}</PildoraM>}
-                onClick={() => setAbierta(i)} />
-            ))}
-          </ListaM>
-        </SeccionM>
-      ))}
 
       <SheetM id="integracion" abierto={abierta != null} onCerrar={() => setAbierta(null)} titulo={abierta?.nombre ?? ''}
         pie={abierta && !abierta.soloServidor ? (

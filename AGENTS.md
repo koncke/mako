@@ -2574,6 +2574,21 @@ que cierre la próxima.
 y `docs/hallazgos-*` siguen yendo completos y con su porqué: ahí el largo se paga solo la
 primera vez que alguien lo busca. Lo que se recorta es lo que se dibuja.
 
+# Lo que AVISA no se pliega
+
+Plegar (un `<details>`, un «Mostrar más», una sección que se abre) es la herramienta de un rediseño que achica, y tiene una
+trampa: una alerta que cae adentro del pliegue deja a la vista un resumen que se ve sano. Medido el 24/10/2026 en la API del Uso:
+plegada con su total a la vista, «Anthropic dijo «sin crédito»» y un plan al 90% quedaban adentro, y el negocio que usa ese crédito
+dejaba de contestar sin que nada lo dijera. Lo encontraron dos revisores por separado.
+
+- **Lo que avisa queda afuera del pliegue**, en su renglón: un problema, lo que no se pudo leer, lo que dice que el total está
+  incompleto, una acción que el dueño pidió tener a mano. Adentro va el detalle de lo que está bien.
+- **En un `<summary>`, la grilla y la flecha van en un `<span>` de adentro.** El `<summary>` mismo, sin `display: flex` ni `grid`:
+  Safari 16 y anteriores lo dibujan como un bloque común (WebKit 167111) y la flecha de un `::after` sale como una raya suelta.
+  Adentro del `<summary>`, sólo texto en línea.
+- **Un link que apunta a algo plegado lo despliega** (`?abrir=` en /integraciones): si no, el modal se abre y el scroll no
+  encuentra la tarjeta, sin error. Es la regla de abajo: lo desplegado se calcula.
+
 # Si el estado correcto se puede CALCULAR, calcularlo le gana a dispararlo
 
 Cuando una pantalla tiene que estar de cierta forma *mientras* pasa algo —la grilla
@@ -3533,6 +3548,17 @@ pone un prefijo propio ni se usa el id de otro sistema (el `lead.id` de Zernio n
 `event_id` de la conversión `Lead` es `eventIdLeadCrudo(leadgen_id)` en TODAS las puertas, para que Meta junte los eventos; y lo inmediato
 (`alNacerLeadDeMeta`) va sólo con un lead CREADO por esa entrega y de menos de 24 h (`esNuevoParaElNegocio`): una reentrega no es un lead nuevo. Un webhook
 que trae leads descarta antes de cargar nada las muestras de prueba del proveedor (`test: true`). `tests/zernio-leads.test.ts`.
+
+⚠️ **SI LA PÁGINA YA MANDA UN EVENTO DESDE EL NAVEGADOR, MAKO NO LO MANDA POR CAPI AL MISMO PÍXEL SIN UN `eventID` COMPARTIDO.**
+Meta junta el evento del navegador (`fbq`) con el del servidor (CAPI) sólo si traen el MISMO nombre y el mismo id (`eventID` en
+`fbq`, `event_id` en CAPI); con dos ids distintos, o con uno solo de los dos, cuenta DOBLE. Medido el 24/10/2026: la landing de
+un cliente dispara `fbq('track','Schedule')` sin `eventID` al reservar en Calendly y MaKo manda Schedule por CAPI al mismo
+`META_PIXEL_ID` (app/api/webhooks/calendly/route.ts): de 8 reservas en 30 días, 3 llegaron dos veces y la campaña optimiza
+sobre eso. Un evento nuevo por CAPI (Purchase, Lead del opt-in, CompleteRegistration) se pregunta antes: ¿esta página ya lo
+dispara? Si sí, o se comparte el id o MaKo no lo manda; con «no sé», un evento NUEVO no se manda. El id compartido sale de un
+dato que las dos puntas ya tienen (el invitado de Calendly, el `uid` de Cal.com) y, si falta, el navegador va sin `eventID`:
+un id constante hace que Meta junte todos en uno. Y el `event_id` no lleva datos personales en claro (el de Schedule lleva el
+email). El diseño, docs/diseno-eventos-meta-por-funnel.md; el porqué, docs/hallazgos-ads.md.
 
 Y hay un CUARTO registro que no es obligatorio y cambia lo que la gente lee: `AYUDA_CAMPO`
 (en `metodo-catalogo.ts`). El componente hace `ayuda={c.ayuda ?? servicio.tutorial}`, asi
@@ -6712,6 +6738,10 @@ aparecer en la app de Ops Center»). AskUserQuestion TRABA tu turno hasta que la
 la puede contestar: medido en 27 de los transcripts, mientras espera no te entra ningún mensaje (los de otras sesiones quedan
 retenidos hasta que el turno termina). El cartero 1.18.0 la sube para que la VEA en el Ops Center, pero ahí no se contesta.
 Preguntá con `cartero preguntar` y terminá el turno: se contesta desde el Ops Center, una por vez, en la compu y en el teléfono.
+**Lo que cuesta, medido el 24/10/2026:** el Cerebro preguntó 8 veces con AskUserQuestion en dos días. Martín, desde el teléfono,
+tocó las opciones y no pasó nada, escribió la respuesta a mano y ese mensaje quedó en «escrito» porque el turno estaba trabado:
+«Intenté responder esa pregunta en mobile y no funcionó... Está fallando». Desde el teléfono una pregunta así NO tiene respuesta
+posible: la app de Claude está en la computadora.
 Con varias decisiones, un archivo por decisión (uno tras otro): Martín las ve juntas y las contesta de a una, con «1 de 3».
 Un ejemplo, con su recomendada (el índice desde 0) y el detalle de lo que pasa con cada una:
 
@@ -10365,3 +10395,22 @@ antes de cada consulta, con compare-and-set (la pantalla no es una garantía). R
 repite siempre a los primeros. Lo que no contestó es «no sé»: no queda consultado, pero cuenta en el cupo. Y antes de arrancar,
 la cuenta y el tiempo se le dicen a la persona. El molde es `completarPerfilesDelGrupo` (app/crm/grupo-wa-server.ts); lo hace
 cumplir tests/grupo-wa.test.ts (12 y 12b); el porqué, docs/hallazgos-crm.md.
+
+## Una acción que corre MINUTOS desde una barra o un modal: la pregunta se cierra antes, y el «Parar» queda a la vista (24/10/2026)
+
+Completar, consultar o escribir sobre muchos leads tarda minutos, no segundos. La pregunta (`Confirm`) se cierra ANTES de
+arrancar, porque si queda abierta con `loading` tapa el avance y el «Parar». El avance («Completando 75 de 221…») y el «Parar»
+van en la barra o en el pie, que siguen montados mientras corre. Nada que la desmonte a mitad: en la barra de lote, la casilla
+que limpia la selección no limpia mientras corre. Y el bucle no se escribe dos veces: el del tablero y el del modal son las
+mismas funciones puras (app/crm/enriquecer-cliente.ts), que reciben la acción del server por parámetro y se prueban con dobles
+(tests/enriquecer-lote.test.ts). El porqué, en docs/hallazgos-crm.md («Completar» en lote…).
+
+## Lo que tiene que VERSE ya, nunca adentro de `startTransition(async …)` (24/10/2026)
+
+En el React de Next 16, un `setState` hecho en la parte síncrona de una transición ASYNC queda atado a la acción, y el render
+se suspende hasta que la acción ENTERA termina: el «Parar», el «Contando…» o el primer avance de una corrida de minutos no
+aparecen nunca. Se midió en react-dom-client (`entangleAsyncAction`, `currentEntangledActionThenable`) y lo encontró la
+revisión de «Completar» en lote. Para una corrida larga con avance y «Parar», se usa un async plano con su propio estado,
+puesto ANTES del primer `await`, como `correrWhatsapp` y `correrEmpresa` en app/crm/AccionesLoteLeads.tsx (el test lo
+vigila: ninguna de esas funciones llama a `start(`). `useTransition` sigue sirviendo para lo corto, donde da igual que el
+estado intermedio no se vea.

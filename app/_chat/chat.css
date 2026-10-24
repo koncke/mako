@@ -248,6 +248,18 @@
 .ch-desde-caja { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 6px; font-size: 12px; color: var(--dim); }
 
 /* La app de escritorio, primero (23/10/2026, AppPrimero.tsx): la descarga en lugar de la conversación, o la franja arriba de la caja. */
-.ch-app-primero { gap: 14px; }
-.ch-app-primero__caja { width: min(440px, 100%); text-align: left; }
+/* El cartel de la app de escritorio (24/10/2026, AppPrimero.tsx): EN EL LUGAR DE LA CAJA, con el mismo aire que ella, la criatura,
+   una frase y un botón. Martín: «diseña bien ese cartel, no el botón feo que está al final del modal que no lo ve nadie». */
+.ch-app-cartel { display: flex; align-items: center; gap: 14px; margin: 8px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: 0 1px 2px rgba(18, 21, 27, .04), 0 6px 20px rgba(18, 21, 27, .06); }
+.ch-app-cartel > svg { flex: none; }
+.ch-app-cartel__cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.ch-app-cartel__frase { margin: 0; font-size: var(--fs-md); line-height: 1.4; color: var(--ink); overflow-wrap: anywhere; }
+.ch-app-cartel__aviso { margin: -4px 0 0; font-size: var(--fs-meta); line-height: 1.4; color: var(--dim); }
+.ch-app-cartel__boton { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 6px 18px; border: 0; border-radius: 999px; background: var(--primary); color: var(--on-primary, #fff); font: inherit; font-size: var(--fs-sm); font-weight: 600; text-decoration: none; cursor: pointer; }
+.ch-app-cartel__boton:hover { filter: brightness(1.06); }
+.ch-app-cartel__boton:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.ch-app-cartel__acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.ch-app-cartel__otro { font-size: var(--fs-meta); color: var(--dim); }
+@media (pointer: coarse) { .ch-app-cartel__boton { min-height: var(--touch); } }
+@media (max-width: 420px) { .ch-app-cartel { align-items: flex-start; } }
 .ch-app-franja { margin: 4px 8px 8px; padding: 8px 10px; border-radius: var(--r-md); background: var(--primary-bg); color: var(--ink); font-size: var(--fs-sm); }

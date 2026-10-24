@@ -18,7 +18,8 @@ export const PARTES: Parte[] = [
   { titulo: 'Un contacto, todos sus canales', detalle: 'WhatsApp de cada línea + Instagram + Messenger en un hilo · el composer elige por dónde', estado: 'sigue' },
   { titulo: 'Estado y no leído en el servidor', detalle: 'Cerrar · reabrir · posponer · leído por persona (mig 0284)', estado: 'sigue' },
   { titulo: 'La tab en el producto', detalle: 'Barra (Operate, antes de WhatsApp) · capas · badge · links profundos · API de MaKo (área chats)', estado: 'hecha' },
-  { titulo: 'WhatsApp sale del menú', detalle: 'Cuando Martín valide que Chats lo reemplaza: /whatsapp queda para conectar números', estado: 'cola' },
+  { titulo: 'WhatsApp sale del menú', detalle: '24/10: /whatsapp ya no se dibuja; conectar y administrar un número es un modal sobre Chats', estado: 'hecha' },
+  { titulo: 'Chats más simple', detalle: '24/10: dos columnas, la cabecera con cuatro cosas, la caja del chat de MaKo y el número de MaKo para el super admin', estado: 'hecha' },
   { titulo: 'v2', detalle: 'Snippets con «/» · @menciones · bandejas a medida · Chats en el teléfono (/m/chats)', estado: 'cola' },
 ];
 
@@ -91,6 +92,39 @@ export const BITACORA: Hito[] = [
       'lib/evolution.ts — `lineaDeEnvio` devuelve el número de la línea; enviarTexto, enviarMedia, enviarAudio y fetchLidDeNumero lo usan',
       'tests/numero-whatsapp.test.ts — 8 tests, 16 roturas con su fallo',
       'tests/evolution-motivo.test.ts — acepta el motivo con la pista',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '03:05', chat: 'Ops Center', sesion: 'local_5cc6190d-8390-4df1-b215-849f5590ee30', cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Cinco pedidos sobre Chats: una pantalla para el super admin, conectar sin la tab vieja, Email, el modal, y simplificar',
+    pedido: '«En SuperAdmin no deben haber 3 tabs allí, debe ser igual que el resto. Y que simplemente pueda cambiar entre mi número y el de MaKo y ver entre los chats los grupos» · «Cuando quiero conectar un WhatsApp, mira que salta el diseño de la tab vieja de WhatsApp, eso está muy mal, solo debería saltar el QR» · «Faltan los Email aquí, para conectarlo, no solo WhatsApp, Messenger, Instagram...» · «Mira como se ve toda la tab vieja de WhatsApp por detrás eso está muy mal... Y también el modal que salta con mucho texto y no se entiende...» · «simplifiques la interfaz de chats... Está increíblemente compleja, muchos botones. Y hay funcionalidades que tenemos en el chat con MaKo que faltan, me gustaría que se parezca más al chat de MaKo. Entiendo que debe tener más cosas, pero no tan complejo.»',
+    puntos: [
+      'Llegaron por el Cerebro (24/10, madrugada), con capturas. El Cerebro: «Los cinco pedidos juntos son una sola pregunta: cómo se ve y se usa Chats. Resolvela entera».',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '04:50', chat: 'Ops Center', sesion: 'local_5cc6190d-8390-4df1-b215-849f5590ee30', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: Chats en dos columnas, con la caja del chat de MaKo, conectar y administrar un canal sobre Chats y el número de MaKo para el super admin',
+    revisar: '/chats',
+    puntos: [
+      'Dos columnas: la Bandeja (quince renglones, nueve etapas) son tres chips arriba de la lista: «Todos» (con Mostrar, Orden, «Sólo sin responder» y los ocultos), «Canales» y «Etapa». El panel del contacto arranca cerrado, se abre tocando el nombre y no deja el rail.',
+      'La cabecera del chat: el nombre (abajo, de quién es), la etapa, Cerrar y «⋯». Asignar, Posponer y la nota de cierre son vistas del «⋯». «Agregar al CRM» queda en UN lugar, la cabecera (estaba en cinco).',
+      'La caja es la del chat de MaKo (CajaChat): el «+» con Documento, Fotos, Cámara y Pegar, viñetas y links, soltar archivos sobre la conversación, el dictado donde no hay nota de voz; MaKo sugiere al final de la fila.',
+      'Conectar un canal es UNA pieza, la de Automations (ConectarMedio): WhatsApp sólo el QR, Email el remitente del negocio, Instagram y Messenger por Zernio. Recién conectado un WhatsApp, la única pregunta: «¿Traes las conversaciones?».',
+      'Administrar un número: el estado, «Las automatizaciones envían» (el «Chatbot: ON/OFF» de la tab vieja), «Sincronizar» como botón secundario, y abajo en texto, con confirmación, «Borrar el historial» y «Desconectar». /whatsapp lleva a Chats con sus links.',
+      'Super admin: Chats sin barra de tres tabs; «Canales» trae su número y el de MaKo, con los grupos de MaKo entre los chats, que se escriben por el canal de MaKo (también desde el teléfono).',
+      '**Sin hacer:** borrar WhatsAppApp/EmpresaInbox (sin montar, con tests que los fijan); el selector de línea en el teléfono; el menú de cada mensaje; el asesor de WhatsApp en Chats (docs/hallazgos-comunicacion.md).',
+    ],
+    archivos: [
+      'app/chats/FiltrosChats.tsx — los tres chips (la Bandeja)',
+      'app/chats/ConectarCanal.tsx — conectar un canal (ConectarMedio + Zernio) y los cuatro botones',
+      'app/chats/AdministrarWhatsApp.tsx — administrar un número, y la pregunta de sincronizar recién conectado',
+      'app/chats/ListaOcultos.tsx — los chats ocultos de WhatsApp, con «Mostrar»',
+      'app/whatsapp/page.tsx — /whatsapp traduce sus links y lleva a Chats',
+      'lib/chats.ts — el número de MaKo para el super admin (veCanalMaKo, fuenteGrupoMaKo, hiloDelCanalMaKo)',
+      'tests/chats-mas-simple.test.ts — las cinco decisiones, 7 roturas con su fallo',
     ],
   },
 ];

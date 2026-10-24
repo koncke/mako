@@ -3,13 +3,11 @@
 // =============================================================================
 // VentanaChat — la ventana del chat de la tab Chats: cabecera + hilo + composer (copia de respond.io)
 // =============================================================================
-// docs/diseno-chats.md §3 (el contrato con ChatsApp son las props de abajo, al pie de la letra);
-// relevamiento respondio.md §1.3 y §1.8 (capturas 07, 10, 11, 13, 41, 43, 45, a-header):
-//   · CABECERA de 44: avatar de 28 + nombre 14/600 (+ «Pospuesta hasta hoy, 6:15 p. m.» si aplica); el
-//     split de ETAPA («Elegir etapa» abre la lista, la flecha pasa a la siguiente); a la derecha el
-//     ASIGNADO (avatar 20 + nombre 12/600 + chevron: buscador, «Quitar asignación», el equipo y MaKo),
-//     POSPONER (el reloj: «Posponer hasta» con la fecha de cada opción), CERRAR (check + chevron que abre
-//     «Cerrar con nota») / REABRIR / REANUDAR, «⋯» y el botón del panel del contacto.
+// docs/diseno-chats.md §3 y §8.2; relevamiento respondio.md §1.3 y §1.8 (capturas 07, 10, 11, 13, 41, 43, 45, a-header):
+//   · CABECERA de 44 con CUATRO cosas (24/10/2026, Martín: «Está increíblemente compleja, muchos botones»; eran siete):
+//     el NOMBRE (avatar de 28 + nombre 14/600 y abajo «Asignada a Leila» o «Pospuesta hasta…»; abre el contacto), la
+//     ETAPA (o «Agregar al CRM» sin lead), CERRAR / REABRIR / REANUDAR, y «⋯» con lo demás: Asignar ›, Posponer ›,
+//     Cerrar con nota ›, Abrir ficha y lo de WhatsApp (sincronizar, borrar este chat, ocultar, bloquear).
 //   · el HILO (Hilo.tsx) se relee cada 8 s con la pestaña visible, con corte a los 15 s.
 //   · el COMPOSER (Composer.tsx), montado con `key` por conversación.
 //
@@ -36,11 +34,13 @@ import type { ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import { crearLeadDesdeWhatsappAction } from '@/app/crm/actions';
 import { BotonAgregarAlCrm } from '@/app/whatsapp/_shared/BotonAgregarAlCrm';
 import { useConfirm } from '@/app/_ui';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { useNotifications } from '@/app/_components/NotificationsProvider';
+import { alSoltar, traeArchivos, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import Composer from './Composer';
 import { Hilo } from './Hilo';
 import { AvatarRio, AvisoVentana, Ico, ItemMenu, postJson, useAfuera, useAvisoRio } from './ventana-piezas';
-import { candidatosAsignar, fechaOpcion, opcionesPosponer, siguienteEtapa, textoFallas, textoHasta } from './ventana-reglas';
+import { candidatosAsignar, fechaOpcion, opcionesPosponer, textoFallas, textoHasta } from './ventana-reglas';
 import './chats-ventana.css';
 
 /** El tipo de los productos del alta al CRM: el mismo que pide `BotonAgregarAlCrm`. */
@@ -71,7 +71,8 @@ export type VentanaChatProps = {
 type HiloLeido = { chat: ChatResumen | null; mensajes: MensajeChat[]; borradores: BorradorChat[]; fallas: string[] };
 /** Un mensaje optimista. `confirmadoEn`: el número de la última lectura que había empezado cuando salió. */
 type Pendiente = { m: MensajeChat; confirmadoEn: number | null };
-type Menu = 'etapa' | 'asignar' | 'posponer' | 'cerrar' | 'mas' | null;
+/** `asignar`, `posponer` y `cerrar` son vistas del «⋯» (con su ‹ para volver), no botones de la cabecera. */
+type Menu = 'etapa' | 'mas' | 'asignar' | 'posponer' | 'cerrar' | null;
 
 /** Cada cuánto se relee el hilo (con la pestaña a la vista), y cuándo se corta una lectura colgada. */
 const SONDEO_MS = 8_000;
@@ -81,7 +82,7 @@ const ERROR_ESTADO = { cerrar: 'No se pudo cerrar', reabrir: 'No se pudo reabrir
 const OK_ESTADO = { cerrar: 'Conversación cerrada', reabrir: 'Conversación reabierta', posponer: 'Conversación pospuesta', reanudar: 'Conversación reanudada' } as const;
 
 export function VentanaChat({
-  ws, chat: chatLista, yo, equipo, etapas, productos, drawerAbierto, onToggleDrawer, onCambio, onAbrirFicha, onClaveCambio,
+  ws, chat: chatLista, yo, equipo, etapas, productos, esAdmin, drawerAbierto, onToggleDrawer, onCambio, onAbrirFicha, onClaveCambio,
 }: VentanaChatProps) {
   const clave = chatLista.clave;
   const aviso = useAvisoRio();
@@ -211,11 +212,10 @@ export function VentanaChat({
   const cerrarMenu = () => setMenu(null);
   const alternar = (m: Exclude<Menu, null>) => setMenu((a) => (a === m ? null : m));
   const cajaEtapa = useAfuera<HTMLDivElement>(menu === 'etapa', cerrarMenu);
-  const cajaAsignar = useAfuera<HTMLDivElement>(menu === 'asignar', cerrarMenu);
-  const cajaPosponer = useAfuera<HTMLDivElement>(menu === 'posponer', cerrarMenu);
-  const cajaCerrar = useAfuera<HTMLDivElement>(menu === 'cerrar', cerrarMenu);
-  const cajaMas = useAfuera<HTMLDivElement>(menu === 'mas', cerrarMenu);
+  const cajaMas = useAfuera<HTMLDivElement>(menu === 'mas' || menu === 'asignar' || menu === 'posponer' || menu === 'cerrar', cerrarMenu);
   const [ocupado, setOcupado] = useState(false);
+  /** Lo que el Composer recibe como adjunto (o nada, si el canal elegido no adjunta): lo usa el soltar de la conversación. */
+  const adjuntosRef = useRef<AdjuntosDeCaja | undefined>(undefined);
 
   // ── Estado de la conversación ──
   async function cambiarEstado(accion: 'cerrar' | 'reabrir' | 'posponer' | 'reanudar', extra: { hasta?: string; nota?: string } = {}): Promise<boolean> {
@@ -256,7 +256,6 @@ export function VentanaChat({
 
   // ── Etapa (el mismo choke point que el CRM) ──
   const etapaActual = etapas.find((e) => e.key === chat.etapaKey) ?? null;
-  const siguiente = siguienteEtapa(etapas, chat.etapaKey);
   async function cambiarEtapa(e: EtapaChat) {
     if (!chat.leadId || ocupado || e.key === chat.etapaKey) { setMenu(null); return; }
     setMenu(null);
@@ -355,8 +354,29 @@ export function VentanaChat({
     onCambio();
   }
 
+  async function borrarChat() {
+    setMenu(null);
+    const was = chat.canales.filter((c) => c.canal === 'whatsapp' && !!c.telefono);
+    if (!was.length) return;
+    if (!(await confirm('Se borran los mensajes de este chat guardados en MaKo. Su WhatsApp no cambia.', { title: 'Borrar este chat', confirmLabel: 'Borrar' }))) return;
+    let fallo: string | null = null;
+    for (const c of was) {
+      const j = await postJson<{ ok: boolean; error?: string }>('/api/whatsapp/evolution/block', { telefono: c.telefono ?? '', chat: c.ref, action: 'clear-chat', linea: c.cuenta });
+      if (!j.ok) fallo = j.error ?? 'Error';
+    }
+    if (fallo) aviso.error('No se pudo borrar', fallo);
+    else aviso.ok('Chat borrado');
+    void cargar();
+    onCambio();
+  }
+
   // ── La cabecera ──
-  const subtitulo = chat.estado === 'pospuesta' && chat.pospuestaHasta ? `Pospuesta hasta ${textoHasta(chat.pospuestaHasta, new Date()) ?? ''}` : null;
+  // Abajo del nombre, lo que más se mira de la conversación: si está pospuesta, hasta cuándo; si no, de quién es (el
+  // asignado salió de la cabecera al «⋯»); sin lead, por dónde escribe.
+  const subtitulo = chat.estado === 'pospuesta' && chat.pospuestaHasta
+    ? `Pospuesta hasta ${textoHasta(chat.pospuestaHasta, new Date()) ?? ''}`
+    : chat.leadId ? (chat.asignado ? `Asignada a ${chat.asignado}` : 'Sin asignar')
+      : chat.canales.find((i) => i.destino)?.destino ?? null;
   const textoFallasHilo = textoFallas(hilo?.fallas ?? [], chat.canales);
   // Sin MaKo: /api/chats/asignar lo rechaza («MaKo se asigna solo», al pasar a una nutrición
   // automática). Si ya la tiene, MaKo se ve arriba como la asignada actual y se le puede quitar.
@@ -366,7 +386,8 @@ export function VentanaChat({
     <div className="rio-v">
       <header className="rio-cab rio-cab-v">
         <div className="rio-cab-izq">
-          <button type="button" className="rio-cab-contacto" title={chat.nombre} onClick={() => { if (!drawerAbierto) onToggleDrawer(); }}>
+          <button type="button" className="rio-cab-contacto" title={drawerAbierto ? 'Cerrar el contacto' : 'Ver el contacto'}
+            aria-expanded={drawerAbierto} onClick={onToggleDrawer}>
             <AvatarRio ws={ws} nombre={chat.nombre} tel={chat.avatarTel} size={28} />
             <span className="rio-cab-nombres">
               <span className="rio-cab-nombre">{chat.nombre}</span>
@@ -376,17 +397,14 @@ export function VentanaChat({
 
           {chat.leadId ? (
             <div className="rio-ancla" ref={cajaEtapa}>
-              <div className="rio-split rio-split-etapa">
-                <button type="button" className="rio-split-a" onClick={() => alternar('etapa')} aria-haspopup="menu" aria-expanded={menu === 'etapa'}
-                  title={chat.etapaLabel ?? 'Elegir etapa'} disabled={ocupado}>
-                  {etapaActual || chat.etapaLabel
-                    ? <span className="rio-etapa-punto" style={{ background: etapaActual?.color ?? 'var(--rio-text-3)' }} />
-                    : <Ico n="circuloPunteado" s={16} />}
-                  <span className="rio-etapa-txt">{chat.etapaLabel ?? 'Elegir etapa'}</span>
-                </button>
-                <button type="button" className="rio-split-b" disabled={!siguiente || ocupado} onClick={() => { if (siguiente) void cambiarEtapa(siguiente); }}
-                  title={siguiente ? `Pasar a ${siguiente.label}` : 'Es la última etapa'} aria-label="Siguiente etapa"><Ico n="chevDer" s={16} /></button>
-              </div>
+              <button type="button" className="rio-etapa-btn" onClick={() => alternar('etapa')} aria-haspopup="menu" aria-expanded={menu === 'etapa'}
+                title={chat.etapaLabel ?? 'Elegir etapa'} disabled={ocupado}>
+                {etapaActual || chat.etapaLabel
+                  ? <span className="rio-etapa-punto" style={{ background: etapaActual?.color ?? 'var(--rio-text-3)' }} />
+                  : <Ico n="circuloPunteado" s={16} />}
+                <span className="rio-etapa-txt">{chat.etapaLabel ?? 'Elegir etapa'}</span>
+                <Ico n={menu === 'etapa' ? 'chevArriba' : 'chevAbajo'} s={14} />
+              </button>
               {menu === 'etapa' && (
                 <div className="rio-menu rio-menu-izq rio-menu-etapas" role="menu">
                   {etapas.map((e) => (
@@ -397,90 +415,19 @@ export function VentanaChat({
                 </div>
               )}
             </div>
-          ) : (
-            // Sin lead no hay etapa: en su lugar, el alta al CRM (lo que la habilita).
+          ) : waIdent || socialIdent ? (
+            // Sin lead no hay etapa: en su lugar, el alta al CRM (lo que la habilita). Es el ÚNICO «Agregar al CRM» de la
+            // pantalla (§8.2): el «⋯», el panel del contacto y el comentario lo nombran sin otro botón. Un GRUPO no se agrega
+            // (no tiene un teléfono que sea una persona): sin identidad que dé de alta, no hay botón.
             <div className="rio-alta-crm">{botonAlta}</div>
-          )}
+          ) : null}
         </div>
 
         <div className="rio-cab-der">
-          <div className="rio-ancla" ref={cajaAsignar}>
-            <button type="button" className="rio-asignado" onClick={() => { setBusca(''); alternar('asignar'); }} aria-haspopup="menu" aria-expanded={menu === 'asignar'}
-              title={chat.asignado ? `Asignada a ${chat.asignado}` : 'Sin asignar'}>
-              {chat.asignado
-                ? <AvatarRio ws={ws} nombre={chat.asignado} foto={fotoDe(chat.asignado)} size={20} mako={chat.asignado === 'MaKo'} />
-                : <span className="rio-sin-asignar"><Ico n="persona" s={14} /></span>}
-              <span className="rio-asignado-nombre">{chat.asignado ?? 'Sin asignar'}</span>
-              <Ico n={menu === 'asignar' ? 'chevArriba' : 'chevAbajo'} s={16} />
-            </button>
-            {menu === 'asignar' && (
-              <div className="rio-menu rio-menu-der rio-menu-asignar" role="menu">
-                {chat.leadId ? (
-                  <>
-                    <label className="rio-menu-buscar">
-                      <Ico n="buscar" s={16} />
-                      <input className="rio-menu-buscar-campo" autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar" aria-label="Buscar persona" />
-                    </label>
-                    {chat.asignado && (
-                      <ItemMenu elegido icono={<AvatarRio ws={ws} nombre={chat.asignado} foto={fotoDe(chat.asignado)} size={24} mako={chat.asignado === 'MaKo'} />}>{chat.asignado}</ItemMenu>
-                    )}
-                    {chat.asignado && (
-                      <ItemMenu icono={<span className="rio-sin-asignar rio-sin-asignar-24"><Ico n="persona" s={16} /></span>} onClick={() => void asignar(null)}>Quitar asignación</ItemMenu>
-                    )}
-                    {candidatos.map((n) => (
-                      <ItemMenu key={n} icono={<AvatarRio ws={ws} nombre={n} foto={fotoDe(n)} size={24} />} onClick={() => void asignar(n)}>{n}</ItemMenu>
-                    ))}
-                    {!candidatos.length && <div className="rio-menu-vacio">Sin resultados</div>}
-                  </>
-                ) : (
-                  <div className="rio-menu-nota">
-                    <span>Agrega el contacto al CRM para asignarlo.</span>
-                    <button type="button" className="rio-btn" disabled={creandoLead} onClick={() => { setMenu(null); void agregarAlCrm(null); }}>Agregar al CRM</button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {chat.estado === 'abierta' && (
-            <div className="rio-ancla" ref={cajaPosponer}>
-              <button type="button" className="rio-ico-btn" onClick={() => alternar('posponer')} title="Posponer" aria-label="Posponer" aria-haspopup="menu"
-                aria-expanded={menu === 'posponer'} disabled={ocupado}><Ico n="reloj" s={20} /></button>
-              {menu === 'posponer' && (
-                <div className="rio-menu rio-menu-der rio-menu-posponer" role="menu">
-                  <div className="rio-menu-tit">Posponer hasta</div>
-                  {opcionesPosponer(new Date()).map((o) => (
-                    <ItemMenu key={o.key} detalle={fechaOpcion(o.hasta)} onClick={() => void cambiarEstado('posponer', { hasta: o.hasta.toISOString() })}>{o.label}</ItemMenu>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           {chat.estado === 'abierta' ? (
-            <div className="rio-ancla" ref={cajaCerrar}>
-              <div className="rio-split">
-                <button type="button" className="rio-split-a" disabled={ocupado} onClick={() => void cambiarEstado('cerrar')}>
-                  <Ico n="checkCirculo" s={16} />Cerrar
-                </button>
-                <button type="button" className="rio-split-b" disabled={ocupado} onClick={() => alternar('cerrar')} title="Cerrar con nota" aria-label="Cerrar con nota"
-                  aria-expanded={menu === 'cerrar'}><Ico n={menu === 'cerrar' ? 'chevArriba' : 'chevAbajo'} s={16} /></button>
-              </div>
-              {menu === 'cerrar' && (
-                <div className="rio-pop rio-pop-cierre" role="dialog" aria-label="Nota de cierre">
-                  <div className="rio-pop-tit"><span className="rio-check-lleno"><Ico n="check" s={12} /></span>Nota de cierre</div>
-                  <div className="rio-pop-cuerpo">
-                    <label className="rio-pop-label" htmlFor={`rio-nota-cierre-${clave}`}>Nota</label>
-                    <textarea id={`rio-nota-cierre-${clave}`} className="rio-pop-campo" rows={4} autoFocus value={notaCierre}
-                      onChange={(e) => setNotaCierre(e.target.value)} placeholder="Qué pasó en esta conversación" />
-                  </div>
-                  <div className="rio-pop-acc">
-                    <button type="button" className="rio-btn-texto" onClick={cerrarMenu}>Cancelar</button>
-                    <button type="button" className="rio-btn-verde" disabled={ocupado} onClick={() => void cerrarConNota()}>Cerrar conversación</button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <button type="button" className="rio-btn" disabled={ocupado} onClick={() => void cambiarEstado('cerrar')}>
+              <Ico n="checkCirculo" s={16} />Cerrar
+            </button>
           ) : chat.estado === 'pospuesta' ? (
             <button type="button" className="rio-btn" disabled={ocupado} onClick={() => void cambiarEstado('reanudar')}
               title={chat.pospuestaHasta ? `Vuelve ${textoHasta(chat.pospuestaHasta, new Date()) ?? ''}` : undefined}>
@@ -494,31 +441,77 @@ export function VentanaChat({
 
           <div className="rio-ancla" ref={cajaMas}>
             <button type="button" className="rio-ico-btn" onClick={() => alternar('mas')} title="Más acciones" aria-label="Más acciones" aria-haspopup="menu"
-              aria-expanded={menu === 'mas'}><Ico n="mas" s={20} /></button>
+              aria-expanded={menu === 'mas' || menu === 'asignar' || menu === 'posponer' || menu === 'cerrar'}><Ico n="mas" s={20} /></button>
             {menu === 'mas' && (
               <div className="rio-menu rio-menu-der" role="menu">
-                {chat.leadId ? (
+                <ItemMenu icono={<Ico n="persona" s={16} />} deshabilitado={!chat.leadId || ocupado}
+                  detalle={chat.leadId ? (chat.asignado ?? 'Sin asignar') : 'Agrégalo al CRM'}
+                  onClick={() => { setBusca(''); setMenu('asignar'); }}>Asignar</ItemMenu>
+                {chat.estado === 'abierta' && (
+                  <>
+                    <ItemMenu icono={<Ico n="reloj" s={16} />} deshabilitado={ocupado} detalle={<Ico n="chevDer" s={14} />} onClick={() => setMenu('posponer')}>Posponer</ItemMenu>
+                    <ItemMenu icono={<Ico n="checkCirculo" s={16} />} deshabilitado={ocupado} onClick={() => setMenu('cerrar')}>Cerrar con nota</ItemMenu>
+                  </>
+                )}
+                {chat.leadId != null && (
                   <ItemMenu icono={<Ico n="ficha" s={16} />} onClick={() => { setMenu(null); if (chat.leadId) onAbrirFicha(chat.leadId); }}>Abrir ficha</ItemMenu>
-                ) : (
-                  <ItemMenu icono={<Ico n="personaMas" s={16} />} deshabilitado={creandoLead || (!waIdent && !socialIdent)}
-                    onClick={() => { setMenu(null); void agregarAlCrm(null); }}>Agregar al CRM</ItemMenu>
                 )}
                 {waIdent && (
                   <>
-                    <ItemMenu icono={<Ico n="sincronizar" s={16} />} deshabilitado={ocupado} onClick={() => void sincronizar()}>Sincronizar chat</ItemMenu>
+                    <div className="rio-menu-sep" role="separator" />
+                    <ItemMenu icono={<Ico n="sincronizar" s={16} />} deshabilitado={ocupado} onClick={() => void sincronizar()}>Sincronizar este chat</ItemMenu>
                     <ItemMenu icono={<Ico n="ojoTachado" s={16} />} onClick={() => void ocultar()}>Ocultar</ItemMenu>
                     <ItemMenu icono={<Ico n="prohibido" s={16} />} peligro={!chat.bloqueado} onClick={() => void bloquear(!chat.bloqueado)}>
                       {chat.bloqueado ? 'Desbloquear' : 'Bloquear'}
                     </ItemMenu>
+                    {/* Borrar el historial de UNA conversación lo pide el admin (la ruta lo exige): lo tenía la tab vieja. */}
+                    {esAdmin && <ItemMenu icono={<IconoBorrar size={16} />} peligro onClick={() => void borrarChat()}>Borrar este chat</ItemMenu>}
                   </>
                 )}
               </div>
             )}
+            {menu === 'asignar' && (
+              <div className="rio-menu rio-menu-der rio-menu-asignar" role="menu">
+                <button type="button" className="rio-menu-volver" onClick={() => setMenu('mas')}><Ico n="chevIzq" s={16} />Asignar</button>
+                <label className="rio-menu-buscar">
+                  <Ico n="buscar" s={16} />
+                  <input className="rio-menu-buscar-campo" autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar" aria-label="Buscar persona" />
+                </label>
+                {chat.asignado && (
+                  <ItemMenu elegido icono={<AvatarRio ws={ws} nombre={chat.asignado} foto={fotoDe(chat.asignado)} size={24} mako={chat.asignado === 'MaKo'} />}>{chat.asignado}</ItemMenu>
+                )}
+                {chat.asignado && (
+                  <ItemMenu icono={<span className="rio-sin-asignar rio-sin-asignar-24"><Ico n="persona" s={16} /></span>} onClick={() => void asignar(null)}>Quitar asignación</ItemMenu>
+                )}
+                {candidatos.map((n) => (
+                  <ItemMenu key={n} icono={<AvatarRio ws={ws} nombre={n} foto={fotoDe(n)} size={24} />} onClick={() => void asignar(n)}>{n}</ItemMenu>
+                ))}
+                {!candidatos.length && <div className="rio-menu-vacio">Sin resultados</div>}
+              </div>
+            )}
+            {menu === 'posponer' && (
+              <div className="rio-menu rio-menu-der rio-menu-posponer" role="menu">
+                <button type="button" className="rio-menu-volver" onClick={() => setMenu('mas')}><Ico n="chevIzq" s={16} />Posponer hasta</button>
+                {opcionesPosponer(new Date()).map((o) => (
+                  <ItemMenu key={o.key} detalle={fechaOpcion(o.hasta)} onClick={() => void cambiarEstado('posponer', { hasta: o.hasta.toISOString() })}>{o.label}</ItemMenu>
+                ))}
+              </div>
+            )}
+            {menu === 'cerrar' && (
+              <div className="rio-pop rio-pop-cierre" role="dialog" aria-label="Nota de cierre">
+                <div className="rio-pop-tit"><span className="rio-check-lleno"><Ico n="check" s={12} /></span>Nota de cierre</div>
+                <div className="rio-pop-cuerpo">
+                  <label className="rio-pop-label" htmlFor={`rio-nota-cierre-${clave}`}>Nota</label>
+                  <textarea id={`rio-nota-cierre-${clave}`} className="rio-pop-campo" rows={4} autoFocus value={notaCierre}
+                    onChange={(e) => setNotaCierre(e.target.value)} placeholder="Qué pasó en esta conversación" />
+                </div>
+                <div className="rio-pop-acc">
+                  <button type="button" className="rio-btn-texto" onClick={cerrarMenu}>Cancelar</button>
+                  <button type="button" className="rio-btn-verde" disabled={ocupado} onClick={() => void cerrarConNota()}>Cerrar conversación</button>
+                </div>
+              </div>
+            )}
           </div>
-
-          <button type="button" className={`rio-ico-btn${drawerAbierto ? ' rio-ico-on' : ''}`} onClick={onToggleDrawer}
-            title={drawerAbierto ? 'Cerrar panel' : 'Abrir panel'} aria-label={drawerAbierto ? 'Cerrar panel del contacto' : 'Abrir panel del contacto'}
-            aria-pressed={drawerAbierto}><Ico n="panel" s={20} /></button>
         </div>
       </header>
 
@@ -536,7 +529,10 @@ export function VentanaChat({
         </div>
       ) : null}
 
-      <div className="rio-cuerpo">
+      {/* ARRASTRAR Y SOLTAR ES DE LA PANTALLA (la caja única, CajaChat): un archivo soltado sobre cualquier parte de la
+          conversación entra como adjunto, por lo mismo que el «+» (el Composer avisa qué recibe con `onAdjuntos`). */}
+      <div className="rio-cuerpo" onDragOver={(e) => { if (traeArchivos(e.dataTransfer)) e.preventDefault(); }}
+        onDrop={(e) => alSoltar(e, adjuntosRef.current)}>
         {/* El aviso va abajo a la izquierda del HILO, arriba de la caja de escribir (respond.io lo pone abajo a
             la izquierda; abajo de todo taparía «Agregar comentario»). */}
         <div className="rio-hilo-caja">
@@ -546,7 +542,7 @@ export function VentanaChat({
         </div>
         <Composer key={chat.clave} ws={ws} chat={chat} yo={yo} equipo={equipo} mensajes={mensajes} borradores={hilo?.borradores ?? []}
           onPendiente={onPendiente} onConfirmado={onConfirmado} onFallido={onFallido} onEnviado={onEnviado}
-          agregarAlCrm={botonAlta} onAviso={(t, err, d) => (err ? aviso.error(t, d) : aviso.ok(t))} />
+          onAviso={(t, err, d) => (err ? aviso.error(t, d) : aviso.ok(t))} onAdjuntos={(a) => { adjuntosRef.current = a; }} />
       </div>
       {confirmNode}
     </div>

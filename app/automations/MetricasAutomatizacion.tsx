@@ -12,12 +12,18 @@
 //     se ve al abrir la app no va con `ssr:false`; esto no se ve al abrir).
 //   · «Llevar al Dashboard» (POST /api/automations/metricas) crea una hoja NUEVA en el Dashboard de quien mira, filtrada a
 //     esta automatización, y deja el link para abrirla. Lleva la primera hoja de las Métricas (la de MaKo, o la que la
-//     persona dejó primera).
+//     persona dejó primera). VA EN EL ⋮ desde el 24/10/2026 (Martín: «"Llevar al Dashboard" dentro de los 3 puntitos»).
+//   · UNA SOLA BARRA ARRIBA (24/10/2026). La mitad izquierda la pone la automatización (`izquierda`: su título y «Flujo»
+//     para volver) y la derecha es la del informe (buscar, filtrar, Editar y el ⋮), donde sobre el lienzo están «Probar» y
+//     la tuerca (`cabeceraPropia` de EditorInforme). Martín: «El título no debería duplicarse, debe ser el mismo, y sin
+//     desplegable» y «Si estoy viendo las métricas no debería estar más el botón de "Probar" o "Configuraciones"... En su
+//     lugar, los botones de la barra de búsqueda, el filtro, los 3 puntitos». Cargando, con un error o sin hoja, la
+//     izquierda está igual: «Flujo» existe siempre.
 // =============================================================================
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
-import { Button } from '@/app/_ui/Button';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { CargandoMako } from '@/app/_ui/CargandoMako';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import type { Tablero } from '@/lib/graficos-catalogo';
 import type { DatosGrafico } from '@/lib/graficos-datos';
@@ -25,7 +31,7 @@ import { informeDeAutomatizacion } from '@/lib/informe-automatizacion';
 
 const EditorInforme = dynamic(() => import('@/app/dashboard/EditorInforme').then((m) => m.EditorInforme), {
   ssr: false,
-  loading: () => <Cargando />,
+  loading: () => <CargandoEditor />,
 });
 
 type Lectura = {
@@ -39,7 +45,30 @@ function Cargando() {
   return <div style={{ position: 'relative', height: '100%', minHeight: 320 }}><CargandoMako que="las métricas" cubre /></div>;
 }
 
-export function MetricasAutomatizacion({ secuenciaId }: { secuenciaId: number }) {
+/** La barra sin el editor: el título y «Flujo» arriba, y abajo lo que haya (el loader, un error, el vacío). */
+function ConBarra({ izquierda, children }: { izquierda: ReactNode; children: ReactNode }) {
+  return (
+    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto', background: 'var(--bg)' }}>
+      <div data-no-pan style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: 14 }}>{izquierda}</div>
+      <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>{children}</div>
+    </div>
+  );
+}
+
+// Mientras baja el código del editor, su `loading` también lleva la barra: sin esto «Flujo» desaparecía hasta que el editor
+// dibujaba la suya. `loading` no recibe props, así que la izquierda le llega por contexto.
+const IzquierdaDeCarga = createContext<ReactNode>(null);
+function CargandoEditor() {
+  return <ConBarra izquierda={useContext(IzquierdaDeCarga)}><Cargando /></ConBarra>;
+}
+
+export function MetricasAutomatizacion({ secuenciaId, izquierda, titulo }: {
+  secuenciaId: number;
+  /** La mitad izquierda de la barra: el título de la automatización y «Flujo». */
+  izquierda: ReactNode;
+  /** El nombre de la automatización: el título del PDF y del CSV. */
+  titulo: string;
+}) {
   const [l, setL] = useState<Lectura | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [llevando, setLlevando] = useState(false);
@@ -74,19 +103,33 @@ export function MetricasAutomatizacion({ secuenciaId }: { secuenciaId: number })
     } catch { setErrLlevar('Sin conexión — prueba de nuevo.'); } finally { setLlevando(false); }
   };
 
-  if (error) return <div role="alert" style={{ padding: 32, color: 'var(--bad)', fontSize: 13.5 }}>{error}<ReportarASoporte /></div>;
-  if (!l) return <Cargando />;
+  // Sin el editor (cargando, un error o sin hoja), la barra igual: el título y «Flujo» para volver.
+  const sinEditor = (cuerpo: ReactNode) => <ConBarra izquierda={izquierda}>{cuerpo}</ConBarra>;
+  if (error) return sinEditor(<div role="alert" style={{ padding: '18px 32px', color: 'var(--bad)', fontSize: 13.5 }}>{error}<ReportarASoporte /></div>);
+  if (!l) return sinEditor(<Cargando />);
   const hoja = l.tablero.hojas[0];
-  if (!hoja) return <div style={{ padding: 32, color: 'var(--dim)', fontSize: 13.5 }}>Esta automatización todavía no tiene métricas.</div>;
+  if (!hoja) return sinEditor(<div style={{ padding: '18px 32px', color: 'var(--dim)', fontSize: 13.5 }}>Esta automatización todavía no tiene métricas.</div>);
+
+  // «Llevar al Dashboard», primero en el ⋮ del informe. El menú no se cierra con un clic adentro (`Flotante`): después de
+  // llevarla, en el mismo renglón queda el link para abrirla.
+  const enMas = (
+    <>
+      {llevada ? (
+        <a href={`/dashboard?hoja=${encodeURIComponent(llevada.hojaId)}`} role="menuitem" className="lk-opcion" data-metricas-llevada>
+          <IconoMenu nombre="ver" size={17} /> <span>Abrir «{llevada.nombre}» en el Dashboard</span>
+        </a>
+      ) : (
+        <button type="button" role="menuitem" className="lk-opcion" disabled={llevando} onClick={() => void llevar()} data-metricas-llevar>
+          <IconoMenu nombre="grafico" size={17} /> <span>{llevando ? 'Llevando…' : 'Llevar al Dashboard'}</span>
+        </button>
+      )}
+      {errLlevar && <div role="alert" style={{ padding: '4px 16px 8px', fontSize: 12.5, color: 'var(--bad)' }}>{errLlevar}<ReportarASoporte /></div>}
+    </>
+  );
 
   return (
     <div data-metricas-automatizacion={secuenciaId} style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden', background: 'var(--bg)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8, padding: '10px 16px 0' }}>
-        {errLlevar && <span role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{errLlevar}<ReportarASoporte /></span>}
-        {llevada
-          ? <a href={`/dashboard?hoja=${encodeURIComponent(llevada.hojaId)}`} data-metricas-llevada style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>Abrir «{llevada.nombre}» en el Dashboard →</a>
-          : <Button variant="secondary" size="sm" disabled={llevando} onClick={() => void llevar()} data-metricas-llevar>{llevando ? 'Llevando…' : 'Llevar al Dashboard'}</Button>}
-      </div>
+      <IzquierdaDeCarga.Provider value={izquierda}>
       <EditorInforme
         key={`automatizacion-${secuenciaId}`}
         inicial={l.tablero}
@@ -97,7 +140,9 @@ export function MetricasAutomatizacion({ secuenciaId }: { secuenciaId: number })
         versionInicial={l.version}
         informe={informeDeAutomatizacion(secuenciaId)}
         unido={null}
+        cabeceraPropia={{ izquierda, titulo, enMas }}
       />
+      </IzquierdaDeCarga.Provider>
     </div>
   );
 }

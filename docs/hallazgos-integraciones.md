@@ -1629,3 +1629,60 @@ pudo verificar en Vercel producción**, y eso hay que medirlo antes de tocar el 
 porque si falta allá el aviso aparece de golpe en todos los clientes.
 
 **Vive en:** `app/_components/ConectarViaZernio.tsx:52,158,223,271` · `lib/zernio.ts:261` · `lib/zernio-conectar.ts:204` · `lib/disparadores-canales.ts:183`
+
+## /integraciones con la estructura de Vercel Marketplace: lo que abrumaba no eran las 22 tarjetas (24/10/2026, Ops Center)
+
+**El pedido** (Martín, por el Cerebro): «hay tanta pero tanta info que se complica muchísimo para el usuario... Piensa en como
+hacerlo o investiga como lo hacen otras apps». La referencia es vercel.com/marketplace. La abrió el Cerebro en el navegador, y el
+24/10 se volvió a relevar la página en vivo y su documentación (docs/relevo y el commit lo nombran).
+
+**Vive en:** `app/integraciones/IntegracionesBoard.tsx` (la fila de controles, las secciones, la tarjeta, los plegados) ·
+`page.tsx` (la destacada) · `TusCuentasIA.tsx` → `TarjetaTusCuentasIA` · `lib/integraciones-catalogo.ts` → `ORDEN_CATEGORIAS` ·
+`app/globals.css` («La grilla de /integraciones») · el teléfono `app/m/configuraciones/integraciones/` ·
+`tests/integraciones-vercel.test.ts`.
+
+- **El diagnóstico obvio era el número, y estaba mal.** Vercel tiene unas 30 categorías y la pantalla no abruma. Tres cosas
+  abrumaban acá:
+  - las 10 categorías desplegadas a la vez, cada una con su fila;
+  - «Requiere tu atención», que en un cliente nuevo repetía ARRIBA hasta quince tarjetas de la grilla, con el nombre de la variable
+    («Falta configurar: ZERNIO_API_KEY»);
+  - y todo lo que no es el catálogo, desplegado: el medidor, «Costo de MaKo», el historial y el bloque entero de «Tus cuentas de IA».
+  En Vercel las categorías son un FILTRO: tres controles en una fila, no treinta secciones.
+- **Lo que se copió:**
+  - la fila de controles: el tipo (acá el estado), la categoría y la búsqueda, que «/» enfoca;
+  - pocas secciones con criterio. «Conectadas» va primero, con el estado en cada tarjeta y las que tienen un problema adelante.
+    «Sin conectar» muestra doce y cierra con «Mostrar más integraciones»;
+  - la tarjeta mínima: el logo, la categoría en una píldora, el nombre y UNA línea, la `descripcion` del catálogo, que en la
+    computadora no se dibujaba en ningún lado.
+
+  **Lo que no se copió:**
+  - el carrusel de destacadas. La única destacada es «Tus cuentas de IA», arriba, que abre el MISMO modal del Ops Center;
+  - la tarjeta «Request an integration». AGENTS.md dice que un pedido de integración no se resuelve con un formulario propio, va por
+    la Ticketera.
+- **`CAT_ORDER` hacía de LISTA BLANCA, y era la tercera vez que mordía.** GitHub y Whop quedaron invisibles sin ningún error. Ahora el
+  orden vive en `lib/integraciones-catalogo.ts` (`ORDEN_CATEGORIAS`, el mismo para el teléfono) y no filtra nada: una categoría
+  nueva va al final.
+- **«Mostrar más» y un link `?abrir=` no se llevan solos.** Si la tarjeta pedida cae en lo plegado (o un filtro la esconde), el modal
+  se abre igual, pero el scroll no encuentra la tarjeta. Ningún test lo veía: `scrollIntoView` sobre `null` no falla.
+  - Ahora el link limpia los filtros y despliega lo que haga falta (`pedida`).
+  - El scroll va en su efecto, detrás del render que pone la tarjeta en el DOM.
+- **Sacar «Requiere tu atención» se llevaba un aviso que no tenía otro lugar.** Un negocio que pegó la clave de MaKo
+  («Esa key es la de MaKo, no la tuya», veredicto `copia`) está SIN conectar, y sólo esa sección lo decía. Las alertas de las
+  conectadas ya iban a sus tarjetas, pero ésta quedaba muda en el catálogo. Ahora lo dice su tarjeta, va primera en «Sin
+  conectar» y entra en «Con problemas» (en el teléfono, igual). **Al sacar una sección que junta avisos, se recorre cada aviso
+  que juntaba**, no sólo los de las tarjetas que se ven.
+- **Lo plegado conserva sus links.** «Costo de MaKo» se abre con `#saldo-ia` (el chip «Saldo de IA» del menú) y con `?ops=1`. El
+  historial muestra a la vista cuántos están en curso, o «No pude leerlo».
+- **El teléfono, en el mismo trabajo** (AGENTS.md: las mismas vistas, en el mismo orden y con los mismos rótulos): «Tus cuentas de
+  IA», «Conectadas», «Sin conectar» y el «Historial de problemas». Antes tenía «Para resolver» arriba y una sección por categoría.
+  Las filas sin conectar muestran la línea del catálogo, no «Falta configurar: …».
+- **Medido** con las piezas reales dibujadas en Node (la receta, en docs/hallazgos-ui.md), con 7 conectadas y 14 sin conectar, a 1440
+  de ancho: **de 2.895 px a 1.550 px**. El «antes» tenía «Tus cuentas de IA» todavía cargando, así que el de verdad era más largo.
+  No es producción.
+
+**SIN hacer:**
+- «Pedir una integración» (por la Ticketera, con MaKo proponiendo el ticket).
+- En el teléfono, el problema de una conectada sale de los incidentes abiertos, no de la lectura en vivo de la computadora (Meta,
+  el permiso de Google, el Pixel viejo, Calendly). Esa diferencia ya existía.
+- `tests/zernio-conectar-redes.test.ts` falla en main: espera un `errorDeVentana` que no está en ningún archivo. Es de Zernio, no de
+  este trabajo.

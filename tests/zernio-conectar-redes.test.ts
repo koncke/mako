@@ -488,16 +488,20 @@ test('los consumidores usan la MISMA pieza: el modal de Zernio, Automations y Ch
   assert.match(fuente('app/automations/ChatAgentApp.tsx'), /<VueltaZernio volver="\/automations" onConectado=\{avisarMedioConectado\} \/>/);
   assert.match(fuente('app/_components/VueltaZernio.tsx'), /useConectarViaZernio\(\{ volver, onConectado: \(\) => onConectado\?\.\(\) \}\)/);
   assert.match(fuente('app/automations/ConectarMedio.tsx'), /z\.conectar\(redDeCanal\(medio\)\)/);
-  const chats = fuente('app/chats/ChatsApp.tsx');
+  // Desde el 24/10/2026 Chats conecta TODOS sus canales desde una pieza (app/chats/ConectarCanal.tsx, docs/diseno-chats.md §8.4),
+  // y ChatsApp la monta en sus dos pantallas (la vacía y la de siempre) con `conectarCanal.modal`.
+  const chats = fuente('app/chats/ConectarCanal.tsx');
   assert.match(chats, /const viaZernio = useConectarViaZernio\(\{\n\s+volver: RUTA_CHATS,/);
-  assert.match(chats, /conectarRed\(redDeCanal\(canal\)\);/);
+  assert.match(chats, /conectarRed\(redDeCanal\(c\)\);/);
   // La causa del error va como el TÍTULO del aviso (a la vista), no como detalle (sólo un tooltip: en un teléfono no se ve).
-  assert.match(chats, /alError: \(texto, pago\) => \{ aviso\.error\(pago \? `\$\{texto\} Agrega la tarjeta en tu cuenta de Zernio\.` : texto, null\); \},/);
-  assert.match(chats, /alNota: \(texto\) => \{ aviso\.ok\(texto, null\); \},/);
-  assert.equal((chats.match(/\{viaZernio\.modal\}/g) ?? []).length, 2, 'el modal de la key va en las dos pantallas de Chats');
-  assert.doesNotMatch(chats, /action: 'conectar'|window\.location\.href = r\.url/, 'Chats volvió al redirect de página entera a /automations');
+  assert.match(chats, /alError: \(texto, pago\) => alError\(pago \? `\$\{texto\} Agrega la tarjeta en tu cuenta de Zernio\.` : texto\),/);
+  const app = fuente('app/chats/ChatsApp.tsx');
+  assert.match(app, /alError: \(texto\) => aviso\.error\(texto, null\),/);
+  assert.equal((chats.match(/\{viaZernio\.modal\}/g) ?? []).length, 1, 'el modal de la key va con la pieza');
+  assert.equal((app.match(/\{conectarCanal\.modal\}/g) ?? []).length, 2, 'la pieza va en las dos pantallas de Chats');
+  assert.doesNotMatch(chats + app, /action: 'conectar'|window\.location\.href = r\.url/, 'Chats volvió al redirect de página entera a /automations');
   // Ni popup ni sondeo propios en otro lado de la app.
-  for (const f of ['app/automations/ConectarMedio.tsx', 'app/automations/EditorMensajeSocial.tsx', 'app/chats/ChatsApp.tsx', 'app/integraciones/ConectarRedes.tsx']) {
+  for (const f of ['app/automations/ConectarMedio.tsx', 'app/automations/EditorMensajeSocial.tsx', 'app/chats/ChatsApp.tsx', 'app/chats/ConectarCanal.tsx', 'app/integraciones/ConectarRedes.tsx']) {
     // (El «Pagar Zernio» de la cabecera abre el link de pago con `window.open(url, '_blank', …)`: no es un login.)
     assert.doesNotMatch(fuente(f), /window\.open\(''|mako-conectar/, `${f} abre su propia ventana de login`);
   }

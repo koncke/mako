@@ -426,8 +426,18 @@ export function CuerpoDeLaTab({ q }: { q: PreguntaDeLaTab }) {
  * así que una respuesta firmada desde acá no lo destraba (lib/centro-preguntas-chat.ts → seContestaEnLaApp). La regla para los
  * chats es preguntar con `cartero preguntar` (AGENTS.md).
  */
+/**
+ * Una pregunta de la app de Claude (un AskUserQuestion): se LEE acá, se contesta allá. Desde el 24/10/2026 lo dice ARRIBA y
+ * también en el teléfono: Martín tocó sus opciones desde el celular, no pasó nada, y el renglón que lo explicaba estaba
+ * escondido en pantallas táctiles (la regla que esconde la ayuda del teclado se lo llevaba puesto). Y dice lo que cuesta:
+ * mientras espera, el chat no lee nada de lo que se le escribe. Las opciones van de lectura (sin la caja de un botón).
+ */
 function CuerpoDeLaApp({ p }: { p: PreguntaChat }) {
   return (<>
+    <p className="co-preg__aviso-app" role="note">
+      <Icon name="computadora" size={15} />
+      <span>Se contesta en la app de Claude, en la computadora: desde acá no se puede. Hasta entonces, el chat no lee lo que le escribas.</span>
+    </p>
     <p className="co-preg__texto">{conLinks(p.pregunta, 'pq')}</p>
     {p.contexto && <p className="co-preg__contexto">{conLinks(p.contexto, 'pc')}</p>}
     <ol className="co-preg__ops">
@@ -443,6 +453,5 @@ function CuerpoDeLaApp({ p }: { p: PreguntaChat }) {
         </li>
       ))}
     </ol>
-    <p className="co-preg__pie">Te la hizo en la app de Claude: contéstala ahí. Mientras, el chat espera.</p>
   </>);
 }

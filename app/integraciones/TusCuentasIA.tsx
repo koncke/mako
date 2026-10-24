@@ -14,10 +14,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LogoClaude } from '@/app/admin/operaciones/Uso';
+import { Modal } from '@/app/_ui/Modal';
 import { Skeleton } from '@/app/_ui/Feedback';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
-import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, CONSENTIMIENTO_DE, PROGRAMA_IA_PC, cuentasDeLaIA, lineaDeInstalacion, type CuentaPc, type CuentasIA, type SistemaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
+import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, CONSENTIMIENTO_DE, PROGRAMA_IA_PC, cuentasDeLaIA, lineaDeInstalacion, resumenDeCuentas, type CuentaPc, type CuentasIA, type SistemaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
 import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, dondeSacarLaClave, iaDeLaPcPara, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
 import { CuentasYDispositivos, NuevoDispositivo } from './CuentasYDispositivos';
 import './tus-cuentas-ia.css';
@@ -276,8 +277,10 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1, ia = 'claude'
   );
 }
 
-/** El logo de cada IA, para los botones grandes del paso 1. */
-const LogoIA = ({ ia }: { ia: IaDelCliente }) => (ia === 'claude' ? <LogoClaude size={28} /> : <SvcIcon k={SERVICIO_DE_CLAVE[ia]} size={18} box={28} radius={7} />);
+/** El logo de cada IA (el de su integración): grande para los botones del paso 1, chico para la fila de «Nueva cuenta». */
+const LogoIA = ({ ia, chico = false }: { ia: IaDelCliente; chico?: boolean }) => (ia === 'claude'
+  ? <LogoClaude size={chico ? 16 : 28} />
+  : <SvcIcon k={SERVICIO_DE_CLAVE[ia]} size={chico ? 11 : 18} box={chico ? 18 : 28} radius={chico ? 5 : 7} />);
 
 /**
  * «Conectar tu IA» (IA4, 22/10/2026), un paso por pantalla: ¿qué IA? (Claude, ChatGPT o Gemini) → ¿cómo? (mi computadora, o una
@@ -362,16 +365,19 @@ function ConectarTuIA({ esAdmin, admin, listo: puedeComputadora, onComputadora, 
 /**
  * «Nueva cuenta» (23/10/2026, Martín): arriba de todo, y sin el botón «Conectar tu IA» de antes: las opciones Claude y ChatGPT
  * se ven directo, también sin nada conectado. Se distingue de «Nuevo dispositivo» (otra computadora para una cuenta que ya está).
+ * Sigue arriba, pero en UNA fila (24/10/2026, Martín: «mucha información, mucho scroll»; eran 155 px de dos tarjetas): las dos
+ * opciones como botones chicos al lado del título. Las tarjetas grandes quedan para cuando no hay NADA conectado (`vacia`): ahí
+ * es lo único que hay para hacer.
  */
-function NuevaCuenta({ onElegir }: { onElegir: (ia: IaDelCliente) => void }) {
+function NuevaCuenta({ onElegir, vacia }: { onElegir: (ia: IaDelCliente) => void; vacia: boolean }) {
   return (
-    <section className="tci-bloque tci-bloque--nueva" aria-label="Nueva cuenta">
+    <section className={`tci-bloque tci-bloque--nueva${vacia ? '' : ' tci-bloque--nueva-fila'}`} aria-label="Nueva cuenta">
       <BrandDefs />
       <h3 className="tci-bloque__titulo">Nueva cuenta</h3>
-      <div className="tci-grandes">
+      <div className={vacia ? 'tci-grandes' : 'tci-chicas'}>
         {IAS_DEL_CLIENTE.map((x) => (
-          <button key={x} type="button" className="tci-grande" onClick={() => onElegir(x)}>
-            <LogoIA ia={x} /><span className="tci-grande__titulo">{NOMBRE_IA[x]}</span>
+          <button key={x} type="button" className={vacia ? 'tci-grande' : 'tci-chica'} onClick={() => onElegir(x)}>
+            <LogoIA ia={x} chico={!vacia} /><span className="tci-grande__titulo">{NOMBRE_IA[x]}</span>
           </button>
         ))}
       </div>
@@ -381,26 +387,28 @@ function NuevaCuenta({ onElegir }: { onElegir: (ia: IaDelCliente) => void }) {
 
 /**
  * «Tus cuentas de IA» (23/10/2026, el feedback de Martín con capturas del ws1), en bloques bien separados:
- *   1. arriba, «Nueva cuenta» (Claude o ChatGPT);
+ *   1. arriba, «Nueva cuenta» (Claude o ChatGPT), en una fila desde el 24/10/2026 (grande sólo sin nada conectado);
  *   2. cada cuenta conectada es UN bloque, «Cuenta 1», «Cuenta 2», con su email (la regla del enmascarado), su plan y su uso;
- *   3. abajo, dentro de esa cuenta, sus dispositivos (nombre, en línea o no, dónde está, «Desconectar»);
- *   4. y ahí, «Nuevo dispositivo», con la descarga del instalador a la vista.
+ *   3. abajo, dentro de esa cuenta, sus dispositivos (nombre, en línea o no, dónde está; al tocarlos, «Desconectar»);
+ *   4. y ahí, «Nuevo dispositivo»: desde el 24/10/2026 una fila que abre el tutorial en la descarga (el recuadro con la descarga
+ *      a la vista se fue: la descarga para quien no tiene la app vive en el cartel del chat, app/_chat/AppPrimero.tsx).
  * Fuera el «Modelo» (se elige en cada chat: el «+» del Ops Center), «Tu clave de Claude» y el crédito de MaKo (sólo SuperAdmin).
  * El mismo dibujo que SuperAdmin › Uso → Computadoras (CuentasYDispositivos.tsx).
  * `sinCabecera`: donde la página ya pone el título (/perfil/ia, el Uso del Ops Center). `computadora`: abre directo «Conecta MaKo»
  * (adonde vuelve el instalador de Windows al terminar: RUTA_TRAS_INSTALAR). `conectar` (el Ops Center lo pasa al abrirlo desde
  * «Conectar tu IA»): ya no hace falta, «Nueva cuenta» está siempre a la vista.
  */
-/** El bloque de una cuenta mientras llega el estado: el nombre, el email, las dos ventanas y un dispositivo, en gris. */
+/** El bloque de una cuenta mientras llega el estado: el nombre, el email, las dos ventanas y un dispositivo, en gris. Con la
+ *  forma del bloque de hoy (24/10/2026: cada ventana en una fila y el dispositivo en una fila): si no, al llegar, salta. */
 export function EsqueletoDeCuentas() {
   return (
     <div className="tci-esqueleto" role="status" aria-label="Cargando tus cuentas de IA" data-esqueleto="">
       <Skeleton w="38%" h={18} />
       <Skeleton w="62%" h={14} />
-      <div className="tci-esqueleto__ventana"><Skeleton w="34%" h={12} /><Skeleton h={6} radius={999} /></div>
-      <div className="tci-esqueleto__ventana"><Skeleton w="22%" h={12} /><Skeleton h={6} radius={999} /></div>
+      <div className="tci-esqueleto__ventana"><Skeleton w="75%" h={12} /><Skeleton h={6} radius={999} /></div>
+      <div className="tci-esqueleto__ventana"><Skeleton w="45%" h={12} /><Skeleton h={6} radius={999} /></div>
       <Skeleton w="28%" h={11} style={{ marginTop: 6 }} />
-      <Skeleton h={88} radius={12} />
+      <Skeleton h={44} radius={11} />
     </div>
   );
 }
@@ -445,9 +453,13 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
     setPasoInicial(4); setEligiendo(null); setTutorial(true);
   }, [computadora, estado]);
   const grupos: CuentasIA = estado?.grupos ?? { cuentas: [], sinCuenta: [] };
+  // Sin nada conectado (y ya leído: mientras carga no se sabe), «Nueva cuenta» es lo único que hay: va con las tarjetas grandes.
+  const vacia = !!estado && !grupos.cuentas.length && !grupos.sinCuenta.length;
 
   return (
-    <section className="tci" aria-labelledby="tci-titulo">
+    // `sinCabecera` es adentro de un modal o de una página que ya pone el título: sin el marco de tarjeta, que quedaba una
+    // tarjeta dentro de otra (24/10/2026).
+    <section className={`tci${sinCabecera ? ' tci--suelta' : ''}`} aria-labelledby="tci-titulo">
       {sinCabecera ? <span id="tci-titulo" hidden>Tus cuentas de IA</span> : (
         <div className="tci-cab">
           <div>
@@ -472,9 +484,9 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
       {!estado && !leido && !eligiendo && !tutorial && <EsqueletoDeCuentas />}
       {(estado || leido) && !eligiendo && !tutorial && (
         <>
-          <NuevaCuenta onElegir={setEligiendo} />
+          <NuevaCuenta onElegir={setEligiendo} vacia={vacia} />
           <CuentasYDispositivos grupos={grupos} ahora={ahora} onDesconectar={(d) => desconectar(d.id)}
-            nuevoDispositivo={(c) => <NuevoDispositivo onConectar={() => abrirTutorialEn(4, c.proveedor)} onPasosMac={() => abrirTutorialEn(1, c.proveedor)} />}
+            nuevoDispositivo={(c) => <NuevoDispositivo onAbrir={() => abrirTutorialEn(2, c.proveedor)} />}
             extraSinCuenta={(d) => (d.esMia && d.enLinea && !d.sinClaude
               ? (
                 <>
@@ -491,5 +503,46 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * «Tus cuentas de IA» en /integraciones (24/10/2026): la tarjeta DESTACADA, arriba —el lugar del carrusel de Vercel Marketplace—,
+ * con su estado en una línea; al tocarla, el MISMO modal «Tus cuentas de IA» del Ops Center (app/admin/operaciones/Uso.tsx y
+ * app/second-brain/ChatSecondBrain.tsx). Antes el bloque entero —cuentas, uso, dispositivos— iba desplegado arriba del catálogo
+ * y era lo más grande de la página. Sigue ARRIBA porque sin IA el Ops Center no contesta (21/10/2026). Lee el estado una vez y
+ * al cerrar el modal: el bloque lo releía cada 20 s aunque nadie lo mirara. Su casa completa, para todos, sigue en /perfil/ia.
+ */
+export function TarjetaTusCuentasIA() {
+  const [estado, setEstado] = useState<Estado | null>(null);
+  const [leido, setLeido] = useState(false);
+  const [abierto, setAbierto] = useState(false);
+  const leer = useCallback(async () => {
+    const e = await fetch('/api/ia-pc/estado', { cache: 'no-store' }).then((x) => x.json()).catch(() => null);
+    setLeido(true);
+    if (e?.ok) setEstado(e);
+  }, []);
+  useEffect(() => { void leer(); }, [leer]);
+  const { linea, tono } = resumenDeCuentas(estado, leido);
+  return (
+    <>
+      <button type="button" className="tci-destacada" aria-haspopup="dialog" onClick={() => setAbierto(true)}>
+        <span className="tci-destacada__logos" aria-hidden>
+          <span className="tci-destacada__logo"><LogoClaude size={16} /></span>
+          <SvcIcon k={SERVICIO_DE_CLAVE.chatgpt} size={13} box={26} radius={8} />
+          <SvcIcon k={SERVICIO_DE_CLAVE.gemini} size={13} box={26} radius={8} />
+        </span>
+        <span className="tci-destacada__texto">
+          <span className="tci-destacada__titulo">Tus cuentas de IA</span>
+          <span className="tci-destacada__linea"><span className={`tci-destacada__punto tci-destacada__punto--${tono}`} aria-hidden />{linea}</span>
+        </span>
+        <span className="tci-destacada__flecha" aria-hidden />
+      </button>
+      {abierto && (
+        <Modal titulo="Tus cuentas de IA" onCerrar={() => { setAbierto(false); void leer(); }} ancho={640}>
+          <TusCuentasIA sinCabecera />
+        </Modal>
+      )}
+    </>
   );
 }

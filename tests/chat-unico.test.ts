@@ -62,6 +62,9 @@ const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
   // La encontró la guarda el 20/10 (no estaba en el inventario de docs/feedback-20-10.md): «Pregúntale a MaKo…» en el chat de WhatsApp.
   // 22/10/2026 (TB3): con su motor y su «Usar →» en el hueco de cada respuesta (no va a la estrella: el borrador es de ESTE lead).
   'app/whatsapp/WhatsAppAdvisor.tsx': 'caja única',
+  // La caja de Chats (24/10/2026, Martín: «me gustaría que se parezca más al chat de MaKo»): no le habla a MaKo, le habla
+  // al contacto, pero es la misma caja, con el motor de Chats (docs/diseno-chats.md §8.3).
+  'app/chats/Composer.tsx': 'caja única',
 };
 
 /** Arma su PROPIA caja: un campo de texto, la barra de WhatsApp (sola o adentro de su hilo) o el botón de mandar del chat. */
@@ -129,7 +132,8 @@ test('4. una pantalla de MaKo nueva no arma su propia caja: usa la caja única',
 test('5. la nota de voz y la línea de estado (lo que pidió el onboarding)', () => {
   // La caja no se dibuja en node (AdjuntosCaja importa su CSS): se mira el código, como los demás de la caja.
   const c = leer('app/_chat/CajaChat.tsx');
-  assert.match(c, /return p\.voz \? <CajaConVoz \{\.\.\.p\} voz=\{p\.voz\} \/> : <Caja p=\{p\} grabacion=\{null\} \/>;/, 'sin `voz`, la grabación ni se monta');
+  // Desde el 24/10/2026 TODA caja graba: sin `voz`, la nota se transcribe y sale como texto (tests/chat-nota-de-voz.test.ts).
+  assert.match(c, /return p\.voz \? <CajaConVoz \{\.\.\.p\} voz=\{p\.voz\} \/> : <CajaConNota \{\.\.\.p\} \/>;/, 'con o sin `voz`, la caja graba');
   assert.match(c, /const grabacion = useGrabacionVoz\(p\.voz\.onAudio, p\.voz\.onError\);/);
   // Desde el 20/10/2026 (la revisión de caja-voz) el botón gira con `enviando` o con `ocupado` (`girando`): tests/caja-voz-revision.test.ts.
   // Desde el 21/10 graba también mientras MaKo trabaja (sólo la flecha espera): tests/caja-voz-revision.test.ts, 3.

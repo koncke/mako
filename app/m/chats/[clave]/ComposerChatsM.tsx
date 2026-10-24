@@ -7,7 +7,8 @@
 // que puede escribir (`identidadInicial`), y si el contacto tiene más de uno se elige arriba del campo
 // (WhatsApp de cada línea, Instagram, Messenger, Email). Sale por las MISMAS rutas que escritorio:
 //   · WhatsApp → POST /api/whatsapp/evolution/mensajes con la LÍNEA de la identidad (`cuerpoTextoWhatsApp`):
-//     sin ella el servidor elige la de por defecto y sale por otro número;
+//     sin ella el servidor elige la de por defecto y sale por otro número; un grupo de MaKo (el super admin), por el
+//     canal de MaKo (/api/admin/mako-chats, `esCanalMaKo`);
 //   · Instagram / Messenger → POST /api/chats/social con UNA clave de idempotencia por mensaje;
 //   · Email → POST /api/chats/email (el asunto vacío lo pone el servidor: «Re: …»).
 // Si no se puede escribir por ahí, el campo lo dice (`motivoNoEnvio`, el de escritorio).
@@ -26,7 +27,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from '@/app/_ui/Link';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { postJson } from '@/app/chats/ventana-piezas';
-import { claveIdentidad, cuerpoTextoWhatsApp, identidadInicial, motivoNoEnvio, rotuloIdentidad } from '@/app/chats/ventana-reglas';
+import { claveIdentidad, cuerpoTextoWhatsApp, esCanalMaKo, identidadInicial, motivoNoEnvio, rotuloIdentidad } from '@/app/chats/ventana-reglas';
 import { useConexion, useToastM } from '@/app/m/_ui';
 import type { IdentidadCanal } from '@/lib/chats-tipos';
 import { haptico } from '@/lib/haptico';
@@ -76,7 +77,10 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
     if (!t || enviando || !ident || motivo) return;
     setEnviando(true); escribiendo.current = true; setError(null);
     let j: Respuesta;
-    if (ident.canal === 'whatsapp') {
+    if (esCanalMaKo(ident)) {
+      // Un grupo de MaKo (el super admin, 24/10/2026, docs/diseno-chats.md §8.5): por el canal de MaKo, como en escritorio.
+      j = await postJson<Respuesta>('/api/admin/mako-chats', { jid: ident.ref, texto: t }, { timeoutMs: 45_000 });
+    } else if (ident.canal === 'whatsapp') {
       j = await postJson<Respuesta>('/api/whatsapp/evolution/mensajes', cuerpoTextoWhatsApp(ident, t, leadId), { timeoutMs: 45_000 });
     } else if (ident.canal === 'email') {
       j = await postJson<Respuesta>('/api/chats/email', { para: ident.ref, texto: t, leadId: leadId ?? undefined }, { timeoutMs: 60_000 });

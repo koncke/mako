@@ -52,6 +52,14 @@
 //     de ManyChat): con una secuencia colgada de «Seguimiento», ponerla a 200 leads seria el
 //     envio masivo que el parrafo de abajo deja afuera, entrando por otra puerta.
 //
+//   · COMPLETAR (24/10/2026). «Desde mi WhatsApp» y «Datos de empresa» sobre los tildados. Martín: «¿cómo comienzo a
+//     scrapear los datos de mis leads?... Eso debería poder hacerlo en lote, con el multiple check, no sólo cuando cargo
+//     nuevos de grupos». Vivían sólo en el modal de traer de un grupo (siguen ahí); el lugar principal es éste. Sólo escriben
+//     lo vacío (el nombre donde está el número, la empresa y los datos de empresa donde no hay nada), no crean, no mueven y
+//     no le mandan nada a nadie. Tardan minutos: corren con su avance y un «Parar», y la pregunta antes dice cuántos y
+//     cuánto. «Datos de empresa» gasta la red de la línea: tope por corrida y por día (app/crm/grupo-wa-server.ts). Sólo el
+//     admin (`puedeCompletar`), como en el grupo. Las máquinas, compartidas con el modal: app/crm/enriquecer-cliente.ts.
+//
 // Y una que se dejo AFUERA a proposito: meter los seleccionados en una secuencia
 // de nutricion. Esa es la unica de la lista que MANDA MENSAJES, y la linea de
 // WhatsApp del chatbot es la NO OFICIAL: lo que la protege es el ritmo, no una
@@ -66,7 +74,7 @@
 // SI tiene deshacer (ver arriba): preguntar ahi seria friccion sobre algo reversible.
 // =============================================================================
 
-import { useImperativeHandle, useState, useTransition } from 'react';
+import { useImperativeHandle, useRef, useState, useTransition } from 'react';
 import type { CSSProperties, Ref } from 'react';
 import { Confirm, SANS, MONO } from '@/app/_ui';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
@@ -85,6 +93,18 @@ import { agregarLoteAProductoAction, quitarLoteDeProductoAction } from './lead-f
 import { TANDA_LOTE, colaDelAviso, correrEnTandas } from './lote-tandas';
 import { TANDA_AGREGAR, enTandas } from './traer-seleccion';
 import { SelectorEtiqueta, type Etiqueta } from '@/app/_components/etiquetas-cliente';
+import { TOPE_LOTE_COMPLETAR, TOPE_PERFILES_DIA, fichaLimpia, minutosDePerfiles, type FichaWa } from '@/lib/grupo-wa-reglas';
+import { extensionLeeFichas, motivoDeFichas, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
+import { completarFichasDeLeadsAction, completarPerfilesDeLeadsAction, telefonosDeLeadsAction } from './enriquecer-actions';
+import { correrPerfiles, guardarFichasEnTandas, preguntaDePerfiles, resumenDeFichas, resumenDePerfiles } from './enriquecer-cliente';
+import { miles } from './traer-seleccion';
+
+/**
+ * ¿Hay una corrida de «Completar» viva en esta pestaña? A nivel de MÓDULO y no de estado: si la barra se desmontara y se
+ * volviera a montar (otra selección), un estado nuevo diría «no» y se largaría una segunda corrida sobre la misma línea, con la
+ * mitad del espaciado que la protege (la revisión del 24/10/2026).
+ */
+let corridaViva = false;
 
 /** Lo minimo que la barra necesita de un lead. No recibe el `CrmLead` entero a
  *  proposito: lo unico que mira es a quien va a escribirle y que tiene puesto. */
@@ -110,6 +130,8 @@ export type ResultadoLote = {
    * limpiar la seleccion, asi que un aviso propio moriria con ella. Tira si no pudo.
    */
   deshacer?: () => Promise<void>;
+  /** El tono del aviso: `warn` cuando quedó a medias (paró, se cortó o faltan), para que no se lea como un «listo». */
+  tono?: 'warn';
 };
 
 const btnIcono: CSSProperties = { cursor: 'pointer' };
@@ -148,7 +170,12 @@ type Pendiente =
   | { tipo: 'etapa'; stage: Stage }
   | { tipo: 'persona'; campo: 'closer' | 'setter'; valor: string; pisa: number }
   | { tipo: 'borrar' }
-  | { tipo: 'frenar' };
+  | { tipo: 'frenar' }
+  | { tipo: 'whatsapp' }
+  | { tipo: 'empresa'; cuenta: CuentaPerfiles };
+
+/** La cuenta de «Datos de empresa» antes de consultar: con teléfono propio, cuántos faltan, cuántos quedan hoy y cuántos ahora. */
+type CuentaPerfiles = { total: number; pendientes: number; quedanHoy: number; estaCorrida: number; linea: string | null; sinPais: number };
 
 /**
  * Los funnels a los que se puede AGREGAR la seleccion: todos menos el que se esta mirando (ahi ya estan
@@ -178,7 +205,7 @@ export type ManijaLote = {
   frenar: () => void;
 };
 
-export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelActivo, onLimpiar, onListo, estilo, ref }: {
+export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelActivo, onLimpiar, onListo, estilo, ref, puedeCompletar = false, onCorriendo }: {
   elegidos: LeadDeLote[];
   stages: Stage[];
   productos: ProductoDeLote[];
@@ -191,13 +218,39 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
   estilo?: CSSProperties;
   /** Para el clic derecho del tablero (ver `ManijaLote`). */
   ref?: Ref<ManijaLote>;
+  /** «Completar» (desde su WhatsApp y datos de empresa): sólo el admin, la misma puerta que las acciones (enriquecer-actions.ts). */
+  puedeCompletar?: boolean;
+  /**
+   * Arrancó o terminó una corrida de «Completar». El tablero deja la barra montada mientras corre, aunque la selección se vacíe
+   * por otro camino (el clic derecho, la casilla de una columna): sin barra no hay avance ni «Parar».
+   */
+  onCorriendo?: (corre: boolean) => void;
 }) {
-  const [pide, setPide] = useState<Pendiente | null>(null);
+  const [pide, setPideEstado] = useState<Pendiente | null>(null);
   const [corriendo, start] = useTransition();
   /** «Moviendo 75 de 221…»: un lote de a uno va de a tandas y tarda (~0,5 s por lead); sin esto parece colgado. */
   const [avance, setAvance] = useState<string | null>(null);
+  /** «Completar» corriendo: tarda minutos, así que va con su «Parar» (se mira entre una tanda y la siguiente). */
+  const [largo, setLargo] = useState(false);
+  const [contando, setContando] = useState(false);
+  const parar = useRef(false);
+  /** Los tildados de AHORA (al terminar una corrida se limpia la selección sólo si sigue siendo la misma). */
+  const idsAhora = useRef<number[]>([]);
+  /** ¿La extensión de este navegador lee las fichas de WhatsApp Web? (el atributo lo pone extension/mako-puente.js). */
+  const extWa = extensionLeeFichas();
   const n = elegidos.length;
   const ids = elegidos.map((l) => l.id);
+  idsAhora.current = ids;
+  /** Mientras algo corre, ninguna otra acción de la barra: cada pregunta abierta con `loading` tapaba el «Parar». */
+  const ocupado = corriendo || largo || contando;
+  const ocupadoAhora = useRef(false);
+  ocupadoAhora.current = ocupado;
+  /**
+   * Abre una pregunta, SALVO que algo esté corriendo: con `loading` abierta tapaba el «Parar», y su «Cancelar» quedaba apagado
+   * (la revisión del 24/10/2026). La guarda vive acá y no en cada entrada, para que el clic derecho (`ManijaLote`) siga llamando
+   * a las MISMAS funciones que los desplegables (tests/crm-menu-contextual.test.ts).
+   */
+  const setPide = (p: Pendiente | null) => { if (p && ocupadoAhora.current) return; setPideEstado(p); };
 
   const rotCuenta = `${n} ${n === 1 ? 'lead seleccionado' : 'leads seleccionados'}`;
   // Los tildados que están en una automatización: sólo a ésos los frena «Frenar» (22/10/2026).
@@ -224,6 +277,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
    * se cuentan aparte, como en producto. Sin disparar nada: ver la cabecera.
    */
   const etiquetar = (e: Etiqueta) => {
+    if (ocupadoAhora.current) return; // mientras corre «Completar», nada más (también desde el clic derecho)
     start(async () => {
       try {
         const r = await loteEtiqueta('poner_lote', ids, e.id);
@@ -297,6 +351,109 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
     });
   };
 
+  /**
+   * Lo que pide el desplegable «Completar». «Datos de empresa» cuenta ANTES de preguntar (cuántos, cuánto tarda, cuántos quedan
+   * hoy y en qué línea).
+   * ⚠️ «COMPLETAR» NO VA EN `start` (useTransition), Y ES A PROPÓSITO. En el React de Next 16, lo que se pone en la parte
+   * síncrona de una transición async (`setLargo(true)`, el primer avance) no se dibuja hasta que la acción ENTERA termina:
+   * durante minutos no había «Parar», ni avance, ni casilla trabada (la revisión del 24/10/2026, medido en
+   * react-dom-client). Son async planos con su propio estado (`contando`, `largo`), como el modal del grupo.
+   */
+  const pedirCompletar = async (v: string) => {
+    if (ocupado || corridaViva) return;
+    if (v === 'whatsapp') { if (extWa === 'si') setPide({ tipo: 'whatsapp' }); return; }
+    if (v !== 'empresa') return;
+    setContando(true); setAvance('Contando…');
+    try {
+      const c = await completarPerfilesDeLeadsAction({ ids, soloContar: true });
+      if (!c.ok) { onListo({ texto: c.error, hubo: false, tono: 'warn' }); return; }
+      const sinPais = c.sinPais ? ` · ${miles(c.sinPais)} sin código de país (no se consultan: corrige su teléfono)` : '';
+      if (!c.total) { onListo({ texto: `Ninguno de los ${cuantos} tiene un teléfono que sea sólo suyo${sinPais}.`, hubo: false, tono: 'warn' }); return; }
+      if (!c.pendientes) { onListo({ texto: `Ya se consultaron los ${miles(c.total)} con teléfono${sinPais}.`, hubo: false }); return; }
+      if (!c.estaCorrida) {
+        onListo({ texto: `Por hoy ya se hicieron las ${miles(TOPE_PERFILES_DIA)} consultas de tu línea. Mañana vuelve a tocar «Datos de empresa» para seguir con los ${miles(c.pendientes)} que faltan.`, hubo: false, tono: 'warn' });
+        return;
+      }
+      setPideEstado({ tipo: 'empresa', cuenta: { total: c.total, pendientes: c.pendientes, quedanHoy: c.quedanHoy, estaCorrida: c.estaCorrida, linea: c.lineaNombre ?? null, sinPais: c.sinPais ?? 0 } });
+    } catch (e) {
+      onListo({ texto: e instanceof Error ? e.message : 'No se pudo', hubo: false, tono: 'warn' });
+    } finally { setContando(false); setAvance(null); }
+  };
+
+  /** Arranca una corrida larga: su estado ANTES del primer `await` (se dibuja ya), el candado y el aviso al tablero. */
+  const empezarLargo = (primerAvance: string): boolean => {
+    if (corridaViva) return false;
+    corridaViva = true;
+    parar.current = false;
+    setLargo(true); setAvance(primerAvance);
+    onCorriendo?.(true);
+    return true;
+  };
+  /** La termina: suelta todo, canta el resultado y limpia la selección SÓLO si terminó entera y sigue siendo la misma. */
+  const terminarLargo = (r: ResultadoLote, entera: boolean, deEstos: readonly number[]) => {
+    corridaViva = false;
+    setLargo(false); setAvance(null);
+    onCorriendo?.(false);
+    onListo(entera ? r : { ...r, tono: 'warn' });
+    const misma = idsAhora.current.length === deEstos.length && idsAhora.current.every((id) => deEstos.includes(id));
+    // A medias, la selección queda: el aviso pide «vuelve a tocar para seguir», y para eso tienen que seguir tildados.
+    if (entera && misma) onLimpiar();
+  };
+
+  /**
+   * «Completar desde mi WhatsApp» sobre los tildados: sus teléfonos → la extensión lee lo que SU WhatsApp Web ya guardó (sin
+   * clics, sin red) → se guarda de a tandas, SÓLO en estos leads. La pregunta se cierra antes de arrancar: si quedara abierta,
+   * taparía el avance y el «Parar».
+   */
+  const correrWhatsapp = async () => {
+    cerrar();
+    const deEstos = [...ids];
+    if (!empezarLargo('Leyendo tu WhatsApp Web…')) return;
+    let r: ResultadoLote = { texto: 'No se pudo', hubo: false };
+    let entera = false;
+    try {
+      const t = await telefonosDeLeadsAction(deEstos);
+      if (!t.ok) { r = { texto: t.error, hubo: false }; return; }
+      if (!t.telefonos.length) { r = { texto: `Ninguno de los ${cuantos} tiene teléfono.`, hubo: false }; return; }
+      const f = await pedirFichasDeWhatsappWeb(t.telefonos.map((x) => x.telefono));
+      if (!f.ok) { r = { texto: motivoDeFichas(f.motivo), hubo: false }; return; }
+      // Qué tablas tiene su WhatsApp Web, sin datos de nadie: si WhatsApp cambia cómo guarda, esto dice por qué no volvió nada.
+      console.info('[wa-fichas]', f.diagnostico);
+      if (f.diagnostico && !f.diagnostico.contactos) {
+        r = { texto: 'No encontré contactos guardados en tu WhatsApp Web. Recarga esa pestaña, espera a que carguen tus chats y vuelve a tocar.', hubo: false };
+        return;
+      }
+      const fichas = f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x);
+      const a = await guardarFichasEnTandas(fichas, (tanda) => completarFichasDeLeadsAction({ ids: deEstos, fichas: tanda }), {
+        parar: () => parar.current,
+        alAvanzar: (guardados, total) => setAvance(`Completando ${miles(guardados)} de ${miles(total)}…`),
+      });
+      r = { texto: resumenDeFichas(t.telefonos.length, fichas, a), hubo: a.nombres + a.empresas > 0 };
+      entera = !a.parado && !a.error;
+    } catch (e) {
+      r = { texto: e instanceof Error ? e.message : 'No se pudo', hubo: false };
+    } finally { terminarLargo(r, entera, deEstos); }
+  };
+
+  /** «Datos de empresa» sobre los tildados, después de la pregunta con la cuenta. El tope del día lo cuenta el server. */
+  const correrEmpresa = async (cuenta: CuentaPerfiles) => {
+    cerrar();
+    const deEstos = [...ids];
+    if (!empezarLargo(`Consultando perfiles: 0 de ${miles(cuenta.estaCorrida)}…`)) return;
+    let r: ResultadoLote = { texto: 'No se pudo', hubo: false };
+    let entera = false;
+    try {
+      const a = await correrPerfiles(cuenta, (hechas, saltear) => completarPerfilesDeLeadsAction({ ids: deEstos, hechas, saltear }), {
+        parar: () => parar.current,
+        alAvanzar: (hechas, meta) => setAvance(`Consultando perfiles: ${miles(hechas)} de ${miles(meta)}…`),
+      });
+      r = { texto: resumenDePerfiles(a), hubo: a.completados > 0 };
+      entera = !a.parado && !a.error && a.pendientes <= 0;
+    } catch (e) {
+      r = { texto: e instanceof Error ? e.message : 'No se pudo', hubo: false };
+    } finally { terminarLargo(r, entera, deEstos); }
+  };
+
   const ejecutar = () => {
     if (!pide) return;
     start(async () => {
@@ -341,7 +498,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
 
   /** Agregar a un funnel por su id (`null` = el del negocio), con el nombre que lo canta el aviso. */
   const agregarAFunnel = (fid: number | null) => {
-    if (corriendo) return;
+    if (ocupado) return;
     agregarA(fid, destinos.find((p) => p.fid === fid)?.nombre ?? 'otro funnel');
   };
 
@@ -355,7 +512,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
     frenar: () => { if (idsEnAut.length) setPide({ tipo: 'frenar' }); },
   }));
 
-  if (n === 0) return null;
+  if (n === 0 && !largo) return null;
 
   return (
     <>
@@ -366,14 +523,21 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
       }}>
         {/* ── IZQUIERDA: la casilla marcada (limpia) y el numero. ──────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-          <input type="checkbox" checked readOnly onClick={onLimpiar}
-            title="Quitar la selección" aria-label={`${rotCuenta}. Quitar la selección`}
+          <input type="checkbox" checked readOnly onClick={largo ? undefined : onLimpiar}
+            title={largo ? 'Completando: para primero' : 'Quitar la selección'} aria-label={`${rotCuenta}. Quitar la selección`}
             style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)', flex: 'none' }} />
           <span role="status" title={rotCuenta} aria-label={rotCuenta}
             style={{ flex: 'none', minWidth: 24, fontFamily: MONO, fontSize: 13, fontWeight: 700, color: 'var(--primary)', lineHeight: 1 }}>
             {n}
           </span>
           {avance && <span role="status" style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{avance}</span>}
+          {/* «Parar» de «Completar»: frena entre una tanda y la siguiente, y lo dice para que no parezca que no oyó. */}
+          {largo && (
+            <button type="button" data-parar-completar onClick={() => { parar.current = true; setAvance('Parando al terminar esta tanda…'); }}
+              style={{ flex: 'none', height: 30, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
+              Parar
+            </button>
+          )}
         </div>
 
         {/* ── MEDIO: lo que CAMBIA el lead. Con palabra, porque un icono suelto no
@@ -382,7 +546,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
           <Dropdown
             value="" resetAfterSelect placeholder="Etapa" ariaLabel={`Mover ${cuantos} de etapa`}
             icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoEtapa /></span>}
-            buttonStyle={estiloDrop}
+            buttonStyle={estiloDrop} disabled={ocupado}
             options={stages.map((s) => ({ value: s.key, label: s.label, color: s.dot }))}
             onChange={pedirEtapa} />
 
@@ -393,7 +557,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
               value="" resetAfterSelect placeholder={campo === 'closer' ? 'Closer' : 'Setter'}
               ariaLabel={`Asignar ${campo === 'closer' ? 'Closer' : 'Setter'} a ${cuantos}`}
               icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoPersona /></span>}
-              buttonStyle={estiloDrop}
+              buttonStyle={estiloDrop} disabled={ocupado}
               // Una persona va con su avatar (la foto o sus iniciales), no con un ícono (general 10).
               options={equipo.map((m) => ({ value: m.nombre, label: m.nombre, avatar: m.foto_url ?? null }))}
               onChange={(v) => pedirPersona(campo, v)} />
@@ -405,7 +569,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
             <Dropdown
               value="" resetAfterSelect placeholder="Funnel" ariaLabel={`Agregar ${cuantos} a otro funnel`}
               icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoFunnel /></span>}
-              buttonStyle={estiloDrop}
+              buttonStyle={estiloDrop} disabled={ocupado}
               options={destinos.map((p) => ({ value: String(p.fid ?? 'default'), label: p.nombre }))}
               onChange={(v) => agregarAFunnel(v === 'default' ? null : Number(v))} />
           )}
@@ -415,8 +579,25 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
               siempre... "Agregar" y "Eliminar". Revisa que no esté ese error en otro lado»). */}
           <SelectorEtiqueta value={null} accion placeholder="Etiqueta" ariaLabel={`Agregar una etiqueta a ${cuantos}`}
             icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoEtiqueta /></span>}
-            buttonStyle={estiloDrop} disabled={corriendo}
-            onElegir={(e) => { if (!corriendo) etiquetar(e); }} />
+            buttonStyle={estiloDrop} disabled={ocupado}
+            onElegir={(e) => { if (!ocupado) etiquetar(e); }} />
+
+          {/* «Completar» (24/10/2026): lo vacío de los tildados, desde su WhatsApp o del perfil de empresa. Sólo el admin. Sin la
+              extensión, la opción de WhatsApp se ve apagada y dice qué falta (una opción que no hace nada no se ofrece muda). */}
+          {puedeCompletar && (
+            <Dropdown
+              value="" resetAfterSelect placeholder="Completar" ariaLabel={`Completar los datos de ${cuantos}`}
+              icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoMenu nombre="persona-mas" size={15} /></span>}
+              buttonStyle={estiloDrop} disabled={ocupado}
+              options={[
+                {
+                  value: 'whatsapp', label: 'Desde mi WhatsApp', icono: 'whatsapp', disabled: extWa !== 'si',
+                  sub: extWa === 'si' ? 'Nombre, empresa y grupos en común' : extWa === 'vieja' ? 'Actualiza la extensión de MaKo' : 'Instala la extensión de MaKo',
+                },
+                { value: 'empresa', label: 'Datos de empresa', icono: 'web', sub: 'Web, Instagram, correo y dirección' },
+              ]}
+              onChange={(v) => void pedirCompletar(v)} />
+          )}
         </div>
 
         {/* ── DERECHA: lo irreversible, solo. ──────────────────────────────────── */}
@@ -426,13 +607,13 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
             <button type="button" className="mk-icon-btn" data-tone="bad" data-frenar-lote
               title={`Frenar la automatización de ${idsEnAut.length} ${idsEnAut.length === 1 ? 'lead' : 'leads'}`}
               aria-label={`Frenar la automatización de ${idsEnAut.length} ${idsEnAut.length === 1 ? 'lead' : 'leads'}`}
-              onClick={() => setPide({ tipo: 'frenar' })} style={btnIcono}>
+              onClick={() => setPide({ tipo: 'frenar' })} disabled={ocupado} style={btnIcono}>
               <IconoMenu nombre="pausar" size={16} />
             </button>
           )}
           <button type="button" className="mk-icon-btn" data-tone="bad"
             title={`Eliminar ${cuantos}`} aria-label={`Eliminar ${cuantos}`}
-            onClick={() => setPide({ tipo: 'borrar' })} style={btnIcono}>
+            onClick={() => setPide({ tipo: 'borrar' })} disabled={ocupado} style={btnIcono}>
             {/* El tacho de la casa (app/_ui/BotonBorrar.tsx, general 9): el mismo dibujo y rojo siempre. */}
             <IconoBorrar size={16} />
           </button>
@@ -471,6 +652,23 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
             onConfirm={ejecutar} onCancel={cerrar} />
         );
       })()}
+      {pide?.tipo === 'whatsapp' && (
+        <Confirm
+          title={`¿Completar ${cuantos} desde tu WhatsApp?`}
+          message={'Lee lo que tu WhatsApp Web ya tiene de cada uno: el nombre, si es empresa y en qué grupos tuyos está. Pone el nombre sólo donde está su número y la empresa sólo donde está vacía. No abre chats y no les llega nada.'
+            + (n > TOPE_LOTE_COMPLETAR ? ` Se toman los primeros ${miles(TOPE_LOTE_COMPLETAR)} de los ${miles(n)} tildados.` : '')}
+          confirmLabel="Completar" tone="primary"
+          onConfirm={() => void correrWhatsapp()} onCancel={cerrar} />
+      )}
+      {pide?.tipo === 'empresa' && (
+        <Confirm
+          title="¿Traer los datos de empresa?"
+          message={preguntaDePerfiles(pide.cuenta, `los ${miles(pide.cuenta.total)} tildados con teléfono`, minutosDePerfiles(pide.cuenta.estaCorrida), TOPE_PERFILES_DIA, pide.cuenta.linea)
+            + (pide.cuenta.sinPais ? ` ${miles(pide.cuenta.sinPais)} sin código de país no se consultan (corrige su teléfono).` : '')
+            + (n > TOPE_LOTE_COMPLETAR ? ` Se toman los primeros ${miles(TOPE_LOTE_COMPLETAR)} de los ${miles(n)} tildados.` : '')}
+          confirmLabel={`Consultar ${miles(pide.cuenta.estaCorrida)}`} tone="primary"
+          onConfirm={() => void correrEmpresa(pide.cuenta)} onCancel={cerrar} />
+      )}
       {pide?.tipo === 'borrar' && (
         <Confirm
           title={`¿Eliminar ${cuantos}?`}

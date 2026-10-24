@@ -86,14 +86,14 @@ test('4 · la plantilla de MaKo mira el flujo, y ninguna pieza se cae en el sane
   assert.ok(titulos(conIA).includes('Horas hasta responder'));
   for (const pasos of [FLUJO, conEmail, conIA]) {
     const def = definicionDeMetricas(pasos);
-    const h = hojaInicialDeMetricas(pasos, 'Prueba');
+    const h = hojaInicialDeMetricas(pasos, 'Prueba', 289);
     assert.equal(h.componentes.length, def.piezas.length, 'una pieza con una métrica o una dimensión que su conjunto no tiene se cae en el saneo');
     for (const c of h.componentes) if (esGrafico(c)) assert.ok(fuenteDe(c.fuente), c.fuente);
   }
 });
 
 test('5 · cada hoja mira SÓLO esta automatización, con el nombre de HOY', () => {
-  const t = informeInicialDeMetricas(FLUJO, 'Sprint · apertura');
+  const t = informeInicialDeMetricas(FLUJO, 'Sprint · apertura', 289);
   const fijo = (h: ReturnType<typeof hojaInicialDeMetricas>) => h.controles.filter((c) => c.fijo && c.campo === 'automatizacion');
   assert.deepEqual(fijo(t.hojas[0]).map((c) => c.valores), [['Sprint · apertura']]);
   const renombrada = conLaAutomatizacion(t, 'Sprint · apertura v2');
@@ -117,7 +117,8 @@ test('7 · «Métricas» va al lado de la tuerca y reemplaza al lienzo; el edito
   const tuerca = sp.indexOf('<BotonTuerca lado={ALTO_ACCION}');
   const metricas = sp.indexOf('<BotonMetricas lado={ALTO_ACCION}');
   assert.ok(tuerca > 0 && metricas > tuerca && metricas - tuerca < 1200, 'el botón va pegado a la tuerca');
-  assert.match(sp, /\{verMetricas \? \([\s\S]{0,900}<MetricasAutomatizacion secuenciaId=\{secuencia\.id\} \/>[\s\S]{0,200}\) : \(\s*<FlujoLienzo/);
+  // 24/10/2026: la cabecera es la mitad izquierda de la barra del informe (una sola barra; tests/metricas-una-barra.test.ts).
+  assert.match(sp, /\{verMetricas \? \([\s\S]{0,900}<MetricasAutomatizacion secuenciaId=\{secuencia\.id\} izquierda=\{cabecera\} titulo=\{nombre \|\| secuencia\.nombre\} \/>[\s\S]{0,200}\) : \(\s*<FlujoLienzo/);
   assert.match(sp, /chrome=\{cabecera\}/, 'la misma cabecera en el lienzo y en las métricas: se vuelve con el mismo botón');
   const m = leer('app/automations/MetricasAutomatizacion.tsx');
   assert.match(m, /dynamic\(\(\) => import\('@\/app\/dashboard\/EditorInforme'\)[\s\S]{0,120}ssr: false/);

@@ -151,7 +151,9 @@ export function Conversacion({
   const animo = animoDe(chat, espera);
   const dato = trabajaSinEscribir(chat, lineas) ?? [cuenta, meta].filter(Boolean).join(' · ');
   const quien = useMemo(() => ({ titulo: chat.titulo, aspecto, animo, dato }), [chat.titulo, aspecto, animo, dato]);
-  const vivo = useMemo(() => (carteros ? { chat, carteros } : undefined), [chat, carteros]);
+  // `trabado`: con una pregunta de la app de Claude abierta, lo que se le escribe espera, y la línea del envío lo dice ya.
+  const trabado = deLaApp.length > 0;
+  const vivo = useMemo(() => (carteros ? { chat, carteros, trabado } : undefined), [chat, carteros, trabado]);
 
   // ── Lo de WhatsApp: el menú de un mensaje, su Info y Reenviar ───────────────────────────────────────────────────
   // La conversación abre con los últimos mensajes (Hilo.tsx → TANDA_HILO); «Ver anteriores» o ir a uno viejo dibujan todos.

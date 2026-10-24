@@ -104,6 +104,8 @@ export type FichaLeadProps = {
   saldosCrm?: Array<{ crm: string; saldo: SaldoTelefono }>;
   /** Las filas del Resumen nativo (16/10/2026, `resumenDelTelefono`): una en null no se dibuja. */
   resumen?: ResumenTelefono | null;
+  /** El color del punto de la fila «Automatización» (24/10/2026, `tonoDeAutomatizaciones`). */
+  autTono?: string | null;
   /** La barra de avance de la etapa (17/10/2026, `progresoEnFunnel`): cuántas etapas y hasta cuál llegó. */
   progreso?: { total: number; hasta: number | null } | null;
   /** El @ (sin la @) cuando es su ÚNICO canal (23/10/2026, `soloInstagram`): sin Llamar ni WhatsApp apagados, con «Instagram». */
@@ -207,6 +209,12 @@ export function FichaLead(p: FichaLeadProps) {
       );
       case 'notas': return null;
       // El Resumen nativo: una fila que se lee. La siguiente acción y el plazo vencido, en el color de escritorio.
+      // «Automatización» (24/10/2026): con un punto del color de su estado, el del sello de la tarjeta de escritorio.
+      case 'automatizaciones': {
+        const v = p.resumen?.automatizaciones;
+        if (!v) return null;
+        return <FilaDatoM k={ROTULO_RESUMEN.automatizaciones} v={<span className="m-aut"><span className="m-aut__punto" data-tono={p.autTono ?? 'neutral'} aria-hidden />{v}</span>} />;
+      }
       default: {
         const v = p.resumen?.[pz];
         if (!v) return null;

@@ -11,12 +11,13 @@
 //   · se elige el funnel y la etapa (por defecto «Prospección › Tibio», si existen) y la ETIQUETA DE ORIGEN («Formación de Jan»),
 //     que viene con el nombre del grupo y se edita;
 //   · sirve para VARIOS grupos seguidos: al terminar no se cierra, el grupo se vuelve a leer (los traídos pasan a «Ya está») y se
-//     elige el siguiente. Nunca duplica, y quien está en dos grupos queda con las dos etiquetas.
+//     elige el siguiente. Nunca duplica, y el que ya está en el CRM no se vuelve a cargar: va abajo, en gris (24/10/2026).
 // ⚠️ DE A TANDAS (`TANDA_GRUPO`): un grupo llega a 1.024 personas y cada lead son varias escrituras; una acción tiene 60 s.
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
-import { TANDA_FICHAS, TANDA_GRUPO, TOPE_PERFILES_DIA, etapaPorDefecto, minutosDePerfiles, fichaLimpia, funnelPorDefecto, nombreDeFicha, type FichaWa, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
+import { TANDA_GRUPO, TOPE_PERFILES_DIA, etapaPorDefecto, minutosDePerfiles, fichaLimpia, funnelPorDefecto, type FichaWa, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
+import { correrPerfiles, guardarFichasEnTandas, preguntaDePerfiles, resumenDeFichas, resumenDePerfiles, type AvancePerfiles } from './enriquecer-cliente';
 import { extensionLeeFichas, motivoDeFichas, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
 import { miles } from './traer-seleccion';
 import { VistaConPie } from '@/app/_ui/VistaConPie';
@@ -31,6 +32,8 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 const th: CSSProperties = { textAlign: 'left', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600, padding: '0 10px 7px', whiteSpace: 'nowrap' };
 const td: CSSProperties = { padding: '9px 10px', fontFamily: SANS, fontSize: 13.5, color: 'var(--ink)', borderTop: '1px solid var(--border)', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+/** El renglón que separa a los que ya están: chico, en mayúsculas, como la cabecera de la tabla. */
+const grisRotulo: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600, background: 'var(--surface-2)', padding: '8px 12px' };
 const nota: CSSProperties = { fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 };
 const campo: CSSProperties = { padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' };
 
@@ -108,7 +111,9 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     return () => { vivo = false; };
   }, [linea]);
 
-  // Los participantes del grupo elegido: tildados los que todavía no son leads (a eso se vino).
+  // Los participantes del grupo elegido: tildados SÓLO los que todavía no son leads (a eso se vino). Los que ya están no se
+  // traen de nuevo (Martín, 24/10/2026: «si ya cargué un grupo o detecta que esos números ya están, no me debe cargar
+  // nuevamente... Debería aparecer en gris abajo de todo»): van al final, en gris y sin casilla.
   useEffect(() => {
     if (!jid) return;
     let vivo = true;
@@ -118,7 +123,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
       if (!r.ok) { setErr(r.error); setGente([]); return; }
       setGente(r.participantes);
       setSinNumero(r.sinNumero);
-      setSel(new Set(r.participantes.map((p) => p.telefono)));
+      setSel(new Set(r.participantes.filter((p) => !p.enElCrm).map((p) => p.telefono)));
     }).catch(() => { if (vivo) { setErr('No pude leer el grupo.'); setGente([]); } });
     return () => { vivo = false; };
   }, [jid, linea, vuelta]);
@@ -128,13 +133,16 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     setJid(v); setQ(''); setHecho(null);
     setEtiqueta(grupos?.find((g) => g.jid === v)?.nombre.slice(0, 40) ?? '');
   };
+  // Los nuevos arriba (en el orden del grupo) y los que ya están, abajo: lo repetido no ocupa el lugar de lo nuevo. Él va a traer
+  // grupo tras grupo y la mayoría se superpone.
   const visibles = useMemo(() => {
     const t = q.trim().toLowerCase();
     const dig = t.replace(/\D/g, '');
-    return (gente ?? []).filter((p) => !t || (p.nombre ?? '').toLowerCase().includes(t) || (!!dig && p.telefono.includes(dig)));
+    const pasan = (gente ?? []).filter((p) => !t || (p.nombre ?? '').toLowerCase().includes(t) || (!!dig && p.telefono.includes(dig)));
+    return [...pasan.filter((p) => !p.enElCrm), ...pasan.filter((p) => p.enElCrm)];
   }, [gente, q]);
-  const todos = !!gente?.length && gente.every((p) => sel.has(p.telefono));
-  const enElCrm = (gente ?? []).filter((p) => p.enElCrm && sel.has(p.telefono)).length;
+  const nuevos = (gente ?? []).filter((p) => !p.enElCrm);
+  const todos = nuevos.length > 0 && nuevos.every((p) => sel.has(p.telefono));
   const sinOfrecer = etapas.filter((e) => e.manda).length;
   const usables = etapas.filter((e) => !e.manda);
   const trayendo = avance != null || completando;
@@ -143,13 +151,21 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   const yaEstan = (gente ?? []).filter((p) => p.enElCrm).length;
   const listo = !!grupo && !!etapa && sel.size > 0 && !!etiqueta.trim() && funnel != null;
 
-  const alternar = (t: string) => setSel((s) => { const n = new Set(s); if (n.has(t)) n.delete(t); else n.add(t); return n; });
+  const alternar = (p: Participante) => {
+    if (p.enElCrm) return; // ya está: no se trae, no se tilda
+    setSel((s) => { const n = new Set(s); if (n.has(p.telefono)) n.delete(p.telefono); else n.add(p.telefono); return n; });
+  };
   const traer = async () => {
     if (!grupo || !listo) return;
     setErr(null); setHecho(null);
-    const tels = [...sel];
+    // Sólo los nuevos, aunque algo los haya tildado: un lead que ya está no se vuelve a cargar.
+    const yaEnElCrm = new Set((gente ?? []).filter((p) => p.enElCrm).map((p) => p.telefono));
+    const tels = [...sel].filter((t) => !yaEnElCrm.has(t));
     let creados = 0, sumados = 0, yaEstaban = 0, salteados = 0, hechos = 0;
     const errores: string[] = [];
+    // Por qué se cortó. Va al resumen y no a `err`: el grupo se relee al terminar y eso limpia `err` en el acto, o sea que el
+    // corte se borraba sin que nadie lo viera (la revisión del 24/10/2026).
+    let corte = '';
     // De a tandas; lo que una no llegó a traer (cortó por tiempo) vuelve a la cola, adelante.
     const cola = [...tels];
     while (cola.length) {
@@ -157,10 +173,10 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
       setAvance(`Trayendo ${miles(Math.min(hechos + tanda.length, tels.length))} de ${miles(tels.length)}…`);
       const r = await traerDeGrupoAction({ linea, jid, nombreGrupo: grupo.nombre, funnelId: funnel, etapa, etiqueta: etiqueta.trim(), telefonos: tanda })
         .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
-      if (!r.ok) { setErr(r.error); if (!creados && !sumados && !yaEstaban) { setAvance(null); return; } break; }
+      if (!r.ok) { if (!creados && !sumados && !yaEstaban) { setErr(r.error); setAvance(null); return; } corte = r.error; break; }
       creados += r.creados; sumados += r.sumados; yaEstaban += r.yaEstaban; salteados += r.salteados; errores.push(...r.errores);
       hechos += tanda.length - r.pendientes.length;
-      if (r.pendientes.length >= tanda.length) { setErr('WhatsApp está tardando: prueba de nuevo en un rato.'); break; }
+      if (r.pendientes.length >= tanda.length) { corte = 'WhatsApp está tardando.'; break; }
       cola.unshift(...r.pendientes);
     }
     setAvance(null);
@@ -173,7 +189,8 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     ].filter(Boolean).join(' · ') || 'Nadie para traer';
     // Los que no se pudieron, por su NOMBRE (la revisión de privacidad, 23/10/2026): un número sin nombre no se puede buscar.
     const fallidos = errores.length ? ` No se pudieron: ${errores.slice(0, 5).join(', ')}${errores.length > 5 ? '…' : ''}.` : '';
-    setHecho(`«${grupo.nombre}»: ${resumen}.${fallidos} Elige otro grupo para seguir.`);
+    const cola2 = corte ? ` Se cortó: ${corte} Quedaron ${miles(tels.length - hechos)} sin traer: vuelve a tocar «Traer» para seguir.` : ' Elige otro grupo para seguir.';
+    setHecho(`«${grupo.nombre}»: ${resumen}.${fallidos}${cola2}`);
     onTraidos(resumen);
     setVuelta((n) => n + 1);
   };
@@ -219,30 +236,14 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
       console.info('[wa-fichas]', r.diagnostico);
       if (r.diagnostico && !r.diagnostico.contactos) { setErr('No encontré contactos guardados en tu WhatsApp Web. Recarga esa pestaña, espera a que carguen tus chats y vuelve a tocar.'); return; }
       const fichas = r.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x);
-      let nombres = 0, empresas = 0, guardadas = 0;
-      // La cola, de a TANDA_FICHAS: lo que el server no llegó a guardar (`pendientes`, cortó por tiempo) vuelve al frente.
-      let cola = fichas;
-      while (cola.length && !pararWa.current) {
-        const tanda = cola.slice(0, TANDA_FICHAS);
-        setAvance(`Guardando ${miles(guardadas)} de ${miles(fichas.length)}…`);
-        const g = await completarFichasDeGrupoAction({ linea, jid, fichas: tanda })
-          .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
-        if (!g.ok) { setErr(g.error); break; }
-        nombres += g.nombres; empresas += g.empresas;
-        const quedan = new Set(g.pendientes);
-        const vuelven = tanda.filter((x) => quedan.has(x.telefono));
-        // Sin avance (no guardó ninguna), se corta acá y se dice: nunca un bucle que no termina.
-        if (vuelven.length === tanda.length) { setErr(`Se cortó guardando: quedaron ${miles(cola.length)} sin guardar. Vuelve a tocar para seguir.`); break; }
-        guardadas += tanda.length - vuelven.length;
-        cola = [...vuelven, ...cola.slice(tanda.length)];
-      }
-      // LA COBERTURA de lo gratis, sobre los que ya están: lo que su WhatsApp tiene de cada uno.
-      const conNombre = fichas.filter((x) => !!nombreDeFicha(x)).length;
-      const deEmpresa = fichas.filter((x) => x.esEmpresa).length;
-      const enVarios = fichas.filter((x) => x.grupos.length >= 2).length;
-      const parado = pararWa.current ? ' Paraste antes de terminar.' : '';
-      setHecho(`«${grupo.nombre}»: de ${miles(tels.length)} que ya están, tu WhatsApp tiene el nombre de ${miles(conNombre)}, ${miles(deEmpresa)} son cuenta de empresa y ${miles(enVarios)} están en 2 o más grupos tuyos · ${miles(nombres)} nombres completados${empresas ? `, ${miles(empresas)} empresas` : ''}.${parado}`);
-      if (nombres || empresas) { onTraidos(`${miles(nombres)} nombres desde tu WhatsApp`); setVuelta((n) => n + 1); }
+      // La misma máquina que la barra de lote del tablero (./enriquecer-cliente.ts): tandas, pendientes al frente, «Parar».
+      const a = await guardarFichasEnTandas(fichas, (tanda) => completarFichasDeGrupoAction({ linea, jid, fichas: tanda }), {
+        parar: () => pararWa.current,
+        alAvanzar: (guardadas, total) => setAvance(`Guardando ${miles(guardadas)} de ${miles(total)}…`),
+      });
+      // El corte va adentro del resumen: releer el grupo (`setVuelta`) limpia `err`, y ahí se perdía.
+      setHecho(`«${grupo.nombre}»: ${resumenDeFichas(tels.length, fichas, a)}`);
+      if (a.nombres || a.empresas) { onTraidos(`${miles(a.nombres)} nombres desde tu WhatsApp`); setVuelta((n) => n + 1); }
     } finally { setLeyendoWa(false); setAvance(null); }
   };
 
@@ -260,7 +261,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
         .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
       if (!c.ok) { setErr(c.error); return; }
       if (!c.pendientes) { setHecho(`«${grupo.nombre}»: ya se consultaron los ${miles(c.total)} que están.`); return; }
-      if (!c.estaCorrida) { setErr(`Por hoy ya se hicieron las ${miles(TOPE_PERFILES_DIA)} consultas de esta línea. Mañana sigue con los ${miles(c.pendientes)} que faltan.`); return; }
+      if (!c.estaCorrida) { setErr(`Por hoy ya se hicieron las ${miles(TOPE_PERFILES_DIA)} consultas de esta línea. Mañana vuelve a tocar «Datos de empresa» para seguir con los ${miles(c.pendientes)} que faltan.`); return; }
       setCuentaPerfiles({ pendientes: c.pendientes, total: c.total, quedanHoy: c.quedanHoy, estaCorrida: c.estaCorrida });
     } finally { setCompletando(false); setAvance(null); }
   };
@@ -270,29 +271,17 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     setCuentaPerfiles(null);
     if (!grupo || trayendo || !cuenta) return;
     setErr(null); setHecho(null); setCompletando(true); setPerfilando(true); pararPerfiles.current = false;
-    let hechas = 0, empresas = 0, completados = 0, campos = 0, pendientes = cuenta.pendientes;
-    let corte: 'dia' | 'corrida' | null = null;
-    const saltear: string[] = [];
+    let a: AvancePerfiles;
     try {
-      // Cada vuelta es una llamada de ~40 s; el tope de la corrida lo pone `hechas`, así que esto termina solo.
-      for (let vuelta = 0; vuelta < 20 && !pararPerfiles.current; vuelta++) {
-        setAvance(`Revisando perfiles: ${miles(hechas)} de ${miles(cuenta.estaCorrida)}…`);
-        const r = await completarPerfilesDeGrupoAction({ linea, jid, hechas, saltear })
-          .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
-        if (!r.ok) { setErr(r.error); break; }
-        hechas += r.revisados; empresas += r.empresas; completados += r.completados; campos += r.campos;
-        saltear.push(...r.sinRespuesta);
-        pendientes = r.pendientes - (r.revisados - r.sinRespuesta.length);
-        corte = r.corte;
-        if (!r.sigue || r.revisados === 0) break;
-      }
+      // La misma máquina que la barra de lote del tablero (./enriquecer-cliente.ts): suma `hechas`, saltea a los que no
+      // contestaron, para con «Parar» y dice por qué no siguió.
+      a = await correrPerfiles(cuenta, (hechas, saltear) => completarPerfilesDeGrupoAction({ linea, jid, hechas, saltear }), {
+        parar: () => pararPerfiles.current,
+        alAvanzar: (hechas, meta) => setAvance(`Revisando perfiles: ${miles(hechas)} de ${miles(meta)}…`),
+      });
     } finally { setCompletando(false); setPerfilando(false); setAvance(null); }
-    const datos = completados ? ` · ${miles(completados)} con datos nuevos (${miles(campos)} entre web, Instagram, correo y dirección)` : ' · ningún dato nuevo';
-    const resto = pendientes <= 0 ? '' : corte === 'dia' ? ` Por hoy se terminaron las consultas de esta línea: mañana sigue con los ${miles(pendientes)} que faltan.`
-      : ` Faltan ${miles(pendientes)}: vuelve a tocar «Datos de empresa» para seguir.`;
-    const parado = pararPerfiles.current ? ' Paraste antes de terminar.' : '';
-    setHecho(`«${grupo.nombre}»: ${miles(empresas)} de ${miles(hechas)} tienen cuenta de empresa${datos}.${resto}${parado}`);
-    if (completados) { onTraidos(`${miles(completados)} con datos de empresa`); setVuelta((n) => n + 1); }
+    setHecho(`«${grupo.nombre}»: ${resumenDePerfiles(a)}`);
+    if (a.completados) { onTraidos(`${miles(a.completados)} con datos de empresa`); setVuelta((n) => n + 1); }
   };
 
   const opcionesLinea: DropdownOption[] = (lineas ?? []).map((l) => ({ value: l.linea, label: l.conectada ? l.etiqueta : `${l.etiqueta} · sin conectar` }));
@@ -320,8 +309,9 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
         {!!gente?.length && (
           <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)' }}>
             {[
+              // Qué va a pasar, en números (el Cerebro, 24/10/2026: «que el pie diga "traigo 86; 135 ya estaban"»).
+              `Traigo ${miles(sel.size)}${yaEstan ? ` · ${miles(yaEstan)} ya ${yaEstan === 1 ? 'estaba (abajo, en gris)' : 'estaban (abajo, en gris)'}` : ''}.`,
               'No les manda nada.',
-              enElCrm ? `${miles(enElCrm)} ya ${enElCrm === 1 ? 'es un lead: no se duplica' : 'son leads: no se duplican'}.` : '',
               sinNumero ? `${miles(sinNumero)} sin número visible.` : '',
               sinOfrecer ? 'Las etapas que mandan algo o cierran el trato no se ofrecen.' : '',
             ].filter(Boolean).join(' ')}
@@ -392,8 +382,10 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
             <thead style={{ position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
               <tr>
                 <th style={{ ...th, width: 34, padding: '10px 0 7px 12px' }}>
-                  <input type="checkbox" checked={todos} onChange={() => setSel(todos ? new Set() : new Set(gente.map((p) => p.telefono)))}
-                    aria-label={`Tildar a los ${miles(gente.length)}`} style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
+                  {nuevos.length > 0 && (
+                    <input type="checkbox" checked={todos} onChange={() => setSel(todos ? new Set() : new Set(nuevos.map((p) => p.telefono)))}
+                      aria-label={`Tildar a los ${miles(nuevos.length)} nuevos`} style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
+                  )}
                 </th>
                 <th style={th}>Nombre</th>
                 <th style={th}>Teléfono</th>
@@ -401,17 +393,38 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
               </tr>
             </thead>
             <tbody>
-              {visibles.map((p) => {
+              {visibles.map((p, i) => {
+                // LOS QUE YA ESTÁN: en gris, sin casilla, sin clic. Encabezados por un renglón que dice cuántos y que no se traen.
+                if (p.enElCrm) {
+                  const primero = i === 0 || !visibles[i - 1].enElCrm;
+                  return (
+                    <Fragment key={p.telefono}>
+                      {primero && (
+                        <tr data-ya-estan>
+                          <td colSpan={4} style={{ ...td, ...grisRotulo }}>
+                            {`Ya están en tu CRM · ${miles(yaEstan)} · no se traen`}
+                          </td>
+                        </tr>
+                      )}
+                      <tr data-ya-esta style={{ cursor: 'default' }}>
+                        <td style={{ ...td, padding: '9px 0 9px 12px' }} />
+                        <td style={{ ...td, color: 'var(--faint)' }}>{p.nombre ?? '—'}</td>
+                        <td style={{ ...td, color: 'var(--faint)', fontFamily: MONO, fontSize: 12.5 }}>+{p.telefono}</td>
+                        <td style={{ ...td, color: 'var(--faint)' }}>Ya está</td>
+                      </tr>
+                    </Fragment>
+                  );
+                }
                 const on = sel.has(p.telefono);
                 return (
-                  <tr key={p.telefono} onClick={() => alternar(p.telefono)} style={{ cursor: 'pointer', background: on ? 'var(--primary-weak)' : 'transparent' }}>
+                  <tr key={p.telefono} onClick={() => alternar(p)} style={{ cursor: 'pointer', background: on ? 'var(--primary-weak)' : 'transparent' }}>
                     <td style={{ ...td, padding: '9px 0 9px 12px' }}>
                       <input type="checkbox" checked={on} readOnly tabIndex={-1} aria-label={`Traer a ${p.nombre ?? `+${p.telefono}`}`}
                         style={{ width: 16, height: 16, accentColor: 'var(--primary)', pointerEvents: 'none' }} />
                     </td>
                     <td style={{ ...td, fontWeight: 600 }}>{p.nombre ?? '—'}</td>
                     <td style={{ ...td, color: 'var(--dim)', fontFamily: MONO, fontSize: 12.5 }}>+{p.telefono}</td>
-                    <td style={{ ...td, color: 'var(--dim)' }}>{p.enElCrm ? 'Ya está' : ''}</td>
+                    <td style={td} />
                   </tr>
                 );
               })}
@@ -423,7 +436,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
         {jid && gente?.length === 0 && <p style={nota}>{sinNumero ? 'WhatsApp no deja ver los números de este grupo.' : 'Nadie para traer.'}</p>}
       {cuentaPerfiles && (
         <Confirm tone="primary" title="¿Traer los datos de empresa?" confirmLabel={`Consultar ${miles(cuentaPerfiles.estaCorrida)}`}
-          message={`Faltan ${miles(cuentaPerfiles.pendientes)} de los ${miles(cuentaPerfiles.total)} que ya están. Ahora se consultan ${miles(cuentaPerfiles.estaCorrida)}, de a uno: unos ${minutosDePerfiles(cuentaPerfiles.estaCorrida)} min.${cuentaPerfiles.estaCorrida < cuentaPerfiles.pendientes ? ` Los otros ${miles(cuentaPerfiles.pendientes - cuentaPerfiles.estaCorrida)}, en otra vuelta.` : ''} Hoy quedan ${miles(cuentaPerfiles.quedanHoy)} de ${miles(TOPE_PERFILES_DIA)} consultas en esta línea. Sólo se completa lo vacío, y no les llega nada.`}
+          message={preguntaDePerfiles(cuentaPerfiles, `los ${miles(cuentaPerfiles.total)} que ya están`, minutosDePerfiles(cuentaPerfiles.estaCorrida), TOPE_PERFILES_DIA)}
           onConfirm={() => void traerPerfiles()} onCancel={() => setCuentaPerfiles(null)} />
       )}
     </VistaConPie>

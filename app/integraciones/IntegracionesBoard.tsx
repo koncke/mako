@@ -1,12 +1,24 @@
 'use client';
 
 // =============================================================================
-// IntegracionesBoard — estado de servicios + Costo de MaKo + detalle en modales
+// IntegracionesBoard — las integraciones del negocio + Costo de MaKo + detalle en modales
 // =============================================================================
-// Rediseño (Claude Design "Integraciones MaKo"): header con medidor de salud,
-// "Requiere tu atención", "Servicios" agrupados por categoría, "Costo de MaKo"
-// (proveedores + gasto por proceso + modal de operaciones filtrable) e
-// "Historial de problemas". Todo alimentado con data REAL:
+// LA ESTRUCTURA DE VERCEL MARKETPLACE (24/10/2026). Martín: «hay tanta pero tanta info que se complica muchísimo para el
+// usuario... Piensa en como hacerlo o investiga como lo hacen otras apps». El Cerebro abrió vercel.com/marketplace en el
+// navegador (y se volvió a relevar el 24/10: la página en vivo y su documentación). Lo que se copió, la ESTRUCTURA:
+//   · UNA fila de controles arriba —el tipo (acá, el estado), la categoría y la búsqueda («/» la enfoca)—, no diez secciones
+//     apiladas: las categorías son un FILTRO;
+//   · pocas secciones con nombre y criterio: «Conectadas» (lo que la persona viene a mirar, con su estado) y «Sin conectar»
+//     (el catálogo), que muestra doce y cierra con «Mostrar más integraciones»;
+//   · cada tarjeta mínima: el logo, la categoría en una píldora, el nombre y UNA línea (la `descripcion` del catálogo); en
+//     las conectadas, su estado. La configuración vive en el modal de cada una (`ServicioModal`), que no cambió.
+// Lo que NO se copió: el carrusel de destacadas (acá la única destacada es «Tus cuentas de IA», arriba, en page.tsx) y la
+// tarjeta «Request an integration» (AGENTS.md: un pedido no se resuelve con un formulario propio, va por la Ticketera).
+// Se fueron el medidor «N / M conectados» y «Requiere tu atención», que repetía arriba hasta quince tarjetas de la grilla:
+// el problema de una conectada se lee en SU tarjeta, y el filtro «Con problemas» las junta. «Costo de MaKo» y el
+// «Historial de problemas» quedan abajo, plegados con su dato a la vista (no son el catálogo).
+// Antes (julio, un Claude Design de Martín): medidor, «Requiere tu atención», «Servicios» por categoría, «Costo de MaKo» e
+// «Historial de problemas», todo desplegado. Todo alimentado con data REAL:
 //   · integraciones (estado conectada/falta) — getIntegraciones()
 //   · health (detalle en vivo de Meta) — getMetaHealth()
 //   · historial (estados negativos de Meta) — getHistorialMeta()
@@ -20,6 +32,7 @@ import { conWs } from '@/lib/ws-tab';
 import { volverDeLaPestana } from '@/lib/integracion-en-tab';
 import { esPasarela } from '@/lib/cobros-tipos';
 import { esIntegracionDeLeads } from '@/lib/fuentes-leads-catalogo';
+import { ordenCategoria } from '@/lib/integraciones-catalogo';
 import { SelectorLanding } from './SelectorLanding';
 import { AsignarProducto } from './AsignarProducto';
 import type { RechazoGracias } from '@/lib/landing-gracias-reglas';
@@ -37,7 +50,7 @@ import type { CuotaProv } from '@/lib/ia-cuotas';
 import { TutorialAgente, CODE } from '../_components/TutorialAgente';
 import type { TokenAgenteVisible } from '@/lib/agente-token-nucleo';
 import { ModalShell } from '../_components/ModalShell';
-import { Dropdown } from '../components/Dropdown';
+import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import ServicioConfigForm, { IconBtn } from './ServicioConfigForm';
 import { Icon } from '../_components/icons';
 import { getGoogleCalendarStatusAction, disconnectGoogleCalendarAction, type GoogleCalendarStatus } from '@/app/configuraciones/gcal-actions';
@@ -137,14 +150,29 @@ const Spark = ({ size = 15 }: { size?: number }) => (
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 };
 const capMono: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--faint)' };
 
-// Orden de categorías del diseño.
-// El ORDEN de las filas de «Servicios». Ojo: también hace de whitelist — `porCategoria`
-// mapea sobre esta lista, así que una categoría que no esté acá NO se pinta aunque tenga
-// integraciones. GitHub quedó invisible por eso: existía, pasaba todos los filtros, y
-// 'Desarrollo' no estaba en la lista.
-// 'Pagos' (Stripe y Mercado Pago, 11/10/2026) va después de Mensajería: es lo que cierra la venta
-// que las dos de arriba empezaron.
-const CAT_ORDER = ['Publicidad', 'Mensajería', 'Pagos', 'Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Contenido', 'Datos', 'Desarrollo'];
+// El ORDEN de las categorías (en el desplegable y dentro de cada sección) es el de lib/integraciones-catalogo.ts, el mismo que
+// usa el teléfono. Hasta el 24/10/2026 vivía acá como `CAT_ORDER` y hacía de LISTA BLANCA (GitHub y Whop quedaron invisibles):
+// ya no filtra.
+
+// ── La fila de controles (24/10/2026, Vercel Marketplace: «All types», «All categories» y la búsqueda) ──
+const TODAS = 'todas';
+type FiltroEstado = typeof TODAS | 'conectadas' | 'sin-conectar' | 'problemas';
+const ESTADOS_FILTRO: DropdownOption[] = [
+  { value: TODAS, label: 'Todos los estados', icono: 'filtro' },
+  { value: 'conectadas', label: 'Conectadas', icono: 'check' },
+  { value: 'sin-conectar', label: 'Sin conectar', icono: 'agregar' },
+  { value: 'problemas', label: 'Con problemas', icono: 'avisar' },
+];
+// El ícono de cada categoría en su desplegable (AGENTS.md: un tipo de cosa lleva su ícono). Una que no esté acá va con la
+// etiqueta: no es un registro más para quien agrega una integración.
+const ICONO_CATEGORIA: Record<string, string> = {
+  Publicidad: 'anuncio', Mensajería: 'enviar', Pagos: 'dinero', Inteligencia: 'mako', 'IA Generativa': 'imagen',
+  Agentes: 'computadora', Reuniones: 'calendario', Contenido: 'curso', Datos: 'grafico', Desarrollo: 'llave',
+};
+/** Cuántas de «Sin conectar» se ven antes de «Mostrar más integraciones» (Vercel muestra doce: tres filas de cuatro). */
+const TOPE_CATALOGO = 12;
+/** Para buscar sin que importen las tildes ni las mayúsculas («mensajeria» encuentra «Mensajería»). */
+const sinTildes = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 // Servicios sintéticos: no están en el catálogo de integraciones pero tienen modal
 // propio (Groq es gratis y aparece en Costo de MaKo → su tile abre este modal).
@@ -203,6 +231,17 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   const searchParams = useSearchParams();
   const [usage, setUsage] = useState<Resumen | null>(null);
   const [modal, setModal] = useState<{ t: 'svc'; key: string } | { t: 'hist' } | null>(null);
+  // La fila de controles (24/10/2026). Vive en la pantalla: no viaja en la URL (nadie la comparte).
+  const [estadoF, setEstadoF] = useState<string>(TODAS);
+  const [catF, setCatF] = useState<string>(TODAS);
+  const [q, setQ] = useState('');
+  const [verTodas, setVerTodas] = useState(false);
+  const buscarRef = useRef<HTMLInputElement>(null);
+  // La tarjeta que pidió un link (`?abrir=`): tiene que estar en el DOM para el scroll, aunque caiga en lo que «Mostrar
+  // más» pliega. `vez` reabre el scroll si el mismo link se toca de nuevo.
+  const [pedida, setPedida] = useState<{ key: string; vez: number } | null>(null);
+  // `?ops=1` abre «Costo de MaKo», que va plegado: cada vez suma uno y el plegado se abre.
+  const [abrirCosto, setAbrirCosto] = useState(0);
 
   const cargar = useCallback(async () => {
     try { const j = await (await fetch('/api/anthropic-usage')).json(); if (j?.ok) setUsage(j as Resumen); } catch { /* offline */ }
@@ -231,11 +270,10 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     if (!integraciones.some((i) => i.key === abrir) && !SYNTHETIC[abrir]) return;
     yaAbierto.current = true;
     setModal({ t: 'svc', key: abrir });
-    // El scroll va detrás del render del modal: la tarjeta tiene que existir en
-    // el DOM para que scrollIntoView tenga a dónde ir.
-    requestAnimationFrame(() => {
-      document.getElementById(`svc-${abrir}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    });
+    // Que la tarjeta se vea (24/10/2026): sin filtros que la escondan, y fuera de lo que pliega «Mostrar más». El scroll va
+    // en su efecto, detrás del render que la pone en el DOM.
+    setQ(''); setCatF(TODAS); setEstadoF(TODAS);
+    setPedida((p) => ({ key: abrir, vez: (p?.vez ?? 0) + 1 }));
     const q = new URLSearchParams(searchParams.toString());
     q.delete('abrir');
     router.replace(`/integraciones${q.size ? `?${q}` : ''}`, { scroll: false });
@@ -286,9 +324,34 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   useEffect(() => {
     if (searchParams.get('ops') === '1') {
       setModal({ t: 'hist' });
+      setAbrirCosto((n) => n + 1);
       router.replace('/integraciones#saldo-ia', { scroll: false });
     }
   }, [searchParams, router]);
+
+  // El scroll del deep-link va detrás del render que pone la tarjeta en el DOM (desplegada si hacía falta): scrollIntoView
+  // necesita a dónde ir.
+  useEffect(() => {
+    if (!pedida) return;
+    const t = requestAnimationFrame(() => {
+      document.getElementById(`svc-${pedida.key}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+    return () => cancelAnimationFrame(t);
+  }, [pedida]);
+
+  // «/» enfoca la búsqueda, como en Vercel Marketplace; no mientras se escribe en otro campo ni con un modal abierto.
+  const hayModal = modal != null;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey || hayModal) return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return;
+      e.preventDefault();
+      buscarRef.current?.focus();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [hayModal]);
 
   // ── ?servicio=<key> → abre ESE servicio ───────────────────────────────────
   // Es el ancla del estado «falta un dato» más común del producto: `tab-activacion.ts`
@@ -326,15 +389,15 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
       if (metaSev) return metaSev === 'verde' ? 'good' : metaSev === 'ambar' ? 'warn' : 'bad';
       if (metaError) return 'bad';
     }
-    // Verde SOLO con el permiso completo. Media conexión se ve igual que ninguna:
-    // así el contador "N/M conectados", el medidor y el punto del tile dicen lo
-    // mismo que el modal, en vez de dejarlo en una nota al pie que nadie abre.
+    // Verde SOLO con el permiso completo. Media conexión no es verde: así la tarjeta
+    // (su estado, y el filtro «Con problemas») dice lo mismo que el modal, en vez
+    // de dejarlo en una nota al pie que nadie abre.
     if (i.key === 'google' && (gcalIncompleta || gcalRechazada)) return 'warn';
     // Mismo criterio para la landing: el código pegado en su página es de una
     // versión vieja. El tracking anda —los eventos llegan— pero hay algo que
     // hacer, y el verde no sabe decir eso. Degradar a ámbar es el precedente de
-    // Google, y se elige por lo mismo: que el contador, el medidor, el punto y el
-    // chip digan todos lo mismo, en vez de esconderlo en una nota que nadie abre.
+    // Google, y se elige por lo mismo: que la tarjeta, su punto y el chip del
+    // modal digan todos lo mismo, en vez de esconderlo en una nota que nadie abre.
     if (i.key === 'landing' && landingVieja) return 'warn';
     // Y Calendly con el token y el R1 pero sin el aviso que trae las reservas nuevas (23/10/2026): lee la agenda y no
     // recibe nada. El mismo ámbar, por lo mismo: el verde no sabe decir «conectada, pero no entra ninguna reserva».
@@ -355,60 +418,109 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // pendiente de la persona, y pedírselas en «Requiere tu atención» la empujaría a pegar una key que no debe.
   const opcionalSinConectar = (i: Integracion) => ((esPasarela(i.key) || esIntegracionDeLeads(i.key)) && sevOf(i) !== 'good')
     || i.detalle === POR_QUE_LA_CONFIGURA_MAKO;
-  const medidas = integraciones.filter((i) => !opcionalSinConectar(i));
-  const total = medidas.length;
-  const conectadas = medidas.filter((i) => sevOf(i) === 'good').length;
   // Resuelve un servicio por key incluyendo entradas sintéticas (Groq tiene tile en
   // Costo de MaKo pero no está en el catálogo de integraciones → su modal usa esto).
   const svcByKey = (key: string): Integracion | null => integraciones.find((x) => x.key === key) ?? SYNTHETIC[key] ?? null;
 
-  // ── Requiere atención: servicios en falta + Meta si no está verde ──
-  // (Sin useMemo: el React Compiler memoiza; el useMemo manual con el closure
-  // sevOf le impedía optimizar.)
-  const atencion: Array<{ i: Integracion; sev: 'warn' | 'bad'; motivo: string; accion?: string }> = [];
-  for (const i of integraciones) {
-    const s = sevOf(i);
-    if (s === 'good') continue;
-    // El agente (Claude Code) es OPCIONAL y se instala del lado del usuario: mientras
-    // no tenga token queda "Por configurar" en la grilla (honesto), pero no es un
-    // pendiente que haya que resolver → no lo empujamos a "Requiere tu atención"
-    // (sería ruido para un cliente que ni programa).
-    if (i.key === 'agente') continue;
-    // Stripe, Mercado Pago y las del Leads Scraper, por lo mismo (ver `opcionalSinConectar`, más arriba).
-    if (opcionalSinConectar(i)) continue;
-    let motivo = i.estado === 'falta' ? i.detalle : 'Requiere atención';
-    let accion: string | undefined;
+  // ── Conectadas y sin conectar (24/10/2026) ──
+  // Una IA que configura el equipo de MaKo no le pide nada al negocio: va con las conectadas, con su leyenda.
+  const delEquipoMaKo = (i: Integracion) => i.detalle === POR_QUE_LA_CONFIGURA_MAKO;
+  const estaConectada = (i: Integracion) => i.estado === 'conectada' || delEquipoMaKo(i);
+  // Lo que le pasa a una conectada que no está bien, corto y EN SU TARJETA (antes, otra tarjeta en «Requiere tu atención»,
+  // arriba, repitiendo la grilla). Una sin conectar no lleva motivo: está en «Sin conectar», y el modal dice qué falta —nunca
+  // el nombre de una variable, como «Falta configurar: RESEND_API_KEY»—.
+  // (Sin useMemo: el React Compiler memoiza; el useMemo manual con el closure sevOf le impedía optimizar.)
+  const motivoDe = (i: Integracion): string | null => {
+    // La clave que pegó es la de MaKo (`veredictoDeIA` → copia): está sin conectar, pero hay algo que hacer y se dice en SU
+    // tarjeta. Antes lo decía «Requiere tu atención»; sin eso, quedaba muda en «Sin conectar» (revisión del 24/10/2026).
+    if (i.detalle === POR_QUE_IA_DE_MAKO) return POR_QUE_IA_DE_MAKO;
+    if (!estaConectada(i) || delEquipoMaKo(i) || sevOf(i) === 'good') return null;
+    let motivo = 'Requiere atención';
     if (i.key === 'meta') {
       motivo = health
         ? (health.account.entregaFrenada ? 'Entrega frenada' : (health.account.disableReasonLabel || health.account.statusLabel || 'Requiere atención'))
         : metaError === FALTAN_PERMISOS_META ? FALTAN_PERMISOS_META : 'No se pudo leer el estado de Meta';
     } else if (i.key === 'google' && gcalIncompleta) {
-      // El motivo dice QUÉ falta (no "Requiere atención", que no orienta a nadie) y
-      // el botón dice el verbo que resuelve: volver a pasar por el consentimiento.
+      // El motivo dice QUÉ falta (no "Requiere atención", que no orienta a nadie).
       motivo = 'Falta permiso para mover reuniones';
-      accion = 'Conectar';
     } else if (i.key === 'google' && gcalRechazada) {
-      // Distinto de «falta permiso»: acá el token ya no sirve para NADA. El verbo
-      // es el mismo (volver a pasar por Google), pero el motivo tiene que decir la
-      // verdad o el usuario busca el permiso que no es.
-      motivo = 'Google ya no acepta la agenda — hay que reconectarla';
-      accion = 'Conectar';
+      // Distinto de «falta permiso»: acá el token ya no sirve para NADA.
+      motivo = 'Google ya no acepta la agenda: hay que reconectarla';
+    } else if (i.key === 'landing' && landingVieja) {
+      motivo = ROTULO_PIXEL_VIEJO;
     } else if (i.key === 'calendly' && i.estado === 'conectada' && faltaAvisoCalendly) {
       motivo = faltaAvisoCalendly.motivo;
     }
-    atencion.push({ i, sev: s === 'bad' ? 'bad' : 'warn', motivo, accion });
-  }
+    return motivo;
+  };
 
-  // ── Servicios por categoría ──
-  const porCategoria = CAT_ORDER
-    // En Inteligencia el orden manda: primero las de pago (Claude/OpenAI/Gemini),
-    // después las gratis. ordenIA() da 99 a las no-IA → el resto queda como estaba.
-    .map((cat) => ({ cat, items: integraciones.filter((i) => i.categoria === cat).slice().sort((a, b) => ordenIA(a.key) - ordenIA(b.key)) }))
-    .filter((g) => g.items.length > 0);
+  // ── La fila de controles: qué se ve ──
+  // Las categorías del desplegable salen de las integraciones que esta persona ve (nunca de una lista aparte).
+  const opcionesCategoria: DropdownOption[] = [
+    { value: TODAS, label: 'Todas las categorías', icono: 'etiqueta' },
+    ...[...new Set(integraciones.map((i) => i.categoria))]
+      .sort((a, b) => ordenCategoria(a) - ordenCategoria(b) || a.localeCompare(b, 'es'))
+      .map((c) => ({ value: c, label: c, icono: ICONO_CATEGORIA[c] ?? 'etiqueta' })),
+  ];
+  const texto = sinTildes(q.trim());
+  const filtrando = texto !== '' || catF !== TODAS || estadoF !== TODAS;
+  const filtroEstado = estadoF as FiltroEstado;
+  const pasa = (i: Integracion) => (catF === TODAS || i.categoria === catF)
+    && (filtroEstado === TODAS
+      || (filtroEstado === 'conectadas' && estaConectada(i))
+      || (filtroEstado === 'sin-conectar' && !estaConectada(i))
+      || (filtroEstado === 'problemas' && motivoDe(i) != null))
+    && (!texto || sinTildes(`${i.nombre} ${i.categoria} ${i.descripcion}`).includes(texto));
+  // Dentro de cada sección, el orden de las categorías y, en Inteligencia, primero las de pago (ordenIA); a igualdad, el del
+  // catálogo (`sort` es estable).
+  const enOrden = (a: Integracion, b: Integracion) => ordenCategoria(a.categoria) - ordenCategoria(b.categoria) || ordenIA(a.key) - ordenIA(b.key);
+  // Las conectadas con un problema van primero: rojo, después ámbar.
+  const rango = (i: Integracion) => (motivoDe(i) == null ? 2 : sevOf(i) === 'bad' ? 0 : 1);
+  const conectadasVis = integraciones.filter((i) => estaConectada(i) && pasa(i)).sort((a, b) => rango(a) - rango(b) || enOrden(a, b));
+  // Las que tienen algo que hacer (la clave de MaKo pegada) van primero; las opcionales (las pasarelas y las del Leads
+  // Scraper, `opcionalSinConectar`), al final del catálogo.
+  const sinConectarVis = integraciones.filter((i) => !estaConectada(i) && pasa(i))
+    .sort((a, b) => rango(a) - rango(b) || Number(opcionalSinConectar(a)) - Number(opcionalSinConectar(b)) || enOrden(a, b));
+  // «Mostrar más» SE CALCULA (AGENTS.md): con un filtro o una búsqueda se ve todo lo que pasa, y lo que pidió un link también.
+  const pedidaOculta = pedida != null && sinConectarVis.slice(TOPE_CATALOGO).some((i) => i.key === pedida.key);
+  const catalogo = verTodas || filtrando || pedidaOculta ? sinConectarVis : sinConectarVis.slice(0, TOPE_CATALOGO);
+  const ocultas = sinConectarVis.length - catalogo.length;
+  const limpiar = () => { setQ(''); setCatF(TODAS); setEstadoF(TODAS); };
 
-  // Medidor: una barra por servicio, verde las conectadas, roja/ámbar el resto (sin las pasarelas
-  // sin conectar: son opcionales).
-  const bars = medidas.map((i) => dotColor(sevOf(i)));
+  // La tarjeta (Vercel: el logo, la categoría en una píldora, el nombre y una línea). Toda la tarjeta abre su modal.
+  const tarjeta = (i: Integracion) => {
+    const conectada = estaConectada(i);
+    const equipo = delEquipoMaKo(i);
+    const motivo = motivoDe(i);
+    const sev = motivo ? sevOf(i) : 'good';
+    return (
+      <button key={i.key} id={`svc-${i.key}`} type="button" className="int-tarjeta" onClick={() => setModal({ t: 'svc', key: i.key })}>
+        <span style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+          <SvcIcon k={i.key} box={36} radius={10} size={21} />
+          <span className="int-pildora">{i.categoria}</span>
+        </span>
+        {/* El nombre ENTERO, en dos renglones si hace falta (21/10/2026): con «…» se leía «Instagram y Mess…». */}
+        <span style={{ fontWeight: 600, fontSize: 15, letterSpacing: '-0.01em', lineHeight: 1.25, color: 'var(--ink)', overflowWrap: 'anywhere' }}>{i.nombre}</span>
+        <span className="int-tarjeta__linea">{i.descripcion}</span>
+        {(conectada || motivo) && (
+          // El motivo se lee ENTERO (21/10/2026): con «…» se cortaba también a 1280 de ventana.
+          <span style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 'auto', paddingTop: 2, fontSize: 12.5, fontWeight: 600, lineHeight: 1.35, color: equipo ? 'var(--dim)' : sev === 'bad' ? 'var(--bad)' : sev === 'warn' ? 'var(--warn)' : 'var(--good)', overflowWrap: 'anywhere' }}>
+            <span aria-hidden style={{ width: 8, height: 8, flex: 'none', marginTop: 4, borderRadius: '50%', background: equipo ? 'var(--faint)' : dotColor(sev) }} />
+            {equipo ? POR_QUE_LA_CONFIGURA_MAKO : motivo ?? 'Conectada'}
+          </span>
+        )}
+      </button>
+    );
+  };
+  // `min(…, 100%)`: en una columna más angosta que el mínimo, una tarjeta de ancho entero en vez de desbordar.
+  const grilla = (items: Integracion[]) => (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(236px,100%),1fr))', gap: 12 }}>{items.map(tarjeta)}</div>
+  );
+  const tituloSeccion = (id: string, titulo: string, n: number) => (
+    <h2 id={id} style={{ display: 'flex', alignItems: 'baseline', gap: 8, margin: '0 0 12px', fontWeight: 600, fontSize: 17, letterSpacing: '-0.012em', color: 'var(--ink)' }}>
+      {titulo}<span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 500, color: 'var(--faint)' }}>{n}</span>
+    </h2>
+  );
   // Embebido no puede ser otro `<main>`: la página ya tiene uno (el del molde de ajustes).
   const Raiz = embebido ? 'div' : 'main';
 
@@ -416,112 +528,61 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     <Raiz style={embebido ? { minWidth: 0 } : { flex: 1, minWidth: 0, padding: '30px 42px 90px' }}>
       <BrandDefs />
 
-      {/* ═══ HEADER ═══ */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
-        {!embebido && <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-          <div style={{ width: 44, height: 44, flex: 'none', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)' }}>
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 2v4M15 2v4" /><path d="M6.5 6h11v4a5.5 5.5 0 0 1-11 0z" /><path d="M12 15.5V22" /></svg>
-          </div>
-          <div>
-            <div style={{ ...capMono, fontSize: 10.5, letterSpacing: '.14em', marginBottom: 6 }}>Configuración</div>
-            <h1 style={{ fontWeight: 700, fontSize: 38, letterSpacing: '-0.03em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Integraciones</h1>
-          </div>
-        </div>}
-        <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, padding: '12px 18px' }}>
-          <div style={{ display: 'flex', gap: 5 }}>
-            {bars.map((c, idx) => <span key={idx} style={{ width: 6, height: 16, borderRadius: 3, background: c }} />)}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-            <span style={{ fontFamily: MONO, fontWeight: 600, fontSize: 19, letterSpacing: '-0.02em', color: 'var(--ink)' }}>{conectadas}<span style={{ color: 'var(--faint)', fontSize: 14 }}> / {total}</span></span>
-            <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>conectados</span>
-          </div>
-        </div>
+      {/* ═══ LA FILA DE CONTROLES (Vercel Marketplace: el tipo, la categoría y la búsqueda, en una fila) ═══ */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <Dropdown value={estadoF} options={ESTADOS_FILTRO} onChange={setEstadoF} ariaLabel="Estado de las integraciones" width={190} />
+        <Dropdown value={catF} options={opcionesCategoria} onChange={setCatF} ariaLabel="Categoría" width={214} />
+        <label className="int-buscar">
+          <Icon name="search" size={16} />
+          <input ref={buscarRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar" aria-label="Buscar una integración"
+            onKeyDown={(e) => { if (e.key === 'Escape' && q) { e.stopPropagation(); setQ(''); } }} />
+          {q
+            ? <button type="button" className="int-buscar__tecla" onClick={() => { setQ(''); buscarRef.current?.focus(); }} aria-label="Borrar la búsqueda">Esc</button>
+            : <kbd className="int-buscar__tecla" aria-hidden>/</kbd>}
+        </label>
       </div>
-
 
       {/* Resultado del OAuth de Google (?gcal=…). Va arriba de todo porque es la
           respuesta a lo último que hizo el usuario antes de volver a esta pantalla. */}
       {/* El "conectado ✓" se calla si el permiso igual quedó a medias (se destildó la
           casilla de escritura en la pantalla de Google): festejar ahí sería el mismo
-          verde mentiroso que estamos sacando. La tarjeta de "Falta permiso" lo cuenta. */}
+          verde mentiroso que estamos sacando. La tarjeta de Google cuenta lo que falta. */}
       {gcalMsg && !(gcalMsg.kind === 'ok' && gcalIncompleta) && (
-        <div role="status" style={{ marginTop: 22, borderRadius: 12, padding: '12px 17px', fontSize: 13.5, fontWeight: 600, lineHeight: 1.5, background: gcalMsg.kind === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: gcalMsg.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>
+        <div role="status" style={{ marginTop: 18, borderRadius: 12, padding: '12px 17px', fontSize: 13.5, fontWeight: 600, lineHeight: 1.5, background: gcalMsg.kind === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: gcalMsg.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>
           {gcalMsg.txt}
         </div>
       )}
 
-      {/* ═══ REQUIERE ATENCIÓN ═══ */}
-      {atencion.length > 0 && (
-        <section style={{ marginTop: 30 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
-            <Spark />
-            <h2 style={{ fontWeight: 600, fontSize: 16, letterSpacing: '-0.01em', margin: 0, color: 'var(--ink)' }}>Requiere tu atención</h2>
-            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 21, height: 21, padding: '0 7px', borderRadius: 999, background: 'var(--bad-bg)', color: 'var(--bad)', fontFamily: MONO, fontSize: 12, fontWeight: 600 }}>{atencion.length}</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(300px,100%),1fr))', gap: 14 }}>
-            {atencion.map(({ i, sev, motivo, accion }) => (
-              <div key={i.key} style={{ ...card, borderLeft: `4px solid ${sev === 'bad' ? 'var(--bad)' : 'var(--warn-fill)'}`, padding: '20px 22px', display: 'flex', alignItems: 'center', gap: 16 }}>
-                <SvcIcon k={i.key} box={44} radius={12} size={26} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  {/* El motivo se lee ENTERO (21/10/2026): en una línea con «…» se cortaba en 20 tarjetas, también a 1280 de
-                      ventana («Falta configurar: RESEND_API_KEY» era «Falta configurar: RES…»). */}
-                  <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: sev === 'bad' ? 'var(--bad)' : 'var(--warn)', marginBottom: 4, overflowWrap: 'anywhere' }}>{motivo}</div>
-                  <div style={{ fontWeight: 600, fontSize: 17, letterSpacing: '-0.01em', color: 'var(--ink)' }}>{i.nombre}</div>
-                </div>
-                <button type="button" onClick={() => setModal({ t: 'svc', key: i.key })} style={{ flex: 'none', border: sev === 'bad' ? 0 : '1px solid var(--border-strong)', borderRadius: 10, background: sev === 'bad' ? 'var(--primary)' : 'var(--surface)', color: sev === 'bad' ? '#fff' : 'var(--ink)', fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 13.5, padding: '10px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>{accion ?? (sev === 'bad' ? 'Resolver' : 'Configurar')}</button>
-              </div>
-            ))}
-          </div>
+      {/* ═══ CONECTADAS ═══ */}
+      {conectadasVis.length > 0 && (
+        <section aria-labelledby="int-conectadas" style={{ marginTop: 26 }}>
+          {tituloSeccion('int-conectadas', 'Conectadas', conectadasVis.length)}
+          {grilla(conectadasVis)}
         </section>
       )}
 
-      {/* ═══ SERVICIOS ═══ */}
-      <section style={{ ...card, marginTop: 32, padding: '8px clamp(16px, 2.6vw, 30px) 12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', padding: '18px 0 16px' }}>
-          <h2 style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-0.017em', margin: 0, color: 'var(--ink)' }}>Servicios</h2>
-          <div style={{ display: 'flex', gap: 15, flexWrap: 'wrap' }}>
-            {([['var(--good)', 'Conectado'], ['var(--warn-fill)', 'Por configurar'], ['var(--bad)', 'Atención']] as const).map(([c, l]) => (
-              <span key={l} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--dim)' }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: c }} />{l}</span>
-            ))}
-          </div>
-        </div>
-        {porCategoria.map((g) => {
-          const svcBtn = (i: Integracion) => (
-            <button key={i.key} id={`svc-${i.key}`} type="button" onClick={() => setModal({ t: 'svc', key: i.key })} style={{ display: 'flex', alignItems: 'center', gap: 11, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '11px 13px' }}>
-              <SvcIcon k={i.key} />
-              {/* El nombre ENTERO, en dos renglones si hace falta (21/10/2026): con «…» se leía «Instagram y Mess…». */}
-              <span style={{ fontWeight: 600, fontSize: 14, flex: 1, minWidth: 0, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{i.nombre}</span>
-              <span style={{ width: 8, height: 8, flex: 'none', borderRadius: '50%', background: dotColor(sevOf(i)) }} />
-            </button>
-          );
-          // `min(…, 100%)`: en una columna más angosta que el mínimo, una tarjeta de ancho entero en vez de desbordar.
-          const grid = (items: Integracion[]) => <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(210px,100%),1fr))', gap: 10 }}>{items.map(svcBtn)}</div>;
-          // En Inteligencia partimos en dos filas: primero las de pago, después las gratis.
-          const esIA = g.cat === 'Inteligencia';
-          const pago = esIA ? g.items.filter((i) => esIAdePago(i.key)) : g.items;
-          const gratis = esIA ? g.items.filter((i) => !esIAdePago(i.key)) : [];
-          return (
-            <div key={g.cat} style={{ display: 'grid', gridTemplateColumns: 'minmax(84px,132px) minmax(0,1fr)', gap: 'clamp(12px, 2vw, 24px)', alignItems: esIA ? 'start' : 'center', padding: '18px 0', borderTop: '1px solid var(--surface-2)' }}>
-              <div style={{ ...capMono, marginTop: esIA ? 3 : 0 }}>{g.cat}</div>
-              {esIA ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div>
-                    <div style={{ ...capMono, fontSize: 9, letterSpacing: '.11em', color: 'var(--faint)', marginBottom: 7 }}>De pago</div>
-                    {grid(pago)}
-                  </div>
-                  <div>
-                    <div style={{ ...capMono, fontSize: 9, letterSpacing: '.11em', color: 'var(--faint)', marginBottom: 7 }}>Gratis · rotan sin costo</div>
-                    {grid(gratis)}
-                  </div>
-                </div>
-              ) : grid(g.items)}
+      {/* ═══ SIN CONECTAR (el catálogo) ═══ */}
+      {sinConectarVis.length > 0 && (
+        <section aria-labelledby="int-sin-conectar" style={{ marginTop: 30 }}>
+          {tituloSeccion('int-sin-conectar', 'Sin conectar', sinConectarVis.length)}
+          {grilla(catalogo)}
+          {ocultas > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+              <button type="button" className="int-mas" onClick={() => setVerTodas(true)}>Mostrar más integraciones</button>
             </div>
-          );
-        })}
-      </section>
+          )}
+        </section>
+      )}
+
+      {filtrando && !conectadasVis.length && !sinConectarVis.length && (
+        <p style={{ margin: '28px 0 0', fontSize: 14, color: 'var(--dim)' }}>
+          {texto ? `Ninguna integración con «${q.trim()}».` : 'Ninguna integración con estos filtros.'}{' '}
+          <button type="button" className="int-enlace" onClick={limpiar}>Ver todas</button>
+        </p>
+      )}
 
       {/* ═══ COSTO DE MAKO ═══ */}
-      <CostoMaKo usage={usage} cuotas={cuotas} onVerOps={() => setModal({ t: 'hist' })} onOpenService={(key) => setModal({ t: 'svc', key })} />
+      <CostoMaKo usage={usage} cuotas={cuotas} abrir={abrirCosto} onVerOps={() => setModal({ t: 'hist' })} onOpenService={(key) => setModal({ t: 'svc', key })} />
 
       {/* ═══ HISTORIAL DE PROBLEMAS ═══ */}
       <ProblemasHistorial incidentes={incidentes} nombreDe={(s) => svcByKey(s)?.nombre ?? s} />
@@ -564,7 +625,21 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
 }
 
 // ── Costo de MaKo ─────────────────────────────────────────────────────────────
-function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen | null; cuotas: CuotaProv[]; onVerOps: () => void; onOpenService: (key: string) => void }) {
+function CostoMaKo({ usage, cuotas, abrir = 0, onVerOps, onOpenService }: { usage: Resumen | null; cuotas: CuotaProv[]; abrir?: number; onVerOps: () => void; onOpenService: (key: string) => void }) {
+  // PLEGADO (24/10/2026): no es el catálogo. A la vista, el gasto del mes; se abre al tocarlo, con el link del chip «Saldo
+  // de IA» (#saldo-ia) o con ?ops=1 (`abrir` sube).
+  const plegable = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const mirar = () => {
+      if (window.location.hash !== '#saldo-ia' || !plegable.current) return;
+      plegable.current.open = true;
+      plegable.current.scrollIntoView({ block: 'start' });
+    };
+    mirar();
+    window.addEventListener('hashchange', mirar);
+    return () => window.removeEventListener('hashchange', mirar);
+  }, []);
+  useEffect(() => { if (abrir > 0 && plegable.current) plegable.current.open = true; }, [abrir]);
   // Un tile por proveedor que consumió algo + uno por cada IA gratis que el negocio CARGÓ aunque todavía no la haya
   // usado (item "cargalos como otro contenedor"). Una que no cargó ya no tiene caja (IA16, 23/10/2026): la plataforma
   // no presta IA, y una caja «gratis» sin su clave se leía como que MaKo se la da (`soloCargadas`, page.tsx).
@@ -720,12 +795,19 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
   };
 
   return (
-    <section id="saldo-ia" style={{ ...card, marginTop: 20, padding: '26px 30px', scrollMarginTop: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+    <details ref={plegable} id="saldo-ia" className="int-plegable" style={{ ...card, marginTop: 34, scrollMarginTop: 20 }}>
+      {/* Adentro del <summary>, sólo texto en línea y la grilla en un <span> (WebKit ≤ 16 no deja que un <summary> sea grilla). */}
+      <summary>
+        <span className="int-plegable__caja">
           <MakoStar size={16} color="var(--accent)" />
-          <h2 style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-0.017em', margin: 0, color: 'var(--ink)' }}>Costo de MaKo</h2>
-        </div>
+          <span className="int-plegable__titulo">Costo de MaKo</span>
+          <span className="int-plegable__dato">{usage ? `${usd(usage.gastadoMesUsd ?? 0)} este mes` : '···'}</span>
+          <span className="int-flecha" aria-hidden />
+        </span>
+      </summary>
+      <div style={{ padding: '2px 30px 26px' }}>
+      {meses.length > 0 && (
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'flex-end', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
           {meses.length > 0 && (
             <Dropdown
@@ -745,6 +827,7 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
           </div>
         </div>
       </div>
+      )}
 
       {/* El período elegido NO mueve los tiles de abajo, y decirlo es parte del
           dato: un saldo restante de hoy al lado de un gasto de junio, sin
@@ -770,7 +853,8 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(240px,100%),1fr))', gap: 11, marginBottom: 18 }}>
         {provsPago.map(renderTile)}
       </div>
-      <div style={{ ...capMono, fontSize: 9.5, letterSpacing: '.11em', color: 'var(--faint)', marginBottom: 9 }}>Gratis · rotan sin costo</div>
+      {/* «Sin costo», no «Gratis · rotan sin costo» (22/10/2026: nada de «gratis», y Groq ya no rota: sólo pasa a texto las notas de voz). */}
+      <div style={{ ...capMono, fontSize: 9.5, letterSpacing: '.11em', color: 'var(--faint)', marginBottom: 9 }}>Sin costo</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(240px,100%),1fr))', gap: 11, marginBottom: 26 }}>
         {provsGratis.map(renderTile)}
       </div>
@@ -811,7 +895,8 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
         <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}>{usage?.historial?.length ?? 0} operaciones recientes</span>
         <button type="button" onClick={onVerOps} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid var(--border-strong)', borderRadius: 9, background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: '8px 14px' }}>Ver todas las operaciones →</button>
       </div>
-    </section>
+      </div>
+    </details>
   );
 }
 
@@ -820,12 +905,19 @@ function ProblemasHistorial({ incidentes: leidos, nombreDe }: { incidentes: Inci
   // «No pude leer» NO es «Todo en orden» (17/10/2026): con la lectura caída, se dice eso y no se cuenta ningún activo.
   const incidentes = leidos ?? [];
   const activos = incidentes.filter((x) => x.resolvedAt === null).length;
+  // PLEGADO (24/10/2026), como «Costo de MaKo»: a la vista, cuántos están en curso (o que no se pudo leer).
   return (
-    <section style={{ ...card, marginTop: 20, padding: '22px 30px 12px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 11, marginBottom: 6 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 18, letterSpacing: '-0.014em', margin: 0, color: 'var(--ink)' }}>Historial de problemas</h2>
-        <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{activos} {activos === 1 ? 'activo' : 'activos'}</span>
-      </div>
+    <details className="int-plegable" style={{ ...card, marginTop: 14 }}>
+      <summary>
+        <span className="int-plegable__caja">
+          <span className="int-plegable__titulo">Historial de problemas</span>
+          <span className="int-plegable__dato" style={leidos === null || activos ? { color: 'var(--warn)' } : undefined}>
+            {leidos === null ? 'No pude leerlo' : `${activos} ${activos === 1 ? 'activo' : 'activos'}`}
+          </span>
+          <span className="int-flecha" aria-hidden />
+        </span>
+      </summary>
+      <div style={{ padding: '0 30px 12px' }}>
       {leidos === null ? (
         <div style={{ color: 'var(--warn)', fontSize: 13.5, padding: '14px 0' }}>No pude leer el historial de problemas. Recarga en un rato.</div>
       ) : incidentes.length === 0 ? (
@@ -855,7 +947,8 @@ function ProblemasHistorial({ incidentes: leidos, nombreDe }: { incidentes: Inci
           );
         })
       )}
-    </section>
+      </div>
+    </details>
   );
 }
 

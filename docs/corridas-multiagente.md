@@ -27,6 +27,8 @@ Los journals siguen en disco, en
 
 | Fecha | Corrida | Agentes | Qué se fue a buscar | |
 |---|---|---|---|---|
+| 2026-10-24 | `pixel-meta-sprint-2410` (`wf_d253310f-574`) | 8 | El gasto de Meta del ws1 «perdido» desde el 15/10 (no era ceguera: Meta frenó la cuenta por saldo impago, y MaKo dejó de avisar el 16/10), la página de venta del Sprint (estaba publicada y se pisó con la de gracias al pegar el Pixel) y dos diseños, venta externa por Stripe y eventos a Meta por funnel, cada uno con un verificador que lo refutó en parte | ya escrita: hallazgos-ads, -landing, -pagos, -comunicacion y los dos diseno-*.md |
+| 2026-10-24 | `auditoria-pixel` (`wf_3f17ed7e-123`) | 7 | El Pixel de MaKo punta a punta por funnel, pedido de Martín del 23/10: qué mide, la venta por el Stripe propio que no entra, el Schedule doble de Mauricio | ya escrita: hallazgos-landing, -pagos y -ads |
 | 2026-10-21 | `revision-ola1` | 13 | La ola 1 del Ops Center (061c1b74d): los arreglos de caja-voz (todos bien), seguridad multi-inquilino (limpia) y 8 errores confirmados en las piezas nuevas (el guardia de promesas borra confirmaciones reales; trabajos «En curso» para siempre) | ya escrita |
 | 2026-10-21 | `revision-video-segunda` | 6 | Las dos puntas de Video arregladas: lo de la primera revisión bien; quedan la clave de Groq leída antes de hidratar y el reparto que cierra cambios que el editor no vio | ya escrita |
 | 2026-10-21 | `revision-clasificador-segunda` | 14 | El clasificador de la app (f226f8c22): WhatsApp igual medido por SHA (245.146 líneas, 0 diferencias); 11 errores confirmados en la app | ya escrita |

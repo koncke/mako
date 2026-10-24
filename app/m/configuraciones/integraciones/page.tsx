@@ -1,10 +1,12 @@
 // =============================================================================
 // /m/configuraciones/integraciones — «Configuración del negocio» › Integraciones en el teléfono (17/10/2026)
 // =============================================================================
-// En la URL, /integraciones. Referencia: Ajustes › «Cuentas» de iOS y «Apps» de Slack en el celular. Es la lista
-// agrupada por categoría, con el estado de cada una en su fila. Arriba, en rojo, lo que está roto ahora (un incidente
-// abierto). Cada fila abre una hoja con qué hace, para qué sirve y cómo está. Es la grilla de la computadora
-// (app/integraciones/IntegracionesBoard.tsx) destilada: los mismos nombres, categorías y estados, de `getIntegraciones`.
+// En la URL, /integraciones. Referencia: Ajustes › «Cuentas» de iOS y «Apps» de Slack en el celular. Es la grilla de la
+// computadora (app/integraciones/IntegracionesBoard.tsx) destilada, con LAS MISMAS SECCIONES, en el mismo orden y con los
+// mismos rótulos (24/10/2026, la estructura de Vercel Marketplace): «Tus cuentas de IA» arriba (su casa en el teléfono es
+// /m/cuenta/ia), «Conectadas» (las que tienen un problema abierto primero, con él en su fila), «Sin conectar» (las opcionales
+// al final) y, abajo, el «Historial de problemas». Antes: «Para resolver» arriba y una sección por categoría. Cada fila abre
+// una hoja con qué hace, para qué sirve y cómo está.
 //
 // ⚠️ CONECTAR SE HACE EN LA COMPUTADORA, por ahora. El modal de conectar de /integraciones (`ServicioSuelto` y su
 // `ServicioModal`) es un Modal de escritorio. Pegar una clave o seguir el OAuth de Meta en un sheet del teléfono es una
@@ -20,6 +22,11 @@ import { requireMovil } from '@/lib/movil-guard';
 import { getIntegraciones } from '@/lib/integraciones';
 import { getIncidentes } from '@/lib/meta-health-history';
 import { SIN_MODAL_SUELTO } from '@/lib/integracion-en-tab';
+import { ordenCategoria } from '@/lib/integraciones-catalogo';
+import { ordenIA } from '@/lib/ia-labels';
+import { esPasarela } from '@/lib/cobros-tipos';
+import { esIntegracionDeLeads } from '@/lib/fuentes-leads-catalogo';
+import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO } from '@/lib/ia-keys';
 import { CabeceraM, PantallaM } from '@/app/m/_ui';
 import { IntegracionesM, type IntegracionM, type ProblemaM } from './IntegracionesM';
 
@@ -28,21 +35,37 @@ export const dynamic = 'force-dynamic';
 export default async function IntegracionesMovil({ searchParams }: { searchParams: Promise<{ abrir?: string; servicio?: string }> }) {
   await requireMovil({ navKey: 'integraciones' });
   const [lista, incidentes, sp] = await Promise.all([getIntegraciones(), getIncidentes(30).catch(() => []), searchParams]);
+  // Los incidentes abiertos de cada servicio: el problema de una conectada se lee en SU fila (como en la computadora).
+  const abiertos = new Map(incidentes.filter((x) => x.resolvedAt == null).map((x) => [x.service, x]));
   // Al navegador va sólo lo que la pantalla dibuja.
-  const integraciones: IntegracionM[] = lista.map((i) => ({
-    key: i.key, nombre: i.nombre, categoria: i.categoria, descripcion: i.descripcion, estado: i.estado, detalle: i.detalle,
-    paraQue: i.paraQue ?? null, soloServidor: i.soloServidor === true,
-    // El link de escritorio que abre SU modal (o la grilla, para las que no se abren sueltas).
-    enComputadora: SIN_MODAL_SUELTO.includes(i.key) ? '/integraciones' : `/integraciones?abrir=${encodeURIComponent(i.key)}`,
+  const integraciones: IntegracionM[] = lista.map((i) => {
+    const inc = abiertos.get(i.key);
+    return {
+      key: i.key, nombre: i.nombre, categoria: i.categoria, descripcion: i.descripcion, estado: i.estado, detalle: i.detalle,
+      paraQue: i.paraQue ?? null, soloServidor: i.soloServidor === true,
+      // Una IA que configura el equipo de MaKo va con las conectadas (como en la computadora).
+      conectada: i.estado === 'conectada' || i.detalle === POR_QUE_LA_CONFIGURA_MAKO,
+      // La clave que pegó es la de MaKo: sin conectar, con algo que hacer (como en la tarjeta de la computadora).
+      problema: inc ? { estado: inc.statusLabel, rojo: inc.severidad === 'rojo' } : i.detalle === POR_QUE_IA_DE_MAKO ? { estado: 'Revisa tu clave', rojo: false } : null,
+      opcional: esPasarela(i.key) || esIntegracionDeLeads(i.key),
+      // El link de escritorio que abre SU modal (o la grilla, para las que no se abren sueltas).
+      enComputadora: SIN_MODAL_SUELTO.includes(i.key) ? '/integraciones' : `/integraciones?abrir=${encodeURIComponent(i.key)}`,
+    };
+  });
+  // El orden de la computadora: por categoría (lib/integraciones-catalogo.ts) y, en Inteligencia, primero las de pago.
+  const enOrden = (a: IntegracionM, b: IntegracionM) => ordenCategoria(a.categoria) - ordenCategoria(b.categoria) || ordenIA(a.key) - ordenIA(b.key);
+  const rango = (i: IntegracionM) => (i.problema ? (i.problema.rojo ? 0 : 1) : 2);
+  const conectadas = integraciones.filter((i) => i.conectada).sort((a, b) => rango(a) - rango(b) || enOrden(a, b));
+  const sinConectar = integraciones.filter((i) => !i.conectada).sort((a, b) => rango(a) - rango(b) || Number(a.opcional) - Number(b.opcional) || enOrden(a, b));
+  const historial: ProblemaM[] = incidentes.map((x) => ({
+    id: x.id, servicio: lista.find((i) => i.key === x.service)?.nombre ?? x.service, estado: x.statusLabel, detalle: x.detalle,
+    rojo: x.severidad === 'rojo', confirmado: x.confirmado, enCurso: x.resolvedAt == null,
   }));
-  const problemas: ProblemaM[] = incidentes
-    .filter((x) => x.resolvedAt == null)
-    .map((x) => ({ id: x.id, servicio: lista.find((i) => i.key === x.service)?.nombre ?? x.service, estado: x.statusLabel, detalle: x.detalle, rojo: x.severidad === 'rojo', confirmado: x.confirmado }));
   const abrir = (sp.abrir ?? sp.servicio ?? '').trim().toLowerCase() || null;
   return (
     <PantallaM>
       <CabeceraM titulo="Integraciones" />
-      <IntegracionesM integraciones={integraciones} problemas={problemas} abrir={abrir} />
+      <IntegracionesM conectadas={conectadas} sinConectar={sinConectar} historial={historial} abrir={abrir} />
     </PantallaM>
   );
 }

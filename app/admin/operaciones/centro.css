@@ -643,10 +643,10 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-mic:hover:not(:disabled) { color: var(--ink); background: var(--velo-hover); }
 .co-mic:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-mic:disabled { cursor: wait; opacity: .6; }
-.co-mic[data-escuchando] { background: var(--bad); border-color: var(--bad); color: #fff; animation: co-escucha 1.2s ease-in-out infinite; }
+/* Escuchando: rojo y QUIETO (24/10/2026). El anillo que latía siempre igual decía «te escucho» sin medir nada; la señal de
+   verdad es lo dictado entrando al campo. */
+.co-mic[data-escuchando] { background: var(--bad); border-color: var(--bad); color: #fff; }
 .co-mic__txt { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
-@keyframes co-escucha { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--bad) 45%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } }
-@media (prefers-reduced-motion: reduce) { .co-mic[data-escuchando] { animation: none; } }
 .co-enviar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-enviar__giro {
   width: 14px;
@@ -907,6 +907,13 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-chip--primario:disabled { opacity: .5; cursor: default; }
 /* La ayuda es del teclado: en una pantalla táctil sobra (Claude Code en el teléfono tampoco la muestra). */
 @media (hover: none) and (pointer: coarse) { .co-preg__ayuda { display: none; } .co-preg__pie:not(.co-preg__pie--chat):not(:has(.co-preg__error)) { display: none; } }
+/* La pregunta de la app de Claude (24/10/2026): arriba, por qué no se contesta desde acá y lo que cuesta; NUNCA se esconde
+   (el renglón de abajo se iba con la regla de arriba en el teléfono, y sus opciones parecían tocables). Las opciones, de
+   lectura: el número sin la caja de un botón. */
+.co-preg__aviso-app { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 10px; padding: 8px 10px; border-radius: var(--r-md); background: var(--warn-bg, var(--velo-hover)); color: var(--ink); font-size: var(--fs-sm); line-height: 1.4; }
+.co-preg__aviso-app svg { flex: none; margin-top: 2px; color: var(--warn, var(--dim)); }
+.co-preg--app .co-preg__op--leer { color: var(--dim); }
+.co-preg--app .co-preg__op--leer .co-preg__num { border-color: transparent; background: none; }
 
 /* La conversación vacía: el empleado grande, como la portada de un Bot. */
 .co-portada { margin: 14vh auto 0; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
@@ -1036,10 +1043,39 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-uso__principal--viejo { color: var(--faint); }
 .co-uso__de { font-size: var(--fs-meta); color: var(--faint); }
 /* Lo del super admin, debajo de «Tus cuentas de IA» en el mismo modal del cliente (23/10/2026): ya no un panel que salta. */
-.co-uso__mas { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+/* Sólo va adentro del modal, que ya separa a cada hijo con 18 px y una raya (app/_ui/ui.css, `.mk-modal__cuerpo > *`): con su
+   propio margen y su raya quedaban 54 px de aire (24/10/2026). */
+.co-uso__mas { display: flex; flex-direction: column; gap: 10px; }
 .co-uso__cab { margin: 0 2px 8px; font-weight: 600; }
-.co-uso__lista { display: flex; flex-direction: column; gap: 10px; }
-.co-uso__cuenta { padding: 10px; border-radius: var(--r-md); background: var(--velo-hover); display: flex; flex-direction: column; gap: 8px; }
+/* El Uso en filas (24/10/2026, Martín: «mucha información, mucho scroll»). Las cuentas, como los grupos de Google: UNA lista con
+   una raya entre cuenta y cuenta, sin una tarjeta gris por cuenta. Arriba de cada una, el logo, el nombre y el email a la izquierda,
+   y a la derecha el Runner y, debajo, «Medido hace X» (antes un renglón suelto al final). El marcado no cambia de orden: lo acomoda
+   la grilla (`display: contents` en la fila de arriba). */
+.co-uso__lista { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
+.co-uso__cuenta { padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; }
+.co-uso__cuenta + .co-uso__cuenta { border-top: 1px solid var(--border); }
+.co-uso__cuenta > .co-uso__fila { display: contents; }
+.co-uso__cuenta > .co-uso__fila > .co-uso__quien { grid-column: 1; grid-row: 1 / span 2; }
+.co-uso__cuenta > .co-uso__fila > .co-uso__runner { grid-column: 2; grid-row: 1; justify-self: end; }
+.co-uso__cuenta > .co-uso__medido { grid-column: 2; grid-row: 2; justify-self: end; align-self: start; }
+.co-uso__cuenta > .co-uso__ventana, .co-uso__cuenta > .co-uso__reinicio:not(.co-uso__medido) { grid-column: 1 / -1; }
+/* Cada ventana (y cada crédito con barra) en UN renglón: el nombre, la barra y el número, y abajo, chico, cuándo se reinicia. La
+   barra por ventana con su reinicio sale de la ayuda pública de claude.ai («Usage limit best practices»); el renglón único es
+   nuestro, sobre lo que este Uso ya copiaba el 16/10. En el teléfono, apilado como antes. La grilla va con la clase doble: con
+   `.co-uso__credito--barra` sola empataba con `.co-uso__credito { display: flex }`, que está más abajo, y ésa ganaba. */
+.co-uso__ventana, .co-uso__credito.co-uso__credito--barra { display: grid; grid-template-columns: minmax(0, 9.5rem) minmax(48px, 1fr) minmax(6.5rem, auto); grid-template-areas: "nombre barra pct"; align-items: center; gap: 2px 12px; }
+.co-uso__ventana > .co-uso__fila, .co-uso__credito--barra > .co-uso__fila { display: contents; }
+.co-uso__ventana .co-uso__nombre, .co-uso__credito--barra .co-uso__nombre { grid-area: nombre; }
+.co-uso__ventana .co-uso__pct, .co-uso__credito--barra .co-uso__pct { grid-area: pct; justify-self: end; text-align: right; }
+.co-uso__ventana > .co-uso__barra, .co-uso__credito--barra > .co-uso__barra { grid-area: barra; }
+.co-uso__ventana > .co-uso__reinicio, .co-uso__credito--barra > :is(.co-uso__reinicio, .co-uso__hacer) { grid-column: 1 / -1; }
+@media (max-width: 560px) {
+  .co-uso__ventana, .co-uso__credito.co-uso__credito--barra { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nombre pct" "barra barra"; row-gap: 4px; }
+  /* En el teléfono el nombre va solo arriba (al lado del Runner se partía en dos renglones), y el Runner y «Medido hace X» abajo. */
+  .co-uso__cuenta > .co-uso__fila > .co-uso__quien { grid-column: 1 / -1; grid-row: 1; }
+  .co-uso__cuenta > .co-uso__fila > .co-uso__runner { grid-column: 1; grid-row: 2; justify-self: start; }
+  .co-uso__cuenta > .co-uso__medido { align-self: center; }
+}
 .co-uso__fila { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; }
 .co-uso__titulo { font-weight: 600; font-size: var(--fs-sm); }
 .co-uso__quien { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
@@ -1060,7 +1096,6 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 }
 .co-uso__runner { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-meta); color: var(--dim); }
 .co-uso__hacer { margin: 0; font-size: var(--fs-meta); color: var(--warn); line-height: 1.35; }
-.co-uso__ventana { display: flex; flex-direction: column; gap: 4px; }
 .co-uso__nombre { font-size: var(--fs-sm); }
 .co-uso__pct { font-size: var(--fs-sm); color: var(--dim); }
 .co-uso__pct--sin { color: var(--faint); }
@@ -1083,7 +1118,25 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-uso__ventana--vieja .co-uso__barra { opacity: .6; }
 /* La API (22/10/2026, UsoCredito.tsx): debajo de las cuentas, el crédito de cada plan Max. */
 .co-uso__api { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
-.co-uso__credito { padding: 10px; border-radius: var(--r-md); background: var(--velo-hover); display: flex; flex-direction: column; gap: 6px; }
+/* Plegada (24/10/2026), inspirada en la documentación pública de Vercel («Manage and optimize usage»: lo consumido por recurso, y
+   el detalle aparte); que se abra en el lugar es nuestro. A la vista el total y cuántas están vinculadas; al tocarla, cada plan en
+   una fila con una raya entre una y otra. Lo que avisa («sin crédito», un plan al 90%) queda afuera (UsoCredito.tsx). */
+.co-uso__api-cab { display: block; }
+/* La grilla, en un <span> de adentro y la flecha como un <span> más: WebKit ≤ 16 no deja que un <summary> sea grilla (ver
+   tus-cuentas-ia.css, `.tci-disp__caja`). */
+.co-uso__api-caja { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 10px; }
+.co-uso__api-caja > .co-uso__fila, .co-uso__api-caja > .co-uso__reinicio { grid-column: 1; }
+summary.co-uso__api-cab { cursor: pointer; list-style: none; border-radius: var(--r-sm); }
+summary.co-uso__api-cab::-webkit-details-marker { display: none; }
+summary.co-uso__api-cab:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.co-uso__flecha { grid-column: 2; grid-row: 1 / span 2; width: 7px; height: 7px; margin: 0 4px; border-right: 1.5px solid var(--faint); border-bottom: 1.5px solid var(--faint); transform: rotate(-45deg); transition: transform .15s ease; }
+.co-uso__pliegue[open] > summary.co-uso__api-cab { margin-bottom: 6px; }
+.co-uso__pliegue[open] > summary .co-uso__flecha { transform: rotate(45deg); }
+@media (prefers-reduced-motion: reduce) { .co-uso__flecha { transition: none; } }
+@media (pointer: coarse) { summary.co-uso__api-cab { min-height: var(--touch); padding: 8px 0; } }
+.co-uso__nota { padding-top: 8px; }
+.co-uso__credito { padding: 10px 0 0; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
+.co-uso__pliegue > .co-uso__credito { padding-bottom: 10px; }
 .co-uso__pct--falta { color: var(--warn); font-weight: 600; }
 /* El interruptor del crédito de un negocio (22/10/2026): una píldora, prendida en el color de la marca. */
 .co-uso__interruptor { border: 1px solid var(--border-strong); background: var(--surface); color: var(--dim); border-radius: 999px; padding: 3px 12px; font: inherit; font-size: var(--fs-meta); font-weight: 600; cursor: pointer; }
@@ -1455,8 +1508,7 @@ a.co-link:hover { color: var(--primary-strong); }
 /* El micrófono es el mismo botón que el de mandar (Microfono.tsx → BotonMandar): redondo, y rojo latiendo mientras escucha. */
 .co-enviar--mic { background: var(--surface-2); color: var(--ink); }
 .co-enviar--mic:hover:not(:disabled) { background: var(--velo-hover); }
-.co-enviar--mic[data-escuchando] { background: var(--bad); color: #fff; animation: co-escucha 1.2s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .co-enviar--mic[data-escuchando] { animation: none; } }
+.co-enviar--mic[data-escuchando] { background: var(--bad); color: #fff; }
 [data-m] .m-operaciones-caja .co-enviar--mic { background: var(--surface-2); }
 [data-m] .m-operaciones-caja .co-enviar--mic[data-escuchando] { background: var(--bad); }
 @media (max-width: 720px) { .co-yo { max-width: 88%; } .co-el__cuerpo, .co-el__cuerpo--ancho { max-width: none; } }

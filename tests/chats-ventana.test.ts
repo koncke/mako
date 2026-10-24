@@ -46,8 +46,9 @@ import type { IdentidadCanal, MensajeChat } from '../lib/chats-tipos';
 import {
   armarHilo, candidatosAsignar, claveBorradoresLocal, cuerpoTextoWhatsApp, etiquetaDia, fechaOpcion, formArchivoWhatsApp,
   guardarBorradorLocal, identidadInicial, leerBorradorLocal, momentoExacto, motivoNoEnvio, opcionesPosponer, partirEnlaces,
-  plegarEventos, ponerSugerencia, siguienteEtapa, textoFallas, textoHasta, tickDe,
+  plegarEventos, ponerSugerencia, rutaArchivoWhatsApp, siguienteEtapa, textoFallas, textoHasta, tickDe,
 } from '../app/chats/ventana-reglas';
+import { LINEA_CANAL_MAKO } from '../lib/chats-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -120,11 +121,19 @@ test('todo WhatsApp sale con la línea de la identidad elegida (texto y multipar
 });
 
 test('cada envío de WhatsApp del composer pasa por el armador que pone la línea', () => {
+  // El texto, con su ruta a la vista; el archivo y la nota de voz, por `rutaArchivoWhatsApp` (24/10/2026: un grupo de MaKo,
+  // el del super admin, sale por el canal de MaKo con el MISMO multipart; docs/diseno-chats.md §8.5).
   const usos = COMPOSER.match(/\/api\/whatsapp\/evolution\/mensajes/g) ?? [];
-  assert.equal(usos.length, 2, `esperaba 2 envíos a /api/whatsapp/evolution/mensajes (texto y archivo), hay ${usos.length}`);
+  assert.equal(usos.length, 1, `esperaba 1 envío de texto a /api/whatsapp/evolution/mensajes, hay ${usos.length}`);
   assert.match(COMPOSER, /postJson<[^>]*>\('\/api\/whatsapp\/evolution\/mensajes', cuerpoTextoWhatsApp\(/, 'el texto de WhatsApp no sale por cuerpoTextoWhatsApp');
   assert.match(COMPOSER, /const fd = formArchivoWhatsApp\(/, 'el archivo de WhatsApp no se arma con formArchivoWhatsApp');
-  assert.match(COMPOSER, /fetch\('\/api\/whatsapp\/evolution\/mensajes', \{ method: 'POST', body: fd\b/, 'el multipart no manda el `fd` armado');
+  assert.match(COMPOSER, /fetch\(rutaArchivoWhatsApp\(i\), \{ method: 'POST', body: fd\b/, 'el multipart no manda el `fd` armado');
+  assert.equal(rutaArchivoWhatsApp(wa()), '/api/whatsapp/evolution/mensajes', 'el archivo de una línea del negocio cambió de ruta');
+  assert.equal(rutaArchivoWhatsApp(wa({ cuenta: LINEA_CANAL_MAKO, ref: '120363@g.us', telefono: null })), '/api/admin/mako-chats');
+  // El texto a un grupo de MaKo va por el canal de MaKo ANTES que la rama de WhatsApp (si no, saldría por una línea).
+  assert.ok(COMPOSER.indexOf("if (esCanalMaKo(i)) {") > 0 && COMPOSER.indexOf("if (esCanalMaKo(i)) {") < COMPOSER.indexOf("} else if (i.canal === 'whatsapp') {"),
+    'el grupo de MaKo no se mira antes que WhatsApp');
+  assert.match(COMPOSER, /postJson<[^>]*>\('\/api\/admin\/mako-chats', \{ jid: i\.ref, texto: t \}/);
   // Y el armador del texto no se puede «olvidar» de la línea: la pone siempre, aunque sea null.
   assert.ok('linea' in cuerpoTextoWhatsApp(wa(), 'x', null), 'cuerpoTextoWhatsApp perdió el campo linea');
 });
@@ -152,10 +161,11 @@ test('la sugerencia de MaKo no pisa lo que escribió la persona', () => {
 });
 
 test('el enviar del rincón lleva data-esquina-ocupada', () => {
-  assert.match(COMPOSER, /<div className="rio-comp" data-esquina-ocupada="">/, 'el composer perdió data-esquina-ocupada: la esquina de avisos tapa el Enviar');
-  // El enviar vive adentro de esa raíz (es lo que la marca protege).
+  assert.match(COMPOSER, /<div className="rio-comp" data-esquina-ocupada=""[\s>]/, 'el composer perdió data-esquina-ocupada: la esquina de avisos tapa el Enviar');
+  // El enviar vive adentro de esa raíz (es lo que la marca protege). Desde el 24/10/2026 es el botón de la caja única
+  // (`<CajaChat`, que dibuja su `co-enviar`), montada adentro de la raíz.
   const raiz = COMPOSER.indexOf('data-esquina-ocupada');
-  assert.ok(COMPOSER.indexOf('className="rio-enviar"', raiz) > raiz, 'el Enviar no está dentro de la raíz marcada');
+  assert.ok(COMPOSER.indexOf('<CajaChat', raiz) > raiz, 'el Enviar no está dentro de la raíz marcada');
 });
 
 test('lo del navegador y la caché de fotos llevan el ws en la clave', () => {

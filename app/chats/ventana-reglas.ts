@@ -13,6 +13,7 @@
 // Sólo `import type` de lib/chats-tipos: este archivo no arrastra nada al bundle ni al test.
 
 import type { EtapaChat, IdentidadCanal, MensajeChat } from '@/lib/chats-tipos';
+import { LINEA_CANAL_MAKO } from '@/lib/chats-reglas';
 
 // ── Fechas ───────────────────────────────────────────────────────────────────────────────────
 // A mano y no con Intl: el «p. m.» de es-MX sale con espacios finos distintos según el motor
@@ -260,6 +261,15 @@ export function cuerpoTextoWhatsApp(i: IdentidadCanal, texto: string, leadId: nu
 }
 
 /** El multipart del mismo POST (archivo o nota de voz), también con la línea. Tope del servidor: 4 MB. */
+/**
+ * Un grupo de MaKo (el super admin en su barra, docs/diseno-chats.md §8.5): sale por el canal de MaKo (/api/admin/mako-chats,
+ * el camino de /agencia), no por una línea del negocio.
+ */
+export const esCanalMaKo = (i: IdentidadCanal | null | undefined): boolean => i?.canal === 'whatsapp' && i.cuenta === LINEA_CANAL_MAKO;
+
+/** A dónde va un archivo o una nota de voz de WhatsApp. El multipart es el mismo (`chat`, `tipo`, `caption`, `archivo`). */
+export const rutaArchivoWhatsApp = (i: IdentidadCanal): string => (esCanalMaKo(i) ? '/api/admin/mako-chats' : '/api/whatsapp/evolution/mensajes');
+
 export function formArchivoWhatsApp(
   i: IdentidadCanal,
   archivo: Blob,

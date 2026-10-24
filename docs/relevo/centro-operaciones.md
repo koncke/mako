@@ -1,5 +1,32 @@
 # Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~20:00; cuenta 4, `claude4`)
 
+## 24/10 madrugada (claude1, chat «Ops Center», `local_5cc6190d…`): /integraciones, «Tus cuentas de IA» y el cartel de la app
+
+Tres encargos del Cerebro con el mismo origen: Martín vio la pantalla y dijo que era demasiado. Rama `ops-integraciones-2410`
+(worktree `C:/dev/wt-integraciones`), sobre origin/main. Lo que costó está en:
+- docs/hallazgos-integraciones.md («/integraciones con la estructura de Vercel Marketplace…»);
+- docs/hallazgos-ia.md («Tus cuentas de IA» más corto);
+- docs/hallazgos-operaciones.md (el cartel);
+- docs/hallazgos-ui.md (cómo se dibujó sin levantar la app, y tres trampas de CSS).
+
+| Encargo | Estado | De dónde salió la estructura |
+|---|---|---|
+| /integraciones: «hay tanta pero tanta info…» | HECHO: la fila de controles, «Conectadas» y «Sin conectar» con «Mostrar más», la tarjeta mínima; «Costo de MaKo» y el historial plegados; «Tus cuentas de IA» destacada arriba; el teléfono igual | **Vercel Marketplace**: la página en vivo, que abrió el Cerebro, y su documentación |
+| El modal «Tus cuentas de IA»: «mucha información, mucho scroll» | HECHO: cada uso en un renglón, los dispositivos como filas que se abren, «Nueva cuenta» en una fila, «Nuevo dispositivo» como fila, la API plegada con sus alertas afuera | **La ayuda pública, no las apps**: «Usage limit best practices» (claude.ai), «Ver dispositivos con acceso a la cuenta» (Google) y «Manage and optimize usage» (Vercel) |
+| El cartel de la app de escritorio: «diseña bien ese cartel» | HECHO: en el lugar de la caja, con la criatura, una frase y un botón; tocado, el paso siguiente | La regla de un paso por pantalla |
+
+- **Medido** con las piezas reales dibujadas en Node:
+  - /integraciones, de 2.895 px a 1.550 px a 1440 de ancho;
+  - el modal, de 2.155 px a 1.187 px.
+  Las capturas del antes y el después se le mandaron a Martín. No es producción.
+- **Reemplaza una decisión:** «Nuevo dispositivo» con la descarga a la vista (Martín, 23/10) pasó a ser una fila discreta (Martín,
+  24/10: «no el botón feo que está al final del modal que no lo ve nadie»).
+- **Lo que sigue:**
+  - que Martín lo abra en producción, en la computadora y en el teléfono;
+  - recorrer el cartel con una cuenta sin computadora;
+  - «Pedir una integración», por la Ticketera.
+- **De paso:** tests/zernio-conectar-redes.test.ts falla en main (espera `errorDeVentana`, que no existe). Es de Zernio.
+
 ## 23/10 noche (claude2, chat «Ops Center»): «Second Brain» en el acto y un chat con MaKo en el grafo
 
 Dos pedidos de Martín por el Cerebro (bitácora del Second Brain, el hito «prompt» de las 19:40). Rama `ops-sb-chat-2310`

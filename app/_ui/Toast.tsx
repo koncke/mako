@@ -36,7 +36,12 @@ export function useToast(ms = 5000) {
     // Con Deshacer la ventana es la que manda: mientras el cartel está, se puede
     // revertir. Sin él, el cartel es solo un acuse y puede irse antes. Un error
     // se queda más: tiene que dar tiempo a leerlo y a tocar «Reportar a Soporte».
-    timer.current = setTimeout(() => setToast(null), toast.tono === 'bad' ? Math.max(ms, 8000) : toast.onUndo ? ms : Math.min(ms, 3200));
+    // ⚠️ Y UN TEXTO LARGO TAMBIÉN (24/10/2026): el resumen de un lote («De 221, tu WhatsApp tiene el nombre de… · Faltan 160:
+    // vuelve a tocar…») tiene 150 a 250 letras y lo importante va al final; a 3,2 s no se llega a leer. ~60 ms por letra, entre
+    // 3,2 y 12 s; un aviso a medias (`warn`) se queda por lo menos 8 s.
+    const largo = typeof toast.msg === 'string' ? Math.min(12_000, toast.msg.length * 60) : 0;
+    const base = toast.tono === 'bad' ? Math.max(ms, 8000) : toast.tono === 'warn' ? Math.max(ms, 8000) : toast.onUndo ? ms : Math.min(ms, 3200);
+    timer.current = setTimeout(() => setToast(null), Math.max(base, largo));
     return () => { if (timer.current) clearTimeout(timer.current); };
   }, [toast, ms]);
   return { toast, show, clear };

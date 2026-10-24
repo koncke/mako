@@ -1206,14 +1206,18 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 vivía el logo de MaKo (`BotonLogoMako`) desde la sexta tanda: el chat está ahora siempre, en la sidebar.
                 ⚠️ TAMBIÉN PARA QUIEN NO ES ADMIN (revisión del 20/10/2026): el modal entra en sólo lectura (`puedeEditar` lo
                 dice el server). Con `rolAdmin` acá, el setter perdió la vista del horario y los límites. */}
-            {Configuraciones && (
+            {/* MIRANDO LAS MÉTRICAS NO VAN LA TUERCA NI «PROBAR» (24/10/2026, Martín: «Si estoy viendo las métricas no debería
+                estar más el botón de "Probar" o "Configuraciones"... En su lugar, los botones de la barra de búsqueda, el filtro,
+                los 3 puntitos»): esta cabecera es la mitad izquierda de la barra del informe (MetricasAutomatizacion). */}
+            {Configuraciones && !verMetricas && (
               <BotonTuerca lado={ALTO_ACCION} onClick={() => setConfigAbierta(true)} />
             )}
             {/* «MÉTRICAS», AL LADO DE LA TUERCA (Martín, 23/10/2026: «un botón al lado del botón de configuraciones. Cuando
                 se apreta, todo el lienzo se reemplaza por el dashboard de esas métricas»). Sólo el admin: el editor del
                 Dashboard y sus datos son del admin (app/api/automations/metricas). Volver al lienzo es el MISMO botón. */}
             {rolAdmin && (
-              <BotonMetricas lado={ALTO_ACCION} abierto={verMetricas} onClick={() => setVerMetricas((v) => !v)} />
+              // Abrir las métricas con la prueba abierta la cierra: su «✕ Cerrar» es el de esta barra, y en las métricas no está.
+              <BotonMetricas lado={ALTO_ACCION} abierto={verMetricas} onClick={() => { if (!verMetricas && probarAbierto) onCerrarProbar?.(); setVerMetricas((v) => !v); }} />
             )}
             {/* SIN CHIP DE ESTADO (22/10/2026, Martín: «elimina el texto "Pausada, no sale nada", eso es completamente innecesario... Para
                 eso ya tenemos el "ACTIVAR" de abajo»): el estado lo dice sólo el interruptor «Activar» del pie. */}
@@ -1234,7 +1238,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 probar debería estar a la derecha del todo, no pegado a "Activar"»). El
                 `marginLeft: auto` lo empuja contra el borde derecho del chrome, que ya
                 descuenta el panel de «Probar» abierto (`insetDer`). */}
-            {onProbar && (
+            {onProbar && !verMetricas && (
               <div style={{ marginLeft: 'auto', flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                 {!probarAbierto && sinProbar && (
                   <button type="button" data-sin-probar onClick={() => { if (frenoAhora) frenar(frenoAhora.error, frenoAhora.tarjeta); }}
@@ -1328,8 +1332,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           arriba (para volver con el mismo botón) y en el mismo lugar que el lienzo deja libre (los muelles de los costados). */}
       {verMetricas ? (
         <div data-vista-metricas style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column', paddingLeft: muelles ? muelles.insets.izq : insetIzq ?? 0, paddingRight: muelles ? muelles.insets.der : insetDer ?? 0 }}>
-          <div data-no-pan style={{ flex: 'none', padding: 14 }}>{cabecera}</div>
-          <div style={{ position: 'relative', flex: 1, minHeight: 0 }}><MetricasAutomatizacion secuenciaId={secuencia.id} /></div>
+          <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+            <MetricasAutomatizacion secuenciaId={secuencia.id} izquierda={cabecera} titulo={nombre || secuencia.nombre} />
+          </div>
         </div>
       ) : (
       <FlujoLienzo

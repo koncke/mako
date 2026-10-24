@@ -245,9 +245,10 @@ const HERRAMIENTAS = {
   // El cerebro de redacción de MaKo (la metodología y el swipe de ejemplos con que redacta). Era la tercera sub-tab de
   // /admin y tiene ruta propia desde el 27/09. Su casa: Copywriting, la tab donde se escribe.
   copywriting: { key: 'admin-copywriting', label: 'Copy Method', seccion: 'Method', href: '/admin/copywriting', icon: 'escribir', adminOnly: true, match: starts('/admin/copywriting') },
-  // Canal propio de MaKo: su línea de WhatsApp por QR y sus grupos. NO es preview de ningún cliente. Su casa: Chats,
-  // donde se conversa (el WhatsApp de cada cliente se ve en SU Chats).
-  agencia: { key: 'agencia', label: 'MaKo WhatsApp', seccion: 'MaKo WhatsApp', href: '/agencia', icon: 'whatsapp', adminOnly: true, match: starts('/agencia') },
+  // ⚠️ «MaKo WhatsApp» (/agencia) YA NO ES UNA SECCIÓN (24/10/2026, Martín: «En SuperAdmin no deben haber 3 tabs allí, debe
+  // ser igual que el resto. Y que simplemente pueda cambiar entre mi número y el de MaKo y ver entre los chats los
+  // grupos»). El número de MaKo es una línea más del chip «Canales» de Chats para el super admin (docs/diseno-chats.md
+  // §8.5); /agencia sigue respondiendo para sus links (`?canal=1`, la alerta de la voz caída) y marca Chats en la barra.
   // Los ~48 mensajes que MaKo le puede mandar al dueño: se ven como llegan, se editan y se prenden/apagan. Su casa:
   // Automations (AGENTS.md → «Un Mensaje de MaKo ES una automatización»). «Plantillas» a secas no se entiende solo.
   mensajes: { key: 'mensajes', label: 'MaKo Messages', seccion: 'MaKo Messages', href: '/mensajes', icon: 'mako', adminOnly: true, match: starts('/mensajes') },
@@ -300,7 +301,6 @@ export const FAMILIAS: NavFamilia[] = [
           match: (p) => starts('/chats')(p) || RUTAS_DE_CHATS.some((r) => starts(r)(p)) || starts('/agencia')(p),
           secciones: [
             { key: 'chats', label: 'Chats', seccion: 'Chats', href: '/chats', icon: 'chats', rolesWs: ['closer', 'setter'], match: (p) => starts('/chats')(p) || RUTAS_DE_CHATS.some((r) => starts(r)(p)) },
-            HERRAMIENTAS.agencia,
           ],
         },
         { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', rolesWs: ['closer', 'setter'], match: (p) => starts('/dashboard')(p) || starts('/general')(p) || starts('/focus')(p) || starts('/marketing')(p) || starts('/comercial')(p) || starts('/graficos')(p) || starts('/analisis')(p) },

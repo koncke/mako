@@ -29,6 +29,12 @@
 // fuera «Abre su Runner…», «Sin el Runner de su terminal» y los botones «Runners» / «Nuevo Runner», que se repetían aunque
 // el Runner anduviera): el nombre sale de lib/centro-titulares.ts (el que le puso Martín, o el titular de cuentas.tsv que
 // sube su Runner), copiado del selector de cuentas de Google (avatar, nombre y el email debajo, en gris).
+// MÁS CORTO (24/10/2026, Martín: «mucha información, mucho scroll»): el MISMO marcado, ordenado por CSS (centro.css, «El Uso en
+// filas»): cada ventana en un renglón (el nombre, la barra, el %, y abajo cuándo se reinicia), «Medido hace X» arriba a la derecha,
+// debajo del Runner, y las cuentas como filas de una lista agrupada. Lo de claude.ai sale de su AYUDA pública («Usage limit best
+// practices», support.claude.com: una barra por ventana, con el tiempo que le queda a la sesión y cuándo se reinicia la semana),
+// no de la app; el % y el renglón único no están en esa ayuda: son lo que esta pieza ya copiaba el 16/10. El orden del marcado no
+// cambia: los tests leen el texto en ese orden y un lector de pantalla dice «Semana, 47% usado, se reinicia…».
 
 import { useState, type KeyboardEvent as TeclaReact, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
@@ -171,7 +177,8 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
         const u = usoDeCuenta(k.cuota, ahora);
         const plan = k.cuota?.plan ?? null;
         // «Medido hace X» SIEMPRE que haya un número (17/10/2026, Martín: el Uso mostraba datos viejos como de ahora): al día,
-        // en un renglón abajo; vieja (más de 30 min, USO_VIEJO_MS), al lado de cada número, en gris («99% · medido hace 14 h»).
+        // en su renglón (desde el 24/10 el CSS lo pone arriba a la derecha, debajo del Runner); vieja (más de 30 min,
+        // USO_VIEJO_MS), al lado de cada número, en gris («99% · medido hace 14 h»).
         // Desde el 22/10 nada se apaga por viejo: la tarjeta guarda el último número (lib/centro-uso.ts → USO_VENCIDO_MS).
         const edad = u.medido != null && u.viejo ? `medido ${hace(u.medido, ahora)}` : null;
         return (

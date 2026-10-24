@@ -460,7 +460,8 @@ export const EN_CAMINO: Readonly<Record<string, string>> = {
   // «Mobile 1» y «Mobile 2» (17/10/2026): las tabs de creación (lib/movil-creacion.ts), la API de MaKo y Knowledge ya
   // tienen su pantalla.
   // Herramientas del super admin que colgaron de una tab el 17/10/2026 y todavía no tienen chat (docs/relevo/mako-mobile.md).
-  agencia: 'sin dueño', 'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño',
+  // «agencia» salió el 24/10/2026: ya no es una sección (el número de MaKo es una línea de Chats, docs/diseno-chats.md §8.5).
+  'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño',
 };
 
 /** Lo que More dice de una tab EN CAMINO (sin motivo propio): corto, y sin prometer una fecha. */
