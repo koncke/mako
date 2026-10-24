@@ -2580,7 +2580,7 @@ FEEDBACK PROBAR:
       "lib/nutricion-grafo-motor.ts — qué hace el avance que no entró",
       "lib/respuesta-automatica.ts — qué es una respuesta automática",
       "lib/evolution-mensajes.ts — el entrante la filtra (la espera de la fila va después de contestar) y la ficha lo dice",
-      "scripts/arnes-contesto-corta.mts — el arnés del ws3",
+      "scripts/arnes-contesto-corta.mts — el arnés del negocio de prueba",
     ],
     revisar: "/automations",
   },
