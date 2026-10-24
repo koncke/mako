@@ -212,7 +212,7 @@ function Cargando() {
  */
 const RESPIRO_NOMBRE_MS = 1200;
 
-export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado }: {
+export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado, onAviso }: {
   /** El embudo que se edita. `null`/`undefined` = el del negocio. */
   funnelId?: number | null;
   /** Cómo se llama, para pintar el título sin esperar la lectura. */
@@ -238,6 +238,12 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
    */
   semilla?: { etapas: EtapaDelFunnel[]; fijas: EtapaDelFunnel[]; nutricionEtapas?: EtapaDelFunnel[] } | null;
   onCerrar: () => void;
+  /**
+   * EL AVISO QUE TIENE QUE SOBREVIVIR AL POP-UP (24/10/2026). Eliminar un funnel sin leads lo cierra y deja un «Deshacer»
+   * (Martín, 29/09: «no debería haber nada de fricción. Solo que me salte el pop-up de deshacer»), pero el aviso vivía
+   * ADENTRO del pop-up y se desmontaba con él: nunca se veía. Quien monta el pop-up (el tablero) lo dibuja con el suyo.
+   */
+  onAviso?: (texto: string, deshacer?: () => void) => void;
   /**
    * El nombre nuevo, AL MANDARLO (y el anterior si el server lo rechaza): el desplegable del tablero lo dibuja ya,
    * sin esperar al `router.refresh()` («Si se cambió pero luego de unos segundos y debería ser automático»,
@@ -750,10 +756,12 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
       const r = await archivarEmbudoAction(funnelId);
       if (!r.ok) { setError(r.error); return; }
       if (conAviso) {
-        onCerrar();
-        show(`Eliminado «${emb.nombre}»`, () => {
+        const deshacer = () => {
           void restaurarEmbudoAction(funnelId).then(() => { window.location.href = conWs(`/crm?funnel=${funnelId}`, ws); });
-        });
+        };
+        // El aviso, en el tablero: el del pop-up se iría con él en la línea de abajo (`onCerrar`).
+        (onAviso ?? show)(`Eliminado «${emb.nombre}»`, deshacer);
+        onCerrar();
         router.refresh();
         return;
       }
