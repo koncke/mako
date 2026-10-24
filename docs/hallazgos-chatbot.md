@@ -103,7 +103,10 @@ tarjeta (el formato del 14/10). **Los dos topes:** los dos ids nuevos pasaban Cr
 a ~3.712 de 3.700 (`entraEnGroq`; éste ya estaba rojo en la punta del CRM, y nadie lo había corrido). Se pagaron acortando
 sin sacar reglas: la glosa de «Etapa»/«Entrega», los textos del ejemplo de Crear (y con eso se fue «vi que dejaste tus
 datos», que no se le dice a un desconocido), el ejemplo de «a la vez» y la línea de "respuesta". **Editar quedó a ~2 tokens
-del techo**: lo próximo que se sume a esos prompts se paga sacando otra cosa.
+del techo**: lo próximo que se sume a esos prompts se paga sacando otra cosa. Y así fue, el 24/10: la condición «Traído
+de un grupo» del CRM (E3) suma su id al bloque CONDICIONES (~5 tokens) y lo dejaba en ~3.703. Se pagó como Crear el
+17/10: la primera línea de Editar ya no dice «(con los ids de sus tarjetas)» ni «como un objeto JSON», porque los ids los
+nombra "cambiar" y el JSON lo dice el cierre. Medido: 3.684 sin el id nuevo, 3.689 con él. **Quedan ~11.**
 
 **El parche de una espera perdía lo que la tarjeta decía, sin un aviso** (24/10/2026, la revisión adversarial del port;
 `parcheEspera`, tests 7 a 10 de tests/espera-despues-de.test.ts). Cuatro formas:
@@ -134,7 +137,7 @@ del techo**: lo próximo que se sume a esos prompts se paga sacando otra cosa.
   `cambiar_espera_paso`, que hacen `...p.espera`). El modelo no lo lee ni lo escribe (`aIA` no lo saca: el techo).
 
 **Sin hacer:** que Crear con IA ENSEÑE la espera «después de». ⚠️ NO en `TARJETAS_Y_REGLAS` (lib/flujo-ia.ts): ese bloque
-lo comparten los dos system, el de Crear y el de Editar, y una línea ahí se paga también en Editar, que está a ~2 tokens
+lo comparten los dos system, el de Crear y el de Editar, y una línea ahí se paga también en Editar, que está a ~11 tokens
 del techo. Lo que va SÓLO en Crear: las reglas 10 y 11 de `CREAR_IA_SYSTEM_TEMPLATE` (~29 tokens de aire,
 tests/crear-ia-tercera.test.ts), o sumar «Una Reunión Sin Marcar» / «Venció la Nutrición Manual» a `PALABRAS_PLANTILLA`:
 ese ejemplo va en el user de Crear (`userDeCrear`) y sólo si entra (`entraEnGroq`; si no, va el pedido sin ejemplo).

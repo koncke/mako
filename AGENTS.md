@@ -9471,8 +9471,8 @@ después de una prueba con un cliente («siempre tiene que seleccionar las cosas
   (`trigger:instagram` no es ninguna opción) y editar terminaba preguntando qué la dispara.
 - **El canal de un mensaje que ya existe lo cambia el CÓDIGO, en el mismo id** (`cambioDeCanal`), y una tarjeta guardada
   no vuelve a pasar entera por `nodoDe`: el parche es por clase (si no, pierde el link, el final del texto y el monto).
-- **Lo que se sume al prompt de Crear o Editar con IA se paga sacando otra cosa:** al 23/10/2026 Crear tiene ~29 tokens de
-  aire y Editar con el CRON ~2 antes de que Groq salga de la cascada, sin un error (`tests/crear-ia-tercera.test.ts`,
+- **Lo que se sume al prompt de Crear o Editar con IA se paga sacando otra cosa:** al 24/10/2026 Crear tiene ~29 tokens de
+  aire y Editar con el CRON ~11 (ya con «Traído de un grupo») antes de que Groq salga de la cascada, sin un error (`tests/crear-ia-tercera.test.ts`,
   `tests/editar-ia-cambiar-quitar.test.ts`). Una condición nueva del catálogo también suma: viaja en los dos.
 - **Un compare-and-set sobre un valor que puede pasar de ~4 KB no compara el valor.** `cambiarSettingSi` lo pone en la URL
   de PostgREST (con 64 KB, 414): se compara `updated_at` o una revisión (`lib/automatizacion-chat-db.ts`).
