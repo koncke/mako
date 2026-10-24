@@ -391,8 +391,13 @@ export const SCRIPT_DISENO = [
   '    var agendo = false;',
   '    window.addEventListener("message", function (e) {',
   '      if (agendo || e.origin !== "https://calendly.com" || !e.data || e.data.event !== "calendly.event_scheduled") return;',
+  // El MISMO id que arma el servidor (`idDeReservaCalendly`, lib/meta-capi-payload.ts): el último tramo de la URI del
+  // evento. Sin la URI no se manda: un Schedule sin id se contaría aparte del de CAPI.
+  '      var u = e.data.payload && e.data.payload.event && e.data.payload.event.uri;',
+  '      var id = typeof u === "string" ? (u.trim().replace(/\\/+$/, "").split("/").pop() || "").slice(0, 80) : "";',
+  '      if (!id) return;',
   '      agendo = true;',
-  '      if (typeof window.fbq === "function") window.fbq("track", "Schedule");',
+  '      if (typeof window.fbq === "function") window.fbq("track", "Schedule", {}, { eventID: "schedule:" + id });',
   '    });',
   '  }',
   '})();',
