@@ -871,6 +871,9 @@ viejo: **una automatización dejó de ser una lista de mensajes y pasó a ser un
   sin cortes, la vista previa en Configuraciones). `scripts/misma-persona-propia.mts --aplicar` CORRIDO: 510 de 518, 0
   problemas; ws1 y ws11 con el mismo anti-ban antes y después (62 de 62). La tarjeta de MaKo y el chat del costado de la #289:
   VERIFICADOS POR MARTÍN el 23/10 («quedaron bien»).
+- **Estado del 23/10 (claude2), NADA de esto está en producción hasta que lo diga Integración:** `aut-chat-agregar` (el
+  seguimiento detrás de «No contestó»), `aut-au2-antiban` (Configuraciones sin nada «para todas» y «Misma persona» que nace
+  apagada) y `aut2-arnes` (el arnés del chat de MaKo en main, scripts/probar-chats) pasaron a Integración.
 - **«Cambié «X»» sin cambio visible** (el caso `solo-apertura` del arnés, 1 de 2): la tarjeta cambia un campo que no está en
   su nombre y `resumenEdicionDetalle` (lib/flujo-ia.ts) dice «Cambié «X»» sin decir qué. Falta reproducirlo para saber qué
   campo. P2.
