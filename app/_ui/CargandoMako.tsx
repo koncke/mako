@@ -23,9 +23,10 @@
 import type { CSSProperties } from 'react';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+// Al terminar, la criatura vuela a su lugar en la pantalla (23/10/2026): el vigía que lo hace se instala con el primer loader.
+import { VigiaVuelo } from './VueloDeCarga';
 
-/** Lo que tarda en aparecer la criatura: antes de esto, una carga no hace parpadear nada. */
-export const MS_APARECE = 150;
+export { MS_APARECE } from './cargando-mako-reglas';
 
 export function CargandoMako({ que, cubre = false, alto, size = 64, style }: {
   /** Qué está cargando, para el lector de pantalla: «Cargando {que}». */
@@ -52,6 +53,7 @@ export function CargandoMako({ que, cubre = false, alto, size = 64, style }: {
         </div>
         <div className="cm-carga__pista" aria-hidden><span className="cm-carga__tramo" /></div>
       </div>
+      <VigiaVuelo />
     </div>
   );
 }

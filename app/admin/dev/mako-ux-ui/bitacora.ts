@@ -263,4 +263,30 @@ export const BITACORA: Hito[] = [
     archivos: ['app/_components/Sidebar.tsx', 'app/_ui/ajustes.css', 'app/globals.css', 'app/integraciones/IntegracionesBoard.tsx', 'tests/ventana-chica.test.ts'],
     revisar: '/integraciones',
   },
+  {
+    fecha: '23 oct', hora: '17:30', chat: 'Rendimiento y loaders', sesion: "cli_b58e7c0c-4f00-4c8d-8e53-0a6368e1cf04", cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: un loader con la criatura en todas las tabs, y más rápido',
+    pedido: 'Al abrir Automations tarda mucho... cuando entro a Second Brain tarda muchísimo, y ni siquiera hay un loader. Los loader de las tabs, que sean todos como el de Ops Center, con la criatura de MaKo',
+    puntos: [
+      'Todas las tabs grandes muestran la criatura con una barra que corre apenas se toca la tab (a los 0,1-0,5 s); antes, 2 a 5 s sin nada.',
+      'Automations se puede usar a los 2-3,5 s (antes 15 s); /api/auth/me, que se pide en cada carga, pasó de 4,9 s a 0,6 s.',
+      'La Ticketera y el Uso de IA del Ops Center ya no esperan detrás de la lectura de Vercel.',
+      'Sin hacer: el Dashboard todavía tarda 4-6 s; la región de las funciones va en otro tren.',
+    ],
+    archivos: ['app/_ui/CargandoMako.tsx', 'lib/sesion-por-pedido.ts', 'app/api/operaciones/lectura/route.ts', 'app/automations/ChatAgentApp.tsx', 'tests/cargando-mako.test.ts', 'tests/rendimiento-pedido.test.ts'],
+    revisar: '/automations',
+  },
+  {
+    fecha: '23 oct', hora: '20:10', chat: 'Rendimiento y loaders', sesion: "cli_b58e7c0c-4f00-4c8d-8e53-0a6368e1cf04", cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: al terminar de cargar, la criatura vuela a su lugar',
+    pedido: 'Todos los loaders que tengan la figura de MaKo, luego de terminar de cargar, la figura de MaKo se debe ir a su lugar, como lo hace en ops center',
+    puntos: [
+      'En CRM, Plan, General y Clients vuela a la estrella de abajo; en el teléfono, a la criatura de la barra; en el Ops Center, como siempre.',
+      'Es el mismo movimiento del Ops Center, y la pantalla se puede usar mientras vuela.',
+      'Con movimiento reducido no vuela; donde no hay criatura (Chats, Calendario, Web Generator, Ads, Video, Image, Copywriting, Offer) se va como antes.',
+      'Sin hacer: en Automations el chat está escondido al terminar de cargar; falta que su chat marque el lugar.',
+    ],
+    archivos: ['app/_ui/vuelo-mako.ts', 'app/_ui/VueloDeCarga.tsx', 'app/m/_ui/EntradaApp.tsx', 'app/second-brain/EntradaOps.tsx', 'tests/vuelo-mako.test.ts'],
+    revisar: '/crm',
+  },
 ];

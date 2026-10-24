@@ -137,7 +137,7 @@ function hashDe(id: string): number {
   return h >>> 0;
 }
 
-export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFiltro, accion, movil = false, alCerrar }: {
+export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFiltro, accion, movil = false, alCerrar, lateral }: {
   /** El grafo, con su taxonomía (sin ella, la del negocio). El de la construcción de MaKo trae la suya. */
   cerebro: Cerebro<string>;
   /** Abre el EDITOR de un área en una caja encima del grafo (VistaCerebro → AreasHub). Sólo con una intención
@@ -161,6 +161,9 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   movil?: boolean;
   /** Sólo en el teléfono: la flecha de arriba a la izquierda que vuelve a la lista. */
   alCerrar?: () => void;
+  /** Lo que ocupa la columna derecha en lugar del navegador de «Tu negocio»: el chat con MaKo (23/10/2026,
+   *  ChatDelSecondBrain.tsx). El detalle de un punto tocado se abre encima. Sin esto, el navegador de siempre. */
+  lateral?: ReactNode;
 }) {
   const { nodos, aristas, cuenta, posiciones, encuadre } = cerebro;
   /** LA TAXONOMÍA de este grafo: la del negocio o, para el super admin, las dos capas juntas (el negocio y la
@@ -1270,6 +1273,120 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodos]);
 
+  /** El detalle de un punto (la barra lateral de Heptabase, abajo): en su columna, o encima del chat de MaKo (`lateral`). */
+  const detalleDelNodo = (clase: string) => (nodoSel ? (
+        <aside className={clase} aria-label={`Detalle: ${nodoSel.etiqueta}`}>
+          <div className="cbg-det__cuerpo">
+            <div className="cbg-det__cab">
+              <button
+                type="button"
+                className="cbg-area-btn"
+                onClick={() => setFiltro((f) => ({ ...f, areas: (f.areas as ReadonlySet<string>).has(nodoSel.area) ? new Set() : new Set([nodoSel.area as AreaId]) }))}
+                aria-pressed={areaFoco === nodoSel.area}
+                title={areaFoco === nodoSel.area ? 'Ver todo' : `Ver sólo ${areaDe(nodoSel.area).nombre}`}
+              >
+                <span className="cbg-punto" style={{ background: areaDe(nodoSel.area).color }} />
+                {areaDe(nodoSel.area).nombre}
+              </button>
+              <span style={{ flex: 1 }} />
+              <button type="button" className="cbg-det__cerrar" onClick={soltarNodo} title="Soltar (Esc)" aria-label="Soltar el dato">✕</button>
+            </div>
+
+            <p className="cbg-det__tipo">{tipoDeNodo(nodoSel)}</p>
+            <h2 className="cbg-det__titulo">{nodoSel.etiqueta}</h2>
+            <div className="cbg-det__pastillas">
+              <span className="cbg-pastilla" data-autoria={nodoSel.autoria} title={AUTORIA_TEXTO[nodoSel.autoria]}>{AUTORIA_CORTA[nodoSel.autoria]}</span>
+              {nodoSel.destacado && <span className="cbg-pastilla" data-tono="mako">Tu Norte</span>}
+              {nodoSel.alerta && <span className="cbg-pastilla" data-tono="warn">Cuello de botella</span>}
+              {fechaCorta(nodoSel.nace) && <span className="cbg-pastilla">{fechaCorta(nodoSel.nace)}</span>}
+            </div>
+
+            {nodoSel.detalle && <p className="cbg-det__resumen">{nodoSel.detalle}</p>}
+
+            {/* Los datos del nodo, como pares nombre → valor (antes se pegaban con « · » en un renglón). */}
+            {datosSel.length > 0 && (
+              <dl className="cbg-det__props">
+                {datosSel.map((d) => (
+                  <Fragment key={d.k}>
+                    <dt>{d.k}</dt>
+                    <dd>{d.v}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+            )}
+
+            {/* La prosa larga: si hay cuerpo, hay botón (el recorte por líneas y la regla por caracteres dejaban una
+                banda de textos cortados sin forma de leerlos enteros). */}
+            {nodoSel.cuerpo && (
+              textoEntero
+                ? <p className="cbg-det__prosa">{nodoSel.cuerpo}</p>
+                : (
+                  <button type="button" className="cbg-link cbg-det__leer" onClick={() => setTextoEntero(true)}>
+                    <span style={{ flex: 1 }}>Leer lo que MaKo explica</span>
+                    <svg className="cbg-flecha" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M6 9l6 6 6-6" /></svg>
+                  </button>
+                )
+            )}
+
+            {conexiones.length > 0 && (
+              <section className="cbg-det__bloque">
+                <h3 className="cbg-det__h">Conectado con <span>{conexiones.length}</span></h3>
+                {gruposConexion.map((g) => (
+                  <div key={g.area} className="cbg-det__grupo">
+                    <div className="cbg-det__grupo-nombre">
+                      <span className="cbg-punto" style={{ background: areaDe(g.area).color }} />
+                      {areaDe(g.area).nombre}
+                    </div>
+                    <ul>
+                      {g.items.map((c) => (
+                        <li key={c.nodo.id}>
+                          <button type="button" className="cbg-link" onClick={() => irA(c.nodo.id)} title={`Ir a ${c.nodo.etiqueta}`}>
+                            <span className="cbg-link__txt">
+                              <span className="cbg-link__nombre">{c.nodo.etiqueta}</span>
+                              {/* El motivo de cada arista se calcula con cuidado: es lo que hay que poder leer. */}
+                              {c.motivo && <span className="cbg-link__motivo">{c.motivo}</span>}
+                            </span>
+                            <svg className="cbg-flecha" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 6l6 6-6 6" /></svg>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+                {conexiones.length > TOPE_CONEXIONES && !verTodas && (
+                  <button type="button" className="cbg-det__mas" onClick={() => setVerTodas(true)}>Ver las {conexiones.length}</button>
+                )}
+              </section>
+            )}
+
+            {nodoSel.fuente && (
+              <section className="cbg-det__bloque cbg-det__origen">
+                <h3 className="cbg-det__h">De dónde salió</h3>
+                <p>{nodoSel.fuente}</p>
+              </section>
+            )}
+          </div>
+
+          {/* Las acciones: un documento se MIRA (sólo si se puede previsualizar: un .docx no), y un dato se EDITA en su
+              área. La carpeta madre y la raíz no ofrecen editar: no tienen un área única, y un botón que no lleva a
+              donde dice es peor que ninguno. */}
+          {(puedeVerDoc || puedeEditar || nodoSel.href) && (
+            <div className="cbg-det__acciones">
+              {puedeVerDoc && <Button variant="primary" full onClick={() => setVerDoc(nodoSel)}>Ver el documento</Button>}
+              {nodoSel.href && (
+                <ButtonLink href={nodoSel.href} variant={puedeVerDoc ? 'secondary' : 'primary'} full>
+                  {`Abrir en ${nodoSel.abrirEn ?? 'su pantalla'}`}
+                </ButtonLink>
+              )}
+              {puedeEditar && (
+                <Button variant={nodoSel.autoria === 'pendiente' ? 'primary' : 'secondary'} full onClick={() => onEditarArea?.(nodoSel.area as AreaId)}>
+                  {nodoSel.autoria === 'pendiente' ? `Completar ${areaDe(nodoSel.area).nombre}` : `Editar ${areaDe(nodoSel.area).nombre}`}
+                </Button>
+              )}
+            </div>
+          )}
+        </aside>
+  ) : null);
 
   return (
     <div className="cbg" ref={marcoRef} data-movil={movil ? '1' : undefined} style={{ ['--cbg-col' as string]: `${anchoCol}px` }}>
@@ -1442,6 +1559,17 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
           height: 100%; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
           background: var(--surface); border: 1px solid var(--cbg-linea);
           border-radius: 16px; padding: 0;
+        }
+        /* EL CHAT CON MaKo en la columna (23/10/2026): el hilo scrollea adentro del chat, no la columna; y el detalle de un punto
+           tocado va ENCIMA, del mismo tamaño, con su ✕ para volver a la conversación. */
+        .cbg .cbg-chat { position: relative; overflow: hidden; }
+        .cbg .cbg-chat > .co-panel { flex: 1; min-height: 0; background: transparent; }
+        .cbg .cbg-chat .co-cab { padding: 0 16px; min-height: 52px; }
+        .cbg .cbg-chat .co-caja-wrap { padding: 6px 12px 12px; }
+        .cbg .cbg-chat .sb-chat__arranques { padding: 4px 8px 0 44px; }
+        .cbg .cbg-det--encima {
+          position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; min-height: 0; overflow-y: auto;
+          background: var(--surface);
         }
         /* ── LO CLICKEABLE TIENE QUE VERSE CLICKEABLE ──────────────────────────
            Las conexiones y el rótulo del área eran <button> con aspecto de texto suelto:
@@ -1810,7 +1938,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
             {/* Sin columna (ventana angosta o tableta) el navegador de áreas se pide: no ocupa el lienzo solo. */}
             {!nodoSel && (
               <button type="button" className="cbg-chip cbg-areas-btn" aria-pressed={navAbierto} onClick={() => setNavAbierto((v) => !v)}>
-                Áreas
+                {lateral ? 'MaKo' : 'Áreas'}
               </button>
             )}
             {accion}
@@ -2087,118 +2215,17 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
           que MaKo explica (plegado), con qué se conecta AGRUPADO POR ÁREA (cada vecino con su motivo) y de dónde salió.
           Las acciones van abajo y quietas, a la vista aunque se baje: «Ver el documento» y «Editar <área>», que abre el
           editor en una caja encima. Sin nodo fijado, la misma columna es el navegador de «Tu negocio». */}
-      {nodoSel ? (
-        <aside className="cbg-detalle cbg-det" aria-label={`Detalle: ${nodoSel.etiqueta}`}>
-          <div className="cbg-det__cuerpo">
-            <div className="cbg-det__cab">
-              <button
-                type="button"
-                className="cbg-area-btn"
-                onClick={() => setFiltro((f) => ({ ...f, areas: (f.areas as ReadonlySet<string>).has(nodoSel.area) ? new Set() : new Set([nodoSel.area as AreaId]) }))}
-                aria-pressed={areaFoco === nodoSel.area}
-                title={areaFoco === nodoSel.area ? 'Ver todo' : `Ver sólo ${areaDe(nodoSel.area).nombre}`}
-              >
-                <span className="cbg-punto" style={{ background: areaDe(nodoSel.area).color }} />
-                {areaDe(nodoSel.area).nombre}
-              </button>
-              <span style={{ flex: 1 }} />
-              <button type="button" className="cbg-det__cerrar" onClick={soltarNodo} title="Soltar (Esc)" aria-label="Soltar el dato">✕</button>
-            </div>
-
-            <p className="cbg-det__tipo">{tipoDeNodo(nodoSel)}</p>
-            <h2 className="cbg-det__titulo">{nodoSel.etiqueta}</h2>
-            <div className="cbg-det__pastillas">
-              <span className="cbg-pastilla" data-autoria={nodoSel.autoria} title={AUTORIA_TEXTO[nodoSel.autoria]}>{AUTORIA_CORTA[nodoSel.autoria]}</span>
-              {nodoSel.destacado && <span className="cbg-pastilla" data-tono="mako">Tu Norte</span>}
-              {nodoSel.alerta && <span className="cbg-pastilla" data-tono="warn">Cuello de botella</span>}
-              {fechaCorta(nodoSel.nace) && <span className="cbg-pastilla">{fechaCorta(nodoSel.nace)}</span>}
-            </div>
-
-            {nodoSel.detalle && <p className="cbg-det__resumen">{nodoSel.detalle}</p>}
-
-            {/* Los datos del nodo, como pares nombre → valor (antes se pegaban con « · » en un renglón). */}
-            {datosSel.length > 0 && (
-              <dl className="cbg-det__props">
-                {datosSel.map((d) => (
-                  <Fragment key={d.k}>
-                    <dt>{d.k}</dt>
-                    <dd>{d.v}</dd>
-                  </Fragment>
-                ))}
-              </dl>
-            )}
-
-            {/* La prosa larga: si hay cuerpo, hay botón (el recorte por líneas y la regla por caracteres dejaban una
-                banda de textos cortados sin forma de leerlos enteros). */}
-            {nodoSel.cuerpo && (
-              textoEntero
-                ? <p className="cbg-det__prosa">{nodoSel.cuerpo}</p>
-                : (
-                  <button type="button" className="cbg-link cbg-det__leer" onClick={() => setTextoEntero(true)}>
-                    <span style={{ flex: 1 }}>Leer lo que MaKo explica</span>
-                    <svg className="cbg-flecha" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M6 9l6 6 6-6" /></svg>
-                  </button>
-                )
-            )}
-
-            {conexiones.length > 0 && (
-              <section className="cbg-det__bloque">
-                <h3 className="cbg-det__h">Conectado con <span>{conexiones.length}</span></h3>
-                {gruposConexion.map((g) => (
-                  <div key={g.area} className="cbg-det__grupo">
-                    <div className="cbg-det__grupo-nombre">
-                      <span className="cbg-punto" style={{ background: areaDe(g.area).color }} />
-                      {areaDe(g.area).nombre}
-                    </div>
-                    <ul>
-                      {g.items.map((c) => (
-                        <li key={c.nodo.id}>
-                          <button type="button" className="cbg-link" onClick={() => irA(c.nodo.id)} title={`Ir a ${c.nodo.etiqueta}`}>
-                            <span className="cbg-link__txt">
-                              <span className="cbg-link__nombre">{c.nodo.etiqueta}</span>
-                              {/* El motivo de cada arista se calcula con cuidado: es lo que hay que poder leer. */}
-                              {c.motivo && <span className="cbg-link__motivo">{c.motivo}</span>}
-                            </span>
-                            <svg className="cbg-flecha" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 6l6 6-6 6" /></svg>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-                {conexiones.length > TOPE_CONEXIONES && !verTodas && (
-                  <button type="button" className="cbg-det__mas" onClick={() => setVerTodas(true)}>Ver las {conexiones.length}</button>
-                )}
-              </section>
-            )}
-
-            {nodoSel.fuente && (
-              <section className="cbg-det__bloque cbg-det__origen">
-                <h3 className="cbg-det__h">De dónde salió</h3>
-                <p>{nodoSel.fuente}</p>
-              </section>
-            )}
-          </div>
-
-          {/* Las acciones: un documento se MIRA (sólo si se puede previsualizar: un .docx no), y un dato se EDITA en su
-              área. La carpeta madre y la raíz no ofrecen editar: no tienen un área única, y un botón que no lleva a
-              donde dice es peor que ninguno. */}
-          {(puedeVerDoc || puedeEditar || nodoSel.href) && (
-            <div className="cbg-det__acciones">
-              {puedeVerDoc && <Button variant="primary" full onClick={() => setVerDoc(nodoSel)}>Ver el documento</Button>}
-              {nodoSel.href && (
-                <ButtonLink href={nodoSel.href} variant={puedeVerDoc ? 'secondary' : 'primary'} full>
-                  {`Abrir en ${nodoSel.abrirEn ?? 'su pantalla'}`}
-                </ButtonLink>
-              )}
-              {puedeEditar && (
-                <Button variant={nodoSel.autoria === 'pendiente' ? 'primary' : 'secondary'} full onClick={() => onEditarArea?.(nodoSel.area as AreaId)}>
-                  {nodoSel.autoria === 'pendiente' ? `Completar ${areaDe(nodoSel.area).nombre}` : `Editar ${areaDe(nodoSel.area).nombre}`}
-                </Button>
-              )}
-            </div>
-          )}
-        </aside>
+      {lateral ? (
+        /* EL CHAT CON MaKo (23/10/2026, Martín: «que Second Brain, la sidebar que tiene a la derecha sea reemplazada por un chat
+           con MaKo»): la columna es el chat (app/second-brain/ChatDelSecondBrain.tsx), siempre montado. Tocar un punto abre su
+           detalle ENCIMA del chat, con su ✕ (o Esc) para volver a él: la conversación no se pierde. Sin columna (ventana
+           angosta) se pide con «MaKo», como antes «Áreas». */
+        <div className="cbg-detalle cbg-chat" data-plegado={navAbierto || nodoSel ? '0' : '1'}>
+          {lateral}
+          {detalleDelNodo('cbg-det cbg-det--encima')}
+        </div>
+      ) : nodoSel ? (
+        detalleDelNodo('cbg-detalle cbg-det')
       ) : (
         /* El navegador: «Tu negocio» de un vistazo y las áreas, cada una con su conteo y su «Editar». */
         <aside className="cbg-detalle cbg-nav" data-plegado={navAbierto ? '0' : '1'} aria-label="Tu negocio">

@@ -7,6 +7,28 @@ del código.
 
 ---
 
+## La app de escritorio antes que cualquier chat, y el Uso que parecía vacío mientras cargaba (23/10/2026)
+
+- **«Al principio me aparecen solo los botones de Conectar»** (Martín, en el Uso). No faltaba un loader en la ruta: el modal
+  (`TusCuentasIA`) dibujaba «Nueva cuenta» y la lista vacía ANTES de tener el estado, y eso se lee como «no tienes nada». **Regla:**
+  un bloque que todavía no sabe si hay datos dibuja su esqueleto (`EsqueletoDeCuentas`), y lo vacío recién con el estado. Y el
+  esqueleto se ata a «ya se intentó leer», no a «no hay estado»: si la lectura falla, no queda gris para siempre.
+- **«Bloqueá igual»** (la decisión de Martín, con su porqué, en la bitácora del Ops Center y en `appDeEscritorio`): sin
+  computadora conectada, el chat con MaKo muestra la descarga en lugar de la conversación, aunque el negocio tenga su clave. Lo
+  decide el servidor en el mismo `?suIA=1` que ya pedía el chat. El teléfono sale del pedido con la MISMA función del proxy
+  (`tipoDeDispositivo`): ahí no se instala, así que avisa sin bloquear. Bloqueado, relee cada 8 s y se destraba solo.
+- **La descarga ya existía, con otro texto:** `NuevoDispositivo` (IA del cliente) decía «Instala MaKo en OTRA computadora». En
+  vez de copiar el link y la detección de Windows o Mac, la pieza suma `titulo` y `nota` opcionales, y el chat la monta.
+- **Sólo los chats:** el bloqueo vive en el chat común (PiezasCliente.tsx + `enviar` del motor), no en el servidor del turno: lo
+  automático sigue igual. La Ticketera (Soporte) no se bloquea: tiene su propia caja.
+
+**Vive en:** `lib/chat-mako-reglas.ts` (`appDeEscritorio`) · `app/api/mako/chat/route.ts` (`laApp`) · `app/_chat/AppPrimero.tsx` ·
+`app/second-brain/PiezasCliente.tsx` · `useChatCliente.ts` · `app/integraciones/TusCuentasIA.tsx` · `tests/app-de-escritorio-primero.test.ts`
+
+**Sin mirar en pantalla** (sin build local por la RAM): recorrerlo en producción con una cuenta sin computadora.
+
+---
+
 ## La Ticketera del cliente, la barra que «no hace nada», el Uso que salta y la caja con el texto bajo (23/10/2026)
 
 Cuatro pedidos de Martín mirando la vista de un cliente (`/second-brain?chat=40`), medidos en producción con la sesión del ws10.

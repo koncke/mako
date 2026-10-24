@@ -38,7 +38,7 @@ import { conPegados, esPegadoLargo } from '@/lib/chat-pegado';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import {
   EDITORES, JEFE_SECOND_BRAIN, SECCION_OFFER, SIN_TITULO, TITULO_GRUPO, colgarIrA, criaturaDeOffer, esFilaDe, linksDePedidos, listaDelCliente, partesDeClaveDeEditor, rutaDelLienzo,
-  type ElegidoChat, type IrA,
+  type AppDeEscritorio, type ElegidoChat, type IrA,
 } from '@/lib/chat-mako-reglas';
 import type { ChatDeAntes, ChatDeAutomatizacion, ChatDeEditor, ChatDeOffer, GrupoDeMaKo } from '@/lib/chat-mako-indice';
 import { etiquetaDesde, type Desde } from '@/lib/chat-desde';
@@ -122,7 +122,7 @@ async function linksDelPedido(texto: string): Promise<IrA[]> {
 
 export type ChatCliente = ReturnType<typeof useChatCliente>;
 
-export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, chatInicial, opcionArmar, busca, caja, sesionesIniciales = null, desde: desdeTab = null }: {
+export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, chatInicial, opcionArmar, busca, caja, sesionesIniciales = null, desde: desdeTab = null, tab: tabPropia = null }: {
   elegido: ElegidoChat | null;
   setElegido: Dispatch<SetStateAction<ElegidoChat | null>>;
   /** Lee Offer, los chats de antes y si tiene su IA. En el Ops Center del super admin la lista es la de Claude Code: no. */
@@ -140,6 +140,9 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   sesionesIniciales?: SesionChat[] | null;
   /** Desde dónde escribe (OC6, lib/chat-desde.ts): la estrella de una tab, con su entidad y su modo. Viaja con cada mensaje. */
   desde?: Desde | null;
+  /** La tab con chat propio de la persona (el Second Brain, 23/10/2026: lib/chat-mako-reglas.ts → TAB_SECOND_BRAIN): el primer
+   *  mensaje crea ESA conversación (una por persona y negocio) y se sigue como las de las tabs (`antes`). */
+  tab?: string | null;
 }) {
   const ws = useWs();
   const [sesiones, setSesiones] = useState<SesionChat[] | null>(sesionesIniciales);
@@ -194,6 +197,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const [infoWA, setInfoWA] = useState<MensajeWA | null>(null);
   /** ¿Ya conectó su Claude o su GPT? null = todavía no se sabe (el botón no aparece hasta saberlo). */
   const [iaConectada, setIaConectada] = useState<boolean | null>(null);
+  /** ¿Instaló la app de escritorio? (23/10/2026, lib/chat-mako-reglas.ts → appDeEscritorio). null = todavía no se sabe. */
+  const [app, setApp] = useState<AppDeEscritorio | null>(null);
   // CON QUÉ IA CORRE CADA CHAT (8b, 23/10/2026, Martín: «el "+" de la caja deja elegir con qué corre ese chat: el modelo y la
   // cuenta… Por defecto decide el chat jefe»). Las cuentas que se pueden elegir las arma el servidor (`?suIA=1` → `cuentas`,
   // lib/chat-ia-reglas.ts): sin ellas no hay selector. Lo elegido, por chat y en esta pestaña, como la cuenta del super admin.
@@ -234,12 +239,21 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   }, []);
   useEffect(() => { if (activo) cargarOtros(); }, [activo, cargarOtros]);
   const mirarSuIA = useCallback(() => {
-    void pedir<{ conectada: boolean; cuentas?: CuentaDeIA[] }>(`${RUTA}?suIA=1`).then((l) => {
+    void pedir<{ conectada: boolean; cuentas?: CuentaDeIA[]; app?: AppDeEscritorio }>(`${RUTA}?suIA=1`).then((l) => {
       setIaConectada(l.ok ? l.datos.conectada !== false : true);
+      // La app de escritorio (23/10/2026): sin saberlo, `tiene` (un bache no le tapa el chat a nadie).
+      setApp(l.ok && (l.datos.app === 'bloquea' || l.datos.app === 'en-la-computadora') ? l.datos.app : 'tiene');
       setCuentasIA(l.ok && Array.isArray(l.datos.cuentas) && l.datos.cuentas.length ? l.datos.cuentas : null);
     });
   }, []);
   useEffect(() => { if (activo) mirarSuIA(); }, [activo, mirarSuIA]);
+  // BLOQUEADO SIN LA APP, SE DESTRABA SOLO (23/10/2026): mientras falta, se vuelve a preguntar; en cuanto la computadora se conecta,
+  // el chat aparece sin recargar. Sólo con la pestaña a la vista.
+  useEffect(() => {
+    if (app !== 'bloquea') return;
+    const t = window.setInterval(() => { if (document.visibilityState === 'visible') mirarSuIA(); }, 8_000);
+    return () => window.clearInterval(t);
+  }, [app, mirarSuIA]);
 
   // ── El hilo de lo elegido ──
   const idElegido = elegido && 'id' in elegido ? elegido.id : null;
@@ -436,7 +450,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   // ── El turno ──
   const mandar = async (idU: string, mensaje: string, archivos: readonly ArchivoElegido[]) => {
     setTrabajo({ desde: Date.now() });
-    const deAntes = idAntes != null;
+    const deAntes = idAntes != null || tabPropia != null;
     const ia = iaDelChat;
     // Arranca ya, junto con el turno (tarda segundos; el turno, decenas).
     const irA = linksDelPedido(mensaje);
@@ -444,13 +458,14 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
       let sid = sesionRef.current;
       if (sid == null) {
         // El primer mensaje crea la conversación (el jefe que todavía no tenía, o un chat nuevo).
-        const n = await postJson<{ sesion: SesionChat }>({ action: 'new' });
+        const n = await postJson<{ sesion: SesionChat }>({ action: 'new', ...(tabPropia ? { tab: tabPropia } : {}) });
         if (!n.ok) { marcar(idU, { estado: 'error', error: n.reintentable ? n.error : 'No pude crear el chat.' }); return; }
         sid = n.datos.sesion.id;
         sesionRef.current = sid;
         recienCreada.current = sid;
-        setSesiones((ss) => [...(ss ?? []), n.datos.sesion]);
-        setElegido({ id: sid });
+        // La de una tab con chat propio (el Second Brain) no va en la lista de la persona: se sigue como las de las tabs.
+        if (tabPropia) setElegido({ antes: sid });
+        else { setSesiones((ss) => [...(ss ?? []), n.datos.sesion]); setElegido({ id: sid }); }
         pasarIaAlCreado(sid);
       }
       const l = archivos.length
@@ -514,7 +529,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
    */
   const mandarNotaAlChat = async (idU: string, a: NotaDeVoz): Promise<FinDeNota> => {
     setTrabajo({ desde: Date.now() });
-    const deAntes = idAntes != null;
+    const deAntes = idAntes != null || tabPropia != null;
     const ia = iaDelChat;
     const sacar = (error: string) => { setItems((xs) => xs.filter((x) => x.id !== idU)); setFaltaMic(error); };
     try {
@@ -523,13 +538,14 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
       let sid = sesionRef.current;
       if (sid == null) {
         // La primera nota crea la conversación, como el primer mensaje (`mandar`).
-        const n = await postJson<{ sesion: SesionChat }>({ action: 'new' });
+        const n = await postJson<{ sesion: SesionChat }>({ action: 'new', ...(tabPropia ? { tab: tabPropia } : {}) });
         if (!n.ok) { sacar(n.reintentable ? n.error : 'No pude crear el chat.'); return 'volver'; }
         sid = n.datos.sesion.id;
         sesionRef.current = sid;
         recienCreada.current = sid;
-        setSesiones((ss) => [...(ss ?? []), n.datos.sesion]);
-        setElegido({ id: sid });
+        // La de una tab con chat propio (el Second Brain) no va en la lista de la persona: se sigue como las de las tabs.
+        if (tabPropia) setElegido({ antes: sid });
+        else { setSesiones((ss) => [...(ss ?? []), n.datos.sesion]); setElegido({ id: sid }); }
         pasarIaAlCreado(sid);
       }
       const l = await postArchivos<RespuestaTurno>(sid, '', [], deAntes, desdeTab, { mp3, secs: Math.max(1, Math.round(a.secs)) }, ia);
@@ -575,7 +591,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     const t = mensaje.trim();
     // El grupo es de sólo lectura: lo que se escribe no va a ningún modelo ni al grupo (decisión 11).
     // Una charla del lienzo, tampoco: se sigue en el lienzo (`AVISO_LIENZO`).
-    if (esGrupo || esAutomatizacion || esEditor || (!t && !archivos.length) || ocupadoRef.current || !cargado || errorCarga) return false;
+    // Sin la app de escritorio, el chat no manda nada (tampoco un pedido de la tab: el «Hacerlo» de una sugerencia).
+    if (esGrupo || esAutomatizacion || esEditor || (!t && !archivos.length) || ocupadoRef.current || !cargado || errorCarga || app === 'bloquea') return false;
     ocupadoRef.current = true;
     setFaltaMic(null);
     const idU = idLocal('u');
@@ -721,7 +738,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     items, cargado, errorCarga, recargar, ahora, trabajo, segs, enCurso, armandoOffer, tarjeta, correrTarjeta, alTerminarTrabajo, reintentar,
     texto, setTexto, faltaMic, setFaltaMic, enviar, enviarCaja, adjuntosCaja, vozCaja, pegados, quitarPegado, pegarLargo, cita, setCita,
     marcas, ponerMarca, accionesWA, menuWA, setMenuWA, infoWA, setInfoWA, elegirEnMenu, mensajesWA,
-    iaConectada, conectando, setConectando, mirarSuIA,
+    iaConectada, app, conectando, setConectando, mirarSuIA,
     cuentasIA: idOffer != null ? null : cuentasIA, iaDelChat, elegirIA, resumenIA: resumenDeIA(iaDelChat, cuentasIA),
   };
 }

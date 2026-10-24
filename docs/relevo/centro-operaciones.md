@@ -1,5 +1,14 @@
 # Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~20:00; cuenta 4, `claude4`)
 
+## 23/10 noche (claude2, chat «Ops Center»): «Second Brain» en el acto y un chat con MaKo en el grafo
+
+Dos pedidos de Martín por el Cerebro (bitácora del Second Brain, el hito «prompt» de las 19:40). Rama `ops-sb-chat-2310`
+(worktree `C:/dev/wt-ops-sb`): `a5deec115` (la vista cambia en el acto, con el loader del grafo) y `c733a2be6` (la columna del
+grafo es un chat con MaKo, con su conversación propia y el saludo). Lo que costó: docs/hallazgos-second-brain.md.
+**Sin mirar en pantalla:** recorrerlo en producción con el ws10 (`/second-brain`, tocar «Second Brain», escribirle a MaKo en la
+columna, tocar un punto y volver con ✕, y la ventana angosta con «MaKo»). Rendimiento hace volar la criatura del loader a su
+lugar: ahora es la cabecera del chat de la columna (`.co-cab__muneco`).
+
 ## 23/10 tarde (claude2, chat «Ops Center»): la Ticketera del cliente, la barra, el Uso y la caja
 
 Pedidos 6, 7 y 8 de Martín mirando `/second-brain?chat=40`, y uno que dejó Automations. Rama `ops-ticketera-2310` (worktree

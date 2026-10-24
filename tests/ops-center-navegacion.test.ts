@@ -60,14 +60,29 @@ test('3. la pantalla usa esas reglas, y la Ticketera del cliente vive en la URL 
   assert.match(sb, /: !centro && ticketera \? \(\n\s*<TicketeraDelCliente mis=\{misTickets\}/, 'el panel del cliente sale del mismo estado');
   // Cada botón pasa por `tocar` (o `elegir`, que usa la regla del chat), y la Ticketera se cierra antes de navegar.
   assert.equal((sb.match(/onClick=\{\(\) => tocar\('ticketera'\)\}/g) ?? []).length, 2, 'la Ticketera de las dos barras');
-  assert.equal((sb.match(/aria-pressed=\{mapa != null && !ticketera\} onClick=\{irAlSecondBrain\}/g) ?? []).length, 2, 'el Second Brain de las dos barras');
+  assert.equal((sb.match(/aria-pressed=\{verMapa && !ticketera\} onClick=\{irAlSecondBrain\}/g) ?? []).length, 2, 'el Second Brain de las dos barras');
   assert.match(sb, /const paso = tocarEnLaBarra\('chat', estadoPanel\(\)\);/);
-  assert.match(sb, /if \(ticketera\) cerrarTicketera\(paso\.ir == null\);\n[\s\S]*?if \(paso\.ir\) \{\n\s*router\.push/, 'en `elegir`, primero se cierra y después se navega');
-  assert.match(sb, /if \(!paso\.ticketera && ticketera\) cerrarTicketera\(paso\.ir == null\);[\s\S]*?if \(paso\.ir\) router\.push/);
+  assert.match(sb, /if \(ticketera\) cerrarTicketera\(paso\.ir == null\);\n[\s\S]*?if \(paso\.ir\) \{\n\s*setYendo\('fuera'\);\n\s*router\.push/, 'en `elegir`, primero se cierra y después se navega');
+  assert.match(sb, /if \(!paso\.ticketera && ticketera\) cerrarTicketera\(paso\.ir == null\);[\s\S]*?if \(paso\.ir\) \{ setYendo\([^)]*\); router\.push/);
   // La página pasa `?ticketera=` también para el cliente.
   assert.match(sinComentarios(leer('app/second-brain/pagina.tsx')), /const ticketera = esVistaTicketera\(q\.ticketera\) \? 'tickets' : null;/);
 });
 
+test('4. el clic cambia la vista EN EL ACTO, y la vista sale de la URL (23/10/2026, Martín: «primero se va al chat de "Cerebro" y luego de unos segundos ahí recién entra al second brain»)', () => {
+  const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
+  // Adónde se fue con el clic manda hasta que el servidor manda lo nuevo.
+  assert.match(sb, /const \[yendo, setYendo\] = useState<'mapa' \| 'fuera' \| null>\(null\);\n\s*useEffect\(\(\) => \{ setYendo\(null\); \}, \[mapa\]\);\n\s*const verMapa = yendo \? yendo === 'mapa' : hayMapa;/);
+  assert.match(sb, /if \(paso\.ir\) \{ setYendo\(paso\.ir === 'mapa' \? 'mapa' : 'fuera'\); router\.push\(/, 'tocar marca adónde va ANTES de navegar');
+  assert.match(sb, /if \(paso\.ir\) \{\n\s*setYendo\('fuera'\);\n\s*router\.push\('id' in e/, 'elegir un chat con el grafo abierto muestra el chat ya');
+  assert.match(sb, /\) : verMapa \? \(/, 'el panel decide con lo tocado, no con lo que el servidor todavía no mandó');
+  assert.match(sb, /: <CargandoMako que="tu Second Brain" alto="100%" \/>\}/, 'mientras llega el grafo, su loader (no el chat del Cerebro)');
+  assert.match(sb, /const estadoPanel = \(\) => \(\{ ticketera: ticketera != null, mapa: verMapa, nuevo: nuevoCentro \}\);/);
+  // Un link a la página pelada (el ícono del Ops Center en la barra de la app) vuelve a la entrada, no al último chat.
+  assert.match(sb, /if \(qs \|\| !antes \|\| !urlPelada\(elegidoRef\.current\)\) return;/);
+  assert.match(sb, /setElegido\(k\.lista\[0\]\?\.elegido \?\? null\);/, 'el cliente, al Cerebro');
+});
+
+// PROBADO ROMPIÉNDOLO (23/10/2026, test 4, base 4/0): el panel con `mapa ?` otra vez → 3/1; sin el `setYendo` de `tocar` → 2/2 (3 y 4).
 // PROBADO ROMPIÉNDOLO (23/10/2026, base 3/0):
 //   · «Second Brain» sin cerrar la Ticketera (`ticketera: s.ticketera`, lo de producción) → 1/2 (1 y 2)
 //   · el efecto de `?ticketera=` otra vez con `if (!ops) return;`                         → 2/1 (3)

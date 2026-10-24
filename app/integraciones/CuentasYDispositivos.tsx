@@ -143,14 +143,18 @@ export function CuentasYDispositivos({ grupos, ahora, onDesconectar, nuevoDispos
  * «Nuevo dispositivo», dentro de una cuenta: la DESCARGA a la vista —el instalador de Windows (0.4.0) o MaKo.app para la Mac
  * (0.4.2), según la computadora desde la que se mira, y el otro a un toque— y, ya instalado, conectar.
  */
-export function NuevoDispositivo({ onConectar }: { onConectar: () => void; onPasosMac?: () => void }) {
+export function NuevoDispositivo({ onConectar, titulo = 'Nuevo dispositivo', nota = 'Instala MaKo en otra computadora y conéctala: puede usar esta misma cuenta de Claude.' }: {
+  onConectar: () => void; onPasosMac?: () => void;
+  /** Lo que dice arriba: el chat, cuando todavía no hay ninguna computadora, lo dice como la primera (app/_chat/AppPrimero.tsx). */
+  titulo?: string; nota?: string;
+}) {
   const esMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent);
   const sistemas = esMac ? (['mac', 'windows'] as const) : (['windows', 'mac'] as const);
   const nombre = { windows: 'Windows', mac: 'Mac' } as const;
   return (
-    <div className="tci-nuevo-disp" role="group" aria-label="Nuevo dispositivo">
-      <h4>Nuevo dispositivo</h4>
-      <p className="tci-nota">Instala MaKo en otra computadora y conéctala: puede usar esta misma cuenta de Claude.</p>
+    <div className="tci-nuevo-disp" role="group" aria-label={titulo}>
+      <h4>{titulo}</h4>
+      <p className="tci-nota">{nota}</p>
       <div className="tci-nuevo-disp__acciones">
         <a className="tci-boton" href={`/api/ia-pc/descargar?os=${sistemas[0]}`}>{`Descargar MaKo para ${nombre[sistemas[0]]}`}</a>
         <button type="button" className="tci-boton tci-boton--suave" onClick={onConectar}>Ya lo instalé: conectar</button>
