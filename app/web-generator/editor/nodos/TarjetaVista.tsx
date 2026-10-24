@@ -361,9 +361,9 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
             <button
               ref={asaRef}
               type="button"
-              className="gmc-btn"
+              className="gmc-btn gmc-tip"
               data-asa=""
-              title={`Opciones · arrastra para reordenar las ${terminoTarjeta(ctx?.config ?? {}, { plural: true })}`}
+              data-tip={`Opciones · arrastra para reordenar las ${terminoTarjeta(ctx?.config ?? {}, { plural: true })}`}
               aria-label={`Opciones de la ${uno}`}
               aria-haspopup="menu"
               aria-expanded={panel?.tipo === 'menu'}
@@ -408,11 +408,11 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
             >
               <Ico n="puntos-vertical" />
             </button>
-            <button type="button" className="gmc-btn" title="Ask Agent" aria-label="Editar la sección con IA" aria-expanded={panel?.tipo === 'agente' && panel.modo === 'editar'}
+            <button type="button" className="gmc-btn gmc-tip" data-tip="Editar con IA" aria-label="Editar la sección con IA" aria-expanded={panel?.tipo === 'agente' && panel.modo === 'editar'}
               onMouseDown={sinRobarFoco} onClick={(e) => abrir('agente', e.currentTarget, 'editar')}>
               <Ico n="destellos" />
             </button>
-            <button type="button" className="gmc-btn" title="Notas del orador" aria-label="Notas del orador" aria-expanded={panel?.tipo === 'notas'}
+            <button type="button" className="gmc-btn gmc-tip" data-tip="Notas del orador" aria-label="Notas del orador" aria-expanded={panel?.tipo === 'notas'}
               data-con-notas={a.notas ? '' : undefined} onMouseDown={sinRobarFoco} onClick={(e) => abrir('notas', e.currentTarget)}>
               <Ico n="notas" />
             </button>

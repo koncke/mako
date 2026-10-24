@@ -212,7 +212,9 @@ test('los links de adentro de la pantalla (Panel, editor, Replicar) apuntan a /w
   assert.ok(carpeta.length > 50, `app/web-generator tiene ${carpeta.length} archivos en git: ¿se hizo el git mv?`);
   const conLaRuta = carpeta.filter((f) => /\/web-generator/.test(sinComentarios(leer(f))));
   // Los links de adentro (el Panel, el editor, Replicar, el Diagnóstico) ya apuntan a la ruta nueva.
-  for (const f of ['app/web-generator/panel-reglas.ts', 'app/web-generator/Inicio.tsx', 'app/web-generator/editor/EditorLanding.tsx', 'app/web-generator/crear/Replicar.tsx']) {
+  // (Los links del editor viven desde el 24/10/2026 en la lista de su tarjeta, editor/paneles/PanelLandings.tsx: la barra de
+  // arriba con la casa se fue.)
+  for (const f of ['app/web-generator/panel-reglas.ts', 'app/web-generator/Inicio.tsx', 'app/web-generator/editor/paneles/PanelLandings.tsx', 'app/web-generator/crear/Replicar.tsx']) {
     assert.ok(conLaRuta.includes(f), `${f} ya no enlaza /web-generator`);
   }
   assert.match(sinComentarios(leer('app/web-generator/panel-reglas.ts')), /export const RUTA_PANEL = '\/web-generator';/);

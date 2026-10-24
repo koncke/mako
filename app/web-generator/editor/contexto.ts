@@ -16,7 +16,8 @@ import type { LandingContenido, Pagina, JsonNodo } from '@/lib/editor-landing/do
 import type { ConfigLanding } from '@/lib/editor-landing/api-tipos';
 import type { Tema } from '@/lib/editor-landing/temas';
 
-export type PanelIzq = 'agente' | 'paginas' | null;
+// 'landings' = la lista de la tarjeta izquierda (la otra vista del chat, como en Automations: 24/10/2026).
+export type PanelIzq = 'agente' | 'paginas' | 'landings' | null;
 /** `animacion` = el panel «Animar» (paneles/PanelAnimacion.tsx). */
 export type PanelDer = 'tema' | 'comentarios' | 'historial' | 'animacion' | null;
 /** Las dos vistas del panel «Animar» (el «Elemento | Página» del Image Editor). */

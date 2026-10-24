@@ -2566,3 +2566,21 @@ anuncios, el video dominaba el primer pantallazo de las ocho por igual.
   viejo una vez más mientras se regeneran. Quien cambie una landing de MaKo por script, que mida .com después de ese rato.
 - **Lo que esto NO resuelve:** el video sigue siendo el de la principal para las ocho, ahora como contexto y no como la
   promesa. Para que cada ángulo tenga su VSL hay que grabarlo (los guiones están en docs/vsl/) y ponerle su `video`.
+
+## `/web-generator` pelado ya no es el Panel: un link al Panel lleva `?panel=1` (24/10/2026)
+
+Al convertir el editor en el molde de Automations (docs/diseno-editor-web-como-automations.md, 7ae16876e).
+
+**Vive en:** `app/web-generator/page.tsx` · `app/web-generator/panel-reglas.ts` (`landingMasReciente`, `RUTA_NUEVA_LANDING`) ·
+`app/web-generator/editor/paneles/PanelLandings.tsx` · `app/web-generator/Inicio.tsx`
+
+- **La regla:** `/web-generator` sin nada en la URL (o sólo `?ws=`) abre la última landing tocada; el Panel sale sin landings,
+  con `?panel=1` o con un pedido en la URL. **Un link nuevo que quiera el Panel usa `RUTA_NUEVA_LANDING`**
+  (`/web-generator?panel=1`): el pelado lleva a una landing, y desde la pantalla de error de una landing que no abre era un
+  lazo (llevaba a esa misma).
+- ⚠️ **El Panel reescribe su URL con lo que muestra** (`queryDeDerecha` + `history.replaceState`): con la derecha por
+  default no escribía nada y dejaba `/web-generator` pelado, así que un F5 sobre el Panel saltaba a una landing. Ahora,
+  sin nada que escribir, deja `?panel=1`.
+- **La lista de la tarjeta lee con `pedirDocs({ accion: 'listar' })`**, el mismo del Panel, y un error de lectura se dice
+  («No pude leer tus landings» + Reintentar), no se dibuja como una lista vacía. La redirección tampoco salta con la lista
+  sin leer.

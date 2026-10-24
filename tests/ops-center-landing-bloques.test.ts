@@ -406,7 +406,8 @@ test('las demás devuelven su bloque: duplicar, la presentación, en blanco, gen
 test('la lista: las primeras con su tarjeta, cuántas hay y «Ver todas»; el saneo deja afuera la que no calza', () => {
   const items = Array.from({ length: 6 }, (_, i) => ({ d: { ...base, id: 100 + i, titulo: `L${i}` }, url: null }));
   const b = bloqueListaLandings(items, 6)!;
-  assert.deepEqual([b.t, b.titulo, b.total, b.landings.length, b.abrir.href], ['landings', 'Tus landings (6)', 6, MAX_LANDINGS_BLOQUE, '/web-generator']);
+  // `?panel=1` (24/10/2026): «Ver todas» va al Panel, y `/web-generator` pelado ahora abre la última landing.
+  assert.deepEqual([b.t, b.titulo, b.total, b.landings.length, b.abrir.href], ['landings', 'Tus landings (6)', 6, MAX_LANDINGS_BLOQUE, '/web-generator?panel=1']);
   assert.deepEqual(b.landings.map((l) => l.abrir.href), ['/web-generator/100', '/web-generator/101', '/web-generator/102', '/web-generator/103']);
   assert.equal(bloqueListaLandings([], 0), null, 'una lista vacía no se dibuja');
   assert.equal(bloqueListaLandings(items.slice(0, 1), 1)!.titulo, 'Tu landing');

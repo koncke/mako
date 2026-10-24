@@ -1029,4 +1029,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/integraciones?abrir=landing',
   },
+  {
+    fecha: '24 oct', hora: '22:30', chat: 'Landings de MaKo en Web Generator', sesion: 'local_90fdc31c-60c8-4fdb-b396-bd9807bb5067', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El editor web funciona como Automations: el chat flota, la flecha muestra tus landings y hay una sola barra',
+    puntos: [
+      'Pedido de Martín: el editor tenía dos barras, el título repetido y botones que se tapaban. Ahora hay una sola barra con el título, el guardado, Compartir, Publicar y el menú.',
+      'El chat de MaKo flota a la izquierda, como en Automations. Su flecha muestra la lista de tus landings en el mismo lugar, sin cambiar de pantalla; «Nueva landing» abre las plantillas.',
+      'Al entrar al Web Generator se abre tu última landing. El Panel aparece sólo si todavía no creaste ninguna, o desde «Ver todo en el Panel».',
+      'Compartir ahora también exporta. Y MaKo vuelve a poder leer las páginas que lo bloqueaban en Offer y en el Diagnóstico.',
+      'No se vio con clics: está probado con tests. Falta mirarlo cuando esté desplegado.',
+    ],
+    archivos: [
+      'app/web-generator/editor/paneles/PanelLandings.tsx — la lista de landings de la tarjeta',
+      'app/web-generator/editor/EditorLanding.tsx — la barra única',
+      'docs/diseno-editor-web-como-automations.md — el plan, y el relevo del clic derecho que falta',
+    ],
+    revisar: '/web-generator',
+  },
 ];
