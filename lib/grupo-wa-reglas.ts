@@ -14,7 +14,14 @@
 // ⚠️ EL `id` DE UN PARTICIPANTE ES UN `@lid`, NO UN TELÉFONO: un alias interno de WhatsApp (lib/evolution-contactos.ts ya lo
 //    dice). El número sale de `phoneNumber`. Uno sin `phoneNumber` (WhatsApp no lo muestra) NO se importa: se cuenta y se dice.
 // ⚠️ `fetchAllGroups` en una línea con muchos grupos llegó a no terminar (90 s en el ws11, 11/09/2026: lib/evolution.ts,
-//    `sondearSocketDetalle`). Por eso va con tope, y si no contesta, los grupos de la base (`findChats`).
+//    `sondearSocketDetalle`). Por eso va con tope, y si no contesta, los grupos de la base (`findChats`). Medido otra vez el
+//    24/10/2026 en la línea de Martín (61 grupos): no contestó en 90 s; `findChats`, en 1,2 s.
+// ⚠️ EL LISTADO NO TRAE NOMBRES (medido el 24/10/2026, línea de Martín, 247 y 41 participantes): cada uno viene sólo con `id`
+//    (su `@lid`), `phoneNumber` y `admin`. El nombre sale de lo que WhatsApp YA conoce sin preguntarle a la red
+//    (`conNombresConocidos`): la agenda de la línea en la base de Evolution (por teléfono o por `@lid`) y la nuestra
+//    (`evolution_contactos`). De quien nunca escribió no hay nombre: se trae igual y se completa después, cuando aparece
+//    («Completar nombres», app/crm/grupo-wa-server.ts). Preguntarle el perfil a WhatsApp número por número sí lo da a
+//    veces (empresas), pero es tráfico en la red de una línea no oficial, la que se expone a un baneo (lib/fotos-contacto.ts).
 
 import { limpiarNombreEtiqueta } from './etiquetas-reglas';
 import { ambitoDeSecuencia, leadEnAmbito } from './nutricion-ambito';
@@ -22,8 +29,11 @@ import { TRIGGER_ETAPA, etapasDe } from './nutricion-etapa';
 
 /** Un grupo de la línea. `tamano`: cuántos son (null si no se sabe: los de la base no lo traen). */
 export type GrupoWA = { jid: string; nombre: string; tamano: number | null };
-/** Un participante que se puede traer: su teléfono (sólo dígitos, con el código de país) y su nombre, si WhatsApp lo da. */
-export type ParticipanteWA = { telefono: string; nombre: string | null };
+/**
+ * Un participante que se puede traer: su teléfono (sólo dígitos, con el código de país), su nombre si se conoce, y su `@lid`
+ * (el alias interno de WhatsApp: con él la agenda de la línea guarda a muchos contactos, y por ahí también sale el nombre).
+ */
+export type ParticipanteWA = { telefono: string; nombre: string | null; lid?: string | null };
 
 /** El tope para listar los grupos hablando con WhatsApp; pasado, los de la base de Evolution. */
 export const TOPE_GRUPOS_MS = 15_000;
@@ -94,9 +104,49 @@ export function participantesDe(json: unknown, propio?: string | null): { partic
     if (!telefono) { sinNumero++; continue; }
     if (vistos.has(telefono) || (propioDig && telefono === propioDig)) continue;
     vistos.add(telefono);
-    participantes.push({ telefono, nombre: texto(o.name) ?? texto(o.notify) ?? texto(o.pushName) });
+    const lid = typeof o.id === 'string' && o.id.endsWith('@lid') ? o.id : typeof o.lid === 'string' && o.lid.endsWith('@lid') ? o.lid : null;
+    participantes.push({ telefono, nombre: nombreUtil(o.name) ?? nombreUtil(o.notify) ?? nombreUtil(o.pushName), lid });
   }
   return { participantes, sinNumero };
+}
+
+/**
+ * Un nombre que sirve: texto con alguna letra (no un número, ni «.», ni un emoji solo), sin el «Você» que WhatsApp pone a la
+ * línea misma (lib/evolution-contactos.ts), y con un tope de cordura.
+ */
+export function nombreUtil(v: unknown): string | null {
+  const t = texto(v);
+  if (!t || t === 'Você' || !/\p{L}/u.test(t)) return null;
+  return t.slice(0, 80);
+}
+
+/** Los últimos 10 dígitos: así cruza un teléfono el resto del CRM (con o sin el 9 de Argentina o el 1 de México). */
+const sufijo = (tel: string) => tel.replace(/\D/g, '').slice(-10);
+
+/**
+ * LOS NOMBRES QUE WHATSAPP YA CONOCE, sin preguntarle a la red: el que trae el listado, si no el de la agenda de la línea en
+ * Evolution (por su teléfono o por su `@lid`), y si no el de nuestra tabla de contactos (por los últimos 10 dígitos). Copia.
+ */
+export function conNombresConocidos(
+  participantes: readonly ParticipanteWA[],
+  agenda: ReadonlyArray<{ remoteJid: string; nombre: string | null }>,
+  guardados: ReadonlyMap<string, string>,
+): ParticipanteWA[] {
+  const porJid = new Map<string, string>();
+  for (const c of agenda) { const n = nombreUtil(c.nombre); if (n && c.remoteJid && !porJid.has(c.remoteJid)) porJid.set(c.remoteJid, n); }
+  return participantes.map((p) => ({
+    ...p,
+    nombre: p.nombre ?? porJid.get(`${p.telefono}@s.whatsapp.net`) ?? (p.lid ? porJid.get(p.lid) : undefined) ?? nombreUtil(guardados.get(sufijo(p.telefono))) ?? null,
+  }));
+}
+
+/**
+ * ¿Es un nombre DE RELLENO? Vacío, o sin ninguna letra: el número (así nace un traído de un grupo sin nombre, `+<teléfono>`),
+ * un «.», un emoji solo. Es lo único que «Completar nombres» pisa: un nombre que escribió una persona no se toca nunca.
+ */
+export function esNombreDeRelleno(nombre: string | null | undefined): boolean {
+  const n = (nombre ?? '').trim();
+  return !n || !/\p{L}/u.test(n);
 }
 
 /**
@@ -156,4 +206,149 @@ export function etapasQueDisparan(
     if ((id == null && destino.esDefault) || id === destino.id) out.add(e.etapa_key);
   }
   return out;
+}
+
+// ── El PERFIL DE EMPRESA de WhatsApp (24/10/2026) ───────────────────────────────────────────────────────────────────────
+// Martín, con la ficha de un participante abierta en WhatsApp: «muchos no sólo tienen nombre, sino que incluso links». MEDIDO
+// el 24/10/2026 en su línea (`POST /chat/fetchBusinessProfile/{inst}` { number }, ~0,6 s, 15 participantes del grupo de 221):
+// 6 con cuenta de empresa. Siempre trae `category` (el rubro) y `business_hours`; a veces `website` (una LISTA), `email`,
+// `address` y `description`. ⚠️ NUNCA el nombre del negocio (el que se ve en WhatsApp no viaja en esta respuesta). Y cada
+// consulta es tráfico en la RED de una línea no oficial (lib/fotos-contacto.ts): se hace de a una y despacio.
+
+/** Lo que sirve del perfil de empresa de un número. null = no es una cuenta de empresa (o no contestó). */
+export type PerfilEmpresa = { rubro: string | null; descripcion: string | null; web: string | null; instagram: string | null; email: string | null; direccion: string | null };
+
+/** La cuenta de Instagram de un link (`instagram.com/<usuario>`), sin las rutas que no son una cuenta. */
+function instagramDe(s: string | null | undefined): string | null {
+  const m = /instagram\.com\/([A-Za-z0-9._]{1,30})/i.exec(s ?? '');
+  return m && !['p', 'reel', 'reels', 'stories', 'explore', 'tv'].includes(m[1].toLowerCase()) ? m[1] : null;
+}
+
+/** El perfil que contesta Evolution, leído. La web es la primera que no es Instagram, Facebook ni un link de WhatsApp. */
+export function perfilDeEmpresa(json: unknown): PerfilEmpresa | null {
+  if (!json || typeof json !== 'object') return null;
+  const o = json as Record<string, unknown>;
+  if (o.isBusiness !== true) return null;
+  const sitios = (Array.isArray(o.website) ? o.website : [o.website]).map(texto).filter((s): s is string => !!s);
+  const descripcion = texto(o.description);
+  const email = texto(o.email);
+  return {
+    rubro: texto(o.category),
+    descripcion: descripcion ? descripcion.slice(0, 300) : null,
+    web: sitios.find((s) => !instagramDe(s) && !/facebook\.com|wa\.me|whatsapp\.com/i.test(s)) ?? null,
+    instagram: sitios.map(instagramDe).find((x) => !!x) ?? instagramDe(descripcion),
+    email: email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null,
+    direccion: texto(o.address),
+  };
+}
+
+/** Los campos de contacto que el perfil puede completar (los del lead: lib/leads.ts). */
+export const CAMPOS_DEL_PERFIL = ['web', 'instagram', 'email', 'direccion'] as const;
+export type CampoDelPerfil = typeof CAMPOS_DEL_PERFIL[number];
+
+/** Lo que se le escribe a un lead: SÓLO los campos vacíos que el perfil trae. Nunca pisa lo que escribió una persona. */
+export function parcheDePerfil(lead: Partial<Record<CampoDelPerfil, string | null>>, p: PerfilEmpresa): Partial<Record<CampoDelPerfil, string>> {
+  const out: Partial<Record<CampoDelPerfil, string>> = {};
+  for (const k of CAMPOS_DEL_PERFIL) {
+    const v = p[k];
+    if (v && !(lead[k] ?? '').trim()) out[k] = v;
+  }
+  return out;
+}
+
+/** El renglón del historial con lo que no tiene columna: el rubro y la descripción. null si no trae ninguno. */
+export function lineaDePerfil(p: PerfilEmpresa): string | null {
+  const partes = [p.rubro, p.descripcion].filter((x): x is string => !!x);
+  return partes.length ? `Perfil de empresa en WhatsApp: ${partes.join(' · ')}` : null;
+}
+
+// ── Las fichas de SU WhatsApp Web, por la extensión de MaKo (24/10/2026) ───────────────────────────────────────────────
+// Martín: «lo que yo te pido es con la extensión de MaKo... que se extraiga los nombres y la información pública». La
+// extensión (extension/wa-fichas.js) lee lo que su WhatsApp Web ya guardó en su navegador —sin clics, sin red, sin marcar nada
+// como leído— y devuelve, SÓLO de los teléfonos que MaKo le pidió, el nombre de su agenda, el que la persona se puso, el de su
+// empresa si es una cuenta de empresa, y en qué grupos suyos está.
+
+/** Una ficha como la manda la extensión. Viene del NAVEGADOR: entrada no confiable, se limpia con `fichaLimpia`. */
+export type FichaWa = { telefono: string; agenda: string | null; pushname: string | null; empresa: string | null; esEmpresa: boolean; grupos: string[] };
+
+/** La ficha limpia: teléfono en dígitos, textos útiles y cortos, a lo sumo 50 grupos. null si no sirve. */
+export function fichaLimpia(x: unknown): FichaWa | null {
+  if (!x || typeof x !== 'object') return null;
+  const o = x as Record<string, unknown>;
+  const telefono = String(o.telefono ?? '').replace(/\D/g, '');
+  if (telefono.length < 8 || telefono.length > 15) return null;
+  const grupos = (Array.isArray(o.grupos) ? o.grupos : []).map((g) => texto(g)?.slice(0, 120) ?? null).filter((g): g is string => !!g).slice(0, 50);
+  return { telefono, agenda: nombreUtil(o.agenda), pushname: nombreUtil(o.pushname), empresa: nombreUtil(o.empresa), esEmpresa: o.esEmpresa === true, grupos };
+}
+
+/**
+ * EL NOMBRE DE UNA FICHA: el de su agenda (como Martín lo llama), si no el de su empresa (el nombre grande de la ficha), si no
+ * el que la persona se puso en WhatsApp. null si no hay ninguno.
+ */
+export function nombreDeFicha(f: FichaWa): string | null {
+  return f.agenda ?? f.empresa ?? f.pushname ?? null;
+}
+
+/** El renglón del historial con sus grupos en común (señal de interés). null si no está en ninguno. */
+export function lineaDeGrupos(grupos: readonly string[]): string | null {
+  if (!grupos.length) return null;
+  const n = grupos.length;
+  return `Está en ${n} ${n === 1 ? 'grupo tuyo' : 'grupos tuyos'} de WhatsApp: ${grupos.join(' · ')}`.slice(0, 600);
+}
+
+/** De a cuántas fichas manda la pantalla: cada una son unas pocas escrituras (~0,3 s), lejos de los 60 s de una acción. */
+export const TANDA_FICHAS = 40;
+
+// ── «Datos de empresa» con TOPE (24/10/2026, el Cerebro: «tope duro por corrida y por día; la cuenta real y el tiempo antes
+// de arrancar») ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// Cada consulta de perfil es tráfico en la RED de una línea no oficial (riesgo de baneo, docs/hallazgos-comunicacion.md).
+// El cupo del día y los teléfonos ya consultados viven en `app_settings`, por línea (app/crm/grupo-wa-server.ts).
+
+/** Cuántos perfiles consulta UNA corrida (un toque del botón). */
+export const TOPE_PERFILES_CORRIDA = 40;
+/** Cuántos por DÍA y por línea, sumando todas las corridas de todas las pantallas. */
+export const TOPE_PERFILES_DIA = 120;
+/** Lo que tarda cada consulta, medido: ~0,6 s de respuesta más la espera de 2 s entre una y otra. */
+export const SEGUNDOS_POR_PERFIL = 2.6;
+/** Cuántos teléfonos ya consultados se recuerdan por línea (los más viejos se olvidan y se pueden volver a consultar). */
+export const TOPE_VISTOS = 5000;
+
+export type CupoPerfiles = { dia: string; usadas: number };
+
+/** El cupo de HOY, del valor guardado. De otro día, o ilegible, arranca en cero (nunca tira). */
+export function cupoDeHoy(raw: string | null, hoy: string): CupoPerfiles {
+  try {
+    const o = JSON.parse(raw ?? 'null') as { dia?: unknown; usadas?: unknown } | null;
+    if (o && o.dia === hoy && Number.isInteger(o.usadas) && (o.usadas as number) >= 0) return { dia: hoy, usadas: o.usadas as number };
+  } catch { /* ilegible: cero */ }
+  return { dia: hoy, usadas: 0 };
+}
+
+/** Las consultas que quedan hoy. */
+export function quedanHoy(c: CupoPerfiles): number {
+  return Math.max(0, TOPE_PERFILES_DIA - c.usadas);
+}
+
+/** Los últimos 10 dígitos de los teléfonos ya consultados en esta línea (los que contestaron: el que no, es «no sé»). */
+export function vistosDe(raw: string | null): Set<string> {
+  try {
+    const a = JSON.parse(raw ?? '[]') as unknown;
+    return new Set(Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string' && /^\d{8,10}$/.test(x)) : []);
+  } catch { return new Set(); }
+}
+
+/** Lo guardado más los nuevos, sin repetir, recortado a los `TOPE_VISTOS` más recientes (los nuevos, al final). */
+export function vistosConNuevos(raw: string | null, nuevos: readonly string[]): string {
+  const todos = [...vistosDe(raw)].filter((x) => !nuevos.includes(x)).concat([...new Set(nuevos)]);
+  return JSON.stringify(todos.slice(-TOPE_VISTOS));
+}
+
+/** Cuántos consulta ESTA corrida: lo que falta, lo que queda hoy y lo que le queda a la corrida (`hechas` ya consultados). */
+export function cuantosEstaCorrida(p: { pendientes: number; quedanHoy: number; hechas: number }): number {
+  return Math.max(0, Math.min(p.pendientes, p.quedanHoy, TOPE_PERFILES_CORRIDA - Math.max(0, p.hechas)));
+}
+
+/** Los minutos que se le dicen a la persona antes de arrancar (redondeado para arriba: mejor que sobre a que falte). */
+export function minutosDePerfiles(n: number): number {
+  return Math.max(1, Math.ceil((n * SEGUNDOS_POR_PERFIL) / 60));
 }

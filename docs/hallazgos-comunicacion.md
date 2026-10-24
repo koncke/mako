@@ -80,6 +80,41 @@ plataforma (las del ws3 y el ws9 estaban cerradas: `fetchAllGroups` contesta 500
 
 *23/10/2026, chat «Offer» (claude3).*
 
+### De dónde sale el NOMBRE de un participante (medido el 24/10/2026, línea de Martín, sólo lectura)
+
+- **El listado no lo trae.** En «16, 17 y 18 de JUNIO» (247) y «VIP | Reto del Anuncio Ganador» (41), cada participante vino
+  sólo con `id` (`@lid`), `phoneNumber` y `admin`: 0 con `name`/`notify`/`pushName`, y sin `imgUrl`. Lo del 23/10 («`name?`»)
+  era de otra línea; no hay que contar con él.
+- **La agenda de la línea (`findContacts`, lee la base de Evolution: 2.314 contactos, 0,3 s)** guarda a mucha gente por su
+  `@lid`, no por teléfono, con `pushName`. Pero sólo conoce a quien le escribió: de los 247, 0 por `@lid` y 1 por teléfono
+  (la propia línea). `evolution_contactos` (la nuestra, 1.463 filas en ese negocio): también 1.
+- **Los mensajes guardados del grupo** traen `pushName`, pero la `key` no dice quién escribió, y en un grupo de avisos escriben
+  dos administradores (67 mensajes, 2 nombres).
+- **El perfil, por número (`/chat/fetchProfile`, `/chat/fetchBusinessProfile`)** no trae el nombre de un desconocido, ni
+  siquiera el del negocio en una cuenta de empresa (el que se ve en WhatsApp no viaja en la respuesta). El de empresa trae
+  siempre `category` y `business_hours`, y a veces `website` (una lista), `email`, `address` y `description`: 6 de 15 en la
+  muestra eran de empresa, 2 con web y dirección, 1 con correo. ~0,6 s por número. ⚠️ **Una primera medición dio 3 de 15**
+  porque consultaba sin espera y varias vencieron sin respuesta, y lo vencido se contó como «no es empresa»: lo que no
+  contestó es «no sé», no «no». ⚠️ **Es tráfico en la RED de una línea no oficial**, lo que la expone a un baneo
+  (lib/fotos-contacto.ts ya lo evitaba a propósito): de a uno y espaciado (`ESPERA_PERFIL_MS`, app/crm/grupo-wa-server.ts).
+- **`fetchAllGroups` en una línea con 61 grupos no contestó en 90 s**; `findChats` dio los grupos en 1,2 s.
+- **La cuarta fuente, sin tocar la red de la línea: el WhatsApp Web de la propia persona** (desde la extensión 0.70.0, 24/10).
+  Su navegador ya guardó el nombre que cada participante se puso, el de su agenda, el de la empresa verificada y en qué grupos
+  está. Martín lo ve en pantalla y la API no lo da. Se lee de su base local, sin clics y sin consultas: cómo, y sus trampas, en
+  [hallazgos-extension.md](hallazgos-extension.md). ⚠️ **Cuánto cubre sobre los 221 NO está medido todavía**: el número sale
+  de la primera corrida de Martín con la 0.70.
+
+### «Leímos una fila vieja» no era: la línea se conectó después (24/10/2026)
+
+El Cerebro sospechó que la línea de Martín figuraba «conectando» porque la lectura agarraba una fila zombi de
+`evolution_instancias`. Medido: ese negocio tiene UNA sola fila (creada el 08/10), que pasó a «conectado» a las 02:13. La
+lectura de las 01:44 era correcta: en ese momento Evolution también contestaba `state: close`. Una medición de estado tiene
+HORA. Las filas que sí sobran son otras: Código Inmobiliario tiene dos (una «conectando» desde el 19/10, que no es la
+principal); la de Brigitte es su única fila, nunca conectada. Las dos llevan la misma hora del 19/10 porque fue una
+actualización en lote, no una creación.
+
+*24/10/2026, chat «CRM» (claude1).*
+
 ---
 
 ## Un aviso sobre un lead no decía de quién ni llevaba a la ficha (20/10/2026)

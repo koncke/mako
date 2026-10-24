@@ -64,11 +64,17 @@ test('3. sin la línea de «Se ven 300 de 869…»: el número va en la casilla,
 });
 
 test('4. el pie es el último renglón, con fondo sólido: la vista mide el alto del cuerpo y la que scrollea es la tabla', () => {
-  assert.match(T, /<div style=\{\{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0, height: '100%' \}\}>/);
-  assert.match(T, /<div style=\{\{ flex: 1, minHeight: 0, overflowY: 'auto', border: '1px solid var\(--border\)'/);
-  const i = T.indexOf("position: 'sticky', bottom: 0");
+  // Desde el 24/10/2026 la regla vive en UNA pieza, `VistaConPie`, que usan las dos vistas de «traer»: la de un grupo de
+  // WhatsApp se había copiado de ésta antes del arreglo y se quedó con el pie flotando (tests/grupo-wa.test.ts).
+  assert.match(T, /<VistaConPie\s+lista=\{\{ border: '1px solid var\(--border\)'/);
+  assert.match(T, /pie=\{pie\}/);
+  assert.doesNotMatch(T, /position: 'sticky', bottom: 0/, 'el pie volvió a armarse a mano, fuera de la pieza');
+  const V = sinComentarios(leer('app/_ui/VistaConPie.tsx'));
+  assert.match(V, /<div style=\{\{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0, height: '100%' \}\}>/);
+  assert.match(V, /<div style=\{\{ flex: 1, minHeight: 0, overflowY: 'auto', \.\.\.lista \}\}>/);
+  const i = V.indexOf("position: 'sticky', bottom: 0");
   assert.ok(i > 0, 'sin el respaldo `sticky` (el importador no tiene alto)');
-  const pie = T.slice(i, T.indexOf('}}>', i));
+  const pie = V.slice(i, V.indexOf('}}>', i));
   assert.match(pie, /flex: 'none'/);
   assert.match(pie, /background: 'var\(--surface\)'/, 'el pie transparente deja ver las filas');
 });

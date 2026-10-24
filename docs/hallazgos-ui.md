@@ -12,6 +12,27 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## El pie que flota a la mitad: una lista larga con acciones abajo es UNA pieza, `VistaConPie` (24/10/2026)
+
+- **Síntoma:** en «Traer de un grupo de WhatsApp», Martín: «los botones de abajo no pueden estar a la mitad y que abajo se
+  sigan viendo leads, se ve horrible». Y «hay varias que se parecen y están mal».
+- **Causa:** el pie era `position: sticky; bottom: 0` DENTRO del cuerpo del `<Modal>`, que es el que scrollea y tiene padding
+  abajo. El pie se pega al borde del scroll menos ese padding, y las filas pasan por la franja de abajo.
+- **Por qué pasó dos veces:** «Traer de otro funnel» ya se había arreglado el 23/10 (la vista mide el alto del cuerpo con
+  `height: 100%` y la que scrollea es la tabla). La vista del grupo se copió de ella ANTES de ese arreglo, y el arreglo
+  vivía sólo en la primera. **La regla en una pieza o se pierde en la copia.**
+- **Cómo quedó:** `app/_ui/VistaConPie.tsx` (cabecera, la lista como único scroll, el pie como último renglón con fondo
+  sólido). La usan las dos vistas de «traer»; el Modal tiene que tener `alto` fijo. El `sticky` queda de respaldo para un
+  padre sin alto (el importador). La regla para código nuevo, en AGENTS.md («`<Modal>` guarda su `onCerrar`…»).
+- **Barrido por `position: 'sticky', bottom: 0` en `app/`:** sólo esas dos.
+
+**Sin hacer:**
+- Barrer el otro molde del mismo error: listas largas cuyas acciones van al final del cuerpo, sin `sticky`, y se
+  desplazan con la lista («que el botón no se tenga que desplazar», 22/10). No se barrió todavía.
+- Verlo en pantalla, también en el teléfono: el cambio no está desplegado.
+
+*24/10/2026, chat «CRM» (claude1).*
+
 ## Al terminar de cargar, la criatura vuela a SU lugar: un movimiento y un vigía para todas las tabs (23/10/2026)
 
 **Pedido (Martín):** «Todos los loaders que tengan la figura de MaKo, luego de terminar de cargar, la figura de MaKo se debe ir

@@ -20,7 +20,7 @@ export const metadata = {
   description: 'Qué datos usa la extensión de MaKo, y cuáles no.',
 };
 
-const ACTUALIZADO = '26 de agosto de 2026';
+const ACTUALIZADO = '24 de octubre de 2026';
 
 export default function Page() {
   return (
@@ -29,8 +29,9 @@ export default function Page() {
       actualizado={ACTUALIZADO}
       intro={<>
         Esta extensión permite que quien usa MaKo genere sus anuncios en video con{' '}
-        <strong>su propia cuenta de Google Flow</strong>, desde su propio navegador. Esta
-        política describe exactamente qué datos toca y qué hace con ellos.
+        <strong>su propia cuenta de Google Flow</strong>, desde su propio navegador, y que
+        complete los datos de sus contactos con lo que ya ve en <strong>su propio WhatsApp
+        Web</strong>. Esta política describe exactamente qué datos toca y qué hace con ellos.
       </>}
     >
 
@@ -51,6 +52,30 @@ export default function Page() {
         <strong>Un código de conexión con tu cuenta de MaKo.</strong> Identifica a qué
         espacio de trabajo pertenece este navegador, para saber qué videos generar. No
         contiene datos personales.
+      </p>
+
+      {/* ⚠️ DESDE LA 0.70.0 (24/10/2026) LEE TAMBIÉN WHATSAPP WEB, y esto es su contrato: lo que dice tiene que coincidir con
+          extension/wa-fichas.js (qué stores lee, que no toca la interfaz ni la red, que sólo devuelve los teléfonos pedidos) y
+          con `completarFichasDelGrupo` (app/crm/grupo-wa-server.ts: qué se escribe). Si uno cambia, esta página también. */}
+      <H>En WhatsApp Web</H>
+      <p>
+        Sólo cuando tú lo pides desde MaKo (el botón «Completar desde mi WhatsApp» de tus
+        contactos), la extensión lee lo que <strong>tu WhatsApp Web ya guardó en tu
+        navegador</strong> sobre los teléfonos que MaKo le pasa, que son los de contactos que
+        ya están en tu CRM: el nombre con el que los tienes agendados, el nombre que cada uno
+        se puso en WhatsApp, si es una cuenta de empresa y el nombre de la empresa, y en qué
+        grupos tuyos está.
+      </p>
+      <p>
+        <strong>A tu cuenta de MaKo viaja sólo eso, y sólo de esos teléfonos.</strong> El
+        resto de tus contactos, tus chats y tus mensajes no salen de tu navegador. MaKo lo
+        usa para completar los datos vacíos de esos contactos en tu CRM, y queda en tu espacio
+        de trabajo.
+      </p>
+      <p>
+        En WhatsApp Web la extensión <strong>sólo lee</strong>: no hace clic, no abre chats, no
+        envía mensajes, no marca nada como leído y no se comunica con los servidores de
+        WhatsApp.
       </p>
 
       {/* ⚠️ ESTA LISTA ES EL CONTRATO PÚBLICO, Y SE MIDIÓ CONTRA EL CÓDIGO.
@@ -109,15 +134,18 @@ export default function Page() {
       <H>Qué NO hace esta extensión</H>
       <ul>
         <li>No envía tu token de Google a ningún servidor, incluido el de MaKo.</li>
-        <li>No lee tu correo, tus contactos, tus archivos ni tu historial de navegación.</li>
+        <li>
+          No lee tu correo, tus archivos ni tu historial de navegación. De tu WhatsApp Web sólo
+          lee lo de los teléfonos que MaKo le pide, cuando tú lo pides (ver arriba).
+        </li>
         {/* ⚠️ ESTA LISTA SALE DE `host_permissions` DEL manifest.json, y ya se quedó
             vieja una vez: Google mudó Flow de labs.google a flow.google.com y acá
             seguían figurando dos dominios de tres. Una lista de «solo estos sitios»
             a la que le falta uno es una afirmación falsa, no una desactualización. */}
         <li>
           No accede a ningún sitio fuera de <code>labs.google</code>,{' '}
-          <code>flow.google.com</code>, <code>aisandbox-pa.googleapis.com</code> y{' '}
-          <code>hola-mako.com</code>.
+          <code>flow.google.com</code>, <code>aisandbox-pa.googleapis.com</code>,{' '}
+          <code>web.whatsapp.com</code> y <code>hola-mako.com</code>.
         </li>
         <li>No recopila datos de uso, analítica, publicidad ni seguimiento de ningún tipo.</li>
         <li>No vende, comparte ni transfiere información a terceros.</li>
@@ -129,7 +157,8 @@ export default function Page() {
         <li>
           No cambia lo que ves en ninguna página. En Google Flow (<code>labs.google</code> y{' '}
           <code>flow.google.com</code>) agrega un script propio para poder hacer, con tu
-          sesión, los mismos pedidos que harías tú a mano; en cualquier otro sitio no hace
+          sesión, los mismos pedidos que harías tú a mano; en WhatsApp Web sólo lee lo que ya
+          está guardado en tu navegador (ver arriba); en cualquier otro sitio no hace
           absolutamente nada.
         </li>
       </ul>
@@ -158,6 +187,10 @@ export default function Page() {
           <strong>labs.google</strong>, <strong>flow.google.com</strong> y{' '}
           <strong>aisandbox-pa.googleapis.com</strong> — enviar los pedidos de generación a
           Google Flow.
+        </li>
+        <li>
+          <strong>web.whatsapp.com</strong> — leer, cuando lo pides desde MaKo, lo que tu
+          WhatsApp Web ya guardó sobre los teléfonos de tus contactos del CRM.
         </li>
         <li>
           <strong>hola-mako.com</strong> — recibir los pedidos de tu cuenta de MaKo y

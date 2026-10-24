@@ -63,7 +63,8 @@ test('C1: la pantalla tilda a TODOS los candidatos, agrega de a tandas, el botó
   assert.match(t, /const ids = new Set\(candidatos\.map\(\(f\) => f\.id\)\);/, '«todos» volvió a mirar sólo la pantalla');
   assert.match(t, /const todosTildados = candidatos\.length > 0 && candidatos\.every/);
   assert.doesNotMatch(t, /f\.yaEsta \?|Ya está\s*<\/span>/, 'volvieron las filas grises de los que ya están');
-  assert.match(t, /position: 'sticky', bottom: 0/, 'el botón de agregar volvió a quedar abajo de todo');
+  // El pie pegado vive en `VistaConPie` desde el 24/10/2026 (tests/crm-traer-23-10.test.ts, 4).
+  assert.match(t, /<VistaConPie/, 'el botón de agregar volvió a quedar abajo de todo');
   assert.match(t, /for \(const tanda of enTandas\(sel, TANDA_AGREGAR\)\) \{\s*const r = await agregarLoteAProductoAction\(tanda, destino\);/);
   // La línea «Se ven 300 de 869… 300 ya están en este funnel» se fue el 23/10/2026 (Martín: «si hace falta algo, que sea
   // el número en la casilla»): tests/crm-traer-23-10.test.ts.

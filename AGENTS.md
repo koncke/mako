@@ -5956,6 +5956,14 @@ Se arregló de raíz y lo fija `tests/modal-foco.test.ts`. Lo que gobierna códi
 - **Y una MEDIDA tampoco llega al montar**: un campo que se mide solo en su primer efecto (`height = scrollHeight`) mide 0
   y queda colapsado, con la barra de scroll y el placeholder fuera de la vista (la barra «Pídeselo a MaKo», 12/10/2026).
   Va con `minHeight` y la medida con el borde (`ComposerWhatsApp`), o vuelve a medir cuando se ve (`ResizeObserver`).
+- **Una LISTA LARGA con sus ACCIONES ABAJO adentro de un `<Modal>` va en `VistaConPie`** (app/_ui/VistaConPie.tsx), con
+  `alto` fijo en el Modal: la lista es la única que scrollea y el pie es el último renglón. Un pie `sticky` armado a mano
+  dentro del cuerpo deja pasar las filas por el padding de abajo («los botones a la mitad y abajo se siguen viendo leads»,
+  24/10/2026). Pasó dos veces porque la segunda pantalla se copió de la primera antes de su arreglo: por eso es UNA pieza.
+- **Una acción en lote que escribe DE A UNO en el server (mover de etapa, eliminar) va de a tandas desde la pantalla**
+  (`correrEnTandas`, app/crm/lote-tandas.ts), con su avance; el server corta por tiempo (`PRESUPUESTO_LOTE_MS`) y devuelve
+  `pendientes` (también lo que pasa de su tope), y el aviso dice cuántos sí y cuántos no. Nunca un corte callado: 221 en una
+  sola llamada movieron 121 a los 60 s y el dueño creyó que se le partió la base (24/10/2026).
 - `useCerrarEstable(onCerrar, ocupado)` sigue sirviendo para no cerrar mientras algo se manda; ya no
   hace falta para el foco.
 
@@ -10315,3 +10323,25 @@ Y NACE DONDE VA: un lead que no debe recibir nada nace en su etapa final (`creat
 entrada y movido después. Entre el alta y el movimiento, el barrido de la hora lo inscribe en lo que cuelga de la entrada
 («Un Lead Entró»), y si el movimiento falla queda ahí. Tampoco a una etapa terminal (`terminalEstadoFor ≠ abierto`): «Ganado»
 lo vuelve venta y cliente de Customer Success, con el onboarding de la entrega.
+
+## La extensión en el sitio de un tercero (WhatsApp Web): LEE, y sólo lo pedido (24/10/2026)
+
+Un content script de `extension/` que corre en el sitio de un tercero (hoy `wa-fichas.js` en WhatsApp Web) no escribe nada
+ahí: ni la base del sitio (sólo `readonly`, nunca pedir versión, y no abrir una base que no existe porque abrirla la CREA), ni
+la pantalla (un clic puede abrir un chat y dar el «visto»), ni la red. Contesta un pedido que la persona disparó desde MaKo,
+nunca vigila, y devuelve SÓLO lo que se le pidió (la agenda de la persona no sale de su navegador). Corre en el mundo
+aislado, no en MAIN. Lo que lee tiene que estar dicho en `app/privacidad/extension/page.tsx`, con la fecha actualizada. Lo
+hace cumplir tests/wa-fichas-extension.test.ts; el porqué, docs/hallazgos-extension.md.
+
+Y en `extension/*.js`, **ninguna barra-asterisco dentro de un texto** (un patrón de URL de Chrome la tiene al final): los
+tests de la extensión quitan comentarios con una regex que no distingue textos, y esa secuencia se come el código que sigue
+hasta el próximo cierre de comentario. Rompe tests que no tienen nada que ver, que es lo más caro de diagnosticar.
+
+## Consultar a WhatsApp de a muchos por una línea no oficial: tope por día en el server, y recordar a quién ya (24/10/2026)
+
+Cada consulta por número (perfil, foto, «¿tiene WhatsApp?») es tráfico en la red de la línea y la acerca a un baneo. Un camino que
+consulta en lote va de a uno y espaciado, con un tope por corrida y otro por DÍA y por línea, y el del día lo reserva el SERVER
+antes de cada consulta, con compare-and-set (la pantalla no es una garantía). Recuerda a quién ya consultó: sin eso, un tope
+repite siempre a los primeros. Lo que no contestó es «no sé»: no queda consultado, pero cuenta en el cupo. Y antes de arrancar,
+la cuenta y el tiempo se le dicen a la persona. El molde es `completarPerfilesDelGrupo` (app/crm/grupo-wa-server.ts); lo hace
+cumplir tests/grupo-wa.test.ts (12 y 12b); el porqué, docs/hallazgos-crm.md.

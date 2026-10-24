@@ -6,6 +6,41 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω24. 24/10/2026, madrugada (chat «CRM», cuenta `claude1`): la base de venta de Martín desde sus grupos
+
+Rama `crm-grupo-completar-2410` en C:/dev/wt-crm-grupo, sobre origin/main ebcfd9eb0, pasada al tren: `5478b15a5`
+(«Completar nombres» y el pie con `VistaConPie`), `8969fb722` (mover y eliminar en lote de a tandas) y `efb31037c`
+(«Datos de empresa», el perfil de WhatsApp). Lo aprendido, en hallazgos-crm, hallazgos-comunicacion y hallazgos-ui.
+
+**Después (24/10, mañana), en la misma rama, como tags (sin rama remota):**
+- `respaldo/crm-grupo-2410-ext` = f6ba1c10c: la extensión 0.70.0 y «Completar desde mi WhatsApp». La extensión lee lo que
+  el WhatsApp Web de Martín ya guardó (nombre de agenda, el que cada uno se puso, la empresa verificada, los grupos en común),
+  sin clics y sin red. Ver docs/hallazgos-extension.md.
+- `respaldo/crm-grupo-2410-cupo` = 0553eda9e: «Datos de empresa» con tope (40 por corrida, 120 por día y por línea,
+  reservado en el server), recordando a quién ya consultó, con la cuenta y los minutos antes de arrancar.
+
+**Lo que queda, en orden:**
+0. Que Martín corra la 0.70 (pasos en el mensaje al Cerebro del 24/10): la pantalla da la cobertura real sobre los 221, y la
+   consola, `[wa-fichas]`, qué tablas tiene su WhatsApp Web. Con eso se decide si el panel del contacto (categoría, web,
+   correo, estado) tiene de dónde leerse sin abrir el chat. Abrir el chat da el «visto»: no se hace sin medir. El rubro
+   filtrable depende de eso.
+1. Verlo en pantalla cuando esté desplegado: un lote de 200+ movido sin F5, el pie de las dos vistas de «traer» (también en
+   el teléfono), «Completar nombres», «Completar desde mi WhatsApp» y «Datos de empresa» sobre el grupo de 221 de Martín.
+2. El barrido del pie en el resto de la app: 12 modales con una lista sin alto acotado y botones al final del cuerpo
+   (UnificarFichas, CargarGuiones, PersonalizarTarjetas, EtapasModal, EtapasEntregaModal, VozAIStep, ElegirFoto, AreasHub,
+   Busqueda, EditorInforme, DialogoAnalitica, PlantillasSemana). Hay que mirar cada uno: el workflow `wf_61c7c384-36e`
+   quedó frenado por la RAM y se retoma con su caché. Los que no son del CRM van a su chat.
+3. ~~Enganchar la búsqueda por Apify de Ventas~~: DESCARTADO por Martín el 24/10 («no voy a gastar 5 USD por 200 leads»);
+   Ventas la sacó del tren (revert 048d3f838). Todo sale de la extensión. La búsqueda externa (Google/Instagram por nombre)
+   NO se arma todavía. Si algún día se arma: por lead o por etapa, a ritmo humano, y ante un captcha para y avisa (nunca lo
+   resuelve ni lo saltea).
+4. «Datos de empresa» por la API de MaKo (el tope diario ya está: que la API pase por `completarPerfilesDelGrupo`, que lo
+   reserva).
+5. Barrer el resto de la app (fuera del CRM) buscando lotes de a uno en una sola llamada.
+
+**La fila «zombi» de `evolution_instancias` no era la causa:** la línea de Martín se conectó a las 02:13. La segunda fila de
+Código Inmobiliario (2510) es una línea a medio conectar del 13/10: no se borró, lo decide Martín o el cliente.
+
 ## 0-Ω23. 23-24/10/2026, noche (chat «CRM», cuenta `claude2`): «Unificar» dos fichas parecidas
 
 Pedido de Martín (23/10 ~23:20 UTC, por el Cerebro; literal en la bitácora). Rama `crm-unificar-2310` en

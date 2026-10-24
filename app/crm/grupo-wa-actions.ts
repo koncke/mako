@@ -13,8 +13,8 @@ import { idDelFunnelDefault } from '@/lib/funnels';
 import { autorDelMovimiento } from '@/lib/leads';
 import type { GrupoWA, ParticipanteWA } from '@/lib/grupo-wa-reglas';
 import {
-  etapasParaTraer, gruposDeLinea, lineasDelNegocio, marcarEnElCrm, participantesDelGrupo, traerDelGrupo,
-  type LineaGrupos, type ResultadoTraer,
+  completarFichasDelGrupo, completarNombresDelGrupo, completarPerfilesDelGrupo, etapasParaTraer, gruposDeLinea, lineasDelNegocio, marcarEnElCrm,
+  participantesDelGrupo, traerDelGrupo, type LineaGrupos, type ResultadoCompletar, type ResultadoFichas, type ResultadoPerfiles, type ResultadoTraer,
 } from './grupo-wa-server';
 
 type Res<T> = ({ ok: true } & T) | { ok: false; error: string };
@@ -79,6 +79,55 @@ export async function traerDeGrupoAction(p: { linea: string | null; jid: string;
       hasta: Date.now() + 45_000,
     });
     if (r.ok) revalidatePath('/crm');
+    return r;
+  } catch (e) { return { ok: false, error: msg(e) }; }
+}
+
+/**
+ * «Completar nombres» (24/10/2026): a los participantes del grupo que YA son leads, el nombre que WhatsApp conozca hoy, sólo
+ * donde tienen uno de relleno (su número). No crea, no mueve, no manda nada. Con tope: lo que no entra vuelve en `quedan`.
+ */
+export async function completarNombresDeGrupoAction(p: { linea: string | null; jid: string }): Promise<ResultadoCompletar> {
+  await exigirSesion();
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
+  try {
+    const r = await completarNombresDelGrupo({ linea: p.linea, jid: String(p.jid ?? ''), autor: await autorDelMovimiento(), hasta: Date.now() + 45_000 });
+    if (r.ok && r.completados) revalidatePath('/crm');
+    return r;
+  } catch (e) { return { ok: false, error: msg(e) }; }
+}
+
+/**
+ * «Datos de empresa» (24/10/2026): a los participantes del grupo que YA son leads, lo que dice su perfil de empresa de WhatsApp,
+ * sólo en los campos vacíos. De a uno y despacio, con tope por corrida y por día (el del día lo cuenta el server). `soloContar`:
+ * la cuenta que se muestra antes de arrancar. Corta por tiempo: la pantalla vuelve a llamar con `hechas` y `saltear`.
+ */
+export async function completarPerfilesDeGrupoAction(p: { linea: string | null; jid: string; hechas?: number; saltear?: string[]; soloContar?: boolean }): Promise<ResultadoPerfiles> {
+  await exigirSesion();
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
+  try {
+    const hechas = Number.isInteger(p.hechas) && (p.hechas as number) >= 0 ? (p.hechas as number) : 0;
+    const saltear = (Array.isArray(p.saltear) ? p.saltear : []).filter((t) => typeof t === 'string');
+    const r = await completarPerfilesDelGrupo({
+      linea: p.linea, jid: String(p.jid ?? ''), autor: await autorDelMovimiento(), hechas, saltear, soloContar: p.soloContar === true, hasta: Date.now() + 40_000,
+    });
+    if (r.ok && r.completados) revalidatePath('/crm');
+    return r;
+  } catch (e) { return { ok: false, error: msg(e) }; }
+}
+
+/**
+ * Las fichas que leyó la extensión de MaKo en el WhatsApp Web de la persona (24/10/2026): el nombre, la empresa y sus grupos
+ * en común, de los participantes que YA son leads. De a tandas (`TANDA_FICHAS`); el server limpia y verifica cada una.
+ */
+export async function completarFichasDeGrupoAction(p: { linea: string | null; jid: string; fichas: unknown[] }): Promise<ResultadoFichas> {
+  await exigirSesion();
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
+  try {
+    const r = await completarFichasDelGrupo({
+      linea: p.linea, jid: String(p.jid ?? ''), fichas: Array.isArray(p.fichas) ? p.fichas : [], autor: await autorDelMovimiento(), hasta: Date.now() + 40_000,
+    });
+    if (r.ok && (r.nombres || r.empresas)) revalidatePath('/crm');
     return r;
   } catch (e) { return { ok: false, error: msg(e) }; }
 }

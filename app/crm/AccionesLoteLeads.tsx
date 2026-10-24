@@ -82,6 +82,8 @@ import {
   bulkFillLeadFieldAction,
 } from './actions';
 import { agregarLoteAProductoAction, quitarLoteDeProductoAction } from './lead-funnel-actions';
+import { TANDA_LOTE, colaDelAviso, correrEnTandas } from './lote-tandas';
+import { TANDA_AGREGAR, enTandas } from './traer-seleccion';
 import { SelectorEtiqueta, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 
 /** Lo minimo que la barra necesita de un lead. No recibe el `CrmLead` entero a
@@ -192,6 +194,8 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
 }) {
   const [pide, setPide] = useState<Pendiente | null>(null);
   const [corriendo, start] = useTransition();
+  /** «Moviendo 75 de 221…»: un lote de a uno va de a tandas y tarda (~0,5 s por lead); sin esto parece colgado. */
+  const [avance, setAvance] = useState<string | null>(null);
   const n = elegidos.length;
   const ids = elegidos.map((l) => l.id);
 
@@ -255,17 +259,28 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
   const agregarA = (funnelId: number | null, nombre: string) => {
     start(async () => {
       try {
-        const r = await agregarLoteAProductoAction(ids, funnelId);
+        // De a tandas (24/10/2026): el server corta en 2.000 sin decirlo, y los cortados se contaban como «ya estaban».
+        const agregados: number[] = [];
+        let fallaron = 0;
+        let error: string | null = null;
+        for (const tanda of enTandas(ids, TANDA_AGREGAR)) {
+          const t = await agregarLoteAProductoAction(tanda, funnelId);
+          if (!t.ok) { error = t.error; break; }
+          agregados.push(...t.agregados);
+          fallaron += t.fallaron;
+        }
+        const r = error != null && !agregados.length ? { ok: false as const, error } : { ok: true as const, agregados, fallaron };
         if (!r.ok) {
           onListo({ texto: r.error, hubo: false });
         } else {
           const n = r.agregados.length;
-          const yaEstaban = Math.max(0, ids.length - n - r.fallaron);
+          // Con un corte no se sabe cuántos «ya estaban» y cuántos no llegaron: no se cuenta, se dice el corte.
+          const yaEstaban = error != null ? 0 : Math.max(0, ids.length - n - r.fallaron);
           const ya = yaEstaban ? ` · ${yaEstaban} ya ${yaEstaban === 1 ? 'estaba' : 'estaban'}` : '';
           const mal = r.fallaron ? ` · ${r.fallaron} no se pudieron` : '';
-          const agregados = r.agregados;
+          const corte = error != null ? ` · se cortó (${error}): revisa los que faltan` : '';
           onListo({
-            texto: n ? `${n} a ${nombre}${ya}${mal}` : `Ya estaban en ${nombre}${mal}`,
+            texto: n ? `${n} a ${nombre}${ya}${mal}${corte}` : `Ya estaban en ${nombre}${mal}${corte}`,
             hubo: n > 0,
             deshacer: n
               ? async () => {
@@ -288,12 +303,17 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
       try {
         if (pide.tipo === 'etapa') {
           // Con el CRM que se mira: los AGREGADOS a él se mueven en su fila (23/10/2026, ver la action).
-          const r = await moverLeadsDeEtapaAction(ids, pide.stage.key, funnelActivo);
+          // ⚠️ DE A TANDAS (24/10/2026, app/crm/lote-tandas.ts): los 221 de una vez se cortaron en 121 a los 60 s.
+          const t = await correrEnTandas(ids, TANDA_LOTE, (tanda) => moverLeadsDeEtapaAction(tanda, pide.stage.key, funnelActivo),
+            (k) => setAvance(`Moviendo ${k} de ${ids.length}…`));
+          const movidos = t.resultados.reduce((s, r) => s + r.movidos, 0);
+          const conPendientes = t.resultados.reduce((s, r) => s + r.conPendientes, 0);
+          const fallaron = t.resultados.reduce((s, r) => s + r.fallaron, 0);
           // TRES numeros, no uno: ver la cabecera de la action. El de pendientes solo
           // se nombra si lo hay — un «0 con datos pendientes» es ruido.
-          const falta = r.conPendientes ? ` · a ${r.conPendientes} les falta un dato` : '';
-          const mal = r.fallaron ? ` · ${r.fallaron} no se pudieron` : '';
-          onListo({ texto: `${r.movidos} a ${pide.stage.label}${falta}${mal}`, hubo: r.movidos > 0 });
+          const falta = conPendientes ? ` · a ${conPendientes} les falta un dato` : '';
+          const mal = fallaron ? ` · ${fallaron} no se pudieron` : '';
+          onListo({ texto: `${movidos} a ${pide.stage.label}${falta}${mal}${colaDelAviso(t, ['movió', 'movieron'])}`, hubo: movidos > 0 });
         } else if (pide.tipo === 'persona') {
           const r = await bulkFillLeadFieldAction(pide.campo, pide.valor, ids, true);
           const campo = pide.campo === 'closer' ? 'Closer' : 'Setter';
@@ -303,13 +323,17 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
           const r = await frenarLeadsEnAutomatizacionesAction(idsEnAut);
           onListo({ texto: r.ok ? r.resumen : r.error, hubo: r.ok && r.frenados > 0 });
         } else {
-          const r = await eliminarLeadsAction(ids);
-          const mal = r.fallaron ? ` · ${r.fallaron} no se pudieron` : '';
-          onListo({ texto: `${r.borrados} ${r.borrados === 1 ? 'eliminado' : 'eliminados'}${mal}`, hubo: r.borrados > 0 });
+          // De a uno en el server, como mover: de a tandas y con su avance (app/crm/lote-tandas.ts).
+          const t = await correrEnTandas(ids, TANDA_LOTE, (tanda) => eliminarLeadsAction(tanda), (k) => setAvance(`Eliminando ${k} de ${ids.length}…`));
+          const borrados = t.resultados.reduce((s, r) => s + r.borrados, 0);
+          const fallaron = t.resultados.reduce((s, r) => s + r.fallaron, 0);
+          const mal = fallaron ? ` · ${fallaron} no se pudieron` : '';
+          onListo({ texto: `${borrados} ${borrados === 1 ? 'eliminado' : 'eliminados'}${mal}${colaDelAviso(t, ['eliminó', 'eliminaron'])}`, hubo: borrados > 0 });
         }
       } catch (e) {
         onListo({ texto: e instanceof Error ? e.message : 'No se pudo', hubo: false });
       }
+      setAvance(null);
       cerrar();
       onLimpiar();
     });
@@ -349,6 +373,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
             style={{ flex: 'none', minWidth: 24, fontFamily: MONO, fontSize: 13, fontWeight: 700, color: 'var(--primary)', lineHeight: 1 }}>
             {n}
           </span>
+          {avance && <span role="status" style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{avance}</span>}
         </div>
 
         {/* ── MEDIO: lo que CAMBIA el lead. Con palabra, porque un icono suelto no

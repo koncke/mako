@@ -232,3 +232,22 @@ function esperarEnlace() {
     window.addEventListener('MAKO_PUENTE_ENLACE_LISTO', () => { clearTimeout(t); resolve(); }, { once: true });
   });
 }
+
+// ── Las fichas de WhatsApp Web (24/10/2026, wa-fichas.js) ───────────────────
+// La pantalla de MaKo (traer de un grupo) pide lo que el WhatsApp Web de esta persona ya guardó sobre los teléfonos de sus
+// leads. Este script es el mensajero: pasa el pedido al service worker, que lo lleva a la pestaña de WhatsApp Web, y
+// devuelve la respuesta por evento con el MISMO `id` (dos pedidos en vuelo no se pisan). Sólo de esta página, como el aviso
+// de trabajo.
+window.addEventListener('MAKO_WA_FICHAS_PIDO', (ev) => {
+  if (!ev || ev.target !== window) return;
+  const d = (ev.detail && typeof ev.detail === 'object') ? ev.detail : {};
+  const id = typeof d.id === 'string' ? d.id : '';
+  const telefonos = Array.isArray(d.telefonos) ? d.telefonos.filter((t) => typeof t === 'string').slice(0, 5000) : [];
+  const contestar = (r) => window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS', { detail: { id, ...(r || { ok: false, motivo: 'sin_respuesta' }) } }));
+  try {
+    chrome.runtime.sendMessage({ tipo: 'WA_FICHAS_PEDIDO', telefonos }, (r) => {
+      if (chrome.runtime.lastError) { contestar({ ok: false, motivo: 'extension' }); return; }
+      contestar(r);
+    });
+  } catch { contestar({ ok: false, motivo: 'extension' }); }
+});

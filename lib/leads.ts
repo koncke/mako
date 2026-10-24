@@ -1988,6 +1988,50 @@ export async function logLeadEvent(leadId: number, campo: string, valor: string,
   }
 }
 
+/**
+ * COMPLETA EL NOMBRE DE RELLENO de un lead (vacío o su número: así nace el traído de un grupo de WhatsApp, cuyo listado no
+ * trae nombres) con el que WhatsApp ya conoce (24/10/2026, app/crm/grupo-wa-server.ts, «Completar nombres»). Compara antes de
+ * escribir: si el nombre ya no es `antes` (alguien lo cambió en el medio), no pisa nada. Sólo el nombre: no toca la etapa ni
+ * inscribe a nadie (por eso no pasa por `updateLead`, que recalcula el desenlace y dispara por la etapa derivada). Queda en
+ * el historial como un cambio de «Nombre», el mismo campo que `logLeadChanges`, y se deshace desde ahí. Devuelve si cambió.
+ */
+export async function completarNombreDeRelleno(id: number, antes: string | null, nombre: string, autor: string): Promise<boolean> {
+  const db = await getTenantDb();
+  const base = db.from('leads').update({ nombre });
+  const { data, error } = await (antes == null ? base.eq('id', id).is('nombre', null) : base.eq('id', id).eq('nombre', antes)).select('id');
+  if (error) throw new Error(`completarNombreDeRelleno: ${error.message}`);
+  if (!data?.length) return false;
+  const { error: ea } = await db.from('lead_audit').insert([{ lead_id: id, campo: 'Nombre', valor_anterior: antes, valor_nuevo: nombre, autor }]);
+  if (ea) console.error(`[audit] el nombre completado del lead ${id} no quedó en el historial: ${ea.message}`);
+  return true;
+}
+
+/** Los campos de contacto que se completan solos (el perfil de empresa de WhatsApp) y su rótulo en el historial. */
+const CAMPOS_COMPLETABLES = { web: 'Web', instagram: 'Instagram', email: 'Email', direccion: 'Dirección', empresa: 'Empresa' } as const;
+
+/**
+ * COMPLETA CAMPOS DE CONTACTO VACÍOS de un lead (24/10/2026: el perfil de empresa de WhatsApp, app/crm/grupo-wa-server.ts),
+ * uno por uno y comparando que SIGA vacío (null o ''): si alguien lo llenó en el medio, no se pisa. Cada uno queda en el
+ * historial con su rótulo de siempre (`AUDIT_FIELDS`), y se deshace desde ahí. No toca la etapa ni inscribe a nadie.
+ * Devuelve los campos que escribió.
+ */
+export async function completarCamposVacios(id: number, parche: Partial<Record<keyof typeof CAMPOS_COMPLETABLES, string>>, autor: string): Promise<string[]> {
+  const db = await getTenantDb();
+  const escritos: string[] = [];
+  for (const [campo, valor] of Object.entries(parche) as Array<[keyof typeof CAMPOS_COMPLETABLES, string]>) {
+    if (!(campo in CAMPOS_COMPLETABLES) || !valor) continue;
+    const { data, error } = await db.from('leads').update({ [campo]: valor }).eq('id', id).or(`${campo}.is.null,${campo}.eq.`).select('id');
+    if (error) throw new Error(`completarCamposVacios (${campo}): ${error.message}`);
+    if (data?.length) escritos.push(campo);
+  }
+  if (escritos.length) {
+    const filas = escritos.map((c) => ({ lead_id: id, campo: CAMPOS_COMPLETABLES[c as keyof typeof CAMPOS_COMPLETABLES], valor_anterior: null, valor_nuevo: parche[c as keyof typeof CAMPOS_COMPLETABLES]!, autor }));
+    const { error: ea } = await db.from('lead_audit').insert(filas);
+    if (ea) console.error(`[audit] los datos completados del lead ${id} no quedaron en el historial: ${ea.message}`);
+  }
+  return escritos;
+}
+
 /** Historial de cambios de un lead (más reciente primero). Vacío si la tabla no existe. */
 export async function getLeadAudit(leadId: number): Promise<LeadAuditRow[]> {
   try {

@@ -46,6 +46,7 @@ import { useDeferredValue, useEffect, useMemo, useState, useTransition, type CSS
 import { TANDA_AGREGAR, TOPE_PANTALLA, enTandas, filasParaTraer, miles } from './traer-seleccion';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { Spinner } from '@/app/_ui';
+import { VistaConPie } from '@/app/_ui/VistaConPie';
 import { leadsDeProductoAction, type LeadParaTraer } from './actions';
 import { agregarLoteAProductoAction, quitarLoteDeProductoAction } from './lead-funnel-actions';
 
@@ -158,9 +159,60 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
     );
   }
 
+  // ⚠️ EL PIE (22/10 «que el botón no se tenga que desplazar»; 23/10 «se ven leads por detrás y debajo»): el último renglón
+  // de `VistaConPie`, con fondo sólido. Sin textos: lo que no se ve lo dice la casilla de arriba.
+  const pie = (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <button type="button" onClick={onAtras} disabled={agregando} style={btnAtras}>← Atrás</button>
+        <span style={{ flex: 1 }} />
+        {err && <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--bad)' }}>{err}</span>}
+        <button type="button" disabled={agregando || !sel.length}
+          onClick={() => startAgregar(async () => {
+            setErr(null);
+            // Sin «¿estás seguro?»: agregar no saca a nadie de ningún lado, y el padre ofrece
+            // Deshacer (el molde de Customer Success).
+            // ⚠️ DE A TANDAS: el server corta en 2.000 sin decirlo (`slice(0, 2000)`), y 1.050 de una vez son seis
+            // tandas de base adentro de UNA action. Se suman lo que entró y lo que falló de cada tanda.
+            const agregados: number[] = [];
+            let fallaron = 0;
+            for (const tanda of enTandas(sel, TANDA_AGREGAR)) {
+              const r = await agregarLoteAProductoAction(tanda, destino);
+              if (!r.ok) { fallaron += tanda.length; if (!agregados.length) { setErr(r.error); return; } continue; }
+              agregados.push(...r.agregados);
+              fallaron += r.fallaron;
+            }
+            if (!agregados.length && fallaron) { setErr('No se pudo agregar ninguno.'); return; }
+            // El deshacer TIRA si no pudo: el padre tiene que poder decir «No se pudo
+            // deshacer» en vez de dar por vuelto algo que sigue escrito.
+            onTraidos(agregados.length, fallaron, agregados.length
+              ? async () => {
+                for (const tanda of enTandas(agregados, TANDA_AGREGAR)) {
+                  const q = await quitarLoteDeProductoAction(tanda, destino);
+                  if (!q.ok) throw new Error(q.error);
+                }
+              }
+              : undefined);
+          })}
+          style={{
+            padding: '11px 22px', borderRadius: 10, border: 'none',
+            background: 'var(--primary)', color: '#fff', fontFamily: SANS,
+            fontSize: 14, fontWeight: 700,
+            cursor: agregando || !sel.length ? 'default' : 'pointer',
+            opacity: agregando || !sel.length ? 0.45 : 1,
+          }}>
+          {agregando ? 'Agregando…' : sel.length ? `Agregar ${miles(sel.length)} aquí` : 'Agregar aquí'}
+        </button>
+      </div>
+  );
+
+  // ⚠️ LA TABLA SCROLLEA, EL PIE NO: `VistaConPie` (app/_ui/VistaConPie.tsx), la MISMA pieza que «Traer de un grupo de
+  // WhatsApp» (24/10/2026). El arreglo del 23/10 («se ven leads por detrás y debajo») vivía sólo acá, y la vista del grupo,
+  // copiada antes, se quedó con el error.
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0, height: '100%' }}>
-      {/* La barra: de dónde, qué busco, qué etapa. */}
+    <VistaConPie
+      lista={{ border: '1px solid var(--border)', borderRadius: 12, opacity: filtrando ? 0.55 : 1, transition: 'opacity .12s' }}
+      cabecera={(
+      /* La barra: de dónde, qué busco, qué etapa. */
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--faint)', flex: 'none' }}>Traer de</span>
         <Dropdown
@@ -192,9 +244,10 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
         )}
         {filtrando && <Spinner size={16} />}
       </div>
-
+      )}
+      pie={pie}
+    >
       {/* La tabla. */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 12, opacity: filtrando ? 0.55 : 1, transition: 'opacity .12s' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead style={{ position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
             <tr>
@@ -256,56 +309,7 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
             {yaEstan > 0 ? 'Todos los de esos filtros ya están en este funnel.' : 'Nadie con esos filtros.'}
           </p>
         )}
-      </div>
-
-      {/* ⚠️ EL PIE ES EL ÚLTIMO RENGLÓN, CON FONDO SÓLIDO (22/10 «que el botón no se tenga que desplazar»; 23/10 «se ven
-          leads por detrás y debajo»): la vista mide el alto del cuerpo y la que scrollea es la tabla, así que nada pasa por
-          detrás. El `sticky` queda de respaldo, para un padre sin alto (el importador). Sin textos: lo que no se ve lo dice
-          la casilla de arriba. */}
-      <div style={{ position: 'sticky', bottom: 0, zIndex: 2, flex: 'none', background: 'var(--surface)', borderTop: '1px solid var(--border)', padding: '12px 0 0' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <button type="button" onClick={onAtras} disabled={agregando} style={btnAtras}>← Atrás</button>
-        <span style={{ flex: 1 }} />
-        {err && <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--bad)' }}>{err}</span>}
-        <button type="button" disabled={agregando || !sel.length}
-          onClick={() => startAgregar(async () => {
-            setErr(null);
-            // Sin «¿estás seguro?»: agregar no saca a nadie de ningún lado, y el padre ofrece
-            // Deshacer (el molde de Customer Success).
-            // ⚠️ DE A TANDAS: el server corta en 2.000 sin decirlo (`slice(0, 2000)`), y 1.050 de una vez son seis
-            // tandas de base adentro de UNA action. Se suman lo que entró y lo que falló de cada tanda.
-            const agregados: number[] = [];
-            let fallaron = 0;
-            for (const tanda of enTandas(sel, TANDA_AGREGAR)) {
-              const r = await agregarLoteAProductoAction(tanda, destino);
-              if (!r.ok) { fallaron += tanda.length; if (!agregados.length) { setErr(r.error); return; } continue; }
-              agregados.push(...r.agregados);
-              fallaron += r.fallaron;
-            }
-            if (!agregados.length && fallaron) { setErr('No se pudo agregar ninguno.'); return; }
-            // El deshacer TIRA si no pudo: el padre tiene que poder decir «No se pudo
-            // deshacer» en vez de dar por vuelto algo que sigue escrito.
-            onTraidos(agregados.length, fallaron, agregados.length
-              ? async () => {
-                for (const tanda of enTandas(agregados, TANDA_AGREGAR)) {
-                  const q = await quitarLoteDeProductoAction(tanda, destino);
-                  if (!q.ok) throw new Error(q.error);
-                }
-              }
-              : undefined);
-          })}
-          style={{
-            padding: '11px 22px', borderRadius: 10, border: 'none',
-            background: 'var(--primary)', color: '#fff', fontFamily: SANS,
-            fontSize: 14, fontWeight: 700,
-            cursor: agregando || !sel.length ? 'default' : 'pointer',
-            opacity: agregando || !sel.length ? 0.45 : 1,
-          }}>
-          {agregando ? 'Agregando…' : sel.length ? `Agregar ${miles(sel.length)} aquí` : 'Agregar aquí'}
-        </button>
-      </div>
-      </div>
-    </div>
+    </VistaConPie>
   );
 }
 
