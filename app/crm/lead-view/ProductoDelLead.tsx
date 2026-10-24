@@ -53,7 +53,7 @@ import {
   quitarLoteDeProductoAction, moverEtapaEnProductoAction, type ProductoFicha,
 } from '../lead-funnel-actions';
 import {
-  funnelsDelArbol, seccionesDelArbol, funnelEnVista, leerEleccion, otrosFunnelsDelLead, valorEtapa, type EtapaDelArbol,
+  funnelsDelArbol, seccionesDelArbol, funnelEnVista, leerEleccion, valorEtapa, type EtapaDelArbol,
 } from './arbol-funnels';
 
 export type { ProductoFicha };
@@ -290,7 +290,6 @@ export function FunnelYEtapa({ ficha, etapasCasa, etapaCasa, onElegirCasa, ariaL
   const secciones = seccionesDelArbol(funnels, ficha.puedeQuitar);
   const enVista = funnelEnVista(funnels, ficha.idEnVista);
   const etapa = enVista?.etapas.find((s) => s.key === enVista.etapa) ?? null;
-  const otros = otrosFunnelsDelLead(funnels, enVista);
   // Mientras espera, el botón nombra el funnel que se va a mirar y NINGUNA etapa: la de la casa ahí
   // sería la de otro tablero, cambiada medio segundo después (ver `etapaEnEspera`).
   const nombreEnEspera = ficha.foto.find((f) => f.id === ficha.idEnVista)?.nombre ?? enVista?.nombre ?? 'Funnel';
@@ -333,19 +332,10 @@ export function FunnelYEtapa({ ficha, etapasCasa, etapaCasa, onElegirCasa, ariaL
         )}
         buttonStyle={{ fontSize: 13, fontWeight: 600 }}
       />
-      {/* DE DÓNDE VINO (22/10/2026, C8): los otros funnels donde está, con su etapa, de un toque. En la R1 del CRM principal,
-          un lead del Sprint dice «También en Sprint 3 días › Prospección activa». */}
-      {!ficha.esperando && otros.length > 0 && (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)' }}>
-          También en
-          {otros.map((o) => (
-            <button key={o.id} type="button" onClick={() => ficha.verProducto(o.id)} title={`Ver su etapa en ${o.nombre}`}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 99, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
-              {o.nombre}{o.etapa ? <span style={{ color: 'var(--dim)', fontWeight: 500 }}>› {o.etapa}</span> : null}
-            </button>
-          ))}
-        </span>
-      )}
+      {/* «TAMBIÉN EN» SE FUE (24/10/2026, Martín, con la captura de un lead de Mauricio: «Elimina "También en Negocio que
+          ESCALA"»). Lo había pedido la llamada con Mauricio del 22/10 (C8: que la R1 del CRM principal diga que el lead vino del
+          Sprint). Lo que decía no se pierde: el desplegable de arriba lista cada funnel donde está el lead con su etapa
+          (`seccionesDelArbol`, el `resumen` de cada uno), y elegir uno lo pone en vista. */}
       {ficha.fallo && !ficha.productos && <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--bad)' }}>No se pudo cargar</span>}
       {/* El aviso de agregar, quitar y mover en un agregado (con su Deshacer). */}
       <Toast state={ficha.aviso} onClose={ficha.cerrarAviso} />

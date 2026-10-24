@@ -133,11 +133,19 @@ test('MaKo crea, borra y mueve hojas propias, y las ve', () => {
   assert.deepEqual(v.hojas.map((h) => [h.id, h.nombre, h.bloques.map((b) => b.bloque)]), [['h-ver001', 'Para el closer', ['notas']]]);
 });
 
-test('la pantalla: «＋ Nueva hoja» primera y sólo para quien guarda; el título a la altura del nombre del lead', () => {
+// ⚠️ 24/10/2026: con tabs de verdad, «＋ Nueva hoja» va AL FINAL de la fila (el «+» de las vistas de Notion), no primera en un
+//    desplegable. Lo demás no cambió: sólo para quien guarda, y las tabs a la altura del nombre del lead.
+test('la pantalla: «＋ Nueva hoja» al final de las tabs y sólo para quien guarda; las tabs a la altura del nombre del lead', () => {
   const tabs = sinComentarios(leer('app/crm/lead-view/LeadTabs.tsx'));
-  const menu = tabs.slice(tabs.indexOf('function MenuHojasFicha'));
-  assert.ok(menu.indexOf('texto="Nueva hoja"') > 0 && menu.indexOf('texto="Nueva hoja"') < menu.indexOf('visibles.map('), '«Nueva hoja» va primera, antes de las hojas (como el Dashboard)');
-  assert.match(tabs, /paddingLeft: sangria/);
+  const iTabs = tabs.indexOf('{tabs.map((t) => {');
+  const iNueva = tabs.indexOf('className="lt-nueva-tab lt-accion"');
+  assert.ok(iTabs > 0 && iNueva > iTabs, '«Nueva hoja» va después de las tabs');
+  assert.match(tabs, /\{onNueva && \(\n\s+<button type="button" className="lt-nueva-tab lt-accion" onClick=\{\(\) => \{ setMenu\(null\); onNueva\(\); \}\}>/);
+  // La sangría llega por variable: el texto de la primera tab a la altura del nombre (menos el padding de la tab); en el
+  // teléfono, al borde.
+  assert.match(tabs, /\['--lt-sangria' as string\]: sangria \?\? '0px',/);
+  assert.match(tabs, /\.lt-fila \{ --lt-pad: 11px; padding-left: max\(0px, calc\(var\(--lt-sangria\) - var\(--lt-pad\)\)\); \}/);
+  assert.match(tabs, /@media \(max-width: 720px\) \{ \.lt-fila \{ --lt-pad: 10px; padding-left: 0; \}/);
   const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
   assert.match(ficha, /onNueva=\{puedeGuardar && efectiva\.hojas\.length < TOPE_HOJAS \? abrirNueva : undefined\}/);
   assert.match(ficha, /const puedeGuardar = puede && !!ff\.ficha;/);

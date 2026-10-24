@@ -20,7 +20,7 @@ body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; 
 * { overflow: visible !important; max-height: none !important; }
 [role="dialog"], [data-ficha-ruta] { height: auto !important; width: auto !important; box-shadow: none !important; border: none !important; }
 [style*="sticky"] { position: static !important; }
-.fb-personalizar, .lt-hojas, [aria-label="Más opciones de la ficha"], [aria-label="Cerrar"], .cd-cerrar, .fb-barra, .fb-galeria, .fb-gal-barra { display: none !important; }
+.fb-personalizar, .lt-accion, [aria-label="Más opciones de la ficha"], [aria-label="Cerrar"], .cd-cerrar, .fb-barra, .fb-galeria, .fb-gal-barra { display: none !important; }
 `;
 
 /** Cuánto se espera a las hojas de estilo antes de imprimir igual. */

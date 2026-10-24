@@ -160,12 +160,14 @@ test('la pantalla: la caja de la casa, «Sugerido» sutil, el nombre en el títu
   assert.match(css, /@media \(max-width: 720px\) \{ \.fb-galeria, \.fb-gal-barra \{ display: none; \} \}/, 'en un celular no se personaliza');
   assert.match(css, /\.fb-titular \{[^}]*font-size: clamp\(32px,/);
 
-  // ⚠️ 17/10/2026: el nombre se cambia EN EL TÍTULO (Martín: «el Nombre se cambia en el título mismo»), con el campo de
-  // la casa (`EditableInline`, como el título del Dashboard), y lo cambia quien puede guardar la ficha; ya no hay doble
-  // clic en una pestaña.
+  // ⚠️ 17/10/2026: el nombre se cambia EN EL TÍTULO MISMO (Martín), con el campo de la casa (`EditableInline`), y lo cambia
+  // quien puede guardar la ficha; sin doble clic. Desde el 24/10 (tabs de verdad) el «título» es la tab abierta: un clic
+  // sobre su nombre y se escribe. También desde su menú, «Cambiar nombre».
   const tabs = sinComentarios(leer('app/crm/lead-view/LeadTabs.tsx'));
-  assert.match(tabs, /const editable = !!\(activa\?\.renombrable && onRenombrar\);/);
-  assert.match(tabs, /<EditableInline key=\{activa\.key\} valor=\{activa\.label\}/);
+  assert.match(tabs, /const puedeRenombrar = \(t: LeadTabDef\) => !!\(t\.renombrable && onRenombrar\);/);
+  assert.match(tabs, /\{esActiva && puedeRenombrar\(t\) \? \(/, 'sólo la abierta se renombra en el lugar');
+  assert.match(tabs, /<EditableInline key=\{t\.key\} valor=\{t\.label\}/);
+  assert.match(tabs, /setARenombrar\(deMenu\.key\);/, '«Cambiar nombre» del menú no lleva a editar');
   assert.doesNotMatch(tabs, /onDoubleClick/, 'volvió el doble clic en una pestaña');
   const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
   assert.match(ficha, /label: lugarDe\(efectiva, l\)\.nombre, content: contenidoDe\(l\), renombrable: puedeGuardar/, 'el nombre de la ficha del funnel, y renombrar quien guarda');

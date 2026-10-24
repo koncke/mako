@@ -111,7 +111,9 @@ test('el «⋯»: «Exportar (PDF)» imprime la ficha como se ve, y la guía de 
   assert.match(ficha, /closest<HTMLElement>\('\[data-ficha-ruta\], \[role="dialog"\]'\)/, 'se imprime la ficha, no la página de atrás');
   const imp = leer('app/crm/lead-view/ficha/imprimir-ficha.ts');
   assert.match(imp, /querySelectorAll\('link\[rel="stylesheet"\], style'\)/, 'la copia lleva las hojas de estilo de la página');
-  assert.match(imp, /\.fb-personalizar, \.lt-hojas, \[aria-label="Más opciones de la ficha"\]/, 'los botones no salen en el papel');
+  assert.match(imp, /\.fb-personalizar, \.lt-accion, \[aria-label="Más opciones de la ficha"\]/, 'los botones no salen en el papel');
+  // «Nueva hoja» y el menú de una hoja llevan la clase que el papel esconde.
+  assert.equal([...sinComentarios(leer('app/crm/lead-view/LeadTabs.tsx')).matchAll(/className="lt-(?:tab-mas|nueva-tab) lt-accion"/g)].length, 2);
   // Cada paso de la guía apunta a algo que la pantalla marca.
   const pantalla = ['app/crm/lead-view/ficha/FichaPorBloques.tsx', 'app/crm/lead-view/LeadTabs.tsx', 'app/crm/lead-view/ficha/Armador.tsx'].map(leer).join('\n');
   for (const p of PASOS_FICHA_EDICION) assert.ok(pantalla.includes(`data-recorrido="${p.objetivo}"`) || pantalla.includes(`'${p.objetivo}'`), `el paso «${p.titulo}» no tiene a qué apuntar (${p.objetivo})`);

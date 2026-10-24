@@ -20,6 +20,40 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Las hojas de la ficha: tres pedidos sobre la misma fila, y el problema era de JERARQUÍA (24/10/2026, noche)
+
+**Vive en:** app/crm/lead-view/LeadTabs.tsx · el desplegable del funnel, app/crm/lead-view/ProductoDelLead.tsx (`seccionesDelArbol`
+en arbol-funnels.ts) · tests: crm-llamada-22-10-p1 (C7), ficha-hojas, ficha-galeria, ficha-pantallas, ficha-editar-con-mako,
+crm-ficha-de-donde-vino (15 de 15 roturas cazadas).
+
+- **La misma fila cambió tres veces en ocho días, por tres pedidos que tenían razón cada uno:**
+  - 16/10: Martín pidió «exactamente el mismo [sistema] que Dashboard y General», o sea un título con desplegable.
+  - 22/10: en la llamada, Mauricio no encontraba «Pagos» adentro del desplegable, y se sumaron las otras hojas como atajos.
+  - 24/10: «Resumen ▾» (19 px, en negrita, con flecha) se leía como el título de la página y las otras cuatro como links
+    sueltos. Martín: «no creo que sea el mejor diseño ese, mira como lo hacen otras apps».
+
+  La copia fiel del Dashboard trasladó una jerarquía que en el Dashboard sirve (ahí la hoja ES el título de la página) a una
+  ficha donde el título es el nombre del lead. **Regla:** las hojas de una ficha son TABS del mismo rango, como en Stripe,
+  HubSpot y Notion. Lo que hacía el desplegable va donde no deforma a la primera:
+  - «＋ Nueva hoja» al final de la fila;
+  - el menú de cada tab: clic derecho, o la flechita de la abierta al pasar el cursor;
+  - el nombre se cambia con un clic sobre la tab abierta (el «en el título mismo» del 17/10, sin doble clic).
+- **En el teléfono, antes sólo quedaba el desplegable**, y la fila arrancaba a la sangría del nombre: se veían dos tabs y
+  media. Ahora la fila arranca al borde y se desplaza de costado con un fundido. La abierta se trae a la vista a mano, con
+  `scrollLeft`: `scrollIntoView` también movería la página para arriba o abajo.
+- **Una flecha invisible igual ocupa lugar.** La primera versión dejaba un hueco entre la abierta y la siguiente: la flecha
+  estaba en `opacity: 0`, pero en el flujo. Va superpuesta (`position: absolute`) al borde de la tab.
+- **«También en» se fue sin perder nada.** Martín pidió sacarlo (venía del C8 de la llamada con Mauricio del 22/10). Lo que
+  decía (en qué otro funnel está el lead y en qué etapa) ya lo lista el desplegable del funnel: cada funnel con su etapa, y
+  «No está» donde no está. El test de C8 ahora prueba eso.
+- **Las capturas sin levantar la app:** una maqueta que monta la fila REAL (la vieja, sacada de git, y la nueva) debajo de un
+  dibujo aproximado de la cabecera, con los tokens de `globals.css`, empaquetada con esbuild y fotografiada con Chrome
+  headless y mudo. ⚠️ **Chrome headless no achica la ventana a 390 px:** la página se dibuja más ancha y sale cortada a la
+  derecha, en el antes también. Para el teléfono va adentro de un iframe de 390 px. La maqueta quedó en el scratchpad de
+  la sesión, no en el repo.
+
+*24/10/2026, chat «CRM» (claude1).*
+
 ## «Completar» en lote desde el tablero, y los que ya están no se vuelven a cargar (24/10/2026, tarde)
 
 **Vive en:** `completarFichas` y `completarPerfiles` (los núcleos, app/crm/grupo-wa-server.ts) · app/crm/enriquecer-lote-server.ts
