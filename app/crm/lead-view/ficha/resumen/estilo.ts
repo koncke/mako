@@ -153,6 +153,41 @@ button.fr-chip { font: inherit; font-size: 13.5px; font-weight: 600; cursor: poi
 .fr--epico .fr-chip { min-height: 40px; font-size: 15px; padding: 0 16px; }
 .fr--epico .fr-tarjeta dd { font-size: clamp(18px, .8vw + 13px, 26px); }
 
+/* El bloque «Automatizaciones» (23/10/2026, ./automatizaciones.tsx): una tarjeta por automatización, el chip de su
+   estado, lo próximo, lo que ya salió con un punto de color y, arriba, lo que no entró (ámbar). */
+.fr-aut-lista { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fr-aut { display: flex; flex-direction: column; gap: 6px; }
+.fr-aut-nombre { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fr-aut-chip { flex: none; margin-left: auto; display: inline-flex; align-items: center; min-height: 22px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.fr-aut-chip--mako { background: color-mix(in srgb, var(--mako) 16%, transparent); color: var(--mako); }
+.fr-aut-chip--ok { background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good); }
+.fr-aut-chip--gris { background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--dim); }
+.fr-aut-chip--mal { background: color-mix(in srgb, var(--bad) 12%, transparent); color: var(--bad); }
+.fr-aut-proximo { font-size: 13.5px; color: var(--ink); line-height: 1.45; }
+.fr-aut-proximo--frenado { color: var(--warn); }
+.fr-aut-acciones { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.fr-aut-envios { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fr-aut-envio { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--dim); line-height: 1.45; min-width: 0; overflow-wrap: anywhere; }
+.fr-aut-envio strong { color: var(--ink); font-weight: 600; }
+.fr-aut-punto { flex: none; width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: var(--faint); }
+.fr-aut-envio--ok .fr-aut-punto { background: var(--good); }
+.fr-aut-envio--mal { color: var(--bad); }
+.fr-aut-envio--mal .fr-aut-punto { background: var(--bad); }
+.fr-aut-envio--proximo { color: var(--ink); }
+.fr-aut-envio--proximo .fr-aut-punto { background: transparent; border: 2px solid var(--mako); width: 6px; height: 6px; }
+.fr-aut-tiempo { display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.fr-aut-tiempo:last-of-type { border-bottom: none; }
+.fr-aut-noentro { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 28%, transparent); font-size: 13.5px; color: var(--ink); }
+.fr-aut-noentro-fila { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; justify-content: space-between; }
+.fr-aut-mal { color: var(--bad); }
+.fr--epico .fr-aut-proximo { font-size: 16px; }
+.fr--epico .fr-aut-nombre { font-size: 17px; }
+@media (max-width: 720px) {
+  .fr-aut-acciones { justify-content: stretch; }
+  .fr-aut-acciones > * { flex: 1 1 auto; }
+}
+.fb-pagina[data-dispositivo="movil"] .fr-aut-acciones > * { flex: 1 1 auto; }
+
 /* El celular: lo de a dos baja a uno, y las acciones de una fila no se apilan. */
 /* En el celular (y en la vista «Celular» de «Personalizar»), el rótulo de una fila va ARRIBA del valor, como la lista
    de propiedades de Attio en el teléfono: a 390 px el rótulo a la izquierda dejaba el teléfono cortado al lado de sus

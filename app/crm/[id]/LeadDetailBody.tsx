@@ -44,6 +44,7 @@ import { ALTO_CHAT_EN_LA_RUTA } from '../lead-view/ficha-medidas';
 import { StageMoveDialog, type MoveLeadInfo } from '../StageMoveDialog';
 import { MoverEtapaConfirm } from '../MoverEtapaConfirm';
 import { pideWizardAlElegir } from '../mover-etapa';
+import { loQueSePide } from '@/lib/datos-aviso';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 
 const SANS = "'Geist', sans-serif";
@@ -91,7 +92,7 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
   // derivaba al formulario de edición — que ya no existe. El wizard es el ÚNICO que
   // marca los datos del worklist (`completeStageMoveAction`), así que no hay una
   // segunda escritura que reemplazar: lo que se saca es la bifurcación.
-  const [moveTo, setMoveTo] = useState<string | null>(initialSolucionar && faltantes.length > 0 ? currentStage : null);
+  const [moveTo, setMoveTo] = useState<string | null>(initialSolucionar && loQueSePide(faltantes, datos?.avisar).length > 0 ? currentStage : null);
   const [moverDirecto, setMoverDirecto] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [delErr, setDelErr] = useState<string | null>(null);
@@ -230,7 +231,7 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
           move={{ to: moveTo }}
           titulo={moveTo === currentStage ? 'Completar datos' : undefined}
           completarDatos={moveTo === currentStage}
-          faltantes={moveTo === currentStage ? faltantes : undefined}
+          faltantes={moveTo === currentStage ? loQueSePide(faltantes, datos?.avisar) : undefined}
           equipo={equipo}
           onClose={() => { setMoveTo(null); if (initialSolucionar) router.replace(pathname); }}
           onDone={() => { setMoveTo(null); if (initialSolucionar) router.replace(pathname); router.refresh(); }}

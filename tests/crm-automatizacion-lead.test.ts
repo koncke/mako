@@ -85,8 +85,11 @@ test('la barra de lote frena a los tildados que están en una automatización; l
   assert.match(lote, /const r = await frenarLeadsEnAutomatizacionesAction\(idsEnAut\);/, 'el lote frena a quien no está en ninguna');
   assert.match(lote, /\{idsEnAut\.length > 0 && \(\s*<button type="button" className="mk-icon-btn" data-tone="bad" data-frenar-lote/);
   assert.match(lote, /frenar: \(\) => \{ if \(idsEnAut\.length\) setPide\(\{ tipo: 'frenar' \}\); \},/);
-  const ficha = sinComentarios(leer('app/crm/lead-view/ficha/resumen/charla.tsx'));
-  assert.match(ficha, /<Button variant="tertiary" size="sm" onClick=\{\(\) => \{ setResultado\(null\); setFrenar\(a\); \}\}>Frenar<\/Button>/);
-  assert.match(ficha, /const q = await frenarEnAutomatizacionAction\(ctx\.lead\.id, frenar\.secuenciaId\);/);
-  assert.match(ficha, /\{a\.paso \? `Paso \$\{a\.paso\.numero\}: \$\{a\.paso\.titulo\}` : lineaDeAutomatizacion\(a\)\}/, 'la ficha no dice en qué paso está');
+  // ⚠️ REESCRITO EL 23/10/2026: el bloque se mudó de ./charla.tsx a ./automatizaciones.tsx (Martín: «un bloque... relacionado a
+  //    las automatizaciones... para tener más claridad de lo que pasa»), y lee y frena por ./automatizaciones-datos.ts.
+  const ficha = sinComentarios(leer('app/crm/lead-view/ficha/resumen/automatizaciones.tsx'));
+  assert.match(ficha, /<Button variant="tertiary" size="sm" onClick=\{\(\) => \{ setResultado\(null\); setAccion\(\{ tipo: 'frenar', aut: a \}\); \}\}>Frenar<\/Button>/);
+  assert.match(ficha, /\? await frenarDelBloque\(ctx\.lead\.id, accion\.aut\.secuenciaId\)/);
+  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/resumen/automatizaciones-datos.ts')), /return frenarEnAutomatizacionAction\(leadId, secuenciaId\);/);
+  assert.match(ficha, /\{lineaDelPaso\(a\) && <span className="fr-sub">\{lineaDelPaso\(a\)\}<\/span>\}/, 'la ficha no dice en qué paso está');
 });

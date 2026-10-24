@@ -133,7 +133,8 @@ test('⚠️ no se duplica: quien ya tiene fila de la secuencia no se vuelve a i
   const alta = funcion(src, 'async function aInscribir(');
   assert.match(alta, /const pendientes = candidatos\.filter\(\(id\) => !conFila\.has\(id\)\);/);
   const evento = funcion(src, 'export async function enrolarPorEvento(');
-  assert.match(evento, /if \(previa\) \{\n\s*const r = reusables\.get\(previa\.id\);\n\s*if \(!r\) continue;/);
+  // 23/10/2026: sin reusar, antes de seguir de largo dice por qué (sólo a una persona: tests/no-volvio-a-entrar.test.ts).
+  assert.match(evento, /if \(previa\) \{\n\s*const r = reusables\.get\(previa\.id\);\n\s*if \(!r\) \{\n\s*if \(ctx\?\.persona\) noVolvio\.push\([^\n]*\n\s*continue;\n\s*\}/);
 });
 
 test('el cierre de la entrega lleva la etapa NUEVA', () => {

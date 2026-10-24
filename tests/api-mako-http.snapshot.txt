@@ -95,6 +95,7 @@ catalogo_metricas_experimento
 cerrar_comentarios_post_comunidad
 cerrar_experimento
 cerrar_objetivo
+cerrar_paso_onboarding
 cerrar_tareas_plan
 cobertura_datos_retro
 cobertura_guiones_anuncio
@@ -384,6 +385,7 @@ marcar_asistencia_reunion
 marcar_avisos_leidos_comunidad
 marcar_calificado
 marcar_pago_cobrado
+marcar_paso_onboarding_tab
 marcar_reunion_manual
 medicion_experimento
 medir_fuente_kpi

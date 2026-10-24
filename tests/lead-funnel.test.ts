@@ -94,7 +94,7 @@ test('⚠️ agregar y mover en otro producto no tocan la casa: ni setPipelineSt
   // (`enrolarAgregado`, con la regla del barrido: `agregadoEntraPorEvento`, tests/automations-por-que-no-sale.test.ts).
   // Una de «Todos los productos» sigue sin agarrarlo: el evento va marcado `agregado: true`. Por un solo lugar.
   assert.equal((LIB.match(/enrolarPorEvento\(/g) ?? []).length, 1, 'el agregado se inscribe por un solo lugar');
-  assert.match(cuerpoDe('async function enrolarAgregado('), /enrolarPorEvento\(leadId, 'etapa', \{ etapa, funnelId, agregado: true, \.\.\.\(o\?\.enLote \? \{ sinViaRapida: true \} : \{\}\) \}\)/);
+  assert.match(cuerpoDe('async function enrolarAgregado('), /enrolarPorEvento\(leadId, 'etapa', \{\s*etapa, funnelId, agregado: true, \.\.\.\(o\?\.enLote \? \{ sinViaRapida: true \} : \{\}\),/);
   for (const f of ['export async function agregarLoteAProducto(', 'export async function quitarLoteDeProducto(']) {
     assert.doesNotMatch(cuerpoDe(f), /enrolarAgregado|enrolarPorEvento/, `${f}: el lote no dispara (lo levanta el barrido)`);
   }

@@ -71,24 +71,27 @@ const sinReunion = tabsQueVe({ verTracking: true, verReuniones: false });
 // Re-medido ROMPIÉNDOLO (17/10/2026, base 8/0): `origen` fuera de PIEZA_DE_BLOQUE → 4 / 4 («Llegó por» sigue en el
 // formulario, el carrito, «Completa» y el escenario de Tracking, así que la rotura se sigue cazando).
 //
+// ⚠️ 23/10/2026: «Automatizaciones» vuelve a las de entrada del Resumen, arriba (Martín: «un bloque... relacionado a las
+// automatizaciones... para tener más claridad de lo que pasa»), y en el teléfono es una fila (`filaDeAutomatizaciones`),
+// que se calla si el lead no está en ninguna. Va después de la siguiente acción en todas.
 // El Resumen «Antes de la llamada» (las dos de llamada), destilado: los highlights arriba, después la reunión y el equipo.
-const RESUMEN_LLAMADA: PiezaFicha[] = ['siguiente', 'calificado', 'en-etapa', 'ingreso', 'proxima', 'equipo', 'contacto', 'contesto', 'redes', 'motivo', 'plazo', 'notas'];
+const RESUMEN_LLAMADA: PiezaFicha[] = ['siguiente', 'automatizaciones', 'calificado', 'en-etapa', 'ingreso', 'proxima', 'equipo', 'contacto', 'contesto', 'redes', 'motivo', 'plazo', 'notas'];
 const ESPERADO: Record<PlantillaId, { ve: readonly TabFicha[]; piezas: PiezaFicha[] }> = {
   // «Completa»: todo lo que el Resumen sabe dibujar. Reuniones: lo que salió de la llamada.
-  'respaldo': { ve: conReunion, piezas: ['siguiente', 'calificado', 'en-etapa', 'ingreso', 'proxima', 'equipo', 'contacto', 'redes', 'contesto', 'llego-por', 'pagina', 'motivo', 'plazo', 'notas', 'llamada'] },
+  'respaldo': { ve: conReunion, piezas: ['siguiente', 'automatizaciones', 'calificado', 'en-etapa', 'ingreso', 'proxima', 'equipo', 'contacto', 'redes', 'contesto', 'llego-por', 'pagina', 'motivo', 'plazo', 'notas', 'llamada'] },
   // Donde el Resumen trae `cobrado`, el estado de cuenta ('saldo') va en su lugar (la tab Pagos en bloques).
   'dos-reuniones': { ve: conReunion, piezas: [...RESUMEN_LLAMADA, 'llamada'] },
   'una-llamada': { ve: conReunion, piezas: [...RESUMEN_LLAMADA, 'llamada'] },
   // Reuniones: reunion-1 y ciclo-de-venta, sin «lo que salió de la llamada».
-  'evento': { ve: conReunion, piezas: ['siguiente', 'proxima', 'en-etapa', 'saldo', 'contacto', 'equipo', 'redes', 'ingreso', 'motivo', 'plazo', 'notas'] },
+  'evento': { ve: conReunion, piezas: ['siguiente', 'automatizaciones', 'proxima', 'en-etapa', 'saldo', 'contacto', 'equipo', 'redes', 'ingreso', 'motivo', 'plazo', 'notas'] },
   // La próxima reunión va abajo: «se calla salvo que reserve por Cal.com» (§4).
-  'formulario-meta': { ve: sinReunion, piezas: ['siguiente', 'calificado', 'en-etapa', 'ingreso', 'contesto', 'contacto', 'redes', 'llego-por', 'equipo', 'proxima', 'motivo', 'plazo', 'notas'] },
-  'landing': { ve: sinReunion, piezas: ['siguiente', 'calificado', 'en-etapa', 'ingreso', 'contacto', 'redes', 'contesto', 'pagina', 'proxima', 'motivo', 'plazo', 'notas'] },
+  'formulario-meta': { ve: sinReunion, piezas: ['siguiente', 'automatizaciones', 'calificado', 'en-etapa', 'ingreso', 'contesto', 'contacto', 'redes', 'llego-por', 'equipo', 'proxima', 'motivo', 'plazo', 'notas'] },
+  'landing': { ve: sinReunion, piezas: ['siguiente', 'automatizaciones', 'calificado', 'en-etapa', 'ingreso', 'contacto', 'redes', 'contesto', 'pagina', 'proxima', 'motivo', 'plazo', 'notas'] },
   // La charla va arriba en escritorio; en el teléfono es el botón WhatsApp (fijo), no una pieza. Cómo entró, sí.
-  'te-escriben': { ve: sinReunion, piezas: ['siguiente', 'entrada', 'contacto', 'redes', 'equipo', 'en-etapa', 'ingreso', 'motivo', 'plazo', 'notas'] },
-  'prospeccion': { ve: sinReunion, piezas: ['siguiente', 'contacto', 'redes', 'en-etapa', 'ingreso', 'equipo', 'motivo', 'plazo', 'notas'] },
+  'te-escriben': { ve: sinReunion, piezas: ['siguiente', 'automatizaciones', 'entrada', 'contacto', 'redes', 'equipo', 'en-etapa', 'ingreso', 'motivo', 'plazo', 'notas'] },
+  'prospeccion': { ve: sinReunion, piezas: ['siguiente', 'automatizaciones', 'contacto', 'redes', 'en-etapa', 'ingreso', 'equipo', 'motivo', 'plazo', 'notas'] },
   // Si compró: el estado de cuenta arriba, antes del contacto.
-  'carrito': { ve: sinReunion, piezas: ['siguiente', 'saldo', 'contacto', 'llego-por', 'contesto', 'redes', 'ingreso', 'motivo', 'plazo', 'notas'] },
+  'carrito': { ve: sinReunion, piezas: ['siguiente', 'automatizaciones', 'saldo', 'contacto', 'llego-por', 'contesto', 'redes', 'ingreso', 'motivo', 'plazo', 'notas'] },
 };
 
 test('con cada plantilla, el teléfono ve los bloques que tienen versión de teléfono, en su orden', () => {
