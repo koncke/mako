@@ -85,6 +85,10 @@ const CANAL: Record<string, string> = {
   // 23/10/2026 (chat «CRM»): «Unificar» dos fichas muda la charla de Instagram de la que se va a la que queda
   // (`ig_conversaciones.lead_id`). No habla con Zernio ni manda nada: sólo cambia de quién es la charla.
   'lib/leads-unificar-reglas.ts': 'al unir dos fichas, la charla de Instagram pasa a la que queda (`TABLAS_QUE_SE_MUDAN`)',
+  // 23/10/2026, decisión de Martín: «vamos por Zernio directo… que cada usuario traiga su API de Zernio» para
+  // publicar y editar anuncios (lo único que la app en desarrollo del cliente no deja: el 1885183). NO es el canal
+  // de Instagram: usa la clave del NEGOCIO (nunca la de la plataforma para un cliente) y la API de anuncios.
+  'lib/zernio-ads.ts': 'publicar y editar anuncios de Meta por la Zernio del negocio (docs/hallazgos-ads.md, «Publicar por Zernio»)',
   'lib/workspace.ts': 'TENANT_TABLES',
   'lib/tablas-de-inquilino.ts': 'las tablas de un inquilino',
 };

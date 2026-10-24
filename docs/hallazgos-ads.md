@@ -4481,7 +4481,7 @@ La pregunta: cómo operan los clientes con Meta (anuncios, leads, páginas, mens
   - Nango, Paragon, Pipedream, Composio: usan NUESTRA app, el mismo cuello de botella.
   - n8n: exige que cada cliente tenga su propia app activa y verificada.
   - La conexión de CRM nativa de Meta: MaKo no aparece hasta que se apruebe `leads_retrieval`.
-  - Unified.to: sin precio público ni dueño de la app conocido.
+  - Unified.to: pide la app propia para producción y cuesta US$750 o más por mes (corregido el 23/10: decía «sin precio público»).
 - **Lo que falta del lado de MaKo:** la SEGUNDA tanda de App Review (`ads_management`, `ads_read`,
   `business_management`), que no se envió. Pedir el acceso completo abre la verificación de MaKo como proveedor de
   tecnología (unos 5 días), y subir de nivel exige 500 llamadas en 15 días con menos de 15% de error, que se pueden ir
@@ -4527,3 +4527,53 @@ válidos y sin vencimiento.
 
 **Vive en:** lib/metodo-catalogo.ts (`SERVICIOS_METODO` → meta → `tutorial`) · lib/meta-leads.ts (la consulta
 periódica) · lib/meta-publicar-errores.ts · tests/meta-tutorial-app-propia.test.ts
+
+## Publicar y editar por Zernio, con la Zernio de cada negocio (23/10/2026)
+
+Decisión de Martín (23/10): «Vamos por Zernio directo… que cada usuario traiga su API de Zernio», para lo único que no
+anda: «publicar o editar campañas». Investigación del Cerebro (6 agentes, contra fuentes oficiales) + lo medido acá.
+
+- **La causa, precisa (y el diagnóstico obvio era el equivocado: «no podemos publicar NI editar»).** Con el token de la
+  app propia del cliente (casi siempre en desarrollo) Meta deja crear campañas y conjuntos y deja borrarlos. Lo único que
+  rechaza es un anuncio con creativo NUEVO (`object_story_spec`, lib/meta-ads-create.ts): el post nace de ESA app → 1885183.
+  Cambiar textos o creativo de un anuncio vivo crea otro creativo (`updateAdCopy`) y choca igual. Pausar, presupuesto,
+  renombrar y borrar van por lib/meta-write.ts con el token del cliente y no crean posts: **probablemente andan, NO está
+  medido** (hace falta una edición inocua y reversible en la cuenta de un cliente con app en desarrollo que lo autorice;
+  la de MaKo no sirve, su token del botón no tiene permisos de anuncios). «Usar un ganador» (`object_story_id`) pasa hoy.
+- **El «(revertido)» anterior a c5a5c9331 (07/10) no probaba nada** (la respuesta del DELETE no se leía). Medido hoy en
+  Meta con el token de ws13: las 14 campañas de los intentos del 11-17/09 existen como **DELETED** y sus conjuntos
+  también. El rollback sí había borrado: no hay huérfanos en `act_1357728489423123`.
+- **Zernio, según su doc** (docs.zernio.com/platforms/meta-ads, /ad-campaigns/create-standalone-ad, /ad-campaigns/update-ad,
+  /ad-accounts/list-ad-accounts, leídas el 23/10): `POST /v1/ads/create` crea campaña + conjunto + anuncio con creativo
+  nuevo, o UN anuncio dentro de un conjunto que ya existe (`adSetId`, hereda presupuesto y público; `bidStrategy` ahí da
+  400); `PUT /v1/ads/{adId}` con `creative` cambia textos o media de un anuncio vivo (crea un creativo nuevo, como Meta;
+  acepta el id de Meta o el de Zernio); formularios por `POST /v1/ads/lead-forms`. Scopes: `ads_management`, `ads_read`,
+  `leads_retrieval`, `pages_manage_ads`, `instagram_basic`. El cliente conecta una vez con el OAuth de Zernio
+  (`GET /v1/connect/facebook/ads?loginMode=business`, crea una conexión `metaads`): **la ventana dice «Zernio» y no usa
+  el token que el cliente pegó**. Una imagen va por URL (`imageUrl`): no documenta recibir el `image_hash` de Meta. El
+  error trae el de Meta en `platformError` (con `error_subcode`).
+- **Precio:** por cuenta conectada, y **la cuenta publicitaria cuenta aparte** de la página y de Instagram (2 gratis,
+  US$6 de la 3 a la 10, US$3 de la 11 a la 100); anuncios gratis hasta 500 activos, sin porcentaje del gasto.
+- **Sin verificar:** que la app de Meta de Zernio esté activa con `ads_management` AVANZADO lo dice sólo Zernio («No Meta
+  App Review»); la cita «approved Meta Marketing Partner» que trajo una búsqueda NO está en su página. **Lo decide una
+  prueba real, en pausa** (el `validate_only` de Meta no ve el 1885183): scripts/prueba-zernio-anuncio.mts, sobre la
+  cuenta de MaKo, con el OAuth que hace Martín botón por botón. Hasta entonces `ZERNIO_ANUNCIOS_PROBADO = false`.
+- **Lo construido:** Zernio SÓLO para lo que falla. `crearAnuncioEnConjunto` (lib/meta-ads-create.ts) manda a Zernio el
+  anuncio con creativo nuevo si el negocio tiene su conexión de anuncios de Zernio (forma `adSetId`, en pausa); la
+  campaña y el conjunto siguen por Meta. `updateAdCopy` cambia textos por Zernio con esa conexión. Si Zernio no contesta,
+  se publica por Meta como antes (lo que se cae es sólo publicar). **La clave es la del negocio** (`credDelCliente`;
+  la de la plataforma sólo en el negocio de la plataforma): lib/zernio-ads.ts, lib/zernio-ads-cuerpo.ts. Un rechazo que
+  vuelve por Zernio nombra a Zernio y conserva el subcode de Meta.
+- **Descartes:** Pipeboard (US$99-199 por mes, modelo agencia, «for the Customer's exclusive use»), AdManage (£999,99 por
+  10 cuentas; la API sólo en planes caros), Adspirer (sin precio ni app conocida), Composio y Nango (usan la app propia),
+  **Unified.to (SÍ publica precio: US$750 o más por mes; la entrada «Meta mientras se aprueba» decía que no), y también
+  pide la app propia**, Ayrshare (sólo impulsa posts), Metricool y Madgicx (no crean anuncios desde afuera).
+
+**Sin hacer:** la prueba (espera el OK y el clic de Martín); con la prueba pasada, prender `ZERNIO_ANUNCIOS_PROBADO` y
+que el modal ofrezca «Conectar Zernio para publicar» sin salir de la tab, con el link de `urlConectarAnunciosZernio`;
+medir editar (pausa, presupuesto, nombre) en una cuenta de cliente con app en desarrollo; mandar el mail a Zernio
+(C:/dev/cerebro-herramientas/mail-zernio-borrador.md, lo decide Martín).
+
+**Vive en:** lib/zernio-ads.ts · lib/zernio-ads-cuerpo.ts · lib/meta-ads-create.ts (`crearAnuncioEnConjunto`,
+`updateAdCopy`) · app/api/ads-manager/campaign-create/route.ts · scripts/prueba-zernio-anuncio.mts ·
+tests/zernio-anuncios.test.ts
