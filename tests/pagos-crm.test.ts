@@ -184,7 +184,8 @@ test('los bloques de plata de Pagos dibujan y escriben el trato del CRM que se m
   const bloques = sinComentarios(leer('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'));
   assert.match(bloques, /quitarCuotaAction\(lead\.id, q\.id, crm\)/);
   assert.match(bloques, /bajaDelClienteAction\(lead\.id, deshacer, crm\)/);
-  assert.match(bloques, /ajustarPlanAction\(l\.id, cambiado, ctx\.crm\?\.id \?\? null\)/);
+  // El plan uniforme ya no se arma desde la ficha (24/10/2026, el modelo simple del 03/07): se agrega una cuota por vez,
+  // con el CRM que se mira (`agregarCuotaAction`, abajo).
   assert.match(bloques, /guardarVentaAction\(lead\.id, c, \{ tipoVisto: tipo, crm \}\)/);
   const cobrar = sinComentarios(leer('app/crm/lead-view/ficha/pagos/cobrar.tsx'));
   assert.match(cobrar, /agregarCuotaAction\(ctx\.lead\.id, \{ monto: m, fecha \}, ctx\.crm\?\.id \?\? null\)/);

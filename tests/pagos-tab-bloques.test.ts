@@ -156,9 +156,10 @@ test('cada función de plata del relevamiento sigue en un bloque, con la MISMA a
   assert.match(COBRO, /\{r\.accion === 'marcar' && <Button[^\n]*onClick=\{\(\) => cobrar\.marcar\(q\)\}>Marcar pagada<\/Button>\}/);
   assert.match(COBRO, /\{r\.accion === 'deshacer' && <Button[^\n]*onClick=\{\(\) => cobrar\.desmarcar\(q\)\}>Deshacer<\/Button>\}/);
   assert.match(COBRO, /\{q\.pagado && q\.comprobante_path && <Button[^\n]*cobrar\.verComprobante\(q\)/);
-  // Editar una cuota POR ID, armar el plan sin ganar el lead, y quitar o agregar UNA sin tocar las otras.
+  // Editar una cuota POR ID, y quitar o agregar UNA sin tocar las otras. Desde el 24/10/2026 la ficha no arma el plan
+  // uniforme (el modelo de cuotas simple del 03/07: una cuota por vez, con su monto y su fecha); el server sigue.
   assert.match(COBRO, /editarCuotaAction\(lead\.id, q\.id, cambio\)/);
-  assert.match(COBRO, /await ajustarPlanAction\(l\.id, cambiado, ctx\.crm\?\.id \?\? null\)/);
+  assert.doesNotMatch(COBRO, /ajustarPlanAction\(/, 'la ficha volvió a armar el plan uniforme');
   assert.match(COBRAR, /await agregarCuotaAction\(ctx\.lead\.id, \{ monto: m, fecha \}, ctx\.crm\?\.id \?\? null\)/);
   assert.match(COBRO, /await quitarCuotaAction\(lead\.id, q\.id, crm\)/);
   // Cobrar con link, la lista de cobros con lo del admin, y el link de UNA cuota.
@@ -242,8 +243,8 @@ test('quitar o agregar UNA cuota no reescribe las otras, y quitar pide confirmac
 });
 
 test('el plan manda SÓLO lo que se cambió, y su Deshacer devuelve cada cuota con su número', async () => {
-  assert.match(COBRO, /const \[antes\] = useState<PlanUniforme>\(\(\) => \(\{/, 'el plan de antes, congelado al abrir');
-  assert.match(COBRO, /const cambiado = Object\.fromEntries\(\(Object\.keys\(nuevo\) as Array<keyof PlanUniforme>\)\.filter\(\(k\) => \(nuevo\[k\] \?\? null\) !== \(antes\[k\] \?\? null\)\)/);
+  // El formulario de la ficha que mandaba sólo lo cambiado (`ArmarPlan`) se fue el 24/10/2026 (el modelo simple del 03/07).
+  // Lo que queda es del server: el ajuste parcial y su Deshacer, que siguen sirviendo a la API de MaKo.
   assert.match(fuente('app/crm/[id]/pagos-campo-actions.ts'), /deshacer: \{ cuotas: antes\.map\(\(q\) => \(\{ id: q\.id, numero: q\.numero, monto:/);
   const { reconciliarCuotas } = await import('../lib/pagos-campo');
   // El inicial (número 0) que un ajuste borró vuelve como inicial, no como «Cuota 3».

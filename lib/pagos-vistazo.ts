@@ -201,6 +201,28 @@ export type RenglonCuota = {
 
 const DE_PASARELA = (q: Pick<CuotaParaCobrado, 'proveedor'>): Pasarela | null => (esPasarela(q.proveedor) ? q.proveedor : null);
 
+/**
+ * El aviso del bloque de las cuotas cuando el plan NO suma la venta. Pedido de Martín del 03/07/2026 (la ficha v5, el modelo
+ * de cuotas simple): «error si Σcuotas ≠ monto de cierre». La cuenta es la de `cobradoDelLead` (`cuadra`), la misma que la
+ * API de MaKo (`no_cuadra`): la pantalla no suma cuotas por su cuenta (AGENTS.md).
+ *   · Lo DEVUELTO no es lo que falta (como en `estadoDeCuenta`): una cuota devuelta sale de las cuotas y la venta sigue.
+ *   · Con todo lo vivo cobrado, lo que falta ya lo dice el estado de cuenta («Faltan $X», con «Agregar la cuota»): acá no
+ *     se repite.
+ *   · Un cliente que se dio de baja no tiene «faltante»: lo que no pagó dejó de ser deuda.
+ * `faltaUsd` es lo que precarga «Agregar la cuota»; si sobra, no hay cuota que agregar.
+ */
+export function avisoDelPlan(e: { cobrado: Cobrado; pagos: readonly CuotaDelLead[] }): { texto: string; faltaUsd: number | null } | null {
+  const c = e.cobrado;
+  if (!c.cuadra || c.cuadra.cuadra || c.baja) return null;
+  const suma = redondo(c.cobradoUsd + c.pendienteUsd);
+  const venta = redondo(suma - c.cuadra.diferenciaUsd);
+  if (c.cuadra.diferenciaUsd > 0.5) return { texto: `Las cuotas suman ${usd(suma)} y la venta es de ${usd(venta)}: sobran ${usd(c.cuadra.diferenciaUsd)}.`, faltaUsd: null };
+  const devuelto = redondo(e.pagos.filter((q) => esCuotaDevuelta(q)).reduce((s, q) => s + num(q.monto_usd), 0));
+  const falta = redondo(-c.cuadra.diferenciaUsd - devuelto);
+  if (falta <= 0.5 || c.pendienteUsd <= 0) return null;
+  return { texto: `Las cuotas suman ${usd(suma)} y la venta es de ${usd(venta)}: faltan ${usd(falta)} sin cuota.`, faltaUsd: falta };
+}
+
 /** Cómo se lee una cuota y qué botón lleva. */
 export function renglonDeCuota(q: CuotaDelLead & { concepto?: string | null; metodo?: string | null }, hoy: string): RenglonCuota {
   const nombre = q.concepto?.trim() || nombreCuota(q.numero);

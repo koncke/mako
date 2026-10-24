@@ -144,7 +144,7 @@ export function useCobrar(ctx: CtxFicha) {
     verComprobante: (q: Pago) => setAbierto({ que: 'comprobante', cuota: q }),
     registrarPago: () => setAbierto({ que: 'registrar', modo: 'pago', sugeridoUsd: null }),
     registrarMes: () => setAbierto({ que: 'registrar', modo: 'mensualidad', sugeridoUsd: lead.suscripcion_monto_usd ?? null }),
-    agregarCuota: () => setAbierto({ que: 'agregar', faltaUsd: null }),
+    agregarCuota: (faltaUsd: number | null = null) => setAbierto({ que: 'agregar', faltaUsd }),
     desmarcar,
     hayPasarela: pasarelas.length > 0,
     modales: <>{modal}<Toast state={toast} onClose={clear} /></>,

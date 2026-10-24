@@ -96,6 +96,17 @@ el MRR un 85% (hallazgos-crm.md).
   (`saldoDelTelefono`) y la API de MaKo (`cobranza_lead`) usan las mismas tres funciones. Una cuarta cuenta es la que
   vuelve a decir «Pagado por completo» de una mensualidad.
 - **Un bloque se calla sin deal, SALVO que se esté pidiendo su dato.** Ver la trampa de abajo.
+- **Las cuotas, de a una (24/10/2026). En la ficha no hay plan uniforme.** El 16/10 la tab quedó con «Armar el plan»
+  (cobro inicial + N cuotas iguales + día de pago). Es justo el modo que Martín había pedido sacar el 03/07: «Modelo de
+  cuotas simple EN TODOS LADOS… "Monto primera cuota" + "+ Agregar cuota" (cada una monto+fecha) + error si Σcuotas ≠
+  monto de cierre».
+  - Ahora: cada cuota se agrega con su monto y su fecha, y se edita en su renglón.
+  - Si las cuotas no suman la venta, el bloque lo dice («faltan $X sin cuota» / «sobran $X», `avisoDelPlan` en
+    lib/pagos-vistazo.ts, con la cuenta de `cobradoDelLead`). «+ Agregar una cuota» precarga lo que falta.
+  - Con todo lo vivo cobrado no se repite: ahí lo dice el estado de cuenta.
+  - **No volver a poner el formulario uniforme en la ficha.** `ajustarPlanAction` y la API (`guardar_plan_pagos`) siguen:
+    la API los usa, y el cobro por etapa tiene su propio plan por producto.
+  - Lo fija tests/pagos-cuotas-no-suman.test.ts.
 
 ## 3 · Trampas
 
