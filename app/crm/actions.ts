@@ -60,7 +60,7 @@ import {
   enriquecerLead,
   valorDelHistorial,
 } from '@/lib/leads';
-import { camposPisados, esDeshacerReciente } from '@/lib/historial-pisado';
+import { camposPisados } from '@/lib/historial-pisado';
 import {
   fotoDe, fotoDeCuotas, firmarDeshacer, leerDeshacer, planDeshacer,
   type DatosDeshacer, type FotoCuota, type FotoLead, type MarcasDeCobranza, type TokenDeshacer,
@@ -2986,8 +2986,7 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
  * escribe 3 filas a la vez; revertir solo "Etapa" dejaba el monto en null y el
  * estado desincronizado. Acá se restauran TODOS los campos del movimiento en una
  * sola pasada, respetando las invariantes (estado y monto van en el mismo
- * updateLead para que "cerro=true ⇒ monto" no se pise). Dentro del plazo del «Deshacer» no deja rastro; pasado el
- * plazo («Restaurar») queda auditado, con su autor.
+ * updateLead para que "cerro=true ⇒ monto" no se pise). Queda auditado.
  */
 export async function revertMoveAction(leadId: number, createdAt: string): Promise<void | { error: string }> {
   await exigirSesion();
@@ -3080,16 +3079,8 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
     if (error) throw new Error(error.message);
   }
 
-  // ⚠️ «DESHACER» NO DEJA RASTRO, «RESTAURAR» SÍ (Martín, 03/07/2026, la ficha v5: «Deshacer» con tiempo límite y sin dejar
-  // rastro; pasado el límite, «Restaurar», que sí queda en el historial). Hasta el 24/10/2026 los dos borraban la línea, y una
-  // vuelta de días después desaparecía sin que nadie supiera quién la hizo. Lo decide el server con el MISMO plazo con que el
-  // botón elige su nombre (`esDeshacerReciente`): pasado el plazo, la vuelta es un cambio más, con su autor, y la línea vieja
-  // queda. Va ANTES de alinear `etapa_vista`: alineada primero, `logLeadChanges` ya no vería el cambio de etapa.
-  const deshacerSinRastro = esDeshacerReciente(createdAt, Date.now());
-  if (!deshacerSinRastro) await logLeadChanges(leadId, actual, await getLead(leadId).catch(() => null), await autorActual());
-
   // 4) La MEMORIA del historial (`etapa_vista`) también vuelve atrás.
-  //    En el DESHACER no pasamos por logLeadChanges (que la mueve solo) porque este camino
+  //    Acá no pasamos por logLeadChanges (que la mueve solo) porque este camino
   //    escribe con setBoardStageOverride/updateLead, que no auditan. Sin esto, la
   //    columna quedaba apuntando a la etapa post-movimiento y la próxima pasada de
   //    registrarEtapasDerivadas (cada carga de /crm o /general) veía
@@ -3105,14 +3096,13 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
     console.error('[revert] alinear etapa_vista falló:', e);
   }
 
-  // El DESHACER no deja un cambio nuevo: se borra el rastro de ESTE movimiento del historial (un cambio deshecho a los
-  // minutos no es historia). El RESTAURAR, no: su línea ya se escribió arriba y la vieja se queda.
-  if (deshacerSinRastro) {
-    try {
-      const { error } = await (await getTenantDb()).from('lead_audit').delete().eq('lead_id', leadId).eq('created_at', createdAt);
-      if (error) console.error('[revert] borrar rastro del historial falló:', error.message);
-    } catch { /* si falla, el revert igual se aplicó */ }
-  }
+  // El deshacer/restaurar NO deja un cambio nuevo: se borra el rastro de ESTE
+  // movimiento del historial (un cambio deshecho no es historia — se restaura el
+  // estado previo y la acción desaparece).
+  try {
+    const { error } = await (await getTenantDb()).from('lead_audit').delete().eq('lead_id', leadId).eq('created_at', createdAt);
+    if (error) console.error('[revert] borrar rastro del historial falló:', error.message);
+  } catch { /* si falla, el revert igual se aplicó */ }
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/crm');
   revalidatePath(`/crm/${leadId}`);

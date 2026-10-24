@@ -2944,8 +2944,10 @@ compartida con el webhook.
 
 ### Deshacer no es historia
 
-**Decisión (04/07 y 05/07).** "Deshacer" tiene **límite de tiempo** y **no deja rastro**; pasado
-ese límite la acción se llama "Restaurar" y **esa sí queda** en el historial. El Status solo se
+**Decisión (04/07 y 05/07).** "Deshacer" tiene **límite de tiempo**; pasado ese límite la acción se
+llama "Restaurar". **Ninguno de los dos deja una línea nueva** y los dos borran la del cambio que
+revierten. El 03/07 Martín había pedido que "Restaurar" sí se auditara; el 05/07 lo dio vuelta (la
+cita de abajo, que es la que manda). El Status solo se
 puede deshacer **de a un estado por vez** — *"si quiero regresar muy atrás, tengo que ir de a 1.
 Pero es mucho mejor así"*. Y **siempre pide confirmación**.
 
@@ -2960,6 +2962,13 @@ para poder testearla. Cubre también el grupo sin fila `'Etapa'`: revertir `'Asi
 etapa **derivada**.
 
 **Vive en:** `app/crm/actions.ts` (`revertMoveAction`) · `lib/etapa-historial.ts`
+
+⚠️ **La trampa (24/10/2026).** La memoria `ficha-lead-v5-pedido` (03/07) dice "Restaurar sí se
+audita", y `docs/feedback-diseno-pendiente.md` la copió como pedido "a medias". Siguiendo esa fila, el
+24/10 se hizo que "Restaurar" anotara la vuelta con su autor, y se deshizo el mismo día: contradecía
+el 05/07. El porqué de Martín: deshacer es **corregirse**, no un hecho del lead. Si cada corrección
+de quien carga queda escrita, el historial se llena de ruido y nadie lo lee. Una fila "a medias"
+sacada de un pedido viejo se contrasta con este documento ANTES de tocar código.
 
 ### El revert de MaKo guarda tus intenciones, no el estado del lead
 

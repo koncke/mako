@@ -15,19 +15,6 @@
 // otra regla, la de sólo deshacer el ÚLTIMO cambio de estado (revertMoveAction, `STATUS`).
 // =============================================================================
 
-/**
- * Cuánto dura el «Deshacer» de una línea del historial. Pasado esto el botón dice «Restaurar», y la vuelta QUEDA anotada en
- * el historial (Martín, 03/07/2026: «Deshacer» con tiempo límite y sin dejar rastro; pasado el límite, «Restaurar», que sí
- * queda). El botón (app/crm/lead-view/AuditHistory.tsx) y el server (`revertMoveAction`) miran el MISMO plazo.
- */
-export const PLAZO_DESHACER_MS = 10 * 60_000;
-
-/** ¿La línea escrita en `createdAt` todavía se DESHACE (sin rastro)? Si no, se RESTAURA y queda en el historial. */
-export function esDeshacerReciente(createdAt: string, ahora: number): boolean {
-  const t = new Date(createdAt).getTime();
-  return Number.isFinite(t) && ahora - t < PLAZO_DESHACER_MS;
-}
-
 /** La línea de la etapa: su valor se calcula, no se guarda en una columna (lib/etapa-historial.ts). */
 export const CAMPO_ETAPA_HISTORIAL = 'Etapa';
 
