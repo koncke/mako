@@ -40,6 +40,8 @@ import {
   type ColumnaKanban, type ResultadoMover, type TarjetaKanban,
 } from '@/app/m/_ui';
 import { buscarLeadsAction, deshacerMoverAction, moverEtapaAction } from './acciones';
+import { BotonFlotanteM, HuecoFlotanteM } from '@/app/m/_ui/BotonFlotanteM';
+import { NewLeadForm } from '@/app/crm/new/NewLeadForm';
 import { MIN_BUSQUEDA, type FilaLeadM } from './reglas';
 import { linkInstagram } from '@/app/crm/campo-inline';
 import { CaraTarjeta, CuerpoFichaRapida, EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
@@ -58,6 +60,12 @@ const urlFunnel = (id: number | null) => (id == null ? '/m/crm' : `/m/crm?funnel
 
 export function TableroCrm({ datos }: { datos: TableroCrmM }) {
   const [buscar, setBuscar] = useState(false);
+  /**
+   * «＋ NUEVO LEAD» EN EL TELÉFONO (pedido del 17/10, «rediseña el CRM copiando apps que lo hacen bien»; 24/10/2026). Pipedrive y
+   * HubSpot lo tienen como botón flotante. Abre una hoja con el MISMO alta del escritorio (el teléfono destila el escritorio,
+   * no lo reescribe), en el funnel que se mira, y al crear abre la ficha del teléfono.
+   */
+  const [alta, setAlta] = useState(false);
   const [elegirFunnel, setElegirFunnel] = useState(false);
   // La ficha rápida (17/10/2026, la familia del prototipo): tocar una tarjeta la abre; «Abrir ficha» lleva a la completa.
   const [rapida, setRapida] = useState<TableroCrmM['tarjetas'][number] | null>(null);
@@ -156,7 +164,20 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
           }}
           onMover={mover}
         />
+        {/* El aire para que el botón flotante no tape la última tarjeta. */}
+        <HuecoFlotanteM />
       </div>
+      <BotonFlotanteM etiqueta="Nuevo lead" onClick={() => setAlta(true)} />
+      <SheetM id="nuevo-lead" abierto={alta} onCerrar={() => setAlta(false)} titulo="Nuevo lead" snap="alto">
+        {alta && (
+          <NewLeadForm enModal={{
+            funnelId: datos.funnelId,
+            onCreado: (id) => { setAlta(false); router.push(ficha(id)); },
+            // Ya estaba en otro funnel y se lo sumó a éste: también se abre su ficha (el «Deshacer» es del escritorio).
+            onAgregado: (id) => { setAlta(false); router.push(ficha(id)); },
+          }} />
+        )}
+      </SheetM>
 
       <SheetM id="info" abierto={!!r} onCerrar={() => setRapida(null)} titulo="Ver info" snap="medio">
         {r && (
