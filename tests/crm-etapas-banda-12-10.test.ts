@@ -113,7 +113,8 @@ test('la pantalla: el arrastre cambia de lista y de tipo, el «+» entre etapas,
   // El «+» entre dos etapas, antes de Ganado y entre las nutriciones.
   // Desde el 22/10/2026 el «+» marca además la etapa que se está creando («Creando…» en su lugar: tests/crm-llamada-22-10-p1.test.ts).
   assert.match(md, /onCrear=\{\(label\) => \{ setCreando\(\{ label, despuesDe: etapas\[i - 1\]\.key \}\); aplicar\(\{ op: 'agregar', label, despuesDe: etapas\[i - 1\]\.key \}\); \}\}/);
-  assert.match(md, /onCrear=\{\(label\) => aplicar\(\{ op: 'agregar', label, nutricionEn: i \}\)\}/);
+  // Desde el 24/10/2026, también el de la banda (tests/crm-creando-todos-los-mas.test.ts).
+  assert.match(md, /onCrear=\{\(label\) => \{ setCreando\(\{ label, despuesDe: null, nutricionEn: i \}\); aplicar\(\{ op: 'agregar', label, nutricionEn: i \}\); \}\}/);
   // La nutrición propia se quita como una etapa; la derivada, apagando lo que llega a ella.
   assert.match(md, /tacho\(e, \(\) => \(e\.marcadaComo === 'nutricion' \? quitarEtapa\(e\) : quitarNutricion\(e\)\)\)/);
   // El «+ Agregar» del alto de las tarjetas.

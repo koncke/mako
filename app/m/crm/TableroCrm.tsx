@@ -34,7 +34,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
-import { IconoMenu } from '@/app/_ui/iconos-menu';
 import {
   CabeceraM, ErrorM, FilaM, KanbanM, ListaM, SheetM, SkeletonFilas, VacioM, useConexion,
   type ColumnaKanban, type ResultadoMover, type TarjetaKanban,
@@ -204,17 +203,19 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
 
       <SheetM id="funnel" abierto={elegirFunnel} onCerrar={() => setElegirFunnel(false)} titulo="Funnel" snap="medio">
         <ListaM etiqueta="Funnels">
-          {datos.funnels.map((f) => {
+          {/* ⚠️ SIN TILDE Y EL ACTUAL PRIMERO (29/09/2026, el mismo pedido que el desplegable del escritorio en
+              app/crm/CrmToolbar.tsx): «No pongas un check. Solo haz que sea más notorio que estamos parados en ese
+              producto», y «el producto que estoy parado debería estar primero». El actual se nota en el título. */}
+          {[...datos.funnels.filter((f) => f.id === datos.funnelId), ...datos.funnels.filter((f) => f.id !== datos.funnelId)].map((f) => {
             const es = f.id === datos.funnelId;
             return (
               <FilaM
                 key={f.id ?? 'negocio'}
-                titulo={f.nombre}
+                titulo={es ? <span className="m-crm-funnel-actual">{f.nombre}</span> : f.nombre}
                 navegacion
                 // Cerrarla por código (replaceState) y navegar en el mismo tick es seguro: ver SheetM.
                 onClick={() => { setElegirFunnel(false); if (!es) router.push(urlFunnel(f.id)); }}
                 chevron={false}
-                riel={es ? <span className="m-crm-check"><IconoMenu nombre="check" size={20} /></span> : undefined}
                 etiqueta={es ? `${f.nombre}, elegido` : f.nombre}
               />
             );
