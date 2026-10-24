@@ -538,3 +538,24 @@ export function sacarLink(antes: string, ahora: string): string | null {
 export function linkEscrito(pedido: string): string | null {
   return urlDeBusqueda(sinCierre(pedido.trim()));
 }
+
+/**
+ * La landing que abre `/web-generator` sin nada en la URL (24/10/2026, Martín: «Ese "panel" principal, solo sale si un usuario
+ * no ha creado nunca ninguna landing»): la última tocada, sin las de la papelera. null = no tiene ninguna (sale el Panel).
+ */
+export function landingMasReciente(docs: readonly LandingResumen[]): LandingResumen | null {
+  let mejor: LandingResumen | null = null;
+  for (const d of docs) if (!d.papelera && (!mejor || d.actualizado > mejor.actualizado)) mejor = d;
+  return mejor;
+}
+
+/** El Panel con el cuadro de crear: `?panel=1` hace que `/web-generator` no salte a la última landing. */
+export const RUTA_NUEVA_LANDING = '/web-generator?panel=1';
+
+/** Las que se muestran: sin la papelera, la más tocada primero, filtradas por lo que se busca. */
+export function landingsDeLaLista(docs: readonly LandingResumen[], busca: string): LandingResumen[] {
+  const q = busca.trim().toLowerCase();
+  return docs
+    .filter((d) => !d.papelera && (!q || (d.titulo || '').toLowerCase().includes(q)))
+    .sort((a, b) => (a.actualizado < b.actualizado ? 1 : a.actualizado > b.actualizado ? -1 : 0));
+}

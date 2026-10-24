@@ -342,7 +342,9 @@ test('la derecha: la caja de crear por default, el Diagnóstico montado AHÍ (co
   // el `onAnalizada` → 1 fallo; agregando sin comparar (`[{ url, … }, ...l]` siempre) → 1 fallo.
   assert.match(src, /setAnalizadas\(\(l\) => \(l\.some\(\(a\) => clave\(a\.url\) === clave\(url\)\) \? l : \[\{ url, veredicto: null, score: null \}, \.\.\.l\]\)\);/);
   assert.match(src, /const cerrarDiagnostico = useCallback\(\(\) => setDerecha\(\{ tipo: 'crear' \}\), \[\]\);/, 'onCerrar de identidad fija');
-  assert.match(src, /const s = queryDeDerecha\(window\.location\.search, derecha\);\s*if \(s !== window\.location\.search\) window\.history\.replaceState\(/);
+  // Sin nada que escribir, `?panel=1` (24/10/2026): `/web-generator` pelado abre la última landing, y un F5 sobre el Panel
+  // tiene que seguir en el Panel.
+  assert.match(src, /const s = queryDeDerecha\(window\.location\.search, derecha\) \|\| '\?panel=1';\s*if \(s !== window\.location\.search\) window\.history\.replaceState\(/);
   assert.match(src, /const \[derecha, setDerecha\] = useState<Derecha>\(props\.derechaInicial\);/);
   // El Diagnóstico sin landing es el cuadro en Analizar (tanda 7: era `AnalizarUnaPagina`); el «Ir a» con una
   // dirección ofrece analizarla por `analizarUrl`, que abre NUESTRO documento si la URL es nuestra.

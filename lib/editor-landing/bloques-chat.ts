@@ -85,7 +85,7 @@ export function bloqueListaLandings(items: readonly { d: LandingParaBloque; url:
     titulo: total === 1 ? 'Tu landing' : `Tus landings (${total})`,
     landings,
     total: Math.max(total, landings.length),
-    abrir: { titulo: 'Ver todas en el Web Generator', href: '/web-generator' },
+    abrir: { titulo: 'Ver todas en el Web Generator', href: '/web-generator?panel=1' },
   };
 }
 

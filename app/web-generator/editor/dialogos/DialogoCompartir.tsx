@@ -92,6 +92,9 @@ function DialogoCompartirAbierto({ onCerrar }: { onCerrar?: () => void }) {
       pie={(
         <>
           <button type="button" className="gmp-btn gmp-btn-fantasma" onClick={() => setDialogo('analitica')}><Icono nombre="grafico" tam={15} />Ver análisis</button>
+          {/* Exportar vive acá también (24/10/2026, Martín: «"Compartir y exportar" podrían ser el mismo botón»): como en Gamma
+              (Share → Export) y Canva (Compartir → Descargar). El ⋯ lo sigue teniendo. */}
+          <button type="button" className="gmp-btn gmp-btn-fantasma" onClick={() => setDialogo('exportar')}><Icono nombre="descargar" tam={15} />Exportar…</button>
           <span style={{ flex: 1 }} />
           <button type="button" className="gmp-btn gmp-btn-primario" onClick={cerrar}>Listo</button>
         </>

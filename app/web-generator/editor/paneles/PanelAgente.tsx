@@ -913,16 +913,22 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
     >
       <EstilosPanelesB />
       <style href="gma-agente" precedence="medium">{CSS_AGENTE}</style>
-      {/* EL PANEL ÚNICO (./ChatAgente.tsx → PanelDeChat, 23/10/2026): la cabecera con la estrella de MaKo, la casa del Panel antes
-          y el cerrar al final; el arrastrar y soltar es del panel (lo adjuntado de la caja). */}
+      {/* EL PANEL ÚNICO (./ChatAgente.tsx → PanelDeChat, 23/10/2026): la cabecera con la estrella de MaKo, la «←» a la lista
+          antes y el cerrar al final; el arrastrar y soltar es del panel (lo adjuntado de la caja).
+          ⚠️ La cabecera dice «MaKo», no el título de la landing (24/10/2026, Martín: «2 veces el titulo, no tiene sentido»):
+          el título vive en la barra. Y la «←» va a la LISTA de la misma tarjeta sin navegar («que no me redirija, que solo
+          se vaya para atras la sidebar del chat, tal cual como en Automations»): era una casa que llevaba al Panel. */}
       <PanelAgenteChat hilo={hiloRef} adjuntos={adj}
         cabecera={{
-          clave: `agente:${titulo}`, titulo: titulo || 'Sin título', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: hilo.corriendo ? 'trabajando' : 'despierto',
-          antes: <Link href="/web-generator" className="gma-ag-casa" title="Ir al Panel" aria-label="Ir al Panel"><Ico n="casa" t={13} /></Link>,
+          clave: `agente:${docId}`, titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: hilo.corriendo ? 'trabajando' : 'despierto',
+          antes: <button type="button" className="gma-pb-iconbtn gma-ag-volver" onClick={() => setPanelIzq('landings')} title="Ver tus landings" aria-label="Ver tus landings">←</button>,
           acciones: (
-            <button type="button" className="gma-pb-iconbtn" style={{ marginLeft: 'auto' }} onClick={() => (onCerrar ? onCerrar() : setPanelIzq(null))} title="Cerrar el panel" aria-label="Cerrar el panel">
-              <Ico n="chevron-doble-izquierda" t={16} />
-            </button>
+            <>
+              <span className="gma-ag-estado">{hilo.corriendo ? 'escribiendo…' : 'en línea'}</span>
+              <button type="button" className="gma-pb-iconbtn" style={{ marginLeft: 'auto' }} onClick={() => (onCerrar ? onCerrar() : setPanelIzq(null))} title="Cerrar el panel" aria-label="Cerrar el panel">
+                <Ico n="chevron-doble-izquierda" t={16} />
+              </button>
+            </>
           ),
         }}
         caja={<div className="gma-ag-pie">
