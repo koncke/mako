@@ -4496,3 +4496,19 @@ agencia a `aside[data-sidebar]` (es de esta área; hay que mirar antes qué otro
 
 **Vive en:** app/crm/TraerDeOtroProducto.tsx · app/_ui/Modal.tsx (`.mk-modal__cuerpo` en app/_ui/ui.css) · tests/crm-traer-23-10.test.ts
 *23/10/2026, chat «CRM» (claude3).*
+
+## Una captura «de teléfono» con `--window-size=390` miente: el Edge sin ventana tiene un ancho mínimo (24/10/2026)
+
+**El síntoma:** las fotos del arnés de Chats a 390 × 844 salían con las burbujas cortadas a la derecha y el botón del
+micrófono afuera de la pantalla. Parecía que la caja del teléfono no entraba (justo lo que Martín había reportado el 17/10:
+«el chat en mobile se ve muy chico por los botones»).
+
+**La causa:** el Edge (y el Chrome) sin ventana tiene un ancho MÍNIMO de ventana, cerca de 500 px. Con `--window-size=390`
+dibuja una página de ~500 px y la foto recorta 390: ni las media queries ni el `pointer: coarse` son los de un teléfono. El
+diagnóstico obvio (la caja se desborda) era el equivocado.
+
+**La regla:** una foto de teléfono va por CDP con la emulación de dispositivo, como DevTools:
+`Emulation.setDeviceMetricsOverride { width: 390, height: 844, deviceScaleFactor: 2, mobile: true }`, el táctil
+(`setTouchEmulationEnabled`) y un user agent de Android. El paquete `ws` del repo alcanza para hablar CDP; no hace falta
+Puppeteer. Y `Emulation.setFocusEmulationEnabled`: sin foco en la página, un `focus()` no dispara el evento (lo que la caja
+mira para ofrecer «Pegar la captura»). Medida así, la caja del teléfono entra entera en una fila.

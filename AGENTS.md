@@ -5626,6 +5626,13 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
   guardia.** Y al mudar algo de una sesión a un cron, la pregunta que falta casi siempre es a dónde
   va la SALIDA: el informe que leía una persona en su terminal no lo lee nadie. El caso, en
   [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «Un vigía atado a una sesión de Claude».
+  **Lo mismo en la PC (24/10/2026, el segundo caso en 24 horas):** el cartero del Ops Center estuvo 15 horas muerto porque
+  lo disparaba el chat «Runner» y la PC se apagó; el pedido de Martín del 17/10 esperó una semana en «escrito». Lo que vive
+  en la PC y tiene que correr siempre arranca con el SISTEMA (la clave Run, como `mako-pc`), y un chat hace sólo lo que
+  únicamente un chat puede hacer (escribirle a otra sesión). **Y el silencio de algo se mide desde OTRO lado:** una PC
+  trabada no avisa que se trabó, así que la ausencia la dice el servidor con «la última vez que llegó algo» (`visto_at`),
+  en rojo y con lo que espera, nunca en un renglón gris. El diseño, en
+  [docs/diseno-cartero-servicio.md](docs/diseno-cartero-servicio.md).
 - **Un GET no escribe** (el de `chat-agent/onboarding/resumen` desarchivaba automatizaciones con un link).
 - **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated` Y su `grant execute … to service_role`** (el de una
   función de trigger no hace falta), en su migración: **no es redundante.** La 0280 creía dejar las nuevas cerradas y NO lo hacía: el
