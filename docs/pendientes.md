@@ -1,3 +1,53 @@
+# Lo que quedó pendiente — capa del 24/10/2026 (la más nueva)
+
+<sub>Abajo sigue la foto del 17/10, que no se tocó. **Esta capa es la que vale hoy**: lo de abajo puede estar hecho.
+Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](feedback-24-10.md).</sub>
+
+**`main` = `59d228ea1`, verificado en producción el 24/10 ~23:00 ART.**
+
+## Trabado esperando a Martín (nadie puede avanzar sin esto)
+
+| # | Qué | Por qué traba |
+|---|---|---|
+| M1 | **La sesión de MaKo en el navegador de la app** (`Ctrl+Shift+B` → «Continuar con Google») | **Tres chats parados.** Sin sesión no se verifica nada en pantalla y el login es suyo |
+| M2 | **El QR del WhatsApp de MaKo** en `/whatsapp?ws=9` | Muerto desde el 19/10; es la línea de venta |
+| M3 | **Aplicar a Paddle y a Creem** el mismo día | Sin pasarela no hay cobro en línea. **Stripe no es opción: Argentina no es país habilitado** |
+| M4 | **Apagar el registro abierto de Supabase** | Decisión A ya tomada; el clic es suyo |
+| M5 | **Mauricio:** el redirect del Payment Link con `{CHECKOUT_SESSION_ID}` | Su página de venta ya está restaurada; falta eso |
+
+## Sin hacer, con dueño
+
+| # | Qué | Dónde vive | Origen |
+|---|---|---|---|
+| P1 | **Quitar «Cliente de Diseño»**, que comparte píxel, token de Meta y token de Calendly con Mauricio | Integraciones | 20 puntos, #6 |
+| P2 | **Ejecutar los 6 pedidos trabados** en vez de pedirle que los reenvíe | Cerebro | 20 puntos, #7 |
+| P3 | **Login en el navegador de la app + app de escritorio con todas las tabs + Mac y Linux** | Instalador | 20 puntos, #10 |
+| P4 | **El contenido de cada sección de Settings** (Perfil, Seguridad, Notificaciones) | Ops Center | 20 puntos, #9 (a medias) |
+| P5 | **El clic derecho en los 11 chats embebidos y en el lienzo del editor.** Es UNA pieza (`HiloMako`), no once: relevo escrito, sin implementar | Landings | editor web, #2 |
+| P6 | **Sacar los datos personales de `vsl_events.landing_url`** (`?name=`/`?email=` en claro) y avisarle a la agencia de Código Inmobiliario | Ventas (apagado) | 6 puntos, #2 |
+| P7 | **El cartero como servicio de escritorio** | `docs/diseno-cartero-servicio.md` | 20 puntos, #16 |
+| P8 | **El recolector del Second Brain** | `docs/diseno-second-brain-recolector.md` | 20 puntos, #17 |
+| P9 | **Cambiar `pruebaDeProduccion`** de `avisar-arreglo-al-grupo.mts` para que verifique sirviendo | `docs/hallazgos-infra.md` | cosecha 24/10 |
+| P10 | **Limpiar las 63 negritas rotas** de `docs/hallazgos.md` (daño del resolvedor viejo) | — | cosecha 24/10 |
+| P11 | **Verificar que el aviso de «cuenta de anuncios frenada por falta de pago»** llegue al grupo | Avisos | 20 puntos, #4 |
+
+## Sin verificar en pantalla (está en producción, nadie lo miró)
+
+- La **barra única del editor web a 1280** (es la de más riesgo: entra título, guardado, Compartir, Publicar y ⋯)
+- El **«Creando…»** de los «+» del editor de etapas (se prueba en el **Cliente de Prueba**, nunca en un cliente real)
+- El **selector de funnel del teléfono**
+- Las **dos columnas** del desplegable de etapas de la ficha
+- Que el **403 esté arreglado desde la app desplegada** (se midió que el bloqueo es por UA y no por IP, pero no se
+  probó desde los rangos de Vercel)
+
+## Rojos en `main` sin dueño
+
+- `tests/vuelo-mako.test.ts` — `app/automations/ChatMako.tsx` perdió la criatura al unificar los chats (`d85c86611`)
+- `tests/dashboard-pedidos-chat.test.ts:129` — `PanelEditarMako`
+- `tests/paso-ia.test.ts:135` — `lib/nutricion.ts`, la guarda `if (!lead?.telefono)`
+
+---
+
 # Lo que quedó pendiente (17/10/2026 noche)
 
 Inventario de TODO lo pendiente de las implementaciones de MaKo, pedido por Martín el 17/10. La foto de la mañana (296 puntos, commit 5e77ecebb)
