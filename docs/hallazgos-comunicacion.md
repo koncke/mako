@@ -10939,3 +10939,24 @@ tests/chats-mas-simple.test.ts, probado rompiéndolo con 7 roturas). Lo que no s
   «MaKo — qué escribir» (app/whatsapp/WhatsAppAdvisor.tsx) no está en Chats; el botón «MaKo» de la caja sugiere.
 - /agencia sigue con su página entera (el panel del canal y el chat de grupos, ChatGruposPanel): ya no está en la barra y sus
   grupos están en Chats; queda para sus links.
+
+## Una alerta con el techo agotado se calla aunque el incidente siga abierto días (24/10/2026)
+
+Medido al investigar por qué MaKo no veía el gasto del ws1 (docs/hallazgos-ads.md, misma fecha), con el workflow
+`wf_d253310f-574` y re-medido a mano: `notificaciones` del ws1 de tipo `meta-cuenta-frenada` por día.
+
+**Vive en:** `lib/alerta-critica-texto.ts:47-52` (`vecesDelEstado`) y :60-66 (`marcaTrasEmitir`) · `lib/alerta-critica.ts:210-237`
+· `lib/plantillas-automatizaciones.ts:776` (el nodo `mf_tope` de «Meta Frenó la Cuenta Publicitaria», automatización 261 del ws9)
+
+- **Síntoma:** la cuenta de anuncios de Mauricio está frenada por saldo impago desde el 15/10 a las 08:18 UTC. MaKo abrió el
+  incidente 109 en 1 min 46 s y avisó 26 veces (14 el 15/10, 12 el 16/10). **Desde el 16/10 no avisó NUNCA MÁS**, con el
+  incidente abierto y reevaluándose cada hora.
+- **Causa: es el diseño, no un bug.** El techo de 3 avisos por estado (revisión del 16/10, commit 63be8e666) se compara con
+  la marca heredada: `vecesDelEstado` toma una marca vieja sin `estado` como del mismo estado («el incidente que ya pasó el
+  techo no vuelve a salir»), y esa marca valía 26. La marca se reescribe cada hora sin sumar, así que `ultimaIso` de hoy NO
+  quiere decir que hoy saliera un aviso. **El diagnóstico obvio («avisó y nadie lo leyó») era el equivocado:** dejó de avisar.
+- ⚠️ **Y el ws4 «Cliente de Diseño» comparte la cuenta y el token con el ws1:** tiene su propio incidente (110) y fue el ÚNICO
+  que recibió avisos después del 16/10 (hasta el 17/10). La dedup «una vez por cuenta» marca la cuenta como avisada DESPUÉS de
+  emitir (alerta-critica.ts:237), así que en la misma corrida avisa el otro workspace (plausible, leído en el código).
+- **SIN hacer, decisión de producto de Martín (el Cerebro lo reparte):** si un incidente abierto varios días vuelve a avisar
+  (por ejemplo, una vez por día), y separar la cuenta compartida ws1/ws4.

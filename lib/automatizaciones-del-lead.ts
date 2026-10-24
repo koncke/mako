@@ -58,17 +58,26 @@ export async function detalleDelLead(leadId: number): Promise<AutomatizacionesDe
   const db = await getTenantDb();
   const ws = await getWorkspaceActual();
   const desde = new Date(Date.now() - DIAS_TERMINADAS * 86400_000).toISOString();
-  const [ins, aud, zona] = await Promise.all([
+  const [ins, aud, contesto, lead, zona] = await Promise.all([
     db.from('nutricion_inscripciones')
       .select('id, lead_id, secuencia_id, estado, paso_actual, nodo_actual, proximo_envio_at, inscripto_at, updated_at, desenlace, desenlace_at')
       .eq('lead_id', leadId).order('id', { ascending: false }).limit(100),
     db.from('lead_audit').select('valor_nuevo, autor, created_at')
       .eq('lead_id', leadId).eq('campo', 'Automatización').like('valor_nuevo', 'No volvió a entrar a «%')
       .order('created_at', { ascending: false }).limit(TOPE_NO_ENTRO * 3),
+    // Cuándo contestó (24/10/2026): la línea que escribe el motor al cortar por «Contestó» (`leerContesto`).
+    db.from('lead_audit').select('valor_nuevo, autor, created_at')
+      .eq('lead_id', leadId).eq('campo', 'Automatización').like('valor_nuevo', 'Contestó en «%')
+      .order('created_at', { ascending: false }).limit(30),
+    // Su nombre, para citar los mensajes como le llegaron («Hola Victor…», no «Hola {{nombre}}…»).
+    db.from('leads').select('nombre').eq('id', leadId).maybeSingle(),
     ws == null ? Promise.resolve('UTC') : zonaDelNegocio(ws).catch(() => 'UTC'),
   ]);
   if (ins.error) throw new Error(`el detalle del lead (inscripciones): ${ins.error.message}`);
   if (aud.error) throw new Error(`el detalle del lead (historial): ${aud.error.message}`);
+  // Lo que adorna (cuándo contestó, el nombre en la cita) no tumba el bloque: sin eso, dice lo de antes.
+  if (contesto.error) console.error(`[automatizaciones-del-lead] cuándo contestó (lead ${leadId}): ${contesto.error.message}`);
+  if (lead.error) console.error(`[automatizaciones-del-lead] el nombre del lead ${leadId}: ${lead.error.message}`);
   const filas = (ins.data ?? []) as FilaInscripcionDetalle[];
   const secIds = [...new Set(filas.map((f) => Number(f.secuencia_id)))];
   if (!secIds.length) return { zona, inscripciones: [], noEntro: [] };
@@ -88,8 +97,10 @@ export async function detalleDelLead(leadId: number): Promise<AutomatizacionesDe
   } as Parameters<typeof reentradaDeSecuencia>[0])] as const));
   return detalleDe({
     zona, filas, secs: automatizaciones, reentradaDe: (id) => reentradas.get(id) ?? 'una_vez',
-    envios: (envs.data ?? []) as FilaEnvioDetalle[], audit: (aud.data ?? []) as FilaAuditDetalle[],
+    envios: (envs.data ?? []) as FilaEnvioDetalle[],
+    audit: [...((aud.data ?? []) as FilaAuditDetalle[]), ...((contesto.data ?? []) as FilaAuditDetalle[])],
     frenoDe: await frenosDelNegocio(filas, automatizaciones), ahoraMs: Date.now(),
+    nombreDelLead: ((lead.data as { nombre?: string | null } | null)?.nombre ?? null),
   });
 }
 

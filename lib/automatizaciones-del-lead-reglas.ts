@@ -4,7 +4,7 @@
 // La lectura y la escritura viven en lib/automatizaciones-del-lead.ts (server-only); acá lo que se arma con lo leído.
 // =============================================================================
 import { indiceActual } from './nutricion-grafo-motor';
-import { nombreDeTarjeta } from './flujo-conversacion';
+import { nombreDeTarjeta, esMako, etiquetaDeAccion } from './flujo-conversacion';
 import { idDe, claseDe, type PasoGrafo } from './flujo-grafo';
 import type { FrenoDelEnvio } from './por-que-no-sale';
 import { leerNoVolvio, ROTULO_REENTRADA, type NoEntro, type InformeMovimiento, type Reentrada } from './reentrada';
@@ -98,6 +98,66 @@ export function textoDeFrenar(r:
 // HubSpot: las vivas y, debajo, las terminadas de los últimos `DIAS_TERMINADAS` días; y las veces que una persona lo movió
 // a una etapa con automatización y NO entró (leídas del historial: `leerNoVolvio`, la línea que escribe el motor).
 
+/**
+ * UNA TARJETA DEL FLUJO EN PALABRAS DE PERSONA (24/10/2026, Martín: «la tarjeta de Automatizaciones... No es funcional»).
+ * El bloque decía el nombre del lienzo («Paso 5 de 9: CRON», «CONDITION: Llegó hace menos de 3 día…», «WHATSAPP: Hola
+ * {{nombre}}, si no me…»), que es cómo se llama la tarjeta para quien ARMA el flujo, no lo que le pasó al lead. Ahora:
+ *   · un mensaje, por lo que DICE, con el nombre de ESTE lead en vez de `{{nombre}}` («Hola Victor, si no me das tu email…»);
+ *     un email, por su asunto; uno sin texto (un audio, un archivo), «un mensaje»;
+ *   · la tarjeta de MaKo, «Aviso al equipo»; una etiqueta, con su nombre si se conoce; otra acción, «Una acción»;
+ *   · lo que no le llega al lead (una espera, una condición, la entrada), por lo que es, en dos palabras.
+ * `clase` dice si le llega al lead ('mensaje'), si la hace MaKo por detrás de él ('accion') o si es del flujo ('otro').
+ */
+export type PasoEnPalabras = { clase: 'mensaje' | 'accion' | 'otro'; canal: string | null; que: string };
+/** Hasta cuántos caracteres del mensaje se citan. */
+export const LARGO_CITA = 70;
+/** `{{nombre}}` y sus hermanos: lo que el motor reemplaza por el nombre del lead. */
+const VAR_NOMBRE = /\{\{\s*(?:nombre|primer_nombre|first_name)\s*\}\}/gi;
+
+/** El primer nombre, para la cita («Victor Basurto» → «Victor»). */
+export const primerNombre = (n: string | null | undefined): string | null => (n ?? '').trim().split(/\s+/)[0] || null;
+
+/** Un texto del flujo como le llega al lead: con su nombre, sin variables crudas, en una línea y cortado. */
+export function citaDelMensaje(texto: string | null | undefined, nombre: string | null): string {
+  let t = String(texto ?? '').replace(VAR_NOMBRE, nombre ?? '');
+  // Las demás variables no se inventan: se sacan (una cita con «{{link}}» no le dice nada a nadie).
+  // Sin el nombre, «Hola {{nombre}}, ya me…» queda «Hola, ya me…» (el espacio antes de la coma se va).
+  t = t.replace(/\{\{[^}]*\}\}/g, '').replace(/\s+([,.;:!?])/g, '$1').replace(/\s+/g, ' ').trim();
+  return t.length > LARGO_CITA ? `${t.slice(0, LARGO_CITA - 1).trimEnd()}…` : t;
+}
+
+export function pasoEnPalabras(p: PasoGrafo | undefined, nombreDelLead: string | null): PasoEnPalabras {
+  if (!p) return { clase: 'otro', canal: null, que: 'Un paso que ya no está en el flujo' };
+  const c = claseDe(p);
+  const nombre = primerNombre(nombreDelLead);
+  if (c === 'mensaje') {
+    const canal = typeof p.canal === 'string' ? p.canal : 'whatsapp';
+    const texto = canal === 'email' ? (p.asunto || p.cuerpo) : p.cuerpo;
+    const cita = citaDelMensaje(texto, nombre);
+    return { clase: 'mensaje', canal, que: cita ? `«${cita}»` : 'un mensaje' };
+  }
+  if (c === 'accion') {
+    if (esMako(p)) return { clase: 'accion', canal: null, que: 'Aviso al equipo' };
+    const et = etiquetaDeAccion(p);
+    if (et) return { clase: 'accion', canal: null, que: et.operacion === 'sacar_etiqueta_lead' ? 'Le saca una etiqueta' : 'Le pone una etiqueta' };
+    return { clase: 'accion', canal: null, que: 'Una acción' };
+  }
+  if (c === 'esperar') return { clase: 'otro', canal: null, que: 'Una espera' };
+  if (c === 'condicion') return { clase: 'otro', canal: null, que: 'Una condición' };
+  if (c === 'respuesta') return { clase: 'otro', canal: null, que: 'MaKo contesta' };
+  return { clase: 'otro', canal: null, que: 'La entrada' };
+}
+
+/**
+ * CUÁNDO CONTESTÓ (24/10/2026): la línea que escribe el motor al cortar por «Contestó» (`alContestar`, lib/nutricion.ts:
+ * «Contestó en «X»: …»). El estado 'respondio' dice QUE contestó; esto dice CUÁNDO, que es lo que se pregunta quien abre
+ * la ficha. null = no hay línea (contestó antes de esto, o la automatización no usa «Contestó»).
+ */
+export function leerContesto(valor: string | null | undefined): string | null {
+  const m = /^Contestó en «(.+?)»/.exec(String(valor ?? ''));
+  return m ? m[1].trim() : null;
+}
+
 /** Hasta cuántos días atrás se muestran las que ya terminaron. */
 export const DIAS_TERMINADAS = 30;
 /** Cuántos envíos por inscripción, del más nuevo al más viejo. */
@@ -105,7 +165,11 @@ export const TOPE_ENVIOS = 20;
 /** Cuántos «no entró» del historial. */
 export const TOPE_NO_ENTRO = 10;
 
-export type EnvioDelLead = { at: string; paso: { numero: number; titulo: string } | null; canal: string | null; estado: string; error: string | null };
+export type EnvioDelLead = {
+  at: string; paso: { numero: number; titulo: string } | null; canal: string | null; estado: string; error: string | null;
+  /** La tarjeta que salió, en palabras de persona (`pasoEnPalabras`). null = no se pudo ubicar. */
+  que?: PasoEnPalabras | null;
+};
 
 export type InscripcionDelLead = {
   secuenciaId: number;
@@ -119,10 +183,12 @@ export type InscripcionDelLead = {
   reentrada: Reentrada;
   reentradaTexto: string;
   paso: { numero: number; titulo: string; total: number } | null;
-  proximo: { at: string; titulo: string; canal: string | null } | null;
+  proximo: { at: string; titulo: string; canal: string | null; que?: PasoEnPalabras } | null;
   frenado: FrenoDelEnvio | null;
   enviados: EnvioDelLead[];
   puede: { frenar: boolean; empezarDeNuevo: boolean; porQueNo?: string };
+  /** Cuándo contestó en ESTA pasada (la línea del motor, `leerContesto`). null = no se sabe. */
+  contesto?: string | null;
 };
 
 export type AutomatizacionesDelLead = { zona: string; inscripciones: InscripcionDelLead[]; noEntro: NoEntro[] };
@@ -145,8 +211,18 @@ export function detalleDe(o: {
   audit: readonly FilaAuditDetalle[];
   frenoDe?: FrenoDeFila;
   ahoraMs: number;
+  /** El nombre del lead, para citar sus mensajes como le llegaron (`pasoEnPalabras`). */
+  nombreDelLead?: string | null;
 }): AutomatizacionesDelLead {
   const porId = new Map(o.secs.map((s) => [Number(s.id), s]));
+  // Cuándo contestó, por automatización: la línea MÁS NUEVA de cada una (el historial viene sin orden garantizado).
+  const contestoPorNombre = new Map<string, string>();
+  for (const a of o.audit) {
+    const nombre = leerContesto(a.valor_nuevo);
+    if (!nombre) continue;
+    const previa = contestoPorNombre.get(nombre);
+    if (!previa || Date.parse(a.created_at) > Date.parse(previa)) contestoPorNombre.set(nombre, a.created_at);
+  }
   const desde = o.ahoraMs - DIAS_TERMINADAS * 86400_000;
   const inscripciones: InscripcionDelLead[] = [];
   for (const f of o.filas) {
@@ -176,15 +252,24 @@ export function detalleDe(o: {
       desde: f.inscripto_at, termino: !vive && TERMINO[f.estado] && finAt ? { at: finAt, texto: TERMINO[f.estado] } : null,
       reentrada: modo, reentradaTexto: ROTULO_REENTRADA[modo],
       paso: vive && i >= 0 ? { numero: i + 1, titulo: titulo(i), total: pasos.length } : null,
-      proximo: f.estado === 'activa' && f.proximo_envio_at && i >= 0 ? { at: f.proximo_envio_at, titulo: titulo(i), canal } : null,
+      proximo: f.estado === 'activa' && f.proximo_envio_at && i >= 0
+        ? { at: f.proximo_envio_at, titulo: titulo(i), canal, que: pasoEnPalabras(pasos[i], o.nombreDelLead ?? null) } : null,
       frenado: o.frenoDe && f.estado === 'activa' ? o.frenoDe(f, s, canal) : null,
       enviados: o.envios.filter((e) => Number(e.inscripcion_id) === Number(f.id))
         .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, TOPE_ENVIOS)
         .map((e) => {
           const k = e.nodo_id != null ? indicePorNodo.get(e.nodo_id) : undefined;
-          return { at: e.created_at, paso: k != null ? { numero: k + 1, titulo: titulo(k) } : null, canal: e.canal, estado: e.estado, error: e.error?.trim().slice(0, 300) || null };
+          return {
+            at: e.created_at, paso: k != null ? { numero: k + 1, titulo: titulo(k) } : null, canal: e.canal, estado: e.estado,
+            error: e.error?.trim().slice(0, 300) || null, que: k != null ? pasoEnPalabras(pasos[k], o.nombreDelLead ?? null) : null,
+          };
         }),
       puede: { frenar: vive, empezarDeNuevo: usable && reabre, ...(porQueNo ? { porQueNo } : {}) },
+      // Sólo la de esta pasada: una línea de antes de que entrara (otra vez) habla de otra vuelta.
+      contesto: (() => {
+        const at = s.nombre?.trim() ? contestoPorNombre.get(s.nombre.trim()) : undefined;
+        return at && (!f.inscripto_at || Date.parse(at) >= Date.parse(f.inscripto_at)) ? at : null;
+      })(),
     });
   }
   // Las vivas primero; dentro de cada grupo, la más nueva arriba.

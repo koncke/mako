@@ -25,8 +25,8 @@ import Link from '@/app/_ui/Link';
 import { Button } from '@/app/_ui';
 import { Confirm } from '@/app/_ui/Confirm';
 import {
-  chipDeInscripcion, estaViva, lineaDelBloque, lineaDelEnvio, lineaDelPaso, lineaDelProximo, preguntaDeEmpezarDeNuevo,
-  preguntaDeFrenar, vistaVacia, type AutomatizacionesVista, type InscripcionVista,
+  chipDeInscripcion, estaViva, fechaCorta, lineaDelBloque, lineaDelEnvio, lineaDelProximo, preguntaDeEmpezarDeNuevo,
+  preguntaDeFrenar, renglonesDeTarjeta, vistaVacia, type AutomatizacionesVista, type InscripcionVista,
 } from '@/app/crm/automatizacion-lead';
 import { ciudadDeZona } from '@/lib/por-que-no-sale';
 import { useTzWorkspace } from '../../useTzWorkspace';
@@ -35,13 +35,9 @@ import { Bloque } from './piezas';
 import { useLectura } from './lectura';
 import { empezarDeNuevoDelBloque, frenarDelBloque, leerAutomatizacionesDelBloque } from './automatizaciones-datos';
 
-/** «vie 24 oct, 09:12» en la zona del negocio. */
+/** «hoy 18:33», «ayer 16:33», «mañana 09:00» o «vie 24 oct, 09:12», en la zona del negocio (`fechaCorta`). */
 function fechaEn(tz: string): (iso: string) => string {
-  const f = new Intl.DateTimeFormat('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
-  return (iso) => {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? '' : f.format(d).replace(/\./g, '');
-  };
+  return (iso) => fechaCorta(iso, tz, Date.now());
 }
 
 type Accion = { tipo: 'frenar' | 'empezar'; aut: InscripcionVista };
@@ -128,21 +124,37 @@ export function AutomatizacionesDelLead({ ctx, titulo, diseno, epico }: PropsBlo
     return <span className={`fr-aut-chip fr-aut-chip--${c.tono}`}>{c.texto}</span>;
   };
 
-  const enviados = (a: InscripcionVista, abierto: boolean) => a.enviados.length > 0 && (
+  // El historial entero, plegado: lo último ya lo dice el primer renglón, así que sólo con más de un envío.
+  const enviados = (a: InscripcionVista, abierto: boolean) => a.enviados.length > 1 && (
     <details className="fr-plegado" open={abierto || undefined}>
-      <summary>Lo que ya le salió ({a.enviados.length})</summary>
+      <summary>Historial ({a.enviados.length})</summary>
       <ul className="fr-aut-envios">
         {a.enviados.map((e, i) => {
           const l = lineaDelEnvio(e, fecha);
           return (
             <li key={`${e.at}-${i}`} className={`fr-aut-envio fr-aut-envio--${l.tono}`}>
               <span className="fr-aut-punto" aria-hidden />
-              <span>{e.paso && <strong>{e.paso}</strong>}{e.paso ? ' · ' : ''}{l.texto}</span>
+              <span>{!e.que && e.paso && <strong>{e.paso} · </strong>}{l.texto}</span>
             </li>
           );
         })}
       </ul>
     </details>
+  );
+
+  // ── LA TARJETA (24/10/2026, Martín: «está bastante fea... No es funcional, rediseñala bien») ───────────────────────────
+  // El nombre y su estado, y debajo lo que se pregunta quien abre la ficha, sin entrar a la automatización: qué le salió y
+  // cuándo, si contestó, y qué sigue (o por qué no, o cómo terminó). `renglonesDeTarjeta` (app/crm/automatizacion-lead.ts).
+  // Fuera el «Paso 5 de 9: CRON»: el número y el nombre son los del lienzo, no lo que le pasó al lead.
+  const renglones = (a: InscripcionVista) => (
+    <ul className="fr-aut-renglones">
+      {renglonesDeTarjeta(a, fecha).map((r, k) => (
+        <li key={`${r.tipo}-${k}`} className={`fr-aut-renglon fr-aut-renglon--${r.tipo} fr-aut-renglon--${r.tono}`}>
+          <span className="fr-aut-punto" aria-hidden />
+          <span>{r.texto}</span>
+        </li>
+      ))}
+    </ul>
   );
 
   const tarjeta = (a: InscripcionVista) => (
@@ -151,10 +163,7 @@ export function AutomatizacionesDelLead({ ctx, titulo, diseno, epico }: PropsBlo
         <Link href={a.link} className="fr-link fr-aut-nombre">{a.nombre}</Link>
         {chip(a)}
       </div>
-      {lineaDelPaso(a) && <span className="fr-sub">{lineaDelPaso(a)}</span>}
-      <span className={`fr-aut-proximo${a.frenado || !a.automatizacionActiva ? ' fr-aut-proximo--frenado' : ''}`}>{lineaDelProximo(a, fecha)}</span>
-      {a.reentrada === 'una_vez' && estaViva(a) && <span className="fr-sub">Entra una sola vez: moverlo otra vez a su etapa no lo hace empezar de nuevo.</span>}
-      {!estaViva(a) && a.termino?.at && <span className="fr-sub">{fecha(a.termino.at)}</span>}
+      {renglones(a)}
       {enviados(a, epico)}
       {acciones(a)}
     </div>
@@ -189,7 +198,7 @@ export function AutomatizacionesDelLead({ ctx, titulo, diseno, epico }: PropsBlo
                   return (
                     <li key={`${e.at}-${i}`} className={`fr-aut-envio fr-aut-envio--${l.tono}`}>
                       <span className="fr-aut-punto" aria-hidden />
-                      <span>{e.paso && <strong>{e.paso}</strong>}{e.paso ? ' · ' : ''}{l.texto}</span>
+                      <span>{!e.que && e.paso && <strong>{e.paso} · </strong>}{l.texto}</span>
                     </li>
                   );
                 })}

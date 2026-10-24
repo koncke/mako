@@ -4374,8 +4374,9 @@ un crítico que midió en la base y en la cuenta de Stripe del cliente).
   editó un minuto antes del pedido) le pide un formulario que no tiene.
 - **El diagnóstico obvio («la landing de Mauricio vende con Stripe y no se mide») era el equivocado en las dos mitades:**
   multiplicatusresultados.com vende por Calendly (0 links a Stripe; 4.093 visitas, 2.219 plays, 8 reservas y 0 opt-ins
-  en 30 días), y lo que se vende con Stripe es el Sprint, cuya página de venta no está publicada en ningún lado visible.
-  Y por Stripe NUNCA hubo una venta (docs/hallazgos-pagos.md).
+  en 30 días), y lo que se vende con Stripe es el Sprint. Y por Stripe NUNCA hubo una venta (docs/hallazgos-pagos.md).
+  (Esta entrada decía que la página de venta del Sprint «no está publicada en ningún lado visible»: era falso, la de abajo
+  lo corrige.)
 - **`video_ajeno` y `toque_video` no están en `CONOCIDOS`**: son eventos del Pixel vigente desde la v16 y el probador
   los rotula «Evento no reconocido (Pixel desactualizado o modificado)»; 1.731 filas en el ws13 en 30 días.
 - **«Hace clic en tus botones» cuenta el sello del editor:** en el ws1, el 43 % de los 176 clics de 30 días es «Edit with
@@ -4402,3 +4403,34 @@ un crítico que midió en la base y en la cuenta de Stripe del cliente).
   `<stripe-buy-button>` embebido no deja ver el clic (vive en su iframe); (3) la venta por el Stripe propio y su Purchase
   a Meta, y el Schedule doble (docs/hallazgos-pagos.md y docs/hallazgos-ads.md): de otros chats; (4) elegir «Compra» en
   la página de venta del Sprint de Mauricio (`sprint.mauriciobustos.com`, ws1) una vez desplegado: hoy pide elegir.
+
+## La página de venta del Sprint se pisó con la de gracias al pegar el Pixel (24/10/2026)
+
+Medido con el workflow `wf_d253310f-574` (un agente midió y otro lo re-midió por su cuenta), sólo lectura: `curl` sin JS,
+la base, las grabaciones y GETs a Stripe. Lo pidió el Cerebro después de la auditoría del Pixel (la entrada de arriba).
+
+**Vive en:** el hosting de Mauricio (`sprint.mauriciobustos.com`, nginx con los headers de SiteGround, sin confirmar) ·
+`lib/landing-analisis.ts` (el UA del analizador, ~:498) · `lib/landing-gracias-reglas.ts` (`quienLlegoALaGracias`)
+
+- **La página de venta SÍ estuvo publicada**, en la RAÍZ: `index.html` con el VSL de Panda (32bfedc4…) y links planos
+  `<a class="buy" data-stripe href="https://buy.stripe.com/…">RESERVA TU CUPO · $270 USD</a>` (sin script ni
+  `<stripe-buy-button>`). MaKo la leyó en vivo el 22/10 a las 12:46 UTC (offer_sesiones del ws3). **El diagnóstico de la
+  auditoría («no está publicada en ningún lado») era el equivocado:** miró después del pisado.
+- ⚠️ **El 24/10 a las 01:54:48 UTC `index.html` se reemplazó por una copia exacta de `gracias.html`** (mismo md5). Fue
+  mientras se pegaba el Pixel: en el chat de soporte, Mauricio escribe «estoy haciendo la otra de gracias» a las 01:52 y
+  «listo ya quedaron los 2» a las 02:35; la prueba del probador de las 01:46 vio el VSL y la de las 02:16 ya vio gracias.
+  Desde entonces el link no cobra y muestra el grupo de WhatsApp de los que pagaron; la automatización 289 «Sprint ·
+  apertura» siguió mandando gente ahí. Avisado al Cerebro el mismo día. Hay una tercera copia, `/gracias/`, sin Pixel.
+- **Regla que queda:** después de ayudar a pegar el Pixel en un sitio de varias páginas, se compara cada página contra la
+  anterior (título y md5 con `curl`), no sólo que llegue el pageview: el probador dio verde sobre una página que ya no
+  era la de venta.
+- **Lo que MaKo mide del Sprint: sólo pruebas.** El Pixel se puso el 24/10 entre 01:40 y 01:46 UTC, DESPUÉS de los 12
+  checkouts: 3 visitas en toda la historia, las 3 de prueba; 0 clics a Stripe; el id del `m.js` es el token del ws1. La
+  visita a gracias da `sin_lead`: la página no tiene formulario y los links que se mandan por WhatsApp no llevan `?l=`.
+- ⚠️ **El analizador recibe 403 en ese host con su UA (`MaKoPixel/1.0`) y 200 con uno de Chrome**: los tres análisis de
+  sus páginas terminaron en «Esta página no deja que MaKo la lea sola». Una página que bloquea al analizador queda en «no
+  sé» para todo lo que se deduce de sus piezas (el paso final del probador incluido).
+- **Su sitio ya está listo para atribuir:** `assets/landing-jan.js` copia `client_reference_id` y los `utm_*` del query de
+  la página a cada link `[data-stripe]`.
+- **Sin medir:** quién abrió cada uno de los 12 checkouts (Stripe no guarda el origen; el del 18/10 03:45 UTC es casi
+  seguro una prueba de Martín: salió 3 minutos después de mandarle el link).

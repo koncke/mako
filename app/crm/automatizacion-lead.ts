@@ -109,13 +109,26 @@ export type EstadoInscripcion = 'activa' | 'respondio' | 'handoff' | 'pendiente'
  * ⚠️ NO hay «entregado» ni «leído» por envío (Automations, 23/10/2026): no se inventa.
  */
 export type EstadoEnvio = string;
-export type EnvioVista = { at: string; paso: string | null; canal: string | null; estado: EstadoEnvio; error: string | null };
+export type EnvioVista = {
+  at: string; paso: string | null; canal: string | null; estado: EstadoEnvio; error: string | null;
+  /**
+   * Qué salió, en palabras de persona («Hola Victor, ya me llegó tu pago…», «Aviso al equipo»; 24/10/2026), y si le llegó al
+   * lead ('mensaje') o lo hizo MaKo por detrás ('accion'). null = no se sabe (un envío de un paso que ya no está).
+   */
+  que?: string | null;
+  clase?: 'mensaje' | 'accion' | 'otro' | null;
+};
 export type InscripcionVista = {
   secuenciaId: number; nombre: string; link: string;
   estado: EstadoInscripcion; automatizacionActiva: boolean;
   paso: { numero: number; titulo: string; total: number | null } | null;
-  /** Lo que sale después y cuándo (ISO). `titulo` null = no se sabe qué tarjeta es (sólo la hora). */
-  proximo: { at: string | null; titulo: string | null } | null;
+  /**
+   * Lo que sale después y cuándo (ISO). `titulo` null = no se sabe qué tarjeta es (sólo la hora). Desde el 24/10/2026
+   * `titulo` es lo que DICE, en palabras de persona; `clase` dice si le llega al lead.
+   */
+  proximo: { at: string | null; titulo: string | null; clase?: 'mensaje' | 'accion' | 'otro' | null } | null;
+  /** Cuándo contestó en esta pasada (ISO). null o ausente = no se sabe. */
+  contesto?: string | null;
   frenado: { texto: string; corto: string } | null;
   termino: { at: string | null; texto: string } | null;
   /** Lo que ya le salió en ESTA inscripción, del más nuevo al más viejo. */
@@ -151,10 +164,16 @@ const TOPE_NO_ENTRO = 3;
 export function vistaDeDetalle(d: AutomatizacionesDelLead): AutomatizacionesVista {
   const inscripciones: InscripcionVista[] = d.inscripciones.map((i) => ({
     secuenciaId: i.secuenciaId, nombre: i.nombre, link: i.link, estado: i.estado, automatizacionActiva: i.automatizacionActiva,
-    paso: i.paso, proximo: i.proximo ? { at: i.proximo.at, titulo: i.proximo.titulo || null } : null,
+    paso: i.paso,
+    // Lo que sale, en palabras (`que`, 24/10/2026); sin eso, el nombre del lienzo de siempre.
+    proximo: i.proximo ? { at: i.proximo.at, titulo: i.proximo.que?.que || i.proximo.titulo || null, clase: i.proximo.que?.clase ?? null } : null,
     frenado: i.frenado ? { texto: i.frenado.texto, corto: i.frenado.corto } : null,
     termino: i.termino, puede: i.puede, reentrada: i.reentrada, reentradaTexto: i.reentradaTexto,
-    enviados: i.enviados.map((e) => ({ at: e.at, paso: e.paso ? `Paso ${e.paso.numero}: ${e.paso.titulo}` : null, canal: e.canal, estado: e.estado, error: e.error })),
+    contesto: i.contesto ?? null,
+    enviados: i.enviados.map((e) => ({
+      at: e.at, paso: e.paso ? `Paso ${e.paso.numero}: ${e.paso.titulo}` : null, canal: e.canal, estado: e.estado, error: e.error,
+      que: e.que?.que ?? null, clase: e.que?.clase ?? null,
+    })),
   }));
   const vistas = new Set<number>();
   const noEntro: NoEntroVista[] = [];
@@ -219,6 +238,11 @@ export function lineaDelProximo(i: InscripcionVista, fecha: (iso: string) => str
   if (!i.automatizacionActiva) return 'La automatización está en pausa: el lead quedó en su paso y no le sale nada hasta que se active.';
   if (i.frenado) return i.frenado.texto;
   if (!i.proximo?.at) return 'Esperando: no hay nada agendado.';
+  // Un mensaje, por lo que dice y cuándo le llega (24/10/2026); lo demás (una espera, una condición) no se le dice al
+  // dueño por su nombre de lienzo: sólo cuándo sigue.
+  if (i.proximo.clase === 'mensaje' && i.proximo.titulo) return `Le sale ${fecha(i.proximo.at)}: ${i.proximo.titulo}`;
+  if (i.proximo.clase === 'accion' && i.proximo.titulo) return `${i.proximo.titulo} · ${fecha(i.proximo.at)}`;
+  if (i.proximo.clase === 'otro') return `Sigue ${fecha(i.proximo.at)}`;
   return `Lo próximo${i.proximo.titulo ? `: ${i.proximo.titulo}` : ''} · ${fecha(i.proximo.at)}`;
 }
 
@@ -228,12 +252,73 @@ const NOMBRE_ESTADO_ENVIO: Readonly<Record<string, string>> = {
 const TONO_ENVIO: Readonly<Record<string, TonoChip>> = { enviado: 'ok', accion: 'ok', fallo: 'mal' };
 const NOMBRE_CANAL: Record<string, string> = { whatsapp: 'WhatsApp', email: 'Email', instagram: 'Instagram', sms: 'SMS' };
 
-/** Un envío: «Entregado · WhatsApp · 23 oct, 09:00» o «Falló: el número no tiene WhatsApp · …». */
+/**
+ * Un envío: «Le salió vie 23 oct, 16:33: «Hola Victor, ya me llegó…»», «Aviso al equipo · …» o «No le salió …: el número
+ * no tiene WhatsApp». Con lo que DICE (`que`, 24/10/2026); sin eso, como antes («Enviado · WhatsApp · …»).
+ */
 export function lineaDelEnvio(e: EnvioVista, fecha: (iso: string) => string): { texto: string; tono: TonoChip } {
+  if (e.que) {
+    const tono = TONO_ENVIO[e.estado] ?? 'gris';
+    if (e.estado === 'fallo') return { texto: `No le salió ${e.que} (${fecha(e.at)})${e.error ? `: ${e.error}` : ''}`, tono };
+    if (e.clase === 'accion') return { texto: `${e.que} · ${fecha(e.at)}`, tono };
+    if (e.estado === 'enviado') return { texto: `Le salió ${fecha(e.at)}: ${e.que}`, tono };
+    if (e.estado === 'borrador') return { texto: `Quedó en borrador, sin mandar (${fecha(e.at)}): ${e.que}`, tono };
+  }
   const canal = e.canal ? ` · ${NOMBRE_CANAL[e.canal] ?? e.canal}` : '';
   const nombre = NOMBRE_ESTADO_ENVIO[e.estado] ?? (e.estado ? e.estado[0].toUpperCase() + e.estado.slice(1) : 'Sin estado');
   const estado = e.error && e.estado !== 'enviado' && e.estado !== 'accion' ? `${nombre}: ${e.error}` : nombre;
   return { texto: `${estado}${canal} · ${fecha(e.at)}`, tono: TONO_ENVIO[e.estado] ?? 'gris' };
+}
+
+/**
+ * UNA FECHA CORTA EN LA ZONA DEL NEGOCIO (24/10/2026): «hoy 18:33», «ayer 16:33», «mañana 09:00»; si no, «vie 24 oct,
+ * 09:12». Las tarjetas del bloque hablan de lo de las últimas horas y las que vienen: el día de la semana con «de» y el
+ * mes («sáb 24 de oct, 18:33») ocupaba media línea para decir «hoy».
+ */
+export function fechaCorta(iso: string, tz: string, ahoraMs: number): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const dia = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+  const hora = new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }).format(d);
+  const delDia = dia(d.getTime());
+  if (delDia === dia(ahoraMs)) return `hoy ${hora}`;
+  if (delDia === dia(ahoraMs - 86400_000)) return `ayer ${hora}`;
+  if (delDia === dia(ahoraMs + 86400_000)) return `mañana ${hora}`;
+  const resto = new Intl.DateTimeFormat('es-MX', { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz }).format(d)
+    .replace(/\./g, '').replace(/ de /g, ' ');
+  return `${resto}, ${hora}`;
+}
+
+/**
+ * LO QUE DICE UNA TARJETA DEL BLOQUE, EN TRES RENGLONES (24/10/2026, Martín: «está bastante fea... No es funcional,
+ * rediseñala bien»). Antes decía el paso con el nombre del lienzo («Paso 5 de 9: CRON») y abajo el historial; para saber
+ * qué le había pasado a ese lead había que leerlo entero. Ahora, lo que se pregunta quien abre la ficha, en orden:
+ *   1. qué le salió por última vez y cuándo (el MENSAJE que le llegó, citado; si falló, por qué). Sin envíos, lo dice;
+ *   2. si contestó, cuándo;
+ *   3. qué sigue: qué le sale y cuándo, por qué no le sale (el horario, la pausa), o cómo terminó.
+ * El historial entero queda plegado debajo. Ningún renglón queda vacío ni dice «falta»: si no se sabe, no se dice.
+ */
+export type RenglonTarjeta = { tipo: 'salio' | 'contesto' | 'sigue' | 'frenado' | 'termino'; texto: string; tono: TonoChip };
+
+export function renglonesDeTarjeta(i: InscripcionVista, fecha: (iso: string) => string): RenglonTarjeta[] {
+  const out: RenglonTarjeta[] = [];
+  // 1. Lo último que le llegó: el último MENSAJE (o el último fallo); una acción sola (el aviso al equipo) no le llega.
+  const ultimo = i.enviados.find((e) => e.clase === 'mensaje' || e.estado === 'fallo') ?? i.enviados[0];
+  if (ultimo) out.push({ tipo: 'salio', ...lineaDelEnvio(ultimo, fecha) });
+  else if (estaViva(i) && i.estado !== 'respondio') out.push({ tipo: 'salio', texto: 'Todavía no le salió nada.', tono: 'gris' });
+  // 2. Si contestó.
+  if (i.contesto) out.push({ tipo: 'contesto', texto: `Contestó ${fecha(i.contesto)}`, tono: 'ok' });
+  else if (i.estado === 'respondio') out.push({ tipo: 'contesto', texto: 'Contestó.', tono: 'ok' });
+  // 3. Qué sigue.
+  if (!estaViva(i)) {
+    out.push({ tipo: 'termino', texto: `${i.termino?.texto ?? 'Terminó'}${i.termino?.at ? ` · ${fecha(i.termino.at)}` : ''}`, tono: 'gris' });
+  } else if (i.estado === 'respondio') {
+    out.push({ tipo: 'sigue', texto: 'No le sale nada más de esta automatización.', tono: 'gris' });
+  } else {
+    const frenada = !!i.frenado || !i.automatizacionActiva || i.estado === 'pausada';
+    out.push({ tipo: frenada ? 'frenado' : 'sigue', texto: lineaDelProximo(i, fecha), tono: frenada ? 'gris' : 'mako' });
+  }
+  return out;
 }
 
 /** La pregunta antes de «Empezar de nuevo»: nombra a quién y dónde, y que le vuelve a escribir desde el paso 1. */
@@ -258,7 +343,9 @@ export function textoDeNoEntro(o: { nombre: string; porque: string; paso?: { num
 
 /** Lo que dice el bloque en una línea (el diseño «Una línea»): las vivas con su estado; sin vivas, la última terminada. */
 export function lineaDelBloque(v: AutomatizacionesVista): string {
-  if (v.vivas.length) return v.vivas.map((i) => `${i.nombre} (${chipDeInscripcion(i).texto}${i.paso ? `, paso ${i.paso.numero}` : ''})`).join(' · ');
+  // Sin «paso N» (24/10/2026): el número es el de la tarjeta en el lienzo, que cuenta la entrada, las esperas y las
+  // condiciones («paso 5 de 9» de un lead al que le salieron 2 mensajes). No le dice nada a quien mira la ficha.
+  if (v.vivas.length) return v.vivas.map((i) => `${i.nombre} (${chipDeInscripcion(i).texto})`).join(' · ');
   const t = v.terminadas[0];
   return t ? `${t.nombre} (${chipDeInscripcion(t).texto})` : '';
 }

@@ -175,6 +175,19 @@ button.fr-chip { font: inherit; font-size: 13.5px; font-weight: 600; cursor: poi
 .fr-aut-envio--mal .fr-aut-punto { background: var(--bad); }
 .fr-aut-envio--proximo { color: var(--ink); }
 .fr-aut-envio--proximo .fr-aut-punto { background: transparent; border: 2px solid var(--mako); width: 6px; height: 6px; }
+/* La tarjeta en renglones (24/10/2026): qué le salió, si contestó, qué sigue. El punto dice el tono: verde lo que salió,
+   aro de MaKo lo que viene, ámbar lo frenado, gris lo terminado. */
+.fr-aut-renglones { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.fr-aut-renglon { display: flex; align-items: flex-start; gap: 8px; font-size: 13.5px; line-height: 1.45; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+.fr-aut-renglon--ok .fr-aut-punto { background: var(--good); }
+.fr-aut-renglon--mal { color: var(--bad); }
+.fr-aut-renglon--mal .fr-aut-punto { background: var(--bad); }
+.fr-aut-renglon--sigue .fr-aut-punto { background: transparent; border: 2px solid var(--mako); width: 6px; height: 6px; }
+.fr-aut-renglon--termino, .fr-aut-renglon--gris { color: var(--dim); }
+/* Después del gris: lo frenado es gris de tono pero se lee en ámbar (gana por orden, misma especificidad). */
+.fr-aut-renglon--frenado { color: var(--warn); }
+.fr-aut-renglon--frenado .fr-aut-punto { background: var(--warn); }
+.fr--epico .fr-aut-renglon { font-size: 15px; }
 .fr-aut-tiempo { display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
 .fr-aut-tiempo:last-of-type { border-bottom: none; }
 .fr-aut-noentro { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 28%, transparent); font-size: 13.5px; color: var(--ink); }
