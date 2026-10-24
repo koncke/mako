@@ -222,6 +222,21 @@ programa no lleva la marca de «descargado de internet», así que **SmartScreen
   Si da ✓, sigue el turno (el programa de la PC), el % usado (`account/rateLimits/read`) y la tarjeta; si da ✗, GPT queda
   sólo por su clave de API.
 
+**Corregido el 23/10/2026 (noche), con Codex 0.164.0 instalado en la PC de Martín** (detalle en docs/hallazgos-ia.md → «La
+ola 3 por dentro»):
+
+- La medición de arriba iba a dar ✗ por la APROBACIÓN, no por el MCP: con «never» y `--sandbox read-only` Codex rechaza una
+  herramienta sin `readOnlyHint` antes de llamarla. Ahora lleva `mcp_servers.mako.default_tools_approval_mode="approve"`, el
+  prompt por stdin (`codex exec -`), y mide además `-c developer_instructions` y si Codex tiene «manos» (3a como viene, 3b
+  con sus herramientas propias apagadas por `--disable`). Gasta tres turnos de la cuenta de ChatGPT.
+- `--sandbox read-only` NO es el `--tools ""` de Claude: puede leer el disco. La receta candidata es `--disable` de
+  `shell_tool`, `unified_exec`, `browser_use`, `computer_use`, `apps`, `plugins`, `view_image` y compañía (0.164.0).
+- `codex login` no necesita la página local de Claude: levanta su callback en 127.0.0.1:1455 (o 1457) y termina solo.
+- El % usado sale de `codex app-server` por **stdio**, que no es experimental (lo experimental es el WebSocket).
+- Planes: la tabla de precios no confirma el CLI para Free ni para Go.
+- Lo legal (§10): los Terms of Use de OpenAI prohíben «make your account available to anyone else» y la extracción
+  programática del Output. Sin autorización escrita, lo decide Martín.
+
 ---
 
 ## 10. Lo legal: el riesgo, y cómo se achica

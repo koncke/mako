@@ -6092,19 +6092,80 @@ Queda escrito para que el día que alguien lo setee sepa que pisa a los dos.
 
 **Por la computadora (ola 3), apagado y con un portón que no es de código.** `CHATGPT_EN_LA_PC`
 sigue en `false` (`lib/conectar-ia-reglas.ts`). El §9 de `docs/ia-del-cliente.md` pone la
-medición IA11 como portón —¿`codex exec` carga el MCP de MaKo?— y el 23/10 **Codex no está
-instalado en la PC de Martín ni hay `~/.codex`**. Lo que destraba, y en este orden:
-
-1. Instalar Codex y que **Martín** haga `codex login` con su cuenta de ChatGPT: es su sesión y no
-   la puede iniciar un chat. Después, `node scripts/ia-pc/medir-codex-mcp.mjs`.
-2. Con ✓, el corredor de Codex va en el programa de la PC, que **es del chat del Instalador
-   (cuenta 3)**: lo modificó cuatro veces el 23/10 (0.4.0 a 0.4.2 y la firma de Windows y Mac).
-   Meterle cambios en paralelo choca con su trabajo.
-3. Prender `CHATGPT_EN_LA_PC` toca `lib/conectar-ia-reglas.ts`, **que IA16 también modifica** y
-   está retenida hasta el 26/10: va después de que IA16 entre.
+medición IA11 como portón —¿`codex exec` carga el MCP de MaKo?—. Codex 0.164.0 quedó instalado
+en la PC de Martín el 23/10 a las 20:38 (por npm, con su OK en el chat del Cerebro); falta su
+`codex login`. El resto, en «La ola 3 por dentro», abajo.
 
 «Sign in with ChatGPT» para apps de terceros (SIWC) sigue en prueba limitada con socios, sólo
 Plus y Pro: el camino es el login del propio Codex CLI en la PC del cliente, no un botón de MaKo.
+
+### La ola 3 por dentro: lo que encontró la investigación (23/10/2026, noche)
+
+Martín, mirando «Tus cuentas de IA» → ChatGPT: *«Y el tema de GPT sigue diciendo "Pronto" en mi
+computadora...»*. Una investigación de cinco agentes (el programa de la PC, el servidor, Codex CLI, el
+diseño y un crítico) encontró que el diagnóstico obvio —«falta el corredor de Codex»— es un tercio:
+
+- **La medición IA11 iba a dar ✗ por la razón equivocada.** En `codex exec` la aprobación es «never» y,
+  con `--sandbox read-only`, una herramienta MCP sin `readOnlyHint` (las de MaKo no lo llevan) se
+  rechaza ANTES de llamarla: «MCP tool call requires approval, but approval policy is never». Se habría
+  concluido «GPT sólo por clave» con el MCP cargado perfecto. Arreglado en
+  scripts/ia-pc/medir-codex-mcp.mjs: `default_tools_approval_mode="approve"` para el servidor de MaKo
+  (sale del código de Codex, no de una corrida), el prompt por stdin, y dos preguntas nuevas.
+- **«Sin manos» no existe en Codex como en Claude** (`--tools ""`). Con `--sandbox read-only` Codex
+  puede LEER el disco, y el turno lleva mensajes de leads: una inyección podría hacerle leer archivos
+  del cliente. `codex features list` (0.164.0) da prendidas `shell_tool`, `unified_exec`,
+  `browser_use`, `computer_use`, `apps`, `plugins`, `view_image`: la receta candidata es apagarlas con
+  `--disable`, y la medición lo prueba (3a como viene, 3b sin manos).
+- **El login de Codex es más fácil que el de Claude**: `codex login` levanta su propio callback en
+  127.0.0.1:1455 (o 1457), abre el navegador y termina solo, sin código que pegar. No hace falta la
+  página local de Claude. Sin probar corrido sin consola.
+- **Codex no tiene `--system-prompt-file`**: `-c developer_instructions` deja el system de MaKo en la
+  línea de comandos (rompe «nada de la persona en la línea de comandos» y Windows corta en 32.767
+  caracteres). La medición prueba que lo respete; el camino real está por decidir.
+- **Lo legal es más duro que «OpenAI recomienda una API key»**: los Terms of Use de OpenAI (EE. UU.,
+  1/1/2026) prohíben «make your account available to anyone else» y la extracción programática del
+  Output; la doc de Codex acepta la sesión de ChatGPT en automatización sólo para runners privados de
+  confianza. No hay autorización escrita. Es decisión de Martín, como lo fue el «No por ahora» de
+  Anthropic para los leads.
+- **El programa y el servidor dan por hecho que la PC es Claude**: `paraElLatido` manda
+  `proveedor: 'claude'` fijo, `pcUsable`/`elegirPc` no miran el proveedor, los modelos son los de
+  Claude, `claude_falta` es sólo de Claude, y el consentimiento dice «Tu Claude…». Los DATOS ya admiten
+  ChatGPT (`CuentaPc.proveedor`, la tarjeta).
+- **Cómo le llega al programa la IA que eligió la persona**: no por `mako://iniciar-sesion?ia=…` (la
+  0.4.2 lee sólo el hostname y abriría el login de Claude, y en la Mac un `mako://` no llega): por el
+  código de emparejar (una columna en `ia_pc_codigos`).
+- **Nada actualiza el programa**: el servidor guarda la `version` del latido y no la compara. Una PC con
+  la 0.4.2 a la que se le ofrezca ChatGPT nunca recibe la 0.5.0: hace falta una versión mínima.
+- **El orden de subida importa**: la base del servidor por proveedor tiene que llegar a producción ANTES
+  que un programa que reporte cuentas `chatgpt`. Si no, una PC con sólo ChatGPT recibe turnos de Claude.
+- **`CHATGPT_EN_LA_PC` es global**: prenderla abre ChatGPT por la computadora a todos los negocios a la
+  vez. Hace falta una prueba acotada antes (el ws de prueba o sólo el super admin).
+- **IA16 casi no toca la puerta de la PC**: no toca lib/ia-pc*.ts, app/api/ia-pc/*, lib/chat-ia*.ts,
+  CuentasYDispositivos.tsx, scripts/ia-pc ni installer. Choca sólo en la línea de «Pronto» de
+  lib/conectar-ia-reglas.ts (la 48, entre las que cambia IA16) y en `AVISO_CONECTA_TU_PC`
+  (lib/mako-turno-app-reglas.ts:613). Lo que frena prender la opción no es IA16: es el corredor.
+- **La descarga para el Ops Center**: `GET /api/ia-pc/descargar?os=windows|mac` y el componente
+  `NuevoDispositivo` (CuentasYDispositivos.tsx). La detección del sistema es una regex sobre `navigator`
+  copiada en dos archivos, y da «windows» en Android y en iPhone.
+
+**SIN hacer**, con su dueño:
+
+1. Martín: `codex login` («Sign in with ChatGPT»). Después, `node scripts/ia-pc/medir-codex-mcp.mjs`
+   (tres turnos de su cuenta). Sin el ✓ de 1 y el ✓ de 3b no hay corredor.
+2. Decisión de Martín: lo legal de OpenAI (arriba).
+3. Este chat: el servidor por proveedor (lib/ia-pc-reglas.ts, lib/ia-pc.ts, app/api/ia-pc/turno, el
+   «+» con «Tu computadora · ChatGPT», la columna de la IA elegida en `ia_pc_codigos`, «falta Codex» por
+   dispositivo, la versión mínima, el consentimiento de ChatGPT). Invisible y antes del programa.
+4. El chat del Instalador (cuenta 3): el programa 0.5.0 (instalar Codex sin terminal —el paquete de
+   OpenAI de ~159 MB o su install.ps1, nunca npm: el cliente no tiene Node—, `codex login` oculto, el
+   turno con `codex exec --json`, el latido con `proveedor: 'chatgpt'`, el % usado por
+   `codex app-server` por stdio), y el Inno y MaKo.app sin instalar Claude Code a quien eligió ChatGPT.
+5. Sin medir: el sandbox de Codex en un Windows sin administrador (¿pide UAC?), el login corrido sin
+   consola, la firma de codex.exe, y cuánto rinde cada plan de ChatGPT en turnos.
+
+**Vive en:** scripts/ia-pc/medir-codex-mcp.mjs · scripts/ia-pc/mako-pc.mjs · lib/ia-pc-reglas.ts ·
+lib/ia-pc.ts · app/api/ia-pc/* · lib/conectar-ia-reglas.ts · app/integraciones/TusCuentasIA.tsx ·
+installer/windows/mako.iss · *2026-10-23, chat «IA del cliente»*
 
 **Vive en:** lib/chat-ia.ts (`cuentasDeIA`) · lib/mako-turno-app.ts (`soloSuOpenAI`) ·
 lib/ai-cheap.ts (`cfgDe`, `CHEAP_MODEL`) · lib/conectar-ia-reglas.ts (`CHATGPT_EN_LA_PC`) ·

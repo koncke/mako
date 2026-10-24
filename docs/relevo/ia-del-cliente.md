@@ -32,11 +32,15 @@ era cambiar el nombre».
 - El plazo de `chatCheapTools` contra los 420 s de la ruta del chat; lib/costos-ia.ts contando la OpenAI de un negocio
   como costo de MaKo; el modelo de OpenAI guardado por negocio (hoy se pierde al recargar). El detalle, en
   `../hallazgos-ia.md`, «Lo que quedó SIN hacer».
-- **Ola 3 (ChatGPT en la computadora del cliente):** espera a IA16 (lunes 26/10), más de 2 GB de RAM libres y el OK
-  de Martín para instalar Codex (`npm i -g @openai/codex`). Después Martín corre `codex login` con «Sign in with
-  ChatGPT» (es su sesión: no la inicia un chat), se mide con `node scripts/ia-pc/medir-codex-mcp.mjs`, y con ✓ el
-  corredor va en el programa de la PC, que es del chat del Instalador (cuenta 3). `CHATGPT_EN_LA_PC` se prende
-  después de IA16.
+- **Ola 3 (ChatGPT en la computadora del cliente), 23/10 noche:** Codex 0.164.0 está instalado en la PC de Martín (lo
+  instaló el Cerebro con su OK). Falta su `codex login` con «Sign in with ChatGPT» (es su sesión: no la inicia un chat) y
+  correr `node scripts/ia-pc/medir-codex-mcp.mjs`, ya corregido: antes iba a dar ✗ por la aprobación de las herramientas
+  MCP, y ahora mide también las instrucciones y las «manos» de Codex (tres turnos de su cuenta). Lo que encontró la
+  investigación, lo que falta y de quién es cada pieza: `../hallazgos-ia.md` → «La ola 3 por dentro». Lo legal de
+  OpenAI espera una decisión de Martín. El servidor por proveedor es de este chat y no choca con IA16; el programa 0.5.0
+  es del chat del Instalador (cuenta 3).
+- **IA16** (rama `ia16-2210`, worktree `C:/dev/wt-ia16`, punta `7ff4633e6`): retenida hasta el lunes 26/10, con «Costo de
+  MaKo» arreglado, main mezclado y tests/ia15-frontera al día (fallaba 3 desde antes).
 
 ## Para retomar
 
