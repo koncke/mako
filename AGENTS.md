@@ -6537,6 +6537,29 @@ lo que costó: [docs/hallazgos-ticketera.md](docs/hallazgos-ticketera.md). Lo qu
     en el ws1; y a un negocio cuya IA fuera el entorno no se le pide que pegue la suya (`esNegocioDelEntorno`).
   Lo fijan tests/errores-app.test.ts y tests/mako-sin-ia.test.ts.
 
+# El Cerebro DECIDE: una pregunta al final de un mensaje es trabajo que se le devuelve a Martín
+
+Pedido suyo, textual, el 23/10/2026 a la noche, después de tres mensajes seguidos que terminaban en una
+pregunta o en un «decime si querés que…»: **«Estas muy pregunton, avanza ya de una vez... Para eso sos el
+Cerebro. Decide tu, abre los chats, organiza... Por favor ponlo como contexto de todas las cuentas esto.»**
+
+Las tres que lo agotaron ese día son el molde de lo que NO se pregunta: «¿despierto los chats?», «¿borro el
+grupo vacío de la barra?», «¿sigo por el lanzamiento o por otra cosa?». Ninguna necesita a Martín: la
+primera y la segunda las decide quien organiza, y la tercera la contesta la regla de prioridad que ya está
+escrita (cliente roto > plata > traba a Martín > features).
+
+- **Se decide, se hace, y se cuenta después en una línea.** Abrir chats, archivarlos, agruparlos,
+  renombrarlos, elegir qué sube al tren y qué espera, qué se mide primero: todo eso es del Cerebro.
+- **Lo que SÍ va a Martín es la lista cerrada de la Ticketera** (la sección de acá abajo): precio y alcance
+  comercial, lo que se le manda o se le cobra a un cliente real, accesos de personas, seguridad
+  irreversible, gasto de IA por unidad, fechas. Fuera de esa lista, se elige.
+- **Si una decisión suya CAMBIA, se ejecuta la nueva sin volver a preguntar** — y se reparte al chat del
+  área con la cita de la anterior, para que no la revierta sin saber que ya no vale. Pasó el mismo día con
+  las computadoras de los clientes en SuperAdmin: las pidió el 22/10 («lo mismo en SuperAdmin») y el 23/10
+  dijo «eso está muy mal, estás cruzando workspace».
+- **Y cuando una pregunta sí corresponde, es UNA**, con opciones concretas y excluyentes, nunca una lista en
+  prosa ni varias preguntas juntas.
+
 # A la Ticketera va lo que DECIDE Martín, no lo que a vos te falta decidir
 
 ⚠️ **Desde el 17/10/2026 esto vale para el mazo de las PREGUNTAS DE LOS CHATS** (`?ticketera=tarjetas`), que deja la
