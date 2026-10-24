@@ -1552,4 +1552,51 @@ export const BITACORA: Hito[] = [
       'tests/ops-pregunta-app-movil.test.ts (4 roturas); centro-envio y ops-center-decisiones al día',
     ],
   },
+  {
+    fecha: '24 oct', hora: '17:05', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Sin la app de escritorio no se escribe, Uso con sólo «Instalar», y un solo «Settings»',
+    pedido: '«Si no tengo instalada la app de desktop NO debe dejarme escribir nada, directamente en el chat donde está el botón de audio se debería reemplazar por "Instalar MaKo"»; «lo mismo en USO»; y «juntes todo en "Settings"... "Perfil" primero... Elimina la tab de "Tus cuentas de IA"... "Instalar la App" tiene que tener las 3 instalaciones».',
+    puntos: ['Llegó por el Cerebro el 24/10, con su condición: «Si algo no está cubierto, decímelo en vez de borrarlo».'],
+  },
+  {
+    fecha: '24 oct', hora: '17:43', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La caja dice «Instalar MaKo» sin la app, Uso es un solo botón, y Settings es un lugar con Perfil primero',
+    revisar: '/perfil',
+    puntos: [
+      '**Sin la app**, la caja del chat no deja escribir: donde iba el micrófono va «Instalar MaKo», y abajo «Ya lo instalé: conectar». En Uso, sin computadoras, sólo el botón de instalar.',
+      '**Settings**: Tu cuenta (Perfil, Seguridad, Notificaciones, Instalar la app) y Tu negocio en una sola fila del menú, primera. «Instalar la app» tiene las tres: teléfono, computadora y extensión.',
+      '⚠️ **«Tus cuentas de IA» salió del índice, pero sus pantallas siguen**: el instalador de Windows vuelve a /perfil/ia al terminar, y borrarla lo dejaba en un 404. Quien no es admin conecta su IA desde la caja del chat (el mismo modal).',
+      '**Sin hacer:** el rediseño de adentro de cada sección de Settings (Perfil, Seguridad, Notificaciones…), para que se parezcan al teléfono.',
+    ],
+    archivos: [
+      'app/_chat/AppPrimero.tsx — useBloqueoApp · CajaChat.tsx — `bloqueo` · TusCuentasIA.tsx — InstalarDesktop',
+      'lib/ajustes-secciones.ts y app/_ui/Ajustes.tsx — los grupos · app/perfil/instalar/page.tsx — las tres · nav.ts — «Settings»',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '17:50', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los avisos se cierran con una X o deslizándolos, y la sidebar arranca plegada',
+    pedido: '«Las notificaciones de MaKo cuando pasa algo, deberían tener un botón X para cerrarlas o si las desplazo se van, porque estoy editando algo y aparecen y tengo que esperar a que se vayan para apretar el botón de atrás». Y «en web generator, como en todas las tabs, haz que por defecto al entrar se pliegue la sidebar principal, pero no impidas que se vuelva a desplegar».',
+    puntos: ['Llegó por el Cerebro el 24/10.'],
+  },
+  {
+    fecha: '24 oct', hora: '18:20', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Todo aviso tiene su ✕, se va deslizándolo y no se va solo mientras se lo mira; la sidebar arranca plegada en todas las tabs',
+    revisar: '/web-generator',
+    puntos: [
+      '**Los tres avisos** (el de abajo en la computadora, el del teléfono y los de arriba a la derecha): la ✕, y arrastrarlos de costado los descarta. Con el mouse encima, o el dedo, no se van solos.',
+      'Probado con el mouse y el dedo de verdad (CDP): un arrastre corto vuelve a su lugar, uno largo lo descarta, y la ✕ responde al primer toque.',
+      '**La sidebar** arranca plegada (el rail de íconos) en todas las tabs, Web Generator incluida; la flecha «›» la deja abierta y eso se recuerda. Todos arrancan plegados una vez, aunque antes la hubieran abierto.',
+      '**Sin mirar en pantalla**: el navegador de la app no tiene sesión y el Chrome no estaba conectado. El rail es el mismo que ya veía quien la plegaba.',
+    ],
+    archivos: [
+      'app/_ui/descartar.tsx — useDeslizarParaCerrar y esperarPausa · Toast.tsx, ShellM.tsx (AvisoM) y NotificationsProvider.tsx (AvisoArriba)',
+      'app/_components/Sidebar.tsx — `mk-nav-fija-v2`, plegada por defecto',
+      'tests/avisos-se-cierran.test.ts (5 roturas) y tests/sidebar-plegada-por-defecto.test.ts (4 roturas)',
+    ],
+  },
 ];

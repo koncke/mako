@@ -105,11 +105,17 @@ function leerPlegadas(): ReadonlySet<string> {
 
 /**
  * ¿La barra va ABIERTA Y FIJA? (17/10/2026 noche, el prototipo: «abierta y fija, 244 px, con los nombres; la flecha la
- * pliega al rail», como Linear, Notion, Attio y HubSpot). Por defecto sí; plegada, vuelve el rail que se abre con el cursor.
+ * pliega al rail», como Linear, Notion, Attio y HubSpot). Plegada, es el rail que se abre con el cursor.
+ * PLEGADA POR DEFECTO EN TODAS LAS TABS (24/10/2026, Martín: «en web generator, como en todas las tabs, haz que por defecto al
+ * entrar se pliegue la sidebar principal, pero no impidas que se vuelva a desplegar si el usuario le da click en desplegar»).
+ * Sin nada guardado, el rail; la flecha «›» la deja abierta y fija, y ESO se recuerda (en todas las tabs, como siempre).
+ * ⚠️ LA CLAVE CAMBIÓ (`-v2`), como la de las secciones el 20/10: la vieja guardaba «si» para quien alguna vez la volvió a abrir,
+ *    y esas personas (Martín entre ellas) no habrían visto el cambio nunca. Arrancan todas plegadas una vez.
  */
-const FIJA = 'mk-nav-fija';
-function leerFija(): boolean {
-  try { return window.localStorage.getItem(FIJA) !== 'no'; } catch { return true; }
+const FIJA = 'mk-nav-fija-v2';
+/** Exportada para el test (tests/sidebar-plegada-por-defecto.test.ts). */
+export function leerFija(): boolean {
+  try { return window.localStorage.getItem(FIJA) === 'si'; } catch { return false; }
 }
 /**
  * Las pantallas que pliegan la barra al entrar: las del Ops Center, que traen su propia barra de chats (20/10/2026), y
@@ -471,7 +477,8 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const hasta = searchParams.get('hasta');
   const dateQuery = desde && hasta ? `?desde=${desde}&hasta=${hasta}` : '';
 
-  const [fijaGuardada, setFijaEstado] = useState(true);
+  // Arranca plegada (lo de casi todos, 24/10/2026): sin esto el primer cuadro dibujaba la barra abierta y se plegaba al montar.
+  const [fijaGuardada, setFijaEstado] = useState(false);
   useEffect(() => { setFijaEstado(leerFija()); }, []);
   /**
    * AL ENTRAR AL OPS CENTER (el Second Brain de cada negocio, /second-brain, y el del super admin, /admin/operaciones)

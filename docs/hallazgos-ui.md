@@ -4569,3 +4569,40 @@ diagnóstico obvio (la caja se desborda) era el equivocado.
 (`setTouchEmulationEnabled`) y un user agent de Android. El paquete `ws` del repo alcanza para hablar CDP; no hace falta
 Puppeteer. Y `Emulation.setFocusEmulationEnabled`: sin foco en la página, un `focus()` no dispara el evento (lo que la caja
 mira para ofrecer «Pegar la captura»). Medida así, la caja del teléfono entra entera en una fila.
+
+## Un aviso que se cierra: la pausa va por el DOM, y un arrastre con el dedo no termina en click (24/10/2026)
+
+Martín: «tengo que esperar a que se vayan para apretar el botón de atrás». Los tres avisos (Toast.tsx, AvisoM del teléfono,
+AvisoArriba de NotificationsProvider) usan `app/_ui/descartar.tsx`: la ✕, arrastrarlo 64 px de costado, y `esperarPausa`.
+
+- **La pausa no puede ser un estado compartido.** El temporizador vive en el hook de cada pantalla (`useToast`, decenas) y el
+  aviso en otro componente. El aviso se marca `data-mk-aviso` + `data-pausa` mientras el mouse o el dedo está encima, y
+  `esperarPausa` mira el DOM antes de cerrar (si hay uno en pausa, vuelve a mirar en 800 ms). Ninguna pantalla cambió.
+- **Trampa: un arrastre con el dedo que vuelve a su lugar NO termina en `click`.** El indicador «hubo arrastre» (para que
+  soltarlo no abra el chat del aviso de WhatsApp) se limpiaba en el `click`; con el dedo no llegaba, y el primer toque en la ✕
+  se lo comía `onClickCapture`. Se limpia en el `pointerdown`, ANTES del corte que deja pasar los botones.
+- **Trampa: `flex-wrap` en un aviso `position: fixed; left: 50%` lo encoge a media pantalla.** El ancho disponible para
+  ajustarse al contenido va de `left` al borde derecho (195 px en un teléfono). Sin wrap no se notaba porque el contenido no
+  se podía partir; va `width: max-content` con el `maxWidth` de siempre. Antes, en una ventana angosta el Toast dejaba una
+  palabra por renglón.
+- **Un `${…}` en el objeto de estilos rompe a los tests que leen el fuente con `[^}]*?`** (tests/recorrido.test.ts busca el
+  z-index del Toast así). El `transform` con el corrimiento va en una variable afuera.
+- **El guardián de «Reportar a Soporte» sólo ve hijos LITERALES**: pasarlo por `{children}` desde quien llama no cuenta.
+- **La regla:** un aviso nuevo esparce `useDeslizarParaCerrar(onCerrar).props` en su caja y su temporizador es
+  `setTimeout(esperarPausa(cerrar), ms)`; nunca `setTimeout(() => setX(null))` (lo fija tests/avisos-se-cierran.test.ts).
+
+## La sidebar plegada por defecto: cambiar un default pide clave nueva y primer cuadro nuevo (24/10/2026)
+
+Martín: «en web generator, como en todas las tabs, haz que por defecto al entrar se pliegue la sidebar principal, pero no
+impidas que se vuelva a desplegar».
+
+- **Hay DOS mecanismos y no son lo mismo.** El default global (`mk-nav-fija-v2`, guardado: la flecha la abre y se recuerda en
+  todas las tabs) y `plegadaAca` (Ops Center, Automations, ventana chica, MaKo abierto: por visita, la flecha la abre sólo
+  ahí). Web Generator va en el PRIMERO: con `RUTAS_QUE_PLIEGAN` se volvería a plegar en cada visita, que es justo lo que
+  Martín pidió no impedir.
+- **Un default nuevo con la clave vieja no lo ve quien ya tocó la flecha** (tenía «si» guardado). Como el 20/10 con las
+  secciones, la clave cambia y todos arrancan plegados una vez.
+- **El `useState` inicial es el primer cuadro.** Con `useState(true)` y el default en plegada, cada carga dibujaba la barra
+  abierta y la plegaba al montar. Va `useState(false)`; el salto queda sólo para quien la fijó abierta.
+- **Sin hacer:** mirar en producción cada tab con la barra plegada. El navegador de la app no tiene sesión y el Chrome no
+  estaba conectado; el rail es el mismo que ya veía quien la plegaba, y a 934 y 1027 px (21/10) daba 0 desbordes.
