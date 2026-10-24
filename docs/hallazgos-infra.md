@@ -38,6 +38,44 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## La guarda que avisa al cliente «ya quedó arreglado» NO PUEDE dar verde: Vercel no guarda el commit (24/10/2026)
+
+**Vive en:** `scripts/avisar-arreglo-al-grupo.mts` (`pruebaDeProduccion`) · cualquier chequeo que use
+`vercel ls --meta githubCommitSha=<sha>`.
+
+**El síntoma.** Después de subir el tren de la noche (43c343ebd), esperé 14 minutos a que apareciera su
+despliegue y nunca apareció. El tren **ya estaba vivo** desde el minuto 3.
+
+**Lo que devuelve cada forma de preguntar, medido en la misma corrida:**
+
+| Comando | Respuesta |
+|---|---|
+| `vercel ls --environment production --meta githubCommitSha=43c343ebd` | `No deployments found` |
+| lo mismo sin `--environment` | `No deployments found` |
+| `vercel ls --environment production` (sin `--meta`) | los de hace **18 horas** |
+| `vercel ls` **pelado** | el de producción en Ready de hace **16 minutos** |
+
+**La causa real, y el diagnóstico obvio era el equivocado.** No es el stdout/stderr (eso fue el incidente del
+18/10 y ya está arreglado), ni que el despliegue tarde. Es que **el despliegue no trae metadatos de git**:
+`vercel inspect` del despliegue vivo no muestra ni rama ni commit ni origen, sólo id, target, status y tiempos.
+Sin `githubCommitSha` guardado, el filtro `--meta` **no puede** coincidir — ni con ese sha ni con ninguno.
+
+**Por qué importa más de lo que parece.** `avisar-arreglo-al-grupo.mts` **no manda** el aviso al grupo del
+cliente si no encuentra un despliegue Ready que contenga el arreglo. Con el filtro inservible, esa guarda
+contesta siempre «no pude verificar», así que **dejamos de avisarle a los clientes que su arreglo salió, y la
+falla se ve igual que la prudencia**. Una guarda que siempre dice que no es peor que no tener guarda: no hace
+ruido, no deja rojo, y nadie la mira.
+
+**La regla que queda: la prueba de que algo está en producción es que producción lo sirva.** No la hora del
+deploy, no el estado en un panel, no un metadato del proveedor. Se le pide a la URL pública algo que **sólo
+exista en ese commit** y se mira si viene. Así verifiqué este tren: `hola-mako.com/mako-partners` sirve
+«Todavía no se descuenta solo de tu plan», una frase que nació en `fc8064ee7`. Eso es una prueba; «Ready hace
+16 minutos» es una correlación.
+
+**SIN hacer:** cambiar `pruebaDeProduccion` para que verifique sirviendo (una marca por commit en una ruta
+pública, o el `BUILD_ID` de Next) en vez de por `--meta`. Mientras tanto, todo aviso de «ya quedó arreglado»
+pasa por una verificación a mano contra el sitio vivo.
+
 ## Un `redirect()` adentro de una página con `loading.tsx` rompió la app: React #310 (23/10/2026, ticket #7)
 
 **Síntoma:** «La pantalla General se rompió», con «Minified React error #310» (más hooks que en el render anterior) en el
