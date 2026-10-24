@@ -36,9 +36,15 @@ export const MODELOS_SU_OPENAI = ['gpt-5.6-luna', 'gpt-6-luna', 'gpt-6.1-sol'] a
 /** El de «Tu ChatGPT» cuando no se elige (o cuando lo usa un miembro, que no elige). */
 export const MODELO_SU_OPENAI_DEFAULT: (typeof MODELOS_SU_OPENAI)[number] = 'gpt-5.6-luna';
 
-/** De qué cuenta del negocio: su computadora con su Claude, su clave de Anthropic, su clave de OpenAI. */
-export type CuentaIA = 'pc' | 'anthropic' | 'openai';
-export const CUENTAS_IA: readonly CuentaIA[] = ['pc', 'anthropic', 'openai'];
+/**
+ * De qué cuenta del negocio: su computadora con su Claude, su computadora con su ChatGPT (la ola 3: Codex), su clave de
+ * Anthropic, su clave de OpenAI. «pc-chatgpt» sólo se ofrece si una computadora suya reporta una cuenta de ChatGPT, y el
+ * programa hasta la 0.4.2 no reporta ninguna: hoy no aparece.
+ */
+export type CuentaIA = 'pc' | 'pc-chatgpt' | 'anthropic' | 'openai';
+export const CUENTAS_IA: readonly CuentaIA[] = ['pc', 'pc-chatgpt', 'anthropic', 'openai'];
+/** Las que corren en la computadora de la persona, y con qué IA. */
+export const IA_DE_LA_PC: Readonly<Partial<Record<CuentaIA, 'claude' | 'chatgpt'>>> = { pc: 'claude', 'pc-chatgpt': 'chatgpt' };
 
 /** Lo que eligió la persona para ESE chat. null = Automático (lo decide el chat jefe). */
 export type EleccionIA = { cuenta: CuentaIA; modelo?: string } | null;
@@ -46,6 +52,8 @@ export type EleccionIA = { cuenta: CuentaIA; modelo?: string } | null;
 /** Los modelos que se pueden pedir por cuenta: los mismos que aceptan sus configuraciones. */
 export const MODELOS_DE_LA_CUENTA: Readonly<Record<CuentaIA, readonly string[]>> = {
   pc: MODELOS_PC,
+  // Codex con la sesión de ChatGPT usa su modelo: los suyos cambian rápido y no están medidos (docs/ia-del-cliente.md §9).
+  'pc-chatgpt': [],
   anthropic: MODELOS_SU_CLAUDE,
   openai: MODELOS_SU_OPENAI,
 };

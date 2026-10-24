@@ -313,7 +313,8 @@ test('el turno: la PC que no se pudo leer, la desconectada a mitad y la sin Clau
   assert.match(t, /\? pcIlegible && negocio\.suIA\s*\? \{ aviso: AVISO_PC_ILEGIBLE, conectar: null \}/);
   assert.match(t, /\.\.\.\(pcIlegible && !texto \? \[\{ nombre: 'leer-la-pc'/, 'y va a la Ticketera');
   assert.match(t, /else if \('desconectada' in r\) \{ falloDeLaPc = 'desconectada';/);
-  assert.match(t, /pc\.enLinea \? \(pc\.claudeFalta \? 'sin-claude' : 'sesion'\) : 'apagada'/);
+  // «Falta Claude Code» es sólo de un turno de Claude (la ola 3): a su ChatGPT no le falta Claude Code.
+  assert.match(t, /pc\.enLinea \? \(pc\.claudeFalta && iaDeLaPc === 'claude' \? 'sin-claude' : 'sesion'\) : 'apagada'/);
   assert.equal(avisoDeLaPc('sin-claude', false), AVISO_PC_SIN_CLAUDE);
   assert.equal(avisoDeLaPc('desconectada', false), AVISO_PC_DESCONECTADA);
   assert.match(AVISO_PC_ILEGIBLE, /No pude ver tu computadora/);

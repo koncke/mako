@@ -39,8 +39,8 @@ import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
 import { avisoClaveTapada, taparClaves } from '@/lib/claves-en-el-chat';
 import { encolarTurno, esperarALaPc, pcDe, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
-import { armarPrompt, AVISO_PC_ILEGIBLE, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, modeloPc, pcUsable, type FalloDeLaPc } from '@/lib/ia-pc-reglas';
-import { MODELO_SU_OPENAI_DEFAULT, NOMBRE_MODELO_IA, type EleccionIA } from '@/lib/chat-ia-reglas';
+import { armarPrompt, AVISO_PC_ILEGIBLE, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, modeloPc, pcUsable, type FalloDeLaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
+import { IA_DE_LA_PC, MODELO_SU_OPENAI_DEFAULT, NOMBRE_MODELO_IA, type EleccionIA } from '@/lib/chat-ia-reglas';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
 import { entrarSoloSuIA } from '@/lib/solo-su-ia';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
@@ -722,27 +722,42 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // cerrado): si no se pudo leer, el turno sigue sin ella, con su clave si la tiene, y nunca con la cascada barata.
     // ⚠️ No leerla NO es «no tiene»: a la dueña con su PC conectada se le pedía «conecta tu computadora» (segunda
     // revisión, 21/10/2026). Se le dice que no se pudo ver, y va a la Ticketera.
-    const leidaPc = await pcDe(ws, persona.actor).then((d) => ({ d, error: null }), (e: unknown) => ({ d: null, error: e instanceof Error ? e.message : String(e) }));
-    const pc = leidaPc.d;
-    const pcIlegible = leidaPc.error;
-    // Sólo se le manda a una PC en línea CON un Claude con sesión: «en línea» sin sesión no contesta nada.
-    const pcPuede = pcUsable(pc);
-    // Lo que falló en la PC del cliente (apagada, sin Claude, sin sesión, al tope, no contestó a tiempo) no es un bug.
     // Lo que eligió en el «+» (8b, ya validado por la ruta): con una de sus claves, la computadora no se usa; con la
     // computadora, las claves no.
     const ia = entrada.ia ?? null;
-    const conLaPc = !ia || ia.cuenta === 'pc';
+    // Con qué IA la piensa la computadora (la ola 3): su ChatGPT si eligió «Tu computadora · ChatGPT»; si no, su Claude,
+    // como siempre.
+    const eligioLaPc = !!ia && !!IA_DE_LA_PC[ia.cuenta];
+    let iaDeLaPc: ProveedorPc = (ia && IA_DE_LA_PC[ia.cuenta]) ?? 'claude';
+    const leerPc = (cual: ProveedorPc) => pcDe(ws, persona.actor, cual).then((d) => ({ d, error: null }), (e: unknown) => ({ d: null, error: e instanceof Error ? e.message : String(e) }));
+    let leidaPc = await leerPc(iaDeLaPc);
+    // En Automático, la PC que no puede con su Claude pero sí con su ChatGPT contesta con su ChatGPT: a quien conectó sólo
+    // su ChatGPT, el aviso le decía «tu Claude no tiene la sesión iniciada». Sólo con alguna PC: un negocio sin ninguna no
+    // paga una segunda lectura en cada turno.
+    if (!ia && leidaPc.d && !pcUsable(leidaPc.d, 'claude')) {
+      const conChatGpt = await leerPc('chatgpt');
+      if (pcUsable(conChatGpt.d, 'chatgpt')) { leidaPc = conChatGpt; iaDeLaPc = 'chatgpt'; }
+    }
+    const pc = leidaPc.d;
+    const pcIlegible = leidaPc.error;
+    // Sólo se le manda a una PC en línea CON una cuenta con sesión de ESA IA: «en línea» sin sesión no contesta nada.
+    const pcPuede = pcUsable(pc, iaDeLaPc);
+    // Lo que falló en la PC del cliente (apagada, sin Claude, sin sesión, al tope, no contestó a tiempo) no es un bug.
+    const conLaPc = !ia || eligioLaPc;
     // Sólo si se usa la computadora: con «Tu Claude» elegido y la PC apagada, el aviso era «tu computadora está apagada» y se
-    // perdía el error de su clave (revisión del selector, 23/10/2026).
-    let falloDeLaPc: FalloDeLaPc | null = conLaPc && pc && !pcPuede ? (pc.enLinea ? (pc.claudeFalta ? 'sin-claude' : 'sesion') : 'apagada') : null;
+    // perdía el error de su clave (revisión del selector, 23/10/2026). «Falta Claude Code» es sólo de Claude.
+    let falloDeLaPc: FalloDeLaPc | null = conLaPc && pc && !pcPuede ? (pc.enLinea ? (pc.claudeFalta && iaDeLaPc === 'claude' ? 'sin-claude' : 'sesion') : 'apagada') : null;
     // Eligió su computadora y no hay ninguna conectada (si no se pudo LEER, lo dice su propio aviso): eso es lo que pasa.
-    if (ia?.cuenta === 'pc' && !pc && !pcIlegible) falloDeLaPc = 'apagada';
+    if (eligioLaPc && !pc && !pcIlegible) falloDeLaPc = 'apagada';
     let reponeDeLaPc: string | null = null;
     if (conLaPc && pc && pcPuede) {
       try {
-        // El modelo que eligió para este chat; si no, el del negocio.
-        const modelo = ia?.cuenta === 'pc' && ia.modelo ? modeloPc(ia.modelo) : modeloPc(await getSetting(CLAVE_MODELO_PC).catch(() => null));
-        const turnoPc = await encolarTurno(pc, s.id, { system, prompt: armarPrompt(historial, textoModelo), tools, modelo });
+        // El modelo que eligió para este chat; si no, el del negocio. Con su ChatGPT, ninguno: Codex usa el suyo.
+        const modelo = iaDeLaPc === 'chatgpt' ? undefined
+          : ia?.cuenta === 'pc' && ia.modelo ? modeloPc(ia.modelo) : modeloPc(await getSetting(CLAVE_MODELO_PC).catch(() => null));
+        const turnoPc = await encolarTurno(pc, s.id, {
+          system, prompt: armarPrompt(historial, textoModelo), tools, modelo, ...(iaDeLaPc === 'chatgpt' ? { proveedor: 'chatgpt' as const } : {}),
+        });
         // Lo que le queda a la ruta, no 240 s fijos (el Analyst del lead tiene 300 s: Vercel cortaba sin aviso).
         const espera = esperaDelTurno(entrada.plazoMs ?? PLAZO_RUTA_MS, Date.now() - inicio);
         const r = await esperarALaPc(turnoPc, ws, pc.id, nuevoIntento() as Ejecutor, espera);
@@ -759,7 +774,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // Sin su PC (no tiene, está apagada o sin sesión, o no pudo): con su clave, si la tiene (docs/ia-del-cliente.md §5).
     // Con «sólo su IA» (D6b) la cascada barata no participa: chatClaudeTools usa su OpenAI o su Claude, o nada. Si la PC
     // tardó (ya no queda tiempo) o el negocio pasó su tope, no se prueba otra cosa.
-    if (!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos' && ia?.cuenta !== 'pc') {
+    if (!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos' && !eligioLaPc) {
       try {
         const r = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
           feature: FEATURE, maxSteps: 8, sinFallbackClaude: true, soloSuIA: negocio.suIA,
@@ -898,7 +913,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       : null;
     if (!respuesta) {
       const tzAviso = falloDeLaPc === 'tope' ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : TZ_DEFAULT;
-      const delaPc = avisoDeLaPc(falloDeLaPc, false, { repone: reponeDeLaPc, tz: tzAviso });
+      const delaPc = avisoDeLaPc(falloDeLaPc, false, { repone: reponeDeLaPc, tz: tzAviso, ia: iaDeLaPc });
       // Con un porqué conocido, MaKo lo dice EN EL HILO (`porQueSinRespuesta`): al volver a entrar está ahí, y no «No te pude
       // contestar esto». En la respuesta sigue yendo como aviso, con su botón (no en `guardados`: saldría dos veces).
       const porQue = porQueSinRespuesta({ delaPc, deSuClave: deSuCuenta?.aviso, sinIA: sinIAEs?.aviso, pcIlegible: pcIlegible && negocio.suIA ? AVISO_PC_ILEGIBLE : null });

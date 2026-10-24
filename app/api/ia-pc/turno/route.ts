@@ -8,7 +8,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { tomarTurno } from '@/lib/ia-pc';
-import { modeloPc } from '@/lib/ia-pc-reglas';
+import { modeloDelTurno } from '@/lib/ia-pc-reglas';
 import { pcDelPedido, respuestaDe } from '@/lib/ia-pc-ruta';
 import { limitePorClave } from '@/lib/limite-publico';
 
@@ -29,9 +29,15 @@ export async function GET(req: NextRequest) {
     return respuestaDe('no-pude-leer');
   }
   if (!t) return new NextResponse(null, { status: 204, headers: { 'cache-control': 'no-store' } });
+  // Con qué IA lo corre la PC (la ola 3). Un turno de Claude sale IGUAL que antes (sin `proveedor`): el programa hasta la 0.4.2
+  // no lo lee, y nunca recibe uno de ChatGPT, porque `pcDe` sólo elige para ChatGPT una PC que reporta una cuenta de ChatGPT.
+  const proveedor = t.pedido.proveedor === 'chatgpt' ? 'chatgpt' : 'claude';
+  const modelo = modeloDelTurno(proveedor, t.pedido.modelo);
   return NextResponse.json({
     ok: true, id: t.id, system: t.pedido.system, prompt: t.pedido.prompt, token: t.token,
-    // El modelo lo elige el negocio en «Tus cuentas de IA»; la PC lo vuelve a pasar por su lista (MODELOS_PC).
-    modelo: modeloPc(t.pedido.modelo),
+    // El modelo lo elige el negocio en «Tus cuentas de IA»; la PC lo vuelve a pasar por su lista (MODELOS_PC). Con ChatGPT,
+    // ninguno: Codex usa el suyo.
+    ...(modelo ? { modelo } : {}),
+    ...(proveedor !== 'claude' ? { proveedor } : {}),
   }, { headers: { 'cache-control': 'no-store' } });
 }

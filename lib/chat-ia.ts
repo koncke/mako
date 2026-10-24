@@ -13,7 +13,7 @@
 
 import 'server-only';
 import { pcDe } from '@/lib/ia-pc';
-import { CLAVE_MODELO_PC, MODELOS_PC, modeloPc } from '@/lib/ia-pc-reglas';
+import { CLAVE_MODELO_PC, MODELOS_PC, cuentasDeLaIA, modeloPc } from '@/lib/ia-pc-reglas';
 import { permisoDeLaClaveDelNegocio } from '@/lib/anthropic';
 import { provsDe } from '@/lib/ai-cheap';
 import { getSetting } from '@/lib/settings';
@@ -35,6 +35,12 @@ export async function cuentasDeIA(persona: { ws: number; actor: string; rol?: 'a
     if (pc) {
       const modeloDefault = modeloPc(await getSetting(CLAVE_MODELO_PC).catch(() => null));
       out.push({ cuenta: 'pc', nombre: `Tu computadora (${pc.nombre})`, modelos: MODELOS_PC, modeloDefault });
+    }
+    // Su ChatGPT en su computadora (la ola 3, Codex): sólo si una PC suya reporta una cuenta de ChatGPT. El programa hasta la
+    // 0.4.2 reporta sólo las de Claude, así que hoy no aparece. Sin lista de modelos: Codex usa el suyo.
+    const pcGpt = await pcDe(persona.ws, persona.actor, 'chatgpt').catch(() => null);
+    if (pcGpt && cuentasDeLaIA(pcGpt.cuentas, 'chatgpt').length) {
+      out.push({ cuenta: 'pc-chatgpt', nombre: `Tu computadora · ChatGPT (${pcGpt.nombre})`, modelos: [], modeloDefault: null });
     }
     const suClaude = await permisoDeLaClaveDelNegocio(FEATURE_DEL_CHAT).catch(() => null);
     if (suClaude && 'permiso' in suClaude) {

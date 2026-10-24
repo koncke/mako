@@ -24,6 +24,7 @@ import { getSupabaseServer } from './supabase';
 import {
   CODIGO_MS, ESPERA_TURNO_MS, LARGO_CODIGO, PREFIJO_TOKEN_PC, PREFIJO_TOKEN_TURNO, SIN_LATIDO_MS, SIN_TOMAR_MS, TURNO_MS, VERSION_CONSENTIMIENTO,
   codigoDe, elegirPc, enLinea, type PcDeNegocio, normalizarCodigo, sanearCuentas, sanearNombrePc, sanearRespuesta, sistemaDeLaVersion, tieneFormaDeToken, type CuentaPc, type TipoFalloPc,
+  pcUsable, type ProveedorPc,
 } from './ia-pc-reglas';
 import type { ToolDef } from './anthropic';
 
@@ -234,7 +235,7 @@ export async function soltar(d: Dispositivo): Promise<void> {
  * La PC de ESTA persona en este negocio (la más reciente confirmada que no se desconectó), con si está en línea. Una
  * pendiente no es de nadie todavía. Tira si falla.
  */
-export async function pcDe(ws: number, persona: string): Promise<(Dispositivo & { enLinea: boolean }) | null> {
+export async function pcDe(ws: number, persona: string, proveedor: ProveedorPc = 'claude'): Promise<(Dispositivo & { enLinea: boolean }) | null> {
   // VARIAS COMPUTADORAS (22/10/2026): todas las de la persona, y el turno va a la que elige `elegirPc` (lib/ia-pc-reglas.ts).
   const r = await db().from('ia_pc_dispositivos')
     .select(`${COLUMNAS_PC}, creado_at`)
@@ -247,7 +248,7 @@ export async function pcDe(ws: number, persona: string): Promise<(Dispositivo & 
   // El último turno TERMINADO de cada una (bien, con error o vencido), sólo si hay más de una que conteste (si no, no hace
   // falta preguntar). Con sólo los contestados bien, una que falla seguía siendo «la del último turno» (revisión adversarial).
   const ultimoTurno = new Map<number, { at: string; ok: boolean }>();
-  if (pcs.filter((p) => p.enLinea && p.cuentas.length).length > 1) {
+  if (pcs.filter((p) => pcUsable(p, proveedor)).length > 1) {
     const t = await db().from('ia_pc_turnos').select('dispositivo_id, estado, creado_at')
       .eq('workspace_id', ws).in('dispositivo_id', pcs.map((p) => p.id)).in('estado', ['listo', 'error', 'vencido'])
       .order('creado_at', { ascending: false }).limit(50);
@@ -255,7 +256,8 @@ export async function pcDe(ws: number, persona: string): Promise<(Dispositivo & 
       if (!ultimoTurno.has(Number(f.dispositivo_id))) ultimoTurno.set(Number(f.dispositivo_id), { at: f.creado_at, ok: f.estado === 'listo' });
     }
   }
-  const elegida = elegirPc(pcs, ultimoTurno);
+  // Por IA (la ola 3): con su ChatGPT elegido, sólo una PC con una cuenta de ChatGPT contesta.
+  const elegida = elegirPc(pcs, ultimoTurno, proveedor);
   if (!elegida) return null;
   const { conectadaAt: _c, ...d } = elegida;
   return d;
@@ -366,8 +368,11 @@ export async function puedeDesconectar(ws: number, id: number, persona: string, 
 
 // ── Los turnos ───────────────────────────────────────────────────────────────
 
-/** El pedido de un turno. `modelo` es el único valor del comando que viene del servidor: la PC lo pasa por su lista. */
-export type PedidoPc = { system: string; prompt: string; tools: ToolDef[]; modelo?: string };
+/**
+ * El pedido de un turno. `modelo` es el único valor del comando que viene del servidor: la PC lo pasa por su lista.
+ * `proveedor` (la ola 3): con qué IA lo corre la PC. Sin él, Claude, que es lo único que conoce el programa hasta la 0.4.2.
+ */
+export type PedidoPc = { system: string; prompt: string; tools: ToolDef[]; modelo?: string; proveedor?: ProveedorPc };
 
 /** El negocio pasó su tope de turnos por minuto (§3, regla 6): el turno no se encola. */
 export class TopeDeTurnos extends Error {}

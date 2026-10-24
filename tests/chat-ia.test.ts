@@ -64,6 +64,15 @@ test('2. qué elección pasa: una de las que se ofrecen, con un modelo que esa c
   assert.equal(e.nada, null);
 });
 
+test('2b. su ChatGPT en su computadora (la ola 3): se ofrece sólo si una PC suya lo reporta, sin modelos, y sólo a esa persona', () => {
+  const r = correr();
+  assert.ok(!(r.cuentasAnaSinGpt as string[]).includes('pc-chatgpt'), 'se ofreció sin ninguna PC con su ChatGPT');
+  assert.deepEqual(r.cuentasAnaConGpt[0], r.cuentasAna[0], 'la computadora de Claude pasó a ser la de ChatGPT');
+  assert.deepEqual(r.cuentasAnaConGpt[1], { cuenta: 'pc-chatgpt', nombre: 'Tu computadora · ChatGPT (Casa)', modelos: [], modeloDefault: null });
+  assert.deepEqual(r.eleccionPcGpt, { cuenta: 'pc-chatgpt' }, 'un modelo de OpenAI llegó a Codex');
+  assert.equal(r.eleccionPcGptDeBeto, null, 'la computadora de Ana se le ofreció a otra persona');
+});
+
 test('3. lo elegido llega a la llamada: su clave y su modelo; con el crédito, Haiku igual; su OpenAI no cae a Claude', () => {
   const r = correr();
   assert.deepEqual(r.suClaudeSonnet.llamadas, [{ a: 'anthropic', clave: 'sk-ant-api03-propia-de-ana-a', modelo: 'claude-sonnet-5' }]);
@@ -87,12 +96,14 @@ test('4. la ruta lo lee en las dos ramas y manda las cuentas; el turno lo respet
   // Nunca tal cual: la elección cruda no llega al turno.
   assert.doesNotMatch(ruta, /ia: body\.ia|ia: form\.get/);
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(turno, /const conLaPc = !ia \|\| ia\.cuenta === 'pc';/);
+  // «Su computadora» es cualquiera de las dos IA de la PC (la ola 3: su Claude o su ChatGPT).
+  assert.match(turno, /const eligioLaPc = !!ia && !!IA_DE_LA_PC\[ia\.cuenta\];/);
+  assert.match(turno, /const conLaPc = !ia \|\| eligioLaPc;/);
   // Con una de sus claves elegida, lo de la computadora no es lo que pasó (revisión del selector).
   assert.match(turno, /let falloDeLaPc: FalloDeLaPc \| null = conLaPc && pc && !pcPuede \?/, 'con «Tu Claude» elegido, el aviso habla de la computadora');
   assert.match(turno, /if \(conLaPc && pc && pcPuede\) \{/, 'con una de sus claves elegida, igual piensa la computadora');
-  assert.match(turno, /const modelo = ia\?\.cuenta === 'pc' && ia\.modelo \? modeloPc\(ia\.modelo\) : modeloPc\(await getSetting\(CLAVE_MODELO_PC\)/);
-  assert.match(turno, /falloDeLaPc !== 'muchos' && ia\?\.cuenta !== 'pc'\) \{/, 'con la computadora elegida, cae a las claves');
+  assert.match(turno, /const modelo = iaDeLaPc === 'chatgpt' \? undefined\s*: ia\?\.cuenta === 'pc' && ia\.modelo \? modeloPc\(ia\.modelo\) : modeloPc\(await getSetting\(CLAVE_MODELO_PC\)/);
+  assert.match(turno, /falloDeLaPc !== 'muchos' && !eligioLaPc\) \{/, 'con la computadora elegida, cae a las claves');
   assert.match(turno, /\.\.\.\(ia\?\.cuenta === 'anthropic' \? \{ soloSuClaude: true, \.\.\.\(ia\.modelo \? \{ modeloSuClaude: ia\.modelo \} : \{\}\) \}\s*: ia\?\.cuenta === 'openai' \? \{ soloSuOpenAI: true, modeloSuOpenAI: ia\.modelo \?\? MODELO_SU_OPENAI_DEFAULT \} : \{\}\),/,
     'su ChatGPT sin el modelo elegido (o el de por defecto): corría gpt-4o-mini');
   // El turno no valida por su cuenta: confía en la ruta, que ya la pasó por eleccionDelPedido.

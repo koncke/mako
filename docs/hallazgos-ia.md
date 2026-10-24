@@ -6153,9 +6153,9 @@ diseño y un crítico) encontró que el diagnóstico obvio —«falta el corredo
 1. Martín: `codex login` («Sign in with ChatGPT»). Después, `node scripts/ia-pc/medir-codex-mcp.mjs`
    (tres turnos de su cuenta). Sin el ✓ de 1 y el ✓ de 3b no hay corredor.
 2. Decisión de Martín: lo legal de OpenAI (arriba).
-3. Este chat: el servidor por proveedor (lib/ia-pc-reglas.ts, lib/ia-pc.ts, app/api/ia-pc/turno, el
-   «+» con «Tu computadora · ChatGPT», la columna de la IA elegida en `ia_pc_codigos`, «falta Codex» por
-   dispositivo, la versión mínima, el consentimiento de ChatGPT). Invisible y antes del programa.
+3. Este chat: lo que falta del servidor (la columna de la IA elegida en `ia_pc_codigos`, «falta Codex»
+   por dispositivo, la versión mínima, el consentimiento de ChatGPT). La elección de la PC por IA ya está
+   (abajo).
 4. El chat del Instalador (cuenta 3): el programa 0.5.0 (instalar Codex sin terminal —el paquete de
    OpenAI de ~159 MB o su install.ps1, nunca npm: el cliente no tiene Node—, `codex login` oculto, el
    turno con `codex exec --json`, el latido con `proveedor: 'chatgpt'`, el % usado por
@@ -6166,6 +6166,33 @@ diseño y un crítico) encontró que el diagnóstico obvio —«falta el corredo
 **Vive en:** scripts/ia-pc/medir-codex-mcp.mjs · scripts/ia-pc/mako-pc.mjs · lib/ia-pc-reglas.ts ·
 lib/ia-pc.ts · app/api/ia-pc/* · lib/conectar-ia-reglas.ts · app/integraciones/TusCuentasIA.tsx ·
 installer/windows/mako.iss · *2026-10-23, chat «IA del cliente»*
+
+### La PC se elige POR IA (la ola 3, parte a: el servidor, 23/10/2026)
+
+Lo que hace seguro subir el servidor antes que el programa: un turno de ChatGPT sólo va a una PC que
+REPORTA una cuenta `chatgpt` (`pcUsable(pc, 'chatgpt')`), y ningún programa hasta la 0.4.2 la reporta.
+Con eso, una 0.4.2 nunca recibe un turno de ChatGPT, que correría con Claude. Y a un turno de Claude
+la ruta lo manda sin el campo `proveedor`: la 0.4.2 lo recibe idéntico.
+
+- **`pcDe` devuelve una PC aunque no sirva**, la última que latió, para que el aviso diga qué le pasa.
+  Con sólo su ChatGPT conectado, Automático buscaba la de Claude, encontraba ésa y avisaba «Tu Claude
+  no tiene la sesión iniciada». Ahora, en Automático, la PC que no puede con su Claude y sí con su
+  ChatGPT contesta con su ChatGPT. Un negocio sin ninguna PC no hace esa segunda lectura.
+- **`pcUsable` tiene un segundo parámetro**: `.filter(pcUsable)` le pasa el ÍNDICE como proveedor, y
+  ninguna PC sirve. Siempre `(p) => pcUsable(p, proveedor)`.
+- **«Agotada» es por IA**: una PC con su Claude al 100% y su ChatGPT con lugar no es «sana» para un turno
+  de Claude, y al revés (`cuentasAgotadas(cuentasDeLaIA(…))`).
+- **`sanearCuentas` tira las cuentas sin `proveedor`**: lo guardado siempre lo trae. Que `cuentasDeLaIA`
+  tome una cuenta sin proveedor como de Claude es sólo por si acaso.
+- **Los avisos de ChatGPT** son los de Claude con «Tu ChatGPT» y «Codex» (`avisoDeLaPc(…, { ia })`).
+  Probados todos los fallos: ninguno dice «Claude».
+
+Probado rompiéndolo: tests/ia-pc-proveedor.test.ts, tests/ia-pc-varias.test.ts (`porIA`) y
+tests/chat-ia.test.ts (2b).
+
+**Vive en:** lib/ia-pc-reglas.ts (`pcUsable`, `elegirPc`, `cuentasDeLaIA`, `modeloDelTurno`,
+`avisoDeLaPc`) · lib/ia-pc.ts (`pcDe`) · app/api/ia-pc/turno/route.ts · lib/chat-ia.ts («Tu computadora ·
+ChatGPT») · lib/mako-turno-app.ts (`iaDeLaPc`) · *2026-10-23, chat «IA del cliente»*
 
 **Vive en:** lib/chat-ia.ts (`cuentasDeIA`) · lib/mako-turno-app.ts (`soloSuOpenAI`) ·
 lib/ai-cheap.ts (`cfgDe`, `CHEAP_MODEL`) · lib/conectar-ia-reglas.ts (`CHATGPT_EN_LA_PC`) ·

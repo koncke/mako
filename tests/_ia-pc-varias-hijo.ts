@@ -30,7 +30,7 @@ const CON_SESION = [{ proveedor: 'claude', email: 'mau@x.com' }];
 
 async function main() {
   const pc = await import('../lib/ia-pc');
-  const { VERSION_CONSENTIMIENTO } = await import('../lib/ia-pc-reglas');
+  const { VERSION_CONSENTIMIENTO, pcUsable } = await import('../lib/ia-pc-reglas');
   pg.db.workspaces.push({ id: WS, nombre: 'Mauricio Bustos' }, { id: 13, nombre: 'Código Inmobiliario' });
   const conectar = async (ws: number, persona: string, nombre: string, version: string) => {
     const c = await pc.crearCodigo(ws, persona, VERSION_CONSENTIMIENTO);
@@ -69,6 +69,15 @@ async function main() {
   pg.db.ia_pc_turnos.push({ id: 6, workspace_id: WS, dispositivo_id: suya.id, sesion_id: 1, estado: 'listo', pedido: {}, vence_at: new Date().toISOString(), listo_at: new Date().toISOString(), creado_at: new Date(Date.now() + 3000).toISOString() });
   filaSuya.cuentas = [{ proveedor: 'claude', email: 'mau@x.com', usadoSemana: 100 }];
   out.agotada = (await pc.pcDe(WS, MAU))?.nombre;
+  // Por IA (la ola 3): la suya con sólo su ChatGPT. El turno de Claude va a la de Martín y el de ChatGPT, a la suya, aunque
+  // la de Martín sea la del último turno; sin ninguna con ChatGPT, ninguna sirve para un turno de ChatGPT.
+  filaSuya.cuentas = [{ proveedor: 'chatgpt', email: 'mau@x.com' }];
+  out.porIA = {
+    claude: (await pc.pcDe(WS, MAU))?.nombre,
+    chatgpt: (await pc.pcDe(WS, MAU, 'chatgpt'))?.nombre,
+    // La de Ana (sólo Claude): para un turno de ChatGPT vuelve la última, para el aviso, pero no sirve.
+    anaParaChatgpt: pcUsable(await pc.pcDe(13, 'ana@codigo.com', 'chatgpt'), 'chatgpt'),
+  };
   filaSuya.cuentas = CON_SESION;
   // Un turno que la PC toma justo cuando la desconectan no se le da; y una herramienta de una PC desconectada no se pide.
   const otra = await conectar(WS, 'otra@negocio.com', 'PC de Otra', '0.4.0+windows');

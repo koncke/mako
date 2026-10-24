@@ -49,6 +49,8 @@ test('2. el turno: a una que conteste; con varias, la del último turno; sin tur
   // Revisión adversarial: la que falló su último turno, o tiene la cuenta agotada, va al final (no queda pegado a ella).
   assert.equal(r.fallo, 'PC de Mauricio', 'el turno quedó pegado a la que falló el último');
   assert.equal(r.agotada, 'PC de Martín', 'el turno fue a la que tiene la cuenta agotada');
+  // Por IA (la ola 3): la que tiene sólo su ChatGPT no recibe un turno de Claude, y al revés.
+  assert.deepEqual(r.porIA, { claude: 'PC de Martín', chatgpt: 'PC de Mauricio', anaParaChatgpt: false }, 'el turno fue a una PC sin esa IA');
   // Puro: sin ninguna que conteste, la que latió último (el turno dice apagada o sin sesión).
   const pc = (id: number, enLinea: boolean, cuentas: number, latido: string | null, conectadaAt: string | null = null) => ({ id, enLinea, cuentas: Array(cuentas).fill({}), ultimoLatido: latido, conectadaAt });
   assert.equal(elegirPc([pc(1, false, 1, '2026-10-22T10:00:00Z'), pc(2, false, 1, '2026-10-22T11:00:00Z')], new Map())?.id, 2);
