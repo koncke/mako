@@ -32,19 +32,20 @@ const sinComentarios = (src: string) => src
 
 const SPRINT: EnAutomatizacion = {
   secuenciaId: 289, nombre: 'Sprint · apertura', automatizacionActiva: true, estado: 'activa',
-  paso: { numero: 2, titulo: 'WHATSAPP: Hola {{nombre}}, soy Maur…' }, proximoEnvioAt: '2026-10-23T13:00:00Z', link: '/automations?sec=289',
+  paso: { numero: 2, titulo: '«Hola, soy Mauricio…»' }, proximoEnvioAt: '2026-10-23T13:00:00Z', link: '/automations?sec=289',
 };
 
 test('el chip: «En automatización» si le corre alguna; gris si está en pausa o frenada porque respondió; nada sin ninguna', () => {
   assert.equal(chipDeAutomatizacion(undefined), null);
   assert.equal(chipDeAutomatizacion([]), null);
-  assert.deepEqual(chipDeAutomatizacion([SPRINT]), { texto: 'En automatización', tono: 'mako', detalle: '«Sprint · apertura» · paso 2: WHATSAPP: Hola {{nombre}}, soy Maur…' });
+  assert.deepEqual(chipDeAutomatizacion([SPRINT]), { texto: 'En automatización', tono: 'mako', detalle: '«Sprint · apertura» · «Hola, soy Mauricio…»' });
   assert.equal(chipDeAutomatizacion([SPRINT, { ...SPRINT, secuenciaId: 30, nombre: 'Reactivación' }])?.texto, 'En 2 automatizaciones');
   const pausada = { ...SPRINT, automatizacionActiva: false };
   assert.equal(corre(pausada), false, 'una pausada no le corre');
-  assert.deepEqual(chipDeAutomatizacion([pausada]), { texto: 'Automatización en pausa', tono: 'gris', detalle: '«Sprint · apertura» · paso 2: WHATSAPP: Hola {{nombre}}, soy Maur… · la automatización está en pausa' });
+  assert.deepEqual(chipDeAutomatizacion([pausada]), { texto: 'Automatización en pausa', tono: 'gris', detalle: '«Sprint · apertura» · «Hola, soy Mauricio…» · la automatización está en pausa' });
   assert.equal(chipDeAutomatizacion([{ ...SPRINT, estado: 'respondio' }])?.texto, 'Respondió: frenada');
-  assert.equal(lineaDeAutomatizacion({ ...SPRINT, paso: null }), '«Sprint · apertura» · paso sin ubicar');
+  // Sin dato, no se dice nada (24/10/2026; antes, «paso sin ubicar»: un «falta» que no ayuda a nadie).
+  assert.equal(lineaDeAutomatizacion({ ...SPRINT, paso: null }), '«Sprint · apertura»');
 });
 
 test('«Frenar» pregunta antes, nombrando a quién y de dónde, y dice que no se deshace', () => {

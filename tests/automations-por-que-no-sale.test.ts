@@ -110,7 +110,7 @@ test('el lead lo dice: el chip del CRM, la ficha y su línea; y la tarjeta del l
   assert.equal(auts[0].frenado?.corto, 'Abre mañana 9:00');
   assert.deepEqual(chipDeAutomatizacion(auts), {
     texto: 'Abre mañana 9:00', tono: 'gris',
-    detalle: '«Sprint · apertura» · paso 1: WHATSAPP: Hola {{nombre}} · No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale cuando abre: mañana 9:00.',
+    detalle: '«Sprint · apertura» · «Hola» · No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale cuando abre: mañana 9:00.',
   });
   assert.equal(estadoDeAutomatizacion(auts[0], () => 'NUNCA'), 'No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale cuando abre: mañana 9:00.');
   assert.match(lineaDeAutomatizacion(auts[0]), /· No salió: fuera del horario/);

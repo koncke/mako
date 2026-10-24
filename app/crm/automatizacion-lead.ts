@@ -32,10 +32,12 @@ export const corre = (a: EnAutomatizacion): boolean => a.estado === 'activa' && 
  * «No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale mañana 9:00.», lib/por-que-no-sale.ts).
  */
 export function lineaDeAutomatizacion(a: EnAutomatizacion): string {
-  const paso = a.paso ? `paso ${a.paso.numero}: ${a.paso.titulo}` : 'paso sin ubicar';
+  // Sin «paso N» (24/10/2026): el número es el de la tarjeta en el lienzo. Lo que espera, en palabras (`pasoEnPalabras`).
+  // Sólo en curso: a quien contestó no le espera nada (y su posición queda en la entrada: «La entrada» no dice nada).
+  const paso = a.estado === 'activa' && a.paso?.titulo ? ` · ${a.paso.titulo}` : '';
   const nota = a.estado === 'respondio' ? ' · frenada: respondió' : !a.automatizacionActiva ? ' · la automatización está en pausa'
     : a.frenado ? ` · ${a.frenado.texto}` : '';
-  return `«${a.nombre}» · ${paso}${nota}`;
+  return `«${a.nombre}»${paso}${nota}`;
 }
 
 /**
@@ -129,6 +131,8 @@ export type InscripcionVista = {
   proximo: { at: string | null; titulo: string | null; clase?: 'mensaje' | 'accion' | 'otro' | null } | null;
   /** Cuándo contestó en esta pasada (ISO). null o ausente = no se sabe. */
   contesto?: string | null;
+  /** Qué contestó, citado («No hemos mandado pagos…», «un audio»). null o ausente = no se sabe. */
+  respuesta?: string | null;
   frenado: { texto: string; corto: string } | null;
   termino: { at: string | null; texto: string } | null;
   /** Lo que ya le salió en ESTA inscripción, del más nuevo al más viejo. */
@@ -147,10 +151,13 @@ const TERMINADOS: readonly string[] = ['completada', 'no_responde', 'cancelada']
 /** Viva = no terminó (corriendo, por arrancar, en pausa, con una persona o frenada porque contestó). */
 export const estaViva = (i: Pick<InscripcionVista, 'estado'>): boolean => !TERMINADOS.includes(i.estado);
 
-/** Lo que no entró, en una frase: «No volvió a entrar a «X»: ya entró una vez y su reentrada es «Una sola vez» (va en el paso 2).» */
-function fraseNoEntro(n: { nombre: string; texto?: string | null; porque?: string | null }, paso?: { numero: number } | null): string {
-  if (!n.texto?.trim()) return textoDeNoEntro({ nombre: n.nombre, porque: n.porque ?? '', paso });
-  return `No volvió a entrar a «${n.nombre}»: ${n.texto.trim()}${paso ? ` (va en el paso ${paso.numero})` : ''}.`;
+/**
+ * Lo que no entró, en una frase: «No volvió a entrar a «X»: ya entró una vez y su reentrada es «Una sola vez».». Sin
+ * «(va en el paso N)» desde el 24/10/2026: el número es el de la tarjeta en el lienzo, no le dice nada a quien mira el lead.
+ */
+function fraseNoEntro(n: { nombre: string; texto?: string | null; porque?: string | null }): string {
+  if (!n.texto?.trim()) return textoDeNoEntro({ nombre: n.nombre, porque: n.porque ?? '' });
+  return `No volvió a entrar a «${n.nombre}»: ${n.texto.trim()}.`;
 }
 
 /** Cuántas veces que no entró se dicen: la última de cada automatización, las más nuevas. */
@@ -169,7 +176,7 @@ export function vistaDeDetalle(d: AutomatizacionesDelLead): AutomatizacionesVist
     proximo: i.proximo ? { at: i.proximo.at, titulo: i.proximo.que?.que || i.proximo.titulo || null, clase: i.proximo.que?.clase ?? null } : null,
     frenado: i.frenado ? { texto: i.frenado.texto, corto: i.frenado.corto } : null,
     termino: i.termino, puede: i.puede, reentrada: i.reentrada, reentradaTexto: i.reentradaTexto,
-    contesto: i.contesto ?? null,
+    contesto: i.contesto ?? null, respuesta: i.respuesta ?? null,
     enviados: i.enviados.map((e) => ({
       at: e.at, paso: e.paso ? `Paso ${e.paso.numero}: ${e.paso.titulo}` : null, canal: e.canal, estado: e.estado, error: e.error,
       que: e.que?.que ?? null, clase: e.que?.clase ?? null,
@@ -180,8 +187,7 @@ export function vistaDeDetalle(d: AutomatizacionesDelLead): AutomatizacionesVist
   for (const n of [...d.noEntro].sort((a, b) => (b.at ?? '').localeCompare(a.at ?? ''))) {
     if (vistas.has(n.secuenciaId) || noEntro.length >= TOPE_NO_ENTRO) continue;
     vistas.add(n.secuenciaId);
-    const paso = inscripciones.find((i) => i.secuenciaId === n.secuenciaId && estaViva(i))?.paso ?? null;
-    noEntro.push({ secuenciaId: n.secuenciaId, nombre: n.nombre, at: n.at, texto: fraseNoEntro(n, paso) });
+    noEntro.push({ secuenciaId: n.secuenciaId, nombre: n.nombre, at: n.at, texto: fraseNoEntro(n) });
   }
   return { vivas: inscripciones.filter(estaViva), terminadas: inscripciones.filter((i) => !estaViva(i)), noEntro };
 }
@@ -307,7 +313,7 @@ export function renglonesDeTarjeta(i: InscripcionVista, fecha: (iso: string) => 
   if (ultimo) out.push({ tipo: 'salio', ...lineaDelEnvio(ultimo, fecha) });
   else if (estaViva(i) && i.estado !== 'respondio') out.push({ tipo: 'salio', texto: 'Todavía no le salió nada.', tono: 'gris' });
   // 2. Si contestó.
-  if (i.contesto) out.push({ tipo: 'contesto', texto: `Contestó ${fecha(i.contesto)}`, tono: 'ok' });
+  if (i.contesto) out.push({ tipo: 'contesto', texto: `Contestó ${fecha(i.contesto)}${i.respuesta ? `: ${i.respuesta}` : ''}`, tono: 'ok' });
   else if (i.estado === 'respondio') out.push({ tipo: 'contesto', texto: 'Contestó.', tono: 'ok' });
   // 3. Qué sigue.
   if (!estaViva(i)) {
@@ -334,7 +340,7 @@ export function preguntaDeEmpezarDeNuevo(o: { nombre?: string | null; aut: Pick<
 /** El texto de una vez que no entró, si viene sin decir (el respaldo: nunca una línea vacía). */
 export function textoDeNoEntro(o: { nombre: string; porque: string; paso?: { numero: number } | null }): string {
   switch (o.porque) {
-    case 'en_curso': return `No volvió a empezar «${o.nombre}»: ya está adentro${o.paso ? ` (paso ${o.paso.numero})` : ''}.`;
+    case 'en_curso': return `No volvió a empezar «${o.nombre}»: ya está adentro.`;
     case 'una_sola_vez': return `No volvió a entrar a «${o.nombre}»: entra una sola vez.`;
     case 'cancelada': return `No volvió a entrar a «${o.nombre}»: la frenaron y no vuelve sola.`;
     default: return `No entró a «${o.nombre}».`;
@@ -364,11 +370,10 @@ export function noEntroDelMovimiento(r: unknown): string[] {
   if (!Array.isArray(lista)) return [];
   return lista.flatMap((x) => {
     if (!x || typeof x !== 'object') return [];
-    const o = x as { texto?: unknown; nombre?: unknown; porque?: unknown; paso?: { numero?: unknown } | null };
+    const o = x as { texto?: unknown; nombre?: unknown; porque?: unknown };
     const texto = typeof o.texto === 'string' ? o.texto : null;
-    const n = o.paso && typeof o.paso.numero === 'number' ? { numero: o.paso.numero } : null;
     // El `texto` de Automations es el motivo SIN el nombre: con el nombre, la frase entera.
-    if (typeof o.nombre === 'string') return [fraseNoEntro({ nombre: o.nombre, texto, porque: typeof o.porque === 'string' ? o.porque : null }, n)];
+    if (typeof o.nombre === 'string') return [fraseNoEntro({ nombre: o.nombre, texto, porque: typeof o.porque === 'string' ? o.porque : null })];
     return texto?.trim() ? [texto.trim()] : [];
   });
 }

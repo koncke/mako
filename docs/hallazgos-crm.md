@@ -235,7 +235,11 @@ nombres del lienzo. Ahora la tarjeta dice, en tres renglones, qué le salió (el
 nombre: `pasoEnPalabras` / `citaDelMensaje`), si contestó y cuándo (la línea «Contestó en «X»» que escribe el motor,
 `leerContesto`, sólo la de esta pasada), y qué sigue: qué le sale y cuándo, por qué no, o cómo terminó
 (`renglonesDeTarjeta`). Las fechas, cortas: «hoy 18:33», «ayer 16:33» (`fechaCorta`). El historial, plegado, sólo con
-más de un envío. **Sin hacer:** el teléfono (/m) arma su fila con la lista liviana (`vistaDeEnAutomatizacion`), sin el
+más de un envío. Y QUÉ contestó, no sólo cuándo: el último mensaje suyo hasta que el motor lo anotó y desde que entró
+(`respuestaDelLead`: «Contestó ayer 16:49: «No hemos mandado pagos de nuestra parte»»). **La misma jerga vivía en otros
+dos lugares**, que también se arreglaron: la línea del tablero del CRM (`lineaDeAutomatizacion`, «paso 2: WHATSAPP: Hola
+{{nombre}}…»: el título de la lista liviana ahora sale de `pasoEnPalabras`) y el aviso de «no entró» («ya está adentro
+(paso 2)», «(va en el paso 2)»). Y «paso sin ubicar» se fue: sin el dato no se dice nada. **Sin hacer:** el teléfono (/m) arma su fila con la lista liviana (`vistaDeEnAutomatizacion`), sin el
 texto de lo que sigue: dice «Lo próximo · sáb 24 oct, 18:33». Las capturas del antes y el después quedaron para cuando haya
 una sesión en el navegador (no había: la PC se reinició y no se ingresan credenciales).
 
