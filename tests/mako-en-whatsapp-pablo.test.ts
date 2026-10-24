@@ -26,7 +26,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { clasificarIntencion, makoPidioDatos, esPedidoDeAgenda, makoPreguntoAlgo } from '../lib/mako-intencion';
 import { herramientasDelTurno } from '../lib/doer-herramientas';
-import { promesasDe, groseriasDe, sanearSalida, SIN_HACER } from '../lib/doer-salida';
+import { promesasDe, groseriasDe, sanearSalida, SIN_HACER, SIN_HACER_LO_DEMAS } from '../lib/doer-salida';
 import { actorDeWhatsApp, LINEA_ERROR_AVISADO } from '../lib/doer-ticket';
 import type { Vista } from '../lib/api-mako/registro';
 
@@ -243,6 +243,12 @@ test('una promesa sin ninguna herramienta corrida no sale: se dice que no se hiz
   }
   // Con una herramienta corrida, «te cargo…» puede ser el paso siguiente honesto: se deja.
   assert.equal(sanearSalida(PROMESAS_DEL_16[1], { corrioHerramientas: true }).promesas.length, 0);
+  assert.equal(sanearSalida('Ya revisé el tablero: no hay nada duplicado. Te cargo las tareas del plan de 1 semana.',
+    { corrioHerramientas: true, finDeTurno: true }).promesas.length, 0);
+  // (24/10/2026) Pero en el turno del doer (`finDeTurno`) un «déjame revisar…» al FINAL no: el turno terminó y no vuelve
+  // con nada. Sale lo de antes y que lo demás no se hizo (tests/doer-acuse.test.ts).
+  assert.equal(sanearSalida(PROMESAS_DEL_16[1], { corrioHerramientas: true, finDeTurno: true }).texto,
+    `Jajaja, acepto el reto.\n\n${SIN_HACER_LO_DEMAS}`);
 });
 
 test('un ofrecimiento es una PREGUNTA y no se toca', () => {
@@ -277,7 +283,7 @@ test('las groserías del 16/10 se ven, y la oración que las trae no sale', () =
 
 test('el doer sanea ANTES de mandar, con las herramientas que corrieron, y lo deja en el Saldo de IA', () => {
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
-  const i = doer.indexOf('sanearSalida(respuesta, { corrioHerramientas: corridasDelTurno > 0 })');
+  const i = doer.indexOf('sanearSalida(respuesta, { corrioHerramientas: corridasDelTurno > 0, finDeTurno: true })');
   assert.ok(i > 0, 'el doer no sanea la salida, o no le pasa si corrió alguna herramienta');
   assert.ok(i < doer.indexOf('const v = validarRespuestaDoer(respuesta'), 'el saneo quedó después de la compuerta');
   assert.ok(i < doer.indexOf('enviarAGrupoJid(jid, enviar[i])'), 'el saneo quedó después del envío');

@@ -156,8 +156,10 @@ test('cargar al plan y confirmar corren enteros, salvo con una pendiente que nom
 test('el doer corre la red con lo que decide `turnoParaLaRed`, y no con el turno entero', () => {
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
   const iDecide = doer.indexOf('turnoParaLaRed(');
-  const iRed = doer.indexOf('provsGratisDePlataforma()');
-  assert.ok(iDecide > 0 && iRed > iDecide, 'la red gratis se pide antes de decidir qué lleva el turno');
+  // 24/10/2026 (el ws21): la LISTA de la red se pide antes de decidir (sin red no hay nada que saltear ni que marcar); lo
+  // que tiene que ir después es CORRERLA. Lo fija tests/doer-cartel-sin-ia.test.ts.
+  const iRed = doer.indexOf('chatCheapTools(systemRed');
+  assert.ok(iDecide > 0 && iRed > iDecide, 'la red gratis corre antes de decidir qué lleva el turno');
   const bloque = doer.slice(iDecide, doer.indexOf('respondió con la RED DE PLATAFORMA', iRed));
   assert.match(bloque, /if \(turnoRed\?\.cortar\) \{[^}]*erroresPlataforma\.push\(`red gratis salteada:/, 'el corte no deja la marca que lee `sinRedPorDatos`');
   assert.match(bloque, /if \(!respuesta && turnoRed && !turnoRed\.cortar\)/, 'la red corre aunque el turno se haya cortado');
@@ -169,13 +171,15 @@ test('el doer corre la red con lo que decide `turnoParaLaRed`, y no con el turno
 
 test('sin keys propias y con la red cortada, el aviso dice por qué y adónde ir (y no manda a conectar Claude)', () => {
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
-  assert.match(doer, /const sinRedPorSusDatos = sinRedPorDatos\(errsPlat\) && causa === 'sin_keys';/);
-  assert.match(doer, /respuesta = sinRedPorSusDatos\s*\?\s*textoSinRedPorDatos\(linkApp\('\/integraciones\?abrir=anthropic', wsData\)/);
+  // 24/10/2026 (el ws21): el cartel lo elige `cartelDelFallo`, y la marca existe sólo donde había red (desde IA16, el ws9);
+  // para un negocio sin su IA sale `sin_keys`. Lo fija tests/doer-cartel-sin-ia.test.ts.
+  assert.match(doer, /const cartel = cartelDelFallo\(causa, errsPlat\);/);
+  assert.match(doer, /respuesta = cartel === 'sin_red_por_datos'\s*\?\s*textoSinRedPorDatos\(linkApp\(rutaKeysIA\(\), wsData\)/);
   assert.ok(sinRedPorDatos(['red gratis salteada: el turno lleva datos de clientes (buscar_leads) y el plan gratis entrena con lo que recibe']));
   const txt = textoSinRedPorDatos('https://app/integraciones?abrir=gemini&ws=13', 'armar el borrador');
   assert.match(txt, /No puedo armar el borrador/);
   assert.match(txt, /https:\/\/app\/integraciones\?abrir=gemini&ws=13$/);
-  // El turno con herramientas corre sólo con las keys baratas del negocio: su Claude no lo arreglaría.
+  // Donde la red existe (el workspace de la plataforma), su clave de Claude no la vuelve «su IA» (`negocioConSuIA`).
   assert.doesNotMatch(txt, /Claude/);
 });
 

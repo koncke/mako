@@ -41,7 +41,9 @@ test('2. después de su OpenAI, su Claude por la puerta 2 — sólo si el turno 
   const bloque = DOER.slice(i, i + 900);
   assert.match(bloque, /chatClaudeTools\(system, msgs, tools, nuevoIntento\(\), \{\s*feature: 'mako-doer-in', soloSuClaude: true,/);
   assert.doesNotMatch(bloque, /model: '/, 'sin `model` explícito: eso va al veto de la plataforma');
-  assert.match(DOER, /const turnoRed = respuesta \|\| suIA \? null : turnoParaLaRed\(/, 'con su IA, la red gratis ni se arma');
+  // 24/10/2026 (el cartel del ws21): la red se pide antes de decidir qué saltear, y sin red no hay `turnoRed` (ni marca).
+  assert.match(DOER, /if \(!respuesta && !suIA\) red = await provsGratisDePlataforma\(\)/, 'con su IA, la red gratis ni se arma');
+  assert.match(DOER, /const turnoRed = red\.length \? turnoParaLaRed\(/, 'con su IA, la red gratis ni se arma');
 });
 
 test('3. `soloSuClaude` de verdad: su clave y su marca; sin su clave, «falló la IA» y la de MaKo intacta', () => {
