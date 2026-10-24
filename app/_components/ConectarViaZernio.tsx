@@ -53,6 +53,8 @@ type RespuestaApi = {
   ok?: boolean; motivo?: MotivoZernio; error?: string; pagoUrl?: string | null;
   tipo?: 'url' | 'ya-conectada'; url?: string; conexiones?: ConexionZernio[]; total?: number;
   ruteo?: 'ok' | 'ocupado' | 'error';
+  // Lo manda recibirConexion (lib/zernio-conectar.ts:204) y la 158 lo lee: sin el campo, `c.webhook` no tipa.
+  webhook?: 'creado' | 'actualizado' | 'sin_secreto' | 'error';
 };
 
 const api = (action: string, extra: Record<string, unknown> = {}): Promise<RespuestaApi | null> =>
@@ -220,13 +222,15 @@ export function useConectarViaZernio(opts: {
 
     // ── Esperar: medir cada SONDEO_MS, y antes si la ventana avisa o se cierra ──
     let pista: string | null = null;
-    let errorDeVentana: MensajeVentana | null = null;
+    // En un objeto y no en un `let`: la unica asignacion vive dentro del closure `recibir`, asi que TS
+    // narrowea el `let` a null y el `if` de abajo da `never`. Una propiedad si se narrowea en el if.
+    const deLaVentana: { msg: MensajeVentana | null } = { msg: null };
     adelantar.current = false;
     const recibir = (data: unknown) => {
       const m = leerMensajeVentana(data);
       // Sólo los avisos de ESTE flujo: el canal es del origen entero y lo reciben todas las pestañas con un login en curso.
       if (!m || m.flujo !== flujo) return;
-      pista = m.accountId; if (m.error) errorDeVentana = m; adelantar.current = true;
+      pista = m.accountId; if (m.error) deLaVentana.msg = m; adelantar.current = true;
     };
     // El origen y la fuente: otra pestaña (o una página cualquiera) no puede hacer pasar un mensaje por el de la ventana.
     const alMensaje = (e: MessageEvent) => { if (e.origin === window.location.origin && e.source === ventana) recibir(e.data); };
@@ -268,7 +272,7 @@ export function useConectarViaZernio(opts: {
           if (fallosSeguidos >= FALLOS_SEGUIDOS) { cerrar(); fallar(j?.error || MENSAJES_DE_MOTIVO[motivo], j?.pagoUrl ?? null); return; }
         }
         // El error de la ventana se dice con lo que trajo, y la ventana NO se cierra: la landing queda unos segundos para que se alcance a leer.
-        if (errorDeVentana) { fallar(textoDeErrorDeRetorno(errorDeVentana.error, errorDeVentana.mensaje), null); return; }
+        if (deLaVentana.msg) { fallar(textoDeErrorDeRetorno(deLaVentana.msg.error, deLaVentana.msg.mensaje), null); return; }
         if (graciaCumplida) {
           avisoDeCierre = true;
           ponerNota('¿Cerraste la ventana? Si ya terminaste, espera unos segundos; si no, toca Conectar para empezar de nuevo.');
