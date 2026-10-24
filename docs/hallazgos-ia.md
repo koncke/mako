@@ -6586,17 +6586,30 @@ probar su clave porque ya no quedaba tiempo. Ahora, en Automático y con una cla
 `RESERVA_RESPALDO_MS` (90 s) libres y `probarSuClaveTrasLaPc` decide. El respaldo es siempre su IA: `chatClaudeTools` con
 «sólo su IA» y sin el Claude de MaKo. Elegida la computadora, no hay respaldo (eligió ésa).
 
-**Una trampa de la tanda:** tests/ia-pc-binarios y tests/ia-pc-segunda-revision dieron rojo con 28 archivos de test a la vez
-(`spawnSync … ETIMEDOUT` y un proceso hijo con estado `null`). Solos, 21/21. Es carga de la máquina, no código: antes de
-perseguirlo, se corren solos.
-
 **SIN hacer:**
 - El `codex login` de Martín y la medición (arriba). El corredor de Codex en el programa 0.5.0.
 - Si un negocio sin clave propia y sólo con su PC se queda sin respuesta porque la PC tardó, no hay respaldo posible: no tiene
   otra IA. Se le dice («tu computadora no contestó a tiempo»); no se le presta la de MaKo.
 - El selector «+» sigue sin ofrecer «Tu Gemini» por clave (lo de IA16: lib/chat-ia.ts, el Cerebro lo repartió).
 
-**Vive en:** lib/ia-pc-reglas.ts (`PROVEEDORES_PC`, `esperaDelTurno`, `RESERVA_RESPALDO_MS`, `probarSuClaveTrasLaPc`) ·
+**Vive en:** lib/ia-pc-reglas.ts (`PROVEEDORES_PC`, `esProveedorPc`, `esperaDelTurno`, `RESERVA_RESPALDO_MS`, `probarSuClaveTrasLaPc`) ·
 lib/conectar-ia-reglas.ts (`iaDeLaPcPara`, `pcListaPara`) · lib/mako-turno-app.ts (`reservado`) · lib/ia-del-negocio.ts
 (`claveDeIAPropia`) · app/integraciones/TusCuentasIA.tsx (`abrirTutorialEn`) · tests/ia-pc-respaldo.test.ts ·
 *2026-10-24, chat «IA del cliente» (claude1)*
+
+## Tests que mienten con la máquina cargada: los dos del instalador de la PC (24/10/2026)
+
+**Síntoma.** Con 28 archivos de test a la vez y ~4 GB libres, dos tests de «MaKo en tu computadora» dieron rojo:
+- tests/ia-pc-binarios.test.ts, «el instalador: sin el ejecutable…»: `spawnSync … ETIMEDOUT` (el hijo pasa los 90 s);
+- tests/ia-pc-segunda-revision.test.ts, «el programa: "confirmar"…»: la salida del programa llega `null` (no terminó en los
+  8 s) y el assert dice «sale con 1: el instalador deja corriendo lo de antes», que se lee como un bug del instalador.
+
+**Causa.** Ninguna del código: los dos levantan un proceso hijo con un plazo fijo, y con la máquina cargada el hijo no llega.
+Corridos solos, 21/21. La misma noche la app se colgó con 1,9 GB libres.
+
+**La regla.** Un rojo de un test que lanza un proceso con plazo (`execFileSync … timeout`, un `correr(…, ms)`) se corre SOLO
+antes de buscar el bug; si solo pasa, es la máquina. El aviso quedó escrito arriba de cada test, que es donde lo ve quien lo
+corre. Lo que queda sin hacer: que la etapa de tests de `antes-de-subir` reintente sola, una vez y de a uno, los que fallan
+por plazo (scripts/antes-de-subir.mjs).
+
+**Vive en:** tests/ia-pc-binarios.test.ts · tests/ia-pc-segunda-revision.test.ts · *2026-10-24, chat «IA del cliente» (claude1)*

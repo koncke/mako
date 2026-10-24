@@ -72,6 +72,10 @@ test('verificar-binarios: dice «falta 0.9.9» con una versión sin ejecutables,
   assert.match(s, /return r\.completa \? 0 : 1;/);
 });
 
+// ⚠️ CON LA MÁQUINA CARGADA ESTE TEST DA ROJO SIN UN BUG (24/10/2026): el hijo pasa los 90 s y `execFileSync` tira
+// «spawnSync … ETIMEDOUT». Medido con 28 archivos de test a la vez y ~4 GB libres: rojo; solo, verde (21/21 con
+// tests/ia-pc-segunda-revision). Antes de buscar el bug, correlo solo (docs/hallazgos-ia.md → «Tests que mienten con la
+// máquina cargada»).
 test('el instalador: sin el ejecutable contesta el aviso Y deja la fila en errores_app', () => {
   const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_ia-pc-instalar-hijo.ts')], {
     cwd: RAIZ, encoding: 'utf8', timeout: 90_000, stdio: ['ignore', 'pipe', 'ignore'],

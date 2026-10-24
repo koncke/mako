@@ -206,6 +206,9 @@ const VIEJO = `mkopc_${'V'.repeat(43)}`;
 const NUEVO = `mkopc_${'N'.repeat(43)}`;
 const CON_PENDIENTE = { servidor: 'SERVIDOR', token: VIEJO, negocio: 'El de antes', pendiente: { servidor: 'SERVIDOR', token: NUEVO, nombre: 'PC', negocio: 'Prueba', persona: 'ana' } };
 
+// ⚠️ CON LA MÁQUINA CARGADA ESTE TEST DA ROJO SIN UN BUG (24/10/2026): el programa no termina en los 8 s de `correr`, la
+// salida llega `null` y el assert dice «sale con 1». Solo, verde. Antes de buscar el bug, correlo solo (docs/hallazgos-ia.md
+// → «Tests que mienten con la máquina cargada»).
 test('el programa: «confirmar» guarda la conexión nueva y suelta la vieja SÓLO si MaKo la confirmó', async () => {
   const bien = await correr(['confirmar'], CON_PENDIENTE, () => ({ status: 200, cuerpo: { ok: true } }), 8_000);
   assert.equal(bien.salida, 0);
