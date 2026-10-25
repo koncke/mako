@@ -23,12 +23,13 @@
 // =============================================================================
 import type { EntradaMenuContextual } from '@/app/_ui/MenuContextual';
 
-export type IdOpcionPrograma = 'renombrar' | 'eliminar';
+export type IdOpcionPrograma = 'renombrar' | 'duplicar' | 'eliminar';
 
 /** Las opciones del menú de un programa, en orden. `null` = separador. Vacío = no hay menú. */
 export function opcionesPrograma(p: { admin: boolean; principal: boolean }): Array<IdOpcionPrograma | null> {
   if (!p.admin) return [];
-  return p.principal ? ['renombrar'] : ['renombrar', null, 'eliminar'];
+  // Duplicar (25/10/2026) va con Renombrar: no destruye nada. El principal también se duplica (la copia no lo es).
+  return p.principal ? ['renombrar', 'duplicar'] : ['renombrar', 'duplicar', null, 'eliminar'];
 }
 
 /** Los renglones del menú. */
@@ -36,9 +37,10 @@ export function itemsPrograma(ids: ReadonlyArray<IdOpcionPrograma | null>): Entr
   return ids.map((id) => {
     if (id === null) return null;
     if (id === 'renombrar') return { id, label: 'Renombrar', icono: 'renombrar' };
+    if (id === 'duplicar') return { id, label: 'Duplicar', icono: 'duplicar' };
     return { id, label: 'Eliminar', icono: 'borrar', peligro: true };
   });
 }
 
 /** ¿Este id es una opción del menú? (`onElegir` recibe un texto). */
-export const esOpcionPrograma = (id: string): id is IdOpcionPrograma => id === 'renombrar' || id === 'eliminar';
+export const esOpcionPrograma = (id: string): id is IdOpcionPrograma => id === 'renombrar' || id === 'duplicar' || id === 'eliminar';

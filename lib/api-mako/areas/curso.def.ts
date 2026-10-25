@@ -158,6 +158,49 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: HTTP, costo: 'gratis', gating: GATING,
   },
 
+  // ── El programa entero (25/10/2026): lo mismo que el menú de cada programa de la cabecera de Clients ─────────
+  // Pedido de Martín (por el Cerebro, después de la llamada con Leandro): duplicar un programa «de punta a punta (...)
+  // y en la API de MaKo»; y la regla de la casa (AGENTS.md): lo que se puede hacer en la pantalla, se declara acá.
+  {
+    id: 'duplicar_curso', area: 'curso', tipo: 'accion',
+    titulo: 'Duplicar un curso',
+    descripcion: 'Crea un programa NUEVO, «<nombre> (copia)», con el curso entero del original: sus módulos, sus clases (las de la papelera no) con sus tareas y candados, las etapas del kanban de clientes, el color, la fuente, las portadas y los archivos de las descripciones. NUNCA copia a los alumnos ni su avance, ni la comunidad, ni el precio del producto (se completa en el CRM). Los videos subidos se copian sólo si entre todos pesan menos de 300 MB; si no, esas clases quedan sin video y se dice cuántas. Devuelve el productoId de la copia en `datos.productoId`; eliminar_curso la quita.',
+    parametros: [productoId],
+    canales: HTTP, costo: 'gratis', gating: GATING,
+    confirmacion: 'chat', reversible: true,
+    escribe: 'crea un producto con su oferta y su embudo (productos, ofertas, funnels) y le copia el curso (producto_entrega, curso_modulos, curso_clases, curso_estilo, curso_adjuntos y sus archivos)',
+  },
+  {
+    id: 'renombrar_curso', area: 'curso', tipo: 'accion',
+    titulo: 'Renombrar un curso',
+    descripcion: 'Le pone a un curso el nombre que ven sus alumnos (el título del curso). Vacío lo vuelve al nombre de su oferta. No cambia el nombre del producto en el CRM.',
+    parametros: [
+      productoId,
+      { nombre: 'nombre', tipo: 'string', max: 80, descripcion: 'el nombre nuevo (hasta 80 letras). Vacío = el de su oferta.', ejemplo: 'Fiesta Music Pro' },
+    ],
+    canales: HTTP, costo: 'gratis', gating: GATING,
+    confirmacion: 'chat', reversible: true,
+    escribe: 'el título del curso (curso_estilo, clave titulo)',
+  },
+  {
+    id: 'eliminar_curso', area: 'curso', tipo: 'accion',
+    titulo: 'Eliminar un curso',
+    descripcion: 'Elimina un programa como el CRM: lo archiva (sus embudos van a «Productos eliminados», o sale del catálogo si no tiene embudo) y sus alumnos dejan de verlo. No borra nada: restaurar_curso lo devuelve. El producto principal del negocio no se puede eliminar.',
+    parametros: [productoId],
+    canales: HTTP, costo: 'gratis', gating: GATING,
+    confirmacion: 'chat', reversible: true,
+    escribe: 'archiva los embudos del producto (funnels.activo) o lo da de baja (productos.activo)',
+  },
+  {
+    id: 'restaurar_curso', area: 'curso', tipo: 'accion',
+    titulo: 'Restaurar un curso eliminado',
+    descripcion: 'Devuelve un programa eliminado (con eliminar_curso, desde Clients o desde el CRM): vuelve a la lista con su curso y sus alumnos lo vuelven a ver. Es lo mismo que restaurarlo desde «Productos eliminados» del CRM.',
+    parametros: [productoId],
+    canales: HTTP, costo: 'gratis', gating: GATING,
+    confirmacion: 'chat', reversible: true,
+    escribe: 'saca de «Productos eliminados» los embudos del producto (funnels.activo) o lo vuelve a dar de alta (productos.activo)',
+  },
+
   // ── Módulos ─────────────────────────────────────────────────────────────────
   {
     id: 'crear_modulo_curso', area: 'curso', tipo: 'accion',
