@@ -1,0 +1,41 @@
+/* =============================================================================
+   Media Buyer — los colores: los de MaKo, sobre la estructura de Madgicx (25/10/2026)
+   =============================================================================
+   Martín, 25/10/2026, después de ver la copia con los colores de Madgicx: «no quiero copiar tal cual los colores,
+   adaptarlos un poco a MaKo... Pero si quiero que tenga todas las funcionalidades». De Madgicx · AI Marketer queda la
+   estructura, la jerarquía, el aire, las medidas y la limpieza (pocos botones); los colores son los tokens de la casa, así
+   que el tema claro y el oscuro andan solos. Cada `--mbx-*` (los nombres de mb.css) apunta a uno de la casa:
+     · azul (--primary) = lo que actúas tú: «Lanzar», el chip, las barras de las metas;
+     · dorado (--mako*) = MaKo: el número del saludo, «Pedirle más a MaKo», la tarjeta de saludo con globos;
+     · verde / rojo = bien / riesgo.
+   La paleta medida de Madgicx (por si se vuelve a necesitar) está en docs/media-buyer/referencia.md.
+   ============================================================================= */
+.mb, .mbm {
+  --mbx-fondo: var(--surface);
+  --mbx-banda: var(--bg);
+  --mbx-borde: var(--border);
+  --mbx-borde-fuerte: var(--border-strong);
+  --mbx-baldosa: var(--bg);
+  --mbx-tinta: var(--ink);
+  --mbx-tinta-2: var(--dim);
+  --mbx-gris: var(--faint);
+  --mbx-gris-2: var(--faint);
+  --mbx-violeta: var(--primary);
+  --mbx-violeta-hover: var(--primary-strong);
+  --mbx-sobre-violeta: var(--on-primary, #fff);
+  --mbx-acento: var(--mako-ink);
+  --mbx-chip: var(--bg);
+  --mbx-chip-texto: var(--primary);
+  --mbx-barra: var(--fondo-columna);
+  --mbx-barra-violeta: var(--primary);
+  --mbx-verde: var(--good);
+  --mbx-verde-texto: var(--good);
+  --mbx-completado: var(--good);
+  --mbx-rojo: var(--bad);
+  --mbx-tarjeta-saludo: var(--mako-bg);
+  --mbx-tarjeta-saludo-borde: var(--mako-border);
+  --mbx-globo: var(--surface);
+  --mbx-globo-texto: var(--ink);
+  --mbx-titulo: 'Geist', system-ui, sans-serif;
+  --mbx-texto: 'Geist', system-ui, sans-serif;
+}

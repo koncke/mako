@@ -11,6 +11,10 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 (lo prende cada negocio). Reemplaza a la réplica de Meta Ads Manager, que se borró con sus tests.
 
 - **La referencia** es Madgicx · AI Marketer. Capturas y mapa pantalla por pantalla: `docs/media-buyer/referencia.md`.
+  **Desde el 25/10:** la estructura, la limpieza, las medidas (tomadas de la captura) y TODAS las funciones de Madgicx;
+  los colores, los de MaKo (`app/ads-manager/mb-paleta.css`, todo token de la casa). Antes de tocar la pantalla, mirar la
+  captura de Madgicx: lo que MaKo suma va dentro de un lugar que Madgicx ya tiene (la tuerca, «Pedirle más a MaKo», el
+  saludo con globos), nunca como un botón o un cartel más.
 - **Lo que se mide y lo que costó:** `docs/hallazgos-ads.md` → «El Media Buyer reemplaza al Ads Manager».
 - **El encuadre de seguridad** viene del Autopilot del 13-14/10: `docs/diseno-ads-autopilot.md`.
 
@@ -26,7 +30,7 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 | Variaciones con la IA del negocio | `lib/media-buyer/variaciones.ts` · `variaciones-prompt.ts` (puro) |
 | Config y registro (tablas de la 0332) | `lib/media-buyer/store.ts` · `supabase/migrations/0332_media_buyer.sql` |
 | Lo que escribe por Zernio | `lib/zernio-ads.ts` (la parte del 25/10) |
-| La pantalla y el teléfono | `app/ads-manager/MediaBuyer.tsx` · `mb.css` · `mb-modelo.ts` · `app/m/ads/MediaBuyerM.tsx` |
+| La pantalla y el teléfono | `app/ads-manager/MediaBuyer.tsx` · `mb.css` · `mb-paleta.css` (los colores de Madgicx) · `mb-modelo.ts` · `app/m/ads/MediaBuyerM.tsx` |
 | La API de MaKo (ver, lanzar, deshacer, descartar, analizar, modo, topes) | `lib/api-mako/areas/ads.def.ts` / `.run.ts` |
 | Subir creativos nuevos a un conjunto (por Zernio) | `lib/media-buyer/subir.ts` · `creativos.ts` (puro) · el modal en `MediaBuyer.tsx` |
 | Los hooks de un video ganador como guiones del Video Generator | `lib/media-buyer/hooks-video.ts` · `hooks-guion.ts` (puro) |
