@@ -20,6 +20,26 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «No puedo sacar Empresa»: «Datos ▾» ya existía; el cuerpo del bloque es `inert` y la persona busca la fila (25/10/2026)
+
+**Vive en:** app/crm/lead-view/ficha/Armador.tsx (`QuitarDeLaFila`) · ./armar.ts (`datosSinUno`) · las filas marcadas con
+`data-dato` (resumen/piezas.tsx `Prop`, resumen/contacto.tsx, resumen/datos.tsx) · el panel `.fb-mako-panel` de
+FichaPorBloques.tsx · tests: ficha-editor-12 (3 roturas cazadas).
+
+- **El diagnóstico obvio («falta poder sacar datos») era el equivocado.** Sacar un dato del Contacto existe desde el 23/10
+  (`7484a5720`, en producción): «Datos ▾» en la barra del bloque elegido. La captura de Martín (c06) lo muestra en pantalla
+  y aun así dice «no puedo sacar EMPRESA». Personalizando, el cuerpo del bloque es `inert` (para que elegir el bloque no abra
+  el campo de adentro), así que la fila «Empresa» no responde a nada: la persona la toca y no pasa nada. **Regla:** lo que se
+  saca, se saca DONDE se ve. Cada fila de un bloque que elige sus datos o sus redes lleva `data-dato`, y con el bloque elegido
+  el Armador mide esas filas y dibuja una ✕ encima (la misma operación que «Datos ▾»; el último dato no se saca).
+- **La ✕ no puede vivir adentro de la fila** (el cuerpo es inerte): se dibuja en la caja del bloque, con la posición medida
+  (`getBoundingClientRect`) y un `ResizeObserver`. Un bloque nuevo que elija datos sólo tiene que marcar sus filas.
+- **El panel de MaKo de la ficha («Editar con MaKo» y el AI Analyst) es el bloque flotante del Dashboard** (`.an`: 12 px de
+  aire, bordes de 14, sombra, sin la raya de color). Sin hacer: el panel de la estrella de MaKo en cada tab
+  (`.ch-tab-panel`, app/_chat/chat.css) sigue siendo el cuadrado de borde a borde; es de la pieza compartida del chat.
+- **Sin hacer:** las reuniones, las cuotas y los datos fiscales muestran varios datos y no eligen cuáles (no tienen `datos`
+  en el catálogo): ahí sólo se puede pedir u ocultar el bloque entero.
+
 ## «Nuevo lead» y sus hijos: la pila de la casa ya existía, y una vista que REEMPLAZA el contenido la saltea (25/10/2026)
 
 **Vive en:** app/crm/CrmBoard.tsx (`volverAlAlta`, `cerrarImportar`) · app/_components/pila-modales.ts · app/crm/MoldeTraer.tsx

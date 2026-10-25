@@ -44,8 +44,10 @@ escondía el «NO SE PUDO CHEQUEAR»). La pregunta de Instagram se rehízo sin A
   captura del 25/10 en el scratchpad de la sesión): de dónde arriba con un «⋯», «Entran a», el resumen con chips, la lista, y
   abajo sólo «Atrás» y la acción. El importador dejó `WizardShell`.
 
-**Lo que sigue, en orden:** 12 («Editar con MaKo» como bloque flotante, y sacar un dato desde su fila en modo edición: la
-captura c06 muestra que «Datos ▾» ya existe y no se encuentra), 18 (los grupos de WhatsApp, más rápido: medir antes). Después: las cuotas (`c7ff7d7fc`) con revisión adversarial, y
+**Tanda 4 — punto 12:** el panel de MaKo de la ficha flota (el marco `.an` del Dashboard), y con un bloque elegido cada
+fila de dato lleva su ✕ para sacarla (la captura c06 mostraba que «Datos ▾» existía y no se encontraba: el cuerpo es inerte).
+
+**Lo que sigue:** 18 (los grupos de WhatsApp, más rápido: medir antes de tocar). Después: las cuotas (`c7ff7d7fc`) con revisión adversarial, y
 `crm-b5-2310` @ `60bd69812` NO sube antes del lunes 26/10.
 
 ## 0-Ω24. 24/10/2026, madrugada (chat «CRM», cuenta `claude1`): la base de venta de Martín desde sus grupos
