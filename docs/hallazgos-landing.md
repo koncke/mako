@@ -4634,5 +4634,17 @@ haciendo clic para reproducir y clic para pausar. Se repite con `scripts/pixel-a
   mismo video sale dos veces en la pantalla que los nombra. tests/alojadores-video-pixel.test.ts corre la función del
   snippet sobre las mismas URLs que el analizador.
 
+**La duración de cada video, sin la API de Panda (tanda 2, el mismo día).** Hasta acá salía SÓLO de Panda
+(`getDuracionesVsl`, lib/leads.ts), así que los segundos de un video de cualquier otro alojador no se volvían porcentaje ni
+en la ficha del lead ni en «Cuánto ven el video». Cada evento con porcentaje trae los segundos: duración = segundos × 100 /
+porcentaje (`duracionesDeEventos`, lib/vsl-retencion.ts). Con los eventos reales del video de Cloudflare da 29,8 s, y su
+reproductor dice 30. Sólo con porcentaje desde 25, porque el redondeo a entero en un 5 % es un 10 % de error. Se toma la
+mediana y no el promedio: una posición rara no la corre.
+- **La trampa que habría pasado callada: «la única duración conocida».** Los hitos `sNN` de Panda llegan sin porcentaje y,
+  con un solo video en juego, se les presta la única duración conocida. Esa regla contaba TODAS las duraciones:
+  agregando las de otros alojadores, una página con un solo VSL de Panda y un video de YouTube en otra página se quedaba
+  sin respaldo, y su retención volvía a «—». **Regla:** «la única» es la única DE PANDA (un id sin alojador), en los dos
+  resolvedores (lib/leads.ts y lib/graficos-datos-extra.ts, que es una copia).
+
 Lo que quedó SIN hacer (otras tandas, con su archivo en el relevo): los números de cada alojador por su API, las
 integraciones con su clave, el bloque «Video» del Web Generator, los cursos y la API de MaKo.

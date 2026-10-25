@@ -51,7 +51,9 @@ Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace
     el avance con YouTube, Vimeo, Panda y el video propio; **Wistia y Bunny se ven «sin medir»** (lib/curso.ts:436,
     app/compartido/curso/[token]/Reproductor.tsx).
   - **La API:** `listar_videos_panda` y `ver_metricas_video_panda` (lib/api-mako/areas/landing.def.ts) son sólo de Panda.
-- **Sigue:** las tandas 2 a 5 de los alojadores (números por API, integraciones, bloque «Video», cursos, API);
+  - **Tanda 2 hecha:** la duración de cada video sale también de los eventos del Pixel (lib/vsl-retencion.ts →
+    `duracionesDeEventos`), para cualquier alojador y sin clave.
+- **Sigue:** las tandas 3 a 5 de los alojadores (números por API e integraciones, bloque «Video» y cursos, API);
   probar con clics en producción lo de hoy cuando despliegue (sobre una copia); el enlace de la agenda por la API;
   publicar las landings con el OK de Martín;
   Responder en los otros chats cuando entren `ops-2510-regresiones` y `aut-2510`.

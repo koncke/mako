@@ -422,6 +422,38 @@ export function avancesDeResumen(filas: readonly ResumenVsl[], duracionS: number
 }
 
 /**
+ * La duración de cada video según los PROPIOS eventos del Pixel (25/10/2026, «otros alojadores de video»).
+ *
+ * ⚠️ HASTA ACÁ LA DURACIÓN SALÍA SÓLO DE LA API DE PANDA (`getDuracionesVsl`, lib/leads.ts), así que un video de
+ * Vimeo, YouTube, Wistia, Bunny, Cloudflare o uno propio no tenía con qué volver porcentaje sus segundos: su avance
+ * en la ficha del lead y en «Cuánto ven el video» quedaba en lo que dijeran los hitos de 5 %. Pero cada evento que el
+ * Pixel manda con porcentaje trae también los segundos, y el porcentaje es `round(segundos / duración × 100)`: la
+ * duración es `segundos × 100 / porcentaje`. Sale para cualquier alojador, sin clave.
+ *
+ * Sólo con porcentaje desde 25: el redondeo a entero pesa ±0,5 puntos, que en un 5 % es un 10 % de error en la
+ * duración y en un 25 % es un 2 %. Y la MEDIANA de las estimaciones, no el promedio: una pausa justo antes de un
+ * salto de posición no corre la duración. Un `play` (porcentaje 0) no cuenta.
+ */
+export function duracionesDeEventos(filas: Iterable<{ video_id?: string | null; porcentaje: number | null; segundos: number | null }>): Map<string, number> {
+  const estimaciones = new Map<string, number[]>();
+  for (const f of filas) {
+    const id = (f.video_id ?? '').trim();
+    const p = aNumero(f.porcentaje);
+    const s = aNumero(f.segundos);
+    if (!id || p === null || s === null || p < 25 || p > 100 || s <= 0) continue;
+    const lista = estimaciones.get(id) ?? [];
+    lista.push((s * 100) / p);
+    estimaciones.set(id, lista);
+  }
+  const out = new Map<string, number>();
+  for (const [id, xs] of estimaciones) {
+    xs.sort((a, b) => a - b);
+    out.set(id, Math.round(xs[Math.floor(xs.length / 2)] * 10) / 10);
+  }
+  return out;
+}
+
+/**
  * El corte de la curva que le corresponde a un bloque del guion que arranca en
  * el segundo `desdeS`. Es el puente entre "se cae en el 40%" y "se cae cuando
  * arranca el bloque de precio".

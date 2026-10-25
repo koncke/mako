@@ -510,4 +510,20 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-landing.md — «Otros alojadores de video»',
     ],
   },
+  {
+    fecha: '25 oct', hora: '22:10', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hasta dónde ven cada video, aunque no esté en Panda',
+    pedido: '«Implementa otros alojadores de video, no solo panda... y que los lugares donde consume eso... puedan traer datos de tus videos de esas herramientas conectadas»',
+    puntos: [
+      'Para saber hasta dónde vio cada persona un video, MaKo necesita cuánto dura. Hasta ahora sólo lo sabía de los videos de Panda, y sólo con su clave conectada.',
+      'Ahora lo calcula con lo que ya mide el Pixel, para cualquier video: Vimeo, YouTube, Wistia, Bunny, Cloudflare o uno subido a la página.',
+      'Se ve en la ficha de cada contacto en el CRM y en el gráfico «Cuánto ven el video».',
+      'Probado con un video real de Cloudflare: calculó 29,8 segundos, y dura 30.',
+    ],
+    archivos: [
+      'lib/vsl-retencion.ts — la cuenta de la duración',
+      'lib/leads.ts — de dónde sale la duración de cada video',
+    ],
+  },
 ];
