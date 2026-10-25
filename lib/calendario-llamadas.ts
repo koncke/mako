@@ -11,10 +11,21 @@
 // Los datos salen del CRM, como la capa «Llamadas» de la grilla (lib/calendario.ts, `leerLlamadasDeVenta`): la R1 y la R2
 // de cada lead con su hora (`junta_X_at`) o sólo su día (`fecha_junta_X`), y la asistencia (`asistio_jX`). Una reunión
 // CANCELADA conserva su hora y pierde la fecha (docs/hallazgos-calendario.md). Acá, sin base ni red: el estado y las
-// pestañas, con test.
+// pestañas, con test. Lo usan la computadora (app/calendario/ListaLlamadas.tsx) y el teléfono (app/m/calendario/LlamadasM.tsx).
 // =============================================================================
 
+import { fechaLarga, sumarDias } from './calendario-modelo';
+
 export type CualReunion = 'R1' | 'R2';
+
+/** «Hoy», «Mañana», «Ayer» o la fecha larga con mayúscula: lo primero que se lee en una agenda de ventas. */
+export function rotuloDelDia(dia: string, hoy: string): string {
+  if (dia === hoy) return 'Hoy';
+  if (dia === sumarDias(hoy, 1)) return 'Mañana';
+  if (dia === sumarDias(hoy, -1)) return 'Ayer';
+  const f = fechaLarga(dia);
+  return f.charAt(0).toUpperCase() + f.slice(1);
+}
 
 export type LlamadaDeVenta = {
   /** `crm:<lead>:R1`: el mismo id que la capa «Llamadas» de la grilla. */
@@ -43,6 +54,15 @@ export const TEXTO_ESTADO_LLAMADA: Readonly<Record<EstadoLlamada, string>> = {
   'no-vino': 'No vino',
   'sin-marcar': 'Sin marcar',
   cancelada: 'Cancelada',
+};
+
+/** El tono de la pastilla del teléfono (`PildoraM`) para cada estado: los colores de la computadora. */
+export const TONO_ESTADO_LLAMADA: Readonly<Record<EstadoLlamada, 'info' | 'good' | 'bad' | 'warn' | 'neutro'>> = {
+  agendada: 'info',
+  asistio: 'good',
+  'no-vino': 'bad',
+  'sin-marcar': 'warn',
+  cancelada: 'neutro',
 };
 
 export const PESTANAS_LLAMADAS = [

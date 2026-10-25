@@ -25,9 +25,9 @@ import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
 import { deshacerCampoLeadAction, guardarCampoLeadAction } from '@/app/crm/actions';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
-import { diaDe, fechaLarga, horaDe, horaGoogle, sumarDias, type ItemCalendario } from '@/lib/calendario-modelo';
+import { diaDe, horaDe, horaGoogle, type ItemCalendario } from '@/lib/calendario-modelo';
 import {
-  PESTANAS_LLAMADAS, TEXTO_ESTADO_LLAMADA, avisoAlMarcar, campoDeAsistencia, cuentaPorPestana, estadoDeLlamada, llamadasDeLaPestana, sePuedeMarcar,
+  PESTANAS_LLAMADAS, TEXTO_ESTADO_LLAMADA, avisoAlMarcar, rotuloDelDia as rotuloDia, campoDeAsistencia, cuentaPorPestana, estadoDeLlamada, llamadasDeLaPestana, sePuedeMarcar,
   type EstadoLlamada, type LlamadaDeVenta, type PestanaLlamadas,
 } from '@/lib/calendario-llamadas';
 import { CSS_GC } from './gc-css';
@@ -93,15 +93,6 @@ const CSS_LISTA = `
 }
 @media (max-width:700px){.gl-col-closer,.gl-col-abrir{display:none}.gl-tabla td,.gl-tabla th{padding:10px 8px}}
 `;
-
-/** «Hoy», «Mañana» o la fecha larga: lo primero que se lee en una agenda de ventas. */
-function rotuloDia(dia: string, hoy: string): string {
-  if (dia === hoy) return 'Hoy';
-  if (dia === sumarDias(hoy, 1)) return 'Mañana';
-  if (dia === sumarDias(hoy, -1)) return 'Ayer';
-  const f = fechaLarga(dia);
-  return f.charAt(0).toUpperCase() + f.slice(1);
-}
 
 export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
   llamadas: readonly LlamadaDeVenta[];
