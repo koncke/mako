@@ -57,7 +57,7 @@ test('qué elige un clic: el ícono, la imagen o el botón más cercano; un vide
 test('cada tipo con el control que el editor YA tiene, y la barra sólo con íconos', () => {
   const v = leer('app/web-generator/editor/nodos/HtmlEditableVista.tsx');
   // Un video del diseño no se traga el clic que lo elige (sólo en el editor: esa hoja no se guarda).
-  assert.match(v, /const CSS_DENTRO = '[^']*iframe,video\{pointer-events:none\}';/);
+  assert.match(v, /const CSS_DENTRO = '[^']*iframe,video\{pointer-events:none\}[^']*';/);
   assert.match(v, /elegido\.current = elementoEnPunto\(d, e\.target as Element \| null, e\.clientX, e\.clientY\) as Element \| null;/);
   assert.match(v, /setTipo\(tipoDeElemento\(elegido\.current\)\);/);
   // Botón o enlace: el selector de destino del botón de un bloque, no un campo suelto.
@@ -65,8 +65,9 @@ test('cada tipo con el control que el editor YA tiene, y la barra sólo con íco
   assert.doesNotMatch(v, /CampoEnlace/);
   assert.match(v, /if \(href && nueva\) \{ a\.setAttribute\('target', '_blank'\); a\.setAttribute\('rel', 'noopener noreferrer'\); \}/);
   // Video: un reproductor con el panel del bloque Insertar; un <video>, con el selector en modo video (el del bloque Video).
-  assert.match(v, /if \(el\.tagName\.toLowerCase\(\) === 'iframe'\) \{ setVideo\(\{ ancla, el: el as HTMLIFrameElement \}\); return; \}/);
-  assert.match(v, /<PanelInsertar inicial=\{video\.el\.getAttribute\('src'\) \?\? ''\}/);
+  // (La agenda de un diseño, `[data-calendly]`, va por el mismo panel: vista-embeds.test.ts.)
+  assert.match(v, /if \(el\.tagName\.toLowerCase\(\) === 'iframe' \|\| el\.hasAttribute\('data-calendly'\)\) \{ setVideo\(\{ ancla, el: el as HTMLElement \}\); return; \}/);
+  assert.match(v, /<PanelInsertar inicial=\{video\.el\.getAttribute\('data-calendly'\) \?\? video\.el\.getAttribute\('src'\) \?\? ''\}/);
   assert.match(v, /await ctx\.elegirImagen\(\{ modo: 'video' \}\);\n\s*if \(!url\) return;\n\s*if \(!srcVideo\(url\)\)/);
   assert.match(leer('app/web-generator/editor/nodos/InsertadoVista.tsx'), /^export function PanelInsertar\(/m);
   // Ícono: el selector de íconos y el SVG de la casa, con el tamaño y la clase del que estaba.

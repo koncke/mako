@@ -1364,4 +1364,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator/32',
   },
+  {
+    fecha: '25 oct', hora: '17:00', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El editor ya no muestra franjas grises ni cajas en blanco en las páginas de MaKo',
+    pedido: '«Fiajte que en muchas secciones hay como una separación, no entiendo por que...» y «Y toda esta sección en blanco, realmente copiaste muy mal a las landing de MaKo... Eso significa que no funciona bien el editor web»',
+    puntos: [
+      'Las franjas grises entre secciones (la grande debajo del encabezado y las del final) eran del editor: cada sección se dibujaba más alta de lo que ocupa. Ahora mide lo que ocupa. En la página publicada nunca estuvieron.',
+      'La caja en blanco era la agenda de Calendly, que en la página publicada sí carga. En el editor ahora se ve una ficha: «Agenda de Calendly» con su enlace, y se cambia pegando otro.',
+      'El video del principio se veía negro en el editor: ahora muestra «Video de Panda» con su enlace.',
+      'Se revisaron las 9 páginas publicadas de MaKo y las 14 nuevas: después del arreglo, ninguna tiene franjas ni cajas vacías.',
+      'Falta: verlo con clics cuando llegue a producción.',
+    ],
+    archivos: [
+      'app/web-generator/editor/nodos/HtmlEditableVista.tsx — el alto de cada sección y las fichas',
+      'lib/editor-landing/vista-embeds.ts — la ficha de la agenda y del video',
+    ],
+    revisar: '/web-generator/36',
+  },
 ];

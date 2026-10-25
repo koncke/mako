@@ -3008,3 +3008,35 @@ Lo que quedó SIN hacer:
 - Los íconos por la API (sólo en la pantalla); borrar o duplicar un elemento adentro de un diseño (hoy, por «Código»).
 - Fondos con imagen, precios, formularios y listas adentro de un diseño: la #32 no tiene ninguno; cuando una página los traiga,
   medir de nuevo.
+
+## Las cajas vacías y las franjas grises de las páginas de MaKo en el editor (25/10/2026, claude5)
+
+Martín, 25/10, sobre la #36: «en muchas secciones hay como una separación, no entiendo por que» y «toda esta sección en
+blanco, realmente copiaste muy mal a las landing de MaKo... Eso significa que no funciona bien el editor web».
+
+**El recorrido (las 23 landings: las 9 publicadas desde su borrador, las 14 nuevas desde el generador), dibujadas como el
+editor en Chrome sin ventana, y la publicada en hola-mako.site:**
+
+| Landing | Lo que se veía mal en el editor | En hola-mako.site |
+|---|---|---|
+| #32 a #40 (las 9 publicadas) | franja de 255 px debajo del encabezado; de 230 px al final; de ~26 px en «¿Qué es MaKo…»; **la caja blanca de 700 px** en «Sé uno de los primeros» (la agenda); el VSL de Panda, una caja negra | bien: la agenda de Calendly y el video cargan, sin franjas |
+| Las 14 nuevas (2 portadas y 12 por funcionalidad o avatar) | franja de 255 px debajo del encabezado, de 19 px en «Tu IA, al costo» y de 64 px al final | no están publicadas |
+
+Después del arreglo, el mismo recorrido: **nada raro en las 23** (ni franjas, ni cajas vacías, ni contenido recortado).
+
+- **Las franjas: el alto salía del `scrollHeight` del DOCUMENTO del iframe, que nunca es menor que la ventana del iframe.** Una
+  sección arrancaba en 320 px y no bajaba nunca (el encabezado mide 65 px: 255 px de gris), y una que se achicaba al cargar sus
+  fuentes dejaba la diferencia. **Regla:** el alto de un iframe se mide por su CONTENIDO (la caja de la raíz, con `flow-root` para
+  que los márgenes queden adentro, más lo que se sale), nunca por el `scrollHeight` de su documento.
+- **La caja blanca era la agenda** (`#cal-embed[data-calendly]`): una caja de 700 px que en hola-mako.site llena el script del
+  diseño (SCRIPT_DISENO) con Calendly, y en hola-mako.com Landing.tsx cambia por las columnas de precios. El editor no corre
+  scripts: quedaba en blanco. **El VSL** (el iframe de Panda) adentro de un iframe sin scripts es una caja negra.
+- **El arreglo, sólo del editor y sin tocar el contenido** (lib/editor-landing/vista-embeds.ts): una ficha que dice qué es (su
+  ícono, «Agenda de Calendly» o «Video de Panda», su enlace) y se cambia con el control «Video» (pegando el enlace; la agenda
+  guarda la página de Calendly sin la query del embed). La ficha va marcada y `leer` la saca al guardar; el saneo del server
+  borra igual cualquier `srcdoc`.
+
+Lo que quedó SIN hacer:
+- Probarlo con clics en producción, a 1280 y 1440, cuando despliegue (sobre una copia).
+- En hola-mako.com la agenda de las 9 publicadas se ve como columnas de precios y en hola-mako.site como Calendly: dos cosas
+  distintas para la misma página. Que diga lo mismo en las dos es una decisión de Martín (las 12 nuevas ya traen las columnas).

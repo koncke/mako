@@ -49,6 +49,7 @@ import { CLASE_LIBRE, documentoEditable } from '@/lib/editor-landing/html-editab
 import { srcVideo } from '@/lib/editor-landing/especificacion';
 import { svgIcono } from '@/lib/editor-landing/iconos';
 import { PIDE_ELEGIR, elementoEnPunto, tipoDeElemento, type TipoElemento } from '@/lib/editor-landing/diseno-elementos';
+import { enlaceDeCalendly, fichaDeAgenda, fichaDeEmbed, srcdocDeFicha } from '@/lib/editor-landing/vista-embeds';
 
 const RESPIRO_MS = 500;
 const SONDEO_MS = 800;
@@ -71,7 +72,25 @@ export const CSS_EDITABLE: string = [
 /** Lo que se marca adentro del documento mientras se edita y NO va al `html` guardado. */
 // `iframe` y `video` sin clic ADENTRO del editor: si no, el reproductor se traga el clic que los elige
 // (diseno-elementos.ts los elige por su caja). En la página publicada se reproducen: esta hoja no se guarda.
-const CSS_DENTRO = 'body[contenteditable]{outline:none;caret-color:#2F6FED}[data-gmx-sel]{outline:2px solid #2F6FED!important;outline-offset:2px}iframe,video{pointer-events:none}';
+// `.gm-libre` con `flow-root`: los márgenes de lo de adentro quedan ADENTRO, así su caja mide lo que ocupa la sección.
+const CSS_DENTRO = 'body[contenteditable]{outline:none;caret-color:#2F6FED}[data-gmx-sel]{outline:2px solid #2F6FED!important;outline-offset:2px}iframe,video{pointer-events:none}.gm-libre{display:flow-root}';
+
+/**
+ * Lo que la página publicada arma con JavaScript y adentro del editor (un iframe SIN scripts) quedaría vacío, con su ficha
+ * (vista-embeds.ts; 25/10/2026, Martín sobre la #36: «toda esta sección en blanco... no funciona bien el editor web»):
+ * un reproductor muestra qué es y su enlace (su `srcdoc`), y una agenda vacía (`[data-calendly]`) lleva la ficha adentro.
+ * Las dos son SÓLO del editor: `leer` las saca antes de guardar.
+ */
+function ponerFichas(d: Document) {
+  d.querySelectorAll('iframe').forEach((f) => {
+    f.setAttribute('srcdoc', srcdocDeFicha(fichaDeEmbed(f.getAttribute('src') ?? '')));
+    f.setAttribute('data-gmx-vista', '');
+  });
+  d.querySelectorAll('[data-calendly]').forEach((el) => {
+    el.querySelectorAll('[data-gmx-ui]').forEach((x) => x.remove());
+    if (!el.children.length) el.insertAdjacentHTML('beforeend', fichaDeAgenda(el.getAttribute('data-calendly') ?? ''));
+  });
+}
 
 export function HtmlEditableVista(props: ReactNodeViewProps) {
   const { node, editor, getPos, updateAttributes } = props;
@@ -85,7 +104,7 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   const [activo, setActivo] = useState(false);
   const [codigo, setCodigo] = useState<{ ancla: HTMLElement } | null>(null);
   const [enlace, setEnlace] = useState<{ ancla: HTMLElement; a: HTMLAnchorElement } | null>(null);
-  const [video, setVideo] = useState<{ ancla: HTMLElement; el: HTMLIFrameElement } | null>(null);
+  const [video, setVideo] = useState<{ ancla: HTMLElement; el: HTMLElement } | null>(null);
   const [icono, setIcono] = useState<{ ancla: HTMLElement; el: SVGElement } | null>(null);
   /** El tipo del elemento elegido: su botón de la barrita se marca. */
   const [tipo, setTipo] = useState<TipoElemento | null>(null);
@@ -121,10 +140,16 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   const documento = () => marco.current?.contentDocument ?? null;
   const raiz = () => documento()?.querySelector('.' + CLASE_LIBRE) ?? null;
 
+  // ⚠️ EL ALTO ES EL DEL CONTENIDO, no el `scrollHeight` del documento (25/10/2026, Martín: «en muchas secciones hay como
+  // una separación»). El `scrollHeight` de un documento nunca es menor que su ventana —el iframe mismo—, así que una
+  // sección arrancaba en 320 px y no bajaba nunca: el encabezado de 65 px dejaba 255 px de gris abajo (medido en las 23
+  // landings de MaKo), y una que se achicaba al cargar sus fuentes dejaba la diferencia. La raíz (`flow-root`) mide lo que
+  // ocupa; su `scrollHeight` suma lo que se sale de ella.
   const medir = useCallback(() => {
-    const d = documento();
-    if (!d?.documentElement) return;
-    const h = Math.max(40, Math.ceil(d.documentElement.scrollHeight));
+    const r = raiz() as HTMLElement | null;
+    if (!r) return;
+    const caja = r.getBoundingClientRect();
+    const h = Math.max(40, Math.ceil(Math.max(caja.bottom, caja.top + r.scrollHeight)));
     setAlto((a) => (Math.abs(a - h) > 1 ? h : a));
   }, []);
 
@@ -134,6 +159,9 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     if (!r) return null;
     const copia = r.cloneNode(true) as HTMLElement;
     copia.querySelectorAll('[data-gmx-sel]').forEach((el) => el.removeAttribute('data-gmx-sel'));
+    // Las fichas del editor (ponerFichas) no se guardan: ni la de la agenda ni el `srcdoc` de un reproductor.
+    copia.querySelectorAll('[data-gmx-ui]').forEach((el) => el.remove());
+    copia.querySelectorAll('[data-gmx-vista]').forEach((el) => { el.removeAttribute('srcdoc'); el.removeAttribute('data-gmx-vista'); });
     return copia.innerHTML;
   };
   const guardar = useCallback(() => {
@@ -160,6 +188,7 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     estilo.textContent = CSS_DENTRO;
     d.head.appendChild(estilo);
     if (editable) d.body.setAttribute('contenteditable', 'true');
+    ponerFichas(d);
     d.addEventListener('input', conRespiro);
     d.addEventListener('load', medir, true);
     d.addEventListener('keydown', (e) => {
@@ -248,7 +277,7 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   const cambiarVideo = async (ancla: HTMLElement) => {
     const el = elegidoDe('video');
     if (!el) return;
-    if (el.tagName.toLowerCase() === 'iframe') { setVideo({ ancla, el: el as HTMLIFrameElement }); return; }
+    if (el.tagName.toLowerCase() === 'iframe' || el.hasAttribute('data-calendly')) { setVideo({ ancla, el: el as HTMLElement }); return; }
     const url = await ctx.elegirImagen({ modo: 'video' });
     if (!url) return;
     if (!srcVideo(url)) { ctx.avisar('Video no válido'); return; }
@@ -332,8 +361,15 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
       )}
       {video && (
         <Flotante ancla={video.ancla} onCerrar={() => setVideo(null)} etiqueta="Video" ancho={360}>
-          <PanelInsertar inicial={video.el.getAttribute('src') ?? ''} onInsertar={(e) => {
-            if (video.el.isConnected) video.el.setAttribute('src', e.src);
+          <PanelInsertar inicial={video.el.getAttribute('data-calendly') ?? video.el.getAttribute('src') ?? ''} onInsertar={(e) => {
+            const el = video.el;
+            if (el.isConnected && el.hasAttribute('data-calendly')) {
+              const url = enlaceDeCalendly(e.src);
+              if (!url) { ctx.avisar('Pega un enlace de Calendly'); return; }
+              el.setAttribute('data-calendly', url);
+            } else if (el.isConnected) el.setAttribute('src', e.src);
+            const d = documento();
+            if (d) ponerFichas(d);
             setVideo(null);
             guardar();
             medir();

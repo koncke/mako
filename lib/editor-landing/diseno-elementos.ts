@@ -7,7 +7,7 @@
 //   · un botón o un enlace (`a`): a dónde lleva, con `SelectorDestino` (el del botón de un bloque);
 //   · una imagen (`img`): el selector de imágenes de siempre (`ctx.elegirImagen`);
 //   · un video: si es `<video>`, el mismo selector en modo video (el del bloque Video); si es un reproductor (`iframe`
-//     de Panda, YouTube…), el panel «Pegar una URL» del bloque Insertar (`embedDe`);
+//     de Panda, YouTube…) o la agenda (`[data-calendly]`), el panel «Pegar una URL» del bloque Insertar (`embedDe`);
 //   · un ícono (`svg`): el selector de íconos (`SelectorIcono`) y `svgIcono`, con el tamaño y la clase del que estaba.
 // El texto se escribe directo (el documento es `contentEditable`).
 //
@@ -21,7 +21,10 @@
 export type TipoElemento = 'enlace' | 'imagen' | 'video' | 'icono';
 
 /** El tipo de un elemento del diseño por su etiqueta, o null si no tiene control propio (el texto se escribe directo). */
-export function tipoDeElemento(el: { tagName?: string } | null | undefined): TipoElemento | null {
+export function tipoDeElemento(el: { tagName?: string; getAttribute?: (n: string) => string | null } | null | undefined): TipoElemento | null {
+  // La agenda de un diseño (`[data-calendly]`, una caja que la página publicada llena con Calendly) se cambia con el
+  // mismo control que un reproductor: «Video», pegando el enlace.
+  if (el?.getAttribute?.('data-calendly') != null) return 'video';
   switch (String(el?.tagName ?? '').toLowerCase()) {
     case 'a': return 'enlace';
     case 'img': return 'imagen';
@@ -32,7 +35,7 @@ export function tipoDeElemento(el: { tagName?: string } | null | undefined): Tip
 }
 
 type Caja = { left: number; right: number; top: number; bottom: number };
-type ElementoMin = { tagName?: string; closest?: (sel: string) => ElementoMin | null; getBoundingClientRect?: () => Caja };
+type ElementoMin = { tagName?: string; getAttribute?: (n: string) => string | null; closest?: (sel: string) => ElementoMin | null; getBoundingClientRect?: () => Caja };
 type DocumentoMin = { querySelectorAll: (sel: string) => ArrayLike<ElementoMin> };
 
 /**
@@ -41,6 +44,9 @@ type DocumentoMin = { querySelectorAll: (sel: string) => ArrayLike<ElementoMin> 
  * contiene el punto. null = texto suelto.
  */
 export function elementoEnPunto(doc: DocumentoMin, tocado: ElementoMin | null, x: number, y: number): ElementoMin | null {
+  // La agenda primero: su ficha del editor (vista-embeds.ts) trae un ícono que, si no, se elegiría como ícono.
+  const agenda = tocado?.closest?.('[data-calendly]') ?? null;
+  if (agenda) return agenda;
   const directo = tocado?.closest?.('svg, img, a') ?? null;
   if (directo) return directo;
   const videos = doc.querySelectorAll('iframe, video');
