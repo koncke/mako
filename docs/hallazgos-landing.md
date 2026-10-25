@@ -4600,3 +4600,39 @@ Lo que quedó SIN hacer:
   crudo hasta la próxima escritura. Un email en el PATH (`/gracias/ana@x.com`) no se cubre.
 - Falsos positivos aceptados: `?name=marketing-avanzado` (Calendly usa `name` para la persona) y una UTM con un `@`
   (`utm_campaign=Promo@Black.Friday`).
+
+## Otros alojadores de video: lo que mide el Pixel en cada uno, medido con un video real (25/10/2026, claude5)
+
+Pedido de Martín (por el Cerebro): «Implementa otros alojadores de video, no solo panda, como Vimeo u otros... Y asegurate
+de que funcionen bien». Lo medí con un video REAL de cada alojador (los de su propia documentación), en Chrome sin ventana,
+haciendo clic para reproducir y clic para pausar. Se repite con `scripts/pixel-alojadores-real.mts`.
+
+| Alojador | Antes (v26) | Con la v27 |
+|---|---|---|
+| Panda, Vimeo, Wistia | play, avance y pausa | igual |
+| YouTube como lo da YouTube (`/embed/ID?si=…`) | play, avance y pausa | igual |
+| YouTube con `enablejsapi=1` en una página SIN la API de YouTube | **nada** | play, avance y pausa |
+| Bunny Stream | **nada** | play, avance y pausa |
+| Cloudflare Stream (`customer-…/<uid>/iframe` e `iframe.videodelivery…/<uid>`) | **nada** | play, avance y pausa |
+
+**Lo que no era obvio:**
+- **Bunny habla player.js y NO manda nada sin suscripción.** Al cargar avisa `ready` (como texto JSON), y recién al
+  pedirle `addEventListener` (también como texto JSON) manda `play`, `pause`, `ended` y `timeupdate` con segundos y
+  duración. Un Bunny que cargó antes que el Pixel ya avisó su `ready` a nadie: se lo suscribe al arrancar.
+- **Cloudflare manda TODO sin que se lo pidan**, como objeto (`__privateUnstableMessageType`: `event` y `propertyChange`).
+  Su librería oficial sólo escucha: no hay a qué suscribirse. Lo leí en su SDK y lo confirmé con el video.
+- **El YouTube que ya trae `enablejsapi=1` no medía nada.** El Pixel sólo lo escuchaba, para no romperle la API propia
+  a la página, pero ese iframe no habla si nadie le pide. Ahora: si a los 6 s nadie le habló y en la página no hay API de
+  YouTube (`window.YT` ni su script), se le pide. Si después aparece una, `ytCeder` se lo devuelve.
+- **El mismo video en dos iframes comparte su estado** (el Pixel lleva el estado POR VIDEO): el segundo play sale como
+  «retoma». Pasa con dos copias del mismo VSL en una página; en una prueba, usar videos distintos.
+- **Una prueba que sólo mira los eventos después del clic «pierde» el play de Panda**, porque arranca solo al cargar (sale
+  con `auto: true`). Hay que mirar todo lo del video desde que cargó la página.
+- **El dominio no se escribe entero en el snippet** (`mediadelivery\\.net` con la barra): el analizador de piezas busca
+  los dominios en el texto de la página, y el snippet se delataría a sí mismo. Lo cuida tests/landing-snippet-emitido.test.ts.
+- **El id que arma el Pixel y el que arma el analizador tienen que ser el mismo** (`bunny:<guid>`, `cfs:<uid>`), si no el
+  mismo video sale dos veces en la pantalla que los nombra. tests/alojadores-video-pixel.test.ts corre la función del
+  snippet sobre las mismas URLs que el analizador.
+
+Lo que quedó SIN hacer (otras tandas, con su archivo en el relevo): los números de cada alojador por su API, las
+integraciones con su clave, el bloque «Video» del Web Generator, los cursos y la API de MaKo.

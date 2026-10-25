@@ -32,7 +32,27 @@ Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace
   adentro de lo pintado: dos pintadas se tocan sin franja. Falta probarlo con clics cuando despliegue.
 - **Los íconos por la API (25/10 tarde):** hecho en la rama (cambiar_icono_landing, ver_iconos_landing, y los `iconos` de cada
   sección en ver_secciones_landing; docs/hallazgos-api-mako.md → «Los íconos por la API»).
-- **Sigue:** probar con clics en producción lo de hoy cuando despliegue (sobre una copia); el enlace de la agenda por la API;
+- **Otros alojadores de video (pedido de Martín por el Cerebro, 25/10 noche).** Tanda 1 hecha en la rama: el Pixel v27 mide
+  Bunny Stream y Cloudflare Stream, y el YouTube con enablejsapi=1 (docs/hallazgos-landing.md → «Otros alojadores de video»).
+  El mapa de dónde depende MaKo de Panda, medido ese día, para las tandas que siguen:
+  - **Los números por API van a `marketing_metrics_daily`** (`plataforma`, CHECK sólo `meta|youtube|panda`, lib/types.ts:16).
+    Los escribe el cron `app/api/cron/panda-daily` (lib/panda.ts). Los leen lib/queries.ts (funnel, serie del VSL,
+    tendencias), lib/sources.ts (`vsl_panda`), lib/graficos-datos.ts y `/general`.
+  - **La duración de cada video sale SÓLO de Panda** (`raw_payload.duration_seconds`, `getDuracionesVsl` en lib/leads.ts:2492):
+    sin ella, los segundos del Pixel no se vuelven porcentaje en el CRM ni en «Cuánto ven el video».
+  - **El catálogo** (título, reproductor, portada) para nombrar videos: `catalogoPanda` en `videosDetectados`
+    (lib/landing-token.ts).
+  - **La clave:** `PANDA_API_KEY` en lib/integraciones-catalogo.ts y lib/metodo-catalogo.ts, con el modal genérico
+    (app/integraciones/ServicioConfigForm.tsx) y «Probar conexión» (lib/metodo-verificar.ts). Settings está limpiando
+    Integraciones: se le preguntó qué toca antes de sumar las nuevas.
+  - **El Web Generator** reconoce YouTube, Vimeo, Loom, Drive, Panda, Wistia, Bunny y Fathom (lib/embeds.ts); **Cloudflare
+    en ningún lado**.
+  - **Los cursos** guardan el tipo (`curso_clases.video_tipo`, CHECK sin panda, wistia ni bunny: van como `url`) y miden
+    el avance con YouTube, Vimeo, Panda y el video propio; **Wistia y Bunny se ven «sin medir»** (lib/curso.ts:436,
+    app/compartido/curso/[token]/Reproductor.tsx).
+  - **La API:** `listar_videos_panda` y `ver_metricas_video_panda` (lib/api-mako/areas/landing.def.ts) son sólo de Panda.
+- **Sigue:** las tandas 2 a 5 de los alojadores (números por API, integraciones, bloque «Video», cursos, API);
+  probar con clics en producción lo de hoy cuando despliegue (sobre una copia); el enlace de la agenda por la API;
   publicar las landings con el OK de Martín;
   Responder en los otros chats cuando entren `ops-2510-regresiones` y `aut-2510`.
 

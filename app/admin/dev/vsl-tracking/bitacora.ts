@@ -492,4 +492,22 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-landing.md — los números, lo que se coló y lo que falta',
     ],
   },
+  {
+    fecha: '25 oct', hora: '21:30', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Pixel mide los videos de Bunny Stream y Cloudflare Stream',
+    pedido: '«Implementa otros alojadores de video, no solo panda, como Vimeo u otros... Y asegurate de que funcionen bien y que los lugares donde consume eso, el Pixel de MaKo, web generator, cursos, etc, puedan traer datos de tus videos de esas herramientas conectadas»',
+    puntos: [
+      'Se probó el Pixel con un video real de cada alojador: Panda, Vimeo, Wistia y YouTube ya se medían; Bunny Stream y Cloudflare Stream no registraban nada.',
+      'Ahora también se mide cuándo le dan play, hasta dónde lo ven y dónde lo pausan en Bunny Stream y Cloudflare Stream.',
+      'Un video de YouTube cuyo código traía «enablejsapi=1» no registraba nada: ahora sí.',
+      'Es la versión 27 del Pixel. Las páginas con la línea de instalación la reciben solas.',
+      'Falta: traer los números de cada alojador con su clave, el bloque de video del Web Generator, los cursos y la API.',
+    ],
+    archivos: [
+      'lib/landing-token.ts — el Pixel',
+      'scripts/pixel-alojadores-real.mts — la prueba con un video real de cada alojador',
+      'docs/hallazgos-landing.md — «Otros alojadores de video»',
+    ],
+  },
 ];
