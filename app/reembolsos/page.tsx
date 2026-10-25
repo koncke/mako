@@ -9,6 +9,9 @@
 //   · la garantía del programa grupal: DECIDIDA el 25/10/2026 por el Cerebro (Martín: «no hagas preguntas»), sobre los
 //     ENTREGABLES de la semana 1, no sobre el resultado (docs/como-venden-otros.md §6c). La frase es la de la tarjeta
 //     (`PROGRAMA_ACELERADOR.garantia`, lib/planes-mako.ts): una sola, para que /planes y esta página no se contradigan;
+//   · la garantía de los planes: DECIDIDA el 25/10/2026 por el Cerebro, 14 días en el mensual y 30 en el anual, en lugar de
+//     una prueba gratis (docs/como-venden-otros.md §6c). Antes decía «el mes ya pagado no se reembolsa». Los días salen de
+//     `GARANTIA_DIAS` (lib/planes-mako.ts), los mismos que dicen las tarjetas de /planes;
 //   · darse de baja sin escribir: DECIDIDO (Estrategia, 15/10) y HECHO el mismo día: el botón «Darme de baja» de
 //     «Configuración del negocio → Tu plan» (app/configuraciones/plan), propio de MaKo para cubrir Stripe y Mercado Pago.
 //
@@ -17,7 +20,7 @@
 // así), y la razón social va en el HTML del servidor (tests/razon-social-sitio.test.ts).
 
 import { EMAIL_MAKO } from '@/lib/app-url';
-import { PROGRAMA_ACELERADOR, HORAS_SEMANA_1 } from '@/lib/planes-mako';
+import { GARANTIA_DIAS, PROGRAMA_ACELERADOR, HORAS_SEMANA_1 } from '@/lib/planes-mako';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
 import { H, Ojo, LegalShell } from '@/app/_legal/LegalShell';
 
@@ -45,20 +48,25 @@ export default function Page() {
         queda claro, escríbenos a {mail} antes de pagar.
       </>}
     >
-      <H id="mensuales">1. Planes mensuales</H>
+      <H id="mensuales">1. Planes de MaKo (Esencial y Pro)</H>
       <ul>
         <li>
-          Se pagan <strong>por adelantado</strong> y se renuevan solos cada mes, con el mismo medio de
-          pago, hasta que los canceles.
+          <strong>Garantía de {GARANTIA_DIAS.mensual} días en el plan mensual y de {GARANTIA_DIAS.anual} en el anual.</strong>{' '}
+          Si en esos días, contados desde tu primer pago, MaKo no te sirve, te devolvemos ese pago entero. La pides
+          escribiéndonos a {mail}. Vale para el primer pago de cada negocio, una vez.
+        </li>
+        <li>
+          El plan mensual se paga <strong>por adelantado</strong> y se renueva solo cada mes, con el mismo medio de pago,
+          hasta que lo canceles. El anual se paga una vez por los 12 meses.
         </li>
         <li>
           <strong>Puedes darte de baja cuando quieras</strong>, tú mismo con el botón «Darme de baja» de{' '}
-          <strong>Configuración del negocio → Tu plan</strong>. Al darte de baja, no se te cobra el mes siguiente, y te
+          <strong>Configuración del negocio → Tu plan</strong>. Al darte de baja, no se te cobra el período siguiente, y te
           llega un código de baja por email.
         </li>
         <li>
-          <strong>El mes ya pagado no se reembolsa</strong>, ni entero ni en parte, salvo en los casos
-          de la sección 3.
+          Pasada la garantía, <strong>lo ya pagado no se reembolsa</strong>, ni entero ni en parte, salvo en los casos de la
+          sección 3. Si te das de baja, sigues usando MaKo hasta que termina lo que pagaste.
         </li>
       </ul>
 

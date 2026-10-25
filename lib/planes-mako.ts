@@ -45,7 +45,10 @@ export type PlanMako = {
   destacado?: boolean;
   /** Un plan apagado no se ofrece en /planes, pero quien ya lo paga lo sigue pagando. */
   activo: boolean;
-  /** El precio por año (2 meses gratis). ⚠️ Todavía no se vende: el checkout cobra por mes. */
+  /**
+   * El precio por año (2 meses gratis: `MESES_GRATIS_ANUAL`). Desde el 25/10/2026 se muestra (el Cerebro) y SIEMPRE se pide:
+   * el checkout cobra por mes, así que el anual deja el pedido en el CRM y se da de alta a mano (`periodo: 'anual'`).
+   */
   precioAnualUsd?: number | null;
   /**
    * Lo que se le ofrece antes de darse de baja (docs/ofertas-mako.md, «Baja»): un descuento por meses, pausar meses gratis,
@@ -55,6 +58,21 @@ export type PlanMako = {
 };
 
 export const CLAVE_PLANES = 'planes.mako';
+
+/** Cuántos meses regala el anual (US$470 = 10 × 47): lo más usado en el rubro (docs/como-venden-otros.md §6c). */
+export const MESES_GRATIS_ANUAL = 2;
+
+/**
+ * La garantía de los planes, en días desde el primer pago (25/10/2026, el Cerebro: «garantía de 14 días en lugar de prueba»,
+ * y 30 en el anual, como DM Champ). La dicen las tarjetas y /reembolsos §1 de esta misma constante.
+ */
+export const GARANTIA_DIAS = { mensual: 14, anual: 30 } as const;
+
+/** El precio del plan en pesos argentinos, si el plan lo tiene: nunca se calcula con una tasa (`preciosLocales`). */
+export const precioEnPesos = (p: Pick<PlanMako, 'preciosLocales'>): number | null => {
+  const v = p.preciosLocales?.ARS;
+  return typeof v === 'number' && v > 0 ? v : null;
+};
 
 /** Los planes de hoy (23/10/2026). Cambiar acá es un deploy; cambiar el setting `planes.mako`, no. */
 export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
@@ -72,6 +90,7 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
       `${n(T.completo['chats.lineas_whatsapp'])} WhatsApp más Instagram, en una sola bandeja`,
       `Hasta ${n(T.completo['automations.activas'])} automatizaciones de mensajes y ${n(T.completo['web.landings_publicadas'])} páginas de venta`,
       'Tu oferta armada con IA, tu agenda, tus tareas y tus cobros',
+      `Tu media buyer con IA: ${n(T.completo['ads.recomendaciones_dia'])} recomendaciones por día para tus anuncios, y tú decides si las aplicas`,
     ],
     activo: true,
     retencion: { pausa: { meses: 1 } },

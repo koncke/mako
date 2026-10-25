@@ -98,7 +98,7 @@ test('/planes/<plan>: con pasarela el pago; sin pasarela el pedido; el Acelerado
   assert.match(pagina, /<QuieroPlan plan=\{pr\.id\} nombrePlan=\{pr\.nombre\} origen=\{origen\} refCodigo=\{ref\} preguntas=\{PREGUNTAS_DE_LA_PUERTA\} \/>/,
     'el Acelerador se pide con el diagnóstico como puerta');
   const form = fuente('app/planes/[plan]/QuieroPlan.tsx');
-  assert.match(form, /JSON\.stringify\(\{ plan: p\.plan, nombre, email, whatsapp, quiero: true, origen: p\.origen, ref: p\.refCodigo, web, diagnostico \}\)/);
+  assert.match(form, /JSON\.stringify\(\{ plan: p\.plan, nombre, email, whatsapp, quiero: true, origen: p\.origen, ref: p\.refCodigo, web, diagnostico, periodo: p\.periodo \}\)/);
   // La ruta: el pedido va con el código de partner que ganó (la cookie de /r primero), y nunca abre un pago.
   const ruta = fuente('app/api/planes/comprar/route.ts');
   assert.match(ruta, /if \(pedido\.quiero\) \{\s*const q = await pedirPlanSinPasarela\(\{ \.\.\.pedido, ref \}\);/);
@@ -132,7 +132,8 @@ test('la LANDING de venta: las columnas de precios donde estaba la agenda, con e
   const precios = fuente('app/vsl/PreciosLanding.tsx');
   assert.match(precios, /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} \/>/, 'los mismos bloques (y el mismo botón) que /planes');
   assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{`\/planes\/\$\{pr\.id\}\$\{sufijo\}`\}>Quiero el Acelerador</);
-  for (const rel of ['app/vsl/PreciosLanding.tsx', 'app/planes/Tarjetas.tsx']) assert.doesNotMatch(fuente(rel), /precioAnualUsd|por año/, `${rel}: sin el anual`);
+  // El anual (25/10/2026) se muestra y SIEMPRE se pide: su botón es otro, nunca el del checkout mensual.
+  assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{botonAnualDelPlan\(\{ id: p\.id, sufijo \}\)\.href\}/);
   for (const rel of ['app/page.tsx', 'app/vsl/[slug]/page.tsx']) assert.match(fuente(rel), /planesParaLanding\(\)/, rel);
 });
 

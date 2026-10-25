@@ -1428,3 +1428,36 @@ compuerta automática «Fase 1 → no se le ofrece el programa»: la lectura es 
 lib/planes-mako.ts (`PROGRAMA_ACELERADOR`, `HORAS_SEMANA_1`) · app/planes/Tarjetas.tsx · app/reembolsos/page.tsx §2 ·
 lib/compra-plan-reglas.ts (`PREGUNTAS_DE_LA_PUERTA`, `diagnosticoLimpio`) · lib/compra-plan.ts (`pedirPlanSinPasarela`) ·
 app/planes/[plan]/QuieroPlan.tsx · tests/planes-tres-bloques.test.ts · tests/planes-sin-pasarela.test.ts.
+
+## El anual, la garantía de 14/30, los pesos y el media buyer de Esencial (25/10/2026)
+
+Decidido por el Cerebro (memoria `decisiones-venta-25-10`), sobre docs/como-venden-otros.md §6c. Chat «Planes», cuenta 5.
+
+- **El anual se muestra y SIEMPRE se pide.** El checkout cobra por mes: con pasarela, «Empezar» del anual cobraría un mes
+  creyendo vender un año. Por eso su botón es otro (`botonAnualDelPlan`, con el origen y el partner del sufijo más
+  `periodo=anual`), /planes/<plan>?periodo=anual va al pedido ANTES de mirar la pasarela, y la ruta rechaza un anual que no
+  venga como pedido (`TEXTO_ANUAL_SE_PIDE`). El pedido dice «MaKo Pro anual (US$ 970 por año)» en el historial y en el mail.
+- **El selector Mensual/Anual va sin JavaScript** (dos radios y `:has()`): las tarjetas se dibujan en /planes, que es del
+  servidor, y en el portal de la landing. Sin `:has()` se ven los dos precios, nunca ninguno. Sale sólo si TODOS los planes
+  tienen anual: uno sin anual quedaría sin precio al elegirlo.
+- **La garantía era la contradicción del 24/10, y ahora es una constante:** `GARANTIA_DIAS` (14 el mensual, 30 el anual) la
+  dicen las tarjetas, la línea de abajo, la pregunta «¿Y si no me sirve?» y /reembolsos §1, que antes decía «el mes ya pagado
+  no se reembolsa». **Decidido acá, no por el Cerebro:** vale para el primer pago de cada negocio, una vez (lo común, y frena
+  el pagar-pedir-volver a pagar); si Martín no lo quiere, es una frase de /reembolsos.
+- **Pesos sin inventar una tasa:** la línea «Desde Argentina pagas en pesos, con Mercado Pago» sale siempre; un PRECIO en pesos
+  sólo si el plan lo tiene (`precioEnPesos`, de `preciosLocales.ARS`). Hoy ningún plan lo tiene (los de código traen `{}` y en
+  producción no hay setting `planes.mako`), así que no se ve ningún número en pesos. Para mostrarlo: cargar el precio en el
+  setting, no tocar código.
+- **El media buyer de Esencial es un tope del plan** (`ads.recomendaciones_dia` en lib/topes-plan.ts: 2 en Esencial, sin tope
+  en Pro), no un número en la vitrina: la fila de la comparación y lo que incluye Esencial lo leen de ahí, y el chat «Media
+  Buyer» lo hace cumplir desde el mismo lugar. Lo de «propone, no aplica solo» va en el texto («y tú decides si las aplicas»).
+- **Trampa de test:** `renderToStaticMarkup` no escribe los atributos en el orden del JSX (el `<input>` sale `type, id, name`
+  aunque el JSX diga `type, name, id`), y el HTML crudo trae el `<style>` con los nombres de las clases: para ver si algo se
+  dibuja, mirar el texto visible, no el HTML.
+
+**Sin hacer:** NADA hace cumplir todavía las 2 recomendaciones por día: la vitrina las promete desde el tope y el que las
+cumple es el chat «Media Buyer» (lib/topes-plan.ts). El precio en pesos lo decide Martín (setting `planes.mako`). El anual se da
+de alta a mano: el checkout (`iniciarCompraDePlan`, lib/compra-plan.ts) no tiene período anual. **Vive en:** lib/planes-mako.ts (`GARANTIA_DIAS`, `MESES_GRATIS_ANUAL`,
+`precioEnPesos`) · lib/topes-plan.ts · lib/planes-comparacion.ts · app/planes/Tarjetas.tsx · app/planes/Vitrina.tsx ·
+app/planes/[plan]/page.tsx · lib/compra-plan-reglas.ts (`botonAnualDelPlan`, `TEXTO_ANUAL_SE_PIDE`) · lib/compra-plan.ts ·
+app/reembolsos/page.tsx §1 · tests/planes-tres-bloques.test.ts.

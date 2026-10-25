@@ -49,6 +49,8 @@ export function filasDeComparacion(): FilaComparacion[] {
     filaDeTope(vender, 'Páginas de venta publicadas', 'web.landings_publicadas'),
     filaDeTope(vender, 'Automatizaciones de mensajes activas', 'automations.activas'),
     filaDeTope(atender, 'Números de WhatsApp, más Instagram', 'chats.lineas_whatsapp'),
+    // El media buyer: en Esencial propone y no aplica solo (25/10/2026); cuántas recomendaciones, del tope del plan.
+    filaDeTope(anuncios, 'Recomendaciones de tu media buyer con IA, por día', 'ads.recomendaciones_dia'),
     ...TABS_SOLO_PRO.map((t): FilaComparacion => ({ grupo: anuncios, que: NOMBRE_TAB_PRO[t], esencial: false, pro: true, acelerador: true })),
     filaDeTope(equipo, 'Personas de tu equipo', 'equipo.usuarios'),
     { grupo: equipo, que: 'Los negocios de tus clientes, si eres agencia', esencial: false, pro: true, acelerador: true },

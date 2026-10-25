@@ -1228,4 +1228,27 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/clients/classroom',
   },
+  {
+    fecha: '25 oct', hora: '07:30', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo Partners paga meses Y dinero: crédito por cada suscripción y US$300 en efectivo por cada Acelerador',
+    puntos: [
+      'Lo decidió el Cerebro con lo que tú decidiste el 10/10: por la suscripción se gana crédito; por cada Acelerador, US$300 en efectivo (el 20% de cada cuota).',
+      'Arriba: «Gana meses de tu plan y dinero en efectivo por cada negocio que traigas a MaKo». Ya no dice «no es dinero».',
+      'La ficha tiene dos renglones: si se suscribe, su primer mes como crédito (US$97 o US$47); si entra al Acelerador, US$300 en efectivo.',
+      'En la calculadora se puede elegir el Acelerador: el resultado dice «En efectivo».',
+      'Dice lo que pasa hoy con cada cosa: el crédito todavía no se descuenta solo, y la comisión no aparece en el panel porque la anotamos y la transferimos nosotros. Si el negocio usa la garantía del Acelerador, no hay comisión.',
+      'El panel de referidos y el teléfono dicen lo mismo.',
+    ],
+    commits: [
+      { sha: '50fb873f1', msg: 'MaKo Partners › meses Y dinero: el crédito por la suscripción y US$300 en efectivo por cada Acelerador', lineas: 268, archivos: 9 },
+    ],
+    archivos: [
+      'lib/partners-reglas.ts — la comisión del Acelerador y lo que pasa hoy con ella',
+      'app/mako-partners/LandingPartners.tsx y Calculadora.tsx — la landing y la calculadora',
+      'app/partners/referidos/Referidos.tsx y app/m/partners/ReferidosM.tsx — el panel y el teléfono',
+      'tests/mako-partners-landing.test.ts — 12 roturas, cada una cae',
+    ],
+    revisar: '/mako-partners',
+  },
 ];
