@@ -9,16 +9,18 @@
 //
 // COPIADA DE (abiertas y miradas el 24/10): LLM Pulse (llmpulse.ai/affiliate) para el orden y la calculadora; systeme.io
 // (systeme.io/affiliate-program) para la ficha que contesta en una mirada QUÉ se gana, cuánto y cuándo; DigitalOcean
-// (digitalocean.com/referral-program) para decirlo sin vueltas: «earn free credits», crédito y no dinero; Kit
+// (digitalocean.com/referral-program) para decirlo sin vueltas: «earn free credits»; Kit
 // (kit.com/affiliate) para la cuenta con un ejemplo. Lo que NO se tomó: los testimonios — hoy no hay partners con
 // crédito, y uno inventado no se publica.
 //
-// ⚠️ SÓLO LO QUE PASA HOY (24/10/2026, el Cerebro: «la página de Partners no promete nada que no vayamos a cumplir»):
-// cada referido suma su primer mes, a precio de lista, como un renglón de crédito en el libro del partner
-// (lib/partners-programa.ts, `acreditarReferidos`). NADA lo consume todavía: no se descuenta de la cuota ni se paga en
-// efectivo, y la comisión del Acelerador no se registra. Por eso dice «crédito, no dinero», nunca «meses gratis» ni
-// cuántos meses de MaKo equivale, y repite `CREDITO_HOY`. Sin cobro en línea, un referido no se registra solo: lo dice
-// como el panel. Los números salen de los planes y las reglas, no a mano.
+// MESES Y DINERO, SEGÚN QUÉ SE REFIERE (25/10/2026, el Cerebro, con lo que Martín decidió el 10/10 en docs/referidos.md):
+// el negocio que se SUSCRIBE suma su primer mes como crédito para el plan del partner; el que entra al ACELERADOR deja
+// US$300 en efectivo (el 20% de cada cuota). Una línea para cada uno, nunca «no es dinero» a secas.
+// ⚠️ Y SÓLO LO QUE PASA HOY (24/10, el Cerebro: «la página de Partners no promete nada que no vayamos a cumplir»): el
+// crédito es un renglón del libro (lib/partners-programa.ts, `acreditarReferidos`) que nada descuenta solo todavía
+// (`CREDITO_HOY`), y la comisión no la registra el libro: la anota y la transfiere el equipo (`COMISION_HOY`). Por eso no
+// dice «meses gratis» ni «se descuenta». Sin cobro en línea, un referido no se registra solo: lo dice como el panel. Los
+// números salen de los planes, del programa y de las reglas, no a mano.
 //
 // LOS DOS MODOS: `publica` (colores fijos de la página de venta, la barra de la app escondida) y `app` (los tokens de la
 // app: cambia con el tema oscuro y el Nord; la barra queda). La acción es UNA: en la pública lleva a la tab, adentro es el
@@ -27,8 +29,8 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { CREDITO_HOY, DIAS_COOKIE_REF, PAGOS_PARA_ACREDITAR } from '@/lib/partners-reglas';
-import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako';
+import { COMISION_GRUPAL, COMISION_HOY, CREDITO_HOY, DIAS_COOKIE_REF, PAGOS_PARA_ACREDITAR, comisionDelAcelerador } from '@/lib/partners-reglas';
+import { PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR } from '@/lib/planes-mako';
 import { Calculadora } from './Calculadora';
 
 const usd = (n: number) => `US$ ${n.toLocaleString('es-AR')}`;
@@ -79,6 +81,10 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-ficha-fila { display: flex; justify-content: space-between; gap: 14px; padding: 11px 0; border-top: 1px solid var(--mp-borde); font-size: 15px; }
 .mp-ficha-fila dt { color: var(--mp-dim); flex: 1; min-width: 0; }
 .mp-ficha-fila dd { margin: 0; font-weight: 700; color: var(--mp-ink); text-align: right; white-space: nowrap; }
+/* El segundo renglón de lo que ganas: el Acelerador, en efectivo. Separado del crédito para que no se lean como uno. */
+.mp-ficha-efectivo { margin: 16px -26px -20px; padding: 18px 26px 20px; border-top: 1px solid var(--mp-borde); background: var(--mp-gris);
+  border-radius: 0 0 22px 22px; }
+.mp-ficha-efectivo .mp-ficha-grande { font-size: 26px; margin-top: 4px; }
 .mp-seccion { padding: 72px 0; }
 .mp-app .mp-seccion { padding: 48px 0 8px; }
 .mp-seccion.gris { background: var(--mp-gris); }
@@ -101,6 +107,8 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-calc-escala { display: flex; justify-content: space-between; color: var(--mp-suave); font-size: 13px; }
 .mp-calc-etq { margin: 22px 0 10px; font-weight: 600; font-size: 15px; color: var(--mp-ink); }
 .mp-calc-planes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* El Acelerador, a todo el ancho: es el que deja efectivo, no un plan más. */
+.mp-calc-plan.efectivo { grid-column: 1 / -1; }
 .mp-calc-plan { text-align: left; font: inherit; cursor: pointer; background: var(--mp-sup); color: var(--mp-ink); border: 1px solid var(--mp-borde);
   border-radius: 14px; padding: 12px 14px; transition: border-color .15s ease, box-shadow .15s ease; }
 .mp-calc-plan b { display: block; font-size: 15px; }
@@ -144,6 +152,8 @@ body:has(.mp-publica) { background: #FFFFFF; }
   .mp-ficha { padding: 20px 18px 14px; border-radius: 18px; }
   .mp-ficha-grande { font-size: 26px; }
   .mp-ficha-fila { font-size: 14px; }
+  .mp-ficha-efectivo { margin: 14px -18px -14px; padding: 16px 18px 16px; border-radius: 0 0 18px 18px; }
+  .mp-ficha-efectivo .mp-ficha-grande { font-size: 22px; }
   .mp-hero-grilla { gap: 28px; padding-top: 24px; }
   .mp-calc-res-monto { font-size: 52px; }
   .mp-seccion { padding: 52px 0; }
@@ -180,6 +190,9 @@ export function LandingPartners({ cobraEnLinea, emailMako, modo = 'publica', uni
   const tope = planes[0];
   const pro = planes.find((p) => p.id === 'pro') ?? tope;
   const mes = ORDINAL[PAGOS_PARA_ACREDITAR] ?? `${PAGOS_PARA_ACREDITAR}º`;
+  const acelerador = PROGRAMA_ACELERADOR;
+  const comision = comisionDelAcelerador(acelerador.precioUsd);
+  const pct = `${Math.round(COMISION_GRUPAL * 100)}%`;
   const publica = modo === 'publica';
   // Sin acción (el super admin mirando cómo lo ven): ni el botón de unirse ni el bloque final, que sólo existe para él.
   const conAccion = publica || !!unirme;
@@ -201,10 +214,10 @@ export function LandingPartners({ cobraEnLinea, emailMako, modo = 'publica', uni
           <div className="mp-hero-grilla">
             <div>
               <span className="mp-ceja">Programa de referidos</span>
-              <h1>Gana hasta <em>{usd(tope.precioUsd)} de crédito</em> por cada negocio que traigas a MaKo</h1>
+              <h1>Gana <em>meses de tu plan</em> y <em>dinero en efectivo</em> por cada negocio que traigas a MaKo</h1>
               <p className="mp-bajada">
-                Compartes tu link. Cada negocio nuevo que entra con él te suma su primer mes como crédito para tu plan de MaKo.
-                Sin tope.
+                Compartes tu link. Si el negocio se suscribe, su primer mes queda como crédito para tu plan. Si entra al
+                {' '}{acelerador.nombre}, te llevas {usd(comision)} en efectivo. Sin tope.
               </p>
               {error && <p className="mp-error" role="alert">No pudimos unirte. Prueba otra vez en un minuto.</p>}
               <div className="mp-acciones">
@@ -218,9 +231,9 @@ export function LandingPartners({ cobraEnLinea, emailMako, modo = 'publica', uni
               </ul>
             </div>
             <div className="mp-ficha" aria-label="Lo que ganas">
-              <div className="mp-ficha-etq">Lo que ganas</div>
-              <div className="mp-ficha-grande">Crédito para tu plan</div>
-              <p className="mp-ficha-sub">No es dinero en efectivo: es saldo a tu favor en MaKo.</p>
+              <div className="mp-ficha-etq">Si se suscribe</div>
+              <div className="mp-ficha-grande">Meses de tu plan</div>
+              <p className="mp-ficha-sub">Su primer mes, como crédito para pagar tu MaKo.</p>
               <dl>
                 {planes.map((p) => (
                   <div key={p.id} className="mp-ficha-fila"><dt>Por un negocio en {p.nombre}</dt><dd>{usd(p.precioUsd)}</dd></div>
@@ -228,6 +241,11 @@ export function LandingPartners({ cobraEnLinea, emailMako, modo = 'publica', uni
                 <div className="mp-ficha-fila"><dt>Se suma</dt><dd>al pagar su {mes} mes</dd></div>
                 <div className="mp-ficha-fila"><dt>Tope</dt><dd>Sin tope</dd></div>
               </dl>
+              <div className="mp-ficha-efectivo">
+                <div className="mp-ficha-etq">Si entra al {acelerador.nombre}</div>
+                <div className="mp-ficha-grande">{usd(comision)} en efectivo</div>
+                <p className="mp-ficha-sub">El {pct} de cada cuota que paga, por transferencia.</p>
+              </div>
             </div>
           </div>
         </div>
@@ -236,11 +254,15 @@ export function LandingPartners({ cobraEnLinea, emailMako, modo = 'publica', uni
       <section className="mp-seccion" id="calculadora" style={{ scrollMarginTop: 24 }}>
         <div className="mp-wrap">
           <div className="mp-centro"><span className="mp-ceja">Calculadora</span></div>
-          <h2>¿Cuánto crédito sumarías?</h2>
-          <p className="mp-sub">Mueve la barra y elige el plan que toman los negocios que traes.</p>
+          <h2>¿Cuánto sumarías?</h2>
+          <p className="mp-sub">Mueve la barra y elige qué toman los negocios que traes.</p>
           <Calculadora
-            planes={planes.map((p) => ({ id: p.id, nombre: p.nombre, precioUsd: p.precioUsd }))}
-            nota={`A precio de lista. Cada negocio suma cuando paga su ${mes} mes. ${CREDITO_HOY}`}>
+            planes={[
+              ...planes.map((p) => ({ id: p.id, nombre: p.nombre, precioUsd: p.precioUsd, rotulo: `${usd(p.precioUsd)} por mes` })),
+              { id: acelerador.id, nombre: acelerador.nombre, precioUsd: acelerador.precioUsd, rotulo: `${usd(acelerador.precioUsd)} en ${acelerador.cuotas} cuotas`, efectivo: true },
+            ]}
+            nota={`A precio de lista. Cada negocio suma cuando paga su ${mes} mes. ${CREDITO_HOY}`}
+            notaEfectivo={`El ${pct} de cada cuota que se cobra. ${COMISION_HOY}`}>
             {conAccion && <Accion unirme={unirme} volver={volver} texto={textoUnirme} />}
           </Calculadora>
         </div>
@@ -253,7 +275,7 @@ export function LandingPartners({ cobraEnLinea, emailMako, modo = 'publica', uni
           <ol className="mp-pasos">
             <li className="mp-paso"><span className="mp-paso-n">1</span><h3>Únete gratis</h3><p>Con tu cuenta de MaKo. Al unirte aparecen tu link y tu panel.</p></li>
             <li className="mp-paso"><span className="mp-paso-n">2</span><h3>Comparte tu link</h3><p>Con tus clientes, tu comunidad o quien quieras recomendarle MaKo.</p></li>
-            <li className="mp-paso"><span className="mp-paso-n">3</span><h3>Suma su primer mes</h3><p>Cuando ese negocio paga su {mes} mes, su primer mes queda como crédito a tu favor, y lo ves en tu panel.</p></li>
+            <li className="mp-paso"><span className="mp-paso-n">3</span><h3>Gana por cada uno</h3><p>Si se suscribe, al pagar su {mes} mes su primer mes queda como crédito para tu plan. Si entra al {acelerador.nombre}, te llevas el {pct} de cada cuota.</p></li>
           </ol>
           {!cobraEnLinea && (
             <p className="mp-aviso">
@@ -272,14 +294,23 @@ export function LandingPartners({ cobraEnLinea, emailMako, modo = 'publica', uni
             <details open>
               <summary>¿Gano dinero o meses?</summary>
               <p>
-                Crédito para tu plan de MaKo, no dinero en efectivo. Cada negocio que traes suma el valor de su primer mes:{' '}
+                Las dos cosas, según lo que tome el negocio. Si se suscribe, crédito para pagar tus meses de MaKo: el valor de su
+                primer mes,{' '}
                 {planes.map((p, i) => <span key={p.id}>{i > 0 ? (i === planes.length - 1 ? ' o ' : ', ') : ''}{usd(p.precioUsd)} si entra a {p.nombre}</span>)}.
                 {' '}{CREDITO_HOY}
+              </p>
+              <p>
+                Si entra al {acelerador.nombre}, {usd(comision)} en efectivo: el {pct} de cada cuota que paga, por transferencia.
+                {' '}{COMISION_HOY}
               </p>
             </details>
             <details>
               <summary>¿Cuándo se suma el crédito?</summary>
               <p>Cuando el negocio que trajiste paga su {mes} mes. Si se va antes, no suma.</p>
+            </details>
+            <details>
+              <summary>¿Y si el negocio pide que le devuelvan el dinero?</summary>
+              <p>Si un negocio del {acelerador.nombre} usa la garantía de entrega, esa venta no deja comisión.</p>
             </details>
             <details>
               <summary>¿Quién cuenta como referido?</summary>

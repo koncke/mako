@@ -10,7 +10,8 @@
 
 import { CabeceraM, FilaDatoM, ListaM, PildoraM, SeccionM, VacioM, useToastM } from '@/app/m/_ui';
 import { Button } from '@/app/_ui/Button';
-import { CREDITO_HOY, TEXTO_ESTADO_REFERIDO, PAGOS_PARA_ACREDITAR, textoSinReferidos } from '@/lib/partners-reglas';
+import { COMISION_HOY, CREDITO_HOY, TEXTO_ESTADO_REFERIDO, PAGOS_PARA_ACREDITAR, comisionDelAcelerador, textoSinReferidos } from '@/lib/partners-reglas';
+import { PROGRAMA_ACELERADOR } from '@/lib/planes-mako';
 import type { Tablero } from '@/lib/partners-programa';
 import { RUTA_MAS } from '@/lib/movil-rutas';
 
@@ -27,8 +28,9 @@ export function ReferidosM({ tablero, cobraEnLinea = true, emailMako }: { tabler
     <>
       <CabeceraM titulo="MaKo Partners" padre={{ href: RUTA_MAS, label: 'More' }} />
       <p className="m-partners-nota">
-        Recomienda MaKo: cada negocio que entra con tu link y paga su {PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`} mes
-        te suma su primer mes como crédito. {CREDITO_HOY}
+        Recomienda MaKo: cada negocio que se suscribe con tu link y paga su {PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`} mes
+        te suma su primer mes como crédito. {CREDITO_HOY} Cada uno que entra al {PROGRAMA_ACELERADOR.nombre} te deja
+        {' '}{usd(comisionDelAcelerador(PROGRAMA_ACELERADOR.precioUsd))} en efectivo. {COMISION_HOY}
       </p>
       <SeccionM titulo="Tu link">
         {tablero.link
