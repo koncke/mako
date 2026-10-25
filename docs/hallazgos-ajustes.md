@@ -9,9 +9,9 @@ Lo que vive en app/perfil, app/configuraciones, app/m/cuenta, app/m/configuracio
   (`guardarNombreNegocioAction`) y UNA regla (lib/nombre-negocio.ts). Dos formularios con dos guardados se separan
   con el tiempo.
 - ⚠️ **«Empresa» del perfil NO es el nombre del negocio** (`perfil.empresa`, un dato personal que no se ve en ningún
-  lado). Al lado de «Nombre del negocio» confunde: una fila cambia el nombre en toda la app y la otra no cambia nada
-  visible. PENDIENTE (el Cerebro pidió lo mínimo el 22/10): la propuesta es no ofrecer «Empresa» a quien ve «Nombre del
-  negocio» (el admin), sin borrar lo guardado. Vive en app/perfil/InformacionPersonal.tsx.
+  lado). Al lado de «Nombre del negocio» confundía: una fila cambia el nombre en toda la app y la otra no cambia nada
+  visible. Desde el rediseño de Settings (25/10/2026) no se le ofrece a quien ve «Nombre del negocio» (el admin); lo
+  guardado no se borra, y a un closer o setter se le sigue ofreciendo. Vive en app/perfil/InformacionPersonal.tsx.
 - **Toda sección de Configuración del negocio necesita pantalla en el teléfono o un motivo escrito**
   (tests/m-configuraciones.test.ts, `EN_LA_COMPUTADORA`): el VERDE de «Tu negocio» dio rojo por eso. Una sección nueva
   se suma en tres lugares: `SECCIONES_NEGOCIO_M`, `CLAVES_NEGOCIO_M` (lib/movil-rutas.ts) y su página en

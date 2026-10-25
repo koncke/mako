@@ -31,6 +31,12 @@ import { iniciales } from '@/lib/unicode-seguro';
  */
 export const EVENTO_PREFS_IN_APP = 'mako:notif-inapp';
 
+/**
+ * «Enviar prueba» de Settings › Notificaciones › En la app (25/10/2026, el «Send test notification» de Linear): muestra el
+ * pop-up de un mensaje, de mentira y rotulado como prueba, y suena si el sonido está prendido. Tocarlo no abre ningún chat.
+ */
+export const EVENTO_PRUEBA_IN_APP = 'mako:notif-prueba';
+
 interface NotifCtx {
   unreadTotal: number;
   // El número de WhatsApp del negocio (Evolution):
@@ -127,7 +133,7 @@ type ConvNoOf = { chatJid: string; nombre: string; ultimaFecha: string | null; u
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname() || '';
-  const [toast, setToast] = useState<{ gid: string; nombre: string } | null>(null);
+  const [toast, setToast] = useState<{ gid: string; nombre: string; prueba?: boolean } | null>(null);
   const [tplToast, setTplToast] = useState<{ tipo: 'ok' | 'rej'; name: string; motivo?: string } | null>(null);
   const [noOficialUnread, setNoOficialUnread] = useState(0);
   const [inApp, setInApp] = useState<NotifInApp | null>(null);
@@ -232,6 +238,19 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     window.addEventListener(EVENTO_PREFS_IN_APP, recargar);
     return () => { alive = false; window.removeEventListener(EVENTO_PREFS_IN_APP, recargar); };
   }, [pathname]);
+
+  // El pop-up de prueba (EVENTO_PRUEBA_IN_APP): el mismo de un mensaje, sin chat detrás.
+  useEffect(() => {
+    const probar = () => {
+      unlockAudio();
+      if (inAppRef.current?.sonido !== false) playApproval();
+      setToast({ gid: '', nombre: 'MaKo', prueba: true });
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(esperarPausa(() => setToast(null)), 5000);
+    };
+    window.addEventListener(EVENTO_PRUEBA_IN_APP, probar);
+    return () => window.removeEventListener(EVENTO_PRUEBA_IN_APP, probar);
+  }, []);
 
   // Desbloquear el audio en el primer gesto del usuario (autoplay policy).
   useEffect(() => {
@@ -364,7 +383,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={{ unreadTotal, noOficialUnread, marcarLeidoNoOficial, setOpenChatNoOficial, inApp }}>
       {children}
       {!isPublicLandingPath(pathname) && !enMovil(pathname) && toast && (
-        <AvisoArriba onAbrir={() => goToChatNoOficial(toast.gid)} onCerrar={() => setToast(null)}
+        <AvisoArriba onAbrir={() => (toast.prueba ? setToast(null) : goToChatNoOficial(toast.gid))} onCerrar={() => setToast(null)}
           estilo={{
             position: 'fixed', top: 18, right: 18, zIndex: 2000, maxWidth: 340,
             display: 'flex', alignItems: 'center', gap: 11, padding: '12px 14px',
@@ -379,7 +398,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           </span>
           <span style={{ minWidth: 0 }}>
             <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{toast.nombre}</span>
-            <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)' }}>Te envió un mensaje · abrir chat →</span>
+            <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)' }}>{toast.prueba ? 'Así te llegan los avisos' : 'Te envió un mensaje · abrir chat →'}</span>
           </span>
         </AvisoArriba>
       )}

@@ -1,240 +1,282 @@
 'use client';
 
 // =============================================================================
-// NotificacionesPanel — qué avisa MaKo, y por dónde
+// Notificaciones — Settings › Notificaciones, copiada de las de LINEAR (25/10/2026)
 // =============================================================================
-// Vive en /configuraciones › Notificaciones. Dos bloques, en orden de cuán tuyo
-// es lo que configuran:
+// Martín, 25/10/2026: «Mira "Notificaciones" aún se ve como antes, solo le agregaste más texto, eso no es lo que te pedí. Te
+// pedí un rediseño completo… Tanto en diseño como en funcionalidad». Linear (Settings › Notifications, capturas en
+// docs/settings/referencias/linear-notif-*.png):
+//   · la página es la lista de CANALES, una fila por canal con su estado y su punto verde o gris, y la flecha;
+//   · cada canal abre su detalle (`?canal=`): el interruptor del canal, «Enviar prueba» y un interruptor por aviso.
+// Los canales de MaKo: En la app (pop-up y sonido mientras MaKo está abierta) · Celular (los push de MaKo Mobile) ·
+// WhatsApp y Email (a quién le llegan los avisos del NEGOCIO; sólo quien lo administra). Y «No molestar», el «Notification
+// schedule» de Slack: un horario sin avisos al celular, en la zona de tu perfil (lib/notif-catalogo.ts → enSilencio).
 //
-//   1. Dentro de la app → pop-up y sonido. Es de la PERSONA: pasa en SU navegador,
-//      no se manda a ningún lado, y no cambia nada para el resto del equipo.
-//   2. Los canales      → del NEGOCIO. Cada tile abre SU canal: a quién le llega.
-//      (Qué DICE cada mensaje de MaKo se arma en Automations › «MaKo en WhatsApp».)
+// Lo que cambió de FUNCIÓN: el celular se configura desde la computadora (antes, sólo desde el teléfono), cada canal se puede
+// probar, y existe «No molestar». Lo que se fue: los textos de cada sección y la sección suelta «En tu celular → Instalar».
 //
-// ── Por qué quedó así ────────────────────────────────────────────────────────
-// Antes era una matriz evento × canal: ~35 filas de interruptores, con el texto
-// del mensaje viviendo en otra pantalla. Para saber qué decía el «Reporte diario»
-// había que ir a buscarlo, y para apagarlo había que encontrar su fila entre las
-// 35. Ahora el QUÉ DICE y el POR DÓNDE LLEGA se deciden en el mismo lugar —el
-// detalle de cada mensaje— y esta pantalla contesta sólo A QUIÉN.
-//
-// ⚠️ LO DE LA APP NO SE VE COMO UN CANAL, A PROPÓSITO. Usaba el MISMO tile que
-// WhatsApp y Email, y el dueño lo cortó: «no me gusta que los botones de arriba
-// sean igual, hazlos diferentes, más sutiles». Y tiene razón más allá del gusto —
-// un tile de canal ABRE algo y dice a dónde llega; esto son dos interruptores que
-// no mandan nada a ningún lado. Dos cosas que hacen cosas distintas no pueden
-// verse igual, que es la misma regla que obliga a lo contrario cuando SÍ son lo
-// mismo (ver el chip de `PrefsDeMensaje`).
-//
-// La lista de qué existe NO se escribe acá: viene de lib/notif-catalogo.ts (lo de
-// la app). Lo que DICE cada mensaje de MaKo ya no se edita acá (11/10/2026): son
-// automatizaciones de la tab Automations, sección «MaKo en WhatsApp».
+// Todo guarda al tocarlo, optimista: si el server dice que no, el interruptor vuelve y un aviso dice por qué.
+// El resumen de cada canal es puro y tiene test: ./notificaciones-reglas.ts.
 
 import { useCallback, useEffect, useState } from 'react';
-import { NOTIF_IN_APP, inAppActivo, type NotifInApp, type NotifInAppDef } from '@/lib/notif-catalogo';
-import { EVENTO_PREFS_IN_APP } from '../_components/NotificationsProvider';
-import { Icon } from '../_components/icons';
-import { CanalToggle } from '../_components/CanalToggle';
+import {
+  NOTIF_IN_APP, PUSH_SOLO_ADMINS, PUSH_TIPOS, SILENCIO_SUGERIDO, inAppActivo, normalizarSilencio,
+  type NotifInApp, type NotifPush, type Silencio,
+} from '@/lib/notif-catalogo';
+import { horaTexto, MEDIAS_HORAS_DESDE } from '@/lib/horario-envio';
+import { EVENTO_PREFS_IN_APP, EVENTO_PRUEBA_IN_APP } from '../_components/NotificationsProvider';
+import { Dropdown } from '../components/Dropdown';
 import { type Destinatarios } from './DestinatariosLista';
 import { DestinatariosCanal } from './DestinatariosCanal';
-import { CuerpoGrupo, GrupoAjustes } from '../_ui/Ajustes';
+import { FilaAjustes, GrupoAjustes, PuntoEstado, SELECT_AJUSTES, TituloAjustes } from '../_ui/Ajustes';
+import { Switch } from '../_ui/Toggle';
+import { Toast, useToast } from '../_ui/Toast';
 import { ReportarASoporte } from '../_ui/ReportarASoporte';
+import { tiposParaRol } from '../m/cuenta/cuenta-ui';
+import { NOMBRE_CANAL, ciudadDeZona, resumenApp, resumenCelular, resumenDestinatarios, type CanalNotif, type Resumen } from './notificaciones-reglas';
 
-// ── Piezas ────────────────────────────────────────────────────────────────────
-// EN EL MOLDE DE SETTINGS (25/10/2026, Martín: «En settings no me gusta el diseño de "Perfil, Notificaciones..."... Fijate pagina
-// por pagina como lo hacen otras apps»). Eran tres «tiles» en una grilla adentro de una tarjeta, con el editor de cada canal
-// apretado en un tercio del ancho. Ahora cada cosa es una SECCIÓN de Settings (su título a la izquierda, la tarjeta a la
-// derecha), como las notificaciones de GitHub y de shadcn/ui: «En la app» con una fila por aviso y sus dos interruptores, y
-// «Por WhatsApp» y «Por email» con su editor a todo el ancho. Lo que se decidió antes sigue: lo de la app no se dibuja como un
-// canal (son interruptores, no mandan nada), el editor de destinatarios va siempre abierto, y la explicación larga del catálogo
-// queda en el `title`.
+const BASE = '/perfil/notificaciones';
+const VOLVER = { href: BASE, label: 'Notificaciones' };
+const HORAS = MEDIAS_HORAS_DESDE.map((h) => ({ value: String(h), label: horaTexto(h) }));
 
-/** Íconos por id. El fallback es `bell`, que EXISTE: uno inventado dibuja un punto. */
-const ICONO_IN_APP: Record<string, string> = { 'wa-mensaje': 'chats', 'wa-plantilla': 'check' };
+/** Lo que va a la derecha de un canal: su estado y el punto. */
+function Estado({ r }: { r: Resumen | null }) {
+  if (!r) return null;
+  return <>{r.texto}<PuntoEstado tono={r.tono} /></>;
+}
 
-/**
- * Una notificación de la app: su ícono, su nombre y sus dos interruptores. Son CUATRO CELDAS de una grilla compartida
- * (`.aj-notif-app`), no una fila propia: el rótulo del interruptor cambia de PESO al prenderse, y en un flex por fila la fila
- * se corría sola al tocarla; con la grilla, las columnas quedan quietas y alineadas entre filas.
- */
-function AvisoEnLaApp({ def, prefs, onChange }: {
-  def: NotifInAppDef; prefs: NotifInApp; onChange: (canal: 'popup' | 'sonido', v: boolean) => void;
+type Leido<T> = { dato: T | null; error: string | null };
+const VACIO = { dato: null, error: null };
+
+async function pedir<T>(url: string, campo: string): Promise<T> {
+  const r = await fetch(url);
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j?.ok) throw new Error(j?.error || `${url} respondió ${r.status}`);
+  return j[campo] as T;
+}
+
+async function guardarJson(url: string, body: unknown): Promise<{ ok: boolean; guardado?: boolean; error?: string; [k: string]: unknown }> {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  return (await r.json().catch(() => ({ ok: false, error: `respondió ${r.status}` }))) as { ok: boolean; error?: string };
+}
+
+export function NotificacionesPanel({ canal, admin, zona }: {
+  /** El canal abierto (`?canal=`), o null: la lista de canales. */
+  canal: CanalNotif | null;
+  /** Administra el negocio: ve WhatsApp y Email (a quién le avisa MaKo lo del negocio) y los avisos sólo de admin. */
+  admin: boolean;
+  /** La zona horaria de SU perfil: en ella se mide «No molestar». */
+  zona: string;
 }) {
-  return (
-    // La fila es `display: contents` en la computadora (sus celdas van a la grilla compartida) y una fila que baja los
-    // interruptores debajo del nombre en el teléfono (ajustes.css): en 390 px los dos no entran al lado del nombre.
-    <div className="aj-notif-app__fila">
-      <span className="aj-notif-app__icono" title={def.sub}><Icon name={ICONO_IN_APP[def.id] ?? 'bell'} size={17} /></span>
-      <span className="aj-notif-app__nombre" title={def.sub}>{def.titulo}</span>
-      {/* ⚠️ EL MISMO CHIP QUE EL RESTO DE LA TAB, no uno propio: lo que distingue a éstos de los de un mensaje es el COLOR. */}
-      <span className="aj-notif-app__control">
-        <CanalToggle icono="bell" label="Pop-up" fila={def.titulo} estado={inAppActivo(prefs, def.id, 'popup') ? 'on' : 'off'}
-          onChange={(v) => onChange('popup', v)} />
-      </span>
-      <span className="aj-notif-app__control">
-        <CanalToggle icono="sonido" label="Sonido" fila={def.titulo}
-          estado={def.sonido ? (inAppActivo(prefs, def.id, 'sonido') ? 'on' : 'off') : 'na'} onChange={(v) => onChange('sonido', v)} />
-      </span>
-    </div>
-  );
-}
-
-/** Mientras lee, o si no pudo: en la MISMA sección, para que la pantalla no salte al llegar los datos. */
-function SeccionLeyendo({ titulo, descripcion, error, onReintentar }: { titulo: string; descripcion: string; error: string | null; onReintentar: () => void }) {
-  return (
-    <GrupoAjustes titulo={titulo} descripcion={descripcion}>
-      <CuerpoGrupo>
-        {error ? (
-          <div className="aj-error" role="alert" style={{ margin: 0 }}>
-            No se pudieron cargar tus preferencias: {error}
-            <button type="button" className="aj-boton" data-variante="texto" onClick={onReintentar}>Reintentar</button>
-            <ReportarASoporte />
-          </div>
-        ) : <p className="aj-texto" style={{ margin: 0 }}>Cargando…</p>}
-      </CuerpoGrupo>
-    </GrupoAjustes>
-  );
-}
-
-// ── Panel ─────────────────────────────────────────────────────────────────────
-// ⛔ ACÁ VIVÍA LA PROP `editarEnChatbot` (quinta tanda, punto 5: con /automations, el lienzo de cada
-// mensaje se editaba allá y acá quedaba un link). Se fue el 11/10/2026 con la lista de mensajes de abajo.
-//
-// ⚠️ PARTIDO EN DOS (15/10/2026, «Tu cuenta» y «Configuración del negocio», lib/ajustes-secciones.ts):
-// `persona` es lo de la app —el pop-up y el sonido, de TU navegador— y vive en «Tu cuenta»;
-// `negocio` son los canales —a quién le llega lo del negocio— y vive en «Configuración del negocio».
-// Eran el mismo recuadro porque vivían en la misma pantalla; Google, Notion y Linear los separan igual.
-export function NotificacionesPanel({ parte }: { parte: 'persona' | 'negocio' }) {
-  const [inApp, setInApp] = useState<NotifInApp | null>(null);
-  const [dest, setDest] = useState<Destinatarios | null>(null);
+  const [inApp, setInApp] = useState<Leido<NotifInApp>>(VACIO);
+  const [push, setPush] = useState<Leido<NotifPush>>(VACIO);
+  const [telefonos, setTelefonos] = useState<number | null>(null);
+  const [dest, setDest] = useState<Leido<Destinatarios>>(VACIO);
   const [tieneGrupo, setTieneGrupo] = useState(false);
-  const [flash, setFlash] = useState<string | null>(null);
-  const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  const [probando, setProbando] = useState(false);
+  const { toast, show, clear } = useToast();
 
-  // Las dos lecturas que la pantalla NECESITA. Si cualquiera falla hay que
-  // decirlo: con un `.catch(() => {})` por fetch, un 500 pasajero o una recarga a
-  // destiempo dejaban el panel en "Cargando…" para siempre, sin error y sin forma
-  // de reintentar. Pasó en desarrollo y desde afuera parece la app colgada.
-  const cargar = useCallback(async () => {
-    setErrorCarga(null);
-    try {
-      const pedir = async (u: string) => {
-        const r = await fetch(u);
-        const j = await r.json();
-        if (!r.ok || !j?.ok) throw new Error(j?.error || `${u} respondió ${r.status}`);
-        return j;
-      };
-      // Cada mitad lee lo suyo: la de la persona no tiene por qué pedir los destinatarios del negocio.
-      if (parte === 'persona') {
-        const ji = await pedir('/api/perfil/notif-inapp');
-        setInApp(ji.inApp as NotifInApp);
-      } else {
-        const jd = await pedir('/api/perfil/destinatarios');
-        setDest(jd.destinatarios as Destinatarios); setTieneGrupo(Boolean(jd.tieneGrupo));
-      }
-    } catch (e) {
-      setErrorCarga(e instanceof Error ? e.message : 'No se pudieron cargar tus preferencias');
+  // Cada lectura por su lado: si una falla, su canal lo dice y los otros andan. Con un `.catch(() => {})` por fetch, un 500
+  // pasajero dejaba la pantalla en «Cargando…» para siempre, sin error y sin forma de reintentar.
+  const cargar = useCallback(() => {
+    pedir<NotifInApp>('/api/perfil/notif-inapp', 'inApp').then((d) => setInApp({ dato: d, error: null }), (e: Error) => setInApp({ dato: null, error: e.message }));
+    pedir<NotifPush>('/api/perfil/notif-push', 'push').then((d) => setPush({ dato: d, error: null }), (e: Error) => setPush({ dato: null, error: e.message }));
+    pedir<Array<unknown>>('/api/push/suscripcion', 'dispositivos').then((d) => setTelefonos(d.length), () => setTelefonos(null));
+    if (admin) {
+      fetch('/api/perfil/destinatarios').then((r) => r.json()).then((j) => {
+        if (!j?.ok) throw new Error(j?.error || 'No se pudieron leer');
+        setDest({ dato: j.destinatarios as Destinatarios, error: null }); setTieneGrupo(Boolean(j.tieneGrupo));
+      }).catch((e: Error) => setDest({ dato: null, error: e.message }));
     }
-  }, [parte]);
+  }, [admin]);
+  useEffect(() => { cargar(); }, [cargar]);
 
-  useEffect(() => { void cargar(); }, [cargar]);
+  const tipos = tiposParaRol(PUSH_TIPOS, PUSH_SOLO_ADMINS, admin);
+  const ids = tipos.map((t) => t.id);
 
-  /**
-   * Los interruptores de la app guardan SOLOS, sin botón.
-   *
-   * Tenían una barra pegajosa de «Guardar preferencias» al pie, y este bloque pasó
-   * arriba de todo: entre el interruptor y el botón quedaba el editor de mensajes
-   * entero (560 px), así que había que scrollear la pantalla para confirmar algo que
-   * se toca en el primer renglón. Los destinatarios y los mensajes ya guardan cada
-   * uno lo suyo; una barra para dos interruptores era el único estado sin guardar de
-   * la pantalla, y lo que se pierde al navegar sin apretarla no avisa.
-   */
-  const setItem = async (id: string, c: 'popup' | 'sonido', v: boolean) => {
-    if (!inApp) return;
-    const previo = inApp;
-    const siguiente: NotifInApp = {
-      ...inApp,
-      items: { ...inApp.items, [id]: { ...(inApp.items[id] ?? { popup: true, sonido: true }), [c]: v } },
-    };
-    setInApp(siguiente); // optimista: el control responde al toque
+  /** Lo de la app, optimista. El provider del layout relee al guardar: el sonido que apagaste deja de sonar ya. */
+  const guardarApp = async (siguiente: NotifInApp) => {
+    const previo = inApp.dato;
+    setInApp({ dato: siguiente, error: null });
     try {
-      const j = await (await fetch('/api/perfil/notif-inapp', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inApp: siguiente }),
-      })).json();
+      const j = await guardarJson('/api/perfil/notif-inapp', { inApp: siguiente });
       if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
-      if (j.guardado === false) {
-        // Sesión sin cuenta propia: la preferencia es de la PERSONA y no hay dónde
-        // colgarla. Se revierte, porque dejarlo puesto afirma un guardado que no pasó.
-        setInApp(previo);
-        setFlash('Esta sesión no tiene cuenta propia');
-        return;
-      }
-      // El provider vive en el layout y ya cargó las preferencias: sin este aviso,
-      // el sonido que acabás de apagar sigue sonando hasta recargar.
+      // Sesión sin cuenta propia: no hay dónde colgar la preferencia. Se revierte: dejarlo afirma un guardado que no pasó.
+      if (j.guardado === false) { setInApp({ dato: previo, error: null }); show('Esta sesión no tiene cuenta propia', undefined, 'warn'); return; }
       window.dispatchEvent(new Event(EVENTO_PREFS_IN_APP));
-      setFlash('Guardado ✓');
     } catch (e) {
-      setInApp(previo);
-      setFlash(e instanceof Error ? e.message : 'No se pudo guardar');
-    } finally {
-      setTimeout(() => setFlash(null), 1800);
+      setInApp({ dato: previo, error: null });
+      show(e instanceof Error ? e.message : 'No se pudo guardar', undefined, 'bad');
     }
   };
 
-  if (parte === 'persona') {
-    const titulo = 'En la app';
-    const descripcion = 'El aviso que salta y su sonido, en este navegador. Es sólo tuyo: no cambia nada para tu equipo.';
-    if (!inApp) return <SeccionLeyendo titulo={titulo} descripcion={descripcion} error={errorCarga} onReintentar={() => void cargar()} />;
+  /** Lo del celular, optimista. */
+  const guardarPush = async (siguiente: NotifPush) => {
+    const previo = push.dato;
+    setPush({ dato: siguiente, error: null });
+    try {
+      const j = await guardarJson('/api/perfil/notif-push', { push: siguiente });
+      if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
+      if (j.guardado === false) { setPush({ dato: previo, error: null }); show('Esta sesión no tiene cuenta propia', undefined, 'warn'); return; }
+      setPush({ dato: j.push as NotifPush, error: null });
+    } catch (e) {
+      setPush({ dato: previo, error: null });
+      show(e instanceof Error ? e.message : 'No se pudo guardar', undefined, 'bad');
+    }
+  };
+
+  const probarCelular = async () => {
+    setProbando(true);
+    try {
+      const r = await fetch('/api/push/prueba', { method: 'POST' });
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; enviados?: number; sinSuscripciones?: number; error?: string };
+      if (j.ok && (j.enviados ?? 0) > 0) show(j.enviados === 1 ? 'Enviado a tu teléfono' : `Enviado a ${j.enviados} teléfonos`, undefined, 'good');
+      else if ((j.sinSuscripciones ?? 0) > 0 || j.error === 'sin-cuenta') show('Ningún teléfono con avisos', undefined, 'warn');
+      else show('No se pudo enviar la prueba', undefined, 'bad');
+    } catch { show('No se pudo enviar la prueba', undefined, 'bad'); }
+    finally { setProbando(false); }
+  };
+
+  /** Un error de lectura, con su salida: reintentar o reportarlo. */
+  const errorDe = (e: string | null) => e && (
+    <div className="aj-error" role="alert">
+      No se pudieron cargar tus avisos: {e}
+      <button type="button" className="aj-boton" data-variante="texto" onClick={cargar}>Reintentar</button>
+      <ReportarASoporte />
+    </div>
+  );
+
+  // ── La lista de canales ─────────────────────────────────────────────────────
+  if (!canal) {
+    const silencio = push.dato ? normalizarSilencio(push.dato.silencio) : null;
+    const cambiarSilencio = (s: Silencio | null) => { if (push.dato) void guardarPush({ ...push.dato, silencio: s }); };
     return (
-      <GrupoAjustes titulo={titulo} descripcion={descripcion}>
-        <div className="aj-notif-app">
-          {NOTIF_IN_APP.map((n) => (
-            <AvisoEnLaApp key={n.id} def={n} prefs={inApp} onChange={(c, v) => void setItem(n.id, c, v)} />
-          ))}
-        </div>
-        {flash && <p className="aj-notif-app__flash" role="status" data-ok={flash.includes('✓') || undefined}>{flash}</p>}
-      </GrupoAjustes>
+      <>
+        <TituloAjustes titulo="Notificaciones" />
+        {errorDe(inApp.error ?? push.error ?? dest.error)}
+        <GrupoAjustes titulo="Canales">
+          <FilaAjustes icono="avisar" titulo={NOMBRE_CANAL.app} href={`${BASE}?canal=app`} valor={<Estado r={inApp.dato && resumenApp(inApp.dato)} />} />
+          <FilaAjustes icono="celular" titulo={NOMBRE_CANAL.celular} href={`${BASE}?canal=celular`} valor={<Estado r={push.dato && resumenCelular(push.dato, telefonos, ids)} />} />
+          {admin && <FilaAjustes icono="whatsapp" titulo={NOMBRE_CANAL.whatsapp} href={`${BASE}?canal=whatsapp`} valor={<Estado r={dest.dato && resumenDestinatarios(dest.dato.telefonos.length, 'whatsapp')} />} />}
+          {admin && <FilaAjustes icono="email" titulo={NOMBRE_CANAL.email} href={`${BASE}?canal=email`} valor={<Estado r={dest.dato && resumenDestinatarios(dest.dato.emails.length, 'email')} />} />}
+        </GrupoAjustes>
+
+        <GrupoAjustes titulo="No molestar">
+          <FilaAjustes titulo="Pausar los avisos al celular" detalle={silencio ? `Hora de ${ciudadDeZona(zona)}` : undefined}
+            fin={<Switch checked={!!silencio} disabled={!push.dato} label={undefined} onChange={(v) => cambiarSilencio(v ? SILENCIO_SUGERIDO : null)} />} />
+          {silencio && (
+            <FilaAjustes titulo="Horario" fin={(
+              <span className="aj-horario">
+                <Dropdown value={String(silencio.desde)} options={HORAS} width={96} ariaLabel="Desde" buttonStyle={SELECT_AJUSTES}
+                  onChange={(v) => { const d = Number(v); if (d !== silencio.hasta) cambiarSilencio({ ...silencio, desde: d }); }} />
+                a
+                <Dropdown value={String(silencio.hasta)} options={HORAS} width={96} ariaLabel="Hasta" buttonStyle={SELECT_AJUSTES}
+                  onChange={(v) => { const h = Number(v); if (h !== silencio.desde) cambiarSilencio({ ...silencio, hasta: h }); }} />
+              </span>
+            )} />
+          )}
+        </GrupoAjustes>
+        <Toast state={toast} onClose={clear} />
+      </>
     );
   }
-  if (!dest) {
-    return <SeccionLeyendo titulo="Por WhatsApp" descripcion="A quién le avisa MaKo lo del negocio." error={errorCarga} onReintentar={() => void cargar()} />;
+
+  // ── En la app ───────────────────────────────────────────────────────────────
+  if (canal === 'app') {
+    const p = inApp.dato;
+    return (
+      <>
+        <TituloAjustes titulo={NOMBRE_CANAL.app} volver={VOLVER} />
+        {errorDe(inApp.error)}
+        {p && (
+          <>
+            <GrupoAjustes>
+              <FilaAjustes titulo="Pop-up" fin={<Switch checked={p.popup} onChange={(v) => void guardarApp({ ...p, popup: v })} />} />
+              {/* El sonido de toda la app, y el de cada aviso con él: un aviso apagado aparte quedaría mudo sin decirlo. */}
+              <FilaAjustes titulo="Sonido" fin={<Switch checked={p.sonido} disabled={!p.popup}
+                onChange={(v) => void guardarApp({ ...p, sonido: v, items: Object.fromEntries(Object.entries(p.items).map(([k, it]) => [k, { ...it, sonido: v }])) })} />} />
+              <FilaAjustes titulo="Probar" fin={(
+                <button type="button" className="aj-boton" data-variante="borde" onClick={() => window.dispatchEvent(new Event(EVENTO_PRUEBA_IN_APP))}>Enviar prueba</button>
+              )} />
+            </GrupoAjustes>
+            <GrupoAjustes titulo="Avisos">
+              {NOTIF_IN_APP.map((n) => (
+                <FilaAjustes key={n.id} titulo={n.titulo} fin={(
+                  <Switch checked={inAppActivo(p, n.id, 'popup')} disabled={!p.popup}
+                    onChange={(v) => void guardarApp({ ...p, items: { ...p.items, [n.id]: { ...(p.items[n.id] ?? { popup: true, sonido: n.sonido }), popup: v } } })} />
+                )} />
+              ))}
+            </GrupoAjustes>
+          </>
+        )}
+        <Toast state={toast} onClose={clear} />
+      </>
+    );
   }
 
-  // El `key` de cada editor es su canal: cambiar de canal lo REMONTA. Siembra su
-  // estado de props con useState, y sin eso sobreviven el borrador, el aviso de quién
-  // no entró al grupo y el link — se tipea un teléfono, se pasa a Email y Guardar
-  // contesta «eso no parece un email» sobre un campo que no muestra nada.
-  const guardarDest = (d: Destinatarios) => { setDest(d); if (d.telefonos.length > 0) setTieneGrupo(true); };
+  // ── Celular ─────────────────────────────────────────────────────────────────
+  if (canal === 'celular') {
+    const p = push.dato;
+    const todos = p ? ids.every((id) => p.items[id] !== false) : false;
+    return (
+      <>
+        <TituloAjustes titulo={NOMBRE_CANAL.celular} volver={VOLVER} />
+        {errorDe(push.error)}
+        {p && (
+          <>
+            <GrupoAjustes>
+              <FilaAjustes titulo="Avisos al celular" fin={<Switch checked={p.activo} onChange={(v) => void guardarPush({ ...p, activo: v })} />} />
+              {/* Los avisos llegan a la app INSTALADA en el teléfono: sin ninguno, la fila lleva a instalarla. */}
+              {telefonos === 0
+                ? <FilaAjustes titulo="Tus teléfonos" valor={<>Instalar la app<PuntoEstado tono="warn" /></>} href="/perfil/instalar" />
+                : <FilaAjustes titulo="Tus teléfonos" valor={telefonos == null ? '' : telefonos === 1 ? '1 teléfono' : `${telefonos} teléfonos`} />}
+              <FilaAjustes titulo="Probar" fin={(
+                <button type="button" className="aj-boton" data-variante="borde" disabled={probando} onClick={() => void probarCelular()}>
+                  {probando ? 'Enviando…' : 'Enviar prueba'}
+                </button>
+              )} />
+            </GrupoAjustes>
+            <GrupoAjustes titulo="Avisos" accion={(
+              <button type="button" className="aj-boton" data-variante="texto" disabled={!p.activo}
+                onClick={() => void guardarPush({ ...p, items: { ...p.items, ...Object.fromEntries(ids.map((id) => [id, !todos])) } })}>
+                {todos ? 'Apagar todos' : 'Prender todos'}
+              </button>
+            )}>
+              {tipos.map((t) => (
+                <FilaAjustes key={t.id} titulo={t.titulo} fin={(
+                  <Switch checked={p.items[t.id] !== false} disabled={!p.activo}
+                    onChange={(v) => void guardarPush({ ...p, items: { ...p.items, [t.id]: v } })} />
+                )} />
+              ))}
+            </GrupoAjustes>
+          </>
+        )}
+        <Toast state={toast} onClose={clear} />
+      </>
+    );
+  }
 
-  const hayWa = dest.telefonos.length > 0;
-  const hayMail = dest.emails.length > 0;
-
-  // Cada canal, su sección: a quién le llega (o que no le llega a nadie, en ámbar) y su editor SIEMPRE a la vista.
+  // ── WhatsApp y Email (del negocio) ──────────────────────────────────────────
+  // El `key` de cada editor es su canal: cambiar de canal lo REMONTA (siembra su estado de props con useState; sin eso
+  // sobreviven el borrador y el aviso de quién no entró al grupo).
+  const guardarDest = (d: Destinatarios) => { setDest({ dato: d, error: null }); if (d.telefonos.length > 0) setTieneGrupo(true); };
   return (
     <>
-      <GrupoAjustes titulo="Por WhatsApp" descripcion={hayWa
-        ? (tieneGrupo ? 'Los avisos del negocio llegan al grupo de MaKo, con estos números adentro.' : 'Los avisos del negocio llegan a estos números.')
-        : <span style={{ color: 'var(--warn)' }}>Sin un número, MaKo no puede avisar por aquí.</span>}>
-        <CuerpoGrupo>
-          <DestinatariosCanal key="whatsapp" canal="whatsapp" inicial={dest} onGuardado={guardarDest} />
-        </CuerpoGrupo>
-      </GrupoAjustes>
-      <GrupoAjustes titulo="Por email" descripcion={hayMail
-        ? 'Los reportes y los avisos del negocio llegan a estas direcciones.'
-        : <span style={{ color: 'var(--warn)' }}>Sin una dirección, MaKo no puede avisar por aquí.</span>}>
-        <CuerpoGrupo>
-          <DestinatariosCanal key="email" canal="email" inicial={dest} onGuardado={guardarDest} />
-        </CuerpoGrupo>
-      </GrupoAjustes>
-
-      {/* ⛔ ACÁ IBA LA LISTA DE «LOS MENSAJES» (`PlantillasView` con el endpoint del cliente: qué dice cada
-          mensaje de MaKo y por dónde sale). Se fue el 11/10/2026: Martín, «Esto pasa porque "MaKo en WhatsApp"
-          lo comenzamos a hacer hace tiempo en la tab de notificaciones y quedaron cosas muy viejas que quiero que
-          las depreques. Todo ahora es lo mismo». Los mensajes del cliente son AUTOMATIZACIONES de la tab
-          Automations (sección «MaKo en WhatsApp», docs/diseno-mako-en-whatsapp-unificado.md): de esta lista no
-          quedaban más que los mensajes PROPIOS del negocio (`AVISOS_DEL_CLIENTE = []`), que siguen en /mensajes.
-          Esta pantalla contesta sólo A QUIÉN le llega. */}
+      <TituloAjustes titulo={NOMBRE_CANAL[canal]} volver={VOLVER} />
+      {!admin ? (
+        <GrupoAjustes><FilaAjustes titulo="Lo administra quien maneja el negocio" /></GrupoAjustes>
+      ) : (
+        <>
+          {errorDe(dest.error)}
+          {dest.dato && (
+            <GrupoAjustes titulo={canal === 'whatsapp' ? 'Números' : 'Direcciones'}
+              descripcion={canal === 'whatsapp' && tieneGrupo && dest.dato.telefonos.length > 0 ? 'Llegan al grupo de MaKo' : undefined}>
+              <DestinatariosCanal key={canal} canal={canal === 'whatsapp' ? 'whatsapp' : 'email'} inicial={dest.dato} onGuardado={guardarDest} />
+            </GrupoAjustes>
+          )}
+        </>
+      )}
+      <Toast state={toast} onClose={clear} />
     </>
   );
 }
