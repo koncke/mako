@@ -77,6 +77,10 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
     la guardia hace esperar lo pesado y los workflows de las OTRAS sesiones; lo liviano pasa. No se corta a nadie: la RAM
     se libera sola a medida que terminan los de antes. Vence sola en `hasta`, así un script caído no traba a nadie.
   - El script que sube la pone, espera 5,5 GB, empuja y la saca al salir (`trap`).
+  - **Trampa:** la guardia mira el comando, y `node scripts/tests-afectados.mjs` no decía nada pesado. Arrancó con la reserva
+    puesta y levantó dos tandas de ~1 GB (la RAM libre bajó de 2,9 a 1,1 GB). Ahora `tests-afectados`, `antes-de-subir`,
+    `tipos-por-tandas` y `tipos-respaldo-push` cuentan como pesados cuando se CORREN con `node` (un `cat` o un `grep` de
+    esos archivos sigue liviano). Lo que ya estaba corriendo no se frena: hay que esperar a que termine.
 - **Sin hacer:**
   - que el vigía vea los `grep`/`find` huérfanos (uno ocupó 1 GB durante 13 minutos);
   - `--test-concurrency=2` en `npm test`;
