@@ -42,16 +42,19 @@ async function api<T = Record<string, unknown>>(body: Record<string, unknown>): 
   return j as T & { ok: boolean; error?: string };
 }
 
-export function MediaBuyer({ nombre, inicial, metas, tieneMeta }: {
+export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial = null }: {
   nombre: string;
   inicial: { config: Config; decisiones: Decision[]; existeTabla: boolean };
   metas: MetasDelMes | null;
   tieneMeta: boolean;
+  /** `?decision=<id>`: la decisión que abre un link (un aviso, MaKo), en su pestaña y abierta. */
+  decisionInicial?: string | null;
 }) {
   const [config, setConfig] = useState<Config>(inicial.config);
   const [decisiones, setDecisiones] = useState<Decision[]>(inicial.decisiones);
-  const [pestana, setPestana] = useState<Pestana>('abiertas');
-  const [abierta, setAbierta] = useState<string | null>(null);
+  const deLink = decisionInicial ? inicial.decisiones.find((d) => d.id === decisionInicial) ?? null : null;
+  const [pestana, setPestana] = useState<Pestana>(deLink ? pestanaDe(deLink.estado) : 'abiertas');
+  const [abierta, setAbierta] = useState<string | null>(deLink?.id ?? null);
   const [ajustes, setAjustes] = useState(false);
   const [pidiendo, setPidiendo] = useState(false);
   const [confirmarPiloto, setConfirmarPiloto] = useState(false);
@@ -336,9 +339,10 @@ function FilaDecision({ d, abierta, ocupada, encendido, onAbrir, onLanzar, onDes
         <div className="mb-dec-der" onClick={(e) => e.stopPropagation()}>
           {p === 'abiertas' && <>
             <BotonBorrar talla="lg" title="Descartar esta decisión" disabled={ocupada} onClick={onDescartar} />
-            <Button className="mb-lanzar" loading={ocupada} disabled={!encendido} onClick={() => (abierta ? lanzar() : onAbrir())}>
-              {abierta ? verboLanzar(d) : 'Lanzar'}
-            </Button>
+            {/* Abierta, el botón principal es el del pie (como el «Hide details» de Madgicx, academy-07.png): no se duplica. */}
+            {abierta
+              ? <Button variant="secondary" className="mb-lanzar" onClick={onAbrir}>Ocultar</Button>
+              : <Button className="mb-lanzar" loading={ocupada} disabled={!encendido} onClick={onAbrir}>Lanzar</Button>}
           </>}
           {p === 'hechas' && <>
             <span className="mb-estrellas" aria-label="Calificar">

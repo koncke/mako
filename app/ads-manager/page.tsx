@@ -26,7 +26,7 @@ export const revalidate = 0;
 // El padding IZQUIERDO deja el lugar del chat de MaKo abierto (`--ancho-panel-mako`, como en el CRM).
 const MARGEN_MAKO = { paddingLeft: 'calc(44px + var(--ancho-panel-mako, 0px))' } as const;
 
-export default async function MediaBuyerPage() {
+export default async function MediaBuyerPage({ searchParams }: { searchParams: Promise<{ decision?: string | string[] }> }) {
   await requireRolWs([], { nav: 'ads-manager' });
   // El super admin sin un negocio elegido no opera NINGUNA cuenta (17/10/2026): antes caía a la de Mauricio (ws1).
   if (await adsSinNegocio()) {
@@ -48,10 +48,12 @@ export default async function MediaBuyerPage() {
     credWs('META_ACCESS_TOKEN', ws).catch(() => null),
   ]);
   const nombre = (yo?.nombre ?? '').trim().split(/\s+/)[0] || 'equipo';
+  const sp = await searchParams;
 
   return (
     <Pagina style={MARGEN_MAKO}>
-      <MediaBuyer nombre={nombre} inicial={{ config, decisiones: dec.decisiones, existeTabla: dec.existeTabla && config.existeTabla }} metas={metas} tieneMeta={!!token} />
+      <MediaBuyer nombre={nombre} inicial={{ config, decisiones: dec.decisiones, existeTabla: dec.existeTabla && config.existeTabla }} metas={metas} tieneMeta={!!token}
+        decisionInicial={typeof sp.decision === 'string' && /^[0-9a-f-]{36}$/i.test(sp.decision) ? sp.decision : null} />
     </Pagina>
   );
 }

@@ -162,4 +162,8 @@
   .mb-dec-der { width: 100%; justify-content: flex-end; }
   .mb-lanzar { flex: 1; }
   .mb-saludo h1 { font-size: 22px; }
+  .mb-cab { gap: 14px; }
+  .mb-mascota { width: 56px; height: 56px; }
+  .mb-saludo { min-width: 0; flex: 1 1 0; }
+  .mb-acciones { flex-basis: 100%; }
 }
