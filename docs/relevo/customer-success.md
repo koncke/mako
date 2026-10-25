@@ -144,9 +144,13 @@ archiva como el CRM y su «Deshacer» cruza la recarga. Un módulo o una clase, 
 «Clients» (el título del área `cs`, las descripciones de la API y los avisos de la tab). Porqué y trampas: «Eliminar un
 programa, el clic derecho del Classroom, y MaKo diciendo "Customer Success"».
 
-**Lo que queda de la llamada para Clients:** Duplicar (programa, módulo o clase: no existe en el server) y los
-«Customer Success» de otras áreas (Automations, gráficos, catálogo de modelos), con el archivo en ese hallazgo. f31 es de
-Ops Center. Y mirar todo en pantalla (sacar, el selector, el menú del programa) con un alumno de prueba del ws3.
+**Tanda 4 (25/10, «implementa todos los feedback... end to end», Martín por el Cerebro), hecha:** Duplicar un programa
+de punta a punta (el curso entero con sus archivos, sin alumnos; en el «…», el clic derecho, con «Deshacer», y en la API
+de MaKo junto con renombrar, eliminar y restaurar un curso), y «Clients» en los rótulos de Automations, los gráficos y el
+catálogo de modelos. Porqué y trampas: «Duplicar un programa: qué se copia, qué no…».
+
+**Lo que queda para Clients:** duplicar un módulo o una clase sueltos; mirar todo en pantalla (sacar, el selector, el
+menú del programa, duplicar) con un alumno de prueba del ws3. f31 es de Ops Center.
 
 ## 0-Ω. 17/10/2026 (chat «Pendientes B2: CRM y clientes», cuenta `claude4`): los pendientes de CS y Cursos
 
