@@ -1599,4 +1599,29 @@ export const BITACORA: Hito[] = [
       'tests/avisos-se-cierran.test.ts (5 roturas) y tests/sidebar-plegada-por-defecto.test.ts (4 roturas)',
     ],
   },
+  {
+    fecha: '24 oct', hora: '20:30', chat: 'Cerebro', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Entra la cuenta 5, «Ananda», y sigue con todo',
+    pedido: 'Hola, eres la 5ta cuenta, la cuenta la voy a llamar Ananda. Continua con todo.',
+    puntos: ['La cuenta 1 había llegado al 94 % semanal.'],
+  },
+  {
+    fecha: '24 oct', hora: '21:30', chat: 'Cerebro', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La cuenta 5 trabajando: Runner midiendo, cinco chats con los 24 puntos de la noche, y lo de la cuenta anterior verificado con git',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**La cuenta:** marcador, `cuentas.tsv`, el Runner (su carpeta de chats y su fuente) y `/admin/dev` conocen a «Ananda» (claude5); 0 % semanal, renueva el martes 27/10 a las 15:00.',
+      '**Los chats:** CRM, Landings, Ops Center, Planes y Automations, cada uno con sus puntos de la noche y su worktree. Una cuenta nueva no tiene el modo bypass: andan en auto.',
+      '**Lo de la cuenta anterior, con git:** 4 puntas listas sin subir (ya en el tren), 6 pedidos de Martín que le habían llegado a un Cerebro cerrado (2 cerrados, 2 repartidos, 2 en verificación) y una cosecha equivocada (Vercel sí encuentra el despliegue con el sha entero).',
+      '**Hecho por el Cerebro:** el negocio de prueba de diseño, sin las 26 credenciales que tenía copiadas de Mauricio (las de él, intactas); las negritas del índice de hallazgos; el rojo de las sesiones de los hitos.',
+      '**Sin hacer:** subir el tren (sale con las primeras puntas de los chats); la sesión de MaKo en el navegador de la app es de Martín.',
+    ],
+    archivos: [
+      'docs/relevo/cerebro.md — el relevo de la cuenta 5, con el arranque de una cuenta nueva',
+      'docs/hallazgos-operaciones.md — lo que costó el arranque',
+      'C:/dev/cerebro-herramientas/capturas-24-10/ — las 11 capturas de los 24 puntos (fuera del repo)',
+    ],
+  },
 ];
