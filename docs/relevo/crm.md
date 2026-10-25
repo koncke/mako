@@ -6,6 +6,30 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω25. 24-25/10/2026, noche (chat «CRM», cuenta `claude5` «Ananda»): los puntos 12 a 21 del 24/10
+
+Los pedidos, TEXTUALES, en docs/feedback-24-10.md («CRM → chat CRM», puntos 12 a 21). Rama `crm-2510` en C:/dev/wt-crm-2510,
+sobre origin/main 59d228ea1. Se entrega de a tandas al Cerebro (él arma el tren y sube). Lo aprendido, en hallazgos-crm
+(«"Ordenar" es de cada COLUMNA…») y hallazgos-infra (restaurar de una copia al romper un test).
+
+**Tanda 1 — puntos 13, 15 y 17:**
+- 13: el «⋯» de cada columna arranca con «Nuevo lead» y «Ordenar ›» (por columna: Manual, más nuevos, más viejos, nombre,
+  respondió primero, mayor monto, fecha de reunión, vence primero; lo que la columna no tiene, no se ofrece), «Cambiar nombre»,
+  las flechas y «Agregar etapa» abajo, «Eliminar etapa» último. «Ordenar» salió de «Filtrar». El «⋯» de la barra y el clic
+  derecho del fondo van en el mismo orden (importar, buscar prospectos, exportar · editar etapas, personalizar tarjetas); el de
+  una tarjeta junta «Seleccionar» con abrir y mover.
+- 15: «Asignar campañas» se fue del editor de etapas (se asignan desde el «⋯» de la columna de entrada).
+- 17: «Traer de otro funnel» muestra a los que ya están, abajo, en gris y sin casilla, como en los grupos de WhatsApp.
+
+**Sin ver en pantalla** (la PC con ~4 GB libres y 7 chats: no se levantó `next dev`): el «⋯» de una columna con «Ordenar ›»,
+el ícono azul de una columna ordenada, y «Traer de otro funnel» con los grises. Se mira en el ws3 cuando esté desplegado.
+
+**Lo que sigue, en orden** (el pedido del Cerebro): 14 (las hojas de la ficha: a la izquierda, sin la flechita, «Ver más»), 16
+(«A revisar» sólo del CRM que se mira), 21 (el buscador de Instagram: medir con el dato que llega), 12 («Editar con MaKo» como
+bloque flotante, y todo editable), 19 (cerrar un modal hijo vuelve al padre), 20 (Scraper, Traer e Importar con una estética),
+18 (los grupos de WhatsApp, más rápido: medir antes). Después: las cuotas (`c7ff7d7fc`) con revisión adversarial, y
+`crm-b5-2310` @ `60bd69812` NO sube antes del lunes 26/10.
+
 ## 0-Ω24. 24/10/2026, madrugada (chat «CRM», cuenta `claude1`): la base de venta de Martín desde sus grupos
 
 Rama `crm-grupo-completar-2410` en C:/dev/wt-crm-grupo, sobre origin/main ebcfd9eb0, pasada al tren: `5478b15a5`

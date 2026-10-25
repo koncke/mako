@@ -38,6 +38,16 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Probar un test rompiéndolo: se restaura de una COPIA, nunca con `git checkout --` (25/10/2026)
+
+**Vive en:** cualquier ronda de «probado rompiéndolo» sobre archivos que todavía no están commiteados.
+
+En el chat CRM, la última rotura de una ronda se deshizo con `git checkout -- app/crm/menu-contextual-crm.ts`, como las tres
+anteriores se habían deshecho copiando un respaldo. **El checkout no vuelve a «antes de la rotura»: vuelve a HEAD**, y el
+archivo tenía media hora de trabajo sin commitear. El `git diff --stat` vacío después fue lo único que lo delató (se rehízo
+desde el script de reemplazos, que seguía en el scratchpad). **Regla:** antes de romper, `cp <archivo> <scratchpad>/x.bak`, y
+se restaura con `cp` de vuelta; `git checkout --` sólo sobre un archivo que está igual a HEAD.
+
 ## El `&&` después de un pipe mide el `tail`, no el chequeo: el tren se subió con 5 errores de tipos (24/10/2026)
 
 **Vive en:** cualquier comando del Cerebro con la forma `chequeo | tail && push`.

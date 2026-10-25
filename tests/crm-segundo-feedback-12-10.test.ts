@@ -142,16 +142,16 @@ test('el editor de etapas: UNA lista — agregar arriba, las propias, Ganado, nu
   assert.match(pipe, /nutricion: stages\.filter\(\(st\) => st\.band === 'nutricion' && !esTerminal\(st\.key\)\)\.map\(uno\)/);
 });
 
-test('el tipo de funnel va arriba: una opción, se guarda al elegir, y las campañas son su paso 2', () => {
+// Sin el paso 2 de las campañas desde el 24/10/2026 (Martín: «En el editor de CRM, elimina lo de "Asignar campañas", para
+// eso ya tenemos los 3 puntos en cada columna...»): se asignan desde el «⋯» de la columna de entrada.
+test('el tipo de funnel va arriba: una opción, se guarda al elegir, y sin el paso de las campañas', () => {
   const src = sinComentarios(leer('app/crm/EtapasModal.tsx'));
   // Arriba de la lista de etapas.
   assert.ok(src.indexOf('<SeccionFunnel') > 0 && src.indexOf('<SeccionFunnel') < src.indexOf('<NuevaEtapa'));
   // Sin «Marca hasta tres», sin «Guardar» ni «Dejar como estaba»: elegir guarda.
   assert.doesNotMatch(src, /Marca hasta tres|Dejar como estaba|>\s*Guardar\s*</);
-  assert.match(src, /setSel\(\[t\.entrada\]\);\s*if \(await guardar\(\[t\.entrada\], eventoDe\(\), antes\) && t\.anuncios\) setPaso\('campanas'\);/);
-  // El paso 2 es la tabla de «Leads entrantes», en línea, con la flecha para volver.
-  assert.match(src, /if \(paso === 'campanas' && tipo\?\.anuncios\)/);
-  assert.match(src, /aria-label="Cambiar el tipo de funnel"/);
+  assert.match(src, /setSel\(\[t\.entrada\]\);\s*await guardar\(\[t\.entrada\], eventoDe\(\), antes\);/);
+  assert.doesNotMatch(src, /setPaso|paso === 'campanas'|<CampanasModal/, 'volvió el paso de las campañas al editor');
   // La entrada ya no tiene ni lápiz ni «Campañas de Meta».
   assert.doesNotMatch(src, /setCampanas|entradasAbierto|Campañas de Meta</);
 });
