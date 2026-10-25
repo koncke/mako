@@ -5,6 +5,7 @@
 // POST → { op, … }:
 //   lanzar { id, presupuesto?, elegidas? } · descartar { id, motivo? } · reabrir { id } · deshacer { id }
 //   calificar { id, estrellas } · config { cambio } · analizar · estado_zernio
+//   hooks_a_video { id, elegidas? } (los hooks de un video ganador, como guiones del Video Generator)
 //   subir_preparar { adSetId? } (los conjuntos y los textos de partida) · subir_creativos { adSetId, archivos, textos, activo }
 // El botón de conectar Facebook NO está acá: es la pieza única `<ConectarViaZernio red="metaads">` (AGENTS.md).
 //
@@ -16,7 +17,8 @@
 import type { NextRequest } from 'next/server';
 import { wsDeAdsManager } from '@/lib/ads-guard';
 import { getUsuarioActual } from '@/lib/auth';
-import { leerConfig, guardarConfig, leerDecisiones, reclamar, actualizar, MediaBuyerSinTabla } from '@/lib/media-buyer/store';
+import { leerConfig, guardarConfig, leerDecisiones, leerDecision, reclamar, actualizar, MediaBuyerSinTabla } from '@/lib/media-buyer/store';
+import { llevarHooksAlVideo } from '@/lib/media-buyer/hooks-video';
 import { lanzar, deshacer } from '@/lib/media-buyer/ejecutar';
 import { analizarCuenta } from '@/lib/media-buyer/corrida';
 import { cuentaDelNegocio, leerDatosCuenta, SinCuentaParaOperar } from '@/lib/media-buyer/datos';
@@ -109,6 +111,16 @@ export async function POST(req: NextRequest) {
         // Paso 1 del onboarding: la cuenta conectada (por Zernio o por el token de Meta del negocio).
         if (conexion || (await credWs('META_ACCESS_TOKEN', ws))) await marcarPasoTab('ads-manager', 'am_cuenta').catch(() => null);
         return J({ ok: true, tieneClave, cuenta: act, conectado: !!conexion });
+      }
+      case 'hooks_a_video': {
+        // Los hooks elegidos de una decisión de video, como guiones en el Video Generator (se filma sólo el gancho).
+        const id = uuid(body.id);
+        const d = id ? await leerDecision(ws, id) : null;
+        if (!d) return J({ ok: false, error: 'Esa decisión no existe en este negocio.' }, 404);
+        const elegidas = Array.isArray(body.elegidas) ? new Set(body.elegidas.filter((x): x is string => typeof x === 'string')) : null;
+        const conElegidas = elegidas ? { ...d, variaciones: (d.variaciones ?? []).map((v) => ({ ...v, elegida: elegidas.has(v.id) })) } : d;
+        const r = await llevarHooksAlVideo(ws, conElegidas);
+        return J(r, r.ok ? 200 : 409);
       }
       case 'subir_preparar': {
         const datos = await leerDatosCuenta(ws);

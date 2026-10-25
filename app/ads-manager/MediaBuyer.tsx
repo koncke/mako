@@ -275,7 +275,12 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
             onDescartar={() => accion(d, { op: 'descartar' }, 'Descartada')}
             onDeshacer={() => accion(d, { op: 'deshacer' }, 'Deshecho')}
             onReabrir={() => accion(d, { op: 'reabrir' }, 'Abierta otra vez')}
-            onCalificar={(n) => accion(d, { op: 'calificar', estrellas: n }, 'Gracias')} />
+            onCalificar={(n) => accion(d, { op: 'calificar', estrellas: n }, 'Gracias')}
+            onHooksAVideo={async (elegidas) => {
+              const r = await api<{ cargados: number }>({ op: 'hooks_a_video', id: d.id, elegidas });
+              if (r.ok) show(r.cargados ? `${r.cargados} ${r.cargados === 1 ? 'guion' : 'guiones'} en Video Generator` : 'Ya estaban en Video Generator', undefined, 'good');
+              else show(r.error ?? 'No se pudo.', undefined, 'bad');
+            }} />
         ))}
       </div>
 
@@ -303,11 +308,12 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
 
 // ── Una decisión: la fila y, abierta, el detalle de tres columnas ─────────────
 
-function FilaDecision({ d, abierta, ocupada, encendido, onAbrir, onLanzar, onDescartar, onDeshacer, onReabrir, onCalificar }: {
+function FilaDecision({ d, abierta, ocupada, encendido, onAbrir, onLanzar, onDescartar, onDeshacer, onReabrir, onCalificar, onHooksAVideo }: {
   d: Decision; abierta: boolean; ocupada: boolean; encendido: boolean;
   onAbrir: () => void;
   onLanzar: (extra: { presupuesto?: number; elegidas?: string[] }) => Promise<boolean>;
   onDescartar: () => void; onDeshacer: () => void; onReabrir: () => void; onCalificar: (n: number) => void;
+  onHooksAVideo: (elegidas: string[]) => void;
 }) {
   const p = pestanaDe(d.estado);
   const tono = tonoDe(d);
@@ -425,6 +431,7 @@ function FilaDecision({ d, abierta, ocupada, encendido, onAbrir, onLanzar, onDes
             <p data-tono={d.error ? (d.estado === 'bloqueada' ? 'cuidado' : 'mal') : undefined}>{d.error ?? d.nota ?? ''}</p>
             {p === 'abiertas' && <>
               {d.despues.presupuesto != null && <Button variant="secondary" onClick={() => setEditando((x) => !x)}>{editando ? 'Usar el de MaKo' : 'Editar'}</Button>}
+              {d.tipo === 'variaciones_hook' && <Button variant="secondary" disabled={elegidas.size === 0} onClick={() => onHooksAVideo([...elegidas])}>Filmarlos en Video Generator</Button>}
               <Button loading={ocupada} disabled={!encendido || (esVar && elegidas.size === 0)} onClick={lanzar}>{verboLanzar(d)}</Button>
             </>}
             {p !== 'abiertas' && <Button variant="secondary" onClick={onAbrir}>Ocultar</Button>}

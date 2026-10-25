@@ -45,3 +45,17 @@ test('el nombre del anuncio sale del archivo, con la marca de MaKo', () => {
   assert.equal(nombreDeAnuncio('hook_dolor-v2.mp4', 0), 'hook dolor v2 · MaKo');
   assert.equal(nombreDeAnuncio('.png', 2), 'Creativo 3 · MaKo');
 });
+
+// ── Los hooks de un video ganador como guion para el Video Generator (lib/media-buyer/hooks-guion.ts) ──
+// Verificado rompiéndolo: con el cuerpo sin sacar el gancho viejo, 1 fallo y 6 pases. Restaurado, 7 de 7.
+import { guionDeHook, primeraFrase } from '../lib/media-buyer/hooks-guion';
+
+test('el hook nuevo REEMPLAZA la primera frase del ganador y conserva el cuerpo, con los rótulos del guion', () => {
+  const t = '¿Sigues perdiendo leads? Te cuento cómo lo resolvimos. Agenda tu diagnóstico.';
+  assert.equal(primeraFrase(t), '¿Sigues perdiendo leads?');
+  assert.equal(guionDeHook('El 60% de tus leads se enfría en una hora.', t), 'GANCHO\nEl 60% de tus leads se enfría en una hora.\n\nHISTORIA\nTe cuento cómo lo resolvimos. Agenda tu diagnóstico.');
+});
+
+test('sin transcripción, el guion es sólo el gancho (se filma igual y se monta sobre el video)', () => {
+  assert.equal(guionDeHook('Mira esto antes de pautar.', null), 'GANCHO\nMira esto antes de pautar.');
+});
