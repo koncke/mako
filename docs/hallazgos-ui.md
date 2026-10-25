@@ -12,6 +12,18 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Las iniciales de un avatar parten un emoji: «�M» (visto en producción el 24/10/2026, SIN arreglar)
+
+**Síntoma:** la ficha de un lead cuyo nombre empieza con un emoji («🧪 Martín arnés…», los de prueba del ws3) muestra «�M»
+en el avatar. **Causa:** cada copia de «las iniciales» toma `w[0]`, la primera unidad UTF-16 de la palabra, y un emoji son
+dos: queda la mitad de un par sustituto. **Vive en, al menos:** `app/_ui/Avatar.tsx` (`iniciales`, la que se ve en la ficha),
+`app/crm/lead-view/AuditHistory.tsx` (`initials`), `app/_components/Sidebar.tsx` (dos), `app/_components/Marca.tsx`,
+`app/_components/NotificationsProvider.tsx`, `app/_comunidad/piezas.tsx`, `app/_cursos/ComentariosClase.tsx` y
+`app/admin/AdminView.tsx`. **La regla:** cortar texto por caracteres de verdad (`[...w][0]`, o lo de `lib/unicode-seguro.ts`,
+que ya existe para esto) y, mejor, saltear lo que no es letra: un nombre con un emoji adelante debería dar «MA». Son ocho
+copias de lo mismo, y se arregla con UNA pieza. *Visto por el chat Automations (claude5) al sacar la foto de la ficha en
+producción; no se tocó: cruza áreas.*
+
 ## El `Dropdown` en dos columnas: lo que los tests no ven, y cómo se MIDE que las otras 96 pantallas no cambiaron (24/10/2026)
 
 **Vive en:** `dosColumnas` / `alPie` (app/components/Dropdown.tsx), `columnasDeSeccion` (app/components/dropdown-reglas.ts),

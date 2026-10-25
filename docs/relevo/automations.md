@@ -26,6 +26,21 @@ anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al g
 - **Sin dueño, visto de paso:** `tests/progreso.test.ts` rojo por dos hitos sin `sesion` en
   app/admin/dev/ai-runtime-cascada/bitacora.ts (chat «IA del cliente»). Y el hito de esta tanda firma `claude5`, que en
   `CUENTAS` (app/admin/dev/_registro/tipos.ts) entra con d7b1f9849 del tren (`tren-j`).
+- **El arreglo del goteo, visto andar (22:00 ART):** los M2 de las 21:34, 21:46 y 21:58 dejaron la espera siguiente a
+  48,00 h exactas. El aviso de arreglo al grupo de Mauricio está probado en seco (`scripts/avisar-arreglo-al-grupo.mts
+  --ws 1 --clave goteo-espera:289:2410 --commit cdadbc30f --ws1-seguro`, el texto en docs/hallazgos-chatbot.md). Mandarlo
+  (`--enviar`) lo frenó el permiso de la sesión: lo autoriza Martín. No se le pide a otro chat.
+- **Dashboard (trabajo 0786cbfe, «Sí, y que la criatura vea la hoja»):** salió el AI Analyst y la estrella ve la hoja
+  (eb71fa238; docs/hallazgos-graficos.md). Sin verlo en pantalla.
+- **Trabajo 49ff20a3 (Martín, firmado):** (1) un solo «Dashboard» en More del teléfono (0427d58be;
+  docs/hallazgos-mobile.md). (2) **Botones en los DM de Instagram y Messenger, como ManyChat**: fase A (el motor, el
+  webhook y el lienzo) y fase B (la IA de MaKo los arma al crear, con el gate que no regala el link) hechas y probadas sin
+  pantalla (docs/hallazgos-chatbot.md, «MaKo no tiene botones…»). **Sigue:** «Editar con IA» (`deIAEdicion`), «Probar»,
+  y probarlo con un DM de verdad en el Cliente de Prueba con una cuenta de Instagram conectada. El trabajo lo cierra el
+  Cerebro cuando estén las tres partes.
+- **Lo que pidió el Cerebro (hecho el 25/10):** el `redirect()` de las tres páginas del Dashboard con `loading.tsx` encima
+  (React #310) pasó a app/dashboard/layout.tsx y app/m/dashboard/layout.tsx, y salieron de la lista de conocidas
+  (docs/hallazgos-infra.md, «Los dashboards redirigen en su layout…»). Sin medir en producción.
 
 ## El pedido, con el texto entero
 

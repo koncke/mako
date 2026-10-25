@@ -438,6 +438,11 @@ export type EventoSocial = {
   ref: string | null;
   /** Otra app de la página atiende la charla (handover de Meta): se guarda y no se dispara nada. */
   standby: boolean;
+  /**
+   * El TOQUE de un botón (24/10/2026, lib/botones-social.ts): `metadata.postbackPayload` del webhook. Uno que empieza con
+   * `mako:b:` lo mandó MaKo y lo mueve `tocarBoton`; otro (de otra herramienta) es un mensaje de siempre. Ausente = no es un toque.
+   */
+  postback?: string | null;
   /** Cuándo pasó, como lo dice la plataforma. */
   fecha: string;
 };
@@ -496,6 +501,8 @@ export function eventoSocialDe(body: unknown): { evento: EventoSocial } | { igno
         texto: typeof m.text === 'string' ? m.text : null,
         conversacionId: str(conv?.id) ?? str(m.conversationId), cuentaId, perfilId, mensajeId: str(m.id),
         comentarioId: null, postId: null, anuncioId, ref, standby: md.standby === true,
+        // El toque de un botón (24/10/2026): el `payload` que le pusimos, de vuelta.
+        postback: str(md.postbackPayload),
         fecha: str(m.sentAt) ?? fecha,
       },
     };

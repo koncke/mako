@@ -38,6 +38,7 @@ import { linkApp } from './app-url';
 import { webhookDeLaCuenta } from './zernio-firma';
 import { profileDeLaCuenta } from './zernio-profile';
 import { seguimientoDe, seguimientoNoSe, conTope, CONCURRENCIA_SEGUIMIENTO } from './canal-social';
+import type { BotonZernio } from './botones-social';
 
 const ZERNIO_BASE = 'https://zernio.com/api/v1';
 
@@ -325,6 +326,11 @@ export type EnviarDmInput = {
   adjuntoUrl?: string;
   adjuntoTipo?: 'image' | 'video' | 'audio' | 'file';
   /**
+   * Los botones de la burbuja (24/10/2026, lib/botones-social.ts): Meta los dibuja debajo del texto, en la MISMA burbuja
+   * (su plantilla de botones), así que van sólo con `texto` y el texto hasta 640. Sin adjunto: un adjunto no lleva.
+   */
+  botones?: readonly BotonZernio[];
+  /**
    * Mismo key + mismo body ⇒ Zernio devuelve la respuesta original en vez de mandar dos veces; key en
    * vuelo ⇒ 409. Se guarda 24 h, y SÓLO si la respuesta fue 2xx (un fallo libera el key).
    */
@@ -347,6 +353,7 @@ export async function enviarDm(ws: number, conversationId: string, input: Enviar
     body.attachmentUrl = input.adjuntoUrl;
     if (input.adjuntoTipo) body.attachmentType = input.adjuntoTipo;
   }
+  if (input.botones?.length && input.texto && !input.adjuntoUrl) body.buttons = input.botones;
   const r = await zFetch<{ data?: { messageId?: string }; messageId?: string }>(c.apiKey, `/inbox/conversations/${encodeURIComponent(conversationId)}/messages`, {
     method: 'POST',
     headers: input.idempotencyKey ? { 'Idempotency-Key': input.idempotencyKey.slice(0, 255) } : {},
@@ -357,16 +364,18 @@ export async function enviarDm(ws: number, conversationId: string, input: Enviar
 
 /**
  * LA RESPUESTA PRIVADA a un comentario (POST /v1/inbox/comments/{postId}/{commentId}/private-reply):
- * UNA por comentario y dentro de los 7 días. Sólo TEXTO: desde agosto de 2026 Instagram rechaza
+ * UNA por comentario y dentro de los 7 días. Sin adjuntos: desde agosto de 2026 Instagram rechaza
  * botones y adjuntos a quien no sigue la cuenta y el intento GASTA la única respuesta (doc de Zernio,
  * `details.privateReplyConsumed`). No se reintenta nunca.
+ * ⚠️ CON BOTONES SÍ (24/10/2026, lib/botones-social.ts): el rechazo es DESPAREJO («la mayoría de las cuentas no lo
+ * tienen»), y el primer DM de ManyChat es justo un botón. Quien llama decide si los manda (`cuentaRechazaBotones`).
  */
-export async function responderComentario(ws: number, input: { accountId: string; postId: string; commentId: string; texto: string; idempotencyKey?: string }): Promise<{ messageId: string | null }> {
+export async function responderComentario(ws: number, input: { accountId: string; postId: string; commentId: string; texto: string; idempotencyKey?: string; botones?: readonly BotonZernio[] }): Promise<{ messageId: string | null }> {
   const c = await cfg(ws);
   const r = await zFetch<{ messageId?: string }>(c.apiKey, `/inbox/comments/${encodeURIComponent(input.postId)}/${encodeURIComponent(input.commentId)}/private-reply`, {
     method: 'POST',
     headers: input.idempotencyKey ? { 'Idempotency-Key': input.idempotencyKey.slice(0, 255) } : {},
-    body: JSON.stringify({ accountId: input.accountId, message: input.texto }),
+    body: JSON.stringify({ accountId: input.accountId, message: input.texto, ...(input.botones?.length ? { buttons: input.botones } : {}) }),
   });
   return { messageId: r.messageId ?? null };
 }

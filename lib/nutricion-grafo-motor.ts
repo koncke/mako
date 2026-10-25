@@ -29,6 +29,7 @@ import {
 } from './flujo-grafo';
 // La libertad de un escenario del AI Step (undécima tanda): la única que escribe `sola` / `no_contesta`.
 import { conLibertad, libertadesPermitidas } from './ai-step-libertad';
+import { botonesDe } from './botones-social';
 import { TRIGGER_ETIQUETA } from './nutricion-etapa';
 import { condicionPorId, reunionesDeFila, valoresDeFila, TOPE_REUNIONES, type HechosCatalogo } from './condiciones-catalogo';
 import { parseFechaJunta, reunionFuturaMs, proximaReunion, soloQuedaElCarril, finDeLaReunionMs, type FilaReunion } from './nutricion-reinscripcion';
@@ -1316,7 +1317,9 @@ function sanearDestino(x: unknown): DestinoIrA | null {
 /** Los campos que son SÓLO del flujo (los demás —canal, cuerpo, tipo…— los sanea el motor). */
 export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'suelta' | 'si_no' | 'paralelos_si_no' | 'destino' | 'revisar' | 'paso_ia' | 'instrucciones' | 'otra_aviso' | 'medio'
   // Undécima tanda: lo del OBJETIVO del AI Step (la quinta puerta: sin esto el primer guardado lo borraba).
-  | 'objetivo' | 'audio' | 'ejemplos'>;
+  | 'objetivo' | 'audio' | 'ejemplos'
+  // 24/10/2026: los BOTONES de un mensaje de Instagram o Messenger (lib/botones-social.ts). Son SALIDAS del flujo.
+  | 'botones'>;
 
 /**
  * Las flechas en paralelo, saneadas: ids válidos, sin repetidos. Sólo en las clases que las
@@ -1389,6 +1392,9 @@ export function camposDelFlujo(p: unknown): CamposFlujo {
   // ⚠️ LA QUINTA PUERTA (AGENTS.md): `setSecuenciaPasos` reconstruye cada paso campo por campo, y
   // sin esta línea BORRABA las flechas en paralelo en el primer guardado, sin error.
   if (!nodo || nodo === 'esperar' || nodo === 'inicio') { const par = sanearParalelos(o.paralelos); if (par) out.paralelos = par; }
+  // ⚠️ LA QUINTA PUERTA, OTRA VEZ (24/10/2026): los BOTONES de un mensaje social son salidas del flujo (`btn:<id>`), y sin
+  // esta línea el primer guardado los borraba en silencio. Las reglas (canal, cuántos, a dónde) las dice `validarGrafo`.
+  if (!nodo && Array.isArray(o.botones)) { const bs = botonesDe(o); if (bs.length) out.botones = bs; }
   return out;
 }
 

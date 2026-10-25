@@ -51,7 +51,8 @@ test('pantalla: «Discutir | Editar» en el lugar de los chips de alcance, con l
   assert.doesNotMatch(discusion, /accion: 'editar'|propuesta/);
   // La preferencia es la MISMA clave que Automations (quien eligió Discutir allá, lo encuentra acá).
   assert.equal(CLAVE_INTENCION, 'mako-chat-intencion');
-  assert.match(leer('app/automations/ChatMako.tsx'), /const CLAVE_INTENCION = 'mako-chat-intencion';/);
+  // Y Automations usa la MISMA pieza (24/10/2026): sin copia propia, la clave es una sola por construcción.
+  assert.match(leer('app/automations/ChatMako.tsx'), /import \{ SelectorIntencion, useIntencion \} from '@\/app\/_chat\/SelectorIntencion';/);
 });
 
 test('editar: toda la landing con la sección del cursor como pista; si no entra de una vez, sólo esa sección (y lo dice)', () => {

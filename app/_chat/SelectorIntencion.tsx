@@ -9,8 +9,8 @@
 // editar"»), y vive acá para que los chats lo compartan: el mismo aspecto (el interruptor de dos lados) y la MISMA
 // preferencia guardada (`mako-chat-intencion`), así quien eligió «Discutir» en Automations lo encuentra igual en el editor.
 //
-// ⚠️ Automations todavía dibuja SU copia (app/automations/ChatMako.tsx, `SelectorIntencion`): no se tocó el 24/10 porque
-//    ese chat estaba trabajando en el archivo. Al pasarla a ésta, se borra aquella (docs/hallazgos-editor-landing.md).
+// Automations la usa desde la noche del 24/10/2026 (app/automations/ChatMako.tsx): su copia se borró. Un chat con un
+// selector propio es otra vez dos piezas que se separan (tests/chat-mako-envio-a-la-vista.test.ts lo fija).
 // =============================================================================
 
 import { useEffect, useState } from 'react';

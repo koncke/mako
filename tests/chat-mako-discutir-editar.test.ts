@@ -141,7 +141,9 @@ test('en Editar vale aclarar, decir dónde se configura (un lugar real) o que no
 });
 
 test('el chat: Discutir / Editar encima de la barra (no al crear), arranca en Editar y viaja en el pedido de editar', () => {
-  assert.match(chat, /useState<IntencionChat>\('editar'\)/);
+  // Desde el 24/10/2026, con el selector compartido (app/_chat/SelectorIntencion.tsx): arranca en Editar y recuerda lo elegido.
+  assert.match(chat, /const \[intencion, elegirIntencion\] = useIntencion\(\);/);
+  assert.match(readFileSync(join(__dirname, '..', 'app/_chat/SelectorIntencion.tsx'), 'utf8'), /useState<IntencionChat>\('editar'\)/);
   assert.match(chat, /\.\.\.\(modo === 'editar' \? \{ intencion \} : \{\}\),/);
   assert.match(chat, /: crea \? errorMako\n\s+: <>\{errorMako\}<SelectorIntencion valor=\{intencion\}/);
 });

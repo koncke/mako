@@ -6105,6 +6105,10 @@ inscripciones y los envíos del ws1 viven en SU base. Un script que mide un nego
 (`ultimo_paso_at` + los minutos de la espera, sólo si adelanta, compare-and-set sobre estado, tarjeta y vencimiento;
 sin `--aplicar` sólo dice lo que haría). Para la #289 adelanta 13 por ~24 min y 7 por 12 a 15 h. **Sin aplicar:** es
 escribir en la base de un cliente real y quedó para que lo decida Martín.
+**Y el arreglo, visto andar (22:00 ART):** los tres M2 que salieron después del deploy (21:34, 21:46 y 21:58) dejaron la
+espera de 2 días agendada a **48,00 h exactas** del mensaje. Antes daba 48,20. Falta la otra mitad (el ritmo de 11 min de
+los M1 y la condición sin turno), que necesita M1 nuevos. El aviso de arreglo al grupo de Mauricio quedó probado en seco
+(`avisar-arreglo-al-grupo.mts`, prueba de producción en verde); mandarlo lo frenó el permiso de la sesión.
 
 ## Lo de la llamada que seguía a medias, con el arnés contra producción (22/10/2026, AU2 del plan del Cerebro)
 
@@ -7025,3 +7029,46 @@ camino del opt-out), en los dos WhatsApp; el lead de prueba se corta antes de cu
 línea. **Vive en:** lib/lead-sin-arreglo.ts · lib/nutricion.ts (`procesarEnvios`) · tests/lead-sin-arreglo.test.ts.
 **Sin hacer:** el lead de prueba igual ENTRA a la automatización (se cierra en su primer envío); no se filtra al inscribir.
 *23/10/2026, chat «Automations» (claude2).*
+
+## «MaKo no tiene botones en los DM de Instagram»: los tenía Zernio, no MaKo (24/10/2026, trabajo 49ff20a3)
+
+**Síntoma:** un chat de la cuenta 1 le preguntó a Martín cómo armar «el gate de seguidor» porque «MaKo no tiene botones en
+los DM de Instagram», y le propuso rodeos («repetir la keyword por DM»). Martín contestó con la captura de un DM de Fiesta
+Music que trae «Obtener recurso», «Abrir» y «Obtener el enlace»: «Aun no arreglaste lo de los botones». **El diagnóstico
+obvio («Instagram o Zernio no lo permiten») era el equivocado:** `https://zernio.com/openapi.yaml` (v1.352.0, medido el
+24/10) trae `buttons` (1 a 3, `postback` o `url`, título ≤20) en el DM y en la respuesta privada a un comentario, y el
+toque vuelve al webhook `message.received` como `metadata.postbackPayload`. Lo que faltaba era MaKo: `enviarDm` mandaba
+sólo `message` y la respuesta privada era «sólo texto» a propósito.
+**Cómo quedó (fase A, el motor, y el lienzo):** lib/botones-social.ts (la pieza pura). Un botón sin `url` es una SALIDA de
+la tarjeta (`btn:<id>` en `puertosDe`, como una fila de una condición). El `payload` lleva la inscripción, la tarjeta y el
+botón (`mako:b:<insc>:<nodo>:<botón>`). El webhook lo pasa a `tocarBoton` (lib/nutricion.ts) ANTES de la pausa y del
+disparo: un toque no es una respuesta. `tocarBoton` mueve la inscripción a la rama del botón con compare-and-set y corre la
+vía rápida. Un mensaje con botones y nada abajo ESPERA el toque: queda 'activa' en esa tarjeta, sin próximo envío. Con
+eso, el flujo de ManyChat entero se publica, con la vuelta de «Ya te sigo» a «¿Te sigue?».
+**Las trampas:**
+- **El ciclo sin espera:** `ciclosSinEspera` rechazaba esa vuelta. La flecha de un botón no cuenta, porque la corre el
+  toque de la persona y no el motor en la misma corrida.
+- **La quinta puerta:** sin `botones` en `camposDelFlujo` (lib/nutricion-grafo-motor.ts), el primer guardado los borraba
+  en silencio.
+- **El rechazo desparejo de Meta:** algunas cuentas rechazan los botones en la respuesta privada a quien no sigue (código
+  2, subcode 1545133), y el intento GASTA la única respuesta. La cuenta que rechazó queda anotada
+  (`zernio.botones_rechazados.<cuenta>`) y la próxima sale en texto con «Escríbeme «…»». Escribir el título de un botón
+  cuenta como tocarlo (`botonPorTexto`), sólo en una inscripción que espera un toque.
+- **Después del toque, «¿Te sigue?» lee en vivo:** el toque es un mensaje y deja la conversación (`pedidoDeSeguimiento`
+  pide su id). Antes del toque, a quien sólo comentó, el «¿te sigue?» le decía «no sé».
+**Y lo que arma la IA de MaKo al CREAR (fase B):** `deIA` (lib/flujo-ia.ts) lee los botones de un mensaje de Instagram, y
+el gate de seguidor sale armado y publicable (tests/crear-ia-botones.test.ts). **Dos trampas:**
+- **El armador es un árbol** («cada tarjeta cuelga de un solo lugar»): la vuelta de «Ya te sigo» a la condición daba
+  «una tarjeta seguía en dos lugares» y se cortaba. Un botón que vuelve a una tarjeta que ya tiene lugar es una salida, no
+  un segundo padre: el toque es la espera.
+- **El techo de Groq:** decirle al modelo lo de los botones en el system pesaba ~100 tokens para TODOS los pedidos, y
+  tests/crear-ia-tercera.test.ts marcó ~4.098 contra 4.000. Va en el user, SÓLO en un pedido de Instagram o Messenger
+  (`BOTONES_SOCIAL`, junto a la línea `CANAL`). Ahí también va dicho el gate («el link va SÓLO en el mensaje del sí»): es
+  lo que le faltaba al borrador que regalaba el link.
+**Sin hacer:** «Editar con IA» (`deIAEdicion`) todavía no conoce los botones. «Probar» (lib/simulador-grafo.ts) no imita el
+toque. La ficha del lead no dice «esperando que toque un botón». No se probó con un DM de verdad: falta una cuenta de
+Instagram conectada en el Cliente de Prueba.
+**Vive en:** lib/botones-social.ts · lib/flujo-grafo.ts · lib/canal-zernio.ts · lib/zernio.ts · lib/nutricion.ts
+(`tocarBoton`, `avanceDesde`) · lib/canal-social.ts (`postback`) · app/api/webhooks/zernio/route.ts ·
+lib/flujo-conversacion.ts · app/automations/BotonesSocial.tsx · tests/botones-instagram.test.ts.
+*24/10/2026, chat «Automations» (claude5).*

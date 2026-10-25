@@ -2615,4 +2615,37 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "24 oct", hora: "22:23", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "martin", tipo: "prompt",
+    titulo: "Botones en los mensajes de Instagram, como ManyChat",
+    pedido: "«Aun no arreglaste lo de los botones en Automations de Instagram» (con la captura de un DM de Fiesta Music con «Obtener recurso»), y el flujo de ManyChat: comenta la palabra, le llega «Obtener recurso», al tocarlo se revisa si sigue la cuenta; si sigue, el link; si no, que la siga y «Ya te sigo».",
+    puntos: [
+      "Llegó firmado por el Ops Center (trabajos 49ff20a3 y 36c79085). Otro chat había dicho que MaKo no tenía botones en Instagram: los tenía Zernio, no MaKo.",
+    ],
+  },
+  {
+    fecha: "24 oct", hora: "23:30", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Los mensajes de Instagram y Messenger llevan botones, y el toque sigue el flujo",
+    puntos: [
+      "En la tarjeta de Instagram, «+ Botón» debajo del último mensaje: hasta 3, con su nombre, y cada uno «Sigue el flujo» o «Abre un link».",
+      "Un botón que sigue el flujo es una fila de la tarjeta en el lienzo, con su ＋: lo que pasa al tocarlo se conecta desde ahí.",
+      "Al tocarlo, la automatización sigue por ese camino en el acto. Tocar un botón no cuenta como «Contestó».",
+      "El flujo de ManyChat se arma entero: «Obtener recurso», «¿Te sigue?», el link o «Ya te sigo», que vuelve a revisar.",
+      "Si Instagram rechaza los botones en una cuenta, la próxima vez sale el texto con «Escríbeme «…»», y escribir el nombre del botón funciona igual que tocarlo.",
+      "Al crear con MaKo un flujo de Instagram, MaKo arma los botones y el gate de seguidor: el link sólo le llega a quien sigue la cuenta.",
+      "Falta: que también los use al editar con MaKo, y probarlo con un DM de verdad.",
+    ],
+    archivos: [
+      "lib/botones-social.ts — los botones: el saneo, lo que va a Zernio y lo que impide publicar",
+      "lib/nutricion.ts — tocarBoton, y el mensaje que espera el toque",
+      "app/api/webhooks/zernio/route.ts — el toque va antes que la pausa",
+      "app/automations/BotonesSocial.tsx — los botones en el editor",
+      "tests/botones-instagram.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations",
+  },
 ];

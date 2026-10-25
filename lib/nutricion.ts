@@ -84,6 +84,7 @@ import {
   type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo, type FilaCondicion,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
+import { botonesDe, botonesDeFlujo, botonPorTexto, esperaToque, leerPayloadDeBoton } from '@/lib/botones-social';
 import { esperaQueAbra } from '@/lib/mako-tarjeta';
 import { usaEquipoContesto, contestoElEquipo, type TurnoDelGrupo } from '@/lib/equipo-contesto';
 import {
@@ -4285,6 +4286,11 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
     // Un hilo que acaba de arrancar ya vencido se mira en esta misma corrida (otra vuelta).
     const nuevoYa = nuevos.some((n) => Date.parse(n.proximo) <= Date.now());
     const j = siguienteIndice(sec.pasos, idx);
+    // UN MENSAJE CON BOTONES Y NADA DESPUÉS ESPERA EL TOQUE (24/10/2026, lib/botones-social.ts): la inscripción queda
+    // 'activa' en ESA tarjeta y sin próximo envío (la cola no la toma), y el toque la mueve a la rama del botón
+    // (`tocarBoton`). Cerrarla dejaría el botón sin a quién mover: es el «Obtener recurso» de ManyChat, que no tiene
+    // nada abajo.
+    if (j < 0 && esperaToque(sec.pasos[idx])) return { campos: { paso_actual: idx, nodo_actual: idDe(sec.pasos[idx], idx), proximo_envio_at: null, estado: 'activa' }, yaToca: nuevoYa, nuevos };
     if (j < 0) return { campos: { paso_actual: idx + 1, nodo_actual: null, proximo_envio_at: null, estado: 'completada' }, yaToca: nuevoYa, nuevos };
     const proximo = proximoEnvioDePaso(sec.pasos[j], lead);
     return {
@@ -5150,6 +5156,9 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
             vars: {}, idempotencia: `nutri:${insc.id}:${idDe(paso, insc.paso_actual)}`, desde,
             // Por la cuenta que eligió la tarjeta, si eligió una (decimocuarta tanda): sin conversación con ESA, falla.
             cuenta: cuentaDelPaso(paso),
+            // Los BOTONES de la tarjeta (24/10/2026, lib/botones-social.ts): el `payload` de cada uno lleva ESTA inscripción y ESTA
+            // tarjeta, y el toque vuelve por el webhook (`tocarBoton`).
+            ...(botonesDe(paso).length ? { botones: { lista: botonesDe(paso), inscripcionId: insc.id, nodoId: idDe(paso, insc.paso_actual) } } : {}),
           });
           partesSalidas = r.salieron;
           destinoSocial = r.destino;
@@ -5760,6 +5769,89 @@ async function yaLeSalioAlgo(db: Awaited<ReturnType<typeof getTenantDb>>, inscId
   const { data, error } = await db.from('nutricion_envios').select('id').eq('inscripcion_id', inscId).in('estado', ['enviado', 'simulado']).limit(1);
   if (error) { console.error(`[nutricion] ¿le salió algo a la inscripción ${inscId}?: ${error.message}`); return true; }
   return (data ?? []).length > 0;
+}
+
+/** Lo que pasó con un toque (o con un texto que podía ser uno). */
+export type ResultadoToque = 'movida' | 'repetido' | 'no_es' | 'ignorado';
+
+/** Un toque del mismo botón dentro de este rato es el MISMO toque (un doble toque, o Meta que lo manda dos veces). */
+const VENTANA_TOQUE_REPETIDO_MS = 60_000;
+
+/**
+ * EL TOQUE DE UN BOTÓN (24/10/2026, lib/botones-social.ts): mueve la inscripción a la rama del botón y la corre YA, como
+ * ManyChat. Dos entradas:
+ *   · `payload`: el de un botón que MaKo mandó (`mako:b:<inscripción>:<tarjeta>:<botón>`). Uno de otra herramienta → 'no_es'
+ *     (quien llama lo trata como un mensaje de siempre);
+ *   · `texto`: lo que escribió, cuando el botón no se vio (la respuesta privada salió en texto). Sólo cuenta en una inscripción
+ *     que ESPERA un toque (parada en una tarjeta con botones, sin próximo envío) y sólo si el texto ES el título.
+ * La inscripción tiene que ser de ESTE lead, de una automatización prendida, 'activa' o 'completada' (un botón de un DM viejo
+ * sigue andando, como en ManyChat) y sin hilos en paralelo. Compare-and-set contra lo leído: si el motor la movió entre
+ * medio, el toque no pisa. Un toque NO es una respuesta: no pasa por «Contestó» (quien llama no pausa).
+ */
+export async function tocarBoton(leadId: number, t: { payload?: string | null; texto?: string | null }): Promise<ResultadoToque> {
+  try {
+    const db = await getTenantDb();
+    const pl = t.payload != null ? leerPayloadDeBoton(t.payload) : null;
+    if (t.payload != null && !pl) return 'no_es';
+    type FilaToque = { id: number; lead_id: number; secuencia_id: number; estado: string; paso_actual: number; nodo_actual: string | null; proximo_envio_at: string | null; hilos: unknown; updated_at: string };
+    const cols = 'id, lead_id, secuencia_id, estado, paso_actual, nodo_actual, proximo_envio_at, hilos, updated_at';
+    const secs = await getSecuenciasActivas();
+    const porId = new Map(secs.map((x) => [x.id, x]));
+    // La inscripción y el botón: por el `payload`, o por el texto entre las que esperan un toque.
+    let hallado: { f: FilaToque; nodoId: string; botonId: string } | null = null;
+    if (pl) {
+      const { data, error } = await db.from('nutricion_inscripciones').select(cols).eq('id', pl.inscripcionId).eq('lead_id', leadId).maybeSingle();
+      if (error) throw new Error(error.message);
+      if (data) hallado = { f: data as FilaToque, nodoId: pl.nodoId, botonId: pl.botonId };
+    } else {
+      const { data, error } = await db.from('nutricion_inscripciones').select(cols).eq('lead_id', leadId).eq('estado', 'activa').is('proximo_envio_at', null).not('nodo_actual', 'is', null);
+      if (error) throw new Error(error.message);
+      for (const f of (data ?? []) as FilaToque[]) {
+        const sec = porId.get(f.secuencia_id);
+        const paso = sec ? nodoPorId(sec.pasos, f.nodo_actual) : null;
+        const b = paso ? botonPorTexto(botonesDeFlujo(paso), t.texto) : null;
+        if (b) { hallado = { f, nodoId: f.nodo_actual!, botonId: b.id }; break; }
+      }
+      if (!hallado) return 'no_es';
+    }
+    if (!hallado) { console.warn(`[nutricion] botón: la inscripción ${pl?.inscripcionId} no es del lead ${leadId}`); return 'ignorado'; }
+    const { f, nodoId, botonId } = hallado;
+    const sec = porId.get(f.secuencia_id);
+    if (!sec) return 'ignorado';
+    if ((f.estado !== 'activa' && f.estado !== 'completada') || sanearHilos(f.hilos)) {
+      console.log(`[nutricion] lead ${leadId}: tocó un botón de «${sec.clave}» con la inscripción ${f.id} en '${f.estado}': no se mueve`);
+      return 'ignorado';
+    }
+    const boton = botonesDeFlujo(nodoPorId(sec.pasos, nodoId)).find((b) => b.id === botonId);
+    const j = boton?.siguiente ? indicePorId(sec.pasos, boton.siguiente) : -1;
+    if (!boton || j < 0) return 'ignorado';
+    // El MISMO toque dos veces (un doble toque, un reenvío de Meta): no se vuelve a correr la rama.
+    const keyToque = `nutricion.boton.${f.id}`;
+    const firma = `${nodoId}:${botonId}`;
+    try {
+      const prev = await getSettingEstricto(keyToque);
+      const [pf, pAt] = (prev ?? '').split('@');
+      if (pf === firma && Date.now() - Date.parse(pAt ?? '') < VENTANA_TOQUE_REPETIDO_MS) return 'repetido';
+    } catch { /* sin poder leer la marca, el compare-and-set de abajo igual evita pisar */ }
+    const ahora = ahoraISO();
+    const { data: upd, error: eU } = await db.from('nutricion_inscripciones')
+      .update({ paso_actual: j, nodo_actual: boton.siguiente, estado: 'activa', proximo_envio_at: ahora, updated_at: ahora })
+      .eq('id', f.id).eq('estado', f.estado).eq('updated_at', f.updated_at).select('id');
+    if (eU) throw new Error(eU.message);
+    if (!(upd ?? []).length) { console.warn(`[nutricion] botón de la inscripción ${f.id}: cambió mientras tanto, no se pisa`); return 'ignorado'; }
+    await setSetting(keyToque, `${firma}@${ahora}`).catch(() => {});
+    console.log(`[nutricion] lead ${leadId}: tocó «${boton.titulo}» en «${sec.clave}» → ${boton.siguiente}`);
+    try {
+      const { logLeadEvent } = await import('@/lib/leads');
+      await logLeadEvent(leadId, 'Automatización', `Tocó «${boton.titulo}» en «${sec.nombre}».`, 'MaKo');
+    } catch { /* el historial no puede frenar el toque */ }
+    // La rama del botón corre YA (el link, «¿Te sigue?»), con el turno del negocio.
+    await viaRapidaConTurno(leadId).catch((e: unknown) => console.error(`[nutricion] botón lead ${leadId}: la rama queda para el tick (${e instanceof Error ? e.message : String(e)})`));
+    return 'movida';
+  } catch (e) {
+    console.error(`[nutricion] botón lead ${leadId}: ${e instanceof Error ? e.message : String(e)}`);
+    return 'ignorado';
+  }
 }
 
 // `o.sinViaRapida` (24/10/2026): lo llama el MOTOR, con el avance de quien contestó mientras le salía el mensaje
