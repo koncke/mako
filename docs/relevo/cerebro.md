@@ -67,9 +67,9 @@ alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
 
 1. **La sesión de MaKo en el navegador de la app** (ya está abierto en la pantalla de entrada: «Continuar con Google»).
    Sin eso no se verifica nada en pantalla.
-2. **El QR del WhatsApp de MaKo** en `/whatsapp?ws=9`: muerto desde el 19/10, es la línea de venta.
+2. ~~El QR del WhatsApp de MaKo~~ **Era un dato viejo:** medido el 24/10 a las 21:50, la línea del negocio de Martín está conectada (termina en 3479).
 3. **La pasarela:** aplicar a Paddle y a Creem el mismo día. Stripe no: Argentina no es país habilitado.
-4. **Apagar el registro abierto de Supabase** (decisión ya tomada; el clic es suyo).
+4. ~~Apagar el registro abierto de Supabase~~ **HECHO el 24/10 ~22:10** por el Cerebro en el Chrome de Martín (él confirmó el segundo factor de GitHub); `/auth/v1/settings` da `disable_signup: true`.
 
 ## Fechas
 

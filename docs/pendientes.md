@@ -10,9 +10,7 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 | # | Qué | Por qué traba |
 |---|---|---|
 | M1 | **La sesión de MaKo en el navegador de la app** (`Ctrl+Shift+B` → «Continuar con Google») | **Tres chats parados.** Sin sesión no se verifica nada en pantalla y el login es suyo |
-| M2 | **El QR del WhatsApp de MaKo** en `/whatsapp?ws=9` | Muerto desde el 19/10; es la línea de venta |
 | M3 | **Aplicar a Paddle y a Creem** el mismo día | Sin pasarela no hay cobro en línea. **Stripe no es opción: Argentina no es país habilitado** |
-| M4 | **Apagar el registro abierto de Supabase** | Decisión A ya tomada; el clic es suyo |
 | M5 | **Mauricio:** el redirect del Payment Link con `{CHECKOUT_SESSION_ID}` | Su página de venta ya está restaurada; falta eso |
 
 ## Sin hacer, con dueño

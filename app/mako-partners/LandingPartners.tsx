@@ -30,6 +30,7 @@ import Link from 'next/link';
 import { CREDITO_HOY, DIAS_COOKIE_REF, PAGOS_PARA_ACREDITAR } from '@/lib/partners-reglas';
 import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako';
 import { Calculadora } from './Calculadora';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const usd = (n: number) => `US$ ${n.toLocaleString('es-AR')}`;
 const ORDINAL: Record<number, string> = { 1: 'primer', 2: 'segundo', 3: 'tercer' };
@@ -206,7 +207,7 @@ export function LandingPartners({ cobraEnLinea, emailMako, modo = 'publica', uni
                 Compartes tu link. Cada negocio nuevo que entra con él te suma su primer mes como crédito para tu plan de MaKo.
                 Sin tope.
               </p>
-              {error && <p className="mp-error" role="alert">No pudimos unirte. Prueba otra vez en un minuto.</p>}
+              {error && <p className="mp-error" role="alert">No pudimos unirte. Prueba otra vez en un minuto. <ReportarASoporte /></p>}
               <div className="mp-acciones">
                 {conAccion && <Accion unirme={unirme} volver={volver} texto={textoUnirme} />}
                 <a className="mp-btn-texto" href="#calculadora">Calcular cuánto sumaría ↓</a>
