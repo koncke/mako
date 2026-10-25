@@ -24,7 +24,9 @@ export const DEFS: Def[] = [
   // Instagram y Messenger como canales de las automatizaciones (09/10/2026, sexta tanda): salió el
   // 06/10 con la tab y vuelve como canal. BYOK SIN respaldo de plataforma desde el 23/10/2026 (lib/zernio.ts): cada
   // negocio con SU key de Zernio. Desde esa fecha también conecta Facebook y los anuncios de Meta (lib/zernio-conectar.ts).
-  { key: 'zernio', nombre: 'Facebook, Instagram y anuncios (Zernio)', categoria: 'Mensajería', descripcion: 'Conecta tu Facebook, Instagram y anuncios de Meta con tu cuenta de Zernio.', envs: ['ZERNIO_API_KEY'] },
+  // 25/10/2026, Martín: «Zernio no debe decir (Facebook, Instagram...), el nombre real de las apps en integraciones». Lo que
+  // conecta lo dice la descripción.
+  { key: 'zernio', nombre: 'Zernio', categoria: 'Mensajería', descripcion: 'Conecta tu Facebook, Instagram y anuncios de Meta con tu cuenta de Zernio.', envs: ['ZERNIO_API_KEY'] },
   // IA = BYOK por cliente (ya NO global): cada workspace usa su propia key y su
   // gasto corre contra su cuenta. Para el dueño, credWs cae al env de respaldo.
   { key: 'anthropic', nombre: 'MaKo IA (Anthropic)', categoria: 'Inteligencia', descripcion: 'Tu Claude: con tu clave, MaKo trabaja solo con tu cuenta (contesta, escribe y analiza). Sirve el crédito de API de Claude Max.', envs: ['ANTHROPIC_API_KEY'] },
@@ -32,7 +34,8 @@ export const DEFS: Def[] = [
   { key: 'groq', nombre: 'Groq', categoria: 'Inteligencia', descripcion: 'Pasa a texto tus notas de voz. Con tu Claude, tu GPT o tu Gemini conectado, no se usa.', envs: ['GROQ_API_KEY'] },
   { key: 'gemini', nombre: 'Google Gemini', categoria: 'Inteligencia', descripcion: 'Tu Gemini: con tu clave de AI Studio, MaKo trabaja solo con tu cuenta, lee documentos largos y busca en tu conocimiento.', envs: ['GEMINI_API_KEY'] },
   // IA8 (22/10/2026): Cerebras, Mistral y OpenRouter se sacaron (0, 0 y 12 llamadas útiles en 30 días). Sus filas
-  // guardadas en `credenciales` quedan huérfanas e inertes: borrarlas es SQL, y la Cerebras del ws1 la decide Martín.  // ⚠️ ES BYOK DESDE EL 02/09/2026: la key la trae el CLIENTE.
+  // guardadas en `credenciales` quedan huérfanas e inertes: borrarlas es SQL, y la Cerebras del ws1 la decide Martín.
+  // ⚠️ ES BYOK DESDE EL 02/09/2026: la key la trae el CLIENTE.
   //
   // Estuvo marcada `soloPlataforma` con un porqué que sigue siendo cierto —la voz
   // es MEDIOS, US$0,045/min contra US$0,00067 del texto, 67×— y esa misma cifra es
