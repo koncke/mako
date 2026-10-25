@@ -25,8 +25,8 @@
 //    About y la búsqueda; y ESCRIBE sólo lo suyo: marcar sus avisos leídos y seguir un post.
 //
 // ⚠️ UN ALUMNO SACADO DE LA COMUNIDAD NO ENTRA A NINGUNA ACCIÓN, NI A LEER: `actorDelAlumno` lo devuelve
-//    `null` (404) antes del `switch` (tests/comunidad-moderacion.test.ts). Su curso sigue abierto: esa es
-//    otra ruta y otra tabla.
+//    `null` (404) antes del `switch` (tests/comunidad-moderacion.test.ts). Desde el 24/10/2026 sacarlo le saca
+//    también el curso de ese programa (lib/comunidad-moderacion.ts): el 404 acá es la puerta de la comunidad.
 
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';

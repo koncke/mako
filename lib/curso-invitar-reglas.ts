@@ -44,6 +44,8 @@
 // Decisiones del Cerebro (23/10/2026): el permiso sobrevive a Perdido y a un reembolso (lo dio una persona y no lo
 // deshace otro evento: se corta a mano desde el buscador), y estos alumnos no reciben los WhatsApp del curso.
 
+import { mismoInstante } from './curso-propuesta';
+
 /** Lo que una fila de acceso dice de sus productos. `null` = todos (lo de antes). */
 export type ProductosDelAcceso = readonly number[] | null;
 
@@ -99,6 +101,46 @@ export function productosTrasQuitar(
   const quedan = base.filter((p) => p !== productoId);
   if (!quedan.length) return { ok: false, error: 'Es el único curso que le abre su acceso: para sacárselo, «Cortar acceso».' };
   return { ok: true, productos: quedan };
+}
+
+/**
+ * Lo que le pasa a su acceso al SACARLO de un programa desde Members (f32/f33, la llamada con Leandro del 24/10/2026:
+ * «no me saca del curso, pero me saca de la comunidad»). Sacarlo es del programa entero: el curso y su comunidad.
+ *
+ * `ve` = los cursos que ve HOY (`productosDelAlumno`, la puerta del portal: lo comprado y lo dado a mano).
+ *   · No lo ve ni su lista lo abre → `nada` (no había curso que sacarle: sólo el baneo).
+ *   · Era lo único que veía → `cortar` (`revocarAcceso`): el portal le dice en la entrada que su acceso no está activo.
+ *     Un acceso que no abre ningún curso dejaría pasar a un portal vacío.
+ *   · Si no → `acotar`: la lista sin ése. Un `null` (todos los suyos) pasa a ser lo que ve, menos ése, como
+ *     `productosTrasQuitar`. Lo dado a mano no se toca: abre sólo lo que la lista abre (`aManoVigente`), así que se va
+ *     con ella y vuelve con ella si se lo admite otra vez.
+ */
+export function accesoTrasSacar(
+  abre: ProductosDelAcceso, ve: readonly number[], productoId: number,
+): { tipo: 'nada' } | { tipo: 'cortar' } | { tipo: 'acotar'; productos: number[] } {
+  if (!ve.includes(productoId) && !(abre != null && abre.includes(productoId))) return { tipo: 'nada' };
+  const quedan = ve.filter((p) => p !== productoId);
+  if (!quedan.length) return { tipo: 'cortar' };
+  return { tipo: 'acotar', productos: abre == null ? quedan : abre.filter((p) => p !== productoId) };
+}
+
+/**
+ * Lo que le pasa a su acceso al VOLVER A ADMITIRLO en un programa: el curso vuelve con la comunidad.
+ *
+ * ⚠️ SÓLO SE HABILITA UN CORTE QUE HIZO ESE «SACAR». Sacar escribe el corte con el MISMO instante que el baneo
+ *    (`revocado_at` = `created_at` del baneo); si no coinciden, a ese acceso lo cortó otra persona («Cortar acceso»,
+ *    antes o después) y admitirlo en una comunidad no puede deshacer esa decisión → `cortado` (se habilita desde su ficha).
+ * · Lista que no lo abre → se le suma (`reabrir`). `null` o ya lo abre → `nada`.
+ */
+export function accesoTrasAdmitir(p: {
+  abre: ProductosDelAcceso; revocadoAt: string | null; sacadoAt: string | null; productoId: number;
+}): { tipo: 'nada' } | { tipo: 'cortado' } | { tipo: 'reabrir'; reactivar: boolean; productos: number[] | null } {
+  const yaLoAbre = p.abre == null || p.abre.includes(p.productoId);
+  const productos = p.abre == null ? null : yaLoAbre ? [...p.abre] : [...p.abre, p.productoId].slice(0, MAX_PRODUCTOS);
+  if (p.revocadoAt) {
+    return mismoInstante(p.revocadoAt, p.sacadoAt) ? { tipo: 'reabrir', reactivar: true, productos } : { tipo: 'cortado' };
+  }
+  return yaLoAbre ? { tipo: 'nada' } : { tipo: 'reabrir', reactivar: false, productos };
 }
 
 /**

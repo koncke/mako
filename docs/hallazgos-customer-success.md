@@ -5817,3 +5817,58 @@ perdieron. La consulta para contarlos está en el plan del arreglo (`C:/dev/plan
 
 *23/10/2026 · chat «API de MaKo» (claude2), por encargo del Cerebro · el plan salió de un panel de tres propuestas;
 tests y roturas medidos, sin probar contra la base todavía.*
+
+## «Sacar» en Members sacaba sólo de la comunidad: el curso seguía abierto (24/10/2026, f32 y f33)
+
+**Síntoma** (llamada de Fathom con Leandro, 24/10, @50:36-56:01): Leandro sacó a su alumno de prueba en Members y
+«no me saca de ningún lado». Con la cuenta del alumno, el curso le seguía abriendo y la comunidad decía «Tu acceso a la
+comunidad no está activo»; al tocar «Reportar a Soporte», «No autenticado».
+
+**Causa: eran tres cosas, y ninguna era un fallo del baneo.**
+1. **Sacar cerraba SÓLO la comunidad, a propósito.** `sacarAlumno` (lib/comunidad-moderacion.ts) escribía el baneo en
+   `comunidad_baneos` y no tocaba `curso_accesos`; su cabecera decía «SACAR NO CORTA EL CURSO» y
+   tests/comunidad-moderacion.test.ts fijaba que el archivo no nombrara `curso_accesos` ni `revocarAcceso`. Martín lo
+   dio por bug en la llamada: sacar es del programa entero. Ese test se dio vuelta.
+2. **«Reportar a Soporte» no sirve sin sesión de MaKo**: /api/soporte/reportar pide la sesión, y el proxy contesta
+   `no autenticado` (401) antes de que corra la ruta. El botón mostraba ese texto crudo al lado del aviso del alumno.
+3. **Los dos selectores del Classroom cambian de producto a la vez** (f28): Leandro creyó estar en Fiesta Music y lo
+   sacó de «Curso sin nombre». Eso es de la tanda de la barra del Classroom, no de esta.
+
+⚠️ **El diagnóstico obvio era el equivocado**: «el baneo no se aplica». El baneo andaba (el directorio ya excluía a los
+baneados, `miembrosDeLaComunidad`): lo que faltaba era que sacar fuera también del curso.
+
+**Arreglo.** Sacar = el baneo + `sacarDelCurso` (lib/curso-datos.ts) con la regla pura `accesoTrasSacar`: se le saca
+ese curso a su lista o, si era lo único que veía (`productosDelAlumno`, la misma puerta del portal), se le corta el
+acceso y el portal le dice en la entrada `SIN_ACCESO_PORTAL`. «Volver a admitir» le devuelve el curso
+(`accesoTrasAdmitir`). Las dos tablas de Avance no listan a un sacado (`sacadosPorProducto`). Una sola frase para «no
+entra» en el link, /mi-curso y la comunidad del alumno (lib/curso-portal-aviso.ts); si la comunidad la contesta con el
+portal abierto, el portal se vuelve a mirar UNA vez (`router.refresh`). «Reportar a Soporte» no se dibuja en el portal
+del alumno (`SinSoporteCtx`, que pone PortalAlumno; la vista previa del equipo sí lo tiene).
+
+**Las reglas que quedan:**
+- **Un corte se marca con el MISMO instante que lo que lo causó, para poder deshacer SÓLO ése.** Sacar escribe
+  `revocado_at` = `created_at` del baneo (`revocarAcceso(..., cuando)`); admitir habilita únicamente si coinciden. Si no,
+  a ese acceso lo cortó otra persona («Cortar acceso») y admitirlo en una comunidad no puede deshacer esa decisión. Sin
+  migración: el instante ya estaba en las dos filas. Se comparan con `mismoInstante` (PostgREST y JS lo escriben distinto).
+- **Un acceso que no abre ningún curso no es «acotado»: es un corte.** Una lista vacía dejaría pasar a un portal vacío.
+- **Un botón que llama a una ruta con sesión no va donde no hay sesión.** El portal del alumno es el único lugar de la
+  app sin sesión de MaKo que dibuja piezas de la app (la comunidad, los comentarios de clase).
+
+**Quedó SIN hacer, y dónde:**
+- **Los sacados de ANTES de este arreglo** siguen con el curso abierto (el baneo está, el corte no). Sin backfill: es
+  escribir en clientes reales. Para el alumno de prueba de Leandro: Members → «Fuera» → «Volver a admitir» y «Sacar» otra
+  vez. Para contarlos: `comunidad_baneos` con `levantado_at` null cruzado con `curso_accesos` sin `revocado_at`.
+- **Volver a invitar a un sacado** (la tarjeta del kanban, la ficha, el buscador) le reabre el curso con el baneo puesto:
+  curso sí, comunidad no, lo mismo que f33. La guarda iría en `invitarAlCurso` (lib/curso-invitar.ts) con un motivo propio
+  («lo sacaron de este programa»), y cada pantalla que dibuja los motivos tendría que decirlo.
+- La API de MaKo (`sacar_alumno_comunidad`) ya corta el curso, pero su `preparar` sigue sin poder sacar a alguien que ya
+  está fuera: los sacados de antes se arreglan desde la pantalla.
+- Nada se miró en el navegador (sin RAM para `next dev`, y probarlo pide sacar a un alumno de verdad).
+
+**Vive en:** `lib/comunidad-moderacion.ts` (`sacarAlumno`, `admitirAlumno`, `sacadosPorProducto`) · `lib/curso-datos.ts`
+(`sacarDelCurso`, `devolverElCurso`, `revocarAcceso`) · `lib/curso-invitar-reglas.ts` (`accesoTrasSacar`,
+`accesoTrasAdmitir`) · `lib/curso-portal-aviso.ts` · `app/_ui/ReportarASoporte.tsx` (`SinSoporteCtx`) ·
+`app/_comunidad/ComunidadAlumno.tsx` · `app/_comunidad/Miembros.tsx` · `tests/curso-sacar-del-programa.test.ts` y
+`tests/comunidad-moderacion.test.ts` (7 roturas, cada una cae)
+
+*24/10/2026 · chat «Clients» (claude5), por encargo del Cerebro · tests y roturas medidos; sin probar contra la base.*

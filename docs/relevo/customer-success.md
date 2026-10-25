@@ -120,6 +120,24 @@ Se lee en cinco minutos. Medido el 13/10/2026; lo que no se midió, lo dice.
 
 ---
 
+## 0-Ω2. 24/10/2026 (chat «Clients», cuenta `claude5`): la llamada con Leandro, puntos de cursos y alumnos
+
+Rama `clients-2510` en `C:/dev/wt-clients-2510`. **Sin subir: la punta se le pasa al Cerebro (el TREN).** Los textuales,
+en `docs/feedback-24-10.md` («La llamada con Leandro», tabla «Clients»). El orden que dio el Cerebro: f32+f33, f25,
+f27+f28+f29, f30, f26 (f31 lo tiene Ops Center).
+
+**Tanda 1 (f32 + f33), hecha:** «Sacar» en Members saca del programa: la comunidad Y el curso (o el acceso entero, si era
+el único curso que veía); «Volver a admitir» le devuelve el curso; Avance no lista a un sacado; el alumno ve UNA frase
+de entrada (`SIN_ACCESO_PORTAL`) y no ve «Reportar a Soporte» (le contestaba «no autenticado»). El porqué, las trampas
+y lo que quedó sin hacer, en docs/hallazgos-customer-success.md («"Sacar" en Members sacaba sólo de la comunidad»).
+⚠️ El alumno que Leandro sacó ANTES del arreglo sigue con el curso abierto: Members → «Fuera» → «Volver a admitir» y
+«Sacar» otra vez (sin backfill: es un cliente real).
+
+**Lo que sigue:** f25 (eliminar un curso a la papelera con Deshacer, como `borrarClase` en CursoApp.tsx), f27-f29 (la
+barra oscura del Classroom sin desplegable, un curso = un producto, el alumno sin «crear programa»), f30 («Customer
+Success» → «Clients» en lo que MaKo lee y dice; las claves internas no se tocan) y f26 (clic derecho con
+`app/_ui/MenuContextual.tsx`).
+
 ## 0-Ω. 17/10/2026 (chat «Pendientes B2: CRM y clientes», cuenta `claude4`): los pendientes de CS y Cursos
 
 Rama `pend-b2-1710` en `C:/dev/wt-pend-b2`. **Sin subir: la punta se le pasa al Cerebro.** El porqué y las trampas, en

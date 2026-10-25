@@ -61,6 +61,7 @@ import { apiDelAlumno } from '@/app/_comunidad/api';
 import Reproductor from './Reproductor';
 import TareaAlumno from './TareaAlumno';
 import { VistaPreviaCtx, useVistaPrevia } from './vista-previa';
+import { SinSoporteCtx } from '@/app/_ui/ReportarASoporte';
 import { CSS_PORTAL } from './estilos';
 import {
   ENTRADA_COMUNIDAD, TEXTOS_PORTAL, agendaVigente, avanceDelCurso, chipCerrada, chipsDeClase, claseDeArranque, clasesDelPortal,
@@ -97,6 +98,9 @@ export default function PortalAlumno({ token, vista, vistaPrevia = false, urlsAd
   useEffect(() => { sembrar({}); }, []);
 
   return (
+    // El alumno no tiene sesión de MaKo: «Reportar a Soporte» le contestaba «no autenticado» (f33). La vista previa
+    // del equipo sí la tiene.
+    <SinSoporteCtx.Provider value={!vistaPrevia}>
     <VistaPreviaCtx.Provider value={vistaPrevia}>
       <style dangerouslySetInnerHTML={{ __html: CSS_PORTAL }} />
       {producto ? (
@@ -118,6 +122,7 @@ export default function PortalAlumno({ token, vista, vistaPrevia = false, urlsAd
         <Pagina><EmptyState titulo="Todavía no hay clases." /></Pagina>
       )}
     </VistaPreviaCtx.Provider>
+    </SinSoporteCtx.Provider>
   );
 }
 

@@ -995,7 +995,7 @@ export const RUNNERS: Runners = {
       const motivo = str(input, 'motivo') ?? '';
       return {
         payload: { productoId: p.id, leadId, motivo, borrarContenido: borrar },
-        resumen: `Sacar a ${nombre} de la comunidad de «${p.nombre}»${motivo.trim() ? ` (motivo: «${corto(motivo)}»)` : ''}. Sigue con su curso.`
+        resumen: `Sacar a ${nombre} del curso de «${p.nombre}» y de su comunidad${motivo.trim() ? ` (motivo: «${corto(motivo)}»)` : ''}. Si es su único curso, se le corta el acceso.`
           + `${borrar ? ' Y borrar sus posts y comentarios de los últimos 7 días: eso NO se puede deshacer.' : ''}`,
       };
     }),
@@ -1004,10 +1004,11 @@ export const RUNNERS: Runners = {
       const r = await sacarAlumno(lector(ctx, productoId, await nombreRegistro(ctx)), claveDeLead(Number(pl.leadId)), { motivo: pl.motivo, borrarContenido: pl.borrarContenido === true });
       if (!r.ok) return { ok: false, resumen: `No se pudo: ${r.error}` };
       const b = r.borrados;
+      const curso = r.curso === 'cortado' ? ' Era su único curso: su acceso quedó cortado.' : r.curso === 'quitado' ? ' Ya no ve ese curso.' : '';
       return {
         ok: true,
-        resumen: `Listo: quedó fuera de la comunidad.${pl.borrarContenido === true ? ` Se borraron ${b.posts} posts y ${b.comentarios} comentarios.` : ''}`,
-        datos: { leadId: Number(pl.leadId), borrados: b },
+        resumen: `Listo: quedó fuera de la comunidad.${curso}${pl.borrarContenido === true ? ` Se borraron ${b.posts} posts y ${b.comentarios} comentarios.` : ''}`,
+        datos: { leadId: Number(pl.leadId), borrados: b, curso: r.curso },
       };
     }),
   },
@@ -1028,7 +1029,13 @@ export const RUNNERS: Runners = {
     ejecutar: sinLanzar('admitir al alumno', async (pl, ctx) => {
       const r = await admitirAlumno(lector(ctx, Number(pl.productoId)), claveDeLead(Number(pl.leadId)));
       if (!r.ok) return { ok: false, resumen: `No se pudo: ${r.error}` };
-      return { ok: true, resumen: 'Listo: puede volver a entrar a la comunidad.', datos: { leadId: Number(pl.leadId) } };
+      return {
+        ok: true,
+        resumen: r.cursoCortado
+          ? 'Listo: volvió a la comunidad. Su acceso al curso lo cortó otra persona y sigue cortado: se habilita desde su ficha.'
+          : 'Listo: volvió al curso y a la comunidad.',
+        datos: { leadId: Number(pl.leadId), cursoCortado: r.cursoCortado },
+      };
     }),
   },
 
