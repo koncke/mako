@@ -1440,10 +1440,8 @@ Decidido por el Cerebro (memoria `decisiones-venta-25-10`), sobre docs/como-vend
 - **El selector Mensual/Anual va sin JavaScript** (dos radios y `:has()`): las tarjetas se dibujan en /planes, que es del
   servidor, y en el portal de la landing. Sin `:has()` se ven los dos precios, nunca ninguno. Sale sólo si TODOS los planes
   tienen anual: uno sin anual quedaría sin precio al elegirlo.
-- **La garantía era la contradicción del 24/10, y ahora es una constante:** `GARANTIA_DIAS` (14 el mensual, 30 el anual) la
-  dicen las tarjetas, la línea de abajo, la pregunta «¿Y si no me sirve?» y /reembolsos §1, que antes decía «el mes ya pagado
-  no se reembolsa». **Decidido acá, no por el Cerebro:** vale para el primer pago de cada negocio, una vez (lo común, y frena
-  el pagar-pedir-volver a pagar); si Martín no lo quiere, es una frase de /reembolsos.
+- **(REEMPLAZADO el mismo 25/10 a las 10:20 por la prueba gratis de 7 días: ver «La prueba gratis de 7 días».)** La garantía
+  de 14/30 días (`GARANTIA_DIAS`) se fue entera: no quedó ni la constante.
 - **Pesos sin inventar una tasa:** la línea «Desde Argentina pagas en pesos, con Mercado Pago» sale siempre; un PRECIO en pesos
   sólo si el plan lo tiene (`precioEnPesos`, de `preciosLocales.ARS`). Hoy ningún plan lo tiene (los de código traen `{}` y en
   producción no hay setting `planes.mako`), así que no se ve ningún número en pesos. Para mostrarlo: cargar el precio en el
@@ -1461,3 +1459,22 @@ de alta a mano: el checkout (`iniciarCompraDePlan`, lib/compra-plan.ts) no tiene
 `precioEnPesos`) · lib/topes-plan.ts · lib/planes-comparacion.ts · app/planes/Tarjetas.tsx · app/planes/Vitrina.tsx ·
 app/planes/[plan]/page.tsx · lib/compra-plan-reglas.ts (`botonAnualDelPlan`, `TEXTO_ANUAL_SE_PIDE`) · lib/compra-plan.ts ·
 app/reembolsos/page.tsx §1 · tests/planes-tres-bloques.test.ts.
+
+## La prueba gratis de 7 días, con tarjeta, en lugar de la garantía (25/10/2026)
+
+Martín (25/10, ~10:20): «quiero implementar la prueba gratuita de 7 días, y eliminar la garantia de devolución... para darte de
+alta en la prueba gratuita debes poner la tarjeta, tal cual como una suscripción, y se te cobra automático luego de esos 7
+días». Lo trajo el Cerebro con el reparto (topes, antiabuso, aviso). Chat «Planes», cuenta 5.
+
+- **Lo que se lee (tanda D1):** `PRUEBA_DIAS = 7` (lib/planes-mako.ts) reemplaza a `GARANTIA_DIAS`, que no quedó. Junto al precio
+  «7 días gratis»; debajo de cada botón `textoDespuesDeLaPrueba` con el monto de ESE plan («Después US$ 97/mes. Cancela cuando
+  quieras antes del día 8»); la pregunta «¿Cómo es la prueba gratis?»; /reembolsos §1 y /terminos §8 dicen lo mismo, y que
+  después del primer cobro no hay devolución. La garantía de entrega del Acelerador sigue: es otra cosa (sobre lo que se arma).
+- **El diagnóstico obvio era el equivocado: «la suscripción ya se cobra, alcanza con agregarle días gratis».** Los topes del
+  plan, el alta automática y «Darme de baja» miran sólo la suscripción PAGADA (`suscripcionDeMakoDe`, y su copia en
+  lib/plan-esencial.ts). Un negocio en prueba no tiene pago: se daría de alta sin ningún tope, no podría darse de baja, y la
+  vigencia lo trataría como «sin pasarela» (acceso para siempre aunque cancele). La prueba toca esas tres lecturas, no el
+  botón.
+- **Mercado Pago ya cobra con primer cobro diferido** (`start_date`, el `inicio_at` del cobro, en uso desde el 17/10 para los
+  clientes de agencia: es el parámetro documentado al crear la suscripción). La prueba va sobre eso y no sobre `free_trial`,
+  que en la documentación aparece en los planes asociados y no está dicho para una suscripción sin plan.

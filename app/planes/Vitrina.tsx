@@ -15,7 +15,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
-import { GARANTIA_DIAS, PROGRAMA_ACELERADOR, type PlanMako } from '@/lib/planes-mako';
+import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, type PlanMako } from '@/lib/planes-mako';
 import { filasDeComparacion, type Celda, type FilaComparacion } from '@/lib/planes-comparacion';
 import { CSS_PLANES } from './estilo';
 import { CSS_TARJETAS, TEXTO_PAGOS, TarjetasPlanes } from './Tarjetas';
@@ -130,10 +130,11 @@ export function VitrinaPlanes({ ofertas, sufijo }: {
             <p>Sí. Pasas a otro plan o te das de baja cuando quieras, desde «Tu plan», adentro de MaKo.</p>
           </details>
           <details>
-            <summary>¿Y si no me sirve?</summary>
+            <summary>¿Cómo es la prueba gratis?</summary>
             <p>
-              Tienes {GARANTIA_DIAS.mensual} días de garantía en el plan mensual y {GARANTIA_DIAS.anual} en el anual: si no te sirve,
-              te devolvemos tu pago. <Link href="/reembolsos">Las condiciones</Link>.
+              Tienes {PRUEBA_DIAS} días gratis con el plan que elijas. Pones tu tarjeta al empezar y no se te cobra nada hasta el
+              día {PRUEBA_DIAS + 1}. Si te das de baja antes, desde «Tu plan», no se te cobra nada. Después del primer cobro, lo
+              pagado no se devuelve. <Link href="/reembolsos">Las condiciones</Link>.
             </p>
           </details>
           <details>
