@@ -45,8 +45,27 @@ del código.
       juntas por el nombre, los últimos turnos y los ✓), así la API y la pantalla no pueden decir distinto.
     - **Un chat no puede pesar megas en cada lectura:** la base guarda sus turnos más nuevos que entren en `TEXTO_POR_CHAT`
       (600.000), además de los 60 de siempre; el último entra aunque solo lo pase.
+- **Lo que se vio al mirarlo EN PRODUCCIÓN (25/10, ~15:10, con el cartero 1.19.0 ya instalado)** — dos fallas que los tests no
+  veían, porque cada pieza estaba bien sola:
+  - ⚠️ **La lista y el chat abierto leían DISTINTO, y el diagnóstico obvio (el deploy, el cartero) era el equivocado.** El CRM
+    decía «Completado»; al abrirlo no había bloque, la fila dejaba de decirlo, y al cerrarlo volvía: no había forma de darle el
+    ✓. La lista arma la fila con `resumirTurnos`, que guarda el último «Ya está» de CADA sesión (3 días); el chat abierto junta
+    TODAS sus sesiones y se quedaba con los últimos 60 turnos (`unirTurnos`). El «Ya está» del CRM era del 23/10, de una sesión
+    vieja, y sus 6 sesiones juntas pasaban los 60. Ahora `turnosDeLaConversacion` trae igual ese «Ya está» y lo que hace falta
+    para saber qué respondía (el «Ya está» de antes, lo último de Martín y de otro chat en el tramo, lo último de Martín de
+    antes): 4 turnos, no la conversación. **La regla:** lo que decide qué dice una fila tiene que estar en lo que trae el chat
+    al abrirlo; si no, la fila promete algo que la pantalla no puede mostrar ni cerrar.
+  - **El pedido casi nunca es de Martín.** El de Offer respondía a Integración (`otro`) y salía sin nada arriba: sólo se buscaba
+    lo de Martín, y casi todo lo que hacen los chats se lo manda el Cerebro. Ahora (`pedidoDelCompletado`): lo de Martín en el
+    tramo que cierra ese «Ya está» (desde el de antes); si no, lo del chat que se lo mandó, con su nombre y el ícono de chats,
+    NUNCA con la foto de Martín; si no, lo último de Martín. Ojo con el orden: un aviso del Cerebro DESPUÉS de un pedido de
+    Martín no le gana.
+  - **El nombre del otro chat llega con espacios** («Cerebro   Integración»: el «›» del sub-chat, convertido). `nombreDeOtroChat`.
+  - **El título sin el «Ya está:» empezaba en minúscula** («traer de un grupo…») y se leía cortado: `conMayuscula`, sólo si
+    empieza con una letra (un `código` de adelante queda igual).
 
-**Vive en:** `app/admin/operaciones/BloqueCompletado.tsx` · `lib/centro-chats.ts` (`completadoSinVer`) · `Avance.tsx`
+**Vive en:** `app/admin/operaciones/BloqueCompletado.tsx` · `lib/centro-chats.ts` (`completadoSinVer`, `pedidoDelCompletado`) ·
+`lib/operaciones-reglas.ts` (`turnosDeLaConversacion`) · `lib/centro-turnos-db.ts` (`leerTurnos`) · `Avance.tsx`
 (`sinCabecera`) · `Conversacion.tsx` · `app/m/operaciones/ChatsMovil.tsx` · `centro.css` (`.co-preg--completado`) ·
 `tests/completado-arriba.test.ts`
 

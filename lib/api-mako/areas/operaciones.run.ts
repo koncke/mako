@@ -76,10 +76,12 @@ export const RUNNERS: Runners = {
         const lineas: LineaChat[] = (await leerTurnos(c.locales)).map((t) => ({ tipo: 'turno', instante: Date.parse(t.at), turno: t }));
         const t = completadoSinVer(lineas, c.instante - 1);
         const [n] = t ? yaEstaDelChat([{ tipo: 'turno', instante: c.instante, turno: t }]) : [];
+        const p = t ? pedidoDelCompletado(lineas, t) : null;
         return {
           chat: c.titulo, cuenta: cuentaN(c.cuenta), termino: new Date(c.instante).toISOString(),
           titulo: n?.titulo && n.titulo !== 'Ya está' ? sinMarkdown(n.titulo) : 'Completado',
-          pedido: t ? pedidoDelCompletado(lineas, t) : null,
+          pedido: p?.texto ?? null,
+          pidio: p ? p.de ?? 'Martín' : null,
           respuesta: t?.texto ?? null,
           revisar: n?.revisar?.pagina ?? null,
         };

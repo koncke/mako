@@ -44,7 +44,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_completados_operaciones', area: 'operaciones', tipo: 'lectura',
     titulo: 'Completados que esperan tu ✓',
-    descripcion: 'Los chats del Ops Center que dicen «Completado»: su último «Ya está» todavía no tiene el ✓ de Martín (lo mismo que la fila y el bloque de arriba de la caja). Por cada uno: el chat y su cuenta, cuándo terminó, lo que pidió Martín antes (su último mensaje o trabajo), la respuesta ENTERA del chat y la página para revisarlo. Para darlo por visto, `marcar_visto_operaciones`.',
+    descripcion: 'Los chats del Ops Center que dicen «Completado»: su último «Ya está» todavía no tiene el ✓ de Martín (lo mismo que la fila y el bloque de arriba de la caja). Por cada uno: el chat y su cuenta, cuándo terminó, lo que respondía (`pedido`: lo último que le pidió Martín, o el chat que se lo mandó, que dice `pidio`), la respuesta ENTERA del chat y la página para revisarlo. Para darlo por visto, `marcar_visto_operaciones`.',
     parametros: [
       { nombre: 'chat', rotulo: 'Chat', tipo: 'string', descripcion: 'filtra por el nombre del chat («CRM», «Cerebro»).' },
     ],

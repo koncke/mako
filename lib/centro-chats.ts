@@ -1344,6 +1344,9 @@ export function rutaDeYaEsta(texto: string): string | null {
 // ⚠️ La negrita que ABRE antes de «Ya está» es la única que se come al cerrarse (`\1`): «**Ya está:** el filtro» deja «el filtro»,
 // pero «Ya está: **el filtro** del CRM» deja «**el filtro** del CRM» y no «el filtro** del CRM» (antes el `*` de después de los dos
 // puntos se tragaba la apertura del título, y quedaba una negrita cruda a la vista).
+/** Lo que sigue al «Ya está» empieza con mayúscula: sin el «Ya está:» de adelante, «traer de un grupo…» se leía cortado (25/10/2026,
+ *  medido en el «Completado» de Offer). Sólo una letra: un `código` o un **formato** de adelante quedan como están. */
+const conMayuscula = (s: string): string => s.replace(/^\p{Ll}/u, (c) => c.toLocaleUpperCase('es'));
 const PREFIJO_YA_ESTA = /^[\s>#✅✔·\-–—]*(\*\*|__|\*|_)?[\s>#✅✔·\-–—]*ya est[áa][.:!,;]*(?:\1)?[\s.:!,;\-–—]*/i;
 
 /** Hasta cuántos caracteres un primer renglón se dibuja como TÍTULO de la tarjeta; más largo es un párrafo. */
@@ -1365,7 +1368,7 @@ export const CUERPO_PLEGABLE_EN_BLOQUE = 500;
  */
 export function partesDeYaEsta(texto: string): { titulo: string | null; cuerpo: string } {
   const lineas = texto.trim().split('\n');
-  const resto = (lineas[0] ?? '').replace(PREFIJO_YA_ESTA, '').trim();
+  const resto = conMayuscula((lineas[0] ?? '').replace(PREFIJO_YA_ESTA, '').trim());
   const demas = lineas.slice(1).join('\n').trim();
   if (!resto) return { titulo: null, cuerpo: demas };
   if (resto.length <= TITULO_YA_ESTA) return { titulo: resto, cuerpo: demas };
@@ -1411,21 +1414,43 @@ export function partirPendiente(cuerpo: string): { detalle: string; cola: string
  *  el «Completado» largo va plegado a su resumen, y uno cortado termina en «…» (Avance.tsx). */
 export const cortadoPorLaPC = (texto: string): boolean => texto.length === TOPE_TURNO_VIEJO || texto.length >= TOPE_TURNO;
 
+/** Lo que respondió un «Completado»: el texto, y quién se lo pidió (null = Martín; si no, el chat que se lo mandó). */
+export type PedidoDelCompletado = { texto: string; de: string | null };
+
+/** El nombre del chat que mandó un mensaje, para leerlo: el cartero lo trae de la etiqueta del mensaje, a veces con el «›» del
+ *  jefe y su sub-chat convertido en espacios («Cerebro   Integración»). */
+export const nombreDeOtroChat = (de: string | null): string => de?.trim().replace(/\s{2,}/g, ' › ') || 'Otro chat';
+
 /**
- * Lo que pidió Martín y respondió ese «Completado» (25/10/2026, Martín: «Por ejemplo dice "no, no era todo." si no pones antes
- * cual fue mi prompt no se entiende... Podrias ponerlo con mi foto de perfil allí para que se entienda que fue mio y ahí la
- * respuesta»): lo último que ÉL le dijo al chat antes del «Ya está», un turno suyo (en la app o por la caja) o un trabajo
- * firmado del Ops Center. Un turno que trajo un trabajo no cuenta: ese trabajo ya está, con su texto. null = no hay.
+ * Lo que respondió ese «Completado» (25/10/2026, Martín: «Por ejemplo dice "no, no era todo." si no pones antes cual fue mi
+ * prompt no se entiende... Podrias ponerlo con mi foto de perfil allí para que se entienda que fue mio y ahí la respuesta»).
+ * En el TRAMO que cierra (desde el «Ya está» de antes del chat):
+ *   1. lo último que le dijo Martín: un turno suyo (en la app o por la caja) o un trabajo firmado del Ops Center. Un turno que
+ *      trajo un trabajo no cuenta: ese trabajo ya está, con su texto;
+ *   2. si Martín no le dijo nada, lo último que le mandó OTRO chat (`otro`, el Cerebro casi siempre), con su nombre;
+ *   3. si nadie le dijo nada (un segundo «Ya está» de lo mismo), lo último de Martín de antes.
+ * ⚠️ MEDIDO EL 25/10/2026 en producción: el «Completado» de Offer respondía a Integración y no tenía pedido, porque sólo se
+ *    buscaba lo de Martín; casi todo lo que hacen los chats se lo manda el Cerebro. null = no hay nada antes.
  */
-export function pedidoDelCompletado(lineas: readonly LineaChat[], ya: Pick<TurnoChat, 'at'>): string | null {
+export function pedidoDelCompletado(lineas: readonly LineaChat[], ya: Pick<TurnoChat, 'at'>): PedidoDelCompletado | null {
   const hasta = Date.parse(ya.at);
-  let mejor: { instante: number; texto: string } | null = null;
+  let desde = -Infinity;
+  for (const l of lineas) {
+    if (l.instante < hasta && l.instante > desde && l.tipo === 'turno' && l.turno.rol === 'el' && esYaEsta(l.turno.texto)) desde = l.instante;
+  }
+  let martin: { instante: number; texto: string } | null = null;
+  let otro: { instante: number; texto: string; de: string | null } | null = null;
   for (const l of lineas) {
     if (!(l.instante < hasta)) continue;
-    const texto = l.tipo === 'turno' && l.turno.rol === 'yo' && !l.turno.trabajo ? l.turno.texto : l.tipo === 'trabajo' ? l.trabajo.texto ?? '' : '';
-    if (texto.trim() && (!mejor || l.instante > mejor.instante)) mejor = { instante: l.instante, texto: texto.trim() };
+    const suyo = l.tipo === 'turno' && l.turno.rol === 'yo' && !l.turno.trabajo ? l.turno.texto : l.tipo === 'trabajo' ? l.trabajo.texto ?? '' : '';
+    if (suyo.trim() && (!martin || l.instante > martin.instante)) martin = { instante: l.instante, texto: suyo.trim() };
+    if (l.tipo === 'turno' && l.turno.rol === 'otro' && l.instante > desde && l.turno.texto.trim() && (!otro || l.instante > otro.instante)) {
+      otro = { instante: l.instante, texto: l.turno.texto.trim(), de: l.turno.de };
+    }
   }
-  return mejor?.texto ?? null;
+  if (martin && martin.instante > desde) return { texto: martin.texto, de: null };
+  if (otro) return { texto: otro.texto, de: nombreDeOtroChat(otro.de) };
+  return martin ? { texto: martin.texto, de: null } : null;
 }
 
 /** Los «Ya está» de la conversación de un chat, como hechos de Review (lo más nuevo arriba lo ordena `porRevisar`). */
@@ -1434,7 +1459,7 @@ export function yaEstaDelChat(lineas: readonly LineaChat[]): NodoAvance[] {
     if (l.tipo !== 'turno' || l.turno.rol !== 'el' || !esYaEsta(l.turno.texto)) return [];
     const t = l.turno.texto.trim();
     // El título es lo que sigue al «Ya está» (o «Ya está», si no dijo más).
-    const resto = t.replace(PREFIJO_YA_ESTA, '').trim();
+    const resto = conMayuscula(t.replace(PREFIJO_YA_ESTA, '').trim());
     const ruta = rutaDeYaEsta(t);
     return [{
       id: `y:${l.turno.uuid}`, origen: 'ya_esta', titulo: resto ? tituloDeTexto(resto) : 'Ya está', prompt: t, instante: l.instante,

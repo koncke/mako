@@ -10,7 +10,8 @@
 // va fijo arriba de la caja, con el marco del bloque de preguntas (PreguntasDelChat.tsx), en la computadora (Conversacion.tsx)
 // y en el teléfono (ChatsMovil.tsx):
 //   · arriba, lo que pidió Martín (`pedidoDelCompletado`), como un mensaje suyo con su foto; abajo, la respuesta, más corta
-//     que en el hilo y con «Ver todo» (25/10/2026, la segunda vuelta: «achica el mensaje y hazlo más claro»);
+//     que en el hilo y con «Ver todo» (25/10/2026, la segunda vuelta: «achica el mensaje y hazlo más claro»). Si lo pidió OTRO
+//     chat (el Cerebro, casi siempre), ese mensaje, con el nombre del chat y su ícono: nunca con la foto de Martín;
 //   · «Ya lo vi» le pone el ✓: el chat deja de decir «Completado» y el bloque se va (queda en el hilo, como siempre);
 //   · la flecha lo pliega a su tira; un «Ya está» NUEVO lo vuelve a abrir (`usePlegado` recuerda por el turno);
 //   · con una pregunta esperando, la pregunta manda: el «Completado» queda en su tira, arriba de ella, hasta que se lo abra.
@@ -81,15 +82,16 @@ export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, tareas, onF
           <div className="co-preg__ya-pedido">
             <div className="co-yo">
               <div className="co-burbuja">
-                <p className={`co-preg__ya-pedido-texto${pedidoEntero ? '' : ' co-preg__ya-pedido-texto--corto'}`}>{pedido}</p>
+                {pedido.de && <span className="co-burbuja__cita">{pedido.de}</span>}
+                <p className={`co-preg__ya-pedido-texto${pedidoEntero ? '' : ' co-preg__ya-pedido-texto--corto'}`}>{pedido.texto}</p>
                 {/* Uno largo (pegado, con contexto) se achica a 4 renglones, y se lee entero acá mismo: nada se pierde. */}
-                {pedido.length > PEDIDO_LARGO && (
+                {pedido.texto.length > PEDIDO_LARGO && (
                   <button type="button" className="co-chip co-preg__ya-pedido-mas" aria-expanded={pedidoEntero} onClick={() => setPedidoEntero((v) => !v)}>
                     {pedidoEntero ? 'Ver menos' : 'Ver todo'}
                   </button>
                 )}
               </div>
-              <MiFoto />
+              {pedido.de ? <span className="co-mifoto co-mifoto--otro" aria-hidden><Icon name="chats" size={14} /></span> : <MiFoto />}
             </div>
           </div>
         )}

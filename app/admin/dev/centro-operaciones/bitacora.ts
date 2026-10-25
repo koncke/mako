@@ -1868,4 +1868,16 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/api-mako/areas/operaciones.def.ts · operaciones.run.ts · lib/centro-chats.ts — completadosDeLasCuentas', 'tests/api-mako-completados.test.ts'],
   },
+  {
+    fecha: '25 oct', hora: '15:30', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El «Completado», mirado en producción: el que no se podía abrir y el pedido que faltaba',
+    pedido: 'Cerebro: «Mira en el Ops Center que el próximo «Completado» de un chat llegue entero, con el pedido de Martín y su foto arriba. Si algo no anda, avísame con lo que viste.»',
+    puntos: [
+      '**El CRM decía «Completado» y al abrirlo no había nada**: ni el mensaje ni cómo darlo por visto. Era de un chat viejo del CRM, del 23/10, y al juntar todos sus chats quedaba afuera. Ahora llega siempre.',
+      '**Arriba va lo que respondía, aunque no lo hayas escrito tú**: casi todo se lo manda el Cerebro. Lo tuyo va con tu foto; lo de otro chat, con su nombre, nunca con tu foto.',
+      '**El título empieza con mayúscula**: sin el «Ya está:» de adelante, se leía cortado.',
+    ],
+    archivos: ['lib/operaciones-reglas.ts — turnosDeLaConversacion · lib/centro-turnos-db.ts · lib/centro-chats.ts — pedidoDelCompletado · BloqueCompletado.tsx', 'tests/completado-arriba.test.ts'],
+  },
 ];
