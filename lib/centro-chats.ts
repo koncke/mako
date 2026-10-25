@@ -289,6 +289,34 @@ export const CEREBRO = 'Cerebro';
 const NOMBRES_DEL_CEREBRO = new Set(['cerebro', 'estrategia 3 cuentas', 'estrategia']);
 export const esCerebro = (titulo: string) => NOMBRES_DEL_CEREBRO.has(normal(titulo));
 
+/** Con qué se juntan dos chats en uno (`unirPorNombre`): el nombre sin mayúsculas ni tildes; el Cerebro, con sus nombres de
+ *  antes. Uno de la nube no se une con el de la PC que se llama igual: es OTRA sesión, y no recibe (sería elegible como destino). */
+export const grupoDeNombre = (c: { titulo: string; nube?: boolean }, sinNombre: string): string =>
+  c.nube ? `nube:${normal(c.titulo) || sinNombre}` : esCerebro(c.titulo) ? 'cerebro' : normal(c.titulo) || sinNombre;
+
+/**
+ * Las sesiones de la MISMA CADENA (25/10/2026): las que el Ops Center junta en un chat por el nombre (`unirPorNombre`), como un
+ * chat que siguió en otra cuenta. Por sesión, todas las de su cadena (ella incluida). La usa `superarPreguntas`: «Ventas de MaKo»
+ * preguntó con AskUserQuestion en la cuenta 2 (23/10, 19:20), la conversación siguió en la cuenta 1, y la pregunta quedó «Espera
+ * tu respuesta» para siempre: sólo la superaba un turno de la MISMA sesión. Los Runners no son chats: no van.
+ */
+export function cadenasDeSesiones(carteros: ReadonlyArray<{ chats: readonly ChatCartero[] }>): Map<string, string[]> {
+  const grupos = new Map<string, string[]>();
+  for (const cartero of carteros) {
+    for (const ch of cartero.chats) {
+      if (ch.esRunner) continue;
+      const k = grupoDeNombre(ch, ch.local);
+      grupos.set(k, [...(grupos.get(k) ?? []), ch.local]);
+    }
+  }
+  const out = new Map<string, string[]>();
+  for (const sesiones of grupos.values()) {
+    const unicas = [...new Set(sesiones)];
+    for (const s of unicas) out.set(s, unicas);
+  }
+  return out;
+}
+
 /**
  * Junta en UN chat todo lo que se llama igual (sin mayúsculas ni tildes): sus sesiones de las tres cuentas, lo que
  * trabajó cada una y lo anotado sin sesión con ese nombre. Martín (15/10/2026): «todos los chats de todas las cuentas
@@ -298,8 +326,7 @@ export const esCerebro = (titulo: string) => NOMBRES_DEL_CEREBRO.has(normal(titu
 export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
   const grupos = new Map<string, ChatCentro[]>();
   for (const c of chats) {
-    // Uno de la nube no se une con el de la PC que se llama igual: es OTRA sesión, y no recibe (sería elegible como destino).
-    const k = c.nube ? `nube:${normal(c.titulo) || c.clave}` : esCerebro(c.titulo) ? 'cerebro' : normal(c.titulo) || c.clave;
+    const k = grupoDeNombre(c, c.clave);
     if (!grupos.has(k)) grupos.set(k, []);
     grupos.get(k)!.push(c);
   }
