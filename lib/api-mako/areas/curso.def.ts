@@ -1,5 +1,5 @@
 // =============================================================================
-// api-mako / curso — el curso de cada producto (Customer Success › Curso), por la API
+// api-mako / curso — el curso de cada producto (Clients › Classroom; antes Customer Success › Curso), por la API
 // =============================================================================
 // Pedido de Martín (08/10/2026, audio de feedback del curso, ~05:30): alguien con su curso en
 // Panda preguntó «si esto lo puedo conectar por medio de API para que mi Claude lo pueda subir de
@@ -46,7 +46,7 @@ const HTTP = ['http'] as const;
  * doer es otra decisión. Escribir el curso sigue SÓLO por HTTP.
  */
 const LECTURA_APP = ['app', 'http'] as const;
-/** La tab del curso vive en Customer Success: la misma capa. Y editar el curso es del admin. */
+/** La tab del curso vive en Clients (la capa sigue siendo `customer-success`, su clave). Y editar el curso es del admin. */
 const GATING = { tab: 'customer-success', rolMinimo: 'admin' } as const;
 
 /** Topes: los mismos que la tab (tests/api-mako-curso.test.ts los compara con su fuente). */
@@ -139,7 +139,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_cursos', area: 'curso', tipo: 'lectura',
     titulo: 'Listar los cursos',
-    descripcion: 'Los productos de este negocio que pueden tener curso (los mismos que muestra Customer Success › Curso), con cuántos módulos y clases tiene cada uno. Empieza por aquí para conseguir el productoId.',
+    descripcion: 'Los productos de este negocio que pueden tener curso (los mismos que muestra Clients › Classroom), con cuántos módulos y clases tiene cada uno. Empieza por aquí para conseguir el productoId.',
     parametros: [],
     salida: 'json', canales: LECTURA_APP, costo: 'gratis', gating: GATING,
   },
@@ -285,7 +285,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'dar_acceso_curso', area: 'curso', tipo: 'accion', aTerceros: true,
     titulo: 'Dar acceso a un curso',
-    descripcion: 'Le abre a un cliente el curso de UN producto y le manda la invitación por email con su link de entrada al portal: el mismo correo que «Invitar» en Customer Success. Se le crea el acceso si no lo tenía, y pasa a abrirle ese curso sin cerrarle los que ya veía. Tiene que ser un cliente GANADO de ese producto (en su kanban de Clientes): a otro lead el portal no le abre, y esto no lo mueve de etapa. Sin email usa el del CRM; si el CRM no tenía ninguno, el que se pasa queda guardado en el lead. Si ya estaba invitado a ese curso o ya entró, no la manda de nuevo, salvo reenviar: true. Con el acceso cortado no lo abre: primero habilitar_acceso_curso. Devuelve si el correo salió.',
+    descripcion: 'Le abre a un cliente el curso de UN producto y le manda la invitación por email con su link de entrada al portal: el mismo correo que «Invitar» en Clients. Se le crea el acceso si no lo tenía, y pasa a abrirle ese curso sin cerrarle los que ya veía. Tiene que ser un cliente GANADO de ese producto (en su kanban de Clientes): a otro lead el portal no le abre, y esto no lo mueve de etapa. Sin email usa el del CRM; si el CRM no tenía ninguno, el que se pasa queda guardado en el lead. Si ya estaba invitado a ese curso o ya entró, no la manda de nuevo, salvo reenviar: true. Con el acceso cortado no lo abre: primero habilitar_acceso_curso. Devuelve si el correo salió.',
     parametros: [
       leadId,
       { ...productoId, descripcion: 'id del producto cuyo curso se le abre (de listar_cursos).' },
