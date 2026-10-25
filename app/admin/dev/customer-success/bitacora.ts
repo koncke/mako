@@ -1151,4 +1151,32 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/partners',
   },
+  {
+    fecha: '25 oct', hora: '19:10', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo Partners: sólo dinero (el 100% del primer mes), la landing, el alta corta, el panel y el código en el carrito',
+    puntos: [
+      'Se gana SÓLO dinero: el 100% del primer mes de cada negocio que entra con el link (US$97 por cada Pro, US$47 por cada Esencial), cuando paga su segundo mes. Sin meses, sin crédito y sin el Acelerador.',
+      'Todo en /partners. Quien no es partner ve sólo la landing; al tocar «Hacerme partner», tres preguntas de a una (a cuántos, cómo, dónde te transferimos) y su link. Después, su panel, con «Ver la landing» arriba.',
+      'Por qué un cliente veía el tablero vacío: «partner» era tener link, y hasta el 24/10 el link nacía con sólo abrir la pantalla. Ahora es haber hecho el alta.',
+      'La landing: «Recomienda MaKo y llévate el 100% de lo que vendes», la calculadora azul donde estaba «Si se suscribe», tres números grandes y las preguntas nuevas. Sin «Cómo funciona» ni el aviso del alta a mano.',
+      'El panel del partner, copiado del portal de Tolt: visitas a su link, negocios, lo ganado, lo que tiene a cobrar, lo ganado por mes, su link y su código, y sus cobros.',
+      'Tú ves directo el programa, copiado del admin de FirstPromoter: a pagar, pagado, dónde cobra cada partner y «Marcar pagado» (anota la transferencia y le avisa por email).',
+      'En el carrito de /planes: «¿Te recomendó alguien? Pon su código».',
+      'Lo de agencia salió de Partners: su panel está en /agency hasta que el chat de Agencias arme el Agency Dashboard.',
+    ],
+    commits: [
+      { sha: '0f881765b', msg: 'MaKo Partners › sólo plata (el 100% del primer mes), todo en /partners con el alta corta, el panel y el código en el carrito', lineas: 3570, archivos: 55 },
+    ],
+    archivos: [
+      'lib/partners-reglas.ts y lib/partners-programa.ts — las reglas (sólo dinero), el alta, el panel, el programa y «Marcar pagado»',
+      'app/partners/page.tsx — quién ve qué: la landing, el alta, el panel o el programa',
+      'app/partners/AltaPartner.tsx, PanelPartner.tsx y ProgramaPartners.tsx — el alta corta y los dos paneles',
+      'app/mako-partners/LandingPartners.tsx y Calculadora.tsx — la landing y la calculadora azul',
+      'app/planes/[plan]/CodigoReferido.tsx — el código en el carrito',
+      'lib/api-mako/areas/negocio.* — las cinco operaciones de Partners en la API',
+      'tests/partners-solo-plata.test.ts y otros tres — 21 roturas, cada una cae',
+    ],
+    revisar: '/partners',
+  },
 ];
