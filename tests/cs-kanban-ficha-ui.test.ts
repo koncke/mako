@@ -82,7 +82,7 @@ const ENTREGA = sinComentarios(leer('app/customer-success/entrega.ts'));
 // ── 1. La ficha linkeable: `?cliente=<leadId>` ─────────────────────────────────
 
 test('page.tsx lee ?cliente= en el SERVER, sólo en la rama de la cartera, y lo pasa', () => {
-  // Desde el 17/10/2026 es una PANTALLA que monta /clients (app/clients/page.tsx), no la página de la ruta.
+  // Desde el 17/10/2026 es una PANTALLA que monta /classroom/clients (app/classroom/clients/page.tsx), no la página de la ruta.
   assert.match(PAGE, /export async function PantallaClientes\(\{ searchParams \}: \{ searchParams: Promise</);
   assert.match(PAGE, /const clienteInicial = leerClienteDeUrl\(\(await searchParams\)\[PARAM_CLIENTE\]\);/);
   // Después del `return <AdminView`: la grilla del super admin es de WORKSPACES, no de leads.

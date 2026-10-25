@@ -306,7 +306,7 @@ test('las dos pantallas montan el dibujo (y ninguna volvió a uno propio)', () =
   const editor = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
   // Desde el 07/10/2026 la tab Curso ES el curso, como Conocimientos: sin la cabecera de la app («que no aparezca
   // absolutamente nada... ni el título», Martín). Desde el 17/10/2026 es Clients › Classroom y va EMBEBIDO debajo de
-  // la cabecera de Clients, que le da el alto (app/clients/ClientsShell.tsx, `.cls--alto`).
+  // la cabecera de Clients, que le da el alto (app/classroom/ClientsShell.tsx, `.cls--alto`).
   assert.match(editor, /<CursoUgc\b[\s\S]*?modo="embebido"/);
   const principal = editor.slice(editor.indexOf('<Pagina ancho="completo"'));
   assert.ok(principal.length > 500, 'no encontré la pantalla principal de la tab');
@@ -425,7 +425,7 @@ test('el Avance de los clientes SE FUE del curso a Clientes, y el link viejo red
   const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
   assert.doesNotMatch(app, /entradasExtra=|<AvanceCurso\b|Avance de los clientes/, 'volvió el Avance adentro del curso');
   const page = sinComentarios(leer('app/customer-success/curso/pantalla.tsx'));
-  assert.match(page, /if \(sp\.vista === 'avance'\) \{\s*redirect\(await rutaConWs\(`\/clients\?vista=avance\$\{productoId \? `&producto=\$\{productoId\}` : ''\}`\)\);/,
+  assert.match(page, /if \(sp\.vista === 'avance'\) \{\s*redirect\(await rutaConWs\(`\/classroom\/clients\?vista=avance\$\{productoId \? `&producto=\$\{productoId\}` : ''\}`\)\);/,
     'un ?vista=avance viejo tiene que caer en la vista Avance de Clientes, con el ?ws=');
 });
 

@@ -31,7 +31,7 @@
 //     LINK y no un botón: la guarda de la lección a medio guardar del Classroom (`useLeccionAbierta`) ataja los links
 //     antes de navegar, y un `router.push` desde un botón se la saltaba.
 //
-// ⚠️ LA VISTA PREVIA DEL ALUMNO (/clients/classroom/preview) VA SIN CABECERA: tiene su propia barra y es lo que ve
+// ⚠️ LA VISTA PREVIA DEL ALUMNO (/classroom/preview) VA SIN CABECERA: tiene su propia barra y es lo que ve
 //    un cliente, que no tiene sub-tabs de nadie.
 
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
@@ -294,7 +294,7 @@ export function ClientsShell({ programas: programasProp, puedePersonalizar, chil
             </div>
           )}
         </div>
-        <nav className="cls-tabs" aria-label="Clients">
+        <nav className="cls-tabs" aria-label="Classroom">
           {SECCIONES_CLIENTS.map((s) => {
             const href = hrefSeccion(s.id, search);
             return (
@@ -347,7 +347,7 @@ function Programa({ programas, actual, hrefDe, onNuevo, onMenu }: {
 }) {
   const [abierto, setAbierto] = useState(false);
   const ancla = useRef<HTMLButtonElement>(null);
-  if (!actual) return <span className="cls-prog"><span className="cls-nombre">Clients</span></span>;
+  if (!actual) return <span className="cls-prog"><span className="cls-nombre">Classroom</span></span>;
   // El clic derecho en el programa que se mira abre SU menú (el mismo del «…» de su fila).
   const clicDerecho = onMenu ? (e: MouseEvent<HTMLElement>) => { e.preventDefault(); onMenu(actual.id, { x: e.clientX, y: e.clientY }); } : undefined;
   // Con UN programa y nada que crear no hay desplegable: un botón que abre una lista de uno promete otra cosa.

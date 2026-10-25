@@ -1,5 +1,5 @@
 // =============================================================================
-// /clients — la tab Clients: la cabecera (el programa y las sub-tabs) arriba de cada sub-tab
+// /classroom — la tab Classroom (era Clients): la cabecera (el programa y las sub-tabs) arriba de cada sub-tab
 // =============================================================================
 // Martín, 17/10/2026: «Quiero unificar completamente la tab de "Cursos" con "Comunidad" y con "Clientes" y que la
 // tab en la sidebar se llame "Clients" y que esté dentro de la sección "Operate"... Como lo tiene Skool». El diseño,

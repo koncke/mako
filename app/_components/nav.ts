@@ -339,7 +339,9 @@ export const FAMILIAS: NavFamilia[] = [
             HERRAMIENTAS.mensajes,
           ],
         },
-        { key: 'customer-success', label: 'Clients', bajada: 'Clientes, cursos y comunidad', adentro: ['cs-curso', 'cs-comunidad'], href: '/clients', icon: 'users', match: (p) => starts('/clients')(p) || starts('/customer-success')(p) },
+        // «Classroom» desde el 25/10/2026 (Martín: «La tab de "clients" pasa a llamarse "Classroom". También su ruta.»): abre
+        // en el curso; el kanban de la entrega es su sub-tab Clients. /clients redirige (next.config.ts) y sigue marcando acá.
+        { key: 'customer-success', label: 'Classroom', bajada: 'Curso, comunidad y clientes', adentro: ['cs-curso', 'cs-comunidad'], href: '/classroom', icon: 'users', match: (p) => starts('/classroom')(p) || starts('/clients')(p) || starts('/customer-success')(p) },
       ],
     ],
   },
@@ -772,10 +774,10 @@ export const SIN_FILA: NavItem[] = [
   // Desde el 17/10/2026 /experimentos sólo redirige al Dashboard (y /analisis, el informe del trimestre incluido, es del
   // Dashboard): el ítem queda por la puerta de las dos redirecciones, que piden esta key.
   { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
-  // Curso y Comunidad: sub-tabs de Clients (Classroom y Community) desde el 17/10/2026. Sus pantallas del teléfono abren
+  // Curso y Comunidad: sub-tabs de Classroom (era Clients) desde el 17/10/2026. Sus pantallas del teléfono abren
   // con estas keys (`requireMovil({ navKey })`).
-  { key: 'cs-curso', label: 'Classroom', href: '/clients/classroom', icon: 'video', match: (p) => starts('/clients/classroom')(p) || starts('/customer-success/curso')(p) },
-  { key: 'cs-comunidad', label: 'Community', href: '/clients/community', icon: 'comunidad', match: (p) => starts('/clients/community')(p) || starts('/customer-success/comunidad')(p) },
+  { key: 'cs-curso', label: 'Classroom', href: '/classroom', icon: 'video', match: (p) => p === '/classroom' || starts('/classroom/preview')(p) || starts('/clients/classroom')(p) || starts('/customer-success/curso')(p) },
+  { key: 'cs-comunidad', label: 'Community', href: '/classroom/community', icon: 'comunidad', match: (p) => starts('/classroom/community')(p) || starts('/clients/community')(p) || starts('/customer-success/comunidad')(p) },
   { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
   { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
 ];

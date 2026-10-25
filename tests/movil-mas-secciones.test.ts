@@ -101,8 +101,8 @@ test('las siete nuevas: su ruta del teléfono, la de escritorio, la key que las 
     ['copywriting', '/m/copywriting', '/ads-writer', 'ads-writer', 'create'],
     // Desde el 17/10/2026 la URL de escritorio es la de la tab Clients (docs/diseno-clients.md).
     // Classroom y Community son sub-tabs de Clients desde el 17/10/2026: filas ocultas (sus pantallas siguen).
-    ['curso', '/m/curso', '/clients/classroom', 'cs-curso', null],
-    ['comunidad', '/m/comunidad', '/clients/community', 'cs-comunidad', null],
+    ['curso', '/m/curso', '/classroom', 'cs-curso', null],
+    ['comunidad', '/m/comunidad', '/classroom/community', 'cs-comunidad', null],
   ]);
 });
 

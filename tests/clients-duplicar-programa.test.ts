@@ -114,7 +114,7 @@ test('la action es de un admin; la cabecera navega duro a la copia y su «Deshac
   const acc = sinComentarios(leer('app/customer-success/actions.ts'));
   const dup = tramo(acc, 'export async function duplicarServicioAction(', '\n}\n');
   assert.ok(antes(dup, 'const ws = await adminDeWorkspaceActual();', 'duplicarPrograma('), 'duplica sin ser admin');
-  const shell = sinComentarios(leer('app/clients/ClientsShell.tsx'));
+  const shell = sinComentarios(leer('app/classroom/ClientsShell.tsx'));
   const d = tramo(shell, 'const duplicar = async (p: ProgramaClients) => {', 'const elegirEnPrograma = ');
   assert.match(d, /anotarDeshacer\(avisoDeCopia\(r\.copia\), \{ tipo: 'quitarCopia', id: r\.copia\.productoId, volverA: p\.id \}\);/);
   assert.match(d, /window\.location\.href = conWs\(hrefConPrograma\(pathname, search, r\.copia\.productoId\), ws\);/);

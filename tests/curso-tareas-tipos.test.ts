@@ -656,7 +656,7 @@ test('lib/curso-tarea-comunidad: publica y comenta con las funciones de la comun
   assert.match(v, /if \(suya && c\.postId == null\) \{[\s\S]{0,200}\.eq\('id', ref\.postId\)\.is\('clase_id', null\)\.not\('fijado_at', 'is', null\)/);
   // La vista del equipo (la ficha) lleva el link al post, y la tab Comunidad lo abre.
   const ficha = leer('app/customer-success/curso/RespuestaTarea.tsx');
-  assert.match(ficha, /<Link className="rt-link" href=\{`\/clients\/community\?post=\$\{r\.postId\}`\}>Ver post<\/Link>/);
+  assert.match(ficha, /<Link className="rt-link" href=\{`\/classroom\/community\?post=\$\{r\.postId\}`\}>Ver post<\/Link>/);
   const pag = leer('app/customer-success/comunidad/pantalla.tsx');
   assert.match(pag, /postInicial=\{postInicial\}/);
   assert.match(leer('app/_comunidad/Comunidad.tsx'), /useState<number \| null>\(postInicial\)/);

@@ -41,7 +41,7 @@ export default async function Inicio() {
     // en el escritorio (Martín: «No aún no veo la versión mobile, me sale todo igual...»).
     // Con LAS MISMAS RUTAS (13/10/2026) el teléfono va a /general: el proxy le sirve ahí Today.
     // Desde el 20/10/2026 el teléfono entra al Ops Center, la tab principal (`ENTRADA_MOVIL`); hasta ese día, a /general.
-    if (ws == null) redirect(telefono ? ENTRADA_MOVIL : '/clients');
+    if (ws == null) redirect(telefono ? ENTRADA_MOVIL : '/classroom/clients');
   }
   if (telefono) redirect(await rutaConWs(ENTRADA_MOVIL));
   // ⚠️ TODOS los destinos de acá van con `rutaConWs`. Este archivo es EL repartidor:

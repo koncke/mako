@@ -4,7 +4,7 @@
 // El programa que se mira, en la URL (`?producto=`), para que la cabecera de Clients diga el mismo
 // =============================================================================
 // El kanban (ClientesApp) y el Classroom (CursoApp) cambian de producto ADENTRO, con su propio desplegable, sin
-// navegar (es un filtro sobre lo que ya llegó). Sin esto la cabecera de Clients (app/clients/ClientsShell.tsx), que
+// navegar (es un filtro sobre lo que ya llegó). Sin esto la cabecera de Clients (app/classroom/ClientsShell.tsx), que
 // lee `?producto=`, seguía diciendo el programa de antes encima de otro. Y al revés: cuando la cabecera cambia de
 // programa, navega con el `?producto=` nuevo y la pantalla tiene que tomarlo (`usePrograma`).
 //
@@ -27,7 +27,7 @@ export function usePrograma(delServer: number | null): [number | null, (id: numb
 
 /**
  * Escribe `?producto=<id>` en la URL sin navegar. Con `porDefecto` (el que la pantalla abre sin parámetro) no
- * ensucia una URL que no lo traía: `/clients` sigue siendo `/clients` mientras se mire el primero.
+ * ensucia una URL que no lo traía: `/classroom/clients` sigue siendo `/classroom/clients` mientras se mire el primero.
  */
 export function useProgramaEnUrl(productoId: number | null, porDefecto: number | null): void {
   useEffect(() => {

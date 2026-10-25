@@ -207,7 +207,9 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // Clients (vino de Customer Success el 17/10/2026). Las páginas de escritorio de Curso y Comunidad piden la capa de
   // `customer-success` (requireCapa) y las keys `cs-curso`/`cs-comunidad` dan lo mismo en las cuatro capas
   // (tests/curso-admin.test.ts y tests/comunidad-nav.test.ts); el rol, como en la sidebar, sólo admin.
-  { id: 'cs', label: 'Clients', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'sales' },
+  // «Classroom» desde el 25/10/2026, como la barra. Abre /m/cs (su pantalla pide `customer-success`, la llave de esta fila), con
+  // el trío Classroom · Community · Clients arriba: el curso queda a un toque.
+  { id: 'cs', label: 'Classroom', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'sales' },
   // MaKo Partners: el admin de cualquier negocio desde el 24/10/2026 (antes, `soloCapas` agencia en nav.ts); la página
   // reparte entre la cartera de la agencia y los referidos del resto (app/m/partners/page.tsx).
   // MaKo Partners: del menú de la foto desde el 20/10/2026 (nav.ts → USER_NAV), así que su fila de More la arma el menú
@@ -792,12 +794,13 @@ export function rutaMovil(href: string | null | undefined): string | null {
   // Copywriting: lo que un cliente ve de esa tab unificada es Ads Writer (y /content-machine, el destino que
   // su código ya declara). Ideas, YouTube Writer y Stories son del super admin y se quedan en la computadora.
   if (dentro(p, '/ads-writer') || dentro(p, '/content-machine')) return aSeccion('copywriting', q);
-  // La tab Clients (17/10/2026, docs/diseno-clients.md): Classroom y las cinco sub-tabs de la comunidad, ANTES que
-  // Clients (que se queda con el resto de /clients). El teléfono sigue con sus tres pantallas.
-  if (dentro(p, '/clients/classroom')) return aSeccion('curso', q);
-  if (SECCIONES_COMUNIDAD_CLIENTS.some((s) => dentro(p, `/clients/${s}`))) return aSeccion('comunidad', q);
-  if (dentro(p, '/clients')) return '/m/cs';
-  // Las rutas VIEJAS de Customer Success (links ya mandados): en escritorio redirigen a /clients
+  // La tab Classroom (era Clients, docs/diseno-clients.md; /classroom desde el 25/10/2026): Clients y las cinco sub-tabs de
+  // la comunidad, ANTES que Classroom, que es la raíz (el curso). El teléfono sigue con sus tres pantallas. Lo de /clients
+  // ya llega como /classroom (next.config.ts redirige antes del proxy).
+  if (dentro(p, '/classroom/clients')) return '/m/cs';
+  if (SECCIONES_COMUNIDAD_CLIENTS.some((s) => dentro(p, `/classroom/${s}`))) return aSeccion('comunidad', q);
+  if (dentro(p, '/classroom')) return aSeccion('curso', q);
+  // Las rutas VIEJAS de Customer Success (links ya mandados): en escritorio redirigen a /classroom
   // (app/customer-success/a-clients.ts); el teléfono las lleva directo a su pantalla. Curso y Comunidad, ANTES que
   // Clientes. El Avance se fue del Curso a Clientes: `/customer-success/curso?vista=avance` va a Clientes.
   if (dentro(p, '/customer-success/curso')) return q.get('vista') === 'avance' ? '/m/cs' : aSeccion('curso', q);
@@ -938,9 +941,9 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/experimentos') destino = '/experimentos';
   else if (p === '/m/offer') destino = '/offer';
   else if (p === '/m/copywriting') destino = '/ads-writer';
-  else if (p === '/m/curso') destino = '/clients/classroom';
-  else if (p === '/m/comunidad') destino = '/clients/community';
-  else if (p === '/m/cs') destino = '/clients';
+  else if (p === '/m/curso') destino = '/classroom';
+  else if (p === '/m/comunidad') destino = '/classroom/community';
+  else if (p === '/m/cs') destino = '/classroom/clients';
   else if (p === '/m/partners') destino = '/partners';
   else if (p === '/m/automations') destino = RUTA_AUTOMATIONS;
   else if ((m = p.match(/^\/m\/video\/([^/]+)$/))) { destino = '/video-generator'; q.set('plan', m[1]); }

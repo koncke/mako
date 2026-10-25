@@ -7,7 +7,7 @@
 //
 // Molde: app/crm/menu-contextual-crm.ts. Acá se decide sólo QUÉ sale y en qué orden (`opcionesPrograma`) y cómo se
 // arma cada renglón (`itemsPrograma`). CÓMO se abre es de la pieza de la casa (app/_ui/MenuContextual.tsx) y QUÉ HACE
-// cada opción es de la cabecera (`elegirEnPrograma`, app/clients/ClientsShell.tsx). Lo abren el «…» de cada programa
+// cada opción es de la cabecera (`elegirEnPrograma`, app/classroom/ClientsShell.tsx). Lo abren el «…» de cada programa
 // de la lista de la cabecera y su clic derecho. ⚠️ NO el título de la barra negra del Classroom: es texto (Martín,
 // 25/10/2026: «no debe ser un desplegable»).
 //

@@ -235,7 +235,7 @@ test('el dibujo pinta la fuente en .ugc y pide su hoja ANTES de cualquier return
 // cabecera de Clients: el menú de la marca del Classroom se fue.
 test('la eligen en «Personalizar», al lado del color, y la ven el editor, el portal y la vista previa', () => {
   const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
-  const shell = sinComentarios(leer('app/clients/ClientsShell.tsx'));
+  const shell = sinComentarios(leer('app/classroom/ClientsShell.tsx'));
   const pers = bloque(shell, 'function Personalizar(', 'function Pop(');
   const color = pers.indexOf('<p className="cls-pop-tit">Color</p>');
   const fuente = pers.indexOf('<p className="cls-pop-tit">Fuente</p>');
@@ -269,7 +269,7 @@ test('el color y la fuente se deshacen escribiendo en el server, desde lo CONFIR
   assert.match(f, /const antes = valorDe\(confirmados\.current\[productoId\] \?\? estiloVacio\(\), a\);/, 'el «antes» tiene que ser lo confirmado, no lo de pantalla');
   assert.match(f, /if \(await guardarAjuste\(a, v\)\) show\(aviso, \(\) => \{ void guardarAjuste\(a, antes\); \}\);/, 'el deshacer no escribe en el server');
   // El color y la fuente de «Personalizar» (24/10/2026): el aviso con su «Deshacer» vuelve a guardar por el MISMO camino.
-  const shell = sinComentarios(leer('app/clients/ClientsShell.tsx'));
+  const shell = sinComentarios(leer('app/classroom/ClientsShell.tsx'));
   const g = bloque(shell, 'const guardar = async (ajuste: AjusteVisual', 'router.refresh();');
   assert.match(g, /show\(ajuste\.tipo === 'acento' \? 'Color cambiado' : 'Fuente cambiada', \(\) => \{ void guardar\(ajuste, antes\); \}\);/, 'el deshacer no escribe en el server');
   assert.match(g, /if \(!r\.ok\) \{ setProgramas\(previo\); show\(r\.error, undefined, 'bad'\); return; \}/);
@@ -317,7 +317,7 @@ test('la vista previa: sin el desplegable de la etapa, «Vista del alumno» a la
   // La flecha, escrita o escapada: las dos dibujan «←».
   assert.match(barra, /<ButtonLink size="sm" variant="secondary" href=\{hrefVolverAEditar\(productoId\)\}>\{'(?:←|\\u2190)'\} Volver a editar<\/ButtonLink>/,
     'el botón tiene que decir «← Volver a editar» y navegar con el ?ws= (ButtonLink usa app/_ui/Link)');
-  assert.match(barra, /const hrefVolverAEditar = \(productoId: number\) => `\/clients\/classroom\?producto=\$\{productoId\}`;/);
+  assert.match(barra, /const hrefVolverAEditar = \(productoId: number\) => `\/classroom\?producto=\$\{productoId\}`;/);
   assert.doesNotMatch(barra, /Volver al curso/);
   // «Vista del alumno» en el lugar del desplegable: después del espacio que empuja a la derecha.
   const aire = barra.indexOf('<span style={{ flex: 1 }} />');

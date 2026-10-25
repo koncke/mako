@@ -171,7 +171,7 @@ test('el teléfono: la MISMA puerta, los MISMOS datos y la MISMA alta que la com
   assert.doesNotMatch(app, /^import (?!type )[^;]*from ['"]@\/lib\/partners['"]/m, 'lib/partners.ts es server-only: el teléfono importa sólo su tipo');
 });
 
-test('el teléfono: Clients, Community y Classroom llevan arriba el MISMO trío que la cabecera de escritorio', async () => {
+test('el teléfono: Classroom, Community y Clients llevan arriba el MISMO trío que la cabecera de escritorio', async () => {
   const { SECCIONES_CLIENTS } = await import('../lib/clients-rutas');
   const trio = leer('app/m/cs/SeccionesClientsM.tsx');
   const labels = [...trio.matchAll(/label: '([^']+)'/g)].map((m) => m[1]);

@@ -101,6 +101,13 @@ const nextConfig: NextConfig = {
       // de acción, notificaciones, bookmarks) siguen andando con este redirect.
       { source: '/leads', destination: '/crm', permanent: false },
       { source: '/leads/:path*', destination: '/crm/:path*', permanent: false },
+      // /clients se renombró a /classroom (25/10/2026, Martín: «La tab de "clients" pasa a llamarse "Classroom". También
+      // su ruta.»). La tab abre en el curso; el kanban de la entrega es /classroom/clients. Lo más largo primero (gana el
+      // primero que coincide). La tabla es la de `rutaNuevaDeVieja` (lib/clients-rutas.ts), que la fija su test.
+      { source: '/clients', destination: '/classroom/clients', permanent: false },
+      { source: '/clients/classroom', destination: '/classroom', permanent: false },
+      { source: '/clients/classroom/:path*', destination: '/classroom/:path*', permanent: false },
+      { source: '/clients/:path*', destination: '/classroom/:path*', permanent: false },
       // hola-mako.com/extension → la ficha en la Chrome Web Store.
       //
       // El link de Google no se puede acortar: el id (`gapbem…`) es un hash de la

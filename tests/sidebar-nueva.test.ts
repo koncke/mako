@@ -335,7 +335,7 @@ test('nada se rompe: cada destino de la barra y de lo que dejó de ser fila tien
   const existe = (href: string): boolean => {
     const ruta = href.split(/[?#]/)[0].replace(/^\//, '');
     const base = join(RAIZ, 'app', ...ruta.split('/'));
-    // Una ruta dinámica también vale (/clients/community es app/clients/[seccion]/page.tsx).
+    // Una ruta dinámica también vale (/classroom/community es app/classroom/[seccion]/page.tsx).
     const padre = join(base, '..');
     const dinamica = existsSync(padre) && readdirSync(padre).some((d) => d.startsWith('[') && d.endsWith(']') && !d.includes('.') &&existsSync(join(padre, d, 'page.tsx')));
     return ['page.tsx', 'route.ts'].some((f) => existsSync(join(base, f))) || existsSync(join(base, '[[...resto]]', 'page.tsx')) || dinamica;
@@ -349,7 +349,7 @@ test('todos los workspaces: la misma barra para el super admin, un cliente y un 
   // El admin de un cliente completo: las dos familias, sin nada del super admin.
   assert.deepEqual(visibles(CLIENTE), [
     ['Today', ['Plan', 'Chats', 'Dashboard']],
-    ['Sales', ['CRM', 'Calendar', 'Automations', 'Clients']],
+    ['Sales', ['CRM', 'Calendar', 'Automations', 'Classroom']],
     ['Marketing', ['Offer', 'Web Generator', 'Ads Manager']],
     ['Create', ['Video', 'Image', 'Copywriting']],
   ]);

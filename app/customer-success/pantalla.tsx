@@ -1,7 +1,7 @@
 // =============================================================================
-// Clients › Clients (/clients) — tus clientes, y el trabajo de cada uno
+// Classroom › Clients (/classroom/clients) — tus clientes, y el trabajo de cada uno
 // =============================================================================
-// ⚠️ ESTO ES UNA PANTALLA, NO UNA RUTA (17/10/2026). La monta app/clients/page.tsx; la ruta vieja
+// ⚠️ ESTO ES UNA PANTALLA, NO UNA RUTA (17/10/2026). La monta app/classroom/clients/page.tsx; la ruta vieja
 // (/customer-success, app/customer-success/page.tsx) redirige allá. El porqué de que el código siga en
 // esta carpeta, en docs/diseno-clients.md (D2).
 //
