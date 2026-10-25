@@ -6093,6 +6093,19 @@ contra producción), no leyendo el código.
 **Lo que ya quedó agendado** (las 20 activas) no se recalcula: el arreglo vale para las esperas que se resuelvan después
 del deploy. Test: tests/espera-desde-el-mensaje.test.ts.
 
+**Medido en producción (24/10/2026, 20:50 ART, claude5; scripts/medir-goteo-tras-deploy.mts).** «Contestó» corta: los 4
+que contestaron (insc 292, 319, 320, 340) no recibieron ningún mensaje más y están en 'respondio'. El reloj nuevo todavía
+no tiene nada propio que mostrar: desde el deploy no salió ningún M1 (Mauricio no movió más leads) y las 20 activas
+siguen con lo agendado ANTES (M2 entre 24,19 h y 38,70 h después de M1). **La trampa del script de medición:** la primera
+versión leía todo con el cliente de la base PRINCIPAL, encontraba la #289 y su config (`app_settings` y
+`nutricion_secuencias` también están ahí) y decía «nada tocado desde el deploy». Era verdad en esa base: las
+inscripciones y los envíos del ws1 viven en SU base. Un script que mide un negocio con base propia lee con
+`runWithWorkspace(ws)` + `getTenantDb()`, o da un «todo tranquilo» falso (la trampa «k» de arriba, otra vez).
+**Lo agendado con el reloj viejo se puede poner donde lo habría puesto el nuevo:** scripts/recalcular-esperas-viejas.mts
+(`ultimo_paso_at` + los minutos de la espera, sólo si adelanta, compare-and-set sobre estado, tarjeta y vencimiento;
+sin `--aplicar` sólo dice lo que haría). Para la #289 adelanta 13 por ~24 min y 7 por 12 a 15 h. **Sin aplicar:** es
+escribir en la base de un cliente real y quedó para que lo decida Martín.
+
 ## Lo de la llamada que seguía a medias, con el arnés contra producción (22/10/2026, AU2 del plan del Cerebro)
 
 Medido por el Cerebro contra 87365c830 (el arnés `probar-chats-automations` @ eee20b3ab) y arreglado con tests que usan la
