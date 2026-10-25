@@ -613,6 +613,22 @@ chat de Automations (`docs/diseno-2fa-obligatorio.md` en su rama); la regla es d
 `dejar_de_exigir_2fa`, `ver_exigencia_2fa`) · `supabase/migrations/0283_mfa_obligatorio.sql` ·
 `tests/mfa-obligatorio.test.ts` · *14/10/2026, chat «Ciberseguridad» con «Automations»*
 
+### El 2FA del login dijo «No coincide» con un código BUENO, y entró igual: no era un bypass (25/10/2026)
+
+Martín, 25/10 ~12:55: «me logee con SuperAdmin y me dijo "No coincide" el codigo de la app de verificacion y luego me dejo
+entrar igual». **El diagnóstico obvio («se saltea el 2FA») era el equivocado, y lo dijo `mfa_eventos`:** del usuario 1, ese día,
+sólo «intento OK login-totp» (12:51:00.810) y «login-totp OK» (12:51:01.138). Un solo intento, y bueno: el servidor nunca dijo
+que no coincidía.
+- **La causa** (`app/login/2fa/SegundoPaso.tsx`): el primer envío (el automático a los 6 dígitos, `CampoCodigo`) entraba y la
+  página empezaba a irse; `correr` volvía a habilitar «Entrar» y el Enter en su `finally`; un segundo envío llegaba sin el paso
+  intermedio (lo cierra `ponerSesion` al entrar), `/api/auth/2fa` contestaba 401 «vencido» sin registrar nada, y `pedir`
+  devolvía `{ ok: false }` SIN error, que la pantalla pintaba con su comodín `j.error ?? 'No coincide.'`. Después navegaba a
+  `/login?error=mfa-vencido`, y como la sesión ya estaba completa, entraba.
+- **La regla:** una pantalla que ya se está yendo queda trabada (el estado «entrando», con un ref para el doble toque antes del
+  próximo dibujo); un 401 del paso intermedio no pinta nada; y ningún comodín inventa un motivo: el texto del servidor (que ya
+  dice «Ese código no coincide.»), o «No se pudo. Vuelve a probar.» (`app/login/2fa/respuesta-2fa.ts`).
+- Fijado en `tests/login-2fa-entrando.test.ts` (probado rompiéndolo: el `finally` de antes y el comodín, 2 de 2).
+
 ### El 2FA obligatorio NO rige hasta que alguien corra la acción: el estado real al 21/10/2026 (leído en `main`, sin tocar producción)
 
 **El síntoma:** al verificar lo de Google se vio que `workspaces.mfa_obligatorio_desde` (la 0283) **nunca se había aplicado en producción** (la REST daba 42703). Es aditiva y el código la lee con tolerancia a que falte
