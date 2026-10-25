@@ -1314,6 +1314,9 @@ export const TITULO_YA_ESTA = 110;
 export const CUERPO_PLEGABLE = 1500;
 /** Cuánto detalle tiene que haber antes de la cola para que valga la pena plegarlo. */
 const DETALLE_PLEGABLE = 600;
+/** Arriba de la caja (BloqueCompletado.tsx) el «Completado» va más corto: desde acá se pliega a su resumen, con «Ver todo»
+ *  (25/10/2026, Martín: «achica el mensaje y hazlo más claro»). */
+export const CUERPO_PLEGABLE_EN_BLOQUE = 500;
 
 /**
  * El «Completado» partido para dibujarlo ENTERO (17/10/2026, Martín: «tienen 3 puntos al final y no llego a leer todo, esos
@@ -1364,8 +1367,27 @@ export function partirPendiente(cuerpo: string): { detalle: string; cola: string
   return { detalle, cola };
 }
 
-/** ¿La PC cortó este turno al subirlo? Sube hasta `TOPE_TURNO` caracteres (cartero.mjs) y el resto no llega, sin avisar. */
+/** ¿La PC cortó este turno al subirlo? Sube hasta `TOPE_TURNO` caracteres (cartero.mjs) y el resto no llega, sin avisar.
+ *  ⚠️ No se AVISA en pantalla (25/10/2026, Martín: «que no haya nunca un limite de caracteres, en todo caso achica el mensaje»):
+ *  el «Completado» largo va plegado a su resumen, y uno cortado termina en «…» (Avance.tsx). */
 export const cortadoPorLaPC = (texto: string): boolean => texto.length >= TOPE_TURNO;
+
+/**
+ * Lo que pidió Martín y respondió ese «Completado» (25/10/2026, Martín: «Por ejemplo dice "no, no era todo." si no pones antes
+ * cual fue mi prompt no se entiende... Podrias ponerlo con mi foto de perfil allí para que se entienda que fue mio y ahí la
+ * respuesta»): lo último que ÉL le dijo al chat antes del «Ya está», un turno suyo (en la app o por la caja) o un trabajo
+ * firmado del Ops Center. Un turno que trajo un trabajo no cuenta: ese trabajo ya está, con su texto. null = no hay.
+ */
+export function pedidoDelCompletado(lineas: readonly LineaChat[], ya: Pick<TurnoChat, 'at'>): string | null {
+  const hasta = Date.parse(ya.at);
+  let mejor: { instante: number; texto: string } | null = null;
+  for (const l of lineas) {
+    if (!(l.instante < hasta)) continue;
+    const texto = l.tipo === 'turno' && l.turno.rol === 'yo' && !l.turno.trabajo ? l.turno.texto : l.tipo === 'trabajo' ? l.trabajo.texto ?? '' : '';
+    if (texto.trim() && (!mejor || l.instante > mejor.instante)) mejor = { instante: l.instante, texto: texto.trim() };
+  }
+  return mejor?.texto ?? null;
+}
 
 /** Los «Ya está» de la conversación de un chat, como hechos de Review (lo más nuevo arriba lo ordena `porRevisar`). */
 export function yaEstaDelChat(lineas: readonly LineaChat[]): NodoAvance[] {

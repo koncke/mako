@@ -21,6 +21,16 @@ del código.
 - **La pregunta manda:** con una esperando, el «Completado» queda en su tira, arriba de ella, hasta que se lo abra. Plegarlo se
   recuerda POR TURNO (`usePlegado`): un «Ya está» nuevo vuelve a abrirse.
 - **La tira es un renglón:** sin los asteriscos del Markdown (`sinMarkdown`, la regla de la lista). Se vio en la captura.
+- **La segunda vuelta (25/10, ~12:00), Martín:** «que no haya nunca un limite de caracteres, en todo caso achica el mensaje y
+  hazlo más claro... si no pones antes cual fue mi prompt no se entiende». Lo que quedó:
+  - **Nunca «Cortado a los N caracteres».** La PC igual sube hasta `TOPE_TURNO` (4000) y lo demás no llega (eso es del cartero
+    y de la base, y no se tocó): lo cortado termina en «…» y va plegado. Lo largo SIN una cola de «Sigue/Prueba» antes quedaba
+    abierto entero; ahora se pliega todo a su resumen, con «Ver todo». Arriba de la caja, desde 500 caracteres.
+  - **Su pedido, arriba, como un mensaje suyo con su foto** (`pedidoDelCompletado`): lo último que ÉL le dijo al chat antes del
+    «Ya está». ⚠️ Un turno «yo» que trajo un trabajo firmado NO cuenta: su texto es el sobre firmado; cuenta el trabajo, que
+    tiene el texto que escribió. Uno largo se achica a 4 renglones con su propio «Ver todo» (no se corta).
+  - **Los rótulos:** «Respuesta de <chat>» sobre la respuesta, y «Ya lo vi» en lugar de «Visto».
+  - ⚠️ `tests/centro-ops7.test.ts` fijaba el aviso de corte (el pedido del 17/10 era avisarlo). Se actualizó: es la regla nueva.
 
 **Vive en:** `app/admin/operaciones/BloqueCompletado.tsx` · `lib/centro-chats.ts` (`completadoSinVer`) · `Avance.tsx`
 (`sinCabecera`) · `Conversacion.tsx` · `app/m/operaciones/ChatsMovil.tsx` · `centro.css` (`.co-preg--completado`) ·

@@ -1805,4 +1805,24 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['app/admin/operaciones/BloqueCompletado.tsx · Conversacion.tsx · ChatsMovil.tsx · lib/centro-chats.ts — completadoSinVer', 'tests/completado-arriba.test.ts'],
   },
+  {
+    fecha: '25 oct', hora: '12:00', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El «Completado», sin límite de caracteres, con mi pedido arriba',
+    pedido: '«El "completado" me dice "Cortado a los 4000 caracteres. El resto está en el chat de la PC.", que no haya nunca un limite de caracteres, en todo caso achica el mensaje y hazlo más claro... Por ejemplo dice "no, no era todo." si no pones antes cual fue mi prompt no se entiende... Podrias ponerlo con mi foto de perfil allí para que se entienda que fue mio y ahí la respuesta... Y que sea mas claro los textos de "completado".»',
+    puntos: ['En el mismo mensaje, el menú del perfil y la tuerca de Settings (la tanda siguiente).'],
+  },
+  {
+    fecha: '25 oct', hora: '13:00', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El «Completado» más claro: tu pedido arriba y nada cortado',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**Nunca más «Cortado a los 4000 caracteres»**, ni arriba de la caja ni en la conversación: lo largo se achica a su resumen y «Ver todo» lo abre.',
+      '**Arriba de la respuesta va lo que le pediste**, con tu foto, como un mensaje tuyo; abajo, «Respuesta de» y el chat.',
+      '**«Ya lo vi»** en lugar de «Visto».',
+      '**Mirado con los estilos reales y un pedido de ejemplo**, a 1280 y a 390 px; sin mirar en producción.',
+    ],
+    archivos: ['app/admin/operaciones/BloqueCompletado.tsx · Avance.tsx · lib/centro-chats.ts — pedidoDelCompletado', 'tests/completado-arriba.test.ts · centro-ops7.test.ts'],
+  },
 ];
