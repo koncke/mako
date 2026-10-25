@@ -3396,4 +3396,35 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '24 oct', hora: '21:40', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los grupos de WhatsApp, más rápido (punto 18)',
+    pedido: 'La extracción en grupos de WhatsApp tarda bastante, no solo la extracción, sino también el cargar los grupos, tarda muchísimo. Hazlo más rapido, optimizalo.',
+    puntos: [
+      'Quinta tanda de los puntos 12 a 21 del 24/10 (docs/feedback-24-10.md): la última.',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '05:30', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los grupos de WhatsApp abren al instante',
+    puntos: [
+      'Medí antes de tocar: pedirle a WhatsApp todos los grupos tarda 33 segundos (285 grupos). La pantalla esperaba 15 y terminaba mostrando sólo 61.',
+      'Ahora la lista aparece al instante (la de la última vez) y la completa llega sola por detrás, sin perder el grupo que elegiste.',
+      'Traer los contactos va de a cuatro a la vez.',
+      '«Datos de empresa» sigue despacio a propósito: cuida tu línea de un bloqueo.',
+      'Sin ver en pantalla todavía: se mira cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: 'a31923008', msg: 'CRM · grupos de WhatsApp: la lista abre al instante y la completa llega por detrás; traer va de a cuatro', lineas: 240, archivos: 10 },
+    ],
+    archivos: [
+      'app/crm/grupo-wa-server.ts — la lista en dos tiempos, traer de a cuatro',
+      'lib/grupo-wa-reglas.ts — la lista guardada',
+      'app/crm/TraerDeGrupoWA.tsx — pide la completa por detrás',
+      'tests/grupo-wa-rapido.test.ts',
+    ],
+    revisar: '/crm',
+  },
 ];
