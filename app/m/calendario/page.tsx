@@ -12,6 +12,7 @@
 // (a Google si hay dónde escribir, si no a MaKo), tildar uno propio y borrar (con Deshacer). Semana, Mes, Año,
 // plantillas, agendar por Calendly, editar o mover, elegir qué calendarios se ven y conectar Google: en la computadora.
 //
+// «Llamadas» (25/10/2026): la tercera opción del selector de vistas abre la lista de citas de venta (./LlamadasM.tsx).
 // Quién: la regla del Sidebar para `calendario` (sólo el admin del negocio), y las actions vuelven a mirarlo.
 // ⚠️ El workspace es el del request (lo resuelven las libs); `?vista=` y `?fecha=` son las claves de escritorio
 //    (`QUERY_DE_SECCION`), así un link de la computadora abre lo más parecido.
@@ -22,9 +23,12 @@
 import './calendario.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { hoyEnWorkspace } from '@/lib/timezone';
-import { leerCalendario, zonaDelCalendario, type LecturaCalendario } from '@/lib/calendario';
+import { leerCalendario, leerLlamadasDeVenta, leerTareasConFecha, zonaDelCalendario, type LecturaCalendario } from '@/lib/calendario';
+import { DIAS_ADELANTE_LLAMADAS, DIAS_ATRAS_LLAMADAS, type LlamadaDeVenta } from '@/lib/calendario-llamadas';
+import { sumarDias, type ItemCalendario } from '@/lib/calendario-modelo';
 import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { CalendarioM } from './CalendarioM';
+import { LlamadasM } from './LlamadasM';
 import { fechaDeParam, queEnLaComputadora, rangoDeLectura, vistaDeParam } from './modelo';
 
 export const dynamic = 'force-dynamic';
@@ -36,6 +40,21 @@ export default async function CalendarioPagina({ searchParams }: {
   await requireMovil({ navKey: 'calendario' });
   const sp = await searchParams;
   const [hoy, tz] = await Promise.all([hoyEnWorkspace(), zonaDelCalendario()]);
+  // «Llamadas» (25/10/2026): la misma lectura que la computadora (app/calendario/page.tsx), CRM y Plan, nada de Google.
+  if (sp.vista === 'llamadas') {
+    const fallos: { llamadas?: boolean; tareas?: boolean } = {};
+    const [llamadas, tareas] = await Promise.all([
+      leerLlamadasDeVenta(sumarDias(hoy, -DIAS_ATRAS_LLAMADAS), sumarDias(hoy, DIAS_ADELANTE_LLAMADAS), tz)
+        .catch((e): LlamadaDeVenta[] => { console.error('[m/calendario] llamadas:', e instanceof Error ? e.message : e); fallos.llamadas = true; return []; }),
+      leerTareasConFecha(sumarDias(hoy, -14), sumarDias(hoy, 31), tz)
+        .catch((e): ItemCalendario[] => { console.error('[m/calendario] tareas:', e instanceof Error ? e.message : e); fallos.tareas = true; return []; }),
+    ]);
+    return (
+      <PantallaM>
+        <LlamadasM llamadas={llamadas} tareas={tareas} hoy={hoy} tz={tz} ahora={new Date().toISOString()} fallos={fallos} />
+      </PantallaM>
+    );
+  }
   const vista = vistaDeParam(sp.vista);
   const fecha = fechaDeParam(sp.fecha, hoy);
   const rango = rangoDeLectura(fecha);

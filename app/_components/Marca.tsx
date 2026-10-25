@@ -25,6 +25,7 @@ import { esFoto, urlPortada, glifoDeIcono } from '@/lib/portadas';
 import { urlIcono, esIcono } from '@/lib/iconos-catalogo';
 import { iniciales } from '@/lib/unicode-seguro';
 
+// ⚠️ La pieza única (lib/unicode-seguro.ts): `w[0]` de «🧪 Martín» era medio emoji y tiraba la hidratación (ticket #10).
 const inicialesDe = (nombre: string) => iniciales(nombre);
 
 export function Marca({ icono, emoji, nombre = '', tam = 40, y, color, cuadrado = false, sinFondo = false, foto: fotoDirecta }: {

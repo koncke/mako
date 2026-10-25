@@ -14,16 +14,17 @@
 //     elige el siguiente. Nunca duplica, y el que ya está en el CRM no se vuelve a cargar: va abajo, en gris (24/10/2026).
 // ⚠️ DE A TANDAS (`TANDA_GRUPO`): un grupo llega a 1.024 personas y cada lead son varias escrituras; una acción tiene 60 s.
 
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { TANDA_GRUPO, TOPE_PERFILES_DIA, etapaPorDefecto, minutosDePerfiles, fichaLimpia, funnelPorDefecto, type FichaWa, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
 import { correrPerfiles, guardarFichasEnTandas, preguntaDePerfiles, resumenDeFichas, resumenDePerfiles, type AvancePerfiles } from './enriquecer-cliente';
-import { extensionLeeFichas, motivoDeFichas, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
+import { motivoDeFichas, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
+import { useExtensionFichas } from './usar-extension-fichas';
 import { miles } from './traer-seleccion';
-import { VistaConPie } from '@/app/_ui/VistaConPie';
+import { CAMPO_TRAER, MoldeTraer, type OpcionMas } from './MoldeTraer';
 import { Confirm } from '@/app/_ui';
 import {
-  abrirTraerDeGrupoAction, completarFichasDeGrupoAction, completarNombresDeGrupoAction, completarPerfilesDeGrupoAction, etapasDeFunnelAction, gruposDeLineaAction,
+  abrirTraerDeGrupoAction, completarFichasDeGrupoAction, completarPerfilesDeGrupoAction, etapasDeFunnelAction, gruposDeLineaAction,
   participantesDeGrupoAction, traerDeGrupoAction,
 } from './grupo-wa-actions';
 import type { LineaGrupos } from './grupo-wa-server';
@@ -35,7 +36,6 @@ const td: CSSProperties = { padding: '9px 10px', fontFamily: SANS, fontSize: 13.
 /** El renglón que separa a los que ya están: chico, en mayúsculas, como la cabecera de la tabla. */
 const grisRotulo: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600, background: 'var(--surface-2)', padding: '8px 12px' };
 const nota: CSSProperties = { fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 };
-const campo: CSSProperties = { padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' };
 
 type Participante = ParticipanteWA & { enElCrm: boolean };
 type Etapa = { key: string; label: string; manda: boolean };
@@ -75,6 +75,11 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   /** «Completar desde mi WhatsApp» corriendo, y el pedido de parar (lo mira el bucle entre tandas). */
   const [leyendoWa, setLeyendoWa] = useState(false);
   const pararWa = useRef(false);
+  /** «Completar nombres» sin la extensión: 'pide' = el pie dice «Instala la extensión»; 'fue' = tocó «Instalar». Al aparecer
+   *  la extensión en esta pestaña, arranca sola. */
+  const [esperaExt, setEsperaExt] = useState<'pide' | 'fue' | null>(null);
+  /** Recién trajo: el pie ofrece completar (f11, Leandro no encontró «Completar» en el «⋯»). */
+  const [trasTraer, setTrasTraer] = useState(false);
   const abierto = useRef(false);
 
   // Al abrir: las líneas del negocio y las etapas del funnel. Al cambiar de funnel, sólo sus etapas.
@@ -99,14 +104,22 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   }, [funnel]);
 
   // Los grupos de la línea elegida. Cambiar de línea limpia todo lo de abajo.
+  // ⚠️ EN DOS TIEMPOS (25/10/2026, «el cargar los grupos, tarda muchísimo»; medido: la lista completa de WhatsApp, 33 s con 285
+  // grupos): primero lo guardado de la última vez (o los de la base, al instante) y, si hace falta, la completa por detrás. Al
+  // llegar reemplaza la lista sin tocar el grupo elegido.
+  const [buscandoTodos, setBuscandoTodos] = useState(false);
   useEffect(() => {
     if (!linea) return;
     let vivo = true;
-    setGrupos(null); setJid(''); setGente(null); setSel(new Set()); setErr(null);
+    setGrupos(null); setJid(''); setGente(null); setSel(new Set()); setErr(null); setBuscandoTodos(false);
     void gruposDeLineaAction(linea).then((r) => {
       if (!vivo) return;
       if (!r.ok) { setErr(r.error); setGrupos([]); return; }
       setGrupos(r.grupos);
+      if (!r.refrescar) return;
+      setBuscandoTodos(true);
+      void gruposDeLineaAction(linea, true).then((c) => { if (vivo && c.ok) setGrupos(c.grupos); })
+        .catch(() => {}).finally(() => { if (vivo) setBuscandoTodos(false); });
     }).catch(() => { if (vivo) { setErr('WhatsApp no contestó.'); setGrupos([]); } });
     return () => { vivo = false; };
   }, [linea]);
@@ -146,8 +159,8 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   const sinOfrecer = etapas.filter((e) => e.manda).length;
   const usables = etapas.filter((e) => !e.manda);
   const trayendo = avance != null || completando;
-  /** ¿La extensión de este navegador lee las fichas de WhatsApp Web? (el atributo lo pone extension/mako-puente.js). */
-  const extWa = extensionLeeFichas();
+  /** ¿La extensión de este navegador lee las fichas de WhatsApp Web? (el atributo lo pone extension/mako-puente.js). En vivo. */
+  const extWa = useExtensionFichas();
   const yaEstan = (gente ?? []).filter((p) => p.enElCrm).length;
   const listo = !!grupo && !!etapa && sel.size > 0 && !!etiqueta.trim() && funnel != null;
 
@@ -157,7 +170,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   };
   const traer = async () => {
     if (!grupo || !listo) return;
-    setErr(null); setHecho(null);
+    setErr(null); setHecho(null); setTrasTraer(false); setEsperaExt(null);
     // Sólo los nuevos, aunque algo los haya tildado: un lead que ya está no se vuelve a cargar.
     const yaEnElCrm = new Set((gente ?? []).filter((p) => p.enElCrm).map((p) => p.telefono));
     const tels = [...sel].filter((t) => !yaEnElCrm.has(t));
@@ -191,31 +204,9 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     const fallidos = errores.length ? ` No se pudieron: ${errores.slice(0, 5).join(', ')}${errores.length > 5 ? '…' : ''}.` : '';
     const cola2 = corte ? ` Se cortó: ${corte} Quedaron ${miles(tels.length - hechos)} sin traer: vuelve a tocar «Traer» para seguir.` : ' Elige otro grupo para seguir.';
     setHecho(`«${grupo.nombre}»: ${resumen}.${fallidos}${cola2}`);
+    setTrasTraer(true);
     onTraidos(resumen);
     setVuelta((n) => n + 1);
-  };
-
-  // «COMPLETAR NOMBRES» (24/10/2026, el Cerebro: traer ahora no puede impedir completar después). El listado del grupo no trae
-  // nombres: los traídos nacen con su número. Esto les pone el que WhatsApp conozca hoy, sólo donde tienen el número; se puede
-  // volver a tocar más adelante (quien escriba deja su nombre). No crea, no mueve, no le manda nada a nadie.
-  const completar = async () => {
-    if (!grupo || trayendo) return;
-    setErr(null); setHecho(null); setCompletando(true);
-    let completados = 0, sinNombre = 0;
-    try {
-      for (let vuelta = 0; vuelta < 10; vuelta++) {
-        const r = await completarNombresDeGrupoAction({ linea, jid })
-          .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
-        if (!r.ok) { setErr(r.error); break; }
-        completados += r.completados;
-        sinNombre = r.sinNombre;
-        if (!r.quedan) break;
-      }
-    } finally { setCompletando(false); }
-    const cuantos = `${miles(completados)} ${completados === 1 ? 'nombre completado' : 'nombres completados'}`;
-    const sin = sinNombre ? ` · ${miles(sinNombre)} todavía sin nombre en WhatsApp` : '';
-    setHecho(`«${grupo.nombre}»: ${completados ? cuantos : 'ningún nombre nuevo'}${sin}.`);
-    if (completados) { onTraidos(cuantos); setVuelta((n) => n + 1); }
   };
 
   // «COMPLETAR DESDE MI WHATSAPP» (24/10/2026, Martín: «con la extensión de MaKo... que se extraiga los nombres y la información
@@ -226,7 +217,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     if (!grupo || trayendo) return;
     const tels = (gente ?? []).filter((p) => p.enElCrm).map((p) => p.telefono);
     if (!tels.length) return;
-    setErr(null); setHecho(null); setLeyendoWa(true); pararWa.current = false;
+    setErr(null); setHecho(null); setTrasTraer(false); setLeyendoWa(true); pararWa.current = false;
     setAvance('Leyendo tu WhatsApp Web…');
     try {
       const r = await pedirFichasDeWhatsappWeb(tels);
@@ -247,6 +238,21 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     } finally { setLeyendoWa(false); setAvance(null); }
   };
 
+  // «COMPLETAR NOMBRES» VA POR LA EXTENSIÓN (25/10/2026). Martín en la llamada con Leandro (24/10, f12): «En completar nombres,
+  // si no tenés instalada la extensión de Maco (...) eso es un bug (...) ese botón te debería decir instala la extensión de
+  // Maco y que ahí directamente comience». Sin ella, el server le pedía a WhatsApp el nombre que conociera y completaba
+  // «algunos o ninguno» sin decir por qué (`completarNombresDelGrupo` sigue, para la API de MaKo). Ahora: con la extensión,
+  // lo de SU WhatsApp Web; sin ella (o vieja), el pie lo dice con «Instalar», y arranca SOLA cuando la extensión aparece en
+  // esta pestaña.
+  const completarNombres = () => {
+    if (!grupo || trayendo) return;
+    setTrasTraer(false);
+    if (extWa === 'si') { setEsperaExt(null); void leerDeWhatsappWeb(); return; }
+    setErr(null); setHecho(null); setEsperaExt('pide');
+  };
+  const arrancarAlInstalar = useEffectEvent(() => { setEsperaExt(null); void leerDeWhatsappWeb(); });
+  useEffect(() => { if (esperaExt && extWa === 'si') arrancarAlInstalar(); }, [esperaExt, extWa]);
+
   // «DATOS DE EMPRESA» (24/10/2026, Martín: «muchos no sólo tienen nombre, sino que incluso links»). Lo que dice el perfil de
   // empresa de WhatsApp de cada uno que ya está (web, Instagram, correo, dirección), sólo en lo vacío. No le llega nada a nadie.
   // Cada consulta es tráfico en la red de su línea: primero la CUENTA (cuántos faltan, cuántos hace esta vez y en cuánto, cuántos
@@ -255,13 +261,13 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     // Para entre una llamada y la siguiente (cada una, hasta ~40 s): se dice, para que no parezca que no oyó.
     if (perfilando) { pararPerfiles.current = true; setAvance('Parando al terminar esta tanda…'); return; }
     if (!grupo || trayendo) return;
-    setErr(null); setHecho(null); setCompletando(true); setAvance('Contando…');
+    setErr(null); setHecho(null); setTrasTraer(false); setCompletando(true); setAvance('Contando…');
     try {
       const c = await completarPerfilesDeGrupoAction({ linea, jid, soloContar: true })
         .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
       if (!c.ok) { setErr(c.error); return; }
       if (!c.pendientes) { setHecho(`«${grupo.nombre}»: ya se consultaron los ${miles(c.total)} que están.`); return; }
-      if (!c.estaCorrida) { setErr(`Por hoy ya se hicieron las ${miles(TOPE_PERFILES_DIA)} consultas de esta línea. Mañana vuelve a tocar «Datos de empresa» para seguir con los ${miles(c.pendientes)} que faltan.`); return; }
+      if (!c.estaCorrida) { setErr(`Hoy ya se hicieron las ${miles(TOPE_PERFILES_DIA)} consultas de esta línea (cuidan tu WhatsApp de un bloqueo). Faltan ${miles(c.pendientes)}: tócalo mañana.`); return; }
       setCuentaPerfiles({ pendientes: c.pendientes, total: c.total, quedanHoy: c.quedanHoy, estaCorrida: c.estaCorrida });
     } finally { setCompletando(false); setAvance(null); }
   };
@@ -301,81 +307,77 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     );
   }
 
-  // El pie (el último renglón de `VistaConPie`): a dónde van, con qué etiqueta, y los botones.
-  const pie = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {hecho && <span role="status" style={{ fontFamily: SANS, fontSize: 13, color: 'var(--good)' }}>{hecho}</span>}
-        {/* «No les manda nada» siempre (el Cerebro, 23/10/2026): ni al traerlos, ni después por su cuenta (`quedaDondeLoPusieron`). */}
-        {!!gente?.length && (
-          <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)' }}>
-            {[
-              // Qué va a pasar, en números (el Cerebro, 24/10/2026: «que el pie diga "traigo 86; 135 ya estaban"»).
-              `Traigo ${miles(sel.size)}${yaEstan ? ` · ${miles(yaEstan)} ya ${yaEstan === 1 ? 'estaba (abajo, en gris)' : 'estaban (abajo, en gris)'}` : ''}.`,
-              'No les manda nada.',
-              sinNumero ? `${miles(sinNumero)} sin número visible.` : '',
-              sinOfrecer ? 'Las etapas que mandan algo o cierran el trato no se ofrecen.' : '',
-            ].filter(Boolean).join(' ')}
-          </span>
-        )}
-        {!!gente?.length && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {productos.length > 1 && <Dropdown value={String(funnel ?? '')} options={opcionesFunnel} onChange={(v) => setFunnel(Number(v))} ariaLabel="A qué funnel" width={200} />}
-            {opcionesEtapa.length
-              ? <Dropdown value={etapa} options={opcionesEtapa} onChange={setEtapa} ariaLabel="A qué etapa" width={180} />
-              : <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--bad)' }}>Ninguna etapa de este funnel se puede usar al traer.</span>}
-            <input value={etiqueta} onChange={(e) => setEtiqueta(e.target.value.slice(0, 40))} placeholder="Etiqueta de origen"
-              aria-label="Etiqueta de origen" style={{ ...campo, flex: '1 1 180px', minWidth: 150 }} />
-          </div>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <button type="button" onClick={onAtras} disabled={trayendo} style={btnAtras}>← Atrás</button>
-          {/* A los que YA están y nacieron con su número por nombre: el que WhatsApp conozca hoy (`completar`). */}
-          {/* El camino por defecto (24/10/2026): las fichas de SU WhatsApp Web, por la extensión. Mientras corre, el mismo botón para. */}
-          {yaEstan > 0 && extWa !== 'no' && (
-            <button type="button" onClick={() => void leerDeWhatsappWeb()} disabled={(trayendo && !leyendoWa) || extWa === 'vieja'}
-              title={extWa === 'vieja' ? 'Actualiza la extensión de MaKo para leer tu WhatsApp Web' : 'Nombre, empresa y grupos en común, de lo que ya ves en tu WhatsApp Web'}
-              style={{ ...btnAtras, opacity: (trayendo && !leyendoWa) || extWa === 'vieja' ? 0.55 : 1 }}>
-              {leyendoWa ? 'Parar' : extWa === 'vieja' ? 'Actualiza la extensión' : 'Completar desde mi WhatsApp'}
-            </button>
-          )}
-          {yaEstan > 0 && extWa === 'no' && (
-            <button type="button" onClick={() => void completar()} disabled={trayendo} style={{ ...btnAtras, opacity: trayendo ? 0.55 : 1 }}>
-              {completando ? 'Completando…' : 'Completar nombres'}
-            </button>
-          )}
-          {yaEstan > 0 && (
-            <button type="button" onClick={() => void contarPerfiles()} disabled={trayendo && !perfilando} style={{ ...btnAtras, opacity: trayendo && !perfilando ? 0.55 : 1 }}>
-              {perfilando ? 'Parar' : 'Datos de empresa'}
-            </button>
-          )}
-          <span style={{ flex: 1 }} />
-          {err && <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--bad)' }}>{err}</span>}
-          {avance && <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--dim)' }}>{avance}</span>}
-          <button type="button" disabled={trayendo || !listo} onClick={() => void traer()}
-            style={{ padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 700, cursor: trayendo || !listo ? 'default' : 'pointer', opacity: trayendo || !listo ? 0.45 : 1 }}>
-            {avance != null ? 'Trayendo…' : sel.size ? `Traer ${miles(sel.size)}` : 'Traer'}
-          </button>
-        </div>
-    </div>
-  );
+  // ⚠️ EL MOLDE DE LOS TRES (24/10/2026, ./MoldeTraer.tsx, copiado del «Preview import» de Attio). Martín, sobre ESTE pie:
+  // «mira la captura la cantidad de botones que tienen, no se entiende nada» (PROSPECCIÓN / Círculo TIBIO / el grupo /
+  // ← Atrás / Completar desde mi WhatsApp / Datos de empresa / Traer 131). Ahora:
+  //   · de dónde (línea, grupo, buscar) arriba, y lo que trabaja sobre los que YA están —completar desde WhatsApp, los
+  //     nombres, los datos de empresa— en el «⋯» de esa fila: no es el camino principal;
+  //   · a dónde («Entran a»: funnel, etapa y etiqueta) en la fila de abajo;
+  //   · lo que va a pasar, en números, en la línea de resumen (el Cerebro, 24/10: «que diga "traigo 86; 135 ya estaban"»), y
+  //     «No les manda nada» siempre (23/10: ni al traerlos, ni después por su cuenta, `quedaDondeLoPusieron`);
+  //   · abajo, sólo «Atrás» y «Traer N»; a la izquierda, lo que está pasando, con su «Parar» si es algo que corre.
+  // La lista sigue siendo lo único que scrollea (`VistaConPie`, 24/10: «los botones de abajo no pueden estar a la mitad»).
+  const mas: OpcionMas[] = trayendo || !yaEstan ? [] : [
+    // El camino por defecto (24/10/2026): las fichas de SU WhatsApp Web, por la extensión. Con una extensión vieja no se ofrece.
+    ...(extWa === 'si' ? [{ id: 'wa', texto: 'Completar desde mi WhatsApp', icono: 'whatsapp' as const, onElegir: () => void leerDeWhatsappWeb() }] : []),
+    // Sin la extensión (o vieja): el mismo camino, que primero pide instalarla y después arranca solo (f12, 25/10/2026).
+    ...(extWa !== 'si' ? [{ id: 'nombres', texto: 'Completar nombres', icono: 'persona' as const, onElegir: completarNombres }] : []),
+    { id: 'empresa', texto: 'Datos de empresa', icono: 'cliente', onElegir: () => void contarPerfiles() },
+  ];
+  // Lo que corre se para desde el pie: el mismo llamado que lo arrancó (cada uno se para si ya corre).
+  const parar = leyendoWa ? { texto: 'Parar', onClick: () => void leerDeWhatsappWeb() }
+    : perfilando ? { texto: 'Parar', onClick: () => void contarPerfiles() } : undefined;
+  // «Completar» se ve sin abrir el «⋯» (Leandro, f11: «Ah, no lo vi eso»): en el pie, después de traer y cuando hay gente
+  // que ya está y nada más que decir.
+  const completarAca = { texto: 'Completar nombres', onClick: completarNombres };
+  const instalar = { texto: extWa === 'vieja' ? 'Actualizar' : 'Instalar', onClick: () => { setEsperaExt('fue'); window.open('/extension/instalar', '_blank', 'noopener'); } };
+  const ofrecer = !trayendo && yaEstan > 0;
+  const estado = err ? { texto: err, tono: 'mal' as const }
+    : avance ? { texto: avance, tono: 'neutro' as const, ...(parar ? { accion: parar } : {}) }
+    : esperaExt === 'pide' ? { texto: `${extWa === 'vieja' ? 'Actualiza' : 'Instala'} la extensión de MaKo para completar los nombres.`, tono: 'neutro' as const, accion: instalar }
+    : esperaExt === 'fue' ? { texto: 'Cuando la extensión esté, empieza sola. Si no arranca, recarga esta pestaña.', tono: 'neutro' as const }
+    : hecho ? { texto: hecho, tono: 'ok' as const, ...(trasTraer && ofrecer ? { accion: completarAca } : {}) }
+    : buscandoTodos ? { texto: 'Buscando el resto de tus grupos…', tono: 'neutro' as const }
+    : ofrecer ? { texto: `${miles(yaEstan)} ya ${yaEstan === 1 ? 'está' : 'están'} en tu CRM.`, tono: 'neutro' as const, accion: completarAca }
+    : null;
 
-  // ⚠️ LA LISTA SCROLLEA, EL PIE NO (24/10/2026, Martín: «los botones de abajo no pueden estar a la mitad y que abajo se
-  // sigan viendo leads»): `VistaConPie`, la misma pieza que «Traer de otro funnel» (ver app/_ui/VistaConPie.tsx).
   return (
-    <VistaConPie
-      lista={{ border: '1px solid var(--border)', borderRadius: 12 }}
-      cabecera={(
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+    <MoldeTraer
+      mas={mas}
+      estado={estado}
+      atras={{ onClick: onAtras, deshabilitado: trayendo }}
+      accion={{ texto: avance != null && !leyendoWa && !perfilando ? 'Trayendo…' : sel.size ? `Traer ${miles(sel.size)}` : 'Traer', onClick: () => void traer(), deshabilitado: trayendo || !listo }}
+      resumen={gente?.length ? {
+        texto: `${miles(sel.size)} para traer`,
+        chips: [
+          ...(yaEstan ? [{ texto: `${miles(yaEstan)} ya ${yaEstan === 1 ? 'está' : 'están'}`, tono: 'gris' as const }] : []),
+          ...(sinNumero ? [{ texto: `${miles(sinNumero)} sin número`, tono: 'gris' as const }] : []),
+          { texto: 'No les manda nada', tono: 'gris' as const },
+        ],
+      } : undefined}
+      destino={gente?.length ? (
+        <>
+          {productos.length > 1 && <Dropdown value={String(funnel ?? '')} options={opcionesFunnel} onChange={(v) => setFunnel(Number(v))} ariaLabel="A qué funnel" width={200} />}
+          {opcionesEtapa.length
+            ? <Dropdown value={etapa} options={opcionesEtapa} onChange={setEtapa} ariaLabel="A qué etapa" width={180} />
+            : <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--bad)' }}>Ninguna etapa de este funnel se puede usar al traer.</span>}
+          <input value={etiqueta} onChange={(e) => setEtiqueta(e.target.value.slice(0, 40))} placeholder="Etiqueta de origen"
+            aria-label="Etiqueta de origen" style={{ ...CAMPO_TRAER, flex: '1 1 180px', minWidth: 150 }} />
+          {/* Las que mandan algo o cierran el trato no se ofrecen: dicho UNA vez, corto, donde se elige. */}
+          {sinOfrecer > 0 && <span style={{ fontFamily: SANS, fontSize: 12, color: 'var(--faint)' }}>Sin las etapas que mandan algo</span>}
+        </>
+      ) : undefined}
+      fuente={(
+      <>
         {lineas && lineas.length > 1 && (
           <Dropdown value={linea ?? ''} options={opcionesLinea} onChange={(v) => setLinea(v)} ariaLabel="De qué línea" width={200} />
         )}
         <Dropdown value={jid} options={opcionesGrupo} onChange={elegirGrupo} ariaLabel="De qué grupo" width={300} />
         {!!gente?.length && (
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre o teléfono" style={{ ...campo, flex: '1 1 200px', minWidth: 160 }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre o teléfono" aria-label="Buscar" style={{ ...CAMPO_TRAER, flex: '1 1 200px', minWidth: 160 }} />
         )}
-      </div>
+      </>
       )}
-      pie={pie}
     >
         {!!gente?.length && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -436,10 +438,10 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
         {jid && gente?.length === 0 && <p style={nota}>{sinNumero ? 'WhatsApp no deja ver los números de este grupo.' : 'Nadie para traer.'}</p>}
       {cuentaPerfiles && (
         <Confirm tone="primary" title="¿Traer los datos de empresa?" confirmLabel={`Consultar ${miles(cuentaPerfiles.estaCorrida)}`}
-          message={preguntaDePerfiles(cuentaPerfiles, `los ${miles(cuentaPerfiles.total)} que ya están`, minutosDePerfiles(cuentaPerfiles.estaCorrida), TOPE_PERFILES_DIA)}
+          message={preguntaDePerfiles(cuentaPerfiles, minutosDePerfiles(cuentaPerfiles.estaCorrida))}
           onConfirm={() => void traerPerfiles()} onCancel={() => setCuentaPerfiles(null)} />
       )}
-    </VistaConPie>
+    </MoldeTraer>
   );
 }
 

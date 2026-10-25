@@ -353,6 +353,9 @@ export type CursoUgcProps = {
      * `menu`, la marca es un DESPLEGABLE (y `onClick` no se usa). Recibe con qué cerrarlo.
      */
     menu?: (cerrar: () => void) => ReactNode;
+    // ⚠️ SIN CLIC DERECHO (25/10/2026, Martín: «recuerda que en la sidebar negra de classroom el título de arriba de la
+    //    sidebar no debe ser un desplegable»): un menú que se abre desde el título, aunque sea con el derecho, se comporta
+    //    como un desplegable. Renombrar y Eliminar viven en el «…» y el clic derecho de la CABECERA de Clients.
   };
   /**
    * El color de acento del curso (el lima de la casa por default), en `#RRGGBB`. Lo pinta

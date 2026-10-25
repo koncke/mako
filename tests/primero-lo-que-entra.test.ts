@@ -76,16 +76,16 @@ test('un día: con la regla la bienvenida de las 17 sale a las 17; sin ella, no 
   assert.equal(ahora.campana, 34, 'la campaña usa el día menos la reserva');
 });
 
-test('la regla está dicha en Configuraciones (en el ⓘ del bloque WhatsApp), con los números del negocio', () => {
+test('la regla está dicha en Configuraciones (en el ⓘ del bloque «Todos los canales»), con los números del negocio', () => {
   assert.equal(textoPrioridad({ dia: 40, hora: 6 }),
     'Primero lo que entra: a un lead que llegó por un formulario, una landing o una agenda, o que agendó, en las últimas 24 h le sale antes que a una campaña. La campaña le deja 6 por día y 1 por hora.');
   assert.ok(!textoPrioridad({ dia: 1, hora: 1 }).includes('le deja'), 'sin reserva no promete una');
   const panel = readFileSync(join(__dirname, '..', 'app/automations/ConfigAutomatizacionPanel.tsx'), 'utf8');
   // 22/10/2026 (Martín: «Elimina todo el texto innecesario»): era una línea suelta debajo del grupo; va en su ⓘ. Desde el
   // 23/10/2026 la línea ya no se edita en la pantalla de una automatización, pero la regla sigue frenando: la dice el ⓘ del
-  // bloque WhatsApp de CADA automatización, con los números del negocio.
-  assert.match(panel, /infoWhatsapp: d \? textoPrioridad\(d\.lineaWa\) : undefined,/);
-  assert.match(panel, /<GrupoOpciones titulo="WhatsApp" info=\{auto\.infoWhatsapp\} primero \/>/);
+  // bloque de CADA automatización, con los números del negocio (desde el 24/10/2026 el bloque es «Todos los canales», f21).
+  assert.match(panel, /info: d \? `\$\{INFO_TODOS_LOS_CANALES\} \$\{textoPrioridad\(d\.lineaWa\)\}` : undefined,/);
+  assert.match(panel, /<GrupoOpciones titulo="Todos los canales" info=\{auto\.info\} primero \/>/);
 });
 
 // ── El cableado en el motor ─────────────────────────────────────────────────────────────────────────────────────

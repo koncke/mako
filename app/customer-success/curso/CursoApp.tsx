@@ -28,7 +28,11 @@
 //     Cada gesto deja su «Deshacer» de 5 segundos, que vuelve a escribir en el server (item 18).
 //   · «Vista del alumno», «Invitar alumnos» y el «?» arriba a la DERECHA, en el lugar del nombre del
 //     curso (item 14 del 08/10/2026), y los DOS RECORRIDOS: el del curso y el de una clase (items 1 y 19).
-//   · En el menú de la marca: el curso que se mira, el color y la FUENTE (item 3 del 08/10/2026).
+//   · ⚠️ LA MARCA (el nombre del curso en la barra oscura) ES UN RÓTULO, sin desplegable ni clic (24/10/2026, f27 y
+//     f28 de la llamada con Leandro: «La sidebar negra del Classroom, ahí no tiene que ser un desplegable. Eso es
+//     un bug»). El curso se elige arriba, en el programa de la cabecera de Clients (UN selector: un curso es un
+//     producto), «+ Nuevo producto» va al final de esa lista, y el color y la fuente, en «Personalizar»
+//     (app/clients/ClientsShell.tsx).
 //   · ⚠️ SIN «Avance de los clientes» desde el 08/10/2026 (item 4): es una vista de /customer-success.
 //
 // ⚠️ EL CURSO CUELGA DE LAS ETAPAS DE LA ENTREGA, no tiene etapas propias (mig 0202). Las
@@ -54,10 +58,10 @@ import { PortadaPicker } from '@/app/_components/PortadaPicker';
 import type { Clase } from '@/lib/curso';
 import { CAMPO_AREAS } from '@/lib/curso';
 import { miniaturaDeClase } from './leccion-reglas';
-import CursoUgc, { ChipUgc, ItemMenuUgc, TituloMenuUgc } from '@/app/_cursos/CursoUgc';
+import CursoUgc, { ChipUgc } from '@/app/_cursos/CursoUgc';
 import type { LeccionUgc, ObjetivoUgc, TextoUgc } from '@/app/_cursos/tipos';
 import {
-  ACENTOS, ACENTO_DEFAULT, conAjuste, disposicionDe, estiloVacio, tapaDe, valorDe, type Ajuste, type EstiloCurso,
+  ACENTO_DEFAULT, conAjuste, disposicionDe, estiloVacio, tapaDe, valorDe, type Ajuste, type EstiloCurso,
 } from '@/lib/curso-estilo';
 import { navegar, sembrar, usePosicion } from '@/app/conocimientos/posicion';
 import { CSS_PORTAL } from '@/app/compartido/curso/[token]/estilos';
@@ -96,14 +100,11 @@ import {
 } from './estructura';
 import { ModalInvitarAlumnos } from './InvitarAlumnos';
 // ── Pista GENERAL, audio del 08/10/2026 (items 13 y 17 de docs/feedback-curso-08oct.md) ──
-// «+ Nuevo producto» en el menú de la marca, y los comentarios de cada clase debajo de la lección.
-import { NuevoProducto } from './NuevoProducto';
+// Los comentarios de cada clase debajo de la lección. («+ Nuevo producto» se mudó a la cabecera de Clients el 24/10.)
 import { ComentariosClase } from '@/app/_cursos/ComentariosClase';
 import { apiDelEquipo } from '../comunidad/api-equipo';
 import { comentariosDeClase } from '@/lib/curso-estilo';
 import type { ClaseUgc, ControlMenuUgc, ModuloUgc } from '@/app/_cursos/tipos';
-// La fuente del curso, en el menú de la marca al lado del color (item 3 del 08/10/2026).
-import { SelectorFuente } from '@/app/_cursos/SelectorFuente';
 import { PASOS_RECORRIDO, PASOS_RECORRIDO_LECCION, RECORRIDO_CURSO, RECORRIDO_LECCION } from './recorridos-curso';
 // El programa de la cabecera de Clients y el de esta pantalla son el mismo (17/10/2026).
 import { usePrograma, useProgramaEnUrl } from '@/app/clients/programa-url';
@@ -165,7 +166,7 @@ export function CursoApp({
   // El producto: el de la URL (o el primero), RE-SEMBRADO cuando la cabecera de Clients cambia de programa (navega
   // con otro `?producto=`); cambiarlo acá adentro lo escribe en la URL para que la cabecera diga el mismo
   // (app/clients/programa-url.ts).
-  const [productoId, setProductoId] = usePrograma(
+  const [productoId] = usePrograma(
     servicios.some((s) => s.productoId === inicial.productoId) ? inicial.productoId : servicios[0]?.productoId ?? null,
   );
   useProgramaEnUrl(productoId, servicios[0]?.productoId ?? null);
@@ -200,17 +201,12 @@ export function CursoApp({
   const [baseServicios, setBaseServicios] = useState(servicios);
   const [modulosLocal, setModulosLocal] = useState<Record<number, ModuloCurso[]>>({});
   if (baseServicios !== servicios) { setBaseServicios(servicios); setModulosLocal({}); }
-  /** «Invitar alumnos»: UN modal, que abren el botón de la barra de arriba y el menú de la marca. */
+  /** «Invitar alumnos»: UN modal, que abre el botón de la barra de arriba. */
   const [invitando, setInvitando] = useState(false);
-  /** «+ Nuevo producto» (item 17 del audio del 08/10/2026): el diálogo del nombre, afuera del curso. */
-  const [creandoProducto, setCreandoProducto] = useState(false);
   /** Un cambio de la ESTRUCTURA esperando al server: los controles se apagan, no desaparecen. */
   const [estructurando, setEstructurando] = useState(false);
   /** La pregunta de antes de quitar una etapa o eliminar un módulo (./QuitarEtapa.tsx), afuera del curso. */
   const [quitar, setQuitar] = useState<PreguntaQuitar | null>(null);
-  const timerAcento = useRef<number | undefined>(undefined);
-  /** El color confirmado cuando se empezó a mover el selector «otro» (su «Deshacer»). `null` = no se está moviendo. */
-  const otroAntes = useRef<{ v: string | null } | null>(null);
   /** El turno de cada ajuste del estilo (ver `guardarAjuste`): una respuesta vieja no pisa una más nueva. */
   const turnos = useRef<Record<string, number>>({});
   // Dónde está parado: en el índice, en un módulo o adentro de una clase.
@@ -457,15 +453,6 @@ export function CursoApp({
   const nClases = delProducto.length;
 
   const primeraEtapa = modulosActuales[0]?.clave ?? null;
-
-  const cambiarProducto = (id: number) => {
-    // Las etapas de dos productos pueden llamarse igual: la posición es de otro curso. Con la lección a
-    // medio guardar, primero la pregunta (Guardar / Descartar / Seguir editando).
-    leccionAbierta.pedirSalida(() => {
-      navegar({}, 'reemplazar');
-      setProductoId(id);
-    });
-  };
 
   // ── La ESTRUCTURA del curso: módulos y clases (items 6, 7, 8 y 12) ──
   // Todo optimista, como `mover`: se ve en el acto y el server confirma detrás. Lo que el server
@@ -719,9 +706,6 @@ export function CursoApp({
   const guardarAjuste = async (a: Ajuste, v: string | null): Promise<boolean> => {
     if (productoId == null) return false;
     const pid = productoId;
-    // ⚠️ Un color elegido de la paleta CANCELA el «otro» que esperaba guardarse: si no, a los 450 ms
-    //    el pendiente pisaba en la base la elección explícita (revisión del 07/10/2026).
-    if (a.tipo === 'acento') window.clearTimeout(timerAcento.current);
     const poner = (x: string | null) => setEstilos((m) => ({ ...m, [pid]: conAjuste(m[pid] ?? estiloVacio(), a, x) }));
     // ⚠️ UNA RESPUESTA VIEJA NO PISA A UNA MÁS NUEVA (revisión de las láminas, 08/10/2026). El texto de
     //    una lámina se manda mientras se tipea: con «Uno» y después «Uno dos» en el aire, si la de «Uno»
@@ -751,26 +735,6 @@ export function CursoApp({
   // «Texto al costado / Texto abajo» se edita en el BORRADOR de la lección y se guarda con «Guardar» (audio
   // del 08/10/2026, contrato (1)): es un ajuste del CURSO, así que va por su camino de siempre.
   guardarDisposicionRef.current = (d) => guardarAjuste({ tipo: 'disposicion' }, d === 'abajo' ? 'abajo' : null);
-
-  /** El color «otro»: el selector nativo dispara un cambio por cada movimiento; se guarda al quedarse quieto. */
-  const probarAcento = (hex: string) => {
-    if (productoId == null) return;
-    const pid = productoId;
-    // El color de ANTES de empezar a mover el selector, para el «Deshacer» (item 18): el confirmado al
-    // primer movimiento, no el del último (que es un tono a mitad de camino).
-    if (!otroAntes.current) otroAntes.current = { v: valorDe(confirmados.current[pid] ?? estiloVacio(), { tipo: 'acento' }) };
-    setEstilos((m) => ({ ...m, [pid]: conAjuste(m[pid] ?? estiloVacio(), { tipo: 'acento' }, hex) }));
-    window.clearTimeout(timerAcento.current);
-    timerAcento.current = window.setTimeout(() => {
-      const antes = otroAntes.current;
-      otroAntes.current = null;
-      void guardarAjuste({ tipo: 'acento' }, hex).then((ok) => {
-        if (ok && antes && (antes.v ?? '').toUpperCase() !== hex.toUpperCase()) {
-          show('Color cambiado', () => { void guardarAjuste({ tipo: 'acento' }, antes.v); });
-        }
-      });
-    }, 450);
-  };
 
   /** El clic en un texto (ver `TextoEditable` en app/_cursos/CursoUgc.tsx). */
   const guardarTexto = async (que: TextoUgc, valor: string): Promise<boolean> => {
@@ -1045,69 +1009,13 @@ export function CursoApp({
    */
   const cambiarAspecto = async (a: Ajuste, v: string | null, aviso: string) => {
     if (productoId == null) return;
-    if (a.tipo === 'acento') otroAntes.current = null;
     const antes = valorDe(confirmados.current[productoId] ?? estiloVacio(), a);
     if (antes === v) return;
     if (await guardarAjuste(a, v)) show(aviso, () => { void guardarAjuste(a, antes); });
   };
 
-  /**
-   * EL MENÚ DE LA MARCA: el curso que se mira (era un desplegable aparte), el COLOR y la FUENTE (item 3
-   * del 08/10/2026: «Las tipografías se deberían editar en el mismo lugar que se editan los colores»).
-   * Es el lugar donde Martín lo pidió: «el desplegable debería ser "Negocio que Escala" de la sidebar».
-   * ⚠️ «Vista del alumno» e «Invitar alumnos» YA NO ESTÁN ACÁ desde el 08/10/2026 (item 14): son los
-   *    botones de arriba a la derecha, siempre a la vista. Dos lugares para la misma acción parten la
-   *    respuesta en dos (AGENTS.md, «contá los controles que ya contestan esa misma pregunta»).
-   */
+  /** El color del curso, para las portadas de color (`colorBase`). Se elige en «Personalizar» (ClientsShell). */
   const acentoActual = estilo.acento ?? ACENTO_DEFAULT;
-  const menuMarca = (cerrar: () => void) => (
-    <>
-      <TituloMenuUgc>Cursos</TituloMenuUgc>
-      {servicios.map((s) => (
-        <ItemMenuUgc key={s.productoId} activo={s.productoId === productoId}
-          onClick={() => { cerrar(); if (s.productoId !== productoId) cambiarProducto(s.productoId); }}>
-          {tituloDe(s)}
-        </ItemMenuUgc>
-      ))}
-      {/* «+ Nuevo producto» (item 17 del audio del 08/10/2026, minuto 00:40: «hoy en día tenés que irte
-          al CRM y en el CRM pones nuevo producto… eso yo también lo voy a poner ahí en el mismo curso»).
-          Al final de la lista de cursos, como en el selector del CRM; el nombre se pide AFUERA del curso
-          (./NuevoProducto.tsx). Crear un producto es de un admin, como editar el curso.
-          ⚠️ Con la lección a medio guardar, PRIMERO la pregunta (revisión final del 08/10/2026), como al
-          cambiar de curso: crear navega DURO al curso nuevo, y sin esto la salida la atajaba el
-          `beforeunload` del navegador — con el producto ya creado y el diálogo clavado en «Creando…» si se
-          elegía quedarse. */}
-      {puedeEditar && (
-        <ItemMenuUgc onClick={() => { cerrar(); leccionAbierta.pedirSalida(() => setCreandoProducto(true)); }}>+ Nuevo producto</ItemMenuUgc>
-      )}
-      {puedeEditar && !estiloError && (
-        <>
-          <div className="ugc-menu-sep" />
-          <TituloMenuUgc>Color</TituloMenuUgc>
-          <div className="ugc-swatches">
-            {ACENTOS.map((a) => (
-              <button key={a.hex} type="button" className="ugc-swatch" style={{ background: a.hex }}
-                aria-pressed={acentoActual === a.hex} title={a.nombre} aria-label={a.nombre}
-                onClick={() => void cambiarAspecto({ tipo: 'acento' }, a.hex === ACENTO_DEFAULT ? null : a.hex, 'Color cambiado')} />
-            ))}
-            {/* Cualquier otro color. Uno muy oscuro vuelve aclarado: el acento es FONDO de texto
-                oscuro (lib/curso-estilo.ts, `acentoLegible`). */}
-            <label className={`ugc-swatch ugc-swatch--otro${ACENTOS.some((a) => a.hex === acentoActual) ? '' : ' on'}`} title="Otro color">
-              <input type="color" value={acentoActual} aria-label="Otro color" onChange={(e) => probarAcento(e.target.value)} />
-            </label>
-          </div>
-          <div className="ugc-menu-sep" />
-          <TituloMenuUgc>Fuente</TituloMenuUgc>
-          {/* Cada fuente escrita con ella misma; cambia el curso entero, el del alumno también. No
-              cierra el menú: se prueba mirando, como el color. */}
-          <SelectorFuente actual={estilo.fuente} onElegir={(id) => void cambiarAspecto({ tipo: 'fuente' }, id, 'Fuente cambiada')} />
-          {/* ⚠️ «Comentarios en las clases» YA NO VA ACÁ (14/10/2026). Martín: «la opción de comentarios no
-              debería ir allí, debería ir en la edición de cada clase». Es un interruptor del «…» de cada
-              clase (./MenuCurso.tsx, `comentarios`). */}
-        </>
-      )}
-    </>
-  );
 
   if (!servicio) {
     return (
@@ -1119,8 +1027,8 @@ export function CursoApp({
 
   return (
     // ⚠️ SIN CABECERA PROPIA: arriba está la de Clients (el programa y las sub-tabs, app/clients/ClientsShell.tsx).
-    //    Lo que había arriba se mudó al menú de la marca (el producto) y a la barra del curso (la vista del alumno,
-    //    invitar, el «?»).
+    //    El producto se elige ahí (UN selector, 24/10/2026) y la vista del alumno, invitar y el «?» van en la barra
+    //    del curso.
     // ⚠️ EMBEBIDO desde el 17/10/2026: con la cabecera de Clients encima, el alto ya no es la ventana. Lo da el
     //    contenedor de Clients (`.cls--alto`, un flex en columna) y baja por FLEX hasta el curso.
     <Pagina ancho="completo" style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -1134,7 +1042,10 @@ export function CursoApp({
         // Dónde va el texto de la lección: lo mismo que ve el alumno (item 16). Con una lección abierta, la
         // de su BORRADOR (se cambia en la lección y se guarda con «Guardar»).
         disposicion={leccionAbierta.borrador?.disposicion ?? disposicionDe(estilo)}
-        marca={{ ...marcaDelProducto(tituloDe(servicio)), menu: menuMarca, ariaLabel: `${tituloDe(servicio)}: cambiar de curso` }}
+        // TEXTO (f27, y Martín otra vez el 25/10: «el título de arriba de la sidebar no debe ser un desplegable»): sin
+        // `menu`, sin `onClick` y sin clic derecho, CursoUgc lo dibuja como un `div`. El curso se cambia, se renombra y se
+        // elimina en la cabecera de Clients.
+        marca={marcaDelProducto(tituloDe(servicio))}
         acento={estilo.acento}
         // La fuente del curso (item 3): la misma que ve el alumno en su portal.
         fuente={estilo.fuente}
@@ -1224,7 +1135,6 @@ export function CursoApp({
           onCerrar={() => setInvitando(false)} />
       )}
       {/* «+ Nuevo producto» (item 17): AFUERA del curso, como las preguntas de abajo. */}
-      {creandoProducto && <NuevoProducto onCerrar={() => setCreandoProducto(false)} />}
 
       {/* ⚠️ AFUERA DEL CURSO, a propósito: las preguntas de la lección («¿Quitar el video?») son un
           diálogo de la app, y adentro de la hoja del curso sus botones quedan sin fondo ni borde. */}

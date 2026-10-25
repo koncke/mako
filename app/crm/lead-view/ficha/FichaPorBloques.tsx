@@ -87,6 +87,7 @@ import { PASOS_FICHA_EDICION, RECORRIDO_FICHA_EDICION } from './recorrido-ficha'
 import { AuditHistory } from '../AuditHistory';
 import { useRefrescarFicha } from '../ficha-cambio';
 import { useRouter } from '@/app/_ui/Link';
+import { rutaChatsDeLead } from '@/lib/chats-links';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { itemsFicha, menuPropioEn, opcionesFicha, type HojaDelMenu, type IdOpcionFicha } from './menu-contextual-ficha';
 import { FlechaDerechaIcon, FlechaIzquierdaIcon } from '../../iconos';
@@ -595,7 +596,8 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   const elegirMenuFicha = (id: IdOpcionFicha) => {
     switch (id) {
       case 'analyst': setPanel('analizar'); return;
-      case 'whatsapp': if (telDigitos) window.open(`https://wa.me/${telDigitos}`, '_blank', 'noopener'); return;
+      // En Chats, adentro de MaKo, como el tablero (f15 de la llamada con Leandro, 24/10).
+      case 'whatsapp': router.push(rutaChatsDeLead(lead.id)); return;
       case 'copiar_telefono': if (lead.telefono) copiar(String(lead.telefono), 'Teléfono'); return;
       case 'copiar_email': if (lead.email) copiar(String(lead.email), 'Email'); return;
       case 'copiar_link': copiarLink(); return;
@@ -659,12 +661,27 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   const lugarActivo = hojaAbierta;
   const edicion = panel === 'editar' && lugarActivo ? { tab: lugarActivo, nombre: lugarDe(efectiva, lugarActivo).nombre } : null;
   const panelAnalyst = panel && typeof document !== 'undefined' ? createPortal(
-    <aside aria-label={panel === 'editar' ? 'Editar la ficha con MaKo' : `AI Analyst de ${lead.nombre || 'este lead'}`} onClick={(e) => e.stopPropagation()} data-recorrido="fb-mako"
-      style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 90, width: 'var(--fb-analyst-ancho)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', borderRight: '1px solid var(--border)', boxShadow: '12px 0 32px rgba(18,21,27,.18)' }}>
+    // ⚠️ UN BLOQUE FLOTANTE, NO UN CUADRADO PEGADO AL BORDE (24/10/2026). Martín: «En el editor del CRM no me gusta que MaKo
+    // sea un cuadrado, cuando ya lo venimos haciendo tipo bloque flotante con cuadros un poco redondeados... Unifica ese
+    // diseño». Es el marco del panel de MaKo del Dashboard (`.an`, app/dashboard/PanelAnalista.tsx): 12 px de aire con los
+    // bordes de la pantalla, bordes redondeados de 14, el filete de la casa y su sombra; sin la raya de color arriba. En el
+    // teléfono va a pantalla completa, sin aire ni bordes (como `.an` en ≤ 760).
+    <aside className="fb-mako-panel" aria-label={panel === 'editar' ? 'Editar la ficha con MaKo' : `AI Analyst de ${lead.nombre || 'este lead'}`} onClick={(e) => e.stopPropagation()} data-recorrido="fb-mako">
       {/* ⚠️ EL ANCHO SIGUE A LA PANTALLA (recorrido del 17/10/2026): con 420 fijos, a 1024 la ficha quedaba en ~560 px y
-          se cortaban los botones de la calificación. Un tercio de la pantalla, entre 320 y 420; en un teléfono, entero. */}
-      <style>{':root{--fb-analyst-ancho:min(420px, max(320px, 32vw))}@media (max-width:720px){:root{--fb-analyst-ancho:100vw}}[data-ficha-overlay]{padding-left:calc(var(--fb-analyst-ancho) + 20px)!important}[data-ficha-ruta]{padding-left:var(--fb-analyst-ancho)}'}</style>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)', borderTop: '3px solid var(--mako)' }}>
+          se cortaban los botones de la calificación. Un tercio de la pantalla, entre 320 y 420; en un teléfono, entero. La
+          ficha se corre lo que mide el panel MÁS su aire (12 a cada lado).
+          ⚠️ Y FLOTA DEBAJO DE LA BARRA DE INSPECCIÓN (o de la alerta de la voz caída): `--barra-agencia`, 25/10/2026. Es un
+          <aside>, así que la regla global de los <aside> (app/globals.css) ya lo baja, pero le fuerza el alto: quedaba pegado a
+          la barra y al borde de abajo, sin el aire del bloque. La segunda regla le gana en eso (tests/barra-inspeccion-alto, 4). */}
+      <style>{':root{--fb-analyst-ancho:min(420px, max(320px, 32vw))}@media (max-width:720px){:root{--fb-analyst-ancho:100vw}}'
+        + '.fb-mako-panel{position:fixed;top:calc(12px + var(--barra-agencia,0px));left:12px;bottom:12px;z-index:90;width:var(--fb-analyst-ancho);display:flex;flex-direction:column;overflow:hidden;'
+        + 'background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 44px rgba(18,21,27,.18)}'
+        + '[data-barra-agencia] aside.fb-mako-panel{top:calc(12px + var(--barra-agencia))!important;height:auto!important}'
+        + '@media (max-width:720px){.fb-mako-panel{top:var(--barra-agencia,0px);left:0;bottom:0;border:none;border-radius:0;box-shadow:none}'
+        + '[data-barra-agencia] aside.fb-mako-panel{top:var(--barra-agencia)!important}}'
+        + '[data-ficha-overlay]{padding-left:calc(var(--fb-analyst-ancho) + 32px)!important}[data-ficha-ruta]{padding-left:calc(var(--fb-analyst-ancho) + 24px)}'
+        + '@media (max-width:720px){[data-ficha-ruta]{padding-left:var(--fb-analyst-ancho)}}'}</style>
+      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 10px 10px 16px', borderBottom: '1px solid var(--border)' }}>
         <IconoMenu nombre="mako" size={18} />
         <strong style={{ flex: 1, fontSize: 15, color: 'var(--ink)' }}>{panel === 'editar' ? 'Editar con MaKo' : 'AI Analyst'}</strong>
         <button type="button" onClick={() => setPanel(null)} title="Cerrar" aria-label="Cerrar el AI Analyst"

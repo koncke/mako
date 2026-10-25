@@ -40,7 +40,7 @@ import {
 } from '@/lib/leads';
 import { getFunnelDefault, getFunnelDe, listarFunnels, idDelFunnelDefault } from '@/lib/funnels';
 import { completarNombresDelGrupo, etapasParaTraer, etiquetaDeOrigen, gruposDeLinea, marcarEnElCrm, participantesDelGrupo, traerDelGrupo } from '@/app/crm/grupo-wa-server';
-import { etapaPorDefecto, funnelPorDefecto } from '@/lib/grupo-wa-reglas';
+import { etapaPorDefecto, funnelPorDefecto, type GrupoWA } from '@/lib/grupo-wa-reglas';
 import { salidasDeEtapa, stageMetaOpt, ENTRADAS, MAKO_SETTER, type EntradaId, type Stage } from '@/lib/pipeline';
 // «Nuevo CRM» por su tipo (14/10/2026): el catálogo puro y el alta que comparte con el modal.
 import { TIPOS_CRM, TIPO_CRM_OTRO, ENTRADAS_OFRECIDAS, siembraDeCrm, tipoCrmPorId } from '@/lib/pipeline';
@@ -178,12 +178,22 @@ async function conLead(input: Record<string, unknown>, fn: (lead: Lead) => Promi
 
 /** El grupo de WhatsApp que se pidió (su id o su nombre) en la línea del negocio: lo usan traer y completar nombres. */
 async function grupoPedido(input: Record<string, unknown>) {
-  const g = await gruposDeLinea(typeof input.linea === 'string' ? input.linea : null);
-  if (!g.ok) return { error: g.error };
+  const linea = typeof input.linea === 'string' ? input.linea : null;
   const pedido = String(input.grupo ?? '').trim();
   const k = pedido.toLowerCase();
-  const parecidos = g.grupos.filter((x) => x.nombre.toLowerCase().includes(k));
-  const grupo = g.grupos.find((x) => x.jid === pedido) ?? g.grupos.find((x) => x.nombre.toLowerCase() === k) ?? (parecidos.length === 1 ? parecidos[0] : null);
+  const buscar = (gs: GrupoWA[]) => {
+    const parecidos = gs.filter((x) => x.nombre.toLowerCase().includes(k));
+    return { parecidos, grupo: gs.find((x) => x.jid === pedido) ?? gs.find((x) => x.nombre.toLowerCase() === k) ?? (parecidos.length === 1 ? parecidos[0] : null) };
+  };
+  // La lista rápida (la guardada, o la de la base de Evolution) puede no tener al grupo (25/10/2026, `gruposDeLinea`): si no
+  // está y la lista no es la completa, se le pide la completa a WhatsApp antes de decir que no existe.
+  let g = await gruposDeLinea(linea);
+  if (!g.ok) return { error: g.error };
+  let { parecidos, grupo } = buscar(g.grupos);
+  if (!grupo && g.refrescar) {
+    const c = await gruposDeLinea(linea, true);
+    if (c.ok) { g = c; ({ parecidos, grupo } = buscar(c.grupos)); }
+  }
   if (!grupo) return { error: `No encontré el grupo «${pedido}» en esa línea (${parecidos.length > 1 ? 'hay varios con ese nombre' : 'mira grupos_whatsapp'}).` };
   return { g, grupo };
 }
@@ -1163,7 +1173,11 @@ export const RUNNERS: Runners = {
   // Antes del bloque de cobros, que queda último antes de `armar_tab_ficha` (tests/crm-vincular-22-10).
   grupos_whatsapp: {
     leer: async (input) => {
-      const r = await gruposDeLinea(typeof input.linea === 'string' ? input.linea : null);
+      // La completa si la rápida no lo es (25/10/2026): la API contesta UNA vez, no puede mostrar lo guardado y completar después.
+      const linea = typeof input.linea === 'string' ? input.linea : null;
+      const rapida = await gruposDeLinea(linea);
+      const completa = rapida.ok && rapida.refrescar ? await gruposDeLinea(linea, true) : null;
+      const r = completa?.ok ? completa : rapida;
       if (!r.ok) return fallo(r.error);
       return json({ linea: r.linea, total: r.grupos.length, grupos: r.grupos.slice(0, 200), deLaBase: r.deLaBase });
     },

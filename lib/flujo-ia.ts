@@ -107,6 +107,7 @@ import {
   type OperadorCondicion, type CatalogosCondicion, type AmbitoDisparo, type DefCondicion, type CatalogoValor,
 } from './condiciones-catalogo';
 import { TOPE_TEXTO_SOCIAL, VENTANA_META_MS, esCanalSocial, NOMBRE_CANAL, problemaDeAdjunto, type CanalSocial } from './canal-social';
+import { TOPE_BOTONES, TOPE_TEXTO_CON_BOTONES, TOPE_TITULO_BOTON } from './botones-social';
 import { archivoDelPedido } from './archivo-del-pedido';
 import { datoDe, valePara, type DestinoMensaje } from './variables-aviso';
 import { paramsConPartes } from './mako-tarjeta';
@@ -115,7 +116,7 @@ import { PLANTILLAS, pasosDePlantilla, type PlantillaAutomatizacion } from './pl
 // Duodécima tanda, ola 2 (§3.5): lo que suma el `listo` de editar y la pregunta de MaKo. Sólo tipos (puro).
 import type { PreguntaMako, ExtrasEdicionIA } from './automatizacion-chat';
 import type { CronAviso } from './cron-aviso';
-import { respuestaDelModelo } from './flujo-ia-consulta';
+import { faltaDelModelo, respuestaDelModelo } from './flujo-ia-consulta';
 import { OP_MOVER_ETAPA } from './flujo-legado';
 import { sinCitas, citasQueFaltan, minutosDelPedido } from './flujo-ia-intencion';
 
@@ -365,6 +366,8 @@ export type ResultadoEdicion = Omit<ResultadoIA, 'disparador'> & {
    * `pasos` son el borrador tal cual.
    */
   respuesta?: string;
+  /** Con la respuesta: lo que pidió y no está en MaKo (24/10/2026, f23). El globo ofrece pasárselo al equipo. */
+  falta?: string;
   /**
    * LO PEDIDO QUE NO SE HIZO (22/10/2026): lo que el modelo armó y no se pudo poner, y lo que el dueño pegó y no quedó en el
    * lienzo (`faltantesDelPedido`, la ruta). Va en ROJO; `avisos` son reparaciones, en gris. Con algo acá, MaKo no dice «Listo».
@@ -994,6 +997,11 @@ type NodoIA = {
   ramas: Array<{ modo: 'todas' | 'cualquiera'; filas: FilaCondicion[]; sigue: string | null }>;
   siNo: string | null;
   casos: Array<{ titulo: string; cuando: string; sigue: string | null }>;
+  /**
+   * Sólo un mensaje de Instagram o Messenger (24/10/2026, lib/botones-social.ts): sus BOTONES. Uno con `url` abre un link
+   * guardado; uno con `sigue` es una salida, como una rama (lo que pasa al tocarlo).
+   */
+  botones: Array<{ titulo: string; url: string | null; sigue: string | null }>;
   /** Se SACA: lo que colgaba de él pasa a colgar de su padre (`seguir`). Un `ir_a` nace sacado. */
   quitar: boolean;
 };
@@ -1002,7 +1010,7 @@ const relleno = (): Pick<PasoIA, 'orden' | 'canal' | 'delay_horas' | 'asunto' | 
   { orden: 0, canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: '', template_wa: null, proveedor: 'no_oficial' }
 );
 
-const vacio = (tmp: string, clase: NodoIA['clase']): NodoIA => ({ tmp, clase, paso: {}, sigue: [], ramas: [], siNo: null, casos: [], quitar: false });
+const vacio = (tmp: string, clase: NodoIA['clase']): NodoIA => ({ tmp, clase, paso: {}, sigue: [], ramas: [], siNo: null, casos: [], botones: [], quitar: false });
 
 function textoLimpio(v: unknown, est: Estado, tope: number, destino?: DestinoMensaje): string {
   const r = limpiarTexto(str(v).slice(0, tope * 2), { destino, deja: linksDelPedido(est.ctx.pedido) });
@@ -1081,6 +1089,31 @@ function nodoDe(c: Card, est: Estado): NodoIA {
         const url = k ? ctx.links[k].url : '';
         if (k) cuerpo = cuerpo ? `${social ? cuerpo.slice(0, Math.max(0, tope - url.length - 2)).trim() : cuerpo}\n\n${url}` : url;
         else avisos.push(`No tengo guardado el link «${str(link)}»: el mensaje va sin link`);
+      }
+      // LOS BOTONES (24/10/2026, lib/botones-social.ts): sólo por Instagram y Messenger, hasta 3. Uno con "link" abre una
+      // página guardada (de LINKS: nunca una inventada); uno con "sigue" es una salida, como una rama.
+      if (Array.isArray(raw.botones) && raw.botones.length) {
+        if (!social) avisos.push('Los botones son de Instagram y Messenger: los saqué');
+        else {
+          if (raw.botones.length > TOPE_BOTONES) avisos.push(`Instagram muestra hasta ${TOPE_BOTONES} botones: dejé los primeros`);
+          for (const b of (raw.botones as unknown[]).slice(0, TOPE_BOTONES)) {
+            const o = b && typeof b === 'object' && !Array.isArray(b) ? (b as Record<string, unknown>) : null;
+            const titulo = str(o?.titulo ?? o?.texto).trim().slice(0, TOPE_TITULO_BOTON);
+            if (!o || !titulo) continue;
+            if (o.link != null && o.link !== '') {
+              const k = claveDeLink(o.link, ctx);
+              if (k) n.botones.push({ titulo, url: ctx.links[k].url, sigue: null });
+              else avisos.push(`No tengo guardado el link «${str(o.link)}»: saqué el botón «${titulo}»`);
+              continue;
+            }
+            n.botones.push({ titulo, url: null, sigue: refs(o.sigue)[0] ?? null });
+          }
+          // Con botones, Meta corta el texto en 640 (la burbuja de su plantilla de botones).
+          if (n.botones.length && cuerpo.length > TOPE_TEXTO_CON_BOTONES) {
+            cuerpo = cuerpo.slice(0, TOPE_TEXTO_CON_BOTONES).trim();
+            avisos.push(`Con botones, Instagram corta el texto en ${TOPE_TEXTO_CON_BOTONES} caracteres: lo acorté`);
+          }
+        }
       }
       if (!cuerpo && paso.tipo !== 'audio' && paso.tipo !== 'media') { avisos.push('Saqué un mensaje vacío'); n.quitar = true; return n; }
       paso.cuerpo = cuerpo;
@@ -1178,7 +1211,7 @@ function nodoDe(c: Card, est: Estado): NodoIA {
 // ── Armar: conectar, reparar y materializar ───────────────────────────────────────
 
 type Hilo = 'salida' | 'respuesta';
-type Conexion = { sig: string | null; par: string[]; ramas: Array<string | null>; siNo: string | null; casos: Array<string | null> };
+type Conexion = { sig: string | null; par: string[]; ramas: Array<string | null>; siNo: string | null; casos: Array<string | null>; botones?: Array<string | null> };
 type Raiz = { ref: string; hilo: Hilo };
 
 type OpcionesArmar = {
@@ -1314,6 +1347,15 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
           cx.par.push(d.tmp);
           paralelos++;
         }
+        // LOS BOTONES (24/10/2026): cada uno de flujo es una salida, como una rama. Uno puede VOLVER a una tarjeta que ya
+        // tiene lugar («Ya te sigo» → la condición «¿Te sigue?»): el toque de la persona es la espera, y es el flujo de ManyChat.
+        if (n.clase === 'mensaje' && n.botones.length) {
+          cx.botones = n.botones.map((b) => {
+            if (b.url || !b.sigue) return null;
+            if (reclamado.has(b.sigue) && !nodos.get(b.sigue)?.quitar) return b.sigue;
+            return unaSalida(b.sigue, hilo).destino;
+          });
+        }
       } else if (n.clase === 'condicion') {
         for (const r of n.ramas) cx.ramas.push(unaSalida(r.sigue, hilo).destino);
         cx.siNo = unaSalida(n.siNo, hilo).destino;
@@ -1385,6 +1427,12 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
       }
       // «MaKo contesta» nace como BORRADOR explícito, como `agregarCaso` y el conversor.
       if (p.tipo === 'ia') p.revisar = true;
+    }
+    // Los BOTONES, con los ids reales (24/10/2026). Sólo si sigue siendo un DM: arriba un mensaje de «Si responde» pasa a WhatsApp.
+    if (n.clase === 'mensaje' && n.botones.length && esCanalSocial(p.canal)) {
+      p.botones = n.botones.map((b, k) => (b.url
+        ? { id: `b${k + 1}`, titulo: b.titulo, url: b.url }
+        : { id: `b${k + 1}`, titulo: b.titulo, siguiente: r(cx.botones?.[k] ?? null) }));
     }
     out.push(p);
   }
@@ -2584,9 +2632,11 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
   // terminaba en «Cambié 1» con el texto del video reescrito.
   const respuesta = respuestaDelModelo(o);
   if (respuesta) {
+    // Y si dijo que lo pedido no está en MaKo, lo que falta (f23, 24/10/2026): el globo ofrece pasárselo al equipo.
+    const falta = faltaDelModelo(o);
     return {
       pasos: base.map((p) => p as PasoIA), etiquetasNuevas: [], avisos: [], nombre: null,
-      agregadas: [], cambiadas: [], quitadas: [], resumen: respuesta, respuesta,
+      agregadas: [], cambiadas: [], quitadas: [], resumen: respuesta, respuesta, ...(falta ? { falta } : {}),
     };
   }
   let pasos = base.map((p, i) => ({ ...(p as PasoIA), id: idDe(p, i) })) as PasoIA[];
@@ -3503,13 +3553,21 @@ function bloquesDeContexto(ctx: CtxIA, d: DatosPedido, o: { cron?: false | ((x: 
  * dejaba afuera de la cascada, y Groq es el único proveedor que le contesta al ws1. Sin lugar, va el ejemplo de siempre
  * (el del system).
  */
+/**
+ * LOS BOTONES DE UN DM (24/10/2026, lib/botones-social.ts), SÓLO en un pedido de Instagram o Messenger: en el system pesaban
+ * ~100 tokens para TODOS los pedidos y el techo de Groq no los deja (tests/crear-ia-tercera.test.ts). El gate de seguidor
+ * es el flujo de ManyChat que pidió Martín (trabajo 36c79085), y va dicho porque el borrador de antes le regalaba el link a
+ * quien no seguía: lo ponía en el primer DM y en el de «no te sigue».
+ */
+export const BOTONES_SOCIAL = 'BOTONES: un "mensaje" puede llevar "botones": hasta 3, {"titulo" (hasta 20 letras), "sigue": id} (tocarlo sigue por ahí y puede volver a una tarjeta de antes) o {"titulo", "link"}. Un recurso a cambio de seguir la cuenta: el primer mensaje con un botón («Obtener recurso») que sigue en una "condicion" con "sigue_instagram"; el link va SÓLO en el mensaje del sí, y el del no lleva un botón («Ya te sigo») que vuelve a esa condición.';
+
 export function userDeCrear(ctx: CtxIA, d: DatosPedido): string {
   // El canal social del pedido (o el elegido), dicho: es el que `validarIA` hace cumplir. WhatsApp y email no se dicen
   // (un pedido de WhatsApp con un email en el medio es lo de siempre).
   const canal = canalDelFlujo({ canalElegido: ctx.canalElegido, pedido: ctx.pedido ?? d.pedido });
   const pedido = [
     `EL PEDIDO DEL DUEÑO:\n${d.pedido.trim().slice(0, 2000)}`,
-    ...(canal && esCanalSocial(canal) ? [`CANAL: "${canal}" (los mensajes al lead van por ahí)`] : []),
+    ...(canal && esCanalSocial(canal) ? [`CANAL: "${canal}" (los mensajes al lead van por ahí)`, BOTONES_SOCIAL] : []),
     ...(d.recurrente ? [d.recurrente.linea] : []),
     'Arma la automatización.',
   ];

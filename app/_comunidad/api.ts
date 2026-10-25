@@ -16,6 +16,7 @@ import type {
 } from '@/lib/comunidad-tipos';
 import type { OrdenFeed, PermisoCategoria, Red, TokenTexto } from '@/lib/comunidad-reglas';
 import type { AccesoEvento, LugarTipo } from '@/lib/comunidad-eventos';
+import { SIN_ACCESO_PORTAL } from '@/lib/curso-portal-aviso';
 
 export type ConsultaFeed = { categoriaId: number | null; orden: OrdenFeed; pagina: number };
 
@@ -114,8 +115,10 @@ export type ApiComunidad = {
   borrarEvento?(q: { id: number; alcance: AlcanceEvento; ocurrencia: string | null }): Promise<Resultado>;
   guardarAbout?(e: EntradaAbout): Promise<Resultado<{ about: AboutVista }>>;
   guardarAjustes?(e: { nivelParaPostear: number; zona: string | null }): Promise<Resultado<{ about: AboutVista }>>;
-  sacar?(clave: string, opts: { motivo: string; borrarContenido: boolean }): Promise<Resultado<{ borrados: { posts: number; comentarios: number } }>>;
-  admitir?(clave: string): Promise<Resultado>;
+  /** Saca del programa: la comunidad y su curso (`curso`: qué pasó con él, lib/comunidad-moderacion.ts). */
+  sacar?(clave: string, opts: { motivo: string; borrarContenido: boolean }): Promise<Resultado<{ borrados: { posts: number; comentarios: number }; curso: 'quitado' | 'cortado' | 'sin-curso' }>>;
+  /** Vuelve a admitir: la comunidad y su curso. `cursoCortado`: a su acceso lo cortó otra persona (se habilita en su ficha). */
+  admitir?(clave: string): Promise<Resultado<{ cursoCortado: boolean }>>;
   sacados?(): Promise<Resultado<{ sacados: SacadoVista[] }>>;
   cerrarComentarios?(id: number, si: boolean): Promise<Resultado<{ cerrado: boolean }>>;
 };
@@ -137,7 +140,8 @@ export function apiDelAlumno(token: string, productoId: number): ApiComunidad {
         cache: 'no-store',
         signal: AbortSignal.timeout(ESPERA_MS),
       });
-      if (r.status === 404) return { ok: false, error: 'Tu acceso a la comunidad no está activo.' };
+      // La misma frase que la entrada del portal (lib/curso-portal-aviso.ts): un solo mensaje para «no entra».
+      if (r.status === 404) return { ok: false, error: SIN_ACCESO_PORTAL };
       if (r.status === 429) return { ok: false, error: 'Vas muy rápido. Espera un momento.' };
       const j = (await r.json().catch(() => null)) as Resultado<T> | null;
       if (!j || typeof j !== 'object') return { ok: false, error: 'No pude conectar.' };

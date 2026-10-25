@@ -1324,7 +1324,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             onVolver={onVolverALista}
             onTrabajando={setChatTrabajando} pedidoInicial={pedidoPendiente} onPedidoInicialUsado={() => setPedidoPendiente(null)}
             nombre={secuencia.nombre ?? ''} onCrearOtra={onCrearOtra} onListaCambio={onListaCambio} nota={notaChat}
-            alTerminarSinVer={guardarSinVer} />
+            alTerminarSinVer={guardarSinVer}
+            // La tuerca del título, también desde el globo de MaKo que habla de Configuraciones (24/10/2026, f19).
+            onAbrirConfiguraciones={Configuraciones ? () => setConfigAbierta(true) : undefined} />
         </div>,
         ranuraChat,
       )}

@@ -37,15 +37,20 @@ const PROYECTOS = path.join(os.homedir(), '.claude', 'projects');
 // que se trabaje aún más al límite... Yo ya cerré todo lo que no sea Claude, sobre todo Chrome»). Un escalón abajo:
 // workflow 3,5→2,5 · pesado 2,0→1,5 · agente 1,5→1,0 · liviano 0,8→0,6 · tope de workflows 2→3. El de antes quedó
 // en memoria.mjs.antes-12-10. Si vuelve a colgarse la app, esto es lo primero que se sube.
+// 25/10/2026 (el Cerebro, cuenta 5): Martín, antes de dejar la PC trabajando de noche: «Cuida la ram para que no se crashee
+// claude por la noche». Medido el 24/10 (vigia.csv): el vigía MATÓ 81 pesados ese día y 70 el 23/10, porque esta guardia los
+// dejaba arrancar con 1,5 GB y cada uno pide 2-2,5 (tsc acotado, tandas de tests). Pesado 1,5→2,5 y su enfriamiento 20→40 s;
+// tope de workflows 3→2; y las tandas grandes de `node --test` sin `--test-concurrency` cuentan como pesado (arrancan un
+// proceso por núcleo: 11 en esta PC). El de antes quedó en memoria.mjs.antes-25-10. Informe: docs/hallazgos-infra.md.
 const REGLAS = {
   workflow: { minGb: 2.5, esperaS: 120, enfriamientoS: 45 },
-  pesado:   { minGb: 1.5, esperaS: 240, enfriamientoS: 20 },
+  pesado:   { minGb: 2.5, esperaS: 240, enfriamientoS: 40 },
   agente:   { minGb: 1.0, esperaS: 60,  enfriamientoS: 0 },
   liviano:  { minGb: 0.6, esperaS: 20,  enfriamientoS: 0, dejarPasar: true },
 };
 // Más de esto a la vez y la RAM no alcanza aunque cada uno arranque con margen:
 // los agentes crecen DESPUÉS de la admisión.
-const MAX_WORKFLOWS = 3;
+const MAX_WORKFLOWS = 2;
 const SONDEO_MS = 3000;
 
 // Lo que pide GBs: tsc directo, la suite de tests, builds, instalaciones.
@@ -60,6 +65,13 @@ const PESADO = new RegExp([
   String.raw`\bnpm\s+(ci|install|i|test|t)\b`, String.raw`\bnpm\s+run\s+(build|test|lint|check)\b`,
   String.raw`\b(pnpm|yarn)\s+(install|test|build)\b`,
 ].join('|'), 'i');
+
+// Los tests de este repo corren con `node --test` (o `tsx --test`), no con vitest: un archivo suelto es liviano, pero una
+// tanda (3+ archivos o un comodín) sin `--test-concurrency` levanta un proceso por núcleo. Ésa cuenta como pesada.
+function tandaDeTestsSinFreno(cmd) {
+  if (!/(\bnode\b|\btsx\b)[^|;&]*\s--test\b/.test(cmd) || /--test-concurrency[= ]\d/.test(cmd)) return false;
+  return (cmd.match(/\.test\.[cm]?[jt]sx?\b/g) || []).length >= 3 || /--test\b[^|;&]*\*/.test(cmd);
+}
 
 const libreGb = () => os.freemem() / GB;
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -81,7 +93,7 @@ function clasificar(ent) {
   if (tool === 'Agent' || tool === 'Task') return 'agente';
   if (tool === 'Bash' || tool === 'PowerShell') {
     const cmd = String(ent.tool_input?.command || '');
-    return PESADO.test(cmd) ? 'pesado' : 'liviano';
+    return PESADO.test(cmd) || tandaDeTestsSinFreno(cmd) ? 'pesado' : 'liviano';
   }
   return null;
 }

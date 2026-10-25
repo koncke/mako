@@ -32,7 +32,7 @@ import { tabEnCapa } from '@/lib/capas';
 export async function puedeUsarCs(): Promise<string | null> {
   try {
     if ((await getRolWsEfectivo()) == null) return 'Tu sesión venció. Vuelve a entrar.';
-    if (!tabEnCapa('customer-success', await getCapaActual())) return 'Esta cuenta no tiene Customer Success.';
+    if (!tabEnCapa('customer-success', await getCapaActual())) return 'Esta cuenta no tiene Clients.';
     return null;
   } catch {
     return 'No pude verificar tu sesión.';

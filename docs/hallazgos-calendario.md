@@ -182,6 +182,55 @@ ahí, nunca copiada en /m (tests/m-calendario.test.ts fija que comun.ts no sea `
 tests/m-calendario.test.ts · tests/calendario.test.ts. Las trampas del teléfono, en hallazgos-mobile.md («Las pantallas
 de More que faltaban»). *15/10/2026, claude3.*
 
+## La estrella de MaKo y «Llamadas»: lo que pedía ya estaba leído, faltaba dónde verlo (24/10/2026, noche)
+
+La llamada con Leandro (Fathom, 24/10; textual en docs/feedback-24-10.md, f07 y f08): «se ve muy como calendario de Google»,
+que muestre lo que ya existe en MaKo (llamadas de ventas, tareas del Plan con deadline) y que esté la estrellita para «che
+Maco, movéme la reunión, agendame tal o tal». Chat «Planes», cuenta 5, a pedido del Cerebro.
+
+- **El diagnóstico obvio («hay que leer las llamadas y las tareas») era el equivocado:** la grilla YA las lee y las prende por
+  defecto (capas «Llamadas» y «Plan», `leerCrm` y `leerPlan`). Lo que faltaba era una forma de verlas que no fuera la de
+  Google: «Llamadas» (app/calendario/ListaLlamadas.tsx), la lista de citas de venta copiada del «Appointment List View» de
+  HighLevel, con Próximas · Pasadas · Canceladas, el estado de cada una y las tareas con fecha al lado. Se entra por
+  «Calendario | Llamadas» arriba a la derecha (como el «Calendario | Tareas» de Google Calendar).
+- **Mover y agendar con MaKo ya existía en la API** (`proponer_mover_reunion`, `proponer_agendar_reunion`,
+  `horarios_libres_dia`, del área CRM): la estrella sólo tenía que estar. Con una llamada del CRM abierta va su lead como
+  entidad, y con una tarea, la tarea (`entidadDelItem`, app/calendario/comun.ts). **Lo de Google NO lleva entidad**: la
+  agenda no pasa por la IA (AGENTS.md, `datosDeGoogle`).
+- **Una reunión cancelada conserva la hora y pierde la fecha**: la grilla la saltea (`not('fecha_junta_X', 'is', null)`), la
+  lista la lee igual para su pestaña (`leerLlamadasDeVenta`). Copiar la consulta de `leerCrm` tal cual dejaba «Canceladas»
+  vacía sin error.
+- **El estado: lo marcado gana sobre la hora** (una que ya asistió es «Asistió» aunque sea de hoy) y «Sin marcar» es la que
+  terminó sin que nadie dijera si vino; con sólo el día, termina cuando termina el día (`estadoDeLlamada`,
+  lib/calendario-llamadas.ts). Qué ya pasó lo decide el reloj del server (`ahora` viaja como prop): con el del navegador,
+  el HTML y la hidratación podían discrepar.
+- **Mirar una pantalla que importa MakoEnLaTab sin levantar la app:** el render estático no sirve (importa CSS y el Link de
+  la casa necesita el router de Next). Se empaquetó con la API de esbuild y un plugin `onResolve` que cambia
+  `@/app/_chat/MakoEnLaTab` y `@/app/_ui/Link` por dos stubs, y se montó con `createRoot` en Chrome (Playwright).
+- **`.gc-pestanas` ya existía** en app/calendario/gc-css.ts (otra pieza): el selector nuevo va con `.gc-que-ver`. Antes de
+  nombrar una clase en una hoja de 170 reglas, `grep`.
+
+**25/10, la segunda tanda (Martín: «implementa todos los feedback... no hagas preguntas»):**
+- **Marcar la asistencia en la fila no es un camino nuevo de escritura:** es `guardarCampoLeadAction(lead, 'asistio_j1')`,
+  el MISMO de la ficha (historial, etapa derivada, Meta, «Deshacer» con `deshacerCampoLeadAction`). Escribir `asistio_jX`
+  con un update suelto saltaba todo eso. **La trampa:** en la R1, todo lo que no sea «asistió» BORRA el calificado
+  (`updateLead`: `asistio_j1 !== true` → calificado = null), también DESMARCAR. Por eso la lectura trae el calificado y la
+  lista pregunta antes (`avisoAlMarcar`). Sólo se marca una reunión que ya empezó (`sePuedeMarcar`).
+- **«Llamadas» en el teléfono** (app/m/calendario/LlamadasM.tsx) usa las MISMAS funciones puras que la computadora (el
+  estado, las pestañas, `rotuloDelDia`, `TONO_ESTADO_LLAMADA`, en lib/calendario-llamadas.ts) y se entra por el selector de
+  vistas (Día · Agenda · Llamadas). La asistencia se marca en la ficha (un desplegable en una fila de 44 px no se toca bien).
+  El número azul va sólo en lo que espera algo (las pasadas sin marcar), como pide la guía del teléfono.
+- **Debajo de 1100 px las tareas bajan** debajo de la tabla y la columna entera scrollea (antes se escondían).
+- **f09, la recarga:** el feedback tiene una sola frase y el transcript entero está en el scratchpad del Cerebro. El peor
+  caso medido en el código: leer Google hace el refresco del token (8 s), la lista de calendarios (10 s) y tandas de 4
+  calendarios con 10 s cada una, en serie: con 9 calendarios, ~48 s antes de dibujar. Si fue eso, la salida es un
+  presupuesto TOTAL para Google (lo que no llegue, a `fallaron`, que ya se muestra). No se cambió sin ver qué pasó.
+
+**Sin hacer:** «Se ve muy como Google» en la GRILLA sigue a propósito (Martín, 25/10: «lo tengo que personalizar»). **Vive
+en:** app/calendario/ListaLlamadas.tsx · app/calendario/Pestanas.tsx · app/calendario/comun.ts (`entidadDelItem`) ·
+app/m/calendario/LlamadasM.tsx · lib/calendario-llamadas.ts · lib/calendario.ts (`leerLlamadasDeVenta`,
+`leerTareasConFecha`) · tests/calendario.test.ts.
+
 ## Lo que quedó SIN hacer
 
 - **Las TAREAS de Google** (decisión de Martín del 14/10: después de la aprobación de la verificación). Piden el permiso

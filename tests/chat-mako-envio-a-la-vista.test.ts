@@ -30,12 +30,18 @@ function bloque(src: string, firma: string): string {
 }
 
 test('1 · Discutir / Editar es el segmento solo: lo que hace cada uno, al pasar el cursor', () => {
-  const selector = bloque(CHAT(), 'function SelectorIntencion(');
+  // Desde el 24/10/2026 el segmento es el compartido (app/_chat/SelectorIntencion.tsx, el mismo del editor web): el chat de
+  // Automations no tiene copia propia.
+  assert.match(CHAT(), /import \{ SelectorIntencion, useIntencion \} from '@\/app\/_chat\/SelectorIntencion';/);
+  assert.doesNotMatch(CHAT(), /function SelectorIntencion\(|const CLAVE_INTENCION|AYUDA_INTENCION/, 'volvió la copia propia del selector');
+  const pieza = sinComentarios(leer('app/_chat/SelectorIntencion.tsx'));
+  const selector = bloque(pieza, 'export function SelectorIntencion(');
   assert.doesNotMatch(selector, /\{AYUDA_INTENCION\[valor\]\}/, 'volvió la leyenda al lado del segmento');
   assert.doesNotMatch(selector, />\s*\{AYUDA_INTENCION/, 'la ayuda se dibuja como texto');
   assert.match(selector, /title=\{AYUDA_INTENCION\[o\.id\]\}/, 'sin la ayuda al pasar el cursor');
-  // Ningún otro lugar del chat dibuja esas frases.
-  const sinLaTabla = CHAT().replace(/export const AYUDA_INTENCION[\s\S]*?\n\};/, '');
+  // Ningún otro lugar del chat ni de la pieza dibuja esas frases.
+  assert.doesNotMatch(CHAT(), /Hace lo que pides|Te contesta y sugiere/);
+  const sinLaTabla = pieza.replace(/export const AYUDA_INTENCION[\s\S]*?\n\};/, '');
   assert.doesNotMatch(sinLaTabla, /Hace lo que pides|Te contesta y sugiere/);
 });
 

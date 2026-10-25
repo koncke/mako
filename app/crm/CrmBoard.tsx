@@ -13,7 +13,8 @@ import { empujeDeColumna } from './arrastre-columna';
 import { anchoMinimo, columnasQueEntran, plantillaDeColumnas } from './tabla-columnas';
 import { CeldasLead, TitulosLista, estiloEncabezado, estiloFila } from './TablaListaLeads';
 import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
-import { useRouter, useWs } from '@/app/_ui/Link';
+import Link, { useRouter, useWs } from '@/app/_ui/Link';
+import { rutaChatsDeLead } from '@/lib/chats-links';
 import { BotonIntegracion, VueltaDeGoogle } from '@/app/_components/ConectarIntegracion';
 import { BANDAS_KANBAN, claveFiltros, escribirFiltros, leerFiltros } from './filtros-guardados';
 import { ayudaDelTotal, textoDelTotal, totalDeColumna } from './total-columna';
@@ -203,7 +204,7 @@ export type CrmLead = {
   /** La etapa guardada que este funnel ya no contiene. null = está donde dice. */
   stageFuera?: string | null;   // posición real en el funnel (ignora override) — para el worklist
   created: string;
-  telefonoNorm: string | null;   // teléfono solo-dígitos — para wa.me / WhatsApp
+  telefonoNorm: string | null;   // teléfono solo-dígitos — para `tel:` y para saber si hay WhatsApp
   /**
    * El usuario de Instagram, sin @ (`leads.instagram`): el buscador lo encuentra (22/10/2026, `arrobaInstagram`).
    * Y desde el 23/10/2026 un lead puede entrar con el @ como ÚNICO canal (la prospección: un perfil público no da ni
@@ -331,8 +332,9 @@ const rotQuitar = (nombre: string) => `Quitar «${nombre}» de la selección`;
 const rotPoner = (nombre: string) => `Seleccionar «${nombre}» para moverlo o editarlo junto con otros`;
 const rotWa = (nombre: string) => `Escribirle a ${nombre} por WhatsApp`;
 const rotEliminar = (nombre: string) => `Eliminar «${nombre}»`;
-/** El telefono ya viene solo-digitos (`telefonoNorm`), que es lo que wa.me espera. */
-const waDe = (telefono: string) => `https://wa.me/${telefono}`;
+// «WhatsApp» abre la conversación del lead ADENTRO de MaKo, en Chats, no WhatsApp Web. Martín en la llamada con Leandro
+// (24/10, f15): «ahí si apretás el botón de WhatsApp debería llevarte al chat dentro de Maco». Un lead sin mensajes también
+// abre: Chats pide esa conversación sola (`claveDelLink`). La misma función que la ficha del teléfono (`rutaChatsDeLead`).
 const rotIg = (nombre: string) => `Abrir el Instagram de ${nombre}`;
 const igDe = (usuario: string) => `https://www.instagram.com/${encodeURIComponent(usuario)}/`;
 /**
@@ -1952,6 +1954,14 @@ export function CrmBoard({
   }, [fichaTrasAlta, altaPendiente, hayDialogoDeSoltar, altaAbierta]);
   /** Cierra el modal de alta. Estable: es el `onCerrar` del Modal (ver su nota). */
   const cerrarAlta = useCallback(() => setNuevoLead(null), []);
+  /**
+   * Cerrar «Traer de otro funnel» o el Scraper VUELVE a «Nuevo lead» (24/10/2026, Martín: «si me salgo haciendo click
+   * afuera debería tener abierto el modal anterior. Siempre todos los modales deben tener esa "navegación" interna»).
+   * Identidad fija, como `cerrarAlta`.
+   */
+  const volverAlAlta = useCallback(() => setNuevoLead((n) => (n ? { ...n, traer: false } : n)), []);
+  /** «Importar» abierto desde «Nuevo lead»: al cerrarlo, el alta sigue ahí (la pila de la casa la vuelve a mostrar). */
+  const cerrarImportar = useCallback(() => setImportar(false), []);
   // El pop-up de etapas guarda A CUAL funnel abrió, no un booleano: el lápiz de cada
   // renglón del selector puede abrir uno que no es el del tablero.
   const [etapasDe, setEtapasDe] = useState<{ id: number | null; nombre: string; entradas?: boolean } | null>(null);
@@ -2659,7 +2669,7 @@ export function CrmBoard({
       case 'abrir': if (l) openDetail(l); return;
       case 'que_hacer': if (l) abrirQueHacer(l.id); return;
       case 'mover_etapa': if (l && valor) { idASoltar.current = l.id; handleDrop(valor); } return;
-      case 'whatsapp': if (l?.telefonoNorm) window.open(waDe(l.telefonoNorm), '_blank', 'noopener,noreferrer'); return;
+      case 'whatsapp': if (l) router.push(rutaChatsDeLead(l.id)); return;
       case 'copiar_telefono': if (l) copiarDato(l.phone, 'Teléfono copiado'); return;
       case 'copiar_email': if (l) copiarDato(l.email, 'Email copiado'); return;
       case 'partners_llevar': if (l) setAPartners(l); return;
@@ -3500,13 +3510,13 @@ export function CrmBoard({
                   {/* Solo con telefono: un boton de WhatsApp sin numero no puede ir a ningun
                       lado, y uno apagado en cada fila es ruido por fila. */}
                   {l.telefonoNorm && (
-                    <a href={waDe(l.telefonoNorm)} target="_blank" rel="noopener noreferrer"
+                    <Link href={rutaChatsDeLead(l.id)}
                       onClick={(ev) => ev.stopPropagation()}
                       title={rotWa(l.name)} aria-label={rotWa(l.name)}
                       className="mk-icon-btn" data-tone="dim"
                       style={{ width: 28, height: 28, textDecoration: 'none' }}>
                       <IconoWhatsapp />
-                    </a>
+                    </Link>
                   )}
                   {/* Sin teléfono ni email pero con @: escribirle es por Instagram. */}
                   {soloInstagram(l) && (
@@ -3596,7 +3606,8 @@ export function CrmBoard({
             if (cambiaronCampanas.current) { cambiaronCampanas.current = false; router.refresh(); }
           }} />
       )}
-      {importar && <ImportarLeadsModal funnelId={funnelActivo} productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))} onClose={() => setImportar(false)} onListo={(resumen) => { setImportar(false); setFlashCsv(resumen); router.refresh(); }} />}
+      {/* Al terminar se cierran los dos (la importación y, si se abrió desde ahí, el alta): ya no hay nada que cargar. */}
+      {importar && <ImportarLeadsModal funnelId={funnelActivo} productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))} onClose={cerrarImportar} onListo={(resumen) => { setImportar(false); setNuevoLead(null); setFlashCsv(resumen); router.refresh(); }} />}
       {exportar && <ExportarLeadsModal onClose={() => setExportar(false)} />}
       {/* ⚠️ LA SEMILLA VA SÓLO SI EL POP-UP ABRE SOBRE EL EMBUDO QUE SE ESTÁ MIRANDO.
           Desde el desplegable se puede editar OTRO producto sin cambiar de tablero, y
@@ -3622,52 +3633,21 @@ export function CrmBoard({
           ficha no se abre (`selected` la busca en `leads`) y sin el aviso el botón
           se leería como que no hizo nada. */}
       {nuevoLead && (
-        // ⚠️ DOS VISTAS, DOS TAMAÑOS. El alta son CUATRO campos uno debajo del otro (puntos
-        // 27-28 del 12/10/2026) y entra en 560; traer de otro producto es una tabla con seis
-        // columnas, su buscador y su filtro, y ahí 720 deja cada fila en dos renglones. Por
-        // eso la vista la decide el PADRE y no el form: un formulario no puede cambiar el
-        // tamaño de la caja que lo contiene. Y el alto va FIJO en «traer», o la caja salta al
-        // cambiar de vista.
-        // `onCerrar` de identidad FIJA (`cerrarAlta`): con una flecha nueva por render del
-        // tablero, el Modal le devuelve el foco atrás y el campo pierde la letra (AGENTS.md).
-        <Modal
-          titulo={nuevoLead.traer === 'grupo' ? 'Traer de un grupo de WhatsApp' : nuevoLead.traer ? 'Traer de otro funnel' : 'Nuevo lead'}
-          ancho={nuevoLead.traer ? 1040 : 560}
-          alto={nuevoLead.traer ? "min(88vh, 720px)" : undefined}
-          onCerrar={cerrarAlta}
-        >
-          {/* Los contactos de un grupo de WhatsApp (23/10/2026, ./TraerDeGrupoWA.tsx): sólo el admin, que es quien la ve. */}
-          {nuevoLead.traer === 'grupo' ? (
-            <TraerDeGrupoWA
-              productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
-              destino={funnelActivo}
-              onAtras={() => setNuevoLead({ ...nuevoLead, traer: false })}
-              // NO se cierra: se sigue con otro grupo (la base de venta de Martín son varios grupos seguidos).
-              onTraidos={(resumen) => { mostrarAviso(resumen); router.refresh(); }}
-            />
-          ) : nuevoLead.traer ? (
-            <TraerDeOtroProducto
-              productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
-              destino={funnelActivo}
-              onAtras={() => setNuevoLead({ ...nuevoLead, traer: false })}
-              onTraidos={(movidos, fallaron, deshacer) => {
-                setNuevoLead(null);
-                const falla = fallaron ? ` · ${fallaron} no se pudieron` : '';
-                // Con su «Deshacer» (22/10/2026): el componente lo mandaba y el tablero lo tiraba. Traer 1.050 de una vez
-                // sin vuelta atrás es justo lo que no puede pasar; borra SÓLO las filas que este lote creó.
-                mostrarAviso(`${movidos} ${movidos === 1 ? 'lead traído' : 'leads traídos'}${falla}`, deshacer ? () => {
-                  void deshacer().then(() => router.refresh(), () => mostrarAviso('No se pudo deshacer', undefined, 'bad'));
-                } : undefined);
-                router.refresh();
-              }}
-            />
-          ) : (
+        // ⚠️ «TRAER» Y EL SCRAPER SE ABREN ENCIMA, EN SU PROPIO MODAL (24/10/2026). Hasta acá reemplazaban el contenido de
+        // ESTE modal (dos vistas, dos tamaños), y un clic afuera cerraba todo. Martín: «Si le doy a "Scraper" o algun boton
+        // asi, se me abre el modal nuevo, si me salgo haciendo click afuera debería tener abierto el modal anterior». Ahora
+        // es la regla de la casa (app/_components/pila-modales.ts): el de abajo se esconde sin desmontarse —lo escrito en el
+        // alta queda— y cerrar el de arriba lo vuelve a mostrar. El alta son CUATRO campos y entra en 560; «traer» es una
+        // tabla de seis columnas, 1040, con el alto FIJO (abajo).
+        // `onCerrar` de identidad FIJA (`cerrarAlta`, `volverAlAlta`): con una flecha nueva por render del tablero, el Modal
+        // le devuelve el foco atrás y el campo pierde la letra (AGENTS.md).
+        <Modal titulo="Nuevo lead" ancho={560} onCerrar={cerrarAlta}>
           <NewLeadForm enModal={{
             funnelId: funnelActivo,
             onTraer: () => setNuevoLead({ ...nuevoLead, traer: true }),
             ...(puedeCrearCrm ? { onTraerGrupo: () => setNuevoLead({ ...nuevoLead, traer: 'grupo' }) } : {}),
-            // «Importar», el tercero de arriba (24/10/2026): cierra el alta y abre la importación de siempre.
-            onImportar: () => { setNuevoLead(null); setImportar(true); },
+            // «Importar», el tercero de arriba (24/10/2026): la importación de siempre, ENCIMA del alta (al cerrarla, vuelve).
+            onImportar: () => setImportar(true),
             onCreado: (id) => {
               const etapa = nuevoLead.etapa;
               setNuevoLead(null);
@@ -3685,6 +3665,40 @@ export function CrmBoard({
               router.refresh();
             },
           }} />
+        </Modal>
+      )}
+      {nuevoLead?.traer && (
+        <Modal
+          titulo={nuevoLead.traer === 'grupo' ? 'Traer de un grupo de WhatsApp' : 'Traer de otro funnel'}
+          ancho={1040}
+          alto="min(88vh, 720px)"
+          onCerrar={volverAlAlta}
+        >
+          {/* Los contactos de un grupo de WhatsApp (23/10/2026, ./TraerDeGrupoWA.tsx): sólo el admin, que es quien la ve. */}
+          {nuevoLead.traer === 'grupo' ? (
+            <TraerDeGrupoWA
+              productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
+              destino={funnelActivo}
+              onAtras={volverAlAlta}
+              // NO se cierra: se sigue con otro grupo (la base de venta de Martín son varios grupos seguidos).
+              onTraidos={(resumen) => { mostrarAviso(resumen); router.refresh(); }}
+            />
+          ) : (
+            <TraerDeOtroProducto
+              productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
+              destino={funnelActivo}
+              onAtras={volverAlAlta}
+              onTraidos={(movidos, fallaron, deshacer) => {
+                setNuevoLead(null);
+                const falla = fallaron ? ` · ${fallaron} no se pudieron` : '';
+                // Con su «Deshacer» (22/10/2026): el componente lo mandaba y el tablero lo tiraba. Traer 1.050 de una vez
+                // sin vuelta atrás es justo lo que no puede pasar; borra SÓLO las filas que este lote creó.
+                mostrarAviso(`${movidos} ${movidos === 1 ? 'lead traído' : 'leads traídos'}${falla}`, deshacer ? () => {
+                  void deshacer().then(() => router.refresh(), () => mostrarAviso('No se pudo deshacer', undefined, 'bad'));
+                } : undefined);
+                router.refresh();
+              }}
+            />
           )}
         </Modal>
       )}
@@ -3722,7 +3736,7 @@ export function CrmBoard({
               { k: 'Entró', v: l.created },
             ]}
             acciones={[
-              ...(l.telefonoNorm ? [{ texto: 'Llamar', href: `tel:+${l.telefonoNorm}`, primaria: true }, { texto: 'WhatsApp', href: waDe(l.telefonoNorm), externo: true }] : []),
+              ...(l.telefonoNorm ? [{ texto: 'Llamar', href: `tel:+${l.telefonoNorm}`, primaria: true }, { texto: 'WhatsApp', onClick: () => { cerrar(); router.push(rutaChatsDeLead(l.id)); } }] : []),
               { texto: 'Abrir ficha', onClick: () => { cerrar(); openDetail(l); }, primaria: !l.telefonoNorm },
             ]}
             mover={stages.map((s) => ({ id: s.key, label: s.label, aqui: s.key === etapa }))}

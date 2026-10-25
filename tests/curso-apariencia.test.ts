@@ -231,13 +231,17 @@ test('el dibujo pinta la fuente en .ugc y pide su hoja ANTES de cualquier return
   assert.ok(hook > 0 && hook < primerReturn, 'el hook de la hoja quedó detrás de un return (pantalla en blanco, AGENTS.md)');
 });
 
-test('la eligen en el menú de la marca, al lado del color, y la ven el editor, el portal y la vista previa', () => {
+// Desde el 24/10/2026 (f27 de la llamada con Leandro) el color y la fuente se eligen SÓLO en «Personalizar», arriba en la
+// cabecera de Clients: el menú de la marca del Classroom se fue.
+test('la eligen en «Personalizar», al lado del color, y la ven el editor, el portal y la vista previa', () => {
   const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
-  const menu = bloque(app, 'const menuMarca = ', 'if (!servicio)');
-  const color = menu.indexOf('<TituloMenuUgc>Color</TituloMenuUgc>');
-  const fuente = menu.indexOf('<TituloMenuUgc>Fuente</TituloMenuUgc>');
-  assert.ok(color > 0 && fuente > color, 'la fuente no está en el menú de la marca, debajo del color');
-  assert.match(menu, /<SelectorFuente actual=\{estilo\.fuente\} onElegir=\{\(id\) => void cambiarAspecto\(\{ tipo: 'fuente' \}, id, 'Fuente cambiada'\)\} \/>/);
+  const shell = sinComentarios(leer('app/clients/ClientsShell.tsx'));
+  const pers = bloque(shell, 'function Personalizar(', 'function Pop(');
+  const color = pers.indexOf('<p className="cls-pop-tit">Color</p>');
+  const fuente = pers.indexOf('<p className="cls-pop-tit">Fuente</p>');
+  assert.ok(color > 0 && fuente > color, 'la fuente no está en Personalizar, debajo del color');
+  assert.match(pers, /<SelectorFuente actual=\{programa\.fuente\} onElegir=\{\(id\) => void onGuardar\(\{ tipo: 'fuente' \}, id, programa\.fuente\)\} \/>/);
+  assert.doesNotMatch(app, /SelectorFuente|<TituloMenuUgc>Color/, 'el color o la fuente volvieron al Classroom');
   assert.match(app, /\sfuente=\{estilo\.fuente\}/, 'el editor no le pasa la fuente al dibujo');
   assert.match(sinComentarios(leer('app/compartido/curso/[token]/PortalAlumno.tsx')), /\sfuente=\{estilo\?\.fuente\}/, 'el alumno no ve la fuente');
   // El selector escribe cada muestra con su propia letra (la opción trae `fuente`). Las HOJAS no se
@@ -264,11 +268,16 @@ test('el color y la fuente se deshacen escribiendo en el server, desde lo CONFIR
   const f = bloque(app, 'const cambiarAspecto = async', 'const acentoActual');
   assert.match(f, /const antes = valorDe\(confirmados\.current\[productoId\] \?\? estiloVacio\(\), a\);/, 'el «antes» tiene que ser lo confirmado, no lo de pantalla');
   assert.match(f, /if \(await guardarAjuste\(a, v\)\) show\(aviso, \(\) => \{ void guardarAjuste\(a, antes\); \}\);/, 'el deshacer no escribe en el server');
-  assert.match(bloque(app, 'const menuMarca = ', 'if (!servicio)'), /cambiarAspecto\(\{ tipo: 'acento' \}, a\.hex === ACENTO_DEFAULT \? null : a\.hex, 'Color cambiado'\)/);
+  // El color y la fuente de «Personalizar» (24/10/2026): el aviso con su «Deshacer» vuelve a guardar por el MISMO camino.
+  const shell = sinComentarios(leer('app/clients/ClientsShell.tsx'));
+  const g = bloque(shell, 'const guardar = async (ajuste: AjusteVisual', 'router.refresh();');
+  assert.match(g, /show\(ajuste\.tipo === 'acento' \? 'Color cambiado' : 'Fuente cambiada', \(\) => \{ void guardar\(ajuste, antes\); \}\);/, 'el deshacer no escribe en el server');
+  assert.match(g, /if \(!r\.ok\) \{ setProgramas\(previo\); show\(r\.error, undefined, 'bad'\); return; \}/);
+  const pers = bloque(shell, 'function Personalizar(', 'function Pop(');
+  assert.match(pers, /void onGuardar\(\{ tipo: 'acento' \}, hex === ACENTO_DEFAULT \? null : hex, antes\);/);
   // El «otro» color: el de antes es el del PRIMER movimiento, no el de un tono a mitad de camino.
-  const otro = bloque(app, 'const probarAcento = ', 'const guardarTexto');
-  assert.match(otro, /if \(!otroAntes\.current\) otroAntes\.current = \{ v: valorDe\(confirmados\.current\[pid\]/);
-  assert.match(otro, /show\('Color cambiado', \(\) => \{ void guardarAjuste\(\{ tipo: 'acento' \}, antes\.v\); \}\)/);
+  assert.match(pers, /if \(!otroAntes\.current\) otroAntes\.current = \{ v: programa\.acento \};/);
+  assert.match(pers, /const antes = otroAntes\.current\?\.v \?\? null;\s*otroAntes\.current = null;\s*void onGuardar\(\{ tipo: 'acento' \}, hex, antes\);/);
   // El nombre y la descripción del CURSO también (revisión final del 08/10/2026), como los de un módulo o
   // una clase. Roto (sin el `show` de este bloque) → 9 / 1, este test; restaurado 10 / 0.
   const texto = bloque(app, "if (que.tipo === 'curso-titulo' || que.tipo === 'curso-resumen') {", 'return ok;');

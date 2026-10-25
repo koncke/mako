@@ -16,8 +16,16 @@
 // admin (el globo con su colita, la foto de quien escribe, la hora, lo de WhatsApp). Medido ese día en el ws1: el hilo iba
 // suelto en `.co-hilo` (display: block) y `.co-yo { align-self: flex-end }` no hacía nada: lo de la persona quedaba a la
 // izquierda, con 760 px de ancho, cortado a la mitad. Quien lo monta lo pone en `.co-hilo__col` (PanelChat.tsx).
+//
+// EL CLIC DERECHO EN LOS CHATS EMBEBIDOS (24/10/2026, Martín: «en Automations o Web Generator, si le doy click derecho, no
+// hace nada»; plan en docs/diseno-editor-web-como-automations.md §5). El menú de un mensaje vive en MensajeWA (`Deslizable`)
+// y se prende con `ContextoWA`, que sólo daban el Ops Center, el teléfono y el Second Brain: ningún chat embebido lo tenía.
+// Ahora, si quien monta el hilo NO trae su ContextoWA, el hilo pone uno MÍNIMO (`MenuDelMensaje`): Copiar siempre, y
+// Responder cuando la pantalla sabe poner la cita en su caja (`onCitar`). Reenviar, Fijar, Destacar y las reacciones
+// necesitan dónde guardarse: quedan para los chats con conversación guardada, que traen el suyo. Una vez acá, los once.
 
-import type { ReactNode } from 'react';
+import { useContext, useMemo, useState, type ReactNode } from 'react';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Markdown } from '@/app/_components/Markdown';
 import { partirPegados } from '@/lib/chat-pegado';
 import { PegadosHilo, TextoPlegable } from './PegadoHilo';
@@ -28,7 +36,7 @@ import { Trabajando } from '@/app/admin/operaciones/Trabajando';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 import { leerCita, renglonDeCita, type IdMensaje, type MarcasChat, type MensajeWA } from '@/lib/centro-mensajes';
 export { idWA, mensajeWADe } from '@/app/m/mako/chat-ui';
-import { CitaEnBurbuja, MarcasEnHora } from '@/app/admin/operaciones/MensajeWA';
+import { CitaEnBurbuja, ContextoWA, MarcasEnHora, type AccionesWA } from '@/app/admin/operaciones/MensajeWA';
 import { ERROR_INCIERTO, conRespuestas, idWA, mensajeWADe, textoConArchivos, type ItemHilo } from '@/app/m/mako/chat-ui';
 import { TarjetaAccion, type ItemPropuesta } from './TarjetaAccion';
 import { ArchivosHilo } from './ArchivosHilo';
@@ -79,7 +87,44 @@ function DeMako({ quien, children, hora = null, ancho = false, m = null, marcas 
 /** Lo de una pantalla adentro de un mensaje de MaKo (22/10/2026, OF4: Offer y el onboarding con el hilo del Ops Center). */
 export type EnMensaje = { arriba?: ReactNode; abajo?: ReactNode };
 
-export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar, onResponder, onTrabajo, marcas, enMensaje }: {
+/**
+ * El hilo. `onCitar`: la pantalla pone la cita de un mensaje en su caja (Responder); sin él, el menú del clic derecho trae
+ * sólo Copiar. Si quien lo monta ya trae su ContextoWA (el Ops Center, el teléfono), se usa el suyo.
+ */
+export function HiloMako({ onCitar, ...p }: Parameters<typeof CuerpoHilo>[0] & { onCitar?: (m: MensajeWA) => void }) {
+  const deAfuera = useContext(ContextoWA);
+  if (deAfuera) return <CuerpoHilo {...p} />;
+  return <MenuDelMensaje onCitar={onCitar}><CuerpoHilo {...p} /></MenuDelMensaje>;
+}
+
+/** El menú MÍNIMO de un mensaje para un chat embebido: Copiar y, si la pantalla puede, Responder. */
+function MenuDelMensaje({ onCitar, children }: { onCitar?: (m: MensajeWA) => void; children: ReactNode }) {
+  const [abierto, setAbierto] = useState<{ m: MensajeWA; x: number; y: number } | null>(null);
+  const acciones = useMemo<AccionesWA>(() => ({
+    // Con el dedo (mantener apretado) no se abre: en Android el `contextmenu` que llega después cerraría el menú de la casa
+    // en el mismo gesto (MensajeWA.tsx, «POR QUÉ SE CERRABA SOLO»). Los chats embebidos son de la computadora.
+    abrirMenu: (m, x, y, tactil) => { if (!tactil) setAbierto({ m, x, y }); },
+    responder: (m) => onCitar?.(m),
+    reaccionar: () => {},
+  }), [onCitar]);
+  const copiar = (m: MensajeWA) => {
+    const t = leerCita(m.texto)?.resto ?? m.texto;
+    void navigator.clipboard?.writeText(t).catch(() => {});
+  };
+  return (
+    <ContextoWA.Provider value={acciones}>
+      {children}
+      {abierto && (
+        <MenuContextual punto={{ x: abierto.x, y: abierto.y }} titulo={renglonDeCita(abierto.m.texto, 60)} etiqueta="Opciones del mensaje"
+          onCerrar={() => setAbierto(null)}
+          onElegir={(id) => { const m = abierto.m; setAbierto(null); if (id === 'copiar') copiar(m); else if (id === 'responder') onCitar?.(m); }}
+          items={[...(onCitar ? [{ id: 'responder', label: 'Responder', icono: 'cita' as const }] : []), { id: 'copiar', label: 'Copiar', icono: 'copiar' as const }]} />
+      )}
+    </ContextoWA.Provider>
+  );
+}
+
+function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar, onResponder, onTrabajo, marcas, enMensaje }: {
   items: readonly ItemHilo[];
   /** El chat: su muñeco va al lado de lo que dice MaKo. */
   quien: Quien;

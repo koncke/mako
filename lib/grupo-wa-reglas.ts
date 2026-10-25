@@ -37,6 +37,29 @@ export type ParticipanteWA = { telefono: string; nombre: string | null; lid?: st
 
 /** El tope para listar los grupos hablando con WhatsApp; pasado, los de la base de Evolution. */
 export const TOPE_GRUPOS_MS = 15_000;
+/**
+ * ⚠️ LA LISTA COMPLETA TARDA MÁS QUE ESE TOPE (medido el 25/10/2026 en la línea de la plataforma, 285 grupos: `fetchAllGroups`
+ * contestó en 33 s, y `findChats` en 0,5 s con sólo 61). Martín: «el cargar los grupos, tarda muchísimo». Con el tope de 15 s
+ * la persona esperaba 15 s para terminar con 61 de 285. Ahora: al abrir, lo GUARDADO de la última vez (o, la primera vez, los
+ * de la base, al instante), y la lista completa se pide APARTE, con este tope, y se guarda para la próxima.
+ */
+export const TOPE_GRUPOS_COMPLETO_MS = 50_000;
+/** Pasado esto, la lista guardada se muestra igual pero se vuelve a pedir completa por detrás (un grupo nuevo aparece solo). */
+export const VIEJA_GRUPOS_MS = 10 * 60_000;
+
+/** La lista de grupos guardada de una línea (`app_settings`), leída como texto ajeno. null = no hay, o no se entiende. */
+export function gruposGuardados(raw: string | null): { at: number; grupos: GrupoWA[] } | null {
+  if (!raw) return null;
+  let o: unknown;
+  try { o = JSON.parse(raw); } catch { return null; }
+  if (!o || typeof o !== 'object') return null;
+  const x = o as { at?: unknown; grupos?: unknown };
+  const at = typeof x.at === 'number' ? x.at : Date.parse(String(x.at ?? ''));
+  if (!Number.isFinite(at) || !Array.isArray(x.grupos)) return null;
+  const grupos = x.grupos.filter((g): g is GrupoWA => !!g && typeof g === 'object' && esJidDeGrupo((g as GrupoWA).jid) && typeof (g as GrupoWA).nombre === 'string')
+    .map((g) => ({ jid: g.jid, nombre: g.nombre, tamano: typeof g.tamano === 'number' ? g.tamano : null }));
+  return grupos.length ? { at, grupos } : null;
+}
 /** El tope para los participantes de UN grupo (medido: 0,4 s). */
 export const TOPE_PARTICIPANTES_MS = 30_000;
 /** De a cuántos los trae la pantalla: cada lead son varias lecturas y escrituras, y una acción del server tiene 60 s. */
@@ -299,17 +322,19 @@ export function lineaDeGrupos(grupos: readonly string[]): string | null {
 /** De a cuántas fichas manda la pantalla: cada una son unas pocas escrituras (~0,3 s), lejos de los 60 s de una acción. */
 export const TANDA_FICHAS = 40;
 
-// ── «Datos de empresa» con TOPE (24/10/2026, el Cerebro: «tope duro por corrida y por día; la cuenta real y el tiempo antes
-// de arrancar») ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// ── «Datos de empresa» con TOPE POR DÍA (24/10/2026, el Cerebro: «tope duro por corrida y por día; la cuenta real y el tiempo
+// antes de arrancar») ─────────────────────────────────────────────────────────────────────────────────────────────────────
 // Cada consulta de perfil es tráfico en la RED de una línea no oficial (riesgo de baneo, docs/hallazgos-comunicacion.md).
 // El cupo del día y los teléfonos ya consultados viven en `app_settings`, por línea (app/crm/grupo-wa-server.ts).
+// ⚠️ SIN TOPE POR CORRIDA desde el 25/10/2026. Martín en la llamada con Leandro (24/10, f14): «no debería volver a tocar nada,
+// o sea, debería extraerte todo». El de 40 por corrida sólo partía el trabajo en toques: lo que cuida la línea es la espera
+// entre consultas (`ESPERA_PERFIL_MS`) y el tope del DÍA, que siguen. NO era por el costo de Apify (eso fue otra cosa, que se
+// revirtió el 24/10): era por el baneo. Un toque consulta todo lo que falta hasta el tope del día.
 
 /** Cuántos leads toma un lote de «Completar» del tablero: lo mismo que la extensión lee de una vez (extension/wa-fichas.js). */
 export const TOPE_LOTE_COMPLETAR = 5000;
 
-/** Cuántos perfiles consulta UNA corrida (un toque del botón). */
-export const TOPE_PERFILES_CORRIDA = 40;
-/** Cuántos por DÍA y por línea, sumando todas las corridas de todas las pantallas. */
+/** Cuántos por DÍA y por línea, sumando todas las corridas de todas las pantallas. Cuida la línea de un baneo. */
 export const TOPE_PERFILES_DIA = 120;
 /** Lo que tarda cada consulta, medido: ~0,6 s de respuesta más la espera de 2 s entre una y otra. */
 export const SEGUNDOS_POR_PERFIL = 2.6;
@@ -346,9 +371,9 @@ export function vistosConNuevos(raw: string | null, nuevos: readonly string[]): 
   return JSON.stringify(todos.slice(-TOPE_VISTOS));
 }
 
-/** Cuántos consulta ESTA corrida: lo que falta, lo que queda hoy y lo que le queda a la corrida (`hechas` ya consultados). */
-export function cuantosEstaCorrida(p: { pendientes: number; quedanHoy: number; hechas: number }): number {
-  return Math.max(0, Math.min(p.pendientes, p.quedanHoy, TOPE_PERFILES_CORRIDA - Math.max(0, p.hechas)));
+/** Cuántos consulta ESTA corrida: todo lo que falta, hasta lo que queda hoy (sin tope por corrida desde el 25/10, f14). */
+export function cuantosEstaCorrida(p: { pendientes: number; quedanHoy: number }): number {
+  return Math.max(0, Math.min(p.pendientes, p.quedanHoy));
 }
 
 /** Los minutos que se le dicen a la persona antes de arrancar (redondeado para arriba: mejor que sobre a que falte). */

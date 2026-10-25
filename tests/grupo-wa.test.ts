@@ -19,7 +19,7 @@ import assert from 'node:assert/strict';
 import {
   conNombresConocidos, esJidDeGrupo, esNombreDeRelleno, etapaPorDefecto, etiquetaDeGrupo, funnelPorDefecto, gruposDeChats, gruposDeFetchAll,
   lineaDePerfil, nombreUtil, parcheDePerfil, participantesDe, perfilDeEmpresa, telefonoDeJid,
-  SEGUNDOS_POR_PERFIL, TOPE_PERFILES_CORRIDA, TOPE_PERFILES_DIA, TOPE_VISTOS, cuantosEstaCorrida, cupoDeHoy, minutosDePerfiles, quedanHoy,
+  SEGUNDOS_POR_PERFIL, TOPE_PERFILES_DIA, TOPE_VISTOS, cuantosEstaCorrida, cupoDeHoy, minutosDePerfiles, quedanHoy,
   vistosConNuevos, vistosDe,
 } from '../lib/grupo-wa-reglas';
 
@@ -140,22 +140,24 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   assert.match(server, /return lineas\.find\(\(l\) => l\.linea === linea\) \?\? null;/, 'una línea pedida que no es del negocio no se usa');
   assert.match(server, /const leidos = await participantesDelGrupo\(p\.linea, p\.jid\);[\s\S]{0,400}leidos\.participantes\.filter\(\(x\) => pedidos\.has\(x\.telefono\)\)/, 'lo del navegador sólo ELIGE entre los participantes leídos de nuevo');
   assert.match(server, /if \(destino\.manda\) return \{ ok: false, error:/, 'el server acepta una etapa que manda');
-  assert.match(server, /if \(existente === null\) \{ salteados\+\+; continue; \}/, 'un número compartido por dos leads se saltea');
+  assert.match(server, /if \(existente === null\) \{ salteados\+\+; return; \}/, 'un número compartido por dos leads se saltea');
   // Desde el 24/10 (Martín: «si ... detecta que esos números ya están, no me debe cargar nuevamente»), el que ya es lead NO SE
   // TOCA: ni se suma a este funnel ni se etiqueta. Reemplaza la regla del 23/10 («dos grupos, dos etiquetas»).
-  assert.match(server, /if \(existente !== undefined\) \{ yaEstaban\+\+; continue; \}/, 'el que ya es lead se vuelve a cargar');
+  assert.match(server, /if \(existente !== undefined\) \{ yaEstaban\+\+; return; \}/, 'el que ya es lead se vuelve a cargar');
   const traerSrv = server.slice(server.indexOf('export async function traerDelGrupo('), server.indexOf('export async function etiquetaDeOrigen(')).replace(/^\s*\/\/.*$/gm, ''); // el código, sin los comentarios
   assert.doesNotMatch(traerSrv, /agregarAProducto|traidos\.push\(existente\)/, 'el que ya estaba se suma al funnel o se etiqueta');
   assert.match(server, /origen_lead: ORIGEN_LEAD\.grupo_whatsapp\.id/, 'nace con su origen: es lo que lo deja quieto (test 7)');
   assert.match(server, /const r = await ponerEtiquetaLote\(ids, id, \{ autor \}\);/, 'la etiqueta en LOTE (no dispara)');
-  assert.match(server, /const origen = await etiquetaDeOrigen\([^\n]*\);\n {2}if \(!origen\.ok\) return origen;[\s\S]{0,1200}for \(const \[i, x\] of quienes\.entries\(\)\)/, 'la etiqueta se mira ANTES de traer a nadie');
+  assert.match(server, /const origen = await etiquetaDeOrigen\([^\n]*\);\n {2}if \(!origen\.ok\) return origen;[\s\S]{0,4000}for \(let i = 0; i < quienes\.length; i \+= PARALELO\)/, 'la etiqueta se mira ANTES de traer a nadie');
+  // De a cuatro a la vez desde el 25/10/2026 (medido: ~135 ms por lead, uno detrás del otro), con el tope de tiempo entre cada cuatro.
+  assert.match(server, /if \(p\.hasta != null && Date\.now\(\) > p\.hasta\) \{ pendientes = quienes\.slice\(i\)\.map\(\(q\) => q\.telefono\); break; \}\n {4}await Promise\.all\(quienes\.slice\(i, i \+ PARALELO\)\.map\(uno\)\);/);
   assert.match(server, /if \(secuenciasDeEtiqueta\(vistas, e\.id\)\.length\) return \{ ok: false,/, 'una etiqueta con automatización: el barrido inscribe al grupo');
   assert.match(acciones, /hasta: Date\.now\(\) \+ 45_000,/, 'con tope también desde la pantalla');
   const pantalla = leer('app/crm/TraerDeGrupoWA.tsx');
   assert.match(pantalla, /const tanda = cola\.splice\(0, TANDA_GRUPO\);/, 'de a tandas');
   assert.match(pantalla, /if \(r\.pendientes\.length >= tanda\.length\) \{[^}]*break; \}\n {6}cola\.unshift\(\.\.\.r\.pendientes\);/, 'lo que cortó por tiempo vuelve a la cola (y sin avance, para)');
   assert.match(pantalla, /const usables = etapas\.filter\(\(e\) => !e\.manda\);/, 'las etapas que mandan no se ofrecen');
-  assert.match(pantalla, /\{!!gente\?\.length && \(\n\s*<span[^\n]*>\n\s*\{\[[\s\S]{0,400}?'No les manda nada\.',/, 'la pantalla lo dice, siempre');
+  assert.match(pantalla, /\{ texto: 'No les manda nada', tono: 'gris' as const \},/, 'la pantalla lo dice, siempre');
   assert.match(leer('app/crm/CrmBoard.tsx'), /\.\.\.\(puedeCrearCrm \? \{ onTraerGrupo: \(\) => setNuevoLead\(\{ \.\.\.nuevoLead, traer: 'grupo' \}\) \} : \{\}\),/, 'sólo el admin ve la opción');
   // La API de MaKo: admin, SÓLO en la app (por WhatsApp el rol es siempre 'admin'), por chat, y corta a tiempo.
   const def = leer('lib/api-mako/areas/crm.def.ts');
@@ -283,7 +285,7 @@ test('10. «Completar nombres»: a los que YA están, sólo el nombre de relleno
   const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
   const server = leer('app/crm/grupo-wa-server.ts');
   // Los nombres entran en el MISMO lugar que lee todo el camino (la pantalla, traer y la API), sin tráfico a la red.
-  assert.match(server, /return \{ ok: true, linea: l\.linea, participantes: await nombresConocidos\(l\.linea, participantes\), sinNumero \};/);
+  assert.match(server, /const v: Leidos = \{ ok: true, linea: l\.linea, participantes: await nombresConocidos\(l\.linea, participantes\), sinNumero \};/);
   assert.match(server, /fetchContactosEvolution\(linea\)\.catch\(\(\) => \[\]\),\n\s+getNombresContacto\(\)\.catch\(/, 'si una lectura falla, traer no se frena');
   const completar = server.slice(server.indexOf('export async function completarNombresDelGrupo('), server.indexOf('export async function marcarEnElCrm('));
   assert.ok(completar.length > 200, 'no encontré completarNombresDelGrupo');
@@ -299,11 +301,14 @@ test('10. «Completar nombres»: a los que YA están, sólo el nombre de relleno
   assert.match(esc, /campo: 'Nombre', valor_anterior: antes, valor_nuevo: nombre, autor/);
   // La pantalla: el botón aparece con gente que ya está, y la vista usa la pieza del pie (el que flotaba, 24/10/2026).
   const pantalla = leer('app/crm/TraerDeGrupoWA.tsx');
-  // Desde la 0.70 de la extensión, con la extensión el camino es «Completar desde mi WhatsApp» (tests/wa-fichas-extension.test.ts);
-  // sin ella, este.
-  assert.match(pantalla, /\{yaEstan > 0 && extWa === 'no' && \(\n\s+<button type="button" onClick=\{\(\) => void completar\(\)\}/);
-  assert.match(pantalla, /const r = await completarNombresDeGrupoAction\(\{ linea, jid \}\)/);
-  assert.match(pantalla, /<VistaConPie\n\s+lista=/);
+  // Desde la 0.70 de la extensión, con la extensión el camino es «Completar desde mi WhatsApp» (tests/wa-fichas-extension.test.ts).
+  // Sin ella, «Completar nombres» ya NO corre este camino del server (25/10/2026, f12 de la llamada con Leandro: «ese botón te
+  // debería decir instala la extensión de Maco y que ahí directamente comience»): lo fija tests/crm-completar-con-extension.test.ts.
+  // En el «⋯» del molde desde el 24/10/2026 (sólo con gente que ya está y sin nada corriendo).
+  assert.match(pantalla, /\.\.\.\(extWa !== 'si' \? \[\{ id: 'nombres', texto: 'Completar nombres', icono: 'persona' as const, onElegir: completarNombres \}\] : \[\]\),/);
+  assert.match(pantalla, /const mas: OpcionMas\[\] = trayendo \|\| !yaEstan \? \[\] : \[/);
+  assert.doesNotMatch(pantalla, /completarNombresDeGrupoAction/, 'la pantalla volvió al camino que completaba «algunos o ninguno» sin decir por qué');
+  assert.match(pantalla, /<MoldeTraer\b/);
   assert.doesNotMatch(pantalla, /position: 'sticky', bottom: 0/, 'el pie volvió a armarse a mano: flota (ver app/_ui/VistaConPie.tsx)');
   // Una línea sin conectar (una segunda a medio conectar queda «conectando» en la base) se dice, y no se elige si hay otra.
   assert.match(pantalla, /setLinea\(\(r\.lineas\.find\(\(l\) => l\.conectada\) \?\? r\.lineas\[0\]\)\?\.linea \?\? null\);/);
@@ -362,7 +367,7 @@ test('12. «Datos de empresa»: a los que ya están, de a uno y despacio, compar
   assert.match(cuerpo, /if \(p\.soloContar\) return \{ ok: true, \.\.\.cuenta,/, 'la cuenta de la pregunta consulta perfiles');
   assert.ok(cuerpo.indexOf('if (p.soloContar) return') < cuerpo.indexOf('fetchBusinessProfile'), 'la cuenta tiene que salir antes de cualquier consulta');
   assert.match(cuerpo, /if \(!\(await reservarPerfil\(p\.linea, hoy\)\)\) \{ corte = 'dia'; break; \}\n\s+const \{ telefono, id \} = ahora\[i\];\n\s+revisados\+\+;\n\s+const r = await ev\(`\/chat\/fetchBusinessProfile/, 'consulta sin reservar el cupo del día antes');
-  assert.match(cuerpo, /const estaCorrida = cuantosEstaCorrida\(\{ pendientes: ahora\.length, quedanHoy: quedan, hechas \}\);/);
+  assert.match(cuerpo, /const estaCorrida = cuantosEstaCorrida\(\{ pendientes: ahora\.length, quedanHoy: quedan \}\);/);
   assert.match(cuerpo, /for \(let i = 0; i < estaCorrida; i\+\+\)/, 'el bucle no respeta el tope de la corrida');
   assert.match(cuerpo, /const faltan = conLead\.filter\(\(x\) => !vistos\.has\(x\.telefono\.slice\(-10\)\)\);/, 'vuelve a consultar a los que ya contestaron');
   assert.match(cuerpo, /if \(r == null\) \{ sinRespuesta\.push\(telefono\.slice\(-10\)\); continue; \}\n\s+nuevos\.push\(/, 'lo que no contestó quedó como consultado');
@@ -371,16 +376,14 @@ test('12. «Datos de empresa»: a los que ya están, de a uno y despacio, compar
   assert.match(reservar, /if \(quedanHoy\(c\) <= 0\) return false;/);
   // La pantalla: primero la cuenta, la pregunta con la cuenta y el tiempo, «Parar», y sigue sumando `hechas`.
   const pantalla = leer('app/crm/TraerDeGrupoWA.tsx');
-  assert.match(pantalla, /onClick=\{\(\) => void contarPerfiles\(\)\}/);
+  assert.match(pantalla, /onElegir: \(\) => void contarPerfiles\(\)/);
   assert.match(pantalla, /completarPerfilesDeGrupoAction\(\{ linea, jid, soloContar: true \}\)/);
   assert.match(pantalla, /<Confirm tone="primary" title="¿Traer los datos de empresa\?"/);
-  assert.match(pantalla, /message=\{preguntaDePerfiles\(cuentaPerfiles, `los \$\{miles\(cuentaPerfiles\.total\)\} que ya están`, minutosDePerfiles\(cuentaPerfiles\.estaCorrida\), TOPE_PERFILES_DIA\)\}/, 'la pregunta no dice cuántos ni cuánto tarda');
-  const cliente = leer('app/crm/enriquecer-cliente.ts');
-  assert.match(cliente, /Ahora se consultan \$\{miles\(c\.estaCorrida\)\}, de a uno: unos \$\{minutos\} min\./);
-  assert.match(cliente, /Hoy quedan \$\{miles\(c\.quedanHoy\)\} de \$\{miles\(topeDia\)\} consultas \$\{cual\}\./);
-  assert.match(cliente, /const cual = linea \? `en la línea «\$\{linea\}»` : 'en esta línea';/);
+  // Cuántos y cuánto tarda, CORTO desde el 25/10/2026 (f13: «el texto muy largo. No me gustan textos largos»): el texto
+  // ejecutado está en tests/enriquecer-lote.test.ts (6).
+  assert.match(pantalla, /message=\{preguntaDePerfiles\(cuentaPerfiles, minutosDePerfiles\(cuentaPerfiles\.estaCorrida\)\)\}/, 'la pregunta no dice cuántos ni cuánto tarda');
   assert.match(pantalla, /await correrPerfiles\(cuenta, \(hechas, saltear\) => completarPerfilesDeGrupoAction\(\{ linea, jid, hechas, saltear \}\), \{/);
-  assert.match(pantalla, /\{perfilando \? 'Parar' : 'Datos de empresa'\}/);
+  assert.match(pantalla, /: perfilando \? \{ texto: 'Parar', onClick: \(\) => void contarPerfiles\(\) \} : undefined;/);
 });
 
 test('12b. el cupo de los perfiles: por día, por corrida, y los ya consultados no se repiten', () => {
@@ -392,13 +395,14 @@ test('12b. el cupo de los perfiles: por día, por corrida, y los ya consultados 
   assert.deepEqual(cupoDeHoy('{"dia":"2026-10-24","usadas":-3}', hoy), { dia: hoy, usadas: 0 });
   assert.equal(quedanHoy({ dia: hoy, usadas: 100 }), TOPE_PERFILES_DIA - 100);
   assert.equal(quedanHoy({ dia: hoy, usadas: TOPE_PERFILES_DIA + 5 }), 0);
-  // Esta corrida: lo menor entre lo que falta, lo que queda hoy y lo que le queda a la corrida.
-  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120, hechas: 0 }), TOPE_PERFILES_CORRIDA);
-  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 7, hechas: 0 }), 7);
-  assert.equal(cuantosEstaCorrida({ pendientes: 3, quedanHoy: 120, hechas: 0 }), 3);
-  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120, hechas: TOPE_PERFILES_CORRIDA - 5 }), 5);
-  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120, hechas: TOPE_PERFILES_CORRIDA + 9 }), 0);
-  assert.ok(TOPE_PERFILES_CORRIDA <= TOPE_PERFILES_DIA);
+  // Esta corrida: TODO lo que falta, hasta lo que queda hoy. Sin tope por corrida desde el 25/10/2026 (f14 de la llamada con
+  // Leandro: «no debería volver a tocar nada»): el de 40 sólo partía el trabajo; lo que cuida la línea es el del día.
+  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120 }), 120);
+  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 7 }), 7);
+  assert.equal(cuantosEstaCorrida({ pendientes: 3, quedanHoy: 120 }), 3);
+  assert.equal(cuantosEstaCorrida({ pendientes: 90, quedanHoy: 120 }), 90, 'volvió el tope por corrida: «vuelve a tocar para seguir»');
+  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 0 }), 0);
+  assert.equal(TOPE_PERFILES_DIA, 120, 'el tope del día cuida la línea de un baneo: no se mueve sin medir');
   // Los ya consultados: sin repetir, los nuevos al final, recortado a los más recientes.
   assert.deepEqual([...vistosDe('["1155550001","x",7,"1155550002"]')], ['1155550001', '1155550002']);
   assert.deepEqual([...vistosDe('roto')], []);

@@ -43,7 +43,10 @@ import type { TurnoSim } from '@/lib/setting-simulador';
 import { conversacionAbierta, atiendeAlResponder, charlaPasaAUnaPersona, escritoParaElAviso, type InscCharla, type AudioDelLead } from '@/lib/setter-conversacion';
 import { ambitoDeSecuencia, filtroDeAmbito, agregadosQueEntran, agregadoEntraPorEvento, conAgregados, type AmbitoFunnel, type FilaAgregado, type LeadDelAgregado } from '@/lib/nutricion-ambito';
 import { corteEntrada, esEntradaFresca, reservaParaEntradas, cupoDeCampana, HORAS_ENTRADA } from '@/lib/nutricion-prioridad';
-import { frenoDeGoteo, turnoDeGoteo, conEnvio, cuentaParaElGoteo, noGastaTurnoDeWhatsapp, ESTADOS_DEL_GOTEO, SIN_USO, type Goteo, type UsoGoteo } from '@/lib/goteo';
+import {
+  frenoDeGoteo, turnoDeGoteo, conEnvio, cuentaParaElGoteo, noGastaTurno, sinLugarDelMensaje, canalDelGoteo, claveDeGoteo, CANALES_DEL_GOTEO,
+  ESTADOS_DEL_GOTEO, SIN_USO, type Goteo, type UsoGoteo,
+} from '@/lib/goteo';
 import {
   secuenciasDeEntrega, secuenciasDeEtiqueta, secuenciasQueSeCierran, etapasDe, normalizarEtapas, deLaEtapaYLasDemas,
   TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA,
@@ -84,6 +87,7 @@ import {
   type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo, type FilaCondicion,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
+import { botonesDe, botonesDeFlujo, botonPorTexto, esperaToque, leerPayloadDeBoton } from '@/lib/botones-social';
 import { esperaQueAbra } from '@/lib/mako-tarjeta';
 import { usaEquipoContesto, contestoElEquipo, type TurnoDelGrupo } from '@/lib/equipo-contesto';
 import {
@@ -286,6 +290,11 @@ export type PasoSecuencia = {
   destino?: DestinoIrA | null;
   /** «Sale sola» POR MENSAJE: true = borrador, false = sale, ausente = lo de la secuencia. */
   revisar?: boolean;
+  /**
+   * Los botones de un DM de Instagram o Messenger (24/10/2026, lib/botones-social.ts): los guarda `camposDelFlujo`, los manda
+   * `enviarPasoSocial` y, si alguno sigue el flujo, el mensaje espera el toque (`esperaToque`, `tocarBoton`).
+   */
+  botones?: PasoGrafo['botones'];
 };
 
 export type Secuencia = {
@@ -3779,23 +3788,24 @@ function partesConDatos(partes: readonly ParteMensaje[], vars: Record<string, st
 //   · `vencidasDesde`: el tick mira sólo lo que venció desde ese instante (`VENTANA_FRESCA_MIN`,
 //     lib/espera-duracion.ts). Lo más viejo es algo frenado, y lo barre la corrida de cada hora.
 /**
- * LO QUE SALIÓ DE CADA AUTOMATIZACIÓN CON GOTEO por WhatsApp en las últimas 24 h (lib/goteo.ts): cuántos, el último y el
- * primero. TIRA si no puede leer: sin saber cuántos salieron, el goteo no puede decir que hay lugar, y la corrida vuelve
- * en un minuto (como el tope de la línea, `enviosUltimas24h`).
+ * LO QUE SALIÓ DE CADA AUTOMATIZACIÓN CON GOTEO en las últimas 24 h, POR CANAL (lib/goteo.ts: un goteo para todos los
+ * canales y cada uno cuenta lo suyo, 24/10/2026): cuántos, el último y el primero, con la clave `claveDeGoteo`. UNA lectura
+ * para todos los canales. TIRA si no puede leer: sin saber cuántos salieron, el goteo no puede decir que hay lugar, y la
+ * corrida vuelve en un minuto (como el tope de la línea, `enviosUltimas24h`).
  */
-async function usoDelGoteo(db: Awaited<ReturnType<typeof getTenantDb>>, ids: readonly number[], canal: 'whatsapp' | 'email' = 'whatsapp'): Promise<Map<number, UsoGoteo>> {
-  const filas = await leerTodo<{ id: number; secuencia_id: number | string; created_at: string }>(db, 'nutricion_envios', 'id, secuencia_id, created_at', {
+async function usoDelGoteo(db: Awaited<ReturnType<typeof getTenantDb>>, ids: readonly number[]): Promise<Map<string, UsoGoteo>> {
+  const filas = await leerTodo<{ id: number; secuencia_id: number | string; canal: string | null; created_at: string }>(db, 'nutricion_envios', 'id, secuencia_id, canal, created_at', {
     orden: 'id',
     // Lo que salió Y lo que quedó para aprobar (`ESTADOS_DEL_GOTEO`, 22/10/2026): con aprobación, los borradores nacen de a uno.
-    filtros: (q) => q.in('secuencia_id', [...ids]).eq('canal', canal).in('estado', [...ESTADOS_DEL_GOTEO]).gte('created_at', haceHorasISO(24)) as ConsultaPaginada,
+    filtros: (q) => q.in('secuencia_id', [...ids]).in('canal', [...CANALES_DEL_GOTEO]).in('estado', [...ESTADOS_DEL_GOTEO]).gte('created_at', haceHorasISO(24)) as ConsultaPaginada,
   });
-  const out = new Map<number, UsoGoteo>();
+  const out = new Map<string, UsoGoteo>();
   for (const f of filas) {
-    const id = Number(f.secuencia_id);
+    const clave = claveDeGoteo(canalDelGoteo(f.canal), Number(f.secuencia_id));
     const ms = Date.parse(f.created_at);
     if (!Number.isFinite(ms)) continue;
-    const u = out.get(id) ?? SIN_USO;
-    out.set(id, { enviados: u.enviados + 1, ultimoMs: Math.max(u.ultimoMs ?? ms, ms), primeroMs: Math.min(u.primeroMs ?? ms, ms) });
+    const u = out.get(clave) ?? SIN_USO;
+    out.set(clave, { enviados: u.enviados + 1, ultimoMs: Math.max(u.ultimoMs ?? ms, ms), primeroMs: Math.min(u.primeroMs ?? ms, ms) });
   }
   return out;
 }
@@ -3988,32 +3998,27 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
     cupo, presupuesto, horaTope: limites.wa.hora, enLaHora, reserva: reservaParaEntradas(limites.wa), porHora: !!opts?.cupoPorHora,
   });
   // ⚠️ Y EL GOTEO DE CADA AUTOMATIZACIÓN (22/10/2026, lib/goteo.ts): un SUB-tope adentro del de la línea, con sus
-  // minutos entre envíos y su tope por día. Lo que salió de cada una en 24 h, UNA lectura para todas las que tienen goteo.
+  // minutos entre envíos y su tope por día. UNO SOLO para todos los canales (24/10/2026, Martín, f21: «que valga para todos
+  // los canales»), y cada canal cuenta lo suyo: lo que salió de cada una en 24 h, por canal, UNA lectura para todas.
   const goteos = new Map<number, Goteo>();
   for (const [id, c] of configsCorrida) if (c.goteo && (c.goteo.minutos != null || c.goteo.dia != null)) goteos.set(id, c.goteo);
-  const usoGoteo = goteos.size ? await usoDelGoteo(supabase, [...goteos.keys()]) : new Map<number, UsoGoteo>();
-  // EL GOTEO DEL EMAIL (23/10/2026, Martín: «en Email también pon goteo y tope por día»): el mismo, con lo que salió por email.
-  const goteosEmail = new Map<number, Goteo>();
-  for (const [id, c] of configsCorrida) if (c.goteoEmail && (c.goteoEmail.minutos != null || c.goteoEmail.dia != null)) goteosEmail.set(id, c.goteoEmail);
-  const usoGoteoEmail = goteosEmail.size ? await usoDelGoteo(supabase, [...goteosEmail.keys()], 'email') : new Map<number, UsoGoteo>();
-  const frenadasGoteoEmail = new Map<number, number>();
-  /** Cuántas filas frenadas por el goteo ya se corrieron a su turno, por automatización, en esta corrida. */
-  const frenadasGoteo = new Map<number, number>();
-  const frenoGoteo = (secId: number) => frenoDeGoteo(goteos.get(secId), usoGoteo.get(secId) ?? SIN_USO, Date.now());
-  const frenoGoteoEmail = (secId: number) => frenoDeGoteo(goteosEmail.get(secId), usoGoteoEmail.get(secId) ?? SIN_USO, Date.now());
-  /** El goteo que le toca a un mensaje: el de su canal (23/10/2026: antes el de WhatsApp frenaba también al email). */
-  const esEmail = (canal: string | null | undefined): boolean => canal === 'email';
+  const usoGoteo = goteos.size ? await usoDelGoteo(supabase, [...goteos.keys()]) : new Map<string, UsoGoteo>();
+  /** Cuántas filas frenadas por el goteo ya se corrieron a su turno, por canal y automatización (`claveDeGoteo`), en esta corrida. */
+  const frenadasGoteo = new Map<string, number>();
+  /** El freno del goteo de una automatización para un mensaje por ESTE canal. */
+  const frenoGoteo = (secId: number, canal: string | null | undefined) =>
+    frenoDeGoteo(goteos.get(secId), usoGoteo.get(claveDeGoteo(canalDelGoteo(canal), secId)) ?? SIN_USO, Date.now());
   /** ¿Lo frena la LÍNEA? Lo que entra, con el cupo entero; lo demás, con el de campaña. */
   const sinLugarEnLaLinea = (leadId: number): boolean => cupoLleno() || (!frescos.has(leadId) && waEnCorrida >= cupoCampana);
-  /** ¿Un MENSAJE de esta fila se queda sin lugar en esta corrida? La línea, o el goteo de su automatización. */
+  /** ¿Un MENSAJE de esta fila se queda sin lugar en esta corrida? El goteo de su canal y, salvo el email, la línea. */
   const sinLugar = (insc: { lead_id: number; secuencia_id: number }, canal: string | null | undefined): boolean =>
-    sinLugarEnLaLinea(insc.lead_id) || (esEmail(canal) ? frenoGoteoEmail(insc.secuencia_id) : frenoGoteo(insc.secuencia_id)).frena;
+    sinLugarDelMensaje(canal, sinLugarEnLaLinea(insc.lead_id), (c) => frenoGoteo(insc.secuencia_id, c).frena);
   /**
-   * ¿Este nodo puede correr con el cupo (o el goteo) de WhatsApp lleno? Una acción sí; todo lo que no es un MENSAJE (una
-   * condición, una espera), también (24/10/2026: la condición «Contestó» tomaba un turno del goteo sin mandar nada y la
-   * campaña salía a la mitad del ritmo, `noGastaTurnoDeWhatsapp`); un email, si queda su tope.
+   * ¿Este nodo puede correr con el cupo (o el goteo) lleno? Una acción sí; todo lo que no es un MENSAJE (una condición, una
+   * espera), también (24/10/2026: la condición «Contestó» tomaba un turno del goteo sin mandar nada y la campaña salía a la
+   * mitad del ritmo, `noGastaTurno`). Un mensaje nunca, tampoco un email: desde f21 su freno es sólo su goteo.
    */
-  const sigueSinCupoWa = (p: PasoSecuencia): boolean => esPasoAccion(p) || noGastaTurnoDeWhatsapp(claseDe(p), p.canal, emailLleno());
+  const sigueSinCupoWa = (p: PasoSecuencia): boolean => esPasoAccion(p) || noGastaTurno(claseDe(p));
   /** Y por su lugar en el flujo: lo del carril también (M3 e). */
   const sigueSinCupo = (pasos: readonly PasoSecuencia[], idx: number): boolean =>
     !!pasos[idx] && (sigueSinCupoWa(pasos[idx]) || esHiloDelCarril(pasos, idx));
@@ -4126,13 +4131,14 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
    * el goteo de 5 minutos salía de a uno por HORA. Si la frena la línea, lo de siempre (`aplazarSiTapa`).
    */
   const quedaFrenada = async (insc: FilaCola, sec: Secuencia | undefined, canal?: string | null): Promise<void> => {
-    const email = esEmail(canal);
-    const g = (email ? goteosEmail : goteos).get(insc.secuencia_id);
-    const f = (email ? frenoGoteoEmail : frenoGoteo)(insc.secuencia_id);
-    if (g && f.frena && !sinLugarEnLaLinea(insc.lead_id)) {
-      const frenadas = email ? frenadasGoteoEmail : frenadasGoteo;
-      const k = frenadas.get(insc.secuencia_id) ?? 0;
-      frenadas.set(insc.secuencia_id, k + 1);
+    const g = goteos.get(insc.secuencia_id);
+    const f = frenoGoteo(insc.secuencia_id, canal);
+    // Un email no espera a la línea de WhatsApp (`sinLugarDelMensaje`): si lo frenó algo, fue su goteo.
+    const email = canalDelGoteo(canal) === 'email';
+    if (g && f.frena && (email || !sinLugarEnLaLinea(insc.lead_id))) {
+      const clave = claveDeGoteo(canalDelGoteo(canal), insc.secuencia_id);
+      const k = frenadasGoteo.get(clave) ?? 0;
+      frenadasGoteo.set(clave, k + 1);
       await escribir(insc, { proximo_envio_at: new Date(turnoDeGoteo(f.desdeMs, k, g)).toISOString() }, { modo: 'fila' });
       return;
     }
@@ -4285,6 +4291,11 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
     // Un hilo que acaba de arrancar ya vencido se mira en esta misma corrida (otra vuelta).
     const nuevoYa = nuevos.some((n) => Date.parse(n.proximo) <= Date.now());
     const j = siguienteIndice(sec.pasos, idx);
+    // UN MENSAJE CON BOTONES Y NADA DESPUÉS ESPERA EL TOQUE (24/10/2026, lib/botones-social.ts): la inscripción queda
+    // 'activa' en ESA tarjeta y sin próximo envío (la cola no la toma), y el toque la mueve a la rama del botón
+    // (`tocarBoton`). Cerrarla dejaría el botón sin a quién mover: es el «Obtener recurso» de ManyChat, que no tiene
+    // nada abajo.
+    if (j < 0 && esperaToque(sec.pasos[idx])) return { campos: { paso_actual: idx, nodo_actual: idDe(sec.pasos[idx], idx), proximo_envio_at: null, estado: 'activa' }, yaToca: nuevoYa, nuevos };
     if (j < 0) return { campos: { paso_actual: idx + 1, nodo_actual: null, proximo_envio_at: null, estado: 'completada' }, yaToca: nuevoYa, nuevos };
     const proximo = proximoEnvioDePaso(sec.pasos[j], lead);
     return {
@@ -5150,6 +5161,9 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
             vars: {}, idempotencia: `nutri:${insc.id}:${idDe(paso, insc.paso_actual)}`, desde,
             // Por la cuenta que eligió la tarjeta, si eligió una (decimocuarta tanda): sin conversación con ESA, falla.
             cuenta: cuentaDelPaso(paso),
+            // Los BOTONES de la tarjeta (24/10/2026, lib/botones-social.ts): el `payload` de cada uno lleva ESTA inscripción y ESTA
+            // tarjeta, y el toque vuelve por el webhook (`tocarBoton`).
+            ...(botonesDe(paso).length ? { botones: { lista: botonesDe(paso), inscripcionId: insc.id, nodoId: idDe(paso, insc.paso_actual) } } : {}),
           });
           partesSalidas = r.salieron;
           destinoSocial = r.destino;
@@ -5563,13 +5577,11 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
       // (no salió), pero frena: si se aprueba ya, son dos mensajes seguidos al mismo lead.
       // (El carril no cuenta para el cupo, M3 e: `cuentaParaElCupo`.)
       if ((estado === 'enviado' || estado === 'simulado') && cuentaParaElCupo({ carril: carril != null })) { if (paso.canal === 'email') emailsEnCorrida += 1; else waEnCorrida += 1; }
-      // El goteo cuenta el WhatsApp que SALIÓ de esta automatización, también en esta corrida (el siguiente espera sus minutos).
-      if (paso.canal === 'whatsapp' && cuentaParaElCupo({ carril: carril != null })) {
-        if (cuentaParaElGoteo(estado) && goteos.has(insc.secuencia_id)) usoGoteo.set(insc.secuencia_id, conEnvio(usoGoteo.get(insc.secuencia_id) ?? SIN_USO, Date.now()));
-      }
-      // Y el email que SALIÓ, para el goteo del email (23/10/2026).
-      if (paso.canal === 'email' && cuentaParaElGoteo(estado) && goteosEmail.has(insc.secuencia_id)) {
-        usoGoteoEmail.set(insc.secuencia_id, conEnvio(usoGoteoEmail.get(insc.secuencia_id) ?? SIN_USO, Date.now()));
+      // El goteo cuenta el mensaje que SALIÓ de esta automatización por SU canal, también en esta corrida (el siguiente de ese
+      // canal espera sus minutos). El carril no: no pasa por el freno (M3 e).
+      if (cuentaParaElCupo({ carril: carril != null }) && cuentaParaElGoteo(estado) && goteos.has(insc.secuencia_id)) {
+        const clave = claveDeGoteo(canalDelGoteo(paso.canal), insc.secuencia_id);
+        usoGoteo.set(clave, conEnvio(usoGoteo.get(clave) ?? SIN_USO, Date.now()));
       }
       if (estado === 'enviado' || estado === 'simulado' || estado === 'borrador') anotarEnCorrida(enviadoEnCorrida, insc.lead_id, paso.canal);
       res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado, ...(nota ? { nota } : {}) });
@@ -5760,6 +5772,89 @@ async function yaLeSalioAlgo(db: Awaited<ReturnType<typeof getTenantDb>>, inscId
   const { data, error } = await db.from('nutricion_envios').select('id').eq('inscripcion_id', inscId).in('estado', ['enviado', 'simulado']).limit(1);
   if (error) { console.error(`[nutricion] ¿le salió algo a la inscripción ${inscId}?: ${error.message}`); return true; }
   return (data ?? []).length > 0;
+}
+
+/** Lo que pasó con un toque (o con un texto que podía ser uno). */
+export type ResultadoToque = 'movida' | 'repetido' | 'no_es' | 'ignorado';
+
+/** Un toque del mismo botón dentro de este rato es el MISMO toque (un doble toque, o Meta que lo manda dos veces). */
+const VENTANA_TOQUE_REPETIDO_MS = 60_000;
+
+/**
+ * EL TOQUE DE UN BOTÓN (24/10/2026, lib/botones-social.ts): mueve la inscripción a la rama del botón y la corre YA, como
+ * ManyChat. Dos entradas:
+ *   · `payload`: el de un botón que MaKo mandó (`mako:b:<inscripción>:<tarjeta>:<botón>`). Uno de otra herramienta → 'no_es'
+ *     (quien llama lo trata como un mensaje de siempre);
+ *   · `texto`: lo que escribió, cuando el botón no se vio (la respuesta privada salió en texto). Sólo cuenta en una inscripción
+ *     que ESPERA un toque (parada en una tarjeta con botones, sin próximo envío) y sólo si el texto ES el título.
+ * La inscripción tiene que ser de ESTE lead, de una automatización prendida, 'activa' o 'completada' (un botón de un DM viejo
+ * sigue andando, como en ManyChat) y sin hilos en paralelo. Compare-and-set contra lo leído: si el motor la movió entre
+ * medio, el toque no pisa. Un toque NO es una respuesta: no pasa por «Contestó» (quien llama no pausa).
+ */
+export async function tocarBoton(leadId: number, t: { payload?: string | null; texto?: string | null }): Promise<ResultadoToque> {
+  try {
+    const db = await getTenantDb();
+    const pl = t.payload != null ? leerPayloadDeBoton(t.payload) : null;
+    if (t.payload != null && !pl) return 'no_es';
+    type FilaToque = { id: number; lead_id: number; secuencia_id: number; estado: string; paso_actual: number; nodo_actual: string | null; proximo_envio_at: string | null; hilos: unknown; updated_at: string };
+    const cols = 'id, lead_id, secuencia_id, estado, paso_actual, nodo_actual, proximo_envio_at, hilos, updated_at';
+    const secs = await getSecuenciasActivas();
+    const porId = new Map(secs.map((x) => [x.id, x]));
+    // La inscripción y el botón: por el `payload`, o por el texto entre las que esperan un toque.
+    let hallado: { f: FilaToque; nodoId: string; botonId: string } | null = null;
+    if (pl) {
+      const { data, error } = await db.from('nutricion_inscripciones').select(cols).eq('id', pl.inscripcionId).eq('lead_id', leadId).maybeSingle();
+      if (error) throw new Error(error.message);
+      if (data) hallado = { f: data as FilaToque, nodoId: pl.nodoId, botonId: pl.botonId };
+    } else {
+      const { data, error } = await db.from('nutricion_inscripciones').select(cols).eq('lead_id', leadId).eq('estado', 'activa').is('proximo_envio_at', null).not('nodo_actual', 'is', null);
+      if (error) throw new Error(error.message);
+      for (const f of (data ?? []) as FilaToque[]) {
+        const sec = porId.get(f.secuencia_id);
+        const paso = sec ? nodoPorId(sec.pasos, f.nodo_actual) : null;
+        const b = paso ? botonPorTexto(botonesDeFlujo(paso), t.texto) : null;
+        if (b) { hallado = { f, nodoId: f.nodo_actual!, botonId: b.id }; break; }
+      }
+      if (!hallado) return 'no_es';
+    }
+    if (!hallado) { console.warn(`[nutricion] botón: la inscripción ${pl?.inscripcionId} no es del lead ${leadId}`); return 'ignorado'; }
+    const { f, nodoId, botonId } = hallado;
+    const sec = porId.get(f.secuencia_id);
+    if (!sec) return 'ignorado';
+    if ((f.estado !== 'activa' && f.estado !== 'completada') || sanearHilos(f.hilos)) {
+      console.log(`[nutricion] lead ${leadId}: tocó un botón de «${sec.clave}» con la inscripción ${f.id} en '${f.estado}': no se mueve`);
+      return 'ignorado';
+    }
+    const boton = botonesDeFlujo(nodoPorId(sec.pasos, nodoId)).find((b) => b.id === botonId);
+    const j = boton?.siguiente ? indicePorId(sec.pasos, boton.siguiente) : -1;
+    if (!boton || j < 0) return 'ignorado';
+    // El MISMO toque dos veces (un doble toque, un reenvío de Meta): no se vuelve a correr la rama.
+    const keyToque = `nutricion.boton.${f.id}`;
+    const firma = `${nodoId}:${botonId}`;
+    try {
+      const prev = await getSettingEstricto(keyToque);
+      const [pf, pAt] = (prev ?? '').split('@');
+      if (pf === firma && Date.now() - Date.parse(pAt ?? '') < VENTANA_TOQUE_REPETIDO_MS) return 'repetido';
+    } catch { /* sin poder leer la marca, el compare-and-set de abajo igual evita pisar */ }
+    const ahora = ahoraISO();
+    const { data: upd, error: eU } = await db.from('nutricion_inscripciones')
+      .update({ paso_actual: j, nodo_actual: boton.siguiente, estado: 'activa', proximo_envio_at: ahora, updated_at: ahora })
+      .eq('id', f.id).eq('estado', f.estado).eq('updated_at', f.updated_at).select('id');
+    if (eU) throw new Error(eU.message);
+    if (!(upd ?? []).length) { console.warn(`[nutricion] botón de la inscripción ${f.id}: cambió mientras tanto, no se pisa`); return 'ignorado'; }
+    await setSetting(keyToque, `${firma}@${ahora}`).catch(() => {});
+    console.log(`[nutricion] lead ${leadId}: tocó «${boton.titulo}» en «${sec.clave}» → ${boton.siguiente}`);
+    try {
+      const { logLeadEvent } = await import('@/lib/leads');
+      await logLeadEvent(leadId, 'Automatización', `Tocó «${boton.titulo}» en «${sec.nombre}».`, 'MaKo');
+    } catch { /* el historial no puede frenar el toque */ }
+    // La rama del botón corre YA (el link, «¿Te sigue?»), con el turno del negocio.
+    await viaRapidaConTurno(leadId).catch((e: unknown) => console.error(`[nutricion] botón lead ${leadId}: la rama queda para el tick (${e instanceof Error ? e.message : String(e)})`));
+    return 'movida';
+  } catch (e) {
+    console.error(`[nutricion] botón lead ${leadId}: ${e instanceof Error ? e.message : String(e)}`);
+    return 'ignorado';
+  }
 }
 
 // `o.sinViaRapida` (24/10/2026): lo llama el MOTOR, con el avance de quien contestó mientras le salía el mensaje

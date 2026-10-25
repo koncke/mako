@@ -56,7 +56,9 @@ test('a cada intención, sus reglas; sin elegir, sólo la charla', () => {
   assert.match(LO_QUE_NO_ES_TARJETA, /Configuraciones, «Horario de oficina»/);
   // (23/10/2026: UNA pantalla, sin pestañas: el bloque del canal y la fila. «Límites» y «Anti-ban» ya no existen.)
   // (23/10/2026, Martín: «en Email también pon goteo y tope por día»: el lugar es WhatsApp o Email.)
-  assert.match(LO_QUE_NO_ES_TARJETA, /Configuraciones, en WhatsApp o en Email, «Goteo» y «Tope por día»/);
+  // Desde el 24/10/2026 (Martín, f21) el goteo es UNO para todos los canales: no hay bloque de WhatsApp ni de Email.
+  assert.match(LO_QUE_NO_ES_TARJETA, /Configuraciones, «Todos los canales», «Goteo» y «Tope por día»/);
+  assert.doesNotMatch(LO_QUE_NO_ES_TARJETA, /en WhatsApp o en Email|un bloque por canal/);
   assert.doesNotMatch(LO_QUE_NO_ES_TARJETA, /Límites|Anti-ban|pestaña/);
   // «Misma persona» se fue entera (23/10/2026, Martín: «elimina "Misma persona"»): el chat no manda a buscarla a ningún lado.
   assert.doesNotMatch(LO_QUE_NO_ES_TARJETA, /Misma persona|misma persona/);
@@ -125,7 +127,11 @@ test('en Editar vale aclarar, decir dónde se configura (un lugar real) o que no
   // Lo que se configura fuera de las tarjetas, sí, aunque sea una orden; un lugar que NO existe, no (y el error lo dice).
   // 23/10/2026: una pantalla sin pestañas; «Límites» y «Anti-ban» ya no existen; nombrar Configuraciones y su bloque, sí.
   assert.match(String(errorDeRespuestaEnEditar('que no salgan todos juntos', 'Eso va en Configuraciones › Anti-ban.', sin)), /«Configuraciones › Anti-ban» no existe: Configuraciones es una sola pantalla/);
-  assert.equal(errorDeRespuestaEnEditar('que no salgan todos juntos', 'Eso va en Configuraciones › WhatsApp › Goteo.', sin), null);
+  assert.equal(errorDeRespuestaEnEditar('que no salgan todos juntos', 'Eso va en Configuraciones › Todos los canales › Goteo.', sin), null);
+  // El bloque de un canal ya no existe (24/10/2026, f21), y el de Instagram nunca existió: es lo que MaKo le dijo a Leandro (f22).
+  for (const canal of ['WhatsApp', 'Email', 'Instagram']) {
+    assert.match(String(errorDeRespuestaEnEditar('que no salgan todos juntos', `Eso va en Configuraciones › ${canal} › Goteo.`, sin)), new RegExp(`«Configuraciones › ${canal}» no existe`));
+  }
   assert.equal(errorDeRespuestaEnEditar('que no salgan todos juntos, esperá 5 minutos', 'Eso se configura en Configuraciones, WhatsApp, «Goteo».', sin), null);
   assert.match(String(errorDeRespuestaEnEditar('que lo llame por teléfono', 'Configura la llamada en Configuraciones › Acciones de la automatización.', sin)), /«Configuraciones › Acciones» no existe/);
   // Lo que no se puede, sí; pero no «pídemelo» ni «habría que».
@@ -141,7 +147,9 @@ test('en Editar vale aclarar, decir dónde se configura (un lugar real) o que no
 });
 
 test('el chat: Discutir / Editar encima de la barra (no al crear), arranca en Editar y viaja en el pedido de editar', () => {
-  assert.match(chat, /useState<IntencionChat>\('editar'\)/);
+  // Desde el 24/10/2026, con el selector compartido (app/_chat/SelectorIntencion.tsx): arranca en Editar y recuerda lo elegido.
+  assert.match(chat, /const \[intencion, elegirIntencion\] = useIntencion\(\);/);
+  assert.match(readFileSync(join(__dirname, '..', 'app/_chat/SelectorIntencion.tsx'), 'utf8'), /useState<IntencionChat>\('editar'\)/);
   assert.match(chat, /\.\.\.\(modo === 'editar' \? \{ intencion \} : \{\}\),/);
   assert.match(chat, /: crea \? errorMako\n\s+: <>\{errorMako\}<SelectorIntencion valor=\{intencion\}/);
 });

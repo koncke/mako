@@ -31,6 +31,12 @@ export type OfertaDelCurso = { nombre: string | null; activa?: boolean | null };
 
 /** Lo que ve el ALUMNO de un curso sin nombre (el portal, la vista previa, el mail). */
 export const SIN_NOMBRE_ALUMNO = 'Tu programa';
+/**
+ * Lo que ve el ALUMNO de un curso sin nombre EN LA LISTA de sus programas (con dos o más). «Tu programa» al lado de
+ * otro nombre se leía como una acción: Leandro, entrando como alumno (24/10/2026, f29), «me aparece tu programa como
+ * que también me deja crear mi propio programa». Solo, sigue siendo «Tu programa».
+ */
+export const SIN_NOMBRE_ALUMNO_EN_LISTA = 'Programa sin nombre';
 /** Lo que ve el EQUIPO de un curso sin nombre (el editor, la ficha, la comunidad): le falta ponérselo. */
 export const SIN_NOMBRE_EQUIPO = 'Curso sin nombre';
 

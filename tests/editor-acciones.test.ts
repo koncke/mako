@@ -125,7 +125,7 @@ test('el selector ofrece SÓLO la lista del lienzo, en ÁRBOL por área; la pues
   const ofrecidas = ACCIONES_DEL_FLUJO.filter((a) => !FUERA_DEL_SELECTOR.has(a.id));
   // Sexta tanda (ACTION 1, «siempre con el arbol»): un ÁREA por sección, en el orden de AREAS_ACCION, con su ícono.
   assert.deepEqual(s.map((x) => x.titulo), AREAS_ACCION.filter((ar) => ofrecidas.some((a) => AREA_DE_GRUPO[a.grupo] === ar)), 'un área por sección, en orden');
-  assert.deepEqual(s.map((x) => x.titulo), ['CRM', 'Customer Success', 'WhatsApp']);
+  assert.deepEqual(s.map((x) => x.titulo), ['CRM', 'Clients', 'WhatsApp']);
   assert.ok(s.every((x) => x.icono === ICONO_AREA[x.titulo as keyof typeof ICONO_AREA]), 'cada área con su ícono');
   const enOrden = AREAS_ACCION.flatMap((ar) => ofrecidas.filter((a) => AREA_DE_GRUPO[a.grupo] === ar));
   assert.deepEqual(s.flatMap((x) => x.acciones.map((a) => a.id)), enOrden.map((a) => a.id), 'la lista, en su orden por área, y nada más');

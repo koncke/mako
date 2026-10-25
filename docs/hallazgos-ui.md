@@ -96,6 +96,52 @@ cortado a la mitad, no llega al final del ancho».
 `app/perfil/NotificacionesPanel.tsx` · `app/perfil/instalar/InstalarApp.tsx` · `app/equipo/EquipoView.tsx` ·
 `app/configuraciones/IdentidadesFiscalesPanel.tsx` · `app/configuraciones/plan/PlanPanel.tsx` · `tests/ajustes-cuenta-negocio.test.ts`
 
+## Un `<aside>` que flota con aire: la regla de la barra le fuerza el alto, y con la alerta de la voz SOLA no lo baja (25/10/2026)
+
+**Vive en:** la regla `[data-barra-agencia] aside, [data-alerta-voz] aside[data-sidebar]` (app/globals.css) · el panel de MaKo
+de la ficha (`.fb-mako-panel`, app/crm/lead-view/ficha/FichaPorBloques.tsx) · tests/barra-inspeccion-alto.test.ts (4).
+
+- **Síntoma:** rojo del tren, «el panel del AI Analyst de la ficha dejó de ser `<aside>`». Seguía siéndolo: el test buscaba
+  la forma vieja (`style={{ position: 'fixed', top: 0, …`) y el panel había pasado a un bloque flotante con 12 px de aire.
+- **El diagnóstico obvio era el equivocado:** «es <aside>, la regla lo baja, alcanza con poner el test al día». MEDIDO en Edge
+  sin ventana (el CSS real de globals.css y del panel): con la barra de inspección la regla lo bajaba a 50 pero le forzaba
+  `height: calc(100vh - barra)` → pegado a la barra y al borde de abajo, sin aire. Y con la alerta de la voz caída SOLA
+  (64 px, la que ve un cliente) la regla sólo toca `aside[data-sidebar]`: el panel quedaba en top 12, TAPADO por la alerta.
+- **Regla:** algo `fixed` que flota con aire no se apoya en la regla de los `<aside>`: suma la barra él mismo
+  (`top: calc(12px + var(--barra-agencia, 0px))`, que vale 50, 64 o 114 según qué barra esté) y, si es `<aside>`, le gana a
+  la regla global en `top` y `height` con un selector más fuerte. Se mide con las tres barras, no sólo con la de inspección.
+- **Quedó SIN medir (por el CSS, el mismo caso):** todo `<aside>` `fixed`/`sticky` en `top: 0` que no sea la sidebar queda
+  debajo de la alerta de la voz cuando está sola. El test 4 da por buena la lateral del Web Generator (`.gp-lateral`,
+  sticky top 0) sólo con la barra de inspección.
+
+*25/10/2026, chat «CRM» (`claude5`).*
+
+## Medio emoji en las iniciales tira la pantalla al hidratar: React #418 (ticket #10, 25/10/2026)
+
+**Vive en:** `inicialesPorLetra` (lib/iniciales.ts), que usan `Marca` (app/_components/Marca.tsx, la cabecera de toda
+`CabeceraDetalle`), `Avatar` (app/_ui/Avatar.tsx) y el historial de la ficha · tests/iniciales-hidratacion.test.ts.
+
+- **Síntoma:** «La pantalla «CRM» se rompió» al abrir /crm/3445 del Cliente de Prueba, React #418 con «text» (el texto del
+  servidor no coincide con el del navegador). En la cabecera de la ficha se leía «�M».
+- **El diagnóstico obvio era el equivocado.** Un #418 a las 22:29 de Argentina (01:29 UTC del día siguiente) pide buscar una
+  fecha formateada sin zona fija o un «hace X»: se revisaron todas las de la ficha y estaban bien. Lo destapó leer el TEXTO de
+  la pantalla en producción (`get_page_text`): «�M» arriba, y el nombre en la base, «🧪 Martín arnés contestó…».
+- **Causa:** `w[0]` es la primera unidad de UTF-16, y la de «🧪» (de cualquier emoji, o de una letra fuera del plano básico
+  como «𝒜») es MEDIO carácter, un surrogate suelto. El servidor escribe el HTML en UTF-8, que no puede escribir medio
+  carácter, y manda «�» (U+FFFD); el navegador hidrata con la mitad cruda. Dos textos distintos y React tira el árbol. No es
+  sólo de las iniciales: cualquier `[0]` o `slice` que corte un nombre con emoji y se dibuje en el primer render hace lo mismo.
+- **Regla:** un texto del primer render que sale de CORTAR un string corta por punto de código (`[...s]`, `Array.from`),
+  nunca por índice. La prueba que sirve no compara contra un valor esperado: pasa el resultado por `TextEncoder` y
+  `TextDecoder` (lo que hace el HTML) y exige que vuelva igual.
+- **Quedó SIN hacer (el mismo corte, en piezas de otras tabs):** `app/_components/Sidebar.tsx:85` y `:241` (las iniciales del
+  negocio y de la persona en la barra, que se dibuja en TODAS las pantallas), `app/components/Dropdown.tsx:44`,
+  `app/general/bloques/comun.tsx:203`, `app/general/Cobranza.tsx:41`, `app/automations/social-ui.tsx:108`,
+  `app/web-generator/editor/paneles/PanelComentarios.tsx:46`, `app/_components/ServicioVisual.tsx:94`. Un negocio o una
+  persona cuyo nombre empiece con un emoji rompe esas pantallas igual.
+- **Las otras copias que vio Automations el 24/10 (también SIN hacer):** `app/_components/NotificationsProvider.tsx`,
+  `app/_comunidad/piezas.tsx`, `app/_cursos/ComentariosClase.tsx` y `app/admin/AdminView.tsx`. Y `lib/unicode-seguro.ts` ya existía para cortar por
+  carácter: la próxima pieza usa una de las dos (`inicialesPorLetra` o esa), no una tercera.
+
 ## El `Dropdown` en dos columnas: lo que los tests no ven, y cómo se MIDE que las otras 96 pantallas no cambiaron (24/10/2026)
 
 **Vive en:** `dosColumnas` / `alPie` (app/components/Dropdown.tsx), `columnasDeSeccion` (app/components/dropdown-reglas.ts),
@@ -4745,3 +4791,26 @@ impidas que se vuelva a desplegar».
 
 **Vive en:** `app/_components/Sidebar.tsx` (`leerFija`, `barraFija`, `loQueGuardaLaFlecha`, `plegadaAca`) ·
 `tests/sidebar-plegada-por-defecto.test.ts` (el recorrido de una persona: Automations → CRM → MaKo abierto y cerrado).
+
+## La criatura «se escondía detrás» de la barra desplegada (24/10/2026, f34)
+
+**El síntoma (la llamada con Leandro, 59:33):** «la animación del muñequito de Mako... cuando se va para abajo y se pone en su
+chat, y si está la sidebar desplegada, es como que se oculta detrás y no se entiende a dónde se fue».
+
+**⚠️ El diagnóstico obvio era el equivocado.** No era la copia que vuela: va en `body` con el z-index más alto
+(app/_ui/VueloDeCarga.tsx), por delante de la barra. Lo que quedaba debajo era su DESTINO: la estrella de abajo
+(`.ch-tab-mako`, z 55) se ponía al lado del `<aside>` de la barra (`useBordeDeLaBarra`, app/_chat/MakoEnLaTab.tsx). Ese
+`<aside>` mide lo del riel y no cambia cuando su panel se despliega ENCIMA al pasar el cursor (z 60). La copia aterrizaba
+bien y la estrella real estaba tapada.
+
+**Qué quedó:** la estrella se mide con el panel, lo que se ve (`panelDeLaBarra`, app/_chat/borde-barra.ts). Con la barra
+desplegada se corre y no queda debajo. El panel del Cerebro sigue con el borde del `<aside>`: si se corriera, saltaría
+440 px cada vez que el cursor pasa por la barra.
+
+**Regla:** un elemento fijo que se pone al lado de la barra se mide con lo que se VE de ella (su panel), no con su caja de
+layout.
+
+**Sin hacer:** no se vio en pantalla. Si la barra se pliega a mitad del vuelo, la copia aterriza donde estaba la estrella
+(son 0,2 s).
+
+Vive en: app/_chat/MakoEnLaTab.tsx · app/_chat/borde-barra.ts · tests/estrella-al-lado-de-la-barra.test.ts.

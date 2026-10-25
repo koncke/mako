@@ -30,6 +30,7 @@ import { armarVistaAlumno, type VistaAlumno } from '@/lib/curso-portal';
 import { Pagina } from '@/app/_ui/Pagina';
 import { conCorrectasCerradas } from '@/app/mi-curso/portal-comun';
 import PortalAlumno from './PortalAlumno';
+import { SIN_ACCESO_PORTAL } from '@/lib/curso-portal-aviso';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -52,7 +53,7 @@ export const metadata: Metadata = {
 export default async function PortalCursoPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const firma = leerTokenPortal(token);
-  if (!firma) return <Aviso titulo="Este link ya no está activo." />;
+  if (!firma) return <Aviso titulo={SIN_ACCESO_PORTAL} />;
 
   const r = await runWithWorkspace(firma.ws, async (): Promise<{ vista: VistaAlumno } | 'inactivo' | 'fallo'> => {
     const acceso = await resolverAccesoPortal(token);
@@ -80,7 +81,7 @@ export default async function PortalCursoPage({ params }: { params: Promise<{ to
     }
   });
 
-  if (r === 'inactivo') return <Aviso titulo="Este link ya no está activo." />;
+  if (r === 'inactivo') return <Aviso titulo={SIN_ACCESO_PORTAL} />;
   if (r === 'fallo') return <Aviso titulo="No pudimos cargar tus clases." detalle="Intenta de nuevo en un rato." />;
   return <PortalAlumno token={token} vista={r.vista} />;
 }

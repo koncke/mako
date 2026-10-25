@@ -21,7 +21,7 @@ import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
 import { HOME_MOVIL, puedeVerKey } from '@/lib/movil-rutas';
 import { rutaConWs } from '@/lib/workspace';
-import { tabEnCapa } from '@/lib/capas';
+import { sinSuHoja } from '@/app/dashboard/redireccion';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { leerTablero } from '@/lib/graficos-tablero';
 import { hojaDeRol, informeDeRol } from '@/lib/graficos-plantillas';
@@ -51,7 +51,9 @@ export default async function DashboardPagina({ searchParams }: { searchParams: 
   const unica = hojaDeRol(ctx.rol);
   const informeRol = informeDeRol(ctx.rol);
   if (unica && informeRol) {
-    if (!tabEnCapa(unica.capa, ctx.capa)) redirect(await rutaConWs(HOME_MOVIL));
+    // ⚠️ Lo hace ANTES el layout (./layout.tsx: la carga directa, un redirect debajo de ./loading.tsx va en el stream,
+    //    React #310); éste queda para cuando se llega navegando. La MISMA decisión (`sinSuHoja`).
+    if (sinSuHoja(ctx.rol, ctx.capa)) redirect(await rutaConWs(HOME_MOVIL));
     const h = informeRol.hojas[0];
     const def = periodoPropio(h);
     const periodos = def ? periodosParaHoja(def) : [];

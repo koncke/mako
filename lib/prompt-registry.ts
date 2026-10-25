@@ -609,7 +609,7 @@ export const REGISTRY: Group[] = [
     ],
   },
   {
-    group: 'Curso del servicio — la IA reescribe la tarea (Customer Success)',
+    group: 'Curso del servicio — la IA reescribe la tarea (Clients)',
     icon: '📝',
     blurb: 'Después de cada sesión de entrega, MaKo reescribe las respuestas del curso que el cliente ya mandó con lo que se habló en la llamada. Su versión queda AL LADO de la del cliente, que la aprueba o la corrige en su portal: nunca se pisa lo que él escribió.',
     entries: [

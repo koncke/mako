@@ -73,7 +73,7 @@ test('C1: la pantalla tilda a TODOS los candidatos, agrega de a tandas, el botó
   assert.doesNotMatch(t.slice(iGris, t.indexOf('</tbody>', iGris)), /type="checkbox"|onClick=/, 'a uno que ya está se lo puede tildar');
   assert.match(t, /`Ya están en este funnel · \$\{miles\(yaEstan\)\} · no se traen`/);
   // El pie pegado vive en `VistaConPie` desde el 24/10/2026 (tests/crm-traer-23-10.test.ts, 4).
-  assert.match(t, /<VistaConPie/, 'el botón de agregar volvió a quedar abajo de todo');
+  assert.match(t, /<MoldeTraer\b/, 'el botón de agregar volvió a quedar abajo de todo');
   assert.match(t, /for \(const tanda of enTandas\(sel, TANDA_AGREGAR\)\) \{\s*const r = await agregarLoteAProductoAction\(tanda, destino\);/);
   // La línea «Se ven 300 de 869… 300 ya están en este funnel» se fue el 23/10/2026 (Martín: «si hace falta algo, que sea
   // el número en la casilla»): tests/crm-traer-23-10.test.ts.

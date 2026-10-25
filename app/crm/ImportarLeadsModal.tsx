@@ -20,10 +20,16 @@
 //
 // Nada se crea hasta el último click, y al confirmar viajan las FILAS EDITADAS
 // (no el archivo). El server vuelve a validar todo contra la base.
+//
+// ⚠️ DESDE EL 24/10/2026 VA EN EL `Modal` DE LA CASA CON EL MOLDE DE «TRAER» (./MoldeTraer.tsx), no en `WizardShell`.
+// Martín: «rediseña el de "importar", que tiene una estetica MUY diferente, todos tienen que compartir estetica». Los dos
+// pasos («Archivo · Revisar») van en la fila de pasos del molde, como el importador de Attio, y abajo sólo «Atrás» (o
+// «Cancelar») y la acción.
 // =============================================================================
 
 import { useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react';
-import { WizardShell } from '../_components/WizardShell';
+import { Modal } from '@/app/_ui/Modal';
+import { MoldeTraer } from './MoldeTraer';
 import { importarLeadsRevisadosAction } from './actions';
 import { TraerDeOtroProducto, type ProductoOrigen } from './TraerDeOtroProducto';
 import { TablaRevisionLeads } from './TablaRevisionLeads';
@@ -155,7 +161,6 @@ export function ImportarLeadsModal({ onListo, onClose, funnelId = null, producto
 
 
 
-  const enUltimo = paso === 1;
   /**
    * Cuántas filas HACEN algo. No es `c.tildadas`: desde #623 una fila repetida puede
    * completar la ficha que ya está en vez de crear una nueva, y con el botón colgado
@@ -165,37 +170,20 @@ export function ImportarLeadsModal({ onListo, onClose, funnelId = null, producto
   const haceAlgo = c.tildadas + c.aEnriquecer;
   const puede = paso === 0 ? !!file && !err : haceAlgo > 0;
 
-  // ── Paso 1: el archivo ─────────────────────────────────────────────────────
+  // ── Paso 1: de dónde, y el archivo ──────────────────────────────────────────
 
-  const pasoOrigen = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Los dos caminos, en el mismo lugar: subir algo, o traer de otro tablero. */}
-      <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'var(--surface-2)', borderRadius: 999, padding: 3 }}>
-        {([['archivo', 'Desde un archivo'], ['producto', 'De otro funnel']] as Array<['archivo' | 'producto', string]>).map(([k, txt]) => (
-          <button key={k} type="button" onClick={() => { setOrigen(k); setErr(null); }}
-            style={{
-              border: 'none', background: origen === k ? 'var(--surface)' : 'transparent',
-              color: origen === k ? 'var(--ink)' : 'var(--dim)', fontWeight: origen === k ? 600 : 500,
-              fontSize: 13.5, padding: '7px 16px', borderRadius: 999, cursor: 'pointer', fontFamily: SANS,
-              boxShadow: origen === k ? '0 1px 2px rgba(18,21,27,.08)' : 'none',
-            }}>{txt}</button>
-        ))}
-      </div>
-      {origen === 'archivo' ? pasoArchivo() : (
-        // ⚠️ ES EL MISMO COMPONENTE QUE EL DE «Nuevo lead», no una copia: el de acá era un
-        // buscador de una línea y el de allá una tabla con filtros, y los dos hacían lo
-        // mismo. Dos pantallas para traer un lead divergen en el primer ajuste — y la
-        // segunda es siempre la que se queda vieja.
-        <TraerDeOtroProducto
-          productos={productos}
-          destino={funnelId}
-          onAtras={() => setOrigen('archivo')}
-          onTraidos={(movidos, fallaron) => {
-            const falla = fallaron ? ` · ${fallaron} no se pudieron mover` : '';
-            onListo(`✓ ${movidos} ${movidos === 1 ? 'lead traído' : 'leads traídos'}${falla}`);
-          }}
-        />
-      )}
+  /** Los dos caminos, en el mismo lugar: subir algo, o traer de otro tablero. Va arriba de todo (`arriba` del molde). */
+  const selectorOrigen = (
+    <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'var(--surface-2)', borderRadius: 999, padding: 3 }}>
+      {([['archivo', 'Desde un archivo'], ['producto', 'De otro funnel']] as Array<['archivo' | 'producto', string]>).map(([k, txt]) => (
+        <button key={k} type="button" onClick={() => { setOrigen(k); setErr(null); }} aria-pressed={origen === k}
+          style={{
+            border: 'none', background: origen === k ? 'var(--surface)' : 'transparent',
+            color: origen === k ? 'var(--ink)' : 'var(--dim)', fontWeight: origen === k ? 600 : 500,
+            fontSize: 13.5, padding: '7px 16px', borderRadius: 999, cursor: 'pointer', fontFamily: SANS,
+            boxShadow: origen === k ? '0 1px 2px rgba(18,21,27,.08)' : 'none',
+          }}>{txt}</button>
+      ))}
     </div>
   );
 
@@ -275,33 +263,62 @@ export function ImportarLeadsModal({ onListo, onClose, funnelId = null, producto
     />
   );
 
+  // ⚠️ «DE OTRO FUNNEL» ES EL MISMO COMPONENTE QUE EL DE «Nuevo lead», no una copia: el de acá era un buscador de una línea
+  // y el de allá una tabla con filtros, y los dos hacían lo mismo. Trae su propio molde (con el selector arriba).
+  const deOtroFunnel = paso === 0 && origen === 'producto';
   return (
-    <WizardShell
-      // La tabla de «traer de otro producto» tiene seis columnas: en 640 cada fila cae en
-      // dos renglones.
-      ancho={paso === 1 ? 940 : origen === 'producto' ? 1040 : 640}
+    <Modal
       titulo={paso === 0 ? 'Importar leads' : `Importar leads · ${filas.length} fila${filas.length === 1 ? '' : 's'}`}
-      total={2} idx={paso}
-      pregunta={paso === 1 ? '¿Está bien lo que va a entrar?' : origen === 'archivo' ? '¿Qué archivo quieres importar?' : '¿A quién traes?'}
-      sub={paso === 1 ? 'Corrige lo que haga falta y tilda qué se crea.' : undefined}
-      error={err}
-      pending={cargando}
-      puedeAvanzar={origen === 'producto' && paso === 0 ? false : puede}
-      enUltimo={enUltimo}
-      // El botón promete LO QUE EL SERVER VA A HACER, y son dos cosas: crear y
-      // completar. Prometer sólo una es cómo el rótulo decía 80 y entraban 80 más.
-      confirmLabel={haceAlgo === 0 ? 'No hay nada tildado'
-        : c.aEnriquecer === 0 ? `Crear ${c.tildadas} lead${c.tildadas === 1 ? '' : 's'} →`
-        : c.tildadas === 0 ? `Completar ${c.aEnriquecer} ficha${c.aEnriquecer === 1 ? '' : 's'} →`
-        : `Crear ${c.tildadas} · completar ${c.aEnriquecer} →`}
-      siguienteLabel="Revisar →"
-      atrasLabel={paso === 0 ? 'Cancelar' : 'Atrás'}
-      onAtras={() => (paso === 0 ? onClose() : setPaso(0))}
-      onSiguiente={() => { void analizar(); }}
-      onConfirmar={() => { if (puede && !cargando) importar(); }}
-      onClose={onClose}
+      // La tabla de «traer de otro producto» tiene seis columnas: en 640 cada fila cae en dos renglones. Con una lista, el
+      // alto va fijo (la lista es la que scrollea, `VistaConPie`).
+      ancho={paso === 1 ? 940 : deOtroFunnel ? 1040 : 640}
+      alto={paso === 1 || deOtroFunnel ? 'min(88vh, 720px)' : undefined}
+      onCerrar={onClose}
     >
-      {paso === 0 ? pasoOrigen() : pasoRevisar()}
-    </WizardShell>
+      {deOtroFunnel ? (
+        <TraerDeOtroProducto
+          arriba={selectorOrigen}
+          productos={productos}
+          destino={funnelId}
+          onAtras={() => setOrigen('archivo')}
+          onTraidos={(movidos, fallaron) => {
+            const falla = fallaron ? ` · ${fallaron} no se pudieron mover` : '';
+            onListo(`✓ ${movidos} ${movidos === 1 ? 'lead traído' : 'leads traídos'}${falla}`);
+          }}
+        />
+      ) : (
+        <MoldeTraer
+          arriba={paso === 0 ? selectorOrigen : undefined}
+          pasos={{ nombres: ['Archivo', 'Revisar'], actual: paso }}
+          // Lo que va a pasar, en números (como «0 will be created · 495 will be updated» de Attio).
+          resumen={paso === 1 ? {
+            texto: haceAlgo ? `${haceAlgo} de ${filas.length} van a entrar` : 'No hay nada tildado',
+            chips: [
+              ...(c.tildadas ? [{ texto: `${c.tildadas} se crean`, tono: 'nuevo' as const }] : []),
+              ...(c.aEnriquecer ? [{ texto: `${c.aEnriquecer} se completan`, tono: 'nuevo' as const }] : []),
+              ...(filas.length - haceAlgo > 0 ? [{ texto: `${filas.length - haceAlgo} no entran`, tono: 'gris' as const }] : []),
+            ],
+          } : undefined}
+          estado={err ? { texto: err, tono: 'mal' } : cargando ? { texto: paso === 0 ? 'Leyendo el archivo…' : 'Importando…' } : null}
+          atras={paso === 0 ? { texto: 'Cancelar', onClick: onClose } : { onClick: () => setPaso(0), deshabilitado: cargando }}
+          // El botón promete LO QUE EL SERVER VA A HACER, y son dos cosas: crear y completar. Prometer sólo una es cómo el
+          // rótulo decía 80 y entraban 80 más.
+          accion={paso === 0
+            ? { texto: 'Revisar', onClick: () => { void analizar(); }, deshabilitado: !puede || cargando }
+            : {
+              texto: haceAlgo === 0 ? 'No hay nada tildado'
+                : c.aEnriquecer === 0 ? `Crear ${c.tildadas} lead${c.tildadas === 1 ? '' : 's'}`
+                : c.tildadas === 0 ? `Completar ${c.aEnriquecer} ficha${c.aEnriquecer === 1 ? '' : 's'}`
+                : `Crear ${c.tildadas} · completar ${c.aEnriquecer}`,
+              onClick: () => { if (puede && !cargando) importar(); },
+              deshabilitado: !puede || cargando,
+            }}
+          // El paso del archivo no es una lista: la caja de soltar va sin el borde de la tabla.
+          lista={paso === 0 ? { border: 'none', borderRadius: 0 } : undefined}
+        >
+          {paso === 0 ? pasoArchivo() : pasoRevisar()}
+        </MoldeTraer>
+      )}
+    </Modal>
   );
 }

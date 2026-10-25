@@ -339,7 +339,7 @@ export function fraseEntregaAlBorrar(enEntrega: number | null): string {
   const q = enEntrega === 1 ? 'cliente pierde su etapa' : 'clientes pierden su etapa';
   // El historial se nombra a propósito: es la mitad que NO se pierde, y sin decirla el
   // aviso suena a que se borra todo rastro del cliente.
-  return ` ${enEntrega} ${q} de entrega en Customer Success; el historial de cada uno se conserva.`;
+  return ` ${enEntrega} ${q} de entrega en Clients; el historial de cada uno se conserva.`;
 }
 
 /**

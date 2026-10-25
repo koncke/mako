@@ -42,6 +42,28 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## Cómo venden con landing los productos parecidos a MaKo, y la trampa del voseo (25/10/2026)
+
+**Vive en:** [como-venden-otros.md](como-venden-otros.md) (80 productos con landing, precios y frases verificados el 25/10, y
+la propuesta para la landing y los planes) · memoria `decisiones-venta-25-10`.
+
+- **Pedido de Martín:** «investigues al 100% como lo venden otros... tipo landing page, no saas super consolidados». Los SaaS
+  grandes van marcados como contraste.
+- **Lo que más se repite:**
+  - vender un EQUIPO (el media buyer, el setter, el diseñador) y compararlo con lo que cuesta contratarlo;
+  - la pila de herramientas que se reemplaza, con la cuenta hecha;
+  - el control (límites, aprobar, deshacer) en todo lo que toca plata.
+- **Los huecos que MaKo puede ocupar:**
+  - nadie vende un media buyer en español para pymes de LATAM por menos de US$100;
+  - ninguno decide por llamadas agendadas del CRM;
+  - nadie usa «tu IA, al costo» como argumento;
+  - nadie cobra la suscripción con Mercado Pago.
+- **La trampa:** los titulares de la investigación vienen en voseo, y la interfaz va en español NEUTRO, con tú: «El producto se
+  usa en México» (`tests/puente-panel-copy.test.ts`). Hay que traducirlos antes de ponerlos. El Cerebro mismo lo pidió mal en
+  el primer mensaje a Landings, y lo corrigió.
+
+*25/10/2026, el Cerebro (claude5).*
+
 ## La landing y el sistema de diseño
 
 ### ⚠️ La landing no comparte NI UN token con la app: un rebrand no la toca
@@ -4456,3 +4478,52 @@ la base, las grabaciones y GETs a Stripe. Lo pidió el Cerebro después de la au
   la página a cada link `[data-stripe]`.
 - **Sin medir:** quién abrió cada uno de los 12 checkouts (Stripe no guarda el origen; el del 18/10 03:45 UTC es casi
   seguro una prueba de Martín: salió 3 minutos después de mandarle el link).
+
+## Los datos de una persona en las URL que guarda el Pixel (24/10/2026, P6)
+
+**Síntoma:** la página de gracias de Calendly trae `?name=…&email=…` y el Pixel manda la URL de cada página vista: la
+guardábamos ENTERA. Medido (sólo lectura, sin imprimir datos): **487 filas de `vsl_events.landing_url`, 112 de
+`landing_visits.landing_url` y 66 de `landing_visits.referrer`**, de Código Inmobiliario (ws 13, ~75 personas, del 21/08
+al 24/10) y P2P Consulting (ws 14, 3 personas). `replay_sesiones.landing_url` y `vsl_events.detalle`: ninguna (todavía).
+Que el Pixel le pase esos datos a Meta (CAPI) no es el problema: van hasheados y lo hace el navegador.
+
+**Vive en:** `lib/url-datos-personales.ts` (la regla, pura) · `app/api/track/vsl/route.ts` (`urlGuardable`: landing_url,
+la visita, el referrer y el detalle) · `optin/route.ts` · `replay/route.ts` · `normalizarUrl` (lib/landing-paginas.ts) ·
+`scripts/limpiar-datos-personales-urls.mts` (lo ya guardado: cuenta por defecto; `--aplicar` con el OK del Cerebro).
+
+- **La regla:** un parámetro se va si su NOMBRE es de un dato personal o si su NOMBRE o su VALOR traen un email; todo
+  lo demás queda BYTE POR BYTE (una URL sin datos sale idéntica, así nada que compare URLs cambia). ⚠️ **NO por «parece un
+  teléfono»:** en la primera medición, 84 mil filas «tenían teléfonos» y eran los ids de campaña de Meta (`utm_id=1202…`).
+  Un nombre de teléfono (o `doc`, `rut`) es personal sólo si el valor trae 6 dígitos o más (`tel=1` no).
+- **El diagnóstico se quedaba corto (lo encontró la revisión adversarial):** no era sólo `landing_url`. El **referrer** de
+  la página que sigue a /gracias trae la misma query (66 filas), y el **detalle** de un clic es el link entero (un
+  checkout prellenado con nombre y email). Y los nombres no eran sólo `name`/`email`: Calendly prellenado manda las
+  respuestas como `a1…a10`, Hotmart `doc`/`phonenumber`, CF7 `your-name`, en portugués `nome`/`cpf`; claves con corchetes
+  (`data[phone]`), `&amp;`, `;`, un `?` repetido, una URL adentro de otra (`next=…%3Fname%3D…`), un router con `#/ruta?…`,
+  el email como clave o doblemente codificado. Todo entra en `tests/url-datos-personales.test.ts`.
+- **`normalizarUrl` limpia la URL cruda ANTES de parsear:** con un `?` repetido, el dato queda adentro de un valor que
+  `URLSearchParams` no abre.
+- **No rompe:** gracias → Ganado compara por la ruta (`paginaDeGracias`); el probador usa el campo `prueba`; la clave del
+  Pixel por página es host + ruta; nadie lee `email`/`name` de esas URL (grep).
+- **Quién lee la query de lo guardado, y con qué se une la visita al lead** (lo preguntó el Cerebro antes de pedirle a
+  Martín la limpieza; revisado el 24/10 noche, y el Cerebro llegó a lo mismo por su lado): **nadie usa el nombre ni el
+  email de la URL para unir.** La visita se une al lead por el `visitor_id`: llega como `utm_term` en la agenda de
+  Calendly (el webhook lo guarda en `leads.visitor_id`) o por `?l=` (el `meta_lead_id` del link de WhatsApp,
+  app/api/track/vsl/route.ts, «Camino 1»). Los dos parámetros quedan (`utm_term` y `l` no son de una persona). La
+  atribución lee sólo `utm_*` y `fbclid` (lib/atribucion-url.ts, `origenDe` en lib/origen-cuenta.ts, el `ORIGEN` del
+  Pixel); el opt-in identifica por sus campos `email`/`telefono`, no por la URL; el «agendó» viene del webhook de
+  Calendly (con el email del payload) y de la RUTA de /gracias; la CAPI del server no manda `event_source_url` (ningún
+  llamador lo pasa). ⚠️ Si un día se une por el email de la URL, esa unión pierde el dato: que use el `visitor_id`.
+
+Lo que quedó SIN hacer:
+- **La limpieza de lo ya guardado**, escrita y sin correr: Martín la aprobó el 24/10 («sin borrar las visitas») y la
+  corre el Cerebro cuando el saneo al guardar esté en producción (antes, las visitas nuevas seguirían guardando los
+  datos). Saca sólo esos parámetros; no borra filas (la visita a /gracias es la prueba del agendado).
+- El opt-in guarda la página CRUDA en la propuesta del lead (`propuestas.datos.pagina`, app/api/track/optin/route.ts):
+  son los datos de la MISMA persona en su propia ficha, no en una tabla de eventos; se dejó así.
+- **La grabación lleva la URL adentro del lote** (`replay_lotes.cuerpo`: el evento Meta de rrweb con `href`, y los `<a>` de
+  las fotos del DOM): llega comprimida y no se puede sanear en el server; va en el envoltorio de `public/replay/2/r.js`.
+- `leads.pagina_registro` viejos y los settings (`landing.paginas`…) se re-normalizan al leerse, pero lo guardado sigue
+  crudo hasta la próxima escritura. Un email en el PATH (`/gracias/ana@x.com`) no se cubre.
+- Falsos positivos aceptados: `?name=marketing-avanzado` (Calendly usa `name` para la persona) y una UTM con un `@`
+  (`utm_campaign=Promo@Black.Friday`).

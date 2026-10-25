@@ -17,6 +17,10 @@
 //     configurable por automatización: minutos entre envíos y tope por día). Es un SUB-TOPE adentro del de la línea
 //     (decisión del Cerebro): nunca deja mandar más que la línea; sólo frena a ESTA automatización. Los días de la
 //     semana son los del horario propio. La regla vive en lib/goteo.ts.
+//   · Y ES UNO SOLO PARA TODOS LOS CANALES (24/10/2026 23:00, Martín, f21 de la llamada con Leandro: «Uno solo: un solo
+//     interruptor de goteo (y uno de tope por día) que valga para todos los canales»): WhatsApp, email, Instagram y
+//     Messenger. Cada canal cuenta lo suyo (lib/goteo.ts). Hasta ese día había uno de WhatsApp (`goteo`) y otro de email
+//     (`goteoEmail`, 23/10), e Instagram no tenía (f20).
 //
 // SIN NADA GUARDADO, LA DEL NEGOCIO. Así cada automatización que ya existía arranca con lo que hoy tiene su negocio
 // (regla «nunca una versión vieja»), sin escribir nada en producción, y lo que cambie el negocio le llega.
@@ -51,19 +55,30 @@ export function secuenciaDeClave(clave: string): number | null {
  */
 export type ConfigAutomatizacion = {
   horario?: HorarioEnvio | null;
-  /** El goteo de sus WhatsApp (lib/goteo.ts): minutos entre dos envíos y tope en 24 h. Ausente = sin goteo propio. */
+  /**
+   * El goteo de sus mensajes, en TODOS los canales (lib/goteo.ts; 24/10/2026, f21): minutos entre dos envíos y tope en 24 h,
+   * cada canal con su cuenta. Ausente = sin goteo propio. (El `goteoEmail` de antes se lee como éste si no hay uno.)
+   */
   goteo?: { minutos?: number; dia?: number };
-  /** El goteo de sus EMAILS (23/10/2026, Martín: «en Email también pon goteo y tope por día»): igual, por su canal. */
-  goteoEmail?: { minutos?: number; dia?: number };
 };
 
-/** Los rangos del goteo: hasta 4 h entre envíos, y el tope por día no pasa el máximo de la línea. */
-export const RANGOS_GOTEO = { minutos: [1, 240] as const, dia: RANGOS_LIMITES.wa.dia } as const;
-/** Los del Email: los mismos minutos, y el tope por día hasta el máximo de email de la línea. */
-export const RANGOS_GOTEO_EMAIL = { minutos: [1, 240] as const, dia: RANGOS_LIMITES.email.dia } as const;
+/**
+ * Los rangos del goteo: hasta 4 h entre envíos, y el tope por día hasta el más alto de las líneas (el de email: un tope por
+ * día de 300 deja pasar 300 emails, y los WhatsApp los sigue cortando su línea, que es más baja).
+ */
+export const RANGOS_GOTEO = { minutos: [1, 240] as const, dia: [RANGOS_LIMITES.wa.dia[0], RANGOS_LIMITES.email.dia[1]] as const } as const;
 
 const enRango = (n: unknown, [min, max]: readonly [number, number]): n is number =>
   typeof n === 'number' && Number.isInteger(n) && n >= min && n <= max;
+
+/** Un goteo guardado, saneado: sus campos en rango, o undefined si no queda ninguno. */
+function goteoGuardado(raw: unknown): ConfigAutomatizacion['goteo'] {
+  const g = raw && typeof raw === 'object' ? raw as Record<string, unknown> : null;
+  if (!g) return undefined;
+  const min = enRango(g.minutos, RANGOS_GOTEO.minutos) ? g.minutos : undefined;
+  const dia = enRango(g.dia, RANGOS_GOTEO.dia) ? g.dia : undefined;
+  return min !== undefined || dia !== undefined ? { ...(min !== undefined ? { minutos: min } : {}), ...(dia !== undefined ? { dia } : {}) } : undefined;
+}
 
 /** Lo guardado, saneado: lo que no se entiende queda AUSENTE (= el del negocio). Nunca tira. */
 export function sanearConfigAutomatizacion(raw: unknown): ConfigAutomatizacion {
@@ -80,18 +95,10 @@ export function sanearConfigAutomatizacion(raw: unknown): ConfigAutomatizacion {
     const h = sanearHorario(o.horario);
     if (h) out.horario = h;
   }
-  const go = o.goteo && typeof o.goteo === 'object' ? o.goteo as Record<string, unknown> : null;
-  if (go) {
-    const min = enRango(go.minutos, RANGOS_GOTEO.minutos) ? go.minutos : undefined;
-    const dia = enRango(go.dia, RANGOS_GOTEO.dia) ? go.dia : undefined;
-    if (min !== undefined || dia !== undefined) out.goteo = { ...(min !== undefined ? { minutos: min } : {}), ...(dia !== undefined ? { dia } : {}) };
-  }
-  const ge = o.goteoEmail && typeof o.goteoEmail === 'object' ? o.goteoEmail as Record<string, unknown> : null;
-  if (ge) {
-    const min = enRango(ge.minutos, RANGOS_GOTEO_EMAIL.minutos) ? ge.minutos : undefined;
-    const dia = enRango(ge.dia, RANGOS_GOTEO_EMAIL.dia) ? ge.dia : undefined;
-    if (min !== undefined || dia !== undefined) out.goteoEmail = { ...(min !== undefined ? { minutos: min } : {}), ...(dia !== undefined ? { dia } : {}) };
-  }
+  // UNO SOLO (24/10/2026, f21): el de WhatsApp de antes, y si no hay, el del email. Medido ese día en producción: dos
+  // automatizaciones con goteo, las dos sólo de WhatsApp (scripts/medir-goteo-un-interruptor.mts); ninguna se movió.
+  const goteo = goteoGuardado(o.goteo) ?? goteoGuardado(o.goteoEmail);
+  if (goteo) out.goteo = goteo;
   return out;
 }
 
@@ -109,13 +116,13 @@ export function textoDeHorario(h: HorarioEnvio | null): string {
 export type PropsConfiguraciones = { secuenciaId: number; nombre: string; onCerrar: () => void };
 
 /** ¿Tiene algo propio? (si no, es la del negocio entera). */
-export const tieneConfigPropia = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.goteo !== undefined || c.goteoEmail !== undefined;
+export const tieneConfigPropia = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.goteo !== undefined;
 
 /**
  * ¿Ya le eligieron el RITMO? (el aviso de Prospección de Publicar y Probar: «revisa su horario y sus límites»). Su horario o
- * su goteo (de WhatsApp o de Email).
+ * su goteo (uno solo para todos los canales).
  */
-export const tieneRitmoPropio = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.goteo !== undefined || c.goteoEmail !== undefined;
+export const tieneRitmoPropio = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.goteo !== undefined;
 
 /**
  * EL HORARIO QUE VALE PARA ESA AUTOMATIZACIÓN: el propio si eligió uno (también «sin horario»), si no el del negocio.
@@ -164,20 +171,8 @@ export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown)
       if (Object.keys(nuevo).length) out.goteo = nuevo; else delete out.goteo;
     }
   }
-  if ('goteoEmail' in o) {
-    if (o.goteoEmail === null) delete out.goteoEmail;
-    else {
-      const g = o.goteoEmail && typeof o.goteoEmail === 'object' ? o.goteoEmail as Record<string, unknown> : {};
-      const nuevo = { ...(out.goteoEmail ?? {}) };
-      for (const [campo, rango, texto] of [['minutos', RANGOS_GOTEO_EMAIL.minutos, 'Los minutos entre envíos'], ['dia', RANGOS_GOTEO_EMAIL.dia, 'El tope por día']] as const) {
-        if (!(campo in g)) continue;
-        if (g[campo] === null) { delete nuevo[campo]; continue; }
-        if (!enRango(g[campo], rango)) return { ok: false, error: `${texto} van de ${rango[0]} a ${rango[1]}.` };
-        nuevo[campo] = g[campo] as number;
-      }
-      if (Object.keys(nuevo).length) out.goteoEmail = nuevo; else delete out.goteoEmail;
-    }
-  }
+  // UNO SOLO (24/10/2026, f21): el del email ya no existe aparte. Rechazado y dicho, como «Misma persona».
+  if ('goteoEmail' in o) return { ok: false, error: 'El goteo y el tope por día son uno solo para todos los canales: cámbialo en «goteo».' };
   if ('sinVistaPrevia' in o) return { ok: false, error: 'La vista previa de un link se saca en el mensaje, con la X de su tarjeta.' };
   // Vacío = todo como el negocio: quien guarda BORRA la clave (`vacia`), no deja un '{}' (revisión del 20/10/2026).
   return { ok: true, config: out, valor: JSON.stringify(out), vacia: !tieneConfigPropia(out) };

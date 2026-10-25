@@ -43,7 +43,7 @@ test('pantalla: «Discutir | Editar» en el lugar de los chips de alcance, con l
   assert.match(panel, /<SelectorIntencion valor=\{intencion\} onCambio=\{elegirIntencion\} deshabilitado=\{hilo\.corriendo\} \/>/);
   assert.match(panel, /const \[intencion, elegirIntencion\] = useIntencion\(\);/);
   // Lo escrito: Discutir por su lado (sin tocar la página), Editar como siempre.
-  assert.match(panel, /if \(intencion === 'discutir'\) void pedirDiscusion\(ctxRef\.current, texto, \{ adjuntos: paraEnviar\(items\) \}\);\s*else void pedirEdicion\(ctxRef\.current, texto, 'landing',/);
+  assert.match(panel, /if \(intencion === 'discutir'\) void pedirDiscusion\(ctxRef\.current, conCita, \{ adjuntos: paraEnviar\(items\) \}\);\s*else void pedirEdicion\(ctxRef\.current, conCita, 'landing',/);
   // «Discutir» no llama a «editar» ni arma una propuesta: una burbuja de texto.
   const discusion = panel.slice(panel.indexOf('async function pedirDiscusion('), panel.indexOf('type Sugerencia ='));
   assert.ok(discusion.length > 300, 'no encontré pedirDiscusion');
@@ -51,7 +51,8 @@ test('pantalla: «Discutir | Editar» en el lugar de los chips de alcance, con l
   assert.doesNotMatch(discusion, /accion: 'editar'|propuesta/);
   // La preferencia es la MISMA clave que Automations (quien eligió Discutir allá, lo encuentra acá).
   assert.equal(CLAVE_INTENCION, 'mako-chat-intencion');
-  assert.match(leer('app/automations/ChatMako.tsx'), /const CLAVE_INTENCION = 'mako-chat-intencion';/);
+  // Y Automations usa la MISMA pieza (24/10/2026): sin copia propia, la clave es una sola por construcción.
+  assert.match(leer('app/automations/ChatMako.tsx'), /import \{ SelectorIntencion, useIntencion \} from '@\/app\/_chat\/SelectorIntencion';/);
 });
 
 test('editar: toda la landing con la sección del cursor como pista; si no entra de una vez, sólo esa sección (y lo dice)', () => {

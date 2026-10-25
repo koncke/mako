@@ -64,8 +64,12 @@ async function dibujarChat(p: Record<string, unknown> = {}): Promise<string> {
 test('1. el hilo del Ops Center, con lo de Offer en su hueco', async () => {
   const html = await dibujarChat({ extra: (m: { id: string }) => (m.id === 'm2' ? 'TARJETA-DEL-ONBOARDING' : null) });
   assert.match(html, /<div class="co-hilo"><div class="co-hilo__col">/, 'el hilo del Ops Center');
-  assert.match(html, /<div class="co-yo" id="co-msg-t-of-y1">/, 'lo del dueño, a la derecha (FilaMia)');
-  assert.match(html, /<div class="co-el-wa" id="co-msg-t-of-m2"><div class="co-el">/, 'lo de MaKo, con su criatura (FilaDelChat)');
+  // (24/10/2026, P5: el hilo trae el menú del mensaje aunque Offer no le pase el suyo: cada fila lleva el envoltorio de
+  // WhatsApp, `co-wa`, con su botón de opciones. app/_chat/HiloMako.tsx, `MenuDelMensaje`.)
+  assert.match(html, /<div id="co-msg-t-of-y1" class="co-yo co-wa co-wa--yo">/, 'lo del dueño, a la derecha (FilaMia), con el menú del mensaje');
+  assert.match(html, /<div id="co-msg-t-of-m2" class="co-el-wa co-wa">/, 'lo de MaKo, con su criatura (FilaDelChat), con el menú del mensaje');
+  assert.match(html.slice(html.indexOf('id="co-msg-t-of-m2"')), /^[^]*?<div class="co-el">/);
+  assert.match(html, /aria-label="Opciones del mensaje"/, 'el botón del menú (el clic derecho abre lo mismo)');
   const m2 = html.slice(html.indexOf('id="co-msg-t-of-m2"'));
   const iPdf = m2.indexOf('aria-label="Descargar el PDF de tu oferta, versión 2"');
   const iTexto = m2.indexOf('Listo, tu oferta.');

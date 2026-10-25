@@ -41,6 +41,7 @@ import { agregarAProducto } from '@/lib/lead-funnel';
 import { casaParaEscribir, casaReal } from '@/lib/lead-funnel-reglas';
 import { AUTOR_SISTEMA } from '@/lib/etapa-historial';
 import { normalizarUrl } from '@/lib/landing-paginas';
+import { urlSinDatosPersonales } from '@/lib/url-datos-personales';
 import { funnelsDeLanding } from '@/lib/landing-funnel';
 import { funnelDeCampana } from '@/lib/campana-funnel';
 import { datosOptin } from '@/lib/optin-aviso';
@@ -206,7 +207,8 @@ export async function POST(req: NextRequest) {
           // opt-in sin pagina es el caso nuevo y se nombra: `sin_pagina`.
           detalle: txt(body.origen_captura) === 'agenda' ? 'agenda' : 'sin_pagina',
           prueba: txt(body.prueba),
-          landing_url: txt(body.pagina),
+          // Sin los datos de una persona (24/10/2026, P6): lo que se guarda es que PASÓ, no quién.
+          landing_url: txt(typeof body.pagina === 'string' ? urlSinDatosPersonales(body.pagina) : body.pagina),
         });
       });
     } catch (e) {

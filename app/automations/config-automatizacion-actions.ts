@@ -52,7 +52,7 @@ export async function getConfigAutomatizacionAction(secuenciaId: number): Promis
 }
 
 /**
- * Un cambio: `{ horario }` (`null` = el del negocio) y/o `{ goteo: { minutos?, dia? } }` y `{ goteoEmail: { minutos?, dia? } }`
+ * Un cambio: `{ horario }` (`null` = el del negocio) y/o `{ goteo: { minutos?, dia? } }` (uno solo para todos los canales)
  * (`null` = sin goteo).
  */
 export async function saveConfigAutomatizacionAction(secuenciaId: number, cambio: unknown): Promise<{ ok: boolean; error?: string; config?: ConfigAutomatizacion }> {
