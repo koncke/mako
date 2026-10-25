@@ -69,7 +69,7 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 3. **Lo que quedó sin hacer:** filmar SOLO el hook nuevo (depende del puente a Flow, que corre en el navegador del cliente):
    hoy «Filmarlos en Video Generator» deja cada hook + el cuerpo del ganador como guion en la celda «Hooks del Media Buyer»
    y se filma desde ahí; `validate_only` por el token de Meta; el Stop Loss intradía; la API de MaKo para «subir creativos»
-   y «hooks al video» (piden archivos o la pantalla); y borrar las rutas viejas de `app/api/ads-manager/*` que sólo usaba la
+   (los archivos los sube el navegador al staging: anotado en `FALTA` de `tests/media-buyer-api.test.ts`); y borrar las rutas viejas de `app/api/ads-manager/*` que sólo usaba la
    vista borrada (`creative-signurl` SÍ se usa: la subida del Media Buyer).
 4. **El nombre en la barra** sigue «Ads Manager» (`app/_components/nav.ts` es del chat Sidebar): si Martín quiere «Media
    Buyer», se lo pide el Cerebro a ese chat.
