@@ -290,6 +290,11 @@ export type PasoSecuencia = {
   destino?: DestinoIrA | null;
   /** «Sale sola» POR MENSAJE: true = borrador, false = sale, ausente = lo de la secuencia. */
   revisar?: boolean;
+  /**
+   * Los botones de un DM de Instagram o Messenger (24/10/2026, lib/botones-social.ts): los guarda `camposDelFlujo`, los manda
+   * `enviarPasoSocial` y, si alguno sigue el flujo, el mensaje espera el toque (`esperaToque`, `tocarBoton`).
+   */
+  botones?: PasoGrafo['botones'];
 };
 
 export type Secuencia = {
