@@ -64,6 +64,10 @@ const PESADO = new RegExp([
   String.raw`\bplaywright\b`, String.raw`\beslint\b`, String.raw`\bnext\s+build\b`,
   String.raw`\bnpm\s+(ci|install|i|test|t)\b`, String.raw`\bnpm\s+run\s+(build|test|lint|check)\b`,
   String.raw`\b(pnpm|yarn)\s+(install|test|build)\b`,
+  // 25/10/2026 ~19:20 (el Cerebro): los scripts del repo que corren por adentro tandas de tests o el chequeo de tipos. El
+  // comando es un `node scripts/...` que no dice nada pesado: `tests-afectados` arrancó con la reserva del tren puesta y
+  // levantó dos tandas de ~1 GB cada una (la RAM libre bajó de 2,9 a 1,1 GB). Sólo el script corriendo, no un `cat` de su test.
+  String.raw`\bnode\b[^|;&]*\bscripts/(tests-afectados|antes-de-subir|tipos-por-tandas|tipos-respaldo-push)\.mjs\b`,
 ].join('|'), 'i');
 
 // Los tests de este repo corren con `node --test` (o `tsx --test`), no con vitest: un archivo suelto es liviano, pero una
