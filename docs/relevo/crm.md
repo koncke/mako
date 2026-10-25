@@ -24,10 +24,19 @@ sobre origin/main 59d228ea1. Se entrega de a tandas al Cerebro (él arma el tren
 **Sin ver en pantalla** (la PC con ~4 GB libres y 7 chats: no se levantó `next dev`): el «⋯» de una columna con «Ordenar ›»,
 el ícono azul de una columna ordenada, y «Traer de otro funnel» con los grises. Se mira en el ws3 cuando esté desplegado.
 
-**Lo que sigue, en orden** (el pedido del Cerebro): 14 (las hojas de la ficha: a la izquierda, sin la flechita, «Ver más»), 16
-(«A revisar» sólo del CRM que se mira), 21 (el buscador de Instagram: medir con el dato que llega), 12 («Editar con MaKo» como
-bloque flotante, y todo editable), 19 (cerrar un modal hijo vuelve al padre), 20 (Scraper, Traer e Importar con una estética),
-18 (los grupos de WhatsApp, más rápido: medir antes). Después: las cuotas (`c7ff7d7fc`) con revisión adversarial, y
+**Tanda 2 — puntos 14, 16 y 21:**
+- 14: las hojas de la ficha arrancan al borde (sin la sangría del nombre), sin la flechita de la tab, y las que no entran van a
+  «Ver más» con «Nueva hoja» adentro. El «⋯» de al lado de «Editar» es el menú de la ficha (el del clic derecho), por
+  secciones y con lo de la hoja abierta.
+- 16: «A revisar» trae sólo los leads cuya casa es el CRM del tablero.
+- 21: medido con la conexión de Mauricio: Meta conectada SIN Instagram (ningún permiso de Instagram, la página sin cuenta
+  vinculada). La pantalla ya no pide «Conectar Meta» ahí, y el botón sale una vez. **La foto no llega**: ninguna fuente puede
+  leer Instagram en esa cuenta. Fue al Ops Center la pregunta a Martín (el Instagram de MaKo + permiso, gratis; o Apify, pago).
+  Sin ver en pantalla, igual que la tanda 1.
+
+**Lo que sigue, en orden** (el pedido del Cerebro): 12 («Editar con MaKo» como bloque flotante, y todo editable), 19 (cerrar
+un modal hijo vuelve al padre), 20 (Scraper, Traer e Importar con una estética), 18 (los grupos de WhatsApp, más rápido:
+medir antes). Después: las cuotas (`c7ff7d7fc`) con revisión adversarial, y
 `crm-b5-2310` @ `60bd69812` NO sube antes del lunes 26/10.
 
 ## 0-Ω24. 24/10/2026, madrugada (chat «CRM», cuenta `claude1`): la base de venta de Martín desde sus grupos

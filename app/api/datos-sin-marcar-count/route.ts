@@ -8,7 +8,8 @@ import { getPendientesDeMarcar } from '@/lib/queries';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { getTenantDb } from '@/lib/workspace';
 import { urlGravatar } from '@/lib/gravatar';
-import { filasPorLead, ocultosPorLead, type FilaLead as FilaBase } from '@/lib/a-revisar-filas';
+import { crmPedido, delCrm, filasPorLead, ocultosPorLead, type FilaLead as FilaBase } from '@/lib/a-revisar-filas';
+import { idDelFunnelDefault } from '@/lib/funnels';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -44,18 +45,27 @@ const texto = (v: unknown): string | null => (typeof v === 'string' && v.trim() 
 
 export async function GET(req: Request) {
   try {
-    const { total, items, ignorados } = await getPendientesDeMarcar(hoyEnTijuana());
+    const sp = new URL(req.url).searchParams;
+    const todo = await getPendientesDeMarcar(hoyEnTijuana());
+    // `?funnel=`: el CRM que se mira en el tablero (24/10/2026, «No debo estar en un CRM y que me traigan las
+    // notificaciones de otro»). Sin él (el Sidebar, otra pantalla), el negocio entero, como siempre.
+    const pedido = crmPedido(sp.get('funnel'));
+    const crm = pedido ? { id: pedido.id, defaultId: await idDelFunnelDefault().catch(() => null) } : null;
+    const items = delCrm(todo.items ?? [], crm);
+    const ignorados = delCrm(todo.ignorados ?? [], crm);
+    // Un item por lead: el número es cuántos leads quedan en ESTE CRM.
+    const total = crm ? items.length : todo.total;
     // `?lista=1`: también los primeros, para resolverlos SIN IR A OTRA TAB (tercer feedback del
     // 12/10/2026, punto 4: «A revisar» abre la ficha en el lugar). Sin el parámetro, el conteo
     // de siempre: lo pide el Sidebar en cada página y no necesita nombres.
-    if (new URL(req.url).searchParams.get('lista') === '1') {
+    if (sp.get('lista') === '1') {
       // `total` cuenta LEADS (un item por lead) y las filas también: el número del panel y lo
       // que se ve abajo hablan de lo mismo.
       // Una fila por lead (lib/a-revisar-filas.ts, puro y con test que lo ejecuta).
-      const filas: FilaLead[] = filasPorLead(items ?? [], TOPE_LISTA);
+      const filas: FilaLead[] = filasPorLead(items, TOPE_LISTA);
       // Los ignorados llegan UNO POR DATO (lib/queries.ts los topea en 500): se juntan por lead para
       // el «Ver más» y su «volver a avisar» por lead.
-      const ocultos: FilaLead[] = ocultosPorLead(ignorados ?? [], TOPE_OCULTOS);
+      const ocultos: FilaLead[] = ocultosPorLead(ignorados, TOPE_OCULTOS);
       await ponerCaras([...filas, ...ocultos]);
       return Response.json({ total, items: filas, ignorados: ocultos });
     }

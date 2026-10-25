@@ -20,6 +20,64 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## El buscador de Instagram en la cuenta de Mauricio: Meta conectada SIN Instagram, y ninguna fuente trae la foto (25/10/2026)
+
+**Vive en:** lib/instagram-buscar.ts (`sin-instagram`, `pideConectarMeta`) · app/api/crm/instagram-buscar/route.ts ·
+app/crm/new/InstagramBuscador.tsx · tests: instagram-meta-sin-instagram (3 roturas cazadas), crm-instagram-meta-22-10.
+
+- **El diagnóstico obvio («Meta no está conectada») era el equivocado.** Medido el 25/10 con la conexión del ws de Mauricio
+  (sólo lectura, sin imprimir el token): token PROPIO, la página «Mauricio Bustos Eguia», diez permisos (anuncios, páginas,
+  leads) y **ninguno de Instagram**; la página no devuelve `instagram_business_account`. Meta no da error: OMITE el campo.
+  La ruta trataba «sin token» y «con token y sin Instagram» igual (`sin-conexion`) y la pantalla pedía «Conectar Meta» a un
+  negocio conectado. Ahora son dos estados: `sin-instagram` dice «Tu Meta no tiene Instagram vinculado» y NO ofrece el botón
+  (conectar no lo arregla).
+- **«Conectar Meta» salía DOS veces**: la línea de debajo del campo (al enfocarlo) y la fila de la lista vacía. La fila ya no
+  lo dibuja si la línea de abajo lo ofrece.
+- **La foto con la vista previa NO se arregla en el código hoy.** Las tres fuentes están vacías para ese negocio: Business
+  Discovery pide `instagram_basic` y un Instagram profesional vinculado a la página (el token no lo tiene, y las
+  instrucciones del token del catálogo, lib/metodo-catalogo.ts, no lo piden); la plataforma tampoco (su página no tiene
+  Instagram); Apify y Google no tienen clave en ningún lado. Y el perfil público directo: `web_profile_info` contesta **401**
+  sin sesión incluso desde la PC de Martín (no sólo desde Vercel), y la página del perfil viene sin datos. Lo que lo destraba
+  es de Martín (fue al Ops Center como pregunta): el Instagram de MaKo vinculado a su página + `instagram_basic` en el token
+  de la plataforma (gratis, sólo cuentas de empresa o creador), o una clave de Apify de la plataforma (cualquier perfil
+  público, se paga por lectura, con tope por día ya armado en lib/instagram-perfil-server.ts).
+- **Sin hacer:** sumar `instagram_basic` a los permisos que el catálogo pide para el token de Meta (es de Integraciones:
+  lib/metodo-catalogo.ts, la línea de «Generar nuevo token»).
+
+## «A revisar» corta por el CRM que se mira: la casa del lead, como el tablero (25/10/2026)
+
+**Vive en:** lib/a-revisar-filas.ts (`delCrm`, `crmPedido`) · app/api/datos-sin-marcar-count/route.ts ·
+app/_components/MakoConfirmGate.tsx (`crmDelTablero`) · lib/queries.ts (`funnel_id` en cada pendiente) · tests:
+a-revisar-por-crm (3 roturas cazadas).
+
+- **No cortaba a propósito, y el motivo había vencido.** El comentario decía que el número no se recorta porque «la vista que
+  abre tampoco filtra por embudo»; esa vista (`/crm?pendientes=1`) se borró el 16/10 y «Revisar» abre la ficha en el lugar.
+  Martín, 24/10: «No debo estar en un CRM y que me traigan las notificaciones de otro».
+- **La regla es la CASA del lead** (`leads.funnel_id`), la misma con que app/crm/page.tsx acota los datos sin marcar del
+  tablero (`idsDeLaCasa`): un agregado (fila de `lead_funnel`) no trae sus pendientes al CRM donde está agregado, porque lo
+  que falta es del recorrido de su casa y «Revisar» escribe ahí. El del negocio es la casa de los leads con `funnel_id` null
+  Y de los que tienen el id del funnel por defecto.
+- El panel sólo corta en el tablero (`/crm`, con `?funnel=` o sin él = el del negocio). En la ruta de un lead o en
+  prospectos no hay un tablero: va el negocio entero, como el número del Sidebar.
+
+## Las hojas de la ficha, segunda vuelta: al borde, sin la flechita, y «Ver más» en vez de desplazar (25/10/2026)
+
+**Vive en:** app/crm/lead-view/LeadTabs.tsx · app/crm/lead-view/tabs-que-entran.ts (puro) ·
+app/crm/lead-view/ficha/menu-contextual-ficha.ts (el «⋯», por secciones) · tests: ficha-ver-mas (4 roturas cazadas), y los
+de la ficha que codificaban la flechita, la sangría y el desplazamiento de costado.
+
+- **La flechita de la tab se fue a un «⋯» que ya existía**, y por eso el «⋯» pasó a ser EL menú de la ficha (el mismo del clic
+  derecho, como el de una columna del tablero desde el 22/10): AI Analyst · Lead · Compartir · Esta hoja · Ficha · Eliminar
+  hoja. Eran dos listas (un `Dropdown` propio y el clic derecho) con el mismo trabajo.
+- **«Cambiar nombre» desde el «⋯» necesita llegar a la tab:** el nombre se edita EN la tab (EditableInline). `LeadTabs` recibe
+  `renombrar = { key, n }`, como `irA`: un número por pedido para que dos pedidos seguidos corran el efecto.
+- **«Ver más» mide una copia invisible de la fila** (`.lt-medidor`, con las mismas clases). Dos trampas: la copia tiene que
+  medir a ancho natural (`width: max-content` y `flex: none` en cada hijo): absoluta y sin ancho, se encoge al de la fila y la
+  cuenta cree que entra todo. Y «Nueva hoja» lleva `.lt-accion`, que en el teléfono es `display: none`: mide 0 y la cuenta no
+  le guarda lugar.
+- **La regla de «la última hoja con un desplegable»:** con «Ver más», al menos una hoja va adentro aunque entren todas
+  (si no, «Ver más» tendría sólo «Nueva hoja» y la fila seguiría igual de apretada). La abierta se ve siempre.
+
 ## «Ordenar» es de cada COLUMNA, y dos pedidos viejos que el del 24/10 dio vuelta (24-25/10/2026)
 
 **Vive en:** app/crm/orden-kanban.ts (los criterios, puro) · app/crm/menu-contextual-crm.ts (`col_ordenar`, el orden del «⋯»)
