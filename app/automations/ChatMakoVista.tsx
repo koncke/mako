@@ -22,6 +22,7 @@ import type { PropsCajaChat } from '@/app/_chat/CajaChat';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { estaAbajo } from '@/lib/centro-caja';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 /** La criatura de MaKo: la estrella, siempre (23/10/2026). */
 export const QUIEN_MAKO: Quien = { nombre: 'MaKo', aspecto: ASPECTO_MAKO };
@@ -55,6 +56,8 @@ export default function ChatMakoVista(p: PropsVistaChatMako) {
   /** ¿Se estaba mirando lo último? Entonces lo nuevo lo sigue (si se subió a leer algo de antes, no se lo mueve). */
   const abajo = useRef(true);
   const n = p.items.length + (p.escribiendo ? 1 : 0);
+  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
+  const appEscritorio = useAppDeEscritorio();
   useLayoutEffect(() => {
     const h = hiloRef.current;
     if (h && abajo.current) h.scrollTop = h.scrollHeight;
@@ -77,7 +80,7 @@ export default function ChatMakoVista(p: PropsVistaChatMako) {
           {/* LA CAJA CON AIRE (23/10/2026: «está pegada abajo de todo: tiene que tener aire»): la del Ops Center, con su margen. */}
           {p.encima}
           <div className="co-caja" data-caja-mako="">
-            <CajaChat {...p.caja} />
+            <CajaChat {...p.caja} bloqueo={appEscritorio.bloqueo} />
           </div>
         </>}
         estado="">

@@ -68,6 +68,7 @@ import { AvatarMako } from './AvatarMako';
 import type { PropsCajaChat } from '@/app/_chat/CajaChat';
 import '@/app/admin/operaciones/centro.css';
 import { ChatOffer } from './ChatOffer';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { Conclusion } from './Conclusion';
 import type { PasoGeneracion } from './Generando';
 import { BarraPiezasMovil, RielPiezas, type AccionesPiezas } from './PiezasRail';
@@ -212,6 +213,11 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
 }) {
   const [arbol, setArbol] = useState<ArbolOffer>(arbolInicial);
   const [sesion, setSesion] = useState<OfferSesionVista | null>(sesionInicial);
+  // SIN LA APP DE ESCRITORIO, LA TAB OFFER NO ESCRIBE (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»;
+  // app/_chat/useAppDeEscritorio.tsx). EL ONBOARDING SÍ (`arranque`): es lo primero que ve un cliente nuevo, corre con el crédito
+  // de MaKo para que arranque sin conectar nada (lib/onboarding-arranque.ts), y bloquearlo lo dejaría afuera antes de entrar.
+  const appEscritorio = useAppDeEscritorio();
+  const sinApp = !arranque && appEscritorio.bloqueada;
   /** La oferta abierta en su ventana, ENCIMA del chat (el chat no se va: ver la cabecera). */
   const [verConclusion, setVerConclusion] = useState(false);
   const [texto, setTexto] = useState('');
@@ -356,7 +362,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   const mandar = async (envio: Envio): Promise<Resultado> => {
     const id = sesionId.current;
     const s = sesionRef.current;
-    if (id == null || !s || enviando.current) return 'volver';
+    if (id == null || !s || enviando.current || sinApp) return 'volver';
     if (!envio.texto.trim() && !envio.docs.length && !envio.audio) return 'volver';
     enviando.current = true;
     const e = epoca.current;
@@ -962,7 +968,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   const caja: PropsCajaChat = {
     texto, onTexto: setTexto, onMandar: () => void enviarComposer(), ocupado, enterManda: true,
     placeholder: arranque?.placeholder ?? 'Escríbele a MaKo', tituloMandar: 'Mandar (Enter)', onErrorMic: setErrorChat,
-    adjuntos: sinAdjuntos ? undefined : adjuntosCaja, estado: estadoVista,
+    adjuntos: sinAdjuntos ? undefined : adjuntosCaja, estado: estadoVista, bloqueo: arranque ? undefined : appEscritorio.bloqueo,
     voz: sinAdjuntos ? undefined : {
       onAudio: mandarAudio, onError: setErrorChat, rotuloEnviar: 'Enviar audio', apagada: ocupado,
       pendiente: audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs, onBorrar: descartarAudio, onDejar: reenviarAudio } : null,

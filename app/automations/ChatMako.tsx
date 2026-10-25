@@ -92,6 +92,8 @@ import {
 // Los POST de los pedidos sueltos viven aparte: este chat no hace POST propios (el stream lo lee sólo ./stream-ia.ts).
 import { pedirPedidos, pedirALaLista } from './pedidos-cliente';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useAppBloqueada } from '@/app/_chat/app-de-escritorio';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 /**
  * LA VISTA (el hilo y la caja únicos, 23/10/2026, AU4) entra con `next/dynamic`: trae el CSS de las piezas únicas, y este
@@ -248,6 +250,9 @@ export function ChatMako(p: ChatMakoProps) {
    * lib/flujo-ia-intencion.ts. Arranca en Editar (Mauricio: «que obedezca»), y se recuerda por persona en el navegador.
    */
   const [intencion, setIntencion] = useState<IntencionChat>('editar');
+  // Sin la app de escritorio no sale nada (25/10/2026, «En ningun chat, no solo en Ops Center»): la caja lo dibuja
+  // (ChatMakoVista.tsx) y acá se corta también lo que no pasa por ella (el pedido que llega de la galería, un botón).
+  const sinApp = useAppBloqueada();
   // Lo guardado se lee DESPUÉS de montar: leído en el primer render, el server (sin `localStorage`) y el navegador
   // dibujarían distinto.
   useEffect(() => { setIntencion(leerIntencion()); }, []);
@@ -395,7 +400,7 @@ export function ChatMako(p: ChatMakoProps) {
    *   · `origen: 'boton'` — una opción de una pregunta (la pregunta sigue viva: se vuelve a tocar).
    */
   const turno = async (dicho: string, respuesta: RespuestaMako | null, origen: 'barra' | 'afuera' | 'boton', pedido?: string, adj: AdjuntoLeido[] = []): Promise<true | { error: string | null }> => {
-    if (trabajando || p.deshabilitado) return origen === 'barra' ? { error: null } : true;
+    if (trabajando || p.deshabilitado || sinApp) return origen === 'barra' ? { error: null } : true;
     const yo: MensajeChatMako = {
       id: nuevoId('yo'), de: 'yo', texto: dicho, at: new Date().toISOString(), via: 'app', ...(respuesta ? { respuesta } : {}),
       ...(adj.length ? { adjuntos: adj.map((a) => a.nombre) } : {}),
@@ -999,6 +1004,8 @@ export function BarraPideselo({ onPedido, onFlujo, deshabilitado, inicial }: {
   /** El flujo pegado: lo que va al server y su nombre (null mientras el server contesta). */
   const [flujo, setFlujo] = useState<{ copia: string; nombre: string | null } | null>(null);
   const [archivo, setArchivo] = useState<ArchivoCaja | null>(null);
+  // Sin la app de escritorio, la caja de pedido tampoco escribe (25/10/2026): app/_chat/useAppDeEscritorio.tsx.
+  const appEscritorio = useAppDeEscritorio();
   const vezFlujo = useRef(0);
   const subida = useRef<AbortController | null>(null);
   const elegirArchivo = useRef<HTMLInputElement>(null);
@@ -1071,7 +1078,7 @@ export function BarraPideselo({ onPedido, onFlujo, deshabilitado, inicial }: {
   /** ¿Se puede mandar? Un flujo con nombre, un archivo elegido, o algo escrito (y nada subiéndose ni leyéndose). */
   const listo = flujo ? !!flujo.nombre : archivo ? archivo.estado === 'elegido' : !!texto.trim();
   const mandar = () => {
-    if (deshabilitado || !listo) return;
+    if (deshabilitado || !listo || appEscritorio.bloqueada) return;
     setError(null);
     if (flujo) { onFlujo?.(flujo.copia); return; }
     if (archivo?.estado === 'elegido') { mandarConArchivo(archivo, texto); return; }
@@ -1082,7 +1089,7 @@ export function BarraPideselo({ onPedido, onFlujo, deshabilitado, inicial }: {
       <style>{CSS_TOKENS_CASA + CSS_CAJA_PEDIDO}</style>
       <CajaPedido titulo={{ texto: TITULO_CAJA, nivel: 2 }} valor={texto} onValor={alEscribir} onEnviar={mandar} listo={listo}
         ejemplos={EJEMPLOS} animar={!archivo} placeholderQuieto={archivo ? PLACEHOLDER_ARCHIVO : PLACEHOLDER_QUIETO}
-        etiqueta="Qué tiene que hacer la automatización" deshabilitado={deshabilitado} onError={setError}
+        etiqueta="Qué tiene que hacer la automatización" deshabilitado={deshabilitado} onError={setError} bloqueo={appEscritorio.bloqueo}
         adjunto={archivo ? (
           <ChipCaja icono={archivo.imagen ? 'imagen' : 'archivo'} texto={archivo.nombre}
             detalle={archivo.estado === 'leyendo' ? 'Leyendo…' : archivo.estado === 'subiendo' ? 'Subiendo…' : null} onQuitar={quitarArchivo} etiquetaQuitar="Quitar el archivo" />

@@ -34,6 +34,7 @@ import { cambiarMensaje, cargarHilo, leerHilo, suscribir, type EstadoPropuesta, 
 import { aceptarPropuesta, detener, pedirEdicion, restaurarPropuesta, rotuloSeleccion, type AlcanceChat } from './acciones';
 import styles from './chat.module.css';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 const HILO_SERVER: Hilo = { mensajes: [], corriendo: false };
 const useHilo = (disenoId: string): Hilo => useSyncExternalStore(suscribir, () => leerHilo(disenoId), () => HILO_SERVER);
@@ -132,6 +133,8 @@ export function PanelMakoIA() {
   const elegidos = useEditorState((s) => s.selection.ids.length);
   const hilo = useHilo(disenoId);
   const [texto, setTexto] = useState('');
+  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
+  const appEscritorio = useAppDeEscritorio();
   const [alcance, setAlcance] = useState<AlcanceChat>('diseno');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hiloRef = useRef<HTMLDivElement>(null);
@@ -153,7 +156,7 @@ export function PanelMakoIA() {
   }, [hilo.mensajes.length, hilo.corriendo]);
 
   const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal) => {
-    if (hilo.corriendo || !instruccion.trim() || !disenoId) return;
+    if (hilo.corriendo || !instruccion.trim() || !disenoId || appEscritorio.bloqueada) return;
     void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc);
     setTexto('');
   };
@@ -246,7 +249,7 @@ export function PanelMakoIA() {
             (`isEditableTarget` de hooks/useKeyboardShortcuts.ts). */}
         <div className="co-caja">
           <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
-            apagado={!disenoId} placeholder="Describe el cambio…" tituloMandar="Enviar" enterManda />
+            apagado={!disenoId} placeholder="Describe el cambio…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} />
         </div>
       </div>
     </div>

@@ -145,6 +145,26 @@ function useVentanaAngosta(): boolean {
     () => false,
   );
 }
+/**
+ * ¿La barra va abierta y fija? (25/10/2026, la regresión del 24/10). Donde se pliega SOLA (`plegadaAca`: el Ops Center,
+ * Automations, la ventana chica, MaKo abierto) manda lo que la flecha hizo EN ESA VISITA; en el resto, lo guardado.
+ * ⚠️ Era `guardada && (!plegadaAca || abiertaAca)`: cuando la guardada era «si» por defecto andaba, pero desde que la barra
+ *    arranca plegada (`mk-nav-fija-v2`, 24/10) la guardada es «no» para casi todos, y la flecha en esas pantallas abría la
+ *    barra en `abiertaAca` sin que `fija` se enterara: se desplegaba con el cursor encima y se volvía a plegar al salir.
+ *    Martín: «La sidebar principal en muchas tabs no funciona el botón de "desplegar" para mantenerla desplegada».
+ */
+export function barraFija(guardada: boolean, plegadaAca: boolean, abiertaAca: boolean): boolean {
+  return plegadaAca ? abiertaAca : guardada;
+}
+/**
+ * Qué guarda la flecha (`null`: nada). DESPLEGARLA SE RECUERDA SIEMPRE, también donde la barra se pliega sola: así la
+ * próxima tab la encuentra abierta. Plegarla en una de esas pantallas es de ese rato y no se guarda (22/10: «si antes la tenía
+ * desplegada y fija, al cerrar MaKo debe volver a su lugar»).
+ */
+export function loQueGuardaLaFlecha(v: boolean, plegadaAca: boolean): boolean | null {
+  if (v) return true;
+  return plegadaAca ? null : false;
+}
 function guardarFija(v: boolean) {
   try { window.localStorage.setItem(FIJA, v ? 'si' : 'no'); } catch { /* sin almacenamiento */ }
 }
@@ -497,10 +517,12 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const plegadaAca = enOpsCenter || angosta || makoAbierto;
   const [abiertaAca, setAbiertaAca] = useState(false);
   useEffect(() => { setAbiertaAca(false); }, [plegadaAca]);
-  const fija = fijaGuardada && (!plegadaAca || abiertaAca);
+  const fija = barraFija(fijaGuardada, plegadaAca, abiertaAca);
   const setFija = (v: boolean) => {
-    if (plegadaAca) { setAbiertaAca(v); if (!v) setExpanded(false); return; }
-    setFijaEstado(v); guardarFija(v); if (!v) setExpanded(false);
+    const guardar = loQueGuardaLaFlecha(v, plegadaAca);
+    if (guardar != null) { setFijaEstado(guardar); guardarFija(guardar); }
+    if (plegadaAca) setAbiertaAca(v);
+    if (!v) setExpanded(false);
   };
   const open = fija || expanded || userOpen || !!flyout;
 

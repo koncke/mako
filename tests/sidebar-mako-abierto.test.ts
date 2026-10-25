@@ -67,11 +67,12 @@ test('3. la barra se pliega mientras MaKo está abierto, sin pisar lo guardado, 
   assert.match(sb, /const makoAbierto = useMakoAbierto\(\);\s*const plegadaAca = enOpsCenter \|\| angosta \|\| makoAbierto;/);
   // `fija` es la GUARDADA salvo donde se pliega sola: al cerrar MaKo `plegadaAca` vuelve a false y la barra, a lo suyo
   // (desplegada y fija si lo estaba, plegada si ya lo estaba).
-  assert.match(sb, /const fija = fijaGuardada && \(!plegadaAca \|\| abiertaAca\);/);
-  // Lo que se toca con MaKo abierto (la flecha) es de ese rato: no se guarda.
+  assert.match(sb, /const fija = barraFija\(fijaGuardada, plegadaAca, abiertaAca\);/);
+  // Plegarla con MaKo abierto es de ese rato: no se guarda (25/10: desplegarla SÍ, se recuerda siempre). El recorrido entero,
+  // con MaKo abierto y cerrado, en tests/sidebar-plegada-por-defecto.test.ts.
   const setFija = sb.slice(sb.indexOf('const setFija = (v: boolean) => {'), sb.indexOf('const open = '));
-  assert.match(setFija, /if \(plegadaAca\) \{ setAbiertaAca\(v\); if \(!v\) setExpanded\(false\); return; \}/);
-  assert.equal(setFija.indexOf('guardarFija(') > setFija.indexOf('return; }'), true, 'con MaKo abierto, la flecha pisaba la preferencia');
+  assert.match(setFija, /const guardar = loQueGuardaLaFlecha\(v, plegadaAca\);\s*if \(guardar != null\) \{ setFijaEstado\(guardar\); guardarFija\(guardar\); \}/);
+  assert.match(setFija, /if \(plegadaAca\) setAbiertaAca\(v\);/);
   // Y lo abierto de ese rato no sobrevive al cerrar.
   assert.match(sb, /useEffect\(\(\) => \{ setAbiertaAca\(false\); \}, \[plegadaAca\]\);/);
 });

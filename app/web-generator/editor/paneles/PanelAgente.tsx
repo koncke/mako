@@ -98,6 +98,7 @@ import {
   type CambioSeccion,
 } from '../diff-tarjetas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pedidos a las rutas: viven en ../../cliente (una sola copia; había cuatro). Se re-exportan
@@ -671,6 +672,8 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   useEffect(() => { traerHilo(docId); }, [docId]);
   const sugerencias = sugerenciasDe(ctx.config);
   const [texto, setTexto] = useState('');
+  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
+  const appEscritorio = useAppDeEscritorio();
   // El alcance que eligió la persona, y para qué sección lo eligió.
   const [eleccion, setEleccion] = useState<{ alcance: 'landing' | 'seccion'; tarjeta: string | null } | null>(null);
   const setAlcance = (a: 'landing' | 'seccion') => setEleccion({ alcance: a, tarjeta: tarjetaActiva });
@@ -718,7 +721,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   }, [hilo.mensajes.length, hilo.corriendo]);
 
   const enviar = (instruccion: string, alc: 'landing' | 'seccion' = alcanceReal, op: { interpretar?: boolean } = {}) => {
-    if (hilo.corriendo || !instruccion.trim()) return;
+    if (hilo.corriendo || !instruccion.trim() || appEscritorio.bloqueada) return;
     void pedirEdicion(ctxRef.current, instruccion, alc, op);
     setTexto('');
   };
@@ -773,7 +776,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   /** El ↑ (o Enter) de la caja: lo escrito y los archivos leídos. Lo que se ve en la caja es lo que viaja. */
   const mandar = () => {
     const items = caja.current.items;
-    if (hilo.corriendo || !editor || !puedeMandar(texto, items)) return;
+    if (hilo.corriendo || !editor || !puedeMandar(texto, items) || appEscritorio.bloqueada) return;
     void pedirEdicion(ctxRef.current, texto, alcanceReal, { adjuntos: paraEnviar(items) });
     setTexto('');
     soltarTodos();
@@ -951,7 +954,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
         )}
         {/* La caja única (./ChatAgente.tsx): el «+», las miniaturas, pegar, los emojis y el micrófono que dicta. */}
         <CajaAgente campo={inputRef} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj} ocupado={hilo.corriendo}
-          apagado={!editor} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda />
+          apagado={!editor} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} />
         {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}<ReportarASoporte /></p>}
         </div>}>
           {hilo.mensajes.length === 0 && (

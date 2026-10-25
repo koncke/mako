@@ -55,6 +55,7 @@ import {
   type BotonHoja, type BurbujaHoja,
 } from './pedidos-hoja';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 /** Un mensaje del hilo. El de MaKo trae lo que cambió y, si cambió algo, la hoja de antes para deshacerlo. */
 export type MensajeEdicion =
@@ -118,6 +119,8 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   onModo?: (m: ModoMako) => void;
 }) {
   const [texto, setTexto] = useState(textoInicial);
+  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
+  const appEscritorio = useAppDeEscritorio();
   /** Desde cuándo piensa MaKo (null = no piensa). */
   const [desde, setDesde] = useState<number | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());
@@ -158,7 +161,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
 
   const enviar = async (escrito?: string) => {
     const mensaje = (escrito ?? texto).trim().slice(0, TOPE_PEDIDO_IA);
-    if (!mensaje || pensando) return;
+    if (!mensaje || pensando || appEscritorio.bloqueada) return;
     const enviada = hoja;
     const historial = historialDe(hilo);
     onHilo((h) => [...h, { k: 'yo', texto: mensaje }]);
@@ -323,7 +326,8 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
         caja={<>
           <div className="co-caja">
             <CajaChat campo={campo} texto={texto} onTexto={(t) => { setTexto(t); setErrorDictado(null); }} onMandar={() => { void enviar(); }}
-              ocupado={pensando} placeholder="Pídele un cambio a MaKo" tituloMandar="Mandar" enterManda onErrorMic={setErrorDictado} />
+              ocupado={pensando} placeholder="Pídele un cambio a MaKo" tituloMandar="Mandar" enterManda onErrorMic={setErrorDictado}
+              bloqueo={appEscritorio.bloqueo} />
           </div>
           {errorDictado && <p className="em-err">{errorDictado}</p>}
         </>}
