@@ -1,6 +1,17 @@
 # Relevo · Web Generator, ex Landing Generator (el editor copiado de Gamma)
 
-## Estado al 24/10/2026 noche (cuenta claude5, chat «Landings») — leer primero
+## Estado al 25/10/2026 mediodía (cuenta claude5, chat «Landings») — leer primero
+
+Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace de `tren-j`; la sube el Cerebro.
+- **Hecho y entregado:** las puertas antes del loader; las dos tandas de landings de MaKo (SIN publicar: lo decide Martín);
+  la barra del editor del 25/10 (tooltips en un portal, el asa al margen, Compartir partido, paneles del ancho del chat,
+  «Texto» primero); la prueba gratis de 7 días con `PRUEBA_DIAS`; y **escribir en las secciones de las landings de MaKo**
+  (el clic no llegaba al iframe: docs/hallazgos-editor-landing.md → «Las secciones de las landings de MaKo no dejaban
+  escribir»).
+- **Sigue:** mirar todo eso con clics a 1280 y 1440 cuando despliegue; publicar las landings con el OK de Martín;
+  Responder en los otros chats cuando entren `ops-2510-regresiones` y `aut-2510`.
+
+## Estado al 24/10/2026 noche (cuenta claude5, chat «Landings»)
 
 **La tanda de Martín del 24/10 noche** (docs/feedback-24-10.md, «Editor web → chat Landings», puntos 3 a 10) se hace de a
 tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), y la sube el Cerebro por el tren.

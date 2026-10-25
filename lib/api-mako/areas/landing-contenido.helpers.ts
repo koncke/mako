@@ -30,9 +30,11 @@ import { ESTILO_RESTABLECIDO, temaSugerido } from '@/lib/editor-landing/reglas-p
 import {
   NODO, TOPES, ATTRS_TARJETA_DEFAULT, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA,
   FONDOS_TARJETA, DEGRADADOS, VARIANTES_BOTON, TIPOS_CAMPO, nuevoId, parrafo, titulo as nodoTitulo, docPagina,
-  tarjetaVacia, textoDe, tituloDeTarjeta, slugDe, rutaValida, esHex,
+  tarjetaVacia, textoDe, textoDeHtmlEditable, tituloDeTarjeta, slugDe, rutaValida, esHex,
   type JsonNodo, type LandingContenido, type Pagina, type DocPagina, type AttrsTarjeta, type TipoCampo,
 } from '@/lib/editor-landing/doc';
+// Puro (sin DOM): los textos de un «Diseño editable», cada uno en su lugar exacto del HTML (cambiar_texto_landing).
+import { conTextos, textosDeHtmlEditable } from '@/lib/editor-landing/html-editable-textos';
 import { tarjetaDesdeEsquema, MAX_PUNTOS, MAX_PUNTO, MAX_TITULO_SECCION } from '@/lib/editor-landing/ia-reglas';
 import { attrsInsertado, hrefPermitido, srcImagen, ETIQUETA_CAMPO } from '@/lib/editor-landing/especificacion';
 import { claseDeProveedor, nombreDeProveedor } from '@/lib/embeds';
@@ -460,8 +462,14 @@ export function planConfigurarSeccion(
 
 const contar = (s: string, buscar: string): number => (buscar ? s.split(buscar).length - 1 : 0);
 
+/** El HTML de un «Diseño editable» (las páginas de MaKo), o null si el nodo no es uno. */
+const htmlDeDiseno = (n: JsonNodo): string | null =>
+  n.type === NODO.htmlEditable && typeof n.attrs?.html === 'string' ? n.attrs.html : null;
+
 /** El texto de cada contenedor de texto (párrafo, título…) como lo lee el visitante: los pedazos con formatos distintos, juntos. */
 function textosEnLinea(n: JsonNodo): string[] {
+  const html = htmlDeDiseno(n);
+  if (html !== null) return textoDeHtmlEditable(html).split('\n');
   const hijos = n.content ?? [];
   if (hijos.length && hijos.every((h) => h.type === 'text' || h.type === 'hardBreak')) return [hijos.map((h) => (h.type === 'text' ? h.text ?? '' : '\n')).join('')];
   return hijos.flatMap(textosEnLinea);
@@ -472,6 +480,8 @@ function textosEnLinea(n: JsonNodo): string[] {
  * en el HTML personalizado). Con más de una aparición pide `seccion` o `todas: true`: nunca reemplaza de más
  * sin que lo pidan. Una frase con formatos distintos en el medio (una parte en negrita, un enlace) no es un
  * solo texto: se dice, y se cambia por partes o con editar_landing_con_ia.
+ * En un «Diseño editable» (25/10/2026, las páginas de MaKo: «no puedo ni cambiar un título») busca en sus pedazos de
+ * texto y cada uno vuelve a su lugar exacto del HTML (html-editable-textos.ts): etiquetas, clases y estilos quedan igual.
  */
 export function planCambiarTexto(c: LandingContenido, e: { buscar?: unknown; reemplazar?: unknown; seccion?: unknown; todas?: unknown }): PlanContenido | FallaPlan {
   const buscar = typeof e.buscar === 'string' ? e.buscar.replace(/\r\n?/g, '\n') : '';
@@ -487,7 +497,11 @@ export function planCambiarTexto(c: LandingContenido, e: { buscar?: unknown; ree
   c.paginas.forEach((pg, p) => (pg.doc.content ?? []).forEach((t, i) => {
     if (t.type === NODO.tarjeta && (!u || (u.p === p && u.i === i))) enAlcance.push({ p, i, t });
   }));
-  const veces = (n: JsonNodo): number => (n.type === 'text' ? contar(n.text ?? '', buscar) : (n.content ?? []).reduce((s, h) => s + veces(h), 0));
+  const veces = (n: JsonNodo): number => {
+    const html = htmlDeDiseno(n);
+    if (html !== null) return textosDeHtmlEditable(html).reduce((s, t) => s + contar(t, buscar), 0);
+    return n.type === 'text' ? contar(n.text ?? '', buscar) : (n.content ?? []).reduce((s, h) => s + veces(h), 0);
+  };
   const conVeces = enAlcance.map((x) => ({ ...x, n: veces(x.t) })).filter((x) => x.n > 0);
   const total = conVeces.reduce((s, x) => s + x.n, 0);
   if (!total) {
@@ -506,6 +520,11 @@ export function planCambiarTexto(c: LandingContenido, e: { buscar?: unknown; ree
     return { error: `«${corto(buscar)}» aparece ${total} veces en esa sección: pasa todas:true para cambiarlas todas.` };
   }
   const cambiar = (n: JsonNodo): JsonNodo | null => {
+    const html = htmlDeDiseno(n);
+    if (html !== null) {
+      const nuevo = conTextos(html, textosDeHtmlEditable(html).map((t) => t.split(buscar).join(reemplazar)));
+      return nuevo === null ? n : { ...n, attrs: { ...n.attrs, html: nuevo } };
+    }
     if (n.type === 'text') {
       const t = (n.text ?? '').split(buscar).join(reemplazar);
       return t ? { ...n, text: t } : null;

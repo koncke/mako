@@ -92,7 +92,8 @@ test('editor: en una landing la columna ⋮ de la sección va AFUERA, en el marg
   assert.ok(!lado.includes('.gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-lado'), 'la columna volvió ADENTRO en una landing');
   assert.ok(lado.trim().startsWith('.gm-doc[data-formato="presentacion"] .gm-tarjeta[data-ancho="completo"] > .gmc-lado,'), 'el «a sangre» de adentro es sólo de una presentación');
   const gamma = readFileSync(new URL('../app/web-generator/gamma.css', import.meta.url), 'utf8');
-  assert.match(gamma, /\.gma-lienzo\[data-dispositivo="escritorio"\] > \.gm-doc:not\(\[data-formato="presentacion"\]\) \{ margin-left: 40px; \}/, 'sin el margen, la columna de afuera no tiene dónde ir');
+  // 88 px desde el 25/10/2026: entran el «+ ⠿» del bloque y el ⋮ de la sección, uno al lado del otro (AsaBloque.tsx).
+  assert.match(gamma, /\.gma-lienzo\[data-dispositivo="escritorio"\] > \.gm-doc:not\(\[data-formato="presentacion"\]\) \{ margin-left: 88px; \}/, 'sin el margen, la columna de afuera no tiene dónde ir');
   const entre = CSS_NODOS.split('\n').find((l) => l.includes('> .gmc-entre { height: 1.6em'));
   assert.ok(entre && entre.includes('.gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-entre'));
   // La barra de la sección activa va ADENTRO, pegada abajo: centrada sobre el borde, su mitad de abajo

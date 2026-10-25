@@ -2839,7 +2839,7 @@ Lo que quedó SIN hacer:
   después de que se despliegue el cambio de app/vsl/Landing.tsx (antes, los precios saldrían dos veces).
 - La portada C («del anuncio a la llamada»), la sección del control (los límites del media buyer) y la fila del media buyer
   en la cuenta: con el media buyer en producción.
-- La garantía, la demo por WhatsApp y el video corto de demo.
+- La demo por WhatsApp y el video corto de demo. (La garantía ya no va: la reemplaza la prueba gratis, abajo.)
 - Las landings por funcionalidad y por avatar: hechas en la tanda 2 (abajo).
 
 **Tanda 2 (25/10, tarde): las landings por funcionalidad y por avatar** (`scripts/landings-mako-v2-funnels.mts`, §6b)
@@ -2858,5 +2858,85 @@ Lo que quedó SIN hacer:
 - **Las piezas son las de la principal** (exportadas de landings-mako-v2.mts), más cinco bloques: tarjetas, pasos, una
   conversación de ejemplo (sin cifras), una comparación en tabla y la tarjeta de prueba. Las preguntas salen de un catálogo con
   clave: un cambio en una respuesta llega a todas las landings.
-- **Pendiente: la prueba gratis de 7 días** (Martín, 25/10 ~10:20, en lugar de la garantía). La línea bajo el botón tiene que
-  leerla de lib/planes-mako.ts, como los precios. Espera el nombre del export, que define Planes.
+- **La prueba gratis de 7 días** (Martín, 25/10 ~10:20, en lugar de la garantía de devolución). La fuente es UN número,
+  `PRUEBA_DIAS` (lib/planes-mako.ts, de Planes). El botón («Empieza tus 7 días gratis») y la línea corta («7 días gratis ·
+  Cancela cuando quieras · Usas tu propia IA») se arman con ese número en `botonDePrueba`/`lineaDePrueba`
+  (precios-en-landing.ts). El cierre y la pregunta de cómo cancelar dicen lo mismo que /planes (app/planes/Vitrina.tsx): el
+  día del cobro es `PRUEBA_DIAS + 1` y la baja se hace desde «Tu plan». Lo que va bajo el botón de CADA plan («Después US$
+  97/mes…», `textoDespuesDeLaPrueba`) ya lo pone la columna, porque las columnas de la landing son las de /planes.
+  Los textos que se ven llevan la marca `data-mako-prueba` (linea, boton, dias, cobro). hola-mako.com los llena con
+  `PRUEBA_DIAS`, como los precios. Un test frena un «7 días gratis» escrito a mano en un script, días que no son (0,
+  negativos, con coma) y cualquier «garantía» o «te devolvemos» de vuelta. El pie sí enlaza a /reembolsos, la política legal.
+  - **La trampa: un nombre adelantado para no esperar CAMBIA.** Para no frenar, el Cerebro fijó un objeto `PRUEBA_GRATIS`
+    (días, línea, botón, «se cobra sola»), y se programó contra un sustituto local. Planes exportó otra cosa: un número y una
+    función con monto y período. Cuando la fuente es de otro chat, se depende de lo MÍNIMO (aquí, los días) y las frases se
+    arman de este lado. Así un cambio de forma toca un import, no cuatro archivos.
+
+## Los tooltips tapados, el «+ ⠿» encima del logo, Compartir con el ▾ redondo y los paneles que saltan (25/10/2026, claude5)
+
+Martín, 25/10 (~11:30 y ~11:40), con capturas de la landing principal (#32): «Los placeholder... se siguen ocultando detrás de
+otras secciones y no se leen», «Los botones... se siguen superponiendo», «El desplegable al lado de "compartir" no debe ser
+redondo», «"tira de imagenes" y "pagina" no deben cambiar el ancho de la sidebar del chat... con un botón de flecha para
+regresar... No la X» y «el botón de "texto" debe estar al principio de todo». **Vive en:** editor/TooltipsFlotantes.tsx (nuevo)
+· editor/AsaBloque.tsx · gamma.css · EditorLanding.tsx · PanelPaginas.tsx · TiraSecciones.tsx · layout.tsx.
+
+- **Lo que Martín llama «placeholders» eran los TOOLTIPS:** el «Editor de texto» debajo de la barra de formato y el «Volver al
+  ch…» cortado en el borde del panel. Eran `::after`/`::before` (`.gma-tip`, `.gmc-tip`): un pseudo-elemento vive adentro de
+  su botón, así que lo corta el `overflow` de cualquier ancestro y lo tapa la capa de al lado. **No hay z-index que lo arregle
+  para todos.** Ahora es UN tooltip en un portal en `body`, `position: fixed`, dado vuelta si no entra y corrido para quedar en
+  la ventana; montado en el layout de /web-generator, apaga los pseudo-elementos con `html[data-tips-flotantes]`.
+- **El ▾ redondo era un `:last-child`:** con cambios sin publicar, el último hijo de `.gma-partido` es el puntito azul, y la
+  regla del ▾ (`.gma-boton:last-child`) dejaba de aplicar: quedaba un botón suelto, redondo. **Regla:** las mitades de un botón
+  partido llevan su clase (`gma-partido-principal`, `gma-partido-flecha`), nunca una posición.
+- **El «+ ⠿» y el ⋮ se pisaban en el margen:** el asa va 52 px a la izquierda del bloque, y en una sección a sangre («Diseño
+  editable») eso caía encima del ⋮ (en el margen de 40 px) y del borde. Ahora el margen de una landing en escritorio es de 88 px
+  y el asa va a 84 px de la sección (`ASA_FUERA_DE_LA_SECCION`): [+ ⠿] [⋮] | sección. Un test hace la cuenta.
+- **«Páginas» medía 280 px y el chat 340:** el lienzo saltaba al abrirla. Ningún panel de la izquierda tiene ancho propio.
+  Para volver, la flecha del chat («←», arriba a la izquierda) en «Páginas» y en la tira; «Texto» es la primera herramienta.
+
+Lo que quedó SIN hacer:
+- ~~Que se pueda escribir en las secciones de las landings de MaKo (el punto 1 de Martín).~~ Hecho: la sección de abajo.
+- Mirarlo con clics a 1280 y 1440 (la barra, los paneles y los tooltips): cuando despliegue el tren con esta rama.
+
+## Las secciones de las landings de MaKo no dejaban escribir: el clic NUNCA llegaba al iframe (25/10/2026, claude5)
+
+Martín, 25/10 ~11:30: «Las landing de MaKo NO son editables, no puedo ni cambiar un título de lo que ya esta, cada bloque debe
+ser editable». Es el mismo pedido del 24/10 («clickeo y no se pueden editar las secciones»), que se dio por arreglado.
+
+- **La causa:** una regla del 11/10 en BarraFormato (`CSS_G2`), `.gmx-nv:not([data-activo="si"]) iframe{pointer-events:none}`,
+  para que un video o un embed no se trague el clic que elige su bloque. El «Diseño editable» (23/10) es un iframe dentro de
+  un `.gmx-nv`, y su sección se activa con el `mousedown` de ADENTRO del iframe. Era un círculo: sin activar no recibe el
+  clic, y sin el clic no se activa. Ni cursor, ni sección activa, ni barra. **El arreglo:** una regla en `CSS_EDITABLE`
+  (HtmlEditableVista.tsx) que le devuelve el clic a ese iframe y gana por ESPECIFICIDAD (0,3,1 contra 0,2,1), no por orden: las
+  dos hojas son `<style>` distintos y su orden de carga no está garantizado.
+- **El diagnóstico obvio era el equivocado, dos veces.** El 24/10 se leyó como «el clic pasa en el iframe y ProseMirror no lo
+  ve», y se sumó `marcarSeccion()` al `mousedown` del iframe. Ese `mousedown` nunca llegaba, así que el arreglo no podía
+  andar. «Escribir ya andaba, medido por CDP» se había medido en un iframe SUELTO. El 25/10, con las 9 secciones reales de la
+  #32 y su CSS, también se escribía en Chrome sin ventana, aun dentro de un padre `contenteditable`. **Lo que faltaba era la
+  hoja del editor.** **Regla:** un «en Chrome anda» sobre una maqueta no cierra un «no puedo hacer clic» del editor. Lo que
+  lo cierra es `document.elementFromPoint(x, y)` en el editor REAL, en el punto exacto del clic. Si devuelve otra cosa que el
+  elemento que debería recibirlo, la causa está en el CSS de la página (`pointer-events`, una capa encima), no en el
+  componente. Así salió en un minuto: el clic caía en `div.gmx-nv-marco.gmx-editable-vivo`.
+- **Cómo se midió, sin tocar la publicada:**
+  - En la #32, sólo clics y lectura: hoy no hay foco, ni cursor, ni barra. Con la regla apagada nada más que en la pestaña,
+    el cursor entra al H1 y aparece la barra de la sección.
+  - En una COPIA (#41, «Duplicar landing»): con la regla apagada se escribió, guardó solo y siguió ahí al recargar. El
+    guardado nunca estuvo roto. La copia quedó en la papelera.
+  - **Trampa:** «Duplicar» vuelve a guardar lo pendiente del original, y la fecha de edición de la #32 se movió sin que
+    nada cambiara. Se comprobó comparando las 9 secciones y el CSS con el borrador bajado antes.
+- **El test** (tests/editor-web-diseno-editable-clic.test.ts) no busca un texto. Arma el camino del DOM que dibuja la vista
+  (`.gmx-nv` sin activar > marco > iframe), junta todas las reglas de `pointer-events` de las dos hojas y decide la ganadora
+  por especificidad; un empate cuenta como falla. También vigila que los embeds sigan sin tragarse el clic. Se probó
+  rompiéndolo (5 roturas, cada una cae). Además, en Chrome sin ventana con las dos hojas reales en los dos órdenes, el clic
+  cae en el iframe y escribe; sin la regla nueva, cae en el envoltorio (como en producción).
+
+- **Por la API pasaba lo mismo:** `ver_landing_creada` no veía ni una palabra de estas páginas y `cambiar_texto_landing` no
+  las encontraba. Arreglado el mismo día: docs/hallazgos-api-mako.md, «Las páginas de MaKo no se leían ni se cambiaban por
+  la API».
+
+Lo que quedó SIN hacer:
+- Probarlo con clics en producción cuando despliegue (un título de una copia, no de la publicada).
+- `editable` en HtmlEditableVista se lee una vez, al cargar el iframe (`editor.isEditable` no es reactivo ahí). Si el editor
+  cambia de editable a no editable con la sección cargada, el `contenteditable` del iframe no lo sigue. Hoy no se ve: el
+  editor abre editable. Si algún día se abre en modo lectura (una versión vieja), hay que seguirlo con `useEditorState`, como
+  TarjetaVista.
