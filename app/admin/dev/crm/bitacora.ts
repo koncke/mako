@@ -3336,4 +3336,35 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '24 oct', hora: '21:40', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los modales hijos vuelven al padre, y Scraper, Traer e Importar con una estética (puntos 19 y 20)',
+    pedido: '19. Si le doy a "Scraper" o algun boton asi, se me abre el modal nuevo, si me salgo haciendo click afuera debería tener abierto el modal anterior. Siempre todos los modales deben tener esa "navegación" interna. 20. Rediseña los modales de "scraper" y "de otro funnel", se ven muy feos, mira la captura la cantidad de botones que tienen, no se entiende nada... Y también rediseña el de "importar", que tiene una estetica MUY diferente, todos tienen que compartir estetica...',
+    puntos: [
+      'Tercera tanda de los puntos 12 a 21 del 24/10 (docs/feedback-24-10.md).',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '03:30', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los modales de traer se abren encima, y los tres con la misma cara',
+    puntos: [
+      '«Traer de otro funnel», el Scraper e «Importar» se abren encima de «Nuevo lead». Si los cierras, vuelves al alta con lo que habías escrito.',
+      'Los tres tienen la misma forma, copiada del importador de Attio: de dónde arriba, a dónde abajo, cuántos entran en una línea, la lista, y abajo sólo «Atrás» y la acción.',
+      'En el Scraper, «Completar desde mi WhatsApp» y «Datos de empresa» pasaron a los «⋯» de arriba. «Parar» aparece abajo, al lado del avance.',
+      'El de importar ya no tiene su diseño aparte: tiene los pasos «Archivo» y «Revisar», y te dice cuántos se crean y cuántos se completan.',
+      'Sin ver en pantalla todavía: se mira en el Cliente de Prueba cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: '002a8c31c', msg: 'CRM: «Traer», el Scraper e «Importar» se abren encima de «Nuevo lead» y comparten un molde copiado del importador de Attio', lineas: 825, archivos: 16 },
+    ],
+    archivos: [
+      'app/crm/MoldeTraer.tsx — la cara común de los tres',
+      'app/crm/CrmBoard.tsx — «Nuevo lead» y sus hijos, encima',
+      'app/crm/TraerDeGrupoWA.tsx · app/crm/TraerDeOtroProducto.tsx · app/crm/ImportarLeadsModal.tsx',
+      'tests/crm-modales-encima.test.ts · tests/crm-molde-traer.test.ts',
+    ],
+    revisar: '/crm',
+  },
 ];
