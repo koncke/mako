@@ -114,6 +114,10 @@
 /* ── La banda de la lista (sobre el fondo) ── */
 .mb-banda { flex: 1; padding: 22px 40px 48px calc(40px + var(--ancho-panel-mako, 0px)); display: flex; flex-direction: column; gap: 22px; }
 
+/* Las Hechas, por día (ai-marketer-hechas.png) */
+.mb-grupo { display: flex; flex-direction: column; gap: 22px; }
+.mb-dia { margin: 6px 0 -8px; font-size: 14px; font-weight: 600; color: var(--mbx-gris); }
+
 /* Una recomendación: la fila de «Launch» */
 .mb-dec { background: var(--mbx-fondo); border: 1px solid var(--mbx-borde); border-radius: var(--r-md); overflow: hidden; }
 .mb-dec-fila { display: flex; align-items: center; gap: 20px; min-height: 96px; padding: 18px 20px; cursor: pointer; }

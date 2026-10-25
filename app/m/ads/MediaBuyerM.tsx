@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { Criatura } from '@/app/_components/Criatura';
-import { FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, useToastM } from '@/app/m/_ui';
+import { FilaM, ListaM, PieM, PildoraM, SeccionM, SegmentadoM, SheetM, useToastM } from '@/app/m/_ui';
 import type { ConfigMediaBuyer, Decision } from '@/lib/media-buyer/tipos';
 import { ICONO_TIPO, NIVEL, NOMBRE_TACTICA, hace, monto, pestanaDe, queSeHizo, saludo, verboLanzar, type Pestana } from '@/app/ads-manager/mb-modelo';
 
@@ -38,7 +38,10 @@ export function MediaBuyerM({ nombre, config, decisiones, puedeOperar }: {
 }) {
   const router = useRouter();
   const toast = useToastM();
-  const [abierta, setAbierta] = useState<Decision | null>(null);
+  const [abierta, setAbiertaCruda] = useState<Decision | null>(null);
+  // El detalle en dos pestañas, como «Stats» y «Storyline» del teléfono de Madgicx (telefono-detalle-*.png).
+  const [vista, setVista] = useState<'numeros' | 'porque'>('numeros');
+  const setAbierta = useCallback((d: Decision | null) => { setVista('numeros'); setAbiertaCruda(d); }, []);
   const [ocupada, setOcupada] = useState(false);
   const [hora, setHora] = useState(12);
   useEffect(() => { setHora(new Date().getHours()); }, []);
@@ -57,7 +60,7 @@ export function MediaBuyerM({ nombre, config, decisiones, puedeOperar }: {
     if (r.ok) { toast(r.ajuste ? `${ok}. ${r.ajuste}` : ok); setAbierta(null); }
     else toast(r.error ?? 'No se pudo.', { error: true });
     router.refresh();
-  }, [router, toast]);
+  }, [router, toast, setAbierta]);
 
   return (
     <div className="mbm">
@@ -116,6 +119,8 @@ export function MediaBuyerM({ nombre, config, decisiones, puedeOperar }: {
           <div className="mbm-hoja">
             <h3 className="mbm-hoja-tit">{abierta.titulo}</h3>
             <p className="mbm-titular" data-tono={abierta.tipo === 'subir_presupuesto' || abierta.tipo === 'activar' ? 'bien' : abierta.tipo.startsWith('variaciones') ? 'mako' : 'mal'}>{abierta.titular}</p>
+            <SegmentadoM etiqueta="Detalle" valor={vista} onCambio={setVista} opciones={[{ id: 'numeros', label: 'Números' }, { id: 'porque', label: 'Por qué' }]} />
+            {vista === 'numeros' ? <>
             <ListaM etiqueta="Lo que cambia">
               {abierta.campanaNombre && <FilaM titulo="Campaña" segunda={abierta.campanaNombre} />}
               <FilaM titulo={NIVEL[abierta.nivel]} segunda={abierta.entidadNombre} />
@@ -133,7 +138,7 @@ export function MediaBuyerM({ nombre, config, decisiones, puedeOperar }: {
                 {abierta.numeros.map((x, i) => <FilaM key={i} titulo={x.condicion} segunda={x.porQue} riel={<b>{x.valor}</b>} />)}
               </ListaM>
             )}
-            <ul className="mbm-porque">{abierta.porque.map((t, i) => <li key={i}>{t}</li>)}</ul>
+            </> : <ul className="mbm-porque">{abierta.porque.map((t, i) => <li key={i}>{t}</li>)}</ul>}
           </div>
         )}
       </SheetM>

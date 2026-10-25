@@ -15,6 +15,7 @@ import { hoyEnTijuana } from '@/lib/date-utils';
 import { proponer, objetivoRecomendado, type DecisionPrevia } from './motor';
 import { leerConfig, leerDecisiones, guardarPropuestas, vencerViejas, marcarCorrida, MediaBuyerSinTabla, cupoDe } from './store';
 import { modoEfectivo, ordenDelCupo, recomendadasHoy, textoCupo } from './plan';
+import { resolverTacticas } from './tacticas';
 import { leerDatosCuenta, SinCuentaParaOperar, fmtUnidad, presupuestoMinimoCuenta, diasAntes, cuentaDelNegocio } from './datos';
 import { prepararVariaciones } from './variaciones';
 import { lanzar } from './ejecutar';
@@ -93,8 +94,10 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
   const objetivo = config.objetivo ?? recomendado;
   const { decisiones } = await leerDecisiones(ws, 21);
 
+  // Cada táctica con su estado, sus umbrales y lo que cubre (tacticas.ts). Sin piloto en el plan, ninguna es automática.
+  const tacticas = resolverTacticas(config.tacticas, { piloto: modoEfectivo(config.modo, cupo) === 'piloto', pilotoPermitido: cupo.piloto });
   const props = proponer({
-    ahora: Date.now(), config, objetivo, arbol: datos.arbol,
+    ahora: Date.now(), config, objetivo, arbol: datos.arbol, tacticas,
     corta: datos.corta, larga: datos.larga, crm: datos.crm,
     historial: decisiones.map(previa),
     aUnidad: datos.conversor.aUsdNum, fmt: fmtUnidad(datos), presupuestoMinimo: presupuestoMinimoCuenta(datos),
@@ -127,11 +130,13 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
   // que lo SUBE, así el tope de la cuenta ve primero lo que se liberó.
   let lanzadas = 0;
   const fallidas: string[] = [];
-  // Un negocio que bajó a Esencial con el piloto prendido queda en «propone» (plan.ts → modoEfectivo).
-  const enPiloto = modoEfectivo(config.modo, cupo) === 'piloto' && !soloProponer;
+  // Sólo lo de las tácticas AUTOMÁTICAS (tacticas.ts: la táctica elegida así, o todas con el piloto general). Un negocio que
+  // bajó a Esencial con el piloto prendido queda en «propone» (resolverTacticas con `pilotoPermitido`).
+  const automaticas = soloProponer ? [] : nuevas.filter((d) => d.tactica !== 'manual' && tacticas[d.tactica].estado === 'automatica');
+  const enPiloto = automaticas.length > 0;
   if (enPiloto) {
     const orden = (d: Decision) => (d.tipo === 'pausar' ? 0 : d.tipo === 'bajar_presupuesto' ? 1 : d.tipo === 'activar' ? 2 : d.tipo === 'subir_presupuesto' ? 3 : 4);
-    for (const d of [...nuevas].sort((a, b) => orden(a) - orden(b))) {
+    for (const d of [...automaticas].sort((a, b) => orden(a) - orden(b))) {
       const x = await lanzar(ws, d.id, { nombre: 'Piloto automático', origen: 'piloto' }, { datos });
       if (x.ok) lanzadas++;
       else fallidas.push(`${d.titulo}: ${x.error}`);
@@ -140,13 +145,13 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
 
   // El aviso: lo que propone un cron no dispara nada solo (docs/hallazgos-ads.md, «El Autopilot»: «una propuesta de
   // madrugada espera sin que nadie se entere»). Va al feed de avisos del negocio, el de la campanita y el Inbox del teléfono.
-  const avisar = enPiloto ? lanzadas : nuevas.length;
-  if (avisar > 0) {
+  const esperan = nuevas.length - automaticas.length;
+  if (lanzadas > 0 || esperan > 0) {
     await crearNotificacion({
       ws, tipo: 'media_buyer', severidad: fallidas.length ? 'warn' : 'info', origen: 'media-buyer', link: '/ads-manager',
-      titulo: enPiloto
-        ? `MaKo hizo ${lanzadas} ${lanzadas === 1 ? 'cambio' : 'cambios'} en tus anuncios`
-        : `MaKo tiene ${nuevas.length} ${nuevas.length === 1 ? 'decisión' : 'decisiones'} para tus anuncios`,
+      titulo: lanzadas > 0
+        ? `MaKo hizo ${lanzadas} ${lanzadas === 1 ? 'cambio' : 'cambios'} en tus anuncios${esperan > 0 ? ` y tiene ${esperan} para ti` : ''}`
+        : `MaKo tiene ${esperan} ${esperan === 1 ? 'recomendación' : 'recomendaciones'} para tus anuncios`,
       descripcion: nuevas.slice(0, 3).map((d) => d.titulo).join(' · ') || null,
     }).catch(() => null);
   }

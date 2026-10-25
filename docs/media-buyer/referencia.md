@@ -30,6 +30,59 @@ La documentación consultada para la FUNCIÓN (no hay capturas de esto, es texto
   recupera, comparando 3 y 7 días contra el promedio).
 - bir.ch / Revealbot: reglas «si el costo por resultado está por debajo del objetivo, subir 20% con un techo».
 
+## Inventario de funciones (25/10/2026): Madgicx por dentro, contra MaKo
+
+Pedido de Martín (25/10): «si quiero que tenga todas las funcionalidades... podrias ver otras imagenes que encuentres
+internas». Claude in Chrome no conectó desde el chat Media Buyer, así que el recorrido salió de la **academy oficial**
+(academy.madgicx.com, 56 lecciones; capturas de la app por dentro) y de la landing; queda pendiente mirarlo en vivo con la
+cuenta de Martín. Captura de cada pantalla en `referencias/madgicx/` (las de la academy, pasadas a PNG).
+
+**El AI Marketer** (lección how-to-use-ai-marketer):
+
+| Función de Madgicx | Captura | MaKo hoy | Qué falta / cómo |
+|---|---|---|---|
+| Saludo + «N recommendations» + actualizado | `web-ai-marketer.png` | ✅ | — |
+| «Save work for N people» con la actividad y el % automatizado | idem | ✅ «Lo que hizo MaKo» | — |
+| «Monthly goals» (ingresos, gasto, ROAS) | idem | ✅ «Metas del mes» (ventas del CRM, gasto, costo por resultado) | — |
+| Puntaje contra el promedio de Madgicx | academy-01 | ❌ a propósito | MaKo no tiene un universo de cuentas comparable |
+| Ajustes: KPI principal por cuenta + valor objetivo («Madgicx recommended» o propio) | `ai-marketer-ajustes-kpi.png`, `ai-marketer-objetivo.png`, academy-05 | ✅ la tuerca | — |
+| Fila: ícono, título, cuenta + etiquetas, 🗑 y «Launch»/«See details» | `web-filas-completed.png` | ✅ | — |
+| Detalle en tres columnas, «Hide Details», pie con el botón | `web-detalle.png`, academy-07, `changelog-detalle-presupuesto.jpg` | ✅ | — |
+| Elegir a qué conjuntos / anuncios se aplica, con casillas | `web-detalle.png` | ⚠️ sólo en las variaciones | cada propuesta es de UNA entidad; agrupar varias es otra tanda |
+| «Edit Settings» del conjunto antes de lanzar (lugares, edad, presupuesto, conversión) | `ai-marketer-editar-conjunto.png` | ⚠️ sólo el presupuesto («Editar») | MaKo no crea conjuntos nuevos desde el Media Buyer |
+| Recomendación «crea esta automatización» con «cuánto habrías ahorrado en 7 días» | `ai-marketer-automatizacion-sugerida.png` | ❌ | **tanda de automatizaciones** (abajo) |
+| Descartar con el porqué (modal, opcional) | `ai-marketer-descartar.png` | ❌ (se descartaba sin preguntar) | **hecho en esta tanda**: el modal guarda `motivo_descarte` |
+| Descartadas con «Reopen» | `ai-marketer-descartadas.png` | ✅ («Volver a abrir», en el chip) | — |
+| Completed agrupadas por día, con «Your Feedback» en estrellas | `ai-marketer-hechas.png`, `ai-marketer-calificar.png` | ⚠️ estrellas sí, sin agrupar | **hecho en esta tanda**: agrupadas por día |
+| «Ask AI Marketer to Do More»: pedirle una tarea a sus ingenieros | `ai-marketer-pedir-mas.png` | ✅ «Pedirle más a MaKo» (el chat de MaKo + mirar la cuenta + subir creativos) | — |
+| Teléfono: saludo, tarjetas, «Only available on desktop» | academy-11, academy-12 | ✅ | — |
+| Teléfono: detalle con «Stats» / «Storyline», «Dismiss Task», «Swipe to launch» | `telefono-detalle-numeros.png`, `telefono-detalle-historia.png` | ⚠️ todo en una hoja | **hecho en esta tanda**: Números / Por qué en dos pestañas |
+
+**Las automatizaciones** (lecciones madgicx-automation-tactics, how-to-monitor-automation-performance,
+how-madgicx-custom-automation-works, how-to-use-madgicx-automation-strategies):
+
+| Función de Madgicx | Captura | MaKo hoy | Qué falta / cómo |
+|---|---|---|---|
+| Elegir táctica: Surf, Stop Loss, Revive, Sunsetting (por conjunto, anuncio o campaña) | `automatizaciones-elegir-tactica.png` | ⚠️ las seis tácticas corren siempre, juntas | prender y apagar cada una; nivel por táctica |
+| Elegir el evento que optimiza (Purchase, Lead, Add to cart…) | `automatizaciones-evento.png` | ⚠️ uno por negocio (lead / agenda / venta, y los dos últimos salen del CRM) | sigue por negocio: el CRM es lo que MaKo agrega |
+| Condiciones con el valor recomendado, fijo o dinámico (contra el promedio de la cuenta) | `automatizaciones-condiciones.png`, `automatizaciones-valor-dinamico.png` | ⚠️ umbrales fijos en lib/media-buyer/motor.ts | los umbrales de cada táctica, editables, con el recomendado al lado |
+| A qué aplica (todos los de adquisición, o elegidos; los nuevos entran solos) | `automatizaciones-aplica-a.png` | ❌ aplica a toda la cuenta | lista de campañas con casillas (el árbol de Zernio/Meta que ya se lee) |
+| «Automation Overview»: Start / Pause / Increase / Decrease, total, en el tiempo | `automatizaciones-resumen.png` | ❌ | sale de `media_buyer_decisiones` (lo aplicado por tipo y por día) |
+| Lista de tácticas: interruptor, autor, activos, frecuencia, última vez | `automatizaciones-lista.png` | ❌ | idem |
+| Historial de una táctica | `automatizaciones-historial.png` | ⚠️ «Hechas» mezcla todas | filtrar Hechas por táctica |
+| Reglas propias con Y/O, métricas, ventanas y horarios | `automatizaciones-regla-propia.png` | ❌ | después de lo de arriba: un motor de reglas es otra pieza |
+
+**Lo de alrededor** (otras pantallas de Madgicx, y dónde vive eso en MaKo):
+
+| Madgicx | En MaKo |
+|---|---|
+| Ads Manager 2.0 (prender, apagar, presupuestos, pujas, historial del conjunto) | el Media Buyer por decisión; la vista de tabla se borró a pedido de Martín (25/10) |
+| Ad Launcher, AI Ad Generator | Subir creativos (Pedirle más), las variaciones del ganador, Video Generator e Image Editor |
+| Creative Insights, Ad Copy Insights | Ads Analyst |
+| Audience Studio / Launcher, Targeting Insights, Geo & Demo, Auction Insights | no están en MaKo; fuera de este pedido |
+| One-Click Report, Business Dashboard | Dashboard (copiado de Looker) |
+| Ajustes del workspace, cuentas, plan | Configuración e Integraciones |
+
 ## Cómo se llama cada cosa en MaKo
 
 | Madgicx | MaKo | Dónde |

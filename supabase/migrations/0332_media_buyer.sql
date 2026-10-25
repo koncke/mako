@@ -32,6 +32,9 @@ create table if not exists media_buyer_config (
   -- La cuenta publicitaria que opera, SÓLO si el negocio no la tiene en Integraciones (META_AD_ACCOUNT_ID manda): la de MaKo
   -- se opera por la Zernio de la plataforma y no tiene esa credencial.
   cuenta_publicitaria text check (cuenta_publicitaria is null or cuenta_publicitaria ~ '^act_[0-9]{5,25}$'),
+  -- Cada táctica como automatización (25/10/2026, las «Automation Tactics» de Madgicx): estado (apagada / propone /
+  -- automática), umbrales y campañas que cubre. Vacío = lo recomendado. La valida lib/media-buyer/tacticas.ts.
+  tacticas            jsonb not null default '{}'::jsonb,
   -- La última vez que el agente miró la cuenta, y qué pasó (cuántas propuso, cuántas lanzó, qué falló).
   ultima_corrida      timestamptz,
   ultima_corrida_info jsonb,

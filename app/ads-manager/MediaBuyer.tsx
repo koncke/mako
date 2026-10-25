@@ -89,6 +89,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
   const [abierta, setAbierta] = useState<string | null>(deLink?.id ?? null);
   const [ajustes, setAjustes] = useState(false);
   const [pidiendo, setPidiendo] = useState(false);
+  const [descartando, setDescartando] = useState<Decision | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [analizando, setAnalizando] = useState(false);
   const [ocupada, setOcupada] = useState<string | null>(null);
@@ -293,19 +294,24 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
             }} />
         )}
         {filtro !== 'abiertas' && lista.length === 0 && <p className="mb-cupo">{filtro === 'hechas' ? 'Nada lanzado todavía.' : 'Nada descartado.'}</p>}
-        {lista.map((d) => (
-          <FilaDecision key={d.id} d={d} abierta={abierta === d.id} ocupada={ocupada === d.id} encendido={config.encendido}
-            onAbrir={() => setAbierta((x) => (x === d.id ? null : d.id))}
-            onLanzar={(extra) => accion(d, { op: 'lanzar', ...extra }, d.tipo.startsWith('variaciones') ? 'Anuncios creados' : 'Lanzado')}
-            onDescartar={() => accion(d, { op: 'descartar' }, 'Descartada')}
-            onDeshacer={() => accion(d, { op: 'deshacer' }, 'Deshecho')}
-            onReabrir={() => accion(d, { op: 'reabrir' }, 'Abierta otra vez')}
-            onCalificar={(n) => accion(d, { op: 'calificar', estrellas: n }, 'Gracias')}
-            onHooksAVideo={async (elegidas) => {
-              const r = await api<{ cargados: number }>({ op: 'hooks_a_video', id: d.id, elegidas });
-              if (r.ok) show(r.cargados ? `${r.cargados} ${r.cargados === 1 ? 'guion' : 'guiones'} en Video Generator` : 'Ya estaban en Video Generator', undefined, 'good');
-              else show(r.error ?? 'No se pudo.', undefined, 'bad');
-            }} />
+        {porDia(lista, filtro).map(({ dia, ds }) => (
+          <section key={dia ?? 'todas'} className="mb-grupo">
+            {dia && <h4 className="mb-dia">{dia}</h4>}
+            {ds.map((d) => (
+              <FilaDecision key={d.id} d={d} abierta={abierta === d.id} ocupada={ocupada === d.id} encendido={config.encendido}
+                onAbrir={() => setAbierta((x) => (x === d.id ? null : d.id))}
+                onLanzar={(extra) => accion(d, { op: 'lanzar', ...extra }, d.tipo.startsWith('variaciones') ? 'Anuncios creados' : 'Lanzado')}
+                onDescartar={() => setDescartando(d)}
+                onDeshacer={() => accion(d, { op: 'deshacer' }, 'Deshecho')}
+                onReabrir={() => accion(d, { op: 'reabrir' }, 'Abierta otra vez')}
+                onCalificar={(n) => accion(d, { op: 'calificar', estrellas: n }, 'Gracias')}
+                onHooksAVideo={async (elegidas) => {
+                  const r = await api<{ cargados: number }>({ op: 'hooks_a_video', id: d.id, elegidas });
+                  if (r.ok) show(r.cargados ? `${r.cargados} ${r.cargados === 1 ? 'guion' : 'guiones'} en Video Generator` : 'Ya estaban en Video Generator', undefined, 'good');
+                  else show(r.error ?? 'No se pudo.', undefined, 'bad');
+                }} />
+            ))}
+          </section>
         ))}
         {filtro === 'abiertas' && cupo.recomendacionesDia != null && fueraDelCupo > 0 && (
           <p className="mb-cupo">{textoCupo(cupo.recomendacionesDia)}<Link href={RUTA_CAMBIAR_PLAN}>Pasar a Pro</Link></p>
@@ -313,6 +319,10 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
       </div>
 
       {ajustes && <AjustesModal config={config} cupo={cupo} zernio={zernio} onCerrar={() => setAjustes(false)} onGuardar={guardarConfig} onZernio={() => { void leerZernio(); void recargar(); }} />}
+      {descartando && (
+        <DescartarModal onCerrar={() => setDescartando(null)}
+          onDescartar={async (motivo) => { const d = descartando; setDescartando(null); await accion(d, { op: 'descartar', motivo }, 'Descartada'); }} />
+      )}
       {subiendo && <SubirCreativosModal onCerrar={() => setSubiendo(false)} onListo={(msg) => { setSubiendo(false); show(msg, undefined, 'good'); setFiltro('hechas'); void recargar(); }} />}
       {pidiendo && (
         <PedidoModal puedeAnalizar={config.encendido && config.existeTabla} puedeSubir={config.existeTabla} analizando={analizando}
@@ -324,6 +334,35 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
       <MakoEnLaTab tab="Media Buyer" pedido={pedidoMako} pantalla={pantalla} encimaDeModales />
       <Toast state={toast} onClose={clear} />
     </div>
+  );
+}
+
+// «Completed» de Madgicx agrupa lo hecho por día (ai-marketer-hechas.png). Las demás listas van sin grupos.
+function porDia(ds: Decision[], filtro: Pestana): { dia: string | null; ds: Decision[] }[] {
+  if (filtro !== 'hechas') return [{ dia: null, ds }];
+  const fmt = new Intl.DateTimeFormat('es', { weekday: 'long', day: 'numeric', month: 'long' });
+  const hoy = new Date(); const ayer = new Date(Date.now() - 86_400_000);
+  const clave = (x: Date) => x.toISOString().slice(0, 10);
+  const grupos = new Map<string, Decision[]>();
+  for (const d of [...ds].sort((a, b) => ((b.aplicadaAt ?? b.creada) < (a.aplicadaAt ?? a.creada) ? -1 : 1))) {
+    const f = new Date(d.aplicadaAt ?? d.creada);
+    const k = clave(f) === clave(hoy) ? 'Hoy' : clave(f) === clave(ayer) ? 'Ayer' : fmt.format(f).replace(/^./, (c) => c.toUpperCase());
+    grupos.set(k, [...(grupos.get(k) ?? []), d]);
+  }
+  return [...grupos].map(([dia, g]) => ({ dia, ds: g }));
+}
+
+// ── Descartar, con el porqué (el «Are you sure you want to dismiss?» de Madgicx, ai-marketer-descartar.png). El motivo es
+// opcional y queda en `motivo_descarte` (para leer qué tácticas le erran a este negocio; el motor todavía no lo usa).
+
+function DescartarModal({ onCerrar, onDescartar }: { onCerrar: () => void; onDescartar: (motivo: string | null) => void }) {
+  const [motivo, setMotivo] = useState('');
+  return (
+    <Modal titulo="¿Descartar esta recomendación?" ancho={520} onCerrar={onCerrar}
+      pie={<><Button variant="secondary" onClick={onCerrar}>Cancelar</Button><Button onClick={() => onDescartar(motivo.trim() || null)}>Descartar</Button></>}>
+      <TextField multiline label="¿Por qué? (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={500}
+        placeholder="Por ejemplo: «esta campaña la manejo yo»" />
+    </Modal>
   );
 }
 
